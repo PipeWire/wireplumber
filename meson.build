@@ -8,7 +8,12 @@ project('wireplumber', ['c'],
   ]
 )
 
-glib_dep = dependency('gobject-2.0')
+wireplumber_api_version = '0.1'
+
+gobject_dep = dependency('gobject-2.0')
 pipewire_dep = dependency('libpipewire-0.3')
 
+gnome = import('gnome')
+
+subdir('lib')
 subdir('src')
