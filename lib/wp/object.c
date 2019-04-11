@@ -133,7 +133,7 @@ wp_object_list_interfaces (WpObject * self, guint * n_interfaces)
  * wp_object_attach_interface_impl: (method)
  * @self: the object
  * @impl: (transfer none): the interface implementation
- * @error: (out caller-allocates): a GError to return on failure
+ * @error: (out): a GError to return on failure
  *
  * Returns: TRUE one success, FALSE on error
  */
