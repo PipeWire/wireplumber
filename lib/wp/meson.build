@@ -2,12 +2,18 @@ wp_lib_sources = [
   'error.c',
   'interface-impl.c',
   'object.c',
+  'plugin-registry.c',
+  'plugin.c',
+  'proxy.c',
 ]
 
 wp_lib_headers = [
   'error.h',
   'interface-impl.h',
   'object.h',
+  'plugin-registry.h',
+  'plugin.h',
+  'proxy.h',
 ]
 
 enums = gnome.mkenums_simple('wpenums', sources: wp_lib_headers)
