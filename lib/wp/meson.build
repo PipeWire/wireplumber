@@ -20,7 +20,11 @@ enums = gnome.mkenums_simple('wpenums', sources: wp_lib_headers)
 
 wp_lib = library('wireplumber-' + wireplumber_api_version,
   wp_lib_sources, enums,
-  c_args : [ '-D_GNU_SOURCE', '-DG_LOG_USE_STRUCTURED' ],
+  c_args : [
+    '-D_GNU_SOURCE',
+    '-DG_LOG_USE_STRUCTURED',
+    '-DG_LOG_DOMAIN="libwireplumber"'
+  ],
   install: true,
   dependencies : [gobject_dep, pipewire_dep],
 )
