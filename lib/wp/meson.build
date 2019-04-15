@@ -4,6 +4,7 @@ wp_lib_sources = [
   'object.c',
   'plugin-registry.c',
   'plugin.c',
+  'proxy-registry.c',
   'proxy.c',
 ]
 
@@ -13,6 +14,7 @@ wp_lib_headers = [
   'object.h',
   'plugin-registry.h',
   'plugin.h',
+  'proxy-registry.h',
   'proxy.h',
 ]
 
