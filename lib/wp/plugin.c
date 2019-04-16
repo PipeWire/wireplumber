@@ -7,6 +7,7 @@
  */
 
 #include "plugin.h"
+#include <pipewire/pipewire.h>
 
 enum {
   PROP_0,
@@ -105,7 +106,32 @@ wp_plugin_get_property (GObject * object, guint property_id, GValue * value,
 static gboolean
 default_handle_pw_proxy (WpPlugin * self, WpProxy * proxy)
 {
-  return FALSE;
+  switch (wp_proxy_get_spa_type (proxy)) {
+  case PW_TYPE_INTERFACE_Device:
+    return wp_plugin_handle_pw_device (self, proxy);
+
+  case PW_TYPE_INTERFACE_Client:
+    return wp_plugin_handle_pw_client (self, proxy);
+
+  case PW_TYPE_INTERFACE_Node:
+    {
+      g_autoptr (WpProxy) parent;
+      g_autoptr (WpProxyRegistry) reg = wp_proxy_get_registry (proxy);
+
+      parent = wp_proxy_registry_get_proxy (reg, wp_proxy_get_parent_id (proxy));
+
+      switch (wp_proxy_get_spa_type (parent)) {
+      case PW_TYPE_INTERFACE_Device:
+        return wp_plugin_handle_pw_device_node (self, proxy);
+
+      case PW_TYPE_INTERFACE_Client:
+        return wp_plugin_handle_pw_client_node (self, proxy);
+      }
+    }
+
+  default:
+    return FALSE;
+  }
 }
 
 static void
