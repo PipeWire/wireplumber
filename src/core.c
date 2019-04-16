@@ -117,7 +117,7 @@ wp_core_parse_commands_file (WpCore * self, GInputStream * stream,
         /* tokenize and execute */
         cmd = strtok_r (linestart, " ", &saveptr);
 
-        if (g_strcmp0 (cmd, "load-module")) {
+        if (!g_strcmp0 (cmd, "load-module")) {
           abi = strtok_r (NULL, " ", &saveptr);
           module = strtok_r (NULL, " ", &saveptr);
 
@@ -205,6 +205,7 @@ wp_core_init (WpCore * self)
   pw_remote_add_listener (self->remote, &self->remote_listener, &remote_events,
       self);
 
+  self->module_loader = wp_module_loader_new ();
   self->proxy_registry = wp_proxy_registry_new (self->remote);
   self->plugin_registry = wp_plugin_registry_new ();
 }
