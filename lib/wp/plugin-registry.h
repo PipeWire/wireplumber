@@ -21,6 +21,7 @@ G_DECLARE_FINAL_TYPE (WpPluginRegistry, wp_plugin_registry, WP, PLUGIN_REGISTRY,
 WpPluginRegistry * wp_plugin_registry_new (void);
 
 void wp_plugin_registry_register_with_metadata (WpPluginRegistry * self,
+    GType plugin_type,
     const WpPluginMetadata * metadata,
     gsize metadata_size);
 

@@ -11,6 +11,7 @@
 
 typedef struct {
   gsize block_size;
+  GType gtype;
   const WpPluginMetadata *metadata;
   WpPlugin *instance;
 } PluginData;
@@ -90,6 +91,7 @@ compare_ranks (const WpPluginMetadata * a, const WpPluginMetadata * b)
 
 /**
  * wp_plugin_registry_register_with_metadata: (skip)
+ * @plugin_type: the #GType of the #WpPlugin subclass
  * @metadata: the metadata
  * @metadata_size: the sizeof (@metadata), to allow ABI-compatible future
  *   expansion of the structure
@@ -100,6 +102,7 @@ compare_ranks (const WpPluginMetadata * a, const WpPluginMetadata * b)
  */
 void
 wp_plugin_registry_register_with_metadata (WpPluginRegistry * self,
+    GType plugin_type,
     const WpPluginMetadata * metadata,
     gsize metadata_size)
 {
@@ -107,7 +110,7 @@ wp_plugin_registry_register_with_metadata (WpPluginRegistry * self,
 
   g_return_if_fail (WP_IS_PLUGIN_REGISTRY (self));
   g_return_if_fail (metadata_size == sizeof (WpPluginMetadata));
-  g_return_if_fail (g_type_is_a (metadata->gtype, wp_plugin_get_type ()));
+  g_return_if_fail (g_type_is_a (plugin_type, wp_plugin_get_type ()));
   g_return_if_fail (metadata->name != NULL);
   g_return_if_fail (metadata->description != NULL);
   g_return_if_fail (metadata->author != NULL);
@@ -117,6 +120,7 @@ wp_plugin_registry_register_with_metadata (WpPluginRegistry * self,
 
   data = g_slice_alloc (sizeof (PluginData));
   data->block_size = sizeof (PluginData);
+  data->gtype = plugin_type;
   data->metadata = metadata;
   data->instance = NULL;
 
@@ -165,9 +169,9 @@ wp_plugin_registry_register (WpPluginRegistry * self,
 
   data = g_slice_alloc (sizeof (PluginData) + sizeof (WpPluginMetadata));
   data->block_size = sizeof (PluginData) + sizeof (WpPluginMetadata);
+  data->gtype = plugin_type;
 
   metadata = (WpPluginMetadata *) ((guint8 *) data) + sizeof (PluginData);
-  metadata->gtype = plugin_type;
   metadata->rank = rank;
   metadata->name = g_string_chunk_insert (self->metadata_strings, name);
   metadata->description = g_string_chunk_insert (self->metadata_strings,
@@ -187,7 +191,7 @@ wp_plugin_registry_register (WpPluginRegistry * self,
 static inline void
 make_plugin (WpPluginRegistry * self, PluginData * plugin_data)
 {
-  plugin_data->instance = g_object_new (plugin_data->metadata->gtype,
+  plugin_data->instance = g_object_new (plugin_data->gtype,
       "registry", self, "metadata", plugin_data->metadata, NULL);
 }
 

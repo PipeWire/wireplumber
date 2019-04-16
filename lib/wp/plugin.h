@@ -40,7 +40,6 @@ typedef enum {
 
 /**
  * WpPluginMetadata: (skip)
- * @gtype: the #GType of the plugin
  * @rank: the rank of the plugin
  * @name: the name of the plugin
  * @description: plugin description
@@ -56,10 +55,7 @@ typedef enum {
 struct _WpPluginMetadata
 {
   union {
-    struct {
-      GType gtype;
-      guint rank;
-    };
+    guint rank;
     gpointer _unused_for_alignment[2];
   };
   const gchar *name;
@@ -190,67 +186,20 @@ const WpPluginMetadata * wp_plugin_get_metadata (WpPlugin * self);
 #define WP_MODULE_INIT_SYMBOL wireplumber__module_init
 
 /**
- * WP_MODULE_DEFINE: (skip)
+ * WP_PLUGIN_DEFINE_TYPE: (skip)
  *
- * A convenience macro to register modules in C/C++.
- * A module can contain multiple plugins, which are meant to be registered
- * with WP_PLUGIN_REGISTER in the place of @plugin_reg
- *
- * Example usage:
- * |[
- * WP_MODULE_DEFINE (
- *   WP_PLUGIN_REGISTER (
- *     MY_PLUGIN_TYPE,
- *     WP_PLUGIN_RANK_PLATFORM_OVERRIDE,
- *     "myplugin",
- *     "A custom policy plugin for Awesome Platform",
- *     "George Kiagiadakis <george.kiagiadakis@collabora.com>",
- *     "LGPL-2.1-or-later",
- *     "3.0.1",
- *     "https://awesome-platform.example"
- *   );
- *   WP_PLUGIN_REGISTER (
- *     SECONDARY_PLUGIN_TYPE,
- *     WP_PLUGIN_RANK_PLATFORM_OVERRIDE - 1,
- *     "secondaryplugin",
- *     "A secondary policy plugin for Awesome Platform",
- *     "George Kiagiadakis <george.kiagiadakis@collabora.com>",
- *     "LGPL-2.1-or-later",
- *     "3.0.1",
- *     "https://awesome-platform.example"
- *   );
- * )
- * ]|
+ * Convenience macro for defining a #WpPlugin subclass in a module
  */
-#define WP_MODULE_DEFINE(plugin_reg) \
-  G_MODULE_EXPORT void \
-  WP_MODULE_INIT_SYMBOL (WpPluginRegistry * registry) \
-  { \
-    plugin_reg; \
-  }
-
-/**
- * WP_PLUGIN_REGISTER: (skip)
- *
- * A convenience macro to register plugins in C/C++.
- * See WP_MODULE_DEFINE() for a usage example.
- * See wp_plugin_registry_register() for a description of the parameters.
- */
-#define WP_PLUGIN_REGISTER(gtype_, rank_, name_, description_, author_, license_, version_, origin_) \
-  G_STMT_START \
-    static const WpPluginMetadata plugin_metadata = { \
-      .gtype = gtype_, \
-      .rank = rank_, \
-      .name = name_, \
-      .description = description_, \
-      .author = author_, \
-      .license = license_, \
-      .version = version_, \
-      .origin = origin_ \
-    }; \
-    wp_plugin_registry_register_with_metadata (registry, &plugin_metadata, \
-        sizeof (plugin_metadata)); \
-  G_STMT_END
+#define WP_PLUGIN_DEFINE_TYPE(TN, t_n) \
+  typedef struct _##TN { \
+    WpPlugin parent; \
+  } TN; \
+  \
+  typedef struct _##TN##Class { \
+    WpPluginClass parent; \
+  } TN##Class; \
+  \
+  G_DEFINE_TYPE_WITH_PRIVATE (TN, t_n, wp_plugin_get_type ())
 
 
 G_END_DECLS
