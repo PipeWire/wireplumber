@@ -6,8 +6,6 @@
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
-#define G_LOG_DOMAIN "wireplumber-core"
-
 #include "core.h"
 #include "loop-source.h"
 #include "module-loader.h"
