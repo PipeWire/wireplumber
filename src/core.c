@@ -10,10 +10,17 @@
 
 #include "core.h"
 #include "loop-source.h"
+#include "module-loader.h"
 #include "utils.h"
+
+#include <wp/plugin-registry.h>
+#include <wp/proxy-registry.h>
 
 #include <pipewire/pipewire.h>
 #include <glib-unix.h>
+#include <gio/gio.h>
+
+#define WIREPLUMBER_DEFAULT_CONFIG_FILE "wireplumber.conf"
 
 struct _WpCore
 {
@@ -26,32 +33,27 @@ struct _WpCore
   struct pw_remote *remote;
   struct spa_hook remote_listener;
 
-  struct pw_core_proxy *core_proxy;
-  struct spa_hook core_proxy_listener;
-
-  struct pw_registry_proxy *registry_proxy;
-  struct spa_hook registry_proxy_listener;
+  WpModuleLoader *module_loader;
+  WpPluginRegistry *plugin_registry;
+  WpProxyRegistry *proxy_registry;
 
   GError *exit_error;
 };
 
 G_DEFINE_TYPE (WpCore, wp_core, G_TYPE_OBJECT);
 
-static const struct pw_registry_proxy_events registry_events = {
-  PW_VERSION_REGISTRY_PROXY_EVENTS,
-  //.global = registry_global,
-  //.global_remove = registry_global_remove,
-};
+static gboolean
+signal_handler (gpointer data)
+{
+  WpCore *self = WP_CORE (data);
+  wp_core_exit (self, WP_DOMAIN_CORE, WP_CODE_INTERRUPTED,
+      "interrupted by signal");
+  return G_SOURCE_CONTINUE;
+}
 
-static const struct pw_core_proxy_events core_events = {
-  PW_VERSION_CORE_EVENTS,
-  //.done = core_done
-};
-
-static void on_state_changed (void * data,
-    enum pw_remote_state old_state,
-    enum pw_remote_state new_state,
-    const char * error)
+static void
+remote_state_changed (void * data, enum pw_remote_state old_state,
+    enum pw_remote_state new_state, const char * error)
 {
   WpCore *self = WP_CORE (data);
 
@@ -60,20 +62,7 @@ static void on_state_changed (void * data,
       pw_remote_state_as_string (new_state));
 
   switch (new_state) {
-  case PW_REMOTE_STATE_CONNECTED:
-    self->core_proxy = pw_remote_get_core_proxy (self->remote);
-    pw_core_proxy_add_listener (self->core_proxy, &self->core_proxy_listener,
-        &core_events, self);
-
-    self->registry_proxy = pw_core_proxy_get_registry (self->core_proxy,
-        PW_TYPE_INTERFACE_Registry, PW_VERSION_REGISTRY, 0);
-    pw_registry_proxy_add_listener (self->registry_proxy,
-        &self->registry_proxy_listener, &registry_events, self);
-    break;
-
   case PW_REMOTE_STATE_UNCONNECTED:
-    self->core_proxy = NULL;
-    self->registry_proxy = NULL;
     wp_core_exit (self, WP_DOMAIN_CORE, WP_CODE_DISCONNECTED, "disconnected");
     break;
 
@@ -89,8 +78,121 @@ static void on_state_changed (void * data,
 
 static const struct pw_remote_events remote_events = {
   PW_VERSION_REMOTE_EVENTS,
-  .state_changed = on_state_changed,
+  .state_changed = remote_state_changed,
 };
+
+static gboolean
+wp_core_parse_commands_file (WpCore * self, GInputStream * stream,
+    GError ** error)
+{
+  gchar buffer[4096];
+  gssize bytes_read;
+  gchar *cur, *linestart, *saveptr;
+  gchar *cmd, *abi, *module;
+  gint lineno = 1;
+  gboolean eof = FALSE;
+
+  linestart = cur = buffer;
+
+  do {
+    bytes_read = g_input_stream_read (stream, cur, sizeof (buffer), NULL, error);
+    if (bytes_read < 0)
+      return FALSE;
+    else if (bytes_read == 0) {
+      eof = TRUE;
+      /* terminate the remaining data, so that we consume it all */
+      if (cur != linestart) {
+        *cur = '\n';
+      }
+    }
+
+    bytes_read += (cur - linestart);
+
+    while (cur - buffer < bytes_read) {
+      while (cur - buffer < bytes_read && *cur != '\n')
+        cur++;
+
+      if (*cur == '\n') {
+        /* found the end of a line */
+        *cur = '\0';
+
+        /* tokenize and execute */
+        cmd = strtok_r (linestart, " ", &saveptr);
+
+        if (g_strcmp0 (cmd, "load-module")) {
+          abi = strtok_r (NULL, " ", &saveptr);
+          module = strtok_r (NULL, " ", &saveptr);
+
+          if (!abi || !module) {
+            g_set_error (error, WP_DOMAIN_CORE, WP_CODE_INVALID_ARGUMENT,
+                "expected ABI and MODULE at line %i", lineno);
+            return FALSE;
+          } else if (!wp_module_loader_load (self->module_loader,
+                          self->plugin_registry, abi, module, error)) {
+            return FALSE;
+          }
+        } else {
+          g_set_error (error, WP_DOMAIN_CORE, WP_CODE_INVALID_ARGUMENT,
+              "unknown command '%s' at line %i", cmd, lineno);
+          return FALSE;
+        }
+
+        /* continue with the next line */
+        linestart = ++cur;
+        lineno++;
+      }
+    }
+
+    /* reached the end of the data that was read */
+
+    if (cur - linestart >= sizeof (buffer)) {
+      g_set_error (error, WP_DOMAIN_CORE, WP_CODE_OPERATION_FAILED,
+          "line %i exceeds the maximum allowed line size (%d bytes)",
+          lineno, (gint) sizeof (buffer));
+      return FALSE;
+    } else if (cur - linestart > 0) {
+      /* we have unparsed data, move it to the
+       * beginning of the buffer and continue */
+      strncpy (buffer, linestart, cur - linestart);
+      linestart = buffer;
+      cur = buffer + (cur - linestart);
+    }
+  } while (!eof);
+
+  return TRUE;
+}
+
+static gboolean
+wp_core_load_commands_file (WpCore * self)
+{
+  g_autoptr (GFile) file = NULL;
+  g_autoptr (GError) error = NULL;
+  g_autoptr (GFileInputStream) istream = NULL;
+  const gchar *filename;
+
+  filename = g_getenv ("WIREPLUMBER_CONFIG_FILE");
+  if (!filename)
+    filename = WIREPLUMBER_DEFAULT_CONFIG_FILE;
+
+  file = g_file_new_for_path (filename);
+  istream = g_file_read (file, NULL, &error);
+  if (!istream) {
+    g_propagate_error (&self->exit_error, error);
+    error = NULL;
+    g_main_loop_quit (self->loop);
+    return FALSE;
+  }
+
+  if (!wp_core_parse_commands_file (self, G_INPUT_STREAM (istream), &error)) {
+    g_propagate_prefixed_error (&self->exit_error, error, "Failed to read %s: ",
+        filename);
+    error = NULL;
+    g_main_loop_quit (self->loop);
+    return FALSE;
+  }
+
+  return TRUE;
+}
 
 static void
 wp_core_init (WpCore * self)
@@ -104,12 +206,24 @@ wp_core_init (WpCore * self)
 
   pw_remote_add_listener (self->remote, &self->remote_listener, &remote_events,
       self);
+
+  self->proxy_registry = wp_proxy_registry_new (self->remote);
+  self->plugin_registry = wp_plugin_registry_new ();
 }
 
 static void
 wp_core_finalize (GObject * obj)
 {
   WpCore *self = WP_CORE (obj);
+
+  /* ensure all proxies and plugins are unrefed,
+   * so that the registries can be disposed */
+  g_object_run_dispose (G_OBJECT (self->plugin_registry));
+  g_object_run_dispose (G_OBJECT (self->proxy_registry));
+
+  g_clear_object (&self->plugin_registry);
+  g_clear_object (&self->proxy_registry);
+  g_clear_object (&self->module_loader);
 
   spa_hook_remove (&self->remote_listener);
 
@@ -143,12 +257,13 @@ wp_core_get_instance (void)
 }
 
 static gboolean
-signal_handler (gpointer data)
+wp_core_run_in_idle (WpCore * self)
 {
-  WpCore *self = WP_CORE (data);
-  wp_core_exit (self, WP_DOMAIN_CORE, WP_CODE_INTERRUPTED,
-      "interrupted by signal");
-  return G_SOURCE_CONTINUE;
+  if (!wp_core_load_commands_file (self)) goto out;
+  if (pw_remote_connect (self->remote) < 0) goto out;
+
+out:
+  return G_SOURCE_REMOVE;
 }
 
 void
@@ -158,7 +273,7 @@ wp_core_run (WpCore * self, GError ** error)
   g_unix_signal_add (SIGTERM, signal_handler, self);
   g_unix_signal_add (SIGHUP, signal_handler, self);
 
-  g_idle_add ((GSourceFunc) pw_remote_connect, self->remote);
+  g_idle_add ((GSourceFunc) wp_core_run_in_idle, self);
 
   g_main_loop_run (self->loop);
 

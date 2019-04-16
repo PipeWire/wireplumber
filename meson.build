@@ -11,9 +11,13 @@ project('wireplumber', ['c'],
 wireplumber_api_version = '0.1'
 
 gobject_dep = dependency('gobject-2.0')
+gmodule_dep = dependency('gmodule-2.0')
+gio_dep = dependency('gio-2.0')
 pipewire_dep = dependency('libpipewire-0.3')
 
 gnome = import('gnome')
+
+wp_lib_include_dir = include_directories('lib')
 
 subdir('lib')
 subdir('src')

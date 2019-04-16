@@ -38,3 +38,9 @@ gnome.generate_gir(wp_lib,
   includes: ['GLib-2.0', 'GObject-2.0'],
   install: true,
 )
+
+wp_dep = declare_dependency(
+  link_with: wp_lib,
+  include_directories: wp_lib_include_dir,
+  dependencies: [gobject_dep]
+)
