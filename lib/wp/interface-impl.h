@@ -13,6 +13,9 @@
 
 G_BEGIN_DECLS
 
+typedef struct _WpObject WpObject;
+
+#define WP_TYPE_INTERFACE_IMPL (wp_interface_impl_get_type ())
 G_DECLARE_DERIVABLE_TYPE (WpInterfaceImpl, wp_interface_impl, WP, INTERFACE_IMPL, GObject)
 
 struct _WpInterfaceImplClass
@@ -30,9 +33,9 @@ struct _WpInterfaceImplClass
   GType *(*get_prerequisites) (WpInterfaceImpl * self, guint * n_prerequisites);
 };
 
-void wp_interface_impl_set_object (WpInterfaceImpl * self, GObject * object);
-GObject * wp_interface_impl_get_object (WpInterfaceImpl * self);
-GObject * wp_interface_impl_get_sibling (WpInterfaceImpl * self,
+void wp_interface_impl_set_object (WpInterfaceImpl * self, WpObject * object);
+WpObject * wp_interface_impl_get_object (WpInterfaceImpl * self);
+gpointer wp_interface_impl_get_sibling (WpInterfaceImpl * self,
     GType interface);
 GType * wp_interface_impl_get_prerequisites (WpInterfaceImpl * self,
     guint * n_prerequisites);

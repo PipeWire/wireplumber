@@ -10,7 +10,7 @@
 #define __WIREPLUMBER_MODULE_LOADER_H__
 
 #include <glib-object.h>
-#include <wp/plugin-registry.h>
+#include <wp/core-interfaces.h>
 
 G_BEGIN_DECLS
 

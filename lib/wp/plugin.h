@@ -11,9 +11,7 @@
 
 #include "object.h"
 #include "proxy.h"
-#include "plugin-registry.h"
-
-#include <gmodule.h>
+#include "core-interfaces.h"
 
 G_BEGIN_DECLS
 
@@ -66,6 +64,7 @@ struct _WpPluginMetadata
   const gchar *origin;
 };
 
+#define WP_TYPE_PLUGIN (wp_plugin_get_type ())
 G_DECLARE_DERIVABLE_TYPE (WpPlugin, wp_plugin, WP, PLUGIN, GObject)
 
 struct _WpPluginClass

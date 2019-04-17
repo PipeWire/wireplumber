@@ -6,14 +6,16 @@
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
-#include "proxy-registry.h"
-#include "proxy.h"
+#include "proxy-registry-impl.h"
+
+#include <wp/proxy.h>
+
 #include <pipewire/pipewire.h>
 #include <pipewire/map.h>
 
-struct _WpProxyRegistry
+struct _WpProxyRegistryImpl
 {
-  GObject parent;
+  WpInterfaceImpl parent;
 
   struct pw_remote *remote;
   struct spa_hook remote_listener;
@@ -37,7 +39,10 @@ enum {
 
 static guint signals[N_SIGNALS];
 
-G_DEFINE_TYPE (WpProxyRegistry, wp_proxy_registry, G_TYPE_OBJECT);
+static void wp_proxy_registry_impl_iface_init (WpProxyRegistryInterface * iface);
+
+G_DEFINE_TYPE_WITH_CODE (WpProxyRegistryImpl, wp_proxy_registry_impl, WP_TYPE_INTERFACE_IMPL,
+    G_IMPLEMENT_INTERFACE (WP_TYPE_PROXY_REGISTRY, wp_proxy_registry_impl_iface_init);)
 
 static gint
 guint32_compare (const guint32 *a, const guint32 *b)
@@ -48,7 +53,7 @@ guint32_compare (const guint32 *a, const guint32 *b)
 static gboolean
 idle_notify_new_globals (gpointer data)
 {
-  WpProxyRegistry *self = WP_PROXY_REGISTRY (data);
+  WpProxyRegistryImpl *self = WP_PROXY_REGISTRY_IMPL (data);
   guint i;
   guint32 id;
 
@@ -58,7 +63,7 @@ idle_notify_new_globals (gpointer data)
   for (i = 0; i < self->new_globals->len; i++) {
     id = g_array_index (self->new_globals, guint32, i);
     g_signal_emit (self, signals[SIGNAL_NEW_PROXY_AVAILABLE], 0,
-        wp_proxy_registry_get_proxy (self, id));
+        pw_map_lookup (&self->globals, id));
   }
   g_array_remove_range (self->new_globals, 0, self->new_globals->len);
 
@@ -79,8 +84,8 @@ registry_global (void * data, uint32_t id, uint32_t parent_id,
     uint32_t permissions, uint32_t type, uint32_t version,
     const struct spa_dict * props)
 {
-  WpProxyRegistry *self = WP_PROXY_REGISTRY (data);
-  WpProxy *proxy = g_object_new (wp_proxy_get_type (),
+  WpProxyRegistryImpl *self = WP_PROXY_REGISTRY_IMPL (data);
+  WpProxy *proxy = g_object_new (WP_TYPE_PROXY,
       "id", id,
       "parent-id", parent_id,
       "spa-type", type,
@@ -101,7 +106,7 @@ registry_global (void * data, uint32_t id, uint32_t parent_id,
 static void
 registry_global_remove (void * data, uint32_t id)
 {
-  WpProxyRegistry *self = WP_PROXY_REGISTRY (data);
+  WpProxyRegistryImpl *self = WP_PROXY_REGISTRY_IMPL (data);
   GObject *p = pw_map_lookup (&self->globals, id);
   g_object_unref (p);
   pw_map_insert_at (&self->globals, id, NULL);
@@ -117,7 +122,7 @@ static void
 remote_state_changed (void * data, enum pw_remote_state old_state,
     enum pw_remote_state new_state, const char * error)
 {
-  WpProxyRegistry *self = WP_PROXY_REGISTRY (data);
+  WpProxyRegistryImpl *self = WP_PROXY_REGISTRY_IMPL (data);
 
   switch (new_state) {
   case PW_REMOTE_STATE_CONNECTED:
@@ -143,39 +148,39 @@ static const struct pw_remote_events remote_events = {
 };
 
 static void
-wp_proxy_registry_init (WpProxyRegistry * self)
+wp_proxy_registry_impl_init (WpProxyRegistryImpl * self)
 {
   pw_map_init (&self->globals, 64, 64);
   self->new_globals = g_array_sized_new (FALSE, FALSE, sizeof (guint32), 64);
 }
 
 static void
-wp_proxy_registry_constructed (GObject * obj)
+wp_proxy_registry_impl_constructed (GObject * obj)
 {
-  WpProxyRegistry *self = WP_PROXY_REGISTRY (obj);
+  WpProxyRegistryImpl *self = WP_PROXY_REGISTRY_IMPL (obj);
 
   pw_remote_add_listener (self->remote, &self->remote_listener, &remote_events,
       self);
 
-  G_OBJECT_CLASS (wp_proxy_registry_parent_class)->constructed (obj);
+  G_OBJECT_CLASS (wp_proxy_registry_impl_parent_class)->constructed (obj);
 }
 
 static void
-wp_proxy_registry_finalize (GObject * obj)
+wp_proxy_registry_impl_finalize (GObject * obj)
 {
-  WpProxyRegistry *self = WP_PROXY_REGISTRY (obj);
+  WpProxyRegistryImpl *self = WP_PROXY_REGISTRY_IMPL (obj);
 
   pw_map_clear (&self->globals);
   g_array_unref (self->new_globals);
 
-  G_OBJECT_CLASS (wp_proxy_registry_parent_class)->finalize (obj);
+  G_OBJECT_CLASS (wp_proxy_registry_impl_parent_class)->finalize (obj);
 }
 
 static void
-wp_proxy_registry_set_property (GObject * object, guint property_id,
+wp_proxy_registry_impl_set_property (GObject * object, guint property_id,
     const GValue * value, GParamSpec * pspec)
 {
-  WpProxyRegistry *self = WP_PROXY_REGISTRY (object);
+  WpProxyRegistryImpl *self = WP_PROXY_REGISTRY_IMPL (object);
 
   switch (property_id) {
   case PROP_REMOTE:
@@ -188,10 +193,10 @@ wp_proxy_registry_set_property (GObject * object, guint property_id,
 }
 
 static void
-wp_proxy_registry_get_property (GObject * object, guint property_id,
+wp_proxy_registry_impl_get_property (GObject * object, guint property_id,
     GValue * value, GParamSpec * pspec)
 {
-  WpProxyRegistry *self = WP_PROXY_REGISTRY (object);
+  WpProxyRegistryImpl *self = WP_PROXY_REGISTRY_IMPL (object);
 
   switch (property_id) {
   case PROP_REMOTE:
@@ -204,14 +209,14 @@ wp_proxy_registry_get_property (GObject * object, guint property_id,
 }
 
 static void
-wp_proxy_registry_class_init (WpProxyRegistryClass * klass)
+wp_proxy_registry_impl_class_init (WpProxyRegistryImplClass * klass)
 {
   GObjectClass * object_class = (GObjectClass *) klass;
 
-  object_class->constructed = wp_proxy_registry_constructed;
-  object_class->finalize = wp_proxy_registry_finalize;
-  object_class->get_property = wp_proxy_registry_get_property;
-  object_class->set_property = wp_proxy_registry_set_property;
+  object_class->constructed = wp_proxy_registry_impl_constructed;
+  object_class->finalize = wp_proxy_registry_impl_finalize;
+  object_class->get_property = wp_proxy_registry_impl_get_property;
+  object_class->set_property = wp_proxy_registry_impl_set_property;
 
   g_object_class_install_property (object_class, PROP_REMOTE,
       g_param_spec_pointer ("remote", "remote",
@@ -220,64 +225,45 @@ wp_proxy_registry_class_init (WpProxyRegistryClass * klass)
 
   signals[SIGNAL_NEW_PROXY_AVAILABLE] = g_signal_new ("new-proxy-available",
       G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
-      G_TYPE_NONE, 1, wp_proxy_get_type ());
+      G_TYPE_NONE, 1, WP_TYPE_PROXY);
 }
 
-/**
- * wp_proxy_registry_new: (constructor)
- * @remote: the `pw_remote` on which to bind
- *
- * Returns: (transfer full): the new #WpProxyRegistry
- */
-WpProxyRegistry *
-wp_proxy_registry_new (struct pw_remote * remote)
+static WpProxy *
+wp_proxy_registry_impl_get_proxy (WpProxyRegistry * r, guint32 global_id)
 {
-  return g_object_new (wp_proxy_registry_get_type (), "remote", remote, NULL);
-}
-
-/**
- * wp_proxy_registry_get_proxy: (method)
- * @self: the registry
- * @global_id: the ID of the pw_global that is represented by the proxy
- *
- * Returns: (transfer full): the #WpProxy that represents the global with
- *    @global_id
- */
-WpProxy *
-wp_proxy_registry_get_proxy (WpProxyRegistry * self, guint32 global_id)
-{
-  WpProxy *p;
-
-  g_return_val_if_fail (WP_IS_PROXY_REGISTRY (self), NULL);
-
-  p = pw_map_lookup (&self->globals, global_id);
+  WpProxyRegistryImpl *self = WP_PROXY_REGISTRY_IMPL (r);
+  WpProxy *p = pw_map_lookup (&self->globals, global_id);
   if (p)
     g_object_ref (p);
   return p;
 }
 
-/**
- * wp_proxy_registry_get_pw_remote: (skip)
- * @self: the registry
- *
- * Returns: the underlying `pw_remote`
- */
-struct pw_remote *
-wp_proxy_registry_get_pw_remote (WpProxyRegistry * self)
+static struct pw_registry_proxy *
+wp_proxy_registry_impl_get_pw_registry_proxy (WpProxyRegistry * r)
 {
-  g_return_val_if_fail (WP_IS_PROXY_REGISTRY (self), NULL);
-  return self->remote;
+  WpProxyRegistryImpl *self = WP_PROXY_REGISTRY_IMPL (r);
+  return self->reg_proxy;
 }
 
-/**
- * wp_proxy_registry_get_pw_registry_proxy: (skip)
- * @self: the registry
- *
- * Returns: the underlying `pw_registry_proxy`
- */
-struct pw_registry_proxy *
-wp_proxy_registry_get_pw_registry_proxy (WpProxyRegistry * self)
+static void
+wp_proxy_registry_impl_iface_init (WpProxyRegistryInterface * iface)
 {
-  g_return_val_if_fail (WP_IS_PROXY_REGISTRY (self), NULL);
-  return self->reg_proxy;
+  iface->get_proxy = wp_proxy_registry_impl_get_proxy;
+  iface->get_pw_registry_proxy = wp_proxy_registry_impl_get_pw_registry_proxy;
+}
+
+WpProxyRegistryImpl *
+wp_proxy_registry_impl_new (struct pw_remote * remote)
+{
+  return g_object_new (wp_proxy_registry_impl_get_type (), "remote", remote,
+      NULL);
+}
+
+void
+wp_proxy_registry_impl_unload (WpProxyRegistryImpl * self)
+{
+  size_t i, size = pw_map_get_size (&self->globals);
+  for (i = 0; i < size; i++) {
+    g_clear_object (&pw_map_get_item (&self->globals, i)->data);
+  }
 }

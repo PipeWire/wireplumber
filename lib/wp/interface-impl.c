@@ -10,7 +10,7 @@
 #include "object.h"
 
 typedef struct {
-  GObject *object;
+  WpObject *object;
 } WpInterfaceImplPrivate;
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (WpInterfaceImpl, wp_interface_impl, G_TYPE_OBJECT);
@@ -44,7 +44,7 @@ wp_interface_impl_class_init (WpInterfaceImplClass * klass)
  * @object: (nullable) (transfer none): the implementor
  */
 void
-wp_interface_impl_set_object (WpInterfaceImpl * self, GObject * object)
+wp_interface_impl_set_object (WpInterfaceImpl * self, WpObject * object)
 {
   WpInterfaceImplPrivate *priv = wp_interface_impl_get_instance_private (self);
 
@@ -60,7 +60,7 @@ wp_interface_impl_set_object (WpInterfaceImpl * self, GObject * object)
  *
  * Returns: (nullable) (transfer none): the object implementing this interface
  */
-GObject *
+WpObject *
 wp_interface_impl_get_object (WpInterfaceImpl * self)
 {
   WpInterfaceImplPrivate *priv = wp_interface_impl_get_instance_private (self);
@@ -75,9 +75,10 @@ wp_interface_impl_get_object (WpInterfaceImpl * self)
  * @self: the interface implementation instance
  * @interface: an interface type
  *
- * Returns: (nullable) (transfer full): the object implementing @interface
+ * Returns: (type GObject*) (nullable) (transfer full): the object
+ *    implementing @interface
  */
-GObject *
+gpointer
 wp_interface_impl_get_sibling (WpInterfaceImpl * self, GType interface)
 {
   WpInterfaceImplPrivate *priv = wp_interface_impl_get_instance_private (self);
@@ -89,7 +90,7 @@ wp_interface_impl_get_sibling (WpInterfaceImpl * self, GType interface)
   if (g_type_is_a (G_TYPE_FROM_INSTANCE (self), interface)) {
     iface = G_OBJECT (g_object_ref (self));
   } else if (priv->object) {
-    iface = wp_object_get_interface (WP_OBJECT (priv->object), interface);
+    iface = wp_object_get_interface (priv->object, interface);
   }
 
   return iface;

@@ -9,10 +9,11 @@
 #ifndef __WP_OBJECT_H__
 #define __WP_OBJECT_H__
 
-#include "interface-impl.h"
+#include <glib-object.h>
 
 G_BEGIN_DECLS
 
+#define WP_TYPE_OBJECT (wp_object_get_type ())
 G_DECLARE_DERIVABLE_TYPE (WpObject, wp_object, WP, OBJECT, GObject)
 
 struct _WpObjectClass
@@ -21,11 +22,11 @@ struct _WpObjectClass
 };
 
 gboolean wp_object_implements_interface (WpObject * self, GType interface);
-GObject * wp_object_get_interface (WpObject * self, GType interface);
+gpointer wp_object_get_interface (WpObject * self, GType interface);
 GType * wp_object_list_interfaces (WpObject * self, guint * n_interfaces);
 
-gboolean wp_object_attach_interface_impl (WpObject * self,
-    WpInterfaceImpl * impl, GError ** error);
+gboolean wp_object_attach_interface_impl (WpObject * self, gpointer impl,
+    GError ** error);
 
 G_END_DECLS
 

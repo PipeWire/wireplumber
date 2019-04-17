@@ -3,6 +3,8 @@ wp_sources = [
   'loop-source.c',
   'main.c',
   'module-loader.c',
+  'plugin-registry-impl.c',
+  'proxy-registry-impl.c',
   'utils.c',
 ]
 

@@ -9,10 +9,9 @@
 #include "core.h"
 #include "loop-source.h"
 #include "module-loader.h"
+#include "plugin-registry-impl.h"
+#include "proxy-registry-impl.h"
 #include "utils.h"
-
-#include <wp/plugin-registry.h>
-#include <wp/proxy-registry.h>
 
 #include <pipewire/pipewire.h>
 #include <glib-unix.h>
@@ -32,13 +31,11 @@ struct _WpCore
   struct spa_hook remote_listener;
 
   WpModuleLoader *module_loader;
-  WpPluginRegistry *plugin_registry;
-  WpProxyRegistry *proxy_registry;
 
   GError *exit_error;
 };
 
-G_DEFINE_TYPE (WpCore, wp_core, G_TYPE_OBJECT);
+G_DEFINE_TYPE (WpCore, wp_core, WP_TYPE_OBJECT);
 
 static gboolean
 signal_handler (gpointer data)
@@ -83,12 +80,16 @@ static gboolean
 wp_core_parse_commands_file (WpCore * self, GInputStream * stream,
     GError ** error)
 {
+  g_autoptr (WpPluginRegistry) plugin_registry = NULL;
   gchar buffer[4096];
   gssize bytes_read;
   gchar *cur, *linestart, *saveptr;
   gchar *cmd, *abi, *module;
   gint lineno = 1;
   gboolean eof = FALSE;
+
+  plugin_registry = wp_object_get_interface (WP_OBJECT (self),
+      WP_TYPE_PLUGIN_REGISTRY);
 
   linestart = cur = buffer;
 
@@ -126,7 +127,7 @@ wp_core_parse_commands_file (WpCore * self, GInputStream * stream,
                 "expected ABI and MODULE at line %i", lineno);
             return FALSE;
           } else if (!wp_module_loader_load (self->module_loader,
-                          self->plugin_registry, abi, module, error)) {
+                          plugin_registry, abi, module, error)) {
             return FALSE;
           }
         } else {
@@ -195,6 +196,9 @@ wp_core_load_commands_file (WpCore * self)
 static void
 wp_core_init (WpCore * self)
 {
+  WpPluginRegistryImpl *plugin_registry;
+  WpProxyRegistryImpl *proxy_registry;
+
   self->loop = g_main_loop_new (NULL, FALSE);
   self->source = wp_loop_source_new ();
   g_source_attach (self->source, NULL);
@@ -206,8 +210,31 @@ wp_core_init (WpCore * self)
       self);
 
   self->module_loader = wp_module_loader_new ();
-  self->proxy_registry = wp_proxy_registry_new (self->remote);
-  self->plugin_registry = wp_plugin_registry_new ();
+
+  proxy_registry = wp_proxy_registry_impl_new (self->remote);
+  wp_object_attach_interface_impl (WP_OBJECT (self), proxy_registry, NULL);
+
+  plugin_registry = wp_plugin_registry_impl_new ();
+  wp_object_attach_interface_impl (WP_OBJECT (self), plugin_registry, NULL);
+}
+
+static void
+wp_core_dispose (GObject * obj)
+{
+  WpCore *self = WP_CORE (obj);
+  g_autoptr (WpPluginRegistry) plugin_registry = NULL;
+  g_autoptr (WpProxyRegistry) proxy_registry = NULL;
+
+  /* ensure all proxies and plugins are unrefed,
+   * so that the registries can be disposed */
+
+  plugin_registry = wp_object_get_interface (WP_OBJECT (self),
+      WP_TYPE_PLUGIN_REGISTRY);
+  wp_plugin_registry_impl_unload (WP_PLUGIN_REGISTRY_IMPL (plugin_registry));
+
+  proxy_registry = wp_object_get_interface (WP_OBJECT (self),
+      WP_TYPE_PROXY_REGISTRY);
+  wp_proxy_registry_impl_unload (WP_PROXY_REGISTRY_IMPL (proxy_registry));
 }
 
 static void
@@ -215,13 +242,6 @@ wp_core_finalize (GObject * obj)
 {
   WpCore *self = WP_CORE (obj);
 
-  /* ensure all proxies and plugins are unrefed,
-   * so that the registries can be disposed */
-  g_object_run_dispose (G_OBJECT (self->plugin_registry));
-  g_object_run_dispose (G_OBJECT (self->proxy_registry));
-
-  g_clear_object (&self->plugin_registry);
-  g_clear_object (&self->proxy_registry);
   g_clear_object (&self->module_loader);
 
   spa_hook_remove (&self->remote_listener);
@@ -242,6 +262,7 @@ wp_core_class_init (WpCoreClass * klass)
 {
   GObjectClass * object_class = (GObjectClass *) klass;
 
+  object_class->dispose = wp_core_dispose;
   object_class->finalize = wp_core_finalize;
 }
 

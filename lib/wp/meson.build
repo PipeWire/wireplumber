@@ -1,20 +1,18 @@
 wp_lib_sources = [
+  'core-interfaces.c',
   'error.c',
   'interface-impl.c',
   'object.c',
-  'plugin-registry.c',
   'plugin.c',
-  'proxy-registry.c',
   'proxy.c',
 ]
 
 wp_lib_headers = [
+  'core-interfaces.h',
   'error.h',
   'interface-impl.h',
   'object.h',
-  'plugin-registry.h',
   'plugin.h',
-  'proxy-registry.h',
   'proxy.h',
 ]
 

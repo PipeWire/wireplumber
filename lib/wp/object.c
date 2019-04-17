@@ -7,6 +7,7 @@
  */
 
 #include "object.h"
+#include "interface-impl.h"
 #include "error.h"
 
 typedef struct {
@@ -80,9 +81,10 @@ wp_object_implements_interface (WpObject * self, GType interface)
  * @self: the object
  * @interface: an interface type
  *
- * Returns: (nullable) (transfer full): the object implementing @interface
+ * Returns: (type GObject*) (nullable) (transfer full): the object
+ *    implementing @interface
  */
-GObject *
+gpointer
 wp_object_get_interface (WpObject * self, GType interface)
 {
   WpObjectPrivate *priv = wp_object_get_instance_private (self);
@@ -121,13 +123,13 @@ wp_object_list_interfaces (WpObject * self, guint * n_interfaces)
 /**
  * wp_object_attach_interface_impl: (method)
  * @self: the object
- * @impl: (transfer none): the interface implementation
+ * @impl: (type WpInterfaceImpl*) (transfer none): the interface implementation
  * @error: (out): a GError to return on failure
  *
  * Returns: TRUE one success, FALSE on error
  */
 gboolean
-wp_object_attach_interface_impl (WpObject * self, WpInterfaceImpl * impl,
+wp_object_attach_interface_impl (WpObject * self, gpointer impl,
     GError ** error)
 {
   WpObjectPrivate *priv = wp_object_get_instance_private (self);
@@ -171,6 +173,6 @@ wp_object_attach_interface_impl (WpObject * self, WpInterfaceImpl * impl,
   g_object_ref (impl);
   g_array_append_val (priv->iface_objects, impl);
   g_array_append_vals (priv->iface_types, new_ifaces, n_new_ifaces);
-  wp_interface_impl_set_object (impl, G_OBJECT (self));
+  wp_interface_impl_set_object (WP_INTERFACE_IMPL (impl), self);
   return TRUE;
 }

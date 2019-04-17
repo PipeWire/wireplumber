@@ -10,6 +10,7 @@
 #include "utils.h"
 
 #include <wp/plugin.h>
+#include <gmodule.h>
 
 struct _WpModuleLoader
 {

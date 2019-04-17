@@ -9,11 +9,11 @@
 #ifndef __WIREPLUMBER_CORE_H__
 #define __WIREPLUMBER_CORE_H__
 
-#include <glib-object.h>
+#include <wp/object.h>
 
 G_BEGIN_DECLS
 
-G_DECLARE_FINAL_TYPE (WpCore, wp_core, WP, CORE, GObject);
+G_DECLARE_FINAL_TYPE (WpCore, wp_core, WP, CORE, WpObject);
 
 WpCore * wp_core_get_instance (void);
 void wp_core_run (WpCore * self, GError ** error);
