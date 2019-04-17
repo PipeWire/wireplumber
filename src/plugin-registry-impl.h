@@ -30,7 +30,7 @@ gboolean wp_plugin_registry_impl_invoke_internal (WpPluginRegistryImpl * self,
             wp_plugin_registry_impl_invoke_internal ( \
                 WP_PLUGIN_REGISTRY_IMPL (r), (WpPluginFunc) func, \
                 (gpointer) data))) { \
-      g_warning ("No plugin handled invocation to " ##func); \
+      g_warning ("No plugin handled invocation to " #func); \
     } \
   } G_STMT_END
 

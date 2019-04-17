@@ -7,8 +7,10 @@
  */
 
 #include "proxy-registry-impl.h"
+#include "plugin-registry-impl.h"
 
 #include <wp/proxy.h>
+#include <wp/plugin.h>
 
 #include <pipewire/pipewire.h>
 #include <pipewire/map.h>
@@ -85,13 +87,21 @@ registry_global (void * data, uint32_t id, uint32_t parent_id,
     const struct spa_dict * props)
 {
   WpProxyRegistryImpl *self = WP_PROXY_REGISTRY_IMPL (data);
-  WpProxy *proxy = g_object_new (WP_TYPE_PROXY,
+  WpProxy *proxy;
+  g_autoptr (WpPluginRegistry) plugin_registry = NULL;
+
+  proxy = g_object_new (WP_TYPE_PROXY,
       "id", id,
       "parent-id", parent_id,
       "spa-type", type,
       "initial-properties", props,
       NULL);
   map_insert (&self->globals, id, proxy);
+
+  plugin_registry = wp_interface_impl_get_sibling (WP_INTERFACE_IMPL (self),
+      WP_TYPE_PLUGIN_REGISTRY);
+  wp_plugin_registry_impl_invoke (plugin_registry,
+      wp_plugin_provide_interfaces, WP_OBJECT (proxy));
 
   /*
    * defer notifications until we return to the main loop;
