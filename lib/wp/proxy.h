@@ -9,13 +9,14 @@
 #ifndef __WP_PROXY_H__
 #define __WP_PROXY_H__
 
+#include "object.h"
 #include "proxy-registry.h"
 
 G_BEGIN_DECLS
 
 struct pw_proxy;
 
-G_DECLARE_FINAL_TYPE (WpProxy, wp_proxy, WP, PROXY, GObject)
+G_DECLARE_FINAL_TYPE (WpProxy, wp_proxy, WP, PROXY, WpObject)
 
 guint32 wp_proxy_get_id (WpProxy * self);
 guint32 wp_proxy_get_parent_id (WpProxy * self);

@@ -50,7 +50,7 @@ enum {
 
 static guint signals[N_SIGNALS];
 
-G_DEFINE_TYPE (WpProxy, wp_proxy, G_TYPE_OBJECT);
+G_DEFINE_TYPE (WpProxy, wp_proxy, wp_object_get_type ());
 
 static void
 spa_dict_to_hashtable (const struct spa_dict * dict, GHashTable * htable)
