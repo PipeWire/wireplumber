@@ -10,6 +10,35 @@
 #include "plugin.h"
 #include "session.h"
 
+/* WpPipewireObjects */
+
+G_DEFINE_INTERFACE (WpPipewireObjects, wp_pipewire_objects, G_TYPE_OBJECT)
+
+static void
+wp_pipewire_objects_default_init (WpPipewireObjectsInterface * iface)
+{
+}
+
+struct pw_core * wp_pipewire_objects_get_pw_core (WpPipewireObjects * self)
+{
+  WpPipewireObjectsInterface *iface = WP_PIPEWIRE_OBJECTS_GET_IFACE (self);
+
+  g_return_val_if_fail (WP_IS_PIPEWIRE_OBJECTS (self), NULL);
+  g_return_val_if_fail (iface->get_pw_core, NULL);
+
+  return iface->get_pw_core (self);
+}
+
+struct pw_remote * wp_pipewire_objects_get_pw_remote (WpPipewireObjects * self)
+{
+  WpPipewireObjectsInterface *iface = WP_PIPEWIRE_OBJECTS_GET_IFACE (self);
+
+  g_return_val_if_fail (WP_IS_PIPEWIRE_OBJECTS (self), NULL);
+  g_return_val_if_fail (iface->get_pw_remote, NULL);
+
+  return iface->get_pw_remote (self);
+}
+
 /* WpPluginRegistry */
 
 G_DEFINE_INTERFACE (WpPluginRegistry, wp_plugin_registry, WP_TYPE_INTERFACE_IMPL)

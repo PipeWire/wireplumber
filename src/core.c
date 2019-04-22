@@ -36,7 +36,11 @@ struct _WpCore
   GError *exit_error;
 };
 
-G_DEFINE_TYPE (WpCore, wp_core, WP_TYPE_OBJECT);
+static void wp_core_pw_objects_init (WpPipewireObjectsInterface * iface);
+
+G_DEFINE_TYPE_WITH_CODE (WpCore, wp_core, WP_TYPE_OBJECT,
+    G_IMPLEMENT_INTERFACE (WP_TYPE_PIPEWIRE_OBJECTS, wp_core_pw_objects_init);
+)
 
 static gboolean
 signal_handler (gpointer data)
@@ -269,6 +273,25 @@ wp_core_class_init (WpCoreClass * klass)
 
   object_class->dispose = wp_core_dispose;
   object_class->finalize = wp_core_finalize;
+}
+
+static struct pw_core *
+wp_core_get_pw_core (WpPipewireObjects *pwobj)
+{
+  return WP_CORE (pwobj)->core;
+}
+
+static struct pw_remote *
+wp_core_get_pw_remote (WpPipewireObjects *pwobj)
+{
+  return WP_CORE (pwobj)->remote;
+}
+
+static void
+wp_core_pw_objects_init (WpPipewireObjectsInterface * iface)
+{
+  iface->get_pw_core = wp_core_get_pw_core;
+  iface->get_pw_remote = wp_core_get_pw_remote;
 }
 
 WpCore *

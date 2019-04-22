@@ -13,6 +13,25 @@
 
 G_BEGIN_DECLS
 
+/* WpPipewireObjects */
+
+struct pw_core;
+struct pw_remote;
+
+#define WP_TYPE_PIPEWIRE_OBJECTS (wp_pipewire_objects_get_type ())
+G_DECLARE_INTERFACE (WpPipewireObjects, wp_pipewire_objects, WP, PIPEWIRE_OBJECTS, GObject)
+
+struct _WpPipewireObjectsInterface
+{
+  GTypeInterface parent;
+
+  struct pw_core * (*get_pw_core) (WpPipewireObjects * self);
+  struct pw_remote * (*get_pw_remote) (WpPipewireObjects * self);
+};
+
+struct pw_core * wp_pipewire_objects_get_pw_core (WpPipewireObjects * self);
+struct pw_remote * wp_pipewire_objects_get_pw_remote (WpPipewireObjects * self);
+
 /* WpPluginRegistry */
 
 #define WP_TYPE_PLUGIN_REGISTRY (wp_plugin_registry_get_type ())
