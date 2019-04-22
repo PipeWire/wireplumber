@@ -18,12 +18,12 @@ enum {
   PROP_LICENSE,
   PROP_VERSION,
   PROP_ORIGIN,
-  PROP_REGISTRY,
+  PROP_CORE,
   PROP_METADATA,
 };
 
 typedef struct {
-  WpPluginRegistry *registry;
+  WpObject *core;
   const WpPluginMetadata *metadata;
 } WpPluginPrivate;
 
@@ -40,7 +40,7 @@ wp_plugin_dispose (GObject * object)
   WpPlugin *plugin = WP_PLUGIN (object);
   WpPluginPrivate *priv = wp_plugin_get_instance_private (plugin);
 
-  g_clear_object (&priv->registry);
+  g_clear_object (&priv->core);
 
   G_OBJECT_CLASS (wp_plugin_parent_class)->dispose (object);
 }
@@ -53,8 +53,8 @@ wp_plugin_set_property (GObject * object, guint property_id,
   WpPluginPrivate *priv = wp_plugin_get_instance_private (plugin);
 
   switch (property_id) {
-  case PROP_REGISTRY:
-    priv->registry = g_value_get_object (value);
+  case PROP_CORE:
+    priv->core = g_value_get_object (value);
     break;
   case PROP_METADATA:
     priv->metadata = g_value_get_pointer (value);
@@ -94,8 +94,8 @@ wp_plugin_get_property (GObject * object, guint property_id, GValue * value,
   case PROP_ORIGIN:
     g_value_set_string (value, priv->metadata->origin);
     break;
-  case PROP_REGISTRY:
-    g_value_set_object (value, priv->registry);
+  case PROP_CORE:
+    g_value_set_object (value, priv->core);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -106,6 +106,8 @@ wp_plugin_get_property (GObject * object, guint property_id, GValue * value,
 static gboolean
 default_handle_pw_proxy (WpPlugin * self, WpProxy * proxy)
 {
+  WpPluginPrivate *priv = wp_plugin_get_instance_private (self);
+
   switch (wp_proxy_get_spa_type (proxy)) {
   case PW_TYPE_INTERFACE_Device:
     return wp_plugin_handle_pw_device (self, proxy);
@@ -116,8 +118,9 @@ default_handle_pw_proxy (WpPlugin * self, WpProxy * proxy)
   case PW_TYPE_INTERFACE_Node:
     {
       g_autoptr (WpProxy) parent;
-      g_autoptr (WpProxyRegistry) reg = wp_proxy_get_registry (proxy);
+      g_autoptr (WpProxyRegistry) reg;
 
+      reg = wp_object_get_interface (priv->core, WP_TYPE_PROXY_REGISTRY);
       parent = wp_proxy_registry_get_proxy (reg, wp_proxy_get_parent_id (proxy));
 
       switch (wp_proxy_get_spa_type (parent)) {
@@ -174,10 +177,9 @@ wp_plugin_class_init (WpPluginClass * klass)
       g_param_spec_string ("origin", "Origin", "The plugin's origin", NULL,
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
-  g_object_class_install_property (object_class, PROP_REGISTRY,
-      g_param_spec_object ("registry", "Registry",
-          "The WpPluginRegistry that owns this plugin",
-          wp_plugin_registry_get_type (),
+  g_object_class_install_property (object_class, PROP_CORE,
+      g_param_spec_object ("core", "Core", "The WpCore that owns this plugin",
+          WP_TYPE_OBJECT,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (object_class, PROP_METADATA,
@@ -259,17 +261,16 @@ wp_plugin_provide_interfaces (WpPlugin * self, WpObject * object)
 }
 
 /**
- * wp_plugin_get_registry: (method)
+ * wp_plugin_get_core: (method)
  * @self: the plugin
  *
- * Returns: (transfer full): the registry where this plugin is registered
+ * Returns: (transfer full): the core where this plugin is registered
  */
-WpPluginRegistry *
-wp_plugin_get_registry (WpPlugin * self)
+WpObject *
+wp_plugin_get_core (WpPlugin * self)
 {
   WpPluginPrivate *priv = wp_plugin_get_instance_private (self);
-  g_object_ref (priv->registry);
-  return priv->registry;
+  return g_object_ref (priv->core);
 }
 
 /**

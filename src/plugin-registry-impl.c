@@ -139,8 +139,11 @@ wp_plugin_registry_impl_unload (WpPluginRegistryImpl * self)
 static inline void
 make_plugin (WpPluginRegistryImpl * self, PluginData * plugin_data)
 {
+  g_autoptr (WpObject) core =
+      wp_interface_impl_get_object (WP_INTERFACE_IMPL (self));
+
   plugin_data->instance = g_object_new (plugin_data->gtype,
-      "registry", self, "metadata", plugin_data->metadata, NULL);
+      "core", core, "metadata", plugin_data->metadata, NULL);
 }
 
 gboolean

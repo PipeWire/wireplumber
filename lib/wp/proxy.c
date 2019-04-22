@@ -14,7 +14,7 @@ struct _WpProxy
 {
   GObject parent;
 
-  WpProxyRegistry *registry;
+  WpObject *core;
 
   struct pw_proxy *proxy;
   guint32 id;
@@ -38,7 +38,7 @@ enum {
   PROP_SPA_TYPE,
   PROP_SPA_TYPE_STRING,
   PROP_INITIAL_PROPERTIES,
-  PROP_REGISTRY,
+  PROP_CORE,
   PROP_PROXY,
 };
 
@@ -242,6 +242,7 @@ static void
 wp_proxy_constructed (GObject * object)
 {
   WpProxy *self = WP_PROXY (object);
+  g_autoptr (WpProxyRegistry) pr = NULL;
   GHashTable *properties;
   struct pw_registry_proxy *reg_proxy;
   const void *events = NULL;
@@ -277,7 +278,8 @@ wp_proxy_constructed (GObject * object)
       break;
   }
 
-  reg_proxy = wp_proxy_registry_get_pw_registry_proxy (self->registry);
+  pr = wp_object_get_interface (self->core, WP_TYPE_PROXY_REGISTRY);
+  reg_proxy = wp_proxy_registry_get_pw_registry_proxy (pr);
   g_warn_if_fail (reg_proxy != NULL);
 
   self->proxy = pw_registry_proxy_bind (reg_proxy, self->id, self->type, ver, 0);
@@ -308,7 +310,7 @@ wp_proxy_finalize (GObject * object)
   WpProxy *self = WP_PROXY (object);
 
   g_hash_table_unref (self->properties);
-  g_clear_object (&self->registry);
+  g_clear_object (&self->core);
 
   G_OBJECT_CLASS (wp_proxy_parent_class)->finalize (object);
 }
@@ -332,8 +334,8 @@ wp_proxy_set_property (GObject * object, guint property_id,
   case PROP_INITIAL_PROPERTIES:
     self->initial_properties = g_value_get_pointer (value);
     break;
-  case PROP_REGISTRY:
-    self->registry = g_value_get_object (value);
+  case PROP_CORE:
+    self->core = g_value_get_object (value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -360,8 +362,8 @@ wp_proxy_get_property (GObject * object, guint property_id, GValue * value,
   case PROP_SPA_TYPE_STRING:
     g_value_set_string (value, self->type_string);
     break;
-  case PROP_REGISTRY:
-    g_value_set_object (value, self->registry);
+  case PROP_CORE:
+    g_value_set_object (value, self->core);
     break;
   case PROP_PROXY:
     g_value_set_pointer (value, self->proxy);
@@ -407,10 +409,9 @@ wp_proxy_class_init (WpProxyClass * klass)
           "The initial set of properties of the proxy",
           G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
-  g_object_class_install_property (object_class, PROP_REGISTRY,
-      g_param_spec_object ("registry", "registry",
-          "The WpProxyRegistry that owns this proxy",
-          wp_proxy_registry_get_type (),
+  g_object_class_install_property (object_class, PROP_CORE,
+      g_param_spec_object ("core", "core", "The core that owns this proxy",
+          WP_TYPE_OBJECT,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (object_class, PROP_PROXY,
@@ -496,16 +497,16 @@ wp_proxy_get_spa_type_string (WpProxy * self)
 }
 
 /**
- * wp_proxy_get_registry: (method)
+ * wp_proxy_get_core: (method)
  * @self: the proxy
  *
- * Returns: (transfer full): the #WpProxyRegistry
+ * Returns: (transfer full): the core #WpObject
  */
-WpProxyRegistry *
-wp_proxy_get_registry (WpProxy *self)
+WpObject *
+wp_proxy_get_core (WpProxy *self)
 {
   g_return_val_if_fail (WP_IS_PROXY (self), NULL);
-  return g_object_ref (self->registry);
+  return g_object_ref (self->core);
 }
 
 /**

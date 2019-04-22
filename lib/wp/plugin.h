@@ -173,7 +173,7 @@ gboolean wp_plugin_handle_pw_client (WpPlugin * self, WpProxy * proxy);
 gboolean wp_plugin_handle_pw_client_node (WpPlugin * self, WpProxy * proxy);
 gboolean wp_plugin_provide_interfaces (WpPlugin * self, WpObject * object);
 
-WpPluginRegistry * wp_plugin_get_registry (WpPlugin * self);
+WpObject * wp_plugin_get_core (WpPlugin * self);
 const WpPluginMetadata * wp_plugin_get_metadata (WpPlugin * self);
 
 

@@ -24,7 +24,7 @@ guint32 wp_proxy_get_parent_id (WpProxy * self);
 guint32 wp_proxy_get_spa_type (WpProxy * self);
 const gchar * wp_proxy_get_spa_type_string (WpProxy * self);
 
-WpProxyRegistry * wp_proxy_get_registry (WpProxy *self);
+WpObject * wp_proxy_get_core (WpProxy *self);
 
 gboolean wp_proxy_is_destroyed (WpProxy * self);
 struct pw_proxy * wp_proxy_get_pw_proxy (WpProxy * self);
