@@ -176,3 +176,32 @@ wp_object_attach_interface_impl (WpObject * self, gpointer impl,
   wp_interface_impl_set_object (WP_INTERFACE_IMPL (impl), self);
   return TRUE;
 }
+
+/* WpPipewireProperties */
+
+G_DEFINE_INTERFACE (WpPipewireProperties, wp_pipewire_properties, G_TYPE_OBJECT)
+
+static void
+wp_pipewire_properties_default_init (WpPipewirePropertiesInterface * iface)
+{
+}
+
+/**
+ * wp_pipewire_properties_get: (virtual get)
+ * @self: the interface
+ * @key: the name of the property to lookup
+ *
+ * Return: (transfer none): The value of the underlying PipeWire object's
+ *    property with this @key, or %NULL.
+ */
+const gchar *
+wp_pipewire_properties_get (WpPipewireProperties * self, const gchar * key)
+{
+  WpPipewirePropertiesInterface *iface = WP_PIPEWIRE_PROPERTIES_GET_IFACE (self);
+
+  g_return_val_if_fail (WP_IS_PIPEWIRE_PROPERTIES (self), NULL);
+  g_return_val_if_fail (key != NULL, NULL);
+  g_return_val_if_fail (iface->get, NULL);
+
+  return iface->get (self, key);
+}

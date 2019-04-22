@@ -28,6 +28,22 @@ GType * wp_object_list_interfaces (WpObject * self, guint * n_interfaces);
 gboolean wp_object_attach_interface_impl (WpObject * self, gpointer impl,
     GError ** error);
 
+/* WpPipewireProperties */
+
+#define WP_TYPE_PIPEWIRE_PROPERTIES (wp_pipewire_properties_get_type ())
+G_DECLARE_INTERFACE (WpPipewireProperties, wp_pipewire_properties,
+                     WP, PIPEWIRE_PROPERTIES, GObject)
+
+struct _WpPipewirePropertiesInterface
+{
+  GTypeInterface parent;
+
+  const gchar * (*get) (WpPipewireProperties * self, const gchar * key);
+};
+
+const gchar * wp_pipewire_properties_get (WpPipewireProperties * self,
+    const gchar * key);
+
 G_END_DECLS
 
 #endif

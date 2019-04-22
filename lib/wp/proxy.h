@@ -29,9 +29,6 @@ WpProxyRegistry * wp_proxy_get_registry (WpProxy *self);
 gboolean wp_proxy_is_destroyed (WpProxy * self);
 struct pw_proxy * wp_proxy_get_pw_proxy (WpProxy * self);
 
-const gchar * wp_proxy_get_pw_property (WpProxy * self, const gchar * property);
-
-
 G_END_DECLS
 
 #endif

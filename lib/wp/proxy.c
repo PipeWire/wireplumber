@@ -50,7 +50,11 @@ enum {
 
 static guint signals[N_SIGNALS];
 
-G_DEFINE_TYPE (WpProxy, wp_proxy, wp_object_get_type ());
+static void wp_proxy_pw_properties_init (WpPipewirePropertiesInterface * iface);
+
+G_DEFINE_TYPE_WITH_CODE (WpProxy, wp_proxy, WP_TYPE_OBJECT,
+    G_IMPLEMENT_INTERFACE (WP_TYPE_PIPEWIRE_PROPERTIES, wp_proxy_pw_properties_init);
+)
 
 static void
 spa_dict_to_hashtable (const struct spa_dict * dict, GHashTable * htable)
@@ -67,7 +71,7 @@ spa_dict_to_hashtable (const struct spa_dict * dict, GHashTable * htable)
   { \
     static GQuark _quark = 0; \
     if (!_quark) \
-      g_quark_from_static_string (name); \
+      _quark = g_quark_from_static_string (name); \
     g_hash_table_insert (self->properties, GUINT_TO_POINTER (_quark), lvalue); \
   }
 
@@ -75,7 +79,7 @@ spa_dict_to_hashtable (const struct spa_dict * dict, GHashTable * htable)
   { \
     static GQuark _quark = 0; \
     if (!_quark) \
-      g_quark_from_static_string (name); \
+      _quark = g_quark_from_static_string (name); \
     if (!g_hash_table_contains (self->properties, GUINT_TO_POINTER (_quark))) { \
       g_hash_table_insert (self->properties, GUINT_TO_POINTER (_quark), lvalue); \
     } \
@@ -422,6 +426,22 @@ wp_proxy_class_init (WpProxyClass * klass)
       G_TYPE_NONE, 0);
 }
 
+const gchar *
+wp_proxy_pw_properties_get (WpPipewireProperties * p, const gchar * property)
+{
+  WpProxy * self = WP_PROXY (p);
+  GQuark quark = g_quark_try_string (property);
+
+  return quark ?
+    g_hash_table_lookup (self->properties, GUINT_TO_POINTER (quark)) : NULL;
+}
+
+static void
+wp_proxy_pw_properties_init (WpPipewirePropertiesInterface * iface)
+{
+  iface->get = wp_proxy_pw_properties_get;
+}
+
 /**
  * wp_proxy_get_id: (method)
  * @self: the proxy
@@ -512,24 +532,4 @@ wp_proxy_get_pw_proxy (WpProxy * self)
 {
   g_return_val_if_fail (WP_IS_PROXY (self), NULL);
   return self->proxy;
-}
-
-/**
- * wp_proxy_get_pw_property: (method)
- * @self: the proxy
- * @property: (transfer none): the name of the property to lookup
- *
- * Returns: (transfer none): the value or %NULL
- */
-const gchar *
-wp_proxy_get_pw_property (WpProxy * self, const gchar * property)
-{
-  GQuark quark = 0;
-
-  g_return_val_if_fail (WP_IS_PROXY (self), NULL);
-  g_return_val_if_fail (property != NULL, NULL);
-
-  quark = g_quark_try_string (property);
-  return quark ?
-    g_hash_table_lookup (self->properties, GUINT_TO_POINTER (quark)) : NULL;
 }
