@@ -21,9 +21,20 @@ static void
 wp_object_init (WpObject * self)
 {
   WpObjectPrivate *priv = wp_object_get_instance_private (self);
+  g_autofree GType *static_ifaces;
+  guint n_static_ifaces, i;
 
   priv->iface_objects = g_array_new (FALSE, FALSE, sizeof (gpointer));
   priv->iface_types = g_array_new (FALSE, FALSE, sizeof (GType));
+
+  static_ifaces = g_type_interfaces (G_TYPE_FROM_INSTANCE (self),
+      &n_static_ifaces);
+  if (n_static_ifaces > 0) {
+    g_array_append_vals (priv->iface_types, static_ifaces, n_static_ifaces);
+    for (i = 0; i < n_static_ifaces; i++) {
+      g_array_append_val (priv->iface_objects, self);
+    }
+  }
 }
 
 static void
@@ -34,9 +45,11 @@ wp_object_finalize (GObject * obj)
   guint i;
 
   for (i = 0; i < priv->iface_objects->len; i++) {
-    GObject *obj = g_array_index (priv->iface_objects, GObject*, i);
-    wp_interface_impl_set_object (WP_INTERFACE_IMPL (obj), NULL);
-    g_object_unref (obj);
+    GObject *o = g_array_index (priv->iface_objects, GObject*, i);
+    if (o != obj) {
+      wp_interface_impl_set_object (WP_INTERFACE_IMPL (o), NULL);
+      g_object_unref (o);
+    }
   }
 
   g_array_free (priv->iface_objects, TRUE);
