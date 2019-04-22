@@ -68,6 +68,43 @@ WpProxy * wp_proxy_registry_get_proxy (WpProxyRegistry * self,
 struct pw_registry_proxy * wp_proxy_registry_get_pw_registry_proxy (
     WpProxyRegistry * self);
 
+/* WpSessionRegistry */
+
+#define WP_TYPE_SESSION_REGISTRY (wp_session_registry_get_type ())
+G_DECLARE_INTERFACE (WpSessionRegistry, wp_session_registry, WP, SESSION_REGISTRY, GObject)
+
+typedef struct _WpSession WpSession;
+
+struct _WpSessionRegistryInterface
+{
+  GTypeInterface parent;
+
+  guint32 (*register_session) (WpSessionRegistry * self,
+      WpSession * session,
+      GError ** error);
+
+  gboolean (*unregister_session) (WpSessionRegistry * self, guint32 session_id);
+
+  GArray * (*list_sessions) (WpSessionRegistry * self,
+      const gchar * media_class);
+
+  WpSession * (*get_session) (WpSessionRegistry * self,
+      guint32 session_id);
+};
+
+guint32 wp_session_registry_register_session (WpSessionRegistry * self,
+    WpSession * session_object,
+    GError ** error);
+
+gboolean wp_session_registry_unregister_session (WpSessionRegistry * self,
+    guint32 session_id);
+
+GArray * wp_session_registry_list_sessions (WpSessionRegistry * self,
+    const gchar * media_class);
+
+WpSession * wp_session_registry_get_session (WpSessionRegistry * self,
+    guint32 session_id);
+
 G_END_DECLS
 
 #endif

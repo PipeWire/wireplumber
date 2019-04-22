@@ -11,6 +11,7 @@
 #include "module-loader.h"
 #include "plugin-registry-impl.h"
 #include "proxy-registry-impl.h"
+#include "session-registry-impl.h"
 #include "utils.h"
 
 #include <pipewire/pipewire.h>
@@ -198,6 +199,7 @@ wp_core_init (WpCore * self)
 {
   WpPluginRegistryImpl *plugin_registry;
   WpProxyRegistryImpl *proxy_registry;
+  WpSessionRegistryImpl *session_registry;
 
   self->loop = g_main_loop_new (NULL, FALSE);
   self->source = wp_loop_source_new ();
@@ -216,6 +218,9 @@ wp_core_init (WpCore * self)
 
   plugin_registry = wp_plugin_registry_impl_new ();
   wp_object_attach_interface_impl (WP_OBJECT (self), plugin_registry, NULL);
+
+  session_registry = wp_session_registry_impl_new ();
+  wp_object_attach_interface_impl (WP_OBJECT (self), session_registry, NULL);
 }
 
 static void

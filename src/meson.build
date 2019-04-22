@@ -5,6 +5,7 @@ wp_sources = [
   'module-loader.c',
   'plugin-registry-impl.c',
   'proxy-registry-impl.c',
+  'session-registry-impl.c',
   'utils.c',
 ]
 

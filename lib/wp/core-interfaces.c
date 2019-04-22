@@ -8,6 +8,7 @@
 
 #include "core-interfaces.h"
 #include "plugin.h"
+#include "session.h"
 
 /* WpPluginRegistry */
 
@@ -146,4 +147,91 @@ wp_proxy_registry_get_pw_registry_proxy (WpProxyRegistry * self)
   g_return_val_if_fail (iface->get_pw_registry_proxy != NULL, NULL);
 
   return iface->get_pw_registry_proxy (self);
+}
+
+/* WpSessionRegistry */
+
+G_DEFINE_INTERFACE (WpSessionRegistry, wp_session_registry, G_TYPE_OBJECT)
+
+enum {
+  SIG_SESSION_REGISTERED,
+  SIG_SESSION_UNREGISTERED,
+  N_SESSION_REGISTRY_SIGNALS
+};
+
+static guint session_registry_signals[N_SESSION_REGISTRY_SIGNALS];
+
+static void
+wp_session_registry_default_init (WpSessionRegistryInterface * iface)
+{
+  session_registry_signals[SIG_SESSION_REGISTERED] = g_signal_new (
+      "session-registered", G_TYPE_FROM_INTERFACE (iface),
+      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 2, G_TYPE_UINT,
+      WP_TYPE_SESSION);
+
+  session_registry_signals[SIG_SESSION_UNREGISTERED] = g_signal_new (
+      "session-unregistered", G_TYPE_FROM_INTERFACE (iface),
+      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_UINT);
+}
+
+guint32
+wp_session_registry_register_session (WpSessionRegistry * self,
+    WpSession * session,
+    GError ** error)
+{
+  WpSessionRegistryInterface *iface = WP_SESSION_REGISTRY_GET_IFACE (self);
+  guint32 id;
+
+  g_return_val_if_fail (WP_IS_SESSION_REGISTRY (self), -1);
+  g_return_val_if_fail (session != NULL, -1);
+  g_return_val_if_fail (iface->register_session, -1);
+
+  id = iface->register_session (self, session, error);
+  if (id != -1) {
+    g_signal_emit (self, session_registry_signals[SIG_SESSION_REGISTERED], 0,
+        id, session);
+  }
+  return id;
+}
+
+gboolean
+wp_session_registry_unregister_session (WpSessionRegistry * self,
+    guint32 session_id)
+{
+  WpSessionRegistryInterface *iface = WP_SESSION_REGISTRY_GET_IFACE (self);
+  gboolean ret;
+
+  g_return_val_if_fail (WP_IS_SESSION_REGISTRY (self), FALSE);
+  g_return_val_if_fail (iface->unregister_session, FALSE);
+
+  ret = iface->unregister_session (self, session_id);
+  if (ret) {
+    g_signal_emit (self, session_registry_signals[SIG_SESSION_UNREGISTERED], 0,
+        session_id);
+  }
+  return ret;
+}
+
+GArray *
+wp_session_registry_list_sessions (WpSessionRegistry * self,
+    const gchar * media_class)
+{
+  WpSessionRegistryInterface *iface = WP_SESSION_REGISTRY_GET_IFACE (self);
+
+  g_return_val_if_fail (WP_IS_SESSION_REGISTRY (self), NULL);
+  g_return_val_if_fail (iface->list_sessions, NULL);
+
+  return iface->list_sessions (self, media_class);
+}
+
+WpSession *
+wp_session_registry_get_session (WpSessionRegistry * self,
+    guint32 session_id)
+{
+  WpSessionRegistryInterface *iface = WP_SESSION_REGISTRY_GET_IFACE (self);
+
+  g_return_val_if_fail (WP_IS_SESSION_REGISTRY (self), NULL);
+  g_return_val_if_fail (iface->get_session, NULL);
+
+  return iface->get_session (self, session_id);
 }

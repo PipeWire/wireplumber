@@ -5,6 +5,7 @@ wp_lib_sources = [
   'object.c',
   'plugin.c',
   'proxy.c',
+  'session.c',
 ]
 
 wp_lib_headers = [
@@ -14,6 +15,7 @@ wp_lib_headers = [
   'object.h',
   'plugin.h',
   'proxy.h',
+  'session.h',
 ]
 
 enums = gnome.mkenums_simple('wpenums', sources: wp_lib_headers)
