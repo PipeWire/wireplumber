@@ -218,3 +218,21 @@ wp_pipewire_properties_get (WpPipewireProperties * self, const gchar * key)
 
   return iface->get (self, key);
 }
+
+/**
+ * wp_pipewire_properties_get_as_spa_dict: (virtual get_as_spa_dict)
+ * @self: the interface
+ *
+ * Return: (transfer none): The underlying `struct spa_dict` that holds
+ *    the properties
+ */
+const struct spa_dict *
+wp_pipewire_properties_get_as_spa_dict (WpPipewireProperties * self)
+{
+  WpPipewirePropertiesInterface *iface = WP_PIPEWIRE_PROPERTIES_GET_IFACE (self);
+
+  g_return_val_if_fail (WP_IS_PIPEWIRE_PROPERTIES (self), NULL);
+  g_return_val_if_fail (iface->get_as_spa_dict, NULL);
+
+  return iface->get_as_spa_dict (self);
+}

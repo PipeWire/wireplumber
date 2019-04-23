@@ -27,7 +27,7 @@ struct _WpProxy
 
   union {
     const struct spa_dict *initial_properties;
-    GHashTable *properties;
+    struct pw_properties *properties;
   };
 };
 
@@ -57,64 +57,14 @@ G_DEFINE_TYPE_WITH_CODE (WpProxy, wp_proxy, WP_TYPE_OBJECT,
 )
 
 static void
-spa_dict_to_hashtable (const struct spa_dict * dict, GHashTable * htable)
-{
-  const struct spa_dict_item *item;
-  spa_dict_for_each (item, dict) {
-    g_hash_table_insert (htable,
-        GUINT_TO_POINTER (g_quark_from_string (item->key)),
-        g_strdup (item->value));
-  }
-}
-
-#define UPDATE_PROP(name, lvalue) \
-  { \
-    static GQuark _quark = 0; \
-    if (!_quark) \
-      _quark = g_quark_from_static_string (name); \
-    g_hash_table_insert (self->properties, GUINT_TO_POINTER (_quark), lvalue); \
-  }
-
-#define STATIC_PROP(name, lvalue) \
-  { \
-    static GQuark _quark = 0; \
-    if (!_quark) \
-      _quark = g_quark_from_static_string (name); \
-    if (!g_hash_table_contains (self->properties, GUINT_TO_POINTER (_quark))) { \
-      g_hash_table_insert (self->properties, GUINT_TO_POINTER (_quark), lvalue); \
-    } \
-  }
-
-static void
 node_event_info (void *object, const struct pw_node_info *info)
 {
   WpProxy *self = WP_PROXY (object);
 
-  if (info->change_mask & PW_NODE_CHANGE_MASK_NAME) {
-    UPDATE_PROP ("node-info.name", g_strdup (info->name));
-  }
-  if (info->change_mask & PW_NODE_CHANGE_MASK_INPUT_PORTS) {
-    UPDATE_PROP ("node-info.n-input-ports",
-        g_strdup_printf ("%u", info->n_input_ports));
-    UPDATE_PROP ("node-info.max-input-ports",
-        g_strdup_printf ("%u", info->max_input_ports));
-  }
-  if (info->change_mask & PW_NODE_CHANGE_MASK_OUTPUT_PORTS) {
-    UPDATE_PROP ("node-info.n-output-ports",
-        g_strdup_printf ("%u", info->n_output_ports));
-    UPDATE_PROP ("node-info.max-output-ports",
-        g_strdup_printf ("%u", info->max_output_ports));
-  }
-  if (info->change_mask & PW_NODE_CHANGE_MASK_STATE) {
-    UPDATE_PROP ("node-info.state",
-        g_strdup (pw_node_state_as_string (info->state)));
-    UPDATE_PROP ("node-info.error", g_strdup (info->error));
-  }
   if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS) {
-    spa_dict_to_hashtable (info->props, self->properties);
+    g_clear_pointer (&self->properties, pw_properties_free);
+    self->properties = pw_properties_new_dict (info->props);
   }
-  // TODO: PW_NODE_CHANGE_MASK_PARAMS
-
   g_signal_emit (self, signals[SIGNAL_CHANGED], 0);
 }
 
@@ -124,52 +74,13 @@ static const struct pw_node_proxy_events node_events = {
 };
 
 static void
-port_event_info (void *object, const struct pw_port_info *info)
-{
-  WpProxy *self = WP_PROXY (object);
-
-  STATIC_PROP ("port-info.direction",
-      g_strdup (pw_direction_as_string (info->direction)));
-
-  if (info->change_mask & PW_PORT_CHANGE_MASK_PROPS) {
-    spa_dict_to_hashtable (info->props, self->properties);
-  }
-  // TODO: PW_PORT_CHANGE_MASK_PARAMS
-
-  g_signal_emit (self, signals[SIGNAL_CHANGED], 0);
-}
-
-static const struct pw_port_proxy_events port_events = {
-  PW_VERSION_PORT_PROXY_EVENTS,
-  .info = port_event_info
-};
-
-static void
 link_event_info (void *object, const struct pw_link_info *info)
 {
   WpProxy *self = WP_PROXY (object);
 
-  if (info->change_mask & PW_LINK_CHANGE_MASK_OUTPUT) {
-    UPDATE_PROP ("link-info.output-node-id",
-        g_strdup_printf ("%u", info->output_node_id));
-    UPDATE_PROP ("link-info.output-port-id",
-        g_strdup_printf ("%u", info->output_port_id));
-  }
-  if (info->change_mask & PW_LINK_CHANGE_MASK_INPUT) {
-    UPDATE_PROP ("link-info.input-node-id",
-        g_strdup_printf ("%u", info->input_node_id));
-    UPDATE_PROP ("link-info.input-port-id",
-        g_strdup_printf ("%u", info->input_port_id));
-  }
-  if (info->change_mask & PW_LINK_CHANGE_MASK_STATE) {
-    UPDATE_PROP ("link-info.state",
-        g_strdup (pw_link_state_as_string (info->state)));
-    UPDATE_PROP ("link-info.error", g_strdup (info->error));
-  }
-  //TODO: PW_LINK_CHANGE_MASK_FORMAT
-
   if (info->change_mask & PW_LINK_CHANGE_MASK_PROPS) {
-    spa_dict_to_hashtable (info->props, self->properties);
+    g_clear_pointer (&self->properties, pw_properties_free);
+    self->properties = pw_properties_new_dict (info->props);
   }
 
   g_signal_emit (self, signals[SIGNAL_CHANGED], 0);
@@ -186,7 +97,8 @@ client_event_info (void *object, const struct pw_client_info *info)
   WpProxy *self = WP_PROXY (object);
 
   if (info->change_mask & PW_CLIENT_CHANGE_MASK_PROPS) {
-    spa_dict_to_hashtable (info->props, self->properties);
+    g_clear_pointer (&self->properties, pw_properties_free);
+    self->properties = pw_properties_new_dict (info->props);
   }
 
   g_signal_emit (self, signals[SIGNAL_CHANGED], 0);
@@ -202,12 +114,10 @@ device_event_info (void *object, const struct pw_device_info *info)
 {
   WpProxy *self = WP_PROXY (object);
 
-  STATIC_PROP ("device-info.name", g_strdup (info->name));
-
   if (info->change_mask & PW_DEVICE_CHANGE_MASK_PROPS) {
-    spa_dict_to_hashtable (info->props, self->properties);
+    g_clear_pointer (&self->properties, pw_properties_free);
+    self->properties = pw_properties_new_dict (info->props);
   }
-  //TODO: PW_DEVICE_CHANGE_MASK_PARAMS
 
   g_signal_emit (self, signals[SIGNAL_CHANGED], 0);
 }
@@ -243,7 +153,6 @@ wp_proxy_constructed (GObject * object)
 {
   WpProxy *self = WP_PROXY (object);
   g_autoptr (WpProxyRegistry) pr = NULL;
-  GHashTable *properties;
   struct pw_registry_proxy *reg_proxy;
   const void *events = NULL;
   uint32_t ver = 0;
@@ -257,10 +166,6 @@ wp_proxy_constructed (GObject * object)
     case PW_TYPE_INTERFACE_Node:
       events = &node_events;
       ver = PW_VERSION_NODE;
-      break;
-    case PW_TYPE_INTERFACE_Port:
-      events = &port_events;
-      ver = PW_VERSION_PORT;
       break;
     case PW_TYPE_INTERFACE_Link:
       events = &link_events;
@@ -293,13 +198,12 @@ wp_proxy_constructed (GObject * object)
   /*
    * initial_properties is a stack-allocated const spa_dict *
    * that is not safe to access beyond the scope of the g_object_new()
-   * call, so we replace it with a GHashTable
+   * call, so we replace it with a pw_properties
    */
-  properties = g_hash_table_new_full (g_direct_hash, g_direct_equal,
-      NULL, g_free);
   if (self->initial_properties)
-    spa_dict_to_hashtable (self->initial_properties, properties);
-  self->properties = properties;
+    self->properties = pw_properties_new_dict (self->initial_properties);
+  else
+    self->properties = pw_properties_new (NULL);
 
   G_OBJECT_CLASS (wp_proxy_parent_class)->constructed (object);
 }
@@ -309,7 +213,7 @@ wp_proxy_finalize (GObject * object)
 {
   WpProxy *self = WP_PROXY (object);
 
-  g_hash_table_unref (self->properties);
+  g_clear_pointer (&self->properties, pw_properties_free);
   g_clear_object (&self->core);
 
   G_OBJECT_CLASS (wp_proxy_parent_class)->finalize (object);
@@ -427,20 +331,25 @@ wp_proxy_class_init (WpProxyClass * klass)
       G_TYPE_NONE, 0);
 }
 
-const gchar *
+static const gchar *
 wp_proxy_pw_properties_get (WpPipewireProperties * p, const gchar * property)
 {
   WpProxy * self = WP_PROXY (p);
-  GQuark quark = g_quark_try_string (property);
+  return pw_properties_get (self->properties, property);
+}
 
-  return quark ?
-    g_hash_table_lookup (self->properties, GUINT_TO_POINTER (quark)) : NULL;
+static const struct spa_dict *
+wp_proxy_pw_properties_get_as_spa_dict (WpPipewireProperties * p)
+{
+  WpProxy * self = WP_PROXY (p);
+  return &self->properties->dict;
 }
 
 static void
 wp_proxy_pw_properties_init (WpPipewirePropertiesInterface * iface)
 {
   iface->get = wp_proxy_pw_properties_get;
+  iface->get_as_spa_dict = wp_proxy_pw_properties_get_as_spa_dict;
 }
 
 /**

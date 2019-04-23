@@ -34,15 +34,20 @@ gboolean wp_object_attach_interface_impl (WpObject * self, gpointer impl,
 G_DECLARE_INTERFACE (WpPipewireProperties, wp_pipewire_properties,
                      WP, PIPEWIRE_PROPERTIES, GObject)
 
+struct spa_dict;
+
 struct _WpPipewirePropertiesInterface
 {
   GTypeInterface parent;
 
   const gchar * (*get) (WpPipewireProperties * self, const gchar * key);
+  const struct spa_dict * (*get_as_spa_dict) (WpPipewireProperties * self);
 };
 
 const gchar * wp_pipewire_properties_get (WpPipewireProperties * self,
     const gchar * key);
+const struct spa_dict * wp_pipewire_properties_get_as_spa_dict (
+    WpPipewireProperties * self);
 
 G_END_DECLS
 
