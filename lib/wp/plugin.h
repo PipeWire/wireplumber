@@ -184,22 +184,6 @@ const WpPluginMetadata * wp_plugin_get_metadata (WpPlugin * self);
  */
 #define WP_MODULE_INIT_SYMBOL wireplumber__module_init
 
-/**
- * WP_PLUGIN_DEFINE_TYPE: (skip)
- *
- * Convenience macro for defining a #WpPlugin subclass in a module
- */
-#define WP_PLUGIN_DEFINE_TYPE(TN, t_n) \
-  typedef struct _##TN { \
-    WpPlugin parent; \
-  } TN; \
-  \
-  typedef struct _##TN##Class { \
-    WpPluginClass parent; \
-  } TN##Class; \
-  \
-  G_DEFINE_TYPE_WITH_PRIVATE (TN, t_n, wp_plugin_get_type ())
-
 
 G_END_DECLS
 
