@@ -28,14 +28,14 @@ wp_lib = library('wireplumber-' + wireplumber_api_version,
     '-DG_LOG_DOMAIN="libwireplumber"'
   ],
   install: true,
-  dependencies : [gobject_dep, pipewire_dep],
+  dependencies : [gobject_dep, pipewire_dep, gio_dep],
 )
 
 gnome.generate_gir(wp_lib,
   namespace: 'Wp',
   nsversion: wireplumber_api_version,
   sources: [wp_lib_sources, wp_lib_headers],
-  includes: ['GLib-2.0', 'GObject-2.0'],
+  includes: ['GLib-2.0', 'GObject-2.0', 'Gio-2.0'],
   install: true,
 )
 

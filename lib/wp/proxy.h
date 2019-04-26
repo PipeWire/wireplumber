@@ -12,6 +12,8 @@
 #include "object.h"
 #include "core-interfaces.h"
 
+#include <gio/gio.h>
+
 G_BEGIN_DECLS
 
 struct pw_proxy;
@@ -28,6 +30,13 @@ WpObject * wp_proxy_get_core (WpProxy *self);
 
 gboolean wp_proxy_is_destroyed (WpProxy * self);
 struct pw_proxy * wp_proxy_get_pw_proxy (WpProxy * self);
+
+gconstpointer wp_proxy_get_info_native (WpProxy * self);
+
+void wp_proxy_enum_params (WpProxy * self, guint32 id,
+    GAsyncReadyCallback callback, gpointer data);
+GPtrArray * wp_proxy_enum_params_finish (WpProxy * self,
+    GAsyncResult * res, GError ** err);
 
 G_END_DECLS
 

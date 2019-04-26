@@ -7,8 +7,10 @@
  */
 
 #include "proxy.h"
+#include "error.h"
 #include <pipewire/pipewire.h>
 #include <spa/debug/types.h>
+#include <spa/pod/builder.h>
 
 struct _WpProxy
 {
@@ -29,6 +31,19 @@ struct _WpProxy
     const struct spa_dict *initial_properties;
     struct pw_properties *properties;
   };
+
+  union {
+    gpointer info;
+    struct pw_node_info *node_info;
+    struct pw_port_info *port_info;
+    struct pw_factory_info *factory_info;
+    struct pw_link_info *link_info;
+    struct pw_client_info *client_info;
+    struct pw_module_info *module_info;
+    struct pw_device_info *device_info;
+  };
+
+  GList *tasks;
 };
 
 enum {
@@ -49,6 +64,7 @@ enum {
 };
 
 static guint signals[N_SIGNALS];
+static int global_seq = 0;
 
 static void wp_proxy_pw_properties_init (WpPipewirePropertiesInterface * iface);
 
@@ -56,75 +72,114 @@ G_DEFINE_TYPE_WITH_CODE (WpProxy, wp_proxy, WP_TYPE_OBJECT,
     G_IMPLEMENT_INTERFACE (WP_TYPE_PIPEWIRE_PROPERTIES, wp_proxy_pw_properties_init);
 )
 
-static void
-node_event_info (void *object, const struct pw_node_info *info)
-{
-  WpProxy *self = WP_PROXY (object);
+struct task_data {
+  guint32 seq;
+  GPtrArray *result;
+};
 
-  if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS) {
-    g_clear_pointer (&self->properties, pw_properties_free);
-    self->properties = pw_properties_new_dict (info->props);
-  }
-  g_signal_emit (self, signals[SIGNAL_CHANGED], 0);
+static gint
+find_task (gconstpointer t, gconstpointer s)
+{
+  GTask *task = (GTask *) t;
+  int seq = GPOINTER_TO_INT (s);
+  struct task_data *data = g_task_get_task_data (task);
+
+  return data->seq - seq;
 }
+
+/* Updates the info structure while copying the properties into self->properties
+ * and avoiding making a second copy of the properties dict in info->props */
+#define PROXY_INFO_FUNC(TYPE, type) \
+  static void \
+  type##_event_info (void *object, const struct pw_##type##_info *info) \
+  { \
+    WpProxy *self = WP_PROXY (object); \
+    \
+    if (info->change_mask & PW_##TYPE##_CHANGE_MASK_PROPS) { \
+      g_clear_pointer (&self->properties, pw_properties_free); \
+      self->properties = pw_properties_new_dict (info->props); \
+    } \
+    \
+    { \
+      uint64_t change_mask = info->change_mask; \
+      ((struct pw_##type##_info *)info)->change_mask &= ~PW_##TYPE##_CHANGE_MASK_PROPS; \
+      self->type##_info = pw_##type##_info_update (self->type##_info, info); \
+      self->type##_info->props = &self->properties->dict; \
+      ((struct pw_##type##_info *)info)->change_mask = change_mask; \
+    } \
+    \
+    g_signal_emit (self, signals[SIGNAL_CHANGED], 0); \
+  }
+
+#define PROXY_PARAM_FUNC(type) \
+  static void \
+  type##_event_param(void *object, int seq, uint32_t id, uint32_t index, \
+      uint32_t next, const struct spa_pod *param) \
+  { \
+    WpProxy *self = WP_PROXY (object); \
+    GList *l; \
+    struct task_data *data; \
+    \
+    l = g_list_find_custom (self->tasks, GINT_TO_POINTER (seq), find_task); \
+    g_return_if_fail (l != NULL); \
+    \
+    data = g_task_get_task_data (G_TASK (l->data)); \
+    g_ptr_array_add (data->result, spa_pod_copy (param)); \
+  }
+
+PROXY_INFO_FUNC (NODE, node)
+PROXY_PARAM_FUNC(node)
 
 static const struct pw_node_proxy_events node_events = {
   PW_VERSION_NODE_PROXY_EVENTS,
-  .info = node_event_info
+  .info = node_event_info,
+  .param = node_event_param,
 };
 
-static void
-link_event_info (void *object, const struct pw_link_info *info)
-{
-  WpProxy *self = WP_PROXY (object);
+PROXY_INFO_FUNC (PORT, port)
+PROXY_PARAM_FUNC(port)
 
-  if (info->change_mask & PW_LINK_CHANGE_MASK_PROPS) {
-    g_clear_pointer (&self->properties, pw_properties_free);
-    self->properties = pw_properties_new_dict (info->props);
-  }
+static const struct pw_port_proxy_events port_events = {
+  PW_VERSION_PORT_PROXY_EVENTS,
+  .info = port_event_info,
+  .param = port_event_param,
+};
 
-  g_signal_emit (self, signals[SIGNAL_CHANGED], 0);
-}
+PROXY_INFO_FUNC (FACTORY, factory)
+
+static const struct pw_factory_proxy_events factory_events = {
+  PW_VERSION_FACTORY_PROXY_EVENTS,
+  .info = factory_event_info
+};
+
+PROXY_INFO_FUNC (LINK, link)
 
 static const struct pw_link_proxy_events link_events = {
   PW_VERSION_LINK_PROXY_EVENTS,
   .info = link_event_info
 };
 
-static void
-client_event_info (void *object, const struct pw_client_info *info)
-{
-  WpProxy *self = WP_PROXY (object);
-
-  if (info->change_mask & PW_CLIENT_CHANGE_MASK_PROPS) {
-    g_clear_pointer (&self->properties, pw_properties_free);
-    self->properties = pw_properties_new_dict (info->props);
-  }
-
-  g_signal_emit (self, signals[SIGNAL_CHANGED], 0);
-}
+PROXY_INFO_FUNC (CLIENT, client)
 
 static const struct pw_client_proxy_events client_events = {
   PW_VERSION_CLIENT_PROXY_EVENTS,
   .info = client_event_info
 };
 
-static void
-device_event_info (void *object, const struct pw_device_info *info)
-{
-  WpProxy *self = WP_PROXY (object);
+PROXY_INFO_FUNC (MODULE, module)
 
-  if (info->change_mask & PW_DEVICE_CHANGE_MASK_PROPS) {
-    g_clear_pointer (&self->properties, pw_properties_free);
-    self->properties = pw_properties_new_dict (info->props);
-  }
+static const struct pw_module_proxy_events module_events = {
+  PW_VERSION_MODULE_PROXY_EVENTS,
+  .info = module_event_info
+};
 
-  g_signal_emit (self, signals[SIGNAL_CHANGED], 0);
-}
+PROXY_INFO_FUNC (DEVICE, device)
+PROXY_PARAM_FUNC (device)
 
 static const struct pw_device_proxy_events device_events = {
   PW_VERSION_DEVICE_PROXY_EVENTS,
-  .info = device_event_info
+  .info = device_event_info,
+  .param = device_event_param,
 };
 
 static void
@@ -138,9 +193,25 @@ proxy_event_destroy (void *object)
   g_signal_emit (self, signals[SIGNAL_DESTROYED], 0);
 }
 
+static void
+proxy_event_done (void *object, int seq)
+{
+  WpProxy *self = WP_PROXY (object);
+  GList *l;
+  struct task_data *data;
+
+  l = g_list_find_custom (self->tasks, GINT_TO_POINTER (seq), find_task);
+  g_return_if_fail (l != NULL);
+
+  data = g_task_get_task_data (G_TASK (l->data));
+  g_task_return_pointer (G_TASK (l->data), g_ptr_array_ref (data->result),
+      (GDestroyNotify) g_ptr_array_unref);
+}
+
 static const struct pw_proxy_events proxy_events = {
   PW_VERSION_PROXY_EVENTS,
-  .destroy = proxy_event_destroy
+  .destroy = proxy_event_destroy,
+  .done = proxy_event_done,
 };
 
 static void
@@ -167,6 +238,14 @@ wp_proxy_constructed (GObject * object)
       events = &node_events;
       ver = PW_VERSION_NODE;
       break;
+    case PW_TYPE_INTERFACE_Port:
+      events = &port_events;
+      ver = PW_VERSION_PORT;
+      break;
+    case PW_TYPE_INTERFACE_Factory:
+      events = &factory_events;
+      ver = PW_VERSION_FACTORY;
+      break;
     case PW_TYPE_INTERFACE_Link:
       events = &link_events;
       ver = PW_VERSION_LINK;
@@ -174,6 +253,10 @@ wp_proxy_constructed (GObject * object)
     case PW_TYPE_INTERFACE_Client:
       events = &client_events;
       ver = PW_VERSION_CLIENT;
+      break;
+    case PW_TYPE_INTERFACE_Module:
+      events = &module_events;
+      ver = PW_VERSION_MODULE;
       break;
     case PW_TYPE_INTERFACE_Device:
       events = &device_events;
@@ -442,4 +525,81 @@ wp_proxy_get_pw_proxy (WpProxy * self)
 {
   g_return_val_if_fail (WP_IS_PROXY (self), NULL);
   return self->proxy;
+}
+
+gconstpointer
+wp_proxy_get_info_native (WpProxy * self)
+{
+  g_return_val_if_fail (WP_IS_PROXY (self), NULL);
+  return self->info;
+}
+
+static void
+task_data_free (struct task_data * data)
+{
+  g_ptr_array_unref (data->result);
+  g_slice_free (struct task_data, data);
+}
+
+void
+wp_proxy_enum_params (WpProxy * self, guint32 id,
+    GAsyncReadyCallback callback, gpointer user_data)
+{
+  g_autoptr (GTask) task = NULL;
+  int seq;
+  struct task_data *data;
+
+  g_return_if_fail (WP_IS_PROXY (self));
+  g_return_if_fail (callback != NULL);
+
+  task = g_task_new (self, NULL, callback, user_data);
+  g_task_set_source_tag (task, wp_proxy_enum_params);
+
+  data = g_slice_new0 (struct task_data);
+  data->seq = seq = global_seq++;
+  data->result = g_ptr_array_new_with_free_func (free);
+  g_task_set_task_data (task, data, (GDestroyNotify) task_data_free);
+
+  self->tasks = g_list_append (self->tasks, task);
+
+  switch (self->type) {
+    case PW_TYPE_INTERFACE_Node:
+      pw_node_proxy_enum_params ((struct pw_node_proxy *) self->proxy,
+          seq, id, 0, -1, NULL);
+      pw_proxy_sync (self->proxy, seq);
+      break;
+    case PW_TYPE_INTERFACE_Port:
+      pw_port_proxy_enum_params ((struct pw_port_proxy *) self->proxy,
+          seq, id, 0, -1, NULL);
+      pw_proxy_sync (self->proxy, seq);
+      break;
+    case PW_TYPE_INTERFACE_Device:
+      pw_device_proxy_enum_params ((struct pw_device_proxy *) self->proxy,
+          seq, id, 0, -1, NULL);
+      pw_proxy_sync (self->proxy, seq);
+      break;
+    default:
+      g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
+          WP_LIBRARY_ERROR_INVARIANT,
+          "Proxy interface does not have an enum_params method");
+      break;
+  }
+}
+
+/**
+ * wp_proxy_enum_params_finish:
+ *
+ * Returns: (transfer full) (element-type spa_pod*): the params
+ */
+GPtrArray *
+wp_proxy_enum_params_finish (WpProxy * self,
+    GAsyncResult * res, GError ** err)
+{
+  g_return_val_if_fail (g_task_is_valid (res, self), NULL);
+  g_return_val_if_fail (g_async_result_is_tagged (res, wp_proxy_enum_params),
+      NULL);
+
+  self->tasks = g_list_remove (self->tasks, res);
+
+  return g_task_propagate_pointer (G_TASK (res), err);
 }
