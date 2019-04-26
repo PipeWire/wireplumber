@@ -78,7 +78,7 @@ static void
 device_node_destroyed (WpProxy * device_node, DefaultSession * session)
 {
   g_autoptr (WpObject) core = NULL;
-  g_autoptr (WpSessionRegistry) sr = NULL;
+  WpSessionRegistry *sr = NULL;
 
   g_info ("Proxy %u destroyed - unregistering session %u",
       wp_proxy_get_id (device_node), session->session_id);
@@ -94,9 +94,9 @@ static gboolean
 handle_node (WpPlugin * self, WpProxy * proxy)
 {
   g_autoptr (WpObject) core = NULL;
-  g_autoptr (WpSessionRegistry) sr = NULL;
-  g_autoptr (GError) error = NULL;
   g_autoptr (DefaultSession) session = NULL;
+  g_autoptr (GError) error = NULL;
+  WpSessionRegistry *sr = NULL;
   const gchar *media_class, *ptr;
   WpSessionDirection direction;
   guint32 media_type;
@@ -158,9 +158,9 @@ plug_dsp (WpProxy * node)
 {
   DefaultSession *session;
   g_autoptr (WpObject) core = NULL;
-  g_autoptr (WpPipewireObjects) pw_objects = NULL;
+  WpPipewireObjects *pw_objects = NULL;
   struct pw_core_proxy *core_proxy;
-  g_autoptr (WpPipewireProperties) pw_props = NULL;
+  WpPipewireProperties *pw_props = NULL;
   struct pw_properties *props;
   const char *name;
   enum pw_direction reverse_direction;
@@ -273,7 +273,7 @@ handle_pw_proxy (WpPlugin * self, WpProxy * proxy)
 {
   g_autoptr (WpObject) core = NULL;
   g_autoptr (WpProxy) parent = NULL;
-  g_autoptr (WpProxyRegistry) reg = NULL;
+  WpProxyRegistry *reg = NULL;
   DefaultSession *session;
 
   if (wp_proxy_get_spa_type (proxy) != PW_TYPE_INTERFACE_Port &&

@@ -94,7 +94,7 @@ wp_object_implements_interface (WpObject * self, GType interface)
  * @self: the object
  * @interface: an interface type
  *
- * Returns: (type GObject*) (nullable) (transfer full): the object
+ * Returns: (type GObject*) (nullable) (transfer none): the object
  *    implementing @interface
  */
 gpointer
@@ -108,7 +108,7 @@ wp_object_get_interface (WpObject * self, GType interface)
   for (i = 0; i < priv->iface_objects->len; i++) {
     GObject *obj = g_array_index (priv->iface_objects, GObject*, i);
     if (g_type_is_a (G_TYPE_FROM_INSTANCE (obj), interface))
-      return g_object_ref (obj);
+      return obj;
   }
 
   return NULL;

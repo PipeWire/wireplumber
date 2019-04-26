@@ -223,7 +223,7 @@ static void
 wp_proxy_constructed (GObject * object)
 {
   WpProxy *self = WP_PROXY (object);
-  g_autoptr (WpProxyRegistry) pr = NULL;
+  WpProxyRegistry *pr = NULL;
   struct pw_registry_proxy *reg_proxy;
   const void *events = NULL;
   uint32_t ver = 0;

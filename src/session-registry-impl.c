@@ -104,8 +104,8 @@ register_session (WpSessionRegistry * sr,
     GError ** error)
 {
   WpSessionRegistryImpl * self = WP_SESSION_REGISTRY_IMPL (sr);
-  g_autoptr (WpPluginRegistry) plugin_registry = NULL;
-  g_autoptr (WpPipewireProperties) pw_props = NULL;
+  WpPluginRegistry *plugin_registry = NULL;
+  WpPipewireProperties *pw_props = NULL;
   const gchar *media_class = NULL;
   SessionData data;
 

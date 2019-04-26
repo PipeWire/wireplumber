@@ -85,7 +85,7 @@ static gboolean
 wp_core_parse_commands_file (WpCore * self, GInputStream * stream,
     GError ** error)
 {
-  g_autoptr (WpPluginRegistry) plugin_registry = NULL;
+  WpPluginRegistry *plugin_registry = NULL;
   gchar buffer[4096];
   gssize bytes_read;
   gchar *cur, *linestart, *saveptr;
@@ -231,8 +231,8 @@ static void
 wp_core_dispose (GObject * obj)
 {
   WpCore *self = WP_CORE (obj);
-  g_autoptr (WpPluginRegistry) plugin_registry = NULL;
-  g_autoptr (WpProxyRegistry) proxy_registry = NULL;
+  WpPluginRegistry *plugin_registry = NULL;
+  WpProxyRegistry *proxy_registry = NULL;
 
   /* ensure all proxies and plugins are unrefed,
    * so that the registries can be disposed */

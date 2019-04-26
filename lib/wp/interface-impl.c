@@ -75,20 +75,20 @@ wp_interface_impl_get_object (WpInterfaceImpl * self)
  * @self: the interface implementation instance
  * @interface: an interface type
  *
- * Returns: (type GObject*) (nullable) (transfer full): the object
+ * Returns: (type GObject*) (nullable) (transfer none): the object
  *    implementing @interface
  */
 gpointer
 wp_interface_impl_get_sibling (WpInterfaceImpl * self, GType interface)
 {
   WpInterfaceImplPrivate *priv = wp_interface_impl_get_instance_private (self);
-  GObject *iface = NULL;
+  gpointer iface = NULL;
 
   g_return_val_if_fail (WP_IS_INTERFACE_IMPL (self), NULL);
   g_return_val_if_fail (G_TYPE_IS_INTERFACE (interface), NULL);
 
   if (g_type_is_a (G_TYPE_FROM_INSTANCE (self), interface)) {
-    iface = G_OBJECT (g_object_ref (self));
+    iface = self;
   } else if (priv->object) {
     iface = wp_object_get_interface (priv->object, interface);
   }

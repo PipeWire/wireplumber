@@ -88,9 +88,8 @@ registry_global (void * data, uint32_t id, uint32_t parent_id,
 {
   WpProxyRegistryImpl *self = WP_PROXY_REGISTRY_IMPL (data);
   WpProxy *proxy;
-  g_autoptr (WpPluginRegistry) plugin_registry = NULL;
-  g_autoptr (WpObject) core =
-      wp_interface_impl_get_object (WP_INTERFACE_IMPL (self));
+  WpPluginRegistry *plugin_registry = NULL;
+  WpObject *core = wp_interface_impl_get_object (WP_INTERFACE_IMPL (self));
 
   proxy = g_object_new (WP_TYPE_PROXY,
       "id", id,

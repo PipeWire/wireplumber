@@ -117,8 +117,8 @@ default_handle_pw_proxy (WpPlugin * self, WpProxy * proxy)
 
   case PW_TYPE_INTERFACE_Node:
     {
+      WpProxyRegistry *reg;
       g_autoptr (WpProxy) parent;
-      g_autoptr (WpProxyRegistry) reg;
 
       reg = wp_object_get_interface (priv->core, WP_TYPE_PROXY_REGISTRY);
       parent = wp_proxy_registry_get_proxy (reg, wp_proxy_get_parent_id (proxy));
