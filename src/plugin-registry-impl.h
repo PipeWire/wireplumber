@@ -26,12 +26,10 @@ gboolean wp_plugin_registry_impl_invoke_internal (WpPluginRegistryImpl * self,
 
 #define wp_plugin_registry_impl_invoke(r, func, data) \
   G_STMT_START { \
-    if (!(0 ? func ((WpPlugin *) NULL, data) : \
-            wp_plugin_registry_impl_invoke_internal ( \
-                WP_PLUGIN_REGISTRY_IMPL (r), (WpPluginFunc) func, \
-                (gpointer) data))) { \
-      g_warning ("No plugin handled invocation to " #func); \
-    } \
+    (0 ? func ((WpPlugin *) NULL, data) : \
+        wp_plugin_registry_impl_invoke_internal ( \
+            WP_PLUGIN_REGISTRY_IMPL (r), (WpPluginFunc) func, \
+            (gpointer) data)); \
   } G_STMT_END
 
 G_END_DECLS
