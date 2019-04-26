@@ -14,6 +14,8 @@
 #include "session-registry-impl.h"
 #include "utils.h"
 
+#include <wp/plugin.h>
+
 #include <pipewire/pipewire.h>
 #include <glib-unix.h>
 #include <gio/gio.h>
@@ -199,6 +201,16 @@ wp_core_load_commands_file (WpCore * self)
 }
 
 static void
+wp_core_handle_proxy (WpProxyRegistry *pr, WpProxy * proxy, WpCore * self)
+{
+  WpPluginRegistry *plugin_registry = wp_object_get_interface (WP_OBJECT (self),
+      WP_TYPE_PLUGIN_REGISTRY);
+  g_return_if_fail (plugin_registry != NULL);
+  wp_plugin_registry_impl_invoke (plugin_registry, wp_plugin_handle_pw_proxy,
+      proxy);
+}
+
+static void
 wp_core_init (WpCore * self)
 {
   WpPluginRegistryImpl *plugin_registry;
@@ -225,6 +237,9 @@ wp_core_init (WpCore * self)
 
   session_registry = wp_session_registry_impl_new ();
   wp_object_attach_interface_impl (WP_OBJECT (self), session_registry, NULL);
+
+  g_signal_connect (proxy_registry, "new-proxy-available",
+      (GCallback) wp_core_handle_proxy, self);
 }
 
 static void
