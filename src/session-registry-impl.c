@@ -105,7 +105,6 @@ register_session (WpSessionRegistry * sr,
 {
   WpSessionRegistryImpl * self = WP_SESSION_REGISTRY_IMPL (sr);
   WpPluginRegistry *plugin_registry = NULL;
-  WpPipewireProperties *pw_props = NULL;
   const gchar *media_class = NULL;
   SessionData data;
 
@@ -114,16 +113,7 @@ register_session (WpSessionRegistry * sr,
   wp_plugin_registry_impl_invoke (plugin_registry,
       wp_plugin_provide_interfaces, WP_OBJECT (session));
 
-  pw_props = wp_object_get_interface (WP_OBJECT (session),
-      WP_TYPE_PIPEWIRE_PROPERTIES);
-  if (!pw_props) {
-    g_set_error (error, WP_DOMAIN_CORE, WP_CODE_INVALID_ARGUMENT,
-        "session object does not implement WpPipewirePropertiesInterface");
-    return -1;
-  }
-
-  media_class = wp_pipewire_properties_get (pw_props,
-        WP_SESSION_PW_PROP_MEDIA_CLASS);
+  media_class = wp_session_get_media_class (session);
   if (!media_class) {
      g_set_error (error, WP_DOMAIN_CORE, WP_CODE_INVALID_ARGUMENT,
         "session media_class is NULL");

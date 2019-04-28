@@ -54,10 +54,13 @@ session_class_init (DefaultSessionClass * klass)
 }
 
 static DefaultSession *
-session_new (WpProxy * device_node, guint32 type, WpSessionDirection dir)
+session_new (WpProxy * device_node, guint32 type, WpSessionDirection dir,
+    const gchar * media_class)
 {
-  DefaultSession *sess =
-      g_object_new (session_get_type (), "direction", dir, NULL);
+  DefaultSession *sess = g_object_new (session_get_type (),
+      "direction", dir,
+      "media-class", media_class,
+      NULL);
 
   sess->device_node = device_node;
   sess->media_type = type;
@@ -126,7 +129,7 @@ handle_node (WpPlugin * self, WpProxy * proxy)
       wp_proxy_get_id (proxy), wp_proxy_get_spa_type_string (proxy),
       media_class);
 
-  session = session_new (proxy, media_type, direction);
+  session = session_new (proxy, media_type, direction, media_class);
 
   core = wp_plugin_get_core (self);
   sr = wp_object_get_interface (core, WP_TYPE_SESSION_REGISTRY);

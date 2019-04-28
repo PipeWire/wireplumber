@@ -27,8 +27,7 @@ struct _WpSessionClass
 };
 
 WpSessionDirection wp_session_get_direction (WpSession * session);
-
-#define WP_SESSION_PW_PROP_MEDIA_CLASS "media.class"
+const gchar *wp_session_get_media_class (WpSession * session);
 
 G_END_DECLS
 
