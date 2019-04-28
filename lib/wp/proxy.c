@@ -77,16 +77,6 @@ struct task_data {
   GPtrArray *result;
 };
 
-static gint
-find_task (gconstpointer t, gconstpointer s)
-{
-  GTask *task = (GTask *) t;
-  int seq = GPOINTER_TO_INT (s);
-  struct task_data *data = g_task_get_task_data (task);
-
-  return data->seq - seq;
-}
-
 /* Updates the info structure while copying the properties into self->properties
  * and avoiding making a second copy of the properties dict in info->props */
 #define PROXY_INFO_FUNC(TYPE, type) \
@@ -117,12 +107,18 @@ find_task (gconstpointer t, gconstpointer s)
       uint32_t next, const struct spa_pod *param) \
   { \
     WpProxy *self = WP_PROXY (object); \
-    GList *l; \
-    struct task_data *data; \
+    GList *l = self->tasks; \
+    struct task_data *data = NULL; \
     \
-    l = g_list_find_custom (self->tasks, GINT_TO_POINTER (seq), find_task); \
+    /* FIXME: seq is not propagated properly \
+    while (l) { \
+      data = g_task_get_task_data (G_TASK (l->data)); \
+      if (data && data->seq == seq) \
+        break; \
+      l = g_list_next (l); \
+    } \
+    */ \
     g_return_if_fail (l != NULL); \
-    \
     data = g_task_get_task_data (G_TASK (l->data)); \
     g_ptr_array_add (data->result, spa_pod_copy (param)); \
   }
@@ -191,21 +187,31 @@ proxy_event_destroy (void *object)
 
   self->proxy = NULL;
   g_signal_emit (self, signals[SIGNAL_DESTROYED], 0);
+  g_object_unref (self);
 }
 
 static void
 proxy_event_done (void *object, int seq)
 {
   WpProxy *self = WP_PROXY (object);
-  GList *l;
-  struct task_data *data;
+  GList *l = self->tasks;
+  struct task_data *data = NULL;
 
-  l = g_list_find_custom (self->tasks, GINT_TO_POINTER (seq), find_task);
+  /* FIXME: seq is not propagated properly */
+#if 0
+  while (l) {
+    data = g_task_get_task_data (G_TASK (l->data));
+    if (data && data->seq == seq)
+      break;
+    l = g_list_next (l);
+  }
+#endif
   g_return_if_fail (l != NULL);
-
   data = g_task_get_task_data (G_TASK (l->data));
   g_task_return_pointer (G_TASK (l->data), g_ptr_array_ref (data->result),
       (GDestroyNotify) g_ptr_array_unref);
+  g_object_unref (l->data);
+  self->tasks = g_list_remove_link (self->tasks, l);
 }
 
 static const struct pw_proxy_events proxy_events = {
@@ -274,6 +280,9 @@ wp_proxy_constructed (GObject * object)
   pw_proxy_add_listener (self->proxy, &self->proxy_listener, &proxy_events,
       self);
 
+  /* this reference is held by the pw_proxy, released in proxy_event_destroy() */
+  g_object_ref (self);
+
   if (events)
     pw_proxy_add_proxy_listener(self->proxy, &self->proxy_proxy_listener,
         events, self);
@@ -297,7 +306,6 @@ wp_proxy_finalize (GObject * object)
   WpProxy *self = WP_PROXY (object);
 
   g_clear_pointer (&self->properties, pw_properties_free);
-  g_clear_object (&self->core);
 
   G_OBJECT_CLASS (wp_proxy_parent_class)->finalize (object);
 }
@@ -560,7 +568,7 @@ wp_proxy_enum_params (WpProxy * self, guint32 id,
   data->result = g_ptr_array_new_with_free_func (free);
   g_task_set_task_data (task, data, (GDestroyNotify) task_data_free);
 
-  self->tasks = g_list_append (self->tasks, task);
+  self->tasks = g_list_append (self->tasks, g_object_ref (task));
 
   switch (self->type) {
     case PW_TYPE_INTERFACE_Node:
@@ -598,8 +606,6 @@ wp_proxy_enum_params_finish (WpProxy * self,
   g_return_val_if_fail (g_task_is_valid (res, self), NULL);
   g_return_val_if_fail (g_async_result_is_tagged (res, wp_proxy_enum_params),
       NULL);
-
-  self->tasks = g_list_remove (self->tasks, res);
 
   return g_task_propagate_pointer (G_TASK (res), err);
 }

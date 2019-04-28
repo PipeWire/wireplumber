@@ -35,17 +35,6 @@ wp_plugin_init (WpPlugin * self)
 }
 
 static void
-wp_plugin_dispose (GObject * object)
-{
-  WpPlugin *plugin = WP_PLUGIN (object);
-  WpPluginPrivate *priv = wp_plugin_get_instance_private (plugin);
-
-  g_clear_object (&priv->core);
-
-  G_OBJECT_CLASS (wp_plugin_parent_class)->dispose (object);
-}
-
-static void
 wp_plugin_set_property (GObject * object, guint property_id,
     const GValue * value, GParamSpec * pspec)
 {
@@ -144,7 +133,6 @@ wp_plugin_class_init (WpPluginClass * klass)
 
   klass->handle_pw_proxy = default_handle_pw_proxy;
 
-  object_class->dispose = wp_plugin_dispose;
   object_class->get_property = wp_plugin_get_property;
   object_class->set_property = wp_plugin_set_property;
 

@@ -179,11 +179,10 @@ plug_dsp (WpProxy * node)
   g_info ("making audio dsp for session %u", session->session_id);
 
   core = wp_proxy_get_core (node);
-  pw_objects = wp_object_get_interface (core, WP_TYPE_PIPEWIRE_OBJECTS);
+  pw_objects = WP_PIPEWIRE_OBJECTS (core);
   core_proxy = pw_remote_get_core_proxy (wp_pipewire_objects_get_pw_remote (pw_objects));
 
-  pw_props = wp_object_get_interface (WP_OBJECT (node),
-      WP_TYPE_PIPEWIRE_PROPERTIES);
+  pw_props = WP_PIPEWIRE_PROPERTIES (node);
   props = pw_properties_new_dict (
       wp_pipewire_properties_get_as_spa_dict (pw_props));
   if ((name = pw_properties_get (props, "device.nick")) == NULL)
@@ -220,25 +219,27 @@ plug_dsp (WpProxy * node)
 }
 
 static void
-audio_port_enum_params_done (GObject * proxy, GAsyncResult * res, gpointer data)
+audio_port_enum_params_done (GObject * port, GAsyncResult * res, gpointer data)
 {
   g_autoptr (GError) error = NULL;
   g_autoptr (GPtrArray) params = NULL;
+  WpProxy *node;
   DefaultSession *session;
   struct spa_audio_info_raw info = { 0, };
   guint32 media_type, media_subtype;
   guint i;
 
   g_debug ("done enumerating port %u params",
-      wp_proxy_get_id (WP_PROXY (proxy)));
+      wp_proxy_get_id (WP_PROXY (port)));
 
-  params = wp_proxy_enum_params_finish (WP_PROXY (proxy), res, &error);
+  params = wp_proxy_enum_params_finish (WP_PROXY (port), res, &error);
   if (!params) {
     g_warning ("%s", error->message);
     return;
   }
 
-  session = g_object_get_data (proxy, "module-default-session.session");
+  node = WP_PROXY (data);
+  session = g_object_get_data (G_OBJECT (node), "module-default-session.session");
 
   for (i = 0; i < params->len; i++) {
     struct spa_pod *param = g_ptr_array_index (params, i);
@@ -260,14 +261,14 @@ audio_port_enum_params_done (GObject * proxy, GAsyncResult * res, gpointer data)
   }
 
   g_idle_add_full (G_PRIORITY_DEFAULT_IDLE, (GSourceFunc) plug_dsp,
-      g_object_ref (proxy), g_object_unref);
+      g_object_ref (node), g_object_unref);
 }
 
 static gboolean
-handle_audio_port (WpPlugin * self, WpProxy * proxy)
+handle_audio_port (WpPlugin * self, WpProxy * port, WpProxy * node)
 {
-  wp_proxy_enum_params (proxy, SPA_PARAM_EnumFormat,
-      audio_port_enum_params_done, NULL);
+  wp_proxy_enum_params (port, SPA_PARAM_EnumFormat,
+      audio_port_enum_params_done, node);
   return TRUE;
 }
 
@@ -301,7 +302,7 @@ handle_pw_proxy (WpPlugin * self, WpProxy * proxy)
   {
     g_debug ("handling audio port %u (parent node %u)", wp_proxy_get_id (proxy),
         wp_proxy_get_id (parent));
-    return handle_audio_port (self, proxy);
+    return handle_audio_port (self, proxy, parent);
   }
 
   return FALSE;
