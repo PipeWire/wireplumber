@@ -1,12 +1,5 @@
 wp_sources = [
-  'core.c',
-  'loop-source.c',
   'main.c',
-  'module-loader.c',
-  'plugin-registry-impl.c',
-  'proxy-registry-impl.c',
-  'session-registry-impl.c',
-  'utils.c',
 ]
 
 executable('wireplumber',
@@ -17,5 +10,5 @@ executable('wireplumber',
     '-DG_LOG_DOMAIN="wireplumber"'
   ],
   install: true,
-  dependencies : [gobject_dep, gmodule_dep, gio_dep, pipewire_dep, wp_dep],
+  dependencies : [gobject_dep, gio_dep, wp_dep],
 )

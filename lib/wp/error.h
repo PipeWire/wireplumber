@@ -18,6 +18,8 @@ GQuark wp_domain_library_quark (void);
 
 typedef enum {
   WP_LIBRARY_ERROR_INVARIANT,
+  WP_LIBRARY_ERROR_INVALID_ARGUMENT,
+  WP_LIBRARY_ERROR_OPERATION_FAILED,
 } WpLibraryErrorEnum;
 
 G_END_DECLS

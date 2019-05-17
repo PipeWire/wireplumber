@@ -6,6 +6,9 @@
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
-#include "utils.h"
-
-G_DEFINE_QUARK (wireplumber-core, wp_domain_core);
+#include "core.h"
+#include "endpoint.h"
+#include "error.h"
+#include "factory.h"
+#include "module.h"
+#include "session-manager.h"

@@ -1,21 +1,19 @@
 wp_lib_sources = [
-  'core-interfaces.c',
+  'core.c',
+  'endpoint.c',
   'error.c',
-  'interface-impl.c',
-  'object.c',
-  'plugin.c',
-  'proxy.c',
-  'session.c',
+  'factory.c',
+  'module.c',
+  'session-manager.c',
 ]
 
 wp_lib_headers = [
-  'core-interfaces.h',
+  'core.h',
+  'endpoint.h',
   'error.h',
-  'interface-impl.h',
-  'object.h',
-  'plugin.h',
-  'proxy.h',
-  'session.h',
+  'factory.h',
+  'module.h',
+  'session-manager.h',
 ]
 
 enums = gnome.mkenums_simple('wpenums', sources: wp_lib_headers)
@@ -28,14 +26,15 @@ wp_lib = library('wireplumber-' + wireplumber_api_version,
     '-DG_LOG_DOMAIN="libwireplumber"'
   ],
   install: true,
-  dependencies : [gobject_dep, pipewire_dep, gio_dep],
+  include_directories: wp_lib_include_dir,
+  dependencies : [gobject_dep, gmodule_dep],
 )
 
 gnome.generate_gir(wp_lib,
   namespace: 'Wp',
   nsversion: wireplumber_api_version,
   sources: [wp_lib_sources, wp_lib_headers],
-  includes: ['GLib-2.0', 'GObject-2.0', 'Gio-2.0'],
+  includes: ['GLib-2.0', 'GObject-2.0'],
   install: true,
 )
 

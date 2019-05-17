@@ -6,17 +6,11 @@
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
+/**
+ * Integration between the PipeWire main loop and GMainLoop
+ */
+
 #include "loop-source.h"
-
-#define WP_LOOP_SOURCE(x) ((WpLoopSource *) x)
-
-typedef struct _WpLoopSource WpLoopSource;
-
-struct _WpLoopSource
-{
-  GSource parent;
-  struct pw_loop *loop;
-};
 
 static gboolean
 wp_loop_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
@@ -57,10 +51,4 @@ wp_loop_source_new (void)
       G_IO_IN | G_IO_ERR | G_IO_HUP);
 
   return (GSource *) s;
-}
-
-struct pw_loop *
-wp_loop_source_get_loop (GSource *s)
-{
-  return WP_LOOP_SOURCE(s)->loop;
 }
