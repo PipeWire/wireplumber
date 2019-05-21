@@ -15,7 +15,8 @@ struct _WpEndpointPrivate
 {
   gchar *name;
   gchar media_class[40];
-  guint32 active_profile;
+  GPtrArray *streams;
+  GPtrArray *controls;
   GPtrArray *links;
 };
 
@@ -25,6 +26,13 @@ enum {
   PROP_MEDIA_CLASS,
 };
 
+enum {
+  SIGNAL_NOTIFY_CONTROL_VALUE,
+  NUM_SIGNALS
+};
+
+static guint32 signals[NUM_SIGNALS];
+
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (WpEndpoint, wp_endpoint, G_TYPE_OBJECT)
 
 static void
@@ -32,6 +40,10 @@ wp_endpoint_init (WpEndpoint * self)
 {
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
 
+  priv->streams =
+      g_ptr_array_new_with_free_func ((GDestroyNotify) g_variant_unref);
+  priv->controls =
+      g_ptr_array_new_with_free_func ((GDestroyNotify) g_variant_unref);
   priv->links = g_ptr_array_new_with_free_func (g_object_unref);
 }
 
@@ -57,6 +69,8 @@ wp_endpoint_finalize (GObject * object)
   WpEndpointPrivate *priv =
       wp_endpoint_get_instance_private (WP_ENDPOINT (object));
 
+  g_ptr_array_unref (priv->streams);
+  g_ptr_array_unref (priv->controls);
   g_ptr_array_unref (priv->links);
 
   G_OBJECT_CLASS (wp_endpoint_parent_class)->finalize (object);
@@ -103,34 +117,6 @@ wp_endpoint_get_property (GObject * object, guint property_id, GValue * value,
   }
 }
 
-static guint32
-default_get_streams_or_profiles_count (WpEndpoint * self)
-{
-  return 1;
-}
-
-static const gchar *
-default_get_stream_or_profile_name (WpEndpoint * self, guint32 id)
-{
-  return (id == 0) ? "default" : NULL;
-}
-
-static gboolean
-default_activate_profile (WpEndpoint * self, guint32 profile_id,
-    GError ** error)
-{
-  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
-
-  if (profile_id >= wp_endpoint_get_profiles_count (self)) {
-    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
-        "profile id %d does not exist", profile_id);
-    return FALSE;
-  }
-
-  priv->active_profile = profile_id;
-  return TRUE;
-}
-
 static void
 wp_endpoint_class_init (WpEndpointClass * klass)
 {
@@ -141,12 +127,6 @@ wp_endpoint_class_init (WpEndpointClass * klass)
   object_class->get_property = wp_endpoint_get_property;
   object_class->set_property = wp_endpoint_set_property;
 
-  klass->get_streams_count = default_get_streams_or_profiles_count;
-  klass->get_stream_name = default_get_stream_or_profile_name;
-  klass->get_profiles_count = default_get_streams_or_profiles_count;
-  klass->get_profile_name = default_get_stream_or_profile_name;
-  klass->activate_profile = default_activate_profile;
-
   g_object_class_install_property (object_class, PROP_NAME,
       g_param_spec_string ("name", "name", "The name of the endpoint", NULL,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS));
@@ -155,6 +135,10 @@ wp_endpoint_class_init (WpEndpointClass * klass)
       g_param_spec_string ("media-class", "media-class",
           "The media class of the endpoint", NULL,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS));
+
+  signals[SIGNAL_NOTIFY_CONTROL_VALUE] = g_signal_new ("notify-control-value",
+      G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
+      G_TYPE_NONE, 1, G_TYPE_UINT);
 }
 
 const gchar *
@@ -179,62 +163,83 @@ wp_endpoint_get_media_class (WpEndpoint * self)
   return priv->media_class;
 }
 
-guint32
-wp_endpoint_get_streams_count (WpEndpoint * self)
-{
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), 0);
-  g_return_val_if_fail (WP_ENDPOINT_GET_CLASS (self)->get_streams_count, 0);
-
-  return WP_ENDPOINT_GET_CLASS (self)->get_streams_count (self);
-}
-
-const gchar *
-wp_endpoint_get_stream_name (WpEndpoint * self, guint32 stream_id)
-{
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
-  g_return_val_if_fail (WP_ENDPOINT_GET_CLASS (self)->get_stream_name, NULL);
-
-  return WP_ENDPOINT_GET_CLASS (self)->get_stream_name (self, stream_id);
-}
-
-guint32
-wp_endpoint_get_profiles_count (WpEndpoint * self)
-{
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), 0);
-  g_return_val_if_fail (WP_ENDPOINT_GET_CLASS (self)->get_profiles_count, 0);
-
-  return WP_ENDPOINT_GET_CLASS (self)->get_profiles_count (self);
-}
-
-const gchar *
-wp_endpoint_get_profile_name (WpEndpoint * self, guint32 profile_id)
-{
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
-  g_return_val_if_fail (WP_ENDPOINT_GET_CLASS (self)->get_profile_name, NULL);
-
-  return WP_ENDPOINT_GET_CLASS (self)->get_profile_name (self, profile_id);
-}
-
-guint32
-wp_endpoint_get_active_profile (WpEndpoint * self)
+void
+wp_endpoint_register_stream (WpEndpoint * self, GVariant * stream)
 {
   WpEndpointPrivate *priv;
 
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), 0);
+  g_return_if_fail (WP_IS_ENDPOINT (self));
+  g_return_if_fail (g_variant_is_of_type (stream, G_VARIANT_TYPE_VARDICT));
 
   priv = wp_endpoint_get_instance_private (self);
-  return priv->active_profile;
+  g_ptr_array_add (priv->streams, g_variant_ref_sink (stream));
+}
+
+GVariant *
+wp_endpoint_list_streams (WpEndpoint * self)
+{
+  WpEndpointPrivate *priv;
+
+  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
+
+  priv = wp_endpoint_get_instance_private (self);
+  return g_variant_new_array (G_VARIANT_TYPE_VARDICT,
+      (GVariant * const *) priv->streams->pdata, priv->streams->len);
+}
+
+void
+wp_endpoint_register_control (WpEndpoint * self, GVariant * control)
+{
+  WpEndpointPrivate *priv;
+
+  g_return_if_fail (WP_IS_ENDPOINT (self));
+  g_return_if_fail (g_variant_is_of_type (control, G_VARIANT_TYPE_VARDICT));
+
+  priv = wp_endpoint_get_instance_private (self);
+  g_ptr_array_add (priv->controls, g_variant_ref_sink (control));
+}
+
+GVariant *
+wp_endpoint_list_controls (WpEndpoint * self)
+{
+  WpEndpointPrivate *priv;
+
+  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
+
+  priv = wp_endpoint_get_instance_private (self);
+  return g_variant_new_array (G_VARIANT_TYPE_VARDICT,
+      (GVariant * const *) priv->controls->pdata, priv->controls->len);
+}
+
+GVariant *
+wp_endpoint_get_control_value (WpEndpoint * self, guint32 control_id)
+{
+  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
+
+  if (WP_ENDPOINT_GET_CLASS (self)->get_control_value)
+    return WP_ENDPOINT_GET_CLASS (self)->get_control_value (self, control_id);
+  else
+    return NULL;
 }
 
 gboolean
-wp_endpoint_activate_profile (WpEndpoint * self, guint32 profile_id,
-    GError ** error)
+wp_endpoint_set_control_value (WpEndpoint * self, guint32 control_id,
+    GVariant * value)
 {
   g_return_val_if_fail (WP_IS_ENDPOINT (self), FALSE);
-  g_return_val_if_fail (WP_ENDPOINT_GET_CLASS (self)->activate_profile, FALSE);
 
-  return WP_ENDPOINT_GET_CLASS (self)->activate_profile (self, profile_id,
-      error);
+  if (WP_ENDPOINT_GET_CLASS (self)->set_control_value)
+    return WP_ENDPOINT_GET_CLASS (self)->set_control_value (self, control_id,
+        value);
+  else
+    return FALSE;
+}
+
+void
+wp_endpoint_notify_control_value (WpEndpoint * self, guint32 control_id)
+{
+  g_return_if_fail (WP_IS_ENDPOINT (self));
+  g_signal_emit (self, signals[SIGNAL_NOTIFY_CONTROL_VALUE], 0, control_id);
 }
 
 gboolean

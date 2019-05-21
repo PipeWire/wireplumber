@@ -29,6 +29,12 @@ G_DEFINE_TYPE (WpPipewireSimpleEndpoint, simple_endpoint, WP_TYPE_ENDPOINT)
 static void
 simple_endpoint_init (WpPipewireSimpleEndpoint * self)
 {
+  GVariantBuilder b;
+
+  g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
+  g_variant_builder_add (&b, "{sv}", "id", g_variant_new_uint32 (0));
+  g_variant_builder_add (&b, "{sv}", "name", g_variant_new_string ("default"));
+  wp_endpoint_register_stream (WP_ENDPOINT (self), g_variant_builder_end (&b));
 }
 
 static gboolean

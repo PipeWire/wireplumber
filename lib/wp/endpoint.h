@@ -23,13 +23,9 @@ struct _WpEndpointClass
 {
   GObjectClass parent_class;
 
-  guint32 (*get_streams_count) (WpEndpoint * self);
-  const gchar * (*get_stream_name) (WpEndpoint * self, guint32 stream_id);
-
-  guint32 (*get_profiles_count) (WpEndpoint * self);
-  const gchar * (*get_profile_name) (WpEndpoint * self, guint32 profile_id);
-  gboolean (*activate_profile) (WpEndpoint * self, guint32 profile_id,
-      GError ** error);
+  GVariant * (*get_control_value) (WpEndpoint * self, guint32 control_id);
+  gboolean (*set_control_value) (WpEndpoint * self, guint32 control_id,
+      GVariant * value);
 
   gboolean (*prepare_link) (WpEndpoint * self, guint32 stream_id,
       WpEndpointLink * link, GVariant ** properties, GError ** error);
@@ -41,16 +37,17 @@ struct _WpEndpointClass
 const gchar * wp_endpoint_get_name (WpEndpoint * self);
 const gchar * wp_endpoint_get_media_class (WpEndpoint * self);
 
-guint32 wp_endpoint_get_streams_count (WpEndpoint * self);
-const gchar * wp_endpoint_get_stream_name (WpEndpoint * self,
-    guint32 stream_id);
+void wp_endpoint_register_stream (WpEndpoint * self, GVariant * stream);
+GVariant * wp_endpoint_list_streams (WpEndpoint * self);
 
-guint32 wp_endpoint_get_profiles_count (WpEndpoint * self);
-const gchar * wp_endpoint_get_profile_name (WpEndpoint * self,
-    guint32 profile_id);
-guint32 wp_endpoint_get_active_profile (WpEndpoint * self);
-gboolean wp_endpoint_activate_profile (WpEndpoint * self, guint32 profile_id,
-    GError ** error);
+void wp_endpoint_register_control (WpEndpoint * self, GVariant * control);
+GVariant * wp_endpoint_list_controls (WpEndpoint * self);
+
+GVariant * wp_endpoint_get_control_value (WpEndpoint * self,
+    guint32 control_id);
+gboolean wp_endpoint_set_control_value (WpEndpoint * self, guint32 control_id,
+    GVariant * value);
+void wp_endpoint_notify_control_value (WpEndpoint * self, guint32 control_id);
 
 gboolean wp_endpoint_is_linked (WpEndpoint * self);
 GPtrArray * wp_endpoint_get_links (WpEndpoint * self);
