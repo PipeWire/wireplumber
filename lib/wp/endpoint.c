@@ -10,6 +10,83 @@
 #include "error.h"
 #include "factory.h"
 
+/**
+ * SECTION: Endpoint
+ *
+ * An endpoint is an abstraction layer that represents a physical place where
+ * audio can be routed to/from.
+ *
+ * Examples of endpoints on a desktop-like system:
+ * * Laptop speakers
+ * * Laptop webcam
+ * * USB microphone
+ * * Docking station stereo jack port
+ * * USB 5.1 Digital audio output
+ *
+ * Examples of endpoints on a car:
+ * * Driver seat speakers
+ * * Front right seat microphone array
+ * * Rear left seat headphones
+ * * Bluetooth phone gateway
+ * * All speakers
+ *
+ * In ALSA terms, an endpoint may be representing an ALSA subdevice 1-to-1
+ * (therefore a single alsa-source/alsa-sink node in pipewire),
+ * but it may as well be representing a part of this subdevice (for instance,
+ * only the front stereo channels, or only the rear stereo), or it may represent
+ * a combination of devices (for instance, playing to all speakers of a system
+ * while they are plugged on different sound cards).
+ *
+ * An endpoint is not necessarily tied to a device that is present on this
+ * system using ALSA or V4L. It may also represent a hardware device that
+ * can be accessed in some hardware-specific path and is not accessible to
+ * applications through pipewire. In this case, the endpoint can only used
+ * for controlling the hardware, or - if the appropriate EndpointLink object
+ * is also implemented - it can be used to route media from some other
+ * hardware endpoint.
+ *
+ * ## Streams
+ *
+ * An endpoint can contain multiple streams, which represent different,
+ * controllable paths that can be used to reach this endpoint.
+ * Streams can be used to implement grouping of applications based on their
+ * role or other things.
+ *
+ * Examples of streams on an audio output endpoint: "multimedia", "radio",
+ * "phone". In this example, an audio player would be routed through the
+ * "multimedia" stream, for instance, while a voip app would be routed through
+ * "phone". This would allow lowering the volume of the audio player while the
+ * call is in progress by using the standard volume control of the "multimedia"
+ * stream.
+ *
+ * Examples of streams on an audio capture endpoint: "standard",
+ * "voice recognition". In this example, the "standard" capture gives a
+ * real-time capture from the microphone, while "voice recognition" gives a
+ * slightly delayed and DSP-optimized for speech input, which can be used
+ * as input in a voice recognition engine.
+ *
+ * A stream is described as a dictionary GVariant (a{sv}) with the following
+ * standard keys available:
+ * "id": the id of the stream
+ * "name": the name of the stream
+ *
+ * ## Controls
+ *
+ * An endpoint can have multiple controls, which can control anything in the
+ * path of media. Typically, audio streams have volume and mute controls, while
+ * video streams have hue, brightness, contrast, etc... Controls can be linked
+ * to a specific stream, but may as well be global and apply to all streams
+ * of the endpoint. This can be used to implement a master volume, for instance.
+ *
+ * A control is described as a dictionary GVariant (a{sv}) with the following
+ * standard keys available:
+ * "id": the id of the control
+ * "stream-id": the id of the stream that this control applies to
+ * "name": the name of the control
+ * "type": a GVariant type string
+ * "range": a tuple (min, max)
+ */
+
 typedef struct _WpEndpointPrivate WpEndpointPrivate;
 struct _WpEndpointPrivate
 {
@@ -127,10 +204,24 @@ wp_endpoint_class_init (WpEndpointClass * klass)
   object_class->get_property = wp_endpoint_get_property;
   object_class->set_property = wp_endpoint_set_property;
 
+  /**
+   * WpEndpoint::name:
+   * The name of the endpoint.
+   */
   g_object_class_install_property (object_class, PROP_NAME,
       g_param_spec_string ("name", "name", "The name of the endpoint", NULL,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS));
 
+  /**
+   * WpEndpoint::media-class:
+   * The media class describes the type of media that this endpoint handles.
+   * This should be the same as PipeWire media class strings.
+   * For instance:
+   * * Audio/Sink
+   * * Audio/Source
+   * * Video/Source
+   * * Stream/Audio/Source
+   */
   g_object_class_install_property (object_class, PROP_MEDIA_CLASS,
       g_param_spec_string ("media-class", "media-class",
           "The media class of the endpoint", NULL,
@@ -163,6 +254,11 @@ wp_endpoint_get_media_class (WpEndpoint * self)
   return priv->media_class;
 }
 
+/**
+ * wp_endpoint_register_stream:
+ * @self: the endpoint
+ * @stream: (transfer floating): a dictionary GVariant with the stream info
+ */
 void
 wp_endpoint_register_stream (WpEndpoint * self, GVariant * stream)
 {
@@ -175,6 +271,14 @@ wp_endpoint_register_stream (WpEndpoint * self, GVariant * stream)
   g_ptr_array_add (priv->streams, g_variant_ref_sink (stream));
 }
 
+/**
+ * wp_endpoint_list_streams:
+ * @self: the endpoint
+ *
+ * Returns: (transfer floating): a floating GVariant that contains an array of
+ *    dictionaries (aa{sv}) where each dictionary contains information about
+ *    a single stream
+ */
 GVariant *
 wp_endpoint_list_streams (WpEndpoint * self)
 {
@@ -187,6 +291,11 @@ wp_endpoint_list_streams (WpEndpoint * self)
       (GVariant * const *) priv->streams->pdata, priv->streams->len);
 }
 
+/**
+ * wp_endpoint_register_control:
+ * @self: the endpoint
+ * @control: (transfer floating): a dictionary GVariant with the control info
+ */
 void
 wp_endpoint_register_control (WpEndpoint * self, GVariant * control)
 {
@@ -199,6 +308,14 @@ wp_endpoint_register_control (WpEndpoint * self, GVariant * control)
   g_ptr_array_add (priv->controls, g_variant_ref_sink (control));
 }
 
+/**
+ * wp_endpoint_list_controls:
+ * @self: the endpoint
+ *
+ * Returns: (transfer floating): a floating GVariant that contains an array of
+ *    dictionaries (aa{sv}) where each dictionary contains information about
+ *    a single control
+ */
 GVariant *
 wp_endpoint_list_controls (WpEndpoint * self)
 {
@@ -211,6 +328,20 @@ wp_endpoint_list_controls (WpEndpoint * self)
       (GVariant * const *) priv->controls->pdata, priv->controls->len);
 }
 
+/**
+ * wp_endpoint_get_control_value: (virtual get_control_value)
+ * @self: the endpoint
+ * @control_id: the id of the control to set
+ *
+ * Returns a dictionary GVariant containing two fields:
+ * * "id": a uint32 representing the control id
+ * * "value": a variant containing the value of the control
+ *
+ * On error, NULL will be returned.
+ *
+ * Returns: (transfer floating) (nullable): a dictionary GVariant containing
+ *    the control value
+ */
 GVariant *
 wp_endpoint_get_control_value (WpEndpoint * self, guint32 control_id)
 {
@@ -222,6 +353,18 @@ wp_endpoint_get_control_value (WpEndpoint * self, guint32 control_id)
     return NULL;
 }
 
+/**
+ * wp_endpoint_set_control_value: (virtual set_control_value)
+ * @self: the endpoint
+ * @control_id: the id of the control to set
+ * @value: (transfer none): the value to set on the control
+ *
+ * Sets the @value on the specified control. The implementation should
+ * call wp_endpoint_notify_control_value() if the value has been changed
+ * in order to signal the change.
+ *
+ * Returns: TRUE on success, FALSE on failure
+ */
 gboolean
 wp_endpoint_set_control_value (WpEndpoint * self, guint32 control_id,
     GVariant * value)
@@ -235,6 +378,15 @@ wp_endpoint_set_control_value (WpEndpoint * self, guint32 control_id,
     return FALSE;
 }
 
+/**
+ * wp_endpoint_notify_control_value:
+ * @self: the endpoint
+ * @control_id: the id of the control
+ *
+ * Emits the "notify-control-value" signal so that others can be informed
+ * about a value change in some of the controls. This is meant to be used
+ * by subclasses only.
+ */
 void
 wp_endpoint_notify_control_value (WpEndpoint * self, guint32 control_id)
 {
@@ -242,6 +394,12 @@ wp_endpoint_notify_control_value (WpEndpoint * self, guint32 control_id)
   g_signal_emit (self, signals[SIGNAL_NOTIFY_CONTROL_VALUE], 0, control_id);
 }
 
+/**
+ * wp_endpoint_is_linked:
+ * @self: the endpoint
+ *
+ * Returns: TRUE if there is at least one link associated with this endpoint
+ */
 gboolean
 wp_endpoint_is_linked (WpEndpoint * self)
 {
@@ -253,6 +411,13 @@ wp_endpoint_is_linked (WpEndpoint * self)
   return (priv->links->len > 0);
 }
 
+/**
+ * wp_endpoint_get_links:
+ * @self: the endpoint
+ *
+ * Returns: (transfer none) (element-type WpEndpointLink): an array of
+ *    #WpEndpointLink objects that are currently associated with this endpoint
+ */
 GPtrArray *
 wp_endpoint_get_links (WpEndpoint * self)
 {
