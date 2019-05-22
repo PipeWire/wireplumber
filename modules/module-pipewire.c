@@ -59,10 +59,9 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 
   wp_module_set_destroy_callback (module, module_destroy, pw_remote);
 
-  wp_core_register_factory (core, wp_factory_new (
-          "pipewire-simple-endpoint", simple_endpoint_factory));
-  wp_core_register_factory (core, wp_factory_new (
-          "pipewire-simple-endpoint-link", simple_endpoint_link_factory));
+  wp_factory_new (core, "pipewire-simple-endpoint", simple_endpoint_factory);
+  wp_factory_new (core, "pipewire-simple-endpoint-link",
+      simple_endpoint_link_factory);
 
   g_idle_add ((GSourceFunc) connect_in_idle, pw_remote);
 }

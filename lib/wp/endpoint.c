@@ -547,8 +547,7 @@ WpEndpointLink * wp_endpoint_link_new (WpCore * core, WpEndpoint * src,
 
   /* create link object */
 
-  link = wp_core_make_from_factory (core, src_factory, WP_TYPE_ENDPOINT_LINK,
-      NULL);
+  link = wp_factory_make (core, src_factory, WP_TYPE_ENDPOINT_LINK, NULL);
   if (!link) {
     g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
         "Failed to create link object from factory %s", src_factory);

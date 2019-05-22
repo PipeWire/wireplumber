@@ -60,6 +60,5 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties)
 void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
-  wp_core_register_factory (core, wp_factory_new (
-          "pw-audio-softdsp-endpoint", endpoint_factory));
+  wp_factory_new (core, "pw-audio-softdsp-endpoint", endpoint_factory);
 }
