@@ -35,6 +35,7 @@ static gboolean
 endpoint_prepare_link (WpEndpoint * self, guint32 stream_id,
     WpEndpointLink * link, GVariant ** properties, GError ** error)
 {
+  return TRUE;
 }
 
 static void

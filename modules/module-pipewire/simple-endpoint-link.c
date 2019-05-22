@@ -44,6 +44,8 @@ simple_endpoint_link_create (WpEndpointLink * self, GVariant * src_data,
     GVariant * sink_data, GError ** error)
 {
   /* TODO create pw_links based on the nodes & ports described in src/sink_data */
+
+  return TRUE;
 }
 
 static void
