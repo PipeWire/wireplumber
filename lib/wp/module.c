@@ -17,6 +17,8 @@ typedef void (*WpModuleInitFunc) (WpModule *, WpCore *, GVariant *);
 struct _WpModule
 {
   GObject parent;
+
+  GWeakRef core;
   GVariant *properties;
   GDestroyNotify destroy;
   gpointer destroy_data;
@@ -37,6 +39,7 @@ wp_module_finalize (GObject * object)
   if (self->destroy)
     self->destroy (self->destroy_data);
   g_clear_pointer (&self->properties, g_variant_unref);
+  g_weak_ref_clear (&self->core);
 
   G_OBJECT_CLASS (wp_module_parent_class)->finalize (object);
 }
@@ -106,8 +109,10 @@ wp_module_load (WpCore * core, const gchar * abi,
 {
   g_autoptr (WpModule) module = NULL;
 
+  module = g_object_new (WP_TYPE_MODULE, NULL);
+  g_weak_ref_init (&module->core, core);
+
   if (!g_strcmp0 (abi, "C")) {
-    module = g_object_new (WP_TYPE_MODULE, NULL);
     if (!wp_module_load_c (module, core, module_name, args, error))
       return NULL;
   } else {
@@ -118,6 +123,7 @@ wp_module_load (WpCore * core, const gchar * abi,
 
   wp_core_register_global (core, g_quark_from_string (module_name),
       g_object_ref (module), g_object_unref);
+
   return module;
 }
 
@@ -125,6 +131,18 @@ GVariant *
 wp_module_get_properties (WpModule * self)
 {
   return self->properties;
+}
+
+/**
+ * wp_module_get_core:
+ * @self: the module
+ *
+ * Returns: (transfer full): the core on which this module is registered
+ */
+WpCore *
+wp_module_get_core (WpModule * self)
+{
+  return g_weak_ref_get (&self->core);
 }
 
 void

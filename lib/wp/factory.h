@@ -23,6 +23,7 @@ WpFactory * wp_factory_new (WpCore * core, const gchar * name,
     WpFactoryFunc func);
 
 const gchar * wp_factory_get_name (WpFactory * self);
+WpCore * wp_factory_get_core (WpFactory * self);
 gpointer wp_factory_create_object (WpFactory * self, GType type,
     GVariant * properties);
 

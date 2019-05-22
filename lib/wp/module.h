@@ -20,6 +20,7 @@ WpModule * wp_module_load (WpCore * core, const gchar * abi,
     const gchar * module_name, GVariant * args, GError ** error);
 
 GVariant * wp_module_get_properties (WpModule * module);
+WpCore * wp_module_get_core (WpModule * module);
 
 void wp_module_set_destroy_callback (WpModule * module, GDestroyNotify callback,
     gpointer data);

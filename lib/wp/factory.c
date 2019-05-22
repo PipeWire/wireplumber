@@ -12,6 +12,7 @@ struct _WpFactory
 {
   GObject parent;
 
+  GWeakRef core;
   gchar *name;
   GQuark name_quark;
   WpFactoryFunc create_object;
@@ -29,6 +30,7 @@ wp_factory_finalize (GObject * obj)
 {
   WpFactory * self = WP_FACTORY (obj);
 
+  g_weak_ref_clear (&self->core);
   g_free (self->name);
 
   G_OBJECT_CLASS (wp_factory_parent_class)->finalize (obj);
@@ -50,6 +52,7 @@ wp_factory_new (WpCore * core, const gchar * name, WpFactoryFunc func)
   g_return_val_if_fail (func != NULL, NULL);
 
   f = g_object_new (WP_TYPE_FACTORY, NULL);
+  g_weak_ref_init (&f->core, core);
   f->name = g_strdup (name);
   f->name_quark = g_quark_from_string (f->name);
   f->create_object = func;
@@ -64,6 +67,18 @@ const gchar *
 wp_factory_get_name (WpFactory * self)
 {
   return self->name;
+}
+
+/**
+ * wp_factory_get_core:
+ * @self: the factory
+ *
+ * Returns: (transfer full): the core on which this factory is registered
+ */
+WpCore *
+wp_factory_get_core (WpFactory * self)
+{
+  return g_weak_ref_get (&self->core);
 }
 
 gpointer
