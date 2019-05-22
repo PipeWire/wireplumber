@@ -134,6 +134,8 @@ module_destroy (gpointer d)
 {
   struct module_data *data = d;
 
+  g_debug ("module-pipewire destroy");
+
   pw_remote_destroy (data->remote);
   pw_core_destroy (data->core);
   g_slice_free (struct module_data, data);
@@ -144,6 +146,8 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   GSource *source;
   struct module_data *data;
+
+  g_debug ("module-pipewire init");
 
   pw_init (NULL, NULL);
 
@@ -159,7 +163,7 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 
   data->remote = pw_remote_new (data->core, NULL, 0);
   pw_remote_add_listener (data->remote, &data->remote_listener, &remote_events,
-      data->remote);
+      data);
   wp_core_register_global (core, WP_GLOBAL_PW_REMOTE, data->remote, NULL);
 
   wp_factory_new (core, "pipewire-simple-endpoint", simple_endpoint_factory);
