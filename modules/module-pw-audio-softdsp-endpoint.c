@@ -49,13 +49,22 @@ endpoint_class_init (WpPwAudioSoftdspEndpointClass * klass)
 static gpointer
 endpoint_factory (WpFactory * factory, GType type, GVariant * properties)
 {
+  const gchar *name = NULL;
+  const gchar *media_class = NULL;
+
   if (type != WP_TYPE_ENDPOINT)
     return NULL;
 
-  /* TODO: retrieve pw_node* from @properties and keep it
-   * TODO: populate media_class and name on the endpoint
-   */
-  return g_object_new (endpoint_get_type (), NULL);
+  /* Get the name and media-class */
+  if (!g_variant_lookup (properties, "name", "&s", &name))
+      return NULL;
+  if (!g_variant_lookup (properties, "media-class", "&s", &media_class))
+      return NULL;
+
+  return g_object_new (endpoint_get_type (),
+      "name", name,
+      "media-class", media_class,
+      NULL);
 }
 
 void
