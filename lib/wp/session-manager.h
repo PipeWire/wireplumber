@@ -9,7 +9,7 @@
 #ifndef __WIREPLUMBER_SESSION_MANAGER_H__
 #define __WIREPLUMBER_SESSION_MANAGER_H__
 
-#include "endpoint.h"
+#include <glib-object.h>
 
 G_BEGIN_DECLS
 
@@ -20,11 +20,6 @@ G_DECLARE_FINAL_TYPE (WpSessionManager, wp_session_manager, WP, SESSION_MANAGER,
 GQuark wp_global_session_manager_quark (void);
 
 WpSessionManager * wp_session_manager_new (void);
-
-void wp_session_manager_register_endpoint (WpSessionManager * self,
-    WpEndpoint * ep);
-void wp_session_manager_remove_endpoint (WpSessionManager * self,
-    WpEndpoint * ep);
 
 GPtrArray * wp_session_manager_find_endpoints (WpSessionManager * self,
     const gchar * media_class_lookup);

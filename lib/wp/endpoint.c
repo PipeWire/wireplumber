@@ -6,10 +6,6 @@
  * SPDX-License-Identifier: LGPL-2.1-or-later
  */
 
-#include "endpoint.h"
-#include "error.h"
-#include "factory.h"
-
 /**
  * SECTION: Endpoint
  *
@@ -87,6 +83,16 @@
  * "range": a tuple (min, max)
  */
 
+#include "endpoint.h"
+#include "error.h"
+#include "factory.h"
+
+/* private api in session-manager */
+void wp_session_manager_register_endpoint (WpSessionManager * self,
+    WpEndpoint * ep);
+void wp_session_manager_remove_endpoint (WpSessionManager * self,
+    WpEndpoint * ep);
+
 typedef struct _WpEndpointPrivate WpEndpointPrivate;
 struct _WpEndpointPrivate
 {
@@ -95,6 +101,7 @@ struct _WpEndpointPrivate
   GPtrArray *streams;
   GPtrArray *controls;
   GPtrArray *links;
+  GWeakRef sm;
 };
 
 enum {
@@ -117,6 +124,7 @@ wp_endpoint_init (WpEndpoint * self)
 {
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
 
+  g_weak_ref_init (&priv->sm, NULL);
   priv->streams =
       g_ptr_array_new_with_free_func ((GDestroyNotify) g_variant_unref);
   priv->controls =
@@ -146,9 +154,11 @@ wp_endpoint_finalize (GObject * object)
   WpEndpointPrivate *priv =
       wp_endpoint_get_instance_private (WP_ENDPOINT (object));
 
+  g_weak_ref_clear (&priv->sm);
   g_ptr_array_unref (priv->streams);
   g_ptr_array_unref (priv->controls);
   g_ptr_array_unref (priv->links);
+  g_free (priv->name);
 
   G_OBJECT_CLASS (wp_endpoint_parent_class)->finalize (object);
 }
@@ -230,6 +240,49 @@ wp_endpoint_class_init (WpEndpointClass * klass)
   signals[SIGNAL_NOTIFY_CONTROL_VALUE] = g_signal_new ("notify-control-value",
       G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
       G_TYPE_NONE, 1, G_TYPE_UINT);
+}
+
+/**
+ * wp_endpoint_register:
+ * @self: the endpoint
+ * @sm: the session manager
+ *
+ * Registers the endpoint on the @sm.
+ */
+void
+wp_endpoint_register (WpEndpoint * self, WpSessionManager * sm)
+{
+  WpEndpointPrivate *priv;
+
+  g_return_if_fail (WP_IS_ENDPOINT (self));
+  g_return_if_fail (WP_IS_SESSION_MANAGER (sm));
+
+  priv = wp_endpoint_get_instance_private (self);
+  g_weak_ref_set (&priv->sm, sm);
+  wp_session_manager_register_endpoint (sm, self);
+}
+
+/**
+ * wp_endpoint_unregister:
+ * @self: the endpoint
+ *
+ * Unregisters the endpoint from the session manager, if it was registered
+ * and the session manager object still exists
+ */
+void
+wp_endpoint_unregister (WpEndpoint * self)
+{
+  WpEndpointPrivate *priv;
+  g_autoptr (WpSessionManager) sm = NULL;
+
+  g_return_if_fail (WP_IS_ENDPOINT (self));
+
+  priv = wp_endpoint_get_instance_private (self);
+  sm = g_weak_ref_get (&priv->sm);
+  if (sm) {
+    g_weak_ref_clear (&priv->sm);
+    wp_session_manager_remove_endpoint (sm, self);
+  }
 }
 
 const gchar *

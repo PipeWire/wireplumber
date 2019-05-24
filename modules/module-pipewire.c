@@ -47,6 +47,8 @@ registry_global (void * d, uint32_t id, uint32_t parent_id,
   GVariantBuilder b;
   g_autoptr (GVariant) endpoint_props = NULL;
   g_autoptr (WpCore) core = NULL;
+  g_autoptr (WpEndpoint) endpoint = NULL;
+  WpSessionManager *sm = NULL;
 
   /* listen for client "Stream" nodes and create endpoints for them */
   if (type == PW_TYPE_INTERFACE_Node &&
@@ -74,8 +76,13 @@ registry_global (void * d, uint32_t id, uint32_t parent_id,
     endpoint_props = g_variant_builder_end (&b);
 
     core = wp_module_get_core (data->module);
-    wp_factory_make (core, "pipewire-simple-endpoint", WP_TYPE_ENDPOINT,
-        endpoint_props);
+    g_return_if_fail (core != NULL);
+    sm = wp_core_get_global (core, WP_GLOBAL_SESSION_MANAGER);
+    g_return_if_fail (sm != NULL);
+
+    endpoint = wp_factory_make (core, "pipewire-simple-endpoint",
+        WP_TYPE_ENDPOINT, endpoint_props);
+    wp_endpoint_register (endpoint, sm);
   }
 }
 

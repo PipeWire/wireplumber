@@ -7,6 +7,7 @@
  */
 
 #include "session-manager.h"
+#include "endpoint.h"
 
 struct _WpSessionManager
 {

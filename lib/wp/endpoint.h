@@ -10,6 +10,7 @@
 #define __WIREPLUMBER_ENDPOINT_H__
 
 #include "core.h"
+#include "session-manager.h"
 
 G_BEGIN_DECLS
 
@@ -33,6 +34,9 @@ struct _WpEndpointClass
 
   const gchar * (*get_endpoint_link_factory) (WpEndpoint * self);
 };
+
+void wp_endpoint_register (WpEndpoint * self, WpSessionManager * sm);
+void wp_endpoint_unregister (WpEndpoint * self);
 
 const gchar * wp_endpoint_get_name (WpEndpoint * self);
 const gchar * wp_endpoint_get_media_class (WpEndpoint * self);

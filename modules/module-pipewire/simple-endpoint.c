@@ -120,7 +120,7 @@ node_proxy_destroy (void *data)
 {
   WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (data);
   self->node = NULL;
-  //TODO unregister the endpoint from the session manager
+  wp_endpoint_unregister (WP_ENDPOINT (self));
 }
 
 static const struct pw_proxy_events node_proxy_events = {
@@ -157,8 +157,6 @@ simple_endpoint_factory (WpFactory * factory, GType type,
 
   pw_proxy_add_listener ((gpointer) proxy, &ep->proxy_listener,
       &node_proxy_events, ep);
-
-  //TODO register the endpoint with the session manager
 
   return ep;
 }
