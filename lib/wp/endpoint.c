@@ -281,7 +281,7 @@ wp_endpoint_unregister (WpEndpoint * self)
   priv = wp_endpoint_get_instance_private (self);
   sm = g_weak_ref_get (&priv->sm);
   if (sm) {
-    g_weak_ref_clear (&priv->sm);
+    g_weak_ref_set (&priv->sm, NULL);
     wp_session_manager_remove_endpoint (sm, self);
   }
 }
