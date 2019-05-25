@@ -95,6 +95,8 @@ simple_endpoint_prepare_link (WpEndpoint * self, guint32 stream_id,
 {
   /* TODO: verify that the remote end supports the same media type */
   /* TODO: fill @properties with (node id, array(port ids)) */
+
+  return TRUE;
 }
 
 static void

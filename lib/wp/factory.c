@@ -46,7 +46,7 @@ wp_factory_class_init (WpFactoryClass * klass)
 WpFactory *
 wp_factory_new (WpCore * core, const gchar * name, WpFactoryFunc func)
 {
-  g_autoptr (WpFactory) f = NULL;
+  WpFactory *f = NULL;
 
   g_return_val_if_fail (name != NULL && *name != '\0', NULL);
   g_return_val_if_fail (func != NULL, NULL);
