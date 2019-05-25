@@ -15,6 +15,14 @@ struct _WpSessionManager
   GPtrArray *endpoints;
 };
 
+enum {
+  SIGNAL_ENDPOINT_ADDED,
+  SIGNAL_ENDPOINT_REMOVED,
+  NUM_SIGNALS
+};
+
+static guint32 signals[NUM_SIGNALS];
+
 G_DEFINE_TYPE (WpSessionManager, wp_session_manager, G_TYPE_OBJECT)
 G_DEFINE_QUARK (WP_GLOBAL_SESSION_MANAGER, wp_global_session_manager)
 
@@ -39,6 +47,14 @@ wp_session_manager_class_init (WpSessionManagerClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
   object_class->finalize = wp_session_manager_finalize;
+
+  signals[SIGNAL_ENDPOINT_ADDED] = g_signal_new ("endpoint-added",
+      G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
+      G_TYPE_NONE, 1, WP_TYPE_ENDPOINT);
+
+  signals[SIGNAL_ENDPOINT_REMOVED] = g_signal_new ("endpoint-removed",
+      G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
+      G_TYPE_NONE, 1, WP_TYPE_ENDPOINT);
 }
 
 WpSessionManager *
@@ -48,16 +64,16 @@ wp_session_manager_new (void)
 }
 
 void
-wp_session_manager_register_endpoint (WpSessionManager * self,
-    WpEndpoint * ep)
+wp_session_manager_add_endpoint (WpSessionManager * self, WpEndpoint * ep)
 {
   g_ptr_array_add (self->endpoints, g_object_ref (ep));
+  g_signal_emit (self, signals[SIGNAL_ENDPOINT_ADDED], 0, ep);
 }
 
 void
-wp_session_manager_remove_endpoint (WpSessionManager * self,
-    WpEndpoint * ep)
+wp_session_manager_remove_endpoint (WpSessionManager * self, WpEndpoint * ep)
 {
+  g_signal_emit (self, signals[SIGNAL_ENDPOINT_REMOVED], 0, ep);
   g_ptr_array_remove_fast (self->endpoints, ep);
 }
 

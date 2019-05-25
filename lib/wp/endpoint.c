@@ -89,7 +89,7 @@
 #include "factory.h"
 
 /* private api in session-manager */
-void wp_session_manager_register_endpoint (WpSessionManager * self,
+void wp_session_manager_add_endpoint (WpSessionManager * self,
     WpEndpoint * ep);
 void wp_session_manager_remove_endpoint (WpSessionManager * self,
     WpEndpoint * ep);
@@ -260,7 +260,7 @@ wp_endpoint_register (WpEndpoint * self, WpSessionManager * sm)
 
   priv = wp_endpoint_get_instance_private (self);
   g_weak_ref_set (&priv->sm, sm);
-  wp_session_manager_register_endpoint (sm, self);
+  wp_session_manager_add_endpoint (sm, self);
 }
 
 /**
