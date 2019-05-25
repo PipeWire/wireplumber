@@ -81,6 +81,7 @@
  * "name": the name of the control
  * "type": a GVariant type string
  * "range": a tuple (min, max)
+ * "default-value": the default value
  */
 
 #include "endpoint.h"
@@ -386,9 +387,8 @@ wp_endpoint_list_controls (WpEndpoint * self)
  * @self: the endpoint
  * @control_id: the id of the control to set
  *
- * Returns a dictionary GVariant containing two fields:
- * * "id": a uint32 representing the control id
- * * "value": a variant containing the value of the control
+ * Returns a GVariant that holds the value of the control. The type
+ * should be the same type specified in the control variant's "type" field.
  *
  * On error, NULL will be returned.
  *
