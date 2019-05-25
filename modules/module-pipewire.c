@@ -17,6 +17,8 @@
 
 #include "module-pipewire/loop-source.h"
 
+void remote_endpoint_init (WpCore * core, struct pw_core * pw_core,
+    struct pw_remote * remote);
 gpointer simple_endpoint_factory (WpFactory * factory, GType type,
     GVariant * properties);
 gpointer simple_endpoint_link_factory (WpFactory * factory, GType type,
@@ -172,6 +174,8 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   pw_remote_add_listener (data->remote, &data->remote_listener, &remote_events,
       data);
   wp_core_register_global (core, WP_GLOBAL_PW_REMOTE, data->remote, NULL);
+
+  remote_endpoint_init (core, data->core, data->remote);
 
   wp_factory_new (core, "pipewire-simple-endpoint", simple_endpoint_factory);
   wp_factory_new (core, "pipewire-simple-endpoint-link",
