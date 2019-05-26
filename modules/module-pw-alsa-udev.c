@@ -113,14 +113,6 @@ static void on_state_changed(void *_data, enum pw_remote_state old,
         &impl->registry_listener, &registry_events, impl);
     break;
 
-  case PW_REMOTE_STATE_ERROR:
-    /* TODO quit wireplumber */
-    break;
-
-  case PW_REMOTE_STATE_UNCONNECTED:
-    /* TODO quit wireplumber */
-    break;
-
   default:
     break;
   }
