@@ -143,8 +143,6 @@ module_destroy (gpointer d)
 {
   struct module_data *data = d;
 
-  g_debug ("module-pipewire destroy");
-
   pw_remote_destroy (data->remote);
   pw_core_destroy (data->core);
   g_slice_free (struct module_data, data);
@@ -155,8 +153,6 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   GSource *source;
   struct module_data *data;
-
-  g_debug ("module-pipewire init");
 
   pw_init (NULL, NULL);
 

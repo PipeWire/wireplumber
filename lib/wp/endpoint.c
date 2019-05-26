@@ -259,6 +259,10 @@ wp_endpoint_register (WpEndpoint * self, WpSessionManager * sm)
   g_return_if_fail (WP_IS_SESSION_MANAGER (sm));
 
   priv = wp_endpoint_get_instance_private (self);
+
+  g_info ("WpEndpoint:%p registering '%s' (%s)", self, priv->name,
+      priv->media_class);
+
   g_weak_ref_set (&priv->sm, sm);
   wp_session_manager_add_endpoint (sm, self);
 }
@@ -281,6 +285,9 @@ wp_endpoint_unregister (WpEndpoint * self)
   priv = wp_endpoint_get_instance_private (self);
   sm = g_weak_ref_get (&priv->sm);
   if (sm) {
+    g_info ("WpEndpoint:%p unregistering '%s' (%s)", self, priv->name,
+        priv->media_class);
+
     g_weak_ref_set (&priv->sm, NULL);
     wp_session_manager_remove_endpoint (sm, self);
   }

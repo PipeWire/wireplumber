@@ -14,8 +14,6 @@
 #include <wp/wp.h>
 #include <pipewire/pipewire.h>
 
-#define NAME "module-pw-alsa-udev"
-
 struct impl {
   WpCore *wp_core;
 
@@ -39,7 +37,7 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 
   /* Make sure the node has properties */
   if (!props) {
-    g_warning(NAME" %p: node has no properties, skipping...", impl);
+    g_warning("node has no properties, skipping...");
     return;
   }
 
@@ -127,9 +125,6 @@ static void
 module_destroy (gpointer data)
 {
   struct impl *impl = data;
-
-  g_debug ("module-pipewire destroy");
-
   g_slice_free (struct impl, impl);
 }
 

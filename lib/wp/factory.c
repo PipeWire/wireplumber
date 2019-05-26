@@ -30,6 +30,8 @@ wp_factory_finalize (GObject * obj)
 {
   WpFactory * self = WP_FACTORY (obj);
 
+  g_debug ("WpFactory:%p destroying factory: %s", self, self->name);
+
   g_weak_ref_clear (&self->core);
   g_free (self->name);
 
@@ -56,6 +58,8 @@ wp_factory_new (WpCore * core, const gchar * name, WpFactoryFunc func)
   f->name = g_strdup (name);
   f->name_quark = g_quark_from_string (f->name);
   f->create_object = func;
+
+  g_info ("WpFactory:%p new factory: %s", f, name);
 
   if (!wp_core_register_global (core, f->name_quark, f, g_object_unref))
     return NULL;
@@ -84,6 +88,8 @@ wp_factory_get_core (WpFactory * self)
 gpointer
 wp_factory_create_object (WpFactory * self, GType type, GVariant * properties)
 {
+  g_debug ("WpFactory:%p (%s) create object of type %s", self, self->name,
+      g_type_name (type));
   return self->create_object (self, type, properties);
 }
 
