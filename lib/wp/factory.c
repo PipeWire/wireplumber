@@ -61,8 +61,7 @@ wp_factory_new (WpCore * core, const gchar * name, WpFactoryFunc func)
 
   g_info ("WpFactory:%p new factory: %s", f, name);
 
-  if (!wp_core_register_global (core, f->name_quark, f, g_object_unref))
-    return NULL;
+  wp_core_register_global (core, WP_GLOBAL_FACTORY, f, g_object_unref);
 
   return f;
 }
@@ -93,10 +92,31 @@ wp_factory_create_object (WpFactory * self, GType type, GVariant * properties)
   return self->create_object (self, type, properties);
 }
 
+struct find_factory_data
+{
+  GQuark name_quark;
+  WpFactory *ret;
+};
+
+static gboolean
+find_factory_func (GQuark key, gpointer global, gpointer user_data)
+{
+  struct find_factory_data *d = user_data;
+
+  if (key != WP_GLOBAL_FACTORY ||
+      WP_FACTORY (global)->name_quark != d->name_quark)
+    return WP_CORE_FOREACH_GLOBAL_CONTINUE;
+
+  d->ret = WP_FACTORY (global);
+  return WP_CORE_FOREACH_GLOBAL_DONE;
+}
+
 WpFactory *
 wp_factory_find (WpCore * core, const gchar * name)
 {
-  return wp_core_get_global (core, g_quark_from_string (name));
+  struct find_factory_data d = { g_quark_from_string (name), NULL };
+  wp_core_foreach_global (core, find_factory_func, &d);
+  return d.ret;
 }
 
 gpointer

@@ -125,8 +125,8 @@ wp_module_load (WpCore * core, const gchar * abi,
     return NULL;
   }
 
-  wp_core_register_global (core, g_quark_from_string (module_name),
-      g_object_ref (module), g_object_unref);
+  wp_core_register_global (core, WP_GLOBAL_MODULE, g_object_ref (module),
+      g_object_unref);
 
   return module;
 }
