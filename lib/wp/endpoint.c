@@ -88,12 +88,6 @@
 #include "error.h"
 #include "factory.h"
 
-/* private api in session-manager */
-void wp_session_manager_add_endpoint (WpSessionManager * self,
-    WpEndpoint * ep);
-void wp_session_manager_remove_endpoint (WpSessionManager * self,
-    WpEndpoint * ep);
-
 typedef struct _WpEndpointPrivate WpEndpointPrivate;
 struct _WpEndpointPrivate
 {
@@ -102,7 +96,7 @@ struct _WpEndpointPrivate
   GPtrArray *streams;
   GPtrArray *controls;
   GPtrArray *links;
-  GWeakRef sm;
+  WpCore *core;
 };
 
 enum {
@@ -125,7 +119,6 @@ wp_endpoint_init (WpEndpoint * self)
 {
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
 
-  g_weak_ref_init (&priv->sm, NULL);
   priv->streams =
       g_ptr_array_new_with_free_func ((GDestroyNotify) g_variant_unref);
   priv->controls =
@@ -155,7 +148,6 @@ wp_endpoint_finalize (GObject * object)
   WpEndpointPrivate *priv =
       wp_endpoint_get_instance_private (WP_ENDPOINT (object));
 
-  g_weak_ref_clear (&priv->sm);
   g_ptr_array_unref (priv->streams);
   g_ptr_array_unref (priv->controls);
   g_ptr_array_unref (priv->links);
@@ -246,25 +238,26 @@ wp_endpoint_class_init (WpEndpointClass * klass)
 /**
  * wp_endpoint_register:
  * @self: the endpoint
- * @sm: the session manager
+ * @core: the core
  *
- * Registers the endpoint on the @sm.
+ * Registers the endpoint on the @core.
  */
 void
-wp_endpoint_register (WpEndpoint * self, WpSessionManager * sm)
+wp_endpoint_register (WpEndpoint * self, WpCore * core)
 {
   WpEndpointPrivate *priv;
 
   g_return_if_fail (WP_IS_ENDPOINT (self));
-  g_return_if_fail (WP_IS_SESSION_MANAGER (sm));
+  g_return_if_fail (WP_IS_CORE (core));
 
   priv = wp_endpoint_get_instance_private (self);
 
   g_info ("WpEndpoint:%p registering '%s' (%s)", self, priv->name,
       priv->media_class);
 
-  g_weak_ref_set (&priv->sm, sm);
-  wp_session_manager_add_endpoint (sm, self);
+  priv->core = core;
+  wp_core_register_global (core, WP_GLOBAL_ENDPOINT, g_object_ref (self),
+      g_object_unref);
 }
 
 /**
@@ -278,19 +271,81 @@ void
 wp_endpoint_unregister (WpEndpoint * self)
 {
   WpEndpointPrivate *priv;
-  g_autoptr (WpSessionManager) sm = NULL;
 
   g_return_if_fail (WP_IS_ENDPOINT (self));
 
   priv = wp_endpoint_get_instance_private (self);
-  sm = g_weak_ref_get (&priv->sm);
-  if (sm) {
+  if (priv->core) {
     g_info ("WpEndpoint:%p unregistering '%s' (%s)", self, priv->name,
         priv->media_class);
 
-    g_weak_ref_set (&priv->sm, NULL);
-    wp_session_manager_remove_endpoint (sm, self);
+    priv->core = NULL;
+    wp_core_remove_global (priv->core, WP_GLOBAL_ENDPOINT, self);
   }
+}
+
+struct endpoints_foreach_data
+{
+  GPtrArray *result;
+  const gchar *lookup;
+};
+
+static inline gboolean
+media_class_matches (const gchar * media_class, const gchar * lookup)
+{
+  const gchar *c1 = media_class, *c2 = lookup;
+
+  /* empty lookup matches all classes */
+  if (!lookup)
+    return TRUE;
+
+  /* compare until we reach the end of the lookup string */
+  for (; *c2 != '\0'; c1++, c2++) {
+    if (*c1 != *c2)
+      return FALSE;
+  }
+
+  /* the lookup may not end in a slash, however it must match up
+   * to the end of a submedia_class. i.e.:
+   * match: media_class: Audio/Source/Virtual
+   *        lookup: Audio/Source
+   *
+   * NO match: media_class: Audio/Source/Virtual
+   *           lookup: Audio/Sou
+   *
+   * if *c1 is not /, also check the previous char, because the lookup
+   * may actually end in a slash:
+   *
+   * match: media_class: Audio/Source/Virtual
+   *        lookup: Audio/Source/
+   */
+  if (!(*c1 == '/' || *c1 == '\0' || *(c1 - 1) == '/'))
+    return FALSE;
+
+  return TRUE;
+}
+
+static gboolean
+find_endpoints (GQuark key, gpointer global, gpointer user_data)
+{
+  struct endpoints_foreach_data * data = user_data;
+
+  if (key == WP_GLOBAL_ENDPOINT &&
+      media_class_matches (wp_endpoint_get_media_class (WP_ENDPOINT (global)),
+          data->lookup))
+    g_ptr_array_add (data->result, g_object_ref (global));
+
+  return WP_CORE_FOREACH_GLOBAL_CONTINUE;
+}
+
+GPtrArray *
+wp_endpoint_find (WpCore * core, const gchar * media_class_lookup)
+{
+  struct endpoints_foreach_data data;
+  data.result = g_ptr_array_new_with_free_func (g_object_unref);
+  data.lookup = media_class_lookup;
+  wp_core_foreach_global (core, find_endpoints, &data);
+  return data.result;
 }
 
 const gchar *

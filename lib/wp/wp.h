@@ -11,4 +11,3 @@
 #include "error.h"
 #include "factory.h"
 #include "module.h"
-#include "session-manager.h"

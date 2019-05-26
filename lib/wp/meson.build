@@ -4,7 +4,6 @@ wp_lib_sources = [
   'error.c',
   'factory.c',
   'module.c',
-  'session-manager.c',
 ]
 
 wp_lib_headers = [
@@ -13,7 +12,6 @@ wp_lib_headers = [
   'error.h',
   'factory.h',
   'module.h',
-  'session-manager.h',
 ]
 
 enums = gnome.mkenums_simple('wpenums', sources: wp_lib_headers)

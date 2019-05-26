@@ -385,7 +385,8 @@ static const struct pw_proxy_events proxy_events = {
 };
 
 static void
-endpoint_added (WpSessionManager *sm, WpEndpoint *ep, struct pw_remote * remote)
+endpoint_added (WpCore *core, GQuark key, WpEndpoint *ep,
+    struct pw_remote * remote)
 {
   struct pw_core_proxy *core_proxy;
   struct pw_client_endpoint_proxy *client_ep_proxy;
@@ -395,6 +396,8 @@ endpoint_added (WpSessionManager *sm, WpEndpoint *ep, struct pw_remote * remote)
   };
   struct spa_dict props_dict = SPA_DICT_INIT(props, SPA_N_ELEMENTS (props));
   struct proxy_priv *priv;
+
+  g_return_if_fail (key == WP_GLOBAL_ENDPOINT);
 
   core_proxy = pw_remote_get_core_proxy (remote);
   client_ep_proxy = pw_core_proxy_create_object (core_proxy,
@@ -419,9 +422,12 @@ endpoint_added (WpSessionManager *sm, WpEndpoint *ep, struct pw_remote * remote)
 }
 
 static void
-endpoint_removed (WpSessionManager *sm, WpEndpoint *ep, gpointer _unused)
+endpoint_removed (WpCore *sm, GQuark key, WpEndpoint *ep, gpointer _unused)
 {
   struct pw_proxy *p;
+
+  g_return_if_fail (key == WP_GLOBAL_ENDPOINT);
+
   p = g_object_get_qdata (G_OBJECT (ep), remote_endpoint_data_quark ());
   if (p)
     pw_proxy_destroy (p);
@@ -431,13 +437,11 @@ void
 remote_endpoint_init (WpCore * core, struct pw_core *pw_core,
     struct pw_remote * remote)
 {
-  WpSessionManager *sm;
-
   pw_module_load (pw_core, "libpipewire-module-endpoint", NULL, NULL, NULL,
       NULL);
 
-  sm = wp_core_get_global (core, WP_GLOBAL_SESSION_MANAGER);
-  g_return_if_fail (sm != NULL);
-  g_signal_connect (sm, "endpoint-added", (GCallback) endpoint_added, remote);
-  g_signal_connect (sm, "endpoint-removed", (GCallback) endpoint_removed, NULL);
+  g_signal_connect (core, "global-added::endpoint",
+      (GCallback) endpoint_added, remote);
+  g_signal_connect (core, "global-removed::endpoint",
+      (GCallback) endpoint_removed, NULL);
 }

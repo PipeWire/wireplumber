@@ -195,14 +195,9 @@ main (gint argc, gchar **argv)
   }
 
   /* init wireplumber */
-
   data.core = core = wp_core_new ();
 
-  wp_core_register_global (core, WP_GLOBAL_SESSION_MANAGER,
-      wp_session_manager_new (), g_object_unref);
-
   /* init main loop */
-
   data.loop = loop = g_main_loop_new (NULL, FALSE);
 
   /* watch for exit signals */

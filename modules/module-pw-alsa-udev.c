@@ -33,7 +33,6 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
   GVariantBuilder b;
   g_autoptr(GVariant) endpoint_props = NULL;
   g_autoptr (WpEndpoint) endpoint = NULL;
-  WpSessionManager *sm;
 
   /* Make sure the node has properties */
   if (!props) {
@@ -64,13 +63,10 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
       "node-proxy", g_variant_new_uint64 ((guint64) proxy));
   endpoint_props = g_variant_builder_end (&b);
 
-  sm = wp_core_get_global (impl->wp_core, WP_GLOBAL_SESSION_MANAGER);
-  g_return_if_fail (sm != NULL);
-
   /* Create the endpoint */
   endpoint = wp_factory_make (impl->wp_core, "pw-audio-softdsp-endpoint",
       WP_TYPE_ENDPOINT, endpoint_props);
-  wp_endpoint_register (endpoint, sm);
+  wp_endpoint_register (endpoint, impl->wp_core);
 }
 
 static void
