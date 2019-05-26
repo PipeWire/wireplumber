@@ -34,6 +34,8 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
   struct spa_proxy *proxy = NULL;
   GVariantBuilder b;
   g_autoptr(GVariant) endpoint_props = NULL;
+  g_autoptr (WpEndpoint) endpoint = NULL;
+  WpSessionManager *sm;
 
   /* Make sure the node has properties */
   if (!props) {
@@ -49,7 +51,7 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 
   /* Get the device name */
   node_name = spa_dict_lookup(props, "node.name");
-  
+
   /* Get the proxy */
   proxy = pw_registry_proxy_bind (impl->registry_proxy, id,
       PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, 0);
@@ -64,9 +66,13 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
       "node-proxy", g_variant_new_uint64 ((guint64) proxy));
   endpoint_props = g_variant_builder_end (&b);
 
+  sm = wp_core_get_global (impl->wp_core, WP_GLOBAL_SESSION_MANAGER);
+  g_return_if_fail (sm != NULL);
+
   /* Create the endpoint */
-  wp_factory_make (impl->wp_core, "pw-audio-softdsp-endpoint", WP_TYPE_ENDPOINT,
-      endpoint_props);
+  endpoint = wp_factory_make (impl->wp_core, "pw-audio-softdsp-endpoint",
+      WP_TYPE_ENDPOINT, endpoint_props);
+  wp_endpoint_register (endpoint, sm);
 }
 
 static void
@@ -106,7 +112,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old,
     pw_registry_proxy_add_listener(impl->registry_proxy,
         &impl->registry_listener, &registry_events, impl);
     break;
-  
+
   case PW_REMOTE_STATE_ERROR:
     /* TODO quit wireplumber */
     break;
@@ -114,7 +120,7 @@ static void on_state_changed(void *_data, enum pw_remote_state old,
   case PW_REMOTE_STATE_UNCONNECTED:
     /* TODO quit wireplumber */
     break;
-  
+
   default:
     break;
   }
