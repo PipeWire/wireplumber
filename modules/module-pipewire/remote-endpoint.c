@@ -47,8 +47,8 @@ control_to_pod (GVariant * control, guint32 * control_id,
   spa_pod_builder_push_object (b, &f,
       PW_ENDPOINT_OBJECT_ParamControl, PW_ENDPOINT_PARAM_EnumControl);
   spa_pod_builder_add (b,
-      PW_ENDPOINT_PARAM_CONTROL_id, SPA_POD_Id (id),
-      PW_ENDPOINT_PARAM_CONTROL_stream_id, SPA_POD_Id (stream_id),
+      PW_ENDPOINT_PARAM_CONTROL_id, SPA_POD_Int (id),
+      PW_ENDPOINT_PARAM_CONTROL_stream_id, SPA_POD_Int (stream_id),
       PW_ENDPOINT_PARAM_CONTROL_name, SPA_POD_String (name),
       NULL);
 
@@ -113,7 +113,7 @@ control_value_to_pod (GVariant * value, guint32 id, struct spa_pod_builder *b)
   spa_pod_builder_push_object (b, &f,
       PW_ENDPOINT_OBJECT_ParamControl, PW_ENDPOINT_PARAM_Control);
   spa_pod_builder_add (b,
-      PW_ENDPOINT_PARAM_CONTROL_id, SPA_POD_Id (id),
+      PW_ENDPOINT_PARAM_CONTROL_id, SPA_POD_Int (id),
       NULL);
 
   type = g_variant_get_type (value);
@@ -180,7 +180,7 @@ stream_to_pod (GVariant * control, struct spa_pod_builder *b)
   spa_pod_builder_push_object (b, &f,
       PW_ENDPOINT_OBJECT_ParamStream, PW_ENDPOINT_PARAM_EnumStream);
   spa_pod_builder_add (b,
-      PW_ENDPOINT_PARAM_STREAM_id, SPA_POD_Id (id),
+      PW_ENDPOINT_PARAM_STREAM_id, SPA_POD_Int (id),
       PW_ENDPOINT_PARAM_STREAM_name, SPA_POD_String (name),
       NULL);
   return spa_pod_builder_pop (b, &f);
