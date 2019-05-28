@@ -24,12 +24,6 @@ struct proxy_priv
   struct spa_hook cli_ep_listener;
 };
 
-static const struct spa_param_info static_param_info[] = {
-  SPA_PARAM_INFO (PW_ENDPOINT_PARAM_EnumControl, SPA_PARAM_INFO_READ),
-  SPA_PARAM_INFO (PW_ENDPOINT_PARAM_Control, SPA_PARAM_INFO_READWRITE),
-  SPA_PARAM_INFO (PW_ENDPOINT_PARAM_EnumStream, SPA_PARAM_INFO_READ)
-};
-
 static struct spa_pod *
 control_to_pod (GVariant * control, guint32 * control_id,
     struct spa_pod_builder *b)
@@ -194,15 +188,21 @@ stream_to_pod (GVariant * control, struct spa_pod_builder *b)
 
 static void
 endpoint_update (WpEndpoint *ep,
-    struct pw_client_endpoint_proxy *client_ep_proxy)
+    struct pw_client_endpoint_proxy *client_ep_proxy,
+    struct spa_dict *props)
 {
   guint8 buffer[8192];
   struct spa_pod_builder b;
-  guint32 change_mask = 0;
   guint32 n_params, n_controls, n_streams;
   g_autoptr (GVariant) controls, streams;
   const struct spa_pod **params = NULL;
   const struct spa_pod **tmp_ctl_params = NULL;
+  struct spa_param_info static_param_info[] = {
+    SPA_PARAM_INFO (PW_ENDPOINT_PARAM_EnumControl, SPA_PARAM_INFO_READ),
+    SPA_PARAM_INFO (PW_ENDPOINT_PARAM_Control, SPA_PARAM_INFO_READWRITE),
+    SPA_PARAM_INFO (PW_ENDPOINT_PARAM_EnumStream, SPA_PARAM_INFO_READ)
+  };
+  struct pw_endpoint_info info;
   guint32 i, index = 0;
 
   controls = wp_endpoint_list_controls (ep);
@@ -254,14 +254,18 @@ endpoint_update (WpEndpoint *ep,
   }
 
   n_params = index;
-  change_mask |= PW_CLIENT_ENDPOINT_UPDATE_PARAMS;
 
 action:
+  info.id = 0;
+  info.change_mask = PW_ENDPOINT_CHANGE_MASK_PARAMS |
+                     PW_ENDPOINT_CHANGE_MASK_PROPS;
+  info.n_params = SPA_N_ELEMENTS(static_param_info);
+  info.params = static_param_info;
+  info.props = props;
+
   pw_client_endpoint_proxy_update (client_ep_proxy,
-      change_mask | PW_CLIENT_ENDPOINT_UPDATE_PARAM_INFO,
-      n_params, params,
-      SPA_N_ELEMENTS (static_param_info), static_param_info,
-      NULL);
+      PW_CLIENT_ENDPOINT_UPDATE_PARAMS | PW_CLIENT_ENDPOINT_UPDATE_INFO,
+      n_params, params, &info);
 }
 
 static void
@@ -282,7 +286,7 @@ on_endpoint_notify_control_value (WpEndpoint * ep, guint32 control_id,
 
   pw_client_endpoint_proxy_update (client_ep_proxy,
       PW_CLIENT_ENDPOINT_UPDATE_PARAMS_INCREMENTAL,
-      1, params, 0, NULL, NULL);
+      1, params, NULL);
 }
 
 static void
@@ -390,21 +394,23 @@ endpoint_added (WpCore *core, GQuark key, WpEndpoint *ep,
 {
   struct pw_core_proxy *core_proxy;
   struct pw_client_endpoint_proxy *client_ep_proxy;
-  struct spa_dict_item props[] = {
-    { "media.name", wp_endpoint_get_name (ep) },
-    { "media.class", wp_endpoint_get_media_class (ep) }
-  };
-  struct spa_dict props_dict = SPA_DICT_INIT(props, SPA_N_ELEMENTS (props));
+  struct spa_dict_item props_items[2];
+  struct spa_dict props = SPA_DICT_INIT(props_items, SPA_N_ELEMENTS (props_items));
   struct proxy_priv *priv;
 
   g_return_if_fail (key == WP_GLOBAL_ENDPOINT);
+
+  props_items[0].key = "media.name";
+  props_items[0].value = wp_endpoint_get_name (ep);
+  props_items[1].key = "media.class";
+  props_items[1].value = wp_endpoint_get_media_class (ep);
 
   core_proxy = pw_remote_get_core_proxy (remote);
   client_ep_proxy = pw_core_proxy_create_object (core_proxy,
       "client-endpoint",
       PW_TYPE_INTERFACE_ClientEndpoint,
       PW_VERSION_CLIENT_ENDPOINT,
-      &props_dict, sizeof (*priv));
+      &props, sizeof (*priv));
 
   g_object_set_qdata (G_OBJECT (ep), remote_endpoint_data_quark (),
       client_ep_proxy);
@@ -415,7 +421,7 @@ endpoint_added (WpCore *core, GQuark key, WpEndpoint *ep,
   pw_client_endpoint_proxy_add_listener (client_ep_proxy,
       &priv->cli_ep_listener, &client_endpoint_events, ep);
 
-  endpoint_update (ep, client_ep_proxy);
+  endpoint_update (ep, client_ep_proxy, &props);
 
   g_signal_connect (ep, "notify-control-value",
       (GCallback) on_endpoint_notify_control_value, client_ep_proxy);
