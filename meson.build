@@ -9,6 +9,11 @@ project('wireplumber', ['c'],
 )
 
 wireplumber_api_version = '0.1'
+wireplumber_so_version = '0'
+
+modules_install_dir = join_paths(
+  get_option('libdir'), 'wireplumber-' + wireplumber_api_version
+)
 
 gobject_dep = dependency('gobject-2.0')
 gmodule_dep = dependency('gmodule-2.0')

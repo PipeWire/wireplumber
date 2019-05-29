@@ -12,7 +12,12 @@ wp_lib_headers = [
   'error.h',
   'factory.h',
   'module.h',
+  'wp.h',
 ]
+
+install_headers(wp_lib_headers,
+  subdir : join_paths('wireplumber-' + wireplumber_api_version, 'wp')
+)
 
 enums = gnome.mkenums_simple('wpenums', sources: wp_lib_headers)
 
@@ -26,6 +31,8 @@ wp_lib = library('wireplumber-' + wireplumber_api_version,
   install: true,
   include_directories: wp_lib_include_dir,
   dependencies : [gobject_dep, gmodule_dep],
+  soversion: wireplumber_so_version,
+  version: meson.project_version(),
 )
 
 gnome.generate_gir(wp_lib,
