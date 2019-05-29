@@ -12,3 +12,7 @@ executable('wireplumber',
   install: true,
   dependencies : [gobject_dep, gio_dep, wp_dep],
 )
+
+install_data('wireplumber.conf',
+  install_dir: join_paths(get_option('sysconfdir'), 'wireplumber')
+)
