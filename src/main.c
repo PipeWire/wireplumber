@@ -10,8 +10,6 @@
 #include <gio/gio.h>
 #include <glib-unix.h>
 
-#define WIREPLUMBER_DEFAULT_CONFIG_FILE "wireplumber.conf"
-
 static GOptionEntry entries[] =
 {
   { NULL }

@@ -26,7 +26,8 @@ wp_lib = library('wireplumber-' + wireplumber_api_version,
   c_args : [
     '-D_GNU_SOURCE',
     '-DG_LOG_USE_STRUCTURED',
-    '-DG_LOG_DOMAIN="libwireplumber"'
+    '-DG_LOG_DOMAIN="libwireplumber"',
+    '-DWIREPLUMBER_DEFAULT_MODULE_DIR="@0@"'.format(wireplumber_module_dir),
   ],
   install: true,
   include_directories: wp_lib_include_dir,

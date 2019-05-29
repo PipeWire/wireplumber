@@ -56,9 +56,12 @@ wp_module_class_init (WpModuleClass * klass)
 static const gchar *
 get_module_dir (void)
 {
-  const gchar *module_dir = NULL;
-  if (!module_dir)
+  static const gchar *module_dir = NULL;
+  if (!module_dir) {
     module_dir = g_getenv ("WIREPLUMBER_MODULE_DIR");
+    if (!module_dir)
+      module_dir = WIREPLUMBER_DEFAULT_MODULE_DIR;
+  }
   return module_dir;
 }
 
