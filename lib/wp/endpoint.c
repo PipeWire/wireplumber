@@ -677,7 +677,7 @@ WpEndpointLink * wp_endpoint_link_new (WpCore * core, WpEndpoint * src,
   if (!WP_ENDPOINT_GET_CLASS (src)->prepare_link (src, src_stream, link,
           &src_props, error))
     return NULL;
-  if (!WP_ENDPOINT_GET_CLASS (src)->prepare_link (sink, sink_stream, link,
+  if (!WP_ENDPOINT_GET_CLASS (sink)->prepare_link (sink, sink_stream, link,
           &sink_props, error))
     return NULL;
 
