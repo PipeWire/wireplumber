@@ -1,6 +1,6 @@
 project('wireplumber', ['c'],
   version : '0.0.1',
-  license : 'LGPL',
+  license : 'MIT',
   meson_version : '>= 0.47.0',
   default_options : [
     'warning_level=1',
