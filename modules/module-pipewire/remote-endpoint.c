@@ -367,7 +367,7 @@ client_endpoint_set_param (void *object, uint32_t id, uint32_t flags,
 
 error:
   proxy = g_object_get_qdata (G_OBJECT (ep), remote_endpoint_data_quark ());
-  g_warning ("set_param: bad arguments");
+  g_warning ("set_param: bad arguments: %s", g_strerror (-res));
   pw_proxy_error (proxy, res, "set_param: bad arguments");
 }
 
