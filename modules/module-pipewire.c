@@ -110,14 +110,24 @@ on_remote_state_changed (void *d, enum pw_remote_state old_state,
         &data->registry_listener, &registry_events, data);
     break;
 
-  case PW_REMOTE_STATE_UNCONNECTED:
-    // TODO quit wireplumber
+  case PW_REMOTE_STATE_UNCONNECTED: {
+    g_autoptr (WpCore) core = wp_module_get_core (data->module);
+    if (core) {
+      g_message ("disconnected from PipeWire");
+      g_main_loop_quit (wp_core_get_global (core,
+              g_quark_from_string ("main-loop")));
+    }
     break;
-
-  case PW_REMOTE_STATE_ERROR:
-    // TODO quit wireplumber
+  }
+  case PW_REMOTE_STATE_ERROR: {
+    g_autoptr (WpCore) core = wp_module_get_core (data->module);
+    if (core) {
+      g_message ("PipeWire remote error: %s", error);
+      g_main_loop_quit (wp_core_get_global (core,
+              g_quark_from_string ("main-loop")));
+    }
     break;
-
+  }
   default:
     break;
   }

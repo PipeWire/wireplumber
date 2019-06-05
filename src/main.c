@@ -197,6 +197,8 @@ main (gint argc, gchar **argv)
 
   /* init main loop */
   data.loop = loop = g_main_loop_new (NULL, FALSE);
+  wp_core_register_global (core, g_quark_from_static_string ("main-loop"),
+      g_main_loop_ref (loop), (GDestroyNotify) g_main_loop_unref);
 
   /* watch for exit signals */
 
