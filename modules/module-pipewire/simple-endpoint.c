@@ -15,17 +15,29 @@
 
 #include <wp/wp.h>
 #include <pipewire/pipewire.h>
+#include <spa/pod/parser.h>
+#include <spa/param/props.h>
 
 struct _WpPipewireSimpleEndpoint
 {
   WpEndpoint parent;
   struct pw_node_proxy *node;
   struct spa_hook proxy_listener;
+  struct spa_hook node_proxy_listener;
+
+  /* controls cache */
+  gfloat volume;
+  gboolean mute;
 };
 
 enum {
   PROP_0,
   PROP_NODE_PROXY,
+};
+
+enum {
+  CONTROL_VOLUME = 0,
+  CONTROL_MUTE,
 };
 
 G_DECLARE_FINAL_TYPE (WpPipewireSimpleEndpoint,
@@ -34,14 +46,114 @@ G_DECLARE_FINAL_TYPE (WpPipewireSimpleEndpoint,
 G_DEFINE_TYPE (WpPipewireSimpleEndpoint, simple_endpoint, WP_TYPE_ENDPOINT)
 
 static void
+node_proxy_destroy (void *data)
+{
+  WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (data);
+  self->node = NULL;
+  wp_endpoint_unregister (WP_ENDPOINT (self));
+}
+
+static const struct pw_proxy_events node_proxy_events = {
+  PW_VERSION_PROXY_EVENTS,
+  .destroy = node_proxy_destroy,
+};
+
+static void
+node_proxy_param (void *object, int seq, uint32_t id,
+    uint32_t index, uint32_t next, const struct spa_pod *param)
+{
+  WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (object);
+
+  switch (id) {
+    case SPA_PARAM_Props:
+    {
+      struct spa_pod_prop *prop;
+      struct spa_pod_object *obj = (struct spa_pod_object *) param;
+      float volume = self->volume;
+      bool mute = self->mute;
+
+      SPA_POD_OBJECT_FOREACH(obj, prop) {
+        switch (prop->key) {
+        case SPA_PROP_volume:
+          spa_pod_get_float(&prop->value, &volume);
+          break;
+        case SPA_PROP_mute:
+          spa_pod_get_bool(&prop->value, &mute);
+          break;
+        default:
+          break;
+        }
+      }
+
+      g_debug ("WpEndpoint:%p param event, vol:(%lf -> %f) mute:(%d -> %d)",
+          self, self->volume, volume, self->mute, mute);
+
+      if (self->volume != volume) {
+        self->volume = volume;
+        wp_endpoint_notify_control_value (WP_ENDPOINT (self), CONTROL_VOLUME);
+      }
+      if (self->mute != mute) {
+        self->mute = mute;
+        wp_endpoint_notify_control_value (WP_ENDPOINT (self), CONTROL_MUTE);
+      }
+
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+static const struct pw_node_proxy_events node_node_proxy_events = {
+  PW_VERSION_NODE_PROXY_EVENTS,
+  .param = node_proxy_param,
+};
+
+static void
 simple_endpoint_init (WpPipewireSimpleEndpoint * self)
 {
-  GVariantBuilder b;
+}
 
-  g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
-  g_variant_builder_add (&b, "{sv}", "id", g_variant_new_uint32 (0));
-  g_variant_builder_add (&b, "{sv}", "name", g_variant_new_string ("default"));
-  wp_endpoint_register_stream (WP_ENDPOINT (self), g_variant_builder_end (&b));
+static void
+simple_endpoint_constructed (GObject * object)
+{
+  WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (object);
+  GVariantDict d;
+  uint32_t ids[1] = { SPA_PARAM_Props };
+  uint32_t n_ids = 1;
+
+  pw_proxy_add_listener ((struct pw_proxy *) self->node, &self->proxy_listener,
+      &node_proxy_events, self);
+  pw_node_proxy_add_listener (self->node, &self->node_proxy_listener,
+      &node_node_proxy_events, self);
+  pw_node_proxy_subscribe_params (self->node, ids, n_ids);
+
+  g_variant_dict_init (&d, NULL);
+  g_variant_dict_insert (&d, "id", "u", 0);
+  g_variant_dict_insert (&d, "name", "s", "default");
+  wp_endpoint_register_stream (WP_ENDPOINT (self), g_variant_dict_end (&d));
+
+  /* Audio streams have volume & mute controls */
+  if (g_strrstr (wp_endpoint_get_media_class (WP_ENDPOINT (self)), "Audio")) {
+    g_variant_dict_init (&d, NULL);
+    g_variant_dict_insert (&d, "id", "u", CONTROL_VOLUME);
+    g_variant_dict_insert (&d, "stream-id", "u", 0);
+    g_variant_dict_insert (&d, "name", "s", "volume");
+    g_variant_dict_insert (&d, "type", "s", "d");
+    g_variant_dict_insert (&d, "range", "(dd)", 0.0, 1.0);
+    g_variant_dict_insert (&d, "default-value", "d", 1.0);
+    wp_endpoint_register_control (WP_ENDPOINT (self), g_variant_dict_end (&d));
+
+    g_variant_dict_init (&d, NULL);
+    g_variant_dict_insert (&d, "id", "u", CONTROL_MUTE);
+    g_variant_dict_insert (&d, "stream-id", "u", 0);
+    g_variant_dict_insert (&d, "name", "s", "mute");
+    g_variant_dict_insert (&d, "type", "s", "b");
+    g_variant_dict_insert (&d, "default-value", "b", FALSE);
+    wp_endpoint_register_control (WP_ENDPOINT (self), g_variant_dict_end (&d));
+  }
+
+  G_OBJECT_CLASS (simple_endpoint_parent_class)->constructed (object);
 }
 
 static void
@@ -99,36 +211,89 @@ simple_endpoint_prepare_link (WpEndpoint * self, guint32 stream_id,
   return TRUE;
 }
 
+static GVariant *
+simple_endpoint_get_control_value (WpEndpoint * ep, guint32 control_id)
+{
+  WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (ep);
+
+  switch (control_id) {
+    case CONTROL_VOLUME:
+      return g_variant_new_double (self->volume);
+    case CONTROL_MUTE:
+      return g_variant_new_boolean (self->mute);
+    default:
+      g_warning ("Unknown control id %u", control_id);
+      return NULL;
+  }
+}
+
+static gboolean
+simple_endpoint_set_control_value (WpEndpoint * ep, guint32 control_id,
+    GVariant * value)
+{
+  WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (ep);
+  char buf[1024];
+  struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+  float volume;
+  bool mute;
+
+  switch (control_id) {
+    case CONTROL_VOLUME:
+      volume = g_variant_get_double (value);
+
+      g_debug("WpEndpoint:%p set volume control (%u) value, vol:%f", self,
+          control_id, volume);
+
+      pw_node_proxy_set_param (self->node,
+          SPA_PARAM_Props, 0,
+          spa_pod_builder_add_object (&b,
+              SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
+              SPA_PROP_volume, SPA_POD_Float(volume),
+              NULL));
+      break;
+
+    case CONTROL_MUTE:
+      mute = g_variant_get_boolean (value);
+
+      g_debug("WpEndpoint:%p set mute control (%u) value, mute:%d", self,
+          control_id, mute);
+
+      pw_node_proxy_set_param (self->node,
+          SPA_PARAM_Props, 0,
+          spa_pod_builder_add_object (&b,
+              SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
+              SPA_PROP_mute, SPA_POD_Bool(mute),
+              NULL));
+      break;
+
+    default:
+      g_warning ("Unknown control id %u", control_id);
+      return FALSE;
+  }
+
+  return TRUE;
+}
+
 static void
 simple_endpoint_class_init (WpPipewireSimpleEndpointClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
   WpEndpointClass *endpoint_class = (WpEndpointClass *) klass;
 
+  object_class->constructed = simple_endpoint_constructed;
   object_class->finalize = simple_endpoint_finalize;
   object_class->set_property = simple_endpoint_set_property;
   object_class->get_property = simple_endpoint_get_property;
 
   endpoint_class->prepare_link = simple_endpoint_prepare_link;
+  endpoint_class->get_control_value = simple_endpoint_get_control_value;
+  endpoint_class->set_control_value = simple_endpoint_set_control_value;
 
   g_object_class_install_property (object_class, PROP_NODE_PROXY,
       g_param_spec_pointer ("node-proxy", "node-proxy",
           "Pointer to the pw_node_proxy* to wrap",
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
-
-static void
-node_proxy_destroy (void *data)
-{
-  WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (data);
-  self->node = NULL;
-  wp_endpoint_unregister (WP_ENDPOINT (self));
-}
-
-static const struct pw_proxy_events node_proxy_events = {
-  PW_VERSION_PROXY_EVENTS,
-  .destroy = node_proxy_destroy,
-};
 
 gpointer
 simple_endpoint_factory (WpFactory * factory, GType type,
@@ -156,9 +321,6 @@ simple_endpoint_factory (WpFactory * factory, GType type,
       "media-class", media_class,
       "node-proxy", (gpointer) proxy,
       NULL);
-
-  pw_proxy_add_listener ((gpointer) proxy, &ep->proxy_listener,
-      &node_proxy_events, ep);
 
   return ep;
 }
