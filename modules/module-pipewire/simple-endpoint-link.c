@@ -26,6 +26,9 @@
 struct _WpPipewireSimpleEndpointLink
 {
   WpEndpointLink parent;
+
+  /* The core proxy */
+  struct pw_core_proxy *core_proxy;
 };
 
 G_DECLARE_FINAL_TYPE (WpPipewireSimpleEndpointLink,
@@ -40,10 +43,36 @@ simple_endpoint_link_init (WpPipewireSimpleEndpointLink * self)
 }
 
 static gboolean
-simple_endpoint_link_create (WpEndpointLink * self, GVariant * src_data,
+simple_endpoint_link_create (WpEndpointLink * epl, GVariant * src_data,
     GVariant * sink_data, GError ** error)
 {
-  /* TODO create pw_links based on the nodes & ports described in src/sink_data */
+  WpPipewireSimpleEndpointLink *self = WP_PIPEWIRE_SIMPLE_ENDPOINT_LINK(epl);
+  struct pw_properties *props;
+  guint32 output_node_id, input_node_id, output_port_id, input_port_id;
+
+  /* Get the node ids and port ids */
+  if (!g_variant_lookup (src_data, "node-id", "u", &output_node_id))
+      return FALSE;
+  if (!g_variant_lookup (src_data, "node-port-id", "u", &output_port_id))
+      return FALSE;
+  if (!g_variant_lookup (sink_data, "node-id", "u", &input_node_id))
+      return FALSE;
+  if (!g_variant_lookup (sink_data, "node-port-id", "u", &input_port_id))
+      return FALSE;
+
+  /* Create the properties */
+  props = pw_properties_new(NULL, NULL);
+  pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", output_node_id);
+  pw_properties_setf(props, PW_LINK_OUTPUT_PORT_ID, "%d", output_port_id);
+  pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", input_node_id);
+  pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", input_port_id);
+
+  /* Create the link */
+  pw_core_proxy_create_object(self->core_proxy, "link-factory",
+      PW_TYPE_INTERFACE_Link, PW_VERSION_LINK, &props->dict, 0);
+
+  /* Clean up */
+  pw_properties_free(props);
 
   return TRUE;
 }
@@ -67,7 +96,37 @@ gpointer
 simple_endpoint_link_factory (WpFactory * factory, GType type,
     GVariant * properties)
 {
+  WpCore *wp_core = NULL;
+  struct pw_remote *remote;
+
+  /* Make sure the type is an endpoint link */
   if (type != WP_TYPE_ENDPOINT_LINK)
     return NULL;
-  return g_object_new (simple_endpoint_link_get_type (), NULL);
+
+  /* Get the WirePlumber core */
+  wp_core = wp_factory_get_core(factory);
+  if (!wp_core) {
+    g_warning("failed to get wireplumbe core. Skipping...");
+    return NULL;
+  }
+
+  /* Get the remote */
+  remote = wp_core_get_global(wp_core, WP_GLOBAL_PW_REMOTE);
+  if (!remote) {
+    g_warning("failed to get core remote. Skipping...");
+    return NULL;
+  }
+
+  /* Create the endpoint link */
+  WpPipewireSimpleEndpointLink *epl = g_object_new (
+      simple_endpoint_link_get_type (), NULL);
+
+  /* Set the core proxy */
+  epl->core_proxy = pw_remote_get_core_proxy(remote);
+  if (!epl->core_proxy) {
+    g_warning("failed to get core proxy. Skipping...");
+    return NULL;
+  }
+
+  return epl;
 }

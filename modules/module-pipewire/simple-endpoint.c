@@ -18,12 +18,19 @@
 #include <spa/pod/parser.h>
 #include <spa/param/props.h>
 
+#include "port.h"
+
 struct _WpPipewireSimpleEndpoint
 {
   WpEndpoint parent;
+
+  /* Node */
   struct pw_node_proxy *node;
   struct spa_hook proxy_listener;
   struct spa_hook node_proxy_listener;
+  
+  /* Info */
+  struct pw_node_info *info;
 
   /* controls cache */
   gfloat volume;
@@ -44,19 +51,6 @@ G_DECLARE_FINAL_TYPE (WpPipewireSimpleEndpoint,
     simple_endpoint, WP_PIPEWIRE, SIMPLE_ENDPOINT, WpEndpoint)
 
 G_DEFINE_TYPE (WpPipewireSimpleEndpoint, simple_endpoint, WP_TYPE_ENDPOINT)
-
-static void
-node_proxy_destroy (void *data)
-{
-  WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (data);
-  self->node = NULL;
-  wp_endpoint_unregister (WP_ENDPOINT (self));
-}
-
-static const struct pw_proxy_events node_proxy_events = {
-  PW_VERSION_PROXY_EVENTS,
-  .destroy = node_proxy_destroy,
-};
 
 static void
 node_proxy_param (void *object, int seq, uint32_t id,
@@ -104,8 +98,15 @@ node_proxy_param (void *object, int seq, uint32_t id,
   }
 }
 
+static void node_proxy_info(void *object, const struct pw_node_info *info)
+{
+  WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (object);
+  self->info = pw_node_info_update(self->info, info);
+}
+
 static const struct pw_node_proxy_events node_node_proxy_events = {
   PW_VERSION_NODE_PROXY_EVENTS,
+  .info = node_proxy_info,
   .param = node_proxy_param,
 };
 
@@ -113,6 +114,21 @@ static void
 simple_endpoint_init (WpPipewireSimpleEndpoint * self)
 {
 }
+
+static void
+node_proxy_destroy (void *data)
+{
+  WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (data);
+  self->node = NULL;
+
+  wp_endpoint_unregister (WP_ENDPOINT (self));
+}
+
+static const struct pw_proxy_events node_proxy_events = {
+  PW_VERSION_PROXY_EVENTS,
+  .destroy = node_proxy_destroy,
+};
+
 
 static void
 simple_endpoint_constructed (GObject * object)
@@ -124,6 +140,7 @@ simple_endpoint_constructed (GObject * object)
 
   pw_proxy_add_listener ((struct pw_proxy *) self->node, &self->proxy_listener,
       &node_proxy_events, self);
+
   pw_node_proxy_add_listener (self->node, &self->node_proxy_listener,
       &node_node_proxy_events, self);
   pw_node_proxy_subscribe_params (self->node, ids, n_ids);
@@ -202,11 +219,26 @@ simple_endpoint_get_property (GObject * object, guint property_id,
 }
 
 static gboolean
-simple_endpoint_prepare_link (WpEndpoint * self, guint32 stream_id,
+simple_endpoint_prepare_link (WpEndpoint * ep, guint32 stream_id,
     WpEndpointLink * link, GVariant ** properties, GError ** error)
 {
-  /* TODO: verify that the remote end supports the same media type */
-  /* TODO: fill @properties with (node id, array(port ids)) */
+  WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (ep);
+  GVariantBuilder b;
+
+  /* TODO: Since the linking with a 1 port client works when passing -1 as
+   * a port parameter, there is no need to find the port and set it in the
+   * properties. However, we need to add logic here and select the correct
+   * port in case the client has more than 1 port */
+
+  /* Set the port format here */
+
+  /* Set the properties */
+  g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
+  g_variant_builder_add (&b, "{sv}", "node-id",
+      g_variant_new_uint32 (self->info->id));
+  g_variant_builder_add (&b, "{sv}", "node-port-id",
+      g_variant_new_uint32 (-1));
+  *properties = g_variant_builder_end (&b);
 
   return TRUE;
 }
@@ -299,7 +331,6 @@ gpointer
 simple_endpoint_factory (WpFactory * factory, GType type,
     GVariant * properties)
 {
-  WpPipewireSimpleEndpoint *ep;
   guint64 proxy;
   const gchar *name;
   const gchar *media_class;
@@ -316,11 +347,9 @@ simple_endpoint_factory (WpFactory * factory, GType type,
   if (!g_variant_lookup (properties, "node-proxy", "t", &proxy))
       return NULL;
 
-  ep = g_object_new (simple_endpoint_get_type (),
+  return g_object_new (simple_endpoint_get_type (),
       "name", name,
       "media-class", media_class,
       "node-proxy", (gpointer) proxy,
       NULL);
-
-  return ep;
 }

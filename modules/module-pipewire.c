@@ -14,6 +14,7 @@
 
 #include <wp/wp.h>
 #include <pipewire/pipewire.h>
+#include <spa/param/audio/format-utils.h>
 
 #include "module-pipewire/loop-source.h"
 
@@ -50,6 +51,10 @@ registry_global (void * d, uint32_t id, uint32_t parent_id,
   g_autoptr (GVariant) endpoint_props = NULL;
   g_autoptr (WpCore) core = NULL;
   g_autoptr (WpEndpoint) endpoint = NULL;
+  struct spa_audio_info_raw format = { 0, };
+  struct spa_pod *param;
+  struct spa_pod_builder pod_builder = { 0, };
+  char buf[1024];
 
   /* listen for client "Stream" nodes and create endpoints for them */
   if (type == PW_TYPE_INTERFACE_Node &&
@@ -66,7 +71,26 @@ registry_global (void * d, uint32_t id, uint32_t parent_id,
     proxy = pw_registry_proxy_bind (data->registry_proxy,
         id, type, PW_VERSION_NODE, 0);
 
+    /* TODO: we need to get this from the EnumFormat event */
+    format.format = SPA_AUDIO_FORMAT_F32P;
+    format.flags = 1;
+    format.rate = 48000;
+    format.channels = 2;
+    format.position[0] = 0;
+    format.position[1] = 0;
+
+    /* Set the profile */
+    spa_pod_builder_init(&pod_builder, buf, sizeof(buf));
+    param = spa_format_audio_raw_build(&pod_builder, SPA_PARAM_Format, &format);
+    param = spa_pod_builder_add_object(&pod_builder,
+        SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
+        SPA_PARAM_PROFILE_direction,  SPA_POD_Id(PW_DIRECTION_OUTPUT),
+        SPA_PARAM_PROFILE_format,     SPA_POD_Pod(param));
+    pw_node_proxy_set_param((struct pw_node_proxy*)proxy,
+        SPA_PARAM_Profile, 0, param);
+
     g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
+    g_variant_builder_add (&b, "{sv}", "node-id", g_variant_new_uint32 (id));
     g_variant_builder_add (&b, "{sv}",
         "name", name ? g_variant_new_string (name) :
             g_variant_new_take_string (g_strdup_printf ("Stream %u", id)));
