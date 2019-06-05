@@ -319,7 +319,7 @@ client_endpoint_set_param (void *object, uint32_t id, uint32_t flags,
   }
 
   if ((res = spa_pod_parser_get (&p,
-          PW_ENDPOINT_PARAM_CONTROL_id, SPA_POD_Id (&control_id),
+          PW_ENDPOINT_PARAM_CONTROL_id, SPA_POD_Int (&control_id),
           PW_ENDPOINT_PARAM_CONTROL_value, SPA_POD_Pod (&value),
           NULL)) < 0)
     goto error;
