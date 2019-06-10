@@ -279,8 +279,8 @@ wp_endpoint_unregister (WpEndpoint * self)
     g_info ("WpEndpoint:%p unregistering '%s' (%s)", self, priv->name,
         priv->media_class);
 
-    priv->core = NULL;
     wp_core_remove_global (priv->core, WP_GLOBAL_ENDPOINT, self);
+    priv->core = NULL;
   }
 }
 
