@@ -60,6 +60,9 @@ GQuark wp_global_module_quark (void);
 #define WP_GLOBAL_POLICY_MANAGER (wp_global_policy_manager_quark ())
 GQuark wp_global_policy_manager_quark (void);
 
+#define WP_GLOBAL_PROXY (wp_global_proxy_quark ())
+GQuark wp_global_proxy_quark (void);
+
 G_END_DECLS
 
 #endif
