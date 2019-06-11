@@ -28,7 +28,7 @@ struct _WpPipewireSimpleEndpoint
   struct pw_node_proxy *node;
   struct spa_hook proxy_listener;
   struct spa_hook node_proxy_listener;
-  
+
   /* Info */
   struct pw_node_info *info;
 

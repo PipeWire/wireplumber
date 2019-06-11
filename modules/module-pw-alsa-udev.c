@@ -79,7 +79,7 @@ static void done_data_destroy(gpointer p) {
 static void sync_core_with_callabck(struct impl* impl,
     WpDoneCallback callback, gpointer data, GDestroyNotify data_destroy) {
   struct done_data *dd = g_new0(struct done_data, 1);
-  
+
   /* Set the data */
   dd->callback = callback;
   dd->data = data;
@@ -139,7 +139,7 @@ static void enum_format_and_create_endpoint(gpointer p) {
     if (port->parent_id == ei->id)
       break;
   }
-  
+
   /* Emit the port EnumFormat */
   pw_port_proxy_enum_params((struct pw_port_proxy*)port->proxy, 0,
           SPA_PARAM_EnumFormat, 0, -1, NULL);
@@ -233,7 +233,7 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id,
   struct pw_proxy *proxy;
   WpPort *port;
   const char *direction_prop;
-  
+
   /* Make sure the port has porperties */
   if (!props)
     return;

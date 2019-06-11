@@ -24,7 +24,7 @@
 
 struct _WpPwAudioSoftdspEndpoint {
   WpEndpoint parent;
-  
+
   /* The core proxy */
   struct pw_core_proxy *core_proxy;
 
@@ -43,7 +43,7 @@ struct _WpPwAudioSoftdspEndpoint {
   /* DSP proxy and listener */
   struct pw_proxy *dsp_proxy;
   struct spa_hook dsp_listener;
-  
+
   /* DSP info */
   struct pw_node_info *dsp_info;
 
@@ -102,7 +102,7 @@ endpoint_prepare_link (WpEndpoint * ep, guint32 stream_id,
   }
   if (!node_port)
     return FALSE;
-  
+
   /* Find the first dsp port with the same direction as the node port */
   spa_list_for_each(port, self->port_list, l) {
     if (self->dsp_info->id == port->parent_id
@@ -175,7 +175,7 @@ static void dsp_node_event_info(void *data, const struct pw_node_info *info)
 
   /* Set dsp info */
   self->dsp_info = pw_node_info_update(self->dsp_info, info);
-  
+
   /* Handle the different states */
   switch (info->state) {
   case PW_NODE_STATE_IDLE:
@@ -202,11 +202,11 @@ static void emit_audio_dsp_node(WpPwAudioSoftdspEndpoint *self)
   uint8_t buf[1024];
   struct spa_pod_builder pod_builder = { 0, };
   struct spa_pod *param;
-  
+
   /* Return if the node has been already emitted */
   if (self->dsp_proxy)
     return;
-  
+
   /* Get the properties */
   props = pw_properties_new_dict(self->node_info->props);
   if (!props)
@@ -237,8 +237,8 @@ static void emit_audio_dsp_node(WpPwAudioSoftdspEndpoint *self)
       SPA_PARAM_PROFILE_format,     SPA_POD_Pod(param));
   pw_node_proxy_set_param((struct pw_node_proxy*)self->dsp_proxy,
       SPA_PARAM_Profile, 0, param);
-  
-  /* Clean up */    
+
+  /* Clean up */
   pw_properties_free(props);
 }
 
