@@ -34,7 +34,6 @@ control_to_pod (GVariant * control, guint32 * control_id,
   const gchar *type;
 
   if (!g_variant_lookup (control, "id", "u", &id) ||
-      !g_variant_lookup (control, "stream-id", "u", &stream_id) ||
       !g_variant_lookup (control, "name", "&s", &name) ||
       !g_variant_lookup (control, "type", "&s", &type) ||
       !g_variant_type_string_is_valid (type))
@@ -48,9 +47,14 @@ control_to_pod (GVariant * control, guint32 * control_id,
       PW_ENDPOINT_OBJECT_ParamControl, PW_ENDPOINT_PARAM_EnumControl);
   spa_pod_builder_add (b,
       PW_ENDPOINT_PARAM_CONTROL_id, SPA_POD_Int (id),
-      PW_ENDPOINT_PARAM_CONTROL_stream_id, SPA_POD_Int (stream_id),
       PW_ENDPOINT_PARAM_CONTROL_name, SPA_POD_String (name),
       NULL);
+
+  if (g_variant_lookup (control, "stream-id", "u", &stream_id)) {
+    spa_pod_builder_add (b,
+        PW_ENDPOINT_PARAM_CONTROL_stream_id, SPA_POD_Int (stream_id),
+        NULL);
+  }
 
   switch (type[0]) {
     case 'b':
