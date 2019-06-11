@@ -191,12 +191,7 @@ node_event_info (void *data, const struct pw_node_info *info)
   }
 
   /* Set the format using the port format */
-  self->format.format = port->format.format;
-  self->format.flags = port->format.flags;
-  self->format.rate = port->format.rate;
-  self->format.channels = port->format.channels;
-  for (int i = 0; i < port->format.channels; ++i)
-    self->format.position[i] = port->format.position[i];
+  self->format = port->format;
 
   /* Emit the audio DSP node */
   emit_audio_dsp_node(self);
