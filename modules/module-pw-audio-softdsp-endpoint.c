@@ -91,12 +91,24 @@ on_dsp_running (WpPwAudioSoftdspEndpoint *self)
     pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", -1);
   }
 
+  g_debug ("%p linking DSP to node", self);
+
   /* Create the link */
   self->link_proxy = pw_core_proxy_create_object(self->core_proxy,
       "link-factory", PW_TYPE_INTERFACE_Link, PW_VERSION_LINK, &props->dict, 0);
 
   /* Clean up */
   pw_properties_free(props);
+}
+
+static void
+on_dsp_idle (WpPwAudioSoftdspEndpoint *self)
+{
+  if (self->link_proxy != NULL) {
+    g_debug ("%p unlinking DSP from node", self);
+    pw_proxy_destroy (self->link_proxy);
+    self->link_proxy = NULL;
+  }
 }
 
 static void
@@ -110,14 +122,15 @@ dsp_node_event_info (void *data, const struct pw_node_info *info)
   /* Handle the different states */
   switch (info->state) {
   case PW_NODE_STATE_IDLE:
-          break;
+    on_dsp_idle (self);
+    break;
   case PW_NODE_STATE_RUNNING:
-          on_dsp_running(self);
-          break;
+    on_dsp_running (self);
+    break;
   case PW_NODE_STATE_SUSPENDED:
-          break;
+    break;
   default:
-          break;
+    break;
   }
 }
 
