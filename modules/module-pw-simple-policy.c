@@ -35,8 +35,10 @@ struct impl {
   WpEndpoint *ep_remote;
 };
 
-static void sync_core_with_callabck(struct impl* impl, WpDoneCallback callback,
-    gpointer data) {
+static void
+sync_core_with_callabck(struct impl* impl, WpDoneCallback callback,
+    gpointer data)
+{
   /* Set the callback and data */
   impl->done_cb = callback;
   impl->done_cb_data = data;
@@ -45,35 +47,51 @@ static void sync_core_with_callabck(struct impl* impl, WpDoneCallback callback,
   impl->core_seq = pw_core_proxy_sync(impl->core_proxy, 0, impl->core_seq);
 }
 
-static void endpoint_first_foreach(WpEndpoint *ep, WpEndpoint **first)
+static WpEndpoint *
+endpoint_get_selected (WpCore *core, const char *media_class)
 {
-  /* Just return if first is already set */
-  if (*first)
-    return;
-
-  /* Set first to the current endpoint */
-  *first = g_object_ref(ep);
-}
-
-static WpEndpoint *endpoint_get_first(WpCore *core,
-    const char *media_class)
-{
-  WpEndpoint *first = NULL;
-  GPtrArray *ptr_array = NULL;
+  g_autoptr (GPtrArray) ptr_array = NULL;
+  int i;
 
   /* Get all the endpoints with the specific media lcass*/
   ptr_array = wp_endpoint_find (core, media_class);
   if (!ptr_array)
     return NULL;
 
-  /* Get the first endpoint of the list */
-  g_ptr_array_foreach(ptr_array, (GFunc)endpoint_first_foreach, &first);
+  /* Find and return the "selected" endpoint */
+  /* FIXME: fix the endpoint API, this is terrible */
+  for (i = 0; i < ptr_array->len; i++) {
+    WpEndpoint *ep = g_ptr_array_index (ptr_array, i);
+    GVariantIter iter;
+    g_autoptr (GVariant) controls = NULL;
+    g_autoptr (GVariant) value = NULL;
+    const gchar *name;
+    guint id;
 
-  /* Return the first endpoint */
-  return first;
+    controls = wp_endpoint_list_controls (ep);
+    g_variant_iter_init (&iter, controls);
+    while ((value = g_variant_iter_next_value (&iter))) {
+      if (!g_variant_lookup (value, "name", "&s", &name)
+          || !g_str_equal (name, "selected")) {
+        g_variant_unref (value);
+        continue;
+      }
+      g_variant_lookup (value, "id", "u", &id);
+      g_variant_unref (value);
+    }
+
+    value = wp_endpoint_get_control_value (ep, id);
+    if (value && g_variant_get_boolean (value))
+      return ep;
+  }
+
+  /* If not found, return the first endpoint */
+  return (ptr_array->len > 1) ? g_ptr_array_index (ptr_array, 0) : NULL;
 }
 
-static void link_endpoints(gpointer data) {
+static void
+link_endpoints(gpointer data)
+{
   struct impl *impl = data;
   WpEndpointLink *ep_link = NULL;
 
@@ -119,7 +137,7 @@ endpoint_added (WpCore *core, GQuark key, WpEndpoint *ep, struct impl * impl)
   impl->ep_client = ep;
 
   /* Get the first endpoint with media class Audio/Sink */
-  impl->ep_remote = endpoint_get_first(core, "Audio/Sink");
+  impl->ep_remote = endpoint_get_selected (core, "Audio/Sink");
   if (!impl->ep_remote) {
     g_warning ("Could not get an Audio/Sink remote endpoint\n");
     return;
