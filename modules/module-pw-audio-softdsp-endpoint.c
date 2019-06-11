@@ -27,6 +27,10 @@
 struct _WpPwAudioSoftdspEndpoint {
   WpEndpoint parent;
 
+  /* temporary method to select which endpoint
+   * is going to be the default input/output */
+  gboolean selected;
+
   /* The core proxy */
   struct pw_core_proxy *core_proxy;
 
@@ -67,6 +71,7 @@ enum {
 enum {
   CONTROL_VOLUME = 0,
   CONTROL_MUTE,
+  CONTROL_SELECTED,
 };
 
 G_DECLARE_FINAL_TYPE (WpPwAudioSoftdspEndpoint, endpoint,
@@ -348,6 +353,14 @@ endpoint_constructed (GObject * object)
   g_variant_dict_insert (&d, "default-value", "b", self->master_mute);
   wp_endpoint_register_control (WP_ENDPOINT (self), g_variant_dict_end (&d));
 
+  self->selected = FALSE;
+  g_variant_dict_init (&d, NULL);
+  g_variant_dict_insert (&d, "id", "u", CONTROL_SELECTED);
+  g_variant_dict_insert (&d, "name", "s", "selected");
+  g_variant_dict_insert (&d, "type", "s", "b");
+  g_variant_dict_insert (&d, "default-value", "b", self->selected);
+  wp_endpoint_register_control (WP_ENDPOINT (self), g_variant_dict_end (&d));
+
   G_OBJECT_CLASS (endpoint_parent_class)->constructed (object);
 }
 
@@ -459,6 +472,8 @@ endpoint_get_control_value (WpEndpoint * ep, guint32 control_id)
       return g_variant_new_double (self->master_volume);
     case CONTROL_MUTE:
       return g_variant_new_boolean (self->master_mute);
+    case CONTROL_SELECTED:
+      return g_variant_new_boolean (self->selected);
     default:
       g_warning ("Unknown control id %u", control_id);
       return NULL;
@@ -508,6 +523,11 @@ endpoint_set_control_value (WpEndpoint * ep, guint32 control_id,
               SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
               SPA_PROP_mute, SPA_POD_Bool(mute),
               NULL));
+      break;
+
+    case CONTROL_SELECTED:
+      self->selected = g_variant_get_boolean (value);
+      wp_endpoint_notify_control_value (ep, CONTROL_SELECTED);
       break;
 
     default:
