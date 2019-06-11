@@ -224,6 +224,7 @@ node_proxy_destroy(void *data)
 {
   WpPwAudioSoftdspEndpoint *self = data;
 
+  self->node_proxy = NULL;
   wp_endpoint_unregister (WP_ENDPOINT (self));
 }
 
@@ -281,10 +282,8 @@ endpoint_finalize (GObject * object)
   }
 
   /* Remove and destroy the dsp_proxy */
-  if (self->dsp_proxy) {
-    spa_hook_remove (&self->dsp_listener);
+  if (self->dsp_proxy)
     pw_proxy_destroy ((struct pw_proxy *) self->dsp_proxy);
-  }
 
   G_OBJECT_CLASS (endpoint_parent_class)->finalize (object);
 }
