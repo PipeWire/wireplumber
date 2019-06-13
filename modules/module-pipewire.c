@@ -36,7 +36,78 @@ struct module_data
 
   struct pw_registry_proxy *registry_proxy;
   struct spa_hook registry_listener;
+
+  struct pw_core_proxy *core_proxy;
+  struct spa_hook core_listener;
+  GQueue *done_queue;
 };
+
+
+typedef void (*WpDoneCallback)(gpointer, gpointer);
+
+struct done_data
+{
+  WpDoneCallback callback;
+  gpointer data;
+  GDestroyNotify data_destroy;
+};
+
+static void
+done_data_destroy(gpointer p)
+{
+  struct done_data *dd = p;
+  if (dd->data_destroy) {
+    dd->data_destroy(dd->data);
+    dd->data = NULL;
+  }
+  g_slice_free (struct done_data, dd);
+}
+
+static void
+sync_core_with_callback(struct module_data* impl, WpDoneCallback callback,
+    gpointer data, GDestroyNotify data_destroy)
+{
+  struct done_data *dd = g_new0(struct done_data, 1);
+
+  /* Set the data */
+  dd->callback = callback;
+  dd->data = data;
+  dd->data_destroy = data_destroy;
+
+  /* Add the data to the queue */
+  g_queue_push_tail (impl->done_queue, dd);
+
+  /* Sync the core */
+  pw_core_proxy_sync(impl->core_proxy, 0, 0);
+}
+
+static void
+core_done(void *d, uint32_t id, int seq)
+{
+  struct module_data * impl = d;
+  struct done_data * dd = NULL;
+
+  /* Process all the done_data queue */
+  while ((dd = g_queue_pop_head(impl->done_queue))) {
+    if (dd->callback)
+      dd->callback(impl, dd->data);
+    done_data_destroy(dd);
+  }
+}
+
+static const struct pw_core_proxy_events core_events = {
+  PW_VERSION_CORE_EVENTS,
+  .done = core_done
+};
+
+static void
+register_endpoint (struct module_data* data, WpEndpoint *ep)
+{
+  g_autoptr (WpCore) core = NULL;
+  core = wp_module_get_core (data->module);
+  g_return_if_fail (core != NULL);
+  wp_endpoint_register (ep, core);
+}
 
 static void
 registry_global (void * d, uint32_t id, uint32_t parent_id,
@@ -105,7 +176,8 @@ registry_global (void * d, uint32_t id, uint32_t parent_id,
 
     endpoint = wp_factory_make (core, "pipewire-simple-endpoint",
         WP_TYPE_ENDPOINT, endpoint_props);
-    wp_endpoint_register (endpoint, core);
+    sync_core_with_callback (data, (WpDoneCallback) register_endpoint,
+        g_steal_pointer (&endpoint), g_object_unref);
   }
 }
 
@@ -127,7 +199,9 @@ on_remote_state_changed (void *d, enum pw_remote_state old_state,
 
   switch (new_state) {
   case PW_REMOTE_STATE_CONNECTED:
-    core_proxy = pw_remote_get_core_proxy (data->remote);
+    core_proxy = data->core_proxy = pw_remote_get_core_proxy (data->remote);
+    pw_core_proxy_add_listener(data->core_proxy, &data->core_listener,
+        &core_events, data);
     data->registry_proxy = pw_core_proxy_get_registry (core_proxy,
         PW_TYPE_INTERFACE_Registry, PW_VERSION_REGISTRY, 0);
     pw_registry_proxy_add_listener(data->registry_proxy,
@@ -174,6 +248,7 @@ module_destroy (gpointer d)
 {
   struct module_data *data = d;
 
+  g_queue_free_full(data->done_queue, done_data_destroy);
   pw_remote_destroy (data->remote);
   pw_core_destroy (data->core);
   g_slice_free (struct module_data, data);
@@ -189,6 +264,7 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 
   data = g_slice_new0 (struct module_data);
   data->module = module;
+  data->done_queue = g_queue_new();
   wp_module_set_destroy_callback (module, module_destroy, data);
 
   source = wp_loop_source_new ();
