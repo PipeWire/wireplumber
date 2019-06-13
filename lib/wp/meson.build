@@ -4,6 +4,7 @@ wp_lib_sources = [
   'error.c',
   'factory.c',
   'module.c',
+  'policy.c',
 ]
 
 wp_lib_headers = [
@@ -12,6 +13,7 @@ wp_lib_headers = [
   'error.h',
   'factory.h',
   'module.h',
+  'policy.h',
   'wp.h',
 ]
 

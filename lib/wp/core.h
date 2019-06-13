@@ -57,6 +57,9 @@ GQuark wp_global_factory_quark (void);
 #define WP_GLOBAL_MODULE (wp_global_module_quark ())
 GQuark wp_global_module_quark (void);
 
+#define WP_GLOBAL_POLICY_MANAGER (wp_global_policy_manager_quark ())
+GQuark wp_global_policy_manager_quark (void);
+
 G_END_DECLS
 
 #endif

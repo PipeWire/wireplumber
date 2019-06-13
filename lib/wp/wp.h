@@ -11,3 +11,4 @@
 #include "error.h"
 #include "factory.h"
 #include "module.h"
+#include "policy.h"
