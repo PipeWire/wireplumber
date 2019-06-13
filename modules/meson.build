@@ -41,11 +41,11 @@ shared_library(
 )
 
 shared_library(
-  'wireplumber-module-pw-simple-policy',
+  'wireplumber-module-simple-policy',
   [
-    'module-pw-simple-policy.c'
+    'module-simple-policy.c'
   ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-pw-simple-policy"'],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-simple-policy"'],
   install : true,
   install_dir : wireplumber_module_dir,
   dependencies : [wp_dep, pipewire_dep],
