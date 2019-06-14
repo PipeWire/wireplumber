@@ -16,6 +16,13 @@ struct _WpPolicyManager
   GList *policies;
 };
 
+enum {
+  SIGNAL_CHANGED,
+  N_SIGNALS,
+};
+
+static guint signals[N_SIGNALS];
+
 G_DEFINE_TYPE (WpPolicyManager, wp_policy_manager, G_TYPE_OBJECT)
 
 static void
@@ -39,6 +46,10 @@ wp_policy_manager_class_init (WpPolicyManagerClass *klass)
   GObjectClass *object_class = (GObjectClass *) klass;
 
   object_class->finalize = wp_policy_manager_finalize;
+
+  signals[SIGNAL_CHANGED] = g_signal_new ("policy-changed",
+      G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
+      G_TYPE_NONE, 0);
 }
 
 static void
@@ -75,20 +86,34 @@ policy_mgr_endpoint_removed (WpCore *core, GQuark key, WpEndpoint *ep,
   }
 }
 
-static WpPolicyManager *
-wp_policy_manager_new (WpCore *core)
+/**
+ * WpPolicyManager::wp_policy_manager_get_instance:
+ * @core: the #WpCore
+ *
+ * Returns: (transfer full): the instance of #WpPolicyManager that is
+ *    registered on the @core
+ */
+WpPolicyManager *
+wp_policy_manager_get_instance (WpCore *core)
 {
-  WpPolicyManager *mgr = g_object_new (WP_TYPE_POLICY_MANAGER, NULL);
+  WpPolicyManager *mgr;
 
-  g_signal_connect_object (core, "global-added::endpoint",
-      (GCallback) policy_mgr_endpoint_added, mgr, 0);
-  g_signal_connect_object (core, "global-removed::endpoint",
-      (GCallback) policy_mgr_endpoint_removed, mgr, 0);
+  g_return_val_if_fail (WP_IS_CORE (core), NULL);
 
-  wp_core_register_global (core, WP_GLOBAL_POLICY_MANAGER, mgr,
-      g_object_unref);
+  mgr = wp_core_get_global (core, WP_GLOBAL_POLICY_MANAGER);
+  if (G_UNLIKELY (!mgr)) {
+    mgr = g_object_new (WP_TYPE_POLICY_MANAGER, NULL);
 
-  return mgr;
+    g_signal_connect_object (core, "global-added::endpoint",
+        (GCallback) policy_mgr_endpoint_added, mgr, 0);
+    g_signal_connect_object (core, "global-removed::endpoint",
+        (GCallback) policy_mgr_endpoint_removed, mgr, 0);
+
+    wp_core_register_global (core, WP_GLOBAL_POLICY_MANAGER, mgr,
+        g_object_unref);
+  }
+
+  return g_object_ref (mgr);
 }
 
 /* WpPolicy */
@@ -256,21 +281,19 @@ compare_ranks (const WpPolicy * a, const WpPolicy * b)
 void
 wp_policy_register (WpPolicy *self, WpCore *core)
 {
-  WpPolicyManager *mgr;
+  g_autoptr (WpPolicyManager) mgr = NULL;
   WpPolicyPrivate *priv;
 
   g_return_if_fail (WP_IS_POLICY (self));
   g_return_if_fail (WP_IS_CORE (core));
 
-  mgr = wp_core_get_global (core, WP_GLOBAL_POLICY_MANAGER);
-  if (G_UNLIKELY (!mgr))
-    mgr = wp_policy_manager_new (core);
-
-  mgr->policies = g_list_insert_sorted (mgr->policies, g_object_ref (self),
-      (GCompareFunc) compare_ranks);
-
   priv = wp_policy_get_instance_private (self);
   priv->core = core;
+
+  mgr = wp_policy_manager_get_instance (core);
+  mgr->policies = g_list_insert_sorted (mgr->policies, g_object_ref (self),
+      (GCompareFunc) compare_ranks);
+  g_signal_emit (mgr, signals[SIGNAL_CHANGED], 0);
 }
 
 void
@@ -292,7 +315,29 @@ wp_policy_unregister (WpPolicy *self)
     }
 
     mgr->policies = g_list_remove (mgr->policies, self);
+    g_signal_emit (mgr, signals[SIGNAL_CHANGED], 0);
     g_object_unref (self);
+  }
+}
+
+void
+wp_policy_notify_changed (WpPolicy *self)
+{
+  WpPolicyManager *mgr;
+  WpPolicyPrivate *priv;
+
+  g_return_if_fail (WP_IS_POLICY (self));
+
+  priv = wp_policy_get_instance_private (self);
+  if (priv->core) {
+    mgr = wp_core_get_global (priv->core, WP_GLOBAL_POLICY_MANAGER);
+    if (G_UNLIKELY (!mgr)) {
+      g_critical ("WpPolicy:%p seems registered, but the policy manager "
+          "is absent", self);
+      return;
+    }
+
+    g_signal_emit (mgr, signals[SIGNAL_CHANGED], 0);
   }
 }
 

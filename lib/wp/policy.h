@@ -52,11 +52,15 @@ struct _WpPolicyClass
       guint32 *stream_id);
 };
 
+WpPolicyManager * wp_policy_manager_get_instance (WpCore *core);
+
 guint32 wp_policy_get_rank (WpPolicy *self);
 WpCore *wp_policy_get_core (WpPolicy *self);
 
 void wp_policy_register (WpPolicy *self, WpCore *core);
 void wp_policy_unregister (WpPolicy *self);
+
+void wp_policy_notify_changed (WpPolicy *self);
 
 WpEndpoint * wp_policy_find_endpoint (WpCore *core, GVariant *props,
     guint32 *stream_id);
