@@ -29,7 +29,7 @@ struct _WpPwAudioSoftdspEndpoint
   /* temporary method to select which endpoint
    * is going to be the default input/output */
   gboolean selected;
-  
+
   /* Core */
   struct pw_core_proxy *core_proxy;
 
@@ -81,11 +81,11 @@ endpoint_prepare_link (WpEndpoint * ep, guint32 stream_id,
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (ep);
   GVariantBuilder b;
-  
+
   /* Make sure dsp info is valid */
   if (!self->dsp_info)
     return FALSE;
-  
+
   /* Set the properties */
   g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
   g_variant_builder_add (&b, "{sv}", "node-id",
@@ -236,7 +236,7 @@ emit_audio_dsp_node (WpPwAudioSoftdspEndpoint *self)
   const struct pw_node_info *node_info;
   const struct spa_audio_info_raw *port_format;
   struct spa_audio_info_raw format;
-  
+
   /* Get the node info */
   node_info = wp_proxy_node_get_info(self->proxy_node);
   if (!node_info)
@@ -542,7 +542,7 @@ handle_port(WpPwAudioSoftdspEndpoint *self, uint32_t id, uint32_t parent_id,
   /* Only handle ports with the oposit direction of the endpoint */
   if (self->direction == direction)
     return;
-  
+
   /* Set the dsp port id */
   self->dsp_port_id = id;
 }
@@ -573,7 +573,8 @@ static gpointer
 endpoint_factory (WpFactory * factory, GType type, GVariant * properties)
 {
   WpCore *wp_core = NULL;
-  struct pw_remote *remote;
+  WpRemote *remote;
+  struct pw_remote *pw_remote;
   const gchar *name = NULL;
   const gchar *media_class = NULL;
   guint64 proxy_node, proxy_port;
@@ -590,7 +591,7 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties)
   }
 
   /* Get the remote */
-  remote = wp_core_get_global(wp_core, WP_GLOBAL_PW_REMOTE);
+  remote = wp_core_get_global(wp_core, WP_GLOBAL_REMOTE_PIPEWIRE);
   if (!remote) {
     g_warning("failed to get core remote. Skipping...");
     return NULL;
@@ -617,12 +618,13 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties)
     return NULL;
 
   /* Set the core proxy */
-  ep->core_proxy = pw_remote_get_core_proxy(remote);
+  g_object_get (remote, "pw-remote", &pw_remote, NULL);
+  ep->core_proxy = pw_remote_get_core_proxy(pw_remote);
   if (!ep->core_proxy) {
     g_warning("failed to get core proxy. Skipping...");
     return NULL;
   }
-  
+
   /* Add registry listener */
   ep->registry_proxy = pw_core_proxy_get_registry (ep->core_proxy,
       PW_TYPE_INTERFACE_Registry, PW_VERSION_REGISTRY, 0);

@@ -97,7 +97,8 @@ simple_endpoint_link_factory (WpFactory * factory, GType type,
     GVariant * properties)
 {
   WpCore *wp_core = NULL;
-  struct pw_remote *remote;
+  WpRemote *remote;
+  struct pw_remote *pw_remote;
 
   /* Make sure the type is an endpoint link */
   if (type != WP_TYPE_ENDPOINT_LINK)
@@ -111,7 +112,7 @@ simple_endpoint_link_factory (WpFactory * factory, GType type,
   }
 
   /* Get the remote */
-  remote = wp_core_get_global(wp_core, WP_GLOBAL_PW_REMOTE);
+  remote = wp_core_get_global(wp_core, WP_GLOBAL_REMOTE_PIPEWIRE);
   if (!remote) {
     g_warning("failed to get core remote. Skipping...");
     return NULL;
@@ -122,7 +123,8 @@ simple_endpoint_link_factory (WpFactory * factory, GType type,
       simple_endpoint_link_get_type (), NULL);
 
   /* Set the core proxy */
-  epl->core_proxy = pw_remote_get_core_proxy(remote);
+  g_object_get (remote, "pw-remote", &pw_remote, NULL);
+  epl->core_proxy = pw_remote_get_core_proxy(pw_remote);
   if (!epl->core_proxy) {
     g_warning("failed to get core proxy. Skipping...");
     return NULL;

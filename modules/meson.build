@@ -7,7 +7,6 @@ shared_library(
   'wireplumber-module-pipewire',
   [
     'module-pipewire.c',
-    'module-pipewire/loop-source.c',
     'module-pipewire/remote-endpoint.c',
     'module-pipewire/simple-endpoint-link.c',
     'module-pipewire/simple-endpoint.c',

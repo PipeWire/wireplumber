@@ -34,20 +34,6 @@ void wp_core_register_global (WpCore * self, GQuark key, gpointer obj,
     GDestroyNotify destroy_obj);
 void wp_core_remove_global (WpCore * self, GQuark key, gpointer obj);
 
-/**
- * WP_GLOBAL_PW_CORE:
- * The key to access the pw_core global object
- */
-#define WP_GLOBAL_PW_CORE (wp_global_pw_core_quark ())
-GQuark wp_global_pw_core_quark (void);
-
-/**
- * WP_GLOBAL_PW_REMOTE:
- * The key to access the pw_remote global object
- */
-#define WP_GLOBAL_PW_REMOTE (wp_global_pw_remote_quark ())
-GQuark wp_global_pw_remote_quark (void);
-
 #define WP_GLOBAL_ENDPOINT (wp_global_endpoint_quark ())
 GQuark wp_global_endpoint_quark (void);
 
@@ -62,6 +48,14 @@ GQuark wp_global_policy_manager_quark (void);
 
 #define WP_GLOBAL_PROXY (wp_global_proxy_quark ())
 GQuark wp_global_proxy_quark (void);
+
+/**
+ * WP_GLOBAL_REMOTE_PIPEWIRE:
+ * The key to access the #WpRemote global object that maintains
+ * the connection to pipewire
+ */
+#define WP_GLOBAL_REMOTE_PIPEWIRE (wp_global_remote_pipewire_quark ())
+GQuark wp_global_remote_pipewire_quark (void);
 
 G_END_DECLS
 

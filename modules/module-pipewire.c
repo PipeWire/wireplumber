@@ -16,8 +16,6 @@
 #include <pipewire/pipewire.h>
 #include <spa/param/audio/format-utils.h>
 
-#include "module-pipewire/loop-source.h"
-
 void remote_endpoint_init (WpCore * core, struct pw_core * pw_core,
     struct pw_remote * remote);
 gpointer simple_endpoint_factory (WpFactory * factory, GType type,
@@ -28,11 +26,6 @@ gpointer simple_endpoint_link_factory (WpFactory * factory, GType type,
 struct module_data
 {
   WpModule *module;
-
-  struct pw_core *core;
-
-  struct pw_remote *remote;
-  struct spa_hook remote_listener;
 
   struct pw_registry_proxy *registry_proxy;
   struct spa_hook registry_listener;
@@ -187,60 +180,21 @@ static const struct pw_registry_proxy_events registry_events = {
 };
 
 static void
-on_remote_state_changed (void *d, enum pw_remote_state old_state,
-    enum pw_remote_state new_state, const char *error)
+on_remote_connected (WpRemote *remote, WpRemoteState state,
+    struct module_data *data)
 {
-  struct module_data *data = d;
   struct pw_core_proxy *core_proxy;
+  struct pw_remote *pw_remote;
 
-  g_debug ("remote state changed, old:%s new:%s",
-      pw_remote_state_as_string (old_state),
-      pw_remote_state_as_string (new_state));
+  g_object_get (remote, "pw-remote", &pw_remote, NULL);
 
-  switch (new_state) {
-  case PW_REMOTE_STATE_CONNECTED:
-    core_proxy = data->core_proxy = pw_remote_get_core_proxy (data->remote);
-    pw_core_proxy_add_listener(data->core_proxy, &data->core_listener,
-        &core_events, data);
-    data->registry_proxy = pw_core_proxy_get_registry (core_proxy,
-        PW_TYPE_INTERFACE_Registry, PW_VERSION_REGISTRY, 0);
-    pw_registry_proxy_add_listener(data->registry_proxy,
-        &data->registry_listener, &registry_events, data);
-    break;
-
-  case PW_REMOTE_STATE_UNCONNECTED: {
-    g_autoptr (WpCore) core = wp_module_get_core (data->module);
-    if (core) {
-      g_message ("disconnected from PipeWire");
-      g_main_loop_quit (wp_core_get_global (core,
-              g_quark_from_string ("main-loop")));
-    }
-    break;
-  }
-  case PW_REMOTE_STATE_ERROR: {
-    g_autoptr (WpCore) core = wp_module_get_core (data->module);
-    if (core) {
-      g_message ("PipeWire remote error: %s", error);
-      g_main_loop_quit (wp_core_get_global (core,
-              g_quark_from_string ("main-loop")));
-    }
-    break;
-  }
-  default:
-    break;
-  }
-}
-
-static const struct pw_remote_events remote_events = {
-  PW_VERSION_REMOTE_EVENTS,
-  .state_changed = on_remote_state_changed,
-};
-
-static gboolean
-connect_in_idle (struct pw_remote *remote)
-{
-  pw_remote_connect (remote);
-  return G_SOURCE_REMOVE;
+  core_proxy = data->core_proxy = pw_remote_get_core_proxy (pw_remote);
+  pw_core_proxy_add_listener(data->core_proxy, &data->core_listener,
+      &core_events, data);
+  data->registry_proxy = pw_core_proxy_get_registry (core_proxy,
+      PW_TYPE_INTERFACE_Registry, PW_VERSION_REGISTRY, 0);
+  pw_registry_proxy_add_listener(data->registry_proxy,
+      &data->registry_listener, &registry_events, data);
 }
 
 static void
@@ -249,40 +203,39 @@ module_destroy (gpointer d)
   struct module_data *data = d;
 
   g_queue_free_full(data->done_queue, done_data_destroy);
-  pw_remote_destroy (data->remote);
-  pw_core_destroy (data->core);
   g_slice_free (struct module_data, data);
 }
 
 void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
-  GSource *source;
   struct module_data *data;
+  WpRemote *remote;
+  struct pw_core *pw_core;
+  struct pw_remote *pw_remote;
 
-  pw_init (NULL, NULL);
+  remote = wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
+  if (!remote) {
+    g_critical ("module-pipewire cannot be loaded without a registered "
+        "WpRemotePipewire object");
+    return;
+  }
 
   data = g_slice_new0 (struct module_data);
   data->module = module;
   data->done_queue = g_queue_new();
   wp_module_set_destroy_callback (module, module_destroy, data);
 
-  source = wp_loop_source_new ();
-  g_source_attach (source, NULL);
+  g_signal_connect (remote, "state-changed::connected",
+      (GCallback) on_remote_connected, data);
 
-  data->core = pw_core_new (WP_LOOP_SOURCE (source)->loop, NULL, 0);
-  wp_core_register_global (core, WP_GLOBAL_PW_CORE, data->core, NULL);
-
-  data->remote = pw_remote_new (data->core, NULL, 0);
-  pw_remote_add_listener (data->remote, &data->remote_listener, &remote_events,
-      data);
-  wp_core_register_global (core, WP_GLOBAL_PW_REMOTE, data->remote, NULL);
-
-  remote_endpoint_init (core, data->core, data->remote);
+  g_object_get (remote,
+      "pw-core", &pw_core,
+      "pw-remote", &pw_remote,
+      NULL);
+  remote_endpoint_init (core, pw_core, pw_remote);
 
   wp_factory_new (core, "pipewire-simple-endpoint", simple_endpoint_factory);
   wp_factory_new (core, "pipewire-simple-endpoint-link",
       simple_endpoint_link_factory);
-
-  g_idle_add ((GSourceFunc) connect_in_idle, data->remote);
 }

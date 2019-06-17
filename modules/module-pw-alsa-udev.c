@@ -20,7 +20,6 @@ struct impl
   WpCore *core;
 
   /* Remote */
-  struct pw_remote *remote;
   struct spa_hook remote_listener;
 
   /* Registry */
@@ -98,7 +97,7 @@ proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
 
   /* Register the proxy node */
   wp_proxy_register(WP_PROXY(proxy_node));
-  
+
   /* Get the alsa node info */
   ei = g_hash_table_lookup(impl->alsa_nodes_info, GINT_TO_POINTER(pi->node_id));
   if (!data)
@@ -147,7 +146,7 @@ proxy_port_created(GObject *initable, GAsyncResult *res, gpointer data)
 
   /* Forward the proxy port */
   pi->proxy_port = proxy_port;
-  
+
   /* Get the node proxy */
   proxy = pw_registry_proxy_bind (impl->registry_proxy, pi->node_id,
       PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, 0);
@@ -200,7 +199,7 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id,
   /* Only handle ports whose parent is an alsa node */
   if (!g_hash_table_contains(impl->alsa_nodes_info, GINT_TO_POINTER (parent_id)))
     return;
-  
+
   /* Make sure the port has porperties */
   if (!props)
     return;
@@ -247,30 +246,20 @@ static const struct pw_registry_proxy_events registry_events = {
   .global = registry_global,
 };
 
-static void on_state_changed(void *_data, enum pw_remote_state old,
-    enum pw_remote_state state, const char *error)
+static void
+on_connected (WpRemote *remote, WpRemoteState state, struct impl *impl)
 {
-  struct impl *impl = _data;
   struct pw_core_proxy *core_proxy = NULL;
+  struct pw_remote *pw_remote;
 
-  switch (state) {
-  case PW_REMOTE_STATE_CONNECTED:
-    core_proxy = pw_remote_get_core_proxy (impl->remote);
-    impl->registry_proxy = pw_core_proxy_get_registry (core_proxy,
-        PW_TYPE_INTERFACE_Registry, PW_VERSION_REGISTRY, 0);
-    pw_registry_proxy_add_listener(impl->registry_proxy,
-        &impl->registry_listener, &registry_events, impl);
-    break;
+  g_object_get (remote, "pw-remote", &pw_remote, NULL);
 
-  default:
-    break;
-  }
+  core_proxy = pw_remote_get_core_proxy (pw_remote);
+  impl->registry_proxy = pw_core_proxy_get_registry (core_proxy,
+      PW_TYPE_INTERFACE_Registry, PW_VERSION_REGISTRY, 0);
+  pw_registry_proxy_add_listener(impl->registry_proxy,
+      &impl->registry_listener, &registry_events, impl);
 }
-
-static const struct pw_remote_events remote_events = {
-  PW_VERSION_REMOTE_EVENTS,
-  .state_changed = on_state_changed,
-};
 
 static void
 module_destroy (gpointer data)
@@ -288,23 +277,25 @@ module_destroy (gpointer data)
 }
 
 struct impl *
-module_create (WpCore * core) {
+module_create (WpCore * core)
+{
+  struct impl *impl;
+  WpRemote *remote;
+
   /* Allocate impl */
-  struct impl *impl = g_new0(struct impl, 1);
+  impl = g_new0(struct impl, 1);
 
   /* Set core */
   impl->core = core;
 
   /* Set remote */
-  impl->remote = wp_core_get_global(core, WP_GLOBAL_PW_REMOTE);
+  remote = wp_core_get_global(core, WP_GLOBAL_REMOTE_PIPEWIRE);
+  g_signal_connect (remote, "state-changed::connected",
+      (GCallback) on_connected, impl);
 
   /* Create the hash table */
   impl->alsa_nodes_info = g_hash_table_new_full (g_direct_hash,
       g_direct_equal, NULL, endpoint_info_destroy);
-
-  /* Add the remote listener */
-  pw_remote_add_listener(impl->remote, &impl->remote_listener, &remote_events,
-      impl);
 
   /* Return the module */
   return impl;
