@@ -5,6 +5,9 @@ wp_lib_sources = [
   'factory.c',
   'module.c',
   'policy.c',
+  'proxy.c',
+  'proxy-node.c',
+  'proxy-port.c',
 ]
 
 wp_lib_headers = [
@@ -14,6 +17,9 @@ wp_lib_headers = [
   'factory.h',
   'module.h',
   'policy.h',
+  'proxy.h',
+  'proxy-node.h',
+  'proxy-port.h',
   'wp.h',
 ]
 
@@ -33,7 +39,7 @@ wp_lib = library('wireplumber-' + wireplumber_api_version,
   ],
   install: true,
   include_directories: wp_lib_include_dir,
-  dependencies : [gobject_dep, gmodule_dep],
+  dependencies : [gobject_dep, gmodule_dep, gio_dep, pipewire_dep],
   soversion: wireplumber_so_version,
   version: meson.project_version(),
 )

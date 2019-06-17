@@ -18,8 +18,6 @@
 #include <spa/pod/parser.h>
 #include <spa/param/props.h>
 
-#include "port.h"
-
 struct _WpPipewireSimpleEndpoint
 {
   WpEndpoint parent;

@@ -12,3 +12,6 @@
 #include "factory.h"
 #include "module.h"
 #include "policy.h"
+#include "proxy.h"
+#include "proxy-node.h"
+#include "proxy-port.h"
