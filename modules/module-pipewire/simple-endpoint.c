@@ -22,13 +22,10 @@ struct _WpPipewireSimpleEndpoint
 {
   WpEndpoint parent;
 
-  /* Node */
-  struct pw_node_proxy *node;
-  struct spa_hook proxy_listener;
+  /* Proxy */
+  WpProxyNode *proxy_node;
+  WpProxyPort *proxy_port;
   struct spa_hook node_proxy_listener;
-
-  /* Info */
-  struct pw_node_info *info;
 
   /* controls cache */
   gfloat volume;
@@ -38,6 +35,7 @@ struct _WpPipewireSimpleEndpoint
 enum {
   PROP_0,
   PROP_NODE_PROXY,
+  PROP_PORT_PROXY
 };
 
 enum {
@@ -96,15 +94,8 @@ node_proxy_param (void *object, int seq, uint32_t id,
   }
 }
 
-static void node_proxy_info(void *object, const struct pw_node_info *info)
-{
-  WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (object);
-  self->info = pw_node_info_update(self->info, info);
-}
-
 static const struct pw_node_proxy_events node_node_proxy_events = {
   PW_VERSION_NODE_PROXY_EVENTS,
-  .info = node_proxy_info,
   .param = node_proxy_param,
 };
 
@@ -114,34 +105,19 @@ simple_endpoint_init (WpPipewireSimpleEndpoint * self)
 }
 
 static void
-node_proxy_destroy (void *data)
-{
-  WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (data);
-  self->node = NULL;
-
-  wp_endpoint_unregister (WP_ENDPOINT (self));
-}
-
-static const struct pw_proxy_events node_proxy_events = {
-  PW_VERSION_PROXY_EVENTS,
-  .destroy = node_proxy_destroy,
-};
-
-
-static void
 simple_endpoint_constructed (GObject * object)
 {
   WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (object);
   GVariantDict d;
   uint32_t ids[1] = { SPA_PARAM_Props };
   uint32_t n_ids = 1;
+  struct pw_node_proxy *node_proxy = NULL;
 
-  pw_proxy_add_listener ((struct pw_proxy *) self->node, &self->proxy_listener,
-      &node_proxy_events, self);
-
-  pw_node_proxy_add_listener (self->node, &self->node_proxy_listener,
+  /* Add a custom node proxy event listener */
+  node_proxy = wp_proxy_get_pw_proxy(WP_PROXY(self->proxy_node));
+  pw_node_proxy_add_listener (node_proxy, &self->node_proxy_listener,
       &node_node_proxy_events, self);
-  pw_node_proxy_subscribe_params (self->node, ids, n_ids);
+  pw_node_proxy_subscribe_params (node_proxy, ids, n_ids);
 
   g_variant_dict_init (&d, NULL);
   g_variant_dict_insert (&d, "id", "u", 0);
@@ -176,9 +152,10 @@ simple_endpoint_finalize (GObject * object)
 {
   WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (object);
 
-  if (self->node) {
-    spa_hook_remove (&self->proxy_listener);
-    pw_proxy_destroy ((struct pw_proxy *) self->node);
+  /* Unref the proxy node */
+  if (self->proxy_node) {
+    g_object_unref(self->proxy_node);
+    self->proxy_node = NULL;
   }
 
   G_OBJECT_CLASS (simple_endpoint_parent_class)->finalize (object);
@@ -192,7 +169,12 @@ simple_endpoint_set_property (GObject * object, guint property_id,
 
   switch (property_id) {
   case PROP_NODE_PROXY:
-    self->node = g_value_get_pointer (value);
+    g_clear_object(&self->proxy_node);
+    self->proxy_node = g_value_get_object(value);
+    break;
+  case PROP_PORT_PROXY:
+    g_clear_object(&self->proxy_port);
+    self->proxy_port = g_value_get_object(value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -208,7 +190,10 @@ simple_endpoint_get_property (GObject * object, guint property_id,
 
   switch (property_id) {
   case PROP_NODE_PROXY:
-    g_value_set_pointer (value, self->node);
+    g_value_set_object (value, self->proxy_node);
+    break;
+  case PROP_PORT_PROXY:
+    g_value_set_object (value, self->proxy_port);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -221,6 +206,7 @@ simple_endpoint_prepare_link (WpEndpoint * ep, guint32 stream_id,
     WpEndpointLink * link, GVariant ** properties, GError ** error)
 {
   WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (ep);
+  const struct pw_node_info *node_info = NULL;
   GVariantBuilder b;
 
   /* TODO: Since the linking with a 1 port client works when passing -1 as
@@ -228,12 +214,15 @@ simple_endpoint_prepare_link (WpEndpoint * ep, guint32 stream_id,
    * properties. However, we need to add logic here and select the correct
    * port in case the client has more than 1 port */
 
-  /* Set the port format here */
+  /* Get the node info */
+  node_info = wp_proxy_node_get_info(self->proxy_node);
+  if (!node_info)
+    return FALSE;
 
   /* Set the properties */
   g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
   g_variant_builder_add (&b, "{sv}", "node-id",
-      g_variant_new_uint32 (self->info->id));
+      g_variant_new_uint32 (node_info->id));
   g_variant_builder_add (&b, "{sv}", "node-port-id",
       g_variant_new_uint32 (-1));
   *properties = g_variant_builder_end (&b);
@@ -266,6 +255,10 @@ simple_endpoint_set_control_value (WpEndpoint * ep, guint32 control_id,
   struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
   float volume;
   bool mute;
+  struct pw_node_proxy *node_proxy = NULL;
+
+  /* Get the node proxy */
+  node_proxy = wp_proxy_get_pw_proxy(WP_PROXY(self->proxy_node));
 
   switch (control_id) {
     case CONTROL_VOLUME:
@@ -274,7 +267,7 @@ simple_endpoint_set_control_value (WpEndpoint * ep, guint32 control_id,
       g_debug("WpEndpoint:%p set volume control (%u) value, vol:%f", self,
           control_id, volume);
 
-      pw_node_proxy_set_param (self->node,
+      pw_node_proxy_set_param (node_proxy,
           SPA_PARAM_Props, 0,
           spa_pod_builder_add_object (&b,
               SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
@@ -288,7 +281,7 @@ simple_endpoint_set_control_value (WpEndpoint * ep, guint32 control_id,
       g_debug("WpEndpoint:%p set mute control (%u) value, mute:%d", self,
           control_id, mute);
 
-      pw_node_proxy_set_param (self->node,
+      pw_node_proxy_set_param (node_proxy,
           SPA_PARAM_Props, 0,
           spa_pod_builder_add_object (&b,
               SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
@@ -320,8 +313,12 @@ simple_endpoint_class_init (WpPipewireSimpleEndpointClass * klass)
   endpoint_class->set_control_value = simple_endpoint_set_control_value;
 
   g_object_class_install_property (object_class, PROP_NODE_PROXY,
-      g_param_spec_pointer ("node-proxy", "node-proxy",
-          "Pointer to the pw_node_proxy* to wrap",
+      g_param_spec_object ("node-proxy", "node-proxy",
+          "Pointer to the node proxy of the client", WP_TYPE_PROXY_NODE,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (object_class, PROP_PORT_PROXY,
+      g_param_spec_object ("port-proxy", "port-proxy",
+          "Pointer to the port proxy of the client", WP_TYPE_PROXY_PORT,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
@@ -329,7 +326,8 @@ gpointer
 simple_endpoint_factory (WpFactory * factory, GType type,
     GVariant * properties)
 {
-  guint64 proxy;
+  guint64 proxy_node;
+  guint64 proxy_port;
   const gchar *name;
   const gchar *media_class;
 
@@ -342,12 +340,15 @@ simple_endpoint_factory (WpFactory * factory, GType type,
       return NULL;
   if (!g_variant_lookup (properties, "media-class", "&s", &media_class))
       return NULL;
-  if (!g_variant_lookup (properties, "node-proxy", "t", &proxy))
+  if (!g_variant_lookup (properties, "proxy-node", "t", &proxy_node))
+      return NULL;
+  if (!g_variant_lookup (properties, "proxy-port", "t", &proxy_port))
       return NULL;
 
   return g_object_new (simple_endpoint_get_type (),
       "name", name,
       "media-class", media_class,
-      "node-proxy", (gpointer) proxy,
+      "node-proxy", (gpointer) proxy_node,
+      "port-proxy", (gpointer) proxy_port,
       NULL);
 }
