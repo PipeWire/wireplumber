@@ -509,7 +509,7 @@ endpoint_class_init (WpPwAudioSoftdspEndpointClass * klass)
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (object_class, PROP_PORT_PROXY,
       g_param_spec_object ("port-proxy", "port-proxy",
-          "Pointer to the port ptoxy of the device", WP_TYPE_PROXY_PORT,
+          "Pointer to the port proxy of the device", WP_TYPE_PROXY_PORT,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
