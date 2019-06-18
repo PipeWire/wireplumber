@@ -55,16 +55,10 @@ endpoint_info_destroy(gpointer p)
   struct endpoint_info *ei = p;
 
   /* Free the name */
-  if (ei->name) {
-    g_free (ei->name);
-    ei->name = NULL;
-  }
+  g_free (ei->name);
 
   /* Free the media class */
-  if (ei->media_class) {
-    g_free (ei->media_class);
-    ei->media_class = NULL;
-  }
+  g_free (ei->media_class);
 
   /* Clean up */
   g_slice_free (struct endpoint_info, p);
@@ -76,10 +70,7 @@ proxy_info_destroy(gpointer p)
   struct proxy_info *pi = p;
 
   /* Unref the proxy port */
-  if (pi->proxy_port) {
-    g_object_unref (pi->proxy_port);
-    pi->proxy_port = NULL;
-  }
+  g_clear_object (&pi->proxy_port);
 
   /* Clean up */
   g_slice_free (struct proxy_info, p);
@@ -122,8 +113,7 @@ proxy_node_created(GObject *initable, GAsyncResult *res, gpointer d)
   g_variant_builder_add (&b, "{sv}",
       "proxy-node", g_variant_new_uint64 ((guint64) proxy_node));
   g_variant_builder_add (&b, "{sv}",
-      "proxy-port", g_variant_new_uint64 ((guint64)
-          g_object_ref(pi->proxy_port)));
+      "proxy-port", g_variant_new_uint64 ((guint64) pi->proxy_port));
   endpoint_props = g_variant_builder_end (&b);
 
   /* Create the endpoint */
@@ -223,7 +213,7 @@ handle_node (struct module_data *data, uint32_t id, uint32_t parent_id,
       SPA_PARAM_Profile, 0, param);
 
   /* Create the endpoint info */
-  ei = g_new0(struct endpoint_info, 1);
+  ei = g_slice_new0 (struct endpoint_info);
   ei->name = g_strdup(name);
   ei->media_class = g_strdup(media_class);
   ei->proxy = proxy;
@@ -252,7 +242,7 @@ handle_port(struct module_data *data, uint32_t id, uint32_t parent_id,
     return;
 
   /* Create the port info */
-  pi = g_new0(struct proxy_info, 1);
+  pi = g_slice_new0 (struct proxy_info);
   pi->data = data;
   pi->node_id = parent_id;
   pi->proxy_port = NULL;
@@ -309,10 +299,7 @@ module_destroy (gpointer d)
   struct module_data *data = d;
 
   /* Destroy the hash table */
-  if (data->client_nodes_info) {
-    g_hash_table_destroy(data->client_nodes_info);
-    data->client_nodes_info = NULL;
-  }
+  g_hash_table_unref (data->client_nodes_info);
 
   /* Clean up */
   g_slice_free (struct module_data, data);

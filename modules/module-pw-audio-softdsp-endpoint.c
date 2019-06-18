@@ -340,16 +340,10 @@ endpoint_finalize (GObject * object)
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (object);
 
   /* Unref the proxy node */
-  if (self->proxy_node) {
-    g_object_unref(self->proxy_node);
-    self->proxy_node = NULL;
-  }
+  g_clear_object (&self->proxy_node);
 
   /* Unref the proxy port */
-  if (self->proxy_port) {
-    g_object_unref(self->proxy_port);
-    self->proxy_port = NULL;
-  }
+  g_clear_object (&self->proxy_port);
 
   /* Clear the dsp info */
   if (self->dsp_info) {
@@ -376,11 +370,11 @@ endpoint_set_property (GObject * object, guint property_id,
   switch (property_id) {
   case PROP_NODE_PROXY:
     g_clear_object(&self->proxy_node);
-    self->proxy_node = g_value_get_object(value);
+    self->proxy_node = g_value_dup_object(value);
     break;
   case PROP_PORT_PROXY:
     g_clear_object(&self->proxy_port);
-    self->proxy_port = g_value_get_object(value);
+    self->proxy_port = g_value_dup_object(value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -572,7 +566,7 @@ static const struct pw_registry_proxy_events registry_events = {
 static gpointer
 endpoint_factory (WpFactory * factory, GType type, GVariant * properties)
 {
-  WpCore *wp_core = NULL;
+  g_autoptr (WpCore) wp_core = NULL;
   WpRemote *remote;
   struct pw_remote *pw_remote;
   const gchar *name = NULL;

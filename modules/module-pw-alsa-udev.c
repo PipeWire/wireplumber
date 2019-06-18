@@ -49,16 +49,10 @@ endpoint_info_destroy(gpointer p)
   struct endpoint_info *ei = p;
 
   /* Free the name */
-  if (ei->name) {
-    g_free (ei->name);
-    ei->name = NULL;
-  }
+  g_free (ei->name);
 
   /* Free the media class */
-  if (ei->media_class) {
-    g_free (ei->media_class);
-    ei->media_class = NULL;
-  }
+  g_free (ei->media_class);
 
   /* Clean up */
   g_slice_free (struct endpoint_info, p);
@@ -70,10 +64,7 @@ proxy_info_destroy(gpointer p)
   struct proxy_info *pi = p;
 
   /* Unref the proxy port */
-  if (pi->proxy_port) {
-    g_object_unref (pi->proxy_port);
-    pi->proxy_port = NULL;
-  }
+  g_clear_object (&pi->proxy_port);
 
   /* Clean up */
   g_slice_free (struct proxy_info, p);
@@ -113,8 +104,7 @@ proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
   g_variant_builder_add (&b, "{sv}",
       "proxy-node", g_variant_new_uint64 ((guint64) proxy_node));
   g_variant_builder_add (&b, "{sv}",
-      "proxy-port", g_variant_new_uint64 ((guint64)
-          g_object_ref(pi->proxy_port)));
+      "proxy-port", g_variant_new_uint64 ((guint64) pi->proxy_port));
   endpoint_props = g_variant_builder_end (&b);
 
   /* Create and register the endpoint */
@@ -181,7 +171,7 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
     return;
 
   /* Create the endpoint info */
-  ei = g_new0(struct endpoint_info, 1);
+  ei = g_slice_new0 (struct endpoint_info);
   ei->name = g_strdup(name);
   ei->media_class = g_strdup(media_class);
 
@@ -211,7 +201,7 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id,
     return;
 
   /* Create the port info */
-  pi = g_new0(struct proxy_info, 1);
+  pi = g_slice_new0 (struct proxy_info);
   pi->impl = impl;
   pi->node_id = parent_id;
   pi->proxy_port = NULL;
@@ -267,10 +257,7 @@ module_destroy (gpointer data)
   struct impl *impl = data;
 
   /* Destroy the hash table */
-  if (impl->alsa_nodes_info) {
-    g_hash_table_destroy(impl->alsa_nodes_info);
-    impl->alsa_nodes_info = NULL;
-  }
+  g_hash_table_unref (impl->alsa_nodes_info);
 
   /* Clean up */
   g_slice_free (struct impl, impl);
