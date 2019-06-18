@@ -14,7 +14,7 @@ typedef struct _WpProxyPrivate WpProxyPrivate;
 struct _WpProxyPrivate
 {
   /* The core */
-  WpCore *core;
+  GWeakRef core;
 
   /* The proxy  */
   struct pw_proxy *proxy;
@@ -42,12 +42,14 @@ static void
 proxy_event_destroy (void *data)
 {
   WpProxyPrivate *self = wp_proxy_get_instance_private (WP_PROXY(data));
+  g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
 
   /* Set the proxy to NULL */
   self->proxy = NULL;
 
   /* Remove the proxy from core */
-  wp_core_remove_global (self->core, WP_GLOBAL_PROXY, data);
+  if (core)
+    wp_core_remove_global (core, WP_GLOBAL_PROXY, data);
 }
 
 static void
@@ -77,15 +79,17 @@ static void
 wp_proxy_finalize (GObject * object)
 {
   WpProxyPrivate *self = wp_proxy_get_instance_private (WP_PROXY(object));
-  
+
   /* Remove the listener */
   spa_hook_remove (&self->listener);
-  
+
   /* Destroy the proxy */
   if (self->proxy) {
     pw_proxy_destroy (self->proxy);
     self->proxy = NULL;
   }
+
+  g_weak_ref_clear (&self->core);
 
   G_OBJECT_CLASS (wp_proxy_parent_class)->finalize (object);
 }
@@ -98,7 +102,7 @@ wp_proxy_set_property (GObject * object, guint property_id,
 
   switch (property_id) {
   case PROP_CORE:
-    self->core = g_value_get_pointer (value);
+    g_weak_ref_set (&self->core, g_value_get_object (value));
     break;
   case PROP_PROXY:
     self->proxy = g_value_get_pointer (value);
@@ -117,7 +121,7 @@ wp_proxy_get_property (GObject * object, guint property_id, GValue * value,
 
   switch (property_id) {
   case PROP_CORE:
-    g_value_set_pointer (value, self->core);
+    g_value_take_object (value, g_weak_ref_get (&self->core));
     break;
   case PROP_PROXY:
     g_value_set_pointer (value, self->proxy);
@@ -165,6 +169,8 @@ wp_proxy_async_initable_init (gpointer iface, gpointer iface_data)
 static void
 wp_proxy_init (WpProxy * self)
 {
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  g_weak_ref_init (&priv->core, NULL);
 }
 
 static void
@@ -178,7 +184,8 @@ wp_proxy_class_init (WpProxyClass * klass)
 
   /* Install the properties */
   g_object_class_install_property (object_class, PROP_CORE,
-      g_param_spec_pointer ("core", "core", "The wireplumber core",
+      g_param_spec_object ("core", "core", "The wireplumber core",
+      WP_TYPE_CORE,
       G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (object_class, PROP_PROXY,
       g_param_spec_pointer ("pw-proxy", "pw-proxy", "The pipewire proxy",
@@ -189,11 +196,15 @@ void
 wp_proxy_register(WpProxy * self)
 {
   WpProxyPrivate *priv;
-  
+  g_autoptr (WpCore) core = NULL;
+
   g_return_if_fail (WP_IS_PROXY (self));
-  
+
   priv = wp_proxy_get_instance_private (self);
-  wp_core_register_global (priv->core, WP_GLOBAL_PROXY, g_object_ref (self),
+  core = g_weak_ref_get (&priv->core);
+  g_return_if_fail (core != NULL);
+
+  wp_core_register_global (core, WP_GLOBAL_PROXY, g_object_ref (self),
       g_object_unref);
 }
 
@@ -205,7 +216,7 @@ wp_proxy_get_core (WpProxy * self)
   g_return_val_if_fail (WP_IS_PROXY (self), NULL);
 
   priv = wp_proxy_get_instance_private (self);
-  return priv->core;
+  return g_weak_ref_get (&priv->core);
 }
 
 gpointer
