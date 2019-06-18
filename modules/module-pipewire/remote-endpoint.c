@@ -385,6 +385,8 @@ client_endpoint_proxy_destroy (void *object)
 {
   WpEndpoint *ep = object;
   g_object_set_qdata (G_OBJECT (ep), remote_endpoint_data_quark (), NULL);
+  g_signal_handlers_disconnect_matched (ep, G_SIGNAL_MATCH_FUNC, 0, 0, NULL,
+      on_endpoint_notify_control_value, NULL);
 }
 
 static const struct pw_proxy_events proxy_events = {
