@@ -35,6 +35,8 @@ wp_policy_manager_finalize (GObject *object)
 {
   WpPolicyManager *self = WP_POLICY_MANAGER (object);
 
+  g_debug ("WpPolicyManager destroyed");
+
   g_list_free_full (self->policies, g_object_unref);
 
   G_OBJECT_CLASS (wp_policy_manager_parent_class)->finalize (object);

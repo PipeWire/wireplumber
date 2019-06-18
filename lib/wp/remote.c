@@ -45,6 +45,8 @@ wp_remote_finalize (GObject *object)
 
   g_weak_ref_clear (&priv->core);
 
+  g_debug ("%s destroyed", G_OBJECT_TYPE_NAME (object));
+
   G_OBJECT_CLASS (wp_remote_parent_class)->finalize (object);
 }
 

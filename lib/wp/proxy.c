@@ -80,6 +80,9 @@ wp_proxy_finalize (GObject * object)
 {
   WpProxyPrivate *self = wp_proxy_get_instance_private (WP_PROXY(object));
 
+  g_debug ("%s:%p destroyed (pw proxy %p)", G_OBJECT_TYPE_NAME (object),
+      object, self->proxy);
+
   /* Remove the listener */
   spa_hook_remove (&self->listener);
 

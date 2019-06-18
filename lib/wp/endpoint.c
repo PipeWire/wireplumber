@@ -151,6 +151,9 @@ wp_endpoint_finalize (GObject * object)
   WpEndpointPrivate *priv =
       wp_endpoint_get_instance_private (WP_ENDPOINT (object));
 
+  g_debug ("%s:%p destroyed: %s", G_OBJECT_TYPE_NAME (object), object,
+      priv->name);
+
   g_ptr_array_unref (priv->streams);
   g_ptr_array_unref (priv->controls);
   g_ptr_array_unref (priv->links);

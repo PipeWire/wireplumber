@@ -65,6 +65,8 @@ wp_core_finalize (GObject * obj)
 
   g_ptr_array_unref (global_objects);
 
+  g_debug ("WpCore destroyed");
+
   G_OBJECT_CLASS (wp_core_parent_class)->finalize (obj);
 }
 
