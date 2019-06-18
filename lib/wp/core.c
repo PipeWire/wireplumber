@@ -193,6 +193,7 @@ wp_core_remove_global (WpCore * self, GQuark key, gpointer obj)
 {
   gint i;
   struct global_object *global;
+  struct global_object tmp;
 
   g_return_if_fail (WP_IS_CORE (self));
 
@@ -206,13 +207,15 @@ wp_core_remove_global (WpCore * self, GQuark key, gpointer obj)
   }
 
   if (i < self->global_objects->len) {
-    g_signal_emit (self, signals[SIGNAL_GLOBAL_REMOVED], key,
-        key, global->object);
-
-    if (global->destroy)
-      global->destroy (global->object);
+    tmp = *global;
 
     g_ptr_array_remove_index_fast (self->global_objects, i);
+
+    g_signal_emit (self, signals[SIGNAL_GLOBAL_REMOVED], key,
+        key, tmp.object);
+
+    if (tmp.destroy)
+      tmp.destroy (tmp.object);
   }
 }
 
