@@ -32,6 +32,14 @@ enum {
   PROP_PROXY,
 };
 
+enum
+{
+  SIGNAL_DESTROYED,
+  LAST_SIGNAL,
+};
+
+static guint wp_proxy_signals[LAST_SIGNAL] = { 0 };
+
 static void wp_proxy_async_initable_init (gpointer iface, gpointer iface_data);
 
 G_DEFINE_ABSTRACT_TYPE_WITH_CODE (WpProxy, wp_proxy, G_TYPE_OBJECT,
@@ -43,6 +51,9 @@ proxy_event_destroy (void *data)
 {
   WpProxyPrivate *self = wp_proxy_get_instance_private (WP_PROXY(data));
   g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
+
+  /* Emit the destroy signal */
+  g_signal_emit (data, wp_proxy_signals[SIGNAL_DESTROYED], 0);
 
   /* Set the proxy to NULL */
   self->proxy = NULL;
@@ -193,6 +204,12 @@ wp_proxy_class_init (WpProxyClass * klass)
   g_object_class_install_property (object_class, PROP_PROXY,
       g_param_spec_pointer ("pw-proxy", "pw-proxy", "The pipewire proxy",
       G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
+  /* Signals */
+  wp_proxy_signals[SIGNAL_DESTROYED] =
+    g_signal_new ("destroyed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
+    G_STRUCT_OFFSET (WpProxyClass, destroyed), NULL, NULL,
+    g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
 }
 
 void
