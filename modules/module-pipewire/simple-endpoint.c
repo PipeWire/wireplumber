@@ -170,11 +170,11 @@ simple_endpoint_set_property (GObject * object, guint property_id,
   switch (property_id) {
   case PROP_NODE_PROXY:
     g_clear_object(&self->proxy_node);
-    self->proxy_node = g_value_get_object(value);
+    self->proxy_node = g_value_dup_object(value);
     break;
   case PROP_PORT_PROXY:
     g_clear_object(&self->proxy_port);
-    self->proxy_port = g_value_get_object(value);
+    self->proxy_port = g_value_dup_object(value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
