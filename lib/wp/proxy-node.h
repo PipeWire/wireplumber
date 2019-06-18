@@ -17,8 +17,8 @@ G_BEGIN_DECLS
 #define WP_TYPE_PROXY_NODE (wp_proxy_node_get_type ())
 G_DECLARE_FINAL_TYPE (WpProxyNode, wp_proxy_node, WP, PROXY_NODE, WpProxy)
 
-void wp_proxy_node_new (WpCore *core, gpointer proxy,
-    GAsyncReadyCallback callback, gpointer user_data);
+void wp_proxy_node_new (gpointer proxy, GAsyncReadyCallback callback,
+    gpointer user_data);
 WpProxyNode *wp_proxy_node_new_finish(GObject *initable, GAsyncResult *res,
     GError **error);
 

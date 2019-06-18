@@ -46,9 +46,6 @@ GQuark wp_global_module_quark (void);
 #define WP_GLOBAL_POLICY_MANAGER (wp_global_policy_manager_quark ())
 GQuark wp_global_policy_manager_quark (void);
 
-#define WP_GLOBAL_PROXY (wp_global_proxy_quark ())
-GQuark wp_global_proxy_quark (void);
-
 /**
  * WP_GLOBAL_REMOTE_PIPEWIRE:
  * The key to access the #WpRemote global object that maintains

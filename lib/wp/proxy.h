@@ -22,10 +22,11 @@ G_DECLARE_DERIVABLE_TYPE (WpProxy, wp_proxy, WP, PROXY, GObject)
 struct _WpProxyClass
 {
   GObjectClass parent_class;
+
+  /* Signals */
+  void (*destroyed)(WpProxy *wp_proxy);
 };
 
-void wp_proxy_register (WpProxy * self);
-WpCore *wp_proxy_get_core (WpProxy * self);
 gpointer wp_proxy_get_pw_proxy (WpProxy * self);
 
 G_END_DECLS

@@ -138,12 +138,11 @@ wp_proxy_port_class_init (WpProxyPortClass * klass)
 }
 
 void
-wp_proxy_port_new (WpCore *core, gpointer proxy,
-    GAsyncReadyCallback callback, gpointer user_data)
+wp_proxy_port_new (gpointer proxy, GAsyncReadyCallback callback,
+    gpointer user_data)
 {
   g_async_initable_new_async (
       WP_TYPE_PROXY_PORT, G_PRIORITY_DEFAULT, NULL, callback, user_data,
-      "core", (gpointer) core,
       "pw-proxy", proxy,
       NULL);
 }

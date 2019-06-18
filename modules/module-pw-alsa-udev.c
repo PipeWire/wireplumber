@@ -71,6 +71,16 @@ proxy_info_destroy(gpointer p)
 }
 
 static void
+unregister_endpoint (WpProxy* wp_proxy, WpEndpoint *endpoint)
+{
+  g_return_if_fail(WP_IS_PROXY(wp_proxy));
+  g_return_if_fail(WP_IS_ENDPOINT(endpoint));
+
+  /* Unregister the endpoint */
+  wp_endpoint_unregister(endpoint);
+}
+
+static void
 proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
 {
   struct proxy_info *pi = data;
@@ -85,9 +95,6 @@ proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
   proxy_node = wp_proxy_node_new_finish(initable, res, NULL);
   if (!proxy_node)
     return;
-
-  /* Register the proxy node */
-  wp_proxy_register(WP_PROXY(proxy_node));
 
   /* Get the alsa node info */
   ei = g_hash_table_lookup(impl->alsa_nodes_info, GINT_TO_POINTER(pi->node_id));
@@ -114,6 +121,10 @@ proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
   /* Register the endpoint */
   wp_endpoint_register (endpoint);
 
+  /* Set destroy handler to unregister endpoint when the proxy is detroyed */
+  g_signal_connect (proxy_node, "destroyed", G_CALLBACK(unregister_endpoint),
+      endpoint);
+
   /* Clean up */
   proxy_info_destroy (pi);
 }
@@ -131,9 +142,6 @@ proxy_port_created(GObject *initable, GAsyncResult *res, gpointer data)
   if (!proxy_port)
     return;
 
-  /* Register the proxy port */
-  wp_proxy_register(WP_PROXY(proxy_port));
-
   /* Forward the proxy port */
   pi->proxy_port = proxy_port;
 
@@ -144,7 +152,7 @@ proxy_port_created(GObject *initable, GAsyncResult *res, gpointer data)
     return;
 
   /* Create the proxy node asynchronically */
-  wp_proxy_node_new(impl->core, proxy, proxy_node_created, pi);
+  wp_proxy_node_new(proxy, proxy_node_created, pi);
 }
 
 static void
@@ -207,7 +215,7 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id,
   pi->proxy_port = NULL;
 
   /* Create the proxy port asynchronically */
-  wp_proxy_port_new(impl->core, proxy, proxy_port_created, pi);
+  wp_proxy_port_new(proxy, proxy_port_created, pi);
 }
 
 static void

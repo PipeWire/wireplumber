@@ -77,6 +77,16 @@ proxy_info_destroy(gpointer p)
 }
 
 static void
+unregister_endpoint (WpProxy* wp_proxy, WpEndpoint *endpoint)
+{
+  g_return_if_fail(WP_IS_PROXY(wp_proxy));
+  g_return_if_fail(WP_IS_ENDPOINT(endpoint));
+
+  /* Unregister the endpoint */
+  wp_endpoint_unregister(endpoint);
+}
+
+static void
 proxy_node_created(GObject *initable, GAsyncResult *res, gpointer d)
 {
   struct proxy_info *pi = d;
@@ -92,9 +102,6 @@ proxy_node_created(GObject *initable, GAsyncResult *res, gpointer d)
   proxy_node = wp_proxy_node_new_finish(initable, res, NULL);
   if (!proxy_node)
     return;
-
-  /* Register the proxy node */
-  wp_proxy_register(WP_PROXY(proxy_node));
 
   /* Get the client node info */
   ei = g_hash_table_lookup(data->client_nodes_info,
@@ -123,6 +130,10 @@ proxy_node_created(GObject *initable, GAsyncResult *res, gpointer d)
   /* Register the endpoint */
   wp_endpoint_register (endpoint);
 
+  /* Set destroy handler to unregister endpoint when the proxy is detroyed */
+  g_signal_connect (proxy_node, "destroyed", G_CALLBACK(unregister_endpoint),
+      endpoint);
+
   /* Clean up */
   proxy_info_destroy (pi);
 }
@@ -132,7 +143,6 @@ proxy_port_created(GObject *initable, GAsyncResult *res, gpointer d)
 {
   struct proxy_info *pi = d;
   const struct module_data *data = pi->data;
-  g_autoptr (WpCore) core = wp_module_get_core (data->module);
   WpProxyPort *proxy_port = NULL;
   struct pw_proxy *proxy = NULL;
 
@@ -140,9 +150,6 @@ proxy_port_created(GObject *initable, GAsyncResult *res, gpointer d)
   proxy_port = wp_proxy_port_new_finish(initable, res, NULL);
   if (!proxy_port)
     return;
-
-  /* Register the proxy port */
-  wp_proxy_register(WP_PROXY(proxy_port));
 
   /* Forward the proxy port */
   pi->proxy_port = proxy_port;
@@ -154,7 +161,7 @@ proxy_port_created(GObject *initable, GAsyncResult *res, gpointer d)
     return;
 
   /* Create the proxy node asynchronically */
-  wp_proxy_node_new(core, proxy, proxy_node_created, pi);
+  wp_proxy_node_new(proxy, proxy_node_created, pi);
 }
 
 static void
@@ -226,7 +233,6 @@ static void
 handle_port(struct module_data *data, uint32_t id, uint32_t parent_id,
             const struct spa_dict *props)
 {
-  g_autoptr (WpCore) core = wp_module_get_core (data->module);
   struct proxy_info *pi = NULL;
   struct pw_proxy *proxy = NULL;
 
@@ -248,7 +254,7 @@ handle_port(struct module_data *data, uint32_t id, uint32_t parent_id,
   pi->proxy_port = NULL;
 
   /* Create the proxy port asynchronically */
-  wp_proxy_port_new(core, proxy, proxy_port_created, pi);
+  wp_proxy_port_new(proxy, proxy_port_created, pi);
 }
 
 static void
