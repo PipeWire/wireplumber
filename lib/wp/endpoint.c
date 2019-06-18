@@ -425,6 +425,26 @@ wp_endpoint_register_stream (WpEndpoint * self, GVariant * stream)
   g_ptr_array_add (priv->streams, g_variant_ref_sink (stream));
 }
 
+GVariant *
+wp_endpoint_get_stream (WpEndpoint * self, guint32 stream_id)
+{
+  WpEndpointPrivate *priv;
+  guint32 id;
+  gint i;
+
+  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
+
+  priv = wp_endpoint_get_instance_private (self);
+  for (i = 0; i < priv->streams->len; i++) {
+    GVariant *v = g_ptr_array_index (priv->streams, i);
+    if (g_variant_lookup (v, "id", "u", &id) && id == stream_id) {
+      return g_variant_ref (v);
+    }
+  }
+
+  return NULL;
+}
+
 /**
  * wp_endpoint_list_streams:
  * @self: the endpoint
@@ -445,6 +465,30 @@ wp_endpoint_list_streams (WpEndpoint * self)
       (GVariant * const *) priv->streams->pdata, priv->streams->len);
 }
 
+guint32
+wp_endpoint_find_stream (WpEndpoint * self, const gchar * name)
+{
+  WpEndpointPrivate *priv;
+  const gchar *tmp = NULL;
+  guint32 id = WP_STREAM_ID_NONE;
+  gint i;
+
+  g_return_val_if_fail (WP_IS_ENDPOINT (self), WP_STREAM_ID_NONE);
+  g_return_val_if_fail (name != NULL, WP_STREAM_ID_NONE);
+
+  priv = wp_endpoint_get_instance_private (self);
+  for (i = 0; i < priv->streams->len; i++) {
+    GVariant *v = g_ptr_array_index (priv->streams, i);
+    if (g_variant_lookup (v, "name", "&s", &tmp) && !g_strcmp0 (tmp, name)) {
+      /* found, return the id */
+      g_variant_lookup (v, "id", "u", &id);
+      break;
+    }
+  }
+
+  return id;
+}
+
 /**
  * wp_endpoint_register_control:
  * @self: the endpoint
@@ -460,6 +504,26 @@ wp_endpoint_register_control (WpEndpoint * self, GVariant * control)
 
   priv = wp_endpoint_get_instance_private (self);
   g_ptr_array_add (priv->controls, g_variant_ref_sink (control));
+}
+
+GVariant *
+wp_endpoint_get_control (WpEndpoint * self, guint32 control_id)
+{
+  WpEndpointPrivate *priv;
+  guint32 id;
+  gint i;
+
+  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
+
+  priv = wp_endpoint_get_instance_private (self);
+  for (i = 0; i < priv->controls->len; i++) {
+    GVariant *v = g_ptr_array_index (priv->controls, i);
+    if (g_variant_lookup (v, "id", "u", &id) && id == control_id) {
+      return g_variant_ref (v);
+    }
+  }
+
+  return NULL;
 }
 
 /**
@@ -480,6 +544,44 @@ wp_endpoint_list_controls (WpEndpoint * self)
   priv = wp_endpoint_get_instance_private (self);
   return g_variant_new_array (G_VARIANT_TYPE_VARDICT,
       (GVariant * const *) priv->controls->pdata, priv->controls->len);
+}
+
+guint32
+wp_endpoint_find_control (WpEndpoint * self, guint32 stream_id,
+    const gchar * name)
+{
+  WpEndpointPrivate *priv;
+  const gchar *tmp = NULL;
+  guint32 tmp_id = WP_STREAM_ID_NONE;
+  guint32 id = WP_CONTROL_ID_NONE;
+  gint i;
+
+  g_return_val_if_fail (WP_IS_ENDPOINT (self), WP_CONTROL_ID_NONE);
+  g_return_val_if_fail (name != NULL, WP_CONTROL_ID_NONE);
+
+  priv = wp_endpoint_get_instance_private (self);
+  for (i = 0; i < priv->controls->len; i++) {
+    GVariant *v = g_ptr_array_index (priv->controls, i);
+
+    /*
+     * if the stream-id exists, it must match @stream_id
+     * if it doesn't exist, then @stream_id must be NONE
+     */
+    if (g_variant_lookup (v, "stream-id", "u", &tmp_id)) {
+      if (stream_id != tmp_id)
+        continue;
+    } else if (stream_id != WP_STREAM_ID_NONE) {
+      continue;
+    }
+
+    if (g_variant_lookup (v, "name", "&s", &tmp) && !g_strcmp0 (tmp, name)) {
+      /* found, return the id */
+      g_variant_lookup (v, "id", "u", &id);
+      break;
+    }
+  }
+
+  return id;
 }
 
 /**
@@ -522,13 +624,18 @@ gboolean
 wp_endpoint_set_control_value (WpEndpoint * self, guint32 control_id,
     GVariant * value)
 {
+  gboolean ret = FALSE;
+
   g_return_val_if_fail (WP_IS_ENDPOINT (self), FALSE);
 
   if (WP_ENDPOINT_GET_CLASS (self)->set_control_value)
-    return WP_ENDPOINT_GET_CLASS (self)->set_control_value (self, control_id,
+    ret = WP_ENDPOINT_GET_CLASS (self)->set_control_value (self, control_id,
         value);
-  else
-    return FALSE;
+
+  if (g_variant_is_floating (value))
+    g_variant_unref (value);
+
+  return ret;
 }
 
 /**

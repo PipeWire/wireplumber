@@ -13,6 +13,9 @@
 
 G_BEGIN_DECLS
 
+static const guint32 WP_STREAM_ID_NONE = 0xffffffff;
+static const guint32 WP_CONTROL_ID_NONE = 0xffffffff;
+
 #define WP_TYPE_ENDPOINT (wp_endpoint_get_type ())
 G_DECLARE_DERIVABLE_TYPE (WpEndpoint, wp_endpoint, WP, ENDPOINT, GObject)
 
@@ -43,10 +46,15 @@ const gchar * wp_endpoint_get_name (WpEndpoint * self);
 const gchar * wp_endpoint_get_media_class (WpEndpoint * self);
 
 void wp_endpoint_register_stream (WpEndpoint * self, GVariant * stream);
+GVariant * wp_endpoint_get_stream (WpEndpoint * self, guint32 stream_id);
 GVariant * wp_endpoint_list_streams (WpEndpoint * self);
+guint32 wp_endpoint_find_stream (WpEndpoint * self, const gchar * name);
 
 void wp_endpoint_register_control (WpEndpoint * self, GVariant * control);
+GVariant * wp_endpoint_get_control (WpEndpoint * self, guint32 control_id);
 GVariant * wp_endpoint_list_controls (WpEndpoint * self);
+guint32 wp_endpoint_find_control (WpEndpoint * self, guint32 stream_id,
+    const gchar * name);
 
 GVariant * wp_endpoint_get_control_value (WpEndpoint * self,
     guint32 control_id);
