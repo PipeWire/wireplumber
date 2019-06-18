@@ -71,6 +71,16 @@ proxy_info_destroy(gpointer p)
 }
 
 static void
+unregister_endpoint (WpProxy* wp_proxy, WpEndpoint *endpoint)
+{
+  g_return_if_fail(WP_IS_PROXY(wp_proxy));
+  g_return_if_fail(WP_IS_ENDPOINT(endpoint));
+
+  /* Unregister the endpoint */
+  wp_endpoint_unregister(endpoint);
+}
+
+static void
 proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
 {
   struct proxy_info *pi = data;
@@ -113,6 +123,10 @@ proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
 
   /* Register the endpoint */
   wp_endpoint_register (endpoint);
+
+  /* Set destroy handler to unregister endpoint when the proxy is detroyed */
+  g_signal_connect (proxy_node, "destroyed", G_CALLBACK(unregister_endpoint),
+      endpoint);
 
   /* Clean up */
   proxy_info_destroy (pi);
