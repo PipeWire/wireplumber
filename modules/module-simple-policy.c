@@ -242,11 +242,15 @@ simple_policy_find_endpoint (WpPolicy *policy, GVariant *props,
 {
   g_autoptr (WpCore) core = NULL;
   g_autoptr (GPtrArray) ptr_array = NULL;
+  const char *action = NULL;
   const char *media_class = NULL;
+  const char *role = NULL;
   WpEndpoint *ep;
   int i;
 
   core = wp_policy_get_core (policy);
+
+  g_variant_lookup (props, "action", "&s", &action);
 
   /* Get all the endpoints with the specific media class*/
   g_variant_lookup (props, "media.class", "&s", &media_class);
@@ -256,7 +260,11 @@ simple_policy_find_endpoint (WpPolicy *policy, GVariant *props,
 
   /* TODO: for now we statically return the first stream
    * we should be looking into the media.role eventually */
-  *stream_id = 0;
+  g_variant_lookup (props, "media.role", "&s", &role);
+  if (!g_strcmp0 (action, "mixer") && !g_strcmp0 (role, "Master"))
+    *stream_id = WP_STREAM_ID_NONE;
+  else
+    *stream_id = 0;
 
   /* Find and return the "selected" endpoint */
   /* FIXME: fix the endpoint API, this is terrible */
