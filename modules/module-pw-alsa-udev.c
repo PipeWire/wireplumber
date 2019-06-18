@@ -100,7 +100,7 @@ proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
 
   /* Get the alsa node info */
   ei = g_hash_table_lookup(impl->alsa_nodes_info, GINT_TO_POINTER(pi->node_id));
-  if (!data)
+  if (!ei)
     return;
 
   /* Build the properties for the endpoint */
