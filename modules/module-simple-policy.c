@@ -26,7 +26,6 @@ simple_policy_handle_endpoint (WpPolicy *policy, WpEndpoint *ep)
 {
   const char *media_class = NULL;
   GVariantDict d;
-  g_autoptr (GVariant) props = NULL;
   g_autoptr (WpCore) core = NULL;
   g_autoptr (WpEndpoint) target = NULL;
   g_autoptr (GError) error = NULL;
@@ -42,10 +41,9 @@ simple_policy_handle_endpoint (WpPolicy *policy, WpEndpoint *ep)
   g_variant_dict_insert (&d, "action", "s", "link");
   g_variant_dict_insert (&d, "media.class", "s", "Audio/Sink");
   /* TODO: more properties are needed here */
-  props = g_variant_dict_end (&d);
 
   core = wp_policy_get_core (policy);
-  target = wp_policy_find_endpoint (core, props, &stream_id);
+  target = wp_policy_find_endpoint (core, g_variant_dict_end (&d), &stream_id);
   if (!target) {
     g_warning ("Could not find an Audio/Sink target endpoint\n");
     /* TODO: we should kill the client, otherwise it's going to hang waiting */

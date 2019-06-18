@@ -346,7 +346,7 @@ wp_policy_notify_changed (WpPolicy *self)
 /**
  * wp_policy_find_endpoint:
  * @core: the #WpCore
- * @props: properties of the lookup
+ * @props: (transfer floating): properties of the lookup
  * @stream_id: (out): the relevant stream id of the returned endpoint
  *
  * Calls #WpPolicyClass::find_endpoint on all policies, in order, until
@@ -377,6 +377,9 @@ wp_policy_find_endpoint (WpCore *core, GVariant *props,
         return ret;
     }
   }
+
+  if (g_variant_is_floating (props))
+    g_variant_unref (props);
 
   return NULL;
 }
