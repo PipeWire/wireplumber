@@ -633,50 +633,9 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties)
   return ep;
 }
 
-static void
-global_endpoint_notify_control_value (WpEndpoint * ep, guint control_id,
-    WpCore * core)
-{
-  WpPwAudioSoftdspEndpoint *sdspep = WP_PW_AUDIO_SOFTDSP_ENDPOINT (ep);
-  g_autoptr (GPtrArray) a = NULL;
-  int i;
-
-  /* when an endpoint becomes "selected", unselect
-   * all other endpoints of the same media class */
-  if (control_id == CONTROL_SELECTED && sdspep->selected) {
-    g_debug ("selected: %p", ep);
-    a = wp_endpoint_find (core, wp_endpoint_get_media_class (ep));
-
-    for (i = 0; i < a->len; i++) {
-      WpEndpoint *other = g_ptr_array_index (a, i);
-      if (!WP_PW_IS_AUDIO_SOFTDSP_ENDPOINT (ep)
-          || other == ep
-          || !WP_PW_AUDIO_SOFTDSP_ENDPOINT (other)->selected)
-        continue;
-
-      g_debug ("unselecting %p", other);
-      WP_PW_AUDIO_SOFTDSP_ENDPOINT (other)->selected = FALSE;
-      wp_endpoint_notify_control_value (other, CONTROL_SELECTED);
-    }
-  }
-}
-
-static void
-global_endpoint_added (WpCore *core, GQuark key, WpEndpoint *ep, gpointer data)
-{
-  if (WP_PW_IS_AUDIO_SOFTDSP_ENDPOINT (ep)) {
-    g_debug ("connecting to notify-control-value for %p", ep);
-    g_signal_connect (ep, "notify-control-value",
-        (GCallback) global_endpoint_notify_control_value, core);
-  }
-}
-
 void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   /* Register the softdsp endpoint */
   wp_factory_new (core, "pw-audio-softdsp-endpoint", endpoint_factory);
-
-  g_signal_connect (core, "global-added::endpoint",
-      (GCallback) global_endpoint_added, NULL);
 }
