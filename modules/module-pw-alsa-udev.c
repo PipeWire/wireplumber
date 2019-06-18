@@ -96,9 +96,6 @@ proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
   if (!proxy_node)
     return;
 
-  /* Register the proxy node */
-  wp_proxy_register(WP_PROXY(proxy_node));
-
   /* Get the alsa node info */
   ei = g_hash_table_lookup(impl->alsa_nodes_info, GINT_TO_POINTER(pi->node_id));
   if (!ei)
@@ -145,9 +142,6 @@ proxy_port_created(GObject *initable, GAsyncResult *res, gpointer data)
   if (!proxy_port)
     return;
 
-  /* Register the proxy port */
-  wp_proxy_register(WP_PROXY(proxy_port));
-
   /* Forward the proxy port */
   pi->proxy_port = proxy_port;
 
@@ -158,7 +152,7 @@ proxy_port_created(GObject *initable, GAsyncResult *res, gpointer data)
     return;
 
   /* Create the proxy node asynchronically */
-  wp_proxy_node_new(impl->core, proxy, proxy_node_created, pi);
+  wp_proxy_node_new(proxy, proxy_node_created, pi);
 }
 
 static void
@@ -221,7 +215,7 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id,
   pi->proxy_port = NULL;
 
   /* Create the proxy port asynchronically */
-  wp_proxy_port_new(impl->core, proxy, proxy_port_created, pi);
+  wp_proxy_port_new(proxy, proxy_port_created, pi);
 }
 
 static void
