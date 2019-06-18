@@ -609,6 +609,7 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties)
 
   /* Create the softdsp endpoint object */
   WpPwAudioSoftdspEndpoint *ep = g_object_new (endpoint_get_type (),
+      "core", wp_core,
       "name", name,
       "media-class", media_class,
       "node-proxy", (gpointer) proxy_node,

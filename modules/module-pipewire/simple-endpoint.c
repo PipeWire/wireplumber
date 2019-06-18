@@ -326,6 +326,7 @@ gpointer
 simple_endpoint_factory (WpFactory * factory, GType type,
     GVariant * properties)
 {
+  g_autoptr (WpCore) core = NULL;
   guint64 proxy_node;
   guint64 proxy_port;
   const gchar *name;
@@ -335,6 +336,9 @@ simple_endpoint_factory (WpFactory * factory, GType type,
   g_return_val_if_fail (properties != NULL, NULL);
   g_return_val_if_fail (g_variant_is_of_type (properties,
           G_VARIANT_TYPE_VARDICT), NULL);
+
+  core = wp_factory_get_core (factory);
+  g_return_val_if_fail (core != NULL, NULL);
 
   if (!g_variant_lookup (properties, "name", "&s", &name))
       return NULL;
@@ -346,6 +350,7 @@ simple_endpoint_factory (WpFactory * factory, GType type,
       return NULL;
 
   return g_object_new (simple_endpoint_get_type (),
+      "core", core,
       "name", name,
       "media-class", media_class,
       "node-proxy", (gpointer) proxy_node,

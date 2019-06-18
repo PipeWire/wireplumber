@@ -96,11 +96,12 @@ struct _WpEndpointPrivate
   GPtrArray *streams;
   GPtrArray *controls;
   GPtrArray *links;
-  WpCore *core;
+  GWeakRef core;
 };
 
 enum {
   PROP_0,
+  PROP_CORE,
   PROP_NAME,
   PROP_MEDIA_CLASS,
 };
@@ -118,6 +119,8 @@ static void
 wp_endpoint_init (WpEndpoint * self)
 {
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
+
+  g_weak_ref_init (&priv->core, NULL);
 
   priv->streams =
       g_ptr_array_new_with_free_func ((GDestroyNotify) g_variant_unref);
@@ -152,6 +155,7 @@ wp_endpoint_finalize (GObject * object)
   g_ptr_array_unref (priv->controls);
   g_ptr_array_unref (priv->links);
   g_free (priv->name);
+  g_weak_ref_clear (&priv->core);
 
   G_OBJECT_CLASS (wp_endpoint_parent_class)->finalize (object);
 }
@@ -164,6 +168,9 @@ wp_endpoint_set_property (GObject * object, guint property_id,
       wp_endpoint_get_instance_private (WP_ENDPOINT (object));
 
   switch (property_id) {
+  case PROP_CORE:
+    g_weak_ref_set (&priv->core, g_value_get_object (value));
+    break;
   case PROP_NAME:
     priv->name = g_value_dup_string (value);
     break;
@@ -185,6 +192,9 @@ wp_endpoint_get_property (GObject * object, guint property_id, GValue * value,
       wp_endpoint_get_instance_private (WP_ENDPOINT (object));
 
   switch (property_id) {
+  case PROP_CORE:
+    g_value_take_object (value, g_weak_ref_get (&priv->core));
+    break;
   case PROP_NAME:
     g_value_set_string (value, priv->name);
     break;
@@ -206,6 +216,11 @@ wp_endpoint_class_init (WpEndpointClass * klass)
   object_class->finalize = wp_endpoint_finalize;
   object_class->get_property = wp_endpoint_get_property;
   object_class->set_property = wp_endpoint_set_property;
+
+  g_object_class_install_property (object_class, PROP_CORE,
+      g_param_spec_object ("core", "core", "The wireplumber core",
+          WP_TYPE_CORE,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   /**
    * WpEndpoint::name:
@@ -238,24 +253,24 @@ wp_endpoint_class_init (WpEndpointClass * klass)
 /**
  * wp_endpoint_register:
  * @self: the endpoint
- * @core: the core
  *
- * Registers the endpoint on the @core.
+ * Registers the endpoint on the #WpCore.
  */
 void
-wp_endpoint_register (WpEndpoint * self, WpCore * core)
+wp_endpoint_register (WpEndpoint * self)
 {
   WpEndpointPrivate *priv;
+  g_autoptr (WpCore) core = NULL;
 
   g_return_if_fail (WP_IS_ENDPOINT (self));
-  g_return_if_fail (WP_IS_CORE (core));
 
   priv = wp_endpoint_get_instance_private (self);
+  core = g_weak_ref_get (&priv->core);
+  g_return_if_fail (core != NULL);
 
   g_info ("WpEndpoint:%p registering '%s' (%s)", self, priv->name,
       priv->media_class);
 
-  priv->core = core;
   wp_core_register_global (core, WP_GLOBAL_ENDPOINT, g_object_ref (self),
       g_object_unref);
 }
@@ -271,17 +286,18 @@ void
 wp_endpoint_unregister (WpEndpoint * self)
 {
   WpEndpointPrivate *priv;
+  g_autoptr (WpCore) core = NULL;
 
   g_return_if_fail (WP_IS_ENDPOINT (self));
 
   priv = wp_endpoint_get_instance_private (self);
-  if (priv->core) {
+  core = g_weak_ref_get (&priv->core);
+  if (core) {
     g_info ("WpEndpoint:%p unregistering '%s' (%s)", self, priv->name,
         priv->media_class);
 
     g_object_ref (self);
-    wp_core_remove_global (priv->core, WP_GLOBAL_ENDPOINT, self);
-    priv->core = NULL;
+    wp_core_remove_global (core, WP_GLOBAL_ENDPOINT, self);
     g_object_unref (self);
   }
 }
@@ -348,6 +364,23 @@ wp_endpoint_find (WpCore * core, const gchar * media_class_lookup)
   data.lookup = media_class_lookup;
   wp_core_foreach_global (core, find_endpoints, &data);
   return data.result;
+}
+
+/**
+ * wp_endpoint_get_core:
+ * @self: the endpoint
+ *
+ * Returns: (transfer full): the core on which this endpoint is registered
+ */
+WpCore *
+wp_endpoint_get_core (WpEndpoint * self)
+{
+  WpEndpointPrivate *priv;
+
+  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
+
+  priv = wp_endpoint_get_instance_private (self);
+  return g_weak_ref_get (&priv->core);
 }
 
 const gchar *

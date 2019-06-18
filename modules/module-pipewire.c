@@ -131,7 +131,7 @@ proxy_node_created(GObject *initable, GAsyncResult *res, gpointer d)
       WP_TYPE_ENDPOINT, endpoint_props);
 
   /* Register the endpoint */
-  wp_endpoint_register (endpoint, core);
+  wp_endpoint_register (endpoint);
 
   /* Clean up */
   proxy_info_destroy (pi);
