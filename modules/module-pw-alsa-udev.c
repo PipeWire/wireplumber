@@ -75,7 +75,7 @@ proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
 {
   struct proxy_info *pi = data;
   const struct impl *impl = pi->impl;
-  WpProxyNode *proxy_node = NULL;
+  g_autoptr(WpProxyNode) proxy_node = NULL;
   struct endpoint_info *ei = NULL;
   GVariantBuilder b;
   g_autoptr(GVariant) endpoint_props = NULL;
