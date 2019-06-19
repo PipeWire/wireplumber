@@ -232,7 +232,6 @@ emit_audio_dsp_node (WpPwAudioSoftdspEndpoint *self)
   uint8_t buf[1024];
   struct spa_pod_builder pod_builder = { 0, };
   struct spa_pod *param;
-  uint32_t ids[1] = { SPA_PARAM_Props };
   const struct pw_node_info *node_info;
   const struct spa_audio_info_raw *port_format;
   struct spa_audio_info_raw format;
@@ -269,7 +268,7 @@ emit_audio_dsp_node (WpPwAudioSoftdspEndpoint *self)
       PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, &props->dict, 0);
   pw_node_proxy_add_listener(self->dsp_proxy, &self->dsp_listener,
       &dsp_node_events, self);
-  pw_node_proxy_subscribe_params (self->dsp_proxy, ids, SPA_N_ELEMENTS (ids));
+  pw_node_proxy_enum_params (self->dsp_proxy, 0, SPA_PARAM_Props, 0, -1, NULL);
 
   /* Set DSP proxy params */
   spa_pod_builder_init(&pod_builder, buf, sizeof(buf));
@@ -448,6 +447,8 @@ endpoint_set_control_value (WpEndpoint * ep, guint32 control_id,
               SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
               SPA_PROP_volume, SPA_POD_Float(volume),
               NULL));
+      pw_node_proxy_enum_params (self->dsp_proxy, 0, SPA_PARAM_Props, 0, -1,
+          NULL);
       break;
 
     case CONTROL_MUTE:
@@ -462,6 +463,8 @@ endpoint_set_control_value (WpEndpoint * ep, guint32 control_id,
               SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
               SPA_PROP_mute, SPA_POD_Bool(mute),
               NULL));
+      pw_node_proxy_enum_params (self->dsp_proxy, 0, SPA_PARAM_Props, 0, -1,
+          NULL);
       break;
 
     case CONTROL_SELECTED:
