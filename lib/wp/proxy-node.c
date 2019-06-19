@@ -104,11 +104,12 @@ wp_proxy_node_class_init (WpProxyNodeClass * klass)
 }
 
 void
-wp_proxy_node_new (gpointer proxy, GAsyncReadyCallback callback,
-    gpointer user_data)
+wp_proxy_node_new (guint global_id, gpointer proxy,
+    GAsyncReadyCallback callback, gpointer user_data)
 {
   g_async_initable_new_async (
       WP_TYPE_PROXY_NODE, G_PRIORITY_DEFAULT, NULL, callback, user_data,
+      "global-id", global_id,
       "pw-proxy", proxy,
       NULL);
 }
