@@ -161,7 +161,7 @@ proxy_port_created(GObject *initable, GAsyncResult *res, gpointer d)
     return;
 
   /* Create the proxy node asynchronically */
-  wp_proxy_node_new(proxy, proxy_node_created, pi);
+  wp_proxy_node_new(pi->node_id, proxy, proxy_node_created, pi);
 }
 
 static void
@@ -254,7 +254,7 @@ handle_port(struct module_data *data, uint32_t id, uint32_t parent_id,
   pi->proxy_port = NULL;
 
   /* Create the proxy port asynchronically */
-  wp_proxy_port_new(proxy, proxy_port_created, pi);
+  wp_proxy_port_new(id, proxy, proxy_port_created, pi);
 }
 
 static void

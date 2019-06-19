@@ -27,6 +27,7 @@ struct _WpProxyClass
   void (*destroyed)(WpProxy *wp_proxy);
 };
 
+guint wp_proxy_get_global_id (WpProxy * self);
 gpointer wp_proxy_get_pw_proxy (WpProxy * self);
 
 G_END_DECLS

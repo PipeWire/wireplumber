@@ -17,7 +17,7 @@
 
 struct impl
 {
-  WpCore *core;
+  WpModule *module;
 
   /* Remote */
   struct spa_hook remote_listener;
@@ -85,6 +85,7 @@ proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
 {
   struct proxy_info *pi = data;
   const struct impl *impl = pi->impl;
+  g_autoptr (WpCore) core = wp_module_get_core (impl->module);
   g_autoptr(WpProxyNode) proxy_node = NULL;
   struct endpoint_info *ei = NULL;
   GVariantBuilder b;
@@ -115,7 +116,7 @@ proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
   endpoint_props = g_variant_builder_end (&b);
 
   /* Create and register the endpoint */
-  endpoint = wp_factory_make (impl->core, "pw-audio-softdsp-endpoint",
+  endpoint = wp_factory_make (core, "pw-audio-softdsp-endpoint",
       WP_TYPE_ENDPOINT, endpoint_props);
 
   /* Register the endpoint */
@@ -152,7 +153,7 @@ proxy_port_created(GObject *initable, GAsyncResult *res, gpointer data)
     return;
 
   /* Create the proxy node asynchronically */
-  wp_proxy_node_new(proxy, proxy_node_created, pi);
+  wp_proxy_node_new(pi->node_id, proxy, proxy_node_created, pi);
 }
 
 static void
@@ -215,7 +216,7 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id,
   pi->proxy_port = NULL;
 
   /* Create the proxy port asynchronically */
-  wp_proxy_port_new(proxy, proxy_port_created, pi);
+  wp_proxy_port_new(id, proxy, proxy_port_created, pi);
 }
 
 static void
@@ -272,7 +273,7 @@ module_destroy (gpointer data)
 }
 
 struct impl *
-module_create (WpCore * core)
+module_create (WpModule * module, WpCore * core)
 {
   struct impl *impl;
   WpRemote *remote;
@@ -281,7 +282,7 @@ module_create (WpCore * core)
   impl = g_new0(struct impl, 1);
 
   /* Set core */
-  impl->core = core;
+  impl->module = module;
 
   /* Set remote */
   remote = wp_core_get_global(core, WP_GLOBAL_REMOTE_PIPEWIRE);
@@ -300,7 +301,7 @@ void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   /* Create the impl */
-  struct impl *impl = module_create (core);
+  struct impl *impl = module_create (module, core);
 
   /* Set destroy callback for impl */
   wp_module_set_destroy_callback (module, module_destroy, impl);

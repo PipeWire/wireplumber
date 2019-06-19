@@ -206,25 +206,16 @@ simple_endpoint_prepare_link (WpEndpoint * ep, guint32 stream_id,
     WpEndpointLink * link, GVariant ** properties, GError ** error)
 {
   WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (ep);
-  const struct pw_node_info *node_info = NULL;
+  uint32_t node_id = wp_proxy_get_global_id(WP_PROXY(self->proxy_node));
+  uint32_t port_id = wp_proxy_get_global_id(WP_PROXY(self->proxy_port));
   GVariantBuilder b;
-
-  /* TODO: Since the linking with a 1 port client works when passing -1 as
-   * a port parameter, there is no need to find the port and set it in the
-   * properties. However, we need to add logic here and select the correct
-   * port in case the client has more than 1 port */
-
-  /* Get the node info */
-  node_info = wp_proxy_node_get_info(self->proxy_node);
-  if (!node_info)
-    return FALSE;
 
   /* Set the properties */
   g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
   g_variant_builder_add (&b, "{sv}", "node-id",
-      g_variant_new_uint32 (node_info->id));
+      g_variant_new_uint32 (node_id));
   g_variant_builder_add (&b, "{sv}", "node-port-id",
-      g_variant_new_uint32 (-1));
+      g_variant_new_uint32 (port_id));
   *properties = g_variant_builder_end (&b);
 
   return TRUE;

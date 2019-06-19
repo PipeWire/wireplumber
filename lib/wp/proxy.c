@@ -13,6 +13,9 @@
 typedef struct _WpProxyPrivate WpProxyPrivate;
 struct _WpProxyPrivate
 {
+  /* The global id */
+  guint global_id;
+
   /* The proxy  */
   struct pw_proxy *proxy;
 
@@ -25,6 +28,7 @@ struct _WpProxyPrivate
 
 enum {
   PROP_0,
+  PROP_GLOBAL_ID,
   PROP_PROXY,
 };
 
@@ -104,6 +108,9 @@ wp_proxy_set_property (GObject * object, guint property_id,
   WpProxyPrivate *self = wp_proxy_get_instance_private (WP_PROXY(object));
 
   switch (property_id) {
+  case PROP_GLOBAL_ID:
+    self->global_id = g_value_get_uint (value);
+    break;
   case PROP_PROXY:
     self->proxy = g_value_get_pointer (value);
     break;
@@ -120,6 +127,9 @@ wp_proxy_get_property (GObject * object, guint property_id, GValue * value,
   WpProxyPrivate *self = wp_proxy_get_instance_private (WP_PROXY(object));
 
   switch (property_id) {
+  case PROP_GLOBAL_ID:
+    g_value_set_uint (value, self->global_id);
+    break;
   case PROP_PROXY:
     g_value_set_pointer (value, self->proxy);
     break;
@@ -178,6 +188,10 @@ wp_proxy_class_init (WpProxyClass * klass)
   object_class->set_property = wp_proxy_set_property;
 
   /* Install the properties */
+  g_object_class_install_property (object_class, PROP_GLOBAL_ID,
+      g_param_spec_uint ("global-id", "global-id", "The pipewire global id",
+      0, G_MAXUINT, 0,
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (object_class, PROP_PROXY,
       g_param_spec_pointer ("pw-proxy", "pw-proxy", "The pipewire proxy",
       G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
@@ -187,6 +201,17 @@ wp_proxy_class_init (WpProxyClass * klass)
     g_signal_new ("destroyed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
     G_STRUCT_OFFSET (WpProxyClass, destroyed), NULL, NULL,
     g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
+}
+
+guint
+wp_proxy_get_global_id (WpProxy * self)
+{
+  WpProxyPrivate *priv;
+
+  g_return_val_if_fail (WP_IS_PROXY (self), 0);
+
+  priv = wp_proxy_get_instance_private (self);
+  return priv->global_id;
 }
 
 gpointer
