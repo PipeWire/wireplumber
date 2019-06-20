@@ -294,8 +294,8 @@ simple_policy_find_endpoint (WpPolicy *policy, GVariant *props,
   }
 
   /* If not found, return the first endpoint */
-  ep = (ptr_array->len > 1) ? g_ptr_array_index (ptr_array, 0) : NULL;
-  return g_object_ref (ep);
+  return (ptr_array->len > 1) ?
+    g_object_ref (g_ptr_array_index (ptr_array, 0)) : NULL;
 }
 
 static void
