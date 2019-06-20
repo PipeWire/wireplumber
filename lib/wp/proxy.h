@@ -24,11 +24,13 @@ struct _WpProxyClass
   GObjectClass parent_class;
 
   /* Signals */
-  void (*destroyed)(WpProxy *wp_proxy);
+  void (*destroyed)(WpProxy *wp_proxy, gpointer data);
+  void (*done)(WpProxy *wp_proxy, gpointer data);
 };
 
 guint wp_proxy_get_global_id (WpProxy * self);
 gpointer wp_proxy_get_pw_proxy (WpProxy * self);
+void wp_proxy_sync (WpProxy * self);
 
 G_END_DECLS
 

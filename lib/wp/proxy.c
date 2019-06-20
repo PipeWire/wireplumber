@@ -35,6 +35,7 @@ enum {
 enum
 {
   SIGNAL_DESTROYED,
+  SIGNAL_DONE,
   LAST_SIGNAL,
 };
 
@@ -62,6 +63,9 @@ static void
 proxy_event_done (void *data, int seq)
 {
   WpProxyPrivate *self = wp_proxy_get_instance_private (WP_PROXY(data));
+
+  /* Emit the done signal */
+  g_signal_emit (data, wp_proxy_signals[SIGNAL_DONE], 0);
 
   /* Make sure the task is valid */
   if (!self->done_task)
@@ -152,7 +156,7 @@ wp_proxy_init_async (GAsyncInitable *initable, int io_priority,
   pw_proxy_add_listener (self->proxy, &self->listener, &proxy_events, initable);
 
   /* Trigger the done callback */
-  pw_proxy_sync(self->proxy, 0);
+  wp_proxy_sync(WP_PROXY(initable));
 }
 
 static gboolean
@@ -199,8 +203,11 @@ wp_proxy_class_init (WpProxyClass * klass)
   /* Signals */
   wp_proxy_signals[SIGNAL_DESTROYED] =
     g_signal_new ("destroyed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
-    G_STRUCT_OFFSET (WpProxyClass, destroyed), NULL, NULL,
-    g_cclosure_marshal_VOID__VOID, G_TYPE_NONE, 0);
+    G_STRUCT_OFFSET (WpProxyClass, destroyed), NULL, NULL, NULL, G_TYPE_NONE,
+    0);
+  wp_proxy_signals[SIGNAL_DONE] =
+    g_signal_new ("done", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
+    G_STRUCT_OFFSET (WpProxyClass, done), NULL, NULL, NULL, G_TYPE_NONE, 0);
 }
 
 guint
@@ -223,4 +230,16 @@ wp_proxy_get_pw_proxy (WpProxy * self)
 
   priv = wp_proxy_get_instance_private (self);
   return priv->proxy;
+}
+
+void wp_proxy_sync (WpProxy * self)
+{
+  WpProxyPrivate *priv;
+
+  g_return_if_fail (WP_IS_PROXY (self));
+
+  priv = wp_proxy_get_instance_private (self);
+
+  /* Trigger the done callback */
+  pw_proxy_sync(priv->proxy, 0);
 }
