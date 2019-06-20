@@ -93,9 +93,6 @@ wp_proxy_finalize (GObject * object)
   g_debug ("%s:%p destroyed (pw proxy %p)", G_OBJECT_TYPE_NAME (object),
       object, self->proxy);
 
-  /* Remove the listener */
-  spa_hook_remove (&self->listener);
-
   /* Destroy the proxy */
   if (self->proxy) {
     pw_proxy_destroy (self->proxy);
