@@ -18,15 +18,7 @@
 struct impl
 {
   WpModule *module;
-
-  /* Remote */
-  struct spa_hook remote_listener;
-
-  /* Registry */
-  struct pw_registry_proxy *registry_proxy;
-  struct spa_hook registry_listener;
-
-  /* The alsa node proxies */
+  WpRemotePipewire *remote_pipewire;
   GHashTable *alsa_nodes_info;
 };
 
@@ -89,8 +81,8 @@ proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
   g_autoptr(WpProxyNode) proxy_node = NULL;
   struct endpoint_info *ei = NULL;
   GVariantBuilder b;
-  g_autoptr(GVariant) endpoint_props = NULL;
-  g_autoptr(WpEndpoint) endpoint = NULL;
+  g_autoptr (GVariant) endpoint_props = NULL;
+  g_autoptr (WpEndpoint) endpoint = NULL;
 
   /* Get the proxy */
   proxy_node = wp_proxy_node_new_finish(initable, res, NULL);
@@ -147,8 +139,8 @@ proxy_port_created(GObject *initable, GAsyncResult *res, gpointer data)
   pi->proxy_port = proxy_port;
 
   /* Get the node proxy */
-  proxy = pw_registry_proxy_bind (impl->registry_proxy, pi->node_id,
-      PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, 0);
+  proxy = wp_remote_pipewire_proxy_bind (impl->remote_pipewire, pi->node_id,
+      PW_TYPE_INTERFACE_Node);
   if (!proxy)
     return;
 
@@ -157,17 +149,16 @@ proxy_port_created(GObject *initable, GAsyncResult *res, gpointer data)
 }
 
 static void
-handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
-            const struct spa_dict *props)
+handle_node(WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
+    gpointer d)
 {
+  struct impl *impl = d;
+  const struct spa_dict *props = p;
   const gchar *media_class = NULL, *name = NULL;
   struct endpoint_info *ei = NULL;
 
   /* Make sure the node has properties */
-  if (!props) {
-    g_warning("node has no properties, skipping...");
-    return;
-  }
+  g_return_if_fail(props);
 
   /* Get the name and media_class */
   name = spa_dict_lookup(props, "node.name");
@@ -189,9 +180,10 @@ handle_node(struct impl *impl, uint32_t id, uint32_t parent_id,
 }
 
 static void
-handle_port(struct impl *impl, uint32_t id, uint32_t parent_id,
-            const struct spa_dict *props)
+handle_port(WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
+    gpointer d)
 {
+  struct impl *impl = d;
   struct proxy_info *pi = NULL;
   struct pw_proxy *proxy = NULL;
 
@@ -199,13 +191,8 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id,
   if (!g_hash_table_contains(impl->alsa_nodes_info, GINT_TO_POINTER (parent_id)))
     return;
 
-  /* Make sure the port has porperties */
-  if (!props)
-    return;
-
   /* Get the port proxy */
-  proxy = pw_registry_proxy_bind (impl->registry_proxy, id,
-      PW_TYPE_INTERFACE_Port, PW_VERSION_PORT, 0);
+  proxy = wp_remote_pipewire_proxy_bind (rp, id, PW_TYPE_INTERFACE_Port);
   if (!proxy)
     return;
 
@@ -220,89 +207,47 @@ handle_port(struct impl *impl, uint32_t id, uint32_t parent_id,
 }
 
 static void
-registry_global(void *data, uint32_t id, uint32_t parent_id,
-		uint32_t permissions, uint32_t type, uint32_t version,
-		const struct spa_dict *props)
-{
-  struct impl *impl = data;
-
-  switch (type) {
-  case PW_TYPE_INTERFACE_Node:
-    handle_node(impl, id, parent_id, props);
-    break;
-
-  case PW_TYPE_INTERFACE_Port:
-    handle_port(impl, id, parent_id, props);
-    break;
-
-  default:
-    break;
-  }
-}
-
-static const struct pw_registry_proxy_events registry_events = {
-  PW_VERSION_REGISTRY_PROXY_EVENTS,
-  .global = registry_global,
-};
-
-static void
-on_connected (WpRemote *remote, WpRemoteState state, struct impl *impl)
-{
-  struct pw_core_proxy *core_proxy = NULL;
-  struct pw_remote *pw_remote;
-
-  g_object_get (remote, "pw-remote", &pw_remote, NULL);
-
-  core_proxy = pw_remote_get_core_proxy (pw_remote);
-  impl->registry_proxy = pw_core_proxy_get_registry (core_proxy,
-      PW_TYPE_INTERFACE_Registry, PW_VERSION_REGISTRY, 0);
-  pw_registry_proxy_add_listener(impl->registry_proxy,
-      &impl->registry_listener, &registry_events, impl);
-}
-
-static void
 module_destroy (gpointer data)
 {
   struct impl *impl = data;
 
+  /* Set to NULL module and remote pipewire as we don't own the reference */
+  impl->module = NULL;
+  impl->remote_pipewire = NULL;
+
   /* Destroy the hash table */
   g_hash_table_unref (impl->alsa_nodes_info);
+  impl->alsa_nodes_info = NULL;
 
   /* Clean up */
   g_slice_free (struct impl, impl);
 }
 
-struct impl *
-module_create (WpModule * module, WpCore * core)
-{
-  struct impl *impl;
-  WpRemote *remote;
-
-  /* Allocate impl */
-  impl = g_new0(struct impl, 1);
-
-  /* Set core */
-  impl->module = module;
-
-  /* Set remote */
-  remote = wp_core_get_global(core, WP_GLOBAL_REMOTE_PIPEWIRE);
-  g_signal_connect (remote, "state-changed::connected",
-      (GCallback) on_connected, impl);
-
-  /* Create the hash table */
-  impl->alsa_nodes_info = g_hash_table_new_full (g_direct_hash,
-      g_direct_equal, NULL, endpoint_info_destroy);
-
-  /* Return the module */
-  return impl;
-}
-
 void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
-  /* Create the impl */
-  struct impl *impl = module_create (module, core);
+  struct impl *impl;
+  WpRemotePipewire *rp;
+
+  /* Make sure the remote pipewire is valid */
+  rp = wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
+  if (!rp) {
+    g_critical ("module-pw-alsa-udev cannot be loaded without a registered "
+        "WpRemotePipewire object");
+    return;
+  }
+
+  /* Create the module data */
+  impl = g_slice_new0(struct impl);
+  impl->module = module;
+  impl->remote_pipewire = rp;
+  impl->alsa_nodes_info = g_hash_table_new_full (g_direct_hash,
+      g_direct_equal, NULL, endpoint_info_destroy);
 
   /* Set destroy callback for impl */
   wp_module_set_destroy_callback (module, module_destroy, impl);
+
+  /* Register the global addded callbacks */
+  g_signal_connect(rp, "global-added::node", (GCallback)handle_node, impl);
+  g_signal_connect(rp, "global-added::port", (GCallback)handle_port, impl);
 }

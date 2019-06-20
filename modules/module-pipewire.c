@@ -26,12 +26,7 @@ gpointer simple_endpoint_link_factory (WpFactory * factory, GType type,
 struct module_data
 {
   WpModule *module;
-
-  /* Registry */
-  struct pw_registry_proxy *registry_proxy;
-  struct spa_hook registry_listener;
-
-  /* Client nodes info */
+  WpRemotePipewire *remote_pipewire;
   GHashTable *client_nodes_info;
 };
 
@@ -39,7 +34,7 @@ struct endpoint_info
 {
   gchar *name;
   gchar *media_class;
-  const struct pw_proxy *proxy;
+  struct pw_proxy *proxy;
 };
 
 struct proxy_info
@@ -143,8 +138,8 @@ proxy_port_created(GObject *initable, GAsyncResult *res, gpointer d)
 {
   struct proxy_info *pi = d;
   const struct module_data *data = pi->data;
+  struct endpoint_info *ei = NULL;
   WpProxyPort *proxy_port = NULL;
-  struct pw_proxy *proxy = NULL;
 
   /* Get the proxy port */
   proxy_port = wp_proxy_port_new_finish(initable, res, NULL);
@@ -155,19 +150,21 @@ proxy_port_created(GObject *initable, GAsyncResult *res, gpointer d)
   pi->proxy_port = proxy_port;
 
   /* Get the node proxy */
-  proxy = pw_registry_proxy_bind (data->registry_proxy, pi->node_id,
-      PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, 0);
-  if (!proxy)
+  ei = g_hash_table_lookup(data->client_nodes_info,
+      GINT_TO_POINTER(pi->node_id));
+  if (!ei)
     return;
 
   /* Create the proxy node asynchronically */
-  wp_proxy_node_new(pi->node_id, proxy, proxy_node_created, pi);
+  wp_proxy_node_new(pi->node_id, ei->proxy, proxy_node_created, pi);
 }
 
 static void
-handle_node (struct module_data *data, uint32_t id, uint32_t parent_id,
-    const struct spa_dict * props)
+handle_node (WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
+    gpointer d)
 {
+  struct module_data *data = d;
+  const struct spa_dict *props = p;
   struct endpoint_info *ei = NULL;
   const gchar *name;
   const gchar *media_class;
@@ -198,9 +195,10 @@ handle_node (struct module_data *data, uint32_t id, uint32_t parent_id,
   g_debug ("found stream node: id:%u ; name:%s ; media_class:%s", id, name,
       media_class);
 
-  /* Get the proxy */
-  proxy = pw_registry_proxy_bind (data->registry_proxy, id,
-      PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, 0);
+  /* Bind the proxy */
+  proxy = wp_remote_pipewire_proxy_bind(rp, id, PW_TYPE_INTERFACE_Node);
+  if (!proxy)
+    return;
 
   /* TODO: Assume all clients have this format for now */
   format.format = SPA_AUDIO_FORMAT_F32P;
@@ -230,9 +228,10 @@ handle_node (struct module_data *data, uint32_t id, uint32_t parent_id,
 }
 
 static void
-handle_port(struct module_data *data, uint32_t id, uint32_t parent_id,
-            const struct spa_dict *props)
+handle_port(WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
+    gpointer d)
 {
+  struct module_data *data = d;
   struct proxy_info *pi = NULL;
   struct pw_proxy *proxy = NULL;
 
@@ -241,9 +240,8 @@ handle_port(struct module_data *data, uint32_t id, uint32_t parent_id,
       GINT_TO_POINTER (parent_id)))
     return;
 
-  /* Get the port proxy */
-  proxy = pw_registry_proxy_bind (data->registry_proxy, id,
-      PW_TYPE_INTERFACE_Port, PW_VERSION_PORT, 0);
+  /* Bind the proxy */
+  proxy = wp_remote_pipewire_proxy_bind (rp, id, PW_TYPE_INTERFACE_Port);
   if (!proxy)
     return;
 
@@ -258,54 +256,17 @@ handle_port(struct module_data *data, uint32_t id, uint32_t parent_id,
 }
 
 static void
-registry_global(void *d, uint32_t id, uint32_t parent_id,
-		uint32_t permissions, uint32_t type, uint32_t version,
-		const struct spa_dict *props)
-{
-  struct module_data *data = d;
-
-  switch (type) {
-  case PW_TYPE_INTERFACE_Node:
-    handle_node(data, id, parent_id, props);
-    break;
-
-  case PW_TYPE_INTERFACE_Port:
-    handle_port(data, id, parent_id, props);
-    break;
-
-  default:
-    break;
-  }
-}
-
-static const struct pw_registry_proxy_events registry_events = {
-  PW_VERSION_REGISTRY_PROXY_EVENTS,
-  .global = registry_global,
-};
-
-static void
-on_remote_connected (WpRemote *remote, WpRemoteState state,
-    struct module_data *data)
-{
-  struct pw_core_proxy *core_proxy;
-  struct pw_remote *pw_remote;
-
-  g_object_get (remote, "pw-remote", &pw_remote, NULL);
-
-  core_proxy = pw_remote_get_core_proxy (pw_remote);
-  data->registry_proxy = pw_core_proxy_get_registry (core_proxy,
-      PW_TYPE_INTERFACE_Registry, PW_VERSION_REGISTRY, 0);
-  pw_registry_proxy_add_listener(data->registry_proxy,
-      &data->registry_listener, &registry_events, data);
-}
-
-static void
 module_destroy (gpointer d)
 {
   struct module_data *data = d;
 
+  /* Set to NULL module and remote pipewire as we don't own the reference */
+  data->module = NULL;
+  data->remote_pipewire = NULL;
+
   /* Destroy the hash table */
   g_hash_table_unref (data->client_nodes_info);
+  data->client_nodes_info = NULL;
 
   /* Clean up */
   g_slice_free (struct module_data, data);
@@ -315,12 +276,13 @@ void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   struct module_data *data;
-  WpRemote *remote;
+  WpRemotePipewire *rp;
   struct pw_core *pw_core;
   struct pw_remote *pw_remote;
 
-  remote = wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
-  if (!remote) {
+  /* Make sure the remote pipewire is valid */
+  rp = wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
+  if (!rp) {
     g_critical ("module-pipewire cannot be loaded without a registered "
         "WpRemotePipewire object");
     return;
@@ -329,20 +291,22 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   /* Create the module data */
   data = g_slice_new0 (struct module_data);
   data->module = module;
+  data->remote_pipewire = rp;
   data->client_nodes_info = g_hash_table_new_full (g_direct_hash,
       g_direct_equal, NULL, endpoint_info_destroy);
 
+  /* Set the module destroy callback */
   wp_module_set_destroy_callback (module, module_destroy, data);
 
-  g_signal_connect (remote, "state-changed::connected",
-      (GCallback) on_remote_connected, data);
+  /* Register the global addded callbacks */
+  g_signal_connect(rp, "global-added::node", (GCallback)handle_node, data);
+  g_signal_connect(rp, "global-added::port", (GCallback)handle_port, data);
 
-  g_object_get (remote,
-      "pw-core", &pw_core,
-      "pw-remote", &pw_remote,
-      NULL);
+  /* Init remoted endpoint */
+  g_object_get (rp, "pw-core", &pw_core, "pw-remote", &pw_remote, NULL);
   remote_endpoint_init (core, pw_core, pw_remote);
 
+  /* Register simple-endpoint and simple-endpoint-link */
   wp_factory_new (core, "pipewire-simple-endpoint", simple_endpoint_factory);
   wp_factory_new (core, "pipewire-simple-endpoint-link",
       simple_endpoint_link_factory);
