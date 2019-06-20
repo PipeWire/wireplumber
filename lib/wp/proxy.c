@@ -51,11 +51,11 @@ proxy_event_destroy (void *data)
 {
   WpProxyPrivate *self = wp_proxy_get_instance_private (WP_PROXY(data));
 
-  /* Emit the destroy signal */
-  g_signal_emit (data, wp_proxy_signals[SIGNAL_DESTROYED], 0);
-
   /* Set the proxy to NULL */
   self->proxy = NULL;
+
+  /* Emit the destroy signal */
+  g_signal_emit (data, wp_proxy_signals[SIGNAL_DESTROYED], 0);
 }
 
 static void
