@@ -48,13 +48,15 @@ wp_lib = library('wireplumber-' + wireplumber_api_version,
   version: meson.project_version(),
 )
 
-gnome.generate_gir(wp_lib,
-  namespace: 'Wp',
-  nsversion: wireplumber_api_version,
-  sources: [wp_lib_sources, wp_lib_headers],
-  includes: ['GLib-2.0', 'GObject-2.0'],
-  install: true,
-)
+if get_option('introspection')
+  gnome.generate_gir(wp_lib,
+    namespace: 'Wp',
+    nsversion: wireplumber_api_version,
+    sources: [wp_lib_sources, wp_lib_headers],
+    includes: ['GLib-2.0', 'GObject-2.0'],
+    install: true,
+  )
+endif
 
 wp_dep = declare_dependency(
   link_with: wp_lib,
