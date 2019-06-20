@@ -90,7 +90,7 @@ proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
   struct endpoint_info *ei = NULL;
   GVariantBuilder b;
   g_autoptr(GVariant) endpoint_props = NULL;
-  WpEndpoint *endpoint = NULL;
+  g_autoptr(WpEndpoint) endpoint = NULL;
 
   /* Get the proxy */
   proxy_node = wp_proxy_node_new_finish(initable, res, NULL);

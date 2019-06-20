@@ -94,7 +94,7 @@ proxy_node_created(GObject *initable, GAsyncResult *res, gpointer d)
   g_autoptr (WpCore) core = wp_module_get_core (data->module);
   g_autoptr (WpProxyNode) proxy_node = NULL;
   struct endpoint_info *ei = NULL;
-  WpEndpoint *endpoint = NULL;
+  g_autoptr (WpEndpoint) endpoint = NULL;
   g_autoptr (GVariant) endpoint_props = NULL;
   GVariantBuilder b;
 
