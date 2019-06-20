@@ -44,15 +44,14 @@ wp_core_init (WpCore * self)
 }
 
 static void
-wp_core_finalize (GObject * obj)
+wp_core_dispose (GObject * obj)
 {
   WpCore *self = WP_CORE (obj);
-  GPtrArray *global_objects;
+  g_autoptr (GPtrArray) global_objects;
   struct global_object *global;
   gint i;
 
-  global_objects = self->global_objects;
-  self->global_objects = NULL;
+  global_objects = g_steal_pointer (&self->global_objects);
 
   for (i = 0; i < global_objects->len; i++) {
     global = g_ptr_array_index (global_objects, i);
@@ -63,8 +62,12 @@ wp_core_finalize (GObject * obj)
       global->destroy (global->object);
   }
 
-  g_ptr_array_unref (global_objects);
+  G_OBJECT_CLASS (wp_core_parent_class)->dispose (obj);
+}
 
+static void
+wp_core_finalize (GObject * obj)
+{
   g_debug ("WpCore destroyed");
 
   G_OBJECT_CLASS (wp_core_parent_class)->finalize (obj);
@@ -74,6 +77,8 @@ static void
 wp_core_class_init (WpCoreClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
+
+  object_class->dispose = wp_core_dispose;
   object_class->finalize = wp_core_finalize;
 
   signals[SIGNAL_GLOBAL_ADDED] = g_signal_new ("global-added",
