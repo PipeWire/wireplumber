@@ -199,7 +199,7 @@ mixer_endpoint_get_control_value (WpEndpoint * ep, guint32 control_id)
 
   /* if there is no backend, return the default value */
   if (!backend) {
-    g_warning ("Mixer:%p Cannot get control value - no backend", self);
+    g_debug ("Mixer:%p Cannot get control value - no backend", self);
 
     switch (control_id) {
     case CONTROL_VOLUME:
@@ -237,7 +237,7 @@ mixer_endpoint_set_control_value (WpEndpoint * ep, guint32 control_id,
   backend = g_weak_ref_get (&group->backend);
 
   if (!backend) {
-    g_warning ("Mixer:%p Cannot set control value - no backend", self);
+    g_debug ("Mixer:%p Cannot set control value - no backend", self);
     return FALSE;
   }
 
