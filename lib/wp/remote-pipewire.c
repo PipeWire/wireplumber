@@ -17,6 +17,12 @@
 
 G_DEFINE_QUARK (node, signal_detail_node)
 G_DEFINE_QUARK (port, signal_detail_port)
+G_DEFINE_QUARK (factory, signal_detail_factory)
+G_DEFINE_QUARK (link, signal_detail_link)
+G_DEFINE_QUARK (client, signal_detail_client)
+G_DEFINE_QUARK (module, signal_detail_module)
+G_DEFINE_QUARK (device, signal_detail_device)
+G_DEFINE_QUARK (endpoint, signal_detail_endpoint)
 
 typedef struct _WpLoopSource WpLoopSource;
 struct _WpLoopSource
@@ -108,21 +114,42 @@ G_DEFINE_TYPE (WpRemotePipewire, wp_remote_pipewire, WP_TYPE_REMOTE)
 
 static void
 registry_global(void *data, uint32_t id, uint32_t parent_id,
-		uint32_t permissions, uint32_t type, uint32_t version,
-		const struct spa_dict *props)
+    uint32_t permissions, uint32_t type, uint32_t version,
+    const struct spa_dict *props)
 {
+  GQuark detail = 0;
+
   switch (type) {
   case PW_TYPE_INTERFACE_Node:
-    g_signal_emit (data, signals[SIGNAL_GLOBAL_ADDED],
-        signal_detail_node_quark (), id, parent_id, props);
+    detail = signal_detail_node_quark ();
     break;
   case PW_TYPE_INTERFACE_Port:
-    g_signal_emit (data, signals[SIGNAL_GLOBAL_ADDED],
-        signal_detail_port_quark (), id, parent_id, props);
+    detail = signal_detail_port_quark ();
+    break;
+  case PW_TYPE_INTERFACE_Factory:
+    detail = signal_detail_factory_quark ();
+    break;
+  case PW_TYPE_INTERFACE_Link:
+    detail = signal_detail_link_quark ();
+    break;
+  case PW_TYPE_INTERFACE_Client:
+    detail = signal_detail_client_quark ();
+    break;
+  case PW_TYPE_INTERFACE_Module:
+    detail = signal_detail_module_quark ();
+    break;
+  case PW_TYPE_INTERFACE_Device:
+    detail = signal_detail_device_quark ();
+    break;
+  case PW_TYPE_INTERFACE_Endpoint:
+    detail = signal_detail_endpoint_quark ();
     break;
   default:
     break;
   }
+
+  g_signal_emit (data, signals[SIGNAL_GLOBAL_ADDED], detail, id, parent_id,
+      props);
 }
 
 static void
