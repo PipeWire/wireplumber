@@ -363,19 +363,31 @@ simple_endpoint_get_property (GObject * object, guint property_id,
   }
 }
 
+static void
+proxies_port_foreach_func(gpointer data, gpointer user_data)
+{
+  GVariantBuilder *b = user_data;
+  g_variant_builder_add (b, "t", data);
+}
+
 static gboolean
 simple_endpoint_prepare_link (WpEndpoint * ep, guint32 stream_id,
     WpEndpointLink * link, GVariant ** properties, GError ** error)
 {
   WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (ep);
-  GVariantBuilder b;
+  GVariantBuilder b, *b_ports;
+  GVariant *v_ports;
+
+  /* Create a variant array with all the ports */
+  b_ports = g_variant_builder_new (G_VARIANT_TYPE ("at"));
+  g_ptr_array_foreach(self->proxies_port, proxies_port_foreach_func, b_ports);
+  v_ports = g_variant_builder_end (b_ports);
 
   /* Set the properties */
   g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
   g_variant_builder_add (&b, "{sv}", "node-id",
       g_variant_new_uint32 (self->global_id));
-  g_variant_builder_add (&b, "{sv}", "node-port-id",
-      g_variant_new_uint32 (-1));
+  g_variant_builder_add (&b, "{sv}", "ports", v_ports);
   *properties = g_variant_builder_end (&b);
 
   return TRUE;

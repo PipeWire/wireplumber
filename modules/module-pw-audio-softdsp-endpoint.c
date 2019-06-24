@@ -53,7 +53,6 @@ struct _WpPwAudioSoftdspEndpoint
   gboolean master_mute;
 
   /* DSP */
-  uint32_t dsp_port_id;
   struct spa_hook dsp_listener;
   struct pw_proxy *link_proxy;
 };
@@ -80,24 +79,37 @@ G_DEFINE_TYPE_WITH_CODE (WpPwAudioSoftdspEndpoint, endpoint, WP_TYPE_ENDPOINT,
     G_IMPLEMENT_INTERFACE (G_TYPE_ASYNC_INITABLE,
                            wp_endpoint_async_initable_init))
 
+static void
+proxies_dsp_port_foreach_func(gpointer data, gpointer user_data)
+{
+  GVariantBuilder *b = user_data;
+  g_variant_builder_add (b, "t", data);
+}
+
 static gboolean
 endpoint_prepare_link (WpEndpoint * ep, guint32 stream_id,
     WpEndpointLink * link, GVariant ** properties, GError ** error)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (ep);
   const struct pw_node_info *dsp_info = NULL;
-  GVariantBuilder b;
+  GVariantBuilder b, *b_ports;
+  GVariant *v_ports;
 
   /* Get the dsp info */
   dsp_info = wp_proxy_node_get_info(self->proxy_dsp);
   g_return_val_if_fail (dsp_info, FALSE);
 
+  /* Create a variant array with all the ports */
+  b_ports = g_variant_builder_new (G_VARIANT_TYPE ("at"));
+  g_ptr_array_foreach(self->proxies_dsp_port, proxies_dsp_port_foreach_func,
+      b_ports);
+  v_ports = g_variant_builder_end (b_ports);
+
   /* Set the properties */
   g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
   g_variant_builder_add (&b, "{sv}", "node-id",
       g_variant_new_uint32 (dsp_info->id));
-  g_variant_builder_add (&b, "{sv}", "node-port-id",
-      g_variant_new_uint32 (self->dsp_port_id));
+  g_variant_builder_add (&b, "{sv}", "ports", v_ports);
   *properties = g_variant_builder_end (&b);
 
   return TRUE;
@@ -436,36 +448,13 @@ static void
 handle_dsp_port(WpPwAudioSoftdspEndpoint *self, guint id, guint parent_id,
   const struct spa_dict *props)
 {
-  const char *direction_prop = NULL;
   struct pw_port_proxy *port_proxy = NULL;
-  enum pw_direction direction;
 
   /* Create the proxy dsp port async */
   port_proxy = wp_remote_pipewire_proxy_bind (self->remote_pipewire, id,
       PW_TYPE_INTERFACE_Port);
   g_return_if_fail(port_proxy);
   wp_proxy_port_new(id, port_proxy, on_proxy_dsp_port_created, self);
-
-  /* Make sure the port has porperties */
-  g_return_if_fail(props);
-
-  /* TODO: For now we only handle 1 DSP port */
-  if (self->dsp_port_id != 0)
-    return;
-
-  /* Get the direction property */
-  direction_prop = spa_dict_lookup(props, "port.direction");
-  if (!direction_prop)
-    return;
-  direction =
-      !strcmp(direction_prop, "out") ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT;
-
-  /* Only handle ports with the opposite direction of the endpoint */
-  if (self->direction == direction)
-    return;
-
-  /* Set the dsp port id */
-  self->dsp_port_id = id;
 }
 
 static void

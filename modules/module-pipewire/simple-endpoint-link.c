@@ -48,31 +48,57 @@ simple_endpoint_link_create (WpEndpointLink * epl, GVariant * src_data,
 {
   WpPipewireSimpleEndpointLink *self = WP_PIPEWIRE_SIMPLE_ENDPOINT_LINK(epl);
   struct pw_properties *props;
-  guint32 output_node_id, input_node_id, output_port_id, input_port_id;
+  guint32 output_node_id, input_node_id;
+  GVariant *src_ports, *sink_ports;
+  GVariantIter *out_iter, *in_iter;
+  guint64 out_ptr, in_ptr;
 
   /* Get the node ids and port ids */
   if (!g_variant_lookup (src_data, "node-id", "u", &output_node_id))
       return FALSE;
-  if (!g_variant_lookup (src_data, "node-port-id", "u", &output_port_id))
+  src_ports = g_variant_lookup_value (src_data, "ports", G_VARIANT_TYPE_ARRAY);
+  if (!src_ports)
       return FALSE;
   if (!g_variant_lookup (sink_data, "node-id", "u", &input_node_id))
       return FALSE;
-  if (!g_variant_lookup (sink_data, "node-port-id", "u", &input_port_id))
+  sink_ports = g_variant_lookup_value (sink_data, "ports", G_VARIANT_TYPE_ARRAY);
+  if (!sink_ports)
       return FALSE;
 
-  /* Create the properties */
-  props = pw_properties_new(NULL, NULL);
-  pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", output_node_id);
-  pw_properties_setf(props, PW_LINK_OUTPUT_PORT_ID, "%d", output_port_id);
-  pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", input_node_id);
-  pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", input_port_id);
+  /* Link all the output ports with the input ports */
+  g_variant_get (src_ports, "at", &out_iter);
+  while (g_variant_iter_loop (out_iter, "t", &out_ptr)) {
+    WpProxyPort *out_p = (gpointer)out_ptr;
+    enum pw_direction out_direction = wp_proxy_port_get_info(out_p)->direction;
+    guint out_id = wp_proxy_get_global_id(WP_PROXY(out_p));
+    if (out_direction == PW_DIRECTION_INPUT)
+      continue;
 
-  /* Create the link */
-  pw_core_proxy_create_object(self->core_proxy, "link-factory",
-      PW_TYPE_INTERFACE_Link, PW_VERSION_LINK, &props->dict, 0);
+    g_variant_get (sink_ports, "at", &in_iter);
+    while (g_variant_iter_loop (in_iter, "t", &in_ptr)) {
+      WpProxyPort *in_p = (gpointer)in_ptr;
+      enum pw_direction in_direction = wp_proxy_port_get_info(in_p)->direction;
+      guint in_id = wp_proxy_get_global_id(WP_PROXY(in_p));
+      if (in_direction == PW_DIRECTION_OUTPUT)
+        continue;
 
-  /* Clean up */
-  pw_properties_free(props);
+      /* Create the properties */
+      props = pw_properties_new(NULL, NULL);
+      pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", output_node_id);
+      pw_properties_setf(props, PW_LINK_OUTPUT_PORT_ID, "%d", out_id);
+      pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", input_node_id);
+      pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", in_id);
+
+      /* Create the link */
+      pw_core_proxy_create_object(self->core_proxy, "link-factory",
+          PW_TYPE_INTERFACE_Link, PW_VERSION_LINK, &props->dict, 0);
+
+      /* Clean up */
+      pw_properties_free(props);
+    }
+    g_variant_iter_free (in_iter);
+  }
+  g_variant_iter_free (out_iter);
 
   return TRUE;
 }
