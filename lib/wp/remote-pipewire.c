@@ -202,7 +202,7 @@ static gboolean
 wp_remote_pipewire_connect (WpRemote *remote)
 {
   WpRemotePipewire *self = WP_REMOTE_PIPEWIRE (remote);
-  GSource *source;
+  g_autoptr (GSource) source;
 
   source = g_idle_source_new ();
   g_source_set_callback (source, (GSourceFunc) connect_in_idle, self, NULL);
