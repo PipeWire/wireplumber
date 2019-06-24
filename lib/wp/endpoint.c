@@ -113,7 +113,37 @@ enum {
 
 static guint32 signals[NUM_SIGNALS];
 
-G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (WpEndpoint, wp_endpoint, G_TYPE_OBJECT)
+static void wp_endpoint_async_initable_init (gpointer iface,
+    gpointer iface_data);
+
+G_DEFINE_ABSTRACT_TYPE_WITH_CODE (WpEndpoint, wp_endpoint, G_TYPE_OBJECT,
+  G_ADD_PRIVATE (WpEndpoint)
+  G_IMPLEMENT_INTERFACE (G_TYPE_ASYNC_INITABLE,
+                         wp_endpoint_async_initable_init))
+
+static void
+wp_endpoint_init_async (GAsyncInitable *initable, int io_priority,
+    GCancellable *cancellable, GAsyncReadyCallback callback, gpointer data)
+{
+}
+
+static gboolean
+wp_endpoint_init_finish (GAsyncInitable *initable, GAsyncResult *result,
+    GError **error)
+{
+  g_return_val_if_fail (g_task_is_valid (result, initable), FALSE);
+
+  return g_task_propagate_boolean (G_TASK (result), error);
+}
+
+static void
+wp_endpoint_async_initable_init (gpointer iface, gpointer iface_data)
+{
+  GAsyncInitableIface *ai_iface = iface;
+
+  ai_iface->init_async = wp_endpoint_init_async;
+  ai_iface->init_finish = wp_endpoint_init_finish;
+}
 
 static void
 wp_endpoint_init (WpEndpoint * self)
@@ -251,6 +281,22 @@ wp_endpoint_class_init (WpEndpointClass * klass)
   signals[SIGNAL_NOTIFY_CONTROL_VALUE] = g_signal_new ("notify-control-value",
       G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
       G_TYPE_NONE, 1, G_TYPE_UINT);
+}
+
+/**
+ * wp_endpoint_new_finish:
+ * @initable: the #GAsyncInitable from the callback
+ * @res: the #GAsyncResult from the callback
+ * @error: return location for errors, or NULL to ignore
+ *
+ * Finishes the async construction of #WpEndpoint.
+ */
+WpEndpoint *
+wp_endpoint_new_finish (GObject *initable, GAsyncResult *res,
+    GError **error)
+{
+  GAsyncInitable *ai = G_ASYNC_INITABLE(initable);
+  return WP_ENDPOINT(g_async_initable_new_finish(ai, res, error));
 }
 
 /**
