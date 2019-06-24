@@ -25,7 +25,7 @@ shared_library(
   c_args : [common_c_args, '-DG_LOG_DOMAIN="m-pipewire"'],
   install : true,
   install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep, pipewire_dep],
+  dependencies : [gio_dep, wp_dep, pipewire_dep],
 )
 
 shared_library(
@@ -47,7 +47,7 @@ shared_library(
   c_args : [common_c_args, '-DG_LOG_DOMAIN="m-pw-audio-softdsp-endpoint"'],
   install : true,
   install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep, pipewire_dep],
+  dependencies : [gio_dep, wp_dep, pipewire_dep],
 )
 
 shared_library(
