@@ -19,6 +19,11 @@ G_DECLARE_FINAL_TYPE (WpRemotePipewire, wp_remote_pipewire,
 
 WpRemote *wp_remote_pipewire_new (WpCore *core, GMainContext *context);
 
+gpointer wp_remote_pipewire_proxy_bind (WpRemotePipewire *self, guint global_id,
+    guint global_type);
+gpointer wp_remote_pipewire_create_object (WpRemotePipewire *self,
+    const char *factory_name, guint global_type, gconstpointer props);
+
 G_END_DECLS
 
 #endif

@@ -26,16 +26,12 @@ struct _WpPwAudioSoftdspEndpoint
 {
   WpEndpoint parent;
 
+  /* The remote pipewire */
+  WpRemotePipewire *remote_pipewire;
+
   /* temporary method to select which endpoint
    * is going to be the default input/output */
   gboolean selected;
-
-  /* Core */
-  struct pw_core_proxy *core_proxy;
-
-  /* Registry */
-  struct pw_registry_proxy *registry_proxy;
-  struct spa_hook registry_listener;
 
   /* Direction */
   enum pw_direction direction;
@@ -132,8 +128,8 @@ on_dsp_running(WpPwAudioSoftdspEndpoint *self)
   g_debug ("%p linking DSP to node", self);
 
   /* Create the link */
-  self->link_proxy = pw_core_proxy_create_object(self->core_proxy,
-      "link-factory", PW_TYPE_INTERFACE_Link, PW_VERSION_LINK, &props->dict, 0);
+  self->link_proxy = wp_remote_pipewire_create_object(self->remote_pipewire,
+      "link-factory", PW_TYPE_INTERFACE_Link, &props->dict);
 
   /* Clean up */
   pw_properties_free(props);
@@ -264,8 +260,8 @@ emit_audio_dsp_node (WpPwAudioSoftdspEndpoint *self)
       MAX_QUANTUM_SIZE * sizeof(float));
 
   /* Set the DSP proxy and listener */
-  self->dsp_proxy = pw_core_proxy_create_object(self->core_proxy, "audio-dsp",
-      PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, &props->dict, 0);
+  self->dsp_proxy = wp_remote_pipewire_create_object(self->remote_pipewire,
+      "audio-dsp", PW_TYPE_INTERFACE_Node, &props->dict);
   pw_node_proxy_add_listener(self->dsp_proxy, &self->dsp_listener,
       &dsp_node_events, self);
   pw_node_proxy_enum_params (self->dsp_proxy, 0, SPA_PARAM_Props, 0, -1, NULL);
@@ -285,20 +281,68 @@ emit_audio_dsp_node (WpPwAudioSoftdspEndpoint *self)
 }
 
 static void
+handle_port(WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
+    gpointer d)
+{
+  WpPwAudioSoftdspEndpoint *self = d;
+  const struct spa_dict *props = p;
+  const char *direction_prop = NULL;
+  enum pw_direction direction;
+
+  /* Make sure the dsp port is not already set*/
+  if (self->dsp_port_id != 0)
+    return;
+
+  /* Make sure the port has porperties */
+  if (!props)
+    return;
+
+  /* Only handle ports owned by this endpoint */
+  if (!self->dsp_info || self->dsp_info->id != parent_id)
+    return;
+
+  /* Get the direction property */
+  direction_prop = spa_dict_lookup(props, "port.direction");
+  if (!direction_prop)
+    return;
+  direction =
+      !strcmp(direction_prop, "out") ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT;
+
+  /* Only handle ports with the oposit direction of the endpoint */
+  if (self->direction == direction)
+    return;
+
+  /* Set the dsp port id */
+  self->dsp_port_id = id;
+}
+
+static void
 endpoint_constructed (GObject * object)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (object);
+  g_autoptr (WpCore) core = wp_endpoint_get_core(WP_ENDPOINT(self));
   const gchar *media_class = wp_endpoint_get_media_class (WP_ENDPOINT (self));
   GVariantDict d;
 
+  /* Set Remote Pipewire */
+  self->remote_pipewire = wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
+  if (!self->remote_pipewire)
+    g_critical ("failed to get remote pipewire ");
+
+  /* Register the global-added::port callback in remote pipewire */
+  g_signal_connect(self->remote_pipewire, "global-added::port",
+      (GCallback)handle_port, self);
+
   /* Set the direction */
-  if (g_str_has_suffix (media_class, "Source")) {
+  if (g_str_has_suffix (media_class, "Source"))
     self->direction = PW_DIRECTION_INPUT;
-  } else if (g_str_has_suffix (media_class, "Sink")) {
+  else if (g_str_has_suffix (media_class, "Sink"))
     self->direction = PW_DIRECTION_OUTPUT;
-  } else {
+  else
     g_critical ("failed to parse direction");
-  }
+
+  /* Emit the audio DSP node */
+  emit_audio_dsp_node(self);
 
   g_variant_dict_init (&d, NULL);
   g_variant_dict_insert (&d, "id", "u", 0);
@@ -337,6 +381,9 @@ static void
 endpoint_finalize (GObject * object)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (object);
+
+  /* Set to NULL remote pipewire as we don't own the reference */
+  self->remote_pipewire = NULL;
 
   /* Unref the proxy node */
   g_clear_object (&self->proxy_node);
@@ -500,6 +547,7 @@ endpoint_class_init (WpPwAudioSoftdspEndpointClass * klass)
   endpoint_class->get_control_value = endpoint_get_control_value;
   endpoint_class->set_control_value = endpoint_set_control_value;
 
+  /* Instal the properties */
   g_object_class_install_property (object_class, PROP_NODE_PROXY,
       g_param_spec_object ("node-proxy", "node-proxy",
           "Pointer to the node proxy of the device", WP_TYPE_PROXY_NODE,
@@ -510,91 +558,22 @@ endpoint_class_init (WpPwAudioSoftdspEndpointClass * klass)
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
-static void
-handle_port(WpPwAudioSoftdspEndpoint *self, uint32_t id, uint32_t parent_id,
-    const struct spa_dict *props)
-{
-  const char *direction_prop = NULL;
-  enum pw_direction direction;
-
-  /* Make sure the dsp port is not already set*/
-  if (self->dsp_port_id != 0)
-    return;
-
-  /* Make sure the port has porperties */
-  if (!props)
-    return;
-
-  /* Only handle ports owned by this endpoint */
-  if (!self->dsp_info || self->dsp_info->id != parent_id)
-    return;
-
-  /* Get the direction property */
-  direction_prop = spa_dict_lookup(props, "port.direction");
-  if (!direction_prop)
-    return;
-  direction =
-      !strcmp(direction_prop, "out") ? PW_DIRECTION_OUTPUT : PW_DIRECTION_INPUT;
-
-  /* Only handle ports with the oposit direction of the endpoint */
-  if (self->direction == direction)
-    return;
-
-  /* Set the dsp port id */
-  self->dsp_port_id = id;
-}
-
-static void
-registry_global(void *data, uint32_t id, uint32_t parent_id,
-		uint32_t permissions, uint32_t type, uint32_t version,
-		const struct spa_dict *props)
-{
-  WpPwAudioSoftdspEndpoint *self = data;
-
-  switch (type) {
-  case PW_TYPE_INTERFACE_Port:
-    handle_port(self, id, parent_id, props);
-    break;
-
-  default:
-    break;
-  }
-}
-
-static const struct pw_registry_proxy_events registry_events = {
-  PW_VERSION_REGISTRY_PROXY_EVENTS,
-  .global = registry_global,
-};
-
 static gpointer
 endpoint_factory (WpFactory * factory, GType type, GVariant * properties)
 {
-  g_autoptr (WpCore) wp_core = NULL;
-  WpRemote *remote;
-  struct pw_remote *pw_remote;
+  g_autoptr (WpCore) core = NULL;
   const gchar *name = NULL;
   const gchar *media_class = NULL;
   guint64 proxy_node, proxy_port;
 
-  /* Make sure the type is not the base class type */
-  if (type != WP_TYPE_ENDPOINT)
-    return NULL;
+  /* Make sure the type is correct */
+  g_return_val_if_fail(type == WP_TYPE_ENDPOINT, NULL);
 
-  /* Get the WirePlumber core */
-  wp_core = wp_factory_get_core(factory);
-  if (!wp_core) {
-    g_warning("failed to get wireplumbe core. Skipping...");
-    return NULL;
-  }
+  /* Get the Core */
+  core = wp_factory_get_core(factory);
+  g_return_val_if_fail (core, NULL);
 
-  /* Get the remote */
-  remote = wp_core_get_global(wp_core, WP_GLOBAL_REMOTE_PIPEWIRE);
-  if (!remote) {
-    g_warning("failed to get core remote. Skipping...");
-    return NULL;
-  }
-
-  /* Get the name and media-class */
+  /* Get the properties */
   if (!g_variant_lookup (properties, "name", "&s", &name))
       return NULL;
   if (!g_variant_lookup (properties, "media-class", "&s", &media_class))
@@ -604,36 +583,14 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties)
   if (!g_variant_lookup (properties, "proxy-port", "t", &proxy_port))
       return NULL;
 
-  /* Create the softdsp endpoint object */
-  WpPwAudioSoftdspEndpoint *ep = g_object_new (endpoint_get_type (),
-      "core", wp_core,
+  /* Create and return the softdsp endpoint object */
+  return g_object_new (endpoint_get_type (),
+      "core", core,
       "name", name,
       "media-class", media_class,
       "node-proxy", (gpointer) proxy_node,
       "port-proxy", (gpointer) proxy_port,
       NULL);
-  if (!ep)
-    return NULL;
-
-  /* Set the core proxy */
-  g_object_get (remote, "pw-remote", &pw_remote, NULL);
-  ep->core_proxy = pw_remote_get_core_proxy(pw_remote);
-  if (!ep->core_proxy) {
-    g_warning("failed to get core proxy. Skipping...");
-    return NULL;
-  }
-
-  /* Add registry listener */
-  ep->registry_proxy = pw_core_proxy_get_registry (ep->core_proxy,
-      PW_TYPE_INTERFACE_Registry, PW_VERSION_REGISTRY, 0);
-  pw_registry_proxy_add_listener(ep->registry_proxy, &ep->registry_listener,
-      &registry_events, ep);
-
-  /* Emit the audio DSP node */
-  emit_audio_dsp_node(ep);
-
-  /* Return the object */
-  return ep;
 }
 
 void

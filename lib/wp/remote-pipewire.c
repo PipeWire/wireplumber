@@ -15,6 +15,9 @@
 
 #define WP_LOOP_SOURCE(x) ((WpLoopSource *) x)
 
+G_DEFINE_QUARK (node, signal_detail_node)
+G_DEFINE_QUARK (port, signal_detail_port)
+
 typedef struct _WpLoopSource WpLoopSource;
 struct _WpLoopSource
 {
@@ -74,6 +77,11 @@ struct _WpRemotePipewire
   struct pw_core *core;
   struct pw_remote *remote;
   struct spa_hook remote_listener;
+  struct pw_core_proxy *core_proxy;
+
+  /* Registry */
+  struct pw_registry_proxy *registry_proxy;
+  struct spa_hook registry_listener;
 
   GMainContext *context;
 };
@@ -87,7 +95,60 @@ enum {
   PROP_CONTEXT,
 };
 
+enum
+{
+  SIGNAL_GLOBAL_ADDED,
+  SIGNAL_GLOBAL_REMOVED,
+  LAST_SIGNAL,
+};
+
+static guint signals[LAST_SIGNAL] = { 0 };
+
 G_DEFINE_TYPE (WpRemotePipewire, wp_remote_pipewire, WP_TYPE_REMOTE)
+
+static void
+registry_global(void *data, uint32_t id, uint32_t parent_id,
+		uint32_t permissions, uint32_t type, uint32_t version,
+		const struct spa_dict *props)
+{
+  switch (type) {
+  case PW_TYPE_INTERFACE_Node:
+    g_signal_emit (data, signals[SIGNAL_GLOBAL_ADDED],
+        signal_detail_node_quark (), id, parent_id, props);
+    break;
+  case PW_TYPE_INTERFACE_Port:
+    g_signal_emit (data, signals[SIGNAL_GLOBAL_ADDED],
+        signal_detail_port_quark (), id, parent_id, props);
+    break;
+  default:
+    break;
+  }
+}
+
+static void
+registry_global_remove (void *data, uint32_t id)
+{
+  g_signal_emit (data, signals[SIGNAL_GLOBAL_REMOVED], 0, id);
+}
+
+static const struct pw_registry_proxy_events registry_proxy_events = {
+  PW_VERSION_REGISTRY_PROXY_EVENTS,
+  .global = registry_global,
+  .global_remove = registry_global_remove,
+};
+
+static void
+registry_init (WpRemotePipewire *self)
+{
+  /* Get the core proxy */
+  self->core_proxy = pw_remote_get_core_proxy (self->remote);
+
+  /* Registry */
+  self->registry_proxy = pw_core_proxy_get_registry (self->core_proxy,
+      PW_TYPE_INTERFACE_Registry, PW_VERSION_REGISTRY, 0);
+  pw_registry_proxy_add_listener(self->registry_proxy, &self->registry_listener,
+      &registry_proxy_events, self);
+}
 
 static void
 on_remote_state_changed (void *d, enum pw_remote_state old_state,
@@ -98,6 +159,10 @@ on_remote_state_changed (void *d, enum pw_remote_state old_state,
   g_debug ("pipewire remote state changed, old:%s new:%s",
       pw_remote_state_as_string (old_state),
       pw_remote_state_as_string (new_state));
+
+  /* Init the registry when connected */
+  if (!self->registry_proxy && new_state == PW_REMOTE_STATE_CONNECTED)
+    registry_init (self);
 
   g_object_notify (G_OBJECT (self), "state");
 }
@@ -138,6 +203,8 @@ wp_remote_pipewire_finalize (GObject *object)
   pw_remote_destroy (self->remote);
   pw_core_destroy (self->core);
   g_clear_pointer (&self->context, g_main_context_unref);
+  self->core_proxy= NULL;
+  self->registry_proxy = NULL;
 
   G_OBJECT_CLASS (wp_remote_pipewire_parent_class)->finalize (object);
 }
@@ -242,6 +309,15 @@ wp_remote_pipewire_class_init (WpRemotePipewireClass *klass)
   g_object_class_install_property (object_class, PROP_PW_REMOTE,
       g_param_spec_pointer ("pw-remote", "pw-remote", "The pipewire remote",
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+
+  /* Signals */
+  signals[SIGNAL_GLOBAL_ADDED] = g_signal_new ("global-added",
+      G_TYPE_FROM_CLASS (klass), G_SIGNAL_DETAILED | G_SIGNAL_RUN_LAST,
+      0, NULL, NULL, NULL, G_TYPE_NONE, 3, G_TYPE_UINT, G_TYPE_UINT,
+      G_TYPE_POINTER);
+  signals[SIGNAL_GLOBAL_REMOVED] = g_signal_new ("global-removed",
+      G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
+      0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_UINT);
 }
 
 WpRemote *
@@ -259,4 +335,26 @@ wp_remote_pipewire_new (WpCore *core, GMainContext *context)
       g_object_ref (remote), g_object_unref);
 
   return remote;
+}
+
+gpointer
+wp_remote_pipewire_proxy_bind (WpRemotePipewire *self, guint global_id,
+    guint global_type)
+{
+  g_return_val_if_fail (WP_IS_REMOTE_PIPEWIRE(self), NULL);
+  g_return_val_if_fail (self->registry_proxy, NULL);
+
+  return pw_registry_proxy_bind (self->registry_proxy, global_id, global_type,
+      0, 0);
+}
+
+gpointer
+wp_remote_pipewire_create_object (WpRemotePipewire *self,
+    const char *factory_name, guint global_type, gconstpointer props)
+{
+  g_return_val_if_fail (WP_IS_REMOTE_PIPEWIRE(self), NULL);
+  g_return_val_if_fail (self->core_proxy, NULL);
+
+  return pw_core_proxy_create_object(self->core_proxy, factory_name,
+      global_type, 0, props, 0);
 }

@@ -47,9 +47,6 @@ wp_proxy_node_finalize (GObject * object)
 {
   WpProxyNode *self = WP_PROXY_NODE(object);
 
-  /* Remove the listener */
-  spa_hook_remove (&self->listener);
-  
   /* Clear the info */
   if (self->info) {
     pw_node_info_free(self->info);

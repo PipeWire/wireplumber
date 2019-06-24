@@ -77,9 +77,6 @@ wp_proxy_port_finalize (GObject * object)
 {
   WpProxyPort *self = WP_PROXY_PORT(object);
 
-  /* Remove the listener */
-  spa_hook_remove (&self->listener);
-
   /* Clear the indo */
   if (self->info) {
     pw_port_info_free(self->info);
