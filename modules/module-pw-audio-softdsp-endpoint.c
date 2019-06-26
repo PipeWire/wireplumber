@@ -352,7 +352,7 @@ on_proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
 {
   WpPwAudioSoftdspEndpoint *self = data;
   GVariantDict d;
-  g_autofree gchar *name;
+  g_autofree gchar *name = NULL;
   const struct spa_dict *props;
 
   /* Get the proxy node */
@@ -705,7 +705,7 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
   GAsyncReadyCallback ready, gpointer user_data)
 {
   g_autoptr (WpCore) core = NULL;
-  const gchar *name, *media_class;
+  const gchar *media_class;
   guint global_id;
 
   /* Make sure the type is correct */
