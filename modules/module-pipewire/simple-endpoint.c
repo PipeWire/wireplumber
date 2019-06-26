@@ -13,6 +13,8 @@
  * other arbitrary node that does not need any kind of internal management.
  */
 
+#include <spa/param/audio/format-utils.h>
+
 #include <wp/wp.h>
 #include <pipewire/pipewire.h>
 #include <spa/pod/parser.h>
@@ -22,10 +24,19 @@ struct _WpPipewireSimpleEndpoint
 {
   WpEndpoint parent;
 
-  /* Proxy */
+  /* The global-id this endpoint refers to */
+  guint global_id;
+
+  /* The task to signal the endpoint is initialized */
+  GTask *init_task;
+
+  /* The remote pipewire */
+  WpRemotePipewire *remote_pipewire;
+
+  /* Proxies */
   WpProxyNode *proxy_node;
-  WpProxyPort *proxy_port;
   struct spa_hook node_proxy_listener;
+  GPtrArray *proxies_port;
 
   /* controls cache */
   gfloat volume;
@@ -34,8 +45,7 @@ struct _WpPipewireSimpleEndpoint
 
 enum {
   PROP_0,
-  PROP_NODE_PROXY,
-  PROP_PORT_PROXY
+  PROP_GLOBAL_ID,
 };
 
 enum {
@@ -43,10 +53,17 @@ enum {
   CONTROL_MUTE,
 };
 
+static GAsyncInitableIface *wp_simple_endpoint_parent_interface = NULL;
+static void wp_simple_endpoint_async_initable_init (gpointer iface,
+    gpointer iface_data);
+
 G_DECLARE_FINAL_TYPE (WpPipewireSimpleEndpoint,
     simple_endpoint, WP_PIPEWIRE, SIMPLE_ENDPOINT, WpEndpoint)
 
-G_DEFINE_TYPE (WpPipewireSimpleEndpoint, simple_endpoint, WP_TYPE_ENDPOINT)
+G_DEFINE_TYPE_WITH_CODE (WpPipewireSimpleEndpoint, simple_endpoint,
+    WP_TYPE_ENDPOINT,
+    G_IMPLEMENT_INTERFACE (G_TYPE_ASYNC_INITABLE,
+                           wp_simple_endpoint_async_initable_init))
 
 static void
 node_proxy_param (void *object, int seq, uint32_t id,
@@ -100,21 +117,122 @@ static const struct pw_node_proxy_events node_node_proxy_events = {
 };
 
 static void
-simple_endpoint_init (WpPipewireSimpleEndpoint * self)
+on_proxy_node_destroyed (WpProxy* wp_proxy, WpEndpoint *endpoint)
 {
+  g_return_if_fail(WP_IS_ENDPOINT(endpoint));
+
+  /* Unregister the endpoint */
+  wp_endpoint_unregister(endpoint);
 }
 
 static void
-simple_endpoint_constructed (GObject * object)
+on_all_ports_done(WpProxy *proxy, gpointer data)
 {
-  WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (object);
+  WpPipewireSimpleEndpoint *self = data;
+
+  /* Don't do anything if the endpoint has already been initialized */
+  if (!self->init_task)
+    return;
+
+  /* Set destroy handler to unregister endpoint on proxy_node destruction */
+  g_signal_connect (self->proxy_node, "destroyed",
+      G_CALLBACK(on_proxy_node_destroyed), WP_ENDPOINT(self));
+
+  /* Finish the creation of the endpoint */
+  g_task_return_boolean (self->init_task, TRUE);
+  g_clear_object(&self->init_task);
+}
+
+static void
+on_proxy_port_created(GObject *initable, GAsyncResult *res, gpointer data)
+{
+  WpPipewireSimpleEndpoint *self = data;
+  WpProxyPort *proxy_port = NULL;
+
+  /* Get the proxy port */
+  proxy_port = wp_proxy_port_new_finish(initable, res, NULL);
+  g_return_if_fail (proxy_port);
+
+  /* Add the proxy port to the array */
+  g_return_if_fail (self->proxies_port);
+  g_ptr_array_add(self->proxies_port, proxy_port);
+
+  /* Register the done callback */
+  g_signal_connect(self->proxy_node, "done", (GCallback)on_all_ports_done,
+    self);
+  wp_proxy_sync (WP_PROXY(self->proxy_node));
+}
+
+static void
+on_port_added(WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
+    gpointer d)
+{
+  WpPipewireSimpleEndpoint *self = d;
+  struct pw_port_proxy *port_proxy = NULL;
+
+  /* Only handle ports owned by this endpoint */
+  if (parent_id != self->global_id)
+    return;
+
+  /* Create the proxy port async */
+  port_proxy = wp_remote_pipewire_proxy_bind (self->remote_pipewire, id,
+    PW_TYPE_INTERFACE_Port);
+  g_return_if_fail(port_proxy);
+  wp_proxy_port_new(id, port_proxy, on_proxy_port_created, self);
+}
+
+static void
+emit_endpoint_ports(WpPipewireSimpleEndpoint *self)
+{
+  struct pw_node_proxy* node_proxy = NULL;
+  struct spa_audio_info_raw format = { 0, };
+  struct spa_pod *param;
+  struct spa_pod_builder pod_builder = { 0, };
+  char buf[1024];
+
+  /* Get the pipewire node proxy */
+  node_proxy = wp_proxy_get_pw_proxy(WP_PROXY(self->proxy_node));
+  g_return_if_fail (node_proxy);
+
+  /* TODO: Assume all clients have this format for now */
+  format.format = SPA_AUDIO_FORMAT_F32P;
+  format.flags = 1;
+  format.rate = 48000;
+  format.channels = 2;
+  format.position[0] = 0;
+  format.position[1] = 0;
+
+  /* Build the param profile */
+  spa_pod_builder_init(&pod_builder, buf, sizeof(buf));
+  param = spa_format_audio_raw_build(&pod_builder, SPA_PARAM_Format, &format);
+  param = spa_pod_builder_add_object(&pod_builder,
+      SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
+      SPA_PARAM_PROFILE_direction,  SPA_POD_Id(PW_DIRECTION_OUTPUT),
+      SPA_PARAM_PROFILE_format,     SPA_POD_Pod(param));
+
+  /* Set the param profile to emit the ports */
+  pw_node_proxy_set_param(node_proxy, SPA_PARAM_Profile, 0, param);
+}
+
+static void
+on_proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
+{
+  WpPipewireSimpleEndpoint *self = data;
   GVariantDict d;
   uint32_t ids[1] = { SPA_PARAM_Props };
   uint32_t n_ids = 1;
   struct pw_node_proxy *node_proxy = NULL;
 
+  /* Get the proxy node */
+  self->proxy_node = wp_proxy_node_new_finish(initable, res, NULL);
+  g_return_if_fail (self->proxy_node);
+
+  /* Emit the ports */
+  emit_endpoint_ports(self);
+
   /* Add a custom node proxy event listener */
   node_proxy = wp_proxy_get_pw_proxy(WP_PROXY(self->proxy_node));
+  g_return_if_fail (node_proxy);
   pw_node_proxy_add_listener (node_proxy, &self->node_proxy_listener,
       &node_node_proxy_events, self);
   pw_node_proxy_subscribe_params (node_proxy, ids, n_ids);
@@ -143,8 +261,54 @@ simple_endpoint_constructed (GObject * object)
     g_variant_dict_insert (&d, "default-value", "b", FALSE);
     wp_endpoint_register_control (WP_ENDPOINT (self), g_variant_dict_end (&d));
   }
+}
 
-  G_OBJECT_CLASS (simple_endpoint_parent_class)->constructed (object);
+static void
+wp_simple_endpoint_init_async (GAsyncInitable *initable, int io_priority,
+    GCancellable *cancellable, GAsyncReadyCallback callback, gpointer data)
+{
+  WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (initable);
+  g_autoptr (WpCore) core = wp_endpoint_get_core(WP_ENDPOINT(self));
+  struct pw_node_proxy *node_proxy = NULL;
+
+  /* Create the async task */
+  self->init_task = g_task_new (initable, cancellable, callback, data);
+
+  /* Init the proxies_port array */
+  self->proxies_port = g_ptr_array_new_full(2, (GDestroyNotify)g_object_unref);
+
+  /* Register a port_added callback */
+  self->remote_pipewire = wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
+  g_return_if_fail(self->remote_pipewire);
+  g_signal_connect(self->remote_pipewire, "global-added::port",
+      (GCallback)on_port_added, self);
+
+  /* Create the proxy node async */
+  node_proxy = wp_remote_pipewire_proxy_bind (self->remote_pipewire,
+      self->global_id, PW_TYPE_INTERFACE_Node);
+  g_return_if_fail(node_proxy);
+  wp_proxy_node_new(self->global_id, node_proxy, on_proxy_node_created, self);
+
+  /* Call the parent interface */
+  wp_simple_endpoint_parent_interface->init_async (initable, io_priority,
+      cancellable, callback, data);
+}
+
+static void
+wp_simple_endpoint_async_initable_init (gpointer iface, gpointer iface_data)
+{
+  GAsyncInitableIface *ai_iface = iface;
+
+  /* Set the parent interface */
+  wp_simple_endpoint_parent_interface = g_type_interface_peek_parent (iface);
+
+  /* Only set the init_async */
+  ai_iface->init_async = wp_simple_endpoint_init_async;
+}
+
+static void
+simple_endpoint_init (WpPipewireSimpleEndpoint * self)
+{
 }
 
 static void
@@ -152,11 +316,17 @@ simple_endpoint_finalize (GObject * object)
 {
   WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (object);
 
-  /* Unref the proxy node */
-  if (self->proxy_node) {
-    g_object_unref(self->proxy_node);
-    self->proxy_node = NULL;
+  /* Destroy the proxies port */
+  if (self->proxies_port) {
+    g_ptr_array_free(self->proxies_port, TRUE);
+    self->proxies_port = NULL;
   }
+
+  /* Destroy the proxy node */
+  g_clear_object(&self->proxy_node);
+
+  /* Destroy the done task */
+  g_clear_object(&self->init_task);
 
   G_OBJECT_CLASS (simple_endpoint_parent_class)->finalize (object);
 }
@@ -168,13 +338,8 @@ simple_endpoint_set_property (GObject * object, guint property_id,
   WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (object);
 
   switch (property_id) {
-  case PROP_NODE_PROXY:
-    g_clear_object(&self->proxy_node);
-    self->proxy_node = g_value_dup_object(value);
-    break;
-  case PROP_PORT_PROXY:
-    g_clear_object(&self->proxy_port);
-    self->proxy_port = g_value_dup_object(value);
+  case PROP_GLOBAL_ID:
+    self->global_id = g_value_get_uint(value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -189,11 +354,8 @@ simple_endpoint_get_property (GObject * object, guint property_id,
   WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (object);
 
   switch (property_id) {
-  case PROP_NODE_PROXY:
-    g_value_set_object (value, self->proxy_node);
-    break;
-  case PROP_PORT_PROXY:
-    g_value_set_object (value, self->proxy_port);
+  case PROP_GLOBAL_ID:
+    g_value_set_uint (value, self->global_id);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -201,21 +363,31 @@ simple_endpoint_get_property (GObject * object, guint property_id,
   }
 }
 
+static void
+proxies_port_foreach_func(gpointer data, gpointer user_data)
+{
+  GVariantBuilder *b = user_data;
+  g_variant_builder_add (b, "t", data);
+}
+
 static gboolean
 simple_endpoint_prepare_link (WpEndpoint * ep, guint32 stream_id,
     WpEndpointLink * link, GVariant ** properties, GError ** error)
 {
   WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (ep);
-  uint32_t node_id = wp_proxy_get_global_id(WP_PROXY(self->proxy_node));
-  uint32_t port_id = wp_proxy_get_global_id(WP_PROXY(self->proxy_port));
-  GVariantBuilder b;
+  GVariantBuilder b, *b_ports;
+  GVariant *v_ports;
+
+  /* Create a variant array with all the ports */
+  b_ports = g_variant_builder_new (G_VARIANT_TYPE ("at"));
+  g_ptr_array_foreach(self->proxies_port, proxies_port_foreach_func, b_ports);
+  v_ports = g_variant_builder_end (b_ports);
 
   /* Set the properties */
   g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
   g_variant_builder_add (&b, "{sv}", "node-id",
-      g_variant_new_uint32 (node_id));
-  g_variant_builder_add (&b, "{sv}", "node-port-id",
-      g_variant_new_uint32 (port_id));
+      g_variant_new_uint32 (self->global_id));
+  g_variant_builder_add (&b, "{sv}", "ports", v_ports);
   *properties = g_variant_builder_end (&b);
 
   return TRUE;
@@ -294,7 +466,6 @@ simple_endpoint_class_init (WpPipewireSimpleEndpointClass * klass)
   GObjectClass *object_class = (GObjectClass *) klass;
   WpEndpointClass *endpoint_class = (WpEndpointClass *) klass;
 
-  object_class->constructed = simple_endpoint_constructed;
   object_class->finalize = simple_endpoint_finalize;
   object_class->set_property = simple_endpoint_set_property;
   object_class->get_property = simple_endpoint_get_property;
@@ -303,48 +474,40 @@ simple_endpoint_class_init (WpPipewireSimpleEndpointClass * klass)
   endpoint_class->get_control_value = simple_endpoint_get_control_value;
   endpoint_class->set_control_value = simple_endpoint_set_control_value;
 
-  g_object_class_install_property (object_class, PROP_NODE_PROXY,
-      g_param_spec_object ("node-proxy", "node-proxy",
-          "Pointer to the node proxy of the client", WP_TYPE_PROXY_NODE,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
-  g_object_class_install_property (object_class, PROP_PORT_PROXY,
-      g_param_spec_object ("port-proxy", "port-proxy",
-          "Pointer to the port proxy of the client", WP_TYPE_PROXY_PORT,
+  g_object_class_install_property (object_class, PROP_GLOBAL_ID,
+      g_param_spec_uint ("global-id", "global-id",
+          "The global Id this endpoint refers to", 0, G_MAXUINT, 0,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
-gpointer
+void
 simple_endpoint_factory (WpFactory * factory, GType type,
-    GVariant * properties)
+    GVariant * properties, GAsyncReadyCallback ready, gpointer user_data)
 {
   g_autoptr (WpCore) core = NULL;
-  guint64 proxy_node;
-  guint64 proxy_port;
-  const gchar *name;
-  const gchar *media_class;
+  const gchar *name, *media_class;
+  guint global_id;
 
-  g_return_val_if_fail (type == WP_TYPE_ENDPOINT, NULL);
-  g_return_val_if_fail (properties != NULL, NULL);
-  g_return_val_if_fail (g_variant_is_of_type (properties,
-          G_VARIANT_TYPE_VARDICT), NULL);
+  /* Make sure the type is correct */
+  g_return_if_fail (type == WP_TYPE_ENDPOINT);
 
+  /* Get the Core */
   core = wp_factory_get_core (factory);
-  g_return_val_if_fail (core != NULL, NULL);
+  g_return_if_fail (core);
 
+  /* Get the properties */
   if (!g_variant_lookup (properties, "name", "&s", &name))
-      return NULL;
+      return;
   if (!g_variant_lookup (properties, "media-class", "&s", &media_class))
-      return NULL;
-  if (!g_variant_lookup (properties, "proxy-node", "t", &proxy_node))
-      return NULL;
-  if (!g_variant_lookup (properties, "proxy-port", "t", &proxy_port))
-      return NULL;
+      return;
+  if (!g_variant_lookup (properties, "global-id", "u", &global_id))
+      return;
 
-  return g_object_new (simple_endpoint_get_type (),
+  g_async_initable_new_async (
+      simple_endpoint_get_type (), G_PRIORITY_DEFAULT, NULL, ready, user_data,
       "core", core,
       "name", name,
       "media-class", media_class,
-      "node-proxy", (gpointer) proxy_node,
-      "port-proxy", (gpointer) proxy_port,
+      "global-id", global_id,
       NULL);
 }

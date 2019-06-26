@@ -9,6 +9,8 @@
 #ifndef __WIREPLUMBER_ENDPOINT_H__
 #define __WIREPLUMBER_ENDPOINT_H__
 
+#include <gio/gio.h>
+
 #include "core.h"
 
 G_BEGIN_DECLS
@@ -37,6 +39,8 @@ struct _WpEndpointClass
   const gchar * (*get_endpoint_link_factory) (WpEndpoint * self);
 };
 
+WpEndpoint * wp_endpoint_new_finish (GObject *initable, GAsyncResult *res,
+  GError **error);
 void wp_endpoint_register (WpEndpoint * self);
 void wp_endpoint_unregister (WpEndpoint * self);
 GPtrArray * wp_endpoint_find (WpCore * core, const gchar * media_class_lookup);
