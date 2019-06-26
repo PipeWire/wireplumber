@@ -33,6 +33,9 @@ struct _WpPipewireSimpleEndpoint
   /* The remote pipewire */
   WpRemotePipewire *remote_pipewire;
 
+  /* Handler */
+  gulong proxy_node_done_handler_id;
+
   /* Proxies */
   WpProxyNode *proxy_node;
   struct spa_hook node_proxy_listener;
@@ -145,9 +148,11 @@ on_proxy_port_created(GObject *initable, GAsyncResult *res, gpointer data)
   g_ptr_array_add(self->proxies_port, proxy_port);
 
   /* Register the done callback */
-  g_signal_connect(self->proxy_node, "done", (GCallback)on_all_ports_done,
-    self);
-  wp_proxy_sync (WP_PROXY(self->proxy_node));
+  if (!self->proxy_node_done_handler_id) {
+    self->proxy_node_done_handler_id = g_signal_connect_object(self->proxy_node,
+        "done", (GCallback)on_all_ports_done, self, 0);
+    wp_proxy_sync (WP_PROXY(self->proxy_node));
+  }
 }
 
 static void
@@ -267,8 +272,8 @@ wp_simple_endpoint_init_async (GAsyncInitable *initable, int io_priority,
   /* Register a port_added callback */
   self->remote_pipewire = wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
   g_return_if_fail(self->remote_pipewire);
-  g_signal_connect(self->remote_pipewire, "global-added::port",
-      (GCallback)on_port_added, self);
+  g_signal_connect_object(self->remote_pipewire, "global-added::port",
+    (GCallback)on_port_added, self, 0);
 
   /* Create the proxy node async */
   node_proxy = wp_remote_pipewire_proxy_bind (self->remote_pipewire,
