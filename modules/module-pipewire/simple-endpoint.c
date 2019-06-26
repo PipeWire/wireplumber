@@ -117,15 +117,6 @@ static const struct pw_node_proxy_events node_node_proxy_events = {
 };
 
 static void
-on_proxy_node_destroyed (WpProxy* wp_proxy, WpEndpoint *endpoint)
-{
-  g_return_if_fail(WP_IS_ENDPOINT(endpoint));
-
-  /* Unregister the endpoint */
-  wp_endpoint_unregister(endpoint);
-}
-
-static void
 on_all_ports_done(WpProxy *proxy, gpointer data)
 {
   WpPipewireSimpleEndpoint *self = data;
@@ -133,10 +124,6 @@ on_all_ports_done(WpProxy *proxy, gpointer data)
   /* Don't do anything if the endpoint has already been initialized */
   if (!self->init_task)
     return;
-
-  /* Set destroy handler to unregister endpoint on proxy_node destruction */
-  g_signal_connect (self->proxy_node, "destroyed",
-      G_CALLBACK(on_proxy_node_destroyed), WP_ENDPOINT(self));
 
   /* Finish the creation of the endpoint */
   g_task_return_boolean (self->init_task, TRUE);

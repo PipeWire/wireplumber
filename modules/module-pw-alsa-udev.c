@@ -19,12 +19,14 @@ struct impl
 {
   WpModule *module;
   WpRemotePipewire *remote_pipewire;
+  GHashTable *registered_endpoints;
 };
 
 static void
 on_endpoint_created(GObject *initable, GAsyncResult *res, gpointer d)
 {
-  g_autoptr (WpEndpoint) endpoint = NULL;
+  struct impl *impl = d;
+  WpEndpoint *endpoint = NULL;
   guint global_id = 0;
 
   /* Get the endpoint */
@@ -36,8 +38,10 @@ on_endpoint_created(GObject *initable, GAsyncResult *res, gpointer d)
   g_object_get (endpoint, "global-id", &global_id, NULL);
   g_debug ("Created alsa endpoint for global id %d", global_id);
 
-  /* Register the endpoint */
+  /* Register the endpoint and add it to the table */
   wp_endpoint_register (endpoint);
+  g_hash_table_insert (impl->registered_endpoints, GUINT_TO_POINTER(global_id),
+      endpoint);
 }
 
 static void
@@ -77,6 +81,23 @@ on_node_added(WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
 }
 
 static void
+on_global_removed (WpRemotePipewire *rp, guint id, gpointer d)
+{
+  struct impl *impl = d;
+  WpEndpoint *endpoint = NULL;
+
+  /* Get the endpoint */
+  endpoint = g_hash_table_lookup (impl->registered_endpoints,
+      GUINT_TO_POINTER(id));
+  if (!endpoint)
+    return;
+
+  /* Remove the endpoint from the table and unregister it */
+  g_hash_table_remove (impl->registered_endpoints, GUINT_TO_POINTER(id));
+  wp_endpoint_unregister (endpoint);
+}
+
+static void
 module_destroy (gpointer data)
 {
   struct impl *impl = data;
@@ -84,6 +105,10 @@ module_destroy (gpointer data)
   /* Set to NULL module and remote pipewire as we don't own the reference */
   impl->module = NULL;
   impl->remote_pipewire = NULL;
+
+  /* Destroy the registered endpoints table */
+  g_hash_table_unref(impl->registered_endpoints);
+  impl->registered_endpoints = NULL;
 
   /* Clean up */
   g_slice_free (struct impl, impl);
@@ -107,10 +132,13 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   impl = g_slice_new0(struct impl);
   impl->module = module;
   impl->remote_pipewire = rp;
+  impl->registered_endpoints = g_hash_table_new_full (g_direct_hash,
+      g_direct_equal, NULL, (GDestroyNotify)g_object_unref);
 
   /* Set destroy callback for impl */
   wp_module_set_destroy_callback (module, module_destroy, impl);
 
-  /* Register the global addded callbacks */
+  /* Register the global addded/removed callbacks */
   g_signal_connect(rp, "global-added::node", (GCallback)on_node_added, impl);
+  g_signal_connect(rp, "global-removed", (GCallback)on_global_removed, impl);
 }
