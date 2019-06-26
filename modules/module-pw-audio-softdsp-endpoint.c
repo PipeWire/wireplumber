@@ -352,10 +352,21 @@ on_proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
 {
   WpPwAudioSoftdspEndpoint *self = data;
   GVariantDict d;
+  g_autofree gchar *name;
+  const struct spa_dict *props;
 
   /* Get the proxy node */
   self->proxy_node = wp_proxy_node_new_finish(initable, res, NULL);
   g_return_if_fail (self->proxy_node);
+
+  /* Give a proper name to this endpoint based on ALSA properties */
+  props = wp_proxy_node_get_info (self->proxy_node)->props;
+  name = g_strdup_printf ("%s on %s (%s / node %d)",
+      spa_dict_lookup (props, "alsa.pcm.name"),
+      spa_dict_lookup (props, "alsa.card.name"),
+      spa_dict_lookup (props, "alsa.device"),
+      wp_proxy_node_get_info (self->proxy_node)->id);
+  g_object_set (self, "name", name, NULL);
 
   /* Emit the audio DSP node */
   emit_audio_dsp_node(self);
@@ -705,8 +716,6 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
   g_return_if_fail (core);
 
   /* Get the properties */
-  if (!g_variant_lookup (properties, "name", "&s", &name))
-      return;
   if (!g_variant_lookup (properties, "media-class", "&s", &media_class))
       return;
   if (!g_variant_lookup (properties, "global-id", "u", &global_id))
@@ -716,7 +725,6 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
   g_async_initable_new_async (
       endpoint_get_type (), G_PRIORITY_DEFAULT, NULL, ready, user_data,
       "core", core,
-      "name", name,
       "media-class", media_class,
       "global-id", global_id,
       NULL);
