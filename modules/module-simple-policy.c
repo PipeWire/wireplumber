@@ -164,6 +164,21 @@ simple_policy_endpoint_added (WpPolicy *policy, WpEndpoint *ep)
 
   if (!self->selected[direction]) {
     select_endpoint (self, direction, ep, control_id);
+  } else {
+    /* we already have a selected endpoint, but maybe this one is better... */
+    const gchar *new_name = wp_endpoint_get_name (ep);
+    const gchar *old_name = wp_endpoint_get_name (self->selected[direction]);
+
+    /* FIXME: this is a crude way of searching for properties;
+     * we should have an API here */
+    if ((strstr (new_name, "hw:0,0") && !strstr(new_name, "Loopback")) ||
+        (strstr (old_name, "Loopback") && strstr (new_name, "hw:1,0")))
+    {
+      wp_endpoint_set_control_value (self->selected[direction],
+          self->selected_ctl_id[direction],
+          g_variant_new_boolean (FALSE));
+      select_endpoint (self, direction, ep, control_id);
+    }
   }
 }
 
