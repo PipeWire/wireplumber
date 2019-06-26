@@ -34,7 +34,6 @@ enum {
 
 enum
 {
-  SIGNAL_DESTROYED,
   SIGNAL_DONE,
   LAST_SIGNAL,
 };
@@ -54,9 +53,6 @@ proxy_event_destroy (void *data)
 
   /* Set the proxy to NULL */
   self->proxy = NULL;
-
-  /* Emit the destroy signal */
-  g_signal_emit (data, wp_proxy_signals[SIGNAL_DESTROYED], 0);
 }
 
 static void
@@ -198,10 +194,6 @@ wp_proxy_class_init (WpProxyClass * klass)
       G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   /* Signals */
-  wp_proxy_signals[SIGNAL_DESTROYED] =
-    g_signal_new ("destroyed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
-    G_STRUCT_OFFSET (WpProxyClass, destroyed), NULL, NULL, NULL, G_TYPE_NONE,
-    0);
   wp_proxy_signals[SIGNAL_DONE] =
     g_signal_new ("done", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
     G_STRUCT_OFFSET (WpProxyClass, done), NULL, NULL, NULL, G_TYPE_NONE, 0);

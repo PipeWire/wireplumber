@@ -105,9 +105,9 @@ on_global_removed (WpRemotePipewire *rp, guint id, gpointer d)
   if (!endpoint)
     return;
 
-  /* Remove the endpoint from the table and unregister it */
-  g_hash_table_remove (data->registered_endpoints, GUINT_TO_POINTER(id));
+  /* Unregister the endpoint and remove it from the table */
   wp_endpoint_unregister (endpoint);
+  g_hash_table_remove (data->registered_endpoints, GUINT_TO_POINTER(id));
 }
 
 static void

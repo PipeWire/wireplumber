@@ -60,7 +60,8 @@ wp_core_dispose (GObject * obj)
 
   /* Remove and emit the removed signal for all globals */
   while (global_objects->len > 0) {
-    global = g_ptr_array_steal_index_fast (global_objects, 0);
+    global = g_ptr_array_steal_index_fast (global_objects,
+        global_objects->len - 1);
     g_signal_emit (self, signals[SIGNAL_GLOBAL_REMOVED], global->key,
         global->key, global->object);
     free_global_object (global);
