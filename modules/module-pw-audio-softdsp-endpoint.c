@@ -35,6 +35,9 @@ struct _WpPwAudioSoftdspEndpoint
   /* The remote pipewire */
   WpRemotePipewire *remote_pipewire;
 
+  /* Handler */
+  gulong proxy_dsp_done_handler_id;
+
   /* temporary method to select which endpoint
    * is going to be the default input/output */
   gboolean selected;
@@ -243,15 +246,6 @@ static const struct pw_node_proxy_events dsp_node_events = {
 };
 
 static void
-on_proxy_node_destroyed (WpProxy* wp_proxy, WpEndpoint *endpoint)
-{
-  g_return_if_fail(WP_IS_ENDPOINT(endpoint));
-
-  /* Unregister the endpoint */
-  wp_endpoint_unregister(endpoint);
-}
-
-static void
 on_proxy_dsp_done(WpProxy *proxy, gpointer data)
 {
   WpPwAudioSoftdspEndpoint *self = data;
@@ -259,10 +253,6 @@ on_proxy_dsp_done(WpProxy *proxy, gpointer data)
   /* Don't do anything if the endpoint has already been initialized */
   if (!self->init_task)
     return;
-
-  /* Set destroy handler to unregister endpoint on proxy_node destruction */
-  g_signal_connect (self->proxy_node, "destroyed",
-      G_CALLBACK(on_proxy_node_destroyed), WP_ENDPOINT(self));
 
   /* Finish the creation of the endpoint */
   g_task_return_boolean (self->init_task, TRUE);
@@ -451,8 +441,11 @@ on_proxy_dsp_port_created(GObject *initable, GAsyncResult *res, gpointer data)
   g_ptr_array_add(self->proxies_dsp_port, proxy_dsp_port);
 
   /* Register a callback to know when all the dsp ports have been emitted */
-  g_signal_connect(self->proxy_dsp, "done", (GCallback)on_proxy_dsp_done, self);
-  wp_proxy_sync (WP_PROXY(self->proxy_dsp));
+  if (!self->proxy_dsp_done_handler_id) {
+    self->proxy_dsp_done_handler_id = g_signal_connect_object(self->proxy_dsp,
+        "done", (GCallback)on_proxy_dsp_done, self, 0);
+    wp_proxy_sync (WP_PROXY(self->proxy_dsp));
+  }
 }
 
 static void
@@ -654,8 +647,8 @@ wp_endpoint_init_async (GAsyncInitable *initable, int io_priority,
   /* Register a port_added callback */
   self->remote_pipewire = wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
   g_return_if_fail(self->remote_pipewire);
-  g_signal_connect(self->remote_pipewire, "global-added::port",
-      (GCallback)on_port_added, self);
+  g_signal_connect_object(self->remote_pipewire, "global-added::port",
+      (GCallback)on_port_added, self, 0);
 
   /* Call the parent interface */
   wp_endpoint_parent_interface->init_async (initable, io_priority, cancellable,
