@@ -152,7 +152,9 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
           abi = strtok_r (NULL, " ", &saveptr);
           module = strtok_r (NULL, " ", &saveptr);
 
-          if (!abi || !module) {
+          if (!abi || !module ||
+              (abi && abi[0] == '{') || (module && module[0] == '{'))
+          {
             g_set_error (error, WP_DOMAIN_DAEMON, WP_CODE_INVALID_ARGUMENT,
                 "expected ABI and MODULE at line %i", lineno);
             return FALSE;
