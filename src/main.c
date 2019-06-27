@@ -130,7 +130,9 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
         /* tokenize and execute */
         cmd = strtok_r (linestart, " ", &saveptr);
 
-        if (!g_strcmp0 (cmd, "load-module")) {
+        if (!cmd || cmd[0] == '#') {
+          /* empty line or comment, skip */
+        } else if (!g_strcmp0 (cmd, "load-module")) {
           abi = strtok_r (NULL, " ", &saveptr);
           module = strtok_r (NULL, " ", &saveptr);
 
