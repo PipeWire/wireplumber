@@ -99,9 +99,10 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
   gchar buffer[4096];
   gssize bytes_read;
   gchar *cur, *linestart, *saveptr;
-  gchar *cmd, *abi, *module;
+  gchar *cmd, *abi, *module, *props;
   gint lineno = 1;
   gboolean eof = FALSE;
+  GVariant *properties;
 
   linestart = cur = buffer;
 
@@ -142,7 +143,26 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
             return FALSE;
           }
 
-          if (!wp_module_load (d->core, abi, module, NULL, error)) {
+          /* if there are remaining characters after the module name,
+             treat it as a serialized GVariant for the properties */
+          props = module + strlen(module) + 1;
+          if (cur - props > 0) {
+            g_autoptr (GError) tmperr = NULL;
+            g_autofree gchar *context = NULL;
+
+            properties = g_variant_parse (G_VARIANT_TYPE_VARDICT, props, cur,
+                NULL, &tmperr);
+            if (!properties) {
+              context = g_variant_parse_error_print_context (tmperr, props);
+              g_set_error (error, WP_DOMAIN_DAEMON, WP_CODE_INVALID_ARGUMENT,
+                  "GVariant parse error:\n%s", context);
+              return FALSE;
+            }
+          } else {
+            properties = g_variant_new_parsed ("@a{sv} {}");
+          }
+
+          if (!wp_module_load (d->core, abi, module, properties, error)) {
             return FALSE;
           }
         } else {
