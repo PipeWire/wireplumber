@@ -100,8 +100,8 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
   gssize bytes_read;
   gchar *cur, *linestart, *saveptr;
   gchar *cmd, *abi, *module, *props;
-  gint lineno = 1;
-  gboolean eof = FALSE;
+  gint lineno = 1, block_lines = 1;
+  gboolean eof = FALSE, in_block = FALSE;
   GVariant *properties;
 
   linestart = cur = buffer;
@@ -121,8 +121,23 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
     bytes_read += (cur - linestart);
 
     while (cur - buffer < bytes_read) {
-      while (cur - buffer < bytes_read && *cur != '\n')
+      /* advance cur to the end of the line that is at the end of the block */
+      while (cur - buffer < bytes_read && (in_block || *cur != '\n')) {
+        switch (*cur) {
+          case '{':
+            in_block = TRUE;
+            break;
+          case '}':
+            in_block = FALSE;
+            break;
+          case '\n':  // found a newline inside a block
+            block_lines++;
+            break;
+          default:
+            break;
+        }
         cur++;
+      }
 
       if (*cur == '\n') {
         /* found the end of a line */
@@ -155,7 +170,7 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
             if (!properties) {
               context = g_variant_parse_error_print_context (tmperr, props);
               g_set_error (error, WP_DOMAIN_DAEMON, WP_CODE_INVALID_ARGUMENT,
-                  "GVariant parse error:\n%s", context);
+                  "GVariant parse error after line %i:\n%s", lineno, context);
               return FALSE;
             }
           } else {
@@ -173,7 +188,8 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
 
         /* continue with the next line */
         linestart = ++cur;
-        lineno++;
+        lineno += block_lines;
+        block_lines = 1;
       }
     }
 
