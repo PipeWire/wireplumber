@@ -18,6 +18,8 @@ struct _WpSimplePolicy
   WpPolicy parent;
   WpEndpoint *selected[2];
   guint32 selected_ctl_id[2];
+  gchar *default_playback;
+  gchar *default_capture;
 };
 
 G_DECLARE_FINAL_TYPE (WpSimplePolicy, simple_policy, WP, SIMPLE_POLICY, WpPolicy)
@@ -26,6 +28,17 @@ G_DEFINE_TYPE (WpSimplePolicy, simple_policy, WP_TYPE_POLICY)
 static void
 simple_policy_init (WpSimplePolicy *self)
 {
+}
+
+static void
+simple_policy_finalize (GObject *object)
+{
+  WpSimplePolicy *self = WP_SIMPLE_POLICY (object);
+
+  g_free (self->default_playback);
+  g_free (self->default_capture);
+
+  G_OBJECT_CLASS (simple_policy_parent_class)->finalize (object);
 }
 
 static void
@@ -82,7 +95,7 @@ static void
 select_endpoint (WpSimplePolicy *self, gint direction, WpEndpoint *ep,
     guint32 control_id)
 {
-  g_debug ("selecting %s %p (%s)",
+  g_info ("selecting %s %p (%s)",
       (direction == DIRECTION_SINK) ? "sink" : "source",
       ep, wp_endpoint_get_name (ep));
 
@@ -167,12 +180,13 @@ simple_policy_endpoint_added (WpPolicy *policy, WpEndpoint *ep)
   } else {
     /* we already have a selected endpoint, but maybe this one is better... */
     const gchar *new_name = wp_endpoint_get_name (ep);
-    const gchar *old_name = wp_endpoint_get_name (self->selected[direction]);
+    const gchar *default_dev = (direction == DIRECTION_SINK) ?
+        self->default_playback : self->default_capture;
 
     /* FIXME: this is a crude way of searching for properties;
      * we should have an API here */
-    if ((strstr (new_name, "hw:0,0") && !strstr(new_name, "Loopback")) ||
-        (strstr (old_name, "Loopback") && strstr (new_name, "hw:1,0")))
+    if ((default_dev && strstr (new_name, default_dev)) ||
+        (!default_dev && strstr (new_name, "hw:0,0")))
     {
       wp_endpoint_set_control_value (self->selected[direction],
           self->selected_ctl_id[direction],
@@ -316,7 +330,10 @@ simple_policy_find_endpoint (WpPolicy *policy, GVariant *props,
 static void
 simple_policy_class_init (WpSimplePolicyClass *klass)
 {
+  GObjectClass *object_class = (GObjectClass *) klass;
   WpPolicyClass *policy_class = (WpPolicyClass *) klass;
+
+  object_class->finalize = simple_policy_finalize;
 
   policy_class->endpoint_added = simple_policy_endpoint_added;
   policy_class->endpoint_removed = simple_policy_endpoint_removed;
@@ -327,8 +344,10 @@ simple_policy_class_init (WpSimplePolicyClass *klass)
 void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
-  WpPolicy *p = g_object_new (simple_policy_get_type (),
+  WpSimplePolicy *p = g_object_new (simple_policy_get_type (),
       "rank", WP_POLICY_RANK_UPSTREAM,
       NULL);
-  wp_policy_register (p, core);
+  g_variant_lookup (args, "default-playback-device", "s", &p->default_playback);
+  g_variant_lookup (args, "default-capture-device", "s", &p->default_capture);
+  wp_policy_register (WP_POLICY (p), core);
 }
