@@ -256,29 +256,40 @@ simple_policy_handle_endpoint (WpPolicy *policy, WpEndpoint *ep)
   g_autoptr (WpCore) core = NULL;
   g_autoptr (WpEndpoint) target = NULL;
   guint32 stream_id;
+  gboolean is_sink = FALSE;
 
-  /* TODO: For now we only accept audio output clients */
+  /* TODO: For now we only accept audio stream clients */
   media_class = wp_endpoint_get_media_class(ep);
-  if (!g_str_equal (media_class, "Stream/Output/Audio"))
+  if (!g_str_has_prefix (media_class, "Stream") ||
+      !g_str_has_suffix (media_class, "Audio"))
     return FALSE;
+
+  /* Detect if the client is a sink or a source */
+  is_sink = g_str_has_prefix (media_class, "Stream/Input");
 
   /* Locate the target endpoint */
   g_variant_dict_init (&d, NULL);
   g_variant_dict_insert (&d, "action", "s", "link");
-  g_variant_dict_insert (&d, "media.class", "s", "Audio/Sink");
+  g_variant_dict_insert (&d, "media.class", "s",
+      is_sink ? "Audio/Source" : "Audio/Sink");
   /* TODO: more properties are needed here */
 
   core = wp_policy_get_core (policy);
   target = wp_policy_find_endpoint (core, g_variant_dict_end (&d), &stream_id);
   if (!target) {
-    g_warning ("Could not find an Audio/Sink target endpoint\n");
+    g_warning ("Could not find a target endpoint\n");
     /* TODO: we should kill the client, otherwise it's going to hang waiting */
     return FALSE;
   }
 
   /* Link the client with the target */
-  wp_endpoint_link_new (core, ep, 0, target, stream_id,
-      on_endpoint_link_created, NULL);
+  if (is_sink) {
+    wp_endpoint_link_new (core, target, 0, ep, stream_id,
+        on_endpoint_link_created, NULL);
+  } else {
+    wp_endpoint_link_new (core, ep, 0, target, stream_id,
+        on_endpoint_link_created, NULL);
+  }
 
   return TRUE;
 }
