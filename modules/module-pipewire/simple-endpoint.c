@@ -36,6 +36,9 @@ struct _WpPipewireSimpleEndpoint
   /* Handler */
   gulong proxy_node_done_handler_id;
 
+  /* Direction */
+  enum pw_direction direction;
+
   /* Proxies */
   WpProxyNode *proxy_node;
   struct spa_hook node_proxy_listener;
@@ -199,7 +202,7 @@ emit_endpoint_ports(WpPipewireSimpleEndpoint *self)
   param = spa_format_audio_raw_build(&pod_builder, SPA_PARAM_Format, &format);
   param = spa_pod_builder_add_object(&pod_builder,
       SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
-      SPA_PARAM_PROFILE_direction,  SPA_POD_Id(PW_DIRECTION_OUTPUT),
+      SPA_PARAM_PROFILE_direction,  SPA_POD_Id(self->direction),
       SPA_PARAM_PROFILE_format,     SPA_POD_Pod(param));
 
   /* Set the param profile to emit the ports */
@@ -261,6 +264,7 @@ wp_simple_endpoint_init_async (GAsyncInitable *initable, int io_priority,
 {
   WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (initable);
   g_autoptr (WpCore) core = wp_endpoint_get_core(WP_ENDPOINT(self));
+  const gchar *media_class = wp_endpoint_get_media_class (WP_ENDPOINT (self));
   struct pw_node_proxy *node_proxy = NULL;
 
   /* Create the async task */
@@ -268,6 +272,14 @@ wp_simple_endpoint_init_async (GAsyncInitable *initable, int io_priority,
 
   /* Init the proxies_port array */
   self->proxies_port = g_ptr_array_new_full(2, (GDestroyNotify)g_object_unref);
+
+  /* Set the direction */
+  if (g_str_has_prefix (media_class, "Stream/Input"))
+    self->direction = PW_DIRECTION_INPUT;
+  else if (g_str_has_prefix (media_class, "Stream/Output"))
+    self->direction = PW_DIRECTION_OUTPUT;
+  else
+    g_critical ("failed to parse direction");
 
   /* Register a port_added callback */
   self->remote_pipewire = wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
