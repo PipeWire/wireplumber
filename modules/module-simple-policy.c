@@ -225,6 +225,29 @@ simple_policy_endpoint_removed (WpPolicy *policy, WpEndpoint *ep)
       g_object_ref (self), g_object_unref);
 }
 
+static void
+on_endpoint_link_created(GObject *initable, GAsyncResult *res, gpointer d)
+{
+  g_autoptr (WpEndpointLink) link = NULL;
+  g_autoptr (GError) error = NULL;
+  g_autoptr (WpEndpoint) src_ep = NULL;
+  g_autoptr (WpEndpoint) sink_ep = NULL;
+
+  /* Get the link */
+  link = wp_endpoint_link_new_finish(initable, res, &error);
+  g_return_if_fail (link);
+
+  /* Log linking info */
+  if (error) {
+    g_warning ("Could not link endpoints: %s\n", error->message);
+  } else {
+    src_ep = wp_endpoint_link_get_source_endpoint (link);
+    sink_ep = wp_endpoint_link_get_sink_endpoint (link);
+    g_info ("Sucessfully linked '%s' to '%s'\n", wp_endpoint_get_name (src_ep),
+        wp_endpoint_get_name (sink_ep));
+  }
+}
+
 static gboolean
 simple_policy_handle_endpoint (WpPolicy *policy, WpEndpoint *ep)
 {
@@ -232,7 +255,6 @@ simple_policy_handle_endpoint (WpPolicy *policy, WpEndpoint *ep)
   GVariantDict d;
   g_autoptr (WpCore) core = NULL;
   g_autoptr (WpEndpoint) target = NULL;
-  g_autoptr (GError) error = NULL;
   guint32 stream_id;
 
   /* TODO: For now we only accept audio output clients */
@@ -255,12 +277,8 @@ simple_policy_handle_endpoint (WpPolicy *policy, WpEndpoint *ep)
   }
 
   /* Link the client with the target */
-  if (!wp_endpoint_link_new (core, ep, 0, target, stream_id, &error)) {
-    g_warning ("Could not link endpoints: %s\n", error->message);
-  } else {
-    g_info ("Sucessfully linked '%s' to '%s'\n", wp_endpoint_get_name (ep),
-        wp_endpoint_get_name (target));
-  }
+  wp_endpoint_link_new (core, ep, 0, target, stream_id,
+      on_endpoint_link_created, NULL);
 
   return TRUE;
 }

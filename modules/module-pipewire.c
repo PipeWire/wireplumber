@@ -19,8 +19,8 @@ void remote_endpoint_init (WpCore * core, struct pw_core * pw_core,
     struct pw_remote * remote);
 void simple_endpoint_factory (WpFactory * factory, GType type,
     GVariant * properties, GAsyncReadyCallback ready, gpointer user_data);
-gpointer simple_endpoint_link_factory (WpFactory * factory, GType type,
-    GVariant * properties);
+void simple_endpoint_link_factory (WpFactory * factory, GType type,
+    GVariant * properties, GAsyncReadyCallback ready, gpointer user_data);
 
 struct module_data
 {
@@ -89,7 +89,7 @@ on_node_added (WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
   endpoint_props = g_variant_builder_end (&b);
 
   /* Create the endpoint async */
-  wp_factory_make_async (core, "pipewire-simple-endpoint", WP_TYPE_ENDPOINT,
+  wp_factory_make (core, "pipewire-simple-endpoint", WP_TYPE_ENDPOINT,
       endpoint_props, on_endpoint_created, data);
 }
 
@@ -162,7 +162,7 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   remote_endpoint_init (core, pw_core, pw_remote);
 
   /* Register simple-endpoint and simple-endpoint-link */
-  wp_factory_new_async (core, "pipewire-simple-endpoint",
+  wp_factory_new (core, "pipewire-simple-endpoint",
       simple_endpoint_factory);
   wp_factory_new (core, "pipewire-simple-endpoint-link",
       simple_endpoint_link_factory);

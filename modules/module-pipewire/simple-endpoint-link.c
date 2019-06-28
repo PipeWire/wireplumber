@@ -27,8 +27,13 @@ struct _WpPipewireSimpleEndpointLink
 {
   WpEndpointLink parent;
 
-  /* The core proxy */
-  struct pw_core_proxy *core_proxy;
+  /* The wireplumber core */
+  GWeakRef core;
+};
+
+enum {
+  PROP_0,
+  PROP_CORE,
 };
 
 G_DECLARE_FINAL_TYPE (WpPipewireSimpleEndpointLink,
@@ -40,6 +45,51 @@ G_DEFINE_TYPE (WpPipewireSimpleEndpointLink,
 static void
 simple_endpoint_link_init (WpPipewireSimpleEndpointLink * self)
 {
+  /* Init the core weak reference */
+  g_weak_ref_init (&self->core, NULL);
+}
+
+static void
+simple_endpoint_link_finalize (GObject * object)
+{
+  WpPipewireSimpleEndpointLink *self = WP_PIPEWIRE_SIMPLE_ENDPOINT_LINK(object);
+
+  /* Clear the core weak reference */
+  g_weak_ref_clear (&self->core);
+}
+
+static void
+simple_endpoint_link_set_property (GObject * object, guint property_id,
+    const GValue * value, GParamSpec * pspec)
+{
+  WpPipewireSimpleEndpointLink *self =
+      WP_PIPEWIRE_SIMPLE_ENDPOINT_LINK (object);
+
+  switch (property_id) {
+  case PROP_CORE:
+    g_weak_ref_set (&self->core, g_value_get_object (value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
+}
+
+static void
+simple_endpoint_link_get_property (GObject * object, guint property_id,
+    GValue * value, GParamSpec * pspec)
+{
+  WpPipewireSimpleEndpointLink *self =
+      WP_PIPEWIRE_SIMPLE_ENDPOINT_LINK (object);
+
+  switch (property_id) {
+  case PROP_CORE:
+    g_value_take_object (value, g_weak_ref_get (&self->core));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
 }
 
 static gboolean
@@ -47,11 +97,17 @@ simple_endpoint_link_create (WpEndpointLink * epl, GVariant * src_data,
     GVariant * sink_data, GError ** error)
 {
   WpPipewireSimpleEndpointLink *self = WP_PIPEWIRE_SIMPLE_ENDPOINT_LINK(epl);
+  g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
+  WpRemotePipewire *remote_pipewire;
   struct pw_properties *props;
   guint32 output_node_id, input_node_id;
   GVariant *src_ports, *sink_ports;
   GVariantIter *out_iter, *in_iter;
   guint64 out_ptr, in_ptr;
+
+  /* Get the remote pipewire */
+  remote_pipewire = wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
+  g_return_val_if_fail (remote_pipewire, FALSE);
 
   /* Get the node ids and port ids */
   if (!g_variant_lookup (src_data, "node-id", "u", &output_node_id))
@@ -90,8 +146,8 @@ simple_endpoint_link_create (WpEndpointLink * epl, GVariant * src_data,
       pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", in_id);
 
       /* Create the link */
-      pw_core_proxy_create_object(self->core_proxy, "link-factory",
-          PW_TYPE_INTERFACE_Link, PW_VERSION_LINK, &props->dict, 0);
+      wp_remote_pipewire_create_object(remote_pipewire, "link-factory",
+          PW_TYPE_INTERFACE_Link, &props->dict);
 
       /* Clean up */
       pw_properties_free(props);
@@ -112,49 +168,54 @@ simple_endpoint_link_destroy (WpEndpointLink * self)
 static void
 simple_endpoint_link_class_init (WpPipewireSimpleEndpointLinkClass * klass)
 {
+  GObjectClass *object_class = (GObjectClass *) klass;
   WpEndpointLinkClass *link_class = (WpEndpointLinkClass *) klass;
+
+  object_class->finalize = simple_endpoint_link_finalize;
+  object_class->set_property = simple_endpoint_link_set_property;
+  object_class->get_property = simple_endpoint_link_get_property;
 
   link_class->create = simple_endpoint_link_create;
   link_class->destroy = simple_endpoint_link_destroy;
+
+  g_object_class_install_property (object_class, PROP_CORE,
+      g_param_spec_object ("core", "core",
+          "The wireplumber core object this links belongs to", WP_TYPE_CORE,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
-gpointer
+void
 simple_endpoint_link_factory (WpFactory * factory, GType type,
-    GVariant * properties)
+    GVariant * properties, GAsyncReadyCallback ready, gpointer data)
 {
-  WpCore *wp_core = NULL;
-  WpRemote *remote;
-  struct pw_remote *pw_remote;
+  g_autoptr(WpCore) core = NULL;
+  guint64 src, sink;
+  guint src_stream, sink_stream;
 
   /* Make sure the type is an endpoint link */
-  if (type != WP_TYPE_ENDPOINT_LINK)
-    return NULL;
+  g_return_if_fail (type == WP_TYPE_ENDPOINT_LINK);
 
-  /* Get the WirePlumber core */
-  wp_core = wp_factory_get_core(factory);
-  if (!wp_core) {
-    g_warning("failed to get wireplumbe core. Skipping...");
-    return NULL;
-  }
+  /* Get the Core */
+  core = wp_factory_get_core (factory);
+  g_return_if_fail (core);
 
-  /* Get the remote */
-  remote = wp_core_get_global(wp_core, WP_GLOBAL_REMOTE_PIPEWIRE);
-  if (!remote) {
-    g_warning("failed to get core remote. Skipping...");
-    return NULL;
-  }
+  /* Get the properties */
+  if (!g_variant_lookup (properties, "src", "t", &src))
+      return;
+  if (!g_variant_lookup (properties, "src-stream", "u", &src_stream))
+      return;
+  if (!g_variant_lookup (properties, "sink", "t", &sink))
+      return;
+  if (!g_variant_lookup (properties, "sink-stream", "u", &sink_stream))
+      return;
 
   /* Create the endpoint link */
-  WpPipewireSimpleEndpointLink *epl = g_object_new (
-      simple_endpoint_link_get_type (), NULL);
-
-  /* Set the core proxy */
-  g_object_get (remote, "pw-remote", &pw_remote, NULL);
-  epl->core_proxy = pw_remote_get_core_proxy(pw_remote);
-  if (!epl->core_proxy) {
-    g_warning("failed to get core proxy. Skipping...");
-    return NULL;
-  }
-
-  return epl;
+  g_async_initable_new_async (
+      simple_endpoint_link_get_type (), G_PRIORITY_DEFAULT, NULL, ready, data,
+      "src", (gpointer)src,
+      "src-stream", src_stream,
+      "sink", (gpointer)sink,
+      "sink-stream", sink_stream,
+      "core", core,
+      NULL);
 }
