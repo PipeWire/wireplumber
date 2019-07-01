@@ -727,5 +727,5 @@ void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   /* Register the softdsp endpoint */
-  wp_factory_new_async (core, "pw-audio-softdsp-endpoint", endpoint_factory);
+  wp_factory_new (core, "pw-audio-softdsp-endpoint", endpoint_factory);
 }

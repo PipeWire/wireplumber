@@ -76,7 +76,7 @@ on_node_added(WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
   endpoint_props = g_variant_builder_end (&b);
 
   /* Create the endpoint async */
-  wp_factory_make_async (core, "pw-audio-softdsp-endpoint", WP_TYPE_ENDPOINT,
+  wp_factory_make (core, "pw-audio-softdsp-endpoint", WP_TYPE_ENDPOINT,
       endpoint_props, on_endpoint_created, impl);
 }
 
