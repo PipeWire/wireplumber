@@ -15,6 +15,10 @@
 G_DECLARE_FINAL_TYPE (WpPwAudioDsp, wp_pw_audio_dsp,
     WP_PW, AUDIO_DSP, GObject)
 
+gboolean wp_pw_audio_dsp_id_is_master (guint id);
+guint wp_pw_audio_dsp_id_encode (guint stream_id, guint control_id);
+void wp_pw_audio_dsp_id_decode (guint id, guint *stream_id, guint *control_id);
+
 void wp_pw_audio_dsp_new (WpEndpoint *endpoint, guint id, const char *name,
     enum pw_direction direction, const struct pw_node_info *target,
     const struct spa_audio_info_raw *format, GAsyncReadyCallback callback,

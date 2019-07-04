@@ -29,6 +29,8 @@ enum {
 enum {
   CONTROL_VOLUME = 0,
   CONTROL_MUTE,
+  N_DEFAULT_CONTROLS,
+  /* Master controls only */
   CONTROL_SELECTED,
   N_CONTROLS,
 };
@@ -75,6 +77,43 @@ G_DEFINE_TYPE_WITH_CODE (WpPwAudioDsp, wp_pw_audio_dsp, G_TYPE_OBJECT,
     G_IMPLEMENT_INTERFACE (G_TYPE_ASYNC_INITABLE,
                            wp_pw_audio_dsp_async_initable_init))
 
+gboolean
+wp_pw_audio_dsp_id_is_master (guint id)
+{
+  return id < N_CONTROLS;
+}
+
+guint
+wp_pw_audio_dsp_id_encode (guint stream_id, guint control_id)
+{
+  /* Just use the cotnrol_id if the stream id is not valid */
+  if (stream_id == WP_STREAM_ID_NONE) {
+    g_return_val_if_fail (control_id < N_CONTROLS, 0);
+    return control_id;
+  }
+
+  /* Encode the stream and control Ids */
+  g_return_val_if_fail (control_id < N_DEFAULT_CONTROLS, 0);
+  return N_CONTROLS + (stream_id * N_DEFAULT_CONTROLS) + control_id;
+}
+
+void
+wp_pw_audio_dsp_id_decode (guint id, guint *stream_id, guint *control_id)
+{
+  guint s_id, c_id;
+
+  /* Decode the stream and control Ids */
+  g_return_if_fail (id >= N_CONTROLS);
+  s_id = (id - N_CONTROLS) / N_DEFAULT_CONTROLS;
+  c_id = (id - N_CONTROLS) % N_DEFAULT_CONTROLS;
+
+  /* Set the output params */
+  if (stream_id)
+    *stream_id = s_id;
+  if (control_id)
+    *control_id = c_id;
+}
+
 static void
 register_controls (WpPwAudioDsp * self)
 {
@@ -84,7 +123,8 @@ register_controls (WpPwAudioDsp * self)
 
   /* Register the volume control */
   g_variant_dict_init (&d, NULL);
-  g_variant_dict_insert (&d, "id", "u", CONTROL_VOLUME);
+  g_variant_dict_insert (&d, "id", "u",
+      wp_pw_audio_dsp_id_encode (self->id, CONTROL_VOLUME));
   g_variant_dict_insert (&d, "stream-id", "u", self->id);
   g_variant_dict_insert (&d, "name", "s", "volume");
   g_variant_dict_insert (&d, "type", "s", "d");
@@ -94,7 +134,8 @@ register_controls (WpPwAudioDsp * self)
 
   /* Register the mute control */
   g_variant_dict_init (&d, NULL);
-  g_variant_dict_insert (&d, "id", "u", CONTROL_MUTE);
+  g_variant_dict_insert (&d, "id", "u",
+      wp_pw_audio_dsp_id_encode (self->id, CONTROL_MUTE));
   g_variant_dict_insert (&d, "stream-id", "u", self->id);
   g_variant_dict_insert (&d, "name", "s", "mute");
   g_variant_dict_insert (&d, "type", "s", "b");
@@ -104,7 +145,8 @@ register_controls (WpPwAudioDsp * self)
   /* Register the selected control only if it is the master converter */
   if (self->id == WP_STREAM_ID_NONE) {
     g_variant_dict_init (&d, NULL);
-    g_variant_dict_insert (&d, "id", "u", CONTROL_SELECTED);
+    g_variant_dict_insert (&d, "id", "u",
+        wp_pw_audio_dsp_id_encode (self->id, CONTROL_SELECTED));
     g_variant_dict_insert (&d, "name", "s", "selected");
     g_variant_dict_insert (&d, "type", "s", "b");
     g_variant_dict_insert (&d, "default-value", "b", self->selected);

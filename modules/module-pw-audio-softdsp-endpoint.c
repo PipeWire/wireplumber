@@ -292,24 +292,41 @@ endpoint_get_property (GObject * object, guint property_id,
 }
 
 static GVariant *
-endpoint_get_control_value (WpEndpoint * ep, guint32 control_id)
+endpoint_get_control_value (WpEndpoint * ep, guint32 id)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (ep);
+  guint stream_id, control_id;
+  WpPwAudioDsp *stream = NULL;
 
-  /* TODO: We always set the controls in the converter. This needs to change
-   * and select the proper stream once the stream id is passed as a parameter */
-  return wp_pw_audio_dsp_get_control_value (self->converter, control_id);
+  /* Check if it is the master stream */
+  if (wp_pw_audio_dsp_id_is_master (id))
+    return wp_pw_audio_dsp_get_control_value (self->converter, id);
+
+  /* Otherwise get the stream_id and control_id */
+  wp_pw_audio_dsp_id_decode (id, &stream_id, &control_id);
+  g_return_val_if_fail (stream_id < N_STREAMS, NULL);
+  stream = self->streams[stream_id];
+  g_return_val_if_fail (stream, NULL);
+  return wp_pw_audio_dsp_get_control_value (stream, control_id);
 }
 
 static gboolean
-endpoint_set_control_value (WpEndpoint * ep, guint32 control_id,
-    GVariant * value)
+endpoint_set_control_value (WpEndpoint * ep, guint32 id, GVariant * value)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (ep);
+  guint stream_id, control_id;
+  WpPwAudioDsp *stream = NULL;
 
-  /* TODO: We always set the controls in the converter. This needs to change
-   * and select the proper stream once the stream id is passed as a parameter */
-  return wp_pw_audio_dsp_set_control_value (self->converter, control_id, value);
+  /* Check if it is the master stream */
+  if (wp_pw_audio_dsp_id_is_master (id))
+    return wp_pw_audio_dsp_set_control_value (self->converter, id, value);
+
+  /* Otherwise get the stream_id and control_id */
+  wp_pw_audio_dsp_id_decode (id, &stream_id, &control_id);
+  g_return_val_if_fail (stream_id < N_STREAMS, FALSE);
+  stream = self->streams[stream_id];
+  g_return_val_if_fail (stream, FALSE);
+  return wp_pw_audio_dsp_set_control_value (stream, control_id, value);
 }
 
 static void
