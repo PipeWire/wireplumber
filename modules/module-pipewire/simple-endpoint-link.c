@@ -27,8 +27,11 @@ struct _WpPipewireSimpleEndpointLink
 {
   WpEndpointLink parent;
 
-  /* The wireplumber core */
+  /* Props */
   GWeakRef core;
+
+  /* The task to signal the simple endpoint link is initialized */
+  GTask *init_task;
 };
 
 enum {
@@ -36,11 +39,50 @@ enum {
   PROP_CORE,
 };
 
+static GAsyncInitableIface *wp_simple_endpoint_link_parent_interface = NULL;
+static void wp_simple_endpoint_link_async_initable_init (gpointer iface,
+    gpointer iface_data);
+
 G_DECLARE_FINAL_TYPE (WpPipewireSimpleEndpointLink,
     simple_endpoint_link, WP_PIPEWIRE, SIMPLE_ENDPOINT_LINK, WpEndpointLink)
 
-G_DEFINE_TYPE (WpPipewireSimpleEndpointLink,
-    simple_endpoint_link, WP_TYPE_ENDPOINT_LINK)
+G_DEFINE_TYPE_WITH_CODE (WpPipewireSimpleEndpointLink, simple_endpoint_link,
+    WP_TYPE_ENDPOINT_LINK,
+    G_IMPLEMENT_INTERFACE (G_TYPE_ASYNC_INITABLE,
+                           wp_simple_endpoint_link_async_initable_init))
+
+static void
+wp_simple_endpoint_link_init_async (GAsyncInitable *initable, int io_priority,
+    GCancellable *cancellable, GAsyncReadyCallback callback, gpointer data)
+{
+  WpPipewireSimpleEndpointLink *self =
+      WP_PIPEWIRE_SIMPLE_ENDPOINT_LINK (initable);
+
+  /* Create the async task */
+  self->init_task = g_task_new (initable, cancellable, callback, data);
+
+  /* Call the parent interface */
+  wp_simple_endpoint_link_parent_interface->init_async (initable,
+      io_priority, cancellable, callback, data);
+
+  /* Finish the creation of the endpoint */
+  g_task_return_boolean (self->init_task, TRUE);
+  g_clear_object(&self->init_task);
+}
+
+static void
+wp_simple_endpoint_link_async_initable_init (gpointer iface,
+    gpointer iface_data)
+{
+  GAsyncInitableIface *ai_iface = iface;
+
+  /* Set the parent interface */
+  wp_simple_endpoint_link_parent_interface =
+      g_type_interface_peek_parent (iface);
+
+  /* Only set the init_async */
+  ai_iface->init_async = wp_simple_endpoint_link_init_async;
+}
 
 static void
 simple_endpoint_link_init (WpPipewireSimpleEndpointLink * self)
@@ -53,6 +95,9 @@ static void
 simple_endpoint_link_finalize (GObject * object)
 {
   WpPipewireSimpleEndpointLink *self = WP_PIPEWIRE_SIMPLE_ENDPOINT_LINK(object);
+
+  /* Destroy the init task */
+  g_clear_object(&self->init_task);
 
   /* Clear the core weak reference */
   g_weak_ref_clear (&self->core);
