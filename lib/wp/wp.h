@@ -13,6 +13,7 @@
 #include "module.h"
 #include "policy.h"
 #include "proxy.h"
+#include "proxy-link.h"
 #include "proxy-node.h"
 #include "proxy-port.h"
 #include "remote.h"
