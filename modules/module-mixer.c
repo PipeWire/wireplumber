@@ -11,10 +11,10 @@
 G_DECLARE_FINAL_TYPE (WpMixerEndpoint,
     mixer_endpoint, WP, MIXER_ENDPOINT, WpEndpoint)
 
-static const char * streams[] = {
-  "Master"
+enum {
+  PROP_0,
+  PROP_STREAMS,
 };
-#define N_STREAMS (sizeof (streams) / sizeof (const char *))
 
 enum {
   CONTROL_VOLUME = 0,
@@ -28,7 +28,7 @@ enum {
 struct group
 {
   WpMixerEndpoint *mixer;
-  const gchar *name;
+  gchar *name;
   guint32 mixer_stream_id;
 
   GWeakRef backend;
@@ -38,7 +38,8 @@ struct group
 struct _WpMixerEndpoint
 {
   WpEndpoint parent;
-  struct group groups[N_STREAMS];
+  GVariant *streams;
+  GArray *groups;
 };
 
 G_DEFINE_TYPE (WpMixerEndpoint, mixer_endpoint, WP_TYPE_ENDPOINT)
@@ -104,14 +105,15 @@ policy_changed (WpPolicyManager *mgr, WpMixerEndpoint * self)
   int i;
   g_autoptr (WpCore) core = wp_endpoint_get_core (WP_ENDPOINT (self));
 
-  for (i = 0; i < N_STREAMS; i++) {
-    group_find_backend (&self->groups[i], core);
+  for (i = 0; i < self->groups->len; i++) {
+    group_find_backend (&g_array_index (self->groups, struct group, i), core);
   }
 }
 
 static void
 mixer_endpoint_init (WpMixerEndpoint * self)
 {
+  self->groups = g_array_new (FALSE, TRUE, sizeof (struct group));
 }
 
 static void
@@ -120,18 +122,27 @@ mixer_endpoint_constructed (GObject * object)
   WpMixerEndpoint *self = WP_MIXER_ENDPOINT (object);
   g_autoptr (WpCore) core = NULL;
   g_autoptr (WpPolicyManager) policymgr = NULL;
+  struct group empty_group = {0};
   GVariantDict d;
+  GVariantIter iter;
   gint i;
+  gchar *stream;
 
   core = wp_endpoint_get_core (WP_ENDPOINT (self));
   policymgr = wp_policy_manager_get_instance (core);
   g_signal_connect_object (policymgr, "policy-changed",
       (GCallback) policy_changed, self, 0);
 
-  for (i = 0; i < N_STREAMS; i++) {
+  g_variant_iter_init (&iter, self->streams);
+  for (i = 0; g_variant_iter_next (&iter, "s", &stream); i++) {
+    struct group *group;
+
+    g_array_append_val (self->groups, empty_group);
+    group = &g_array_index (self->groups, struct group, i);
+
     g_variant_dict_init (&d, NULL);
     g_variant_dict_insert (&d, "id", "u", i);
-    g_variant_dict_insert (&d, "name", "s", streams[i]);
+    g_variant_dict_insert (&d, "name", "s", stream);
     wp_endpoint_register_stream (WP_ENDPOINT (self), g_variant_dict_end (&d));
 
     g_variant_dict_init (&d, NULL);
@@ -151,12 +162,12 @@ mixer_endpoint_constructed (GObject * object)
     g_variant_dict_insert (&d, "default-value", "b", FALSE);
     wp_endpoint_register_control (WP_ENDPOINT (self), g_variant_dict_end (&d));
 
-    self->groups[i].mixer = self;
-    self->groups[i].name = streams[i];
-    self->groups[i].mixer_stream_id = i;
-    g_weak_ref_init (&self->groups[i].backend, NULL);
+    group->mixer = self;
+    group->name = stream;
+    group->mixer_stream_id = i;
+    g_weak_ref_init (&group->backend, NULL);
 
-    group_find_backend (&self->groups[i], core);
+    group_find_backend (group, core);
   }
 
   G_OBJECT_CLASS (mixer_endpoint_parent_class)->constructed (object);
@@ -168,14 +179,35 @@ mixer_endpoint_finalize (GObject * object)
   WpMixerEndpoint *self = WP_MIXER_ENDPOINT (object);
   gint i;
 
-  for (i = 0; i < N_STREAMS; i++) {
-    g_autoptr (WpEndpoint) backend = g_weak_ref_get (&self->groups[i].backend);
+  for (i = 0; i < self->groups->len; i++) {
+    struct group *group = &g_array_index (self->groups, struct group, i);
+    g_autoptr (WpEndpoint) backend = g_weak_ref_get (&group->backend);
     if (backend)
-      g_signal_handlers_disconnect_by_data (backend, &self->groups[i]);
-    g_weak_ref_clear (&self->groups[i].backend);
+      g_signal_handlers_disconnect_by_data (backend, group);
+    g_weak_ref_clear (&group->backend);
+    g_free (group->name);
   }
 
+  g_clear_pointer (&self->groups, g_array_unref);
+  g_clear_pointer (&self->streams, g_variant_unref);
+
   G_OBJECT_CLASS (mixer_endpoint_parent_class)->finalize (object);
+}
+
+static void
+mixer_endpoint_set_property (GObject * object, guint property_id,
+    const GValue * value, GParamSpec * pspec)
+{
+  WpMixerEndpoint *self = WP_MIXER_ENDPOINT (object);
+
+  switch (property_id) {
+  case PROP_STREAMS:
+    self->streams = g_value_dup_variant (value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
 }
 
 static GVariant *
@@ -189,12 +221,12 @@ mixer_endpoint_get_control_value (WpEndpoint * ep, guint32 control_id)
   stream_id = control_id / N_CONTROLS;
   control_id = control_id % N_CONTROLS;
 
-  if (stream_id >= N_STREAMS) {
+  if (stream_id >= self->groups->len) {
     g_warning ("Mixer:%p Invalid stream id %u", self, stream_id);
     return NULL;
   }
 
-  group = &self->groups[stream_id];
+  group = &g_array_index (self->groups, struct group, stream_id);
   backend = g_weak_ref_get (&group->backend);
 
   /* if there is no backend, return the default value */
@@ -228,12 +260,12 @@ mixer_endpoint_set_control_value (WpEndpoint * ep, guint32 control_id,
   stream_id = control_id / N_CONTROLS;
   control_id = control_id % N_CONTROLS;
 
-  if (stream_id >= N_STREAMS) {
+  if (stream_id >= self->groups->len) {
     g_warning ("Mixer:%p Invalid stream id %u", self, stream_id);
     return FALSE;
   }
 
-  group = &self->groups[stream_id];
+  group = &g_array_index (self->groups, struct group, stream_id);
   backend = g_weak_ref_get (&group->backend);
 
   if (!backend) {
@@ -251,20 +283,29 @@ mixer_endpoint_class_init (WpMixerEndpointClass * klass)
   GObjectClass *object_class = (GObjectClass *) klass;
   WpEndpointClass *endpoint_class = (WpEndpointClass *) klass;
 
+  object_class->set_property = mixer_endpoint_set_property;
   object_class->constructed = mixer_endpoint_constructed;
   object_class->finalize = mixer_endpoint_finalize;
 
   endpoint_class->get_control_value = mixer_endpoint_get_control_value;
   endpoint_class->set_control_value = mixer_endpoint_set_control_value;
+
+  g_object_class_install_property (object_class, PROP_STREAMS,
+      g_param_spec_variant ("streams", "streams",
+          "The stream names for the streams to create",
+          G_VARIANT_TYPE ("as"), NULL,
+          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
 static void
-remote_connected (WpRemote *remote, WpRemoteState state, WpCore *core)
+remote_connected (WpRemote *remote, WpRemoteState state, GVariant *streams)
 {
+  g_autoptr (WpCore) core = wp_remote_get_core (remote);
   g_autoptr (WpEndpoint) ep = g_object_new (mixer_endpoint_get_type (),
       "core", core,
       "name", "Mixer",
       "media-class", "Mixer/Audio",
+      "streams", streams,
       NULL);
   wp_endpoint_register (ep);
 }
@@ -273,10 +314,14 @@ void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   WpRemote *remote;
+  GVariant *streams;
 
   remote = wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
   g_return_if_fail (remote != NULL);
 
-  g_signal_connect (remote, "state-changed::connected",
-      (GCallback) remote_connected, core);
+  streams = g_variant_lookup_value (args, "streams", G_VARIANT_TYPE ("as"));
+
+  g_signal_connect_data (remote, "state-changed::connected",
+      (GCallback) remote_connected, streams, (GClosureNotify) g_variant_unref,
+      0);
 }
