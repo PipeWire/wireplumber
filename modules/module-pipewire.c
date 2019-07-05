@@ -80,8 +80,9 @@ on_node_added (WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
   /* Set the properties */
   g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
   g_variant_builder_add (&b, "{sv}",
-      "name", name ? g_variant_new_string (name) :
-          g_variant_new_take_string (g_strdup_printf ("Stream %u", id)));
+      "name", name ?
+      g_variant_new_take_string (g_strdup_printf ("Stream %u (%s)", id, name)) :
+      g_variant_new_take_string (g_strdup_printf ("Stream %u", id)));
   g_variant_builder_add (&b, "{sv}",
       "media-class", g_variant_new_string (media_class));
   g_variant_builder_add (&b, "{sv}",
