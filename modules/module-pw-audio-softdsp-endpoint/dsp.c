@@ -125,7 +125,8 @@ register_controls (WpPwAudioDsp * self)
   g_variant_dict_init (&d, NULL);
   g_variant_dict_insert (&d, "id", "u",
       wp_pw_audio_dsp_id_encode (self->id, CONTROL_VOLUME));
-  g_variant_dict_insert (&d, "stream-id", "u", self->id);
+  if (self->id != WP_STREAM_ID_NONE)
+    g_variant_dict_insert (&d, "stream-id", "u", self->id);
   g_variant_dict_insert (&d, "name", "s", "volume");
   g_variant_dict_insert (&d, "type", "s", "d");
   g_variant_dict_insert (&d, "range", "(dd)", 0.0, 1.0);
@@ -136,7 +137,8 @@ register_controls (WpPwAudioDsp * self)
   g_variant_dict_init (&d, NULL);
   g_variant_dict_insert (&d, "id", "u",
       wp_pw_audio_dsp_id_encode (self->id, CONTROL_MUTE));
-  g_variant_dict_insert (&d, "stream-id", "u", self->id);
+  if (self->id != WP_STREAM_ID_NONE)
+    g_variant_dict_insert (&d, "stream-id", "u", self->id);
   g_variant_dict_insert (&d, "name", "s", "mute");
   g_variant_dict_insert (&d, "type", "s", "b");
   g_variant_dict_insert (&d, "default-value", "b", self->mute);
