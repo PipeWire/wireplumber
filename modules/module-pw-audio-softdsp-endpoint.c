@@ -25,22 +25,15 @@
 #define MAX_QUANTUM_SIZE  1024
 #define CONTROL_SELECTED 0
 
-static const char * streams[] = {
-  "multimedia",
-  "navigation",
-  "communication",
-  "emergency",
-};
-#define N_STREAMS (sizeof (streams) / sizeof (const char *))
-
 struct _WpPwAudioSoftdspEndpoint
 {
   WpEndpoint parent;
 
   /* Properties */
   guint global_id;
-  guint stream_count;
+  GVariant *streams;
 
+  guint stream_count;
   gboolean selected;
 
   /* The task to signal the endpoint is initialized */
@@ -58,12 +51,13 @@ struct _WpPwAudioSoftdspEndpoint
 
   /* Audio Dsp */
   WpPwAudioDsp *converter;
-  WpPwAudioDsp *streams[N_STREAMS];
+  GPtrArray *dsps;
 };
 
 enum {
   PROP_0,
   PROP_GLOBAL_ID,
+  PROP_STREAMS,
 };
 
 static GAsyncInitableIface *wp_endpoint_parent_interface = NULL;
@@ -85,10 +79,10 @@ endpoint_prepare_link (WpEndpoint * ep, guint32 stream_id,
   WpPwAudioDsp *stream = NULL;
 
   /* Make sure the stream Id is valid */
-  g_return_val_if_fail(stream_id < N_STREAMS, FALSE);
+  g_return_val_if_fail(stream_id < self->dsps->len, FALSE);
 
   /* Make sure the stream is valid */
-  stream = self->streams[stream_id];
+  stream = g_ptr_array_index (self->dsps, stream_id);
   g_return_val_if_fail(stream, FALSE);
 
   /* Prepare the link */
@@ -111,24 +105,26 @@ static void
 on_audio_dsp_stream_created(GObject *initable, GAsyncResult *res, gpointer data)
 {
   WpPwAudioSoftdspEndpoint *self = data;
-  WpPwAudioDsp *stream = NULL;
+  WpPwAudioDsp *dsp = NULL;
   guint stream_id = 0;
+  g_autofree gchar *name = NULL;
 
   /* Get the stream */
-  stream = wp_pw_audio_dsp_new_finish(initable, res, NULL);
-  g_return_if_fail (stream);
+  dsp = wp_pw_audio_dsp_new_finish(initable, res, NULL);
+  g_return_if_fail (dsp);
 
   /* Get the stream id */
-  g_object_get (stream, "id", &stream_id, NULL);
+  g_object_get (dsp, "id", &stream_id, "name", &name, NULL);
   g_return_if_fail (stream_id >= 0);
-  g_return_if_fail (stream_id < N_STREAMS);
 
   /* Set the streams */
-  self->streams[stream_id] = stream;
+  g_ptr_array_insert (self->dsps, stream_id, dsp);
+
+  g_debug ("%s:%p Created stream %u %s", G_OBJECT_TYPE_NAME (self), self,
+      stream_id, name);
 
   /* Finish the endpoint creation when all the streams are created */
-  self->stream_count++;
-  if (self->stream_count == N_STREAMS)
+  if (--self->stream_count == 0)
     finish_endpoint_creation(self);
 }
 
@@ -141,6 +137,9 @@ on_audio_dsp_converter_created(GObject *initable, GAsyncResult *res,
   const struct pw_node_info *target = NULL;
   const struct spa_audio_info_raw *format = NULL;
   GVariantDict d;
+  GVariantIter iter;
+  const gchar *stream;
+  int i;
 
   /* Get the proxy dsp converter */
   self->converter = wp_pw_audio_dsp_new_finish(initable, res, NULL);
@@ -153,16 +152,18 @@ on_audio_dsp_converter_created(GObject *initable, GAsyncResult *res,
   g_return_if_fail (format);
 
   /* Create the audio dsp streams */
-  for (int i = 0; i < N_STREAMS; i++) {
-    wp_pw_audio_dsp_new (WP_ENDPOINT(self), i, streams[i], self->direction,
+  g_variant_iter_init (&iter, self->streams);
+  for (i = 0; g_variant_iter_next (&iter, "&s", &stream); i++) {
+    wp_pw_audio_dsp_new (WP_ENDPOINT(self), i, stream, self->direction,
         target, format, on_audio_dsp_stream_created, self);
 
     /* Register the stream */
     g_variant_dict_init (&d, NULL);
     g_variant_dict_insert (&d, "id", "u", i);
-    g_variant_dict_insert (&d, "name", "s", streams[i]);
+    g_variant_dict_insert (&d, "name", "s", stream);
     wp_endpoint_register_stream (WP_ENDPOINT (self), g_variant_dict_end (&d));
   }
+  self->stream_count = i;
 }
 
 static void
@@ -243,6 +244,8 @@ endpoint_finalize (GObject * object)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (object);
 
+  g_clear_pointer(&self->streams, g_variant_unref);
+
   /* Destroy the proxy node */
   g_clear_object(&self->proxy_node);
 
@@ -253,8 +256,7 @@ endpoint_finalize (GObject * object)
   g_clear_object(&self->converter);
 
   /* Destroy all the proxy dsp streams */
-  for (int i = 0; i < N_STREAMS; i++)
-    g_clear_object(&self->streams[i]);
+  g_clear_pointer (&self->dsps, g_ptr_array_unref);
 
   /* Destroy the done task */
   g_clear_object(&self->init_task);
@@ -272,6 +274,9 @@ endpoint_set_property (GObject * object, guint property_id,
   case PROP_GLOBAL_ID:
     self->global_id = g_value_get_uint(value);
     break;
+  case PROP_STREAMS:
+    self->streams = g_value_dup_variant(value);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
@@ -287,6 +292,9 @@ endpoint_get_property (GObject * object, guint property_id,
   switch (property_id) {
   case PROP_GLOBAL_ID:
     g_value_set_uint (value, self->global_id);
+    break;
+  case PROP_STREAMS:
+    g_value_set_variant (value, self->streams);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -311,8 +319,8 @@ endpoint_get_control_value (WpEndpoint * ep, guint32 id)
     return wp_pw_audio_dsp_get_control_value (self->converter, control_id);
 
   /* Otherwise get the stream_id and control_id */
-  g_return_val_if_fail (stream_id < N_STREAMS, NULL);
-  stream = self->streams[stream_id];
+  g_return_val_if_fail (stream_id < self->dsps->len, NULL);
+  stream = g_ptr_array_index (self->dsps, stream_id);
   g_return_val_if_fail (stream, NULL);
   return wp_pw_audio_dsp_get_control_value (stream, control_id);
 }
@@ -337,8 +345,8 @@ endpoint_set_control_value (WpEndpoint * ep, guint32 id, GVariant * value)
     return wp_pw_audio_dsp_set_control_value (self->converter, control_id, value);
 
   /* Otherwise get the stream_id and control_id */
-  g_return_val_if_fail (stream_id < N_STREAMS, FALSE);
-  stream = self->streams[stream_id];
+  g_return_val_if_fail (stream_id < self->dsps->len, FALSE);
+  stream = g_ptr_array_index (self->dsps, stream_id);
   g_return_val_if_fail (stream, FALSE);
   return wp_pw_audio_dsp_set_control_value (stream, control_id, value);
 }
@@ -398,6 +406,7 @@ wp_endpoint_async_initable_init (gpointer iface, gpointer iface_data)
 static void
 endpoint_init (WpPwAudioSoftdspEndpoint * self)
 {
+  self->dsps = g_ptr_array_new_with_free_func (g_object_unref);
 }
 
 static void
@@ -419,6 +428,12 @@ endpoint_class_init (WpPwAudioSoftdspEndpointClass * klass)
       g_param_spec_uint ("global-id", "global-id",
           "The global Id this endpoint refers to", 0, G_MAXUINT, 0,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (object_class, PROP_STREAMS,
+      g_param_spec_variant ("streams", "streams",
+          "The stream names for the streams to create",
+          G_VARIANT_TYPE ("as"), NULL,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
 void
@@ -428,6 +443,7 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
   g_autoptr (WpCore) core = NULL;
   const gchar *media_class;
   guint global_id;
+  g_autoptr (GVariant) streams = NULL;
 
   /* Make sure the type is correct */
   g_return_if_fail(type == WP_TYPE_ENDPOINT);
@@ -441,6 +457,9 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
       return;
   if (!g_variant_lookup (properties, "global-id", "u", &global_id))
       return;
+  if (!(streams = g_variant_lookup_value (properties, "streams",
+          G_VARIANT_TYPE ("as"))))
+      return;
 
   /* Create and return the softdsp endpoint object */
   g_async_initable_new_async (
@@ -448,6 +467,7 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
       "core", core,
       "media-class", media_class,
       "global-id", global_id,
+      "streams", streams,
       NULL);
 }
 
