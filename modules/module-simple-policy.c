@@ -316,44 +316,45 @@ simple_policy_find_endpoint (WpPolicy *policy, GVariant *props,
   if (!ptr_array)
     return NULL;
 
-  /* TODO: for now we statically return the first stream
-   * we should be looking into the media.role eventually */
-  g_variant_lookup (props, "media.role", "&s", &role);
-  if (!g_strcmp0 (action, "mixer") && !g_strcmp0 (role, "Master"))
-    *stream_id = WP_STREAM_ID_NONE;
-  else
-    *stream_id = 0;
-
   /* Find and return the "selected" endpoint */
-  /* FIXME: fix the endpoint API, this is terrible */
   for (i = 0; i < ptr_array->len; i++) {
     ep = g_ptr_array_index (ptr_array, i);
-    GVariantIter iter;
-    g_autoptr (GVariant) controls = NULL;
     g_autoptr (GVariant) value = NULL;
-    const gchar *name;
     guint id;
 
-    controls = wp_endpoint_list_controls (ep);
-    g_variant_iter_init (&iter, controls);
-    while ((value = g_variant_iter_next_value (&iter))) {
-      if (!g_variant_lookup (value, "name", "&s", &name)
-          || !g_str_equal (name, "selected")) {
-        g_variant_unref (value);
-        continue;
-      }
-      g_variant_lookup (value, "id", "u", &id);
-      g_variant_unref (value);
-    }
+    id = wp_endpoint_find_control (ep, WP_STREAM_ID_NONE, "selected");
+    if (id == WP_CONTROL_ID_NONE)
+      continue;
 
     value = wp_endpoint_get_control_value (ep, id);
-    if (value && g_variant_get_boolean (value))
-      return g_object_ref (ep);
+    if (value && g_variant_get_boolean (value)) {
+      g_object_ref (ep);
+      goto select_stream;
+    }
   }
 
   /* If not found, return the first endpoint */
-  return (ptr_array->len > 1) ?
+  ep = (ptr_array->len > 1) ?
     g_object_ref (g_ptr_array_index (ptr_array, 0)) : NULL;
+
+select_stream:
+  g_variant_lookup (props, "media.role", "&s", &role);
+  if (!g_strcmp0 (action, "mixer") && !g_strcmp0 (role, "Master"))
+    *stream_id = WP_STREAM_ID_NONE;
+  else if (ep) {
+    /* the default role is "Multimedia" */
+    if (!role)
+      role = "Multimedia";
+    *stream_id = wp_endpoint_find_stream (ep, role);
+
+    /* role not found, try the first stream */
+    if (*stream_id == WP_STREAM_ID_NONE) {
+      g_warning ("role '%s' not found in endpoint", role);
+      *stream_id = 0;
+    }
+  }
+
+  return ep;
 }
 
 static void
