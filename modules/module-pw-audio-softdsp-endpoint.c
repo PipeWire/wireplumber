@@ -137,6 +137,7 @@ on_audio_dsp_converter_created(GObject *initable, GAsyncResult *res,
   g_autoptr (WpCore) core = wp_endpoint_get_core(WP_ENDPOINT(self));
   const struct pw_node_info *target = NULL;
   const struct spa_audio_info_raw *format = NULL;
+  GVariantDict d;
 
   /* Get the proxy dsp converter */
   self->converter = wp_pw_audio_dsp_new_finish(initable, res, NULL);
@@ -152,6 +153,12 @@ on_audio_dsp_converter_created(GObject *initable, GAsyncResult *res,
   for (int i = 0; i < N_STREAMS; i++) {
     wp_pw_audio_dsp_new (WP_ENDPOINT(self), i, streams[i], self->direction,
         target, format, on_audio_dsp_stream_created, self);
+
+    /* Register the stream */
+    g_variant_dict_init (&d, NULL);
+    g_variant_dict_insert (&d, "id", "u", i);
+    g_variant_dict_insert (&d, "name", "s", streams[i]);
+    wp_endpoint_register_stream (WP_ENDPOINT (self), g_variant_dict_end (&d));
   }
 }
 
@@ -159,7 +166,6 @@ static void
 on_proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
 {
   WpPwAudioSoftdspEndpoint *self = data;
-  GVariantDict d;
   g_autoptr (WpCore) core = wp_endpoint_get_core(WP_ENDPOINT(self));
   g_autofree gchar *name = NULL;
   const struct spa_dict *props;
@@ -178,12 +184,6 @@ on_proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
       spa_dict_lookup (props, "alsa.device"),
       wp_proxy_node_get_info (self->proxy_node)->id);
   g_object_set (self, "name", name, NULL);
-
-  /* Register the stream */
-  g_variant_dict_init (&d, NULL);
-  g_variant_dict_insert (&d, "id", "u", 0);
-  g_variant_dict_insert (&d, "name", "s", "default");
-  wp_endpoint_register_stream (WP_ENDPOINT (self), g_variant_dict_end (&d));
 
   /* Create the converter proxy */
   target = wp_proxy_node_get_info (self->proxy_node);
