@@ -274,6 +274,7 @@ audio_dsp_event_param (void *object, int seq, uint32_t id,
     uint32_t index, uint32_t next, const struct spa_pod *param)
 {
   WpPwAudioDsp *self = WP_PW_AUDIO_DSP (object);
+  g_autoptr (WpEndpoint) ep = g_weak_ref_get (&self->endpoint);
 
   switch (id) {
     case SPA_PARAM_Props:
@@ -301,12 +302,12 @@ audio_dsp_event_param (void *object, int seq, uint32_t id,
 
       if (self->volume != volume) {
         self->volume = volume;
-        wp_endpoint_notify_control_value (WP_ENDPOINT (self),
+        wp_endpoint_notify_control_value (ep,
             wp_pw_audio_dsp_id_encode (self->id, CONTROL_VOLUME));
       }
       if (self->mute != mute) {
         self->mute = mute;
-        wp_endpoint_notify_control_value (WP_ENDPOINT (self),
+        wp_endpoint_notify_control_value (ep,
             wp_pw_audio_dsp_id_encode (self->id, CONTROL_MUTE));
       }
 
