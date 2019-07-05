@@ -29,9 +29,6 @@ enum {
 enum {
   CONTROL_VOLUME = 0,
   CONTROL_MUTE,
-  N_DEFAULT_CONTROLS,
-  /* Master controls only */
-  CONTROL_SELECTED,
   N_CONTROLS,
 };
 
@@ -67,7 +64,6 @@ struct _WpPwAudioDsp
   /* Volume */
   gfloat volume;
   gboolean mute;
-  gboolean selected;
 };
 
 static void wp_pw_audio_dsp_async_initable_init (gpointer iface,
@@ -77,24 +73,18 @@ G_DEFINE_TYPE_WITH_CODE (WpPwAudioDsp, wp_pw_audio_dsp, G_TYPE_OBJECT,
     G_IMPLEMENT_INTERFACE (G_TYPE_ASYNC_INITABLE,
                            wp_pw_audio_dsp_async_initable_init))
 
-gboolean
-wp_pw_audio_dsp_id_is_master (guint id)
-{
-  return id < N_CONTROLS;
-}
-
 guint
 wp_pw_audio_dsp_id_encode (guint stream_id, guint control_id)
 {
-  /* Just use the cotnrol_id if the stream id is not valid */
-  if (stream_id == WP_STREAM_ID_NONE) {
-    g_return_val_if_fail (control_id < N_CONTROLS, 0);
-    return control_id;
-  }
+  g_return_val_if_fail (control_id < N_CONTROLS, 0);
 
-  /* Encode the stream and control Ids */
-  g_return_val_if_fail (control_id < N_DEFAULT_CONTROLS, 0);
-  return N_CONTROLS + (stream_id * N_DEFAULT_CONTROLS) + control_id;
+  /* encode NONE as 0 and everything else with +1 */
+  /* NONE is MAX_UINT, so +1 will do the trick */
+  stream_id += 1;
+
+  /* Encode the stream and control Ids. The first ID is reserved
+   * for the "selected" control, registered in the endpoint */
+  return 1 + (stream_id * N_CONTROLS) + control_id;
 }
 
 void
@@ -102,10 +92,12 @@ wp_pw_audio_dsp_id_decode (guint id, guint *stream_id, guint *control_id)
 {
   guint s_id, c_id;
 
+  g_return_if_fail (id >= 1);
+  id -= 1;
+
   /* Decode the stream and control Ids */
-  g_return_if_fail (id >= N_CONTROLS);
-  s_id = (id - N_CONTROLS) / N_DEFAULT_CONTROLS;
-  c_id = (id - N_CONTROLS) % N_DEFAULT_CONTROLS;
+  s_id = (id / N_CONTROLS) - 1;
+  c_id = id % N_CONTROLS;
 
   /* Set the output params */
   if (stream_id)
@@ -143,17 +135,6 @@ register_controls (WpPwAudioDsp * self)
   g_variant_dict_insert (&d, "type", "s", "b");
   g_variant_dict_insert (&d, "default-value", "b", self->mute);
   wp_endpoint_register_control (ep, g_variant_dict_end (&d));
-
-  /* Register the selected control only if it is the master converter */
-  if (self->id == WP_STREAM_ID_NONE) {
-    g_variant_dict_init (&d, NULL);
-    g_variant_dict_insert (&d, "id", "u",
-        wp_pw_audio_dsp_id_encode (self->id, CONTROL_SELECTED));
-    g_variant_dict_insert (&d, "name", "s", "selected");
-    g_variant_dict_insert (&d, "type", "s", "b");
-    g_variant_dict_insert (&d, "default-value", "b", self->selected);
-    wp_endpoint_register_control (ep, g_variant_dict_end (&d));
-  }
 }
 
 static void
@@ -320,11 +301,13 @@ audio_dsp_event_param (void *object, int seq, uint32_t id,
 
       if (self->volume != volume) {
         self->volume = volume;
-        wp_endpoint_notify_control_value (WP_ENDPOINT (self), CONTROL_VOLUME);
+        wp_endpoint_notify_control_value (WP_ENDPOINT (self),
+            wp_pw_audio_dsp_id_encode (self->id, CONTROL_VOLUME));
       }
       if (self->mute != mute) {
         self->mute = mute;
-        wp_endpoint_notify_control_value (WP_ENDPOINT (self), CONTROL_MUTE);
+        wp_endpoint_notify_control_value (WP_ENDPOINT (self),
+            wp_pw_audio_dsp_id_encode (self->id, CONTROL_MUTE));
       }
 
       break;
@@ -487,10 +470,9 @@ wp_pw_audio_dsp_init_async (GAsyncInitable *initable, int io_priority,
   /* Init the list of port proxies */
   self->port_proxies = g_ptr_array_new_full(4, (GDestroyNotify)g_object_unref);
 
-  /* Set the volume */
+  /* Set the default volume */
   self->volume = 1.0;
   self->mute = FALSE;
-  self->selected = FALSE;
 
   /* Create the properties */
   props = pw_properties_new_dict(self->target->props);
@@ -648,10 +630,6 @@ wp_pw_audio_dsp_get_control_value (WpPwAudioDsp * self, guint32 control_id)
       return g_variant_new_double (self->volume);
     case CONTROL_MUTE:
       return g_variant_new_boolean (self->mute);
-    case CONTROL_SELECTED:
-      if (self->id == WP_STREAM_ID_NONE)
-        return g_variant_new_boolean (self->selected);
-      return NULL;
     default:
       g_warning ("Unknown control id %u", control_id);
       return NULL;
@@ -667,8 +645,6 @@ wp_pw_audio_dsp_set_control_value (WpPwAudioDsp * self, guint32 control_id,
   struct pw_node_proxy *pw_proxy = NULL;
   float volume;
   bool mute;
-  g_autoptr (WpEndpoint) ep = g_weak_ref_get (&self->endpoint);
-  g_return_val_if_fail (ep, FALSE);
 
   /* Get the pipewire dsp proxy */
   g_return_val_if_fail (self->proxy, FALSE);
@@ -706,13 +682,6 @@ wp_pw_audio_dsp_set_control_value (WpPwAudioDsp * self, guint32 control_id,
               NULL));
       pw_node_proxy_enum_params (pw_proxy, 0, SPA_PARAM_Props, 0, -1,
           NULL);
-      break;
-
-    case CONTROL_SELECTED:
-      if (self->id == WP_STREAM_ID_NONE) {
-        self->selected = g_variant_get_boolean (value);
-        wp_endpoint_notify_control_value (ep, CONTROL_SELECTED);
-      }
       break;
 
     default:

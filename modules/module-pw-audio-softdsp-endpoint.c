@@ -23,6 +23,7 @@
 
 #define MIN_QUANTUM_SIZE  64
 #define MAX_QUANTUM_SIZE  1024
+#define CONTROL_SELECTED 0
 
 static const char * streams[] = {
   "multimedia",
@@ -39,6 +40,8 @@ struct _WpPwAudioSoftdspEndpoint
   /* Properties */
   guint global_id;
   guint stream_count;
+
+  gboolean selected;
 
   /* The task to signal the endpoint is initialized */
   GTask *init_task;
@@ -298,12 +301,16 @@ endpoint_get_control_value (WpEndpoint * ep, guint32 id)
   guint stream_id, control_id;
   WpPwAudioDsp *stream = NULL;
 
+  if (id == CONTROL_SELECTED)
+    return g_variant_new_boolean (self->selected);
+
+  wp_pw_audio_dsp_id_decode (id, &stream_id, &control_id);
+
   /* Check if it is the master stream */
-  if (wp_pw_audio_dsp_id_is_master (id))
-    return wp_pw_audio_dsp_get_control_value (self->converter, id);
+  if (stream_id == WP_STREAM_ID_NONE)
+    return wp_pw_audio_dsp_get_control_value (self->converter, control_id);
 
   /* Otherwise get the stream_id and control_id */
-  wp_pw_audio_dsp_id_decode (id, &stream_id, &control_id);
   g_return_val_if_fail (stream_id < N_STREAMS, NULL);
   stream = self->streams[stream_id];
   g_return_val_if_fail (stream, NULL);
@@ -317,12 +324,19 @@ endpoint_set_control_value (WpEndpoint * ep, guint32 id, GVariant * value)
   guint stream_id, control_id;
   WpPwAudioDsp *stream = NULL;
 
+  if (id == CONTROL_SELECTED) {
+    self->selected = g_variant_get_boolean (value);
+    wp_endpoint_notify_control_value (ep, CONTROL_SELECTED);
+    return TRUE;
+  }
+
+  wp_pw_audio_dsp_id_decode (id, &stream_id, &control_id);
+
   /* Check if it is the master stream */
-  if (wp_pw_audio_dsp_id_is_master (id))
-    return wp_pw_audio_dsp_set_control_value (self->converter, id, value);
+  if (stream_id == WP_STREAM_ID_NONE)
+    return wp_pw_audio_dsp_set_control_value (self->converter, control_id, value);
 
   /* Otherwise get the stream_id and control_id */
-  wp_pw_audio_dsp_id_decode (id, &stream_id, &control_id);
   g_return_val_if_fail (stream_id < N_STREAMS, FALSE);
   stream = self->streams[stream_id];
   g_return_val_if_fail (stream, FALSE);
@@ -336,6 +350,7 @@ wp_endpoint_init_async (GAsyncInitable *initable, int io_priority,
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (initable);
   g_autoptr (WpCore) core = wp_endpoint_get_core(WP_ENDPOINT(self));
   const gchar *media_class = wp_endpoint_get_media_class (WP_ENDPOINT (self));
+  GVariantDict d;
 
   /* Create the async task */
   self->init_task = g_task_new (initable, cancellable, callback, data);
@@ -353,6 +368,15 @@ wp_endpoint_init_async (GAsyncInitable *initable, int io_priority,
   g_return_if_fail(self->remote_pipewire);
   g_signal_connect_object(self->remote_pipewire, "global-added::port",
       (GCallback)on_port_added, self, 0);
+
+  /* Register the selected control */
+  self->selected = FALSE;
+  g_variant_dict_init (&d, NULL);
+  g_variant_dict_insert (&d, "id", "u", CONTROL_SELECTED);
+  g_variant_dict_insert (&d, "name", "s", "selected");
+  g_variant_dict_insert (&d, "type", "s", "b");
+  g_variant_dict_insert (&d, "default-value", "b", self->selected);
+  wp_endpoint_register_control (WP_ENDPOINT (self), g_variant_dict_end (&d));
 
   /* Call the parent interface */
   wp_endpoint_parent_interface->init_async (initable, io_priority, cancellable,
