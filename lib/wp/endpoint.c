@@ -1031,6 +1031,8 @@ wp_endpoint_link_destroy (WpEndpointLink * self)
   src = g_weak_ref_get (&priv->src);
   sink = g_weak_ref_get (&priv->sink);
 
+  WP_ENDPOINT_LINK_GET_CLASS (self)->destroy (self);
+
   if (src && WP_ENDPOINT_GET_CLASS (src)->release_link)
     WP_ENDPOINT_GET_CLASS (src)->release_link (src, self);
   if (sink && WP_ENDPOINT_GET_CLASS (sink)->release_link)
@@ -1044,6 +1046,4 @@ wp_endpoint_link_destroy (WpEndpointLink * self)
     endpoint_priv = wp_endpoint_get_instance_private (sink);
     g_ptr_array_remove_fast (endpoint_priv->links, self);
   }
-
-  WP_ENDPOINT_LINK_GET_CLASS (self)->destroy (self);
 }
