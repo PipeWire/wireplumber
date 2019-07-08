@@ -282,6 +282,10 @@ simple_policy_handle_endpoint (WpPolicy *policy, WpEndpoint *ep)
     return FALSE;
   }
 
+  /* Unlink the target if it is already linked */
+  if (wp_endpoint_is_linked (target))
+    wp_endpoint_unlink (target);
+
   /* Link the client with the target */
   if (is_sink) {
     wp_endpoint_link_new (core, target, 0, ep, stream_id,
