@@ -104,6 +104,7 @@ simple_endpoint_link_create (WpEndpointLink * epl, GVariant * src_data,
   GVariant *src_ports, *sink_ports;
   GVariantIter *out_iter, *in_iter;
   guint64 out_ptr, in_ptr;
+  GHashTable *linked_ports = NULL;
 
   /* Get the remote pipewire */
   remote_pipewire = wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
@@ -122,6 +123,7 @@ simple_endpoint_link_create (WpEndpointLink * epl, GVariant * src_data,
       return FALSE;
 
   /* Link all the output ports with the input ports */
+  linked_ports = g_hash_table_new (g_direct_hash, g_direct_equal);
   g_variant_get (src_ports, "at", &out_iter);
   while (g_variant_iter_loop (out_iter, "t", &out_ptr)) {
     WpProxyPort *out_p = (gpointer)out_ptr;
@@ -138,6 +140,10 @@ simple_endpoint_link_create (WpEndpointLink * epl, GVariant * src_data,
       if (in_direction == PW_DIRECTION_OUTPUT)
         continue;
 
+      /* Skip the port if it is already linked */
+      if (g_hash_table_contains (linked_ports, GUINT_TO_POINTER(in_id)))
+        continue;
+
       /* Create the properties */
       props = pw_properties_new(NULL, NULL);
       pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", output_node_id);
@@ -149,12 +155,18 @@ simple_endpoint_link_create (WpEndpointLink * epl, GVariant * src_data,
       wp_remote_pipewire_create_object(remote_pipewire, "link-factory",
           PW_TYPE_INTERFACE_Link, &props->dict);
 
+      /* Insert the port id in the hash table to know it is linked */
+      g_hash_table_insert (linked_ports, GUINT_TO_POINTER(in_id), NULL);
+
       /* Clean up */
       pw_properties_free(props);
     }
     g_variant_iter_free (in_iter);
   }
   g_variant_iter_free (out_iter);
+
+  /* Clean up */
+  g_hash_table_unref(linked_ports);
 
   return TRUE;
 }
