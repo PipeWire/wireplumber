@@ -733,6 +733,26 @@ wp_endpoint_get_links (WpEndpoint * self)
   return priv->links;
 }
 
+/**
+ * wp_endpoint_unlink:
+ * @self: the endpoint
+ *
+ * Unlinks all the endpoints linked to this endpoint
+ */
+void
+wp_endpoint_unlink (WpEndpoint * self)
+{
+  WpEndpointPrivate *priv;
+  gint i;
+
+  g_return_if_fail (WP_IS_ENDPOINT (self));
+
+  priv = wp_endpoint_get_instance_private (self);
+
+  for (i = priv->links->len - 1; i >= 0; i--)
+    wp_endpoint_link_destroy (g_ptr_array_index (priv->links, i));
+}
+
 
 typedef struct _WpEndpointLinkPrivate WpEndpointLinkPrivate;
 struct _WpEndpointLinkPrivate
