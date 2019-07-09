@@ -13,7 +13,10 @@
 struct _WpProxyPort
 {
   WpProxy parent;
-  
+
+  /* The task to signal the proxy is initialized */
+  GTask *init_task;
+
   /* The port proxy listener */
   struct spa_hook listener;
 
@@ -26,7 +29,6 @@ struct _WpProxyPort
   struct spa_audio_info_raw format;
 };
 
-static GAsyncInitableIface *proxy_port_parent_interface = NULL;
 static void wp_proxy_port_async_initable_init (gpointer iface,
     gpointer iface_data);
 
@@ -49,6 +51,10 @@ port_event_param(void *data, int seq, uint32_t id, uint32_t index,
 {
   WpProxyPort *self = data;
 
+  /* Make sure the task is valid */
+  if (!self->init_task)
+    return;
+
   /* Only handle EnumFormat */
   if (id != SPA_PARAM_EnumFormat)
     return;
@@ -64,6 +70,10 @@ port_event_param(void *data, int seq, uint32_t id, uint32_t index,
   /* Parse the raw audio format */
   spa_pod_fixate((struct spa_pod*)param);
   spa_format_audio_raw_parse(param, &self->format);
+
+  /* Finish the creation of the proxy */
+  g_task_return_boolean (self->init_task, TRUE);
+  g_clear_object (&self->init_task);
 }
 
 static const struct pw_port_proxy_events port_events = {
@@ -76,6 +86,9 @@ static void
 wp_proxy_port_finalize (GObject * object)
 {
   WpProxyPort *self = WP_PROXY_PORT(object);
+
+  /* Destroy the init task */
+  g_clear_object (&self->init_task);
 
   /* Clear the indo */
   if (self->info) {
@@ -94,6 +107,9 @@ wp_proxy_port_init_async (GAsyncInitable *initable, int io_priority,
   WpProxy *wp_proxy = WP_PROXY(initable);
   struct pw_port_proxy *proxy = NULL;
 
+  /* Create the async task */
+  self->init_task = g_task_new (initable, cancellable, callback, data);
+
   /* Get the proxy from the base class */
   proxy = wp_proxy_get_pw_proxy(wp_proxy);
 
@@ -103,19 +119,12 @@ wp_proxy_port_init_async (GAsyncInitable *initable, int io_priority,
   /* Emit the EnumFormat param */
   pw_port_proxy_enum_params((struct pw_port_proxy*)proxy, 0,
           SPA_PARAM_EnumFormat, 0, -1, NULL);
-
-  /* Call the parent interface */
-  proxy_port_parent_interface->init_async (initable, io_priority, cancellable,
-      callback, data);
 }
 
 static void
 wp_proxy_port_async_initable_init (gpointer iface, gpointer iface_data)
 {
   GAsyncInitableIface *ai_iface = iface;
-  
-  /* Set the parent interface */
-  proxy_port_parent_interface = g_type_interface_peek_parent (iface);
 
   /* Only set the init_async */
   ai_iface->init_async = wp_proxy_port_init_async;

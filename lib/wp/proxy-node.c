@@ -12,6 +12,9 @@
 struct _WpProxyNode
 {
   WpProxy parent;
+
+  /* The task to signal the proxy is initialized */
+  GTask *init_task;
   
   /* The node proxy listener */
   struct spa_hook listener;
@@ -20,7 +23,6 @@ struct _WpProxyNode
   struct pw_node_info *info;
 };
 
-static GAsyncInitableIface *proxy_node_parent_interface = NULL;
 static void wp_proxy_node_async_initable_init (gpointer iface,
     gpointer iface_data);
 
@@ -33,8 +35,16 @@ node_event_info(void *data, const struct pw_node_info *info)
 {
   WpProxyNode *self = data;
 
+  /* Make sure the task is valid */
+  if (!self->init_task)
+    return;
+
   /* Update the node info */
   self->info = pw_node_info_update(self->info, info);
+
+  /* Finish the creation of the proxy */
+  g_task_return_boolean (self->init_task, TRUE);
+  g_clear_object (&self->init_task);
 }
 
 static const struct pw_node_proxy_events node_events = {
@@ -46,6 +56,9 @@ static void
 wp_proxy_node_finalize (GObject * object)
 {
   WpProxyNode *self = WP_PROXY_NODE(object);
+
+  /* Destroy the init task */
+  g_clear_object (&self->init_task);
 
   /* Clear the info */
   if (self->info) {
@@ -64,24 +77,20 @@ wp_proxy_node_init_async (GAsyncInitable *initable, int io_priority,
   WpProxy *wp_proxy = WP_PROXY(initable);
   struct pw_node_proxy *proxy = NULL;
 
+  /* Create the async task */
+  self->init_task = g_task_new (initable, cancellable, callback, data);
+
   /* Get the proxy from the base class */
   proxy = wp_proxy_get_pw_proxy(wp_proxy);
 
   /* Add the node proxy listener */
   pw_node_proxy_add_listener(proxy, &self->listener, &node_events, self);
-
-  /* Call the parent interface */
-  proxy_node_parent_interface->init_async (initable, io_priority, cancellable,
-      callback, data);
 }
 
 static void
 wp_proxy_node_async_initable_init (gpointer iface, gpointer iface_data)
 {
   GAsyncInitableIface *ai_iface = iface;
-  
-  /* Set the parent interface */
-  proxy_node_parent_interface = g_type_interface_peek_parent (iface);
 
   /* Only set the init_async */
   ai_iface->init_async = wp_proxy_node_init_async;

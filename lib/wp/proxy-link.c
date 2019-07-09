@@ -12,6 +12,9 @@
 struct _WpProxyLink
 {
   WpProxy parent;
+
+  /* The task to signal the proxy is initialized */
+  GTask *init_task;
   
   /* The link proxy listener */
   struct spa_hook listener;
@@ -20,7 +23,6 @@ struct _WpProxyLink
   struct pw_link_info *info;
 };
 
-static GAsyncInitableIface *proxy_link_parent_interface = NULL;
 static void wp_proxy_link_async_initable_init (gpointer iface,
     gpointer iface_data);
 
@@ -33,8 +35,16 @@ link_event_info(void *data, const struct pw_link_info *info)
 {
   WpProxyLink *self = data;
 
+  /* Make sure the task is valid */
+  if (!self->init_task)
+    return;
+
   /* Update the link info */
   self->info = pw_link_info_update(self->info, info);
+
+  /* Finish the creation of the proxy */
+  g_task_return_boolean (self->init_task, TRUE);
+  g_clear_object (&self->init_task);
 }
 
 static const struct pw_link_proxy_events link_events = {
@@ -46,6 +56,9 @@ static void
 wp_proxy_link_finalize (GObject * object)
 {
   WpProxyLink *self = WP_PROXY_LINK(object);
+
+  /* Destroy the init task */
+  g_clear_object (&self->init_task);
 
   /* Clear the info */
   if (self->info) {
@@ -64,24 +77,20 @@ wp_proxy_link_init_async (GAsyncInitable *initable, int io_priority,
   WpProxy *wp_proxy = WP_PROXY(initable);
   struct pw_link_proxy *proxy = NULL;
 
+  /* Create the async task */
+  self->init_task = g_task_new (initable, cancellable, callback, data);
+
   /* Get the proxy from the base class */
   proxy = wp_proxy_get_pw_proxy(wp_proxy);
 
   /* Add the link proxy listener */
   pw_link_proxy_add_listener(proxy, &self->listener, &link_events, self);
-
-  /* Call the parent interface */
-  proxy_link_parent_interface->init_async (initable, io_priority, cancellable,
-      callback, data);
 }
 
 static void
 wp_proxy_link_async_initable_init (gpointer iface, gpointer iface_data)
 {
   GAsyncInitableIface *ai_iface = iface;
-  
-  /* Set the parent interface */
-  proxy_link_parent_interface = g_type_interface_peek_parent (iface);
 
   /* Only set the init_async */
   ai_iface->init_async = wp_proxy_link_init_async;

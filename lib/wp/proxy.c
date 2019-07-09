@@ -21,9 +21,6 @@ struct _WpProxyPrivate
 
   /* The proxy listener */
   struct spa_hook listener;
-
-  /* The done info */
-  GTask *done_task;
 };
 
 enum {
@@ -58,21 +55,8 @@ proxy_event_destroy (void *data)
 static void
 proxy_event_done (void *data, int seq)
 {
-  WpProxyPrivate *self = wp_proxy_get_instance_private (WP_PROXY(data));
-
   /* Emit the done signal */
   g_signal_emit (data, wp_proxy_signals[SIGNAL_DONE], 0);
-
-  /* Make sure the task is valid */
-  if (!self->done_task)
-    return;
-
-  /* Execute the task */
-  g_task_return_boolean (self->done_task, TRUE);
-
-  /* Clean up */
-  g_object_unref (self->done_task);
-  self->done_task = NULL;
 }
 
 static const struct pw_proxy_events proxy_events = {
@@ -80,6 +64,15 @@ static const struct pw_proxy_events proxy_events = {
   .destroy = proxy_event_destroy,
   .done = proxy_event_done,
 };
+
+static void
+wp_proxy_constructed (GObject * object)
+{
+  WpProxyPrivate *self = wp_proxy_get_instance_private (WP_PROXY(object));
+
+  /* Add the event listener */
+  pw_proxy_add_listener (self->proxy, &self->listener, &proxy_events, object);
+}
 
 static void
 wp_proxy_finalize (GObject * object)
@@ -136,22 +129,6 @@ wp_proxy_get_property (GObject * object, guint property_id, GValue * value,
   }
 }
 
-static void
-wp_proxy_init_async (GAsyncInitable *initable, int io_priority,
-    GCancellable *cancellable, GAsyncReadyCallback callback, gpointer data)
-{
-  WpProxyPrivate *self = wp_proxy_get_instance_private (WP_PROXY(initable));
-
-  /* Create the async task */
-  self->done_task = g_task_new (initable, cancellable, callback, data);
-
-  /* Add the event listener */
-  pw_proxy_add_listener (self->proxy, &self->listener, &proxy_events, initable);
-
-  /* Trigger the done callback */
-  wp_proxy_sync(WP_PROXY(initable));
-}
-
 static gboolean
 wp_proxy_init_finish (GAsyncInitable *initable, GAsyncResult *result,
     GError **error)
@@ -166,7 +143,7 @@ wp_proxy_async_initable_init (gpointer iface, gpointer iface_data)
 {
   GAsyncInitableIface *ai_iface = iface;
 
-  ai_iface->init_async = wp_proxy_init_async;
+  /* The init_async must be implemented in the derived classes */
   ai_iface->init_finish = wp_proxy_init_finish;
 }
 
@@ -180,6 +157,7 @@ wp_proxy_class_init (WpProxyClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
 
+  object_class->constructed = wp_proxy_constructed;
   object_class->finalize = wp_proxy_finalize;
   object_class->get_property = wp_proxy_get_property;
   object_class->set_property = wp_proxy_set_property;
