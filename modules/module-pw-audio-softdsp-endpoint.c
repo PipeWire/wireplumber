@@ -155,7 +155,7 @@ on_audio_dsp_converter_created(GObject *initable, GAsyncResult *res,
   g_variant_iter_init (&iter, self->streams);
   for (i = 0; g_variant_iter_next (&iter, "&s", &stream); i++) {
     wp_pw_audio_dsp_new (WP_ENDPOINT(self), i, stream, self->direction,
-        target, format, on_audio_dsp_stream_created, self);
+        FALSE, target, format, on_audio_dsp_stream_created, self);
 
     /* Register the stream */
     g_variant_dict_init (&d, NULL);
@@ -197,7 +197,8 @@ on_proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
   /* TODO: For now we create convert as a stream because convert mode does not
    * generate any ports, not sure why */
   wp_pw_audio_dsp_new (WP_ENDPOINT(self), WP_STREAM_ID_NONE, "master",
-      self->direction, target, format, on_audio_dsp_converter_created, self);
+      self->direction, TRUE, target, format, on_audio_dsp_converter_created,
+      self);
 }
 
 static void

@@ -22,6 +22,7 @@ enum {
   PROP_ID,
   PROP_NAME,
   PROP_DIRECTION,
+  PROP_CONVERT,
   PROP_TARGET,
   PROP_FORMAT,
 };
@@ -42,16 +43,17 @@ struct _WpPwAudioDsp
   /* The remote pipewire */
   WpRemotePipewire *remote_pipewire;
 
-  /* Handler */
-  gulong proxy_done_handler_id;
-
   /* Props */
   GWeakRef endpoint;
   guint id;
   gchar *name;
   enum pw_direction direction;
+  gboolean convert;
   const struct pw_node_info *target;
   const struct spa_audio_info_raw *format;
+
+  /* All ports handled by the port added callback */
+  GHashTable *handled_ports;
 
   /* Proxies */
   WpProxyNode *proxy;
@@ -138,23 +140,6 @@ register_controls (WpPwAudioDsp * self)
 }
 
 static void
-on_audio_dsp_done(WpProxy *proxy, gpointer data)
-{
-  WpPwAudioDsp *self = data;
-
-  /* Don't do anything if the endpoint has already been initialized */
-  if (!self->init_task)
-    return;
-
-  /* Register the controls */
-  register_controls (self);
-
-  /* Finish the creation of the audio dsp */
-  g_task_return_boolean (self->init_task, TRUE);
-  g_clear_object(&self->init_task);
-}
-
-static void
 on_audio_dsp_port_created(GObject *initable, GAsyncResult *res,
     gpointer data)
 {
@@ -168,28 +153,24 @@ on_audio_dsp_port_created(GObject *initable, GAsyncResult *res,
   /* Add the proxy port to the array */
   g_return_if_fail (self->port_proxies);
   g_ptr_array_add(self->port_proxies, port_proxy);
-
-  /* Register a callback to know when all the dsp ports have been emitted */
-  if (!self->proxy_done_handler_id) {
-    self->proxy_done_handler_id = g_signal_connect_object(self->proxy,
-        "done", (GCallback)on_audio_dsp_done, self, 0);
-    wp_proxy_sync (WP_PROXY(self->proxy));
-  }
 }
 
 static void
-on_audio_dsp_port_added(WpRemotePipewire *rp, guint id, guint parent_id,
-    gconstpointer p, gpointer d)
+handled_ports_foreach_func (gpointer key, gpointer value, gpointer data)
 {
-  WpPwAudioDsp *self = d;
+  WpPwAudioDsp *self = data;
   const struct pw_node_info *dsp_info = NULL;
   struct pw_port_proxy *port_proxy = NULL;
+  const guint id = GPOINTER_TO_INT (key);
+  const guint parent_id = GPOINTER_TO_INT (value);
 
-  /* Make sure the port belongs to this audio dsp */
-  if (!self->proxy)
-    return;
-  dsp_info = wp_proxy_node_get_info (self->proxy);
-  if (!dsp_info || dsp_info->id != parent_id)
+  /* Get the dsp info */
+  g_return_if_fail (self->proxy);
+  dsp_info = wp_proxy_node_get_info(self->proxy);
+  g_return_if_fail (dsp_info);
+
+  /* Skip ports that are not owned by this DSP */
+  if (dsp_info->id != parent_id)
     return;
 
   /* Create the audio dsp port async */
@@ -197,6 +178,44 @@ on_audio_dsp_port_added(WpRemotePipewire *rp, guint id, guint parent_id,
       PW_TYPE_INTERFACE_Port);
   g_return_if_fail(port_proxy);
   wp_proxy_port_new(id, port_proxy, on_audio_dsp_port_created, self);
+}
+
+static void
+on_audio_dsp_done(WpProxy *proxy, gpointer data)
+{
+  WpPwAudioDsp *self = data;
+
+  g_return_if_fail (self->proxy);
+
+  /* Don't do anything if the endpoint has already been initialized */
+  if (!self->init_task)
+      return;
+
+  /* Create the proxis and sync to trigger this function again */
+  if (self->port_proxies->len == 0) {
+    g_hash_table_foreach (self->handled_ports, handled_ports_foreach_func, self);
+    wp_proxy_sync (WP_PROXY(self->proxy));
+    return;
+  }
+
+  /* Register the controls */
+  register_controls (self);
+
+  /* Finish the creation of the audio dsp */
+  g_task_return_boolean (self->init_task, TRUE);
+  g_clear_object(&self->init_task);
+}
+
+static void
+on_audio_dsp_port_added(WpRemotePipewire *rp, guint id, guint parent_id,
+    gconstpointer p, gpointer d)
+{
+  WpPwAudioDsp *self = d;
+
+  /* Add the port to the map if it is not already there */
+  if (!g_hash_table_contains (self->handled_ports, GUINT_TO_POINTER (id)))
+    g_hash_table_insert (self->handled_ports, GUINT_TO_POINTER(id),
+      GUINT_TO_POINTER(parent_id));
 }
 
 static void
@@ -348,18 +367,25 @@ on_audio_dsp_proxy_created(GObject *initable, GAsyncResult *res,
   /* Emit the props param */
   pw_node_proxy_enum_params (pw_proxy, 0, SPA_PARAM_Props, 0, -1, NULL);
 
-  /* Get the port format */
-  g_return_if_fail (self->format);
-  format = *self->format;
+  if (!self->convert) {
+    /* Get the port format */
+    g_return_if_fail (self->format);
+    format = *self->format;
 
-  /* Emit the ports */
-  spa_pod_builder_init(&pod_builder, buf, sizeof(buf));
-  param = spa_format_audio_raw_build(&pod_builder, SPA_PARAM_Format, &format);
-  param = spa_pod_builder_add_object(&pod_builder,
-      SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
-      SPA_PARAM_PROFILE_direction,  SPA_POD_Id(pw_direction_reverse(self->direction)),
-      SPA_PARAM_PROFILE_format,     SPA_POD_Pod(param));
-  pw_node_proxy_set_param(pw_proxy, SPA_PARAM_Profile, 0, param);
+    /* Emit the ports */
+    spa_pod_builder_init(&pod_builder, buf, sizeof(buf));
+    param = spa_format_audio_raw_build(&pod_builder, SPA_PARAM_Format, &format);
+    param = spa_pod_builder_add_object(&pod_builder,
+        SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
+        SPA_PARAM_PROFILE_direction,  SPA_POD_Id(pw_direction_reverse(self->direction)),
+        SPA_PARAM_PROFILE_format,     SPA_POD_Pod(param));
+    pw_node_proxy_set_param(pw_proxy, SPA_PARAM_Profile, 0, param);
+  }
+
+  /* Register a callback to know when all the dsp ports have been emitted */
+  g_signal_connect_object(self->proxy, "done", (GCallback)on_audio_dsp_done,
+      self, 0);
+  wp_proxy_sync (WP_PROXY(self->proxy));
 }
 
 static void
@@ -373,6 +399,10 @@ wp_pw_audio_dsp_finalize (GObject * object)
 
   /* Destroy the init task */
   g_clear_object(&self->init_task);
+
+  /* Destroy the handled ports map */
+  g_hash_table_unref(self->handled_ports);
+  self->handled_ports = NULL;
 
   /* Destroy the proxy dsp */
   g_clear_object(&self->proxy);
@@ -405,6 +435,9 @@ wp_pw_audio_dsp_set_property (GObject * object, guint property_id,
   case PROP_DIRECTION:
     self->direction = g_value_get_uint(value);
     break;
+  case PROP_CONVERT:
+    self->convert = g_value_get_boolean(value);
+    break;
   case PROP_TARGET:
     self->target = g_value_get_pointer(value);
     break;
@@ -435,6 +468,9 @@ wp_pw_audio_dsp_get_property (GObject * object, guint property_id,
     break;
   case PROP_DIRECTION:
     g_value_set_uint (value, self->direction);
+    break;
+  case PROP_CONVERT:
+    g_value_set_boolean (value, self->convert);
     break;
   case PROP_TARGET:
     g_value_set_pointer (value, (gpointer)self->target);
@@ -468,6 +504,9 @@ wp_pw_audio_dsp_init_async (GAsyncInitable *initable, int io_priority,
   /* Create the async task */
   self->init_task = g_task_new (initable, cancellable, callback, data);
 
+  /* Init the handled ports map */
+  self->handled_ports = g_hash_table_new (g_direct_hash, g_direct_equal);
+
   /* Init the list of port proxies */
   self->port_proxies = g_ptr_array_new_full(4, (GDestroyNotify)g_object_unref);
 
@@ -482,6 +521,7 @@ wp_pw_audio_dsp_init_async (GAsyncInitable *initable, int io_priority,
   /* Set the properties */
   pw_properties_set(props, "audio-dsp.name",
       self->name ? self->name : "Audio-DSP");
+  pw_properties_set(props, "audio-dsp.mode", self->convert ? "convert" : NULL);
   pw_properties_setf(props, "audio-dsp.direction", "%d", self->direction);
   pw_properties_setf(props, "audio-dsp.maxbuffer", "%ld",
       MAX_QUANTUM_SIZE * sizeof(float));
@@ -547,6 +587,10 @@ wp_pw_audio_dsp_class_init (WpPwAudioDspClass * klass)
       g_param_spec_uint ("direction", "direction",
           "The direction of the audio DSP", 0, 1, 0,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (object_class, PROP_CONVERT,
+      g_param_spec_boolean ("convert", "convert",
+          "Whether the DSP is only in convert mode or not", FALSE,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (object_class, PROP_TARGET,
       g_param_spec_pointer ("target", "target",
           "The target node info of the audio DSP",
@@ -559,8 +603,9 @@ wp_pw_audio_dsp_class_init (WpPwAudioDspClass * klass)
 
 void
 wp_pw_audio_dsp_new (WpEndpoint *endpoint, guint id, const char *name,
-    enum pw_direction direction, const struct pw_node_info *target,
-    const struct spa_audio_info_raw *format, GAsyncReadyCallback callback,
+    enum pw_direction direction, gboolean convert,
+    const struct pw_node_info *target, const struct spa_audio_info_raw *format,
+    GAsyncReadyCallback callback,
     gpointer user_data)
 {
   g_async_initable_new_async (
@@ -570,6 +615,7 @@ wp_pw_audio_dsp_new (WpEndpoint *endpoint, guint id, const char *name,
       "id", id,
       "name", name,
       "direction", direction,
+      "convert", convert,
       "target", target,
       "format", format,
       NULL);
