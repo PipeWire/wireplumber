@@ -733,13 +733,30 @@ wp_endpoint_get_links (WpEndpoint * self)
   return priv->links;
 }
 
+/**
+ * wp_endpoint_unlink:
+ * @self: the endpoint
+ *
+ * Unlinks all the endpoints linked to this endpoint
+ */
+void
+wp_endpoint_unlink (WpEndpoint * self)
+{
+  WpEndpointPrivate *priv;
+  gint i;
+
+  g_return_if_fail (WP_IS_ENDPOINT (self));
+
+  priv = wp_endpoint_get_instance_private (self);
+
+  for (i = priv->links->len - 1; i >= 0; i--)
+    wp_endpoint_link_destroy (g_ptr_array_index (priv->links, i));
+}
+
 
 typedef struct _WpEndpointLinkPrivate WpEndpointLinkPrivate;
 struct _WpEndpointLinkPrivate
 {
-  /* The task to signal the endpoint link is initialized */
-  GTask *init_task;
-
   GWeakRef src;
   guint32 src_stream;
   GWeakRef sink;
@@ -767,9 +784,6 @@ endpoint_link_finalize (GObject * object)
 {
   WpEndpointLinkPrivate *priv =
       wp_endpoint_link_get_instance_private (WP_ENDPOINT_LINK (object));
-
-  /* Destroy the init task */
-  g_clear_object(&priv->init_task);
 
   /* Clear the endpoint weak reaferences */
   g_weak_ref_clear(&priv->src);
@@ -837,34 +851,27 @@ wp_endpoint_link_init_async (GAsyncInitable *initable, int io_priority,
       wp_endpoint_link_get_instance_private (WP_ENDPOINT_LINK (initable));
   g_autoptr (WpEndpoint) src = g_weak_ref_get (&priv->src);
   g_autoptr (WpEndpoint) sink = g_weak_ref_get (&priv->sink);
-  g_autoptr (GError) error = NULL;
   g_autoptr (GVariant) src_props = NULL;
   g_autoptr (GVariant) sink_props = NULL;
   WpEndpointPrivate *endpoint_priv;
 
-  /* Create the async task */
-  priv->init_task = g_task_new (initable, cancellable, callback, data);
-
   /* Prepare the endpoints */
   if (!WP_ENDPOINT_GET_CLASS (src)->prepare_link (src, priv->src_stream, link,
-      &src_props, &error)) {
-    g_task_return_error (priv->init_task, error);
-    g_clear_object(&priv->init_task);
+      &src_props, NULL)) {
+    g_critical ("Failed to prepare link on source endpoint");
     return;
   }
   if (!WP_ENDPOINT_GET_CLASS (sink)->prepare_link (sink, priv->sink_stream,
-      link, &sink_props, &error)) {
-    g_task_return_error (priv->init_task, error);
-    g_clear_object(&priv->init_task);
+      link, &sink_props, NULL)) {
+    g_critical ("Failed to prepare link on sink endpoint");
     return;
   }
 
   /* Create the link */
   g_return_if_fail (WP_ENDPOINT_LINK_GET_CLASS (link)->create);
   if (!WP_ENDPOINT_LINK_GET_CLASS (link)->create (link, src_props,
-      sink_props, &error)) {
-    g_task_return_error (priv->init_task, error);
-    g_clear_object(&priv->init_task);
+      sink_props, NULL)) {
+    g_critical ("Failed to create link in src and sink endpoints");
     return;
   }
 
@@ -873,10 +880,6 @@ wp_endpoint_link_init_async (GAsyncInitable *initable, int io_priority,
   g_ptr_array_add (endpoint_priv->links, g_object_ref (link));
   endpoint_priv = wp_endpoint_get_instance_private (sink);
   g_ptr_array_add (endpoint_priv->links, g_object_ref (link));
-
-  /* Finish the creation of the endpoint */
-  g_task_return_boolean (priv->init_task, TRUE);
-  g_clear_object(&priv->init_task);
 }
 
 static gboolean
@@ -1048,6 +1051,8 @@ wp_endpoint_link_destroy (WpEndpointLink * self)
   src = g_weak_ref_get (&priv->src);
   sink = g_weak_ref_get (&priv->sink);
 
+  WP_ENDPOINT_LINK_GET_CLASS (self)->destroy (self);
+
   if (src && WP_ENDPOINT_GET_CLASS (src)->release_link)
     WP_ENDPOINT_GET_CLASS (src)->release_link (src, self);
   if (sink && WP_ENDPOINT_GET_CLASS (sink)->release_link)
@@ -1061,6 +1066,4 @@ wp_endpoint_link_destroy (WpEndpointLink * self)
     endpoint_priv = wp_endpoint_get_instance_private (sink);
     g_ptr_array_remove_fast (endpoint_priv->links, self);
   }
-
-  WP_ENDPOINT_LINK_GET_CLASS (self)->destroy (self);
 }

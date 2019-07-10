@@ -68,6 +68,7 @@ void wp_endpoint_notify_control_value (WpEndpoint * self, guint32 control_id);
 
 gboolean wp_endpoint_is_linked (WpEndpoint * self);
 GPtrArray * wp_endpoint_get_links (WpEndpoint * self);
+void wp_endpoint_unlink (WpEndpoint * self);
 
 struct _WpEndpointLinkClass
 {

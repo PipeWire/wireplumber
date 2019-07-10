@@ -27,8 +27,18 @@ struct _WpPipewireSimpleEndpointLink
 {
   WpEndpointLink parent;
 
-  /* The wireplumber core */
+  /* Props */
   GWeakRef core;
+  guint link_count;
+
+  /* The task to signal the simple endpoint link is initialized */
+  GTask *init_task;
+
+  /* Handler */
+  gulong proxy_done_handler_id;
+
+  /* The link proxies */
+  GPtrArray *link_proxies;
 };
 
 enum {
@@ -36,23 +46,70 @@ enum {
   PROP_CORE,
 };
 
+static GAsyncInitableIface *wp_simple_endpoint_link_parent_interface = NULL;
+static void wp_simple_endpoint_link_async_initable_init (gpointer iface,
+    gpointer iface_data);
+
 G_DECLARE_FINAL_TYPE (WpPipewireSimpleEndpointLink,
     simple_endpoint_link, WP_PIPEWIRE, SIMPLE_ENDPOINT_LINK, WpEndpointLink)
 
-G_DEFINE_TYPE (WpPipewireSimpleEndpointLink,
-    simple_endpoint_link, WP_TYPE_ENDPOINT_LINK)
+G_DEFINE_TYPE_WITH_CODE (WpPipewireSimpleEndpointLink, simple_endpoint_link,
+    WP_TYPE_ENDPOINT_LINK,
+    G_IMPLEMENT_INTERFACE (G_TYPE_ASYNC_INITABLE,
+                           wp_simple_endpoint_link_async_initable_init))
+
+static void
+wp_simple_endpoint_link_init_async (GAsyncInitable *initable, int io_priority,
+    GCancellable *cancellable, GAsyncReadyCallback callback, gpointer data)
+{
+  WpPipewireSimpleEndpointLink *self =
+      WP_PIPEWIRE_SIMPLE_ENDPOINT_LINK (initable);
+
+  /* Create the async task */
+  self->init_task = g_task_new (initable, cancellable, callback, data);
+
+  /* Call the parent interface */
+  wp_simple_endpoint_link_parent_interface->init_async (initable,
+      io_priority, cancellable, callback, data);
+}
+
+static void
+wp_simple_endpoint_link_async_initable_init (gpointer iface,
+    gpointer iface_data)
+{
+  GAsyncInitableIface *ai_iface = iface;
+
+  /* Set the parent interface */
+  wp_simple_endpoint_link_parent_interface =
+      g_type_interface_peek_parent (iface);
+
+  /* Only set the init_async */
+  ai_iface->init_async = wp_simple_endpoint_link_init_async;
+}
 
 static void
 simple_endpoint_link_init (WpPipewireSimpleEndpointLink * self)
 {
   /* Init the core weak reference */
   g_weak_ref_init (&self->core, NULL);
+
+  /* Init the list of link proxies */
+  self->link_proxies = g_ptr_array_new_full(2, (GDestroyNotify)g_object_unref);
 }
 
 static void
 simple_endpoint_link_finalize (GObject * object)
 {
   WpPipewireSimpleEndpointLink *self = WP_PIPEWIRE_SIMPLE_ENDPOINT_LINK(object);
+
+  /* Destroy the init task */
+  g_clear_object(&self->init_task);
+
+  /* Destroy the proxies port */
+  if (self->link_proxies) {
+    g_ptr_array_free(self->link_proxies, TRUE);
+    self->link_proxies = NULL;
+  }
 
   /* Clear the core weak reference */
   g_weak_ref_clear (&self->core);
@@ -92,6 +149,37 @@ simple_endpoint_link_get_property (GObject * object, guint property_id,
   }
 }
 
+static void
+finish_simple_endpoint_link_creation(WpPipewireSimpleEndpointLink *self)
+{
+  /* Don't do anything if the link has already been initialized */
+  if (!self->init_task)
+    return;
+
+  /* Finish the creation of the audio dsp */
+  g_task_return_boolean (self->init_task, TRUE);
+  g_clear_object(&self->init_task);
+}
+
+static void
+on_proxy_link_created(GObject *initable, GAsyncResult *res, gpointer data)
+{
+  WpPipewireSimpleEndpointLink *self = data;
+  WpProxyLink *proxy_link = NULL;
+
+  /* Get the link */
+  proxy_link = wp_proxy_link_new_finish(initable, res, NULL);
+  g_return_if_fail (proxy_link);
+
+  /* Add the proxy link to the array */
+  g_ptr_array_add(self->link_proxies, proxy_link);
+  self->link_count--;
+
+  /* Finish the simple endpoint link creation if all links have been created */
+  if (self->link_count == 0)
+    finish_simple_endpoint_link_creation (self);
+}
+
 static gboolean
 simple_endpoint_link_create (WpEndpointLink * epl, GVariant * src_data,
     GVariant * sink_data, GError ** error)
@@ -105,6 +193,7 @@ simple_endpoint_link_create (WpEndpointLink * epl, GVariant * src_data,
   GVariantIter *out_iter, *in_iter;
   guint64 out_ptr, in_ptr;
   GHashTable *linked_ports = NULL;
+  struct pw_proxy *proxy;
 
   /* Get the remote pipewire */
   remote_pipewire = wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
@@ -152,8 +241,12 @@ simple_endpoint_link_create (WpEndpointLink * epl, GVariant * src_data,
       pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", in_id);
 
       /* Create the link */
-      wp_remote_pipewire_create_object(remote_pipewire, "link-factory",
+      proxy = wp_remote_pipewire_create_object(remote_pipewire, "link-factory",
           PW_TYPE_INTERFACE_Link, &props->dict);
+      g_return_val_if_fail (proxy, FALSE);
+      wp_proxy_link_new (pw_proxy_get_id(proxy), proxy, on_proxy_link_created,
+          self);
+      self->link_count++;
 
       /* Insert the port id in the hash table to know it is linked */
       g_hash_table_insert (linked_ports, GUINT_TO_POINTER(in_id), NULL);
@@ -172,9 +265,15 @@ simple_endpoint_link_create (WpEndpointLink * epl, GVariant * src_data,
 }
 
 static void
-simple_endpoint_link_destroy (WpEndpointLink * self)
+simple_endpoint_link_destroy (WpEndpointLink * epl)
 {
-  /* TODO destroy pw_links */
+  WpPipewireSimpleEndpointLink *self = WP_PIPEWIRE_SIMPLE_ENDPOINT_LINK(epl);
+
+  /* Destroy the proxies port */
+  if (self->link_proxies) {
+    g_ptr_array_free(self->link_proxies, TRUE);
+    self->link_proxies = NULL;
+  }
 }
 
 static void
