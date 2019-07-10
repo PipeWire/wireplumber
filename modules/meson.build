@@ -40,6 +40,18 @@ shared_library(
 )
 
 shared_library(
+  'wireplumber-module-pw-audio-client',
+  [
+    'module-pw-audio-client.c',
+  ],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-pw-audio-client"'],
+  install : true,
+  install_dir : wireplumber_module_dir,
+  dependencies : [wp_dep, pipewire_dep],
+)
+
+
+shared_library(
   'wireplumber-module-pw-alsa-udev',
   [
     'module-pw-alsa-udev.c',
