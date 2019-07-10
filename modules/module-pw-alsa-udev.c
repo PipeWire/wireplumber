@@ -20,6 +20,7 @@ struct impl
   WpModule *module;
   WpRemotePipewire *remote_pipewire;
   GHashTable *registered_endpoints;
+  GVariant *streams;
 };
 
 static void
@@ -73,6 +74,8 @@ on_node_added(WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
       "media-class", g_variant_new_string (media_class));
   g_variant_builder_add (&b, "{sv}",
       "global-id", g_variant_new_uint32 (id));
+  g_variant_builder_add (&b, "{sv}",
+      "streams", impl->streams);
   endpoint_props = g_variant_builder_end (&b);
 
   /* Create the endpoint async */
@@ -110,6 +113,8 @@ module_destroy (gpointer data)
   g_hash_table_unref(impl->registered_endpoints);
   impl->registered_endpoints = NULL;
 
+  g_clear_pointer (&impl->streams, g_variant_unref);
+
   /* Clean up */
   g_slice_free (struct impl, impl);
 }
@@ -134,6 +139,8 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   impl->remote_pipewire = rp;
   impl->registered_endpoints = g_hash_table_new_full (g_direct_hash,
       g_direct_equal, NULL, (GDestroyNotify)g_object_unref);
+  impl->streams = g_variant_lookup_value (args, "streams",
+      G_VARIANT_TYPE ("as"));
 
   /* Set destroy callback for impl */
   wp_module_set_destroy_callback (module, module_destroy, impl);
