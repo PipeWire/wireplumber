@@ -9,7 +9,7 @@
 #include "remote-pipewire.h"
 #include <pipewire/pipewire.h>
 
-/**
+/*
  * Integration between the PipeWire main loop and GMainLoop
  */
 

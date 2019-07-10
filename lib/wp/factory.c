@@ -45,9 +45,16 @@ wp_factory_class_init (WpFactoryClass * klass)
   object_class->finalize = wp_factory_finalize;
 }
 
+/**
+ * wp_factory_new:
+ * @core: the core
+ * @name: the name of the factory
+ * @func: the create object callback
+ *
+ * Returns: (transfer full): the newly created factory
+ */
 WpFactory *
-wp_factory_new (WpCore * core, const gchar * name,
-    WpFactoryFunc func)
+wp_factory_new (WpCore * core, const gchar * name, WpFactoryFunc func)
 {
   WpFactory *f = NULL;
 
@@ -114,6 +121,13 @@ find_factory_func (GQuark key, gpointer global, gpointer user_data)
   return WP_CORE_FOREACH_GLOBAL_DONE;
 }
 
+/**
+ * wp_factory_find:
+ * @core: the core
+ * @name: the lookup name
+ *
+ * Returns: (transfer none): the factory matching the lookup name
+ */
 WpFactory *
 wp_factory_find (WpCore * core, const gchar * name)
 {
