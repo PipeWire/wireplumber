@@ -23,21 +23,28 @@ struct client_data
 static gboolean
 do_free_client_data (gpointer data)
 {
-  g_slice_free (struct client_data, data);
+  g_rc_box_release (data);
   return G_SOURCE_REMOVE;
 }
 
 static void
 proxy_destroy (void *data)
 {
+  struct client_data *d = data;
+  d->proxy = NULL;
+  /* destroy later because we can't free the memory of the proxy_listener
+   * while we are running in one of its callbacks */
   g_idle_add (do_free_client_data, data);
 }
 
 static gboolean
 do_destroy_proxy (gpointer data)
 {
-  g_debug ("Destroying client proxy %p", data);
-  pw_proxy_destroy ((struct pw_proxy *) data);
+  struct client_data *d = data;
+  if (d->proxy) {
+    g_debug ("Destroying client proxy %p", d->proxy);
+    pw_proxy_destroy (d->proxy);
+  }
   return G_SOURCE_REMOVE;
 }
 
@@ -46,9 +53,12 @@ proxy_done (void *data, int seq)
 {
   struct client_data *d = data;
 
-  /* the proxy is not useful to keep around once we have changed permissions */
+  /* the proxy is not useful to keep around once we have changed permissions.
+   * take an extra ref on the client data because the proxy may
+   * disappear on its own if the client disconnects in the meantime */
   if (d->done)
-    g_idle_add (do_destroy_proxy, d->proxy);
+    g_idle_add_full (G_PRIORITY_DEFAULT_IDLE, do_destroy_proxy,
+        g_rc_box_acquire (d), g_rc_box_release);
 }
 
 static const struct pw_proxy_events proxy_events = {
@@ -95,7 +105,7 @@ client_added (WpRemotePipewire * remote, guint32 id, guint32 parent_id,
 {
   struct client_data *d;
 
-  d = g_slice_new0 (struct client_data);
+  d = g_rc_box_new0 (struct client_data);
 
   d->proxy = wp_remote_pipewire_proxy_bind (remote, id,
       PW_TYPE_INTERFACE_Client);
