@@ -6,6 +6,7 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "error.h"
 #include "proxy-link.h"
 #include <pipewire/pipewire.h>
 
@@ -15,7 +16,7 @@ struct _WpProxyLink
 
   /* The task to signal the proxy is initialized */
   GTask *init_task;
-  
+
   /* The link proxy listener */
   struct spa_hook listener;
 
@@ -70,6 +71,22 @@ wp_proxy_link_finalize (GObject * object)
 }
 
 static void
+wp_proxy_link_destroy (WpProxy * proxy)
+{
+  WpProxyLink *self = WP_PROXY_LINK(proxy);
+  GError *error = NULL;
+
+  /* Return error if the pipewire destruction happened while the async creation
+   * of this proxy link object has not finished */
+  if (self->init_task) {
+    g_set_error (&error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "pipewire link proxy destroyed before finishing");
+    g_task_return_error (self->init_task, error);
+    g_clear_object (&self->init_task);
+  }
+}
+
+static void
 wp_proxy_link_init_async (GAsyncInitable *initable, int io_priority,
     GCancellable *cancellable, GAsyncReadyCallback callback, gpointer data)
 {
@@ -105,8 +122,11 @@ static void
 wp_proxy_link_class_init (WpProxyLinkClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
+  WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
   object_class->finalize = wp_proxy_link_finalize;
+
+  proxy_class->destroy = wp_proxy_link_destroy;
 }
 
 void

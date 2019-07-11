@@ -23,6 +23,9 @@ struct _WpProxyClass
 {
   GObjectClass parent_class;
 
+  /* Methods */
+  void (*destroy) (WpProxy * self);
+
   /* Signals */
   void (*done)(WpProxy *wp_proxy, gpointer data);
 };

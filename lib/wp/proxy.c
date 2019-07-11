@@ -50,6 +50,10 @@ proxy_event_destroy (void *data)
 
   /* Set the proxy to NULL */
   self->proxy = NULL;
+
+  /* Call the destroy method */
+  if (WP_PROXY_GET_CLASS (data)->destroy)
+    WP_PROXY_GET_CLASS (data)->destroy (data);
 }
 
 static void

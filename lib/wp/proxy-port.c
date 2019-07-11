@@ -6,6 +6,7 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "error.h"
 #include "proxy-port.h"
 #include <pipewire/pipewire.h>
 #include <spa/param/audio/format-utils.h>
@@ -100,6 +101,22 @@ wp_proxy_port_finalize (GObject * object)
 }
 
 static void
+wp_proxy_port_destroy (WpProxy * proxy)
+{
+  WpProxyPort *self = WP_PROXY_PORT(proxy);
+  GError *error = NULL;
+
+  /* Return error if the pipewire destruction happened while the async creation
+   * of this proxy port object has not finished */
+  if (self->init_task) {
+    g_set_error (&error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "pipewire port proxy destroyed before finishing");
+    g_task_return_error (self->init_task, error);
+    g_clear_object (&self->init_task);
+  }
+}
+
+static void
 wp_proxy_port_init_async (GAsyncInitable *initable, int io_priority,
     GCancellable *cancellable, GAsyncReadyCallback callback, gpointer data)
 {
@@ -139,8 +156,11 @@ static void
 wp_proxy_port_class_init (WpProxyPortClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
+  WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
   object_class->finalize = wp_proxy_port_finalize;
+
+  proxy_class->destroy = wp_proxy_port_destroy;
 }
 
 void
