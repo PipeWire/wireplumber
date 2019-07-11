@@ -58,7 +58,7 @@ struct _WpPwAudioDsp
   /* Proxies */
   WpProxyNode *proxy;
   GPtrArray *port_proxies;
-  struct pw_proxy *link_proxy;
+  WpProxyLink *link_proxy;
 
   /* Listener */
   struct spa_hook listener;
@@ -219,10 +219,21 @@ on_audio_dsp_port_added(WpRemotePipewire *rp, guint id, guint parent_id,
 }
 
 static void
+on_proxy_link_created(GObject *initable, GAsyncResult *res, gpointer data)
+{
+  WpPwAudioDsp *self = data;
+
+  /* Get the link */
+  self->link_proxy = wp_proxy_link_new_finish(initable, res, NULL);
+  g_return_if_fail (self->link_proxy);
+}
+
+static void
 on_audio_dsp_running(WpPwAudioDsp *self)
 {
   struct pw_properties *props;
   const struct pw_node_info *dsp_info = NULL;
+  struct pw_proxy *proxy = NULL;
 
   /* Return if the node has already been linked */
   if (self->link_proxy)
@@ -252,8 +263,10 @@ on_audio_dsp_running(WpPwAudioDsp *self)
   g_debug ("%p linking DSP to node", self);
 
   /* Create the link */
-  self->link_proxy = wp_remote_pipewire_create_object(self->remote_pipewire,
+  proxy = wp_remote_pipewire_create_object(self->remote_pipewire,
       "link-factory", PW_TYPE_INTERFACE_Link, &props->dict);
+  wp_proxy_link_new (pw_proxy_get_id(proxy), proxy, on_proxy_link_created,
+      self);
 
   /* Clean up */
   pw_properties_free(props);
@@ -262,10 +275,8 @@ on_audio_dsp_running(WpPwAudioDsp *self)
 static void
 on_audio_dsp_idle (WpPwAudioDsp *self)
 {
-  if (self->link_proxy != NULL) {
-    pw_proxy_destroy (self->link_proxy);
-    self->link_proxy = NULL;
-  }
+  /* Clear the proxy */
+  g_clear_object (&self->link_proxy);
 }
 
 static void
@@ -412,6 +423,9 @@ wp_pw_audio_dsp_finalize (GObject * object)
     g_ptr_array_free(self->port_proxies, TRUE);
     self->port_proxies = NULL;
   }
+
+  /* Destroy the link proxy */
+  g_clear_object (&self->link_proxy);
 
   G_OBJECT_CLASS (wp_pw_audio_dsp_parent_class)->finalize (object);
 }
