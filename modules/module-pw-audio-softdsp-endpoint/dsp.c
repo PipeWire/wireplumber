@@ -39,6 +39,7 @@ struct _WpPwAudioDsp
 
   /* The task to signal the audio dsp is initialized */
   GTask *init_task;
+  gboolean init_abort;
 
   /* The remote pipewire */
   WpRemotePipewire *remote_pipewire;
@@ -74,6 +75,37 @@ static void wp_pw_audio_dsp_async_initable_init (gpointer iface,
 G_DEFINE_TYPE_WITH_CODE (WpPwAudioDsp, wp_pw_audio_dsp, G_TYPE_OBJECT,
     G_IMPLEMENT_INTERFACE (G_TYPE_ASYNC_INITABLE,
                            wp_pw_audio_dsp_async_initable_init))
+
+typedef GObject* (*WpObjectNewFinishFunc)(GObject *initable, GAsyncResult *res,
+    GError **error);
+
+static GObject *
+object_safe_new_finish(WpPwAudioDsp * self, GObject *initable,
+    GAsyncResult *res, WpObjectNewFinishFunc new_finish_func)
+{
+  GObject *object = NULL;
+  GError *error = NULL;
+
+  /* Return NULL if we are already aborting */
+  if (self->init_abort)
+    return NULL;
+
+  /* Get the object */
+  object = G_OBJECT (new_finish_func (initable, res, &error));
+  g_return_val_if_fail (object, NULL);
+
+  /* Check for error */
+  if (error) {
+    g_clear_object (&object);
+    g_warning ("WpPwAudioDsp:%p Aborting construction", self);
+    self->init_abort = TRUE;
+    g_task_return_error (self->init_task, error);
+    g_clear_object (&self->init_task);
+    return NULL;
+  }
+
+  return object;
+}
 
 guint
 wp_pw_audio_dsp_id_encode (guint stream_id, guint control_id)
@@ -147,8 +179,10 @@ on_audio_dsp_port_created(GObject *initable, GAsyncResult *res,
   WpProxyPort *port_proxy = NULL;
 
   /* Get the proxy port */
-  port_proxy = wp_proxy_port_new_finish(initable, res, NULL);
-  g_return_if_fail (port_proxy);
+  port_proxy = WP_PROXY_PORT (object_safe_new_finish (self, initable, res,
+      (WpObjectNewFinishFunc)wp_proxy_port_new_finish));
+  if (!port_proxy)
+    return;
 
   /* Add the proxy port to the array */
   g_return_if_fail (self->port_proxies);
@@ -163,6 +197,10 @@ handled_ports_foreach_func (gpointer key, gpointer value, gpointer data)
   struct pw_port_proxy *port_proxy = NULL;
   const guint id = GPOINTER_TO_INT (key);
   const guint parent_id = GPOINTER_TO_INT (value);
+
+  /* Don't do anything if we are aborting */
+  if (self->init_abort)
+    return;
 
   /* Get the dsp info */
   g_return_if_fail (self->proxy);
@@ -224,7 +262,8 @@ on_proxy_link_created(GObject *initable, GAsyncResult *res, gpointer data)
   WpPwAudioDsp *self = data;
 
   /* Get the link */
-  self->link_proxy = wp_proxy_link_new_finish(initable, res, NULL);
+  self->link_proxy = WP_PROXY_LINK (object_safe_new_finish (self, initable,
+      res, (WpObjectNewFinishFunc)wp_proxy_link_new_finish));
   g_return_if_fail (self->link_proxy);
 }
 
@@ -366,8 +405,10 @@ on_audio_dsp_proxy_created(GObject *initable, GAsyncResult *res,
   struct spa_pod *param;
 
   /* Get the audio dsp proxy */
-  self->proxy = wp_proxy_node_new_finish(initable, res, NULL);
-  g_return_if_fail (self->proxy);
+  self->proxy = WP_PROXY_NODE (object_safe_new_finish (self, initable,
+      res, (WpObjectNewFinishFunc)wp_proxy_node_new_finish));
+  if (!self->proxy)
+    return;
 
   /* Add a custom dsp listener */
   pw_proxy = wp_proxy_get_pw_proxy(WP_PROXY(self->proxy));
@@ -575,6 +616,7 @@ wp_pw_audio_dsp_async_initable_init (gpointer iface, gpointer iface_data)
 static void
 wp_pw_audio_dsp_init (WpPwAudioDsp * self)
 {
+  self->init_abort = FALSE;
 }
 
 static void

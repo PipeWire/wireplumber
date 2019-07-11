@@ -31,6 +31,7 @@ struct _WpPipewireSimpleEndpoint
 
   /* The task to signal the endpoint is initialized */
   GTask *init_task;
+  gboolean init_abort;
 
   /* The remote pipewire */
   WpRemotePipewire *remote_pipewire;
@@ -73,6 +74,37 @@ G_DEFINE_TYPE_WITH_CODE (WpPipewireSimpleEndpoint, simple_endpoint,
     WP_TYPE_ENDPOINT,
     G_IMPLEMENT_INTERFACE (G_TYPE_ASYNC_INITABLE,
                            wp_simple_endpoint_async_initable_init))
+
+typedef GObject* (*WpObjectNewFinishFunc)(GObject *initable, GAsyncResult *res,
+    GError **error);
+
+static GObject *
+object_safe_new_finish(WpPipewireSimpleEndpoint * self, GObject *initable,
+    GAsyncResult *res, WpObjectNewFinishFunc new_finish_func)
+{
+  GObject *object = NULL;
+  GError *error = NULL;
+
+  /* Return NULL if we are already aborting */
+  if (self->init_abort)
+    return NULL;
+
+  /* Get the object */
+  object = G_OBJECT (new_finish_func (initable, res, &error));
+  g_return_val_if_fail (object, NULL);
+
+  /* Check for error */
+  if (error) {
+    g_clear_object (&object);
+    g_warning ("WpPipewireSimpleEndpoint:%p Aborting construction", self);
+    self->init_abort = TRUE;
+    g_task_return_error (self->init_task, error);
+    g_clear_object (&self->init_task);
+    return NULL;
+  }
+
+  return object;
+}
 
 static void
 node_proxy_param (void *object, int seq, uint32_t id,
@@ -146,8 +178,10 @@ on_proxy_port_created(GObject *initable, GAsyncResult *res, gpointer data)
   WpProxyPort *proxy_port = NULL;
 
   /* Get the proxy port */
-  proxy_port = wp_proxy_port_new_finish(initable, res, NULL);
-  g_return_if_fail (proxy_port);
+  proxy_port = WP_PROXY_PORT (object_safe_new_finish (self, initable, res,
+      (WpObjectNewFinishFunc)wp_proxy_port_new_finish));
+  if (!proxy_port)
+    return;
 
   /* Add the proxy port to the array */
   g_return_if_fail (self->proxies_port);
@@ -167,6 +201,10 @@ on_port_added(WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
 {
   WpPipewireSimpleEndpoint *self = d;
   struct pw_port_proxy *port_proxy = NULL;
+
+  /* Don't do anything if we are aborting */
+  if (self->init_abort)
+    return;
 
   /* Only handle ports owned by this endpoint */
   if (parent_id != self->global_id)
@@ -222,8 +260,10 @@ on_proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
   struct pw_node_proxy *node_proxy = NULL;
 
   /* Get the proxy node */
-  self->proxy_node = wp_proxy_node_new_finish(initable, res, NULL);
-  g_return_if_fail (self->proxy_node);
+  self->proxy_node = WP_PROXY_NODE (object_safe_new_finish (self, initable,
+      res, (WpObjectNewFinishFunc)wp_proxy_node_new_finish));
+  if (!self->proxy_node)
+    return;
 
   self->role = g_strdup (spa_dict_lookup (
           wp_proxy_node_get_info (self->proxy_node)->props, "media.role"));
@@ -319,6 +359,7 @@ wp_simple_endpoint_async_initable_init (gpointer iface, gpointer iface_data)
 static void
 simple_endpoint_init (WpPipewireSimpleEndpoint * self)
 {
+  self->init_abort = FALSE;
 }
 
 static void
