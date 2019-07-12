@@ -100,8 +100,8 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
   gssize bytes_read;
   gchar *cur, *linestart, *saveptr;
   gchar *cmd, *abi, *module, *props;
-  gint lineno = 1, block_lines = 1;
-  gboolean eof = FALSE, in_block = FALSE;
+  gint lineno = 1, block_lines = 1, in_block = 0;
+  gboolean eof = FALSE;
   GVariant *properties;
 
   linestart = cur = buffer;
@@ -125,10 +125,10 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
       while (cur - buffer < bytes_read && (in_block || *cur != '\n')) {
         switch (*cur) {
           case '{':
-            in_block = TRUE;
+            in_block++;
             break;
           case '}':
-            in_block = FALSE;
+            in_block--;
             break;
           case '\n':  // found a newline inside a block
             block_lines++;
