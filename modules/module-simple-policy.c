@@ -20,6 +20,7 @@ struct _WpSimplePolicy
   guint32 selected_ctl_id[2];
   gchar *default_playback;
   gchar *default_capture;
+  GQueue *unhandled_endpoints;
 };
 
 G_DECLARE_FINAL_TYPE (WpSimplePolicy, simple_policy, WP, SIMPLE_POLICY, WpPolicy)
@@ -28,6 +29,7 @@ G_DEFINE_TYPE (WpSimplePolicy, simple_policy, WP_TYPE_POLICY)
 static void
 simple_policy_init (WpSimplePolicy *self)
 {
+  self->unhandled_endpoints = g_queue_new ();
 }
 
 static void
@@ -37,6 +39,7 @@ simple_policy_finalize (GObject *object)
 
   g_free (self->default_playback);
   g_free (self->default_capture);
+  g_queue_free_full (self->unhandled_endpoints, (GDestroyNotify)g_object_unref);
 
   G_OBJECT_CLASS (simple_policy_parent_class)->finalize (object);
 }
@@ -249,21 +252,15 @@ on_endpoint_link_created(GObject *initable, GAsyncResult *res, gpointer d)
 }
 
 static gboolean
-simple_policy_handle_endpoint (WpPolicy *policy, WpEndpoint *ep)
+handle_client (WpPolicy *policy, WpEndpoint *ep)
 {
-  const char *media_class = NULL;
+  const char *media_class = wp_endpoint_get_media_class(ep);
   GVariantDict d;
   g_autoptr (WpCore) core = NULL;
   g_autoptr (WpEndpoint) target = NULL;
   guint32 stream_id;
   gboolean is_sink = FALSE;
   g_autofree gchar *role = NULL;
-
-  /* TODO: For now we only accept audio stream clients */
-  media_class = wp_endpoint_get_media_class(ep);
-  if (!g_str_has_prefix (media_class, "Stream") ||
-      !g_str_has_suffix (media_class, "Audio"))
-    return FALSE;
 
   /* Detect if the client is a sink or a source */
   is_sink = g_str_has_prefix (media_class, "Stream/Input");
@@ -282,11 +279,8 @@ simple_policy_handle_endpoint (WpPolicy *policy, WpEndpoint *ep)
 
   core = wp_policy_get_core (policy);
   target = wp_policy_find_endpoint (core, g_variant_dict_end (&d), &stream_id);
-  if (!target) {
-    g_warning ("Could not find a target endpoint\n");
-    /* TODO: we should kill the client, otherwise it's going to hang waiting */
+  if (!target)
     return FALSE;
-  }
 
   /* Unlink the target if it is already linked */
   if (wp_endpoint_is_linked (target))
@@ -302,6 +296,54 @@ simple_policy_handle_endpoint (WpPolicy *policy, WpEndpoint *ep)
   }
 
   return TRUE;
+}
+
+static void
+try_unhandled_clients (WpPolicy *policy)
+{
+  WpSimplePolicy *self = WP_SIMPLE_POLICY (policy);
+  WpEndpoint *ep = NULL;
+  GQueue *tmp = g_queue_new ();
+
+  /* Try to handle all the unhandled endpoints, and add them into a tmp queue
+   * if they were not handled */
+  while ((ep = g_queue_pop_head (self->unhandled_endpoints))) {
+    if (handle_client (policy, ep))
+      g_object_unref (ep);
+    else
+      g_queue_push_tail (tmp, ep);
+  }
+
+  /* Add back the unhandled endpoints to the unhandled queue */
+  while ((ep = g_queue_pop_head (tmp)))
+    g_queue_push_tail (self->unhandled_endpoints, ep);
+
+  /* Clean up */
+  g_queue_free_full (tmp, (GDestroyNotify)g_object_unref);
+}
+
+static gboolean
+simple_policy_handle_endpoint (WpPolicy *policy, WpEndpoint *ep)
+{
+  WpSimplePolicy *self = WP_SIMPLE_POLICY (policy);
+  const char *media_class = NULL;
+
+  /* TODO: For now we only accept audio stream clients */
+  media_class = wp_endpoint_get_media_class(ep);
+  if (!g_str_has_prefix (media_class, "Stream") ||
+      !g_str_has_suffix (media_class, "Audio")) {
+    /* Try handling unhandled endpoints if a non client one has been added */
+    try_unhandled_clients (policy);
+    return FALSE;
+  }
+
+  /* Handle the endpoint */
+  if (handle_client (policy, ep))
+    return TRUE;
+
+  /* Otherwise add it to the unhandled queue */
+  g_queue_push_tail (self->unhandled_endpoints, g_object_ref (ep));
+  return FALSE;
 }
 
 static WpEndpoint *
