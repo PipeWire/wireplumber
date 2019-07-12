@@ -43,6 +43,9 @@ simple_policy_finalize (GObject *object)
   g_free (self->default_capture);
   g_clear_pointer (&self->role_priorities, g_variant_unref);
 
+  if (self->pending_rescan)
+    g_source_remove (self->pending_rescan);
+
   G_OBJECT_CLASS (simple_policy_parent_class)->finalize (object);
 }
 
