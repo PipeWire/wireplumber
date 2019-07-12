@@ -20,16 +20,18 @@ struct _WpSimplePolicy
   guint32 selected_ctl_id[2];
   gchar *default_playback;
   gchar *default_capture;
-  GQueue *unhandled_endpoints;
+  GVariant *role_priorities;
+  guint pending_rescan;
 };
 
 G_DECLARE_FINAL_TYPE (WpSimplePolicy, simple_policy, WP, SIMPLE_POLICY, WpPolicy)
 G_DEFINE_TYPE (WpSimplePolicy, simple_policy, WP_TYPE_POLICY)
 
+static void simple_policy_rescan (WpSimplePolicy *self);
+
 static void
 simple_policy_init (WpSimplePolicy *self)
 {
-  self->unhandled_endpoints = g_queue_new ();
 }
 
 static void
@@ -39,7 +41,7 @@ simple_policy_finalize (GObject *object)
 
   g_free (self->default_playback);
   g_free (self->default_capture);
-  g_queue_free_full (self->unhandled_endpoints, (GDestroyNotify)g_object_unref);
+  g_clear_pointer (&self->role_priorities, g_variant_unref);
 
   G_OBJECT_CLASS (simple_policy_parent_class)->finalize (object);
 }
@@ -92,6 +94,9 @@ endpoint_notify_control_value (WpEndpoint * ep, guint control_id,
 
   /* notify policy watchers that things have changed */
   wp_policy_notify_changed (WP_POLICY (self));
+
+  /* rescan for clients that need to be linked */
+  simple_policy_rescan (self);
 }
 
 static void
@@ -111,6 +116,9 @@ select_endpoint (WpSimplePolicy *self, gint direction, WpEndpoint *ep,
 
   /* notify policy watchers that things have changed */
   wp_policy_notify_changed (WP_POLICY (self));
+
+  /* rescan for clients that need to be linked */
+  simple_policy_rescan (self);
 }
 
 static gboolean
@@ -205,6 +213,8 @@ simple_policy_endpoint_removed (WpPolicy *policy, WpEndpoint *ep)
   WpSimplePolicy *self = WP_SIMPLE_POLICY (policy);
   gint direction;
 
+  simple_policy_rescan (self);
+
   /* if the "selected" endpoint was removed, select another one */
 
   if (ep == self->selected[DIRECTION_SINK])
@@ -251,7 +261,7 @@ on_endpoint_link_created(GObject *initable, GAsyncResult *res, gpointer d)
   }
 }
 
-static gboolean
+static void
 handle_client (WpPolicy *policy, WpEndpoint *ep)
 {
   const char *media_class = wp_endpoint_get_media_class(ep);
@@ -259,17 +269,17 @@ handle_client (WpPolicy *policy, WpEndpoint *ep)
   g_autoptr (WpCore) core = NULL;
   g_autoptr (WpEndpoint) target = NULL;
   guint32 stream_id;
-  gboolean is_sink = FALSE;
+  gboolean is_capture = FALSE;
   g_autofree gchar *role = NULL;
 
-  /* Detect if the client is a sink or a source */
-  is_sink = g_str_has_prefix (media_class, "Stream/Input");
+  /* Detect if the client is doing capture or playback */
+  is_capture = g_str_has_prefix (media_class, "Stream/Input");
 
   /* Locate the target endpoint */
   g_variant_dict_init (&d, NULL);
   g_variant_dict_insert (&d, "action", "s", "link");
   g_variant_dict_insert (&d, "media.class", "s",
-      is_sink ? "Audio/Source" : "Audio/Sink");
+      is_capture ? "Audio/Source" : "Audio/Sink");
 
   g_object_get (ep, "role", &role, NULL);
   if (role)
@@ -280,46 +290,124 @@ handle_client (WpPolicy *policy, WpEndpoint *ep)
   core = wp_policy_get_core (policy);
   target = wp_policy_find_endpoint (core, g_variant_dict_end (&d), &stream_id);
   if (!target)
-    return FALSE;
+    return;
+
+  /* if the client is already linked... */
+  if (wp_endpoint_is_linked (ep)) {
+    g_autoptr (WpEndpoint) existing_target = NULL;
+    GPtrArray *links = wp_endpoint_get_links (ep);
+    WpEndpointLink *l = g_ptr_array_index (links, 0);
+
+    existing_target = is_capture ?
+        wp_endpoint_link_get_source_endpoint (l) :
+        wp_endpoint_link_get_sink_endpoint (l);
+
+    if (existing_target == target) {
+      /* ... do nothing if it's already linked to the correct target */
+      g_debug ("Client '%s' already linked correctly",
+          wp_endpoint_get_name (ep));
+      return;
+    } else {
+      /* ... or else unlink it and continue */
+      g_debug ("Unlink client '%s' from its previous target",
+          wp_endpoint_get_name (ep));
+      wp_endpoint_link_destroy (l);
+    }
+  }
 
   /* Unlink the target if it is already linked */
-  if (wp_endpoint_is_linked (target))
+  /* At this point we are certain that if the target is linked, it is linked
+   * with another client. If it was linked with @ep, we would have catched it
+   * above, where we check if the client is linked.
+   * In the capture case, we don't care, we just allow all clients to capture
+   * from the same device.
+   * In the playback case, we are certain that @ep has higher priority because
+   * this function is being called after sorting all the client endpoints
+   * and therefore we can safely unlink the previous client
+   */
+  if (wp_endpoint_is_linked (target) && !is_capture) {
+    g_debug ("Unlink target '%s' from other clients",
+        wp_endpoint_get_name (target));
     wp_endpoint_unlink (target);
+  }
 
   /* Link the client with the target */
-  if (is_sink) {
-    wp_endpoint_link_new (core, target, 0, ep, stream_id,
+  if (is_capture) {
+    wp_endpoint_link_new (core, target, stream_id, ep, 0,
         on_endpoint_link_created, NULL);
   } else {
     wp_endpoint_link_new (core, ep, 0, target, stream_id,
         on_endpoint_link_created, NULL);
   }
 
-  return TRUE;
+  return;
+}
+
+static gint
+compare_client_roles (gconstpointer a, gconstpointer b, gpointer user_data)
+{
+  GVariant *v = user_data;
+  WpEndpoint *ae = *(const gpointer *) a;
+  WpEndpoint *be = *(const gpointer *) b;
+  g_autofree gchar *a_role = NULL;
+  g_autofree gchar *b_role = NULL;
+  gint a_priority = 0, b_priority = 0;
+
+  /* if no role priorities specified, everything is equal */
+  if (!v) return 0;
+
+  g_object_get (ae, "role", &a_role, NULL);
+  g_object_get (be, "role", &b_role, NULL);
+
+  if (a_role)
+    g_variant_lookup (v, a_role, "i", &a_priority);
+  if (b_role)
+    g_variant_lookup (v, b_role, "i", &b_priority);
+
+  /* return b - a in order to sort descending */
+  return b_priority - a_priority;
+}
+
+static gboolean
+simple_policy_rescan_in_idle (WpSimplePolicy *self)
+{
+  g_autoptr (WpCore) core = wp_policy_get_core (WP_POLICY (self));
+  GPtrArray *endpoints;
+  WpEndpoint *ep;
+  gint i;
+
+  g_debug ("rescanning for clients that need linking");
+
+  endpoints = wp_endpoint_find (core, "Stream/Input/Audio");
+  if (endpoints) {
+    /* link all capture clients */
+    for (i = 0; i < endpoints->len; i++) {
+      ep = g_ptr_array_index (endpoints, i);
+      handle_client (WP_POLICY (self), ep);
+    }
+  }
+
+  endpoints = wp_endpoint_find (core, "Stream/Output/Audio");
+  if (endpoints && endpoints->len > 0) {
+    /* sort based on role priorities */
+    g_ptr_array_sort_with_data (endpoints, compare_client_roles,
+        self->role_priorities);
+
+    /* link the highest priority client */
+    ep = g_ptr_array_index (endpoints, 0);
+    handle_client (WP_POLICY (self), ep);
+  }
+
+  self->pending_rescan = 0;
+  return G_SOURCE_REMOVE;
 }
 
 static void
-try_unhandled_clients (WpPolicy *policy)
+simple_policy_rescan (WpSimplePolicy *self)
 {
-  WpSimplePolicy *self = WP_SIMPLE_POLICY (policy);
-  WpEndpoint *ep = NULL;
-  GQueue *tmp = g_queue_new ();
-
-  /* Try to handle all the unhandled endpoints, and add them into a tmp queue
-   * if they were not handled */
-  while ((ep = g_queue_pop_head (self->unhandled_endpoints))) {
-    if (handle_client (policy, ep))
-      g_object_unref (ep);
-    else
-      g_queue_push_tail (tmp, ep);
-  }
-
-  /* Add back the unhandled endpoints to the unhandled queue */
-  while ((ep = g_queue_pop_head (tmp)))
-    g_queue_push_tail (self->unhandled_endpoints, ep);
-
-  /* Clean up */
-  g_queue_free_full (tmp, (GDestroyNotify)g_object_unref);
+  if (!self->pending_rescan)
+    self->pending_rescan = g_idle_add (
+        (GSourceFunc) simple_policy_rescan_in_idle, self);
 }
 
 static gboolean
@@ -332,18 +420,12 @@ simple_policy_handle_endpoint (WpPolicy *policy, WpEndpoint *ep)
   media_class = wp_endpoint_get_media_class(ep);
   if (!g_str_has_prefix (media_class, "Stream") ||
       !g_str_has_suffix (media_class, "Audio")) {
-    /* Try handling unhandled endpoints if a non client one has been added */
-    try_unhandled_clients (policy);
     return FALSE;
   }
 
-  /* Handle the endpoint */
-  if (handle_client (policy, ep))
-    return TRUE;
-
-  /* Otherwise add it to the unhandled queue */
-  g_queue_push_tail (self->unhandled_endpoints, g_object_ref (ep));
-  return FALSE;
+  /* Schedule a rescan that will handle the endpoint */
+  simple_policy_rescan (self);
+  return TRUE;
 }
 
 static WpEndpoint *
@@ -431,5 +513,7 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
       NULL);
   g_variant_lookup (args, "default-playback-device", "s", &p->default_playback);
   g_variant_lookup (args, "default-capture-device", "s", &p->default_capture);
+  p->role_priorities = g_variant_lookup_value (args, "role-priorities",
+      G_VARIANT_TYPE ("a{si}"));
   wp_policy_register (WP_POLICY (p), core);
 }

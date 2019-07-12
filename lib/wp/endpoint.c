@@ -339,6 +339,12 @@ wp_endpoint_unregister (WpEndpoint * self)
   g_return_if_fail (WP_IS_ENDPOINT (self));
 
   priv = wp_endpoint_get_instance_private (self);
+
+  /* unlink before unregistering so that policy modules
+   * can find dangling unlinked endpoints */
+  for (gint i = priv->links->len - 1; i >= 0; i--)
+    wp_endpoint_link_destroy (g_ptr_array_index (priv->links, i));
+
   core = g_weak_ref_get (&priv->core);
   if (core) {
     g_info ("WpEndpoint:%p unregistering '%s' (%s)", self, priv->name,
