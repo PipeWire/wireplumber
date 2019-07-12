@@ -131,6 +131,12 @@ wp_remote_class_init (WpRemoteClass *klass)
       0, NULL, NULL, NULL, G_TYPE_NONE, 1, WP_TYPE_REMOTE_STATE);
 }
 
+/**
+ * wp_remote_get_core:
+ * @self: the remote
+ *
+ * Returns: (transfer full): the core of the remote
+ */
 WpCore *
 wp_remote_get_core (WpRemote *self)
 {

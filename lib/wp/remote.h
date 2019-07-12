@@ -13,11 +13,20 @@
 
 G_BEGIN_DECLS
 
+/**
+ * WpRemoteState:
+ * @WP_REMOTE_STATE_ERROR: remote is in error
+ * @WP_REMOTE_STATE_UNCONNECTED: not connected
+ * @WP_REMOTE_STATE_CONNECTING: connecting to remote service
+ * @WP_REMOTE_STATE_CONNECTED: remote is connected and ready
+ *
+ * The different states the remote can be
+ */
 typedef enum {
-  WP_REMOTE_STATE_ERROR = -1,       /**< remote is in error */
-  WP_REMOTE_STATE_UNCONNECTED = 0,  /**< not connected */
-  WP_REMOTE_STATE_CONNECTING = 1,   /**< connecting to remote service */
-  WP_REMOTE_STATE_CONNECTED = 2,    /**< remote is connected and ready */
+  WP_REMOTE_STATE_ERROR = -1,
+  WP_REMOTE_STATE_UNCONNECTED = 0,
+  WP_REMOTE_STATE_CONNECTING = 1,
+  WP_REMOTE_STATE_CONNECTED = 2,
 } WpRemoteState;
 
 #define WP_TYPE_REMOTE (wp_remote_get_type ())

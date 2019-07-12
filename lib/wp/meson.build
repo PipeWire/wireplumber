@@ -54,8 +54,8 @@ if get_option('introspection')
   gnome.generate_gir(wp_lib,
     namespace: 'Wp',
     nsversion: wireplumber_api_version,
-    sources: [wp_lib_sources, wp_lib_headers],
-    includes: ['GLib-2.0', 'GObject-2.0'],
+    sources: [wp_lib_sources, wp_lib_headers, enums],
+    includes: ['GLib-2.0', 'GObject-2.0', 'Gio-2.0'],
     install: true,
   )
 endif

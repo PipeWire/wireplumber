@@ -89,11 +89,11 @@ policy_mgr_endpoint_removed (WpCore *core, GQuark key, WpEndpoint *ep,
 }
 
 /**
- * WpPolicyManager::wp_policy_manager_get_instance:
+ * wp_policy_manager_get_instance:
  * @core: the #WpCore
  *
  * Returns: (transfer full): the instance of #WpPolicyManager that is
- *    registered on the @core
+ * registered on the @core
  */
 WpPolicyManager *
 wp_policy_manager_get_instance (WpCore *core)
@@ -260,6 +260,13 @@ wp_policy_get_rank (WpPolicy *self)
   priv = wp_policy_get_instance_private (self);
   return priv->rank;
 }
+
+/**
+ * wp_policy_get_core:
+ * @self: the policy
+ *
+ * Returns: (transfer full): the core of the policy
+ */
 
 WpCore *
 wp_policy_get_core (WpPolicy *self)

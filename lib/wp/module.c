@@ -108,9 +108,19 @@ wp_module_load_c (WpModule * self, WpCore * core,
   return TRUE;
 }
 
+/**
+ * wp_module_load:
+ * @core: the core
+ * @abi: the abi name of the module
+ * @module_name: the module name
+ * @args: the args passed to the module
+ * @error: return location for errors, or NULL to ignore
+ *
+ * Returns: (transfer full): the loaded module
+ */
 WpModule *
-wp_module_load (WpCore * core, const gchar * abi,
-    const gchar * module_name, GVariant * args, GError ** error)
+wp_module_load (WpCore * core, const gchar * abi, const gchar * module_name,
+    GVariant * args, GError ** error)
 {
   g_autoptr (WpModule) module = NULL;
 

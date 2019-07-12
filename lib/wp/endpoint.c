@@ -292,8 +292,7 @@ wp_endpoint_class_init (WpEndpointClass * klass)
  * Finishes the async construction of #WpEndpoint.
  */
 WpEndpoint *
-wp_endpoint_new_finish (GObject *initable, GAsyncResult *res,
-    GError **error)
+wp_endpoint_new_finish (GObject *initable, GAsyncResult *res, GError **error)
 {
   GAsyncInitable *ai = G_ASYNC_INITABLE(initable);
   return WP_ENDPOINT(g_async_initable_new_finish(ai, res, error));
@@ -403,6 +402,14 @@ find_endpoints (GQuark key, gpointer global, gpointer user_data)
   return WP_CORE_FOREACH_GLOBAL_CONTINUE;
 }
 
+/**
+ * wp_endpoint_find:
+ * @core: the core
+ * @media_class_lookup: the media class lookup string
+ *
+ * Returns: (element-type WpEndpoint) (transfer full): an array with all the
+ * endpoints matching the media class lookup string
+ */
 GPtrArray *
 wp_endpoint_find (WpCore * core, const gchar * media_class_lookup)
 {
@@ -935,6 +942,14 @@ wp_endpoint_link_class_init (WpEndpointLinkClass * klass)
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
+/**
+ * wp_endpoint_link_get_source_endpoint:
+ * @self: the endpoint
+ *
+ * Gets the source endpoint of the link
+ *
+ * Returns: (transfer full): the source endpoint
+ */
 WpEndpoint *
 wp_endpoint_link_get_source_endpoint (WpEndpointLink * self)
 {
@@ -957,6 +972,14 @@ wp_endpoint_link_get_source_stream (WpEndpointLink * self)
   return priv->src_stream;
 }
 
+/**
+ * wp_endpoint_link_get_sink_endpoint:
+ * @self: the endpoint
+ *
+ * Gets the sink endpoint of the link
+ *
+ * Returns: (transfer full): the sink endpoint
+ */
 WpEndpoint *
 wp_endpoint_link_get_sink_endpoint (WpEndpointLink * self)
 {

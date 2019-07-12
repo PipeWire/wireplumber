@@ -133,7 +133,7 @@ wp_core_get_global (WpCore * self, GQuark key)
 /**
  * wp_core_foreach_global: (method)
  * @self: the core
- * @callback: the function to call for each global object
+ * @callback: (scope call): the function to call for each global object
  * @user_data: data to passs to @callback
  *
  * Calls @callback for every global object registered
