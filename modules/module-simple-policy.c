@@ -257,6 +257,7 @@ simple_policy_handle_endpoint (WpPolicy *policy, WpEndpoint *ep)
   g_autoptr (WpEndpoint) target = NULL;
   guint32 stream_id;
   gboolean is_sink = FALSE;
+  g_autofree gchar *role = NULL;
 
   /* TODO: For now we only accept audio stream clients */
   media_class = wp_endpoint_get_media_class(ep);
@@ -272,6 +273,11 @@ simple_policy_handle_endpoint (WpPolicy *policy, WpEndpoint *ep)
   g_variant_dict_insert (&d, "action", "s", "link");
   g_variant_dict_insert (&d, "media.class", "s",
       is_sink ? "Audio/Source" : "Audio/Sink");
+
+  g_object_get (ep, "role", &role, NULL);
+  if (role)
+    g_variant_dict_insert (&d, "media.role", "s", role);
+
   /* TODO: more properties are needed here */
 
   core = wp_policy_get_core (policy);

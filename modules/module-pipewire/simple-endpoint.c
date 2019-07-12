@@ -27,6 +27,8 @@ struct _WpPipewireSimpleEndpoint
   /* The global-id this endpoint refers to */
   guint global_id;
 
+  gchar *role;
+
   /* The task to signal the endpoint is initialized */
   GTask *init_task;
 
@@ -52,6 +54,7 @@ struct _WpPipewireSimpleEndpoint
 enum {
   PROP_0,
   PROP_GLOBAL_ID,
+  PROP_ROLE,
 };
 
 enum {
@@ -222,6 +225,9 @@ on_proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
   self->proxy_node = wp_proxy_node_new_finish(initable, res, NULL);
   g_return_if_fail (self->proxy_node);
 
+  self->role = g_strdup (spa_dict_lookup (
+          wp_proxy_node_get_info (self->proxy_node)->props, "media.role"));
+
   /* Emit the ports */
   emit_endpoint_ports(self);
 
@@ -332,6 +338,8 @@ simple_endpoint_finalize (GObject * object)
   /* Destroy the done task */
   g_clear_object(&self->init_task);
 
+  g_free (self->role);
+
   G_OBJECT_CLASS (simple_endpoint_parent_class)->finalize (object);
 }
 
@@ -344,6 +352,10 @@ simple_endpoint_set_property (GObject * object, guint property_id,
   switch (property_id) {
   case PROP_GLOBAL_ID:
     self->global_id = g_value_get_uint(value);
+    break;
+  case PROP_ROLE:
+    g_free (self->role);
+    self->role = g_value_dup_string (value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -360,6 +372,9 @@ simple_endpoint_get_property (GObject * object, guint property_id,
   switch (property_id) {
   case PROP_GLOBAL_ID:
     g_value_set_uint (value, self->global_id);
+    break;
+  case PROP_ROLE:
+    g_value_set_string (value, self->role);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -482,6 +497,10 @@ simple_endpoint_class_init (WpPipewireSimpleEndpointClass * klass)
       g_param_spec_uint ("global-id", "global-id",
           "The global Id this endpoint refers to", 0, G_MAXUINT, 0,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (object_class, PROP_ROLE,
+      g_param_spec_string ("role", "role", "The role of the wrapped node", NULL,
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 }
 
 void
