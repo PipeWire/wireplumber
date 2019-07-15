@@ -216,12 +216,14 @@ on_proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
 
   /* Give a proper name to this endpoint based on ALSA properties */
   props = wp_proxy_node_get_info (self->proxy_node)->props;
-  name = g_strdup_printf ("%s on %s (%s / node %d)",
-      spa_dict_lookup (props, "alsa.pcm.name"),
-      spa_dict_lookup (props, "alsa.card.name"),
-      spa_dict_lookup (props, "alsa.device"),
-      wp_proxy_node_get_info (self->proxy_node)->id);
-  g_object_set (self, "name", name, NULL);
+  if (0 == g_strcmp0(spa_dict_lookup (props, "device.api"), "alsa")) {
+    name = g_strdup_printf ("%s on %s (%s / node %d)",
+        spa_dict_lookup (props, "alsa.pcm.name"),
+        spa_dict_lookup (props, "alsa.card.name"),
+        spa_dict_lookup (props, "alsa.device"),
+        wp_proxy_node_get_info (self->proxy_node)->id);
+    g_object_set (self, "name", name, NULL);
+  }
 
   /* Create the converter proxy */
   target = wp_proxy_node_get_info (self->proxy_node);
@@ -478,7 +480,7 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
   GAsyncReadyCallback ready, gpointer user_data)
 {
   g_autoptr (WpCore) core = NULL;
-  const gchar *media_class;
+  const gchar *name, *media_class;
   guint global_id;
   g_autoptr (GVariant) streams = NULL;
 
@@ -490,6 +492,8 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
   g_return_if_fail (core);
 
   /* Get the properties */
+  if (!g_variant_lookup (properties, "name", "&s", &name))
+      return;
   if (!g_variant_lookup (properties, "media-class", "&s", &media_class))
       return;
   if (!g_variant_lookup (properties, "global-id", "u", &global_id))
@@ -502,6 +506,7 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
   g_async_initable_new_async (
       endpoint_get_type (), G_PRIORITY_DEFAULT, NULL, ready, user_data,
       "core", core,
+      "name", name,
       "media-class", media_class,
       "global-id", global_id,
       "streams", streams,

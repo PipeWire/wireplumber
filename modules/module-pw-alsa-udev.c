@@ -59,7 +59,7 @@ on_node_added(WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
   struct impl *impl = d;
   const struct spa_dict *props = p;
   g_autoptr (WpCore) core = wp_module_get_core (impl->module);
-  const gchar *media_class;
+  const gchar *media_class, *name;
   GVariantBuilder b;
   g_autoptr (GVariant) endpoint_props = NULL;
 
@@ -75,8 +75,15 @@ on_node_added(WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
   if (g_str_has_prefix (media_class, "Audio/DSP"))
     return;
 
+  /* Get the name */
+  name = spa_dict_lookup (props, "media.name");
+  if (!name)
+    name = spa_dict_lookup (props, "node.name");
+
   /* Set the properties */
   g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
+  g_variant_builder_add (&b, "{sv}",
+      "name", g_variant_new_string (name));
   g_variant_builder_add (&b, "{sv}",
       "media-class", g_variant_new_string (media_class));
   g_variant_builder_add (&b, "{sv}",
