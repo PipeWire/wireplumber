@@ -273,7 +273,7 @@ handle_client (WpPolicy *policy, WpEndpoint *ep)
   g_autoptr (WpEndpoint) target = NULL;
   guint32 stream_id;
   gboolean is_capture = FALSE;
-  g_autofree gchar *role = NULL;
+  g_autofree gchar *role, *target_name = NULL;
 
   /* Detect if the client is doing capture or playback */
   is_capture = g_str_has_prefix (media_class, "Stream/Input");
@@ -288,12 +288,18 @@ handle_client (WpPolicy *policy, WpEndpoint *ep)
   if (role)
     g_variant_dict_insert (&d, "media.role", "s", role);
 
+  g_object_get (ep, "target", &target_name, NULL);
+  if (target_name)
+    g_variant_dict_insert (&d, "media.name", "s", target_name);
+
   /* TODO: more properties are needed here */
 
   core = wp_policy_get_core (policy);
   target = wp_policy_find_endpoint (core, g_variant_dict_end (&d), &stream_id);
-  if (!target)
+  if (!target) {
+    g_warning ("Could not find target endpoint");
     return;
+  }
 
   /* if the client is already linked... */
   if (wp_endpoint_is_linked (ep)) {
@@ -454,6 +460,7 @@ simple_policy_find_endpoint (WpPolicy *policy, GVariant *props,
   g_autoptr (WpCore) core = NULL;
   g_autoptr (GPtrArray) ptr_array = NULL;
   const char *action = NULL;
+  const char *name = NULL;
   const char *media_class = NULL;
   const char *role = NULL;
   WpEndpoint *ep;
@@ -462,6 +469,7 @@ simple_policy_find_endpoint (WpPolicy *policy, GVariant *props,
   core = wp_policy_get_core (policy);
 
   g_variant_lookup (props, "action", "&s", &action);
+  g_variant_lookup (props, "media.name", "&s", &name);
 
   /* Get all the endpoints with the specific media class*/
   g_variant_lookup (props, "media.class", "&s", &media_class);
@@ -469,20 +477,28 @@ simple_policy_find_endpoint (WpPolicy *policy, GVariant *props,
   if (!ptr_array)
     return NULL;
 
-  /* Find and return the "selected" endpoint */
+  /* Find the endpoint with the matching name, otherwise get the one with the
+   * "selected" flag */
   for (i = 0; i < ptr_array->len; i++) {
     ep = g_ptr_array_index (ptr_array, i);
-    g_autoptr (GVariant) value = NULL;
-    guint id;
+    if (name) {
+      if (g_str_has_prefix(wp_endpoint_get_name (ep), name)) {
+        g_object_ref (ep);
+        goto select_stream;
+      }
+    } else {
+      g_autoptr (GVariant) value = NULL;
+      guint id;
 
-    id = wp_endpoint_find_control (ep, WP_STREAM_ID_NONE, "selected");
-    if (id == WP_CONTROL_ID_NONE)
-      continue;
+      id = wp_endpoint_find_control (ep, WP_STREAM_ID_NONE, "selected");
+      if (id == WP_CONTROL_ID_NONE)
+        continue;
 
-    value = wp_endpoint_get_control_value (ep, id);
-    if (value && g_variant_get_boolean (value)) {
-      g_object_ref (ep);
-      goto select_stream;
+      value = wp_endpoint_get_control_value (ep, id);
+      if (value && g_variant_get_boolean (value)) {
+        g_object_ref (ep);
+        goto select_stream;
+      }
     }
   }
 
