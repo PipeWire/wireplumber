@@ -471,7 +471,7 @@ simple_policy_find_endpoint (WpPolicy *policy, GVariant *props,
   }
 
   /* If not found, return the first endpoint */
-  ep = (ptr_array->len > 1) ?
+  ep = (ptr_array->len > 0) ?
     g_object_ref (g_ptr_array_index (ptr_array, 0)) : NULL;
 
 select_stream:

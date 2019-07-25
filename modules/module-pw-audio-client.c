@@ -27,11 +27,18 @@ on_endpoint_created(GObject *initable, GAsyncResult *res, gpointer d)
   struct module_data *data = d;
   WpEndpoint *endpoint = NULL;
   guint global_id = 0;
+  GError *error = NULL;
 
   /* Get the endpoint */
   endpoint = wp_endpoint_new_finish(initable, res, NULL);
-  if (!endpoint)
+  g_return_if_fail (endpoint);
+
+  /* Check for error */
+  if (error) {
+    g_clear_object (&endpoint);
+    g_warning ("Failed to create client endpoint: %s", error->message);
     return;
+  }
 
   /* Get the endpoint global id */
   g_object_get (endpoint, "global-id", &global_id, NULL);

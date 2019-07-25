@@ -229,8 +229,10 @@ simple_endpoint_link_create (WpEndpointLink * epl, GVariant * src_data,
       if (in_direction == PW_DIRECTION_OUTPUT)
         continue;
 
-      /* Skip the port if it is already linked */
+      /* Skip the ports if they are already linked */
       if (g_hash_table_contains (linked_ports, GUINT_TO_POINTER(in_id)))
+        continue;
+      if (g_hash_table_contains (linked_ports, GUINT_TO_POINTER(out_id)))
         continue;
 
       /* Create the properties */
@@ -248,8 +250,9 @@ simple_endpoint_link_create (WpEndpointLink * epl, GVariant * src_data,
           self);
       self->link_count++;
 
-      /* Insert the port id in the hash table to know it is linked */
+      /* Insert the port ids in the hash tables to know they are linked */
       g_hash_table_insert (linked_ports, GUINT_TO_POINTER(in_id), NULL);
+      g_hash_table_insert (linked_ports, GUINT_TO_POINTER(out_id), NULL);
 
       /* Clean up */
       pw_properties_free(props);

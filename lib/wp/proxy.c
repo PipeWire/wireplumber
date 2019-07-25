@@ -46,10 +46,15 @@ G_DEFINE_ABSTRACT_TYPE_WITH_CODE (WpProxy, wp_proxy, G_TYPE_OBJECT,
 static void
 proxy_event_destroy (void *data)
 {
-  WpProxyPrivate *self = wp_proxy_get_instance_private (WP_PROXY(data));
+  WpProxy *self = WP_PROXY (data);
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
 
   /* Set the proxy to NULL */
-  self->proxy = NULL;
+  priv->proxy = NULL;
+
+  /* Call the destroy method */
+  if (WP_PROXY_GET_CLASS (self)->destroy)
+    WP_PROXY_GET_CLASS (self)->destroy (self);
 }
 
 static void
@@ -68,24 +73,24 @@ static const struct pw_proxy_events proxy_events = {
 static void
 wp_proxy_constructed (GObject * object)
 {
-  WpProxyPrivate *self = wp_proxy_get_instance_private (WP_PROXY(object));
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (WP_PROXY(object));
 
   /* Add the event listener */
-  pw_proxy_add_listener (self->proxy, &self->listener, &proxy_events, object);
+  pw_proxy_add_listener (priv->proxy, &priv->listener, &proxy_events, object);
 }
 
 static void
 wp_proxy_finalize (GObject * object)
 {
-  WpProxyPrivate *self = wp_proxy_get_instance_private (WP_PROXY(object));
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (WP_PROXY(object));
 
   g_debug ("%s:%p destroyed (pw proxy %p)", G_OBJECT_TYPE_NAME (object),
-      object, self->proxy);
+      object, priv->proxy);
 
   /* Destroy the proxy */
-  if (self->proxy) {
-    pw_proxy_destroy (self->proxy);
-    self->proxy = NULL;
+  if (priv->proxy) {
+    pw_proxy_destroy (priv->proxy);
+    priv->proxy = NULL;
   }
 
   G_OBJECT_CLASS (wp_proxy_parent_class)->finalize (object);
@@ -95,14 +100,14 @@ static void
 wp_proxy_set_property (GObject * object, guint property_id,
     const GValue * value, GParamSpec * pspec)
 {
-  WpProxyPrivate *self = wp_proxy_get_instance_private (WP_PROXY(object));
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (WP_PROXY(object));
 
   switch (property_id) {
   case PROP_GLOBAL_ID:
-    self->global_id = g_value_get_uint (value);
+    priv->global_id = g_value_get_uint (value);
     break;
   case PROP_PROXY:
-    self->proxy = g_value_get_pointer (value);
+    priv->proxy = g_value_get_pointer (value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -114,14 +119,14 @@ static void
 wp_proxy_get_property (GObject * object, guint property_id, GValue * value,
     GParamSpec * pspec)
 {
-  WpProxyPrivate *self = wp_proxy_get_instance_private (WP_PROXY(object));
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (WP_PROXY(object));
 
   switch (property_id) {
   case PROP_GLOBAL_ID:
-    g_value_set_uint (value, self->global_id);
+    g_value_set_uint (value, priv->global_id);
     break;
   case PROP_PROXY:
-    g_value_set_pointer (value, self->proxy);
+    g_value_set_pointer (value, priv->proxy);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
