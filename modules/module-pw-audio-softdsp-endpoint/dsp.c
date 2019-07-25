@@ -399,7 +399,7 @@ on_audio_dsp_proxy_created(GObject *initable, GAsyncResult *res,
   struct pw_node_proxy *pw_proxy = NULL;
   struct spa_audio_info_raw format;
   uint8_t buf[1024];
-  struct spa_pod_builder pod_builder = { 0, };
+  struct spa_pod_builder pod_builder = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
   struct spa_pod *param;
 
   /* Get the audio dsp proxy */
@@ -427,7 +427,6 @@ on_audio_dsp_proxy_created(GObject *initable, GAsyncResult *res,
     format.position[1] = SPA_AUDIO_CHANNEL_FR;
 
     /* Emit the ports */
-    spa_pod_builder_init(&pod_builder, buf, sizeof(buf));
     param = spa_format_audio_raw_build(&pod_builder, SPA_PARAM_Format, &format);
     param = spa_pod_builder_add_object(&pod_builder,
         SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
