@@ -230,13 +230,13 @@ emit_endpoint_ports(WpPipewireSimpleEndpoint *self)
   node_proxy = wp_proxy_get_pw_proxy(WP_PROXY(self->proxy_node));
   g_return_if_fail (node_proxy);
 
-  /* TODO: Assume all clients have this format for now */
+  /* The default format for audio clients */
   format.format = SPA_AUDIO_FORMAT_F32P;
   format.flags = 1;
   format.rate = 48000;
   format.channels = 2;
-  format.position[0] = 0;
-  format.position[1] = 0;
+  format.position[0] = SPA_AUDIO_CHANNEL_FL;
+  format.position[1] = SPA_AUDIO_CHANNEL_FR;
 
   /* Build the param profile */
   spa_pod_builder_init(&pod_builder, buf, sizeof(buf));

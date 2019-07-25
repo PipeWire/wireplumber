@@ -169,7 +169,6 @@ on_audio_dsp_converter_created(GObject *initable, GAsyncResult *res,
   WpPwAudioSoftdspEndpoint *self = data;
   g_autoptr (WpCore) core = wp_endpoint_get_core(WP_ENDPOINT(self));
   const struct pw_node_info *target = NULL;
-  const struct spa_audio_info_raw *format = NULL;
   GVariantDict d;
   GVariantIter iter;
   const gchar *stream;
@@ -184,14 +183,12 @@ on_audio_dsp_converter_created(GObject *initable, GAsyncResult *res,
   /* Get the target and format */
   target = wp_pw_audio_dsp_get_info (self->converter);
   g_return_if_fail (target);
-  g_object_get (self->converter, "format", &format, NULL);
-  g_return_if_fail (format);
 
   /* Create the audio dsp streams */
   g_variant_iter_init (&iter, self->streams);
   for (i = 0; g_variant_iter_next (&iter, "&s", &stream); i++) {
-    wp_pw_audio_dsp_new (WP_ENDPOINT(self), i, stream, self->direction,
-        FALSE, target, format, on_audio_dsp_stream_created, self);
+    wp_pw_audio_dsp_new (WP_ENDPOINT(self), i, stream, self->direction, FALSE,
+        target, on_audio_dsp_stream_created, self);
 
     /* Register the stream */
     g_variant_dict_init (&d, NULL);
@@ -210,7 +207,6 @@ on_proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
   g_autofree gchar *name = NULL;
   const struct spa_dict *props;
   const struct pw_node_info *target = NULL;
-  const struct spa_audio_info_raw *format = NULL;
 
   /* Get the proxy node */
   self->proxy_node = WP_PROXY_NODE (object_safe_new_finish (self, initable,
@@ -230,13 +226,8 @@ on_proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
   /* Create the converter proxy */
   target = wp_proxy_node_get_info (self->proxy_node);
   g_return_if_fail (target);
-  format = wp_proxy_port_get_format (self->proxy_port);
-  g_return_if_fail (format);
-  /* TODO: For now we create convert as a stream because convert mode does not
-   * generate any ports, not sure why */
   wp_pw_audio_dsp_new (WP_ENDPOINT(self), WP_STREAM_ID_NONE, "master",
-      self->direction, TRUE, target, format, on_audio_dsp_converter_created,
-      self);
+      self->direction, TRUE, target, on_audio_dsp_converter_created, self);
 }
 
 static void

@@ -20,8 +20,8 @@ void wp_pw_audio_dsp_id_decode (guint id, guint *stream_id, guint *control_id);
 
 void wp_pw_audio_dsp_new (WpEndpoint *endpoint, guint id, const char *name,
     enum pw_direction direction, gboolean convert,
-    const struct pw_node_info *target, const struct spa_audio_info_raw *format,
-    GAsyncReadyCallback callback, gpointer user_data);
+    const struct pw_node_info *target, GAsyncReadyCallback callback,
+    gpointer user_data);
 WpPwAudioDsp * wp_pw_audio_dsp_new_finish (GObject *initable, GAsyncResult *res,
     GError **error);
 

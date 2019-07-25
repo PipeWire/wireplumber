@@ -24,7 +24,6 @@ enum {
   PROP_DIRECTION,
   PROP_CONVERT,
   PROP_TARGET,
-  PROP_FORMAT,
 };
 
 enum {
@@ -51,7 +50,6 @@ struct _WpPwAudioDsp
   enum pw_direction direction;
   gboolean convert;
   const struct pw_node_info *target;
-  const struct spa_audio_info_raw *format;
 
   /* All ports handled by the port added callback */
   GHashTable *handled_ports;
@@ -420,9 +418,13 @@ on_audio_dsp_proxy_created(GObject *initable, GAsyncResult *res,
   pw_node_proxy_enum_params (pw_proxy, 0, SPA_PARAM_Props, 0, -1, NULL);
 
   if (!self->convert) {
-    /* Get the port format */
-    g_return_if_fail (self->format);
-    format = *self->format;
+    /* Use the default format */
+    format.format = SPA_AUDIO_FORMAT_F32P;
+    format.flags = 1;
+    format.rate = 48000;
+    format.channels = 2;
+    format.position[0] = SPA_AUDIO_CHANNEL_FL;
+    format.position[1] = SPA_AUDIO_CHANNEL_FR;
 
     /* Emit the ports */
     spa_pod_builder_init(&pod_builder, buf, sizeof(buf));
@@ -496,9 +498,6 @@ wp_pw_audio_dsp_set_property (GObject * object, guint property_id,
   case PROP_TARGET:
     self->target = g_value_get_pointer(value);
     break;
-  case PROP_FORMAT:
-    self->format = g_value_get_pointer(value);
-    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
@@ -529,9 +528,6 @@ wp_pw_audio_dsp_get_property (GObject * object, guint property_id,
     break;
   case PROP_TARGET:
     g_value_set_pointer (value, (gpointer)self->target);
-    break;
-  case PROP_FORMAT:
-    g_value_set_pointer (value, (gpointer)self->format);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -651,17 +647,12 @@ wp_pw_audio_dsp_class_init (WpPwAudioDspClass * klass)
       g_param_spec_pointer ("target", "target",
           "The target node info of the audio DSP",
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
-  g_object_class_install_property (object_class, PROP_FORMAT,
-      g_param_spec_pointer ("format", "format",
-          "The format of the audio DSP ports",
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
 void
 wp_pw_audio_dsp_new (WpEndpoint *endpoint, guint id, const char *name,
     enum pw_direction direction, gboolean convert,
-    const struct pw_node_info *target, const struct spa_audio_info_raw *format,
-    GAsyncReadyCallback callback,
+    const struct pw_node_info *target, GAsyncReadyCallback callback,
     gpointer user_data)
 {
   g_async_initable_new_async (
@@ -673,7 +664,6 @@ wp_pw_audio_dsp_new (WpEndpoint *endpoint, guint id, const char *name,
       "direction", direction,
       "convert", convert,
       "target", target,
-      "format", format,
       NULL);
 }
 
