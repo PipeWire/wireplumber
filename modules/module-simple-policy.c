@@ -375,7 +375,7 @@ static gboolean
 simple_policy_rescan_in_idle (WpSimplePolicy *self)
 {
   g_autoptr (WpCore) core = wp_policy_get_core (WP_POLICY (self));
-  GPtrArray *endpoints;
+  g_autoptr (GPtrArray) endpoints = NULL;
   WpEndpoint *ep;
   gint i;
 
