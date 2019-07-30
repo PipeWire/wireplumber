@@ -27,7 +27,9 @@ struct _WpPipewireSimpleEndpoint
   /* The global-id this endpoint refers to */
   guint global_id;
 
+  /* properties */
   gchar *role;
+  guint64 creation_time;
 
   /* The task to signal the endpoint is initialized */
   GTask *init_task;
@@ -56,6 +58,7 @@ enum {
   PROP_0,
   PROP_GLOBAL_ID,
   PROP_ROLE,
+  PROP_CREATION_TIME,
 };
 
 enum {
@@ -359,6 +362,7 @@ static void
 simple_endpoint_init (WpPipewireSimpleEndpoint * self)
 {
   self->init_abort = FALSE;
+  self->creation_time = (guint64) g_get_monotonic_time ();
 }
 
 static void
@@ -415,6 +419,9 @@ simple_endpoint_get_property (GObject * object, guint property_id,
     break;
   case PROP_ROLE:
     g_value_set_string (value, self->role);
+    break;
+  case PROP_CREATION_TIME:
+    g_value_set_uint64 (value, self->creation_time);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -541,6 +548,11 @@ simple_endpoint_class_init (WpPipewireSimpleEndpointClass * klass)
   g_object_class_install_property (object_class, PROP_ROLE,
       g_param_spec_string ("role", "role", "The role of the wrapped node", NULL,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (object_class, PROP_CREATION_TIME,
+      g_param_spec_uint64 ("creation-time", "creation-time",
+          "The time that this endpoint was created, in monotonic time",
+          0, G_MAXUINT64, 0, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 }
 
 void

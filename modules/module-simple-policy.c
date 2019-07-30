@@ -347,28 +347,44 @@ handle_client (WpPolicy *policy, WpEndpoint *ep)
 }
 
 static gint
-compare_client_roles (gconstpointer a, gconstpointer b, gpointer user_data)
+compare_client_priority (gconstpointer a, gconstpointer b, gpointer user_data)
 {
   GVariant *v = user_data;
   WpEndpoint *ae = *(const gpointer *) a;
   WpEndpoint *be = *(const gpointer *) b;
-  g_autofree gchar *a_role = NULL;
-  g_autofree gchar *b_role = NULL;
-  gint a_priority = 0, b_priority = 0;
+  gint ret = 0;
 
-  /* if no role priorities specified, everything is equal */
-  if (!v) return 0;
+  /* if no role priorities are specified, we treat all roles as equal */
+  if (v) {
+    g_autofree gchar *a_role = NULL;
+    g_autofree gchar *b_role = NULL;
+    gint a_priority = 0, b_priority = 0;
 
-  g_object_get (ae, "role", &a_role, NULL);
-  g_object_get (be, "role", &b_role, NULL);
+    g_object_get (ae, "role", &a_role, NULL);
+    g_object_get (be, "role", &b_role, NULL);
 
-  if (a_role)
-    g_variant_lookup (v, a_role, "i", &a_priority);
-  if (b_role)
-    g_variant_lookup (v, b_role, "i", &b_priority);
+    if (a_role)
+      g_variant_lookup (v, a_role, "i", &a_priority);
+    if (b_role)
+      g_variant_lookup (v, b_role, "i", &b_priority);
 
-  /* return b - a in order to sort descending */
-  return b_priority - a_priority;
+    /* return b - a in order to sort descending */
+    ret = b_priority - a_priority;
+  }
+
+  /* when role priority is equal, the newest client wins */
+  if (ret == 0) {
+    guint64 a_time = 0, b_time = 0;
+
+    g_object_get (ae, "creation-time", &a_time, NULL);
+    g_object_get (be, "creation-time", &b_time, NULL);
+
+    /* since a_time and b_time are expressed in system monotonic time,
+     * there is absolutely no chance that they will be equal */
+    ret = (b_time > a_time) ? 1 : -1;
+  }
+
+  return ret;
 }
 
 static gboolean
@@ -393,7 +409,7 @@ simple_policy_rescan_in_idle (WpSimplePolicy *self)
   endpoints = wp_endpoint_find (core, "Stream/Output/Audio");
   if (endpoints && endpoints->len > 0) {
     /* sort based on role priorities */
-    g_ptr_array_sort_with_data (endpoints, compare_client_roles,
+    g_ptr_array_sort_with_data (endpoints, compare_client_priority,
         self->role_priorities);
 
     /* link the highest priority client */
