@@ -284,17 +284,17 @@ on_audio_dsp_running(WpPwAudioDsp *self)
   props = pw_properties_new(NULL, NULL);
 
   /* Set the new properties */
-  pw_properties_set(props, PW_LINK_PROP_PASSIVE, "true");
+  pw_properties_set(props, PW_KEY_LINK_PASSIVE, "true");
   if (self->direction == PW_DIRECTION_OUTPUT) {
-    pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", dsp_info->id);
-    pw_properties_setf(props, PW_LINK_OUTPUT_PORT_ID, "%d", -1);
-    pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", self->target->id);
-    pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", -1);
+    pw_properties_setf(props, PW_KEY_LINK_OUTPUT_NODE, "%d", dsp_info->id);
+    pw_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%d", -1);
+    pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%d", self->target->id);
+    pw_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%d", -1);
   } else {
-    pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", self->target->id);
-    pw_properties_setf(props, PW_LINK_OUTPUT_PORT_ID, "%d", -1);
-    pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", dsp_info->id);
-    pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", -1);
+    pw_properties_setf(props, PW_KEY_LINK_OUTPUT_NODE, "%d", self->target->id);
+    pw_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%d", -1);
+    pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%d", dsp_info->id);
+    pw_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%d", -1);
   }
 
   g_debug ("%p linking DSP to node", self);

@@ -237,10 +237,10 @@ simple_endpoint_link_create (WpEndpointLink * epl, GVariant * src_data,
 
       /* Create the properties */
       props = pw_properties_new(NULL, NULL);
-      pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", output_node_id);
-      pw_properties_setf(props, PW_LINK_OUTPUT_PORT_ID, "%d", out_id);
-      pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", input_node_id);
-      pw_properties_setf(props, PW_LINK_INPUT_PORT_ID, "%d", in_id);
+      pw_properties_setf(props, PW_KEY_LINK_OUTPUT_NODE, "%d", output_node_id);
+      pw_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%d", out_id);
+      pw_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%d", input_node_id);
+      pw_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%d", in_id);
 
       /* Create the link */
       proxy = wp_remote_pipewire_create_object(remote_pipewire, "link-factory",

@@ -141,9 +141,6 @@ registry_global(void *data, uint32_t id, uint32_t parent_id,
   case PW_TYPE_INTERFACE_Device:
     detail = signal_detail_device_quark ();
     break;
-  case PW_TYPE_INTERFACE_Endpoint:
-    detail = signal_detail_endpoint_quark ();
-    break;
   default:
     break;
   }
@@ -172,7 +169,7 @@ registry_init (WpRemotePipewire *self)
 
   /* Registry */
   self->registry_proxy = pw_core_proxy_get_registry (self->core_proxy,
-      PW_TYPE_INTERFACE_Registry, PW_VERSION_REGISTRY, 0);
+      PW_VERSION_REGISTRY_PROXY, 0);
   pw_registry_proxy_add_listener(self->registry_proxy, &self->registry_listener,
       &registry_proxy_events, self);
 }
