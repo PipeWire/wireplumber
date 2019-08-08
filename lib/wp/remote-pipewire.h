@@ -23,6 +23,15 @@ gpointer wp_remote_pipewire_proxy_bind (WpRemotePipewire *self, guint global_id,
     guint global_type);
 gpointer wp_remote_pipewire_create_object (WpRemotePipewire *self,
     const char *factory_name, guint global_type, gconstpointer props);
+void wp_remote_pipewire_add_spa_lib (WpRemotePipewire *self,
+    const char *factory_regexp, const char *lib);
+gpointer wp_remote_pipewire_load_spa_handle(WpRemotePipewire *self,
+    const char *factory_name, gconstpointer info);
+gpointer wp_remote_pipewire_export (WpRemotePipewire *self, guint type,
+    gpointer props, gpointer object, size_t user_data_size);
+gpointer wp_remote_pipewire_module_load (WpRemotePipewire *self,
+    const char *name, const char *args, gpointer owner, gpointer parent,
+    gpointer properties);
 
 G_END_DECLS
 

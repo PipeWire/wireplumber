@@ -379,6 +379,42 @@ wp_remote_pipewire_create_object (WpRemotePipewire *self,
   g_return_val_if_fail (WP_IS_REMOTE_PIPEWIRE(self), NULL);
   g_return_val_if_fail (self->core_proxy, NULL);
 
-  return pw_core_proxy_create_object(self->core_proxy, factory_name,
+  return pw_core_proxy_create_object (self->core_proxy, factory_name,
       global_type, 0, props, 0);
+}
+
+void
+wp_remote_pipewire_add_spa_lib (WpRemotePipewire *self,
+    const char *factory_regexp, const char *lib)
+{
+  g_return_if_fail (WP_IS_REMOTE_PIPEWIRE(self));
+
+  pw_core_add_spa_lib (self->core, factory_regexp, lib);
+}
+
+gpointer
+wp_remote_pipewire_load_spa_handle(WpRemotePipewire *self,
+    const char *factory_name, gconstpointer info)
+{
+  g_return_val_if_fail (WP_IS_REMOTE_PIPEWIRE(self), NULL);
+
+  return pw_core_load_spa_handle (self->core, factory_name, info);
+}
+
+gpointer
+wp_remote_pipewire_export (WpRemotePipewire *self, guint type,
+    gpointer props, gpointer object, size_t user_data_size)
+{
+  g_return_val_if_fail (WP_IS_REMOTE_PIPEWIRE(self), NULL);
+
+  return pw_remote_export (self->remote, type, props, object, user_data_size);
+}
+
+gpointer
+wp_remote_pipewire_module_load (WpRemotePipewire *self, const char *name,
+    const char *args, gpointer owner, gpointer parent, gpointer properties)
+{
+  g_return_val_if_fail (WP_IS_REMOTE_PIPEWIRE(self), NULL);
+
+  return pw_module_load (self->core, name, args, owner, parent, properties);
 }
