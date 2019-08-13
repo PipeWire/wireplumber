@@ -65,7 +65,9 @@ shared_library(
   'wireplumber-module-pw-audio-softdsp-endpoint',
   [
     'module-pw-audio-softdsp-endpoint.c',
-    'module-pw-audio-softdsp-endpoint/dsp.c',
+    'module-pw-audio-softdsp-endpoint/stream.c',
+    'module-pw-audio-softdsp-endpoint/adapter.c',
+    'module-pw-audio-softdsp-endpoint/convert.c',
  ],
   c_args : [common_c_args, '-DG_LOG_DOMAIN="m-pw-audio-softdsp-endpoint"'],
   install : true,

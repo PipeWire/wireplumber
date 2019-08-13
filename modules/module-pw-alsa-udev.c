@@ -103,13 +103,13 @@ on_node_added(WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
   /* Make sure the node has properties */
   g_return_if_fail(props);
 
-  /* Get the name and media_class */
+  /* Get the media_class */
   media_class = spa_dict_lookup(props, "media.class");
 
-  /* Make sure the media class is non-dsp audio */
+  /* Make sure the media class is non-convert audio */
   if (!g_str_has_prefix (media_class, "Audio/"))
     return;
-  if (g_str_has_prefix (media_class, "Audio/DSP"))
+  if (g_str_has_prefix (media_class, "Audio/Convert"))
     return;
 
   /* Get the name */

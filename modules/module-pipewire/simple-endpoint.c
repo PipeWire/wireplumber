@@ -246,12 +246,13 @@ emit_endpoint_ports(WpPipewireSimpleEndpoint *self)
   /* Build the param profile */
   param = spa_format_audio_raw_build(&pod_builder, SPA_PARAM_Format, &format);
   param = spa_pod_builder_add_object(&pod_builder,
-      SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
-      SPA_PARAM_PROFILE_direction,  SPA_POD_Id(self->direction),
-      SPA_PARAM_PROFILE_format,     SPA_POD_Pod(param));
+      SPA_TYPE_OBJECT_ParamPortConfig,  SPA_PARAM_PortConfig,
+      SPA_PARAM_PORT_CONFIG_direction,  SPA_POD_Id(self->direction),
+      SPA_PARAM_PORT_CONFIG_mode,       SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
+      SPA_PARAM_PORT_CONFIG_format,     SPA_POD_Pod(param));
 
   /* Set the param profile to emit the ports */
-  pw_node_proxy_set_param(node_proxy, SPA_PARAM_Profile, 0, param);
+  pw_node_proxy_set_param(node_proxy, SPA_PARAM_PortConfig, 0, param);
 }
 
 static void

@@ -19,7 +19,9 @@
 #include <spa/pod/builder.h>
 #include <spa/param/props.h>
 
-#include "module-pw-audio-softdsp-endpoint/dsp.h"
+#include "module-pw-audio-softdsp-endpoint/stream.h"
+#include "module-pw-audio-softdsp-endpoint/adapter.h"
+#include "module-pw-audio-softdsp-endpoint/convert.h"
 
 #define MIN_QUANTUM_SIZE  64
 #define MAX_QUANTUM_SIZE  1024
@@ -40,19 +42,12 @@ struct _WpPwAudioSoftdspEndpoint
   GTask *init_task;
   gboolean init_abort;
 
-  /* The remote pipewire */
-  WpRemotePipewire *remote_pipewire;
-
   /* Direction */
   enum pw_direction direction;
 
-  /* Proxies */
-  WpProxyNode *proxy_node;
-  WpProxyPort *proxy_port;
-
-  /* Audio Dsp */
-  WpPwAudioDsp *converter;
-  GPtrArray *dsps;
+  /* Audio Streams */
+  WpAudioStream *adapter;
+  GPtrArray *converters;
 };
 
 enum {
@@ -108,17 +103,17 @@ endpoint_prepare_link (WpEndpoint * ep, guint32 stream_id,
     WpEndpointLink * link, GVariant ** properties, GError ** error)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (ep);
-  WpPwAudioDsp *stream = NULL;
+  WpAudioStream *stream = NULL;
 
   /* Make sure the stream Id is valid */
-  g_return_val_if_fail(stream_id < self->dsps->len, FALSE);
+  g_return_val_if_fail(stream_id < self->converters->len, FALSE);
 
   /* Make sure the stream is valid */
-  stream = g_ptr_array_index (self->dsps, stream_id);
+  stream = g_ptr_array_index (self->converters, stream_id);
   g_return_val_if_fail(stream, FALSE);
 
   /* Prepare the link */
-  return wp_pw_audio_dsp_prepare_link (stream, properties, error);
+  return wp_audio_stream_prepare_link (stream, properties, error);
 }
 
 static void
@@ -134,27 +129,27 @@ finish_endpoint_creation(WpPwAudioSoftdspEndpoint *self)
 }
 
 static void
-on_audio_dsp_stream_created(GObject *initable, GAsyncResult *res, gpointer data)
+on_audio_convert_created(GObject *initable, GAsyncResult *res, gpointer data)
 {
   WpPwAudioSoftdspEndpoint *self = data;
-  WpPwAudioDsp *dsp = NULL;
+  WpAudioStream *convert = NULL;
   guint stream_id = 0;
   g_autofree gchar *name = NULL;
 
-  /* Get the stream */
-  dsp = WP_PW_AUDIO_DSP (object_safe_new_finish (self, initable, res,
-      (WpObjectNewFinishFunc)wp_pw_audio_dsp_new_finish));
-  if (!dsp)
+  /* Get the audio convert */
+  convert = WP_AUDIO_STREAM (object_safe_new_finish (self, initable, res,
+      (WpObjectNewFinishFunc)wp_audio_stream_new_finish));
+  if (!convert)
     return;
 
   /* Get the stream id */
-  g_object_get (dsp, "id", &stream_id, "name", &name, NULL);
+  g_object_get (convert, "id", &stream_id, "name", &name, NULL);
   g_return_if_fail (stream_id >= 0);
 
   /* Set the streams */
-  g_ptr_array_insert (self->dsps, stream_id, dsp);
+  g_ptr_array_insert (self->converters, stream_id, convert);
 
-  g_debug ("%s:%p Created stream %u %s", G_OBJECT_TYPE_NAME (self), self,
+  g_debug ("%s:%p Created audio convert %u %s", G_OBJECT_TYPE_NAME (self), self,
       stream_id, name);
 
   /* Finish the endpoint creation when all the streams are created */
@@ -163,32 +158,43 @@ on_audio_dsp_stream_created(GObject *initable, GAsyncResult *res, gpointer data)
 }
 
 static void
-on_audio_dsp_converter_created(GObject *initable, GAsyncResult *res,
+on_audio_adapter_created(GObject *initable, GAsyncResult *res,
     gpointer data)
 {
   WpPwAudioSoftdspEndpoint *self = data;
   g_autoptr (WpCore) core = wp_endpoint_get_core(WP_ENDPOINT(self));
-  const struct pw_node_info *target = NULL;
+  g_autofree gchar *name = NULL;
+  const struct pw_node_info *adapter_info = NULL;
   GVariantDict d;
   GVariantIter iter;
   const gchar *stream;
   int i;
 
-  /* Get the proxy dsp converter */
-  self->converter = WP_PW_AUDIO_DSP (object_safe_new_finish (self, initable,
-      res, (WpObjectNewFinishFunc)wp_pw_audio_dsp_new_finish));
-  if (!self->converter)
+  /* Get the proxy adapter */
+  self->adapter = WP_AUDIO_STREAM (object_safe_new_finish (self, initable,
+      res, (WpObjectNewFinishFunc)wp_audio_stream_new_finish));
+  if (!self->adapter)
     return;
 
-  /* Get the target and format */
-  target = wp_pw_audio_dsp_get_info (self->converter);
-  g_return_if_fail (target);
+  /* Get the adapter info */
+  adapter_info = wp_audio_stream_get_info (self->adapter);
+  g_return_if_fail (adapter_info);
 
-  /* Create the audio dsp streams */
+  /* Give a proper name to this endpoint based on adapter properties */
+  if (0 == g_strcmp0(spa_dict_lookup (adapter_info->props, "device.api"), "alsa")) {
+    name = g_strdup_printf ("%s on %s (%s / node %d)",
+        spa_dict_lookup (adapter_info->props, "api.alsa.pcm.name"),
+        spa_dict_lookup (adapter_info->props, "api.alsa.card.name"),
+        spa_dict_lookup (adapter_info->props, "api.alsa.path"),
+        adapter_info->id);
+    g_object_set (self, "name", name, NULL);
+  }
+
+  /* Create the audio converters */
   g_variant_iter_init (&iter, self->streams);
   for (i = 0; g_variant_iter_next (&iter, "&s", &stream); i++) {
-    wp_pw_audio_dsp_new (WP_ENDPOINT(self), i, stream, self->direction, FALSE,
-        target, on_audio_dsp_stream_created, self);
+    wp_audio_convert_new (WP_ENDPOINT(self), i, stream, self->direction,
+        adapter_info, on_audio_convert_created, self);
 
     /* Register the stream */
     g_variant_dict_init (&d, NULL);
@@ -200,101 +206,17 @@ on_audio_dsp_converter_created(GObject *initable, GAsyncResult *res,
 }
 
 static void
-on_proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
-{
-  WpPwAudioSoftdspEndpoint *self = data;
-  g_autoptr (WpCore) core = wp_endpoint_get_core(WP_ENDPOINT(self));
-  g_autofree gchar *name = NULL;
-  const struct spa_dict *props;
-  const struct pw_node_info *target = NULL;
-
-  /* Get the proxy node */
-  self->proxy_node = WP_PROXY_NODE (object_safe_new_finish (self, initable,
-      res, (WpObjectNewFinishFunc)wp_proxy_node_new_finish));
-  if (!self->proxy_node)
-    return;
-
-  /* Give a proper name to this endpoint based on ALSA properties */
-  props = wp_proxy_node_get_info (self->proxy_node)->props;
-  if (0 == g_strcmp0(spa_dict_lookup (props, "device.api"), "alsa")) {
-    name = g_strdup_printf ("%s on %s (%s / node %d)",
-        spa_dict_lookup (props, "alsa.pcm.name"),
-        spa_dict_lookup (props, "alsa.card.name"),
-        spa_dict_lookup (props, "alsa.device"),
-        wp_proxy_node_get_info (self->proxy_node)->id);
-    g_object_set (self, "name", name, NULL);
-  }
-
-  /* Create the converter proxy */
-  target = wp_proxy_node_get_info (self->proxy_node);
-  g_return_if_fail (target);
-  wp_pw_audio_dsp_new (WP_ENDPOINT(self), WP_STREAM_ID_NONE, "master",
-      self->direction, TRUE, target, on_audio_dsp_converter_created, self);
-}
-
-static void
-on_proxy_port_created(GObject *initable, GAsyncResult *res, gpointer data)
-{
-  WpPwAudioSoftdspEndpoint *self = data;
-  struct pw_node_proxy *node_proxy = NULL;
-
-  /* Get the proxy port */
-  self->proxy_port = WP_PROXY_PORT (object_safe_new_finish (self, initable, res,
-      (WpObjectNewFinishFunc)wp_proxy_port_new_finish));
-  if (!self->proxy_port)
-    return;
-
-  /* Create the proxy node async */
-  node_proxy = wp_remote_pipewire_proxy_bind (self->remote_pipewire,
-      self->global_id, PW_TYPE_INTERFACE_Node);
-  g_return_if_fail(node_proxy);
-  wp_proxy_node_new(self->global_id, node_proxy, on_proxy_node_created, self);
-}
-
-static void
-on_port_added(WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
-    gpointer d)
-{
-  WpPwAudioSoftdspEndpoint *self = d;
-  struct pw_port_proxy *port_proxy = NULL;
-
-  /* Don't do anything if we are aborting */
-  if (self->init_abort)
-    return;
-
-  /* Check if it is a node port and handle it */
-  if (self->global_id != parent_id)
-    return;
-
-  /* Alsa nodes should have 1 port only, so make sure proxy_port is not set */
-  if (self->proxy_port != 0)
-    return;
-
-  /* Create the proxy port async */
-  port_proxy = wp_remote_pipewire_proxy_bind (self->remote_pipewire, id,
-    PW_TYPE_INTERFACE_Port);
-  g_return_if_fail(port_proxy);
-  wp_proxy_port_new(id, port_proxy, on_proxy_port_created, self);
-}
-
-static void
 endpoint_finalize (GObject * object)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (object);
 
   g_clear_pointer(&self->streams, g_variant_unref);
 
-  /* Destroy the proxy node */
-  g_clear_object(&self->proxy_node);
+  /* Destroy the proxy adapter */
+  g_clear_object(&self->adapter);
 
-  /* Destroy the proxy port */
-  g_clear_object(&self->proxy_port);
-
-  /* Destroy the proxy dsp converter */
-  g_clear_object(&self->converter);
-
-  /* Destroy all the proxy dsp streams */
-  g_clear_pointer (&self->dsps, g_ptr_array_unref);
+  /* Destroy all the converters */
+  g_clear_pointer (&self->converters, g_ptr_array_unref);
 
   /* Destroy the done task */
   g_clear_object(&self->init_task);
@@ -345,22 +267,22 @@ endpoint_get_control_value (WpEndpoint * ep, guint32 id)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (ep);
   guint stream_id, control_id;
-  WpPwAudioDsp *stream = NULL;
+  WpAudioStream *stream = NULL;
 
   if (id == CONTROL_SELECTED)
     return g_variant_new_boolean (self->selected);
 
-  wp_pw_audio_dsp_id_decode (id, &stream_id, &control_id);
+  wp_audio_stream_id_decode (id, &stream_id, &control_id);
 
-  /* Check if it is the master stream */
+  /* Check if it is the adapter (master) */
   if (stream_id == WP_STREAM_ID_NONE)
-    return wp_pw_audio_dsp_get_control_value (self->converter, control_id);
+    return wp_audio_stream_get_control_value (self->adapter, control_id);
 
   /* Otherwise get the stream_id and control_id */
-  g_return_val_if_fail (stream_id < self->dsps->len, NULL);
-  stream = g_ptr_array_index (self->dsps, stream_id);
+  g_return_val_if_fail (stream_id < self->converters->len, NULL);
+  stream = g_ptr_array_index (self->converters, stream_id);
   g_return_val_if_fail (stream, NULL);
-  return wp_pw_audio_dsp_get_control_value (stream, control_id);
+  return wp_audio_stream_get_control_value (stream, control_id);
 }
 
 static gboolean
@@ -368,7 +290,7 @@ endpoint_set_control_value (WpEndpoint * ep, guint32 id, GVariant * value)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (ep);
   guint stream_id, control_id;
-  WpPwAudioDsp *stream = NULL;
+  WpAudioStream *stream = NULL;
 
   if (id == CONTROL_SELECTED) {
     self->selected = g_variant_get_boolean (value);
@@ -376,17 +298,17 @@ endpoint_set_control_value (WpEndpoint * ep, guint32 id, GVariant * value)
     return TRUE;
   }
 
-  wp_pw_audio_dsp_id_decode (id, &stream_id, &control_id);
+  wp_audio_stream_id_decode (id, &stream_id, &control_id);
 
-  /* Check if it is the master stream */
+  /* Check if it is the adapter (master) */
   if (stream_id == WP_STREAM_ID_NONE)
-    return wp_pw_audio_dsp_set_control_value (self->converter, control_id, value);
+    return wp_audio_stream_set_control_value (self->adapter, control_id, value);
 
   /* Otherwise get the stream_id and control_id */
-  g_return_val_if_fail (stream_id < self->dsps->len, FALSE);
-  stream = g_ptr_array_index (self->dsps, stream_id);
+  g_return_val_if_fail (stream_id < self->converters->len, FALSE);
+  stream = g_ptr_array_index (self->converters, stream_id);
   g_return_val_if_fail (stream, FALSE);
-  return wp_pw_audio_dsp_set_control_value (stream, control_id, value);
+  return wp_audio_stream_set_control_value (stream, control_id, value);
 }
 
 static void
@@ -403,17 +325,15 @@ wp_endpoint_init_async (GAsyncInitable *initable, int io_priority,
 
   /* Set the direction */
   if (g_str_has_suffix (media_class, "Source"))
-    self->direction = PW_DIRECTION_INPUT;
-  else if (g_str_has_suffix (media_class, "Sink"))
     self->direction = PW_DIRECTION_OUTPUT;
+  else if (g_str_has_suffix (media_class, "Sink"))
+    self->direction = PW_DIRECTION_INPUT;
   else
     g_critical ("failed to parse direction");
 
-  /* Register a port_added callback */
-  self->remote_pipewire = wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
-  g_return_if_fail(self->remote_pipewire);
-  g_signal_connect_object(self->remote_pipewire, "global-added::port",
-      (GCallback)on_port_added, self, 0);
+  /* Create the adapter proxy */
+  wp_audio_adapter_new (WP_ENDPOINT(self), WP_STREAM_ID_NONE, "master",
+      self->direction, self->global_id, FALSE, on_audio_adapter_created, self);
 
   /* Register the selected control */
   self->selected = FALSE;
@@ -445,7 +365,7 @@ static void
 endpoint_init (WpPwAudioSoftdspEndpoint * self)
 {
   self->init_abort = FALSE;
-  self->dsps = g_ptr_array_new_with_free_func (g_object_unref);
+  self->converters = g_ptr_array_new_with_free_func (g_object_unref);
 }
 
 static void
