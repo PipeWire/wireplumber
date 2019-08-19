@@ -100,7 +100,7 @@ static const struct pw_client_proxy_events client_events = {
 };
 
 static void
-client_added (WpRemotePipewire * remote, guint32 id, guint32 parent_id,
+client_added (WpRemotePipewire * remote, guint32 id,
     const struct spa_dict *properties, gpointer data)
 {
   struct client_data *d;

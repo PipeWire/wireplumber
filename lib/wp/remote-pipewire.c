@@ -113,7 +113,7 @@ static guint signals[LAST_SIGNAL] = { 0 };
 G_DEFINE_TYPE (WpRemotePipewire, wp_remote_pipewire, WP_TYPE_REMOTE)
 
 static void
-registry_global(void *data, uint32_t id, uint32_t parent_id,
+registry_global(void *data, uint32_t id,
     uint32_t permissions, uint32_t type, uint32_t version,
     const struct spa_dict *props)
 {
@@ -145,8 +145,7 @@ registry_global(void *data, uint32_t id, uint32_t parent_id,
     break;
   }
 
-  g_signal_emit (data, signals[SIGNAL_GLOBAL_ADDED], detail, id, parent_id,
-      props);
+  g_signal_emit (data, signals[SIGNAL_GLOBAL_ADDED], detail, id, props);
 }
 
 static void
@@ -337,8 +336,7 @@ wp_remote_pipewire_class_init (WpRemotePipewireClass *klass)
   /* Signals */
   signals[SIGNAL_GLOBAL_ADDED] = g_signal_new ("global-added",
       G_TYPE_FROM_CLASS (klass), G_SIGNAL_DETAILED | G_SIGNAL_RUN_LAST,
-      0, NULL, NULL, NULL, G_TYPE_NONE, 3, G_TYPE_UINT, G_TYPE_UINT,
-      G_TYPE_POINTER);
+      0, NULL, NULL, NULL, G_TYPE_NONE, 2, G_TYPE_UINT, G_TYPE_POINTER);
   signals[SIGNAL_GLOBAL_REMOVED] = g_signal_new ("global-removed",
       G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
       0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_UINT);
@@ -412,9 +410,9 @@ wp_remote_pipewire_export (WpRemotePipewire *self, guint type,
 
 gpointer
 wp_remote_pipewire_module_load (WpRemotePipewire *self, const char *name,
-    const char *args, gpointer owner, gpointer parent, gpointer properties)
+    const char *args, gpointer properties)
 {
   g_return_val_if_fail (WP_IS_REMOTE_PIPEWIRE(self), NULL);
 
-  return pw_module_load (self->core, name, args, owner, parent, properties);
+  return pw_module_load (self->core, name, args, properties);
 }

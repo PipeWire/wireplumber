@@ -30,8 +30,7 @@ gpointer wp_remote_pipewire_load_spa_handle(WpRemotePipewire *self,
 gpointer wp_remote_pipewire_export (WpRemotePipewire *self, guint type,
     gpointer props, gpointer object, size_t user_data_size);
 gpointer wp_remote_pipewire_module_load (WpRemotePipewire *self,
-    const char *name, const char *args, gpointer owner, gpointer parent,
-    gpointer properties);
+    const char *name, const char *args, gpointer properties);
 
 G_END_DECLS
 

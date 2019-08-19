@@ -117,12 +117,15 @@ on_audio_stream_port_created(GObject *initable, GAsyncResult *res,
 }
 
 static void
-on_audio_stream_port_added(WpRemotePipewire *rp, guint id, guint parent_id,
-    gconstpointer p, gpointer d)
+on_audio_stream_port_added(WpRemotePipewire *rp, guint id, gconstpointer p,
+    gpointer d)
 {
   WpAudioStream *self = d;
   const struct pw_node_info *info = NULL;
   struct pw_proxy *proxy = NULL;
+  const struct spa_dict *props = p;
+  const char *s;
+  guint node_id = 0;
 
   /* Get the node id */
   g_return_if_fail (WP_AUDIO_STREAM_GET_CLASS (self)->get_info);
@@ -130,8 +133,11 @@ on_audio_stream_port_added(WpRemotePipewire *rp, guint id, guint parent_id,
   if (!info)
     return;
 
+  if ((s = spa_dict_lookup(props, PW_KEY_NODE_ID)))
+    node_id = atoi(s);
+
   /* Skip ports that are not owned by this stream */
-  if (info->id != parent_id)
+  if (info->id != node_id)
     return;
 
   /* Create the port proxy async */

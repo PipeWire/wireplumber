@@ -201,18 +201,23 @@ on_proxy_port_created(GObject *initable, GAsyncResult *res, gpointer data)
 }
 
 static void
-on_port_added(WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
-    gpointer d)
+on_port_added(WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
 {
   WpPipewireSimpleEndpoint *self = d;
   struct pw_port_proxy *port_proxy = NULL;
+  const struct spa_dict *props = p;
+  const char *s;
+  guint node_id = 0;
 
   /* Don't do anything if we are aborting */
   if (self->init_abort)
     return;
 
+  if ((s = spa_dict_lookup(props, PW_KEY_NODE_ID)))
+    node_id = atoi(s);
+
   /* Only handle ports owned by this endpoint */
-  if (parent_id != self->global_id)
+  if (node_id != self->global_id)
     return;
 
   /* Create the proxy port async */

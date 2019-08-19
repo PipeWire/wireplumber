@@ -51,8 +51,7 @@ on_endpoint_created(GObject *initable, GAsyncResult *res, gpointer d)
 }
 
 static void
-on_node_added (WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
-    gpointer d)
+on_node_added (WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
 {
   struct module_data *data = d;
   const struct spa_dict *props = p;

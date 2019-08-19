@@ -35,9 +35,8 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 
   /* Load the client-device and adapter modules */
   wp_remote_pipewire_module_load(rp, "libpipewire-module-client-device", NULL,
-      NULL, NULL, NULL);
-  wp_remote_pipewire_module_load(rp, "libpipewire-module-adapter", NULL, NULL,
-      NULL, NULL);
+      NULL);
+  wp_remote_pipewire_module_load(rp, "libpipewire-module-adapter", NULL, NULL);
 
   /* Register simple-endpoint and simple-endpoint-link */
   wp_factory_new (core, "pipewire-simple-endpoint",
