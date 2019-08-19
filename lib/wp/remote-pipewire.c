@@ -371,6 +371,16 @@ wp_remote_pipewire_proxy_bind (WpRemotePipewire *self, guint global_id,
 }
 
 gpointer
+wp_remote_pipewire_find_factory (WpRemotePipewire *self,
+    const char *factory_name)
+{
+  g_return_val_if_fail (WP_IS_REMOTE_PIPEWIRE(self), NULL);
+  g_return_val_if_fail (self->core, NULL);
+
+  return pw_core_find_factory(self->core, factory_name);
+}
+
+gpointer
 wp_remote_pipewire_create_object (WpRemotePipewire *self,
     const char *factory_name, guint global_type, gconstpointer props)
 {

@@ -21,6 +21,8 @@ WpRemote *wp_remote_pipewire_new (WpCore *core, GMainContext *context);
 
 gpointer wp_remote_pipewire_proxy_bind (WpRemotePipewire *self, guint global_id,
     guint global_type);
+gpointer wp_remote_pipewire_find_factory (WpRemotePipewire *self,
+    const char *factory_name);
 gpointer wp_remote_pipewire_create_object (WpRemotePipewire *self,
     const char *factory_name, guint global_type, gconstpointer props);
 void wp_remote_pipewire_add_spa_lib (WpRemotePipewire *self,
