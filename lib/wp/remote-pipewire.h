@@ -10,6 +10,7 @@
 #define __WIREPLUMBER_REMOTE_PIPEWIRE_H__
 
 #include "remote.h"
+#include "proxy.h"
 
 G_BEGIN_DECLS
 
@@ -19,12 +20,17 @@ G_DECLARE_FINAL_TYPE (WpRemotePipewire, wp_remote_pipewire,
 
 WpRemote *wp_remote_pipewire_new (WpCore *core, GMainContext *context);
 
+void wp_remote_pipewire_set_default_features (
+    WpRemotePipewire * self, GType proxy_type, WpProxyFeatures features);
+
+WpProxy * wp_remote_pipewire_create_object (WpRemotePipewire *self,
+    const gchar *factory_name, guint32 interface_type,
+    guint32 interface_version, WpProperties * properties);
+
 gpointer wp_remote_pipewire_proxy_bind (WpRemotePipewire *self, guint global_id,
     guint global_type);
 gpointer wp_remote_pipewire_find_factory (WpRemotePipewire *self,
     const char *factory_name);
-gpointer wp_remote_pipewire_create_object (WpRemotePipewire *self,
-    const char *factory_name, guint global_type, gconstpointer props);
 void wp_remote_pipewire_add_spa_lib (WpRemotePipewire *self,
     const char *factory_regexp, const char *lib);
 gpointer wp_remote_pipewire_load_spa_handle(WpRemotePipewire *self,

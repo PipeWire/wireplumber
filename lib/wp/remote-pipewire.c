@@ -7,6 +7,7 @@
  */
 
 #include "remote-pipewire.h"
+
 #include <pipewire/pipewire.h>
 
 /*
@@ -14,15 +15,6 @@
  */
 
 #define WP_LOOP_SOURCE(x) ((WpLoopSource *) x)
-
-G_DEFINE_QUARK (node, signal_detail_node)
-G_DEFINE_QUARK (port, signal_detail_port)
-G_DEFINE_QUARK (factory, signal_detail_factory)
-G_DEFINE_QUARK (link, signal_detail_link)
-G_DEFINE_QUARK (client, signal_detail_client)
-G_DEFINE_QUARK (module, signal_detail_module)
-G_DEFINE_QUARK (device, signal_detail_device)
-G_DEFINE_QUARK (endpoint, signal_detail_endpoint)
 
 typedef struct _WpLoopSource WpLoopSource;
 struct _WpLoopSource
@@ -90,6 +82,10 @@ struct _WpRemotePipewire
   struct spa_hook registry_listener;
 
   GMainContext *context;
+
+  GHashTable *proxies;
+  GHashTable *default_features;
+  GQueue created_obj_proxies;
 };
 
 enum {
@@ -113,45 +109,53 @@ static guint signals[LAST_SIGNAL] = { 0 };
 G_DEFINE_TYPE (WpRemotePipewire, wp_remote_pipewire, WP_TYPE_REMOTE)
 
 static void
-registry_global(void *data, uint32_t id,
-    uint32_t permissions, uint32_t type, uint32_t version,
-    const struct spa_dict *props)
+on_proxy_ready (GObject * obj, GAsyncResult * res, gpointer data)
 {
-  GQuark detail = 0;
+  WpRemotePipewire *self = WP_REMOTE_PIPEWIRE (data);
+  WpProxy *proxy = WP_PROXY (obj);
+  g_autoptr (GError) error = NULL;
 
-  switch (type) {
-  case PW_TYPE_INTERFACE_Node:
-    detail = signal_detail_node_quark ();
-    break;
-  case PW_TYPE_INTERFACE_Port:
-    detail = signal_detail_port_quark ();
-    break;
-  case PW_TYPE_INTERFACE_Factory:
-    detail = signal_detail_factory_quark ();
-    break;
-  case PW_TYPE_INTERFACE_Link:
-    detail = signal_detail_link_quark ();
-    break;
-  case PW_TYPE_INTERFACE_Client:
-    detail = signal_detail_client_quark ();
-    break;
-  case PW_TYPE_INTERFACE_Module:
-    detail = signal_detail_module_quark ();
-    break;
-  case PW_TYPE_INTERFACE_Device:
-    detail = signal_detail_device_quark ();
-    break;
-  default:
-    break;
+  if (!wp_proxy_augment_finish (proxy, res, &error)) {
+    g_warning ("Failed to augment WpProxy (%p): %s", obj, error->message);
   }
 
-  g_signal_emit (data, signals[SIGNAL_GLOBAL_ADDED], detail, id, props);
+  g_signal_emit (self, signals[SIGNAL_GLOBAL_ADDED],
+      wp_proxy_get_interface_quark (proxy), proxy);
+}
+
+static void
+registry_global(void *data, uint32_t id, uint32_t permissions,
+    uint32_t type, uint32_t version, const struct spa_dict *props)
+{
+  WpRemotePipewire *self = WP_REMOTE_PIPEWIRE (data);
+  WpProxy *proxy;
+  WpProxyFeatures features;
+  g_autoptr (WpProperties) properties = wp_properties_new_copy_dict (props);
+
+  /* construct & store WpProxy */
+  proxy = wp_proxy_new_global (WP_REMOTE (self), id, permissions, properties,
+      type, version);
+  g_hash_table_insert (self->proxies, GUINT_TO_POINTER (id), proxy);
+
+  g_debug ("registry global:%u perm:0x%x type:%u/%u -> WpProxy:%p",
+      id, permissions, type, version, proxy);
+
+  /* augment */
+  features = GPOINTER_TO_UINT (g_hash_table_lookup (self->default_features,
+          GUINT_TO_POINTER (G_TYPE_FROM_INSTANCE (proxy))));
+  wp_proxy_augment (proxy, features, NULL, on_proxy_ready, self);
 }
 
 static void
 registry_global_remove (void *data, uint32_t id)
 {
-  g_signal_emit (data, signals[SIGNAL_GLOBAL_REMOVED], 0, id);
+  WpRemotePipewire *self = WP_REMOTE_PIPEWIRE (data);
+  g_autoptr (WpProxy) proxy = NULL;
+
+  if (g_hash_table_steal_extended (self->proxies, GUINT_TO_POINTER (id), NULL,
+          (gpointer *) &proxy))
+    g_signal_emit (data, signals[SIGNAL_GLOBAL_REMOVED],
+        wp_proxy_get_interface_quark (proxy), proxy);
 }
 
 static const struct pw_registry_proxy_events registry_proxy_events = {
@@ -198,6 +202,9 @@ static const struct pw_remote_events remote_events = {
 static void
 wp_remote_pipewire_init (WpRemotePipewire *self)
 {
+  self->proxies = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
+      g_object_unref);
+  self->default_features = g_hash_table_new (g_direct_hash, g_direct_equal);
 }
 
 static void
@@ -223,6 +230,8 @@ wp_remote_pipewire_finalize (GObject *object)
 {
   WpRemotePipewire *self = WP_REMOTE_PIPEWIRE (object);
 
+  g_clear_pointer (&self->proxies, g_hash_table_unref);
+  g_clear_pointer (&self->default_features, g_hash_table_unref);
   pw_remote_destroy (self->remote);
   pw_core_destroy (self->core);
   g_clear_pointer (&self->context, g_main_context_unref);
@@ -336,10 +345,10 @@ wp_remote_pipewire_class_init (WpRemotePipewireClass *klass)
   /* Signals */
   signals[SIGNAL_GLOBAL_ADDED] = g_signal_new ("global-added",
       G_TYPE_FROM_CLASS (klass), G_SIGNAL_DETAILED | G_SIGNAL_RUN_LAST,
-      0, NULL, NULL, NULL, G_TYPE_NONE, 2, G_TYPE_UINT, G_TYPE_POINTER);
+      0, NULL, NULL, NULL, G_TYPE_NONE, 1, WP_TYPE_PROXY);
   signals[SIGNAL_GLOBAL_REMOVED] = g_signal_new ("global-removed",
-      G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
-      0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_UINT);
+      G_TYPE_FROM_CLASS (klass), G_SIGNAL_DETAILED | G_SIGNAL_RUN_LAST,
+      0, NULL, NULL, NULL, G_TYPE_NONE, 1, WP_TYPE_PROXY);
 }
 
 WpRemote *
@@ -357,6 +366,33 @@ wp_remote_pipewire_new (WpCore *core, GMainContext *context)
       g_object_ref (remote), g_object_unref);
 
   return remote;
+}
+
+void
+wp_remote_pipewire_set_default_features (WpRemotePipewire * self,
+    GType proxy_type, WpProxyFeatures features)
+{
+  g_return_if_fail (WP_IS_REMOTE_PIPEWIRE (self));
+
+  g_hash_table_insert (self->default_features, GUINT_TO_POINTER (proxy_type),
+      GUINT_TO_POINTER (features));
+}
+
+WpProxy *
+wp_remote_pipewire_create_object (WpRemotePipewire *self,
+    const gchar *factory_name, guint32 interface_type,
+    guint32 interface_version, WpProperties * properties)
+{
+  struct pw_proxy *pw_proxy;
+
+  g_return_val_if_fail (WP_IS_REMOTE_PIPEWIRE (self), NULL);
+  g_return_val_if_fail (self->core_proxy, NULL);
+
+  pw_proxy = pw_core_proxy_create_object (self->core_proxy, factory_name,
+      interface_type, interface_version, wp_properties_peek_dict (properties),
+      0);
+  return wp_proxy_new_wrap (WP_REMOTE (self), pw_proxy, interface_type,
+      interface_version);
 }
 
 gpointer
@@ -378,17 +414,6 @@ wp_remote_pipewire_find_factory (WpRemotePipewire *self,
   g_return_val_if_fail (self->core, NULL);
 
   return pw_core_find_factory(self->core, factory_name);
-}
-
-gpointer
-wp_remote_pipewire_create_object (WpRemotePipewire *self,
-    const char *factory_name, guint global_type, gconstpointer props)
-{
-  g_return_val_if_fail (WP_IS_REMOTE_PIPEWIRE(self), NULL);
-  g_return_val_if_fail (self->core_proxy, NULL);
-
-  return pw_core_proxy_create_object (self->core_proxy, factory_name,
-      global_type, 0, props, 0);
 }
 
 void
