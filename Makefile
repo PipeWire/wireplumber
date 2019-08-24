@@ -15,6 +15,9 @@ run: all
 	WIREPLUMBER_CONFIG_FILE=src/wireplumber.conf \
 	$(DBG) ./build/src/wireplumber
 
+test: all
+	ninja -C build test
+
 gdb:
 	$(MAKE) run DBG=gdb
 
