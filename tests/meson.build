@@ -9,3 +9,9 @@ test(
   executable('test-properties', 'properties.c', dependencies: common_deps),
   env: common_env,
 )
+
+test(
+  'test-proxy',
+  executable('test-proxy', 'proxy.c', dependencies: common_deps),
+  env: common_env,
+)
