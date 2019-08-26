@@ -116,6 +116,10 @@ on_node_added(WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
   if (!name)
     name = spa_dict_lookup (props, "node.name");
 
+  /* Don't handle bluetooth nodes */
+  if (g_str_has_prefix (name, "api.bluez5"))
+    return;
+
   /* Set the properties */
   g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
   g_variant_builder_add (&b, "{sv}",
