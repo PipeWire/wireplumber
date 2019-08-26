@@ -58,6 +58,7 @@ struct _WpPipewireSimpleEndpoint
 enum {
   PROP_0,
   PROP_GLOBAL_ID,
+  PROP_DIRECTION,
   PROP_ROLE,
   PROP_CREATION_TIME,
   PROP_TARGET,
@@ -323,7 +324,6 @@ wp_simple_endpoint_init_async (GAsyncInitable *initable, int io_priority,
 {
   WpPipewireSimpleEndpoint *self = WP_PIPEWIRE_SIMPLE_ENDPOINT (initable);
   g_autoptr (WpCore) core = wp_endpoint_get_core(WP_ENDPOINT(self));
-  const gchar *media_class = wp_endpoint_get_media_class (WP_ENDPOINT (self));
   struct pw_node_proxy *node_proxy = NULL;
 
   /* Create the async task */
@@ -331,14 +331,6 @@ wp_simple_endpoint_init_async (GAsyncInitable *initable, int io_priority,
 
   /* Init the proxies_port array */
   self->proxies_port = g_ptr_array_new_full(2, (GDestroyNotify)g_object_unref);
-
-  /* Set the direction */
-  if (g_str_has_prefix (media_class, "Stream/Input"))
-    self->direction = PW_DIRECTION_INPUT;
-  else if (g_str_has_prefix (media_class, "Stream/Output"))
-    self->direction = PW_DIRECTION_OUTPUT;
-  else
-    g_critical ("failed to parse direction");
 
   /* Register a port_added callback */
   self->remote_pipewire = wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
@@ -408,6 +400,9 @@ simple_endpoint_set_property (GObject * object, guint property_id,
   case PROP_GLOBAL_ID:
     self->global_id = g_value_get_uint(value);
     break;
+  case PROP_DIRECTION:
+    self->direction = g_value_get_uint(value);
+    break;
   case PROP_ROLE:
     g_free (self->role);
     self->role = g_value_dup_string (value);
@@ -431,6 +426,9 @@ simple_endpoint_get_property (GObject * object, guint property_id,
   switch (property_id) {
   case PROP_GLOBAL_ID:
     g_value_set_uint (value, self->global_id);
+    break;
+  case PROP_DIRECTION:
+    g_value_set_uint (value, self->direction);
     break;
   case PROP_ROLE:
     g_value_set_string (value, self->role);
@@ -561,6 +559,10 @@ simple_endpoint_class_init (WpPipewireSimpleEndpointClass * klass)
       g_param_spec_uint ("global-id", "global-id",
           "The global Id this endpoint refers to", 0, G_MAXUINT, 0,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (object_class, PROP_DIRECTION,
+      g_param_spec_uint ("direction", "direction",
+          "The direction of the simple endpoint", 0, 1, 0,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (object_class, PROP_ROLE,
       g_param_spec_string ("role", "role", "The role of the wrapped node", NULL,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
@@ -580,6 +582,7 @@ simple_endpoint_factory (WpFactory * factory, GType type,
   g_autoptr (WpCore) core = NULL;
   const gchar *name, *media_class;
   guint global_id;
+  guint direction;
 
   /* Make sure the type is correct */
   g_return_if_fail (type == WP_TYPE_ENDPOINT);
@@ -595,6 +598,8 @@ simple_endpoint_factory (WpFactory * factory, GType type,
       return;
   if (!g_variant_lookup (properties, "global-id", "u", &global_id))
       return;
+  if (!g_variant_lookup (properties, "direction", "u", &direction))
+      return;
 
   g_async_initable_new_async (
       simple_endpoint_get_type (), G_PRIORITY_DEFAULT, NULL, ready, user_data,
@@ -602,5 +607,6 @@ simple_endpoint_factory (WpFactory * factory, GType type,
       "name", name,
       "media-class", media_class,
       "global-id", global_id,
+      "direction", direction,
       NULL);
 }

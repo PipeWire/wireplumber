@@ -57,6 +57,7 @@ on_node_added (WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
   const struct spa_dict *props = p;
   g_autoptr (WpCore) core = wp_module_get_core (data->module);
   const gchar *name, *media_class;
+  enum pw_direction direction;
   GVariantBuilder b;
   g_autoptr (GVariant) endpoint_props = NULL;
 
@@ -69,6 +70,16 @@ on_node_added (WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
   /* Only handle client Stream nodes */
   if (!g_str_has_prefix (media_class, "Stream/"))
     return;
+
+  /* Get the direction */
+  if (g_str_has_prefix (media_class, "Stream/Input")) {
+    direction = PW_DIRECTION_INPUT;
+  } else if (g_str_has_prefix (media_class, "Stream/Output")) {
+    direction = PW_DIRECTION_OUTPUT;
+  } else {
+    g_critical ("failed to parse direction");
+    return;
+  }
 
   /* Get the name */
   name = spa_dict_lookup (props, "media.name");
@@ -85,6 +96,8 @@ on_node_added (WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
       "media-class", g_variant_new_string (media_class));
   g_variant_builder_add (&b, "{sv}",
       "global-id", g_variant_new_uint32 (id));
+  g_variant_builder_add (&b, "{sv}",
+      "direction", g_variant_new_uint32 (direction));
   endpoint_props = g_variant_builder_end (&b);
 
   /* Create the endpoint async */
