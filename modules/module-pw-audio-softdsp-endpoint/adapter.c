@@ -26,6 +26,7 @@ struct _WpAudioAdapter
   /* The task to signal the proxy is initialized */
   GTask *init_task;
   gboolean init_abort;
+  gboolean ports_done;
 
   /* Props */
   guint adapter_id;
@@ -79,9 +80,45 @@ on_audio_adapter_done(WpProxy *proxy, gpointer data)
 {
   WpAudioAdapter *self = data;
 
+  /* Emit the ports if not done and sync again */
+  if (!self->ports_done) {
+    enum pw_direction direction =
+      wp_audio_stream_get_direction ( WP_AUDIO_STREAM (self));
+    struct pw_node_proxy *pw_proxy = NULL;
+    uint8_t buf[1024];
+    struct spa_pod_builder pod_builder = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+    struct spa_pod *param;
+
+    /* Emit the props param */
+    pw_proxy = wp_proxy_get_pw_proxy(WP_PROXY(self->proxy));
+    pw_node_proxy_enum_params (pw_proxy, 0, SPA_PARAM_Props, 0, -1, NULL);
+
+    /* Emit the ports */
+    if (self->convert) {
+      param = spa_pod_builder_add_object(&pod_builder,
+          SPA_TYPE_OBJECT_ParamPortConfig,  SPA_PARAM_PortConfig,
+          SPA_PARAM_PORT_CONFIG_direction,  SPA_POD_Id(direction),
+          SPA_PARAM_PORT_CONFIG_mode,       SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_convert));
+    } else {
+      struct spa_audio_info_raw format = *wp_proxy_node_get_format (self->proxy);
+      param = spa_format_audio_raw_build(&pod_builder, SPA_PARAM_Format, &format);
+      param = spa_pod_builder_add_object(&pod_builder,
+          SPA_TYPE_OBJECT_ParamPortConfig,  SPA_PARAM_PortConfig,
+          SPA_PARAM_PORT_CONFIG_direction,  SPA_POD_Id(direction),
+          SPA_PARAM_PORT_CONFIG_mode,       SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
+          SPA_PARAM_PORT_CONFIG_format,     SPA_POD_Pod(param));
+    }
+    pw_node_proxy_set_param(pw_proxy, SPA_PARAM_PortConfig, 0, param);
+
+    /* Sync */
+    self->ports_done = TRUE;
+    wp_proxy_sync (WP_PROXY(self->proxy));
+    return;
+  }
+
   /* Don't do anything if the audio adapter has already been initialized */
   if (!self->init_task)
-      return;
+    return;
 
   /* Finish the creation of the audio adapter */
   g_task_return_boolean (self->init_task, TRUE);
@@ -93,12 +130,6 @@ on_audio_adapter_proxy_created(GObject *initable, GAsyncResult *res,
     gpointer data)
 {
   WpAudioAdapter *self = data;
-  enum pw_direction direction =
-      wp_audio_stream_get_direction ( WP_AUDIO_STREAM (self));
-  struct pw_node_proxy *pw_proxy = NULL;
-  uint8_t buf[1024];
-  struct spa_pod_builder pod_builder = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
-  struct spa_pod *param;
 
   /* Get the adapter proxy */
   self->proxy = WP_PROXY_NODE (object_safe_new_finish (self, initable,
@@ -106,39 +137,10 @@ on_audio_adapter_proxy_created(GObject *initable, GAsyncResult *res,
   if (!self->proxy)
     return;
 
-  /* Get the pipewire proxy */
-  pw_proxy = wp_proxy_get_pw_proxy(WP_PROXY(self->proxy));
-  g_return_if_fail (pw_proxy);
+  /* Emit the EnumFormat param */
+  wp_proxy_node_enum_params (self->proxy, 0, SPA_PARAM_EnumFormat, 0, -1, NULL);
 
-  /* Emit the props param */
-  pw_node_proxy_enum_params (pw_proxy, 0, SPA_PARAM_Props, 0, -1, NULL);
-
-  /* Emit the ports */
-  if (self->convert) {
-    param = spa_pod_builder_add_object(&pod_builder,
-        SPA_TYPE_OBJECT_ParamPortConfig,  SPA_PARAM_PortConfig,
-        SPA_PARAM_PORT_CONFIG_direction,  SPA_POD_Id(direction),
-        SPA_PARAM_PORT_CONFIG_mode,       SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_convert));
-    pw_node_proxy_set_param(pw_proxy, SPA_PARAM_PortConfig, 0, param);
-  } else {
-    struct spa_audio_info_raw format;
-    spa_zero(format);
-    format.format = SPA_AUDIO_FORMAT_F32P;
-    format.flags = 1;
-    format.rate = 48000;
-    format.channels = 2;
-    format.position[0] = SPA_AUDIO_CHANNEL_FL;
-    format.position[1] = SPA_AUDIO_CHANNEL_FR;
-    param = spa_format_audio_raw_build(&pod_builder, SPA_PARAM_Format, &format);
-    param = spa_pod_builder_add_object(&pod_builder,
-        SPA_TYPE_OBJECT_ParamPortConfig,  SPA_PARAM_PortConfig,
-        SPA_PARAM_PORT_CONFIG_direction,  SPA_POD_Id(direction),
-        SPA_PARAM_PORT_CONFIG_mode,       SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
-        SPA_PARAM_PORT_CONFIG_format,     SPA_POD_Pod(param));
-    pw_node_proxy_set_param(pw_proxy, SPA_PARAM_PortConfig, 0, param);
-  }
-
-  /* Register a callback to know when all the adapter ports have been emitted */
+  /* Register the done callback */
   g_signal_connect_object(self->proxy, "done", (GCallback)on_audio_adapter_done,
       self, 0);
   wp_proxy_sync (WP_PROXY(self->proxy));
@@ -248,6 +250,7 @@ static void
 wp_audio_adapter_init (WpAudioAdapter * self)
 {
   self->init_abort = FALSE;
+  self->ports_done = FALSE;
 }
 
 static void

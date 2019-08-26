@@ -9,6 +9,7 @@
 #include "error.h"
 #include "proxy-node.h"
 #include <pipewire/pipewire.h>
+#include <spa/param/audio/format-utils.h>
 
 struct _WpProxyNode
 {
@@ -22,6 +23,11 @@ struct _WpProxyNode
 
   /* The node info */
   struct pw_node_info *info;
+
+  /* The node format, if any */
+  uint32_t media_type;
+  uint32_t media_subtype;
+  struct spa_audio_info_raw format;
 };
 
 static void wp_proxy_node_async_initable_init (gpointer iface,
@@ -48,9 +54,33 @@ node_event_info(void *data, const struct pw_node_info *info)
   g_clear_object (&self->init_task);
 }
 
+static void
+node_event_param(void *data, int seq, uint32_t id, uint32_t index,
+    uint32_t next, const struct spa_pod *param)
+{
+  WpProxyNode *self = data;
+
+  /* Only handle EnumFormat */
+  if (id != SPA_PARAM_EnumFormat)
+    return;
+
+  /* Parse the format */
+  spa_format_parse(param, &self->media_type, &self->media_subtype);
+
+  /* Only handle raw audio formats for now */
+  if (self->media_type != SPA_MEDIA_TYPE_audio ||
+      self->media_subtype != SPA_MEDIA_SUBTYPE_raw)
+    return;
+
+  /* Parse the raw audio format */
+  spa_pod_fixate((struct spa_pod*)param);
+  spa_format_audio_raw_parse(param, &self->format);
+}
+
 static const struct pw_node_proxy_events node_events = {
   PW_VERSION_NODE_PROXY_EVENTS,
   .info = node_event_info,
+  .param = node_event_param,
 };
 
 static void
@@ -151,4 +181,17 @@ const struct pw_node_info *
 wp_proxy_node_get_info (WpProxyNode * self)
 {
   return self->info;
+}
+
+const struct spa_audio_info_raw *
+wp_proxy_node_get_format (WpProxyNode * self)
+{
+  return &self->format;
+}
+
+void wp_proxy_node_enum_params(WpProxyNode * self, guint id, guint index,
+    guint num, guint next, gconstpointer filter)
+{
+  pw_port_proxy_enum_params (wp_proxy_get_pw_proxy (WP_PROXY (self)), id,
+          index, num, next, filter);
 }

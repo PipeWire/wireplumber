@@ -23,6 +23,10 @@ WpProxyNode *wp_proxy_node_new_finish(GObject *initable, GAsyncResult *res,
     GError **error);
 
 const struct pw_node_info *wp_proxy_node_get_info (WpProxyNode * self);
+const struct spa_audio_info_raw *wp_proxy_node_get_format (WpProxyNode * self);
+void wp_proxy_node_enum_params(WpProxyNode * self, guint id, guint index,
+    guint num, guint next, gconstpointer filter);
+
 
 G_END_DECLS
 
