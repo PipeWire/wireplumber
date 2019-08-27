@@ -132,9 +132,9 @@ on_node_added (WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
   g_variant_builder_add (&b, "{sv}",
       "media-class", g_variant_new_string (media_class));
   g_variant_builder_add (&b, "{sv}",
-      "global-id", g_variant_new_uint32 (id));
-  g_variant_builder_add (&b, "{sv}",
       "direction", g_variant_new_uint32 (direction));
+  g_variant_builder_add (&b, "{sv}",
+      "global-id", g_variant_new_uint32 (id));
   endpoint_props = g_variant_builder_end (&b);
 
   /* Create the endpoint async */

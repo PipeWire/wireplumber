@@ -42,9 +42,6 @@ struct _WpPipewireSimpleEndpoint
   /* Handler */
   gulong proxy_node_done_handler_id;
 
-  /* Direction */
-  enum pw_direction direction;
-
   /* Proxies */
   WpProxyNode *proxy_node;
   struct spa_hook node_proxy_listener;
@@ -58,7 +55,6 @@ struct _WpPipewireSimpleEndpoint
 enum {
   PROP_0,
   PROP_GLOBAL_ID,
-  PROP_DIRECTION,
   PROP_ROLE,
   PROP_CREATION_TIME,
   PROP_TARGET,
@@ -231,6 +227,7 @@ on_port_added(WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
 static void
 emit_endpoint_ports(WpPipewireSimpleEndpoint *self)
 {
+  enum pw_direction direction = wp_endpoint_get_direction (WP_ENDPOINT (self));
   struct pw_node_proxy* node_proxy = NULL;
   struct spa_audio_info_raw format = { 0, };
   struct spa_pod *param;
@@ -253,7 +250,7 @@ emit_endpoint_ports(WpPipewireSimpleEndpoint *self)
   param = spa_format_audio_raw_build(&pod_builder, SPA_PARAM_Format, &format);
   param = spa_pod_builder_add_object(&pod_builder,
       SPA_TYPE_OBJECT_ParamPortConfig,  SPA_PARAM_PortConfig,
-      SPA_PARAM_PORT_CONFIG_direction,  SPA_POD_Id(self->direction),
+      SPA_PARAM_PORT_CONFIG_direction,  SPA_POD_Id(direction),
       SPA_PARAM_PORT_CONFIG_mode,       SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
       SPA_PARAM_PORT_CONFIG_format,     SPA_POD_Pod(param));
 
@@ -400,9 +397,6 @@ simple_endpoint_set_property (GObject * object, guint property_id,
   case PROP_GLOBAL_ID:
     self->global_id = g_value_get_uint(value);
     break;
-  case PROP_DIRECTION:
-    self->direction = g_value_get_uint(value);
-    break;
   case PROP_ROLE:
     g_free (self->role);
     self->role = g_value_dup_string (value);
@@ -426,9 +420,6 @@ simple_endpoint_get_property (GObject * object, guint property_id,
   switch (property_id) {
   case PROP_GLOBAL_ID:
     g_value_set_uint (value, self->global_id);
-    break;
-  case PROP_DIRECTION:
-    g_value_set_uint (value, self->direction);
     break;
   case PROP_ROLE:
     g_value_set_string (value, self->role);
@@ -559,10 +550,6 @@ simple_endpoint_class_init (WpPipewireSimpleEndpointClass * klass)
       g_param_spec_uint ("global-id", "global-id",
           "The global Id this endpoint refers to", 0, G_MAXUINT, 0,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
-  g_object_class_install_property (object_class, PROP_DIRECTION,
-      g_param_spec_uint ("direction", "direction",
-          "The direction of the simple endpoint", 0, 1, 0,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (object_class, PROP_ROLE,
       g_param_spec_string ("role", "role", "The role of the wrapped node", NULL,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
@@ -581,8 +568,8 @@ simple_endpoint_factory (WpFactory * factory, GType type,
 {
   g_autoptr (WpCore) core = NULL;
   const gchar *name, *media_class;
-  guint global_id;
   guint direction;
+  guint global_id;
 
   /* Make sure the type is correct */
   g_return_if_fail (type == WP_TYPE_ENDPOINT);
@@ -596,9 +583,9 @@ simple_endpoint_factory (WpFactory * factory, GType type,
       return;
   if (!g_variant_lookup (properties, "media-class", "&s", &media_class))
       return;
-  if (!g_variant_lookup (properties, "global-id", "u", &global_id))
-      return;
   if (!g_variant_lookup (properties, "direction", "u", &direction))
+      return;
+  if (!g_variant_lookup (properties, "global-id", "u", &global_id))
       return;
 
   g_async_initable_new_async (
@@ -606,7 +593,7 @@ simple_endpoint_factory (WpFactory * factory, GType type,
       "core", core,
       "name", name,
       "media-class", media_class,
-      "global-id", global_id,
       "direction", direction,
+      "global-id", global_id,
       NULL);
 }

@@ -96,6 +96,7 @@ on_node_added(WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
   const struct spa_dict *props = p;
   g_autoptr (WpCore) core = wp_module_get_core (impl->module);
   const gchar *media_class, *name;
+  enum pw_direction direction;
   GVariantBuilder b;
   g_autoptr (GVariant) endpoint_props = NULL;
 
@@ -120,12 +121,24 @@ on_node_added(WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
   if (g_str_has_prefix (name, "api.bluez5"))
     return;
 
+  /* Get the direction */
+  if (g_str_has_prefix (media_class, "Audio/Sink")) {
+    direction = PW_DIRECTION_INPUT;
+  } else if (g_str_has_prefix (media_class, "Audio/Source")) {
+    direction = PW_DIRECTION_OUTPUT;
+  } else {
+    g_critical ("failed to parse direction");
+    return;
+  }
+
   /* Set the properties */
   g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
   g_variant_builder_add (&b, "{sv}",
       "name", g_variant_new_string (name));
   g_variant_builder_add (&b, "{sv}",
       "media-class", g_variant_new_string (media_class));
+  g_variant_builder_add (&b, "{sv}",
+      "direction", g_variant_new_uint32 (direction));
   g_variant_builder_add (&b, "{sv}",
       "global-id", g_variant_new_uint32 (id));
   g_variant_builder_add (&b, "{sv}",
