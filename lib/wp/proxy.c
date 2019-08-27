@@ -33,8 +33,6 @@ struct _WpProxyPrivate
   guint32 iface_version;
 
   struct pw_proxy *pw_proxy;
-  gpointer native_info;
-  GDestroyNotify native_info_destroy;
 
   /* The proxy listener */
   struct spa_hook listener;
@@ -43,6 +41,8 @@ struct _WpProxyPrivate
   WpProxyFeatures ft_ready;
   WpProxyFeatures ft_wanted;
   GTask *task;
+
+  GHashTable *async_tasks; // <int seq, GTask*>
 };
 
 enum {
@@ -56,7 +56,6 @@ enum {
   PROP_INTERFACE_QUARK,
   PROP_INTERFACE_VERSION,
   PROP_PW_PROXY,
-  PROP_NATIVE_INFO,
   PROP_FEATURES,
 };
 
@@ -132,6 +131,8 @@ proxy_event_destroy (void *data)
 {
   WpProxy *self = WP_PROXY (data);
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  GHashTableIter iter;
+  GTask *task;
 
   priv->pw_proxy = NULL;
 
@@ -145,18 +146,40 @@ proxy_event_destroy (void *data)
         "pipewire node proxy destroyed before finishing");
     g_clear_object (&priv->task);
   }
+
+  g_hash_table_iter_init (&iter, priv->async_tasks);
+  while (g_hash_table_iter_next (&iter, NULL, (gpointer *) &task)) {
+    g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "pipewire node proxy destroyed before finishing");
+    g_hash_table_iter_remove (&iter);
+  }
+}
+
+static void
+proxy_event_done (void *data, int seq)
+{
+  WpProxy *self = WP_PROXY (data);
+  g_autoptr (GTask) task;
+
+  if ((task = wp_proxy_find_async_task (self, seq, TRUE)))
+    g_task_return_boolean (task, TRUE);
 }
 
 static const struct pw_proxy_events proxy_events = {
   PW_VERSION_PROXY_EVENTS,
   .destroy = proxy_event_destroy,
+  .done = proxy_event_done,
 };
 
 static void
 wp_proxy_init (WpProxy * self)
 {
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+
   g_weak_ref_init (&priv->remote, NULL);
+  priv->async_tasks = g_hash_table_new_full (g_direct_hash, g_direct_equal,
+      NULL, g_object_unref);
 }
 
 static void
@@ -185,9 +208,9 @@ wp_proxy_finalize (GObject * object)
 
   g_clear_object (&priv->task);
   g_clear_pointer (&priv->global_props, wp_properties_unref);
-  g_clear_pointer (&priv->native_info, priv->native_info_destroy);
   g_clear_pointer (&priv->pw_proxy, pw_proxy_destroy);
   g_weak_ref_clear (&priv->remote);
+  g_clear_pointer (&priv->async_tasks, g_hash_table_unref);
 
   G_OBJECT_CLASS (wp_proxy_parent_class)->finalize (object);
 }
@@ -219,9 +242,6 @@ wp_proxy_set_property (GObject * object, guint property_id,
     break;
   case PROP_PW_PROXY:
     priv->pw_proxy = g_value_get_pointer (value);
-    break;
-  case PROP_NATIVE_INFO:
-    priv->native_info = g_value_get_pointer (value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -263,9 +283,6 @@ wp_proxy_get_property (GObject * object, guint property_id, GValue * value,
     break;
   case PROP_PW_PROXY:
     g_value_set_pointer (value, priv->pw_proxy);
-    break;
-  case PROP_NATIVE_INFO:
-    g_value_set_pointer (value, priv->native_info);
     break;
   case PROP_FEATURES:
     g_value_set_flags (value, priv->ft_ready);
@@ -358,11 +375,6 @@ wp_proxy_class_init (WpProxyClass * klass)
   g_object_class_install_property (object_class, PROP_PW_PROXY,
       g_param_spec_pointer ("pw-proxy", "pw-proxy", "The struct pw_proxy *",
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (object_class, PROP_NATIVE_INFO,
-      g_param_spec_pointer ("native-info", "native-info",
-          "The struct pw_XXXX_info *",
-          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (object_class, PROP_FEATURES,
       g_param_spec_flags ("features", "features",
@@ -660,36 +672,78 @@ wp_proxy_get_pw_proxy (WpProxy * self)
   return priv->pw_proxy;
 }
 
-gconstpointer
-wp_proxy_get_native_info (WpProxy * self)
+void
+wp_proxy_sync (WpProxy * self, GCancellable * cancellable,
+    GAsyncReadyCallback callback, gpointer user_data)
 {
   WpProxyPrivate *priv;
+  g_autoptr (GTask) task = NULL;
+  int seq;
 
-  g_return_val_if_fail (WP_IS_PROXY (self), NULL);
+  g_return_if_fail (WP_IS_PROXY (self));
 
   priv = wp_proxy_get_instance_private (self);
-  return priv->native_info;
+  task = g_task_new (self, cancellable, callback, user_data);
+
+  if (G_UNLIKELY (!priv->pw_proxy)) {
+    g_warn_if_reached ();
+    g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_INVARIANT, "No pipewire proxy");
+    return;
+  }
+
+  seq = pw_proxy_sync (priv->pw_proxy, 0);
+  if (G_UNLIKELY (seq < 0)) {
+    g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_OPERATION_FAILED, "pw_proxy_sync failed: %s",
+        g_strerror (-seq));
+    return;
+  }
+
+  wp_proxy_register_async_task (self, seq, g_steal_pointer (&task));
 }
 
+gboolean
+wp_proxy_sync_finish (WpProxy * self, GAsyncResult * res, GError ** error)
+{
+  g_return_val_if_fail (WP_IS_PROXY (self), FALSE);
+  g_return_val_if_fail (g_task_is_valid (res, self), FALSE);
+
+  return g_task_propagate_boolean (G_TASK (res), error);
+}
+
+/**
+ * wp_proxy_register_async_task: (skip)
+ */
 void
-wp_proxy_update_native_info (WpProxy * self, gconstpointer info,
-    WpProxyNativeInfoUpdate update, GDestroyNotify destroy)
+wp_proxy_register_async_task (WpProxy * self, int seq, GTask * task)
 {
   WpProxyPrivate *priv;
 
   g_return_if_fail (WP_IS_PROXY (self));
-  g_return_if_fail (destroy != NULL);
+  g_return_if_fail (g_task_is_valid (task, self));
 
   priv = wp_proxy_get_instance_private (self);
+  g_hash_table_insert (priv->async_tasks, GINT_TO_POINTER (seq), task);
+}
 
-  if (update) {
-    priv->native_info = update (priv->native_info, info);
-  } else {
-    g_clear_pointer (&priv->native_info, priv->native_info_destroy);
-    priv->native_info = (gpointer) info;
-  }
+/**
+ * wp_proxy_find_async_task: (skip)
+ */
+GTask *
+wp_proxy_find_async_task (WpProxy * self, int seq, gboolean steal)
+{
+  WpProxyPrivate *priv;
+  GTask *task = NULL;
 
-  priv->native_info_destroy = destroy;
+  g_return_val_if_fail (WP_IS_PROXY (self), NULL);
 
-  g_object_notify (G_OBJECT (self), "native-info");
+  priv = wp_proxy_get_instance_private (self);
+  if (steal)
+    g_hash_table_steal_extended (priv->async_tasks, GINT_TO_POINTER (seq),
+        NULL, (gpointer *) &task);
+  else
+    task = g_hash_table_lookup (priv->async_tasks, GINT_TO_POINTER (seq));
+
+  return task;
 }

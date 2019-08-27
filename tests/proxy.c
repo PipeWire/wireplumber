@@ -96,7 +96,6 @@ test_proxy_basic_global_added (WpRemote *remote, WpProxy *proxy,
 
   g_assert_cmphex (wp_proxy_get_features (proxy), ==, 0);
   g_assert_null (wp_proxy_get_pw_proxy (proxy));
-  g_assert_null (wp_proxy_get_native_info (proxy));
 
   {
     g_autoptr (WpProperties) props = wp_proxy_get_global_properties (proxy);

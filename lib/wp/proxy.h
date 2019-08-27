@@ -20,7 +20,7 @@ G_BEGIN_DECLS
 struct pw_proxy;
 
 typedef enum { /*< flags >*/
-  WP_PROXY_FEATURE_PW_PROXY = (1 << 0),
+  WP_PROXY_FEATURE_PW_PROXY     = (1 << 0),
   WP_PROXY_FEATURE_INFO         = (1 << 1),
 
   WP_PROXY_FEATURE_LAST         = (1 << 5), /*< skip >*/
@@ -67,18 +67,19 @@ GQuark wp_proxy_get_interface_quark (WpProxy * self);
 guint32 wp_proxy_get_interface_version (WpProxy * self);
 
 struct pw_proxy * wp_proxy_get_pw_proxy (WpProxy * self);
-gconstpointer wp_proxy_get_native_info (WpProxy * self);
+
+void wp_proxy_sync (WpProxy * self, GCancellable * cancellable,
+    GAsyncReadyCallback callback, gpointer user_data);
+gboolean wp_proxy_sync_finish (WpProxy * self, GAsyncResult * res,
+    GError ** error);
 
 /* for subclasses only */
 
-typedef gpointer (*WpProxyNativeInfoUpdate) (gpointer old_info,
-    gconstpointer new_info);
-
-void wp_proxy_update_native_info (WpProxy * self, gconstpointer info,
-    WpProxyNativeInfoUpdate update, GDestroyNotify destroy);
-
 void wp_proxy_set_feature_ready (WpProxy * self, WpProxyFeatures feature);
 void wp_proxy_augment_error (WpProxy * self, GError * error);
+
+void wp_proxy_register_async_task (WpProxy * self, int seq, GTask * task);
+GTask * wp_proxy_find_async_task (WpProxy * self, int seq, gboolean steal);
 
 gboolean wp_proxy_bind_global (WpProxy * self);
 

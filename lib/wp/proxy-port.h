@@ -13,21 +13,28 @@
 
 G_BEGIN_DECLS
 
-typedef enum { /*< flags >*/
-  WP_PROXY_PORT_FEATURE_FORMAT = (WP_PROXY_FEATURE_LAST << 0),
-} WpProxyPortFeatures;
+struct spa_pod;
+struct pw_port_info;
 
 #define WP_TYPE_PROXY_PORT (wp_proxy_port_get_type ())
 G_DECLARE_FINAL_TYPE (WpProxyPort, wp_proxy_port, WP, PROXY_PORT, WpProxy)
 
-static inline const struct pw_port_info *
-wp_proxy_port_get_info (WpProxyPort * self)
-{
-  return (const struct pw_port_info *)
-      wp_proxy_get_native_info (WP_PROXY (self));
-}
+const struct pw_port_info * wp_proxy_port_get_info (WpProxyPort * self);
 
-const struct spa_audio_info_raw *wp_proxy_port_get_format (WpProxyPort * self);
+WpProperties * wp_proxy_port_get_properties (WpProxyPort * self);
+
+void wp_proxy_port_enum_params_collect (WpProxyPort * self,
+    guint32 id, const struct spa_pod *filter,
+    GCancellable * cancellable, GAsyncReadyCallback callback,
+    gpointer user_data);
+GPtrArray * wp_proxy_port_enum_params_collect_finish (WpProxyPort * self,
+    GAsyncResult * res, GError ** error);
+gint wp_proxy_port_enum_params (WpProxyPort * self,
+    guint32 id, const struct spa_pod *filter);
+
+void wp_proxy_port_subscribe_params (WpProxyPort * self, guint32 n_ids, ...);
+void wp_proxy_port_subscribe_params_array (WpProxyPort * self, guint32 n_ids,
+    guint32 *ids);
 
 G_END_DECLS
 

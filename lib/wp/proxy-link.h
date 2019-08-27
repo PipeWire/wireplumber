@@ -13,15 +13,14 @@
 
 G_BEGIN_DECLS
 
+struct pw_link_info;
+
 #define WP_TYPE_PROXY_LINK (wp_proxy_link_get_type ())
 G_DECLARE_FINAL_TYPE (WpProxyLink, wp_proxy_link, WP, PROXY_LINK, WpProxy)
 
-static inline const struct pw_link_info *
-wp_proxy_link_get_info (WpProxyLink * self)
-{
-  return (const struct pw_link_info *)
-      wp_proxy_get_native_info (WP_PROXY (self));
-}
+const struct pw_link_info * wp_proxy_link_get_info (WpProxyLink * self);
+
+WpProperties * wp_proxy_link_get_properties (WpProxyLink * self);
 
 G_END_DECLS
 
