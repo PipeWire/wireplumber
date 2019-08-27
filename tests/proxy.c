@@ -16,7 +16,9 @@ typedef struct {
   WpTestServer server;
 
   /* the main loop */
+  GMainContext *context;
   GMainLoop *loop;
+  GSource *timeout_source;
 
   /* the client wireplumber objects */
   WpCore *core;
@@ -24,24 +26,14 @@ typedef struct {
 
 } TestProxyFixture;
 
-static void
-test_proxy_setup (TestProxyFixture *self, gconstpointer user_data)
+static gboolean
+timeout_callback (TestProxyFixture *fixture)
 {
-  wp_test_server_setup (&self->server);
-  g_setenv ("PIPEWIRE_REMOTE", self->server.name, TRUE);
-  self->loop = g_main_loop_new (NULL, FALSE);
-  self->core = wp_core_new ();
-  self->remote = wp_remote_pipewire_new (self->core, NULL);
-}
+  g_message ("test timed out");
+  g_test_fail ();
+  g_main_loop_quit (fixture->loop);
 
-static void
-test_proxy_teardown (TestProxyFixture *self, gconstpointer user_data)
-{
-  g_clear_object (&self->remote);
-  g_clear_object (&self->core);
-  g_clear_pointer (&self->loop, g_main_loop_unref);
-  g_unsetenv ("PIPEWIRE_REMOTE");
-  wp_test_server_teardown (&self->server);
+  return G_SOURCE_REMOVE;
 }
 
 static void
@@ -63,16 +55,65 @@ test_proxy_state_changed (WpRemote *remote, WpRemoteState state,
 }
 
 static void
+test_proxy_setup (TestProxyFixture *self, gconstpointer user_data)
+{
+  wp_test_server_setup (&self->server);
+  g_setenv ("PIPEWIRE_REMOTE", self->server.name, TRUE);
+  self->context = g_main_context_new ();
+  self->loop = g_main_loop_new (self->context, FALSE);
+  self->core = wp_core_new ();
+  self->remote = wp_remote_pipewire_new (self->core, self->context);
+
+  g_main_context_push_thread_default (self->context);
+
+  /* watchdogs */
+  g_signal_connect (self->remote, "state-changed",
+      (GCallback) test_proxy_state_changed, self);
+
+  self->timeout_source = g_timeout_source_new_seconds (3);
+  g_source_set_callback (self->timeout_source, (GSourceFunc) timeout_callback,
+      self, NULL);
+  g_source_attach (self->timeout_source, self->context);
+}
+
+static void
+test_proxy_teardown (TestProxyFixture *self, gconstpointer user_data)
+{
+  g_main_context_pop_thread_default (self->context);
+
+  g_clear_object (&self->remote);
+  g_clear_object (&self->core);
+  g_clear_pointer (&self->timeout_source, g_source_unref);
+  g_clear_pointer (&self->loop, g_main_loop_unref);
+  g_clear_pointer (&self->context, g_main_context_unref);
+  g_unsetenv ("PIPEWIRE_REMOTE");
+  wp_test_server_teardown (&self->server);
+}
+
+static void
+test_proxy_basic_done (WpProxy *proxy, GAsyncResult *res,
+    TestProxyFixture *fixture)
+{
+  g_autoptr (GError) error = NULL;
+  g_assert_true (wp_proxy_sync_finish (proxy, res, &error));
+  g_assert_no_error (error);
+
+  g_main_loop_quit (fixture->loop);
+}
+
+static void
 test_proxy_basic_augmented (WpProxy *proxy, GAsyncResult *res,
     TestProxyFixture *fixture)
 {
   g_autoptr (GError) error = NULL;
   g_assert_true (wp_proxy_augment_finish (proxy, res, &error));
+  g_assert_no_error (error);
 
   g_assert_true (wp_proxy_get_features (proxy) & WP_PROXY_FEATURE_PW_PROXY);
   g_assert_nonnull (wp_proxy_get_pw_proxy (proxy));
 
-  g_main_loop_quit (fixture->loop);
+  wp_proxy_sync (proxy, NULL, (GAsyncReadyCallback) test_proxy_basic_done,
+      fixture);
 }
 
 static void
@@ -108,29 +149,15 @@ test_proxy_basic_global_added (WpRemote *remote, WpProxy *proxy,
       (GAsyncReadyCallback) test_proxy_basic_augmented, fixture);
 }
 
-static gboolean
-timeout_callback (TestProxyFixture *fixture)
-{
-  g_message ("test timed out");
-  g_test_fail ();
-  g_main_loop_quit (fixture->loop);
-
-  return G_SOURCE_REMOVE;
-}
-
 static void
 test_proxy_basic (TestProxyFixture *fixture, gconstpointer data)
 {
-  g_signal_connect (fixture->remote, "state-changed",
-      (GCallback) test_proxy_state_changed, fixture);
-
   /* our test server should advertise exactly one
    * client: our WpRemote; use this to test WpProxy */
   g_signal_connect (fixture->remote, "global-added::client",
       (GCallback) test_proxy_basic_global_added, fixture);
 
   g_assert_true (wp_remote_connect (fixture->remote));
-  g_timeout_add_seconds (3, (GSourceFunc) timeout_callback, fixture);
   g_main_loop_run (fixture->loop);
 }
 
