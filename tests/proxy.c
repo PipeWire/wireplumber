@@ -134,6 +134,7 @@ test_proxy_basic_global_added (WpRemote *remote, WpProxy *proxy,
   g_assert_cmpstr (wp_proxy_get_interface_name (proxy), ==,
       "PipeWire:Interface:Client");
   g_assert_cmphex (wp_proxy_get_global_permissions (proxy), ==, PW_PERM_RWX);
+  g_assert_true (WP_IS_PROXY_CLIENT (proxy));
 
   g_assert_cmphex (wp_proxy_get_features (proxy), ==, 0);
   g_assert_null (wp_proxy_get_pw_proxy (proxy));

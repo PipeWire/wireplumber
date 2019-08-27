@@ -12,6 +12,7 @@
 #include "remote-pipewire.h"
 #include "wpenums.h"
 
+#include "proxy-client.h"
 #include "proxy-link.h"
 #include "proxy-node.h"
 #include "proxy-port.h"
@@ -97,7 +98,7 @@ static struct {
   { PW_TYPE_INTERFACE_Port, 0, wp_proxy_port_get_type, wp_proxy_port_quark },
   { PW_TYPE_INTERFACE_Factory, 0, wp_proxy_get_type, wp_proxy_factory_quark },
   { PW_TYPE_INTERFACE_Link, 0, wp_proxy_link_get_type, wp_proxy_link_quark },
-  { PW_TYPE_INTERFACE_Client, 0, wp_proxy_get_type, wp_proxy_client_quark },
+  { PW_TYPE_INTERFACE_Client, 0, wp_proxy_client_get_type, wp_proxy_client_quark },
   { PW_TYPE_INTERFACE_Module, 0, wp_proxy_get_type, wp_proxy_module_quark },
   { PW_TYPE_INTERFACE_Device, 0, wp_proxy_get_type, wp_proxy_device_quark },
   { PW_TYPE_INTERFACE_ClientNode, 0, wp_proxy_get_type, wp_proxy_client_node_quark },
