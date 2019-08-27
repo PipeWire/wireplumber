@@ -42,9 +42,6 @@ struct _WpPwAudioSoftdspEndpoint
   GTask *init_task;
   gboolean init_abort;
 
-  /* Direction */
-  enum pw_direction direction;
-
   /* Audio Streams */
   WpAudioStream *adapter;
   GPtrArray *converters;
@@ -162,6 +159,7 @@ on_audio_adapter_created(GObject *initable, GAsyncResult *res,
     gpointer data)
 {
   WpPwAudioSoftdspEndpoint *self = data;
+  enum pw_direction direction = wp_endpoint_get_direction(WP_ENDPOINT(self));
   g_autoptr (WpCore) core = wp_endpoint_get_core(WP_ENDPOINT(self));
   g_autofree gchar *name = NULL;
   const struct pw_node_info *adapter_info = NULL;
@@ -193,8 +191,8 @@ on_audio_adapter_created(GObject *initable, GAsyncResult *res,
   /* Create the audio converters */
   g_variant_iter_init (&iter, self->streams);
   for (i = 0; g_variant_iter_next (&iter, "&s", &stream); i++) {
-    wp_audio_convert_new (WP_ENDPOINT(self), i, stream, self->direction,
-        adapter_info, on_audio_convert_created, self);
+    wp_audio_convert_new (WP_ENDPOINT(self), i, stream, direction, adapter_info,
+        on_audio_convert_created, self);
 
     /* Register the stream */
     g_variant_dict_init (&d, NULL);
@@ -316,24 +314,16 @@ wp_endpoint_init_async (GAsyncInitable *initable, int io_priority,
     GCancellable *cancellable, GAsyncReadyCallback callback, gpointer data)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (initable);
+  enum pw_direction direction = wp_endpoint_get_direction(WP_ENDPOINT(self));
   g_autoptr (WpCore) core = wp_endpoint_get_core(WP_ENDPOINT(self));
-  const gchar *media_class = wp_endpoint_get_media_class (WP_ENDPOINT (self));
   GVariantDict d;
 
   /* Create the async task */
   self->init_task = g_task_new (initable, cancellable, callback, data);
 
-  /* Set the direction */
-  if (g_str_has_suffix (media_class, "Source"))
-    self->direction = PW_DIRECTION_OUTPUT;
-  else if (g_str_has_suffix (media_class, "Sink"))
-    self->direction = PW_DIRECTION_INPUT;
-  else
-    g_critical ("failed to parse direction");
-
   /* Create the adapter proxy */
   wp_audio_adapter_new (WP_ENDPOINT(self), WP_STREAM_ID_NONE, "master",
-      self->direction, self->global_id, FALSE, on_audio_adapter_created, self);
+      direction, self->global_id, FALSE, on_audio_adapter_created, self);
 
   /* Register the selected control */
   self->selected = FALSE;
@@ -401,6 +391,7 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
 {
   g_autoptr (WpCore) core = NULL;
   const gchar *name, *media_class;
+  guint direction;
   guint global_id;
   g_autoptr (GVariant) streams = NULL;
 
@@ -416,6 +407,8 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
       return;
   if (!g_variant_lookup (properties, "media-class", "&s", &media_class))
       return;
+  if (!g_variant_lookup (properties, "direction", "u", &direction))
+      return;
   if (!g_variant_lookup (properties, "global-id", "u", &global_id))
       return;
   if (!(streams = g_variant_lookup_value (properties, "streams",
@@ -428,6 +421,7 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
       "core", core,
       "name", name,
       "media-class", media_class,
+      "direction", direction,
       "global-id", global_id,
       "streams", streams,
       NULL);
