@@ -415,11 +415,17 @@ update_device(struct impl *impl, struct device *dev,
 static void
 destroy_device(struct impl *impl, struct device *dev)
 {
+  struct node *node;
+
   /* Remove the device from the list */
   spa_list_remove(&dev->link);
 
   /* Remove the device listener */
   spa_hook_remove(&dev->device_listener);
+
+  /* Destry all the nodes that the device has */
+  spa_list_consume(node, &dev->node_list, link)
+    destroy_node(impl, dev, node);
 
   /* Destroy the device proxy */
   pw_proxy_destroy(dev->proxy);
