@@ -11,6 +11,7 @@
  * and automatically creates endpoints for all alsa device nodes that appear
  */
 
+#include <spa/utils/keys.h>
 #include <spa/utils/names.h>
 #include <spa/monitor/monitor.h>
 #include <pipewire/pipewire.h>
@@ -57,7 +58,6 @@ struct node {
   struct pw_properties *props;
 
   struct pw_proxy *proxy;
-  struct spa_node *node;
 };
 
 static void
@@ -89,6 +89,89 @@ on_endpoint_created(GObject *initable, GAsyncResult *res, gpointer d)
       endpoint);
 }
 
+static gboolean
+parse_alsa_properties (const struct spa_dict *props, const gchar **name,
+    const gchar **media_class, enum pw_direction *direction)
+{
+  const char *local_name = NULL;
+  const char *local_media_class = NULL;
+  enum pw_direction local_direction;
+
+  /* Get the name */
+  local_name = spa_dict_lookup (props, "node.name");
+  if (!local_name)
+    return FALSE;
+
+  /* Get the media class */
+  local_media_class = spa_dict_lookup(props, SPA_KEY_MEDIA_CLASS);
+  if (!local_media_class)
+    return FALSE;
+
+  /* Get the direction */
+  if (g_str_has_prefix (local_media_class, "Audio/Sink"))
+    local_direction = PW_DIRECTION_INPUT;
+  else if (g_str_has_prefix (local_media_class, "Audio/Source"))
+    local_direction = PW_DIRECTION_OUTPUT;
+  else
+    return FALSE;
+
+  /* Set the name */
+  if (name)
+    *name = local_name;
+
+  /* Set the media class */
+  if (media_class) {
+    switch (local_direction) {
+    case PW_DIRECTION_INPUT:
+      *media_class = "Alsa/Sink";
+      break;
+    case PW_DIRECTION_OUTPUT:
+      *media_class = "Alsa/Source";
+      break;
+    default:
+      break;
+    }
+  }
+
+  /* Set the direction */
+  if (direction)
+    *direction = local_direction;
+
+  return TRUE;
+}
+
+/* TODO: we need to find a better way to do this */
+static gboolean
+is_alsa_device (const struct spa_dict *props)
+{
+  const gchar *name = NULL;
+  const gchar *media_class = NULL;
+
+  /* Get the name */
+  name = spa_dict_lookup (props, "node.name");
+  if (!name)
+    return FALSE;
+
+  /* Get the media class */
+  media_class = spa_dict_lookup(props, SPA_KEY_MEDIA_CLASS);
+  if (!media_class)
+    return FALSE;
+
+  /* Check if it is an audio device */
+  if (!g_str_has_prefix (media_class, "Audio/"))
+    return FALSE;
+
+  /* Check it is not a convert */
+  if (g_str_has_prefix (media_class, "Audio/Convert"))
+    return FALSE;
+
+  /* Check if it is not a bluez device */
+  if (g_str_has_prefix (name, "api.bluez5"))
+    return FALSE;
+
+  return TRUE;
+}
+
 static void
 on_node_added(WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
 {
@@ -100,41 +183,22 @@ on_node_added(WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
   GVariantBuilder b;
   g_autoptr (GVariant) endpoint_props = NULL;
 
-  /* Make sure the node has properties */
+  /* Only handle alsa nodes */
   g_return_if_fail(props);
-
-  /* Get the media_class */
-  media_class = spa_dict_lookup(props, "media.class");
-
-  /* Make sure the media class is non-convert audio */
-  if (!g_str_has_prefix (media_class, "Audio/"))
-    return;
-  if (g_str_has_prefix (media_class, "Audio/Convert"))
+  if (!is_alsa_device (props))
     return;
 
-  /* Get the name */
-  name = spa_dict_lookup (props, "media.name");
-  if (!name)
-    name = spa_dict_lookup (props, "node.name");
-
-  /* Don't handle bluetooth nodes */
-  if (g_str_has_prefix (name, "api.bluez5"))
-    return;
-
-  /* Get the direction */
-  if (g_str_has_prefix (media_class, "Audio/Sink")) {
-    direction = PW_DIRECTION_INPUT;
-  } else if (g_str_has_prefix (media_class, "Audio/Source")) {
-    direction = PW_DIRECTION_OUTPUT;
-  } else {
-    g_critical ("failed to parse direction");
+  /* Parse the alsa properties */
+  if (!parse_alsa_properties (props, &name, &media_class, &direction)) {
+    g_critical ("failed to parse alsa properties");
     return;
   }
 
   /* Set the properties */
   g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
   g_variant_builder_add (&b, "{sv}",
-      "name", g_variant_new_string (name));
+      "name", g_variant_new_take_string (
+          g_strdup_printf ("Alsa %u (%s)", id, name)));
   g_variant_builder_add (&b, "{sv}",
       "media-class", g_variant_new_string (media_class));
   g_variant_builder_add (&b, "{sv}",
@@ -172,36 +236,39 @@ create_node(struct impl *impl, struct device *dev, uint32_t id,
     const struct spa_device_object_info *info)
 {
   struct node *node;
-  const char *str;
+  const char *name;
+  struct pw_properties *props = NULL;
 
   /* Check if the type is a node */
   if (info->type != SPA_TYPE_INTERFACE_Node)
     return NULL;
 
+  /* Get the alsa name */
+  name = pw_properties_get(dev->props, SPA_KEY_DEVICE_NICK);
+  if (name == NULL)
+    name = pw_properties_get(dev->props, SPA_KEY_DEVICE_NAME);
+  if (name == NULL)
+    name = pw_properties_get(dev->props, SPA_KEY_DEVICE_ALIAS);
+  if (name == NULL)
+    name = "alsa-device";
+
+  /* Create the properties */
+  props = pw_properties_new_dict(&dev->props->dict);
+  pw_properties_update(props, info->props);
+  pw_properties_set(props, PW_KEY_NODE_NAME, name);
+  pw_properties_set(props, PW_KEY_FACTORY_NAME, info->factory_name);
+  pw_properties_set(props, "merger.monitor", "1");
+
   /* Create the node */
   node = g_slice_new0(struct node);
-
-  /* Set the node properties */
-  node->props = pw_properties_copy(dev->props);
-  pw_properties_update(node->props, info->props);
-  str = pw_properties_get(dev->props, SPA_KEY_DEVICE_NICK);
-  if (str == NULL)
-    str = pw_properties_get(dev->props, SPA_KEY_DEVICE_NAME);
-  if (str == NULL)
-    str = pw_properties_get(dev->props, SPA_KEY_DEVICE_ALIAS);
-  if (str == NULL)
-    str = "alsa-device";
-  pw_properties_set(node->props, PW_KEY_NODE_NAME, str);
-  pw_properties_set(node->props, "factory.name", info->factory_name);
-  pw_properties_set(node->props, "merger.monitor", "1");
-
-  /* Set the node info */
   node->impl = impl;
   node->device = dev;
   node->id = id;
+  node->props = props;
   node->proxy = wp_remote_pipewire_create_object(impl->remote_pipewire,
       "adapter", PW_TYPE_INTERFACE_Node, &node->props->dict);
   if (!node->proxy) {
+    pw_properties_free(props);
     g_slice_free (struct node, node);
     return NULL;
   }
