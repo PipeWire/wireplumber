@@ -1,14 +1,14 @@
 /* WirePlumber
  *
  * Copyright © 2019 Collabora Ltd.
- *    @author George Kiagiadakis <george.kiagiadakis@collabora.com>
+ *    @author Julian Bouzas <julian.bouzas@collabora.com>
  *
  * SPDX-License-Identifier: MIT
  */
 
 /**
- * module-pw-alsa-udev provides alsa device detection through pipewire
- * and automatically creates endpoints for all alsa device nodes that appear
+ * module-pw-bluez provides bluetooth device detection through pipewire
+ * and automatically creates pipewire audio nodes to play and capture audio
  */
 
 #include <wp/wp.h>
@@ -20,7 +20,6 @@ struct impl
   WpModule *module;
   WpRemotePipewire *remote_pipewire;
   GHashTable *registered_endpoints;
-  GVariant *streams;
 };
 
 static void
@@ -80,8 +79,8 @@ on_node_added(WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
   if (!name)
     name = spa_dict_lookup (props, "node.name");
 
-  /* Make sure we don't handle bluetooth nodes */
-  if (g_str_has_prefix (name, "api.bluez5"))
+  /* Make sure we only handle bluetooth nodes */
+  if (!g_str_has_prefix (name, "api.bluez5"))
     return;
 
   /* Set the properties */
@@ -92,12 +91,9 @@ on_node_added(WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
       "media-class", g_variant_new_string (media_class));
   g_variant_builder_add (&b, "{sv}",
       "global-id", g_variant_new_uint32 (id));
-  g_variant_builder_add (&b, "{sv}",
-      "streams", impl->streams);
-  endpoint_props = g_variant_builder_end (&b);
 
   /* Create the endpoint async */
-  wp_factory_make (core, "pw-audio-softdsp-endpoint", WP_TYPE_ENDPOINT,
+  wp_factory_make (core, "pipewire-simple-endpoint", WP_TYPE_ENDPOINT,
       endpoint_props, on_endpoint_created, impl);
 }
 
@@ -131,8 +127,6 @@ module_destroy (gpointer data)
   g_hash_table_unref(impl->registered_endpoints);
   impl->registered_endpoints = NULL;
 
-  g_clear_pointer (&impl->streams, g_variant_unref);
-
   /* Clean up */
   g_slice_free (struct impl, impl);
 }
@@ -146,7 +140,7 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   /* Make sure the remote pipewire is valid */
   rp = wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
   if (!rp) {
-    g_critical ("module-pw-alsa-udev cannot be loaded without a registered "
+    g_critical ("module-pw-bluez cannot be loaded without a registered "
         "WpRemotePipewire object");
     return;
   }
@@ -157,8 +151,6 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   impl->remote_pipewire = rp;
   impl->registered_endpoints = g_hash_table_new_full (g_direct_hash,
       g_direct_equal, NULL, (GDestroyNotify)g_object_unref);
-  impl->streams = g_variant_lookup_value (args, "streams",
-      G_VARIANT_TYPE ("as"));
 
   /* Set destroy callback for impl */
   wp_module_set_destroy_callback (module, module_destroy, impl);
