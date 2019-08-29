@@ -143,6 +143,12 @@ wp_properties_new_copy_dict (const struct spa_dict * dict)
   return self;
 }
 
+WpProperties *
+wp_properties_copy (WpProperties * other)
+{
+  return wp_properties_new_copy_dict (wp_properties_peek_dict (other));
+}
+
 static void
 wp_properties_free (WpProperties * self)
 {
@@ -160,6 +166,16 @@ void
 wp_properties_unref (WpProperties * self)
 {
   g_rc_box_release_full (self, (GDestroyNotify) wp_properties_free);
+}
+
+gint
+wp_properties_update_from_dict (WpProperties * self,
+    const struct spa_dict * dict)
+{
+  g_return_val_if_fail (self != NULL, -EINVAL);
+  g_return_val_if_fail (!(self->flags & FLAG_IS_DICT), -EINVAL);
+
+  return pw_properties_update (self->props, dict);
 }
 
 const gchar *

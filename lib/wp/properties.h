@@ -33,8 +33,13 @@ WpProperties * wp_properties_new_copy (const struct pw_properties * props);
 WpProperties * wp_properties_new_wrap_dict (const struct spa_dict * dict);
 WpProperties * wp_properties_new_copy_dict (const struct spa_dict * dict);
 
+WpProperties * wp_properties_copy (WpProperties * other);
+
 WpProperties * wp_properties_ref (WpProperties * self);
 void wp_properties_unref (WpProperties * self);
+
+gint wp_properties_update_from_dict (WpProperties * self,
+    const struct spa_dict * dict);
 
 const gchar * wp_properties_get (WpProperties * self, const gchar * key);
 
