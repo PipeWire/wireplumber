@@ -59,7 +59,7 @@ on_node_added(WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
   struct impl *impl = d;
   const struct spa_dict *props = p;
   g_autoptr (WpCore) core = wp_module_get_core (impl->module);
-  const gchar *media_class, *name;
+  const gchar *media_class, *alsa_media_class, *name;
   enum pw_direction direction;
   GVariantBuilder b;
   g_autoptr (GVariant) endpoint_props = NULL;
@@ -82,14 +82,16 @@ on_node_added(WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
     name = spa_dict_lookup (props, "node.name");
 
   /* Make sure we don't handle bluetooth nodes */
-  if (g_str_has_prefix (name, "api.bluez5"))
+  if (g_str_has_prefix (name, "bluez5"))
     return;
 
-  /* Set the direction */
+  /* Set the direction and alsa media class */
   if (g_str_has_suffix (media_class, "Source")) {
     direction = PW_DIRECTION_OUTPUT;
+    alsa_media_class = "Alsa/Source";
   } else if (g_str_has_suffix (media_class, "Sink")) {
     direction = PW_DIRECTION_INPUT;
+    alsa_media_class = "Alsa/Sink";
   } else {
     g_critical ("failed to parse alsa direction");
     return;
@@ -100,7 +102,7 @@ on_node_added(WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
   g_variant_builder_add (&b, "{sv}",
       "name", g_variant_new_string (name));
   g_variant_builder_add (&b, "{sv}",
-      "media-class", g_variant_new_string (media_class));
+      "media-class", g_variant_new_string (alsa_media_class));
   g_variant_builder_add (&b, "{sv}",
       "direction", g_variant_new_uint32 (direction));
   g_variant_builder_add (&b, "{sv}",
