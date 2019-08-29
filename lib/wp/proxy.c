@@ -174,6 +174,22 @@ static const struct pw_proxy_events proxy_events = {
 };
 
 static void
+wp_proxy_got_pw_proxy (WpProxy * self)
+{
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+
+  pw_proxy_add_listener (priv->pw_proxy, &priv->listener, &proxy_events,
+      self);
+
+  /* inform subclasses and listeners */
+  g_signal_emit (self, wp_proxy_signals[SIGNAL_PW_PROXY_CREATED], 0,
+      priv->pw_proxy);
+
+  /* declare the feature as ready */
+  wp_proxy_set_feature_ready (self, WP_PROXY_FEATURE_PW_PROXY);
+}
+
+static void
 wp_proxy_init (WpProxy * self)
 {
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
@@ -190,13 +206,8 @@ wp_proxy_constructed (GObject * object)
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
 
   /* native proxy was passed in the constructor, declare it as ready */
-  if (priv->pw_proxy) {
-    priv->ft_ready |= WP_PROXY_FEATURE_PW_PROXY;
-
-    /* and inform the subclasses */
-    g_signal_emit (self, wp_proxy_signals[SIGNAL_PW_PROXY_CREATED], 0,
-        priv->pw_proxy);
-  }
+  if (priv->pw_proxy)
+    wp_proxy_got_pw_proxy (self);
 }
 
 static void
@@ -204,8 +215,8 @@ wp_proxy_finalize (GObject * object)
 {
   WpProxyPrivate *priv = wp_proxy_get_instance_private (WP_PROXY(object));
 
-  g_debug ("%s:%p destroyed (global %u; pw_proxy %p)", G_OBJECT_TYPE_NAME (object),
-      object, priv->global_id, priv->pw_proxy);
+  g_debug ("%s:%p destroyed (global %u; pw_proxy %p)",
+      G_OBJECT_TYPE_NAME (object), object, priv->global_id, priv->pw_proxy);
 
   g_clear_object (&priv->task);
   g_clear_pointer (&priv->global_props, wp_properties_unref);
@@ -298,6 +309,7 @@ static void
 wp_proxy_default_augment (WpProxy * self, WpProxyFeatures features)
 {
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  g_autoptr (WpRemote) remote = NULL;
 
   /* ensure we have a pw_proxy, as we can't have
    * any other feature without first having that */
@@ -315,7 +327,14 @@ wp_proxy_default_augment (WpProxy * self, WpProxyFeatures features)
       return;
     }
 
-    wp_proxy_bind_global (self);
+    remote = g_weak_ref_get (&priv->remote);
+    g_return_if_fail (remote);
+
+    /* bind */
+    priv->pw_proxy = wp_remote_pipewire_proxy_bind (
+        WP_REMOTE_PIPEWIRE (remote),
+        priv->global_id, priv->iface_type);
+    wp_proxy_got_pw_proxy (self);
   }
 }
 
@@ -511,39 +530,6 @@ wp_proxy_augment_error (WpProxy * self, GError * error)
     g_error_free (error);
 
   g_clear_object (&priv->task);
-}
-
-gboolean
-wp_proxy_bind_global (WpProxy * self)
-{
-  WpProxyPrivate *priv;
-  g_autoptr (WpRemote) remote = NULL;
-
-  g_return_val_if_fail (wp_proxy_is_global (self), FALSE);
-
-  priv = wp_proxy_get_instance_private (self);
-
-  if (priv->pw_proxy)
-    return FALSE;
-
-  remote = g_weak_ref_get (&priv->remote);
-  g_return_val_if_fail (remote != NULL, FALSE);
-
-  /* bind */
-  priv->pw_proxy  = wp_remote_pipewire_proxy_bind (
-      WP_REMOTE_PIPEWIRE (remote),
-      priv->global_id, priv->iface_type);
-  pw_proxy_add_listener (priv->pw_proxy, &priv->listener, &proxy_events,
-      self);
-
-  /* inform subclasses and listeners */
-  g_signal_emit (self, wp_proxy_signals[SIGNAL_PW_PROXY_CREATED], 0,
-      priv->pw_proxy);
-
-  /* declare the feature as ready */
-  wp_proxy_set_feature_ready (self, WP_PROXY_FEATURE_PW_PROXY);
-
-  return TRUE;
 }
 
 WpProxyFeatures

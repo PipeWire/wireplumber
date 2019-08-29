@@ -81,8 +81,6 @@ void wp_proxy_augment_error (WpProxy * self, GError * error);
 void wp_proxy_register_async_task (WpProxy * self, int seq, GTask * task);
 GTask * wp_proxy_find_async_task (WpProxy * self, int seq, gboolean steal);
 
-gboolean wp_proxy_bind_global (WpProxy * self);
-
 G_END_DECLS
 
 #endif
