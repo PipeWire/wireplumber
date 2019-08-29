@@ -417,7 +417,10 @@ start_monitor (WpRemotePipewire *remote, WpRemoteState state, gpointer data)
   /* Load the monitor handle */
   handle = (struct spa_handle *)wp_remote_pipewire_load_spa_handle (
       impl->remote_pipewire, SPA_NAME_API_BLUEZ5_MONITOR, NULL);
-  g_return_if_fail (handle);
+  if (!handle) {
+    g_message ("SPA bluez5 plugin could not be loaded; is it installed?");
+    return;
+  }
 
   /* Get the handle interface */
   res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Monitor, &iface);
