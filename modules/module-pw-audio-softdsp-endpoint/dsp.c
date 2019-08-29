@@ -285,7 +285,7 @@ on_audio_dsp_running(WpPwAudioDsp *self)
 
   /* Set the new properties */
   pw_properties_set(props, PW_LINK_PROP_PASSIVE, "true");
-  if (self->direction == PW_DIRECTION_OUTPUT) {
+  if (self->direction == PW_DIRECTION_INPUT) {
     pw_properties_setf(props, PW_LINK_OUTPUT_NODE_ID, "%d", dsp_info->id);
     pw_properties_setf(props, PW_LINK_OUTPUT_PORT_ID, "%d", -1);
     pw_properties_setf(props, PW_LINK_INPUT_NODE_ID, "%d", self->target->id);
@@ -430,7 +430,7 @@ on_audio_dsp_proxy_created(GObject *initable, GAsyncResult *res,
     param = spa_format_audio_raw_build(&pod_builder, SPA_PARAM_Format, &format);
     param = spa_pod_builder_add_object(&pod_builder,
         SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
-        SPA_PARAM_PROFILE_direction,  SPA_POD_Id(pw_direction_reverse(self->direction)),
+        SPA_PARAM_PROFILE_direction,  SPA_POD_Id(self->direction),
         SPA_PARAM_PROFILE_format,     SPA_POD_Pod(param));
     pw_node_proxy_set_param(pw_proxy, SPA_PARAM_Profile, 0, param);
   }
@@ -572,7 +572,7 @@ wp_pw_audio_dsp_init_async (GAsyncInitable *initable, int io_priority,
   pw_properties_set(props, "audio-dsp.name",
       self->name ? self->name : "Audio-DSP");
   pw_properties_set(props, "audio-dsp.mode", self->convert ? "convert" : NULL);
-  pw_properties_setf(props, "audio-dsp.direction", "%d", self->direction);
+  pw_properties_setf(props, "audio-dsp.direction", "%d", pw_direction_reverse(self->direction));
   pw_properties_setf(props, "audio-dsp.maxbuffer", "%ld",
       MAX_QUANTUM_SIZE * sizeof(float));
 

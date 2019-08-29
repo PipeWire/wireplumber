@@ -43,9 +43,6 @@ struct _WpPwAudioSoftdspEndpoint
   /* The remote pipewire */
   WpRemotePipewire *remote_pipewire;
 
-  /* Direction */
-  enum pw_direction direction;
-
   /* Proxies */
   WpProxyNode *proxy_node;
   WpProxyPort *proxy_port;
@@ -168,6 +165,7 @@ on_audio_dsp_converter_created(GObject *initable, GAsyncResult *res,
 {
   WpPwAudioSoftdspEndpoint *self = data;
   g_autoptr (WpCore) core = wp_endpoint_get_core(WP_ENDPOINT(self));
+  enum pw_direction direction = wp_endpoint_get_direction (WP_ENDPOINT (self));
   const struct pw_node_info *target = NULL;
   GVariantDict d;
   GVariantIter iter;
@@ -187,8 +185,8 @@ on_audio_dsp_converter_created(GObject *initable, GAsyncResult *res,
   /* Create the audio dsp streams */
   g_variant_iter_init (&iter, self->streams);
   for (i = 0; g_variant_iter_next (&iter, "&s", &stream); i++) {
-    wp_pw_audio_dsp_new (WP_ENDPOINT(self), i, stream, self->direction, FALSE,
-        target, on_audio_dsp_stream_created, self);
+    wp_pw_audio_dsp_new (WP_ENDPOINT(self), i, stream, direction, FALSE, target,
+        on_audio_dsp_stream_created, self);
 
     /* Register the stream */
     g_variant_dict_init (&d, NULL);
@@ -204,6 +202,7 @@ on_proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
 {
   WpPwAudioSoftdspEndpoint *self = data;
   g_autoptr (WpCore) core = wp_endpoint_get_core(WP_ENDPOINT(self));
+  enum pw_direction direction = wp_endpoint_get_direction( WP_ENDPOINT (self));
   g_autofree gchar *name = NULL;
   const struct spa_dict *props;
   const struct pw_node_info *target = NULL;
@@ -229,7 +228,7 @@ on_proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
   target = wp_proxy_node_get_info (self->proxy_node);
   g_return_if_fail (target);
   wp_pw_audio_dsp_new (WP_ENDPOINT(self), WP_STREAM_ID_NONE, "master",
-      self->direction, TRUE, target, on_audio_dsp_converter_created, self);
+      direction, TRUE, target, on_audio_dsp_converter_created, self);
 }
 
 static void
@@ -395,19 +394,10 @@ wp_endpoint_init_async (GAsyncInitable *initable, int io_priority,
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (initable);
   g_autoptr (WpCore) core = wp_endpoint_get_core(WP_ENDPOINT(self));
-  const gchar *media_class = wp_endpoint_get_media_class (WP_ENDPOINT (self));
   GVariantDict d;
 
   /* Create the async task */
   self->init_task = g_task_new (initable, cancellable, callback, data);
-
-  /* Set the direction */
-  if (g_str_has_suffix (media_class, "Source"))
-    self->direction = PW_DIRECTION_INPUT;
-  else if (g_str_has_suffix (media_class, "Sink"))
-    self->direction = PW_DIRECTION_OUTPUT;
-  else
-    g_critical ("failed to parse direction");
 
   /* Register a port_added callback */
   self->remote_pipewire = wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
@@ -481,7 +471,7 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
 {
   g_autoptr (WpCore) core = NULL;
   const gchar *name, *media_class;
-  guint global_id;
+  guint direction, global_id;
   g_autoptr (GVariant) streams = NULL;
 
   /* Make sure the type is correct */
@@ -496,6 +486,8 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
       return;
   if (!g_variant_lookup (properties, "media-class", "&s", &media_class))
       return;
+  if (!g_variant_lookup (properties, "direction", "u", &direction))
+      return;
   if (!g_variant_lookup (properties, "global-id", "u", &global_id))
       return;
   if (!(streams = g_variant_lookup_value (properties, "streams",
@@ -508,6 +500,7 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
       "core", core,
       "name", name,
       "media-class", media_class,
+      "direction", direction,
       "global-id", global_id,
       "streams", streams,
       NULL);

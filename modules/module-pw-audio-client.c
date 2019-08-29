@@ -58,6 +58,7 @@ on_node_added (WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
   const struct spa_dict *props = p;
   g_autoptr (WpCore) core = wp_module_get_core (data->module);
   const gchar *name, *media_class;
+  enum pw_direction direction;
   GVariantBuilder b;
   g_autoptr (GVariant) endpoint_props = NULL;
 
@@ -76,6 +77,16 @@ on_node_added (WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
   if (!name)
     name = spa_dict_lookup (props, "node.name");
 
+  /* Get the direction */
+  if (g_str_has_prefix (media_class, "Stream/Input")) {
+    direction = PW_DIRECTION_INPUT;
+  } else if (g_str_has_prefix (media_class, "Stream/Output")) {
+    direction = PW_DIRECTION_OUTPUT;
+  } else {
+    g_critical ("failed to parse client direction");
+    return;
+  }
+
   /* Set the properties */
   g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
   g_variant_builder_add (&b, "{sv}",
@@ -84,6 +95,8 @@ on_node_added (WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
       g_variant_new_take_string (g_strdup_printf ("Stream %u", id)));
   g_variant_builder_add (&b, "{sv}",
       "media-class", g_variant_new_string (media_class));
+  g_variant_builder_add (&b, "{sv}",
+      "direction", g_variant_new_uint32 (direction));
   g_variant_builder_add (&b, "{sv}",
       "global-id", g_variant_new_uint32 (id));
   endpoint_props = g_variant_builder_end (&b);

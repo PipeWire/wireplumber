@@ -93,6 +93,7 @@ struct _WpEndpointPrivate
 {
   gchar *name;
   gchar media_class[40];
+  guint direction;
   GPtrArray *streams;
   GPtrArray *controls;
   GPtrArray *links;
@@ -104,6 +105,7 @@ enum {
   PROP_CORE,
   PROP_NAME,
   PROP_MEDIA_CLASS,
+  PROP_DIRECTION,
 };
 
 enum {
@@ -211,6 +213,9 @@ wp_endpoint_set_property (GObject * object, guint property_id,
     strncpy (priv->media_class, g_value_get_string (value),
         sizeof (priv->media_class) - 1);
     break;
+  case PROP_DIRECTION:
+    priv->direction = g_value_get_uint (value);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
@@ -233,6 +238,9 @@ wp_endpoint_get_property (GObject * object, guint property_id, GValue * value,
     break;
   case PROP_MEDIA_CLASS:
     g_value_set_string (value, priv->media_class);
+    break;
+  case PROP_DIRECTION:
+    g_value_set_uint (value, priv->direction);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -277,6 +285,15 @@ wp_endpoint_class_init (WpEndpointClass * klass)
       g_param_spec_string ("media-class", "media-class",
           "The media class of the endpoint", NULL,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS));
+
+  /**
+   * WpEndpoint::direction:
+   * The direction of the endpoint: input = 0, output = 1.
+   */
+  g_object_class_install_property (object_class, PROP_DIRECTION,
+      g_param_spec_uint ("direction", "direction",
+          "The direction of the endpoint", 0, 1, 0,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   signals[SIGNAL_NOTIFY_CONTROL_VALUE] = g_signal_new ("notify-control-value",
       G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
@@ -463,6 +480,17 @@ wp_endpoint_get_media_class (WpEndpoint * self)
 
   priv = wp_endpoint_get_instance_private (self);
   return priv->media_class;
+}
+
+guint
+wp_endpoint_get_direction (WpEndpoint * self)
+{
+  WpEndpointPrivate *priv;
+
+  g_return_val_if_fail (WP_IS_ENDPOINT (self), -1);
+
+  priv = wp_endpoint_get_instance_private (self);
+  return priv->direction;
 }
 
 /**
