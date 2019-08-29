@@ -107,8 +107,9 @@ endpoint_prepare_link (WpEndpoint * ep, guint32 stream_id,
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (ep);
   WpPwAudioDsp *stream = NULL;
 
-  /* Make sure the stream Id is valid */
-  g_return_val_if_fail(stream_id < self->dsps->len, FALSE);
+  /* Make sure the stream Id is valid, otherwise use the stream 0 */
+  if (stream_id >= self->dsps->len)
+    stream_id = 0;
 
   /* Make sure the stream is valid */
   stream = g_ptr_array_index (self->dsps, stream_id);
@@ -182,19 +183,28 @@ on_audio_dsp_converter_created(GObject *initable, GAsyncResult *res,
   target = wp_pw_audio_dsp_get_info (self->converter);
   g_return_if_fail (target);
 
-  /* Create the audio dsp streams */
-  g_variant_iter_init (&iter, self->streams);
-  for (i = 0; g_variant_iter_next (&iter, "&s", &stream); i++) {
-    wp_pw_audio_dsp_new (WP_ENDPOINT(self), i, stream, direction, FALSE, target,
-        on_audio_dsp_stream_created, self);
+  /* Create the audio dsp streams if not null, otherwise create a default one */
+  if (self->streams) {
+    g_variant_iter_init (&iter, self->streams);
+    for (i = 0; g_variant_iter_next (&iter, "&s", &stream); i++) {
+      wp_pw_audio_dsp_new (WP_ENDPOINT(self), i, stream, direction, FALSE, target,
+          on_audio_dsp_stream_created, self);
 
-    /* Register the stream */
+      /* Register the stream */
+      g_variant_dict_init (&d, NULL);
+      g_variant_dict_insert (&d, "id", "u", i);
+      g_variant_dict_insert (&d, "name", "s", stream);
+      wp_endpoint_register_stream (WP_ENDPOINT (self), g_variant_dict_end (&d));
+    }
+    self->stream_count = i;
+  } else {
+    wp_pw_audio_dsp_new (WP_ENDPOINT(self), 0, "Multimedia", direction, FALSE,
+          target, on_audio_dsp_stream_created, self);
     g_variant_dict_init (&d, NULL);
-    g_variant_dict_insert (&d, "id", "u", i);
-    g_variant_dict_insert (&d, "name", "s", stream);
-    wp_endpoint_register_stream (WP_ENDPOINT (self), g_variant_dict_end (&d));
+    g_variant_dict_insert (&d, "id", "u", 0);
+    g_variant_dict_insert (&d, "name", "s", "Multimedia");
+    self->stream_count = 1;
   }
-  self->stream_count = i;
 }
 
 static void
@@ -490,9 +500,7 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
       return;
   if (!g_variant_lookup (properties, "global-id", "u", &global_id))
       return;
-  if (!(streams = g_variant_lookup_value (properties, "streams",
-          G_VARIANT_TYPE ("as"))))
-      return;
+  streams = g_variant_lookup_value (properties, "streams", G_VARIANT_TYPE ("as"));
 
   /* Create and return the softdsp endpoint object */
   g_async_initable_new_async (
