@@ -88,26 +88,26 @@ on_endpoint_created(GObject *initable, GAsyncResult *res, gpointer d)
 }
 
 static void
-on_node_added (WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
+on_node_added (WpRemotePipewire *rp, WpProxy *proxy, struct impl *data)
 {
-  struct impl *data = d;
-  const struct spa_dict *props = p;
   g_autoptr (WpCore) core = wp_module_get_core (data->module);
   const gchar *name, *media_class;
   enum pw_direction direction;
   GVariantBuilder b;
+  g_autoptr (WpProperties) props = NULL;
   g_autoptr (GVariant) endpoint_props = NULL;
+  guint32 id = wp_proxy_get_global_id (proxy);
 
-  /* Make sure the node has properties */
+  props = wp_proxy_get_global_properties (proxy);
   g_return_if_fail(props);
 
   /* Get the media_class */
-  media_class = spa_dict_lookup(props, "media.class");
+  media_class = wp_properties_get (props, PW_KEY_MEDIA_CLASS);
 
   /* Get the name */
-  name = spa_dict_lookup (props, "media.name");
+  name = wp_properties_get (props, PW_KEY_MEDIA_NAME);
   if (!name)
-    name = spa_dict_lookup (props, "node.name");
+    name = wp_properties_get (props, PW_KEY_NODE_NAME);
 
   /* Only handle bluetooth nodes */
   if (!g_str_has_prefix (name, "api.bluez5"))
@@ -134,7 +134,7 @@ on_node_added (WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
   g_variant_builder_add (&b, "{sv}",
       "direction", g_variant_new_uint32 (direction));
   g_variant_builder_add (&b, "{sv}",
-      "global-id", g_variant_new_uint32 (id));
+      "proxy-node", g_variant_new_uint64 ((guint64) proxy));
   endpoint_props = g_variant_builder_end (&b);
 
   /* Create the endpoint async */
@@ -143,10 +143,10 @@ on_node_added (WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
 }
 
 static void
-on_global_removed (WpRemotePipewire *rp, guint id, gpointer d)
+on_global_removed (WpRemotePipewire *rp, WpProxy *proxy, struct impl *data)
 {
-  struct impl *data = d;
   WpEndpoint *endpoint = NULL;
+  guint32 id = wp_proxy_get_global_id (proxy);
 
   /* Get the endpoint */
   endpoint = g_hash_table_lookup (data->registered_endpoints,

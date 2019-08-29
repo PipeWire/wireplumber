@@ -32,7 +32,7 @@ struct _WpPwAudioSoftdspEndpoint
   WpEndpoint parent;
 
   /* Properties */
-  guint global_id;
+  WpProxyNode *proxy_node;
   GVariant *streams;
 
   guint stream_count;
@@ -40,7 +40,6 @@ struct _WpPwAudioSoftdspEndpoint
 
   /* The task to signal the endpoint is initialized */
   GTask *init_task;
-  gboolean init_abort;
 
   /* Audio Streams */
   WpAudioStream *adapter;
@@ -49,7 +48,7 @@ struct _WpPwAudioSoftdspEndpoint
 
 enum {
   PROP_0,
-  PROP_GLOBAL_ID,
+  PROP_PROXY_NODE,
   PROP_STREAMS,
 };
 
@@ -71,28 +70,23 @@ static GObject *
 object_safe_new_finish(WpPwAudioSoftdspEndpoint * self, GObject *initable,
     GAsyncResult *res, WpObjectNewFinishFunc new_finish_func)
 {
-  GObject *object = NULL;
+  g_autoptr (GObject) object = NULL;
   GError *error = NULL;
 
   /* Return NULL if we are already aborting */
-  if (self->init_abort)
+  if (!self->init_task)
     return NULL;
 
   /* Get the object */
   object = G_OBJECT (new_finish_func (initable, res, &error));
-  g_return_val_if_fail (object, NULL);
-
-  /* Check for error */
   if (error) {
-    g_clear_object (&object);
     g_warning ("WpPwAudioSoftdspEndpoint:%p Aborting construction", self);
-    self->init_abort = TRUE;
     g_task_return_error (self->init_task, error);
     g_clear_object (&self->init_task);
     return NULL;
   }
 
-  return object;
+  return g_steal_pointer (&object);
 }
 
 static gboolean
@@ -161,8 +155,8 @@ on_audio_adapter_created(GObject *initable, GAsyncResult *res,
   WpPwAudioSoftdspEndpoint *self = data;
   enum pw_direction direction = wp_endpoint_get_direction(WP_ENDPOINT(self));
   g_autoptr (WpCore) core = wp_endpoint_get_core(WP_ENDPOINT(self));
+  g_autoptr (WpProperties) props = NULL;
   g_autofree gchar *name = NULL;
-  const struct pw_node_info *adapter_info = NULL;
   GVariantDict d;
   GVariantIter iter;
   const gchar *stream;
@@ -174,25 +168,23 @@ on_audio_adapter_created(GObject *initable, GAsyncResult *res,
   if (!self->adapter)
     return;
 
-  /* Get the adapter info */
-  adapter_info = wp_audio_stream_get_info (self->adapter);
-  g_return_if_fail (adapter_info);
+  props = wp_proxy_node_get_properties (self->proxy_node);
 
   /* Give a proper name to this endpoint based on adapter properties */
-  if (0 == g_strcmp0(spa_dict_lookup (adapter_info->props, "device.api"), "alsa")) {
-    name = g_strdup_printf ("%s on %s (%s / node %d)",
-        spa_dict_lookup (adapter_info->props, "api.alsa.pcm.name"),
-        spa_dict_lookup (adapter_info->props, "api.alsa.card.name"),
-        spa_dict_lookup (adapter_info->props, "api.alsa.path"),
-        adapter_info->id);
+  if (0 == g_strcmp0(wp_properties_get (props, "device.api"), "alsa")) {
+    name = g_strdup_printf ("%s on %s (%s / node %s)",
+        wp_properties_get (props, "api.alsa.pcm.name"),
+        wp_properties_get (props, "api.alsa.card.name"),
+        wp_properties_get (props, "api.alsa.path"),
+        wp_properties_get (props, PW_KEY_NODE_ID));
     g_object_set (self, "name", name, NULL);
   }
 
   /* Create the audio converters */
   g_variant_iter_init (&iter, self->streams);
   for (i = 0; g_variant_iter_next (&iter, "&s", &stream); i++) {
-    wp_audio_convert_new (WP_ENDPOINT(self), i, stream, direction, adapter_info,
-        on_audio_convert_created, self);
+    wp_audio_convert_new (WP_ENDPOINT(self), i, stream, direction,
+        self->proxy_node, on_audio_convert_created, self);
 
     /* Register the stream */
     g_variant_dict_init (&d, NULL);
@@ -219,6 +211,8 @@ endpoint_finalize (GObject * object)
   /* Destroy the done task */
   g_clear_object(&self->init_task);
 
+  g_clear_object(&self->proxy_node);
+
   G_OBJECT_CLASS (endpoint_parent_class)->finalize (object);
 }
 
@@ -229,8 +223,8 @@ endpoint_set_property (GObject * object, guint property_id,
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (object);
 
   switch (property_id) {
-  case PROP_GLOBAL_ID:
-    self->global_id = g_value_get_uint(value);
+  case PROP_PROXY_NODE:
+    self->proxy_node = g_value_dup_object (value);
     break;
   case PROP_STREAMS:
     self->streams = g_value_dup_variant(value);
@@ -248,8 +242,8 @@ endpoint_get_property (GObject * object, guint property_id,
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (object);
 
   switch (property_id) {
-  case PROP_GLOBAL_ID:
-    g_value_set_uint (value, self->global_id);
+  case PROP_PROXY_NODE:
+    g_value_set_object (value, self->proxy_node);
     break;
   case PROP_STREAMS:
     g_value_set_variant (value, self->streams);
@@ -323,7 +317,7 @@ wp_endpoint_init_async (GAsyncInitable *initable, int io_priority,
 
   /* Create the adapter proxy */
   wp_audio_adapter_new (WP_ENDPOINT(self), WP_STREAM_ID_NONE, "master",
-      direction, self->global_id, FALSE, on_audio_adapter_created, self);
+      direction, self->proxy_node, FALSE, on_audio_adapter_created, self);
 
   /* Register the selected control */
   self->selected = FALSE;
@@ -354,7 +348,6 @@ wp_endpoint_async_initable_init (gpointer iface, gpointer iface_data)
 static void
 endpoint_init (WpPwAudioSoftdspEndpoint * self)
 {
-  self->init_abort = FALSE;
   self->converters = g_ptr_array_new_with_free_func (g_object_unref);
 }
 
@@ -373,9 +366,9 @@ endpoint_class_init (WpPwAudioSoftdspEndpointClass * klass)
   endpoint_class->set_control_value = endpoint_set_control_value;
 
   /* Instal the properties */
-  g_object_class_install_property (object_class, PROP_GLOBAL_ID,
-      g_param_spec_uint ("global-id", "global-id",
-          "The global Id this endpoint refers to", 0, G_MAXUINT, 0,
+  g_object_class_install_property (object_class, PROP_PROXY_NODE,
+      g_param_spec_object ("proxy-node", "proxy-node",
+          "The node this endpoint refers to", WP_TYPE_PROXY_NODE,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (object_class, PROP_STREAMS,
@@ -392,7 +385,7 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
   g_autoptr (WpCore) core = NULL;
   const gchar *name, *media_class;
   guint direction;
-  guint global_id;
+  WpProxy *node;
   g_autoptr (GVariant) streams = NULL;
 
   /* Make sure the type is correct */
@@ -409,7 +402,7 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
       return;
   if (!g_variant_lookup (properties, "direction", "u", &direction))
       return;
-  if (!g_variant_lookup (properties, "global-id", "u", &global_id))
+  if (!g_variant_lookup (properties, "proxy-node", "t", &node))
       return;
   if (!(streams = g_variant_lookup_value (properties, "streams",
           G_VARIANT_TYPE ("as"))))
@@ -422,7 +415,7 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
       "name", name,
       "media-class", media_class,
       "direction", direction,
-      "global-id", global_id,
+      "proxy-node", node,
       "streams", streams,
       NULL);
 }

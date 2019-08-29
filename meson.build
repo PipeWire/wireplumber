@@ -33,6 +33,6 @@ gnome = import('gnome')
 wp_lib_include_dir = include_directories('lib')
 
 subdir('lib')
-#subdir('modules')
+subdir('modules')
 subdir('src')
 subdir('tests')

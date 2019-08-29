@@ -24,24 +24,27 @@ G_DECLARE_DERIVABLE_TYPE (WpAudioStream, wp_audio_stream, WP, AUDIO_STREAM, GObj
 struct _WpAudioStreamClass
 {
   GObjectClass parent_class;
-
-  /* Methods */
-  gpointer (*create_proxy) (WpAudioStream * self, WpRemotePipewire *rp);
-  gconstpointer (*get_info) (WpAudioStream * self);
-  void (*event_info) (WpAudioStream * self, gconstpointer info, WpRemotePipewire *rp);
 };
 
 WpAudioStream * wp_audio_stream_new_finish (GObject *initable,
     GAsyncResult *res, GError **error);
 const char *wp_audio_stream_get_name (WpAudioStream * self);
 enum pw_direction wp_audio_stream_get_direction (WpAudioStream * self);
-gconstpointer wp_audio_stream_get_info (WpAudioStream * self);
+WpProxyNode * wp_audio_stream_get_proxy_node (WpAudioStream * self);
+const struct pw_node_info * wp_audio_stream_get_info (WpAudioStream * self);
 gboolean wp_audio_stream_prepare_link (WpAudioStream * self,
       GVariant ** properties, GError ** error);
 GVariant * wp_audio_stream_get_control_value (WpAudioStream * self,
     guint32 control_id);
 gboolean wp_audio_stream_set_control_value (WpAudioStream * self,
     guint32 control_id, GVariant * value);
+
+/* for subclasses */
+
+WpRemotePipewire *wp_audio_stream_get_remote (WpAudioStream * self);
+void wp_audio_stream_init_task_finish (WpAudioStream * self, GError * error);
+void wp_audio_stream_set_port_config (WpAudioStream * self,
+    const struct spa_pod * param);
 
 G_END_DECLS
 

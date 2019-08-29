@@ -25,47 +25,44 @@ static void
 on_endpoint_created(GObject *initable, GAsyncResult *res, gpointer d)
 {
   struct module_data *data = d;
-  WpEndpoint *endpoint = NULL;
+  g_autoptr (WpEndpoint) endpoint = NULL;
+  g_autoptr (WpProxy) proxy = NULL;
   guint global_id = 0;
   GError *error = NULL;
 
   /* Get the endpoint */
-  endpoint = wp_endpoint_new_finish(initable, res, NULL);
-  g_return_if_fail (endpoint);
-
-  /* Check for error */
+  endpoint = wp_endpoint_new_finish(initable, res, &error);
   if (error) {
-    g_clear_object (&endpoint);
     g_warning ("Failed to create client endpoint: %s", error->message);
     return;
   }
 
   /* Get the endpoint global id */
-  g_object_get (endpoint, "global-id", &global_id, NULL);
+  g_object_get (endpoint, "proxy-node", &proxy, NULL);
+  global_id = wp_proxy_get_global_id (proxy);
+
   g_debug ("Created client endpoint for global id %d", global_id);
 
   /* Register the endpoint and add it to the table */
   wp_endpoint_register (endpoint);
   g_hash_table_insert (data->registered_endpoints, GUINT_TO_POINTER(global_id),
-      endpoint);
+      g_steal_pointer (&endpoint));
 }
 
 static void
-on_node_added (WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
+on_node_added (WpRemotePipewire *rp, WpProxy *proxy, gpointer d)
 {
   struct module_data *data = d;
-  const struct spa_dict *props = p;
   g_autoptr (WpCore) core = wp_module_get_core (data->module);
   const gchar *name, *media_class;
   enum pw_direction direction;
   GVariantBuilder b;
   g_autoptr (GVariant) endpoint_props = NULL;
-
-  /* Make sure the node has properties */
-  g_return_if_fail(props);
+  guint32 id = wp_proxy_get_global_id (proxy);
+  g_autoptr (WpProperties) props = wp_proxy_get_global_properties (proxy);
 
   /* Get the media_class */
-  media_class = spa_dict_lookup(props, "media.class");
+  media_class = wp_properties_get (props, PW_KEY_MEDIA_CLASS);
 
   /* Only handle client Stream nodes */
   if (!g_str_has_prefix (media_class, "Stream/"))
@@ -82,9 +79,9 @@ on_node_added (WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
   }
 
   /* Get the name */
-  name = spa_dict_lookup (props, "media.name");
+  name = wp_properties_get (props, PW_KEY_MEDIA_NAME);
   if (!name)
-    name = spa_dict_lookup (props, "node.name");
+    name = wp_properties_get (props, PW_KEY_NODE_NAME);
 
   /* Set the properties */
   g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
@@ -97,7 +94,7 @@ on_node_added (WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
   g_variant_builder_add (&b, "{sv}",
       "direction", g_variant_new_uint32 (direction));
   g_variant_builder_add (&b, "{sv}",
-      "global-id", g_variant_new_uint32 (id));
+      "proxy-node", g_variant_new_uint64 ((guint64) proxy));
   endpoint_props = g_variant_builder_end (&b);
 
   /* Create the endpoint async */
@@ -106,10 +103,11 @@ on_node_added (WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
 }
 
 static void
-on_global_removed (WpRemotePipewire *rp, guint id, gpointer d)
+on_global_removed (WpRemotePipewire *rp, WpProxy *proxy, gpointer d)
 {
   struct module_data *data = d;
   WpEndpoint *endpoint = NULL;
+  guint32 id = wp_proxy_get_global_id (proxy);
 
   /* Get the endpoint */
   endpoint = g_hash_table_lookup (data->registered_endpoints,
@@ -132,8 +130,7 @@ module_destroy (gpointer d)
   data->remote_pipewire = NULL;
 
   /* Destroy the registered endpoints table */
-  g_hash_table_unref(data->registered_endpoints);
-  data->registered_endpoints = NULL;
+  g_clear_pointer (&data->registered_endpoints, g_hash_table_unref);
 
   /* Clean up */
   g_slice_free (struct module_data, data);

@@ -54,9 +54,7 @@ struct node {
   struct spa_list link;
   uint32_t id;
 
-  struct pw_properties *props;
-
-  struct pw_proxy *proxy;
+  WpProxy *proxy;
   struct spa_node *node;
 };
 
@@ -64,47 +62,45 @@ static void
 on_endpoint_created(GObject *initable, GAsyncResult *res, gpointer d)
 {
   struct impl *impl = d;
-  WpEndpoint *endpoint = NULL;
+  g_autoptr (WpEndpoint) endpoint = NULL;
+  g_autoptr (WpProxy) proxy = NULL;
   guint global_id = 0;
   GError *error = NULL;
 
   /* Get the endpoint */
-  endpoint = wp_endpoint_new_finish(initable, res, NULL);
-  g_return_if_fail (endpoint);
-
-  /* Check for error */
+  endpoint = wp_endpoint_new_finish(initable, res, &error);
   if (error) {
-    g_clear_object (&endpoint);
     g_warning ("Failed to create alsa endpoint: %s", error->message);
     return;
   }
 
   /* Get the endpoint global id */
-  g_object_get (endpoint, "global-id", &global_id, NULL);
+  g_object_get (endpoint, "proxy-node", &proxy, NULL);
+  global_id = wp_proxy_get_global_id (proxy);
+
   g_debug ("Created alsa endpoint for global id %d", global_id);
 
   /* Register the endpoint and add it to the table */
   wp_endpoint_register (endpoint);
   g_hash_table_insert (impl->registered_endpoints, GUINT_TO_POINTER(global_id),
-      endpoint);
+      g_steal_pointer (&endpoint));
 }
 
 static void
-on_node_added(WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
+on_node_added(WpRemotePipewire *rp, WpProxy *proxy, struct impl *impl)
 {
-  struct impl *impl = d;
-  const struct spa_dict *props = p;
   g_autoptr (WpCore) core = wp_module_get_core (impl->module);
   const gchar *media_class, *name;
   enum pw_direction direction;
   GVariantBuilder b;
+  g_autoptr (WpProperties) props = NULL;
   g_autoptr (GVariant) endpoint_props = NULL;
 
-  /* Make sure the node has properties */
+  props = wp_proxy_get_global_properties (proxy);
   g_return_if_fail(props);
 
   /* Get the media_class */
-  media_class = spa_dict_lookup(props, "media.class");
+  media_class = wp_properties_get (props, PW_KEY_MEDIA_CLASS);
 
   /* Make sure the media class is non-convert audio */
   if (!g_str_has_prefix (media_class, "Audio/"))
@@ -113,9 +109,9 @@ on_node_added(WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
     return;
 
   /* Get the name */
-  name = spa_dict_lookup (props, "media.name");
+  name = wp_properties_get (props, PW_KEY_MEDIA_NAME);
   if (!name)
-    name = spa_dict_lookup (props, "node.name");
+    name = wp_properties_get (props, PW_KEY_NODE_NAME);
 
   /* Don't handle bluetooth nodes */
   if (g_str_has_prefix (name, "api.bluez5"))
@@ -140,7 +136,7 @@ on_node_added(WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
   g_variant_builder_add (&b, "{sv}",
       "direction", g_variant_new_uint32 (direction));
   g_variant_builder_add (&b, "{sv}",
-      "global-id", g_variant_new_uint32 (id));
+      "proxy-node", g_variant_new_uint64 ((guint64) proxy));
   g_variant_builder_add (&b, "{sv}",
       "streams", impl->streams);
   endpoint_props = g_variant_builder_end (&b);
@@ -151,10 +147,10 @@ on_node_added(WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
 }
 
 static void
-on_global_removed (WpRemotePipewire *rp, guint id, gpointer d)
+on_global_removed (WpRemotePipewire *rp, WpProxy *proxy, struct impl *impl)
 {
-  struct impl *impl = d;
   WpEndpoint *endpoint = NULL;
+  guint32 id = wp_proxy_get_global_id (proxy);
 
   /* Get the endpoint */
   endpoint = g_hash_table_lookup (impl->registered_endpoints,
@@ -173,6 +169,7 @@ create_node(struct impl *impl, struct device *dev, uint32_t id,
 {
   struct node *node;
   const char *str;
+  g_autoptr (WpProperties) props = NULL;
 
   /* Check if the type is a node */
   if (info->type != SPA_TYPE_INTERFACE_Node)
@@ -182,25 +179,27 @@ create_node(struct impl *impl, struct device *dev, uint32_t id,
   node = g_slice_new0(struct node);
 
   /* Set the node properties */
-  node->props = pw_properties_copy(dev->props);
-  pw_properties_update(node->props, info->props);
-  str = pw_properties_get(dev->props, SPA_KEY_DEVICE_NICK);
+  props = wp_properties_new_copy (dev->props);
+
+  str = wp_properties_get (props, SPA_KEY_DEVICE_NICK);
   if (str == NULL)
-    str = pw_properties_get(dev->props, SPA_KEY_DEVICE_NAME);
+    str = wp_properties_get (props, SPA_KEY_DEVICE_NAME);
   if (str == NULL)
-    str = pw_properties_get(dev->props, SPA_KEY_DEVICE_ALIAS);
+    str = wp_properties_get (props, SPA_KEY_DEVICE_ALIAS);
   if (str == NULL)
     str = "alsa-device";
-  pw_properties_set(node->props, PW_KEY_NODE_NAME, str);
-  pw_properties_set(node->props, "factory.name", info->factory_name);
-  pw_properties_set(node->props, "merger.monitor", "1");
+
+  wp_properties_update_from_dict (props, info->props);
+  wp_properties_set(props, PW_KEY_NODE_NAME, str);
+  wp_properties_set(props, "factory.name", info->factory_name);
+  wp_properties_set(props, "merger.monitor", "1");
 
   /* Set the node info */
   node->impl = impl;
   node->device = dev;
   node->id = id;
-  node->proxy = wp_remote_pipewire_create_object(impl->remote_pipewire,
-      "adapter", PW_TYPE_INTERFACE_Node, &node->props->dict);
+  node->proxy = wp_remote_pipewire_create_object (impl->remote_pipewire,
+      "adapter", PW_TYPE_INTERFACE_Node, PW_VERSION_NODE_PROXY, props);
   if (!node->proxy) {
     g_slice_free (struct node, node);
     return NULL;
@@ -216,8 +215,6 @@ static void
 update_node(struct impl *impl, struct device *dev, struct node *node,
     const struct spa_device_object_info *info)
 {
-  /* Just update the properties */
-  pw_properties_update(node->props, info->props);
 }
 
 static void destroy_node(struct impl *impl, struct device *dev, struct node *node)
@@ -226,7 +223,7 @@ static void destroy_node(struct impl *impl, struct device *dev, struct node *nod
   spa_list_remove(&node->link);
 
   /* Destroy the proxy node */
-  pw_proxy_destroy(node->proxy);
+  g_clear_object (&node->proxy);
 
   /* Destroy the node */
   g_slice_free (struct node, node);

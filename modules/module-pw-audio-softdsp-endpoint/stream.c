@@ -16,18 +16,16 @@ struct _WpAudioStreamPrivate
 {
   GObject parent;
 
+  GTask *init_task;
+
   /* Props */
   GWeakRef endpoint;
   guint id;
   gchar *name;
   enum pw_direction direction;
 
-  /* Remote Pipewire */
-  WpRemotePipewire *remote_pipewire;
-
-  /* Stream Proxy and Listener */
-  struct pw_node_proxy *proxy;
-  struct spa_hook listener;
+  /* Stream Proxy */
+  WpProxyNode *proxy;
 
   /* Stream Port Proxies */
   GPtrArray *port_proxies;
@@ -43,6 +41,7 @@ enum {
   PROP_ID,
   PROP_NAME,
   PROP_DIRECTION,
+  PROP_PROXY_NODE,
 };
 
 enum {
@@ -90,80 +89,99 @@ wp_audio_stream_id_decode (guint id, guint *stream_id, guint *control_id)
     *control_id = c_id;
 }
 
+/* called once after all the ports are augmented with INFO */
 static void
-on_audio_stream_port_created(GObject *initable, GAsyncResult *res,
-    gpointer data)
+on_all_ports_augmented (WpProxy *proxy, GAsyncResult *res, WpAudioStream *self)
 {
-  WpAudioStream *self = data;
-  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
-  WpProxyPort *port_proxy = NULL;
-  GError *error = NULL;
+  g_autoptr (GError) error = NULL;
 
-  /* Get the proxy port */
-  port_proxy = WP_PROXY_PORT (wp_proxy_port_new_finish (initable, res, &error));
-  if (!port_proxy)
-    return;
-
-  /* Check for error */
+  wp_proxy_sync_finish (proxy, res, &error);
   if (error) {
-    g_warning ("WpAudioStream:%p Stream port failed on creation", self);
-    g_clear_object (&port_proxy);
+    g_warning ("WpAudioStream:%p second sync failed: %s", self,
+        error->message);
+    wp_audio_stream_init_task_finish (self, g_steal_pointer (&error));
+    return;
+  }
+
+  g_debug ("%s:%p second sync done", G_OBJECT_TYPE_NAME (self), self);
+
+  wp_audio_stream_init_task_finish (self, NULL);
+}
+
+/* called multiple times after on_port_config_done */
+static void
+on_audio_stream_port_augmented (WpProxy *port_proxy, GAsyncResult *res,
+    WpAudioStream *self)
+{
+  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
+  g_autoptr (GError) error = NULL;
+
+  wp_proxy_augment_finish (port_proxy, res, &error);
+  if (error) {
+    g_warning ("WpAudioStream:%p Stream port failed to augment: %s", self,
+        error->message);
+    wp_audio_stream_init_task_finish (self, g_steal_pointer (&error));
     return;
   }
 
   /* Add the proxy port to the array */
-  g_return_if_fail (priv->port_proxies);
-  g_ptr_array_add(priv->port_proxies, port_proxy);
+  g_ptr_array_add(priv->port_proxies, g_object_ref (port_proxy));
 }
 
+/* called once after we have all the ports added */
 static void
-on_audio_stream_port_added(WpRemotePipewire *rp, guint id, gconstpointer p,
-    gpointer d)
+on_port_config_done (WpProxy *proxy, GAsyncResult *res, WpAudioStream *self)
 {
-  WpAudioStream *self = d;
+  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
+  g_autoptr (GError) error = NULL;
+
+  wp_proxy_sync_finish (proxy, res, &error);
+  if (error) {
+    g_warning ("WpAudioStream:%p port config sync failed: %s", self,
+        error->message);
+    wp_audio_stream_init_task_finish (self, g_steal_pointer (&error));
+    return;
+  }
+
+  g_debug ("%s:%p port config done", G_OBJECT_TYPE_NAME (self), self);
+
+  wp_proxy_sync (WP_PROXY (priv->proxy), NULL,
+      (GAsyncReadyCallback) on_all_ports_augmented, self);
+}
+
+/* called multiple times after we set the PortConfig */
+static void
+on_audio_stream_port_added(WpRemotePipewire *rp, WpProxy *proxy,
+    WpAudioStream *self)
+{
+  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
+  g_autoptr (WpProperties) props = wp_proxy_get_global_properties (proxy);
   const struct pw_node_info *info = NULL;
-  struct pw_proxy *proxy = NULL;
-  const struct spa_dict *props = p;
   const char *s;
   guint node_id = 0;
 
   /* Get the node id */
-  g_return_if_fail (WP_AUDIO_STREAM_GET_CLASS (self)->get_info);
-  info = WP_AUDIO_STREAM_GET_CLASS (self)->get_info (self);
+  info = wp_proxy_node_get_info (priv->proxy);
   if (!info)
     return;
 
-  if ((s = spa_dict_lookup(props, PW_KEY_NODE_ID)))
+  if ((s = wp_properties_get (props, PW_KEY_NODE_ID)))
     node_id = atoi(s);
 
   /* Skip ports that are not owned by this stream */
   if (info->id != node_id)
     return;
 
-  /* Create the port proxy async */
-  proxy = wp_remote_pipewire_proxy_bind (rp, id, PW_TYPE_INTERFACE_Port);
-  g_return_if_fail(proxy);
-  wp_proxy_port_new(id, proxy, on_audio_stream_port_created, self);
+  wp_proxy_augment (proxy, WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO,
+      NULL, (GAsyncReadyCallback) on_audio_stream_port_augmented, self);
 }
 
 static void
-audio_stream_event_info (void *object, const struct pw_node_info *info)
+audio_stream_event_param (WpProxy *proxy, int seq, uint32_t id,
+    uint32_t index, uint32_t next, const struct spa_pod *param,
+    WpAudioStream *self)
 {
-  WpAudioStream *self = object;
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
-
-  /* Let the derived class handle this it is implemented */
-  if (WP_AUDIO_STREAM_GET_CLASS (self)->event_info)
-    WP_AUDIO_STREAM_GET_CLASS (self)->event_info (self, info,
-        priv->remote_pipewire);
-}
-
-static void
-audio_stream_event_param (void *object, int seq, uint32_t id,
-    uint32_t index, uint32_t next, const struct spa_pod *param)
-{
-  WpAudioStreamPrivate *priv =
-      wp_audio_stream_get_instance_private (WP_AUDIO_STREAM (object));
   g_autoptr (WpEndpoint) ep = g_weak_ref_get (&priv->endpoint);
 
   switch (id) {
@@ -204,11 +222,24 @@ audio_stream_event_param (void *object, int seq, uint32_t id,
   }
 }
 
-static const struct pw_node_proxy_events audio_stream_proxy_events = {
-  PW_VERSION_NODE_PROXY_EVENTS,
-  .info = audio_stream_event_info,
-  .param = audio_stream_event_param,
-};
+static void
+on_node_proxy_augmented (WpProxy * proxy, GAsyncResult * res,
+    WpAudioStream * self)
+{
+  g_autoptr (GError) error = NULL;
+
+  wp_proxy_augment_finish (proxy, res, &error);
+  if (error) {
+    g_warning ("WpAudioStream:%p Node proxy failed to augment: %s", self,
+        error->message);
+    wp_audio_stream_init_task_finish (self, g_steal_pointer (&error));
+    return;
+  }
+
+  g_signal_connect_object (proxy, "param",
+      (GCallback) audio_stream_event_param, self, 0);
+  wp_proxy_node_subscribe_params (WP_PROXY_NODE (proxy), 1, SPA_PARAM_Props);
+}
 
 static void
 wp_audio_stream_finalize (GObject * object)
@@ -220,14 +251,12 @@ wp_audio_stream_finalize (GObject * object)
   g_weak_ref_clear (&priv->endpoint);
 
   /* Clear the name */
-  g_free (priv->name);
-  priv->name = NULL;
+  g_clear_pointer (&priv->name, g_free);
 
   /* Clear the port proxies */
-  if (priv->port_proxies) {
-    g_ptr_array_free(priv->port_proxies, TRUE);
-    priv->port_proxies = NULL;
-  }
+  g_clear_pointer (&priv->port_proxies, g_ptr_array_unref);
+
+  g_clear_object (&priv->init_task);
 
   G_OBJECT_CLASS (wp_audio_stream_parent_class)->finalize (object);
 }
@@ -251,6 +280,9 @@ wp_audio_stream_set_property (GObject * object, guint property_id,
     break;
   case PROP_DIRECTION:
     priv->direction = g_value_get_uint(value);
+    break;
+  case PROP_PROXY_NODE:
+    priv->proxy = g_value_dup_object (value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -278,6 +310,9 @@ wp_audio_stream_get_property (GObject * object, guint property_id,
   case PROP_DIRECTION:
     g_value_set_uint (value, priv->direction);
     break;
+  case PROP_PROXY_NODE:
+    g_value_set_object (value, priv->proxy);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
@@ -291,14 +326,12 @@ wp_audio_stream_init_async (GAsyncInitable *initable, int io_priority,
   WpAudioStream *self = WP_AUDIO_STREAM(initable);
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
   g_autoptr (WpEndpoint) ep = g_weak_ref_get (&priv->endpoint);
-  g_autoptr (WpCore) core = wp_endpoint_get_core (ep);
   GVariantDict d;
 
-  /* Set the remote pipewire */
-  priv->remote_pipewire = wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
+  g_debug ("WpEndpoint:%p init stream %s (%s:%p)", ep, priv->name,
+      G_OBJECT_TYPE_NAME (self), self);
 
-  /* Init the list of port proxies */
-  priv->port_proxies = g_ptr_array_new_full(4, (GDestroyNotify)g_object_unref);
+  priv->init_task = g_task_new (initable, cancellable, callback, data);
 
   /* Register the volume control */
   g_variant_dict_init (&d, NULL);
@@ -323,19 +356,14 @@ wp_audio_stream_init_async (GAsyncInitable *initable, int io_priority,
   g_variant_dict_insert (&d, "default-value", "b", priv->mute);
   wp_endpoint_register_control (ep, g_variant_dict_end (&d));
 
-  /* Create and set the proxy */
-  g_return_if_fail (WP_AUDIO_STREAM_GET_CLASS (self)->create_proxy);
-  priv->proxy = WP_AUDIO_STREAM_GET_CLASS (self)->create_proxy (self,
-      priv->remote_pipewire);
   g_return_if_fail (priv->proxy);
-
-  /* Add a custom listener */
-  pw_node_proxy_add_listener(priv->proxy, &priv->listener,
-      &audio_stream_proxy_events, self);
+  wp_proxy_augment (WP_PROXY (priv->proxy),
+      WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO, NULL,
+      (GAsyncReadyCallback) on_node_proxy_augmented, self);
 
   /* Register a port_added callback */
-  g_signal_connect_object(priv->remote_pipewire, "global-added::port",
-      (GCallback)on_audio_stream_port_added, self, 0);
+  g_signal_connect_object(wp_audio_stream_get_remote (self),
+      "global-added::port", (GCallback)on_audio_stream_port_added, self, 0);
 }
 
 static gboolean
@@ -364,6 +392,7 @@ wp_audio_stream_init (WpAudioStream * self)
   /* Controls */
   priv->volume = 1.0;
   priv->mute = FALSE;
+  priv->port_proxies = g_ptr_array_new_full(4, (GDestroyNotify)g_object_unref);
 }
 
 static void
@@ -390,6 +419,10 @@ wp_audio_stream_class_init (WpAudioStreamClass * klass)
       g_param_spec_uint ("direction", "direction",
           "The direction of the audio stream", 0, 1, 0,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (object_class, PROP_PROXY_NODE,
+      g_param_spec_object ("proxy-node", "proxy-node",
+          "The node proxy of the stream", WP_TYPE_PROXY_NODE,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS));
 }
 
 WpAudioStream *
@@ -416,15 +449,20 @@ wp_audio_stream_get_direction (WpAudioStream * self)
   return priv->direction;
 }
 
-gconstpointer
+WpProxyNode *
+wp_audio_stream_get_proxy_node (WpAudioStream * self)
+{
+  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
+
+  return priv->proxy;
+}
+
+const struct pw_node_info *
 wp_audio_stream_get_info (WpAudioStream * self)
 {
-  const struct pw_node_info *info = NULL;
+  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
 
-  g_return_val_if_fail (WP_AUDIO_STREAM_GET_CLASS (self)->get_info, NULL);
-  info = WP_AUDIO_STREAM_GET_CLASS (self)->get_info (self);
-
-  return info;
+  return wp_proxy_node_get_info (priv->proxy);
 }
 
 static void
@@ -444,8 +482,7 @@ wp_audio_stream_prepare_link (WpAudioStream * self, GVariant ** properties,
   GVariant *v_ports;
 
   /* Get the proxy node id */
-  g_return_val_if_fail (WP_AUDIO_STREAM_GET_CLASS (self)->get_info, FALSE);
-  info = WP_AUDIO_STREAM_GET_CLASS (self)->get_info (self);
+  info = wp_proxy_node_get_info (priv->proxy);
   g_return_val_if_fail (info, FALSE);
 
   /* Create a variant array with all the ports */
@@ -497,24 +534,22 @@ wp_audio_stream_set_control_value (WpAudioStream * self, guint32 control_id,
   switch (control_id) {
     case CONTROL_VOLUME:
       volume = g_variant_get_double (value);
-      pw_node_proxy_set_param (priv->proxy,
+      wp_proxy_node_set_param (priv->proxy,
           SPA_PARAM_Props, 0,
           spa_pod_builder_add_object (&b,
               SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
               SPA_PROP_volume, SPA_POD_Float(volume),
               NULL));
-      pw_node_proxy_enum_params (priv->proxy, 0, SPA_PARAM_Props, 0, -1, NULL);
       break;
 
     case CONTROL_MUTE:
       mute = g_variant_get_boolean (value);
-      pw_node_proxy_set_param (priv->proxy,
+      wp_proxy_node_set_param (priv->proxy,
           SPA_PARAM_Props, 0,
           spa_pod_builder_add_object (&b,
               SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
               SPA_PROP_mute, SPA_POD_Bool(mute),
               NULL));
-      pw_node_proxy_enum_params (priv->proxy, 0, SPA_PARAM_Props, 0, -1, NULL);
       break;
 
     default:
@@ -523,4 +558,46 @@ wp_audio_stream_set_control_value (WpAudioStream * self, guint32 control_id,
   }
 
   return TRUE;
+}
+
+WpRemotePipewire *
+wp_audio_stream_get_remote (WpAudioStream * self)
+{
+  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
+  g_autoptr (WpEndpoint) ep = NULL;
+  g_autoptr (WpCore) core = NULL;
+
+  ep = g_weak_ref_get (&priv->endpoint);
+  core = wp_endpoint_get_core (ep);
+
+  /* FIXME this is theoretically not safe */
+  return wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
+}
+
+void
+wp_audio_stream_init_task_finish (WpAudioStream * self, GError * err)
+{
+  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
+  g_autoptr (GError) error = err;
+
+  if (!priv->init_task)
+    return;
+
+  if (error)
+    g_task_return_error (priv->init_task, g_steal_pointer (&error));
+  else
+    g_task_return_boolean (priv->init_task, TRUE);
+
+  g_clear_object (&priv->init_task);
+}
+
+void
+wp_audio_stream_set_port_config (WpAudioStream * self,
+    const struct spa_pod * param)
+{
+  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
+
+  wp_proxy_node_set_param (priv->proxy, SPA_PARAM_PortConfig, 0, param);
+  wp_proxy_sync (WP_PROXY (priv->proxy), NULL,
+      (GAsyncReadyCallback) on_port_config_done, self);
 }

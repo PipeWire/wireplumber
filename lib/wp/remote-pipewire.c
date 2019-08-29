@@ -389,8 +389,8 @@ wp_remote_pipewire_create_object (WpRemotePipewire *self,
   g_return_val_if_fail (self->core_proxy, NULL);
 
   pw_proxy = pw_core_proxy_create_object (self->core_proxy, factory_name,
-      interface_type, interface_version, wp_properties_peek_dict (properties),
-      0);
+      interface_type, interface_version,
+      properties ? wp_properties_peek_dict (properties) : NULL, 0);
   return wp_proxy_new_wrap (WP_REMOTE (self), pw_proxy, interface_type,
       interface_version);
 }
