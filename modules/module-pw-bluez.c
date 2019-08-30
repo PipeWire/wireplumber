@@ -123,13 +123,16 @@ parse_bluez_properties (const struct spa_dict *props, const gchar **name,
     return FALSE;
 
   /* Get the bluez profile */
-  /* TODO: We need to read the specific profile from a property. For now we
-   * get the bluez profile from the name, and we asume SCO is never a gateway.
-   * This will change once pipewire sets the profile property */
-  if (g_str_has_prefix (local_name, "api.bluez5.a2dp"))
+  if (g_str_has_prefix (local_name, "bluez5.a2dp"))
     profile = WP_BLUEZ_A2DP;
-  else if (g_str_has_prefix (local_name, "api.bluez5.sco"))
+  else if (g_str_has_prefix (local_name, "bluez5.hsp-hs"))
     profile = WP_BLUEZ_HEADUNIT;
+  else if (g_str_has_prefix (local_name, "bluez5.hfp-hf"))
+    profile = WP_BLUEZ_HEADUNIT;
+  else if (g_str_has_prefix (local_name, "bluez5.hsp-ag"))
+    profile = WP_BLUEZ_GATEWAY;
+  else if (g_str_has_prefix (local_name, "bluez5.hfp-ag"))
+    profile = WP_BLUEZ_GATEWAY;
   else
     return FALSE;
 
@@ -184,7 +187,7 @@ parse_bluez_properties (const struct spa_dict *props, const gchar **name,
 
 /* TODO: we need to find a better way to do this */
 static gboolean
-is_bluez_device (const struct spa_dict *props)
+is_bluez_node (const struct spa_dict *props)
 {
   const gchar *name = NULL;
 
@@ -194,7 +197,7 @@ is_bluez_device (const struct spa_dict *props)
     return FALSE;
 
   /* Check if it is a bluez device */
-  if (!g_str_has_prefix (name, "api.bluez5"))
+  if (!g_str_has_prefix (name, "bluez5."))
     return FALSE;
 
   return TRUE;
@@ -213,7 +216,7 @@ on_node_added (WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
 
   /* Only handle bluez nodes */
   g_return_if_fail(props);
-  if (!is_bluez_device (props))
+  if (!is_bluez_node (props))
     return;
 
   /* Parse the bluez properties */
@@ -262,7 +265,7 @@ create_node(struct impl *impl, struct device *dev, uint32_t id,
     const struct spa_device_object_info *info)
 {
   struct node *node;
-  const char *name;
+  const char *name, *profile;
   struct pw_properties *props = NULL;
   struct pw_factory *factory = NULL;
   struct pw_node *adapter = NULL;
@@ -282,13 +285,18 @@ create_node(struct impl *impl, struct device *dev, uint32_t id,
   if (name == NULL)
     name = "bluetooth-device";
 
+  /* Get the bluez profile */
+  profile = spa_dict_lookup(info->props, SPA_KEY_API_BLUEZ5_PROFILE);
+  if (!profile)
+    profile = "null";
+
   /* Find the factory */
   factory = wp_remote_pipewire_find_factory(impl->remote_pipewire, "adapter");
   g_return_val_if_fail (factory, NULL);
 
   /* Create the properties */
   props = pw_properties_new_dict(info->props);
-  pw_properties_setf(props, PW_KEY_NODE_NAME, "%s.%s", info->factory_name, name);
+  pw_properties_setf(props, PW_KEY_NODE_NAME, "bluez5.%s.%s", profile, name);
   pw_properties_set(props, PW_KEY_NODE_DESCRIPTION, name);
   pw_properties_set(props, PW_KEY_FACTORY_NAME, info->factory_name);
 

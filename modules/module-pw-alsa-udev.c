@@ -142,7 +142,7 @@ parse_alsa_properties (const struct spa_dict *props, const gchar **name,
 
 /* TODO: we need to find a better way to do this */
 static gboolean
-is_alsa_device (const struct spa_dict *props)
+is_alsa_node (const struct spa_dict *props)
 {
   const gchar *name = NULL;
   const gchar *media_class = NULL;
@@ -166,7 +166,7 @@ is_alsa_device (const struct spa_dict *props)
     return FALSE;
 
   /* Check if it is not a bluez device */
-  if (g_str_has_prefix (name, "api.bluez5"))
+  if (g_str_has_prefix (name, "bluez5."))
     return FALSE;
 
   return TRUE;
@@ -185,7 +185,7 @@ on_node_added(WpRemotePipewire *rp, guint id, gconstpointer p, gpointer d)
 
   /* Only handle alsa nodes */
   g_return_if_fail(props);
-  if (!is_alsa_device (props))
+  if (!is_alsa_node (props))
     return;
 
   /* Parse the alsa properties */
