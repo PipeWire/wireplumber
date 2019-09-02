@@ -11,6 +11,7 @@
 #include "error.h"
 #include "factory.h"
 #include "module.h"
+#include "monitor.h"
 #include "policy.h"
 #include "properties.h"
 #include "proxy.h"
