@@ -1,1 +1,2 @@
+subdir('wptoml')
 subdir('wp')

@@ -1,7 +1,7 @@
 image: registry.freedesktop.org/pipewire/pipewire/fedora:31
 
 variables:
-  DEPENDENCIES: gtk-doc gobject-introspection-devel
+  DEPENDENCIES: gtk-doc gobject-introspection-devel cmake gcc-c++
 
 build:
   before_script:

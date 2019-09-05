@@ -1,0 +1,4 @@
+[wrap-git]
+directory=cpptoml
+url=https://github.com/skystrife/cpptoml.git
+revision=master

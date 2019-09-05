@@ -1,0 +1,6 @@
+[table]
+key1 = 0.1
+key2 = 1284
+
+[table.subtable]
+key3 = "hello world"

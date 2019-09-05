@@ -1,10 +1,11 @@
-project('wireplumber', ['c'],
+project('wireplumber', ['c', 'cpp'],
   version : '0.1.90',
   license : 'MIT',
   meson_version : '>= 0.47.0',
   default_options : [
     'warning_level=1',
-    'buildtype=debugoptimized'
+    'buildtype=debugoptimized',
+    'cpp_std=c++11',
   ]
 )
 
@@ -22,6 +23,10 @@ if get_option('sysconfdir').startswith('/')
 else
   wireplumber_config_dir = join_paths(get_option('prefix'), get_option('sysconfdir'), 'wireplumber')
 endif
+
+cmake = import('cmake')
+cpptoml = cmake.subproject('cpptoml')
+cpptoml_dep = cpptoml.dependency('cpptoml')
 
 gobject_dep = dependency('gobject-2.0')
 gmodule_dep = dependency('gmodule-2.0')
