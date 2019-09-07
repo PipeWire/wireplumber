@@ -56,11 +56,14 @@ test_proxy_remote_state_changed (WpCore *core, WpRemoteState state,
 static void
 test_proxy_setup (TestProxyFixture *self, gconstpointer user_data)
 {
+  g_autoptr (WpProperties) props = NULL;
+
   wp_test_server_setup (&self->server);
-  g_setenv ("PIPEWIRE_REMOTE", self->server.name, TRUE);
+
+  props = wp_properties_new (PW_KEY_REMOTE_NAME, self->server.name, NULL);
   self->context = g_main_context_new ();
   self->loop = g_main_loop_new (self->context, FALSE);
-  self->core = wp_core_new (self->context);
+  self->core = wp_core_new (self->context, props);
 
   g_main_context_push_thread_default (self->context);
 
@@ -83,7 +86,6 @@ test_proxy_teardown (TestProxyFixture *self, gconstpointer user_data)
   g_clear_pointer (&self->timeout_source, g_source_unref);
   g_clear_pointer (&self->loop, g_main_loop_unref);
   g_clear_pointer (&self->context, g_main_context_unref);
-  g_unsetenv ("PIPEWIRE_REMOTE");
   wp_test_server_teardown (&self->server);
 }
 

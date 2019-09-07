@@ -263,7 +263,7 @@ main (gint argc, gchar **argv)
 
   /* init wireplumber */
 
-  data.core = core = wp_core_new (NULL);
+  data.core = core = wp_core_new (NULL, NULL);
   g_signal_connect (core, "remote-state-changed",
       (GCallback) remote_state_changed, &data);
 

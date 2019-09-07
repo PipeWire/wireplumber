@@ -77,6 +77,9 @@ struct _WpCore
   /* main loop integration */
   GMainContext *context;
 
+  /* extra properties */
+  WpProperties *properties;
+
   /* pipewire main objects */
   struct pw_core *pw_core;
   struct pw_remote *pw_remote;
@@ -107,6 +110,7 @@ struct global_object
 enum {
   PROP_0,
   PROP_CONTEXT,
+  PROP_PROPERTIES,
   PROP_PW_CORE,
   PROP_PW_REMOTE,
   PROP_REMOTE_STATE,
@@ -245,12 +249,16 @@ wp_core_constructed (GObject *object)
 {
   WpCore *self = WP_CORE (object);
   g_autoptr (GSource) source = NULL;
+  struct pw_properties *p;
 
   source = wp_loop_source_new ();
   g_source_attach (source, self->context);
 
-  self->pw_core = pw_core_new (WP_LOOP_SOURCE (source)->loop, NULL, 0);
-  self->pw_remote = pw_remote_new (self->pw_core, NULL, 0);
+  p = self->properties ? wp_properties_to_pw_properties (self->properties) : NULL;
+  self->pw_core = pw_core_new (WP_LOOP_SOURCE (source)->loop, p, 0);
+
+  p = self->properties ? wp_properties_to_pw_properties (self->properties) : NULL;
+  self->pw_remote = pw_remote_new (self->pw_core, p, 0);
   pw_remote_add_listener (self->pw_remote, &self->remote_listener,
       &remote_events, self);
 
@@ -289,6 +297,7 @@ wp_core_finalize (GObject * obj)
   self->core_proxy= NULL;
   self->registry_proxy = NULL;
   g_clear_pointer (&self->pw_core, pw_core_destroy);
+  g_clear_pointer (&self->properties, wp_properties_unref);
   g_clear_pointer (&self->context, g_main_context_unref);
 
   g_debug ("WpCore destroyed");
@@ -305,6 +314,9 @@ wp_core_get_property (GObject * object, guint property_id,
   switch (property_id) {
   case PROP_CONTEXT:
     g_value_set_boxed (value, self->context);
+    break;
+  case PROP_PROPERTIES:
+    g_value_set_boxed (value, self->properties);
     break;
   case PROP_PW_CORE:
     g_value_set_pointer (value, self->pw_core);
@@ -331,6 +343,9 @@ wp_core_set_property (GObject * object, guint property_id,
   case PROP_CONTEXT:
     self->context = g_value_dup_boxed (value);
     break;
+  case PROP_PROPERTIES:
+    self->properties = g_value_dup_boxed (value);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
@@ -353,6 +368,11 @@ wp_core_class_init (WpCoreClass * klass)
   g_object_class_install_property (object_class, PROP_CONTEXT,
       g_param_spec_boxed ("context", "context", "A GMainContext to attach to",
           G_TYPE_MAIN_CONTEXT,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (object_class, PROP_PROPERTIES,
+      g_param_spec_boxed ("properties", "properties", "Extra properties",
+          WP_TYPE_PROPERTIES,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (object_class, PROP_PW_CORE,
@@ -392,9 +412,12 @@ wp_core_class_init (WpCoreClass * klass)
 }
 
 WpCore *
-wp_core_new (GMainContext *context)
+wp_core_new (GMainContext *context, WpProperties * properties)
 {
-  return g_object_new (WP_TYPE_CORE, "context", context, NULL);
+  return g_object_new (WP_TYPE_CORE,
+      "context", context,
+      "properties", properties,
+      NULL);
 }
 
 GMainContext *
