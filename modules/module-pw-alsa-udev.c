@@ -11,6 +11,7 @@
  * and automatically creates endpoints for all alsa device nodes that appear
  */
 
+#include <spa/utils/keys.h>
 #include <spa/utils/names.h>
 #include <spa/monitor/monitor.h>
 #include <pipewire/pipewire.h>
@@ -86,6 +87,89 @@ on_endpoint_created(GObject *initable, GAsyncResult *res, gpointer d)
       g_steal_pointer (&endpoint));
 }
 
+static gboolean
+parse_alsa_properties (WpProperties *props, const gchar **name,
+    const gchar **media_class, enum pw_direction *direction)
+{
+  const char *local_name = NULL;
+  const char *local_media_class = NULL;
+  enum pw_direction local_direction;
+
+  /* Get the name */
+  local_name = wp_properties_get (props, PW_KEY_NODE_NAME);
+  if (!local_name)
+    return FALSE;
+
+  /* Get the media class */
+  local_media_class = wp_properties_get (props, PW_KEY_MEDIA_CLASS);
+  if (!local_media_class)
+    return FALSE;
+
+  /* Get the direction */
+  if (g_str_has_prefix (local_media_class, "Audio/Sink"))
+    local_direction = PW_DIRECTION_INPUT;
+  else if (g_str_has_prefix (local_media_class, "Audio/Source"))
+    local_direction = PW_DIRECTION_OUTPUT;
+  else
+    return FALSE;
+
+  /* Set the name */
+  if (name)
+    *name = local_name;
+
+  /* Set the media class */
+  if (media_class) {
+    switch (local_direction) {
+    case PW_DIRECTION_INPUT:
+      *media_class = "Alsa/Sink";
+      break;
+    case PW_DIRECTION_OUTPUT:
+      *media_class = "Alsa/Source";
+      break;
+    default:
+      break;
+    }
+  }
+
+  /* Set the direction */
+  if (direction)
+    *direction = local_direction;
+
+  return TRUE;
+}
+
+/* TODO: we need to find a better way to do this */
+static gboolean
+is_alsa_node (WpProperties * props)
+{
+  const gchar *name = NULL;
+  const gchar *media_class = NULL;
+
+  /* Get the name */
+  name = wp_properties_get (props, "node.name");
+  if (!name)
+    return FALSE;
+
+  /* Get the media class */
+  media_class = wp_properties_get (props, SPA_KEY_MEDIA_CLASS);
+  if (!media_class)
+    return FALSE;
+
+  /* Check if it is an audio device */
+  if (!g_str_has_prefix (media_class, "Audio/"))
+    return FALSE;
+
+  /* Check it is not a convert */
+  if (g_str_has_prefix (media_class, "Audio/Convert"))
+    return FALSE;
+
+  /* Check if it is not a bluez device */
+  if (g_str_has_prefix (name, "bluez5."))
+    return FALSE;
+
+  return TRUE;
+}
+
 static void
 on_node_added(WpRemotePipewire *rp, WpProxy *proxy, struct impl *impl)
 {
@@ -99,38 +183,21 @@ on_node_added(WpRemotePipewire *rp, WpProxy *proxy, struct impl *impl)
   props = wp_proxy_get_global_properties (proxy);
   g_return_if_fail(props);
 
-  /* Get the media_class */
-  media_class = wp_properties_get (props, PW_KEY_MEDIA_CLASS);
-
-  /* Make sure the media class is non-convert audio */
-  if (!g_str_has_prefix (media_class, "Audio/"))
-    return;
-  if (g_str_has_prefix (media_class, "Audio/Convert"))
+  /* Only handle alsa nodes */
+  if (!is_alsa_node (props))
     return;
 
-  /* Get the name */
-  name = wp_properties_get (props, PW_KEY_MEDIA_NAME);
-  if (!name)
-    name = wp_properties_get (props, PW_KEY_NODE_NAME);
-
-  /* Don't handle bluetooth nodes */
-  if (g_str_has_prefix (name, "api.bluez5"))
-    return;
-
-  /* Get the direction */
-  if (g_str_has_prefix (media_class, "Audio/Sink")) {
-    direction = PW_DIRECTION_INPUT;
-  } else if (g_str_has_prefix (media_class, "Audio/Source")) {
-    direction = PW_DIRECTION_OUTPUT;
-  } else {
-    g_critical ("failed to parse direction");
+  /* Parse the alsa properties */
+  if (!parse_alsa_properties (props, &name, &media_class, &direction)) {
+    g_critical ("failed to parse alsa properties");
     return;
   }
 
   /* Set the properties */
   g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
   g_variant_builder_add (&b, "{sv}",
-      "name", g_variant_new_string (name));
+      "name", g_variant_new_take_string (g_strdup_printf (
+              "Alsa %u (%s)", wp_proxy_get_global_id (proxy), name)));
   g_variant_builder_add (&b, "{sv}",
       "media-class", g_variant_new_string (media_class));
   g_variant_builder_add (&b, "{sv}",
@@ -168,33 +235,32 @@ create_node(struct impl *impl, struct device *dev, uint32_t id,
     const struct spa_device_object_info *info)
 {
   struct node *node;
-  const char *str;
+  const char *name;
   g_autoptr (WpProperties) props = NULL;
 
   /* Check if the type is a node */
   if (info->type != SPA_TYPE_INTERFACE_Node)
     return NULL;
 
-  /* Create the node */
-  node = g_slice_new0(struct node);
-
-  /* Set the node properties */
   props = wp_properties_new_copy (dev->props);
 
-  str = wp_properties_get (props, SPA_KEY_DEVICE_NICK);
-  if (str == NULL)
-    str = wp_properties_get (props, SPA_KEY_DEVICE_NAME);
-  if (str == NULL)
-    str = wp_properties_get (props, SPA_KEY_DEVICE_ALIAS);
-  if (str == NULL)
-    str = "alsa-device";
+  /* Get the alsa name */
+  name = wp_properties_get (props, SPA_KEY_DEVICE_NICK);
+  if (name == NULL)
+    name = wp_properties_get (props, SPA_KEY_DEVICE_NAME);
+  if (name == NULL)
+    name = wp_properties_get (props, SPA_KEY_DEVICE_ALIAS);
+  if (name == NULL)
+    name = "alsa-device";
 
+  /* Create the properties */
   wp_properties_update_from_dict (props, info->props);
-  wp_properties_set(props, PW_KEY_NODE_NAME, str);
-  wp_properties_set(props, "factory.name", info->factory_name);
+  wp_properties_set(props, PW_KEY_NODE_NAME, name);
+  wp_properties_set(props, PW_KEY_FACTORY_NAME, info->factory_name);
   wp_properties_set(props, "merger.monitor", "1");
 
-  /* Set the node info */
+  /* Create the node */
+  node = g_slice_new0(struct node);
   node->impl = impl;
   node->device = dev;
   node->id = id;
@@ -345,11 +411,17 @@ update_device(struct impl *impl, struct device *dev,
 static void
 destroy_device(struct impl *impl, struct device *dev)
 {
+  struct node *node;
+
   /* Remove the device from the list */
   spa_list_remove(&dev->link);
 
   /* Remove the device listener */
   spa_hook_remove(&dev->device_listener);
+
+  /* Destry all the nodes that the device has */
+  spa_list_consume(node, &dev->node_list, link)
+    destroy_node(impl, dev, node);
 
   /* Destroy the device proxy */
   pw_proxy_destroy(dev->proxy);

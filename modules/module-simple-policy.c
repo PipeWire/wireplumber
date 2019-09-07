@@ -7,6 +7,7 @@
  */
 
 #include <wp/wp.h>
+#include <pipewire/pipewire.h>
 
 enum {
   DIRECTION_SINK = 0,
@@ -125,41 +126,80 @@ select_endpoint (WpSimplePolicy *self, gint direction, WpEndpoint *ep,
 }
 
 static gboolean
-select_new_endpoint (WpSimplePolicy *self)
+try_select_new_endpoint (WpSimplePolicy *self, gint direction,
+    const gchar *media_class)
 {
   g_autoptr (WpCore) core = NULL;
   g_autoptr (GPtrArray) ptr_array = NULL;
-  const gchar *media_class = NULL;
   WpEndpoint *other;
   guint32 control_id;
-  gint direction, i;
+  gint i;
+
+  /* Get the list of endpoints matching the media class */
+  core = wp_policy_get_core (WP_POLICY (self));
+  ptr_array = wp_endpoint_find (core, media_class);
+
+  /* Find the endpoint in the list */
+  for (i = 0; i < (ptr_array ? ptr_array->len : 0); i++) {
+    other = g_ptr_array_index (ptr_array, i);
+    if (g_str_has_prefix (media_class, "Alsa/")) {
+      /* If Alsa, select the "selected" endpoint */
+      control_id =
+          wp_endpoint_find_control (other, WP_STREAM_ID_NONE, "selected");
+      if (control_id == WP_CONTROL_ID_NONE)
+        continue;
+      select_endpoint (self, direction, other, control_id);
+      return TRUE;
+    } else {
+      /* If non-Alsa (Bluez and Stream), select the first endpoint */
+      select_endpoint (self, direction, other, WP_CONTROL_ID_NONE);
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+static gboolean
+select_new_endpoint (WpSimplePolicy *self)
+{
+  gint direction;
+  const gchar *bluez_headunit_media_class = NULL;
+  const gchar *bluez_a2dp_media_class = NULL;
+  const gchar *alsa_media_class = NULL;
 
   if (!self->selected[DIRECTION_SINK]) {
     direction = DIRECTION_SINK;
-    media_class = "Audio/Sink";
+    bluez_headunit_media_class = "Bluez/Sink/Headunit";
+    bluez_a2dp_media_class = "Bluez/Sink/A2dp";
+    alsa_media_class = "Alsa/Sink";
   } else if (!self->selected[DIRECTION_SOURCE]) {
     direction = DIRECTION_SOURCE;
-    media_class = "Audio/Source";
+    bluez_headunit_media_class = "Bluez/Source/Headunit";
+    bluez_a2dp_media_class = "Bluez/Source/A2dp";
+    alsa_media_class = "Alsa/Source";
   } else
     return G_SOURCE_REMOVE;
 
-  core = wp_policy_get_core (WP_POLICY (self));
+  /* Bluez has higher priority than Alsa. Bluez A2DP profile has lower
+   * priority than Bluez non-gatewat profile (Headunit). Bluez Gateway profiles
+   * are not handled here because they always need to be linked with Alsa
+   * endpoints, so the priority list is as folows (from higher to lower):
+   * - Bluez Headunit
+   * - Bluez A2DP
+   * - Alsa
+   */
 
-  /* Get all the endpoints with the same media class */
-  ptr_array = wp_endpoint_find (core, media_class);
+  /* Try to select a Bluez Headunit endpoint */
+  if (try_select_new_endpoint (self, direction, bluez_headunit_media_class))
+    return G_SOURCE_REMOVE;
 
-  /* select the first available that has the "selected" control */
-  for (i = 0; i < (ptr_array ? ptr_array->len : 0); i++) {
-    other = g_ptr_array_index (ptr_array, i);
+  /* Try to select a Bluez A2dp endpoint */
+  if (try_select_new_endpoint (self, direction, bluez_a2dp_media_class))
+    return G_SOURCE_REMOVE;
 
-    control_id =
-        wp_endpoint_find_control (other, WP_STREAM_ID_NONE, "selected");
-    if (control_id == WP_CONTROL_ID_NONE)
-      continue;
-
-    select_endpoint (self, direction, other, control_id);
-    break;
-  }
+  /* Try to select an Alsa endpoint */
+  try_select_new_endpoint (self, direction, alsa_media_class);
 
   return G_SOURCE_REMOVE;
 }
@@ -172,8 +212,8 @@ simple_policy_endpoint_added (WpPolicy *policy, WpEndpoint *ep)
   guint32 control_id;
   gint direction;
 
-  /* we only care about audio device endpoints here */
-  if (!g_str_has_prefix (media_class, "Audio/"))
+  /* we only care about alsa device endpoints here */
+  if (!g_str_has_prefix (media_class, "Alsa/"))
     return;
 
   /* verify it has the "selected" control available */
@@ -264,42 +304,32 @@ on_endpoint_link_created(GObject *initable, GAsyncResult *res, gpointer d)
   }
 }
 
-static void
-handle_client (WpPolicy *policy, WpEndpoint *ep)
+static gboolean
+link_endpoint (WpPolicy *policy, WpEndpoint *ep, GVariant *target_props)
 {
-  const char *media_class = wp_endpoint_get_media_class(ep);
-  GVariantDict d;
   g_autoptr (WpCore) core = NULL;
   g_autoptr (WpEndpoint) target = NULL;
   guint32 stream_id;
+  guint direction;
   gboolean is_capture = FALSE;
-  g_autofree gchar *role, *target_name = NULL;
 
-  /* Detect if the client is doing capture or playback */
-  is_capture = g_str_has_prefix (media_class, "Stream/Input");
-
-  /* Locate the target endpoint */
-  g_variant_dict_init (&d, NULL);
-  g_variant_dict_insert (&d, "action", "s", "link");
-  g_variant_dict_insert (&d, "media.class", "s",
-      is_capture ? "Audio/Source" : "Audio/Sink");
-
-  g_object_get (ep, "role", &role, NULL);
-  if (role)
-    g_variant_dict_insert (&d, "media.role", "s", role);
-
-  g_object_get (ep, "target", &target_name, NULL);
-  if (target_name)
-    g_variant_dict_insert (&d, "media.name", "s", target_name);
-
-  /* TODO: more properties are needed here */
+  /* Check if the endpoint is capture or not */
+  direction = wp_endpoint_get_direction (WP_ENDPOINT (ep));
+  switch (direction) {
+  case PW_DIRECTION_INPUT:
+    is_capture = TRUE;
+    break;
+  case PW_DIRECTION_OUTPUT:
+    is_capture = FALSE;
+    break;
+  default:
+    return FALSE;
+  }
 
   core = wp_policy_get_core (policy);
-  target = wp_policy_find_endpoint (core, g_variant_dict_end (&d), &stream_id);
-  if (!target) {
-    g_warning ("Could not find target endpoint");
-    return;
-  }
+  target = wp_policy_find_endpoint (core, target_props, &stream_id);
+  if (!target)
+    return FALSE;
 
   /* if the client is already linked... */
   if (wp_endpoint_is_linked (ep)) {
@@ -315,7 +345,7 @@ handle_client (WpPolicy *policy, WpEndpoint *ep)
       /* ... do nothing if it's already linked to the correct target */
       g_debug ("Client '%s' already linked correctly",
           wp_endpoint_get_name (ep));
-      return;
+      return TRUE;
     } else {
       /* ... or else unlink it and continue */
       g_debug ("Unlink client '%s' from its previous target",
@@ -340,7 +370,7 @@ handle_client (WpPolicy *policy, WpEndpoint *ep)
     wp_endpoint_unlink (target);
   }
 
-  /* Link the client with the target */
+  /* Link the endpoint with the target */
   if (is_capture) {
     wp_endpoint_link_new (core, target, stream_id, ep, 0,
         on_endpoint_link_created, NULL);
@@ -349,7 +379,103 @@ handle_client (WpPolicy *policy, WpEndpoint *ep)
         on_endpoint_link_created, NULL);
   }
 
-  return;
+  return TRUE;
+}
+
+static void
+handle_client (WpPolicy *policy, WpEndpoint *ep)
+{
+  const char *media_class = wp_endpoint_get_media_class(ep);
+  GVariantDict d;
+  gboolean is_capture = FALSE;
+  const gchar *role, *target_name = NULL;
+
+  /* Detect if the client is doing capture or playback */
+  is_capture = g_str_has_prefix (media_class, "Stream/Input");
+
+  /* All Stream client endpoints need to be linked with a Bluez non-gateway
+   * endpoint if any. If there is no Bluez non-gateway endpoints, the Stream
+   * client needs to be linked with a Bluez A2DP endpoint. Finally, if none
+   * of the previous endpoints are found, the Stream client needs to be linked
+   * with an Alsa endpoint.
+   */
+
+  /* Link endpoint with Bluez non-gateway target endpoint */
+  g_variant_dict_init (&d, NULL);
+  g_variant_dict_insert (&d, "action", "s", "link");
+  g_variant_dict_insert (&d, "media.class", "s",
+      is_capture ? "Bluez/Source/Headunit" : "Bluez/Sink/Headunit");
+  if (link_endpoint (policy, ep, g_variant_dict_end (&d)))
+    return;
+
+  /* Link endpoint with Bluez A2DP target endpoint */
+  g_variant_dict_init (&d, NULL);
+  g_variant_dict_insert (&d, "action", "s", "link");
+  g_variant_dict_insert (&d, "media.class", "s",
+      is_capture ? "Bluez/Source/A2dp" : "Bluez/Sink/A2dp");
+  if (link_endpoint (policy, ep, g_variant_dict_end (&d)))
+    return;
+
+  /* Link endpoint with Alsa target endpoint */
+  g_variant_dict_init (&d, NULL);
+  g_variant_dict_insert (&d, "action", "s", "link");
+  g_variant_dict_insert (&d, "media.class", "s",
+      is_capture ? "Alsa/Source" : "Alsa/Sink");
+  g_object_get (ep, "role", &role, NULL);
+  if (role)
+    g_variant_dict_insert (&d, "media.role", "s", role);
+  g_object_get (ep, "target", &target_name, NULL);
+  if (target_name)
+    g_variant_dict_insert (&d, "media.name", "s", target_name);
+  if (!link_endpoint (policy, ep, g_variant_dict_end (&d)))
+    g_info ("Could not find alsa target endpoint for client stream");
+}
+
+static void
+handle_bluez_non_gateway (WpPolicy *policy, WpEndpoint *ep)
+{
+  GVariantDict d;
+  const char *media_class = wp_endpoint_get_media_class(ep);
+  gboolean is_sink = FALSE;
+
+  /* All bluetooth non-gateway endpoints (A2DP/HSP_HS/HFP_HF) always
+   * need to be linked with the stream endpoints so that the computer
+   * does not play any sound
+   */
+
+  /* Detect if the client is a sink or not */
+  is_sink = g_str_has_prefix (media_class, "Bluez/Sink");
+
+  /* Link endpoint with Stream target endpoint */
+  g_variant_dict_init (&d, NULL);
+  g_variant_dict_insert (&d, "action", "s", "link");
+  g_variant_dict_insert (&d, "media.class", "s",
+      is_sink ? "Stream/Output/Audio" : "Stream/Input/Audio");
+  if (!link_endpoint (policy, ep, g_variant_dict_end (&d)))
+    g_info ("Could not find stream target endpoint for non-gateway bluez");
+}
+
+static void
+handle_bluez_gateway (WpPolicy *policy, WpEndpoint *ep)
+{
+  /* All bluetooth gateway endpoints (HSP_GW/HFP_GW) always need to
+   * be linked with the alsa endpoints so that the computer can act
+   * as a head unit
+   */
+  GVariantDict d;
+  const char *media_class = wp_endpoint_get_media_class(ep);
+  gboolean is_sink = FALSE;
+
+  /* Detect if the client is a sink or not */
+  is_sink = g_str_has_prefix (media_class, "Bluez/Sink");
+
+  /* Link endpoint with Alsa target endpoint */
+  g_variant_dict_init (&d, NULL);
+  g_variant_dict_insert (&d, "action", "s", "link");
+  g_variant_dict_insert (&d, "media.class", "s",
+      is_sink ? "Alsa/Source" : "Alsa/Sink");
+  if (!link_endpoint (policy, ep, g_variant_dict_end (&d)))
+    g_info ("Could not find alsa target endpoint for gateway bluez");
 }
 
 static gint
@@ -393,35 +519,103 @@ compare_client_priority (gconstpointer a, gconstpointer b, gpointer user_data)
   return ret;
 }
 
-static gboolean
-simple_policy_rescan_in_idle (WpSimplePolicy *self)
+static gint
+compare_bluez_non_gateway_priority (gconstpointer a, gconstpointer b,
+    gpointer user_data)
+{
+  WpEndpoint *ae = *(const gpointer *) a;
+  WpEndpoint *be = *(const gpointer *) b;
+  const char *a_media_class, *b_media_class;
+  gint a_priority, b_priority;
+
+  /* Bluez priorities (Gateway is a different case):
+   - Headset (1)
+   - A2dp (0)
+  */
+
+  /* Get endpoint A priority */
+  a_media_class = wp_endpoint_get_media_class(ae);
+  a_priority = g_str_has_suffix (a_media_class, "Headset") ? 1 : 0;
+
+  /* Get endpoint B priority */
+  b_media_class = wp_endpoint_get_media_class(be);
+  b_priority = g_str_has_suffix (b_media_class, "Headset") ? 1 : 0;
+
+  /* Return the difference of both priorities */
+  return a_priority - b_priority;
+}
+
+static gint
+compare_bluez_gateway_priority (gconstpointer a, gconstpointer b,
+    gpointer user_data)
+{
+  /* Since Bluez Gateway profile does not have any priorities, just
+   * return positive to indicate endpoint A has higher priority than
+   * endpoint B */
+  return 1;
+}
+
+static void
+rescan_sink_endpoints (WpSimplePolicy *self, const gchar *media_class,
+    void (*handler) (WpPolicy *policy, WpEndpoint *ep))
 {
   g_autoptr (WpCore) core = wp_policy_get_core (WP_POLICY (self));
   g_autoptr (GPtrArray) endpoints = NULL;
   WpEndpoint *ep;
   gint i;
 
-  g_debug ("rescanning for clients that need linking");
-
-  endpoints = wp_endpoint_find (core, "Stream/Input/Audio");
+  endpoints = wp_endpoint_find (core, media_class);
   if (endpoints) {
-    /* link all capture clients */
+    /* link all sink endpoints */
     for (i = 0; i < endpoints->len; i++) {
       ep = g_ptr_array_index (endpoints, i);
-      handle_client (WP_POLICY (self), ep);
+      handler (WP_POLICY (self), ep);
     }
   }
+}
 
-  endpoints = wp_endpoint_find (core, "Stream/Output/Audio");
+static void
+rescan_source_endpoints (WpSimplePolicy *self, const gchar *media_class,
+    void (*handle) (WpPolicy *policy, WpEndpoint *ep),
+    GCompareDataFunc comp_func)
+{
+  g_autoptr (WpCore) core = wp_policy_get_core (WP_POLICY (self));
+  g_autoptr (GPtrArray) endpoints = NULL;
+  WpEndpoint *ep;
+
+  endpoints = wp_endpoint_find (core, media_class);
   if (endpoints && endpoints->len > 0) {
-    /* sort based on role priorities */
-    g_ptr_array_sort_with_data (endpoints, compare_client_priority,
-        self->role_priorities);
+    /* sort based on priorities */
+    g_ptr_array_sort_with_data (endpoints, comp_func, self->role_priorities);
 
-    /* link the highest priority client */
+    /* link the highest priority */
     ep = g_ptr_array_index (endpoints, 0);
-    handle_client (WP_POLICY (self), ep);
+    handle (WP_POLICY (self), ep);
   }
+}
+
+static gboolean
+simple_policy_rescan_in_idle (WpSimplePolicy *self)
+{
+  /* Alsa endpoints are never handled */
+
+  /* Handle clients */
+  rescan_sink_endpoints (self, "Stream/Input/Audio", handle_client);
+  rescan_source_endpoints (self, "Stream/Output/Audio", handle_client,
+      compare_client_priority);
+
+  /* Handle Bluez non-gateway */
+  rescan_sink_endpoints (self, "Bluez/Sink/Headunit", handle_bluez_non_gateway);
+  rescan_source_endpoints (self, "Bluez/Source/Headunit",
+      handle_bluez_non_gateway, compare_bluez_non_gateway_priority);
+  rescan_sink_endpoints (self, "Bluez/Sink/A2dp", handle_bluez_non_gateway);
+  rescan_source_endpoints (self, "Bluez/Source/A2dp", handle_bluez_non_gateway,
+      compare_bluez_non_gateway_priority);
+
+  /* Handle Bluez gateway */
+  rescan_sink_endpoints (self, "Bluez/Sink/Gateway", handle_bluez_gateway);
+  rescan_source_endpoints (self, "Bluez/Source/Gateway",
+      handle_bluez_gateway, compare_bluez_gateway_priority);
 
   self->pending_rescan = 0;
   return G_SOURCE_REMOVE;
@@ -439,18 +633,17 @@ static gboolean
 simple_policy_handle_endpoint (WpPolicy *policy, WpEndpoint *ep)
 {
   WpSimplePolicy *self = WP_SIMPLE_POLICY (policy);
-  const char *media_class = NULL;
+  const char *media_class = wp_endpoint_get_media_class(ep);
 
-  /* TODO: For now we only accept audio stream clients */
-  media_class = wp_endpoint_get_media_class(ep);
-  if (!g_str_has_prefix (media_class, "Stream") ||
-      !g_str_has_suffix (media_class, "Audio")) {
-    return FALSE;
+  /* Schedule rescan only if endpoint is audio stream or bluez */
+  if ((g_str_has_prefix (media_class, "Stream") &&
+      g_str_has_suffix (media_class, "Audio")) ||
+      g_str_has_prefix (media_class, "Bluez")) {
+    simple_policy_rescan (self);
+    return TRUE;
   }
 
-  /* Schedule a rescan that will handle the endpoint */
-  simple_policy_rescan (self);
-  return TRUE;
+  return FALSE;
 }
 
 static WpEndpoint *
@@ -478,7 +671,7 @@ simple_policy_find_endpoint (WpPolicy *policy, GVariant *props,
     return NULL;
 
   /* Find the endpoint with the matching name, otherwise get the one with the
-   * "selected" flag */
+   * "selected" flag (if it is an alsa endpoint) */
   for (i = 0; i < ptr_array->len; i++) {
     ep = g_ptr_array_index (ptr_array, i);
     if (name) {
@@ -486,7 +679,7 @@ simple_policy_find_endpoint (WpPolicy *policy, GVariant *props,
         g_object_ref (ep);
         goto select_stream;
       }
-    } else {
+    } else if (g_str_has_prefix (media_class, "Alsa/")) {
       g_autoptr (GVariant) value = NULL;
       guint id;
 
@@ -505,6 +698,10 @@ simple_policy_find_endpoint (WpPolicy *policy, GVariant *props,
   /* If not found, return the first endpoint */
   ep = (ptr_array->len > 0) ?
     g_object_ref (g_ptr_array_index (ptr_array, 0)) : NULL;
+
+  /* Don't select any stream if it is not an alsa endpoint */
+  if (!g_str_has_prefix (media_class, "Alsa/"))
+    return ep;
 
 select_stream:
   g_variant_lookup (props, "media.role", "&s", &role);

@@ -11,10 +11,17 @@
  * and automatically creates pipewire audio nodes to play and capture audio
  */
 
+#include <spa/utils/keys.h>
 #include <spa/utils/names.h>
 #include <spa/monitor/monitor.h>
 #include <pipewire/pipewire.h>
 #include <wp/wp.h>
+
+enum wp_bluez_profile {
+  WP_BLUEZ_A2DP = 0,
+  WP_BLUEZ_HEADUNIT = 1,  /* HSP/HFP Head Unit (Headsets) */
+  WP_BLUEZ_GATEWAY = 2    /* HSP/HFP Gateway (Phones) */
+};
 
 struct monitor {
   struct spa_handle *handle;
@@ -87,6 +94,115 @@ on_endpoint_created(GObject *initable, GAsyncResult *res, gpointer d)
       endpoint);
 }
 
+
+static gboolean
+parse_bluez_properties (WpProperties *props, const gchar **name,
+    const gchar **media_class, enum pw_direction *direction)
+{
+  const char *local_name = NULL;
+  const char *local_media_class = NULL;
+  enum pw_direction local_direction;
+  enum wp_bluez_profile profile;
+
+  /* Get the name */
+  local_name = wp_properties_get (props, PW_KEY_NODE_NAME);
+  if (!local_name)
+    return FALSE;
+
+  /* Get the media class */
+  local_media_class = wp_properties_get (props, PW_KEY_MEDIA_CLASS);
+  if (!local_media_class)
+    return FALSE;
+
+  /* Get the direction */
+  if (g_str_has_prefix (local_media_class, "Audio/Sink"))
+    local_direction = PW_DIRECTION_INPUT;
+  else if (g_str_has_prefix (local_media_class, "Audio/Source"))
+    local_direction = PW_DIRECTION_OUTPUT;
+  else
+    return FALSE;
+
+  /* Get the bluez profile */
+  if (g_str_has_prefix (local_name, "bluez5.a2dp"))
+    profile = WP_BLUEZ_A2DP;
+  else if (g_str_has_prefix (local_name, "bluez5.hsp-hs"))
+    profile = WP_BLUEZ_HEADUNIT;
+  else if (g_str_has_prefix (local_name, "bluez5.hfp-hf"))
+    profile = WP_BLUEZ_HEADUNIT;
+  else if (g_str_has_prefix (local_name, "bluez5.hsp-ag"))
+    profile = WP_BLUEZ_GATEWAY;
+  else if (g_str_has_prefix (local_name, "bluez5.hfp-ag"))
+    profile = WP_BLUEZ_GATEWAY;
+  else
+    return FALSE;
+
+  /* Set the name */
+  if (name)
+    *name = local_name;
+
+  /* Set the media class */
+  if (media_class) {
+    switch (local_direction) {
+    case PW_DIRECTION_INPUT:
+      switch (profile) {
+      case WP_BLUEZ_A2DP:
+        *media_class = "Bluez/Sink/A2dp";
+        break;
+      case WP_BLUEZ_HEADUNIT:
+        *media_class = "Bluez/Sink/Headunit";
+        break;
+      case WP_BLUEZ_GATEWAY:
+        *media_class = "Bluez/Sink/Gateway";
+        break;
+      default:
+        break;
+      }
+      break;
+
+    case PW_DIRECTION_OUTPUT:
+      switch (profile) {
+      case WP_BLUEZ_A2DP:
+        *media_class = "Bluez/Source/A2dp";
+        break;
+      case WP_BLUEZ_HEADUNIT:
+        *media_class = "Bluez/Source/Headunit";
+        break;
+      case WP_BLUEZ_GATEWAY:
+        *media_class = "Bluez/Source/Gateway";
+        break;
+      }
+      break;
+
+    default:
+      break;
+    }
+  }
+
+  /* Set the direction */
+  if (direction)
+    *direction = local_direction;
+
+  return TRUE;
+}
+
+/* TODO: we need to find a better way to do this */
+static gboolean
+is_bluez_node (WpProperties *props)
+{
+  const gchar *name = NULL;
+
+  /* Get the name */
+  name = wp_properties_get (props, PW_KEY_NODE_NAME);
+  if (!name)
+    return FALSE;
+
+  /* Check if it is a bluez device */
+  if (!g_str_has_prefix (name, "bluez5."))
+    return FALSE;
+
+  return TRUE;
+}
+
 static void
 on_node_added (WpRemotePipewire *rp, WpProxy *proxy, struct impl *data)
 {
@@ -101,34 +217,21 @@ on_node_added (WpRemotePipewire *rp, WpProxy *proxy, struct impl *data)
   props = wp_proxy_get_global_properties (proxy);
   g_return_if_fail(props);
 
-  /* Get the media_class */
-  media_class = wp_properties_get (props, PW_KEY_MEDIA_CLASS);
-
-  /* Get the name */
-  name = wp_properties_get (props, PW_KEY_MEDIA_NAME);
-  if (!name)
-    name = wp_properties_get (props, PW_KEY_NODE_NAME);
-
-  /* Only handle bluetooth nodes */
-  if (!g_str_has_prefix (name, "api.bluez5"))
+  /* Only handle bluez nodes */
+  if (!is_bluez_node (props))
     return;
 
-  /* Get the direction */
-  if (g_str_has_prefix (media_class, "Audio/Sink")) {
-    direction = PW_DIRECTION_INPUT;
-  } else if (g_str_has_prefix (media_class, "Audio/Source")) {
-    direction = PW_DIRECTION_OUTPUT;
-  } else {
-    g_critical ("failed to parse direction");
+  /* Parse the bluez properties */
+  if (!parse_bluez_properties (props, &name, &media_class, &direction)) {
+    g_critical ("failed to parse bluez properties");
     return;
   }
 
   /* Set the properties */
   g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
   g_variant_builder_add (&b, "{sv}",
-      "name", name ?
-      g_variant_new_take_string (g_strdup_printf ("Stream %u (%s)", id, name)) :
-      g_variant_new_take_string (g_strdup_printf ("Stream %u", id)));
+      "name", g_variant_new_take_string (
+          g_strdup_printf ("Bluez %u (%s)", id, name)));
   g_variant_builder_add (&b, "{sv}",
       "media-class", g_variant_new_string (media_class));
   g_variant_builder_add (&b, "{sv}",
@@ -164,44 +267,48 @@ create_node(struct impl *impl, struct device *dev, uint32_t id,
     const struct spa_device_object_info *info)
 {
   struct node *node;
-  const char *str;
+  const char *name, *profile;
   struct pw_properties *props = NULL;
   struct pw_factory *factory = NULL;
   struct pw_node *adapter = NULL;
-  struct pw_proxy *proxy = NULL;
 
   /* Check if the type is a node */
   if (info->type != SPA_TYPE_INTERFACE_Node)
     return NULL;
 
-  /* Create the properties */
-  props = pw_properties_new_dict(info->props);
-  str = pw_properties_get(dev->props, SPA_KEY_DEVICE_DESCRIPTION);
-  if (str == NULL)
-    str = pw_properties_get(dev->props, SPA_KEY_DEVICE_NAME);
-  if (str == NULL)
-      str = pw_properties_get(dev->props, SPA_KEY_DEVICE_NICK);
-  if (str == NULL)
-    str = pw_properties_get(dev->props, SPA_KEY_DEVICE_ALIAS);
-  if (str == NULL)
-    str = "bluetooth-device";
-  pw_properties_setf(props, PW_KEY_NODE_NAME, "%s.%s", info->factory_name, str);
-  pw_properties_set(props, PW_KEY_NODE_DESCRIPTION, str);
-  pw_properties_set(props, "factory.name", info->factory_name);
+  /* Get the bluez name */
+  name = pw_properties_get(dev->props, SPA_KEY_DEVICE_DESCRIPTION);
+  if (name == NULL)
+    name = pw_properties_get(dev->props, SPA_KEY_DEVICE_NAME);
+  if (name == NULL)
+      name = pw_properties_get(dev->props, SPA_KEY_DEVICE_NICK);
+  if (name == NULL)
+    name = pw_properties_get(dev->props, SPA_KEY_DEVICE_ALIAS);
+  if (name == NULL)
+    name = "bluetooth-device";
+
+  /* Get the bluez profile */
+  profile = spa_dict_lookup(info->props, SPA_KEY_API_BLUEZ5_PROFILE);
+  if (!profile)
+    profile = "null";
 
   /* Find the factory */
   factory = wp_remote_pipewire_find_factory(impl->remote_pipewire, "adapter");
   g_return_val_if_fail (factory, NULL);
 
+  /* Create the properties */
+  props = pw_properties_new_dict(info->props);
+  pw_properties_setf(props, PW_KEY_NODE_NAME, "bluez5.%s.%s", profile, name);
+  pw_properties_set(props, PW_KEY_NODE_DESCRIPTION, name);
+  pw_properties_set(props, PW_KEY_FACTORY_NAME, info->factory_name);
+
   /* Create the adapter */
   adapter = pw_factory_create_object(factory, NULL, PW_TYPE_INTERFACE_Node,
       PW_VERSION_NODE_PROXY, props, 0);
-  g_return_val_if_fail (adapter, NULL);
-
-  /* Create the proxy */
-  proxy = wp_remote_pipewire_export(impl->remote_pipewire,
-      PW_TYPE_INTERFACE_Node, props, adapter, 0);
-  g_return_val_if_fail (proxy, NULL);
+  if (!adapter) {
+    pw_properties_free(props);
+    return NULL;
+  }
 
   /* Create the node */
   node = g_slice_new0(struct node);
@@ -210,7 +317,13 @@ create_node(struct impl *impl, struct device *dev, uint32_t id,
   node->id = id;
   node->props = props;
   node->adapter = adapter;
-  node->proxy = proxy;
+  node->proxy = wp_remote_pipewire_export(impl->remote_pipewire,
+      PW_TYPE_INTERFACE_Node, props, adapter, 0);
+  if (!node->proxy) {
+    pw_properties_free(props);
+    g_slice_free (struct node, node);
+    return NULL;
+  }
 
   /* Add the node to the list */
   spa_list_append(&dev->node_list, &node->link);
@@ -342,11 +455,17 @@ update_device(struct impl *impl, struct device *dev,
 static void
 destroy_device(struct impl *impl, struct device *dev)
 {
+  struct node *node;
+
   /* Remove the device from the list */
   spa_list_remove(&dev->link);
 
   /* Remove the device listener */
   spa_hook_remove(&dev->device_listener);
+
+  /* Destry all the nodes that the device has */
+  spa_list_consume(node, &dev->node_list, link)
+    destroy_node(impl, dev, node);
 
   /* Destroy the device proxy */
   pw_proxy_destroy(dev->proxy);

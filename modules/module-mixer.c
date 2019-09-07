@@ -68,7 +68,7 @@ group_find_backend (struct group *group, WpCore *core)
   /* find the backend */
   g_variant_dict_init (&d, NULL);
   g_variant_dict_insert (&d, "action", "s", "mixer");
-  g_variant_dict_insert (&d, "media.class", "s", "Audio/Sink");
+  g_variant_dict_insert (&d, "media.class", "s", "Alsa/Sink");
   g_variant_dict_insert (&d, "media.role", "s", group->name);
 
   backend = wp_policy_find_endpoint (core, g_variant_dict_end (&d),
