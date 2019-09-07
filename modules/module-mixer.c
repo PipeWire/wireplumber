@@ -298,9 +298,8 @@ mixer_endpoint_class_init (WpMixerEndpointClass * klass)
 }
 
 static void
-remote_connected (WpRemote *remote, WpRemoteState state, GVariant *streams)
+remote_connected (WpCore *core, WpRemoteState state, GVariant *streams)
 {
-  g_autoptr (WpCore) core = wp_remote_get_core (remote);
   g_autoptr (WpEndpoint) ep = g_object_new (mixer_endpoint_get_type (),
       "core", core,
       "name", "Mixer",
@@ -313,15 +312,11 @@ remote_connected (WpRemote *remote, WpRemoteState state, GVariant *streams)
 void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
-  WpRemote *remote;
   GVariant *streams;
-
-  remote = wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
-  g_return_if_fail (remote != NULL);
 
   streams = g_variant_lookup_value (args, "streams", G_VARIANT_TYPE ("as"));
 
-  g_signal_connect_data (remote, "state-changed::connected",
+  g_signal_connect_data (core, "remote-state-changed::connected",
       (GCallback) remote_connected, streams, (GClosureNotify) g_variant_unref,
       0);
 }

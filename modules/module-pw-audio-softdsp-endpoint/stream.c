@@ -151,8 +151,7 @@ on_port_config_done (WpProxy *proxy, GAsyncResult *res, WpAudioStream *self)
 
 /* called multiple times after we set the PortConfig */
 static void
-on_audio_stream_port_added(WpRemotePipewire *rp, WpProxy *proxy,
-    WpAudioStream *self)
+on_audio_stream_port_added (WpCore *core, WpProxy *proxy, WpAudioStream *self)
 {
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
   g_autoptr (WpProperties) props = wp_proxy_get_global_properties (proxy);
@@ -326,6 +325,7 @@ wp_audio_stream_init_async (GAsyncInitable *initable, int io_priority,
   WpAudioStream *self = WP_AUDIO_STREAM(initable);
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
   g_autoptr (WpEndpoint) ep = g_weak_ref_get (&priv->endpoint);
+  g_autoptr (WpCore) core = wp_audio_stream_get_core (self);
   GVariantDict d;
 
   g_debug ("WpEndpoint:%p init stream %s (%s:%p)", ep, priv->name,
@@ -362,8 +362,8 @@ wp_audio_stream_init_async (GAsyncInitable *initable, int io_priority,
       (GAsyncReadyCallback) on_node_proxy_augmented, self);
 
   /* Register a port_added callback */
-  g_signal_connect_object(wp_audio_stream_get_remote (self),
-      "global-added::port", (GCallback)on_audio_stream_port_added, self, 0);
+  g_signal_connect_object(core, "remote-global-added::port",
+      (GCallback) on_audio_stream_port_added, self, 0);
 }
 
 static gboolean
@@ -560,8 +560,8 @@ wp_audio_stream_set_control_value (WpAudioStream * self, guint32 control_id,
   return TRUE;
 }
 
-WpRemotePipewire *
-wp_audio_stream_get_remote (WpAudioStream * self)
+WpCore *
+wp_audio_stream_get_core (WpAudioStream * self)
 {
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
   g_autoptr (WpEndpoint) ep = NULL;
@@ -569,9 +569,7 @@ wp_audio_stream_get_remote (WpAudioStream * self)
 
   ep = g_weak_ref_get (&priv->endpoint);
   core = wp_endpoint_get_core (ep);
-
-  /* FIXME this is theoretically not safe */
-  return wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
+  return g_steal_pointer (&core);
 }
 
 void

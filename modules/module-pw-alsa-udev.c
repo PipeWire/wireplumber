@@ -26,7 +26,6 @@ struct monitor {
 struct impl
 {
   WpModule *module;
-  WpRemotePipewire *remote_pipewire;
   GHashTable *registered_endpoints;
   GVariant *streams;
 
@@ -171,9 +170,8 @@ is_alsa_node (WpProperties * props)
 }
 
 static void
-on_node_added(WpRemotePipewire *rp, WpProxy *proxy, struct impl *impl)
+on_node_added(WpCore *core, WpProxy *proxy, struct impl *impl)
 {
-  g_autoptr (WpCore) core = wp_module_get_core (impl->module);
   const gchar *media_class, *name;
   enum pw_direction direction;
   GVariantBuilder b;
@@ -214,7 +212,7 @@ on_node_added(WpRemotePipewire *rp, WpProxy *proxy, struct impl *impl)
 }
 
 static void
-on_global_removed (WpRemotePipewire *rp, WpProxy *proxy, struct impl *impl)
+on_node_removed (WpCore *core, WpProxy *proxy, struct impl *impl)
 {
   WpEndpoint *endpoint = NULL;
   guint32 id = wp_proxy_get_global_id (proxy);
@@ -237,6 +235,7 @@ create_node(struct impl *impl, struct device *dev, uint32_t id,
   struct node *node;
   const char *name;
   g_autoptr (WpProperties) props = NULL;
+  g_autoptr (WpCore) core = wp_module_get_core (impl->module);
 
   /* Check if the type is a node */
   if (info->type != SPA_TYPE_INTERFACE_Node)
@@ -264,8 +263,8 @@ create_node(struct impl *impl, struct device *dev, uint32_t id,
   node->impl = impl;
   node->device = dev;
   node->id = id;
-  node->proxy = wp_remote_pipewire_create_object (impl->remote_pipewire,
-      "adapter", PW_TYPE_INTERFACE_Node, PW_VERSION_NODE_PROXY, props);
+  node->proxy = wp_core_create_remote_object (core, "adapter",
+      PW_TYPE_INTERFACE_Node, PW_VERSION_NODE_PROXY, props);
   if (!node->proxy) {
     g_slice_free (struct node, node);
     return NULL;
@@ -348,8 +347,9 @@ static const struct spa_device_events device_events = {
 
 static struct device*
 create_device(struct impl *impl, uint32_t id,
-  const struct spa_monitor_object_info *info) {
-
+    const struct spa_monitor_object_info *info)
+{
+  g_autoptr (WpCore) core = wp_module_get_core (impl->module);
   struct device *dev;
   struct spa_handle *handle;
   int res;
@@ -360,8 +360,8 @@ create_device(struct impl *impl, uint32_t id,
     return NULL;
 
   /* Load the device handle */
-  handle = (struct spa_handle *)wp_remote_pipewire_load_spa_handle (
-      impl->remote_pipewire, info->factory_name, info->props);
+  handle = pw_core_load_spa_handle (wp_core_get_pw_core (core),
+      info->factory_name, info->props);
   if (!handle)
     return NULL;
 
@@ -379,7 +379,8 @@ create_device(struct impl *impl, uint32_t id,
   dev->handle = handle;
   dev->device = iface;
   dev->props = pw_properties_new_dict(info->props);
-  dev->proxy = wp_remote_pipewire_export (impl->remote_pipewire, info->type, dev->props, dev->device, 0);
+  dev->proxy = pw_remote_export (wp_core_get_pw_remote (core),
+      info->type, dev->props, dev->device, 0);
   if (!dev->proxy) {
     pw_unload_spa_handle(handle);
     return NULL;
@@ -482,7 +483,7 @@ static const struct spa_monitor_callbacks monitor_callbacks =
 };
 
 static void
-start_monitor (WpRemotePipewire *remote, WpRemoteState state, gpointer data)
+start_monitor (WpCore *core, WpRemoteState state, gpointer data)
 {
   struct impl *impl = data;
   struct spa_handle *handle;
@@ -490,8 +491,8 @@ start_monitor (WpRemotePipewire *remote, WpRemoteState state, gpointer data)
   void *iface;
 
   /* Load the monitor handle */
-  handle = (struct spa_handle *)wp_remote_pipewire_load_spa_handle (
-      impl->remote_pipewire, SPA_NAME_API_ALSA_MONITOR, NULL);
+  handle = pw_core_load_spa_handle (wp_core_get_pw_core (core),
+      SPA_NAME_API_ALSA_MONITOR, NULL);
   g_return_if_fail (handle);
 
   /* Get the handle interface */
@@ -516,9 +517,8 @@ module_destroy (gpointer data)
 {
   struct impl *impl = data;
 
-  /* Set to NULL module and remote pipewire as we don't own the reference */
+  /* Set to NULL as we don't own the reference */
   impl->module = NULL;
-  impl->remote_pipewire = NULL;
 
   /* Destroy the registered endpoints table */
   g_hash_table_unref(impl->registered_endpoints);
@@ -534,20 +534,10 @@ void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   struct impl *impl;
-  WpRemotePipewire *rp;
-
-  /* Make sure the remote pipewire is valid */
-  rp = wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
-  if (!rp) {
-    g_critical ("module-pw-alsa-udev cannot be loaded without a registered "
-        "WpRemotePipewire object");
-    return;
-  }
 
   /* Create the module data */
   impl = g_slice_new0(struct impl);
   impl->module = module;
-  impl->remote_pipewire = rp;
   impl->registered_endpoints = g_hash_table_new_full (g_direct_hash,
       g_direct_equal, NULL, (GDestroyNotify)g_object_unref);
   impl->streams = g_variant_lookup_value (args, "streams",
@@ -557,12 +547,16 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   wp_module_set_destroy_callback (module, module_destroy, impl);
 
   /* Add the spa lib */
-  wp_remote_pipewire_add_spa_lib (rp, "api.alsa.*", "alsa/libspa-alsa");
+  pw_core_add_spa_lib (wp_core_get_pw_core (core),
+      "api.alsa.*", "alsa/libspa-alsa");
 
   /* Start the monitor when the connected callback is triggered */
-  g_signal_connect(rp, "state-changed::connected", (GCallback)start_monitor, impl);
+  g_signal_connect(core, "remote-state-changed::connected",
+      (GCallback) start_monitor, impl);
 
   /* Register the global addded/removed callbacks */
-  g_signal_connect(rp, "global-added::node", (GCallback)on_node_added, impl);
-  g_signal_connect(rp, "global-removed", (GCallback)on_global_removed, impl);
+  g_signal_connect(core, "remote-global-added::node",
+      (GCallback) on_node_added, impl);
+  g_signal_connect(core, "remote-global-removed::node",
+      (GCallback) on_node_removed, impl);
 }

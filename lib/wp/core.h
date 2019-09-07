@@ -10,11 +10,56 @@
 #define __WIREPLUMBER_CORE_H__
 
 #include <glib-object.h>
+#include "proxy.h"
 
 G_BEGIN_DECLS
 
+struct pw_core;
+struct pw_remote;
+
+/**
+ * WpRemoteState:
+ * @WP_REMOTE_STATE_ERROR: remote is in error
+ * @WP_REMOTE_STATE_UNCONNECTED: not connected
+ * @WP_REMOTE_STATE_CONNECTING: connecting to remote service
+ * @WP_REMOTE_STATE_CONNECTED: remote is connected and ready
+ *
+ * The different states the remote can be
+ */
+typedef enum {
+  WP_REMOTE_STATE_ERROR = -1,
+  WP_REMOTE_STATE_UNCONNECTED = 0,
+  WP_REMOTE_STATE_CONNECTING = 1,
+  WP_REMOTE_STATE_CONNECTED = 2,
+} WpRemoteState;
+
 #define WP_TYPE_CORE (wp_core_get_type ())
 G_DECLARE_FINAL_TYPE (WpCore, wp_core, WP, CORE, GObject)
+
+WpCore * wp_core_new (GMainContext *context);
+
+GMainContext * wp_core_get_context (WpCore * self);
+struct pw_core * wp_core_get_pw_core (WpCore * self);
+struct pw_remote * wp_core_get_pw_remote (WpCore * self);
+
+gboolean wp_core_connect (WpCore * self);
+WpRemoteState wp_core_get_remote_state (WpCore * self, const gchar ** error);
+
+void wp_core_set_default_proxy_features (
+    WpCore * self, GType proxy_type, WpProxyFeatures features);
+
+WpProxy * wp_core_create_remote_object (WpCore * self,
+    const gchar * factory_name, guint32 interface_type,
+    guint32 interface_version, WpProperties * properties);
+
+
+/* private */
+
+struct pw_core_proxy;
+struct pw_registry_proxy;
+
+struct pw_core_proxy * wp_core_get_pw_core_proxy (WpCore * self);
+struct pw_registry_proxy * wp_core_get_pw_registry_proxy (WpCore * self);
 
 enum {
   WP_CORE_FOREACH_GLOBAL_DONE = FALSE,
@@ -23,8 +68,6 @@ enum {
 
 typedef gboolean (*WpCoreForeachGlobalFunc) (GQuark key, gpointer global,
     gpointer user_data);
-
-WpCore * wp_core_new (void);
 
 gpointer wp_core_get_global (WpCore * self, GQuark key);
 void wp_core_foreach_global (WpCore * self, WpCoreForeachGlobalFunc callback,
@@ -45,14 +88,6 @@ GQuark wp_global_module_quark (void);
 
 #define WP_GLOBAL_POLICY_MANAGER (wp_global_policy_manager_quark ())
 GQuark wp_global_policy_manager_quark (void);
-
-/**
- * WP_GLOBAL_REMOTE_PIPEWIRE:
- * The key to access the #WpRemote global object that maintains
- * the connection to pipewire
- */
-#define WP_GLOBAL_REMOTE_PIPEWIRE (wp_global_remote_pipewire_quark ())
-GQuark wp_global_remote_pipewire_quark (void);
 
 G_END_DECLS
 

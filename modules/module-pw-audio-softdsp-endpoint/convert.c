@@ -41,7 +41,7 @@ G_DEFINE_TYPE_WITH_CODE (WpAudioConvert, wp_audio_convert, WP_TYPE_AUDIO_STREAM,
 static void
 on_audio_convert_running(WpAudioConvert *self)
 {
-  WpRemotePipewire *rp = wp_audio_stream_get_remote (WP_AUDIO_STREAM (self));
+  g_autoptr (WpCore) core = wp_audio_stream_get_core (WP_AUDIO_STREAM (self));
   enum pw_direction direction =
       wp_audio_stream_get_direction (WP_AUDIO_STREAM (self));
   g_autoptr (WpProperties) props = NULL;
@@ -77,7 +77,7 @@ on_audio_convert_running(WpAudioConvert *self)
   g_debug ("%p linking audio convert to target", self);
 
   /* Create the link */
-  self->link_proxy = wp_remote_pipewire_create_object (rp, "link-factory",
+  self->link_proxy = wp_core_create_remote_object (core, "link-factory",
       PW_TYPE_INTERFACE_Link, PW_VERSION_LINK_PROXY, props);
 }
 
@@ -150,8 +150,7 @@ wp_audio_convert_init_async (GAsyncInitable *initable, int io_priority,
   WpAudioConvert *self = WP_AUDIO_CONVERT (initable);
   g_autoptr (WpProxy) proxy = NULL;
   g_autoptr (WpProperties) props = NULL;
-  WpRemotePipewire *remote =
-      wp_audio_stream_get_remote (WP_AUDIO_STREAM (self));
+  g_autoptr (WpCore) core = wp_audio_stream_get_core (WP_AUDIO_STREAM (self));
 
   /* Create the properties */
   props = wp_properties_copy (wp_proxy_node_get_properties (self->target));
@@ -161,7 +160,7 @@ wp_audio_convert_init_async (GAsyncInitable *initable, int io_priority,
   wp_properties_set (props, "factory.name", SPA_NAME_AUDIO_CONVERT);
 
   /* Create the proxy */
-  proxy = wp_remote_pipewire_create_object (remote, "spa-node-factory",
+  proxy = wp_core_create_remote_object (core, "spa-node-factory",
       PW_TYPE_INTERFACE_Node, PW_VERSION_NODE_PROXY, props);
   g_return_if_fail (proxy);
 

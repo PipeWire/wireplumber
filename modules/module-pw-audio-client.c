@@ -16,8 +16,6 @@
 
 struct module_data
 {
-  WpModule *module;
-  WpRemotePipewire *remote_pipewire;
   GHashTable *registered_endpoints;
 };
 
@@ -50,10 +48,9 @@ on_endpoint_created(GObject *initable, GAsyncResult *res, gpointer d)
 }
 
 static void
-on_node_added (WpRemotePipewire *rp, WpProxy *proxy, gpointer d)
+on_node_added (WpCore *core, WpProxy *proxy, gpointer d)
 {
   struct module_data *data = d;
-  g_autoptr (WpCore) core = wp_module_get_core (data->module);
   const gchar *name, *media_class;
   enum pw_direction direction;
   GVariantBuilder b;
@@ -103,7 +100,7 @@ on_node_added (WpRemotePipewire *rp, WpProxy *proxy, gpointer d)
 }
 
 static void
-on_global_removed (WpRemotePipewire *rp, WpProxy *proxy, gpointer d)
+on_node_removed (WpCore *core, WpProxy *proxy, gpointer d)
 {
   struct module_data *data = d;
   WpEndpoint *endpoint = NULL;
@@ -125,10 +122,6 @@ module_destroy (gpointer d)
 {
   struct module_data *data = d;
 
-  /* Set to NULL module and remote pipewire as we don't own the reference */
-  data->module = NULL;
-  data->remote_pipewire = NULL;
-
   /* Destroy the registered endpoints table */
   g_clear_pointer (&data->registered_endpoints, g_hash_table_unref);
 
@@ -140,20 +133,9 @@ void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   struct module_data *data;
-  WpRemotePipewire *rp;
-
-  /* Make sure the remote pipewire is valid */
-  rp = wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
-  if (!rp) {
-    g_critical ("module-pipewire cannot be loaded without a registered "
-        "WpRemotePipewire object");
-    return;
-  }
 
   /* Create the module data */
   data = g_slice_new0 (struct module_data);
-  data->module = module;
-  data->remote_pipewire = rp;
   data->registered_endpoints = g_hash_table_new_full (g_direct_hash,
       g_direct_equal, NULL, (GDestroyNotify)g_object_unref);
 
@@ -161,6 +143,8 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   wp_module_set_destroy_callback (module, module_destroy, data);
 
   /* Register the global added/removed callbacks */
-  g_signal_connect(rp, "global-added::node", (GCallback)on_node_added, data);
-  g_signal_connect(rp, "global-removed", (GCallback)on_global_removed, data);
+  g_signal_connect(core, "remote-global-added::node",
+      (GCallback) on_node_added, data);
+  g_signal_connect(core, "remote-global-removed::node",
+      (GCallback) on_node_removed, data);
 }

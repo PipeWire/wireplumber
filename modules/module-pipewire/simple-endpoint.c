@@ -32,9 +32,6 @@ struct _WpPipewireSimpleEndpoint
   /* The task to signal the endpoint is initialized */
   GTask *init_task;
 
-  /* The remote pipewire */
-  WpRemotePipewire *remote_pipewire;
-
   /* Proxies */
   WpProxyNode *proxy_node;
   GPtrArray *proxies_port;
@@ -175,7 +172,7 @@ on_proxy_port_augmented (WpProxy *proxy, GAsyncResult *res,
 }
 
 static void
-on_port_added(WpRemotePipewire *rp, WpProxy *proxy, gpointer d)
+on_port_added (WpCore *core, WpProxy *proxy, gpointer d)
 {
   WpPipewireSimpleEndpoint *self = d;
   const char *s;
@@ -287,10 +284,8 @@ wp_simple_endpoint_init_async (GAsyncInitable *initable, int io_priority,
   self->init_task = g_task_new (initable, cancellable, callback, data);
 
   /* Register a port_added callback */
-  self->remote_pipewire = wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
-  g_return_if_fail(self->remote_pipewire);
-  g_signal_connect_object(self->remote_pipewire, "global-added::port",
-    (GCallback)on_port_added, self, 0);
+  g_signal_connect_object (core, "remote-global-added::port",
+      (GCallback) on_port_added, self, 0);
 
   /* Augment to get the info */
   wp_proxy_augment (WP_PROXY (self->proxy_node),

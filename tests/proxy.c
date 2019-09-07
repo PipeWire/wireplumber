@@ -20,9 +20,8 @@ typedef struct {
   GMainLoop *loop;
   GSource *timeout_source;
 
-  /* the client wireplumber objects */
+  /* the client wireplumber core */
   WpCore *core;
-  WpRemote *remote;
 
 } TestProxyFixture;
 
@@ -37,14 +36,14 @@ timeout_callback (TestProxyFixture *fixture)
 }
 
 static void
-test_proxy_state_changed (WpRemote *remote, WpRemoteState state,
+test_proxy_remote_state_changed (WpCore *core, WpRemoteState state,
     TestProxyFixture *fixture)
 {
-  g_autofree gchar * msg = NULL;
+  const gchar * msg = NULL;
 
   switch (state) {
   case WP_REMOTE_STATE_ERROR:
-    g_object_get (remote, "error-message", &msg, NULL);
+    wp_core_get_remote_state (core, &msg);
     g_message ("remote error: %s", msg);
     g_test_fail ();
     g_main_loop_quit (fixture->loop);
@@ -61,14 +60,13 @@ test_proxy_setup (TestProxyFixture *self, gconstpointer user_data)
   g_setenv ("PIPEWIRE_REMOTE", self->server.name, TRUE);
   self->context = g_main_context_new ();
   self->loop = g_main_loop_new (self->context, FALSE);
-  self->core = wp_core_new ();
-  self->remote = wp_remote_pipewire_new (self->core, self->context);
+  self->core = wp_core_new (self->context);
 
   g_main_context_push_thread_default (self->context);
 
   /* watchdogs */
-  g_signal_connect (self->remote, "state-changed",
-      (GCallback) test_proxy_state_changed, self);
+  g_signal_connect (self->core, "remote-state-changed",
+      (GCallback) test_proxy_remote_state_changed, self);
 
   self->timeout_source = g_timeout_source_new_seconds (3);
   g_source_set_callback (self->timeout_source, (GSourceFunc) timeout_callback,
@@ -81,7 +79,6 @@ test_proxy_teardown (TestProxyFixture *self, gconstpointer user_data)
 {
   g_main_context_pop_thread_default (self->context);
 
-  g_clear_object (&self->remote);
   g_clear_object (&self->core);
   g_clear_pointer (&self->timeout_source, g_source_unref);
   g_clear_pointer (&self->loop, g_main_loop_unref);
@@ -117,13 +114,14 @@ test_proxy_basic_augmented (WpProxy *proxy, GAsyncResult *res,
 }
 
 static void
-test_proxy_basic_global_added (WpRemote *remote, WpProxy *proxy,
+test_proxy_basic_remote_global_added (WpCore *core, WpProxy *proxy,
     TestProxyFixture *fixture)
 {
   g_assert_nonnull (proxy);
   {
-    g_autoptr (WpRemote) remote = wp_proxy_get_remote (proxy);
-    g_assert_nonnull (remote);
+    g_autoptr (WpCore) pcore = wp_proxy_get_core (proxy);
+    g_assert_nonnull (pcore);
+    g_assert_true (pcore == core);
   }
   g_assert_cmpuint (wp_proxy_get_global_id (proxy), !=, 0);
   g_assert_true (wp_proxy_is_global (proxy));
@@ -155,10 +153,10 @@ test_proxy_basic (TestProxyFixture *fixture, gconstpointer data)
 {
   /* our test server should advertise exactly one
    * client: our WpRemote; use this to test WpProxy */
-  g_signal_connect (fixture->remote, "global-added::client",
-      (GCallback) test_proxy_basic_global_added, fixture);
+  g_signal_connect (fixture->core, "remote-global-added::client",
+      (GCallback) test_proxy_basic_remote_global_added, fixture);
 
-  g_assert_true (wp_remote_connect (fixture->remote));
+  g_assert_true (wp_core_connect (fixture->core));
   g_main_loop_run (fixture->loop);
 }
 
@@ -199,7 +197,7 @@ test_proxy_node_enum_params_done (WpProxyNode *node, GAsyncResult *res,
 }
 
 static void
-test_proxy_node_global_added (WpRemote *remote, WpProxy *proxy,
+test_proxy_node_remote_global_added (WpCore *core, WpProxy *proxy,
     TestProxyFixture *fixture)
 {
   const struct pw_node_info *info;
@@ -256,14 +254,14 @@ test_proxy_node (TestProxyFixture *fixture, gconstpointer data)
   pw_thread_loop_unlock (fixture->server.thread_loop);
 
   /* we should be able to see this exported audiotestsrc node on the client */
-  g_signal_connect (fixture->remote, "global-added::node",
-      (GCallback) test_proxy_node_global_added, fixture);
+  g_signal_connect (fixture->core, "remote-global-added::node",
+      (GCallback) test_proxy_node_remote_global_added, fixture);
 
   /* tell the remote to call global-added only when these features are ready */
-  wp_remote_pipewire_set_default_features (WP_REMOTE_PIPEWIRE (fixture->remote),
+  wp_core_set_default_proxy_features (fixture->core,
       WP_TYPE_PROXY_NODE, WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO);
 
-  g_assert_true (wp_remote_connect (fixture->remote));
+  g_assert_true (wp_core_connect (fixture->core));
   g_main_loop_run (fixture->loop);
 }
 

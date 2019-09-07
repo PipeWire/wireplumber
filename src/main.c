@@ -29,7 +29,6 @@ enum WpExitCode
 struct WpDaemonData
 {
   WpCore *core;
-  WpRemote *remote;
   GMainLoop *loop;
 
   gint exit_code;
@@ -67,7 +66,7 @@ signal_handler (gpointer data)
 }
 
 static void
-remote_state_changed (WpRemote *remote, WpRemoteState state,
+remote_state_changed (WpCore *core, WpRemoteState state,
     struct WpDaemonData * d)
 {
   /* something else triggered the exit; we will certainly get a state
@@ -82,7 +81,7 @@ remote_state_changed (WpRemote *remote, WpRemoteState state,
     break;
   case WP_REMOTE_STATE_ERROR: {
     g_autofree gchar *error;
-    g_object_get (remote, "error-message", &error, NULL);
+    g_object_get (core, "error-message", &error, NULL);
     daemon_exit (d, WP_CODE_OPERATION_FAILED, "pipewire remote error: %s",
         error);
     break;
@@ -240,7 +239,7 @@ load_commands_file (struct WpDaemonData *d)
   }
 
   /* connect to pipewire */
-  wp_remote_connect (d->remote);
+  wp_core_connect (d->core);
 
   return G_SOURCE_REMOVE;
 }
@@ -251,7 +250,6 @@ main (gint argc, gchar **argv)
   struct WpDaemonData data = {0};
   g_autoptr (GOptionContext) context = NULL;
   g_autoptr (GError) error = NULL;
-  g_autoptr (WpRemote) remote = NULL;
   g_autoptr (WpCore) core = NULL;
   g_autoptr (GMainLoop) loop = NULL;
 
@@ -265,10 +263,9 @@ main (gint argc, gchar **argv)
 
   /* init wireplumber */
 
-  data.core = core = wp_core_new ();
-  data.remote = remote = wp_remote_pipewire_new (core, NULL);
-  g_signal_connect (remote, "state-changed", (GCallback) remote_state_changed,
-      &data);
+  data.core = core = wp_core_new (NULL);
+  g_signal_connect (core, "remote-state-changed",
+      (GCallback) remote_state_changed, &data);
 
   /* init main loop */
 

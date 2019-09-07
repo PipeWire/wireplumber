@@ -18,5 +18,3 @@
 #include "proxy-link.h"
 #include "proxy-node.h"
 #include "proxy-port.h"
-#include "remote.h"
-#include "remote-pipewire.h"

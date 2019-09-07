@@ -11,8 +11,6 @@ wp_lib_sources = [
   'proxy-link.c',
   'proxy-node.c',
   'proxy-port.c',
-  'remote.c',
-  'remote-pipewire.c',
 ]
 
 wp_lib_headers = [
@@ -28,8 +26,6 @@ wp_lib_headers = [
   'proxy-node.h',
   'proxy-port.h',
   'proxy-link.h',
-  'remote.h',
-  'remote-pipewire.h',
   'wp.h',
 ]
 

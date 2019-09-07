@@ -41,7 +41,7 @@ gboolean wp_audio_stream_set_control_value (WpAudioStream * self,
 
 /* for subclasses */
 
-WpRemotePipewire *wp_audio_stream_get_remote (WpAudioStream * self);
+WpCore *wp_audio_stream_get_core (WpAudioStream * self);
 void wp_audio_stream_init_task_finish (WpAudioStream * self, GError * error);
 void wp_audio_stream_set_port_config (WpAudioStream * self,
     const struct spa_pod * param);

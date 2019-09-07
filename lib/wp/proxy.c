@@ -8,8 +8,8 @@
  */
 
 #include "proxy.h"
+#include "core.h"
 #include "error.h"
-#include "remote-pipewire.h"
 #include "wpenums.h"
 
 #include "proxy-client.h"
@@ -24,7 +24,7 @@ typedef struct _WpProxyPrivate WpProxyPrivate;
 struct _WpProxyPrivate
 {
   /* properties */
-  GWeakRef remote;
+  GWeakRef core;
 
   guint32 global_id;
   guint32 global_perm;
@@ -48,7 +48,7 @@ struct _WpProxyPrivate
 
 enum {
   PROP_0,
-  PROP_REMOTE,
+  PROP_CORE,
   PROP_GLOBAL_ID,
   PROP_GLOBAL_PERMISSIONS,
   PROP_GLOBAL_PROPERTIES,
@@ -194,7 +194,7 @@ wp_proxy_init (WpProxy * self)
 {
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
 
-  g_weak_ref_init (&priv->remote, NULL);
+  g_weak_ref_init (&priv->core, NULL);
   priv->async_tasks = g_hash_table_new_full (g_direct_hash, g_direct_equal,
       NULL, g_object_unref);
 }
@@ -221,7 +221,7 @@ wp_proxy_finalize (GObject * object)
   g_clear_object (&priv->task);
   g_clear_pointer (&priv->global_props, wp_properties_unref);
   g_clear_pointer (&priv->pw_proxy, pw_proxy_destroy);
-  g_weak_ref_clear (&priv->remote);
+  g_weak_ref_clear (&priv->core);
   g_clear_pointer (&priv->async_tasks, g_hash_table_unref);
 
   G_OBJECT_CLASS (wp_proxy_parent_class)->finalize (object);
@@ -234,8 +234,8 @@ wp_proxy_set_property (GObject * object, guint property_id,
   WpProxyPrivate *priv = wp_proxy_get_instance_private (WP_PROXY(object));
 
   switch (property_id) {
-  case PROP_REMOTE:
-    g_weak_ref_set (&priv->remote, g_value_get_object (value));
+  case PROP_CORE:
+    g_weak_ref_set (&priv->core, g_value_get_object (value));
     break;
   case PROP_GLOBAL_ID:
     priv->global_id = g_value_get_uint (value);
@@ -268,8 +268,8 @@ wp_proxy_get_property (GObject * object, guint property_id, GValue * value,
   WpProxyPrivate *priv = wp_proxy_get_instance_private (WP_PROXY(object));
 
   switch (property_id) {
-  case PROP_REMOTE:
-    g_value_take_object (value, g_weak_ref_get (&priv->remote));
+  case PROP_CORE:
+    g_value_take_object (value, g_weak_ref_get (&priv->core));
     break;
   case PROP_GLOBAL_ID:
     g_value_set_uint (value, priv->global_id);
@@ -309,7 +309,7 @@ static void
 wp_proxy_default_augment (WpProxy * self, WpProxyFeatures features)
 {
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
-  g_autoptr (WpRemote) remote = NULL;
+  g_autoptr (WpCore) core = NULL;
 
   /* ensure we have a pw_proxy, as we can't have
    * any other feature without first having that */
@@ -327,13 +327,13 @@ wp_proxy_default_augment (WpProxy * self, WpProxyFeatures features)
       return;
     }
 
-    remote = g_weak_ref_get (&priv->remote);
-    g_return_if_fail (remote);
+    core = g_weak_ref_get (&priv->core);
+    g_return_if_fail (core);
 
     /* bind */
-    priv->pw_proxy = wp_remote_pipewire_proxy_bind (
-        WP_REMOTE_PIPEWIRE (remote),
-        priv->global_id, priv->iface_type);
+    priv->pw_proxy = pw_registry_proxy_bind (
+        wp_core_get_pw_registry_proxy (core), priv->global_id,
+        priv->iface_type, priv->iface_version, 0);
     wp_proxy_got_pw_proxy (self);
   }
 }
@@ -352,9 +352,8 @@ wp_proxy_class_init (WpProxyClass * klass)
 
   /* Install the properties */
 
-  g_object_class_install_property (object_class, PROP_REMOTE,
-      g_param_spec_object ("remote", "remote",
-          "The pipewire connection WpRemote", WP_TYPE_REMOTE,
+  g_object_class_install_property (object_class, PROP_CORE,
+      g_param_spec_object ("core", "core", "The WpCore", WP_TYPE_CORE,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (object_class, PROP_GLOBAL_ID,
@@ -414,13 +413,13 @@ wp_proxy_class_init (WpProxyClass * klass)
 }
 
 WpProxy *
-wp_proxy_new_global (WpRemote * remote,
+wp_proxy_new_global (WpCore * core,
     guint32 id, guint32 permissions, WpProperties * properties,
     guint32 type, guint32 version)
 {
   GType gtype = wp_proxy_find_instance_type (type, version);
   return g_object_new (gtype,
-      "remote", remote,
+      "core", core,
       "global-id", id,
       "global-permissions", permissions,
       "global-properties", properties,
@@ -430,12 +429,12 @@ wp_proxy_new_global (WpRemote * remote,
 }
 
 WpProxy *
-wp_proxy_new_wrap (WpRemote * remote,
+wp_proxy_new_wrap (WpCore * core,
     struct pw_proxy * proxy, guint32 type, guint32 version)
 {
   GType gtype = wp_proxy_find_instance_type (type, version);
   return g_object_new (gtype,
-      "remote", remote,
+      "core", core,
       "pw-proxy", proxy,
       "interface-type", type,
       "interface-version", version,
@@ -544,20 +543,20 @@ wp_proxy_get_features (WpProxy * self)
 }
 
 /**
- * wp_proxy_get_remote:
+ * wp_proxy_get_core:
  * @self: the proxy
  *
- * Returns: (transfer full): the remote that created this proxy
+ * Returns: (transfer full): the core that created this proxy
  */
-WpRemote *
-wp_proxy_get_remote (WpProxy * self)
+WpCore *
+wp_proxy_get_core (WpProxy * self)
 {
   WpProxyPrivate *priv;
 
   g_return_val_if_fail (WP_IS_PROXY (self), NULL);
 
   priv = wp_proxy_get_instance_private (self);
-  return g_weak_ref_get (&priv->remote);
+  return g_weak_ref_get (&priv->core);
 }
 
 gboolean

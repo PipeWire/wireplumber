@@ -167,7 +167,6 @@ simple_endpoint_link_create (WpEndpointLink * epl, GVariant * src_data,
 {
   WpPipewireSimpleEndpointLink *self = WP_PIPEWIRE_SIMPLE_ENDPOINT_LINK(epl);
   g_autoptr (WpCore) core = NULL;
-  WpRemotePipewire *remote_pipewire;
   guint32 output_node_id, input_node_id;
   GVariant *src_ports, *sink_ports;
   GVariantIter *out_iter, *in_iter;
@@ -178,10 +177,6 @@ simple_endpoint_link_create (WpEndpointLink * epl, GVariant * src_data,
 
   core = g_weak_ref_get (&self->core);
   g_return_val_if_fail (core, FALSE);
-
-  /* Get the remote pipewire */
-  remote_pipewire = wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
-  g_return_val_if_fail (remote_pipewire, FALSE);
 
   /* Get the node ids and port ids */
   if (!g_variant_lookup (src_data, "node-id", "u", &output_node_id))
@@ -226,7 +221,7 @@ simple_endpoint_link_create (WpEndpointLink * epl, GVariant * src_data,
       wp_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%d", in_id);
 
       /* Create the link */
-      proxy = wp_remote_pipewire_create_object(remote_pipewire, "link-factory",
+      proxy = wp_core_create_remote_object(core, "link-factory",
           PW_TYPE_INTERFACE_Link, PW_VERSION_LINK_PROXY, props);
       g_return_val_if_fail (proxy, FALSE);
       g_ptr_array_add(self->link_proxies, proxy);

@@ -23,20 +23,10 @@ void simple_endpoint_link_factory (WpFactory * factory, GType type,
 void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
-  WpRemotePipewire *rp;
+  struct pw_core *pw_core = wp_core_get_pw_core (core);
 
-  /* Get the remote pipewire */
-  rp = wp_core_get_global (core, WP_GLOBAL_REMOTE_PIPEWIRE);
-  if (!rp) {
-    g_critical ("module-pipewire cannot be loaded without a registered "
-        "WpRemotePipewire object");
-    return;
-  }
-
-  /* Load the client-device and adapter modules */
-  wp_remote_pipewire_module_load(rp, "libpipewire-module-client-device", NULL,
-      NULL);
-  wp_remote_pipewire_module_load(rp, "libpipewire-module-adapter", NULL, NULL);
+  pw_module_load (pw_core, "libpipewire-module-client-device", NULL, NULL);
+  pw_module_load (pw_core, "libpipewire-module-adapter", NULL, NULL);
 
   /* Register simple-endpoint and simple-endpoint-link */
   wp_factory_new (core, "pipewire-simple-endpoint",

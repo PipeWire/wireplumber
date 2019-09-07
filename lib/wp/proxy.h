@@ -12,12 +12,12 @@
 
 #include <gio/gio.h>
 
-#include "remote.h"
 #include "properties.h"
 
 G_BEGIN_DECLS
 
 struct pw_proxy;
+typedef struct _WpCore WpCore;
 
 typedef enum { /*< flags >*/
   WP_PROXY_FEATURE_PW_PROXY     = (1 << 0),
@@ -40,10 +40,10 @@ struct _WpProxyClass
   void (*pw_proxy_destroyed) (WpProxy * self);
 };
 
-WpProxy * wp_proxy_new_global (WpRemote * remote,
+WpProxy * wp_proxy_new_global (WpCore * core,
     guint32 id, guint32 permissions, WpProperties * properties,
     guint32 type, guint32 version);
-WpProxy * wp_proxy_new_wrap (WpRemote * remote,
+WpProxy * wp_proxy_new_wrap (WpCore * core,
     struct pw_proxy * proxy, guint32 type, guint32 version);
 
 void wp_proxy_augment (WpProxy *self,
@@ -54,7 +54,7 @@ gboolean wp_proxy_augment_finish (WpProxy * self, GAsyncResult * res,
 
 WpProxyFeatures wp_proxy_get_features (WpProxy * self);
 
-WpRemote * wp_proxy_get_remote (WpProxy * self);
+WpCore * wp_proxy_get_core (WpProxy * self);
 
 gboolean wp_proxy_is_global (WpProxy * self);
 guint32 wp_proxy_get_global_id (WpProxy * self);
