@@ -232,15 +232,16 @@ on_proxy_node_augmented (WpProxy *proxy, GAsyncResult *res, gpointer data)
 {
   WpPipewireSimpleEndpoint *self = data;
   GVariantDict d;
+  g_autoptr (WpProperties) props = NULL;
 
   if (!proxy_safe_augment_finish (self, proxy, res))
     return;
 
+  props = wp_proxy_node_get_properties (self->proxy_node);
+
   /* Set the role and target name */
-  self->role = g_strdup (spa_dict_lookup (
-          wp_proxy_node_get_info (self->proxy_node)->props, "media.role"));
-  self->target = g_strdup (spa_dict_lookup (
-          wp_proxy_node_get_info (self->proxy_node)->props, "target.name"));
+  self->role = g_strdup (wp_properties_get (props, PW_KEY_MEDIA_ROLE));
+  self->target = g_strdup (wp_properties_get (props, "target.name"));
 
   /* Emit the ports */
   emit_endpoint_ports(self);
