@@ -10,6 +10,7 @@
 #define __WIREPLUMBER_PRIVATE_H__
 
 #include "core.h"
+#include "exported.h"
 #include "object-manager.h"
 #include "proxy.h"
 
@@ -27,6 +28,10 @@ gpointer wp_core_find_object (WpCore * self, GEqualFunc func,
     gconstpointer data);
 void wp_core_register_object (WpCore * self, gpointer obj);
 void wp_core_remove_object (WpCore * self, gpointer obj);
+
+/* exported */
+
+void wp_exported_notify_export_done (WpExported * self, GError * error);
 
 /* global */
 

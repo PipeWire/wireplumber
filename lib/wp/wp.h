@@ -9,6 +9,7 @@
 #include "core.h"
 #include "endpoint.h"
 #include "error.h"
+#include "exported.h"
 #include "factory.h"
 #include "module.h"
 #include "monitor.h"
