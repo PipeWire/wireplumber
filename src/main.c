@@ -9,6 +9,7 @@
 #include <wp/wp.h>
 #include <gio/gio.h>
 #include <glib-unix.h>
+#include <pipewire/pipewire.h>
 
 static GOptionEntry entries[] =
 {
@@ -98,7 +99,7 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
   gchar buffer[4096];
   gssize bytes_read;
   gchar *cur, *linestart, *saveptr;
-  gchar *cmd, *abi, *module, *props;
+  gchar *cmd;
   gint lineno = 1, block_lines = 1, in_block = 0;
   gboolean eof = FALSE;
   GVariant *properties;
@@ -148,6 +149,8 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
         if (!cmd || cmd[0] == '#') {
           /* empty line or comment, skip */
         } else if (!g_strcmp0 (cmd, "load-module")) {
+          gchar *abi, *module, *props;
+
           abi = strtok_r (NULL, " ", &saveptr);
           module = strtok_r (NULL, " ", &saveptr);
 
@@ -179,6 +182,28 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
           }
 
           if (!wp_module_load (d->core, abi, module, properties, error)) {
+            return FALSE;
+          }
+        } else if (!g_strcmp0 (cmd, "add-spa-lib")) {
+          gchar *regex, *lib;
+          gint ret;
+
+          regex = strtok_r (NULL, " ", &saveptr);
+          lib = strtok_r (NULL, " ", &saveptr);
+
+          if (!regex || !lib ||
+              (regex && regex[0] == '{') || (lib && lib[0] == '{'))
+          {
+            g_set_error (error, WP_DOMAIN_DAEMON, WP_CODE_INVALID_ARGUMENT,
+                "expected REGEX and LIB at line %i", lineno);
+            return FALSE;
+          }
+
+          ret = pw_core_add_spa_lib (wp_core_get_pw_core (d->core), regex, lib);
+          if (ret < 0) {
+            g_set_error (error, WP_DOMAIN_DAEMON, WP_CODE_OPERATION_FAILED,
+                "failed to add spa lib ('%s' on '%s'): %s", regex, lib,
+                g_strerror (-ret));
             return FALSE;
           }
         } else {

@@ -16,5 +16,5 @@ executable('wireplumber',
     '-DWIREPLUMBER_DEFAULT_CONFIG_FILE="@0@"'.format(wireplumber_config_file),
   ],
   install: true,
-  dependencies : [gobject_dep, gio_dep, wp_dep],
+  dependencies : [gobject_dep, gio_dep, wp_dep, pipewire_dep],
 )
