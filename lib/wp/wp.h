@@ -18,3 +18,4 @@
 #include "proxy-link.h"
 #include "proxy-node.h"
 #include "proxy-port.h"
+#include "wpenums.h"

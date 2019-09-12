@@ -33,7 +33,11 @@ install_headers(wp_lib_headers,
   subdir : join_paths('wireplumber-' + wireplumber_api_version, 'wp')
 )
 
-enums = gnome.mkenums_simple('wpenums', sources: wp_lib_headers)
+enums = gnome.mkenums_simple('wpenums',
+  sources: wp_lib_headers,
+  install_header: true,
+  install_dir: join_paths(get_option('includedir'), 'wireplumber-' + wireplumber_api_version, 'wp'),
+)
 
 wp_lib = library('wireplumber-' + wireplumber_api_version,
   wp_lib_sources, enums,
@@ -62,6 +66,7 @@ endif
 
 wp_dep = declare_dependency(
   link_with: wp_lib,
+  sources: enums[1],
   include_directories: wp_lib_include_dir,
   dependencies: [gobject_dep]
 )
