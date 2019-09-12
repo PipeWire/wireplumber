@@ -184,6 +184,19 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
           if (!wp_module_load (d->core, abi, module, properties, error)) {
             return FALSE;
           }
+        } else if (!g_strcmp0 (cmd, "load-pipewire-module")) {
+          gchar *module, *props;
+
+          module = strtok_r (NULL, " ", &saveptr);
+          props = module + strlen(module) + 1;
+
+          if (!pw_module_load (wp_core_get_pw_core (d->core), module, props,
+                  NULL)) {
+            g_set_error (error, WP_DOMAIN_DAEMON, WP_CODE_OPERATION_FAILED,
+                "failed to load pipewire module '%s': %s", module,
+                g_strerror (errno));
+            return FALSE;
+          }
         } else if (!g_strcmp0 (cmd, "add-spa-lib")) {
           gchar *regex, *lib;
           gint ret;
