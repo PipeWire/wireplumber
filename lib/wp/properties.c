@@ -178,6 +178,32 @@ wp_properties_update_from_dict (WpProperties * self,
   return pw_properties_update (self->props, dict);
 }
 
+gint
+wp_properties_copy_keys (WpProperties * src, WpProperties * dst,
+    const gchar *key1, ...)
+{
+  gint ret;
+  va_list args;
+  va_start (args, key1);
+  ret = wp_properties_copy_keys_valist (src, dst, key1, args);
+  va_end (args);
+  return ret;
+}
+
+gint
+wp_properties_copy_keys_valist (WpProperties * src, WpProperties * dst,
+    const gchar *key1, va_list args)
+{
+  gint changed = 0;
+  const gchar *value;
+
+  for (; key1; key1 = va_arg (args, const gchar *)) {
+    if ((value = wp_properties_get (src, key1)) != NULL)
+      changed += wp_properties_set (dst, key1, value);
+  }
+  return changed;
+}
+
 const gchar *
 wp_properties_get (WpProperties * self, const gchar * key)
 {

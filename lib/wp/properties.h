@@ -41,6 +41,11 @@ void wp_properties_unref (WpProperties * self);
 gint wp_properties_update_from_dict (WpProperties * self,
     const struct spa_dict * dict);
 
+gint wp_properties_copy_keys (WpProperties * src, WpProperties * dst,
+    const gchar *key1, ...) G_GNUC_NULL_TERMINATED;
+gint wp_properties_copy_keys_valist (WpProperties * src, WpProperties * dst,
+    const gchar *key1, va_list args);
+
 const gchar * wp_properties_get (WpProperties * self, const gchar * key);
 
 gint wp_properties_set (WpProperties * self, const gchar * key,
