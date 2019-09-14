@@ -23,45 +23,9 @@ enum wp_bluez_profile {
   WP_BLUEZ_GATEWAY = 2    /* HSP/HFP Gateway (Phones) */
 };
 
-struct monitor {
-  struct spa_handle *handle;
-  struct spa_monitor *monitor;
-  struct spa_list device_list;
-};
-
 struct impl {
   WpModule *module;
   GHashTable *registered_endpoints;
-
-  /* The bluez monitor */
-  struct monitor monitor;
-};
-
-struct device {
-  struct impl *impl;
-  struct spa_list link;
-  uint32_t id;
-
-  struct pw_properties *props;
-
-  struct spa_handle *handle;
-  struct pw_proxy *proxy;
-  struct spa_device *device;
-  struct spa_hook device_listener;
-
-  struct spa_list node_list;
-};
-
-struct node {
-  struct impl *impl;
-  struct device *device;
-  struct spa_list link;
-  uint32_t id;
-
-  struct pw_properties *props;
-
-  struct pw_node *adapter;
-  struct pw_proxy *proxy;
 };
 
 static void
@@ -122,15 +86,14 @@ parse_bluez_properties (WpProperties *props, const gchar **name,
     return FALSE;
 
   /* Get the bluez profile */
-  if (g_str_has_prefix (local_name, "bluez5.a2dp"))
+  if (g_str_has_suffix (local_name, "a2dp-source") ||
+      g_str_has_suffix (local_name, "a2dp-sink"))
     profile = WP_BLUEZ_A2DP;
-  else if (g_str_has_prefix (local_name, "bluez5.hsp-hs"))
+  else if (g_str_has_suffix (local_name, "hsp-hs") ||
+           g_str_has_suffix (local_name, "hfp-hf"))
     profile = WP_BLUEZ_HEADUNIT;
-  else if (g_str_has_prefix (local_name, "bluez5.hfp-hf"))
-    profile = WP_BLUEZ_HEADUNIT;
-  else if (g_str_has_prefix (local_name, "bluez5.hsp-ag"))
-    profile = WP_BLUEZ_GATEWAY;
-  else if (g_str_has_prefix (local_name, "bluez5.hfp-ag"))
+  else if (g_str_has_suffix (local_name, "hsp-ag") ||
+           g_str_has_suffix (local_name, "hfp-ag"))
     profile = WP_BLUEZ_GATEWAY;
   else
     return FALSE;
@@ -184,22 +147,11 @@ parse_bluez_properties (WpProperties *props, const gchar **name,
   return TRUE;
 }
 
-/* TODO: we need to find a better way to do this */
-static gboolean
+static inline gboolean
 is_bluez_node (WpProperties *props)
 {
-  const gchar *name = NULL;
-
-  /* Get the name */
-  name = wp_properties_get (props, PW_KEY_NODE_NAME);
-  if (!name)
-    return FALSE;
-
-  /* Check if it is a bluez device */
-  if (!g_str_has_prefix (name, "bluez5."))
-    return FALSE;
-
-  return TRUE;
+  const gchar *name = wp_properties_get (props, PW_KEY_NODE_NAME);
+  return g_str_has_prefix (name, "api.bluez5");
 }
 
 static void
@@ -260,305 +212,6 @@ on_node_removed (WpCore *core, WpProxy *proxy, struct impl *data)
   g_hash_table_remove (data->registered_endpoints, GUINT_TO_POINTER(id));
 }
 
-static struct node *
-create_node(struct impl *impl, struct device *dev, uint32_t id,
-    const struct spa_device_object_info *info)
-{
-  g_autoptr (WpCore) core = wp_module_get_core (impl->module);
-  struct node *node;
-  const char *name, *profile;
-  struct pw_properties *props = NULL;
-  struct pw_factory *factory = NULL;
-  struct pw_node *adapter = NULL;
-
-  /* Check if the type is a node */
-  if (info->type != SPA_TYPE_INTERFACE_Node)
-    return NULL;
-
-  /* Get the bluez name */
-  name = pw_properties_get(dev->props, SPA_KEY_DEVICE_DESCRIPTION);
-  if (name == NULL)
-    name = pw_properties_get(dev->props, SPA_KEY_DEVICE_NAME);
-  if (name == NULL)
-      name = pw_properties_get(dev->props, SPA_KEY_DEVICE_NICK);
-  if (name == NULL)
-    name = pw_properties_get(dev->props, SPA_KEY_DEVICE_ALIAS);
-  if (name == NULL)
-    name = "bluetooth-device";
-
-  /* Get the bluez profile */
-  profile = spa_dict_lookup(info->props, SPA_KEY_API_BLUEZ5_PROFILE);
-  if (!profile)
-    profile = "null";
-
-  /* Find the factory */
-  factory = pw_core_find_factory (wp_core_get_pw_core (core), "adapter");
-  g_return_val_if_fail (factory, NULL);
-
-  /* Create the properties */
-  props = pw_properties_new_dict(info->props);
-  pw_properties_setf(props, PW_KEY_NODE_NAME, "bluez5.%s.%s", profile, name);
-  pw_properties_set(props, PW_KEY_NODE_DESCRIPTION, name);
-  pw_properties_set(props, PW_KEY_FACTORY_NAME, info->factory_name);
-
-  /* Create the adapter */
-  adapter = pw_factory_create_object(factory, NULL, PW_TYPE_INTERFACE_Node,
-      PW_VERSION_NODE_PROXY, props, 0);
-  if (!adapter) {
-    pw_properties_free(props);
-    return NULL;
-  }
-
-  /* Create the node */
-  node = g_slice_new0(struct node);
-  node->impl = impl;
-  node->device = dev;
-  node->id = id;
-  node->props = props;
-  node->adapter = adapter;
-  node->proxy = pw_remote_export (wp_core_get_pw_remote (core),
-      PW_TYPE_INTERFACE_Node, props, adapter, 0);
-  if (!node->proxy) {
-    pw_properties_free(props);
-    g_slice_free (struct node, node);
-    return NULL;
-  }
-
-  /* Add the node to the list */
-  spa_list_append(&dev->node_list, &node->link);
-
-  return node;
-}
-
-static void
-update_node(struct impl *impl, struct device *dev, struct node *node,
-    const struct spa_device_object_info *info)
-{
-  /* Just update the properties */
-  pw_properties_update(node->props, info->props);
-}
-
-static void destroy_node(struct impl *impl, struct device *dev, struct node *node)
-{
-  /* Remove the node from the list */
-  spa_list_remove(&node->link);
-
-  /* Destroy the proxy node */
-  pw_proxy_destroy(node->proxy);
-
-  /* Destroy the node */
-  g_slice_free (struct node, node);
-}
-
-static struct node *
-find_node(struct device *dev, uint32_t id)
-{
-  struct node *node;
-
-  /* Find the node in the list */
-  spa_list_for_each(node, &dev->node_list, link) {
-    if (node->id == id)
-      return node;
-  }
-
-  return NULL;
-}
-
-static void
-device_object_info(void *data, uint32_t id,
-  const struct spa_device_object_info *info)
-{
-  struct device *dev = data;
-  struct impl *impl = dev->impl;
-  struct node *node = NULL;
-
-  /* Find the node */
-  node = find_node(dev, id);
-
-  if (info) {
-    /* Just update the node if it already exits, otherwise create it */
-    if (node)
-      update_node(impl, dev, node, info);
-    else
-      create_node(impl, dev, id, info);
-  } else {
-    /* Just remove the node if it already exists */
-    if (node)
-      destroy_node(impl, dev, node);
-  }
-}
-
-static const struct spa_device_events device_events = {
-  SPA_VERSION_DEVICE_EVENTS,
-  .object_info = device_object_info
-};
-
-static struct device*
-create_device(struct impl *impl, uint32_t id,
-    const struct spa_monitor_object_info *info)
-{
-  g_autoptr (WpCore) core = wp_module_get_core (impl->module);
-  struct device *dev;
-  struct spa_handle *handle;
-  int res;
-  void *iface;
-
-  /* Check if the type is a device */
-  if (info->type != SPA_TYPE_INTERFACE_Device)
-    return NULL;
-
-  /* Load the device handle */
-  handle = pw_core_load_spa_handle (wp_core_get_pw_core (core),
-      info->factory_name, info->props);
-  if (!handle)
-    return NULL;
-
-  /* Get the handle interface */
-  res = spa_handle_get_interface(handle, info->type, &iface);
-  if (res < 0) {
-    pw_unload_spa_handle(handle);
-    return NULL;
-  }
-
-  /* Create the device */
-  dev = g_slice_new0(struct device);
-  dev->impl = impl;
-  dev->id = id;
-  dev->handle = handle;
-  dev->device = iface;
-  dev->props = pw_properties_new_dict(info->props);
-  dev->proxy = pw_remote_export (wp_core_get_pw_remote (core),
-      info->type, dev->props, dev->device, 0);
-  if (!dev->proxy) {
-    pw_unload_spa_handle(handle);
-    return NULL;
-  }
-  spa_list_init(&dev->node_list);
-
-  /* Add device listener for events */
-  spa_device_add_listener(dev->device, &dev->device_listener, &device_events,
-      dev);
-
-  /* Add the device to the list */
-  spa_list_append(&impl->monitor.device_list, &dev->link);
-
-  return dev;
-}
-
-static void
-update_device(struct impl *impl, struct device *dev,
-    const struct spa_monitor_object_info *info)
-{
-  /* Update the properties of the device */
-  pw_properties_update(dev->props, info->props);
-}
-
-static void
-destroy_device(struct impl *impl, struct device *dev)
-{
-  struct node *node;
-
-  /* Remove the device from the list */
-  spa_list_remove(&dev->link);
-
-  /* Remove the device listener */
-  spa_hook_remove(&dev->device_listener);
-
-  /* Destry all the nodes that the device has */
-  spa_list_consume(node, &dev->node_list, link)
-    destroy_node(impl, dev, node);
-
-  /* Destroy the device proxy */
-  pw_proxy_destroy(dev->proxy);
-
-  /* Unload the device handle */
-  pw_unload_spa_handle(dev->handle);
-
-  /* Destroy the object */
-  g_slice_free (struct device, dev);
-}
-
-static struct device *
-find_device(struct impl *impl, uint32_t id)
-{
-  struct device *dev;
-
-  /* Find the device in the list */
-  spa_list_for_each(dev, &impl->monitor.device_list, link) {
-    if (dev->id == id)
-      return dev;
-  }
-
-  return NULL;
-}
-
-static int
-monitor_object_info(gpointer data, uint32_t id,
-    const struct spa_monitor_object_info *info)
-{
-  struct impl *impl = data;
-  struct device *dev = NULL;
-
-  /* Find the device */
-  dev = find_device(impl, id);
-
-  if (info) {
-    /* Just update the device if it already exits, otherwise create it */
-    if (dev)
-      update_device(impl, dev, info);
-    else
-      if (!create_device(impl, id, info))
-        return -ENOMEM;
-  } else {
-    /* Just remove the device if it already exists, otherwise return error */
-    if (dev)
-      destroy_device(impl, dev);
-    else
-      return -ENODEV;
-  }
-
-  return 0;
-}
-
-static const struct spa_monitor_callbacks monitor_callbacks =
-{
-  SPA_VERSION_MONITOR_CALLBACKS,
-  .object_info = monitor_object_info,
-};
-
-static void
-start_monitor (WpCore *core, WpRemoteState state, gpointer data)
-{
-  struct impl *impl = data;
-  struct spa_handle *handle;
-  int res;
-  void *iface;
-
-  /* Load the monitor handle */
-  handle = pw_core_load_spa_handle (wp_core_get_pw_core (core),
-      SPA_NAME_API_BLUEZ5_MONITOR, NULL);
-  if (!handle) {
-    g_message ("SPA bluez5 plugin could not be loaded; is it installed?");
-    return;
-  }
-
-  /* Get the handle interface */
-  res = spa_handle_get_interface(handle, SPA_TYPE_INTERFACE_Monitor, &iface);
-  if (res < 0) {
-    g_critical ("module-pw-alsa-udev cannot get monitor interface");
-    pw_unload_spa_handle(handle);
-    return;
-  }
-
-  /* Init the monitor data */
-  impl->monitor.handle = handle;
-  impl->monitor.monitor = iface;
-  spa_list_init(&impl->monitor.device_list);
-
-  /* Set the monitor callbacks */
-  spa_monitor_set_callbacks(impl->monitor.monitor, &monitor_callbacks, impl);
-}
-
 static void
 module_destroy (gpointer data)
 {
@@ -588,14 +241,6 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 
   /* Set destroy callback for impl */
   wp_module_set_destroy_callback (module, module_destroy, impl);
-
-  /* Add the spa lib */
-  pw_core_add_spa_lib (wp_core_get_pw_core (core),
-      "api.bluez5.*", "bluez5/libspa-bluez5");
-
-  /* Start the monitor when the connected callback is triggered */
-  g_signal_connect(core, "remote-state-changed::connected",
-      (GCallback) start_monitor, impl);
 
   /* Register the global addded/removed callbacks */
   g_signal_connect(core, "remote-global-added::node",
