@@ -138,6 +138,7 @@ on_proxy_ready (GObject * obj, GAsyncResult * res, gpointer data)
 
   if (!wp_proxy_augment_finish (proxy, res, &error)) {
     g_warning ("Failed to augment WpProxy (%p): %s", obj, error->message);
+    return;
   }
 
   g_signal_emit (self, signals[SIGNAL_REMOTE_GLOBAL_ADDED],

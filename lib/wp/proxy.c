@@ -130,7 +130,9 @@ wp_proxy_find_quark_for_type (guint32 type)
 static void
 proxy_event_destroy (void *data)
 {
-  WpProxy *self = WP_PROXY (data);
+  /* hold a reference to the proxy because unref-ing the tasks might
+    destroy the proxy, in case the core is no longer holding a reference */
+  g_autoptr (WpProxy) self = g_object_ref (WP_PROXY (data));
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
   GHashTableIter iter;
   GTask *task;
@@ -144,7 +146,7 @@ proxy_event_destroy (void *data)
   if (priv->task) {
     g_task_return_new_error (priv->task, WP_DOMAIN_LIBRARY,
         WP_LIBRARY_ERROR_OPERATION_FAILED,
-        "pipewire node proxy destroyed before finishing");
+        "pipewire proxy destroyed before finishing");
     g_clear_object (&priv->task);
   }
 
@@ -152,7 +154,7 @@ proxy_event_destroy (void *data)
   while (g_hash_table_iter_next (&iter, NULL, (gpointer *) &task)) {
     g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
         WP_LIBRARY_ERROR_OPERATION_FAILED,
-        "pipewire node proxy destroyed before finishing");
+        "pipewire proxy destroyed before finishing");
     g_hash_table_iter_remove (&iter);
   }
 }
@@ -218,9 +220,9 @@ wp_proxy_finalize (GObject * object)
   g_debug ("%s:%p destroyed (global %u; pw_proxy %p)",
       G_OBJECT_TYPE_NAME (object), object, priv->global_id, priv->pw_proxy);
 
+  g_clear_pointer (&priv->pw_proxy, pw_proxy_destroy);
   g_clear_object (&priv->task);
   g_clear_pointer (&priv->global_props, wp_properties_unref);
-  g_clear_pointer (&priv->pw_proxy, pw_proxy_destroy);
   g_weak_ref_clear (&priv->core);
   g_clear_pointer (&priv->async_tasks, g_hash_table_unref);
 
