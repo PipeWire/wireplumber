@@ -213,6 +213,18 @@ wp_proxy_constructed (GObject * object)
 }
 
 static void
+wp_proxy_dispose (GObject * object)
+{
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (WP_PROXY(object));
+
+  /* this will trigger proxy_event_destroy() if the pw_proxy exists */
+  if (priv->pw_proxy)
+    pw_proxy_destroy (priv->pw_proxy);
+
+  G_OBJECT_CLASS (wp_proxy_parent_class)->dispose (object);
+}
+
+static void
 wp_proxy_finalize (GObject * object)
 {
   WpProxyPrivate *priv = wp_proxy_get_instance_private (WP_PROXY(object));
@@ -220,7 +232,6 @@ wp_proxy_finalize (GObject * object)
   g_debug ("%s:%p destroyed (global %u; pw_proxy %p)",
       G_OBJECT_TYPE_NAME (object), object, priv->global_id, priv->pw_proxy);
 
-  g_clear_pointer (&priv->pw_proxy, pw_proxy_destroy);
   g_clear_object (&priv->task);
   g_clear_pointer (&priv->global_props, wp_properties_unref);
   g_weak_ref_clear (&priv->core);
@@ -346,6 +357,7 @@ wp_proxy_class_init (WpProxyClass * klass)
   GObjectClass *object_class = (GObjectClass *) klass;
 
   object_class->constructed = wp_proxy_constructed;
+  object_class->dispose = wp_proxy_dispose;
   object_class->finalize = wp_proxy_finalize;
   object_class->get_property = wp_proxy_get_property;
   object_class->set_property = wp_proxy_set_property;
