@@ -171,7 +171,7 @@ node_new (struct device *dev, uint32_t id,
 
   /* the SPA factory name must be set as a property
      for the spa-node-factory / adapter */
-  wp_properties_setf (props, PW_KEY_FACTORY_NAME, info->factory_name);
+  wp_properties_set (props, PW_KEY_FACTORY_NAME, info->factory_name);
 
   /* the rest is up to the user */
   g_signal_emit (self, signals[SIG_SETUP_NODE_PROPS], 0, dev->properties,
