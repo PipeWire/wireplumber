@@ -514,7 +514,7 @@ simple_endpoint_factory (WpFactory * factory, GType type,
   g_autoptr (WpCore) core = NULL;
   const gchar *name, *media_class;
   guint direction;
-  WpProxy *node;
+  guint64 node;
 
   /* Make sure the type is correct */
   g_return_if_fail (type == WP_TYPE_ENDPOINT);
@@ -539,6 +539,6 @@ simple_endpoint_factory (WpFactory * factory, GType type,
       "name", name,
       "media-class", media_class,
       "direction", direction,
-      "proxy-node", node,
+      "proxy-node", (gpointer) node,
       NULL);
 }

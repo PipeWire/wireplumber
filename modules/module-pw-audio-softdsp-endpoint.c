@@ -385,7 +385,7 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
   g_autoptr (WpCore) core = NULL;
   const gchar *name, *media_class;
   guint direction;
-  WpProxy *node;
+  guint64 node;
   g_autoptr (GVariant) streams = NULL;
 
   /* Make sure the type is correct */
@@ -415,7 +415,7 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
       "name", name,
       "media-class", media_class,
       "direction", direction,
-      "proxy-node", node,
+      "proxy-node", (gpointer) node,
       "streams", streams,
       NULL);
 }
