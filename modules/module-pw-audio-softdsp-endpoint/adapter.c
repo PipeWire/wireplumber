@@ -35,49 +35,36 @@ G_DEFINE_TYPE_WITH_CODE (WpAudioAdapter, wp_audio_adapter, WP_TYPE_AUDIO_STREAM,
                            wp_audio_adapter_async_initable_init))
 
 static void
-on_proxy_enum_format_done (WpProxyNode *proxy, GAsyncResult *res,
-    WpAudioAdapter *self)
+wp_audio_adapter_init_async (GAsyncInitable *initable, int io_priority,
+    GCancellable *cancellable, GAsyncReadyCallback callback, gpointer data)
 {
-  g_autoptr (GPtrArray) formats = NULL;
-  g_autoptr (GError) error = NULL;
+  WpAudioAdapter *self = WP_AUDIO_ADAPTER(initable);
   enum pw_direction direction =
       wp_audio_stream_get_direction (WP_AUDIO_STREAM (self));
   uint8_t buf[1024];
   struct spa_pod_builder pod_builder = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
   struct spa_pod *param;
-  uint32_t media_type, media_subtype;
   struct spa_audio_info_raw fmt_raw;
 
-  formats = wp_proxy_node_enum_params_collect_finish (proxy, res, &error);
-  if (error) {
-    g_message("WpAudioAdapter:%p enum format error: %s", self, error->message);
-    wp_audio_stream_init_task_finish (WP_AUDIO_STREAM (self),
-        g_steal_pointer (&error));
-    return;
-  }
+  /* Call the parent interface */
+  /* This will also augment the proxy and therefore bind it */
+  wp_audio_adapter_parent_interface->init_async (initable, io_priority,
+      cancellable, callback, data);
 
-  if (formats->len == 0 ||
-      !(param = g_ptr_array_index (formats, 0)) ||
-      spa_format_parse (param, &media_type, &media_subtype) < 0 ||
-      media_type != SPA_MEDIA_TYPE_audio ||
-      media_subtype != SPA_MEDIA_SUBTYPE_raw) {
-    g_message("WpAudioAdapter:%p node does not support audio/raw format", self);
-    wp_audio_stream_init_task_finish (WP_AUDIO_STREAM (self),
-        g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-            "node does not support audio/raw format"));
-    return;
-  }
-
-  /* Parse the raw audio format */
-  spa_pod_fixate (param);
-  spa_format_audio_raw_parse (param, &fmt_raw);
-
+  /* Emit the ports */
   if (self->convert) {
     param = spa_pod_builder_add_object(&pod_builder,
         SPA_TYPE_OBJECT_ParamPortConfig,  SPA_PARAM_PortConfig,
         SPA_PARAM_PORT_CONFIG_direction,  SPA_POD_Id(direction),
         SPA_PARAM_PORT_CONFIG_mode,       SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_convert));
   } else {
+    /* Use the default format */
+    fmt_raw.format = SPA_AUDIO_FORMAT_F32P;
+    fmt_raw.flags = 1;
+    fmt_raw.rate = 48000;
+    fmt_raw.channels = 2;
+    fmt_raw.position[0] = SPA_AUDIO_CHANNEL_FL;
+    fmt_raw.position[1] = SPA_AUDIO_CHANNEL_FR;
     param = spa_format_audio_raw_build(&pod_builder, SPA_PARAM_Format, &fmt_raw);
     param = spa_pod_builder_add_object(&pod_builder,
         SPA_TYPE_OBJECT_ParamPortConfig,  SPA_PARAM_PortConfig,
@@ -85,24 +72,7 @@ on_proxy_enum_format_done (WpProxyNode *proxy, GAsyncResult *res,
         SPA_PARAM_PORT_CONFIG_mode,       SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
         SPA_PARAM_PORT_CONFIG_format,     SPA_POD_Pod(param));
   }
-
   wp_audio_stream_set_port_config (WP_AUDIO_STREAM (self), param);
-}
-
-static void
-wp_audio_adapter_init_async (GAsyncInitable *initable, int io_priority,
-    GCancellable *cancellable, GAsyncReadyCallback callback, gpointer data)
-{
-  WpAudioAdapter *self = WP_AUDIO_ADAPTER(initable);
-  WpProxyNode *proxy = wp_audio_stream_get_proxy_node (WP_AUDIO_STREAM (self));
-
-  /* Call the parent interface */
-  /* This will also augment the proxy and therefore bind it */
-  wp_audio_adapter_parent_interface->init_async (initable, io_priority,
-      cancellable, callback, data);
-
-  wp_proxy_node_enum_params_collect (proxy, SPA_PARAM_EnumFormat, NULL, NULL,
-      (GAsyncReadyCallback) on_proxy_enum_format_done, self);
 }
 
 static void

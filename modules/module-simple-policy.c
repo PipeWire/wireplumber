@@ -372,10 +372,10 @@ link_endpoint (WpPolicy *policy, WpEndpoint *ep, GVariant *target_props)
 
   /* Link the endpoint with the target */
   if (is_capture) {
-    wp_endpoint_link_new (core, target, stream_id, ep, 0,
+    wp_endpoint_link_new (core, target, stream_id, ep, WP_STREAM_ID_NONE,
         on_endpoint_link_created, NULL);
   } else {
-    wp_endpoint_link_new (core, ep, 0, target, stream_id,
+    wp_endpoint_link_new (core, ep, WP_STREAM_ID_NONE, target, stream_id,
         on_endpoint_link_created, NULL);
   }
 
@@ -388,7 +388,7 @@ handle_client (WpPolicy *policy, WpEndpoint *ep)
   const char *media_class = wp_endpoint_get_media_class(ep);
   GVariantDict d;
   gboolean is_capture = FALSE;
-  const gchar *role, *target_name = NULL;
+  const gchar *role;
 
   /* Detect if the client is doing capture or playback */
   is_capture = g_str_has_prefix (media_class, "Stream/Input");
@@ -424,9 +424,6 @@ handle_client (WpPolicy *policy, WpEndpoint *ep)
   g_object_get (ep, "role", &role, NULL);
   if (role)
     g_variant_dict_insert (&d, "media.role", "s", role);
-  g_object_get (ep, "target", &target_name, NULL);
-  if (target_name)
-    g_variant_dict_insert (&d, "media.name", "s", target_name);
   if (!link_endpoint (policy, ep, g_variant_dict_end (&d)))
     g_info ("Could not find alsa target endpoint for client stream");
 }
@@ -502,18 +499,6 @@ compare_client_priority (gconstpointer a, gconstpointer b, gpointer user_data)
 
     /* return b - a in order to sort descending */
     ret = b_priority - a_priority;
-  }
-
-  /* when role priority is equal, the newest client wins */
-  if (ret == 0) {
-    guint64 a_time = 0, b_time = 0;
-
-    g_object_get (ae, "creation-time", &a_time, NULL);
-    g_object_get (be, "creation-time", &b_time, NULL);
-
-    /* since a_time and b_time are expressed in system monotonic time,
-     * there is absolutely no chance that they will be equal */
-    ret = (b_time > a_time) ? 1 : -1;
   }
 
   return ret;
@@ -653,7 +638,6 @@ simple_policy_find_endpoint (WpPolicy *policy, GVariant *props,
   g_autoptr (WpCore) core = NULL;
   g_autoptr (GPtrArray) ptr_array = NULL;
   const char *action = NULL;
-  const char *name = NULL;
   const char *media_class = NULL;
   const char *role = NULL;
   WpEndpoint *ep;
@@ -662,7 +646,6 @@ simple_policy_find_endpoint (WpPolicy *policy, GVariant *props,
   core = wp_policy_get_core (policy);
 
   g_variant_lookup (props, "action", "&s", &action);
-  g_variant_lookup (props, "media.name", "&s", &name);
 
   /* Get all the endpoints with the specific media class*/
   g_variant_lookup (props, "media.class", "&s", &media_class);
@@ -670,16 +653,10 @@ simple_policy_find_endpoint (WpPolicy *policy, GVariant *props,
   if (!ptr_array)
     return NULL;
 
-  /* Find the endpoint with the matching name, otherwise get the one with the
-   * "selected" flag (if it is an alsa endpoint) */
+  /* Get the endpoint with the "selected" flag (if it is an alsa endpoint) */
   for (i = 0; i < ptr_array->len; i++) {
     ep = g_ptr_array_index (ptr_array, i);
-    if (name) {
-      if (g_str_has_prefix(wp_endpoint_get_name (ep), name)) {
-        g_object_ref (ep);
-        goto select_stream;
-      }
-    } else if (g_str_has_prefix (media_class, "Alsa/")) {
+    if (g_str_has_prefix (media_class, "Alsa/")) {
       g_autoptr (GVariant) value = NULL;
       guint id;
 

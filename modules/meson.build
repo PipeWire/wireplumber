@@ -41,7 +41,6 @@ shared_library(
   [
     'module-pipewire.c',
     'module-pipewire/simple-endpoint-link.c',
-    'module-pipewire/simple-endpoint.c',
   ],
   c_args : [common_c_args, '-DG_LOG_DOMAIN="m-pipewire"'],
   install : true,

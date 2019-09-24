@@ -15,8 +15,6 @@
 #include <wp/wp.h>
 #include <pipewire/pipewire.h>
 
-void simple_endpoint_factory (WpFactory * factory, GType type,
-    GVariant * properties, GAsyncReadyCallback ready, gpointer user_data);
 void simple_endpoint_link_factory (WpFactory * factory, GType type,
     GVariant * properties, GAsyncReadyCallback ready, gpointer user_data);
 
@@ -28,9 +26,7 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   pw_module_load (pw_core, "libpipewire-module-client-device", NULL, NULL);
   pw_module_load (pw_core, "libpipewire-module-adapter", NULL, NULL);
 
-  /* Register simple-endpoint and simple-endpoint-link */
-  wp_factory_new (core, "pipewire-simple-endpoint",
-      simple_endpoint_factory);
+  /* Register simple-endpoint-link */
   wp_factory_new (core, "pipewire-simple-endpoint-link",
       simple_endpoint_link_factory);
 }

@@ -34,6 +34,7 @@ struct _WpPwAudioSoftdspEndpoint
   /* Properties */
   WpProxyNode *proxy_node;
   GVariant *streams;
+  char *role;
 
   guint stream_count;
   gboolean selected;
@@ -50,6 +51,7 @@ enum {
   PROP_0,
   PROP_PROXY_NODE,
   PROP_STREAMS,
+  PROP_ROLE,
 };
 
 static GAsyncInitableIface *wp_endpoint_parent_interface = NULL;
@@ -95,6 +97,10 @@ endpoint_prepare_link (WpEndpoint * ep, guint32 stream_id,
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (ep);
   WpAudioStream *stream = NULL;
+
+  /* Link with the adapter if stream id is none */
+  if (stream_id == WP_STREAM_ID_NONE)
+    return wp_audio_stream_prepare_link (self->adapter, properties, error);
 
   /* Make sure the stream Id is valid */
   g_return_val_if_fail(stream_id < self->converters->len, FALSE);
@@ -180,6 +186,13 @@ on_audio_adapter_created(GObject *initable, GAsyncResult *res,
     g_object_set (self, "name", name, NULL);
   }
 
+  /* Set the role */
+  self->role = g_strdup (wp_properties_get (props, PW_KEY_MEDIA_ROLE));
+
+  /* Just finish if no streams need to be created */
+  if (!self->streams)
+    return finish_endpoint_creation (self);
+
   /* Create the audio converters */
   g_variant_iter_init (&iter, self->streams);
   for (i = 0; g_variant_iter_next (&iter, "&s", &stream); i++) {
@@ -212,6 +225,7 @@ endpoint_finalize (GObject * object)
   g_clear_object(&self->init_task);
 
   g_clear_object(&self->proxy_node);
+  g_free (self->role);
 
   G_OBJECT_CLASS (endpoint_parent_class)->finalize (object);
 }
@@ -228,6 +242,10 @@ endpoint_set_property (GObject * object, guint property_id,
     break;
   case PROP_STREAMS:
     self->streams = g_value_dup_variant(value);
+    break;
+  case PROP_ROLE:
+    g_free (self->role);
+    self->role = g_value_dup_string (value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -247,6 +265,9 @@ endpoint_get_property (GObject * object, guint property_id,
     break;
   case PROP_STREAMS:
     g_value_set_variant (value, self->streams);
+    break;
+  case PROP_ROLE:
+    g_value_set_string (value, self->role);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -376,6 +397,10 @@ endpoint_class_init (WpPwAudioSoftdspEndpointClass * klass)
           "The stream names for the streams to create",
           G_VARIANT_TYPE ("as"), NULL,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (object_class, PROP_ROLE,
+      g_param_spec_string ("role", "role", "The role of the wrapped node", NULL,
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 }
 
 void
@@ -404,9 +429,8 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
       return;
   if (!g_variant_lookup (properties, "proxy-node", "t", &node))
       return;
-  if (!(streams = g_variant_lookup_value (properties, "streams",
-          G_VARIANT_TYPE ("as"))))
-      return;
+  streams = g_variant_lookup_value (properties, "streams",
+      G_VARIANT_TYPE ("as"));
 
   /* Create and return the softdsp endpoint object */
   g_async_initable_new_async (
