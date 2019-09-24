@@ -14,6 +14,7 @@ wp_lib_sources = [
   'proxy-link.c',
   'proxy-node.c',
   'proxy-port.c',
+  'session.c',
   'spa-props.c',
 ]
 
@@ -33,6 +34,7 @@ wp_lib_headers = [
   'proxy-node.h',
   'proxy-port.h',
   'proxy-link.h',
+  'session.h',
   'wp.h',
 ]
 
