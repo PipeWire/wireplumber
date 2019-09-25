@@ -17,6 +17,7 @@
 enum {
   PROP_0,
   PROP_TARGET,
+  PROP_FORMAT,
 };
 
 struct _WpAudioConvert
@@ -25,6 +26,7 @@ struct _WpAudioConvert
 
   /* Props */
   WpProxyNode *target;
+  struct spa_audio_info_raw format;
 
   /* Proxies */
   WpProxy *link_proxy;
@@ -109,7 +111,6 @@ on_audio_convert_proxy_done (WpProxy *proxy, GAsyncResult *res,
   g_autoptr (GError) error = NULL;
   enum pw_direction direction =
       wp_audio_stream_get_direction (WP_AUDIO_STREAM (self));
-  struct spa_audio_info_raw format;
   uint8_t buf[1024];
   struct spa_pod_builder pod_builder = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
   struct spa_pod *param;
@@ -124,16 +125,8 @@ on_audio_convert_proxy_done (WpProxy *proxy, GAsyncResult *res,
 
   g_debug ("%s:%p setting format", G_OBJECT_TYPE_NAME (self), self);
 
-  /* Use the default format */
-  format.format = SPA_AUDIO_FORMAT_F32P;
-  format.flags = 1;
-  format.rate = 48000;
-  format.channels = 2;
-  format.position[0] = SPA_AUDIO_CHANNEL_FL;
-  format.position[1] = SPA_AUDIO_CHANNEL_FR;
-
   /* Emit the ports */
-  param = spa_format_audio_raw_build(&pod_builder, SPA_PARAM_Format, &format);
+  param = spa_format_audio_raw_build(&pod_builder, SPA_PARAM_Format, &self->format);
   param = spa_pod_builder_add_object(&pod_builder,
       SPA_TYPE_OBJECT_ParamPortConfig,  SPA_PARAM_PortConfig,
       SPA_PARAM_PORT_CONFIG_direction,  SPA_POD_Id(direction),
@@ -198,6 +191,14 @@ wp_audio_convert_set_property (GObject * object, guint property_id,
   case PROP_TARGET:
     self->target = g_value_dup_object (value);
     break;
+  case PROP_FORMAT: {
+    const struct spa_audio_info_raw *f = g_value_get_pointer (value);
+    if (f)
+      self->format = *f;
+    else
+      g_warning ("WpAudioConvert:%p Format needs to be valid", self);
+    break;
+  }
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
@@ -213,6 +214,9 @@ wp_audio_convert_get_property (GObject * object, guint property_id,
   switch (property_id) {
   case PROP_TARGET:
     g_value_set_object (value, self->target);
+    break;
+  case PROP_FORMAT:
+    g_value_set_pointer (value, &self->format);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -250,13 +254,16 @@ wp_audio_convert_class_init (WpAudioConvertClass * klass)
       g_param_spec_object ("target", "target", "The target device node",
           WP_TYPE_PROXY_NODE,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (object_class, PROP_FORMAT,
+      g_param_spec_pointer ("format", "format", "The accepted format",
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
 void
 wp_audio_convert_new (WpEndpoint *endpoint, guint stream_id,
     const char *stream_name, enum pw_direction direction,
-    WpProxyNode *target, GAsyncReadyCallback callback,
-    gpointer user_data)
+    WpProxyNode *target, const struct spa_audio_info_raw *format,
+    GAsyncReadyCallback callback, gpointer user_data)
 {
   g_async_initable_new_async (
       WP_TYPE_AUDIO_CONVERT, G_PRIORITY_DEFAULT, NULL, callback, user_data,
@@ -265,5 +272,6 @@ wp_audio_convert_new (WpEndpoint *endpoint, guint stream_id,
       "name", stream_name,
       "direction", direction,
       "target", target,
+      "format", format,
       NULL);
 }

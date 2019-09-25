@@ -162,6 +162,7 @@ on_audio_adapter_created(GObject *initable, GAsyncResult *res,
   enum pw_direction direction = wp_endpoint_get_direction(WP_ENDPOINT(self));
   g_autoptr (WpCore) core = wp_endpoint_get_core(WP_ENDPOINT(self));
   g_autoptr (WpProperties) props = NULL;
+  const struct spa_audio_info_raw *format;
   g_autofree gchar *name = NULL;
   GVariantDict d;
   GVariantIter iter;
@@ -190,14 +191,20 @@ on_audio_adapter_created(GObject *initable, GAsyncResult *res,
   self->role = g_strdup (wp_properties_get (props, PW_KEY_MEDIA_ROLE));
 
   /* Just finish if no streams need to be created */
-  if (!self->streams)
-    return finish_endpoint_creation (self);
+  if (!self->streams) {
+    finish_endpoint_creation (self);
+    return;
+  }
+
+  /* Get the adapter format */
+  format = wp_audio_adapter_get_format (WP_AUDIO_ADAPTER (self->adapter));
+  g_return_if_fail (format);
 
   /* Create the audio converters */
   g_variant_iter_init (&iter, self->streams);
   for (i = 0; g_variant_iter_next (&iter, "&s", &stream); i++) {
     wp_audio_convert_new (WP_ENDPOINT(self), i, stream, direction,
-        self->proxy_node, on_audio_convert_created, self);
+        self->proxy_node, format, on_audio_convert_created, self);
 
     /* Register the stream */
     g_variant_dict_init (&d, NULL);

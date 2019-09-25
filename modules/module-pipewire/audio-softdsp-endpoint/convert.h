@@ -16,14 +16,16 @@
 
 G_BEGIN_DECLS
 
+struct spa_audio_info_raw format;
+
 #define WP_TYPE_AUDIO_CONVERT (wp_audio_convert_get_type ())
 G_DECLARE_FINAL_TYPE (WpAudioConvert, wp_audio_convert, WP, AUDIO_CONVERT,
     WpAudioStream)
 
 void wp_audio_convert_new (WpEndpoint *endpoint, guint stream_id,
     const char *stream_name, enum pw_direction direction,
-    WpProxyNode *target, GAsyncReadyCallback callback,
-    gpointer user_data);
+    WpProxyNode *target, const struct spa_audio_info_raw *format,
+    GAsyncReadyCallback callback, gpointer user_data);
 
 G_END_DECLS
 

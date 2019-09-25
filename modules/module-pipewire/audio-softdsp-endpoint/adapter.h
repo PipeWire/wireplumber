@@ -16,6 +16,8 @@
 
 G_BEGIN_DECLS
 
+struct spa_audio_info_raw format;
+
 #define WP_TYPE_AUDIO_ADAPTER (wp_audio_adapter_get_type ())
 G_DECLARE_FINAL_TYPE (WpAudioAdapter, wp_audio_adapter, WP, AUDIO_ADAPTER,
     WpAudioStream)
@@ -23,6 +25,8 @@ G_DECLARE_FINAL_TYPE (WpAudioAdapter, wp_audio_adapter, WP, AUDIO_ADAPTER,
 void wp_audio_adapter_new (WpEndpoint *endpoint, guint stream_id,
     const char *stream_name, enum pw_direction direction, WpProxyNode *node,
     gboolean convert, GAsyncReadyCallback callback, gpointer user_data);
+
+struct spa_audio_info_raw *wp_audio_adapter_get_format (WpAudioAdapter *self);
 
 G_END_DECLS
 
