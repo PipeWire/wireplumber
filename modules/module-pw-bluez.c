@@ -191,7 +191,7 @@ on_node_added (WpCore *core, WpProxy *proxy, struct impl *data)
   endpoint_props = g_variant_builder_end (&b);
 
   /* Create the endpoint async */
-  wp_factory_make (core, "pipewire-simple-endpoint", WP_TYPE_ENDPOINT,
+  wp_factory_make (core, "pw-audio-softdsp-endpoint", WP_TYPE_ENDPOINT,
       endpoint_props, on_endpoint_created, data);
 }
 
