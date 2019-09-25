@@ -17,6 +17,9 @@
 
 void simple_endpoint_link_factory (WpFactory * factory, GType type,
     GVariant * properties, GAsyncReadyCallback ready, gpointer user_data);
+void
+audio_softdsp_endpoint_factory (WpFactory * factory, GType type,
+    GVariant * properties, GAsyncReadyCallback ready, gpointer user_data);
 
 void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
@@ -26,7 +29,9 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   pw_module_load (pw_core, "libpipewire-module-client-device", NULL, NULL);
   pw_module_load (pw_core, "libpipewire-module-adapter", NULL, NULL);
 
-  /* Register simple-endpoint-link */
+  /* Register simple-endpoint-link and audio-softdsp-endpoint */
   wp_factory_new (core, "pipewire-simple-endpoint-link",
       simple_endpoint_link_factory);
+  wp_factory_new (core, "pw-audio-softdsp-endpoint",
+      audio_softdsp_endpoint_factory);
 }

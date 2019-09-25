@@ -19,9 +19,9 @@
 #include <spa/pod/builder.h>
 #include <spa/param/props.h>
 
-#include "module-pw-audio-softdsp-endpoint/stream.h"
-#include "module-pw-audio-softdsp-endpoint/adapter.h"
-#include "module-pw-audio-softdsp-endpoint/convert.h"
+#include "audio-softdsp-endpoint/stream.h"
+#include "audio-softdsp-endpoint/adapter.h"
+#include "audio-softdsp-endpoint/convert.h"
 
 #define MIN_QUANTUM_SIZE  64
 #define MAX_QUANTUM_SIZE  1024
@@ -404,7 +404,7 @@ endpoint_class_init (WpPwAudioSoftdspEndpointClass * klass)
 }
 
 void
-endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
+audio_softdsp_endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
   GAsyncReadyCallback ready, gpointer user_data)
 {
   g_autoptr (WpCore) core = NULL;
@@ -442,11 +442,4 @@ endpoint_factory (WpFactory * factory, GType type, GVariant * properties,
       "proxy-node", (gpointer) node,
       "streams", streams,
       NULL);
-}
-
-void
-wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
-{
-  /* Register the softdsp endpoint */
-  wp_factory_new (core, "pw-audio-softdsp-endpoint", endpoint_factory);
 }
