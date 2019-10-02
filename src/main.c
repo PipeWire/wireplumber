@@ -80,13 +80,9 @@ remote_state_changed (WpCore *core, WpRemoteState state,
     daemon_exit_static_str (d, WP_CODE_DISCONNECTED,
         "disconnected from pipewire");
     break;
-  case WP_REMOTE_STATE_ERROR: {
-    g_autofree gchar *error;
-    g_object_get (core, "error-message", &error, NULL);
-    daemon_exit (d, WP_CODE_OPERATION_FAILED, "pipewire remote error: %s",
-        error);
+  case WP_REMOTE_STATE_ERROR:
+    daemon_exit (d, WP_CODE_OPERATION_FAILED, "pipewire remote error");
     break;
-  }
   default:
     break;
   }
