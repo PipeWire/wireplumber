@@ -115,7 +115,6 @@ static void
 on_audio_stream_port_augmented (WpProxy *port_proxy, GAsyncResult *res,
     WpAudioStream *self)
 {
-  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
   g_autoptr (GError) error = NULL;
 
   wp_proxy_augment_finish (port_proxy, res, &error);
@@ -125,9 +124,6 @@ on_audio_stream_port_augmented (WpProxy *port_proxy, GAsyncResult *res,
     wp_audio_stream_init_task_finish (self, g_steal_pointer (&error));
     return;
   }
-
-  /* Add the proxy port to the array */
-  g_ptr_array_add(priv->port_proxies, g_object_ref (port_proxy));
 }
 
 /* called once after we have all the ports added */
@@ -173,8 +169,18 @@ on_audio_stream_port_added (WpCore *core, WpProxy *proxy, WpAudioStream *self)
   if (info->id != node_id)
     return;
 
+  /* Add the proxy port to the array */
+  g_ptr_array_add(priv->port_proxies, g_object_ref (proxy));
+
   wp_proxy_augment (proxy, WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO,
       NULL, (GAsyncReadyCallback) on_audio_stream_port_augmented, self);
+}
+
+static void
+on_audio_stream_port_removed (WpCore *core, WpProxy *proxy, WpAudioStream *self)
+{
+  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
+  g_ptr_array_remove (priv->port_proxies, proxy);
 }
 
 static void
@@ -363,9 +369,11 @@ wp_audio_stream_init_async (GAsyncInitable *initable, int io_priority,
       WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO, NULL,
       (GAsyncReadyCallback) on_node_proxy_augmented, self);
 
-  /* Register a port_added callback */
+  /* Register a port_added & removed callback */
   g_signal_connect_object(core, "remote-global-added::port",
       (GCallback) on_audio_stream_port_added, self, 0);
+  g_signal_connect_object(core, "remote-global-removed::port",
+      (GCallback) on_audio_stream_port_removed, self, 0);
 }
 
 static gboolean
