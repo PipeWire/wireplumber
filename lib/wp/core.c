@@ -154,13 +154,15 @@ registry_global (void *data, uint32_t id, uint32_t permissions,
   WpProxyFeatures features;
   g_autoptr (WpProperties) properties = wp_properties_new_copy_dict (props);
 
+  g_return_if_fail (!g_hash_table_contains (self->proxies, GUINT_TO_POINTER (id)));
+
   /* construct & store WpProxy */
   proxy = wp_proxy_new_global (self, id, permissions, properties,
       type, version);
   g_hash_table_insert (self->proxies, GUINT_TO_POINTER (id), proxy);
 
-  g_debug ("registry global:%u perm:0x%x type:%u/%u -> WpProxy:%p",
-      id, permissions, type, version, proxy);
+  g_debug ("registry global:%u perm:0x%x type:%u/%u -> %s:%p",
+      id, permissions, type, version, G_OBJECT_TYPE_NAME (proxy), proxy);
 
   /* augment */
   features = GPOINTER_TO_UINT (g_hash_table_lookup (self->default_features,
@@ -174,8 +176,12 @@ registry_global_remove (void *data, uint32_t id)
   WpCore *self = WP_CORE (data);
   g_autoptr (WpProxy) proxy = NULL;
 
-  if (g_hash_table_steal_extended (self->proxies, GUINT_TO_POINTER (id), NULL,
-          (gpointer *) &proxy))
+  g_hash_table_steal_extended (self->proxies, GUINT_TO_POINTER (id), NULL,
+      (gpointer *) &proxy);
+
+  g_debug ("registry global removed: %u (%p)", id, proxy);
+
+  if (proxy)
     g_signal_emit (data, signals[SIGNAL_REMOTE_GLOBAL_REMOVED],
         wp_proxy_get_interface_quark (proxy), proxy);
 }

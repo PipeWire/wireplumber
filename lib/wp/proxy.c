@@ -137,6 +137,7 @@ proxy_event_destroy (void *data)
   GHashTableIter iter;
   GTask *task;
 
+  g_debug ("destroyed pw proxy %p for global %u", priv->pw_proxy, priv->global_id);
   priv->pw_proxy = NULL;
 
   g_signal_emit (self, wp_proxy_signals[SIGNAL_PW_PROXY_DESTROYED], 0);
@@ -467,6 +468,8 @@ wp_proxy_augment (WpProxy * self,
   g_return_if_fail (WP_PROXY_GET_CLASS (self)->augment);
 
   priv = wp_proxy_get_instance_private (self);
+
+  g_return_if_fail (!priv->task);
   priv->task = g_task_new (self, cancellable, callback, user_data);
 
   /* we don't simply assign here, we keep all the previous wanted features;
