@@ -8,6 +8,8 @@
 
 #include <spa/param/props.h>
 #include <pipewire/pipewire.h>
+#include <spa/debug/types.h>
+#include <spa/param/audio/type-info.h>
 
 #include "stream.h"
 
@@ -468,8 +470,40 @@ wp_audio_stream_get_info (WpAudioStream * self)
 static void
 port_proxies_foreach_func(gpointer data, gpointer user_data)
 {
+  WpProxyPort *port = data;
   GVariantBuilder *b = user_data;
-  g_variant_builder_add (b, "t", data);
+  const struct pw_port_info *info;
+  g_autoptr (WpProperties) props = NULL;
+  const gchar *node_id, *channel;
+  uint32_t node_id_n, channel_n = SPA_AUDIO_CHANNEL_UNKNOWN;
+
+  info = wp_proxy_port_get_info (port);
+
+  props = wp_proxy_port_get_properties (port);
+  node_id = wp_properties_get (props, PW_KEY_NODE_ID);
+  g_return_if_fail (node_id);
+  node_id_n = atoi(node_id);
+
+  channel = wp_properties_get (props, PW_KEY_AUDIO_CHANNEL);
+  if (channel) {
+    const struct spa_type_info *t = spa_type_audio_channel;
+    for (; t && t->name; t++) {
+      const char *name = t->name + strlen(SPA_TYPE_INFO_AUDIO_CHANNEL_BASE);
+      if (!g_strcmp0 (channel, name)) {
+        channel_n = t->type;
+        break;
+      }
+    }
+  }
+
+  /* tuple format:
+      uint32 node_id;
+      uint32 port_id;
+      uint32 channel;  // enum spa_audio_channel
+      uint8 direction; // enum spa_direction
+   */
+  g_variant_builder_add (b, "(uuuy)", node_id_n, info->id, channel_n,
+      (guint8) info->direction);
 }
 
 gboolean
@@ -477,24 +511,11 @@ wp_audio_stream_prepare_link (WpAudioStream * self, GVariant ** properties,
     GError ** error)
 {
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
-  const struct pw_node_info *info = NULL;
-  GVariantBuilder b, *b_ports;
-  GVariant *v_ports;
-
-  /* Get the proxy node id */
-  info = wp_proxy_node_get_info (priv->proxy);
-  g_return_val_if_fail (info, FALSE);
+  GVariantBuilder b;
 
   /* Create a variant array with all the ports */
-  b_ports = g_variant_builder_new (G_VARIANT_TYPE ("at"));
-  g_ptr_array_foreach(priv->port_proxies, port_proxies_foreach_func, b_ports);
-  v_ports = g_variant_builder_end (b_ports);
-
-  /* Set the properties */
-  g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
-  g_variant_builder_add (&b, "{sv}", "node-id",
-      g_variant_new_uint32 (info->id));
-  g_variant_builder_add (&b, "{sv}", "ports", v_ports);
+  g_variant_builder_init (&b, G_VARIANT_TYPE ("a(uuuy)"));
+  g_ptr_array_foreach(priv->port_proxies, port_proxies_foreach_func, &b);
   *properties = g_variant_builder_end (&b);
 
   return TRUE;
@@ -596,6 +617,13 @@ wp_audio_stream_set_port_config (WpAudioStream * self,
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
 
   wp_proxy_node_set_param (priv->proxy, SPA_PARAM_PortConfig, 0, param);
+}
+
+void
+wp_audio_stream_finish_port_config (WpAudioStream * self)
+{
+  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
+
   wp_proxy_sync (WP_PROXY (priv->proxy), NULL,
       (GAsyncReadyCallback) on_port_config_done, self);
 }

@@ -204,7 +204,7 @@ on_audio_adapter_created(GObject *initable, GAsyncResult *res,
   g_variant_iter_init (&iter, self->streams);
   for (i = 0; g_variant_iter_next (&iter, "&s", &stream); i++) {
     wp_audio_convert_new (WP_ENDPOINT(self), i, stream, direction,
-        self->proxy_node, format, on_audio_convert_created, self);
+        self->adapter, format, on_audio_convert_created, self);
 
     /* Register the stream */
     g_variant_dict_init (&d, NULL);

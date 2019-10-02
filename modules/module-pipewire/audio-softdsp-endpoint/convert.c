@@ -13,6 +13,7 @@
 #include <spa/param/props.h>
 
 #include "convert.h"
+#include "../multiport-link-algorithm.h"
 
 enum {
   PROP_0,
@@ -25,11 +26,11 @@ struct _WpAudioConvert
   WpAudioStream parent;
 
   /* Props */
-  WpProxyNode *target;
+  WpAudioStream *target;
   struct spa_audio_info_raw format;
 
   /* Proxies */
-  WpProxy *link_proxy;
+  GPtrArray *link_proxies;
 };
 
 static GAsyncInitableIface *wp_audio_convert_parent_interface = NULL;
@@ -41,46 +42,47 @@ G_DEFINE_TYPE_WITH_CODE (WpAudioConvert, wp_audio_convert, WP_TYPE_AUDIO_STREAM,
                            wp_audio_convert_async_initable_init))
 
 static void
+create_link_cb (WpProperties *props, gpointer user_data)
+{
+  WpAudioConvert *self = WP_AUDIO_CONVERT (user_data);
+  g_autoptr (WpCore) core = NULL;
+  WpProxy *proxy;
+
+  core = wp_audio_stream_get_core (WP_AUDIO_STREAM (self));
+  g_return_if_fail (core);
+
+  /* make the link passive, which means it will not keep
+     the audioconvert node in the running state if the number of non-passive
+     links (i.e. the ones linking another endpoint to this one) drops to 0 */
+  wp_properties_set (props, PW_KEY_LINK_PASSIVE, "1");
+
+  /* Create the link */
+  proxy = wp_core_create_remote_object(core, "link-factory",
+      PW_TYPE_INTERFACE_Link, PW_VERSION_LINK_PROXY, props);
+  g_return_if_fail (proxy);
+  g_ptr_array_add(self->link_proxies, proxy);
+}
+
+static void
 on_audio_convert_running(WpAudioConvert *self)
 {
-  g_autoptr (WpCore) core = wp_audio_stream_get_core (WP_AUDIO_STREAM (self));
+  g_autoptr (GVariant) src_props = NULL;
+  g_autoptr (GVariant) sink_props = NULL;
+  g_autoptr (GError) error = NULL;
   enum pw_direction direction =
       wp_audio_stream_get_direction (WP_AUDIO_STREAM (self));
-  g_autoptr (WpProperties) props = NULL;
-  const struct pw_node_info *info = NULL, *target_info = NULL;
-
-  /* Return if the node has already been linked */
-  if (self->link_proxy)
-    return;
-
-  /* Get the info */
-  info = wp_audio_stream_get_info (WP_AUDIO_STREAM (self));
-  g_return_if_fail (info);
-  target_info = wp_proxy_node_get_info (self->target);
-  g_return_if_fail (target_info);
-
-  /* Create new properties */
-  props = wp_properties_new_empty ();
-
-  /* Set the new properties */
-  wp_properties_set (props, PW_KEY_LINK_PASSIVE, "true");
-  if (direction == PW_DIRECTION_INPUT) {
-    wp_properties_setf (props, PW_KEY_LINK_OUTPUT_NODE, "%d", info->id);
-    wp_properties_setf (props, PW_KEY_LINK_OUTPUT_PORT, "%d", -1);
-    wp_properties_setf (props, PW_KEY_LINK_INPUT_NODE, "%d", target_info->id);
-    wp_properties_setf (props, PW_KEY_LINK_INPUT_PORT, "%d", -1);
-  } else {
-    wp_properties_setf (props, PW_KEY_LINK_OUTPUT_NODE, "%d", target_info->id);
-    wp_properties_setf (props, PW_KEY_LINK_OUTPUT_PORT, "%d", -1);
-    wp_properties_setf (props, PW_KEY_LINK_INPUT_NODE, "%d", info->id);
-    wp_properties_setf (props, PW_KEY_LINK_INPUT_PORT, "%d", -1);
-  }
 
   g_debug ("%p linking audio convert to target", self);
 
-  /* Create the link */
-  self->link_proxy = wp_core_create_remote_object (core, "link-factory",
-      PW_TYPE_INTERFACE_Link, PW_VERSION_LINK_PROXY, props);
+  if (direction == PW_DIRECTION_INPUT) {
+    wp_audio_stream_prepare_link (WP_AUDIO_STREAM (self), &src_props, &error);
+    wp_audio_stream_prepare_link (self->target, &sink_props, &error);
+  } else {
+    wp_audio_stream_prepare_link (self->target, &src_props, &error);
+    wp_audio_stream_prepare_link (WP_AUDIO_STREAM (self), &sink_props, &error);
+  }
+
+  multiport_link_create (src_props, sink_props, create_link_cb, self, &error);
 }
 
 static void
@@ -92,7 +94,7 @@ wp_audio_convert_event_info (WpProxyNode * proxy, GParamSpec *spec,
   /* Handle the different states */
   switch (info->state) {
   case PW_NODE_STATE_IDLE:
-    g_clear_object (&self->link_proxy);
+    g_ptr_array_set_size (self->link_proxies, 0);
     break;
   case PW_NODE_STATE_RUNNING:
     on_audio_convert_running (self);
@@ -113,6 +115,7 @@ on_audio_convert_proxy_done (WpProxy *proxy, GAsyncResult *res,
       wp_audio_stream_get_direction (WP_AUDIO_STREAM (self));
   uint8_t buf[1024];
   struct spa_pod_builder pod_builder = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+  struct spa_pod *format;
   struct spa_pod *param;
 
   wp_proxy_sync_finish (proxy, res, &error);
@@ -125,15 +128,28 @@ on_audio_convert_proxy_done (WpProxy *proxy, GAsyncResult *res,
 
   g_debug ("%s:%p setting format", G_OBJECT_TYPE_NAME (self), self);
 
-  /* Emit the ports */
-  param = spa_format_audio_raw_build(&pod_builder, SPA_PARAM_Format, &self->format);
+  format = spa_format_audio_raw_build(&pod_builder, SPA_PARAM_Format,
+      &self->format);
+
+  /* Configure audioconvert to be both merger and splitter; this means it will
+     have an equal number of input and output ports and just passthrough the
+     same format, but with altered volume.
+     In the future we need to consider writing a simpler volume node for this,
+     as doing merge + split is heavy for our needs */
+  param = spa_pod_builder_add_object(&pod_builder,
+      SPA_TYPE_OBJECT_ParamPortConfig,  SPA_PARAM_PortConfig,
+      SPA_PARAM_PORT_CONFIG_direction,  SPA_POD_Id(pw_direction_reverse(direction)),
+      SPA_PARAM_PORT_CONFIG_mode,       SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
+      SPA_PARAM_PORT_CONFIG_format,     SPA_POD_Pod(format));
+  wp_audio_stream_set_port_config (WP_AUDIO_STREAM (self), param);
+
   param = spa_pod_builder_add_object(&pod_builder,
       SPA_TYPE_OBJECT_ParamPortConfig,  SPA_PARAM_PortConfig,
       SPA_PARAM_PORT_CONFIG_direction,  SPA_POD_Id(direction),
       SPA_PARAM_PORT_CONFIG_mode,       SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
-      SPA_PARAM_PORT_CONFIG_format,     SPA_POD_Pod(param));
-
+      SPA_PARAM_PORT_CONFIG_format,     SPA_POD_Pod(format));
   wp_audio_stream_set_port_config (WP_AUDIO_STREAM (self), param);
+  wp_audio_stream_finish_port_config (WP_AUDIO_STREAM (self));
 }
 
 static void
@@ -144,10 +160,15 @@ wp_audio_convert_init_async (GAsyncInitable *initable, int io_priority,
   g_autoptr (WpProxy) proxy = NULL;
   g_autoptr (WpProperties) props = NULL;
   g_autoptr (WpCore) core = wp_audio_stream_get_core (WP_AUDIO_STREAM (self));
+  WpProxyNode *node;
 
   /* Create the properties */
-  props = wp_properties_copy (wp_proxy_node_get_properties (self->target));
-  wp_properties_set (props, PW_KEY_NODE_NAME,
+  node = wp_audio_stream_get_proxy_node (self->target);
+  props = wp_properties_copy (wp_proxy_node_get_properties (node));
+
+  wp_properties_setf (props, PW_KEY_NODE_NAME, "%s/%s/%s",
+      SPA_NAME_AUDIO_CONVERT,
+      wp_properties_get(props, PW_KEY_NODE_NAME),
       wp_audio_stream_get_name (WP_AUDIO_STREAM (self)));
   wp_properties_set (props, PW_KEY_MEDIA_CLASS, "Audio/Convert");
   wp_properties_set (props, "factory.name", SPA_NAME_AUDIO_CONVERT);
@@ -229,7 +250,7 @@ wp_audio_convert_finalize (GObject * object)
 {
   WpAudioConvert *self = WP_AUDIO_CONVERT (object);
 
-  g_clear_object (&self->link_proxy);
+  g_clear_pointer (&self->link_proxies, g_ptr_array_unref);
   g_clear_object (&self->target);
 
   G_OBJECT_CLASS (wp_audio_convert_parent_class)->finalize (object);
@@ -238,6 +259,7 @@ wp_audio_convert_finalize (GObject * object)
 static void
 wp_audio_convert_init (WpAudioConvert * self)
 {
+  self->link_proxies = g_ptr_array_new_with_free_func (g_object_unref);
 }
 
 static void
@@ -251,8 +273,8 @@ wp_audio_convert_class_init (WpAudioConvertClass * klass)
 
   /* Install the properties */
   g_object_class_install_property (object_class, PROP_TARGET,
-      g_param_spec_object ("target", "target", "The target device node",
-          WP_TYPE_PROXY_NODE,
+      g_param_spec_object ("target", "target", "The target stream",
+          WP_TYPE_AUDIO_STREAM,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (object_class, PROP_FORMAT,
       g_param_spec_pointer ("format", "format", "The accepted format",
@@ -262,7 +284,7 @@ wp_audio_convert_class_init (WpAudioConvertClass * klass)
 void
 wp_audio_convert_new (WpEndpoint *endpoint, guint stream_id,
     const char *stream_name, enum pw_direction direction,
-    WpProxyNode *target, const struct spa_audio_info_raw *format,
+    WpAudioStream *target, const struct spa_audio_info_raw *format,
     GAsyncReadyCallback callback, gpointer user_data)
 {
   g_async_initable_new_async (

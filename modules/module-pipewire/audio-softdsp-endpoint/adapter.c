@@ -93,6 +93,7 @@ on_proxy_enum_format_done (WpProxyNode *proxy, GAsyncResult *res,
   }
 
   wp_audio_stream_set_port_config (WP_AUDIO_STREAM (self), param);
+  wp_audio_stream_finish_port_config (WP_AUDIO_STREAM (self));
 }
 
 static void

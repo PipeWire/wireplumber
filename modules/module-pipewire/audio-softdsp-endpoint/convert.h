@@ -24,7 +24,7 @@ G_DECLARE_FINAL_TYPE (WpAudioConvert, wp_audio_convert, WP, AUDIO_CONVERT,
 
 void wp_audio_convert_new (WpEndpoint *endpoint, guint stream_id,
     const char *stream_name, enum pw_direction direction,
-    WpProxyNode *target, const struct spa_audio_info_raw *format,
+    WpAudioStream *target, const struct spa_audio_info_raw *format,
     GAsyncReadyCallback callback, gpointer user_data);
 
 G_END_DECLS
