@@ -273,10 +273,12 @@ handle_client (WpPolicy *policy, WpEndpoint *ep)
   g_autoptr (WpEndpoint) target = NULL;
   guint32 stream_id;
   gboolean is_capture = FALSE;
+  gboolean is_persistent = FALSE;
   g_autofree gchar *role, *target_name = NULL;
 
   /* Detect if the client is doing capture or playback */
   is_capture = g_str_has_prefix (media_class, "Stream/Input");
+  is_persistent = g_str_has_prefix (media_class, "Persistent/");
 
   /* Locate the target endpoint */
   g_variant_dict_init (&d, NULL);
@@ -334,10 +336,19 @@ handle_client (WpPolicy *policy, WpEndpoint *ep)
    * this function is being called after sorting all the client endpoints
    * and therefore we can safely unlink the previous client
    */
-  if (wp_endpoint_is_linked (target) && !is_capture) {
-    g_debug ("Unlink target '%s' from other clients",
-        wp_endpoint_get_name (target));
-    wp_endpoint_unlink (target);
+  if (!is_capture && wp_endpoint_is_linked (target)) {
+    if (is_persistent) {
+      /* HACK: link persistent endpoints to the already linked stream,
+         as linking to another stream does not work properly
+         (floatmix on the master dsp port does not accept the link) */
+      GPtrArray *links = wp_endpoint_get_links (target);
+      WpEndpointLink *l = g_ptr_array_index (links, 0);
+      stream_id = wp_endpoint_link_get_sink_stream (l);
+    } else {
+      g_debug ("Unlink target '%s' from other clients",
+          wp_endpoint_get_name (target));
+      wp_endpoint_unlink (target);
+    }
   }
 
   /* Link the client with the target */
@@ -411,6 +422,17 @@ simple_policy_rescan_in_idle (WpSimplePolicy *self)
       handle_client (WP_POLICY (self), ep);
     }
   }
+  g_clear_pointer (&endpoints, g_ptr_array_unref);
+
+  endpoints = wp_endpoint_find (core, "Persistent/Stream/Input/Audio");
+  if (endpoints) {
+    /* link all persistent capture clients */
+    for (i = 0; i < endpoints->len; i++) {
+      ep = g_ptr_array_index (endpoints, i);
+      handle_client (WP_POLICY (self), ep);
+    }
+  }
+  g_clear_pointer (&endpoints, g_ptr_array_unref);
 
   endpoints = wp_endpoint_find (core, "Stream/Output/Audio");
   if (endpoints && endpoints->len > 0) {
@@ -422,6 +444,17 @@ simple_policy_rescan_in_idle (WpSimplePolicy *self)
     ep = g_ptr_array_index (endpoints, 0);
     handle_client (WP_POLICY (self), ep);
   }
+  g_clear_pointer (&endpoints, g_ptr_array_unref);
+
+  endpoints = wp_endpoint_find (core, "Persistent/Stream/Output/Audio");
+  if (endpoints) {
+    /* link all persistent output clients */
+    for (i = 0; i < endpoints->len; i++) {
+      ep = g_ptr_array_index (endpoints, i);
+      handle_client (WP_POLICY (self), ep);
+    }
+  }
+  g_clear_pointer (&endpoints, g_ptr_array_unref);
 
   self->pending_rescan = 0;
   return G_SOURCE_REMOVE;
@@ -443,8 +476,7 @@ simple_policy_handle_endpoint (WpPolicy *policy, WpEndpoint *ep)
 
   /* TODO: For now we only accept audio stream clients */
   media_class = wp_endpoint_get_media_class(ep);
-  if (!g_str_has_prefix (media_class, "Stream") ||
-      !g_str_has_suffix (media_class, "Audio")) {
+  if (!g_str_has_suffix (media_class, "Audio")) {
     return FALSE;
   }
 

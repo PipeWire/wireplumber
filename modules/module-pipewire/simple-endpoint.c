@@ -260,6 +260,7 @@ on_proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
   uint32_t ids[1] = { SPA_PARAM_Props };
   uint32_t n_ids = 1;
   struct pw_node_proxy *node_proxy = NULL;
+  const struct spa_dict *props;
 
   /* Get the proxy node */
   self->proxy_node = WP_PROXY_NODE (object_safe_new_finish (self, initable,
@@ -267,11 +268,18 @@ on_proxy_node_created(GObject *initable, GAsyncResult *res, gpointer data)
   if (!self->proxy_node)
     return;
 
+  props = wp_proxy_node_get_info (self->proxy_node)->props;
+
   /* Set the role and target name */
-  self->role = g_strdup (spa_dict_lookup (
-          wp_proxy_node_get_info (self->proxy_node)->props, "media.role"));
-  self->target = g_strdup (spa_dict_lookup (
-          wp_proxy_node_get_info (self->proxy_node)->props, "target.name"));
+  self->role = g_strdup (spa_dict_lookup (props, "media.role"));
+  self->target = g_strdup (spa_dict_lookup (props, "target.name"));
+
+  /* HACK to tell the policy module that this endpoint needs to be linked always */
+  if (spa_dict_lookup (props, "wireplumber.keep-linked")) {
+    g_autofree gchar *c = g_strdup_printf ("Persistent/%s",
+        spa_dict_lookup(props, "media.class"));
+    g_object_set (self, "media-class", c, NULL);
+  }
 
   /* Emit the ports */
   emit_endpoint_ports(self);
