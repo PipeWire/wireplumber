@@ -136,10 +136,10 @@ select_new_endpoint (WpSimplePolicy *self)
 
   if (!self->selected[DIRECTION_SINK]) {
     direction = DIRECTION_SINK;
-    media_class = "Alsa/Sink";
+    media_class = "Audio/Sink";
   } else if (!self->selected[DIRECTION_SOURCE]) {
     direction = DIRECTION_SOURCE;
-    media_class = "Alsa/Source";
+    media_class = "Audio/Source";
   } else
     return G_SOURCE_REMOVE;
 
@@ -172,8 +172,8 @@ simple_policy_endpoint_added (WpPolicy *policy, WpEndpoint *ep)
   guint32 control_id;
   gint direction;
 
-  /* we only care about alsa device endpoints here */
-  if (!g_str_has_prefix (media_class, "Alsa/"))
+  /* we only care about audio device endpoints here */
+  if (!g_str_has_prefix (media_class, "Audio/"))
     return;
 
   /* verify it has the "selected" control available */
@@ -282,7 +282,7 @@ handle_client (WpPolicy *policy, WpEndpoint *ep)
   g_variant_dict_init (&d, NULL);
   g_variant_dict_insert (&d, "action", "s", "link");
   g_variant_dict_insert (&d, "media.class", "s",
-      is_capture ? "Alsa/Source" : "Alsa/Sink");
+      is_capture ? "Audio/Source" : "Audio/Sink");
 
   g_object_get (ep, "role", &role, NULL);
   if (role)
