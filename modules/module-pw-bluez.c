@@ -37,13 +37,13 @@ on_endpoint_created(GObject *initable, GAsyncResult *res, gpointer d)
   /* Check for error */
   if (error) {
     g_clear_object (&endpoint);
-    g_warning ("Failed to create bluez endpoint: %s", error->message);
+    g_warning ("Failed to create alsa endpoint: %s", error->message);
     return;
   }
 
   /* Get the endpoint global id */
   g_object_get (endpoint, "global-id", &global_id, NULL);
-  g_debug ("Created bluez endpoint for global id %d", global_id);
+  g_debug ("Created alsa endpoint for global id %d", global_id);
 
   /* Register the endpoint and add it to the table */
   wp_endpoint_register (endpoint);
@@ -58,7 +58,7 @@ on_node_added(WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
   struct impl *impl = d;
   const struct spa_dict *props = p;
   g_autoptr (WpCore) core = wp_module_get_core (impl->module);
-  const gchar *media_class, *bluez_media_class, *name;
+  const gchar *media_class, *name;
   enum pw_direction direction;
   GVariantBuilder b;
   g_autoptr (GVariant) endpoint_props = NULL;
@@ -68,39 +68,27 @@ on_node_added(WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
 
   /* Get the name and media_class */
   media_class = spa_dict_lookup(props, "media.class");
+
+  /* Make sure the media class is non-dsp audio */
+  if (!g_str_has_prefix (media_class, "Audio/"))
+    return;
+  if (g_str_has_prefix (media_class, "Audio/DSP"))
+    return;
+
+  /* Get the name */
   name = spa_dict_lookup (props, "media.name");
   if (!name)
     name = spa_dict_lookup (props, "node.name");
 
   /* Make sure we only handle bluetooth nodes */
-  if (!g_str_has_prefix (name, "bluez5"))
+  if (!g_str_has_prefix (name, "api.bluez5"))
     return;
 
-  /* Get the direction and bluez media class */
-  if (g_str_has_prefix (media_class, "Audio/Sink")) {
+  /* Get the direction */
+  if (g_str_has_prefix (media_class, "Bluez/Sink")) {
     direction = PW_DIRECTION_INPUT;
-    if (g_str_has_prefix (name, "bluez5.a2dp")) {
-      bluez_media_class = "Bluez/Sink/A2dp";
-    } else if (g_str_has_prefix (name, "bluez5.headunit")) {
-      bluez_media_class = "Bluez/Sink/Headunit";
-    } else if (g_str_has_prefix (name, "bluez5.gateway")) {
-      bluez_media_class = "Bluez/Sink/Gateway";
-    } else {
-      g_critical ("failed to parse bluez profile");
-      return;
-    }
-  } else if (g_str_has_prefix (media_class, "Audio/Source")) {
+  } else if (g_str_has_prefix (media_class, "Bluez/Source")) {
     direction = PW_DIRECTION_OUTPUT;
-    if (g_str_has_prefix (name, "bluez5.a2dp")) {
-      bluez_media_class = "Bluez/Source/A2dp";
-    } else if (g_str_has_prefix (name, "bluez5.headunit")) {
-      bluez_media_class = "Bluez/Source/Headunit";
-    } else if (g_str_has_prefix (name, "bluez5.gateway")) {
-      bluez_media_class = "Bluez/Source/Gateway";
-    } else {
-      g_critical ("failed to parse bluez profile");
-      return;
-    }
   } else {
     g_critical ("failed to parse bluez direction");
     return;
@@ -109,19 +97,16 @@ on_node_added(WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
   /* Set the properties */
   g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
   g_variant_builder_add (&b, "{sv}",
-      "name", name ?
-      g_variant_new_take_string (g_strdup_printf ("Bluez %u (%s)", id, name)) :
-      g_variant_new_take_string (g_strdup_printf ("Bluez %u", id)));
+      "name", g_variant_new_string (name));
   g_variant_builder_add (&b, "{sv}",
-      "media-class", g_variant_new_string (bluez_media_class));
+      "media-class", g_variant_new_string (media_class));
   g_variant_builder_add (&b, "{sv}",
       "direction", g_variant_new_uint32 (direction));
   g_variant_builder_add (&b, "{sv}",
       "global-id", g_variant_new_uint32 (id));
-  endpoint_props = g_variant_builder_end (&b);
 
   /* Create the endpoint async */
-  wp_factory_make (core, "pw-audio-softdsp-endpoint", WP_TYPE_ENDPOINT,
+  wp_factory_make (core, "pipewire-simple-endpoint", WP_TYPE_ENDPOINT,
       endpoint_props, on_endpoint_created, impl);
 }
 
