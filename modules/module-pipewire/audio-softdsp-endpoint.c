@@ -190,6 +190,13 @@ on_audio_adapter_created(GObject *initable, GAsyncResult *res,
   /* Set the role */
   self->role = g_strdup (wp_properties_get (props, PW_KEY_MEDIA_ROLE));
 
+  /* HACK to tell the policy module that this endpoint needs to be linked always */
+  if (wp_properties_get (props, "wireplumber.keep-linked")) {
+    g_autofree gchar *c = g_strdup_printf ("Persistent/%s",
+        wp_properties_get (props, "media.class"));
+    g_object_set (self, "media-class", c, NULL);
+  }
+
   /* Just finish if no streams need to be created */
   if (!self->streams) {
     finish_endpoint_creation (self);
