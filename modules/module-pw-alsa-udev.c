@@ -81,10 +81,6 @@ on_node_added(WpRemotePipewire *rp, guint id, guint parent_id, gconstpointer p,
   if (!name)
     name = spa_dict_lookup (props, "node.name");
 
-  /* Make sure we don't handle bluetooth nodes */
-  if (g_str_has_prefix (name, "api.bluez5"))
-    return;
-
   /* Set the direction */
   if (g_str_has_suffix (media_class, "Source")) {
     direction = PW_DIRECTION_OUTPUT;
