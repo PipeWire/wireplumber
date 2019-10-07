@@ -55,49 +55,23 @@ static gboolean
 parse_alsa_properties (WpProperties *props, const gchar **name,
     const gchar **media_class, enum pw_direction *direction)
 {
-  const char *local_name = NULL;
-  const char *local_media_class = NULL;
-  enum pw_direction local_direction;
-
   /* Get the name */
-  local_name = wp_properties_get (props, PW_KEY_NODE_NAME);
-  if (!local_name)
+  *name = wp_properties_get (props, PW_KEY_NODE_NAME);
+  if (!*name)
     return FALSE;
 
   /* Get the media class */
-  local_media_class = wp_properties_get (props, PW_KEY_MEDIA_CLASS);
-  if (!local_media_class)
+  *media_class = wp_properties_get (props, PW_KEY_MEDIA_CLASS);
+  if (!*media_class)
     return FALSE;
 
   /* Get the direction */
-  if (g_str_has_prefix (local_media_class, "Audio/Sink"))
-    local_direction = PW_DIRECTION_INPUT;
-  else if (g_str_has_prefix (local_media_class, "Audio/Source"))
-    local_direction = PW_DIRECTION_OUTPUT;
+  if (g_str_has_prefix (*media_class, "Audio/Sink"))
+    *direction = PW_DIRECTION_INPUT;
+  else if (g_str_has_prefix (*media_class, "Audio/Source"))
+    *direction = PW_DIRECTION_OUTPUT;
   else
     return FALSE;
-
-  /* Set the name */
-  if (name)
-    *name = local_name;
-
-  /* Set the media class */
-  if (media_class) {
-    switch (local_direction) {
-    case PW_DIRECTION_INPUT:
-      *media_class = "Alsa/Sink";
-      break;
-    case PW_DIRECTION_OUTPUT:
-      *media_class = "Alsa/Source";
-      break;
-    default:
-      break;
-    }
-  }
-
-  /* Set the direction */
-  if (direction)
-    *direction = local_direction;
 
   return TRUE;
 }
