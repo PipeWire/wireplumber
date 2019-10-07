@@ -16,6 +16,7 @@ G_BEGIN_DECLS
 typedef enum { /*< flags, prefix=WP_MONITOR_FLAG_ >*/
   WP_MONITOR_FLAG_LOCAL_NODES = (1 << 0),
   WP_MONITOR_FLAG_USE_ADAPTER = (1 << 1),
+  WP_MONITOR_FLAG_ACTIVATE_DEVICES = (1 << 2),
 } WpMonitorFlags;
 
 #define WP_MONITOR_KEY_OBJECT_ID "wp.monitor.object.id"

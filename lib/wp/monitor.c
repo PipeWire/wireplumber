@@ -302,6 +302,18 @@ node_new (struct object *dev, uint32_t id,
   return node;
 }
 
+static void
+set_profile(struct spa_device * dev, int index)
+{
+  char buf[1024];
+  struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+  spa_device_set_param (dev,
+      SPA_PARAM_Profile, 0,
+      spa_pod_builder_add_object(&b,
+          SPA_TYPE_OBJECT_ParamProfile, 0,
+          SPA_PARAM_PROFILE_index, SPA_POD_Int(index)));
+}
+
 static struct object *
 device_new (WpMonitor *self, uint32_t id, const gchar *factory_name,
     WpProperties *properties, GError **error)
@@ -361,6 +373,10 @@ device_new (WpMonitor *self, uint32_t id, const gchar *factory_name,
         "failed to initialize device: %s", spa_strerror (ret));
     return NULL;
   }
+
+  /* HACK this is very specific to the current alsa pcm profiles */
+  if (self->flags & WP_MONITOR_FLAG_ACTIVATE_DEVICES)
+    set_profile ((struct spa_device *) dev->spa_dev->interface, 1);
 
   return dev;
 }
@@ -555,7 +571,8 @@ wp_monitor_start (WpMonitor *self, GError **error)
 
   core = g_weak_ref_get (&self->core);
 
-  g_debug ("WpMonitor:%p:%s starting monitor", self, self->factory_name);
+  g_debug ("WpMonitor:%p:%s starting monitor, flags 0x%x", self,
+      self->factory_name, self->flags);
 
   self->device = device_new (self, -1, self->factory_name, self->properties,
       &err);
