@@ -166,6 +166,9 @@ wp_audio_convert_init_async (GAsyncInitable *initable, int io_priority,
   node = wp_audio_stream_get_proxy_node (self->target);
   props = wp_properties_copy (wp_proxy_node_get_properties (node));
 
+  wp_properties_setf (props, PW_KEY_OBJECT_PATH, "%s:%s",
+      wp_properties_get(props, PW_KEY_OBJECT_PATH),
+      wp_audio_stream_get_name (WP_AUDIO_STREAM (self)));
   wp_properties_setf (props, PW_KEY_NODE_NAME, "%s/%s/%s",
       SPA_NAME_AUDIO_CONVERT,
       wp_properties_get(props, PW_KEY_NODE_NAME),
