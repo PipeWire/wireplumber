@@ -77,17 +77,6 @@ shared_library(
 )
 
 shared_library(
-  'wireplumber-module-pw-bluez',
-  [
-    'module-pw-bluez.c',
-  ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-pw-bluez"'],
-  install : true,
-  install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep, pipewire_dep],
-)
-
-shared_library(
   'wireplumber-module-simple-policy',
   [
     'module-simple-policy.c'
