@@ -24,7 +24,7 @@ typedef enum { /*< flags, prefix=WP_MONITOR_FLAG_ >*/
 G_DECLARE_FINAL_TYPE (WpMonitor, wp_monitor, WP, MONITOR, GObject)
 
 WpMonitor * wp_monitor_new (WpCore * core, const gchar * factory_name,
-    WpMonitorFlags flags);
+    WpProperties *props, WpMonitorFlags flags);
 
 const gchar * wp_monitor_get_factory_name (WpMonitor *self);
 WpMonitorFlags wp_monitor_get_flags (WpMonitor *self);

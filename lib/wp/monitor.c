@@ -6,7 +6,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <spa/monitor/monitor.h>
+#include <spa/monitor/device.h>
 #include <pipewire/pipewire.h>
 
 #include "monitor.h"
@@ -25,39 +25,35 @@ struct _WpMonitor
   /* Props */
   GWeakRef core;
   gchar *factory_name;
+  WpProperties *properties;
   WpMonitorFlags flags;
 
-  /* Monitor info */
-  WpSpaObject *spa_mon;
-  GList *devices;  /* element-type: struct device* */
+  struct object *device;
 };
 
-struct device
+struct object
 {
   guint32 id;
-  WpMonitor *self;
+  guint32 type;
+  union {
+    WpSpaObject *spa_dev;
+    struct pw_node *node;
+  };
 
-  WpSpaObject *spa_dev;
   WpProxy *proxy;
   WpProperties *properties;
-  GList *nodes;  /* element-type: struct node* */
 
-  struct spa_hook listener;
-};
+  GList *children;  /* element-type: struct object* */
 
-struct node
-{
-  guint32 id;
   WpMonitor *self;
-
-  struct pw_node *node;
-  WpProxy *proxy;
+  struct spa_hook listener;
 };
 
 enum {
   PROP_0,
   PROP_CORE,
   PROP_FACTORY_NAME,
+  PROP_PROPERTIES,
   PROP_FLAGS,
 };
 
@@ -71,7 +67,78 @@ static guint32 signals[N_SIGNALS] = {0};
 
 G_DEFINE_TYPE (WpMonitor, wp_monitor, G_TYPE_OBJECT)
 
-/* spa object */
+static gpointer find_object (GList *list, guint32 id, GList **link);
+static struct object * node_new (struct object *dev, uint32_t id,
+    const struct spa_device_object_info *info);
+static struct object * device_new (WpMonitor *self, uint32_t id,
+    const gchar *factory_name, WpProperties *properties, GError **error);
+static void object_free (struct object *obj);
+
+/* device events */
+
+static void
+device_info (void *data, const struct spa_device_info *info)
+{
+  struct object *obj = data;
+
+  /*
+   * This is emited syncrhonously at the time we add the listener and
+   * before object_info is emited. It gives us additional properties
+   * about the device, like the "api.alsa.card.*" ones that are not
+   * set by the monitor
+   */
+  if (info->change_mask & SPA_DEVICE_CHANGE_MASK_PROPS && obj->properties)
+    wp_properties_update_from_dict (obj->properties, info->props);
+}
+
+static void
+device_object_info (void *data, uint32_t id,
+    const struct spa_device_object_info *info)
+{
+  struct object *obj = data;
+  struct object *child = NULL;
+  WpMonitor *self = obj->self;
+  GList *link = NULL;
+  g_autoptr (GError) err = NULL;
+
+  /* Find the child */
+  child = find_object (obj->children, id, &link);
+
+  /* new object, construct... */
+  if (info && !child) {
+    switch (info->type) {
+      case SPA_TYPE_INTERFACE_Device:
+        if (!(child = device_new (self, id, info->factory_name,
+                wp_properties_new_wrap_dict (info->props), &err))) {
+          g_debug ("WpMonitor:%p:%s %s", self, self->factory_name, err->message);
+          return;
+        }
+        break;
+      case SPA_TYPE_INTERFACE_Node:
+        if (!(child = node_new (obj, id, info)))
+          return;
+        break;
+      default:
+        g_debug ("WpMonitor:%p:%s got device_object_info for unknown object "
+            "type %u", self, self->factory_name, info->type);
+        return;
+    }
+    obj->children = g_list_append (obj->children, child);
+  }
+  /* object removed, delete... */
+  else if (!info && child) {
+    object_free (child);
+    obj->children = g_list_delete_link (obj->children, link);
+  }
+}
+
+static const struct spa_device_events device_events = {
+  SPA_VERSION_DEVICE_EVENTS,
+  .info = device_info,
+  .object_info = device_object_info
+};
+
+/* WpSpaObject */
 
 static void
 wp_spa_object_free (WpSpaObject *self)
@@ -121,15 +188,15 @@ load_spa_object (WpCore *core, const gchar *factory, guint32 iface_type,
   return g_steal_pointer (&self);
 }
 
-/* common */
+/* struct object */
 
 static gpointer
 find_object (GList *list, guint32 id, GList **link)
 {
   /*
-   * The first element of struct device & struct node
-   * is the guint32 containing the id, so we can directly cast
-   * the list data to guint32, no matter what the actual structure is
+   * The first element of struct object is the guint32 containing the id,
+   * so we can directly cast the list data to guint32, no matter what the
+   * actual structure is
    */
   for (; list; list = g_list_next (list)) {
     if (id == *((guint32 *) list->data)) {
@@ -140,10 +207,8 @@ find_object (GList *list, guint32 id, GList **link)
   return NULL;
 }
 
-/* node */
-
-static struct node *
-node_new (struct device *dev, uint32_t id,
+static struct object *
+node_new (struct object *dev, uint32_t id,
     const struct spa_device_object_info *info)
 {
   WpMonitor *self = dev->self;
@@ -151,11 +216,10 @@ node_new (struct device *dev, uint32_t id,
   g_autoptr (WpProperties) props = NULL;
   struct pw_proxy *pw_proxy = NULL;
   struct pw_node *pw_node = NULL;
-  struct node *node = NULL;
+  struct object *node = NULL;
   const gchar *pw_factory_name = "spa-node-factory";
 
-  if (info->type != SPA_TYPE_INTERFACE_Node)
-    return NULL;
+  g_return_val_if_fail (info->type == SPA_TYPE_INTERFACE_Node, NULL);
 
   g_debug ("WpMonitor:%p:%s new node %u", self, self->factory_name, id);
 
@@ -227,9 +291,10 @@ node_new (struct device *dev, uint32_t id,
         0);
   }
 
-  node = g_slice_new0 (struct node);
+  node = g_slice_new0 (struct object);
   node->self = self;
   node->id = id;
+  node->type = SPA_TYPE_INTERFACE_Node;
   node->node = pw_node;
   node->proxy = wp_proxy_new_wrap (core, pw_proxy, PW_TYPE_INTERFACE_Node,
       PW_VERSION_NODE_PROXY);
@@ -237,83 +302,25 @@ node_new (struct device *dev, uint32_t id,
   return node;
 }
 
-static void
-node_free (struct node *node)
+static struct object *
+device_new (WpMonitor *self, uint32_t id, const gchar *factory_name,
+    WpProperties *properties, GError **error)
 {
-  g_debug ("WpMonitor:%p:%s free node %u", node->self,
-      node->self->factory_name, node->id);
-
-  g_clear_object (&node->proxy);
-  g_clear_pointer (&node->node, pw_node_destroy);
-
-  g_slice_free (struct node, node);
-}
-
-/* device */
-
-static void
-device_info (void *data, const struct spa_device_info *info)
-{
-  struct device *dev = data;
-
-  /*
-   * This is emited syncrhonously at the time we add the listener and
-   * before object_info is emited. It gives us additional properties
-   * about the device, like the "api.alsa.card.*" ones that are not
-   * set by the monitor
-   */
-  if (info->change_mask & SPA_DEVICE_CHANGE_MASK_PROPS)
-    wp_properties_update_from_dict (dev->properties, info->props);
-}
-
-static void
-device_object_info (void *data, uint32_t id,
-    const struct spa_device_object_info *info)
-{
-  struct device *dev = data;
-  struct node *node = NULL;
-  GList *link = NULL;
-
-  /* Find the node */
-  node = find_object (dev->nodes, id, &link);
-
-  if (info && !node) {
-    if (!(node = node_new (dev, id, info)))
-      return;
-    dev->nodes = g_list_append (dev->nodes, node);
-  } else if (!info && node) {
-    node_free (node);
-    dev->nodes = g_list_delete_link (dev->nodes, link);
-  }
-}
-
-static const struct spa_device_events device_events = {
-  SPA_VERSION_DEVICE_EVENTS,
-  .info = device_info,
-  .object_info = device_object_info
-};
-
-static struct device *
-device_new (WpMonitor *self, uint32_t id,
-    const struct spa_monitor_object_info *info)
-{
-  g_autoptr (GError) error = NULL;
+  g_autoptr (GError) err = NULL;
   g_autoptr (WpCore) core = NULL;
   g_autoptr (WpProperties) props = NULL;
   g_autoptr (WpSpaObject) spa_dev = NULL;
   struct pw_proxy *proxy = NULL;
-  struct device *dev = NULL;
+  struct object *dev = NULL;
+  gint ret = 0;
 
-  if (info->type != SPA_TYPE_INTERFACE_Device)
-    return NULL;
-
-  g_debug ("WpMonitor:%p:%s new device %u", self, self->factory_name, id);
+  g_debug ("WpMonitor:%p:%s new device %d", self, self->factory_name, (gint) id);
 
   core = g_weak_ref_get (&self->core);
-  props = wp_properties_new_copy_dict (info->props);
+  props = properties ? wp_properties_copy (properties) : wp_properties_new_empty ();
 
   /* pass down the id to the setup function */
-  wp_properties_setf (props, WP_MONITOR_KEY_OBJECT_ID, "%u", id);
+  wp_properties_setf (props, WP_MONITOR_KEY_OBJECT_ID, "%d", (gint) id);
 
   /* let the handler setup the properties accordingly */
   g_signal_emit (self, signals[SIG_SETUP_DEVICE_PROPS], 0, props);
@@ -321,82 +328,68 @@ device_new (WpMonitor *self, uint32_t id,
   /* and delete the id - it should not appear on the proxy */
   wp_properties_set (props, WP_MONITOR_KEY_OBJECT_ID, NULL);
 
-  if (!(spa_dev = load_spa_object (core, info->factory_name, info->type, props,
-          &error))) {
-    g_warning ("WpMonitor:%p: failed to construct device: %s", self,
-        error->message);
+  if (!(spa_dev = load_spa_object (core, factory_name, SPA_TYPE_INTERFACE_Device,
+          props, &err))) {
+    g_propagate_error (error, g_steal_pointer (&err));
     return NULL;
   }
 
-  if (!(proxy = pw_remote_export (wp_core_get_pw_remote (core), info->type,
-          wp_properties_to_pw_properties (props), spa_dev->interface, 0))) {
-    g_warning ("WpMonitor:%p: failed to export device: %s", self,
-        g_strerror (errno));
+  /* check for id != -1 to avoid exporting the "monitor" device itself;
+     exporting it is buggy, but we should revise this in the future; FIXME */
+  if (id != -1 && !(proxy = pw_remote_export (wp_core_get_pw_remote (core),
+          SPA_TYPE_INTERFACE_Device, wp_properties_to_pw_properties (props),
+          spa_dev->interface, 0))) {
+    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "failed to export device: %s", g_strerror (errno));
     return NULL;
   }
 
   /* Create the device */
-  dev = g_slice_new0 (struct device);
+  dev = g_slice_new0 (struct object);
   dev->self = self;
   dev->id = id;
+  dev->type = SPA_TYPE_INTERFACE_Device;
   dev->spa_dev = g_steal_pointer (&spa_dev);
   dev->properties = g_steal_pointer (&props);
   dev->proxy = wp_proxy_new_wrap (core, proxy, PW_TYPE_INTERFACE_Device,
       PW_VERSION_DEVICE_PROXY);
 
   /* Add device listener for events */
-  spa_device_add_listener ((struct spa_device *) dev->spa_dev->interface,
-      &dev->listener, &device_events, dev);
+  if ((ret = spa_device_add_listener ((struct spa_device *) dev->spa_dev->interface,
+                  &dev->listener, &device_events, dev)) < 0) {
+    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "failed to initialize device: %s", spa_strerror (ret));
+    return NULL;
+  }
 
   return dev;
 }
 
 static void
-device_free (struct device *dev)
+object_free (struct object *obj)
 {
-  g_debug ("WpMonitor:%p:%s free device %u", dev->self,
-      dev->self->factory_name, dev->id);
+  gboolean is_node = (obj->type == SPA_TYPE_INTERFACE_Node);
 
-  spa_hook_remove (&dev->listener);
-  g_list_free_full (dev->nodes, (GDestroyNotify) node_free);
-  g_clear_object (&dev->proxy);
-  g_clear_pointer (&dev->spa_dev, wp_spa_object_unref);
-  g_clear_pointer (&dev->properties, wp_properties_unref);
+  g_debug ("WpMonitor:%p:%s free %s %u", obj->self,
+      obj->self->factory_name, is_node ? "node" : "device", obj->id);
 
-  g_slice_free (struct device, dev);
+  if (!is_node)
+    spa_hook_remove (&obj->listener);
+
+  g_list_free_full (obj->children, (GDestroyNotify) object_free);
+  g_clear_object (&obj->proxy);
+
+  if (is_node)
+    g_clear_pointer (&obj->node, pw_node_destroy);
+  else
+    g_clear_pointer (&obj->spa_dev, wp_spa_object_unref);
+
+  g_clear_pointer (&obj->properties, wp_properties_unref);
+
+  g_slice_free (struct object, obj);
 }
 
-/* monitor */
-
-static int
-monitor_object_info (gpointer data, uint32_t id,
-    const struct spa_monitor_object_info *info)
-{
-  WpMonitor * self = WP_MONITOR (data);
-  struct device *dev = NULL;
-  GList *link = NULL;
-
-  /* Find the device */
-  dev = find_object (self->devices, id, &link);
-
-  if (info && !dev) {
-    if (!(dev = device_new (self, id, info)))
-      return -ENOMEM;
-    self->devices = g_list_append (self->devices, dev);
-  } else if (!info && dev) {
-    device_free (dev);
-    self->devices = g_list_delete_link (self->devices, link);
-  } else if (!info && !dev) {
-    return -ENODEV;
-  }
-
-  return 0;
-}
-
-static const struct spa_monitor_callbacks monitor_callbacks = {
-  SPA_VERSION_MONITOR_CALLBACKS,
-  .object_info = monitor_object_info,
-};
+/* WpMonitor */
 
 static void
 wp_monitor_init (WpMonitor * self)
@@ -411,6 +404,7 @@ wp_monitor_finalize (GObject * object)
 
   wp_monitor_stop (self);
 
+  g_clear_pointer (&self->properties, wp_properties_unref);
   g_weak_ref_clear (&self->core);
   g_free (self->factory_name);
 
@@ -429,6 +423,9 @@ wp_monitor_set_property (GObject * object, guint property_id,
     break;
   case PROP_FACTORY_NAME:
     self->factory_name = g_value_dup_string (value);
+    break;
+  case PROP_PROPERTIES:
+    self->properties = g_value_dup_boxed (value);
     break;
   case PROP_FLAGS:
     self->flags = (WpMonitorFlags) g_value_get_flags (value);
@@ -451,6 +448,9 @@ wp_monitor_get_property (GObject * object, guint property_id,
     break;
   case PROP_FACTORY_NAME:
     g_value_set_string (value, self->factory_name);
+    break;
+  case PROP_PROPERTIES:
+    g_value_set_boxed (value, self->properties);
     break;
   case PROP_FLAGS:
     g_value_set_flags (value, (guint) self->flags);
@@ -477,7 +477,11 @@ wp_monitor_class_init (WpMonitorClass * klass)
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (object_class, PROP_FACTORY_NAME,
       g_param_spec_string ("factory-name", "factory-name",
-          "The factory name of the monitor", NULL,
+          "The factory name of the spa device", NULL,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (object_class, PROP_PROPERTIES,
+      g_param_spec_boxed ("properties", "properties",
+          "Properties for the spa device", WP_TYPE_PROPERTIES,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (object_class, PROP_FLAGS,
       g_param_spec_flags ("flags", "flags",
@@ -513,12 +517,15 @@ wp_monitor_class_init (WpMonitorClass * klass)
 /**
  * wp_monitor_new:
  * @core: the wireplumber core
- * @factory_name: the factory name of the monitor
+ * @factory_name: the factory name of the spa device
+ * @props: properties to pass to the spa device
+ * @flags: additional feature flags
  *
  * Returns: (transfer full): the newly created monitor
  */
 WpMonitor *
-wp_monitor_new (WpCore * core, const gchar * factory_name, WpMonitorFlags flags)
+wp_monitor_new (WpCore * core, const gchar * factory_name, WpProperties *props,
+    WpMonitorFlags flags)
 {
   g_return_val_if_fail (WP_IS_CORE (core), NULL);
   g_return_val_if_fail (factory_name != NULL && *factory_name != '\0', NULL);
@@ -526,6 +533,7 @@ wp_monitor_new (WpCore * core, const gchar * factory_name, WpMonitorFlags flags)
   return g_object_new (WP_TYPE_MONITOR,
       "core", core,
       "factory-name", factory_name,
+      "properties", props,
       "flags", flags,
       NULL);
 }
@@ -541,7 +549,7 @@ gboolean
 wp_monitor_start (WpMonitor *self, GError **error)
 {
   g_autoptr (WpCore) core = NULL;
-  gint ret = 0;
+  g_autoptr (GError) err = NULL;
 
   g_return_val_if_fail (WP_IS_MONITOR (self), FALSE);
 
@@ -549,22 +557,10 @@ wp_monitor_start (WpMonitor *self, GError **error)
 
   g_debug ("WpMonitor:%p:%s starting monitor", self, self->factory_name);
 
-  if (!(self->spa_mon = load_spa_object (core, self->factory_name,
-          SPA_TYPE_INTERFACE_Monitor, NULL, error))) {
-    return FALSE;
-  }
-
-  /* Actual monitor implementations start their internal processing
-     when the callbacks are set and if they fail, they return an error
-     code on this call */
-  ret = spa_monitor_set_callbacks (
-            (struct spa_monitor *) self->spa_mon->interface,
-            &monitor_callbacks, self);
-  if (ret < 0) {
-    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-        "Failed to start monitor '%s': %s", self->factory_name,
-        g_strerror (-ret));
-    g_clear_pointer (&self->spa_mon, wp_spa_object_unref);
+  self->device = device_new (self, -1, self->factory_name, self->properties,
+      &err);
+  if (!self->device) {
+    g_propagate_error (error, g_steal_pointer (&err));
     return FALSE;
   }
 
@@ -577,8 +573,5 @@ wp_monitor_stop (WpMonitor *self)
   g_return_if_fail (WP_IS_MONITOR (self));
 
   g_debug ("WpMonitor:%p:%s stopping monitor", self, self->factory_name);
-
-  g_list_free_full (self->devices, (GDestroyNotify) device_free);
-  self->devices = NULL;
-  g_clear_pointer (&self->spa_mon, wp_spa_object_unref);
+  g_clear_pointer (&self->device, object_free);
 }

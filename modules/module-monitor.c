@@ -9,7 +9,6 @@
 
 #include <wp/wp.h>
 
-#include <spa/monitor/monitor.h>
 #include <pipewire/pipewire.h>
 #include <spa/utils/keys.h>
 
@@ -235,7 +234,7 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
     g_variant_iter_free (iter);
   }
 
-  monitor = wp_monitor_new (core, factory, flags);
+  monitor = wp_monitor_new (core, factory, NULL, flags);
 
   g_signal_connect (monitor, "setup-device-props",
       (GCallback) setup_device_props, module);

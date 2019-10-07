@@ -13,7 +13,6 @@
 
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
-#include <spa/monitor/monitor.h>
 #include <pipewire/pipewire.h>
 #include <wp/wp.h>
 
