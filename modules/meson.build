@@ -15,17 +15,6 @@ shared_library(
 )
 
 shared_library(
-  'wireplumber-module-mixer',
-  [
-    'module-mixer.c'
-  ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-mixer"'],
-  install : true,
-  install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep],
-)
-
-shared_library(
   'wireplumber-module-monitor',
   [
     'module-monitor.c',
