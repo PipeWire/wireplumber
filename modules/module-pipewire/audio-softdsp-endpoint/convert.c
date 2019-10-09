@@ -13,7 +13,7 @@
 #include <spa/param/props.h>
 
 #include "convert.h"
-#include "../multiport-link-algorithm.h"
+#include "../algorithms.h"
 
 enum {
   PROP_0,

@@ -29,7 +29,7 @@ shared_library(
   'wireplumber-module-pipewire',
   [
     'module-pipewire.c',
-    'module-pipewire/multiport-link-algorithm.c',
+    'module-pipewire/algorithms.c',
     'module-pipewire/simple-endpoint-link.c',
     'module-pipewire/audio-softdsp-endpoint.c',
     'module-pipewire/audio-softdsp-endpoint/stream.c',

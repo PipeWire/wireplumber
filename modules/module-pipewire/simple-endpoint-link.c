@@ -23,7 +23,7 @@
 #include <wp/wp.h>
 #include <pipewire/pipewire.h>
 
-#include "multiport-link-algorithm.h"
+#include "algorithms.h"
 
 struct _WpPipewireSimpleEndpointLink
 {

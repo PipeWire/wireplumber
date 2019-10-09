@@ -12,6 +12,7 @@
 #include <spa/param/props.h>
 
 #include "adapter.h"
+#include "../algorithms.h"
 
 enum {
   PROP_0,
@@ -48,7 +49,6 @@ on_proxy_enum_format_done (WpProxyNode *proxy, GAsyncResult *res,
   uint8_t buf[1024];
   struct spa_pod_builder pod_builder = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
   struct spa_pod *param;
-  uint32_t media_type, media_subtype;
 
   formats = wp_proxy_node_enum_params_collect_finish (proxy, res, &error);
   if (error) {
@@ -58,23 +58,35 @@ on_proxy_enum_format_done (WpProxyNode *proxy, GAsyncResult *res,
     return;
   }
 
-  if (formats->len == 0 ||
-      !(param = g_ptr_array_index (formats, 0)) ||
-      spa_format_parse (param, &media_type, &media_subtype) < 0 ||
-      media_type != SPA_MEDIA_TYPE_audio ||
-      media_subtype != SPA_MEDIA_SUBTYPE_raw) {
-    g_message("WpAudioAdapter:%p node does not support audio/raw format", self);
-    wp_audio_stream_init_task_finish (WP_AUDIO_STREAM (self),
-        g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-            "node does not support audio/raw format"));
-    return;
+  if (!choose_sensible_raw_audio_format (formats, &self->format)) {
+    uint32_t media_type, media_subtype;
+
+    g_warning ("WpAudioAdapter:%p failed to choose a sensible audio format",
+      self);
+
+    /* fall back to spa_pod_fixate */
+    if (formats->len == 0 ||
+        !(param = g_ptr_array_index (formats, 0)) ||
+        spa_format_parse (param, &media_type, &media_subtype) < 0 ||
+        media_type != SPA_MEDIA_TYPE_audio ||
+        media_subtype != SPA_MEDIA_SUBTYPE_raw) {
+      g_message("WpAudioAdapter:%p node does not support audio/raw format", self);
+      wp_audio_stream_init_task_finish (WP_AUDIO_STREAM (self),
+          g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+              "node does not support audio/raw format"));
+      return;
+    }
+
+    spa_pod_fixate (param);
+    spa_format_audio_raw_parse (param, &self->format);
   }
 
-  /* Parse the raw audio format */
-  spa_pod_fixate (param);
-  spa_format_audio_raw_parse (param, &self->format);
+  /* set the chosen device/client format on the node */
+  param = spa_format_audio_raw_build (&pod_builder, SPA_PARAM_Format,
+      &self->format);
+  wp_proxy_node_set_param (proxy, SPA_PARAM_Format, 0, param);
 
-  /* Keep the chanels but use the default format */
+  /* now choose the DSP format: keep the chanels but use F32 plannar @ 48K */
   self->format.format = SPA_AUDIO_FORMAT_F32P;
   self->format.rate = 48000;
 

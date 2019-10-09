@@ -1,1 +1,2 @@
+subdir('modules')
 subdir('wp')
