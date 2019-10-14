@@ -251,12 +251,12 @@ on_endpoint_link_created(GObject *initable, GAsyncResult *res, gpointer d)
 
   /* Get the link */
   link = wp_endpoint_link_new_finish(initable, res, &error);
-  g_return_if_fail (link);
 
   /* Log linking info */
   if (error) {
     g_warning ("Could not link endpoints: %s\n", error->message);
   } else {
+    g_return_if_fail (link);
     src_ep = wp_endpoint_link_get_source_endpoint (link);
     sink_ep = wp_endpoint_link_get_sink_endpoint (link);
     g_info ("Sucessfully linked '%s' to '%s'\n", wp_endpoint_get_name (src_ep),
