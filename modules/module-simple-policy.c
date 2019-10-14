@@ -277,7 +277,7 @@ handle_client (WpPolicy *policy, WpEndpoint *ep)
   g_autofree gchar *role = NULL;
 
   /* Detect if the client is doing capture or playback */
-  is_capture = g_str_has_prefix (media_class, "Stream/Input");
+  is_capture = (strstr (media_class, "Stream/Input") != NULL);
   is_persistent = g_str_has_prefix (media_class, "Persistent/");
 
   /* Locate the target endpoint */
