@@ -149,7 +149,7 @@ setup_node_props (WpMonitor *self, WpProperties *dev_props,
     description = name;
 
   /* set ALSA specific properties */
-  if (!g_strcmp0 (api, "alsa")) {
+  if (!g_strcmp0 (api, "alsa:pcm")) {
     const gchar *str;
 
     /* compose the node name */
