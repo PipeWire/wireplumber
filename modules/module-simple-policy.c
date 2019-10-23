@@ -374,6 +374,17 @@ compare_client_priority (gconstpointer a, gconstpointer b, gpointer user_data)
     ret = b_priority - a_priority;
   }
 
+  /* when role priority is equal, the newest client wins */
+  if (ret == 0) {
+    guint64 a_time = wp_endpoint_get_creation_time (ae);
+    guint64 b_time = wp_endpoint_get_creation_time (be);
+
+    /* since a_time and b_time are expressed in system monotonic time,
+     * there is absolutely no chance that they will be equal */
+    ret = (b_time > a_time) ? 1 : -1;
+  }
+
+
   return ret;
 }
 
