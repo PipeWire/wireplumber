@@ -94,6 +94,7 @@ struct _WpEndpointPrivate
   gchar *name;
   gchar media_class[40];
   guint direction;
+  guint64 creation_time;
   GPtrArray *streams;
   GPtrArray *controls;
   GPtrArray *links;
@@ -106,6 +107,7 @@ enum {
   PROP_NAME,
   PROP_MEDIA_CLASS,
   PROP_DIRECTION,
+  PROP_CREATION_TIME,
 };
 
 enum {
@@ -154,6 +156,7 @@ wp_endpoint_init (WpEndpoint * self)
 
   g_weak_ref_init (&priv->core, NULL);
 
+  priv->creation_time = (guint64) g_get_monotonic_time ();
   priv->streams =
       g_ptr_array_new_with_free_func ((GDestroyNotify) g_variant_unref);
   priv->controls =
@@ -216,6 +219,9 @@ wp_endpoint_set_property (GObject * object, guint property_id,
   case PROP_DIRECTION:
     priv->direction = g_value_get_uint(value);
     break;
+  case PROP_CREATION_TIME:
+    priv->creation_time = g_value_get_uint64(value);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
@@ -241,6 +247,9 @@ wp_endpoint_get_property (GObject * object, guint property_id, GValue * value,
     break;
   case PROP_DIRECTION:
     g_value_set_uint (value, priv->direction);
+    break;
+  case PROP_CREATION_TIME:
+    g_value_set_uint64 (value, priv->creation_time);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -298,6 +307,16 @@ wp_endpoint_class_init (WpEndpointClass * klass)
       g_param_spec_uint ("direction", "direction",
           "The direction of the endpoint", 0, 1, 0,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
+  /**
+   * WpEndpoint::creation-time:
+   * The creation time of the endpoint in monolitic time
+   */
+  g_object_class_install_property (object_class, PROP_CREATION_TIME,
+      g_param_spec_uint64 ("creation-time", "creation-time",
+          "The time that this endpoint was created, in monotonic time",
+          0, G_MAXUINT64, 0, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+
 }
 
 /**
@@ -491,6 +510,17 @@ wp_endpoint_get_direction (WpEndpoint * self)
 
   priv = wp_endpoint_get_instance_private (self);
   return priv->direction;
+}
+
+guint64
+wp_endpoint_get_creation_time (WpEndpoint * self)
+{
+  WpEndpointPrivate *priv;
+
+  g_return_val_if_fail (WP_IS_ENDPOINT (self), -1);
+
+  priv = wp_endpoint_get_instance_private (self);
+  return priv->creation_time;
 }
 
 /**

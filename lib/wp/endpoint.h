@@ -49,6 +49,7 @@ WpCore *wp_endpoint_get_core (WpEndpoint * self);
 const gchar * wp_endpoint_get_name (WpEndpoint * self);
 const gchar * wp_endpoint_get_media_class (WpEndpoint * self);
 guint wp_endpoint_get_direction (WpEndpoint * self);
+guint64 wp_endpoint_get_creation_time (WpEndpoint * self);
 
 void wp_endpoint_register_stream (WpEndpoint * self, GVariant * stream);
 GVariant * wp_endpoint_get_stream (WpEndpoint * self, guint32 stream_id);
