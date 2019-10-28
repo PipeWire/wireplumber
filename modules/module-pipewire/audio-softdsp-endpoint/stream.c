@@ -31,6 +31,7 @@ struct _WpAudioStreamPrivate
 
   /* Stream Port Proxies */
   GPtrArray *port_proxies;
+  GVariantBuilder port_vb;
 
   /* Stream Controls */
   gfloat volume;
@@ -478,20 +479,22 @@ wp_audio_stream_get_info (WpAudioStream * self)
 static void
 port_proxies_foreach_func(gpointer data, gpointer user_data)
 {
+  WpAudioStream *self = user_data;
+  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
   WpProxyPort *port = data;
-  GVariantBuilder *b = user_data;
-  const struct pw_port_info *info;
+  const struct pw_node_info *node_info;
+  const struct pw_port_info *port_info;
   g_autoptr (WpProperties) props = NULL;
-  const gchar *node_id, *channel;
-  uint32_t node_id_n, channel_n = SPA_AUDIO_CHANNEL_UNKNOWN;
+  const gchar *channel;
+  uint32_t channel_n = SPA_AUDIO_CHANNEL_UNKNOWN;
 
-  info = wp_proxy_port_get_info (port);
+  node_info = wp_proxy_node_get_info (priv->proxy);
+  g_return_if_fail (node_info);
+
+  port_info = wp_proxy_port_get_info (port);
+  g_return_if_fail (port_info);
 
   props = wp_proxy_port_get_properties (port);
-  node_id = wp_properties_get (props, PW_KEY_NODE_ID);
-  g_return_if_fail (node_id);
-  node_id_n = atoi(node_id);
-
   channel = wp_properties_get (props, PW_KEY_AUDIO_CHANNEL);
   if (channel) {
     const struct spa_type_info *t = spa_type_audio_channel;
@@ -510,8 +513,8 @@ port_proxies_foreach_func(gpointer data, gpointer user_data)
       uint32 channel;  // enum spa_audio_channel
       uint8 direction; // enum spa_direction
    */
-  g_variant_builder_add (b, "(uuuy)", node_id_n, info->id, channel_n,
-      (guint8) info->direction);
+  g_variant_builder_add (&priv->port_vb, "(uuuy)", node_info->id,
+      port_info->id, channel_n, (guint8) port_info->direction);
 }
 
 gboolean
@@ -519,12 +522,11 @@ wp_audio_stream_prepare_link (WpAudioStream * self, GVariant ** properties,
     GError ** error)
 {
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
-  GVariantBuilder b;
 
   /* Create a variant array with all the ports */
-  g_variant_builder_init (&b, G_VARIANT_TYPE ("a(uuuy)"));
-  g_ptr_array_foreach(priv->port_proxies, port_proxies_foreach_func, &b);
-  *properties = g_variant_builder_end (&b);
+  g_variant_builder_init (&priv->port_vb, G_VARIANT_TYPE ("a(uuuy)"));
+  g_ptr_array_foreach(priv->port_proxies, port_proxies_foreach_func, self);
+  *properties = g_variant_builder_end (&priv->port_vb);
 
   return TRUE;
 }
