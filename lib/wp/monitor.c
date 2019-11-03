@@ -7,6 +7,9 @@
  */
 
 #include <spa/monitor/device.h>
+#include <spa/pod/builder.h>
+#include <spa/pod/iter.h>
+#include <spa/utils/result.h>
 #include <pipewire/pipewire.h>
 
 #include "monitor.h"

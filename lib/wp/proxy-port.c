@@ -10,6 +10,8 @@
 #include "error.h"
 
 #include <pipewire/pipewire.h>
+#include <spa/pod/builder.h>
+#include <spa/pod/iter.h>
 
 struct _WpProxyPort
 {

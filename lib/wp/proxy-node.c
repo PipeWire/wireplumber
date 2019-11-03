@@ -10,6 +10,7 @@
 #include "error.h"
 
 #include <pipewire/pipewire.h>
+#include <spa/pod/builder.h>
 
 struct _WpProxyNode
 {

@@ -8,6 +8,7 @@
 
 #include <wp/wp.h>
 #include <pipewire/pipewire.h>
+#include <spa/pod/iter.h>
 
 #include "test-server.h"
 

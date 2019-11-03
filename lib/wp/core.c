@@ -11,6 +11,7 @@
 #include "wpenums.h"
 
 #include <pipewire/pipewire.h>
+#include <spa/utils/result.h>
 
 /*
  * Integration between the PipeWire main loop and GMainLoop

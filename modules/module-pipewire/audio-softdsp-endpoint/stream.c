@@ -9,6 +9,8 @@
 #include <spa/param/props.h>
 #include <pipewire/pipewire.h>
 #include <spa/debug/types.h>
+#include <spa/pod/builder.h>
+#include <spa/pod/iter.h>
 #include <spa/param/audio/type-info.h>
 
 #include "stream.h"
