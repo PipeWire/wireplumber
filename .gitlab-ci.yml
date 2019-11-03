@@ -1,0 +1,23 @@
+image: fedora:rawhide
+
+variables:
+  DEPENDENCIES: gtk-doc meson gcc gcc-c++ glibc-devel make dbus-devel
+                gstreamer1-plugins-base-devel sbc-devel bluez-libs-devel
+                alsa-lib-devel pulseaudio-libs-devel systemd-devel git
+                gobject-introspection-devel
+
+build:
+  before_script:
+    - dnf update -y --nogpgcheck && dnf install -y --nogpgcheck $DEPENDENCIES
+    - git clone https://gitlab.freedesktop.org/pipewire/pipewire.git
+  script:
+    # Build pipewire
+    - cd pipewire
+    - meson . _build --prefix=/usr -Dpipewire-jack=false -Djack=false -Dvulkan=false
+    - ninja -C _build
+    - ninja -C _build install
+    - cd ..
+    # Build wireplumber
+    - meson . _build --prefix=/usr
+    - ninja -C _build
+    - ninja -C _build install
