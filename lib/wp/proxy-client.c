@@ -7,6 +7,7 @@
  */
 
 #include "proxy-client.h"
+#include "private.h"
 
 #include <pipewire/pipewire.h>
 

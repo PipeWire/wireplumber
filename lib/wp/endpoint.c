@@ -87,6 +87,7 @@
 #include "endpoint.h"
 #include "error.h"
 #include "factory.h"
+#include "private.h"
 
 typedef struct _WpEndpointPrivate WpEndpointPrivate;
 struct _WpEndpointPrivate

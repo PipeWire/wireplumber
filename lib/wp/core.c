@@ -9,6 +9,7 @@
 #include "core.h"
 #include "proxy.h"
 #include "wpenums.h"
+#include "private.h"
 
 #include <pipewire/pipewire.h>
 #include <spa/utils/result.h>

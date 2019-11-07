@@ -7,6 +7,7 @@
  */
 
 #include "policy.h"
+#include "private.h"
 
 /* WpPolicyManager */
 

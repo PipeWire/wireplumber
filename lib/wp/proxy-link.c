@@ -7,6 +7,7 @@
  */
 
 #include "proxy-link.h"
+#include "private.h"
 
 #include <pipewire/pipewire.h>
 

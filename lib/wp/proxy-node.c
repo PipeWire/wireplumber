@@ -8,6 +8,7 @@
 
 #include "proxy-node.h"
 #include "error.h"
+#include "private.h"
 
 #include <pipewire/pipewire.h>
 #include <spa/pod/builder.h>

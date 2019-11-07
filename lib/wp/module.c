@@ -8,6 +8,7 @@
 
 #include "module.h"
 #include "error.h"
+#include "private.h"
 #include <gmodule.h>
 
 #define WP_MODULE_INIT_SYMBOL "wireplumber__module_init"

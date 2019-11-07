@@ -73,14 +73,6 @@ void wp_proxy_sync (WpProxy * self, GCancellable * cancellable,
 gboolean wp_proxy_sync_finish (WpProxy * self, GAsyncResult * res,
     GError ** error);
 
-/* for subclasses only */
-
-void wp_proxy_set_feature_ready (WpProxy * self, WpProxyFeatures feature);
-void wp_proxy_augment_error (WpProxy * self, GError * error);
-
-void wp_proxy_register_async_task (WpProxy * self, int seq, GTask * task);
-GTask * wp_proxy_find_async_task (WpProxy * self, int seq, gboolean steal);
-
 G_END_DECLS
 
 #endif

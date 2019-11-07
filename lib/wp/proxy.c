@@ -11,6 +11,7 @@
 #include "core.h"
 #include "error.h"
 #include "wpenums.h"
+#include "private.h"
 
 #include "proxy-client.h"
 #include "proxy-link.h"

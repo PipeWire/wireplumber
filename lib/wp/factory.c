@@ -7,6 +7,7 @@
  */
 
 #include "factory.h"
+#include "private.h"
 
 struct _WpFactory
 {
