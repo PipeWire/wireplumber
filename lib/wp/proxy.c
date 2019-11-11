@@ -41,8 +41,7 @@ struct _WpProxyPrivate
 
   /* augment state */
   WpProxyFeatures ft_ready;
-  WpProxyFeatures ft_wanted;
-  GTask *task;
+  GPtrArray *augment_tasks; // element-type: GTask*
 
   GHashTable *async_tasks; // <int seq, GTask*>
 };
@@ -145,11 +144,11 @@ proxy_event_destroy (void *data)
 
   /* Return error if the pw_proxy destruction happened while the async
    * init or augment of this proxy object was in progress */
-  if (priv->task) {
-    g_task_return_new_error (priv->task, WP_DOMAIN_LIBRARY,
+  if (priv->augment_tasks->len > 0) {
+    GError *err = g_error_new (WP_DOMAIN_LIBRARY,
         WP_LIBRARY_ERROR_OPERATION_FAILED,
         "pipewire proxy destroyed before finishing");
-    g_clear_object (&priv->task);
+    wp_proxy_augment_error (self, err);
   }
 
   g_hash_table_iter_init (&iter, priv->async_tasks);
@@ -199,6 +198,7 @@ wp_proxy_init (WpProxy * self)
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
 
   g_weak_ref_init (&priv->core, NULL);
+  priv->augment_tasks = g_ptr_array_new_with_free_func (g_object_unref);
   priv->async_tasks = g_hash_table_new_full (g_direct_hash, g_direct_equal,
       NULL, g_object_unref);
 }
@@ -234,7 +234,7 @@ wp_proxy_finalize (GObject * object)
   g_debug ("%s:%p destroyed (global %u; pw_proxy %p)",
       G_OBJECT_TYPE_NAME (object), object, priv->global_id, priv->pw_proxy);
 
-  g_clear_object (&priv->task);
+  g_clear_pointer (&priv->augment_tasks, g_ptr_array_unref);
   g_clear_pointer (&priv->global_props, wp_properties_unref);
   g_weak_ref_clear (&priv->core);
   g_clear_pointer (&priv->async_tasks, g_hash_table_unref);
@@ -464,29 +464,26 @@ wp_proxy_augment (WpProxy * self,
 {
   WpProxyPrivate *priv;
   WpProxyFeatures missing = 0;
+  g_autoptr (GTask) task = NULL;
 
   g_return_if_fail (WP_IS_PROXY (self));
   g_return_if_fail (WP_PROXY_GET_CLASS (self)->augment);
 
   priv = wp_proxy_get_instance_private (self);
 
-  g_return_if_fail (!priv->task);
-  priv->task = g_task_new (self, cancellable, callback, user_data);
-
-  /* we don't simply assign here, we keep all the previous wanted features;
-   * it is not allowed to remove features */
-  priv->ft_wanted |= ft_wanted;
+  task = g_task_new (self, cancellable, callback, user_data);
 
   /* find which features are wanted but missing from the "ready" set */
-  missing = (priv->ft_ready ^ priv->ft_wanted) & priv->ft_wanted;
+  missing = (priv->ft_ready ^ ft_wanted) & ft_wanted;
 
   /* if the features are not ready, call augment(),
    * otherwise signal the callback directly */
   if (missing != 0) {
+    g_task_set_task_data (task, GUINT_TO_POINTER (missing), NULL);
+    g_ptr_array_add (priv->augment_tasks, g_steal_pointer (&task));
     WP_PROXY_GET_CLASS (self)->augment (self, missing);
   } else {
-    g_task_return_boolean (priv->task, TRUE);
-    g_clear_object (&priv->task);
+    g_task_return_boolean (task, TRUE);
   }
 }
 
@@ -504,6 +501,7 @@ void
 wp_proxy_set_feature_ready (WpProxy * self, WpProxyFeatures feature)
 {
   WpProxyPrivate *priv;
+  guint i;
 
   g_return_if_fail (WP_IS_PROXY (self));
 
@@ -518,10 +516,15 @@ wp_proxy_set_feature_ready (WpProxy * self, WpProxyFeatures feature)
   g_object_notify (G_OBJECT (self), "features");
 
   /* return from the task if all the wanted features are now ready */
-  if (priv->task &&
-      (priv->ft_ready & priv->ft_wanted) == priv->ft_wanted) {
-    g_task_return_boolean (priv->task, TRUE);
-    g_clear_object (&priv->task);
+  for (i = priv->augment_tasks->len; i > 0; i--) {
+    GTask *task = g_ptr_array_index (priv->augment_tasks, i - 1);
+    WpProxyFeatures wanted = GPOINTER_TO_UINT (g_task_get_task_data (task));
+
+    if ((priv->ft_ready & wanted) == wanted) {
+      g_task_return_boolean (task, TRUE);
+      /* this is safe as long as we are traversing the array backwards */
+      g_ptr_array_remove_index_fast (priv->augment_tasks, i - 1);
+    }
   }
 }
 
@@ -536,17 +539,19 @@ void
 wp_proxy_augment_error (WpProxy * self, GError * error)
 {
   WpProxyPrivate *priv;
+  guint i;
 
   g_return_if_fail (WP_IS_PROXY (self));
 
   priv = wp_proxy_get_instance_private (self);
 
-  if (priv->task)
-    g_task_return_error (priv->task, error);
-  else
-    g_error_free (error);
+  for (i = 0; i < priv->augment_tasks->len; i++) {
+    GTask *task = g_ptr_array_index (priv->augment_tasks, i);
+    g_task_return_error (task, g_error_copy (error));
+  }
 
-  g_clear_object (&priv->task);
+  g_ptr_array_set_size (priv->augment_tasks, 0);
+  g_error_free (error);
 }
 
 WpProxyFeatures
