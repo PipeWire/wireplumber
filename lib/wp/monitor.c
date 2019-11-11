@@ -15,6 +15,7 @@
 #include "monitor.h"
 #include "error.h"
 #include "wpenums.h"
+#include "private.h"
 
 typedef struct {
   struct spa_handle *handle;
