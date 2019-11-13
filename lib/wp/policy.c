@@ -15,6 +15,7 @@ struct _WpPolicyManager
 {
   GObject parent;
   GList *policies;
+  WpObjectManager *endpoints_om;
 };
 
 enum {
@@ -29,6 +30,7 @@ G_DEFINE_TYPE (WpPolicyManager, wp_policy_manager, G_TYPE_OBJECT)
 static void
 wp_policy_manager_init (WpPolicyManager *self)
 {
+  self->endpoints_om = wp_object_manager_new ();
 }
 
 static void
@@ -38,6 +40,7 @@ wp_policy_manager_finalize (GObject *object)
 
   g_debug ("WpPolicyManager destroyed");
 
+  g_clear_object (&self->endpoints_om);
   g_list_free_full (self->policies, g_object_unref);
 
   G_OBJECT_CLASS (wp_policy_manager_parent_class)->finalize (object);
@@ -56,7 +59,7 @@ wp_policy_manager_class_init (WpPolicyManagerClass *klass)
 }
 
 static void
-policy_mgr_endpoint_added (WpCore *core, GQuark key, WpEndpoint *ep,
+policy_mgr_endpoint_added (WpObjectManager *om, WpEndpoint *ep,
     WpPolicyManager *self)
 {
   GList *l;
@@ -75,7 +78,7 @@ policy_mgr_endpoint_added (WpCore *core, GQuark key, WpEndpoint *ep,
 }
 
 static void
-policy_mgr_endpoint_removed (WpCore *core, GQuark key, WpEndpoint *ep,
+policy_mgr_endpoint_removed (WpObjectManager *om, WpEndpoint *ep,
     WpPolicyManager *self)
 {
   GList *l;
@@ -103,20 +106,85 @@ wp_policy_manager_get_instance (WpCore *core)
 
   g_return_val_if_fail (WP_IS_CORE (core), NULL);
 
-  mgr = wp_core_get_global (core, WP_GLOBAL_POLICY_MANAGER);
+  mgr = wp_core_find_object (core, (GEqualFunc) WP_IS_POLICY_MANAGER,
+      NULL);
   if (G_UNLIKELY (!mgr)) {
     mgr = g_object_new (WP_TYPE_POLICY_MANAGER, NULL);
 
-    g_signal_connect_object (core, "global-added::endpoint",
+    /* install the object manager to listen to added/removed endpoints */
+    wp_object_manager_add_object_interest (mgr->endpoints_om,
+        WP_TYPE_ENDPOINT, NULL);
+    g_signal_connect_object (mgr->endpoints_om, "object-added",
         (GCallback) policy_mgr_endpoint_added, mgr, 0);
-    g_signal_connect_object (core, "global-removed::endpoint",
+    g_signal_connect_object (mgr->endpoints_om, "object-removed",
         (GCallback) policy_mgr_endpoint_removed, mgr, 0);
+    wp_core_install_object_manager (core, mgr->endpoints_om);
 
-    wp_core_register_global (core, WP_GLOBAL_POLICY_MANAGER, mgr,
-        g_object_unref);
+    wp_core_register_object (core, g_object_ref (mgr));
   }
 
-  return g_object_ref (mgr);
+  return mgr;
+}
+
+static inline gboolean
+media_class_matches (const gchar * media_class, const gchar * lookup)
+{
+  const gchar *c1 = media_class, *c2 = lookup;
+
+  /* empty lookup matches all classes */
+  if (!lookup)
+    return TRUE;
+
+  /* compare until we reach the end of the lookup string */
+  for (; *c2 != '\0'; c1++, c2++) {
+    if (*c1 != *c2)
+      return FALSE;
+  }
+
+  /* the lookup may not end in a slash, however it must match up
+   * to the end of a submedia_class. i.e.:
+   * match: media_class: Audio/Source/Virtual
+   *        lookup: Audio/Source
+   *
+   * NO match: media_class: Audio/Source/Virtual
+   *           lookup: Audio/Sou
+   *
+   * if *c1 is not /, also check the previous char, because the lookup
+   * may actually end in a slash:
+   *
+   * match: media_class: Audio/Source/Virtual
+   *        lookup: Audio/Source/
+   */
+  if (!(*c1 == '/' || *c1 == '\0' || *(c1 - 1) == '/'))
+    return FALSE;
+
+  return TRUE;
+}
+
+/**
+ * wp_policy_manager_list_endpoints:
+ * @self: the policy manager
+ * @media_class: the media class lookup string
+ *
+ * Returns: (transfer full) (element-type WpEndpoint*): an array with all the
+ *   endpoints matching the media class lookup string
+ */
+GPtrArray *
+wp_policy_manager_list_endpoints (WpPolicyManager * self,
+    const gchar * media_class)
+{
+  GPtrArray * ret;
+  guint i;
+
+  g_return_val_if_fail (WP_IS_POLICY_MANAGER (self), NULL);
+
+  ret = wp_object_manager_get_objects (self->endpoints_om, 0);
+  for (i = ret->len; i > 0; i--) {
+    WpEndpoint *ep = g_ptr_array_index (ret, i-1);
+    if (!media_class_matches (wp_endpoint_get_media_class (ep), media_class))
+      g_ptr_array_remove_index_fast (ret, i-1);
+  }
+  return ret;
 }
 
 /* WpPolicy */
@@ -309,7 +377,7 @@ wp_policy_register (WpPolicy *self, WpCore *core)
 void
 wp_policy_unregister (WpPolicy *self)
 {
-  WpPolicyManager *mgr;
+  g_autoptr (WpPolicyManager) mgr = NULL;
   WpPolicyPrivate *priv;
 
   g_return_if_fail (WP_IS_POLICY (self));
@@ -317,7 +385,8 @@ wp_policy_unregister (WpPolicy *self)
   priv = wp_policy_get_instance_private (self);
 
   if (priv->core) {
-    mgr = wp_core_get_global (priv->core, WP_GLOBAL_POLICY_MANAGER);
+    mgr = wp_core_find_object (priv->core, (GEqualFunc) WP_IS_POLICY_MANAGER,
+        NULL);
     if (G_UNLIKELY (!mgr)) {
       g_critical ("WpPolicy:%p seems registered, but the policy manager "
           "is absent", self);
@@ -333,14 +402,15 @@ wp_policy_unregister (WpPolicy *self)
 void
 wp_policy_notify_changed (WpPolicy *self)
 {
-  WpPolicyManager *mgr;
+  g_autoptr (WpPolicyManager) mgr = NULL;
   WpPolicyPrivate *priv;
 
   g_return_if_fail (WP_IS_POLICY (self));
 
   priv = wp_policy_get_instance_private (self);
   if (priv->core) {
-    mgr = wp_core_get_global (priv->core, WP_GLOBAL_POLICY_MANAGER);
+    mgr = wp_core_find_object (priv->core, (GEqualFunc) WP_IS_POLICY_MANAGER,
+        NULL);
     if (G_UNLIKELY (!mgr)) {
       g_critical ("WpPolicy:%p seems registered, but the policy manager "
           "is absent", self);
@@ -366,7 +436,7 @@ WpEndpoint *
 wp_policy_find_endpoint (WpCore *core, GVariant *props,
     guint32 *stream_id)
 {
-  WpPolicyManager *mgr;
+  g_autoptr (WpPolicyManager) mgr = NULL;
   GList *l;
   WpPolicy *p;
   WpEndpoint * ret;
@@ -375,7 +445,8 @@ wp_policy_find_endpoint (WpCore *core, GVariant *props,
   g_return_val_if_fail (g_variant_is_of_type (props, G_VARIANT_TYPE_VARDICT), NULL);
   g_return_val_if_fail (stream_id != NULL, NULL);
 
-  mgr = wp_core_get_global (core, WP_GLOBAL_POLICY_MANAGER);
+  mgr = wp_core_find_object (core,
+      (GEqualFunc) WP_IS_POLICY_MANAGER, NULL);
   if (mgr) {
     for (l = g_list_first (mgr->policies); l; l = g_list_next (l)) {
       p = WP_POLICY (l->data);

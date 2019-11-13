@@ -43,7 +43,6 @@ WpEndpoint * wp_endpoint_new_finish (GObject *initable, GAsyncResult *res,
   GError **error);
 void wp_endpoint_register (WpEndpoint * self);
 void wp_endpoint_unregister (WpEndpoint * self);
-GPtrArray * wp_endpoint_find (WpCore * core, const gchar * media_class_lookup);
 
 WpCore *wp_endpoint_get_core (WpEndpoint * self);
 const gchar * wp_endpoint_get_name (WpEndpoint * self);

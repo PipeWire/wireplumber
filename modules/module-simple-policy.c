@@ -128,6 +128,7 @@ static gboolean
 select_new_endpoint (WpSimplePolicy *self)
 {
   g_autoptr (WpCore) core = NULL;
+  g_autoptr (WpPolicyManager) pmgr = NULL;
   g_autoptr (GPtrArray) ptr_array = NULL;
   const gchar *media_class = NULL;
   WpEndpoint *other;
@@ -144,9 +145,10 @@ select_new_endpoint (WpSimplePolicy *self)
     return G_SOURCE_REMOVE;
 
   core = wp_policy_get_core (WP_POLICY (self));
+  pmgr = wp_policy_manager_get_instance (core);
 
   /* Get all the endpoints with the same media class */
-  ptr_array = wp_endpoint_find (core, media_class);
+  ptr_array = wp_policy_manager_list_endpoints (pmgr, media_class);
 
   /* select the first available that has the "selected" control */
   for (i = 0; i < (ptr_array ? ptr_array->len : 0); i++) {
@@ -392,13 +394,15 @@ static gboolean
 simple_policy_rescan_in_idle (WpSimplePolicy *self)
 {
   g_autoptr (WpCore) core = wp_policy_get_core (WP_POLICY (self));
+  g_autoptr (WpPolicyManager) pmgr = wp_policy_manager_get_instance (core);
   g_autoptr (GPtrArray) endpoints = NULL;
   WpEndpoint *ep;
   gint i;
 
   g_debug ("rescanning for clients that need linking");
 
-  endpoints = wp_endpoint_find (core, "Stream/Input/Audio");
+  endpoints = wp_policy_manager_list_endpoints (pmgr,
+      "Stream/Input/Audio");
   if (endpoints) {
     /* link all capture clients */
     for (i = 0; i < endpoints->len; i++) {
@@ -408,7 +412,8 @@ simple_policy_rescan_in_idle (WpSimplePolicy *self)
   }
   g_clear_pointer (&endpoints, g_ptr_array_unref);
 
-  endpoints = wp_endpoint_find (core, "Persistent/Stream/Input/Audio");
+  endpoints = wp_policy_manager_list_endpoints (pmgr,
+      "Persistent/Stream/Input/Audio");
   if (endpoints) {
     /* link all persistent capture clients */
     for (i = 0; i < endpoints->len; i++) {
@@ -418,7 +423,8 @@ simple_policy_rescan_in_idle (WpSimplePolicy *self)
   }
   g_clear_pointer (&endpoints, g_ptr_array_unref);
 
-  endpoints = wp_endpoint_find (core, "Stream/Output/Audio");
+  endpoints = wp_policy_manager_list_endpoints (pmgr,
+      "Stream/Output/Audio");
   if (endpoints && endpoints->len > 0) {
     /* sort based on role priorities */
     g_ptr_array_sort_with_data (endpoints, compare_client_priority,
@@ -430,7 +436,8 @@ simple_policy_rescan_in_idle (WpSimplePolicy *self)
   }
   g_clear_pointer (&endpoints, g_ptr_array_unref);
 
-  endpoints = wp_endpoint_find (core, "Persistent/Stream/Output/Audio");
+  endpoints = wp_policy_manager_list_endpoints (pmgr,
+      "Persistent/Stream/Output/Audio");
   if (endpoints) {
     /* link all persistent output clients */
     for (i = 0; i < endpoints->len; i++) {
@@ -474,6 +481,7 @@ simple_policy_find_endpoint (WpPolicy *policy, GVariant *props,
     guint32 *stream_id)
 {
   g_autoptr (WpCore) core = NULL;
+  g_autoptr (WpPolicyManager) pmgr = NULL;
   g_autoptr (GPtrArray) ptr_array = NULL;
   const char *action = NULL;
   const char *media_class = NULL;
@@ -482,12 +490,13 @@ simple_policy_find_endpoint (WpPolicy *policy, GVariant *props,
   int i;
 
   core = wp_policy_get_core (policy);
+  pmgr = wp_policy_manager_get_instance (core);
 
   g_variant_lookup (props, "action", "&s", &action);
 
   /* Get all the endpoints with the specific media class*/
   g_variant_lookup (props, "media.class", "&s", &media_class);
-  ptr_array = wp_endpoint_find (core, media_class);
+  ptr_array = wp_policy_manager_list_endpoints (pmgr, media_class);
   if (!ptr_array)
     return NULL;
 

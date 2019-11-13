@@ -31,9 +31,9 @@ struct _WpAudioStreamPrivate
   /* Stream Proxy */
   WpProxyNode *proxy;
 
-  /* Stream Port Proxies */
-  GPtrArray *port_proxies;
+  WpObjectManager *ports_om;
   GVariantBuilder port_vb;
+  gboolean port_config_done;
 
   /* Stream Controls */
   gfloat volume;
@@ -94,98 +94,6 @@ wp_audio_stream_id_decode (guint id, guint *stream_id, guint *control_id)
     *control_id = c_id;
 }
 
-/* called once after all the ports are augmented with INFO */
-static void
-on_all_ports_augmented (WpProxy *proxy, GAsyncResult *res, WpAudioStream *self)
-{
-  g_autoptr (GError) error = NULL;
-
-  wp_proxy_sync_finish (proxy, res, &error);
-  if (error) {
-    g_warning ("WpAudioStream:%p second sync failed: %s", self,
-        error->message);
-    wp_audio_stream_init_task_finish (self, g_steal_pointer (&error));
-    return;
-  }
-
-  g_debug ("%s:%p second sync done", G_OBJECT_TYPE_NAME (self), self);
-
-  wp_audio_stream_init_task_finish (self, NULL);
-}
-
-/* called multiple times after on_port_config_done */
-static void
-on_audio_stream_port_augmented (WpProxy *port_proxy, GAsyncResult *res,
-    WpAudioStream *self)
-{
-  g_autoptr (GError) error = NULL;
-
-  wp_proxy_augment_finish (port_proxy, res, &error);
-  if (error) {
-    g_warning ("WpAudioStream:%p Stream port failed to augment: %s", self,
-        error->message);
-    wp_audio_stream_init_task_finish (self, g_steal_pointer (&error));
-    return;
-  }
-}
-
-/* called once after we have all the ports added */
-static void
-on_port_config_done (WpProxy *proxy, GAsyncResult *res, WpAudioStream *self)
-{
-  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
-  g_autoptr (GError) error = NULL;
-
-  wp_proxy_sync_finish (proxy, res, &error);
-  if (error) {
-    g_warning ("WpAudioStream:%p port config sync failed: %s", self,
-        error->message);
-    wp_audio_stream_init_task_finish (self, g_steal_pointer (&error));
-    return;
-  }
-
-  g_debug ("%s:%p port config done", G_OBJECT_TYPE_NAME (self), self);
-
-  wp_proxy_sync (WP_PROXY (priv->proxy), NULL,
-      (GAsyncReadyCallback) on_all_ports_augmented, self);
-}
-
-/* called multiple times after we set the PortConfig */
-static void
-on_audio_stream_port_added (WpCore *core, WpProxy *proxy, WpAudioStream *self)
-{
-  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
-  g_autoptr (WpProperties) props = wp_proxy_get_global_properties (proxy);
-  const struct pw_node_info *info = NULL;
-  const char *s;
-  guint node_id = 0;
-
-  /* Get the node id */
-  info = wp_proxy_node_get_info (priv->proxy);
-  if (!info)
-    return;
-
-  if ((s = wp_properties_get (props, PW_KEY_NODE_ID)))
-    node_id = atoi(s);
-
-  /* Skip ports that are not owned by this stream */
-  if (info->id != node_id)
-    return;
-
-  /* Add the proxy port to the array */
-  g_ptr_array_add(priv->port_proxies, g_object_ref (proxy));
-
-  wp_proxy_augment (proxy, WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO,
-      NULL, (GAsyncReadyCallback) on_audio_stream_port_augmented, self);
-}
-
-static void
-on_audio_stream_port_removed (WpCore *core, WpProxy *proxy, WpAudioStream *self)
-{
-  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
-  g_ptr_array_remove (priv->port_proxies, proxy);
-}
-
 static void
 audio_stream_event_param (WpProxy *proxy, int seq, uint32_t id,
     uint32_t index, uint32_t next, const struct spa_pod *param,
@@ -233,10 +141,28 @@ audio_stream_event_param (WpProxy *proxy, int seq, uint32_t id,
 }
 
 static void
+on_ports_changed (WpObjectManager *om, WpAudioStream *self)
+{
+  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
+
+  if (priv->port_config_done) {
+    g_debug ("%s:%p port config done", G_OBJECT_TYPE_NAME (self), self);
+    wp_audio_stream_init_task_finish (self, NULL);
+    g_signal_handlers_disconnect_by_func (priv->ports_om, on_ports_changed,
+        self);
+  }
+}
+
+static void
 on_node_proxy_augmented (WpProxy * proxy, GAsyncResult * res,
     WpAudioStream * self)
 {
+  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
   g_autoptr (GError) error = NULL;
+  g_autoptr (WpCore) core = NULL;
+  GVariantBuilder b;
+  const struct pw_node_info *info = NULL;
+  g_autofree gchar *node_id = NULL;
 
   wp_proxy_augment_finish (proxy, res, &error);
   if (error) {
@@ -249,6 +175,36 @@ on_node_proxy_augmented (WpProxy * proxy, GAsyncResult * res,
   g_signal_connect_object (proxy, "param",
       (GCallback) audio_stream_event_param, self, 0);
   wp_proxy_node_subscribe_params (WP_PROXY_NODE (proxy), 1, SPA_PARAM_Props);
+
+  priv->ports_om = wp_object_manager_new ();
+
+  /* Get the node id */
+  info = wp_proxy_node_get_info (WP_PROXY_NODE (proxy));
+  node_id = g_strdup_printf ("%u", info->id);
+
+  /* set a constraint: the port's "node.id" must match
+     the stream's underlying node id */
+  g_variant_builder_init (&b, G_VARIANT_TYPE ("aa{sv}"));
+  g_variant_builder_open (&b, G_VARIANT_TYPE_VARDICT);
+  g_variant_builder_add (&b, "{sv}", "type",
+      g_variant_new_int32 (WP_OBJECT_MANAGER_CONSTRAINT_PW_GLOBAL_PROPERTY));
+  g_variant_builder_add (&b, "{sv}", "name",
+      g_variant_new_string (PW_KEY_NODE_ID));
+  g_variant_builder_add (&b, "{sv}", "value",
+      g_variant_new_string (node_id));
+  g_variant_builder_close (&b);
+
+  /* declare interest on ports with this constraint */
+  wp_object_manager_add_proxy_interest (priv->ports_om, PW_TYPE_INTERFACE_Port,
+      g_variant_builder_end (&b),
+      WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO);
+
+  g_signal_connect (priv->ports_om, "objects-changed",
+      (GCallback) on_ports_changed, self);
+
+  /* install the object manager */
+  g_object_get (proxy, "core", &core, NULL);
+  wp_core_install_object_manager (core, priv->ports_om);
 }
 
 static void
@@ -257,14 +213,13 @@ wp_audio_stream_finalize (GObject * object)
   WpAudioStreamPrivate *priv =
       wp_audio_stream_get_instance_private (WP_AUDIO_STREAM (object));
 
+  g_clear_object (&priv->ports_om);
+
   /* Clear the endpoint weak reference */
   g_weak_ref_clear (&priv->endpoint);
 
   /* Clear the name */
   g_clear_pointer (&priv->name, g_free);
-
-  /* Clear the port proxies */
-  g_clear_pointer (&priv->port_proxies, g_ptr_array_unref);
 
   g_clear_object (&priv->init_task);
 
@@ -371,12 +326,6 @@ wp_audio_stream_init_async (GAsyncInitable *initable, int io_priority,
   wp_proxy_augment (WP_PROXY (priv->proxy),
       WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO, NULL,
       (GAsyncReadyCallback) on_node_proxy_augmented, self);
-
-  /* Register a port_added & removed callback */
-  g_signal_connect_object(core, "remote-global-added::port",
-      (GCallback) on_audio_stream_port_added, self, 0);
-  g_signal_connect_object(core, "remote-global-removed::port",
-      (GCallback) on_audio_stream_port_removed, self, 0);
 }
 
 static gboolean
@@ -405,7 +354,6 @@ wp_audio_stream_init (WpAudioStream * self)
   /* Controls */
   priv->volume = 1.0;
   priv->mute = FALSE;
-  priv->port_proxies = g_ptr_array_new_full(4, (GDestroyNotify)g_object_unref);
 }
 
 static void
@@ -524,10 +472,12 @@ wp_audio_stream_prepare_link (WpAudioStream * self, GVariant ** properties,
     GError ** error)
 {
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
+  g_autoptr (GPtrArray) port_proxies =
+      wp_object_manager_get_objects (priv->ports_om, 0);
 
   /* Create a variant array with all the ports */
   g_variant_builder_init (&priv->port_vb, G_VARIANT_TYPE ("a(uuuy)"));
-  g_ptr_array_foreach(priv->port_proxies, port_proxies_foreach_func, self);
+  g_ptr_array_foreach (port_proxies, port_proxies_foreach_func, self);
   *properties = g_variant_builder_end (&priv->port_vb);
 
   return TRUE;
@@ -635,7 +585,5 @@ void
 wp_audio_stream_finish_port_config (WpAudioStream * self)
 {
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
-
-  wp_proxy_sync (WP_PROXY (priv->proxy), NULL,
-      (GAsyncReadyCallback) on_port_config_done, self);
+  priv->port_config_done = TRUE;
 }

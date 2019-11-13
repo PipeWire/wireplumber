@@ -24,6 +24,9 @@ typedef struct {
   /* the client wireplumber core */
   WpCore *core;
 
+  /* the object manager that listens for proxies */
+  WpObjectManager *om;
+
 } TestProxyFixture;
 
 static gboolean
@@ -65,6 +68,7 @@ test_proxy_setup (TestProxyFixture *self, gconstpointer user_data)
   self->context = g_main_context_new ();
   self->loop = g_main_loop_new (self->context, FALSE);
   self->core = wp_core_new (self->context, props);
+  self->om = wp_object_manager_new ();
 
   g_main_context_push_thread_default (self->context);
 
@@ -83,6 +87,7 @@ test_proxy_teardown (TestProxyFixture *self, gconstpointer user_data)
 {
   g_main_context_pop_thread_default (self->context);
 
+  g_clear_object (&self->om);
   g_clear_object (&self->core);
   g_clear_pointer (&self->timeout_source, g_source_unref);
   g_clear_pointer (&self->loop, g_main_loop_unref);
@@ -117,14 +122,18 @@ test_proxy_basic_augmented (WpProxy *proxy, GAsyncResult *res,
 }
 
 static void
-test_proxy_basic_remote_global_added (WpCore *core, WpProxy *proxy,
+test_proxy_basic_object_added (WpObjectManager *om, WpProxy *proxy,
     TestProxyFixture *fixture)
 {
   g_assert_nonnull (proxy);
   {
-    g_autoptr (WpCore) pcore = wp_proxy_get_core (proxy);
+    g_autoptr (WpCore) pcore = NULL;
+    g_autoptr (WpCore) omcore = NULL;
+    g_object_get (proxy, "core", &pcore, NULL);
+    g_object_get (om, "core", &omcore, NULL);
     g_assert_nonnull (pcore);
-    g_assert_true (pcore == core);
+    g_assert_nonnull (omcore);
+    g_assert_true (pcore == omcore);
   }
   g_assert_cmpuint (wp_proxy_get_global_id (proxy), !=, 0);
   g_assert_true (wp_proxy_is_global (proxy));
@@ -156,8 +165,12 @@ test_proxy_basic (TestProxyFixture *fixture, gconstpointer data)
 {
   /* our test server should advertise exactly one
    * client: our WpRemote; use this to test WpProxy */
-  g_signal_connect (fixture->core, "remote-global-added::client",
-      (GCallback) test_proxy_basic_remote_global_added, fixture);
+  g_signal_connect (fixture->om, "object-added",
+      (GCallback) test_proxy_basic_object_added, fixture);
+
+  wp_object_manager_add_proxy_interest (fixture->om,
+      PW_TYPE_INTERFACE_Client, NULL, 0);
+  wp_core_install_object_manager (fixture->core, fixture->om);
 
   g_assert_true (wp_core_connect (fixture->core));
   g_main_loop_run (fixture->loop);
@@ -200,7 +213,7 @@ test_proxy_node_enum_params_done (WpProxyNode *node, GAsyncResult *res,
 }
 
 static void
-test_proxy_node_remote_global_added (WpCore *core, WpProxy *proxy,
+test_proxy_node_object_added (WpObjectManager *om, WpProxy *proxy,
     TestProxyFixture *fixture)
 {
   const struct pw_node_info *info;
@@ -257,12 +270,15 @@ test_proxy_node (TestProxyFixture *fixture, gconstpointer data)
   pw_thread_loop_unlock (fixture->server.thread_loop);
 
   /* we should be able to see this exported audiotestsrc node on the client */
-  g_signal_connect (fixture->core, "remote-global-added::node",
-      (GCallback) test_proxy_node_remote_global_added, fixture);
+  g_signal_connect (fixture->om, "object-added",
+      (GCallback) test_proxy_node_object_added, fixture);
 
-  /* tell the remote to call global-added only when these features are ready */
-  wp_core_set_default_proxy_features (fixture->core,
-      WP_TYPE_PROXY_NODE, WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO);
+  /* declare interest and set default features to be ready
+     when the signal is fired */
+  wp_object_manager_add_proxy_interest (fixture->om,
+      PW_TYPE_INTERFACE_Node, NULL,
+      WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO);
+  wp_core_install_object_manager (fixture->core, fixture->om);
 
   g_assert_true (wp_core_connect (fixture->core));
   g_main_loop_run (fixture->loop);

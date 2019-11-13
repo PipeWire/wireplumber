@@ -117,7 +117,7 @@ wp_module_load_c (WpModule * self, WpCore * core,
  * @args: the args passed to the module
  * @error: return location for errors, or NULL to ignore
  *
- * Returns: (transfer full): the loaded module
+ * Returns: (transfer none): the loaded module
  */
 WpModule *
 wp_module_load (WpCore * core, const gchar * abi, const gchar * module_name,
@@ -139,8 +139,7 @@ wp_module_load (WpCore * core, const gchar * abi, const gchar * module_name,
     return NULL;
   }
 
-  wp_core_register_global (core, WP_GLOBAL_MODULE, g_object_ref (module),
-      g_object_unref);
+  wp_core_register_object (core, g_object_ref (module));
 
   return module;
 }

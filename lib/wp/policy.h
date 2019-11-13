@@ -53,6 +53,8 @@ struct _WpPolicyClass
 };
 
 WpPolicyManager * wp_policy_manager_get_instance (WpCore *core);
+GPtrArray * wp_policy_manager_list_endpoints (WpPolicyManager * self,
+    const gchar * media_class);
 
 guint32 wp_policy_get_rank (WpPolicy *self);
 WpCore *wp_policy_get_core (WpPolicy *self);

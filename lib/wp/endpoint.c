@@ -356,8 +356,7 @@ wp_endpoint_register (WpEndpoint * self)
   g_info ("WpEndpoint:%p registering '%s' (%s)", self, priv->name,
       priv->media_class);
 
-  wp_core_register_global (core, WP_GLOBAL_ENDPOINT, g_object_ref (self),
-      g_object_unref);
+  wp_core_register_object (core, g_object_ref (self));
 }
 
 /**
@@ -387,80 +386,8 @@ wp_endpoint_unregister (WpEndpoint * self)
     g_info ("WpEndpoint:%p unregistering '%s' (%s)", self, priv->name,
         priv->media_class);
 
-    wp_core_remove_global (core, WP_GLOBAL_ENDPOINT, self);
+    wp_core_remove_object (core, self);
   }
-}
-
-struct endpoints_foreach_data
-{
-  GPtrArray *result;
-  const gchar *lookup;
-};
-
-static inline gboolean
-media_class_matches (const gchar * media_class, const gchar * lookup)
-{
-  const gchar *c1 = media_class, *c2 = lookup;
-
-  /* empty lookup matches all classes */
-  if (!lookup)
-    return TRUE;
-
-  /* compare until we reach the end of the lookup string */
-  for (; *c2 != '\0'; c1++, c2++) {
-    if (*c1 != *c2)
-      return FALSE;
-  }
-
-  /* the lookup may not end in a slash, however it must match up
-   * to the end of a submedia_class. i.e.:
-   * match: media_class: Audio/Source/Virtual
-   *        lookup: Audio/Source
-   *
-   * NO match: media_class: Audio/Source/Virtual
-   *           lookup: Audio/Sou
-   *
-   * if *c1 is not /, also check the previous char, because the lookup
-   * may actually end in a slash:
-   *
-   * match: media_class: Audio/Source/Virtual
-   *        lookup: Audio/Source/
-   */
-  if (!(*c1 == '/' || *c1 == '\0' || *(c1 - 1) == '/'))
-    return FALSE;
-
-  return TRUE;
-}
-
-static gboolean
-find_endpoints (GQuark key, gpointer global, gpointer user_data)
-{
-  struct endpoints_foreach_data * data = user_data;
-
-  if (key == WP_GLOBAL_ENDPOINT &&
-      media_class_matches (wp_endpoint_get_media_class (WP_ENDPOINT (global)),
-          data->lookup))
-    g_ptr_array_add (data->result, g_object_ref (global));
-
-  return WP_CORE_FOREACH_GLOBAL_CONTINUE;
-}
-
-/**
- * wp_endpoint_find:
- * @core: the core
- * @media_class_lookup: the media class lookup string
- *
- * Returns: (element-type WpEndpoint) (transfer full): an array with all the
- * endpoints matching the media class lookup string
- */
-GPtrArray *
-wp_endpoint_find (WpCore * core, const gchar * media_class_lookup)
-{
-  struct endpoints_foreach_data data;
-  data.result = g_ptr_array_new_with_free_func (g_object_unref);
-  data.lookup = media_class_lookup;
-  wp_core_foreach_global (core, find_endpoints, &data);
-  return data.result;
 }
 
 /**

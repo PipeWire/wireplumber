@@ -10,6 +10,7 @@
 #define __WIREPLUMBER_CORE_H__
 
 #include <glib-object.h>
+#include "object-manager.h"
 #include "proxy.h"
 
 G_BEGIN_DECLS
@@ -45,12 +46,11 @@ struct pw_remote * wp_core_get_pw_remote (WpCore * self);
 gboolean wp_core_connect (WpCore * self);
 WpRemoteState wp_core_get_remote_state (WpCore * self, const gchar ** error);
 
-void wp_core_set_default_proxy_features (
-    WpCore * self, GType proxy_type, WpProxyFeatures features);
-
 WpProxy * wp_core_create_remote_object (WpCore * self,
     const gchar * factory_name, guint32 interface_type,
     guint32 interface_version, WpProperties * properties);
+
+void wp_core_install_object_manager (WpCore * self, WpObjectManager * om);
 
 G_END_DECLS
 

@@ -27,9 +27,7 @@ struct _WpProxyPrivate
   /* properties */
   GWeakRef core;
 
-  guint32 global_id;
-  guint32 global_perm;
-  WpProperties *global_props;
+  WpGlobal *global;
 
   guint32 iface_type;
   guint32 iface_version;
@@ -49,6 +47,7 @@ struct _WpProxyPrivate
 enum {
   PROP_0,
   PROP_CORE,
+  PROP_GLOBAL,
   PROP_GLOBAL_ID,
   PROP_GLOBAL_PERMISSIONS,
   PROP_GLOBAL_PROPERTIES,
@@ -69,6 +68,7 @@ enum
 
 static guint wp_proxy_signals[LAST_SIGNAL] = { 0 };
 
+G_DEFINE_BOXED_TYPE (WpGlobal, wp_global, wp_global_ref, wp_global_unref)
 G_DEFINE_TYPE_WITH_PRIVATE (WpProxy, wp_proxy, G_TYPE_OBJECT)
 
 G_DEFINE_QUARK (core, wp_proxy_core)
@@ -137,7 +137,11 @@ proxy_event_destroy (void *data)
   GHashTableIter iter;
   GTask *task;
 
-  g_debug ("destroyed pw proxy %p for global %u", priv->pw_proxy, priv->global_id);
+  g_debug ("%s:%p destroyed pw_proxy %p (%s; %s; %u)",
+      G_OBJECT_TYPE_NAME (self), self, priv->pw_proxy,
+      spa_debug_type_find_name (pw_type_info(), priv->iface_type),
+      priv->global ? "global" : "not global",
+      priv->global ? priv->global->id : 0);
   priv->pw_proxy = NULL;
 
   g_signal_emit (self, wp_proxy_signals[SIGNAL_PW_PROXY_DESTROYED], 0);
@@ -232,10 +236,12 @@ wp_proxy_finalize (GObject * object)
   WpProxyPrivate *priv = wp_proxy_get_instance_private (WP_PROXY(object));
 
   g_debug ("%s:%p destroyed (global %u; pw_proxy %p)",
-      G_OBJECT_TYPE_NAME (object), object, priv->global_id, priv->pw_proxy);
+      G_OBJECT_TYPE_NAME (object), object,
+      priv->global ? priv->global->id : 0,
+      priv->pw_proxy);
 
   g_clear_pointer (&priv->augment_tasks, g_ptr_array_unref);
-  g_clear_pointer (&priv->global_props, wp_properties_unref);
+  g_clear_pointer (&priv->global, wp_global_unref);
   g_weak_ref_clear (&priv->core);
   g_clear_pointer (&priv->async_tasks, g_hash_table_unref);
 
@@ -252,14 +258,8 @@ wp_proxy_set_property (GObject * object, guint property_id,
   case PROP_CORE:
     g_weak_ref_set (&priv->core, g_value_get_object (value));
     break;
-  case PROP_GLOBAL_ID:
-    priv->global_id = g_value_get_uint (value);
-    break;
-  case PROP_GLOBAL_PERMISSIONS:
-    priv->global_perm = g_value_get_uint (value);
-    break;
-  case PROP_GLOBAL_PROPERTIES:
-    priv->global_props = g_value_dup_boxed (value);
+  case PROP_GLOBAL:
+    priv->global = g_value_dup_boxed (value);
     break;
   case PROP_INTERFACE_TYPE:
     priv->iface_type = g_value_get_uint (value);
@@ -287,13 +287,13 @@ wp_proxy_get_property (GObject * object, guint property_id, GValue * value,
     g_value_take_object (value, g_weak_ref_get (&priv->core));
     break;
   case PROP_GLOBAL_ID:
-    g_value_set_uint (value, priv->global_id);
+    g_value_set_uint (value, priv->global ? priv->global->id : 0);
     break;
   case PROP_GLOBAL_PERMISSIONS:
-    g_value_set_uint (value, priv->global_perm);
+    g_value_set_uint (value, priv->global ? priv->global->permissions : 0);
     break;
   case PROP_GLOBAL_PROPERTIES:
-    g_value_set_boxed (value, priv->global_props);
+    g_value_set_boxed (value, priv->global ? priv->global->properties : NULL);
     break;
   case PROP_INTERFACE_TYPE:
     g_value_set_uint (value, priv->iface_type);
@@ -347,7 +347,7 @@ wp_proxy_default_augment (WpProxy * self, WpProxyFeatures features)
 
     /* bind */
     priv->pw_proxy = pw_registry_proxy_bind (
-        wp_core_get_pw_registry_proxy (core), priv->global_id,
+        wp_core_get_pw_registry_proxy (core), priv->global->id,
         priv->iface_type, priv->iface_version, 0);
     wp_proxy_got_pw_proxy (self);
   }
@@ -372,20 +372,25 @@ wp_proxy_class_init (WpProxyClass * klass)
       g_param_spec_object ("core", "core", "The WpCore", WP_TYPE_CORE,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (object_class, PROP_GLOBAL,
+      g_param_spec_boxed ("global", "global", "Internal WpGlobal object",
+          wp_global_get_type (),
+          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
   g_object_class_install_property (object_class, PROP_GLOBAL_ID,
       g_param_spec_uint ("global-id", "global-id",
           "The pipewire global id", 0, G_MAXUINT, 0,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS));
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (object_class, PROP_GLOBAL_PERMISSIONS,
       g_param_spec_uint ("global-permissions", "global-permissions",
           "The pipewire global permissions", 0, G_MAXUINT, 0,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS));
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (object_class, PROP_GLOBAL_PROPERTIES,
       g_param_spec_boxed ("global-properties", "global-properties",
           "The pipewire global properties", WP_TYPE_PROPERTIES,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS));
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (object_class, PROP_INTERFACE_TYPE,
       g_param_spec_uint ("interface-type", "interface-type",
@@ -429,18 +434,14 @@ wp_proxy_class_init (WpProxyClass * klass)
 }
 
 WpProxy *
-wp_proxy_new_global (WpCore * core,
-    guint32 id, guint32 permissions, WpProperties * properties,
-    guint32 type, guint32 version)
+wp_proxy_new_global (WpCore * core, WpGlobal * global)
 {
-  GType gtype = wp_proxy_find_instance_type (type, version);
+  GType gtype = wp_proxy_find_instance_type (global->type, global->version);
   return g_object_new (gtype,
       "core", core,
-      "global-id", id,
-      "global-permissions", permissions,
-      "global-properties", properties,
-      "interface-type", type,
-      "interface-version", version,
+      "global", global,
+      "interface-type", global->type,
+      "interface-version", global->version,
       NULL);
 }
 
@@ -585,7 +586,12 @@ wp_proxy_get_core (WpProxy * self)
 gboolean
 wp_proxy_is_global (WpProxy * self)
 {
-  return wp_proxy_get_global_id (self) != 0;
+  WpProxyPrivate *priv;
+
+  g_return_val_if_fail (WP_IS_PROXY (self), FALSE);
+
+  priv = wp_proxy_get_instance_private (self);
+  return priv->global != NULL;
 }
 
 guint32
@@ -596,7 +602,7 @@ wp_proxy_get_global_id (WpProxy * self)
   g_return_val_if_fail (WP_IS_PROXY (self), 0);
 
   priv = wp_proxy_get_instance_private (self);
-  return priv->global_id;
+  return priv->global ? priv->global->id : 0;
 }
 
 guint32
@@ -607,7 +613,7 @@ wp_proxy_get_global_permissions (WpProxy * self)
   g_return_val_if_fail (WP_IS_PROXY (self), 0);
 
   priv = wp_proxy_get_instance_private (self);
-  return priv->global_perm;
+  return priv->global ? priv->global->permissions : 0;
 }
 
 /**
@@ -623,7 +629,9 @@ wp_proxy_get_global_properties (WpProxy * self)
   g_return_val_if_fail (WP_IS_PROXY (self), NULL);
 
   priv = wp_proxy_get_instance_private (self);
-  return priv->global_props ? wp_properties_ref (priv->global_props) : NULL;
+  if (!priv->global || !priv->global->properties)
+    return NULL;
+  return wp_properties_ref (priv->global->properties);
 }
 
 guint32

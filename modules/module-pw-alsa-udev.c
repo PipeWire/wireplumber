@@ -19,6 +19,7 @@
 struct impl
 {
   WpModule *module;
+  WpObjectManager *om;
   GHashTable *registered_endpoints;
   GVariant *streams;
 };
@@ -84,13 +85,14 @@ is_alsa_node (WpProperties * props)
 }
 
 static void
-on_node_added(WpCore *core, WpProxy *proxy, struct impl *impl)
+on_node_added (WpObjectManager *om, WpProxy *proxy, struct impl *impl)
 {
   const gchar *media_class, *name;
   enum pw_direction direction;
   GVariantBuilder b;
   g_autoptr (WpProperties) props = NULL;
   g_autoptr (GVariant) endpoint_props = NULL;
+  g_autoptr (WpCore) core = NULL;
 
   props = wp_proxy_get_global_properties (proxy);
   g_return_if_fail(props);
@@ -121,12 +123,13 @@ on_node_added(WpCore *core, WpProxy *proxy, struct impl *impl)
   endpoint_props = g_variant_builder_end (&b);
 
   /* Create the endpoint async */
+  g_object_get (om, "core", &core, NULL);
   wp_factory_make (core, "pw-audio-softdsp-endpoint", WP_TYPE_ENDPOINT,
       endpoint_props, on_endpoint_created, impl);
 }
 
 static void
-on_node_removed (WpCore *core, WpProxy *proxy, struct impl *impl)
+on_node_removed (WpObjectManager *om, WpProxy *proxy, struct impl *impl)
 {
   WpEndpoint *endpoint = NULL;
   guint32 id = wp_proxy_get_global_id (proxy);
@@ -150,6 +153,8 @@ module_destroy (gpointer data)
   /* Set to NULL as we don't own the reference */
   impl->module = NULL;
 
+  g_clear_object (&impl->om);
+
   /* Destroy the registered endpoints table */
   g_hash_table_unref(impl->registered_endpoints);
   impl->registered_endpoints = NULL;
@@ -168,6 +173,7 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   /* Create the module data */
   impl = g_slice_new0(struct impl);
   impl->module = module;
+  impl->om = wp_object_manager_new ();
   impl->registered_endpoints = g_hash_table_new_full (g_direct_hash,
       g_direct_equal, NULL, (GDestroyNotify)g_object_unref);
   impl->streams = g_variant_lookup_value (args, "streams",
@@ -177,8 +183,13 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   wp_module_set_destroy_callback (module, module_destroy, impl);
 
   /* Register the global addded/removed callbacks */
-  g_signal_connect(core, "remote-global-added::node",
+  g_signal_connect(impl->om, "object-added",
       (GCallback) on_node_added, impl);
-  g_signal_connect(core, "remote-global-removed::node",
+  g_signal_connect(impl->om, "object-removed",
       (GCallback) on_node_removed, impl);
+
+  //TODO add constraints & features
+  wp_object_manager_add_proxy_interest (impl->om, PW_TYPE_INTERFACE_Node, NULL,
+      0);
+  wp_core_install_object_manager (core, impl->om);
 }

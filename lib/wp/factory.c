@@ -52,7 +52,9 @@ wp_factory_class_init (WpFactoryClass * klass)
  * @name: the name of the factory
  * @func: the create object callback
  *
- * Returns: (transfer full): the newly created factory
+ * Returns: (transfer none): the newly created factory. No reference
+ *   is passed to the caller, since the reference is held by the core.
+ *   The caller is free to ignore the return value
  */
 WpFactory *
 wp_factory_new (WpCore * core, const gchar * name, WpFactoryFunc func)
@@ -70,7 +72,7 @@ wp_factory_new (WpCore * core, const gchar * name, WpFactoryFunc func)
 
   g_info ("WpFactory:%p new factory: %s", f, name);
 
-  wp_core_register_global (core, WP_GLOBAL_FACTORY, f, g_object_unref);
+  wp_core_register_object (core, f);
 
   return f;
 }
@@ -103,23 +105,11 @@ wp_factory_create_object (WpFactory * self, GType type,
   self->create_object (self, type, properties, ready, user_data);
 }
 
-struct find_factory_data
-{
-  GQuark name_quark;
-  WpFactory *ret;
-};
-
 static gboolean
-find_factory_func (GQuark key, gpointer global, gpointer user_data)
+find_factory_func (gpointer factory, gpointer name_quark)
 {
-  struct find_factory_data *d = user_data;
-
-  if (key != WP_GLOBAL_FACTORY ||
-      WP_FACTORY (global)->name_quark != d->name_quark)
-    return WP_CORE_FOREACH_GLOBAL_CONTINUE;
-
-  d->ret = WP_FACTORY (global);
-  return WP_CORE_FOREACH_GLOBAL_DONE;
+  return WP_IS_FACTORY (factory) &&
+      WP_FACTORY (factory)->name_quark == GPOINTER_TO_UINT (name_quark);
 }
 
 /**
@@ -127,21 +117,23 @@ find_factory_func (GQuark key, gpointer global, gpointer user_data)
  * @core: the core
  * @name: the lookup name
  *
- * Returns: (transfer none): the factory matching the lookup name
+ * Returns: (transfer full): the factory matching the lookup name
  */
 WpFactory *
 wp_factory_find (WpCore * core, const gchar * name)
 {
-  struct find_factory_data d = { g_quark_from_string (name), NULL };
-  wp_core_foreach_global (core, find_factory_func, &d);
-  return d.ret;
+  GObject *f;
+  GQuark q = g_quark_from_string (name);
+  f = wp_core_find_object (core, (GEqualFunc) find_factory_func,
+      GUINT_TO_POINTER (q));
+  return f ? WP_FACTORY (f) : NULL;
 }
 
 void
 wp_factory_make (WpCore * core, const gchar * name, GType type,
     GVariant * properties, GAsyncReadyCallback ready, gpointer user_data)
 {
-  WpFactory *f = wp_factory_find (core, name);
+  g_autoptr (WpFactory) f = wp_factory_find (core, name);
   if (!f) return;
   wp_factory_create_object (f, type, properties, ready, user_data);
 }

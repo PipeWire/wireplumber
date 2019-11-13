@@ -10,7 +10,7 @@
 #include <pipewire/pipewire.h>
 
 static void
-client_added (WpCore * core, WpProxyClient *client, gpointer data)
+client_added (WpObjectManager * om, WpProxyClient *client, gpointer data)
 {
   g_autoptr (WpProperties) properties = NULL;
   const char *access;
@@ -30,9 +30,14 @@ client_added (WpCore * core, WpProxyClient *client, gpointer data)
 void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
-  wp_core_set_default_proxy_features (core, WP_TYPE_PROXY_CLIENT,
+  WpObjectManager *om;
+
+  om = wp_object_manager_new ();
+  wp_object_manager_add_proxy_interest (om, PW_TYPE_INTERFACE_Client, NULL,
       WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO);
 
-  g_signal_connect(core, "remote-global-added::client",
-      (GCallback) client_added, NULL);
+  g_signal_connect (om, "object-added", (GCallback) client_added, NULL);
+
+  wp_core_install_object_manager (core, om);
+  wp_module_set_destroy_callback (module, g_object_unref, om);
 }

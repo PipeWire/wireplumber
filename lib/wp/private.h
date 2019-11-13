@@ -9,6 +9,10 @@
 #ifndef __WIREPLUMBER_PRIVATE_H__
 #define __WIREPLUMBER_PRIVATE_H__
 
+#include "core.h"
+#include "object-manager.h"
+#include "proxy.h"
+
 G_BEGIN_DECLS
 
 /* core */
@@ -19,35 +23,64 @@ struct pw_registry_proxy;
 struct pw_core_proxy * wp_core_get_pw_core_proxy (WpCore * self);
 struct pw_registry_proxy * wp_core_get_pw_registry_proxy (WpCore * self);
 
-enum {
-  WP_CORE_FOREACH_GLOBAL_DONE = FALSE,
-  WP_CORE_FOREACH_GLOBAL_CONTINUE = TRUE,
+gpointer wp_core_find_object (WpCore * self, GEqualFunc func,
+    gconstpointer data);
+void wp_core_register_object (WpCore * self, gpointer obj);
+void wp_core_remove_object (WpCore * self, gpointer obj);
+
+/* global */
+
+typedef struct _WpGlobal WpGlobal;
+struct _WpGlobal
+{
+  guint32 id;
+  guint32 type;
+  guint32 version;
+  guint32 permissions;
+  WpProperties *properties;
+  GWeakRef proxy;
 };
 
-typedef gboolean (*WpCoreForeachGlobalFunc) (GQuark key, gpointer global,
-    gpointer user_data);
+static inline WpGlobal *
+wp_global_new (void)
+{
+  WpGlobal *self = g_rc_box_new0 (WpGlobal);
+  g_weak_ref_init (&self->proxy, NULL);
+  return self;
+}
 
-gpointer wp_core_get_global (WpCore * self, GQuark key);
-void wp_core_foreach_global (WpCore * self, WpCoreForeachGlobalFunc callback,
-    gpointer user_data);
+static inline void
+wp_global_clear (WpGlobal * self)
+{
+  g_clear_pointer (&self->properties, wp_properties_unref);
+  g_weak_ref_clear (&self->proxy);
+}
 
-void wp_core_register_global (WpCore * self, GQuark key, gpointer obj,
-    GDestroyNotify destroy_obj);
-void wp_core_remove_global (WpCore * self, GQuark key, gpointer obj);
+static inline WpGlobal *
+wp_global_ref (WpGlobal * self)
+{
+  return g_rc_box_acquire (self);
+}
 
-#define WP_GLOBAL_ENDPOINT (wp_global_endpoint_quark ())
-GQuark wp_global_endpoint_quark (void);
+static inline void
+wp_global_unref (WpGlobal * self)
+{
+  g_rc_box_release_full (self, (GDestroyNotify) wp_global_clear);
+}
 
-#define WP_GLOBAL_FACTORY (wp_global_factory_quark ())
-GQuark wp_global_factory_quark (void);
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpGlobal, wp_global_unref)
 
-#define WP_GLOBAL_MODULE (wp_global_module_quark ())
-GQuark wp_global_module_quark (void);
+/* object manager */
 
-#define WP_GLOBAL_POLICY_MANAGER (wp_global_policy_manager_quark ())
-GQuark wp_global_policy_manager_quark (void);
+void wp_object_manager_add_global (WpObjectManager * self, WpGlobal * global);
+void wp_object_manager_rm_global (WpObjectManager * self, guint32 id);
+
+void wp_object_manager_add_object (WpObjectManager * self, GObject * object);
+void wp_object_manager_rm_object (WpObjectManager * self, GObject * object);
 
 /* proxy */
+
+WpProxy * wp_proxy_new_global (WpCore * core, WpGlobal * global);
 
 void wp_proxy_set_feature_ready (WpProxy * self, WpProxyFeatures feature);
 void wp_proxy_augment_error (WpProxy * self, GError * error);
