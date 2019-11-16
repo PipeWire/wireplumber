@@ -787,6 +787,8 @@ endpoint_link_finalize (GObject * object)
   /* Clear the endpoint weak reaferences */
   g_weak_ref_clear(&priv->src);
   g_weak_ref_clear(&priv->sink);
+
+  G_OBJECT_CLASS (wp_endpoint_link_parent_class)->finalize(object);
 }
 
 static void

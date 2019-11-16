@@ -107,6 +107,8 @@ simple_endpoint_link_finalize (GObject * object)
   g_clear_object (&self->init_task);
   g_clear_pointer (&self->link_proxies, g_ptr_array_unref);
   g_weak_ref_clear (&self->core);
+
+  G_OBJECT_CLASS (simple_endpoint_link_parent_class)->finalize (object);
 }
 
 static void
