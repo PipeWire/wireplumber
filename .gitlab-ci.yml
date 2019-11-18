@@ -1,10 +1,7 @@
-image: fedora:rawhide
+image: registry.freedesktop.org/pipewire/pipewire/fedora:31
 
 variables:
-  DEPENDENCIES: gtk-doc meson gcc gcc-c++ glibc-devel make dbus-devel
-                gstreamer1-plugins-base-devel sbc-devel bluez-libs-devel
-                alsa-lib-devel pulseaudio-libs-devel systemd-devel git
-                gobject-introspection-devel
+  DEPENDENCIES: gtk-doc gobject-introspection-devel
 
 build:
   before_script:
@@ -13,7 +10,10 @@ build:
   script:
     # Build pipewire
     - cd pipewire
-    - meson . _build --prefix=/usr -Dpipewire-jack=false -Djack=false -Dvulkan=false
+    - meson . _build --prefix=/usr
+        -Dpipewire-alsa=false -Dpipewire-pulseaudio=false -Dpipewire-jack=false
+        -Djack=false -Dvulkan=false -Dgstreamer=false -Dbluez5=false -Dman=false
+        -Dvideotestsrc=true -Daudiotestsrc=true
     - ninja -C _build
     - ninja -C _build install
     - cd ..
