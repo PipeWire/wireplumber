@@ -1,4 +1,5 @@
 wp_lib_sources = [
+  'configuration.c',
   'core.c',
   'endpoint.c',
   'error.c',
@@ -19,6 +20,7 @@ wp_lib_sources = [
 ]
 
 wp_lib_headers = [
+  'configuration.h',
   'core.h',
   'endpoint.h',
   'error.h',

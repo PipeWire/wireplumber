@@ -6,6 +6,7 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "configuration.h"
 #include "core.h"
 #include "endpoint.h"
 #include "error.h"
