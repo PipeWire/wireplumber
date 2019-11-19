@@ -262,3 +262,24 @@ wp_properties_to_pw_properties (WpProperties * self)
 
   return pw_properties_new_dict (wp_properties_peek_dict (self));
 }
+
+gboolean
+wp_properties_matches (WpProperties * self, WpProperties *other)
+{
+  const struct spa_dict * dict;
+  const struct spa_dict_item *item;
+  const gchar *value;
+
+  g_return_val_if_fail (self != NULL, FALSE);
+
+  /* Check if the property vakues matches the ones from 'other' */
+  dict = wp_properties_peek_dict (self);
+  spa_dict_for_each(item, dict) {
+    value = wp_properties_get (other, item->key);
+    if (value && g_strcmp0 (item->value, value) != 0)
+      return FALSE;
+  }
+
+  return TRUE;
+}
+

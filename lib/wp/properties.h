@@ -57,6 +57,7 @@ gint wp_properties_setf_valist (WpProperties * self, const gchar * key,
 
 const struct spa_dict * wp_properties_peek_dict (WpProperties * self);
 struct pw_properties * wp_properties_to_pw_properties (WpProperties * self);
+gboolean wp_properties_matches (WpProperties * self, WpProperties *other);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpProperties, wp_properties_unref)
 
