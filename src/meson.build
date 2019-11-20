@@ -7,6 +7,10 @@ install_data('wireplumber.conf',
   install_dir: wireplumber_config_dir
 )
 
+install_subdir('wireplumber',
+  install_dir: wireplumber_config_dir
+)
+
 executable('wireplumber',
   wp_sources,
   c_args : [
@@ -14,6 +18,7 @@ executable('wireplumber',
     '-DG_LOG_USE_STRUCTURED',
     '-DG_LOG_DOMAIN="wireplumber"',
     '-DWIREPLUMBER_DEFAULT_CONFIG_FILE="@0@"'.format(wireplumber_config_file),
+    '-DWIREPLUMBER_DEFAULT_CONFIG_DIR="@0@"'.format(wireplumber_config_dir),
   ],
   install: true,
   dependencies : [gobject_dep, gio_dep, wp_dep, pipewire_dep],

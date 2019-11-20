@@ -284,8 +284,10 @@ main (gint argc, gchar **argv)
   struct WpDaemonData data = {0};
   g_autoptr (GOptionContext) context = NULL;
   g_autoptr (GError) error = NULL;
+  g_autoptr (WpConfiguration) config = NULL;
   g_autoptr (WpCore) core = NULL;
   g_autoptr (GMainLoop) loop = NULL;
+  const gchar *configuration_path;
 
   context = g_option_context_new ("- PipeWire Session/Policy Manager");
   g_option_context_add_main_entries (context, entries, NULL);
@@ -300,6 +302,14 @@ main (gint argc, gchar **argv)
   data.core = core = wp_core_new (NULL, NULL);
   g_signal_connect (core, "remote-state-changed",
       (GCallback) remote_state_changed, &data);
+
+  /* init configuration */
+
+  configuration_path = g_getenv ("WIREPLUMBER_CONFIG_DIR");
+  if (!configuration_path)
+    configuration_path = WIREPLUMBER_DEFAULT_CONFIG_DIR;
+  config = wp_configuration_get_instance (core);
+  wp_configuration_add_path (config, configuration_path);
 
   /* init main loop */
 
