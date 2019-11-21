@@ -64,16 +64,12 @@ policy_mgr_endpoint_added (WpObjectManager *om, WpEndpoint *ep,
 {
   GList *l;
   WpPolicy *p;
-  gboolean handled = FALSE;
 
   for (l = g_list_first (self->policies); l; l = g_list_next (l)) {
     p = WP_POLICY (l->data);
 
     if (WP_POLICY_GET_CLASS (p)->endpoint_added)
       WP_POLICY_GET_CLASS (p)->endpoint_added (p, ep);
-
-    if (!handled && WP_POLICY_GET_CLASS (p)->handle_endpoint)
-      handled = WP_POLICY_GET_CLASS (p)->handle_endpoint (p, ep);
   }
 }
 
@@ -206,21 +202,6 @@ wp_policy_manager_list_endpoints (WpPolicyManager * self,
  *
  * Called when an endpoint has been removed.
  * This is only informative, to be used for internal bookeeping purposes.
- */
-
-/**
- * WpPolicyClass::handle_endpoint:
- * @self: the policy
- * @ep: the endpoint
- *
- * Called when a new endpoint has been added.
- * The policy is meant to decide if this endpoint needs to be linked
- * somewhere and if so, create the link.
- * This will only be called if no other higher-ranked policy has already
- * handled this endpoint.
- *
- * Returns: TRUE if this policy did handle the endpoint, FALSE to let some
- *   lower-ranked policy to try
  */
 
 /**

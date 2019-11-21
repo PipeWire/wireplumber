@@ -46,8 +46,6 @@ struct _WpPolicyClass
   void (*endpoint_added) (WpPolicy *self, WpEndpoint *ep);
   void (*endpoint_removed) (WpPolicy *self, WpEndpoint *ep);
 
-  gboolean (*handle_endpoint) (WpPolicy *self, WpEndpoint *ep);
-
   WpEndpoint * (*find_endpoint) (WpPolicy *self, GVariant *props,
       guint32 *stream_id);
 };
