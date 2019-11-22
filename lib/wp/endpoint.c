@@ -451,6 +451,17 @@ wp_endpoint_get_creation_time (WpEndpoint * self)
   return priv->creation_time;
 }
 
+WpProperties *
+wp_endpoint_get_properties (WpEndpoint * self)
+{
+  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
+
+  if (WP_ENDPOINT_GET_CLASS (self)->get_properties)
+    return WP_ENDPOINT_GET_CLASS (self)->get_properties (self);
+
+  return NULL;
+}
+
 /**
  * wp_endpoint_register_stream:
  * @self: the endpoint

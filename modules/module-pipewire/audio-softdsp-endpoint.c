@@ -92,6 +92,14 @@ object_safe_new_finish(WpPwAudioSoftdspEndpoint * self, GObject *initable,
   return g_steal_pointer (&object);
 }
 
+static WpProperties *
+endpoint_get_properties (WpEndpoint * ep)
+{
+  WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (ep);
+
+  return wp_proxy_node_get_properties (self->proxy_node);
+}
+
 static gboolean
 endpoint_prepare_link (WpEndpoint * ep, guint32 stream_id,
     WpEndpointLink * link, GVariant ** properties, GError ** error)
@@ -397,6 +405,7 @@ endpoint_class_init (WpPwAudioSoftdspEndpointClass * klass)
   object_class->set_property = endpoint_set_property;
   object_class->get_property = endpoint_get_property;
 
+  endpoint_class->get_properties = endpoint_get_properties;
   endpoint_class->prepare_link = endpoint_prepare_link;
   endpoint_class->get_control_value = endpoint_get_control_value;
   endpoint_class->set_control_value = endpoint_set_control_value;
