@@ -80,7 +80,14 @@ G_DEFINE_QUARK (link, wp_proxy_link)
 G_DEFINE_QUARK (client, wp_proxy_client)
 G_DEFINE_QUARK (module, wp_proxy_module)
 G_DEFINE_QUARK (device, wp_proxy_device)
+G_DEFINE_QUARK (metadata, wp_proxy_metadata)
+G_DEFINE_QUARK (session, wp_proxy_session)
+G_DEFINE_QUARK (endpoint, wp_proxy_endpoint)
+G_DEFINE_QUARK (endpoint-stream, wp_proxy_endpoint_stream)
+G_DEFINE_QUARK (endpoint-link, wp_proxy_endpoint_link)
 G_DEFINE_QUARK (client-node, wp_proxy_client_node)
+G_DEFINE_QUARK (client-session, wp_proxy_client_session)
+G_DEFINE_QUARK (client-endpoint, wp_proxy_client_endpoint)
 
 static struct {
   /* the pipewire interface type */
@@ -101,7 +108,14 @@ static struct {
   { PW_TYPE_INTERFACE_Client, 0, wp_proxy_client_get_type, wp_proxy_client_quark },
   { PW_TYPE_INTERFACE_Module, 0, wp_proxy_get_type, wp_proxy_module_quark },
   { PW_TYPE_INTERFACE_Device, 0, wp_proxy_get_type, wp_proxy_device_quark },
+  { PW_TYPE_INTERFACE_Metadata, 0, wp_proxy_get_type, wp_proxy_metadata_quark },
+  { PW_TYPE_INTERFACE_Session, 0, wp_proxy_get_type, wp_proxy_session_quark },
+  { PW_TYPE_INTERFACE_Endpoint, 0, wp_proxy_get_type, wp_proxy_endpoint_quark },
+  { PW_TYPE_INTERFACE_EndpointStream, 0, wp_proxy_get_type, wp_proxy_endpoint_stream_quark },
+  { PW_TYPE_INTERFACE_EndpointLink, 0, wp_proxy_get_type, wp_proxy_endpoint_link_quark },
   { PW_TYPE_INTERFACE_ClientNode, 0, wp_proxy_get_type, wp_proxy_client_node_quark },
+  { PW_TYPE_INTERFACE_ClientSession, 0, wp_proxy_get_type, wp_proxy_client_session_quark },
+  { PW_TYPE_INTERFACE_ClientEndpoint, 0, wp_proxy_get_type, wp_proxy_client_endpoint_quark },
 };
 
 static inline GType
