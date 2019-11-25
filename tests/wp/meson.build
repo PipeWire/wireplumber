@@ -17,6 +17,12 @@ test(
 )
 
 test(
+  'test-session',
+  executable('test-session', 'session.c', dependencies: common_deps),
+  env: common_env,
+)
+
+test(
   'test-spa-props',
   executable('test-spa-props', 'spa-props.c', dependencies: common_deps),
   env: common_env,
