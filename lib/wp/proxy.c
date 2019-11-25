@@ -17,6 +17,7 @@
 #include "proxy-link.h"
 #include "proxy-node.h"
 #include "proxy-port.h"
+#include "session.h"
 
 #include <pipewire/pipewire.h>
 #include <spa/debug/types.h>
@@ -109,7 +110,7 @@ static struct {
   { PW_TYPE_INTERFACE_Module, 0, wp_proxy_get_type, wp_proxy_module_quark },
   { PW_TYPE_INTERFACE_Device, 0, wp_proxy_get_type, wp_proxy_device_quark },
   { PW_TYPE_INTERFACE_Metadata, 0, wp_proxy_get_type, wp_proxy_metadata_quark },
-  { PW_TYPE_INTERFACE_Session, 0, wp_proxy_get_type, wp_proxy_session_quark },
+  { PW_TYPE_INTERFACE_Session, 0, wp_proxy_session_get_type, wp_proxy_session_quark },
   { PW_TYPE_INTERFACE_Endpoint, 0, wp_proxy_get_type, wp_proxy_endpoint_quark },
   { PW_TYPE_INTERFACE_EndpointStream, 0, wp_proxy_get_type, wp_proxy_endpoint_stream_quark },
   { PW_TYPE_INTERFACE_EndpointLink, 0, wp_proxy_get_type, wp_proxy_endpoint_link_quark },
