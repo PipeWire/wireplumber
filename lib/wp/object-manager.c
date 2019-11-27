@@ -31,7 +31,7 @@ struct _WpObjectManager
   /* objects that we are interested in, with a strong ref */
   GPtrArray *objects;
 
-  guint idle_objchanged_source;
+  GSource *idle_objchanged_source;
 };
 
 enum {
@@ -64,8 +64,9 @@ wp_object_manager_finalize (GObject * object)
   WpObjectManager *self = WP_OBJECT_MANAGER (object);
   struct interest *i;
 
-  if (self->idle_objchanged_source != 0)
-    g_source_remove (self->idle_objchanged_source);
+  if (self->idle_objchanged_source)
+    g_source_destroy (self->idle_objchanged_source);
+  g_clear_pointer (&self->idle_objchanged_source, g_source_unref);
 
   g_clear_pointer (&self->objects, g_ptr_array_unref);
 
@@ -367,7 +368,7 @@ idle_emit_objects_changed (gpointer data)
   WpObjectManager *self = WP_OBJECT_MANAGER (data);
 
   g_signal_emit (self, signals[SIGNAL_OBJECTS_CHANGED], 0);
-  self->idle_objchanged_source = 0;
+  g_clear_pointer (&self->idle_objchanged_source, g_source_unref);
 
   return G_SOURCE_REMOVE;
 }
@@ -375,9 +376,12 @@ idle_emit_objects_changed (gpointer data)
 static inline void
 schedule_emit_objects_changed (WpObjectManager * self)
 {
-  /* TODO sync on the core instead */
-  if (!self->idle_objchanged_source)
-    self->idle_objchanged_source = g_idle_add (idle_emit_objects_changed, self);
+  if (!self->idle_objchanged_source) {
+    g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
+    if (core)
+      self->idle_objchanged_source =
+          wp_core_idle_add (core, idle_emit_objects_changed, self);
+  }
 }
 
 static void
