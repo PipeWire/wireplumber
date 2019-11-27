@@ -440,6 +440,19 @@ wp_core_get_context (WpCore * self)
   return self->context;
 }
 
+GSource *
+wp_core_idle_add (WpCore * self, GSourceFunc function, gpointer data)
+{
+  GSource *source = NULL;
+
+  g_return_val_if_fail (WP_IS_CORE (self), NULL);
+
+  source = g_idle_source_new ();
+  g_source_set_callback (source, function, data, NULL);
+  g_source_attach (source, self->context);
+  return source;
+}
+
 struct pw_core *
 wp_core_get_pw_core (WpCore * self)
 {
@@ -468,9 +481,7 @@ wp_core_connect (WpCore *self)
 
   g_return_val_if_fail (WP_IS_CORE (self), FALSE);
 
-  source = g_idle_source_new ();
-  g_source_set_callback (source, (GSourceFunc) connect_in_idle, self, NULL);
-  g_source_attach (source, self->context);
+  source = wp_core_idle_add (self, (GSourceFunc) connect_in_idle, self);
 
   return TRUE;
 }
