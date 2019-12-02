@@ -56,7 +56,6 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
   enum pw_direction direction;
   GVariantBuilder b;
   g_autoptr (GVariant) endpoint_props = NULL;
-  guint32 id = wp_proxy_get_global_id (proxy);
   g_autoptr (WpProperties) props = wp_proxy_get_global_properties (proxy);
   g_autoptr (WpCore) core = NULL;
 
@@ -85,9 +84,7 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
   /* Set the properties */
   g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
   g_variant_builder_add (&b, "{sv}",
-      "name", name ?
-      g_variant_new_take_string (g_strdup_printf ("Stream %u (%s)", id, name)) :
-      g_variant_new_take_string (g_strdup_printf ("Stream %u", id)));
+      "name", g_variant_new_take_string (g_strdup_printf ("%s", name)));
   g_variant_builder_add (&b, "{sv}",
       "media-class", g_variant_new_string (media_class));
   g_variant_builder_add (&b, "{sv}",
