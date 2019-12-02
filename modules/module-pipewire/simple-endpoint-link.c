@@ -231,6 +231,7 @@ simple_endpoint_link_factory (WpFactory * factory, GType type,
   g_autoptr(WpCore) core = NULL;
   guint64 src, sink;
   guint src_stream, sink_stream;
+  gboolean keep;
 
   /* Make sure the type is an endpoint link */
   g_return_if_fail (type == WP_TYPE_ENDPOINT_LINK);
@@ -248,6 +249,8 @@ simple_endpoint_link_factory (WpFactory * factory, GType type,
       return;
   if (!g_variant_lookup (properties, "sink-stream", "u", &sink_stream))
       return;
+  if (!g_variant_lookup (properties, "keep", "b", &keep))
+      return;
 
   /* Create the endpoint link */
   g_async_initable_new_async (
@@ -256,6 +259,7 @@ simple_endpoint_link_factory (WpFactory * factory, GType type,
       "src-stream", src_stream,
       "sink", (gpointer)sink,
       "sink-stream", sink_stream,
+      "keep", keep,
       "core", core,
       NULL);
 }

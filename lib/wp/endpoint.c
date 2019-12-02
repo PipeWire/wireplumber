@@ -771,6 +771,7 @@ struct _WpEndpointLinkPrivate
   guint32 src_stream;
   GWeakRef sink;
   guint32 sink_stream;
+  gboolean keep;
 };
 
 enum {
@@ -779,6 +780,7 @@ enum {
   LINKPROP_SRC_STREAM,
   LINKPROP_SINK,
   LINKPROP_SINK_STREAM,
+  LINKPROP_KEEP,
 };
 
 static void wp_endpoint_link_async_initable_init (gpointer iface,
@@ -822,6 +824,9 @@ endpoint_link_set_property (GObject * object, guint property_id,
   case LINKPROP_SINK_STREAM:
     priv->sink_stream = g_value_get_uint(value);
     break;
+  case LINKPROP_KEEP:
+    priv->keep = g_value_get_boolean (value);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
@@ -847,6 +852,9 @@ endpoint_link_get_property (GObject * object, guint property_id,
     break;
   case LINKPROP_SINK_STREAM:
     g_value_set_uint (value, priv->sink_stream);
+    break;
+  case LINKPROP_KEEP:
+    g_value_set_boolean (value, priv->keep);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -945,6 +953,10 @@ wp_endpoint_link_class_init (WpEndpointLinkClass * klass)
       g_param_spec_uint ("sink-stream", "sink-stream", "The sink stream",
           0, G_MAXUINT, 0,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (object_class, LINKPROP_KEEP,
+      g_param_spec_boolean ("keep", "keep", "If we want to keep the link",
+          FALSE,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
 /**
@@ -1007,10 +1019,21 @@ wp_endpoint_link_get_sink_stream (WpEndpointLink * self)
   return priv->sink_stream;
 }
 
+gboolean
+wp_endpoint_link_is_kept (WpEndpointLink * self)
+{
+  WpEndpointLinkPrivate *priv;
+
+  g_return_val_if_fail (WP_IS_ENDPOINT_LINK (self), 0);
+
+  priv = wp_endpoint_link_get_instance_private (self);
+  return priv->keep;
+}
+
 void
 wp_endpoint_link_new (WpCore * core, WpEndpoint * src, guint32 src_stream,
-    WpEndpoint * sink, guint32 sink_stream, GAsyncReadyCallback ready,
-    gpointer data)
+    WpEndpoint * sink, guint32 sink_stream, gboolean keep,
+    GAsyncReadyCallback ready, gpointer data)
 {
   const gchar *src_factory = NULL, *sink_factory = NULL;
   GVariantBuilder b;
@@ -1049,6 +1072,8 @@ wp_endpoint_link_new (WpCore * core, WpEndpoint * src, guint32 src_stream,
       g_variant_new_uint64 ((guint64)sink));
   g_variant_builder_add (&b, "{sv}", "sink-stream",
       g_variant_new_uint32 (sink_stream));
+  g_variant_builder_add (&b, "{sv}", "keep",
+      g_variant_new_boolean (keep));
   link_props = g_variant_builder_end (&b);
 
   /* Create the link object async */

@@ -87,9 +87,10 @@ WpEndpoint * wp_endpoint_link_get_source_endpoint (WpEndpointLink * self);
 guint32 wp_endpoint_link_get_source_stream (WpEndpointLink * self);
 WpEndpoint * wp_endpoint_link_get_sink_endpoint (WpEndpointLink * self);
 guint32 wp_endpoint_link_get_sink_stream (WpEndpointLink * self);
+gboolean wp_endpoint_link_is_kept (WpEndpointLink * self);
 
 void wp_endpoint_link_new (WpCore * core, WpEndpoint * src,
-    guint32 src_stream, WpEndpoint * sink, guint32 sink_stream,
+    guint32 src_stream, WpEndpoint * sink, guint32 sink_stream, gboolean keep,
     GAsyncReadyCallback ready, gpointer data);
 WpEndpointLink * wp_endpoint_link_new_finish (GObject *initable,
     GAsyncResult *res, GError **error);
