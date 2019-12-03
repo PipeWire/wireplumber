@@ -64,3 +64,17 @@ shared_library(
   install_dir : wireplumber_module_dir,
   dependencies : [wp_dep, pipewire_dep],
 )
+
+shared_library(
+  'wireplumber-module-config-policy',
+  [
+	'module-config-policy/parser-endpoint-link.c',
+	'module-config-policy/parser-streams.c',
+	'module-config-policy/config-policy.c',
+    'module-config-policy.c',
+  ],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-config-policy"'],
+  install : true,
+  install_dir : wireplumber_module_dir,
+  dependencies : [wp_dep, wptoml_dep, pipewire_dep],
+)

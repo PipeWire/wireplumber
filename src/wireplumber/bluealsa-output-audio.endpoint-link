@@ -1,0 +1,17 @@
+[match-endpoint]
+priority = 75
+direction = "output"
+name = "bluealsa*"
+media_class = "Stream/Output/Audio"
+
+[target-endpoint]
+media_class = "Audio/Sink"
+streams = "default.streams"
+stream = "Multimedia"
+
+[[target-endpoint-properties]]
+name = "api.alsa.path"
+value = "hw:0,0"
+
+[endpoint-link]
+keep = true

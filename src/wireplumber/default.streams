@@ -1,0 +1,15 @@
+[[streams]]
+name = "Multimedia"
+priority = 25
+
+[[streams]]
+name = "Navigation"
+priority = 50
+
+[[streams]]
+name = "Communiction"
+priority = 75
+
+[[streams]]
+name = "Emergency"
+priority = 99

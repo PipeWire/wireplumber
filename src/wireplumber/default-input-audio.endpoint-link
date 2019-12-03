@@ -1,0 +1,16 @@
+[match-endpoint]
+priority = 50
+direction = "input"
+media_class = "Stream/Input/Audio"
+
+[target-endpoint]
+media_class = "Audio/Source"
+streams = "default.streams"
+stream = "Multimedia"
+
+[[target-endpoint-properties]]
+name = "api.alsa.path"
+value = "hw:0,0"
+
+[endpoint-link]
+keep = false
