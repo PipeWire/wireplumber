@@ -29,6 +29,7 @@ struct _WpEndpointClass
   GObjectClass parent_class;
 
   WpProperties * (*get_properties) (WpEndpoint * self);
+  const char * (*get_role) (WpEndpoint * self);
 
   GVariant * (*get_control_value) (WpEndpoint * self, guint32 control_id);
   gboolean (*set_control_value) (WpEndpoint * self, guint32 control_id,
@@ -52,6 +53,7 @@ const gchar * wp_endpoint_get_media_class (WpEndpoint * self);
 guint wp_endpoint_get_direction (WpEndpoint * self);
 guint64 wp_endpoint_get_creation_time (WpEndpoint * self);
 WpProperties * wp_endpoint_get_properties (WpEndpoint * self);
+const char * wp_endpoint_get_role (WpEndpoint * self);
 
 void wp_endpoint_register_stream (WpEndpoint * self, GVariant * stream);
 GVariant * wp_endpoint_get_stream (WpEndpoint * self, guint32 stream_id);

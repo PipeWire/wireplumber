@@ -462,6 +462,17 @@ wp_endpoint_get_properties (WpEndpoint * self)
   return NULL;
 }
 
+const char *
+wp_endpoint_get_role (WpEndpoint * self)
+{
+  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
+
+  if (WP_ENDPOINT_GET_CLASS (self)->get_role)
+    return WP_ENDPOINT_GET_CLASS (self)->get_role (self);
+
+  return NULL;
+}
+
 /**
  * wp_endpoint_register_stream:
  * @self: the endpoint
