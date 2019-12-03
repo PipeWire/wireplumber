@@ -93,6 +93,64 @@ void wp_proxy_augment_error (WpProxy * self, GError * error);
 void wp_proxy_register_async_task (WpProxy * self, int seq, GTask * task);
 GTask * wp_proxy_find_async_task (WpProxy * self, int seq, gboolean steal);
 
+/* spa props */
+
+struct spa_pod;
+struct spa_pod_builder;
+
+typedef struct _WpSpaProps WpSpaProps;
+struct _WpSpaProps
+{
+  GList *entries;
+};
+
+void wp_spa_props_clear (WpSpaProps * self);
+
+void wp_spa_props_register_pod (WpSpaProps * self,
+    guint32 id, const gchar *name, const struct spa_pod *type);
+gint wp_spa_props_register_from_prop_info (WpSpaProps * self,
+    const struct spa_pod * prop_info);
+
+const struct spa_pod * wp_spa_props_get_stored (WpSpaProps * self, guint32 id);
+
+gint wp_spa_props_store_pod (WpSpaProps * self, guint32 id,
+    const struct spa_pod * value);
+gint wp_spa_props_store_from_props (WpSpaProps * self,
+    const struct spa_pod * props, GArray * changed_ids);
+
+GPtrArray * wp_spa_props_build_all_pods (WpSpaProps * self,
+    struct spa_pod_builder * b);
+struct spa_pod * wp_spa_props_build_update (WpSpaProps * self, guint32 id,
+    const struct spa_pod * value, struct spa_pod_builder * b);
+
+const struct spa_pod * wp_spa_props_build_pod_valist (gchar * buffer,
+    gsize size, va_list args);
+
+static inline const struct spa_pod *
+wp_spa_props_build_pod (gchar * buffer, gsize size, ...)
+{
+  const struct spa_pod *ret;
+  va_list args;
+  va_start (args, size);
+  ret = wp_spa_props_build_pod_valist (buffer, size, args);
+  va_end (args);
+  return ret;
+}
+
+#define wp_spa_props_register(self, id, name, ...) \
+({ \
+  gchar b[512]; \
+  wp_spa_props_register_pod (self, id, name, \
+      wp_spa_props_build_pod (b, sizeof (b), ##__VA_ARGS__, NULL)); \
+})
+
+#define wp_spa_props_store(self, id, ...) \
+({ \
+  gchar b[512]; \
+  wp_spa_props_store_pod (self, id, \
+      wp_spa_props_build_pod (b, sizeof (b), ##__VA_ARGS__, NULL)); \
+})
+
 G_END_DECLS
 
 #endif

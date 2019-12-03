@@ -14,6 +14,7 @@ wp_lib_sources = [
   'proxy-link.c',
   'proxy-node.c',
   'proxy-port.c',
+  'spa-props.c',
 ]
 
 wp_lib_headers = [
