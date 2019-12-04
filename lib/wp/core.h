@@ -41,6 +41,8 @@ WpCore * wp_core_new (GMainContext *context, WpProperties * properties);
 
 GMainContext * wp_core_get_context (WpCore * self);
 GSource * wp_core_idle_add (WpCore * self, GSourceFunc function, gpointer data);
+void wp_core_sync (WpCore * self, GCancellable * cancellable,
+    GAsyncReadyCallback callback, gpointer user_data);
 struct pw_core * wp_core_get_pw_core (WpCore * self);
 struct pw_remote * wp_core_get_pw_remote (WpCore * self);
 

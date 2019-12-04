@@ -7,6 +7,7 @@
  */
 
 #include "core.h"
+#include "error.h"
 #include "object-manager.h"
 #include "proxy.h"
 #include "wpenums.h"
@@ -91,6 +92,7 @@ struct _WpCore
 
   /* remote core */
   struct pw_core_proxy *core_proxy;
+  struct spa_hook core_listener;
 
   /* remote registry */
   struct pw_registry_proxy *registry_proxy;
@@ -99,6 +101,7 @@ struct _WpCore
   GPtrArray *globals; // elementy-type: WpGlobal*
   GPtrArray *objects; // element-type: GObject*
   GPtrArray *object_managers; // element-type: WpObjectManager*
+  GHashTable *async_tasks; // <int seq, GTask*>
 };
 
 enum {
@@ -181,10 +184,29 @@ static const struct pw_registry_proxy_events registry_proxy_events = {
 };
 
 static void
+core_done (void *data, uint32_t id, int seq)
+{
+  WpCore *self = WP_CORE (data);
+  g_autoptr (GTask) task = NULL;
+
+  g_hash_table_steal_extended (self->async_tasks, GINT_TO_POINTER (seq), NULL,
+      (gpointer *) &task);
+  if (task)
+    g_task_return_boolean (task, TRUE);
+}
+
+static const struct pw_core_proxy_events core_events = {
+  PW_VERSION_CORE_EVENTS,
+  .done = core_done,
+};
+
+static void
 registry_init (WpCore *self)
 {
   /* Get the core proxy */
   self->core_proxy = pw_remote_get_core_proxy (self->pw_remote);
+  pw_core_proxy_add_listener(self->core_proxy, &self->core_listener,
+      &core_events, self);
 
   /* Registry */
   self->registry_proxy = pw_core_proxy_get_registry (self->core_proxy,
@@ -233,6 +255,8 @@ wp_core_init (WpCore * self)
   self->globals = g_ptr_array_new_with_free_func ((GDestroyNotify) free_global);
   self->objects = g_ptr_array_new_with_free_func (g_object_unref);
   self->object_managers = g_ptr_array_new ();
+  self->async_tasks = g_hash_table_new_full (g_direct_hash, g_direct_equal,
+      NULL, g_object_unref);
 }
 
 static void
@@ -328,6 +352,7 @@ wp_core_finalize (GObject * obj)
   g_clear_pointer (&self->pw_core, pw_core_destroy);
   g_clear_pointer (&self->properties, wp_properties_unref);
   g_clear_pointer (&self->context, g_main_context_unref);
+  g_clear_pointer (&self->async_tasks, g_hash_table_unref);
 
   g_debug ("WpCore destroyed");
 
@@ -451,6 +476,36 @@ wp_core_idle_add (WpCore * self, GSourceFunc function, gpointer data)
   g_source_set_callback (source, function, data, NULL);
   g_source_attach (source, self->context);
   return source;
+}
+
+void
+wp_core_sync (WpCore * self, GCancellable * cancellable,
+    GAsyncReadyCallback callback, gpointer user_data)
+{
+  g_autoptr (GTask) task = NULL;
+  int seq;
+
+  g_return_if_fail (WP_IS_CORE (self));
+
+  task = g_task_new (self, cancellable, callback, user_data);
+
+  if (G_UNLIKELY (!self->core_proxy)) {
+    g_warn_if_reached ();
+    g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_INVARIANT, "No core proxy");
+    return;
+  }
+
+  seq = pw_core_proxy_sync (self->core_proxy, 0, 0);
+  if (G_UNLIKELY (seq < 0)) {
+    g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_OPERATION_FAILED, "pw_core_proxy_sync failed: %s",
+        g_strerror (-seq));
+    return;
+  }
+
+  g_hash_table_insert (self->async_tasks, GINT_TO_POINTER (seq),
+      g_steal_pointer (&task));
 }
 
 struct pw_core *
