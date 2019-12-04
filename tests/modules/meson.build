@@ -14,3 +14,20 @@ test(
     dependencies: common_deps),
   env: common_env,
 )
+
+test(
+  'test-config-policy',
+  executable('test-config-policy',
+    [
+      'config-policy.c',
+      'config-policy/context.c',
+      'config-policy/endpoint-fake.c',
+      'config-policy/endpoint-link-fake.c',
+      '../../modules/module-config-policy/config-policy.c',
+      '../../modules/module-config-policy/parser-streams.c',
+      '../../modules/module-config-policy/parser-endpoint-link.c'
+    ],
+    dependencies: common_deps + [wptoml_dep]),
+  env: common_env,
+  workdir : meson.current_source_dir(),
+)

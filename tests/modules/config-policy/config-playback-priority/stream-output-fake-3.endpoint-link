@@ -1,0 +1,12 @@
+[match-endpoint]
+direction = "output"
+name = "ep_for_stream_3"
+media_class = "Stream/Output/Fake"
+
+[target-endpoint]
+media_class = "Fake/Sink"
+streams = "default.streams"
+stream = "3"
+
+[endpoint-link]
+keep = false

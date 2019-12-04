@@ -1,0 +1,9 @@
+[match-endpoint]
+direction = "input"
+media_class = "Stream/Input/Fake"
+
+[target-endpoint]
+media_class = "Fake/Source"
+
+[endpoint-link]
+keep = false

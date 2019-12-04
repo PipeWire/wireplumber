@@ -1,0 +1,15 @@
+[[streams]]
+name = "0"
+priority = 0
+
+[[streams]]
+name = "1"
+priority = 25
+
+[[streams]]
+name = "2"
+priority = 50
+
+[[streams]]
+name = "3"
+priority = 75
