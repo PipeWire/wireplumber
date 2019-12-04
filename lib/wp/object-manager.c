@@ -31,7 +31,7 @@ struct _WpObjectManager
   /* objects that we are interested in, with a strong ref */
   GPtrArray *objects;
 
-  GSource *idle_objchanged_source;
+  gboolean pending_objchanged;
 };
 
 enum {
@@ -56,6 +56,7 @@ wp_object_manager_init (WpObjectManager * self)
   g_weak_ref_init (&self->core, NULL);
   pw_array_init (&self->interests, sizeof (struct interest));
   self->objects = g_ptr_array_new_with_free_func (g_object_unref);
+  self->pending_objchanged = FALSE;
 }
 
 static void
@@ -63,10 +64,6 @@ wp_object_manager_finalize (GObject * object)
 {
   WpObjectManager *self = WP_OBJECT_MANAGER (object);
   struct interest *i;
-
-  if (self->idle_objchanged_source)
-    g_source_destroy (self->idle_objchanged_source);
-  g_clear_pointer (&self->idle_objchanged_source, g_source_unref);
 
   g_clear_pointer (&self->objects, g_ptr_array_unref);
 
@@ -362,25 +359,26 @@ wp_object_manager_is_interested_in_global (WpObjectManager * self,
   return FALSE;
 }
 
-static gboolean
-idle_emit_objects_changed (gpointer data)
+static void
+sync_emit_objects_changed (WpCore *core, GAsyncResult *res, gpointer data)
 {
-  WpObjectManager *self = WP_OBJECT_MANAGER (data);
+  WpObjectManager *self = data;
 
   g_signal_emit (self, signals[SIGNAL_OBJECTS_CHANGED], 0);
-  g_clear_pointer (&self->idle_objchanged_source, g_source_unref);
-
-  return G_SOURCE_REMOVE;
+  self->pending_objchanged = FALSE;
 }
 
 static inline void
 schedule_emit_objects_changed (WpObjectManager * self)
 {
-  if (!self->idle_objchanged_source) {
-    g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
-    if (core)
-      self->idle_objchanged_source =
-          wp_core_idle_add (core, idle_emit_objects_changed, self);
+  if (self->pending_objchanged)
+    return;
+
+  g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
+  if (core) {
+    wp_core_sync (core, NULL, (GAsyncReadyCallback)sync_emit_objects_changed,
+        self);
+    self->pending_objchanged = TRUE;
   }
 }
 
