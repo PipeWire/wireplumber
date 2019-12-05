@@ -1,10 +1,10 @@
 [match-endpoint]
+name = "ep2"
 direction = "output"
 media_class = "Stream/Output/Fake"
 
 [target-endpoint]
 media_class = "Fake/Sink"
-stream = "1"
 
 [endpoint-link]
 keep = false

@@ -370,48 +370,69 @@ playback_role (TestConfigPolicyFixture *f, gconstpointer data)
   g_autoptr (WpEndpointLink) link = NULL;
   g_autoptr (WpEndpoint) src = NULL;
   g_autoptr (WpEndpoint) sink = NULL;
+  g_autoptr (WpEndpoint) dev = NULL;
   g_autoptr (WpEndpoint) ep1 = NULL;
   g_autoptr (WpEndpoint) ep2 = NULL;
   g_autoptr (WpEndpoint) ep3 = NULL;
 
   /* Create the device with 2 roles: "0" with id 0, and "1" with id 1 */
-  ep1 = wp_config_policy_context_add_endpoint (ctx, "ep1", "Fake/Sink",
+  dev = wp_config_policy_context_add_endpoint (ctx, "dev", "Fake/Sink",
       PW_DIRECTION_INPUT, NULL, NULL, 2, &link);
-  g_assert_nonnull (ep1);
+  g_assert_nonnull (dev);
   g_assert_null (link);
-  g_assert_false (wp_endpoint_is_linked (ep1));
+  g_assert_false (wp_endpoint_is_linked (dev));
 
-  /* Create the first client endpoint with role "0" and make sure it has
-   * priority over the one defined in the configuration file which is "1" */
-  ep2 = wp_config_policy_context_add_endpoint (ctx, "ep2", "Stream/Output/Fake",
+  /* Create the first client endpoint with role "0" and make sure the role
+   * defined in the configuration file which is "1" is used */
+  ep1 = wp_config_policy_context_add_endpoint (ctx, "ep1", "Stream/Output/Fake",
       PW_DIRECTION_OUTPUT, NULL, "0", 0, &link);
+  g_assert_nonnull (ep1);
+  g_assert_nonnull (link);
+  g_assert_true (wp_endpoint_is_linked (ep1));
+  g_assert_true (wp_endpoint_is_linked (dev));
+  src = wp_endpoint_link_get_source_endpoint (link);
+  sink = wp_endpoint_link_get_sink_endpoint (link);
+  g_assert_true (ep1 == src);
+  g_assert_true (dev == sink);
+  g_assert_true (
+      WP_STREAM_ID_NONE == wp_endpoint_link_get_source_stream (link));
+  g_assert_true (1 == wp_endpoint_link_get_sink_stream (link));
+  wp_config_policy_context_remove_endpoint (ctx, ep1);
+
+  /* Create the second client endpoint with role "1" and make sure it uses it
+   * because there is none defined in the configuration file */
+  ep2 = wp_config_policy_context_add_endpoint (ctx, "ep2", "Stream/Output/Fake",
+      PW_DIRECTION_OUTPUT, NULL, "1", 0, &link);
   g_assert_nonnull (ep2);
   g_assert_nonnull (link);
   g_assert_true (wp_endpoint_is_linked (ep2));
-  g_assert_true (wp_endpoint_is_linked (ep1));
+  g_assert_true (wp_endpoint_is_linked (dev));
   src = wp_endpoint_link_get_source_endpoint (link);
   sink = wp_endpoint_link_get_sink_endpoint (link);
   g_assert_true (ep2 == src);
-  g_assert_true (ep1 == sink);
+  g_assert_true (dev == sink);
   g_assert_true (
       WP_STREAM_ID_NONE == wp_endpoint_link_get_source_stream (link));
-  g_assert_true (0 == wp_endpoint_link_get_sink_stream (link));
+  g_assert_true (1 == wp_endpoint_link_get_sink_stream (link));
+  wp_config_policy_context_remove_endpoint (ctx, ep2);
 
-  /* Create the second client endpoint without role and make sure it uses
-   * the one defined in the configuration file which is "1" */
+  /* Create the third client endpoint without role and make sure it uses the
+   * lowest priority on from the streams file because the endpoint-link file
+   * does not have any either */
   ep3 = wp_config_policy_context_add_endpoint (ctx, "ep3", "Stream/Output/Fake",
       PW_DIRECTION_OUTPUT, NULL, NULL, 0, &link);
   g_assert_nonnull (ep3);
   g_assert_nonnull (link);
   g_assert_true (wp_endpoint_is_linked (ep3));
-  g_assert_true (wp_endpoint_is_linked (ep1));
+  g_assert_true (wp_endpoint_is_linked (dev));
   src = wp_endpoint_link_get_source_endpoint (link);
   sink = wp_endpoint_link_get_sink_endpoint (link);
   g_assert_true (ep3 == src);
-  g_assert_true (ep1 == sink);
+  g_assert_true (dev == sink);
   g_assert_true (
       WP_STREAM_ID_NONE == wp_endpoint_link_get_source_stream (link));
-  g_assert_true (1 == wp_endpoint_link_get_sink_stream (link));
+  g_assert_true (0 == wp_endpoint_link_get_sink_stream (link));
+  wp_config_policy_context_remove_endpoint (ctx, ep3);
 }
 
 int
