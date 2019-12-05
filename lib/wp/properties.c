@@ -276,10 +276,9 @@ wp_properties_matches (WpProperties * self, WpProperties *other)
   dict = wp_properties_peek_dict (self);
   spa_dict_for_each(item, dict) {
     value = wp_properties_get (other, item->key);
-    if (value && g_strcmp0 (item->value, value) != 0)
+    if (value && !g_pattern_match_simple (value, item->value))
       return FALSE;
   }
 
   return TRUE;
 }
-
