@@ -32,6 +32,8 @@ struct WpParserStreamsData {
 /* Helpers */
 const struct WpParserStreamsStreamData *wp_parser_streams_find_stream (
     const struct WpParserStreamsData *data, const char *name);
+const struct WpParserStreamsStreamData *wp_parser_streams_get_lowest_stream (
+    const struct WpParserStreamsData *data);
 
 #define WP_TYPE_PARSER_STREAMS (wp_parser_streams_get_type ())
 G_DECLARE_FINAL_TYPE (WpParserStreams, wp_parser_streams,

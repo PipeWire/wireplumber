@@ -31,6 +31,21 @@ wp_parser_streams_find_stream (const struct WpParserStreamsData *data,
   return NULL;
 }
 
+const struct WpParserStreamsStreamData *
+wp_parser_streams_get_lowest_stream (const struct WpParserStreamsData *data)
+{
+  const struct WpParserStreamsStreamData *res = NULL;
+  guint lowest = G_MAXUINT;
+  for (guint i = 0; i < data->n_streams; i++) {
+    const struct WpParserStreamsStreamData *s = data->streams + i;
+    if (s->priority < lowest) {
+      lowest = s->priority;
+      res = s;
+    }
+  }
+  return res;
+}
+
 static void wp_parser_streams_config_parser_init (gpointer iface,
     gpointer iface_data);
 
