@@ -362,7 +362,7 @@ wp_object_manager_is_interested_in_global (WpObjectManager * self,
 static void
 sync_emit_objects_changed (WpCore *core, GAsyncResult *res, gpointer data)
 {
-  WpObjectManager *self = data;
+  g_autoptr (WpObjectManager) self = WP_OBJECT_MANAGER (data);
 
   g_signal_emit (self, signals[SIGNAL_OBJECTS_CHANGED], 0);
   self->pending_objchanged = FALSE;
@@ -377,7 +377,7 @@ schedule_emit_objects_changed (WpObjectManager * self)
   g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
   if (core) {
     wp_core_sync (core, NULL, (GAsyncReadyCallback)sync_emit_objects_changed,
-        self);
+        g_object_ref (self));
     self->pending_objchanged = TRUE;
   }
 }
