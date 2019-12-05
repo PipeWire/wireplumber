@@ -246,6 +246,34 @@ wp_config_policy_handle_endpoint (WpPolicy *policy, WpEndpoint *ep)
       WP_STREAM_ID_NONE, target, stream_id, data);
 }
 
+static const char *
+wp_config_policy_get_prioritized_stream (WpPolicy *policy,
+    const char *ep_stream, const char *te_stream, const char *te_streams)
+{
+  WpConfigPolicy *self = WP_CONFIG_POLICY (policy);
+
+  /* The target stream has higher priority than the endpoint stream */
+  const char *res = te_stream ? te_stream : ep_stream;
+  if (res)
+    return res;
+
+  /* If both streams are null, and no streams file is defined, return NULL */
+  if (!te_streams)
+    return NULL;
+
+  /* Otherwise get the lowest stream from streams */
+  g_autoptr (WpConfigParser) parser = NULL;
+  const struct WpParserStreamsData *streams = NULL;
+  const struct WpParserStreamsStreamData *lowest = NULL;
+  parser = wp_configuration_get_parser (self->config,
+      WP_PARSER_STREAMS_EXTENSION);
+  streams = wp_config_parser_get_matched_data (parser, (gpointer)te_streams);
+  if (!streams)
+    return NULL;
+  lowest = wp_parser_streams_get_lowest_stream (streams);
+  return lowest ? lowest->name : NULL;
+}
+
 static WpEndpoint *
 wp_config_policy_find_endpoint (WpPolicy *policy, GVariant *props,
     guint32 *stream_id)
@@ -258,7 +286,7 @@ wp_config_policy_find_endpoint (WpPolicy *policy, GVariant *props,
   WpEndpoint *target = NULL;
   g_autoptr (WpProxy) proxy = NULL;
   g_autoptr (WpProperties) p = NULL;
-  const char *role = NULL, *target_role = NULL;
+  const char *role = NULL;
 
   /* Get the data from props */
   g_variant_lookup (props, "data", "t", &data);
@@ -287,11 +315,15 @@ wp_config_policy_find_endpoint (WpPolicy *policy, GVariant *props,
 
   /* Set the stream id */
   if (stream_id) {
-    g_variant_lookup (props, "role", "&s", &role);
-    target_role = role ? role : data->te.stream;
-    *stream_id = target && target_role ?
-        wp_endpoint_find_stream (target, target_role) :
-        WP_CONTROL_ID_NONE;
+    if (target) {
+      g_variant_lookup (props, "role", "&s", &role);
+      const char *prioritized = wp_config_policy_get_prioritized_stream (policy,
+          role, data->te.stream, data->te.streams);
+      *stream_id = prioritized ? wp_endpoint_find_stream (target, prioritized) :
+          WP_STREAM_ID_NONE;
+    } else {
+      *stream_id = WP_STREAM_ID_NONE;
+    }
   }
 
   return g_object_ref (target);
