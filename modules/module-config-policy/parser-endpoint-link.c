@@ -200,8 +200,7 @@ wp_parser_endpoint_link_data_new (const gchar *location)
   res->me.endpoint_data.direction = parse_endpoint_direction (direction);
 
   /* Get the match endpoint properties (Optional) */
-  res->me.endpoint_data.props =
-      parse_properties (table, "match-endpoint-properties");
+  res->me.endpoint_data.props = parse_properties (me, "properties");
 
   /* Get the target-endpoint table */
   te = wp_toml_table_get_table (table, "target-endpoint");
@@ -220,8 +219,7 @@ wp_parser_endpoint_link_data_new (const gchar *location)
       pw_direction_reverse (res->me.endpoint_data.direction);
 
   /* Get the target endpoint properties (Optional) */
-  res->te.endpoint_data.props =
-      parse_properties (table, "target-endpoint-properties");
+  res->te.endpoint_data.props = parse_properties (te, "properties");
 
   /* Get the target endpoint streams */
   res->te.streams = wp_toml_table_get_string (te, "streams");

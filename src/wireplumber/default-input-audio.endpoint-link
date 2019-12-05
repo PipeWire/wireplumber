@@ -7,10 +7,9 @@ media_class = "Stream/Input/Audio"
 media_class = "Audio/Source"
 streams = "default.streams"
 stream = "Multimedia"
-
-[[target-endpoint-properties]]
-name = "api.alsa.path"
-value = "hw:0,0"
+properties = [
+  { name = "api.alsa.path", value = "hw:0,0" },
+]
 
 [endpoint-link]
 keep = false
