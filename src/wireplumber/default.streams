@@ -7,7 +7,7 @@ name = "Navigation"
 priority = 50
 
 [[streams]]
-name = "Communiction"
+name = "Communication"
 priority = 75
 
 [[streams]]
