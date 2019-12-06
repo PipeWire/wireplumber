@@ -27,6 +27,17 @@ typedef struct {
   WpCore *core;
 } TestConfigPolicyFixture;
 
+static void
+on_connected (WpCore *core, enum pw_remote_state new_state,
+    TestConfigPolicyFixture *self)
+{
+  /* Notify the main thread that we are done */
+  g_mutex_lock (&self->mutex);
+  self->created = TRUE;
+  g_cond_signal (&self->cond);
+  g_mutex_unlock (&self->mutex);
+}
+
 static void *
 loop_thread_start (void *d)
 {
@@ -36,16 +47,23 @@ loop_thread_start (void *d)
   self->context = g_main_context_get_thread_default ();
   self->loop = g_main_loop_new (self->context, FALSE);
 
-  /* Notify the main thread that the main loop has been created */
-  g_mutex_lock (&self->mutex);
-  self->created = TRUE;
-  g_cond_signal (&self->cond);
-  g_mutex_unlock (&self->mutex);
+  /* Create the server */
+  wp_test_server_setup (&self->server);
+
+  /* Create the core and connect to the server */
+  g_autoptr (WpProperties) props = NULL;
+  props = wp_properties_new (PW_KEY_REMOTE_NAME, self->server.name, NULL);
+  self->core = wp_core_new (self->context, props);
+  g_signal_connect (self->core, "remote-state-changed::connected",
+      (GCallback) on_connected, self);
+  wp_core_connect (self->core);
 
   /* Run the main loop */
   g_main_loop_run (self->loop);
 
   /* Clean up */
+  g_clear_object (&self->core);
+  wp_test_server_teardown (&self->server);
   g_clear_pointer (&self->loop, g_main_loop_unref);
   return NULL;
 }
@@ -53,30 +71,19 @@ loop_thread_start (void *d)
 static void
 config_policy_setup (TestConfigPolicyFixture *self, gconstpointer user_data)
 {
-  /* Create the server */
-  g_autoptr (WpProperties) props = NULL;
-  wp_test_server_setup (&self->server);
-  props = wp_properties_new (PW_KEY_REMOTE_NAME, self->server.name, NULL);
-
   /* Data */
   g_mutex_init (&self->mutex);
   g_cond_init (&self->cond);
   self->created = FALSE;
 
-  /* Start the main loop in a thread */
+  /* Initialize main loop, server and core in a thread */
   self->loop_thread = g_thread_new("loop-thread", &loop_thread_start, self);
 
-  /* Wait for the thread to create the main loop */
+  /* Wait for everything to be created */
   g_mutex_lock (&self->mutex);
   while (!self->created)
     g_cond_wait (&self->cond, &self->mutex);
   g_mutex_unlock (&self->mutex);
-
-  /* Create the core using the thread context */
-  self->core = wp_core_new (self->context, props);
-
-  /* Connect to the server */
-  pw_remote_connect (wp_core_get_pw_remote (self->core));
 }
 
 static gboolean
@@ -91,18 +98,15 @@ static void
 config_policy_teardown (TestConfigPolicyFixture *self, gconstpointer user_data)
 {
   /* Stop the main loop and wait until it is done */
-  wp_core_idle_add (self->core, loop_thread_stop, self);
+  g_autoptr (GSource) source = g_idle_source_new ();
+  g_source_set_callback (source, loop_thread_stop, self, NULL);
+  g_source_attach (source, self->context);
   g_thread_join (self->loop_thread);
 
-  /* Destroy the core */
-  g_clear_object (&self->core);
-
+  /* Data */
   g_mutex_clear (&self->mutex);
   g_cond_clear (&self->cond);
   self->created = FALSE;
-
-  /* Destroy the server */
-  wp_test_server_teardown (&self->server);
 }
 
 static void
