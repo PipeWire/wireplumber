@@ -478,14 +478,14 @@ wp_core_idle_add (WpCore * self, GSourceFunc function, gpointer data)
   return source;
 }
 
-void
+gboolean
 wp_core_sync (WpCore * self, GCancellable * cancellable,
     GAsyncReadyCallback callback, gpointer user_data)
 {
   g_autoptr (GTask) task = NULL;
   int seq;
 
-  g_return_if_fail (WP_IS_CORE (self));
+  g_return_val_if_fail (WP_IS_CORE (self), FALSE);
 
   task = g_task_new (self, cancellable, callback, user_data);
 
@@ -493,7 +493,7 @@ wp_core_sync (WpCore * self, GCancellable * cancellable,
     g_warn_if_reached ();
     g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
         WP_LIBRARY_ERROR_INVARIANT, "No core proxy");
-    return;
+    return FALSE;
   }
 
   seq = pw_core_proxy_sync (self->core_proxy, 0, 0);
@@ -501,11 +501,12 @@ wp_core_sync (WpCore * self, GCancellable * cancellable,
     g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
         WP_LIBRARY_ERROR_OPERATION_FAILED, "pw_core_proxy_sync failed: %s",
         g_strerror (-seq));
-    return;
+    return FALSE;
   }
 
   g_hash_table_insert (self->async_tasks, GINT_TO_POINTER (seq),
       g_steal_pointer (&task));
+  return TRUE;
 }
 
 struct pw_core *
