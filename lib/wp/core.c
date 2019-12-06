@@ -522,23 +522,11 @@ wp_core_get_pw_remote (WpCore * self)
   return self->pw_remote;
 }
 
-static gboolean
-connect_in_idle (WpCore *self)
-{
-  pw_remote_connect (self->pw_remote);
-  return G_SOURCE_REMOVE;
-}
-
 gboolean
 wp_core_connect (WpCore *self)
 {
-  g_autoptr (GSource) source = NULL;
-
   g_return_val_if_fail (WP_IS_CORE (self), FALSE);
-
-  source = wp_core_idle_add (self, (GSourceFunc) connect_in_idle, self);
-
-  return TRUE;
+  return pw_remote_connect (self->pw_remote) >= 0;
 }
 
 WpRemoteState
