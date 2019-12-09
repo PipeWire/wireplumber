@@ -39,7 +39,7 @@ struct WpParserEndpointLinkData {
 };
 
 /* Helpers */
-gboolean wp_parser_endpoint_link_matches_endpoint_data (WpEndpoint *ep,
+gboolean wp_parser_endpoint_link_matches_endpoint_data (WpBaseEndpoint *ep,
     const struct WpParserEndpointLinkEndpointData *data);
 
 #define WP_TYPE_PARSER_ENDPOINT_LINK (wp_parser_endpoint_link_get_type ())

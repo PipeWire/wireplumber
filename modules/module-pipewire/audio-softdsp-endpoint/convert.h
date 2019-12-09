@@ -22,7 +22,7 @@ struct spa_audio_info_raw format;
 G_DECLARE_FINAL_TYPE (WpAudioConvert, wp_audio_convert, WP, AUDIO_CONVERT,
     WpAudioStream)
 
-void wp_audio_convert_new (WpEndpoint *endpoint, guint stream_id,
+void wp_audio_convert_new (WpBaseEndpoint *endpoint, guint stream_id,
     const char *stream_name, enum pw_direction direction,
     WpAudioStream *target, const struct spa_audio_info_raw *format,
     GAsyncReadyCallback callback, gpointer user_data);

@@ -59,7 +59,7 @@ wp_policy_manager_class_init (WpPolicyManagerClass *klass)
 }
 
 static void
-policy_mgr_endpoint_added (WpObjectManager *om, WpEndpoint *ep,
+policy_mgr_endpoint_added (WpObjectManager *om, WpBaseEndpoint *ep,
     WpPolicyManager *self)
 {
   GList *l;
@@ -74,7 +74,7 @@ policy_mgr_endpoint_added (WpObjectManager *om, WpEndpoint *ep,
 }
 
 static void
-policy_mgr_endpoint_removed (WpObjectManager *om, WpEndpoint *ep,
+policy_mgr_endpoint_removed (WpObjectManager *om, WpBaseEndpoint *ep,
     WpPolicyManager *self)
 {
   GList *l;
@@ -109,7 +109,7 @@ wp_policy_manager_get_instance (WpCore *core)
 
     /* install the object manager to listen to added/removed endpoints */
     wp_object_manager_add_object_interest (mgr->endpoints_om,
-        WP_TYPE_ENDPOINT, NULL);
+        WP_TYPE_BASE_ENDPOINT, NULL);
     g_signal_connect_object (mgr->endpoints_om, "object-added",
         (GCallback) policy_mgr_endpoint_added, mgr, 0);
     g_signal_connect_object (mgr->endpoints_om, "object-removed",
@@ -162,7 +162,7 @@ media_class_matches (const gchar * media_class, const gchar * lookup)
  * @self: the policy manager
  * @media_class: the media class lookup string
  *
- * Returns: (transfer full) (element-type WpEndpoint*): an array with all the
+ * Returns: (transfer full) (element-type WpBaseEndpoint*): an array with all the
  *   endpoints matching the media class lookup string
  */
 GPtrArray *
@@ -176,8 +176,8 @@ wp_policy_manager_list_endpoints (WpPolicyManager * self,
 
   ret = wp_object_manager_get_objects (self->endpoints_om, 0);
   for (i = ret->len; i > 0; i--) {
-    WpEndpoint *ep = g_ptr_array_index (ret, i-1);
-    if (!media_class_matches (wp_endpoint_get_media_class (ep), media_class))
+    WpBaseEndpoint *ep = g_ptr_array_index (ret, i-1);
+    if (!media_class_matches (wp_base_endpoint_get_media_class (ep), media_class))
       g_ptr_array_remove_index_fast (ret, i-1);
   }
   return ret;
@@ -429,14 +429,14 @@ wp_policy_notify_changed (WpPolicy *self)
  *
  * Returns: (transfer full) (nullable): the found endpoint, or NULL
  */
-WpEndpoint *
+WpBaseEndpoint *
 wp_policy_find_endpoint (WpCore *core, GVariant *props,
     guint32 *stream_id)
 {
   g_autoptr (WpPolicyManager) mgr = NULL;
   GList *l;
   WpPolicy *p;
-  WpEndpoint * ret;
+  WpBaseEndpoint * ret;
 
   g_return_val_if_fail (WP_IS_CORE (core), NULL);
   g_return_val_if_fail (g_variant_is_of_type (props, G_VARIANT_TYPE_VARDICT), NULL);

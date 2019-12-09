@@ -285,7 +285,7 @@ wp_audio_convert_class_init (WpAudioConvertClass * klass)
 }
 
 void
-wp_audio_convert_new (WpEndpoint *endpoint, guint stream_id,
+wp_audio_convert_new (WpBaseEndpoint *endpoint, guint stream_id,
     const char *stream_name, enum pw_direction direction,
     WpAudioStream *target, const struct spa_audio_info_raw *format,
     GAsyncReadyCallback callback, gpointer user_data)

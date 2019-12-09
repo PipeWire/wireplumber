@@ -7,7 +7,7 @@
  */
 
 /**
- * module-pw-audio-softdsp-endpoint provides a WpEndpoint implementation
+ * module-pw-audio-softdsp-endpoint provides a WpBaseEndpoint implementation
  * that wraps an audio device node in pipewire and plugs a DSP node, as well
  * as optional merger+volume nodes that are used as entry points for the
  * various streams that this endpoint may have
@@ -30,7 +30,7 @@
 
 struct _WpPwAudioSoftdspEndpoint
 {
-  WpEndpoint parent;
+  WpBaseEndpoint parent;
 
   /* Properties */
   WpProxyNode *proxy_node;
@@ -55,16 +55,16 @@ enum {
   PROP_ROLE,
 };
 
-static GAsyncInitableIface *wp_endpoint_parent_interface = NULL;
-static void wp_endpoint_async_initable_init (gpointer iface,
+static GAsyncInitableIface *async_initable_parent_interface = NULL;
+static void endpoint_async_initable_init (gpointer iface,
     gpointer iface_data);
 
 G_DECLARE_FINAL_TYPE (WpPwAudioSoftdspEndpoint, endpoint,
-    WP_PW, AUDIO_SOFTDSP_ENDPOINT, WpEndpoint)
+    WP_PW, AUDIO_SOFTDSP_ENDPOINT, WpBaseEndpoint)
 
-G_DEFINE_TYPE_WITH_CODE (WpPwAudioSoftdspEndpoint, endpoint, WP_TYPE_ENDPOINT,
+G_DEFINE_TYPE_WITH_CODE (WpPwAudioSoftdspEndpoint, endpoint, WP_TYPE_BASE_ENDPOINT,
     G_IMPLEMENT_INTERFACE (G_TYPE_ASYNC_INITABLE,
-                           wp_endpoint_async_initable_init))
+                           endpoint_async_initable_init))
 
 typedef GObject* (*WpObjectNewFinishFunc)(GObject *initable, GAsyncResult *res,
     GError **error);
@@ -93,7 +93,7 @@ object_safe_new_finish(WpPwAudioSoftdspEndpoint * self, GObject *initable,
 }
 
 static WpProperties *
-endpoint_get_properties (WpEndpoint * ep)
+endpoint_get_properties (WpBaseEndpoint * ep)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (ep);
 
@@ -101,7 +101,7 @@ endpoint_get_properties (WpEndpoint * ep)
 }
 
 static const char *
-endpoint_get_role (WpEndpoint *ep)
+endpoint_get_role (WpBaseEndpoint *ep)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (ep);
 
@@ -109,8 +109,8 @@ endpoint_get_role (WpEndpoint *ep)
 }
 
 static gboolean
-endpoint_prepare_link (WpEndpoint * ep, guint32 stream_id,
-    WpEndpointLink * link, GVariant ** properties, GError ** error)
+endpoint_prepare_link (WpBaseEndpoint * ep, guint32 stream_id,
+    WpBaseEndpointLink * link, GVariant ** properties, GError ** error)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (ep);
   WpAudioStream *stream = NULL;
@@ -176,8 +176,8 @@ on_audio_adapter_created(GObject *initable, GAsyncResult *res,
     gpointer data)
 {
   WpPwAudioSoftdspEndpoint *self = data;
-  enum pw_direction direction = wp_endpoint_get_direction(WP_ENDPOINT(self));
-  g_autoptr (WpCore) core = wp_endpoint_get_core(WP_ENDPOINT(self));
+  enum pw_direction direction = wp_base_endpoint_get_direction(WP_BASE_ENDPOINT(self));
+  g_autoptr (WpCore) core = wp_base_endpoint_get_core(WP_BASE_ENDPOINT(self));
   g_autoptr (WpProperties) props = NULL;
   const struct spa_audio_info_raw *format;
   g_autofree gchar *name = NULL;
@@ -220,14 +220,14 @@ on_audio_adapter_created(GObject *initable, GAsyncResult *res,
   /* Create the audio converters */
   g_variant_iter_init (&iter, self->streams);
   for (i = 0; g_variant_iter_next (&iter, "&s", &stream); i++) {
-    wp_audio_convert_new (WP_ENDPOINT(self), i, stream, direction,
+    wp_audio_convert_new (WP_BASE_ENDPOINT(self), i, stream, direction,
         self->adapter, format, on_audio_convert_created, self);
 
     /* Register the stream */
     g_variant_dict_init (&d, NULL);
     g_variant_dict_insert (&d, "id", "u", i);
     g_variant_dict_insert (&d, "name", "s", stream);
-    wp_endpoint_register_stream (WP_ENDPOINT (self), g_variant_dict_end (&d));
+    wp_base_endpoint_register_stream (WP_BASE_ENDPOINT (self), g_variant_dict_end (&d));
   }
   self->stream_count = i;
 }
@@ -300,7 +300,7 @@ endpoint_get_property (GObject * object, guint property_id,
 }
 
 static GVariant *
-endpoint_get_control_value (WpEndpoint * ep, guint32 id)
+endpoint_get_control_value (WpBaseEndpoint * ep, guint32 id)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (ep);
   guint stream_id, control_id;
@@ -323,7 +323,7 @@ endpoint_get_control_value (WpEndpoint * ep, guint32 id)
 }
 
 static gboolean
-endpoint_set_control_value (WpEndpoint * ep, guint32 id, GVariant * value)
+endpoint_set_control_value (WpBaseEndpoint * ep, guint32 id, GVariant * value)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (ep);
   guint stream_id, control_id;
@@ -331,7 +331,7 @@ endpoint_set_control_value (WpEndpoint * ep, guint32 id, GVariant * value)
 
   if (id == CONTROL_SELECTED) {
     self->selected = g_variant_get_boolean (value);
-    wp_endpoint_notify_control_value (ep, CONTROL_SELECTED);
+    wp_base_endpoint_notify_control_value (ep, CONTROL_SELECTED);
     return TRUE;
   }
 
@@ -349,19 +349,19 @@ endpoint_set_control_value (WpEndpoint * ep, guint32 id, GVariant * value)
 }
 
 static void
-wp_endpoint_init_async (GAsyncInitable *initable, int io_priority,
+wp_base_endpoint_init_async (GAsyncInitable *initable, int io_priority,
     GCancellable *cancellable, GAsyncReadyCallback callback, gpointer data)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (initable);
-  enum pw_direction direction = wp_endpoint_get_direction(WP_ENDPOINT(self));
-  g_autoptr (WpCore) core = wp_endpoint_get_core(WP_ENDPOINT(self));
+  enum pw_direction direction = wp_base_endpoint_get_direction(WP_BASE_ENDPOINT(self));
+  g_autoptr (WpCore) core = wp_base_endpoint_get_core(WP_BASE_ENDPOINT(self));
   GVariantDict d;
 
   /* Create the async task */
   self->init_task = g_task_new (initable, cancellable, callback, data);
 
   /* Create the adapter proxy */
-  wp_audio_adapter_new (WP_ENDPOINT(self), WP_STREAM_ID_NONE, "master",
+  wp_audio_adapter_new (WP_BASE_ENDPOINT(self), WP_STREAM_ID_NONE, "master",
       direction, self->proxy_node, FALSE, on_audio_adapter_created, self);
 
   /* Register the selected control */
@@ -371,23 +371,23 @@ wp_endpoint_init_async (GAsyncInitable *initable, int io_priority,
   g_variant_dict_insert (&d, "name", "s", "selected");
   g_variant_dict_insert (&d, "type", "s", "b");
   g_variant_dict_insert (&d, "default-value", "b", self->selected);
-  wp_endpoint_register_control (WP_ENDPOINT (self), g_variant_dict_end (&d));
+  wp_base_endpoint_register_control (WP_BASE_ENDPOINT (self), g_variant_dict_end (&d));
 
   /* Call the parent interface */
-  wp_endpoint_parent_interface->init_async (initable, io_priority, cancellable,
+  async_initable_parent_interface->init_async (initable, io_priority, cancellable,
       callback, data);
 }
 
 static void
-wp_endpoint_async_initable_init (gpointer iface, gpointer iface_data)
+endpoint_async_initable_init (gpointer iface, gpointer iface_data)
 {
   GAsyncInitableIface *ai_iface = iface;
 
   /* Set the parent interface */
-  wp_endpoint_parent_interface = g_type_interface_peek_parent (iface);
+  async_initable_parent_interface = g_type_interface_peek_parent (iface);
 
   /* Only set the init_async */
-  ai_iface->init_async = wp_endpoint_init_async;
+  ai_iface->init_async = wp_base_endpoint_init_async;
 }
 
 static void
@@ -400,7 +400,7 @@ static void
 endpoint_class_init (WpPwAudioSoftdspEndpointClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
-  WpEndpointClass *endpoint_class = (WpEndpointClass *) klass;
+  WpBaseEndpointClass *endpoint_class = (WpBaseEndpointClass *) klass;
 
   object_class->finalize = endpoint_finalize;
   object_class->set_property = endpoint_set_property;
@@ -440,7 +440,7 @@ audio_softdsp_endpoint_factory (WpFactory * factory, GType type, GVariant * prop
   g_autoptr (GVariant) streams = NULL;
 
   /* Make sure the type is correct */
-  g_return_if_fail(type == WP_TYPE_ENDPOINT);
+  g_return_if_fail(type == WP_TYPE_BASE_ENDPOINT);
 
   /* Get the Core */
   core = wp_factory_get_core(factory);

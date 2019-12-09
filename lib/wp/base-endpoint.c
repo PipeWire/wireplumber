@@ -84,13 +84,13 @@
  * "default-value": the default value
  */
 
-#include "endpoint.h"
+#include "base-endpoint.h"
 #include "error.h"
 #include "factory.h"
 #include "private.h"
 
-typedef struct _WpEndpointPrivate WpEndpointPrivate;
-struct _WpEndpointPrivate
+typedef struct _WpBaseEndpointPrivate WpBaseEndpointPrivate;
+struct _WpBaseEndpointPrivate
 {
   gchar *name;
   gchar media_class[40];
@@ -118,22 +118,22 @@ enum {
 
 static guint32 signals[NUM_SIGNALS];
 
-static void wp_endpoint_async_initable_init (gpointer iface,
+static void wp_base_endpoint_async_initable_init (gpointer iface,
     gpointer iface_data);
 
-G_DEFINE_ABSTRACT_TYPE_WITH_CODE (WpEndpoint, wp_endpoint, G_TYPE_OBJECT,
-  G_ADD_PRIVATE (WpEndpoint)
+G_DEFINE_ABSTRACT_TYPE_WITH_CODE (WpBaseEndpoint, wp_base_endpoint, G_TYPE_OBJECT,
+  G_ADD_PRIVATE (WpBaseEndpoint)
   G_IMPLEMENT_INTERFACE (G_TYPE_ASYNC_INITABLE,
-                         wp_endpoint_async_initable_init))
+                         wp_base_endpoint_async_initable_init))
 
 static void
-wp_endpoint_init_async (GAsyncInitable *initable, int io_priority,
+wp_base_endpoint_init_async (GAsyncInitable *initable, int io_priority,
     GCancellable *cancellable, GAsyncReadyCallback callback, gpointer data)
 {
 }
 
 static gboolean
-wp_endpoint_init_finish (GAsyncInitable *initable, GAsyncResult *result,
+wp_base_endpoint_init_finish (GAsyncInitable *initable, GAsyncResult *result,
     GError **error)
 {
   g_return_val_if_fail (g_task_is_valid (result, initable), FALSE);
@@ -142,18 +142,18 @@ wp_endpoint_init_finish (GAsyncInitable *initable, GAsyncResult *result,
 }
 
 static void
-wp_endpoint_async_initable_init (gpointer iface, gpointer iface_data)
+wp_base_endpoint_async_initable_init (gpointer iface, gpointer iface_data)
 {
   GAsyncInitableIface *ai_iface = iface;
 
-  ai_iface->init_async = wp_endpoint_init_async;
-  ai_iface->init_finish = wp_endpoint_init_finish;
+  ai_iface->init_async = wp_base_endpoint_init_async;
+  ai_iface->init_finish = wp_base_endpoint_init_finish;
 }
 
 static void
-wp_endpoint_init (WpEndpoint * self)
+wp_base_endpoint_init (WpBaseEndpoint * self)
 {
-  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
+  WpBaseEndpointPrivate *priv = wp_base_endpoint_get_instance_private (self);
 
   g_weak_ref_init (&priv->core, NULL);
 
@@ -166,26 +166,26 @@ wp_endpoint_init (WpEndpoint * self)
 }
 
 static void
-wp_endpoint_dispose (GObject * object)
+wp_base_endpoint_dispose (GObject * object)
 {
-  WpEndpointPrivate *priv =
-      wp_endpoint_get_instance_private (WP_ENDPOINT (object));
+  WpBaseEndpointPrivate *priv =
+      wp_base_endpoint_get_instance_private (WP_BASE_ENDPOINT (object));
   gint i;
 
-  /* wp_endpoint_link_destroy removes elements from the array,
+  /* wp_base_endpoint_link_destroy removes elements from the array,
    * so traversing in reverse order is faster and less complicated */
   for (i = priv->links->len - 1; i >= 0; i--) {
-    wp_endpoint_link_destroy (g_ptr_array_index (priv->links, i));
+    wp_base_endpoint_link_destroy (g_ptr_array_index (priv->links, i));
   }
 
-  G_OBJECT_CLASS (wp_endpoint_parent_class)->dispose (object);
+  G_OBJECT_CLASS (wp_base_endpoint_parent_class)->dispose (object);
 }
 
 static void
-wp_endpoint_finalize (GObject * object)
+wp_base_endpoint_finalize (GObject * object)
 {
-  WpEndpointPrivate *priv =
-      wp_endpoint_get_instance_private (WP_ENDPOINT (object));
+  WpBaseEndpointPrivate *priv =
+      wp_base_endpoint_get_instance_private (WP_BASE_ENDPOINT (object));
 
   g_debug ("%s:%p destroyed: %s", G_OBJECT_TYPE_NAME (object), object,
       priv->name);
@@ -196,15 +196,15 @@ wp_endpoint_finalize (GObject * object)
   g_free (priv->name);
   g_weak_ref_clear (&priv->core);
 
-  G_OBJECT_CLASS (wp_endpoint_parent_class)->finalize (object);
+  G_OBJECT_CLASS (wp_base_endpoint_parent_class)->finalize (object);
 }
 
 static void
-wp_endpoint_set_property (GObject * object, guint property_id,
+wp_base_endpoint_set_property (GObject * object, guint property_id,
     const GValue * value, GParamSpec * pspec)
 {
-  WpEndpointPrivate *priv =
-      wp_endpoint_get_instance_private (WP_ENDPOINT (object));
+  WpBaseEndpointPrivate *priv =
+      wp_base_endpoint_get_instance_private (WP_BASE_ENDPOINT (object));
 
   switch (property_id) {
   case PROP_CORE:
@@ -230,11 +230,11 @@ wp_endpoint_set_property (GObject * object, guint property_id,
 }
 
 static void
-wp_endpoint_get_property (GObject * object, guint property_id, GValue * value,
+wp_base_endpoint_get_property (GObject * object, guint property_id, GValue * value,
     GParamSpec * pspec)
 {
-  WpEndpointPrivate *priv =
-      wp_endpoint_get_instance_private (WP_ENDPOINT (object));
+  WpBaseEndpointPrivate *priv =
+      wp_base_endpoint_get_instance_private (WP_BASE_ENDPOINT (object));
 
   switch (property_id) {
   case PROP_CORE:
@@ -259,14 +259,14 @@ wp_endpoint_get_property (GObject * object, guint property_id, GValue * value,
 }
 
 static void
-wp_endpoint_class_init (WpEndpointClass * klass)
+wp_base_endpoint_class_init (WpBaseEndpointClass * klass)
 {
   GObjectClass * object_class = (GObjectClass *) klass;
 
-  object_class->dispose = wp_endpoint_dispose;
-  object_class->finalize = wp_endpoint_finalize;
-  object_class->get_property = wp_endpoint_get_property;
-  object_class->set_property = wp_endpoint_set_property;
+  object_class->dispose = wp_base_endpoint_dispose;
+  object_class->finalize = wp_base_endpoint_finalize;
+  object_class->get_property = wp_base_endpoint_get_property;
+  object_class->set_property = wp_base_endpoint_set_property;
 
   g_object_class_install_property (object_class, PROP_CORE,
       g_param_spec_object ("core", "core", "The wireplumber core",
@@ -274,7 +274,7 @@ wp_endpoint_class_init (WpEndpointClass * klass)
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   /**
-   * WpEndpoint::name:
+   * WpBaseEndpoint::name:
    * The name of the endpoint.
    */
   g_object_class_install_property (object_class, PROP_NAME,
@@ -282,7 +282,7 @@ wp_endpoint_class_init (WpEndpointClass * klass)
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS));
 
   /**
-   * WpEndpoint::media-class:
+   * WpBaseEndpoint::media-class:
    * The media class describes the type of media that this endpoint handles.
    * This should be the same as PipeWire media class strings.
    * For instance:
@@ -301,7 +301,7 @@ wp_endpoint_class_init (WpEndpointClass * klass)
       G_TYPE_NONE, 1, G_TYPE_UINT);
 
   /**
-   * WpEndpoint::direction:
+   * WpBaseEndpoint::direction:
    * The direction of the endpoint: input = 0, output = 1.
    */
   g_object_class_install_property (object_class, PROP_DIRECTION,
@@ -310,7 +310,7 @@ wp_endpoint_class_init (WpEndpointClass * klass)
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   /**
-   * WpEndpoint::creation-time:
+   * WpBaseEndpoint::creation-time:
    * The creation time of the endpoint in monolitic time
    */
   g_object_class_install_property (object_class, PROP_CREATION_TIME,
@@ -321,69 +321,69 @@ wp_endpoint_class_init (WpEndpointClass * klass)
 }
 
 /**
- * wp_endpoint_new_finish:
+ * wp_base_endpoint_new_finish:
  * @initable: the #GAsyncInitable from the callback
  * @res: the #GAsyncResult from the callback
  * @error: return location for errors, or NULL to ignore
  *
- * Finishes the async construction of #WpEndpoint.
+ * Finishes the async construction of #WpBaseEndpoint.
  */
-WpEndpoint *
-wp_endpoint_new_finish (GObject *initable, GAsyncResult *res, GError **error)
+WpBaseEndpoint *
+wp_base_endpoint_new_finish (GObject *initable, GAsyncResult *res, GError **error)
 {
   GAsyncInitable *ai = G_ASYNC_INITABLE(initable);
-  return WP_ENDPOINT(g_async_initable_new_finish(ai, res, error));
+  return WP_BASE_ENDPOINT(g_async_initable_new_finish(ai, res, error));
 }
 
 /**
- * wp_endpoint_register:
+ * wp_base_endpoint_register:
  * @self: the endpoint
  *
  * Registers the endpoint on the #WpCore.
  */
 void
-wp_endpoint_register (WpEndpoint * self)
+wp_base_endpoint_register (WpBaseEndpoint * self)
 {
-  WpEndpointPrivate *priv;
+  WpBaseEndpointPrivate *priv;
   g_autoptr (WpCore) core = NULL;
 
-  g_return_if_fail (WP_IS_ENDPOINT (self));
+  g_return_if_fail (WP_IS_BASE_ENDPOINT (self));
 
-  priv = wp_endpoint_get_instance_private (self);
+  priv = wp_base_endpoint_get_instance_private (self);
   core = g_weak_ref_get (&priv->core);
   g_return_if_fail (core != NULL);
 
-  g_info ("WpEndpoint:%p registering '%s' (%s)", self, priv->name,
+  g_info ("WpBaseEndpoint:%p registering '%s' (%s)", self, priv->name,
       priv->media_class);
 
   wp_core_register_object (core, g_object_ref (self));
 }
 
 /**
- * wp_endpoint_unregister:
+ * wp_base_endpoint_unregister:
  * @self: the endpoint
  *
  * Unregisters the endpoint from the session manager, if it was registered
  * and the session manager object still exists
  */
 void
-wp_endpoint_unregister (WpEndpoint * self)
+wp_base_endpoint_unregister (WpBaseEndpoint * self)
 {
-  WpEndpointPrivate *priv;
+  WpBaseEndpointPrivate *priv;
   g_autoptr (WpCore) core = NULL;
 
-  g_return_if_fail (WP_IS_ENDPOINT (self));
+  g_return_if_fail (WP_IS_BASE_ENDPOINT (self));
 
-  priv = wp_endpoint_get_instance_private (self);
+  priv = wp_base_endpoint_get_instance_private (self);
 
   /* unlink before unregistering so that policy modules
    * can find dangling unlinked endpoints */
   for (gint i = priv->links->len - 1; i >= 0; i--)
-    wp_endpoint_link_destroy (g_ptr_array_index (priv->links, i));
+    wp_base_endpoint_link_destroy (g_ptr_array_index (priv->links, i));
 
   core = g_weak_ref_get (&priv->core);
   if (core) {
-    g_info ("WpEndpoint:%p unregistering '%s' (%s)", self, priv->name,
+    g_info ("WpBaseEndpoint:%p unregistering '%s' (%s)", self, priv->name,
         priv->media_class);
 
     wp_core_remove_object (core, self);
@@ -391,115 +391,115 @@ wp_endpoint_unregister (WpEndpoint * self)
 }
 
 /**
- * wp_endpoint_get_core:
+ * wp_base_endpoint_get_core:
  * @self: the endpoint
  *
  * Returns: (transfer full): the core on which this endpoint is registered
  */
 WpCore *
-wp_endpoint_get_core (WpEndpoint * self)
+wp_base_endpoint_get_core (WpBaseEndpoint * self)
 {
-  WpEndpointPrivate *priv;
+  WpBaseEndpointPrivate *priv;
 
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
+  g_return_val_if_fail (WP_IS_BASE_ENDPOINT (self), NULL);
 
-  priv = wp_endpoint_get_instance_private (self);
+  priv = wp_base_endpoint_get_instance_private (self);
   return g_weak_ref_get (&priv->core);
 }
 
 const gchar *
-wp_endpoint_get_name (WpEndpoint * self)
+wp_base_endpoint_get_name (WpBaseEndpoint * self)
 {
-  WpEndpointPrivate *priv;
+  WpBaseEndpointPrivate *priv;
 
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
+  g_return_val_if_fail (WP_IS_BASE_ENDPOINT (self), NULL);
 
-  priv = wp_endpoint_get_instance_private (self);
+  priv = wp_base_endpoint_get_instance_private (self);
   return priv->name;
 }
 
 const gchar *
-wp_endpoint_get_media_class (WpEndpoint * self)
+wp_base_endpoint_get_media_class (WpBaseEndpoint * self)
 {
-  WpEndpointPrivate *priv;
+  WpBaseEndpointPrivate *priv;
 
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
+  g_return_val_if_fail (WP_IS_BASE_ENDPOINT (self), NULL);
 
-  priv = wp_endpoint_get_instance_private (self);
+  priv = wp_base_endpoint_get_instance_private (self);
   return priv->media_class;
 }
 
 guint
-wp_endpoint_get_direction (WpEndpoint * self)
+wp_base_endpoint_get_direction (WpBaseEndpoint * self)
 {
-  WpEndpointPrivate *priv;
+  WpBaseEndpointPrivate *priv;
 
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), -1);
+  g_return_val_if_fail (WP_IS_BASE_ENDPOINT (self), -1);
 
-  priv = wp_endpoint_get_instance_private (self);
+  priv = wp_base_endpoint_get_instance_private (self);
   return priv->direction;
 }
 
 guint64
-wp_endpoint_get_creation_time (WpEndpoint * self)
+wp_base_endpoint_get_creation_time (WpBaseEndpoint * self)
 {
-  WpEndpointPrivate *priv;
+  WpBaseEndpointPrivate *priv;
 
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), -1);
+  g_return_val_if_fail (WP_IS_BASE_ENDPOINT (self), -1);
 
-  priv = wp_endpoint_get_instance_private (self);
+  priv = wp_base_endpoint_get_instance_private (self);
   return priv->creation_time;
 }
 
 WpProperties *
-wp_endpoint_get_properties (WpEndpoint * self)
+wp_base_endpoint_get_properties (WpBaseEndpoint * self)
 {
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
+  g_return_val_if_fail (WP_IS_BASE_ENDPOINT (self), NULL);
 
-  if (WP_ENDPOINT_GET_CLASS (self)->get_properties)
-    return WP_ENDPOINT_GET_CLASS (self)->get_properties (self);
+  if (WP_BASE_ENDPOINT_GET_CLASS (self)->get_properties)
+    return WP_BASE_ENDPOINT_GET_CLASS (self)->get_properties (self);
 
   return NULL;
 }
 
 const char *
-wp_endpoint_get_role (WpEndpoint * self)
+wp_base_endpoint_get_role (WpBaseEndpoint * self)
 {
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
+  g_return_val_if_fail (WP_IS_BASE_ENDPOINT (self), NULL);
 
-  if (WP_ENDPOINT_GET_CLASS (self)->get_role)
-    return WP_ENDPOINT_GET_CLASS (self)->get_role (self);
+  if (WP_BASE_ENDPOINT_GET_CLASS (self)->get_role)
+    return WP_BASE_ENDPOINT_GET_CLASS (self)->get_role (self);
 
   return NULL;
 }
 
 /**
- * wp_endpoint_register_stream:
+ * wp_base_endpoint_register_stream:
  * @self: the endpoint
  * @stream: (transfer floating): a dictionary GVariant with the stream info
  */
 void
-wp_endpoint_register_stream (WpEndpoint * self, GVariant * stream)
+wp_base_endpoint_register_stream (WpBaseEndpoint * self, GVariant * stream)
 {
-  WpEndpointPrivate *priv;
+  WpBaseEndpointPrivate *priv;
 
-  g_return_if_fail (WP_IS_ENDPOINT (self));
+  g_return_if_fail (WP_IS_BASE_ENDPOINT (self));
   g_return_if_fail (g_variant_is_of_type (stream, G_VARIANT_TYPE_VARDICT));
 
-  priv = wp_endpoint_get_instance_private (self);
+  priv = wp_base_endpoint_get_instance_private (self);
   g_ptr_array_add (priv->streams, g_variant_ref_sink (stream));
 }
 
 GVariant *
-wp_endpoint_get_stream (WpEndpoint * self, guint32 stream_id)
+wp_base_endpoint_get_stream (WpBaseEndpoint * self, guint32 stream_id)
 {
-  WpEndpointPrivate *priv;
+  WpBaseEndpointPrivate *priv;
   guint32 id;
   gint i;
 
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
+  g_return_val_if_fail (WP_IS_BASE_ENDPOINT (self), NULL);
 
-  priv = wp_endpoint_get_instance_private (self);
+  priv = wp_base_endpoint_get_instance_private (self);
   for (i = 0; i < priv->streams->len; i++) {
     GVariant *v = g_ptr_array_index (priv->streams, i);
     if (g_variant_lookup (v, "id", "u", &id) && id == stream_id) {
@@ -511,7 +511,7 @@ wp_endpoint_get_stream (WpEndpoint * self, guint32 stream_id)
 }
 
 /**
- * wp_endpoint_list_streams:
+ * wp_base_endpoint_list_streams:
  * @self: the endpoint
  *
  * Returns: (transfer floating): a floating GVariant that contains an array of
@@ -519,29 +519,29 @@ wp_endpoint_get_stream (WpEndpoint * self, guint32 stream_id)
  *    a single stream
  */
 GVariant *
-wp_endpoint_list_streams (WpEndpoint * self)
+wp_base_endpoint_list_streams (WpBaseEndpoint * self)
 {
-  WpEndpointPrivate *priv;
+  WpBaseEndpointPrivate *priv;
 
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
+  g_return_val_if_fail (WP_IS_BASE_ENDPOINT (self), NULL);
 
-  priv = wp_endpoint_get_instance_private (self);
+  priv = wp_base_endpoint_get_instance_private (self);
   return g_variant_new_array (G_VARIANT_TYPE_VARDICT,
       (GVariant * const *) priv->streams->pdata, priv->streams->len);
 }
 
 guint32
-wp_endpoint_find_stream (WpEndpoint * self, const gchar * name)
+wp_base_endpoint_find_stream (WpBaseEndpoint * self, const gchar * name)
 {
-  WpEndpointPrivate *priv;
+  WpBaseEndpointPrivate *priv;
   const gchar *tmp = NULL;
   guint32 id = WP_STREAM_ID_NONE;
   gint i;
 
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), WP_STREAM_ID_NONE);
+  g_return_val_if_fail (WP_IS_BASE_ENDPOINT (self), WP_STREAM_ID_NONE);
   g_return_val_if_fail (name != NULL, WP_STREAM_ID_NONE);
 
-  priv = wp_endpoint_get_instance_private (self);
+  priv = wp_base_endpoint_get_instance_private (self);
   for (i = 0; i < priv->streams->len; i++) {
     GVariant *v = g_ptr_array_index (priv->streams, i);
     if (g_variant_lookup (v, "name", "&s", &tmp) && !g_strcmp0 (tmp, name)) {
@@ -555,32 +555,32 @@ wp_endpoint_find_stream (WpEndpoint * self, const gchar * name)
 }
 
 /**
- * wp_endpoint_register_control:
+ * wp_base_endpoint_register_control:
  * @self: the endpoint
  * @control: (transfer floating): a dictionary GVariant with the control info
  */
 void
-wp_endpoint_register_control (WpEndpoint * self, GVariant * control)
+wp_base_endpoint_register_control (WpBaseEndpoint * self, GVariant * control)
 {
-  WpEndpointPrivate *priv;
+  WpBaseEndpointPrivate *priv;
 
-  g_return_if_fail (WP_IS_ENDPOINT (self));
+  g_return_if_fail (WP_IS_BASE_ENDPOINT (self));
   g_return_if_fail (g_variant_is_of_type (control, G_VARIANT_TYPE_VARDICT));
 
-  priv = wp_endpoint_get_instance_private (self);
+  priv = wp_base_endpoint_get_instance_private (self);
   g_ptr_array_add (priv->controls, g_variant_ref_sink (control));
 }
 
 GVariant *
-wp_endpoint_get_control (WpEndpoint * self, guint32 control_id)
+wp_base_endpoint_get_control (WpBaseEndpoint * self, guint32 control_id)
 {
-  WpEndpointPrivate *priv;
+  WpBaseEndpointPrivate *priv;
   guint32 id;
   gint i;
 
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
+  g_return_val_if_fail (WP_IS_BASE_ENDPOINT (self), NULL);
 
-  priv = wp_endpoint_get_instance_private (self);
+  priv = wp_base_endpoint_get_instance_private (self);
   for (i = 0; i < priv->controls->len; i++) {
     GVariant *v = g_ptr_array_index (priv->controls, i);
     if (g_variant_lookup (v, "id", "u", &id) && id == control_id) {
@@ -592,7 +592,7 @@ wp_endpoint_get_control (WpEndpoint * self, guint32 control_id)
 }
 
 /**
- * wp_endpoint_list_controls:
+ * wp_base_endpoint_list_controls:
  * @self: the endpoint
  *
  * Returns: (transfer floating): a floating GVariant that contains an array of
@@ -600,31 +600,31 @@ wp_endpoint_get_control (WpEndpoint * self, guint32 control_id)
  *    a single control
  */
 GVariant *
-wp_endpoint_list_controls (WpEndpoint * self)
+wp_base_endpoint_list_controls (WpBaseEndpoint * self)
 {
-  WpEndpointPrivate *priv;
+  WpBaseEndpointPrivate *priv;
 
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
+  g_return_val_if_fail (WP_IS_BASE_ENDPOINT (self), NULL);
 
-  priv = wp_endpoint_get_instance_private (self);
+  priv = wp_base_endpoint_get_instance_private (self);
   return g_variant_new_array (G_VARIANT_TYPE_VARDICT,
       (GVariant * const *) priv->controls->pdata, priv->controls->len);
 }
 
 guint32
-wp_endpoint_find_control (WpEndpoint * self, guint32 stream_id,
+wp_base_endpoint_find_control (WpBaseEndpoint * self, guint32 stream_id,
     const gchar * name)
 {
-  WpEndpointPrivate *priv;
+  WpBaseEndpointPrivate *priv;
   const gchar *tmp = NULL;
   guint32 tmp_id = WP_STREAM_ID_NONE;
   guint32 id = WP_CONTROL_ID_NONE;
   gint i;
 
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), WP_CONTROL_ID_NONE);
+  g_return_val_if_fail (WP_IS_BASE_ENDPOINT (self), WP_CONTROL_ID_NONE);
   g_return_val_if_fail (name != NULL, WP_CONTROL_ID_NONE);
 
-  priv = wp_endpoint_get_instance_private (self);
+  priv = wp_base_endpoint_get_instance_private (self);
   for (i = 0; i < priv->controls->len; i++) {
     GVariant *v = g_ptr_array_index (priv->controls, i);
 
@@ -650,7 +650,7 @@ wp_endpoint_find_control (WpEndpoint * self, guint32 stream_id,
 }
 
 /**
- * wp_endpoint_get_control_value: (virtual get_control_value)
+ * wp_base_endpoint_get_control_value: (virtual get_control_value)
  * @self: the endpoint
  * @control_id: the id of the control to set
  *
@@ -663,38 +663,38 @@ wp_endpoint_find_control (WpEndpoint * self, guint32 stream_id,
  *    the control value
  */
 GVariant *
-wp_endpoint_get_control_value (WpEndpoint * self, guint32 control_id)
+wp_base_endpoint_get_control_value (WpBaseEndpoint * self, guint32 control_id)
 {
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
+  g_return_val_if_fail (WP_IS_BASE_ENDPOINT (self), NULL);
 
-  if (WP_ENDPOINT_GET_CLASS (self)->get_control_value)
-    return WP_ENDPOINT_GET_CLASS (self)->get_control_value (self, control_id);
+  if (WP_BASE_ENDPOINT_GET_CLASS (self)->get_control_value)
+    return WP_BASE_ENDPOINT_GET_CLASS (self)->get_control_value (self, control_id);
   else
     return NULL;
 }
 
 /**
- * wp_endpoint_set_control_value: (virtual set_control_value)
+ * wp_base_endpoint_set_control_value: (virtual set_control_value)
  * @self: the endpoint
  * @control_id: the id of the control to set
  * @value: (transfer none): the value to set on the control
  *
  * Sets the @value on the specified control. The implementation should
- * call wp_endpoint_notify_control_value() if the value has been changed
+ * call wp_base_endpoint_notify_control_value() if the value has been changed
  * in order to signal the change.
  *
  * Returns: TRUE on success, FALSE on failure
  */
 gboolean
-wp_endpoint_set_control_value (WpEndpoint * self, guint32 control_id,
+wp_base_endpoint_set_control_value (WpBaseEndpoint * self, guint32 control_id,
     GVariant * value)
 {
   gboolean ret = FALSE;
 
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), FALSE);
+  g_return_val_if_fail (WP_IS_BASE_ENDPOINT (self), FALSE);
 
-  if (WP_ENDPOINT_GET_CLASS (self)->set_control_value)
-    ret = WP_ENDPOINT_GET_CLASS (self)->set_control_value (self, control_id,
+  if (WP_BASE_ENDPOINT_GET_CLASS (self)->set_control_value)
+    ret = WP_BASE_ENDPOINT_GET_CLASS (self)->set_control_value (self, control_id,
         value);
 
   if (g_variant_is_floating (value))
@@ -704,7 +704,7 @@ wp_endpoint_set_control_value (WpEndpoint * self, guint32 control_id,
 }
 
 /**
- * wp_endpoint_notify_control_value:
+ * wp_base_endpoint_notify_control_value:
  * @self: the endpoint
  * @control_id: the id of the control
  *
@@ -713,70 +713,70 @@ wp_endpoint_set_control_value (WpEndpoint * self, guint32 control_id,
  * by subclasses only.
  */
 void
-wp_endpoint_notify_control_value (WpEndpoint * self, guint32 control_id)
+wp_base_endpoint_notify_control_value (WpBaseEndpoint * self, guint32 control_id)
 {
-  g_return_if_fail (WP_IS_ENDPOINT (self));
+  g_return_if_fail (WP_IS_BASE_ENDPOINT (self));
   g_signal_emit (self, signals[SIGNAL_NOTIFY_CONTROL_VALUE], 0, control_id);
 }
 
 /**
- * wp_endpoint_is_linked:
+ * wp_base_endpoint_is_linked:
  * @self: the endpoint
  *
  * Returns: TRUE if there is at least one link associated with this endpoint
  */
 gboolean
-wp_endpoint_is_linked (WpEndpoint * self)
+wp_base_endpoint_is_linked (WpBaseEndpoint * self)
 {
-  WpEndpointPrivate *priv;
+  WpBaseEndpointPrivate *priv;
 
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), FALSE);
+  g_return_val_if_fail (WP_IS_BASE_ENDPOINT (self), FALSE);
 
-  priv = wp_endpoint_get_instance_private (self);
+  priv = wp_base_endpoint_get_instance_private (self);
   return (priv->links->len > 0);
 }
 
 /**
- * wp_endpoint_get_links:
+ * wp_base_endpoint_get_links:
  * @self: the endpoint
  *
- * Returns: (transfer none) (element-type WpEndpointLink): an array of
- *    #WpEndpointLink objects that are currently associated with this endpoint
+ * Returns: (transfer none) (element-type WpBaseEndpointLink): an array of
+ *    #WpBaseEndpointLink objects that are currently associated with this endpoint
  */
 GPtrArray *
-wp_endpoint_get_links (WpEndpoint * self)
+wp_base_endpoint_get_links (WpBaseEndpoint * self)
 {
-  WpEndpointPrivate *priv;
+  WpBaseEndpointPrivate *priv;
 
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
+  g_return_val_if_fail (WP_IS_BASE_ENDPOINT (self), NULL);
 
-  priv = wp_endpoint_get_instance_private (self);
+  priv = wp_base_endpoint_get_instance_private (self);
   return priv->links;
 }
 
 /**
- * wp_endpoint_unlink:
+ * wp_base_endpoint_unlink:
  * @self: the endpoint
  *
  * Unlinks all the endpoints linked to this endpoint
  */
 void
-wp_endpoint_unlink (WpEndpoint * self)
+wp_base_endpoint_unlink (WpBaseEndpoint * self)
 {
-  WpEndpointPrivate *priv;
+  WpBaseEndpointPrivate *priv;
   gint i;
 
-  g_return_if_fail (WP_IS_ENDPOINT (self));
+  g_return_if_fail (WP_IS_BASE_ENDPOINT (self));
 
-  priv = wp_endpoint_get_instance_private (self);
+  priv = wp_base_endpoint_get_instance_private (self);
 
   for (i = priv->links->len - 1; i >= 0; i--)
-    wp_endpoint_link_destroy (g_ptr_array_index (priv->links, i));
+    wp_base_endpoint_link_destroy (g_ptr_array_index (priv->links, i));
 }
 
 
-typedef struct _WpEndpointLinkPrivate WpEndpointLinkPrivate;
-struct _WpEndpointLinkPrivate
+typedef struct _WpBaseEndpointLinkPrivate WpBaseEndpointLinkPrivate;
+struct _WpBaseEndpointLinkPrivate
 {
   GWeakRef src;
   guint32 src_stream;
@@ -794,33 +794,33 @@ enum {
   LINKPROP_KEEP,
 };
 
-static void wp_endpoint_link_async_initable_init (gpointer iface,
+static void wp_base_endpoint_link_async_initable_init (gpointer iface,
     gpointer iface_data);
 
-G_DEFINE_ABSTRACT_TYPE_WITH_CODE (WpEndpointLink, wp_endpoint_link, G_TYPE_OBJECT,
-    G_ADD_PRIVATE (WpEndpointLink)
+G_DEFINE_ABSTRACT_TYPE_WITH_CODE (WpBaseEndpointLink, wp_base_endpoint_link, G_TYPE_OBJECT,
+    G_ADD_PRIVATE (WpBaseEndpointLink)
     G_IMPLEMENT_INTERFACE (G_TYPE_ASYNC_INITABLE,
-                           wp_endpoint_link_async_initable_init))
+                           wp_base_endpoint_link_async_initable_init))
 
 static void
 endpoint_link_finalize (GObject * object)
 {
-  WpEndpointLinkPrivate *priv =
-      wp_endpoint_link_get_instance_private (WP_ENDPOINT_LINK (object));
+  WpBaseEndpointLinkPrivate *priv =
+      wp_base_endpoint_link_get_instance_private (WP_BASE_ENDPOINT_LINK (object));
 
   /* Clear the endpoint weak reaferences */
   g_weak_ref_clear(&priv->src);
   g_weak_ref_clear(&priv->sink);
 
-  G_OBJECT_CLASS (wp_endpoint_link_parent_class)->finalize(object);
+  G_OBJECT_CLASS (wp_base_endpoint_link_parent_class)->finalize(object);
 }
 
 static void
 endpoint_link_set_property (GObject * object, guint property_id,
     const GValue * value, GParamSpec * pspec)
 {
-  WpEndpointLinkPrivate *priv =
-      wp_endpoint_link_get_instance_private (WP_ENDPOINT_LINK (object));
+  WpBaseEndpointLinkPrivate *priv =
+      wp_base_endpoint_link_get_instance_private (WP_BASE_ENDPOINT_LINK (object));
 
   switch (property_id) {
   case LINKPROP_SRC:
@@ -848,8 +848,8 @@ static void
 endpoint_link_get_property (GObject * object, guint property_id,
     GValue * value, GParamSpec * pspec)
 {
-  WpEndpointLinkPrivate *priv =
-      wp_endpoint_link_get_instance_private (WP_ENDPOINT_LINK (object));
+  WpBaseEndpointLinkPrivate *priv =
+      wp_base_endpoint_link_get_instance_private (WP_BASE_ENDPOINT_LINK (object));
 
   switch (property_id) {
   case LINKPROP_SRC:
@@ -874,47 +874,47 @@ endpoint_link_get_property (GObject * object, guint property_id,
 }
 
 static void
-wp_endpoint_link_init_async (GAsyncInitable *initable, int io_priority,
+wp_base_endpoint_link_init_async (GAsyncInitable *initable, int io_priority,
     GCancellable *cancellable, GAsyncReadyCallback callback, gpointer data)
 {
-  WpEndpointLink *link = WP_ENDPOINT_LINK(initable);
-  WpEndpointLinkPrivate *priv =
-      wp_endpoint_link_get_instance_private (WP_ENDPOINT_LINK (initable));
-  g_autoptr (WpEndpoint) src = g_weak_ref_get (&priv->src);
-  g_autoptr (WpEndpoint) sink = g_weak_ref_get (&priv->sink);
+  WpBaseEndpointLink *link = WP_BASE_ENDPOINT_LINK(initable);
+  WpBaseEndpointLinkPrivate *priv =
+      wp_base_endpoint_link_get_instance_private (WP_BASE_ENDPOINT_LINK (initable));
+  g_autoptr (WpBaseEndpoint) src = g_weak_ref_get (&priv->src);
+  g_autoptr (WpBaseEndpoint) sink = g_weak_ref_get (&priv->sink);
   g_autoptr (GVariant) src_props = NULL;
   g_autoptr (GVariant) sink_props = NULL;
-  WpEndpointPrivate *endpoint_priv;
+  WpBaseEndpointPrivate *endpoint_priv;
 
   /* Prepare the endpoints */
-  if (!WP_ENDPOINT_GET_CLASS (src)->prepare_link (src, priv->src_stream, link,
+  if (!WP_BASE_ENDPOINT_GET_CLASS (src)->prepare_link (src, priv->src_stream, link,
       &src_props, NULL)) {
     g_critical ("Failed to prepare link on source endpoint");
     return;
   }
-  if (!WP_ENDPOINT_GET_CLASS (sink)->prepare_link (sink, priv->sink_stream,
+  if (!WP_BASE_ENDPOINT_GET_CLASS (sink)->prepare_link (sink, priv->sink_stream,
       link, &sink_props, NULL)) {
     g_critical ("Failed to prepare link on sink endpoint");
     return;
   }
 
   /* Create the link */
-  g_return_if_fail (WP_ENDPOINT_LINK_GET_CLASS (link)->create);
-  if (!WP_ENDPOINT_LINK_GET_CLASS (link)->create (link, src_props,
+  g_return_if_fail (WP_BASE_ENDPOINT_LINK_GET_CLASS (link)->create);
+  if (!WP_BASE_ENDPOINT_LINK_GET_CLASS (link)->create (link, src_props,
       sink_props, NULL)) {
     g_critical ("Failed to create link in src and sink endpoints");
     return;
   }
 
   /* Register the link on the endpoints */
-  endpoint_priv = wp_endpoint_get_instance_private (src);
+  endpoint_priv = wp_base_endpoint_get_instance_private (src);
   g_ptr_array_add (endpoint_priv->links, g_object_ref (link));
-  endpoint_priv = wp_endpoint_get_instance_private (sink);
+  endpoint_priv = wp_base_endpoint_get_instance_private (sink);
   g_ptr_array_add (endpoint_priv->links, g_object_ref (link));
 }
 
 static gboolean
-wp_endpoint_link_init_finish (GAsyncInitable *initable, GAsyncResult *result,
+wp_base_endpoint_link_init_finish (GAsyncInitable *initable, GAsyncResult *result,
     GError **error)
 {
   g_return_val_if_fail (g_task_is_valid (result, initable), FALSE);
@@ -923,18 +923,18 @@ wp_endpoint_link_init_finish (GAsyncInitable *initable, GAsyncResult *result,
 }
 
 static void
-wp_endpoint_link_async_initable_init (gpointer iface, gpointer iface_data)
+wp_base_endpoint_link_async_initable_init (gpointer iface, gpointer iface_data)
 {
   GAsyncInitableIface *ai_iface = iface;
 
-  ai_iface->init_async = wp_endpoint_link_init_async;
-  ai_iface->init_finish = wp_endpoint_link_init_finish;
+  ai_iface->init_async = wp_base_endpoint_link_init_async;
+  ai_iface->init_finish = wp_base_endpoint_link_init_finish;
 }
 
 static void
-wp_endpoint_link_init (WpEndpointLink * self)
+wp_base_endpoint_link_init (WpBaseEndpointLink * self)
 {
-  WpEndpointLinkPrivate *priv = wp_endpoint_link_get_instance_private (self);
+  WpBaseEndpointLinkPrivate *priv = wp_base_endpoint_link_get_instance_private (self);
 
   /* Init the endpoint weak references */
   g_weak_ref_init (&priv->src, NULL);
@@ -942,7 +942,7 @@ wp_endpoint_link_init (WpEndpointLink * self)
 }
 
 static void
-wp_endpoint_link_class_init (WpEndpointLinkClass * klass)
+wp_base_endpoint_link_class_init (WpBaseEndpointLinkClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
 
@@ -951,14 +951,14 @@ wp_endpoint_link_class_init (WpEndpointLinkClass * klass)
   object_class->get_property = endpoint_link_get_property;
 
   g_object_class_install_property (object_class, LINKPROP_SRC,
-      g_param_spec_object ("src", "src", "The src endpoint", WP_TYPE_ENDPOINT,
+      g_param_spec_object ("src", "src", "The src endpoint", WP_TYPE_BASE_ENDPOINT,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (object_class, LINKPROP_SRC_STREAM,
       g_param_spec_uint ("src-stream", "src-stream", "The src stream",
           0, G_MAXUINT, 0,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (object_class, LINKPROP_SINK,
-      g_param_spec_object ("sink", "sink", "The sink endpoint", WP_TYPE_ENDPOINT,
+      g_param_spec_object ("sink", "sink", "The sink endpoint", WP_TYPE_BASE_ENDPOINT,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (object_class, LINKPROP_SINK_STREAM,
       g_param_spec_uint ("sink-stream", "sink-stream", "The sink stream",
@@ -971,96 +971,96 @@ wp_endpoint_link_class_init (WpEndpointLinkClass * klass)
 }
 
 /**
- * wp_endpoint_link_get_source_endpoint:
+ * wp_base_endpoint_link_get_source_endpoint:
  * @self: the endpoint
  *
  * Gets the source endpoint of the link
  *
  * Returns: (transfer full): the source endpoint
  */
-WpEndpoint *
-wp_endpoint_link_get_source_endpoint (WpEndpointLink * self)
+WpBaseEndpoint *
+wp_base_endpoint_link_get_source_endpoint (WpBaseEndpointLink * self)
 {
-  WpEndpointLinkPrivate *priv;
+  WpBaseEndpointLinkPrivate *priv;
 
-  g_return_val_if_fail (WP_IS_ENDPOINT_LINK (self), NULL);
+  g_return_val_if_fail (WP_IS_BASE_ENDPOINT_LINK (self), NULL);
 
-  priv = wp_endpoint_link_get_instance_private (self);
+  priv = wp_base_endpoint_link_get_instance_private (self);
   return g_weak_ref_get (&priv->src);
 }
 
 guint32
-wp_endpoint_link_get_source_stream (WpEndpointLink * self)
+wp_base_endpoint_link_get_source_stream (WpBaseEndpointLink * self)
 {
-  WpEndpointLinkPrivate *priv;
+  WpBaseEndpointLinkPrivate *priv;
 
-  g_return_val_if_fail (WP_IS_ENDPOINT_LINK (self), 0);
+  g_return_val_if_fail (WP_IS_BASE_ENDPOINT_LINK (self), 0);
 
-  priv = wp_endpoint_link_get_instance_private (self);
+  priv = wp_base_endpoint_link_get_instance_private (self);
   return priv->src_stream;
 }
 
 /**
- * wp_endpoint_link_get_sink_endpoint:
+ * wp_base_endpoint_link_get_sink_endpoint:
  * @self: the endpoint
  *
  * Gets the sink endpoint of the link
  *
  * Returns: (transfer full): the sink endpoint
  */
-WpEndpoint *
-wp_endpoint_link_get_sink_endpoint (WpEndpointLink * self)
+WpBaseEndpoint *
+wp_base_endpoint_link_get_sink_endpoint (WpBaseEndpointLink * self)
 {
-  WpEndpointLinkPrivate *priv;
+  WpBaseEndpointLinkPrivate *priv;
 
-  g_return_val_if_fail (WP_IS_ENDPOINT_LINK (self), NULL);
+  g_return_val_if_fail (WP_IS_BASE_ENDPOINT_LINK (self), NULL);
 
-  priv = wp_endpoint_link_get_instance_private (self);
+  priv = wp_base_endpoint_link_get_instance_private (self);
   return g_weak_ref_get (&priv->sink);
 }
 
 guint32
-wp_endpoint_link_get_sink_stream (WpEndpointLink * self)
+wp_base_endpoint_link_get_sink_stream (WpBaseEndpointLink * self)
 {
-  WpEndpointLinkPrivate *priv;
+  WpBaseEndpointLinkPrivate *priv;
 
-  g_return_val_if_fail (WP_IS_ENDPOINT_LINK (self), 0);
+  g_return_val_if_fail (WP_IS_BASE_ENDPOINT_LINK (self), 0);
 
-  priv = wp_endpoint_link_get_instance_private (self);
+  priv = wp_base_endpoint_link_get_instance_private (self);
   return priv->sink_stream;
 }
 
 gboolean
-wp_endpoint_link_is_kept (WpEndpointLink * self)
+wp_base_endpoint_link_is_kept (WpBaseEndpointLink * self)
 {
-  WpEndpointLinkPrivate *priv;
+  WpBaseEndpointLinkPrivate *priv;
 
-  g_return_val_if_fail (WP_IS_ENDPOINT_LINK (self), 0);
+  g_return_val_if_fail (WP_IS_BASE_ENDPOINT_LINK (self), 0);
 
-  priv = wp_endpoint_link_get_instance_private (self);
+  priv = wp_base_endpoint_link_get_instance_private (self);
   return priv->keep;
 }
 
 void
-wp_endpoint_link_new (WpCore * core, WpEndpoint * src, guint32 src_stream,
-    WpEndpoint * sink, guint32 sink_stream, gboolean keep,
+wp_base_endpoint_link_new (WpCore * core, WpBaseEndpoint * src, guint32 src_stream,
+    WpBaseEndpoint * sink, guint32 sink_stream, gboolean keep,
     GAsyncReadyCallback ready, gpointer data)
 {
   const gchar *src_factory = NULL, *sink_factory = NULL;
   GVariantBuilder b;
   g_autoptr (GVariant) link_props = NULL;
 
-  g_return_if_fail (WP_IS_ENDPOINT (src));
-  g_return_if_fail (WP_IS_ENDPOINT (sink));
-  g_return_if_fail (WP_ENDPOINT_GET_CLASS (src)->prepare_link);
-  g_return_if_fail (WP_ENDPOINT_GET_CLASS (sink)->prepare_link);
+  g_return_if_fail (WP_IS_BASE_ENDPOINT (src));
+  g_return_if_fail (WP_IS_BASE_ENDPOINT (sink));
+  g_return_if_fail (WP_BASE_ENDPOINT_GET_CLASS (src)->prepare_link);
+  g_return_if_fail (WP_BASE_ENDPOINT_GET_CLASS (sink)->prepare_link);
 
   /* find the factory */
 
-  if (WP_ENDPOINT_GET_CLASS (src)->get_endpoint_link_factory)
-    src_factory = WP_ENDPOINT_GET_CLASS (src)->get_endpoint_link_factory (src);
-  if (WP_ENDPOINT_GET_CLASS (sink)->get_endpoint_link_factory)
-    sink_factory = WP_ENDPOINT_GET_CLASS (sink)->get_endpoint_link_factory (sink);
+  if (WP_BASE_ENDPOINT_GET_CLASS (src)->get_endpoint_link_factory)
+    src_factory = WP_BASE_ENDPOINT_GET_CLASS (src)->get_endpoint_link_factory (src);
+  if (WP_BASE_ENDPOINT_GET_CLASS (sink)->get_endpoint_link_factory)
+    sink_factory = WP_BASE_ENDPOINT_GET_CLASS (sink)->get_endpoint_link_factory (sink);
 
   if (src_factory || sink_factory) {
     if (src_factory && sink_factory && strcmp (src_factory, sink_factory) != 0) {
@@ -1088,46 +1088,46 @@ wp_endpoint_link_new (WpCore * core, WpEndpoint * src, guint32 src_stream,
   link_props = g_variant_builder_end (&b);
 
   /* Create the link object async */
-  wp_factory_make (core, src_factory, WP_TYPE_ENDPOINT_LINK, link_props, ready,
+  wp_factory_make (core, src_factory, WP_TYPE_BASE_ENDPOINT_LINK, link_props, ready,
       data);
 }
 
-WpEndpointLink *
-wp_endpoint_link_new_finish (GObject *initable, GAsyncResult *res,
+WpBaseEndpointLink *
+wp_base_endpoint_link_new_finish (GObject *initable, GAsyncResult *res,
     GError **error)
 {
   GAsyncInitable *ai = G_ASYNC_INITABLE(initable);
-  return WP_ENDPOINT_LINK(g_async_initable_new_finish(ai, res, error));
+  return WP_BASE_ENDPOINT_LINK(g_async_initable_new_finish(ai, res, error));
 }
 
 void
-wp_endpoint_link_destroy (WpEndpointLink * self)
+wp_base_endpoint_link_destroy (WpBaseEndpointLink * self)
 {
-  WpEndpointLinkPrivate *priv;
-  WpEndpointPrivate *endpoint_priv;
-  g_autoptr (WpEndpoint) src = NULL;
-  g_autoptr (WpEndpoint) sink = NULL;
+  WpBaseEndpointLinkPrivate *priv;
+  WpBaseEndpointPrivate *endpoint_priv;
+  g_autoptr (WpBaseEndpoint) src = NULL;
+  g_autoptr (WpBaseEndpoint) sink = NULL;
 
-  g_return_if_fail (WP_IS_ENDPOINT_LINK (self));
-  g_return_if_fail (WP_ENDPOINT_LINK_GET_CLASS (self)->destroy);
+  g_return_if_fail (WP_IS_BASE_ENDPOINT_LINK (self));
+  g_return_if_fail (WP_BASE_ENDPOINT_LINK_GET_CLASS (self)->destroy);
 
-  priv = wp_endpoint_link_get_instance_private (self);
+  priv = wp_base_endpoint_link_get_instance_private (self);
   src = g_weak_ref_get (&priv->src);
   sink = g_weak_ref_get (&priv->sink);
 
-  WP_ENDPOINT_LINK_GET_CLASS (self)->destroy (self);
+  WP_BASE_ENDPOINT_LINK_GET_CLASS (self)->destroy (self);
 
-  if (src && WP_ENDPOINT_GET_CLASS (src)->release_link)
-    WP_ENDPOINT_GET_CLASS (src)->release_link (src, self);
-  if (sink && WP_ENDPOINT_GET_CLASS (sink)->release_link)
-    WP_ENDPOINT_GET_CLASS (sink)->release_link (sink, self);
+  if (src && WP_BASE_ENDPOINT_GET_CLASS (src)->release_link)
+    WP_BASE_ENDPOINT_GET_CLASS (src)->release_link (src, self);
+  if (sink && WP_BASE_ENDPOINT_GET_CLASS (sink)->release_link)
+    WP_BASE_ENDPOINT_GET_CLASS (sink)->release_link (sink, self);
 
   if (src) {
-    endpoint_priv = wp_endpoint_get_instance_private (src);
+    endpoint_priv = wp_base_endpoint_get_instance_private (src);
     g_ptr_array_remove_fast (endpoint_priv->links, self);
   }
   if (sink) {
-    endpoint_priv = wp_endpoint_get_instance_private (sink);
+    endpoint_priv = wp_base_endpoint_get_instance_private (sink);
     g_ptr_array_remove_fast (endpoint_priv->links, self);
   }
 }

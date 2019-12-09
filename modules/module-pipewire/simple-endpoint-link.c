@@ -7,7 +7,7 @@
  */
 
 /**
- * The simple endpoint link is an implementation of WpEndpointLink that
+ * The simple endpoint link is an implementation of WpBaseEndpointLink that
  * expects the two linked endpoints to have nodes in the pipewire graph.
  * When asked to create a link, it creates pw_link objects that will link
  * the ports of the source node to the ports of the sink node.
@@ -27,7 +27,7 @@
 
 struct _WpPipewireSimpleEndpointLink
 {
-  WpEndpointLink parent;
+  WpBaseEndpointLink parent;
 
   /* Props */
   GWeakRef core;
@@ -53,10 +53,10 @@ static void wp_simple_endpoint_link_async_initable_init (gpointer iface,
     gpointer iface_data);
 
 G_DECLARE_FINAL_TYPE (WpPipewireSimpleEndpointLink,
-    simple_endpoint_link, WP_PIPEWIRE, SIMPLE_ENDPOINT_LINK, WpEndpointLink)
+    simple_endpoint_link, WP_PIPEWIRE, SIMPLE_ENDPOINT_LINK, WpBaseEndpointLink)
 
 G_DEFINE_TYPE_WITH_CODE (WpPipewireSimpleEndpointLink, simple_endpoint_link,
-    WP_TYPE_ENDPOINT_LINK,
+    WP_TYPE_BASE_ENDPOINT_LINK,
     G_IMPLEMENT_INTERFACE (G_TYPE_ASYNC_INITABLE,
                            wp_simple_endpoint_link_async_initable_init))
 
@@ -189,7 +189,7 @@ create_link_cb (WpProperties *props, gpointer user_data)
 }
 
 static gboolean
-simple_endpoint_link_create (WpEndpointLink * epl, GVariant * src_data,
+simple_endpoint_link_create (WpBaseEndpointLink * epl, GVariant * src_data,
     GVariant * sink_data, GError ** error)
 {
   WpPipewireSimpleEndpointLink *self = WP_PIPEWIRE_SIMPLE_ENDPOINT_LINK(epl);
@@ -198,7 +198,7 @@ simple_endpoint_link_create (WpEndpointLink * epl, GVariant * src_data,
 }
 
 static void
-simple_endpoint_link_destroy (WpEndpointLink * epl)
+simple_endpoint_link_destroy (WpBaseEndpointLink * epl)
 {
   WpPipewireSimpleEndpointLink *self = WP_PIPEWIRE_SIMPLE_ENDPOINT_LINK(epl);
 
@@ -209,7 +209,7 @@ static void
 simple_endpoint_link_class_init (WpPipewireSimpleEndpointLinkClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
-  WpEndpointLinkClass *link_class = (WpEndpointLinkClass *) klass;
+  WpBaseEndpointLinkClass *link_class = (WpBaseEndpointLinkClass *) klass;
 
   object_class->finalize = simple_endpoint_link_finalize;
   object_class->set_property = simple_endpoint_link_set_property;
@@ -234,7 +234,7 @@ simple_endpoint_link_factory (WpFactory * factory, GType type,
   gboolean keep;
 
   /* Make sure the type is an endpoint link */
-  g_return_if_fail (type == WP_TYPE_ENDPOINT_LINK);
+  g_return_if_fail (type == WP_TYPE_BASE_ENDPOINT_LINK);
 
   /* Get the Core */
   core = wp_factory_get_core (factory);

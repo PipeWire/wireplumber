@@ -188,7 +188,7 @@ wp_audio_adapter_class_init (WpAudioAdapterClass * klass)
 }
 
 void
-wp_audio_adapter_new (WpEndpoint *endpoint, guint stream_id,
+wp_audio_adapter_new (WpBaseEndpoint *endpoint, guint stream_id,
     const char *stream_name, enum pw_direction direction, WpProxyNode *node,
     gboolean convert,  GAsyncReadyCallback callback, gpointer user_data)
 {

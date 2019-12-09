@@ -6,23 +6,23 @@
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef __WIREPLUMBER_ENDPOINT_FAKE_H__
-#define __WIREPLUMBER_ENDPOINT_FAKE_H__
+#ifndef __WIREPLUMBER_FAKE_ENDPOINT_H__
+#define __WIREPLUMBER_FAKE_ENDPOINT_H__
 
 #include <wp/wp.h>
 
 G_BEGIN_DECLS
 
-G_DECLARE_FINAL_TYPE (WpEndpointFake, wp_endpoint_fake, WP, ENDPOINT_FAKE,
-    WpEndpoint)
+G_DECLARE_FINAL_TYPE (WpFakeEndpoint, wp_fake_endpoint, WP, FAKE_ENDPOINT,
+    WpBaseEndpoint)
 
 void
-wp_endpoint_fake_new_async (WpCore *core, const char *name,
+wp_fake_endpoint_new_async (WpCore *core, const char *name,
     const char *media_class, guint direction,
     WpProperties *props, const char *role, guint streams,
     GAsyncReadyCallback ready, gpointer data);
 
-guint wp_endpoint_fake_get_id (WpEndpointFake *self);
+guint wp_fake_endpoint_get_id (WpFakeEndpoint *self);
 
 G_END_DECLS
 

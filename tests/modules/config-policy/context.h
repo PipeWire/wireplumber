@@ -20,12 +20,12 @@ G_DECLARE_FINAL_TYPE (WpConfigPolicyContext, wp_config_policy_context, WP,
 
 WpConfigPolicyContext *wp_config_policy_context_new (WpCore *core,
     const char *config_path);
-WpEndpoint *wp_config_policy_context_add_endpoint (WpConfigPolicyContext *self,
+WpBaseEndpoint *wp_config_policy_context_add_endpoint (WpConfigPolicyContext *self,
     const char *name, const char *media_class, guint direction,
     WpProperties *props, const char *role, guint streams,
-    WpEndpointLink **link);
+    WpBaseEndpointLink **link);
 void wp_config_policy_context_remove_endpoint (WpConfigPolicyContext *self,
-    WpEndpoint *ep);
+    WpBaseEndpoint *ep);
 
 G_END_DECLS
 

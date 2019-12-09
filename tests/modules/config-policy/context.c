@@ -24,8 +24,8 @@ struct _WpConfigPolicyContext
 
   GMutex mutex;
   GCond cond;
-  WpEndpoint *endpoint;
-  WpEndpointLink *link;
+  WpBaseEndpoint *endpoint;
+  WpBaseEndpointLink *link;
 };
 
 enum {
@@ -36,8 +36,8 @@ enum {
 
 G_DEFINE_TYPE (WpConfigPolicyContext, wp_config_policy_context, G_TYPE_OBJECT);
 
-static WpEndpoint *
-wait_for_endpoint (WpConfigPolicyContext *self, WpEndpointLink **link)
+static WpBaseEndpoint *
+wait_for_endpoint (WpConfigPolicyContext *self, WpBaseEndpointLink **link)
 {
   g_mutex_lock (&self->mutex);
 
@@ -46,7 +46,7 @@ wait_for_endpoint (WpConfigPolicyContext *self, WpEndpointLink **link)
     g_cond_wait (&self->cond, &self->mutex);
 
   /* Set endpoint to a local value and clear global value */
-  WpEndpoint *endpoint = g_object_ref (self->endpoint);
+  WpBaseEndpoint *endpoint = g_object_ref (self->endpoint);
   g_clear_object (&self->endpoint);
 
   /* Set link to a local value and clear global value */
@@ -60,7 +60,7 @@ wait_for_endpoint (WpConfigPolicyContext *self, WpEndpointLink **link)
 }
 
 static void
-on_done (WpConfigPolicy *cp, WpEndpoint *ep, WpEndpointLink *link,
+on_done (WpConfigPolicy *cp, WpBaseEndpoint *ep, WpBaseEndpointLink *link,
     WpConfigPolicyContext *self)
 {
   if (!ep)
@@ -83,8 +83,8 @@ wp_config_policy_context_constructed (GObject *object)
   g_return_if_fail (core);
 
   /* Register the endpoint link fake factory */
-  wp_factory_new (core, WP_ENDPOINT_LINK_FAKE_FACTORY_NAME,
-      wp_endpoint_link_fake_factory);
+  wp_factory_new (core, WP_FAKE_ENDPOINT_LINK_FACTORY_NAME,
+      wp_fake_endpoint_link_factory);
 
   /* Set the configuration path */
   g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
@@ -192,26 +192,26 @@ wp_config_policy_context_new (WpCore *core, const char *config_path)
 static void
 on_endpoint_created (GObject *initable, GAsyncResult *res, gpointer d)
 {
-  g_autoptr (WpEndpoint) ep = NULL;
+  g_autoptr (WpBaseEndpoint) ep = NULL;
   GError *error = NULL;
 
-  ep = wp_endpoint_new_finish (initable, res, &error);
+  ep = wp_base_endpoint_new_finish (initable, res, &error);
   g_return_if_fail (!error);
   g_return_if_fail (ep);
 
   /* Register the endpoint */
-  wp_endpoint_register (ep);
+  wp_base_endpoint_register (ep);
 }
 
-WpEndpoint *
+WpBaseEndpoint *
 wp_config_policy_context_add_endpoint (WpConfigPolicyContext *self,
     const char *name, const char *media_class, guint direction,
-    WpProperties *props, const char *role, guint streams, WpEndpointLink **link)
+    WpProperties *props, const char *role, guint streams, WpBaseEndpointLink **link)
 {
   g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
   g_return_val_if_fail (core, NULL);
 
-  wp_endpoint_fake_new_async (core, name, media_class, direction, props, role,
+  wp_fake_endpoint_new_async (core, name, media_class, direction, props, role,
       streams, on_endpoint_created, self);
 
   return wait_for_endpoint (self, link);
@@ -219,11 +219,11 @@ wp_config_policy_context_add_endpoint (WpConfigPolicyContext *self,
 
 void
 wp_config_policy_context_remove_endpoint (WpConfigPolicyContext *self,
-    WpEndpoint *ep)
+    WpBaseEndpoint *ep)
 {
   g_return_if_fail (ep);
 
-  wp_endpoint_unregister (ep);
+  wp_base_endpoint_unregister (ep);
 
   wait_for_endpoint (self, NULL);
 }

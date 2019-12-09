@@ -11,9 +11,9 @@
 #include "endpoint-fake.h"
 #include "endpoint-link-fake.h"
 
-struct _WpEndpointFake
+struct _WpFakeEndpoint
 {
-  WpEndpoint parent;
+  WpBaseEndpoint parent;
   GTask *init_task;
   guint id;
 
@@ -30,45 +30,45 @@ enum {
   PROP_STREAMS,
 };
 
-static GAsyncInitableIface *wp_endpoint_fake_parent_interface = NULL;
-static void wp_endpoint_fake_async_initable_init (gpointer iface,
+static GAsyncInitableIface *wp_fake_endpoint_parent_interface = NULL;
+static void wp_fake_endpoint_async_initable_init (gpointer iface,
     gpointer iface_data);
 
-G_DEFINE_TYPE_WITH_CODE (WpEndpointFake, wp_endpoint_fake, WP_TYPE_ENDPOINT,
+G_DEFINE_TYPE_WITH_CODE (WpFakeEndpoint, wp_fake_endpoint, WP_TYPE_BASE_ENDPOINT,
     G_IMPLEMENT_INTERFACE (G_TYPE_ASYNC_INITABLE,
-        wp_endpoint_fake_async_initable_init))
+        wp_fake_endpoint_async_initable_init))
 
 static WpProperties *
-wp_endpoint_fake_get_properties (WpEndpoint * ep)
+wp_fake_endpoint_get_properties (WpBaseEndpoint * ep)
 {
-  WpEndpointFake *self = WP_ENDPOINT_FAKE (ep);
+  WpFakeEndpoint *self = WP_FAKE_ENDPOINT (ep);
   return wp_properties_ref (self->props);
 }
 
 static const char *
-wp_endpoint_fake_get_role (WpEndpoint * ep)
+wp_fake_endpoint_get_role (WpBaseEndpoint * ep)
 {
-  WpEndpointFake *self = WP_ENDPOINT_FAKE (ep);
+  WpFakeEndpoint *self = WP_FAKE_ENDPOINT (ep);
   return self->role;
 }
 
 static gboolean
-wp_endpoint_fake_prepare_link (WpEndpoint * ep, guint32 stream_id,
-    WpEndpointLink * link, GVariant ** properties, GError ** error)
+wp_fake_endpoint_prepare_link (WpBaseEndpoint * ep, guint32 stream_id,
+    WpBaseEndpointLink * link, GVariant ** properties, GError ** error)
 {
   return TRUE;
 }
 
 static const char *
-wp_endpoint_fake_get_endpoint_link_factory (WpEndpoint * ep)
+wp_fake_endpoint_get_endpoint_link_factory (WpBaseEndpoint * ep)
 {
-  return WP_ENDPOINT_LINK_FAKE_FACTORY_NAME;
+  return WP_FAKE_ENDPOINT_LINK_FACTORY_NAME;
 }
 
 static void
-wp_endpoint_fake_constructed (GObject * object)
+wp_fake_endpoint_constructed (GObject * object)
 {
-  WpEndpointFake *self = WP_ENDPOINT_FAKE (object);
+  WpFakeEndpoint *self = WP_FAKE_ENDPOINT (object);
   GVariantDict d;
 
   for (guint i = 0; i < self->streams; i++) {
@@ -76,17 +76,17 @@ wp_endpoint_fake_constructed (GObject * object)
     g_variant_dict_init (&d, NULL);
     g_variant_dict_insert (&d, "id", "u", i);
     g_variant_dict_insert (&d, "name", "s", name);
-    wp_endpoint_register_stream (WP_ENDPOINT (self), g_variant_dict_end (&d));
+    wp_base_endpoint_register_stream (WP_BASE_ENDPOINT (self), g_variant_dict_end (&d));
   }
 
-  G_OBJECT_CLASS (wp_endpoint_fake_parent_class)->constructed (object);
+  G_OBJECT_CLASS (wp_fake_endpoint_parent_class)->constructed (object);
 }
 
 static void
-wp_endpoint_fake_set_property (GObject * object, guint property_id,
+wp_fake_endpoint_set_property (GObject * object, guint property_id,
     const GValue * value, GParamSpec * pspec)
 {
-  WpEndpointFake *self = WP_ENDPOINT_FAKE (object);
+  WpFakeEndpoint *self = WP_FAKE_ENDPOINT (object);
 
   switch (property_id) {
   case PROP_PROPS:
@@ -109,10 +109,10 @@ wp_endpoint_fake_set_property (GObject * object, guint property_id,
 }
 
 static void
-wp_endpoint_fake_get_property (GObject * object, guint property_id,
+wp_fake_endpoint_get_property (GObject * object, guint property_id,
     GValue * value, GParamSpec * pspec)
 {
-  WpEndpointFake *self = WP_ENDPOINT_FAKE (object);
+  WpFakeEndpoint *self = WP_FAKE_ENDPOINT (object);
 
   switch (property_id) {
   case PROP_PROPS:
@@ -131,69 +131,69 @@ wp_endpoint_fake_get_property (GObject * object, guint property_id,
 }
 
 static void
-wp_endpoint_fake_finalize (GObject * object)
+wp_fake_endpoint_finalize (GObject * object)
 {
-  WpEndpointFake *self = WP_ENDPOINT_FAKE (object);
+  WpFakeEndpoint *self = WP_FAKE_ENDPOINT (object);
   g_clear_pointer (&self->props, wp_properties_unref);
-  G_OBJECT_CLASS (wp_endpoint_fake_parent_class)->finalize (object);
+  G_OBJECT_CLASS (wp_fake_endpoint_parent_class)->finalize (object);
 }
 
 static void
-wp_endpoint_fake_finish_creation (WpCore *core, GAsyncResult *res,
-    WpEndpointFake *self)
+wp_fake_endpoint_finish_creation (WpCore *core, GAsyncResult *res,
+    WpFakeEndpoint *self)
 {
   g_task_return_boolean (self->init_task, TRUE);
   g_clear_object (&self->init_task);
 }
 
 static void
-wp_endpoint_fake_init_async (GAsyncInitable *initable, int io_priority,
+wp_fake_endpoint_init_async (GAsyncInitable *initable, int io_priority,
     GCancellable *cancellable, GAsyncReadyCallback callback, gpointer data)
 {
-  WpEndpointFake *self = WP_ENDPOINT_FAKE (initable);
+  WpFakeEndpoint *self = WP_FAKE_ENDPOINT (initable);
 
   self->init_task = g_task_new (initable, cancellable, callback, data);
 
-  wp_endpoint_fake_parent_interface->init_async (initable, io_priority,
+  wp_fake_endpoint_parent_interface->init_async (initable, io_priority,
       cancellable, callback, data);
 
-  g_autoptr (WpCore) core = wp_endpoint_get_core(WP_ENDPOINT(self));
+  g_autoptr (WpCore) core = wp_base_endpoint_get_core(WP_BASE_ENDPOINT(self));
   if (core)
     wp_core_sync (core, NULL,
-        (GAsyncReadyCallback) wp_endpoint_fake_finish_creation, self);
+        (GAsyncReadyCallback) wp_fake_endpoint_finish_creation, self);
 }
 
 static void
-wp_endpoint_fake_async_initable_init (gpointer iface, gpointer iface_data)
+wp_fake_endpoint_async_initable_init (gpointer iface, gpointer iface_data)
 {
   GAsyncInitableIface *ai_iface = iface;
-  wp_endpoint_fake_parent_interface = g_type_interface_peek_parent (iface);
-  ai_iface->init_async = wp_endpoint_fake_init_async;
+  wp_fake_endpoint_parent_interface = g_type_interface_peek_parent (iface);
+  ai_iface->init_async = wp_fake_endpoint_init_async;
 }
 
 static void
-wp_endpoint_fake_init (WpEndpointFake * self)
+wp_fake_endpoint_init (WpFakeEndpoint * self)
 {
   static guint id = 0;
   self->id = id++;
 }
 
 static void
-wp_endpoint_fake_class_init (WpEndpointFakeClass * klass)
+wp_fake_endpoint_class_init (WpFakeEndpointClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
-  WpEndpointClass *endpoint_class = (WpEndpointClass *) klass;
+  WpBaseEndpointClass *endpoint_class = (WpBaseEndpointClass *) klass;
 
-  object_class->constructed = wp_endpoint_fake_constructed;
-  object_class->finalize = wp_endpoint_fake_finalize;
-  object_class->set_property = wp_endpoint_fake_set_property;
-  object_class->get_property = wp_endpoint_fake_get_property;
+  object_class->constructed = wp_fake_endpoint_constructed;
+  object_class->finalize = wp_fake_endpoint_finalize;
+  object_class->set_property = wp_fake_endpoint_set_property;
+  object_class->get_property = wp_fake_endpoint_get_property;
 
-  endpoint_class->get_properties = wp_endpoint_fake_get_properties;
-  endpoint_class->get_role = wp_endpoint_fake_get_role;
-  endpoint_class->prepare_link = wp_endpoint_fake_prepare_link;
+  endpoint_class->get_properties = wp_fake_endpoint_get_properties;
+  endpoint_class->get_role = wp_fake_endpoint_get_role;
+  endpoint_class->prepare_link = wp_fake_endpoint_prepare_link;
   endpoint_class->get_endpoint_link_factory =
-      wp_endpoint_fake_get_endpoint_link_factory;
+      wp_fake_endpoint_get_endpoint_link_factory;
 
   g_object_class_install_property (object_class, PROP_PROPS,
       g_param_spec_boxed ("properties", "properties",
@@ -212,13 +212,13 @@ wp_endpoint_fake_class_init (WpEndpointFakeClass * klass)
 }
 
 void
-wp_endpoint_fake_new_async (WpCore *core, const char *name,
+wp_fake_endpoint_new_async (WpCore *core, const char *name,
     const char *media_class, guint direction,
     WpProperties *props, const char *role, guint streams,
     GAsyncReadyCallback ready, gpointer data)
 {
     g_async_initable_new_async (
-        wp_endpoint_fake_get_type (), G_PRIORITY_DEFAULT, NULL, ready, data,
+        wp_fake_endpoint_get_type (), G_PRIORITY_DEFAULT, NULL, ready, data,
         "core", core,
         "name", name,
         "media-class", media_class,
@@ -230,7 +230,7 @@ wp_endpoint_fake_new_async (WpCore *core, const char *name,
 }
 
 guint
-wp_endpoint_fake_get_id (WpEndpointFake *self)
+wp_fake_endpoint_get_id (WpFakeEndpoint *self)
 {
   return self->id;
 }

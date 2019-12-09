@@ -9,7 +9,7 @@
 /**
  * module-pipewire provides basic integration between wireplumber and pipewire.
  * It provides the pipewire core and remote, connects to pipewire and provides
- * the most primitive implementations of WpEndpoint and WpEndpointLink
+ * the most primitive implementations of WpBaseEndpoint and WpBaseEndpointLink
  */
 
 #include <wp/wp.h>

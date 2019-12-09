@@ -28,13 +28,13 @@ static void
 on_endpoint_created(GObject *initable, GAsyncResult *res, gpointer d)
 {
   struct impl *impl = d;
-  g_autoptr (WpEndpoint) endpoint = NULL;
+  g_autoptr (WpBaseEndpoint) endpoint = NULL;
   g_autoptr (WpProxy) proxy = NULL;
   guint global_id = 0;
   GError *error = NULL;
 
   /* Get the endpoint */
-  endpoint = wp_endpoint_new_finish(initable, res, &error);
+  endpoint = wp_base_endpoint_new_finish(initable, res, &error);
   if (error) {
     g_warning ("Failed to create alsa endpoint: %s", error->message);
     return;
@@ -47,7 +47,7 @@ on_endpoint_created(GObject *initable, GAsyncResult *res, gpointer d)
   g_debug ("Created alsa endpoint for global id %d", global_id);
 
   /* Register the endpoint and add it to the table */
-  wp_endpoint_register (endpoint);
+  wp_base_endpoint_register (endpoint);
   g_hash_table_insert (impl->registered_endpoints, GUINT_TO_POINTER(global_id),
       g_steal_pointer (&endpoint));
 }
@@ -123,14 +123,14 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, struct impl *impl)
 
   /* Create the endpoint async */
   g_object_get (om, "core", &core, NULL);
-  wp_factory_make (core, "pw-audio-softdsp-endpoint", WP_TYPE_ENDPOINT,
+  wp_factory_make (core, "pw-audio-softdsp-endpoint", WP_TYPE_BASE_ENDPOINT,
       endpoint_props, on_endpoint_created, impl);
 }
 
 static void
 on_node_removed (WpObjectManager *om, WpProxy *proxy, struct impl *impl)
 {
-  WpEndpoint *endpoint = NULL;
+  WpBaseEndpoint *endpoint = NULL;
   guint32 id = wp_proxy_get_global_id (proxy);
 
   /* Get the endpoint */
@@ -140,7 +140,7 @@ on_node_removed (WpObjectManager *om, WpProxy *proxy, struct impl *impl)
     return;
 
   /* Unregister the endpoint and remove it from the table */
-  wp_endpoint_unregister (endpoint);
+  wp_base_endpoint_unregister (endpoint);
   g_hash_table_remove (impl->registered_endpoints, GUINT_TO_POINTER(id));
 }
 

@@ -26,7 +26,7 @@ wildcard_match (const char *pattern, const char *str)
 }
 
 gboolean
-wp_parser_endpoint_link_matches_endpoint_data (WpEndpoint *ep,
+wp_parser_endpoint_link_matches_endpoint_data (WpBaseEndpoint *ep,
     const struct WpParserEndpointLinkEndpointData *data)
 {
   g_autoptr (WpProperties) props = NULL;
@@ -34,21 +34,21 @@ wp_parser_endpoint_link_matches_endpoint_data (WpEndpoint *ep,
   g_return_val_if_fail (ep, FALSE);
   g_return_val_if_fail (data, FALSE);
 
-  props = wp_endpoint_get_properties (ep);
+  props = wp_base_endpoint_get_properties (ep);
   g_return_val_if_fail (props, FALSE);
 
   /* Name */
   if (data->name &&
-        !wildcard_match (data->name, wp_endpoint_get_name (ep)))
+        !wildcard_match (data->name, wp_base_endpoint_get_name (ep)))
     return FALSE;
 
   /* Media Class */
   if (data->media_class &&
-      g_strcmp0 (wp_endpoint_get_media_class (ep), data->media_class) != 0)
+      g_strcmp0 (wp_base_endpoint_get_media_class (ep), data->media_class) != 0)
     return FALSE;
 
   /* Direction */
-  if (wp_endpoint_get_direction (ep) != data->direction)
+  if (wp_base_endpoint_get_direction (ep) != data->direction)
     return FALSE;
 
   /* Properties */
@@ -286,7 +286,7 @@ static gconstpointer
 wp_parser_endpoint_link_get_matched_data (WpConfigParser *parser, gpointer data)
 {
   WpParserEndpointLink *self = WP_PARSER_ENDPOINT_LINK (parser);
-  WpEndpoint *ep = WP_ENDPOINT (data);
+  WpBaseEndpoint *ep = WP_BASE_ENDPOINT (data);
   const struct WpParserEndpointLinkData *d = NULL;
 
   /* Find the first data that matches endpoint */

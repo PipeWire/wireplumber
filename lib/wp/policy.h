@@ -9,7 +9,7 @@
 #ifndef __WIREPLUMBER_POLICY_H__
 #define __WIREPLUMBER_POLICY_H__
 
-#include "endpoint.h"
+#include "base-endpoint.h"
 
 G_BEGIN_DECLS
 
@@ -43,10 +43,10 @@ struct _WpPolicyClass
 {
   GObjectClass parent_class;
 
-  void (*endpoint_added) (WpPolicy *self, WpEndpoint *ep);
-  void (*endpoint_removed) (WpPolicy *self, WpEndpoint *ep);
+  void (*endpoint_added) (WpPolicy *self, WpBaseEndpoint *ep);
+  void (*endpoint_removed) (WpPolicy *self, WpBaseEndpoint *ep);
 
-  WpEndpoint * (*find_endpoint) (WpPolicy *self, GVariant *props,
+  WpBaseEndpoint * (*find_endpoint) (WpPolicy *self, GVariant *props,
       guint32 *stream_id);
 };
 
@@ -62,7 +62,7 @@ void wp_policy_unregister (WpPolicy *self);
 
 void wp_policy_notify_changed (WpPolicy *self);
 
-WpEndpoint * wp_policy_find_endpoint (WpCore *core, GVariant *props,
+WpBaseEndpoint * wp_policy_find_endpoint (WpCore *core, GVariant *props,
     guint32 *stream_id);
 
 G_END_DECLS

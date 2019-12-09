@@ -100,7 +100,7 @@ audio_stream_event_param (WpProxy *proxy, int seq, uint32_t id,
     WpAudioStream *self)
 {
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
-  g_autoptr (WpEndpoint) ep = g_weak_ref_get (&priv->endpoint);
+  g_autoptr (WpBaseEndpoint) ep = g_weak_ref_get (&priv->endpoint);
 
   switch (id) {
     case SPA_PARAM_Props:
@@ -116,7 +116,7 @@ audio_stream_event_param (WpProxy *proxy, int seq, uint32_t id,
           spa_pod_get_float(&prop->value, &volume);
           if (priv->volume != volume) {
             priv->volume = volume;
-            wp_endpoint_notify_control_value (ep,
+            wp_base_endpoint_notify_control_value (ep,
                 wp_audio_stream_id_encode (priv->id, CONTROL_VOLUME));
           }
           break;
@@ -124,7 +124,7 @@ audio_stream_event_param (WpProxy *proxy, int seq, uint32_t id,
           spa_pod_get_bool(&prop->value, &mute);
           if (priv->mute != mute) {
             priv->mute = mute;
-            wp_endpoint_notify_control_value (ep,
+            wp_base_endpoint_notify_control_value (ep,
                 wp_audio_stream_id_encode (priv->id, CONTROL_MUTE));
           }
           break;
@@ -291,11 +291,11 @@ wp_audio_stream_init_async (GAsyncInitable *initable, int io_priority,
 {
   WpAudioStream *self = WP_AUDIO_STREAM(initable);
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
-  g_autoptr (WpEndpoint) ep = g_weak_ref_get (&priv->endpoint);
+  g_autoptr (WpBaseEndpoint) ep = g_weak_ref_get (&priv->endpoint);
   g_autoptr (WpCore) core = wp_audio_stream_get_core (self);
   GVariantDict d;
 
-  g_debug ("WpEndpoint:%p init stream %s (%s:%p)", ep, priv->name,
+  g_debug ("WpBaseEndpoint:%p init stream %s (%s:%p)", ep, priv->name,
       G_OBJECT_TYPE_NAME (self), self);
 
   priv->init_task = g_task_new (initable, cancellable, callback, data);
@@ -310,7 +310,7 @@ wp_audio_stream_init_async (GAsyncInitable *initable, int io_priority,
   g_variant_dict_insert (&d, "type", "s", "d");
   g_variant_dict_insert (&d, "range", "(dd)", 0.0, 1.0);
   g_variant_dict_insert (&d, "default-value", "d", priv->volume);
-  wp_endpoint_register_control (ep, g_variant_dict_end (&d));
+  wp_base_endpoint_register_control (ep, g_variant_dict_end (&d));
 
   /* Register the mute control */
   g_variant_dict_init (&d, NULL);
@@ -321,7 +321,7 @@ wp_audio_stream_init_async (GAsyncInitable *initable, int io_priority,
   g_variant_dict_insert (&d, "name", "s", "mute");
   g_variant_dict_insert (&d, "type", "s", "b");
   g_variant_dict_insert (&d, "default-value", "b", priv->mute);
-  wp_endpoint_register_control (ep, g_variant_dict_end (&d));
+  wp_base_endpoint_register_control (ep, g_variant_dict_end (&d));
 
   g_return_if_fail (priv->proxy);
   wp_proxy_augment (WP_PROXY (priv->proxy),
@@ -369,7 +369,7 @@ wp_audio_stream_class_init (WpAudioStreamClass * klass)
   /* Install the properties */
   g_object_class_install_property (object_class, PROP_ENDPOINT,
       g_param_spec_object ("endpoint", "endpoint",
-          "The endpoint this audio stream belongs to", WP_TYPE_ENDPOINT,
+          "The endpoint this audio stream belongs to", WP_TYPE_BASE_ENDPOINT,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (object_class, PROP_ID,
       g_param_spec_uint ("id", "id", "The Id of the audio stream", 0, G_MAXUINT, 0,
@@ -548,11 +548,11 @@ WpCore *
 wp_audio_stream_get_core (WpAudioStream * self)
 {
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
-  g_autoptr (WpEndpoint) ep = NULL;
+  g_autoptr (WpBaseEndpoint) ep = NULL;
   g_autoptr (WpCore) core = NULL;
 
   ep = g_weak_ref_get (&priv->endpoint);
-  core = wp_endpoint_get_core (ep);
+  core = wp_base_endpoint_get_core (ep);
   return g_steal_pointer (&core);
 }
 
