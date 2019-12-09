@@ -111,6 +111,13 @@ void wp_exported_endpoint_set_property (WpExportedEndpoint * self,
 void wp_exported_endpoint_update_properties (WpExportedEndpoint * self,
     WpProperties * updates);
 
+void wp_exported_endpoint_set_name (WpExportedEndpoint * self,
+    const gchar * name);
+void wp_exported_endpoint_set_media_class (WpExportedEndpoint * self,
+    const gchar * media_class);
+void wp_exported_endpoint_set_direction (WpExportedEndpoint * self,
+    WpDirection dir);
+
 void wp_exported_endpoint_register_control (WpExportedEndpoint * self,
     WpEndpointControl control);
 

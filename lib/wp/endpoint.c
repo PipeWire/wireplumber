@@ -462,6 +462,8 @@ wp_exported_endpoint_finalize (GObject * object)
 
   g_clear_pointer (&priv->properties, wp_properties_unref);
   wp_spa_props_clear (&priv->spa_props);
+  g_free (priv->info.name);
+  g_free (priv->info.media_class);
 
   G_OBJECT_CLASS (wp_exported_endpoint_parent_class)->finalize (object);
 }
@@ -573,6 +575,15 @@ wp_exported_endpoint_export (WpExported * self)
       wp_exported_endpoint_get_instance_private (WP_EXPORTED_ENDPOINT (self));
   g_autoptr (WpCore) core = wp_exported_get_core (self);
   struct pw_client_endpoint_proxy *pw_proxy = NULL;
+
+  /* make sure these props are not present; they are added by the server */
+  wp_properties_set (priv->properties, PW_KEY_OBJECT_ID, NULL);
+  wp_properties_set (priv->properties, PW_KEY_CLIENT_ID, NULL);
+  wp_properties_set (priv->properties, PW_KEY_FACTORY_ID, NULL);
+
+  /* add must-have global properties */
+  wp_properties_set (priv->properties, PW_KEY_ENDPOINT_NAME, priv->info.name);
+  wp_properties_set (priv->properties, PW_KEY_MEDIA_CLASS, priv->info.media_class);
 
   priv->client_ep = wp_core_create_remote_object (core, "client-endpoint",
       PW_TYPE_INTERFACE_ClientEndpoint, PW_VERSION_CLIENT_ENDPOINT_PROXY,
@@ -745,6 +756,42 @@ wp_exported_endpoint_update_properties (WpExportedEndpoint * self,
     client_endpoint_update (WP_EXPORTED_ENDPOINT (self),
       PW_CLIENT_ENDPOINT_UPDATE_INFO, PW_ENDPOINT_CHANGE_MASK_PROPS);
   }
+}
+
+void
+wp_exported_endpoint_set_name (WpExportedEndpoint * self, const gchar * name)
+{
+  WpExportedEndpointPrivate *priv;
+
+  g_return_if_fail (WP_IS_EXPORTED_ENDPOINT (self));
+  priv = wp_exported_endpoint_get_instance_private (WP_EXPORTED_ENDPOINT (self));
+
+  g_free (priv->info.name);
+  priv->info.name = g_strdup (name);
+}
+
+void
+wp_exported_endpoint_set_media_class (WpExportedEndpoint * self,
+    const gchar * media_class)
+{
+  WpExportedEndpointPrivate *priv;
+
+  g_return_if_fail (WP_IS_EXPORTED_ENDPOINT (self));
+  priv = wp_exported_endpoint_get_instance_private (WP_EXPORTED_ENDPOINT (self));
+
+  g_free (priv->info.media_class);
+  priv->info.media_class = g_strdup (media_class);
+}
+
+void
+wp_exported_endpoint_set_direction (WpExportedEndpoint * self, WpDirection dir)
+{
+  WpExportedEndpointPrivate *priv;
+
+  g_return_if_fail (WP_IS_EXPORTED_ENDPOINT (self));
+  priv = wp_exported_endpoint_get_instance_private (WP_EXPORTED_ENDPOINT (self));
+
+  priv->info.direction = (enum pw_direction) dir;
 }
 
 void
