@@ -5,6 +5,12 @@ common_env = [
 ]
 
 test(
+  'test-endpoint',
+  executable('test-endpoint', 'endpoint.c', dependencies: common_deps),
+  env: common_env,
+)
+
+test(
   'test-properties',
   executable('test-properties', 'properties.c', dependencies: common_deps),
   env: common_env,

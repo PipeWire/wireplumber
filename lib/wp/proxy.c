@@ -13,6 +13,7 @@
 #include "wpenums.h"
 #include "private.h"
 
+#include "endpoint.h"
 #include "proxy-client.h"
 #include "proxy-link.h"
 #include "proxy-node.h"
@@ -111,7 +112,7 @@ static struct {
   { PW_TYPE_INTERFACE_Device, 0, wp_proxy_get_type, wp_proxy_device_quark },
   { PW_TYPE_INTERFACE_Metadata, 0, wp_proxy_get_type, wp_proxy_metadata_quark },
   { PW_TYPE_INTERFACE_Session, 0, wp_proxy_session_get_type, wp_proxy_session_quark },
-  { PW_TYPE_INTERFACE_Endpoint, 0, wp_proxy_get_type, wp_proxy_endpoint_quark },
+  { PW_TYPE_INTERFACE_Endpoint, 0, wp_proxy_endpoint_get_type, wp_proxy_endpoint_quark },
   { PW_TYPE_INTERFACE_EndpointStream, 0, wp_proxy_get_type, wp_proxy_endpoint_stream_quark },
   { PW_TYPE_INTERFACE_EndpointLink, 0, wp_proxy_get_type, wp_proxy_endpoint_link_quark },
   { PW_TYPE_INTERFACE_ClientNode, 0, wp_proxy_get_type, wp_proxy_client_node_quark },

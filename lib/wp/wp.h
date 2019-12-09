@@ -9,6 +9,7 @@
 #include "base-endpoint.h"
 #include "configuration.h"
 #include "core.h"
+#include "endpoint.h"
 #include "error.h"
 #include "exported.h"
 #include "factory.h"
