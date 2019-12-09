@@ -15,6 +15,7 @@
 
 #include <wp/wp.h>
 #include <pipewire/pipewire.h>
+#include <pipewire/extensions/session-manager.h>
 #include <spa/param/audio/format-utils.h>
 #include <spa/pod/builder.h>
 #include <spa/param/props.h>
@@ -46,6 +47,8 @@ struct _WpPwAudioSoftdspEndpoint
   /* Audio Streams */
   WpAudioStream *adapter;
   GPtrArray *converters;
+
+  WpExportedEndpoint *exported_ep;
 };
 
 enum {
@@ -131,15 +134,64 @@ endpoint_prepare_link (WpBaseEndpoint * ep, guint32 stream_id,
 }
 
 static void
-finish_endpoint_creation(WpPwAudioSoftdspEndpoint *self)
+on_endpoint_exported (GObject * exported, GAsyncResult *res, gpointer data)
 {
-  /* Don't do anything if the endpoint has already been initialized */
-  if (!self->init_task)
-    return;
+  WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (data);
+  GError *error = NULL;
 
-  /* Finish the creation of the endpoint */
-  g_task_return_boolean (self->init_task, TRUE);
-  g_clear_object(&self->init_task);
+  g_return_if_fail (self->init_task);
+
+  /* Get the object */
+  wp_exported_export_finish (WP_EXPORTED (exported), res, &error);
+  if (error) {
+    g_warning ("WpPwAudioSoftdspEndpoint:%p Aborting construction", self);
+    g_task_return_error (self->init_task, error);
+    g_clear_object (&self->init_task);
+  } else {
+    /* Finish the creation of the endpoint */
+    g_task_return_boolean (self->init_task, TRUE);
+    g_clear_object(&self->init_task);
+  }
+}
+
+static void
+do_export (WpPwAudioSoftdspEndpoint *self)
+{
+  g_autoptr (WpCore) core = wp_base_endpoint_get_core (WP_BASE_ENDPOINT (self));
+  g_autoptr (WpProperties) props = NULL;
+  g_autoptr (WpProperties) extra_props = NULL;
+
+  g_return_if_fail (!self->exported_ep);
+
+  self->exported_ep = wp_exported_endpoint_new (core);
+
+  wp_exported_endpoint_register_control (self->exported_ep,
+      WP_ENDPOINT_CONTROL_VOLUME);
+  wp_exported_endpoint_register_control (self->exported_ep,
+      WP_ENDPOINT_CONTROL_MUTE);
+  // wp_exported_endpoint_register_control (self->exported_ep,
+  //     WP_ENDPOINT_CONTROL_CHANNEL_VOLUMES);
+
+  props = wp_proxy_node_get_properties (self->proxy_node);
+
+  extra_props = wp_properties_new_empty ();
+  wp_properties_setf (extra_props, PW_KEY_NODE_ID, "%d",
+      wp_proxy_get_global_id (WP_PROXY (self->proxy_node)));
+  wp_properties_set (extra_props, PW_KEY_ENDPOINT_CLIENT_ID,
+      wp_properties_get (props, PW_KEY_CLIENT_ID));
+
+  wp_exported_endpoint_update_properties (self->exported_ep, props);
+  wp_exported_endpoint_update_properties (self->exported_ep, extra_props);
+
+  wp_exported_endpoint_set_name (self->exported_ep,
+      wp_base_endpoint_get_name (WP_BASE_ENDPOINT (self)));
+  wp_exported_endpoint_set_media_class (self->exported_ep,
+      wp_base_endpoint_get_media_class (WP_BASE_ENDPOINT (self)));
+  wp_exported_endpoint_set_direction (self->exported_ep,
+      wp_base_endpoint_get_direction (WP_BASE_ENDPOINT (self)));
+
+  wp_exported_export (WP_EXPORTED (self->exported_ep), NULL,
+      on_endpoint_exported, self);
 }
 
 static void
@@ -168,7 +220,7 @@ on_audio_convert_created(GObject *initable, GAsyncResult *res, gpointer data)
 
   /* Finish the endpoint creation when all the streams are created */
   if (--self->stream_count == 0)
-    finish_endpoint_creation(self);
+    do_export (self);
 }
 
 static void
@@ -209,7 +261,7 @@ on_audio_adapter_created(GObject *initable, GAsyncResult *res,
 
   /* Just finish if no streams need to be created */
   if (!self->streams) {
-    finish_endpoint_creation (self);
+    do_export (self);
     return;
   }
 
@@ -236,6 +288,10 @@ static void
 endpoint_finalize (GObject * object)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (object);
+
+  if (self->exported_ep)
+    wp_exported_unexport (WP_EXPORTED (self->exported_ep));
+  g_clear_object (&self->exported_ep);
 
   g_clear_pointer(&self->streams, g_variant_unref);
 
