@@ -308,16 +308,6 @@ on_audio_adapter_created(GObject *initable, GAsyncResult *res,
 
   props = wp_proxy_node_get_properties (self->proxy_node);
 
-  /* Give a proper name to this endpoint based on adapter properties */
-  if (0 == g_strcmp0(wp_properties_get (props, SPA_KEY_DEVICE_API), "alsa")) {
-    name = g_strdup_printf ("%s on %s (%s / node %s)",
-        wp_properties_get (props, SPA_KEY_API_ALSA_PCM_NAME),
-        wp_properties_get (props, SPA_KEY_API_ALSA_CARD_NAME),
-        wp_properties_get (props, SPA_KEY_API_ALSA_PATH),
-        wp_properties_get (props, PW_KEY_OBJECT_ID));
-    g_object_set (self, "name", name, NULL);
-  }
-
   /* Set the role */
   self->role = g_strdup (wp_properties_get (props, PW_KEY_MEDIA_ROLE));
 
