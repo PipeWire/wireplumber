@@ -503,6 +503,11 @@ wp_exported_session_export (WpExported * self)
   g_autoptr (WpCore) core = wp_exported_get_core (self);
   struct pw_client_session_proxy *pw_proxy = NULL;
 
+  /* make sure these props are not present; they are added by the server */
+  wp_properties_set (priv->properties, PW_KEY_OBJECT_ID, NULL);
+  wp_properties_set (priv->properties, PW_KEY_CLIENT_ID, NULL);
+  wp_properties_set (priv->properties, PW_KEY_FACTORY_ID, NULL);
+
   priv->client_sess = wp_core_create_remote_object (core, "client-session",
       PW_TYPE_INTERFACE_ClientSession, PW_VERSION_CLIENT_SESSION_PROXY,
       priv->properties);
