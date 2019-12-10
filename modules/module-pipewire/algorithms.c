@@ -33,6 +33,7 @@ multiport_link_create (
   guint32 out_channel, in_channel;
   guint8 direction;
   guint i;
+  gboolean link_all = FALSE;
 
   /* tuple format:
       uint32 node_id;
@@ -63,6 +64,12 @@ multiport_link_create (
 
   /* now loop over the out ports and figure out where they should be linked */
   g_variant_get (src_data, "a(uuuy)", &iter);
+
+  /* special case for mono inputs: link to all outputs,
+     since we don't support proper channel mapping yet */
+  if (g_variant_iter_n_children (iter) == 1)
+    link_all = TRUE;
+
   while (g_variant_iter_loop (iter, "(uuuy)", &out_node_id, &out_port_id,
               &out_channel, &direction))
   {
@@ -76,7 +83,8 @@ multiport_link_create (
 
       /* the channel has to match, unless we don't have any information
          on channel ordering on either side */
-      if (out_channel == in_channel ||
+      if (link_all ||
+          out_channel == in_channel ||
           out_channel == SPA_AUDIO_CHANNEL_UNKNOWN ||
           in_channel == SPA_AUDIO_CHANNEL_UNKNOWN)
       {
@@ -97,6 +105,10 @@ multiport_link_create (
 
         /* and the link */
         create_link_cb (props, user_data);
+
+        /* continue to link all input ports, if requested */
+        if (link_all)
+          continue;
 
         /* and remove the linked input port from the array */
         g_ptr_array_remove_index (in_ports, i);
