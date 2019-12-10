@@ -80,8 +80,8 @@ on_endpoint_link_created (GObject *initable, GAsyncResult *res, gpointer p)
 }
 
 static gboolean
-wp_config_policy_can_link_stream (WpConfigPolicy *self, WpEndpoint *ep,
-    const struct WpParserEndpointLinkData *data)
+wp_config_policy_can_link_stream (WpConfigPolicy *self, WpEndpoint *target,
+    const struct WpParserEndpointLinkData *data, guint32 stream_id)
 {
   g_autoptr (WpConfigParser) parser = NULL;
   const struct WpParserStreamsData *streams_data = NULL;
@@ -91,28 +91,35 @@ wp_config_policy_can_link_stream (WpConfigPolicy *self, WpEndpoint *ep,
     return TRUE;
 
   /* If the endpoint is not linked, we can link */
-  if (!wp_endpoint_is_linked (ep))
+  if (!wp_endpoint_is_linked (target))
     return TRUE;
 
   /* Get the linked stream */
-  gboolean is_capture = wp_endpoint_get_direction (ep) == PW_DIRECTION_INPUT;
-  GPtrArray *links = wp_endpoint_get_links (ep);
+  gboolean is_capture = wp_endpoint_get_direction (target) == PW_DIRECTION_INPUT;
+  GPtrArray *links = wp_endpoint_get_links (target);
   WpEndpointLink *l = g_ptr_array_index (links, 0);
   guint32 linked_stream = is_capture ?
       wp_endpoint_link_get_sink_stream (l) :
           wp_endpoint_link_get_source_stream (l);
 
-  /* Check if linked stream is the same as ep stream. Last one wins */
-  if (data->te.stream &&
-      linked_stream == wp_endpoint_find_stream (ep, data->te.stream))
+  /* Check if linked stream is the same as target stream. Last one wins */
+  if (linked_stream == stream_id)
     return TRUE;
 
   /* Get the linked stream name */
-  g_autoptr (GVariant) s = wp_endpoint_get_stream (ep, linked_stream);
+  g_autoptr (GVariant) s = wp_endpoint_get_stream (target, linked_stream);
   if (!s)
     return TRUE;
   const gchar *linked_stream_name;
   if (!g_variant_lookup (s, "name", "&s", &linked_stream_name))
+    return TRUE;
+
+  /* Get the target stream name */
+  g_autoptr (GVariant) ts = wp_endpoint_get_stream (target, stream_id);
+  if (!ts)
+    return TRUE;
+  const gchar *target_stream_name;
+  if (!g_variant_lookup (ts, "name", "&s", &target_stream_name))
     return TRUE;
 
   /* Get the linked and ep streams data */
@@ -124,7 +131,11 @@ wp_config_policy_can_link_stream (WpConfigPolicy *self, WpEndpoint *ep,
   const struct WpParserStreamsStreamData *linked_stream_data =
       wp_parser_streams_find_stream (streams_data, linked_stream_name);
   const struct WpParserStreamsStreamData *ep_stream_data =
-      wp_parser_streams_find_stream (streams_data, data->te.stream);
+      wp_parser_streams_find_stream (streams_data, target_stream_name);
+
+  g_debug ("Trying to link to '%s' (%d); target is linked on '%s' (%d)",
+      target_stream_name, ep_stream_data ? ep_stream_data->priority : -1,
+      linked_stream_name, linked_stream_data ? linked_stream_data->priority : -1);
 
   /* Return false if linked stream has higher priority than ep stream */
   if (linked_stream_data && ep_stream_data) {
@@ -245,10 +256,10 @@ wp_config_policy_handle_endpoint (WpPolicy *policy, WpEndpoint *ep)
   }
 
   /* Don't link if the target is linked with a higher priority stream */
-  can_link = wp_config_policy_can_link_stream (self, target, data);
+  can_link = wp_config_policy_can_link_stream (self, target, data, stream_id);
 
-  g_debug ("Trying to handle endpoint: %s, can_link:%d",
-      wp_endpoint_get_name (ep), can_link);
+  g_debug ("Trying to handle endpoint: %s, role:%s, can_link:%d",
+      wp_endpoint_get_name (ep), role, can_link);
 
   /* Link the endpoint with its target */
   return can_link && wp_config_policy_link_endpoint_with_target (self, ep,
