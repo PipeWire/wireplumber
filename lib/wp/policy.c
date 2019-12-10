@@ -238,7 +238,7 @@ typedef struct _WpPolicyPrivate WpPolicyPrivate;
 struct _WpPolicyPrivate
 {
   guint32 rank;
-  WpCore *core;
+  GWeakRef core;
 };
 
 enum {
@@ -251,6 +251,19 @@ G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (WpPolicy, wp_policy, G_TYPE_OBJECT)
 static void
 wp_policy_init (WpPolicy *self)
 {
+  WpPolicyPrivate *priv = wp_policy_get_instance_private (self);
+
+  g_weak_ref_init (&priv->core, NULL);
+}
+
+static void
+wp_policy_finalize (GObject * object)
+{
+  WpPolicyPrivate *priv = wp_policy_get_instance_private (WP_POLICY (object));
+
+  g_weak_ref_clear (&priv->core);
+
+  G_OBJECT_CLASS (wp_policy_parent_class)->finalize (object);
 }
 
 static void
@@ -285,12 +298,12 @@ wp_policy_get_property (GObject * object, guint property_id, GValue * value,
   }
 }
 
-
 static void
 wp_policy_class_init (WpPolicyClass *klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
 
+  object_class->finalize = wp_policy_finalize;
   object_class->set_property = wp_policy_set_property;
   object_class->get_property = wp_policy_get_property;
 
@@ -326,7 +339,7 @@ wp_policy_get_core (WpPolicy *self)
   g_return_val_if_fail (WP_IS_POLICY (self), NULL);
 
   priv = wp_policy_get_instance_private (self);
-  return priv->core ? g_object_ref (priv->core) : NULL;
+  return g_weak_ref_get (&priv->core);
 }
 
 static gint
@@ -347,7 +360,7 @@ wp_policy_register (WpPolicy *self, WpCore *core)
   g_return_if_fail (WP_IS_CORE (core));
 
   priv = wp_policy_get_instance_private (self);
-  priv->core = core;
+  g_weak_ref_set (&priv->core, core);
 
   mgr = wp_policy_manager_get_instance (core);
   mgr->policies = g_list_insert_sorted (mgr->policies, g_object_ref (self),
@@ -359,15 +372,16 @@ void
 wp_policy_unregister (WpPolicy *self)
 {
   g_autoptr (WpPolicyManager) mgr = NULL;
+  g_autoptr (WpCore) core = NULL;
   WpPolicyPrivate *priv;
 
   g_return_if_fail (WP_IS_POLICY (self));
 
   priv = wp_policy_get_instance_private (self);
 
-  if (priv->core) {
-    mgr = wp_core_find_object (priv->core, (GEqualFunc) WP_IS_POLICY_MANAGER,
-        NULL);
+  core = g_weak_ref_get (&priv->core);
+  if (core) {
+    mgr = wp_core_find_object (core, (GEqualFunc) WP_IS_POLICY_MANAGER, NULL);
     if (G_UNLIKELY (!mgr)) {
       g_critical ("WpPolicy:%p seems registered, but the policy manager "
           "is absent", self);
@@ -384,14 +398,16 @@ void
 wp_policy_notify_changed (WpPolicy *self)
 {
   g_autoptr (WpPolicyManager) mgr = NULL;
+  g_autoptr (WpCore) core = NULL;
   WpPolicyPrivate *priv;
 
   g_return_if_fail (WP_IS_POLICY (self));
 
   priv = wp_policy_get_instance_private (self);
-  if (priv->core) {
-    mgr = wp_core_find_object (priv->core, (GEqualFunc) WP_IS_POLICY_MANAGER,
-        NULL);
+
+  core = g_weak_ref_get (&priv->core);
+  if (core) {
+    mgr = wp_core_find_object (core, (GEqualFunc) WP_IS_POLICY_MANAGER, NULL);
     if (G_UNLIKELY (!mgr)) {
       g_critical ("WpPolicy:%p seems registered, but the policy manager "
           "is absent", self);
