@@ -126,7 +126,7 @@ wp_config_policy_can_link_stream (WpConfigPolicy *self, WpEndpoint *target,
   parser = wp_configuration_get_parser (self->config,
       WP_PARSER_STREAMS_EXTENSION);
   streams_data = wp_config_parser_get_matched_data (parser, data->te.streams);
-  if (!data)
+  if (!streams_data)
     return TRUE;
   const struct WpParserStreamsStreamData *linked_stream_data =
       wp_parser_streams_find_stream (streams_data, linked_stream_name);
