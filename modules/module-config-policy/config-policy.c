@@ -149,9 +149,15 @@ wp_config_policy_link_endpoint_with_target (WpConfigPolicy *policy,
   WpConfigPolicy *self = WP_CONFIG_POLICY (policy);
   g_autoptr (WpCore) core = wp_policy_get_core (WP_POLICY (self));
   gboolean is_capture = wp_endpoint_get_direction (ep) == PW_DIRECTION_INPUT;
+  gboolean is_linked = wp_endpoint_is_linked (ep);
+  gboolean target_linked = wp_endpoint_is_linked (target);
+
+  g_debug ("Trying to link with '%s' to target '%s', ep_capture:%d, "
+      "ep_linked:%d, target_linked:%d", wp_endpoint_get_name (ep),
+      wp_endpoint_get_name (target), is_capture, is_linked, target_linked);
 
   /* Check if the endpoint is already linked with the proper target */
-  if (wp_endpoint_is_linked (ep)) {
+  if (is_linked) {
     GPtrArray *links = wp_endpoint_get_links (ep);
     WpEndpointLink *l = g_ptr_array_index (links, 0);
     g_autoptr (WpEndpoint) src_ep = wp_endpoint_link_get_source_endpoint (l);
@@ -178,7 +184,7 @@ wp_config_policy_link_endpoint_with_target (WpConfigPolicy *policy,
   self->pending_target = g_object_ref (target);
 
   /* Unlink the target links that are not kept if endpoint is capture */
-  if (!is_capture && wp_endpoint_is_linked (target)) {
+  if (!is_capture && target_linked) {
     GPtrArray *links = wp_endpoint_get_links (target);
     for (guint i = 0; i < links->len; i++) {
       WpEndpointLink *l = g_ptr_array_index (links, i);
@@ -211,6 +217,7 @@ wp_config_policy_handle_endpoint (WpPolicy *policy, WpEndpoint *ep)
   g_autoptr (WpEndpoint) target = NULL;
   guint32 stream_id;
   const char *role = NULL;
+  gboolean can_link;
 
   /* Get the parser for the endpoint-link extension */
   parser = wp_configuration_get_parser (self->config,
@@ -238,12 +245,14 @@ wp_config_policy_handle_endpoint (WpPolicy *policy, WpEndpoint *ep)
   }
 
   /* Don't link if the target is linked with a higher priority stream */
-  if (!wp_config_policy_can_link_stream (self, target, data))
-    return FALSE;
+  can_link = wp_config_policy_can_link_stream (self, target, data);
+
+  g_debug ("Trying to handle endpoint: %s, can_link:%d",
+      wp_endpoint_get_name (ep), can_link);
 
   /* Link the endpoint with its target */
-  return wp_config_policy_link_endpoint_with_target (self, ep,
-      WP_STREAM_ID_NONE, target, stream_id, data);
+  return can_link && wp_config_policy_link_endpoint_with_target (self, ep,
+          WP_STREAM_ID_NONE, target, stream_id, data);
 }
 
 static const char *
