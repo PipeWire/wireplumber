@@ -32,7 +32,6 @@ struct WpParserEndpointLinkData {
     char *stream;
   } te;
   struct EndpointLink {
-    char *state;
     gboolean keep;
   } el;
 };

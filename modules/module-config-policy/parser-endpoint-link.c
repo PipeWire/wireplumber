@@ -86,7 +86,6 @@ wp_parser_endpoint_link_data_destroy (gpointer p)
   g_clear_pointer (&data->te.endpoint_data.media_class, g_free);
   g_clear_pointer (&data->te.endpoint_data.props, wp_properties_unref);
   g_clear_pointer (&data->te.stream, g_free);
-  g_clear_pointer (&data->el.state, g_free);
 
   g_slice_free (struct WpParserEndpointLinkData, data);
 }
@@ -159,7 +158,6 @@ wp_parser_endpoint_link_data_new (const gchar *location)
    * stream (string)
    *
    * [endpoint-link]
-   * state (string)
    * keep (bool)
    */
 
@@ -227,11 +225,6 @@ wp_parser_endpoint_link_data_new (const gchar *location)
   el = wp_toml_table_get_table (table, "endpoint-link");
   if (!el)
     goto error;
-
-  /* Get the endpoint link state */
-  res->el.state = wp_toml_table_get_string (el, "state");
-  if (!res->el.state)
-    res->el.state = g_strdup ("active");
 
   /* Get the endpoint link keep */
   res->el.keep = FALSE;
