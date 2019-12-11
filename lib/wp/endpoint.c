@@ -354,6 +354,27 @@ wp_proxy_endpoint_get_properties (WpEndpoint * endpoint)
   return wp_properties_ref (self->properties);
 }
 
+const gchar *
+wp_proxy_endpoint_get_name (WpEndpoint * endpoint)
+{
+  WpProxyEndpoint *self = WP_PROXY_ENDPOINT (endpoint);
+  return self->info->name;
+}
+
+const gchar *
+wp_proxy_endpoint_get_media_class (WpEndpoint * endpoint)
+{
+  WpProxyEndpoint *self = WP_PROXY_ENDPOINT (endpoint);
+  return self->info->media_class;
+}
+
+WpDirection
+wp_proxy_endpoint_get_direction (WpEndpoint * endpoint)
+{
+  WpProxyEndpoint *self = WP_PROXY_ENDPOINT (endpoint);
+  return self->info->direction;
+}
+
 static const struct spa_pod *
 wp_proxy_endpoint_get_control (WpEndpoint * endpoint, guint32 control_id)
 {
@@ -406,6 +427,9 @@ static void
 wp_proxy_endpoint_iface_init (WpEndpointInterface * iface)
 {
   iface->get_properties = wp_proxy_endpoint_get_properties;
+  iface->get_name = wp_proxy_endpoint_get_name;
+  iface->get_media_class = wp_proxy_endpoint_get_media_class;
+  iface->get_direction = wp_proxy_endpoint_get_direction;
   iface->get_control = wp_proxy_endpoint_get_control;
   iface->set_control = wp_proxy_endpoint_set_control;
 }
@@ -630,6 +654,30 @@ wp_exported_endpoint_get_properties (WpEndpoint * endpoint)
   return wp_properties_ref (priv->properties);
 }
 
+const gchar *
+wp_exported_endpoint_get_name (WpEndpoint * endpoint)
+{
+  WpExportedEndpointPrivate *priv =
+      wp_exported_endpoint_get_instance_private (WP_EXPORTED_ENDPOINT (endpoint));
+  return priv->info.name;
+}
+
+const gchar *
+wp_exported_endpoint_get_media_class (WpEndpoint * endpoint)
+{
+  WpExportedEndpointPrivate *priv =
+      wp_exported_endpoint_get_instance_private (WP_EXPORTED_ENDPOINT (endpoint));
+  return priv->info.media_class;
+}
+
+WpDirection
+wp_exported_endpoint_get_direction (WpEndpoint * endpoint)
+{
+  WpExportedEndpointPrivate *priv =
+      wp_exported_endpoint_get_instance_private (WP_EXPORTED_ENDPOINT (endpoint));
+  return priv->info.direction;
+}
+
 static const struct spa_pod *
 wp_exported_endpoint_get_control (WpEndpoint * endpoint, guint32 control_id)
 {
@@ -685,6 +733,9 @@ static void
 wp_exported_endpoint_iface_init (WpEndpointInterface * iface)
 {
   iface->get_properties = wp_exported_endpoint_get_properties;
+  iface->get_name = wp_exported_endpoint_get_name;
+  iface->get_media_class = wp_exported_endpoint_get_media_class;
+  iface->get_direction = wp_exported_endpoint_get_direction;
   iface->get_control = wp_exported_endpoint_get_control;
   iface->set_control = wp_exported_endpoint_set_control;
 }
