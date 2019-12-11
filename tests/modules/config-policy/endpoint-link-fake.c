@@ -84,6 +84,7 @@ wp_endpoint_link_fake_finalize (GObject * object)
 {
   WpEndpointLinkFake *self = WP_ENDPOINT_LINK_FAKE (object);
   g_clear_object (&self->init_task);
+  g_weak_ref_clear (&self->core);
   G_OBJECT_CLASS (wp_endpoint_link_fake_parent_class)->finalize (object);
 }
 
