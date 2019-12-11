@@ -134,6 +134,58 @@ endpoint_prepare_link (WpBaseEndpoint * ep, guint32 stream_id,
 }
 
 static void
+on_exported_control_changed (WpEndpoint * ep, guint32 control_id,
+    WpPwAudioSoftdspEndpoint *self)
+{
+  switch (control_id) {
+  case WP_ENDPOINT_CONTROL_VOLUME: {
+    gfloat vol;
+    wp_endpoint_get_control_float (ep, control_id, &vol);
+    wp_audio_stream_set_volume (self->adapter, vol);
+    break;
+  }
+  case WP_ENDPOINT_CONTROL_MUTE: {
+    gboolean m;
+    wp_endpoint_get_control_boolean (ep, control_id, &m);
+    wp_audio_stream_set_mute (self->adapter, m);
+    break;
+  }
+  default:
+    break;
+  }
+}
+
+static void
+on_adapter_control_changed (WpAudioStream * s, guint32 control_id,
+    WpPwAudioSoftdspEndpoint *self)
+{
+  /* block to avoid recursion - WpEndpoint emits the "control-changed"
+     signal when we change the value here */
+  g_signal_handlers_block_by_func (self->exported_ep,
+      on_exported_control_changed, self);
+
+  switch (control_id) {
+  case WP_ENDPOINT_CONTROL_VOLUME: {
+    gfloat vol = wp_audio_stream_get_volume (s);
+    wp_endpoint_set_control_float (WP_ENDPOINT (self->exported_ep),
+        control_id, vol);
+    break;
+  }
+  case WP_ENDPOINT_CONTROL_MUTE: {
+    gboolean m = wp_audio_stream_get_mute (s);
+    wp_endpoint_set_control_boolean (WP_ENDPOINT (self->exported_ep),
+        control_id, m);
+    break;
+  }
+  default:
+    break;
+  }
+
+  g_signal_handlers_unblock_by_func (self->exported_ep,
+      on_exported_control_changed, self);
+}
+
+static void
 on_endpoint_exported (GObject * exported, GAsyncResult *res, gpointer data)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (data);
@@ -189,6 +241,16 @@ do_export (WpPwAudioSoftdspEndpoint *self)
       wp_base_endpoint_get_media_class (WP_BASE_ENDPOINT (self)));
   wp_exported_endpoint_set_direction (self->exported_ep,
       wp_base_endpoint_get_direction (WP_BASE_ENDPOINT (self)));
+
+  wp_endpoint_set_control_float (WP_ENDPOINT (self->exported_ep),
+      WP_ENDPOINT_CONTROL_VOLUME, wp_audio_stream_get_volume (self->adapter));
+  wp_endpoint_set_control_boolean (WP_ENDPOINT (self->exported_ep),
+      WP_ENDPOINT_CONTROL_MUTE, wp_audio_stream_get_mute (self->adapter));
+
+  g_signal_connect_object (self->exported_ep, "control-changed",
+      (GCallback) on_exported_control_changed, self, 0);
+  g_signal_connect_object (self->adapter, "control-changed",
+      (GCallback) on_adapter_control_changed, self, 0);
 
   wp_exported_export (WP_EXPORTED (self->exported_ep), NULL,
       on_endpoint_exported, self);
@@ -355,55 +417,6 @@ endpoint_get_property (GObject * object, guint property_id,
   }
 }
 
-static GVariant *
-endpoint_get_control_value (WpBaseEndpoint * ep, guint32 id)
-{
-  WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (ep);
-  guint stream_id, control_id;
-  WpAudioStream *stream = NULL;
-
-  if (id == CONTROL_SELECTED)
-    return g_variant_new_boolean (self->selected);
-
-  wp_audio_stream_id_decode (id, &stream_id, &control_id);
-
-  /* Check if it is the adapter (master) */
-  if (stream_id == WP_STREAM_ID_NONE)
-    return wp_audio_stream_get_control_value (self->adapter, control_id);
-
-  /* Otherwise get the stream_id and control_id */
-  g_return_val_if_fail (stream_id < self->converters->len, NULL);
-  stream = g_ptr_array_index (self->converters, stream_id);
-  g_return_val_if_fail (stream, NULL);
-  return wp_audio_stream_get_control_value (stream, control_id);
-}
-
-static gboolean
-endpoint_set_control_value (WpBaseEndpoint * ep, guint32 id, GVariant * value)
-{
-  WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (ep);
-  guint stream_id, control_id;
-  WpAudioStream *stream = NULL;
-
-  if (id == CONTROL_SELECTED) {
-    self->selected = g_variant_get_boolean (value);
-    wp_base_endpoint_notify_control_value (ep, CONTROL_SELECTED);
-    return TRUE;
-  }
-
-  wp_audio_stream_id_decode (id, &stream_id, &control_id);
-
-  /* Check if it is the adapter (master) */
-  if (stream_id == WP_STREAM_ID_NONE)
-    return wp_audio_stream_set_control_value (self->adapter, control_id, value);
-
-  /* Otherwise get the stream_id and control_id */
-  g_return_val_if_fail (stream_id < self->converters->len, FALSE);
-  stream = g_ptr_array_index (self->converters, stream_id);
-  g_return_val_if_fail (stream, FALSE);
-  return wp_audio_stream_set_control_value (stream, control_id, value);
-}
-
 static void
 wp_base_endpoint_init_async (GAsyncInitable *initable, int io_priority,
     GCancellable *cancellable, GAsyncReadyCallback callback, gpointer data)
@@ -465,8 +478,6 @@ endpoint_class_init (WpPwAudioSoftdspEndpointClass * klass)
   endpoint_class->get_properties = endpoint_get_properties;
   endpoint_class->get_role = endpoint_get_role;
   endpoint_class->prepare_link = endpoint_prepare_link;
-  endpoint_class->get_control_value = endpoint_get_control_value;
-  endpoint_class->set_control_value = endpoint_set_control_value;
 
   /* Instal the properties */
   g_object_class_install_property (object_class, PROP_PROXY_NODE,

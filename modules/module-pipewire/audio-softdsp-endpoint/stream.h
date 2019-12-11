@@ -14,9 +14,6 @@
 
 G_BEGIN_DECLS
 
-guint wp_audio_stream_id_encode (guint stream_id, guint control_id);
-void wp_audio_stream_id_decode (guint id, guint *stream_id, guint *control_id);
-
 #define WP_TYPE_AUDIO_STREAM (wp_audio_stream_get_type ())
 G_DECLARE_DERIVABLE_TYPE (WpAudioStream, wp_audio_stream, WP, AUDIO_STREAM, GObject)
 
@@ -34,10 +31,11 @@ WpProxyNode * wp_audio_stream_get_proxy_node (WpAudioStream * self);
 const struct pw_node_info * wp_audio_stream_get_info (WpAudioStream * self);
 gboolean wp_audio_stream_prepare_link (WpAudioStream * self,
       GVariant ** properties, GError ** error);
-GVariant * wp_audio_stream_get_control_value (WpAudioStream * self,
-    guint32 control_id);
-gboolean wp_audio_stream_set_control_value (WpAudioStream * self,
-    guint32 control_id, GVariant * value);
+
+gfloat wp_audio_stream_get_volume (WpAudioStream * self);
+gboolean wp_audio_stream_get_mute (WpAudioStream * self);
+void wp_audio_stream_set_volume (WpAudioStream * self, gfloat volume);
+void wp_audio_stream_set_mute (WpAudioStream * self, gboolean mute);
 
 /* for subclasses */
 

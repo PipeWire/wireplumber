@@ -50,49 +50,17 @@ enum {
 };
 
 enum {
-  CONTROL_VOLUME = 0,
-  CONTROL_MUTE,
-  N_CONTROLS,
+  SIGNAL_CONTROL_CHANGED,
+  N_SIGNALS,
 };
+
+static guint32 signals[N_SIGNALS] = {0};
 
 static void wp_audio_stream_async_initable_init (gpointer iface, gpointer iface_data);
 
 G_DEFINE_ABSTRACT_TYPE_WITH_CODE (WpAudioStream, wp_audio_stream, G_TYPE_OBJECT,
     G_ADD_PRIVATE (WpAudioStream)
     G_IMPLEMENT_INTERFACE (G_TYPE_ASYNC_INITABLE, wp_audio_stream_async_initable_init))
-
-guint
-wp_audio_stream_id_encode (guint stream_id, guint control_id)
-{
-  g_return_val_if_fail (control_id < N_CONTROLS, 0);
-
-  /* encode NONE as 0 and everything else with +1 */
-  /* NONE is MAX_UINT, so +1 will do the trick */
-  stream_id += 1;
-
-  /* Encode the stream and control Ids. The first ID is reserved
-   * for the "selected" control, registered in the endpoint */
-  return 1 + (stream_id * N_CONTROLS) + control_id;
-}
-
-void
-wp_audio_stream_id_decode (guint id, guint *stream_id, guint *control_id)
-{
-  guint s_id, c_id;
-
-  g_return_if_fail (id >= 1);
-  id -= 1;
-
-  /* Decode the stream and control Ids */
-  s_id = (id / N_CONTROLS) - 1;
-  c_id = id % N_CONTROLS;
-
-  /* Set the output params */
-  if (stream_id)
-    *stream_id = s_id;
-  if (control_id)
-    *control_id = c_id;
-}
 
 static void
 audio_stream_event_param (WpProxy *proxy, int seq, uint32_t id,
@@ -114,19 +82,15 @@ audio_stream_event_param (WpProxy *proxy, int seq, uint32_t id,
         switch (prop->key) {
         case SPA_PROP_volume:
           spa_pod_get_float(&prop->value, &volume);
-          if (priv->volume != volume) {
-            priv->volume = volume;
-            wp_base_endpoint_notify_control_value (ep,
-                wp_audio_stream_id_encode (priv->id, CONTROL_VOLUME));
-          }
+          priv->volume = volume;
+          g_signal_emit (self, signals[SIGNAL_CONTROL_CHANGED], 0,
+              WP_ENDPOINT_CONTROL_VOLUME);
           break;
         case SPA_PROP_mute:
           spa_pod_get_bool(&prop->value, &mute);
-          if (priv->mute != mute) {
-            priv->mute = mute;
-            wp_base_endpoint_notify_control_value (ep,
-                wp_audio_stream_id_encode (priv->id, CONTROL_MUTE));
-          }
+          priv->mute = mute;
+          g_signal_emit (self, signals[SIGNAL_CONTROL_CHANGED], 0,
+              WP_ENDPOINT_CONTROL_MUTE);
           break;
         default:
           break;
@@ -293,35 +257,11 @@ wp_audio_stream_init_async (GAsyncInitable *initable, int io_priority,
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
   g_autoptr (WpBaseEndpoint) ep = g_weak_ref_get (&priv->endpoint);
   g_autoptr (WpCore) core = wp_audio_stream_get_core (self);
-  GVariantDict d;
 
   g_debug ("WpBaseEndpoint:%p init stream %s (%s:%p)", ep, priv->name,
       G_OBJECT_TYPE_NAME (self), self);
 
   priv->init_task = g_task_new (initable, cancellable, callback, data);
-
-  /* Register the volume control */
-  g_variant_dict_init (&d, NULL);
-  g_variant_dict_insert (&d, "id", "u",
-      wp_audio_stream_id_encode (priv->id, CONTROL_VOLUME));
-  if (priv->id != WP_STREAM_ID_NONE)
-    g_variant_dict_insert (&d, "stream-id", "u", priv->id);
-  g_variant_dict_insert (&d, "name", "s", "volume");
-  g_variant_dict_insert (&d, "type", "s", "d");
-  g_variant_dict_insert (&d, "range", "(dd)", 0.0, 1.0);
-  g_variant_dict_insert (&d, "default-value", "d", priv->volume);
-  wp_base_endpoint_register_control (ep, g_variant_dict_end (&d));
-
-  /* Register the mute control */
-  g_variant_dict_init (&d, NULL);
-  g_variant_dict_insert (&d, "id", "u",
-      wp_audio_stream_id_encode (priv->id, CONTROL_MUTE));
-  if (priv->id != WP_STREAM_ID_NONE)
-    g_variant_dict_insert (&d, "stream-id", "u", priv->id);
-  g_variant_dict_insert (&d, "name", "s", "mute");
-  g_variant_dict_insert (&d, "type", "s", "b");
-  g_variant_dict_insert (&d, "default-value", "b", priv->mute);
-  wp_base_endpoint_register_control (ep, g_variant_dict_end (&d));
 
   g_return_if_fail (priv->proxy);
   wp_proxy_augment (WP_PROXY (priv->proxy),
@@ -385,6 +325,10 @@ wp_audio_stream_class_init (WpAudioStreamClass * klass)
       g_param_spec_object ("proxy-node", "proxy-node",
           "The node proxy of the stream", WP_TYPE_PROXY_NODE,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS));
+
+  signals[SIGNAL_CONTROL_CHANGED] = g_signal_new (
+      "control-changed", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_UINT);
 }
 
 WpAudioStream *
@@ -484,64 +428,52 @@ wp_audio_stream_prepare_link (WpAudioStream * self, GVariant ** properties,
   return TRUE;
 }
 
-GVariant *
-wp_audio_stream_get_control_value (WpAudioStream * self, guint32 control_id)
+gfloat
+wp_audio_stream_get_volume (WpAudioStream * self)
 {
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
-
-  switch (control_id) {
-    case CONTROL_VOLUME:
-      return g_variant_new_double (priv->volume);
-    case CONTROL_MUTE:
-      return g_variant_new_boolean (priv->mute);
-    default:
-      g_warning ("Unknown control id %u", control_id);
-      return NULL;
-  }
+  return priv->volume;
 }
 
 gboolean
-wp_audio_stream_set_control_value (WpAudioStream * self, guint32 control_id,
-    GVariant * value)
+wp_audio_stream_get_mute (WpAudioStream * self)
 {
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
+  return priv->mute;
+}
 
+void
+wp_audio_stream_set_volume (WpAudioStream * self, gfloat volume)
+{
+  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
   char buf[1024];
   struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
-  float volume;
-  bool mute;
 
   /* Make sure the proxy is valid */
-  g_return_val_if_fail (priv->proxy, FALSE);
+  g_return_if_fail (priv->proxy);
 
-  /* Set the specific constrol */
-  switch (control_id) {
-    case CONTROL_VOLUME:
-      volume = g_variant_get_double (value);
-      wp_proxy_node_set_param (priv->proxy,
-          SPA_PARAM_Props, 0,
-          spa_pod_builder_add_object (&b,
-              SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
-              SPA_PROP_volume, SPA_POD_Float(volume),
-              NULL));
-      break;
+  wp_proxy_node_set_param (priv->proxy,
+      SPA_PARAM_Props, 0,
+      spa_pod_builder_add_object (&b,
+          SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
+          SPA_PROP_volume, SPA_POD_Float(volume)));
+}
 
-    case CONTROL_MUTE:
-      mute = g_variant_get_boolean (value);
-      wp_proxy_node_set_param (priv->proxy,
-          SPA_PARAM_Props, 0,
-          spa_pod_builder_add_object (&b,
-              SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
-              SPA_PROP_mute, SPA_POD_Bool(mute),
-              NULL));
-      break;
+void
+wp_audio_stream_set_mute (WpAudioStream * self, gboolean mute)
+{
+  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
+  char buf[1024];
+  struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 
-    default:
-      g_warning ("Unknown control id %u", control_id);
-      return FALSE;
-  }
+  /* Make sure the proxy is valid */
+  g_return_if_fail (priv->proxy);
 
-  return TRUE;
+  wp_proxy_node_set_param (priv->proxy,
+      SPA_PARAM_Props, 0,
+      spa_pod_builder_add_object (&b,
+          SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
+          SPA_PROP_mute, SPA_POD_Bool(mute)));
 }
 
 WpCore *
