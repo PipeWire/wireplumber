@@ -1,0 +1,9 @@
+[match-node]
+priotity = 0
+properties = [
+  { name = "media.class", value = "Stream/Output/Audio" },
+]
+
+[endpoint]
+direction = "output"
+type = "pw-audio-softdsp-endpoint"

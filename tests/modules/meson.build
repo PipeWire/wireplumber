@@ -16,6 +16,21 @@ test(
 )
 
 test(
+  'test-config-endpoint',
+  executable('test-config-endpoint',
+    [
+      'config-endpoint.c',
+      'config-endpoint/endpoint-audiotestsrc.c',
+      '../../modules/module-config-endpoint/parser-endpoint.c',
+      '../../modules/module-config-endpoint/parser-streams.c',
+      '../../modules/module-config-endpoint/context.c',
+    ],
+    dependencies: common_deps + [wptoml_dep]),
+  env: common_env,
+  workdir : meson.current_source_dir(),
+)
+
+test(
   'test-config-policy',
   executable('test-config-policy',
     [

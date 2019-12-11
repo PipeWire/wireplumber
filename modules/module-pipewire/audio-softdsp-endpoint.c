@@ -298,6 +298,7 @@ on_audio_adapter_created(GObject *initable, GAsyncResult *res,
   GVariantDict d;
   GVariantIter iter;
   const gchar *stream;
+  guint priority;
   int i;
 
   /* Get the proxy adapter */
@@ -323,7 +324,7 @@ on_audio_adapter_created(GObject *initable, GAsyncResult *res,
 
   /* Create the audio converters */
   g_variant_iter_init (&iter, self->streams);
-  for (i = 0; g_variant_iter_next (&iter, "&s", &stream); i++) {
+  for (i = 0; g_variant_iter_next (&iter, "(&su)", &stream, &priority); i++) {
     wp_audio_convert_new (WP_BASE_ENDPOINT(self), i, stream, direction,
         self->adapter, format, on_audio_convert_created, self);
 
@@ -331,7 +332,9 @@ on_audio_adapter_created(GObject *initable, GAsyncResult *res,
     g_variant_dict_init (&d, NULL);
     g_variant_dict_insert (&d, "id", "u", i);
     g_variant_dict_insert (&d, "name", "s", stream);
-    wp_base_endpoint_register_stream (WP_BASE_ENDPOINT (self), g_variant_dict_end (&d));
+    g_variant_dict_insert (&d, "priority", "u", priority);
+    wp_base_endpoint_register_stream (WP_BASE_ENDPOINT (self),
+        g_variant_dict_end (&d));
   }
   self->stream_count = i;
 }
@@ -478,7 +481,7 @@ endpoint_class_init (WpPwAudioSoftdspEndpointClass * klass)
   g_object_class_install_property (object_class, PROP_STREAMS,
       g_param_spec_variant ("streams", "streams",
           "The stream names for the streams to create",
-          G_VARIANT_TYPE ("as"), NULL,
+          G_VARIANT_TYPE ("a(su)"), NULL,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (object_class, PROP_ROLE,
@@ -513,7 +516,7 @@ audio_softdsp_endpoint_factory (WpFactory * factory, GType type, GVariant * prop
   if (!g_variant_lookup (properties, "proxy-node", "t", &node))
       return;
   streams = g_variant_lookup_value (properties, "streams",
-      G_VARIANT_TYPE ("as"));
+      G_VARIANT_TYPE ("a(su)"));
 
   /* Create and return the softdsp endpoint object */
   g_async_initable_new_async (

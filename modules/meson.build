@@ -43,26 +43,17 @@ shared_library(
 )
 
 shared_library(
-  'wireplumber-module-pw-audio-client',
+  'wireplumber-module-config-endpoint',
   [
-    'module-pw-audio-client.c',
+    'module-config-endpoint/parser-endpoint.c',
+    'module-config-endpoint/parser-streams.c',
+    'module-config-endpoint/context.c',
+    'module-config-endpoint.c',
   ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-pw-audio-client"'],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-config-endpoint"'],
   install : true,
   install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep, pipewire_dep],
-)
-
-
-shared_library(
-  'wireplumber-module-pw-alsa-udev',
-  [
-    'module-pw-alsa-udev.c',
-  ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-pw-alsa-udev"'],
-  install : true,
-  install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep, pipewire_dep],
+  dependencies : [wp_dep, wptoml_dep, pipewire_dep],
 )
 
 shared_library(
