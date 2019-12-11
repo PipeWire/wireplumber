@@ -73,8 +73,9 @@ on_endpoint_link_created (GObject *initable, GAsyncResult *res, gpointer p)
     gboolean is_capture =
       wp_base_endpoint_get_direction (self->pending_endpoint) == PW_DIRECTION_INPUT;
     if (self->pending_endpoint == (is_capture ? sink_ep : src_ep)) {
-      g_signal_emit (self, signals[SIGNAL_DONE], 0, self->pending_endpoint, link);
-      g_clear_object (&self->pending_endpoint);
+      g_autoptr (WpBaseEndpoint) pending_endpoint =
+          g_steal_pointer (&self->pending_endpoint);
+      g_signal_emit (self, signals[SIGNAL_DONE], 0, pending_endpoint, link);
     }
   }
 }
