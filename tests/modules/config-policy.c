@@ -263,6 +263,8 @@ playback_priority (TestConfigPolicyFixture *f, gconstpointer data)
   g_autoptr (WpEndpoint) ep1 = NULL;
   g_autoptr (WpEndpoint) ep2 = NULL;
   g_autoptr (WpEndpoint) ep3 = NULL;
+  g_autoptr (WpEndpoint) ep4 = NULL;
+  g_autoptr (WpEndpoint) ep5 = NULL;
 
   /* Create the device endpoint with 4 streams */
   dev = wp_config_policy_context_add_endpoint (ctx, "dev", "Fake/Sink",
@@ -309,10 +311,37 @@ playback_priority (TestConfigPolicyFixture *f, gconstpointer data)
   g_assert_true (ep3 == src);
   g_assert_true (dev == sink);
 
-  /* Remove the client endpoints */
+  /* Remove ep2 and ep1 */
   wp_config_policy_context_remove_endpoint (ctx, ep2);
-  wp_config_policy_context_remove_endpoint (ctx, ep3);
   wp_config_policy_context_remove_endpoint (ctx, ep1);
+
+  /* Create the client endpoint with role "1" (priority 25) and make sure it
+   * is not linked */
+  ep4 = wp_config_policy_context_add_endpoint (ctx, "ep_with_role",
+      "Stream/Output/Fake", PW_DIRECTION_OUTPUT, NULL, "1", 0, &link);
+  g_assert_nonnull (ep4);
+  g_assert_null (link);
+  g_assert_false (wp_endpoint_is_linked (ep4));
+
+  /* Create the client endpoint with role "3" (priority 75) and make sure it
+   * is linked (last one wins) */
+  ep5 = wp_config_policy_context_add_endpoint (ctx, "ep_with_role",
+      "Stream/Output/Fake", PW_DIRECTION_OUTPUT, NULL, "3", 0, &link);
+  g_assert_nonnull (ep5);
+  g_assert_nonnull (link);
+  g_assert_true (wp_endpoint_is_linked (ep5));
+  g_assert_true (wp_endpoint_is_linked (dev));
+  g_assert_false (wp_endpoint_is_linked (ep4));
+  g_assert_false (wp_endpoint_is_linked (ep3));
+  src = wp_endpoint_link_get_source_endpoint (link);
+  sink = wp_endpoint_link_get_sink_endpoint (link);
+  g_assert_true (ep5 == src);
+  g_assert_true (dev == sink);
+
+  /* Remove ep4, ep5 and ep3 */
+  wp_config_policy_context_remove_endpoint (ctx, ep4);
+  wp_config_policy_context_remove_endpoint (ctx, ep5);
+  wp_config_policy_context_remove_endpoint (ctx, ep3);
 }
 
 static void
