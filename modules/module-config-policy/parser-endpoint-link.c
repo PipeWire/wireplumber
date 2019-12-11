@@ -85,7 +85,6 @@ wp_parser_endpoint_link_data_destroy (gpointer p)
   g_clear_pointer (&data->te.endpoint_data.name, g_free);
   g_clear_pointer (&data->te.endpoint_data.media_class, g_free);
   g_clear_pointer (&data->te.endpoint_data.props, wp_properties_unref);
-  g_clear_pointer (&data->te.streams, g_free);
   g_clear_pointer (&data->te.stream, g_free);
   g_clear_pointer (&data->el.state, g_free);
 
@@ -220,9 +219,6 @@ wp_parser_endpoint_link_data_new (const gchar *location)
 
   /* Get the target endpoint properties (Optional) */
   res->te.endpoint_data.props = parse_properties (te, "properties");
-
-  /* Get the target endpoint streams */
-  res->te.streams = wp_toml_table_get_string (te, "streams");
 
   /* Get the target endpoint stream */
   res->te.stream = wp_toml_table_get_string (te, "stream");

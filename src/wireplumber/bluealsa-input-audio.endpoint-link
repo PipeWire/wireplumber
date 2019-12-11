@@ -6,7 +6,6 @@ media_class = "Stream/Input/Audio"
 
 [target-endpoint]
 media_class = "Audio/Source"
-streams = "default.streams"
 stream = "Multimedia"
 properties = [
   { name = "api.alsa.path", value = "hw:0,0" },

@@ -273,7 +273,7 @@ playback_priority (TestConfigPolicyFixture *f, gconstpointer data)
   g_assert_null (link);
   g_assert_false (wp_base_endpoint_is_linked (dev));
 
-  /* Create the client endpoint for steam 2 (priority 50) and make sure it
+  /* Create the client endpoint for steam 2 (priority 2) and make sure it
    * is linked */
   ep2 = wp_config_policy_context_add_endpoint (ctx, "ep_for_stream_2",
       "Stream/Output/Fake", PW_DIRECTION_OUTPUT, NULL, NULL, 0, &link);
@@ -286,7 +286,7 @@ playback_priority (TestConfigPolicyFixture *f, gconstpointer data)
   g_assert_true (ep2 == src);
   g_assert_true (dev == sink);
 
-  /* Create the client endpoint for steam 1 (priority 25) and make sure it
+  /* Create the client endpoint for steam 1 (priority 1) and make sure it
    * is not linked */
   ep1 = wp_config_policy_context_add_endpoint (ctx, "ep_for_stream_1",
       "Stream/Output/Fake", PW_DIRECTION_OUTPUT, NULL, NULL, 0, &link);
@@ -296,7 +296,7 @@ playback_priority (TestConfigPolicyFixture *f, gconstpointer data)
   g_assert_true (wp_base_endpoint_is_linked (ep2));
   g_assert_true (wp_base_endpoint_is_linked (dev));
 
-  /* Create the client endpoint for steam 3 (priority 75) and make sure it
+  /* Create the client endpoint for steam 3 (priority 3) and make sure it
    * is linked */
   ep3 = wp_config_policy_context_add_endpoint (ctx, "ep_for_stream_3",
       "Stream/Output/Fake", PW_DIRECTION_OUTPUT, NULL, NULL, 0, &link);
@@ -315,7 +315,7 @@ playback_priority (TestConfigPolicyFixture *f, gconstpointer data)
   wp_config_policy_context_remove_endpoint (ctx, ep2);
   wp_config_policy_context_remove_endpoint (ctx, ep1);
 
-  /* Create the client endpoint with role "1" (priority 25) and make sure it
+  /* Create the client endpoint with role "1" (priority 1) and make sure it
    * is not linked */
   ep4 = wp_config_policy_context_add_endpoint (ctx, "ep_with_role",
       "Stream/Output/Fake", PW_DIRECTION_OUTPUT, NULL, "1", 0, &link);
@@ -323,7 +323,7 @@ playback_priority (TestConfigPolicyFixture *f, gconstpointer data)
   g_assert_null (link);
   g_assert_false (wp_base_endpoint_is_linked (ep4));
 
-  /* Create the client endpoint with role "3" (priority 75) and make sure it
+  /* Create the client endpoint with role "3" (priority 3) and make sure it
    * is linked (last one wins) */
   ep5 = wp_config_policy_context_add_endpoint (ctx, "ep_with_role",
       "Stream/Output/Fake", PW_DIRECTION_OUTPUT, NULL, "3", 0, &link);

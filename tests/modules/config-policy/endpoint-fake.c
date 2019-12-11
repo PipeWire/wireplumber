@@ -76,6 +76,7 @@ wp_fake_endpoint_constructed (GObject * object)
     g_variant_dict_init (&d, NULL);
     g_variant_dict_insert (&d, "id", "u", i);
     g_variant_dict_insert (&d, "name", "s", name);
+    g_variant_dict_insert (&d, "priority", "u", i);
     wp_base_endpoint_register_stream (WP_BASE_ENDPOINT (self), g_variant_dict_end (&d));
   }
 

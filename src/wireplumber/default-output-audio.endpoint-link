@@ -5,7 +5,6 @@ media_class = "Stream/Output/Audio"
 
 [target-endpoint]
 media_class = "Audio/Sink"
-streams = "default.streams"
 properties = [
   { name = "api.alsa.path", value = "hw:0,0" },
 ]

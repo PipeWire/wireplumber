@@ -39,7 +39,6 @@ test(
       'config-policy/endpoint-fake.c',
       'config-policy/endpoint-link-fake.c',
       '../../modules/module-config-policy/config-policy.c',
-      '../../modules/module-config-policy/parser-streams.c',
       '../../modules/module-config-policy/parser-endpoint-link.c'
     ],
     dependencies: common_deps + [wptoml_dep]),

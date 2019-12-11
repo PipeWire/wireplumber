@@ -14,7 +14,6 @@
 
 #include "config-policy.h"
 #include "parser-endpoint-link.h"
-#include "parser-streams.h"
 
 struct _WpConfigPolicy
 {
@@ -85,11 +84,6 @@ wp_config_policy_can_link_stream (WpConfigPolicy *self, WpBaseEndpoint *target,
     const struct WpParserEndpointLinkData *data, guint32 stream_id)
 {
   g_autoptr (WpConfigParser) parser = NULL;
-  const struct WpParserStreamsData *streams_data = NULL;
-
-  /* If no streams data is specified, we can link */
-  if (!data->te.streams)
-    return TRUE;
 
   /* If the endpoint is not linked, we can link */
   if (!wp_base_endpoint_is_linked (target))
@@ -123,34 +117,18 @@ wp_config_policy_can_link_stream (WpConfigPolicy *self, WpBaseEndpoint *target,
   if (!g_variant_lookup (ts, "name", "&s", &target_stream_name))
     return TRUE;
 
-  /* Get the linked and ep streams data */
-  parser = wp_configuration_get_parser (self->config,
-      WP_PARSER_STREAMS_EXTENSION);
-  streams_data = wp_config_parser_get_matched_data (parser, data->te.streams);
-  if (!streams_data)
-    return TRUE;
-  const struct WpParserStreamsStreamData *linked_stream_data =
-      wp_parser_streams_find_stream (streams_data, linked_stream_name);
-  const struct WpParserStreamsStreamData *ep_stream_data =
-      wp_parser_streams_find_stream (streams_data, target_stream_name);
+  /* Get the linked and ep streams priority */
+  guint linked_stream_priority = 0;
+  guint target_stream_priority = 0;
+  g_variant_lookup (s, "priority", "u", &linked_stream_priority);
+  g_variant_lookup (ts, "priority", "u", &target_stream_priority);
 
   g_debug ("Trying to link to '%s' (%d); target is linked on '%s' (%d)",
-      target_stream_name, ep_stream_data ? ep_stream_data->priority : -1,
-      linked_stream_name, linked_stream_data ? linked_stream_data->priority : -1);
+      target_stream_name, target_stream_priority, linked_stream_name,
+      linked_stream_priority);
 
-  /* Return false if linked stream has higher priority than ep stream */
-  if (linked_stream_data && ep_stream_data) {
-    if (linked_stream_data->priority > ep_stream_data->priority)
-      return FALSE;
-    else
-      return TRUE;
-  }
-  if (linked_stream_data && !ep_stream_data)
-    return FALSE;
-  if (!linked_stream_data && ep_stream_data)
-    return TRUE;
-
-  return TRUE;
+  /* Return true if linked stream has lower priority than target stream */
+  return linked_stream_priority < target_stream_priority;
 }
 
 static gboolean
@@ -267,32 +245,34 @@ wp_config_policy_handle_endpoint (WpPolicy *policy, WpBaseEndpoint *ep)
           WP_STREAM_ID_NONE, target, stream_id, data);
 }
 
-static const char *
-wp_config_policy_get_prioritized_stream (WpPolicy *policy,
-    const char *ep_stream, const char *te_stream, const char *te_streams)
+static guint
+wp_config_policy_get_endpoint_lowest_priority_stream_id (WpBaseEndpoint *ep)
 {
-  WpConfigPolicy *self = WP_CONFIG_POLICY (policy);
+  g_autoptr (GVariant) streams = NULL;
+  g_autoptr (GVariant) child = NULL;
+  GVariantIter *iter;
+  guint lowest_priority = G_MAXUINT;
+  guint res = WP_STREAM_ID_NONE;
+  guint priority;
+  guint id;
 
-  /* The target stream has higher priority than the endpoint stream */
-  const char *res = te_stream ? te_stream : ep_stream;
-  if (res)
-    return res;
+  g_return_val_if_fail (ep, WP_STREAM_ID_NONE);
 
-  /* If both streams are null, and no streams file is defined, return NULL */
-  if (!te_streams)
-    return NULL;
+  streams = wp_base_endpoint_list_streams (ep);
+  g_return_val_if_fail (streams, WP_STREAM_ID_NONE);
 
-  /* Otherwise get the lowest stream from streams */
-  g_autoptr (WpConfigParser) parser = NULL;
-  const struct WpParserStreamsData *streams = NULL;
-  const struct WpParserStreamsStreamData *lowest = NULL;
-  parser = wp_configuration_get_parser (self->config,
-      WP_PARSER_STREAMS_EXTENSION);
-  streams = wp_config_parser_get_matched_data (parser, (gpointer)te_streams);
-  if (!streams)
-    return NULL;
-  lowest = wp_parser_streams_get_lowest_stream (streams);
-  return lowest ? lowest->name : NULL;
+  g_variant_get (streams, "aa{sv}", &iter);
+  while ((child = g_variant_iter_next_value (iter))) {
+    g_variant_lookup (child, "id", "u", &id);
+    g_variant_lookup (child, "priority", "u", &priority);
+    if (priority <= lowest_priority) {
+      lowest_priority = priority;
+      res = id;
+    }
+  }
+  g_variant_iter_free (iter);
+
+  return res;
 }
 
 static WpBaseEndpoint *
@@ -338,10 +318,11 @@ wp_config_policy_find_endpoint (WpPolicy *policy, GVariant *props,
   if (stream_id) {
     if (target) {
       g_variant_lookup (props, "role", "&s", &role);
-      const char *prioritized = wp_config_policy_get_prioritized_stream (policy,
-          role, data->te.stream, data->te.streams);
-      *stream_id = prioritized ? wp_base_endpoint_find_stream (target, prioritized) :
-          WP_STREAM_ID_NONE;
+      /* The target stream has higher priority than the endpoint stream */
+      const char *prioritized = data->te.stream ? data->te.stream : role;
+      *stream_id = prioritized ?
+          wp_base_endpoint_find_stream (target, prioritized) :
+          wp_config_policy_get_endpoint_lowest_priority_stream_id (target);
     } else {
       *stream_id = WP_STREAM_ID_NONE;
     }
@@ -469,12 +450,9 @@ wp_config_policy_constructed (GObject * object)
   /* Add the parsers */
   wp_configuration_add_extension (self->config,
       WP_PARSER_ENDPOINT_LINK_EXTENSION, WP_TYPE_PARSER_ENDPOINT_LINK);
-  wp_configuration_add_extension (self->config,
-      WP_PARSER_STREAMS_EXTENSION, WP_TYPE_PARSER_STREAMS);
 
   /* Parse the file */
   wp_configuration_reload (self->config, WP_PARSER_ENDPOINT_LINK_EXTENSION);
-  wp_configuration_reload (self->config, WP_PARSER_STREAMS_EXTENSION);
 
   G_OBJECT_CLASS (wp_config_policy_parent_class)->constructed (object);
 }
@@ -487,8 +465,6 @@ wp_config_policy_finalize (GObject *object)
   /* Remove the extensions from the configuration */
   wp_configuration_remove_extension (self->config,
       WP_PARSER_ENDPOINT_LINK_EXTENSION);
-  wp_configuration_remove_extension (self->config,
-      WP_PARSER_STREAMS_EXTENSION);
 
   /* Clear the configuration */
   g_clear_object (&self->config);

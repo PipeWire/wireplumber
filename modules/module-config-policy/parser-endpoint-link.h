@@ -29,7 +29,6 @@ struct WpParserEndpointLinkData {
   } me;
   struct TargetEndpoint {
     struct WpParserEndpointLinkEndpointData endpoint_data;
-    char *streams;
     char *stream;
   } te;
   struct EndpointLink {

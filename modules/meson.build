@@ -60,7 +60,6 @@ shared_library(
   'wireplumber-module-config-policy',
   [
 	'module-config-policy/parser-endpoint-link.c',
-	'module-config-policy/parser-streams.c',
 	'module-config-policy/config-policy.c',
     'module-config-policy.c',
   ],
