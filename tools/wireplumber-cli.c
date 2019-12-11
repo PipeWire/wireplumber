@@ -23,8 +23,19 @@ struct WpCliData
     struct {
       guint32 id;
     } set_default;
+    struct {
+      guint32 id;
+      gfloat volume;
+    } set_volume;
   } params;
 };
+
+static void
+async_quit (WpCore *core, GAsyncResult *res, struct WpCliData * d)
+{
+  g_print ("Success\n");
+  g_main_loop_quit (d->loop);
+}
 
 static void
 print_dev_endpoint (WpEndpoint *ep, WpSession *session, WpDefaultEndpointType type)
@@ -32,9 +43,14 @@ print_dev_endpoint (WpEndpoint *ep, WpSession *session, WpDefaultEndpointType ty
   guint32 id = wp_proxy_get_global_id (WP_PROXY (ep));
   gboolean is_default = (session && type != 0 &&
           wp_session_get_default_endpoint (session, type) == id);
+  gfloat volume = 0.0;
+  gboolean mute = FALSE;
 
-  g_print (" %c %4u. %s\n", is_default ? '*' : ' ', id,
-      wp_endpoint_get_name (ep));
+  wp_endpoint_get_control_float (ep, WP_ENDPOINT_CONTROL_VOLUME, &volume);
+  wp_endpoint_get_control_boolean (ep, WP_ENDPOINT_CONTROL_MUTE, &mute);
+
+  g_print (" %c %4u. %60s\tvol: %.2f %s\n", is_default ? '*' : ' ', id,
+      wp_endpoint_get_name (ep), volume, mute ? "MUTE" : "");
 }
 
 static void
@@ -84,13 +100,6 @@ list_endpoints (WpObjectManager * om, struct WpCliData * d)
 }
 
 static void
-set_default_done (WpCore *core, GAsyncResult *res, struct WpCliData * d)
-{
-  g_print ("Success\n");
-  g_main_loop_quit (d->loop);
-}
-
-static void
 set_default (WpObjectManager * om, struct WpCliData * d)
 {
   g_autoptr (GPtrArray) arr = NULL;
@@ -127,7 +136,31 @@ set_default (WpObjectManager * om, struct WpCliData * d)
       }
 
       wp_session_set_default_endpoint (session, type, id);
-      wp_core_sync (d->core, NULL, (GAsyncReadyCallback) set_default_done, d);
+      wp_core_sync (d->core, NULL, (GAsyncReadyCallback) async_quit, d);
+      return;
+    }
+  }
+
+  g_print ("%u: not an endpoint\n", d->params.set_default.id);
+  g_main_loop_quit (d->loop);
+}
+
+static void
+set_volume (WpObjectManager * om, struct WpCliData * d)
+{
+  g_autoptr (GPtrArray) arr = NULL;
+  guint i;
+
+  arr = wp_object_manager_get_objects (om, WP_TYPE_PROXY_ENDPOINT);
+
+  for (i = 0; i < arr->len; i++) {
+    WpEndpoint *ep = g_ptr_array_index (arr, i);
+    guint32 id = wp_proxy_get_global_id (WP_PROXY (ep));
+
+    if (id == d->params.set_volume.id) {
+      wp_endpoint_set_control_float (ep, WP_ENDPOINT_CONTROL_VOLUME,
+          d->params.set_volume.volume);
+      wp_core_sync (d->core, NULL, (GAsyncReadyCallback) async_quit, d);
       return;
     }
   }
@@ -208,6 +241,7 @@ static const gchar * const usage_string =
     "Operations:\n"
     "  ls-endpoints\t\tLists all endpoints\n"
     "  set-default [id]\tSets [id] to be the default device endpoint of its kind (capture/playback)\n"
+    "  set-volume [id] [vol]\tSets the volume of [id] to [vol] (floating point, 1.0 is 100%%)\n"
     "  device-node-props\tShows device node properties\n"
     "";
 
@@ -250,12 +284,28 @@ main (gint argc, gchar **argv)
     }
 
     wp_object_manager_add_proxy_interest (om, PW_TYPE_INTERFACE_Endpoint,
-        NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_ENDPOINT_FEATURE_CONTROLS);
+        NULL, WP_PROXY_FEATURE_INFO);
     wp_object_manager_add_proxy_interest (om, PW_TYPE_INTERFACE_Session,
         NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_SESSION_FEATURE_DEFAULT_ENDPOINT);
 
     data.params.set_default.id = id;
     g_signal_connect (om, "objects-changed", (GCallback) set_default, &data);
+  }
+
+  else if (argc == 4 && !g_strcmp0 (argv[1], "set-volume")) {
+    long id = strtol (argv[2], NULL, 10);
+    float volume = strtof (argv[3], NULL);
+    if (id == 0) {
+      g_print ("%s: not a valid id\n", argv[2]);
+      return 1;
+    }
+
+    wp_object_manager_add_proxy_interest (om, PW_TYPE_INTERFACE_Endpoint,
+        NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_ENDPOINT_FEATURE_CONTROLS);
+
+    data.params.set_volume.id = id;
+    data.params.set_volume.volume = volume;
+    g_signal_connect (om, "objects-changed", (GCallback) set_volume, &data);
   }
 
   else if (argc == 2 && !g_strcmp0 (argv[1], "device-node-props")) {
