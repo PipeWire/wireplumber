@@ -54,6 +54,7 @@ const gchar * wp_base_endpoint_get_name (WpBaseEndpoint * self);
 const gchar * wp_base_endpoint_get_media_class (WpBaseEndpoint * self);
 guint wp_base_endpoint_get_direction (WpBaseEndpoint * self);
 guint64 wp_base_endpoint_get_creation_time (WpBaseEndpoint * self);
+guint32 wp_base_endpoint_get_priority (WpBaseEndpoint * self);
 WpProperties * wp_base_endpoint_get_properties (WpBaseEndpoint * self);
 const char * wp_base_endpoint_get_role (WpBaseEndpoint * self);
 

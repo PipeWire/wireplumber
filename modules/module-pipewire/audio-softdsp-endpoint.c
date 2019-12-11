@@ -495,7 +495,7 @@ audio_softdsp_endpoint_factory (WpFactory * factory, GType type, GVariant * prop
 {
   g_autoptr (WpCore) core = NULL;
   const gchar *name, *media_class;
-  guint direction;
+  guint direction, priority;
   guint64 node;
   g_autoptr (GVariant) streams = NULL;
 
@@ -513,6 +513,8 @@ audio_softdsp_endpoint_factory (WpFactory * factory, GType type, GVariant * prop
       return;
   if (!g_variant_lookup (properties, "direction", "u", &direction))
       return;
+  if (!g_variant_lookup (properties, "priority", "u", &priority))
+      return;
   if (!g_variant_lookup (properties, "proxy-node", "t", &node))
       return;
   streams = g_variant_lookup_value (properties, "streams",
@@ -525,6 +527,7 @@ audio_softdsp_endpoint_factory (WpFactory * factory, GType type, GVariant * prop
       "name", name,
       "media-class", media_class,
       "direction", direction,
+      "priority", priority,
       "proxy-node", (gpointer) node,
       "streams", streams,
       NULL);

@@ -96,6 +96,7 @@ struct _WpBaseEndpointPrivate
   gchar media_class[40];
   guint direction;
   guint64 creation_time;
+  guint priority;
   GPtrArray *streams;
   GPtrArray *controls;
   GPtrArray *links;
@@ -109,6 +110,7 @@ enum {
   PROP_MEDIA_CLASS,
   PROP_DIRECTION,
   PROP_CREATION_TIME,
+  PROP_PRIORITY,
 };
 
 enum {
@@ -223,6 +225,9 @@ wp_base_endpoint_set_property (GObject * object, guint property_id,
   case PROP_CREATION_TIME:
     priv->creation_time = g_value_get_uint64(value);
     break;
+  case PROP_PRIORITY:
+    priv->priority = g_value_get_uint(value);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
@@ -251,6 +256,9 @@ wp_base_endpoint_get_property (GObject * object, guint property_id, GValue * val
     break;
   case PROP_CREATION_TIME:
     g_value_set_uint64 (value, priv->creation_time);
+    break;
+  case PROP_PRIORITY:
+    g_value_set_uint (value, priv->priority);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -318,6 +326,14 @@ wp_base_endpoint_class_init (WpBaseEndpointClass * klass)
           "The time that this endpoint was created, in monotonic time",
           0, G_MAXUINT64, 0, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
+  /**
+   * WpBaseEndpoint::direction:
+   * The priority of the endpoint:
+   */
+  g_object_class_install_property (object_class, PROP_PRIORITY,
+      g_param_spec_uint ("priority", "priority",
+          "The priority of the endpoint", 0, G_MAXUINT, 0,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
 /**
@@ -449,6 +465,17 @@ wp_base_endpoint_get_creation_time (WpBaseEndpoint * self)
 
   priv = wp_base_endpoint_get_instance_private (self);
   return priv->creation_time;
+}
+
+guint32
+wp_base_endpoint_get_priority (WpBaseEndpoint * self)
+{
+  WpBaseEndpointPrivate *priv;
+
+  g_return_val_if_fail (WP_IS_BASE_ENDPOINT (self), -1);
+
+  priv = wp_base_endpoint_get_instance_private (self);
+  return priv->priority;
 }
 
 WpProperties *

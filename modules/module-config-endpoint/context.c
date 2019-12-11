@@ -142,6 +142,8 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
   g_variant_builder_add (&b, "{sv}",
       "direction", g_variant_new_uint32 (endpoint_data->e.direction));
   g_variant_builder_add (&b, "{sv}",
+      "priority", g_variant_new_uint32 (endpoint_data->e.priority));
+  g_variant_builder_add (&b, "{sv}",
       "proxy-node", g_variant_new_uint64 ((guint64) proxy));
   if (streams_variant)
     g_variant_builder_add (&b, "{sv}", "streams",
