@@ -213,6 +213,7 @@ wp_audio_stream_finalize (GObject * object)
   WpAudioStreamPrivate *priv =
       wp_audio_stream_get_instance_private (WP_AUDIO_STREAM (object));
 
+  g_clear_object (&priv->proxy);
   g_clear_object (&priv->ports_om);
 
   /* Clear the endpoint weak reference */
