@@ -23,6 +23,7 @@
  */
 
 #include "exported.h"
+#include "error.h"
 #include "private.h"
 
 typedef struct _WpExportedPrivate WpExportedPrivate;
@@ -135,11 +136,34 @@ wp_exported_get_core (WpExported * self)
   return g_weak_ref_get (&priv->core);
 }
 
+static void
+on_remote_state_changed (WpCore * core, WpRemoteState state, WpExported * self)
+{
+  WpExportedPrivate *priv = wp_exported_get_instance_private (self);
+
+  if (g_task_return_error_if_cancelled (priv->task)) {
+    g_clear_object (&priv->task);
+    g_signal_handlers_disconnect_by_func (core, on_remote_state_changed, self);
+  }
+  else if (state == WP_REMOTE_STATE_CONNECTED) {
+    WP_EXPORTED_GET_CLASS (self)->export (self);
+    g_signal_handlers_disconnect_by_func (core, on_remote_state_changed, self);
+  }
+  else if (state == WP_REMOTE_STATE_ERROR) {
+    g_task_return_new_error (priv->task, WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "WirePlumber core connection error");
+    g_clear_object (&priv->task);
+    g_signal_handlers_disconnect_by_func (core, on_remote_state_changed, self);
+  }
+}
+
 void
 wp_exported_export (WpExported * self, GCancellable * cancellable,
     GAsyncReadyCallback callback, gpointer user_data)
 {
   WpExportedPrivate *priv;
+  g_autoptr (WpCore) core = NULL;
 
   g_return_if_fail (WP_IS_EXPORTED (self));
   g_return_if_fail (WP_EXPORTED_GET_CLASS (self)->export);
@@ -147,7 +171,21 @@ wp_exported_export (WpExported * self, GCancellable * cancellable,
   priv = wp_exported_get_instance_private (self);
   priv->task = g_task_new (self, cancellable, callback, user_data);
 
-  WP_EXPORTED_GET_CLASS (self)->export (self);
+  core = g_weak_ref_get (&priv->core);
+  if (!core || wp_core_get_remote_state (core, NULL) == WP_REMOTE_STATE_ERROR) {
+    g_task_return_new_error (priv->task, WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "WirePlumber core not available or in error");
+    g_clear_object (&priv->task);
+    return;
+  }
+
+  if (wp_core_get_remote_state (core, NULL) == WP_REMOTE_STATE_CONNECTED) {
+    WP_EXPORTED_GET_CLASS (self)->export (self);
+  } else {
+    g_signal_connect_object (core, "remote-state-changed",
+        (GCallback) on_remote_state_changed, self, 0);
+  }
 }
 
 gboolean
