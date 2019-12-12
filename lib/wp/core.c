@@ -465,17 +465,18 @@ wp_core_get_context (WpCore * self)
   return self->context;
 }
 
-GSource *
-wp_core_idle_add (WpCore * self, GSourceFunc function, gpointer data)
+guint
+wp_core_idle_add (WpCore * self, GSourceFunc function, gpointer data,
+    GDestroyNotify destroy)
 {
-  GSource *source = NULL;
+  g_autoptr (GSource) source = NULL;
 
-  g_return_val_if_fail (WP_IS_CORE (self), NULL);
+  g_return_val_if_fail (WP_IS_CORE (self), 0);
 
   source = g_idle_source_new ();
-  g_source_set_callback (source, function, data, NULL);
+  g_source_set_callback (source, function, data, destroy);
   g_source_attach (source, self->context);
-  return source;
+  return g_source_get_id (source);
 }
 
 gboolean
