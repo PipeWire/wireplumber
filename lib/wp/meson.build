@@ -83,3 +83,8 @@ wp_dep = declare_dependency(
   include_directories: wp_lib_include_dir,
   dependencies: [gobject_dep]
 )
+
+pkgconfig.generate(wp_lib,
+  libraries: [gobject_dep, gio_dep],
+  subdirs: 'wireplumber-' + wireplumber_api_version
+)

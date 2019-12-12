@@ -34,6 +34,7 @@ gio_dep = dependency('gio-2.0')
 pipewire_dep = dependency('libpipewire-0.3')
 
 gnome = import('gnome')
+pkgconfig = import('pkgconfig')
 
 wp_lib_include_dir = include_directories('lib')
 
