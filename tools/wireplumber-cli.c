@@ -317,7 +317,7 @@ main (gint argc, gchar **argv)
 
   else {
     g_autofree gchar *help = g_option_context_get_help (context, TRUE, NULL);
-    g_print (help);
+    g_print ("%s", help);
     return 1;
   }
 
