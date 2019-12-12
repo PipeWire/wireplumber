@@ -5,6 +5,6 @@ properties = [
 ]
 
 [endpoint]
-direction = "output"
+direction = "source"
 type = "pw-audio-softdsp-endpoint"
 streams = "default.streams"

@@ -1,6 +1,6 @@
 [match-endpoint]
 priority = 50
-direction = "output"
+direction = "source"
 media_class = "Stream/Output/Audio"
 
 [target-endpoint]

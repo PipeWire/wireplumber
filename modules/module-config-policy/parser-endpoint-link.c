@@ -125,9 +125,9 @@ parse_properties (WpTomlTable *table, const char *name)
 static guint
 parse_endpoint_direction (const char *direction)
 {
-  if (g_strcmp0 (direction, "input") == 0)
+  if (g_strcmp0 (direction, "sink") == 0)
     return PW_DIRECTION_INPUT;
-  else if (g_strcmp0 (direction, "output") == 0)
+  else if (g_strcmp0 (direction, "source") == 0)
     return PW_DIRECTION_OUTPUT;
 
   g_return_val_if_reached (PW_DIRECTION_INPUT);

@@ -4,6 +4,6 @@ properties = [
 ]
 
 [endpoint]
-direction = "output"
+direction = "source"
 type = "wp-endpoint-audiotestsrc"
 streams = "default.streams"

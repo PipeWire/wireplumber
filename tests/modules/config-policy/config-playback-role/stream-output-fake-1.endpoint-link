@@ -1,6 +1,6 @@
 [match-endpoint]
 name = "ep1"
-direction = "output"
+direction = "source"
 media_class = "Stream/Output/Fake"
 
 [target-endpoint]

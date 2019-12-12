@@ -1,5 +1,5 @@
 [match-endpoint]
-direction = "output"
+direction = "source"
 name = "ep_with_role"
 media_class = "Stream/Output/Fake"
 

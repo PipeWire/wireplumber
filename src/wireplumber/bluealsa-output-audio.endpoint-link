@@ -1,6 +1,6 @@
 [match-endpoint]
 priority = 75
-direction = "output"
+direction = "source"
 name = "bluealsa*"
 media_class = "Stream/Output/Audio"
 

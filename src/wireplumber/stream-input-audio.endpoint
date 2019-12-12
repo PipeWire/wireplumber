@@ -5,5 +5,5 @@ properties = [
 ]
 
 [endpoint]
-direction = "input"
+direction = "sink"
 type = "pw-audio-softdsp-endpoint"
