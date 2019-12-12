@@ -395,6 +395,9 @@ wp_proxy_endpoint_set_control (WpEndpoint * endpoint, guint32 control_id,
      our spa_props will be updated by the param event */
 
   pw_proxy = (struct pw_endpoint_proxy *) wp_proxy_get_pw_proxy (WP_PROXY (self));
+  if (!pw_proxy)
+    return FALSE;
+
   pw_endpoint_proxy_set_param (pw_proxy,
       SPA_PARAM_Props, 0,
       spa_pod_builder_add_object (&b,
