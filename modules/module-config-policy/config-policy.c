@@ -350,6 +350,16 @@ wp_config_policy_find_endpoint (WpPolicy *policy, GVariant *props,
   return g_object_ref (target);
 }
 
+static gint
+endpoint_creation_time_compare_func (gconstpointer a, gconstpointer b)
+{
+  WpBaseEndpoint *ep_a = *(WpBaseEndpoint *const *)a;
+  WpBaseEndpoint *ep_b = *(WpBaseEndpoint *const *)b;
+
+  return wp_base_endpoint_get_creation_time (ep_b) -
+      wp_base_endpoint_get_creation_time (ep_a);
+}
+
 static void
 wp_config_policy_sync_rescan (WpCore *core, GAsyncResult *res, gpointer data)
 {
@@ -362,6 +372,9 @@ wp_config_policy_sync_rescan (WpCore *core, GAsyncResult *res, gpointer data)
   /* Handle all endpoints when rescanning */
   endpoints = wp_policy_manager_list_endpoints (pmgr, NULL);
   if (endpoints) {
+    /* Sort the endpoints by creation time */
+    g_ptr_array_sort (endpoints, endpoint_creation_time_compare_func);
+
     for (guint i = 0; i < endpoints->len; i++) {
       ep = g_ptr_array_index (endpoints, i);
       if (wp_config_policy_handle_endpoint (WP_POLICY (self), ep))
