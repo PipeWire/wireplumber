@@ -6,6 +6,8 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <pipewire/pipewire.h>
+
 #include "policy.h"
 #include "private.h"
 
@@ -16,6 +18,8 @@ struct _WpPolicyManager
   GObject parent;
   GList *policies;
   WpObjectManager *endpoints_om;
+  WpObjectManager *sessions_om;
+  GWeakRef curr_session;
 };
 
 enum {
@@ -31,6 +35,8 @@ static void
 wp_policy_manager_init (WpPolicyManager *self)
 {
   self->endpoints_om = wp_object_manager_new ();
+  self->sessions_om = wp_object_manager_new ();
+  g_weak_ref_init (&self->curr_session, NULL);
 }
 
 static void
@@ -40,6 +46,8 @@ wp_policy_manager_finalize (GObject *object)
 
   g_debug ("WpPolicyManager destroyed");
 
+  g_weak_ref_clear (&self->curr_session);
+  g_clear_object (&self->sessions_om);
   g_clear_object (&self->endpoints_om);
   g_list_free_full (self->policies, g_object_unref);
 
@@ -88,6 +96,16 @@ policy_mgr_endpoint_removed (WpObjectManager *om, WpBaseEndpoint *ep,
   }
 }
 
+static void
+policy_mgr_session_changed (WpObjectManager *om, WpPolicyManager *self)
+{
+  g_autoptr (GPtrArray) arr = NULL;
+
+  arr = wp_object_manager_get_objects (om, WP_TYPE_PROXY_SESSION);
+  if (arr->len > 0)
+    g_weak_ref_set (&self->curr_session, g_ptr_array_index (arr, 0));
+}
+
 /**
  * wp_policy_manager_get_instance:
  * @core: the #WpCore
@@ -116,10 +134,26 @@ wp_policy_manager_get_instance (WpCore *core)
         (GCallback) policy_mgr_endpoint_removed, mgr, 0);
     wp_core_install_object_manager (core, mgr->endpoints_om);
 
+    /* install the object manager to listen to changed sessions */
+    wp_object_manager_add_proxy_interest (mgr->sessions_om,
+        PW_TYPE_INTERFACE_Session, NULL,
+        WP_PROXY_FEATURE_INFO | WP_PROXY_SESSION_FEATURE_DEFAULT_ENDPOINT);
+    g_signal_connect_object (mgr->sessions_om, "objects-changed",
+        (GCallback) policy_mgr_session_changed, mgr, 0);
+    wp_core_install_object_manager (core, mgr->sessions_om);
+
     wp_core_register_object (core, g_object_ref (mgr));
   }
 
   return mgr;
+}
+
+WpSession *
+wp_policy_manager_get_session (WpPolicyManager *self)
+{
+  g_return_val_if_fail (self, NULL);
+
+  return g_weak_ref_get (&self->curr_session);
 }
 
 static inline gboolean

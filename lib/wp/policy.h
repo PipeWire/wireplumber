@@ -10,6 +10,7 @@
 #define __WIREPLUMBER_POLICY_H__
 
 #include "base-endpoint.h"
+#include "session.h"
 
 G_BEGIN_DECLS
 
@@ -51,6 +52,8 @@ struct _WpPolicyClass
 };
 
 WpPolicyManager * wp_policy_manager_get_instance (WpCore *core);
+WpSession * wp_policy_manager_get_session (WpPolicyManager *self);
+
 GPtrArray * wp_policy_manager_list_endpoints (WpPolicyManager * self,
     const gchar * media_class);
 
