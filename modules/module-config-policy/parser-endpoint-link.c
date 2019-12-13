@@ -199,27 +199,29 @@ wp_parser_endpoint_link_data_new (const gchar *location)
   /* Get the match endpoint properties (Optional) */
   res->me.endpoint_data.props = parse_properties (me, "properties");
 
-  /* Get the target-endpoint table */
+  /* Get the target-endpoint table (Optional) */
+  res->has_te = FALSE;
   te = wp_toml_table_get_table (table, "target-endpoint");
-  if (!te)
-    goto error;
+  if (te) {
+    res->has_te = TRUE;
 
-  /* Get the name from the match endpoint table (Optional) */
-  res->te.endpoint_data.name = wp_toml_table_get_string (te, "name");
+    /* Get the name from the match endpoint table (Optional) */
+    res->te.endpoint_data.name = wp_toml_table_get_string (te, "name");
 
-  /* Get the media class from the match endpoint table (Optional) */
-  res->te.endpoint_data.media_class =
-      wp_toml_table_get_string (te, "media_class");
+    /* Get the media class from the match endpoint table (Optional) */
+    res->te.endpoint_data.media_class =
+        wp_toml_table_get_string (te, "media_class");
 
-  /* Set the direction to the match endpoint's reverse one */
-  res->te.endpoint_data.direction =
-      pw_direction_reverse (res->me.endpoint_data.direction);
+    /* Set the direction to the match endpoint's reverse one */
+    res->te.endpoint_data.direction =
+        pw_direction_reverse (res->me.endpoint_data.direction);
 
-  /* Get the target endpoint properties (Optional) */
-  res->te.endpoint_data.props = parse_properties (te, "properties");
+    /* Get the target endpoint properties (Optional) */
+    res->te.endpoint_data.props = parse_properties (te, "properties");
 
-  /* Get the target endpoint stream */
-  res->te.stream = wp_toml_table_get_string (te, "stream");
+    /* Get the target endpoint stream */
+    res->te.stream = wp_toml_table_get_string (te, "stream");
+  }
 
   /* Get the target-endpoint table */
   el = wp_toml_table_get_table (table, "endpoint-link");

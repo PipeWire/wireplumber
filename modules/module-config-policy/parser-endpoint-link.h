@@ -27,6 +27,7 @@ struct WpParserEndpointLinkData {
     guint priority;
     struct WpParserEndpointLinkEndpointData endpoint_data;
   } me;
+  gboolean has_te;
   struct TargetEndpoint {
     struct WpParserEndpointLinkEndpointData endpoint_data;
     char *stream;

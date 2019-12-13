@@ -279,8 +279,9 @@ static WpBaseEndpoint *
 wp_config_policy_find_endpoint (WpPolicy *policy, GVariant *props,
     guint32 *stream_id)
 {
-  g_autoptr (WpCore) core = NULL;
-  g_autoptr (WpPolicyManager) pmgr = NULL;
+  g_autoptr (WpCore) core = wp_policy_get_core (policy);
+  g_autoptr (WpPolicyManager) pmgr = wp_policy_manager_get_instance (core);
+  g_autoptr (WpSession) session = wp_policy_manager_get_session (pmgr);
   const struct WpParserEndpointLinkData *data = NULL;
   g_autoptr (GPtrArray) endpoints = NULL;
   guint i;
@@ -294,21 +295,57 @@ wp_config_policy_find_endpoint (WpPolicy *policy, GVariant *props,
   if (!data)
     return NULL;
 
-  /* Get all the endpoints matching the media class */
-  core = wp_policy_get_core (policy);
-  pmgr = wp_policy_manager_get_instance (core);
-  endpoints = wp_policy_manager_list_endpoints (pmgr,
-      data->te.endpoint_data.media_class);
-  if (!endpoints)
-    return NULL;
+  /* If target-endpoint data was defined in the configuration file, find the
+   * matching endpoint based on target-endpoint data */
+  if (data->has_te) {
+    /* Get all the endpoints matching the media class */
+    endpoints = wp_policy_manager_list_endpoints (pmgr,
+        data->te.endpoint_data.media_class);
+    if (!endpoints)
+      return NULL;
 
-  /* Get the first endpoint that matches target data */
-  for (i = 0; i < endpoints->len; i++) {
-    target = g_ptr_array_index (endpoints, i);
-    if (wp_parser_endpoint_link_matches_endpoint_data (target,
-        &data->te.endpoint_data))
-      break;
+    /* Get the first endpoint that matches target data */
+    for (i = 0; i < endpoints->len; i++) {
+      target = g_ptr_array_index (endpoints, i);
+      if (wp_parser_endpoint_link_matches_endpoint_data (target,
+          &data->te.endpoint_data))
+        break;
+    }
   }
+
+  /* Otherwise, use the default session endpoint if the session is valid */
+  else if (session) {
+    /* Get the default type */
+    WpDefaultEndpointType type;
+    switch (data->me.endpoint_data.direction) {
+      case PW_DIRECTION_INPUT:
+        type = WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SOURCE;
+        break;
+      case PW_DIRECTION_OUTPUT:
+        type = WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SINK;
+        break;
+      default:
+        g_warn_if_reached ();
+        return NULL;
+    }
+
+    /* Get all the endpoints */
+    endpoints = wp_policy_manager_list_endpoints (pmgr, NULL);
+    if (!endpoints)
+      return NULL;
+
+    /* Find the default session endpoint */
+    for (i = 0; i < endpoints->len; i++) {
+      target = g_ptr_array_index (endpoints, i);
+      guint def_id = wp_session_get_default_endpoint (session, type);
+      if (def_id == wp_base_endpoint_get_global_id (target))
+        break;
+    }
+  }
+
+  /* If no target data has been defined and session is not valid, return null */
+  else
+    return NULL;
 
   /* If target did not match any data, return NULL */
   if (i >= endpoints->len)
