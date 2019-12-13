@@ -14,6 +14,7 @@ struct _WpEndpointAudiotestsrc
 {
   WpBaseEndpoint parent;
   GTask *init_task;
+  guint id;
 
   /* Props */
   WpProxyNode *proxy_node;
@@ -46,6 +47,13 @@ static const char *
 wp_endpoint_audiotestsrc_get_role (WpBaseEndpoint * ep)
 {
   return NULL;
+}
+
+static guint32
+wp_endpoint_audiotestsrc_get_global_id (WpBaseEndpoint * ep)
+{
+  WpEndpointAudiotestsrc *self = WP_ENDPOINT_AUDIOTESTSRC (ep);
+  return self->id;
 }
 
 static gboolean
@@ -172,6 +180,8 @@ wp_endpoint_audiotestsrc_async_initable_init (gpointer iface,
 static void
 wp_endpoint_audiotestsrc_init (WpEndpointAudiotestsrc * self)
 {
+  static guint id = 0;
+  self->id = id++;
 }
 
 static void
@@ -187,6 +197,7 @@ wp_endpoint_audiotestsrc_class_init (WpEndpointAudiotestsrcClass * klass)
 
   endpoint_class->get_properties = wp_endpoint_audiotestsrc_get_properties;
   endpoint_class->get_role = wp_endpoint_audiotestsrc_get_role;
+  endpoint_class->get_global_id = wp_endpoint_audiotestsrc_get_global_id;
   endpoint_class->prepare_link = wp_endpoint_audiotestsrc_prepare_link;
   endpoint_class->get_endpoint_link_factory =
       wp_endpoint_audiotestsrc_get_endpoint_link_factory;

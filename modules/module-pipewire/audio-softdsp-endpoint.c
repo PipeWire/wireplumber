@@ -111,6 +111,14 @@ endpoint_get_role (WpBaseEndpoint *ep)
   return self->role;
 }
 
+static guint32
+endpoint_get_global_id (WpBaseEndpoint *ep)
+{
+  WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (ep);
+
+  return wp_exported_endpoint_get_global_id (self->exported_ep);
+}
+
 static gboolean
 endpoint_prepare_link (WpBaseEndpoint * ep, guint32 stream_id,
     WpBaseEndpointLink * link, GVariant ** properties, GError ** error)
@@ -470,6 +478,7 @@ endpoint_class_init (WpPwAudioSoftdspEndpointClass * klass)
 
   endpoint_class->get_properties = endpoint_get_properties;
   endpoint_class->get_role = endpoint_get_role;
+  endpoint_class->get_global_id = endpoint_get_global_id;
   endpoint_class->prepare_link = endpoint_prepare_link;
 
   /* Instal the properties */

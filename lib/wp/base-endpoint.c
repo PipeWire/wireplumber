@@ -500,6 +500,17 @@ wp_base_endpoint_get_role (WpBaseEndpoint * self)
   return NULL;
 }
 
+guint32
+wp_base_endpoint_get_global_id (WpBaseEndpoint * self)
+{
+  g_return_val_if_fail (WP_IS_BASE_ENDPOINT (self), -1);
+
+  if (WP_BASE_ENDPOINT_GET_CLASS (self)->get_global_id)
+    return WP_BASE_ENDPOINT_GET_CLASS (self)->get_global_id (self);
+
+  return -1;
+}
+
 /**
  * wp_base_endpoint_register_stream:
  * @self: the endpoint

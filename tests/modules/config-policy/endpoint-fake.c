@@ -52,6 +52,13 @@ wp_fake_endpoint_get_role (WpBaseEndpoint * ep)
   return self->role;
 }
 
+static guint32
+wp_fake_endpoint_get_global_id (WpBaseEndpoint * ep)
+{
+  WpFakeEndpoint *self = WP_FAKE_ENDPOINT (ep);
+  return self->id;
+}
+
 static gboolean
 wp_fake_endpoint_prepare_link (WpBaseEndpoint * ep, guint32 stream_id,
     WpBaseEndpointLink * link, GVariant ** properties, GError ** error)
@@ -192,6 +199,7 @@ wp_fake_endpoint_class_init (WpFakeEndpointClass * klass)
 
   endpoint_class->get_properties = wp_fake_endpoint_get_properties;
   endpoint_class->get_role = wp_fake_endpoint_get_role;
+  endpoint_class->get_global_id = wp_fake_endpoint_get_global_id;
   endpoint_class->prepare_link = wp_fake_endpoint_prepare_link;
   endpoint_class->get_endpoint_link_factory =
       wp_fake_endpoint_get_endpoint_link_factory;
@@ -229,10 +237,4 @@ wp_fake_endpoint_new_async (WpCore *core, const char *name,
         "role", role,
         "streams", streams,
         NULL);
-}
-
-guint
-wp_fake_endpoint_get_id (WpFakeEndpoint *self)
-{
-  return self->id;
 }

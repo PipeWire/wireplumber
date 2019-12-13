@@ -32,6 +32,7 @@ struct _WpBaseEndpointClass
 
   WpProperties * (*get_properties) (WpBaseEndpoint * self);
   const char * (*get_role) (WpBaseEndpoint * self);
+  guint32 (*get_global_id) (WpBaseEndpoint * self);
 
   GVariant * (*get_control_value) (WpBaseEndpoint * self, guint32 control_id);
   gboolean (*set_control_value) (WpBaseEndpoint * self, guint32 control_id,
@@ -57,6 +58,7 @@ guint64 wp_base_endpoint_get_creation_time (WpBaseEndpoint * self);
 guint32 wp_base_endpoint_get_priority (WpBaseEndpoint * self);
 WpProperties * wp_base_endpoint_get_properties (WpBaseEndpoint * self);
 const char * wp_base_endpoint_get_role (WpBaseEndpoint * self);
+guint32 wp_base_endpoint_get_global_id (WpBaseEndpoint * self);
 
 void wp_base_endpoint_register_stream (WpBaseEndpoint * self, GVariant * stream);
 GVariant * wp_base_endpoint_get_stream (WpBaseEndpoint * self, guint32 stream_id);

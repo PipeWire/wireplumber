@@ -22,8 +22,6 @@ wp_fake_endpoint_new_async (WpCore *core, const char *name,
     WpProperties *props, const char *role, guint streams,
     GAsyncReadyCallback ready, gpointer data);
 
-guint wp_fake_endpoint_get_id (WpFakeEndpoint *self);
-
 G_END_DECLS
 
 #endif
