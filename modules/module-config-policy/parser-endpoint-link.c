@@ -256,7 +256,7 @@ compare_datas_func (gconstpointer a, gconstpointer b)
   struct WpParserEndpointLinkData *db =
       *(struct WpParserEndpointLinkData *const *)b;
 
-  return da->me.priority - db->me.priority;
+  return db->me.priority - da->me.priority;
 }
 
 static gboolean
