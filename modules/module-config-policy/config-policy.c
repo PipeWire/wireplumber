@@ -15,6 +15,21 @@
 #include "config-policy.h"
 #include "parser-endpoint-link.h"
 
+struct link_info {
+  WpBaseEndpoint *ep;
+  guint32 stream_id;
+  gboolean keep;
+};
+
+static void
+link_info_destroy (gpointer p)
+{
+  struct link_info *li = p;
+  g_return_if_fail (li);
+  g_clear_object (&li->ep);
+  g_slice_free (struct link_info, li);
+}
+
 struct _WpConfigPolicy
 {
   WpPolicy parent;
@@ -23,7 +38,7 @@ struct _WpConfigPolicy
 
   gboolean pending_rescan;
   WpBaseEndpoint *pending_endpoint;
-  WpBaseEndpoint *pending_target;
+  gboolean endpoint_handled;
 };
 
 enum {
@@ -64,9 +79,6 @@ on_endpoint_link_created (GObject *initable, GAsyncResult *res, gpointer p)
   g_info ("Sucessfully linked '%s' to '%s'\n", wp_base_endpoint_get_name (src_ep),
       wp_base_endpoint_get_name (sink_ep));
 
-  /* Clear the pending target */
-  g_clear_object (&self->pending_target);
-
   /* Emit the done signal */
   if (self->pending_endpoint) {
     gboolean is_capture =
@@ -81,7 +93,7 @@ on_endpoint_link_created (GObject *initable, GAsyncResult *res, gpointer p)
 
 static gboolean
 wp_config_policy_can_link_stream (WpConfigPolicy *self, WpBaseEndpoint *target,
-    const struct WpParserEndpointLinkData *data, guint32 stream_id)
+    guint32 stream_id)
 {
   g_autoptr (WpConfigParser) parser = NULL;
 
@@ -132,23 +144,25 @@ wp_config_policy_can_link_stream (WpConfigPolicy *self, WpBaseEndpoint *target,
 }
 
 static gboolean
-wp_config_policy_link_endpoint_with_target (WpConfigPolicy *policy,
-    WpBaseEndpoint *ep, guint32 ep_stream, WpBaseEndpoint *target,
-    guint32 target_stream, const struct WpParserEndpointLinkData *data)
+wp_config_policy_handle_pending_link (WpConfigPolicy *self,
+    struct link_info *li, WpBaseEndpoint *target)
 {
-  WpConfigPolicy *self = WP_CONFIG_POLICY (policy);
   g_autoptr (WpCore) core = wp_policy_get_core (WP_POLICY (self));
-  gboolean is_capture = wp_base_endpoint_get_direction (ep) == PW_DIRECTION_INPUT;
-  gboolean is_linked = wp_base_endpoint_is_linked (ep);
+  gboolean is_capture = wp_base_endpoint_get_direction (li->ep) == PW_DIRECTION_INPUT;
+  gboolean is_linked = wp_base_endpoint_is_linked (li->ep);
   gboolean target_linked = wp_base_endpoint_is_linked (target);
 
   g_debug ("Trying to link with '%s' to target '%s', ep_capture:%d, "
-      "ep_linked:%d, target_linked:%d", wp_base_endpoint_get_name (ep),
+      "ep_linked:%d, target_linked:%d", wp_base_endpoint_get_name (li->ep),
       wp_base_endpoint_get_name (target), is_capture, is_linked, target_linked);
+
+  /* Make sure there is no higher priority role linked to this target */
+  if (!wp_config_policy_can_link_stream (self, target, li->stream_id))
+    return FALSE;
 
   /* Check if the endpoint is already linked with the proper target */
   if (is_linked) {
-    GPtrArray *links = wp_base_endpoint_get_links (ep);
+    GPtrArray *links = wp_base_endpoint_get_links (li->ep);
     WpBaseEndpointLink *l = g_ptr_array_index (links, 0);
     g_autoptr (WpBaseEndpoint) src_ep = wp_base_endpoint_link_get_source_endpoint (l);
     g_autoptr (WpBaseEndpoint) sink_ep = wp_base_endpoint_link_get_sink_endpoint (l);
@@ -157,21 +171,15 @@ wp_config_policy_link_endpoint_with_target (WpConfigPolicy *policy,
     if (existing_target == target) {
       /* linked to correct target so do nothing */
       g_debug ("Endpoint '%s' is already linked correctly",
-          wp_base_endpoint_get_name (ep));
+          wp_base_endpoint_get_name (li->ep));
       return FALSE;
     } else {
       /* linked to the wrong target so unlink and continue */
       g_debug ("Unlinking endpoint '%s' from its previous target",
-          wp_base_endpoint_get_name (ep));
+          wp_base_endpoint_get_name (li->ep));
       wp_base_endpoint_link_destroy (l);
     }
   }
-
-  /* Make sure the target is not going to be linked with another endpoint */
-  if (self->pending_target == target)
-    return FALSE;
-  g_clear_object (&self->pending_target);
-  self->pending_target = g_object_ref (target);
 
   /* Unlink the target links that are not kept if endpoint is capture */
   if (!is_capture && target_linked) {
@@ -185,64 +193,36 @@ wp_config_policy_link_endpoint_with_target (WpConfigPolicy *policy,
 
   /* Link the client with the target */
   if (is_capture) {
-    wp_base_endpoint_link_new (core, target, target_stream, ep, ep_stream,
-        data->el.keep, on_endpoint_link_created, self);
+    wp_base_endpoint_link_new (core, target, li->stream_id, li->ep,
+        WP_STREAM_ID_NONE, li->keep, on_endpoint_link_created, self);
   } else {
-    wp_base_endpoint_link_new (core, ep, ep_stream, target, target_stream,
-        data->el.keep, on_endpoint_link_created, self);
+    wp_base_endpoint_link_new (core, li->ep, WP_STREAM_ID_NONE, target,
+        li->stream_id, li->keep, on_endpoint_link_created, self);
   }
 
   return TRUE;
 }
 
-static gboolean
-wp_config_policy_handle_endpoint (WpPolicy *policy, WpBaseEndpoint *ep)
+static WpBaseEndpoint*
+wp_config_policy_get_data_target (WpConfigPolicy *self, const char *ep_role,
+    const struct WpParserEndpointLinkData *data, guint32 *stream_id)
 {
-  WpConfigPolicy *self = WP_CONFIG_POLICY (policy);
-  g_autoptr (WpCore) core = wp_policy_get_core (policy);
-  g_autoptr (WpConfigParser) parser = NULL;
-  const struct WpParserEndpointLinkData *data;
+  g_autoptr (WpCore) core = wp_policy_get_core (WP_POLICY (self));
   GVariantBuilder b;
   GVariant *target_data = NULL;
-  g_autoptr (WpBaseEndpoint) target = NULL;
-  guint32 stream_id;
-  const char *role = NULL;
-  gboolean can_link;
 
-  /* Get the parser for the endpoint-link extension */
-  parser = wp_configuration_get_parser (self->config,
-      WP_PARSER_ENDPOINT_LINK_EXTENSION);
-
-  /* Get the matched endpoint data from the parser */
-  data = wp_config_parser_get_matched_data (parser, G_OBJECT (ep));
-  if (!data)
-    return FALSE;
+  g_return_val_if_fail (data, NULL);
 
   /* Create the target gvariant */
   g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
   g_variant_builder_add (&b, "{sv}",
       "data", g_variant_new_uint64 ((guint64) data));
-  role = wp_base_endpoint_get_role (ep);
-  if (role)
-    g_variant_builder_add (&b, "{sv}", "role", g_variant_new_string (role));
+  if (ep_role)
+    g_variant_builder_add (&b, "{sv}", "role", g_variant_new_string (ep_role));
   target_data = g_variant_builder_end (&b);
 
   /* Find the target endpoint */
-  target = wp_policy_find_endpoint (core, target_data, &stream_id);
-  if (!target) {
-    g_info ("Target not found for endpoint '%s'", wp_base_endpoint_get_name (ep));
-    return FALSE;
-  }
-
-  /* Don't link if the target is linked with a higher priority stream */
-  can_link = wp_config_policy_can_link_stream (self, target, data, stream_id);
-
-  g_debug ("Trying to handle endpoint: %s, role:%s, can_link:%d",
-      wp_base_endpoint_get_name (ep), role, can_link);
-
-  /* Link the endpoint with its target */
-  return can_link && wp_config_policy_link_endpoint_with_target (self, ep,
-          WP_STREAM_ID_NONE, target, stream_id, data);
+  return wp_policy_find_endpoint (core, target_data, stream_id);
 }
 
 static guint
@@ -369,13 +349,98 @@ wp_config_policy_find_endpoint (WpPolicy *policy, GVariant *props,
 }
 
 static gint
-endpoint_creation_time_compare_func (gconstpointer a, gconstpointer b)
+link_info_compare_func (gconstpointer a, gconstpointer b, gpointer data)
 {
-  WpBaseEndpoint *ep_a = *(WpBaseEndpoint *const *)a;
-  WpBaseEndpoint *ep_b = *(WpBaseEndpoint *const *)b;
+  WpBaseEndpoint *target = data;
+  struct link_info *li_a = *(struct link_info *const *)a;
+  struct link_info *li_b = *(struct link_info *const *)b;
+  g_autoptr (GVariant) stream_a = NULL;
+  g_autoptr (GVariant) stream_b = NULL;
+  guint priority_a = 0;
+  guint priority_b = 0;
+  gint res = 0;
 
-  return wp_base_endpoint_get_creation_time (ep_b) -
-      wp_base_endpoint_get_creation_time (ep_a);
+  /* Get the role priority of a */
+  stream_a = wp_base_endpoint_get_stream (target, li_a->stream_id);
+  if (stream_a)
+    g_variant_lookup (stream_a, "priority", "u", &priority_a);
+
+  /* Get the role priority of b */
+  stream_b = wp_base_endpoint_get_stream (target, li_b->stream_id);
+  if (stream_b)
+    g_variant_lookup (stream_b, "priority", "u", &priority_b);
+
+  /* We want to sort from high priority to low priority */
+  res = priority_b - priority_a;
+
+  /* If both priorities are the same, sort by creation time */
+  if (res == 0)
+    res = wp_base_endpoint_get_creation_time (li_b->ep) -
+      wp_base_endpoint_get_creation_time (li_a->ep);
+
+  return res;
+}
+
+static void
+wp_config_policy_add_link_info (WpConfigPolicy *self, GHashTable *table,
+    WpBaseEndpoint *ep)
+{
+  g_autoptr (WpConfigParser) parser = NULL;
+  const struct WpParserEndpointLinkData *data = NULL;
+  const char *ep_role = wp_base_endpoint_get_role (ep);
+  struct link_info *res = NULL;
+  WpBaseEndpoint *target = NULL;
+  guint32 stream_id = WP_STREAM_ID_NONE;
+
+  /* Get the parser for the endpoint-link extension */
+  parser = wp_configuration_get_parser (self->config,
+      WP_PARSER_ENDPOINT_LINK_EXTENSION);
+
+  /* Get the matched endpoint data from the parser */
+  data = wp_config_parser_get_matched_data (parser, G_OBJECT (ep));
+  if (!data)
+    return;
+
+  /* Get the target */
+  target = wp_config_policy_get_data_target (self, ep_role, data, &stream_id);
+  if (!target)
+    return;
+
+  /* Create the link info */
+  res = g_slice_new0 (struct link_info);
+  res->ep = g_object_ref (ep);
+  res->stream_id = stream_id;
+  res->keep = data->el.keep;
+
+  /* Get the link infos for the target, or create a new one if not found */
+  GPtrArray *link_infos = g_hash_table_lookup (table, target);
+  if (!link_infos) {
+    link_infos = g_ptr_array_new_with_free_func (link_info_destroy);
+    g_ptr_array_add (link_infos, res);
+    g_hash_table_insert (table, g_object_ref (target), link_infos);
+  } else {
+    g_ptr_array_add (link_infos, res);
+  }
+}
+
+
+static void
+links_table_handle_foreach (gpointer key, gpointer value, gpointer data)
+{
+  WpConfigPolicy *self = data;
+  WpBaseEndpoint *target = key;
+  GPtrArray *link_infos = value;
+
+  /* Sort the link infos by role and creation time */
+  g_ptr_array_sort_with_data (link_infos, link_info_compare_func, target);
+
+  /* Handle the first endpoint and also the ones with keep=true */
+  for (guint i = 0; i < link_infos->len; i++) {
+    struct link_info *li = g_ptr_array_index (link_infos, i);
+    if (i == 0 || li->keep)
+      if (wp_config_policy_handle_pending_link (self, li, target))
+        self->endpoint_handled = li->ep == self->pending_endpoint;
+  }
 }
 
 static void
@@ -384,24 +449,32 @@ wp_config_policy_sync_rescan (WpCore *core, GAsyncResult *res, gpointer data)
   WpConfigPolicy *self = WP_CONFIG_POLICY (data);
   g_autoptr (WpPolicyManager) pmgr = wp_policy_manager_get_instance (core);
   g_autoptr (GPtrArray) endpoints = NULL;
-  WpBaseEndpoint *ep;
-  gboolean handled = FALSE;
+
+  /* Set handle to false to know if pending endpoint was handled in this loop */
+  self->endpoint_handled = FALSE;
 
   /* Handle all endpoints when rescanning */
   endpoints = wp_policy_manager_list_endpoints (pmgr, NULL);
   if (endpoints) {
-    /* Sort the endpoints by creation time */
-    g_ptr_array_sort (endpoints, endpoint_creation_time_compare_func);
+    /* Create the links table <target, array-of-link-info> */
+    GHashTable *links_table = g_hash_table_new_full (g_direct_hash,
+        g_direct_equal, g_object_unref, (GDestroyNotify) g_ptr_array_unref);
 
+    /* Fill the links table */
     for (guint i = 0; i < endpoints->len; i++) {
-      ep = g_ptr_array_index (endpoints, i);
-      if (wp_config_policy_handle_endpoint (WP_POLICY (self), ep))
-        handled = ep == self->pending_endpoint;
+      WpBaseEndpoint *ep = g_ptr_array_index (endpoints, i);
+      wp_config_policy_add_link_info (self, links_table, ep);
     }
+
+    /* Handle the links */
+    g_hash_table_foreach (links_table, links_table_handle_foreach, self);
+
+    /* Clean up */
+    g_clear_pointer (&links_table, g_hash_table_unref);
   }
 
   /* If endpoint was not handled, we are done */
-  if (!handled) {
+  if (!self->endpoint_handled) {
       g_signal_emit (self, signals[SIGNAL_DONE], 0, self->pending_endpoint,
           NULL);
       g_clear_object (&self->pending_endpoint);
