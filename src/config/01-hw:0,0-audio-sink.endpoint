@@ -1,5 +1,5 @@
 [match-node]
-priotity = 1
+priority = 1
 properties = [
   { name = "media.class", value = "Audio/Sink" },
   { name = "api.alsa.path", value = "hw:0,0" },
@@ -9,4 +9,3 @@ properties = [
 type = "pw-audio-softdsp-endpoint"
 direction = "sink"
 streams = "playback.streams"
-priority = 1

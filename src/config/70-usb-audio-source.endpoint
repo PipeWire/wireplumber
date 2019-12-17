@@ -1,5 +1,5 @@
 [match-node]
-priotity = 70
+priority = 70
 properties = [
   { name = "media.class", value = "Audio/Source" },
   { name = "api.alsa.card.driver", value = "USB-Audio" },

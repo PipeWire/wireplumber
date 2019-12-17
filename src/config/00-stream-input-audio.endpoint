@@ -1,5 +1,5 @@
 [match-node]
-priotity = 0
+priority = 0
 properties = [
   { name = "media.class", value = "Stream/Input/Audio" },
 ]
