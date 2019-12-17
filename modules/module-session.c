@@ -51,8 +51,11 @@ select_new_default_ep (struct module_data * data, WpDefaultEndpointType type,
   }
 
   def_id = wp_session_get_default_endpoint (WP_SESSION (data->session), type);
-  if (def_id != best_id)
+  if (def_id != best_id) {
+    g_debug ("selecting default endpoint for type %x, old:%u, new:%u",
+        type, def_id, best_id);
     wp_session_set_default_endpoint (WP_SESSION (data->session), type, best_id);
+  }
 }
 
 static void
