@@ -262,6 +262,7 @@ main (gint argc, gchar **argv)
     return 1;
   }
 
+  data.loop = loop = g_main_loop_new (NULL, FALSE);
   data.core = core = wp_core_new (NULL, NULL);
   g_signal_connect (core, "remote-state-changed",
       (GCallback) remote_state_changed, &data);
@@ -322,11 +323,8 @@ main (gint argc, gchar **argv)
   }
 
   wp_core_install_object_manager (core, om);
-
-  wp_core_connect (core);
-
-  data.loop = loop = g_main_loop_new (NULL, FALSE);
-  g_main_loop_run (loop);
+  if (wp_core_connect (core))
+    g_main_loop_run (loop);
 
   return 0;
 }
