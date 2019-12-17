@@ -44,8 +44,10 @@ select_new_default_ep (struct module_data * data, WpDefaultEndpointType type,
     if (priority_str)
       priority = atoi (priority_str);
 
-    if (priority >= max_priority)
+    if (priority >= max_priority) {
       best_id = id;
+      max_priority = priority;
+    }
   }
 
   def_id = wp_session_get_default_endpoint (WP_SESSION (data->session), type);

@@ -239,6 +239,8 @@ do_export (WpPwAudioSoftdspEndpoint *self)
       wp_proxy_get_global_id (WP_PROXY (self->proxy_node)));
   wp_properties_set (extra_props, PW_KEY_ENDPOINT_CLIENT_ID,
       wp_properties_get (props, PW_KEY_CLIENT_ID));
+  wp_properties_setf (extra_props, "endpoint.priority", "%d",
+      wp_base_endpoint_get_priority (WP_BASE_ENDPOINT (self)));
 
   wp_exported_endpoint_update_properties (self->exported_ep, props);
   wp_exported_endpoint_update_properties (self->exported_ep, extra_props);
