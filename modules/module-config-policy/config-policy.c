@@ -450,6 +450,8 @@ wp_config_policy_sync_rescan (WpCore *core, GAsyncResult *res, gpointer data)
   g_autoptr (WpPolicyManager) pmgr = wp_policy_manager_get_instance (core);
   g_autoptr (GPtrArray) endpoints = NULL;
 
+  g_debug ("rescanning");
+
   /* Set handle to false to know if pending endpoint was handled in this loop */
   self->endpoint_handled = FALSE;
 
