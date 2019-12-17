@@ -5,6 +5,6 @@ properties = [
 ]
 
 [endpoint]
-direction = "source"
 type = "pw-audio-softdsp-endpoint"
-streams = "default.streams"
+direction = "source"
+streams = "capture.streams"

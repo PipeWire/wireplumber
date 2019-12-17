@@ -5,6 +5,6 @@ properties = [
 ]
 
 [endpoint]
-direction = "sink"
 type = "pw-audio-softdsp-endpoint"
-streams = "default.streams"
+direction = "sink"
+streams = "playback.streams"

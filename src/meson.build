@@ -3,12 +3,10 @@ wp_sources = [
 ]
 
 wireplumber_config_file = join_paths(wireplumber_config_dir, 'wireplumber.conf')
-install_data('wireplumber.conf',
-  install_dir: wireplumber_config_dir
-)
 
-install_subdir('wireplumber',
-  install_dir: wireplumber_config_dir
+install_subdir('config',
+  install_dir: wireplumber_config_dir,
+  strip_directory : true
 )
 
 executable('wireplumber',

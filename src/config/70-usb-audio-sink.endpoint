@@ -1,0 +1,12 @@
+[match-node]
+priotity = 70
+properties = [
+  { name = "media.class", value = "Audio/Sink" },
+  { name = "api.alsa.card.driver", value = "USB-Audio" },
+]
+
+[endpoint]
+type = "pw-audio-softdsp-endpoint"
+direction = "sink"
+streams = "playback.streams"
+priority = 70
