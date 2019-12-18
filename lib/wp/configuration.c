@@ -214,6 +214,9 @@ wp_configuration_reload (WpConfiguration *self, const char *extension)
       /* Only parse files that have the proper extension */
       if (g_str_has_suffix (file_name, ext)) {
         location = g_build_filename (path, file_name, NULL);
+
+        g_debug ("loading config file: %s", location);
+
         if (!wp_config_parser_add_file (parser, location))
           g_warning ("Failed to parse file '%s'", location);
       }
