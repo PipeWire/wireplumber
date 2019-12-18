@@ -154,7 +154,7 @@ wp_parser_endpoint_data_new (const gchar *location)
   res->e.direction = parse_endpoint_direction (direction);
 
   /* Get the priority from the endpoint table */
-  res->mn.priority = 0;
+  res->e.priority = 0;
   wp_toml_table_get_uint32 (e, "priority", &res->e.priority);
 
   /* Get the endpoint properties */
