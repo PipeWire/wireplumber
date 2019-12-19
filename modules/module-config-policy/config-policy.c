@@ -92,58 +92,6 @@ on_endpoint_link_created (GObject *initable, GAsyncResult *res, gpointer p)
 }
 
 static gboolean
-wp_config_policy_can_link_stream (WpConfigPolicy *self, WpBaseEndpoint *target,
-    guint32 stream_id)
-{
-  g_autoptr (WpConfigParser) parser = NULL;
-
-  /* If the endpoint is not linked, we can link */
-  if (!wp_base_endpoint_is_linked (target))
-    return TRUE;
-
-  /* Get the linked stream */
-  gboolean is_capture = wp_base_endpoint_get_direction (target) == PW_DIRECTION_INPUT;
-  GPtrArray *links = wp_base_endpoint_get_links (target);
-  WpBaseEndpointLink *l = g_ptr_array_index (links, 0);
-  guint32 linked_stream = is_capture ?
-      wp_base_endpoint_link_get_sink_stream (l) :
-          wp_base_endpoint_link_get_source_stream (l);
-
-  /* Check if linked stream is the same as target stream. Last one wins */
-  if (linked_stream == stream_id)
-    return TRUE;
-
-  /* Get the linked stream name */
-  g_autoptr (GVariant) s = wp_base_endpoint_get_stream (target, linked_stream);
-  if (!s)
-    return TRUE;
-  const gchar *linked_stream_name;
-  if (!g_variant_lookup (s, "name", "&s", &linked_stream_name))
-    return TRUE;
-
-  /* Get the target stream name */
-  g_autoptr (GVariant) ts = wp_base_endpoint_get_stream (target, stream_id);
-  if (!ts)
-    return TRUE;
-  const gchar *target_stream_name;
-  if (!g_variant_lookup (ts, "name", "&s", &target_stream_name))
-    return TRUE;
-
-  /* Get the linked and ep streams priority */
-  guint linked_stream_priority = 0;
-  guint target_stream_priority = 0;
-  g_variant_lookup (s, "priority", "u", &linked_stream_priority);
-  g_variant_lookup (ts, "priority", "u", &target_stream_priority);
-
-  g_debug ("Trying to link to '%s' (%d); target is linked on '%s' (%d)",
-      target_stream_name, target_stream_priority, linked_stream_name,
-      linked_stream_priority);
-
-  /* Return true if linked stream has lower priority than target stream */
-  return linked_stream_priority < target_stream_priority;
-}
-
-static gboolean
 wp_config_policy_handle_pending_link (WpConfigPolicy *self,
     struct link_info *li, WpBaseEndpoint *target)
 {
@@ -155,10 +103,6 @@ wp_config_policy_handle_pending_link (WpConfigPolicy *self,
   g_debug ("Trying to link with '%s' to target '%s', ep_capture:%d, "
       "ep_linked:%d, target_linked:%d", wp_base_endpoint_get_name (li->ep),
       wp_base_endpoint_get_name (target), is_capture, is_linked, target_linked);
-
-  /* Make sure there is no higher priority role linked to this target */
-  if (!wp_config_policy_can_link_stream (self, target, li->stream_id))
-    return FALSE;
 
   /* Check if the endpoint is already linked with the proper target */
   if (is_linked) {
