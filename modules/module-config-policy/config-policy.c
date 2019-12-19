@@ -382,9 +382,15 @@ links_table_handle_foreach (gpointer key, gpointer value, gpointer data)
   /* Sort the link infos by role and creation time */
   g_ptr_array_sort_with_data (link_infos, link_info_compare_func, target);
 
+  g_debug ("handling endpoints:");
+
   /* Handle the first endpoint and also the ones with keep=true */
   for (guint i = 0; i < link_infos->len; i++) {
     struct link_info *li = g_ptr_array_index (link_infos, i);
+
+    g_debug ("  %2u: %s:%d, keep:%d", i, wp_base_endpoint_get_name (li->ep),
+        li->stream_id, li->keep);
+
     if (i == 0 || li->keep)
       if (wp_config_policy_handle_pending_link (self, li, target))
         self->endpoint_handled = li->ep == self->pending_endpoint;
