@@ -304,6 +304,10 @@ link_info_compare_func (gconstpointer a, gconstpointer b, gpointer data)
   guint priority_b = 0;
   gint res = 0;
 
+  res = (gint) li_a->keep - (gint) li_b->keep;
+  if (res != 0)
+    return res;
+
   /* Get the role priority of a */
   stream_a = wp_base_endpoint_get_stream (target, li_a->stream_id);
   if (stream_a)
