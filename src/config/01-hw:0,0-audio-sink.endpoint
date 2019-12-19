@@ -9,3 +9,4 @@ properties = [
 type = "pw-audio-softdsp-endpoint"
 direction = "sink"
 streams = "playback.streams"
+priority = 1
