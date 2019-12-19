@@ -125,8 +125,8 @@ wp_config_policy_handle_pending_link (WpConfigPolicy *self,
     }
   }
 
-  /* Unlink the target links that are not kept if endpoint is capture */
-  if (!is_capture && target_linked) {
+  /* Unlink the target links that are not kept if endpoint is playback */
+  if (!is_capture && target_linked && !li->keep) {
     GPtrArray *links = wp_base_endpoint_get_links (target);
     for (guint i = 0; i < links->len; i++) {
       WpBaseEndpointLink *l = g_ptr_array_index (links, i);
