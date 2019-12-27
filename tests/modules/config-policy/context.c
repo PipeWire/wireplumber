@@ -39,11 +39,17 @@ G_DEFINE_TYPE (WpConfigPolicyContext, wp_config_policy_context, G_TYPE_OBJECT);
 static WpBaseEndpoint *
 wait_for_endpoint (WpConfigPolicyContext *self, WpBaseEndpointLink **link)
 {
+  gint64 end_time;
   g_mutex_lock (&self->mutex);
 
   /* Wait for endpoint to be set */
+  end_time = g_get_monotonic_time () + 3 * G_TIME_SPAN_SECOND;
   while (!self->endpoint)
-    g_cond_wait (&self->cond, &self->mutex);
+    if (!g_cond_wait_until (&self->cond, &self->mutex, end_time)) {
+      /* Abort when timeout has passed */
+      g_warning ("Aborting due to timeout when waiting for endpoint");
+      abort();
+    }
 
   /* Set endpoint to a local value and clear global value */
   WpBaseEndpoint *endpoint = g_object_ref (self->endpoint);

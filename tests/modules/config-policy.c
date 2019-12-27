@@ -71,6 +71,8 @@ loop_thread_start (void *d)
 static void
 config_policy_setup (TestConfigPolicyFixture *self, gconstpointer user_data)
 {
+  gint64 end_time;
+
   /* Data */
   g_mutex_init (&self->mutex);
   g_cond_init (&self->cond);
@@ -81,8 +83,13 @@ config_policy_setup (TestConfigPolicyFixture *self, gconstpointer user_data)
 
   /* Wait for everything to be created */
   g_mutex_lock (&self->mutex);
+  end_time = g_get_monotonic_time () + 3 * G_TIME_SPAN_SECOND;
   while (!self->created)
-    g_cond_wait (&self->cond, &self->mutex);
+    if (!g_cond_wait_until (&self->cond, &self->mutex, end_time)) {
+      /* Abort when timeout has passed */
+      g_warning ("Aborting due to timeout when waiting for connection");
+      abort();
+    }
   g_mutex_unlock (&self->mutex);
 }
 
