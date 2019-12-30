@@ -204,6 +204,21 @@ wp_properties_copy_keys_valist (WpProperties * src, WpProperties * dst,
   return changed;
 }
 
+void
+wp_properties_copy_all (WpProperties * src, WpProperties * dst)
+{
+  const struct spa_dict * dict;
+  const struct spa_dict_item *item;
+
+  g_return_if_fail (src != NULL);
+  g_return_if_fail (dst != NULL);
+
+  dict = wp_properties_peek_dict (src);
+  spa_dict_for_each(item, dict) {
+    wp_properties_set (dst, item->key, item->value);
+  }
+}
+
 const gchar *
 wp_properties_get (WpProperties * self, const gchar * key)
 {

@@ -45,6 +45,7 @@ gint wp_properties_copy_keys (WpProperties * src, WpProperties * dst,
     const gchar *key1, ...) G_GNUC_NULL_TERMINATED;
 gint wp_properties_copy_keys_valist (WpProperties * src, WpProperties * dst,
     const gchar *key1, va_list args);
+void wp_properties_copy_all (WpProperties * src, WpProperties * dst);
 
 const gchar * wp_properties_get (WpProperties * self, const gchar * key);
 
