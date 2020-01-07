@@ -43,6 +43,19 @@ shared_library(
 )
 
 shared_library(
+  'wireplumber-module-config-static-nodes',
+  [
+    'module-config-static-nodes/parser-node.c',
+    'module-config-static-nodes/context.c',
+    'module-config-static-nodes.c',
+  ],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-config-static-nodes"'],
+  install : true,
+  install_dir : wireplumber_module_dir,
+  dependencies : [wp_dep, wptoml_dep, pipewire_dep],
+)
+
+shared_library(
   'wireplumber-module-config-endpoint',
   [
     'module-config-endpoint/parser-endpoint.c',
