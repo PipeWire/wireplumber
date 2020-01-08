@@ -18,10 +18,8 @@ G_BEGIN_DECLS
 
 /* core */
 
-struct pw_core_proxy;
 struct pw_registry_proxy;
 
-struct pw_core_proxy * wp_core_get_pw_core_proxy (WpCore * self);
 struct pw_registry_proxy * wp_core_get_pw_registry_proxy (WpCore * self);
 
 gpointer wp_core_find_object (WpCore * self, GEqualFunc func,

@@ -602,13 +602,6 @@ wp_core_create_remote_object (WpCore *self,
       NULL);
 }
 
-struct pw_core_proxy *
-wp_core_get_pw_core_proxy (WpCore * self)
-{
-  g_return_val_if_fail (WP_IS_CORE (self), NULL);
-  return self->core_proxy;
-}
-
 struct pw_registry_proxy *
 wp_core_get_pw_registry_proxy (WpCore * self)
 {
