@@ -20,6 +20,7 @@
 #include "properties.h"
 #include "proxy.h"
 #include "proxy-client.h"
+#include "proxy-device.h"
 #include "proxy-link.h"
 #include "proxy-node.h"
 #include "proxy-port.h"

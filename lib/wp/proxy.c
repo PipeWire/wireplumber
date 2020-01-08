@@ -15,6 +15,7 @@
 
 #include "endpoint.h"
 #include "proxy-client.h"
+#include "proxy-device.h"
 #include "proxy-link.h"
 #include "proxy-node.h"
 #include "proxy-port.h"
@@ -109,7 +110,7 @@ static struct {
   { PW_TYPE_INTERFACE_Link, 0, wp_proxy_link_get_type, wp_proxy_link_quark },
   { PW_TYPE_INTERFACE_Client, 0, wp_proxy_client_get_type, wp_proxy_client_quark },
   { PW_TYPE_INTERFACE_Module, 0, wp_proxy_get_type, wp_proxy_module_quark },
-  { PW_TYPE_INTERFACE_Device, 0, wp_proxy_get_type, wp_proxy_device_quark },
+  { PW_TYPE_INTERFACE_Device, 0, wp_proxy_device_get_type, wp_proxy_device_quark },
   { PW_TYPE_INTERFACE_Metadata, 0, wp_proxy_get_type, wp_proxy_metadata_quark },
   { PW_TYPE_INTERFACE_Session, 0, wp_proxy_session_get_type, wp_proxy_session_quark },
   { PW_TYPE_INTERFACE_Endpoint, 0, wp_proxy_endpoint_get_type, wp_proxy_endpoint_quark },
