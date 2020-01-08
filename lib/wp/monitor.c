@@ -217,8 +217,7 @@ node_new (struct object *dev, uint32_t id,
   WpMonitor *self = dev->self;
   g_autoptr (WpCore) core = NULL;
   g_autoptr (WpProperties) props = NULL;
-  struct pw_proxy *pw_proxy = NULL;
-  struct pw_node *pw_node = NULL;
+  g_autoptr (WpProxy) proxy = NULL;
   struct object *node = NULL;
   const gchar *pw_factory_name = "spa-node-factory";
 
@@ -247,59 +246,23 @@ node_new (struct object *dev, uint32_t id,
   /* and delete the id - it should not appear on the proxy */
   wp_properties_set (props, WP_MONITOR_KEY_OBJECT_ID, NULL);
 
-  if (self->flags & WP_MONITOR_FLAG_LOCAL_NODES) {
-    struct pw_factory *factory;
-
-    /* create the pipewire node (and the underlying SPA node)
-       on the wireplumber process and export it */
-
-    factory = pw_core_find_factory (wp_core_get_pw_core (core), pw_factory_name);
-    if (!factory) {
-      g_warning ("WpMonitor:%p: no '%s' factory found; node '%s' will "
-          "not be created", self, pw_factory_name, info->factory_name);
-      return NULL;
-    }
-
-    pw_node = pw_factory_create_object (factory,
-        NULL,
-        PW_TYPE_INTERFACE_Node,
-        PW_VERSION_NODE_PROXY,
-        wp_properties_to_pw_properties (props),
-        0);
-    if (!pw_node) {
-      g_warning ("WpMonitor:%p: failed to construct pw_node; node '%s' will "
-          "not be created", self, info->factory_name);
-      return NULL;
-    }
-
-    pw_proxy = pw_remote_export (wp_core_get_pw_remote (core),
-        PW_TYPE_INTERFACE_Node,
-        wp_properties_to_pw_properties (props),
-        pw_node,
-        0);
-    if (!pw_proxy) {
-      g_warning ("WpMonitor:%p: failed to export node: %s", self,
-          g_strerror (errno));
-      pw_node_destroy (pw_node);
-      return NULL;
-    }
-  } else {
-    /* create the pipewire node (and the underlying SPA node)
-       on the remote pipewire process */
-    pw_proxy = pw_core_proxy_create_object (wp_core_get_pw_core_proxy (core),
-        pw_factory_name,
-        PW_TYPE_INTERFACE_Node,
-        PW_VERSION_NODE_PROXY,
-        wp_properties_peek_dict (props),
-        0);
+  /* create the node locally or remotely */
+  proxy = (self->flags & WP_MONITOR_FLAG_LOCAL_NODES) ?
+      wp_core_create_local_object (core, pw_factory_name,
+          PW_TYPE_INTERFACE_Node, PW_VERSION_NODE_PROXY, props) :
+      wp_core_create_remote_object (core, pw_factory_name,
+          PW_TYPE_INTERFACE_Node, PW_VERSION_NODE_PROXY, props);
+  if (!proxy) {
+    g_warning ("WpMonitor:%p: failed to create node: %s", self,
+        g_strerror (errno));
+    return NULL;
   }
 
   node = g_slice_new0 (struct object);
   node->self = self;
   node->id = id;
   node->type = SPA_TYPE_INTERFACE_Node;
-  node->proxy = wp_proxy_new_wrap (core, pw_proxy, PW_TYPE_INTERFACE_Node,
-      PW_VERSION_NODE_PROXY, NULL);
+  node->proxy = g_steal_pointer (&proxy);
 
   return node;
 }
