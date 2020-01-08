@@ -19,7 +19,8 @@
 
 typedef struct {
   struct spa_handle *handle;
-  gpointer interface;
+  struct spa_device *interface;
+  struct spa_hook listener;
 } WpSpaObject;
 
 struct _WpMonitor
@@ -39,10 +40,6 @@ struct object
 {
   guint32 id;
   guint32 type;
-  union {
-    WpSpaObject *spa_dev;
-    struct pw_node *node;
-  };
 
   WpProxy *proxy;
   WpProperties *properties;
@@ -50,7 +47,7 @@ struct object
   GList *children;  /* element-type: struct object* */
 
   WpMonitor *self;
-  struct spa_hook listener;
+  WpSpaObject *spa_obj;
 };
 
 enum {
@@ -147,6 +144,7 @@ static const struct spa_device_events device_events = {
 static void
 wp_spa_object_free (WpSpaObject *self)
 {
+  spa_hook_remove (&self->listener);
   pw_unload_spa_handle (self->handle);
 }
 
@@ -182,7 +180,8 @@ load_spa_object (WpCore *core, const gchar *factory, guint32 iface_type,
   }
 
   /* Get the handle interface */
-  res = spa_handle_get_interface (self->handle, iface_type, &self->interface);
+  res = spa_handle_get_interface (self->handle, iface_type,
+      (gpointer *)&self->interface);
   if (res < 0) {
     g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
         "Could not get interface 0x%x from SPA handle", iface_type);
@@ -299,7 +298,6 @@ node_new (struct object *dev, uint32_t id,
   node->self = self;
   node->id = id;
   node->type = SPA_TYPE_INTERFACE_Node;
-  node->node = pw_node;
   node->proxy = wp_proxy_new_wrap (core, pw_proxy, PW_TYPE_INTERFACE_Node,
       PW_VERSION_NODE_PROXY, NULL);
 
@@ -344,8 +342,10 @@ device_new (WpMonitor *self, uint32_t id, const gchar *factory_name,
   /* and delete the id - it should not appear on the proxy */
   wp_properties_set (props, WP_MONITOR_KEY_OBJECT_ID, NULL);
 
-  if (!(spa_dev = load_spa_object (core, factory_name, SPA_TYPE_INTERFACE_Device,
-          props, &err))) {
+  /* load the spa device */
+  spa_dev = load_spa_object (core, factory_name, SPA_TYPE_INTERFACE_Device,
+          props, &err);
+  if (!spa_dev) {
     g_propagate_error (error, g_steal_pointer (&err));
     return NULL;
   }
@@ -365,14 +365,16 @@ device_new (WpMonitor *self, uint32_t id, const gchar *factory_name,
   dev->self = self;
   dev->id = id;
   dev->type = SPA_TYPE_INTERFACE_Device;
-  dev->spa_dev = g_steal_pointer (&spa_dev);
+  dev->spa_obj = g_steal_pointer (&spa_dev);
   dev->properties = g_steal_pointer (&props);
   dev->proxy = wp_proxy_new_wrap (core, proxy, PW_TYPE_INTERFACE_Device,
       PW_VERSION_DEVICE_PROXY, NULL);
 
   /* Add device listener for events */
-  if ((ret = spa_device_add_listener ((struct spa_device *) dev->spa_dev->interface,
-                  &dev->listener, &device_events, dev)) < 0) {
+  ret = spa_device_add_listener (dev->spa_obj->interface,
+      &dev->spa_obj->listener, &device_events, dev);
+  if (ret < 0) {
+    object_free (dev);
     g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
         "failed to initialize device: %s", spa_strerror (ret));
     return NULL;
@@ -380,7 +382,7 @@ device_new (WpMonitor *self, uint32_t id, const gchar *factory_name,
 
   /* HACK this is very specific to the current alsa pcm profiles */
   if (self->flags & WP_MONITOR_FLAG_ACTIVATE_DEVICES)
-    set_profile ((struct spa_device *) dev->spa_dev->interface, 1);
+    set_profile (dev->spa_obj->interface, 1);
 
   return dev;
 }
@@ -388,21 +390,13 @@ device_new (WpMonitor *self, uint32_t id, const gchar *factory_name,
 static void
 object_free (struct object *obj)
 {
-  gboolean is_node = (obj->type == SPA_TYPE_INTERFACE_Node);
-
-  g_debug ("WpMonitor:%p:%s free %s %u", obj->self,
-      obj->self->factory_name, is_node ? "node" : "device", obj->id);
-
-  if (!is_node)
-    spa_hook_remove (&obj->listener);
+  g_debug ("WpMonitor:%p:%s free %s %u", obj->self, obj->self->factory_name,
+      (obj->type == SPA_TYPE_INTERFACE_Node) ? "node" : "device", obj->id);
 
   g_list_free_full (obj->children, (GDestroyNotify) object_free);
   g_clear_object (&obj->proxy);
 
-  if (is_node)
-    g_clear_pointer (&obj->node, pw_node_destroy);
-  else
-    g_clear_pointer (&obj->spa_dev, wp_spa_object_unref);
+  g_clear_pointer (&obj->spa_obj, wp_spa_object_unref);
 
   g_clear_pointer (&obj->properties, wp_properties_unref);
 
