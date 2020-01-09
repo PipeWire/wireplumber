@@ -1,0 +1,8 @@
+[node]
+factory = "spa-node-factory"
+local = false
+properties = [
+  { name = "node.name", value = "audioconvert" },
+  { name = "media.class", value = "Audio/Convert" },
+  { name = "factory.name", value = "audio.convert" },
+]

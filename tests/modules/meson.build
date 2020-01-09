@@ -16,6 +16,19 @@ test(
 )
 
 test(
+  'test-config-static-nodes',
+  executable('test-config-static-nodes',
+    [
+      'config-static-nodes.c',
+      '../../modules/module-config-static-nodes/parser-node.c',
+      '../../modules/module-config-static-nodes/context.c',
+    ],
+    dependencies: common_deps + [wptoml_dep]),
+  env: common_env,
+  workdir : meson.current_source_dir(),
+)
+
+test(
   'test-config-endpoint',
   executable('test-config-endpoint',
     [
