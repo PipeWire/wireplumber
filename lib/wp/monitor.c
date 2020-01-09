@@ -12,6 +12,8 @@
 #include <spa/utils/result.h>
 #include <pipewire/pipewire.h>
 
+#include "proxy-node.h"
+#include "proxy-device.h"
 #include "monitor.h"
 #include "error.h"
 #include "wpenums.h"
@@ -39,7 +41,7 @@ struct _WpMonitor
 struct object
 {
   guint32 id;
-  guint32 type;
+  GType type;
 
   WpProxy *proxy;
   WpProperties *properties;
@@ -107,22 +109,23 @@ device_object_info (void *data, uint32_t id,
 
   /* new object, construct... */
   if (info && !child) {
-    switch (info->type) {
-      case SPA_TYPE_INTERFACE_Device:
-        if (!(child = device_new (self, id, info->factory_name,
-                wp_properties_new_wrap_dict (info->props), &err))) {
-          g_debug ("WpMonitor:%p:%s %s", self, self->factory_name, err->message);
-          return;
-        }
-        break;
-      case SPA_TYPE_INTERFACE_Node:
-        if (!(child = node_new (obj, id, info)))
-          return;
-        break;
-      default:
-        g_debug ("WpMonitor:%p:%s got device_object_info for unknown object "
-            "type %u", self, self->factory_name, info->type);
+    /* Device */
+    if (g_strcmp0 (info->type, SPA_TYPE_INTERFACE_Device) == 0) {
+      if (!(child = device_new (self, id, info->factory_name,
+              wp_properties_new_wrap_dict (info->props), &err)))
+        g_debug ("WpMonitor:%p:%s %s", self, self->factory_name, err->message);
+      return;
+    }
+    /* Node */
+    else if (g_strcmp0 (info->type, SPA_TYPE_INTERFACE_Node) == 0) {
+      if (!(child = node_new (obj, id, info)))
         return;
+    }
+    /* Default */
+    else {
+      g_debug ("WpMonitor:%p:%s got device_object_info for unknown object "
+          "type %s", self, self->factory_name, info->type);
+      return;
     }
     obj->children = g_list_append (obj->children, child);
   }
@@ -163,14 +166,14 @@ wp_spa_object_unref (WpSpaObject *self)
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpSpaObject, wp_spa_object_unref)
 
 static WpSpaObject *
-load_spa_object (WpCore *core, const gchar *factory, guint32 iface_type,
+load_spa_object (WpCore *core, const gchar *factory, const char * iface_type,
     WpProperties *props, GError **error)
 {
   g_autoptr (WpSpaObject) self = g_rc_box_new0 (WpSpaObject);
   gint res;
 
   /* Load the monitor handle */
-  self->handle = pw_core_load_spa_handle (wp_core_get_pw_core (core),
+  self->handle = pw_context_load_spa_handle (wp_core_get_pw_context (core),
       factory, props ? wp_properties_peek_dict (props) : NULL);
   if (!self->handle) {
     g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
@@ -184,7 +187,7 @@ load_spa_object (WpCore *core, const gchar *factory, guint32 iface_type,
       (gpointer *)&self->interface);
   if (res < 0) {
     g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-        "Could not get interface 0x%x from SPA handle", iface_type);
+        "Could not get interface %s from SPA handle", iface_type);
     return NULL;
   }
 
@@ -221,7 +224,7 @@ node_new (struct object *dev, uint32_t id,
   struct object *node = NULL;
   const gchar *pw_factory_name = "spa-node-factory";
 
-  g_return_val_if_fail (info->type == SPA_TYPE_INTERFACE_Node, NULL);
+  g_return_val_if_fail (g_strcmp0 (info->type, SPA_TYPE_INTERFACE_Node) == 0, NULL);
 
   g_debug ("WpMonitor:%p:%s new node %u", self, self->factory_name, id);
 
@@ -249,9 +252,9 @@ node_new (struct object *dev, uint32_t id,
   /* create the node locally or remotely */
   proxy = (self->flags & WP_MONITOR_FLAG_LOCAL_NODES) ?
       wp_core_create_local_object (core, pw_factory_name,
-          PW_TYPE_INTERFACE_Node, PW_VERSION_NODE_PROXY, props) :
+          PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, props) :
       wp_core_create_remote_object (core, pw_factory_name,
-          PW_TYPE_INTERFACE_Node, PW_VERSION_NODE_PROXY, props);
+          PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, props);
   if (!proxy) {
     g_warning ("WpMonitor:%p: failed to create node: %s", self,
         g_strerror (errno));
@@ -261,7 +264,7 @@ node_new (struct object *dev, uint32_t id,
   node = g_slice_new0 (struct object);
   node->self = self;
   node->id = id;
-  node->type = SPA_TYPE_INTERFACE_Node;
+  node->type = WP_TYPE_PROXY_NODE;
   node->proxy = g_steal_pointer (&proxy);
 
   return node;
@@ -326,7 +329,7 @@ device_new (WpMonitor *self, uint32_t id, const gchar *factory_name,
   dev = g_slice_new0 (struct object);
   dev->self = self;
   dev->id = id;
-  dev->type = SPA_TYPE_INTERFACE_Device;
+  dev->type = WP_TYPE_PROXY_DEVICE;
   dev->spa_obj = g_steal_pointer (&spa_dev);
   dev->properties = g_steal_pointer (&props);
   dev->proxy = g_steal_pointer (&proxy);
@@ -352,7 +355,7 @@ static void
 object_free (struct object *obj)
 {
   g_debug ("WpMonitor:%p:%s free %s %u", obj->self, obj->self->factory_name,
-      (obj->type == SPA_TYPE_INTERFACE_Node) ? "node" : "device", obj->id);
+      g_type_name (obj->type), obj->id);
 
   g_list_free_full (obj->children, (GDestroyNotify) object_free);
   g_clear_object (&obj->proxy);

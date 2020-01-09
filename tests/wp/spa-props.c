@@ -100,10 +100,8 @@ test_spa_props_build_all (void)
   g_assert_cmpuint (id, ==, SPA_PROP_volume);
   g_assert_cmpstr (string_value, ==, "Volume");
   g_assert_nonnull (pod);
-  /* https://gitlab.freedesktop.org/pipewire/pipewire/issues/196
   g_assert_true (spa_pod_is_choice (pod));
-  g_assert_true (SPA_POD_CHOICE_VALUE_TYPE (pod) == SPA_TYPE_Float); */
-  g_assert_true (SPA_POD_TYPE (pod) == SPA_TYPE_Float);
+  g_assert_true (SPA_POD_CHOICE_VALUE_TYPE (pod) == SPA_TYPE_Float);
 
   pod = g_ptr_array_index (arr, 2);
   g_assert_nonnull (pod);
@@ -224,10 +222,8 @@ test_spa_props_register_from_prop_info (void)
   g_assert_cmpuint (id, ==, SPA_PROP_volume);
   g_assert_cmpstr (string_value, ==, "Volume");
   g_assert_nonnull (pod);
-  /* https://gitlab.freedesktop.org/pipewire/pipewire/issues/196
   g_assert_true (spa_pod_is_choice (pod));
-  g_assert_true (SPA_POD_CHOICE_VALUE_TYPE (pod) == SPA_TYPE_Float); */
-  g_assert_true (SPA_POD_TYPE (pod) == SPA_TYPE_Float);
+  g_assert_true (SPA_POD_CHOICE_VALUE_TYPE (pod) == SPA_TYPE_Float);
 
   pod = g_ptr_array_index (arr, 2);
   g_assert_nonnull (pod);

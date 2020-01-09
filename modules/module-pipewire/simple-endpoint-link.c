@@ -177,7 +177,7 @@ create_link_cb (WpProperties *props, gpointer user_data)
 
   /* Create the link */
   proxy = wp_core_create_remote_object(core, "link-factory",
-      PW_TYPE_INTERFACE_Link, PW_VERSION_LINK_PROXY, props);
+      PW_TYPE_INTERFACE_Link, PW_VERSION_LINK, props);
   g_return_if_fail (proxy);
   g_ptr_array_add(self->link_proxies, proxy);
 

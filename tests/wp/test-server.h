@@ -7,12 +7,12 @@
  */
 
 #include <pipewire/pipewire.h>
+#include <pipewire/impl.h>
 
 typedef struct {
   gchar *name;
-  struct pw_core *core;
-  struct pw_loop *loop;
   struct pw_thread_loop *thread_loop;
+  struct pw_context *context;
 } WpTestServer;
 
 static inline void
@@ -27,12 +27,10 @@ wp_test_server_setup (WpTestServer *self)
       PW_KEY_CORE_NAME, self->name,
       NULL);
 
-  self->loop = pw_loop_new (NULL);
-  self->thread_loop = pw_thread_loop_new (self->loop, "wp-test-server");
-  self->core = pw_core_new (self->loop, properties, 0);
+  self->thread_loop = pw_thread_loop_new ("wp-test-server", NULL);
+  self->context = pw_context_new (pw_thread_loop_get_loop (self->thread_loop), properties, 0);
 
-  pw_module_load (self->core, "libpipewire-module-protocol-native", NULL, NULL);
-  pw_module_load (self->core, "libpipewire-module-access", NULL, NULL);
+  pw_context_load_module (self->context, "libpipewire-module-access", NULL, NULL);
 
   pw_thread_loop_start (self->thread_loop);
 }
@@ -41,7 +39,6 @@ static inline void
 wp_test_server_teardown (WpTestServer *self)
 {
   pw_thread_loop_stop (self->thread_loop);
-  pw_core_destroy (self->core);
+  pw_context_destroy (self->context);
   pw_thread_loop_destroy (self->thread_loop);
-  pw_loop_destroy (self->loop);
 }

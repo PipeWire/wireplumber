@@ -57,7 +57,7 @@ loop_thread_start (void *d)
   wp_test_server_setup (&self->server);
 
   /* Add the audioconvert SPA library */
-  pw_core_add_spa_lib(self->server.core, "audio.convert*",
+  pw_context_add_spa_lib (self->server.context, "audio.convert*",
       "audioconvert/libspa-audioconvert");
 
   /* Create the core and connect to the server */
@@ -141,7 +141,7 @@ basic (TestConfigStaticNodesFixture *f, gconstpointer data)
   g_signal_connect (ctx, "node-created", (GCallback) on_node_created, f);
 
   /* Connect */
-  wp_core_connect (f->core);
+  g_assert_true (wp_core_connect (f->core));
 
   /* Wait for the node to be created */
   wait_for_created (f);

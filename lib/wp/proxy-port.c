@@ -104,8 +104,8 @@ port_event_param(void *data, int seq, uint32_t id, uint32_t index,
   }
 }
 
-static const struct pw_port_proxy_events port_events = {
-  PW_VERSION_PORT_PROXY_EVENTS,
+static const struct pw_port_events port_events = {
+  PW_VERSION_PORT_EVENTS,
   .info = port_event_info,
   .param = port_event_param,
 };
@@ -114,7 +114,7 @@ static void
 wp_proxy_port_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 {
   WpProxyPort *self = WP_PROXY_PORT (proxy);
-  pw_port_proxy_add_listener ((struct pw_port_proxy *) pw_proxy,
+  pw_port_add_listener ((struct pw_port *) pw_proxy,
       &self->listener, &port_events, self);
 }
 
@@ -230,15 +230,15 @@ gint
 wp_proxy_port_enum_params (WpProxyPort * self,
     guint32 id, const struct spa_pod *filter)
 {
-  struct pw_port_proxy *pwp;
+  struct pw_port *pwp;
   int enum_params_result;
 
   g_return_val_if_fail (WP_IS_PROXY_PORT (self), -EINVAL);
 
-  pwp = (struct pw_port_proxy *) wp_proxy_get_pw_proxy (WP_PROXY (self));
+  pwp = (struct pw_port *) wp_proxy_get_pw_proxy (WP_PROXY (self));
   g_return_val_if_fail (pwp != NULL, -EINVAL);
 
-  enum_params_result = pw_port_proxy_enum_params (pwp, 0, id, 0, -1, filter);
+  enum_params_result = pw_port_enum_params (pwp, 0, id, 0, -1, filter);
   g_warn_if_fail (enum_params_result >= 0);
 
   return enum_params_result;
@@ -262,15 +262,14 @@ void
 wp_proxy_port_subscribe_params_array (WpProxyPort * self, guint32 n_ids,
     guint32 *ids)
 {
-  struct pw_port_proxy *pwp;
+  struct pw_port *pwp;
   int port_subscribe_params_result;
 
   g_return_if_fail (WP_IS_PROXY_PORT (self));
 
-  pwp = (struct pw_port_proxy *) wp_proxy_get_pw_proxy (WP_PROXY (self));
+  pwp = (struct pw_port *) wp_proxy_get_pw_proxy (WP_PROXY (self));
   g_return_if_fail (pwp != NULL);
 
-  port_subscribe_params_result = pw_port_proxy_subscribe_params (
-      pwp, ids, n_ids);
+  port_subscribe_params_result = pw_port_subscribe_params (pwp, ids, n_ids);
   g_warn_if_fail (port_subscribe_params_result >= 0);
 }

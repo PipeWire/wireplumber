@@ -8,6 +8,7 @@
 
 #include <wp/wp.h>
 #include <pipewire/pipewire.h>
+#include <pipewire/extensions/session-manager/interfaces.h>
 
 static GOptionEntry entries[] =
 {
@@ -221,20 +222,9 @@ device_node_props (WpObjectManager * om, struct WpCliData * d)
 }
 
 static void
-remote_state_changed (WpCore *core, WpRemoteState state,
-    struct WpCliData * d)
+on_disconnected (WpCore *core, struct WpCliData * d)
 {
-  switch (state) {
-  case WP_REMOTE_STATE_UNCONNECTED:
-    g_main_loop_quit (d->loop);
-    break;
-  case WP_REMOTE_STATE_ERROR:
-    g_message ("pipewire remote error");
-    g_main_loop_quit (d->loop);
-    break;
-  default:
-    break;
-  }
+  g_main_loop_quit (d->loop);
 }
 
 static const gchar * const usage_string =
@@ -264,8 +254,7 @@ main (gint argc, gchar **argv)
 
   data.loop = loop = g_main_loop_new (NULL, FALSE);
   data.core = core = wp_core_new (NULL, NULL);
-  g_signal_connect (core, "remote-state-changed",
-      (GCallback) remote_state_changed, &data);
+  g_signal_connect (core, "disconnected", (GCallback) on_disconnected, &data);
 
   om = wp_object_manager_new ();
 

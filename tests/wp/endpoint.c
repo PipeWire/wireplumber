@@ -8,6 +8,7 @@
 
 #include <wp/wp.h>
 #include <pipewire/pipewire.h>
+#include <pipewire/extensions/session-manager.h>
 
 #include "test-server.h"
 
@@ -46,21 +47,11 @@ timeout_callback (TestEndpointFixture *fixture)
 }
 
 static void
-test_endpoint_remote_state_changed (WpCore *core, WpRemoteState state,
-    TestEndpointFixture *fixture)
+test_endpoint_disconnected (WpCore *core, TestEndpointFixture *fixture)
 {
-  const gchar * msg = NULL;
-
-  switch (state) {
-  case WP_REMOTE_STATE_ERROR:
-    wp_core_get_remote_state (core, &msg);
-    g_message ("remote error: %s", msg);
-    g_test_fail ();
-    g_main_loop_quit (fixture->loop);
-    break;
-  default:
-    break;
-  }
+  g_message ("core disconnected");
+  g_test_fail ();
+  g_main_loop_quit (fixture->loop);
 }
 
 static void
@@ -70,8 +61,8 @@ test_endpoint_setup (TestEndpointFixture *self, gconstpointer user_data)
 
   wp_test_server_setup (&self->server);
   pw_thread_loop_lock (self->server.thread_loop);
-  if (!pw_module_load (self->server.core, "libpipewire-module-session-manager",
-          NULL, NULL)) {
+  if (!pw_context_load_module (self->server.context,
+      "libpipewire-module-session-manager", NULL, NULL)) {
     pw_thread_loop_unlock (self->server.thread_loop);
     g_test_skip ("libpipewire-module-session-manager is not installed");
     return;
@@ -91,10 +82,10 @@ test_endpoint_setup (TestEndpointFixture *self, gconstpointer user_data)
   g_main_context_push_thread_default (self->context);
 
   /* watchdogs */
-  g_signal_connect (self->export_core, "remote-state-changed",
-      (GCallback) test_endpoint_remote_state_changed, self);
-  g_signal_connect (self->proxy_core, "remote-state-changed",
-      (GCallback) test_endpoint_remote_state_changed, self);
+  g_signal_connect (self->export_core, "disconnected",
+      (GCallback) test_endpoint_disconnected, self);
+  g_signal_connect (self->proxy_core, "disconnected",
+      (GCallback) test_endpoint_disconnected, self);
 
   self->timeout_source = g_timeout_source_new_seconds (3);
   g_source_set_callback (self->timeout_source, (GSourceFunc) timeout_callback,
@@ -226,7 +217,6 @@ test_endpoint_basic_notify_properties (WpEndpoint * endpoint, GParamSpec * param
 static void
 test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
 {
-  WpRemoteState state;
   g_autoptr (WpExportedEndpoint) endpoint = NULL;
   gfloat float_value;
   gboolean boolean_value;
@@ -241,11 +231,6 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
   wp_core_install_object_manager (fixture->export_core, fixture->export_om);
 
   g_assert_true (wp_core_connect (fixture->export_core));
-  do {
-    g_main_context_iteration (fixture->context, FALSE);
-    state = wp_core_get_remote_state (fixture->export_core, NULL);
-    g_assert_cmpint (state, !=, WP_REMOTE_STATE_ERROR);
-  } while (state != WP_REMOTE_STATE_CONNECTED);
 
   /* set up the proxy side */
   g_signal_connect (fixture->proxy_om, "object-added",
@@ -258,11 +243,6 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
   wp_core_install_object_manager (fixture->proxy_core, fixture->proxy_om);
 
   g_assert_true (wp_core_connect (fixture->proxy_core));
-  do {
-    g_main_context_iteration (fixture->context, FALSE);
-    state = wp_core_get_remote_state (fixture->proxy_core, NULL);
-    g_assert_cmpint (state, !=, WP_REMOTE_STATE_ERROR);
-  } while (state != WP_REMOTE_STATE_CONNECTED);
 
   /* create endpoint */
   endpoint = wp_exported_endpoint_new (fixture->export_core);

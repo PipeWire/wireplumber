@@ -11,6 +11,7 @@
 
 #include <pipewire/pipewire.h>
 #include <spa/utils/keys.h>
+#include <spa/monitor/device.h>
 
 static void
 setup_device_props (WpMonitor *self, WpProperties *p, WpModule *module)
@@ -244,6 +245,6 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   wp_module_set_destroy_callback (module, g_object_unref, monitor);
 
   /* Start the monitor when the connected callback is triggered */
-  g_signal_connect_object (core, "remote-state-changed::connected",
+  g_signal_connect_object (core, "connected",
       (GCallback) start_monitor, monitor, G_CONNECT_SWAPPED);
 }

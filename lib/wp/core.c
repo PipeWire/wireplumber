@@ -14,6 +14,8 @@
 #include "private.h"
 
 #include <pipewire/pipewire.h>
+#include <pipewire/impl.h>
+
 #include <spa/utils/result.h>
 #include <spa/debug/types.h>
 
@@ -86,16 +88,13 @@ struct _WpCore
   WpProperties *properties;
 
   /* pipewire main objects */
+  struct pw_context *pw_context;
   struct pw_core *pw_core;
-  struct pw_remote *pw_remote;
-  struct spa_hook remote_listener;
+  struct pw_registry *pw_registry;
 
-  /* remote core */
-  struct pw_core_proxy *core_proxy;
+  /* pipewire main listeners */
   struct spa_hook core_listener;
-
-  /* remote registry */
-  struct pw_registry_proxy *registry_proxy;
+  struct spa_hook proxy_core_listener;
   struct spa_hook registry_listener;
 
   GPtrArray *globals; // elementy-type: WpGlobal*
@@ -108,23 +107,24 @@ enum {
   PROP_0,
   PROP_CONTEXT,
   PROP_PROPERTIES,
+  PROP_PW_CONTEXT,
   PROP_PW_CORE,
-  PROP_PW_REMOTE,
-  PROP_REMOTE_STATE,
 };
 
 enum {
-  SIGNAL_REMOTE_STATE_CHANGED,
+  SIGNAL_CONNECTED,
+  SIGNAL_DISCONNECTED,
   NUM_SIGNALS
 };
 
 static guint32 signals[NUM_SIGNALS];
 
+
 G_DEFINE_TYPE (WpCore, wp_core, G_TYPE_OBJECT)
 
 static void
 registry_global (void *data, uint32_t id, uint32_t permissions,
-    uint32_t type, uint32_t version, const struct spa_dict *props)
+    const char *type, uint32_t version, const struct spa_dict *props)
 {
   WpCore *self = WP_CORE (data);
   WpGlobal *global = NULL;
@@ -133,14 +133,13 @@ registry_global (void *data, uint32_t id, uint32_t permissions,
   g_return_if_fail (self->globals->len <= id ||
           g_ptr_array_index (self->globals, id) == NULL);
 
-  g_debug ("registry global:%u perm:0x%x type:%u/%u (%s)",
-      id, permissions, type, version,
-      spa_debug_type_find_name (pw_type_info (), type));
+  g_debug ("registry global:%u perm:0x%x type:%s version:%u",
+      id, permissions, type, version);
 
   /* construct & store the global */
   global = wp_global_new ();
   global->id = id;
-  global->type = type;
+  global->type = g_strdup (type);
   global->version = version;
   global->permissions = permissions;
   global->properties = wp_properties_new_copy_dict (props);
@@ -166,9 +165,8 @@ registry_global_remove (void *data, uint32_t id)
 
   global = g_steal_pointer (&g_ptr_array_index (self->globals, id));
 
-  g_debug ("registry global removed:%u type:%u/%u (%s)", id,
-      global->type, global->version,
-      spa_debug_type_find_name (pw_type_info (), global->type));
+  g_debug ("registry global removed:%u type:%s/%u", id,
+      global->type, global->version);
 
   /* notify object managers */
   for (i = 0; i < self->object_managers->len; i++) {
@@ -177,8 +175,8 @@ registry_global_remove (void *data, uint32_t id)
   }
 }
 
-static const struct pw_registry_proxy_events registry_proxy_events = {
-  PW_VERSION_REGISTRY_PROXY_EVENTS,
+static const struct pw_registry_events registry_events = {
+  PW_VERSION_REGISTRY_EVENTS,
   .global = registry_global,
   .global_remove = registry_global_remove,
 };
@@ -195,49 +193,24 @@ core_done (void *data, uint32_t id, int seq)
     g_task_return_boolean (task, TRUE);
 }
 
-static const struct pw_core_proxy_events core_events = {
+static const struct pw_core_events core_events = {
   PW_VERSION_CORE_EVENTS,
   .done = core_done,
 };
 
 static void
-registry_init (WpCore *self)
+proxy_core_destroy (void *data)
 {
-  /* Get the core proxy */
-  self->core_proxy = pw_remote_get_core_proxy (self->pw_remote);
-  pw_core_proxy_add_listener(self->core_proxy, &self->core_listener,
-      &core_events, self);
+  WpCore *self = WP_CORE (data);
+  self->pw_core = NULL;
 
-  /* Registry */
-  self->registry_proxy = pw_core_proxy_get_registry (self->core_proxy,
-      PW_VERSION_REGISTRY_PROXY, 0);
-  pw_registry_proxy_add_listener(self->registry_proxy, &self->registry_listener,
-      &registry_proxy_events, self);
+  /* Emit the disconnected signal */
+  g_signal_emit (self, signals[SIGNAL_DISCONNECTED], 0);
 }
 
-static void
-on_remote_state_changed (void *d, enum pw_remote_state old_state,
-    enum pw_remote_state new_state, const char *error)
-{
-  WpCore *self = d;
-  GQuark detail;
-
-  g_debug ("pipewire remote state changed, old:%s new:%s",
-      pw_remote_state_as_string (old_state),
-      pw_remote_state_as_string (new_state));
-
-  /* Init the registry when connected */
-  if (!self->registry_proxy && new_state == PW_REMOTE_STATE_CONNECTED)
-    registry_init (self);
-
-  /* enum pw_remote_state matches values with WpRemoteState */
-  detail = g_quark_from_static_string (pw_remote_state_as_string (new_state));
-  g_signal_emit (self, signals[SIGNAL_REMOTE_STATE_CHANGED], detail, new_state);
-}
-
-static const struct pw_remote_events remote_events = {
-  PW_VERSION_REMOTE_EVENTS,
-  .state_changed = on_remote_state_changed,
+static const struct pw_proxy_events proxy_core_events = {
+  PW_VERSION_PROXY_EVENTS,
+  .destroy = proxy_core_destroy,
 };
 
 /* wrapper around wp_global_unref because
@@ -264,18 +237,15 @@ wp_core_constructed (GObject *object)
 {
   WpCore *self = WP_CORE (object);
   g_autoptr (GSource) source = NULL;
-  struct pw_properties *p;
+  struct pw_properties *p = NULL;
 
+  /* loop */
   source = wp_loop_source_new ();
   g_source_attach (source, self->context);
 
+  /* context */
   p = self->properties ? wp_properties_to_pw_properties (self->properties) : NULL;
-  self->pw_core = pw_core_new (WP_LOOP_SOURCE (source)->loop, p, 0);
-
-  p = self->properties ? wp_properties_to_pw_properties (self->properties) : NULL;
-  self->pw_remote = pw_remote_new (self->pw_core, p, 0);
-  pw_remote_add_listener (self->pw_remote, &self->remote_listener,
-      &remote_events, self);
+  self->pw_context = pw_context_new (WP_LOOP_SOURCE(source)->loop, p, 0);
 
   G_OBJECT_CLASS (wp_core_parent_class)->constructed (object);
 }
@@ -346,10 +316,10 @@ wp_core_finalize (GObject * obj)
 {
   WpCore *self = WP_CORE (obj);
 
-  g_clear_pointer (&self->pw_remote, pw_remote_destroy);
-  self->core_proxy= NULL;
-  self->registry_proxy = NULL;
-  g_clear_pointer (&self->pw_core, pw_core_destroy);
+  wp_core_disconnect (self);
+
+  g_clear_pointer (&self->pw_context, pw_context_destroy);
+
   g_clear_pointer (&self->properties, wp_properties_unref);
   g_clear_pointer (&self->context, g_main_context_unref);
   g_clear_pointer (&self->async_tasks, g_hash_table_unref);
@@ -372,14 +342,11 @@ wp_core_get_property (GObject * object, guint property_id,
   case PROP_PROPERTIES:
     g_value_set_boxed (value, self->properties);
     break;
+  case PROP_PW_CONTEXT:
+    g_value_set_pointer (value, self->pw_context);
+    break;
   case PROP_PW_CORE:
     g_value_set_pointer (value, self->pw_core);
-    break;
-  case PROP_PW_REMOTE:
-    g_value_set_pointer (value, self->pw_remote);
-    break;
-  case PROP_REMOTE_STATE:
-    g_value_set_enum (value, wp_core_get_remote_state (self, NULL));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -429,24 +396,21 @@ wp_core_class_init (WpCoreClass * klass)
           WP_TYPE_PROPERTIES,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (object_class, PROP_PW_CONTEXT,
+      g_param_spec_pointer ("pw-context", "pw-context", "The pipewire context",
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+
   g_object_class_install_property (object_class, PROP_PW_CORE,
       g_param_spec_pointer ("pw-core", "pw-core", "The pipewire core",
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
-  g_object_class_install_property (object_class, PROP_PW_REMOTE,
-      g_param_spec_pointer ("pw-remote", "pw-remote", "The pipewire remote",
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (object_class, PROP_REMOTE_STATE,
-      g_param_spec_enum ("remote-state", "remote-state",
-          "The state of the remote",
-          WP_TYPE_REMOTE_STATE, WP_REMOTE_STATE_UNCONNECTED,
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
-
   /* Signals */
-  signals[SIGNAL_REMOTE_STATE_CHANGED] = g_signal_new ("remote-state-changed",
-      G_TYPE_FROM_CLASS (klass), G_SIGNAL_DETAILED | G_SIGNAL_RUN_LAST,
-      0, NULL, NULL, NULL, G_TYPE_NONE, 1, WP_TYPE_REMOTE_STATE);
+  signals[SIGNAL_CONNECTED] = g_signal_new ("connected",
+      G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
+      G_TYPE_NONE, 0);
+  signals[SIGNAL_DISCONNECTED] = g_signal_new ("disconnected",
+      G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
+      G_TYPE_NONE, 0);
 }
 
 WpCore *
@@ -463,6 +427,77 @@ wp_core_get_context (WpCore * self)
 {
   g_return_val_if_fail (WP_IS_CORE (self), NULL);
   return self->context;
+}
+
+struct pw_context *
+wp_core_get_pw_context (WpCore * self)
+{
+  g_return_val_if_fail (WP_IS_CORE (self), NULL);
+  return self->pw_context;
+}
+
+struct pw_registry *
+wp_core_get_pw_registry (WpCore * self)
+{
+  g_return_val_if_fail (WP_IS_CORE (self), NULL);
+  return self->pw_registry;
+}
+
+gboolean
+wp_core_connect (WpCore *self)
+{
+  struct pw_properties *p = NULL;
+
+  g_return_val_if_fail (WP_IS_CORE (self), FALSE);
+
+  /* Don't do anything if core is already connected */
+  if (self->pw_core)
+    return TRUE;
+
+  g_return_val_if_fail (!self->pw_registry, FALSE);
+
+  /* Connect */
+  p = self->properties ? wp_properties_to_pw_properties (self->properties) : NULL;
+  self->pw_core = pw_context_connect (self->pw_context, p, 0);
+  if (!self->pw_core)
+    return FALSE;
+
+  /* Add the core listeners */
+  pw_core_add_listener (self->pw_core, &self->core_listener, &core_events, self);
+  pw_proxy_add_listener((struct pw_proxy*)self->pw_core,
+      &self->proxy_core_listener, &proxy_core_events, self);
+
+  /* Add the registry listener */
+  self->pw_registry = pw_core_get_registry (self->pw_core,
+      PW_VERSION_REGISTRY, 0);
+  pw_registry_add_listener(self->pw_registry, &self->registry_listener,
+      &registry_events, self);
+
+  /* Emit the connected signal */
+  g_signal_emit (self, signals[SIGNAL_CONNECTED], 0);
+
+  return TRUE;
+}
+
+void
+wp_core_disconnect (WpCore *self)
+{
+  if (self->pw_registry) {
+    pw_proxy_destroy ((struct pw_proxy *)self->pw_registry);
+    self->pw_registry = NULL;
+  }
+
+  g_clear_pointer (&self->pw_core, pw_core_disconnect);
+
+  /* Emit the disconnected signal */
+  g_signal_emit (self, signals[SIGNAL_DISCONNECTED], 0);
+}
+
+gboolean
+wp_core_is_connected (WpCore * self)
+{
+  g_return_val_if_fail (WP_IS_CORE (self), FALSE);
+  return self->pw_core != NULL;
 }
 
 guint
@@ -490,17 +525,17 @@ wp_core_sync (WpCore * self, GCancellable * cancellable,
 
   task = g_task_new (self, cancellable, callback, user_data);
 
-  if (G_UNLIKELY (!self->core_proxy)) {
+  if (G_UNLIKELY (!self->pw_core)) {
     g_warn_if_reached ();
     g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
-        WP_LIBRARY_ERROR_INVARIANT, "No core proxy");
+        WP_LIBRARY_ERROR_INVARIANT, "No pipewire core");
     return FALSE;
   }
 
-  seq = pw_core_proxy_sync (self->core_proxy, 0, 0);
+  seq = pw_core_sync (self->pw_core, 0, 0);
   if (G_UNLIKELY (seq < 0)) {
     g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
-        WP_LIBRARY_ERROR_OPERATION_FAILED, "pw_core_proxy_sync failed: %s",
+        WP_LIBRARY_ERROR_OPERATION_FAILED, "pw_core_sync failed: %s",
         g_strerror (-seq));
     return FALSE;
   }
@@ -510,47 +545,19 @@ wp_core_sync (WpCore * self, GCancellable * cancellable,
   return TRUE;
 }
 
-struct pw_core *
-wp_core_get_pw_core (WpCore * self)
-{
-  g_return_val_if_fail (WP_IS_CORE (self), NULL);
-  return self->pw_core;
-}
-
-gboolean
-wp_core_connect (WpCore *self)
-{
-  g_return_val_if_fail (WP_IS_CORE (self), FALSE);
-  return pw_remote_connect (self->pw_remote) >= 0;
-}
-
-WpRemoteState
-wp_core_get_remote_state (WpCore * self, const gchar ** error)
-{
-  g_return_val_if_fail (WP_IS_CORE (self), WP_REMOTE_STATE_UNCONNECTED);
-
-  /* enum pw_remote_state matches values with WpRemoteState */
-  G_STATIC_ASSERT ((gint) WP_REMOTE_STATE_ERROR == (gint) PW_REMOTE_STATE_ERROR);
-  G_STATIC_ASSERT ((gint) WP_REMOTE_STATE_UNCONNECTED == (gint) PW_REMOTE_STATE_UNCONNECTED);
-  G_STATIC_ASSERT ((gint) WP_REMOTE_STATE_CONNECTING == (gint) PW_REMOTE_STATE_CONNECTING);
-  G_STATIC_ASSERT ((gint) WP_REMOTE_STATE_CONNECTED == (gint) PW_REMOTE_STATE_CONNECTED);
-
-  return (WpRemoteState) pw_remote_get_state (self->pw_remote, error);
-}
-
 WpProxy *
-wp_core_export_object (WpCore * self, guint32 interface_type,
+wp_core_export_object (WpCore * self, const gchar * interface_type,
     gpointer local_object, WpProperties * properties)
 {
   struct pw_proxy *proxy = NULL;
-  guint32 type;
+  const char *type;
   guint32 version;
 
   g_return_val_if_fail (WP_IS_CORE (self), NULL);
-  g_return_val_if_fail (self->pw_remote, NULL);
+  g_return_val_if_fail (self->pw_core, NULL);
 
-  proxy = pw_remote_export (self->pw_remote, interface_type,
-      properties ? wp_properties_to_pw_properties (properties) : NULL,
+  proxy = pw_core_export (self->pw_core, interface_type,
+      properties ? wp_properties_peek_dict (properties) : NULL,
       local_object, 0);
   if (!proxy)
     return NULL;
@@ -560,23 +567,22 @@ wp_core_export_object (WpCore * self, guint32 interface_type,
 }
 
 WpProxy *
-wp_core_create_local_object (WpCore * self, const gchar *factory_name,
-    guint32 interface_type, guint32 interface_version,
+wp_core_create_local_object (WpCore * self, const gchar * factory_name,
+    const gchar *interface_type, guint32 interface_version,
     WpProperties * properties)
 {
   struct pw_proxy *pw_proxy = NULL;
-  struct pw_factory *factory = NULL;
+  struct pw_impl_factory *factory = NULL;
   gpointer local_object = NULL;
 
   g_return_val_if_fail (WP_IS_CORE (self), NULL);
   g_return_val_if_fail (self->pw_core, NULL);
-  g_return_val_if_fail (self->pw_remote, NULL);
 
-  factory = pw_core_find_factory (self->pw_core, factory_name);
+  factory = pw_context_find_factory (self->pw_context, factory_name);
   if (!factory)
     return NULL;
 
-  local_object = pw_factory_create_object (factory,
+  local_object = pw_impl_factory_create_object (factory,
       NULL,
       interface_type,
       interface_version,
@@ -585,9 +591,9 @@ wp_core_create_local_object (WpCore * self, const gchar *factory_name,
   if (!local_object)
     return NULL;
 
-  pw_proxy = pw_remote_export (self->pw_remote,
+  pw_proxy = pw_core_export (self->pw_core,
       interface_type,
-      properties ? wp_properties_to_pw_properties (properties) : NULL,
+      properties ? wp_properties_peek_dict (properties) : NULL,
       local_object,
       0);
   if (!pw_proxy) {
@@ -601,26 +607,19 @@ wp_core_create_local_object (WpCore * self, const gchar *factory_name,
 
 WpProxy *
 wp_core_create_remote_object (WpCore *self,
-    const gchar *factory_name, guint32 interface_type,
+    const gchar *factory_name, const gchar * interface_type,
     guint32 interface_version, WpProperties * properties)
 {
   struct pw_proxy *pw_proxy;
 
   g_return_val_if_fail (WP_IS_CORE (self), NULL);
-  g_return_val_if_fail (self->core_proxy, NULL);
+  g_return_val_if_fail (self->pw_core, NULL);
 
-  pw_proxy = pw_core_proxy_create_object (self->core_proxy, factory_name,
+  pw_proxy = pw_core_create_object (self->pw_core, factory_name,
       interface_type, interface_version,
       properties ? wp_properties_peek_dict (properties) : NULL, 0);
   return wp_proxy_new_wrap (self, pw_proxy, interface_type, interface_version,
       NULL);
-}
-
-struct pw_registry_proxy *
-wp_core_get_pw_registry_proxy (WpCore * self)
-{
-  g_return_val_if_fail (WP_IS_CORE (self), NULL);
-  return self->registry_proxy;
 }
 
 /**

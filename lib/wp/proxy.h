@@ -41,7 +41,7 @@ struct _WpProxyClass
 };
 
 WpProxy * wp_proxy_new_wrap (WpCore * core, struct pw_proxy * proxy,
-    guint32 type, guint32 version, gpointer local_object);
+    const char *type, guint32 version, gpointer local_object);
 
 void wp_proxy_augment (WpProxy *self,
     WpProxyFeatures wanted_features, GCancellable * cancellable,
@@ -58,8 +58,7 @@ guint32 wp_proxy_get_global_id (WpProxy * self);
 guint32 wp_proxy_get_global_permissions (WpProxy * self);
 WpProperties * wp_proxy_get_global_properties (WpProxy * self);
 
-guint32 wp_proxy_get_interface_type (WpProxy * self);
-const gchar * wp_proxy_get_interface_name (WpProxy * self);
+const char * wp_proxy_get_interface_type (WpProxy * self);
 GQuark wp_proxy_get_interface_quark (WpProxy * self);
 guint32 wp_proxy_get_interface_version (WpProxy * self);
 

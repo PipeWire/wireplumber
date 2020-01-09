@@ -226,8 +226,8 @@ session_event_param (void *data, int seq, uint32_t id, uint32_t index,
   }
 }
 
-static const struct pw_session_proxy_events session_events = {
-  PW_VERSION_SESSION_PROXY_EVENTS,
+static const struct pw_session_events session_events = {
+  PW_VERSION_SESSION_EVENTS,
   .info = session_event_info,
   .param = session_event_param,
 };
@@ -236,7 +236,7 @@ static void
 wp_proxy_session_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 {
   WpProxySession *self = WP_PROXY_SESSION (proxy);
-  pw_session_proxy_add_listener ((struct pw_session_proxy *) pw_proxy,
+  pw_session_add_listener ((struct pw_session *) pw_proxy,
       &self->listener, &session_events, self);
 }
 
@@ -247,15 +247,15 @@ wp_proxy_session_augment (WpProxy * proxy, WpProxyFeatures features)
   WP_PROXY_CLASS (wp_proxy_session_parent_class)->augment (proxy, features);
 
   if (features & WP_PROXY_SESSION_FEATURE_DEFAULT_ENDPOINT) {
-    struct pw_session_proxy *pw_proxy = NULL;
+    struct pw_session *pw_proxy = NULL;
     uint32_t ids[] = { SPA_PARAM_Props };
 
-    pw_proxy = (struct pw_session_proxy *) wp_proxy_get_pw_proxy (proxy);
+    pw_proxy = (struct pw_session *) wp_proxy_get_pw_proxy (proxy);
     if (!pw_proxy)
       return;
 
-    pw_session_proxy_enum_params (pw_proxy, 0, SPA_PARAM_PropInfo, 0, -1, NULL);
-    pw_session_proxy_subscribe_params (pw_proxy, ids, SPA_N_ELEMENTS (ids));
+    pw_session_enum_params (pw_proxy, 0, SPA_PARAM_PropInfo, 0, -1, NULL);
+    pw_session_subscribe_params (pw_proxy, ids, SPA_N_ELEMENTS (ids));
   }
 }
 
@@ -287,13 +287,13 @@ wp_proxy_session_set_default_endpoint (WpSession * session,
   WpProxySession *self = WP_PROXY_SESSION (session);
   char buf[1024];
   struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buf, sizeof (buf));
-  struct pw_session_proxy *pw_proxy = NULL;
+  struct pw_session *pw_proxy = NULL;
 
   /* set the default endpoint id as a property param on the session;
      our spa_props cache will be updated by the param event */
 
-  pw_proxy = (struct pw_session_proxy *) wp_proxy_get_pw_proxy (WP_PROXY (self));
-  pw_session_proxy_set_param (pw_proxy,
+  pw_proxy = (struct pw_session *) wp_proxy_get_pw_proxy (WP_PROXY (self));
+  pw_session_set_param (pw_proxy,
       SPA_PARAM_Props, 0,
       spa_pod_builder_add_object (&b,
           SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
@@ -418,11 +418,11 @@ client_session_update (WpExportedSession * self, guint32 change_mask,
       wp_exported_session_get_instance_private (self);
   char buf[1024];
   struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buf, sizeof (buf));
-  struct pw_client_session_proxy *pw_proxy = NULL;
+  struct pw_client_session *pw_proxy = NULL;
   struct pw_session_info *info = NULL;
   g_autoptr (GPtrArray) params = NULL;
 
-  pw_proxy = (struct pw_client_session_proxy *) wp_proxy_get_pw_proxy (
+  pw_proxy = (struct pw_client_session *) wp_proxy_get_pw_proxy (
       priv->client_sess);
 
   if (change_mask & PW_CLIENT_SESSION_UPDATE_PARAMS) {
@@ -433,7 +433,7 @@ client_session_update (WpExportedSession * self, guint32 change_mask,
     info->change_mask = info_change_mask;
   }
 
-  pw_client_session_proxy_update (pw_proxy,
+  pw_client_session_update (pw_proxy,
       change_mask,
       params ? params->len : 0,
       (const struct spa_pod **) (params ? params->pdata : NULL),
@@ -485,8 +485,8 @@ client_session_proxy_bound (void *object, uint32_t global_id)
   wp_exported_notify_export_done (WP_EXPORTED (self), NULL);
 }
 
-static struct pw_client_session_proxy_events client_session_events = {
-  PW_VERSION_CLIENT_SESSION_PROXY_EVENTS,
+static struct pw_client_session_events client_session_events = {
+  PW_VERSION_CLIENT_SESSION_EVENTS,
   .set_param = client_session_set_param,
 };
 
@@ -501,7 +501,7 @@ wp_exported_session_export (WpExported * self)
   WpExportedSessionPrivate *priv =
       wp_exported_session_get_instance_private (WP_EXPORTED_SESSION (self));
   g_autoptr (WpCore) core = wp_exported_get_core (self);
-  struct pw_client_session_proxy *pw_proxy = NULL;
+  struct pw_client_session *pw_proxy = NULL;
 
   /* make sure these props are not present; they are added by the server */
   wp_properties_set (priv->properties, PW_KEY_OBJECT_ID, NULL);
@@ -509,13 +509,13 @@ wp_exported_session_export (WpExported * self)
   wp_properties_set (priv->properties, PW_KEY_FACTORY_ID, NULL);
 
   priv->client_sess = wp_core_create_remote_object (core, "client-session",
-      PW_TYPE_INTERFACE_ClientSession, PW_VERSION_CLIENT_SESSION_PROXY,
+      PW_TYPE_INTERFACE_ClientSession, PW_VERSION_CLIENT_SESSION,
       priv->properties);
 
-  pw_proxy = (struct pw_client_session_proxy *) wp_proxy_get_pw_proxy (
+  pw_proxy = (struct pw_client_session *) wp_proxy_get_pw_proxy (
       priv->client_sess);
 
-  pw_client_session_proxy_add_listener (pw_proxy, &priv->listener,
+  pw_client_session_add_listener (pw_proxy, &priv->listener,
       &client_session_events, self);
   pw_proxy_add_listener ((struct pw_proxy *) pw_proxy, &priv->proxy_listener,
       &client_sess_proxy_events, self);

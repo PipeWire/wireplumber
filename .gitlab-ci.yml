@@ -10,7 +10,6 @@ build:
   script:
     # Build pipewire
     - cd pipewire
-    - git reset --hard b0932e687fc47e0872ca291531f2291d99042d70
     - meson . _build --prefix=/usr
         -Dpipewire-alsa=false -Dpipewire-pulseaudio=false -Dpipewire-jack=false
         -Djack=false -Dvulkan=false -Dgstreamer=false -Dbluez5=false -Dman=false

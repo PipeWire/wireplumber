@@ -76,8 +76,8 @@ client_event_info(void *data, const struct pw_client_info *info)
   wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
 }
 
-static const struct pw_client_proxy_events client_events = {
-  PW_VERSION_CLIENT_PROXY_EVENTS,
+static const struct pw_client_events client_events = {
+  PW_VERSION_CLIENT_EVENTS,
   .info = client_event_info,
 };
 
@@ -85,7 +85,7 @@ static void
 wp_proxy_client_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 {
   WpProxyClient *self = WP_PROXY_CLIENT (proxy);
-  pw_client_proxy_add_listener ((struct pw_client_proxy *) pw_proxy,
+  pw_client_add_listener ((struct pw_client *) pw_proxy,
       &self->listener, &client_events, self);
 }
 
@@ -144,15 +144,15 @@ void
 wp_proxy_client_update_permissions_array (WpProxyClient * self,
     guint n_perm, const struct pw_permission *permissions)
 {
-  struct pw_client_proxy *pwp;
+  struct pw_client *pwp;
   int client_update_permissions_result;
 
   g_return_if_fail (WP_IS_PROXY_CLIENT (self));
 
-  pwp = (struct pw_client_proxy *) wp_proxy_get_pw_proxy (WP_PROXY (self));
+  pwp = (struct pw_client *) wp_proxy_get_pw_proxy (WP_PROXY (self));
   g_return_if_fail (pwp != NULL);
 
-  client_update_permissions_result = pw_client_proxy_update_permissions (
+  client_update_permissions_result = pw_client_update_permissions (
       pwp, n_perm, permissions);
   g_warn_if_fail (client_update_permissions_result >= 0);
 }

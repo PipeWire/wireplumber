@@ -40,21 +40,11 @@ timeout_callback (TestProxyFixture *fixture)
 }
 
 static void
-test_proxy_remote_state_changed (WpCore *core, WpRemoteState state,
-    TestProxyFixture *fixture)
+test_proxy_disconnected (WpCore *core, TestProxyFixture *fixture)
 {
-  const gchar * msg = NULL;
-
-  switch (state) {
-  case WP_REMOTE_STATE_ERROR:
-    wp_core_get_remote_state (core, &msg);
-    g_message ("remote error: %s", msg);
-    g_test_fail ();
-    g_main_loop_quit (fixture->loop);
-    break;
-  default:
-    break;
-  }
+  g_message ("core disconnected");
+  g_test_fail ();
+  g_main_loop_quit (fixture->loop);
 }
 
 static void
@@ -73,8 +63,8 @@ test_proxy_setup (TestProxyFixture *self, gconstpointer user_data)
   g_main_context_push_thread_default (self->context);
 
   /* watchdogs */
-  g_signal_connect (self->core, "remote-state-changed",
-      (GCallback) test_proxy_remote_state_changed, self);
+  g_signal_connect (self->core, "disconnected",
+      (GCallback) test_proxy_disconnected, self);
 
   self->timeout_source = g_timeout_source_new_seconds (3);
   g_source_set_callback (self->timeout_source, (GSourceFunc) timeout_callback,
@@ -139,10 +129,8 @@ test_proxy_basic_object_added (WpObjectManager *om, WpProxy *proxy,
   g_assert_true (wp_proxy_is_global (proxy));
   g_assert_cmpuint (wp_proxy_get_interface_quark (proxy), ==,
       g_quark_from_string ("client"));
-  g_assert_cmpuint (wp_proxy_get_interface_type (proxy), ==,
+  g_assert_cmpstr (wp_proxy_get_interface_type (proxy), ==,
       PW_TYPE_INTERFACE_Client);
-  g_assert_cmpstr (wp_proxy_get_interface_name (proxy), ==,
-      "PipeWire:Interface:Client");
   g_assert_cmphex (wp_proxy_get_global_permissions (proxy), ==, PW_PERM_RWX);
   g_assert_true (WP_IS_PROXY_CLIENT (proxy));
 
@@ -221,7 +209,7 @@ test_proxy_node_object_added (WpObjectManager *om, WpProxy *proxy,
 
   g_assert_nonnull (proxy);
   g_assert_true (wp_proxy_is_global (proxy));
-  g_assert_cmpuint (wp_proxy_get_interface_type (proxy), ==,
+  g_assert_cmpstr (wp_proxy_get_interface_type (proxy), ==,
       PW_TYPE_INTERFACE_Node);
   g_assert_cmphex (wp_proxy_get_features (proxy), ==,
       WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO);
@@ -259,10 +247,10 @@ test_proxy_node (TestProxyFixture *fixture, gconstpointer data)
 {
   /* load audiotestsrc on the server side */
   pw_thread_loop_lock (fixture->server.thread_loop);
-  pw_core_add_spa_lib (fixture->server.core, "audiotestsrc",
+  pw_context_add_spa_lib (fixture->server.context, "audiotestsrc",
       "audiotestsrc/libspa-audiotestsrc");
-  if (!pw_module_load (fixture->server.core, "libpipewire-module-spa-node",
-        "audiotestsrc", NULL)) {
+  if (!pw_context_load_module (fixture->server.context,
+        "libpipewire-module-spa-node", "audiotestsrc", NULL)) {
     pw_thread_loop_unlock (fixture->server.thread_loop);
     g_test_skip ("audiotestsrc SPA plugin is not installed");
     return;

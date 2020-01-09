@@ -103,8 +103,8 @@ node_event_param (void *data, int seq, uint32_t id, uint32_t index,
   }
 }
 
-static const struct pw_node_proxy_events node_events = {
-  PW_VERSION_NODE_PROXY_EVENTS,
+static const struct pw_node_events node_events = {
+  PW_VERSION_NODE_EVENTS,
   .info = node_event_info,
   .param = node_event_param,
 };
@@ -113,7 +113,7 @@ static void
 wp_proxy_node_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 {
   WpProxyNode *self = WP_PROXY_NODE (proxy);
-  pw_node_proxy_add_listener ((struct pw_node_proxy *) pw_proxy,
+  pw_node_add_listener ((struct pw_node *) pw_proxy,
       &self->listener, &node_events, self);
 }
 
@@ -229,15 +229,15 @@ gint
 wp_proxy_node_enum_params (WpProxyNode * self,
     guint32 id, const struct spa_pod *filter)
 {
-  struct pw_node_proxy *pwp;
+  struct pw_node *pwp;
   int enum_params_result;
 
   g_return_val_if_fail (WP_IS_PROXY_NODE (self), -EINVAL);
 
-  pwp = (struct pw_node_proxy *) wp_proxy_get_pw_proxy (WP_PROXY (self));
+  pwp = (struct pw_node *) wp_proxy_get_pw_proxy (WP_PROXY (self));
   g_return_val_if_fail (pwp != NULL, -EINVAL);
 
-  enum_params_result = pw_node_proxy_enum_params (pwp, 0, id, 0, -1, filter);
+  enum_params_result = pw_node_enum_params (pwp, 0, id, 0, -1, filter);
   g_warn_if_fail (enum_params_result >= 0);
 
   return enum_params_result;
@@ -261,15 +261,15 @@ void
 wp_proxy_node_subscribe_params_array (WpProxyNode * self, guint32 n_ids,
     guint32 *ids)
 {
-  struct pw_node_proxy *pwp;
+  struct pw_node *pwp;
   int node_subscribe_params_result;
 
   g_return_if_fail (WP_IS_PROXY_NODE (self));
 
-  pwp = (struct pw_node_proxy *) wp_proxy_get_pw_proxy (WP_PROXY (self));
+  pwp = (struct pw_node *) wp_proxy_get_pw_proxy (WP_PROXY (self));
   g_return_if_fail (pwp != NULL);
 
-  node_subscribe_params_result = pw_node_proxy_subscribe_params (
+  node_subscribe_params_result = pw_node_subscribe_params (
       pwp, ids, n_ids);
   g_warn_if_fail (node_subscribe_params_result >= 0);
 }
@@ -278,15 +278,14 @@ void
 wp_proxy_node_set_param (WpProxyNode * self, guint32 id,
     guint32 flags, const struct spa_pod *param)
 {
-  struct pw_node_proxy *pwp;
+  struct pw_node *pwp;
   int node_set_param_result;
 
   g_return_if_fail (WP_IS_PROXY_NODE (self));
 
-  pwp = (struct pw_node_proxy *) wp_proxy_get_pw_proxy (WP_PROXY (self));
+  pwp = (struct pw_node *) wp_proxy_get_pw_proxy (WP_PROXY (self));
   g_return_if_fail (pwp != NULL);
 
-  node_set_param_result = pw_node_proxy_set_param (
-      pwp, id, flags, param);
+  node_set_param_result = pw_node_set_param (pwp, id, flags, param);
   g_warn_if_fail (node_set_param_result >= 0);
 }

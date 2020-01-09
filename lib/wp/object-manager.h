@@ -26,7 +26,7 @@ G_DECLARE_FINAL_TYPE (WpObjectManager, wp_object_manager, WP, OBJECT_MANAGER, GO
 WpObjectManager * wp_object_manager_new (void);
 
 void wp_object_manager_add_proxy_interest (WpObjectManager *self,
-    guint32 iface_type, GVariant * constraints,
+    const gchar * iface_type, GVariant * constraints,
     WpProxyFeatures wanted_features);
 void wp_object_manager_add_object_interest (WpObjectManager *self,
     GType gtype, GVariant * constraints);

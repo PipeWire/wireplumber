@@ -18,9 +18,9 @@ G_BEGIN_DECLS
 
 /* core */
 
-struct pw_registry_proxy;
+struct pw_registry;
 
-struct pw_registry_proxy * wp_core_get_pw_registry_proxy (WpCore * self);
+struct pw_registry * wp_core_get_pw_registry (WpCore * self);
 
 gpointer wp_core_find_object (WpCore * self, GEqualFunc func,
     gconstpointer data);
@@ -37,7 +37,7 @@ typedef struct _WpGlobal WpGlobal;
 struct _WpGlobal
 {
   guint32 id;
-  guint32 type;
+  char *type;
   guint32 version;
   guint32 permissions;
   WpProperties *properties;
@@ -55,6 +55,7 @@ wp_global_new (void)
 static inline void
 wp_global_clear (WpGlobal * self)
 {
+  g_clear_pointer (&self->type, g_free);
   g_clear_pointer (&self->properties, wp_properties_unref);
   g_weak_ref_clear (&self->proxy);
 }
@@ -83,7 +84,7 @@ void wp_object_manager_rm_object (WpObjectManager * self, GObject * object);
 
 /* proxy */
 
-void wp_proxy_local_object_destroy_for_type (guint32 type,
+void wp_proxy_local_object_destroy_for_type (const char * type,
     gpointer local_object);
 
 WpProxy * wp_proxy_new_global (WpCore * core, WpGlobal * global);

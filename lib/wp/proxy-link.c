@@ -76,8 +76,8 @@ link_event_info(void *data, const struct pw_link_info *info)
   wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
 }
 
-static const struct pw_link_proxy_events link_events = {
-  PW_VERSION_LINK_PROXY_EVENTS,
+static const struct pw_link_events link_events = {
+  PW_VERSION_LINK_EVENTS,
   .info = link_event_info,
 };
 
@@ -85,7 +85,7 @@ static void
 wp_proxy_link_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 {
   WpProxyLink *self = WP_PROXY_LINK (proxy);
-  pw_link_proxy_add_listener ((struct pw_link_proxy *) pw_proxy,
+  pw_link_add_listener ((struct pw_link *) pw_proxy,
       &self->listener, &link_events, self);
 }
 

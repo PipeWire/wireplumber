@@ -27,17 +27,6 @@ typedef struct {
   WpCore *core;
 } TestConfigPolicyFixture;
 
-static void
-on_connected (WpCore *core, enum pw_remote_state new_state,
-    TestConfigPolicyFixture *self)
-{
-  /* Notify the main thread that we are done */
-  g_mutex_lock (&self->mutex);
-  self->created = TRUE;
-  g_cond_signal (&self->cond);
-  g_mutex_unlock (&self->mutex);
-}
-
 static void *
 loop_thread_start (void *d)
 {
@@ -54,9 +43,13 @@ loop_thread_start (void *d)
   g_autoptr (WpProperties) props = NULL;
   props = wp_properties_new (PW_KEY_REMOTE_NAME, self->server.name, NULL);
   self->core = wp_core_new (self->context, props);
-  g_signal_connect (self->core, "remote-state-changed::connected",
-      (GCallback) on_connected, self);
-  wp_core_connect (self->core);
+  g_assert_true (wp_core_connect (self->core));
+
+  /* Notify the main thread that we are done */
+  g_mutex_lock (&self->mutex);
+  self->created = TRUE;
+  g_cond_signal (&self->cond);
+  g_mutex_unlock (&self->mutex);
 
   /* Run the main loop */
   g_main_loop_run (self->loop);

@@ -24,11 +24,6 @@ audio_softdsp_endpoint_factory (WpFactory * factory, GType type,
 void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
-  struct pw_core *pw_core = wp_core_get_pw_core (core);
-
-  pw_module_load (pw_core, "libpipewire-module-client-device", NULL, NULL);
-  pw_module_load (pw_core, "libpipewire-module-adapter", NULL, NULL);
-
   /* Register simple-endpoint-link and audio-softdsp-endpoint */
   wp_factory_new (core, "pipewire-simple-endpoint-link",
       simple_endpoint_link_factory);

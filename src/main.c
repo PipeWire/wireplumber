@@ -10,6 +10,7 @@
 #include <gio/gio.h>
 #include <glib-unix.h>
 #include <pipewire/pipewire.h>
+#include <pipewire/impl.h>
 
 static GOptionEntry entries[] =
 {
@@ -67,25 +68,15 @@ signal_handler (gpointer data)
 }
 
 static void
-remote_state_changed (WpCore *core, WpRemoteState state,
-    struct WpDaemonData * d)
+on_disconnected (WpCore *core, struct WpDaemonData * d)
 {
   /* something else triggered the exit; we will certainly get a state
    * change while destroying the remote, but let's not change the message */
   if (d->exit_message)
     return;
 
-  switch (state) {
-  case WP_REMOTE_STATE_UNCONNECTED:
-    daemon_exit_static_str (d, WP_CODE_DISCONNECTED,
-        "disconnected from pipewire");
-    break;
-  case WP_REMOTE_STATE_ERROR:
-    daemon_exit (d, WP_CODE_OPERATION_FAILED, "pipewire remote error");
-    break;
-  default:
-    break;
-  }
+  daemon_exit_static_str (d, WP_CODE_DISCONNECTED,
+      "disconnected from pipewire");
 }
 
 static gboolean
@@ -186,8 +177,8 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
           module = strtok_r (NULL, " ", &saveptr);
           props = module + strlen(module) + 1;
 
-          if (!pw_module_load (wp_core_get_pw_core (d->core), module, props,
-                  NULL)) {
+          if (!pw_context_load_module (wp_core_get_pw_context (d->core), module,
+                  props, NULL)) {
             g_set_error (error, WP_DOMAIN_DAEMON, WP_CODE_OPERATION_FAILED,
                 "failed to load pipewire module '%s': %s", module,
                 g_strerror (errno));
@@ -208,7 +199,8 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
             return FALSE;
           }
 
-          ret = pw_core_add_spa_lib (wp_core_get_pw_core (d->core), regex, lib);
+          ret = pw_context_add_spa_lib (wp_core_get_pw_context (d->core), regex,
+              lib);
           if (ret < 0) {
             g_set_error (error, WP_DOMAIN_DAEMON, WP_CODE_OPERATION_FAILED,
                 "failed to add spa lib ('%s' on '%s'): %s", regex, lib,
@@ -273,7 +265,8 @@ load_commands_file (struct WpDaemonData *d)
   }
 
   /* connect to pipewire */
-  wp_core_connect (d->core);
+  if (!wp_core_connect (d->core))
+    daemon_exit_static_str (d, WP_CODE_DISCONNECTED, "failed to connect");
 
   return G_SOURCE_REMOVE;
 }
@@ -300,8 +293,7 @@ main (gint argc, gchar **argv)
   /* init wireplumber */
 
   data.core = core = wp_core_new (NULL, NULL);
-  g_signal_connect (core, "remote-state-changed",
-      (GCallback) remote_state_changed, &data);
+  g_signal_connect (core, "disconnected", (GCallback) on_disconnected, &data);
 
   /* init configuration */
 

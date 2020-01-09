@@ -50,9 +50,9 @@ wp_config_static_nodes_context_create_node (WpConfigStaticNodesContext *self,
   /* Create the node */
   node_proxy = node_data->n.local ?
       wp_core_create_local_object (core, node_data->n.factory,
-          PW_TYPE_INTERFACE_Node, PW_VERSION_NODE_PROXY, node_data->n.props) :
+          PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, node_data->n.props) :
       wp_core_create_remote_object (core, node_data->n.factory,
-          PW_TYPE_INTERFACE_Node, PW_VERSION_NODE_PROXY, node_data->n.props);
+          PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, node_data->n.props);
   if (!node_proxy) {
     g_warning ("WpConfigStaticNodesContext:%p: failed to create node: %s", self,
         g_strerror (errno));
@@ -133,8 +133,8 @@ wp_config_static_nodes_context_constructed (GObject * object)
   wp_core_install_object_manager (core, self->devices_om);
 
   /* Start creating static nodes when the connected callback is triggered */
-  g_signal_connect_object (core, "remote-state-changed::connected",
-      (GCallback) start_static_nodes, self, G_CONNECT_SWAPPED);
+  g_signal_connect_object (core, "connected", (GCallback) start_static_nodes,
+      self, G_CONNECT_SWAPPED);
 
   G_OBJECT_CLASS (wp_config_static_nodes_context_parent_class)->constructed (object);
 }

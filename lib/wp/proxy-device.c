@@ -77,8 +77,8 @@ device_event_info(void *data, const struct pw_device_info *info)
   wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
 }
 
-static const struct pw_device_proxy_events device_events = {
-  PW_VERSION_DEVICE_PROXY_EVENTS,
+static const struct pw_device_events device_events = {
+  PW_VERSION_DEVICE_EVENTS,
   .info = device_event_info,
 };
 
@@ -86,7 +86,7 @@ static void
 wp_proxy_device_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 {
   WpProxyDevice *self = WP_PROXY_DEVICE (proxy);
-  pw_device_proxy_add_listener ((struct pw_device_proxy *) pw_proxy,
+  pw_device_add_listener ((struct pw_device *) pw_proxy,
       &self->listener, &device_events, self);
 }
 

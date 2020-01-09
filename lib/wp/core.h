@@ -15,48 +15,38 @@
 
 G_BEGIN_DECLS
 
-struct pw_core;
-
-/**
- * WpRemoteState:
- * @WP_REMOTE_STATE_ERROR: remote is in error
- * @WP_REMOTE_STATE_UNCONNECTED: not connected
- * @WP_REMOTE_STATE_CONNECTING: connecting to remote service
- * @WP_REMOTE_STATE_CONNECTED: remote is connected and ready
- *
- * The different states the remote can be
- */
-typedef enum {
-  WP_REMOTE_STATE_ERROR = -1,
-  WP_REMOTE_STATE_UNCONNECTED = 0,
-  WP_REMOTE_STATE_CONNECTING = 1,
-  WP_REMOTE_STATE_CONNECTED = 2,
-} WpRemoteState;
+struct pw_context;
 
 #define WP_TYPE_CORE (wp_core_get_type ())
 G_DECLARE_FINAL_TYPE (WpCore, wp_core, WP, CORE, GObject)
 
+/* Basic */
 WpCore * wp_core_new (GMainContext *context, WpProperties * properties);
-
 GMainContext * wp_core_get_context (WpCore * self);
+struct pw_context * wp_core_get_pw_context (WpCore * self);
+
+/* Connection */
+gboolean wp_core_connect (WpCore *self);
+void wp_core_disconnect (WpCore *self);
+gboolean wp_core_is_connected (WpCore * self);
+
+/* Callback */
 guint wp_core_idle_add (WpCore * self, GSourceFunc function, gpointer data,
     GDestroyNotify destroy);
 gboolean wp_core_sync (WpCore * self, GCancellable * cancellable,
     GAsyncReadyCallback callback, gpointer user_data);
-struct pw_core * wp_core_get_pw_core (WpCore * self);
 
-gboolean wp_core_connect (WpCore * self);
-WpRemoteState wp_core_get_remote_state (WpCore * self, const gchar ** error);
-
-WpProxy * wp_core_export_object (WpCore * self, guint32 interface_type,
+/* Object */
+WpProxy * wp_core_export_object (WpCore * self, const gchar * interface_type,
     gpointer local_object, WpProperties * properties);
 WpProxy * wp_core_create_local_object (WpCore * self,
-    const gchar *factory_name, guint32 interface_type,
+    const gchar *factory_name, const gchar * interface_type,
     guint32 interface_version, WpProperties * properties);
 WpProxy * wp_core_create_remote_object (WpCore * self,
-    const gchar * factory_name, guint32 interface_type,
+    const gchar * factory_name, const gchar * interface_type,
     guint32 interface_version, WpProperties * properties);
 
+/* Object Manager */
 void wp_core_install_object_manager (WpCore * self, WpObjectManager * om);
 
 G_END_DECLS

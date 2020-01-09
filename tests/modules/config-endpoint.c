@@ -49,30 +49,15 @@ static void
 create_audiotestsrc (TestConfigEndpointFixture *self)
 {
   pw_thread_loop_lock (self->server.thread_loop);
-  pw_core_add_spa_lib (self->server.core, "audiotestsrc",
+  pw_context_add_spa_lib (self->server.context, "audiotestsrc",
       "audiotestsrc/libspa-audiotestsrc");
-  if (!pw_module_load (self->server.core, "libpipewire-module-spa-node",
-        "audiotestsrc", NULL)) {
+  if (!pw_context_load_module (self->server.context,
+        "libpipewire-module-spa-node", "audiotestsrc", NULL)) {
     pw_thread_loop_unlock (self->server.thread_loop);
     g_test_skip ("audiotestsrc SPA plugin is not installed");
     return;
   }
   pw_thread_loop_unlock (self->server.thread_loop);
-}
-
-static void
-on_connected (WpCore *core, enum pw_remote_state new_state,
-    TestConfigEndpointFixture *self)
-{
-  /* Register the wp-endpoint-audiotestsrc */
-  wp_factory_new (self->core, "wp-endpoint-audiotestsrc",
-      wp_endpoint_audiotestsrc_factory);
-
-  /* Create the audiotestsrc node */
-  create_audiotestsrc (self);
-
-  /* Signal we are done */
-  signal_created (self);
 }
 
 static void *
@@ -91,9 +76,17 @@ loop_thread_start (void *d)
   g_autoptr (WpProperties) props = NULL;
   props = wp_properties_new (PW_KEY_REMOTE_NAME, self->server.name, NULL);
   self->core = wp_core_new (self->context, props);
-  g_signal_connect (self->core, "remote-state-changed::connected",
-      (GCallback) on_connected, self);
-  wp_core_connect (self->core);
+  g_assert_true (wp_core_connect (self->core));
+
+  /* Register the wp-endpoint-audiotestsrc */
+  wp_factory_new (self->core, "wp-endpoint-audiotestsrc",
+      wp_endpoint_audiotestsrc_factory);
+
+  /* Create the audiotestsrc node */
+  create_audiotestsrc (self);
+
+  /* Signal we are done */
+  signal_created (self);
 
   /* Run the main loop */
   g_main_loop_run (self->loop);
