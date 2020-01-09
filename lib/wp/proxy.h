@@ -40,8 +40,8 @@ struct _WpProxyClass
   void (*pw_proxy_destroyed) (WpProxy * self);
 };
 
-WpProxy * wp_proxy_new_wrap (WpCore * core,
-    struct pw_proxy * proxy, guint32 type, guint32 version);
+WpProxy * wp_proxy_new_wrap (WpCore * core, struct pw_proxy * proxy,
+    guint32 type, guint32 version, gpointer local_object);
 
 void wp_proxy_augment (WpProxy *self,
     WpProxyFeatures wanted_features, GCancellable * cancellable,

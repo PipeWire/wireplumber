@@ -301,7 +301,7 @@ node_new (struct object *dev, uint32_t id,
   node->type = SPA_TYPE_INTERFACE_Node;
   node->node = pw_node;
   node->proxy = wp_proxy_new_wrap (core, pw_proxy, PW_TYPE_INTERFACE_Node,
-      PW_VERSION_NODE_PROXY);
+      PW_VERSION_NODE_PROXY, NULL);
 
   return node;
 }
@@ -368,7 +368,7 @@ device_new (WpMonitor *self, uint32_t id, const gchar *factory_name,
   dev->spa_dev = g_steal_pointer (&spa_dev);
   dev->properties = g_steal_pointer (&props);
   dev->proxy = wp_proxy_new_wrap (core, proxy, PW_TYPE_INTERFACE_Device,
-      PW_VERSION_DEVICE_PROXY);
+      PW_VERSION_DEVICE_PROXY, NULL);
 
   /* Add device listener for events */
   if ((ret = spa_device_add_listener ((struct spa_device *) dev->spa_dev->interface,

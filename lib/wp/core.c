@@ -552,7 +552,7 @@ wp_core_create_local_object (WpCore * self, const gchar *factory_name,
 {
   struct pw_proxy *pw_proxy = NULL;
   struct pw_factory *factory = NULL;
-  gpointer iface = NULL;
+  gpointer local_object = NULL;
 
   g_return_val_if_fail (WP_IS_CORE (self), NULL);
   g_return_val_if_fail (self->pw_core, NULL);
@@ -562,24 +562,27 @@ wp_core_create_local_object (WpCore * self, const gchar *factory_name,
   if (!factory)
     return NULL;
 
-  iface = pw_factory_create_object (factory,
+  local_object = pw_factory_create_object (factory,
       NULL,
       interface_type,
       interface_version,
       properties ? wp_properties_to_pw_properties (properties) : NULL,
       0);
-  if (!iface)
+  if (!local_object)
     return NULL;
 
   pw_proxy = pw_remote_export (self->pw_remote,
       interface_type,
       properties ? wp_properties_to_pw_properties (properties) : NULL,
-      iface,
+      local_object,
       0);
-  if (!pw_proxy)
+  if (!pw_proxy) {
+    wp_proxy_local_object_destroy_for_type (interface_type, local_object);
     return NULL;
+  }
 
-  return wp_proxy_new_wrap (self, pw_proxy, interface_type, interface_version);
+  return wp_proxy_new_wrap (self, pw_proxy, interface_type, interface_version,
+      local_object);
 }
 
 WpProxy *
@@ -595,8 +598,8 @@ wp_core_create_remote_object (WpCore *self,
   pw_proxy = pw_core_proxy_create_object (self->core_proxy, factory_name,
       interface_type, interface_version,
       properties ? wp_properties_peek_dict (properties) : NULL, 0);
-  return wp_proxy_new_wrap (self, pw_proxy, interface_type,
-      interface_version);
+  return wp_proxy_new_wrap (self, pw_proxy, interface_type, interface_version,
+      NULL);
 }
 
 struct pw_core_proxy *
