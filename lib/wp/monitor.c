@@ -287,7 +287,7 @@ device_new (WpMonitor *self, uint32_t id, const gchar *factory_name,
   g_autoptr (WpCore) core = NULL;
   g_autoptr (WpProperties) props = NULL;
   g_autoptr (WpSpaObject) spa_dev = NULL;
-  struct pw_proxy *proxy = NULL;
+  g_autoptr (WpProxy) proxy = NULL;
   struct object *dev = NULL;
   gint ret = 0;
 
@@ -315,9 +315,8 @@ device_new (WpMonitor *self, uint32_t id, const gchar *factory_name,
 
   /* check for id != -1 to avoid exporting the "monitor" device itself;
      exporting it is buggy, but we should revise this in the future; FIXME */
-  if (id != -1 && !(proxy = pw_remote_export (wp_core_get_pw_remote (core),
-          SPA_TYPE_INTERFACE_Device, wp_properties_to_pw_properties (props),
-          spa_dev->interface, 0))) {
+  if (id != -1 && !(proxy = wp_core_export_object (core,
+          SPA_TYPE_INTERFACE_Device, spa_dev->interface, props))) {
     g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
         "failed to export device: %s", g_strerror (errno));
     return NULL;
@@ -330,8 +329,7 @@ device_new (WpMonitor *self, uint32_t id, const gchar *factory_name,
   dev->type = SPA_TYPE_INTERFACE_Device;
   dev->spa_obj = g_steal_pointer (&spa_dev);
   dev->properties = g_steal_pointer (&props);
-  dev->proxy = wp_proxy_new_wrap (core, proxy, PW_TYPE_INTERFACE_Device,
-      PW_VERSION_DEVICE_PROXY, NULL);
+  dev->proxy = g_steal_pointer (&proxy);
 
   /* Add device listener for events */
   ret = spa_device_add_listener (dev->spa_obj->interface,

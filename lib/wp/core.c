@@ -517,13 +517,6 @@ wp_core_get_pw_core (WpCore * self)
   return self->pw_core;
 }
 
-struct pw_remote *
-wp_core_get_pw_remote (WpCore * self)
-{
-  g_return_val_if_fail (WP_IS_CORE (self), NULL);
-  return self->pw_remote;
-}
-
 gboolean
 wp_core_connect (WpCore *self)
 {

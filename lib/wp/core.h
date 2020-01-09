@@ -16,7 +16,6 @@
 G_BEGIN_DECLS
 
 struct pw_core;
-struct pw_remote;
 
 /**
  * WpRemoteState:
@@ -45,7 +44,6 @@ guint wp_core_idle_add (WpCore * self, GSourceFunc function, gpointer data,
 gboolean wp_core_sync (WpCore * self, GCancellable * cancellable,
     GAsyncReadyCallback callback, gpointer user_data);
 struct pw_core * wp_core_get_pw_core (WpCore * self);
-struct pw_remote * wp_core_get_pw_remote (WpCore * self);
 
 gboolean wp_core_connect (WpCore * self);
 WpRemoteState wp_core_get_remote_state (WpCore * self, const gchar ** error);
