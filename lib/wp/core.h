@@ -50,6 +50,8 @@ struct pw_remote * wp_core_get_pw_remote (WpCore * self);
 gboolean wp_core_connect (WpCore * self);
 WpRemoteState wp_core_get_remote_state (WpCore * self, const gchar ** error);
 
+WpProxy * wp_core_export_object (WpCore * self, guint32 interface_type,
+    gpointer local_object, WpProperties * properties);
 WpProxy * wp_core_create_local_object (WpCore * self,
     const gchar *factory_name, guint32 interface_type,
     guint32 interface_version, WpProperties * properties);

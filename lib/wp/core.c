@@ -546,6 +546,27 @@ wp_core_get_remote_state (WpCore * self, const gchar ** error)
 }
 
 WpProxy *
+wp_core_export_object (WpCore * self, guint32 interface_type,
+    gpointer local_object, WpProperties * properties)
+{
+  struct pw_proxy *proxy = NULL;
+  guint32 type;
+  guint32 version;
+
+  g_return_val_if_fail (WP_IS_CORE (self), NULL);
+  g_return_val_if_fail (self->pw_remote, NULL);
+
+  proxy = pw_remote_export (self->pw_remote, interface_type,
+      properties ? wp_properties_to_pw_properties (properties) : NULL,
+      local_object, 0);
+  if (!proxy)
+    return NULL;
+
+  type = pw_proxy_get_type (proxy, &version);
+  return wp_proxy_new_wrap (self, proxy, type, version, NULL);
+}
+
+WpProxy *
 wp_core_create_local_object (WpCore * self, const gchar *factory_name,
     guint32 interface_type, guint32 interface_version,
     WpProperties * properties)
