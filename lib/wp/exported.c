@@ -136,6 +136,19 @@ wp_exported_get_core (WpExported * self)
   return g_weak_ref_get (&priv->core);
 }
 
+static void
+on_core_connected (WpCore * core, WpExported * self)
+{
+  WpExportedPrivate *priv = wp_exported_get_instance_private (self);
+
+  if (g_task_return_error_if_cancelled (priv->task))
+    g_clear_object (&priv->task);
+  else
+    WP_EXPORTED_GET_CLASS (self)->export (self);
+
+  g_signal_handlers_disconnect_by_func (core, on_core_connected, self);
+}
+
 void
 wp_exported_export (WpExported * self, GCancellable * cancellable,
     GAsyncReadyCallback callback, gpointer user_data)
@@ -150,15 +163,19 @@ wp_exported_export (WpExported * self, GCancellable * cancellable,
   priv->task = g_task_new (self, cancellable, callback, user_data);
 
   core = g_weak_ref_get (&priv->core);
-  if (!core || !wp_core_is_connected (core)) {
+  if (!core) {
     g_task_return_new_error (priv->task, WP_DOMAIN_LIBRARY,
-        WP_LIBRARY_ERROR_OPERATION_FAILED,
-        "WirePlumber core not available or disconnected");
+        WP_LIBRARY_ERROR_OPERATION_FAILED, "WirePlumber core not available");
     g_clear_object (&priv->task);
     return;
   }
 
-  WP_EXPORTED_GET_CLASS (self)->export (self);
+  /* Export when connected */
+  if (wp_core_is_connected (core))
+    WP_EXPORTED_GET_CLASS (self)->export (self);
+  else
+    g_signal_connect_object (core, "connected", (GCallback) on_core_connected,
+        self, 0);
 }
 
 gboolean
