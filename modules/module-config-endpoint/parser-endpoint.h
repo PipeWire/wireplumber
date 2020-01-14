@@ -16,8 +16,8 @@ G_BEGIN_DECLS
 #define WP_PARSER_ENDPOINT_EXTENSION "endpoint"
 
 struct WpParserEndpointData {
+  char *filename;
   struct MatchNode {
-    guint priority;
     WpProperties *props;
   } mn;
   struct Endpoint {

@@ -1,5 +1,4 @@
 [match-endpoint]
-priority = 0
 direction = "source"
 media_class = "Stream/Output/Audio"
 

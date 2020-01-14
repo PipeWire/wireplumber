@@ -79,6 +79,7 @@ wp_parser_endpoint_link_data_destroy (gpointer p)
   struct WpParserEndpointLinkData *data = p;
 
   /* Free the strings */
+  g_clear_pointer (&data->filename, g_free);
   g_clear_pointer (&data->me.endpoint_data.name, g_free);
   g_clear_pointer (&data->me.endpoint_data.media_class, g_free);
   g_clear_pointer (&data->me.endpoint_data.props, wp_properties_unref);
@@ -144,7 +145,6 @@ wp_parser_endpoint_link_data_new (const gchar *location)
   /* File format:
    * ------------
    * [match-endpoint]
-   * priority (uint32)
    * name (string)
    * media_class (string)
    * direction (string)
@@ -174,14 +174,13 @@ wp_parser_endpoint_link_data_new (const gchar *location)
   /* Create the link data */
   res = g_slice_new0(struct WpParserEndpointLinkData);
 
+  /* Set the file name */
+  res->filename = g_path_get_basename (location);
+
   /* Get the match-node table */
   me = wp_toml_table_get_table (table, "match-endpoint");
   if (!me)
     goto error;
-
-  /* Get the priority from the endpoint table */
-  res->me.priority = 0;
-  wp_toml_table_get_uint32 (me, "priority", &res->me.priority);
 
   /* Get the name from the match endpoint table (Optional) */
   res->me.endpoint_data.name = wp_toml_table_get_string (me, "name");
@@ -247,7 +246,7 @@ compare_datas_func (gconstpointer a, gconstpointer b)
   struct WpParserEndpointLinkData *db =
       *(struct WpParserEndpointLinkData *const *)b;
 
-  return db->me.priority - da->me.priority;
+  return g_strcmp0 (db->filename, da->filename);
 }
 
 static gboolean

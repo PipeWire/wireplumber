@@ -23,8 +23,8 @@ struct WpParserEndpointLinkEndpointData {
 };
 
 struct WpParserEndpointLinkData {
+  char *filename;
   struct MatchEndpoint {
-    guint priority;
     struct WpParserEndpointLinkEndpointData endpoint_data;
   } me;
   gboolean has_te;

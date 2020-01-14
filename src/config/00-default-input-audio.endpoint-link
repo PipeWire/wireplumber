@@ -1,5 +1,4 @@
 [match-endpoint]
-priority = 0
 direction = "sink"
 media_class = "Stream/Input/Audio"
 
