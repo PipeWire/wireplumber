@@ -10,7 +10,7 @@
 
 #include "module-config-policy/config-policy.h"
 
-void
+WP_PLUGIN_EXPORT void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);

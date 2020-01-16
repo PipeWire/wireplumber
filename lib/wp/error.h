@@ -10,9 +10,11 @@
 #define __WP_ERROR_H__
 
 #include <glib.h>
+#include "defs.h"
 
 G_BEGIN_DECLS
 
+WP_API
 GQuark wp_domain_library_quark (void);
 #define WP_DOMAIN_LIBRARY (wp_domain_library_quark ())
 

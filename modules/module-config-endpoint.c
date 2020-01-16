@@ -10,7 +10,7 @@
 
 #include "module-config-endpoint/context.h"
 
-void
+WP_PLUGIN_EXPORT void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   WpConfigEndpointContext *ctx = wp_config_endpoint_context_new (core);

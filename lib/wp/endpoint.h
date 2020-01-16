@@ -15,6 +15,7 @@
 G_BEGIN_DECLS
 
 #define WP_TYPE_ENDPOINT (wp_endpoint_get_type ())
+WP_API
 G_DECLARE_INTERFACE (WpEndpoint, wp_endpoint, WP, ENDPOINT, GObject)
 
 /**
@@ -52,27 +53,47 @@ struct _WpEndpointInterface
   // void (*create_link) (WpEndpoint * self, WpProperties * props);
 };
 
+WP_API
 WpProperties * wp_endpoint_get_properties (WpEndpoint * self);
 
+WP_API
 const gchar * wp_endpoint_get_name (WpEndpoint * self);
+
+WP_API
 const gchar * wp_endpoint_get_media_class (WpEndpoint * self);
+
+WP_API
 WpDirection wp_endpoint_get_direction (WpEndpoint * self);
 
+WP_API
 const struct spa_pod * wp_endpoint_get_control (WpEndpoint * self,
     guint32 control_id);
+
+WP_API
 gboolean wp_endpoint_get_control_boolean (WpEndpoint * self, guint32 control_id,
     gboolean * value);
+
+WP_API
 gboolean wp_endpoint_get_control_int (WpEndpoint * self, guint32 control_id,
     gint * value);
+
+WP_API
 gboolean wp_endpoint_get_control_float (WpEndpoint * self, guint32 control_id,
     gfloat * value);
 
+WP_API
 gboolean wp_endpoint_set_control (WpEndpoint * self, guint32 control_id,
     const struct spa_pod * value);
+
+WP_API
 gboolean wp_endpoint_set_control_boolean (WpEndpoint * self, guint32 control_id,
     gboolean value);
+
+WP_API
 gboolean wp_endpoint_set_control_int (WpEndpoint * self, guint32 control_id,
     gint value);
+
+WP_API
 gboolean wp_endpoint_set_control_float (WpEndpoint * self, guint32 control_id,
     gfloat value);
 
@@ -85,15 +106,18 @@ typedef enum { /*< flags >*/
 } WpProxyEndpointFeatures;
 
 #define WP_TYPE_PROXY_ENDPOINT (wp_proxy_endpoint_get_type ())
+WP_API
 G_DECLARE_FINAL_TYPE (WpProxyEndpoint, wp_proxy_endpoint,
                       WP, PROXY_ENDPOINT, WpProxy)
 
+WP_API
 const struct pw_endpoint_info * wp_proxy_endpoint_get_info (
     WpProxyEndpoint * self);
 
 /* exported */
 
 #define WP_TYPE_EXPORTED_ENDPOINT (wp_exported_endpoint_get_type ())
+WP_API
 G_DECLARE_DERIVABLE_TYPE (WpExportedEndpoint, wp_exported_endpoint,
                           WP, EXPORTED_ENDPOINT, WpExported)
 
@@ -102,22 +126,33 @@ struct _WpExportedEndpointClass
   WpExportedClass parent_class;
 };
 
+WP_API
 WpExportedEndpoint * wp_exported_endpoint_new (WpCore * core);
 
+WP_API
 guint32 wp_exported_endpoint_get_global_id (WpExportedEndpoint * self);
 
+WP_API
 void wp_exported_endpoint_set_property (WpExportedEndpoint * self,
     const gchar * key, const gchar * value);
+
+WP_API
 void wp_exported_endpoint_update_properties (WpExportedEndpoint * self,
     WpProperties * updates);
 
+WP_API
 void wp_exported_endpoint_set_name (WpExportedEndpoint * self,
     const gchar * name);
+
+WP_API
 void wp_exported_endpoint_set_media_class (WpExportedEndpoint * self,
     const gchar * media_class);
+
+WP_API
 void wp_exported_endpoint_set_direction (WpExportedEndpoint * self,
     WpDirection dir);
 
+WP_API
 void wp_exported_endpoint_register_control (WpExportedEndpoint * self,
     WpEndpointControl control);
 

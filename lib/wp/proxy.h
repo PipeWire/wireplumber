@@ -27,6 +27,7 @@ typedef enum { /*< flags >*/
 } WpProxyFeatures;
 
 #define WP_TYPE_PROXY (wp_proxy_get_type ())
+WP_API
 G_DECLARE_DERIVABLE_TYPE (WpProxy, wp_proxy, WP, PROXY, GObject)
 
 /* The proxy base class */
@@ -40,32 +41,54 @@ struct _WpProxyClass
   void (*pw_proxy_destroyed) (WpProxy * self);
 };
 
+WP_API
 WpProxy * wp_proxy_new_wrap (WpCore * core, struct pw_proxy * proxy,
     const char *type, guint32 version, gpointer local_object);
 
+WP_API
 void wp_proxy_augment (WpProxy *self,
     WpProxyFeatures wanted_features, GCancellable * cancellable,
     GAsyncReadyCallback callback, gpointer user_data);
+
+WP_API
 gboolean wp_proxy_augment_finish (WpProxy * self, GAsyncResult * res,
     GError ** error);
 
+WP_API
 WpProxyFeatures wp_proxy_get_features (WpProxy * self);
 
+WP_API
 WpCore * wp_proxy_get_core (WpProxy * self);
 
+WP_API
 gboolean wp_proxy_is_global (WpProxy * self);
+
+WP_API
 guint32 wp_proxy_get_global_id (WpProxy * self);
+
+WP_API
 guint32 wp_proxy_get_global_permissions (WpProxy * self);
+
+WP_API
 WpProperties * wp_proxy_get_global_properties (WpProxy * self);
 
+WP_API
 const char * wp_proxy_get_interface_type (WpProxy * self);
+
+WP_API
 GQuark wp_proxy_get_interface_quark (WpProxy * self);
+
+WP_API
 guint32 wp_proxy_get_interface_version (WpProxy * self);
 
+WP_API
 struct pw_proxy * wp_proxy_get_pw_proxy (WpProxy * self);
 
+WP_API
 void wp_proxy_sync (WpProxy * self, GCancellable * cancellable,
     GAsyncReadyCallback callback, gpointer user_data);
+
+WP_API
 gboolean wp_proxy_sync_finish (WpProxy * self, GAsyncResult * res,
     GError ** error);
 

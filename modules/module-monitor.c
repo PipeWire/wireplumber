@@ -209,7 +209,7 @@ start_monitor (WpMonitor *monitor)
   }
 }
 
-void
+WP_PLUGIN_EXPORT void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   WpMonitor *monitor;

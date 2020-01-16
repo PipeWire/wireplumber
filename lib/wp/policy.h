@@ -35,9 +35,11 @@ typedef enum {
 } WpPolicyRank;
 
 #define WP_TYPE_POLICY_MANAGER (wp_policy_manager_get_type ())
+WP_API
 G_DECLARE_FINAL_TYPE (WpPolicyManager, wp_policy_manager, WP, POLICY_MANAGER, GObject)
 
 #define WP_TYPE_POLICY (wp_policy_get_type ())
+WP_API
 G_DECLARE_DERIVABLE_TYPE (WpPolicy, wp_policy, WP, POLICY, GObject)
 
 struct _WpPolicyClass
@@ -51,20 +53,32 @@ struct _WpPolicyClass
       guint32 *stream_id);
 };
 
+WP_API
 WpPolicyManager * wp_policy_manager_get_instance (WpCore *core);
+
+WP_API
 WpSession * wp_policy_manager_get_session (WpPolicyManager *self);
 
+WP_API
 GPtrArray * wp_policy_manager_list_endpoints (WpPolicyManager * self,
     const gchar * media_class);
 
+WP_API
 guint32 wp_policy_get_rank (WpPolicy *self);
+
+WP_API
 WpCore *wp_policy_get_core (WpPolicy *self);
 
+WP_API
 void wp_policy_register (WpPolicy *self, WpCore *core);
+
+WP_API
 void wp_policy_unregister (WpPolicy *self);
 
+WP_API
 void wp_policy_notify_changed (WpPolicy *self);
 
+WP_API
 WpBaseEndpoint * wp_policy_find_endpoint (WpCore *core, GVariant *props,
     guint32 *stream_id);
 

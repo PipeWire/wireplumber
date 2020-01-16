@@ -38,6 +38,16 @@ pkgconfig = import('pkgconfig')
 
 wp_lib_include_dir = include_directories('lib')
 
+cc = meson.get_compiler('c')
+if cc.has_argument('-fvisibility=hidden')
+  add_project_arguments('-fvisibility=hidden', language: 'c')
+endif
+
+ccpp = meson.get_compiler('cpp')
+if ccpp.has_argument('-fvisibility=hidden')
+  add_project_arguments('-fvisibility=hidden', language: 'cpp')
+endif
+
 subdir('lib')
 subdir('modules')
 subdir('src')

@@ -21,7 +21,7 @@ void
 audio_softdsp_endpoint_factory (WpFactory * factory, GType type,
     GVariant * properties, GAsyncReadyCallback ready, gpointer user_data);
 
-void
+WP_PLUGIN_EXPORT void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   /* Register simple-endpoint-link and audio-softdsp-endpoint */

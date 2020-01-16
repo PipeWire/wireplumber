@@ -118,7 +118,7 @@ module_destroy (gpointer d)
   g_slice_free (struct module_data, data);
 }
 
-void
+WP_PLUGIN_EXPORT void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   struct module_data *data = g_slice_new0 (struct module_data);
