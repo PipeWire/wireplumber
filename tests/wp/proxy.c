@@ -115,8 +115,6 @@ test_proxy_basic_object_added (WpObjectManager *om, WpProxy *proxy,
   }
   g_assert_cmpuint (wp_proxy_get_global_id (proxy), !=, 0);
   g_assert_true (wp_proxy_is_global (proxy));
-  g_assert_cmpuint (wp_proxy_get_interface_quark (proxy), ==,
-      g_quark_from_string ("client"));
   g_assert_cmpstr (wp_proxy_get_interface_type (proxy), ==,
       PW_TYPE_INTERFACE_Client);
   g_assert_cmphex (wp_proxy_get_global_permissions (proxy), ==, PW_PERM_RWX);

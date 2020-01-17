@@ -76,9 +76,6 @@ WP_API
 const char * wp_proxy_get_interface_type (WpProxy * self);
 
 WP_API
-GQuark wp_proxy_get_interface_quark (WpProxy * self);
-
-WP_API
 guint32 wp_proxy_get_interface_version (WpProxy * self);
 
 WP_API

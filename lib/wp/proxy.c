@@ -61,7 +61,6 @@ enum {
   PROP_GLOBAL_PERMISSIONS,
   PROP_GLOBAL_PROPERTIES,
   PROP_INTERFACE_TYPE,
-  PROP_INTERFACE_QUARK,
   PROP_INTERFACE_VERSION,
   PROP_LOCAL_OBJECT,
   PROP_PW_PROXY,
@@ -80,24 +79,6 @@ static guint wp_proxy_signals[LAST_SIGNAL] = { 0 };
 G_DEFINE_BOXED_TYPE (WpGlobal, wp_global, wp_global_ref, wp_global_unref)
 G_DEFINE_TYPE_WITH_PRIVATE (WpProxy, wp_proxy, G_TYPE_OBJECT)
 
-G_DEFINE_QUARK (core, wp_proxy_core)
-G_DEFINE_QUARK (registry, wp_proxy_registry)
-G_DEFINE_QUARK (node, wp_proxy_node)
-G_DEFINE_QUARK (port, wp_proxy_port)
-G_DEFINE_QUARK (factory, wp_proxy_factory)
-G_DEFINE_QUARK (link, wp_proxy_link)
-G_DEFINE_QUARK (client, wp_proxy_client)
-G_DEFINE_QUARK (module, wp_proxy_module)
-G_DEFINE_QUARK (device, wp_proxy_device)
-G_DEFINE_QUARK (metadata, wp_proxy_metadata)
-G_DEFINE_QUARK (session, wp_proxy_session)
-G_DEFINE_QUARK (endpoint, wp_proxy_endpoint)
-G_DEFINE_QUARK (endpoint-stream, wp_proxy_endpoint_stream)
-G_DEFINE_QUARK (endpoint-link, wp_proxy_endpoint_link)
-G_DEFINE_QUARK (client-node, wp_proxy_client_node)
-G_DEFINE_QUARK (client-session, wp_proxy_client_session)
-G_DEFINE_QUARK (client-endpoint, wp_proxy_client_endpoint)
-
 static struct {
   /* the pipewire interface type */
   const char * pw_type;
@@ -105,28 +86,26 @@ static struct {
   guint32 req_version;
   /* the _get_type() function of the subclass */
   GType (*get_type) (void);
-  /* a function returning a quark that identifies the interface */
-  GQuark (*get_quark) (void);
   /* the destroy function of the local object, if any */
   void (*local_object_destroy) (gpointer);
 } types_assoc[] = {
-  { PW_TYPE_INTERFACE_Core, 0, wp_proxy_get_type, wp_proxy_core_quark, NULL },
-  { PW_TYPE_INTERFACE_Registry, 0, wp_proxy_get_type, wp_proxy_registry_quark, NULL },
-  { PW_TYPE_INTERFACE_Node, 0, wp_proxy_node_get_type, wp_proxy_node_quark, (GDestroyNotify)pw_impl_node_destroy },
-  { PW_TYPE_INTERFACE_Port, 0, wp_proxy_port_get_type, wp_proxy_port_quark, NULL },
-  { PW_TYPE_INTERFACE_Factory, 0, wp_proxy_get_type, wp_proxy_factory_quark, (GDestroyNotify)pw_impl_factory_destroy },
-  { PW_TYPE_INTERFACE_Link, 0, wp_proxy_link_get_type, wp_proxy_link_quark, (GDestroyNotify)pw_impl_link_destroy },
-  { PW_TYPE_INTERFACE_Client, 0, wp_proxy_client_get_type, wp_proxy_client_quark, (GDestroyNotify)pw_impl_client_destroy },
-  { PW_TYPE_INTERFACE_Module, 0, wp_proxy_get_type, wp_proxy_module_quark, (GDestroyNotify)pw_impl_module_destroy },
-  { PW_TYPE_INTERFACE_Device, 0, wp_proxy_device_get_type, wp_proxy_device_quark, (GDestroyNotify)pw_impl_device_destroy },
-  { PW_TYPE_INTERFACE_Metadata, 0, wp_proxy_get_type, wp_proxy_metadata_quark, NULL },
-  { PW_TYPE_INTERFACE_Session, 0, wp_proxy_session_get_type, wp_proxy_session_quark, NULL },
-  { PW_TYPE_INTERFACE_Endpoint, 0, wp_proxy_endpoint_get_type, wp_proxy_endpoint_quark, NULL },
-  { PW_TYPE_INTERFACE_EndpointStream, 0, wp_proxy_get_type, wp_proxy_endpoint_stream_quark, NULL },
-  { PW_TYPE_INTERFACE_EndpointLink, 0, wp_proxy_get_type, wp_proxy_endpoint_link_quark, NULL },
-  { PW_TYPE_INTERFACE_ClientNode, 0, wp_proxy_get_type, wp_proxy_client_node_quark, NULL },
-  { PW_TYPE_INTERFACE_ClientSession, 0, wp_proxy_get_type, wp_proxy_client_session_quark, NULL },
-  { PW_TYPE_INTERFACE_ClientEndpoint, 0, wp_proxy_get_type, wp_proxy_client_endpoint_quark, NULL },
+  { PW_TYPE_INTERFACE_Core, 0, wp_proxy_get_type, NULL },
+  { PW_TYPE_INTERFACE_Registry, 0, wp_proxy_get_type, NULL },
+  { PW_TYPE_INTERFACE_Node, 0, wp_proxy_node_get_type, (GDestroyNotify)pw_impl_node_destroy },
+  { PW_TYPE_INTERFACE_Port, 0, wp_proxy_port_get_type, NULL },
+  { PW_TYPE_INTERFACE_Factory, 0, wp_proxy_get_type, (GDestroyNotify)pw_impl_factory_destroy },
+  { PW_TYPE_INTERFACE_Link, 0, wp_proxy_link_get_type, (GDestroyNotify)pw_impl_link_destroy },
+  { PW_TYPE_INTERFACE_Client, 0, wp_proxy_client_get_type, (GDestroyNotify)pw_impl_client_destroy },
+  { PW_TYPE_INTERFACE_Module, 0, wp_proxy_get_type, (GDestroyNotify)pw_impl_module_destroy },
+  { PW_TYPE_INTERFACE_Device, 0, wp_proxy_device_get_type, (GDestroyNotify)pw_impl_device_destroy },
+  { PW_TYPE_INTERFACE_Metadata, 0, wp_proxy_get_type, NULL },
+  { PW_TYPE_INTERFACE_Session, 0, wp_proxy_session_get_type, NULL },
+  { PW_TYPE_INTERFACE_Endpoint, 0, wp_proxy_endpoint_get_type, NULL },
+  { PW_TYPE_INTERFACE_EndpointStream, 0, wp_proxy_get_type, NULL },
+  { PW_TYPE_INTERFACE_EndpointLink, 0, wp_proxy_get_type, NULL },
+  { PW_TYPE_INTERFACE_ClientNode, 0, wp_proxy_get_type, NULL },
+  { PW_TYPE_INTERFACE_ClientSession, 0, wp_proxy_get_type, NULL },
+  { PW_TYPE_INTERFACE_ClientEndpoint, 0, wp_proxy_get_type, NULL },
 };
 
 static inline GType
@@ -139,17 +118,6 @@ wp_proxy_find_instance_type (const char * type, guint32 version)
   }
 
   return WP_TYPE_PROXY;
-}
-
-static inline GQuark
-wp_proxy_find_quark_for_type (const char *type)
-{
-  for (gint i = 0; i < SPA_N_ELEMENTS (types_assoc); i++) {
-    if (g_strcmp0 (types_assoc[i].pw_type, type) == 0)
-      return types_assoc[i].get_quark ();
-  }
-
-  return 0;
 }
 
 void
@@ -348,9 +316,6 @@ wp_proxy_get_property (GObject * object, guint property_id, GValue * value,
   case PROP_INTERFACE_TYPE:
     g_value_set_string (value, priv->iface_type);
     break;
-  case PROP_INTERFACE_QUARK:
-    g_value_set_uint (value, wp_proxy_find_quark_for_type (priv->iface_type));
-    break;
   case PROP_INTERFACE_VERSION:
     g_value_set_uint (value, priv->iface_version);
     break;
@@ -445,11 +410,6 @@ wp_proxy_class_init (WpProxyClass * klass)
       g_param_spec_string ("interface-type", "interface-type",
           "The pipewire interface type", NULL,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (object_class, PROP_INTERFACE_QUARK,
-      g_param_spec_uint ("interface-quark", "interface-quark",
-          "A quark identifying the pipewire interface", 0, G_MAXUINT, 0,
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (object_class, PROP_INTERFACE_VERSION,
       g_param_spec_uint ("interface-version", "interface-version",
@@ -693,17 +653,6 @@ wp_proxy_get_interface_type (WpProxy * self)
 
   priv = wp_proxy_get_instance_private (self);
   return priv->iface_type;
-}
-
-GQuark
-wp_proxy_get_interface_quark (WpProxy * self)
-{
-  GQuark q = 0;
-
-  g_return_val_if_fail (WP_IS_PROXY (self), 0);
-
-  g_object_get (self, "interface-quark", &q, NULL);
-  return q;
 }
 
 guint32
