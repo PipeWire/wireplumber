@@ -86,17 +86,6 @@ test_proxy_teardown (TestProxyFixture *self, gconstpointer user_data)
 }
 
 static void
-test_proxy_basic_done (WpProxy *proxy, GAsyncResult *res,
-    TestProxyFixture *fixture)
-{
-  g_autoptr (GError) error = NULL;
-  g_assert_true (wp_proxy_sync_finish (proxy, res, &error));
-  g_assert_no_error (error);
-
-  g_main_loop_quit (fixture->loop);
-}
-
-static void
 test_proxy_basic_augmented (WpProxy *proxy, GAsyncResult *res,
     TestProxyFixture *fixture)
 {
@@ -107,8 +96,7 @@ test_proxy_basic_augmented (WpProxy *proxy, GAsyncResult *res,
   g_assert_true (wp_proxy_get_features (proxy) & WP_PROXY_FEATURE_PW_PROXY);
   g_assert_nonnull (wp_proxy_get_pw_proxy (proxy));
 
-  wp_proxy_sync (proxy, NULL, (GAsyncReadyCallback) test_proxy_basic_done,
-      fixture);
+  g_main_loop_quit (fixture->loop);
 }
 
 static void

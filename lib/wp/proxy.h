@@ -84,14 +84,6 @@ guint32 wp_proxy_get_interface_version (WpProxy * self);
 WP_API
 struct pw_proxy * wp_proxy_get_pw_proxy (WpProxy * self);
 
-WP_API
-void wp_proxy_sync (WpProxy * self, GCancellable * cancellable,
-    GAsyncReadyCallback callback, gpointer user_data);
-
-WP_API
-gboolean wp_proxy_sync_finish (WpProxy * self, GAsyncResult * res,
-    GError ** error);
-
 G_END_DECLS
 
 #endif

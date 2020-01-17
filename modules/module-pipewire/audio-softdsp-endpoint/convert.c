@@ -107,7 +107,7 @@ wp_audio_convert_event_info (WpProxyNode * proxy, GParamSpec *spec,
 }
 
 static void
-on_audio_convert_proxy_done (WpProxy *proxy, GAsyncResult *res,
+on_audio_convert_core_done (WpCore *core, GAsyncResult *res,
     WpAudioConvert *self)
 {
   g_autoptr (GError) error = NULL;
@@ -118,7 +118,7 @@ on_audio_convert_proxy_done (WpProxy *proxy, GAsyncResult *res,
   struct spa_pod *format;
   struct spa_pod *param;
 
-  wp_proxy_sync_finish (proxy, res, &error);
+  wp_core_sync_finish (core, res, &error);
   if (error) {
     g_message("WpAudioConvert:%p initial sync failed: %s", self, error->message);
     wp_audio_stream_init_task_finish (WP_AUDIO_STREAM (self),
@@ -190,8 +190,8 @@ wp_audio_convert_init_async (GAsyncInitable *initable, int io_priority,
       cancellable, callback, data);
 
   /* Register a callback to be called after all the initialization is done */
-  wp_proxy_sync (proxy, NULL,
-      (GAsyncReadyCallback) on_audio_convert_proxy_done, self);
+  wp_core_sync (core, NULL,
+      (GAsyncReadyCallback) on_audio_convert_core_done, self);
 }
 
 static void

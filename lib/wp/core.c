@@ -545,6 +545,15 @@ wp_core_sync (WpCore * self, GCancellable * cancellable,
   return TRUE;
 }
 
+gboolean
+wp_core_sync_finish (WpCore * self, GAsyncResult * res, GError ** error)
+{
+  g_return_val_if_fail (WP_IS_CORE (self), FALSE);
+  g_return_val_if_fail (g_task_is_valid (res, self), FALSE);
+
+  return g_task_propagate_boolean (G_TASK (res), error);
+}
+
 WpProxy *
 wp_core_export_object (WpCore * self, const gchar * interface_type,
     gpointer local_object, WpProperties * properties)

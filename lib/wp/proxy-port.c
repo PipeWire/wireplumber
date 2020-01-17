@@ -156,16 +156,17 @@ wp_proxy_port_get_properties (WpProxyPort * self)
 }
 
 static void
-enum_params_done (WpProxy * proxy, GAsyncResult * res, gpointer data)
+enum_params_done (WpCore * core, GAsyncResult * res, gpointer data)
 {
-  int seq = GPOINTER_TO_INT (data);
-  g_autoptr (GError) error = NULL;
+  int seq = GPOINTER_TO_INT (g_task_get_source_tag (G_TASK (data)));
+  WpProxy *proxy = g_task_get_source_object (G_TASK (data));
   g_autoptr (GTask) task = NULL;
+  g_autoptr (GError) error = NULL;
 
   /* finish the sync task */
-  wp_proxy_sync_finish (proxy, res, &error);
+  wp_core_sync_finish (core, res, &error);
 
-  /* find the enum params task and return from it */
+  /* find the enum params task in the hash table to steal the reference */
   task = wp_proxy_find_async_task (proxy, seq, TRUE);
   g_return_if_fail (task != NULL);
 
@@ -203,11 +204,14 @@ wp_proxy_port_enum_params_collect (WpProxyPort * self,
         g_strerror (-seq));
     return;
   }
-  wp_proxy_register_async_task (WP_PROXY (self), seq, g_steal_pointer (&task));
+  wp_proxy_register_async_task (WP_PROXY (self), seq, g_object_ref (task));
+
+  g_task_set_source_tag (task, GINT_TO_POINTER (seq));
 
   /* call sync */
-  wp_proxy_sync (WP_PROXY (self), cancellable,
-      (GAsyncReadyCallback) enum_params_done, GINT_TO_POINTER (seq));
+  g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (self));
+  wp_core_sync (core, cancellable, (GAsyncReadyCallback) enum_params_done,
+      task);
 }
 
 /**

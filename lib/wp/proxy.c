@@ -728,46 +728,6 @@ wp_proxy_get_pw_proxy (WpProxy * self)
   return priv->pw_proxy;
 }
 
-void
-wp_proxy_sync (WpProxy * self, GCancellable * cancellable,
-    GAsyncReadyCallback callback, gpointer user_data)
-{
-  WpProxyPrivate *priv;
-  g_autoptr (GTask) task = NULL;
-  int seq;
-
-  g_return_if_fail (WP_IS_PROXY (self));
-
-  priv = wp_proxy_get_instance_private (self);
-  task = g_task_new (self, cancellable, callback, user_data);
-
-  if (G_UNLIKELY (!priv->pw_proxy)) {
-    g_warn_if_reached ();
-    g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
-        WP_LIBRARY_ERROR_INVARIANT, "No pipewire proxy");
-    return;
-  }
-
-  seq = pw_proxy_sync (priv->pw_proxy, 0);
-  if (G_UNLIKELY (seq < 0)) {
-    g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
-        WP_LIBRARY_ERROR_OPERATION_FAILED, "pw_proxy_sync failed: %s",
-        g_strerror (-seq));
-    return;
-  }
-
-  wp_proxy_register_async_task (self, seq, g_steal_pointer (&task));
-}
-
-gboolean
-wp_proxy_sync_finish (WpProxy * self, GAsyncResult * res, GError ** error)
-{
-  g_return_val_if_fail (WP_IS_PROXY (self), FALSE);
-  g_return_val_if_fail (g_task_is_valid (res, self), FALSE);
-
-  return g_task_propagate_boolean (G_TASK (res), error);
-}
-
 /**
  * wp_proxy_register_async_task: (skip)
  */

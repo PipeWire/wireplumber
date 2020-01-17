@@ -53,6 +53,10 @@ WP_API
 gboolean wp_core_sync (WpCore * self, GCancellable * cancellable,
     GAsyncReadyCallback callback, gpointer user_data);
 
+WP_API
+gboolean wp_core_sync_finish (WpCore * self, GAsyncResult * res,
+    GError ** error);
+
 /* Object */
 
 WP_API
