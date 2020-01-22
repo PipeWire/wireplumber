@@ -1,4 +1,4 @@
-# WirePlumber Configuration
+# Configuration
 
 WirePlumber is a heavily modular daemon. By itself, it doesn't do anything
 except load the configured modules. All the rest of the logic is implemented

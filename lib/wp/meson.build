@@ -1,4 +1,4 @@
-wp_lib_sources = [
+wp_lib_sources = files(
   'base-endpoint.c',
   'configuration.c',
   'core.c',
@@ -19,9 +19,9 @@ wp_lib_sources = [
   'proxy-port.c',
   'session.c',
   'spa-props.c',
-]
+)
 
-wp_lib_headers = [
+wp_lib_headers = files(
   'base-endpoint.h',
   'configuration.h',
   'core.h',
@@ -43,7 +43,7 @@ wp_lib_headers = [
   'proxy-link.h',
   'session.h',
   'wp.h',
-]
+)
 
 install_headers(wp_lib_headers,
   subdir : join_paths('wireplumber-' + wireplumber_api_version, 'wp')
@@ -56,9 +56,12 @@ enums = gnome.mkenums_simple('wpenums',
   install_header: true,
   install_dir: join_paths(get_option('includedir'), 'wireplumber-' + wireplumber_api_version, 'wp'),
 )
+wpenums_h = enums[1]
+wpenums_c = enums[0]
+wp_gen_sources = [wpenums_h]
 
 wp_lib = library('wireplumber-' + wireplumber_api_version,
-  wp_lib_sources, enums,
+  wp_lib_sources, wpenums_c, wpenums_h,
   c_args : [
     '-D_GNU_SOURCE',
     '-DG_LOG_USE_STRUCTURED',
@@ -73,21 +76,22 @@ wp_lib = library('wireplumber-' + wireplumber_api_version,
   version: meson.project_version(),
 )
 
-if get_option('introspection')
-  gnome.generate_gir(wp_lib,
+if build_gir
+  wp_gir = gnome.generate_gir(wp_lib,
     namespace: 'Wp',
     nsversion: wireplumber_api_version,
-    sources: [wp_lib_sources, wp_lib_headers, enums],
+    sources: [wp_lib_sources, wp_lib_headers, wpenums_c, wpenums_h],
     includes: ['GLib-2.0', 'GObject-2.0', 'Gio-2.0'],
     install: true,
   )
+  wp_gen_sources += wp_gir
 endif
 
 wp_dep = declare_dependency(
   link_with: wp_lib,
-  sources: enums[1],
+  sources: wp_gen_sources,
   include_directories: wp_lib_include_dir,
-  dependencies: [gobject_dep]
+  dependencies: [gobject_dep, gio_dep]
 )
 
 pkgconfig.generate(wp_lib,

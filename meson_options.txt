@@ -1,1 +1,4 @@
-option('introspection', type : 'boolean', value : true)
+option('introspection', type : 'feature', value : 'auto',
+       description : 'Generate gobject-introspection bindings')
+option('doc', type : 'feature', value : 'auto',
+       description: 'Enable documentation.')

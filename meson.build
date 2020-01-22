@@ -1,7 +1,7 @@
 project('wireplumber', ['c', 'cpp'],
   version : '0.1.90',
   license : 'MIT',
-  meson_version : '>= 0.47.0',
+  meson_version : '>= 0.51.0',
   default_options : [
     'warning_level=1',
     'buildtype=debugoptimized',
@@ -35,6 +35,8 @@ pipewire_dep = dependency('libpipewire-0.3')
 
 gnome = import('gnome')
 pkgconfig = import('pkgconfig')
+gir = find_program('g-ir-scanner', required : get_option('introspection'))
+build_gir = gir.found()
 
 wp_lib_include_dir = include_directories('lib')
 
@@ -49,6 +51,7 @@ if ccpp.has_argument('-fvisibility=hidden')
 endif
 
 subdir('lib')
+subdir('docs')
 subdir('modules')
 subdir('src')
 subdir('tests')

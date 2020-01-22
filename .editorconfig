@@ -10,3 +10,7 @@ insert_final_newline = true
 [Makefile]
 indent_style = tab
 indent_size = 8
+
+[docs/sitemap.txt]
+indent_style = tab
+indent_size = 2
