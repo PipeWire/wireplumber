@@ -39,7 +39,7 @@ G_DEFINE_TYPE_WITH_CODE (WpAudioAdapter, wp_audio_adapter, WP_TYPE_AUDIO_STREAM,
                            wp_audio_adapter_async_initable_init))
 
 static void
-on_proxy_enum_format_done (WpProxyNode *proxy, GAsyncResult *res,
+on_proxy_enum_format_done (WpProxy *proxy, GAsyncResult *res,
     WpAudioAdapter *self)
 {
   g_autoptr (GPtrArray) formats = NULL;
@@ -50,7 +50,7 @@ on_proxy_enum_format_done (WpProxyNode *proxy, GAsyncResult *res,
   struct spa_pod_builder pod_builder = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
   struct spa_pod *param;
 
-  formats = wp_proxy_node_enum_params_collect_finish (proxy, res, &error);
+  formats = wp_proxy_enum_params_collect_finish (proxy, res, &error);
   if (error) {
     g_message("WpAudioAdapter:%p enum format error: %s", self, error->message);
     wp_audio_stream_init_task_finish (WP_AUDIO_STREAM (self),
@@ -84,7 +84,7 @@ on_proxy_enum_format_done (WpProxyNode *proxy, GAsyncResult *res,
   /* set the chosen device/client format on the node */
   param = spa_format_audio_raw_build (&pod_builder, SPA_PARAM_Format,
       &self->format);
-  wp_proxy_node_set_param (proxy, SPA_PARAM_Format, 0, param);
+  wp_proxy_set_param (proxy, SPA_PARAM_Format, 0, param);
 
   /* now choose the DSP format: keep the chanels but use F32 plannar @ 48K */
   self->format.format = SPA_AUDIO_FORMAT_F32P;
@@ -120,8 +120,8 @@ wp_audio_adapter_init_async (GAsyncInitable *initable, int io_priority,
   wp_audio_adapter_parent_interface->init_async (initable, io_priority,
       cancellable, callback, data);
 
-  wp_proxy_node_enum_params_collect (proxy, SPA_PARAM_EnumFormat, NULL, NULL,
-      (GAsyncReadyCallback) on_proxy_enum_format_done, self);
+  wp_proxy_enum_params_collect (WP_PROXY (proxy), SPA_PARAM_EnumFormat, 0, -1,
+      NULL, NULL, (GAsyncReadyCallback) on_proxy_enum_format_done, self);
 }
 
 static void

@@ -72,8 +72,7 @@ static void
 on_device_added (WpObjectManager *om, WpProxy *proxy, gpointer p)
 {
   WpConfigStaticNodesContext *self = p;
-  g_autoptr (WpProperties) dev_props =
-      wp_proxy_device_get_properties (WP_PROXY_DEVICE (proxy));
+  g_autoptr (WpProperties) dev_props = wp_proxy_get_properties (proxy);
   g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
   g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
   g_autoptr (WpConfigParser) parser = NULL;

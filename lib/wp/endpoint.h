@@ -40,8 +40,6 @@ struct _WpEndpointInterface
 {
   GTypeInterface parent;
 
-  WpProperties * (*get_properties) (WpEndpoint * self);
-
   const gchar * (*get_name) (WpEndpoint * self);
   const gchar * (*get_media_class) (WpEndpoint * self);
   WpDirection (*get_direction) (WpEndpoint * self);
@@ -52,9 +50,6 @@ struct _WpEndpointInterface
 
   // void (*create_link) (WpEndpoint * self, WpProperties * props);
 };
-
-WP_API
-WpProperties * wp_endpoint_get_properties (WpEndpoint * self);
 
 WP_API
 const gchar * wp_endpoint_get_name (WpEndpoint * self);
@@ -110,10 +105,6 @@ WP_API
 G_DECLARE_FINAL_TYPE (WpProxyEndpoint, wp_proxy_endpoint,
                       WP, PROXY_ENDPOINT, WpProxy)
 
-WP_API
-const struct pw_endpoint_info * wp_proxy_endpoint_get_info (
-    WpProxyEndpoint * self);
-
 /* exported */
 
 #define WP_TYPE_EXPORTED_ENDPOINT (wp_exported_endpoint_get_type ())
@@ -131,6 +122,9 @@ WpExportedEndpoint * wp_exported_endpoint_new (WpCore * core);
 
 WP_API
 guint32 wp_exported_endpoint_get_global_id (WpExportedEndpoint * self);
+
+WP_API
+WpProperties * wp_exported_endpoint_get_properties (WpExportedEndpoint * self);
 
 WP_API
 void wp_exported_endpoint_set_property (WpExportedEndpoint * self,

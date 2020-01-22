@@ -105,8 +105,7 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
   WpConfigEndpointContext *self = d;
   g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
   g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
-  WpProxyNode *proxy_node = WP_PROXY_NODE (proxy);
-  g_autoptr (WpProperties) props = wp_proxy_node_get_properties (proxy_node);
+  g_autoptr (WpProperties) props = wp_proxy_get_properties (proxy);
   g_autoptr (WpConfigParser) parser = NULL;
   const struct WpParserEndpointData *endpoint_data = NULL;
   GVariantBuilder b;
@@ -116,7 +115,7 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
 
   /* Get the linked and ep streams data */
   parser = wp_configuration_get_parser (config, WP_PARSER_ENDPOINT_EXTENSION);
-  endpoint_data = wp_config_parser_get_matched_data (parser, proxy_node);
+  endpoint_data = wp_config_parser_get_matched_data (parser, proxy);
   if (!endpoint_data)
     return;
 

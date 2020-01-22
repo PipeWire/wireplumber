@@ -163,14 +163,14 @@ test_proxy_node_param (WpProxyNode *node, int seq, guint id, guint index,
 }
 
 static void
-test_proxy_node_enum_params_done (WpProxyNode *node, GAsyncResult *res,
+test_proxy_node_enum_params_done (WpProxy *node, GAsyncResult *res,
     TestProxyNodeParamData *data)
 {
   g_autoptr (GPtrArray) params = NULL;
   g_autoptr (GError) error = NULL;
   guint i;
 
-  params = wp_proxy_node_enum_params_collect_finish (node, res, &error);
+  params = wp_proxy_enum_params_collect_finish (node, res, &error);
   g_assert_no_error (error);
   g_assert_nonnull (params);
 
@@ -202,14 +202,13 @@ test_proxy_node_object_added (WpObjectManager *om, WpProxy *proxy,
   g_assert_nonnull (wp_proxy_get_pw_proxy (proxy));
 
   g_assert_true (WP_IS_PROXY_NODE (proxy));
-  info = wp_proxy_node_get_info (WP_PROXY_NODE (proxy));
+  info = wp_proxy_get_info (proxy);
   g_assert_nonnull (info);
   g_assert_cmpint (wp_proxy_get_global_id (proxy), ==, info->id);
 
   {
     const char *id;
-    g_autoptr (WpProperties) props =
-        wp_proxy_node_get_properties (WP_PROXY_NODE (proxy));
+    g_autoptr (WpProperties) props = wp_proxy_get_properties (proxy);
 
     g_assert_nonnull (props);
     g_assert_true (wp_properties_peek_dict (props) == info->props);
@@ -223,7 +222,7 @@ test_proxy_node_object_added (WpObjectManager *om, WpProxy *proxy,
 
   g_signal_connect (proxy, "param", (GCallback) test_proxy_node_param,
       param_data);
-  wp_proxy_node_enum_params_collect (WP_PROXY_NODE (proxy), SPA_PARAM_PropInfo,
+  wp_proxy_enum_params_collect (proxy, SPA_PARAM_PropInfo, 0, -1,
       NULL, NULL, (GAsyncReadyCallback) test_proxy_node_enum_params_done,
       param_data);
 }

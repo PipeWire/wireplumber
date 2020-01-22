@@ -257,7 +257,7 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
   /* verify properties are set before export */
   {
     g_autoptr (WpProperties) props =
-        wp_endpoint_get_properties (WP_ENDPOINT (endpoint));
+        wp_exported_endpoint_get_properties (endpoint);
     g_assert_cmpstr (wp_properties_get (props, "test.property"), ==,
         "test-value");
   }
@@ -292,7 +292,7 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
 
   {
     g_autoptr (WpProperties) props =
-        wp_endpoint_get_properties (WP_ENDPOINT (fixture->proxy_endpoint));
+        wp_proxy_get_properties (fixture->proxy_endpoint);
     g_assert_cmpstr (wp_properties_get (props, "test.property"), ==,
         "test-value");
   }
@@ -382,13 +382,13 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
 
   {
     g_autoptr (WpProperties) props =
-        wp_endpoint_get_properties (WP_ENDPOINT (endpoint));
+        wp_exported_endpoint_get_properties (endpoint);
     g_assert_cmpstr (wp_properties_get (props, "test.property"), ==,
         "changed-value");
   }
   {
     g_autoptr (WpProperties) props =
-        wp_endpoint_get_properties (WP_ENDPOINT (fixture->proxy_endpoint));
+        wp_proxy_get_properties (fixture->proxy_endpoint);
     g_assert_cmpstr (wp_properties_get (props, "test.property"), ==,
         "changed-value");
   }

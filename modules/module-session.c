@@ -38,7 +38,8 @@ select_new_default_ep (struct module_data * data, WpDefaultEndpointType type,
     if (g_strcmp0 (media_class, wp_endpoint_get_media_class (ep)) != 0)
       continue;
 
-    g_autoptr (WpProperties) properties = wp_endpoint_get_properties (ep);
+    g_autoptr (WpProperties) properties =
+        wp_exported_endpoint_get_properties (WP_EXPORTED_ENDPOINT (ep));
 
     priority_str = wp_properties_get (properties, "endpoint.priority");
     if (priority_str)

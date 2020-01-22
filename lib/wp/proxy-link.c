@@ -20,12 +20,6 @@ struct _WpProxyLink
   struct spa_hook listener;
 };
 
-enum {
-  PROP_0,
-  PROP_INFO,
-  PROP_PROPERTIES,
-};
-
 G_DEFINE_TYPE (WpProxyLink, wp_proxy_link, WP_TYPE_PROXY)
 
 static void
@@ -43,23 +37,16 @@ wp_proxy_link_finalize (GObject * object)
   G_OBJECT_CLASS (wp_proxy_link_parent_class)->finalize (object);
 }
 
-static void
-wp_proxy_link_get_property (GObject * object, guint property_id,
-    GValue * value, GParamSpec * pspec)
+static gconstpointer
+wp_proxy_link_get_info (WpProxy * self)
 {
-  WpProxyLink *self = WP_PROXY_LINK (object);
+  return WP_PROXY_LINK (self)->info;
+}
 
-  switch (property_id) {
-  case PROP_INFO:
-    g_value_set_pointer (value, self->info);
-    break;
-  case PROP_PROPERTIES:
-    g_value_take_boxed (value, wp_proxy_link_get_properties (self));
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
-    break;
-  }
+static WpProperties *
+wp_proxy_link_get_properties (WpProxy * self)
+{
+  return wp_properties_new_wrap_dict (WP_PROXY_LINK (self)->info->props);
 }
 
 static void
@@ -96,28 +83,9 @@ wp_proxy_link_class_init (WpProxyLinkClass * klass)
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
   object_class->finalize = wp_proxy_link_finalize;
-  object_class->get_property = wp_proxy_link_get_property;
+
+  proxy_class->get_info = wp_proxy_link_get_info;
+  proxy_class->get_properties = wp_proxy_link_get_properties;
 
   proxy_class->pw_proxy_created = wp_proxy_link_pw_proxy_created;
-
-  g_object_class_install_property (object_class, PROP_INFO,
-      g_param_spec_pointer ("info", "info", "The struct pw_link_info *",
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (object_class, PROP_PROPERTIES,
-      g_param_spec_boxed ("properties", "properties",
-          "The pipewire properties of the proxy", WP_TYPE_PROPERTIES,
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
-}
-
-const struct pw_link_info *
-wp_proxy_link_get_info (WpProxyLink * self)
-{
-  return self->info;
-}
-
-WpProperties *
-wp_proxy_link_get_properties (WpProxyLink * self)
-{
-  return wp_properties_new_wrap_dict (self->info->props);
 }

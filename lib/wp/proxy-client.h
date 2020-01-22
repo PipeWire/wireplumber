@@ -13,18 +13,11 @@
 
 G_BEGIN_DECLS
 
-struct pw_client_info;
 struct pw_permission;
 
 #define WP_TYPE_PROXY_CLIENT (wp_proxy_client_get_type ())
 WP_API
 G_DECLARE_FINAL_TYPE (WpProxyClient, wp_proxy_client, WP, PROXY_CLIENT, WpProxy)
-
-WP_API
-const struct pw_client_info * wp_proxy_client_get_info (WpProxyClient * self);
-
-WP_API
-WpProperties * wp_proxy_client_get_properties (WpProxyClient * self);
 
 WP_API
 void wp_proxy_client_update_permissions (WpProxyClient * self,

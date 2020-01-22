@@ -138,12 +138,12 @@ on_node_proxy_augmented (WpProxy * proxy, GAsyncResult * res,
 
   g_signal_connect_object (proxy, "param",
       (GCallback) audio_stream_event_param, self, 0);
-  wp_proxy_node_subscribe_params (WP_PROXY_NODE (proxy), 1, SPA_PARAM_Props);
+  wp_proxy_subscribe_params (proxy, 1, SPA_PARAM_Props);
 
   priv->ports_om = wp_object_manager_new ();
 
   /* Get the node id */
-  info = wp_proxy_node_get_info (WP_PROXY_NODE (proxy));
+  info = wp_proxy_get_info (proxy);
   node_id = g_strdup_printf ("%u", info->id);
 
   /* set a constraint: the port's "node.id" must match
@@ -368,28 +368,28 @@ wp_audio_stream_get_info (WpAudioStream * self)
 {
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
 
-  return wp_proxy_node_get_info (priv->proxy);
+  return wp_proxy_get_info (WP_PROXY (priv->proxy));
 }
 
 static void
 port_proxies_foreach_func(gpointer data, gpointer user_data)
 {
-  WpAudioStream *self = user_data;
+  WpProxy *port = WP_PROXY (data);
+  WpAudioStream *self = WP_AUDIO_STREAM (user_data);
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
-  WpProxyPort *port = data;
   const struct pw_node_info *node_info;
   const struct pw_port_info *port_info;
   g_autoptr (WpProperties) props = NULL;
   const gchar *channel;
   uint32_t channel_n = SPA_AUDIO_CHANNEL_UNKNOWN;
 
-  node_info = wp_proxy_node_get_info (priv->proxy);
+  node_info = wp_proxy_get_info (WP_PROXY (priv->proxy));
   g_return_if_fail (node_info);
 
-  port_info = wp_proxy_port_get_info (port);
+  port_info = wp_proxy_get_info (port);
   g_return_if_fail (port_info);
 
-  props = wp_proxy_port_get_properties (port);
+  props = wp_proxy_get_properties (port);
   channel = wp_properties_get (props, PW_KEY_AUDIO_CHANNEL);
   if (channel) {
     const struct spa_type_info *t = spa_type_audio_channel;
@@ -452,7 +452,7 @@ wp_audio_stream_set_volume (WpAudioStream * self, gfloat volume)
   /* Make sure the proxy is valid */
   g_return_if_fail (priv->proxy);
 
-  wp_proxy_node_set_param (priv->proxy,
+  wp_proxy_set_param (WP_PROXY (priv->proxy),
       SPA_PARAM_Props, 0,
       spa_pod_builder_add_object (&b,
           SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
@@ -469,7 +469,7 @@ wp_audio_stream_set_mute (WpAudioStream * self, gboolean mute)
   /* Make sure the proxy is valid */
   g_return_if_fail (priv->proxy);
 
-  wp_proxy_node_set_param (priv->proxy,
+  wp_proxy_set_param (WP_PROXY (priv->proxy),
       SPA_PARAM_Props, 0,
       spa_pod_builder_add_object (&b,
           SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
@@ -511,7 +511,7 @@ wp_audio_stream_set_port_config (WpAudioStream * self,
 {
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
 
-  wp_proxy_node_set_param (priv->proxy, SPA_PARAM_PortConfig, 0, param);
+  wp_proxy_set_param (WP_PROXY (priv->proxy), SPA_PARAM_PortConfig, 0, param);
 }
 
 void

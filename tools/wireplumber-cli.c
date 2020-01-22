@@ -183,13 +183,13 @@ device_node_props (WpObjectManager * om, struct WpCliData * d)
   g_print ("Capture device nodes:\n");
 
   for (i = 0; i < arr->len; i++) {
-    WpProxyNode *node = g_ptr_array_index (arr, i);
-    g_autoptr (WpProperties) props = wp_proxy_node_get_properties (node);
+    WpProxy *node = g_ptr_array_index (arr, i);
+    g_autoptr (WpProperties) props = wp_proxy_get_properties (node);
 
     if (g_strcmp0 (wp_properties_get (props, "media.class"), "Audio/Source") != 0)
       continue;
 
-    g_print (" node id: %u\n", wp_proxy_get_global_id (WP_PROXY (node)));
+    g_print (" node id: %u\n", wp_proxy_get_global_id (node));
 
     dict = wp_properties_peek_dict (props);
     spa_dict_for_each (item, dict) {
@@ -202,13 +202,13 @@ device_node_props (WpObjectManager * om, struct WpCliData * d)
   g_print ("Playback device nodes:\n");
 
   for (i = 0; i < arr->len; i++) {
-    WpProxyNode *node = g_ptr_array_index (arr, i);
-    g_autoptr (WpProperties) props = wp_proxy_node_get_properties (node);
+    WpProxy *node = g_ptr_array_index (arr, i);
+    g_autoptr (WpProperties) props = wp_proxy_get_properties (node);
 
     if (g_strcmp0 (wp_properties_get (props, "media.class"), "Audio/Sink") != 0)
       continue;
 
-    g_print (" node id: %u\n", wp_proxy_get_global_id (WP_PROXY (node)));
+    g_print (" node id: %u\n", wp_proxy_get_global_id (node));
 
     dict = wp_properties_peek_dict (props);
     spa_dict_for_each (item, dict) {

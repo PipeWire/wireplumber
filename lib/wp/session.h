@@ -28,16 +28,11 @@ struct _WpSessionInterface
 {
   GTypeInterface parent;
 
-  WpProperties * (*get_properties) (WpSession * self);
-
   guint32 (*get_default_endpoint) (WpSession * self,
       WpDefaultEndpointType type);
   void (*set_default_endpoint) (WpSession * self,
       WpDefaultEndpointType type, guint32 id);
 };
-
-WP_API
-WpProperties * wp_session_get_properties (WpSession * self);
 
 WP_API
 guint32 wp_session_get_default_endpoint (WpSession * self,
@@ -57,9 +52,6 @@ typedef enum { /*< flags >*/
 WP_API
 G_DECLARE_FINAL_TYPE (WpProxySession, wp_proxy_session, WP, PROXY_SESSION, WpProxy)
 
-WP_API
-const struct pw_session_info * wp_proxy_session_get_info (WpProxySession * self);
-
 /* exported */
 
 #define WP_TYPE_EXPORTED_SESSION (wp_exported_session_get_type ())
@@ -76,6 +68,9 @@ WpExportedSession * wp_exported_session_new (WpCore * core);
 
 WP_API
 guint32 wp_exported_session_get_global_id (WpExportedSession * self);
+
+WP_API
+WpProperties * wp_exported_session_get_properties (WpExportedSession * self);
 
 WP_API
 void wp_exported_session_set_property (WpExportedSession * self,

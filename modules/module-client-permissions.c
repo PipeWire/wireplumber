@@ -18,7 +18,7 @@ client_added (WpObjectManager * om, WpProxyClient *client, gpointer data)
 
   g_debug ("Client added: %d", id);
 
-  properties = wp_proxy_client_get_properties (client);
+  properties = wp_proxy_get_properties (WP_PROXY (client));
   access = wp_properties_get (properties, PW_KEY_ACCESS);
 
   if (!g_strcmp0 (access, "flatpak") || !g_strcmp0 (access, "restricted")) {

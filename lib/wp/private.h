@@ -14,6 +14,8 @@
 #include "object-manager.h"
 #include "proxy.h"
 
+#include <stdint.h>
+
 G_BEGIN_DECLS
 
 /* core */
@@ -92,8 +94,8 @@ WpProxy * wp_proxy_new_global (WpCore * core, WpGlobal * global);
 void wp_proxy_set_feature_ready (WpProxy * self, WpProxyFeatures feature);
 void wp_proxy_augment_error (WpProxy * self, GError * error);
 
-void wp_proxy_register_async_task (WpProxy * self, int seq, GTask * task);
-GTask * wp_proxy_find_async_task (WpProxy * self, int seq, gboolean steal);
+void wp_proxy_handle_event_param (void * proxy, int seq, uint32_t id,
+    uint32_t index, uint32_t next, const struct spa_pod *param);
 
 /* spa props */
 

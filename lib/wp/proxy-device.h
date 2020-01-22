@@ -17,9 +17,6 @@ G_BEGIN_DECLS
 WP_API
 G_DECLARE_FINAL_TYPE (WpProxyDevice, wp_proxy_device, WP, PROXY_DEVICE, WpProxy)
 
-WP_API
-WpProperties * wp_proxy_device_get_properties (WpProxyDevice * self);
-
 G_END_DECLS
 
 #endif

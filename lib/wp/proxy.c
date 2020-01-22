@@ -28,6 +28,8 @@
 #include <pipewire/extensions/session-manager.h>
 
 #include <spa/debug/types.h>
+#include <spa/pod/builder.h>
+#include <spa/utils/result.h>
 
 typedef struct _WpProxyPrivate WpProxyPrivate;
 struct _WpProxyPrivate
@@ -63,14 +65,17 @@ enum {
   PROP_INTERFACE_TYPE,
   PROP_INTERFACE_VERSION,
   PROP_LOCAL_OBJECT,
-  PROP_PW_PROXY,
   PROP_FEATURES,
+  PROP_PW_PROXY,
+  PROP_INFO,
+  PROP_PROPERTIES,
 };
 
 enum
 {
   SIGNAL_PW_PROXY_CREATED,
   SIGNAL_PW_PROXY_DESTROYED,
+  SIGNAL_PARAM,
   LAST_SIGNAL,
 };
 
@@ -170,20 +175,9 @@ proxy_event_destroy (void *data)
   }
 }
 
-static void
-proxy_event_done (void *data, int seq)
-{
-  WpProxy *self = WP_PROXY (data);
-  g_autoptr (GTask) task;
-
-  if ((task = wp_proxy_find_async_task (self, seq, TRUE)))
-    g_task_return_boolean (task, TRUE);
-}
-
 static const struct pw_proxy_events proxy_events = {
   PW_VERSION_PROXY_EVENTS,
   .destroy = proxy_event_destroy,
-  .done = proxy_event_done,
 };
 
 static void
@@ -298,7 +292,8 @@ static void
 wp_proxy_get_property (GObject * object, guint property_id, GValue * value,
     GParamSpec * pspec)
 {
-  WpProxyPrivate *priv = wp_proxy_get_instance_private (WP_PROXY(object));
+  WpProxy *self = WP_PROXY (object);
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
 
   switch (property_id) {
   case PROP_CORE:
@@ -322,11 +317,17 @@ wp_proxy_get_property (GObject * object, guint property_id, GValue * value,
   case PROP_LOCAL_OBJECT:
     g_value_set_pointer (value, priv->local_object);
     break;
+  case PROP_FEATURES:
+    g_value_set_flags (value, priv->ft_ready);
+    break;
   case PROP_PW_PROXY:
     g_value_set_pointer (value, priv->pw_proxy);
     break;
-  case PROP_FEATURES:
-    g_value_set_flags (value, priv->ft_ready);
+  case PROP_INFO:
+    g_value_set_pointer (value, (gpointer) wp_proxy_get_info (self));
+    break;
+  case PROP_PROPERTIES:
+    g_value_take_boxed (value, wp_proxy_get_properties (self));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -421,13 +422,22 @@ wp_proxy_class_init (WpProxyClass * klass)
           "The local object this proxy refers to, if any",
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (object_class, PROP_FEATURES,
+      g_param_spec_flags ("features", "features",
+          "The ready WpProxyFeatures on this proxy", WP_TYPE_PROXY_FEATURES, 0,
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+
   g_object_class_install_property (object_class, PROP_PW_PROXY,
       g_param_spec_pointer ("pw-proxy", "pw-proxy", "The struct pw_proxy *",
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS));
 
-  g_object_class_install_property (object_class, PROP_FEATURES,
-      g_param_spec_flags ("features", "features",
-          "The ready WpProxyFeatures on this proxy", WP_TYPE_PROXY_FEATURES, 0,
+  g_object_class_install_property (object_class, PROP_INFO,
+      g_param_spec_pointer ("info", "info", "The native info structure",
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (object_class, PROP_PROPERTIES,
+      g_param_spec_boxed ("properties", "properties",
+          "The pipewire properties of the object", WP_TYPE_PROPERTIES,
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
   /* Signals */
@@ -440,6 +450,11 @@ wp_proxy_class_init (WpProxyClass * klass)
       "pw-proxy-destroyed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
       G_STRUCT_OFFSET (WpProxyClass, pw_proxy_destroyed), NULL, NULL, NULL,
       G_TYPE_NONE, 0);
+
+  wp_proxy_signals[SIGNAL_PARAM] = g_signal_new (
+      "param", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
+      G_STRUCT_OFFSET (WpProxyClass, param), NULL, NULL, NULL, G_TYPE_NONE, 5,
+      G_TYPE_INT, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_POINTER);
 }
 
 WpProxy *
@@ -678,9 +693,44 @@ wp_proxy_get_pw_proxy (WpProxy * self)
 }
 
 /**
- * wp_proxy_register_async_task: (skip)
+ * wp_proxy_get_info:
+ * @self: the proxy
+ *
+ * Returns: the pipewire info structure of this object
+ *    (pw_node_info, pw_port_info, etc...)
  */
-void
+gconstpointer
+wp_proxy_get_info (WpProxy * self)
+{
+  g_return_val_if_fail (WP_IS_PROXY (self), NULL);
+
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  g_warn_if_fail (priv->ft_ready & WP_PROXY_FEATURE_INFO);
+
+  return (WP_PROXY_GET_CLASS (self)->get_info) ?
+      WP_PROXY_GET_CLASS (self)->get_info (self) : NULL;
+}
+
+/**
+ * wp_proxy_get_properties:
+ * @self: the proxy
+ *
+ * Returns: (transfer full): the pipewire properties of this object;
+ *   normally these are the properties that are part of the info structure
+ */
+WpProperties *
+wp_proxy_get_properties (WpProxy * self)
+{
+  g_return_val_if_fail (WP_IS_PROXY (self), NULL);
+
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  g_warn_if_fail (priv->ft_ready & WP_PROXY_FEATURE_INFO);
+
+  return (WP_PROXY_GET_CLASS (self)->get_properties) ?
+      WP_PROXY_GET_CLASS (self)->get_properties (self) : NULL;
+}
+
+static void
 wp_proxy_register_async_task (WpProxy * self, int seq, GTask * task)
 {
   WpProxyPrivate *priv;
@@ -692,10 +742,7 @@ wp_proxy_register_async_task (WpProxy * self, int seq, GTask * task)
   g_hash_table_insert (priv->async_tasks, GINT_TO_POINTER (seq), task);
 }
 
-/**
- * wp_proxy_find_async_task: (skip)
- */
-GTask *
+static GTask *
 wp_proxy_find_async_task (WpProxy * self, int seq, gboolean steal)
 {
   WpProxyPrivate *priv;
@@ -711,4 +758,239 @@ wp_proxy_find_async_task (WpProxy * self, int seq, gboolean steal)
     task = g_hash_table_lookup (priv->async_tasks, GINT_TO_POINTER (seq));
 
   return task;
+}
+
+/**
+ * wp_proxy_enum_params:
+ * @self: the proxy
+ * @id: the parameter id to enum or PW_ID_ANY for all
+ * @start: the start index or 0 for the first param
+ * @num: the maximum number of params to retrieve
+ * @filter: (nullable): a param filter or NULL
+ *
+ * Starts enumeration of object parameters. For each param, the
+ * #WpProxy::param signal will be emited.
+ *
+ * This method gives access to the low level `enum_params` method of the object,
+ * if it exists. For most use cases, prefer using a higher level API, such as
+ * wp_proxy_enum_params_collect() or something from the subclasses of #WpProxy
+ *
+ * Returns: On success, this returns a sequence number that can be used
+ *  to track which emissions of the #WpProxy::param signal are responses
+ *  to this call. On failure, it returns a negative number, which could be:
+ *  * -EINVAL: An invalid parameter was passed
+ *  * -EIO: The object is not ready to receive this method call
+ *  * -ENOTSUP: this method is not supported on this object
+ */
+gint
+wp_proxy_enum_params (WpProxy * self, guint32 id, guint32 start,
+    guint32 num, const struct spa_pod *filter)
+{
+  g_return_val_if_fail (WP_IS_PROXY (self), -EINVAL);
+
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  g_return_val_if_fail (priv->pw_proxy, -EIO);
+
+  return (WP_PROXY_GET_CLASS (self)->enum_params) ?
+      WP_PROXY_GET_CLASS (self)->enum_params (self, id, start, num, filter) :
+      -ENOTSUP;
+}
+
+static void
+enum_params_done (WpCore * core, GAsyncResult * res, gpointer data)
+{
+  int seq = GPOINTER_TO_INT (g_task_get_source_tag (G_TASK (data)));
+  WpProxy *proxy = g_task_get_source_object (G_TASK (data));
+  g_autoptr (GTask) task = NULL;
+  g_autoptr (GError) error = NULL;
+
+  /* finish the sync task */
+  wp_core_sync_finish (core, res, &error);
+
+  /* find the enum params task in the hash table to steal the reference */
+  task = wp_proxy_find_async_task (proxy, seq, TRUE);
+  g_return_if_fail (task != NULL);
+
+  if (error)
+    g_task_return_error (task, g_steal_pointer (&error));
+  else {
+    GPtrArray *params = g_task_get_task_data (task);
+    g_task_return_pointer (task, g_ptr_array_ref (params),
+        (GDestroyNotify) g_ptr_array_unref);
+  }
+}
+
+/**
+ * wp_proxy_enum_params_collect:
+ * @self: the proxy
+ * @id: the parameter id to enum or PW_ID_ANY for all
+ * @start: the start index or 0 for the first param
+ * @num: the maximum number of params to retrieve
+ * @filter: (nullable): a param filter or NULL
+ * @cancellable: (nullable): a cancellable for the async operation
+ * @callback: (scope async): a callback to call with the result
+ * @user_data: (closure): data to pass to @callback
+ *
+ * Enumerate object parameters. This will asynchronously return the result,
+ * or an error, by calling the given @callback. The result is going to
+ * be a #GPtrArray containing spa_pod pointers, which can be retrieved
+ * with wp_proxy_enum_params_collect_finish().
+ */
+void
+wp_proxy_enum_params_collect (WpProxy * self,
+    guint32 id, guint32 start, guint32 num, const struct spa_pod *filter,
+    GCancellable * cancellable, GAsyncReadyCallback callback,
+    gpointer user_data)
+{
+  g_autoptr (GTask) task = NULL;
+  int seq;
+  GPtrArray *params;
+
+  g_return_if_fail (WP_IS_PROXY (self));
+
+  /* create task for enum_params */
+  task = g_task_new (self, cancellable, callback, user_data);
+  params = g_ptr_array_new_with_free_func (free);
+  g_task_set_task_data (task, params, (GDestroyNotify) g_ptr_array_unref);
+
+  /* call enum_params */
+  seq = wp_proxy_enum_params (self, id, start, num, filter);
+  if (G_UNLIKELY (seq < 0)) {
+    g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_OPERATION_FAILED, "enum_params failed: %s",
+        spa_strerror (seq));
+    return;
+  }
+  g_task_set_source_tag (task, GINT_TO_POINTER (seq));
+  wp_proxy_register_async_task (self, seq, g_object_ref (task));
+
+  /* call sync */
+  g_autoptr (WpCore) core = wp_proxy_get_core (self);
+  wp_core_sync (core, cancellable, (GAsyncReadyCallback) enum_params_done,
+      task);
+}
+
+/**
+ * wp_proxy_enum_params_collect_finish:
+ *
+ * Returns: (transfer full) (element-type spa_pod*):
+ *    the collected params
+ */
+GPtrArray *
+wp_proxy_enum_params_collect_finish (WpProxy * self,
+    GAsyncResult * res, GError ** error)
+{
+  g_return_val_if_fail (WP_IS_PROXY (self), NULL);
+  g_return_val_if_fail (g_task_is_valid (res, self), NULL);
+
+  return g_task_propagate_pointer (G_TASK (res), error);
+}
+
+/**
+ * wp_proxy_subscribe_params: (skip)
+ * @self: the proxy
+ * @n_ids: the number of IDs specified in the the variable arugments list
+ *
+ * Sets up the proxy to automatically emit the #WpProxy::param signal for
+ * the given ids when they are changed.
+ *
+ * Returns: A positive number or zero on success. On failure, it returns
+ *   a negative number. Well known failure codes are:
+ *   * -EINVAL: An invalid parameter was passed
+ *   * -EIO: The object is not ready to receive this method call
+ *   * -ENOTSUP: this method is not supported on this object
+ */
+gint
+wp_proxy_subscribe_params (WpProxy * self, guint32 n_ids, ...)
+{
+  g_return_val_if_fail (WP_IS_PROXY (self), -EINVAL);
+  g_return_val_if_fail (n_ids != 0, -EINVAL);
+
+  va_list args;
+  guint32 *ids = g_alloca (n_ids * sizeof (guint32));
+
+  va_start (args, n_ids);
+  for (gint i = 0; i < n_ids; i++)
+    ids[i] = va_arg (args, guint32);
+  va_end (args);
+
+  return wp_proxy_subscribe_params_array (self, n_ids, ids);
+}
+
+/**
+ * wp_proxy_subscribe_params_array: (rename-to wp_proxy_subscribe_params)
+ * @self: the proxy
+ * @n_ids: the number of IDs specified in @ids
+ * @ids: (array length=n_ids): a list of param IDs to subscribe to
+ *
+ * Sets up the proxy to automatically emit the #WpProxy::param signal for
+ * the given ids when they are changed.
+ *
+ * Returns: A positive number or zero on success. On failure, it returns
+ *   a negative number. Well known failure codes are:
+ *   * -EINVAL: An invalid parameter was passed
+ *   * -EIO: The object is not ready to receive this method call
+ *   * -ENOTSUP: this method is not supported on this object
+ */
+gint
+wp_proxy_subscribe_params_array (WpProxy * self, guint32 n_ids, guint32 *ids)
+{
+  g_return_val_if_fail (WP_IS_PROXY (self), -EINVAL);
+  g_return_val_if_fail (n_ids != 0, -EINVAL);
+  g_return_val_if_fail (ids != NULL, -EINVAL);
+
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  g_return_val_if_fail (priv->pw_proxy, -EIO);
+
+  return (WP_PROXY_GET_CLASS (self)->subscribe_params) ?
+      WP_PROXY_GET_CLASS (self)->subscribe_params (self, n_ids, ids) :
+      -ENOTSUP;
+}
+
+/**
+ * wp_proxy_set_param:
+ * @self: the proxy
+ * @id: the parameter id to set
+ * @flags: extra parameter flags
+ * @param: the parameter to set
+ *
+ * Sets a parameter on the object.
+ *
+ * Returns: A positive number or zero on success. On failure, it returns
+ *   a negative number. Well known failure codes are:
+ *   * -EINVAL: An invalid parameter was passed
+ *   * -EIO: The object is not ready to receive this method call
+ *   * -ENOTSUP: this method is not supported on this object
+ */
+gint
+wp_proxy_set_param (WpProxy * self, guint32 id, guint32 flags,
+    const struct spa_pod *param)
+{
+  g_return_val_if_fail (WP_IS_PROXY (self), -EINVAL);
+
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  g_return_val_if_fail (priv->pw_proxy, -EIO);
+
+  return (WP_PROXY_GET_CLASS (self)->set_param) ?
+      WP_PROXY_GET_CLASS (self)->set_param (self, id, flags, param) :
+      -ENOTSUP;
+}
+
+void
+wp_proxy_handle_event_param (void * proxy, int seq, uint32_t id,
+    uint32_t index, uint32_t next, const struct spa_pod *param)
+{
+  WpProxy *self = WP_PROXY (proxy);
+  GTask *task;
+
+  g_signal_emit (self, wp_proxy_signals[SIGNAL_PARAM], 0, seq, id, index, next,
+      param);
+
+  /* if this param event was emited because of enum_params_collect(),
+   * copy the param in the result array of that API */
+  task = wp_proxy_find_async_task (self, seq, FALSE);
+  if (task) {
+    GPtrArray *array = g_task_get_task_data (task);
+    g_ptr_array_add (array, spa_pod_copy (param));
+  }
 }

@@ -7,12 +7,9 @@
  */
 
 #include "proxy-port.h"
-#include "error.h"
 #include "private.h"
 
 #include <pipewire/pipewire.h>
-#include <spa/pod/builder.h>
-#include <spa/pod/iter.h>
 
 struct _WpProxyPort
 {
@@ -22,19 +19,6 @@ struct _WpProxyPort
   /* The port proxy listener */
   struct spa_hook listener;
 };
-
-enum {
-  PROP_0,
-  PROP_INFO,
-  PROP_PROPERTIES,
-};
-
-enum {
-  SIGNAL_PARAM,
-  N_SIGNALS
-};
-
-static guint32 signals[N_SIGNALS];
 
 G_DEFINE_TYPE (WpProxyPort, wp_proxy_port, WP_TYPE_PROXY)
 
@@ -53,23 +37,43 @@ wp_proxy_port_finalize (GObject * object)
   G_OBJECT_CLASS (wp_proxy_port_parent_class)->finalize (object);
 }
 
-static void
-wp_proxy_port_get_property (GObject * object, guint property_id,
-    GValue * value, GParamSpec * pspec)
+static gconstpointer
+wp_proxy_port_get_info (WpProxy * self)
 {
-  WpProxyPort *self = WP_PROXY_PORT (object);
+  return WP_PROXY_PORT (self)->info;
+}
 
-  switch (property_id) {
-  case PROP_INFO:
-    g_value_set_pointer (value, self->info);
-    break;
-  case PROP_PROPERTIES:
-    g_value_take_boxed (value, wp_proxy_port_get_properties (self));
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
-    break;
-  }
+static WpProperties *
+wp_proxy_port_get_properties (WpProxy * self)
+{
+  return wp_properties_new_wrap_dict (WP_PROXY_PORT (self)->info->props);
+}
+
+static gint
+wp_proxy_port_enum_params (WpProxy * self, guint32 id, guint32 start,
+    guint32 num, const struct spa_pod *filter)
+{
+  struct pw_port *pwp;
+  int port_enum_params_result;
+
+  pwp = (struct pw_port *) wp_proxy_get_pw_proxy (self);
+  port_enum_params_result = pw_port_enum_params (pwp, 0, id, start, num, filter);
+  g_warn_if_fail (port_enum_params_result >= 0);
+
+  return port_enum_params_result;
+}
+
+static gint
+wp_proxy_port_subscribe_params (WpProxy * self, guint32 n_ids, guint32 *ids)
+{
+  struct pw_port *pwp;
+  int port_subscribe_params_result;
+
+  pwp = (struct pw_port *) wp_proxy_get_pw_proxy (self);
+  port_subscribe_params_result = pw_port_subscribe_params (pwp, ids, n_ids);
+  g_warn_if_fail (port_subscribe_params_result >= 0);
+
+  return port_subscribe_params_result;
 }
 
 static void
@@ -86,28 +90,10 @@ port_event_info(void *data, const struct pw_port_info *info)
   wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
 }
 
-static void
-port_event_param(void *data, int seq, uint32_t id, uint32_t index,
-    uint32_t next, const struct spa_pod *param)
-{
-  WpProxyPort *self = WP_PROXY_PORT (data);
-  GTask *task;
-
-  g_signal_emit (self, signals[SIGNAL_PARAM], 0, seq, id, index, next, param);
-
-  /* if this param event was emited because of enum_params_collect(),
-   * copy the param in the result array of that API */
-  task = wp_proxy_find_async_task (WP_PROXY (self), seq, FALSE);
-  if (task) {
-    GPtrArray *array = g_task_get_task_data (task);
-    g_ptr_array_add (array, spa_pod_copy (param));
-  }
-}
-
 static const struct pw_port_events port_events = {
   PW_VERSION_PORT_EVENTS,
   .info = port_event_info,
-  .param = port_event_param,
+  .param = wp_proxy_handle_event_param,
 };
 
 static void
@@ -125,155 +111,11 @@ wp_proxy_port_class_init (WpProxyPortClass * klass)
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
   object_class->finalize = wp_proxy_port_finalize;
-  object_class->get_property = wp_proxy_port_get_property;
+
+  proxy_class->get_info = wp_proxy_port_get_info;
+  proxy_class->get_properties = wp_proxy_port_get_properties;
+  proxy_class->enum_params = wp_proxy_port_enum_params;
+  proxy_class->subscribe_params = wp_proxy_port_subscribe_params;
 
   proxy_class->pw_proxy_created = wp_proxy_port_pw_proxy_created;
-
-  g_object_class_install_property (object_class, PROP_INFO,
-      g_param_spec_pointer ("info", "info", "The struct pw_port_info *",
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (object_class, PROP_PROPERTIES,
-      g_param_spec_boxed ("properties", "properties",
-          "The pipewire properties of the proxy", WP_TYPE_PROPERTIES,
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
-
-  signals[SIGNAL_PARAM] = g_signal_new ("param", G_TYPE_FROM_CLASS (klass),
-      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 5,
-      G_TYPE_INT, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_POINTER);
-}
-
-const struct pw_port_info *
-wp_proxy_port_get_info (WpProxyPort * self)
-{
-  return self->info;
-}
-
-WpProperties *
-wp_proxy_port_get_properties (WpProxyPort * self)
-{
-  return wp_properties_new_wrap_dict (self->info->props);
-}
-
-static void
-enum_params_done (WpCore * core, GAsyncResult * res, gpointer data)
-{
-  int seq = GPOINTER_TO_INT (g_task_get_source_tag (G_TASK (data)));
-  WpProxy *proxy = g_task_get_source_object (G_TASK (data));
-  g_autoptr (GTask) task = NULL;
-  g_autoptr (GError) error = NULL;
-
-  /* finish the sync task */
-  wp_core_sync_finish (core, res, &error);
-
-  /* find the enum params task in the hash table to steal the reference */
-  task = wp_proxy_find_async_task (proxy, seq, TRUE);
-  g_return_if_fail (task != NULL);
-
-  if (error)
-    g_task_return_error (task, g_steal_pointer (&error));
-  else {
-    GPtrArray *params = g_task_get_task_data (task);
-    g_task_return_pointer (task, g_ptr_array_ref (params),
-        (GDestroyNotify) g_ptr_array_unref);
-  }
-}
-
-void
-wp_proxy_port_enum_params_collect (WpProxyPort * self,
-    guint32 id, const struct spa_pod *filter,
-    GCancellable * cancellable, GAsyncReadyCallback callback,
-    gpointer user_data)
-{
-  g_autoptr (GTask) task = NULL;
-  int seq;
-  GPtrArray *params;
-
-  g_return_if_fail (WP_IS_PROXY_PORT (self));
-
-  /* create task for enum_params */
-  task = g_task_new (self, cancellable, callback, user_data);
-  params = g_ptr_array_new_with_free_func (free);
-  g_task_set_task_data (task, params, (GDestroyNotify) g_ptr_array_unref);
-
-  /* call enum_params */
-  seq = wp_proxy_port_enum_params (self, id, filter);
-  if (G_UNLIKELY (seq < 0)) {
-    g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
-        WP_LIBRARY_ERROR_OPERATION_FAILED, "enum_params failed: %s",
-        g_strerror (-seq));
-    return;
-  }
-  wp_proxy_register_async_task (WP_PROXY (self), seq, g_object_ref (task));
-
-  g_task_set_source_tag (task, GINT_TO_POINTER (seq));
-
-  /* call sync */
-  g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (self));
-  wp_core_sync (core, cancellable, (GAsyncReadyCallback) enum_params_done,
-      task);
-}
-
-/**
- * wp_proxy_port_enum_params_collect_finish:
- *
- * Returns: (transfer full) (element-type spa_pod*):
- *    the collected params
- */
-GPtrArray *
-wp_proxy_port_enum_params_collect_finish (WpProxyPort * self,
-    GAsyncResult * res, GError ** error)
-{
-  g_return_val_if_fail (WP_IS_PROXY_PORT (self), NULL);
-  g_return_val_if_fail (g_task_is_valid (res, self), NULL);
-
-  return g_task_propagate_pointer (G_TASK (res), error);
-}
-
-gint
-wp_proxy_port_enum_params (WpProxyPort * self,
-    guint32 id, const struct spa_pod *filter)
-{
-  struct pw_port *pwp;
-  int enum_params_result;
-
-  g_return_val_if_fail (WP_IS_PROXY_PORT (self), -EINVAL);
-
-  pwp = (struct pw_port *) wp_proxy_get_pw_proxy (WP_PROXY (self));
-  g_return_val_if_fail (pwp != NULL, -EINVAL);
-
-  enum_params_result = pw_port_enum_params (pwp, 0, id, 0, -1, filter);
-  g_warn_if_fail (enum_params_result >= 0);
-
-  return enum_params_result;
-}
-
-void
-wp_proxy_port_subscribe_params (WpProxyPort * self, guint32 n_ids, ...)
-{
-  va_list args;
-  guint32 *ids = g_alloca (n_ids * sizeof (guint32));
-
-  va_start (args, n_ids);
-  for (gint i = 0; i < n_ids; i++)
-    ids[i] = va_arg (args, guint32);
-  va_end (args);
-
-  wp_proxy_port_subscribe_params_array (self, n_ids, ids);
-}
-
-void
-wp_proxy_port_subscribe_params_array (WpProxyPort * self, guint32 n_ids,
-    guint32 *ids)
-{
-  struct pw_port *pwp;
-  int port_subscribe_params_result;
-
-  g_return_if_fail (WP_IS_PROXY_PORT (self));
-
-  pwp = (struct pw_port *) wp_proxy_get_pw_proxy (WP_PROXY (self));
-  g_return_if_fail (pwp != NULL);
-
-  port_subscribe_params_result = pw_port_subscribe_params (pwp, ids, n_ids);
-  g_warn_if_fail (port_subscribe_params_result >= 0);
 }

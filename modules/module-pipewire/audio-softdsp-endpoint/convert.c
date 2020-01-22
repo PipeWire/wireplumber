@@ -86,10 +86,10 @@ on_audio_convert_running(WpAudioConvert *self)
 }
 
 static void
-wp_audio_convert_event_info (WpProxyNode * proxy, GParamSpec *spec,
+wp_audio_convert_event_info (WpProxy * proxy, GParamSpec *spec,
     WpAudioConvert * self)
 {
-  const struct pw_node_info *info = wp_proxy_node_get_info (proxy);
+  const struct pw_node_info *info = wp_proxy_get_info (proxy);
 
   /* Handle the different states */
   switch (info->state) {
@@ -164,7 +164,7 @@ wp_audio_convert_init_async (GAsyncInitable *initable, int io_priority,
 
   /* Create the properties */
   node = wp_audio_stream_get_proxy_node (self->target);
-  props = wp_properties_copy (wp_proxy_node_get_properties (node));
+  props = wp_properties_copy (wp_proxy_get_properties (WP_PROXY (node)));
 
   wp_properties_setf (props, PW_KEY_OBJECT_PATH, "%s:%s",
       wp_properties_get(props, PW_KEY_OBJECT_PATH),

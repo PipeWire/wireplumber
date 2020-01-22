@@ -40,7 +40,7 @@ static WpProperties *
 wp_endpoint_audiotestsrc_get_properties (WpBaseEndpoint * ep)
 {
   WpEndpointAudiotestsrc *self = WP_ENDPOINT_AUDIOTESTSRC (ep);
-  return wp_proxy_node_get_properties (self->proxy_node);
+  return wp_proxy_get_properties (WP_PROXY (self->proxy_node));
 }
 
 static const char *

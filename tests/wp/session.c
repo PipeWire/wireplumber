@@ -253,7 +253,7 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
   /* verify properties are set before export */
   {
     g_autoptr (WpProperties) props =
-        wp_session_get_properties (WP_SESSION (session));
+        wp_exported_session_get_properties (session);
     g_assert_cmpstr (wp_properties_get (props, "test.property"), ==,
         "test-value");
   }
@@ -286,7 +286,7 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
 
   {
     g_autoptr (WpProperties) props =
-        wp_session_get_properties (WP_SESSION (fixture->proxy_session));
+        wp_proxy_get_properties (fixture->proxy_session);
     g_assert_cmpstr (wp_properties_get (props, "test.property"), ==,
         "test-value");
   }
@@ -359,13 +359,13 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
 
   {
     g_autoptr (WpProperties) props =
-        wp_session_get_properties (WP_SESSION (session));
+        wp_exported_session_get_properties (session);
     g_assert_cmpstr (wp_properties_get (props, "test.property"), ==,
         "changed-value");
   }
   {
     g_autoptr (WpProperties) props =
-        wp_session_get_properties (WP_SESSION (fixture->proxy_session));
+        wp_proxy_get_properties (fixture->proxy_session);
     g_assert_cmpstr (wp_properties_get (props, "test.property"), ==,
         "changed-value");
   }

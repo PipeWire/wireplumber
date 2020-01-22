@@ -100,7 +100,7 @@ endpoint_get_properties (WpBaseEndpoint * ep)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (ep);
 
-  return wp_proxy_node_get_properties (self->proxy_node);
+  return wp_proxy_get_properties (WP_PROXY (self->proxy_node));
 }
 
 static const char *
@@ -232,7 +232,7 @@ do_export (WpPwAudioSoftdspEndpoint *self)
   // wp_exported_endpoint_register_control (self->exported_ep,
   //     WP_ENDPOINT_CONTROL_CHANNEL_VOLUMES);
 
-  props = wp_proxy_node_get_properties (self->proxy_node);
+  props = wp_proxy_get_properties (WP_PROXY (self->proxy_node));
 
   extra_props = wp_properties_new_empty ();
   wp_properties_setf (extra_props, PW_KEY_NODE_ID, "%d",
@@ -317,7 +317,7 @@ on_audio_adapter_created(GObject *initable, GAsyncResult *res,
   if (!self->adapter)
     return;
 
-  props = wp_proxy_node_get_properties (self->proxy_node);
+  props = wp_proxy_get_properties (WP_PROXY (self->proxy_node));
 
   /* Set the role */
   self->role = g_strdup (wp_properties_get (props, PW_KEY_MEDIA_ROLE));
