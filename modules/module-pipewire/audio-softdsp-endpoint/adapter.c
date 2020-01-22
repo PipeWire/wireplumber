@@ -113,7 +113,7 @@ wp_audio_adapter_init_async (GAsyncInitable *initable, int io_priority,
     GCancellable *cancellable, GAsyncReadyCallback callback, gpointer data)
 {
   WpAudioAdapter *self = WP_AUDIO_ADAPTER(initable);
-  WpProxyNode *proxy = wp_audio_stream_get_proxy_node (WP_AUDIO_STREAM (self));
+  WpNode *proxy = wp_audio_stream_get_node (WP_AUDIO_STREAM (self));
 
   /* Call the parent interface */
   /* This will also augment the proxy and therefore bind it */
@@ -189,7 +189,7 @@ wp_audio_adapter_class_init (WpAudioAdapterClass * klass)
 
 void
 wp_audio_adapter_new (WpBaseEndpoint *endpoint, guint stream_id,
-    const char *stream_name, enum pw_direction direction, WpProxyNode *node,
+    const char *stream_name, enum pw_direction direction, WpNode *node,
     gboolean convert,  GAsyncReadyCallback callback, gpointer user_data)
 {
   g_async_initable_new_async (
@@ -198,7 +198,7 @@ wp_audio_adapter_new (WpBaseEndpoint *endpoint, guint stream_id,
       "id", stream_id,
       "name", stream_name,
       "direction", direction,
-      "proxy-node", node,
+      "node", node,
       "convert", convert,
       NULL);
 }

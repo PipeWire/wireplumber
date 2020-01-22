@@ -34,7 +34,7 @@ struct _WpPwAudioSoftdspEndpoint
   WpBaseEndpoint parent;
 
   /* Properties */
-  WpProxyNode *proxy_node;
+  WpNode *node;
   GVariant *streams;
   char *role;
 
@@ -100,7 +100,7 @@ endpoint_get_properties (WpBaseEndpoint * ep)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (ep);
 
-  return wp_proxy_get_properties (WP_PROXY (self->proxy_node));
+  return wp_proxy_get_properties (WP_PROXY (self->node));
 }
 
 static const char *
@@ -232,11 +232,11 @@ do_export (WpPwAudioSoftdspEndpoint *self)
   // wp_exported_endpoint_register_control (self->exported_ep,
   //     WP_ENDPOINT_CONTROL_CHANNEL_VOLUMES);
 
-  props = wp_proxy_get_properties (WP_PROXY (self->proxy_node));
+  props = wp_proxy_get_properties (WP_PROXY (self->node));
 
   extra_props = wp_properties_new_empty ();
   wp_properties_setf (extra_props, PW_KEY_NODE_ID, "%d",
-      wp_proxy_get_global_id (WP_PROXY (self->proxy_node)));
+      wp_proxy_get_global_id (WP_PROXY (self->node)));
   wp_properties_set (extra_props, PW_KEY_ENDPOINT_CLIENT_ID,
       wp_properties_get (props, PW_KEY_CLIENT_ID));
   wp_properties_setf (extra_props, "endpoint.priority", "%d",
@@ -317,7 +317,7 @@ on_audio_adapter_created(GObject *initable, GAsyncResult *res,
   if (!self->adapter)
     return;
 
-  props = wp_proxy_get_properties (WP_PROXY (self->proxy_node));
+  props = wp_proxy_get_properties (WP_PROXY (self->node));
 
   /* Set the role */
   self->role = g_strdup (wp_properties_get (props, PW_KEY_MEDIA_ROLE));
@@ -369,7 +369,7 @@ endpoint_finalize (GObject * object)
   /* Destroy the done task */
   g_clear_object(&self->init_task);
 
-  g_clear_object(&self->proxy_node);
+  g_clear_object(&self->node);
   g_free (self->role);
 
   G_OBJECT_CLASS (endpoint_parent_class)->finalize (object);
@@ -383,7 +383,7 @@ endpoint_set_property (GObject * object, guint property_id,
 
   switch (property_id) {
   case PROP_PROXY_NODE:
-    self->proxy_node = g_value_dup_object (value);
+    self->node = g_value_dup_object (value);
     break;
   case PROP_STREAMS:
     self->streams = g_value_dup_variant(value);
@@ -406,7 +406,7 @@ endpoint_get_property (GObject * object, guint property_id,
 
   switch (property_id) {
   case PROP_PROXY_NODE:
-    g_value_set_object (value, self->proxy_node);
+    g_value_set_object (value, self->node);
     break;
   case PROP_STREAMS:
     g_value_set_variant (value, self->streams);
@@ -434,7 +434,7 @@ wp_base_endpoint_init_async (GAsyncInitable *initable, int io_priority,
 
   /* Create the adapter proxy */
   wp_audio_adapter_new (WP_BASE_ENDPOINT(self), WP_STREAM_ID_NONE, "master",
-      direction, self->proxy_node, FALSE, on_audio_adapter_created, self);
+      direction, self->node, FALSE, on_audio_adapter_created, self);
 
   /* Register the selected control */
   self->selected = FALSE;
@@ -485,8 +485,8 @@ endpoint_class_init (WpPwAudioSoftdspEndpointClass * klass)
 
   /* Instal the properties */
   g_object_class_install_property (object_class, PROP_PROXY_NODE,
-      g_param_spec_object ("proxy-node", "proxy-node",
-          "The node this endpoint refers to", WP_TYPE_PROXY_NODE,
+      g_param_spec_object ("node", "node",
+          "The node this endpoint refers to", WP_TYPE_NODE,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (object_class, PROP_STREAMS,
@@ -526,7 +526,7 @@ audio_softdsp_endpoint_factory (WpFactory * factory, GType type, GVariant * prop
       return;
   if (!g_variant_lookup (properties, "priority", "u", &priority))
       return;
-  if (!g_variant_lookup (properties, "proxy-node", "t", &node))
+  if (!g_variant_lookup (properties, "node", "t", &node))
       return;
   streams = g_variant_lookup_value (properties, "streams",
       G_VARIANT_TYPE ("a(su)"));
@@ -539,7 +539,7 @@ audio_softdsp_endpoint_factory (WpFactory * factory, GType type, GVariant * prop
       "media-class", media_class,
       "direction", direction,
       "priority", priority,
-      "proxy-node", (gpointer) node,
+      "node", (gpointer) node,
       "streams", streams,
       NULL);
 }

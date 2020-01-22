@@ -118,7 +118,7 @@ test_proxy_basic_object_added (WpObjectManager *om, WpProxy *proxy,
   g_assert_cmpstr (wp_proxy_get_interface_type (proxy), ==,
       PW_TYPE_INTERFACE_Client);
   g_assert_cmphex (wp_proxy_get_global_permissions (proxy), ==, PW_PERM_RWX);
-  g_assert_true (WP_IS_PROXY_CLIENT (proxy));
+  g_assert_true (WP_IS_CLIENT (proxy));
 
   g_assert_cmphex (wp_proxy_get_features (proxy), ==, 0);
   g_assert_null (wp_proxy_get_pw_proxy (proxy));
@@ -153,18 +153,18 @@ test_proxy_basic (TestProxyFixture *fixture, gconstpointer data)
 typedef struct {
   TestProxyFixture *fixture;
   guint n_params;
-} TestProxyNodeParamData;
+} TestNodeParamData;
 
 static void
-test_proxy_node_param (WpProxyNode *node, int seq, guint id, guint index,
-    guint next, struct spa_pod *param, TestProxyNodeParamData *data)
+test_node_param (WpNode *node, int seq, guint id, guint index,
+    guint next, struct spa_pod *param, TestNodeParamData *data)
 {
   data->n_params++;
 }
 
 static void
-test_proxy_node_enum_params_done (WpProxy *node, GAsyncResult *res,
-    TestProxyNodeParamData *data)
+test_node_enum_params_done (WpProxy *node, GAsyncResult *res,
+    TestNodeParamData *data)
 {
   g_autoptr (GPtrArray) params = NULL;
   g_autoptr (GError) error = NULL;
@@ -187,11 +187,11 @@ test_proxy_node_enum_params_done (WpProxy *node, GAsyncResult *res,
 }
 
 static void
-test_proxy_node_object_added (WpObjectManager *om, WpProxy *proxy,
+test_node_object_added (WpObjectManager *om, WpProxy *proxy,
     TestProxyFixture *fixture)
 {
   const struct pw_node_info *info;
-  TestProxyNodeParamData *param_data;
+  TestNodeParamData *param_data;
 
   g_assert_nonnull (proxy);
   g_assert_true (wp_proxy_is_global (proxy));
@@ -201,7 +201,7 @@ test_proxy_node_object_added (WpObjectManager *om, WpProxy *proxy,
       WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO);
   g_assert_nonnull (wp_proxy_get_pw_proxy (proxy));
 
-  g_assert_true (WP_IS_PROXY_NODE (proxy));
+  g_assert_true (WP_IS_NODE (proxy));
   info = wp_proxy_get_info (proxy);
   g_assert_nonnull (info);
   g_assert_cmpint (wp_proxy_get_global_id (proxy), ==, info->id);
@@ -217,18 +217,18 @@ test_proxy_node_object_added (WpObjectManager *om, WpProxy *proxy,
     g_assert_cmpint (info->id, ==, atoi(id));
   }
 
-  param_data = g_new0 (TestProxyNodeParamData, 1);
+  param_data = g_new0 (TestNodeParamData, 1);
   param_data->fixture = fixture;
 
-  g_signal_connect (proxy, "param", (GCallback) test_proxy_node_param,
+  g_signal_connect (proxy, "param", (GCallback) test_node_param,
       param_data);
   wp_proxy_enum_params_collect (proxy, SPA_PARAM_PropInfo, 0, -1,
-      NULL, NULL, (GAsyncReadyCallback) test_proxy_node_enum_params_done,
+      NULL, NULL, (GAsyncReadyCallback) test_node_enum_params_done,
       param_data);
 }
 
 static void
-test_proxy_node (TestProxyFixture *fixture, gconstpointer data)
+test_node (TestProxyFixture *fixture, gconstpointer data)
 {
   /* load audiotestsrc on the server side */
   pw_thread_loop_lock (fixture->server.thread_loop);
@@ -244,7 +244,7 @@ test_proxy_node (TestProxyFixture *fixture, gconstpointer data)
 
   /* we should be able to see this exported audiotestsrc node on the client */
   g_signal_connect (fixture->om, "object-added",
-      (GCallback) test_proxy_node_object_added, fixture);
+      (GCallback) test_node_object_added, fixture);
 
   /* declare interest and set default features to be ready
      when the signal is fired */
@@ -266,7 +266,7 @@ main (gint argc, gchar *argv[])
   g_test_add ("/wp/proxy/basic", TestProxyFixture, NULL,
       test_proxy_setup, test_proxy_basic, test_proxy_teardown);
   g_test_add ("/wp/proxy/node", TestProxyFixture, NULL,
-      test_proxy_setup, test_proxy_node, test_proxy_teardown);
+      test_proxy_setup, test_node, test_proxy_teardown);
 
   return g_test_run ();
 }

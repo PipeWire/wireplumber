@@ -29,7 +29,7 @@ struct _WpAudioStreamPrivate
   enum pw_direction direction;
 
   /* Stream Proxy */
-  WpProxyNode *proxy;
+  WpNode *proxy;
 
   WpObjectManager *ports_om;
   GVariantBuilder port_vb;
@@ -322,8 +322,8 @@ wp_audio_stream_class_init (WpAudioStreamClass * klass)
           "The direction of the audio stream", 0, 1, 0,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (object_class, PROP_PROXY_NODE,
-      g_param_spec_object ("proxy-node", "proxy-node",
-          "The node proxy of the stream", WP_TYPE_PROXY_NODE,
+      g_param_spec_object ("node", "node",
+          "The node proxy of the stream", WP_TYPE_NODE,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS));
 
   signals[SIGNAL_CONTROL_CHANGED] = g_signal_new (
@@ -355,8 +355,8 @@ wp_audio_stream_get_direction (WpAudioStream * self)
   return priv->direction;
 }
 
-WpProxyNode *
-wp_audio_stream_get_proxy_node (WpAudioStream * self)
+WpNode *
+wp_audio_stream_get_node (WpAudioStream * self)
 {
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
 

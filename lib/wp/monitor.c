@@ -12,8 +12,8 @@
 #include <spa/utils/result.h>
 #include <pipewire/pipewire.h>
 
-#include "proxy-node.h"
-#include "proxy-device.h"
+#include "node.h"
+#include "device.h"
 #include "monitor.h"
 #include "error.h"
 #include "wpenums.h"
@@ -264,7 +264,7 @@ node_new (struct object *dev, uint32_t id,
   node = g_slice_new0 (struct object);
   node->self = self;
   node->id = id;
-  node->type = WP_TYPE_PROXY_NODE;
+  node->type = WP_TYPE_NODE;
   node->proxy = g_steal_pointer (&proxy);
 
   return node;
@@ -329,7 +329,7 @@ device_new (WpMonitor *self, uint32_t id, const gchar *factory_name,
   dev = g_slice_new0 (struct object);
   dev->self = self;
   dev->id = id;
-  dev->type = WP_TYPE_PROXY_DEVICE;
+  dev->type = WP_TYPE_DEVICE;
   dev->spa_obj = g_steal_pointer (&spa_dev);
   dev->properties = g_steal_pointer (&props);
   dev->proxy = g_steal_pointer (&proxy);

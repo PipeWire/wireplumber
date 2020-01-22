@@ -17,7 +17,7 @@ struct _WpEndpointAudiotestsrc
   guint id;
 
   /* Props */
-  WpProxyNode *proxy_node;
+  WpNode *node;
   GVariant *streams;
 };
 
@@ -40,7 +40,7 @@ static WpProperties *
 wp_endpoint_audiotestsrc_get_properties (WpBaseEndpoint * ep)
 {
   WpEndpointAudiotestsrc *self = WP_ENDPOINT_AUDIOTESTSRC (ep);
-  return wp_proxy_get_properties (WP_PROXY (self->proxy_node));
+  return wp_proxy_get_properties (WP_PROXY (self->node));
 }
 
 static const char *
@@ -101,7 +101,7 @@ wp_endpoint_audiotestsrc_set_property (GObject * object, guint property_id,
 
   switch (property_id) {
   case PROP_PROXY_NODE:
-    self->proxy_node = g_value_dup_object (value);
+    self->node = g_value_dup_object (value);
     break;
   case PROP_STREAMS:
     self->streams = g_value_dup_variant(value);
@@ -120,7 +120,7 @@ wp_endpoint_audiotestsrc_get_property (GObject * object, guint property_id,
 
   switch (property_id) {
   case PROP_PROXY_NODE:
-    g_value_set_object (value, self->proxy_node);
+    g_value_set_object (value, self->node);
     break;
   case PROP_STREAMS:
     g_value_set_variant (value, self->streams);
@@ -136,7 +136,7 @@ wp_endpoint_audiotestsrc_finalize (GObject * object)
 {
   WpEndpointAudiotestsrc *self = WP_ENDPOINT_AUDIOTESTSRC (object);
 
-  g_clear_object(&self->proxy_node);
+  g_clear_object(&self->node);
   g_clear_pointer(&self->streams, g_variant_unref);
 
   G_OBJECT_CLASS (wp_endpoint_audiotestsrc_parent_class)->finalize (object);
@@ -203,8 +203,8 @@ wp_endpoint_audiotestsrc_class_init (WpEndpointAudiotestsrcClass * klass)
       wp_endpoint_audiotestsrc_get_endpoint_link_factory;
 
   g_object_class_install_property (object_class, PROP_PROXY_NODE,
-      g_param_spec_object ("proxy-node", "proxy-node",
-          "The node this endpoint refers to", WP_TYPE_PROXY_NODE,
+      g_param_spec_object ("node", "node",
+          "The node this endpoint refers to", WP_TYPE_NODE,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (object_class, PROP_STREAMS,
@@ -235,7 +235,7 @@ wp_endpoint_audiotestsrc_factory (WpFactory * factory, GType type,
       return;
   if (!g_variant_lookup (properties, "priority", "u", &priority))
       return;
-  if (!g_variant_lookup (properties, "proxy-node", "t", &node))
+  if (!g_variant_lookup (properties, "node", "t", &node))
       return;
   streams = g_variant_lookup_value (properties, "streams",
       G_VARIANT_TYPE ("a(su)"));
@@ -247,7 +247,7 @@ wp_endpoint_audiotestsrc_factory (WpFactory * factory, GType type,
         "media-class", media_class,
         "direction", direction,
         "priority", priority,
-        "proxy-node", (gpointer) node,
+        "node", (gpointer) node,
         "streams", streams,
         NULL);
 }

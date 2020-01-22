@@ -27,7 +27,7 @@ WpAudioStream * wp_audio_stream_new_finish (GObject *initable,
     GAsyncResult *res, GError **error);
 const char *wp_audio_stream_get_name (WpAudioStream * self);
 enum pw_direction wp_audio_stream_get_direction (WpAudioStream * self);
-WpProxyNode * wp_audio_stream_get_proxy_node (WpAudioStream * self);
+WpNode * wp_audio_stream_get_node (WpAudioStream * self);
 const struct pw_node_info * wp_audio_stream_get_info (WpAudioStream * self);
 gboolean wp_audio_stream_prepare_link (WpAudioStream * self,
       GVariant ** properties, GError ** error);

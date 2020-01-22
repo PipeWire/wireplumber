@@ -6,12 +6,12 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "proxy-link.h"
+#include "link.h"
 #include "private.h"
 
 #include <pipewire/pipewire.h>
 
-struct _WpProxyLink
+struct _WpLink
 {
   WpProxy parent;
   struct pw_link_info *info;
@@ -20,39 +20,39 @@ struct _WpProxyLink
   struct spa_hook listener;
 };
 
-G_DEFINE_TYPE (WpProxyLink, wp_proxy_link, WP_TYPE_PROXY)
+G_DEFINE_TYPE (WpLink, wp_link, WP_TYPE_PROXY)
 
 static void
-wp_proxy_link_init (WpProxyLink * self)
+wp_link_init (WpLink * self)
 {
 }
 
 static void
-wp_proxy_link_finalize (GObject * object)
+wp_link_finalize (GObject * object)
 {
-  WpProxyLink *self = WP_PROXY_LINK (object);
+  WpLink *self = WP_LINK (object);
 
   g_clear_pointer (&self->info, pw_link_info_free);
 
-  G_OBJECT_CLASS (wp_proxy_link_parent_class)->finalize (object);
+  G_OBJECT_CLASS (wp_link_parent_class)->finalize (object);
 }
 
 static gconstpointer
-wp_proxy_link_get_info (WpProxy * self)
+wp_link_get_info (WpProxy * self)
 {
-  return WP_PROXY_LINK (self)->info;
+  return WP_LINK (self)->info;
 }
 
 static WpProperties *
-wp_proxy_link_get_properties (WpProxy * self)
+wp_link_get_properties (WpProxy * self)
 {
-  return wp_properties_new_wrap_dict (WP_PROXY_LINK (self)->info->props);
+  return wp_properties_new_wrap_dict (WP_LINK (self)->info->props);
 }
 
 static void
 link_event_info(void *data, const struct pw_link_info *info)
 {
-  WpProxyLink *self = WP_PROXY_LINK (data);
+  WpLink *self = WP_LINK (data);
 
   self->info = pw_link_info_update (self->info, info);
   g_object_notify (G_OBJECT (self), "info");
@@ -69,23 +69,23 @@ static const struct pw_link_events link_events = {
 };
 
 static void
-wp_proxy_link_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
+wp_link_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 {
-  WpProxyLink *self = WP_PROXY_LINK (proxy);
+  WpLink *self = WP_LINK (proxy);
   pw_link_add_listener ((struct pw_link *) pw_proxy,
       &self->listener, &link_events, self);
 }
 
 static void
-wp_proxy_link_class_init (WpProxyLinkClass * klass)
+wp_link_class_init (WpLinkClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
-  object_class->finalize = wp_proxy_link_finalize;
+  object_class->finalize = wp_link_finalize;
 
-  proxy_class->get_info = wp_proxy_link_get_info;
-  proxy_class->get_properties = wp_proxy_link_get_properties;
+  proxy_class->get_info = wp_link_get_info;
+  proxy_class->get_properties = wp_link_get_properties;
 
-  proxy_class->pw_proxy_created = wp_proxy_link_pw_proxy_created;
+  proxy_class->pw_proxy_created = wp_link_pw_proxy_created;
 }

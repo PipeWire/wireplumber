@@ -146,7 +146,7 @@ simple_endpoint_link_get_property (GObject * object, guint property_id,
 }
 
 static void
-on_proxy_link_augmented (WpProxy *proxy, GAsyncResult *res, gpointer data)
+on_link_augmented (WpProxy *proxy, GAsyncResult *res, gpointer data)
 {
   WpPipewireSimpleEndpointLink *self = data;
   g_autoptr (GError) error = NULL;
@@ -185,7 +185,7 @@ create_link_cb (WpProperties *props, gpointer user_data)
       by waiting for the info event, which will be signaled anyway */
   self->link_count++;
   wp_proxy_augment (proxy, WP_PROXY_FEATURE_INFO, NULL,
-      (GAsyncReadyCallback) on_proxy_link_augmented, self);
+      (GAsyncReadyCallback) on_link_augmented, self);
 }
 
 static gboolean

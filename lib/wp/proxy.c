@@ -14,11 +14,11 @@
 #include "private.h"
 
 #include "endpoint.h"
-#include "proxy-client.h"
-#include "proxy-device.h"
-#include "proxy-link.h"
-#include "proxy-node.h"
-#include "proxy-port.h"
+#include "client.h"
+#include "device.h"
+#include "link.h"
+#include "node.h"
+#include "port.h"
 #include "session.h"
 
 #include <pipewire/pipewire.h>
@@ -96,13 +96,13 @@ static struct {
 } types_assoc[] = {
   { PW_TYPE_INTERFACE_Core, 0, wp_proxy_get_type, NULL },
   { PW_TYPE_INTERFACE_Registry, 0, wp_proxy_get_type, NULL },
-  { PW_TYPE_INTERFACE_Node, 0, wp_proxy_node_get_type, (GDestroyNotify)pw_impl_node_destroy },
-  { PW_TYPE_INTERFACE_Port, 0, wp_proxy_port_get_type, NULL },
+  { PW_TYPE_INTERFACE_Node, 0, wp_node_get_type, (GDestroyNotify)pw_impl_node_destroy },
+  { PW_TYPE_INTERFACE_Port, 0, wp_port_get_type, NULL },
   { PW_TYPE_INTERFACE_Factory, 0, wp_proxy_get_type, (GDestroyNotify)pw_impl_factory_destroy },
-  { PW_TYPE_INTERFACE_Link, 0, wp_proxy_link_get_type, (GDestroyNotify)pw_impl_link_destroy },
-  { PW_TYPE_INTERFACE_Client, 0, wp_proxy_client_get_type, (GDestroyNotify)pw_impl_client_destroy },
+  { PW_TYPE_INTERFACE_Link, 0, wp_link_get_type, (GDestroyNotify)pw_impl_link_destroy },
+  { PW_TYPE_INTERFACE_Client, 0, wp_client_get_type, (GDestroyNotify)pw_impl_client_destroy },
   { PW_TYPE_INTERFACE_Module, 0, wp_proxy_get_type, (GDestroyNotify)pw_impl_module_destroy },
-  { PW_TYPE_INTERFACE_Device, 0, wp_proxy_device_get_type, (GDestroyNotify)pw_impl_device_destroy },
+  { PW_TYPE_INTERFACE_Device, 0, wp_device_get_type, (GDestroyNotify)pw_impl_device_destroy },
   { PW_TYPE_INTERFACE_Metadata, 0, wp_proxy_get_type, NULL },
   { PW_TYPE_INTERFACE_Session, 0, wp_proxy_session_get_type, NULL },
   { PW_TYPE_INTERFACE_Endpoint, 0, wp_proxy_endpoint_get_type, NULL },

@@ -10,7 +10,7 @@
 #include <pipewire/pipewire.h>
 
 static void
-client_added (WpObjectManager * om, WpProxyClient *client, gpointer data)
+client_added (WpObjectManager * om, WpClient *client, gpointer data)
 {
   g_autoptr (WpProperties) properties = NULL;
   const char *access;
@@ -23,7 +23,7 @@ client_added (WpObjectManager * om, WpProxyClient *client, gpointer data)
 
   if (!g_strcmp0 (access, "flatpak") || !g_strcmp0 (access, "restricted")) {
     g_debug ("Granting full access to client %d", id);
-    wp_proxy_client_update_permissions (client, 1, -1, PW_PERM_RWX);
+    wp_client_update_permissions (client, 1, -1, PW_PERM_RWX);
   }
 }
 

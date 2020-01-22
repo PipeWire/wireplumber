@@ -57,7 +57,7 @@ on_endpoint_created (GObject *initable, GAsyncResult *res, gpointer d)
   }
 
   /* Get the endpoint global id */
-  g_object_get (endpoint, "proxy-node", &proxy, NULL);
+  g_object_get (endpoint, "node", &proxy, NULL);
   global_id = wp_proxy_get_global_id (proxy);
 
   /* Register the endpoint and add it to the table */
@@ -143,7 +143,7 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
   g_variant_builder_add (&b, "{sv}",
       "priority", g_variant_new_uint32 (endpoint_data->e.priority));
   g_variant_builder_add (&b, "{sv}",
-      "proxy-node", g_variant_new_uint64 ((guint64) proxy));
+      "node", g_variant_new_uint64 ((guint64) proxy));
   if (streams_variant)
     g_variant_builder_add (&b, "{sv}", "streams",
         g_steal_pointer (&streams_variant));

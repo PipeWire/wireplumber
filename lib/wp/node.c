@@ -6,12 +6,12 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "proxy-node.h"
+#include "node.h"
 #include "private.h"
 
 #include <pipewire/pipewire.h>
 
-struct _WpProxyNode
+struct _WpNode
 {
   WpProxy parent;
   struct pw_node_info *info;
@@ -20,37 +20,37 @@ struct _WpProxyNode
   struct spa_hook listener;
 };
 
-G_DEFINE_TYPE (WpProxyNode, wp_proxy_node, WP_TYPE_PROXY)
+G_DEFINE_TYPE (WpNode, wp_node, WP_TYPE_PROXY)
 
 static void
-wp_proxy_node_init (WpProxyNode * self)
+wp_node_init (WpNode * self)
 {
 }
 
 static void
-wp_proxy_node_finalize (GObject * object)
+wp_node_finalize (GObject * object)
 {
-  WpProxyNode *self = WP_PROXY_NODE (object);
+  WpNode *self = WP_NODE (object);
 
   g_clear_pointer (&self->info, pw_node_info_free);
 
-  G_OBJECT_CLASS (wp_proxy_node_parent_class)->finalize (object);
+  G_OBJECT_CLASS (wp_node_parent_class)->finalize (object);
 }
 
 static gconstpointer
-wp_proxy_node_get_info (WpProxy * self)
+wp_node_get_info (WpProxy * self)
 {
-  return WP_PROXY_NODE (self)->info;
+  return WP_NODE (self)->info;
 }
 
 static WpProperties *
-wp_proxy_node_get_properties (WpProxy * self)
+wp_node_get_properties (WpProxy * self)
 {
-  return wp_properties_new_wrap_dict (WP_PROXY_NODE (self)->info->props);
+  return wp_properties_new_wrap_dict (WP_NODE (self)->info->props);
 }
 
 static gint
-wp_proxy_node_enum_params (WpProxy * self, guint32 id, guint32 start,
+wp_node_enum_params (WpProxy * self, guint32 id, guint32 start,
     guint32 num, const struct spa_pod *filter)
 {
   struct pw_node *pwp;
@@ -64,7 +64,7 @@ wp_proxy_node_enum_params (WpProxy * self, guint32 id, guint32 start,
 }
 
 static gint
-wp_proxy_node_subscribe_params (WpProxy * self, guint32 n_ids, guint32 *ids)
+wp_node_subscribe_params (WpProxy * self, guint32 n_ids, guint32 *ids)
 {
   struct pw_node *pwp;
   int node_subscribe_params_result;
@@ -77,7 +77,7 @@ wp_proxy_node_subscribe_params (WpProxy * self, guint32 n_ids, guint32 *ids)
 }
 
 static gint
-wp_proxy_node_set_param (WpProxy * self, guint32 id, guint32 flags,
+wp_node_set_param (WpProxy * self, guint32 id, guint32 flags,
     const struct spa_pod *param)
 {
   struct pw_node *pwp;
@@ -93,7 +93,7 @@ wp_proxy_node_set_param (WpProxy * self, guint32 id, guint32 flags,
 static void
 node_event_info(void *data, const struct pw_node_info *info)
 {
-  WpProxyNode *self = WP_PROXY_NODE (data);
+  WpNode *self = WP_NODE (data);
 
   self->info = pw_node_info_update (self->info, info);
   g_object_notify (G_OBJECT (self), "info");
@@ -111,26 +111,26 @@ static const struct pw_node_events node_events = {
 };
 
 static void
-wp_proxy_node_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
+wp_node_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 {
-  WpProxyNode *self = WP_PROXY_NODE (proxy);
+  WpNode *self = WP_NODE (proxy);
   pw_node_add_listener ((struct pw_node *) pw_proxy,
       &self->listener, &node_events, self);
 }
 
 static void
-wp_proxy_node_class_init (WpProxyNodeClass * klass)
+wp_node_class_init (WpNodeClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
-  object_class->finalize = wp_proxy_node_finalize;
+  object_class->finalize = wp_node_finalize;
 
-  proxy_class->get_info = wp_proxy_node_get_info;
-  proxy_class->get_properties = wp_proxy_node_get_properties;
-  proxy_class->enum_params = wp_proxy_node_enum_params;
-  proxy_class->subscribe_params = wp_proxy_node_subscribe_params;
-  proxy_class->set_param = wp_proxy_node_set_param;
+  proxy_class->get_info = wp_node_get_info;
+  proxy_class->get_properties = wp_node_get_properties;
+  proxy_class->enum_params = wp_node_enum_params;
+  proxy_class->subscribe_params = wp_node_subscribe_params;
+  proxy_class->set_param = wp_node_set_param;
 
-  proxy_class->pw_proxy_created = wp_proxy_node_pw_proxy_created;
+  proxy_class->pw_proxy_created = wp_node_pw_proxy_created;
 }

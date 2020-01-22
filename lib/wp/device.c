@@ -6,12 +6,12 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "proxy-device.h"
+#include "device.h"
 #include "private.h"
 
 #include <pipewire/pipewire.h>
 
-struct _WpProxyDevice
+struct _WpDevice
 {
   WpProxy parent;
   struct pw_device_info *info;
@@ -20,37 +20,37 @@ struct _WpProxyDevice
   struct spa_hook listener;
 };
 
-G_DEFINE_TYPE (WpProxyDevice, wp_proxy_device, WP_TYPE_PROXY)
+G_DEFINE_TYPE (WpDevice, wp_device, WP_TYPE_PROXY)
 
 static void
-wp_proxy_device_init (WpProxyDevice * self)
+wp_device_init (WpDevice * self)
 {
 }
 
 static void
-wp_proxy_device_finalize (GObject * object)
+wp_device_finalize (GObject * object)
 {
-  WpProxyDevice *self = WP_PROXY_DEVICE (object);
+  WpDevice *self = WP_DEVICE (object);
 
   g_clear_pointer (&self->info, pw_device_info_free);
 
-  G_OBJECT_CLASS (wp_proxy_device_parent_class)->finalize (object);
+  G_OBJECT_CLASS (wp_device_parent_class)->finalize (object);
 }
 
 static gconstpointer
-wp_proxy_device_get_info (WpProxy * self)
+wp_device_get_info (WpProxy * self)
 {
-  return WP_PROXY_DEVICE (self)->info;
+  return WP_DEVICE (self)->info;
 }
 
 static WpProperties *
-wp_proxy_device_get_properties (WpProxy * self)
+wp_device_get_properties (WpProxy * self)
 {
-  return wp_properties_new_wrap_dict (WP_PROXY_DEVICE (self)->info->props);
+  return wp_properties_new_wrap_dict (WP_DEVICE (self)->info->props);
 }
 
 static gint
-wp_proxy_device_enum_params (WpProxy * self, guint32 id, guint32 start,
+wp_device_enum_params (WpProxy * self, guint32 id, guint32 start,
     guint32 num, const struct spa_pod *filter)
 {
   struct pw_device *pwp;
@@ -65,7 +65,7 @@ wp_proxy_device_enum_params (WpProxy * self, guint32 id, guint32 start,
 }
 
 static gint
-wp_proxy_device_set_param (WpProxy * self, guint32 id, guint32 flags,
+wp_device_set_param (WpProxy * self, guint32 id, guint32 flags,
     const struct spa_pod *param)
 {
   struct pw_device *pwp;
@@ -81,7 +81,7 @@ wp_proxy_device_set_param (WpProxy * self, guint32 id, guint32 flags,
 static void
 device_event_info(void *data, const struct pw_device_info *info)
 {
-  WpProxyDevice *self = WP_PROXY_DEVICE (data);
+  WpDevice *self = WP_DEVICE (data);
 
   self->info = pw_device_info_update (self->info, info);
   g_object_notify (G_OBJECT (self), "info");
@@ -99,25 +99,25 @@ static const struct pw_device_events device_events = {
 };
 
 static void
-wp_proxy_device_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
+wp_device_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 {
-  WpProxyDevice *self = WP_PROXY_DEVICE (proxy);
+  WpDevice *self = WP_DEVICE (proxy);
   pw_device_add_listener ((struct pw_device *) pw_proxy,
       &self->listener, &device_events, self);
 }
 
 static void
-wp_proxy_device_class_init (WpProxyDeviceClass * klass)
+wp_device_class_init (WpDeviceClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
-  object_class->finalize = wp_proxy_device_finalize;
+  object_class->finalize = wp_device_finalize;
 
-  proxy_class->get_info = wp_proxy_device_get_info;
-  proxy_class->get_properties = wp_proxy_device_get_properties;
-  proxy_class->enum_params = wp_proxy_device_enum_params;
-  proxy_class->set_param = wp_proxy_device_set_param;
+  proxy_class->get_info = wp_device_get_info;
+  proxy_class->get_properties = wp_device_get_properties;
+  proxy_class->enum_params = wp_device_enum_params;
+  proxy_class->set_param = wp_device_set_param;
 
-  proxy_class->pw_proxy_created = wp_proxy_device_pw_proxy_created;
+  proxy_class->pw_proxy_created = wp_device_pw_proxy_created;
 }

@@ -6,12 +6,12 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "proxy-client.h"
+#include "client.h"
 #include "private.h"
 
 #include <pipewire/pipewire.h>
 
-struct _WpProxyClient
+struct _WpClient
 {
   WpProxy parent;
   struct pw_client_info *info;
@@ -20,39 +20,39 @@ struct _WpProxyClient
   struct spa_hook listener;
 };
 
-G_DEFINE_TYPE (WpProxyClient, wp_proxy_client, WP_TYPE_PROXY)
+G_DEFINE_TYPE (WpClient, wp_client, WP_TYPE_PROXY)
 
 static void
-wp_proxy_client_init (WpProxyClient * self)
+wp_client_init (WpClient * self)
 {
 }
 
 static void
-wp_proxy_client_finalize (GObject * object)
+wp_client_finalize (GObject * object)
 {
-  WpProxyClient *self = WP_PROXY_CLIENT (object);
+  WpClient *self = WP_CLIENT (object);
 
   g_clear_pointer (&self->info, pw_client_info_free);
 
-  G_OBJECT_CLASS (wp_proxy_client_parent_class)->finalize (object);
+  G_OBJECT_CLASS (wp_client_parent_class)->finalize (object);
 }
 
 static gconstpointer
-wp_proxy_client_get_info (WpProxy * self)
+wp_client_get_info (WpProxy * self)
 {
-  return WP_PROXY_CLIENT (self)->info;
+  return WP_CLIENT (self)->info;
 }
 
 WpProperties *
-wp_proxy_client_get_properties (WpProxy * self)
+wp_client_get_properties (WpProxy * self)
 {
-  return wp_properties_new_wrap_dict (WP_PROXY_CLIENT (self)->info->props);
+  return wp_properties_new_wrap_dict (WP_CLIENT (self)->info->props);
 }
 
 static void
 client_event_info(void *data, const struct pw_client_info *info)
 {
-  WpProxyClient *self = WP_PROXY_CLIENT (data);
+  WpClient *self = WP_CLIENT (data);
 
   self->info = pw_client_info_update (self->info, info);
   g_object_notify (G_OBJECT (self), "info");
@@ -69,30 +69,29 @@ static const struct pw_client_events client_events = {
 };
 
 static void
-wp_proxy_client_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
+wp_client_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 {
-  WpProxyClient *self = WP_PROXY_CLIENT (proxy);
+  WpClient *self = WP_CLIENT (proxy);
   pw_client_add_listener ((struct pw_client *) pw_proxy,
       &self->listener, &client_events, self);
 }
 
 static void
-wp_proxy_client_class_init (WpProxyClientClass * klass)
+wp_client_class_init (WpClientClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
-  object_class->finalize = wp_proxy_client_finalize;
+  object_class->finalize = wp_client_finalize;
 
-  proxy_class->get_info = wp_proxy_client_get_info;
-  proxy_class->get_properties = wp_proxy_client_get_properties;
+  proxy_class->get_info = wp_client_get_info;
+  proxy_class->get_properties = wp_client_get_properties;
 
-  proxy_class->pw_proxy_created = wp_proxy_client_pw_proxy_created;
+  proxy_class->pw_proxy_created = wp_client_pw_proxy_created;
 }
 
 void
-wp_proxy_client_update_permissions (WpProxyClient * self,
-    guint n_perm, ...)
+wp_client_update_permissions (WpClient * self, guint n_perm, ...)
 {
   va_list args;
   struct pw_permission *perm =
@@ -105,17 +104,17 @@ wp_proxy_client_update_permissions (WpProxyClient * self,
   }
   va_end (args);
 
-  wp_proxy_client_update_permissions_array (self, n_perm, perm);
+  wp_client_update_permissions_array (self, n_perm, perm);
 }
 
 void
-wp_proxy_client_update_permissions_array (WpProxyClient * self,
+wp_client_update_permissions_array (WpClient * self,
     guint n_perm, const struct pw_permission *permissions)
 {
   struct pw_client *pwp;
   int client_update_permissions_result;
 
-  g_return_if_fail (WP_IS_PROXY_CLIENT (self));
+  g_return_if_fail (WP_IS_CLIENT (self));
 
   pwp = (struct pw_client *) wp_proxy_get_pw_proxy (WP_PROXY (self));
   g_return_if_fail (pwp != NULL);

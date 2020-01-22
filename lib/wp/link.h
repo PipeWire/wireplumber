@@ -6,16 +6,16 @@
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef __WIREPLUMBER_PROXY_PORT_H__
-#define __WIREPLUMBER_PROXY_PORT_H__
+#ifndef __WIREPLUMBER_LINK_H__
+#define __WIREPLUMBER_LINK_H__
 
 #include "proxy.h"
 
 G_BEGIN_DECLS
 
-#define WP_TYPE_PROXY_PORT (wp_proxy_port_get_type ())
+#define WP_TYPE_LINK (wp_link_get_type ())
 WP_API
-G_DECLARE_FINAL_TYPE (WpProxyPort, wp_proxy_port, WP, PROXY_PORT, WpProxy)
+G_DECLARE_FINAL_TYPE (WpLink, wp_link, WP, LINK, WpProxy)
 
 G_END_DECLS
 

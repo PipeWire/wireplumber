@@ -178,7 +178,7 @@ device_node_props (WpObjectManager * om, struct WpCliData * d)
   const struct spa_dict * dict;
   const struct spa_dict_item *item;
 
-  arr = wp_object_manager_get_objects (om, WP_TYPE_PROXY_NODE);
+  arr = wp_object_manager_get_objects (om, WP_TYPE_NODE);
 
   g_print ("Capture device nodes:\n");
 

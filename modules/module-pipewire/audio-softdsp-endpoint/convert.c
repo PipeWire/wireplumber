@@ -160,10 +160,10 @@ wp_audio_convert_init_async (GAsyncInitable *initable, int io_priority,
   g_autoptr (WpProxy) proxy = NULL;
   g_autoptr (WpProperties) props = NULL;
   g_autoptr (WpCore) core = wp_audio_stream_get_core (WP_AUDIO_STREAM (self));
-  WpProxyNode *node;
+  WpNode *node;
 
   /* Create the properties */
-  node = wp_audio_stream_get_proxy_node (self->target);
+  node = wp_audio_stream_get_node (self->target);
   props = wp_properties_copy (wp_proxy_get_properties (WP_PROXY (node)));
 
   wp_properties_setf (props, PW_KEY_OBJECT_PATH, "%s:%s",
@@ -181,7 +181,7 @@ wp_audio_convert_init_async (GAsyncInitable *initable, int io_priority,
       PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, props);
   g_return_if_fail (proxy);
 
-  g_object_set (self, "proxy-node", proxy, NULL);
+  g_object_set (self, "node", proxy, NULL);
   g_signal_connect_object (proxy, "notify::info",
       (GCallback) wp_audio_convert_event_info, self, 0);
 

@@ -6,12 +6,12 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "proxy-port.h"
+#include "port.h"
 #include "private.h"
 
 #include <pipewire/pipewire.h>
 
-struct _WpProxyPort
+struct _WpPort
 {
   WpProxy parent;
   struct pw_port_info *info;
@@ -20,37 +20,37 @@ struct _WpProxyPort
   struct spa_hook listener;
 };
 
-G_DEFINE_TYPE (WpProxyPort, wp_proxy_port, WP_TYPE_PROXY)
+G_DEFINE_TYPE (WpPort, wp_port, WP_TYPE_PROXY)
 
 static void
-wp_proxy_port_init (WpProxyPort * self)
+wp_port_init (WpPort * self)
 {
 }
 
 static void
-wp_proxy_port_finalize (GObject * object)
+wp_port_finalize (GObject * object)
 {
-  WpProxyPort *self = WP_PROXY_PORT (object);
+  WpPort *self = WP_PORT (object);
 
   g_clear_pointer (&self->info, pw_port_info_free);
 
-  G_OBJECT_CLASS (wp_proxy_port_parent_class)->finalize (object);
+  G_OBJECT_CLASS (wp_port_parent_class)->finalize (object);
 }
 
 static gconstpointer
-wp_proxy_port_get_info (WpProxy * self)
+wp_port_get_info (WpProxy * self)
 {
-  return WP_PROXY_PORT (self)->info;
+  return WP_PORT (self)->info;
 }
 
 static WpProperties *
-wp_proxy_port_get_properties (WpProxy * self)
+wp_port_get_properties (WpProxy * self)
 {
-  return wp_properties_new_wrap_dict (WP_PROXY_PORT (self)->info->props);
+  return wp_properties_new_wrap_dict (WP_PORT (self)->info->props);
 }
 
 static gint
-wp_proxy_port_enum_params (WpProxy * self, guint32 id, guint32 start,
+wp_port_enum_params (WpProxy * self, guint32 id, guint32 start,
     guint32 num, const struct spa_pod *filter)
 {
   struct pw_port *pwp;
@@ -64,7 +64,7 @@ wp_proxy_port_enum_params (WpProxy * self, guint32 id, guint32 start,
 }
 
 static gint
-wp_proxy_port_subscribe_params (WpProxy * self, guint32 n_ids, guint32 *ids)
+wp_port_subscribe_params (WpProxy * self, guint32 n_ids, guint32 *ids)
 {
   struct pw_port *pwp;
   int port_subscribe_params_result;
@@ -79,7 +79,7 @@ wp_proxy_port_subscribe_params (WpProxy * self, guint32 n_ids, guint32 *ids)
 static void
 port_event_info(void *data, const struct pw_port_info *info)
 {
-  WpProxyPort *self = WP_PROXY_PORT (data);
+  WpPort *self = WP_PORT (data);
 
   self->info = pw_port_info_update (self->info, info);
   g_object_notify (G_OBJECT (self), "info");
@@ -97,25 +97,25 @@ static const struct pw_port_events port_events = {
 };
 
 static void
-wp_proxy_port_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
+wp_port_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 {
-  WpProxyPort *self = WP_PROXY_PORT (proxy);
+  WpPort *self = WP_PORT (proxy);
   pw_port_add_listener ((struct pw_port *) pw_proxy,
       &self->listener, &port_events, self);
 }
 
 static void
-wp_proxy_port_class_init (WpProxyPortClass * klass)
+wp_port_class_init (WpPortClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
-  object_class->finalize = wp_proxy_port_finalize;
+  object_class->finalize = wp_port_finalize;
 
-  proxy_class->get_info = wp_proxy_port_get_info;
-  proxy_class->get_properties = wp_proxy_port_get_properties;
-  proxy_class->enum_params = wp_proxy_port_enum_params;
-  proxy_class->subscribe_params = wp_proxy_port_subscribe_params;
+  proxy_class->get_info = wp_port_get_info;
+  proxy_class->get_properties = wp_port_get_properties;
+  proxy_class->enum_params = wp_port_enum_params;
+  proxy_class->subscribe_params = wp_port_subscribe_params;
 
-  proxy_class->pw_proxy_created = wp_proxy_port_pw_proxy_created;
+  proxy_class->pw_proxy_created = wp_port_pw_proxy_created;
 }
