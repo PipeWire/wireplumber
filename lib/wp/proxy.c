@@ -59,7 +59,6 @@ enum {
   PROP_0,
   PROP_CORE,
   PROP_GLOBAL,
-  PROP_GLOBAL_ID,
   PROP_GLOBAL_PERMISSIONS,
   PROP_GLOBAL_PROPERTIES,
   PROP_INTERFACE_TYPE,
@@ -69,6 +68,7 @@ enum {
   PROP_PW_PROXY,
   PROP_INFO,
   PROP_PROPERTIES,
+  PROP_BOUND_ID,
 };
 
 enum
@@ -175,9 +175,25 @@ proxy_event_destroy (void *data)
   }
 }
 
+static void
+proxy_event_bound (void *data, uint32_t global_id)
+{
+  WpProxy *self = WP_PROXY (data);
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+
+  /* we generally make the assumption here that the bound id is the
+     same as the global id, but while this **is** it's intended use,
+     the truth is that the bound id **can** be changed anytime with
+     pw_proxy_set_bound_id() and this can be very bad... */
+  g_warn_if_fail (!priv->global || priv->global->id == global_id);
+
+  wp_proxy_set_feature_ready (self, WP_PROXY_FEATURE_BOUND);
+}
+
 static const struct pw_proxy_events proxy_events = {
   PW_VERSION_PROXY_EVENTS,
   .destroy = proxy_event_destroy,
+  .bound = proxy_event_bound,
 };
 
 static void
@@ -299,9 +315,6 @@ wp_proxy_get_property (GObject * object, guint property_id, GValue * value,
   case PROP_CORE:
     g_value_take_object (value, g_weak_ref_get (&priv->core));
     break;
-  case PROP_GLOBAL_ID:
-    g_value_set_uint (value, priv->global ? priv->global->id : 0);
-    break;
   case PROP_GLOBAL_PERMISSIONS:
     g_value_set_uint (value, priv->global ? priv->global->permissions : 0);
     break;
@@ -329,6 +342,9 @@ wp_proxy_get_property (GObject * object, guint property_id, GValue * value,
   case PROP_PROPERTIES:
     g_value_take_boxed (value, wp_proxy_get_properties (self));
     break;
+  case PROP_BOUND_ID:
+    g_value_set_uint (value, wp_proxy_get_bound_id (self));
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
@@ -350,10 +366,10 @@ wp_proxy_default_augment (WpProxy * self, WpProxyFeatures features)
    * represents a global object from the registry; we have no other way
    * to get a pw_proxy */
   if (features & WP_PROXY_FEATURE_PW_PROXY) {
-    if (!wp_proxy_is_global (self)) {
+    if (priv->global == NULL) {
       wp_proxy_augment_error (self, g_error_new (WP_DOMAIN_LIBRARY,
             WP_LIBRARY_ERROR_INVALID_ARGUMENT,
-            "No global id specified; cannot bind pw_proxy"));
+            "No global specified; cannot bind pw_proxy"));
       return;
     }
 
@@ -391,11 +407,6 @@ wp_proxy_class_init (WpProxyClass * klass)
       g_param_spec_boxed ("global", "global", "Internal WpGlobal object",
           wp_global_get_type (),
           G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (object_class, PROP_GLOBAL_ID,
-      g_param_spec_uint ("global-id", "global-id",
-          "The pipewire global id", 0, G_MAXUINT, 0,
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (object_class, PROP_GLOBAL_PERMISSIONS,
       g_param_spec_uint ("global-permissions", "global-permissions",
@@ -438,6 +449,11 @@ wp_proxy_class_init (WpProxyClass * klass)
   g_object_class_install_property (object_class, PROP_PROPERTIES,
       g_param_spec_boxed ("properties", "properties",
           "The pipewire properties of the object", WP_TYPE_PROPERTIES,
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (object_class, PROP_BOUND_ID,
+      g_param_spec_uint ("bound-id", "bound-id",
+          "The id that this object has on the registry", 0, G_MAXUINT, 0,
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
   /* Signals */
@@ -608,28 +624,6 @@ wp_proxy_get_core (WpProxy * self)
   return g_weak_ref_get (&priv->core);
 }
 
-gboolean
-wp_proxy_is_global (WpProxy * self)
-{
-  WpProxyPrivate *priv;
-
-  g_return_val_if_fail (WP_IS_PROXY (self), FALSE);
-
-  priv = wp_proxy_get_instance_private (self);
-  return priv->global != NULL;
-}
-
-guint32
-wp_proxy_get_global_id (WpProxy * self)
-{
-  WpProxyPrivate *priv;
-
-  g_return_val_if_fail (WP_IS_PROXY (self), 0);
-
-  priv = wp_proxy_get_instance_private (self);
-  return priv->global ? priv->global->id : 0;
-}
-
 guint32
 wp_proxy_get_global_permissions (WpProxy * self)
 {
@@ -728,6 +722,27 @@ wp_proxy_get_properties (WpProxy * self)
 
   return (WP_PROXY_GET_CLASS (self)->get_properties) ?
       WP_PROXY_GET_CLASS (self)->get_properties (self) : NULL;
+}
+
+/**
+ * wp_proxy_get_bound_id:
+ * @self: the proxy
+ *
+ * Returns the bound id, which is the id that this object has on the
+ * pipewire registry (a.k.a. the global id). The object must have the
+ * %WP_PROXY_FEATURE_BOUND feature before this method can be called.
+ *
+ * Returns: the bound id of this object
+ */
+guint32
+wp_proxy_get_bound_id (WpProxy * self)
+{
+  g_return_val_if_fail (WP_IS_PROXY (self), 0);
+
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  g_warn_if_fail (priv->ft_ready & WP_PROXY_FEATURE_BOUND);
+
+  return priv->pw_proxy ? pw_proxy_get_bound_id (priv->pw_proxy) : SPA_ID_INVALID;
 }
 
 static void

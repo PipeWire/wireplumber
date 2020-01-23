@@ -14,7 +14,7 @@ client_added (WpObjectManager * om, WpClient *client, gpointer data)
 {
   g_autoptr (WpProperties) properties = NULL;
   const char *access;
-  guint32 id = wp_proxy_get_global_id (WP_PROXY (client));
+  guint32 id = wp_proxy_get_bound_id (WP_PROXY (client));
 
   g_debug ("Client added: %d", id);
 
@@ -34,7 +34,7 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 
   om = wp_object_manager_new ();
   wp_object_manager_add_proxy_interest (om, PW_TYPE_INTERFACE_Client, NULL,
-      WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO);
+      WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND);
 
   g_signal_connect (om, "object-added", (GCallback) client_added, NULL);
 

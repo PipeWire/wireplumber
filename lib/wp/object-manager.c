@@ -423,7 +423,7 @@ wp_object_manager_rm_global (WpObjectManager * self, guint32 id)
   guint i;
   for (i = 0; i < self->objects->len; i++) {
     gpointer obj = g_ptr_array_index (self->objects, i);
-    if (WP_IS_PROXY (obj) && id == wp_proxy_get_global_id (WP_PROXY (obj))) {
+    if (WP_IS_PROXY (obj) && id == wp_proxy_get_bound_id (WP_PROXY (obj))) {
       g_signal_emit (self, signals[SIGNAL_OBJECT_REMOVED], 0, obj);
       g_ptr_array_remove_index_fast (self->objects, i);
       schedule_emit_objects_changed (self);

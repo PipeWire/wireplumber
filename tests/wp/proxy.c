@@ -113,8 +113,6 @@ test_proxy_basic_object_added (WpObjectManager *om, WpProxy *proxy,
     g_assert_nonnull (omcore);
     g_assert_true (pcore == omcore);
   }
-  g_assert_cmpuint (wp_proxy_get_global_id (proxy), !=, 0);
-  g_assert_true (wp_proxy_is_global (proxy));
   g_assert_cmpstr (wp_proxy_get_interface_type (proxy), ==,
       PW_TYPE_INTERFACE_Client);
   g_assert_cmphex (wp_proxy_get_global_permissions (proxy), ==, PW_PERM_RWX);
@@ -194,17 +192,16 @@ test_node_object_added (WpObjectManager *om, WpProxy *proxy,
   TestNodeParamData *param_data;
 
   g_assert_nonnull (proxy);
-  g_assert_true (wp_proxy_is_global (proxy));
   g_assert_cmpstr (wp_proxy_get_interface_type (proxy), ==,
       PW_TYPE_INTERFACE_Node);
   g_assert_cmphex (wp_proxy_get_features (proxy), ==,
-      WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO);
+      WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND);
   g_assert_nonnull (wp_proxy_get_pw_proxy (proxy));
 
   g_assert_true (WP_IS_NODE (proxy));
   info = wp_proxy_get_info (proxy);
   g_assert_nonnull (info);
-  g_assert_cmpint (wp_proxy_get_global_id (proxy), ==, info->id);
+  g_assert_cmpint (wp_proxy_get_bound_id (proxy), ==, info->id);
 
   {
     const char *id;
@@ -250,7 +247,7 @@ test_node (TestProxyFixture *fixture, gconstpointer data)
      when the signal is fired */
   wp_object_manager_add_proxy_interest (fixture->om,
       PW_TYPE_INTERFACE_Node, NULL,
-      WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO);
+      WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND);
   wp_core_install_object_manager (fixture->core, fixture->om);
 
   g_assert_true (wp_core_connect (fixture->core));

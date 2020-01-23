@@ -58,7 +58,7 @@ on_endpoint_created (GObject *initable, GAsyncResult *res, gpointer d)
 
   /* Get the endpoint global id */
   g_object_get (endpoint, "node", &proxy, NULL);
-  global_id = wp_proxy_get_global_id (proxy);
+  global_id = wp_proxy_get_bound_id (proxy);
 
   /* Register the endpoint and add it to the table */
   wp_base_endpoint_register (endpoint);
@@ -159,7 +159,7 @@ on_node_removed (WpObjectManager *om, WpProxy *proxy, gpointer d)
 {
   WpConfigEndpointContext *self = d;
   WpBaseEndpoint *endpoint = NULL;
-  guint32 id = wp_proxy_get_global_id (proxy);
+  guint32 id = wp_proxy_get_bound_id (proxy);
 
   /* Get the endpoint */
   endpoint = g_hash_table_lookup (self->registered_endpoints,
@@ -257,7 +257,7 @@ wp_config_endpoint_context_init (WpConfigEndpointContext *self)
 
   /* Only handle augmented nodes with info set */
   wp_object_manager_add_proxy_interest (self->om, PW_TYPE_INTERFACE_Node, NULL,
-      WP_PROXY_FEATURE_INFO);
+      WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND);
 
   /* Register the global added/removed callbacks */
   g_signal_connect(self->om, "object-added",

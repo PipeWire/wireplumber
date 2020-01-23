@@ -23,6 +23,7 @@ typedef struct _WpCore WpCore;
 typedef enum { /*< flags >*/
   WP_PROXY_FEATURE_PW_PROXY     = (1 << 0),
   WP_PROXY_FEATURE_INFO         = (1 << 1),
+  WP_PROXY_FEATURE_BOUND        = (1 << 2),
 
   WP_PROXY_FEATURE_LAST         = (1 << 5), /*< skip >*/
 } WpProxyFeatures;
@@ -81,12 +82,6 @@ WpCore * wp_proxy_get_core (WpProxy * self);
 /* global object API */
 
 WP_API
-gboolean wp_proxy_is_global (WpProxy * self);
-
-WP_API
-guint32 wp_proxy_get_global_id (WpProxy * self);
-
-WP_API
 guint32 wp_proxy_get_global_permissions (WpProxy * self);
 
 WP_API
@@ -112,6 +107,11 @@ gconstpointer wp_proxy_get_info (WpProxy * self);
 
 WP_API
 WpProperties * wp_proxy_get_properties (WpProxy * self);
+
+/* the bound id (aka global id, requires FEATURE_BOUND) */
+
+WP_API
+guint32 wp_proxy_get_bound_id (WpProxy * self);
 
 /* common API of most proxied objects */
 

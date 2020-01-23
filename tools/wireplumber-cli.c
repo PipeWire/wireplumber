@@ -41,7 +41,7 @@ async_quit (WpCore *core, GAsyncResult *res, struct WpCliData * d)
 static void
 print_dev_endpoint (WpEndpoint *ep, WpSession *session, WpDefaultEndpointType type)
 {
-  guint32 id = wp_proxy_get_global_id (WP_PROXY (ep));
+  guint32 id = wp_proxy_get_bound_id (WP_PROXY (ep));
   gboolean is_default = (session && type != 0 &&
           wp_session_get_default_endpoint (session, type) == id);
   gfloat volume = 0.0;
@@ -57,7 +57,7 @@ print_dev_endpoint (WpEndpoint *ep, WpSession *session, WpDefaultEndpointType ty
 static void
 print_client_endpoint (WpEndpoint *ep)
 {
-  guint32 id = wp_proxy_get_global_id (WP_PROXY (ep));
+  guint32 id = wp_proxy_get_bound_id (WP_PROXY (ep));
   g_print ("   %4u. %s (%s)\n", id, wp_endpoint_get_name (ep),
       wp_endpoint_get_media_class (ep));
 }
@@ -122,7 +122,7 @@ set_default (WpObjectManager * om, struct WpCliData * d)
 
   for (i = 0; i < arr->len; i++) {
     WpEndpoint *ep = g_ptr_array_index (arr, i);
-    guint32 id = wp_proxy_get_global_id (WP_PROXY (ep));
+    guint32 id = wp_proxy_get_bound_id (WP_PROXY (ep));
 
     if (id == d->params.set_default.id) {
       WpDefaultEndpointType type;
@@ -156,7 +156,7 @@ set_volume (WpObjectManager * om, struct WpCliData * d)
 
   for (i = 0; i < arr->len; i++) {
     WpEndpoint *ep = g_ptr_array_index (arr, i);
-    guint32 id = wp_proxy_get_global_id (WP_PROXY (ep));
+    guint32 id = wp_proxy_get_bound_id (WP_PROXY (ep));
 
     if (id == d->params.set_volume.id) {
       wp_endpoint_set_control_float (ep, WP_ENDPOINT_CONTROL_VOLUME,
@@ -189,7 +189,7 @@ device_node_props (WpObjectManager * om, struct WpCliData * d)
     if (g_strcmp0 (wp_properties_get (props, "media.class"), "Audio/Source") != 0)
       continue;
 
-    g_print (" node id: %u\n", wp_proxy_get_global_id (node));
+    g_print (" node id: %u\n", wp_proxy_get_bound_id (node));
 
     dict = wp_properties_peek_dict (props);
     spa_dict_for_each (item, dict) {
@@ -208,7 +208,7 @@ device_node_props (WpObjectManager * om, struct WpCliData * d)
     if (g_strcmp0 (wp_properties_get (props, "media.class"), "Audio/Sink") != 0)
       continue;
 
-    g_print (" node id: %u\n", wp_proxy_get_global_id (node));
+    g_print (" node id: %u\n", wp_proxy_get_bound_id (node));
 
     dict = wp_properties_peek_dict (props);
     spa_dict_for_each (item, dict) {
@@ -260,9 +260,11 @@ main (gint argc, gchar **argv)
 
   if (argc == 2 && !g_strcmp0 (argv[1], "ls-endpoints")) {
     wp_object_manager_add_proxy_interest (om, PW_TYPE_INTERFACE_Endpoint,
-        NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_ENDPOINT_FEATURE_CONTROLS);
+        NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND |
+        WP_PROXY_ENDPOINT_FEATURE_CONTROLS);
     wp_object_manager_add_proxy_interest (om, PW_TYPE_INTERFACE_Session,
-        NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_SESSION_FEATURE_DEFAULT_ENDPOINT);
+        NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND |
+        WP_PROXY_SESSION_FEATURE_DEFAULT_ENDPOINT);
     g_signal_connect (om, "objects-changed", (GCallback) list_endpoints, &data);
   }
 
@@ -274,9 +276,10 @@ main (gint argc, gchar **argv)
     }
 
     wp_object_manager_add_proxy_interest (om, PW_TYPE_INTERFACE_Endpoint,
-        NULL, WP_PROXY_FEATURE_INFO);
+        NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND);
     wp_object_manager_add_proxy_interest (om, PW_TYPE_INTERFACE_Session,
-        NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_SESSION_FEATURE_DEFAULT_ENDPOINT);
+        NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND |
+        WP_PROXY_SESSION_FEATURE_DEFAULT_ENDPOINT);
 
     data.params.set_default.id = id;
     g_signal_connect (om, "objects-changed", (GCallback) set_default, &data);
@@ -291,7 +294,8 @@ main (gint argc, gchar **argv)
     }
 
     wp_object_manager_add_proxy_interest (om, PW_TYPE_INTERFACE_Endpoint,
-        NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_ENDPOINT_FEATURE_CONTROLS);
+        NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND |
+        WP_PROXY_ENDPOINT_FEATURE_CONTROLS);
 
     data.params.set_volume.id = id;
     data.params.set_volume.volume = volume;

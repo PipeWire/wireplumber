@@ -239,7 +239,8 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
       (GCallback) test_endpoint_basic_proxy_object_removed, fixture);
   wp_object_manager_add_proxy_interest (fixture->proxy_om,
       PW_TYPE_INTERFACE_Endpoint, NULL,
-      WP_PROXY_FEATURE_INFO | WP_PROXY_ENDPOINT_FEATURE_CONTROLS);
+      WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND |
+      WP_PROXY_ENDPOINT_FEATURE_CONTROLS);
   wp_core_install_object_manager (fixture->proxy_core, fixture->proxy_om);
 
   g_assert_true (wp_core_connect (fixture->proxy_core));
@@ -285,9 +286,10 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
   g_assert_cmphex (wp_proxy_get_features (fixture->proxy_endpoint), ==,
       WP_PROXY_FEATURE_PW_PROXY |
       WP_PROXY_FEATURE_INFO |
+      WP_PROXY_FEATURE_BOUND |
       WP_PROXY_ENDPOINT_FEATURE_CONTROLS);
 
-  g_assert_cmpuint (wp_proxy_get_global_id (fixture->proxy_endpoint), ==,
+  g_assert_cmpuint (wp_proxy_get_bound_id (fixture->proxy_endpoint), ==,
       wp_exported_endpoint_get_global_id (endpoint));
 
   {
