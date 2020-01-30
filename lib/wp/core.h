@@ -16,6 +16,7 @@
 G_BEGIN_DECLS
 
 struct pw_context;
+struct pw_core;
 
 #define WP_TYPE_CORE (wp_core_get_type ())
 WP_API
@@ -31,6 +32,9 @@ GMainContext * wp_core_get_context (WpCore * self);
 
 WP_API
 struct pw_context * wp_core_get_pw_context (WpCore * self);
+
+WP_API
+struct pw_core * wp_core_get_pw_core (WpCore * self);
 
 /* Connection */
 
@@ -56,22 +60,6 @@ gboolean wp_core_sync (WpCore * self, GCancellable * cancellable,
 WP_API
 gboolean wp_core_sync_finish (WpCore * self, GAsyncResult * res,
     GError ** error);
-
-/* Object */
-
-WP_API
-WpProxy * wp_core_export_object (WpCore * self, const gchar * interface_type,
-    gpointer local_object, WpProperties * properties);
-
-WP_API
-WpProxy * wp_core_create_local_object (WpCore * self,
-    const gchar *factory_name, const gchar * interface_type,
-    guint32 interface_version, WpProperties * properties);
-
-WP_API
-WpProxy * wp_core_create_remote_object (WpCore * self,
-    const gchar * factory_name, const gchar * interface_type,
-    guint32 interface_version, WpProperties * properties);
 
 /* Object Manager */
 

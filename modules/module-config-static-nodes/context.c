@@ -40,32 +40,44 @@ G_DEFINE_TYPE (WpConfigStaticNodesContext, wp_config_static_nodes_context,
     G_TYPE_OBJECT)
 
 static void
+on_node_created (GObject * proxy, GAsyncResult * res, gpointer user_data)
+{
+  WpConfigStaticNodesContext *self = user_data;
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_proxy_augment_finish (WP_PROXY (proxy), res, &error)) {
+    g_warning ("WpConfigStaticNodesContext:%p: failed to export node: %s",
+        self, error->message);
+    return;
+  }
+
+  g_ptr_array_add (self->static_nodes, g_object_ref (proxy));
+
+  /* Emit the node-created signal */
+  g_signal_emit (self, signals[SIGNAL_NODE_CREATED], 0, proxy);
+}
+
+static void
 wp_config_static_nodes_context_create_node (WpConfigStaticNodesContext *self,
   const struct WpParserNodeData *node_data)
 {
-  g_autoptr (WpProxy) node_proxy = NULL;
+  g_autoptr (WpProxy) node = NULL;
   g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
   g_return_if_fail (core);
 
   /* Create the node */
-  node_proxy = node_data->n.local ?
-      wp_core_create_local_object (core, node_data->n.factory,
-          PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, node_data->n.props) :
-      wp_core_create_remote_object (core, node_data->n.factory,
-          PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, node_data->n.props);
-  if (!node_proxy) {
-    g_warning ("WpConfigStaticNodesContext:%p: failed to create node: %s", self,
-        g_strerror (errno));
+  node = node_data->n.local ?
+      (WpProxy *) wp_impl_node_new_from_pw_factory (core, node_data->n.factory,
+          wp_properties_ref (node_data->n.props)) :
+      (WpProxy *) wp_node_new_from_factory (core, node_data->n.factory,
+          wp_properties_ref (node_data->n.props));
+  if (!node) {
+    g_warning ("WpConfigStaticNodesContext:%p: failed to create node", self);
     return;
   }
 
-  /* Add the node to the array */
-  g_ptr_array_add (self->static_nodes, g_object_ref (node_proxy));
-  g_debug ("WpConfigStaticNodesContext:%p: added static node: %s", self,
-      node_data->n.factory);
-
-  /* Emit the node-created signal */
-  g_signal_emit (self, signals[SIGNAL_NODE_CREATED], 0, node_proxy);
+  /* export to pipewire by requesting FEATURE_BOUND */
+  wp_proxy_augment (node, WP_PROXY_FEATURE_BOUND, NULL, on_node_created, self);
 }
 
 static void

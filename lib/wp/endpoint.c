@@ -315,12 +315,12 @@ endpoint_event_info (void *data, const struct pw_endpoint_info *info)
   WpProxyEndpoint *self = WP_PROXY_ENDPOINT (data);
 
   self->info = endpoint_info_update (self->info, &self->properties, info);
+  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
+
   g_object_notify (G_OBJECT (self), "info");
 
   if (info->change_mask & PW_ENDPOINT_CHANGE_MASK_PROPS)
     g_object_notify (G_OBJECT (self), "properties");
-
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
 }
 
 static const struct pw_endpoint_events endpoint_events = {
@@ -424,6 +424,9 @@ wp_proxy_endpoint_class_init (WpProxyEndpointClass * klass)
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
   object_class->finalize = wp_proxy_endpoint_finalize;
+
+  proxy_class->pw_iface_type = PW_TYPE_INTERFACE_Endpoint;
+  proxy_class->pw_iface_version = PW_VERSION_ENDPOINT;
 
   proxy_class->augment = wp_proxy_endpoint_augment;
   proxy_class->get_info = wp_proxy_endpoint_get_info;
@@ -604,6 +607,7 @@ wp_exported_endpoint_export (WpExported * self)
       wp_exported_endpoint_get_instance_private (WP_EXPORTED_ENDPOINT (self));
   g_autoptr (WpCore) core = wp_exported_get_core (self);
   struct pw_client_endpoint *pw_proxy = NULL;
+  struct pw_core *pw_core = wp_core_get_pw_core (core);
 
   /* make sure these props are not present; they are added by the server */
   wp_properties_set (priv->properties, PW_KEY_OBJECT_ID, NULL);
@@ -614,12 +618,11 @@ wp_exported_endpoint_export (WpExported * self)
   wp_properties_set (priv->properties, PW_KEY_ENDPOINT_NAME, priv->info.name);
   wp_properties_set (priv->properties, PW_KEY_MEDIA_CLASS, priv->info.media_class);
 
-  priv->client_ep = wp_core_create_remote_object (core, "client-endpoint",
+  pw_proxy = pw_core_create_object (pw_core, "client-endpoint",
       PW_TYPE_INTERFACE_ClientEndpoint, PW_VERSION_CLIENT_ENDPOINT,
-      priv->properties);
-
-  pw_proxy = (struct pw_client_endpoint *) wp_proxy_get_pw_proxy (
-      priv->client_ep);
+      wp_properties_peek_dict (priv->properties), 0);
+  priv->client_ep = g_object_new (WP_TYPE_PROXY, "core", core,
+      "pw-proxy", pw_proxy, NULL);
 
   pw_client_endpoint_add_listener (pw_proxy, &priv->listener,
       &client_endpoint_events, self);

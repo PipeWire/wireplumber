@@ -12,9 +12,40 @@
 #include <pipewire/pipewire.h>
 #include <spa/utils/keys.h>
 #include <spa/monitor/device.h>
+#include <spa/pod/builder.h>
+
+G_DEFINE_QUARK (wp-module-monitor-id, id);
+G_DEFINE_QUARK (wp-module-monitor-children, children);
+
+typedef enum {
+  FLAG_LOCAL_NODES = (1 << 0),
+  FLAG_USE_ADAPTER = (1 << 1),
+  FLAG_ACTIVATE_DEVICES = (1 << 2),
+} MonitorFlags;
+
+static const struct {
+  MonitorFlags flag;
+  const gchar *name;
+} flag_names[] = {
+  { FLAG_LOCAL_NODES, "local-nodes" },
+  { FLAG_USE_ADAPTER, "use-adapter" },
+  { FLAG_ACTIVATE_DEVICES, "activate-devices" }
+};
+
+struct module_data
+{
+  WpSpaDevice *monitor;
+  gchar *factory;
+  MonitorFlags flags;
+};
+
+static void on_object_info (WpSpaDevice * device,
+    guint id, GType type, const gchar * spa_factory,
+    WpProperties * props, WpProperties * parent_props,
+    struct module_data * data);
 
 static void
-setup_device_props (WpMonitor *self, WpProperties *p, WpModule *module)
+setup_device_props (WpProperties *p)
 {
   const gchar *s, *d, *api;
 
@@ -24,7 +55,7 @@ setup_device_props (WpMonitor *self, WpProperties *p, WpModule *module)
   if (!wp_properties_get (p, SPA_KEY_DEVICE_NAME)) {
     if ((s = wp_properties_get (p, SPA_KEY_DEVICE_BUS_ID)) == NULL) {
       if ((s = wp_properties_get (p, SPA_KEY_DEVICE_BUS_PATH)) == NULL) {
-        s = wp_properties_get (p, WP_MONITOR_KEY_OBJECT_ID);
+        s = "unknown";
       }
     }
 
@@ -102,8 +133,7 @@ setup_device_props (WpMonitor *self, WpProperties *p, WpModule *module)
 }
 
 static void
-setup_node_props (WpMonitor *self, WpProperties *dev_props,
-    WpProperties *node_props, WpModule *module)
+setup_node_props (WpProperties *dev_props, WpProperties *node_props)
 {
   const gchar *api, *name, *description, *factory;
 
@@ -135,7 +165,7 @@ setup_node_props (WpMonitor *self, WpProperties *dev_props,
 
   /* get some strings that we are going to need below */
   api = wp_properties_get (node_props, SPA_KEY_DEVICE_API);
-  factory = wp_properties_get (node_props, PW_KEY_FACTORY_NAME);
+  factory = wp_properties_get (node_props, SPA_KEY_FACTORY_NAME);
 
   name = wp_properties_get (node_props, SPA_KEY_DEVICE_NAME);
   if (G_UNLIKELY (!name))
@@ -200,51 +230,201 @@ setup_node_props (WpMonitor *self, WpProperties *dev_props,
 }
 
 static void
-start_monitor (WpMonitor *monitor)
+augment_done (GObject * proxy, GAsyncResult * res, gpointer user_data)
 {
   g_autoptr (GError) error = NULL;
-
-  if (!wp_monitor_start (monitor, &error)) {
-    g_message ("Failed to start monitor: %s", error->message);
+  if (!wp_proxy_augment_finish (WP_PROXY (proxy), res, &error)) {
+    g_warning ("%s", error->message);
   }
+}
+
+static void
+free_children (GList * children)
+{
+  g_list_free_full (children, g_object_unref);
+}
+
+static void
+find_child (GObject * parent, guint32 id, GList ** children, GList ** link,
+    GObject ** child)
+{
+  *children = g_object_steal_qdata (parent, children_quark ());
+
+  /* Find the child */
+  for (*link = *children; *link != NULL; *link = g_list_next (*link)) {
+    *child = G_OBJECT ((*link)->data);
+    guint32 child_id = GPOINTER_TO_UINT (g_object_get_qdata (*child, id_quark ()));
+    if (id == child_id)
+      break;
+  }
+}
+
+static void
+create_node (struct module_data * data, WpProxy * parent, GList ** children,
+    guint id, const gchar * spa_factory, WpProperties * props,
+    WpProperties * parent_props)
+{
+  g_autoptr (WpCore) core = wp_proxy_get_core (parent);
+  WpProxy *node = NULL;
+  const gchar *pw_factory_name;
+
+  g_debug ("module-monitor:%p:%s new node %u (%s)", data, data->factory, id,
+      spa_factory);
+
+  /* use the adapter instead of spa-node-factory if requested */
+  pw_factory_name =
+      (data->flags & FLAG_USE_ADAPTER) ? "adapter" : "spa-node-factory";
+
+  props = wp_properties_copy (props);
+  wp_properties_set (props, SPA_KEY_FACTORY_NAME, spa_factory);
+  setup_node_props (parent_props, props);
+
+  /* create the node */
+  node = (data->flags & FLAG_LOCAL_NODES) ?
+      (WpProxy *) wp_impl_node_new_from_pw_factory (core, pw_factory_name, props) :
+      (WpProxy *) wp_node_new_from_factory (core, pw_factory_name, props);
+  if (!node)
+    return;
+
+  /* export to pipewire by requesting FEATURE_BOUND */
+  wp_proxy_augment (node, WP_PROXY_FEATURE_BOUND, NULL, augment_done, NULL);
+
+  g_object_set_qdata (G_OBJECT (node), id_quark (), GUINT_TO_POINTER (id));
+  *children = g_list_prepend (*children, node);
+}
+
+static void
+device_created (GObject * proxy, GAsyncResult * res, gpointer user_data)
+{
+  struct module_data * data = user_data;
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_proxy_augment_finish (WP_PROXY (proxy), res, &error)) {
+    g_warning ("%s", error->message);
+    return;
+  }
+
+  if (data->flags & FLAG_ACTIVATE_DEVICES) {
+    char buf[1024];
+    struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
+
+    wp_proxy_set_param (WP_PROXY (proxy),
+        SPA_PARAM_Profile, 0,
+        spa_pod_builder_add_object (&b,
+            SPA_TYPE_OBJECT_ParamProfile, 0,
+            SPA_PARAM_PROFILE_index, SPA_POD_Int (1)));
+  }
+}
+
+static void
+create_device (struct module_data * data, WpProxy * parent, GList ** children,
+    guint id, const gchar * spa_factory, WpProperties * props)
+{
+  g_autoptr (WpCore) core = wp_proxy_get_core (parent);
+  WpSpaDevice *device;
+
+  g_debug ("module-monitor:%p:%s new device %u", data, data->factory, id);
+
+  props = wp_properties_copy (props);
+  setup_device_props (props);
+
+  if (!(device = wp_spa_device_new_from_spa_factory (core, spa_factory, props)))
+    return;
+
+  g_signal_connect (device, "object-info", (GCallback) on_object_info, data);
+  wp_proxy_augment (WP_PROXY (device),
+      WP_PROXY_FEATURE_BOUND | WP_SPA_DEVICE_FEATURE_ACTIVE,
+      NULL, device_created, data);
+
+  g_object_set_qdata (G_OBJECT (device), id_quark (), GUINT_TO_POINTER (id));
+  *children = g_list_prepend (*children, device);
+}
+
+static void
+on_object_info (WpSpaDevice * device,
+    guint id, GType type, const gchar * spa_factory,
+    WpProperties * props, WpProperties * parent_props,
+    struct module_data * data)
+{
+  GList *children = NULL;
+  GList *link = NULL;
+  GObject *child = NULL;
+
+  /* Find the child */
+  find_child (G_OBJECT (device), id, &children, &link, &child);
+
+  /* new object, construct... */
+  if (type != G_TYPE_NONE && !link) {
+    if (type == WP_TYPE_DEVICE) {
+      create_device (data, WP_PROXY (device), &children, id, spa_factory, props);
+    } else if (type == WP_TYPE_NODE) {
+      create_node (data, WP_PROXY (device), &children, id, spa_factory, props,
+          parent_props);
+    } else {
+      g_debug ("module-monitor:%p:%s got device object-info for unknown object "
+          "type %s", data, data->factory, g_type_name (type));
+    }
+  }
+  /* object removed, delete... */
+  else if (type == G_TYPE_NONE && link) {
+    g_object_unref (child);
+    children = g_list_delete_link (children, link);
+  }
+
+  /* put back the children */
+  g_object_set_qdata_full (G_OBJECT (device), children_quark (), children,
+      (GDestroyNotify) free_children);
+}
+
+static void
+start_monitor (WpSpaDevice * monitor)
+{
+  /* no FEATURE_BOUND here; exporting the monitor device is buggy */
+  wp_proxy_augment (WP_PROXY (monitor),
+      WP_SPA_DEVICE_FEATURE_ACTIVE,
+      NULL, augment_done, NULL);
+}
+
+static void
+module_destroy (gpointer d)
+{
+  struct module_data *data = d;
+
+  g_clear_object (&data->monitor);
+  g_free (data->factory);
+
+  g_slice_free (struct module_data, data);
 }
 
 WP_PLUGIN_EXPORT void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
-  WpMonitor *monitor;
-  const gchar *factory = NULL;
-  WpMonitorFlags flags = 0;
-  GVariantIter *iter;
+  struct module_data *data = g_slice_new0 (struct module_data);
+  wp_module_set_destroy_callback (module, module_destroy, data);
 
-  if (!g_variant_lookup (args, "factory", "&s", &factory)) {
+  if (!g_variant_lookup (args, "factory", "s", &data->factory)) {
     g_message ("Failed to load monitor: no 'factory' key specified");
     return;
   }
 
+  GVariantIter *iter;
   if (g_variant_lookup (args, "flags", "as", &iter)) {
     gchar *flag_str = NULL;
-    GFlagsValue *flag_val = NULL;
-    GFlagsClass *flag_class = g_type_class_ref (WP_TYPE_MONITOR_FLAGS);
-
     while (g_variant_iter_loop (iter, "s", &flag_str)) {
-      flag_val = g_flags_get_value_by_nick (flag_class, flag_str);
-      if (flag_val)
-        flags |= flag_val->value;
+      for (gint i = 0; i < SPA_N_ELEMENTS (flag_names); i++) {
+        if (!g_strcmp0 (flag_str, flag_names[i].name))
+          data->flags |= flag_names[i].flag;
+      }
     }
     g_variant_iter_free (iter);
   }
 
-  monitor = wp_monitor_new (core, factory, NULL, flags);
-
-  g_signal_connect (monitor, "setup-device-props",
-      (GCallback) setup_device_props, module);
-  g_signal_connect (monitor, "setup-node-props",
-      (GCallback) setup_node_props, module);
-
-  wp_module_set_destroy_callback (module, g_object_unref, monitor);
+  data->monitor = wp_spa_device_new_from_spa_factory (core, data->factory,
+      NULL);
+  g_signal_connect (data->monitor, "object-info", (GCallback) on_object_info,
+      data);
 
   /* Start the monitor when the connected callback is triggered */
-  g_signal_connect_object (core, "connected",
-      (GCallback) start_monitor, monitor, G_CONNECT_SWAPPED);
+  g_signal_connect_object (core, "connected", (GCallback) start_monitor,
+      data->monitor, G_CONNECT_SWAPPED);
 }

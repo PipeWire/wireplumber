@@ -265,7 +265,7 @@ wp_audio_stream_init_async (GAsyncInitable *initable, int io_priority,
 
   g_return_if_fail (priv->proxy);
   wp_proxy_augment (WP_PROXY (priv->proxy),
-      WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO, NULL,
+      WP_PROXY_FEATURES_STANDARD, cancellable,
       (GAsyncReadyCallback) on_node_proxy_augmented, self);
 }
 

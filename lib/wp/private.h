@@ -86,10 +86,9 @@ void wp_object_manager_rm_object (WpObjectManager * self, GObject * object);
 
 /* proxy */
 
-void wp_proxy_local_object_destroy_for_type (const char * type,
-    gpointer local_object);
-
 WpProxy * wp_proxy_new_global (WpCore * core, WpGlobal * global);
+
+void wp_proxy_set_pw_proxy (WpProxy * self, struct pw_proxy * proxy);
 
 void wp_proxy_set_feature_ready (WpProxy * self, WpProxyFeatures feature);
 void wp_proxy_augment_error (WpProxy * self, GError * error);

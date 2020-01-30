@@ -55,12 +55,12 @@ client_event_info(void *data, const struct pw_client_info *info)
   WpClient *self = WP_CLIENT (data);
 
   self->info = pw_client_info_update (self->info, info);
+  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
+
   g_object_notify (G_OBJECT (self), "info");
 
   if (info->change_mask & PW_CLIENT_CHANGE_MASK_PROPS)
     g_object_notify (G_OBJECT (self), "properties");
-
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
 }
 
 static const struct pw_client_events client_events = {
@@ -83,6 +83,9 @@ wp_client_class_init (WpClientClass * klass)
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
   object_class->finalize = wp_client_finalize;
+
+  proxy_class->pw_iface_type = PW_TYPE_INTERFACE_Client;
+  proxy_class->pw_iface_version = PW_VERSION_CLIENT;
 
   proxy_class->get_info = wp_client_get_info;
   proxy_class->get_properties = wp_client_get_properties;

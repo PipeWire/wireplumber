@@ -17,6 +17,10 @@ G_BEGIN_DECLS
 WP_API
 G_DECLARE_FINAL_TYPE (WpLink, wp_link, WP, LINK, WpProxy)
 
+WP_API
+WpLink * wp_link_new_from_factory (WpCore * core,
+    const gchar * factory_name, WpProperties * properties);
+
 G_END_DECLS
 
 #endif

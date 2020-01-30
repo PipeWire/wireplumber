@@ -17,7 +17,6 @@
 #include "factory.h"
 #include "link.h"
 #include "module.h"
-#include "monitor.h"
 #include "node.h"
 #include "object-manager.h"
 #include "policy.h"

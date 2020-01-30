@@ -56,9 +56,11 @@ loop_thread_start (void *d)
   /* Create the server */
   wp_test_server_setup (&self->server);
 
-  /* Add the audioconvert SPA library */
+  /* Load needed plugins on the server side */
   pw_context_add_spa_lib (self->server.context, "audio.convert*",
       "audioconvert/libspa-audioconvert");
+  pw_context_load_module (self->server.context,
+      "libpipewire-module-spa-node-factory", NULL, NULL);
 
   /* Create the core and connect to the server */
   g_autoptr (WpProperties) props = NULL;

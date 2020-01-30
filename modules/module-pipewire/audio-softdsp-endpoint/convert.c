@@ -46,7 +46,7 @@ create_link_cb (WpProperties *props, gpointer user_data)
 {
   WpAudioConvert *self = WP_AUDIO_CONVERT (user_data);
   g_autoptr (WpCore) core = NULL;
-  WpProxy *proxy;
+  WpLink *link;
 
   core = wp_audio_stream_get_core (WP_AUDIO_STREAM (self));
   g_return_if_fail (core);
@@ -57,10 +57,10 @@ create_link_cb (WpProperties *props, gpointer user_data)
   wp_properties_set (props, PW_KEY_LINK_PASSIVE, "1");
 
   /* Create the link */
-  proxy = wp_core_create_remote_object(core, "link-factory",
-      PW_TYPE_INTERFACE_Link, PW_VERSION_LINK, props);
-  g_return_if_fail (proxy);
-  g_ptr_array_add(self->link_proxies, proxy);
+  link = wp_link_new_from_factory (core, "link-factory",
+      wp_properties_ref (props));
+  g_return_if_fail (link);
+  g_ptr_array_add(self->link_proxies, link);
 }
 
 static void
@@ -177,8 +177,8 @@ wp_audio_convert_init_async (GAsyncInitable *initable, int io_priority,
   wp_properties_set (props, "factory.name", SPA_NAME_AUDIO_CONVERT);
 
   /* Create the proxy */
-  proxy = wp_core_create_remote_object (core, "spa-node-factory",
-      PW_TYPE_INTERFACE_Node, PW_VERSION_NODE, props);
+  proxy = (WpProxy *) wp_node_new_from_factory (core, "spa-node-factory",
+      g_steal_pointer (&props));
   g_return_if_fail (proxy);
 
   g_object_set (self, "node", proxy, NULL);

@@ -20,6 +20,16 @@ struct pw_proxy;
 struct spa_pod;
 typedef struct _WpCore WpCore;
 
+/**
+ * WpProxyFeatures:
+ *
+ * Flags that specify functionality that is available on this class.
+ * Use wp_proxy_augment() to enable more features and wp_proxy_get_features()
+ * to find out which features are already enabled.
+ *
+ * Subclasses may also specify additional features that can be ORed with these
+ * ones and they can also be enabled with wp_proxy_augment().
+ */
 typedef enum { /*< flags >*/
   WP_PROXY_FEATURE_PW_PROXY     = (1 << 0),
   WP_PROXY_FEATURE_INFO         = (1 << 1),
@@ -27,6 +37,19 @@ typedef enum { /*< flags >*/
 
   WP_PROXY_FEATURE_LAST         = (1 << 5), /*< skip >*/
 } WpProxyFeatures;
+
+/**
+ * WP_PROXY_FEATURES_STANDARD:
+ *
+ * A constant set of features that contains the standard features that are
+ * available in the #WpProxy class. The standard features are usually all
+ * enabled at once, even if not requested explicitly. It is a good practice,
+ * though, to enable only the features that you actually need. This leaves
+ * room for optimizations in the #WpProxy class.
+ */
+#define WP_PROXY_FEATURES_STANDARD \
+    (WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND)
+
 
 #define WP_TYPE_PROXY (wp_proxy_get_type ())
 WP_API
@@ -36,6 +59,9 @@ G_DECLARE_DERIVABLE_TYPE (WpProxy, wp_proxy, WP, PROXY, GObject)
 struct _WpProxyClass
 {
   GObjectClass parent_class;
+
+  const gchar * pw_iface_type;
+  guint32 pw_iface_version;
 
   void (*augment) (WpProxy *self, WpProxyFeatures features);
 
@@ -55,10 +81,6 @@ struct _WpProxyClass
   void (*param) (WpProxy * self, gint seq, guint32 id, guint32 index,
       guint32 next, const struct spa_pod *param);
 };
-
-WP_API
-WpProxy * wp_proxy_new_wrap (WpCore * core, struct pw_proxy * proxy,
-    const char *type, guint32 version, gpointer local_object);
 
 /* features API */
 
@@ -86,14 +108,6 @@ guint32 wp_proxy_get_global_permissions (WpProxy * self);
 
 WP_API
 WpProperties * wp_proxy_get_global_properties (WpProxy * self);
-
-/* the pipewire type & version */
-
-WP_API
-const char * wp_proxy_get_interface_type (WpProxy * self);
-
-WP_API
-guint32 wp_proxy_get_interface_version (WpProxy * self);
 
 /* native pw_proxy object getter (requires FEATURE_PW_PROXY) */
 

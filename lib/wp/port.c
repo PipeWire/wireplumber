@@ -82,12 +82,12 @@ port_event_info(void *data, const struct pw_port_info *info)
   WpPort *self = WP_PORT (data);
 
   self->info = pw_port_info_update (self->info, info);
+  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
+
   g_object_notify (G_OBJECT (self), "info");
 
   if (info->change_mask & PW_PORT_CHANGE_MASK_PROPS)
     g_object_notify (G_OBJECT (self), "properties");
-
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
 }
 
 static const struct pw_port_events port_events = {
@@ -111,6 +111,9 @@ wp_port_class_init (WpPortClass * klass)
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
   object_class->finalize = wp_port_finalize;
+
+  proxy_class->pw_iface_type = PW_TYPE_INTERFACE_Port;
+  proxy_class->pw_iface_version = PW_VERSION_PORT;
 
   proxy_class->get_info = wp_port_get_info;
   proxy_class->get_properties = wp_port_get_properties;

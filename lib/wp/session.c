@@ -203,12 +203,12 @@ session_event_info (void *data, const struct pw_session_info *info)
   WpProxySession *self = WP_PROXY_SESSION (data);
 
   self->info = session_info_update (self->info, &self->properties, info);
+  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
+
   g_object_notify (G_OBJECT (self), "info");
 
   if (info->change_mask & PW_SESSION_CHANGE_MASK_PROPS)
     g_object_notify (G_OBJECT (self), "properties");
-
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
 }
 
 static const struct pw_session_events session_events = {
@@ -317,6 +317,9 @@ wp_proxy_session_class_init (WpProxySessionClass * klass)
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
   object_class->finalize = wp_proxy_session_finalize;
+
+  proxy_class->pw_iface_type = PW_TYPE_INTERFACE_Session;
+  proxy_class->pw_iface_version = PW_VERSION_SESSION;
 
   proxy_class->augment = wp_proxy_session_augment;
   proxy_class->get_info = wp_proxy_session_get_info;
@@ -504,18 +507,18 @@ wp_exported_session_export (WpExported * self)
       wp_exported_session_get_instance_private (WP_EXPORTED_SESSION (self));
   g_autoptr (WpCore) core = wp_exported_get_core (self);
   struct pw_client_session *pw_proxy = NULL;
+  struct pw_core *pw_core = wp_core_get_pw_core (core);
 
   /* make sure these props are not present; they are added by the server */
   wp_properties_set (priv->properties, PW_KEY_OBJECT_ID, NULL);
   wp_properties_set (priv->properties, PW_KEY_CLIENT_ID, NULL);
   wp_properties_set (priv->properties, PW_KEY_FACTORY_ID, NULL);
 
-  priv->client_sess = wp_core_create_remote_object (core, "client-session",
+  pw_proxy = pw_core_create_object (pw_core, "client-session",
       PW_TYPE_INTERFACE_ClientSession, PW_VERSION_CLIENT_SESSION,
-      priv->properties);
-
-  pw_proxy = (struct pw_client_session *) wp_proxy_get_pw_proxy (
-      priv->client_sess);
+      wp_properties_peek_dict (priv->properties), 0);
+  priv->client_sess = g_object_new (WP_TYPE_PROXY, "core", core,
+      "pw-proxy", pw_proxy, NULL);
 
   pw_client_session_add_listener (pw_proxy, &priv->listener,
       &client_session_events, self);

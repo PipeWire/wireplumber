@@ -170,21 +170,20 @@ create_link_cb (WpProperties *props, gpointer user_data)
 {
   WpPipewireSimpleEndpointLink *self = WP_PIPEWIRE_SIMPLE_ENDPOINT_LINK(user_data);
   g_autoptr (WpCore) core = NULL;
-  WpProxy *proxy;
+  WpLink *link;
 
   core = g_weak_ref_get (&self->core);
   g_return_if_fail (core);
 
   /* Create the link */
-  proxy = wp_core_create_remote_object(core, "link-factory",
-      PW_TYPE_INTERFACE_Link, PW_VERSION_LINK, props);
-  g_return_if_fail (proxy);
-  g_ptr_array_add(self->link_proxies, proxy);
+  link = wp_link_new_from_factory (core, "link-factory",
+      wp_properties_ref (props));
+  g_return_if_fail (link);
+  g_ptr_array_add (self->link_proxies, link);
 
-  /* Wait for the link to be created on the server side
-      by waiting for the info event, which will be signaled anyway */
+  /* Wait for the link to be created on the server side */
   self->link_count++;
-  wp_proxy_augment (proxy, WP_PROXY_FEATURE_INFO, NULL,
+  wp_proxy_augment (WP_PROXY (link), WP_PROXY_FEATURE_BOUND, NULL,
       (GAsyncReadyCallback) on_link_augmented, self);
 }
 

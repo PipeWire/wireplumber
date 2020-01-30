@@ -7,10 +7,7 @@
  */
 
 #include "core.h"
-#include "error.h"
-#include "object-manager.h"
-#include "proxy.h"
-#include "wpenums.h"
+#include "wp.h"
 #include "private.h"
 
 #include <pipewire/pipewire.h>
@@ -411,6 +408,16 @@ wp_core_class_init (WpCoreClass * klass)
   signals[SIGNAL_DISCONNECTED] = g_signal_new ("disconnected",
       G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
       G_TYPE_NONE, 0);
+
+  /* ensure WpProxy subclasses are loaded, which is needed to be able
+    to autodetect the GType of proxies created through wp_proxy_new_global() */
+  g_type_ensure (WP_TYPE_CLIENT);
+  g_type_ensure (WP_TYPE_DEVICE);
+  g_type_ensure (WP_TYPE_PROXY_ENDPOINT);
+  g_type_ensure (WP_TYPE_LINK);
+  g_type_ensure (WP_TYPE_NODE);
+  g_type_ensure (WP_TYPE_PORT);
+  g_type_ensure (WP_TYPE_PROXY_SESSION);
 }
 
 WpCore *
@@ -434,6 +441,13 @@ wp_core_get_pw_context (WpCore * self)
 {
   g_return_val_if_fail (WP_IS_CORE (self), NULL);
   return self->pw_context;
+}
+
+struct pw_core *
+wp_core_get_pw_core (WpCore * self)
+{
+  g_return_val_if_fail (WP_IS_CORE (self), NULL);
+  return self->pw_core;
 }
 
 struct pw_registry *
@@ -552,83 +566,6 @@ wp_core_sync_finish (WpCore * self, GAsyncResult * res, GError ** error)
   g_return_val_if_fail (g_task_is_valid (res, self), FALSE);
 
   return g_task_propagate_boolean (G_TASK (res), error);
-}
-
-WpProxy *
-wp_core_export_object (WpCore * self, const gchar * interface_type,
-    gpointer local_object, WpProperties * properties)
-{
-  struct pw_proxy *proxy = NULL;
-  const char *type;
-  guint32 version;
-
-  g_return_val_if_fail (WP_IS_CORE (self), NULL);
-  g_return_val_if_fail (self->pw_core, NULL);
-
-  proxy = pw_core_export (self->pw_core, interface_type,
-      properties ? wp_properties_peek_dict (properties) : NULL,
-      local_object, 0);
-  if (!proxy)
-    return NULL;
-
-  type = pw_proxy_get_type (proxy, &version);
-  return wp_proxy_new_wrap (self, proxy, type, version, NULL);
-}
-
-WpProxy *
-wp_core_create_local_object (WpCore * self, const gchar * factory_name,
-    const gchar *interface_type, guint32 interface_version,
-    WpProperties * properties)
-{
-  struct pw_proxy *pw_proxy = NULL;
-  struct pw_impl_factory *factory = NULL;
-  gpointer local_object = NULL;
-
-  g_return_val_if_fail (WP_IS_CORE (self), NULL);
-  g_return_val_if_fail (self->pw_core, NULL);
-
-  factory = pw_context_find_factory (self->pw_context, factory_name);
-  if (!factory)
-    return NULL;
-
-  local_object = pw_impl_factory_create_object (factory,
-      NULL,
-      interface_type,
-      interface_version,
-      properties ? wp_properties_to_pw_properties (properties) : NULL,
-      0);
-  if (!local_object)
-    return NULL;
-
-  pw_proxy = pw_core_export (self->pw_core,
-      interface_type,
-      properties ? wp_properties_peek_dict (properties) : NULL,
-      local_object,
-      0);
-  if (!pw_proxy) {
-    wp_proxy_local_object_destroy_for_type (interface_type, local_object);
-    return NULL;
-  }
-
-  return wp_proxy_new_wrap (self, pw_proxy, interface_type, interface_version,
-      local_object);
-}
-
-WpProxy *
-wp_core_create_remote_object (WpCore *self,
-    const gchar *factory_name, const gchar * interface_type,
-    guint32 interface_version, WpProperties * properties)
-{
-  struct pw_proxy *pw_proxy;
-
-  g_return_val_if_fail (WP_IS_CORE (self), NULL);
-  g_return_val_if_fail (self->pw_core, NULL);
-
-  pw_proxy = pw_core_create_object (self->pw_core, factory_name,
-      interface_type, interface_version,
-      properties ? wp_properties_peek_dict (properties) : NULL, 0);
-  return wp_proxy_new_wrap (self, pw_proxy, interface_type, interface_version,
-      NULL);
 }
 
 /**

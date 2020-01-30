@@ -113,8 +113,6 @@ test_proxy_basic_object_added (WpObjectManager *om, WpProxy *proxy,
     g_assert_nonnull (omcore);
     g_assert_true (pcore == omcore);
   }
-  g_assert_cmpstr (wp_proxy_get_interface_type (proxy), ==,
-      PW_TYPE_INTERFACE_Client);
   g_assert_cmphex (wp_proxy_get_global_permissions (proxy), ==, PW_PERM_RWX);
   g_assert_true (WP_IS_CLIENT (proxy));
 
@@ -192,10 +190,7 @@ test_node_object_added (WpObjectManager *om, WpProxy *proxy,
   TestNodeParamData *param_data;
 
   g_assert_nonnull (proxy);
-  g_assert_cmpstr (wp_proxy_get_interface_type (proxy), ==,
-      PW_TYPE_INTERFACE_Node);
-  g_assert_cmphex (wp_proxy_get_features (proxy), ==,
-      WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND);
+  g_assert_cmphex (wp_proxy_get_features (proxy), ==, WP_PROXY_FEATURES_STANDARD);
   g_assert_nonnull (wp_proxy_get_pw_proxy (proxy));
 
   g_assert_true (WP_IS_NODE (proxy));
@@ -246,8 +241,7 @@ test_node (TestProxyFixture *fixture, gconstpointer data)
   /* declare interest and set default features to be ready
      when the signal is fired */
   wp_object_manager_add_proxy_interest (fixture->om,
-      PW_TYPE_INTERFACE_Node, NULL,
-      WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND);
+      PW_TYPE_INTERFACE_Node, NULL, WP_PROXY_FEATURES_STANDARD);
   wp_core_install_object_manager (fixture->core, fixture->om);
 
   g_assert_true (wp_core_connect (fixture->core));
