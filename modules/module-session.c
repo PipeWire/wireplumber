@@ -12,7 +12,7 @@
 
 struct module_data
 {
-  WpExportedSession *session;
+  WpImplSession *session;
   WpObjectManager *om;
 };
 
@@ -112,8 +112,6 @@ module_destroy (gpointer d)
   struct module_data *data = d;
 
   g_clear_object (&data->om);
-
-  wp_exported_unexport (WP_EXPORTED (data->session));
   g_clear_object (&data->session);
 
   g_slice_free (struct module_data, data);
@@ -125,10 +123,11 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   struct module_data *data = g_slice_new0 (struct module_data);
   wp_module_set_destroy_callback (module, module_destroy, data);
 
-  data->session = wp_exported_session_new (core);
-  wp_exported_session_set_property (data->session,
+  data->session = wp_impl_session_new (core);
+  wp_impl_session_set_property (data->session,
       PW_KEY_SESSION_ID, "wireplumber");
-  wp_exported_export (WP_EXPORTED (data->session), NULL, NULL, NULL);
+  wp_proxy_augment (WP_PROXY (data->session), WP_PROXY_FEATURE_BOUND,
+      NULL, NULL, NULL);
 
   data->om = wp_object_manager_new ();
   g_signal_connect (data->om, "object-added",

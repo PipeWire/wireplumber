@@ -417,7 +417,7 @@ wp_core_class_init (WpCoreClass * klass)
   g_type_ensure (WP_TYPE_LINK);
   g_type_ensure (WP_TYPE_NODE);
   g_type_ensure (WP_TYPE_PORT);
-  g_type_ensure (WP_TYPE_PROXY_SESSION);
+  g_type_ensure (WP_TYPE_SESSION);
 }
 
 WpCore *

@@ -9,14 +9,9 @@
 #ifndef __WIREPLUMBER_SESSION_H__
 #define __WIREPLUMBER_SESSION_H__
 
-#include "exported.h"
 #include "proxy.h"
 
 G_BEGIN_DECLS
-
-#define WP_TYPE_SESSION (wp_session_get_type ())
-WP_API
-G_DECLARE_INTERFACE (WpSession, wp_session, WP, SESSION, GObject)
 
 typedef enum {
   WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SOURCE = 0x1000000 /* SPA_PROP_START_CUSTOM */,
@@ -24,9 +19,19 @@ typedef enum {
   WP_DEFAULT_ENDPOINT_TYPE_VIDEO_SOURCE,
 } WpDefaultEndpointType;
 
-struct _WpSessionInterface
+typedef enum { /*< flags >*/
+  WP_SESSION_FEATURE_DEFAULT_ENDPOINT = WP_PROXY_FEATURE_LAST,
+} WpSessionFeatures;
+
+/* WpSession */
+
+#define WP_TYPE_SESSION (wp_session_get_type ())
+WP_API
+G_DECLARE_DERIVABLE_TYPE (WpSession, wp_session, WP, SESSION, WpProxy)
+
+struct _WpSessionClass
 {
-  GTypeInterface parent;
+  WpProxyClass parent_class;
 
   guint32 (*get_default_endpoint) (WpSession * self,
       WpDefaultEndpointType type);
@@ -42,42 +47,26 @@ WP_API
 void wp_session_set_default_endpoint (WpSession * self,
     WpDefaultEndpointType type, guint32 id);
 
-/* proxy */
+/* WpImplSession */
 
-typedef enum { /*< flags >*/
-  WP_PROXY_SESSION_FEATURE_DEFAULT_ENDPOINT = WP_PROXY_FEATURE_LAST,
-} WpProxySessionFeatures;
-
-#define WP_TYPE_PROXY_SESSION (wp_proxy_session_get_type ())
+#define WP_TYPE_IMPL_SESSION (wp_impl_session_get_type ())
 WP_API
-G_DECLARE_FINAL_TYPE (WpProxySession, wp_proxy_session, WP, PROXY_SESSION, WpProxy)
+G_DECLARE_DERIVABLE_TYPE (WpImplSession, wp_impl_session, WP, IMPL_SESSION, WpSession)
 
-/* exported */
-
-#define WP_TYPE_EXPORTED_SESSION (wp_exported_session_get_type ())
-WP_API
-G_DECLARE_DERIVABLE_TYPE (WpExportedSession, wp_exported_session, WP, EXPORTED_SESSION, WpExported)
-
-struct _WpExportedSessionClass
+struct _WpImplSessionClass
 {
-  WpExportedClass parent_class;
+  WpSessionClass parent_class;
 };
 
 WP_API
-WpExportedSession * wp_exported_session_new (WpCore * core);
+WpImplSession * wp_impl_session_new (WpCore * core);
 
 WP_API
-guint32 wp_exported_session_get_global_id (WpExportedSession * self);
-
-WP_API
-WpProperties * wp_exported_session_get_properties (WpExportedSession * self);
-
-WP_API
-void wp_exported_session_set_property (WpExportedSession * self,
+void wp_impl_session_set_property (WpImplSession * self,
     const gchar * key, const gchar * value);
 
 WP_API
-void wp_exported_session_update_properties (WpExportedSession * self,
+void wp_impl_session_update_properties (WpImplSession * self,
     WpProperties * updates);
 
 G_END_DECLS

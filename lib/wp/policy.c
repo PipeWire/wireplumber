@@ -123,7 +123,7 @@ wp_policy_manager_get_instance (WpCore *core)
 
     /* install the object manager to listen to changed sessions */
     wp_object_manager_add_object_interest (mgr->sessions_om,
-        WP_TYPE_EXPORTED_SESSION, NULL);
+        WP_TYPE_IMPL_SESSION, NULL);
     wp_core_install_object_manager (core, mgr->sessions_om);
 
     wp_core_register_object (core, g_object_ref (mgr));

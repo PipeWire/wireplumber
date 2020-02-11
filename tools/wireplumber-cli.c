@@ -69,7 +69,7 @@ list_endpoints (WpObjectManager * om, struct WpCliData * d)
   g_autoptr (WpSession) session = NULL;
   guint i;
 
-  arr = wp_object_manager_get_objects (om, WP_TYPE_PROXY_SESSION);
+  arr = wp_object_manager_get_objects (om, WP_TYPE_SESSION);
   if (arr->len > 0)
     session = WP_SESSION (g_object_ref (g_ptr_array_index (arr, 0)));
   g_clear_pointer (&arr, g_ptr_array_unref);
@@ -107,7 +107,7 @@ set_default (WpObjectManager * om, struct WpCliData * d)
   g_autoptr (WpSession) session = NULL;
   guint i;
 
-  arr = wp_object_manager_get_objects (om, WP_TYPE_PROXY_SESSION);
+  arr = wp_object_manager_get_objects (om, WP_TYPE_SESSION);
   if (arr->len > 0)
     session = WP_SESSION (g_object_ref (g_ptr_array_index (arr, 0)));
   g_clear_pointer (&arr, g_ptr_array_unref);
@@ -264,7 +264,7 @@ main (gint argc, gchar **argv)
         WP_PROXY_ENDPOINT_FEATURE_CONTROLS);
     wp_object_manager_add_proxy_interest (om, PW_TYPE_INTERFACE_Session,
         NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND |
-        WP_PROXY_SESSION_FEATURE_DEFAULT_ENDPOINT);
+        WP_SESSION_FEATURE_DEFAULT_ENDPOINT);
     g_signal_connect (om, "objects-changed", (GCallback) list_endpoints, &data);
   }
 
@@ -279,7 +279,7 @@ main (gint argc, gchar **argv)
         NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND);
     wp_object_manager_add_proxy_interest (om, PW_TYPE_INTERFACE_Session,
         NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND |
-        WP_PROXY_SESSION_FEATURE_DEFAULT_ENDPOINT);
+        WP_SESSION_FEATURE_DEFAULT_ENDPOINT);
 
     data.params.set_default.id = id;
     g_signal_connect (om, "objects-changed", (GCallback) set_default, &data);
