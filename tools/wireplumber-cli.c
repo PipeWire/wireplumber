@@ -8,7 +8,6 @@
 
 #include <wp/wp.h>
 #include <pipewire/pipewire.h>
-#include <pipewire/extensions/session-manager/interfaces.h>
 
 static GOptionEntry entries[] =
 {
@@ -259,10 +258,10 @@ main (gint argc, gchar **argv)
   om = wp_object_manager_new ();
 
   if (argc == 2 && !g_strcmp0 (argv[1], "ls-endpoints")) {
-    wp_object_manager_add_proxy_interest (om, PW_TYPE_INTERFACE_Endpoint,
+    wp_object_manager_add_proxy_interest (om, WP_TYPE_ENDPOINT,
         NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND |
         WP_ENDPOINT_FEATURE_CONTROLS);
-    wp_object_manager_add_proxy_interest (om, PW_TYPE_INTERFACE_Session,
+    wp_object_manager_add_proxy_interest (om, WP_TYPE_SESSION,
         NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND |
         WP_SESSION_FEATURE_DEFAULT_ENDPOINT);
     g_signal_connect (om, "objects-changed", (GCallback) list_endpoints, &data);
@@ -275,9 +274,9 @@ main (gint argc, gchar **argv)
       return 1;
     }
 
-    wp_object_manager_add_proxy_interest (om, PW_TYPE_INTERFACE_Endpoint,
+    wp_object_manager_add_proxy_interest (om, WP_TYPE_ENDPOINT,
         NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND);
-    wp_object_manager_add_proxy_interest (om, PW_TYPE_INTERFACE_Session,
+    wp_object_manager_add_proxy_interest (om, WP_TYPE_SESSION,
         NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND |
         WP_SESSION_FEATURE_DEFAULT_ENDPOINT);
 
@@ -293,7 +292,7 @@ main (gint argc, gchar **argv)
       return 1;
     }
 
-    wp_object_manager_add_proxy_interest (om, PW_TYPE_INTERFACE_Endpoint,
+    wp_object_manager_add_proxy_interest (om, WP_TYPE_ENDPOINT,
         NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND |
         WP_ENDPOINT_FEATURE_CONTROLS);
 
@@ -303,7 +302,7 @@ main (gint argc, gchar **argv)
   }
 
   else if (argc == 2 && !g_strcmp0 (argv[1], "device-node-props")) {
-    wp_object_manager_add_proxy_interest (om, PW_TYPE_INTERFACE_Node, NULL,
+    wp_object_manager_add_proxy_interest (om, WP_TYPE_NODE, NULL,
         WP_PROXY_FEATURE_INFO);
     g_signal_connect (om, "objects-changed", (GCallback) device_node_props,
         &data);

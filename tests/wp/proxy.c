@@ -138,8 +138,7 @@ test_proxy_basic (TestProxyFixture *fixture, gconstpointer data)
   g_signal_connect (fixture->om, "object-added",
       (GCallback) test_proxy_basic_object_added, fixture);
 
-  wp_object_manager_add_proxy_interest (fixture->om,
-      PW_TYPE_INTERFACE_Client, NULL, 0);
+  wp_object_manager_add_proxy_interest (fixture->om, WP_TYPE_CLIENT, NULL, 0);
   wp_core_install_object_manager (fixture->core, fixture->om);
 
   g_assert_true (wp_core_connect (fixture->core));
@@ -241,7 +240,7 @@ test_node (TestProxyFixture *fixture, gconstpointer data)
   /* declare interest and set default features to be ready
      when the signal is fired */
   wp_object_manager_add_proxy_interest (fixture->om,
-      PW_TYPE_INTERFACE_Node, NULL, WP_PROXY_FEATURES_STANDARD);
+      WP_TYPE_NODE, NULL, WP_PROXY_FEATURES_STANDARD);
   wp_core_install_object_manager (fixture->core, fixture->om);
 
   g_assert_true (wp_core_connect (fixture->core));

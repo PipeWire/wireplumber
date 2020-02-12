@@ -13,14 +13,6 @@
 #include "wpenums.h"
 #include "private.h"
 
-#include "endpoint.h"
-#include "client.h"
-#include "device.h"
-#include "link.h"
-#include "node.h"
-#include "port.h"
-#include "session.h"
-
 #include <pipewire/pipewire.h>
 #include <pipewire/impl.h>
 #include <pipewire/extensions/metadata.h>
@@ -74,30 +66,6 @@ static guint wp_proxy_signals[LAST_SIGNAL] = { 0 };
 
 G_DEFINE_BOXED_TYPE (WpGlobal, wp_global, wp_global_ref, wp_global_unref)
 G_DEFINE_TYPE_WITH_PRIVATE (WpProxy, wp_proxy, G_TYPE_OBJECT)
-
-/* find the subclass of WpProxy that can handle
-   the given pipewire interface type of the given version */
-static inline GType
-wp_proxy_find_instance_type (const char * type, guint32 version)
-{
-  g_autofree GType *children;
-  guint n_children;
-
-  children = g_type_children (WP_TYPE_PROXY, &n_children);
-
-  for (gint i = 0; i < n_children; i++) {
-    WpProxyClass *klass = (WpProxyClass *) g_type_class_ref (children[i]);
-    if (g_strcmp0 (klass->pw_iface_type, type) == 0 &&
-        klass->pw_iface_version == version) {
-      g_type_class_unref (klass);
-      return children[i];
-    }
-
-    g_type_class_unref (klass);
-  }
-
-  return WP_TYPE_PROXY;
-}
 
 static void
 proxy_event_destroy (void *data)
@@ -285,6 +253,7 @@ static void
 wp_proxy_default_augment (WpProxy * self, WpProxyFeatures features)
 {
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  WpProxyClass *klass = WP_PROXY_GET_CLASS (self);
   g_autoptr (WpCore) core = NULL;
 
   /* ensure we have a pw_proxy, as we can't have
@@ -309,7 +278,7 @@ wp_proxy_default_augment (WpProxy * self, WpProxyFeatures features)
     /* bind */
     wp_proxy_set_pw_proxy (self, pw_registry_bind (
             wp_core_get_pw_registry (core), priv->global->id,
-            priv->global->type, priv->global->version, 0));
+            klass->pw_iface_type, klass->pw_iface_version, 0));
   }
 }
 
@@ -389,8 +358,7 @@ wp_proxy_class_init (WpProxyClass * klass)
 WpProxy *
 wp_proxy_new_global (WpCore * core, WpGlobal * global)
 {
-  GType gtype = wp_proxy_find_instance_type (global->type, global->version);
-  return g_object_new (gtype,
+  return g_object_new (global->type,
       "core", core,
       "global", global,
       NULL);

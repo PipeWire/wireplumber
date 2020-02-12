@@ -33,8 +33,8 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   WpObjectManager *om;
 
   om = wp_object_manager_new ();
-  wp_object_manager_add_proxy_interest (om, PW_TYPE_INTERFACE_Client, NULL,
-      WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND);
+  wp_object_manager_add_proxy_interest (om, WP_TYPE_CLIENT, NULL,
+      WP_PROXY_FEATURES_STANDARD);
 
   g_signal_connect (om, "object-added", (GCallback) client_added, NULL);
 

@@ -34,8 +34,7 @@ typedef struct _WpGlobal WpGlobal;
 struct _WpGlobal
 {
   guint32 id;
-  char *type;
-  guint32 version;
+  GType type;
   guint32 permissions;
   WpProperties *properties;
   GWeakRef proxy;
@@ -52,7 +51,6 @@ wp_global_new (void)
 static inline void
 wp_global_clear (WpGlobal * self)
 {
-  g_clear_pointer (&self->type, g_free);
   g_clear_pointer (&self->properties, wp_properties_unref);
   g_weak_ref_clear (&self->proxy);
 }

@@ -234,9 +234,8 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
   g_signal_connect (fixture->proxy_om, "object-removed",
       (GCallback) test_endpoint_basic_proxy_object_removed, fixture);
   wp_object_manager_add_proxy_interest (fixture->proxy_om,
-      PW_TYPE_INTERFACE_Endpoint, NULL,
-      WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND |
-      WP_ENDPOINT_FEATURE_CONTROLS);
+      WP_TYPE_ENDPOINT, NULL,
+      WP_PROXY_FEATURES_STANDARD | WP_ENDPOINT_FEATURE_CONTROLS);
   wp_core_install_object_manager (fixture->proxy_core, fixture->proxy_om);
 
   g_assert_true (wp_core_connect (fixture->proxy_core));

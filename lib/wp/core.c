@@ -119,6 +119,30 @@ static guint32 signals[NUM_SIGNALS];
 
 G_DEFINE_TYPE (WpCore, wp_core, G_TYPE_OBJECT)
 
+/* find the subclass of WpProxy that can handle
+   the given pipewire interface type of the given version */
+static inline GType
+find_proxy_instance_type (const char * type, guint32 version)
+{
+  g_autofree GType *children;
+  guint n_children;
+
+  children = g_type_children (WP_TYPE_PROXY, &n_children);
+
+  for (gint i = 0; i < n_children; i++) {
+    WpProxyClass *klass = (WpProxyClass *) g_type_class_ref (children[i]);
+    if (g_strcmp0 (klass->pw_iface_type, type) == 0 &&
+        klass->pw_iface_version == version) {
+      g_type_class_unref (klass);
+      return children[i];
+    }
+
+    g_type_class_unref (klass);
+  }
+
+  return WP_TYPE_PROXY;
+}
+
 static void
 registry_global (void *data, uint32_t id, uint32_t permissions,
     const char *type, uint32_t version, const struct spa_dict *props)
@@ -136,8 +160,7 @@ registry_global (void *data, uint32_t id, uint32_t permissions,
   /* construct & store the global */
   global = wp_global_new ();
   global->id = id;
-  global->type = g_strdup (type);
-  global->version = version;
+  global->type = find_proxy_instance_type (type, version);
   global->permissions = permissions;
   global->properties = wp_properties_new_copy_dict (props);
 
@@ -162,8 +185,7 @@ registry_global_remove (void *data, uint32_t id)
 
   global = g_steal_pointer (&g_ptr_array_index (self->globals, id));
 
-  g_debug ("registry global removed:%u type:%s/%u", id,
-      global->type, global->version);
+  g_debug ("registry global removed:%u type:%s", id, g_type_name (global->type));
 
   /* notify object managers */
   for (i = 0; i < self->object_managers->len; i++) {

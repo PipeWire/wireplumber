@@ -6,8 +6,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <pipewire/pipewire.h>
-
 #include <wp/wp.h>
 
 #include "parser-node.h"
@@ -208,7 +206,7 @@ wp_config_static_nodes_context_init (WpConfigStaticNodesContext *self)
 
   /* Only handle devices */
   wp_object_manager_add_proxy_interest (self->devices_om,
-      PW_TYPE_INTERFACE_Device, NULL, WP_PROXY_FEATURE_INFO);
+      WP_TYPE_DEVICE, NULL, WP_PROXY_FEATURE_INFO);
   g_signal_connect (self->devices_om, "object-added",
       (GCallback) on_device_added, self);
 }

@@ -12,10 +12,7 @@
 
 struct interest
 {
-  union {
-    char * proxy_type;
-    GType g_type;
-  };
+  GType g_type;
   gboolean for_proxy;
   WpProxyFeatures wanted_features;
   GVariant *constraints; // aa{sv}
@@ -71,8 +68,6 @@ wp_object_manager_finalize (GObject * object)
   g_clear_pointer (&self->objects, g_ptr_array_unref);
 
   pw_array_for_each (i, &self->interests) {
-    if (i->for_proxy)
-      g_clear_pointer (&i->proxy_type, g_free);
     g_clear_pointer (&i->constraints, g_variant_unref);
   }
   pw_array_clear (&self->interests);
@@ -150,19 +145,19 @@ wp_object_manager_new (void)
 
 void
 wp_object_manager_add_proxy_interest (WpObjectManager *self,
-    const gchar * iface_type, GVariant * constraints,
+    GType gtype, GVariant * constraints,
     WpProxyFeatures wanted_features)
 {
   struct interest *i;
 
   g_return_if_fail (WP_IS_OBJECT_MANAGER (self));
-  g_return_if_fail (iface_type != 0);
+  g_return_if_fail (g_type_is_a (gtype, WP_TYPE_PROXY));
   g_return_if_fail (constraints == NULL ||
       g_variant_is_of_type (constraints, G_VARIANT_TYPE ("aa{sv}")));
 
   /* grow the array by 1 struct interest and fill it in */
   i = pw_array_add (&self->interests, sizeof (struct interest));
-  i->proxy_type = g_strdup (iface_type);
+  i->g_type = gtype;
   i->for_proxy = TRUE;
   i->wanted_features = wanted_features;
   i->constraints = constraints ? g_variant_ref_sink (constraints) : NULL;
@@ -354,7 +349,7 @@ wp_object_manager_is_interested_in_global (WpObjectManager * self,
 
   pw_array_for_each (i, &self->interests) {
     if (i->for_proxy
-        && g_strcmp0 (i->proxy_type, global->type) == 0
+        && g_type_is_a (global->type, i->g_type)
         && (!i->constraints ||
             check_constraints (i->constraints, global->properties, NULL)))
     {
