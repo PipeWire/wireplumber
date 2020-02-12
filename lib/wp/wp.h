@@ -13,7 +13,6 @@
 #include "device.h"
 #include "endpoint.h"
 #include "error.h"
-#include "exported.h"
 #include "factory.h"
 #include "link.h"
 #include "module.h"
