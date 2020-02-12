@@ -49,6 +49,7 @@ on_proxy_enum_format_done (WpProxy *proxy, GAsyncResult *res,
   uint8_t buf[1024];
   struct spa_pod_builder pod_builder = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
   struct spa_pod *param;
+  gboolean control;
 
   formats = wp_proxy_enum_params_collect_finish (proxy, res, &error);
   if (error) {
@@ -90,17 +91,22 @@ on_proxy_enum_format_done (WpProxy *proxy, GAsyncResult *res,
   self->format.format = SPA_AUDIO_FORMAT_F32P;
   self->format.rate = 48000;
 
+  /* Only enable control port for input streams */
+  control = direction == PW_DIRECTION_INPUT;
+
   if (self->convert) {
     param = spa_pod_builder_add_object(&pod_builder,
         SPA_TYPE_OBJECT_ParamPortConfig,  SPA_PARAM_PortConfig,
         SPA_PARAM_PORT_CONFIG_direction,  SPA_POD_Id(direction),
-        SPA_PARAM_PORT_CONFIG_mode,       SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_convert));
+        SPA_PARAM_PORT_CONFIG_mode,       SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_convert),
+        SPA_PARAM_PORT_CONFIG_control,    SPA_POD_Bool(control));
   } else {
     param = spa_format_audio_raw_build(&pod_builder, SPA_PARAM_Format, &self->format);
     param = spa_pod_builder_add_object(&pod_builder,
         SPA_TYPE_OBJECT_ParamPortConfig,  SPA_PARAM_PortConfig,
         SPA_PARAM_PORT_CONFIG_direction,  SPA_POD_Id(direction),
         SPA_PARAM_PORT_CONFIG_mode,       SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
+        SPA_PARAM_PORT_CONFIG_control,    SPA_POD_Bool(control),
         SPA_PARAM_PORT_CONFIG_format,     SPA_POD_Pod(param));
   }
 

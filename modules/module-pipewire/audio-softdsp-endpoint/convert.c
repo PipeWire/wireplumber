@@ -117,6 +117,7 @@ on_audio_convert_core_done (WpCore *core, GAsyncResult *res,
   struct spa_pod_builder pod_builder = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
   struct spa_pod *format;
   struct spa_pod *param;
+  gboolean control;
 
   wp_core_sync_finish (core, res, &error);
   if (error) {
@@ -130,6 +131,9 @@ on_audio_convert_core_done (WpCore *core, GAsyncResult *res,
 
   format = spa_format_audio_raw_build(&pod_builder, SPA_PARAM_Format,
       &self->format);
+
+  /* Only enable control port for input streams */
+  control = direction == PW_DIRECTION_INPUT;
 
   /* Configure audioconvert to be both merger and splitter; this means it will
      have an equal number of input and output ports and just passthrough the
@@ -147,6 +151,7 @@ on_audio_convert_core_done (WpCore *core, GAsyncResult *res,
       SPA_TYPE_OBJECT_ParamPortConfig,  SPA_PARAM_PortConfig,
       SPA_PARAM_PORT_CONFIG_direction,  SPA_POD_Id(direction),
       SPA_PARAM_PORT_CONFIG_mode,       SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
+      SPA_PARAM_PORT_CONFIG_control,    SPA_POD_Bool(control),
       SPA_PARAM_PORT_CONFIG_format,     SPA_POD_Pod(format));
   wp_audio_stream_set_port_config (WP_AUDIO_STREAM (self), param);
   wp_audio_stream_finish_port_config (WP_AUDIO_STREAM (self));
