@@ -29,7 +29,7 @@ typedef struct {
   WpCore *proxy_core;
   WpObjectManager *proxy_om;
 
-  WpExportedEndpoint *exported_endpoint;
+  WpImplEndpoint *impl_endpoint;
   WpProxy *proxy_endpoint;
 
   gint n_events;
@@ -109,32 +109,30 @@ test_endpoint_teardown (TestEndpointFixture *self, gconstpointer user_data)
 }
 
 static void
-test_endpoint_basic_exported_object_added (WpObjectManager *om,
+test_endpoint_basic_impl_object_added (WpObjectManager *om,
     WpEndpoint *endpoint, TestEndpointFixture *fixture)
 {
-  g_debug ("exported object added");
+  g_debug ("impl object added");
 
-  g_assert_true (WP_IS_ENDPOINT (endpoint));
-  g_assert_true (WP_IS_EXPORTED_ENDPOINT (endpoint));
+  g_assert_true (WP_IS_IMPL_ENDPOINT (endpoint));
 
-  g_assert_null (fixture->exported_endpoint);
-  fixture->exported_endpoint = WP_EXPORTED_ENDPOINT (endpoint);
+  g_assert_null (fixture->impl_endpoint);
+  fixture->impl_endpoint = WP_IMPL_ENDPOINT (endpoint);
 
   if (++fixture->n_events == 3)
     g_main_loop_quit (fixture->loop);
 }
 
 static void
-test_endpoint_basic_exported_object_removed (WpObjectManager *om,
+test_endpoint_basic_impl_object_removed (WpObjectManager *om,
     WpEndpoint *endpoint, TestEndpointFixture *fixture)
 {
-  g_debug ("exported object removed");
+  g_debug ("impl object removed");
 
-  g_assert_true (WP_IS_ENDPOINT (endpoint));
-  g_assert_true (WP_IS_EXPORTED_ENDPOINT (endpoint));
+  g_assert_true (WP_IS_IMPL_ENDPOINT (endpoint));
 
-  g_assert_nonnull (fixture->exported_endpoint);
-  fixture->exported_endpoint = NULL;
+  g_assert_nonnull (fixture->impl_endpoint);
+  fixture->impl_endpoint = NULL;
 
   if (++fixture->n_events == 2)
     g_main_loop_quit (fixture->loop);
@@ -147,7 +145,6 @@ test_endpoint_basic_proxy_object_added (WpObjectManager *om,
   g_debug ("proxy object added");
 
   g_assert_true (WP_IS_ENDPOINT (endpoint));
-  g_assert_true (WP_IS_PROXY_ENDPOINT (endpoint));
 
   g_assert_null (fixture->proxy_endpoint);
   fixture->proxy_endpoint = WP_PROXY (endpoint);
@@ -163,7 +160,6 @@ test_endpoint_basic_proxy_object_removed (WpObjectManager *om,
   g_debug ("proxy object removed");
 
   g_assert_true (WP_IS_ENDPOINT (endpoint));
-  g_assert_true (WP_IS_PROXY_ENDPOINT (endpoint));
 
   g_assert_nonnull (fixture->proxy_endpoint);
   fixture->proxy_endpoint = NULL;
@@ -173,17 +169,17 @@ test_endpoint_basic_proxy_object_removed (WpObjectManager *om,
 }
 
 static void
-test_endpoint_basic_export_done (WpExported * endpoint, GAsyncResult * res,
+test_endpoint_basic_export_done (WpProxy * endpoint, GAsyncResult * res,
     TestEndpointFixture *fixture)
 {
   g_autoptr (GError) error = NULL;
 
   g_debug ("export done");
 
-  g_assert_true (wp_exported_export_finish (endpoint, res, &error));
+  g_assert_true (wp_proxy_augment_finish (endpoint, res, &error));
   g_assert_no_error (error);
 
-  g_assert_true (WP_IS_EXPORTED_ENDPOINT (endpoint));
+  g_assert_true (WP_IS_IMPL_ENDPOINT (endpoint));
 
   if (++fixture->n_events == 3)
     g_main_loop_quit (fixture->loop);
@@ -217,17 +213,17 @@ test_endpoint_basic_notify_properties (WpEndpoint * endpoint, GParamSpec * param
 static void
 test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
 {
-  g_autoptr (WpExportedEndpoint) endpoint = NULL;
+  g_autoptr (WpImplEndpoint) endpoint = NULL;
   gfloat float_value;
   gboolean boolean_value;
 
   /* set up the export side */
   g_signal_connect (fixture->export_om, "object-added",
-      (GCallback) test_endpoint_basic_exported_object_added, fixture);
+      (GCallback) test_endpoint_basic_impl_object_added, fixture);
   g_signal_connect (fixture->export_om, "object-removed",
-      (GCallback) test_endpoint_basic_exported_object_removed, fixture);
+      (GCallback) test_endpoint_basic_impl_object_removed, fixture);
   wp_object_manager_add_object_interest (fixture->export_om,
-      WP_TYPE_EXPORTED_ENDPOINT, NULL);
+      WP_TYPE_IMPL_ENDPOINT, NULL);
   wp_core_install_object_manager (fixture->export_core, fixture->export_om);
 
   g_assert_true (wp_core_connect (fixture->export_core));
@@ -240,16 +236,16 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
   wp_object_manager_add_proxy_interest (fixture->proxy_om,
       PW_TYPE_INTERFACE_Endpoint, NULL,
       WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND |
-      WP_PROXY_ENDPOINT_FEATURE_CONTROLS);
+      WP_ENDPOINT_FEATURE_CONTROLS);
   wp_core_install_object_manager (fixture->proxy_core, fixture->proxy_om);
 
   g_assert_true (wp_core_connect (fixture->proxy_core));
 
   /* create endpoint */
-  endpoint = wp_exported_endpoint_new (fixture->export_core);
-  wp_exported_endpoint_set_property (endpoint, "test.property", "test-value");
-  wp_exported_endpoint_register_control (endpoint, WP_ENDPOINT_CONTROL_VOLUME);
-  wp_exported_endpoint_register_control (endpoint, WP_ENDPOINT_CONTROL_MUTE);
+  endpoint = wp_impl_endpoint_new (fixture->export_core);
+  wp_impl_endpoint_set_property (endpoint, "test.property", "test-value");
+  wp_impl_endpoint_register_control (endpoint, WP_ENDPOINT_CONTROL_VOLUME);
+  wp_impl_endpoint_register_control (endpoint, WP_ENDPOINT_CONTROL_MUTE);
   g_assert_true (wp_endpoint_set_control_float (WP_ENDPOINT (endpoint),
           WP_ENDPOINT_CONTROL_VOLUME, 0.7f));
   g_assert_true (wp_endpoint_set_control_boolean (WP_ENDPOINT (endpoint),
@@ -258,7 +254,7 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
   /* verify properties are set before export */
   {
     g_autoptr (WpProperties) props =
-        wp_exported_endpoint_get_properties (endpoint);
+        wp_proxy_get_properties (WP_PROXY (endpoint));
     g_assert_cmpstr (wp_properties_get (props, "test.property"), ==,
         "test-value");
   }
@@ -270,16 +266,16 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
   g_assert_cmpint (boolean_value, ==, TRUE);
 
   /* do export */
-  wp_exported_export (WP_EXPORTED (endpoint), NULL,
+  wp_proxy_augment (WP_PROXY (endpoint), WP_PROXY_FEATURE_BOUND, NULL,
       (GAsyncReadyCallback) test_endpoint_basic_export_done, fixture);
 
   /* run until objects are created and features are cached */
   fixture->n_events = 0;
   g_main_loop_run (fixture->loop);
   g_assert_cmpint (fixture->n_events, ==, 3);
-  g_assert_nonnull (fixture->exported_endpoint);
+  g_assert_nonnull (fixture->impl_endpoint);
   g_assert_nonnull (fixture->proxy_endpoint);
-  g_assert_true (fixture->exported_endpoint == endpoint);
+  g_assert_true (fixture->impl_endpoint == endpoint);
 
   /* test round 1: verify the values on the proxy */
 
@@ -287,10 +283,10 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
       WP_PROXY_FEATURE_PW_PROXY |
       WP_PROXY_FEATURE_INFO |
       WP_PROXY_FEATURE_BOUND |
-      WP_PROXY_ENDPOINT_FEATURE_CONTROLS);
+      WP_ENDPOINT_FEATURE_CONTROLS);
 
   g_assert_cmpuint (wp_proxy_get_bound_id (fixture->proxy_endpoint), ==,
-      wp_exported_endpoint_get_global_id (endpoint));
+      wp_proxy_get_bound_id (WP_PROXY (endpoint)));
 
   {
     g_autoptr (WpProperties) props =
@@ -345,7 +341,7 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
   g_assert_cmpfloat_with_epsilon (float_value, 1.0f, 0.001);
   g_assert_cmpint (boolean_value, ==, TRUE);
 
-  /* change control on the exported */
+  /* change control on the impl */
   fixture->n_events = 0;
   g_assert_true (wp_endpoint_set_control_boolean (WP_ENDPOINT (endpoint),
           WP_ENDPOINT_CONTROL_MUTE, FALSE));
@@ -372,9 +368,9 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
   g_assert_cmpfloat_with_epsilon (float_value, 1.0f, 0.001);
   g_assert_cmpint (boolean_value, ==, FALSE);
 
-  /* change a property on the exported */
+  /* change a property on the impl */
   fixture->n_events = 0;
-  wp_exported_endpoint_set_property (endpoint, "test.property", "changed-value");
+  wp_impl_endpoint_set_property (endpoint, "test.property", "changed-value");
 
   /* run until the change is on both sides */
   g_main_loop_run (fixture->loop);
@@ -384,7 +380,7 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
 
   {
     g_autoptr (WpProperties) props =
-        wp_exported_endpoint_get_properties (endpoint);
+        wp_proxy_get_properties (WP_PROXY (endpoint));
     g_assert_cmpstr (wp_properties_get (props, "test.property"), ==,
         "changed-value");
   }
@@ -395,14 +391,14 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
         "changed-value");
   }
 
-  /* unexport */
+  /* destroy impl endpoint */
   fixture->n_events = 0;
-  wp_exported_unexport (WP_EXPORTED (endpoint));
+  g_clear_object (&endpoint);
 
   /* run until objects are destroyed */
   g_main_loop_run (fixture->loop);
   g_assert_cmpint (fixture->n_events, ==, 2);
-  g_assert_null (fixture->exported_endpoint);
+  g_assert_null (fixture->impl_endpoint);
   g_assert_null (fixture->proxy_endpoint);
 }
 

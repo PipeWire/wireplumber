@@ -26,7 +26,7 @@ select_new_default_ep (struct module_data * data, WpDefaultEndpointType type,
 
   for (guint i = 0; i < arr->len; i++) {
     WpEndpoint *ep = g_ptr_array_index (arr, i);
-    guint32 id = wp_exported_endpoint_get_global_id (WP_EXPORTED_ENDPOINT (ep));
+    guint32 id = wp_proxy_get_bound_id (WP_PROXY (ep));
     guint32 priority = 0;
     const gchar *priority_str;
 
@@ -38,8 +38,7 @@ select_new_default_ep (struct module_data * data, WpDefaultEndpointType type,
     if (g_strcmp0 (media_class, wp_endpoint_get_media_class (ep)) != 0)
       continue;
 
-    g_autoptr (WpProperties) properties =
-        wp_exported_endpoint_get_properties (WP_EXPORTED_ENDPOINT (ep));
+    g_autoptr (WpProperties) properties = wp_proxy_get_properties (WP_PROXY (ep));
 
     priority_str = wp_properties_get (properties, "endpoint.priority");
     if (priority_str)
@@ -99,7 +98,7 @@ on_endpoint_removed (WpObjectManager * om, WpEndpoint * ep,
   else
     return;
 
-  ep_id = wp_exported_endpoint_get_global_id (WP_EXPORTED_ENDPOINT (ep));
+  ep_id = wp_proxy_get_bound_id (WP_PROXY (ep));
   def_id = wp_session_get_default_endpoint (WP_SESSION (data->session), type);
 
   if (ep_id == def_id)
@@ -135,6 +134,6 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   g_signal_connect (data->om, "object-removed",
       (GCallback) on_endpoint_removed, data);
   wp_object_manager_add_object_interest (data->om,
-      WP_TYPE_EXPORTED_ENDPOINT, NULL);
+      WP_TYPE_IMPL_ENDPOINT, NULL);
   wp_core_install_object_manager (core, data->om);
 }

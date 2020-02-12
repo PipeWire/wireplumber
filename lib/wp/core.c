@@ -413,7 +413,7 @@ wp_core_class_init (WpCoreClass * klass)
     to autodetect the GType of proxies created through wp_proxy_new_global() */
   g_type_ensure (WP_TYPE_CLIENT);
   g_type_ensure (WP_TYPE_DEVICE);
-  g_type_ensure (WP_TYPE_PROXY_ENDPOINT);
+  g_type_ensure (WP_TYPE_ENDPOINT);
   g_type_ensure (WP_TYPE_LINK);
   g_type_ensure (WP_TYPE_NODE);
   g_type_ensure (WP_TYPE_PORT);

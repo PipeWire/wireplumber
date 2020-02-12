@@ -48,7 +48,7 @@ struct _WpPwAudioSoftdspEndpoint
   WpAudioStream *adapter;
   GPtrArray *converters;
 
-  WpExportedEndpoint *exported_ep;
+  WpImplEndpoint *impl_ep;
 };
 
 enum {
@@ -116,7 +116,7 @@ endpoint_get_global_id (WpBaseEndpoint *ep)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (ep);
 
-  return wp_exported_endpoint_get_global_id (self->exported_ep);
+  return wp_proxy_get_bound_id (WP_PROXY (self->impl_ep));
 }
 
 static gboolean
@@ -169,19 +169,19 @@ on_adapter_control_changed (WpAudioStream * s, guint32 control_id,
 {
   /* block to avoid recursion - WpEndpoint emits the "control-changed"
      signal when we change the value here */
-  g_signal_handlers_block_by_func (self->exported_ep,
+  g_signal_handlers_block_by_func (self->impl_ep,
       on_exported_control_changed, self);
 
   switch (control_id) {
   case WP_ENDPOINT_CONTROL_VOLUME: {
     gfloat vol = wp_audio_stream_get_volume (s);
-    wp_endpoint_set_control_float (WP_ENDPOINT (self->exported_ep),
+    wp_endpoint_set_control_float (WP_ENDPOINT (self->impl_ep),
         control_id, vol);
     break;
   }
   case WP_ENDPOINT_CONTROL_MUTE: {
     gboolean m = wp_audio_stream_get_mute (s);
-    wp_endpoint_set_control_boolean (WP_ENDPOINT (self->exported_ep),
+    wp_endpoint_set_control_boolean (WP_ENDPOINT (self->impl_ep),
         control_id, m);
     break;
   }
@@ -189,12 +189,12 @@ on_adapter_control_changed (WpAudioStream * s, guint32 control_id,
     break;
   }
 
-  g_signal_handlers_unblock_by_func (self->exported_ep,
+  g_signal_handlers_unblock_by_func (self->impl_ep,
       on_exported_control_changed, self);
 }
 
 static void
-on_endpoint_exported (GObject * exported, GAsyncResult *res, gpointer data)
+on_endpoint_exported (GObject * impl_ep, GAsyncResult *res, gpointer data)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (data);
   GError *error = NULL;
@@ -202,7 +202,7 @@ on_endpoint_exported (GObject * exported, GAsyncResult *res, gpointer data)
   g_return_if_fail (self->init_task);
 
   /* Get the object */
-  wp_exported_export_finish (WP_EXPORTED (exported), res, &error);
+  wp_proxy_augment_finish (WP_PROXY (impl_ep), res, &error);
   if (error) {
     g_warning ("WpPwAudioSoftdspEndpoint:%p Aborting construction", self);
     g_task_return_error (self->init_task, error);
@@ -221,15 +221,15 @@ do_export (WpPwAudioSoftdspEndpoint *self)
   g_autoptr (WpProperties) props = NULL;
   g_autoptr (WpProperties) extra_props = NULL;
 
-  g_return_if_fail (!self->exported_ep);
+  g_return_if_fail (!self->impl_ep);
 
-  self->exported_ep = wp_exported_endpoint_new (core);
+  self->impl_ep = wp_impl_endpoint_new (core);
 
-  wp_exported_endpoint_register_control (self->exported_ep,
+  wp_impl_endpoint_register_control (self->impl_ep,
       WP_ENDPOINT_CONTROL_VOLUME);
-  wp_exported_endpoint_register_control (self->exported_ep,
+  wp_impl_endpoint_register_control (self->impl_ep,
       WP_ENDPOINT_CONTROL_MUTE);
-  // wp_exported_endpoint_register_control (self->exported_ep,
+  // wp_impl_endpoint_register_control (self->impl_ep,
   //     WP_ENDPOINT_CONTROL_CHANNEL_VOLUMES);
 
   props = wp_proxy_get_properties (WP_PROXY (self->node));
@@ -242,28 +242,28 @@ do_export (WpPwAudioSoftdspEndpoint *self)
   wp_properties_setf (extra_props, "endpoint.priority", "%d",
       wp_base_endpoint_get_priority (WP_BASE_ENDPOINT (self)));
 
-  wp_exported_endpoint_update_properties (self->exported_ep, props);
-  wp_exported_endpoint_update_properties (self->exported_ep, extra_props);
+  wp_impl_endpoint_update_properties (self->impl_ep, props);
+  wp_impl_endpoint_update_properties (self->impl_ep, extra_props);
 
-  wp_exported_endpoint_set_name (self->exported_ep,
+  wp_impl_endpoint_set_name (self->impl_ep,
       wp_base_endpoint_get_name (WP_BASE_ENDPOINT (self)));
-  wp_exported_endpoint_set_media_class (self->exported_ep,
+  wp_impl_endpoint_set_media_class (self->impl_ep,
       wp_base_endpoint_get_media_class (WP_BASE_ENDPOINT (self)));
-  wp_exported_endpoint_set_direction (self->exported_ep,
+  wp_impl_endpoint_set_direction (self->impl_ep,
       wp_base_endpoint_get_direction (WP_BASE_ENDPOINT (self)));
 
-  wp_endpoint_set_control_float (WP_ENDPOINT (self->exported_ep),
+  wp_endpoint_set_control_float (WP_ENDPOINT (self->impl_ep),
       WP_ENDPOINT_CONTROL_VOLUME, wp_audio_stream_get_volume (self->adapter));
-  wp_endpoint_set_control_boolean (WP_ENDPOINT (self->exported_ep),
+  wp_endpoint_set_control_boolean (WP_ENDPOINT (self->impl_ep),
       WP_ENDPOINT_CONTROL_MUTE, wp_audio_stream_get_mute (self->adapter));
 
-  g_signal_connect_object (self->exported_ep, "control-changed",
+  g_signal_connect_object (self->impl_ep, "control-changed",
       (GCallback) on_exported_control_changed, self, 0);
   g_signal_connect_object (self->adapter, "control-changed",
       (GCallback) on_adapter_control_changed, self, 0);
 
-  wp_exported_export (WP_EXPORTED (self->exported_ep), NULL,
-      on_endpoint_exported, self);
+  wp_proxy_augment (WP_PROXY (self->impl_ep), WP_PROXY_FEATURE_BOUND,
+      NULL, on_endpoint_exported, self);
 }
 
 static void
@@ -354,9 +354,7 @@ endpoint_finalize (GObject * object)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (object);
 
-  if (self->exported_ep)
-    wp_exported_unexport (WP_EXPORTED (self->exported_ep));
-  g_clear_object (&self->exported_ep);
+  g_clear_object (&self->impl_ep);
 
   g_clear_pointer(&self->streams, g_variant_unref);
 

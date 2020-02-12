@@ -74,7 +74,7 @@ list_endpoints (WpObjectManager * om, struct WpCliData * d)
     session = WP_SESSION (g_object_ref (g_ptr_array_index (arr, 0)));
   g_clear_pointer (&arr, g_ptr_array_unref);
 
-  arr = wp_object_manager_get_objects (om, WP_TYPE_PROXY_ENDPOINT);
+  arr = wp_object_manager_get_objects (om, WP_TYPE_ENDPOINT);
 
   g_print ("Audio capture devices:\n");
   for (i = 0; i < arr->len; i++) {
@@ -118,7 +118,7 @@ set_default (WpObjectManager * om, struct WpCliData * d)
     return;
   }
 
-  arr = wp_object_manager_get_objects (om, WP_TYPE_PROXY_ENDPOINT);
+  arr = wp_object_manager_get_objects (om, WP_TYPE_ENDPOINT);
 
   for (i = 0; i < arr->len; i++) {
     WpEndpoint *ep = g_ptr_array_index (arr, i);
@@ -152,7 +152,7 @@ set_volume (WpObjectManager * om, struct WpCliData * d)
   g_autoptr (GPtrArray) arr = NULL;
   guint i;
 
-  arr = wp_object_manager_get_objects (om, WP_TYPE_PROXY_ENDPOINT);
+  arr = wp_object_manager_get_objects (om, WP_TYPE_ENDPOINT);
 
   for (i = 0; i < arr->len; i++) {
     WpEndpoint *ep = g_ptr_array_index (arr, i);
@@ -261,7 +261,7 @@ main (gint argc, gchar **argv)
   if (argc == 2 && !g_strcmp0 (argv[1], "ls-endpoints")) {
     wp_object_manager_add_proxy_interest (om, PW_TYPE_INTERFACE_Endpoint,
         NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND |
-        WP_PROXY_ENDPOINT_FEATURE_CONTROLS);
+        WP_ENDPOINT_FEATURE_CONTROLS);
     wp_object_manager_add_proxy_interest (om, PW_TYPE_INTERFACE_Session,
         NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND |
         WP_SESSION_FEATURE_DEFAULT_ENDPOINT);
@@ -295,7 +295,7 @@ main (gint argc, gchar **argv)
 
     wp_object_manager_add_proxy_interest (om, PW_TYPE_INTERFACE_Endpoint,
         NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND |
-        WP_PROXY_ENDPOINT_FEATURE_CONTROLS);
+        WP_ENDPOINT_FEATURE_CONTROLS);
 
     data.params.set_volume.id = id;
     data.params.set_volume.volume = volume;
