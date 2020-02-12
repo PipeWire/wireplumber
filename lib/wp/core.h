@@ -54,6 +54,10 @@ guint wp_core_idle_add (WpCore * self, GSourceFunc function, gpointer data,
     GDestroyNotify destroy);
 
 WP_API
+guint wp_core_timeout_add (WpCore * self, guint64 timeout_ms,
+    GSourceFunc function, gpointer data, GDestroyNotify destroy);
+
+WP_API
 gboolean wp_core_sync (WpCore * self, GCancellable * cancellable,
     GAsyncReadyCallback callback, gpointer user_data);
 

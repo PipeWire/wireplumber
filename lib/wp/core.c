@@ -486,6 +486,38 @@ wp_core_idle_add (WpCore * self, GSourceFunc function, gpointer data,
 }
 
 /**
+ * wp_core_timeout_add:
+ * @self: the core
+ * @timeout_ms: the timeout in milliseconds
+ * @function: (scope notified): the function to call
+ * @data: (closure): data to pass to @function
+ * @destroy: (nullable): a function to destroy @data
+ *
+ * Adds a timeout callback to be called at regular intervals in the same
+ * #GMainContext as the one used by this core. The function is called repeatedly
+ * until it returns FALSE, at which point the timeout is automatically destroyed
+ * and the function will not be called again. The first call to the function
+ * will be at the end of the first interval. This is essentially the same as
+ * g_timeout_add_full(), but it adds the created #GSource on the #GMainContext
+ * used by this core instead of the default context.
+ *
+ * Returns: the ID (greater than 0) of the event source
+ */
+guint
+wp_core_timeout_add (WpCore * self, guint64 timeout_ms,
+    GSourceFunc function, gpointer data, GDestroyNotify destroy)
+{
+  g_autoptr (GSource) source = NULL;
+
+  g_return_val_if_fail (WP_IS_CORE (self), 0);
+
+  source = g_timeout_source_new (timeout_ms);
+  g_source_set_callback (source, function, data, destroy);
+  g_source_attach (source, self->context);
+  return g_source_get_id (source);
+}
+
+/**
  * wp_core_sync:
  * @self: the core
  * @cancellable: (nullable): a #GCancellable to cancel the operation
