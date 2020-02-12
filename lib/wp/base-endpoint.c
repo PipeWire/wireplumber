@@ -511,6 +511,18 @@ wp_base_endpoint_get_global_id (WpBaseEndpoint * self)
   return -1;
 }
 
+void
+wp_base_endpoint_begin_fade (WpBaseEndpoint * self, guint32 stream_id,
+    guint duration, gfloat step, guint direction, guint type,
+    GCancellable * cancellable, GAsyncReadyCallback callback, gpointer data)
+{
+  g_return_if_fail (WP_IS_BASE_ENDPOINT (self));
+
+  if (WP_BASE_ENDPOINT_GET_CLASS (self)->begin_fade)
+    WP_BASE_ENDPOINT_GET_CLASS (self)->begin_fade (self, stream_id,
+        duration, step, direction, type, cancellable, callback, data);
+}
+
 /**
  * wp_base_endpoint_register_stream:
  * @self: the endpoint

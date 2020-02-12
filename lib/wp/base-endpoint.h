@@ -45,6 +45,10 @@ struct _WpBaseEndpointClass
   void (*release_link) (WpBaseEndpoint * self, WpBaseEndpointLink * link);
 
   const gchar * (*get_endpoint_link_factory) (WpBaseEndpoint * self);
+
+  void (*begin_fade) (WpBaseEndpoint * self, guint32 stream_id, guint duration,
+    gfloat step, guint direction, guint type, GCancellable * cancellable,
+    GAsyncReadyCallback callback, gpointer data);
 };
 
 WP_API
@@ -83,6 +87,11 @@ const char * wp_base_endpoint_get_role (WpBaseEndpoint * self);
 
 WP_API
 guint32 wp_base_endpoint_get_global_id (WpBaseEndpoint * self);
+
+WP_API
+void wp_base_endpoint_begin_fade (WpBaseEndpoint * self, guint32 stream_id,
+    guint duration, gfloat step, guint direction, guint type,
+    GCancellable * cancellable, GAsyncReadyCallback callback, gpointer data);
 
 WP_API
 void wp_base_endpoint_register_stream (WpBaseEndpoint * self, GVariant * stream);

@@ -142,6 +142,33 @@ endpoint_prepare_link (WpBaseEndpoint * ep, guint32 stream_id,
 }
 
 static void
+endpoint_begin_fade (WpBaseEndpoint * ep, guint32 stream_id, guint duration,
+    gfloat step, guint direction, guint type, GCancellable * cancellable,
+    GAsyncReadyCallback callback, gpointer data)
+{
+  WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (ep);
+  WpAudioStream *stream = NULL;
+
+  /* Fade the adapter if stream id is none */
+  if (stream_id == WP_STREAM_ID_NONE) {
+    wp_audio_stream_begin_fade (self->adapter, duration, step, direction,
+        type, cancellable, callback, data);
+    return;
+  }
+
+  /* Make sure the stream Id is valid */
+  g_return_if_fail(stream_id < self->converters->len);
+
+  /* Make sure the stream is valid */
+  stream = g_ptr_array_index (self->converters, stream_id);
+  g_return_if_fail(stream);
+
+  /* Begin fade */
+  wp_audio_stream_begin_fade (stream, duration, step, direction, type,
+      cancellable, callback, data);
+}
+
+static void
 on_exported_control_changed (WpEndpoint * ep, guint32 control_id,
     WpPwAudioSoftdspEndpoint *self)
 {
@@ -480,6 +507,7 @@ endpoint_class_init (WpPwAudioSoftdspEndpointClass * klass)
   endpoint_class->get_role = endpoint_get_role;
   endpoint_class->get_global_id = endpoint_get_global_id;
   endpoint_class->prepare_link = endpoint_prepare_link;
+  endpoint_class->begin_fade = endpoint_begin_fade;
 
   /* Instal the properties */
   g_object_class_install_property (object_class, PROP_PROXY_NODE,
