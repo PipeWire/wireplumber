@@ -174,7 +174,7 @@ wp_audio_convert_init_async (GAsyncInitable *initable, int io_priority,
       wp_properties_get(props, PW_KEY_NODE_NAME),
       wp_audio_stream_get_name (WP_AUDIO_STREAM (self)));
   wp_properties_set (props, PW_KEY_MEDIA_CLASS, "Audio/Convert");
-  wp_properties_set (props, "factory.name", SPA_NAME_AUDIO_CONVERT);
+  wp_properties_set (props, SPA_KEY_FACTORY_NAME, SPA_NAME_AUDIO_CONVERT);
 
   /* Create the proxy */
   proxy = (WpProxy *) wp_node_new_from_factory (core, "spa-node-factory",
