@@ -45,6 +45,10 @@ struct _WpAudioStreamPrivate
   /* Stream Controls */
   gfloat volume;
   gboolean mute;
+
+  /* Fade */
+  GTask *fade_task;
+  GSource *fade_source;
 };
 
 enum {
@@ -390,6 +394,10 @@ wp_audio_stream_finalize (GObject * object)
   WpAudioStreamPrivate *priv =
       wp_audio_stream_get_instance_private (WP_AUDIO_STREAM (object));
 
+  if (priv->fade_source)
+    g_source_destroy (priv->fade_source);
+  g_clear_pointer (&priv->fade_source, g_source_unref);
+  g_clear_object (&priv->fade_task);
   g_clear_object (&priv->control_link);
   g_clear_object (&priv->audio_fade_source_port);
   g_clear_object (&priv->proxy_control_port);
@@ -702,6 +710,73 @@ wp_audio_stream_set_mute (WpAudioStream * self, gboolean mute)
       spa_pod_builder_add_object (&b,
           SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
           SPA_PROP_mute, SPA_POD_Bool(mute)));
+}
+
+static gboolean
+fade_timeout_callback (gpointer user_data)
+{
+  WpAudioStream *self = user_data;
+  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
+
+  g_return_val_if_fail (priv->fade_task, G_SOURCE_REMOVE);
+
+  g_task_return_boolean (priv->fade_task, TRUE);
+  g_clear_object (&priv->fade_task);
+  return G_SOURCE_REMOVE;
+}
+
+void
+wp_audio_stream_begin_fade (WpAudioStream * self, guint duration,
+    gfloat step, guint direction, guint type, GCancellable * cancellable,
+    GAsyncReadyCallback callback, gpointer user_data)
+{
+  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
+  g_autoptr (WpCore) core = wp_audio_stream_get_core (self);
+  GTask *task = NULL;
+  struct spa_pod *props;
+  uint8_t buffer[1024];
+  struct spa_pod_builder b = { 0 };
+
+  /* Create the fade callback */
+  task = g_task_new (self, cancellable, callback, user_data);
+
+  /* Just trigger the callback if the stream does not have a control node */
+  if (!priv->audio_fade_source) {
+    g_task_return_boolean (task, TRUE);
+    g_clear_object (&task);
+    return;
+  }
+
+  /* Destroy the pending source */
+  if (priv->fade_source)
+    g_source_destroy (priv->fade_source);
+  g_clear_pointer (&priv->fade_source, g_source_unref);
+
+  /* Finish the pending task */
+  if (priv->fade_task) {
+    g_task_return_boolean (priv->fade_task, FALSE);
+    g_clear_object (&priv->fade_task);
+  }
+
+  /* Set the new task */
+  priv->fade_task = task;
+
+  /* Send the fade */
+  spa_pod_builder_init(&b, buffer, sizeof(buffer));
+  props = spa_pod_builder_add_object(&b, SPA_TYPE_OBJECT_Props, 0,
+      SPA_PROP_audioFadeDuration,  SPA_POD_Int(duration),
+      SPA_PROP_audioFadeStep,      SPA_POD_Double(step),
+      SPA_PROP_audioFadeDirection, SPA_POD_Id(direction),
+      SPA_PROP_audioFadeType,      SPA_POD_Id(type));
+  wp_proxy_set_param (WP_PROXY (priv->audio_fade_source), SPA_PARAM_Props, 0,
+      props);
+
+  /* TODO: for now we always trigger the callback after 1 second, which should
+   * be enough for the fade to finish. However, we should trigger the callback
+   * when channelmix finishes processing the control sequence, via node event
+   * param for example */
+  wp_core_timeout_add (core, &priv->fade_source, 1000, fade_timeout_callback,
+      g_object_ref (self), g_object_unref);
 }
 
 WpCore *

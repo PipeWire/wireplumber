@@ -36,6 +36,9 @@ gfloat wp_audio_stream_get_volume (WpAudioStream * self);
 gboolean wp_audio_stream_get_mute (WpAudioStream * self);
 void wp_audio_stream_set_volume (WpAudioStream * self, gfloat volume);
 void wp_audio_stream_set_mute (WpAudioStream * self, gboolean mute);
+void wp_audio_stream_begin_fade (WpAudioStream * self, guint duration,
+    gfloat step, guint direction, guint type, GCancellable * cancellable,
+    GAsyncReadyCallback callback, gpointer user_data);
 
 /* for subclasses */
 
