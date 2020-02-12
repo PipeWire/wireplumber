@@ -7,6 +7,7 @@
  */
 
 #include <spa/utils/keys.h>
+#include <spa/param/control/audio.h>
 
 #include <pipewire/pipewire.h>
 
@@ -108,6 +109,36 @@ on_endpoint_link_created (GObject *initable, GAsyncResult *res, gpointer data)
   }
 }
 
+static void
+on_faded_destroy_link (GObject *stream, GAsyncResult *res, gpointer data)
+{
+  WpBaseEndpointLink *l = WP_BASE_ENDPOINT_LINK (data);
+  g_return_if_fail (l);
+  wp_base_endpoint_link_destroy (l);
+}
+
+static void
+on_faded_done (GObject *stream, GAsyncResult *res, gpointer data)
+{
+  g_info ("done fading\n");
+}
+
+static void
+fade_out (WpBaseEndpoint *ep, guint stream_id, GAsyncReadyCallback callback,
+    gpointer data)
+{
+  wp_base_endpoint_begin_fade (ep, stream_id, 200, 0.003, PW_DIRECTION_INPUT,
+      SPA_CONTROL_AUDIO_FADE_TYPE_LOGARITHMIC, NULL, callback, data);
+}
+
+static void
+fade_in (WpBaseEndpoint *ep, guint stream_id, GAsyncReadyCallback callback,
+    gpointer data)
+{
+  wp_base_endpoint_begin_fade (ep, stream_id, 200, 0.003, PW_DIRECTION_OUTPUT,
+      SPA_CONTROL_AUDIO_FADE_TYPE_LOGARITHMIC, NULL, callback, data);
+}
+
 static gboolean
 wp_config_policy_handle_pending_link (WpConfigPolicy *self,
     struct link_info *li, WpBaseEndpoint *target)
@@ -138,7 +169,9 @@ wp_config_policy_handle_pending_link (WpConfigPolicy *self,
       /* linked to the wrong target so unlink and continue */
       g_debug ("Unlinking endpoint '%s' from its previous target",
           wp_base_endpoint_get_name (li->ep));
-      wp_base_endpoint_link_destroy (l);
+      WpBaseEndpoint *ep = wp_base_endpoint_link_get_sink_endpoint (l);
+      guint32 stream_id = wp_base_endpoint_link_get_sink_stream (l);
+      fade_out (ep, stream_id, on_faded_destroy_link, l);
     }
   }
 
@@ -147,16 +180,21 @@ wp_config_policy_handle_pending_link (WpConfigPolicy *self,
     GPtrArray *links = wp_base_endpoint_get_links (target);
     for (guint i = 0; i < links->len; i++) {
       WpBaseEndpointLink *l = g_ptr_array_index (links, i);
-      if (!wp_base_endpoint_link_is_kept (l))
-        wp_base_endpoint_link_destroy (l);
+      if (!wp_base_endpoint_link_is_kept (l)) {
+        WpBaseEndpoint *ep = wp_base_endpoint_link_get_sink_endpoint (l);
+        guint32 stream_id = wp_base_endpoint_link_get_sink_stream (l);
+        fade_out (ep, stream_id, on_faded_destroy_link, l);
+      }
     }
   }
 
   /* Link the client with the target */
   if (is_capture) {
+    fade_in (li->ep, WP_STREAM_ID_NONE, on_faded_done, NULL);
     wp_base_endpoint_link_new (core, target, li->stream_id, li->ep,
         WP_STREAM_ID_NONE, li->keep, on_endpoint_link_created, self);
   } else {
+    fade_in (target, li->stream_id, on_faded_done, NULL);
     wp_base_endpoint_link_new (core, li->ep, WP_STREAM_ID_NONE, target,
         li->stream_id, li->keep, on_endpoint_link_created, self);
   }
