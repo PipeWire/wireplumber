@@ -12,6 +12,7 @@
 #include <spa/pod/builder.h>
 #include <spa/pod/iter.h>
 #include <spa/param/audio/type-info.h>
+#include <spa/utils/names.h>
 
 #include "stream.h"
 
@@ -30,10 +31,16 @@ struct _WpAudioStreamPrivate
 
   /* Stream Proxy */
   WpNode *proxy;
+  WpNode *audio_fade_source;
+  WpPort *proxy_control_port;
+  WpPort *audio_fade_source_port;
+  WpLink *control_link;
 
   WpObjectManager *ports_om;
+  WpObjectManager *audio_fade_source_ports_om;
   GVariantBuilder port_vb;
   gboolean port_config_done;
+  gboolean port_control_pending;
 
   /* Stream Controls */
   gfloat volume;
@@ -105,14 +112,219 @@ audio_stream_event_param (WpProxy *proxy, int seq, uint32_t id,
 }
 
 static void
+wp_audio_stream_sync_done (WpCore *core, GAsyncResult *res, gpointer data)
+{
+  WpAudioStream *self = WP_AUDIO_STREAM (data);
+  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
+
+  /* finish stream creation when ports are done */
+  if (priv->port_config_done && !priv->port_control_pending)
+    wp_audio_stream_init_task_finish (self, NULL);
+}
+
+static void
+wp_audio_stream_link_control_ports (WpAudioStream *self)
+{
+  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
+  g_autoptr (WpCore) core = NULL;
+  g_autoptr (WpProperties) props = NULL;
+  guint32 in_node_id, out_node_id, in_port_id, out_port_id;
+
+  /* just return if the link was already created */
+  if (priv->control_link)
+    return;
+
+  g_return_if_fail (priv->proxy);
+  g_return_if_fail (priv->audio_fade_source);
+  g_return_if_fail (priv->proxy_control_port);
+  g_return_if_fail (priv->audio_fade_source_port);
+
+  /* get the info */
+  in_node_id = wp_proxy_get_bound_id (WP_PROXY (priv->proxy));
+  out_node_id = wp_proxy_get_bound_id (WP_PROXY (priv->audio_fade_source));
+  in_port_id = wp_proxy_get_bound_id (WP_PROXY (priv->proxy_control_port));
+  out_port_id = wp_proxy_get_bound_id (WP_PROXY (priv->audio_fade_source_port));
+
+  /* create the properties */
+  props = wp_properties_new_empty ();
+  wp_properties_setf(props, PW_KEY_LINK_OUTPUT_NODE, "%u", out_node_id);
+  wp_properties_setf(props, PW_KEY_LINK_OUTPUT_PORT, "%u", out_port_id);
+  wp_properties_setf(props, PW_KEY_LINK_INPUT_NODE, "%u", in_node_id);
+  wp_properties_setf(props, PW_KEY_LINK_INPUT_PORT, "%u", in_port_id);
+
+  /* create the link */
+  g_debug ("%s:%p linking stream control ports: (%d) %d -> (%d) %d\n",
+      G_OBJECT_TYPE_NAME (self), self, out_node_id, out_port_id, in_node_id,
+      in_port_id);
+  core = wp_audio_stream_get_core (self);
+  priv->control_link = wp_link_new_from_factory (core, "link-factory",
+      g_steal_pointer (&props));
+  g_return_if_fail (priv->control_link);
+}
+
+static void
+wp_audio_stream_event_info (WpProxy * proxy, GParamSpec *spec,
+    WpAudioStream * self)
+{
+  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
+  const struct pw_node_info *info = wp_proxy_get_info (proxy);
+
+  /* handle the different states */
+  switch (info->state) {
+  case PW_NODE_STATE_IDLE:
+    g_clear_object (&priv->control_link);
+    break;
+  case PW_NODE_STATE_RUNNING:
+    if (priv->audio_fade_source)
+      wp_audio_stream_link_control_ports (self);
+    break;
+  case PW_NODE_STATE_SUSPENDED:
+    break;
+  default:
+    break;
+  }
+}
+
+static void
+on_audio_fade_source_ports_added (WpObjectManager *om, WpPort *port,
+    WpAudioStream *self)
+{
+  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
+  g_autoptr (WpCore) core = wp_audio_stream_get_core (self);
+  const struct pw_port_info *info = wp_proxy_get_info (WP_PROXY (port));
+
+  g_return_if_fail (info);
+  g_return_if_fail (info->direction == PW_DIRECTION_OUTPUT);
+
+  if (!priv->audio_fade_source_port) {
+    priv->audio_fade_source_port = g_object_ref (port);
+    g_signal_handlers_disconnect_by_func (priv->audio_fade_source_ports_om,
+      on_audio_fade_source_ports_added, self);
+
+    /* set the pending flag to false and sync */
+    priv->port_control_pending = FALSE;
+    wp_core_sync (core, NULL, (GAsyncReadyCallback)wp_audio_stream_sync_done,
+        self);
+  }
+}
+
+static void
+on_audio_fade_source_augmented (WpProxy * proxy, GAsyncResult * res,
+    WpAudioStream * self)
+{
+  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
+  g_autoptr (WpCore) core = wp_audio_stream_get_core (self);
+  g_autoptr (GError) error = NULL;
+  g_autofree gchar *node_id = NULL;
+  GVariantBuilder b;
+
+  /* Get the audmented node */
+  wp_proxy_augment_finish (proxy, res, &error);
+  if (error) {
+    g_warning ("WpAudioStream:%p audio-fade-source failed to augment: %s", self,
+        error->message);
+    wp_audio_stream_init_task_finish (self, g_steal_pointer (&error));
+    return;
+  }
+
+  /* Get the node id */
+  node_id = g_strdup_printf ("%u", wp_proxy_get_bound_id (proxy));
+
+  /* Create the audio fade source ports object manager */
+  priv->audio_fade_source_ports_om = wp_object_manager_new ();
+
+  /* set a constraint: the port's "node.id" must match
+     the stream's underlying node id */
+  g_variant_builder_init (&b, G_VARIANT_TYPE ("aa{sv}"));
+  g_variant_builder_open (&b, G_VARIANT_TYPE_VARDICT);
+  g_variant_builder_add (&b, "{sv}", "type",
+      g_variant_new_int32 (WP_OBJECT_MANAGER_CONSTRAINT_PW_GLOBAL_PROPERTY));
+  g_variant_builder_add (&b, "{sv}", "name",
+      g_variant_new_string (PW_KEY_NODE_ID));
+  g_variant_builder_add (&b, "{sv}", "value",
+      g_variant_new_string (node_id));
+  g_variant_builder_close (&b);
+
+  /* declare interest on ports with this constraint */
+  wp_object_manager_add_interest (priv->audio_fade_source_ports_om,
+      WP_TYPE_PORT,
+      g_variant_builder_end (&b),
+      WP_PROXY_FEATURES_STANDARD);
+
+  /* Add a handler to be triggered when ports are added */
+  g_signal_connect (priv->audio_fade_source_ports_om, "object-added",
+      (GCallback) on_audio_fade_source_ports_added, self);
+
+  /* install the object manager */
+  wp_core_install_object_manager (core, priv->audio_fade_source_ports_om);
+}
+
+static gboolean
+is_stream_control_port (WpPort *port)
+{
+  const struct pw_port_info *info = wp_proxy_get_info (WP_PROXY (port));
+  const char *port_name;
+
+  g_return_val_if_fail (info, FALSE);
+
+  if (info->direction == PW_DIRECTION_OUTPUT)
+    return FALSE;
+
+  port_name = spa_dict_lookup (info->props, PW_KEY_PORT_NAME);
+  if (g_strcmp0 (port_name, "control") != 0)
+    return FALSE;
+
+  return TRUE;
+}
+
+static void
+on_ports_added (WpObjectManager *om, WpPort *port, WpAudioStream *self)
+{
+  WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
+  g_autoptr (WpCore) core = wp_audio_stream_get_core (self);
+  g_autoptr (WpProperties) props = NULL;
+
+  /* only handle control ports */
+  if (!is_stream_control_port (port))
+    return;
+
+  if (!priv->proxy_control_port) {
+    priv->proxy_control_port = g_object_ref (port);
+    g_signal_handlers_disconnect_by_func (priv->ports_om, on_ports_added, self);
+
+    /* set the pending flag so that the stream does not finish yet */
+    priv->port_control_pending = TRUE;
+
+    /* create the audio-fade-source node */
+    props = wp_properties_new_empty ();
+    wp_properties_setf (props, PW_KEY_NODE_NAME, "%s",
+        SPA_NAME_CONTROL_AUDIO_FADE_SOURCE);
+    wp_properties_set (props, SPA_KEY_LIBRARY_NAME, "control/libspa-control");
+    wp_properties_set (props, SPA_KEY_FACTORY_NAME,
+        SPA_NAME_CONTROL_AUDIO_FADE_SOURCE);
+    priv->audio_fade_source = wp_node_new_from_factory (core,
+        "spa-node-factory", g_steal_pointer (&props));
+    g_return_if_fail (priv->audio_fade_source);
+
+    wp_proxy_augment (WP_PROXY (priv->audio_fade_source),
+        WP_PROXY_FEATURES_STANDARD, NULL,
+        (GAsyncReadyCallback) on_audio_fade_source_augmented, self);
+  }
+}
+
+static void
 on_ports_changed (WpObjectManager *om, WpAudioStream *self)
 {
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
+  g_autoptr (WpCore) core = wp_audio_stream_get_core (self);
 
   if (priv->port_config_done) {
     g_debug ("%s:%p port config done", G_OBJECT_TYPE_NAME (self), self);
-    wp_audio_stream_init_task_finish (self, NULL);
     g_signal_handlers_disconnect_by_func (priv->ports_om, on_ports_changed,
+        self);
+
+    /* sync before finishing */
+    wp_core_sync (core, NULL, (GAsyncReadyCallback)wp_audio_stream_sync_done,
         self);
   }
 }
@@ -122,8 +334,8 @@ on_node_proxy_augmented (WpProxy * proxy, GAsyncResult * res,
     WpAudioStream * self)
 {
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
+  g_autoptr (WpCore) core = wp_audio_stream_get_core (self);
   g_autoptr (GError) error = NULL;
-  g_autoptr (WpCore) core = NULL;
   GVariantBuilder b;
   const struct pw_node_info *info = NULL;
   g_autofree gchar *node_id = NULL;
@@ -165,9 +377,10 @@ on_node_proxy_augmented (WpProxy * proxy, GAsyncResult * res,
 
   g_signal_connect (priv->ports_om, "objects-changed",
       (GCallback) on_ports_changed, self);
+  g_signal_connect (priv->ports_om, "object-added",
+      (GCallback) on_ports_added, self);
 
   /* install the object manager */
-  g_object_get (proxy, "core", &core, NULL);
   wp_core_install_object_manager (core, priv->ports_om);
 }
 
@@ -177,7 +390,12 @@ wp_audio_stream_finalize (GObject * object)
   WpAudioStreamPrivate *priv =
       wp_audio_stream_get_instance_private (WP_AUDIO_STREAM (object));
 
+  g_clear_object (&priv->control_link);
+  g_clear_object (&priv->audio_fade_source_port);
+  g_clear_object (&priv->proxy_control_port);
+  g_clear_object (&priv->audio_fade_source);
   g_clear_object (&priv->proxy);
+  g_clear_object (&priv->audio_fade_source_ports_om);
   g_clear_object (&priv->ports_om);
 
   /* Clear the endpoint weak reference */
@@ -257,6 +475,7 @@ wp_audio_stream_init_async (GAsyncInitable *initable, int io_priority,
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
   g_autoptr (WpBaseEndpoint) ep = g_weak_ref_get (&priv->endpoint);
   g_autoptr (WpCore) core = wp_audio_stream_get_core (self);
+  g_autoptr (WpProperties) props = NULL;
 
   g_debug ("WpBaseEndpoint:%p init stream %s (%s:%p)", ep, priv->name,
       G_OBJECT_TYPE_NAME (self), self);
@@ -264,6 +483,10 @@ wp_audio_stream_init_async (GAsyncInitable *initable, int io_priority,
   priv->init_task = g_task_new (initable, cancellable, callback, data);
 
   g_return_if_fail (priv->proxy);
+
+  g_signal_connect_object (priv->proxy, "notify::info",
+      (GCallback) wp_audio_stream_event_info, self, 0);
+
   wp_proxy_augment (WP_PROXY (priv->proxy),
       WP_PROXY_FEATURES_STANDARD, cancellable,
       (GAsyncReadyCallback) on_node_proxy_augmented, self);
@@ -390,6 +613,11 @@ port_proxies_foreach_func(gpointer data, gpointer user_data)
   g_return_if_fail (port_info);
 
   props = wp_proxy_get_properties (port);
+
+  /* skip control ports */
+  if (is_stream_control_port (WP_PORT (port)))
+    return;
+
   channel = wp_properties_get (props, PW_KEY_AUDIO_CHANNEL);
   if (channel) {
     const struct spa_type_info *t = spa_type_audio_channel;
