@@ -113,8 +113,8 @@ wp_policy_manager_get_instance (WpCore *core)
     mgr = g_object_new (WP_TYPE_POLICY_MANAGER, NULL);
 
     /* install the object manager to listen to added/removed endpoints */
-    wp_object_manager_add_object_interest (mgr->endpoints_om,
-        WP_TYPE_BASE_ENDPOINT, NULL);
+    wp_object_manager_add_interest (mgr->endpoints_om,
+        WP_TYPE_BASE_ENDPOINT, NULL, 0);
     g_signal_connect_object (mgr->endpoints_om, "object-added",
         (GCallback) policy_mgr_endpoint_added, mgr, 0);
     g_signal_connect_object (mgr->endpoints_om, "object-removed",
@@ -122,8 +122,9 @@ wp_policy_manager_get_instance (WpCore *core)
     wp_core_install_object_manager (core, mgr->endpoints_om);
 
     /* install the object manager to listen to changed sessions */
-    wp_object_manager_add_object_interest (mgr->sessions_om,
-        WP_TYPE_IMPL_SESSION, NULL);
+    wp_object_manager_add_interest (mgr->sessions_om,
+        WP_TYPE_IMPL_SESSION, NULL,
+        WP_PROXY_FEATURES_STANDARD | WP_SESSION_FEATURE_DEFAULT_ENDPOINT);
     wp_core_install_object_manager (core, mgr->sessions_om);
 
     wp_core_register_object (core, g_object_ref (mgr));

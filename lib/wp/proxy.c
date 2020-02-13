@@ -64,7 +64,6 @@ enum
 
 static guint wp_proxy_signals[LAST_SIGNAL] = { 0 };
 
-G_DEFINE_BOXED_TYPE (WpGlobal, wp_global, wp_global_ref, wp_global_unref)
 G_DEFINE_TYPE_WITH_PRIVATE (WpProxy, wp_proxy, G_TYPE_OBJECT)
 
 static void
@@ -116,6 +115,14 @@ proxy_event_bound (void *data, uint32_t global_id)
   g_warn_if_fail (!priv->global || priv->global->id == global_id);
 
   wp_proxy_set_feature_ready (self, WP_PROXY_FEATURE_BOUND);
+
+  /* construct a WpGlobal if it was not already there */
+  if (!priv->global) {
+    g_autoptr (WpCore) core = g_weak_ref_get (&priv->core);
+    priv->global = wp_global_new (&core->registry, global_id, PW_PERM_RWX,
+        G_TYPE_FROM_INSTANCE (self), wp_properties_new_empty (), self,
+        WP_GLOBAL_FLAG_OWNED_BY_PROXY);
+  }
 }
 
 static const struct pw_proxy_events proxy_events = {
@@ -164,8 +171,10 @@ wp_proxy_dispose (GObject * object)
 
   g_debug ("%s:%p dispose (global %u; pw_proxy %p)",
       G_OBJECT_TYPE_NAME (object), object,
-      priv->global ? priv->global->id : 0,
-      priv->pw_proxy);
+      priv->global ? priv->global->id : 0, priv->pw_proxy);
+
+  if (priv->global)
+    wp_global_rm_flag (priv->global, WP_GLOBAL_FLAG_OWNED_BY_PROXY);
 
   /* this will trigger proxy_event_destroy() if the pw_proxy exists */
   if (priv->pw_proxy)
@@ -253,8 +262,6 @@ static void
 wp_proxy_default_augment (WpProxy * self, WpProxyFeatures features)
 {
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
-  WpProxyClass *klass = WP_PROXY_GET_CLASS (self);
-  g_autoptr (WpCore) core = NULL;
 
   /* ensure we have a pw_proxy, as we can't have
    * any other feature without first having that */
@@ -272,13 +279,8 @@ wp_proxy_default_augment (WpProxy * self, WpProxyFeatures features)
       return;
     }
 
-    core = g_weak_ref_get (&priv->core);
-    g_return_if_fail (core);
-
     /* bind */
-    wp_proxy_set_pw_proxy (self, pw_registry_bind (
-            wp_core_get_pw_registry (core), priv->global->id,
-            klass->pw_iface_type, klass->pw_iface_version, 0));
+    wp_proxy_set_pw_proxy (self, wp_global_bind (priv->global));
   }
 }
 
@@ -353,15 +355,6 @@ wp_proxy_class_init (WpProxyClass * klass)
       "param", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
       G_STRUCT_OFFSET (WpProxyClass, param), NULL, NULL, NULL, G_TYPE_NONE, 5,
       G_TYPE_INT, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_POINTER);
-}
-
-WpProxy *
-wp_proxy_new_global (WpCore * core, WpGlobal * global)
-{
-  return g_object_new (global->type,
-      "core", core,
-      "global", global,
-      NULL);
 }
 
 void

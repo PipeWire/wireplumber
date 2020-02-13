@@ -14,14 +14,51 @@
 #include "proxy.h"
 
 #include <stdint.h>
+#include <pipewire/pipewire.h>
 
 G_BEGIN_DECLS
 
+/* registry */
+
+typedef struct _WpRegistry WpRegistry;
+struct _WpRegistry
+{
+  struct pw_registry *pw_registry;
+  struct spa_hook listener;
+
+  GPtrArray *globals; // elementy-type: WpGlobal*
+  GPtrArray *objects; // element-type: GObject*
+  GPtrArray *object_managers; // element-type: WpObjectManager*
+};
+
+void wp_registry_init (WpRegistry *self);
+void wp_registry_clear (WpRegistry *self);
+void wp_registry_attach (WpRegistry *self, struct pw_core *pw_core);
+void wp_registry_detach (WpRegistry *self);
+
 /* core */
 
-struct pw_registry;
+struct _WpCore
+{
+  GObject parent;
 
-struct pw_registry * wp_core_get_pw_registry (WpCore * self);
+  /* main loop integration */
+  GMainContext *context;
+
+  /* extra properties */
+  WpProperties *properties;
+
+  /* pipewire main objects */
+  struct pw_context *pw_context;
+  struct pw_core *pw_core;
+
+  /* pipewire main listeners */
+  struct spa_hook core_listener;
+  struct spa_hook proxy_core_listener;
+
+  WpRegistry registry;
+  GHashTable *async_tasks; // <int seq, GTask*>
+};
 
 gpointer wp_core_find_object (WpCore * self, GEqualFunc func,
     gconstpointer data);
@@ -30,29 +67,30 @@ void wp_core_remove_object (WpCore * self, gpointer obj);
 
 /* global */
 
+typedef enum {
+  WP_GLOBAL_FLAG_APPEARS_ON_REGISTRY = 0x1,
+  WP_GLOBAL_FLAG_OWNED_BY_PROXY = 0x2,
+} WpGlobalFlags;
+
 typedef struct _WpGlobal WpGlobal;
 struct _WpGlobal
 {
+  guint32 flags;
   guint32 id;
   GType type;
   guint32 permissions;
   WpProperties *properties;
-  GWeakRef proxy;
+  WpProxy *proxy;
+  WpRegistry *registry;
 };
 
-static inline WpGlobal *
-wp_global_new (void)
-{
-  WpGlobal *self = g_rc_box_new0 (WpGlobal);
-  g_weak_ref_init (&self->proxy, NULL);
-  return self;
-}
+#define WP_TYPE_GLOBAL (wp_global_get_type ())
+GType wp_global_get_type (void);
 
 static inline void
 wp_global_clear (WpGlobal * self)
 {
   g_clear_pointer (&self->properties, wp_properties_unref);
-  g_weak_ref_clear (&self->proxy);
 }
 
 static inline WpGlobal *
@@ -67,19 +105,15 @@ wp_global_unref (WpGlobal * self)
   g_rc_box_release_full (self, (GDestroyNotify) wp_global_clear);
 }
 
+WpGlobal * wp_global_new (WpRegistry * reg, guint32 id, guint32 permissions,
+    GType type, WpProperties * properties, WpProxy * proxy, guint32 flags);
+void wp_global_rm_flag (WpGlobal *global, guint rm_flag);
+
+struct pw_proxy * wp_global_bind (WpGlobal * global);
+
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpGlobal, wp_global_unref)
 
-/* object manager */
-
-void wp_object_manager_add_global (WpObjectManager * self, WpGlobal * global);
-void wp_object_manager_rm_global (WpObjectManager * self, guint32 id);
-
-void wp_object_manager_add_object (WpObjectManager * self, GObject * object);
-void wp_object_manager_rm_object (WpObjectManager * self, GObject * object);
-
 /* proxy */
-
-WpProxy * wp_proxy_new_global (WpCore * core, WpGlobal * global);
 
 void wp_proxy_set_pw_proxy (WpProxy * self, struct pw_proxy * proxy);
 

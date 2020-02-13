@@ -8,12 +8,462 @@
 
 #include "object-manager.h"
 #include "private.h"
-#include <pipewire/array.h>
+#include <pipewire/pipewire.h>
+
+static void wp_object_manager_add_global (WpObjectManager * self, WpGlobal * global);
+static void wp_object_manager_add_object (WpObjectManager * self, gpointer object);
+static void wp_object_manager_rm_object (WpObjectManager * self, gpointer object);
+
+/*
+ * WpRegistry
+ *
+ * The registry keeps track of registered objects on the wireplumber core.
+ * There are 3 kinds of registered objects:
+ *
+ * 1) PipeWire global objects, which live in another process.
+ *
+ *    These objects are represented by a WpGlobal with the
+ *    WP_GLOBAL_FLAG_APPEARS_ON_REGISTRY flag set. They appear when
+ *    the registry_global() event is fired and are removed by
+ *    registry_global_remove(). These objects do not have an associated
+ *    WpProxy, unless there is at least one WpObjectManager that is interested
+ *    in them. In this case, a WpProxy is constructed and it is owned by the
+ *    WpGlobal until the global is removed by the registry_global_remove() event.
+ *
+ * 2) PipeWire global objects, which were constructed by this process, either
+ *    by calling into a remove factory (see wp_node_new_from_factory()) or
+ *    by exporting a local object (WpImplNode etc...).
+ *
+ *    These objects are also represented by a WpGlobal, which is however
+ *    constructed before they appear on the registry. The associated WpProxy
+ *    calls into wp_registry_new_global_for_proxy() at the time it receives
+ *    the 'bound' event and creates a global that has the
+ *    WP_GLOBAL_FLAG_OWNED_BY_PROXY flag enabled. As the flag name suggests,
+ *    these globals are "owned" by the WpProxy and the WpGlobal has no ref
+ *    on the WpProxy itself. This allows destroying the proxy in client code
+ *    by dropping its last reference.
+ *
+ *    Normally, these global objects also appear on the pipewire registry. When
+ *    this happens, the WP_GLOBAL_FLAG_APPEARS_ON_REGISTRY flag is also added
+ *    and that keeps an additional reference on the global (both flags must
+ *    be dropped before the WpGlobal is destroyed).
+ *
+ * 3) WirePlumber global objects (WpModule, WpFactory).
+ *
+ *    These are local objects that have nothing to do with PipeWire. They do not
+ *    have a global id and they are also not subclasses of WpProxy. The registry
+ *    always owns a reference on them, so that they are kept alive for as long
+ *    as the WpCore is alive.
+ */
+
+static void
+wp_registry_notify_add_object (WpRegistry *self, gpointer object)
+{
+  for (guint i = 0; i < self->object_managers->len; i++) {
+    WpObjectManager *om = g_ptr_array_index (self->object_managers, i);
+    wp_object_manager_add_object (om, object);
+  }
+}
+
+static void
+wp_registry_notify_rm_object (WpRegistry *self, gpointer object)
+{
+  for (guint i = 0; i < self->object_managers->len; i++) {
+    WpObjectManager *om = g_ptr_array_index (self->object_managers, i);
+    wp_object_manager_rm_object (om, object);
+  }
+}
+
+static void
+object_manager_destroyed (gpointer data, GObject * om)
+{
+  WpRegistry *self = data;
+  g_ptr_array_remove_fast (self->object_managers, om);
+}
+
+/* find the subclass of WpProxy that can handle
+   the given pipewire interface type of the given version */
+static inline GType
+find_proxy_instance_type (const char * type, guint32 version)
+{
+  g_autofree GType *children;
+  guint n_children;
+
+  children = g_type_children (WP_TYPE_PROXY, &n_children);
+
+  for (gint i = 0; i < n_children; i++) {
+    WpProxyClass *klass = (WpProxyClass *) g_type_class_ref (children[i]);
+    if (g_strcmp0 (klass->pw_iface_type, type) == 0 &&
+        klass->pw_iface_version == version) {
+      g_type_class_unref (klass);
+      return children[i];
+    }
+
+    g_type_class_unref (klass);
+  }
+
+  return WP_TYPE_PROXY;
+}
+
+/* called by the registry when a global appears */
+static void
+registry_global (void *data, uint32_t id, uint32_t permissions,
+    const char *type, uint32_t version, const struct spa_dict *props)
+{
+  WpRegistry *self = data;
+  WpGlobal *global = NULL;
+
+  if (id < self->globals->len)
+    global = g_ptr_array_index (self->globals, id);
+
+  g_debug ("registry global:%u perm:0x%x type:%s version:%u proxy:%p(%s)",
+      id, permissions, type, version, global ? global->proxy : NULL,
+      (global && global->proxy) ? G_OBJECT_TYPE_NAME (global->proxy) : NULL);
+
+  if (!global) {
+    /* global did not exist; object was just advertised on the registry */
+    global = wp_global_new (self, id, permissions,
+        find_proxy_instance_type (type, version),
+        props ? wp_properties_new_copy_dict (props) : wp_properties_new_empty (),
+        NULL, WP_GLOBAL_FLAG_APPEARS_ON_REGISTRY);
+    /* we do not need this ref; the globals array also has one */
+    wp_global_unref (global);
+  } else {
+    /* global existed; proxy was created as a result of local action */
+    global->flags |= WP_GLOBAL_FLAG_APPEARS_ON_REGISTRY;
+    global->permissions = permissions;
+    global->type = find_proxy_instance_type (type, version);
+    if (props)
+      wp_properties_update_from_dict (global->properties, props);
+  }
+}
+
+/* called by the registry when a global is removed */
+static void
+registry_global_remove (void *data, uint32_t id)
+{
+  WpRegistry *self = data;
+  WpGlobal *global = NULL;
+
+  global = g_ptr_array_index (self->globals, id);
+
+  g_return_if_fail (global &&
+      global->flags & WP_GLOBAL_FLAG_APPEARS_ON_REGISTRY);
+
+  g_debug ("registry global removed:%u type:%s", id, g_type_name (global->type));
+
+  wp_global_rm_flag (global, WP_GLOBAL_FLAG_APPEARS_ON_REGISTRY);
+}
+
+static const struct pw_registry_events registry_events = {
+  PW_VERSION_REGISTRY_EVENTS,
+  .global = registry_global,
+  .global_remove = registry_global_remove,
+};
+
+void
+wp_registry_init (WpRegistry *self)
+{
+  self->globals = g_ptr_array_new ();
+  self->objects = g_ptr_array_new_with_free_func (g_object_unref);
+  self->object_managers = g_ptr_array_new ();
+}
+
+void
+wp_registry_clear (WpRegistry *self)
+{
+  wp_registry_detach (self);
+  g_clear_pointer (&self->globals, g_ptr_array_unref);
+
+  /* remove all the registered objects
+     this will normally also destroy the object managers, eventually, since
+     they are normally ref'ed by modules, which are registered objects */
+  {
+    g_autoptr (GPtrArray) objlist = g_steal_pointer (&self->objects);
+
+    while (objlist->len > 0) {
+      g_autoptr (GObject) object = g_ptr_array_steal_index_fast (objlist,
+          objlist->len - 1);
+      wp_registry_notify_rm_object (self, object);
+    }
+  }
+
+  /* in case there are any object managers left,
+     remove the weak ref on them and let them be... */
+  {
+    g_autoptr (GPtrArray) object_mgrs;
+    GObject *om;
+
+    object_mgrs = g_steal_pointer (&self->object_managers);
+
+    while (object_mgrs->len > 0) {
+      om = g_ptr_array_steal_index_fast (object_mgrs, object_mgrs->len - 1);
+      g_object_weak_unref (om, object_manager_destroyed, self);
+    }
+  }
+}
+
+void
+wp_registry_attach (WpRegistry *self, struct pw_core *pw_core)
+{
+  self->pw_registry = pw_core_get_registry (pw_core,
+      PW_VERSION_REGISTRY, 0);
+  pw_registry_add_listener (self->pw_registry, &self->listener,
+      &registry_events, self);
+}
+
+void
+wp_registry_detach (WpRegistry *self)
+{
+  if (self->pw_registry) {
+    spa_hook_remove (&self->listener);
+    pw_proxy_destroy ((struct pw_proxy *) self->pw_registry);
+    self->pw_registry = NULL;
+  }
+
+  /* remove pipewire globals */
+  GPtrArray *objlist = self->globals;
+  if (!objlist)
+    return;
+
+  while (objlist->len > 0) {
+    g_autoptr (WpGlobal) global = g_ptr_array_steal_index_fast (objlist,
+        objlist->len - 1);
+
+    if (!global)
+      continue;
+
+    if (global->proxy)
+      wp_registry_notify_rm_object (self, global->proxy);
+
+    /* remove the APPEARS_ON_REGISTRY flag to unref the proxy if it is owned
+      by the registry; set registry to NULL to avoid further interference */
+    global->registry = NULL;
+    wp_global_rm_flag (global, WP_GLOBAL_FLAG_APPEARS_ON_REGISTRY);
+
+    /* the registry's ref on global is dropped here; it may still live if
+      there is a proxy that owns a ref on it, but global->registry is set
+      to NULL, so there is no further interference */
+  }
+}
+
+/*
+ * wp_core_find_object:
+ * @core: the core
+ * @func: (scope call): a function that takes the object being searched
+ *   as the first argument and @data as the second. it should return TRUE if
+ *   the object is found or FALSE otherwise
+ * @data: the second argument to @func
+ *
+ * Finds a registered object
+ *
+ * Returns: (transfer full) (type GObject *) (nullable): the registered object
+ *   or NULL if not found
+ */
+gpointer
+wp_core_find_object (WpCore * core, GEqualFunc func, gconstpointer data)
+{
+  WpRegistry *reg;
+  GObject *object;
+  guint i;
+
+  g_return_val_if_fail (WP_IS_CORE (core), NULL);
+
+  reg = &core->registry;
+
+  /* prevent bad things when called from within wp_registry_clear() */
+  if (G_UNLIKELY (!reg->objects))
+    return NULL;
+
+  for (i = 0; i < reg->objects->len; i++) {
+    object = g_ptr_array_index (reg->objects, i);
+    if (func (object, data))
+      return g_object_ref (object);
+  }
+
+  return NULL;
+}
+
+/*
+ * wp_core_register_object:
+ * @core: the core
+ * @obj: (transfer full) (type GObject*): the object to register
+ *
+ * Registers @obj with the core, making it appear on #WpObjectManager
+ * instances as well. The core will also maintain a ref to that object
+ * until it is removed.
+ */
+void
+wp_core_register_object (WpCore * core, gpointer obj)
+{
+  WpRegistry *reg;
+
+  g_return_if_fail (WP_IS_CORE (core));
+  g_return_if_fail (G_IS_OBJECT (obj));
+
+  reg = &core->registry;
+
+  /* prevent bad things when called from within wp_registry_clear() */
+  if (G_UNLIKELY (!reg->objects)) {
+    g_object_unref (obj);
+    return;
+  }
+
+  g_ptr_array_add (reg->objects, obj);
+
+  /* notify object managers */
+  wp_registry_notify_add_object (reg, obj);
+}
+
+/*
+ * wp_core_remove_object:
+ * @core: the core
+ * @obj: (transfer none) (type GObject*): a pointer to the object to remove
+ *
+ * Detaches and unrefs the specified object from this core
+ */
+void
+wp_core_remove_object (WpCore * core, gpointer obj)
+{
+  WpRegistry *reg;
+
+  g_return_if_fail (WP_IS_CORE (core));
+  g_return_if_fail (G_IS_OBJECT (obj));
+
+  reg = &core->registry;
+
+  /* prevent bad things when called from within wp_registry_clear() */
+  if (G_UNLIKELY (!reg->objects))
+    return;
+
+  /* notify object managers */
+  wp_registry_notify_rm_object (reg, obj);
+
+  g_ptr_array_remove_fast (reg->objects, obj);
+}
+
+/**
+ * wp_core_install_object_manager: (method)
+ * @core: the core
+ * @om: (transfer none): a #WpObjectManager
+ *
+ * Installs the object manager on this core, activating its internal management
+ * engine. This will immediately emit signals about objects added on @om
+ * if objects that the @om is interested in were in existence already.
+ */
+void
+wp_core_install_object_manager (WpCore * core, WpObjectManager * om)
+{
+  WpRegistry *reg;
+  guint i;
+
+  g_return_if_fail (WP_IS_CORE (core));
+  g_return_if_fail (WP_IS_OBJECT_MANAGER (om));
+
+  reg = &core->registry;
+
+  g_object_weak_ref (G_OBJECT (om), object_manager_destroyed, reg);
+  g_ptr_array_add (reg->object_managers, om);
+  g_object_set (om, "core", core, NULL);
+
+  /* add pre-existing objects to the object manager,
+     in case it's interested in them */
+  for (i = 0; i < reg->globals->len; i++) {
+    WpGlobal *g = g_ptr_array_index (reg->globals, i);
+    /* check if null because the globals array can have gaps */
+    if (g)
+      wp_object_manager_add_global (om, g);
+  }
+  for (i = 0; i < reg->objects->len; i++) {
+    GObject *o = g_ptr_array_index (reg->objects, i);
+    wp_object_manager_add_object (om, o);
+  }
+}
+
+/* WpGlobal */
+
+G_DEFINE_BOXED_TYPE (WpGlobal, wp_global, wp_global_ref, wp_global_unref)
+
+WpGlobal *
+wp_global_new (WpRegistry * reg, guint32 id, guint32 permissions,
+    GType type, WpProperties * properties, WpProxy * proxy, guint32 flags)
+{
+  g_return_val_if_fail (flags != 0, NULL);
+
+  WpGlobal *global = g_rc_box_new0 (WpGlobal);
+  global->flags = flags;
+  global->id = id;
+  global->type = type;
+  global->permissions = permissions;
+  global->properties = properties;
+  global->proxy = proxy;
+  global->registry = reg;
+
+  if (reg->globals->len <= id)
+    g_ptr_array_set_size (reg->globals, id + 1);
+  g_ptr_array_index (reg->globals, id) = wp_global_ref (global);
+
+  /* notify object managers */
+  for (guint i = 0; i < reg->object_managers->len; i++) {
+    WpObjectManager *om = g_ptr_array_index (reg->object_managers, i);
+    wp_object_manager_add_global (om, global);
+  }
+
+  return global;
+}
+
+void
+wp_global_rm_flag (WpGlobal *global, guint rm_flag)
+{
+  WpRegistry *reg = global->registry;
+
+  /* no flag to remove */
+  if (!(global->flags & rm_flag))
+    return;
+
+  /* global was owned by the proxy; by removing the flag, we clear out
+     also the proxy pointer, which is presumably no longer valid and we
+     notify all listeners that the proxy is gone */
+  if (rm_flag == WP_GLOBAL_FLAG_OWNED_BY_PROXY) {
+    global->flags &= ~WP_GLOBAL_FLAG_OWNED_BY_PROXY;
+    if (reg)
+      wp_registry_notify_rm_object (reg, global->proxy);
+    global->proxy = NULL;
+  }
+  /* registry removed the global */
+  else if (rm_flag == WP_GLOBAL_FLAG_APPEARS_ON_REGISTRY) {
+    global->flags &= ~WP_GLOBAL_FLAG_APPEARS_ON_REGISTRY;
+
+    /* if there is a proxy and it's not owning the global, destroy it */
+    if (global->flags == 0 && global->proxy) {
+      if (reg)
+        wp_registry_notify_rm_object (reg, global->proxy);
+      g_clear_object (&global->proxy);
+    }
+  }
+
+  /* drop the registry's ref on global when it has no flags anymore */
+  if (global->flags == 0 && reg) {
+    g_clear_pointer (&g_ptr_array_index (reg->globals, global->id), wp_global_unref);
+  }
+}
+
+struct pw_proxy *
+wp_global_bind (WpGlobal * global)
+{
+  g_return_val_if_fail (global->proxy, NULL);
+  g_return_val_if_fail (global->registry, NULL);
+
+  WpProxyClass *klass = WP_PROXY_GET_CLASS (global->proxy);
+  return pw_registry_bind (global->registry->pw_registry, global->id,
+      klass->pw_iface_type, klass->pw_iface_version, 0);
+}
+
+/* WpObjectManager */
 
 struct interest
 {
   GType g_type;
-  gboolean for_proxy;
   WpProxyFeatures wanted_features;
   GVariant *constraints; // aa{sv}
 };
@@ -28,7 +478,7 @@ struct _WpObjectManager
     pw_array has a better API for our use case than GArray */
   struct pw_array interests;
 
-  /* objects that we are interested in, with a strong ref */
+  /* objects that we are interested in, without a ref */
   GPtrArray *objects;
 
   gboolean pending_objchanged;
@@ -55,7 +505,7 @@ wp_object_manager_init (WpObjectManager * self)
 {
   g_weak_ref_init (&self->core, NULL);
   pw_array_init (&self->interests, sizeof (struct interest));
-  self->objects = g_ptr_array_new_with_free_func (g_object_unref);
+  self->objects = g_ptr_array_new ();
   self->pending_objchanged = FALSE;
 }
 
@@ -144,41 +594,20 @@ wp_object_manager_new (void)
 }
 
 void
-wp_object_manager_add_proxy_interest (WpObjectManager *self,
+wp_object_manager_add_interest (WpObjectManager *self,
     GType gtype, GVariant * constraints,
     WpProxyFeatures wanted_features)
 {
   struct interest *i;
 
   g_return_if_fail (WP_IS_OBJECT_MANAGER (self));
-  g_return_if_fail (g_type_is_a (gtype, WP_TYPE_PROXY));
   g_return_if_fail (constraints == NULL ||
       g_variant_is_of_type (constraints, G_VARIANT_TYPE ("aa{sv}")));
 
   /* grow the array by 1 struct interest and fill it in */
   i = pw_array_add (&self->interests, sizeof (struct interest));
   i->g_type = gtype;
-  i->for_proxy = TRUE;
   i->wanted_features = wanted_features;
-  i->constraints = constraints ? g_variant_ref_sink (constraints) : NULL;
-}
-
-void
-wp_object_manager_add_object_interest (WpObjectManager *self,
-    GType gtype, GVariant * constraints)
-{
-  struct interest *i;
-
-  g_return_if_fail (WP_IS_OBJECT_MANAGER (self));
-  g_return_if_fail (G_TYPE_IS_OBJECT (gtype));
-  g_return_if_fail (constraints == NULL ||
-      g_variant_is_of_type (constraints, G_VARIANT_TYPE ("aa{sv}")));
-
-  /* grow the array by 1 struct interest and fill it in */
-  i = pw_array_add (&self->interests, sizeof (struct interest));
-  i->g_type = gtype;
-  i->for_proxy = FALSE;
-  i->wanted_features = 0;
   i->constraints = constraints ? g_variant_ref_sink (constraints) : NULL;
 }
 
@@ -329,8 +758,7 @@ wp_object_manager_is_interested_in_object (WpObjectManager * self,
   struct interest *i;
 
   pw_array_for_each (i, &self->interests) {
-    if (!i->for_proxy
-        && g_type_is_a (G_OBJECT_TYPE (object), i->g_type)
+    if (g_type_is_a (G_OBJECT_TYPE (object), i->g_type)
         && (!i->constraints ||
             check_constraints (i->constraints, NULL, object)))
     {
@@ -348,8 +776,7 @@ wp_object_manager_is_interested_in_global (WpObjectManager * self,
   struct interest *i;
 
   pw_array_for_each (i, &self->interests) {
-    if (i->for_proxy
-        && g_type_is_a (global->type, i->g_type)
+    if (g_type_is_a (global->type, i->g_type)
         && (!i->constraints ||
             check_constraints (i->constraints, global->properties, NULL)))
     {
@@ -389,56 +816,42 @@ on_proxy_ready (GObject * proxy, GAsyncResult * res, gpointer data)
 {
   g_autoptr (WpObjectManager) self = WP_OBJECT_MANAGER (data);
 
-  g_ptr_array_add (self->objects, g_object_ref (proxy));
+  g_ptr_array_add (self->objects, proxy);
   g_signal_emit (self, signals[SIGNAL_OBJECT_ADDED], 0, proxy);
   schedule_emit_objects_changed (self);
 }
 
-void
+static void
 wp_object_manager_add_global (WpObjectManager * self, WpGlobal * global)
 {
   WpProxyFeatures features = 0;
 
   if (wp_object_manager_is_interested_in_global (self, global, &features)) {
-    g_autoptr (WpProxy) proxy = g_weak_ref_get (&global->proxy);
     g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
 
-    if (!proxy) {
-      proxy = wp_proxy_new_global (core, global);
-      g_weak_ref_set (&global->proxy, proxy);
-    }
-    wp_proxy_augment (proxy, features, NULL, on_proxy_ready,
+    if (!global->proxy)
+      global->proxy = g_object_new (global->type,
+          "core", core,
+          "global", global,
+          NULL);
+
+    wp_proxy_augment (global->proxy, features, NULL, on_proxy_ready,
         g_object_ref (self));
   }
 }
 
-void
-wp_object_manager_rm_global (WpObjectManager * self, guint32 id)
-{
-  guint i;
-  for (i = 0; i < self->objects->len; i++) {
-    gpointer obj = g_ptr_array_index (self->objects, i);
-    if (WP_IS_PROXY (obj) && id == wp_proxy_get_bound_id (WP_PROXY (obj))) {
-      g_signal_emit (self, signals[SIGNAL_OBJECT_REMOVED], 0, obj);
-      g_ptr_array_remove_index_fast (self->objects, i);
-      schedule_emit_objects_changed (self);
-      return;
-    }
-  }
-}
-
-void
-wp_object_manager_add_object (WpObjectManager * self, GObject * object)
+static void
+wp_object_manager_add_object (WpObjectManager * self, gpointer object)
 {
   if (wp_object_manager_is_interested_in_object (self, object)) {
-    g_ptr_array_add (self->objects, g_object_ref (object));
+    g_ptr_array_add (self->objects, object);
     g_signal_emit (self, signals[SIGNAL_OBJECT_ADDED], 0, object);
     schedule_emit_objects_changed (self);
   }
 }
 
-void
-wp_object_manager_rm_object (WpObjectManager * self, GObject * object)
+static void
+wp_object_manager_rm_object (WpObjectManager * self, gpointer object)
 {
   guint index;
   if (g_ptr_array_find (self->objects, object, &index)) {

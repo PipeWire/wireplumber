@@ -11,7 +11,6 @@
 #include "private.h"
 
 #include <pipewire/pipewire.h>
-#include <pipewire/impl.h>
 
 #include <spa/utils/result.h>
 #include <spa/debug/types.h>
@@ -74,32 +73,6 @@ wp_loop_source_new (void)
  * WpCore
  */
 
-struct _WpCore
-{
-  GObject parent;
-
-  /* main loop integration */
-  GMainContext *context;
-
-  /* extra properties */
-  WpProperties *properties;
-
-  /* pipewire main objects */
-  struct pw_context *pw_context;
-  struct pw_core *pw_core;
-  struct pw_registry *pw_registry;
-
-  /* pipewire main listeners */
-  struct spa_hook core_listener;
-  struct spa_hook proxy_core_listener;
-  struct spa_hook registry_listener;
-
-  GPtrArray *globals; // elementy-type: WpGlobal*
-  GPtrArray *objects; // element-type: GObject*
-  GPtrArray *object_managers; // element-type: WpObjectManager*
-  GHashTable *async_tasks; // <int seq, GTask*>
-};
-
 enum {
   PROP_0,
   PROP_CONTEXT,
@@ -118,87 +91,6 @@ static guint32 signals[NUM_SIGNALS];
 
 
 G_DEFINE_TYPE (WpCore, wp_core, G_TYPE_OBJECT)
-
-/* find the subclass of WpProxy that can handle
-   the given pipewire interface type of the given version */
-static inline GType
-find_proxy_instance_type (const char * type, guint32 version)
-{
-  g_autofree GType *children;
-  guint n_children;
-
-  children = g_type_children (WP_TYPE_PROXY, &n_children);
-
-  for (gint i = 0; i < n_children; i++) {
-    WpProxyClass *klass = (WpProxyClass *) g_type_class_ref (children[i]);
-    if (g_strcmp0 (klass->pw_iface_type, type) == 0 &&
-        klass->pw_iface_version == version) {
-      g_type_class_unref (klass);
-      return children[i];
-    }
-
-    g_type_class_unref (klass);
-  }
-
-  return WP_TYPE_PROXY;
-}
-
-static void
-registry_global (void *data, uint32_t id, uint32_t permissions,
-    const char *type, uint32_t version, const struct spa_dict *props)
-{
-  WpCore *self = WP_CORE (data);
-  WpGlobal *global = NULL;
-  guint i;
-
-  g_return_if_fail (self->globals->len <= id ||
-          g_ptr_array_index (self->globals, id) == NULL);
-
-  g_debug ("registry global:%u perm:0x%x type:%s version:%u",
-      id, permissions, type, version);
-
-  /* construct & store the global */
-  global = wp_global_new ();
-  global->id = id;
-  global->type = find_proxy_instance_type (type, version);
-  global->permissions = permissions;
-  global->properties = wp_properties_new_copy_dict (props);
-
-  if (self->globals->len <= id)
-    g_ptr_array_set_size (self->globals, id + 1);
-
-  g_ptr_array_index (self->globals, id) = global;
-
-  /* notify object managers */
-  for (i = 0; i < self->object_managers->len; i++) {
-    WpObjectManager *om = g_ptr_array_index (self->object_managers, i);
-    wp_object_manager_add_global (om, global);
-  }
-}
-
-static void
-registry_global_remove (void *data, uint32_t id)
-{
-  WpCore *self = WP_CORE (data);
-  g_autoptr (WpGlobal) global = NULL;
-  guint i;
-
-  global = g_steal_pointer (&g_ptr_array_index (self->globals, id));
-
-  g_debug ("registry global removed:%u type:%s", id, g_type_name (global->type));
-
-  /* notify object managers */
-  for (i = 0; i < self->object_managers->len; i++) {
-    WpObjectManager *om = g_ptr_array_index (self->object_managers, i);
-    wp_object_manager_rm_global (om, id);
-  }
-}
-
-static const struct pw_registry_events registry_events = {
-  PW_VERSION_REGISTRY_EVENTS,
-  .global = registry_global,
-  .global_remove = registry_global_remove,
-};
 
 static void
 core_done (void *data, uint32_t id, int seq)
@@ -232,21 +124,10 @@ static const struct pw_proxy_events proxy_core_events = {
   .destroy = proxy_core_destroy,
 };
 
-/* wrapper around wp_global_unref because
-  the WpGlobal pointers in self->globals can be NULL */
-static inline void
-free_global (WpGlobal * g)
-{
-  if (g)
-    wp_global_unref (g);
-}
-
 static void
 wp_core_init (WpCore * self)
 {
-  self->globals = g_ptr_array_new_with_free_func ((GDestroyNotify) free_global);
-  self->objects = g_ptr_array_new_with_free_func (g_object_unref);
-  self->object_managers = g_ptr_array_new ();
+  wp_registry_init (&self->registry);
   self->async_tasks = g_hash_table_new_full (g_direct_hash, g_direct_equal,
       NULL, g_object_unref);
 }
@@ -269,63 +150,12 @@ wp_core_constructed (GObject *object)
   G_OBJECT_CLASS (wp_core_parent_class)->constructed (object);
 }
 
-static void object_manager_destroyed (gpointer data, GObject * om);
-
 static void
 wp_core_dispose (GObject * obj)
 {
   WpCore *self = WP_CORE (obj);
 
-  /* remove pipewire globals */
-  {
-    g_autoptr (GPtrArray) objlist = g_steal_pointer (&self->globals);
-
-    while (objlist->len > 0) {
-      guint i;
-      g_autoptr (WpGlobal) global = g_ptr_array_steal_index_fast (objlist,
-          objlist->len - 1);
-
-      if (!global)
-        continue;
-
-      for (i = 0; i < self->object_managers->len; i++) {
-        WpObjectManager *om = g_ptr_array_index (self->object_managers, i);
-        wp_object_manager_rm_global (om, global->id);
-      }
-    }
-  }
-
-  /* remove all the registered objects
-     this will normally also destroy the object managers, eventually, since
-     they are normally ref'ed by modules, which are registered objects */
-  {
-    g_autoptr (GPtrArray) objlist = g_steal_pointer (&self->objects);
-
-    while (objlist->len > 0) {
-      guint i;
-      g_autoptr (GObject) object = g_ptr_array_steal_index_fast (objlist,
-          objlist->len - 1);
-
-      for (i = 0; i < self->object_managers->len; i++) {
-        WpObjectManager *om = g_ptr_array_index (self->object_managers, i);
-        wp_object_manager_rm_object (om, object);
-      }
-    }
-  }
-
-  /* in case there are any object managers left,
-     remove the weak ref on them and let them be... */
-  {
-    g_autoptr (GPtrArray) object_mgrs;
-    GObject *om;
-
-    object_mgrs = g_steal_pointer (&self->object_managers);
-
-    while (object_mgrs->len > 0) {
-      om = g_ptr_array_steal_index_fast (object_mgrs, object_mgrs->len - 1);
-      g_object_weak_unref (om, object_manager_destroyed, self);
-    }
-  }
+  wp_registry_clear (&self->registry);
 
   G_OBJECT_CLASS (wp_core_parent_class)->dispose (obj);
 }
@@ -336,7 +166,6 @@ wp_core_finalize (GObject * obj)
   WpCore *self = WP_CORE (obj);
 
   wp_core_disconnect (self);
-
   g_clear_pointer (&self->pw_context, pw_context_destroy);
 
   g_clear_pointer (&self->properties, wp_properties_unref);
@@ -472,13 +301,6 @@ wp_core_get_pw_core (WpCore * self)
   return self->pw_core;
 }
 
-struct pw_registry *
-wp_core_get_pw_registry (WpCore * self)
-{
-  g_return_val_if_fail (WP_IS_CORE (self), NULL);
-  return self->pw_registry;
-}
-
 gboolean
 wp_core_connect (WpCore *self)
 {
@@ -489,8 +311,6 @@ wp_core_connect (WpCore *self)
   /* Don't do anything if core is already connected */
   if (self->pw_core)
     return TRUE;
-
-  g_return_val_if_fail (!self->pw_registry, FALSE);
 
   /* Connect */
   p = self->properties ? wp_properties_to_pw_properties (self->properties) : NULL;
@@ -504,10 +324,7 @@ wp_core_connect (WpCore *self)
       &self->proxy_core_listener, &proxy_core_events, self);
 
   /* Add the registry listener */
-  self->pw_registry = pw_core_get_registry (self->pw_core,
-      PW_VERSION_REGISTRY, 0);
-  pw_registry_add_listener(self->pw_registry, &self->registry_listener,
-      &registry_events, self);
+  wp_registry_attach (&self->registry, self->pw_core);
 
   /* Emit the connected signal */
   g_signal_emit (self, signals[SIGNAL_CONNECTED], 0);
@@ -518,11 +335,7 @@ wp_core_connect (WpCore *self)
 void
 wp_core_disconnect (WpCore *self)
 {
-  if (self->pw_registry) {
-    pw_proxy_destroy ((struct pw_proxy *)self->pw_registry);
-    self->pw_registry = NULL;
-  }
-
+  wp_registry_detach (&self->registry);
   g_clear_pointer (&self->pw_core, pw_core_disconnect);
 
   /* Emit the disconnected signal */
@@ -588,140 +401,4 @@ wp_core_sync_finish (WpCore * self, GAsyncResult * res, GError ** error)
   g_return_val_if_fail (g_task_is_valid (res, self), FALSE);
 
   return g_task_propagate_boolean (G_TASK (res), error);
-}
-
-/**
- * wp_core_find_object: (skip)
- * @self: the core
- * @func: (scope call): a function that takes the object being searched
- *   as the first argument and @data as the second. it should return TRUE if
- *   the object is found or FALSE otherwise
- * @data: the second argument to @func
- *
- * Finds a registered object
- *
- * Returns: (transfer full) (type GObject *) (nullable): the registered object
- *   or NULL if not found
- */
-gpointer
-wp_core_find_object (WpCore * self, GEqualFunc func, gconstpointer data)
-{
-  GObject *object;
-  guint i;
-
-  g_return_val_if_fail (WP_IS_CORE (self), NULL);
-
-  /* prevent bad things when called from within _dispose() */
-  if (G_UNLIKELY (!self->objects))
-    return NULL;
-
-  for (i = 0; i < self->objects->len; i++) {
-    object = g_ptr_array_index (self->objects, i);
-    if (func (object, data))
-      return g_object_ref (object);
-  }
-
-  return NULL;
-}
-
-/**
- * wp_core_register_object: (skip)
- * @self: the core
- * @obj: (transfer full) (type GObject*): the object to register
- *
- * Registers @obj with the core, making it appear on #WpObjectManager
- *   instances as well. The core will also maintain a ref to that object
- *   until it is removed.
- */
-void
-wp_core_register_object (WpCore * self, gpointer obj)
-{
-  guint i;
-
-  g_return_if_fail (WP_IS_CORE (self));
-  g_return_if_fail (G_IS_OBJECT (obj));
-
-  /* prevent bad things when called from within _dispose() */
-  if (G_UNLIKELY (!self->objects)) {
-    g_object_unref (obj);
-    return;
-  }
-
-  g_ptr_array_add (self->objects, obj);
-
-  /* notify object managers */
-  for (i = 0; i < self->object_managers->len; i++) {
-    WpObjectManager *om = g_ptr_array_index (self->object_managers, i);
-    wp_object_manager_add_object (om, obj);
-  }
-}
-
-/**
- * wp_core_remove_object: (skip)
- * @self: the core
- * @obj: (transfer none) (type GObject*): a pointer to the object to remove
- *
- * Detaches and unrefs the specified object from this core
- */
-void
-wp_core_remove_object (WpCore * self, gpointer obj)
-{
-  guint i;
-
-  g_return_if_fail (WP_IS_CORE (self));
-  g_return_if_fail (G_IS_OBJECT (obj));
-
-  /* prevent bad things when called from within _dispose() */
-  if (G_UNLIKELY (!self->objects))
-    return;
-
-  /* notify object managers */
-  for (i = 0; i < self->object_managers->len; i++) {
-    WpObjectManager *om = g_ptr_array_index (self->object_managers, i);
-    wp_object_manager_rm_object (om, obj);
-  }
-
-  g_ptr_array_remove_fast (self->objects, obj);
-}
-
-static void
-object_manager_destroyed (gpointer data, GObject * om)
-{
-  WpCore *self = WP_CORE (data);
-  g_ptr_array_remove_fast (self->object_managers, om);
-}
-
-/**
- * wp_core_install_object_manager: (method)
- * @self: the core
- * @om: (transfer none): a #WpObjectManager
- *
- * Installs the object manager on this core, activating its internal management
- * engine. This will immediately emit signals about objects added on @om
- * if objects that the @om is interested in were in existence already.
- */
-void
-wp_core_install_object_manager (WpCore * self, WpObjectManager * om)
-{
-  guint i;
-
-  g_return_if_fail (WP_IS_CORE (self));
-  g_return_if_fail (WP_IS_OBJECT_MANAGER (om));
-
-  g_object_weak_ref (G_OBJECT (om), object_manager_destroyed, self);
-  g_ptr_array_add (self->object_managers, om);
-  g_object_set (om, "core", self, NULL);
-
-  /* add pre-existing objects to the object manager,
-     in case it's interested in them */
-  for (i = 0; i < self->globals->len; i++) {
-    WpGlobal *g = g_ptr_array_index (self->globals, i);
-    /* check if null because the globals array can have gaps */
-    if (g)
-      wp_object_manager_add_global (om, g);
-  }
-  for (i = 0; i < self->objects->len; i++) {
-    GObject *o = g_ptr_array_index (self->objects, i);
-    wp_object_manager_add_object (om, o);
-  }
 }

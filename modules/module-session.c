@@ -133,7 +133,8 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
       (GCallback) on_endpoint_added, data);
   g_signal_connect (data->om, "object-removed",
       (GCallback) on_endpoint_removed, data);
-  wp_object_manager_add_object_interest (data->om,
-      WP_TYPE_IMPL_ENDPOINT, NULL);
+  wp_object_manager_add_interest (data->om,
+      WP_TYPE_IMPL_ENDPOINT, NULL,
+      WP_PROXY_FEATURES_STANDARD | WP_ENDPOINT_FEATURE_CONTROLS);
   wp_core_install_object_manager (core, data->om);
 }

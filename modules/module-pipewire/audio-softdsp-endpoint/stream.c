@@ -159,7 +159,7 @@ on_node_proxy_augmented (WpProxy * proxy, GAsyncResult * res,
   g_variant_builder_close (&b);
 
   /* declare interest on ports with this constraint */
-  wp_object_manager_add_proxy_interest (priv->ports_om, WP_TYPE_PORT,
+  wp_object_manager_add_interest (priv->ports_om, WP_TYPE_PORT,
       g_variant_builder_end (&b),
       WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO);
 

@@ -28,12 +28,8 @@ WP_API
 WpObjectManager * wp_object_manager_new (void);
 
 WP_API
-void wp_object_manager_add_proxy_interest (WpObjectManager *self,
+void wp_object_manager_add_interest (WpObjectManager *self,
     GType gtype, GVariant * constraints, WpProxyFeatures wanted_features);
-
-WP_API
-void wp_object_manager_add_object_interest (WpObjectManager *self,
-    GType gtype, GVariant * constraints);
 
 WP_API
 GPtrArray * wp_object_manager_get_objects (WpObjectManager *self,
