@@ -106,6 +106,13 @@ on_endpoint_removed (WpObjectManager * om, WpEndpoint * ep,
 }
 
 static void
+export_session (WpImplSession * session)
+{
+  wp_proxy_augment (WP_PROXY (session),
+      WP_PROXY_FEATURE_BOUND, NULL, NULL, NULL);
+}
+
+static void
 module_destroy (gpointer d)
 {
   struct module_data *data = d;
@@ -125,8 +132,8 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   data->session = wp_impl_session_new (core);
   wp_impl_session_set_property (data->session,
       PW_KEY_SESSION_ID, "wireplumber");
-  wp_proxy_augment (WP_PROXY (data->session), WP_PROXY_FEATURE_BOUND,
-      NULL, NULL, NULL);
+  g_signal_connect_object (core, "connected", (GCallback) export_session,
+      data->session, G_CONNECT_SWAPPED);
 
   data->om = wp_object_manager_new ();
   g_signal_connect (data->om, "object-added",
