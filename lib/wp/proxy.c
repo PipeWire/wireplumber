@@ -119,9 +119,10 @@ proxy_event_bound (void *data, uint32_t global_id)
   /* construct a WpGlobal if it was not already there */
   if (!priv->global) {
     g_autoptr (WpCore) core = g_weak_ref_get (&priv->core);
-    priv->global = wp_global_new (&core->registry, global_id, PW_PERM_RWX,
-        G_TYPE_FROM_INSTANCE (self), wp_properties_new_empty (), self,
-        WP_GLOBAL_FLAG_OWNED_BY_PROXY);
+
+    priv->global = wp_registry_prepare_new_global (&core->registry,
+        global_id, PW_PERM_RWX, WP_GLOBAL_FLAG_OWNED_BY_PROXY,
+        G_TYPE_FROM_INSTANCE (self), self, NULL);
   }
 }
 

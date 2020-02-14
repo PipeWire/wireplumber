@@ -18,15 +18,22 @@
 
 G_BEGIN_DECLS
 
-/* registry */
+struct spa_pod;
+struct spa_pod_builder;
 
 typedef struct _WpRegistry WpRegistry;
+typedef struct _WpGlobal WpGlobal;
+typedef struct _WpSpaProps WpSpaProps;
+
+/* registry */
+
 struct _WpRegistry
 {
   struct pw_registry *pw_registry;
   struct spa_hook listener;
 
   GPtrArray *globals; // elementy-type: WpGlobal*
+  GPtrArray *tmp_globals; // elementy-type: WpGlobal*
   GPtrArray *objects; // element-type: GObject*
   GPtrArray *object_managers; // element-type: WpObjectManager*
 };
@@ -35,6 +42,10 @@ void wp_registry_init (WpRegistry *self);
 void wp_registry_clear (WpRegistry *self);
 void wp_registry_attach (WpRegistry *self, struct pw_core *pw_core);
 void wp_registry_detach (WpRegistry *self);
+
+WpGlobal * wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
+    guint32 permissions, guint32 flag, GType type,
+    WpProxy *proxy, const struct spa_dict *props);
 
 /* core */
 
@@ -72,7 +83,6 @@ typedef enum {
   WP_GLOBAL_FLAG_OWNED_BY_PROXY = 0x2,
 } WpGlobalFlags;
 
-typedef struct _WpGlobal WpGlobal;
 struct _WpGlobal
 {
   guint32 flags;
@@ -105,10 +115,7 @@ wp_global_unref (WpGlobal * self)
   g_rc_box_release_full (self, (GDestroyNotify) wp_global_clear);
 }
 
-WpGlobal * wp_global_new (WpRegistry * reg, guint32 id, guint32 permissions,
-    GType type, WpProperties * properties, WpProxy * proxy, guint32 flags);
 void wp_global_rm_flag (WpGlobal *global, guint rm_flag);
-
 struct pw_proxy * wp_global_bind (WpGlobal * global);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpGlobal, wp_global_unref)
@@ -125,10 +132,6 @@ void wp_proxy_handle_event_param (void * proxy, int seq, uint32_t id,
 
 /* spa props */
 
-struct spa_pod;
-struct spa_pod_builder;
-
-typedef struct _WpSpaProps WpSpaProps;
 struct _WpSpaProps
 {
   GList *entries;
