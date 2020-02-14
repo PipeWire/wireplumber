@@ -70,18 +70,18 @@ static void
 proxy_event_destroy (void *data)
 {
   /* hold a reference to the proxy because unref-ing the tasks might
-    destroy the proxy, in case the core is no longer holding a reference */
+    destroy the proxy, in case the registry is no longer holding a reference */
   g_autoptr (WpProxy) self = g_object_ref (WP_PROXY (data));
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
   GHashTableIter iter;
   GTask *task;
 
-  g_debug ("%s:%p destroyed pw_proxy %p (%s; %u)",
+  g_debug ("%s:%p destroyed pw_proxy %p (%u)",
       G_OBJECT_TYPE_NAME (self), self, priv->pw_proxy,
-      priv->global ? "global" : "not global",
-      wp_proxy_get_bound_id (self));
-  priv->pw_proxy = NULL;
+      priv->global ? priv->global->id : pw_proxy_get_bound_id (priv->pw_proxy));
 
+  spa_hook_remove (&priv->listener);
+  priv->pw_proxy = NULL;
   g_signal_emit (self, wp_proxy_signals[SIGNAL_PW_PROXY_DESTROYED], 0);
 
   /* Return error if the pw_proxy destruction happened while the async
@@ -359,6 +359,18 @@ wp_proxy_class_init (WpProxyClass * klass)
 }
 
 void
+wp_proxy_destroy (WpProxy *self)
+{
+  WpProxyPrivate *priv;
+
+  g_return_if_fail (WP_IS_PROXY (self));
+
+  priv = wp_proxy_get_instance_private (self);
+  if (priv->pw_proxy)
+    pw_proxy_destroy (priv->pw_proxy);
+}
+
+void
 wp_proxy_augment (WpProxy * self,
     WpProxyFeatures ft_wanted, GCancellable * cancellable,
     GAsyncReadyCallback callback, gpointer user_data)
@@ -416,6 +428,10 @@ wp_proxy_set_feature_ready (WpProxy * self, WpProxyFeatures feature)
 
   g_object_notify (G_OBJECT (self), "features");
 
+  /* hold a reference to the proxy because unref-ing the tasks might
+    destroy the proxy, in case the registry is no longer holding a reference */
+  g_object_ref (self);
+
   /* return from the task if all the wanted features are now ready */
   for (i = priv->augment_tasks->len; i > 0; i--) {
     GTask *task = g_ptr_array_index (priv->augment_tasks, i - 1);
@@ -427,6 +443,8 @@ wp_proxy_set_feature_ready (WpProxy * self, WpProxyFeatures feature)
       g_ptr_array_remove_index_fast (priv->augment_tasks, i - 1);
     }
   }
+
+  g_object_unref (self);
 }
 
 /**

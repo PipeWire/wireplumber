@@ -122,6 +122,7 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpGlobal, wp_global_unref)
 
 /* proxy */
 
+void wp_proxy_destroy (WpProxy *self);
 void wp_proxy_set_pw_proxy (WpProxy * self, struct pw_proxy * proxy);
 
 void wp_proxy_set_feature_ready (WpProxy * self, WpProxyFeatures feature);

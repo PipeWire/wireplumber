@@ -525,6 +525,7 @@ wp_global_rm_flag (WpGlobal *global, guint rm_flag)
     if (global->flags == 0 && global->proxy) {
       if (reg)
         wp_registry_notify_rm_object (reg, global->proxy);
+      wp_proxy_destroy (global->proxy);
       g_clear_object (&global->proxy);
     }
   }
@@ -902,10 +903,16 @@ static void
 on_proxy_ready (GObject * proxy, GAsyncResult * res, gpointer data)
 {
   g_autoptr (WpObjectManager) self = WP_OBJECT_MANAGER (data);
+  g_autoptr (GError) error = NULL;
 
-  g_ptr_array_add (self->objects, proxy);
-  g_signal_emit (self, signals[SIGNAL_OBJECT_ADDED], 0, proxy);
-  schedule_emit_objects_changed (self);
+  if (wp_proxy_augment_finish (WP_PROXY (proxy), res, &error)) {
+    g_ptr_array_add (self->objects, proxy);
+    g_signal_emit (self, signals[SIGNAL_OBJECT_ADDED], 0, proxy);
+    schedule_emit_objects_changed (self);
+  } else {
+    g_message ("WpObjectManager:%p proxy augment failed: %s", self,
+        error->message);
+  }
 }
 
 static void
