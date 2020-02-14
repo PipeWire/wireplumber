@@ -158,7 +158,8 @@ void
 wp_registry_init (WpRegistry *self)
 {
   self->globals = g_ptr_array_new ();
-  self->tmp_globals = g_ptr_array_new ();
+  self->tmp_globals =
+      g_ptr_array_new_with_free_func ((GDestroyNotify) wp_global_unref);
   self->objects = g_ptr_array_new_with_free_func (g_object_unref);
   self->object_managers = g_ptr_array_new ();
 }
@@ -251,6 +252,7 @@ static void
 expose_tmp_globals (WpCore *core, GAsyncResult *res, WpRegistry *self)
 {
   g_autoptr (GError) error = NULL;
+  g_autoptr (GPtrArray) tmp_globals = NULL;
 
   if (!wp_core_sync_finish (core, res, &error))
     g_warning ("core sync error: %s", error->message);
@@ -259,17 +261,20 @@ expose_tmp_globals (WpCore *core, GAsyncResult *res, WpRegistry *self)
   if (G_UNLIKELY (!self->tmp_globals))
     return;
 
-  g_debug ("exposing %u new globals", self->tmp_globals->len);
+  /* steal the tmp_globals list and replace it with an empty one */
+  tmp_globals = self->tmp_globals;
+  self->tmp_globals =
+      g_ptr_array_new_with_free_func ((GDestroyNotify) wp_global_unref);
 
-  while (self->tmp_globals->len > 0) {
-    WpGlobal *g = g_ptr_array_steal_index_fast (self->tmp_globals,
-        self->tmp_globals->len - 1);
+  g_debug ("exposing %u new globals", tmp_globals->len);
+
+  /* traverse in the order that the globals appeared on the registry */
+  for (guint i = 0; i < tmp_globals->len; i++) {
+    WpGlobal *g = g_ptr_array_index (tmp_globals, i);
 
     /* if global was already removed, drop it */
-    if (g->flags == 0) {
-      wp_global_unref (g);
+    if (g->flags == 0)
       continue;
-    }
 
     /* set the registry, so that wp_global_rm_flag() can work full-scale */
     g->registry = self;
@@ -277,7 +282,7 @@ expose_tmp_globals (WpCore *core, GAsyncResult *res, WpRegistry *self)
     /* store it in the globals list */
     if (self->globals->len <= g->id)
       g_ptr_array_set_size (self->globals, g->id + 1);
-    g_ptr_array_index (self->globals, g->id) = g;
+    g_ptr_array_index (self->globals, g->id) = wp_global_ref (g);
 
     /* notify object managers */
     for (guint i = 0; i < self->object_managers->len; i++) {
