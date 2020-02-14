@@ -34,9 +34,9 @@ static void wp_object_manager_rm_object (WpObjectManager * self, gpointer object
  *    by calling into a remove factory (see wp_node_new_from_factory()) or
  *    by exporting a local object (WpImplNode etc...).
  *
- *    These objects are also represented by a WpGlobal, which is however
+ *    These objects are also represented by a WpGlobal, which may however be
  *    constructed before they appear on the registry. The associated WpProxy
- *    calls into wp_registry_new_global_for_proxy() at the time it receives
+ *    calls into wp_registry_prepare_new_global() at the time it receives
  *    the 'bound' event and creates a global that has the
  *    WP_GLOBAL_FLAG_OWNED_BY_PROXY flag enabled. As the flag name suggests,
  *    these globals are "owned" by the WpProxy and the WpGlobal has no ref
@@ -47,6 +47,15 @@ static void wp_object_manager_rm_object (WpObjectManager * self, gpointer object
  *    this happens, the WP_GLOBAL_FLAG_APPEARS_ON_REGISTRY flag is also added
  *    and that keeps an additional reference on the global (both flags must
  *    be dropped before the WpGlobal is destroyed).
+ *
+ *    In some cases, such an object might appear first on the registry and
+ *    then receive the 'bound' event. In order to handle this situation, globals
+ *    are not advertised immediately when they appear on the registry, but
+ *    they are added on a tmp_globals list instead, which is emptied on the
+ *    next core sync. In all cases, the proxy 'bound' and the registry 'global'
+ *    events will be fired in the same sync cycle, so we can catch a late
+ *    'bound' event and still associate the proxy with the WpGlobal before
+ *    object managers are notified about the existence of this global.
  *
  * 3) WirePlumber global objects (WpModule, WpFactory).
  *
