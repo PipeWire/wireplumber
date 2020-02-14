@@ -66,6 +66,15 @@ wp_fake_endpoint_prepare_link (WpBaseEndpoint * ep, guint32 stream_id,
   return TRUE;
 }
 
+static void
+wp_fake_endpoint_begin_fade (WpBaseEndpoint * ep, guint32 stream_id,
+    guint duration, gfloat step, guint direction, guint type,
+    GCancellable * cancellable, GAsyncReadyCallback callback, gpointer data)
+{
+  g_autoptr (GTask) task = g_task_new (ep, cancellable, callback, data);
+  g_task_return_boolean (task, TRUE);
+}
+
 static const char *
 wp_fake_endpoint_get_endpoint_link_factory (WpBaseEndpoint * ep)
 {
@@ -204,6 +213,7 @@ wp_fake_endpoint_class_init (WpFakeEndpointClass * klass)
   endpoint_class->get_role = wp_fake_endpoint_get_role;
   endpoint_class->get_global_id = wp_fake_endpoint_get_global_id;
   endpoint_class->prepare_link = wp_fake_endpoint_prepare_link;
+  endpoint_class->begin_fade = wp_fake_endpoint_begin_fade;
   endpoint_class->get_endpoint_link_factory =
       wp_fake_endpoint_get_endpoint_link_factory;
 
