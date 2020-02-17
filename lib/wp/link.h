@@ -13,6 +13,11 @@
 
 G_BEGIN_DECLS
 
+/**
+ * WP_TYPE_LINK:
+ *
+ * The #WpLink #GType
+ */
 #define WP_TYPE_LINK (wp_link_get_type ())
 WP_API
 G_DECLARE_FINAL_TYPE (WpLink, wp_link, WP, LINK, WpProxy)

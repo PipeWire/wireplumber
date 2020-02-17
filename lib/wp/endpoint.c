@@ -6,6 +6,21 @@
  * SPDX-License-Identifier: MIT
  */
 
+/**
+ * SECTION: WpEndpoint
+ *
+ * The #WpEndpoint class allows accessing the properties and methods of a
+ * PipeWire endpoint object (`struct pw_endpoint` from the session-manager
+ * extension).
+ *
+ * A #WpEndpoint is constructed internally when a new endpoint appears on the
+ * PipeWire registry and it is made available through the #WpObjectManager API.
+ *
+ * A #WpImplEndpoint allows implementing an endpoint and exporting it to
+ * PipeWire, which is done by augmenting the #WpImplEndpoint with
+ * %WP_PROXY_FEATURE_BOUND.
+ */
+
 #include "endpoint.h"
 #include "private.h"
 #include "error.h"
@@ -330,11 +345,24 @@ wp_endpoint_class_init (WpEndpointClass * klass)
   klass->get_control = get_control;
   klass->set_control = set_control;
 
+  /**
+   * WpEndpoint::control-changed:
+   * @self: the endpoint
+   * @control: the control that changed (a #WpEndpointControl)
+   *
+   * Emitted when an endpoint control changes value
+   */
   signals[SIGNAL_CONTROL_CHANGED] = g_signal_new (
       "control-changed", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_UINT);
 }
 
+/**
+ * wp_endpoint_get_name:
+ * @self: the endpoint
+ *
+ * Returns: the name of the endpoint
+ */
 const gchar *
 wp_endpoint_get_name (WpEndpoint * self)
 {
@@ -344,6 +372,12 @@ wp_endpoint_get_name (WpEndpoint * self)
   return WP_ENDPOINT_GET_CLASS (self)->get_name (self);
 }
 
+/**
+ * wp_endpoint_get_media_class:
+ * @self: the endpoint
+ *
+ * Returns: the media class of the endpoint (ex. "Audio/Sink")
+ */
 const gchar *
 wp_endpoint_get_media_class (WpEndpoint * self)
 {
@@ -353,6 +387,12 @@ wp_endpoint_get_media_class (WpEndpoint * self)
   return WP_ENDPOINT_GET_CLASS (self)->get_media_class (self);
 }
 
+/**
+ * wp_endpoint_get_direction:
+ * @self: the endpoint
+ *
+ * Returns: the direction of this endpoint
+ */
 WpDirection
 wp_endpoint_get_direction (WpEndpoint * self)
 {
@@ -362,6 +402,14 @@ wp_endpoint_get_direction (WpEndpoint * self)
   return WP_ENDPOINT_GET_CLASS (self)->get_direction (self);
 }
 
+/**
+ * wp_endpoint_get_control:
+ * @self: the endpoint
+ * @control_id: the control id (a #WpEndpointControl)
+ *
+ * Returns: (transfer none) (nullable): the `spa_pod` containing the value
+ *   of this control, or %NULL if @control_id does not exist on this endpoint
+ */
 const struct spa_pod *
 wp_endpoint_get_control (WpEndpoint * self, guint32 control_id)
 {
@@ -371,6 +419,15 @@ wp_endpoint_get_control (WpEndpoint * self, guint32 control_id)
   return WP_ENDPOINT_GET_CLASS (self)->get_control (self, control_id);
 }
 
+/**
+ * wp_endpoint_get_control_boolean:
+ * @self: the endpoint
+ * @control_id: the control id (a #WpEndpointControl)
+ * @value: (out): the boolean value of this control
+ *
+ * Returns: %TRUE on success, %FALSE if the control does not exist on this
+ *   endpoint or if it is not a boolean
+ */
 gboolean
 wp_endpoint_get_control_boolean (WpEndpoint * self, guint32 control_id,
     gboolean * value)
@@ -384,6 +441,15 @@ wp_endpoint_get_control_boolean (WpEndpoint * self, guint32 control_id,
   return FALSE;
 }
 
+/**
+ * wp_endpoint_get_control_int:
+ * @self: the endpoint
+ * @control_id: the control id (a #WpEndpointControl)
+ * @value: (out): the integer value of this control
+ *
+ * Returns: %TRUE on success, %FALSE if the control does not exist on this
+ *   endpoint or if it is not an integer
+ */
 gboolean
 wp_endpoint_get_control_int (WpEndpoint * self, guint32 control_id,
     gint * value)
@@ -392,6 +458,15 @@ wp_endpoint_get_control_int (WpEndpoint * self, guint32 control_id,
   return (pod && spa_pod_get_int (pod, value) == 0);
 }
 
+/**
+ * wp_endpoint_get_control_float:
+ * @self: the endpoint
+ * @control_id: the control id (a #WpEndpointControl)
+ * @value: (out): the floating-point number value of this control
+ *
+ * Returns: %TRUE on success, %FALSE if the control does not exist on this
+ *   endpoint or if it is not a floating-point number
+ */
 gboolean
 wp_endpoint_get_control_float (WpEndpoint * self, guint32 control_id,
     gfloat * value)
@@ -400,6 +475,14 @@ wp_endpoint_get_control_float (WpEndpoint * self, guint32 control_id,
   return (pod && spa_pod_get_float (pod, value) == 0);
 }
 
+/**
+ * wp_endpoint_set_control:
+ * @self: the endpoint
+ * @control_id: the control id (a #WpEndpointControl)
+ * @value: the new value for this control, as a `spa_pod`
+ *
+ * Returns: %TRUE on success, %FALSE if an error occurred
+ */
 gboolean
 wp_endpoint_set_control (WpEndpoint * self, guint32 control_id,
     const struct spa_pod * value)
@@ -410,6 +493,14 @@ wp_endpoint_set_control (WpEndpoint * self, guint32 control_id,
   return WP_ENDPOINT_GET_CLASS (self)->set_control (self, control_id, value);
 }
 
+/**
+ * wp_endpoint_set_control_boolean:
+ * @self: the endpoint
+ * @control_id: the control id (a #WpEndpointControl)
+ * @value: the new value for this control, as a boolean
+ *
+ * Returns: %TRUE on success, %FALSE if an error occurred
+ */
 gboolean
 wp_endpoint_set_control_boolean (WpEndpoint * self, guint32 control_id,
     gboolean value)
@@ -419,6 +510,14 @@ wp_endpoint_set_control_boolean (WpEndpoint * self, guint32 control_id,
           buffer, sizeof (buffer), SPA_POD_Bool (value), 0));
 }
 
+/**
+ * wp_endpoint_set_control_int:
+ * @self: the endpoint
+ * @control_id: the control id (a #WpEndpointControl)
+ * @value: the new value for this control, as an integer
+ *
+ * Returns: %TRUE on success, %FALSE if an error occurred
+ */
 gboolean
 wp_endpoint_set_control_int (WpEndpoint * self, guint32 control_id,
     gint value)
@@ -428,6 +527,14 @@ wp_endpoint_set_control_int (WpEndpoint * self, guint32 control_id,
           buffer, sizeof (buffer), SPA_POD_Int (value), 0));
 }
 
+/**
+ * wp_endpoint_set_control_float:
+ * @self: the endpoint
+ * @control_id: the control id (a #WpEndpointControl)
+ * @value: the new value for this control, as a floating-point number
+ *
+ * Returns: %TRUE on success, %FALSE if an error occurred
+ */
 gboolean
 wp_endpoint_set_control_float (WpEndpoint * self, guint32 control_id,
     gfloat value)
@@ -647,6 +754,12 @@ wp_impl_endpoint_class_init (WpImplEndpointClass * klass)
   endpoint_class->set_control = wp_impl_endpoint_set_control;
 }
 
+/**
+ * wp_impl_endpoint_new:
+ * @core: the #WpCore
+ *
+ * Returns: (transfer full): the newly constructed endpoint implementation
+ */
 WpImplEndpoint *
 wp_impl_endpoint_new (WpCore * core)
 {
@@ -657,6 +770,18 @@ wp_impl_endpoint_new (WpCore * core)
       NULL);
 }
 
+/**
+ * wp_impl_endpoint_set_property:
+ * @self: the endpoint implementation
+ * @key: a property key
+ * @value: a property value
+ *
+ * Sets the specified property on the PipeWire properties of the endpoint.
+ *
+ * If this property is set before exporting the endpoint, then it is also used
+ * in the construction process of the endpoint object and appears as a global
+ * property.
+ */
 void
 wp_impl_endpoint_set_property (WpImplEndpoint * self,
     const gchar * key, const gchar * value)
@@ -677,6 +802,18 @@ wp_impl_endpoint_set_property (WpImplEndpoint * self,
   }
 }
 
+/**
+ * wp_impl_endpoint_update_properties:
+ * @self: the endpoint implementation
+ * @updates: a set of properties to add or update in the endpoint's properties
+ *
+ * Adds or updates the values of the PipeWire properties of the endpoint
+ * using the properties in @updates as a source.
+ *
+ * If the properties are set before exporting the endpoint, then they are also
+ * used in the construction process of the endpoint object and appear as
+ * global properties.
+ */
 void
 wp_impl_endpoint_update_properties (WpImplEndpoint * self,
     WpProperties * updates)
@@ -698,6 +835,15 @@ wp_impl_endpoint_update_properties (WpImplEndpoint * self,
   }
 }
 
+/**
+ * wp_impl_endpoint_set_name:
+ * @self: the endpoint implementation
+ * @name: the name to set
+ *
+ * Sets the name of the endpoint to be @name.
+ *
+ * This only makes sense to set before exporting the endpoint.
+ */
 void
 wp_impl_endpoint_set_name (WpImplEndpoint * self, const gchar * name)
 {
@@ -710,6 +856,15 @@ wp_impl_endpoint_set_name (WpImplEndpoint * self, const gchar * name)
   priv->info.name = g_strdup (name);
 }
 
+/**
+ * wp_impl_endpoint_set_media_class:
+ * @self: the endpoint implementation
+ * @media_class: the media class to set
+ *
+ * Sets the media class of the endpoint to be @media_class.
+ *
+ * This only makes sense to set before exporting the endpoint.
+ */
 void
 wp_impl_endpoint_set_media_class (WpImplEndpoint * self,
     const gchar * media_class)
@@ -723,6 +878,15 @@ wp_impl_endpoint_set_media_class (WpImplEndpoint * self,
   priv->info.media_class = g_strdup (media_class);
 }
 
+/**
+ * wp_impl_endpoint_set_direction:
+ * @self: the endpoint implementation
+ * @dir: the direction to set
+ *
+ * Sets the direction of the endpoint to be @dir.
+ *
+ * This only makes sense to set before exporting the endpoint.
+ */
 void
 wp_impl_endpoint_set_direction (WpImplEndpoint * self, WpDirection dir)
 {
@@ -734,6 +898,17 @@ wp_impl_endpoint_set_direction (WpImplEndpoint * self, WpDirection dir)
   priv->info.direction = (enum pw_direction) dir;
 }
 
+/**
+ * wp_impl_endpoint_register_control:
+ * @self: the endpoint implementation
+ * @control: the control to make available
+ *
+ * Registers the specified @control as a SPA property of this endpoint,
+ * making it appear to remote clients.
+ *
+ * This is required to do before setting or getting a value for this control.
+ * This is also required to be done before exporting the endpoint.
+ */
 void
 wp_impl_endpoint_register_control (WpImplEndpoint * self,
     WpEndpointControl control)

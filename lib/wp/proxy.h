@@ -50,12 +50,22 @@ typedef enum { /*< flags >*/
 #define WP_PROXY_FEATURES_STANDARD \
     (WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND)
 
-
+/**
+ * WP_TYPE_PROXY:
+ *
+ * The #WpProxy #GType
+ */
 #define WP_TYPE_PROXY (wp_proxy_get_type ())
 WP_API
 G_DECLARE_DERIVABLE_TYPE (WpProxy, wp_proxy, WP, PROXY, GObject)
 
-/* The proxy base class */
+/**
+ * WpProxyClass:
+ * @pw_iface_type: the PipeWire type of the interface that is being proxied by
+ *    this class (ex. `PW_TYPE_INTERFACE_Node` for #WpNode)
+ * @pw_iface_version: the PipeWire version of the interface that is being
+ *    proxied by this class
+ */
 struct _WpProxyClass
 {
   GObjectClass parent_class;

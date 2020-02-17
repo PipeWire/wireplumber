@@ -14,12 +14,28 @@
 
 G_BEGIN_DECLS
 
+/**
+ * WpObjectManagerConstraintType:
+ * @WP_OBJECT_MANAGER_CONSTRAINT_PW_GLOBAL_PROPERTY: constraint applies
+ *   to a PipeWire global property of an object (the ones returned by
+ *   wp_proxy_get_global_properties())
+ * @WP_OBJECT_MANAGER_CONSTRAINT_PW_PROPERTY: constraint applies
+ *   to a PipeWire property of the object (the ones returned by
+ *   wp_proxy_get_properties())
+ * @WP_OBJECT_MANAGER_CONSTRAINT_G_PROPERTY: constraint applies to a #GObject
+ *   property of the managed object
+ */
 typedef enum {
   WP_OBJECT_MANAGER_CONSTRAINT_PW_GLOBAL_PROPERTY,
   WP_OBJECT_MANAGER_CONSTRAINT_PW_PROPERTY,
   WP_OBJECT_MANAGER_CONSTRAINT_G_PROPERTY,
 } WpObjectManagerConstraintType;
 
+/**
+ * WP_TYPE_OBJECT_MANAGER:
+ *
+ * The #WpObjectManager #GType
+ */
 #define WP_TYPE_OBJECT_MANAGER (wp_object_manager_get_type ())
 WP_API
 G_DECLARE_FINAL_TYPE (WpObjectManager, wp_object_manager, WP, OBJECT_MANAGER, GObject)

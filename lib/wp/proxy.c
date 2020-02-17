@@ -7,6 +7,11 @@
  * SPDX-License-Identifier: MIT
  */
 
+/**
+ * SECTION: WpProxy
+ *
+ */
+
 #include "proxy.h"
 #include "core.h"
 #include "error.h"

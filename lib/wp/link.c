@@ -6,6 +6,19 @@
  * SPDX-License-Identifier: MIT
  */
 
+/**
+ * SECTION: WpLink
+ *
+ * The #WpLink class allows accessing the properties and methods of a
+ * PipeWire link object (`struct pw_link`).
+ *
+ * A #WpLink is constructed internally when a new link appears on the
+ * PipeWire registry and it is made available through the #WpObjectManager API.
+ * Alternatively, a #WpLink can also be constructed using
+ * wp_link_new_from_factory(), which creates a new link object
+ * on the remote PipeWire server by calling into a factory.
+ */
+
 #include "link.h"
 #include "private.h"
 

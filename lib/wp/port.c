@@ -6,11 +6,24 @@
  * SPDX-License-Identifier: MIT
  */
 
+/**
+ * SECTION: WpPort
+ *
+ * The #WpPort class allows accessing the properties and methods of a
+ * PipeWire port object (`struct pw_port`).
+ *
+ * A #WpPort is constructed internally when a new port appears on the
+ * PipeWire registry and it is made available through the #WpObjectManager API.
+ */
+
 #include "port.h"
 #include "private.h"
 
 #include <pipewire/pipewire.h>
 
+/**
+ * WpPort:
+ */
 struct _WpPort
 {
   WpProxy parent;

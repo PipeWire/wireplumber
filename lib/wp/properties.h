@@ -17,6 +17,11 @@ G_BEGIN_DECLS
 struct pw_properties;
 struct spa_dict;
 
+/**
+ * WP_TYPE_PROPERTIES:
+ *
+ * The #WpProperties #GType
+ */
 #define WP_TYPE_PROPERTIES (wp_properties_get_type ())
 WP_API
 GType wp_properties_get_type (void);

@@ -6,6 +6,24 @@
  * SPDX-License-Identifier: MIT
  */
 
+/**
+ * SECTION: WpDevice
+ *
+ * The #WpDevice class allows accessing the properties and methods of a
+ * PipeWire device object (`struct pw_device`).
+ *
+ * A #WpDevice is constructed internally when a new device appears on the
+ * PipeWire registry and it is made available through the #WpObjectManager API.
+ * Alternatively, a #WpDevice can also be constructed using
+ * wp_device_new_from_factory(), which creates a new device object
+ * on the remote PipeWire server by calling into a factory.
+ *
+ * A #WpSpaDevice allows running a `spa_device` object locally,
+ * loading the implementation from a SPA factory. This is useful to run device
+ * monitors inside the session manager and have control over creating the
+ * actual nodes that the `spa_device` requests to create.
+ */
+
 #include "device.h"
 #include "node.h"
 #include "error.h"

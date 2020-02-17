@@ -34,10 +34,20 @@ typedef enum {
   WP_POLICY_RANK_VENDOR = 256,
 } WpPolicyRank;
 
+/**
+ * WP_TYPE_POLICY_MANAGER:
+ *
+ * The #WpPolicyManager #GType
+ */
 #define WP_TYPE_POLICY_MANAGER (wp_policy_manager_get_type ())
 WP_API
 G_DECLARE_FINAL_TYPE (WpPolicyManager, wp_policy_manager, WP, POLICY_MANAGER, GObject)
 
+/**
+ * WP_TYPE_POLICY:
+ *
+ * The #WpPolicy #GType
+ */
 #define WP_TYPE_POLICY (wp_policy_get_type ())
 WP_API
 G_DECLARE_DERIVABLE_TYPE (WpPolicy, wp_policy, WP, POLICY, GObject)

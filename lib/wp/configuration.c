@@ -6,6 +6,12 @@
  * SPDX-License-Identifier: MIT
  */
 
+/**
+ * SECTION: WpConfiguration
+ *
+ * The #WpConfiguration class manages configuration files and parsers
+ */
+
 #include "configuration.h"
 #include "private.h"
 
@@ -24,6 +30,16 @@ wp_config_parser_default_init (WpConfigParserInterface *klass)
 {
 }
 
+/**
+ * wp_config_parser_add_file: (virtual add_file)
+ * @self: the parser
+ * @location: path to a configuration file
+ *
+ * Adds the file at @location on the parser and parses all the information
+ * from it, making it available to the code that needs this configuration
+ *
+ * Returns: %TRUE on success, %FALSE if an error occurred
+ */
 gboolean
 wp_config_parser_add_file (WpConfigParser *self, const char *location)
 {
@@ -33,6 +49,13 @@ wp_config_parser_add_file (WpConfigParser *self, const char *location)
   return WP_CONFIG_PARSER_GET_IFACE (self)->add_file (self, location);
 }
 
+/**
+ * wp_config_parser_get_matched_data: (virtual get_matched_data)
+ * @self: the parser
+ * @data: implementation-specific data
+ *
+ * Returns: the matched data
+ */
 gconstpointer
 wp_config_parser_get_matched_data (WpConfigParser *self, gpointer data)
 {
@@ -42,6 +65,12 @@ wp_config_parser_get_matched_data (WpConfigParser *self, gpointer data)
   return WP_CONFIG_PARSER_GET_IFACE (self)->get_matched_data (self, data);
 }
 
+/**
+ * wp_config_parser_reset: (virtual reset)
+ * @self: the parser
+ *
+ * Resets the state of the parser
+ */
 void
 wp_config_parser_reset (WpConfigParser *self)
 {
@@ -80,6 +109,15 @@ wp_configuration_class_init (WpConfigurationClass * klass)
   object_class->finalize = wp_configuration_finalize;
 }
 
+/**
+ * wp_configuration_get_instance:
+ * @core: the core
+ *
+ * Retrieves (and creates, the first time) the instance of #WpConfiguration
+ * that is registered on the specified @core
+ *
+ * Returns: (transfer full): the @core-specific instance of #WpConfiguration
+ */
 WpConfiguration *
 wp_configuration_get_instance (WpCore *core)
 {
@@ -98,12 +136,21 @@ wp_configuration_get_instance (WpCore *core)
   return self;
 }
 
+/**
+ * wp_configuration_add_path:
+ * @self: the configuration
+ * @path: path to a directory that contains configuration files
+ *
+ * Adds the specified @path in the list of directories that are being
+ * searched for configuration files. All files in this directory that
+ * have a known extension to this #WpConfiguration instance will be parsed
+ * and made available through their #WpConfigParser
+ */
 void
 wp_configuration_add_path (WpConfiguration *self, const char *path)
 {
   guint i;
 
-  g_return_if_fail (self);
   g_return_if_fail (WP_IS_CONFIGURATION (self));
 
   /* Make sure the path is not already added */
@@ -116,12 +163,20 @@ wp_configuration_add_path (WpConfiguration *self, const char *path)
   g_ptr_array_add (self->paths, g_strdup (path));
 }
 
+/**
+ * wp_configuration_remove_path:
+ * @self: the configuration
+ * @path: path to a directory that was previously added with
+ *    wp_configuration_add_path()
+ *
+ * Removes the specified @path from the list of directories that are being
+ * searched for configuration files
+ */
 void
 wp_configuration_remove_path (WpConfiguration *self, const char *path)
 {
   guint i;
 
-  g_return_if_fail (self);
   g_return_if_fail (WP_IS_CONFIGURATION (self));
 
   /* Find the path index */
@@ -136,15 +191,27 @@ wp_configuration_remove_path (WpConfiguration *self, const char *path)
     g_ptr_array_remove_index (self->paths, i);
 }
 
+/**
+ * wp_configuration_add_extension:
+ * @self: the configuration
+ * @extension: a filename extension
+ * @parser_type: a type that implements the #WpConfigParser interface
+ *
+ * Creates a parser and associates it with the specified filename @extension.
+ * All configuration files that match this extension will, upon calling
+ * wp_configuration_reload(), be added to this parser
+ *
+ * Returns: %TRUE if the extension is new, %FALSE if it was already added
+ *   or an error occurred
+ */
 gboolean
 wp_configuration_add_extension (WpConfiguration *self, const gchar * extension,
     GType parser_type)
 {
-  g_return_val_if_fail (self, FALSE);
   g_return_val_if_fail (WP_IS_CONFIGURATION (self), FALSE);
 
   /* create the parser */
-  g_autoptr (WpConfigParser) parser = g_object_new (parser_type, FALSE);
+  g_autoptr (WpConfigParser) parser = g_object_new (parser_type, NULL);
   g_return_val_if_fail (WP_IS_CONFIG_PARSER (parser), FALSE);
 
   return g_hash_table_insert (self->parsers, g_strdup (extension),
@@ -152,28 +219,55 @@ wp_configuration_add_extension (WpConfiguration *self, const gchar * extension,
 
 }
 
+/**
+ * wp_configuration_remove_extension:
+ * @self: the configuration
+ * @extension: a filename extension that was previously associated with a
+ *    parser using wp_configuration_add_extension()
+ *
+ * Removes the association of @extension to a parser and destroys the parser
+ *
+ * Returns: %TRUE if the extension was indeed removed,
+ *    %FALSE if it was not added
+ */
 gboolean
 wp_configuration_remove_extension (WpConfiguration *self,
     const gchar * extension)
 {
-  g_return_val_if_fail (self, FALSE);
   g_return_val_if_fail (WP_IS_CONFIGURATION (self), FALSE);
 
   return g_hash_table_remove (self->parsers, extension);
 }
 
+/**
+ * wp_configuration_get_parser:
+ * @self: the configuration
+ * @extension: a filename extension that was previously associated with a
+ *    parser using wp_configuration_add_extension()
+ *
+ * Returns: (transfer full) (nullable): the parser associated with @extension
+ */
 WpConfigParser *
 wp_configuration_get_parser (WpConfiguration *self, const char *extension)
 {
   WpConfigParser *parser = NULL;
 
-  g_return_val_if_fail (self, NULL);
   g_return_val_if_fail (WP_IS_CONFIGURATION (self), NULL);
 
   parser = g_hash_table_lookup (self->parsers, extension);
   return parser ? g_object_ref (parser) : NULL;
 }
 
+/**
+ * wp_configuration_reload:
+ * @self: the configuration
+ * @extension: a filename extension that was previously associated with a
+ *    parser using wp_configuration_add_extension()
+ *
+ * Resets the parser associated with @extension and re-adds (and re-parses)
+ * all the configuration files that have this @extension from all the
+ * directories that were added with wp_configuration_add_path()
+ */
 void
 wp_configuration_reload (WpConfiguration *self, const char *extension)
 {
@@ -185,7 +279,6 @@ wp_configuration_reload (WpConfiguration *self, const char *extension)
   g_autofree gchar *ext = NULL;
   g_autofree gchar *location = NULL;
 
-  g_return_if_fail (self);
   g_return_if_fail (WP_IS_CONFIGURATION (self));
 
   /* Get the parser for the extension */

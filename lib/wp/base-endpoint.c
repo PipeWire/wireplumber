@@ -319,7 +319,7 @@ wp_base_endpoint_class_init (WpBaseEndpointClass * klass)
 
   /**
    * WpBaseEndpoint::creation-time:
-   * The creation time of the endpoint in monolitic time
+   * The creation time of the endpoint in monotonic time
    */
   g_object_class_install_property (object_class, PROP_CREATION_TIME,
       g_param_spec_uint64 ("creation-time", "creation-time",
@@ -327,7 +327,7 @@ wp_base_endpoint_class_init (WpBaseEndpointClass * klass)
           0, G_MAXUINT64, 0, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
   /**
-   * WpBaseEndpoint::direction:
+   * WpBaseEndpoint::priority:
    * The priority of the endpoint:
    */
   g_object_class_install_property (object_class, PROP_PRIORITY,

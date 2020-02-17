@@ -6,6 +6,20 @@
  * SPDX-License-Identifier: MIT
  */
 
+/**
+ * SECTION: WpSession
+ *
+ * The #WpSession class allows accessing the properties and methods of a
+ * PipeWire session object (`struct pw_session` from the session-manager
+ * extension).
+ *
+ * A #WpSession is constructed internally when a new session appears on the
+ * PipeWire registry and it is made available through the #WpObjectManager API.
+ *
+ * A #WpImplSession allows implementing a session and exporting it to PipeWire,
+ * which is done by augmenting the #WpImplSession with %WP_PROXY_FEATURE_BOUND.
+ */
+
 #include "session.h"
 #include "private.h"
 #include "error.h"
@@ -298,12 +312,29 @@ wp_session_class_init (WpSessionClass * klass)
   klass->get_default_endpoint = get_default_endpoint;
   klass->set_default_endpoint = set_default_endpoint;
 
+  /**
+   * WpSession::default-endpoint-changed:
+   * @self: the session
+   * @type: the endpoint type
+   * @id: the endpoint's bound id
+   *
+   * Emitted when the default endpoint of a specific type changes.
+   * The passed @id is the bound id (wp_proxy_get_bound_id()) of the new
+   * default endpoint.
+   */
   signals[SIGNAL_DEFAULT_ENDPOINT_CHANGED] = g_signal_new (
       "default-endpoint-changed", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 2,
       WP_TYPE_DEFAULT_ENDPOINT_TYPE, G_TYPE_UINT);
 }
 
+/**
+ * wp_session_get_default_endpoint:
+ * @self: the session
+ * @type: the endpoint type
+ *
+ * Returns: the bound id of the default endpoint of this @type
+ */
 guint32
 wp_session_get_default_endpoint (WpSession * self,
     WpDefaultEndpointType type)
@@ -315,6 +346,14 @@ wp_session_get_default_endpoint (WpSession * self,
   return WP_SESSION_GET_CLASS (self)->get_default_endpoint (self, type);
 }
 
+/**
+ * wp_session_set_default_endpoint:
+ * @self: the session
+ * @type: the endpoint type
+ * @id: the bound id of the endpoint to set as the default for this @type
+ *
+ * Sets the default endpoint for this @type to be the one identified with @id
+ */
 void
 wp_session_set_default_endpoint (WpSession * self,
     WpDefaultEndpointType type, guint32 id)
@@ -542,6 +581,12 @@ wp_impl_session_class_init (WpImplSessionClass * klass)
   session_class->set_default_endpoint = wp_impl_session_set_default_endpoint;
 }
 
+/**
+ * wp_impl_session_new:
+ * @core: the #WpCore
+ *
+ * Returns: (transfer full): the newly constructed session implementation
+ */
 WpImplSession *
 wp_impl_session_new (WpCore * core)
 {
@@ -552,6 +597,18 @@ wp_impl_session_new (WpCore * core)
       NULL);
 }
 
+/**
+ * wp_impl_session_set_property:
+ * @self: the session implementation
+ * @key: a property key
+ * @value: a property value
+ *
+ * Sets the specified property on the PipeWire properties of the session.
+ *
+ * If this property is set before exporting the session, then it is also used
+ * in the construction process of the session object and appears as a global
+ * property.
+ */
 void
 wp_impl_session_set_property (WpImplSession * self,
     const gchar * key, const gchar * value)
@@ -572,6 +629,18 @@ wp_impl_session_set_property (WpImplSession * self,
   }
 }
 
+/**
+ * wp_impl_session_update_properties:
+ * @self: the session implementation
+ * @updates: a set of properties to add or update in the session's properties
+ *
+ * Adds or updates the values of the PipeWire properties of the session
+ * using the properties in @updates as a source.
+ *
+ * If the properties are set before exporting the session, then they are also
+ * used in the construction process of the session object and appear as
+ * global properties.
+ */
 void
 wp_impl_session_update_properties (WpImplSession * self,
     WpProperties * updates)

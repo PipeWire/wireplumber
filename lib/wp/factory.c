@@ -6,6 +6,13 @@
  * SPDX-License-Identifier: MIT
  */
 
+/**
+ * SECTION: WpFactory
+ *
+ * The #WpFactory class allows associating a function that is able to construct
+ * objects with a well-known name that is registered on the #WpCore
+ */
+
 #include "factory.h"
 #include "private.h"
 
@@ -77,6 +84,12 @@ wp_factory_new (WpCore * core, const gchar * name, WpFactoryFunc func)
   return f;
 }
 
+/**
+ * wp_factory_get_name:
+ * @self: the factory
+ *
+ * Returns: the factory name
+ */
 const gchar *
 wp_factory_get_name (WpFactory * self)
 {
@@ -95,6 +108,17 @@ wp_factory_get_core (WpFactory * self)
   return g_weak_ref_get (&self->core);
 }
 
+/**
+ * wp_factory_create_object:
+ * @self: the factory
+ * @type: the object type to construct
+ * @properties: a dictionary ("a{sv}") variant with additional properties
+ * @ready: (scope async): a callback to call when the object is constructed
+ *    and ready
+ * @user_data: (closure): data to pass to @ready
+ *
+ * Calls the #WpFactoryFunc of this factory
+ */
 void
 wp_factory_create_object (WpFactory * self, GType type,
     GVariant * properties, GAsyncReadyCallback ready, gpointer user_data)
@@ -129,6 +153,20 @@ wp_factory_find (WpCore * core, const gchar * name)
   return f ? WP_FACTORY (f) : NULL;
 }
 
+/**
+ * wp_factory_make:
+ * @core: the #WpCore
+ * @name: the name of the factory to be used for constructing the object
+ * @type: the object type to construct
+ * @properties: a dictionary ("a{sv}") variant with additional properties
+ * @ready: (scope async): a callback to call when the object is constructed
+ *    and ready
+ * @user_data: (closure): data to pass to @ready
+ *
+ * Finds the factory associated with the given @name from the @core and
+ * calls its #WpFactoryFunc with the rest of the arguments to create
+ * an object. The new object is notified through the @ready callback.
+ */
 void
 wp_factory_make (WpCore * core, const gchar * name, GType type,
     GVariant * properties, GAsyncReadyCallback ready, gpointer user_data)

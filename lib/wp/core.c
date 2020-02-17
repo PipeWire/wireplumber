@@ -6,6 +6,24 @@
  * SPDX-License-Identifier: MIT
  */
 
+/**
+ * SECTION: WpCore
+ *
+ * The core is the central object around which everything operates. It is
+ * essential to create a #WpCore before using any other WirePlumber API.
+ *
+ * The core object has the following responsibilities:
+ *  * it initializes the PipeWire library
+ *  * it creates a `pw_context` and allows connecting to the PipeWire server,
+ *    creating a local `pw_core`
+ *  * it glues the PipeWire library's event loop system with GMainLoop
+ *  * it maintains a list of registered objects, which other classes use
+ *    to keep objects loaded permanently into memory
+ *  * it watches the PipeWire registry and keeps track of remote and local
+ *    objects that appear in the registry, making them accessible through
+ *    the #WpObjectManager API.
+ */
+
 #include "core.h"
 #include "wp.h"
 #include "private.h"
@@ -111,6 +129,11 @@ enum {
 
 static guint32 signals[NUM_SIGNALS];
 
+/**
+ * WP_TYPE_CORE:
+ *
+ * The #WpCore #GType
+ */
 G_DEFINE_TYPE (WpCore, wp_core, G_TYPE_OBJECT)
 
 static void
@@ -273,10 +296,22 @@ wp_core_class_init (WpCoreClass * klass)
       g_param_spec_pointer ("pw-core", "pw-core", "The pipewire core",
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
-  /* Signals */
+  /**
+   * WpCore::connected:
+   * @self: the core
+   *
+   * Emitted when the core is successfully connected to the PipeWire server
+   */
   signals[SIGNAL_CONNECTED] = g_signal_new ("connected",
       G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
       G_TYPE_NONE, 0);
+
+  /**
+   * WpCore::disconnected:
+   * @self: the core
+   *
+   * Emitted when the core is disconnected from the PipeWire server
+   */
   signals[SIGNAL_DISCONNECTED] = g_signal_new ("disconnected",
       G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
       G_TYPE_NONE, 0);
@@ -292,6 +327,14 @@ wp_core_class_init (WpCoreClass * klass)
   g_type_ensure (WP_TYPE_SESSION);
 }
 
+/**
+ * wp_core_new:
+ * @context: (transfer none) (nullable): the #GMainContext to use for events
+ * @properties: (transfer none) (nullable): additional properties, which are
+ *   passed to `pw_context_new` and `pw_context_connect`
+ *
+ * Returns: (transfer full): a new #WpCore
+ */
 WpCore *
 wp_core_new (GMainContext *context, WpProperties * properties)
 {
@@ -301,6 +344,13 @@ wp_core_new (GMainContext *context, WpProperties * properties)
       NULL);
 }
 
+/**
+ * wp_core_get_context:
+ * @self: the core
+ *
+ * Returns: (transfer none) (nullable): the #GMainContext that is in use by
+ *   this core for events
+ */
 GMainContext *
 wp_core_get_context (WpCore * self)
 {
@@ -308,6 +358,12 @@ wp_core_get_context (WpCore * self)
   return self->context;
 }
 
+/**
+ * wp_core_get_pw_context:
+ * @self: the core
+ *
+ * Returns: (transfer none): the internal `pw_context` object
+ */
 struct pw_context *
 wp_core_get_pw_context (WpCore * self)
 {
@@ -315,6 +371,13 @@ wp_core_get_pw_context (WpCore * self)
   return self->pw_context;
 }
 
+/**
+ * wp_core_get_pw_core:
+ * @self: the core
+ *
+ * Returns: (transfer none) (nullable): the internal `pw_core` object,
+ *   or %NULL if the core is not connected to PipeWire
+ */
 struct pw_core *
 wp_core_get_pw_core (WpCore * self)
 {
@@ -322,6 +385,16 @@ wp_core_get_pw_core (WpCore * self)
   return self->pw_core;
 }
 
+/**
+ * wp_core_connect:
+ * @self: the core
+ *
+ * Connects this core to the PipeWire server. When connection succeeds,
+ * the #WpCore::connected signal is emitted
+ *
+ * Returns: %TRUE if the core is effectively connected or %FALSE if
+ *   connection failed
+ */
 gboolean
 wp_core_connect (WpCore *self)
 {
@@ -353,6 +426,14 @@ wp_core_connect (WpCore *self)
   return TRUE;
 }
 
+/**
+ * wp_core_disconnect:
+ * @self: the core
+ *
+ * Disconnects this core from the PipeWire server. This also effectively
+ * destroys all #WpProxy objects that were created through the registry,
+ * destroys the `pw_core` and finally emits the #WpCore::disconnected signal.
+ */
 void
 wp_core_disconnect (WpCore *self)
 {
@@ -363,6 +444,12 @@ wp_core_disconnect (WpCore *self)
   g_signal_emit (self, signals[SIGNAL_DISCONNECTED], 0);
 }
 
+/**
+ * wp_core_is_connected:
+ * @self: the core
+ *
+ * Returns: %TRUE if the core is connected to PipeWire, %FALSE otherwise
+ */
 gboolean
 wp_core_is_connected (WpCore * self)
 {
@@ -370,6 +457,20 @@ wp_core_is_connected (WpCore * self)
   return self->pw_core != NULL;
 }
 
+/**
+ * wp_core_idle_add:
+ * @self: the core
+ * @function: (scope notified): the function to call
+ * @data: (closure): data to pass to @function
+ * @destroy: (nullable): a function to destroy @data
+ *
+ * Adds an idle callback to be called in the same #GMainContext as the
+ * one used by this core. This is essentially the same as g_idle_add_full(),
+ * but it adds the created #GSource on the #GMainContext used by this core
+ * instead of the default context.
+ *
+ * Returns: the ID (greater than 0) of the event source
+ */
 guint
 wp_core_idle_add (WpCore * self, GSourceFunc function, gpointer data,
     GDestroyNotify destroy)
@@ -384,6 +485,26 @@ wp_core_idle_add (WpCore * self, GSourceFunc function, gpointer data,
   return g_source_get_id (source);
 }
 
+/**
+ * wp_core_sync:
+ * @self: the core
+ * @cancellable: (nullable): a #GCancellable to cancel the operation
+ * @callback: (scope async): a function to call when the operation is done
+ * @user_data: (closure): data to pass to @callback
+ *
+ * Asks the PipeWire server to call the @callback via an event.
+ *
+ * Since methods are handled in-order and events are delivered
+ * in-order, this can be used as a barrier to ensure all previous
+ * methods and the resulting events have been handled.
+ *
+ * In both success and error cases, @callback is always called. Use
+ * wp_core_sync_finish() from within the @callback to determine whether
+ * the operation completed successfully or if an error occurred.
+ *
+ * Returns: %TRUE if the sync operation was started, %FALSE if an error
+ *   occurred before returning from this function
+ */
 gboolean
 wp_core_sync (WpCore * self, GCancellable * cancellable,
     GAsyncReadyCallback callback, gpointer user_data)
@@ -415,6 +536,17 @@ wp_core_sync (WpCore * self, GCancellable * cancellable,
   return TRUE;
 }
 
+/**
+ * wp_core_sync_finish:
+ * @self: the core
+ * @res: a #GAsyncResult
+ * @error: (out) (optional): the error that occurred, if any
+ *
+ * This function is meant to be called from within the callback of
+ * wp_core_sync() in order to determine the success or failure of the operation.
+ *
+ * Returns: %TRUE if the operation succeeded, %FALSE otherwise
+ */
 gboolean
 wp_core_sync_finish (WpCore * self, GAsyncResult * res, GError ** error)
 {

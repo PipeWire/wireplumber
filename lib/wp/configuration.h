@@ -15,18 +15,29 @@ G_BEGIN_DECLS
 
 /* WpConfigParser */
 
+/**
+ * WP_TYPE_CONFIG_PARSER:
+ *
+ * The #WpConfigParser #GType
+ */
 #define WP_TYPE_CONFIG_PARSER (wp_config_parser_get_type ())
 WP_API
 G_DECLARE_INTERFACE (WpConfigParser, wp_config_parser, WP,
   CONFIG_PARSER, GObject)
 
+/**
+ * WpConfigParserInterface:
+ * @add_file: See wp_config_parser_add_file()
+ * @get_matched_data: See wp_config_parser_get_matched_data()
+ * @reset: See wp_config_parser_reset()
+ */
 struct _WpConfigParserInterface
 {
   GTypeInterface parent;
 
-  gboolean (*add_file) (WpConfigParser *parser, const gchar *name);
-  gconstpointer (*get_matched_data) (WpConfigParser *parser, gpointer data);
-  void (*reset) (WpConfigParser *parser);
+  gboolean (*add_file) (WpConfigParser *self, const gchar *location);
+  gconstpointer (*get_matched_data) (WpConfigParser *self, gpointer data);
+  void (*reset) (WpConfigParser *self);
 };
 
 WP_API
@@ -41,6 +52,11 @@ void wp_config_parser_reset (WpConfigParser *self);
 
 /* WpConfiguration */
 
+/**
+ * WP_TYPE_CONFIGURATION:
+ *
+ * The #WpConfiguration #GType
+ */
 #define WP_TYPE_CONFIGURATION (wp_configuration_get_type ())
 WP_API
 G_DECLARE_FINAL_TYPE (WpConfiguration, wp_configuration, WP, CONFIGURATION,

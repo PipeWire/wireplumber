@@ -15,10 +15,27 @@
 
 G_BEGIN_DECLS
 
+/**
+ * WP_TYPE_FACTORY:
+ *
+ * The #WpFactory #GType
+ */
 #define WP_TYPE_FACTORY (wp_factory_get_type ())
 WP_API
 G_DECLARE_FINAL_TYPE (WpFactory, wp_factory, WP, FACTORY, GObject)
 
+/**
+ * WpFactoryFunc:
+ * @self: the factory
+ * @type: the object type to construct
+ * @properties: a dictionary ("a{sv}") variant with additional properties
+ * @ready: (scope async): a callback to call when the object is constructed
+ *    and ready
+ * @user_data: (closure): data to pass to @ready
+ *
+ * A function that constructs an object. Object creation is meant to be
+ * asynchronous and notified through the @ready callback.
+ */
 typedef void (*WpFactoryFunc) (WpFactory * self, GType type,
     GVariant * properties, GAsyncReadyCallback ready, gpointer user_data);
 

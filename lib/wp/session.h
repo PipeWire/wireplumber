@@ -13,18 +13,37 @@
 
 G_BEGIN_DECLS
 
+/**
+ * WpDefaultEndpointType:
+ * @WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SOURCE: the default audio source (capture)
+ *    endpoint
+ * @WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SINK: the default audio sink (playback)
+ *    endpoint
+ * @WP_DEFAULT_ENDPOINT_TYPE_VIDEO_SOURCE: the default video source endpoint
+ */
 typedef enum {
   WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SOURCE = 0x1000000 /* SPA_PROP_START_CUSTOM */,
   WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SINK,
   WP_DEFAULT_ENDPOINT_TYPE_VIDEO_SOURCE,
 } WpDefaultEndpointType;
 
+/**
+ * WpSessionFeatures:
+ * @WP_SESSION_FEATURE_DEFAULT_ENDPOINT: enables the use of
+ *   wp_session_get_default_endpoint() and wp_session_set_default_endpoint()
+ *   to store default endpoint preferences on the session
+ *
+ * An extension of #WpProxyFeatures
+ */
 typedef enum { /*< flags >*/
   WP_SESSION_FEATURE_DEFAULT_ENDPOINT = WP_PROXY_FEATURE_LAST,
 } WpSessionFeatures;
 
-/* WpSession */
-
+/**
+ * WP_TYPE_SESSION:
+ *
+ * The #WpSession #GType
+ */
 #define WP_TYPE_SESSION (wp_session_get_type ())
 WP_API
 G_DECLARE_DERIVABLE_TYPE (WpSession, wp_session, WP, SESSION, WpProxy)
@@ -47,8 +66,11 @@ WP_API
 void wp_session_set_default_endpoint (WpSession * self,
     WpDefaultEndpointType type, guint32 id);
 
-/* WpImplSession */
-
+/**
+ * WP_TYPE_IMPL_SESSION:
+ *
+ * The #WpImplSession #GType
+ */
 #define WP_TYPE_IMPL_SESSION (wp_impl_session_get_type ())
 WP_API
 G_DECLARE_DERIVABLE_TYPE (WpImplSession, wp_impl_session, WP, IMPL_SESSION, WpSession)

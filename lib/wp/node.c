@@ -6,6 +6,25 @@
  * SPDX-License-Identifier: MIT
  */
 
+/**
+ * SECTION: WpNode
+ *
+ * The #WpNode class allows accessing the properties and methods of a
+ * PipeWire node object (`struct pw_node`).
+ *
+ * A #WpNode is constructed internally when a new node appears on the
+ * PipeWire registry and it is made available through the #WpObjectManager API.
+ * Alternatively, a #WpNode can also be constructed using
+ * wp_node_new_from_factory(), which creates a new node object
+ * on the remote PipeWire server by calling into a factory.
+ *
+ * A #WpImplNode allows running a node implementation (`struct pw_impl_node`)
+ * locally, loading the implementation from factory or wrapping a manually
+ * constructed `pw_impl_node`. This object can then be exported to PipeWire
+ * by requesting %WP_PROXY_FEATURE_BOUND and be used as if it was a #WpNode
+ * proxy to a remote object.
+ */
+
 #include "node.h"
 #include "error.h"
 #include "private.h"

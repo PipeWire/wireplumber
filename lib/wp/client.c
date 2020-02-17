@@ -6,6 +6,15 @@
  * SPDX-License-Identifier: MIT
  */
 
+/**
+ * SECTION: WpClient
+ *
+ * The #WpClient class allows accessing the properties and methods of a PipeWire
+ * client object (`struct pw_client`). A #WpClient is constructed internally
+ * when a new client connects to PipeWire and it is made available through the
+ * #WpObjectManager API.
+ */
+
 #include "client.h"
 #include "private.h"
 
@@ -43,7 +52,7 @@ wp_client_get_info (WpProxy * self)
   return WP_CLIENT (self)->info;
 }
 
-WpProperties *
+static WpProperties *
 wp_client_get_properties (WpProxy * self)
 {
   return wp_properties_new_wrap_dict (WP_CLIENT (self)->info->props);
@@ -93,6 +102,17 @@ wp_client_class_init (WpClientClass * klass)
   proxy_class->pw_proxy_created = wp_client_pw_proxy_created;
 }
 
+/**
+ * wp_client_update_permissions:
+ * @self: the client
+ * @n_perm: the number of permissions specified in the variable arguments
+ * @...: @n_perm pairs of #guint32 numbers; the first number is the object id
+ *   and the second is the permissions that this client should have
+ *   on this object
+ *
+ * Update client's permissions on a list of objects. An object id of `-1`
+ * can be used to set the default object permissions for this client
+ */
 void
 wp_client_update_permissions (WpClient * self, guint n_perm, ...)
 {
@@ -110,6 +130,16 @@ wp_client_update_permissions (WpClient * self, guint n_perm, ...)
   wp_client_update_permissions_array (self, n_perm, perm);
 }
 
+/**
+ * wp_client_update_permissions_array:
+ * @self: the client
+ * @n_perm: the number of permissions specified in the @permissions array
+ * @permissions: (array length=n_perm) (element-type pw_permission): an array
+ *    of permissions per object id
+ *
+ * Update client's permissions on a list of objects. An object id of `-1`
+ * can be used to set the default object permissions for this client
+ */
 void
 wp_client_update_permissions_array (WpClient * self,
     guint n_perm, const struct pw_permission *permissions)

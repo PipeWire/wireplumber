@@ -13,6 +13,11 @@
 
 G_BEGIN_DECLS
 
+/**
+ * WP_TYPE_MODULE:
+ *
+ * The #WpModule #GType
+ */
 #define WP_TYPE_MODULE (wp_module_get_type ())
 WP_API
 G_DECLARE_FINAL_TYPE (WpModule, wp_module, WP, MODULE, GObject)
@@ -22,13 +27,13 @@ WpModule * wp_module_load (WpCore * core, const gchar * abi,
     const gchar * module_name, GVariant * args, GError ** error);
 
 WP_API
-GVariant * wp_module_get_properties (WpModule * module);
+GVariant * wp_module_get_properties (WpModule * self);
 
 WP_API
 WpCore * wp_module_get_core (WpModule * self);
 
 WP_API
-void wp_module_set_destroy_callback (WpModule * module, GDestroyNotify callback,
+void wp_module_set_destroy_callback (WpModule * self, GDestroyNotify callback,
     gpointer data);
 
 G_END_DECLS

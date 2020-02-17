@@ -6,6 +6,39 @@
  * SPDX-License-Identifier: MIT
  */
 
+/**
+ * SECTION: WpModule
+ *
+ * A module is a shared library that can be loaded dynamically in the
+ * WirePlumber daemon process, adding functionality to the daemon.
+ *
+ * For every module that is loaded, WirePlumber constructs a #WpModule object
+ * that gets registered on the #WpCore and can be retrieved through the
+ * #WpObjectManager API.
+ *
+ * Every module has to conform to a certain interface in order for WirePlumber
+ * to know how to load it. This interface is called "ABI" in #WpModule.
+ * Currently there is only one possible ABI, the "C" one.
+ *
+ * ### Writing modules in C
+ *
+ * In order to define a module in C, you need to implement a function in
+ * your shared library that has this signature:
+ *
+ * |[
+ * WP_PLUGIN_EXPORT void
+ * wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
+ * ]|
+ *
+ * This function will be called once at the time of loading the module. The
+ * @args parameter is a dictionary ("a{sv}") #GVariant that contains arguments
+ * for this module that were specified in WirePlumber's configuration file.
+ * The @module parameter is useful for registering a destroy callback (using
+ * wp_module_set_destroy_callback()), which will be called at the time the
+ * module is destroyed (when WirePlumber quits) and allows you to free any
+ * resources that the module has allocated.
+ */
+
 #include "module.h"
 #include "error.h"
 #include "private.h"
@@ -114,7 +147,7 @@ wp_module_load_c (WpModule * self, WpCore * core,
  * @core: the core
  * @abi: the abi name of the module
  * @module_name: the module name
- * @args: the args passed to the module
+ * @args: additional properties passed to the module ("a{sv}")
  * @error: return location for errors, or NULL to ignore
  *
  * Returns: (transfer none): the loaded module
@@ -145,6 +178,12 @@ wp_module_load (WpCore * core, const gchar * abi, const gchar * module_name,
   return module;
 }
 
+/**
+ * wp_module_get_properties:
+ * @self: the module
+ *
+ * Returns: (transfer none): the properties of the module ("a{sv}")
+ */
 GVariant *
 wp_module_get_properties (WpModule * self)
 {
@@ -163,6 +202,14 @@ wp_module_get_core (WpModule * self)
   return g_weak_ref_get (&self->core);
 }
 
+/**
+ * wp_module_set_destroy_callback:
+ * @self: the module
+ * @callback: (scope async): a function to call when the module is destroyed
+ * @data: (closure): data to pass to @callback
+ *
+ * Registers a @callback to call when the module object is destroyed
+ */
 void
 wp_module_set_destroy_callback (WpModule * self, GDestroyNotify callback,
     gpointer data)

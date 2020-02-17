@@ -15,6 +15,11 @@ G_BEGIN_DECLS
 
 struct pw_impl_node;
 
+/**
+ * WP_TYPE_NODE:
+ *
+ * The #WpNode #GType
+ */
 #define WP_TYPE_NODE (wp_node_get_type ())
 WP_API
 G_DECLARE_DERIVABLE_TYPE (WpNode, wp_node, WP, NODE, WpProxy)
@@ -28,7 +33,11 @@ WP_API
 WpNode * wp_node_new_from_factory (WpCore * core,
     const gchar * factory_name, WpProperties * properties);
 
-
+/**
+ * WP_TYPE_IMPL_NODE:
+ *
+ * The #WpImplNode #GType
+ */
 #define WP_TYPE_IMPL_NODE (wp_impl_node_get_type ())
 WP_API
 G_DECLARE_FINAL_TYPE (WpImplNode, wp_impl_node, WP, IMPL_NODE, WpNode)

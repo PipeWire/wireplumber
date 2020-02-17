@@ -15,6 +15,11 @@ G_BEGIN_DECLS
 
 struct pw_permission;
 
+/**
+ * WP_TYPE_CLIENT:
+ *
+ * The #WpClient #GType
+ */
 #define WP_TYPE_CLIENT (wp_client_get_type ())
 WP_API
 G_DECLARE_FINAL_TYPE (WpClient, wp_client, WP, CLIENT, WpProxy)

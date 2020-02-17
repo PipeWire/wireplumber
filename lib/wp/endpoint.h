@@ -25,18 +25,35 @@ typedef enum {
   WP_DIRECTION_OUTPUT,
 } WpDirection;
 
+/**
+ * WpEndpointControl:
+ * @WP_ENDPOINT_CONTROL_VOLUME: a volume control (type: float)
+ * @WP_ENDPOINT_CONTROL_MUTE: a mute control (type: boolean)
+ * @WP_ENDPOINT_CONTROL_CHANNEL_VOLUMES:
+ */
 typedef enum {
   WP_ENDPOINT_CONTROL_VOLUME = 0x10003 /* SPA_PROP_volume */,
   WP_ENDPOINT_CONTROL_MUTE = 0x10004 /* SPA_PROP_mute */,
   WP_ENDPOINT_CONTROL_CHANNEL_VOLUMES = 0x10008 /* SPA_PROP_channelVolumes */,
 } WpEndpointControl;
 
+/**
+ * WpEndpointFeatures:
+ * @WP_ENDPOINT_FEATURE_CONTROLS: enables the use of the
+ *   wp_endpoint_get_control() and wp_endpoint_set_control() families of
+ *   functions to be able to work with endpoint-specific controls
+ *
+ * An extension of #WpProxyFeatures
+ */
 typedef enum { /*< flags >*/
   WP_ENDPOINT_FEATURE_CONTROLS = WP_PROXY_FEATURE_LAST,
 } WpEndpointFeatures;
 
-/* WpEndpoint */
-
+/**
+ * WP_TYPE_ENDPOINT:
+ *
+ * The #WpEndpoint #GType
+ */
 #define WP_TYPE_ENDPOINT (wp_endpoint_get_type ())
 WP_API
 G_DECLARE_DERIVABLE_TYPE (WpEndpoint, wp_endpoint, WP, ENDPOINT, WpProxy)
@@ -95,8 +112,11 @@ WP_API
 gboolean wp_endpoint_set_control_float (WpEndpoint * self, guint32 control_id,
     gfloat value);
 
-/* WpImplEndpoint */
-
+/**
+ * WP_TYPE_IMPL_ENDPOINT:
+ *
+ * The #WpImplEndpoint #GType
+ */
 #define WP_TYPE_IMPL_ENDPOINT (wp_impl_endpoint_get_type ())
 WP_API
 G_DECLARE_DERIVABLE_TYPE (WpImplEndpoint, wp_impl_endpoint,

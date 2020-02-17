@@ -6,6 +6,37 @@
  * SPDX-License-Identifier: MIT
  */
 
+/**
+ * SECTION: WpObjectManager
+ *
+ * The #WpObjectManager class provides a way to collect a set of objects
+ * and be notified when objects that fulfill a certain set of criteria are
+ * created or destroyed.
+ *
+ * There are 4 kinds of objects that can be managed by a #WpObjectManager:
+ *   * remote PipeWire global objects that are advertised on the registry;
+ *     these are bound locally to subclasses of #WpProxy
+ *   * remote PipeWire global objects that are created by calling a remote
+ *     factory through the WirePlumber API; these are very similar to other
+ *     global objects but it should be noted that the same #WpProxy instance
+ *     that created them appears in the #WpObjectManager (as soon as its
+ *     %WP_PROXY_FEATURE_BOUND is enabled)
+ *   * local PipeWire objects that are being exported to PipeWire
+ *     (#WpImplNode, #WpImplEndpoint, etc); these appear in the #WpObjectManager
+ *     as soon as they are exported (so, when their %WP_PROXY_FEATURE_BOUND
+ *     is enabled)
+ *   * WirePlumber-specific objects, such as WirePlumber factories
+ *
+ * To start an object manager, you first need to declare interest in a certain
+ * kind of object by calling wp_object_manager_add_interest() and then install
+ * it on the #WpCore with wp_core_install_object_manager().
+ *
+ * Upon installing a #WpObjectManager on a #WpCore, any pre-existing objects
+ * that match the interests of this #WpObjectManager will immediately become
+ * available to get through wp_object_manager_get_objects() and the
+ * #WpObjectManager::object-added signal will be emitted for all of them.
+ */
+
 #include "object-manager.h"
 #include "private.h"
 #include <pipewire/pipewire.h>
@@ -125,25 +156,112 @@ wp_object_manager_class_init (WpObjectManagerClass * klass)
       g_param_spec_object ("core", "core", "The WpCore", WP_TYPE_CORE,
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
+  /**
+   * WpObjectManager::object-added:
+   * @self: the object manager
+   * @object: (transfer none): the managed object that was just added
+   *
+   * Emitted when an object that matches the interests of this object manager
+   * is made available.
+   */
   signals[SIGNAL_OBJECT_ADDED] = g_signal_new (
       "object-added", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
       0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_OBJECT);
 
+  /**
+   * WpObjectManager::object-removed:
+   * @self: the object manager
+   * @object: (transfer none): the managed object that is being removed
+   *
+   * Emitted when an object that was previously added on this object manager
+   * is now being removed (and most likely destroyed). At the time that this
+   * signal is emitted, the object is still alive.
+   */
   signals[SIGNAL_OBJECT_REMOVED] = g_signal_new (
       "object-removed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
       0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_OBJECT);
 
+  /**
+   * WpObjectManager::objects-changed:
+   * @self: the object manager
+   *
+   * Emitted when one or more objects have been recently added or removed
+   * from this object manager. This signal is useful to get notified only once
+   * when multiple changes happen in a short timespan. The receiving callback
+   * may retrieve the updated list of objects by calling
+   * wp_object_manager_get_objects()
+   */
   signals[SIGNAL_OBJECTS_CHANGED] = g_signal_new (
       "objects-changed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
       0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 }
 
+/**
+ * wp_object_manager_new:
+ *
+ * Constructs a new object manager.
+ *
+ * Returns: (transfer full): the newly constructed object manager
+ */
 WpObjectManager *
 wp_object_manager_new (void)
 {
   return g_object_new (WP_TYPE_OBJECT_MANAGER, NULL);
 }
 
+/**
+ * wp_object_manager_add_interest:
+ * @self: the object manager
+ * @gtype: the #GType of the objects that we are declaring interest in
+ * @constraints: (nullable): a variant of type "aa{sv}" (array of dictionaries)
+ *   with additional constraints on the managed objects
+ * @wanted_features: a set of features that will automatically be enabled
+ *   on managed objects, if they are subclasses of #WpProxy
+ *
+ * Declares interest in a certain kind of object. Interest consists of a #GType
+ * that the object must be an ancestor of (g_type_is_a must match) and
+ * optionally, a set of additional constraints on certain properties of the
+ * object.
+ *
+ * The @constraints #GVariant should contain an array of dictionaries ("aa{sv}").
+ * Each dictionary must have the following fields:
+ *  - "type" (i): The constraint type, #WpObjectManagerConstraintType
+ *  - "name" (s): The name of the constrained property
+ *  - "value" (s): The value that the property must have
+ *
+ * For example, to discover all the 'node' objects in the PipeWire graph,
+ * the following code can be used:
+ * |[
+ *   WpObjectManager *om = wp_object_manager_new ();
+ *   wp_object_manager_add_interest (om, WP_TYPE_NODE, NULL,
+ *       WP_PROXY_FEATURES_STANDARD);
+ *   wp_core_install_object_manager (core, om);
+ *   GPtrArray *nodes = wp_object_manager_get_objects (om, 0);
+ * ]|
+ *
+ * and to discover all 'port' objects that belong to a specific 'node':
+ * |[
+ *   WpObjectManager *om = wp_object_manager_new ();
+ *
+ *   GVariantBuilder b;
+ *   g_variant_builder_init (&b, G_VARIANT_TYPE ("aa{sv}"));
+ *   g_variant_builder_open (&b, G_VARIANT_TYPE_VARDICT);
+ *   g_variant_builder_add (&b, "{sv}", "type",
+ *       g_variant_new_int32 (WP_OBJECT_MANAGER_CONSTRAINT_PW_GLOBAL_PROPERTY));
+ *   g_variant_builder_add (&b, "{sv}", "name",
+ *       g_variant_new_string (PW_KEY_NODE_ID));
+ *   g_variant_builder_add (&b, "{sv}", "value",
+ *       g_variant_new_string (node_id));
+ *   g_variant_builder_close (&b);
+ *
+ *   wp_object_manager_add_interest (om, WP_TYPE_PORT,
+ *       g_variant_builder_end (&b),
+ *       WP_PROXY_FEATURES_STANDARD);
+ *
+ *   wp_core_install_object_manager (core, om);
+ *   GPtrArray *ports = wp_object_manager_get_objects (om, 0);
+ * ]|
+ */
 void
 wp_object_manager_add_interest (WpObjectManager *self,
     GType gtype, GVariant * constraints,
@@ -166,7 +284,7 @@ wp_object_manager_add_interest (WpObjectManager *self,
  * wp_object_manager_get_objects:
  * @self: the object manager
  * @type_filter: a #GType filter to get only the objects that are of this type,
- *   or 0 to return all the objects
+ *   or 0 ( %G_TYPE_INVALID ) to return all the objects
  *
  * Returns: (transfer full) (element-type GObject*): all the objects managed
  *   by this #WpObjectManager that match the @type_filter
@@ -863,8 +981,8 @@ wp_registry_remove_object (WpRegistry *reg, gpointer obj)
 }
 
 /**
- * wp_core_install_object_manager: (method)
- * @core: the core
+ * wp_core_install_object_manager:
+ * @self: the core
  * @om: (transfer none): a #WpObjectManager
  *
  * Installs the object manager on this core, activating its internal management
@@ -872,19 +990,19 @@ wp_registry_remove_object (WpRegistry *reg, gpointer obj)
  * if objects that the @om is interested in were in existence already.
  */
 void
-wp_core_install_object_manager (WpCore * core, WpObjectManager * om)
+wp_core_install_object_manager (WpCore * self, WpObjectManager * om)
 {
   WpRegistry *reg;
   guint i;
 
-  g_return_if_fail (WP_IS_CORE (core));
+  g_return_if_fail (WP_IS_CORE (self));
   g_return_if_fail (WP_IS_OBJECT_MANAGER (om));
 
-  reg = wp_core_get_registry (core);
+  reg = wp_core_get_registry (self);
 
   g_object_weak_ref (G_OBJECT (om), object_manager_destroyed, reg);
   g_ptr_array_add (reg->object_managers, om);
-  g_object_set (om, "core", core, NULL);
+  g_object_set (om, "core", self, NULL);
 
   /* add pre-existing objects to the object manager,
      in case it's interested in them */

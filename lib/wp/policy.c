@@ -6,6 +6,10 @@
  * SPDX-License-Identifier: MIT
  */
 
+/**
+ * SECTION: WpPolicy
+ */
+
 #include <pipewire/pipewire.h>
 
 #include "policy.h"
@@ -134,6 +138,12 @@ wp_policy_manager_get_instance (WpCore *core)
   return mgr;
 }
 
+/**
+ * wp_policy_manager_get_session:
+ * @self: the policy manager
+ *
+ * Returns: (transfer full) (nullable): the active session
+ */
 WpSession *
 wp_policy_manager_get_session (WpPolicyManager *self)
 {
