@@ -120,9 +120,9 @@ proxy_event_bound (void *data, uint32_t global_id)
   if (!priv->global) {
     g_autoptr (WpCore) core = g_weak_ref_get (&priv->core);
 
-    priv->global = wp_registry_prepare_new_global (wp_core_get_registry (core),
+    wp_registry_prepare_new_global (wp_core_get_registry (core),
         global_id, PW_PERM_RWX, WP_GLOBAL_FLAG_OWNED_BY_PROXY,
-        G_TYPE_FROM_INSTANCE (self), self, NULL);
+        G_TYPE_FROM_INSTANCE (self), self, NULL, &priv->global);
   }
 }
 

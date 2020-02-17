@@ -43,9 +43,10 @@ void wp_registry_clear (WpRegistry *self);
 void wp_registry_attach (WpRegistry *self, struct pw_core *pw_core);
 void wp_registry_detach (WpRegistry *self);
 
-WpGlobal * wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
+void wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
     guint32 permissions, guint32 flag, GType type,
-    WpProxy *proxy, const struct spa_dict *props);
+    WpProxy *proxy, const struct spa_dict *props,
+    WpGlobal ** new_global);
 
 gpointer wp_registry_find_object (WpRegistry *reg, GEqualFunc func,
     gconstpointer data);

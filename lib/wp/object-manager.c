@@ -529,8 +529,8 @@ registry_global (void *data, uint32_t id, uint32_t permissions,
   g_debug ("registry global:%u perm:0x%x type:%s/%u -> %s",
       id, permissions, type, version, g_type_name (gtype));
 
-  g_autoptr (WpGlobal) global = wp_registry_prepare_new_global (self, id,
-      permissions, WP_GLOBAL_FLAG_APPEARS_ON_REGISTRY, gtype, NULL, props);
+  wp_registry_prepare_new_global (self, id, permissions,
+      WP_GLOBAL_FLAG_APPEARS_ON_REGISTRY, gtype, NULL, props, NULL);
 }
 
 /* called by the registry when a global is removed */
@@ -708,26 +708,26 @@ expose_tmp_globals (WpCore *core, GAsyncResult *res, WpRegistry *self)
 
 /*
  * wp_registry_prepare_new_global:
+ * @new_global: (out) (transfer full) (optional): the new global
  *
  * This is normally called up to 2 times in the same sync cycle:
  * one from registry_global(), another from the proxy bound event
  * Unfortunately the order in which those 2 events happen is specific
  * to the implementation of the object, which is why this is implemented
  * with a temporary globals list that get exposed later to the object managers
- *
- * Returns: (transfer full): the new global
  */
-WpGlobal *
+void
 wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
     guint32 permissions, guint32 flag, GType type,
-    WpProxy *proxy, const struct spa_dict *props)
+    WpProxy *proxy, const struct spa_dict *props,
+    WpGlobal ** new_global)
 {
   g_autoptr (WpGlobal) global = NULL;
   WpCore *core = wp_registry_get_core (self);
 
-  g_return_val_if_fail (flag != 0, NULL);
-  g_return_val_if_fail (self->globals->len <= id ||
-      g_ptr_array_index (self->globals, id) == NULL, NULL);
+  g_return_if_fail (flag != 0);
+  g_return_if_fail (self->globals->len <= id ||
+      g_ptr_array_index (self->globals, id) == NULL);
 
   for (guint i = 0; i < self->tmp_globals->len; i++) {
     WpGlobal *g = g_ptr_array_index (self->tmp_globals, i);
@@ -770,7 +770,7 @@ wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
       global->type = type;
 
     if (proxy) {
-      g_return_val_if_fail (global->proxy == NULL, NULL);
+      g_return_if_fail (global->proxy == NULL);
       global->proxy = proxy;
     }
 
@@ -778,7 +778,8 @@ wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
       wp_properties_update_from_dict (global->properties, props);
   }
 
-  return g_steal_pointer (&global);
+  if (new_global)
+    *new_global = g_steal_pointer (&global);
 }
 
 /*
