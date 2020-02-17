@@ -570,7 +570,8 @@ static const struct pw_registry_events registry_events = {
 void
 wp_registry_init (WpRegistry *self)
 {
-  self->globals = g_ptr_array_new ();
+  self->globals =
+      g_ptr_array_new_with_free_func ((GDestroyNotify) wp_global_unref);
   self->tmp_globals =
       g_ptr_array_new_with_free_func ((GDestroyNotify) wp_global_unref);
   self->objects = g_ptr_array_new_with_free_func (g_object_unref);
