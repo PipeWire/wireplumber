@@ -723,7 +723,7 @@ wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
     WpProxy *proxy, const struct spa_dict *props)
 {
   g_autoptr (WpGlobal) global = NULL;
-  WpCore *core = SPA_CONTAINER_OF (self, WpCore, registry);
+  WpCore *core = wp_registry_get_core (self);
 
   g_return_val_if_fail (flag != 0, NULL);
   g_return_val_if_fail (self->globals->len <= id ||
@@ -782,8 +782,8 @@ wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
 }
 
 /*
- * wp_core_find_object:
- * @core: the core
+ * wp_registry_find_object:
+ * @reg: the registry
  * @func: (scope call): a function that takes the object being searched
  *   as the first argument and @data as the second. it should return TRUE if
  *   the object is found or FALSE otherwise
@@ -795,15 +795,10 @@ wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
  *   or NULL if not found
  */
 gpointer
-wp_core_find_object (WpCore * core, GEqualFunc func, gconstpointer data)
+wp_registry_find_object (WpRegistry *reg, GEqualFunc func, gconstpointer data)
 {
-  WpRegistry *reg;
   GObject *object;
   guint i;
-
-  g_return_val_if_fail (WP_IS_CORE (core), NULL);
-
-  reg = &core->registry;
 
   /* prevent bad things when called from within wp_registry_clear() */
   if (G_UNLIKELY (!reg->objects))
@@ -819,8 +814,8 @@ wp_core_find_object (WpCore * core, GEqualFunc func, gconstpointer data)
 }
 
 /*
- * wp_core_register_object:
- * @core: the core
+ * wp_registry_register_object:
+ * @reg: the registry
  * @obj: (transfer full) (type GObject*): the object to register
  *
  * Registers @obj with the core, making it appear on #WpObjectManager
@@ -828,14 +823,9 @@ wp_core_find_object (WpCore * core, GEqualFunc func, gconstpointer data)
  * until it is removed.
  */
 void
-wp_core_register_object (WpCore * core, gpointer obj)
+wp_registry_register_object (WpRegistry *reg, gpointer obj)
 {
-  WpRegistry *reg;
-
-  g_return_if_fail (WP_IS_CORE (core));
   g_return_if_fail (G_IS_OBJECT (obj));
-
-  reg = &core->registry;
 
   /* prevent bad things when called from within wp_registry_clear() */
   if (G_UNLIKELY (!reg->objects)) {
@@ -850,21 +840,16 @@ wp_core_register_object (WpCore * core, gpointer obj)
 }
 
 /*
- * wp_core_remove_object:
- * @core: the core
+ * wp_registry_remove_object:
+ * @reg: the registry
  * @obj: (transfer none) (type GObject*): a pointer to the object to remove
  *
  * Detaches and unrefs the specified object from this core
  */
 void
-wp_core_remove_object (WpCore * core, gpointer obj)
+wp_registry_remove_object (WpRegistry *reg, gpointer obj)
 {
-  WpRegistry *reg;
-
-  g_return_if_fail (WP_IS_CORE (core));
   g_return_if_fail (G_IS_OBJECT (obj));
-
-  reg = &core->registry;
 
   /* prevent bad things when called from within wp_registry_clear() */
   if (G_UNLIKELY (!reg->objects))
@@ -894,7 +879,7 @@ wp_core_install_object_manager (WpCore * core, WpObjectManager * om)
   g_return_if_fail (WP_IS_CORE (core));
   g_return_if_fail (WP_IS_OBJECT_MANAGER (om));
 
-  reg = &core->registry;
+  reg = wp_core_get_registry (core);
 
   g_object_weak_ref (G_OBJECT (om), object_manager_destroyed, reg);
   g_ptr_array_add (reg->object_managers, om);

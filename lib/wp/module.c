@@ -139,7 +139,8 @@ wp_module_load (WpCore * core, const gchar * abi, const gchar * module_name,
     return NULL;
   }
 
-  wp_core_register_object (core, g_object_ref (module));
+  wp_registry_register_object (wp_core_get_registry (core),
+      g_object_ref (module));
 
   return module;
 }

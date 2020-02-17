@@ -72,7 +72,7 @@ wp_factory_new (WpCore * core, const gchar * name, WpFactoryFunc func)
 
   g_info ("WpFactory:%p new factory: %s", f, name);
 
-  wp_core_register_object (core, f);
+  wp_registry_register_object (wp_core_get_registry (core), f);
 
   return f;
 }
@@ -124,8 +124,8 @@ wp_factory_find (WpCore * core, const gchar * name)
 {
   GObject *f;
   GQuark q = g_quark_from_string (name);
-  f = wp_core_find_object (core, (GEqualFunc) find_factory_func,
-      GUINT_TO_POINTER (q));
+  f = wp_registry_find_object (wp_core_get_registry (core),
+      (GEqualFunc) find_factory_func, GUINT_TO_POINTER (q));
   return f ? WP_FACTORY (f) : NULL;
 }
 

@@ -87,10 +87,12 @@ wp_configuration_get_instance (WpCore *core)
 
   g_return_val_if_fail (WP_IS_CORE (core), NULL);
 
-  self = wp_core_find_object (core, (GEqualFunc) WP_IS_CONFIGURATION, NULL);
+  self = wp_registry_find_object (wp_core_get_registry (core),
+      (GEqualFunc) WP_IS_CONFIGURATION, NULL);
   if (!self) {
     self = g_object_new (WP_TYPE_CONFIGURATION, NULL);
-    wp_core_register_object (core, g_object_ref (self));
+    wp_registry_register_object (wp_core_get_registry (core),
+        g_object_ref (self));
   }
 
   return self;

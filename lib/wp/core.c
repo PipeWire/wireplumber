@@ -73,6 +73,28 @@ wp_loop_source_new (void)
  * WpCore
  */
 
+struct _WpCore
+{
+  GObject parent;
+
+  /* main loop integration */
+  GMainContext *context;
+
+  /* extra properties */
+  WpProperties *properties;
+
+  /* pipewire main objects */
+  struct pw_context *pw_context;
+  struct pw_core *pw_core;
+
+  /* pipewire main listeners */
+  struct spa_hook core_listener;
+  struct spa_hook proxy_core_listener;
+
+  WpRegistry registry;
+  GHashTable *async_tasks; // <int seq, GTask*>
+};
+
 enum {
   PROP_0,
   PROP_CONTEXT,
@@ -88,7 +110,6 @@ enum {
 };
 
 static guint32 signals[NUM_SIGNALS];
-
 
 G_DEFINE_TYPE (WpCore, wp_core, G_TYPE_OBJECT)
 
@@ -401,4 +422,16 @@ wp_core_sync_finish (WpCore * self, GAsyncResult * res, GError ** error)
   g_return_val_if_fail (g_task_is_valid (res, self), FALSE);
 
   return g_task_propagate_boolean (G_TASK (res), error);
+}
+
+WpRegistry *
+wp_core_get_registry (WpCore * self)
+{
+  return &self->registry;
+}
+
+WpCore *
+wp_registry_get_core (WpRegistry * self)
+{
+  return SPA_CONTAINER_OF (self, WpCore, registry);
 }

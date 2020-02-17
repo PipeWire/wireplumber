@@ -107,8 +107,8 @@ wp_policy_manager_get_instance (WpCore *core)
 
   g_return_val_if_fail (WP_IS_CORE (core), NULL);
 
-  mgr = wp_core_find_object (core, (GEqualFunc) WP_IS_POLICY_MANAGER,
-      NULL);
+  mgr = wp_registry_find_object (wp_core_get_registry (core),
+      (GEqualFunc) WP_IS_POLICY_MANAGER, NULL);
   if (G_UNLIKELY (!mgr)) {
     mgr = g_object_new (WP_TYPE_POLICY_MANAGER, NULL);
 
@@ -127,7 +127,8 @@ wp_policy_manager_get_instance (WpCore *core)
         WP_PROXY_FEATURES_STANDARD | WP_SESSION_FEATURE_DEFAULT_ENDPOINT);
     wp_core_install_object_manager (core, mgr->sessions_om);
 
-    wp_core_register_object (core, g_object_ref (mgr));
+    wp_registry_register_object (wp_core_get_registry (core),
+        g_object_ref (mgr));
   }
 
   return mgr;
@@ -403,7 +404,8 @@ wp_policy_unregister (WpPolicy *self)
 
   core = g_weak_ref_get (&priv->core);
   if (core) {
-    mgr = wp_core_find_object (core, (GEqualFunc) WP_IS_POLICY_MANAGER, NULL);
+    mgr = wp_registry_find_object (wp_core_get_registry (core),
+        (GEqualFunc) WP_IS_POLICY_MANAGER, NULL);
     if (G_UNLIKELY (!mgr)) {
       g_critical ("WpPolicy:%p seems registered, but the policy manager "
           "is absent", self);
@@ -429,7 +431,8 @@ wp_policy_notify_changed (WpPolicy *self)
 
   core = g_weak_ref_get (&priv->core);
   if (core) {
-    mgr = wp_core_find_object (core, (GEqualFunc) WP_IS_POLICY_MANAGER, NULL);
+    mgr = wp_registry_find_object (wp_core_get_registry (core),
+        (GEqualFunc) WP_IS_POLICY_MANAGER, NULL);
     if (G_UNLIKELY (!mgr)) {
       g_critical ("WpPolicy:%p seems registered, but the policy manager "
           "is absent", self);
@@ -464,8 +467,8 @@ wp_policy_find_endpoint (WpCore *core, GVariant *props,
   g_return_val_if_fail (g_variant_is_of_type (props, G_VARIANT_TYPE_VARDICT), NULL);
   g_return_val_if_fail (stream_id != NULL, NULL);
 
-  mgr = wp_core_find_object (core,
-      (GEqualFunc) WP_IS_POLICY_MANAGER, NULL);
+  mgr = wp_registry_find_object (wp_core_get_registry (core),
+        (GEqualFunc) WP_IS_POLICY_MANAGER, NULL);
   if (mgr) {
     for (l = g_list_first (mgr->policies); l; l = g_list_next (l)) {
       p = WP_POLICY (l->data);

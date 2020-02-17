@@ -47,34 +47,16 @@ WpGlobal * wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
     guint32 permissions, guint32 flag, GType type,
     WpProxy *proxy, const struct spa_dict *props);
 
+gpointer wp_registry_find_object (WpRegistry *reg, GEqualFunc func,
+    gconstpointer data);
+void wp_registry_register_object (WpRegistry *reg, gpointer obj);
+void wp_registry_remove_object (WpRegistry *reg, gpointer obj);
+
+WpCore * wp_registry_get_core (WpRegistry * self);
+
 /* core */
 
-struct _WpCore
-{
-  GObject parent;
-
-  /* main loop integration */
-  GMainContext *context;
-
-  /* extra properties */
-  WpProperties *properties;
-
-  /* pipewire main objects */
-  struct pw_context *pw_context;
-  struct pw_core *pw_core;
-
-  /* pipewire main listeners */
-  struct spa_hook core_listener;
-  struct spa_hook proxy_core_listener;
-
-  WpRegistry registry;
-  GHashTable *async_tasks; // <int seq, GTask*>
-};
-
-gpointer wp_core_find_object (WpCore * self, GEqualFunc func,
-    gconstpointer data);
-void wp_core_register_object (WpCore * self, gpointer obj);
-void wp_core_remove_object (WpCore * self, gpointer obj);
+WpRegistry * wp_core_get_registry (WpCore * self);
 
 /* global */
 

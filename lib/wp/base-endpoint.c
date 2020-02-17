@@ -372,7 +372,7 @@ wp_base_endpoint_register (WpBaseEndpoint * self)
   g_info ("WpBaseEndpoint:%p registering '%s' (%s)", self, priv->name,
       priv->media_class);
 
-  wp_core_register_object (core, g_object_ref (self));
+  wp_registry_register_object (wp_core_get_registry (core), g_object_ref (self));
 }
 
 /**
@@ -402,7 +402,7 @@ wp_base_endpoint_unregister (WpBaseEndpoint * self)
     g_info ("WpBaseEndpoint:%p unregistering '%s' (%s)", self, priv->name,
         priv->media_class);
 
-    wp_core_remove_object (core, self);
+    wp_registry_remove_object (wp_core_get_registry (core), self);
   }
 }
 
