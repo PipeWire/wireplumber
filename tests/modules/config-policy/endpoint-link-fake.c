@@ -113,7 +113,7 @@ wp_fake_endpoint_link_init_async (GAsyncInitable *initable, int io_priority,
   g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
   g_return_if_fail (core);
 
-  wp_core_idle_add (core, wp_fake_endpoint_link_finish_creation, self, NULL);
+  wp_core_idle_add (core, NULL, wp_fake_endpoint_link_finish_creation, self, NULL);
 }
 
 static void

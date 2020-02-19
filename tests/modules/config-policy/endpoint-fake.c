@@ -171,7 +171,7 @@ wp_fake_endpoint_init_async (GAsyncInitable *initable, int io_priority,
   g_autoptr (WpCore) core = wp_base_endpoint_get_core (WP_BASE_ENDPOINT(self));
   g_return_if_fail (core);
 
-  wp_core_idle_add (core, wp_fake_endpoint_finish_creation, self, NULL);
+  wp_core_idle_add (core, NULL, wp_fake_endpoint_finish_creation, self, NULL);
 }
 
 static void

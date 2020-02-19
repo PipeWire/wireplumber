@@ -460,6 +460,7 @@ wp_core_is_connected (WpCore * self)
 /**
  * wp_core_idle_add:
  * @self: the core
+ * @source: (out) (optional): the source
  * @function: (scope notified): the function to call
  * @data: (closure): data to pass to @function
  * @destroy: (nullable): a function to destroy @data
@@ -468,26 +469,27 @@ wp_core_is_connected (WpCore * self)
  * one used by this core. This is essentially the same as g_idle_add_full(),
  * but it adds the created #GSource on the #GMainContext used by this core
  * instead of the default context.
- *
- * Returns: the ID (greater than 0) of the event source
  */
-guint
-wp_core_idle_add (WpCore * self, GSourceFunc function, gpointer data,
-    GDestroyNotify destroy)
+void
+wp_core_idle_add (WpCore * self, GSource **source, GSourceFunc function,
+    gpointer data, GDestroyNotify destroy)
 {
-  g_autoptr (GSource) source = NULL;
+  g_autoptr (GSource) s = NULL;
 
-  g_return_val_if_fail (WP_IS_CORE (self), 0);
+  g_return_if_fail (WP_IS_CORE (self));
 
-  source = g_idle_source_new ();
-  g_source_set_callback (source, function, data, destroy);
-  g_source_attach (source, self->context);
-  return g_source_get_id (source);
+  s = g_idle_source_new ();
+  g_source_set_callback (s, function, data, destroy);
+  g_source_attach (s, self->context);
+
+  if (source)
+    *source = g_source_ref (s);
 }
 
 /**
  * wp_core_timeout_add:
  * @self: the core
+ * @source: (out) (optional): the source
  * @timeout_ms: the timeout in milliseconds
  * @function: (scope notified): the function to call
  * @data: (closure): data to pass to @function
@@ -500,21 +502,21 @@ wp_core_idle_add (WpCore * self, GSourceFunc function, gpointer data,
  * will be at the end of the first interval. This is essentially the same as
  * g_timeout_add_full(), but it adds the created #GSource on the #GMainContext
  * used by this core instead of the default context.
- *
- * Returns: the ID (greater than 0) of the event source
  */
-guint
-wp_core_timeout_add (WpCore * self, guint64 timeout_ms,
+void
+wp_core_timeout_add (WpCore * self, GSource **source, guint64 timeout_ms,
     GSourceFunc function, gpointer data, GDestroyNotify destroy)
 {
-  g_autoptr (GSource) source = NULL;
+  g_autoptr (GSource) s = NULL;
 
-  g_return_val_if_fail (WP_IS_CORE (self), 0);
+  g_return_if_fail (WP_IS_CORE (self));
 
-  source = g_timeout_source_new (timeout_ms);
-  g_source_set_callback (source, function, data, destroy);
-  g_source_attach (source, self->context);
-  return g_source_get_id (source);
+  s = g_timeout_source_new (timeout_ms);
+  g_source_set_callback (s, function, data, destroy);
+  g_source_attach (s, self->context);
+
+  if (source)
+    *source = g_source_ref (s);
 }
 
 /**

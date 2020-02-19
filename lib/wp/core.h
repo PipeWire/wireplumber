@@ -50,11 +50,11 @@ gboolean wp_core_is_connected (WpCore * self);
 /* Callback */
 
 WP_API
-guint wp_core_idle_add (WpCore * self, GSourceFunc function, gpointer data,
-    GDestroyNotify destroy);
+void wp_core_idle_add (WpCore * self, GSource **source, GSourceFunc function,
+    gpointer data, GDestroyNotify destroy);
 
 WP_API
-guint wp_core_timeout_add (WpCore * self, guint64 timeout_ms,
+void wp_core_timeout_add (WpCore * self, GSource **source, guint64 timeout_ms,
     GSourceFunc function, gpointer data, GDestroyNotify destroy);
 
 WP_API
