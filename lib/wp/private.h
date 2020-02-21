@@ -13,6 +13,7 @@
 #include "object-manager.h"
 #include "proxy.h"
 #include "endpoint.h"
+#include "endpoint-stream.h"
 #include "si-interfaces.h"
 
 #include <stdint.h>
@@ -181,6 +182,15 @@ G_DECLARE_FINAL_TYPE (WpImplEndpoint, wp_impl_endpoint,
                       WP, IMPL_ENDPOINT, WpEndpoint)
 
 WpImplEndpoint * wp_impl_endpoint_new (WpCore * core, WpSiEndpoint * item);
+
+/* impl endpoint stream */
+
+#define WP_TYPE_IMPL_ENDPOINT_STREAM (wp_impl_endpoint_stream_get_type ())
+G_DECLARE_FINAL_TYPE (WpImplEndpointStream, wp_impl_endpoint_stream,
+                      WP, IMPL_ENDPOINT_STREAM, WpEndpointStream)
+
+WpImplEndpointStream * wp_impl_endpoint_stream_new (WpCore * core,
+    WpSiStream * item);
 
 G_END_DECLS
 
