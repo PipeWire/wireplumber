@@ -74,8 +74,8 @@ wp_config_static_nodes_context_create_node (WpConfigStaticNodesContext *self,
     return;
   }
 
-  /* export to pipewire by requesting FEATURE_BOUND */
-  wp_proxy_augment (node, WP_PROXY_FEATURE_BOUND, NULL, on_node_created, self);
+  /* export */
+  wp_proxy_augment (node, WP_PROXY_FEATURES_STANDARD, NULL, on_node_created, self);
 }
 
 static void
