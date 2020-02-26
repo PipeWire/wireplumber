@@ -240,3 +240,10 @@ wp_config_static_nodes_context_new (WpCore *core)
     "core", core,
     NULL);
 }
+
+guint
+wp_config_static_nodes_context_get_length (WpConfigStaticNodesContext *self)
+{
+  g_return_val_if_fail (WP_IS_CONFIG_STATIC_NODES_CONTEXT (self), 0);
+  return self->static_nodes->len;
+}

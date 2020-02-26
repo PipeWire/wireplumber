@@ -19,6 +19,9 @@ G_DECLARE_FINAL_TYPE (WpConfigStaticNodesContext, wp_config_static_nodes_context
 
 WpConfigStaticNodesContext * wp_config_static_nodes_context_new (WpCore *core);
 
+guint wp_config_static_nodes_context_get_length (
+    WpConfigStaticNodesContext *self);
+
 G_END_DECLS
 
 #endif
