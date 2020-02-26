@@ -162,9 +162,10 @@ wp_endpoint_audiotestsrc_init_async (GAsyncInitable *initable, int io_priority,
       cancellable, callback, data);
 
   g_autoptr (WpCore) core = wp_base_endpoint_get_core (WP_BASE_ENDPOINT(self));
-  if (core)
-    wp_core_sync (core, NULL,
-        (GAsyncReadyCallback) wp_endpoint_audiotestsrc_finish_creation, self);
+  g_return_if_fail (core);
+
+  wp_core_sync (core, NULL,
+      (GAsyncReadyCallback) wp_endpoint_audiotestsrc_finish_creation, self);
 }
 
 static void
