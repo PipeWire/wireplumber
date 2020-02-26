@@ -295,3 +295,10 @@ wp_config_endpoint_context_new (WpCore *core)
     "core", core,
     NULL);
 }
+
+guint
+wp_config_endpoint_context_get_length (WpConfigEndpointContext *self)
+{
+  g_return_val_if_fail (WP_IS_CONFIG_ENDPOINT_CONTEXT (self), 0);
+  return g_hash_table_size (self->registered_endpoints);
+}
