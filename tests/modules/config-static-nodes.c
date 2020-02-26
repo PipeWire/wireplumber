@@ -15,109 +15,72 @@
 
 typedef struct {
   WpTestServer server;
-
-  GMutex mutex;
-  GCond cond;
-  gboolean created;
-
-  GThread *loop_thread;
   GMainContext *context;
   GMainLoop *loop;
-
+  GSource *timeout_source;
   WpCore *core;
 } TestConfigStaticNodesFixture;
 
-void wait_for_created (TestConfigStaticNodesFixture *self)
+static gboolean
+timeout_callback (TestConfigStaticNodesFixture *self)
 {
-  g_mutex_lock (&self->mutex);
-  while (!self->created)
-    g_cond_wait (&self->cond, &self->mutex);
-  self->created = FALSE;
-  g_mutex_unlock (&self->mutex);
+  g_message ("test timed out");
+  g_test_fail ();
+  g_main_loop_quit (self->loop);
+
+  return G_SOURCE_REMOVE;
 }
 
-void signal_created (TestConfigStaticNodesFixture *self)
+static void
+disconnected_callback (WpCore *core, TestConfigStaticNodesFixture *self)
 {
-  g_mutex_lock (&self->mutex);
-  self->created = TRUE;
-  g_cond_signal (&self->cond);
-  g_mutex_unlock (&self->mutex);
-}
-
-static void *
-loop_thread_start (void *d)
-{
-  TestConfigStaticNodesFixture *self = d;
-
-  /* Create the main loop using the default thread context */
-  self->context = g_main_context_get_thread_default ();
-  self->loop = g_main_loop_new (self->context, FALSE);
-
-  /* Create the server */
-  wp_test_server_setup (&self->server);
-
-  /* Load needed plugins on the server side */
-  pw_context_add_spa_lib (self->server.context, "audio.convert*",
-      "audioconvert/libspa-audioconvert");
-  pw_context_load_module (self->server.context,
-      "libpipewire-module-spa-node-factory", NULL, NULL);
-
-  /* Create the core and connect to the server */
-  g_autoptr (WpProperties) props = NULL;
-  props = wp_properties_new (PW_KEY_REMOTE_NAME, self->server.name, NULL);
-  self->core = wp_core_new (self->context, props);
-
-  /* Signal we are done */
-  signal_created (self);
-
-  /* Run the main loop */
-  g_main_loop_run (self->loop);
-
-  /* Clean up */
-  g_clear_object (&self->core);
-  wp_test_server_teardown (&self->server);
-  g_clear_pointer (&self->loop, g_main_loop_unref);
-  return NULL;
+  g_message ("core disconnected");
+  g_test_fail ();
+  g_main_loop_quit (self->loop);
 }
 
 static void
 config_static_nodes_setup (TestConfigStaticNodesFixture *self,
     gconstpointer data)
 {
-  /* Data */
-  g_mutex_init (&self->mutex);
-  g_cond_init (&self->cond);
-  self->created = FALSE;
+  g_autoptr (WpProperties) props = NULL;
 
-  /* Initialize main loop, server and core in a thread */
-  self->loop_thread = g_thread_new("loop-thread", &loop_thread_start, self);
+  /* Create the server and load audioconvert plugin */
+  wp_test_server_setup (&self->server);
+  pw_thread_loop_lock (self->server.thread_loop);
+  pw_context_add_spa_lib (self->server.context, "audio.convert*",
+      "audioconvert/libspa-audioconvert");
+  pw_context_load_module (self->server.context,
+      "libpipewire-module-spa-node-factory", NULL, NULL);
+  pw_thread_loop_unlock (self->server.thread_loop);
 
-  /* Wait for everything to be created */
-  wait_for_created (self);
-}
+  /* Create the main context and loop */
+  self->context = g_main_context_new ();
+  self->loop = g_main_loop_new (self->context, FALSE);
+  g_main_context_push_thread_default (self->context);
 
-static gboolean
-loop_thread_stop (gpointer data)
-{
-  TestConfigStaticNodesFixture *self = data;
-  g_main_loop_quit (self->loop);
-  return G_SOURCE_REMOVE;
+  /* Set a timeout source */
+  self->timeout_source = g_timeout_source_new_seconds (3);
+  g_source_set_callback (self->timeout_source, (GSourceFunc) timeout_callback,
+      self, NULL);
+  g_source_attach (self->timeout_source, self->context);
+
+  /* Create the core */
+  props = wp_properties_new (PW_KEY_REMOTE_NAME, self->server.name, NULL);
+  self->core = wp_core_new (self->context, props);
+  g_signal_connect (self->core, "disconnected",
+      (GCallback) disconnected_callback, self);
 }
 
 static void
 config_static_nodes_teardown (TestConfigStaticNodesFixture *self,
     gconstpointer data)
 {
-  /* Stop the main loop and wait until it is done */
-  g_autoptr (GSource) source = g_idle_source_new ();
-  g_source_set_callback (source, loop_thread_stop, self, NULL);
-  g_source_attach (source, self->context);
-  g_thread_join (self->loop_thread);
-
-  /* Data */
-  g_mutex_clear (&self->mutex);
-  g_cond_clear (&self->cond);
-  self->created = FALSE;
+  g_clear_object (&self->core);
+  g_clear_pointer (&self->timeout_source, g_source_unref);
+  g_clear_pointer (&self->loop, g_main_loop_unref);
+  g_clear_pointer (&self->context, g_main_context_unref);
+  wp_test_server_teardown (&self->server);
 }
 
 static void
@@ -125,7 +88,7 @@ on_node_created (WpConfigStaticNodesContext *ctx, WpProxy *proxy,
     TestConfigStaticNodesFixture *f)
 {
   g_assert_nonnull (proxy);
-  signal_created (f);
+  g_main_loop_quit (f->loop);
 }
 
 static void
@@ -140,13 +103,19 @@ basic (TestConfigStaticNodesFixture *f, gconstpointer data)
   g_autoptr (WpConfigStaticNodesContext) ctx =
       wp_config_static_nodes_context_new (f->core);
   g_assert_nonnull (ctx);
+  g_assert_cmpint (wp_config_static_nodes_context_get_length (ctx), ==, 0);
+
+  /* Add a handler to stop the main loop when a node is created */
   g_signal_connect (ctx, "node-created", (GCallback) on_node_created, f);
 
   /* Connect */
   g_assert_true (wp_core_connect (f->core));
 
-  /* Wait for the node to be created */
-  wait_for_created (f);
+  /* Run the main loop */
+  g_main_loop_run (f->loop);
+
+  /* Check if the node was created */
+  g_assert_cmpint (wp_config_static_nodes_context_get_length (ctx), ==, 1);
 }
 
 int
