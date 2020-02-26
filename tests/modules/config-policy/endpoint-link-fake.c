@@ -88,12 +88,15 @@ wp_fake_endpoint_link_finalize (GObject * object)
   G_OBJECT_CLASS (wp_fake_endpoint_link_parent_class)->finalize (object);
 }
 
-static void
-wp_fake_endpoint_link_finish_creation (WpCore *core, GAsyncResult *res,
-    WpFakeEndpointLink *self)
+static gboolean
+wp_fake_endpoint_link_finish_creation (gpointer d)
 {
+  WpFakeEndpointLink *self = d;
+
   g_task_return_boolean (self->init_task, TRUE);
   g_clear_object (&self->init_task);
+
+  return FALSE;
 }
 
 static void
@@ -108,9 +111,9 @@ wp_fake_endpoint_link_init_async (GAsyncInitable *initable, int io_priority,
       io_priority, cancellable, callback, data);
 
   g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
-  if (core)
-    wp_core_sync (core, NULL,
-        (GAsyncReadyCallback) wp_fake_endpoint_link_finish_creation, self);
+  g_return_if_fail (core);
+
+  wp_core_idle_add (core, wp_fake_endpoint_link_finish_creation, self, NULL);
 }
 
 static void

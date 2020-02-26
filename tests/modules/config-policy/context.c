@@ -20,65 +20,27 @@ struct _WpConfigPolicyContext
 
   /* Props */
   GWeakRef core;
+  GMainLoop *loop;
   char *config_path;
 
-  GMutex mutex;
-  GCond cond;
-  WpBaseEndpoint *endpoint;
-  WpBaseEndpointLink *link;
+  WpConfigPolicy *policy;
+  GWeakRef last_endpoint;
 };
 
 enum {
   PROP_0,
   PROP_CORE,
+  PROP_LOOP,
   PROP_CONFIG_PATH,
 };
 
 G_DEFINE_TYPE (WpConfigPolicyContext, wp_config_policy_context, G_TYPE_OBJECT);
 
-static WpBaseEndpoint *
-wait_for_endpoint (WpConfigPolicyContext *self, WpBaseEndpointLink **link)
-{
-  gint64 end_time;
-  g_mutex_lock (&self->mutex);
-
-  /* Wait for endpoint to be set */
-  end_time = g_get_monotonic_time () + 3 * G_TIME_SPAN_SECOND;
-  while (!self->endpoint)
-    if (!g_cond_wait_until (&self->cond, &self->mutex, end_time)) {
-      /* Abort when timeout has passed */
-      g_warning ("Aborting due to timeout when waiting for endpoint");
-      abort();
-    }
-
-  /* Set endpoint to a local value and clear global value */
-  WpBaseEndpoint *endpoint = g_object_ref (self->endpoint);
-  g_clear_object (&self->endpoint);
-
-  /* Set link to a local value and clear global value */
-  if (link)
-    *link = self->link ? g_object_ref (self->link) : NULL;
-  g_clear_object (&self->link);
-
-  g_mutex_unlock (&self->mutex);
-
-  return endpoint;
-}
-
 static void
-on_done (WpConfigPolicy *cp, WpBaseEndpoint *ep, WpBaseEndpointLink *link,
-    WpConfigPolicyContext *self)
+on_done (WpConfigPolicyContext *self)
 {
-  if (!ep)
-    return;
-
-  g_mutex_lock (&self->mutex);
-
-  self->endpoint = g_object_ref (ep);
-  self->link = link ? g_object_ref (link) : NULL;
-  g_cond_signal (&self->cond);
-
-  g_mutex_unlock (&self->mutex);
+  g_return_if_fail (self->loop);
+  g_main_loop_quit (self->loop);
 }
 
 static void
@@ -97,11 +59,12 @@ wp_config_policy_context_constructed (GObject *object)
   wp_configuration_add_path (config, self->config_path);
 
   /* Register the config policy */
-  g_autoptr (WpConfigPolicy) cp = wp_config_policy_new (config);
-  wp_policy_register (WP_POLICY (cp), core);
+  self->policy = wp_config_policy_new (config);
+  wp_policy_register (WP_POLICY (self->policy), core);
 
-  /* Handle done and link-created signals */
-  g_signal_connect (cp, "done", (GCallback) on_done, self);
+  /* Handle the done signal */
+  g_signal_connect_object (self->policy, "done", (GCallback) on_done, self,
+      G_CONNECT_SWAPPED);
 
   G_OBJECT_CLASS (wp_config_policy_context_parent_class)->constructed (object);
 }
@@ -115,6 +78,9 @@ wp_config_policy_context_set_property (GObject * object, guint property_id,
   switch (property_id) {
   case PROP_CORE:
     g_weak_ref_set (&self->core, g_value_get_object (value));
+    break;
+  case PROP_LOOP:
+    self->loop = g_value_get_pointer (value);
     break;
   case PROP_CONFIG_PATH:
     self->config_path = g_value_dup_string (value);
@@ -135,6 +101,9 @@ wp_config_policy_context_get_property (GObject * object, guint property_id,
   case PROP_CORE:
     g_value_take_object (value, g_weak_ref_get (&self->core));
     break;
+  case PROP_LOOP:
+    g_value_set_pointer (value, self->loop);
+    break;
   case PROP_CONFIG_PATH:
     g_value_set_string (value, self->config_path);
     break;
@@ -149,9 +118,13 @@ wp_config_policy_context_finalize (GObject * object)
 {
   WpConfigPolicyContext *self = WP_CONFIG_POLICY_CONTEXT (object);
 
-  g_mutex_clear (&self->mutex);
-  g_cond_clear (&self->cond);
+  g_weak_ref_clear (&self->last_endpoint);
 
+  if (self->policy)
+    wp_policy_unregister (WP_POLICY (self->policy));
+  g_clear_object (&self->policy);
+
+  self->loop = NULL;
   g_weak_ref_clear (&self->core);
 
   G_OBJECT_CLASS (wp_config_policy_context_parent_class)->finalize (object);
@@ -161,9 +134,9 @@ static void
 wp_config_policy_context_init (WpConfigPolicyContext * self)
 {
   g_weak_ref_init (&self->core, NULL);
+  self->loop = NULL;
 
-  g_mutex_init (&self->mutex);
-  g_cond_init (&self->cond);
+  g_weak_ref_init (&self->last_endpoint, NULL);
 }
 
 static void
@@ -180,6 +153,10 @@ wp_config_policy_context_class_init (WpConfigPolicyContextClass * klass)
       g_param_spec_object ("core", "core", "The wireplumber core", WP_TYPE_CORE,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (object_class, PROP_LOOP,
+      g_param_spec_pointer ("loop", "loop", "The main loop where pipewire runs",
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
   g_object_class_install_property (object_class, PROP_CONFIG_PATH,
       g_param_spec_string ("config-path", "config-path",
           "The config-path of the context", NULL,
@@ -187,23 +164,29 @@ wp_config_policy_context_class_init (WpConfigPolicyContextClass * klass)
 }
 
 WpConfigPolicyContext *
-wp_config_policy_context_new (WpCore *core, const char *config_path)
+wp_config_policy_context_new (WpCore *core, GMainLoop *loop,
+    const char *config_path)
 {
   return g_object_new (wp_config_policy_context_get_type (),
     "core", core,
+    "loop", loop,
     "config-path", config_path,
     NULL);
 }
 
 static void
-on_endpoint_created (GObject *initable, GAsyncResult *res, gpointer d)
+on_endpoint_created (GObject *initable, GAsyncResult *res, gpointer data)
 {
-  g_autoptr (WpBaseEndpoint) ep = NULL;
+  WpConfigPolicyContext *self = data;
   GError *error = NULL;
+  g_autoptr (WpBaseEndpoint) ep = NULL;
 
   ep = wp_base_endpoint_new_finish (initable, res, &error);
   g_return_if_fail (!error);
   g_return_if_fail (ep);
+
+  /* Update last endpoint weak ref */
+  g_weak_ref_set (&self->last_endpoint, ep);
 
   /* Register the endpoint */
   wp_base_endpoint_register (ep);
@@ -212,7 +195,7 @@ on_endpoint_created (GObject *initable, GAsyncResult *res, gpointer d)
 WpBaseEndpoint *
 wp_config_policy_context_add_endpoint (WpConfigPolicyContext *self,
     const char *name, const char *media_class, guint direction,
-    WpProperties *props, const char *role, guint streams, WpBaseEndpointLink **link)
+    WpProperties *props, const char *role, guint streams)
 {
   g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
   g_return_val_if_fail (core, NULL);
@@ -220,7 +203,8 @@ wp_config_policy_context_add_endpoint (WpConfigPolicyContext *self,
   wp_fake_endpoint_new_async (core, name, media_class, direction, props, role,
       streams, on_endpoint_created, self);
 
-  return wait_for_endpoint (self, link);
+  g_main_loop_run (self->loop);
+  return g_weak_ref_get(&self->last_endpoint);
 }
 
 void
@@ -230,6 +214,5 @@ wp_config_policy_context_remove_endpoint (WpConfigPolicyContext *self,
   g_return_if_fail (ep);
 
   wp_base_endpoint_unregister (ep);
-
-  wait_for_endpoint (self, NULL);
+  g_main_loop_run (self->loop);
 }

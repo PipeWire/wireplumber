@@ -37,8 +37,8 @@ struct _WpConfigPolicy
   WpConfiguration *config;
 
   gboolean pending_rescan;
-  WpBaseEndpoint *pending_endpoint;
-  gboolean endpoint_handled;
+  gboolean pending_links;
+  gboolean pending_done;
 };
 
 enum {
@@ -56,9 +56,29 @@ static guint signals[N_SIGNALS];
 G_DEFINE_TYPE (WpConfigPolicy, wp_config_policy, WP_TYPE_POLICY)
 
 static void
-on_endpoint_link_created (GObject *initable, GAsyncResult *res, gpointer p)
+wp_config_policy_rescan_done (WpConfigPolicy *self)
 {
-  WpConfigPolicy *self = p;
+  /* Reset pending flags */
+  self->pending_rescan = FALSE;
+  self->pending_links = FALSE;
+  self->pending_done = FALSE;
+
+  /* Emit the done signal */
+  g_signal_emit (self, signals[SIGNAL_DONE], 0);
+}
+
+static void
+wp_config_policy_sync_done (WpCore *core, GAsyncResult *res, gpointer data)
+{
+  WpConfigPolicy *self = WP_CONFIG_POLICY (data);
+  wp_config_policy_rescan_done (self);
+}
+
+static void
+on_endpoint_link_created (GObject *initable, GAsyncResult *res, gpointer data)
+{
+  WpConfigPolicy *self = WP_CONFIG_POLICY (data);
+  g_autoptr (WpCore) core = wp_policy_get_core (WP_POLICY (self));
   g_autoptr (WpBaseEndpointLink) link = NULL;
   g_autoptr (GError) error = NULL;
   g_autoptr (WpBaseEndpoint) src_ep = NULL;
@@ -79,15 +99,12 @@ on_endpoint_link_created (GObject *initable, GAsyncResult *res, gpointer p)
   g_info ("Sucessfully linked '%s' to '%s'\n", wp_base_endpoint_get_name (src_ep),
       wp_base_endpoint_get_name (sink_ep));
 
-  /* Emit the done signal */
-  if (self->pending_endpoint) {
-    gboolean is_capture =
-      wp_base_endpoint_get_direction (self->pending_endpoint) == PW_DIRECTION_INPUT;
-    if (self->pending_endpoint == (is_capture ? sink_ep : src_ep)) {
-      g_autoptr (WpBaseEndpoint) pending_endpoint =
-          g_steal_pointer (&self->pending_endpoint);
-      g_signal_emit (self, signals[SIGNAL_DONE], 0, pending_endpoint, link);
-    }
+  /* Finish rescanning if no pending done */
+  g_return_if_fail (core);
+  if (!self->pending_done) {
+    self->pending_done = TRUE;
+    wp_core_sync (core, NULL, (GAsyncReadyCallback)wp_config_policy_sync_done,
+        self);
   }
 }
 
@@ -393,7 +410,7 @@ links_table_handle_foreach (gpointer key, gpointer value, gpointer data)
 
     if (i == 0 || li->keep)
       if (wp_config_policy_handle_pending_link (self, li, target))
-        self->endpoint_handled = li->ep == self->pending_endpoint;
+        self->pending_links = TRUE;
   }
 }
 
@@ -406,8 +423,8 @@ wp_config_policy_sync_rescan (WpCore *core, GAsyncResult *res, gpointer data)
 
   g_debug ("rescanning");
 
-  /* Set handle to false to know if pending endpoint was handled in this loop */
-  self->endpoint_handled = FALSE;
+  /* Set pending-links to false */
+  self->pending_links = FALSE;
 
   /* Handle all endpoints when rescanning */
   endpoints = wp_policy_manager_list_endpoints (pmgr, NULL);
@@ -429,51 +446,39 @@ wp_config_policy_sync_rescan (WpCore *core, GAsyncResult *res, gpointer data)
     g_clear_pointer (&links_table, g_hash_table_unref);
   }
 
-  /* If endpoint was not handled, we are done */
-  if (!self->endpoint_handled) {
-      g_signal_emit (self, signals[SIGNAL_DONE], 0, self->pending_endpoint,
-          NULL);
-      g_clear_object (&self->pending_endpoint);
-  }
-
-  self->pending_rescan = FALSE;
+  /* Finish rescanning if no pending links */
+  if (!self->pending_links)
+    wp_config_policy_rescan_done (self);
 }
 
 static void
-wp_config_policy_rescan (WpConfigPolicy *self, WpBaseEndpoint *ep)
+wp_config_policy_rescan (WpConfigPolicy *self)
 {
-  if (self->pending_rescan)
-    return;
-
-  /* Check if there is a pending link while a new endpoint is added/removed */
-  if (self->pending_endpoint) {
-    g_warning ("Not handling endpoint '%s' beacause of pending link",
-        wp_base_endpoint_get_name (ep));
-    return;
-  }
-
   g_autoptr (WpCore) core = wp_policy_get_core (WP_POLICY (self));
   if (!core)
     return;
 
-  self->pending_endpoint = g_object_ref (ep);
-  wp_core_sync (core, NULL, (GAsyncReadyCallback)wp_config_policy_sync_rescan,
-      self);
-  self->pending_rescan = TRUE;
+  /* Scan if no pending scan */
+
+  if (!self->pending_rescan) {
+    self->pending_rescan = TRUE;
+    wp_core_sync (core, NULL, (GAsyncReadyCallback)wp_config_policy_sync_rescan,
+        self);
+  }
 }
 
 static void
 wp_config_policy_endpoint_added (WpPolicy *policy, WpBaseEndpoint *ep)
 {
   WpConfigPolicy *self = WP_CONFIG_POLICY (policy);
-  wp_config_policy_rescan (self, ep);
+  wp_config_policy_rescan (self);
 }
 
 static void
 wp_config_policy_endpoint_removed (WpPolicy *policy, WpBaseEndpoint *ep)
 {
   WpConfigPolicy *self = WP_CONFIG_POLICY (policy);
-  wp_config_policy_rescan (self, ep);
+  wp_config_policy_rescan (self);
 }
 
 static void
@@ -541,7 +546,6 @@ wp_config_policy_finalize (GObject *object)
 static void
 wp_config_policy_init (WpConfigPolicy *self)
 {
-  self->pending_rescan = FALSE;
 }
 
 static void
@@ -568,7 +572,7 @@ wp_config_policy_class_init (WpConfigPolicyClass *klass)
   /* Signals */
   signals[SIGNAL_DONE] = g_signal_new ("done",
       G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
-      G_TYPE_NONE, 2, WP_TYPE_BASE_ENDPOINT, WP_TYPE_BASE_ENDPOINT_LINK);
+      G_TYPE_NONE, 0);
 }
 
 WpConfigPolicy *

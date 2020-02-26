@@ -15,126 +15,100 @@
 
 typedef struct {
   WpTestServer server;
-
-  GMutex mutex;
-  GCond cond;
-  gboolean created;
-
-  GThread *loop_thread;
   GMainContext *context;
   GMainLoop *loop;
-
+  GSource *timeout_source;
   WpCore *core;
 } TestConfigPolicyFixture;
 
-static void *
-loop_thread_start (void *d)
+static gboolean
+timeout_callback (TestConfigPolicyFixture *self)
 {
-  TestConfigPolicyFixture *self = d;
+  g_message ("test timed out");
+  g_test_fail ();
+  g_main_loop_quit (self->loop);
 
-  /* Create the main loop using the default thread context */
-  self->context = g_main_context_get_thread_default ();
-  self->loop = g_main_loop_new (self->context, FALSE);
+  return G_SOURCE_REMOVE;
+}
 
-  /* Create the server */
-  wp_test_server_setup (&self->server);
-
-  /* Create the core and connect to the server */
-  g_autoptr (WpProperties) props = NULL;
-  props = wp_properties_new (PW_KEY_REMOTE_NAME, self->server.name, NULL);
-  self->core = wp_core_new (self->context, props);
-  g_assert_true (wp_core_connect (self->core));
-
-  /* Notify the main thread that we are done */
-  g_mutex_lock (&self->mutex);
-  self->created = TRUE;
-  g_cond_signal (&self->cond);
-  g_mutex_unlock (&self->mutex);
-
-  /* Run the main loop */
-  g_main_loop_run (self->loop);
-
-  /* Clean up */
-  g_clear_object (&self->core);
-  wp_test_server_teardown (&self->server);
-  g_clear_pointer (&self->loop, g_main_loop_unref);
-  return NULL;
+static void
+disconnected_callback (WpCore *core, TestConfigPolicyFixture *self)
+{
+  g_message ("core disconnected");
+  g_test_fail ();
+  g_main_loop_quit (self->loop);
 }
 
 static void
 config_policy_setup (TestConfigPolicyFixture *self, gconstpointer user_data)
 {
-  gint64 end_time;
+  g_autoptr (WpProperties) props = NULL;
 
-  /* Data */
-  g_mutex_init (&self->mutex);
-  g_cond_init (&self->cond);
-  self->created = FALSE;
+  /* Create the server and load audioconvert plugin */
+  wp_test_server_setup (&self->server);
+  pw_thread_loop_lock (self->server.thread_loop);
+  pw_context_add_spa_lib (self->server.context, "audio.convert*",
+      "audioconvert/libspa-audioconvert");
+  pw_context_load_module (self->server.context,
+      "libpipewire-module-spa-node-factory", NULL, NULL);
+  pw_thread_loop_unlock (self->server.thread_loop);
 
-  /* Initialize main loop, server and core in a thread */
-  self->loop_thread = g_thread_new("loop-thread", &loop_thread_start, self);
+  /* Create the main context and loop */
+  self->context = g_main_context_new ();
+  self->loop = g_main_loop_new (self->context, FALSE);
+  g_main_context_push_thread_default (self->context);
 
-  /* Wait for everything to be created */
-  g_mutex_lock (&self->mutex);
-  end_time = g_get_monotonic_time () + 3 * G_TIME_SPAN_SECOND;
-  while (!self->created)
-    if (!g_cond_wait_until (&self->cond, &self->mutex, end_time)) {
-      /* Abort when timeout has passed */
-      g_warning ("Aborting due to timeout when waiting for connection");
-      abort();
-    }
-  g_mutex_unlock (&self->mutex);
-}
+  /* Set a timeout source */
+  self->timeout_source = g_timeout_source_new_seconds (3);
+  g_source_set_callback (self->timeout_source, (GSourceFunc) timeout_callback,
+      self, NULL);
+  g_source_attach (self->timeout_source, self->context);
 
-static gboolean
-loop_thread_stop (gpointer data)
-{
-  TestConfigPolicyFixture *self = data;
-  g_main_loop_quit (self->loop);
-  return G_SOURCE_REMOVE;
+  /* Create the core */
+  props = wp_properties_new (PW_KEY_REMOTE_NAME, self->server.name, NULL);
+  self->core = wp_core_new (self->context, props);
+  g_signal_connect (self->core, "disconnected",
+      (GCallback) disconnected_callback, self);
 }
 
 static void
 config_policy_teardown (TestConfigPolicyFixture *self, gconstpointer user_data)
 {
-  /* Stop the main loop and wait until it is done */
-  g_autoptr (GSource) source = g_idle_source_new ();
-  g_source_set_callback (source, loop_thread_stop, self, NULL);
-  g_source_attach (source, self->context);
-  g_thread_join (self->loop_thread);
-
-  /* Data */
-  g_mutex_clear (&self->mutex);
-  g_cond_clear (&self->cond);
-  self->created = FALSE;
+  g_clear_object (&self->core);
+  g_clear_pointer (&self->timeout_source, g_source_unref);
+  g_clear_pointer (&self->loop, g_main_loop_unref);
+  g_clear_pointer (&self->context, g_main_context_unref);
+  wp_test_server_teardown (&self->server);
 }
 
 static void
 playback (TestConfigPolicyFixture *f, gconstpointer data)
 {
   g_autoptr (WpConfigPolicyContext) ctx = wp_config_policy_context_new (f->core,
-      "config-policy/config-playback");
-  g_autoptr (WpBaseEndpointLink) link = NULL;
+      f->loop, "config-policy/config-playback");
+  WpBaseEndpointLink *link = NULL;
   g_autoptr (WpBaseEndpoint) src = NULL;
   g_autoptr (WpBaseEndpoint) sink = NULL;
   g_autoptr (WpBaseEndpoint) ep1 = NULL;
   g_autoptr (WpBaseEndpoint) ep2 = NULL;
   g_autoptr (WpBaseEndpoint) ep3 = NULL;
 
+  /* Connect */
+  g_assert_true (wp_core_connect (f->core));
+
   /* Create the device endpoint */
   ep1 = wp_config_policy_context_add_endpoint (ctx, "ep1", "Fake/Sink",
-      PW_DIRECTION_INPUT, NULL, NULL, 0, &link);
+      PW_DIRECTION_INPUT, NULL, NULL, 0);
   g_assert_nonnull (ep1);
-  g_assert_null (link);
   g_assert_false (wp_base_endpoint_is_linked (ep1));
 
   /* Create the first client endpoint */
   ep2 = wp_config_policy_context_add_endpoint (ctx, "ep2", "Stream/Output/Fake",
-      PW_DIRECTION_OUTPUT, NULL, NULL, 0, &link);
+      PW_DIRECTION_OUTPUT, NULL, NULL, 0);
   g_assert_nonnull (ep2);
-  g_assert_nonnull (link);
   g_assert_true (wp_base_endpoint_is_linked (ep2));
   g_assert_true (wp_base_endpoint_is_linked (ep1));
+  link = g_ptr_array_index (wp_base_endpoint_get_links (ep2), 0);
   src = wp_base_endpoint_link_get_source_endpoint (link);
   sink = wp_base_endpoint_link_get_sink_endpoint (link);
   g_assert_true (ep2 == src);
@@ -142,11 +116,11 @@ playback (TestConfigPolicyFixture *f, gconstpointer data)
 
   /* Create the second client endpoint */
   ep3 = wp_config_policy_context_add_endpoint (ctx, "ep3", "Stream/Output/Fake",
-      PW_DIRECTION_OUTPUT, NULL, NULL, 0, &link);
+      PW_DIRECTION_OUTPUT, NULL, NULL, 0);
   g_assert_nonnull (ep2);
-  g_assert_nonnull (link);
   g_assert_true (wp_base_endpoint_is_linked (ep3));
   g_assert_true (wp_base_endpoint_is_linked (ep1));
+  link = g_ptr_array_index (wp_base_endpoint_get_links (ep3), 0);
   src = wp_base_endpoint_link_get_source_endpoint (link);
   sink = wp_base_endpoint_link_get_sink_endpoint (link);
   g_assert_true (ep3 == src);
@@ -164,25 +138,27 @@ static void
 capture (TestConfigPolicyFixture *f, gconstpointer data)
 {
   g_autoptr (WpConfigPolicyContext) ctx = wp_config_policy_context_new (f->core,
-      "config-policy/config-capture");
-  g_autoptr (WpBaseEndpointLink) link = NULL;
+      f->loop, "config-policy/config-capture");
+  WpBaseEndpointLink *link = NULL;
   g_autoptr (WpBaseEndpoint) src = NULL;
   g_autoptr (WpBaseEndpoint) sink = NULL;
   g_autoptr (WpBaseEndpoint) ep1 = NULL;
   g_autoptr (WpBaseEndpoint) ep2 = NULL;
 
+  /* Connect */
+  g_assert_true (wp_core_connect (f->core));
+
   /* Create the device endpoint */
   ep1 = wp_config_policy_context_add_endpoint (ctx, "ep1", "Fake/Source",
-      PW_DIRECTION_OUTPUT, NULL, NULL, 0, &link);
+      PW_DIRECTION_OUTPUT, NULL, NULL, 0);
   g_assert_nonnull (ep1);
-  g_assert_null (link);
   g_assert_false (wp_base_endpoint_is_linked (ep1));
 
   /* Create the client endpoint */
   ep2 = wp_config_policy_context_add_endpoint (ctx, "ep2", "Stream/Input/Fake",
-      PW_DIRECTION_INPUT, NULL, NULL, 0, &link);
+      PW_DIRECTION_INPUT, NULL, NULL, 0);
   g_assert_nonnull (ep2);
-  g_assert_nonnull (link);
+  link = g_ptr_array_index (wp_base_endpoint_get_links (ep2), 0);
   g_assert_true (wp_base_endpoint_is_linked (ep2));
   g_assert_true (wp_base_endpoint_is_linked (ep1));
   src = wp_base_endpoint_link_get_source_endpoint (link);
@@ -198,8 +174,8 @@ static void
 playback_capture (TestConfigPolicyFixture *f, gconstpointer data)
 {
   g_autoptr (WpConfigPolicyContext) ctx = wp_config_policy_context_new (f->core,
-      "config-policy/config-playback-capture");
-  g_autoptr (WpBaseEndpointLink) link = NULL;
+      f->loop, "config-policy/config-playback-capture");
+  WpBaseEndpointLink *link = NULL;
   g_autoptr (WpBaseEndpoint) src = NULL;
   g_autoptr (WpBaseEndpoint) sink = NULL;
   g_autoptr (WpBaseEndpoint) ep1 = NULL;
@@ -207,26 +183,27 @@ playback_capture (TestConfigPolicyFixture *f, gconstpointer data)
   g_autoptr (WpBaseEndpoint) ep3 = NULL;
   g_autoptr (WpBaseEndpoint) ep4 = NULL;
 
+  /* Connect */
+  g_assert_true (wp_core_connect (f->core));
+
   /* Create the device endpoints */
   ep1 = wp_config_policy_context_add_endpoint (ctx, "ep1", "Fake/Sink",
-      PW_DIRECTION_INPUT, NULL, NULL, 0, NULL);
+      PW_DIRECTION_INPUT, NULL, NULL, 0);
   g_assert_nonnull (ep1);
-  g_assert_null (link);
   g_assert_false (wp_base_endpoint_is_linked (ep1));
   ep2 = wp_config_policy_context_add_endpoint (ctx, "ep2", "Fake/Source",
-      PW_DIRECTION_OUTPUT, NULL, NULL, 0, NULL);
+      PW_DIRECTION_OUTPUT, NULL, NULL, 0);
   g_assert_nonnull (ep2);
-  g_assert_null (link);
   g_assert_false (wp_base_endpoint_is_linked (ep2));
 
   /* Create the playback client endpoint */
   ep3 = wp_config_policy_context_add_endpoint (ctx, "ep3", "Stream/Output/Fake",
-      PW_DIRECTION_OUTPUT, NULL, NULL, 0, &link);
+      PW_DIRECTION_OUTPUT, NULL, NULL, 0);
   g_assert_nonnull (ep3);
-  g_assert_nonnull (link);
   g_assert_true (wp_base_endpoint_is_linked (ep3));
   g_assert_true (wp_base_endpoint_is_linked (ep1));
   g_assert_false (wp_base_endpoint_is_linked (ep2));
+  link = g_ptr_array_index (wp_base_endpoint_get_links (ep3), 0);
   src = wp_base_endpoint_link_get_source_endpoint (link);
   sink = wp_base_endpoint_link_get_sink_endpoint (link);
   g_assert_true (ep3 == src);
@@ -234,13 +211,13 @@ playback_capture (TestConfigPolicyFixture *f, gconstpointer data)
 
   /* Create the capture client endpoint */
   ep4 = wp_config_policy_context_add_endpoint (ctx, "ep4", "Stream/Input/Fake",
-      PW_DIRECTION_INPUT, NULL, NULL, 0, &link);
+      PW_DIRECTION_INPUT, NULL, NULL, 0);
   g_assert_nonnull (ep4);
-  g_assert_nonnull (link);
   g_assert_true (wp_base_endpoint_is_linked (ep4));
   g_assert_true (wp_base_endpoint_is_linked (ep2));
   g_assert_true (wp_base_endpoint_is_linked (ep3));
   g_assert_true (wp_base_endpoint_is_linked (ep1));
+  link = g_ptr_array_index (wp_base_endpoint_get_links (ep4), 0);
   src = wp_base_endpoint_link_get_source_endpoint (link);
   sink = wp_base_endpoint_link_get_sink_endpoint (link);
   g_assert_true (ep2 == src);
@@ -255,8 +232,8 @@ static void
 playback_priority (TestConfigPolicyFixture *f, gconstpointer data)
 {
   g_autoptr (WpConfigPolicyContext) ctx = wp_config_policy_context_new (f->core,
-      "config-policy/config-playback-priority");
-  g_autoptr (WpBaseEndpointLink) link = NULL;
+      f->loop, "config-policy/config-playback-priority");
+  WpBaseEndpointLink *link = NULL;
   g_autoptr (WpBaseEndpoint) src = NULL;
   g_autoptr (WpBaseEndpoint) sink = NULL;
   g_autoptr (WpBaseEndpoint) dev = NULL;
@@ -266,21 +243,23 @@ playback_priority (TestConfigPolicyFixture *f, gconstpointer data)
   g_autoptr (WpBaseEndpoint) ep4 = NULL;
   g_autoptr (WpBaseEndpoint) ep5 = NULL;
 
+  /* Connect */
+  g_assert_true (wp_core_connect (f->core));
+
   /* Create the device endpoint with 4 streams */
   dev = wp_config_policy_context_add_endpoint (ctx, "dev", "Fake/Sink",
-      PW_DIRECTION_INPUT, NULL, NULL, 4, NULL);
+      PW_DIRECTION_INPUT, NULL, NULL, 4);
   g_assert_nonnull (dev);
-  g_assert_null (link);
   g_assert_false (wp_base_endpoint_is_linked (dev));
 
   /* Create the client endpoint for steam 2 (priority 2) and make sure it
    * is linked */
   ep2 = wp_config_policy_context_add_endpoint (ctx, "ep_for_stream_2",
-      "Stream/Output/Fake", PW_DIRECTION_OUTPUT, NULL, NULL, 0, &link);
+      "Stream/Output/Fake", PW_DIRECTION_OUTPUT, NULL, NULL, 0);
   g_assert_nonnull (ep2);
-  g_assert_nonnull (link);
   g_assert_true (wp_base_endpoint_is_linked (ep2));
   g_assert_true (wp_base_endpoint_is_linked (dev));
+  link = g_ptr_array_index (wp_base_endpoint_get_links (ep2), 0);
   src = wp_base_endpoint_link_get_source_endpoint (link);
   sink = wp_base_endpoint_link_get_sink_endpoint (link);
   g_assert_true (ep2 == src);
@@ -289,9 +268,8 @@ playback_priority (TestConfigPolicyFixture *f, gconstpointer data)
   /* Create the client endpoint for steam 1 (priority 1) and make sure it
    * is not linked */
   ep1 = wp_config_policy_context_add_endpoint (ctx, "ep_for_stream_1",
-      "Stream/Output/Fake", PW_DIRECTION_OUTPUT, NULL, NULL, 0, &link);
+      "Stream/Output/Fake", PW_DIRECTION_OUTPUT, NULL, NULL, 0);
   g_assert_nonnull (ep1);
-  g_assert_null (link);
   g_assert_false (wp_base_endpoint_is_linked (ep1));
   g_assert_true (wp_base_endpoint_is_linked (ep2));
   g_assert_true (wp_base_endpoint_is_linked (dev));
@@ -299,13 +277,13 @@ playback_priority (TestConfigPolicyFixture *f, gconstpointer data)
   /* Create the client endpoint for steam 3 (priority 3) and make sure it
    * is linked */
   ep3 = wp_config_policy_context_add_endpoint (ctx, "ep_for_stream_3",
-      "Stream/Output/Fake", PW_DIRECTION_OUTPUT, NULL, NULL, 0, &link);
+      "Stream/Output/Fake", PW_DIRECTION_OUTPUT, NULL, NULL, 0);
   g_assert_nonnull (ep3);
-  g_assert_nonnull (link);
   g_assert_true (wp_base_endpoint_is_linked (ep3));
   g_assert_true (wp_base_endpoint_is_linked (dev));
   g_assert_false (wp_base_endpoint_is_linked (ep1));
   g_assert_false (wp_base_endpoint_is_linked (ep2));
+  link = g_ptr_array_index (wp_base_endpoint_get_links (ep3), 0);
   src = wp_base_endpoint_link_get_source_endpoint (link);
   sink = wp_base_endpoint_link_get_sink_endpoint (link);
   g_assert_true (ep3 == src);
@@ -318,21 +296,20 @@ playback_priority (TestConfigPolicyFixture *f, gconstpointer data)
   /* Create the client endpoint with role "1" (priority 1) and make sure it
    * is not linked */
   ep4 = wp_config_policy_context_add_endpoint (ctx, "ep_with_role",
-      "Stream/Output/Fake", PW_DIRECTION_OUTPUT, NULL, "1", 0, &link);
+      "Stream/Output/Fake", PW_DIRECTION_OUTPUT, NULL, "1", 0);
   g_assert_nonnull (ep4);
-  g_assert_null (link);
   g_assert_false (wp_base_endpoint_is_linked (ep4));
 
   /* Create the client endpoint with role "3" (priority 3) and make sure it
    * is linked (last one wins) */
   ep5 = wp_config_policy_context_add_endpoint (ctx, "ep_with_role",
-      "Stream/Output/Fake", PW_DIRECTION_OUTPUT, NULL, "3", 0, &link);
+      "Stream/Output/Fake", PW_DIRECTION_OUTPUT, NULL, "3", 0);
   g_assert_nonnull (ep5);
-  g_assert_nonnull (link);
   g_assert_true (wp_base_endpoint_is_linked (ep5));
   g_assert_true (wp_base_endpoint_is_linked (dev));
   g_assert_false (wp_base_endpoint_is_linked (ep4));
   g_assert_false (wp_base_endpoint_is_linked (ep3));
+  link = g_ptr_array_index (wp_base_endpoint_get_links (ep5), 0);
   src = wp_base_endpoint_link_get_source_endpoint (link);
   sink = wp_base_endpoint_link_get_sink_endpoint (link);
   g_assert_true (ep5 == src);
@@ -348,28 +325,30 @@ static void
 playback_keep (TestConfigPolicyFixture *f, gconstpointer data)
 {
   g_autoptr (WpConfigPolicyContext) ctx = wp_config_policy_context_new (f->core,
-      "config-policy/config-playback-keep");
-  g_autoptr (WpBaseEndpointLink) link = NULL;
+      f->loop, "config-policy/config-playback-keep");
+  WpBaseEndpointLink *link = NULL;
   g_autoptr (WpBaseEndpoint) src = NULL;
   g_autoptr (WpBaseEndpoint) sink = NULL;
   g_autoptr (WpBaseEndpoint) ep1 = NULL;
   g_autoptr (WpBaseEndpoint) ep2 = NULL;
   g_autoptr (WpBaseEndpoint) ep3 = NULL;
 
+  /* Connect */
+  g_assert_true (wp_core_connect (f->core));
+
   /* Create the device endpoint */
   ep1 = wp_config_policy_context_add_endpoint (ctx, "ep1", "Fake/Sink",
-      PW_DIRECTION_INPUT, NULL, NULL, 0, &link);
+      PW_DIRECTION_INPUT, NULL, NULL, 0);
   g_assert_nonnull (ep1);
-  g_assert_null (link);
   g_assert_false (wp_base_endpoint_is_linked (ep1));
 
   /* Create the first client endpoint */
   ep2 = wp_config_policy_context_add_endpoint (ctx, "ep2", "Stream/Output/Fake",
-      PW_DIRECTION_OUTPUT, NULL, NULL, 0, &link);
+      PW_DIRECTION_OUTPUT, NULL, NULL, 0);
   g_assert_nonnull (ep2);
-  g_assert_nonnull (link);
   g_assert_true (wp_base_endpoint_is_linked (ep2));
   g_assert_true (wp_base_endpoint_is_linked (ep1));
+  link = g_ptr_array_index (wp_base_endpoint_get_links (ep2), 0);
   src = wp_base_endpoint_link_get_source_endpoint (link);
   sink = wp_base_endpoint_link_get_sink_endpoint (link);
   g_assert_true (ep2 == src);
@@ -377,11 +356,11 @@ playback_keep (TestConfigPolicyFixture *f, gconstpointer data)
 
   /* Create the second client endpoint */
   ep3 = wp_config_policy_context_add_endpoint (ctx, "ep3", "Stream/Output/Fake",
-      PW_DIRECTION_OUTPUT, NULL, NULL, 0, &link);
+      PW_DIRECTION_OUTPUT, NULL, NULL, 0);
   g_assert_nonnull (ep2);
-  g_assert_nonnull (link);
   g_assert_true (wp_base_endpoint_is_linked (ep3));
   g_assert_true (wp_base_endpoint_is_linked (ep1));
+  link = g_ptr_array_index (wp_base_endpoint_get_links (ep3), 0);
   src = wp_base_endpoint_link_get_source_endpoint (link);
   sink = wp_base_endpoint_link_get_sink_endpoint (link);
   g_assert_true (ep3 == src);
@@ -399,8 +378,8 @@ static void
 playback_role (TestConfigPolicyFixture *f, gconstpointer data)
 {
   g_autoptr (WpConfigPolicyContext) ctx = wp_config_policy_context_new (f->core,
-      "config-policy/config-playback-role");
-  g_autoptr (WpBaseEndpointLink) link = NULL;
+      f->loop, "config-policy/config-playback-role");
+  WpBaseEndpointLink *link = NULL;
   g_autoptr (WpBaseEndpoint) src = NULL;
   g_autoptr (WpBaseEndpoint) sink = NULL;
   g_autoptr (WpBaseEndpoint) dev = NULL;
@@ -408,21 +387,23 @@ playback_role (TestConfigPolicyFixture *f, gconstpointer data)
   g_autoptr (WpBaseEndpoint) ep2 = NULL;
   g_autoptr (WpBaseEndpoint) ep3 = NULL;
 
+  /* Connect */
+  g_assert_true (wp_core_connect (f->core));
+
   /* Create the device with 2 roles: "0" with id 0, and "1" with id 1 */
   dev = wp_config_policy_context_add_endpoint (ctx, "dev", "Fake/Sink",
-      PW_DIRECTION_INPUT, NULL, NULL, 2, &link);
+      PW_DIRECTION_INPUT, NULL, NULL, 2);
   g_assert_nonnull (dev);
-  g_assert_null (link);
   g_assert_false (wp_base_endpoint_is_linked (dev));
 
   /* Create the first client endpoint with role "0" and make sure the role
    * defined in the configuration file which is "1" is used */
   ep1 = wp_config_policy_context_add_endpoint (ctx, "ep1", "Stream/Output/Fake",
-      PW_DIRECTION_OUTPUT, NULL, "0", 0, &link);
+      PW_DIRECTION_OUTPUT, NULL, "0", 0);
   g_assert_nonnull (ep1);
-  g_assert_nonnull (link);
   g_assert_true (wp_base_endpoint_is_linked (ep1));
   g_assert_true (wp_base_endpoint_is_linked (dev));
+  link = g_ptr_array_index (wp_base_endpoint_get_links (ep1), 0);
   src = wp_base_endpoint_link_get_source_endpoint (link);
   sink = wp_base_endpoint_link_get_sink_endpoint (link);
   g_assert_true (ep1 == src);
@@ -435,11 +416,11 @@ playback_role (TestConfigPolicyFixture *f, gconstpointer data)
   /* Create the second client endpoint with role "1" and make sure it uses it
    * because there is none defined in the configuration file */
   ep2 = wp_config_policy_context_add_endpoint (ctx, "ep2", "Stream/Output/Fake",
-      PW_DIRECTION_OUTPUT, NULL, "1", 0, &link);
+      PW_DIRECTION_OUTPUT, NULL, "1", 0);
   g_assert_nonnull (ep2);
-  g_assert_nonnull (link);
   g_assert_true (wp_base_endpoint_is_linked (ep2));
   g_assert_true (wp_base_endpoint_is_linked (dev));
+  link = g_ptr_array_index (wp_base_endpoint_get_links (ep2), 0);
   src = wp_base_endpoint_link_get_source_endpoint (link);
   sink = wp_base_endpoint_link_get_sink_endpoint (link);
   g_assert_true (ep2 == src);
@@ -453,11 +434,11 @@ playback_role (TestConfigPolicyFixture *f, gconstpointer data)
    * lowest priority on from the streams file because the endpoint-link file
    * does not have any either */
   ep3 = wp_config_policy_context_add_endpoint (ctx, "ep3", "Stream/Output/Fake",
-      PW_DIRECTION_OUTPUT, NULL, NULL, 0, &link);
+      PW_DIRECTION_OUTPUT, NULL, NULL, 0);
   g_assert_nonnull (ep3);
-  g_assert_nonnull (link);
   g_assert_true (wp_base_endpoint_is_linked (ep3));
   g_assert_true (wp_base_endpoint_is_linked (dev));
+  link = g_ptr_array_index (wp_base_endpoint_get_links (ep3), 0);
   src = wp_base_endpoint_link_get_source_endpoint (link);
   sink = wp_base_endpoint_link_get_sink_endpoint (link);
   g_assert_true (ep3 == src);
