@@ -16,6 +16,14 @@
 
 #include "stream.h"
 
+#if !defined(HAVE_AUDIOFADE)
+# define SPA_PROP_audioFadeDuration 0x30001
+# define SPA_PROP_audioFadeStep 0x30002
+# define SPA_PROP_audioFadeDirection 0x30003
+# define SPA_PROP_audioFadeType 0x30004
+# define SPA_NAME_CONTROL_AUDIO_FADE_SOURCE "control.audio.fade.source"
+#endif
+
 typedef struct _WpAudioStreamPrivate WpAudioStreamPrivate;
 struct _WpAudioStreamPrivate
 {

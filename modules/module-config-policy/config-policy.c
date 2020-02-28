@@ -7,7 +7,6 @@
  */
 
 #include <spa/utils/keys.h>
-#include <spa/param/control/audio.h>
 
 #include <pipewire/pipewire.h>
 
@@ -15,6 +14,12 @@
 
 #include "config-policy.h"
 #include "parser-endpoint-link.h"
+
+#if !defined(HAVE_AUDIOFADE)
+# define SPA_CONTROL_AUDIO_FADE_TYPE_LOGARITHMIC 2
+#else
+# include <spa/param/control/audio.h>
+#endif
 
 struct link_info {
   WpBaseEndpoint *ep;

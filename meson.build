@@ -50,6 +50,19 @@ if ccpp.has_argument('-fvisibility=hidden')
   add_project_arguments('-fvisibility=hidden', language: 'cpp')
 endif
 
+have_audiofade = cc.compiles('''
+  #include <spa/utils/names.h>
+  #ifndef SPA_NAME_CONTROL_AUDIO_FADE_SOURCE
+  #error "not using the audio fade branch"
+  #endif
+  int main(void){return 0;}
+  ''',
+  name: 'audiofade',
+  dependencies: pipewire_dep)
+if have_audiofade
+  add_project_arguments('-DHAVE_AUDIOFADE', language: 'c')
+endif
+
 subdir('lib')
 subdir('docs')
 subdir('modules')

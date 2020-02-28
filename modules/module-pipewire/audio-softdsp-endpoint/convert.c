@@ -133,7 +133,12 @@ on_audio_convert_core_done (WpCore *core, GAsyncResult *res,
       &self->format);
 
   /* Only enable control port for input streams */
-  control = direction == PW_DIRECTION_INPUT;
+  control =
+#if defined(HAVE_AUDIOFADE)
+    (direction == PW_DIRECTION_INPUT);
+#else
+    FALSE;
+#endif
 
   /* Configure audioconvert to be both merger and splitter; this means it will
      have an equal number of input and output ports and just passthrough the
