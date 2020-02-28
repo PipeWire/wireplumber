@@ -113,6 +113,11 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
   const char *media_class = NULL, *name = NULL;
   g_autoptr (GVariant) streams_variant = NULL;
 
+  /* Skip nodes with no media class (JACK Clients) */
+  media_class = wp_properties_get (props, PW_KEY_MEDIA_CLASS);
+  if (!media_class)
+    return;
+
   /* Get the linked and ep streams data */
   parser = wp_configuration_get_parser (config, WP_PARSER_ENDPOINT_EXTENSION);
   endpoint_data = wp_config_parser_get_matched_data (parser, proxy);
@@ -125,9 +130,8 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
     name = wp_properties_get (props, PW_KEY_NODE_NAME);
 
   /* Set the media class if it is null */
-  media_class = endpoint_data->e.media_class;
-  if (!media_class)
-    media_class = wp_properties_get (props, PW_KEY_MEDIA_CLASS);
+  if (endpoint_data->e.media_class)
+    media_class = endpoint_data->e.media_class;
 
   /* Create the streams variant */
   streams_variant = create_streams_variant (config, endpoint_data->e.streams);
