@@ -82,11 +82,19 @@ static void
 on_device_added (WpObjectManager *om, WpProxy *proxy, gpointer p)
 {
   WpConfigStaticNodesContext *self = p;
-  g_autoptr (WpProperties) dev_props = wp_proxy_get_properties (proxy);
+  g_autoptr (WpProperties) dev_props = NULL;
   g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
   g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
   g_autoptr (WpConfigParser) parser = NULL;
   const struct WpParserNodeData *node_data = NULL;
+
+  /* Skip devices without info feature */
+  if ((wp_proxy_get_features(proxy) & WP_PROXY_FEATURE_INFO) == 0)
+    return;
+
+  /* Get the device properties */
+  dev_props = wp_proxy_get_properties (proxy);
+  g_return_if_fail (dev_props);
 
   /* Get the parser node data and skip the node if not found */
   parser = wp_configuration_get_parser (config, WP_PARSER_NODE_EXTENSION);
