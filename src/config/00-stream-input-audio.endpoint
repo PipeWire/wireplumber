@@ -1,8 +1,8 @@
 [match-node]
 properties = [
-  { name = "media.class", value = "Stream/Input/Audio" },
+  { name = "media.class", value = "Stream/Input/Video" },
 ]
 
 [endpoint]
 direction = "sink"
-type = "pw-audio-softdsp-endpoint"
+type = "video-endpoint"

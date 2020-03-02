@@ -1,0 +1,8 @@
+[match-node]
+properties = [
+  { name = "media.class", value = "Video/Source" },
+]
+
+[endpoint]
+type = "video-endpoint"
+direction = "source"

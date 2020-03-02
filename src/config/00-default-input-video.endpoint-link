@@ -1,0 +1,10 @@
+[match-endpoint]
+direction = "sink"
+media_class = "Stream/Input/Video"
+
+[target-endpoint]
+direction = "output"
+media_class = "Video/Source"
+
+[endpoint-link]
+keep = false

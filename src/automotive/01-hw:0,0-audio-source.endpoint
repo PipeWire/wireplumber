@@ -1,10 +1,11 @@
 [match-node]
 properties = [
-  { name = "media.class", value = "Audio/Sink" },
+  { name = "media.class", value = "Audio/Source" },
   { name = "api.alsa.path", value = "hw:0,0" },
 ]
 
 [endpoint]
 type = "pw-audio-softdsp-endpoint"
-direction = "sink"
+direction = "source"
+streams = "capture.streams"
 priority = 1
