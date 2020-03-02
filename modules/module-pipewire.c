@@ -20,6 +20,9 @@ void simple_endpoint_link_factory (WpFactory * factory, GType type,
 void
 audio_softdsp_endpoint_factory (WpFactory * factory, GType type,
     GVariant * properties, GAsyncReadyCallback ready, gpointer user_data);
+void
+wp_video_endpoint_factory (WpFactory * factory, GType type,
+    GVariant * properties, GAsyncReadyCallback ready, gpointer user_data);
 
 WP_PLUGIN_EXPORT void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
@@ -29,4 +32,5 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
       simple_endpoint_link_factory);
   wp_factory_new (core, "pw-audio-softdsp-endpoint",
       audio_softdsp_endpoint_factory);
+  wp_factory_new (core, "video-endpoint", wp_video_endpoint_factory);
 }

@@ -42,6 +42,7 @@ shared_library(
     'module-pipewire.c',
     'module-pipewire/algorithms.c',
     'module-pipewire/simple-endpoint-link.c',
+    'module-pipewire/video-endpoint.c',
     'module-pipewire/audio-softdsp-endpoint.c',
     'module-pipewire/audio-softdsp-endpoint/stream.c',
     'module-pipewire/audio-softdsp-endpoint/adapter.c',
