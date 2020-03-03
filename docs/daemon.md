@@ -40,6 +40,35 @@ $ gst-launch-1.0 audiotestsrc ! pwaudiosink
 
 Note that `pwaudiosink` is currently only available in the `agl-next` branch.
 
+It is also possible to easily test *pulseaudio* and *jack* audio clients with
+**mplayer**. For example, for pulse clients, do:
+
+```
+$ make shell
+$ mplayer -ao pulse file.mp3
+```
+
+For jack clients, do:
+
+```
+$ make shell
+$ mplayer -ao jack file.mp3
+```
+
+Note that *pipewire-pulseaudio* and *pipewire-jack* compatibility libraries from
+the **pipewire** project need to be installed.
+
+## Testing with a video client
+
+Video capturing is also possible using the pipewiresrc **gstreamer** element, which
+is included by default when installing **pipewire**. You can capture video buffers
+from the default camera by doing the following:
+
+```
+$ make shell
+$ gst-launch-1.0 pipewiresrc ! videoconvert ! ximagesink
+```
+
 ## Debugging
 
 The Makefile included with WirePlumber also supports the `gdb` and `valgrind`
