@@ -26,6 +26,17 @@ shared_library(
 )
 
 shared_library(
+  'wireplumber-module-jack-device',
+  [
+    'module-jack-device.c',
+  ],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-jack-device"'],
+  install : true,
+  install_dir : wireplumber_module_dir,
+  dependencies : [wp_dep, pipewire_dep],
+)
+
+shared_library(
   'wireplumber-module-pipewire',
   [
     'module-pipewire.c',
