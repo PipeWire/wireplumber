@@ -69,32 +69,6 @@ G_DEFINE_TYPE_WITH_CODE (WpPwAudioSoftdspEndpoint, endpoint, WP_TYPE_BASE_ENDPOI
     G_IMPLEMENT_INTERFACE (G_TYPE_ASYNC_INITABLE,
                            endpoint_async_initable_init))
 
-typedef GObject* (*WpObjectNewFinishFunc)(GObject *initable, GAsyncResult *res,
-    GError **error);
-
-static GObject *
-object_safe_new_finish(WpPwAudioSoftdspEndpoint * self, GObject *initable,
-    GAsyncResult *res, WpObjectNewFinishFunc new_finish_func)
-{
-  g_autoptr (GObject) object = NULL;
-  GError *error = NULL;
-
-  /* Return NULL if we are already aborting */
-  if (!self->init_task)
-    return NULL;
-
-  /* Get the object */
-  object = G_OBJECT (new_finish_func (initable, res, &error));
-  if (error) {
-    g_warning ("WpPwAudioSoftdspEndpoint:%p Aborting construction", self);
-    g_task_return_error (self->init_task, error);
-    g_clear_object (&self->init_task);
-    return NULL;
-  }
-
-  return g_steal_pointer (&object);
-}
-
 static WpProperties *
 endpoint_get_properties (WpBaseEndpoint * ep)
 {
@@ -297,15 +271,19 @@ static void
 on_audio_convert_created(GObject *initable, GAsyncResult *res, gpointer data)
 {
   WpPwAudioSoftdspEndpoint *self = data;
+  g_autoptr (GError) error = NULL;
   WpAudioStream *convert = NULL;
   guint stream_id = 0;
   g_autofree gchar *name = NULL;
 
   /* Get the audio convert */
-  convert = WP_AUDIO_STREAM (object_safe_new_finish (self, initable, res,
-      (WpObjectNewFinishFunc)wp_audio_stream_new_finish));
-  if (!convert)
+  convert = wp_audio_stream_new_finish (initable, res, &error);
+  if (error) {
+    g_warning ("WpPwAudioSoftdspEndpoint:%p Could not create convert: %s\n",
+        self, error->message);
     return;
+  }
+  g_return_if_fail (convert);
 
   /* Get the stream id */
   g_object_get (convert, "id", &stream_id, "name", &name, NULL);
@@ -330,6 +308,7 @@ on_audio_adapter_created(GObject *initable, GAsyncResult *res,
   enum pw_direction direction = wp_base_endpoint_get_direction(WP_BASE_ENDPOINT(self));
   g_autoptr (WpCore) core = wp_base_endpoint_get_core(WP_BASE_ENDPOINT(self));
   g_autoptr (WpProperties) props = NULL;
+  g_autoptr (GError) error = NULL;
   const struct spa_audio_info_raw *format;
   g_autofree gchar *name = NULL;
   GVariantDict d;
@@ -339,10 +318,13 @@ on_audio_adapter_created(GObject *initable, GAsyncResult *res,
   int i;
 
   /* Get the proxy adapter */
-  self->adapter = WP_AUDIO_STREAM (object_safe_new_finish (self, initable,
-      res, (WpObjectNewFinishFunc)wp_audio_stream_new_finish));
-  if (!self->adapter)
+  self->adapter = wp_audio_stream_new_finish (initable, res, &error);
+  if (error) {
+    g_warning ("WpPwAudioSoftdspEndpoint:%p Could not create adapter: %s\n",
+        self, error->message);
     return;
+  }
+  g_return_if_fail (self->adapter);
 
   props = wp_proxy_get_properties (WP_PROXY (self->node));
 
@@ -446,7 +428,7 @@ endpoint_get_property (GObject * object, guint property_id,
 }
 
 static void
-wp_base_endpoint_init_async (GAsyncInitable *initable, int io_priority,
+endpoint_init_async (GAsyncInitable *initable, int io_priority,
     GCancellable *cancellable, GAsyncReadyCallback callback, gpointer data)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (initable);
@@ -484,7 +466,7 @@ endpoint_async_initable_init (gpointer iface, gpointer iface_data)
   async_initable_parent_interface = g_type_interface_peek_parent (iface);
 
   /* Only set the init_async */
-  ai_iface->init_async = wp_base_endpoint_init_async;
+  ai_iface->init_async = endpoint_init_async;
 }
 
 static void
