@@ -33,3 +33,9 @@ test(
   executable('test-spa-props', 'spa-props.c', dependencies: common_deps),
   env: common_env,
 )
+
+test(
+  'test-transition',
+  executable('test-transition', 'transition.c', dependencies: common_deps),
+  env: common_env,
+)
