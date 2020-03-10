@@ -46,12 +46,6 @@ config_policy_setup (TestConfigPolicyFixture *self, gconstpointer user_data)
 
   /* Create the server and load audioconvert plugin */
   wp_test_server_setup (&self->server);
-  pw_thread_loop_lock (self->server.thread_loop);
-  pw_context_add_spa_lib (self->server.context, "audio.convert*",
-      "audioconvert/libspa-audioconvert");
-  pw_context_load_module (self->server.context,
-      "libpipewire-module-spa-node-factory", NULL, NULL);
-  pw_thread_loop_unlock (self->server.thread_loop);
 
   /* Create the main context and loop */
   self->context = g_main_context_new ();
