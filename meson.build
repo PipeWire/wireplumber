@@ -31,6 +31,7 @@ cpptoml_dep = cpptoml.dependency('cpptoml')
 gobject_dep = dependency('gobject-2.0')
 gmodule_dep = dependency('gmodule-2.0')
 gio_dep = dependency('gio-2.0')
+giounix_dep = dependency('gio-unix-2.0')
 pipewire_dep = dependency('libpipewire-0.3')
 
 gnome = import('gnome')

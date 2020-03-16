@@ -58,3 +58,17 @@ test(
   env: common_env,
   workdir : meson.current_source_dir(),
 )
+
+test(
+  'test-dbus-device-reservation',
+  executable('test-dbus-device-reservation',
+    [
+      'dbus-device-reservation.c',
+      '../../modules/module-monitor/dbus-device-reservation.c',
+      reserve_device_interface_src,
+    ],
+    dependencies: common_deps + [giounix_dep]),
+  env: common_env,
+  workdir : meson.current_source_dir(),
+)
+

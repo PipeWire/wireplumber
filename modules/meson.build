@@ -14,15 +14,23 @@ shared_library(
   dependencies : [wp_dep, pipewire_dep],
 )
 
+reserve_device_interface_src = gnome.gdbus_codegen('reserve-device-interface',
+  sources: 'module-monitor/org.freedesktop.ReserveDevice1.xml',
+  interface_prefix : 'org.freedesktop.ReserveDevice1.',
+  namespace : 'WpMonitor'
+)
+
 shared_library(
   'wireplumber-module-monitor',
   [
     'module-monitor.c',
+    'module-monitor/dbus-device-reservation.c',
+    reserve_device_interface_src,
   ],
   c_args : [common_c_args, '-DG_LOG_DOMAIN="m-monitor"'],
   install : true,
   install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep, pipewire_dep],
+  dependencies : [wp_dep, pipewire_dep, giounix_dep],
 )
 
 shared_library(
