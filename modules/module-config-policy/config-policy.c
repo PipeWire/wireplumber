@@ -174,7 +174,7 @@ wp_config_policy_handle_pending_link (WpConfigPolicy *self,
       /* linked to the wrong target so unlink and continue */
       g_debug ("Unlinking endpoint '%s' from its previous target",
           wp_base_endpoint_get_name (li->ep));
-      WpBaseEndpoint *ep = wp_base_endpoint_link_get_sink_endpoint (l);
+      g_autoptr (WpBaseEndpoint) ep = wp_base_endpoint_link_get_sink_endpoint (l);
       guint32 stream_id = wp_base_endpoint_link_get_sink_stream (l);
       fade_out (ep, stream_id, on_faded_destroy_link, l);
     }
@@ -186,7 +186,7 @@ wp_config_policy_handle_pending_link (WpConfigPolicy *self,
     for (guint i = 0; i < links->len; i++) {
       WpBaseEndpointLink *l = g_ptr_array_index (links, i);
       if (!wp_base_endpoint_link_is_kept (l)) {
-        WpBaseEndpoint *ep = wp_base_endpoint_link_get_sink_endpoint (l);
+        g_autoptr (WpBaseEndpoint) ep = wp_base_endpoint_link_get_sink_endpoint (l);
         guint32 stream_id = wp_base_endpoint_link_get_sink_stream (l);
         fade_out (ep, stream_id, on_faded_destroy_link, l);
       }
@@ -397,7 +397,7 @@ wp_config_policy_add_link_info (WpConfigPolicy *self, GHashTable *table,
   const struct WpParserEndpointLinkData *data = NULL;
   const char *ep_role = wp_base_endpoint_get_role (ep);
   struct link_info *res = NULL;
-  WpBaseEndpoint *target = NULL;
+  g_autoptr (WpBaseEndpoint) target = NULL;
   guint32 stream_id = WP_STREAM_ID_NONE;
 
   /* Get the parser for the endpoint-link extension */
@@ -425,7 +425,7 @@ wp_config_policy_add_link_info (WpConfigPolicy *self, GHashTable *table,
   if (!link_infos) {
     link_infos = g_ptr_array_new_with_free_func (link_info_destroy);
     g_ptr_array_add (link_infos, res);
-    g_hash_table_insert (table, g_object_ref (target), link_infos);
+    g_hash_table_insert (table, g_steal_pointer (&target), link_infos);
   } else {
     g_ptr_array_add (link_infos, res);
   }
