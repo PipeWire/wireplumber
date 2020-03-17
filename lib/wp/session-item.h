@@ -54,16 +54,11 @@ typedef enum {
 /**
  * WpSiConfigOptionFlags:
  * @WP_SI_CONFIG_OPTION_WRITEABLE: the option can be set externally
- * @WP_SI_CONFIG_OPTION_REQUIRED: the option is required to complete activation
- * @WP_SI_CONFIG_OPTION_PROVIDED: the value of this option can be provided
- *   by the implementation if it is not set externally; this can be used to
- *   have a "default fallback" value or to report immutable configuration
- *   that is discovered from an underlying layer (ex. hardware properties)
+ * @WP_SI_CONFIG_OPTION_REQUIRED: the option is required to activate the item
  */
 typedef enum {
   WP_SI_CONFIG_OPTION_WRITEABLE = (1<<0),
   WP_SI_CONFIG_OPTION_REQUIRED = (1<<1),
-  WP_SI_CONFIG_OPTION_PROVIDED = (1<<2),
 } WpSiConfigOptionFlags;
 
 /**

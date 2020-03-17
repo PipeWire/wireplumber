@@ -193,7 +193,7 @@ wp_session_item_clear_flag (WpSessionItem * self, WpSiFlags flag)
  *  * mv (optional variant): optionally, an additional variant
  *    This is provided to allow extensions.
  *
- * Returns: (transfer full): the configuration description
+ * Returns: (transfer floating): the configuration description
  */
 GVariant *
 wp_session_item_get_config_spec (WpSessionItem * self)
@@ -208,7 +208,7 @@ wp_session_item_get_config_spec (WpSessionItem * self)
 /**
  * wp_session_item_configure: (virtual configure)
  * @self: the session item
- * @args: (transfer floating): the configuration options to set
+ * @args: (transfer none): the configuration options to set
  *   (`a{sv}` dictionary, mapping option names to values)
  *
  * Returns: %TRUE on success, %FALSE if the options could not be set
@@ -229,7 +229,7 @@ wp_session_item_configure (WpSessionItem * self, GVariant * args)
  * wp_session_item_get_configuration: (virtual get_configuration)
  * @self: the session item
  *
- * Returns: (transfer full): the active configuration, as a `a{sv}` dictionary
+ * Returns: (transfer floating): the active configuration, as a `a{sv}` dictionary
  */
 GVariant *
 wp_session_item_get_configuration (WpSessionItem * self)

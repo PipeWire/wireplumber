@@ -89,7 +89,7 @@ wp_si_endpoint_get_priority (WpSiEndpoint * self)
  * wp_si_endpoint_get_properties: (virtual get_properties)
  * @self: the session item
  *
- * Returns: (transfer full): the properties of the endpoint
+ * Returns: (transfer full) (nullable): the properties of the endpoint
  */
 WpProperties *
 wp_si_endpoint_get_properties (WpSiEndpoint * self)
@@ -218,7 +218,7 @@ wp_si_stream_get_name (WpSiStream * self)
  * wp_si_stream_get_properties: (virtual get_properties)
  * @self: the session item
  *
- * Returns: (transfer full): the properties of the stream
+ * Returns: (transfer full) (nullable): the properties of the stream
  */
 WpProperties *
 wp_si_stream_get_properties (WpSiStream * self)
