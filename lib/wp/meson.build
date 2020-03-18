@@ -17,6 +17,7 @@ wp_lib_sources = files(
   'proxy.c',
   'session.c',
   'session-item.c',
+  'si-factory.c',
   'si-interfaces.c',
   'spa-props.c',
   'transition.c',
@@ -43,6 +44,7 @@ wp_lib_headers = files(
   'session.h',
   'session-item.h',
   'si-interfaces.h',
+  'si-factory.h',
   'transition.h',
   'wp.h',
 )

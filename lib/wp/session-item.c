@@ -8,6 +8,7 @@
 
 /**
  * SECTION: WpSessionItem
+ * @title: Session Items
  */
 
 #include "session-item.h"
@@ -27,6 +28,9 @@ enum {
 
 guint32 signals[N_SIGNALS] = {0};
 
+/**
+ * WpSessionItem:
+ */
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (WpSessionItem, wp_session_item, G_TYPE_OBJECT)
 
 static void

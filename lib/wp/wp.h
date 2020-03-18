@@ -25,5 +25,6 @@
 #include "session.h"
 #include "session-item.h"
 #include "si-interfaces.h"
+#include "si-factory.h"
 #include "transition.h"
 #include "wpenums.h"
