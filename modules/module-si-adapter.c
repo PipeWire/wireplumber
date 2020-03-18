@@ -80,31 +80,6 @@ si_adapter_reset (WpSessionItem * item)
 }
 
 static GVariant *
-si_adapter_get_config_spec (WpSessionItem * item)
-{
-  GVariantBuilder b;
-
-  g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
-  g_variant_builder_add (&b, "(ssymv)", "node", "t",
-      WP_SI_CONFIG_OPTION_WRITEABLE | WP_SI_CONFIG_OPTION_REQUIRED, NULL);
-  g_variant_builder_add (&b, "(ssymv)", "name", "s",
-      WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
-  g_variant_builder_add (&b, "(ssymv)", "media-class", "s",
-      WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
-  g_variant_builder_add (&b, "(ssymv)", "role", "s",
-      WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
-  g_variant_builder_add (&b, "(ssymv)", "priority", "u",
-      WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
-  g_variant_builder_add (&b, "(ssymv)", "enable-control-port", "b",
-      WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
-  g_variant_builder_add (&b, "(ssymv)", "enable-monitor", "b",
-      WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
-  g_variant_builder_add (&b, "(ssymv)", "direction", "y", 0, NULL);
-  g_variant_builder_add (&b, "(ssymv)", "channels", "u", 0, NULL);
-  return g_variant_builder_end (&b);
-}
-
-static GVariant *
 si_adapter_get_configuration (WpSessionItem * item)
 {
   WpSiAdapter *self = WP_SI_ADAPTER (item);
@@ -378,7 +353,6 @@ si_adapter_class_init (WpSiAdapterClass * klass)
 
   object_class->finalize = si_adapter_finalize;
 
-  si_class->get_config_spec = si_adapter_get_config_spec;
   si_class->configure = si_adapter_configure;
   si_class->get_configuration = si_adapter_get_configuration;
   si_class->get_next_step = si_adapter_get_next_step;
@@ -526,17 +500,29 @@ si_adapter_stream_init (WpSiStreamInterface * iface)
   iface->get_parent_endpoint = si_adapter_get_stream_parent_endpoint;
 }
 
-static void
-si_adapter_factory (WpFactory * factory, GType type,
-    GVariant * properties, GAsyncReadyCallback ready, gpointer user_data)
-{
-  WpSessionItem *item = g_object_new (si_adapter_get_type (), NULL);
-  wp_session_item_configure (item, properties);
-  //TODO: return
-}
-
 WP_PLUGIN_EXPORT void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
-  wp_factory_new (core, "si-adapter", si_adapter_factory);
+  GVariantBuilder b;
+
+  g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
+  g_variant_builder_add (&b, "(ssymv)", "node", "t",
+      WP_SI_CONFIG_OPTION_WRITEABLE | WP_SI_CONFIG_OPTION_REQUIRED, NULL);
+  g_variant_builder_add (&b, "(ssymv)", "name", "s",
+      WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
+  g_variant_builder_add (&b, "(ssymv)", "media-class", "s",
+      WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
+  g_variant_builder_add (&b, "(ssymv)", "role", "s",
+      WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
+  g_variant_builder_add (&b, "(ssymv)", "priority", "u",
+      WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
+  g_variant_builder_add (&b, "(ssymv)", "enable-control-port", "b",
+      WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
+  g_variant_builder_add (&b, "(ssymv)", "enable-monitor", "b",
+      WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
+  g_variant_builder_add (&b, "(ssymv)", "direction", "y", 0, NULL);
+  g_variant_builder_add (&b, "(ssymv)", "channels", "u", 0, NULL);
+
+  wp_si_factory_register (core, wp_si_factory_new_simple (
+      "si-adapter", si_adapter_get_type (), g_variant_builder_end (&b)));
 }
