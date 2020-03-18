@@ -181,35 +181,6 @@ wp_session_item_clear_flag (WpSessionItem * self, WpSiFlags flag)
 }
 
 /**
- * wp_session_item_get_config_spec: (virtual get_config_spec)
- * @self: the session item
- *
- * Constructs and returns a description of all the configuration options
- * that this item has. Configuration options are a way for items to accept
- * input from external sources that affects their behavior, or to provide
- * output for other items to consume as their configuration.
- *
- * The returned GVariant has the a(ssymv) type. This is an array of tuples,
- * where each tuple has the following values, in order:
- *  * s (string): the name of the option
- *  * s (string): a GVariant type string, describing the type of the data
- *  * y (byte): a combination of #WpSiConfigOptionFlags
- *  * mv (optional variant): optionally, an additional variant
- *    This is provided to allow extensions.
- *
- * Returns: (transfer floating): the configuration description
- */
-GVariant *
-wp_session_item_get_config_spec (WpSessionItem * self)
-{
-  g_return_val_if_fail (WP_IS_SESSION_ITEM (self), NULL);
-  g_return_val_if_fail (WP_SESSION_ITEM_GET_CLASS (self)->get_config_spec,
-      NULL);
-
-  return WP_SESSION_ITEM_GET_CLASS (self)->get_config_spec (self);
-}
-
-/**
  * wp_session_item_configure: (virtual configure)
  * @self: the session item
  * @args: (transfer none): the configuration options to set

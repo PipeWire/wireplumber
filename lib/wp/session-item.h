@@ -63,7 +63,6 @@ typedef enum {
 
 /**
  * WpSessionItemClass:
- * @get_config_spec: See wp_session_item_get_config_spec()
  * @configure: See wp_session_item_configure()
  * @get_configuration: See wp_session_item_get_configuration()
  * @get_next_step: Implements #WpTransitionClass.get_next_step() for the
@@ -76,7 +75,6 @@ struct _WpSessionItemClass
 {
   GObjectClass parent_class;
 
-  GVariant * (*get_config_spec) (WpSessionItem * self);
   gboolean (*configure) (WpSessionItem * self, GVariant * args);
   GVariant * (*get_configuration) (WpSessionItem * self);
 
@@ -103,9 +101,6 @@ WP_API
 void wp_session_item_clear_flag (WpSessionItem * self, WpSiFlags flag);
 
 /* configuration */
-
-WP_API
-GVariant * wp_session_item_get_config_spec (WpSessionItem * self);
 
 WP_API
 gboolean wp_session_item_configure (WpSessionItem * self, GVariant * args);
