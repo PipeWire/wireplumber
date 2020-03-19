@@ -14,13 +14,17 @@
 #include <spa/monitor/device.h>
 #include <spa/pod/builder.h>
 
+#include "module-monitor/reservation-data.h"
+
 G_DEFINE_QUARK (wp-module-monitor-id, id);
 G_DEFINE_QUARK (wp-module-monitor-children, children);
+G_DEFINE_QUARK (wp-module-monitor-reservation, reservation);
 
 typedef enum {
   FLAG_LOCAL_NODES = (1 << 0),
   FLAG_USE_ADAPTER = (1 << 1),
   FLAG_ACTIVATE_DEVICES = (1 << 2),
+  FLAG_DBUS_RESERVATION = (1 << 3),
 } MonitorFlags;
 
 static const struct {
@@ -29,7 +33,8 @@ static const struct {
 } flag_names[] = {
   { FLAG_LOCAL_NODES, "local-nodes" },
   { FLAG_USE_ADAPTER, "use-adapter" },
-  { FLAG_ACTIVATE_DEVICES, "activate-devices" }
+  { FLAG_ACTIVATE_DEVICES, "activate-devices" },
+  { FLAG_DBUS_RESERVATION, "dbus-reservation" }
 };
 
 struct module_data
@@ -260,6 +265,55 @@ find_child (GObject * parent, guint32 id, GList ** children, GList ** link,
 }
 
 static void
+on_node_event_info (WpProxy * proxy, GParamSpec *spec, gpointer data)
+{
+  WpMonitorNodeReservationData *node_data = data;
+  const struct pw_node_info *info = wp_proxy_get_info (proxy);
+
+  g_return_if_fail (node_data);
+
+  /* handle the different states */
+  switch (info->state) {
+  case PW_NODE_STATE_IDLE:
+    /* Release reservation after 3 seconds */
+    wp_monitor_node_reservation_data_timeout_release (node_data, 3000);
+    break;
+  case PW_NODE_STATE_RUNNING:
+    /* Clear pending timeout if any and acquire reservation */
+    wp_monitor_node_reservation_data_acquire (node_data);
+    break;
+  case PW_NODE_STATE_SUSPENDED:
+    break;
+  default:
+    break;
+  }
+}
+
+static void
+add_node_reservation_data (struct module_data * data, WpProxy *node,
+    WpProxy *device)
+{
+  WpMonitorDeviceReservationData *device_data = NULL;
+  g_autoptr (WpMonitorNodeReservationData) node_data = NULL;
+
+  /* Only add reservation data on nodes whose device has reservation data */
+  device_data = g_object_get_qdata (G_OBJECT (device), reservation_quark ());
+  if (!device_data)
+    return;
+
+  /* Create the node reservation data */
+  node_data = wp_monitor_node_reservation_data_new (node, device_data);
+
+  /* Handle the info signal */
+  g_signal_connect_object (WP_NODE (node), "notify::info",
+      (GCallback) on_node_event_info, node_data, 0);
+
+  /* Set the node reservation data on the node */
+  g_object_set_qdata_full (G_OBJECT (node), reservation_quark (),
+      g_steal_pointer (&node_data), g_object_unref);
+}
+
+static void
 create_node (struct module_data * data, WpProxy * parent, GList ** children,
     guint id, const gchar * spa_factory, WpProperties * props,
     WpProperties * parent_props)
@@ -291,6 +345,8 @@ create_node (struct module_data * data, WpProxy * parent, GList ** children,
 
   g_object_set_qdata (G_OBJECT (node), id_quark (), GUINT_TO_POINTER (id));
   *children = g_list_prepend (*children, node);
+
+  add_node_reservation_data (data, node, parent);
 }
 
 static void
@@ -304,7 +360,8 @@ device_created (GObject * proxy, GAsyncResult * res, gpointer user_data)
     return;
   }
 
-  if (data->flags & FLAG_ACTIVATE_DEVICES) {
+  if (data->flags & FLAG_ACTIVATE_DEVICES &&
+      !(data->flags & FLAG_DBUS_RESERVATION)) {
     char buf[1024];
     struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
 
@@ -314,6 +371,38 @@ device_created (GObject * proxy, GAsyncResult * res, gpointer user_data)
             SPA_TYPE_OBJECT_ParamProfile, 0,
             SPA_PARAM_PROFILE_index, SPA_POD_Int (1)));
   }
+}
+
+static void
+add_device_reservation_data (struct module_data * data, WpSpaDevice *device,
+  WpProperties *props)
+{
+  g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (device));
+  const char *card_id = NULL;
+  const char *app_dev_name = NULL;
+  g_autoptr (WpMonitorDbusDeviceReservation) reservation = NULL;
+  g_autoptr (WpMonitorDeviceReservationData) device_data = NULL;
+
+  if ((data->flags & FLAG_DBUS_RESERVATION) == 0)
+    return;
+
+  card_id = wp_properties_get (props, SPA_KEY_API_ALSA_CARD);
+  if (!card_id)
+    return;
+
+  app_dev_name = wp_properties_get (props, SPA_KEY_API_ALSA_PATH);
+
+  /* Create the dbus device reservation */
+  reservation = wp_monitor_dbus_device_reservation_new (atoi(card_id),
+      "PipeWire", 10, app_dev_name);
+
+  /* Create the device reservation data */
+  device_data = wp_monitor_device_reservation_data_new (WP_PROXY (device),
+      reservation);
+
+  /* Set the dbus device reservation data on the device */
+  g_object_set_qdata_full (G_OBJECT (device), reservation_quark (),
+      g_steal_pointer (&device_data), g_object_unref);
 }
 
 static void
@@ -338,6 +427,8 @@ create_device (struct module_data * data, WpProxy * parent, GList ** children,
 
   g_object_set_qdata (G_OBJECT (device), id_quark (), GUINT_TO_POINTER (id));
   *children = g_list_prepend (*children, device);
+
+  add_device_reservation_data (data, device, props);
 }
 
 static void
