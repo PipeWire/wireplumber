@@ -104,17 +104,6 @@ shared_library(
 )
 
 shared_library(
-  'wireplumber-module-session',
-  [
-    'module-session.c',
-  ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-session"'],
-  install : true,
-  install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep, pipewire_dep],
-)
-
-shared_library(
   'wireplumber-module-si-adapter',
   [
     'module-si-adapter.c',
