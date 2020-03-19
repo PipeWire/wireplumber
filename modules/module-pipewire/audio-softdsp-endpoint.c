@@ -48,7 +48,7 @@ struct _WpPwAudioSoftdspEndpoint
   WpAudioStream *adapter;
   GPtrArray *converters;
 
-  WpImplEndpoint *impl_ep;
+  // WpImplEndpoint *impl_ep;
 };
 
 enum {
@@ -88,9 +88,7 @@ endpoint_get_role (WpBaseEndpoint *ep)
 static guint32
 endpoint_get_global_id (WpBaseEndpoint *ep)
 {
-  WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (ep);
-
-  return wp_proxy_get_bound_id (WP_PROXY (self->impl_ep));
+  return SPA_ID_INVALID; //wp_proxy_get_bound_id (WP_PROXY (self->impl_ep));
 }
 
 static gboolean
@@ -142,6 +140,7 @@ endpoint_begin_fade (WpBaseEndpoint * ep, guint32 stream_id, guint duration,
       cancellable, callback, data);
 }
 
+#if 0
 static void
 on_exported_control_changed (WpEndpoint * ep, guint32 control_id,
     WpPwAudioSoftdspEndpoint *self)
@@ -266,6 +265,7 @@ do_export (WpPwAudioSoftdspEndpoint *self)
   wp_proxy_augment (WP_PROXY (self->impl_ep), WP_PROXY_FEATURE_BOUND,
       NULL, on_endpoint_exported, self);
 }
+#endif
 
 static void
 on_audio_convert_created(GObject *initable, GAsyncResult *res, gpointer data)
@@ -296,8 +296,10 @@ on_audio_convert_created(GObject *initable, GAsyncResult *res, gpointer data)
       stream_id, name);
 
   /* Finish the endpoint creation when all the streams are created */
-  if (--self->stream_count == 0)
-    do_export (self);
+  if (--self->stream_count == 0) {
+    g_task_return_boolean (self->init_task, TRUE);
+    g_clear_object(&self->init_task);
+  }
 }
 
 static void
@@ -333,7 +335,8 @@ on_audio_adapter_created(GObject *initable, GAsyncResult *res,
 
   /* Just finish if no streams need to be created */
   if (!self->streams) {
-    do_export (self);
+    g_task_return_boolean (self->init_task, TRUE);
+    g_clear_object(&self->init_task);
     return;
   }
 
@@ -363,7 +366,7 @@ endpoint_finalize (GObject * object)
 {
   WpPwAudioSoftdspEndpoint *self = WP_PW_AUDIO_SOFTDSP_ENDPOINT (object);
 
-  g_clear_object (&self->impl_ep);
+  // g_clear_object (&self->impl_ep);
 
   g_clear_pointer(&self->streams, g_variant_unref);
 
