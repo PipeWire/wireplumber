@@ -64,6 +64,15 @@ wp_session_item_finalize (GObject * object)
   G_OBJECT_CLASS (wp_session_item_parent_class)->finalize (object);
 }
 
+static guint
+wp_session_item_default_get_next_step (WpSessionItem * self,
+    WpTransition * transition, guint step)
+{
+  /* the default implementation just activates instantly,
+     without taking any action */
+  return WP_TRANSITION_STEP_NONE;
+}
+
 static void
 wp_session_item_default_reset (WpSessionItem * self)
 {
@@ -83,6 +92,8 @@ wp_session_item_class_init (WpSessionItemClass * klass)
   object_class->finalize = wp_session_item_finalize;
 
   klass->reset = wp_session_item_default_reset;
+
+  klass->get_next_step = wp_session_item_default_get_next_step;
 
   /**
    * WpSessionItem::flags-changed:
@@ -231,12 +242,15 @@ wp_si_transition_get_next_step (WpTransition * transition, guint step)
   g_return_val_if_fail (
       WP_SESSION_ITEM_GET_CLASS (item)->get_next_step,
       WP_TRANSITION_STEP_ERROR);
+
+  step = WP_SESSION_ITEM_GET_CLASS (item)->get_next_step (item,
+      transition, step);
+
   g_return_val_if_fail (
+      step == WP_TRANSITION_STEP_NONE ||
       WP_SESSION_ITEM_GET_CLASS (item)->execute_step,
       WP_TRANSITION_STEP_ERROR);
-
-  return WP_SESSION_ITEM_GET_CLASS (item)->get_next_step (item,
-      transition, step);
+  return step;
 }
 
 static void
