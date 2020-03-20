@@ -224,16 +224,12 @@ wp_spa_props_store_from_props (WpSpaProps * self, const struct spa_pod * props,
   return count;
 }
 
-// for exported update / prop_info + props
-GPtrArray *
-wp_spa_props_build_all_pods (WpSpaProps * self, struct spa_pod_builder * b)
+struct spa_pod *
+wp_spa_props_build_props (WpSpaProps * self, struct spa_pod_builder * b)
 {
-  GPtrArray *res = g_ptr_array_new ();
-  GList *l;
   struct spa_pod_frame f;
-  struct spa_pod *pod;
+  GList *l;
 
-  /* Props */
   spa_pod_builder_push_object (b, &f, SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
   for (l = self->entries; l != NULL; l = g_list_next (l)) {
     struct entry * e = (struct entry *) l->data;
@@ -242,10 +238,16 @@ wp_spa_props_build_all_pods (WpSpaProps * self, struct spa_pod_builder * b)
       spa_pod_builder_primitive (b, e->value);
     }
   }
-  pod = spa_pod_builder_pop (b, &f);
-  g_ptr_array_add (res, pod);
+  return spa_pod_builder_pop (b, &f);
+}
 
-  /* PropInfo */
+GPtrArray *
+wp_spa_props_build_propinfo (WpSpaProps * self, struct spa_pod_builder * b)
+{
+  GPtrArray *res = g_ptr_array_new ();
+  GList *l;
+  struct spa_pod *pod;
+
   for (l = self->entries; l != NULL; l = g_list_next (l)) {
     struct entry * e = (struct entry *) l->data;
     pod = spa_pod_builder_add_object (b,
@@ -255,6 +257,20 @@ wp_spa_props_build_all_pods (WpSpaProps * self, struct spa_pod_builder * b)
         SPA_PROP_INFO_type, SPA_POD_Pod (e->type));
     g_ptr_array_add (res, pod);
   }
+
+  return res;
+}
+
+// for exported update / prop_info + props
+GPtrArray *
+wp_spa_props_build_all_pods (WpSpaProps * self, struct spa_pod_builder * b)
+{
+  GPtrArray *res;
+  struct spa_pod *pod;
+
+  pod = wp_spa_props_build_props (self, b);
+  res = wp_spa_props_build_propinfo (self, b);
+  g_ptr_array_insert (res, 0, pod);
 
   return res;
 }

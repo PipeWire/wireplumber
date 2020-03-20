@@ -380,39 +380,19 @@ si_adapter_multi_endpoint_init (WpSiMultiEndpointInterface * iface)
   iface->get_endpoint = si_adapter_get_endpoint;
 }
 
-static const gchar *
-si_adapter_get_name (WpSiEndpoint * item)
+static GVariant *
+si_adapter_get_registration_info (WpSiEndpoint * item)
 {
   WpSiAdapter *self = WP_SI_ADAPTER (item);
-  return self->name;
-}
+  GVariantBuilder b;
 
-static const gchar *
-si_adapter_get_media_class (WpSiEndpoint * item)
-{
-  WpSiAdapter *self = WP_SI_ADAPTER (item);
-  return self->media_class;
-}
+  g_variant_builder_init (&b, G_VARIANT_TYPE ("(ssya{ss})"));
+  g_variant_builder_add (&b, "s", self->name);
+  g_variant_builder_add (&b, "s", self->media_class);
+  g_variant_builder_add (&b, "y", (guchar) self->direction);
+  g_variant_builder_add (&b, "a{ss}", NULL);
 
-static const gchar *
-si_adapter_get_role (WpSiEndpoint * item)
-{
-  WpSiAdapter *self = WP_SI_ADAPTER (item);
-  return self->role;
-}
-
-static WpDirection
-si_adapter_get_direction (WpSiEndpoint * item)
-{
-  WpSiAdapter *self = WP_SI_ADAPTER (item);
-  return self->direction;
-}
-
-static guint
-si_adapter_get_priority (WpSiEndpoint * item)
-{
-  WpSiAdapter *self = WP_SI_ADAPTER (item);
-  return self->priority;
+  return g_variant_builder_end (&b);
 }
 
 static WpProperties *
@@ -422,7 +402,10 @@ si_adapter_get_properties (WpSiEndpoint * item)
   g_autoptr (WpProperties) node_props = NULL;
   WpProperties *result;
 
-  result = wp_properties_new_empty ();
+  result = wp_properties_new (
+      PW_KEY_MEDIA_ROLE, self->role,
+      "endpoint.priority", self->priority,
+      NULL);
 
   /* copy useful properties from the node */
   node_props = wp_proxy_get_properties (WP_PROXY (self->node));
@@ -464,20 +447,22 @@ si_adapter_get_stream (WpSiEndpoint * item, guint index)
 static void
 si_adapter_endpoint_init (WpSiEndpointInterface * iface)
 {
-  iface->get_name = si_adapter_get_name;
-  iface->get_media_class = si_adapter_get_media_class;
-  iface->get_role = si_adapter_get_role;
-  iface->get_direction = si_adapter_get_direction;
-  iface->get_priority = si_adapter_get_priority;
+  iface->get_registration_info = si_adapter_get_registration_info;
   iface->get_properties = si_adapter_get_properties;
   iface->get_n_streams = si_adapter_get_n_streams;
   iface->get_stream = si_adapter_get_stream;
 }
 
-static const gchar *
-si_adapter_get_stream_name (WpSiStream * self)
+static GVariant *
+si_adapter_get_stream_registration_info (WpSiStream * self)
 {
-  return "default";
+  GVariantBuilder b;
+
+  g_variant_builder_init (&b, G_VARIANT_TYPE ("(sa{ss})"));
+  g_variant_builder_add (&b, "s", "default");
+  g_variant_builder_add (&b, "a{ss}", NULL);
+
+  return g_variant_builder_end (&b);
 }
 
 static WpProperties *
@@ -495,7 +480,7 @@ si_adapter_get_stream_parent_endpoint (WpSiStream * self)
 static void
 si_adapter_stream_init (WpSiStreamInterface * iface)
 {
-  iface->get_name = si_adapter_get_stream_name;
+  iface->get_registration_info = si_adapter_get_stream_registration_info;
   iface->get_properties = si_adapter_get_stream_properties;
   iface->get_parent_endpoint = si_adapter_get_stream_parent_endpoint;
 }

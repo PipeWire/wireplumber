@@ -22,14 +22,18 @@
  */
 
 #include "endpoint.h"
+#include "session.h"
 #include "private.h"
 #include "error.h"
 #include "wpenums.h"
 
 #include <pipewire/pipewire.h>
 #include <pipewire/extensions/session-manager.h>
+#include <pipewire/extensions/session-manager/introspect-funcs.h>
+
 #include <spa/pod/builder.h>
 #include <spa/pod/parser.h>
+#include <spa/pod/filter.h>
 
 enum {
   SIGNAL_CONTROL_CHANGED,
@@ -37,64 +41,6 @@ enum {
 };
 
 static guint32 signals[N_SIGNALS] = {0};
-
-/* helpers */
-
-static struct pw_endpoint_info *
-endpoint_info_update (struct pw_endpoint_info *info,
-    WpProperties ** props_storage,
-    const struct pw_endpoint_info *update)
-{
-  if (update == NULL)
-    return info;
-
-  if (info == NULL) {
-    info = calloc(1, sizeof(struct pw_endpoint_info));
-    if (info == NULL)
-      return NULL;
-
-    info->id = update->id;
-    info->name = g_strdup(update->name);
-    info->media_class = g_strdup(update->media_class);
-    info->direction = update->direction;
-    info->flags = update->flags;
-  }
-  info->change_mask = update->change_mask;
-
-  if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_STREAMS)
-    info->n_streams = update->n_streams;
-
-  if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_SESSION)
-    info->session_id = update->session_id;
-
-  if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_PROPS) {
-    if (*props_storage)
-      wp_properties_unref (*props_storage);
-    *props_storage = wp_properties_new_copy_dict (update->props);
-    info->props = (struct spa_dict *) wp_properties_peek_dict (*props_storage);
-  }
-  if (update->change_mask & PW_ENDPOINT_CHANGE_MASK_PARAMS) {
-    info->n_params = update->n_params;
-    free((void *) info->params);
-    if (update->params) {
-      size_t size = info->n_params * sizeof(struct spa_param_info);
-      info->params = malloc(size);
-      memcpy(info->params, update->params, size);
-    }
-    else
-      info->params = NULL;
-  }
-  return info;
-}
-
-static void
-endpoint_info_free (struct pw_endpoint_info *info)
-{
-  g_free(info->name);
-  g_free(info->media_class);
-  free((void *) info->params);
-  free(info);
-}
 
 /* WpEndpoint */
 
@@ -104,6 +50,7 @@ struct _WpEndpointPrivate
   WpProperties *properties;
   WpSpaProps spa_props;
   struct pw_endpoint_info *info;
+  struct pw_endpoint *iface;
   struct spa_hook listener;
 };
 
@@ -120,8 +67,8 @@ wp_endpoint_finalize (GObject * object)
   WpEndpoint *self = WP_ENDPOINT (object);
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
 
-  g_clear_pointer (&priv->info, endpoint_info_free);
   g_clear_pointer (&priv->properties, wp_properties_unref);
+  g_clear_pointer (&priv->info, pw_endpoint_info_free);
   wp_spa_props_clear (&priv->spa_props);
 
   G_OBJECT_CLASS (wp_endpoint_parent_class)->finalize (object);
@@ -168,12 +115,12 @@ static gint
 wp_endpoint_enum_params (WpProxy * self, guint32 id, guint32 start,
     guint32 num, const struct spa_pod *filter)
 {
-  struct pw_endpoint *pwp;
+  WpEndpointPrivate *priv =
+      wp_endpoint_get_instance_private (WP_ENDPOINT (self));
   int endpoint_enum_params_result;
 
-  pwp = (struct pw_endpoint *) wp_proxy_get_pw_proxy (self);
-  endpoint_enum_params_result = pw_endpoint_enum_params (pwp, 0, id, start, num,
-      filter);
+  endpoint_enum_params_result = pw_endpoint_enum_params (priv->iface, 0, id,
+      start, num, filter);
   g_warn_if_fail (endpoint_enum_params_result >= 0);
 
   return endpoint_enum_params_result;
@@ -182,12 +129,12 @@ wp_endpoint_enum_params (WpProxy * self, guint32 id, guint32 start,
 static gint
 wp_endpoint_subscribe_params (WpProxy * self, guint32 n_ids, guint32 *ids)
 {
-  struct pw_endpoint *pwp;
+  WpEndpointPrivate *priv =
+      wp_endpoint_get_instance_private (WP_ENDPOINT (self));
   int endpoint_subscribe_params_result;
 
-  pwp = (struct pw_endpoint *) wp_proxy_get_pw_proxy (self);
-  endpoint_subscribe_params_result = pw_endpoint_subscribe_params (pwp, ids,
-      n_ids);
+  endpoint_subscribe_params_result = pw_endpoint_subscribe_params (priv->iface,
+      ids, n_ids);
   g_warn_if_fail (endpoint_subscribe_params_result >= 0);
 
   return endpoint_subscribe_params_result;
@@ -197,11 +144,12 @@ static gint
 wp_endpoint_set_param (WpProxy * self, guint32 id, guint32 flags,
     const struct spa_pod *param)
 {
-  struct pw_endpoint *pwp;
+  WpEndpointPrivate *priv =
+      wp_endpoint_get_instance_private (WP_ENDPOINT (self));
   int endpoint_set_param_result;
 
-  pwp = (struct pw_endpoint *) wp_proxy_get_pw_proxy (self);
-  endpoint_set_param_result = pw_endpoint_set_param (pwp, id, flags, param);
+  endpoint_set_param_result = pw_endpoint_set_param (priv->iface, id, flags,
+      param);
   g_warn_if_fail (endpoint_set_param_result >= 0);
 
   return endpoint_set_param_result;
@@ -213,9 +161,14 @@ endpoint_event_info (void *data, const struct pw_endpoint_info *info)
   WpEndpoint *self = WP_ENDPOINT (data);
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
 
-  priv->info = endpoint_info_update (priv->info, &priv->properties, info);
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
+  priv->info = pw_endpoint_info_update (priv->info, info);
 
+  if (info->change_mask & PW_ENDPOINT_CHANGE_MASK_PROPS) {
+    g_clear_pointer (&priv->properties, wp_properties_unref);
+    priv->properties = wp_properties_new_wrap_dict (priv->info->props);
+  }
+
+  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
   g_object_notify (G_OBJECT (self), "info");
 
   if (info->change_mask & PW_ENDPOINT_CHANGE_MASK_PROPS)
@@ -234,8 +187,9 @@ wp_endpoint_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
   WpEndpoint *self = WP_ENDPOINT (proxy);
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
 
-  pw_endpoint_add_listener ((struct pw_endpoint *) pw_proxy,
-      &priv->listener, &endpoint_events, self);
+  priv->iface = (struct pw_endpoint *) pw_proxy;
+  pw_endpoint_add_listener (priv->iface, &priv->listener, &endpoint_events,
+      self);
 }
 
 static void
@@ -300,17 +254,10 @@ set_control (WpEndpoint * self, guint32 control_id,
 {
   char buf[1024];
   struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buf, sizeof (buf));
-  struct pw_endpoint *pw_proxy = NULL;
 
-  /* set the default endpoint id as a property param on the endpoint;
-     our spa_props will be updated by the param event */
+  /* our spa_props will be updated by the param event */
 
-  pw_proxy = (struct pw_endpoint *) wp_proxy_get_pw_proxy (WP_PROXY (self));
-  if (!pw_proxy)
-    return FALSE;
-
-  pw_endpoint_set_param (pw_proxy,
-      SPA_PARAM_Props, 0,
+  WP_PROXY_GET_CLASS (self)->set_param (WP_PROXY (self), SPA_PARAM_Props, 0,
       spa_pod_builder_add_object (&b,
           SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
           control_id, SPA_POD_Pod (pod)));
@@ -546,131 +493,323 @@ wp_endpoint_set_control_float (WpEndpoint * self, guint32 control_id,
 
 /* WpImplEndpoint */
 
-typedef struct _WpImplEndpointPrivate WpImplEndpointPrivate;
-struct _WpImplEndpointPrivate
-{
-  WpEndpointPrivate *pp;
-  struct pw_endpoint_info info;
-  struct spa_param_info param_info[2];
+enum {
+  IMPL_PROP_0,
+  IMPL_PROP_ITEM,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE (WpImplEndpoint, wp_impl_endpoint, WP_TYPE_ENDPOINT)
+struct _WpImplEndpoint
+{
+  WpEndpoint parent;
+
+  struct spa_interface iface;
+  struct spa_hook_list hooks;
+  struct pw_endpoint_info info;
+  gboolean subscribed;
+
+  WpSiEndpoint *item;
+};
+
+G_DEFINE_TYPE (WpImplEndpoint, wp_impl_endpoint, WP_TYPE_ENDPOINT)
+
+#define pw_endpoint_emit(hooks,method,version,...) \
+    spa_hook_list_call_simple(hooks, struct pw_endpoint_events, \
+        method, version, ##__VA_ARGS__)
+
+#define pw_endpoint_emit_info(hooks,...)  pw_endpoint_emit(hooks, info, 0, ##__VA_ARGS__)
+#define pw_endpoint_emit_param(hooks,...) pw_endpoint_emit(hooks, param, 0, ##__VA_ARGS__)
+
+static int
+impl_add_listener(void *object,
+    struct spa_hook *listener,
+    const struct pw_endpoint_events *events,
+    void *data)
+{
+  WpImplEndpoint *self = WP_IMPL_ENDPOINT (object);
+  struct spa_hook_list save;
+
+  spa_hook_list_isolate (&self->hooks, &save, listener, events, data);
+  pw_endpoint_emit_info (&self->hooks, &self->info);
+  spa_hook_list_join (&self->hooks, &save);
+  return 0;
+}
+
+static int
+impl_enum_params (void *object, int seq,
+    uint32_t id, uint32_t start, uint32_t num,
+    const struct spa_pod *filter)
+{
+  WpImplEndpoint *self = WP_IMPL_ENDPOINT (object);
+  WpEndpointPrivate *priv =
+      wp_endpoint_get_instance_private (WP_ENDPOINT (self));
+  char buf[1024];
+  struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buf, sizeof (buf));
+  struct spa_pod *result;
+  guint count = 0;
+
+  switch (id) {
+    case SPA_PARAM_PropInfo: {
+      g_autoptr (GPtrArray) params =
+          wp_spa_props_build_propinfo (&priv->spa_props, &b);
+
+      for (guint i = start; i < params->len; i++) {
+        struct spa_pod *param = g_ptr_array_index (params, i);
+
+        if (spa_pod_filter (&b, &result, param, filter) == 0) {
+          pw_endpoint_emit_param (&self->hooks, seq, id, i, i+1, result);
+          wp_proxy_handle_event_param (self, seq, id, i, i+1, result);
+          if (++count == num)
+            break;
+        }
+      }
+      break;
+    }
+    case SPA_PARAM_Props: {
+      if (start == 0) {
+        struct spa_pod *param = wp_spa_props_build_props (&priv->spa_props, &b);
+        if (spa_pod_filter (&b, &result, param, filter) == 0) {
+          pw_endpoint_emit_param (&self->hooks, seq, id, 0, 1, result);
+          wp_proxy_handle_event_param (self, seq, id, 0, 1, result);
+        }
+      }
+      break;
+    }
+    default:
+      return -ENOENT;
+  }
+
+  return 0;
+}
+
+static int
+impl_subscribe_params (void *object, uint32_t *ids, uint32_t n_ids)
+{
+  WpImplEndpoint *self = WP_IMPL_ENDPOINT (object);
+
+  for (guint i = 0; i < n_ids; i++) {
+    if (ids[i] == SPA_PARAM_Props)
+      self->subscribed = TRUE;
+    impl_enum_params (self, 1, ids[i], 0, UINT32_MAX, NULL);
+  }
+  return 0;
+}
+
+static int
+impl_set_param (void *object, uint32_t id, uint32_t flags,
+    const struct spa_pod *param)
+{
+  WpImplEndpoint *self = WP_IMPL_ENDPOINT (object);
+  WpEndpointPrivate *priv =
+      wp_endpoint_get_instance_private (WP_ENDPOINT (self));
+  g_autoptr (GArray) changed_ids = NULL;
+
+  if (id != SPA_PARAM_Props)
+    return -ENOENT;
+
+  changed_ids = g_array_new (FALSE, FALSE, sizeof (guint32));
+  wp_spa_props_store_from_props (&priv->spa_props, param, changed_ids);
+
+  /* notify subscribers */
+  if (self->subscribed)
+    impl_enum_params (self, 1, SPA_PARAM_Props, 0, UINT32_MAX, NULL);
+
+  /* notify controls locally */
+  for (guint i = 0; i < changed_ids->len; i++) {
+    guint32 prop_id = g_array_index (changed_ids, guint32, i);
+    g_signal_emit (self, signals[SIGNAL_CONTROL_CHANGED], 0, prop_id);
+  }
+
+  return 0;
+}
+
+static int
+impl_create_link (void *object, const struct spa_dict *props)
+{
+  return -ENOTSUP;
+}
+
+static const struct pw_endpoint_methods impl_endpoint = {
+  PW_VERSION_ENDPOINT_METHODS,
+  .add_listener = impl_add_listener,
+  .subscribe_params = impl_subscribe_params,
+  .enum_params = impl_enum_params,
+  .set_param = impl_set_param,
+  .create_link = impl_create_link,
+};
+
+static void
+populate_endpoint_info (WpImplEndpoint * self, guint32 change_mask)
+{
+  self->info.change_mask = change_mask & PW_ENDPOINT_CHANGE_MASK_ALL;
+
+  if (change_mask & PW_ENDPOINT_CHANGE_MASK_STREAMS) {
+    self->info.n_streams = wp_si_endpoint_get_n_streams (self->item);
+  }
+
+  if (change_mask & PW_ENDPOINT_CHANGE_MASK_SESSION) {
+    g_autoptr (WpSession) session =
+        wp_session_item_get_session (WP_SESSION_ITEM (self->item));
+    self->info.session_id =
+        session ? wp_proxy_get_bound_id (WP_PROXY (session)) : SPA_ID_INVALID;
+  }
+
+  if (change_mask & PW_ENDPOINT_CHANGE_MASK_PROPS) {
+    WpEndpointPrivate *priv =
+        wp_endpoint_get_instance_private (WP_ENDPOINT (self));
+
+    g_clear_pointer (&priv->properties, wp_properties_unref);
+    priv->properties = wp_si_endpoint_get_properties (self->item);
+
+    self->info.props = priv->properties ?
+        (struct spa_dict *) wp_properties_peek_dict (priv->properties) : NULL;
+
+    g_object_notify (G_OBJECT (self), "properties");
+  }
+
+  if (change_mask & PW_ENDPOINT_CHANGE_MASK_PARAMS) {
+    static struct spa_param_info param_info[] = {
+      SPA_PARAM_INFO (SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE),
+      SPA_PARAM_INFO (SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ)
+    };
+
+    self->info.params = param_info;
+    self->info.n_params = SPA_N_ELEMENTS (param_info);
+  }
+
+  g_object_notify (G_OBJECT (self), "info");
+}
+
+static void
+on_si_endpoint_properties_changed (WpSiEndpoint * item, WpImplEndpoint * self)
+{
+  populate_endpoint_info (self, PW_ENDPOINT_CHANGE_MASK_PROPS);
+}
 
 static void
 wp_impl_endpoint_init (WpImplEndpoint * self)
 {
-  WpImplEndpointPrivate *priv = wp_impl_endpoint_get_instance_private (self);
+  /* reuse the parent's private to optimize memory usage and to be able
+     to re-use some of the parent's methods without reimplementing them */
+  WpEndpointPrivate *priv =
+      wp_endpoint_get_instance_private (WP_ENDPOINT (self));
 
-  /* store a pointer to the parent's private; we use that structure
-    as well to optimize memory usage and to be able to re-use some of the
-    parent's methods without reimplementing them */
-  priv->pp = wp_endpoint_get_instance_private (WP_ENDPOINT (self));
+  self->iface = SPA_INTERFACE_INIT (
+      PW_TYPE_INTERFACE_Endpoint,
+      PW_VERSION_ENDPOINT,
+      &impl_endpoint, self);
+  spa_hook_list_init (&self->hooks);
 
-  priv->pp->properties = wp_properties_new_empty ();
+  priv->iface = (struct pw_endpoint *) &self->iface;
 
-  priv->param_info[0] = SPA_PARAM_INFO (SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
-  priv->param_info[1] = SPA_PARAM_INFO (SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
-
-  priv->info.version = PW_VERSION_ENDPOINT_INFO;
-  priv->info.props =
-      (struct spa_dict *) wp_properties_peek_dict (priv->pp->properties);
-  priv->info.params = priv->param_info;
-  priv->info.n_params = SPA_N_ELEMENTS (priv->param_info);
-  priv->pp->info = &priv->info;
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
   wp_proxy_set_feature_ready (WP_PROXY (self), WP_ENDPOINT_FEATURE_CONTROLS);
 }
 
 static void
 wp_impl_endpoint_finalize (GObject * object)
 {
-  WpImplEndpointPrivate *priv =
-      wp_impl_endpoint_get_instance_private (WP_IMPL_ENDPOINT (object));
+  WpImplEndpoint *self = WP_IMPL_ENDPOINT (object);
+  WpEndpointPrivate *priv =
+      wp_endpoint_get_instance_private (WP_ENDPOINT (self));
 
-  /* set to NULL to prevent parent's finalize from calling free() on it */
-  priv->pp->info = NULL;
-  g_free (priv->info.name);
-  g_free (priv->info.media_class);
+  g_free (self->info.name);
+  g_free (self->info.media_class);
+  priv->info = NULL;
 
   G_OBJECT_CLASS (wp_impl_endpoint_parent_class)->finalize (object);
 }
 
 static void
-client_endpoint_update (WpImplEndpoint * self, guint32 change_mask,
-    guint32 info_change_mask)
-{
-  WpImplEndpointPrivate *priv = wp_impl_endpoint_get_instance_private (self);
-  char buf[1024];
-  struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buf, sizeof (buf));
-  struct pw_client_endpoint *pw_proxy = NULL;
-  struct pw_endpoint_info *info = NULL;
-  g_autoptr (GPtrArray) params = NULL;
-
-  pw_proxy = (struct pw_client_endpoint *) wp_proxy_get_pw_proxy (WP_PROXY (self));
-
-  if (change_mask & PW_CLIENT_ENDPOINT_UPDATE_PARAMS) {
-    params = wp_spa_props_build_all_pods (&priv->pp->spa_props, &b);
-  }
-  if (change_mask & PW_CLIENT_ENDPOINT_UPDATE_INFO) {
-    info = &priv->info;
-    info->change_mask = info_change_mask;
-  }
-
-  pw_client_endpoint_update (pw_proxy,
-      change_mask,
-      params ? params->len : 0,
-      (const struct spa_pod **) (params ? params->pdata : NULL),
-      info);
-
-  if (info)
-    info->change_mask = 0;
-}
-
-static int
-client_endpoint_set_param (void *object,
-    uint32_t id, uint32_t flags, const struct spa_pod *param)
+wp_impl_endpoint_set_property (GObject * object, guint property_id,
+    const GValue * value, GParamSpec * pspec)
 {
   WpImplEndpoint *self = WP_IMPL_ENDPOINT (object);
-  WpImplEndpointPrivate *priv = wp_impl_endpoint_get_instance_private (self);
-  g_autoptr (GArray) changed_ids = NULL;
-  guint32 prop_id;
 
-  if (id != SPA_PARAM_Props)
-    return -ENOENT;
-
-  changed_ids = g_array_new (FALSE, FALSE, sizeof (guint32));
-  wp_spa_props_store_from_props (&priv->pp->spa_props, param, changed_ids);
-
-  for (guint i = 0; i < changed_ids->len; i++) {
-    prop_id = g_array_index (changed_ids, guint32, i);
-    g_signal_emit (self, signals[SIGNAL_CONTROL_CHANGED], 0, prop_id);
+  switch (property_id) {
+  case IMPL_PROP_ITEM:
+    self->item = g_value_get_object (value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
   }
-
-  client_endpoint_update (self, PW_CLIENT_ENDPOINT_UPDATE_PARAMS, 0);
-
-  return 0;
 }
 
-static struct pw_client_endpoint_events client_endpoint_events = {
-  PW_VERSION_CLIENT_ENDPOINT_EVENTS,
-  .set_param = client_endpoint_set_param,
-};
+static void
+wp_impl_endpoint_get_property (GObject * object, guint property_id,
+    GValue * value, GParamSpec * pspec)
+{
+  WpImplEndpoint *self = WP_IMPL_ENDPOINT (object);
+
+  switch (property_id) {
+  case IMPL_PROP_ITEM:
+    g_value_set_object (value, self->item);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
+}
 
 static void
 wp_impl_endpoint_augment (WpProxy * proxy, WpProxyFeatures features)
 {
   WpImplEndpoint *self = WP_IMPL_ENDPOINT (proxy);
-  WpImplEndpointPrivate *priv = wp_impl_endpoint_get_instance_private (self);
+  WpEndpointPrivate *priv =
+      wp_endpoint_get_instance_private (WP_ENDPOINT (self));
+  g_autoptr (GVariant) info = NULL;
+  g_autoptr (GVariantIter) immutable_props = NULL;
+  g_autoptr (WpProperties) props = NULL;
 
-  /* if any of the default features is requested, make sure BOUND
-     is also requested, as they all depend on binding the endpoint */
-  if (features & WP_PROXY_FEATURES_STANDARD)
+  /* PW_PROXY depends on BOUND */
+  if (features & WP_PROXY_FEATURE_PW_PROXY)
     features |= WP_PROXY_FEATURE_BOUND;
+
+  /* BOUND depends on INFO */
+  if (features & WP_PROXY_FEATURE_BOUND)
+    features |= WP_PROXY_FEATURE_INFO;
+
+  if (features & WP_PROXY_FEATURE_INFO) {
+    guchar direction;
+    const gchar *key, *value;
+
+    /* initialize info struct */
+    priv->info = &self->info;
+    self->info.version = PW_VERSION_ENDPOINT_INFO;
+
+    info = wp_si_endpoint_get_registration_info (self->item);
+    g_variant_get (info, "(ssya{ss})",
+        &self->info.name,
+        &self->info.media_class,
+        &direction,
+        &immutable_props);
+    self->info.direction = (enum pw_direction) direction;
+
+    populate_endpoint_info (self, PW_ENDPOINT_CHANGE_MASK_ALL);
+
+    /* subscribe to changes */
+    g_signal_connect_object (self->item, "endpoint-properties-changed",
+        G_CALLBACK (on_si_endpoint_properties_changed), self, 0);
+
+    /* construct export properties (these will come back through
+       the registry and appear in wp_proxy_get_global_properties) */
+    props = wp_properties_new (
+        PW_KEY_ENDPOINT_NAME, self->info.name,
+        PW_KEY_MEDIA_CLASS, self->info.media_class,
+        NULL);
+    if (self->info.session_id != SPA_ID_INVALID) {
+      wp_properties_setf (props, PW_KEY_SESSION_ID, "%u",
+          self->info.session_id);
+    }
+    while (g_variant_iter_next (immutable_props, "{&s&s}", &key, &value)) {
+      wp_properties_set (props, key, value);
+    }
+
+    wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
+  }
 
   if (features & WP_PROXY_FEATURE_BOUND) {
     g_autoptr (WpCore) core = wp_proxy_get_core (proxy);
     struct pw_core *pw_core = wp_core_get_pw_core (core);
-    struct pw_proxy *pw_proxy = NULL;
 
     /* no pw_core -> we are not connected */
     if (!pw_core) {
@@ -681,57 +820,11 @@ wp_impl_endpoint_augment (WpProxy * proxy, WpProxyFeatures features)
       return;
     }
 
-    /* make sure these props are not present; they are added by the server */
-    wp_properties_set (priv->pp->properties, PW_KEY_OBJECT_ID, NULL);
-    wp_properties_set (priv->pp->properties, PW_KEY_CLIENT_ID, NULL);
-    wp_properties_set (priv->pp->properties, PW_KEY_FACTORY_ID, NULL);
-
-    /* add must-have global properties */
-    wp_properties_set (priv->pp->properties,
-        PW_KEY_ENDPOINT_NAME, priv->info.name);
-    wp_properties_set (priv->pp->properties,
-        PW_KEY_MEDIA_CLASS, priv->info.media_class);
-
-    pw_proxy = pw_core_create_object (pw_core, "client-endpoint",
-        PW_TYPE_INTERFACE_ClientEndpoint, PW_VERSION_CLIENT_ENDPOINT,
-        wp_properties_peek_dict (priv->pp->properties), 0);
-    wp_proxy_set_pw_proxy (proxy, pw_proxy);
-
-    pw_client_endpoint_add_listener (pw_proxy, &priv->pp->listener,
-        &client_endpoint_events, self);
-
-    client_endpoint_update (WP_IMPL_ENDPOINT (self),
-        PW_CLIENT_ENDPOINT_UPDATE_PARAMS | PW_CLIENT_ENDPOINT_UPDATE_INFO,
-        PW_ENDPOINT_CHANGE_MASK_ALL);
+    wp_proxy_set_pw_proxy (proxy, pw_core_export (pw_core,
+            PW_TYPE_INTERFACE_Endpoint,
+            wp_properties_peek_dict (props),
+            priv->iface, 0));
   }
-}
-
-static gint
-wp_impl_endpoint_set_param (WpProxy * self, guint32 id, guint32 flags,
-    const struct spa_pod *param)
-{
-  return client_endpoint_set_param (self, id, flags, param);
-}
-
-static gboolean
-wp_impl_endpoint_set_control (WpEndpoint * endpoint, guint32 control_id,
-    const struct spa_pod * pod)
-{
-  WpImplEndpointPrivate *priv =
-      wp_impl_endpoint_get_instance_private (WP_IMPL_ENDPOINT (endpoint));
-
-  if (wp_spa_props_store_pod (&priv->pp->spa_props, control_id, pod) < 0)
-    return FALSE;
-
-  g_signal_emit (endpoint, signals[SIGNAL_CONTROL_CHANGED], 0, control_id);
-
-  /* update only after the endpoint has been exported */
-  if (wp_proxy_get_features (WP_PROXY (endpoint)) & WP_PROXY_FEATURE_BOUND) {
-    client_endpoint_update (WP_IMPL_ENDPOINT (endpoint),
-        PW_CLIENT_ENDPOINT_UPDATE_PARAMS, 0);
-  }
-
-  return TRUE;
 }
 
 static void
@@ -739,165 +832,33 @@ wp_impl_endpoint_class_init (WpImplEndpointClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
-  WpEndpointClass *endpoint_class = (WpEndpointClass *) klass;
 
   object_class->finalize = wp_impl_endpoint_finalize;
+  object_class->set_property = wp_impl_endpoint_set_property;
+  object_class->get_property = wp_impl_endpoint_get_property;
 
   proxy_class->augment = wp_impl_endpoint_augment;
-  proxy_class->enum_params = NULL;
-  proxy_class->subscribe_params = NULL;
-  proxy_class->set_param = wp_impl_endpoint_set_param;
 
   proxy_class->pw_proxy_created = NULL;
   proxy_class->param = NULL;
 
-  endpoint_class->set_control = wp_impl_endpoint_set_control;
+  g_object_class_install_property (object_class, IMPL_PROP_ITEM,
+      g_param_spec_object ("item", "item", "item", WP_TYPE_SI_ENDPOINT,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
-/**
- * wp_impl_endpoint_new:
- * @core: the #WpCore
- *
- * Returns: (transfer full): the newly constructed endpoint implementation
- */
 WpImplEndpoint *
-wp_impl_endpoint_new (WpCore * core)
+wp_impl_endpoint_new (WpCore * core, WpSiEndpoint * item)
 {
   g_return_val_if_fail (WP_IS_CORE (core), NULL);
 
   return g_object_new (WP_TYPE_IMPL_ENDPOINT,
       "core", core,
+      "item", item,
       NULL);
 }
 
-/**
- * wp_impl_endpoint_set_property:
- * @self: the endpoint implementation
- * @key: a property key
- * @value: a property value
- *
- * Sets the specified property on the PipeWire properties of the endpoint.
- *
- * If this property is set before exporting the endpoint, then it is also used
- * in the construction process of the endpoint object and appears as a global
- * property.
- */
-void
-wp_impl_endpoint_set_property (WpImplEndpoint * self,
-    const gchar * key, const gchar * value)
-{
-  WpImplEndpointPrivate *priv;
-
-  g_return_if_fail (WP_IS_IMPL_ENDPOINT (self));
-  priv = wp_impl_endpoint_get_instance_private (self);
-
-  wp_properties_set (priv->pp->properties, key, value);
-
-  g_object_notify (G_OBJECT (self), "properties");
-
-  /* update only after the endpoint has been exported */
-  if (wp_proxy_get_features (WP_PROXY (self)) & WP_PROXY_FEATURE_BOUND) {
-    client_endpoint_update (self, PW_CLIENT_ENDPOINT_UPDATE_INFO,
-        PW_ENDPOINT_CHANGE_MASK_PROPS);
-  }
-}
-
-/**
- * wp_impl_endpoint_update_properties:
- * @self: the endpoint implementation
- * @updates: a set of properties to add or update in the endpoint's properties
- *
- * Adds or updates the values of the PipeWire properties of the endpoint
- * using the properties in @updates as a source.
- *
- * If the properties are set before exporting the endpoint, then they are also
- * used in the construction process of the endpoint object and appear as
- * global properties.
- */
-void
-wp_impl_endpoint_update_properties (WpImplEndpoint * self,
-    WpProperties * updates)
-{
-  WpImplEndpointPrivate *priv;
-
-  g_return_if_fail (WP_IS_IMPL_ENDPOINT (self));
-  priv = wp_impl_endpoint_get_instance_private (self);
-
-  wp_properties_update_from_dict (priv->pp->properties,
-      wp_properties_peek_dict (updates));
-
-  g_object_notify (G_OBJECT (self), "properties");
-
-  /* update only after the endpoint has been exported */
-  if (wp_proxy_get_features (WP_PROXY (self)) & WP_PROXY_FEATURE_BOUND) {
-    client_endpoint_update (self, PW_CLIENT_ENDPOINT_UPDATE_INFO,
-        PW_ENDPOINT_CHANGE_MASK_PROPS);
-  }
-}
-
-/**
- * wp_impl_endpoint_set_name:
- * @self: the endpoint implementation
- * @name: the name to set
- *
- * Sets the name of the endpoint to be @name.
- *
- * This only makes sense to set before exporting the endpoint.
- */
-void
-wp_impl_endpoint_set_name (WpImplEndpoint * self, const gchar * name)
-{
-  WpImplEndpointPrivate *priv;
-
-  g_return_if_fail (WP_IS_IMPL_ENDPOINT (self));
-  priv = wp_impl_endpoint_get_instance_private (self);
-
-  g_free (priv->info.name);
-  priv->info.name = g_strdup (name);
-}
-
-/**
- * wp_impl_endpoint_set_media_class:
- * @self: the endpoint implementation
- * @media_class: the media class to set
- *
- * Sets the media class of the endpoint to be @media_class.
- *
- * This only makes sense to set before exporting the endpoint.
- */
-void
-wp_impl_endpoint_set_media_class (WpImplEndpoint * self,
-    const gchar * media_class)
-{
-  WpImplEndpointPrivate *priv;
-
-  g_return_if_fail (WP_IS_IMPL_ENDPOINT (self));
-  priv = wp_impl_endpoint_get_instance_private (self);
-
-  g_free (priv->info.media_class);
-  priv->info.media_class = g_strdup (media_class);
-}
-
-/**
- * wp_impl_endpoint_set_direction:
- * @self: the endpoint implementation
- * @dir: the direction to set
- *
- * Sets the direction of the endpoint to be @dir.
- *
- * This only makes sense to set before exporting the endpoint.
- */
-void
-wp_impl_endpoint_set_direction (WpImplEndpoint * self, WpDirection dir)
-{
-  WpImplEndpointPrivate *priv;
-
-  g_return_if_fail (WP_IS_IMPL_ENDPOINT (self));
-  priv = wp_impl_endpoint_get_instance_private (self);
-
-  priv->info.direction = (enum pw_direction) dir;
-}
-
+#if 0
 /**
  * wp_impl_endpoint_register_control:
  * @self: the endpoint implementation
@@ -936,3 +897,4 @@ wp_impl_endpoint_register_control (WpImplEndpoint * self,
     break;
   }
 }
+#endif

@@ -10,10 +10,9 @@
 #define __WIREPLUMBER_SESSION_ITEM_H__
 
 #include "transition.h"
+#include "session.h"
 
 G_BEGIN_DECLS
-
-typedef struct _WpSession WpSession;
 
 /**
  * WP_TYPE_SESSION_ITEM:
@@ -29,23 +28,25 @@ G_DECLARE_DERIVABLE_TYPE (WpSessionItem, wp_session_item,
  * WpSiFlags:
  * @WP_SI_FLAG_ACTIVATING: set when an activation transition is in progress
  * @WP_SI_FLAG_ACTIVE: set when an activation transition completes successfully
- * @WP_SI_FLAG_EXPORTED: set when the item has exported all necessary objects
- *   to PipeWire
  * @WP_SI_FLAG_IN_ERROR: set when there was an error in the activation process;
  *   to recover, the handler must call wp_session_item_reset() before anything
  *   else
  * @WP_SI_FLAG_CONFIGURED: must be set by subclasses when all the required
  *   (%WP_SI_CONFIG_OPTION_REQUIRED) configuration options have been set
+ * @WP_SI_FLAG_EXPORTING: set when an export operation is in progress
+ * @WP_SI_FLAG_EXPORTED: set when the item has exported all necessary objects
+ *   to PipeWire
  */
 typedef enum {
   /* immutable flags, set internally */
   WP_SI_FLAG_ACTIVATING = (1<<0),
   WP_SI_FLAG_ACTIVE = (1<<1),
-  WP_SI_FLAG_EXPORTED = (1<<2),
-  WP_SI_FLAG_IN_ERROR = (1<<3),
+  WP_SI_FLAG_IN_ERROR = (1<<4),
 
   /* flags that can be changed by subclasses */
   WP_SI_FLAG_CONFIGURED = (1<<8),
+  WP_SI_FLAG_EXPORTING = (1<<9),
+  WP_SI_FLAG_EXPORTED = (1<<10),
 
   /* implementation-specific flags */
   WP_SI_FLAG_CUSTOM_START = (1<<16),
@@ -70,6 +71,9 @@ typedef enum {
  * @execute_step: Implements #WpTransitionClass.execute_step() for the
  *   transition of wp_session_item_activate()
  * @reset: See wp_session_item_reset()
+ * @export: See wp_session_item_export()
+ * @export_finish: See wp_session_item_export_finish()
+ * @unexport: See wp_session_item_unexport()
  */
 struct _WpSessionItemClass
 {
@@ -84,6 +88,13 @@ struct _WpSessionItemClass
       guint step);
 
   void (*reset) (WpSessionItem * self);
+
+  void (*export) (WpSessionItem * self,
+      WpSession * session, GCancellable * cancellable,
+      GAsyncReadyCallback callback, gpointer callback_data);
+  gboolean (*export_finish) (WpSessionItem * self, GAsyncResult * res,
+      GError ** error);
+  void (*unexport) (WpSessionItem * self);
 };
 
 /* properties */
@@ -120,6 +131,19 @@ gboolean wp_session_item_activate_finish (WpSessionItem * self,
 
 WP_API
 void wp_session_item_reset (WpSessionItem * self);
+
+/* exporting */
+
+WP_API
+void wp_session_item_export (WpSessionItem * self, WpSession * session,
+    GAsyncReadyCallback callback, gpointer callback_data);
+
+WP_API
+gboolean wp_session_item_export_finish (WpSessionItem * self,
+    GAsyncResult * res, GError ** error);
+
+WP_API
+void wp_session_item_unexport (WpSessionItem * self);
 
 G_END_DECLS
 

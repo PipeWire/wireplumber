@@ -23,66 +23,33 @@ G_DEFINE_INTERFACE (WpSiEndpoint, wp_si_endpoint, WP_TYPE_SESSION_ITEM)
 static void
 wp_si_endpoint_default_init (WpSiEndpointInterface * iface)
 {
+  g_signal_new ("endpoint-properties-changed", G_TYPE_FROM_INTERFACE (iface),
+      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
+
+  g_signal_new ("endpoint-streams-changed", G_TYPE_FROM_INTERFACE (iface),
+      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 }
 
 /**
- * wp_si_endpoint_get_name: (virtual get_name)
+ * wp_si_endpoint_get_registration_info: (virtual get_registration_info)
  * @self: the session item
  *
- * Returns: (transfer none): the name of the endpoint
+ * This should return information that is used for registering the endpoint,
+ * as a GVariant tuple of type (ssya{ss}) that contains, in order:
+ *  - s: the endpoint's name
+ *  - s: the media class
+ *  - y: the direction
+ *  - a{ss}: additional properties to be added to the list of global properties
+ *
+ * Returns: (transfer full): registration info for the endpoint
  */
-const gchar *
-wp_si_endpoint_get_name (WpSiEndpoint * self)
+GVariant *
+wp_si_endpoint_get_registration_info (WpSiEndpoint * self)
 {
   g_return_val_if_fail (WP_IS_SI_ENDPOINT (self), NULL);
-  g_return_val_if_fail (WP_SI_ENDPOINT_GET_IFACE (self)->get_name, NULL);
+  g_return_val_if_fail (WP_SI_ENDPOINT_GET_IFACE (self)->get_registration_info, NULL);
 
-  return WP_SI_ENDPOINT_GET_IFACE (self)->get_name (self);
-}
-
-/**
- * wp_si_endpoint_get_media_class: (virtual get_media_class)
- * @self: the session item
- *
- * Returns: (transfer none): the media class of the endpoint
- */
-const gchar *
-wp_si_endpoint_get_media_class (WpSiEndpoint * self)
-{
-  g_return_val_if_fail (WP_IS_SI_ENDPOINT (self), NULL);
-  g_return_val_if_fail (WP_SI_ENDPOINT_GET_IFACE (self)->get_media_class, NULL);
-
-  return WP_SI_ENDPOINT_GET_IFACE (self)->get_media_class (self);
-}
-
-/**
- * wp_si_endpoint_get_direction: (virtual get_direction)
- * @self: the session item
- *
- * Returns: the direction of the endpoint
- */
-WpDirection
-wp_si_endpoint_get_direction (WpSiEndpoint * self)
-{
-  g_return_val_if_fail (WP_IS_SI_ENDPOINT (self), 0);
-  g_return_val_if_fail (WP_SI_ENDPOINT_GET_IFACE (self)->get_direction, 0);
-
-  return WP_SI_ENDPOINT_GET_IFACE (self)->get_direction (self);
-}
-
-/**
- * wp_si_endpoint_get_priority: (virtual get_priority)
- * @self: the session item
- *
- * Returns: the priority of the endpoint
- */
-guint
-wp_si_endpoint_get_priority (WpSiEndpoint * self)
-{
-  g_return_val_if_fail (WP_IS_SI_ENDPOINT (self), 0);
-  g_return_val_if_fail (WP_SI_ENDPOINT_GET_IFACE (self)->get_priority, 0);
-
-  return WP_SI_ENDPOINT_GET_IFACE (self)->get_priority (self);
+  return WP_SI_ENDPOINT_GET_IFACE (self)->get_registration_info (self);
 }
 
 /**
@@ -197,21 +164,28 @@ G_DEFINE_INTERFACE (WpSiStream, wp_si_stream, WP_TYPE_SESSION_ITEM)
 static void
 wp_si_stream_default_init (WpSiStreamInterface * iface)
 {
+  g_signal_new ("stream-properties-changed", G_TYPE_FROM_INTERFACE (iface),
+      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 }
 
 /**
- * wp_si_stream_get_name: (virtual get_name)
+ * wp_si_stream_get_registration_info: (virtual get_registration_info)
  * @self: the session item
  *
- * Returns: (transfer none): the name of the stream
+ * This should return information that is used for registering the stream,
+ * as a GVariant tuple of type (sa{ss}) that contains, in order:
+ *  - s: the stream's name
+ *  - a{ss}: additional properties to be added to the list of global properties
+ *
+ * Returns: (transfer full): registration info for the stream
  */
-const gchar *
-wp_si_stream_get_name (WpSiStream * self)
+GVariant *
+wp_si_stream_get_registration_info (WpSiStream * self)
 {
   g_return_val_if_fail (WP_IS_SI_STREAM (self), NULL);
-  g_return_val_if_fail (WP_SI_STREAM_GET_IFACE (self)->get_name, NULL);
+  g_return_val_if_fail (WP_SI_STREAM_GET_IFACE (self)->get_registration_info, NULL);
 
-  return WP_SI_STREAM_GET_IFACE (self)->get_name (self);
+  return WP_SI_STREAM_GET_IFACE (self)->get_registration_info (self);
 }
 
 /**

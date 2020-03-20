@@ -12,6 +12,8 @@
  */
 
 #include "session-item.h"
+#include "private.h"
+#include "error.h"
 #include "wpenums.h"
 
 typedef struct _WpSessionItemPrivate WpSessionItemPrivate;
@@ -19,6 +21,8 @@ struct _WpSessionItemPrivate
 {
   GWeakRef session;
   guint32 flags;
+
+  WpImplEndpoint *impl_endpoint;
 };
 
 enum {
@@ -56,8 +60,7 @@ static void
 wp_session_item_finalize (GObject * object)
 {
   WpSessionItem * self = WP_SESSION_ITEM (object);
-  WpSessionItemPrivate *priv =
-      wp_session_item_get_instance_private (self);
+  WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
 
   g_weak_ref_clear (&priv->session);
 
@@ -76,11 +79,90 @@ wp_session_item_default_get_next_step (WpSessionItem * self,
 static void
 wp_session_item_default_reset (WpSessionItem * self)
 {
-  WpSessionItemPrivate *priv =
-      wp_session_item_get_instance_private (self);
+  WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
+
+  wp_session_item_unexport (self);
 
   priv->flags &= ~(WP_SI_FLAG_ACTIVE | WP_SI_FLAG_IN_ERROR);
   g_signal_emit (self, signals[SIGNAL_FLAGS_CHANGED], 0, priv->flags);
+}
+
+static void
+on_export_proxy_augmented (WpProxy * proxy, GAsyncResult * res, gpointer data)
+{
+  g_autoptr (GTask) task = G_TASK (data);
+  g_autoptr (GError) error = NULL;
+  WpSessionItem *self = WP_SESSION_ITEM (g_task_get_source_object (task));
+  WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
+
+  priv->flags &= ~WP_SI_FLAG_EXPORTING;
+
+  if (!wp_proxy_augment_finish (proxy, res, &error)) {
+    g_weak_ref_set (&priv->session, NULL);
+    g_clear_object (&priv->impl_endpoint);
+    g_task_return_error (task, g_steal_pointer (&error));
+    return;
+  }
+
+  priv->flags |= WP_SI_FLAG_EXPORTED;
+  g_signal_emit (self, signals[SIGNAL_FLAGS_CHANGED], 0, priv->flags);
+  g_task_return_boolean (task, TRUE);
+}
+
+static void
+wp_session_item_default_export (WpSessionItem * self,
+      WpSession * session, GCancellable * cancellable,
+      GAsyncReadyCallback callback, gpointer callback_data)
+{
+  WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
+  g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (session));
+  g_autoptr (GTask) task = NULL;
+
+  g_return_if_fail (priv->flags & WP_SI_FLAG_ACTIVE);
+  g_return_if_fail (!(priv->flags & (WP_SI_FLAG_EXPORTING | WP_SI_FLAG_EXPORTED)));
+
+  task = g_task_new (self, cancellable, callback, callback_data);
+  g_task_set_source_tag (task, wp_session_item_default_export);
+
+  if (WP_IS_SI_ENDPOINT (self)) {
+    g_weak_ref_set (&priv->session, session);
+    priv->flags |= WP_SI_FLAG_EXPORTING;
+    priv->impl_endpoint = wp_impl_endpoint_new (core, WP_SI_ENDPOINT (self));
+
+    g_signal_emit (self, signals[SIGNAL_FLAGS_CHANGED], 0, priv->flags);
+
+    wp_proxy_augment (WP_PROXY (priv->impl_endpoint),
+        WP_PROXY_FEATURES_STANDARD, NULL,
+        (GAsyncReadyCallback) on_export_proxy_augmented,
+        g_steal_pointer (&task));
+  }
+  else {
+    g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_INVALID_ARGUMENT,
+        "Cannot export WpSessionItem of unknown type (%s:%p)",
+        G_OBJECT_TYPE_NAME (self), self);
+  }
+}
+
+static gboolean
+wp_session_item_default_export_finish (WpSessionItem * self,
+    GAsyncResult * res, GError ** error)
+{
+  g_return_val_if_fail (
+      g_async_result_is_tagged (res, wp_session_item_default_export), FALSE);
+
+  return g_task_propagate_boolean (G_TASK (res), error);
+}
+
+static void
+wp_session_item_default_unexport (WpSessionItem * self)
+{
+  WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
+
+  //TODO cancel job if EXPORTING
+
+  g_clear_object (&priv->impl_endpoint);
+  priv->flags &= ~(WP_SI_FLAG_EXPORTING | WP_SI_FLAG_EXPORTED);
 }
 
 static void
@@ -94,6 +176,9 @@ wp_session_item_class_init (WpSessionItemClass * klass)
   klass->reset = wp_session_item_default_reset;
 
   klass->get_next_step = wp_session_item_default_get_next_step;
+  klass->export = wp_session_item_default_export;
+  klass->export_finish = wp_session_item_default_export_finish;
+  klass->unexport = wp_session_item_default_unexport;
 
   /**
    * WpSessionItem::flags-changed:
@@ -357,4 +442,69 @@ wp_session_item_reset (WpSessionItem * self)
   g_return_if_fail (WP_SESSION_ITEM_GET_CLASS (self)->reset);
 
   WP_SESSION_ITEM_GET_CLASS (self)->reset (self);
+}
+
+/**
+ * wp_session_item_export: (virtual export)
+ * @self: the session item
+ * @session: the session on which to export this item
+ * @callback: (scope async): a callback to call when exporting is finished
+ * @callback_data: (closure): data passed to @callback
+ *
+ * Exports this item asynchronously on PipeWire, making it part of the
+ * specified @session.
+ *
+ * Exporting only makes sense for endpoints (items that implement #WpSiEndpoint)
+ * and endpoint links (items that implement #WpSiLink). On other items the
+ * default implementation will immediately call the @callback, reporting error.
+ */
+void
+wp_session_item_export (WpSessionItem * self, WpSession * session,
+    GAsyncReadyCallback callback, gpointer callback_data)
+{
+  g_return_if_fail (WP_IS_SESSION_ITEM (self));
+  g_return_if_fail (WP_IS_SESSION (session));
+  g_return_if_fail (WP_SESSION_ITEM_GET_CLASS (self)->export);
+
+  WP_SESSION_ITEM_GET_CLASS (self)->export (self, session, NULL,
+      callback, callback_data);
+}
+
+/**
+ * wp_session_item_export_finish: (virtual export_finish)
+ * @self: the session item
+ * @res: the async operation result
+ * @error: (out) (optional): the error of the operation, if any
+ *
+ * Returns: %TRUE if the item is now exported, %FALSE if there was an error
+ */
+gboolean
+wp_session_item_export_finish (WpSessionItem * self, GAsyncResult * res,
+    GError ** error)
+{
+  g_return_val_if_fail (WP_IS_SESSION_ITEM (self), FALSE);
+  g_return_val_if_fail (WP_SESSION_ITEM_GET_CLASS (self)->export_finish, FALSE);
+
+  return WP_SESSION_ITEM_GET_CLASS (self)->export_finish (self, res, error);
+}
+
+/**
+ * wp_session_item_unexport: (virtual unexport)
+ * @self: the session item
+ *
+ * Reverses the effects of a previous call to wp_session_item_export().
+ * This means that after this method is called:
+ *  - The item is no longer exported on PipeWire
+ *  - The item is no longer associated with a session
+ *  - If an export operation was in progress, it is cancelled.
+ *
+ * If the item was not exported, this method does nothing.
+ */
+void
+wp_session_item_unexport (WpSessionItem * self)
+{
+  g_return_if_fail (WP_IS_SESSION_ITEM (self));
+  g_return_if_fail (WP_SESSION_ITEM_GET_CLASS (self)->unexport);
+
+  WP_SESSION_ITEM_GET_CLASS (self)->unexport (self);
 }

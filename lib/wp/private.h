@@ -12,6 +12,8 @@
 #include "core.h"
 #include "object-manager.h"
 #include "proxy.h"
+#include "endpoint.h"
+#include "si-interfaces.h"
 
 #include <stdint.h>
 #include <pipewire/pipewire.h>
@@ -135,6 +137,10 @@ gint wp_spa_props_store_pod (WpSpaProps * self, guint32 id,
 gint wp_spa_props_store_from_props (WpSpaProps * self,
     const struct spa_pod * props, GArray * changed_ids);
 
+struct spa_pod * wp_spa_props_build_props (WpSpaProps * self,
+    struct spa_pod_builder * b);
+GPtrArray * wp_spa_props_build_propinfo (WpSpaProps * self,
+    struct spa_pod_builder * b);
 GPtrArray * wp_spa_props_build_all_pods (WpSpaProps * self,
     struct spa_pod_builder * b);
 struct spa_pod * wp_spa_props_build_update (WpSpaProps * self, guint32 id,
@@ -167,6 +173,14 @@ wp_spa_props_build_pod (gchar * buffer, gsize size, ...)
   wp_spa_props_store_pod (self, id, \
       wp_spa_props_build_pod (b, sizeof (b), ##__VA_ARGS__, NULL)); \
 })
+
+/* impl endpoint */
+
+#define WP_TYPE_IMPL_ENDPOINT (wp_impl_endpoint_get_type ())
+G_DECLARE_FINAL_TYPE (WpImplEndpoint, wp_impl_endpoint,
+                      WP, IMPL_ENDPOINT, WpEndpoint)
+
+WpImplEndpoint * wp_impl_endpoint_new (WpCore * core, WpSiEndpoint * item);
 
 G_END_DECLS
 

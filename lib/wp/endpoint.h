@@ -112,48 +112,6 @@ WP_API
 gboolean wp_endpoint_set_control_float (WpEndpoint * self, guint32 control_id,
     gfloat value);
 
-/**
- * WP_TYPE_IMPL_ENDPOINT:
- *
- * The #WpImplEndpoint #GType
- */
-#define WP_TYPE_IMPL_ENDPOINT (wp_impl_endpoint_get_type ())
-WP_API
-G_DECLARE_DERIVABLE_TYPE (WpImplEndpoint, wp_impl_endpoint,
-                          WP, IMPL_ENDPOINT, WpEndpoint)
-
-struct _WpImplEndpointClass
-{
-  WpEndpointClass parent_class;
-};
-
-WP_API
-WpImplEndpoint * wp_impl_endpoint_new (WpCore * core);
-
-WP_API
-void wp_impl_endpoint_set_property (WpImplEndpoint * self,
-    const gchar * key, const gchar * value);
-
-WP_API
-void wp_impl_endpoint_update_properties (WpImplEndpoint * self,
-    WpProperties * updates);
-
-WP_API
-void wp_impl_endpoint_set_name (WpImplEndpoint * self,
-    const gchar * name);
-
-WP_API
-void wp_impl_endpoint_set_media_class (WpImplEndpoint * self,
-    const gchar * media_class);
-
-WP_API
-void wp_impl_endpoint_set_direction (WpImplEndpoint * self,
-    WpDirection dir);
-
-WP_API
-void wp_impl_endpoint_register_control (WpImplEndpoint * self,
-    WpEndpointControl control);
-
 G_END_DECLS
 
 #endif

@@ -17,6 +17,8 @@ G_BEGIN_DECLS
 
 typedef struct _WpSiStream WpSiStream;
 
+
+
 /**
  * WP_TYPE_SI_ENDPOINT:
  *
@@ -31,11 +33,7 @@ struct _WpSiEndpointInterface
 {
   GTypeInterface interface;
 
-  const gchar * (*get_name) (WpSiEndpoint * self);
-  const gchar * (*get_media_class) (WpSiEndpoint * self);
-  const gchar * (*get_role) (WpSiEndpoint * self);
-  WpDirection (*get_direction) (WpSiEndpoint * self);
-  guint (*get_priority) (WpSiEndpoint * self);
+  GVariant * (*get_registration_info) (WpSiEndpoint * self);
   WpProperties * (*get_properties) (WpSiEndpoint * self);
 
   guint (*get_n_streams) (WpSiEndpoint * self);
@@ -43,16 +41,7 @@ struct _WpSiEndpointInterface
 };
 
 WP_API
-const gchar * wp_si_endpoint_get_name (WpSiEndpoint * self);
-
-WP_API
-const gchar * wp_si_endpoint_get_media_class (WpSiEndpoint * self);
-
-WP_API
-WpDirection wp_si_endpoint_get_direction (WpSiEndpoint * self);
-
-WP_API
-guint wp_si_endpoint_get_priority (WpSiEndpoint * self);
+GVariant * wp_si_endpoint_get_registration_info (WpSiEndpoint * self);
 
 WP_API
 WpProperties * wp_si_endpoint_get_properties (WpSiEndpoint * self);
@@ -102,14 +91,14 @@ struct _WpSiStreamInterface
 {
   GTypeInterface interface;
 
-  const gchar * (*get_name) (WpSiStream * self);
+  GVariant * (*get_registration_info) (WpSiStream * self);
   WpProperties * (*get_properties) (WpSiStream * self);
 
   WpSiEndpoint * (*get_parent_endpoint) (WpSiStream * self);
 };
 
 WP_API
-const gchar * wp_si_stream_get_name (WpSiStream * self);
+GVariant * wp_si_stream_get_registration_info (WpSiStream * self);
 
 WP_API
 WpProperties * wp_si_stream_get_properties (WpSiStream * self);
