@@ -115,6 +115,10 @@ void wp_session_item_activate (WpSessionItem * self,
     GAsyncReadyCallback callback, gpointer callback_data);
 
 WP_API
+gboolean wp_session_item_activate_finish (WpSessionItem * self,
+    GAsyncResult * res, GError ** error);
+
+WP_API
 void wp_session_item_reset (WpSessionItem * self);
 
 G_END_DECLS

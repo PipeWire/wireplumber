@@ -295,8 +295,8 @@ on_transition_completed (WpTransition * transition, GParamSpec * pspec,
  * that calls into #WpSessionItemClass.get_next_step() and
  * #WpSessionItemClass.execute_step() to advance.
  *
- * You can use wp_transition_finish() in the @callback to figure out the
- * result of this operation.
+ * You can use wp_session_item_activate_finish() in the @callback to figure out
+ * the result of this operation.
  *
  * Normally this function is called internally by the session; there is no need
  * to activate an item externally, except for unit testing purposes.
@@ -324,6 +324,23 @@ wp_session_item_activate (WpSessionItem * self,
   g_signal_emit (self, signals[SIGNAL_FLAGS_CHANGED], 0, priv->flags);
 
   wp_transition_advance (transition);
+}
+
+/**
+ * wp_session_item_activate_finish:
+ * @self: the session item
+ * @res: the async operation result
+ * @error: (out) (optional): the error of the operation, if any
+ *
+ * Returns: %TRUE if the item is now activateed, %FALSE if there was an error
+ */
+gboolean
+wp_session_item_activate_finish (WpSessionItem * self, GAsyncResult * res,
+    GError ** error)
+{
+  g_return_val_if_fail (
+      g_async_result_is_tagged (res, wp_session_item_activate), FALSE);
+  return wp_transition_finish (res, error);
 }
 
 /**
