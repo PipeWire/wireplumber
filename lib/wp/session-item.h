@@ -64,6 +64,7 @@ typedef enum {
 
 /**
  * WpSessionItemClass:
+ * @get_associated_proxy: See wp_session_item_get_associated_proxy()
  * @configure: See wp_session_item_configure()
  * @get_configuration: See wp_session_item_get_configuration()
  * @get_next_step: Implements #WpTransitionClass.get_next_step() for the
@@ -78,6 +79,8 @@ typedef enum {
 struct _WpSessionItemClass
 {
   GObjectClass parent_class;
+
+  gpointer (*get_associated_proxy) (WpSessionItem * self, GType proxy_type);
 
   gboolean (*configure) (WpSessionItem * self, GVariant * args);
   GVariant * (*get_configuration) (WpSessionItem * self);
@@ -97,10 +100,7 @@ struct _WpSessionItemClass
   void (*unexport) (WpSessionItem * self);
 };
 
-/* properties */
-
-WP_API
-WpSession * wp_session_item_get_session (WpSessionItem * self);
+/* flags */
 
 WP_API
 WpSiFlags wp_session_item_get_flags (WpSessionItem * self);
@@ -110,6 +110,12 @@ void wp_session_item_set_flag (WpSessionItem * self, WpSiFlags flag);
 
 WP_API
 void wp_session_item_clear_flag (WpSessionItem * self, WpSiFlags flag);
+
+/* associated proxies */
+
+WP_API
+gpointer wp_session_item_get_associated_proxy (WpSessionItem * self,
+    GType proxy_type);
 
 /* configuration */
 

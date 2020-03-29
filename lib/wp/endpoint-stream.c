@@ -708,6 +708,7 @@ wp_impl_endpoint_stream_augment (WpProxy * proxy, WpProxyFeatures features)
 
   if (features & WP_PROXY_FEATURE_INFO) {
     const gchar *key, *value;
+    g_autoptr (WpProxy) endpoint = NULL;
 
     /* initialize info struct */
     priv->info = &self->info;
@@ -717,6 +718,11 @@ wp_impl_endpoint_stream_augment (WpProxy * proxy, WpProxyFeatures features)
     g_variant_get (info, "(sa{ss})",
         &self->info.name,
         &immutable_props);
+
+    endpoint = wp_session_item_get_associated_proxy (
+        WP_SESSION_ITEM (self->item), WP_TYPE_ENDPOINT);
+    self->info.endpoint_id =
+        endpoint ? wp_proxy_get_bound_id (endpoint) : SPA_ID_INVALID;
 
     populate_endpoint_stream_info (self, PW_ENDPOINT_STREAM_CHANGE_MASK_ALL);
 
@@ -729,6 +735,10 @@ wp_impl_endpoint_stream_augment (WpProxy * proxy, WpProxyFeatures features)
     props = wp_properties_new (
         PW_KEY_ENDPOINT_STREAM_NAME, self->info.name,
         NULL);
+    if (self->info.endpoint_id != SPA_ID_INVALID) {
+      wp_properties_setf (props, PW_KEY_ENDPOINT_ID, "%u",
+          self->info.endpoint_id);
+    }
     while (g_variant_iter_next (immutable_props, "{&s&s}", &key, &value)) {
       wp_properties_set (props, key, value);
     }

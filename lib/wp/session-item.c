@@ -117,6 +117,34 @@ wp_session_item_finalize (GObject * object)
   G_OBJECT_CLASS (wp_session_item_parent_class)->finalize (object);
 }
 
+static gpointer
+wp_session_item_default_get_associated_proxy (WpSessionItem * self,
+    GType proxy_type)
+{
+  WpSessionItemPrivate *priv;
+
+  if (WP_IS_SI_STREAM (self)) {
+    WpSiEndpoint *ep = wp_si_stream_get_parent_endpoint (WP_SI_STREAM (self));
+    priv = wp_session_item_get_instance_private (WP_SESSION_ITEM (ep));
+  } else {
+    priv = wp_session_item_get_instance_private (self);
+  }
+
+  if (proxy_type == WP_TYPE_SESSION) {
+    return g_weak_ref_get (&priv->session);
+  }
+  else if (proxy_type == WP_TYPE_ENDPOINT) {
+    return priv->impl_endpoint ? g_object_ref (priv->impl_endpoint) : NULL;
+  }
+  else if (proxy_type == WP_TYPE_ENDPOINT_STREAM) {
+    gpointer impl_stream = priv->impl_streams ?
+        g_hash_table_lookup (priv->impl_streams, self) : NULL;
+    return impl_stream ? g_object_ref (impl_stream) : NULL;
+  }
+
+  return NULL;
+}
+
 static guint
 wp_session_item_default_get_next_step (WpSessionItem * self,
     WpTransition * transition, guint step)
@@ -352,6 +380,7 @@ wp_session_item_class_init (WpSessionItemClass * klass)
   object_class->dispose = wp_session_item_dispose;
   object_class->finalize = wp_session_item_finalize;
 
+  klass->get_associated_proxy = wp_session_item_default_get_associated_proxy;
   klass->get_next_step = wp_session_item_default_get_next_step;
   klass->execute_step = wp_session_item_default_execute_step;
   klass->reset = wp_session_item_default_reset;
@@ -368,23 +397,6 @@ wp_session_item_class_init (WpSessionItemClass * klass)
       "flags-changed", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
       G_TYPE_NONE, 1, WP_TYPE_SI_FLAGS);
-}
-
-/**
- * wp_session_item_get_session:
- * @self: the session item
- *
- * Returns: (nullable) (transfer full): the session that owns this item, or
- *   %NULL if this item is not part of a session
- */
-WpSession *
-wp_session_item_get_session (WpSessionItem * self)
-{
-  g_return_val_if_fail (WP_IS_SESSION_ITEM (self), NULL);
-
-  WpSessionItemPrivate *priv =
-      wp_session_item_get_instance_private (self);
-  return g_weak_ref_get (&priv->session);
 }
 
 /**
@@ -453,6 +465,37 @@ wp_session_item_clear_flag (WpSessionItem * self, WpSiFlags flag)
     priv->flags &= ~flag;
     g_signal_emit (self, signals[SIGNAL_FLAGS_CHANGED], 0, priv->flags);
   }
+}
+
+/**
+ * wp_session_item_get_associated_proxy: (virtual get_associated_proxy)
+ * @self: the session item
+ * @proxy_type: a #WpProxy subclass #GType
+ *
+ * An associated proxy is a #WpProxy subclass instance that is somehow related
+ * to this item. For example:
+ *  - An exported #WpSiEndpoint should have at least:
+ *      - an associated #WpEndpoint
+ *      - an associated #WpSession
+ *  - An exported #WpSiStream should have at least:
+ *      - an associated #WpEndpointStream
+ *      - an associated #WpEndpoint
+ *  - In cases where the item wraps a single PipeWire node, it should also
+ *    have an associated #WpNode
+ *
+ * Returns: (nullable) (transfer full) (type WpProxy): the associated proxy
+ *   of the specified @proxy_type, or %NULL if there is no association to
+ *   such a proxy
+ */
+gpointer
+wp_session_item_get_associated_proxy (WpSessionItem * self, GType proxy_type)
+{
+  g_return_val_if_fail (WP_IS_SESSION_ITEM (self), NULL);
+  g_return_val_if_fail (WP_SESSION_ITEM_GET_CLASS (self)->get_associated_proxy,
+      NULL);
+  g_return_val_if_fail (g_type_is_a (proxy_type, WP_TYPE_PROXY), NULL);
+
+  return WP_SESSION_ITEM_GET_CLASS (self)->get_associated_proxy (self, proxy_type);
 }
 
 /**

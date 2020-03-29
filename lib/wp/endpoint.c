@@ -647,10 +647,10 @@ populate_endpoint_info (WpImplEndpoint * self, guint32 change_mask)
   }
 
   if (change_mask & PW_ENDPOINT_CHANGE_MASK_SESSION) {
-    g_autoptr (WpSession) session =
-        wp_session_item_get_session (WP_SESSION_ITEM (self->item));
+    g_autoptr (WpProxy) session = wp_session_item_get_associated_proxy (
+        WP_SESSION_ITEM (self->item), WP_TYPE_SESSION);
     self->info.session_id =
-        session ? wp_proxy_get_bound_id (WP_PROXY (session)) : SPA_ID_INVALID;
+        session ? wp_proxy_get_bound_id (session) : SPA_ID_INVALID;
   }
 
   if (change_mask & PW_ENDPOINT_CHANGE_MASK_PROPS) {

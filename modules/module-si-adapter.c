@@ -79,6 +79,18 @@ si_adapter_reset (WpSessionItem * item)
   WP_SESSION_ITEM_CLASS (si_adapter_parent_class)->reset (item);
 }
 
+static gpointer
+si_adapter_get_associated_proxy (WpSessionItem * item, GType proxy_type)
+{
+  WpSiAdapter *self = WP_SI_ADAPTER (item);
+
+  if (proxy_type == WP_TYPE_NODE)
+    return self->node ? g_object_ref (self->node) : NULL;
+
+  return WP_SESSION_ITEM_CLASS (si_adapter_parent_class)->get_associated_proxy (
+      item, proxy_type);
+}
+
 static GVariant *
 si_adapter_get_configuration (WpSessionItem * item)
 {
@@ -355,6 +367,7 @@ si_adapter_class_init (WpSiAdapterClass * klass)
 
   object_class->finalize = si_adapter_finalize;
 
+  si_class->get_associated_proxy = si_adapter_get_associated_proxy;
   si_class->configure = si_adapter_configure;
   si_class->get_configuration = si_adapter_get_configuration;
   si_class->get_next_step = si_adapter_get_next_step;
