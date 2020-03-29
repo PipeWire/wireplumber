@@ -658,7 +658,8 @@ registry_global_remove (void *data, uint32_t id)
   WpRegistry *self = data;
   WpGlobal *global = NULL;
 
-  global = g_ptr_array_index (self->globals, id);
+  if (id < self->globals->len)
+    global = g_ptr_array_index (self->globals, id);
 
   /* if not found, look in the tmp_globals, as it may still not be exposed */
   if (!global) {
