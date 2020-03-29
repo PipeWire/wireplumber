@@ -16,6 +16,55 @@
 #include "error.h"
 #include "wpenums.h"
 
+struct _WpSiTransition
+{
+  WpTransition parent;
+  guint (*get_next_step) (WpSessionItem * self, WpTransition * transition,
+      guint step);
+  void (*execute_step) (WpSessionItem * self, WpTransition * transition,
+      guint step);
+};
+
+G_DECLARE_FINAL_TYPE (WpSiTransition, wp_si_transition,
+                      WP, SI_TRANSITION, WpTransition);
+G_DEFINE_TYPE (WpSiTransition, wp_si_transition, WP_TYPE_TRANSITION)
+
+static void
+wp_si_transition_init (WpSiTransition * transition) {}
+
+static guint
+wp_si_transition_get_next_step (WpTransition * transition, guint step)
+{
+  WpSiTransition *self = WP_SI_TRANSITION (transition);
+  WpSessionItem *item = wp_transition_get_source_object (transition);
+
+  g_return_val_if_fail (self->get_next_step, WP_TRANSITION_STEP_ERROR);
+
+  step = self->get_next_step (item, transition, step);
+
+  g_return_val_if_fail (step == WP_TRANSITION_STEP_NONE || self->execute_step,
+      WP_TRANSITION_STEP_ERROR);
+  return step;
+}
+
+static void
+wp_si_transition_execute_step (WpTransition * transition, guint step)
+{
+  WpSiTransition *self = WP_SI_TRANSITION (transition);
+  WpSessionItem *item = wp_transition_get_source_object (transition);
+  self->execute_step (item, transition, step);
+}
+
+static void
+wp_si_transition_class_init (WpSiTransitionClass * klass)
+{
+  WpTransitionClass *transition_class = (WpTransitionClass *) klass;
+
+  transition_class->get_next_step = wp_si_transition_get_next_step;
+  transition_class->execute_step = wp_si_transition_execute_step;
+}
+
+
 typedef struct _WpSessionItemPrivate WpSessionItemPrivate;
 struct _WpSessionItemPrivate
 {
@@ -312,48 +361,6 @@ wp_session_item_get_configuration (WpSessionItem * self)
   return WP_SESSION_ITEM_GET_CLASS (self)->get_configuration (self);
 }
 
-typedef WpTransition WpSiTransition;
-typedef WpTransitionClass WpSiTransitionClass;
-
-G_DEFINE_TYPE (WpSiTransition, wp_si_transition, WP_TYPE_TRANSITION)
-
-static void
-wp_si_transition_init (WpSiTransition * transition) {}
-
-static guint
-wp_si_transition_get_next_step (WpTransition * transition, guint step)
-{
-  WpSessionItem *item = wp_transition_get_source_object (transition);
-  g_return_val_if_fail (
-      WP_SESSION_ITEM_GET_CLASS (item)->get_next_step,
-      WP_TRANSITION_STEP_ERROR);
-
-  step = WP_SESSION_ITEM_GET_CLASS (item)->get_next_step (item,
-      transition, step);
-
-  g_return_val_if_fail (
-      step == WP_TRANSITION_STEP_NONE ||
-      WP_SESSION_ITEM_GET_CLASS (item)->execute_step,
-      WP_TRANSITION_STEP_ERROR);
-  return step;
-}
-
-static void
-wp_si_transition_execute_step (WpTransition * transition, guint step)
-{
-  WpSessionItem *item = wp_transition_get_source_object (transition);
-  WP_SESSION_ITEM_GET_CLASS (item)->execute_step (item, transition, step);
-}
-
-static void
-wp_si_transition_class_init (WpSiTransitionClass * klass)
-{
-  WpTransitionClass *transition_class = (WpTransitionClass *) klass;
-
-  transition_class->get_next_step = wp_si_transition_get_next_step;
-  transition_class->execute_step = wp_si_transition_execute_step;
-}
-
 static void
 on_transition_completed (WpTransition * transition, GParamSpec * pspec,
     WpSessionItem * self)
@@ -408,6 +415,10 @@ wp_session_item_activate (WpSessionItem * self,
   priv->flags |= WP_SI_FLAG_ACTIVATING;
   g_signal_emit (self, signals[SIGNAL_FLAGS_CHANGED], 0, priv->flags);
 
+  WP_SI_TRANSITION (transition)->get_next_step =
+      WP_SESSION_ITEM_GET_CLASS (self)->get_next_step;
+  WP_SI_TRANSITION (transition)->execute_step =
+      WP_SESSION_ITEM_GET_CLASS (self)->execute_step;
   wp_transition_advance (transition);
 }
 
