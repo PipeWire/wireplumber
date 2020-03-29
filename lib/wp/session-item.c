@@ -72,6 +72,7 @@ struct _WpSessionItemPrivate
   guint32 flags;
 
   WpImplEndpoint *impl_endpoint;
+  GHashTable *impl_streams;
 };
 
 enum {
@@ -151,26 +152,149 @@ wp_session_item_default_reset (WpSessionItem * self)
   g_signal_emit (self, signals[SIGNAL_FLAGS_CHANGED], 0, priv->flags);
 }
 
+enum {
+  EXPORT_STEP_ENDPOINT = WP_TRANSITION_STEP_CUSTOM_START,
+  EXPORT_STEP_STREAMS,
+  EXPORT_STEP_LINK,
+  EXPORT_STEP_FINISH,
+};
+
+static guint
+default_export_get_next_step (WpSessionItem * self, WpTransition * transition,
+    guint step)
+{
+  WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
+
+  switch (step) {
+  case WP_TRANSITION_STEP_NONE:
+    if (WP_IS_SI_ENDPOINT (self)) {
+      priv->flags |= WP_SI_FLAG_EXPORTING;
+      g_signal_emit (self, signals[SIGNAL_FLAGS_CHANGED], 0, priv->flags);
+      return EXPORT_STEP_ENDPOINT;
+    }
+    else if (WP_IS_SI_LINK (self)) {
+      priv->flags |= WP_SI_FLAG_EXPORTING;
+      g_signal_emit (self, signals[SIGNAL_FLAGS_CHANGED], 0, priv->flags);
+      return EXPORT_STEP_LINK;
+    }
+    else {
+      wp_transition_return_error (transition, g_error_new (
+              WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
+              "Cannot export WpSessionItem of unknown type (%s:%p)",
+              G_OBJECT_TYPE_NAME (self), self));
+      return WP_TRANSITION_STEP_ERROR;
+    }
+
+  case EXPORT_STEP_ENDPOINT:
+    return EXPORT_STEP_STREAMS;
+
+  case EXPORT_STEP_STREAMS:
+    g_return_val_if_fail (WP_IS_SI_ENDPOINT (self), WP_TRANSITION_STEP_ERROR);
+    g_return_val_if_fail (priv->impl_streams, WP_TRANSITION_STEP_ERROR);
+
+    /* go to next step only when all impl proxies are augmented */
+    if (g_hash_table_size (priv->impl_streams) ==
+        wp_si_endpoint_get_n_streams (WP_SI_ENDPOINT (self)))
+      return EXPORT_STEP_FINISH;
+    else
+      return step;
+
+  case EXPORT_STEP_FINISH:
+    return WP_TRANSITION_STEP_NONE;
+
+  default:
+    return WP_TRANSITION_STEP_ERROR;
+  }
+}
+
 static void
 on_export_proxy_augmented (WpProxy * proxy, GAsyncResult * res, gpointer data)
 {
-  g_autoptr (GTask) task = G_TASK (data);
-  g_autoptr (GError) error = NULL;
-  WpSessionItem *self = WP_SESSION_ITEM (g_task_get_source_object (task));
+  WpTransition *transition = WP_TRANSITION (data);
+  WpSessionItem *self = wp_transition_get_source_object (transition);
   WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
-
-  priv->flags &= ~WP_SI_FLAG_EXPORTING;
+  g_autoptr (GError) error = NULL;
 
   if (!wp_proxy_augment_finish (proxy, res, &error)) {
-    g_weak_ref_set (&priv->session, NULL);
-    g_clear_object (&priv->impl_endpoint);
-    g_task_return_error (task, g_steal_pointer (&error));
+    wp_transition_return_error (transition, g_steal_pointer (&error));
     return;
   }
 
-  priv->flags |= WP_SI_FLAG_EXPORTED;
-  g_signal_emit (self, signals[SIGNAL_FLAGS_CHANGED], 0, priv->flags);
-  g_task_return_boolean (task, TRUE);
+  if (WP_IS_IMPL_ENDPOINT_STREAM (proxy)) {
+    g_autoptr (WpSiStream) si_stream = NULL;
+
+    g_object_get (proxy, "item", &si_stream, NULL);
+    g_return_if_fail (si_stream != NULL);
+
+    g_hash_table_insert (priv->impl_streams, si_stream, g_object_ref (proxy));
+  }
+
+  wp_transition_advance (transition);
+}
+
+static void
+default_export_execute_step (WpSessionItem * self, WpTransition * transition,
+    guint step)
+{
+  WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
+  g_autoptr (WpSession) session = g_weak_ref_get (&priv->session);
+  g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (session));
+
+  switch (step) {
+  case EXPORT_STEP_ENDPOINT:
+    priv->impl_endpoint = wp_impl_endpoint_new (core, WP_SI_ENDPOINT (self));
+
+    wp_proxy_augment (WP_PROXY (priv->impl_endpoint),
+        WP_PROXY_FEATURES_STANDARD, NULL,
+        (GAsyncReadyCallback) on_export_proxy_augmented,
+        transition);
+    break;
+
+  case EXPORT_STEP_STREAMS: {
+    guint i, n_streams;
+
+    priv->impl_streams = g_hash_table_new_full (g_direct_hash, g_direct_equal,
+        NULL, g_object_unref);
+
+    n_streams = wp_si_endpoint_get_n_streams (WP_SI_ENDPOINT (self));
+    for (i = 0; i < n_streams; i++) {
+      WpSiStream *stream = wp_si_endpoint_get_stream (WP_SI_ENDPOINT (self), i);
+      WpImplEndpointStream *impl_stream =
+          wp_impl_endpoint_stream_new (core, stream);
+
+      wp_proxy_augment (WP_PROXY (impl_stream),
+          WP_PROXY_FEATURES_STANDARD, NULL,
+          (GAsyncReadyCallback) on_export_proxy_augmented,
+          transition);
+
+      /* the augment task holds a ref; object will be added to
+         priv->impl_streams when augmented */
+      g_object_unref (impl_stream);
+    }
+    break;
+  }
+  case EXPORT_STEP_LINK:
+    /* TODO implement me */
+    break;
+
+  case EXPORT_STEP_FINISH:
+    priv->flags &= ~WP_SI_FLAG_EXPORTING;
+    priv->flags |= WP_SI_FLAG_EXPORTED;
+    g_signal_emit (self, signals[SIGNAL_FLAGS_CHANGED], 0, priv->flags);
+    wp_transition_advance (transition);
+    break;
+
+  case WP_TRANSITION_STEP_ERROR:
+    g_clear_pointer (&priv->impl_streams, g_hash_table_unref);
+    g_clear_object (&priv->impl_endpoint);
+    g_weak_ref_set (&priv->session, NULL);
+
+    if (priv->flags & WP_SI_FLAG_EXPORTING) {
+      priv->flags &= ~WP_SI_FLAG_EXPORTING;
+      g_signal_emit (self, signals[SIGNAL_FLAGS_CHANGED], 0, priv->flags);
+    }
+    break;
+  }
 }
 
 static void
@@ -179,33 +303,20 @@ wp_session_item_default_export (WpSessionItem * self,
       GAsyncReadyCallback callback, gpointer callback_data)
 {
   WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
-  g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (session));
-  g_autoptr (GTask) task = NULL;
+  WpTransition *transition;
 
   g_return_if_fail (priv->flags & WP_SI_FLAG_ACTIVE);
   g_return_if_fail (!(priv->flags & (WP_SI_FLAG_EXPORTING | WP_SI_FLAG_EXPORTED)));
 
-  task = g_task_new (self, cancellable, callback, callback_data);
-  g_task_set_source_tag (task, wp_session_item_default_export);
+  g_weak_ref_set (&priv->session, session);
 
-  if (WP_IS_SI_ENDPOINT (self)) {
-    g_weak_ref_set (&priv->session, session);
-    priv->flags |= WP_SI_FLAG_EXPORTING;
-    priv->impl_endpoint = wp_impl_endpoint_new (core, WP_SI_ENDPOINT (self));
+  transition = wp_transition_new (wp_si_transition_get_type (),
+      self, cancellable, callback, callback_data);
+  wp_transition_set_source_tag (transition, wp_session_item_default_export);
 
-    g_signal_emit (self, signals[SIGNAL_FLAGS_CHANGED], 0, priv->flags);
-
-    wp_proxy_augment (WP_PROXY (priv->impl_endpoint),
-        WP_PROXY_FEATURES_STANDARD, NULL,
-        (GAsyncReadyCallback) on_export_proxy_augmented,
-        g_steal_pointer (&task));
-  }
-  else {
-    g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
-        WP_LIBRARY_ERROR_INVALID_ARGUMENT,
-        "Cannot export WpSessionItem of unknown type (%s:%p)",
-        G_OBJECT_TYPE_NAME (self), self);
-  }
+  WP_SI_TRANSITION (transition)->get_next_step = default_export_get_next_step;
+  WP_SI_TRANSITION (transition)->execute_step = default_export_execute_step;
+  wp_transition_advance (transition);
 }
 
 static gboolean
@@ -215,7 +326,7 @@ wp_session_item_default_export_finish (WpSessionItem * self,
   g_return_val_if_fail (
       g_async_result_is_tagged (res, wp_session_item_default_export), FALSE);
 
-  return g_task_propagate_boolean (G_TASK (res), error);
+  return wp_transition_finish (res, error);
 }
 
 static void
@@ -225,8 +336,12 @@ wp_session_item_default_unexport (WpSessionItem * self)
 
   //TODO cancel job if EXPORTING
 
+  g_clear_pointer (&priv->impl_streams, g_hash_table_unref);
   g_clear_object (&priv->impl_endpoint);
+  g_weak_ref_set (&priv->session, NULL);
+
   priv->flags &= ~(WP_SI_FLAG_EXPORTING | WP_SI_FLAG_EXPORTED);
+  g_signal_emit (self, signals[SIGNAL_FLAGS_CHANGED], 0, priv->flags);
 }
 
 static void
