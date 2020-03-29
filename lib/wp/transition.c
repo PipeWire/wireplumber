@@ -367,6 +367,10 @@ wp_transition_return (WpTransition * self, WpTransitionPrivate *priv)
  * When #WpTransitionClass.get_next_step() returns %WP_TRANSITION_STEP_ERROR,
  * this function calls wp_transition_return_error(), unless it has already been
  * called directly by #WpTransitionClass.get_next_step().
+ *
+ * In error conditions, #WpTransitionClass.execute_step() is called once with
+ * @step being %WP_TRANSITION_STEP_ERROR, allowing the implementation to
+ * rollback any changes or cancel underlying jobs, if necessary.
  */
 void
 wp_transition_advance (WpTransition * self)
@@ -434,6 +438,11 @@ wp_transition_return_error (WpTransition * self, GError * error)
 
   priv->step = WP_TRANSITION_STEP_ERROR;
   priv->error = error;
+
+  /* allow the implementation to rollback changes */
+  if (WP_TRANSITION_GET_CLASS (self)->execute_step)
+    WP_TRANSITION_GET_CLASS (self)->execute_step (self, priv->step);
+
   wp_transition_return (self, priv);
 }
 

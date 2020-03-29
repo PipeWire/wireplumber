@@ -126,6 +126,21 @@ wp_session_item_default_get_next_step (WpSessionItem * self,
 }
 
 static void
+wp_session_item_default_execute_step (WpSessionItem * self,
+    WpTransition * transition, guint step)
+{
+  switch (step) {
+  case WP_TRANSITION_STEP_NONE:
+    break;
+  case WP_TRANSITION_STEP_ERROR:
+    wp_session_item_reset (self);
+    break;
+  default:
+    g_return_if_reached ();
+  }
+}
+
+static void
 wp_session_item_default_reset (WpSessionItem * self)
 {
   WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
@@ -222,9 +237,9 @@ wp_session_item_class_init (WpSessionItemClass * klass)
   object_class->dispose = wp_session_item_dispose;
   object_class->finalize = wp_session_item_finalize;
 
-  klass->reset = wp_session_item_default_reset;
-
   klass->get_next_step = wp_session_item_default_get_next_step;
+  klass->execute_step = wp_session_item_default_execute_step;
+  klass->reset = wp_session_item_default_reset;
   klass->export = wp_session_item_default_export;
   klass->export_finish = wp_session_item_default_export_finish;
   klass->unexport = wp_session_item_default_unexport;

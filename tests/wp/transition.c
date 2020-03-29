@@ -102,8 +102,10 @@ wp_test_transition_execute_step (WpTransition * transition, guint step)
   WpTestTransition * self = WP_TEST_TRANSITION (transition);
   struct data *d = wp_transition_get_data (transition);
 
-  g_assert_cmpint (step, >=, STEP_FIRST);
-  g_assert_cmpint (step, <=, STEP_FINISH);
+  if (step != WP_TRANSITION_STEP_ERROR) {
+    g_assert_cmpint (step, >=, STEP_FIRST);
+    g_assert_cmpint (step, <=, STEP_FINISH);
+  }
 
   g_assert_nonnull (d);
   g_assert_cmpint (d->ste_i, <, 10);
@@ -115,7 +117,8 @@ wp_test_transition_execute_step (WpTransition * transition, guint step)
     return;
   }
 
-  g_idle_add (advance_on_idle, transition);
+  if (step != WP_TRANSITION_STEP_ERROR)
+    g_idle_add (advance_on_idle, transition);
 }
 
 static void
@@ -260,7 +263,8 @@ test_transition_error (void)
   g_assert_cmpint (data.ste[0], ==, STEP_FIRST);
   g_assert_cmpint (data.ste[1], ==, STEP_SECOND);
   g_assert_cmpint (data.ste[2], ==, STEP_THIRD);
-  g_assert_cmpint (data.ste_i, ==, 3);
+  g_assert_cmpint (data.ste[3], ==, WP_TRANSITION_STEP_ERROR);
+  g_assert_cmpint (data.ste_i, ==, 4);
   g_assert_true (data.destroyed);
 }
 
