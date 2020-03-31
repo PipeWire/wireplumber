@@ -321,6 +321,26 @@ wp_properties_unref (WpProperties * self)
 }
 
 /**
+ * wp_properties_update:
+ * @self: a properties object
+ * @props: a properties set that contains properties to update
+ *
+ * Updates (adds new or modifies existing) properties in @self, using the
+ * given @props as a source. Any properties that are not contained in @props
+ * are left untouched.
+ *
+ * Returns: the number of properties that were changed
+ */
+gint
+wp_properties_update (WpProperties * self, WpProperties * props)
+{
+  g_return_val_if_fail (self != NULL, -EINVAL);
+  g_return_val_if_fail (!(self->flags & FLAG_IS_DICT), -EINVAL);
+
+  return pw_properties_update (self->props, wp_properties_peek_dict (props));
+}
+
+/**
  * wp_properties_update_from_dict:
  * @self: a properties object
  * @dict: a `spa_dict` that contains properties to update
@@ -387,29 +407,6 @@ wp_properties_copy_keys_valist (WpProperties * src, WpProperties * dst,
       changed += wp_properties_set (dst, key1, value);
   }
   return changed;
-}
-
-
-/**
- * wp_properties_copy_all:
- * @src: the source properties set
- * @dst: the destination properties set
- *
- * Copies all the properties contained in @src into @dst
- */
-void
-wp_properties_copy_all (WpProperties * src, WpProperties * dst)
-{
-  const struct spa_dict * dict;
-  const struct spa_dict_item *item;
-
-  g_return_if_fail (src != NULL);
-  g_return_if_fail (dst != NULL);
-
-  dict = wp_properties_peek_dict (src);
-  spa_dict_for_each(item, dict) {
-    wp_properties_set (dst, item->key, item->value);
-  }
 }
 
 /**

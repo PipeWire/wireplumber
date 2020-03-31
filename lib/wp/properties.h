@@ -65,6 +65,9 @@ WP_API
 void wp_properties_unref (WpProperties * self);
 
 WP_API
+gint wp_properties_update (WpProperties * self, WpProperties * props);
+
+WP_API
 gint wp_properties_update_from_dict (WpProperties * self,
     const struct spa_dict * dict);
 
@@ -75,9 +78,6 @@ gint wp_properties_copy_keys (WpProperties * src, WpProperties * dst,
 WP_API
 gint wp_properties_copy_keys_valist (WpProperties * src, WpProperties * dst,
     const gchar *key1, va_list args);
-
-WP_API
-void wp_properties_copy_all (WpProperties * src, WpProperties * dst);
 
 WP_API
 const gchar * wp_properties_get (WpProperties * self, const gchar * key);
