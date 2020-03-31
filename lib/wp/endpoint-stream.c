@@ -472,6 +472,11 @@ G_DEFINE_TYPE (WpImplEndpointStream, wp_impl_endpoint_stream, WP_TYPE_ENDPOINT_S
 #define pw_endpoint_stream_emit_param(hooks,...) \
     pw_endpoint_stream_emit(hooks, param, 0, ##__VA_ARGS__)
 
+static struct spa_param_info impl_param_info[] = {
+  SPA_PARAM_INFO (SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE),
+  SPA_PARAM_INFO (SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ)
+};
+
 static int
 impl_add_listener(void *object,
     struct spa_hook *listener,
@@ -482,7 +487,12 @@ impl_add_listener(void *object,
   struct spa_hook_list save;
 
   spa_hook_list_isolate (&self->hooks, &save, listener, events, data);
+
+  self->info.change_mask = PW_ENDPOINT_STREAM_CHANGE_MASK_ALL
+      & ~PW_ENDPOINT_STREAM_CHANGE_MASK_LINK_PARAMS;
   pw_endpoint_stream_emit_info (&self->hooks, &self->info);
+  self->info.change_mask = 0;
+
   spa_hook_list_join (&self->hooks, &save);
   return 0;
 }
@@ -584,44 +594,30 @@ static const struct pw_endpoint_stream_methods impl_endpoint_stream = {
 };
 
 static void
-populate_endpoint_stream_info (WpImplEndpointStream * self, guint32 change_mask)
+populate_properties (WpImplEndpointStream * self, WpProperties *global_props)
 {
-  /* remove link params to avoid crashing the remote side;
-     we don't make use of that yet */
-  change_mask &= ~PW_ENDPOINT_STREAM_CHANGE_MASK_LINK_PARAMS;
+  WpEndpointStreamPrivate *priv =
+      wp_endpoint_stream_get_instance_private (WP_ENDPOINT_STREAM (self));
 
-  self->info.change_mask = change_mask & PW_ENDPOINT_STREAM_CHANGE_MASK_ALL;
+  g_clear_pointer (&priv->properties, wp_properties_unref);
+  priv->properties = wp_si_stream_get_properties (self->item);
+  priv->properties = wp_properties_ensure_unique_owner (priv->properties);
+  wp_properties_update (priv->properties, global_props);
 
-  if (change_mask & PW_ENDPOINT_STREAM_CHANGE_MASK_PROPS) {
-    WpEndpointStreamPrivate *priv =
-        wp_endpoint_stream_get_instance_private (WP_ENDPOINT_STREAM (self));
+  self->info.props = priv->properties ?
+      (struct spa_dict *) wp_properties_peek_dict (priv->properties) : NULL;
 
-    g_clear_pointer (&priv->properties, wp_properties_unref);
-    priv->properties = wp_si_stream_get_properties (self->item);
-
-    self->info.props = priv->properties ?
-        (struct spa_dict *) wp_properties_peek_dict (priv->properties) : NULL;
-
-    g_object_notify (G_OBJECT (self), "properties");
-  }
-
-  if (change_mask & PW_ENDPOINT_STREAM_CHANGE_MASK_PARAMS) {
-    static struct spa_param_info param_info[] = {
-      SPA_PARAM_INFO (SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE),
-      SPA_PARAM_INFO (SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ)
-    };
-
-    self->info.params = param_info;
-    self->info.n_params = SPA_N_ELEMENTS (param_info);
-  }
-
-  g_object_notify (G_OBJECT (self), "info");
+  g_object_notify (G_OBJECT (self), "properties");
 }
 
 static void
 on_si_stream_properties_changed (WpSiStream * item, WpImplEndpointStream * self)
 {
-  populate_endpoint_stream_info (self, PW_ENDPOINT_STREAM_CHANGE_MASK_PROPS);
+  populate_properties (self, wp_proxy_get_global_properties (WP_PROXY (self)));
+
+  self->info.change_mask = PW_ENDPOINT_STREAM_CHANGE_MASK_PROPS;
+  pw_endpoint_stream_emit_info (&self->hooks, &self->info);
+  self->info.change_mask = 0;
 }
 
 static void
@@ -710,38 +706,43 @@ wp_impl_endpoint_stream_augment (WpProxy * proxy, WpProxyFeatures features)
     const gchar *key, *value;
     g_autoptr (WpProxy) endpoint = NULL;
 
-    /* initialize info struct */
-    priv->info = &self->info;
-    self->info.version = PW_VERSION_ENDPOINT_STREAM_INFO;
-
+    /* get info from the interface */
     info = wp_si_stream_get_registration_info (self->item);
-    g_variant_get (info, "(sa{ss})",
-        &self->info.name,
-        &immutable_props);
-
-    endpoint = wp_session_item_get_associated_proxy (
-        WP_SESSION_ITEM (self->item), WP_TYPE_ENDPOINT);
-    self->info.endpoint_id =
-        endpoint ? wp_proxy_get_bound_id (endpoint) : SPA_ID_INVALID;
-
-    populate_endpoint_stream_info (self, PW_ENDPOINT_STREAM_CHANGE_MASK_ALL);
-
-    /* subscribe to changes */
-    g_signal_connect_object (self->item, "stream-properties-changed",
-        G_CALLBACK (on_si_stream_properties_changed), self, 0);
+    g_variant_get (info, "(sa{ss})", &self->info.name, &immutable_props);
 
     /* construct export properties (these will come back through
        the registry and appear in wp_proxy_get_global_properties) */
     props = wp_properties_new (
         PW_KEY_ENDPOINT_STREAM_NAME, self->info.name,
         NULL);
-    if (self->info.endpoint_id != SPA_ID_INVALID) {
-      wp_properties_setf (props, PW_KEY_ENDPOINT_ID, "%u",
-          self->info.endpoint_id);
+
+    /* associate with the endpoint */
+    endpoint = wp_session_item_get_associated_proxy (
+        WP_SESSION_ITEM (self->item), WP_TYPE_ENDPOINT);
+    if (endpoint) {
+      self->info.endpoint_id = wp_proxy_get_bound_id (endpoint);
+      wp_properties_setf (props, PW_KEY_ENDPOINT_ID, "%u", self->info.endpoint_id);
+    } else {
+      self->info.endpoint_id = SPA_ID_INVALID;
     }
-    while (g_variant_iter_next (immutable_props, "{&s&s}", &key, &value)) {
+
+    /* populate immutable (global) properties */
+    while (g_variant_iter_next (immutable_props, "{&s&s}", &key, &value))
       wp_properties_set (props, key, value);
-    }
+
+    /* populate standard properties */
+    populate_properties (self, props);
+
+    /* subscribe to changes */
+    g_signal_connect_object (self->item, "stream-properties-changed",
+        G_CALLBACK (on_si_stream_properties_changed), self, 0);
+
+    /* finalize info struct */
+    self->info.version = PW_VERSION_ENDPOINT_STREAM_INFO;
+    self->info.params = impl_param_info;
+    self->info.n_params = SPA_N_ELEMENTS (impl_param_info);
+    priv->info = &self->info;
+    g_object_notify (G_OBJECT (self), "info");
 
     wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
   }
