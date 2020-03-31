@@ -15,10 +15,6 @@
  *
  * A #WpEndpoint is constructed internally when a new endpoint appears on the
  * PipeWire registry and it is made available through the #WpObjectManager API.
- *
- * A #WpImplEndpoint allows implementing an endpoint and exporting it to
- * PipeWire, which is done by augmenting the #WpImplEndpoint with
- * %WP_PROXY_FEATURE_BOUND.
  */
 
 #include "endpoint.h"
