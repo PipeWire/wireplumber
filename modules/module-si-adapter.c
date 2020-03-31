@@ -424,7 +424,7 @@ si_adapter_get_properties (WpSiEndpoint * item)
 
   /* copy useful properties from the node */
   node_props = wp_proxy_get_properties (WP_PROXY (self->node));
-  wp_properties_copy_keys (node_props, result,
+  wp_properties_update_keys (result, node_props,
       PW_KEY_DEVICE_ID,
       NULL);
 

@@ -362,51 +362,224 @@ wp_properties_update_from_dict (WpProperties * self,
 }
 
 /**
- * wp_properties_copy_keys:
- * @src: the source properties set
- * @dst: the destination properties set
- * @key1: a property to copy
- * @...: a list of additional properties to copy, followed by %NULL
+ * wp_properties_add:
+ * @self: a properties object
+ * @props: a properties set that contains properties to add
  *
- * Copies the specified properties from @src to @dst.
+ * Adds new properties in @self, using the given @props as a source.
+ * Properties (keys) from @props that are already contained in @self
+ * are not modified, unlike what happens with wp_properties_update().
+ * Properties in @self that are not contained in @props are left untouched.
  *
  * Returns: the number of properties that were changed
  */
 gint
-wp_properties_copy_keys (WpProperties * src, WpProperties * dst,
-    const gchar *key1, ...)
+wp_properties_add (WpProperties * self, WpProperties * props)
 {
-  gint ret;
-  va_list args;
-  va_start (args, key1);
-  ret = wp_properties_copy_keys_valist (src, dst, key1, args);
-  va_end (args);
-  return ret;
+  g_return_val_if_fail (self != NULL, -EINVAL);
+  g_return_val_if_fail (!(self->flags & FLAG_IS_DICT), -EINVAL);
+
+  return pw_properties_add (self->props, wp_properties_peek_dict (props));
 }
 
 /**
- * wp_properties_copy_keys_valist:
- * @src: the source properties set
- * @dst: the destination properties set
- * @key1: a property to copy
- * @args: the variable arguments passed to wp_properties_copy_keys()
+ * wp_properties_add_from_dict:
+ * @self: a properties object
+ * @dict: a `spa_dict` that contains properties to add
  *
- * This is the `va_list` version of wp_properties_copy_keys()
+ * Adds new properties in @self, using the given @dict as a source.
+ * Properties (keys) from @dict that are already contained in @self
+ * are not modified, unlike what happens with wp_properties_update_from_dict().
+ * Properties in @self that are not contained in @dict are left untouched.
  *
  * Returns: the number of properties that were changed
  */
 gint
-wp_properties_copy_keys_valist (WpProperties * src, WpProperties * dst,
-    const gchar *key1, va_list args)
+wp_properties_add_from_dict (WpProperties * self,
+    const struct spa_dict * dict)
+{
+  g_return_val_if_fail (self != NULL, -EINVAL);
+  g_return_val_if_fail (!(self->flags & FLAG_IS_DICT), -EINVAL);
+
+  return pw_properties_add (self->props, dict);
+}
+
+/**
+ * wp_properties_update_keys:
+ * @self: a properties set
+ * @props: a properties set that contains properties to update
+ * @key1: a property to update
+ * @...: a list of additional properties to update, followed by %NULL
+ *
+ * Updates (adds new or modifies existing) properties in @self, using the
+ * given @props as a source.
+ * Unlike wp_properties_update(), this function only updates properties that
+ * have one of the specified keys; the rest is left untouched.
+ *
+ * Returns: the number of properties that were changed
+ */
+gint
+wp_properties_update_keys (WpProperties * self, WpProperties * props,
+    const gchar * key1, ...)
 {
   gint changed = 0;
   const gchar *value;
 
+  g_return_val_if_fail (self != NULL, -EINVAL);
+  g_return_val_if_fail (!(self->flags & FLAG_IS_DICT), -EINVAL);
+
+  va_list args;
+  va_start (args, key1);
   for (; key1; key1 = va_arg (args, const gchar *)) {
-    if ((value = wp_properties_get (src, key1)) != NULL)
-      changed += wp_properties_set (dst, key1, value);
+    if ((value = wp_properties_get (props, key1)) != NULL)
+      changed += wp_properties_set (self, key1, value);
   }
   return changed;
+}
+
+/**
+ * wp_properties_update_keys_from_dict:
+ * @self: a properties set
+ * @dict: a `spa_dict` that contains properties to update
+ * @key1: a property to update
+ * @...: a list of additional properties to update, followed by %NULL
+ *
+ * Updates (adds new or modifies existing) properties in @self, using the
+ * given @dict as a source.
+ * Unlike wp_properties_update_from_dict(), this function only updates
+ * properties that have one of the specified keys; the rest is left untouched.
+ *
+ * Returns: the number of properties that were changed
+ */
+gint
+wp_properties_update_keys_from_dict (WpProperties * self,
+    const struct spa_dict * dict, const gchar * key1, ...)
+{
+  gint changed = 0;
+  const gchar *value;
+
+  g_return_val_if_fail (self != NULL, -EINVAL);
+  g_return_val_if_fail (!(self->flags & FLAG_IS_DICT), -EINVAL);
+
+  va_list args;
+  va_start (args, key1);
+  for (; key1; key1 = va_arg (args, const gchar *)) {
+    if ((value = spa_dict_lookup (dict, key1)) != NULL)
+      changed += wp_properties_set (self, key1, value);
+  }
+  return changed;
+}
+
+/**
+ * wp_properties_update_keys_array:
+ * @self: a properties set
+ * @props: a properties set that contains properties to update
+ * @keys: (array zero-terminated=1): the properties to update
+ *
+ * The same as wp_properties_update_keys(), using a NULL-terminated array
+ * for specifying the keys to update
+ *
+ * Returns: the number of properties that were changed
+ */
+gint
+wp_properties_update_keys_array (WpProperties * self, WpProperties * props,
+    const gchar * keys[])
+{
+  g_return_val_if_fail (self != NULL, -EINVAL);
+  g_return_val_if_fail (!(self->flags & FLAG_IS_DICT), -EINVAL);
+
+  return pw_properties_update_keys (self->props,
+      wp_properties_peek_dict (props), keys);
+}
+
+/**
+ * wp_properties_add_keys:
+ * @self: a properties set
+ * @props: a properties set that contains properties to add
+ * @key1: a property to add
+ * @...: a list of additional properties to add, followed by %NULL
+ *
+ * Adds new properties in @self, using the given @props as a source.
+ * Unlike wp_properties_add(), this function only adds properties that
+ * have one of the specified keys; the rest is left untouched.
+ *
+ * Returns: the number of properties that were changed
+ */
+gint
+wp_properties_add_keys (WpProperties * self, WpProperties * props,
+    const gchar * key1, ...)
+{
+  gint changed = 0;
+  const gchar *value;
+
+  g_return_val_if_fail (self != NULL, -EINVAL);
+  g_return_val_if_fail (!(self->flags & FLAG_IS_DICT), -EINVAL);
+
+  va_list args;
+  va_start (args, key1);
+  for (; key1; key1 = va_arg (args, const gchar *)) {
+    if ((value = wp_properties_get (props, key1)) == NULL)
+      continue;
+    if (wp_properties_get (self, key1) == NULL)
+      changed += wp_properties_set (self, key1, value);
+  }
+  return changed;
+}
+
+/**
+ * wp_properties_add_keys_from_dict:
+ * @self: a properties set
+ * @dict: a `spa_dict` that contains properties to add
+ * @key1: a property to add
+ * @...: a list of additional properties to add, followed by %NULL
+ *
+ * Adds new properties in @self, using the given @dict as a source.
+ * Unlike wp_properties_add_from_dict(), this function only adds
+ * properties that have one of the specified keys; the rest is left untouched.
+ *
+ * Returns: the number of properties that were changed
+ */
+gint
+wp_properties_add_keys_from_dict (WpProperties * self,
+    const struct spa_dict * dict, const gchar * key1, ...)
+{
+  gint changed = 0;
+  const gchar *value;
+
+  g_return_val_if_fail (self != NULL, -EINVAL);
+  g_return_val_if_fail (!(self->flags & FLAG_IS_DICT), -EINVAL);
+
+  va_list args;
+  va_start (args, key1);
+  for (; key1; key1 = va_arg (args, const gchar *)) {
+    if ((value = spa_dict_lookup (dict, key1)) == NULL)
+      continue;
+    if (wp_properties_get (self, key1) == NULL)
+      changed += wp_properties_set (self, key1, value);
+  }
+  return changed;
+}
+
+/**
+ * wp_properties_add_keys_array:
+ * @self: a properties set
+ * @props: a properties set that contains properties to add
+ * @keys: (array zero-terminated=1): the properties to add
+ *
+ * The same as wp_properties_add_keys(), using a NULL-terminated array
+ * for specifying the keys to add
+ *
+ * Returns: the number of properties that were changed
+ */
+gint
+wp_properties_add_keys_array (WpProperties * self, WpProperties * props,
+    const gchar * keys[])
+{
+  g_return_val_if_fail (self != NULL, -EINVAL);
+  g_return_val_if_fail (!(self->flags & FLAG_IS_DICT), -EINVAL);
+
+  return pw_properties_add_keys (self->props,
+      wp_properties_peek_dict (props), keys);
 }
 
 /**

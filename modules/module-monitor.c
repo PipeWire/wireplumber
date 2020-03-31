@@ -143,7 +143,7 @@ setup_node_props (WpProperties *dev_props, WpProperties *node_props)
   const gchar *api, *name, *description, *factory;
 
   /* Make the device properties directly available on the node */
-  wp_properties_copy_keys (dev_props, node_props,
+  wp_properties_update_keys (node_props, dev_props,
       SPA_KEY_DEVICE_API,
       SPA_KEY_DEVICE_NAME,
       SPA_KEY_DEVICE_ALIAS,
@@ -198,7 +198,7 @@ setup_node_props (WpProperties *dev_props, WpProperties *node_props)
     wp_properties_setf (node_props, PW_KEY_NODE_DESCRIPTION, "%s: %s",
         description, str);
 
-    wp_properties_copy_keys (dev_props, node_props,
+    wp_properties_update_keys (node_props, dev_props,
         SPA_KEY_API_ALSA_CARD,
         SPA_KEY_API_ALSA_CARD_ID,
         SPA_KEY_API_ALSA_CARD_COMPONENTS,
@@ -221,7 +221,7 @@ setup_node_props (WpProperties *dev_props, WpProperties *node_props)
     wp_properties_setf (node_props, PW_KEY_NODE_DESCRIPTION, "%s (%s)",
         description, profile);
 
-    wp_properties_copy_keys (dev_props, node_props,
+    wp_properties_update_keys (node_props, dev_props,
         SPA_KEY_API_BLUEZ5_PATH,
         SPA_KEY_API_BLUEZ5_ADDRESS,
         NULL);

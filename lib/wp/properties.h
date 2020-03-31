@@ -58,11 +58,15 @@ WpProperties * wp_properties_new_copy_dict (const struct spa_dict * dict);
 WP_API
 WpProperties * wp_properties_copy (WpProperties * other);
 
+/* ref counting */
+
 WP_API
 WpProperties * wp_properties_ref (WpProperties * self);
 
 WP_API
 void wp_properties_unref (WpProperties * self);
+
+/* update */
 
 WP_API
 gint wp_properties_update (WpProperties * self, WpProperties * props);
@@ -71,13 +75,44 @@ WP_API
 gint wp_properties_update_from_dict (WpProperties * self,
     const struct spa_dict * dict);
 
-WP_API
-gint wp_properties_copy_keys (WpProperties * src, WpProperties * dst,
-    const gchar *key1, ...) G_GNUC_NULL_TERMINATED;
+/* add */
 
 WP_API
-gint wp_properties_copy_keys_valist (WpProperties * src, WpProperties * dst,
-    const gchar *key1, va_list args);
+gint wp_properties_add (WpProperties * self, WpProperties * props);
+
+WP_API
+gint wp_properties_add_from_dict (WpProperties * self,
+    const struct spa_dict * dict);
+
+/* update keys */
+
+WP_API
+gint wp_properties_update_keys (WpProperties * self, WpProperties * props,
+    const gchar * key1, ...) G_GNUC_NULL_TERMINATED;
+
+WP_API
+gint wp_properties_update_keys_from_dict (WpProperties * self,
+    const struct spa_dict * dict, const gchar * key1, ...) G_GNUC_NULL_TERMINATED;
+
+WP_API
+gint wp_properties_update_keys_array (WpProperties * self, WpProperties * props,
+    const gchar * keys[]);
+
+/* add keys */
+
+WP_API
+gint wp_properties_add_keys (WpProperties * self, WpProperties * props,
+    const gchar * key1, ...) G_GNUC_NULL_TERMINATED;
+
+WP_API
+gint wp_properties_add_keys_from_dict (WpProperties * self,
+    const struct spa_dict * dict, const gchar * key1, ...) G_GNUC_NULL_TERMINATED;
+
+WP_API
+gint wp_properties_add_keys_array (WpProperties * self, WpProperties * props,
+    const gchar * keys[]);
+
+/* get/set */
 
 WP_API
 const gchar * wp_properties_get (WpProperties * self, const gchar * key);
@@ -94,11 +129,15 @@ WP_API
 gint wp_properties_setf_valist (WpProperties * self, const gchar * key,
     const gchar * format, va_list args);
 
+/* convert */
+
 WP_API
 const struct spa_dict * wp_properties_peek_dict (WpProperties * self);
 
 WP_API
 struct pw_properties * wp_properties_to_pw_properties (WpProperties * self);
+
+/* comparison */
 
 WP_API
 gboolean wp_properties_matches (WpProperties * self, WpProperties *other);
