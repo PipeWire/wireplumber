@@ -63,6 +63,7 @@ enum
 {
   SIGNAL_PW_PROXY_CREATED,
   SIGNAL_PW_PROXY_DESTROYED,
+  SIGNAL_BOUND,
   SIGNAL_PARAM,
   LAST_SIGNAL,
 };
@@ -119,6 +120,7 @@ proxy_event_bound (void *data, uint32_t global_id)
      pw_proxy_set_bound_id() and this can be very bad... */
   g_warn_if_fail (!priv->global || priv->global->id == global_id);
 
+  g_signal_emit (self, wp_proxy_signals[SIGNAL_BOUND], 0, global_id);
   wp_proxy_set_feature_ready (self, WP_PROXY_FEATURE_BOUND);
 
   /* construct a WpGlobal if it was not already there */
@@ -356,6 +358,11 @@ wp_proxy_class_init (WpProxyClass * klass)
       "pw-proxy-destroyed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
       G_STRUCT_OFFSET (WpProxyClass, pw_proxy_destroyed), NULL, NULL, NULL,
       G_TYPE_NONE, 0);
+
+  wp_proxy_signals[SIGNAL_BOUND] = g_signal_new (
+      "bound", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
+      G_STRUCT_OFFSET (WpProxyClass, bound), NULL, NULL, NULL,
+      G_TYPE_NONE, 1, G_TYPE_UINT);
 
   wp_proxy_signals[SIGNAL_PARAM] = g_signal_new (
       "param", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
