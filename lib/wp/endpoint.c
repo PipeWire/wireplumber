@@ -889,7 +889,6 @@ wp_impl_endpoint_augment (WpProxy * proxy, WpProxyFeatures features)
   if (features & WP_PROXY_FEATURE_INFO) {
     guchar direction;
     const gchar *key, *value;
-    g_autoptr (WpProxy) session = NULL;
 
     /* get info from the interface */
     info = wp_si_endpoint_get_registration_info (self->item);
@@ -899,22 +898,17 @@ wp_impl_endpoint_augment (WpProxy * proxy, WpProxyFeatures features)
     self->info.direction = (enum pw_direction) direction;
     self->info.n_streams = wp_si_endpoint_get_n_streams (self->item);
 
+    /* associate with the session */
+    self->info.session_id = wp_session_item_get_associated_proxy_id (
+        WP_SESSION_ITEM (self->item), WP_TYPE_SESSION);
+
     /* construct export properties (these will come back through
        the registry and appear in wp_proxy_get_global_properties) */
     props = wp_properties_new (
         PW_KEY_ENDPOINT_NAME, self->info.name,
         PW_KEY_MEDIA_CLASS, self->info.media_class,
         NULL);
-
-    /* associate with the session */
-    session = wp_session_item_get_associated_proxy (
-        WP_SESSION_ITEM (self->item), WP_TYPE_SESSION);
-    if (session) {
-      self->info.session_id = wp_proxy_get_bound_id (session);
-      wp_properties_setf (props, PW_KEY_SESSION_ID, "%u", self->info.session_id);
-    } else {
-      self->info.session_id = SPA_ID_INVALID;
-    }
+    wp_properties_setf (props, PW_KEY_SESSION_ID, "%d", self->info.session_id);
 
     /* populate immutable (global) properties */
     while (g_variant_iter_next (immutable_props, "{&s&s}", &key, &value))

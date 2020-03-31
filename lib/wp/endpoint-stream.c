@@ -704,27 +704,21 @@ wp_impl_endpoint_stream_augment (WpProxy * proxy, WpProxyFeatures features)
 
   if (features & WP_PROXY_FEATURE_INFO) {
     const gchar *key, *value;
-    g_autoptr (WpProxy) endpoint = NULL;
 
     /* get info from the interface */
     info = wp_si_stream_get_registration_info (self->item);
     g_variant_get (info, "(sa{ss})", &self->info.name, &immutable_props);
+
+    /* associate with the endpoint */
+    self->info.endpoint_id = wp_session_item_get_associated_proxy_id (
+        WP_SESSION_ITEM (self->item), WP_TYPE_ENDPOINT);
 
     /* construct export properties (these will come back through
        the registry and appear in wp_proxy_get_global_properties) */
     props = wp_properties_new (
         PW_KEY_ENDPOINT_STREAM_NAME, self->info.name,
         NULL);
-
-    /* associate with the endpoint */
-    endpoint = wp_session_item_get_associated_proxy (
-        WP_SESSION_ITEM (self->item), WP_TYPE_ENDPOINT);
-    if (endpoint) {
-      self->info.endpoint_id = wp_proxy_get_bound_id (endpoint);
-      wp_properties_setf (props, PW_KEY_ENDPOINT_ID, "%u", self->info.endpoint_id);
-    } else {
-      self->info.endpoint_id = SPA_ID_INVALID;
-    }
+    wp_properties_setf (props, PW_KEY_ENDPOINT_ID, "%d", self->info.endpoint_id);
 
     /* populate immutable (global) properties */
     while (g_variant_iter_next (immutable_props, "{&s&s}", &key, &value))
