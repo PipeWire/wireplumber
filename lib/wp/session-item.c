@@ -71,7 +71,11 @@ struct _WpSessionItemPrivate
   GWeakRef session;
   guint32 flags;
 
-  WpImplEndpoint *impl_endpoint;
+  union {
+    WpProxy *impl_proxy;
+    WpImplEndpoint *impl_endpoint;
+    WpImplEndpointLink *impl_link;
+  };
   GHashTable *impl_streams;
 };
 
@@ -134,7 +138,12 @@ wp_session_item_default_get_associated_proxy (WpSessionItem * self,
     return g_weak_ref_get (&priv->session);
   }
   else if (proxy_type == WP_TYPE_ENDPOINT) {
-    return priv->impl_endpoint ? g_object_ref (priv->impl_endpoint) : NULL;
+    if (priv->impl_proxy && WP_IS_ENDPOINT (priv->impl_proxy))
+      return g_object_ref (priv->impl_proxy);
+  }
+  else if (proxy_type == WP_TYPE_ENDPOINT_LINK) {
+    if (priv->impl_proxy && WP_IS_ENDPOINT_LINK (priv->impl_proxy))
+      return g_object_ref (priv->impl_proxy);
   }
   else if (proxy_type == WP_TYPE_ENDPOINT_STREAM) {
     gpointer impl_stream = priv->impl_streams ?
@@ -227,6 +236,9 @@ default_export_get_next_step (WpSessionItem * self, WpTransition * transition,
     else
       return step;
 
+  case EXPORT_STEP_LINK:
+    return EXPORT_STEP_FINISH;
+
   case EXPORT_STEP_FINISH:
     return WP_TRANSITION_STEP_NONE;
 
@@ -302,7 +314,12 @@ default_export_execute_step (WpSessionItem * self, WpTransition * transition,
     break;
   }
   case EXPORT_STEP_LINK:
-    /* TODO implement me */
+    priv->impl_link = wp_impl_endpoint_link_new (core, WP_SI_LINK (self));
+
+    wp_proxy_augment (WP_PROXY (priv->impl_link),
+        WP_PROXY_FEATURES_STANDARD, NULL,
+        (GAsyncReadyCallback) on_export_proxy_augmented,
+        transition);
     break;
 
   case EXPORT_STEP_FINISH:
@@ -314,7 +331,7 @@ default_export_execute_step (WpSessionItem * self, WpTransition * transition,
 
   case WP_TRANSITION_STEP_ERROR:
     g_clear_pointer (&priv->impl_streams, g_hash_table_unref);
-    g_clear_object (&priv->impl_endpoint);
+    g_clear_object (&priv->impl_proxy);
     g_weak_ref_set (&priv->session, NULL);
 
     if (priv->flags & WP_SI_FLAG_EXPORTING) {
@@ -365,7 +382,7 @@ wp_session_item_default_unexport (WpSessionItem * self)
   //TODO cancel job if EXPORTING
 
   g_clear_pointer (&priv->impl_streams, g_hash_table_unref);
-  g_clear_object (&priv->impl_endpoint);
+  g_clear_object (&priv->impl_proxy);
   g_weak_ref_set (&priv->session, NULL);
 
   priv->flags &= ~(WP_SI_FLAG_EXPORTING | WP_SI_FLAG_EXPORTED);
