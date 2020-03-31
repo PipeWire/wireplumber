@@ -281,6 +281,19 @@ wp_object_manager_add_interest (WpObjectManager *self,
 }
 
 /**
+ * wp_object_manager_get_n_objects:
+ * @self: the object manager
+ *
+ * Returns: the number of objects managed by this #WpObjectManager
+ */
+guint
+wp_object_manager_get_n_objects (WpObjectManager * self)
+{
+  g_return_val_if_fail (WP_IS_OBJECT_MANAGER (self), 0);
+  return self->objects->len;
+}
+
+/**
  * wp_object_manager_get_objects:
  * @self: the object manager
  * @type_filter: a #GType filter to get only the objects that are of this type,

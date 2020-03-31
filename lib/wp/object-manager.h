@@ -48,6 +48,9 @@ void wp_object_manager_add_interest (WpObjectManager *self,
     GType gtype, GVariant * constraints, WpProxyFeatures wanted_features);
 
 WP_API
+guint wp_object_manager_get_n_objects (WpObjectManager * self);
+
+WP_API
 GPtrArray * wp_object_manager_get_objects (WpObjectManager *self,
     GType type_filter);
 
