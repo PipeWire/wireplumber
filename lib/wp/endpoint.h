@@ -10,6 +10,7 @@
 #define __WIREPLUMBER_ENDPOINT_H__
 
 #include "proxy.h"
+#include "endpoint-stream.h"
 
 G_BEGIN_DECLS
 
@@ -42,11 +43,15 @@ typedef enum {
  * @WP_ENDPOINT_FEATURE_CONTROLS: enables the use of the
  *   wp_endpoint_get_control() and wp_endpoint_set_control() families of
  *   functions to be able to work with endpoint-specific controls
+ * @WP_ENDPOINT_FEATURE_STREAMS: caches information about streams, enabling
+ *   the use of wp_endpoint_get_n_streams(), wp_endpoint_get_stream() and
+ *   wp_endpoint_get_all_streams()
  *
  * An extension of #WpProxyFeatures
  */
 typedef enum { /*< flags >*/
   WP_ENDPOINT_FEATURE_CONTROLS = WP_PROXY_FEATURE_LAST,
+  WP_ENDPOINT_FEATURE_STREAMS,
 } WpEndpointFeatures;
 
 /**
@@ -111,6 +116,15 @@ gboolean wp_endpoint_set_control_int (WpEndpoint * self, guint32 control_id,
 WP_API
 gboolean wp_endpoint_set_control_float (WpEndpoint * self, guint32 control_id,
     gfloat value);
+
+WP_API
+guint wp_endpoint_get_n_streams (WpEndpoint * self);
+
+WP_API
+WpEndpointStream * wp_endpoint_get_stream (WpEndpoint * self, guint32 bound_id);
+
+WP_API
+GPtrArray * wp_endpoint_get_all_streams (WpEndpoint * self);
 
 G_END_DECLS
 

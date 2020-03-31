@@ -52,6 +52,7 @@ struct _WpEndpointPrivate
   struct pw_endpoint_info *info;
   struct pw_endpoint *iface;
   struct spa_hook listener;
+  WpObjectManager *streams_om;
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE (WpEndpoint, wp_endpoint, WP_TYPE_PROXY)
@@ -67,11 +68,55 @@ wp_endpoint_finalize (GObject * object)
   WpEndpoint *self = WP_ENDPOINT (object);
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
 
+  g_clear_object (&priv->streams_om);
   g_clear_pointer (&priv->properties, wp_properties_unref);
   g_clear_pointer (&priv->info, pw_endpoint_info_free);
   wp_spa_props_clear (&priv->spa_props);
 
   G_OBJECT_CLASS (wp_endpoint_parent_class)->finalize (object);
+}
+
+static void
+wp_endpoint_enable_feature_streams (WpEndpoint * self, guint32 bound_id)
+{
+  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
+  g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (self));
+  GVariantBuilder b;
+
+  /* proxy endpoint stream -> check for endpoint.id in global properties */
+  g_variant_builder_init (&b, G_VARIANT_TYPE ("aa{sv}"));
+  g_variant_builder_open (&b, G_VARIANT_TYPE_VARDICT);
+  g_variant_builder_add (&b, "{sv}", "type",
+      g_variant_new_int32 (WP_OBJECT_MANAGER_CONSTRAINT_PW_GLOBAL_PROPERTY));
+  g_variant_builder_add (&b, "{sv}", "name",
+      g_variant_new_string (PW_KEY_ENDPOINT_ID));
+  g_variant_builder_add (&b, "{sv}", "value",
+      g_variant_new_take_string (g_strdup_printf ("%u", bound_id)));
+  g_variant_builder_close (&b);
+
+  wp_object_manager_add_interest (priv->streams_om,
+      WP_TYPE_ENDPOINT_STREAM,
+      g_variant_builder_end (&b),
+      WP_PROXY_FEATURES_STANDARD);
+
+  /* impl endpoint stream -> check for endpoint.id in standard properties */
+  g_variant_builder_init (&b, G_VARIANT_TYPE ("aa{sv}"));
+  g_variant_builder_open (&b, G_VARIANT_TYPE_VARDICT);
+  g_variant_builder_add (&b, "{sv}", "type",
+      g_variant_new_int32 (WP_OBJECT_MANAGER_CONSTRAINT_PW_PROPERTY));
+  g_variant_builder_add (&b, "{sv}", "name",
+      g_variant_new_string (PW_KEY_ENDPOINT_ID));
+  g_variant_builder_add (&b, "{sv}", "value",
+      g_variant_new_take_string (g_strdup_printf ("%u", bound_id)));
+  g_variant_builder_close (&b);
+
+  wp_object_manager_add_interest (priv->streams_om,
+      WP_TYPE_IMPL_ENDPOINT_STREAM,
+      g_variant_builder_end (&b),
+      WP_PROXY_FEATURES_STANDARD);
+
+  wp_core_install_object_manager (core, priv->streams_om);
+  wp_proxy_set_feature_ready (WP_PROXY (self), WP_ENDPOINT_FEATURE_STREAMS);
 }
 
 static void
@@ -90,6 +135,20 @@ wp_endpoint_augment (WpProxy * proxy, WpProxyFeatures features)
 
     pw_endpoint_enum_params (pw_proxy, 0, SPA_PARAM_PropInfo, 0, -1, NULL);
     pw_endpoint_subscribe_params (pw_proxy, ids, SPA_N_ELEMENTS (ids));
+  }
+
+  if (features & WP_ENDPOINT_FEATURE_STREAMS) {
+    WpEndpointPrivate *priv =
+        wp_endpoint_get_instance_private (WP_ENDPOINT (proxy));
+
+    priv->streams_om = wp_object_manager_new ();
+
+    /* if we are already bound, enable right away;
+       else, continue in the bound() event */
+    if (wp_proxy_get_features (proxy) & WP_PROXY_FEATURE_BOUND) {
+      wp_endpoint_enable_feature_streams (WP_ENDPOINT (proxy),
+          wp_proxy_get_bound_id (proxy));
+    }
   }
 }
 
@@ -193,6 +252,16 @@ wp_endpoint_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 }
 
 static void
+wp_endpoint_bound (WpProxy * proxy, guint32 id)
+{
+  WpEndpoint *self = WP_ENDPOINT (proxy);
+  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
+
+  if (priv->streams_om)
+    wp_endpoint_enable_feature_streams (self, id);
+}
+
+static void
 wp_endpoint_param (WpProxy * proxy, gint seq, guint32 id, guint32 index,
     guint32 next, const struct spa_pod *param)
 {
@@ -284,6 +353,7 @@ wp_endpoint_class_init (WpEndpointClass * klass)
   proxy_class->set_param = wp_endpoint_set_param;
 
   proxy_class->pw_proxy_created = wp_endpoint_pw_proxy_created;
+  proxy_class->bound = wp_endpoint_bound;
   proxy_class->param = wp_endpoint_param;
 
   klass->get_name = get_name;
@@ -489,6 +559,70 @@ wp_endpoint_set_control_float (WpEndpoint * self, guint32 control_id,
   gchar buffer[512];
   return wp_endpoint_set_control (self, control_id, wp_spa_props_build_pod (
           buffer, sizeof (buffer), SPA_POD_Float (value), 0));
+}
+
+/**
+ * wp_endpoint_get_n_streams:
+ * @self: the endpoint
+ *
+ * Returns: the number of streams of this endpoint
+ */
+guint
+wp_endpoint_get_n_streams (WpEndpoint * self)
+{
+  g_return_val_if_fail (WP_IS_ENDPOINT (self), 0);
+  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+          WP_ENDPOINT_FEATURE_STREAMS, 0);
+
+  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
+  return wp_object_manager_get_n_objects (priv->streams_om);
+}
+
+/**
+ * wp_endpoint_get_stream:
+ * @self: the endpoint
+ * @bound_id: the bound id of the stream object to get
+ *
+ * Returns: (transfer full) (nullable): the endpoint stream that has the given
+ *    @bound_id, or %NULL if there is no such stream
+ */
+WpEndpointStream *
+wp_endpoint_get_stream (WpEndpoint * self, guint32 bound_id)
+{
+  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
+  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+          WP_ENDPOINT_FEATURE_STREAMS, NULL);
+
+  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
+  g_autoptr (GPtrArray) streams =
+      wp_object_manager_get_objects (priv->streams_om, 0);
+
+  for (guint i = 0; i < streams->len; i++) {
+    gpointer proxy = g_ptr_array_index (streams, i);
+    g_return_val_if_fail (WP_IS_ENDPOINT_STREAM (proxy), NULL);
+
+    if (wp_proxy_get_bound_id (WP_PROXY (proxy)) == bound_id)
+      return WP_ENDPOINT_STREAM (g_object_ref (proxy));
+  }
+  return NULL;
+}
+
+/**
+ * wp_endpoint_get_all_streams:
+ * @self: the endpoint
+ *
+ * Returns: (transfer full) (element-type WpEndpointStream): array with all
+ *   the endpoint streams that belong to this endpoint
+ */
+GPtrArray *
+wp_endpoint_get_all_streams (WpEndpoint * self)
+{
+  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
+  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+          WP_ENDPOINT_FEATURE_STREAMS, NULL);
+
+  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
+  return wp_object_manager_get_objects (priv->streams_om, 0);
 }
 
 /* WpImplEndpoint */
@@ -824,6 +958,17 @@ wp_impl_endpoint_augment (WpProxy * proxy, WpProxyFeatures features)
             PW_TYPE_INTERFACE_Endpoint,
             wp_properties_peek_dict (props),
             priv->iface, 0));
+  }
+
+  if (features & WP_ENDPOINT_FEATURE_STREAMS) {
+    priv->streams_om = wp_object_manager_new ();
+
+    /* if we are already bound, enable right away;
+       else, continue in the bound() event */
+    if (wp_proxy_get_features (proxy) & WP_PROXY_FEATURE_BOUND) {
+      wp_endpoint_enable_feature_streams (WP_ENDPOINT (proxy),
+          wp_proxy_get_bound_id (proxy));
+    }
   }
 }
 
