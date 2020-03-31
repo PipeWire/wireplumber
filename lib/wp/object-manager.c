@@ -447,7 +447,8 @@ wp_object_manager_is_interested_in_global (WpObjectManager * self,
   pw_array_for_each (i, &self->interests) {
     if (g_type_is_a (global->type, i->g_type)
         && (!i->constraints ||
-            check_constraints (i->constraints, global->properties, NULL)))
+            check_constraints (i->constraints, global->properties,
+                G_OBJECT (global->proxy))))
     {
       *wanted_features = i->wanted_features;
       return TRUE;
