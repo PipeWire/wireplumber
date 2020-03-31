@@ -49,6 +49,7 @@ enum {
 
 struct _WpProperties
 {
+  grefcount ref;
   guint32 flags;
   union {
     struct pw_properties *props;
@@ -68,7 +69,8 @@ G_DEFINE_BOXED_TYPE(WpProperties, wp_properties, wp_properties_ref, wp_propertie
 WpProperties *
 wp_properties_new_empty (void)
 {
-  WpProperties * self = g_rc_box_new (WpProperties);
+  WpProperties * self = g_slice_new0 (WpProperties);
+  g_ref_count_init (&self->ref);
   self->flags = 0;
   self->props = pw_properties_new (NULL, NULL);
   return self;
@@ -139,7 +141,8 @@ wp_properties_new_string (const gchar * str)
 
   g_return_val_if_fail (str != NULL, NULL);
 
-  self = g_rc_box_new (WpProperties);
+  self = g_slice_new0 (WpProperties);
+  g_ref_count_init (&self->ref);
   self->flags = 0;
   self->props = pw_properties_new_string (str);
   return self;
@@ -167,7 +170,8 @@ wp_properties_new_wrap (struct pw_properties * props)
 
   g_return_val_if_fail (props != NULL, NULL);
 
-  self = g_rc_box_new (WpProperties);
+  self = g_slice_new0 (WpProperties);
+  g_ref_count_init (&self->ref);
   self->flags = FLAG_NO_OWNERSHIP;
   self->props = props;
   return self;
@@ -193,7 +197,8 @@ wp_properties_new_take (struct pw_properties * props)
 
   g_return_val_if_fail (props != NULL, NULL);
 
-  self = g_rc_box_new (WpProperties);
+  self = g_slice_new0 (WpProperties);
+  g_ref_count_init (&self->ref);
   self->flags = 0;
   self->props = props;
   return self;
@@ -215,7 +220,8 @@ wp_properties_new_copy (const struct pw_properties * props)
 
   g_return_val_if_fail (props != NULL, NULL);
 
-  self = g_rc_box_new (WpProperties);
+  self = g_slice_new0 (WpProperties);
+  g_ref_count_init (&self->ref);
   self->flags = 0;
   self->props = pw_properties_copy (props);
   return self;
@@ -245,7 +251,8 @@ wp_properties_new_wrap_dict (const struct spa_dict * dict)
 
   g_return_val_if_fail (dict != NULL, NULL);
 
-  self = g_rc_box_new (WpProperties);
+  self = g_slice_new0 (WpProperties);
+  g_ref_count_init (&self->ref);
   self->flags = FLAG_NO_OWNERSHIP | FLAG_IS_DICT;
   self->dict = dict;
   return self;
@@ -267,7 +274,8 @@ wp_properties_new_copy_dict (const struct spa_dict * dict)
 
   g_return_val_if_fail (dict != NULL, NULL);
 
-  self = g_rc_box_new (WpProperties);
+  self = g_slice_new0 (WpProperties);
+  g_ref_count_init (&self->ref);
   self->flags = 0;
   self->props = pw_properties_new_dict (dict);
   return self;
@@ -293,6 +301,7 @@ wp_properties_free (WpProperties * self)
 {
   if (!(self->flags & FLAG_NO_OWNERSHIP))
     pw_properties_free (self->props);
+  g_slice_free (WpProperties, self);
 }
 
 /**
@@ -304,7 +313,8 @@ wp_properties_free (WpProperties * self)
 WpProperties *
 wp_properties_ref (WpProperties * self)
 {
-  return g_rc_box_acquire (self);
+  g_ref_count_inc (&self->ref);
+  return self;
 }
 
 /**
@@ -317,7 +327,35 @@ wp_properties_ref (WpProperties * self)
 void
 wp_properties_unref (WpProperties * self)
 {
-  g_rc_box_release_full (self, (GDestroyNotify) wp_properties_free);
+  if (g_ref_count_dec (&self->ref))
+    wp_properties_free (self);
+}
+
+/**
+ * wp_properties_ensure_unique_owner:
+ * @self: (transfer full): a properties object
+ *
+ * Ensures that the given properties set is uniquely owned, which means:
+ *  - its reference count is 1
+ *  - it is not wrapping a native `spa_dict` or `pw_properties` object
+ *
+ * If @self is not uniquely owned already, then it is unrefed and a copy of
+ * it is returned instead. You should always consider @self as unsafe to use
+ * after this call and you should use the returned object instead.
+ *
+ * Returns: (transfer full): the uniquely owned properties object
+ */
+WpProperties *
+wp_properties_ensure_unique_owner (WpProperties * self)
+{
+  if (!g_ref_count_compare (&self->ref, 1) ||
+      self->flags & (FLAG_IS_DICT | FLAG_NO_OWNERSHIP))
+  {
+    WpProperties *copy = wp_properties_copy (self);
+    wp_properties_unref (self);
+    return copy;
+  }
+  return self;
 }
 
 /**

@@ -66,6 +66,9 @@ WpProperties * wp_properties_ref (WpProperties * self);
 WP_API
 void wp_properties_unref (WpProperties * self);
 
+WP_API
+WpProperties * wp_properties_ensure_unique_owner (WpProperties * self);
+
 /* update */
 
 WP_API
