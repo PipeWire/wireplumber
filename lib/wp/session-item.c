@@ -499,6 +499,25 @@ wp_session_item_get_associated_proxy (WpSessionItem * self, GType proxy_type)
 }
 
 /**
+ * wp_session_item_get_associated_proxy_id:
+ * @self: the session item
+ * @proxy_type: a #WpProxy subclass #GType
+ *
+ * Returns: the bound id of the associated proxy of the specified @proxy_type,
+ *   or `SPA_ID_INVALID` if there is no association to such a proxy
+ */
+guint32
+wp_session_item_get_associated_proxy_id (WpSessionItem * self, GType proxy_type)
+{
+  g_autoptr (WpProxy) proxy = wp_session_item_get_associated_proxy (self,
+      proxy_type);
+  if (!proxy)
+    return SPA_ID_INVALID;
+
+  return wp_proxy_get_bound_id (proxy);
+}
+
+/**
  * wp_session_item_configure: (virtual configure)
  * @self: the session item
  * @args: (transfer none): the configuration options to set

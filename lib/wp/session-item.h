@@ -117,6 +117,10 @@ WP_API
 gpointer wp_session_item_get_associated_proxy (WpSessionItem * self,
     GType proxy_type);
 
+WP_API
+guint32 wp_session_item_get_associated_proxy_id (WpSessionItem * self,
+    GType proxy_type);
+
 /* configuration */
 
 WP_API
