@@ -12,12 +12,11 @@
 #include "session-item.h"
 #include "properties.h"
 #include "endpoint.h"
+#include "endpoint-link.h"
 
 G_BEGIN_DECLS
 
 typedef struct _WpSiStream WpSiStream;
-
-
 
 /**
  * WP_TYPE_SI_ENDPOINT:
@@ -120,15 +119,29 @@ struct _WpSiLinkInterface
 {
   GTypeInterface interface;
 
+  GVariant * (*get_registration_info) (WpSiLink * self);
+  WpProperties * (*get_properties) (WpSiLink * self);
+
   WpSiStream * (*get_out_stream) (WpSiLink * self);
   WpSiStream * (*get_in_stream) (WpSiLink * self);
+
+  void (*request_state) (WpSiLink * self, WpEndpointLinkState target);
 };
+
+WP_API
+GVariant * wp_si_link_get_registration_info (WpSiLink * self);
+
+WP_API
+WpProperties * wp_si_link_get_properties (WpSiLink * self);
 
 WP_API
 WpSiStream * wp_si_link_get_out_stream (WpSiLink * self);
 
 WP_API
 WpSiStream * wp_si_link_get_in_stream (WpSiLink * self);
+
+WP_API
+void wp_si_link_request_state (WpSiLink * self, WpEndpointLinkState target);
 
 G_END_DECLS
 

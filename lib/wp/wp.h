@@ -12,6 +12,7 @@
 #include "core.h"
 #include "device.h"
 #include "endpoint.h"
+#include "endpoint-link.h"
 #include "endpoint-stream.h"
 #include "error.h"
 #include "factory.h"

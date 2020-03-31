@@ -12,6 +12,7 @@
  */
 
 #include "si-interfaces.h"
+#include "wpenums.h"
 
 /**
  * WpSiEndpoint:
@@ -228,6 +229,46 @@ G_DEFINE_INTERFACE (WpSiLink, wp_si_link, WP_TYPE_SESSION_ITEM)
 static void
 wp_si_link_default_init (WpSiLinkInterface * iface)
 {
+  g_signal_new ("link-properties-changed", G_TYPE_FROM_INTERFACE (iface),
+      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
+  g_signal_new ("link-state-changed", G_TYPE_FROM_INTERFACE (iface),
+      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 2,
+      WP_TYPE_ENDPOINT_LINK_STATE, G_TYPE_STRING);
+}
+
+/**
+ * wp_si_link_get_registration_info: (virtual get_registration_info)
+ * @self: the session item
+ *
+ * This should return information that is used for registering the link,
+ * as a GVariant tuple of type (ya{ss}) that contains, in order:
+ *  - y: the link's initial state (#WpEndpointLinkState)
+ *  - a{ss}: additional properties to be added to the list of global properties
+ *
+ * Returns: (transfer full): registration info for the link
+ */
+GVariant *
+wp_si_link_get_registration_info (WpSiLink * self)
+{
+  g_return_val_if_fail (WP_IS_SI_LINK (self), NULL);
+  g_return_val_if_fail (WP_SI_LINK_GET_IFACE (self)->get_registration_info, NULL);
+
+  return WP_SI_LINK_GET_IFACE (self)->get_registration_info (self);
+}
+
+/**
+ * wp_si_link_get_properties: (virtual get_properties)
+ * @self: the session item
+ *
+ * Returns: (transfer full) (nullable): the properties of the link
+ */
+WpProperties *
+wp_si_link_get_properties (WpSiLink * self)
+{
+  g_return_val_if_fail (WP_IS_SI_LINK (self), NULL);
+  g_return_val_if_fail (WP_SI_LINK_GET_IFACE (self)->get_properties, NULL);
+
+  return WP_SI_LINK_GET_IFACE (self)->get_properties (self);
 }
 
 /**
@@ -258,4 +299,20 @@ wp_si_link_get_in_stream (WpSiLink * self)
   g_return_val_if_fail (WP_SI_LINK_GET_IFACE (self)->get_in_stream, NULL);
 
   return WP_SI_LINK_GET_IFACE (self)->get_in_stream (self);
+}
+
+/**
+ * wp_si_link_request_state: (virtual request_state)
+ * @self: the session item
+ * @target: the desired target state of the link
+ *
+ * Requests a state change on the link
+ */
+void
+wp_si_link_request_state (WpSiLink * self, WpEndpointLinkState target)
+{
+  g_return_if_fail (WP_IS_SI_LINK (self));
+  g_return_if_fail (WP_SI_LINK_GET_IFACE (self)->request_state);
+
+  WP_SI_LINK_GET_IFACE (self)->request_state (self, target);
 }

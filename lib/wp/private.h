@@ -192,6 +192,14 @@ G_DECLARE_FINAL_TYPE (WpImplEndpointStream, wp_impl_endpoint_stream,
 WpImplEndpointStream * wp_impl_endpoint_stream_new (WpCore * core,
     WpSiStream * item);
 
+/* impl endpoint link */
+
+#define WP_TYPE_IMPL_ENDPOINT_LINK (wp_impl_endpoint_link_get_type ())
+G_DECLARE_FINAL_TYPE (WpImplEndpointLink, wp_impl_endpoint_link,
+                      WP, IMPL_ENDPOINT_LINK, WpEndpointLink)
+
+WpImplEndpointLink * wp_impl_endpoint_link_new (WpCore * core, WpSiLink * item);
+
 G_END_DECLS
 
 #endif
