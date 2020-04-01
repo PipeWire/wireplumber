@@ -55,6 +55,17 @@ typedef enum { /*< flags >*/
 } WpEndpointFeatures;
 
 /**
+ * WP_ENDPOINT_FEATURES_STANDARD:
+ *
+ * A constant set of features that contains the standard features that are
+ * available in the #WpEndpoint class.
+ */
+#define WP_ENDPOINT_FEATURES_STANDARD \
+    (WP_PROXY_FEATURES_STANDARD | \
+     WP_ENDPOINT_FEATURE_CONTROLS | \
+     WP_ENDPOINT_FEATURE_STREAMS)
+
+/**
  * WP_TYPE_ENDPOINT:
  *
  * The #WpEndpoint #GType

@@ -222,7 +222,7 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
       (GCallback) test_session_basic_exported_object_removed, fixture);
   wp_object_manager_add_interest (fixture->export_om,
       WP_TYPE_IMPL_SESSION, NULL,
-      WP_PROXY_FEATURES_STANDARD | WP_SESSION_FEATURE_DEFAULT_ENDPOINT);
+      WP_SESSION_FEATURES_STANDARD);
   wp_core_install_object_manager (fixture->export_core, fixture->export_om);
 
   g_assert_true (wp_core_connect (fixture->export_core));
@@ -234,7 +234,7 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
       (GCallback) test_session_basic_proxy_object_removed, fixture);
   wp_object_manager_add_interest (fixture->proxy_om,
       WP_TYPE_SESSION, NULL,
-      WP_PROXY_FEATURES_STANDARD | WP_SESSION_FEATURE_DEFAULT_ENDPOINT);
+      WP_SESSION_FEATURES_STANDARD);
   wp_core_install_object_manager (fixture->proxy_core, fixture->proxy_om);
 
   g_assert_true (wp_core_connect (fixture->proxy_core));

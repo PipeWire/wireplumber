@@ -10,6 +10,7 @@
 #define __WIREPLUMBER_SESSION_H__
 
 #include "proxy.h"
+#include "endpoint.h"
 
 G_BEGIN_DECLS
 
@@ -32,12 +33,27 @@ typedef enum {
  * @WP_SESSION_FEATURE_DEFAULT_ENDPOINT: enables the use of
  *   wp_session_get_default_endpoint() and wp_session_set_default_endpoint()
  *   to store default endpoint preferences on the session
+ * @WP_SESSION_FEATURE_ENDPOINTS: caches information about endpoints, enabling
+ *   the use of wp_session_get_n_endpoints(), wp_session_get_endpoint() and
+ *   wp_session_get_all_endpoints()
  *
  * An extension of #WpProxyFeatures
  */
 typedef enum { /*< flags >*/
   WP_SESSION_FEATURE_DEFAULT_ENDPOINT = WP_PROXY_FEATURE_LAST,
+  WP_SESSION_FEATURE_ENDPOINTS,
 } WpSessionFeatures;
+
+/**
+ * WP_SESSION_FEATURES_STANDARD:
+ *
+ * A constant set of features that contains the standard features that are
+ * available in the #WpSession class.
+ */
+#define WP_SESSION_FEATURES_STANDARD \
+    (WP_PROXY_FEATURES_STANDARD | \
+     WP_SESSION_FEATURE_DEFAULT_ENDPOINT | \
+     WP_SESSION_FEATURE_ENDPOINTS)
 
 /**
  * WP_TYPE_SESSION:
@@ -65,6 +81,15 @@ guint32 wp_session_get_default_endpoint (WpSession * self,
 WP_API
 void wp_session_set_default_endpoint (WpSession * self,
     WpDefaultEndpointType type, guint32 id);
+
+WP_API
+guint wp_session_get_n_endpoints (WpSession * self);
+
+WP_API
+WpEndpoint * wp_session_get_endpoint (WpSession * self, guint32 bound_id);
+
+WP_API
+GPtrArray * wp_session_get_all_endpoints (WpSession * self);
 
 /**
  * WP_TYPE_IMPL_SESSION:
