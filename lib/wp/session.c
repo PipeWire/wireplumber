@@ -27,8 +27,11 @@
 
 #include <pipewire/pipewire.h>
 #include <pipewire/extensions/session-manager.h>
+#include <pipewire/extensions/session-manager/introspect-funcs.h>
+
 #include <spa/pod/builder.h>
 #include <spa/pod/parser.h>
+#include <spa/pod/filter.h>
 
 enum {
   SIGNAL_DEFAULT_ENDPOINT_CHANGED,
@@ -36,52 +39,6 @@ enum {
 };
 
 static guint32 signals[N_SIGNALS] = {0};
-
-/* helpers */
-
-static struct pw_session_info *
-session_info_update (struct pw_session_info *info,
-    WpProperties ** props_storage,
-    const struct pw_session_info *update)
-{
-  if (update == NULL)
-    return info;
-
-  if (info == NULL) {
-    info = calloc(1, sizeof(struct pw_session_info));
-    if (info == NULL)
-      return NULL;
-
-    info->id = update->id;
-  }
-  info->change_mask = update->change_mask;
-
-  if (update->change_mask & PW_SESSION_CHANGE_MASK_PROPS) {
-    if (*props_storage)
-      wp_properties_unref (*props_storage);
-    *props_storage = wp_properties_new_copy_dict (update->props);
-    info->props = (struct spa_dict *) wp_properties_peek_dict (*props_storage);
-  }
-  if (update->change_mask & PW_SESSION_CHANGE_MASK_PARAMS) {
-    info->n_params = update->n_params;
-    free((void *) info->params);
-    if (update->params) {
-      size_t size = info->n_params * sizeof(struct spa_param_info);
-      info->params = malloc(size);
-      memcpy(info->params, update->params, size);
-    }
-    else
-      info->params = NULL;
-  }
-  return info;
-}
-
-static void
-session_info_free (struct pw_session_info *info)
-{
-  free((void *) info->params);
-  free(info);
-}
 
 /* WpSession */
 
@@ -91,6 +48,7 @@ struct _WpSessionPrivate
   WpProperties *properties;
   WpSpaProps spa_props;
   struct pw_session_info *info;
+  struct pw_session *iface;
   struct spa_hook listener;
 };
 
@@ -107,7 +65,7 @@ wp_session_finalize (GObject * object)
   WpSession *self = WP_SESSION (object);
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
 
-  g_clear_pointer (&priv->info, session_info_free);
+  g_clear_pointer (&priv->info, pw_session_info_free);
   g_clear_pointer (&priv->properties, wp_properties_unref);
   wp_spa_props_clear (&priv->spa_props);
 
@@ -136,12 +94,11 @@ static gint
 wp_session_enum_params (WpProxy * self, guint32 id, guint32 start,
     guint32 num, const struct spa_pod *filter)
 {
-  struct pw_session *pwp;
+  WpSessionPrivate *priv = wp_session_get_instance_private (WP_SESSION (self));
   int session_enum_params_result;
 
-  pwp = (struct pw_session *) wp_proxy_get_pw_proxy (self);
-  session_enum_params_result = pw_session_enum_params (pwp, 0, id, start, num,
-      filter);
+  session_enum_params_result = pw_session_enum_params (priv->iface, 0, id,
+      start, num, filter);
   g_warn_if_fail (session_enum_params_result >= 0);
 
   return session_enum_params_result;
@@ -150,12 +107,11 @@ wp_session_enum_params (WpProxy * self, guint32 id, guint32 start,
 static gint
 wp_session_subscribe_params (WpProxy * self, guint32 n_ids, guint32 *ids)
 {
-  struct pw_session *pwp;
+  WpSessionPrivate *priv = wp_session_get_instance_private (WP_SESSION (self));
   int session_subscribe_params_result;
 
-  pwp = (struct pw_session *) wp_proxy_get_pw_proxy (self);
-  session_subscribe_params_result = pw_session_subscribe_params (pwp, ids,
-      n_ids);
+  session_subscribe_params_result = pw_session_subscribe_params (priv->iface,
+      ids, n_ids);
   g_warn_if_fail (session_subscribe_params_result >= 0);
 
   return session_subscribe_params_result;
@@ -165,11 +121,11 @@ static gint
 wp_session_set_param (WpProxy * self, guint32 id, guint32 flags,
     const struct spa_pod *param)
 {
-  struct pw_session *pwp;
+  WpSessionPrivate *priv = wp_session_get_instance_private (WP_SESSION (self));
   int session_set_param_result;
 
-  pwp = (struct pw_session *) wp_proxy_get_pw_proxy (self);
-  session_set_param_result = pw_session_set_param (pwp, id, flags, param);
+  session_set_param_result = pw_session_set_param (priv->iface, id, flags,
+      param);
   g_warn_if_fail (session_set_param_result >= 0);
 
   return session_set_param_result;
@@ -181,9 +137,14 @@ session_event_info (void *data, const struct pw_session_info *info)
   WpSession *self = WP_SESSION (data);
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
 
-  priv->info = session_info_update (priv->info, &priv->properties, info);
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
+  priv->info = pw_session_info_update (priv->info, info);
 
+  if (info->change_mask & PW_SESSION_CHANGE_MASK_PROPS) {
+    g_clear_pointer (&priv->properties, wp_properties_unref);
+    priv->properties = wp_properties_new_wrap_dict (priv->info->props);
+  }
+
+  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
   g_object_notify (G_OBJECT (self), "info");
 
   if (info->change_mask & PW_SESSION_CHANGE_MASK_PROPS)
@@ -201,8 +162,9 @@ wp_session_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 {
   WpSession *self = WP_SESSION (proxy);
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
-  pw_session_add_listener ((struct pw_session *) pw_proxy,
-      &priv->listener, &session_events, self);
+
+  priv->iface = (struct pw_session *) pw_proxy;
+  pw_session_add_listener (priv->iface, &priv->listener, &session_events, self);
 }
 
 static void
@@ -275,14 +237,11 @@ set_default_endpoint (WpSession * self, WpDefaultEndpointType type, guint32 id)
 {
   char buf[1024];
   struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buf, sizeof (buf));
-  struct pw_session *pw_proxy = NULL;
 
   /* set the default endpoint id as a property param on the session;
      our spa_props cache will be updated by the param event */
 
-  pw_proxy = (struct pw_session *) wp_proxy_get_pw_proxy (WP_PROXY (self));
-  pw_session_set_param (pw_proxy,
-      SPA_PARAM_Props, 0,
+  WP_PROXY_GET_CLASS (self)->set_param (WP_PROXY (self), SPA_PARAM_Props, 0,
       spa_pod_builder_add_object (&b,
           SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
           type, SPA_POD_Int (id)));
@@ -366,48 +325,189 @@ wp_session_set_default_endpoint (WpSession * self,
 
 /* WpImplSession */
 
-typedef struct _WpImplSessionPrivate WpImplSessionPrivate;
-struct _WpImplSessionPrivate
+typedef struct _WpImplSession WpImplSession;
+struct _WpImplSession
 {
-  WpSessionPrivate *pp;
+  WpSession parent;
+
+  struct spa_interface iface;
+  struct spa_hook_list hooks;
   struct pw_session_info info;
-  struct spa_param_info param_info[2];
+  gboolean subscribed;
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE (WpImplSession, wp_impl_session, WP_TYPE_SESSION)
+G_DEFINE_TYPE (WpImplSession, wp_impl_session, WP_TYPE_SESSION)
+
+#define pw_session_emit(hooks,method,version,...) \
+    spa_hook_list_call_simple(hooks, struct pw_session_events, \
+        method, version, ##__VA_ARGS__)
+
+#define pw_session_emit_info(hooks,...)  pw_session_emit(hooks, info, 0, ##__VA_ARGS__)
+#define pw_session_emit_param(hooks,...) pw_session_emit(hooks, param, 0, ##__VA_ARGS__)
+
+static struct spa_param_info impl_param_info[] = {
+  SPA_PARAM_INFO (SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE),
+  SPA_PARAM_INFO (SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ)
+};
+
+static int
+impl_add_listener(void *object,
+    struct spa_hook *listener,
+    const struct pw_session_events *events,
+    void *data)
+{
+  WpImplSession *self = WP_IMPL_SESSION (object);
+  struct spa_hook_list save;
+
+  spa_hook_list_isolate (&self->hooks, &save, listener, events, data);
+
+  self->info.change_mask = PW_SESSION_CHANGE_MASK_ALL;
+  pw_session_emit_info (&self->hooks, &self->info);
+  self->info.change_mask = 0;
+
+  spa_hook_list_join (&self->hooks, &save);
+  return 0;
+}
+
+static int
+impl_enum_params (void *object, int seq,
+    uint32_t id, uint32_t start, uint32_t num,
+    const struct spa_pod *filter)
+{
+  WpImplSession *self = WP_IMPL_SESSION (object);
+  WpSessionPrivate *priv =
+      wp_session_get_instance_private (WP_SESSION (self));
+  char buf[1024];
+  struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buf, sizeof (buf));
+  struct spa_pod *result;
+  guint count = 0;
+
+  switch (id) {
+    case SPA_PARAM_PropInfo: {
+      g_autoptr (GPtrArray) params =
+          wp_spa_props_build_propinfo (&priv->spa_props, &b);
+
+      for (guint i = start; i < params->len; i++) {
+        struct spa_pod *param = g_ptr_array_index (params, i);
+        pw_session_emit_param (&self->hooks, seq, id, i, i+1, param);
+        wp_proxy_handle_event_param (self, seq, id, i, i+1, param);
+        if (++count == num)
+          break;
+      }
+      break;
+    }
+    case SPA_PARAM_Props: {
+      if (start == 0) {
+        struct spa_pod *param = wp_spa_props_build_props (&priv->spa_props, &b);
+        if (spa_pod_filter (&b, &result, param, filter) == 0) {
+          pw_session_emit_param (&self->hooks, seq, id, 0, 1, result);
+          wp_proxy_handle_event_param (self, seq, id, 0, 1, result);
+        }
+      }
+      break;
+    }
+    default:
+      return -ENOENT;
+  }
+
+  return 0;
+}
+
+static int
+impl_subscribe_params (void *object, uint32_t *ids, uint32_t n_ids)
+{
+  WpImplSession *self = WP_IMPL_SESSION (object);
+
+  for (guint i = 0; i < n_ids; i++) {
+    if (ids[i] == SPA_PARAM_Props)
+      self->subscribed = TRUE;
+    impl_enum_params (self, 1, ids[i], 0, UINT32_MAX, NULL);
+  }
+  return 0;
+}
+
+static int
+impl_set_param (void *object, uint32_t id, uint32_t flags,
+    const struct spa_pod *param)
+{
+  WpImplSession *self = WP_IMPL_SESSION (object);
+  WpSessionPrivate *priv =
+      wp_session_get_instance_private (WP_SESSION (self));
+  g_autoptr (GArray) changed_ids = NULL;
+
+  if (id != SPA_PARAM_Props)
+    return -ENOENT;
+
+  changed_ids = g_array_new (FALSE, FALSE, sizeof (guint32));
+  wp_spa_props_store_from_props (&priv->spa_props, param, changed_ids);
+
+  /* notify subscribers */
+  if (self->subscribed)
+    impl_enum_params (self, 1, SPA_PARAM_Props, 0, UINT32_MAX, NULL);
+
+  /* notify controls locally */
+  for (guint i = 0; i < changed_ids->len; i++) {
+    guint32 prop_id = g_array_index (changed_ids, guint32, i);
+    const struct spa_pod *param =
+        wp_spa_props_get_stored (&priv->spa_props, prop_id);
+    gint value;
+
+    if (spa_pod_get_int (param, &value) == 0) {
+      g_signal_emit (self, signals[SIGNAL_DEFAULT_ENDPOINT_CHANGED], 0,
+          prop_id, value);
+    }
+  }
+
+  return 0;
+}
+
+static const struct pw_session_methods impl_session = {
+  PW_VERSION_SESSION_METHODS,
+  .add_listener = impl_add_listener,
+  .subscribe_params = impl_subscribe_params,
+  .enum_params = impl_enum_params,
+  .set_param = impl_set_param,
+};
 
 static void
 wp_impl_session_init (WpImplSession * self)
 {
-  WpImplSessionPrivate *priv = wp_impl_session_get_instance_private (self);
+  /* reuse the parent's private to optimize memory usage and to be able
+     to re-use some of the parent's methods without reimplementing them */
+  WpSessionPrivate *priv =
+      wp_session_get_instance_private (WP_SESSION (self));
 
-  /* store a pointer to the parent's private; we use that structure
-    as well to optimize memory usage and to be able to re-use some of the
-    parent's methods without reimplementing them */
-  priv->pp = wp_session_get_instance_private (WP_SESSION (self));
+  self->iface = SPA_INTERFACE_INIT (
+      PW_TYPE_INTERFACE_Session,
+      PW_VERSION_SESSION,
+      &impl_session, self);
+  spa_hook_list_init (&self->hooks);
 
-  priv->pp->properties = wp_properties_new_empty ();
+  priv->iface = (struct pw_session *) &self->iface;
 
-  priv->param_info[0] = SPA_PARAM_INFO (SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE);
-  priv->param_info[1] = SPA_PARAM_INFO (SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ);
+  /* prepare INFO */
+  priv->properties = wp_properties_new_empty ();
+  self->info.version = PW_VERSION_SESSION_INFO;
+  self->info.props =
+      (struct spa_dict *) wp_properties_peek_dict (priv->properties);
+  self->info.params = impl_param_info;
+  self->info.n_params = SPA_N_ELEMENTS (impl_param_info);
+  priv->info = &self->info;
+  g_object_notify (G_OBJECT (self), "info");
 
-  priv->info.version = PW_VERSION_SESSION_INFO;
-  priv->info.props =
-      (struct spa_dict *) wp_properties_peek_dict (priv->pp->properties);
-  priv->info.params = priv->param_info;
-  priv->info.n_params = SPA_N_ELEMENTS (priv->param_info);
-  priv->pp->info = &priv->info;
   wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
 
-  wp_spa_props_register (&priv->pp->spa_props,
+  /* prepare DEFAULT_ENDPOINT */
+  wp_spa_props_register (&priv->spa_props,
       WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SOURCE,
       "Default Audio Source", SPA_POD_Int (0));
-  wp_spa_props_register (&priv->pp->spa_props,
+  wp_spa_props_register (&priv->spa_props,
       WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SINK,
       "Default Audio Sink", SPA_POD_Int (0));
-  wp_spa_props_register (&priv->pp->spa_props,
+  wp_spa_props_register (&priv->spa_props,
       WP_DEFAULT_ENDPOINT_TYPE_VIDEO_SOURCE,
       "Default Video Source", SPA_POD_Int (0));
+
   wp_proxy_set_feature_ready (WP_PROXY (self),
       WP_SESSION_FEATURE_DEFAULT_ENDPOINT);
 }
@@ -415,98 +515,27 @@ wp_impl_session_init (WpImplSession * self)
 static void
 wp_impl_session_finalize (GObject * object)
 {
-  WpImplSessionPrivate *priv =
-      wp_impl_session_get_instance_private (WP_IMPL_SESSION (object));
+  WpSessionPrivate *priv = wp_session_get_instance_private (WP_SESSION (object));
 
   /* set to NULL to prevent parent's finalize from calling free() on it */
-  priv->pp->info = NULL;
+  priv->info = NULL;
 
   G_OBJECT_CLASS (wp_impl_session_parent_class)->finalize (object);
 }
 
 static void
-client_session_update (WpImplSession * self, guint32 change_mask,
-    guint32 info_change_mask)
-{
-  WpImplSessionPrivate *priv =
-      wp_impl_session_get_instance_private (self);
-  char buf[1024];
-  struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buf, sizeof (buf));
-  struct pw_client_session *pw_proxy = NULL;
-  struct pw_session_info *info = NULL;
-  g_autoptr (GPtrArray) params = NULL;
-
-  pw_proxy = (struct pw_client_session *) wp_proxy_get_pw_proxy (WP_PROXY (self));
-
-  if (change_mask & PW_CLIENT_SESSION_UPDATE_PARAMS) {
-    params = wp_spa_props_build_all_pods (&priv->pp->spa_props, &b);
-  }
-  if (change_mask & PW_CLIENT_SESSION_UPDATE_INFO) {
-    info = &priv->info;
-    info->change_mask = info_change_mask;
-  }
-
-  pw_client_session_update (pw_proxy,
-      change_mask,
-      params ? params->len : 0,
-      (const struct spa_pod **) (params ? params->pdata : NULL),
-      info);
-
-  if (info)
-    info->change_mask = 0;
-}
-
-static int
-client_session_set_param (void *object,
-    uint32_t id, uint32_t flags, const struct spa_pod *param)
-{
-  WpImplSession *self = WP_IMPL_SESSION (object);
-  WpImplSessionPrivate *priv =
-      wp_impl_session_get_instance_private (self);
-  g_autoptr (GArray) changed_ids = NULL;
-  guint32 prop_id;
-  gint32 value;
-
-  if (id != SPA_PARAM_Props)
-    return -ENOENT;
-
-  changed_ids = g_array_new (FALSE, FALSE, sizeof (guint32));
-  wp_spa_props_store_from_props (&priv->pp->spa_props, param, changed_ids);
-
-  for (guint i = 0; i < changed_ids->len; i++) {
-    prop_id = g_array_index (changed_ids, guint32, i);
-    param = wp_spa_props_get_stored (&priv->pp->spa_props, prop_id);
-    if (spa_pod_get_int (param, &value) == 0) {
-      g_signal_emit (self, signals[SIGNAL_DEFAULT_ENDPOINT_CHANGED], 0,
-          prop_id, value);
-    }
-  }
-
-  client_session_update (self, PW_CLIENT_SESSION_UPDATE_PARAMS, 0);
-
-  return 0;
-}
-
-static struct pw_client_session_events client_session_events = {
-  PW_VERSION_CLIENT_SESSION_EVENTS,
-  .set_param = client_session_set_param,
-};
-
-static void
 wp_impl_session_augment (WpProxy * proxy, WpProxyFeatures features)
 {
   WpImplSession *self = WP_IMPL_SESSION (proxy);
-  WpImplSessionPrivate *priv = wp_impl_session_get_instance_private (self);
+  WpSessionPrivate *priv = wp_session_get_instance_private (WP_SESSION (self));
 
-  /* if any of the default features is requested, make sure BOUND
-     is also requested, as they all depend on binding the session */
-  if (features & WP_PROXY_FEATURES_STANDARD)
+  /* PW_PROXY depends on BOUND */
+  if (features & WP_PROXY_FEATURE_PW_PROXY)
     features |= WP_PROXY_FEATURE_BOUND;
 
   if (features & WP_PROXY_FEATURE_BOUND) {
     g_autoptr (WpCore) core = wp_proxy_get_core (proxy);
     struct pw_core *pw_core = wp_core_get_pw_core (core);
-    struct pw_proxy *pw_proxy = NULL;
 
     /* no pw_core -> we are not connected */
     if (!pw_core) {
@@ -518,46 +547,14 @@ wp_impl_session_augment (WpProxy * proxy, WpProxyFeatures features)
     }
 
     /* make sure these props are not present; they are added by the server */
-    wp_properties_set (priv->pp->properties, PW_KEY_OBJECT_ID, NULL);
-    wp_properties_set (priv->pp->properties, PW_KEY_CLIENT_ID, NULL);
-    wp_properties_set (priv->pp->properties, PW_KEY_FACTORY_ID, NULL);
+    wp_properties_set (priv->properties, PW_KEY_OBJECT_ID, NULL);
+    wp_properties_set (priv->properties, PW_KEY_CLIENT_ID, NULL);
+    wp_properties_set (priv->properties, PW_KEY_FACTORY_ID, NULL);
 
-    pw_proxy = pw_core_create_object (pw_core, "client-session",
-        PW_TYPE_INTERFACE_ClientSession, PW_VERSION_CLIENT_SESSION,
-        wp_properties_peek_dict (priv->pp->properties), 0);
-    wp_proxy_set_pw_proxy (proxy, pw_proxy);
-
-    pw_client_session_add_listener (pw_proxy, &priv->pp->listener,
-        &client_session_events, self);
-
-    client_session_update (WP_IMPL_SESSION (self),
-        PW_CLIENT_SESSION_UPDATE_PARAMS | PW_CLIENT_SESSION_UPDATE_INFO,
-        PW_SESSION_CHANGE_MASK_ALL);
-  }
-}
-
-static gint
-wp_impl_session_set_param (WpProxy * self, guint32 id, guint32 flags,
-    const struct spa_pod *param)
-{
-  return client_session_set_param (self, id, flags, param);
-}
-
-static void
-wp_impl_session_set_default_endpoint (WpSession * session,
-    WpDefaultEndpointType type, guint32 id)
-{
-  WpImplSession *self = WP_IMPL_SESSION (session);
-  WpImplSessionPrivate *priv = wp_impl_session_get_instance_private (self);
-
-  wp_spa_props_store (&priv->pp->spa_props, type, SPA_POD_Int (id));
-
-  g_signal_emit (session, signals[SIGNAL_DEFAULT_ENDPOINT_CHANGED], 0, type, id);
-
-  /* update only after the session has been exported */
-  if (wp_proxy_get_features (WP_PROXY (self)) & WP_PROXY_FEATURE_BOUND) {
-    client_session_update (WP_IMPL_SESSION (session),
-      PW_CLIENT_SESSION_UPDATE_PARAMS, 0);
+    wp_proxy_set_pw_proxy (proxy, pw_core_export (pw_core,
+            PW_TYPE_INTERFACE_Session,
+            wp_properties_peek_dict (priv->properties),
+            priv->iface, 0));
   }
 }
 
@@ -566,19 +563,12 @@ wp_impl_session_class_init (WpImplSessionClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
-  WpSessionClass *session_class = (WpSessionClass *) klass;
 
   object_class->finalize = wp_impl_session_finalize;
 
   proxy_class->augment = wp_impl_session_augment;
-  proxy_class->enum_params = NULL;
-  proxy_class->subscribe_params = NULL;
-  proxy_class->set_param = wp_impl_session_set_param;
-
   proxy_class->pw_proxy_created = NULL;
   proxy_class->param = NULL;
-
-  session_class->set_default_endpoint = wp_impl_session_set_default_endpoint;
 }
 
 /**
@@ -613,19 +603,20 @@ void
 wp_impl_session_set_property (WpImplSession * self,
     const gchar * key, const gchar * value)
 {
-  WpImplSessionPrivate *priv;
+  WpSessionPrivate *priv;
 
   g_return_if_fail (WP_IS_IMPL_SESSION (self));
-  priv = wp_impl_session_get_instance_private (self);
+  priv = wp_session_get_instance_private (WP_SESSION (self));
 
-  wp_properties_set (priv->pp->properties, key, value);
+  wp_properties_set (priv->properties, key, value);
 
   g_object_notify (G_OBJECT (self), "properties");
 
   /* update only after the session has been exported */
   if (wp_proxy_get_features (WP_PROXY (self)) & WP_PROXY_FEATURE_BOUND) {
-    client_session_update (self, PW_CLIENT_SESSION_UPDATE_INFO,
-        PW_SESSION_CHANGE_MASK_PROPS);
+    self->info.change_mask = PW_SESSION_CHANGE_MASK_PROPS;
+    pw_session_emit_info (&self->hooks, &self->info);
+    self->info.change_mask = 0;
   }
 }
 
@@ -645,19 +636,19 @@ void
 wp_impl_session_update_properties (WpImplSession * self,
     WpProperties * updates)
 {
-  WpImplSessionPrivate *priv;
+  WpSessionPrivate *priv;
 
   g_return_if_fail (WP_IS_IMPL_SESSION (self));
-  priv = wp_impl_session_get_instance_private (self);
+  priv = wp_session_get_instance_private (WP_SESSION (self));
 
-  wp_properties_update_from_dict (priv->pp->properties,
-      wp_properties_peek_dict (updates));
+  wp_properties_update (priv->properties, updates);
 
   g_object_notify (G_OBJECT (self), "properties");
 
   /* update only after the session has been exported */
   if (wp_proxy_get_features (WP_PROXY (self)) & WP_PROXY_FEATURE_BOUND) {
-    client_session_update (self, PW_CLIENT_SESSION_UPDATE_INFO,
-        PW_SESSION_CHANGE_MASK_PROPS);
+    self->info.change_mask = PW_SESSION_CHANGE_MASK_PROPS;
+    pw_session_emit_info (&self->hooks, &self->info);
+    self->info.change_mask = 0;
   }
 }

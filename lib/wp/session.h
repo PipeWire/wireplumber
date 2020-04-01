@@ -73,12 +73,7 @@ void wp_session_set_default_endpoint (WpSession * self,
  */
 #define WP_TYPE_IMPL_SESSION (wp_impl_session_get_type ())
 WP_API
-G_DECLARE_DERIVABLE_TYPE (WpImplSession, wp_impl_session, WP, IMPL_SESSION, WpSession)
-
-struct _WpImplSessionClass
-{
-  WpSessionClass parent_class;
-};
+G_DECLARE_FINAL_TYPE (WpImplSession, wp_impl_session, WP, IMPL_SESSION, WpSession)
 
 WP_API
 WpImplSession * wp_impl_session_new (WpCore * core);
