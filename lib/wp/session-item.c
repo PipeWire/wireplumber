@@ -285,7 +285,7 @@ default_export_execute_step (WpSessionItem * self, WpTransition * transition,
     priv->impl_endpoint = wp_impl_endpoint_new (core, WP_SI_ENDPOINT (self));
 
     wp_proxy_augment (WP_PROXY (priv->impl_endpoint),
-        WP_PROXY_FEATURES_STANDARD, NULL,
+        WP_ENDPOINT_FEATURES_STANDARD, NULL,
         (GAsyncReadyCallback) on_export_proxy_augmented,
         transition);
     break;
