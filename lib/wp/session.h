@@ -11,6 +11,7 @@
 
 #include "proxy.h"
 #include "endpoint.h"
+#include "endpoint-link.h"
 
 G_BEGIN_DECLS
 
@@ -36,12 +37,16 @@ typedef enum {
  * @WP_SESSION_FEATURE_ENDPOINTS: caches information about endpoints, enabling
  *   the use of wp_session_get_n_endpoints(), wp_session_get_endpoint() and
  *   wp_session_get_all_endpoints()
+ * @WP_SESSION_FEATURE_LINKS: caches information about endpoint links, enabling
+ *   the use of wp_session_get_n_links(), wp_session_get_link() and
+ *   wp_session_get_all_links()
  *
  * An extension of #WpProxyFeatures
  */
 typedef enum { /*< flags >*/
   WP_SESSION_FEATURE_DEFAULT_ENDPOINT = WP_PROXY_FEATURE_LAST,
   WP_SESSION_FEATURE_ENDPOINTS,
+  WP_SESSION_FEATURE_LINKS,
 } WpSessionFeatures;
 
 /**
@@ -53,7 +58,8 @@ typedef enum { /*< flags >*/
 #define WP_SESSION_FEATURES_STANDARD \
     (WP_PROXY_FEATURES_STANDARD | \
      WP_SESSION_FEATURE_DEFAULT_ENDPOINT | \
-     WP_SESSION_FEATURE_ENDPOINTS)
+     WP_SESSION_FEATURE_ENDPOINTS | \
+     WP_SESSION_FEATURE_LINKS)
 
 /**
  * WP_TYPE_SESSION:
@@ -90,6 +96,15 @@ WpEndpoint * wp_session_get_endpoint (WpSession * self, guint32 bound_id);
 
 WP_API
 GPtrArray * wp_session_get_all_endpoints (WpSession * self);
+
+WP_API
+guint wp_session_get_n_links (WpSession * self);
+
+WP_API
+WpEndpointLink * wp_session_get_link (WpSession * self, guint32 bound_id);
+
+WP_API
+GPtrArray * wp_session_get_all_links (WpSession * self);
 
 /**
  * WP_TYPE_IMPL_SESSION:
