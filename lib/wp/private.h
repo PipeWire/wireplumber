@@ -12,6 +12,7 @@
 #include "core.h"
 #include "object-manager.h"
 #include "proxy.h"
+#include "iterator.h"
 
 #include <stdint.h>
 #include <pipewire/pipewire.h>
@@ -115,12 +116,6 @@ void wp_proxy_handle_event_param (void * proxy, int seq, uint32_t id,
     uint32_t index, uint32_t next, const struct spa_pod *param);
 
 /* iterator */
-
-typedef struct _WpIterator WpIterator;
-
-typedef gboolean (*WpIteratorFoldFunc) (const GValue *item, GValue *ret,
-    gpointer data);
-typedef void (*WpIteratorForeachFunc) (const GValue *item, gpointer data);
 
 struct _WpIteratorMethods {
   void (*reset) (WpIterator *self);

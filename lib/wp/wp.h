@@ -24,4 +24,5 @@
 #include "properties.h"
 #include "proxy.h"
 #include "session.h"
+#include "spa-type.h"
 #include "wpenums.h"
