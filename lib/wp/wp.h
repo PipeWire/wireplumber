@@ -14,6 +14,7 @@
 #include "endpoint.h"
 #include "error.h"
 #include "factory.h"
+#include "iterator.h"
 #include "link.h"
 #include "module.h"
 #include "node.h"

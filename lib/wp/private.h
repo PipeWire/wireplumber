@@ -114,6 +114,29 @@ void wp_proxy_augment_error (WpProxy * self, GError * error);
 void wp_proxy_handle_event_param (void * proxy, int seq, uint32_t id,
     uint32_t index, uint32_t next, const struct spa_pod *param);
 
+/* iterator */
+
+typedef struct _WpIterator WpIterator;
+
+typedef gboolean (*WpIteratorFoldFunc) (const GValue *item, GValue *ret,
+    gpointer data);
+typedef void (*WpIteratorForeachFunc) (const GValue *item, gpointer data);
+
+struct _WpIteratorMethods {
+  void (*reset) (WpIterator *self);
+  gboolean (*next) (WpIterator *self, GValue *item);
+  gboolean (*fold) (WpIterator *self, WpIteratorFoldFunc func,
+      GValue *ret, gpointer data);
+  gboolean (*foreach) (WpIterator *self, WpIteratorForeachFunc func,
+      gpointer data);
+  void (*finalize) (WpIterator *self);
+};
+typedef struct _WpIteratorMethods WpIteratorMethods;
+
+WpIterator * wp_iterator_new (const WpIteratorMethods *methods,
+    size_t user_size);
+gpointer wp_iterator_get_user_data (WpIterator *self);
+
 /* spa props */
 
 struct _WpSpaProps
