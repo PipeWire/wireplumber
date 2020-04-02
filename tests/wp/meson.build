@@ -35,6 +35,12 @@ test(
 )
 
 test(
+  'test-spa-pod',
+  executable('test-spa-pod', 'spa-pod.c', dependencies: common_deps),
+  env: common_env,
+)
+
+test(
   'test-spa-type',
   executable('test-spa-type', 'spa-type.c', dependencies: common_deps),
   env: common_env,

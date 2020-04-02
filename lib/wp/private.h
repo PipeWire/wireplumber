@@ -13,6 +13,7 @@
 #include "object-manager.h"
 #include "proxy.h"
 #include "iterator.h"
+#include "spa-type.h"
 
 #include <stdint.h>
 #include <pipewire/pipewire.h>
@@ -131,6 +132,21 @@ typedef struct _WpIteratorMethods WpIteratorMethods;
 WpIterator * wp_iterator_new (const WpIteratorMethods *methods,
     size_t user_size);
 gpointer wp_iterator_get_user_data (WpIterator *self);
+
+/* spa pod */
+
+typedef struct _WpSpaPod WpSpaPod;
+WpSpaPod * wp_spa_pod_new_regular_wrap (struct spa_pod *pod);
+WpSpaPod * wp_spa_pod_new_property_wrap (WpSpaTypeTable table, guint32 key,
+    guint32 flags, struct spa_pod *pod);
+WpSpaPod * wp_spa_pod_new_control_wrap (guint32 offset, guint32 type,
+    struct spa_pod *pod);
+WpSpaPod * wp_spa_pod_new_regular_wrap_copy (const struct spa_pod *pod);
+WpSpaPod * wp_spa_pod_new_property_wrap_copy (WpSpaTypeTable table, guint32 key,
+    guint32 flags, const struct spa_pod *pod);
+WpSpaPod * wp_spa_pod_new_control_wrap_copy (guint32 offset, guint32 type,
+    const struct spa_pod *pod);
+struct spa_pod *wp_spa_pod_get_spa_pod (WpSpaPod *self);
 
 /* spa props */
 

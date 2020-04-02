@@ -25,4 +25,5 @@
 #include "proxy.h"
 #include "session.h"
 #include "spa-type.h"
+#include "spa-pod.h"
 #include "wpenums.h"
