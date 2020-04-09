@@ -59,24 +59,25 @@ si_adapter_init (WpSiAdapter * self)
 }
 
 static void
-si_adapter_finalize (GObject * object)
+si_adapter_reset (WpSessionItem * item)
 {
-  WpSiAdapter *self = WP_SI_ADAPTER (object);
+  WpSiAdapter *self = WP_SI_ADAPTER (item);
+
+  /* unexport & deactivate first */
+  WP_SESSION_ITEM_CLASS (si_adapter_parent_class)->reset (item);
 
   g_clear_object (&self->node);
-
-  G_OBJECT_CLASS (si_adapter_parent_class)->finalize (object);
 }
 
 static void
-si_adapter_reset (WpSessionItem * item)
+si_adapter_deactivate (WpSessionItem * item)
 {
   WpSiAdapter *self = WP_SI_ADAPTER (item);
 
   g_clear_object (&self->ports_om);
   wp_session_item_clear_flag (item, WP_SI_FLAG_CONFIGURED);
 
-  WP_SESSION_ITEM_CLASS (si_adapter_parent_class)->reset (item);
+  WP_SESSION_ITEM_CLASS (si_adapter_parent_class)->deactivate (item);
 }
 
 static gpointer
@@ -362,17 +363,15 @@ si_adapter_execute_step (WpSessionItem * item, WpTransition * transition,
 static void
 si_adapter_class_init (WpSiAdapterClass * klass)
 {
-  GObjectClass *object_class = (GObjectClass *) klass;
   WpSessionItemClass *si_class = (WpSessionItemClass *) klass;
 
-  object_class->finalize = si_adapter_finalize;
-
+  si_class->reset = si_adapter_reset;
   si_class->get_associated_proxy = si_adapter_get_associated_proxy;
   si_class->configure = si_adapter_configure;
   si_class->get_configuration = si_adapter_get_configuration;
   si_class->get_next_step = si_adapter_get_next_step;
   si_class->execute_step = si_adapter_execute_step;
-  si_class->reset = si_adapter_reset;
+  si_class->deactivate = si_adapter_deactivate;
 }
 
 static guint

@@ -121,6 +121,13 @@ wp_session_item_finalize (GObject * object)
   G_OBJECT_CLASS (wp_session_item_parent_class)->finalize (object);
 }
 
+static void
+wp_session_item_default_reset (WpSessionItem * self)
+{
+  wp_session_item_unexport (self);
+  wp_session_item_deactivate (self);
+}
+
 static gpointer
 wp_session_item_default_get_associated_proxy (WpSessionItem * self,
     GType proxy_type)
@@ -179,14 +186,16 @@ wp_session_item_default_execute_step (WpSessionItem * self,
 }
 
 static void
-wp_session_item_default_reset (WpSessionItem * self)
+wp_session_item_default_deactivate (WpSessionItem * self)
 {
   WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
+  static const guint flags =
+      (WP_SI_FLAG_ACTIVATING | WP_SI_FLAG_ACTIVE | WP_SI_FLAG_IN_ERROR);
 
-  wp_session_item_unexport (self);
-
-  priv->flags &= ~(WP_SI_FLAG_ACTIVE | WP_SI_FLAG_IN_ERROR);
-  g_signal_emit (self, signals[SIGNAL_FLAGS_CHANGED], 0, priv->flags);
+  if (priv->flags & flags) {
+    priv->flags &= ~flags;
+    g_signal_emit (self, signals[SIGNAL_FLAGS_CHANGED], 0, priv->flags);
+  }
 }
 
 enum {
@@ -223,6 +232,7 @@ default_export_get_next_step (WpSessionItem * self, WpTransition * transition,
     }
 
   case EXPORT_STEP_ENDPOINT:
+    g_return_val_if_fail (WP_IS_SI_ENDPOINT (self), WP_TRANSITION_STEP_ERROR);
     return EXPORT_STEP_STREAMS;
 
   case EXPORT_STEP_STREAMS:
@@ -237,6 +247,7 @@ default_export_get_next_step (WpSessionItem * self, WpTransition * transition,
       return step;
 
   case EXPORT_STEP_LINK:
+    g_return_val_if_fail (WP_IS_SI_LINK (self), WP_TRANSITION_STEP_ERROR);
     return EXPORT_STEP_FINISH;
 
   case EXPORT_STEP_FINISH:
@@ -350,9 +361,6 @@ wp_session_item_default_export (WpSessionItem * self,
   WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
   WpTransition *transition;
 
-  g_return_if_fail (priv->flags & WP_SI_FLAG_ACTIVE);
-  g_return_if_fail (!(priv->flags & (WP_SI_FLAG_EXPORTING | WP_SI_FLAG_EXPORTED)));
-
   g_weak_ref_set (&priv->session, session);
 
   transition = wp_transition_new (wp_si_transition_get_type (),
@@ -378,15 +386,16 @@ static void
 wp_session_item_default_unexport (WpSessionItem * self)
 {
   WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
-
-  //TODO cancel job if EXPORTING
+  static const guint flags = (WP_SI_FLAG_EXPORTING | WP_SI_FLAG_EXPORTED);
 
   g_clear_pointer (&priv->impl_streams, g_hash_table_unref);
   g_clear_object (&priv->impl_proxy);
   g_weak_ref_set (&priv->session, NULL);
 
-  priv->flags &= ~(WP_SI_FLAG_EXPORTING | WP_SI_FLAG_EXPORTED);
-  g_signal_emit (self, signals[SIGNAL_FLAGS_CHANGED], 0, priv->flags);
+  if (priv->flags & flags) {
+    priv->flags &= ~flags;
+    g_signal_emit (self, signals[SIGNAL_FLAGS_CHANGED], 0, priv->flags);
+  }
 }
 
 static void
@@ -397,10 +406,11 @@ wp_session_item_class_init (WpSessionItemClass * klass)
   object_class->dispose = wp_session_item_dispose;
   object_class->finalize = wp_session_item_finalize;
 
+  klass->reset = wp_session_item_default_reset;
   klass->get_associated_proxy = wp_session_item_default_get_associated_proxy;
   klass->get_next_step = wp_session_item_default_get_next_step;
   klass->execute_step = wp_session_item_default_execute_step;
-  klass->reset = wp_session_item_default_reset;
+  klass->deactivate = wp_session_item_default_deactivate;
   klass->export = wp_session_item_default_export;
   klass->export_finish = wp_session_item_default_export_finish;
   klass->unexport = wp_session_item_default_unexport;
@@ -414,6 +424,22 @@ wp_session_item_class_init (WpSessionItemClass * klass)
       "flags-changed", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
       G_TYPE_NONE, 1, WP_TYPE_SI_FLAGS);
+}
+
+/**
+ * wp_session_item_reset: (virtual reset)
+ * @self: the session item
+ *
+ * Resets the state of the item, deactivating it, unexporting it and
+ * resetting configuration options as well.
+ */
+void
+wp_session_item_reset (WpSessionItem * self)
+{
+  g_return_if_fail (WP_IS_SESSION_ITEM (self));
+  g_return_if_fail (WP_SESSION_ITEM_GET_CLASS (self)->reset);
+
+  WP_SESSION_ITEM_GET_CLASS (self)->reset (self);
 }
 
 /**
@@ -649,19 +675,22 @@ wp_session_item_activate_finish (WpSessionItem * self, GAsyncResult * res,
 }
 
 /**
- * wp_session_item_reset: (virtual reset)
+ * wp_session_item_deactivate: (virtual deactivate)
  * @self: the session item
  *
- * Resets the state of the item, deactivating it, and possibly
- * resetting configuration options as well.
+ * De-activates the item and/or cancels any ongoing activation operation.
+ *
+ * If the item was not activated, this method does nothing.
  */
 void
-wp_session_item_reset (WpSessionItem * self)
+wp_session_item_deactivate (WpSessionItem * self)
 {
   g_return_if_fail (WP_IS_SESSION_ITEM (self));
-  g_return_if_fail (WP_SESSION_ITEM_GET_CLASS (self)->reset);
+  g_return_if_fail (WP_SESSION_ITEM_GET_CLASS (self)->deactivate);
 
-  WP_SESSION_ITEM_GET_CLASS (self)->reset (self);
+  //TODO cancel job if ACTIVATING
+
+  WP_SESSION_ITEM_GET_CLASS (self)->deactivate (self);
 }
 
 /**
@@ -685,6 +714,11 @@ wp_session_item_export (WpSessionItem * self, WpSession * session,
   g_return_if_fail (WP_IS_SESSION_ITEM (self));
   g_return_if_fail (WP_IS_SESSION (session));
   g_return_if_fail (WP_SESSION_ITEM_GET_CLASS (self)->export);
+
+  WpSessionItemPrivate *priv =
+      wp_session_item_get_instance_private (self);
+
+  g_return_if_fail (!(priv->flags & (WP_SI_FLAG_EXPORTING | WP_SI_FLAG_EXPORTED)));
 
   WP_SESSION_ITEM_GET_CLASS (self)->export (self, session, NULL,
       callback, callback_data);
@@ -725,6 +759,8 @@ wp_session_item_unexport (WpSessionItem * self)
 {
   g_return_if_fail (WP_IS_SESSION_ITEM (self));
   g_return_if_fail (WP_SESSION_ITEM_GET_CLASS (self)->unexport);
+
+  //TODO cancel job if EXPORTING
 
   WP_SESSION_ITEM_GET_CLASS (self)->unexport (self);
 }

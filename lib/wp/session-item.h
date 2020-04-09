@@ -64,6 +64,7 @@ typedef enum {
 
 /**
  * WpSessionItemClass:
+ * @reset: See wp_session_item_reset()
  * @get_associated_proxy: See wp_session_item_get_associated_proxy()
  * @configure: See wp_session_item_configure()
  * @get_configuration: See wp_session_item_get_configuration()
@@ -71,7 +72,7 @@ typedef enum {
  *   transition of wp_session_item_activate()
  * @execute_step: Implements #WpTransitionClass.execute_step() for the
  *   transition of wp_session_item_activate()
- * @reset: See wp_session_item_reset()
+ * @deactivate: See wp_session_item_deactivate()
  * @export: See wp_session_item_export()
  * @export_finish: See wp_session_item_export_finish()
  * @unexport: See wp_session_item_unexport()
@@ -79,6 +80,8 @@ typedef enum {
 struct _WpSessionItemClass
 {
   GObjectClass parent_class;
+
+  void (*reset) (WpSessionItem * self);
 
   gpointer (*get_associated_proxy) (WpSessionItem * self, GType proxy_type);
 
@@ -89,8 +92,7 @@ struct _WpSessionItemClass
       guint step);
   void (*execute_step) (WpSessionItem * self, WpTransition * transition,
       guint step);
-
-  void (*reset) (WpSessionItem * self);
+  void (*deactivate) (WpSessionItem * self);
 
   void (*export) (WpSessionItem * self,
       WpSession * session, GCancellable * cancellable,
@@ -99,6 +101,9 @@ struct _WpSessionItemClass
       GError ** error);
   void (*unexport) (WpSessionItem * self);
 };
+
+WP_API
+void wp_session_item_reset (WpSessionItem * self);
 
 /* flags */
 
@@ -140,7 +145,7 @@ gboolean wp_session_item_activate_finish (WpSessionItem * self,
     GAsyncResult * res, GError ** error);
 
 WP_API
-void wp_session_item_reset (WpSessionItem * self);
+void wp_session_item_deactivate (WpSessionItem * self);
 
 /* exporting */
 
