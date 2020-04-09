@@ -355,12 +355,44 @@ impl_set_param (void *object, uint32_t id, uint32_t flags,
   return -ENOENT;
 }
 
+static void
+on_item_activated (WpSessionItem * item, GAsyncResult * res, gpointer data)
+{
+  WpImplEndpointLink *self = WP_IMPL_ENDPOINT_LINK (data);
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_session_item_activate_finish (item, res, &error)) {
+    g_debug ("failed to activate link: %s", error->message);
+    self->info.error = g_strdup (error->message);
+    /* on_si_link_flags_changed() will be called right after we return,
+       taking care of the rest... */
+  }
+}
+
 static int
 impl_request_state (void *object, enum pw_endpoint_link_state state)
 {
   WpImplEndpointLink *self = WP_IMPL_ENDPOINT_LINK (object);
-  wp_si_link_request_state (self->item, (WpEndpointLinkState) state);
-  return 0;
+  int ret = 0;
+
+  if (state == self->info.state)
+    return ret;
+
+  switch (state) {
+  case PW_ENDPOINT_LINK_STATE_ACTIVE:
+    wp_session_item_deactivate (WP_SESSION_ITEM (self->item));
+    wp_session_item_activate (WP_SESSION_ITEM (self->item),
+        (GAsyncReadyCallback) on_item_activated, self);
+    break;
+  case PW_ENDPOINT_LINK_STATE_INACTIVE:
+    wp_session_item_deactivate (WP_SESSION_ITEM (self->item));
+    break;
+  default:
+    ret = -EINVAL;
+    break;
+  }
+
+  return ret;
 }
 
 static const struct pw_endpoint_link_methods impl_endpoint_link = {
@@ -400,19 +432,31 @@ on_si_link_properties_changed (WpSiLink * item, WpImplEndpointLink * self)
 }
 
 static void
-on_si_link_state_changed (WpSiLink * item, WpEndpointLinkState state,
-    const gchar * error, WpImplEndpointLink * self)
+on_si_link_flags_changed (WpSiLink * item, WpSiFlags flags,
+    WpImplEndpointLink * self)
 {
-  WpEndpointLinkState old_state = self->info.state;
+  enum pw_endpoint_link_state old_state = self->info.state;
 
-  self->info.state = state;
-  self->info.error = g_strdup (error);
+  if (flags & WP_SI_FLAG_IN_ERROR)
+    self->info.state = PW_ENDPOINT_LINK_STATE_ERROR;
+  else if (flags & WP_SI_FLAG_ACTIVE)
+    self->info.state = PW_ENDPOINT_LINK_STATE_ACTIVE;
+  else if (flags & WP_SI_FLAG_ACTIVATING)
+    self->info.state = PW_ENDPOINT_LINK_STATE_PREPARING;
+  else
+    self->info.state = PW_ENDPOINT_LINK_STATE_INACTIVE;
 
-  self->info.change_mask = PW_ENDPOINT_LINK_CHANGE_MASK_STATE;
-  pw_endpoint_link_emit_info (&self->hooks, &self->info);
-  self->info.change_mask = 0;
+  if (self->info.state != PW_ENDPOINT_LINK_STATE_ERROR)
+    g_clear_pointer (&self->info.error, g_free);
 
-  g_signal_emit (self, signals[SIGNAL_STATE_CHANGED], 0, old_state, state, error);
+  if (old_state != self->info.state) {
+    self->info.change_mask = PW_ENDPOINT_LINK_CHANGE_MASK_STATE;
+    pw_endpoint_link_emit_info (&self->hooks, &self->info);
+    self->info.change_mask = 0;
+
+    g_signal_emit (self, signals[SIGNAL_STATE_CHANGED], 0,
+        old_state, self->info.state, self->info.error);
+  }
 }
 
 static void
@@ -496,13 +540,19 @@ wp_impl_endpoint_link_augment (WpProxy * proxy, WpProxyFeatures features)
     features |= WP_PROXY_FEATURE_INFO;
 
   if (features & WP_PROXY_FEATURE_INFO) {
-    guchar state;
     const gchar *key, *value;
     WpSiStream *stream;
 
     /* get info from the interface */
     info = wp_si_link_get_registration_info (self->item);
-    g_variant_get (info, "(ya{ss})", &state, &immutable_props);
+    g_variant_get (info, "a{ss}", &immutable_props);
+
+    /* get the current state */
+    self->info.state =
+        (wp_session_item_get_flags (WP_SESSION_ITEM (self->item))
+            & WP_SI_FLAG_ACTIVE)
+        ? WP_ENDPOINT_LINK_STATE_ACTIVE
+        : WP_ENDPOINT_LINK_STATE_INACTIVE;
 
     /* associate with the session, the endpoints and the streams */
     self->info.session_id = wp_session_item_get_associated_proxy_id (
@@ -543,12 +593,11 @@ wp_impl_endpoint_link_augment (WpProxy * proxy, WpProxyFeatures features)
     /* subscribe to changes */
     g_signal_connect_object (self->item, "link-properties-changed",
         G_CALLBACK (on_si_link_properties_changed), self, 0);
-    g_signal_connect_object (self->item, "link-state-changed",
-        G_CALLBACK (on_si_link_state_changed), self, 0);
+    g_signal_connect_object (self->item, "flags-changed",
+        G_CALLBACK (on_si_link_flags_changed), self, 0);
 
     /* finalize info struct */
     self->info.version = PW_VERSION_ENDPOINT_LINK_INFO;
-    self->info.state = state;
     self->info.error = NULL;
     self->info.params = NULL;
     self->info.n_params = 0;

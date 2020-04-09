@@ -124,8 +124,6 @@ struct _WpSiLinkInterface
 
   WpSiStream * (*get_out_stream) (WpSiLink * self);
   WpSiStream * (*get_in_stream) (WpSiLink * self);
-
-  void (*request_state) (WpSiLink * self, WpEndpointLinkState target);
 };
 
 WP_API
@@ -140,8 +138,6 @@ WpSiStream * wp_si_link_get_out_stream (WpSiLink * self);
 WP_API
 WpSiStream * wp_si_link_get_in_stream (WpSiLink * self);
 
-WP_API
-void wp_si_link_request_state (WpSiLink * self, WpEndpointLinkState target);
 
 G_END_DECLS
 
