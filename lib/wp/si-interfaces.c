@@ -101,6 +101,24 @@ wp_si_endpoint_get_stream (WpSiEndpoint * self, guint index)
 }
 
 /**
+ * wp_si_endpoint_get_stream_acquisition: (virtual get_stream_acquisition)
+ * @self: the session item
+ *
+ * Returns: (transfer none): the stream acquisition interface associated with
+ *   this endpoint, or %NULL if this endpoint does not require acquiring
+ *   streams before linking them
+ */
+WpSiStreamAcquisition *
+wp_si_endpoint_get_stream_acquisition (WpSiEndpoint * self)
+{
+  g_return_val_if_fail (WP_IS_SI_ENDPOINT (self), NULL);
+  g_return_val_if_fail (WP_SI_ENDPOINT_GET_IFACE (self)->get_stream_acquisition,
+      NULL);
+
+  return WP_SI_ENDPOINT_GET_IFACE (self)->get_stream_acquisition (self);
+}
+
+/**
  * WpSiMultiEndpoint:
  *
  * An interface for session items that provide multiple PipeWire endpoints.
@@ -295,4 +313,162 @@ wp_si_link_get_in_stream (WpSiLink * self)
   g_return_val_if_fail (WP_SI_LINK_GET_IFACE (self)->get_in_stream, NULL);
 
   return WP_SI_LINK_GET_IFACE (self)->get_in_stream (self);
+}
+
+/**
+ * WpSiPortInfo:
+ *
+ * An interface for retrieving PipeWire port information from a session item.
+ * This information is used to create links in the nodes graph.
+ *
+ * This is normally implemented by the same session items that implement
+ * #WpSiStream. The standard link implementation expects to be able to cast
+ * a #WpSiStream into a #WpSiPortInfo.
+ */
+G_DEFINE_INTERFACE (WpSiPortInfo, wp_si_port_info, WP_TYPE_SESSION_ITEM)
+
+static void
+wp_si_port_info_default_init (WpSiPortInfoInterface * iface)
+{
+}
+
+/**
+ * wp_si_port_info_get_ports: (virtual get_ports)
+ * @self: the session item
+ * @context: (nullable): an optional context for the ports
+ *
+ * This method returns a variant of type "a(uuu)", where each tuple in the
+ * array contains the following information:
+ *   - u: (guint32) node id
+ *   - u: (guint32) port id (the port must belong on the node specified above)
+ *   - u: (guint32) the audio channel (enum spa_audio_channel) that this port
+ *        makes available, or 0 for non-audio content
+ *
+ * The order in which ports appear in this array is important when no channel
+ * information is available. The link implementation should link the ports
+ * in the order they appear. This is normally a good enough substitute for
+ * channel matching.
+ *
+ * The @context argument can be used to get different sets of ports from
+ * the item. The following well-known contexts are defined:
+ *   - %NULL: get the standard ports to be linked
+ *   - "monitor": get the monitor ports
+ *   - "control": get the control port
+ *   - "reverse": get the reverse direction ports, if this item controls a
+ *                filter node, which would have ports on both directions
+ *
+ * Contexts other than %NULL may only be used internally to ease the
+ * implementation of more complex endpoint relationships. For example, a
+ * #WpSessionItem that is in control of an input (sink) adapter node may
+ * implement #WpSiStream and #WpSiPortInfo where the %NULL context will return
+ * the standard input ports and the "monitor" context will return the adapter's
+ * monitor ports. When linking this stream to another stream, the %NULL context
+ * will always be used, but the item may internally spawn a secondary
+ * #WpSessionItem that implements the "monitor" endpoint & stream. That
+ * secondary stream may implement #WpSiPortInfo, chaining calls to the
+ * #WpSiPortInfo of the original item using the "monitor" context. This way,
+ * the monitor #WpSessionItem does not need to share control of the underlying
+ * node; it only proxies calls to satisfy the API.
+ *
+ * Returns: (transfer full): a #GVariant containing information about the
+ *   ports of this item
+ */
+GVariant *
+wp_si_port_info_get_ports (WpSiPortInfo * self, const gchar * context)
+{
+  g_return_val_if_fail (WP_IS_SI_PORT_INFO (self), NULL);
+  g_return_val_if_fail (WP_SI_PORT_INFO_GET_IFACE (self)->get_ports, NULL);
+
+  return WP_SI_PORT_INFO_GET_IFACE (self)->get_ports (self, context);
+}
+
+/**
+ * WpSiStreamAcquisition:
+ *
+ * This interface provides a way to request a stream for linking before doing
+ * so. This allows endpoint implementations to apply internal policy rules
+ * (such as, streams that can only be linked once or mutually exclusive streams).
+ *
+ * A #WpSiStreamAcquisition is associated directly with a #WpSiEndpoint via
+ * wp_si_endpoint_get_stream_acquisition(). In order to allow switching policies,
+ * it is recommended that endpoint implementations use a separate session item
+ * to implement this interface and allow replacing it.
+ */
+G_DEFINE_INTERFACE (WpSiStreamAcquisition, wp_si_stream_acquisition,
+                    WP_TYPE_SESSION_ITEM)
+
+static void
+wp_si_stream_acquisition_default_init (WpSiStreamAcquisitionInterface * iface)
+{
+}
+
+/**
+ * wp_si_stream_acquisition_acquire: (virtual acquire)
+ * @self: the session item
+ * @acquisitor: the link that is trying to acquire a stream
+ * @stream: the stream that is being acquired
+ * @callback: (scope async): the callback to call when the operation is done
+ * @data: (closure): user data for @callback
+ *
+ * Acquires the @stream for linking by @acquisitor.
+ *
+ * When a link is not allowed by policy, this operation should return
+ * an error.
+ *
+ * When a link needs to be delayed for a short amount of time (ex. to apply
+ * a fade out effect on another stream), this operation should finish with a
+ * delay. It is safe to assume that after this operation completes,
+ * the stream will be linked immediately.
+ */
+void
+wp_si_stream_acquisition_acquire (WpSiStreamAcquisition * self,
+    WpSiLink * acquisitor, WpSiStream * stream,
+    GAsyncReadyCallback callback, gpointer data)
+{
+  g_return_if_fail (WP_IS_SI_STREAM_ACQUISITION (self));
+  g_return_if_fail (WP_SI_STREAM_ACQUISITION_GET_IFACE (self)->acquire);
+
+  WP_SI_STREAM_ACQUISITION_GET_IFACE (self)->acquire (self, acquisitor, stream,
+      callback, data);
+}
+
+/**
+ * wp_si_stream_acquisition_acquire_finish: (virtual acquire_finish)
+ * @self: the session item
+ * @res: the async result
+ * @error: (out) (optional): the operation's error, if it occurred
+ *
+ * Finishes the operation started by wp_si_stream_acquisition_acquire().
+ * This is meant to be called in the callback that was passed to that method.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error
+ */
+gboolean
+wp_si_stream_acquisition_acquire_finish (WpSiStreamAcquisition * self,
+    GAsyncResult * res, GError ** error)
+{
+  g_return_val_if_fail (WP_IS_SI_STREAM_ACQUISITION (self), FALSE);
+  g_return_val_if_fail (
+      WP_SI_STREAM_ACQUISITION_GET_IFACE (self)->acquire_finish, FALSE);
+
+  return WP_SI_STREAM_ACQUISITION_GET_IFACE (self)->acquire_finish (self, res,
+      error);
+}
+
+/**
+ * wp_si_stream_acquisition_release: (virtual release)
+ * @self: the session item
+ * @acquisitor: the link that had previously acquired the stream
+ * @stream: the stream that is being released
+ *
+ * Releases the @stream, which means that it is being unlinked.
+ */
+void
+wp_si_stream_acquisition_release (WpSiStreamAcquisition * self,
+    WpSiLink * acquisitor, WpSiStream * stream)
+{
+  g_return_if_fail (WP_IS_SI_STREAM_ACQUISITION (self));
+  g_return_if_fail (WP_SI_STREAM_ACQUISITION_GET_IFACE (self)->release);
+
+  WP_SI_STREAM_ACQUISITION_GET_IFACE (self)->release (self, acquisitor, stream);
 }

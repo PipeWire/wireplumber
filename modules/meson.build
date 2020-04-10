@@ -114,3 +114,14 @@ shared_library(
   install_dir : wireplumber_module_dir,
   dependencies : [wp_dep, pipewire_dep],
 )
+
+shared_library(
+  'wireplumber-module-si-standard-link',
+  [
+    'module-si-standard-link.c',
+  ],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-si-standard-link"'],
+  install : true,
+  install_dir : wireplumber_module_dir,
+  dependencies : [wp_dep, pipewire_dep],
+)
