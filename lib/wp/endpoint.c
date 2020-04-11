@@ -22,6 +22,7 @@
 #include "private.h"
 #include "error.h"
 #include "wpenums.h"
+#include "si-factory.h"
 
 #include <pipewire/pipewire.h>
 #include <pipewire/extensions/session-manager.h>
@@ -761,10 +762,168 @@ impl_set_param (void *object, uint32_t id, uint32_t flags,
   return 0;
 }
 
+static void
+destroy_deconfigured_link (WpSessionItem * link, WpSiFlags flags, gpointer data)
+{
+  if (!(flags & WP_SI_FLAG_CONFIGURED))
+    g_object_unref (link);
+}
+
+static void
+on_si_link_exported (WpSessionItem * link, GAsyncResult * res, gpointer data)
+{
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_session_item_export_finish (link, res, &error)) {
+    g_warning ("failed to export link: %s", error->message);
+    g_object_unref (link);
+    return;
+  }
+
+  g_signal_connect (link, "flags-changed", destroy_deconfigured_link, NULL);
+}
+
 static int
 impl_create_link (void *object, const struct spa_dict *props)
 {
-  return -ENOTSUP;
+  WpImplEndpoint *self = WP_IMPL_ENDPOINT (object);
+  const gchar *self_ep, *self_stream, *peer_ep, *peer_stream;
+  guint32 self_ep_id, self_stream_id, peer_ep_id, peer_stream_id;
+  WpSiStream *self_si_stream;
+  g_autoptr (WpSiStream) peer_si_stream = NULL;
+  g_autoptr (WpSession) session = NULL;
+
+  /* find the session */
+  session = wp_session_item_get_associated_proxy (
+      WP_SESSION_ITEM (self->item), WP_TYPE_SESSION);
+  if (!session) {
+    g_warning ("could not find session");
+    return -ENAVAIL;
+  }
+
+  if (self->info.direction == PW_DIRECTION_OUTPUT) {
+    self_ep = spa_dict_lookup (props, PW_KEY_ENDPOINT_LINK_OUTPUT_ENDPOINT);
+    self_stream = spa_dict_lookup (props, PW_KEY_ENDPOINT_LINK_OUTPUT_STREAM);
+    peer_ep = spa_dict_lookup (props, PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT);
+    peer_stream = spa_dict_lookup (props, PW_KEY_ENDPOINT_LINK_INPUT_STREAM);
+  } else {
+    self_ep = spa_dict_lookup (props, PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT);
+    self_stream = spa_dict_lookup (props, PW_KEY_ENDPOINT_LINK_INPUT_STREAM);
+    peer_ep = spa_dict_lookup (props, PW_KEY_ENDPOINT_LINK_OUTPUT_ENDPOINT);
+    peer_stream = spa_dict_lookup (props, PW_KEY_ENDPOINT_LINK_OUTPUT_STREAM);
+  }
+
+  /* verify arguments */
+  if (!peer_ep) {
+    g_debug ("a peer endpoint must be specified at the very least");
+    return -EINVAL;
+  }
+  if (self_ep && ((guint32) atoi (self_ep))
+          != wp_proxy_get_bound_id (WP_PROXY (self))) {
+    g_debug ("creating links for other endpoints is now allowed");
+    return -EACCES;
+  }
+
+  /* convert to int - allow unspecified streams */
+  self_ep_id = wp_proxy_get_bound_id (WP_PROXY (self));
+  self_stream_id = self_stream ? atoi (self_stream) : SPA_ID_INVALID;
+  peer_ep_id = atoi (peer_ep);
+  peer_stream_id = peer_stream ? atoi (peer_stream) : SPA_ID_INVALID;
+
+  /* find our stream */
+  if (self_stream_id != SPA_ID_INVALID) {
+    WpSiStream *tmp;
+    guint32 tmp_id;
+
+    for (guint i = 0; i < wp_si_endpoint_get_n_streams (self->item); i++) {
+      tmp = wp_si_endpoint_get_stream (self->item, i);
+      tmp_id = wp_session_item_get_associated_proxy_id (WP_SESSION_ITEM (tmp),
+          WP_TYPE_ENDPOINT_STREAM);
+
+      if (tmp_id == self_stream_id) {
+        self_si_stream = tmp;
+        break;
+      }
+    }
+  } else {
+    self_si_stream = wp_si_endpoint_get_stream (self->item, 0);
+  }
+
+  if (!self_si_stream) {
+    g_debug ("stream %d not found in %d", self_stream_id, self_ep_id);
+    return -EINVAL;
+  }
+
+  /* find the peer stream */
+  {
+    g_autoptr (WpEndpoint) peer_ep_proxy = NULL;
+    g_autoptr (WpEndpointStream) peer_stream_proxy = NULL;
+
+    peer_ep_proxy = wp_session_get_endpoint (session, peer_ep_id);
+    if (!peer_ep_proxy) {
+      g_debug ("endpoint %d not found in session", peer_ep_id);
+      return -EINVAL;
+    }
+
+    if (peer_stream_id != SPA_ID_INVALID) {
+      peer_stream_proxy = wp_endpoint_get_stream (peer_ep_proxy, peer_stream_id);
+    } else {
+      g_autoptr (GPtrArray) s = wp_endpoint_get_all_streams (peer_ep_proxy);
+      peer_stream_proxy = (s->len > 0) ?
+          g_object_ref (g_ptr_array_index (s, 0)) : NULL;
+    }
+
+    if (!peer_stream_proxy) {
+      g_debug ("stream %d not found in %d", peer_stream_id, peer_ep_id);
+      return -EINVAL;
+    }
+
+    if (!WP_IS_IMPL_ENDPOINT_LINK (peer_stream_proxy)) {
+      /* TODO - if the stream is not implemented by our session manager,
+        we can still make things work by calling the peer endpoint's
+        create_link() and negotiating ports, while creating a dummy
+        WpSiEndpoint / WpSiStream on our end to satisfy the API */
+      return -ENAVAIL;
+    }
+
+    g_object_get (peer_stream_proxy, "item", &peer_si_stream, NULL);
+  }
+
+  /* create the link */
+  {
+    g_autoptr (WpSessionItem) link = NULL;
+    g_autoptr (WpCore) core = NULL;
+    GVariantBuilder b;
+    guint64 out_stream_i, in_stream_i;
+
+    core = wp_proxy_get_core (WP_PROXY (self));
+    link = wp_session_item_make (core, "si-standard-link");
+    if (!link) {
+      g_debug ("si-standard-link factory is not available");
+      return -ENAVAIL;
+    }
+
+    if (self->info.direction == PW_DIRECTION_OUTPUT) {
+      out_stream_i = (guint64) self_si_stream;
+      in_stream_i = (guint64) peer_si_stream;
+    } else {
+      out_stream_i = (guint64) peer_si_stream;
+      in_stream_i = (guint64) self_si_stream;
+    }
+
+    g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
+    g_variant_builder_add (&b, "{sv}", "out-stream",
+        g_variant_new_uint64 (out_stream_i));
+    g_variant_builder_add (&b, "{sv}", "in-stream",
+        g_variant_new_uint64 (in_stream_i));
+    if (!wp_session_item_configure (link, g_variant_builder_end (&b))) {
+      g_debug ("si-standard-link configuration failed");
+      return -ENAVAIL;
+    }
+
+    wp_session_item_export (link, session, on_si_link_exported, self);
+    link = NULL;
+  }
 }
 
 static const struct pw_endpoint_methods impl_endpoint = {

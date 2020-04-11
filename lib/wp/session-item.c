@@ -563,7 +563,7 @@ wp_session_item_get_associated_proxy_id (WpSessionItem * self, GType proxy_type)
 /**
  * wp_session_item_configure: (virtual configure)
  * @self: the session item
- * @args: (transfer none): the configuration options to set
+ * @args: (transfer floating): the configuration options to set
  *   (`a{sv}` dictionary, mapping option names to values)
  *
  * Returns: %TRUE on success, %FALSE if the options could not be set
@@ -571,6 +571,8 @@ wp_session_item_get_associated_proxy_id (WpSessionItem * self, GType proxy_type)
 gboolean
 wp_session_item_configure (WpSessionItem * self, GVariant * args)
 {
+  g_autoptr (GVariant) args_ref = g_variant_ref_sink (args);
+
   g_return_val_if_fail (WP_IS_SESSION_ITEM (self), FALSE);
   g_return_val_if_fail (WP_SESSION_ITEM_GET_CLASS (self)->configure,
       FALSE);
