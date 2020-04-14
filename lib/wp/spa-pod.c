@@ -1518,6 +1518,98 @@ wp_spa_pod_set_pod (WpSpaPod *self, const WpSpaPod *pod)
 }
 
 /**
+ * wp_spa_pod_equal:
+ * @self: the spa pod object
+ * @pod: the pod with the value to be compared with
+ *
+ * Checks whether two spa pod objects have the same value or not
+ *
+ * Returns: TRUE if both spa pod objects have the same values, FALSE othewrise.
+ */
+gboolean
+wp_spa_pod_equal (const WpSpaPod *self, const WpSpaPod *pod)
+{
+  if (self->type != pod->type)
+    return FALSE;
+  if (SPA_POD_TYPE (self->pod) != SPA_POD_TYPE (pod->pod))
+    return FALSE;
+
+  switch (SPA_POD_TYPE (self->pod)) {
+  case SPA_TYPE_None:
+    break;
+  case SPA_TYPE_Bool:
+    if (((struct spa_pod_bool *)self->pod)->value != ((struct spa_pod_bool *)pod->pod)->value)
+      return FALSE;
+    break;
+  case SPA_TYPE_Id:
+    if (((struct spa_pod_id *)self->pod)->value != ((struct spa_pod_id *)pod->pod)->value)
+      return FALSE;
+    break;
+  case SPA_TYPE_Int:
+    if (((struct spa_pod_int *)self->pod)->value != ((struct spa_pod_int *)pod->pod)->value)
+      return FALSE;
+    break;
+  case SPA_TYPE_Long:
+    if (((struct spa_pod_long *)self->pod)->value != ((struct spa_pod_long *)pod->pod)->value)
+      return FALSE;
+    break;
+  case SPA_TYPE_Float:
+    if (((struct spa_pod_float *)self->pod)->value != ((struct spa_pod_float *)pod->pod)->value)
+      return FALSE;
+    break;
+  case SPA_TYPE_Double:
+    if (((struct spa_pod_double *)self->pod)->value != ((struct spa_pod_double *)pod->pod)->value)
+      return FALSE;
+    break;
+  case SPA_TYPE_Pointer:
+    if (((struct spa_pod_pointer *)self->pod)->body.type != ((struct spa_pod_pointer *)pod->pod)->body.type ||
+        ((struct spa_pod_pointer *)self->pod)->body.value != ((struct spa_pod_pointer *)pod->pod)->body.value)
+      return FALSE;
+    break;
+  case SPA_TYPE_Fd:
+    if (((struct spa_pod_fd *)self->pod)->value != ((struct spa_pod_fd *)pod->pod)->value)
+      return FALSE;
+    break;
+  case SPA_TYPE_Rectangle:
+    if (((struct spa_pod_rectangle *)self->pod)->value.width != ((struct spa_pod_rectangle *)pod->pod)->value.width ||
+        ((struct spa_pod_rectangle *)self->pod)->value.height != ((struct spa_pod_rectangle *)pod->pod)->value.height)
+      return FALSE;
+    break;
+  case SPA_TYPE_Fraction:
+    if (((struct spa_pod_fraction *)self->pod)->value.num != ((struct spa_pod_fraction *)pod->pod)->value.num ||
+        ((struct spa_pod_fraction *)self->pod)->value.denom != ((struct spa_pod_fraction *)pod->pod)->value.denom)
+      return FALSE;
+    break;
+  default:
+    if (self->pod->size != pod->pod->size ||
+        memcmp (SPA_MEMBER (self->pod, sizeof (struct spa_pod), void),
+            SPA_MEMBER (pod->pod, sizeof (struct spa_pod), void),
+            self->pod->size) != 0)
+      return FALSE;
+    break;
+  }
+
+  switch (self->type) {
+  case WP_SPA_POD_PROPERTY:
+    if (self->static_pod.data_property.table != pod->static_pod.data_property.table ||
+        self->static_pod.data_property.table != pod->static_pod.data_property.table ||
+        self->static_pod.data_property.flags != pod->static_pod.data_property.flags)
+      return FALSE;
+    break;
+  case WP_SPA_POD_CONTROL:
+    if (self->static_pod.data_control.offset != pod->static_pod.data_control.offset ||
+        self->static_pod.data_control.type != pod->static_pod.data_control.type)
+      return FALSE;
+    break;
+  case WP_SPA_POD_REGULAR:
+  default:
+    break;
+  }
+
+  return TRUE;
+}
+
+/**
  * wp_spa_pod_get_object:
  * @self: the spa pod object
  * @type_name: the type name of the object type

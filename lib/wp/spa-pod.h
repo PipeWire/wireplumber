@@ -241,6 +241,9 @@ WP_API
 gboolean wp_spa_pod_set_pod (WpSpaPod *self, const WpSpaPod *pod);
 
 WP_API
+gboolean wp_spa_pod_equal (const WpSpaPod *self, const WpSpaPod *pod);
+
+WP_API
 gboolean wp_spa_pod_get_object (WpSpaPod *self, const char *type_name,
     const char **id_name, ...) G_GNUC_NULL_TERMINATED;
 

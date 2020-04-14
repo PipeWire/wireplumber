@@ -20,6 +20,8 @@ test_spa_pod_basic (void)
     g_assert_true (wp_spa_pod_is_none (pod));
     g_assert_false (wp_spa_pod_is_id (pod));
     g_assert_cmpstr ("None", ==, wp_spa_pod_get_type_name (pod));
+    g_autoptr (WpSpaPod) other = wp_spa_pod_new_none ();
+    g_assert_true (wp_spa_pod_equal (pod, other));
   }
 
   /* Boolean */
@@ -48,6 +50,11 @@ test_spa_pod_basic (void)
     g_assert_true (wp_spa_pod_get_boolean (copy, &value));
     g_assert_false (value);
     g_assert_cmpstr ("Bool", ==, wp_spa_pod_get_type_name (copy));
+    g_autoptr (WpSpaPod) other = wp_spa_pod_new_boolean (TRUE);
+    g_assert_true (wp_spa_pod_set_pod (copy, other));
+    g_assert_true (wp_spa_pod_get_boolean (copy, &value));
+    g_assert_true (value);
+    g_assert_true (wp_spa_pod_equal (copy, other));
   }
 
   /* Id */
@@ -62,6 +69,11 @@ test_spa_pod_basic (void)
     g_assert_true (wp_spa_pod_set_id (pod, 10));
     g_assert_true (wp_spa_pod_get_id (pod, &value));
     g_assert_cmpuint (value, ==, 10);
+    g_autoptr (WpSpaPod) other = wp_spa_pod_new_id (20);
+    g_assert_true (wp_spa_pod_set_pod (pod, other));
+    g_assert_true (wp_spa_pod_get_id (pod, &value));
+    g_assert_cmpuint (value, ==, 20);
+    g_assert_true (wp_spa_pod_equal (pod, other));
   }
 
   /* Int */
@@ -76,6 +88,11 @@ test_spa_pod_basic (void)
     g_assert_true (wp_spa_pod_set_int (pod, 9999));
     g_assert_true (wp_spa_pod_get_int (pod, &value));
     g_assert_cmpint (value, ==, 9999);
+    g_autoptr (WpSpaPod) other = wp_spa_pod_new_int (1000);
+    g_assert_true (wp_spa_pod_set_pod (pod, other));
+    g_assert_true (wp_spa_pod_get_int (pod, &value));
+    g_assert_cmpuint (value, ==, 1000);
+    g_assert_true (wp_spa_pod_equal (pod, other));
   }
 
   /* Long */
@@ -90,6 +107,11 @@ test_spa_pod_basic (void)
     g_assert_true (wp_spa_pod_set_long (pod, LONG_MIN));
     g_assert_true (wp_spa_pod_get_long (pod, &value));
     g_assert_cmpuint (value, ==, LONG_MIN);
+    g_autoptr (WpSpaPod) other = wp_spa_pod_new_long (0);
+    g_assert_true (wp_spa_pod_set_pod (pod, other));
+    g_assert_true (wp_spa_pod_get_long (pod, &value));
+    g_assert_cmpuint (value, ==, 0);
+    g_assert_true (wp_spa_pod_equal (pod, other));
   }
 
   /* Float */
@@ -104,6 +126,11 @@ test_spa_pod_basic (void)
     g_assert_true (wp_spa_pod_set_float (pod, 1.0));
     g_assert_true (wp_spa_pod_get_float (pod, &value));
     g_assert_cmpfloat_with_epsilon (value, 1.0, 0.001);
+    g_autoptr (WpSpaPod) other = wp_spa_pod_new_float (-3.14);
+    g_assert_true (wp_spa_pod_set_pod (pod, other));
+    g_assert_true (wp_spa_pod_get_float (pod, &value));
+    g_assert_cmpfloat_with_epsilon (value, -3.14, 0.001);
+    g_assert_true (wp_spa_pod_equal (pod, other));
   }
 
   /* Double */
@@ -118,6 +145,11 @@ test_spa_pod_basic (void)
     g_assert_true (wp_spa_pod_set_double (pod, 2.0));
     g_assert_true (wp_spa_pod_get_double (pod, &value));
     g_assert_cmpfloat_with_epsilon (value, 2.0, 0.0000000001);
+    g_autoptr (WpSpaPod) other = wp_spa_pod_new_double (3.0);
+    g_assert_true (wp_spa_pod_set_pod (pod, other));
+    g_assert_true (wp_spa_pod_get_double (pod, &value));
+    g_assert_cmpfloat_with_epsilon (value, 3.0, 0.0000000001);
+    g_assert_true (wp_spa_pod_equal (pod, other));
   }
 
   /* String */
@@ -130,13 +162,13 @@ test_spa_pod_basic (void)
     g_assert_nonnull (value);
     g_assert_cmpstr (value, ==, "WirePlumber");
     g_assert_cmpstr ("String", ==, wp_spa_pod_get_type_name (pod));
-
     g_autoptr (WpSpaPod) other = wp_spa_pod_new_string ("Other");
     g_assert_nonnull (other);
     g_assert_true (wp_spa_pod_set_pod (pod, other));
     g_assert_true (wp_spa_pod_get_string (pod, &value));
     g_assert_nonnull (value);
     g_assert_cmpstr (value, ==, "Other");
+    g_assert_true (wp_spa_pod_equal (pod, other));
   }
 
   /* Bytes */
@@ -151,6 +183,13 @@ test_spa_pod_basic (void)
     g_assert_cmpmem (value, len, "bytes", 5);
     g_assert_cmpuint (len, ==, 5);
     g_assert_cmpstr ("Bytes", ==, wp_spa_pod_get_type_name (pod));
+    g_autoptr (WpSpaPod) other = wp_spa_pod_new_bytes ("pod", 3);
+    g_assert_true (wp_spa_pod_set_pod (pod, other));
+    g_assert_true (wp_spa_pod_get_bytes (pod, &value, &len));
+    g_assert_nonnull (value);
+    g_assert_cmpmem (value, len, "pod", 3);
+    g_assert_cmpuint (len, ==, 3);
+    g_assert_true (wp_spa_pod_equal (pod, other));
   }
 
   /* Pointer */
@@ -176,6 +215,16 @@ test_spa_pod_basic (void)
     g_assert_cmpstr (type_name, ==, "Bool");
     g_assert_true (p == &b);
     g_assert_cmpint (*(gboolean *)p, ==, TRUE);
+    float f = 1.1;
+    g_autoptr (WpSpaPod) other = wp_spa_pod_new_pointer ("Float", &f);
+    g_assert_true (wp_spa_pod_set_pod (pod, other));
+    g_assert_true (wp_spa_pod_get_pointer (pod, &type_name, &p));
+    g_assert_nonnull (type_name);
+    g_assert_nonnull (p);
+    g_assert_cmpstr (type_name, ==, "Float");
+    g_assert_true (p == &f);
+    g_assert_cmpfloat_with_epsilon (*(float *)p, 1.1, 0.01);
+    g_assert_true (wp_spa_pod_equal (pod, other));
   }
 
   /* Fd */
@@ -190,6 +239,11 @@ test_spa_pod_basic (void)
     g_assert_true (wp_spa_pod_set_fd (pod, 1));
     g_assert_true (wp_spa_pod_get_fd (pod, &value));
     g_assert_cmpuint (value, ==, 1);
+    g_autoptr (WpSpaPod) other = wp_spa_pod_new_fd (10);
+    g_assert_true (wp_spa_pod_set_pod (pod, other));
+    g_assert_true (wp_spa_pod_get_fd (pod, &value));
+    g_assert_cmpuint (value, ==, 10);
+    g_assert_true (wp_spa_pod_equal (pod, other));
   }
 
   /* Rectangle */
@@ -207,6 +261,12 @@ test_spa_pod_basic (void)
     g_assert_true (wp_spa_pod_get_rectangle (pod, &width, &height));
     g_assert_cmpint (width, ==, 640);
     g_assert_cmpint (height, ==, 480);
+    g_autoptr (WpSpaPod) other = wp_spa_pod_new_rectangle (200, 100);
+    g_assert_true (wp_spa_pod_set_pod (pod, other));
+    g_assert_true (wp_spa_pod_get_rectangle (pod, &width, &height));
+    g_assert_cmpint (width, ==, 200);
+    g_assert_cmpint (height, ==, 100);
+    g_assert_true (wp_spa_pod_equal (pod, other));
   }
 
   /* Fraction */
@@ -224,6 +284,12 @@ test_spa_pod_basic (void)
     g_assert_true (wp_spa_pod_get_fraction (pod, &num, &denom));
     g_assert_cmpint (num, ==, 4);
     g_assert_cmpint (denom, ==, 3);
+    g_autoptr (WpSpaPod) other = wp_spa_pod_new_fraction (2, 1);
+    g_assert_true (wp_spa_pod_set_pod (pod, other));
+    g_assert_true (wp_spa_pod_get_fraction (pod, &num, &denom));
+    g_assert_cmpint (num, ==, 2);
+    g_assert_cmpint (denom, ==, 1);
+    g_assert_true (wp_spa_pod_equal (pod, other));
   }
 
   wp_spa_type_deinit ();
