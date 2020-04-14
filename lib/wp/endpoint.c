@@ -780,7 +780,8 @@ on_si_link_exported (WpSessionItem * link, GAsyncResult * res, gpointer data)
     return;
   }
 
-  g_signal_connect (link, "flags-changed", destroy_deconfigured_link, NULL);
+  g_signal_connect (link, "flags-changed",
+      G_CALLBACK (destroy_deconfigured_link), NULL);
 }
 
 static int
@@ -789,7 +790,7 @@ impl_create_link (void *object, const struct spa_dict *props)
   WpImplEndpoint *self = WP_IMPL_ENDPOINT (object);
   const gchar *self_ep, *self_stream, *peer_ep, *peer_stream;
   guint32 self_ep_id, self_stream_id, peer_ep_id, peer_stream_id;
-  WpSiStream *self_si_stream;
+  WpSiStream *self_si_stream = NULL;
   g_autoptr (WpSiStream) peer_si_stream = NULL;
   g_autoptr (WpSession) session = NULL;
 
@@ -921,9 +922,12 @@ impl_create_link (void *object, const struct spa_dict *props)
       return -ENAVAIL;
     }
 
-    wp_session_item_export (link, session, on_si_link_exported, self);
+    wp_session_item_export (link, session,
+        (GAsyncReadyCallback) on_si_link_exported, self);
     link = NULL;
   }
+
+  return 0;
 }
 
 static const struct pw_endpoint_methods impl_endpoint = {
