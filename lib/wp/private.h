@@ -15,6 +15,8 @@
 #include "endpoint.h"
 #include "endpoint-stream.h"
 #include "si-interfaces.h"
+#include "iterator.h"
+#include "spa-type.h"
 
 #include <stdint.h>
 #include <pipewire/pipewire.h>
@@ -116,6 +118,38 @@ void wp_proxy_augment_error (WpProxy * self, GError * error);
 
 void wp_proxy_handle_event_param (void * proxy, int seq, uint32_t id,
     uint32_t index, uint32_t next, const struct spa_pod *param);
+
+/* iterator */
+
+struct _WpIteratorMethods {
+  void (*reset) (WpIterator *self);
+  gboolean (*next) (WpIterator *self, GValue *item);
+  gboolean (*fold) (WpIterator *self, WpIteratorFoldFunc func,
+      GValue *ret, gpointer data);
+  gboolean (*foreach) (WpIterator *self, WpIteratorForeachFunc func,
+      gpointer data);
+  void (*finalize) (WpIterator *self);
+};
+typedef struct _WpIteratorMethods WpIteratorMethods;
+
+WpIterator * wp_iterator_new (const WpIteratorMethods *methods,
+    size_t user_size);
+gpointer wp_iterator_get_user_data (WpIterator *self);
+
+/* spa pod */
+
+typedef struct _WpSpaPod WpSpaPod;
+WpSpaPod * wp_spa_pod_new_regular_wrap (struct spa_pod *pod);
+WpSpaPod * wp_spa_pod_new_property_wrap (WpSpaTypeTable table, guint32 key,
+    guint32 flags, struct spa_pod *pod);
+WpSpaPod * wp_spa_pod_new_control_wrap (guint32 offset, guint32 type,
+    struct spa_pod *pod);
+WpSpaPod * wp_spa_pod_new_regular_wrap_copy (const struct spa_pod *pod);
+WpSpaPod * wp_spa_pod_new_property_wrap_copy (WpSpaTypeTable table, guint32 key,
+    guint32 flags, const struct spa_pod *pod);
+WpSpaPod * wp_spa_pod_new_control_wrap_copy (guint32 offset, guint32 type,
+    const struct spa_pod *pod);
+struct spa_pod *wp_spa_pod_get_spa_pod (WpSpaPod *self);
 
 /* spa props */
 

@@ -10,6 +10,7 @@ wp_lib_sources = files(
   'endpoint-stream.c',
   'error.c',
   'factory.c',
+  'iterator.c',
   'link.c',
   'module.c',
   'node.c',
@@ -22,7 +23,9 @@ wp_lib_sources = files(
   'session-item.c',
   'si-factory.c',
   'si-interfaces.c',
+  'spa-pod.c',
   'spa-props.c',
+  'spa-type.c',
   'transition.c',
 )
 
@@ -39,6 +42,7 @@ wp_lib_headers = files(
   'endpoint-stream.h',
   'error.h',
   'factory.h',
+  'iterator.h',
   'link.h',
   'module.h',
   'node.h',
@@ -49,8 +53,10 @@ wp_lib_headers = files(
   'proxy.h',
   'session.h',
   'session-item.h',
-  'si-interfaces.h',
   'si-factory.h',
+  'si-interfaces.h',
+  'spa-pod.h',
+  'spa-type.h',
   'transition.h',
   'wp.h',
 )
