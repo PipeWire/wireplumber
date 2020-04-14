@@ -10,6 +10,7 @@
 #include "client.h"
 #include "configuration.h"
 #include "core.h"
+#include "debug.h"
 #include "device.h"
 #include "endpoint.h"
 #include "endpoint-link.h"
