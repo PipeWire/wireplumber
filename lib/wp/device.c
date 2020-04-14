@@ -24,7 +24,10 @@
  * actual nodes that the `spa_device` requests to create.
  */
 
+#define G_LOG_DOMAIN "wp-device"
+
 #include "device.h"
+#include "debug.h"
 #include "node.h"
 #include "error.h"
 #include "private.h"
@@ -183,8 +186,9 @@ wp_device_new_from_factory (WpCore * core,
   WpDevice *self = NULL;
   struct pw_core *pw_core = wp_core_get_pw_core (core);
 
-  if (!pw_core) {
-    g_warning ("The WirePlumber core is not connected; device cannot be created");
+  if (G_UNLIKELY (!pw_core)) {
+    g_critical ("The WirePlumber core is not connected; "
+        "device cannot be created");
     return NULL;
   }
 
@@ -453,8 +457,8 @@ wp_spa_device_new_from_spa_factory (WpCore * core,
   self->handle = pw_context_load_spa_handle (pw_context,
       factory_name, props ? wp_properties_peek_dict (props) : NULL);
   if (!self->handle) {
-    g_warning ("SPA handle '%s' could not be loaded; is it installed?",
-        factory_name);
+    wp_warning_object (self, "SPA handle '%s' could not be loaded; "
+        "is it installed?", factory_name);
     return NULL;
   }
 
@@ -462,7 +466,8 @@ wp_spa_device_new_from_spa_factory (WpCore * core,
   res = spa_handle_get_interface (self->handle, SPA_TYPE_INTERFACE_Device,
       (gpointer *) &self->interface);
   if (res < 0) {
-    g_warning ("Could not get device interface from SPA handle: %s",
+    wp_warning_object (self,
+        "Could not get device interface from SPA handle: %s",
         spa_strerror (res));
     return NULL;
   }

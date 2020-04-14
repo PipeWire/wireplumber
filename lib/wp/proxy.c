@@ -12,7 +12,10 @@
  *
  */
 
+#define G_LOG_DOMAIN "wp-proxy"
+
 #include "proxy.h"
+#include "debug.h"
 #include "core.h"
 #include "error.h"
 #include "wpenums.h"
@@ -82,8 +85,7 @@ proxy_event_destroy (void *data)
   GHashTableIter iter;
   GTask *task;
 
-  g_debug ("%s:%p destroyed pw_proxy %p (%u)",
-      G_OBJECT_TYPE_NAME (self), self, priv->pw_proxy,
+  wp_trace_object (self, "destroyed pw_proxy %p (%u)", priv->pw_proxy,
       priv->global ? priv->global->id : pw_proxy_get_bound_id (priv->pw_proxy));
 
   spa_hook_remove (&priv->listener);
@@ -177,8 +179,7 @@ wp_proxy_dispose (GObject * object)
 {
   WpProxyPrivate *priv = wp_proxy_get_instance_private (WP_PROXY(object));
 
-  g_debug ("%s:%p dispose (global %u; pw_proxy %p)",
-      G_OBJECT_TYPE_NAME (object), object,
+  wp_trace_object (object, "dispose (global %u; pw_proxy %p)",
       priv->global ? priv->global->id : 0, priv->pw_proxy);
 
   if (priv->global)

@@ -18,7 +18,10 @@
  * #WpObjectManager API.
  */
 
+#define G_LOG_DOMAIN "wp-endpoint-link"
+
 #include "endpoint-link.h"
+#include "debug.h"
 #include "private.h"
 #include "error.h"
 #include "wpenums.h"
@@ -362,7 +365,7 @@ on_item_activated (WpSessionItem * item, GAsyncResult * res, gpointer data)
   g_autoptr (GError) error = NULL;
 
   if (!wp_session_item_activate_finish (item, res, &error)) {
-    g_debug ("failed to activate link: %s", error->message);
+    wp_message_object (self, "failed to activate link: %s", error->message);
     self->info.error = g_strdup (error->message);
     /* on_si_link_flags_changed() will be called right after we return,
        taking care of the rest... */

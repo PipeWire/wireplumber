@@ -6,6 +6,8 @@
  * SPDX-License-Identifier: MIT
  */
 
+#define G_LOG_DOMAIN "wp-spa-type"
+
 #include <spa/utils/type-info.h>
 
 #include "spa-type.h"

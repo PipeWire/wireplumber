@@ -272,6 +272,7 @@ int
 main (int argc, char *argv[])
 {
   g_test_init (&argc, &argv, NULL);
+  g_log_set_writer_func (wp_log_writer_default, NULL, NULL);
 
   g_test_add_func ("/wp/transition/basic", test_transition_basic);
   g_test_add_func ("/wp/transition/error", test_transition_error);

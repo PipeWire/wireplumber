@@ -13,7 +13,10 @@
  * objects with a well-known name that is registered on the #WpCore
  */
 
+#define G_LOG_DOMAIN "wp-factory"
+
 #include "factory.h"
+#include "debug.h"
 #include "private.h"
 
 struct _WpFactory
@@ -38,7 +41,7 @@ wp_factory_finalize (GObject * obj)
 {
   WpFactory * self = WP_FACTORY (obj);
 
-  g_debug ("WpFactory:%p destroying factory: %s", self, self->name);
+  wp_trace_object (self, "destroying factory: %s", self->name);
 
   g_weak_ref_clear (&self->core);
   g_free (self->name);
@@ -77,7 +80,7 @@ wp_factory_new (WpCore * core, const gchar * name, WpFactoryFunc func)
   f->name_quark = g_quark_from_string (f->name);
   f->create_object = func;
 
-  g_info ("WpFactory:%p new factory: %s", f, name);
+  wp_debug_object (f, "new factory: %s", name);
 
   wp_registry_register_object (wp_core_get_registry (core), f);
 
@@ -123,7 +126,7 @@ void
 wp_factory_create_object (WpFactory * self, GType type,
     GVariant * properties, GAsyncReadyCallback ready, gpointer user_data)
 {
-  g_debug ("WpFactory:%p (%s) create object of type %s", self, self->name,
+  wp_debug_object (self, "(%s) create object of type %s", self->name,
       g_type_name (type));
 
   self->create_object (self, type, properties, ready, user_data);

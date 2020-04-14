@@ -18,6 +18,8 @@
  * API.
  */
 
+#define G_LOG_DOMAIN "wp-endpoint-stream"
+
 #include "endpoint-stream.h"
 #include "private.h"
 #include "error.h"

@@ -147,6 +147,7 @@ int
 main (int argc, char *argv[])
 {
   g_test_init (&argc, &argv, NULL);
+  g_log_set_writer_func (wp_log_writer_default, NULL, NULL);
 
   g_test_add_func ("/wp/properties/basic", test_properties_basic);
   g_test_add_func ("/wp/properties/wrap_dict", test_properties_wrap_dict);

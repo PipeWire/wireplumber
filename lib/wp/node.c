@@ -25,7 +25,10 @@
  * proxy to a remote object.
  */
 
+#define G_LOG_DOMAIN "wp-node"
+
 #include "node.h"
+#include "debug.h"
 #include "error.h"
 #include "private.h"
 
@@ -189,8 +192,8 @@ wp_node_new_from_factory (WpCore * core,
   WpNode *self = NULL;
   struct pw_core *pw_core = wp_core_get_pw_core (core);
 
-  if (!pw_core) {
-    g_warning ("The WirePlumber core is not connected; node cannot be created");
+  if (G_UNLIKELY (!pw_core)) {
+    g_critical ("The WirePlumber core is not connected; node cannot be created");
     return NULL;
   }
 
@@ -358,7 +361,7 @@ wp_impl_node_new_from_pw_factory (WpCore * core,
 
   factory = pw_context_find_factory (pw_context, factory_name);
   if (!factory) {
-    g_warning ("pipewire factory '%s' not found", factory_name);
+    wp_warning ("pipewire factory '%s' not found", factory_name);
     return NULL;
   }
 
@@ -366,7 +369,7 @@ wp_impl_node_new_from_pw_factory (WpCore * core,
       NULL, PW_TYPE_INTERFACE_Node, PW_VERSION_NODE,
       props ? wp_properties_to_pw_properties (props) : NULL, 0);
   if (!node) {
-    g_warning ("failed to create node from factory '%s'", factory_name);
+    wp_warning ("failed to create node from factory '%s'", factory_name);
     return NULL;
   }
 

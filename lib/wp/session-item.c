@@ -11,6 +11,8 @@
  * @title: Session Items
  */
 
+#define G_LOG_DOMAIN "wp-si"
+
 #include "session-item.h"
 #include "private.h"
 #include "error.h"

@@ -37,7 +37,10 @@
  * #WpObjectManager::object-added signal will be emitted for all of them.
  */
 
+#define G_LOG_DOMAIN "wp-object-manager"
+
 #include "object-manager.h"
+#include "debug.h"
 #include "private.h"
 #include <pipewire/pipewire.h>
 
@@ -339,7 +342,7 @@ check_constraints (GVariant *constraints,
     GVariantDict dict = G_VARIANT_DICT_INIT (c);
 
     if (!g_variant_dict_lookup (&dict, "type", "i", &ctype)) {
-      g_warning ("Invalid object manager constraint without a type");
+      g_critical ("Invalid object manager constraint without a type");
       goto error;
     }
 
@@ -349,11 +352,11 @@ check_constraints (GVariant *constraints,
         goto next;
 
       if (!g_variant_dict_lookup (&dict, "name", "&s", &prop_name)) {
-        g_warning ("property constraint is without a property name");
+        g_critical ("property constraint is without a property name");
         goto error;
       }
       if (!g_variant_dict_lookup (&dict, "value", "&s", &prop_value)) {
-        g_warning ("property constraint is without a property value");
+        g_critical ("property constraint is without a property value");
         goto error;
       }
       if (!g_strcmp0 (wp_properties_get (global_props, prop_name), prop_value))
@@ -365,11 +368,11 @@ check_constraints (GVariant *constraints,
         goto next;
 
       if (!g_variant_dict_lookup (&dict, "name", "&s", &prop_name)) {
-        g_warning ("property constraint is without a property name");
+        g_critical ("property constraint is without a property name");
         goto error;
       }
       if (!g_variant_dict_lookup (&dict, "value", "&s", &prop_value)) {
-        g_warning ("property constraint is without a property value");
+        g_critical ("property constraint is without a property value");
         goto error;
       }
       if (!g_strcmp0 (wp_properties_get (props, prop_name), prop_value))
@@ -381,11 +384,11 @@ check_constraints (GVariant *constraints,
         goto next;
 
       if (!g_variant_dict_lookup (&dict, "name", "&s", &prop_name)) {
-        g_warning ("property constraint is without a property name");
+        g_critical ("property constraint is without a property name");
         goto error;
       }
       if (!g_variant_dict_lookup (&dict, "value", "&s", &prop_value)) {
-        g_warning ("property constraint is without a property value");
+        g_critical ("property constraint is without a property value");
         goto error;
       }
 
@@ -406,7 +409,7 @@ check_constraints (GVariant *constraints,
 
       break;
     default:
-      g_warning ("Unknown constraint type '%d'", ctype);
+      g_critical ("Unknown constraint type '%d'", ctype);
       goto error;
     }
 
@@ -425,7 +428,7 @@ check_constraints (GVariant *constraints,
   error:
     {
       g_autofree gchar *dbgstr = g_variant_print (c, TRUE);
-      g_warning ("offending constraint was: %s", dbgstr);
+      g_critical ("offending constraint was: %s", dbgstr);
       goto next;
     }
   }
@@ -500,14 +503,14 @@ on_proxy_ready (GObject * proxy, GAsyncResult * res, gpointer data)
   g_autoptr (WpObjectManager) self = WP_OBJECT_MANAGER (data);
   g_autoptr (GError) error = NULL;
 
-  if (wp_proxy_augment_finish (WP_PROXY (proxy), res, &error)) {
-    g_ptr_array_add (self->objects, proxy);
-    g_signal_emit (self, signals[SIGNAL_OBJECT_ADDED], 0, proxy);
-    schedule_emit_objects_changed (self);
-  } else {
-    g_message ("WpObjectManager:%p proxy augment failed: %s", self,
-        error->message);
+  if (!wp_proxy_augment_finish (WP_PROXY (proxy), res, &error)) {
+    wp_message_object (self, "proxy augment failed: %s", error->message);
+    return;
   }
+
+  g_ptr_array_add (self->objects, proxy);
+  g_signal_emit (self, signals[SIGNAL_OBJECT_ADDED], 0, proxy);
+  schedule_emit_objects_changed (self);
 }
 
 static void
@@ -601,6 +604,9 @@ wp_object_manager_rm_object (WpObjectManager * self, gpointer object)
  *    as the WpCore is alive.
  */
 
+#undef G_LOG_DOMAIN
+#define G_LOG_DOMAIN "wp-registry"
+
 static void
 wp_registry_notify_add_object (WpRegistry *self, gpointer object)
 {
@@ -658,7 +664,8 @@ registry_global (void *data, uint32_t id, uint32_t permissions,
   WpRegistry *self = data;
   GType gtype = find_proxy_instance_type (type, version);
 
-  g_debug ("registry global:%u perm:0x%x type:%s/%u -> %s",
+  wp_debug_object (wp_registry_get_core (self),
+      "global:%u perm:0x%x type:%s/%u -> %s",
       id, permissions, type, version, g_type_name (gtype));
 
   wp_registry_prepare_new_global (self, id, permissions,
@@ -689,7 +696,8 @@ registry_global_remove (void *data, uint32_t id)
   g_return_if_fail (global &&
       global->flags & WP_GLOBAL_FLAG_APPEARS_ON_REGISTRY);
 
-  g_debug ("registry global removed:%u type:%s", id, g_type_name (global->type));
+  wp_debug_object (wp_registry_get_core (self),
+      "global removed:%u type:%s", id, g_type_name (global->type));
 
   wp_global_rm_flag (global, WP_GLOBAL_FLAG_APPEARS_ON_REGISTRY);
 }
@@ -802,7 +810,7 @@ expose_tmp_globals (WpCore *core, GAsyncResult *res, WpRegistry *self)
   g_autoptr (GPtrArray) tmp_globals = NULL;
 
   if (!wp_core_sync_finish (core, res, &error))
-    g_warning ("core sync error: %s", error->message);
+    wp_warning_object (core, "core sync error: %s", error->message);
 
   /* in case the registry was cleared in the meantime... */
   if (G_UNLIKELY (!self->tmp_globals))
@@ -813,7 +821,7 @@ expose_tmp_globals (WpCore *core, GAsyncResult *res, WpRegistry *self)
   self->tmp_globals =
       g_ptr_array_new_with_free_func ((GDestroyNotify) wp_global_unref);
 
-  g_debug ("exposing %u new globals", tmp_globals->len);
+  wp_debug_object (core, "exposing %u new globals", tmp_globals->len);
 
   /* traverse in the order that the globals appeared on the registry */
   for (guint i = 0; i < tmp_globals->len; i++) {
@@ -870,7 +878,7 @@ wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
     }
   }
 
-  g_debug ("%s WpGlobal:%u type:%s proxy:%p",
+  wp_debug_object (core, "%s WpGlobal:%u type:%s proxy:%p",
       global ? "reuse" : "new", id, g_type_name (type),
       (global && global->proxy) ? global->proxy : proxy);
 

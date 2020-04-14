@@ -155,6 +155,7 @@ int
 main (int argc, char *argv[])
 {
   g_test_init (&argc, &argv, NULL);
+  g_log_set_writer_func (wp_log_writer_default, NULL, NULL);
 
   g_test_add_func ("/wp/spa-type/basic", test_spa_type_basic);
   g_test_add_func ("/wp/spa-type/register", test_spa_type_register);

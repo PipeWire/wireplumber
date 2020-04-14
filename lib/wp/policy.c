@@ -10,9 +10,12 @@
  * SECTION: WpPolicy
  */
 
+#define G_LOG_DOMAIN "wp-policy"
+
 #include <pipewire/pipewire.h>
 
 #include "policy.h"
+#include "debug.h"
 #include "private.h"
 
 /* WpPolicyManager */
@@ -46,7 +49,7 @@ wp_policy_manager_finalize (GObject *object)
 {
   WpPolicyManager *self = WP_POLICY_MANAGER (object);
 
-  g_debug ("WpPolicyManager destroyed");
+  wp_trace_object (self, "destroyed");
 
   g_clear_object (&self->sessions_om);
   g_clear_object (&self->endpoints_om);
@@ -417,8 +420,8 @@ wp_policy_unregister (WpPolicy *self)
     mgr = wp_registry_find_object (wp_core_get_registry (core),
         (GEqualFunc) WP_IS_POLICY_MANAGER, NULL);
     if (G_UNLIKELY (!mgr)) {
-      g_critical ("WpPolicy:%p seems registered, but the policy manager "
-          "is absent", self);
+      g_critical (WP_OBJECT_FORMAT " seems registered, but the policy manager "
+          "is absent", WP_OBJECT_ARGS (self));
       return;
     }
 
@@ -444,8 +447,8 @@ wp_policy_notify_changed (WpPolicy *self)
     mgr = wp_registry_find_object (wp_core_get_registry (core),
         (GEqualFunc) WP_IS_POLICY_MANAGER, NULL);
     if (G_UNLIKELY (!mgr)) {
-      g_critical ("WpPolicy:%p seems registered, but the policy manager "
-          "is absent", self);
+      g_critical (WP_OBJECT_FORMAT " seems registered, but the policy manager "
+          "is absent", WP_OBJECT_ARGS (self));
       return;
     }
 

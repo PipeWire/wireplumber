@@ -561,6 +561,7 @@ main (gint argc, gchar *argv[])
 {
   g_test_init (&argc, &argv, NULL);
   pw_init (NULL, NULL);
+  g_log_set_writer_func (wp_log_writer_default, NULL, NULL);
 
   g_test_add ("/wp/endpoint/basic", TestEndpointFixture, NULL,
       test_endpoint_setup, test_endpoint_basic, test_endpoint_teardown);

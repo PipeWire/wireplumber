@@ -6,6 +6,8 @@
  * SPDX-License-Identifier: MIT
  */
 
+#define G_LOG_DOMAIN "wp-iterator"
+
 #include "private.h"
 #include "iterator.h"
 

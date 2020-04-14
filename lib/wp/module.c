@@ -39,7 +39,10 @@
  * resources that the module has allocated.
  */
 
+#define G_LOG_DOMAIN "wp-module"
+
 #include "module.h"
+#include "debug.h"
 #include "error.h"
 #include "private.h"
 #include <gmodule.h>
@@ -70,7 +73,7 @@ wp_module_finalize (GObject * object)
 {
   WpModule *self = WP_MODULE (object);
 
-  g_debug ("WpModule:%p unloading module", self);
+  wp_trace_object (self, "unloading module");
 
   if (self->destroy)
     self->destroy (self->destroy_data);
@@ -161,7 +164,7 @@ wp_module_load (WpCore * core, const gchar * abi, const gchar * module_name,
   module = g_object_new (WP_TYPE_MODULE, NULL);
   g_weak_ref_init (&module->core, core);
 
-  g_info ("WpModule:%p loading module %s (ABI: %s)", module, module_name, abi);
+  wp_debug_object (module, "loading module %s (ABI: %s)", module_name, abi);
 
   if (!g_strcmp0 (abi, "C")) {
     if (!wp_module_load_c (module, core, module_name, args, error))

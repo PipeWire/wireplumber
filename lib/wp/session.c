@@ -20,6 +20,8 @@
  * which is done by augmenting the #WpImplSession with %WP_PROXY_FEATURE_BOUND.
  */
 
+#define G_LOG_DOMAIN "wp-session"
+
 #include "session.h"
 #include "private.h"
 #include "error.h"

@@ -6,6 +6,8 @@
  * SPDX-License-Identifier: MIT
  */
 
+#define G_LOG_DOMAIN "wp-spa-pod"
+
 #include <spa/utils/type-info.h>
 #include <spa/pod/builder.h>
 #include <spa/pod/parser.h>

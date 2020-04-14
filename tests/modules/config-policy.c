@@ -448,6 +448,7 @@ main (int argc, char *argv[])
 {
   g_test_init (&argc, &argv, NULL);
   pw_init (NULL, NULL);
+  g_log_set_writer_func (wp_log_writer_default, NULL, NULL);
 
   g_test_add ("/modules/config-policy/playback", TestConfigPolicyFixture,
       NULL, config_policy_setup, playback, config_policy_teardown);

@@ -17,7 +17,10 @@
  * PipeWire registry and it is made available through the #WpObjectManager API.
  */
 
+#define G_LOG_DOMAIN "wp-endpoint"
+
 #include "endpoint.h"
+#include "debug.h"
 #include "session.h"
 #include "private.h"
 #include "error.h"
@@ -772,10 +775,11 @@ destroy_deconfigured_link (WpSessionItem * link, WpSiFlags flags, gpointer data)
 static void
 on_si_link_exported (WpSessionItem * link, GAsyncResult * res, gpointer data)
 {
+  WpImplEndpoint *self = WP_IMPL_ENDPOINT (data);
   g_autoptr (GError) error = NULL;
 
   if (!wp_session_item_export_finish (link, res, &error)) {
-    g_warning ("failed to export link: %s", error->message);
+    wp_warning_object (self, "failed to export link: %s", error->message);
     g_object_unref (link);
     return;
   }
@@ -797,10 +801,7 @@ impl_create_link (void *object, const struct spa_dict *props)
   /* find the session */
   session = wp_session_item_get_associated_proxy (
       WP_SESSION_ITEM (self->item), WP_TYPE_SESSION);
-  if (!session) {
-    g_warning ("could not find session");
-    return -ENAVAIL;
-  }
+  g_return_val_if_fail (!session, -ENAVAIL);
 
   if (self->info.direction == PW_DIRECTION_OUTPUT) {
     self_ep = spa_dict_lookup (props, PW_KEY_ENDPOINT_LINK_OUTPUT_ENDPOINT);
@@ -816,12 +817,14 @@ impl_create_link (void *object, const struct spa_dict *props)
 
   /* verify arguments */
   if (!peer_ep) {
-    g_debug ("a peer endpoint must be specified at the very least");
+    wp_warning_object (self,
+        "a peer endpoint must be specified at the very least");
     return -EINVAL;
   }
   if (self_ep && ((guint32) atoi (self_ep))
           != wp_proxy_get_bound_id (WP_PROXY (self))) {
-    g_debug ("creating links for other endpoints is now allowed");
+    wp_warning_object (self,
+        "creating links for other endpoints is now allowed");
     return -EACCES;
   }
 
@@ -851,7 +854,8 @@ impl_create_link (void *object, const struct spa_dict *props)
   }
 
   if (!self_si_stream) {
-    g_debug ("stream %d not found in %d", self_stream_id, self_ep_id);
+    wp_warning_object (self, "stream %d not found in %d", self_stream_id,
+        self_ep_id);
     return -EINVAL;
   }
 
@@ -862,7 +866,7 @@ impl_create_link (void *object, const struct spa_dict *props)
 
     peer_ep_proxy = wp_session_get_endpoint (session, peer_ep_id);
     if (!peer_ep_proxy) {
-      g_debug ("endpoint %d not found in session", peer_ep_id);
+      wp_warning_object (self, "endpoint %d not found in session", peer_ep_id);
       return -EINVAL;
     }
 
@@ -875,7 +879,8 @@ impl_create_link (void *object, const struct spa_dict *props)
     }
 
     if (!peer_stream_proxy) {
-      g_debug ("stream %d not found in %d", peer_stream_id, peer_ep_id);
+      wp_warning_object (self, "stream %d not found in %d", peer_stream_id,
+          peer_ep_id);
       return -EINVAL;
     }
 
@@ -900,7 +905,7 @@ impl_create_link (void *object, const struct spa_dict *props)
     core = wp_proxy_get_core (WP_PROXY (self));
     link = wp_session_item_make (core, "si-standard-link");
     if (!link) {
-      g_debug ("si-standard-link factory is not available");
+      wp_warning_object (self, "si-standard-link factory is not available");
       return -ENAVAIL;
     }
 
@@ -917,8 +922,8 @@ impl_create_link (void *object, const struct spa_dict *props)
         g_variant_new_uint64 (out_stream_i));
     g_variant_builder_add (&b, "{sv}", "in-stream",
         g_variant_new_uint64 (in_stream_i));
-    if (!wp_session_item_configure (link, g_variant_builder_end (&b))) {
-      g_debug ("si-standard-link configuration failed");
+    if (G_UNLIKELY (!wp_session_item_configure (link, g_variant_builder_end (&b)))) {
+      g_critical ("si-standard-link configuration failed");
       return -ENAVAIL;
     }
 

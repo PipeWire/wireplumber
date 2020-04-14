@@ -37,6 +37,8 @@
  * wp_properties_unref().
  */
 
+#define G_LOG_DOMAIN "wp-properties"
+
 #include "properties.h"
 
 #include <errno.h>

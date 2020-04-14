@@ -84,6 +84,8 @@
  * "default-value": the default value
  */
 
+#define G_LOG_DOMAIN "wp-base-endpoint"
+
 #include "base-endpoint.h"
 #include "error.h"
 #include "factory.h"

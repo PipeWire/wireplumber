@@ -30,7 +30,10 @@
  * completed.
  */
 
+#define G_LOG_DOMAIN "wp-transition"
+
 #include "transition.h"
+#include "debug.h"
 #include "error.h"
 
 typedef struct _WpTransitionPrivate WpTransitionPrivate;
@@ -431,8 +434,8 @@ wp_transition_return_error (WpTransition * self, GError * error)
   WpTransitionPrivate *priv = wp_transition_get_instance_private (self);
 
   if (G_UNLIKELY (priv->error)) {
-    g_warning ("transition bailing out multiple times; old error was: %s",
-        priv->error->message);
+    wp_warning_object (self, "transition bailing out multiple times; "
+        "old error was: %s", priv->error->message);
     g_clear_error (&priv->error);
   }
 

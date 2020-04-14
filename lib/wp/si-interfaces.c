@@ -11,6 +11,8 @@
  * @title: WpSessionItem Interfaces
  */
 
+#define G_LOG_DOMAIN "wp-si-interfaces"
+
 #include "si-interfaces.h"
 #include "wpenums.h"
 

@@ -19,6 +19,8 @@
  * on the remote PipeWire server by calling into a factory.
  */
 
+#define G_LOG_DOMAIN "wp-link"
+
 #include "link.h"
 #include "private.h"
 
@@ -133,8 +135,8 @@ wp_link_new_from_factory (WpCore * core,
   WpLink *self = NULL;
   struct pw_core *pw_core = wp_core_get_pw_core (core);
 
-  if (!pw_core) {
-    g_warning ("The WirePlumber core is not connected; link cannot be created");
+  if (G_UNLIKELY (!pw_core)) {
+    g_critical ("The WirePlumber core is not connected; link cannot be created");
     return NULL;
   }
 

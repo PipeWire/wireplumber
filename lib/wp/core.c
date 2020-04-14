@@ -24,6 +24,8 @@
  *    the #WpObjectManager API.
  */
 
+#define G_LOG_DOMAIN "wp-core"
+
 #include "core.h"
 #include "wp.h"
 #include "private.h"
@@ -56,7 +58,8 @@ wp_loop_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
   pw_loop_leave (WP_LOOP_SOURCE(s)->loop);
 
   if (G_UNLIKELY (result < 0))
-    g_warning ("pw_loop_iterate failed: %s", spa_strerror (result));
+    wp_warning_boxed (G_TYPE_SOURCE, s,
+        "pw_loop_iterate failed: %s", spa_strerror (result));
 
   return G_SOURCE_CONTINUE;
 }
@@ -216,7 +219,7 @@ wp_core_finalize (GObject * obj)
   g_clear_pointer (&self->context, g_main_context_unref);
   g_clear_pointer (&self->async_tasks, g_hash_table_unref);
 
-  g_debug ("WpCore destroyed");
+  wp_debug_object (self, "WpCore destroyed");
 
   G_OBJECT_CLASS (wp_core_parent_class)->finalize (obj);
 }

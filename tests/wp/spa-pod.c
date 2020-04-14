@@ -964,6 +964,7 @@ int
 main (int argc, char *argv[])
 {
   g_test_init (&argc, &argv, NULL);
+  g_log_set_writer_func (wp_log_writer_default, NULL, NULL);
 
   g_test_add_func ("/wp/spa-pod/basic", test_spa_pod_basic);
   g_test_add_func ("/wp/spa-pod/choice", test_spa_pod_choice);

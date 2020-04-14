@@ -39,9 +39,9 @@ void wp_log_structured_standard (const gchar *log_domain,
         G_STRINGIFY (__LINE__), G_STRFUNC, type, object, __VA_ARGS__); \
 })
 
-#define wp_warn(...) \
+#define wp_warning(...) \
     wp_log (G_LOG_LEVEL_WARNING, 0, NULL, __VA_ARGS__)
-#define wp_msg(...) \
+#define wp_message(...) \
     wp_log (G_LOG_LEVEL_MESSAGE, 0, NULL, __VA_ARGS__)
 #define wp_info(...) \
     wp_log (G_LOG_LEVEL_INFO, 0, NULL, __VA_ARGS__)
@@ -50,9 +50,9 @@ void wp_log_structured_standard (const gchar *log_domain,
 #define wp_trace(...) \
     wp_log (WP_LOG_LEVEL_TRACE, 0, NULL, __VA_ARGS__)
 
-#define wp_warn_object(object, ...)  \
+#define wp_warning_object(object, ...)  \
     wp_log (G_LOG_LEVEL_WARNING, G_TYPE_FROM_INSTANCE (object), object, __VA_ARGS__)
-#define wp_msg_object(object, ...)  \
+#define wp_message_object(object, ...)  \
     wp_log (G_LOG_LEVEL_MESSAGE, G_TYPE_FROM_INSTANCE (object), object, __VA_ARGS__)
 #define wp_info_object(object, ...)  \
     wp_log (G_LOG_LEVEL_INFO, G_TYPE_FROM_INSTANCE (object), object, __VA_ARGS__)
@@ -61,9 +61,9 @@ void wp_log_structured_standard (const gchar *log_domain,
 #define wp_trace_object(object, ...)  \
     wp_log (WP_LOG_LEVEL_TRACE, G_TYPE_FROM_INSTANCE (object), object, __VA_ARGS__)
 
-#define wp_warn_boxed(type, object, ...) \
+#define wp_warning_boxed(type, object, ...) \
     wp_log (G_LOG_LEVEL_WARNING, type, object, __VA_ARGS__)
-#define wp_msg_boxed(type, object, ...) \
+#define wp_message_boxed(type, object, ...) \
     wp_log (G_LOG_LEVEL_MESSAGE, type, object, __VA_ARGS__)
 #define wp_info_boxed(type, object, ...) \
     wp_log (G_LOG_LEVEL_INFO, type, object, __VA_ARGS__)

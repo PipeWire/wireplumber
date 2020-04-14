@@ -106,6 +106,7 @@ int
 main (int argc, char *argv[])
 {
   g_test_init (&argc, &argv, NULL);
+  g_log_set_writer_func (wp_log_writer_default, NULL, NULL);
 
   g_test_add_func ("/modules/algorithms/choose_sensible_raw_audio_format",
       test_choose_sensible_raw_audio_format);

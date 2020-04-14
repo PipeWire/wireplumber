@@ -58,11 +58,11 @@ gpointer wp_registry_find_object (WpRegistry *reg, GEqualFunc func,
 void wp_registry_register_object (WpRegistry *reg, gpointer obj);
 void wp_registry_remove_object (WpRegistry *reg, gpointer obj);
 
-WpCore * wp_registry_get_core (WpRegistry * self);
+WpCore * wp_registry_get_core (WpRegistry * self) G_GNUC_CONST;
 
 /* core */
 
-WpRegistry * wp_core_get_registry (WpCore * self);
+WpRegistry * wp_core_get_registry (WpCore * self) G_GNUC_CONST;
 
 /* global */
 

@@ -3,51 +3,63 @@ common_env = [
   'G_TEST_SRCDIR=@0@'.format(meson.current_source_dir()),
   'G_TEST_BUILDDIR=@0@'.format(meson.current_build_dir()),
 ]
+common_args = [
+  '-DG_LOG_USE_STRUCTURED',
+  '-DG_LOG_DOMAIN="test"',
+]
 
 test(
   'test-endpoint',
-  executable('test-endpoint', 'endpoint.c', dependencies: common_deps),
+  executable('test-endpoint', 'endpoint.c',
+      dependencies: common_deps, c_args: common_args),
   env: common_env,
 )
 
 test(
   'test-properties',
-  executable('test-properties', 'properties.c', dependencies: common_deps),
+  executable('test-properties', 'properties.c',
+      dependencies: common_deps, c_args: common_args),
   env: common_env,
 )
 
 test(
   'test-proxy',
-  executable('test-proxy', 'proxy.c', dependencies: common_deps),
+  executable('test-proxy', 'proxy.c',
+      dependencies: common_deps, c_args: common_args),
   env: common_env,
 )
 
 test(
   'test-session',
-  executable('test-session', 'session.c', dependencies: common_deps),
+  executable('test-session', 'session.c',
+      dependencies: common_deps, c_args: common_args),
   env: common_env,
 )
 
 test(
   'test-spa-pod',
-  executable('test-spa-pod', 'spa-pod.c', dependencies: common_deps),
+  executable('test-spa-pod', 'spa-pod.c',
+      dependencies: common_deps, c_args: common_args),
   env: common_env,
 )
 
 test(
   'test-spa-props',
-  executable('test-spa-props', 'spa-props.c', dependencies: common_deps),
+  executable('test-spa-props', 'spa-props.c',
+      dependencies: common_deps, c_args: common_args),
   env: common_env,
 )
 
 test(
   'test-spa-type',
-  executable('test-spa-type', 'spa-type.c', dependencies: common_deps),
+  executable('test-spa-type', 'spa-type.c',
+      dependencies: common_deps, c_args: common_args),
   env: common_env,
 )
 
 test(
   'test-transition',
-  executable('test-transition', 'transition.c', dependencies: common_deps),
+  executable('test-transition', 'transition.c',
+      dependencies: common_deps, c_args: common_args),
   env: common_env,
 )

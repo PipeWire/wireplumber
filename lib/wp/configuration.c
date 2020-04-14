@@ -12,7 +12,10 @@
  * The #WpConfiguration class manages configuration files and parsers
  */
 
+#define G_LOG_DOMAIN "wp-configuration"
+
 #include "configuration.h"
+#include "debug.h"
 #include "private.h"
 
 struct _WpConfiguration
@@ -284,7 +287,8 @@ wp_configuration_reload (WpConfiguration *self, const char *extension)
   /* Get the parser for the extension */
   WpConfigParser *parser = g_hash_table_lookup (self->parsers, extension);
   if (!parser) {
-    g_warning ("Could not find parser for extension '%s'", extension);
+    wp_warning_object (self, "Could not find parser for extension '%s'",
+        extension);
     return;
   }
 
@@ -299,7 +303,7 @@ wp_configuration_reload (WpConfiguration *self, const char *extension)
     /* Open the directory */
     conf_dir = g_dir_open (path, 0, &error);
     if (!conf_dir) {
-      g_warning ("Could not open configuration path '%s'", path);
+      wp_warning_object (self, "Could not open configuration path '%s'", path);
       continue;
     }
 
@@ -310,10 +314,10 @@ wp_configuration_reload (WpConfiguration *self, const char *extension)
       if (g_str_has_suffix (file_name, ext)) {
         location = g_build_filename (path, file_name, NULL);
 
-        g_debug ("loading config file: %s", location);
+        wp_debug_object (self, "loading config file: %s", location);
 
         if (!wp_config_parser_add_file (parser, location))
-          g_warning ("Failed to parse file '%s'", location);
+          wp_warning_object (self, "Failed to parse file '%s'", location);
       }
     }
 

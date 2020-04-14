@@ -244,6 +244,8 @@ main (gint argc, gchar **argv)
   g_autoptr (WpObjectManager) om = NULL;
   g_autoptr (GMainLoop) loop = NULL;
 
+  g_log_set_writer_func (wp_log_writer_default, NULL, NULL);
+
   context = g_option_context_new ("- PipeWire Session/Policy Manager Helper CLI");
   g_option_context_add_main_entries (context, entries, NULL);
   g_option_context_set_description (context, usage_string);

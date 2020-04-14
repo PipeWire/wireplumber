@@ -16,6 +16,8 @@
  * PipeWire registry and it is made available through the #WpObjectManager API.
  */
 
+#define G_LOG_DOMAIN "wp-port"
+
 #include "port.h"
 #include "private.h"
 
