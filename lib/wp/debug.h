@@ -72,6 +72,9 @@ void wp_log_structured_standard (const gchar *log_domain,
 #define wp_trace_boxed(type, object, ...) \
     wp_log (WP_LOG_LEVEL_TRACE, type, object, __VA_ARGS__)
 
+WP_API
+void wp_install_glib_pw_log (void);
+
 G_END_DECLS
 
 #endif

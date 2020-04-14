@@ -8,6 +8,7 @@
 
 #include "debug.h"
 #include <pipewire/pipewire.h>
+#include <spa/support/log.h>
 
 static gsize initialized = 0;
 static gboolean use_color = FALSE;
@@ -55,18 +56,19 @@ struct common_fields
  */
 static const struct {
   GLogLevelFlags log_level;
+  enum spa_log_level spa_level;
   gchar name[6];
   gchar priority[2];
   gchar color[8];
 } log_level_info[] = {
-  { 0,                    "UNK  ", "5", COLOR_BRIGHT_RED },
-  { G_LOG_LEVEL_ERROR,    "ERROR", "3", COLOR_RED },
-  { G_LOG_LEVEL_CRITICAL, "CRIT ", "4", COLOR_BRIGHT_MAGENTA },
-  { G_LOG_LEVEL_WARNING,  "WARN ", "4", COLOR_BRIGHT_YELLOW },
-  { G_LOG_LEVEL_MESSAGE,  "MSG  ", "5", COLOR_BRIGHT_GREEN },
-  { G_LOG_LEVEL_INFO,     "INFO ", "6", COLOR_GREEN },
-  { G_LOG_LEVEL_DEBUG,    "DEBUG", "7", COLOR_CYAN },
-  { WP_LOG_LEVEL_TRACE,   "TRACE", "7", COLOR_YELLOW },
+  { 0,                   0,                  "UNK  ", "5", COLOR_BRIGHT_RED },
+  { G_LOG_LEVEL_ERROR,   SPA_LOG_LEVEL_ERROR,"ERROR", "3", COLOR_RED },
+  { G_LOG_LEVEL_CRITICAL,0,                  "CRIT ", "4", COLOR_BRIGHT_MAGENTA },
+  { G_LOG_LEVEL_WARNING, SPA_LOG_LEVEL_WARN, "WARN ", "4", COLOR_BRIGHT_YELLOW },
+  { G_LOG_LEVEL_MESSAGE, 0,                  "MSG  ", "5", COLOR_BRIGHT_GREEN },
+  { G_LOG_LEVEL_INFO,    SPA_LOG_LEVEL_INFO, "INFO ", "6", COLOR_GREEN },
+  { G_LOG_LEVEL_DEBUG,   SPA_LOG_LEVEL_DEBUG,"DEBUG", "7", COLOR_CYAN },
+  { WP_LOG_LEVEL_TRACE,  SPA_LOG_LEVEL_TRACE,"TRACE", "7", COLOR_YELLOW },
 };
 
 /* map glib's log levels, which are flags in the range (1<<2) to (1<<8),
@@ -79,6 +81,15 @@ log_level_index (GLogLevelFlags log_level)
   while ((log_level >>= 1) != 0)
     logarithm += 1;
   return (logarithm >= 2 && logarithm <= 8) ? (logarithm - 1) : 0;
+}
+
+static inline gint
+spa_log_level_index (enum spa_log_level lvl)
+{
+  for (gint i = 1; i < SPA_N_ELEMENTS (log_level_info); i++)
+    if (lvl == log_level_info[i].spa_level)
+      return i;
+  return 0;
 }
 
 static void
@@ -318,4 +329,65 @@ wp_log_structured_standard (
   va_end (args);
 
   g_log_structured_array (log_level, fields, n_fields);
+}
+
+static void
+wp_spa_log_logv (void *object,
+    enum spa_log_level level,
+    const char *file,
+    int line,
+    const char *func,
+    const char *fmt,
+    va_list args)
+{
+  g_autofree gchar *message = NULL;
+  gchar line_str[11];
+  GLogField fields[] = {
+    { "PRIORITY", NULL, -1 },
+    { "CODE_FILE", file, -1 },
+    { "CODE_LINE", line_str, -1 },
+    { "CODE_FUNC", func, -1 },
+    { "MESSAGE", NULL, -1 },
+    { "GLIB_DOMAIN", "pw-lib", -1 },
+  };
+
+  gint log_level_idx = spa_log_level_index (level);
+  GLogLevelFlags log_level = log_level_info[log_level_idx].log_level;
+  fields[0].value = log_level_info[log_level_idx].priority;
+
+  sprintf (line_str, "%d", line);
+  fields[4].value = message = g_strdup_vprintf (fmt, args);
+
+  g_log_structured_array (log_level, fields, SPA_N_ELEMENTS (fields));
+}
+
+static void
+wp_spa_log_log (void *object,
+    enum spa_log_level level,
+    const char *file,
+    int line,
+    const char *func,
+    const char *fmt, ...)
+{
+  va_list args;
+  va_start (args, fmt);
+  wp_spa_log_logv (object, level, file, line, func, fmt, args);
+  va_end (args);
+}
+
+static const struct spa_log_methods wp_spa_log_methods = {
+  SPA_VERSION_LOG_METHODS,
+  .log = wp_spa_log_log,
+  .logv = wp_spa_log_logv,
+};
+
+static struct spa_log wp_spa_log = {
+  .iface = { SPA_TYPE_INTERFACE_Log, SPA_VERSION_LOG, { &wp_spa_log_methods, NULL } },
+  .level = SPA_LOG_LEVEL_INFO,
+};
+
+void
+wp_install_glib_pw_log (void)
+{
+  pw_log_set (&wp_spa_log);
 }
