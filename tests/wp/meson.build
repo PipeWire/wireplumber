@@ -5,7 +5,6 @@ common_env = [
 ]
 common_args = [
   '-DG_LOG_USE_STRUCTURED',
-  '-DG_LOG_DOMAIN="test"',
 ]
 
 test(
