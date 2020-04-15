@@ -246,8 +246,11 @@ wp_log_writer_default (GLogLevelFlags log_level,
 
   extract_common_fields (&cf, fields, n_fields);
 
+  if (!cf.log_domain)
+    cf.log_domain = "default";
+
   /* check if debug category is enabled */
-  if (cf.log_domain && enabled_categories) {
+  if (enabled_categories) {
     GPatternSpec **cat = enabled_categories;
     guint len;
     g_autofree gchar *reverse_domain = NULL;
