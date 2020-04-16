@@ -142,29 +142,26 @@ endpoint_begin_fade (WpBaseEndpoint * ep, guint32 stream_id, guint duration,
 
 #if 0
 static void
-on_exported_control_changed (WpEndpoint * ep, guint32 control_id,
+on_exported_control_changed (WpEndpoint * ep, const gchar *id_name,
     WpPwAudioSoftdspEndpoint *self)
 {
-  switch (control_id) {
-  case WP_ENDPOINT_CONTROL_VOLUME: {
+  g_autoptr (WpSpaPod) ctrl = NULL;
+
+  if (g_strcmp0 (id_name, "volume") == 0) {
     gfloat vol;
-    wp_endpoint_get_control_float (ep, control_id, &vol);
+    ctrl = wp_endpoint_get_control (ep, id_name);
+    wp_spa_pod_get_float (ctrl, &vol);
     wp_audio_stream_set_volume (self->adapter, vol);
-    break;
-  }
-  case WP_ENDPOINT_CONTROL_MUTE: {
+  } else if (g_strcmp0 (id_name, "mute") == 0) {
     gboolean m;
-    wp_endpoint_get_control_boolean (ep, control_id, &m);
+    ctrl = wp_endpoint_get_control (ep, id_name);
+    wp_spa_pod_get_boolean (ctrl, &m);
     wp_audio_stream_set_mute (self->adapter, m);
-    break;
-  }
-  default:
-    break;
   }
 }
 
 static void
-on_adapter_control_changed (WpAudioStream * s, guint32 control_id,
+on_adapter_control_changed (WpAudioStream * s, const gchar *id_name,
     WpPwAudioSoftdspEndpoint *self)
 {
   /* block to avoid recursion - WpEndpoint emits the "control-changed"
@@ -172,21 +169,14 @@ on_adapter_control_changed (WpAudioStream * s, guint32 control_id,
   g_signal_handlers_block_by_func (self->impl_ep,
       on_exported_control_changed, self);
 
-  switch (control_id) {
-  case WP_ENDPOINT_CONTROL_VOLUME: {
+  if (g_strcmp0 (id_name, "volume") == 0) {
     gfloat vol = wp_audio_stream_get_volume (s);
-    wp_endpoint_set_control_float (WP_ENDPOINT (self->impl_ep),
-        control_id, vol);
-    break;
-  }
-  case WP_ENDPOINT_CONTROL_MUTE: {
+    g_autoptr (WpSpaPod) vol_ctrl = wp_spa_pod_new_float (vol);
+    wp_endpoint_set_control (WP_ENDPOINT (self->impl_ep), id_name, vol_ctrl);
+  } else if (g_strcmp0 (id_name, "mute") == 0) {
     gboolean m = wp_audio_stream_get_mute (s);
-    wp_endpoint_set_control_boolean (WP_ENDPOINT (self->impl_ep),
-        control_id, m);
-    break;
-  }
-  default:
-    break;
+    g_autoptr (WpSpaPod) m_ctrl = wp_spa_pod_new_boolean (m);
+    wp_endpoint_set_control (WP_ENDPOINT (self->impl_ep), id_name, m_ctrl);
   }
 
   g_signal_handlers_unblock_by_func (self->impl_ep,
@@ -220,17 +210,15 @@ do_export (WpPwAudioSoftdspEndpoint *self)
   g_autoptr (WpCore) core = wp_base_endpoint_get_core (WP_BASE_ENDPOINT (self));
   g_autoptr (WpProperties) props = NULL;
   g_autoptr (WpProperties) extra_props = NULL;
+  g_autoptr (WpSpaPod) ctrl = NULL;
 
   g_return_if_fail (!self->impl_ep);
 
   self->impl_ep = wp_impl_endpoint_new (core);
 
-  wp_impl_endpoint_register_control (self->impl_ep,
-      WP_ENDPOINT_CONTROL_VOLUME);
-  wp_impl_endpoint_register_control (self->impl_ep,
-      WP_ENDPOINT_CONTROL_MUTE);
-  // wp_impl_endpoint_register_control (self->impl_ep,
-  //     WP_ENDPOINT_CONTROL_CHANNEL_VOLUMES);
+  wp_impl_endpoint_register_control (self->impl_ep, "volume");
+  wp_impl_endpoint_register_control (self->impl_ep, "mute");
+  // wp_impl_endpoint_register_control (self->impl_ep, "channelVolumes");
 
   props = wp_proxy_get_properties (WP_PROXY (self->node));
 
@@ -252,10 +240,10 @@ do_export (WpPwAudioSoftdspEndpoint *self)
   wp_impl_endpoint_set_direction (self->impl_ep,
       wp_base_endpoint_get_direction (WP_BASE_ENDPOINT (self)));
 
-  wp_endpoint_set_control_float (WP_ENDPOINT (self->impl_ep),
-      WP_ENDPOINT_CONTROL_VOLUME, wp_audio_stream_get_volume (self->adapter));
-  wp_endpoint_set_control_boolean (WP_ENDPOINT (self->impl_ep),
-      WP_ENDPOINT_CONTROL_MUTE, wp_audio_stream_get_mute (self->adapter));
+  ctrl = wp_spa_pod_new_float (wp_audio_stream_get_volume (self->adapter));
+  wp_endpoint_set_control (WP_ENDPOINT (self->impl_ep), "volume", ctrl);
+  ctrl = wp_spa_pod_new_boolean (wp_audio_stream_get_mute (self->adapter));
+  wp_endpoint_set_control (WP_ENDPOINT (self->impl_ep), "mute", ctrl);
 
   g_signal_connect_object (self->impl_ep, "control-changed",
       (GCallback) on_exported_control_changed, self, 0);

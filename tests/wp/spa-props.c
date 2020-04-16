@@ -8,240 +8,251 @@
 
 /* private functions, they should be hidden in the shared library */
 #include "wp/spa-props.c"
+#include "wp/spa-type.c"
+#include "wp/iterator.c"
+#include "wp/spa-pod.c"
 
 #include <spa/pod/iter.h>
+
+#include <wp/wp.h>
 
 static void
 test_spa_props_set_get (void)
 {
+  wp_spa_type_init (TRUE);
+  g_assert_true (wp_spa_type_register (WP_SPA_TYPE_TABLE_PROPS, "Wp:Test:Property", "wp-test-property"));
+
   WpSpaProps props = {0};
-  const struct spa_pod *pod;
+  g_autoptr (WpSpaPod) pod = NULL;
   float float_value = 0.0;
   const gchar *string_value = NULL;
 
-  wp_spa_props_register (&props, SPA_PROP_volume, "Volume",
-      SPA_POD_CHOICE_RANGE_Float (1.0, 0.0, 10.0));
-  wp_spa_props_register (&props, SPA_PROP_START_CUSTOM + 1, "Test property",
-      SPA_POD_String ("default value"));
+  wp_spa_props_register (&props, "volume", "Volume",
+      wp_spa_pod_new_choice ("Range", "f", 1.0, "f", 0.0, "f", 10.0, NULL));
+  wp_spa_props_register (&props, "wp-test-property", "Test property",
+      wp_spa_pod_new_string ("default value"));
 
-  g_assert_nonnull (pod = wp_spa_props_get_stored (&props, SPA_PROP_volume));
-  g_assert_cmpint (spa_pod_get_float (pod, &float_value), ==, 0);
+  g_assert_nonnull (pod = wp_spa_props_get_stored (&props, "volume"));
+  g_assert_true (wp_spa_pod_get_float (pod, &float_value));
   g_assert_cmpfloat_with_epsilon (float_value, 1.0, 0.001);
 
-  g_assert_nonnull (pod = wp_spa_props_get_stored (&props, SPA_PROP_START_CUSTOM + 1));
-  g_assert_cmpint (spa_pod_get_string (pod, &string_value), ==, 0);
+  g_assert_nonnull (pod = wp_spa_props_get_stored (&props, "wp-test-property"));
+  g_assert_true (wp_spa_pod_get_string (pod, &string_value));
   g_assert_cmpstr (string_value, ==, "default value");
 
-  g_assert_cmpint (wp_spa_props_store (&props, SPA_PROP_volume,
-          SPA_POD_Float (0.8)), ==, 1);
-  g_assert_cmpint (wp_spa_props_store (&props, SPA_PROP_START_CUSTOM + 1,
-          SPA_POD_String ("test value")), ==, 1);
+  g_autoptr (WpSpaPod) new_float = wp_spa_pod_new_float (0.8);
+  g_autoptr (WpSpaPod) new_str = wp_spa_pod_new_string ("test value");
+  g_assert_true (wp_spa_props_store (&props, "volume", new_float));
+  g_assert_true (wp_spa_props_store (&props, "wp-test-property", new_str));
 
-  g_assert_nonnull (pod = wp_spa_props_get_stored (&props, SPA_PROP_volume));
-  g_assert_cmpint (spa_pod_get_float (pod, &float_value), ==, 0);
+  g_assert_nonnull (pod = wp_spa_props_get_stored (&props, "volume"));
+  g_assert_true (wp_spa_pod_get_float (pod, &float_value));
   g_assert_cmpfloat_with_epsilon (float_value, 0.8, 0.001);
 
-  g_assert_nonnull (pod = wp_spa_props_get_stored (&props, SPA_PROP_START_CUSTOM + 1));
-  g_assert_cmpint (spa_pod_get_string (pod, &string_value), ==, 0);
+  g_assert_nonnull (pod = wp_spa_props_get_stored (&props, "wp-test-property"));
+  g_assert_true (wp_spa_pod_get_string (pod, &string_value));
   g_assert_cmpstr (string_value, ==, "test value");
 
   wp_spa_props_clear (&props);
+
+  wp_spa_type_deinit ();
 }
 
 static void
 test_spa_props_build_all (void)
 {
+  wp_spa_type_init (TRUE);
+  g_assert_true (wp_spa_type_register (WP_SPA_TYPE_TABLE_PROPS, "Wp:Test:Property", "wp-test-property"));
+
   WpSpaProps props = {0};
-  gchar buffer[512];
-  struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
-  struct spa_pod *pod;
+  WpSpaPod *pod = NULL;
   float float_value = 0.0;
   const gchar *string_value = NULL;
-  guint32 id;
+  g_autoptr (WpSpaPod) pod_value = NULL;
   g_autoptr (GPtrArray) arr = NULL;
+  const gchar *id_name;
+  guint32 id;
 
-  wp_spa_props_register (&props, SPA_PROP_volume, "Volume",
-      SPA_POD_CHOICE_RANGE_Float (1.0, 0.0, 10.0));
-  wp_spa_props_register (&props, SPA_PROP_START_CUSTOM + 1, "Test property",
-      SPA_POD_String ("default value"));
+  wp_spa_props_register (&props, "volume", "Volume",
+      wp_spa_pod_new_choice ("Range", "f", 1.0, "f", 0.0, "f", 10.0, NULL));
+  wp_spa_props_register (&props, "wp-test-property", "Test property",
+      wp_spa_pod_new_string ("default value"));
 
-  g_assert_cmpint (wp_spa_props_store (&props, SPA_PROP_volume,
-          SPA_POD_Float (0.8)), ==, 1);
-  g_assert_cmpint (wp_spa_props_store (&props, SPA_PROP_START_CUSTOM + 1,
-          SPA_POD_String ("test value")), ==, 1);
+  g_autoptr (WpSpaPod) new_float = wp_spa_pod_new_float (0.8);
+  g_autoptr (WpSpaPod) new_str = wp_spa_pod_new_string ("test value");
+  g_assert_true (wp_spa_props_store (&props, "volume", new_float));
+  g_assert_true (wp_spa_props_store (&props, "wp-test-property", new_str));
 
-  arr = wp_spa_props_build_all_pods (&props, &b);
+  arr = wp_spa_props_build_all_pods (&props);
   g_assert_nonnull (arr);
   g_assert_cmpint (arr->len, ==, 3);
 
   pod = g_ptr_array_index (arr, 0);
   g_assert_nonnull (pod);
-  g_assert_true (spa_pod_is_object_type (pod, SPA_TYPE_OBJECT_Props));
-  g_assert_true (spa_pod_is_object_id (pod, SPA_PARAM_Props));
-  g_assert_cmpint (spa_pod_parse_object (pod,
-          SPA_TYPE_OBJECT_Props, NULL,
-          SPA_PROP_volume, SPA_POD_Float (&float_value),
-          SPA_PROP_START_CUSTOM + 1, SPA_POD_String (&string_value)),
-      ==, 2);
+  g_assert_true (wp_spa_pod_get_object (pod,
+      "Props", &id_name,
+      "volume", "f", &float_value,
+      "wp-test-property", "s", &string_value,
+      NULL));
   g_assert_cmpfloat_with_epsilon (float_value, 0.8, 0.001);
   g_assert_cmpstr (string_value, ==, "test value");
 
   pod = g_ptr_array_index (arr, 1);
   g_assert_nonnull (pod);
-  g_assert_true (spa_pod_is_object_type (pod, SPA_TYPE_OBJECT_PropInfo));
-  g_assert_true (spa_pod_is_object_id (pod, SPA_PARAM_PropInfo));
-
-  g_assert_cmpint (spa_pod_parse_object (pod,
-          SPA_TYPE_OBJECT_PropInfo, NULL,
-          SPA_PROP_INFO_id, SPA_POD_Id (&id),
-          SPA_PROP_INFO_name, SPA_POD_String (&string_value),
-          SPA_PROP_INFO_type, SPA_POD_Pod (&pod)),
-      ==, 3);
+  g_assert_true (wp_spa_pod_get_object (pod,
+      "PropInfo", &id_name,
+      "id", "I", &id,
+      "name", "s", &string_value,
+      "type", "P", &pod_value,
+      NULL));
   g_assert_cmpuint (id, ==, SPA_PROP_volume);
   g_assert_cmpstr (string_value, ==, "Volume");
-  g_assert_nonnull (pod);
-  g_assert_true (spa_pod_is_choice (pod));
-  g_assert_true (SPA_POD_CHOICE_VALUE_TYPE (pod) == SPA_TYPE_Float);
+  g_assert_nonnull (pod_value);
+  g_assert_true (wp_spa_pod_is_choice (pod_value));
 
   pod = g_ptr_array_index (arr, 2);
   g_assert_nonnull (pod);
-  g_assert_true (spa_pod_is_object_type (pod, SPA_TYPE_OBJECT_PropInfo));
-  g_assert_true (spa_pod_is_object_id (pod, SPA_PARAM_PropInfo));
-
-  g_assert_cmpint (spa_pod_parse_object (pod,
-          SPA_TYPE_OBJECT_PropInfo, NULL,
-          SPA_PROP_INFO_id, SPA_POD_Id (&id),
-          SPA_PROP_INFO_name, SPA_POD_String (&string_value),
-          SPA_PROP_INFO_type, SPA_POD_Pod (&pod)),
-      ==, 3);
-  g_assert_cmpuint (id, ==, SPA_PROP_START_CUSTOM + 1);
+  g_assert_true (wp_spa_pod_get_object (pod,
+      "PropInfo", &id_name,
+      "id", "I", &id,
+      "name", "s", &string_value,
+      "type", "P", &pod_value,
+      NULL));
+  g_assert_cmpuint (id, >, SPA_PROP_START_CUSTOM);
   g_assert_cmpstr (string_value, ==, "Test property");
-  g_assert_nonnull (pod);
-  g_assert_true (spa_pod_is_string (pod));
+  g_assert_nonnull (pod_value);
+  g_assert_true (wp_spa_pod_is_string (pod_value));
 
   wp_spa_props_clear (&props);
+
+  wp_spa_type_deinit ();
 }
 
 static void
 test_spa_props_store_from_props (void)
 {
+  wp_spa_type_init (TRUE);
+  g_assert_true (wp_spa_type_register (WP_SPA_TYPE_TABLE_PROPS, "Wp:Test:Property", "wp-test-property"));
+
   WpSpaProps props = {0};
-  gchar buffer[512];
-  struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
-  const struct spa_pod *pod;
+  g_autoptr (WpSpaPod) pod = NULL;
   float float_value = 0.0;
   const gchar *string_value = NULL;
-  g_autoptr (GArray) arr = g_array_new (FALSE, FALSE, sizeof (guint32));
+  g_autoptr (GPtrArray) arr = g_ptr_array_new_with_free_func (g_free);
 
-  wp_spa_props_register (&props, SPA_PROP_volume, "Volume",
-      SPA_POD_CHOICE_RANGE_Float (1.0, 0.0, 10.0));
-  wp_spa_props_register (&props, SPA_PROP_START_CUSTOM + 1, "Test property",
-      SPA_POD_String ("default value"));
+  wp_spa_props_register (&props, "volume", "Volume",
+      wp_spa_pod_new_choice ("Range", "f", 1.0, "f", 0.0, "f", 10.0, NULL));
+  wp_spa_props_register (&props, "wp-test-property", "Test property",
+      wp_spa_pod_new_string ("default value"));
 
-  pod = spa_pod_builder_add_object (&b,
-      SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
-      SPA_PROP_volume, SPA_POD_Float (0.8),
-      SPA_PROP_START_CUSTOM + 1, SPA_POD_String ("test value"));
-
-  g_assert_cmpint (wp_spa_props_store_from_props (&props, pod, arr), ==, 2);
+  pod = wp_spa_pod_new_object (
+      "Props", "Props",
+      "volume", "f", 0.8,
+      "wp-test-property", "s", "test value",
+      NULL);
+  g_assert_nonnull (pod);
+  g_assert_true (wp_spa_props_store_from_props (&props, pod, arr));
   g_assert_cmpint (arr->len, ==, 2);
-  g_assert_cmpint (((guint32 *)arr->data)[0], ==, SPA_PROP_volume);
-  g_assert_cmpint (((guint32 *)arr->data)[1], ==, SPA_PROP_START_CUSTOM + 1);
+  g_assert_cmpstr ((const gchar *)g_ptr_array_index (arr, 0), ==, "volume");
+  g_assert_cmpstr ((const gchar *)g_ptr_array_index (arr, 1), ==, "wp-test-property");
 
-  g_assert_nonnull (pod = wp_spa_props_get_stored (&props, SPA_PROP_volume));
-  g_assert_cmpint (spa_pod_get_float (pod, &float_value), ==, 0);
+  g_assert_nonnull (pod = wp_spa_props_get_stored (&props, "volume"));
+  g_assert_true (wp_spa_pod_get_float (pod, &float_value));
   g_assert_cmpfloat_with_epsilon (float_value, 0.8, 0.001);
 
-  g_assert_nonnull (pod = wp_spa_props_get_stored (&props, SPA_PROP_START_CUSTOM + 1));
-  g_assert_cmpint (spa_pod_get_string (pod, &string_value), ==, 0);
+  g_assert_nonnull (pod = wp_spa_props_get_stored (&props, "wp-test-property"));
+  g_assert_true (wp_spa_pod_get_string (pod, &string_value));
   g_assert_cmpstr (string_value, ==, "test value");
 
   wp_spa_props_clear (&props);
+
+  wp_spa_type_deinit ();
 }
 
 static void
 test_spa_props_register_from_prop_info (void)
 {
+  wp_spa_type_init (TRUE);
+  g_assert_true (wp_spa_type_register (WP_SPA_TYPE_TABLE_PROPS, "Wp:Test:Property", "wp-test-property"));
+  guint test_property_id = 0;
+  wp_spa_type_get_by_nick (WP_SPA_TYPE_TABLE_PROPS, "wp-test-property", &test_property_id, NULL, NULL);
+
   WpSpaProps props = {0};
-  gchar buffer[512];
-  struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
-  const struct spa_pod *pod;
+  g_autoptr (WpSpaPod) prop_info = NULL;
+  WpSpaPod *pod = NULL;
   float float_value = 0.0;
   const gchar *string_value = NULL;
+  g_autoptr (WpSpaPod) pod_value = NULL;
   g_autoptr (GPtrArray) arr = NULL;
+  const gchar *id_name;
   guint32 id;
 
-  pod = spa_pod_builder_add_object (&b,
-      SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
-      SPA_PROP_INFO_id, SPA_POD_Id (SPA_PROP_volume),
-      SPA_PROP_INFO_name, SPA_POD_String ("Volume"),
-      SPA_PROP_INFO_type, SPA_POD_CHOICE_RANGE_Float (1.0, 0.0, 10.0));
+  prop_info = wp_spa_pod_new_object (
+      "PropInfo", "PropInfo",
+      "id", "I", SPA_PROP_volume,
+      "name", "s", "Volume",
+      "type", SPA_POD_CHOICE_RANGE_Float (1.0, 0.0, 10.0),
+      NULL);
+  g_assert_nonnull (prop_info);
+  g_assert_true (wp_spa_props_register_from_prop_info (&props, prop_info));
 
-  g_assert_cmpint (wp_spa_props_register_from_prop_info (&props, pod), ==, 0);
+  prop_info = wp_spa_pod_new_object (
+      "PropInfo", "PropInfo",
+      "id", "I", test_property_id,
+      "name", "s", "Test property",
+      "type", "s", "default value",
+      NULL);
+  g_assert_nonnull (prop_info);
+  g_assert_true (wp_spa_props_register_from_prop_info (&props, prop_info));
 
-  pod = spa_pod_builder_add_object (&b,
-      SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
-      SPA_PROP_INFO_id, SPA_POD_Id (SPA_PROP_START_CUSTOM + 1),
-      SPA_PROP_INFO_name, SPA_POD_String ("Test property"),
-      SPA_PROP_INFO_type, SPA_POD_String ("default value"));
+  g_autoptr (WpSpaPod) float_pod = wp_spa_pod_new_float (0.8);
+  g_autoptr (WpSpaPod) string_pod = wp_spa_pod_new_string ("test value");
+  g_assert_true (wp_spa_props_store (&props, "volume", float_pod));
+  g_assert_true (wp_spa_props_store (&props, "wp-test-property", string_pod));
 
-  g_assert_cmpint (wp_spa_props_register_from_prop_info (&props, pod), ==, 0);
-
-  g_assert_cmpint (wp_spa_props_store (&props, SPA_PROP_volume,
-          SPA_POD_Float (0.8)), ==, 1);
-  g_assert_cmpint (wp_spa_props_store (&props, SPA_PROP_START_CUSTOM + 1,
-          SPA_POD_String ("test value")), ==, 1);
-
-  arr = wp_spa_props_build_all_pods (&props, &b);
+  arr = wp_spa_props_build_all_pods (&props);
   g_assert_nonnull (arr);
   g_assert_cmpint (arr->len, ==, 3);
 
   pod = g_ptr_array_index (arr, 0);
   g_assert_nonnull (pod);
-  g_assert_true (spa_pod_is_object_type (pod, SPA_TYPE_OBJECT_Props));
-  g_assert_true (spa_pod_is_object_id (pod, SPA_PARAM_Props));
-  g_assert_cmpint (spa_pod_parse_object (pod,
-          SPA_TYPE_OBJECT_Props, NULL,
-          SPA_PROP_volume, SPA_POD_Float (&float_value),
-          SPA_PROP_START_CUSTOM + 1, SPA_POD_String (&string_value)),
-      ==, 2);
+  g_assert_true (wp_spa_pod_get_object (pod,
+      "Props", &id_name,
+      "volume", "f", &float_value,
+      "wp-test-property", "s", &string_value,
+      NULL));
   g_assert_cmpfloat_with_epsilon (float_value, 0.8, 0.001);
   g_assert_cmpstr (string_value, ==, "test value");
 
   pod = g_ptr_array_index (arr, 1);
   g_assert_nonnull (pod);
-  g_assert_true (spa_pod_is_object_type (pod, SPA_TYPE_OBJECT_PropInfo));
-  g_assert_true (spa_pod_is_object_id (pod, SPA_PARAM_PropInfo));
-
-  g_assert_cmpint (spa_pod_parse_object (pod,
-          SPA_TYPE_OBJECT_PropInfo, NULL,
-          SPA_PROP_INFO_id, SPA_POD_Id (&id),
-          SPA_PROP_INFO_name, SPA_POD_String (&string_value),
-          SPA_PROP_INFO_type, SPA_POD_Pod (&pod)),
-      ==, 3);
+  g_assert_true (wp_spa_pod_get_object (pod,
+      "PropInfo", &id_name,
+      "id", "I", &id,
+      "name", "s", &string_value,
+      "type", "P", &pod_value,
+      NULL));
   g_assert_cmpuint (id, ==, SPA_PROP_volume);
   g_assert_cmpstr (string_value, ==, "Volume");
-  g_assert_nonnull (pod);
-  g_assert_true (spa_pod_is_choice (pod));
-  g_assert_true (SPA_POD_CHOICE_VALUE_TYPE (pod) == SPA_TYPE_Float);
+  g_assert_nonnull (pod_value);
+  g_assert_true (wp_spa_pod_is_choice (pod_value));
 
   pod = g_ptr_array_index (arr, 2);
   g_assert_nonnull (pod);
-  g_assert_true (spa_pod_is_object_type (pod, SPA_TYPE_OBJECT_PropInfo));
-  g_assert_true (spa_pod_is_object_id (pod, SPA_PARAM_PropInfo));
-
-  g_assert_cmpint (spa_pod_parse_object (pod,
-          SPA_TYPE_OBJECT_PropInfo, NULL,
-          SPA_PROP_INFO_id, SPA_POD_Id (&id),
-          SPA_PROP_INFO_name, SPA_POD_String (&string_value),
-          SPA_PROP_INFO_type, SPA_POD_Pod (&pod)),
-      ==, 3);
-  g_assert_cmpuint (id, ==, SPA_PROP_START_CUSTOM + 1);
+  g_assert_true (wp_spa_pod_get_object (pod,
+      "PropInfo", &id_name,
+      "id", "I", &id,
+      "name", "s", &string_value,
+      "type", "P", &pod_value,
+      NULL));
+  g_assert_cmpuint (id, ==, test_property_id);
   g_assert_cmpstr (string_value, ==, "Test property");
-  g_assert_nonnull (pod);
-  g_assert_true (spa_pod_is_string (pod));
+  g_assert_nonnull (pod_value);
+  g_assert_true (wp_spa_pod_is_string (pod_value));
 
   wp_spa_props_clear (&props);
+
+  wp_spa_type_deinit ();
 }
 
 int

@@ -38,16 +38,19 @@ async_quit (WpCore *core, GAsyncResult *res, struct WpCliData * d)
 }
 
 static void
-print_dev_endpoint (WpEndpoint *ep, WpSession *session, WpDefaultEndpointType type)
+print_dev_endpoint (WpEndpoint *ep, WpSession *session, const gchar *type_name)
 {
   guint32 id = wp_proxy_get_bound_id (WP_PROXY (ep));
-  gboolean is_default = (session && type != 0 &&
-          wp_session_get_default_endpoint (session, type) == id);
+  gboolean is_default = (session && type_name != NULL &&
+          wp_session_get_default_endpoint (session, type_name) == id);
+  g_autoptr (WpSpaPod) ctrl = NULL;
   gfloat volume = 0.0;
   gboolean mute = FALSE;
 
-  wp_endpoint_get_control_float (ep, WP_ENDPOINT_CONTROL_VOLUME, &volume);
-  wp_endpoint_get_control_boolean (ep, WP_ENDPOINT_CONTROL_MUTE, &mute);
+  ctrl = wp_endpoint_get_control (ep, "volume");
+  wp_spa_pod_get_float (ctrl, &volume);
+  ctrl = wp_endpoint_get_control (ep, "mute");
+  wp_spa_pod_get_boolean (ctrl, &mute);
 
   g_print (" %c %4u. %60s\tvol: %.2f %s\n", is_default ? '*' : ' ', id,
       wp_endpoint_get_name (ep), volume, mute ? "MUTE" : "");
@@ -87,7 +90,7 @@ list_endpoints (WpObjectManager * om, struct WpCliData * d)
   {
     WpEndpoint *ep = g_value_get_object (&val);
     if (g_strcmp0 (wp_endpoint_get_media_class (ep), "Audio/Source") == 0)
-      print_dev_endpoint (ep, session, WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SOURCE);
+      print_dev_endpoint (ep, session, "wp-session-default-endpoint-audio-source");
   }
 
   wp_iterator_reset (it);
@@ -99,7 +102,7 @@ list_endpoints (WpObjectManager * om, struct WpCliData * d)
   {
     WpEndpoint *ep = g_value_get_object (&val);
     if (g_strcmp0 (wp_endpoint_get_media_class (ep), "Audio/Sink") == 0)
-      print_dev_endpoint (ep, session, WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SINK);
+      print_dev_endpoint (ep, session, "wp-session-default-endpoint-audio-sink");
   }
 
   wp_iterator_reset (it);
@@ -151,18 +154,18 @@ set_default (WpObjectManager * om, struct WpCliData * d)
     guint32 id = wp_proxy_get_bound_id (WP_PROXY (ep));
 
     if (id == d->params.set_default.id) {
-      WpDefaultEndpointType type;
+      const gchar * type_name;
       if (g_strcmp0 (wp_endpoint_get_media_class (ep), "Audio/Sink") == 0)
-        type = WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SINK;
+        type_name = "wp-session-default-endpoint-audio-sink";
       else if (g_strcmp0 (wp_endpoint_get_media_class (ep), "Audio/Source") == 0)
-        type = WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SOURCE;
+        type_name = "wp-session-default-endpoint-audio-source";
       else {
         g_print ("%u: not a device endpoint\n", id);
         g_main_loop_quit (d->loop);
         return;
       }
 
-      wp_session_set_default_endpoint (session, type, id);
+      wp_session_set_default_endpoint (session, type_name, id);
       wp_core_sync (d->core, NULL, (GAsyncReadyCallback) async_quit, d);
       return;
     }
@@ -185,8 +188,8 @@ set_volume (WpObjectManager * om, struct WpCliData * d)
     guint32 id = wp_proxy_get_bound_id (WP_PROXY (ep));
 
     if (id == d->params.set_volume.id) {
-      wp_endpoint_set_control_float (ep, WP_ENDPOINT_CONTROL_VOLUME,
-          d->params.set_volume.volume);
+      g_autoptr (WpSpaPod) vol = wp_spa_pod_new_float (d->params.set_volume.volume);
+      wp_endpoint_set_control (ep, "volume", vol);
       wp_core_sync (d->core, NULL, (GAsyncReadyCallback) async_quit, d);
       return;
     }
@@ -273,6 +276,18 @@ main (gint argc, gchar **argv)
   g_autoptr (GMainLoop) loop = NULL;
 
   g_log_set_writer_func (wp_log_writer_default, NULL, NULL);
+
+  /* Register custom wireplumber session types */
+  wp_spa_type_init (TRUE);
+  wp_spa_type_register (WP_SPA_TYPE_TABLE_BASIC,
+      "Wp:Session:Default:Endpoint:Audio:Source",
+      "wp-session-default-endpoint-audio-source");
+  wp_spa_type_register (WP_SPA_TYPE_TABLE_BASIC,
+      "Wp:Session:Default:Endpoint:Audio:Sink",
+      "wp-session-default-endpoint-audio-sink");
+  wp_spa_type_register (WP_SPA_TYPE_TABLE_BASIC,
+      "Wp:Session:Default:Endpoint:Video:Source",
+      "wp-session-default-endpoint-video-source");
 
   context = g_option_context_new ("- PipeWire Session/Policy Manager Helper CLI");
   g_option_context_add_main_entries (context, entries, NULL);

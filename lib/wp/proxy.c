@@ -368,7 +368,7 @@ wp_proxy_class_init (WpProxyClass * klass)
   wp_proxy_signals[SIGNAL_PARAM] = g_signal_new (
       "param", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
       G_STRUCT_OFFSET (WpProxyClass, param), NULL, NULL, NULL, G_TYPE_NONE, 5,
-      G_TYPE_INT, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_UINT, G_TYPE_POINTER);
+      G_TYPE_INT, G_TYPE_STRING, G_TYPE_UINT, G_TYPE_UINT, WP_TYPE_SPA_POD);
 }
 
 void
@@ -667,7 +667,7 @@ wp_proxy_find_async_task (WpProxy * self, int seq, gboolean steal)
  */
 gint
 wp_proxy_enum_params (WpProxy * self, guint32 id, guint32 start,
-    guint32 num, const struct spa_pod *filter)
+    guint32 num, const WpSpaPod * filter)
 {
   g_return_val_if_fail (WP_IS_PROXY (self), -EINVAL);
 
@@ -721,7 +721,7 @@ enum_params_done (WpCore * core, GAsyncResult * res, gpointer data)
  */
 void
 wp_proxy_enum_params_collect (WpProxy * self,
-    guint32 id, guint32 start, guint32 num, const struct spa_pod *filter,
+    guint32 id, guint32 start, guint32 num, const WpSpaPod * filter,
     GCancellable * cancellable, GAsyncReadyCallback callback,
     gpointer user_data)
 {
@@ -733,7 +733,7 @@ wp_proxy_enum_params_collect (WpProxy * self,
 
   /* create task for enum_params */
   task = g_task_new (self, cancellable, callback, user_data);
-  params = g_ptr_array_new_with_free_func (free);
+  params = g_ptr_array_new_with_free_func ((GDestroyNotify) wp_spa_pod_unref);
   g_task_set_task_data (task, params, (GDestroyNotify) g_ptr_array_unref);
 
   /* call enum_params */
@@ -756,7 +756,7 @@ wp_proxy_enum_params_collect (WpProxy * self,
 /**
  * wp_proxy_enum_params_collect_finish:
  *
- * Returns: (transfer full) (element-type spa_pod*):
+ * Returns: (transfer full) (element-type WpSpaPod*):
  *    the collected params
  */
 GPtrArray *
@@ -847,7 +847,7 @@ wp_proxy_subscribe_params_array (WpProxy * self, guint32 n_ids, guint32 *ids)
  */
 gint
 wp_proxy_set_param (WpProxy * self, guint32 id, guint32 flags,
-    const struct spa_pod *param)
+    const WpSpaPod *param)
 {
   g_return_val_if_fail (WP_IS_PROXY (self), -EINVAL);
 
@@ -866,14 +866,19 @@ wp_proxy_handle_event_param (void * proxy, int seq, uint32_t id,
   WpProxy *self = WP_PROXY (proxy);
   GTask *task;
 
-  g_signal_emit (self, wp_proxy_signals[SIGNAL_PARAM], 0, seq, id, index, next,
-      param);
+  const gchar *id_name = NULL;
+  wp_spa_type_get_by_id (WP_SPA_TYPE_TABLE_PARAM, id, NULL, &id_name, NULL);
+  g_return_if_fail (id_name);
+
+  g_autoptr (WpSpaPod) pod = wp_spa_pod_new_regular_wrap_copy (param);
+  g_signal_emit (self, wp_proxy_signals[SIGNAL_PARAM], 0, seq, id_name, index,
+      next, pod);
 
   /* if this param event was emited because of enum_params_collect(),
    * copy the param in the result array of that API */
   task = wp_proxy_find_async_task (self, seq, FALSE);
   if (task) {
     GPtrArray *array = g_task_get_task_data (task);
-    g_ptr_array_add (array, spa_pod_copy (param));
+    g_ptr_array_add (array, g_steal_pointer (&pod));
   }
 }

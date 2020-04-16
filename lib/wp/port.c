@@ -66,13 +66,14 @@ wp_port_get_properties (WpProxy * self)
 
 static gint
 wp_port_enum_params (WpProxy * self, guint32 id, guint32 start,
-    guint32 num, const struct spa_pod *filter)
+    guint32 num, const WpSpaPod * filter)
 {
   struct pw_port *pwp;
   int port_enum_params_result;
 
   pwp = (struct pw_port *) wp_proxy_get_pw_proxy (self);
-  port_enum_params_result = pw_port_enum_params (pwp, 0, id, start, num, filter);
+  port_enum_params_result = pw_port_enum_params (pwp, 0, id, start, num,
+      wp_spa_pod_get_spa_pod (filter));
   g_warn_if_fail (port_enum_params_result >= 0);
 
   return port_enum_params_result;

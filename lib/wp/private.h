@@ -149,7 +149,7 @@ WpSpaPod * wp_spa_pod_new_property_wrap_copy (WpSpaTypeTable table, guint32 key,
     guint32 flags, const struct spa_pod *pod);
 WpSpaPod * wp_spa_pod_new_control_wrap_copy (guint32 offset, guint32 type,
     const struct spa_pod *pod);
-struct spa_pod *wp_spa_pod_get_spa_pod (WpSpaPod *self);
+const struct spa_pod *wp_spa_pod_get_spa_pod (const WpSpaPod *self);
 
 /* spa props */
 
@@ -160,54 +160,22 @@ struct _WpSpaProps
 
 void wp_spa_props_clear (WpSpaProps * self);
 
-void wp_spa_props_register_pod (WpSpaProps * self,
-    guint32 id, const gchar *name, const struct spa_pod *type);
-gint wp_spa_props_register_from_prop_info (WpSpaProps * self,
-    const struct spa_pod * prop_info);
+void wp_spa_props_register (WpSpaProps * self,
+    const char *id_name, const gchar *description, WpSpaPod *type);
+gboolean wp_spa_props_register_from_prop_info (WpSpaProps * self,
+    const WpSpaPod * prop_info);
 
-const struct spa_pod * wp_spa_props_get_stored (WpSpaProps * self, guint32 id);
+WpSpaPod *
+wp_spa_props_get_stored (WpSpaProps * self, const char * id_name);
 
-gint wp_spa_props_store_pod (WpSpaProps * self, guint32 id,
-    const struct spa_pod * value);
-gint wp_spa_props_store_from_props (WpSpaProps * self,
-    const struct spa_pod * props, GArray * changed_ids);
+gboolean wp_spa_props_store (WpSpaProps * self, const char *id_name,
+    const WpSpaPod * value);
+gboolean wp_spa_props_store_from_props (WpSpaProps * self,
+    const WpSpaPod * props, GPtrArray * changed_ids);
 
-struct spa_pod * wp_spa_props_build_props (WpSpaProps * self,
-    struct spa_pod_builder * b);
-GPtrArray * wp_spa_props_build_propinfo (WpSpaProps * self,
-    struct spa_pod_builder * b);
-GPtrArray * wp_spa_props_build_all_pods (WpSpaProps * self,
-    struct spa_pod_builder * b);
-struct spa_pod * wp_spa_props_build_update (WpSpaProps * self, guint32 id,
-    const struct spa_pod * value, struct spa_pod_builder * b);
-
-const struct spa_pod * wp_spa_props_build_pod_valist (gchar * buffer,
-    gsize size, va_list args);
-
-static inline const struct spa_pod *
-wp_spa_props_build_pod (gchar * buffer, gsize size, ...)
-{
-  const struct spa_pod *ret;
-  va_list args;
-  va_start (args, size);
-  ret = wp_spa_props_build_pod_valist (buffer, size, args);
-  va_end (args);
-  return ret;
-}
-
-#define wp_spa_props_register(self, id, name, ...) \
-({ \
-  gchar b[512]; \
-  wp_spa_props_register_pod (self, id, name, \
-      wp_spa_props_build_pod (b, sizeof (b), ##__VA_ARGS__, NULL)); \
-})
-
-#define wp_spa_props_store(self, id, ...) \
-({ \
-  gchar b[512]; \
-  wp_spa_props_store_pod (self, id, \
-      wp_spa_props_build_pod (b, sizeof (b), ##__VA_ARGS__, NULL)); \
-})
+WpSpaPod * wp_spa_props_build_props (WpSpaProps * self);
+GPtrArray * wp_spa_props_build_propinfo (WpSpaProps * self);
+GPtrArray * wp_spa_props_build_all_pods (WpSpaProps * self);
 
 /* impl endpoint */
 

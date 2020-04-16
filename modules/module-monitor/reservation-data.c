@@ -47,8 +47,7 @@ on_reservation_acquired (GObject *obj, GAsyncResult *res, gpointer user_data)
       WP_MONITOR_DBUS_DEVICE_RESERVATION (obj);
   g_autoptr (GError) error = NULL;
   g_autoptr (WpProxy) device = NULL;
-  char buf[1024];
-  struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buf, sizeof(buf));
+  g_autoptr (WpSpaPod) profile = NULL;
 
   /* Finish */
   if (!wp_monitor_dbus_device_reservation_async_finish (reserv, res, &error)) {
@@ -62,10 +61,11 @@ on_reservation_acquired (GObject *obj, GAsyncResult *res, gpointer user_data)
     return;
 
   /* Set profile 1 */
-  wp_proxy_set_param (device, SPA_PARAM_Profile, 0,
-      spa_pod_builder_add_object(&b,
-          SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
-          SPA_PARAM_PROFILE_index, SPA_POD_Int(1)));
+  profile = wp_spa_pod_new_object (
+      "Profile", "Profile",
+      "index", "i", 1,
+      NULL);
+  wp_proxy_set_param (device, SPA_PARAM_Profile, 0, profile);
 }
 
 static void
@@ -74,8 +74,7 @@ on_reservation_release (WpMonitorDbusDeviceReservation *reservation, int forced,
 {
   g_autoptr (WpProxy) device = NULL;
   g_autoptr (WpCore) core = NULL;
-  char buf[1024];
-  struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buf, sizeof(buf));
+  g_autoptr (WpSpaPod) profile = NULL;
 
   /* Get the device and core */
   device = g_weak_ref_get (&self->device);
@@ -86,10 +85,11 @@ on_reservation_release (WpMonitorDbusDeviceReservation *reservation, int forced,
     return;
 
   /* Set profile 0 */
-  wp_proxy_set_param (device, SPA_PARAM_Profile, 0,
-      spa_pod_builder_add_object(&b,
-          SPA_TYPE_OBJECT_ParamProfile, SPA_PARAM_Profile,
-          SPA_PARAM_PROFILE_index, SPA_POD_Int(0)));
+  profile = wp_spa_pod_new_object (
+      "Profile", "Profile",
+      "index", "i", 0,
+      NULL);
+  wp_proxy_set_param (device, SPA_PARAM_Profile, 0, profile);
 
   /* Complete release on done */
   wp_core_sync (core, NULL, (GAsyncReadyCallback)on_device_done, self);

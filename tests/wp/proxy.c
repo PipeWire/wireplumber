@@ -173,8 +173,8 @@ test_node_enum_params_done (WpProxy *node, GAsyncResult *res,
   g_assert_cmpint (params->len, ==, data->n_params);
 
   for (i = 0; i < params->len; i++) {
-    struct spa_pod *pod = g_ptr_array_index(params, i);
-    g_assert_true (spa_pod_is_object_type (pod, SPA_TYPE_OBJECT_PropInfo));
+    WpSpaPod *pod = g_ptr_array_index (params, i);
+    g_assert_cmpstr ("PropInfo", ==, wp_spa_pod_get_object_type_name (pod));
   }
 
   g_main_loop_quit (data->fixture->loop);
@@ -213,8 +213,9 @@ test_node_object_added (WpObjectManager *om, WpProxy *proxy,
 
   g_signal_connect (proxy, "param", (GCallback) test_node_param,
       param_data);
+  g_autoptr (WpSpaPod) filter = wp_spa_pod_new_none ();
   wp_proxy_enum_params_collect (proxy, SPA_PARAM_PropInfo, 0, -1,
-      NULL, NULL, (GAsyncReadyCallback) test_node_enum_params_done,
+      filter, NULL, (GAsyncReadyCallback) test_node_enum_params_done,
       param_data);
 }
 

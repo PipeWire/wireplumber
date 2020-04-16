@@ -300,13 +300,13 @@ wp_config_policy_find_endpoint (WpPolicy *policy, GVariant *props,
   /* Otherwise, use the default session endpoint if the session is valid */
   else if (session) {
     /* Get the default type */
-    WpDefaultEndpointType type;
+    const gchar * type_name;
     switch (data->me.endpoint_data.direction) {
       case PW_DIRECTION_INPUT:
-        type = WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SOURCE;
+        type_name = "wp-session-default-endpoint-audio-source";
         break;
       case PW_DIRECTION_OUTPUT:
-        type = WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SINK;
+        type_name = "wp-session-default-endpoint-audio-sink";
         break;
       default:
         g_warn_if_reached ();
@@ -321,7 +321,7 @@ wp_config_policy_find_endpoint (WpPolicy *policy, GVariant *props,
     /* Find the default session endpoint */
     for (i = 0; i < endpoints->len; i++) {
       target = g_ptr_array_index (endpoints, i);
-      guint def_id = wp_session_get_default_endpoint (session, type);
+      guint def_id = wp_session_get_default_endpoint (session, type_name);
       if (def_id == wp_base_endpoint_get_global_id (target))
         break;
     }

@@ -9,6 +9,7 @@
 #ifndef __WIREPLUMBER_ENDPOINT_H__
 #define __WIREPLUMBER_ENDPOINT_H__
 
+#include "spa-pod.h"
 #include "proxy.h"
 #include "endpoint-stream.h"
 #include "iterator.h"
@@ -26,18 +27,6 @@ typedef enum {
   WP_DIRECTION_INPUT,
   WP_DIRECTION_OUTPUT,
 } WpDirection;
-
-/**
- * WpEndpointControl:
- * @WP_ENDPOINT_CONTROL_VOLUME: a volume control (type: float)
- * @WP_ENDPOINT_CONTROL_MUTE: a mute control (type: boolean)
- * @WP_ENDPOINT_CONTROL_CHANNEL_VOLUMES:
- */
-typedef enum {
-  WP_ENDPOINT_CONTROL_VOLUME = 0x10003 /* SPA_PROP_volume */,
-  WP_ENDPOINT_CONTROL_MUTE = 0x10004 /* SPA_PROP_mute */,
-  WP_ENDPOINT_CONTROL_CHANNEL_VOLUMES = 0x10008 /* SPA_PROP_channelVolumes */,
-} WpEndpointControl;
 
 /**
  * WpEndpointFeatures:
@@ -83,9 +72,9 @@ struct _WpEndpointClass
   const gchar * (*get_media_class) (WpEndpoint * self);
   WpDirection (*get_direction) (WpEndpoint * self);
 
-  const struct spa_pod * (*get_control) (WpEndpoint * self, guint32 control_id);
-  gboolean (*set_control) (WpEndpoint * self, guint32 control_id,
-      const struct spa_pod * value);
+  WpSpaPod * (*get_control) (WpEndpoint * self, const gchar * id_name);
+  gboolean (*set_control) (WpEndpoint * self, const gchar * id_name,
+      const WpSpaPod * value);
 };
 
 WP_API
@@ -98,36 +87,11 @@ WP_API
 WpDirection wp_endpoint_get_direction (WpEndpoint * self);
 
 WP_API
-const struct spa_pod * wp_endpoint_get_control (WpEndpoint * self,
-    guint32 control_id);
+WpSpaPod * wp_endpoint_get_control (WpEndpoint * self, const gchar * id_name);
 
 WP_API
-gboolean wp_endpoint_get_control_boolean (WpEndpoint * self, guint32 control_id,
-    gboolean * value);
-
-WP_API
-gboolean wp_endpoint_get_control_int (WpEndpoint * self, guint32 control_id,
-    gint * value);
-
-WP_API
-gboolean wp_endpoint_get_control_float (WpEndpoint * self, guint32 control_id,
-    gfloat * value);
-
-WP_API
-gboolean wp_endpoint_set_control (WpEndpoint * self, guint32 control_id,
-    const struct spa_pod * value);
-
-WP_API
-gboolean wp_endpoint_set_control_boolean (WpEndpoint * self, guint32 control_id,
-    gboolean value);
-
-WP_API
-gboolean wp_endpoint_set_control_int (WpEndpoint * self, guint32 control_id,
-    gint value);
-
-WP_API
-gboolean wp_endpoint_set_control_float (WpEndpoint * self, guint32 control_id,
-    gfloat value);
+gboolean wp_endpoint_set_control (WpEndpoint * self, const gchar * id_name,
+    const WpSpaPod * value);
 
 WP_API
 guint wp_endpoint_get_n_streams (WpEndpoint * self);

@@ -17,10 +17,6 @@
 #include "stream.h"
 
 #if !defined(HAVE_AUDIOFADE)
-# define SPA_PROP_audioFadeDuration 0x30001
-# define SPA_PROP_audioFadeStep 0x30002
-# define SPA_PROP_audioFadeDirection 0x30003
-# define SPA_PROP_audioFadeType 0x30004
 # define SPA_NAME_CONTROL_AUDIO_FADE_SOURCE "control.audio.fade.source"
 #endif
 
@@ -101,14 +97,12 @@ audio_stream_event_param (WpProxy *proxy, int seq, uint32_t id,
         case SPA_PROP_volume:
           spa_pod_get_float(&prop->value, &volume);
           priv->volume = volume;
-          g_signal_emit (self, signals[SIGNAL_CONTROL_CHANGED], 0,
-              WP_ENDPOINT_CONTROL_VOLUME);
+          g_signal_emit (self, signals[SIGNAL_CONTROL_CHANGED], 0, "volume");
           break;
         case SPA_PROP_mute:
           spa_pod_get_bool(&prop->value, &mute);
           priv->mute = mute;
-          g_signal_emit (self, signals[SIGNAL_CONTROL_CHANGED], 0,
-              WP_ENDPOINT_CONTROL_MUTE);
+          g_signal_emit (self, signals[SIGNAL_CONTROL_CHANGED], 0, "mute");
           break;
         default:
           break;
@@ -566,7 +560,7 @@ wp_audio_stream_class_init (WpAudioStreamClass * klass)
 
   signals[SIGNAL_CONTROL_CHANGED] = g_signal_new (
       "control-changed", G_TYPE_FROM_CLASS (klass),
-      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_UINT);
+      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_STRING);
 }
 
 WpAudioStream *
@@ -747,9 +741,7 @@ wp_audio_stream_begin_fade (WpAudioStream * self, guint duration,
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
   g_autoptr (WpCore) core = wp_audio_stream_get_core (self);
   GTask *task = NULL;
-  struct spa_pod *props;
-  uint8_t buffer[1024];
-  struct spa_pod_builder b = { 0 };
+  g_autoptr (WpSpaPod) props = NULL;
 
   /* Create the fade callback */
   task = g_task_new (self, cancellable, callback, user_data);
@@ -776,12 +768,13 @@ wp_audio_stream_begin_fade (WpAudioStream * self, guint duration,
   priv->fade_task = task;
 
   /* Send the fade */
-  spa_pod_builder_init(&b, buffer, sizeof(buffer));
-  props = spa_pod_builder_add_object(&b, SPA_TYPE_OBJECT_Props, 0,
-      SPA_PROP_audioFadeDuration,  SPA_POD_Int(duration),
-      SPA_PROP_audioFadeStep,      SPA_POD_Double(step),
-      SPA_PROP_audioFadeDirection, SPA_POD_Id(direction),
-      SPA_PROP_audioFadeType,      SPA_POD_Id(type));
+  props = wp_spa_pod_new_object (
+      "Props", "Props",
+      "audioFadeDuration", "i", duration,
+      "audioFadeStep", "d", step,
+      "audioFadeDirection", "I", direction,
+      "audioFadeType", "I", type,
+      NULL);
   wp_proxy_set_param (WP_PROXY (priv->audio_fade_source), SPA_PARAM_Props, 0,
       props);
 
@@ -824,7 +817,7 @@ wp_audio_stream_init_task_finish (WpAudioStream * self, GError * err)
 
 void
 wp_audio_stream_set_port_config (WpAudioStream * self,
-    const struct spa_pod * param)
+    const WpSpaPod * param)
 {
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
 

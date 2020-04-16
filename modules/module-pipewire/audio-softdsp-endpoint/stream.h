@@ -45,7 +45,7 @@ void wp_audio_stream_begin_fade (WpAudioStream * self, guint duration,
 WpCore *wp_audio_stream_get_core (WpAudioStream * self);
 void wp_audio_stream_init_task_finish (WpAudioStream * self, GError * error);
 void wp_audio_stream_set_port_config (WpAudioStream * self,
-    const struct spa_pod * param);
+    const WpSpaPod * param);
 void wp_audio_stream_finish_port_config (WpAudioStream * self);
 
 G_END_DECLS

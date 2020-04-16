@@ -57,6 +57,9 @@ test_session_disconnected (WpCore *core, TestSessionFixture *fixture)
 static void
 test_session_setup (TestSessionFixture *self, gconstpointer user_data)
 {
+  /* Register custom wireplumber session types */
+  wp_spa_type_init (TRUE);
+
   g_autoptr (WpProperties) props = NULL;
 
   wp_test_server_setup (&self->server);
@@ -106,6 +109,8 @@ test_session_teardown (TestSessionFixture *self, gconstpointer user_data)
   g_clear_pointer (&self->loop, g_main_loop_unref);
   g_clear_pointer (&self->context, g_main_context_unref);
   wp_test_server_teardown (&self->server);
+
+  wp_spa_type_deinit ();
 }
 
 static void
@@ -187,10 +192,10 @@ test_session_basic_export_done (WpProxy * session, GAsyncResult * res,
 
 static void
 test_session_basic_default_endpoint_changed (WpSession * session,
-    WpDefaultEndpointType type, guint32 id, TestSessionFixture *fixture)
+    const char *type_name, guint32 id, TestSessionFixture *fixture)
 {
-  g_debug ("endpoint changed: %s (%u, %u)", G_OBJECT_TYPE_NAME (session),
-      type, id);
+  g_debug ("endpoint changed: %s (%s, %u)", G_OBJECT_TYPE_NAME (session),
+      type_name, id);
 
   g_assert_true (WP_IS_SESSION (session));
 
@@ -243,9 +248,9 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
   session = wp_impl_session_new (fixture->export_core);
   wp_impl_session_set_property (session, "test.property", "test-value");
   wp_session_set_default_endpoint (WP_SESSION (session),
-      WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SINK, 5);
+      "wp-session-default-endpoint-audio-sink", 5);
   wp_session_set_default_endpoint (WP_SESSION (session),
-      WP_DEFAULT_ENDPOINT_TYPE_VIDEO_SOURCE, 9);
+      "wp-session-default-endpoint-video-source", 9);
 
   /* verify properties are set before export */
   {
@@ -255,9 +260,9 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
         "test-value");
   }
   g_assert_cmpuint (wp_session_get_default_endpoint (WP_SESSION (session),
-          WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SINK), ==, 5);
+          "wp-session-default-endpoint-audio-sink"), ==, 5);
   g_assert_cmpuint (wp_session_get_default_endpoint (WP_SESSION (session),
-          WP_DEFAULT_ENDPOINT_TYPE_VIDEO_SOURCE), ==, 9);
+          "wp-session-default-endpoint-video-source"), ==, 9);
 
   /* do export */
   wp_proxy_augment (WP_PROXY (session), WP_PROXY_FEATURE_BOUND, NULL,
@@ -290,10 +295,10 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
   }
   g_assert_cmpuint (wp_session_get_default_endpoint (
           WP_SESSION (fixture->proxy_session),
-          WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SINK), ==, 5);
+          "wp-session-default-endpoint-audio-sink"), ==, 5);
   g_assert_cmpuint (wp_session_get_default_endpoint (
           WP_SESSION (fixture->proxy_session),
-          WP_DEFAULT_ENDPOINT_TYPE_VIDEO_SOURCE), ==, 9);
+          "wp-session-default-endpoint-video-source"), ==, 9);
 
   /* setup change signals */
   g_signal_connect (fixture->proxy_session, "default-endpoint-changed",
@@ -307,7 +312,7 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
 
   /* change default endpoint on the proxy */
   wp_session_set_default_endpoint (WP_SESSION (fixture->proxy_session),
-      WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SINK, 73);
+      "wp-session-default-endpoint-audio-sink", 73);
 
   /* run until the change is on both sides */
   fixture->n_events = 0;
@@ -318,20 +323,20 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
 
   g_assert_cmpuint (wp_session_get_default_endpoint (
           WP_SESSION (fixture->proxy_session),
-          WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SINK), ==, 73);
+          "wp-session-default-endpoint-audio-sink"), ==, 73);
   g_assert_cmpuint (wp_session_get_default_endpoint (
           WP_SESSION (fixture->proxy_session),
-          WP_DEFAULT_ENDPOINT_TYPE_VIDEO_SOURCE), ==, 9);
+          "wp-session-default-endpoint-video-source"), ==, 9);
 
   g_assert_cmpuint (wp_session_get_default_endpoint (
-          WP_SESSION (session), WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SINK), ==, 73);
+          WP_SESSION (session), "wp-session-default-endpoint-audio-sink"), ==, 73);
   g_assert_cmpuint (wp_session_get_default_endpoint (
-          WP_SESSION (session), WP_DEFAULT_ENDPOINT_TYPE_VIDEO_SOURCE), ==, 9);
+          WP_SESSION (session), "wp-session-default-endpoint-video-source"), ==, 9);
 
   /* change default endpoint on the exported */
   fixture->n_events = 0;
   wp_session_set_default_endpoint (WP_SESSION (session),
-      WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SOURCE, 44);
+      "wp-session-default-endpoint-audio-source", 44);
 
   /* run until the change is on both sides */
   g_main_loop_run (fixture->loop);
@@ -340,10 +345,10 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
   /* test round 3: verify the value change on both sides */
 
   g_assert_cmpuint (wp_session_get_default_endpoint (
-          WP_SESSION (session), WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SOURCE), ==, 44);
+          WP_SESSION (session), "wp-session-default-endpoint-audio-source"), ==, 44);
   g_assert_cmpuint (wp_session_get_default_endpoint (
           WP_SESSION (fixture->proxy_session),
-          WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SOURCE), ==, 44);
+          "wp-session-default-endpoint-audio-source"), ==, 44);
 
   /* change a property on the exported */
   fixture->n_events = 0;

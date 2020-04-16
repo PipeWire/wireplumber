@@ -10,6 +10,7 @@
 #define __WIREPLUMBER_ENDPOINT_STREAM_H__
 
 #include "proxy.h"
+#include "spa-pod.h"
 
 G_BEGIN_DECLS
 
@@ -42,46 +43,21 @@ struct _WpEndpointStreamClass
 
   const gchar * (*get_name) (WpEndpointStream * self);
 
-  const struct spa_pod * (*get_control) (WpEndpointStream * self,
-      guint32 control_id);
-  gboolean (*set_control) (WpEndpointStream * self, guint32 control_id,
-      const struct spa_pod * value);
+  WpSpaPod * (*get_control) (WpEndpointStream * self, const gchar * id_name);
+  gboolean (*set_control) (WpEndpointStream * self, const gchar * id_name,
+      const WpSpaPod * value);
 };
 
 WP_API
 const gchar * wp_endpoint_stream_get_name (WpEndpointStream * self);
 
 WP_API
-const struct spa_pod * wp_endpoint_stream_get_control (WpEndpointStream * self,
-    guint32 control_id);
-
-WP_API
-gboolean wp_endpoint_stream_get_control_boolean (WpEndpointStream * self,
-    guint32 control_id, gboolean * value);
-
-WP_API
-gboolean wp_endpoint_stream_get_control_int (WpEndpointStream * self,
-    guint32 control_id, gint * value);
-
-WP_API
-gboolean wp_endpoint_stream_get_control_float (WpEndpointStream * self,
-    guint32 control_id, gfloat * value);
+WpSpaPod * wp_endpoint_stream_get_control (WpEndpointStream * self,
+    const gchar *id_name);
 
 WP_API
 gboolean wp_endpoint_stream_set_control (WpEndpointStream * self,
-    guint32 control_id, const struct spa_pod * value);
-
-WP_API
-gboolean wp_endpoint_stream_set_control_boolean (WpEndpointStream * self,
-    guint32 control_id, gboolean value);
-
-WP_API
-gboolean wp_endpoint_stream_set_control_int (WpEndpointStream * self,
-    guint32 control_id, gint value);
-
-WP_API
-gboolean wp_endpoint_stream_set_control_float (WpEndpointStream * self,
-    guint32 control_id, gfloat value);
+    const gchar *id_name, const WpSpaPod * value);
 
 G_END_DECLS
 

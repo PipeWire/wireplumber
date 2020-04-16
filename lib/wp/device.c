@@ -83,14 +83,14 @@ wp_device_get_properties (WpProxy * self)
 
 static gint
 wp_device_enum_params (WpProxy * self, guint32 id, guint32 start,
-    guint32 num, const struct spa_pod *filter)
+    guint32 num, const WpSpaPod * filter)
 {
   struct pw_device *pwp;
   int device_enum_params_result;
 
   pwp = (struct pw_device *) wp_proxy_get_pw_proxy (self);
   device_enum_params_result = pw_device_enum_params (pwp, 0, id, start, num,
-      filter);
+      wp_spa_pod_get_spa_pod (filter));
   g_warn_if_fail (device_enum_params_result >= 0);
 
   return device_enum_params_result;
@@ -98,13 +98,14 @@ wp_device_enum_params (WpProxy * self, guint32 id, guint32 start,
 
 static gint
 wp_device_set_param (WpProxy * self, guint32 id, guint32 flags,
-    const struct spa_pod *param)
+    const WpSpaPod *param)
 {
   struct pw_device *pwp;
   int device_set_param_result;
 
   pwp = (struct pw_device *) wp_proxy_get_pw_proxy (self);
-  device_set_param_result = pw_device_set_param (pwp, id, flags, param);
+  device_set_param_result = pw_device_set_param (pwp, id, flags,
+      wp_spa_pod_get_spa_pod (param));
   g_warn_if_fail (device_set_param_result >= 0);
 
   return device_set_param_result;
@@ -350,13 +351,13 @@ wp_spa_device_get_properties (WpProxy * proxy)
 
 static gint
 wp_spa_device_enum_params (WpProxy * proxy, guint32 id, guint32 start,
-    guint32 num, const struct spa_pod *filter)
+    guint32 num, const WpSpaPod * filter)
 {
   WpSpaDevice *self = WP_SPA_DEVICE (proxy);
   int device_enum_params_result;
 
   device_enum_params_result = spa_device_enum_params (self->interface,
-      0, id, start, num, filter);
+      0, id, start, num, wp_spa_pod_get_spa_pod (filter));
   g_warn_if_fail (device_enum_params_result >= 0);
 
   return device_enum_params_result;
@@ -364,13 +365,13 @@ wp_spa_device_enum_params (WpProxy * proxy, guint32 id, guint32 start,
 
 static gint
 wp_spa_device_set_param (WpProxy * proxy, guint32 id, guint32 flags,
-    const struct spa_pod *param)
+    const WpSpaPod *param)
 {
   WpSpaDevice *self = WP_SPA_DEVICE (proxy);
   int device_set_param_result;
 
   device_set_param_result = spa_device_set_param (self->interface,
-      id, flags, param);
+      id, flags, wp_spa_pod_get_spa_pod (param));
   g_warn_if_fail (device_set_param_result >= 0);
 
   return device_set_param_result;

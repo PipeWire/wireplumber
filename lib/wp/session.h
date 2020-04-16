@@ -16,20 +16,6 @@
 G_BEGIN_DECLS
 
 /**
- * WpDefaultEndpointType:
- * @WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SOURCE: the default audio source (capture)
- *    endpoint
- * @WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SINK: the default audio sink (playback)
- *    endpoint
- * @WP_DEFAULT_ENDPOINT_TYPE_VIDEO_SOURCE: the default video source endpoint
- */
-typedef enum {
-  WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SOURCE = 0x1000000 /* SPA_PROP_START_CUSTOM */,
-  WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SINK,
-  WP_DEFAULT_ENDPOINT_TYPE_VIDEO_SOURCE,
-} WpDefaultEndpointType;
-
-/**
  * WpSessionFeatures:
  * @WP_SESSION_FEATURE_DEFAULT_ENDPOINT: enables the use of
  *   wp_session_get_default_endpoint() and wp_session_set_default_endpoint()
@@ -74,19 +60,18 @@ struct _WpSessionClass
 {
   WpProxyClass parent_class;
 
-  guint32 (*get_default_endpoint) (WpSession * self,
-      WpDefaultEndpointType type);
-  void (*set_default_endpoint) (WpSession * self,
-      WpDefaultEndpointType type, guint32 id);
+  guint32 (*get_default_endpoint) (WpSession * self, const gchar * type_name);
+  void (*set_default_endpoint) (WpSession * self, const gchar * type_name,
+      guint32 id);
 };
 
 WP_API
 guint32 wp_session_get_default_endpoint (WpSession * self,
-    WpDefaultEndpointType type);
+    const gchar * type_name);
 
 WP_API
-void wp_session_set_default_endpoint (WpSession * self,
-    WpDefaultEndpointType type, guint32 id);
+void wp_session_set_default_endpoint (WpSession * self, const gchar * type_name,
+    guint32 id);
 
 WP_API
 guint wp_session_get_n_endpoints (WpSession * self);

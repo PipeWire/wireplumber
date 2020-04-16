@@ -16,12 +16,14 @@
 #include <spa/utils/defs.h>
 #include <spa/utils/result.h>
 
+#include "spa-pod.h"
+#include "spa-type.h"
+
 struct entry
 {
-  guint32 id;
-  gchar *name;
-  struct spa_pod *type;
-  struct spa_pod *value;
+  gchar *id_name;
+  gchar *description;
+  WpSpaPod *value;
 };
 
 struct entry *
@@ -34,9 +36,9 @@ entry_new (void)
 static void
 entry_free (struct entry *e)
 {
-  g_free (e->name);
-  free (e->type);
-  free (e->value);
+  g_free (e->id_name);
+  g_free (e->description);
+  g_clear_pointer (&e->value, wp_spa_pod_unref);
   g_slice_free (struct entry, e);
 }
 
@@ -47,217 +49,163 @@ wp_spa_props_clear (WpSpaProps * self)
   self->entries = NULL;
 }
 
+// Takes ownership of pod
 void
-wp_spa_props_register_pod (WpSpaProps * self,
-    guint32 id, const gchar *name, const struct spa_pod *type)
+wp_spa_props_register (WpSpaProps * self, const char *id_name,
+    const gchar *description, WpSpaPod *pod)
 {
   struct entry *e = entry_new ();
-  e->id = id;
-  e->name = g_strdup (name);
-  e->type = spa_pod_copy (type);
-
-  if (!spa_pod_is_choice (type))
-    e->value = spa_pod_copy (type);
-  else
-    e->value = spa_pod_copy (SPA_POD_CHOICE_CHILD (type));
-
+  e->id_name = g_strdup (id_name);
+  e->description = g_strdup (description);
+  e->value = pod;
   self->entries = g_list_append (self->entries, e);
 }
 
-gint
+gboolean
 wp_spa_props_register_from_prop_info (WpSpaProps * self,
-    const struct spa_pod * prop_info)
+    const WpSpaPod * prop_info)
 {
   guint32 id;
-  gchar *name;
-  const struct spa_pod *type;
-  int res;
+  const gchar *id_name, *description;
+  g_autoptr (WpSpaPod) type = NULL;
 
-  res = spa_pod_parse_object (prop_info,
-      SPA_TYPE_OBJECT_PropInfo, NULL,
-      SPA_PROP_INFO_id,   SPA_POD_Id (&id),
-      SPA_PROP_INFO_name, SPA_POD_String (&name),
-      SPA_PROP_INFO_type, SPA_POD_Pod (&type));
 
-  if (res < 0) {
-    g_debug ("Bad prop info object");
-    return res;
+  if (!wp_spa_pod_get_object (prop_info,
+      "PropInfo", NULL,
+      "id", "I", &id,
+      "name", "s", &description,
+      "type", "P", &type,
+      NULL)) {
+    g_assert_true (FALSE);
+    g_warning ("Bad prop info object");
+    return FALSE;
   }
 
-  wp_spa_props_register_pod (self, id, name, type);
-  return 0;
+  if (!wp_spa_type_get_by_id (WP_SPA_TYPE_TABLE_PROPS, id, NULL, &id_name,
+      NULL)) {
+    g_warning ("Id '%d' is not registered", id);
+    return FALSE;
+  }
+
+  wp_spa_props_register (self, id_name, description, g_steal_pointer (&type));
+  return TRUE;
 }
 
 // get <-- cached
-const struct spa_pod *
-wp_spa_props_get_stored (WpSpaProps * self, guint32 id)
-{
-  GList *l = self->entries;
-  while (l && ((struct entry *) l->data)->id != id)
-    l = g_list_next (l);
-
-  return l ? ((struct entry *) l->data)->value : NULL;
-}
-
-// exported set --> cache + update(variant to pod -> push)
-gint
-wp_spa_props_store_pod (WpSpaProps * self, guint32 id,
-    const struct spa_pod * value)
+WpSpaPod *
+wp_spa_props_get_stored (WpSpaProps * self, const char * id_name)
 {
   GList *l = self->entries;
   struct entry * e;
-  uint32_t expected_type;
-
-  while (l && ((struct entry *) l->data)->id != id)
+  while (l && g_strcmp0 (((struct entry *) l->data)->id_name, id_name) != 0)
     l = g_list_next (l);
-
   if (!l)
-    return -ESRCH;
+    return NULL;
+
+  e = (struct entry *) l->data;
+  return wp_spa_pod_is_choice (e->value) ?
+      wp_spa_pod_get_choice_child (e->value) : wp_spa_pod_ref (e->value);
+}
+
+// exported set --> cache + update(variant to pod -> push)
+gboolean
+wp_spa_props_store (WpSpaProps * self, const char * id_name,
+    const WpSpaPod *value)
+{
+  GList *l = self->entries;
+  struct entry * e;
+  g_autoptr (WpSpaPod) pod = NULL;
+
+  while (l && g_strcmp0 (((struct entry *) l->data)->id_name, id_name) != 0)
+    l = g_list_next (l);
+  if (!l)
+    return FALSE;
 
   e = (struct entry *) l->data;
 
-  expected_type = spa_pod_is_choice (e->type) ?
-      SPA_POD_CHOICE_VALUE_TYPE (e->type) : SPA_POD_TYPE (e->type);
-  if (SPA_POD_TYPE (value) != expected_type)
-    return -EINVAL;
+  pod = wp_spa_pod_is_choice (e->value) ?
+      wp_spa_pod_get_choice_child (e->value) : wp_spa_pod_ref (e->value);
 
-#define GET_VAL(pod, type) ((struct spa_pod_##type *) pod)->value
-
-  switch (SPA_POD_TYPE (value)) {
-    //TODO bounds checking on integer types
-  case SPA_TYPE_Id:
-    if (GET_VAL (e->value, id) != GET_VAL (value, id)) {
-      GET_VAL (e->value, id) = GET_VAL (value, id);
-      return 1;
-    }
-    break;
-  case SPA_TYPE_Bool:
-    if (GET_VAL (e->value, bool) != GET_VAL (value, bool)) {
-      GET_VAL (e->value, bool) = GET_VAL (value, bool);
-      return 1;
-    }
-    break;
-  case SPA_TYPE_Int:
-    if (GET_VAL (e->value, int) != GET_VAL (value, int)) {
-      GET_VAL (e->value, int) = GET_VAL (value, int);
-      return 1;
-    }
-    break;
-  case SPA_TYPE_Long:
-    if (GET_VAL (e->value, long) != GET_VAL (value, long)) {
-      GET_VAL (e->value, long) = GET_VAL (value, long);
-      return 1;
-    }
-    break;
-  case SPA_TYPE_Fd:
-    if (GET_VAL (e->value, fd) != GET_VAL (value, fd)) {
-      GET_VAL (e->value, fd) = GET_VAL (value, fd);
-      return 1;
-    }
-    break;
-  case SPA_TYPE_Float:
-    if (GET_VAL (e->value, float) != GET_VAL (value, float)) {
-      GET_VAL (e->value, float) = GET_VAL (value, float);
-      return 1;
-    }
-    break;
-  case SPA_TYPE_Double:
-    if (GET_VAL (e->value, double) != GET_VAL (value, double)) {
-      GET_VAL (e->value, double) = GET_VAL (value, double);
-      return 1;
-    }
-    break;
-  case SPA_TYPE_Rectangle:
-    if (GET_VAL (e->value, rectangle).width != GET_VAL (value, rectangle).width ||
-        GET_VAL (e->value, rectangle).height != GET_VAL (value, rectangle).height) {
-      GET_VAL (e->value, rectangle) = GET_VAL (value, rectangle);
-      return 1;
-    }
-    break;
-  case SPA_TYPE_Fraction:
-    if (GET_VAL (e->value, fraction).num != GET_VAL (value, fraction).num ||
-        GET_VAL (e->value, fraction).denom != GET_VAL (value, fraction).denom) {
-      GET_VAL (e->value, fraction) = GET_VAL (value, fraction);
-      return 1;
-    }
-    break;
-  default:
-    g_clear_pointer (&e->value, free);
-    e->value = spa_pod_copy (value);
-    return 1;
-  }
-
-#undef GET_VAL
-
-  return 0;
+  return !wp_spa_pod_equal (pod, value) && wp_spa_pod_set_pod (pod, value);
 }
 
 // exported event set --> pod to variant -> cache
 // proxy event param --> pod to variant -> cache
-gint
-wp_spa_props_store_from_props (WpSpaProps * self, const struct spa_pod * props,
-    GArray * changed_ids)
+gboolean
+wp_spa_props_store_from_props (WpSpaProps * self, const WpSpaPod * props,
+    GPtrArray * changed_ids)
 {
-  const struct spa_pod_object *obj;
-  const struct spa_pod_prop *iter;
-  gint ret, count = 0;
+  g_autoptr (WpSpaPod) pod = NULL;
+  g_autoptr (WpIterator) it = NULL;
+  GValue next = G_VALUE_INIT;
 
-  g_return_val_if_fail (!changed_ids ||
-      g_array_get_element_size (changed_ids) == sizeof (uint32_t), -EINVAL);
+  g_return_val_if_fail (self, FALSE);
+  g_return_val_if_fail (props, FALSE);
+  g_return_val_if_fail (changed_ids, FALSE);
 
-  if (!spa_pod_is_object_type (props, SPA_TYPE_OBJECT_Props))
-    return -EINVAL;
+  if (g_strcmp0 (wp_spa_pod_get_object_type_name (props), "Props") != 0)
+    return FALSE;
 
-  obj = (const struct spa_pod_object *) props;
-  iter = spa_pod_prop_first (&obj->body);
+  it = wp_spa_pod_iterator_new (props);
+  while (wp_iterator_next (it, &next)) {
+    WpSpaPod *p = g_value_get_boxed (&next);
+    const char *key_name = NULL;
+    g_autoptr (WpSpaPod) v = NULL;
+    wp_spa_pod_get_property (p, &key_name, &v);
 
-  for (iter = spa_pod_prop_first (&obj->body);
-       spa_pod_prop_is_inside (&obj->body, obj->pod.size, iter);
-       iter = spa_pod_prop_next (iter)) {
-    if ((ret = wp_spa_props_store_pod (self, iter->key, &iter->value)) < 0) {
-      g_debug ("error storing property 0x%x: %s", iter->key,
-          spa_strerror (ret));
-    } else if (ret == 1 && changed_ids) {
-      g_array_append_val (changed_ids, iter->key);
-      count++;
-    }
+    if (wp_spa_props_store (self, key_name, v) && changed_ids)
+      g_ptr_array_add (changed_ids, g_strdup (key_name));
+
+    g_value_unset (&next);
   }
 
-  return count;
+  return TRUE;
 }
 
-struct spa_pod *
-wp_spa_props_build_props (WpSpaProps * self, struct spa_pod_builder * b)
+WpSpaPod *
+wp_spa_props_build_props (WpSpaProps * self)
 {
-  struct spa_pod_frame f;
+  g_autoptr (WpSpaPodBuilder) b = NULL;
   GList *l;
 
-  spa_pod_builder_push_object (b, &f, SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
+  g_return_val_if_fail (self, NULL);
+
+  b = wp_spa_pod_builder_new_object ("Props", "Props");
   for (l = self->entries; l != NULL; l = g_list_next (l)) {
     struct entry * e = (struct entry *) l->data;
-    if (e->value) {
-      spa_pod_builder_prop (b, e->id, 0);
-      spa_pod_builder_primitive (b, e->value);
+    if (e->id_name && e->value) {
+      g_autoptr (WpSpaPod) pod = wp_spa_pod_is_choice (e->value) ?
+          wp_spa_pod_get_choice_child (e->value) : wp_spa_pod_ref (e->value);
+      wp_spa_pod_builder_add_property (b, e->id_name);
+      wp_spa_pod_builder_add_pod (b, pod);
     }
   }
-  return spa_pod_builder_pop (b, &f);
+
+  return wp_spa_pod_builder_end (b);
 }
 
 GPtrArray *
-wp_spa_props_build_propinfo (WpSpaProps * self, struct spa_pod_builder * b)
+wp_spa_props_build_propinfo (WpSpaProps * self)
 {
-  GPtrArray *res = g_ptr_array_new ();
+  GPtrArray *res = g_ptr_array_new_with_free_func (
+      (GDestroyNotify) wp_spa_pod_unref);
   GList *l;
-  struct spa_pod *pod;
 
   for (l = self->entries; l != NULL; l = g_list_next (l)) {
     struct entry * e = (struct entry *) l->data;
-    pod = spa_pod_builder_add_object (b,
-        SPA_TYPE_OBJECT_PropInfo, SPA_PARAM_PropInfo,
-        SPA_PROP_INFO_id,   SPA_POD_Id (e->id),
-        SPA_PROP_INFO_name, SPA_POD_String (e->name),
-        SPA_PROP_INFO_type, SPA_POD_Pod (e->type));
-    g_ptr_array_add (res, pod);
+    guint32 id;
+    if (!wp_spa_type_get_by_nick (WP_SPA_TYPE_TABLE_PROPS, e->id_name, &id,
+        NULL, NULL)) {
+      g_warning ("Id name '%s' is not registered", e->id_name);
+      continue;
+    }
+
+    g_ptr_array_add (res, wp_spa_pod_new_object (
+        "PropInfo", "PropInfo",
+        "id", "I", id,
+        "name", "s", e->description,
+        "type", "P", e->value,
+        NULL));
   }
 
   return res;
@@ -265,40 +213,9 @@ wp_spa_props_build_propinfo (WpSpaProps * self, struct spa_pod_builder * b)
 
 // for exported update / prop_info + props
 GPtrArray *
-wp_spa_props_build_all_pods (WpSpaProps * self, struct spa_pod_builder * b)
+wp_spa_props_build_all_pods (WpSpaProps * self)
 {
-  GPtrArray *res;
-  struct spa_pod *pod;
-
-  pod = wp_spa_props_build_props (self, b);
-  res = wp_spa_props_build_propinfo (self, b);
-  g_ptr_array_insert (res, 0, pod);
-
+  GPtrArray *res = wp_spa_props_build_propinfo (self);
+  g_ptr_array_insert (res, 0, wp_spa_props_build_props (self));
   return res;
-}
-
-// proxy set --> value to props object -> push
-struct spa_pod *
-wp_spa_props_build_update (WpSpaProps * self, guint32 id,
-    const struct spa_pod * value, struct spa_pod_builder * b)
-{
-  struct spa_pod_frame f;
-
-  spa_pod_builder_push_object (b, &f, SPA_TYPE_OBJECT_Props, SPA_PARAM_Props);
-  spa_pod_builder_prop (b, id, 0);
-  spa_pod_builder_primitive (b, value);
-  return spa_pod_builder_pop (b, &f);
-}
-
-const struct spa_pod *
-wp_spa_props_build_pod_valist (gchar * buffer, gsize size, va_list args)
-{
-  struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buffer, size);
-  struct spa_pod_frame f;
-  void *pod;
-
-  spa_pod_builder_push_struct (&b, &f);
-  spa_pod_builder_addv (&b, args);
-  pod = spa_pod_builder_pop (&b, &f);
-  return SPA_POD_CONTENTS (struct spa_pod_struct, pod);
 }

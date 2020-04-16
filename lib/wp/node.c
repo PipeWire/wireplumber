@@ -76,13 +76,14 @@ wp_node_get_properties (WpProxy * self)
 
 static gint
 wp_node_enum_params (WpProxy * self, guint32 id, guint32 start,
-    guint32 num, const struct spa_pod *filter)
+    guint32 num, const WpSpaPod * filter)
 {
   struct pw_node *pwp;
   int node_enum_params_result;
 
   pwp = (struct pw_node *) wp_proxy_get_pw_proxy (self);
-  node_enum_params_result = pw_node_enum_params (pwp, 0, id, start, num, filter);
+  node_enum_params_result = pw_node_enum_params (pwp, 0, id, start, num,
+      filter ? wp_spa_pod_get_spa_pod (filter) : NULL);
   g_warn_if_fail (node_enum_params_result >= 0);
 
   return node_enum_params_result;
@@ -103,13 +104,14 @@ wp_node_subscribe_params (WpProxy * self, guint32 n_ids, guint32 *ids)
 
 static gint
 wp_node_set_param (WpProxy * self, guint32 id, guint32 flags,
-    const struct spa_pod *param)
+    const WpSpaPod *param)
 {
   struct pw_node *pwp;
   int node_set_param_result;
 
   pwp = (struct pw_node *) wp_proxy_get_pw_proxy (self);
-  node_set_param_result = pw_node_set_param (pwp, id, flags, param);
+  node_set_param_result = pw_node_set_param (pwp, id, flags,
+      wp_spa_pod_get_spa_pod (param));
   g_warn_if_fail (node_set_param_result >= 0);
 
   return node_set_param_result;

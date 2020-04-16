@@ -260,6 +260,34 @@ on_ports_changed (WpObjectManager *om, WpTransition * transition)
   wp_transition_advance (transition);
 }
 
+static WpSpaPod *
+format_audio_raw_build (const struct spa_audio_info_raw *info)
+{
+  g_autoptr (WpSpaPodBuilder) builder = wp_spa_pod_builder_new_object (
+      "Format", "Format");
+  wp_spa_pod_builder_add (builder,
+      "mediaType",    "I", SPA_MEDIA_TYPE_audio,
+      "mediaSubtype", "I", SPA_MEDIA_SUBTYPE_raw,
+      "format",       "I", info->format,
+      "rate",         "i", info->rate,
+      "channels",     "i", info->channels,
+      NULL);
+
+   if (!SPA_FLAG_IS_SET (info->flags, SPA_AUDIO_FLAG_UNPOSITIONED)) {
+     /* Build the position array spa pod */
+     g_autoptr (WpSpaPodBuilder) position_builder = wp_spa_pod_builder_new_array ();
+     for (guint i = 0; i < info->channels; i++)
+       wp_spa_pod_builder_add_id (position_builder, info->position[i]);
+
+     /* Add the position property */
+     wp_spa_pod_builder_add_property (builder, "position");
+     g_autoptr (WpSpaPod) position = wp_spa_pod_builder_end (position_builder);
+     wp_spa_pod_builder_add_pod (builder, position);
+   }
+
+   return wp_spa_pod_builder_end (builder);
+}
+
 static void
 si_adapter_activate_execute_step (WpSessionItem * item,
     WpTransition * transition, guint step)
@@ -283,30 +311,26 @@ si_adapter_activate_execute_step (WpSessionItem * item,
       break;
 
     case STEP_CONFIGURE_PORTS: {
-      uint8_t buf[1024];
-      struct spa_pod_builder pod_builder = SPA_POD_BUILDER_INIT (buf, sizeof(buf));
-      struct spa_pod *param;
+      g_autoptr (WpSpaPod) format = NULL;
+      g_autoptr (WpSpaPod) pod = NULL;
 
       /* set the chosen device/client format on the node */
-      param = spa_format_audio_raw_build (&pod_builder, SPA_PARAM_Format,
-          &self->format);
-      wp_proxy_set_param (WP_PROXY (self->node), SPA_PARAM_Format, 0, param);
+      format = format_audio_raw_build (&self->format);
+      wp_proxy_set_param (WP_PROXY (self->node), SPA_PARAM_Format, 0, format);
 
       /* now choose the DSP format: keep the chanels but use F32 plannar @ 48K */
       self->format.format = SPA_AUDIO_FORMAT_F32P;
       self->format.rate = 48000;
 
-      param = spa_format_audio_raw_build (&pod_builder,
-          SPA_PARAM_Format, &self->format);
-      param = spa_pod_builder_add_object (&pod_builder,
-          SPA_TYPE_OBJECT_ParamPortConfig,  SPA_PARAM_PortConfig,
-          SPA_PARAM_PORT_CONFIG_direction,  SPA_POD_Id(self->direction),
-          SPA_PARAM_PORT_CONFIG_mode,       SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
-          SPA_PARAM_PORT_CONFIG_monitor,    SPA_POD_Bool(self->monitor),
-          SPA_PARAM_PORT_CONFIG_control,    SPA_POD_Bool(self->control_port),
-          SPA_PARAM_PORT_CONFIG_format,     SPA_POD_Pod(param));
-
-      wp_proxy_set_param (WP_PROXY (self->node), SPA_PARAM_PortConfig, 0, param);
+      format = format_audio_raw_build (&self->format);
+      pod = wp_spa_pod_new_object ("PortConfig",  "PortConfig",
+	  "direction",  "I", self->direction,
+	  "mode",       "I", SPA_PARAM_PORT_CONFIG_MODE_dsp,
+	  "monitor",    "b", self->monitor,
+	  "control",    "b", self->control_port,
+	  "format",     "P", format,
+	  NULL);
+      wp_proxy_set_param (WP_PROXY (self->node), SPA_PARAM_PortConfig, 0, pod);
 
       g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (self->node));
       wp_core_sync (core, NULL,

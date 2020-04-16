@@ -106,6 +106,34 @@ wp_audio_convert_event_info (WpProxy * proxy, GParamSpec *spec,
   }
 }
 
+static WpSpaPod *
+format_audio_raw_build (const struct spa_audio_info_raw *info)
+{
+  g_autoptr (WpSpaPodBuilder) builder = wp_spa_pod_builder_new_object (
+      "Format", "Format");
+  wp_spa_pod_builder_add (builder,
+      "mediaType",    "I", SPA_MEDIA_TYPE_audio,
+      "mediaSubtype", "I", SPA_MEDIA_SUBTYPE_raw,
+      "format",       "I", info->format,
+      "rate",         "i", info->rate,
+      "channels",     "i", info->channels,
+      NULL);
+
+   if (!SPA_FLAG_IS_SET (info->flags, SPA_AUDIO_FLAG_UNPOSITIONED)) {
+     /* Build the position array spa pod */
+     g_autoptr (WpSpaPodBuilder) position_builder = wp_spa_pod_builder_new_array ();
+     for (guint i = 0; i < info->channels; i++)
+       wp_spa_pod_builder_add_id (position_builder, info->position[i]);
+
+     /* Add the position property */
+     wp_spa_pod_builder_add_property (builder, "position");
+     g_autoptr (WpSpaPod) position = wp_spa_pod_builder_end (position_builder);
+     wp_spa_pod_builder_add_pod (builder, position);
+   }
+
+   return wp_spa_pod_builder_end (builder);
+}
+
 static void
 on_audio_convert_core_done (WpCore *core, GAsyncResult *res,
     WpAudioConvert *self)
@@ -113,10 +141,8 @@ on_audio_convert_core_done (WpCore *core, GAsyncResult *res,
   g_autoptr (GError) error = NULL;
   enum pw_direction direction =
       wp_audio_stream_get_direction (WP_AUDIO_STREAM (self));
-  uint8_t buf[1024];
-  struct spa_pod_builder pod_builder = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
-  struct spa_pod *format;
-  struct spa_pod *param;
+  g_autoptr (WpSpaPod) format = NULL;
+  g_autoptr (WpSpaPod) pod = NULL;
   gboolean control;
 
   wp_core_sync_finish (core, res, &error);
@@ -129,8 +155,7 @@ on_audio_convert_core_done (WpCore *core, GAsyncResult *res,
 
   g_debug ("%s:%p setting format", G_OBJECT_TYPE_NAME (self), self);
 
-  format = spa_format_audio_raw_build(&pod_builder, SPA_PARAM_Format,
-      &self->format);
+  format = format_audio_raw_build (&self->format);
 
   /* Only enable control port for input streams */
   control =
@@ -145,20 +170,20 @@ on_audio_convert_core_done (WpCore *core, GAsyncResult *res,
      same format, but with altered volume.
      In the future we need to consider writing a simpler volume node for this,
      as doing merge + split is heavy for our needs */
-  param = spa_pod_builder_add_object(&pod_builder,
-      SPA_TYPE_OBJECT_ParamPortConfig,  SPA_PARAM_PortConfig,
-      SPA_PARAM_PORT_CONFIG_direction,  SPA_POD_Id(pw_direction_reverse(direction)),
-      SPA_PARAM_PORT_CONFIG_mode,       SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
-      SPA_PARAM_PORT_CONFIG_format,     SPA_POD_Pod(format));
-  wp_audio_stream_set_port_config (WP_AUDIO_STREAM (self), param);
+  pod = wp_spa_pod_new_object ("PortConfig",  "PortConfig",
+      "direction",  "I", pw_direction_reverse(direction),
+      "mode",       "I", SPA_PARAM_PORT_CONFIG_MODE_dsp,
+      "format",     "P", format,
+      NULL);
+  wp_audio_stream_set_port_config (WP_AUDIO_STREAM (self), pod);
 
-  param = spa_pod_builder_add_object(&pod_builder,
-      SPA_TYPE_OBJECT_ParamPortConfig,  SPA_PARAM_PortConfig,
-      SPA_PARAM_PORT_CONFIG_direction,  SPA_POD_Id(direction),
-      SPA_PARAM_PORT_CONFIG_mode,       SPA_POD_Id(SPA_PARAM_PORT_CONFIG_MODE_dsp),
-      SPA_PARAM_PORT_CONFIG_control,    SPA_POD_Bool(control),
-      SPA_PARAM_PORT_CONFIG_format,     SPA_POD_Pod(format));
-  wp_audio_stream_set_port_config (WP_AUDIO_STREAM (self), param);
+  pod = wp_spa_pod_new_object ("PortConfig",  "PortConfig",
+      "direction",  "I", direction,
+      "mode",       "I", SPA_PARAM_PORT_CONFIG_MODE_dsp,
+      "control",    "b", control,
+      "format",     "P", format,
+      NULL);
+  wp_audio_stream_set_port_config (WP_AUDIO_STREAM (self), pod);
   wp_audio_stream_finish_port_config (WP_AUDIO_STREAM (self));
 }
 

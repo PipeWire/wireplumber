@@ -129,9 +129,11 @@ invalid_argument:
 
 
 static enum spa_audio_format
-select_format (uint32_t *vals, uint32_t n_vals, uint32_t choice)
+select_format (WpSpaPod *value)
 {
-  enum spa_audio_format fmt_order[] = {
+  enum spa_audio_format ret = SPA_AUDIO_FORMAT_UNKNOWN;
+
+  static enum spa_audio_format fmt_order[] = {
     /* float 32 is the best because it needs
        no conversion from our internal pipeline format */
     SPA_AUDIO_FORMAT_F32,
@@ -188,97 +190,149 @@ select_format (uint32_t *vals, uint32_t n_vals, uint32_t choice)
     SPA_AUDIO_FORMAT_F64P,
     SPA_AUDIO_FORMAT_U8P,
   };
-  uint32_t i, j, best = SPA_N_ELEMENTS(fmt_order);
+  guint32 best = SPA_N_ELEMENTS(fmt_order);
 
-  switch (choice) {
-  case SPA_CHOICE_None:
-    g_return_val_if_fail (n_vals != 0, SPA_AUDIO_FORMAT_UNKNOWN);
-    return vals[0];
+  /* Just return the value if it is not a choice value */
+  if (!wp_spa_pod_is_choice (value)) {
+    wp_spa_pod_get_id (value, &ret);
+    return ret;
+  }
 
-  case SPA_CHOICE_Enum:
-    for (i = 0; i < n_vals; ++i, ++vals) {
-      for (j = 0; j < SPA_N_ELEMENTS(fmt_order); j++) {
-        if (*vals == fmt_order[j] && best > j) {
+  const gchar * choice_type_name = wp_spa_pod_get_choice_type_name (value);
+
+  /* None */
+  if (g_strcmp0 ("None", choice_type_name) == 0) {
+    g_autoptr (WpSpaPod) child = wp_spa_pod_get_choice_child (value);
+    wp_spa_pod_get_id (child, &ret);
+  }
+
+  /* Enum */
+  else if (g_strcmp0 ("Enum", choice_type_name) == 0) {
+    g_autoptr (WpIterator) it = wp_spa_pod_iterator_new (value);
+    GValue next = G_VALUE_INIT;
+    while (wp_iterator_next (it, &next)) {
+      enum spa_audio_format *format_id = (enum spa_audio_format *)
+          g_value_get_pointer (&next);
+      for (guint j = 0; j < SPA_N_ELEMENTS(fmt_order); j++) {
+        if (*format_id == fmt_order[j] && best > j) {
           best = j;
           break;
         }
       }
+      g_value_unset (&next);
     }
-    return (best < SPA_N_ELEMENTS(fmt_order)) ?
-        fmt_order[best] : SPA_AUDIO_FORMAT_UNKNOWN;
-
-  default:
-    g_return_val_if_reached (SPA_AUDIO_FORMAT_UNKNOWN);
+    if (best < SPA_N_ELEMENTS(fmt_order))
+      ret = fmt_order[best];
   }
+
+  return ret;
 }
 
-static int32_t
-select_rate (int32_t *vals, uint32_t n_vals, uint32_t choice)
+static gint
+select_rate (WpSpaPod *value)
 {
-  uint32_t i;
-  int32_t result = 0, min, max;
+  gint ret = 0;
 
-  switch (choice) {
-  case SPA_CHOICE_None:
-    g_return_val_if_fail (n_vals != 0, 0);
-    return vals[0];
+  /* Just return the value if it is not a choice value */
+  if (!wp_spa_pod_is_choice (value)) {
+    wp_spa_pod_get_int (value, &ret);
+    return ret;
+  }
 
-  case SPA_CHOICE_Enum:
+  const gchar * choice_type_name = wp_spa_pod_get_choice_type_name (value);
+
+  /* None */
+  if (g_strcmp0 ("None", choice_type_name) == 0) {
+    g_autoptr (WpSpaPod) child = wp_spa_pod_get_choice_child (value);
+    wp_spa_pod_get_int (child, &ret);
+  }
+
+  /* Enum */
+  else if (g_strcmp0 ("Enum", choice_type_name) == 0) {
     /* pick the one closest to 48Khz */
-    g_return_val_if_fail (n_vals != 0, 0);
-    result = vals[0];
-    for (i = 1, ++vals; i < n_vals; ++i, ++vals) {
-      if (abs(*vals - 48000) < abs(result - 48000))
-        result = *vals;
+    g_autoptr (WpIterator) it = wp_spa_pod_iterator_new (value);
+    GValue next = G_VALUE_INIT;
+    while (wp_iterator_next (it, &next)) {
+      gint *rate = (gint *) g_value_get_pointer (&next);
+      if (abs (*rate - 48000) < abs (ret - 48000))
+        ret = *rate;
+      g_value_unset (&next);
     }
-    return result;
+  }
 
-  case SPA_CHOICE_Range:
+  /* Range */
+  else if (g_strcmp0 ("Range", choice_type_name) == 0) {
     /* a range is typically 3 items: default, min, max;
        however, sometimes ALSA drivers give bad min & max values
        and pipewire picks a bad default... try to fix that here;
        the default should be the one closest to 48K */
-    g_return_val_if_fail (n_vals == 3, 0);
+    g_autoptr (WpIterator) it = wp_spa_pod_iterator_new (value);
+    GValue next = G_VALUE_INIT;
+    gint vals[3];
+    gint i = 0, min, max;
+    while (wp_iterator_next (it, &next) && i < 3) {
+      vals[i] = *(gint *) g_value_get_pointer (&next);
+      g_value_unset (&next);
+      i++;
+    }
     min = SPA_MIN (vals[1], vals[2]);
     max = SPA_MAX (vals[1], vals[2]);
-    return SPA_CLAMP(48000, min, max);
-
-  default:
-    g_return_val_if_reached (0);
+    ret = SPA_CLAMP (48000, min, max);
   }
+
+  return ret;
 }
 
-static uint32_t
-select_channels (uint32_t *vals, uint32_t n_vals, uint32_t choice)
+static gint
+select_channels (WpSpaPod *value)
 {
-  uint32_t i;
-  uint32_t result = 0;
+  gint ret = 0;
 
-  switch (choice) {
-  case SPA_CHOICE_None:
-    g_return_val_if_fail (n_vals != 0, 0);
-    return vals[0];
+  /* Just return the value if it is not a choice value */
+  if (!wp_spa_pod_is_choice (value)) {
+    wp_spa_pod_get_int (value, &ret);
+    return ret;
+  }
 
-  case SPA_CHOICE_Enum:
+  const gchar * choice_type_name = wp_spa_pod_get_choice_type_name (value);
+
+  /* None */
+  if (g_strcmp0 ("None", choice_type_name) == 0) {
+    g_autoptr (WpSpaPod) child = wp_spa_pod_get_choice_child (value);
+    wp_spa_pod_get_int (child, &ret);
+  }
+
+  /* Enum */
+  else if (g_strcmp0 ("Enum", choice_type_name) == 0) {
     /* choose the most channels */
-    g_return_val_if_fail (n_vals != 0, 0);
-    result = vals[0];
-    for (i = 1, ++vals; i < n_vals; ++i, ++vals) {
-      if (*vals > result)
-        result = *vals;
+    g_autoptr (WpIterator) it = wp_spa_pod_iterator_new (value);
+    GValue next = G_VALUE_INIT;
+    while (wp_iterator_next (it, &next)) {
+      gint *channel = (gint *) g_value_get_pointer (&next);
+      if (*channel > ret)
+        ret = *channel;
+      g_value_unset (&next);
     }
-    return result;
+  }
 
-  case SPA_CHOICE_Range:
+  /* Range */
+  else if (g_strcmp0 ("Range", choice_type_name) == 0) {
     /* a range is typically 3 items: default, min, max;
        we want the most channels, but let's not trust max
        to really be the max... ALSA drivers can be broken */
-    g_return_val_if_fail (n_vals == 3, 0);
-    return SPA_MAX (vals[1], vals[2]);
-
-  default:
-    g_return_val_if_reached (0);
+    g_autoptr (WpIterator) it = wp_spa_pod_iterator_new (value);
+    GValue next = G_VALUE_INIT;
+    gint vals[3];
+    gint i = 0;
+    while (wp_iterator_next (it, &next) && i < 3) {
+      vals[i] = *(gint *) g_value_get_pointer (&next);
+      g_value_unset (&next);
+      i++;
+    }
+    ret = SPA_MAX (vals[1], vals[2]);
   }
+
+  return ret;
 }
 
 gboolean
@@ -291,8 +345,7 @@ choose_sensible_raw_audio_format (GPtrArray *formats,
   raw = g_alloca (sizeof (struct spa_audio_info_raw) * formats->len);
 
   for (i = 0; i < formats->len; i++) {
-    struct spa_pod *pod;
-    struct spa_pod_prop *prop;
+    WpSpaPod *pod = g_ptr_array_index (formats, i);
     uint32_t mtype, mstype;
 
     /* initialize all fields to zero (SPA_AUDIO_FORMAT_UNKNOWN etc) and set
@@ -300,14 +353,16 @@ choose_sensible_raw_audio_format (GPtrArray *formats,
     spa_memzero (&raw[i], sizeof(struct spa_audio_info_raw));
     SPA_FLAG_SET(raw[i].flags, SPA_AUDIO_FLAG_UNPOSITIONED);
 
-    pod = g_ptr_array_index (formats, i);
-
-    if (!spa_pod_is_object (pod)) {
+    if (!wp_spa_pod_is_object (pod)) {
       g_warning ("non-object POD appeared on formats list; this node is buggy");
       continue;
     }
 
-    if (spa_format_parse (pod, &mtype, &mstype) < 0) {
+    if (!wp_spa_pod_get_object (pod,
+        "Format", NULL,
+        "mediaType", "I", &mtype,
+        "mediaSubtype", "I", &mstype,
+        NULL)) {
       g_warning ("format does not have media type / subtype");
       continue;
     }
@@ -316,60 +371,48 @@ choose_sensible_raw_audio_format (GPtrArray *formats,
       continue;
 
     /* go through the fields and populate raw[i] */
-    SPA_POD_OBJECT_FOREACH ((struct spa_pod_object *) pod, prop) {
-      uint32_t type, size, n_vals, choice;
-      const struct spa_pod *val;
-      void *vals;
+    g_autoptr (WpIterator) it = wp_spa_pod_iterator_new (pod);
+    GValue next = G_VALUE_INIT;
+    while (wp_iterator_next (it, &next)) {
+      WpSpaPod *p = g_value_get_boxed (&next);
+      const gchar *key = NULL;
+      g_autoptr (WpSpaPod) value = NULL;
+      wp_spa_pod_get_property (p, &key, &value);
 
-      if (prop->key == SPA_FORMAT_mediaType ||
-          prop->key == SPA_FORMAT_mediaSubtype)
-        continue;
-
-      val = spa_pod_get_values (&prop->value, &n_vals, &choice);
-      type = val->type;
-      size = val->size;
-      vals = SPA_POD_BODY(val);
-
-#define test_invariant(x) \
-  G_STMT_START { \
-    if (G_LIKELY (x)) ; \
-    else { \
-      g_warn_message (G_LOG_DOMAIN, __FILE__, __LINE__, G_STRFUNC, #x); \
-      raw[i].format = SPA_AUDIO_FORMAT_UNKNOWN; \
-      goto next; \
-    } \
-  } G_STMT_END
-
-      switch (prop->key) {
-        case SPA_FORMAT_AUDIO_format:
-          test_invariant (type == SPA_TYPE_Id);
-          test_invariant (size == sizeof(uint32_t));
-          raw[i].format = select_format ((uint32_t *) vals, n_vals, choice);
-          break;
-        case SPA_FORMAT_AUDIO_rate:
-          test_invariant (type == SPA_TYPE_Int);
-          test_invariant (size == sizeof(int32_t));
-          raw[i].rate = select_rate ((int32_t *) vals, n_vals, choice);
-          break;
-        case SPA_FORMAT_AUDIO_channels:
-          test_invariant (type == SPA_TYPE_Int);
-          test_invariant (size == sizeof(uint32_t));
-          raw[i].channels = select_channels ((uint32_t *) vals, n_vals, choice);
-          break;
-        case SPA_FORMAT_AUDIO_position:
-          /* just copy the array, there is no choice here */
-          SPA_FLAG_CLEAR (raw[i].flags, SPA_AUDIO_FLAG_UNPOSITIONED);
-          spa_pod_copy_array (val, SPA_TYPE_Id, raw[i].position,
-              SPA_AUDIO_MAX_CHANNELS);
-          break;
-        default:
-          if (prop->value.type == SPA_TYPE_Choice)
-            SPA_POD_CHOICE_TYPE(&prop->value) = SPA_CHOICE_None;
-          break;
+      /* format */
+      if (g_strcmp0 (key, "format") == 0) {
+        raw[i].format = select_format (value);
       }
+
+      /* rate */
+      else if (g_strcmp0 (key, "rate") == 0) {
+        raw[i].rate = select_rate (value);
+      }
+
+      /* channels */
+      else if (g_strcmp0 (key, "channels") == 0) {
+        raw[i].channels = select_channels (value);
+      }
+
+      /* position */
+      else if (g_strcmp0 (key, "position") == 0) {
+        /* just copy the array, there is no choice here */
+        g_return_val_if_fail (wp_spa_pod_is_array (value), FALSE);
+        SPA_FLAG_CLEAR (raw[i].flags, SPA_AUDIO_FLAG_UNPOSITIONED);
+        g_autoptr (WpIterator) array_it = wp_spa_pod_iterator_new (value);
+        GValue array_next = G_VALUE_INIT;
+        guint j = 0;
+        while (wp_iterator_next (array_it, &array_next)) {
+          guint32 *pos_id = (guint32 *)g_value_get_pointer (&array_next);
+          raw[i].position[j] = *pos_id;
+          g_value_unset (&array_next);
+          j++;
+        }
+      }
+
+      g_value_unset (&next);
     }
 
-next:
     /* figure out if this one is the best so far */
     if (raw[i].format != SPA_AUDIO_FORMAT_UNKNOWN &&
         raw[i].channels > most_channels ) {

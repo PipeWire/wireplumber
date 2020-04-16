@@ -110,14 +110,15 @@ wp_endpoint_stream_get_properties (WpProxy * proxy)
 
 static gint
 wp_endpoint_stream_enum_params (WpProxy * self, guint32 id, guint32 start,
-    guint32 num, const struct spa_pod *filter)
+    guint32 num, const WpSpaPod * filter)
 {
   WpEndpointStreamPrivate *priv =
       wp_endpoint_stream_get_instance_private (WP_ENDPOINT_STREAM (self));
   int endpoint_stream_enum_params_result;
 
   endpoint_stream_enum_params_result =
-      pw_endpoint_stream_enum_params (priv->iface, 0, id, start, num, filter);
+      pw_endpoint_stream_enum_params (priv->iface, 0, id, start, num,
+          wp_spa_pod_get_spa_pod (filter));
   g_warn_if_fail (endpoint_stream_enum_params_result >= 0);
 
   return endpoint_stream_enum_params_result;
@@ -139,14 +140,15 @@ wp_endpoint_stream_subscribe_params (WpProxy * self, guint32 n_ids, guint32 *ids
 
 static gint
 wp_endpoint_stream_set_param (WpProxy * self, guint32 id, guint32 flags,
-    const struct spa_pod *param)
+    const WpSpaPod *param)
 {
   WpEndpointStreamPrivate *priv =
       wp_endpoint_stream_get_instance_private (WP_ENDPOINT_STREAM (self));
   int endpoint_stream_set_param_result;
 
   endpoint_stream_set_param_result =
-      pw_endpoint_stream_set_param (priv->iface, id, flags, param);
+      pw_endpoint_stream_set_param (priv->iface, id, flags,
+          wp_spa_pod_get_spa_pod (param));
   g_warn_if_fail (endpoint_stream_set_param_result >= 0);
 
   return endpoint_stream_set_param_result;
@@ -190,30 +192,29 @@ wp_endpoint_stream_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy
 }
 
 static void
-wp_endpoint_stream_param (WpProxy * proxy, gint seq, guint32 id, guint32 index,
-    guint32 next, const struct spa_pod *param)
+wp_endpoint_stream_param (WpProxy * proxy, gint seq, const gchar * id_name,
+    guint32 index, guint32 next, const WpSpaPod *param)
 {
   WpEndpointStream *self = WP_ENDPOINT_STREAM (proxy);
   WpEndpointStreamPrivate *priv = wp_endpoint_stream_get_instance_private (self);
-  g_autoptr (GArray) changed_ids = NULL;
-  guint32 prop_id;
+  g_autoptr (GPtrArray) changed_ids = NULL;
+  const gchar * prop_id;
 
-  switch (id) {
-  case SPA_PARAM_PropInfo:
+  if (g_strcmp0 ("PropInfo", id_name) == 0) {
     wp_spa_props_register_from_prop_info (&priv->spa_props, param);
-    break;
-  case SPA_PARAM_Props:
-    changed_ids = g_array_new (FALSE, FALSE, sizeof (uint32_t));
+  }
+
+  else if (g_strcmp0 ("Props", id_name) == 0) {
+    changed_ids = g_ptr_array_new_with_free_func (g_free);
     wp_spa_props_store_from_props (&priv->spa_props, param, changed_ids);
 
     for (guint i = 0; i < changed_ids->len; i++) {
-      prop_id = g_array_index (changed_ids, uint32_t, i);
+      prop_id = g_ptr_array_index (changed_ids, i);
       g_signal_emit (self, signals[SIGNAL_CONTROL_CHANGED], 0, prop_id);
     }
 
     wp_proxy_set_feature_ready (WP_PROXY (self),
         WP_ENDPOINT_STREAM_FEATURE_CONTROLS);
-    break;
   }
 }
 
@@ -224,26 +225,26 @@ get_name (WpEndpointStream * self)
   return priv->info->name;
 }
 
-static const struct spa_pod *
-get_control (WpEndpointStream * self, guint32 control_id)
+WpSpaPod *
+get_control (WpEndpointStream * self, const gchar * id_name)
 {
   WpEndpointStreamPrivate *priv = wp_endpoint_stream_get_instance_private (self);
-  return wp_spa_props_get_stored (&priv->spa_props, control_id);
+  return wp_spa_props_get_stored (&priv->spa_props, id_name);
 }
 
 static gboolean
-set_control (WpEndpointStream * self, guint32 control_id,
-    const struct spa_pod * pod)
+set_control (WpEndpointStream * self, const gchar * id_name,
+    const WpSpaPod * pod)
 {
-  char buf[1024];
-  struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buf, sizeof (buf));
+  g_autoptr (WpSpaPod) param = wp_spa_pod_new_object (
+      "Props", "Props",
+      id_name, "P", pod,
+      NULL);
 
   /* our spa_props will be updated by the param event */
 
   WP_PROXY_GET_CLASS (self)->set_param (WP_PROXY (self), SPA_PARAM_Props, 0,
-      spa_pod_builder_add_object (&b,
-          SPA_TYPE_OBJECT_Props, SPA_PARAM_Props,
-          control_id, SPA_POD_Pod (pod)));
+      param);
 
   return TRUE;
 }
@@ -282,7 +283,7 @@ wp_endpoint_stream_class_init (WpEndpointStreamClass * klass)
    */
   signals[SIGNAL_CONTROL_CHANGED] = g_signal_new (
       "control-changed", G_TYPE_FROM_CLASS (klass),
-      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_UINT);
+      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_STRING);
 }
 
 /**
@@ -303,146 +304,40 @@ wp_endpoint_stream_get_name (WpEndpointStream * self)
 /**
  * wp_endpoint_stream_get_control:
  * @self: the endpoint stream
- * @control_id: the control id (a #WpEndpointControl)
+ * @id_name: the control id (a #WpEndpointControl)
  *
- * Returns: (transfer none) (nullable): the `spa_pod` containing the value
+ * Returns: (transfer full) (nullable): the `spa_pod` containing the value
  *   of this control, or %NULL if @control_id does not exist on this endpoint
  *   stream
  */
-const struct spa_pod *
-wp_endpoint_stream_get_control (WpEndpointStream * self, guint32 control_id)
+WpSpaPod *
+wp_endpoint_stream_get_control (WpEndpointStream * self, const gchar * id_name)
 {
   g_return_val_if_fail (WP_IS_ENDPOINT_STREAM (self), NULL);
   g_return_val_if_fail (WP_ENDPOINT_STREAM_GET_CLASS (self)->get_control, NULL);
 
-  return WP_ENDPOINT_STREAM_GET_CLASS (self)->get_control (self, control_id);
-}
-
-/**
- * wp_endpoint_stream_get_control_boolean:
- * @self: the endpoint stream
- * @control_id: the control id (a #WpEndpointControl)
- * @value: (out): the boolean value of this control
- *
- * Returns: %TRUE on success, %FALSE if the control does not exist on this
- *   endpoint stream or if it is not a boolean
- */
-gboolean
-wp_endpoint_stream_get_control_boolean (WpEndpointStream * self,
-    guint32 control_id, gboolean * value)
-{
-  const struct spa_pod *pod = wp_endpoint_stream_get_control (self, control_id);
-  bool val;
-  if (pod && spa_pod_get_bool (pod, &val) == 0) {
-    *value = val;
-    return TRUE;
-  }
-  return FALSE;
-}
-
-/**
- * wp_endpoint_stream_get_control_int:
- * @self: the endpoint stream
- * @control_id: the control id (a #WpEndpointControl)
- * @value: (out): the integer value of this control
- *
- * Returns: %TRUE on success, %FALSE if the control does not exist on this
- *   endpoint stream or if it is not an integer
- */
-gboolean
-wp_endpoint_stream_get_control_int (WpEndpointStream * self, guint32 control_id,
-    gint * value)
-{
-  const struct spa_pod *pod = wp_endpoint_stream_get_control (self, control_id);
-  return (pod && spa_pod_get_int (pod, value) == 0);
-}
-
-/**
- * wp_endpoint_stream_get_control_float:
- * @self: the endpoint stream
- * @control_id: the control id (a #WpEndpointControl)
- * @value: (out): the floating-point number value of this control
- *
- * Returns: %TRUE on success, %FALSE if the control does not exist on this
- *   endpoint stream or if it is not a floating-point number
- */
-gboolean
-wp_endpoint_stream_get_control_float (WpEndpointStream * self, guint32 control_id,
-    gfloat * value)
-{
-  const struct spa_pod *pod = wp_endpoint_stream_get_control (self, control_id);
-  return (pod && spa_pod_get_float (pod, value) == 0);
+  return WP_ENDPOINT_STREAM_GET_CLASS (self)->get_control (self, id_name);
 }
 
 /**
  * wp_endpoint_stream_set_control:
  * @self: the endpoint stream
- * @control_id: the control id (a #WpEndpointControl)
+ * @id_name: the control id (a #WpEndpointControl)
  * @value: the new value for this control, as a `spa_pod`
  *
  * Returns: %TRUE on success, %FALSE if an error occurred
  */
 gboolean
-wp_endpoint_stream_set_control (WpEndpointStream * self, guint32 control_id,
-    const struct spa_pod * value)
+wp_endpoint_stream_set_control (WpEndpointStream * self, const gchar * id_name,
+    const WpSpaPod * value)
 {
   g_return_val_if_fail (WP_IS_ENDPOINT_STREAM (self), FALSE);
   g_return_val_if_fail (WP_ENDPOINT_STREAM_GET_CLASS (self)->set_control, FALSE);
 
-  return WP_ENDPOINT_STREAM_GET_CLASS (self)->set_control (self, control_id,
+  return WP_ENDPOINT_STREAM_GET_CLASS (self)->set_control (self, id_name,
       value);
 }
 
-/**
- * wp_endpoint_stream_set_control_boolean:
- * @self: the endpoint stream
- * @control_id: the control id (a #WpEndpointControl)
- * @value: the new value for this control, as a boolean
- *
- * Returns: %TRUE on success, %FALSE if an error occurred
- */
-gboolean
-wp_endpoint_stream_set_control_boolean (WpEndpointStream * self,
-    guint32 control_id, gboolean value)
-{
-  gchar buffer[512];
-  return wp_endpoint_stream_set_control (self, control_id,
-      wp_spa_props_build_pod (buffer, sizeof (buffer), SPA_POD_Bool (value), 0));
-}
-
-/**
- * wp_endpoint_stream_set_control_int:
- * @self: the endpoint stream
- * @control_id: the control id (a #WpEndpointControl)
- * @value: the new value for this control, as an integer
- *
- * Returns: %TRUE on success, %FALSE if an error occurred
- */
-gboolean
-wp_endpoint_stream_set_control_int (WpEndpointStream * self, guint32 control_id,
-    gint value)
-{
-  gchar buffer[512];
-  return wp_endpoint_stream_set_control (self, control_id,
-      wp_spa_props_build_pod (buffer, sizeof (buffer), SPA_POD_Int (value), 0));
-}
-
-/**
- * wp_endpoint_stream_set_control_float:
- * @self: the endpoint stream
- * @control_id: the control id (a #WpEndpointControl)
- * @value: the new value for this control, as a floating-point number
- *
- * Returns: %TRUE on success, %FALSE if an error occurred
- */
-gboolean
-wp_endpoint_stream_set_control_float (WpEndpointStream * self,
-    guint32 control_id, gfloat value)
-{
-  gchar buffer[512];
-  return wp_endpoint_stream_set_control (self, control_id,
-      wp_spa_props_build_pod (buffer, sizeof (buffer), SPA_POD_Float (value), 0));
-}
 
 /* WpImplEndpointStream */
 
@@ -515,10 +410,11 @@ impl_enum_params (void *object, int seq,
   switch (id) {
     case SPA_PARAM_PropInfo: {
       g_autoptr (GPtrArray) params =
-          wp_spa_props_build_propinfo (&priv->spa_props, &b);
+          wp_spa_props_build_propinfo (&priv->spa_props);
 
       for (guint i = start; i < params->len; i++) {
-        struct spa_pod *param = g_ptr_array_index (params, i);
+        WpSpaPod *pod = g_ptr_array_index (params, i);
+        const struct spa_pod *param = wp_spa_pod_get_spa_pod (pod);
 
         if (spa_pod_filter (&b, &result, param, filter) == 0) {
           pw_endpoint_stream_emit_param (&self->hooks, seq, id, i, i+1, result);
@@ -531,7 +427,8 @@ impl_enum_params (void *object, int seq,
     }
     case SPA_PARAM_Props: {
       if (start == 0) {
-        struct spa_pod *param = wp_spa_props_build_props (&priv->spa_props, &b);
+        g_autoptr (WpSpaPod) pod = wp_spa_props_build_props (&priv->spa_props);
+        const struct spa_pod *param = wp_spa_pod_get_spa_pod (pod);
         if (spa_pod_filter (&b, &result, param, filter) == 0) {
           pw_endpoint_stream_emit_param (&self->hooks, seq, id, 0, 1, result);
           wp_proxy_handle_event_param (self, seq, id, 0, 1, result);
@@ -566,13 +463,14 @@ impl_set_param (void *object, uint32_t id, uint32_t flags,
   WpImplEndpointStream *self = WP_IMPL_ENDPOINT_STREAM (object);
   WpEndpointStreamPrivate *priv =
       wp_endpoint_stream_get_instance_private (WP_ENDPOINT_STREAM (self));
-  g_autoptr (GArray) changed_ids = NULL;
+  g_autoptr (GPtrArray) changed_ids = NULL;
 
   if (id != SPA_PARAM_Props)
     return -ENOENT;
 
-  changed_ids = g_array_new (FALSE, FALSE, sizeof (guint32));
-  wp_spa_props_store_from_props (&priv->spa_props, param, changed_ids);
+  changed_ids = g_ptr_array_new_with_free_func (g_free);
+  g_autoptr (WpSpaPod) pod = wp_spa_pod_new_regular_wrap_copy (param);
+  wp_spa_props_store_from_props (&priv->spa_props, pod, changed_ids);
 
   /* notify subscribers */
   if (self->subscribed)
@@ -580,7 +478,7 @@ impl_set_param (void *object, uint32_t id, uint32_t flags,
 
   /* notify controls locally */
   for (guint i = 0; i < changed_ids->len; i++) {
-    guint32 prop_id = g_array_index (changed_ids, guint32, i);
+    const gchar * prop_id = g_ptr_array_index (changed_ids, i);
     g_signal_emit (self, signals[SIGNAL_CONTROL_CHANGED], 0, prop_id);
   }
 

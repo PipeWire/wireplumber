@@ -87,14 +87,15 @@ wp_endpoint_link_get_properties (WpProxy * proxy)
 
 static gint
 wp_endpoint_link_enum_params (WpProxy * self, guint32 id, guint32 start,
-    guint32 num, const struct spa_pod *filter)
+    guint32 num, const WpSpaPod * filter)
 {
   WpEndpointLinkPrivate *priv =
       wp_endpoint_link_get_instance_private (WP_ENDPOINT_LINK (self));
   int endpoint_link_enum_params_result;
 
   endpoint_link_enum_params_result =
-      pw_endpoint_link_enum_params (priv->iface, 0, id, start, num, filter);
+      pw_endpoint_link_enum_params (priv->iface, 0, id, start, num,
+      wp_spa_pod_get_spa_pod (filter));
   g_warn_if_fail (endpoint_link_enum_params_result >= 0);
 
   return endpoint_link_enum_params_result;
@@ -116,14 +117,15 @@ wp_endpoint_link_subscribe_params (WpProxy * self, guint32 n_ids, guint32 *ids)
 
 static gint
 wp_endpoint_link_set_param (WpProxy * self, guint32 id, guint32 flags,
-    const struct spa_pod *param)
+    const WpSpaPod *param)
 {
   WpEndpointLinkPrivate *priv =
       wp_endpoint_link_get_instance_private (WP_ENDPOINT_LINK (self));
   int endpoint_link_set_param_result;
 
   endpoint_link_set_param_result =
-      pw_endpoint_link_set_param (priv->iface, id, flags, param);
+      pw_endpoint_link_set_param (priv->iface, id, flags,
+          wp_spa_pod_get_spa_pod (param));
   g_warn_if_fail (endpoint_link_set_param_result >= 0);
 
   return endpoint_link_set_param_result;

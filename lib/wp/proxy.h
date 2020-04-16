@@ -12,12 +12,12 @@
 
 #include <gio/gio.h>
 
+#include "spa-pod.h"
 #include "properties.h"
 
 G_BEGIN_DECLS
 
 struct pw_proxy;
-struct spa_pod;
 typedef struct _WpCore WpCore;
 
 /**
@@ -79,18 +79,18 @@ struct _WpProxyClass
   WpProperties * (*get_properties) (WpProxy * self);
 
   gint (*enum_params) (WpProxy * self, guint32 id, guint32 start, guint32 num,
-      const struct spa_pod * filter);
+      const WpSpaPod * filter);
   gint (*subscribe_params) (WpProxy * self, guint32 n_ids, guint32 *ids);
   gint (*set_param) (WpProxy * self, guint32 id, guint32 flags,
-      const struct spa_pod * param);
+      const WpSpaPod * param);
 
   /* signals */
 
   void (*pw_proxy_created) (WpProxy * self, struct pw_proxy * proxy);
   void (*pw_proxy_destroyed) (WpProxy * self);
   void (*bound) (WpProxy * self, guint32 id);
-  void (*param) (WpProxy * self, gint seq, guint32 id, guint32 index,
-      guint32 next, const struct spa_pod *param);
+  void (*param) (WpProxy * self, gint seq, const gchar * id_name, guint32 index,
+      guint32 next, const WpSpaPod *param);
 };
 
 /* features API */
@@ -142,11 +142,11 @@ guint32 wp_proxy_get_bound_id (WpProxy * self);
 
 WP_API
 gint wp_proxy_enum_params (WpProxy * self, guint32 id, guint32 start,
-    guint32 num, const struct spa_pod *filter);
+    guint32 num, const WpSpaPod * filter);
 
 WP_API
 void wp_proxy_enum_params_collect (WpProxy * self,
-    guint32 id, guint32 start, guint32 num, const struct spa_pod *filter,
+    guint32 id, guint32 start, guint32 num, const WpSpaPod *filter,
     GCancellable * cancellable, GAsyncReadyCallback callback,
     gpointer user_data);
 
@@ -163,7 +163,7 @@ gint wp_proxy_subscribe_params_array (WpProxy * self, guint32 n_ids,
 
 WP_API
 gint wp_proxy_set_param (WpProxy * self, guint32 id, guint32 flags,
-    const struct spa_pod *param);
+    const WpSpaPod *param);
 
 G_END_DECLS
 

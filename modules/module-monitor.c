@@ -362,14 +362,11 @@ device_created (GObject * proxy, GAsyncResult * res, gpointer user_data)
 
   if (data->flags & FLAG_ACTIVATE_DEVICES &&
       !(data->flags & FLAG_DBUS_RESERVATION)) {
-    char buf[1024];
-    struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buf, sizeof(buf));
-
-    wp_proxy_set_param (WP_PROXY (proxy),
-        SPA_PARAM_Profile, 0,
-        spa_pod_builder_add_object (&b,
-            SPA_TYPE_OBJECT_ParamProfile, 0,
-            SPA_PARAM_PROFILE_index, SPA_POD_Int (1)));
+    g_autoptr (WpSpaPod) profile = wp_spa_pod_new_object (
+      "Profile", "Profile",
+      "index", "i", 1,
+      NULL);
+    wp_proxy_set_param (WP_PROXY (proxy), SPA_PARAM_Profile, 0, profile);
   }
 }
 

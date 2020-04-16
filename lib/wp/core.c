@@ -274,6 +274,7 @@ wp_core_class_init (WpCoreClass * klass)
   GObjectClass *object_class = (GObjectClass *) klass;
 
   pw_init (NULL, NULL);
+  wp_spa_type_init (TRUE);
 
   object_class->constructed = wp_core_constructed;
   object_class->dispose = wp_core_dispose;
