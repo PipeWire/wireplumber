@@ -72,7 +72,7 @@ typedef enum {
  *   transition of wp_session_item_activate()
  * @execute_step: Implements #WpTransitionClass.execute_step() for the
  *   transition of wp_session_item_activate()
- * @deactivate: See wp_session_item_deactivate()
+ * @rollback:
  * @export: See wp_session_item_export()
  * @export_finish: See wp_session_item_export_finish()
  * @unexport: See wp_session_item_unexport()
@@ -92,7 +92,7 @@ struct _WpSessionItemClass
       guint step);
   void (*execute_step) (WpSessionItem * self, WpTransition * transition,
       guint step);
-  void (*deactivate) (WpSessionItem * self);
+  void (*rollback) (WpSessionItem * self);
 
   void (*export) (WpSessionItem * self,
       WpSession * session, GCancellable * cancellable,

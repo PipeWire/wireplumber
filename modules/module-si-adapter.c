@@ -70,14 +70,12 @@ si_adapter_reset (WpSessionItem * item)
 }
 
 static void
-si_adapter_deactivate (WpSessionItem * item)
+si_adapter_rollback (WpSessionItem * item)
 {
   WpSiAdapter *self = WP_SI_ADAPTER (item);
 
   g_clear_object (&self->ports_om);
   wp_session_item_clear_flag (item, WP_SI_FLAG_CONFIGURED);
-
-  WP_SESSION_ITEM_CLASS (si_adapter_parent_class)->deactivate (item);
 }
 
 static gpointer
@@ -354,9 +352,7 @@ si_adapter_execute_step (WpSessionItem * item, WpTransition * transition,
       break;
     }
     default:
-      WP_SESSION_ITEM_CLASS (si_adapter_parent_class)->execute_step (item,
-          transition, step);
-      break;
+      g_return_if_reached ();
   }
 }
 
@@ -371,7 +367,7 @@ si_adapter_class_init (WpSiAdapterClass * klass)
   si_class->get_configuration = si_adapter_get_configuration;
   si_class->get_next_step = si_adapter_get_next_step;
   si_class->execute_step = si_adapter_execute_step;
-  si_class->deactivate = si_adapter_deactivate;
+  si_class->rollback = si_adapter_rollback;
 }
 
 static guint

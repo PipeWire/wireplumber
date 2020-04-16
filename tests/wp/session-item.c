@@ -111,29 +111,19 @@ si_dummy_execute_step (WpSessionItem * item, WpTransition * transition,
       wp_transition_advance (transition);
       break;
 
-    case WP_TRANSITION_STEP_ERROR:
-      self->cleaned_up = TRUE;
-      self->step_1_done = FALSE;
-      self->step_2_done = FALSE;
-      WP_SESSION_ITEM_CLASS (si_dummy_parent_class)->execute_step (item,
-          transition, step);
-      break;
-
     default:
       g_assert_not_reached ();
   }
 }
 
 static void
-si_dummy_deactivate (WpSessionItem * item)
+si_dummy_rollback (WpSessionItem * item)
 {
   TestSiDummy *self = TEST_SI_DUMMY (item);
 
-  self->cleaned_up = FALSE;
+  self->cleaned_up = TRUE;
   self->step_1_done = FALSE;
   self->step_2_done = FALSE;
-
-  WP_SESSION_ITEM_CLASS (si_dummy_parent_class)->deactivate (item);
 }
 
 static void
@@ -145,7 +135,7 @@ si_dummy_class_init (TestSiDummyClass * klass)
   si_class->get_configuration = si_dummy_get_configuration;
   si_class->get_next_step = si_dummy_get_next_step;
   si_class->execute_step = si_dummy_execute_step;
-  si_class->deactivate = si_dummy_deactivate;
+  si_class->rollback = si_dummy_rollback;
 }
 
 static void
@@ -256,7 +246,7 @@ test_activation (void)
   g_assert_cmpint (signalled_flags, ==, 0);
   g_assert_false (dummy->step_1_done);
   g_assert_false (dummy->step_2_done);
-  g_assert_false (dummy->cleaned_up);
+  g_assert_true (dummy->cleaned_up);
 }
 
 
@@ -314,6 +304,7 @@ test_activation_error (void)
   g_assert_false (dummy->step_2_done);
   g_assert_true (dummy->cleaned_up);
 
+  dummy->cleaned_up = FALSE;
   wp_session_item_deactivate (item);
 
   g_assert_cmpint (wp_session_item_get_flags (item), ==, WP_SI_FLAG_CONFIGURED);

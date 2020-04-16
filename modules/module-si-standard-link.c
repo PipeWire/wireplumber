@@ -374,14 +374,12 @@ si_standard_link_execute_step (WpSessionItem * item, WpTransition * transition,
     break;
   }
   default:
-    WP_SESSION_ITEM_CLASS (si_standard_link_parent_class)->execute_step (
-          item, transition, step);
-      break;
+    g_return_if_reached ();
   }
 }
 
 static void
-si_standard_link_deactivate (WpSessionItem * item)
+si_standard_link_rollback (WpSessionItem * item)
 {
   WpSiStandardLink *self = WP_SI_STANDARD_LINK (item);
   WpSiEndpoint *out_endpoint, *in_endpoint;
@@ -402,8 +400,6 @@ si_standard_link_deactivate (WpSessionItem * item)
   }
 
   g_clear_pointer (&self->node_links, g_ptr_array_unref);
-
-  WP_SESSION_ITEM_CLASS (si_standard_link_parent_class)->deactivate (item);
 }
 
 static void
@@ -416,7 +412,7 @@ si_standard_link_class_init (WpSiStandardLinkClass * klass)
   si_class->get_configuration = si_standard_link_get_configuration;
   si_class->get_next_step = si_standard_link_get_next_step;
   si_class->execute_step = si_standard_link_execute_step;
-  si_class->deactivate = si_standard_link_deactivate;
+  si_class->rollback = si_standard_link_rollback;
 }
 
 static GVariant *
