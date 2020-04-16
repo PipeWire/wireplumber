@@ -69,15 +69,6 @@ si_adapter_reset (WpSessionItem * item)
   g_clear_object (&self->node);
 }
 
-static void
-si_adapter_rollback (WpSessionItem * item)
-{
-  WpSiAdapter *self = WP_SI_ADAPTER (item);
-
-  g_clear_object (&self->ports_om);
-  wp_session_item_clear_flag (item, WP_SI_FLAG_CONFIGURED);
-}
-
 static gpointer
 si_adapter_get_associated_proxy (WpSessionItem * item, GType proxy_type)
 {
@@ -186,7 +177,7 @@ si_adapter_configure (WpSessionItem * item, GVariant * args)
 }
 
 static guint
-si_adapter_get_next_step (WpSessionItem * item,
+si_adapter_activate_get_next_step (WpSessionItem * item,
      WpTransition * transition, guint step)
 {
   switch (step) {
@@ -270,8 +261,8 @@ on_ports_changed (WpObjectManager *om, WpTransition * transition)
 }
 
 static void
-si_adapter_execute_step (WpSessionItem * item, WpTransition * transition,
-    guint step)
+si_adapter_activate_execute_step (WpSessionItem * item,
+    WpTransition * transition, guint step)
 {
   WpSiAdapter *self = WP_SI_ADAPTER (item);
 
@@ -357,6 +348,15 @@ si_adapter_execute_step (WpSessionItem * item, WpTransition * transition,
 }
 
 static void
+si_adapter_activate_rollback (WpSessionItem * item)
+{
+  WpSiAdapter *self = WP_SI_ADAPTER (item);
+
+  g_clear_object (&self->ports_om);
+  wp_session_item_clear_flag (item, WP_SI_FLAG_CONFIGURED);
+}
+
+static void
 si_adapter_class_init (WpSiAdapterClass * klass)
 {
   WpSessionItemClass *si_class = (WpSessionItemClass *) klass;
@@ -365,9 +365,9 @@ si_adapter_class_init (WpSiAdapterClass * klass)
   si_class->get_associated_proxy = si_adapter_get_associated_proxy;
   si_class->configure = si_adapter_configure;
   si_class->get_configuration = si_adapter_get_configuration;
-  si_class->get_next_step = si_adapter_get_next_step;
-  si_class->execute_step = si_adapter_execute_step;
-  si_class->rollback = si_adapter_rollback;
+  si_class->activate_get_next_step = si_adapter_activate_get_next_step;
+  si_class->activate_execute_step = si_adapter_activate_execute_step;
+  si_class->activate_rollback = si_adapter_activate_rollback;
 }
 
 static guint

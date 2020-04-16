@@ -28,29 +28,41 @@ G_DECLARE_DERIVABLE_TYPE (WpSessionItem, wp_session_item,
  * WpSiFlags:
  * @WP_SI_FLAG_ACTIVATING: set when an activation transition is in progress
  * @WP_SI_FLAG_ACTIVE: set when an activation transition completes successfully
- * @WP_SI_FLAG_IN_ERROR: set when there was an error in the activation process;
- *   to recover, the handler must call wp_session_item_reset() before anything
- *   else
- * @WP_SI_FLAG_CONFIGURED: must be set by subclasses when all the required
- *   (%WP_SI_CONFIG_OPTION_REQUIRED) configuration options have been set
+ * @WP_SI_FLAG_ACTIVATE_ERROR: set when there was an error in the activation
+ *   process; to clear, call wp_session_item_deactivate()
  * @WP_SI_FLAG_EXPORTING: set when an export operation is in progress
  * @WP_SI_FLAG_EXPORTED: set when the item has exported all necessary objects
  *   to PipeWire
+ * @WP_SI_FLAG_EXPORT_ERROR: set when there was an error in the export
+ *   process; to clear, call wp_session_item_unexport()
+ * @WP_SI_FLAG_CONFIGURED: must be set by subclasses when all the required
+ *   (%WP_SI_CONFIG_OPTION_REQUIRED) configuration options have been set
  */
 typedef enum {
   /* immutable flags, set internally */
   WP_SI_FLAG_ACTIVATING = (1<<0),
   WP_SI_FLAG_ACTIVE = (1<<1),
-  WP_SI_FLAG_IN_ERROR = (1<<4),
+  WP_SI_FLAG_ACTIVATE_ERROR = (1<<2),
+
+  WP_SI_FLAG_EXPORTING = (1<<4),
+  WP_SI_FLAG_EXPORTED = (1<<5),
+  WP_SI_FLAG_EXPORT_ERROR = (1<<6),
 
   /* flags that can be changed by subclasses */
   WP_SI_FLAG_CONFIGURED = (1<<8),
-  WP_SI_FLAG_EXPORTING = (1<<9),
-  WP_SI_FLAG_EXPORTED = (1<<10),
 
   /* implementation-specific flags */
   WP_SI_FLAG_CUSTOM_START = (1<<16),
 } WpSiFlags;
+
+/**
+ * WP_SI_FLAGS_MASK_OPERATION_IN_PROGRESS:
+ *
+ * A #WpSiFlags mask that can be used to test if an async operation
+ * (activate or export) is currently in progress.
+ */
+#define WP_SI_FLAGS_MASK_OPERATION_IN_PROGRESS \
+    (WP_SI_FLAG_ACTIVATING | WP_SI_FLAG_EXPORTING)
 
 /**
  * WpSiConfigOptionFlags:
@@ -68,14 +80,18 @@ typedef enum {
  * @get_associated_proxy: See wp_session_item_get_associated_proxy()
  * @configure: See wp_session_item_configure()
  * @get_configuration: See wp_session_item_get_configuration()
- * @get_next_step: Implements #WpTransitionClass.get_next_step() for the
- *   transition of wp_session_item_activate()
- * @execute_step: Implements #WpTransitionClass.execute_step() for the
- *   transition of wp_session_item_activate()
- * @rollback:
- * @export: See wp_session_item_export()
- * @export_finish: See wp_session_item_export_finish()
- * @unexport: See wp_session_item_unexport()
+ * @activate_get_next_step: Implements #WpTransitionClass.get_next_step()
+ *   for the transition of wp_session_item_activate()
+ * @activate_execute_step: Implements #WpTransitionClass.execute_step()
+ *   for the transition of wp_session_item_activate()
+ * @activate_rollback: Reverses any effects of the activation process;
+ *   see wp_session_item_activate()
+ * @export_get_next_step: Implements #WpTransitionClass.get_next_step()
+ *   for the transition of wp_session_item_export()
+ * @export_execute_step: Implements #WpTransitionClass.execute_step()
+ *   for the transition of wp_session_item_export()
+ * @export_rollback: Reverses any effects of the export process;
+ *   see wp_session_item_export()
  */
 struct _WpSessionItemClass
 {
@@ -88,18 +104,17 @@ struct _WpSessionItemClass
   gboolean (*configure) (WpSessionItem * self, GVariant * args);
   GVariant * (*get_configuration) (WpSessionItem * self);
 
-  guint (*get_next_step) (WpSessionItem * self, WpTransition * transition,
-      guint step);
-  void (*execute_step) (WpSessionItem * self, WpTransition * transition,
-      guint step);
-  void (*rollback) (WpSessionItem * self);
+  guint (*activate_get_next_step) (WpSessionItem * self,
+      WpTransition * transition, guint step);
+  void (*activate_execute_step) (WpSessionItem * self,
+      WpTransition * transition, guint step);
+  void (*activate_rollback) (WpSessionItem * self);
 
-  void (*export) (WpSessionItem * self,
-      WpSession * session, GCancellable * cancellable,
-      GAsyncReadyCallback callback, gpointer callback_data);
-  gboolean (*export_finish) (WpSessionItem * self, GAsyncResult * res,
-      GError ** error);
-  void (*unexport) (WpSessionItem * self);
+  guint (*export_get_next_step) (WpSessionItem * self,
+      WpTransition * transition, guint step);
+  void (*export_execute_step) (WpSessionItem * self,
+      WpTransition * transition, guint step);
+  void (*export_rollback) (WpSessionItem * self);
 };
 
 WP_API

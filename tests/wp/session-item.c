@@ -58,7 +58,7 @@ si_dummy_configure (WpSessionItem * item, GVariant * args)
 }
 
 static guint
-si_dummy_get_next_step (WpSessionItem * item,
+si_dummy_activate_get_next_step (WpSessionItem * item,
      WpTransition * transition, guint step)
 {
   switch (step) {
@@ -94,7 +94,7 @@ si_dummy_step_1 (gpointer data)
 }
 
 static void
-si_dummy_execute_step (WpSessionItem * item, WpTransition * transition,
+si_dummy_activate_execute_step (WpSessionItem * item, WpTransition * transition,
     guint step)
 {
   TestSiDummy *self = TEST_SI_DUMMY (item);
@@ -117,7 +117,7 @@ si_dummy_execute_step (WpSessionItem * item, WpTransition * transition,
 }
 
 static void
-si_dummy_rollback (WpSessionItem * item)
+si_dummy_activate_rollback (WpSessionItem * item)
 {
   TestSiDummy *self = TEST_SI_DUMMY (item);
 
@@ -133,9 +133,9 @@ si_dummy_class_init (TestSiDummyClass * klass)
 
   si_class->configure = si_dummy_configure;
   si_class->get_configuration = si_dummy_get_configuration;
-  si_class->get_next_step = si_dummy_get_next_step;
-  si_class->execute_step = si_dummy_execute_step;
-  si_class->rollback = si_dummy_rollback;
+  si_class->activate_get_next_step = si_dummy_activate_get_next_step;
+  si_class->activate_execute_step = si_dummy_activate_execute_step;
+  si_class->activate_rollback = si_dummy_activate_rollback;
 }
 
 static void
@@ -159,11 +159,13 @@ test_flags (void)
   g_assert_cmpint (wp_session_item_get_flags (item), ==, WP_SI_FLAG_CUSTOM_START);
   g_assert_cmpint (signalled_flags, ==, WP_SI_FLAG_CUSTOM_START);
 
-  /* internal flag, cannot be set */
-  signalled_flags = 0;
-  wp_session_item_set_flag (item, WP_SI_FLAG_ACTIVATING);
-  g_assert_cmpint (wp_session_item_get_flags (item), ==, WP_SI_FLAG_CUSTOM_START);
-  g_assert_cmpint (signalled_flags, ==, 0);
+  /* internal flags cannot be set */
+  for (gint i = 0; i < 8; i++) {
+    signalled_flags = 0;
+    wp_session_item_set_flag (item, 1 << i);
+    g_assert_cmpint (wp_session_item_get_flags (item), ==, WP_SI_FLAG_CUSTOM_START);
+    g_assert_cmpint (signalled_flags, ==, 0);
+  }
 
   signalled_flags = WP_SI_FLAG_CUSTOM_START;
   wp_session_item_clear_flag (item, WP_SI_FLAG_CUSTOM_START);
@@ -297,13 +299,15 @@ test_activation_error (void)
   g_main_loop_run (loop);
 
   g_assert_cmpint (wp_session_item_get_flags (item), ==,
-      WP_SI_FLAG_CONFIGURED | WP_SI_FLAG_IN_ERROR);
+      WP_SI_FLAG_ACTIVATE_ERROR | WP_SI_FLAG_CONFIGURED);
   g_assert_cmpint (signalled_flags, ==,
-      WP_SI_FLAG_CONFIGURED | WP_SI_FLAG_IN_ERROR);
+      WP_SI_FLAG_ACTIVATE_ERROR | WP_SI_FLAG_CONFIGURED);
   g_assert_false (dummy->step_1_done);
   g_assert_false (dummy->step_2_done);
   g_assert_true (dummy->cleaned_up);
 
+  /* deactivate should not call activate_rollback,
+     it should only clear the error flag */
   dummy->cleaned_up = FALSE;
   wp_session_item_deactivate (item);
 

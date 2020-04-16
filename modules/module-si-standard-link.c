@@ -143,7 +143,7 @@ si_standard_link_configure (WpSessionItem * item, GVariant * args)
 }
 
 static guint
-si_standard_link_get_next_step (WpSessionItem * item,
+si_standard_link_activate_get_next_step (WpSessionItem * item,
      WpTransition * transition, guint step)
 {
   WpSiStandardLink *self = wp_transition_get_source_object (transition);
@@ -320,8 +320,8 @@ create_links (WpSiStandardLink * self, GVariant * out_ports, GVariant * in_ports
 }
 
 static void
-si_standard_link_execute_step (WpSessionItem * item, WpTransition * transition,
-    guint step)
+si_standard_link_activate_execute_step (WpSessionItem * item,
+    WpTransition * transition, guint step)
 {
   WpSiStandardLink *self = WP_SI_STANDARD_LINK (item);
 
@@ -379,7 +379,7 @@ si_standard_link_execute_step (WpSessionItem * item, WpTransition * transition,
 }
 
 static void
-si_standard_link_rollback (WpSessionItem * item)
+si_standard_link_activate_rollback (WpSessionItem * item)
 {
   WpSiStandardLink *self = WP_SI_STANDARD_LINK (item);
   WpSiEndpoint *out_endpoint, *in_endpoint;
@@ -410,9 +410,9 @@ si_standard_link_class_init (WpSiStandardLinkClass * klass)
   si_class->reset = si_standard_link_reset;
   si_class->configure = si_standard_link_configure;
   si_class->get_configuration = si_standard_link_get_configuration;
-  si_class->get_next_step = si_standard_link_get_next_step;
-  si_class->execute_step = si_standard_link_execute_step;
-  si_class->rollback = si_standard_link_rollback;
+  si_class->activate_get_next_step = si_standard_link_activate_get_next_step;
+  si_class->activate_execute_step = si_standard_link_activate_execute_step;
+  si_class->activate_rollback = si_standard_link_activate_rollback;
 }
 
 static GVariant *

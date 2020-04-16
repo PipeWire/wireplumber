@@ -383,7 +383,6 @@ impl_request_state (void *object, enum pw_endpoint_link_state state)
 
   switch (state) {
   case PW_ENDPOINT_LINK_STATE_ACTIVE:
-    wp_session_item_deactivate (WP_SESSION_ITEM (self->item));
     wp_session_item_activate (WP_SESSION_ITEM (self->item),
         (GAsyncReadyCallback) on_item_activated, self);
     break;
@@ -440,7 +439,7 @@ on_si_link_flags_changed (WpSiLink * item, WpSiFlags flags,
 {
   enum pw_endpoint_link_state old_state = self->info.state;
 
-  if (flags & WP_SI_FLAG_IN_ERROR)
+  if (flags & WP_SI_FLAG_EXPORT_ERROR)
     self->info.state = PW_ENDPOINT_LINK_STATE_ERROR;
   else if (flags & WP_SI_FLAG_ACTIVE)
     self->info.state = PW_ENDPOINT_LINK_STATE_ACTIVE;
