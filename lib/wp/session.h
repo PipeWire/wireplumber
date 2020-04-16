@@ -17,9 +17,6 @@ G_BEGIN_DECLS
 
 /**
  * WpSessionFeatures:
- * @WP_SESSION_FEATURE_DEFAULT_ENDPOINT: enables the use of
- *   wp_session_get_default_endpoint() and wp_session_set_default_endpoint()
- *   to store default endpoint preferences on the session
  * @WP_SESSION_FEATURE_ENDPOINTS: caches information about endpoints, enabling
  *   the use of wp_session_get_n_endpoints(), wp_session_find_endpoint() and
  *   wp_session_iterate_endpoints()
@@ -30,8 +27,7 @@ G_BEGIN_DECLS
  * An extension of #WpProxyFeatures
  */
 typedef enum { /*< flags >*/
-  WP_SESSION_FEATURE_DEFAULT_ENDPOINT = WP_PROXY_FEATURE_LAST,
-  WP_SESSION_FEATURE_ENDPOINTS,
+  WP_SESSION_FEATURE_ENDPOINTS = WP_PROXY_FEATURE_LAST,
   WP_SESSION_FEATURE_LINKS,
 } WpSessionFeatures;
 
@@ -43,7 +39,7 @@ typedef enum { /*< flags >*/
  */
 #define WP_SESSION_FEATURES_STANDARD \
     (WP_PROXY_FEATURES_STANDARD | \
-     WP_SESSION_FEATURE_DEFAULT_ENDPOINT | \
+     WP_PROXY_FEATURE_CONTROLS | \
      WP_SESSION_FEATURE_ENDPOINTS | \
      WP_SESSION_FEATURE_LINKS)
 
@@ -60,17 +56,17 @@ struct _WpSessionClass
 {
   WpProxyClass parent_class;
 
-  guint32 (*get_default_endpoint) (WpSession * self, const gchar * type_name);
-  void (*set_default_endpoint) (WpSession * self, const gchar * type_name,
+  guint32 (*get_default_endpoint) (WpSession * self, const gchar * id_name);
+  void (*set_default_endpoint) (WpSession * self, const gchar * id_name,
       guint32 id);
 };
 
 WP_API
 guint32 wp_session_get_default_endpoint (WpSession * self,
-    const gchar * type_name);
+    const gchar * id_name);
 
 WP_API
-void wp_session_set_default_endpoint (WpSession * self, const gchar * type_name,
+void wp_session_set_default_endpoint (WpSession * self, const gchar * id_name,
     guint32 id);
 
 WP_API

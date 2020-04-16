@@ -119,6 +119,8 @@ void wp_proxy_augment_error (WpProxy * self, GError * error);
 void wp_proxy_handle_event_param (void * proxy, int seq, uint32_t id,
     uint32_t index, uint32_t next, const struct spa_pod *param);
 
+WpSpaProps *wp_proxy_get_spa_props (WpProxy * self);
+
 /* iterator */
 
 struct _WpIteratorMethods {

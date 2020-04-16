@@ -47,6 +47,9 @@ struct _WpProxyPrivate
   GPtrArray *augment_tasks; // element-type: GTask*
 
   GHashTable *async_tasks; // <int seq, GTask*>
+
+  /* controls */
+  WpSpaProps controls;
 };
 
 enum {
@@ -68,6 +71,7 @@ enum
   SIGNAL_PW_PROXY_DESTROYED,
   SIGNAL_BOUND,
   SIGNAL_PARAM,
+  SIGNAL_CONTROL_CHANGED,
   LAST_SIGNAL,
 };
 
@@ -202,6 +206,7 @@ wp_proxy_finalize (GObject * object)
   g_clear_pointer (&priv->global, wp_global_unref);
   g_weak_ref_clear (&priv->core);
   g_clear_pointer (&priv->async_tasks, g_hash_table_unref);
+  wp_spa_props_clear (&priv->controls);
 
   G_OBJECT_CLASS (wp_proxy_parent_class)->finalize (object);
 }
@@ -294,6 +299,54 @@ wp_proxy_default_augment (WpProxy * self, WpProxyFeatures features)
 }
 
 static void
+wp_proxy_default_param (WpProxy * self, gint seq, const gchar * id_name,
+    guint32 index, guint32 next, const WpSpaPod *param)
+{
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  g_autoptr (GPtrArray) changed_ids = NULL;
+  const gchar * prop_id;
+
+  if (g_strcmp0 ("PropInfo", id_name) == 0) {
+    wp_spa_props_register_from_prop_info (&priv->controls, param);
+  }
+
+  else if (g_strcmp0 ("Props", id_name) == 0) {
+    changed_ids = g_ptr_array_new_with_free_func (g_free);
+    wp_spa_props_store_from_props (&priv->controls, param, changed_ids);
+
+    for (guint i = 0; i < changed_ids->len; i++) {
+      prop_id = g_ptr_array_index (changed_ids, i);
+      g_signal_emit (self, wp_proxy_signals[SIGNAL_CONTROL_CHANGED], 0, prop_id);
+    }
+
+    wp_proxy_set_feature_ready (self, WP_PROXY_FEATURE_CONTROLS);
+  }
+}
+
+static WpSpaPod *
+wp_proxy_default_get_control (WpProxy * self, const gchar * id_name)
+{
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  return wp_spa_props_get_stored (&priv->controls, id_name);
+}
+
+static gboolean
+wp_proxy_default_set_control (WpProxy * self, const gchar * id_name,
+    const WpSpaPod * value)
+{
+  g_return_val_if_fail (WP_PROXY_GET_CLASS (self)->set_param, FALSE);
+
+  g_autoptr (WpSpaPod) param = wp_spa_pod_new_object (
+      "Props", "Props",
+      id_name, "P", value,
+      NULL);
+
+  /* our spa_props will be updated by the param event */
+  return WP_PROXY_GET_CLASS (self)->set_param (self, SPA_PARAM_Props, 0,
+      param) >= 0;
+}
+
+static void
 wp_proxy_class_init (WpProxyClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
@@ -304,6 +357,9 @@ wp_proxy_class_init (WpProxyClass * klass)
   object_class->set_property = wp_proxy_set_property;
 
   klass->augment = wp_proxy_default_augment;
+  klass->param = wp_proxy_default_param;
+  klass->get_control = wp_proxy_default_get_control;
+  klass->set_control = wp_proxy_default_set_control;
 
   /* Install the properties */
 
@@ -369,6 +425,11 @@ wp_proxy_class_init (WpProxyClass * klass)
       "param", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
       G_STRUCT_OFFSET (WpProxyClass, param), NULL, NULL, NULL, G_TYPE_NONE, 5,
       G_TYPE_INT, G_TYPE_STRING, G_TYPE_UINT, G_TYPE_UINT, WP_TYPE_SPA_POD);
+
+  wp_proxy_signals[SIGNAL_CONTROL_CHANGED] = g_signal_new (
+      "control-changed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
+      G_STRUCT_OFFSET (WpProxyClass, control_changed), NULL, NULL, NULL,
+      G_TYPE_NONE, 1, G_TYPE_STRING);
 }
 
 void
@@ -859,6 +920,41 @@ wp_proxy_set_param (WpProxy * self, guint32 id, guint32 flags,
       -ENOTSUP;
 }
 
+/**
+ * wp_proxy_get_control:
+ * @self: the proxy
+ * @id_name: the control id name
+ *
+ * Returns: (transfer full) (nullable): the spa pod containing the value
+ *   of this control, or %NULL if @control_id does not exist on this proxy
+ */
+WpSpaPod *
+wp_proxy_get_control (WpProxy * self, const gchar * id_name)
+{
+  g_return_val_if_fail (WP_IS_PROXY (self), NULL);
+  g_return_val_if_fail (WP_PROXY_GET_CLASS (self)->get_control, NULL);
+
+  return WP_PROXY_GET_CLASS (self)->get_control (self, id_name);
+}
+
+/**
+ * wp_proxy_set_control:
+ * @self: the proxy
+ * @id_name: the control id name
+ * @value: the new value for this control, as a spa pod
+ *
+ * Returns: %TRUE on success, %FALSE if an error occurred
+ */
+gboolean
+wp_proxy_set_control (WpProxy * self, const gchar * id_name,
+    const WpSpaPod * value)
+{
+  g_return_val_if_fail (WP_IS_PROXY (self), FALSE);
+  g_return_val_if_fail (WP_PROXY_GET_CLASS (self)->set_control, FALSE);
+
+  return WP_PROXY_GET_CLASS (self)->set_control (self, id_name, value);
+}
+
 void
 wp_proxy_handle_event_param (void * proxy, int seq, uint32_t id,
     uint32_t index, uint32_t next, const struct spa_pod *param)
@@ -881,4 +977,11 @@ wp_proxy_handle_event_param (void * proxy, int seq, uint32_t id,
     GPtrArray *array = g_task_get_task_data (task);
     g_ptr_array_add (array, g_steal_pointer (&pod));
   }
+}
+
+WpSpaProps *
+wp_proxy_get_spa_props (WpProxy * self)
+{
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  return &priv->controls;
 }

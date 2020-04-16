@@ -34,6 +34,7 @@ typedef enum { /*< flags >*/
   WP_PROXY_FEATURE_PW_PROXY     = (1 << 0),
   WP_PROXY_FEATURE_INFO         = (1 << 1),
   WP_PROXY_FEATURE_BOUND        = (1 << 2),
+  WP_PROXY_FEATURE_CONTROLS     = (1 << 3),
 
   WP_PROXY_FEATURE_LAST         = (1 << 5), /*< skip >*/
 } WpProxyFeatures;
@@ -83,6 +84,9 @@ struct _WpProxyClass
   gint (*subscribe_params) (WpProxy * self, guint32 n_ids, guint32 *ids);
   gint (*set_param) (WpProxy * self, guint32 id, guint32 flags,
       const WpSpaPod * param);
+  WpSpaPod * (*get_control) (WpProxy * self, const gchar * id_name);
+  gboolean (*set_control) (WpProxy * self, const gchar * id_name,
+      const WpSpaPod * value);
 
   /* signals */
 
@@ -91,6 +95,7 @@ struct _WpProxyClass
   void (*bound) (WpProxy * self, guint32 id);
   void (*param) (WpProxy * self, gint seq, const gchar * id_name, guint32 index,
       guint32 next, const WpSpaPod *param);
+  void (*control_changed) (WpProxy * self, const char * id_name);
 };
 
 /* features API */
@@ -164,6 +169,13 @@ gint wp_proxy_subscribe_params_array (WpProxy * self, guint32 n_ids,
 WP_API
 gint wp_proxy_set_param (WpProxy * self, guint32 id, guint32 flags,
     const WpSpaPod *param);
+
+WP_API
+WpSpaPod * wp_proxy_get_control (WpProxy * self, const gchar * id_name);
+
+WP_API
+gboolean wp_proxy_set_control (WpProxy * self, const gchar * id_name,
+    const WpSpaPod * value);
 
 G_END_DECLS
 

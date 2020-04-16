@@ -47,9 +47,9 @@ print_dev_endpoint (WpEndpoint *ep, WpSession *session, const gchar *type_name)
   gfloat volume = 0.0;
   gboolean mute = FALSE;
 
-  ctrl = wp_endpoint_get_control (ep, "volume");
+  ctrl = wp_proxy_get_control (WP_PROXY (ep), "volume");
   wp_spa_pod_get_float (ctrl, &volume);
-  ctrl = wp_endpoint_get_control (ep, "mute");
+  ctrl = wp_proxy_get_control (WP_PROXY (ep), "mute");
   wp_spa_pod_get_boolean (ctrl, &mute);
 
   g_print (" %c %4u. %60s\tvol: %.2f %s\n", is_default ? '*' : ' ', id,
@@ -189,7 +189,7 @@ set_volume (WpObjectManager * om, struct WpCliData * d)
 
     if (id == d->params.set_volume.id) {
       g_autoptr (WpSpaPod) vol = wp_spa_pod_new_float (d->params.set_volume.volume);
-      wp_endpoint_set_control (ep, "volume", vol);
+      wp_proxy_set_control (WP_PROXY (ep), "volume", vol);
       wp_core_sync (d->core, NULL, (GAsyncReadyCallback) async_quit, d);
       return;
     }
@@ -305,10 +305,10 @@ main (gint argc, gchar **argv)
   if (argc == 2 && !g_strcmp0 (argv[1], "ls-endpoints")) {
     wp_object_manager_add_interest (om, WP_TYPE_ENDPOINT,
         NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND |
-        WP_ENDPOINT_FEATURE_CONTROLS);
+        WP_PROXY_FEATURE_CONTROLS);
     wp_object_manager_add_interest (om, WP_TYPE_SESSION,
         NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND |
-        WP_SESSION_FEATURE_DEFAULT_ENDPOINT);
+        WP_PROXY_FEATURE_CONTROLS);
     g_signal_connect (om, "objects-changed", (GCallback) list_endpoints, &data);
   }
 
@@ -323,7 +323,7 @@ main (gint argc, gchar **argv)
         NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND);
     wp_object_manager_add_interest (om, WP_TYPE_SESSION,
         NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND |
-        WP_SESSION_FEATURE_DEFAULT_ENDPOINT);
+        WP_PROXY_FEATURE_CONTROLS);
 
     data.params.set_default.id = id;
     g_signal_connect (om, "objects-changed", (GCallback) set_default, &data);
@@ -339,7 +339,7 @@ main (gint argc, gchar **argv)
 
     wp_object_manager_add_interest (om, WP_TYPE_ENDPOINT,
         NULL, WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND |
-        WP_ENDPOINT_FEATURE_CONTROLS);
+        WP_PROXY_FEATURE_CONTROLS);
 
     data.params.set_volume.id = id;
     data.params.set_volume.volume = volume;

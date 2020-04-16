@@ -282,7 +282,8 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
       WP_PROXY_FEATURE_PW_PROXY |
       WP_PROXY_FEATURE_INFO |
       WP_PROXY_FEATURE_BOUND |
-      WP_SESSION_FEATURE_DEFAULT_ENDPOINT);
+      WP_PROXY_FEATURE_CONTROLS |
+      WP_SESSION_FEATURE_ENDPOINTS);
 
   g_assert_cmpuint (wp_proxy_get_bound_id (fixture->proxy_session), ==,
       wp_proxy_get_bound_id (WP_PROXY (session)));

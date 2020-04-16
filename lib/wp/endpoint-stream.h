@@ -15,19 +15,6 @@
 G_BEGIN_DECLS
 
 /**
- * WpEndpointStreamFeatures:
- * @WP_ENDPOINT_STREAM_FEATURE_CONTROLS: enables the use of the
- *   wp_endpoint_stream_get_control() and wp_endpoint_stream_set_control()
- *   families of functions to be able to work with endpoint-stream-specific
- *   controls
- *
- * An extension of #WpProxyFeatures
- */
-typedef enum { /*< flags >*/
-  WP_ENDPOINT_STREAM_FEATURE_CONTROLS = WP_PROXY_FEATURE_LAST,
-} WpEndpointStreamFeatures;
-
-/**
  * WP_TYPE_ENDPOINT_STREAM:
  *
  * The #WpEndpointStream #GType
@@ -42,22 +29,10 @@ struct _WpEndpointStreamClass
   WpProxyClass parent_class;
 
   const gchar * (*get_name) (WpEndpointStream * self);
-
-  WpSpaPod * (*get_control) (WpEndpointStream * self, const gchar * id_name);
-  gboolean (*set_control) (WpEndpointStream * self, const gchar * id_name,
-      const WpSpaPod * value);
 };
 
 WP_API
 const gchar * wp_endpoint_stream_get_name (WpEndpointStream * self);
-
-WP_API
-WpSpaPod * wp_endpoint_stream_get_control (WpEndpointStream * self,
-    const gchar *id_name);
-
-WP_API
-gboolean wp_endpoint_stream_set_control (WpEndpointStream * self,
-    const gchar *id_name, const WpSpaPod * value);
 
 G_END_DECLS
 

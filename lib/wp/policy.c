@@ -131,7 +131,7 @@ wp_policy_manager_get_instance (WpCore *core)
     /* install the object manager to listen to changed sessions */
     wp_object_manager_add_interest (mgr->sessions_om,
         WP_TYPE_IMPL_SESSION, NULL,
-        WP_PROXY_FEATURES_STANDARD | WP_SESSION_FEATURE_DEFAULT_ENDPOINT);
+        WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_CONTROLS);
     wp_core_install_object_manager (core, mgr->sessions_om);
 
     wp_registry_register_object (wp_core_get_registry (core),

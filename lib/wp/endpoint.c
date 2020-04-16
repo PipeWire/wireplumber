@@ -35,12 +35,6 @@
 #include <spa/pod/parser.h>
 #include <spa/pod/filter.h>
 
-enum {
-  SIGNAL_CONTROL_CHANGED,
-  N_SIGNALS,
-};
-
-static guint32 signals[N_SIGNALS] = {0};
 
 /* WpEndpoint */
 
@@ -48,7 +42,6 @@ typedef struct _WpEndpointPrivate WpEndpointPrivate;
 struct _WpEndpointPrivate
 {
   WpProperties *properties;
-  WpSpaProps spa_props;
   struct pw_endpoint_info *info;
   struct pw_endpoint *iface;
   struct spa_hook listener;
@@ -71,7 +64,6 @@ wp_endpoint_finalize (GObject * object)
   g_clear_object (&priv->streams_om);
   g_clear_pointer (&priv->properties, wp_properties_unref);
   g_clear_pointer (&priv->info, pw_endpoint_info_free);
-  wp_spa_props_clear (&priv->spa_props);
 
   G_OBJECT_CLASS (wp_endpoint_parent_class)->finalize (object);
 }
@@ -125,7 +117,7 @@ wp_endpoint_augment (WpProxy * proxy, WpProxyFeatures features)
   /* call the parent impl first to ensure we have a pw proxy if necessary */
   WP_PROXY_CLASS (wp_endpoint_parent_class)->augment (proxy, features);
 
-  if (features & WP_ENDPOINT_FEATURE_CONTROLS) {
+  if (features & WP_PROXY_FEATURE_CONTROLS) {
     struct pw_endpoint *pw_proxy = NULL;
     uint32_t ids[] = { SPA_PARAM_Props };
 
@@ -261,33 +253,6 @@ wp_endpoint_bound (WpProxy * proxy, guint32 id)
     wp_endpoint_enable_feature_streams (self, id);
 }
 
-static void
-wp_endpoint_param (WpProxy * proxy, gint seq, const gchar * id_name,
-    guint32 index, guint32 next, const WpSpaPod *param)
-{
-  WpEndpoint *self = WP_ENDPOINT (proxy);
-  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
-  g_autoptr (GPtrArray) changed_ids = NULL;
-  const gchar * prop_id;
-
-  if (g_strcmp0 ("PropInfo", id_name) == 0) {
-    wp_spa_props_register_from_prop_info (&priv->spa_props, param);
-  }
-
-  else if (g_strcmp0 ("Props", id_name) == 0) {
-    changed_ids = g_ptr_array_new_with_free_func (g_free);
-    wp_spa_props_store_from_props (&priv->spa_props, param, changed_ids);
-
-    for (guint i = 0; i < changed_ids->len; i++) {
-      prop_id = g_ptr_array_index (changed_ids, i);
-      g_signal_emit (self, signals[SIGNAL_CONTROL_CHANGED], 0, prop_id);
-    }
-
-    wp_proxy_set_feature_ready (WP_PROXY (self),
-        WP_ENDPOINT_FEATURE_CONTROLS);
-  }
-}
-
 static const gchar *
 get_name (WpEndpoint * self)
 {
@@ -307,29 +272,6 @@ get_direction (WpEndpoint * self)
 {
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
   return priv->info->direction;
-}
-
-static WpSpaPod *
-get_control (WpEndpoint * self, const gchar * id_name)
-{
-  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
-  return wp_spa_props_get_stored (&priv->spa_props, id_name);
-}
-
-static gboolean
-set_control (WpEndpoint * self, const gchar * id_name, const WpSpaPod * pod)
-{
-  g_autoptr (WpSpaPod) param = wp_spa_pod_new_object (
-      "Props", "Props",
-      id_name, "P", pod,
-      NULL);
-
-  /* our spa_props will be updated by the param event */
-
-  WP_PROXY_GET_CLASS (self)->set_param (WP_PROXY (self), SPA_PARAM_Props, 0,
-      param);
-
-  return TRUE;
 }
 
 static void
@@ -352,24 +294,10 @@ wp_endpoint_class_init (WpEndpointClass * klass)
 
   proxy_class->pw_proxy_created = wp_endpoint_pw_proxy_created;
   proxy_class->bound = wp_endpoint_bound;
-  proxy_class->param = wp_endpoint_param;
 
   klass->get_name = get_name;
   klass->get_media_class = get_media_class;
   klass->get_direction = get_direction;
-  klass->get_control = get_control;
-  klass->set_control = set_control;
-
-  /**
-   * WpEndpoint::control-changed:
-   * @self: the endpoint
-   * @control: the control that changed (a #WpEndpointControl)
-   *
-   * Emitted when an endpoint control changes value
-   */
-  signals[SIGNAL_CONTROL_CHANGED] = g_signal_new (
-      "control-changed", G_TYPE_FROM_CLASS (klass),
-      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_STRING);
 }
 
 /**
@@ -415,41 +343,6 @@ wp_endpoint_get_direction (WpEndpoint * self)
   g_return_val_if_fail (WP_ENDPOINT_GET_CLASS (self)->get_direction, 0);
 
   return WP_ENDPOINT_GET_CLASS (self)->get_direction (self);
-}
-
-/**
- * wp_endpoint_get_control:
- * @self: the endpoint
- * @id_name: the control id name
- *
- * Returns: (transfer full) (nullable): the spa pod containing the value
- *   of this control, or %NULL if @control_id does not exist on this endpoint
- */
-WpSpaPod *
-wp_endpoint_get_control (WpEndpoint * self, const gchar * id_name)
-{
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
-  g_return_val_if_fail (WP_ENDPOINT_GET_CLASS (self)->get_control, NULL);
-
-  return WP_ENDPOINT_GET_CLASS (self)->get_control (self, id_name);
-}
-
-/**
- * wp_endpoint_set_control:
- * @self: the endpoint
- * @id_name: the control id name
- * @value: the new value for this control, as a `spa_pod`
- *
- * Returns: %TRUE on success, %FALSE if an error occurred
- */
-gboolean
-wp_endpoint_set_control (WpEndpoint * self, const gchar * id_name,
-    const WpSpaPod * value)
-{
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), FALSE);
-  g_return_val_if_fail (WP_ENDPOINT_GET_CLASS (self)->set_control, FALSE);
-
-  return WP_ENDPOINT_GET_CLASS (self)->set_control (self, id_name, value);
 }
 
 /**
@@ -565,17 +458,15 @@ impl_enum_params (void *object, int seq,
     const struct spa_pod *filter)
 {
   WpImplEndpoint *self = WP_IMPL_ENDPOINT (object);
-  WpEndpointPrivate *priv =
-      wp_endpoint_get_instance_private (WP_ENDPOINT (self));
   char buf[1024];
   struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buf, sizeof (buf));
   struct spa_pod *result;
   guint count = 0;
+  WpSpaProps *controls = wp_proxy_get_spa_props (WP_PROXY (self));
 
   switch (id) {
     case SPA_PARAM_PropInfo: {
-      g_autoptr (GPtrArray) params =
-          wp_spa_props_build_propinfo (&priv->spa_props);
+      g_autoptr (GPtrArray) params = wp_spa_props_build_propinfo (controls);
 
       for (guint i = start; i < params->len; i++) {
         WpSpaPod *pod = g_ptr_array_index (params, i);
@@ -592,7 +483,7 @@ impl_enum_params (void *object, int seq,
     }
     case SPA_PARAM_Props: {
       if (start == 0) {
-        g_autoptr (WpSpaPod) pod = wp_spa_props_build_props (&priv->spa_props);
+        g_autoptr (WpSpaPod) pod = wp_spa_props_build_props (controls);
         const struct spa_pod *param = wp_spa_pod_get_spa_pod (pod);
         if (spa_pod_filter (&b, &result, param, filter) == 0) {
           pw_endpoint_emit_param (&self->hooks, seq, id, 0, 1, result);
@@ -626,16 +517,15 @@ impl_set_param (void *object, uint32_t id, uint32_t flags,
     const struct spa_pod *param)
 {
   WpImplEndpoint *self = WP_IMPL_ENDPOINT (object);
-  WpEndpointPrivate *priv =
-      wp_endpoint_get_instance_private (WP_ENDPOINT (self));
   g_autoptr (GPtrArray) changed_ids = NULL;
+  WpSpaProps *controls = wp_proxy_get_spa_props (WP_PROXY (self));
 
   if (id != SPA_PARAM_Props)
     return -ENOENT;
 
   changed_ids = g_ptr_array_new_with_free_func (g_free);
   g_autoptr (WpSpaPod) pod = wp_spa_pod_new_regular_wrap_copy (param);
-  wp_spa_props_store_from_props (&priv->spa_props, pod, changed_ids);
+  wp_spa_props_store_from_props (controls, pod, changed_ids);
 
   /* notify subscribers */
   if (self->subscribed)
@@ -644,7 +534,8 @@ impl_set_param (void *object, uint32_t id, uint32_t flags,
   /* notify controls locally */
   for (guint i = 0; i < changed_ids->len; i++) {
     const gchar * prop_id = g_ptr_array_index (changed_ids, i);
-    g_signal_emit (self, signals[SIGNAL_CONTROL_CHANGED], 0, prop_id);
+    WP_PROXY_GET_CLASS (WP_PROXY (self))->control_changed (WP_PROXY (self),
+        prop_id);
   }
 
   return 0;
@@ -874,7 +765,7 @@ wp_impl_endpoint_init (WpImplEndpoint * self)
 
   priv->iface = (struct pw_endpoint *) &self->iface;
 
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_ENDPOINT_FEATURE_CONTROLS);
+  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_CONTROLS);
 }
 
 static void

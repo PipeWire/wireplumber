@@ -30,9 +30,6 @@ typedef enum {
 
 /**
  * WpEndpointFeatures:
- * @WP_ENDPOINT_FEATURE_CONTROLS: enables the use of the
- *   wp_endpoint_get_control() and wp_endpoint_set_control() families of
- *   functions to be able to work with endpoint-specific controls
  * @WP_ENDPOINT_FEATURE_STREAMS: caches information about streams, enabling
  *   the use of wp_endpoint_get_n_streams(), wp_endpoint_find_stream() and
  *   wp_endpoint_iterate_streams()
@@ -40,8 +37,7 @@ typedef enum {
  * An extension of #WpProxyFeatures
  */
 typedef enum { /*< flags >*/
-  WP_ENDPOINT_FEATURE_CONTROLS = WP_PROXY_FEATURE_LAST,
-  WP_ENDPOINT_FEATURE_STREAMS,
+  WP_ENDPOINT_FEATURE_STREAMS = WP_PROXY_FEATURE_LAST,
 } WpEndpointFeatures;
 
 /**
@@ -52,7 +48,7 @@ typedef enum { /*< flags >*/
  */
 #define WP_ENDPOINT_FEATURES_STANDARD \
     (WP_PROXY_FEATURES_STANDARD | \
-     WP_ENDPOINT_FEATURE_CONTROLS | \
+     WP_PROXY_FEATURE_CONTROLS | \
      WP_ENDPOINT_FEATURE_STREAMS)
 
 /**
@@ -71,10 +67,6 @@ struct _WpEndpointClass
   const gchar * (*get_name) (WpEndpoint * self);
   const gchar * (*get_media_class) (WpEndpoint * self);
   WpDirection (*get_direction) (WpEndpoint * self);
-
-  WpSpaPod * (*get_control) (WpEndpoint * self, const gchar * id_name);
-  gboolean (*set_control) (WpEndpoint * self, const gchar * id_name,
-      const WpSpaPod * value);
 };
 
 WP_API
@@ -85,13 +77,6 @@ const gchar * wp_endpoint_get_media_class (WpEndpoint * self);
 
 WP_API
 WpDirection wp_endpoint_get_direction (WpEndpoint * self);
-
-WP_API
-WpSpaPod * wp_endpoint_get_control (WpEndpoint * self, const gchar * id_name);
-
-WP_API
-gboolean wp_endpoint_set_control (WpEndpoint * self, const gchar * id_name,
-    const WpSpaPod * value);
 
 WP_API
 guint wp_endpoint_get_n_streams (WpEndpoint * self);
