@@ -84,7 +84,7 @@ struct _WpSpaPodParser
 {
   guint32 type;
   struct spa_pod_parser parser;
-  WpSpaPod *pod;
+  const WpSpaPod *pod;
   struct spa_pod_frame frame;
   WpSpaTypeTable prop_table;  /* Only used when parsing properties */
 };
@@ -160,14 +160,11 @@ wp_spa_pod_unref (WpSpaPod *self)
     wp_spa_pod_free (self);
 }
 
-WpSpaPod *
-wp_spa_pod_new_regular_wrap (struct spa_pod *pod)
+static WpSpaPod *
+wp_spa_pod_new (const struct spa_pod *pod)
 {
   WpSpaPod *self = g_slice_new0 (WpSpaPod);
   g_ref_count_init (&self->ref);
-  self->flags = FLAG_NO_OWNERSHIP;
-  self->type = WP_SPA_POD_REGULAR;
-  self->pod = pod;
 
   /* Set the prop table if it is an object */
   if (pod->type == SPA_TYPE_Object) {
@@ -181,14 +178,21 @@ wp_spa_pod_new_regular_wrap (struct spa_pod *pod)
 }
 
 WpSpaPod *
+wp_spa_pod_new_regular_wrap (struct spa_pod *pod)
+{
+  WpSpaPod *self = wp_spa_pod_new (pod);
+  self->flags = FLAG_NO_OWNERSHIP;
+  self->type = WP_SPA_POD_REGULAR;
+  self->pod = pod;
+  return self;
+}
+
+WpSpaPod *
 wp_spa_pod_new_property_wrap (WpSpaTypeTable table, guint32 key, guint32 flags,
     struct spa_pod *pod)
 {
-  WpSpaPod *self = g_slice_new0 (WpSpaPod);
-  g_ref_count_init (&self->ref);
-  self->flags = FLAG_NO_OWNERSHIP;
+  WpSpaPod *self = wp_spa_pod_new_regular_wrap (pod);
   self->type = WP_SPA_POD_PROPERTY;
-  self->pod = pod;
   self->static_pod.data_property.table = table;
   self->static_pod.data_property.key = key;
   self->static_pod.data_property.flags = flags;
@@ -198,11 +202,8 @@ wp_spa_pod_new_property_wrap (WpSpaTypeTable table, guint32 key, guint32 flags,
 WpSpaPod *
 wp_spa_pod_new_control_wrap (guint32 offset, guint32 type, struct spa_pod *pod)
 {
-  WpSpaPod *self = g_slice_new0 (WpSpaPod);
-  g_ref_count_init (&self->ref);
-  self->flags = FLAG_NO_OWNERSHIP;
+  WpSpaPod *self = wp_spa_pod_new_regular_wrap (pod);
   self->type = WP_SPA_POD_CONTROL;
-  self->pod = pod;
   self->static_pod.data_control.offset = offset;
   self->static_pod.data_control.type = type;
   return self;
@@ -211,22 +212,13 @@ wp_spa_pod_new_control_wrap (guint32 offset, guint32 type, struct spa_pod *pod)
 WpSpaPod *
 wp_spa_pod_new_regular_wrap_copy (const struct spa_pod *pod)
 {
-  WpSpaPod *self = g_slice_new0 (WpSpaPod);
-  g_ref_count_init (&self->ref);
+  WpSpaPod *self = wp_spa_pod_new (pod);
+  self->flags = 0;
   self->type = WP_SPA_POD_REGULAR;
   self->builder = wp_spa_pod_builder_new (
       SPA_ROUND_UP_N (sizeof (*pod) + pod->size, 8), pod->type);
   self->pod = self->builder->builder.data;
   spa_pod_builder_primitive (&self->builder->builder, pod);
-
-  /* Set the prop table if it is an object */
-  if (pod->type == SPA_TYPE_Object) {
-    WpSpaTypeTable prop_table = 0;
-    wp_spa_type_get_by_id (WP_SPA_TYPE_TABLE_BASIC,
-        ((struct spa_pod_object *) pod)->body.type, NULL, NULL, &prop_table);
-    self->static_pod.data_property.table = prop_table;
-  }
-
   return self;
 }
 
@@ -253,8 +245,8 @@ wp_spa_pod_new_control_wrap_copy (guint32 offset, guint32 type,
   return self;
 }
 
-struct spa_pod *
-wp_spa_pod_get_spa_pod (WpSpaPod *self)
+const struct spa_pod *
+wp_spa_pod_get_spa_pod (const WpSpaPod *self)
 {
   return self->pod;
 }
@@ -273,6 +265,30 @@ wp_spa_pod_get_type_name (const WpSpaPod *self)
   const char *nick = NULL;
   if (!wp_spa_type_get_by_id (WP_SPA_TYPE_TABLE_BASIC, SPA_POD_TYPE (self->pod),
       NULL, &nick, NULL))
+    g_return_val_if_reached (NULL);
+  return nick;
+}
+
+const char *
+wp_spa_pod_get_choice_type_name (const WpSpaPod *self)
+{
+  g_return_val_if_fail (wp_spa_pod_is_choice (self), NULL);
+
+  const char *nick = NULL;
+  if (!wp_spa_type_get_by_id (WP_SPA_TYPE_TABLE_CHOICE,
+      SPA_POD_CHOICE_TYPE (self->pod), NULL, &nick, NULL))
+    g_return_val_if_reached (NULL);
+  return nick;
+}
+
+const char *
+wp_spa_pod_get_object_type_name (const WpSpaPod *self)
+{
+  g_return_val_if_fail (wp_spa_pod_is_object (self), NULL);
+
+  const char *nick = NULL;
+  if (!wp_spa_type_get_by_id (WP_SPA_TYPE_TABLE_BASIC,
+      SPA_POD_OBJECT_TYPE (self->pod), NULL, &nick, NULL))
     g_return_val_if_reached (NULL);
   return nick;
 }
@@ -1621,7 +1637,7 @@ wp_spa_pod_equal (const WpSpaPod *self, const WpSpaPod *pod)
  * Returns: TRUE if the object properties values were obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_get_object (WpSpaPod *self, const char *type_name,
+wp_spa_pod_get_object (const WpSpaPod *self, const char *type_name,
     const char **id_name, ...)
 {
   va_list args;
@@ -1644,7 +1660,7 @@ wp_spa_pod_get_object (WpSpaPod *self, const char *type_name,
  * Returns: TRUE if the object properties values were obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_get_object_valist (WpSpaPod *self, const char *type_name,
+wp_spa_pod_get_object_valist (const WpSpaPod *self, const char *type_name,
     const char **id_name, va_list args)
 {
   g_return_val_if_fail (self, FALSE);
@@ -1666,7 +1682,7 @@ wp_spa_pod_get_object_valist (WpSpaPod *self, const char *type_name,
  * Returns: TRUE if the struct values were obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_get_struct (WpSpaPod *self, ...)
+wp_spa_pod_get_struct (const WpSpaPod *self, ...)
 {
   va_list args;
   gboolean res;
@@ -1686,7 +1702,7 @@ wp_spa_pod_get_struct (WpSpaPod *self, ...)
  * Returns: TRUE if the struct values were obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_get_struct_valist (WpSpaPod *self, va_list args)
+wp_spa_pod_get_struct_valist (const WpSpaPod *self, va_list args)
 {
   g_return_val_if_fail (self, FALSE);
   g_return_val_if_fail (wp_spa_pod_is_struct (self), FALSE);
@@ -2298,7 +2314,7 @@ wp_spa_pod_parser_ref (WpSpaPodParser *self)
 static void
 wp_spa_pod_parser_free (WpSpaPodParser *self)
 {
-  g_clear_pointer (&self->pod, wp_spa_pod_unref);
+  self->pod = NULL;
 }
 
 /**
@@ -2315,11 +2331,11 @@ wp_spa_pod_parser_unref (WpSpaPodParser *self)
 }
 
 static WpSpaPodParser *
-wp_spa_pod_parser_new (WpSpaPod *pod, guint32 type)
+wp_spa_pod_parser_new (const WpSpaPod *pod, guint32 type)
 {
   WpSpaPodParser *self = g_rc_box_new0 (WpSpaPodParser);
   self->type = type;
-  self->pod = wp_spa_pod_ref (pod);
+  self->pod = pod;
   spa_pod_parser_pod (&self->parser, self->pod->pod);
   return self;
 }
@@ -2330,12 +2346,13 @@ wp_spa_pod_parser_new (WpSpaPod *pod, guint32 type)
  * @type_name: the type name of the object type
  * @id_name: the Id name of the object
  *
- * Creates an object spa pod parser
+ * Creates an object spa pod parser. The @pod object must be valid for the
+ * entire life-cycle of the returned parser.
  *
  * Returns: (transfer full): The new spa pod parser
  */
 WpSpaPodParser *
-wp_spa_pod_parser_new_object (WpSpaPod *pod, const char *type_name,
+wp_spa_pod_parser_new_object (const WpSpaPod *pod, const char *type_name,
     const char **id_name)
 {
   WpSpaPodParser *self = NULL;
@@ -2358,12 +2375,13 @@ wp_spa_pod_parser_new_object (WpSpaPod *pod, const char *type_name,
  * wp_spa_pod_parser_new_struct:
  * @pod: the struct spa pod to parse
  *
- * Creates an struct spa pod parser
+ * Creates an struct spa pod parser. The @pod object must be valid for the
+ * entire life-cycle of the returned parser.
  *
  * Returns: (transfer full): The new spa pod parser
  */
 WpSpaPodParser *
-wp_spa_pod_parser_new_struct (WpSpaPod *pod)
+wp_spa_pod_parser_new_struct (const WpSpaPod *pod)
 {
   WpSpaPodParser *self = NULL;
 
@@ -2725,7 +2743,7 @@ wp_spa_pod_parser_end (WpSpaPodParser *self)
 
 struct _WpSpaPodIterator
 {
-  WpSpaPod *pod;
+  const WpSpaPod *pod;
   union {
     gpointer value;                   /* Array and Choice */
     struct spa_pod *pod;              /* Struct */
@@ -2738,7 +2756,8 @@ typedef struct _WpSpaPodIterator WpSpaPodIterator;
 static gboolean
 wp_spa_pod_iterator_next_choice (WpSpaPodIterator *self, GValue *item)
 {
-  struct spa_pod_choice *pod_choice = (struct spa_pod_choice *) self->pod->pod;
+  const struct spa_pod_choice *pod_choice =
+      (const struct spa_pod_choice *) self->pod->pod;
 
   if (!self->curr.value)
     self->curr.value = SPA_MEMBER (&pod_choice->body, sizeof(struct spa_pod_choice_body), void);
@@ -2758,7 +2777,8 @@ wp_spa_pod_iterator_next_choice (WpSpaPodIterator *self, GValue *item)
 static gboolean
 wp_spa_pod_iterator_next_array (WpSpaPodIterator *self, GValue *item)
 {
-  struct spa_pod_array *pod_arr = (struct spa_pod_array *) self->pod->pod;
+  const struct spa_pod_array *pod_arr =
+      (const struct spa_pod_array *) self->pod->pod;
 
   if (!self->curr.value)
     self->curr.value = SPA_MEMBER (&pod_arr->body, sizeof(struct spa_pod_array_body), void);
@@ -2778,7 +2798,8 @@ wp_spa_pod_iterator_next_array (WpSpaPodIterator *self, GValue *item)
 static gboolean
 wp_spa_pod_iterator_next_object (WpSpaPodIterator *self, GValue *item)
 {
-  struct spa_pod_object *pod_obj = (struct spa_pod_object *) self->pod->pod;
+  const struct spa_pod_object *pod_obj =
+      (const struct spa_pod_object *) self->pod->pod;
   g_autoptr (WpSpaPod) pod = NULL;
 
   if (!self->curr.prop)
@@ -2821,7 +2842,8 @@ wp_spa_pod_iterator_next_struct (WpSpaPodIterator *self, GValue *item)
 static gboolean
 wp_spa_pod_iterator_next_sequence (WpSpaPodIterator *self, GValue *item)
 {
-  struct spa_pod_sequence *pod_seq = (struct spa_pod_sequence *) self->pod->pod;
+  const struct spa_pod_sequence *pod_seq =
+      (const struct spa_pod_sequence *) self->pod->pod;
   g_autoptr (WpSpaPod) pod = NULL;
 
   if (!self->curr.control)
@@ -2887,7 +2909,8 @@ wp_spa_pod_iterator_fold (WpIterator *iterator, WpIteratorFoldFunc func,
   switch (self->pod->pod->type) {
   case SPA_TYPE_Choice:
   {
-    struct spa_pod_choice *pod_choice = (struct spa_pod_choice *) self->pod->pod;
+    const struct spa_pod_choice *pod_choice =
+        (const struct spa_pod_choice *) self->pod->pod;
     gpointer p = NULL;
     SPA_POD_CHOICE_FOREACH (pod_choice, p) {
       GValue v = G_VALUE_INIT;
@@ -2902,7 +2925,8 @@ wp_spa_pod_iterator_fold (WpIterator *iterator, WpIteratorFoldFunc func,
   }
   case SPA_TYPE_Array:
   {
-    struct spa_pod_array *pod_arr = (struct spa_pod_array *) self->pod->pod;
+    const struct spa_pod_array *pod_arr =
+        (const struct spa_pod_array *) self->pod->pod;
     gpointer p = NULL;
     SPA_POD_ARRAY_FOREACH (pod_arr, p) {
       GValue v = G_VALUE_INIT;
@@ -2917,7 +2941,8 @@ wp_spa_pod_iterator_fold (WpIterator *iterator, WpIteratorFoldFunc func,
   }
   case SPA_TYPE_Object:
   {
-    struct spa_pod_object *pod_obj = (struct spa_pod_object *) self->pod->pod;
+    const struct spa_pod_object *pod_obj =
+        (const struct spa_pod_object *) self->pod->pod;
     struct spa_pod_prop *p = NULL;
     SPA_POD_OBJECT_FOREACH (pod_obj, p) {
       GValue v = G_VALUE_INIT;
@@ -2948,7 +2973,8 @@ wp_spa_pod_iterator_fold (WpIterator *iterator, WpIteratorFoldFunc func,
   }
   case SPA_TYPE_Sequence:
   {
-    struct spa_pod_sequence *pod_seq = (struct spa_pod_sequence *) self->pod->pod;
+    const struct spa_pod_sequence *pod_seq =
+        (const struct spa_pod_sequence *) self->pod->pod;
     struct spa_pod_control *p = NULL;
     SPA_POD_SEQUENCE_FOREACH (pod_seq, p) {
       GValue v = G_VALUE_INIT;
@@ -2973,19 +2999,20 @@ static void
 wp_spa_pod_iterator_finalize (WpIterator *iterator)
 {
   WpSpaPodIterator *self = wp_iterator_get_user_data (iterator);
-  g_clear_pointer (&self->pod, wp_spa_pod_unref);
+  self->pod = NULL;
 }
 
 /**
  * wp_spa_pod_iterator_new:
  * @pod: a spa pod object
  *
- * Creates a new iterator for a spa pod object
+ * Creates a new iterator for a spa pod object. The @pod object must be valid
+ * for the entire life-cycle of the returned iterator.
  *
  * Returns: (transfer full): the new spa pod iterator
  */
 WpIterator *
-wp_spa_pod_iterator_new (WpSpaPod *pod)
+wp_spa_pod_iterator_new (const WpSpaPod *pod)
 {
   static const WpIteratorMethods methods = {
     .reset = wp_spa_pod_iterator_reset,
@@ -2997,7 +3024,7 @@ wp_spa_pod_iterator_new (WpSpaPod *pod)
   WpIterator *it = wp_iterator_new (&methods, sizeof (WpSpaPodIterator));
   WpSpaPodIterator *self = wp_iterator_get_user_data (it);
 
-  self->pod = wp_spa_pod_ref (pod);
+  self->pod = pod;
 
   return it;
 }

@@ -37,6 +37,12 @@ WP_API
 const char *wp_spa_pod_get_type_name (const WpSpaPod *self);
 
 WP_API
+const char *wp_spa_pod_get_choice_type_name (const WpSpaPod *self);
+
+WP_API
+const char *wp_spa_pod_get_object_type_name (const WpSpaPod *self);
+
+WP_API
 WpSpaPod *wp_spa_pod_copy (const WpSpaPod *other);
 
 WP_API
@@ -244,19 +250,19 @@ WP_API
 gboolean wp_spa_pod_equal (const WpSpaPod *self, const WpSpaPod *pod);
 
 WP_API
-gboolean wp_spa_pod_get_object (WpSpaPod *self, const char *type_name,
+gboolean wp_spa_pod_get_object (const WpSpaPod *self, const char *type_name,
     const char **id_name, ...) G_GNUC_NULL_TERMINATED;
 
 WP_API
-gboolean wp_spa_pod_get_object_valist (WpSpaPod *self,
+gboolean wp_spa_pod_get_object_valist (const WpSpaPod *self,
     const char *type_name, const char **id_name, va_list args);
 
 WP_API
-gboolean wp_spa_pod_get_struct (WpSpaPod *self, ...)
+gboolean wp_spa_pod_get_struct (const WpSpaPod *self, ...)
     G_GNUC_NULL_TERMINATED;
 
 WP_API
-gboolean wp_spa_pod_get_struct_valist (WpSpaPod *self, va_list args);
+gboolean wp_spa_pod_get_struct_valist (const WpSpaPod *self, va_list args);
 
 WP_API
 gboolean wp_spa_pod_get_property (const WpSpaPod *self, const char **key,
@@ -391,11 +397,11 @@ WP_API
 void wp_spa_pod_parser_unref (WpSpaPodParser *self);
 
 WP_API
-WpSpaPodParser *wp_spa_pod_parser_new_object (WpSpaPod *pod,
+WpSpaPodParser *wp_spa_pod_parser_new_object (const WpSpaPod *pod,
     const char *type_name, const char **id_name);
 
 WP_API
-WpSpaPodParser *wp_spa_pod_parser_new_struct (WpSpaPod *pod);
+WpSpaPodParser *wp_spa_pod_parser_new_struct (const WpSpaPod *pod);
 
 WP_API
 gboolean wp_spa_pod_parser_get_boolean (WpSpaPodParser *self, gboolean *value);
@@ -455,7 +461,7 @@ G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpSpaPodParser, wp_spa_pod_parser_unref)
 
 
 WP_API
-WpIterator *wp_spa_pod_iterator_new (WpSpaPod *pod);
+WpIterator *wp_spa_pod_iterator_new (const WpSpaPod *pod);
 
 G_END_DECLS
 

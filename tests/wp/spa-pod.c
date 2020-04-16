@@ -307,6 +307,7 @@ test_spa_pod_choice (void)
     g_assert_nonnull (pod);
     g_assert_true (wp_spa_pod_is_choice (pod));
     g_assert_cmpstr ("Choice", ==, wp_spa_pod_get_type_name (pod));
+    g_assert_cmpstr ("Enum", ==, wp_spa_pod_get_choice_type_name (pod));
 
     g_autoptr (WpSpaPod) child = wp_spa_pod_get_choice_child (pod);
     g_assert_nonnull (child);
@@ -424,6 +425,7 @@ test_spa_pod_object (void)
     g_assert_nonnull (pod);
     g_assert_true (wp_spa_pod_is_object (pod));
     g_assert_cmpstr ("Object", ==, wp_spa_pod_get_type_name (pod));
+    g_assert_cmpstr ("Props", ==, wp_spa_pod_get_object_type_name (pod));
 
     const char *id_name;
     gboolean mute = TRUE;
@@ -1026,6 +1028,46 @@ test_spa_pod_unique_owner (void)
   wp_spa_type_deinit ();
 }
 
+static void
+test_spa_pod_port_config (void)
+{
+  wp_spa_type_init (TRUE);
+
+  const gint rate = 48000;
+  const gint channels = 2;
+
+  /* Build the format to make sure the types exist */
+  g_autoptr (WpSpaPodBuilder) builder = wp_spa_pod_builder_new_object (
+     "Format", "Format");
+  wp_spa_pod_builder_add (builder,
+     "mediaType",    "I", 0,
+     "mediaSubtype", "I", 0,
+     "format",       "I", 0,
+     "rate",         "i", rate,
+     "channels",     "i", channels,
+     NULL);
+  g_autoptr (WpSpaPodBuilder) position_builder = wp_spa_pod_builder_new_array ();
+  for (guint i = 0; i < channels; i++)
+    wp_spa_pod_builder_add_id (position_builder, 0);
+  wp_spa_pod_builder_add_property (builder, "position");
+  g_autoptr (WpSpaPod) position = wp_spa_pod_builder_end (position_builder);
+  wp_spa_pod_builder_add_pod (builder, position);
+  g_autoptr (WpSpaPod) format = wp_spa_pod_builder_end (builder);
+  g_assert_nonnull (format);
+
+  /* Build the port config to make sure the types exist */
+  g_autoptr (WpSpaPod) pod = wp_spa_pod_new_object ("PortConfig",  "PortConfig",
+      "direction",  "I", 0,
+      "mode",       "I", 0,
+      "monitor",    "b", FALSE,
+      "control",    "b", FALSE,
+      "format",     "P", format,
+      NULL);
+  g_assert_nonnull (pod);
+
+  wp_spa_type_deinit ();
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -1040,6 +1082,7 @@ main (int argc, char *argv[])
   g_test_add_func ("/wp/spa-pod/sequence", test_spa_pod_sequence);
   g_test_add_func ("/wp/spa-pod/iterator", test_spa_pod_iterator);
   g_test_add_func ("/wp/spa-pod/unique-owner", test_spa_pod_unique_owner);
+  g_test_add_func ("/wp/spa-pod/port-config", test_spa_pod_port_config);
 
   return g_test_run ();
 }
