@@ -354,7 +354,7 @@ si_adapter_execute_step (WpSessionItem * item, WpTransition * transition,
       break;
     }
     default:
-      WP_SESSION_ITEM_GET_CLASS (si_adapter_parent_class)->execute_step (item,
+      WP_SESSION_ITEM_CLASS (si_adapter_parent_class)->execute_step (item,
           transition, step);
       break;
   }

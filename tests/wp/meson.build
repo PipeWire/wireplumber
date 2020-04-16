@@ -36,6 +36,13 @@ test(
 )
 
 test(
+  'test-session-item',
+  executable('test-session-item', 'session-item.c',
+      dependencies: common_deps, c_args: common_args),
+  env: common_env,
+)
+
+test(
   'test-spa-pod',
   executable('test-spa-pod', 'spa-pod.c',
       dependencies: common_deps, c_args: common_args),

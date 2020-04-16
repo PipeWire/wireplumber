@@ -178,9 +178,7 @@ wp_session_item_default_execute_step (WpSessionItem * self,
 {
   switch (step) {
   case WP_TRANSITION_STEP_NONE:
-    break;
   case WP_TRANSITION_STEP_ERROR:
-    wp_session_item_reset (self);
     break;
   default:
     g_return_if_reached ();
@@ -578,7 +576,7 @@ wp_session_item_configure (WpSessionItem * self, GVariant * args)
   g_return_val_if_fail (WP_IS_SESSION_ITEM (self), FALSE);
   g_return_val_if_fail (WP_SESSION_ITEM_GET_CLASS (self)->configure,
       FALSE);
-  g_return_val_if_fail (g_variant_is_of_type (args, G_VARIANT_TYPE ("a{sv}")),
+  g_return_val_if_fail (g_variant_is_of_type (args, G_VARIANT_TYPE_VARDICT),
       FALSE);
 
   return WP_SESSION_ITEM_GET_CLASS (self)->configure (self, args);

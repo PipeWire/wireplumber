@@ -374,7 +374,7 @@ si_standard_link_execute_step (WpSessionItem * item, WpTransition * transition,
     break;
   }
   default:
-    WP_SESSION_ITEM_GET_CLASS (si_standard_link_parent_class)->execute_step (
+    WP_SESSION_ITEM_CLASS (si_standard_link_parent_class)->execute_step (
           item, transition, step);
       break;
   }
