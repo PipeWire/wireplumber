@@ -84,12 +84,15 @@ struct spa_type_table_data {
 };
 
 static struct spa_type_table_data s_tables [WP_SPA_TYPE_TABLE_LAST] = {
-  [WP_SPA_TYPE_TABLE_BASIC]     = {spa_types, SPA_TYPE_VENDOR_Other, NULL, NULL, NULL },
-  [WP_SPA_TYPE_TABLE_PARAM]     = {spa_type_param, SPA_N_ELEMENTS (spa_type_param), NULL, NULL, NULL, },
-  [WP_SPA_TYPE_TABLE_PROPS]     = {spa_type_props, SPA_PROP_START_CUSTOM, NULL, NULL, NULL, },
-  [WP_SPA_TYPE_TABLE_PROP_INFO] = {spa_type_prop_info, SPA_N_ELEMENTS (spa_type_prop_info), NULL, NULL, NULL, },
-  [WP_SPA_TYPE_TABLE_CONTROL]   = {spa_type_control, SPA_CONTROL_LAST, NULL, NULL, NULL, },
-  [WP_SPA_TYPE_TABLE_CHOICE]    = {spa_type_choice, SPA_N_ELEMENTS (spa_type_choice), NULL, NULL, NULL, },
+  [WP_SPA_TYPE_TABLE_BASIC]             = {spa_types, SPA_TYPE_VENDOR_Other, NULL, NULL, NULL },
+  [WP_SPA_TYPE_TABLE_PARAM]             = {spa_type_param, SPA_N_ELEMENTS (spa_type_param), NULL, NULL, NULL, },
+  [WP_SPA_TYPE_TABLE_PROPS]             = {spa_type_props, SPA_PROP_START_CUSTOM, NULL, NULL, NULL, },
+  [WP_SPA_TYPE_TABLE_PROP_INFO]         = {spa_type_prop_info, SPA_N_ELEMENTS (spa_type_prop_info), NULL, NULL, NULL, },
+  [WP_SPA_TYPE_TABLE_FORMAT]            = {spa_type_format, SPA_N_ELEMENTS (spa_type_format), NULL, NULL, NULL, },
+  [WP_SPA_TYPE_TABLE_PARAM_PORT_CONFIG] = {spa_type_param_port_config, SPA_N_ELEMENTS (spa_type_param_port_config), NULL, NULL, NULL, },
+  [WP_SPA_TYPE_TABLE_PARAM_PROFILE]     = {spa_type_param_profile, SPA_N_ELEMENTS (spa_type_param_port_config), NULL, NULL, NULL, },
+  [WP_SPA_TYPE_TABLE_CONTROL]           = {spa_type_control, SPA_CONTROL_LAST, NULL, NULL, NULL, },
+  [WP_SPA_TYPE_TABLE_CHOICE]            = {spa_type_choice, SPA_N_ELEMENTS (spa_type_choice), NULL, NULL, NULL, },
 };
 
 static WpSpaTypeTable

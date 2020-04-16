@@ -16,14 +16,17 @@ G_BEGIN_DECLS
 
 /**
  * WpSpaTypeTable:
+ * @WP_SPA_TYPE_TABLE_BASIC: The basic type table
+ * @WP_SPA_TYPE_TABLE_PARAM: The param type table (used as object id)
+ * @WP_SPA_TYPE_TABLE_PROPS: The object properties type table
+ * @WP_SPA_TYPE_TABLE_PROP_INFO: The object property info type table
+ * @WP_SPA_TYPE_TABLE_CONTROL: The sequence control type table
+ * @WP_SPA_TYPE_TABLE_CHOICE: The choice type table
+ * @WP_SPA_TYPE_TABLE_FORMAT: The object format type table
+ * @WP_SPA_TYPE_TABLE_PARAM_PORT_CONFIG: The object param port config type table
+ * @WP_SPA_TYPE_TABLE_PARAM_PROFILE: The sequence control type table
  *
  * The diferent tables (namespaces) the registry has.
- * WP_SPA_TYPE_TABLE_BASIC (0) - The basic type table
- * WP_SPA_TYPE_TABLE_PARAM (1) – The param type table (used as object id)
- * WP_SPA_TYPE_TABLE_PROPS (2) – The object properties type table
- * WP_SPA_TYPE_TABLE_PROP_INFO (3) – The object property info type table
- * WP_SPA_TYPE_TABLE_CONTROL (4) - The sequence control type table
- * WP_SPA_TYPE_TABLE_CHOICE (5) - The choice type table
  */
 typedef enum {
   WP_SPA_TYPE_TABLE_BASIC = 0,
@@ -32,6 +35,9 @@ typedef enum {
   WP_SPA_TYPE_TABLE_PROP_INFO,
   WP_SPA_TYPE_TABLE_CONTROL,
   WP_SPA_TYPE_TABLE_CHOICE,
+  WP_SPA_TYPE_TABLE_FORMAT,
+  WP_SPA_TYPE_TABLE_PARAM_PORT_CONFIG,
+  WP_SPA_TYPE_TABLE_PARAM_PROFILE,
   WP_SPA_TYPE_TABLE_LAST,
 } WpSpaTypeTable;
 
