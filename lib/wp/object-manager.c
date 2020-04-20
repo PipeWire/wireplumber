@@ -425,13 +425,7 @@ check_constraints (GVariant *constraints,
   GVariantIter iter;
   GVariant *c;
   WpObjectManagerConstraintType ctype;
-  g_autoptr (WpProperties) props = NULL;
   const gchar *prop_name, *prop_value;
-
-  /* pipewire properties are contained in a GObj property called "properties" */
-  if (object &&
-      g_object_class_find_property (G_OBJECT_GET_CLASS (object), "properties"))
-    g_object_get (object, "properties", &props, NULL);
 
   g_variant_iter_init (&iter, constraints);
   while (g_variant_iter_next (&iter, "@a{sv}", &c)) {
@@ -460,6 +454,12 @@ check_constraints (GVariant *constraints,
 
       break;
     case WP_OBJECT_MANAGER_CONSTRAINT_PW_PROPERTY:
+    {
+      /* pipewire properties are contained in a GObj property called "properties" */
+      g_autoptr (WpProperties) props = NULL;
+      if (object &&
+          g_object_class_find_property (G_OBJECT_GET_CLASS (object), "properties"))
+        g_object_get (object, "properties", &props, NULL);
       if (!props)
         goto next;
 
@@ -475,6 +475,7 @@ check_constraints (GVariant *constraints,
         goto match;
 
       break;
+    }
     case WP_OBJECT_MANAGER_CONSTRAINT_G_PROPERTY:
       if (!object)
         goto next;
