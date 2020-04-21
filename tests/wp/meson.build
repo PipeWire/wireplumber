@@ -51,7 +51,11 @@ test(
 
 test(
   'test-spa-props',
-  executable('test-spa-props', 'spa-props.c',
+  executable('test-spa-props',
+      [
+        'spa-props.c',
+        '../../lib/wp/spa-props.c'
+      ],
       dependencies: common_deps, c_args: common_args),
   env: common_env,
 )

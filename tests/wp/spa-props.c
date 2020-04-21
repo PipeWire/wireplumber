@@ -6,13 +6,11 @@
  * SPDX-License-Identifier: MIT
  */
 
-/* private functions, they should be hidden in the shared library */
-#include "wp/spa-props.c"
-#include "wp/spa-type.c"
-#include "wp/iterator.c"
-#include "wp/spa-pod.c"
-
 #include <spa/pod/iter.h>
+#include <spa/pod/vararg.h>
+#include <spa/param/props.h>
+
+#include "../../lib/wp/private.h"
 
 #include <wp/wp.h>
 
