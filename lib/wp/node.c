@@ -31,15 +31,24 @@
 #include "debug.h"
 #include "error.h"
 #include "private.h"
+#include "wpenums.h"
 
 #include <pipewire/pipewire.h>
 #include <pipewire/impl.h>
+
+enum {
+  SIGNAL_STATE_CHANGED,
+  N_SIGNALS,
+};
+
+static guint32 signals[N_SIGNALS] = {0};
 
 typedef struct _WpNodePrivate WpNodePrivate;
 struct _WpNodePrivate
 {
   struct pw_node_info *info;
   struct spa_hook listener;
+  WpObjectManager *ports_om;
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE (WpNode, wp_node, WP_TYPE_PROXY)
@@ -56,8 +65,56 @@ wp_node_finalize (GObject * object)
   WpNodePrivate *priv = wp_node_get_instance_private (self);
 
   g_clear_pointer (&priv->info, pw_node_info_free);
+  g_clear_object (&priv->ports_om);
 
   G_OBJECT_CLASS (wp_node_parent_class)->finalize (object);
+}
+
+static void
+wp_node_enable_feature_ports (WpNode * self, guint32 bound_id)
+{
+  WpNodePrivate *priv = wp_node_get_instance_private (self);
+  g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (self));
+  GVariantBuilder b;
+
+  /* proxy node port -> check for node.id in global properties */
+  g_variant_builder_init (&b, G_VARIANT_TYPE ("aa{sv}"));
+  g_variant_builder_open (&b, G_VARIANT_TYPE_VARDICT);
+  g_variant_builder_add (&b, "{sv}", "type",
+      g_variant_new_int32 (WP_OBJECT_MANAGER_CONSTRAINT_PW_GLOBAL_PROPERTY));
+  g_variant_builder_add (&b, "{sv}", "name",
+      g_variant_new_string (PW_KEY_NODE_ID));
+  g_variant_builder_add (&b, "{sv}", "value",
+      g_variant_new_take_string (g_strdup_printf ("%u", bound_id)));
+  g_variant_builder_close (&b);
+
+  wp_object_manager_add_interest (priv->ports_om,
+      WP_TYPE_PORT,
+      g_variant_builder_end (&b),
+      WP_PROXY_FEATURES_STANDARD);
+
+  wp_core_install_object_manager (core, priv->ports_om);
+  wp_proxy_set_feature_ready (WP_PROXY (self), WP_NODE_FEATURE_PORTS);
+}
+
+static void
+wp_node_augment (WpProxy * proxy, WpProxyFeatures features)
+{
+  /* call the parent impl first to ensure we have a pw proxy if necessary */
+  WP_PROXY_CLASS (wp_node_parent_class)->augment (proxy, features);
+
+  if (features & WP_NODE_FEATURE_PORTS) {
+    WpNodePrivate *priv = wp_node_get_instance_private (WP_NODE (proxy));
+
+    priv->ports_om = wp_object_manager_new ();
+
+    /* if we are already bound, enable right away;
+       else, continue in the bound() event */
+    if (wp_proxy_get_features (proxy) & WP_PROXY_FEATURE_BOUND) {
+      wp_node_enable_feature_ports (WP_NODE (proxy),
+          wp_proxy_get_bound_id (proxy));
+    }
+  }
 }
 
 static gconstpointer
@@ -122,6 +179,8 @@ node_event_info(void *data, const struct pw_node_info *info)
 {
   WpNode *self = WP_NODE (data);
   WpNodePrivate *priv = wp_node_get_instance_private (self);
+  enum pw_node_state old_state = priv->info ?
+      priv->info->state : PW_NODE_STATE_CREATING;
 
   priv->info = pw_node_info_update (priv->info, info);
   wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
@@ -130,6 +189,10 @@ node_event_info(void *data, const struct pw_node_info *info)
 
   if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS)
     g_object_notify (G_OBJECT (self), "properties");
+
+  if (info->change_mask & PW_NODE_CHANGE_MASK_STATE)
+    g_signal_emit (self, signals[SIGNAL_STATE_CHANGED], 0, old_state,
+        priv->info->state);
 }
 
 static const struct pw_node_events node_events = {
@@ -148,6 +211,16 @@ wp_node_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 }
 
 static void
+wp_node_bound (WpProxy * proxy, guint32 id)
+{
+  WpNode *self = WP_NODE (proxy);
+  WpNodePrivate *priv = wp_node_get_instance_private (self);
+
+  if (priv->ports_om)
+    wp_node_enable_feature_ports (self, id);
+}
+
+static void
 wp_node_class_init (WpNodeClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
@@ -158,6 +231,7 @@ wp_node_class_init (WpNodeClass * klass)
   proxy_class->pw_iface_type = PW_TYPE_INTERFACE_Node;
   proxy_class->pw_iface_version = PW_VERSION_NODE;
 
+  proxy_class->augment = wp_node_augment;
   proxy_class->get_info = wp_node_get_info;
   proxy_class->get_properties = wp_node_get_properties;
   proxy_class->enum_params = wp_node_enum_params;
@@ -165,6 +239,20 @@ wp_node_class_init (WpNodeClass * klass)
   proxy_class->set_param = wp_node_set_param;
 
   proxy_class->pw_proxy_created = wp_node_pw_proxy_created;
+  proxy_class->bound = wp_node_bound;
+
+  /**
+   * WpNode::state-changed:
+   * @self: the node
+   * @old_state: the old state
+   * @new_state: the new state
+   *
+   * Emitted when the node changes state
+   */
+  signals[SIGNAL_STATE_CHANGED] = g_signal_new (
+      "state-changed", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 2,
+      WP_TYPE_NODE_STATE, WP_TYPE_NODE_STATE);
 }
 
 /**
@@ -205,6 +293,129 @@ wp_node_new_from_factory (WpCore * core,
           props ? wp_properties_peek_dict (props) : NULL, 0));
   return self;
 }
+
+WpNodeState
+wp_node_get_state (WpNode * self, const gchar ** error)
+{
+  g_return_val_if_fail (WP_IS_NODE (self), WP_NODE_STATE_ERROR);
+  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+          WP_PROXY_FEATURE_INFO, WP_NODE_STATE_ERROR);
+
+  WpNodePrivate *priv = wp_node_get_instance_private (self);
+  if (error)
+    *error = priv->info->error;
+  return (WpNodeState) priv->info->state;
+}
+
+/**
+ * wp_node_get_n_input_ports:
+ * @self: the node
+ * @max: (out) (optional): the maximum supported number of input ports
+ *
+ * Requires %WP_PROXY_FEATURE_INFO
+ *
+ * Returns: the number of input ports of this node, as reported by the node info
+ */
+guint
+wp_node_get_n_input_ports (WpNode * self, guint * max)
+{
+  g_return_val_if_fail (WP_IS_NODE (self), 0);
+  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+          WP_PROXY_FEATURE_INFO, 0);
+
+  WpNodePrivate *priv = wp_node_get_instance_private (self);
+  if (max)
+    *max = priv->info->max_input_ports;
+  return priv->info->n_input_ports;
+}
+
+/**
+ * wp_node_get_n_output_ports:
+ * @self: the node
+ * @max: (out) (optional): the maximum supported number of output ports
+ *
+ * Requires %WP_PROXY_FEATURE_INFO
+ *
+ * Returns: the number of output ports of this node, as reported by the node info
+ */
+guint
+wp_node_get_n_output_ports (WpNode * self, guint * max)
+{
+  g_return_val_if_fail (WP_IS_NODE (self), 0);
+  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+          WP_PROXY_FEATURE_INFO, 0);
+
+  WpNodePrivate *priv = wp_node_get_instance_private (self);
+  if (max)
+    *max = priv->info->max_output_ports;
+  return priv->info->n_output_ports;
+}
+
+/**
+ * wp_node_get_n_ports:
+ * @self: the node
+ *
+ * Requires %WP_NODE_FEATURE_PORTS
+ *
+ * Returns: the number of ports of this node. Note that this number may not
+ *   add up to wp_node_get_n_input_ports() + wp_node_get_n_output_ports()
+ *   because it is discovered by looking at the number of available ports
+ *   in the registry, however ports may appear there with a delay or may
+ *   not appear at all if this client does not have permission to read them
+ */
+guint
+wp_node_get_n_ports (WpNode * self)
+{
+  g_return_val_if_fail (WP_IS_NODE (self), 0);
+  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+          WP_NODE_FEATURE_PORTS, 0);
+
+  WpNodePrivate *priv = wp_node_get_instance_private (self);
+  return wp_object_manager_get_n_objects (priv->ports_om);
+}
+
+/**
+ * wp_node_find_port:
+ * @self: the node
+ * @bound_id: the bound id of the port object to find
+ *
+ * Requires %WP_NODE_FEATURE_PORTS
+ *
+ * Returns: (transfer full) (nullable): the port that has the given
+ *    @bound_id, or %NULL if there is no such port
+ */
+WpPort *
+wp_node_find_port (WpNode * self, guint32 bound_id)
+{
+  g_return_val_if_fail (WP_IS_NODE (self), NULL);
+  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+          WP_NODE_FEATURE_PORTS, NULL);
+
+  WpNodePrivate *priv = wp_node_get_instance_private (self);
+  return (WpPort *)
+      wp_object_manager_find_proxy (priv->ports_om, bound_id);
+}
+
+/**
+ * wp_node_iterate_ports:
+ * @self: the node
+ *
+ * Requires %WP_NODE_FEATURE_PORTS
+ *
+ * Returns: (transfer full): a #WpIterator that iterates over all
+ *   the ports that belong to this node
+ */
+WpIterator *
+wp_node_iterate_ports (WpNode * self)
+{
+  g_return_val_if_fail (WP_IS_NODE (self), NULL);
+  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+          WP_NODE_FEATURE_PORTS, NULL);
+
+  WpNodePrivate *priv = wp_node_get_instance_private (self);
+  return wp_object_manager_iterate (priv->ports_om);
+}
+
 
 enum {
   PROP_0,
@@ -295,6 +506,18 @@ wp_impl_node_augment (WpProxy * proxy, WpProxyFeatures features)
          remote-node uses the properties of the pw_impl_node */
     wp_proxy_set_pw_proxy (proxy, pw_core_export (pw_core,
             PW_TYPE_INTERFACE_Node, NULL, self->pw_impl_node, 0));
+  }
+
+  if (features & WP_NODE_FEATURE_PORTS) {
+    WpNodePrivate *priv = wp_node_get_instance_private (WP_NODE (self));
+    priv->ports_om = wp_object_manager_new ();
+
+    /* if we are already bound, enable right away;
+       else, continue in the bound() event */
+    if (wp_proxy_get_features (proxy) & WP_PROXY_FEATURE_BOUND) {
+      wp_node_enable_feature_ports (WP_NODE (self),
+          wp_proxy_get_bound_id (proxy));
+    }
   }
 }
 

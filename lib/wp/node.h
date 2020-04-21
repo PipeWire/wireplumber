@@ -10,10 +10,50 @@
 #define __WIREPLUMBER_NODE_H__
 
 #include "proxy.h"
+#include "port.h"
+#include "iterator.h"
 
 G_BEGIN_DECLS
 
 struct pw_impl_node;
+
+/**
+ * WpNodeState:
+ * @WP_NODE_STATE_ERROR: error state
+ * @WP_NODE_STATE_CREATING: the node is being created
+ * @WP_NODE_STATE_SUSPENDED: the node is suspended, the device might be closed
+ * @WP_NODE_STATE_IDLE: the node is running but there is no active port
+ * @WP_NODE_STATE_RUNNING: the node is running
+ */
+typedef enum {
+  WP_NODE_STATE_ERROR = -1,
+  WP_NODE_STATE_CREATING = 0,
+  WP_NODE_STATE_SUSPENDED = 1,
+  WP_NODE_STATE_IDLE = 2,
+  WP_NODE_STATE_RUNNING = 3,
+} WpNodeState;
+
+/**
+ * WpNodeFeatures:
+ * @WP_NODE_FEATURE_PORTS: caches information about ports, enabling
+ *   the use of wp_node_get_n_ports(), wp_node_find_port() and
+ *   wp_node_iterate_ports()
+ *
+ * An extension of #WpProxyFeatures
+ */
+typedef enum { /*< flags >*/
+  WP_NODE_FEATURE_PORTS = WP_PROXY_FEATURE_LAST,
+} WpNodeFeatures;
+
+/**
+ * WP_NODE_FEATURES_STANDARD:
+ *
+ * A constant set of features that contains the standard features that are
+ * available in the #WpNode class.
+ */
+#define WP_NODE_FEATURES_STANDARD \
+    (WP_PROXY_FEATURES_STANDARD | \
+     WP_NODE_FEATURE_PORTS)
 
 /**
  * WP_TYPE_NODE:
@@ -32,6 +72,24 @@ struct _WpNodeClass
 WP_API
 WpNode * wp_node_new_from_factory (WpCore * core,
     const gchar * factory_name, WpProperties * properties);
+
+WP_API
+WpNodeState wp_node_get_state (WpNode * self, const gchar ** error);
+
+WP_API
+guint wp_node_get_n_input_ports (WpNode * self, guint * max);
+
+WP_API
+guint wp_node_get_n_output_ports (WpNode * self, guint * max);
+
+WP_API
+guint wp_node_get_n_ports (WpNode * self);
+
+WP_API
+WpPort * wp_node_find_port (WpNode * self, guint32 bound_id);
+
+WP_API
+WpIterator * wp_node_iterate_ports (WpNode * self);
 
 /**
  * WP_TYPE_IMPL_NODE:
