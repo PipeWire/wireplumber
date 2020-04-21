@@ -116,6 +116,18 @@ shared_library(
 )
 
 shared_library(
+  'wireplumber-module-si-convert',
+  [
+    'module-si-convert.c',
+    'module-pipewire/algorithms.c',
+  ],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-si-convert"'],
+  install : true,
+  install_dir : wireplumber_module_dir,
+  dependencies : [wp_dep, pipewire_dep],
+)
+
+shared_library(
   'wireplumber-module-si-simple-node-endpoint',
   [
     'module-si-simple-node-endpoint.c',
