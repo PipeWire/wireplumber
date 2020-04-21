@@ -11,22 +11,11 @@
 
 #include "spa-pod.h"
 #include "proxy.h"
+#include "port.h"
 #include "endpoint-stream.h"
 #include "iterator.h"
 
 G_BEGIN_DECLS
-
-/**
- * WpDirection:
- * @WP_DIRECTION_INPUT: a sink, consuming input
- * @WP_DIRECTION_OUTPUT: a source, producing output
- *
- * The different directions the endpoint can have
- */
-typedef enum {
-  WP_DIRECTION_INPUT,
-  WP_DIRECTION_OUTPUT,
-} WpDirection;
 
 /**
  * WpEndpointFeatures:

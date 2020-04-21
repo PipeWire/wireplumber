@@ -138,3 +138,13 @@ wp_port_class_init (WpPortClass * klass)
 
   proxy_class->pw_proxy_created = wp_port_pw_proxy_created;
 }
+
+WpDirection
+wp_port_get_direction (WpPort * self)
+{
+  g_return_val_if_fail (WP_IS_PORT (self), 0);
+  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+          WP_PROXY_FEATURE_INFO, 0);
+
+  return (WpDirection) self->info->direction;
+}
