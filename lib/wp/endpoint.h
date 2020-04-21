@@ -11,6 +11,7 @@
 
 #include "proxy.h"
 #include "endpoint-stream.h"
+#include "iterator.h"
 
 G_BEGIN_DECLS
 
@@ -44,8 +45,8 @@ typedef enum {
  *   wp_endpoint_get_control() and wp_endpoint_set_control() families of
  *   functions to be able to work with endpoint-specific controls
  * @WP_ENDPOINT_FEATURE_STREAMS: caches information about streams, enabling
- *   the use of wp_endpoint_get_n_streams(), wp_endpoint_get_stream() and
- *   wp_endpoint_get_all_streams()
+ *   the use of wp_endpoint_get_n_streams(), wp_endpoint_find_stream() and
+ *   wp_endpoint_iterate_streams()
  *
  * An extension of #WpProxyFeatures
  */
@@ -132,10 +133,10 @@ WP_API
 guint wp_endpoint_get_n_streams (WpEndpoint * self);
 
 WP_API
-WpEndpointStream * wp_endpoint_get_stream (WpEndpoint * self, guint32 bound_id);
+WpEndpointStream * wp_endpoint_find_stream (WpEndpoint * self, guint32 bound_id);
 
 WP_API
-GPtrArray * wp_endpoint_get_all_streams (WpEndpoint * self);
+WpIterator * wp_endpoint_iterate_streams (WpEndpoint * self);
 
 G_END_DECLS
 

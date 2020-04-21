@@ -35,11 +35,11 @@ typedef enum {
  *   wp_session_get_default_endpoint() and wp_session_set_default_endpoint()
  *   to store default endpoint preferences on the session
  * @WP_SESSION_FEATURE_ENDPOINTS: caches information about endpoints, enabling
- *   the use of wp_session_get_n_endpoints(), wp_session_get_endpoint() and
- *   wp_session_get_all_endpoints()
+ *   the use of wp_session_get_n_endpoints(), wp_session_find_endpoint() and
+ *   wp_session_iterate_endpoints()
  * @WP_SESSION_FEATURE_LINKS: caches information about endpoint links, enabling
- *   the use of wp_session_get_n_links(), wp_session_get_link() and
- *   wp_session_get_all_links()
+ *   the use of wp_session_get_n_links(), wp_session_find_link() and
+ *   wp_session_iterate_links()
  *
  * An extension of #WpProxyFeatures
  */
@@ -92,19 +92,19 @@ WP_API
 guint wp_session_get_n_endpoints (WpSession * self);
 
 WP_API
-WpEndpoint * wp_session_get_endpoint (WpSession * self, guint32 bound_id);
+WpEndpoint * wp_session_find_endpoint (WpSession * self, guint32 bound_id);
 
 WP_API
-GPtrArray * wp_session_get_all_endpoints (WpSession * self);
+WpIterator * wp_session_iterate_endpoints (WpSession * self);
 
 WP_API
 guint wp_session_get_n_links (WpSession * self);
 
 WP_API
-WpEndpointLink * wp_session_get_link (WpSession * self, guint32 bound_id);
+WpEndpointLink * wp_session_find_link (WpSession * self, guint32 bound_id);
 
 WP_API
-GPtrArray * wp_session_get_all_links (WpSession * self);
+WpIterator * wp_session_iterate_links (WpSession * self);
 
 /**
  * WP_TYPE_IMPL_SESSION:

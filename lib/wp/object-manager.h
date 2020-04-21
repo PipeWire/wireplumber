@@ -11,6 +11,7 @@
 
 #include <glib-object.h>
 #include "proxy.h"
+#include "iterator.h"
 
 G_BEGIN_DECLS
 
@@ -51,8 +52,10 @@ WP_API
 guint wp_object_manager_get_n_objects (WpObjectManager * self);
 
 WP_API
-GPtrArray * wp_object_manager_get_objects (WpObjectManager *self,
-    GType type_filter);
+WpIterator * wp_object_manager_iterate (WpObjectManager * self);
+
+WP_API
+WpProxy * wp_object_manager_find_proxy (WpObjectManager *self, guint bound_id);
 
 G_END_DECLS
 

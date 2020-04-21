@@ -579,50 +579,41 @@ wp_endpoint_get_n_streams (WpEndpoint * self)
 }
 
 /**
- * wp_endpoint_get_stream:
+ * wp_endpoint_find_stream:
  * @self: the endpoint
- * @bound_id: the bound id of the stream object to get
+ * @bound_id: the bound id of the stream object to find
  *
  * Returns: (transfer full) (nullable): the endpoint stream that has the given
  *    @bound_id, or %NULL if there is no such stream
  */
 WpEndpointStream *
-wp_endpoint_get_stream (WpEndpoint * self, guint32 bound_id)
+wp_endpoint_find_stream (WpEndpoint * self, guint32 bound_id)
 {
   g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
   g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
           WP_ENDPOINT_FEATURE_STREAMS, NULL);
 
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
-  g_autoptr (GPtrArray) streams =
-      wp_object_manager_get_objects (priv->streams_om, 0);
-
-  for (guint i = 0; i < streams->len; i++) {
-    gpointer proxy = g_ptr_array_index (streams, i);
-    g_return_val_if_fail (WP_IS_ENDPOINT_STREAM (proxy), NULL);
-
-    if (wp_proxy_get_bound_id (WP_PROXY (proxy)) == bound_id)
-      return WP_ENDPOINT_STREAM (g_object_ref (proxy));
-  }
-  return NULL;
+  return (WpEndpointStream *)
+      wp_object_manager_find_proxy (priv->streams_om, bound_id);
 }
 
 /**
- * wp_endpoint_get_all_streams:
+ * wp_endpoint_iterate_streams:
  * @self: the endpoint
  *
- * Returns: (transfer full) (element-type WpEndpointStream): array with all
+ * Returns: (transfer full): a #WpIterator that iterates over all
  *   the endpoint streams that belong to this endpoint
  */
-GPtrArray *
-wp_endpoint_get_all_streams (WpEndpoint * self)
+WpIterator *
+wp_endpoint_iterate_streams (WpEndpoint * self)
 {
   g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
   g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
           WP_ENDPOINT_FEATURE_STREAMS, NULL);
 
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
-  return wp_object_manager_get_objects (priv->streams_om, 0);
+  return wp_object_manager_iterate (priv->streams_om);
 }
 
 /* WpImplEndpoint */
@@ -864,18 +855,20 @@ impl_create_link (void *object, const struct spa_dict *props)
     g_autoptr (WpEndpoint) peer_ep_proxy = NULL;
     g_autoptr (WpEndpointStream) peer_stream_proxy = NULL;
 
-    peer_ep_proxy = wp_session_get_endpoint (session, peer_ep_id);
+    peer_ep_proxy = wp_session_find_endpoint (session, peer_ep_id);
     if (!peer_ep_proxy) {
       wp_warning_object (self, "endpoint %d not found in session", peer_ep_id);
       return -EINVAL;
     }
 
     if (peer_stream_id != SPA_ID_INVALID) {
-      peer_stream_proxy = wp_endpoint_get_stream (peer_ep_proxy, peer_stream_id);
+      peer_stream_proxy = wp_endpoint_find_stream (peer_ep_proxy,
+          peer_stream_id);
     } else {
-      g_autoptr (GPtrArray) s = wp_endpoint_get_all_streams (peer_ep_proxy);
-      peer_stream_proxy = (s->len > 0) ?
-          g_object_ref (g_ptr_array_index (s, 0)) : NULL;
+      g_autoptr (WpIterator) it = wp_endpoint_iterate_streams (peer_ep_proxy);
+      g_auto (GValue) val = G_VALUE_INIT;
+      if (wp_iterator_next (it, &val))
+        peer_stream_proxy = g_value_dup_object (&val);
     }
 
     if (!peer_stream_proxy) {

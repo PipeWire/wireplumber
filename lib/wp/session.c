@@ -470,50 +470,41 @@ wp_session_get_n_endpoints (WpSession * self)
 }
 
 /**
- * wp_session_get_endpoint:
+ * wp_session_find_endpoint:
  * @self: the session
- * @bound_id: the bound id of the endpoint object to get
+ * @bound_id: the bound id of the endpoint object to find
  *
  * Returns: (transfer full) (nullable): the endpoint that has the given
  *    @bound_id, or %NULL if there is no such endpoint
  */
 WpEndpoint *
-wp_session_get_endpoint (WpSession * self, guint32 bound_id)
+wp_session_find_endpoint (WpSession * self, guint32 bound_id)
 {
   g_return_val_if_fail (WP_IS_SESSION (self), NULL);
   g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
           WP_SESSION_FEATURE_ENDPOINTS, NULL);
 
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
-  g_autoptr (GPtrArray) endpoints =
-      wp_object_manager_get_objects (priv->endpoints_om, 0);
-
-  for (guint i = 0; i < endpoints->len; i++) {
-    gpointer proxy = g_ptr_array_index (endpoints, i);
-    g_return_val_if_fail (WP_IS_ENDPOINT (proxy), NULL);
-
-    if (wp_proxy_get_bound_id (WP_PROXY (proxy)) == bound_id)
-      return WP_ENDPOINT (g_object_ref (proxy));
-  }
-  return NULL;
+  return (WpEndpoint *)
+      wp_object_manager_find_proxy (priv->endpoints_om, bound_id);
 }
 
 /**
- * wp_session_get_all_endpoints:
+ * wp_session_iterate_endpoints:
  * @self: the session
  *
- * Returns: (transfer full) (element-type WpEndpoint): array with all
+ * Returns: (transfer full): a #WpIterator that iterates over all
  *   the endpoints that belong to this session
  */
-GPtrArray *
-wp_session_get_all_endpoints (WpSession * self)
+WpIterator *
+wp_session_iterate_endpoints (WpSession * self)
 {
   g_return_val_if_fail (WP_IS_SESSION (self), NULL);
   g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
           WP_SESSION_FEATURE_ENDPOINTS, NULL);
 
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
-  return wp_object_manager_get_objects (priv->endpoints_om, 0);
+  return wp_object_manager_iterate (priv->endpoints_om);
 }
 
 /**
@@ -534,50 +525,41 @@ wp_session_get_n_links (WpSession * self)
 }
 
 /**
- * wp_session_get_link:
+ * wp_session_find_link:
  * @self: the session
- * @bound_id: the bound id of the link object to get
+ * @bound_id: the bound id of the link object to find
  *
  * Returns: (transfer full) (nullable): the endpoint link that has the given
  *    @bound_id, or %NULL if there is no such endpoint link
  */
 WpEndpointLink *
-wp_session_get_link (WpSession * self, guint32 bound_id)
+wp_session_find_link (WpSession * self, guint32 bound_id)
 {
   g_return_val_if_fail (WP_IS_SESSION (self), NULL);
   g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
           WP_SESSION_FEATURE_LINKS, NULL);
 
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
-  g_autoptr (GPtrArray) links =
-      wp_object_manager_get_objects (priv->links_om, 0);
-
-  for (guint i = 0; i < links->len; i++) {
-    gpointer proxy = g_ptr_array_index (links, i);
-    g_return_val_if_fail (WP_IS_ENDPOINT_LINK (proxy), NULL);
-
-    if (wp_proxy_get_bound_id (WP_PROXY (proxy)) == bound_id)
-      return WP_ENDPOINT_LINK (g_object_ref (proxy));
-  }
-  return NULL;
+  return (WpEndpointLink *)
+      wp_object_manager_find_proxy (priv->links_om, bound_id);
 }
 
 /**
- * wp_session_get_all_links:
+ * wp_session_iterate_links:
  * @self: the session
  *
- * Returns: (transfer full) (element-type WpEndpointLink): array with all
+ * Returns: (transfer full): a #WpIterator that iterates over all
  *   the endpoint links that belong to this session
  */
-GPtrArray *
-wp_session_get_all_links (WpSession * self)
+WpIterator *
+wp_session_iterate_links (WpSession * self)
 {
   g_return_val_if_fail (WP_IS_SESSION (self), NULL);
   g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
           WP_SESSION_FEATURE_LINKS, NULL);
 
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
-  return wp_object_manager_get_objects (priv->links_om, 0);
+  return wp_object_manager_iterate (priv->links_om);
 }
 
 /* WpImplSession */

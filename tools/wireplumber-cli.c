@@ -64,34 +64,52 @@ print_client_endpoint (WpEndpoint *ep)
 static void
 list_endpoints (WpObjectManager * om, struct WpCliData * d)
 {
-  g_autoptr (GPtrArray) arr = NULL;
+  g_autoptr (WpIterator) it = NULL;
   g_autoptr (WpSession) session = NULL;
-  guint i;
+  g_auto (GValue) val = G_VALUE_INIT;
 
-  arr = wp_object_manager_get_objects (om, WP_TYPE_SESSION);
-  if (arr->len > 0)
-    session = WP_SESSION (g_object_ref (g_ptr_array_index (arr, 0)));
-  g_clear_pointer (&arr, g_ptr_array_unref);
+  it = wp_object_manager_iterate (om);
+  for (; wp_iterator_next (it, &val) &&
+            g_type_is_a (G_VALUE_TYPE (&val), WP_TYPE_SESSION);
+        g_value_unset (&val))
+  {
+    session = g_value_dup_object (&val);
+    g_value_unset (&val);
+    break;
+  }
 
-  arr = wp_object_manager_get_objects (om, WP_TYPE_ENDPOINT);
+  wp_iterator_reset (it);
 
   g_print ("Audio capture devices:\n");
-  for (i = 0; i < arr->len; i++) {
-    WpEndpoint *ep = g_ptr_array_index (arr, i);
+  for (; wp_iterator_next (it, &val) &&
+            g_type_is_a (G_VALUE_TYPE (&val), WP_TYPE_ENDPOINT);
+        g_value_unset (&val))
+  {
+    WpEndpoint *ep = g_value_get_object (&val);
     if (g_strcmp0 (wp_endpoint_get_media_class (ep), "Audio/Source") == 0)
       print_dev_endpoint (ep, session, WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SOURCE);
   }
 
+  wp_iterator_reset (it);
+
   g_print ("\nAudio playback devices:\n");
-  for (i = 0; i < arr->len; i++) {
-    WpEndpoint *ep = g_ptr_array_index (arr, i);
+  for (; wp_iterator_next (it, &val) &&
+            g_type_is_a (G_VALUE_TYPE (&val), WP_TYPE_ENDPOINT);
+        g_value_unset (&val))
+  {
+    WpEndpoint *ep = g_value_get_object (&val);
     if (g_strcmp0 (wp_endpoint_get_media_class (ep), "Audio/Sink") == 0)
       print_dev_endpoint (ep, session, WP_DEFAULT_ENDPOINT_TYPE_AUDIO_SINK);
   }
 
+  wp_iterator_reset (it);
+
   g_print ("\nClient streams:\n");
-  for (i = 0; i < arr->len; i++) {
-    WpEndpoint *ep = g_ptr_array_index (arr, i);
+  for (; wp_iterator_next (it, &val) &&
+            g_type_is_a (G_VALUE_TYPE (&val), WP_TYPE_ENDPOINT);
+        g_value_unset (&val))
+  {
+    WpEndpoint *ep = g_value_get_object (&val);
     if (g_str_has_suffix (wp_endpoint_get_media_class (ep), "/Audio"))
       print_client_endpoint (ep);
   }
@@ -102,14 +120,20 @@ list_endpoints (WpObjectManager * om, struct WpCliData * d)
 static void
 set_default (WpObjectManager * om, struct WpCliData * d)
 {
-  g_autoptr (GPtrArray) arr = NULL;
+  g_autoptr (WpIterator) it = NULL;
   g_autoptr (WpSession) session = NULL;
-  guint i;
+  g_auto (GValue) val = G_VALUE_INIT;
 
-  arr = wp_object_manager_get_objects (om, WP_TYPE_SESSION);
-  if (arr->len > 0)
-    session = WP_SESSION (g_object_ref (g_ptr_array_index (arr, 0)));
-  g_clear_pointer (&arr, g_ptr_array_unref);
+  it = wp_object_manager_iterate (om);
+
+  for (; wp_iterator_next (it, &val) &&
+            g_type_is_a (G_VALUE_TYPE (&val), WP_TYPE_SESSION);
+        g_value_unset (&val))
+  {
+    session = g_value_dup_object (&val);
+    g_value_unset (&val);
+    break;
+  }
 
   if (!session) {
     g_print ("No Session object - changing the default endpoint is not supported\n");
@@ -117,10 +141,13 @@ set_default (WpObjectManager * om, struct WpCliData * d)
     return;
   }
 
-  arr = wp_object_manager_get_objects (om, WP_TYPE_ENDPOINT);
+  wp_iterator_reset (it);
 
-  for (i = 0; i < arr->len; i++) {
-    WpEndpoint *ep = g_ptr_array_index (arr, i);
+  for (; wp_iterator_next (it, &val) &&
+            g_type_is_a (G_VALUE_TYPE (&val), WP_TYPE_ENDPOINT);
+        g_value_unset (&val))
+  {
+    WpEndpoint *ep = g_value_get_object (&val);
     guint32 id = wp_proxy_get_bound_id (WP_PROXY (ep));
 
     if (id == d->params.set_default.id) {
@@ -148,13 +175,13 @@ set_default (WpObjectManager * om, struct WpCliData * d)
 static void
 set_volume (WpObjectManager * om, struct WpCliData * d)
 {
-  g_autoptr (GPtrArray) arr = NULL;
-  guint i;
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) val = G_VALUE_INIT;
 
-  arr = wp_object_manager_get_objects (om, WP_TYPE_ENDPOINT);
+  it = wp_object_manager_iterate (om);
 
-  for (i = 0; i < arr->len; i++) {
-    WpEndpoint *ep = g_ptr_array_index (arr, i);
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    WpEndpoint *ep = g_value_get_object (&val);
     guint32 id = wp_proxy_get_bound_id (WP_PROXY (ep));
 
     if (id == d->params.set_volume.id) {
@@ -172,17 +199,17 @@ set_volume (WpObjectManager * om, struct WpCliData * d)
 static void
 device_node_props (WpObjectManager * om, struct WpCliData * d)
 {
-  g_autoptr (GPtrArray) arr = NULL;
-  guint i;
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) val = G_VALUE_INIT;
   const struct spa_dict * dict;
   const struct spa_dict_item *item;
 
-  arr = wp_object_manager_get_objects (om, WP_TYPE_NODE);
+  it = wp_object_manager_iterate (om);
 
   g_print ("Capture device nodes:\n");
 
-  for (i = 0; i < arr->len; i++) {
-    WpProxy *node = g_ptr_array_index (arr, i);
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    WpProxy *node = g_value_get_object (&val);
     g_autoptr (WpProperties) props = wp_proxy_get_properties (node);
 
     if (g_strcmp0 (wp_properties_get (props, "media.class"), "Audio/Source") != 0)
@@ -198,10 +225,11 @@ device_node_props (WpObjectManager * om, struct WpCliData * d)
     g_print ("\n");
   }
 
+  wp_iterator_reset (it);
   g_print ("Playback device nodes:\n");
 
-  for (i = 0; i < arr->len; i++) {
-    WpProxy *node = g_ptr_array_index (arr, i);
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    WpProxy *node = g_value_get_object (&val);
     g_autoptr (WpProperties) props = wp_proxy_get_properties (node);
 
     if (g_strcmp0 (wp_properties_get (props, "media.class"), "Audio/Sink") != 0)

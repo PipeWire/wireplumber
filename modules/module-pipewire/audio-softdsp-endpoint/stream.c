@@ -46,7 +46,6 @@ struct _WpAudioStreamPrivate
 
   WpObjectManager *ports_om;
   WpObjectManager *audio_fade_source_ports_om;
-  GVariantBuilder port_vb;
   gboolean port_config_done;
   gboolean port_control_pending;
 
@@ -610,10 +609,11 @@ wp_audio_stream_get_info (WpAudioStream * self)
   return wp_proxy_get_info (WP_PROXY (priv->proxy));
 }
 
-static void
-port_proxies_foreach_func(gpointer data, gpointer user_data)
+static gboolean
+port_proxies_fold_func (const GValue *item, GValue *ret, gpointer user_data)
 {
-  WpProxy *port = WP_PROXY (data);
+  WpProxy *port = g_value_get_object (item);
+  GVariantBuilder *b = g_value_get_pointer (ret);
   WpAudioStream *self = WP_AUDIO_STREAM (user_data);
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
   const struct pw_node_info *node_info;
@@ -623,16 +623,16 @@ port_proxies_foreach_func(gpointer data, gpointer user_data)
   uint32_t channel_n = SPA_AUDIO_CHANNEL_UNKNOWN;
 
   node_info = wp_proxy_get_info (WP_PROXY (priv->proxy));
-  g_return_if_fail (node_info);
+  g_return_val_if_fail (node_info, TRUE);
 
   port_info = wp_proxy_get_info (port);
-  g_return_if_fail (port_info);
+  g_return_val_if_fail (port_info, TRUE);
 
   props = wp_proxy_get_properties (port);
 
   /* skip control ports */
   if (is_stream_control_port (WP_PORT (port)))
-    return;
+    return TRUE;
 
   channel = wp_properties_get (props, PW_KEY_AUDIO_CHANNEL);
   if (channel) {
@@ -652,8 +652,9 @@ port_proxies_foreach_func(gpointer data, gpointer user_data)
       uint32 channel;  // enum spa_audio_channel
       uint8 direction; // enum spa_direction
    */
-  g_variant_builder_add (&priv->port_vb, "(uuuy)", node_info->id,
+  g_variant_builder_add (b, "(uuuy)", node_info->id,
       port_info->id, channel_n, (guint8) port_info->direction);
+  return TRUE;
 }
 
 gboolean
@@ -661,14 +662,19 @@ wp_audio_stream_prepare_link (WpAudioStream * self, GVariant ** properties,
     GError ** error)
 {
   WpAudioStreamPrivate *priv = wp_audio_stream_get_instance_private (self);
-  g_autoptr (GPtrArray) port_proxies =
-      wp_object_manager_get_objects (priv->ports_om, 0);
+  GVariantBuilder b;
+  g_auto (GValue) val = G_VALUE_INIT;
+  g_autoptr (WpIterator) it = NULL;
 
   /* Create a variant array with all the ports */
-  g_variant_builder_init (&priv->port_vb, G_VARIANT_TYPE ("a(uuuy)"));
-  g_ptr_array_foreach (port_proxies, port_proxies_foreach_func, self);
-  *properties = g_variant_builder_end (&priv->port_vb);
+  g_variant_builder_init (&b, G_VARIANT_TYPE ("a(uuuy)"));
+  g_value_init (&val, G_TYPE_POINTER);
+  g_value_set_pointer (&val, &b);
 
+  it = wp_object_manager_iterate (priv->ports_om);
+  wp_iterator_fold (it, port_proxies_fold_func, &val, self);
+
+  *properties = g_variant_builder_end (&b);
   return TRUE;
 }
 

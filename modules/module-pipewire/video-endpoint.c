@@ -20,7 +20,6 @@ struct _WpVideoEndpoint
   /* The task to signal the endpoint is initialized */
   GTask *init_task;
 
-  GVariantBuilder port_vb;
   WpObjectManager *ports_om;
 };
 
@@ -65,19 +64,20 @@ wp_video_endpoint_get_global_id (WpBaseEndpoint *ep)
   return wp_proxy_get_bound_id (WP_PROXY (self->node));
 }
 
-static void
-port_proxies_foreach_func (gpointer data, gpointer user_data)
+static gboolean
+port_proxies_fold_func (const GValue *item, GValue *ret, gpointer user_data)
 {
-  WpProxy *port = WP_PROXY (data);
+  WpProxy *port = g_value_get_object (item);
+  GVariantBuilder *b = g_value_get_pointer (ret);
   WpVideoEndpoint *self = WP_VIDEO_ENDPOINT (user_data);
   const struct pw_node_info *node_info;
   const struct pw_port_info *port_info;
 
   node_info = wp_proxy_get_info (WP_PROXY (self->node));
-  g_return_if_fail (node_info);
+  g_return_val_if_fail (node_info, TRUE);
 
   port_info = wp_proxy_get_info (port);
-  g_return_if_fail (port_info);
+  g_return_val_if_fail (port_info, TRUE);
 
   /* tuple format:
       uint32 node_id;
@@ -85,8 +85,9 @@ port_proxies_foreach_func (gpointer data, gpointer user_data)
       uint32 channel;  // always 0 for video
       uint8 direction; // enum spa_direction
    */
-  g_variant_builder_add (&self->port_vb, "(uuuy)", node_info->id,
+  g_variant_builder_add (b, "(uuuy)", node_info->id,
     port_info->id, 0, (guint8) port_info->direction);
+  return TRUE;
 }
 
 static gboolean
@@ -94,14 +95,19 @@ wp_video_endpoint_prepare_link (WpBaseEndpoint * ep, guint32 stream_id,
     WpBaseEndpointLink * link, GVariant ** properties, GError ** error)
 {
   WpVideoEndpoint *self = WP_VIDEO_ENDPOINT (ep);
-  g_autoptr (GPtrArray) port_proxies = wp_object_manager_get_objects (
-      self->ports_om, 0);
+  GVariantBuilder b;
+  g_auto (GValue) val = G_VALUE_INIT;
+  g_autoptr (WpIterator) it = NULL;
 
   /* Create a variant array with all the ports */
-  g_variant_builder_init (&self->port_vb, G_VARIANT_TYPE ("a(uuuy)"));
-  g_ptr_array_foreach (port_proxies, port_proxies_foreach_func, self);
-  *properties = g_variant_builder_end (&self->port_vb);
+  g_variant_builder_init (&b, G_VARIANT_TYPE ("a(uuuy)"));
+  g_value_init (&val, G_TYPE_POINTER);
+  g_value_set_pointer (&val, &b);
 
+  it = wp_object_manager_iterate (self->ports_om);
+  wp_iterator_fold (it, port_proxies_fold_func, &val, self);
+
+  *properties = g_variant_builder_end (&b);
   return TRUE;
 }
 

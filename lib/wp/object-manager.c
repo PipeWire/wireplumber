@@ -33,7 +33,7 @@
  *
  * Upon installing a #WpObjectManager on a #WpCore, any pre-existing objects
  * that match the interests of this #WpObjectManager will immediately become
- * available to get through wp_object_manager_get_objects() and the
+ * available to get through wp_object_manager_iterate() and the
  * #WpObjectManager::object-added signal will be emitted for all of them.
  */
 
@@ -192,7 +192,7 @@ wp_object_manager_class_init (WpObjectManagerClass * klass)
    * from this object manager. This signal is useful to get notified only once
    * when multiple changes happen in a short timespan. The receiving callback
    * may retrieve the updated list of objects by calling
-   * wp_object_manager_get_objects()
+   * wp_object_manager_iterate()
    */
   signals[SIGNAL_OBJECTS_CHANGED] = g_signal_new (
       "objects-changed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
@@ -239,7 +239,7 @@ wp_object_manager_new (void)
  *   wp_object_manager_add_interest (om, WP_TYPE_NODE, NULL,
  *       WP_PROXY_FEATURES_STANDARD);
  *   wp_core_install_object_manager (core, om);
- *   GPtrArray *nodes = wp_object_manager_get_objects (om, 0);
+ *   WpIterator *nodes_it = wp_object_manager_iterate (om);
  * ]|
  *
  * and to discover all 'port' objects that belong to a specific 'node':
@@ -262,7 +262,7 @@ wp_object_manager_new (void)
  *       WP_PROXY_FEATURES_STANDARD);
  *
  *   wp_core_install_object_manager (core, om);
- *   GPtrArray *ports = wp_object_manager_get_objects (om, 0);
+ *   WpIterator *ports_it = wp_object_manager_iterate (om);
  * ]|
  */
 void
@@ -296,29 +296,125 @@ wp_object_manager_get_n_objects (WpObjectManager * self)
   return self->objects->len;
 }
 
-/**
- * wp_object_manager_get_objects:
- * @self: the object manager
- * @type_filter: a #GType filter to get only the objects that are of this type,
- *   or 0 ( %G_TYPE_INVALID ) to return all the objects
- *
- * Returns: (transfer full) (element-type GObject*): all the objects managed
- *   by this #WpObjectManager that match the @type_filter
- */
-GPtrArray *
-wp_object_manager_get_objects (WpObjectManager *self, GType type_filter)
+struct om_iterator_data
 {
-  GPtrArray *result = g_ptr_array_new_with_free_func (g_object_unref);
-  guint i;
+  WpObjectManager *om;
+  guint index;
+};
 
-  for (i = 0; i < self->objects->len; i++) {
-    gpointer obj = g_ptr_array_index (self->objects, i);
-    if (type_filter == 0 || g_type_is_a (G_OBJECT_TYPE (obj), type_filter)) {
-      g_ptr_array_add (result, g_object_ref (obj));
-    }
+static void
+om_iterator_reset (WpIterator *it)
+{
+  struct om_iterator_data *it_data = wp_iterator_get_user_data (it);
+  it_data->index = 0;
+}
+
+static gboolean
+om_iterator_next (WpIterator *it, GValue *item)
+{
+  struct om_iterator_data *it_data = wp_iterator_get_user_data (it);
+  GPtrArray *objects = it_data->om->objects;
+
+  if (G_LIKELY (it_data->index < objects->len)) {
+    g_value_init_from_instance (item,
+        g_ptr_array_index (objects, it_data->index++));
+    return TRUE;
+  }
+  return FALSE;
+}
+
+static gboolean
+om_iterator_fold (WpIterator *it, WpIteratorFoldFunc func, GValue *ret,
+    gpointer data)
+{
+  struct om_iterator_data *it_data = wp_iterator_get_user_data (it);
+  gpointer *obj, *base;
+  guint len;
+
+  obj = base = it_data->om->objects->pdata;
+  len = it_data->om->objects->len;
+
+  while ((obj - base) < len) {
+    g_auto (GValue) item = G_VALUE_INIT;
+    g_value_init_from_instance (&item, *obj);
+    if (!func (&item, ret, data))
+      return FALSE;
+    obj++;
   }
 
-  return result;
+  return TRUE;
+}
+
+static void
+om_iterator_finalize (WpIterator *it)
+{
+  struct om_iterator_data *it_data = wp_iterator_get_user_data (it);
+  g_object_unref (it_data->om);
+}
+
+static const WpIteratorMethods om_iterator_methods = {
+  .reset = om_iterator_reset,
+  .next = om_iterator_next,
+  .fold = om_iterator_fold,
+  .finalize = om_iterator_finalize,
+};
+
+/**
+ * wp_object_manager_iterate:
+ * @self: the object manager
+ *
+ * Returns: (transfer full): a #WpIterator that iterates over all the managed
+ *   objects of this object manager
+ */
+WpIterator *
+wp_object_manager_iterate (WpObjectManager * self)
+{
+  WpIterator *it;
+  struct om_iterator_data *it_data;
+
+  g_return_val_if_fail (WP_IS_OBJECT_MANAGER (self), NULL);
+
+  it = wp_iterator_new (&om_iterator_methods, sizeof (struct om_iterator_data));
+  it_data = wp_iterator_get_user_data (it);
+  it_data->om = g_object_ref (self);
+  it_data->index = 0;
+  return it;
+}
+
+static gboolean
+find_proxy_fold_func (const GValue *item, GValue *ret, gpointer data)
+{
+  if (g_type_is_a (G_VALUE_TYPE (item), WP_TYPE_PROXY)) {
+    WpProxy *proxy = g_value_get_object (item);
+    if (wp_proxy_get_bound_id (proxy) == GPOINTER_TO_UINT (data)) {
+      g_value_init_from_instance (ret, proxy);
+      return FALSE;
+    }
+  }
+  return TRUE;
+}
+
+/**
+ * wp_object_manager_find_proxy:
+ * @self: the object manager
+ * @bound_id: the bound id of the proxy to get
+ *
+ * Searches the managed objects to find a #WpProxy that has the given @bound_id
+ *
+ * Returns: (transfer full) (nullable): the proxy that has the given @bound_id,
+ *    or %NULL if there is no such proxy managed by this object manager
+ */
+WpProxy *
+wp_object_manager_find_proxy (WpObjectManager *self, guint bound_id)
+{
+  g_autoptr (WpIterator) it = wp_object_manager_iterate (self);
+  g_auto (GValue) ret = G_VALUE_INIT;
+
+  if (!wp_iterator_fold (it, find_proxy_fold_func, &ret,
+          GUINT_TO_POINTER (bound_id)))
+    return g_value_dup_object (&ret);
+
+  return NULL;
 }
 
 static gboolean

@@ -149,8 +149,8 @@ wp_iterator_next (WpIterator *self, GValue *item)
  * wp_iterator_fold:
  * @self: the iterator
  * @func: (scope call): the fold function
- * @ret: the accumulator data
- * @data: the user data
+ * @ret: (inout): the accumulator data
+ * @data: (closure): the user data
  *
  * Iterates over all items of the iterator calling a function.
  *
@@ -172,7 +172,7 @@ wp_iterator_fold (WpIterator *self, WpIteratorFoldFunc func, GValue *ret,
  * wp_iterator_foreach:
  * @self: the iterator
  * @func: (scope call): the foreach function
- * @data: the user data
+ * @data: (closure): the user data
  *
  * Fold a function over the items of the iterator.
  *

@@ -150,12 +150,15 @@ wp_policy_manager_get_instance (WpCore *core)
 WpSession *
 wp_policy_manager_get_session (WpPolicyManager *self)
 {
-  g_autoptr (GPtrArray) arr = NULL;
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) val = G_VALUE_INIT;
 
   g_return_val_if_fail (WP_IS_POLICY_MANAGER (self), NULL);
 
-  arr = wp_object_manager_get_objects (self->sessions_om, 0);
-  return (arr->len > 0) ? g_object_ref (g_ptr_array_index (arr, 0)) : NULL;
+  it = wp_object_manager_iterate (self->sessions_om);
+  if (wp_iterator_next (it, &val))
+    return g_value_dup_object (&val);
+  return NULL;
 }
 
 static inline gboolean
@@ -193,6 +196,17 @@ media_class_matches (const gchar * media_class, const gchar * lookup)
   return TRUE;
 }
 
+static gboolean
+list_endpoints_fold_func (const GValue *item, GValue *ret, gpointer data)
+{
+  GPtrArray *ret_arr = g_value_get_boxed (ret);
+  WpBaseEndpoint *ep = g_value_get_object (item);
+  if (media_class_matches (wp_base_endpoint_get_media_class (ep),
+          (const gchar *) data))
+    g_ptr_array_add (ret_arr, g_object_ref (ep));
+  return TRUE;
+}
+
 /**
  * wp_policy_manager_list_endpoints:
  * @self: the policy manager
@@ -205,18 +219,20 @@ GPtrArray *
 wp_policy_manager_list_endpoints (WpPolicyManager * self,
     const gchar * media_class)
 {
-  GPtrArray * ret;
-  guint i;
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) val = G_VALUE_INIT;
+  GPtrArray *ret_arr;
 
   g_return_val_if_fail (WP_IS_POLICY_MANAGER (self), NULL);
 
-  ret = wp_object_manager_get_objects (self->endpoints_om, 0);
-  for (i = ret->len; i > 0; i--) {
-    WpBaseEndpoint *ep = g_ptr_array_index (ret, i-1);
-    if (!media_class_matches (wp_base_endpoint_get_media_class (ep), media_class))
-      g_ptr_array_remove_index_fast (ret, i-1);
-  }
-  return ret;
+  ret_arr = g_ptr_array_new_with_free_func (g_object_unref);
+  g_value_init (&val, G_TYPE_PTR_ARRAY);
+  g_value_set_boxed (&val, ret_arr);
+
+  it = wp_object_manager_iterate (self->endpoints_om);
+  wp_iterator_fold (it, list_endpoints_fold_func, &val, (gpointer) media_class);
+
+  return ret_arr;
 }
 
 /* WpPolicy */
