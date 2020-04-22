@@ -93,6 +93,7 @@ static struct spa_type_table_data s_tables [WP_SPA_TYPE_TABLE_LAST] = {
   [WP_SPA_TYPE_TABLE_PARAM_PROFILE]     = {spa_type_param_profile, SPA_N_ELEMENTS (spa_type_param_port_config), NULL, NULL, NULL, },
   [WP_SPA_TYPE_TABLE_CONTROL]           = {spa_type_control, SPA_CONTROL_LAST, NULL, NULL, NULL, },
   [WP_SPA_TYPE_TABLE_CHOICE]            = {spa_type_choice, SPA_N_ELEMENTS (spa_type_choice), NULL, NULL, NULL, },
+  [WP_SPA_TYPE_TABLE_AUDIO_CHANNEL]     = {spa_type_audio_channel, SPA_N_ELEMENTS (spa_type_audio_channel), NULL, NULL, NULL, },
 };
 
 static WpSpaTypeTable

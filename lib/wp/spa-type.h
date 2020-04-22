@@ -25,6 +25,7 @@ G_BEGIN_DECLS
  * @WP_SPA_TYPE_TABLE_FORMAT: The object format type table
  * @WP_SPA_TYPE_TABLE_PARAM_PORT_CONFIG: The object param port config type table
  * @WP_SPA_TYPE_TABLE_PARAM_PROFILE: The sequence control type table
+ * @WP_SPA_TYPE_TABLE_AUDIO_CHANNEL: The audio channel type table
  *
  * The diferent tables (namespaces) the registry has.
  */
@@ -38,6 +39,7 @@ typedef enum {
   WP_SPA_TYPE_TABLE_FORMAT,
   WP_SPA_TYPE_TABLE_PARAM_PORT_CONFIG,
   WP_SPA_TYPE_TABLE_PARAM_PROFILE,
+  WP_SPA_TYPE_TABLE_AUDIO_CHANNEL,
   WP_SPA_TYPE_TABLE_LAST,
 } WpSpaTypeTable;
 
