@@ -10,7 +10,7 @@
 #include <pipewire/pipewire.h>
 #include <pipewire/extensions/session-manager.h>
 
-#include "test-server.h"
+#include "../common/test-server.h"
 
 struct _TestSiEndpoint
 {

@@ -10,7 +10,7 @@
 #include <pipewire/pipewire.h>
 #include <spa/pod/iter.h>
 
-#include "test-server.h"
+#include "../common/test-server.h"
 
 typedef struct {
   /* the local pipewire server */

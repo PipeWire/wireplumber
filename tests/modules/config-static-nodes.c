@@ -10,7 +10,7 @@
 
 #include <wp/wp.h>
 
-#include "../wp/test-server.h"
+#include "../common/test-server.h"
 #include "../../modules/module-config-static-nodes/context.h"
 
 typedef struct {

@@ -11,7 +11,7 @@
 #include <wp/wp.h>
 
 #include "config-endpoint/endpoint-audiotestsrc.h"
-#include "../wp/test-server.h"
+#include "../common/test-server.h"
 #include "../../modules/module-config-endpoint/context.h"
 
 typedef struct {

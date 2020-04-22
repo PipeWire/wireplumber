@@ -11,7 +11,7 @@
 #include <wp/wp.h>
 
 #include "config-policy/context.h"
-#include "../wp/test-server.h"
+#include "../common/test-server.h"
 
 typedef struct {
   WpTestServer server;
