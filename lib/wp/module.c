@@ -150,8 +150,9 @@ wp_module_load_c (WpModule * self, WpCore * core,
  * @core: the core
  * @abi: the abi name of the module
  * @module_name: the module name
- * @args: additional properties passed to the module ("a{sv}")
- * @error: return location for errors, or NULL to ignore
+ * @args: (transfer floating)(nullable): additional properties passed to the
+ *     module ("a{sv}")
+ * @error: (out) (optional): return location for errors, or NULL to ignore
  *
  * Returns: (transfer none): the loaded module
  */
