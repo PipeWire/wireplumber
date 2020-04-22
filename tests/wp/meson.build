@@ -2,6 +2,8 @@ common_deps = [gobject_dep, gio_dep, wp_dep, pipewire_dep]
 common_env = [
   'G_TEST_SRCDIR=@0@'.format(meson.current_source_dir()),
   'G_TEST_BUILDDIR=@0@'.format(meson.current_build_dir()),
+  'WIREPLUMBER_MODULE_DIR=@0@'.format(meson.current_build_dir() / '..' / '..' / 'modules'),
+  'WIREPLUMBER_DEBUG=7',
 ]
 common_args = [
   '-DG_LOG_USE_STRUCTURED',
