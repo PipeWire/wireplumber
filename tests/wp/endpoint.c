@@ -6,11 +6,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <wp/wp.h>
-#include <pipewire/pipewire.h>
-#include <pipewire/extensions/session-manager.h>
-
-#include "../common/test-server.h"
+#include "../common/base-test-fixture.h"
+#include <pipewire/extensions/session-manager/keys.h>
 
 struct _TestSiEndpoint
 {
@@ -115,20 +112,9 @@ test_si_endpoint_class_init (TestSiEndpointClass * klass)
 /*******************/
 
 typedef struct {
-  /* the local pipewire server */
-  WpTestServer server;
+  WpBaseTestFixture base;
 
-  /* the main loop */
-  GMainContext *context;
-  GMainLoop *loop;
-  GSource *timeout_source;
-
-  /* the client that exports */
-  WpCore *export_core;
   WpObjectManager *export_om;
-
-  /* the client that receives a proxy */
-  WpCore *proxy_core;
   WpObjectManager *proxy_om;
 
   WpProxy *impl_endpoint;
@@ -138,80 +124,20 @@ typedef struct {
 
 } TestEndpointFixture;
 
-static gboolean
-timeout_callback (TestEndpointFixture *fixture)
-{
-  g_message ("test timed out");
-  g_test_fail ();
-  g_main_loop_quit (fixture->loop);
-
-  return G_SOURCE_REMOVE;
-}
-
-static void
-test_endpoint_disconnected (WpCore *core, TestEndpointFixture *fixture)
-{
-  g_message ("core disconnected");
-  g_test_fail ();
-  g_main_loop_quit (fixture->loop);
-}
-
 static void
 test_endpoint_setup (TestEndpointFixture *self, gconstpointer user_data)
 {
-  wp_spa_type_init (TRUE);
-
-  g_autoptr (WpProperties) props = NULL;
-
-  wp_test_server_setup (&self->server);
-  pw_thread_loop_lock (self->server.thread_loop);
-  if (!pw_context_load_module (self->server.context,
-      "libpipewire-module-session-manager", NULL, NULL)) {
-    pw_thread_loop_unlock (self->server.thread_loop);
-    g_test_skip ("libpipewire-module-session-manager is not installed");
-    return;
-  }
-  pw_thread_loop_unlock (self->server.thread_loop);
-
-  props = wp_properties_new (PW_KEY_REMOTE_NAME, self->server.name, NULL);
-  self->context = g_main_context_new ();
-  self->loop = g_main_loop_new (self->context, FALSE);
-
-  self->export_core = wp_core_new (self->context, props);
+  wp_base_test_fixture_setup (&self->base, WP_BASE_TEST_FLAG_CLIENT_CORE);
   self->export_om = wp_object_manager_new ();
-
-  self->proxy_core = wp_core_new (self->context, props);
   self->proxy_om = wp_object_manager_new ();
-
-  g_main_context_push_thread_default (self->context);
-
-  /* watchdogs */
-  g_signal_connect (self->export_core, "disconnected",
-      (GCallback) test_endpoint_disconnected, self);
-  g_signal_connect (self->proxy_core, "disconnected",
-      (GCallback) test_endpoint_disconnected, self);
-
-  self->timeout_source = g_timeout_source_new_seconds (3);
-  g_source_set_callback (self->timeout_source, (GSourceFunc) timeout_callback,
-      self, NULL);
-  g_source_attach (self->timeout_source, self->context);
 }
 
 static void
 test_endpoint_teardown (TestEndpointFixture *self, gconstpointer user_data)
 {
-  g_main_context_pop_thread_default (self->context);
-
   g_clear_object (&self->proxy_om);
-  g_clear_object (&self->proxy_core);
   g_clear_object (&self->export_om);
-  g_clear_object (&self->export_core);
-  g_clear_pointer (&self->timeout_source, g_source_unref);
-  g_clear_pointer (&self->loop, g_main_loop_unref);
-  g_clear_pointer (&self->context, g_main_context_unref);
-  wp_test_server_teardown (&self->server);
-
-  wp_spa_type_deinit ();
+  wp_base_test_fixture_teardown (&self->base);
 }
 
 static void
@@ -227,7 +153,7 @@ test_endpoint_basic_impl_object_added (WpObjectManager *om,
   fixture->impl_endpoint = WP_PROXY (endpoint);
 
   if (++fixture->n_events == 3)
-    g_main_loop_quit (fixture->loop);
+    g_main_loop_quit (fixture->base.loop);
 }
 
 static void
@@ -243,7 +169,7 @@ test_endpoint_basic_impl_object_removed (WpObjectManager *om,
   fixture->impl_endpoint = NULL;
 
   if (++fixture->n_events == 2)
-    g_main_loop_quit (fixture->loop);
+    g_main_loop_quit (fixture->base.loop);
 }
 
 static void
@@ -259,7 +185,7 @@ test_endpoint_basic_proxy_object_added (WpObjectManager *om,
   fixture->proxy_endpoint = WP_PROXY (endpoint);
 
   if (++fixture->n_events == 3)
-    g_main_loop_quit (fixture->loop);
+    g_main_loop_quit (fixture->base.loop);
 }
 
 static void
@@ -275,7 +201,7 @@ test_endpoint_basic_proxy_object_removed (WpObjectManager *om,
   fixture->proxy_endpoint = NULL;
 
   if (++fixture->n_events == 2)
-    g_main_loop_quit (fixture->loop);
+    g_main_loop_quit (fixture->base.loop);
 }
 
 static void
@@ -302,7 +228,7 @@ test_endpoint_basic_export_done (WpSessionItem * item, GAsyncResult * res,
   g_assert_no_error (error);
 
   if (++fixture->n_events == 3)
-    g_main_loop_quit (fixture->loop);
+    g_main_loop_quit (fixture->base.loop);
 }
 
 static void
@@ -318,7 +244,7 @@ test_endpoint_basic_session_bound (WpProxy * session, GAsyncResult * res,
 
   g_assert_true (WP_IS_IMPL_SESSION (session));
 
-  g_main_loop_quit (fixture->loop);
+  g_main_loop_quit (fixture->base.loop);
 }
 
 #if 0
@@ -331,7 +257,7 @@ test_endpoint_basic_control_changed (WpEndpoint * endpoint,
   g_assert_true (WP_IS_ENDPOINT (endpoint));
 
   if (++fixture->n_events == 2)
-    g_main_loop_quit (fixture->loop);
+    g_main_loop_quit (fixture->base.loop);
 }
 
 static void
@@ -343,7 +269,7 @@ test_endpoint_basic_notify_properties (WpEndpoint * endpoint, GParamSpec * param
   g_assert_true (WP_IS_ENDPOINT (endpoint));
 
   if (++fixture->n_events == 2)
-    g_main_loop_quit (fixture->loop);
+    g_main_loop_quit (fixture->base.loop);
 }
 #endif
 
@@ -364,9 +290,7 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
   wp_object_manager_add_interest (fixture->export_om,
       WP_TYPE_ENDPOINT, NULL,
       WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_CONTROLS);
-  wp_core_install_object_manager (fixture->export_core, fixture->export_om);
-
-  g_assert_true (wp_core_connect (fixture->export_core));
+  wp_core_install_object_manager (fixture->base.core, fixture->export_om);
 
   /* set up the proxy side */
   g_signal_connect (fixture->proxy_om, "object-added",
@@ -376,17 +300,15 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
   wp_object_manager_add_interest (fixture->proxy_om,
       WP_TYPE_ENDPOINT, NULL,
       WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_CONTROLS);
-  wp_core_install_object_manager (fixture->proxy_core, fixture->proxy_om);
-
-  g_assert_true (wp_core_connect (fixture->proxy_core));
+  wp_core_install_object_manager (fixture->base.client_core, fixture->proxy_om);
 
   /* create session */
-  session = wp_impl_session_new (fixture->export_core);
+  session = wp_impl_session_new (fixture->base.core);
   wp_proxy_augment (WP_PROXY (session), WP_PROXY_FEATURE_BOUND, NULL,
       (GAsyncReadyCallback) test_endpoint_basic_session_bound, fixture);
 
   /* run until session is bound */
-  g_main_loop_run (fixture->loop);
+  g_main_loop_run (fixture->base.loop);
   g_assert_cmpint (wp_proxy_get_features (WP_PROXY (session)), &,
       WP_PROXY_FEATURE_BOUND);
   g_assert_cmpint (wp_proxy_get_bound_id (WP_PROXY (session)), >, 0);
@@ -405,7 +327,7 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
 
   /* run until objects are created and features are cached */
   fixture->n_events = 0;
-  g_main_loop_run (fixture->loop);
+  g_main_loop_run (fixture->base.loop);
   g_assert_cmpint (fixture->n_events, ==, 3);
   g_assert_nonnull (fixture->impl_endpoint);
   g_assert_nonnull (fixture->proxy_endpoint);
@@ -477,7 +399,7 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
 
   /* run until the change is on both sides */
   fixture->n_events = 0;
-  g_main_loop_run (fixture->loop);
+  g_main_loop_run (fixture->base.loop);
   g_assert_cmpint (fixture->n_events, ==, 2);
 
   /* test round 2: verify the value change on both sides */
@@ -506,7 +428,7 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
   g_assert_true (wp_endpoint_set_control (WP_ENDPOINT (endpoint), "mute", ctrl));
 
   /* run until the change is on both sides */
-  g_main_loop_run (fixture->loop);
+  g_main_loop_run (fixture->base.loop);
   g_assert_cmpint (fixture->n_events, ==, 2);
 
   /* test round 3: verify the value change on both sides */
@@ -534,7 +456,7 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
   wp_impl_endpoint_set_property (endpoint, "test.property", "changed-value");
 
   /* run until the change is on both sides */
-  g_main_loop_run (fixture->loop);
+  g_main_loop_run (fixture->base.loop);
   g_assert_cmpint (fixture->n_events, ==, 2);
 
   /* test round 4: verify the property change on both sides */
@@ -558,7 +480,7 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
   g_clear_object (&endpoint);
 
   /* run until objects are destroyed */
-  g_main_loop_run (fixture->loop);
+  g_main_loop_run (fixture->base.loop);
   g_assert_cmpint (fixture->n_events, ==, 2);
   g_assert_null (fixture->impl_endpoint);
   g_assert_null (fixture->proxy_endpoint);

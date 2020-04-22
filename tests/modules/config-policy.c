@@ -6,89 +6,36 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <pipewire/pipewire.h>
-
-#include <wp/wp.h>
-
+#include "../common/base-test-fixture.h"
 #include "config-policy/context.h"
-#include "../common/test-server.h"
 
 typedef struct {
-  WpTestServer server;
-  GMainContext *context;
-  GMainLoop *loop;
-  GSource *timeout_source;
-  WpCore *core;
+  WpBaseTestFixture base;
 } TestConfigPolicyFixture;
-
-static gboolean
-timeout_callback (TestConfigPolicyFixture *self)
-{
-  g_message ("test timed out");
-  g_test_fail ();
-  g_main_loop_quit (self->loop);
-
-  return G_SOURCE_REMOVE;
-}
-
-static void
-disconnected_callback (WpCore *core, TestConfigPolicyFixture *self)
-{
-  g_message ("core disconnected");
-  g_test_fail ();
-  g_main_loop_quit (self->loop);
-}
 
 static void
 config_policy_setup (TestConfigPolicyFixture *self, gconstpointer user_data)
 {
-  g_autoptr (WpProperties) props = NULL;
-
-  /* Create the server and load audioconvert plugin */
-  wp_test_server_setup (&self->server);
-
-  /* Create the main context and loop */
-  self->context = g_main_context_new ();
-  self->loop = g_main_loop_new (self->context, FALSE);
-  g_main_context_push_thread_default (self->context);
-
-  /* Set a timeout source */
-  self->timeout_source = g_timeout_source_new_seconds (3);
-  g_source_set_callback (self->timeout_source, (GSourceFunc) timeout_callback,
-      self, NULL);
-  g_source_attach (self->timeout_source, self->context);
-
-  /* Create the core */
-  props = wp_properties_new (PW_KEY_REMOTE_NAME, self->server.name, NULL);
-  self->core = wp_core_new (self->context, props);
-  g_signal_connect (self->core, "disconnected",
-      (GCallback) disconnected_callback, self);
+  wp_base_test_fixture_setup (&self->base, 0);
 }
 
 static void
 config_policy_teardown (TestConfigPolicyFixture *self, gconstpointer user_data)
 {
-  g_clear_object (&self->core);
-  g_clear_pointer (&self->timeout_source, g_source_unref);
-  g_clear_pointer (&self->loop, g_main_loop_unref);
-  g_clear_pointer (&self->context, g_main_context_unref);
-  wp_test_server_teardown (&self->server);
+  wp_base_test_fixture_teardown (&self->base);
 }
 
 static void
 playback (TestConfigPolicyFixture *f, gconstpointer data)
 {
-  g_autoptr (WpConfigPolicyContext) ctx = wp_config_policy_context_new (f->core,
-      f->loop, "config-policy/config-playback");
+  g_autoptr (WpConfigPolicyContext) ctx = wp_config_policy_context_new (
+      f->base.core, f->base.loop, "config-policy/config-playback");
   WpBaseEndpointLink *link = NULL;
   g_autoptr (WpBaseEndpoint) src = NULL;
   g_autoptr (WpBaseEndpoint) sink = NULL;
   g_autoptr (WpBaseEndpoint) ep1 = NULL;
   g_autoptr (WpBaseEndpoint) ep2 = NULL;
   g_autoptr (WpBaseEndpoint) ep3 = NULL;
-
-  /* Connect */
-  g_assert_true (wp_core_connect (f->core));
 
   /* Create the device endpoint */
   ep1 = wp_config_policy_context_add_endpoint (ctx, "ep1", "Fake/Sink",
@@ -131,16 +78,13 @@ playback (TestConfigPolicyFixture *f, gconstpointer data)
 static void
 capture (TestConfigPolicyFixture *f, gconstpointer data)
 {
-  g_autoptr (WpConfigPolicyContext) ctx = wp_config_policy_context_new (f->core,
-      f->loop, "config-policy/config-capture");
+  g_autoptr (WpConfigPolicyContext) ctx = wp_config_policy_context_new (
+      f->base.core, f->base.loop, "config-policy/config-capture");
   WpBaseEndpointLink *link = NULL;
   g_autoptr (WpBaseEndpoint) src = NULL;
   g_autoptr (WpBaseEndpoint) sink = NULL;
   g_autoptr (WpBaseEndpoint) ep1 = NULL;
   g_autoptr (WpBaseEndpoint) ep2 = NULL;
-
-  /* Connect */
-  g_assert_true (wp_core_connect (f->core));
 
   /* Create the device endpoint */
   ep1 = wp_config_policy_context_add_endpoint (ctx, "ep1", "Fake/Source",
@@ -167,8 +111,8 @@ capture (TestConfigPolicyFixture *f, gconstpointer data)
 static void
 playback_capture (TestConfigPolicyFixture *f, gconstpointer data)
 {
-  g_autoptr (WpConfigPolicyContext) ctx = wp_config_policy_context_new (f->core,
-      f->loop, "config-policy/config-playback-capture");
+  g_autoptr (WpConfigPolicyContext) ctx = wp_config_policy_context_new (
+      f->base.core, f->base.loop, "config-policy/config-playback-capture");
   WpBaseEndpointLink *link = NULL;
   g_autoptr (WpBaseEndpoint) src = NULL;
   g_autoptr (WpBaseEndpoint) sink = NULL;
@@ -176,9 +120,6 @@ playback_capture (TestConfigPolicyFixture *f, gconstpointer data)
   g_autoptr (WpBaseEndpoint) ep2 = NULL;
   g_autoptr (WpBaseEndpoint) ep3 = NULL;
   g_autoptr (WpBaseEndpoint) ep4 = NULL;
-
-  /* Connect */
-  g_assert_true (wp_core_connect (f->core));
 
   /* Create the device endpoints */
   ep1 = wp_config_policy_context_add_endpoint (ctx, "ep1", "Fake/Sink",
@@ -225,8 +166,8 @@ playback_capture (TestConfigPolicyFixture *f, gconstpointer data)
 static void
 playback_priority (TestConfigPolicyFixture *f, gconstpointer data)
 {
-  g_autoptr (WpConfigPolicyContext) ctx = wp_config_policy_context_new (f->core,
-      f->loop, "config-policy/config-playback-priority");
+  g_autoptr (WpConfigPolicyContext) ctx = wp_config_policy_context_new (
+      f->base.core, f->base.loop, "config-policy/config-playback-priority");
   WpBaseEndpointLink *link = NULL;
   g_autoptr (WpBaseEndpoint) src = NULL;
   g_autoptr (WpBaseEndpoint) sink = NULL;
@@ -236,9 +177,6 @@ playback_priority (TestConfigPolicyFixture *f, gconstpointer data)
   g_autoptr (WpBaseEndpoint) ep3 = NULL;
   g_autoptr (WpBaseEndpoint) ep4 = NULL;
   g_autoptr (WpBaseEndpoint) ep5 = NULL;
-
-  /* Connect */
-  g_assert_true (wp_core_connect (f->core));
 
   /* Create the device endpoint with 4 streams */
   dev = wp_config_policy_context_add_endpoint (ctx, "dev", "Fake/Sink",
@@ -318,17 +256,14 @@ playback_priority (TestConfigPolicyFixture *f, gconstpointer data)
 static void
 playback_keep (TestConfigPolicyFixture *f, gconstpointer data)
 {
-  g_autoptr (WpConfigPolicyContext) ctx = wp_config_policy_context_new (f->core,
-      f->loop, "config-policy/config-playback-keep");
+  g_autoptr (WpConfigPolicyContext) ctx = wp_config_policy_context_new (
+      f->base.core, f->base.loop, "config-policy/config-playback-keep");
   WpBaseEndpointLink *link = NULL;
   g_autoptr (WpBaseEndpoint) src = NULL;
   g_autoptr (WpBaseEndpoint) sink = NULL;
   g_autoptr (WpBaseEndpoint) ep1 = NULL;
   g_autoptr (WpBaseEndpoint) ep2 = NULL;
   g_autoptr (WpBaseEndpoint) ep3 = NULL;
-
-  /* Connect */
-  g_assert_true (wp_core_connect (f->core));
 
   /* Create the device endpoint */
   ep1 = wp_config_policy_context_add_endpoint (ctx, "ep1", "Fake/Sink",
@@ -371,8 +306,8 @@ playback_keep (TestConfigPolicyFixture *f, gconstpointer data)
 static void
 playback_role (TestConfigPolicyFixture *f, gconstpointer data)
 {
-  g_autoptr (WpConfigPolicyContext) ctx = wp_config_policy_context_new (f->core,
-      f->loop, "config-policy/config-playback-role");
+  g_autoptr (WpConfigPolicyContext) ctx = wp_config_policy_context_new (
+      f->base.core, f->base.loop, "config-policy/config-playback-role");
   WpBaseEndpointLink *link = NULL;
   g_autoptr (WpBaseEndpoint) src = NULL;
   g_autoptr (WpBaseEndpoint) sink = NULL;
@@ -380,9 +315,6 @@ playback_role (TestConfigPolicyFixture *f, gconstpointer data)
   g_autoptr (WpBaseEndpoint) ep1 = NULL;
   g_autoptr (WpBaseEndpoint) ep2 = NULL;
   g_autoptr (WpBaseEndpoint) ep3 = NULL;
-
-  /* Connect */
-  g_assert_true (wp_core_connect (f->core));
 
   /* Create the device with 2 roles: "0" with id 0, and "1" with id 1 */
   dev = wp_config_policy_context_add_endpoint (ctx, "dev", "Fake/Sink",

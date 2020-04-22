@@ -8,6 +8,8 @@
 
 #include <pipewire/pipewire.h>
 #include <pipewire/impl.h>
+#include <glib.h>
+#include <unistd.h>
 
 typedef struct {
   gchar *name;
@@ -28,7 +30,8 @@ wp_test_server_setup (WpTestServer *self)
       NULL);
 
   self->thread_loop = pw_thread_loop_new ("wp-test-server", NULL);
-  self->context = pw_context_new (pw_thread_loop_get_loop (self->thread_loop), properties, 0);
+  self->context = pw_context_new (pw_thread_loop_get_loop (self->thread_loop),
+      properties, 0);
 
   pw_context_load_module (self->context, "libpipewire-module-access", NULL, NULL);
 

@@ -6,83 +6,28 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <wp/wp.h>
-#include <pipewire/pipewire.h>
-#include <spa/pod/iter.h>
-
-#include "../common/test-server.h"
+#include "../common/base-test-fixture.h"
 
 typedef struct {
-  /* the local pipewire server */
-  WpTestServer server;
-
-  /* the main loop */
-  GMainContext *context;
-  GMainLoop *loop;
-  GSource *timeout_source;
-
-  /* the client wireplumber core */
-  WpCore *core;
+  WpBaseTestFixture base;
 
   /* the object manager that listens for proxies */
   WpObjectManager *om;
 
 } TestProxyFixture;
 
-static gboolean
-timeout_callback (TestProxyFixture *fixture)
-{
-  g_message ("test timed out");
-  g_test_fail ();
-  g_main_loop_quit (fixture->loop);
-
-  return G_SOURCE_REMOVE;
-}
-
-static void
-test_proxy_disconnected (WpCore *core, TestProxyFixture *fixture)
-{
-  g_message ("core disconnected");
-  g_test_fail ();
-  g_main_loop_quit (fixture->loop);
-}
-
 static void
 test_proxy_setup (TestProxyFixture *self, gconstpointer user_data)
 {
-  g_autoptr (WpProperties) props = NULL;
-
-  wp_test_server_setup (&self->server);
-
-  props = wp_properties_new (PW_KEY_REMOTE_NAME, self->server.name, NULL);
-  self->context = g_main_context_new ();
-  self->loop = g_main_loop_new (self->context, FALSE);
-  self->core = wp_core_new (self->context, props);
+  wp_base_test_fixture_setup (&self->base, 0);
   self->om = wp_object_manager_new ();
-
-  g_main_context_push_thread_default (self->context);
-
-  /* watchdogs */
-  g_signal_connect (self->core, "disconnected",
-      (GCallback) test_proxy_disconnected, self);
-
-  self->timeout_source = g_timeout_source_new_seconds (3);
-  g_source_set_callback (self->timeout_source, (GSourceFunc) timeout_callback,
-      self, NULL);
-  g_source_attach (self->timeout_source, self->context);
 }
 
 static void
 test_proxy_teardown (TestProxyFixture *self, gconstpointer user_data)
 {
-  g_main_context_pop_thread_default (self->context);
-
   g_clear_object (&self->om);
-  g_clear_object (&self->core);
-  g_clear_pointer (&self->timeout_source, g_source_unref);
-  g_clear_pointer (&self->loop, g_main_loop_unref);
-  g_clear_pointer (&self->context, g_main_context_unref);
-  wp_test_server_teardown (&self->server);
+  wp_base_test_fixture_teardown (&self->base);
 }
 
 static void
@@ -96,7 +41,7 @@ test_proxy_basic_augmented (WpProxy *proxy, GAsyncResult *res,
   g_assert_true (wp_proxy_get_features (proxy) & WP_PROXY_FEATURE_PW_PROXY);
   g_assert_nonnull (wp_proxy_get_pw_proxy (proxy));
 
-  g_main_loop_quit (fixture->loop);
+  g_main_loop_quit (fixture->base.loop);
 }
 
 static void
@@ -139,10 +84,9 @@ test_proxy_basic (TestProxyFixture *fixture, gconstpointer data)
       (GCallback) test_proxy_basic_object_added, fixture);
 
   wp_object_manager_add_interest (fixture->om, WP_TYPE_CLIENT, NULL, 0);
-  wp_core_install_object_manager (fixture->core, fixture->om);
+  wp_core_install_object_manager (fixture->base.core, fixture->om);
 
-  g_assert_true (wp_core_connect (fixture->core));
-  g_main_loop_run (fixture->loop);
+  g_main_loop_run (fixture->base.loop);
 }
 
 typedef struct {
@@ -177,7 +121,7 @@ test_node_enum_params_done (WpProxy *node, GAsyncResult *res,
     g_assert_cmpstr ("PropInfo", ==, wp_spa_pod_get_object_type_name (pod));
   }
 
-  g_main_loop_quit (data->fixture->loop);
+  g_main_loop_quit (data->fixture->base.loop);
   g_free (data);
 }
 
@@ -223,16 +167,16 @@ static void
 test_node (TestProxyFixture *fixture, gconstpointer data)
 {
   /* load audiotestsrc on the server side */
-  pw_thread_loop_lock (fixture->server.thread_loop);
-  pw_context_add_spa_lib (fixture->server.context, "audiotestsrc",
+  pw_thread_loop_lock (fixture->base.server.thread_loop);
+  pw_context_add_spa_lib (fixture->base.server.context, "audiotestsrc",
       "audiotestsrc/libspa-audiotestsrc");
-  if (!pw_context_load_module (fixture->server.context,
+  if (!pw_context_load_module (fixture->base.server.context,
         "libpipewire-module-spa-node", "audiotestsrc", NULL)) {
-    pw_thread_loop_unlock (fixture->server.thread_loop);
+    pw_thread_loop_unlock (fixture->base.server.thread_loop);
     g_test_skip ("audiotestsrc SPA plugin is not installed");
     return;
   }
-  pw_thread_loop_unlock (fixture->server.thread_loop);
+  pw_thread_loop_unlock (fixture->base.server.thread_loop);
 
   /* we should be able to see this exported audiotestsrc node on the client */
   g_signal_connect (fixture->om, "object-added",
@@ -242,10 +186,9 @@ test_node (TestProxyFixture *fixture, gconstpointer data)
      when the signal is fired */
   wp_object_manager_add_interest (fixture->om,
       WP_TYPE_NODE, NULL, WP_PROXY_FEATURES_STANDARD);
-  wp_core_install_object_manager (fixture->core, fixture->om);
+  wp_core_install_object_manager (fixture->base.core, fixture->om);
 
-  g_assert_true (wp_core_connect (fixture->core));
-  g_main_loop_run (fixture->loop);
+  g_main_loop_run (fixture->base.loop);
 }
 
 gint
