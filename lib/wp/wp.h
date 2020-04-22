@@ -28,6 +28,7 @@
 #include "properties.h"
 #include "proxy.h"
 #include "session.h"
+#include "session-bin.h"
 #include "session-item.h"
 #include "si-factory.h"
 #include "si-interfaces.h"
