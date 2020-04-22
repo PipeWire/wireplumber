@@ -23,9 +23,24 @@
  */
 G_DEFINE_INTERFACE (WpSiEndpoint, wp_si_endpoint, WP_TYPE_SESSION_ITEM)
 
+static WpProperties *
+wp_si_endpoint_default_get_properties (WpSiEndpoint * self)
+{
+  return NULL;
+}
+
+static WpSiStreamAcquisition *
+wp_si_endpoint_default_get_stream_acquisition (WpSiEndpoint * self)
+{
+  return NULL;
+}
+
 static void
 wp_si_endpoint_default_init (WpSiEndpointInterface * iface)
 {
+  iface->get_properties = wp_si_endpoint_default_get_properties;
+  iface->get_stream_acquisition = wp_si_endpoint_default_get_stream_acquisition;
+
   g_signal_new ("endpoint-properties-changed", G_TYPE_FROM_INTERFACE (iface),
       G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 
@@ -106,9 +121,9 @@ wp_si_endpoint_get_stream (WpSiEndpoint * self, guint index)
  * wp_si_endpoint_get_stream_acquisition: (virtual get_stream_acquisition)
  * @self: the session item
  *
- * Returns: (transfer none): the stream acquisition interface associated with
- *   this endpoint, or %NULL if this endpoint does not require acquiring
- *   streams before linking them
+ * Returns: (transfer none) (nullable): the stream acquisition interface
+ *   associated with this endpoint, or %NULL if this endpoint does not require
+ *   acquiring streams before linking them
  */
 WpSiStreamAcquisition *
 wp_si_endpoint_get_stream_acquisition (WpSiEndpoint * self)
@@ -182,9 +197,17 @@ wp_si_multi_endpoint_get_endpoint (WpSiMultiEndpoint * self, guint index)
  */
 G_DEFINE_INTERFACE (WpSiStream, wp_si_stream, WP_TYPE_SESSION_ITEM)
 
+static WpProperties *
+wp_si_stream_default_get_properties (WpSiStream * self)
+{
+  return NULL;
+}
+
 static void
 wp_si_stream_default_init (WpSiStreamInterface * iface)
 {
+  iface->get_properties = wp_si_stream_default_get_properties;
+
   g_signal_new ("stream-properties-changed", G_TYPE_FROM_INTERFACE (iface),
       G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 }
@@ -246,9 +269,17 @@ wp_si_stream_get_parent_endpoint (WpSiStream * self)
  */
 G_DEFINE_INTERFACE (WpSiLink, wp_si_link, WP_TYPE_SESSION_ITEM)
 
+static WpProperties *
+wp_si_link_default_get_properties (WpSiLink * self)
+{
+  return NULL;
+}
+
 static void
 wp_si_link_default_init (WpSiLinkInterface * iface)
 {
+  iface->get_properties = wp_si_link_default_get_properties;
+
   g_signal_new ("link-properties-changed", G_TYPE_FROM_INTERFACE (iface),
       G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 }
