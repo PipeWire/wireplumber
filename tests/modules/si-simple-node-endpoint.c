@@ -53,39 +53,6 @@ test_si_simple_node_endpoint_teardown (TestFixture * f, gconstpointer user_data)
 }
 
 static void
-on_proxy_augmented (WpProxy * proxy, GAsyncResult * res, TestFixture * f)
-{
-  g_autoptr (GError) error = NULL;
-  gboolean augment_ret = wp_proxy_augment_finish (proxy, res, &error);
-  g_assert_no_error (error);
-  g_assert_true (augment_ret);
-
-  g_main_loop_quit (f->base.loop);
-}
-
-static void
-on_item_activated (WpSessionItem * item, GAsyncResult * res, TestFixture * f)
-{
-  g_autoptr (GError) error = NULL;
-  gboolean activate_ret = wp_session_item_activate_finish (item, res, &error);
-  g_assert_no_error (error);
-  g_assert_true (activate_ret);
-
-  g_main_loop_quit (f->base.loop);
-}
-
-static void
-on_item_exported (WpSessionItem * item, GAsyncResult * res, TestFixture * f)
-{
-  g_autoptr (GError) error = NULL;
-  gboolean export_ret = wp_session_item_export_finish (item, res, &error);
-  g_assert_no_error (error);
-  g_assert_true (export_ret);
-
-  g_main_loop_quit (f->base.loop);
-}
-
-static void
 test_si_simple_node_endpoint_configure_activate (TestFixture * f,
     gconstpointer user_data)
 {
@@ -111,7 +78,7 @@ test_si_simple_node_endpoint_configure_activate (TestFixture * f,
   g_assert_nonnull (node);
 
   wp_proxy_augment (WP_PROXY (node), WP_PROXY_FEATURES_STANDARD, NULL,
-      (GAsyncReadyCallback) on_proxy_augmented, f);
+      (GAsyncReadyCallback) test_proxy_augment_finish_cb, f);
   g_main_loop_run (f->base.loop);
 
   /* configure */
@@ -155,7 +122,8 @@ test_si_simple_node_endpoint_configure_activate (TestFixture * f,
 
   /* activate */
 
-  wp_session_item_activate (item, (GAsyncReadyCallback) on_item_activated, f);
+  wp_session_item_activate (item,
+      (GAsyncReadyCallback) test_si_activate_finish_cb, f);
   g_main_loop_run (f->base.loop);
 
   g_assert_cmphex (wp_session_item_get_flags (item), ==,
@@ -295,7 +263,7 @@ test_si_simple_node_endpoint_export (TestFixture * f, gconstpointer user_data)
   g_assert_nonnull (node);
 
   wp_proxy_augment (WP_PROXY (node), WP_PROXY_FEATURES_STANDARD, NULL,
-      (GAsyncReadyCallback) on_proxy_augmented, f);
+      (GAsyncReadyCallback) test_proxy_augment_finish_cb, f);
   g_main_loop_run (f->base.loop);
 
   /* configure */
@@ -317,7 +285,8 @@ test_si_simple_node_endpoint_export (TestFixture * f, gconstpointer user_data)
 
   /* activate */
 
-  wp_session_item_activate (item, (GAsyncReadyCallback) on_item_activated, f);
+  wp_session_item_activate (item,
+      (GAsyncReadyCallback) test_si_activate_finish_cb, f);
   g_main_loop_run (f->base.loop);
 
   g_assert_cmpint (
@@ -331,13 +300,13 @@ test_si_simple_node_endpoint_export (TestFixture * f, gconstpointer user_data)
   g_assert_nonnull (session);
 
   wp_proxy_augment (WP_PROXY (session), WP_SESSION_FEATURES_STANDARD, NULL,
-      (GAsyncReadyCallback) on_proxy_augmented, f);
+      (GAsyncReadyCallback) test_proxy_augment_finish_cb, f);
   g_main_loop_run (f->base.loop);
 
   /* export */
 
   wp_session_item_export (item, session,
-      (GAsyncReadyCallback) on_item_exported, f);
+      (GAsyncReadyCallback) test_si_export_finish_cb, f);
   g_main_loop_run (f->base.loop);
 
   g_assert_cmphex (wp_session_item_get_flags (item), ==,

@@ -107,3 +107,39 @@ wp_base_test_fixture_teardown (WpBaseTestFixture * self)
   g_clear_pointer (&self->context, g_main_context_unref);
   wp_test_server_teardown (&self->server);
 }
+
+static G_GNUC_UNUSED void
+test_proxy_augment_finish_cb (WpProxy * proxy, GAsyncResult * res,
+    WpBaseTestFixture * f)
+{
+  g_autoptr (GError) error = NULL;
+  gboolean augment_ret = wp_proxy_augment_finish (proxy, res, &error);
+  g_assert_no_error (error);
+  g_assert_true (augment_ret);
+
+  g_main_loop_quit (f->loop);
+}
+
+static G_GNUC_UNUSED void
+test_si_activate_finish_cb (WpSessionItem * item, GAsyncResult * res,
+    WpBaseTestFixture * f)
+{
+  g_autoptr (GError) error = NULL;
+  gboolean activate_ret = wp_session_item_activate_finish (item, res, &error);
+  g_assert_no_error (error);
+  g_assert_true (activate_ret);
+
+  g_main_loop_quit (f->loop);
+}
+
+static G_GNUC_UNUSED void
+test_si_export_finish_cb (WpSessionItem * item, GAsyncResult * res,
+    WpBaseTestFixture * f)
+{
+  g_autoptr (GError) error = NULL;
+  gboolean export_ret = wp_session_item_export_finish (item, res, &error);
+  g_assert_no_error (error);
+  g_assert_true (export_ret);
+
+  g_main_loop_quit (f->loop);
+}
