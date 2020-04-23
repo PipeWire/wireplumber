@@ -46,3 +46,20 @@ wp_test_server_teardown (WpTestServer *self)
   pw_thread_loop_destroy (self->thread_loop);
   g_free (self->name);
 }
+
+typedef void WpTestServerLocker;
+
+static inline WpTestServerLocker *
+wp_test_server_locker_new (WpTestServer * self)
+{
+  pw_thread_loop_lock (self->thread_loop);
+  return self;
+}
+
+static inline void
+wp_test_server_locker_free (WpTestServerLocker * self)
+{
+  pw_thread_loop_unlock (((WpTestServer *)self)->thread_loop);
+}
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpTestServerLocker, wp_test_server_locker_free)
