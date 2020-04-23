@@ -38,6 +38,7 @@
 
 enum {
   SIGNAL_STATE_CHANGED,
+  SIGNAL_PORTS_CHANGED,
   N_SIGNALS,
 };
 
@@ -49,6 +50,7 @@ struct _WpNodePrivate
   struct pw_node_info *info;
   struct spa_hook listener;
   WpObjectManager *ports_om;
+  gboolean ft_ports_requested;
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE (WpNode, wp_node, WP_TYPE_PROXY)
@@ -71,49 +73,69 @@ wp_node_finalize (GObject * object)
 }
 
 static void
-wp_node_enable_feature_ports (WpNode * self, guint32 bound_id)
+wp_node_emit_ports_changed (WpObjectManager *ports_om, WpNode * self)
+{
+  g_signal_emit (self, signals[SIGNAL_PORTS_CHANGED], 0);
+  wp_proxy_set_feature_ready (WP_PROXY (self), WP_NODE_FEATURE_PORTS);
+}
+
+static void
+wp_node_ensure_feature_ports (WpNode * self, guint32 bound_id)
 {
   WpNodePrivate *priv = wp_node_get_instance_private (self);
-  g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (self));
-  GVariantBuilder b;
+  WpProxyFeatures ft = wp_proxy_get_features (WP_PROXY (self));
 
-  /* proxy node port -> check for node.id in global properties */
-  g_variant_builder_init (&b, G_VARIANT_TYPE ("aa{sv}"));
-  g_variant_builder_open (&b, G_VARIANT_TYPE_VARDICT);
-  g_variant_builder_add (&b, "{sv}", "type",
-      g_variant_new_int32 (WP_OBJECT_MANAGER_CONSTRAINT_PW_GLOBAL_PROPERTY));
-  g_variant_builder_add (&b, "{sv}", "name",
-      g_variant_new_string (PW_KEY_NODE_ID));
-  g_variant_builder_add (&b, "{sv}", "value",
-      g_variant_new_take_string (g_strdup_printf ("%u", bound_id)));
-  g_variant_builder_close (&b);
+  if (priv->ft_ports_requested && !priv->ports_om &&
+      (ft & WP_PROXY_FEATURES_STANDARD) == WP_PROXY_FEATURES_STANDARD)
+  {
+    g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (self));
+    GVariantBuilder b;
 
-  wp_object_manager_add_interest (priv->ports_om,
-      WP_TYPE_PORT,
-      g_variant_builder_end (&b),
-      WP_PROXY_FEATURES_STANDARD);
+    if (!bound_id)
+      bound_id = wp_proxy_get_bound_id (WP_PROXY (self));
 
-  wp_core_install_object_manager (core, priv->ports_om);
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_NODE_FEATURE_PORTS);
+    /* proxy node port -> check for node.id in global properties */
+    g_variant_builder_init (&b, G_VARIANT_TYPE ("aa{sv}"));
+    g_variant_builder_open (&b, G_VARIANT_TYPE_VARDICT);
+    g_variant_builder_add (&b, "{sv}", "type",
+        g_variant_new_int32 (WP_OBJECT_MANAGER_CONSTRAINT_PW_GLOBAL_PROPERTY));
+    g_variant_builder_add (&b, "{sv}", "name",
+        g_variant_new_string (PW_KEY_NODE_ID));
+    g_variant_builder_add (&b, "{sv}", "value",
+        g_variant_new_take_string (g_strdup_printf ("%u", bound_id)));
+    g_variant_builder_close (&b);
+
+    priv->ports_om = wp_object_manager_new ();
+    wp_object_manager_add_interest (priv->ports_om,
+        WP_TYPE_PORT,
+        g_variant_builder_end (&b),
+        WP_PROXY_FEATURES_STANDARD);
+
+    g_signal_connect_object (priv->ports_om, "objects-changed",
+        G_CALLBACK (wp_node_emit_ports_changed), self, 0);
+
+    wp_core_install_object_manager (core, priv->ports_om);
+
+    /* special case: we have no ports available, therefore we should already
+       report that the feature is enabled; otherwise, the feature will be
+       enabled as soon as the port proxies are available */
+    if (priv->info->n_input_ports + priv->info->n_output_ports == 0)
+      wp_proxy_set_feature_ready (WP_PROXY (self), WP_NODE_FEATURE_PORTS);
+  }
 }
 
 static void
 wp_node_augment (WpProxy * proxy, WpProxyFeatures features)
 {
+  WpNode *self = WP_NODE (proxy);
+  WpNodePrivate *priv = wp_node_get_instance_private (self);
+
   /* call the parent impl first to ensure we have a pw proxy if necessary */
   WP_PROXY_CLASS (wp_node_parent_class)->augment (proxy, features);
 
   if (features & WP_NODE_FEATURE_PORTS) {
-    WpNodePrivate *priv = wp_node_get_instance_private (WP_NODE (proxy));
-
-    priv->ports_om = wp_object_manager_new ();
-
-    /* if we are already bound, enable right away;
-       else, continue in the bound() event */
-    if (wp_proxy_get_features (proxy) & WP_PROXY_FEATURE_BOUND) {
-      wp_node_enable_feature_ports (WP_NODE (proxy),
-          wp_proxy_get_bound_id (proxy));
-    }
+    priv->ft_ports_requested = TRUE;
+    wp_node_ensure_feature_ports (self, 0);
   }
 }
 
@@ -193,6 +215,8 @@ node_event_info(void *data, const struct pw_node_info *info)
   if (info->change_mask & PW_NODE_CHANGE_MASK_STATE)
     g_signal_emit (self, signals[SIGNAL_STATE_CHANGED], 0, old_state,
         priv->info->state);
+
+  wp_node_ensure_feature_ports (self, 0);
 }
 
 static const struct pw_node_events node_events = {
@@ -214,10 +238,7 @@ static void
 wp_node_bound (WpProxy * proxy, guint32 id)
 {
   WpNode *self = WP_NODE (proxy);
-  WpNodePrivate *priv = wp_node_get_instance_private (self);
-
-  if (priv->ports_om)
-    wp_node_enable_feature_ports (self, id);
+  wp_node_ensure_feature_ports (self, id);
 }
 
 static void
@@ -247,12 +268,24 @@ wp_node_class_init (WpNodeClass * klass)
    * @old_state: the old state
    * @new_state: the new state
    *
-   * Emitted when the node changes state
+   * Emitted when the node changes state. This is only emitted
+   * when %WP_PROXY_FEATURE_INFO is enabled.
    */
   signals[SIGNAL_STATE_CHANGED] = g_signal_new (
       "state-changed", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 2,
       WP_TYPE_NODE_STATE, WP_TYPE_NODE_STATE);
+
+  /**
+   * WpNode::ports-changed:
+   * @self: the node
+   *
+   * Emitted when the node's ports change. This is only emitted
+   * when %WP_NODE_FEATURE_PORTS is enabled.
+   */
+  signals[SIGNAL_PORTS_CHANGED] = g_signal_new (
+      "ports-changed", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 }
 
 /**
@@ -484,7 +517,7 @@ wp_impl_node_augment (WpProxy * proxy, WpProxyFeatures features)
 
   /* if any of the default features is requested, make sure BOUND
      is also requested, as they all depend on binding the pw_impl_node */
-  if (features & WP_PROXY_FEATURES_STANDARD)
+  if (features & WP_NODE_FEATURES_STANDARD)
     features |= WP_PROXY_FEATURE_BOUND;
 
   if (features & WP_PROXY_FEATURE_BOUND) {
@@ -510,14 +543,8 @@ wp_impl_node_augment (WpProxy * proxy, WpProxyFeatures features)
 
   if (features & WP_NODE_FEATURE_PORTS) {
     WpNodePrivate *priv = wp_node_get_instance_private (WP_NODE (self));
-    priv->ports_om = wp_object_manager_new ();
-
-    /* if we are already bound, enable right away;
-       else, continue in the bound() event */
-    if (wp_proxy_get_features (proxy) & WP_PROXY_FEATURE_BOUND) {
-      wp_node_enable_feature_ports (WP_NODE (self),
-          wp_proxy_get_bound_id (proxy));
-    }
+    priv->ft_ports_requested = TRUE;
+    wp_node_ensure_feature_ports (WP_NODE (self), 0);
   }
 }
 
