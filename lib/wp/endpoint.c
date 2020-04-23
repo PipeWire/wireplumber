@@ -730,6 +730,8 @@ populate_properties (WpImplEndpoint * self, WpProperties *global_props)
 
   g_clear_pointer (&priv->properties, wp_properties_unref);
   priv->properties = wp_si_endpoint_get_properties (self->item);
+  if (!priv->properties)
+    priv->properties = wp_properties_new_empty ();
   priv->properties = wp_properties_ensure_unique_owner (priv->properties);
   wp_properties_update (priv->properties, global_props);
 

@@ -18,7 +18,7 @@ typedef struct {
   const gchar *media_class;
   const gchar *expected_media_class;
   WpDirection expected_direction;
-} TestConfigureActivateData;
+} TestData;
 
 static void
 test_si_simple_node_endpoint_setup (TestFixture * f, gconstpointer user_data)
@@ -53,10 +53,10 @@ test_si_simple_node_endpoint_teardown (TestFixture * f, gconstpointer user_data)
 }
 
 static void
-on_node_augmented (WpProxy * node, GAsyncResult * res, TestFixture * f)
+on_proxy_augmented (WpProxy * proxy, GAsyncResult * res, TestFixture * f)
 {
   g_autoptr (GError) error = NULL;
-  gboolean augment_ret = wp_proxy_augment_finish (node, res, &error);
+  gboolean augment_ret = wp_proxy_augment_finish (proxy, res, &error);
   g_assert_no_error (error);
   g_assert_true (augment_ret);
 
@@ -75,10 +75,21 @@ on_item_activated (WpSessionItem * item, GAsyncResult * res, TestFixture * f)
 }
 
 static void
+on_item_exported (WpSessionItem * item, GAsyncResult * res, TestFixture * f)
+{
+  g_autoptr (GError) error = NULL;
+  gboolean export_ret = wp_session_item_export_finish (item, res, &error);
+  g_assert_no_error (error);
+  g_assert_true (export_ret);
+
+  g_main_loop_quit (f->base.loop);
+}
+
+static void
 test_si_simple_node_endpoint_configure_activate (TestFixture * f,
     gconstpointer user_data)
 {
-  const TestConfigureActivateData *data = user_data;
+  const TestData *data = user_data;
   g_autoptr (WpNode) node = NULL;
   g_autoptr (WpSessionItem) item = NULL;
   WpSiStream *stream;
@@ -100,7 +111,7 @@ test_si_simple_node_endpoint_configure_activate (TestFixture * f,
   g_assert_nonnull (node);
 
   wp_proxy_augment (WP_PROXY (node), WP_PROXY_FEATURES_STANDARD, NULL,
-      (GAsyncReadyCallback) on_node_augmented, f);
+      (GAsyncReadyCallback) on_proxy_augmented, f);
   g_main_loop_run (f->base.loop);
 
   /* configure */
@@ -242,6 +253,154 @@ test_si_simple_node_endpoint_configure_activate (TestFixture * f,
   }
 }
 
+static void
+test_si_simple_node_endpoint_export (TestFixture * f, gconstpointer user_data)
+{
+  const TestData *data = user_data;
+  g_autoptr (WpNode) node = NULL;
+  g_autoptr (WpSession) session = NULL;
+  g_autoptr (WpSessionItem) item = NULL;
+  g_autoptr (WpObjectManager) clients_om = NULL;
+  g_autoptr (WpClient) self_client = NULL;
+  WpSiStream *stream;
+
+  /* find self_client, to be used for verifying endpoint.client.id */
+
+  clients_om = wp_object_manager_new ();
+  wp_object_manager_add_interest (clients_om, WP_TYPE_CLIENT, NULL,
+      WP_PROXY_FEATURE_BOUND);
+  g_signal_connect_swapped (clients_om, "objects-changed",
+      G_CALLBACK (g_main_loop_quit), f->base.loop);
+  wp_core_install_object_manager (f->base.core, clients_om);
+  g_main_loop_run (f->base.loop);
+
+  {
+    g_autoptr (WpIterator) it = wp_object_manager_iterate (clients_om);
+    g_auto (GValue) val = G_VALUE_INIT;
+    g_assert_true (wp_iterator_next (it, &val));
+    g_assert_nonnull (self_client = g_value_dup_object (&val));
+  }
+
+  /* create item */
+
+  item = wp_session_item_make (f->base.core, "si-simple-node-endpoint");
+  g_assert_nonnull (item);
+
+  node = wp_node_new_from_factory (f->base.core,
+      "spa-node-factory",
+      wp_properties_new (
+          "factory.name", data->factory,
+          "node.name", data->name,
+          NULL));
+  g_assert_nonnull (node);
+
+  wp_proxy_augment (WP_PROXY (node), WP_PROXY_FEATURES_STANDARD, NULL,
+      (GAsyncReadyCallback) on_proxy_augmented, f);
+  g_main_loop_run (f->base.loop);
+
+  /* configure */
+
+  {
+    g_auto (GVariantBuilder) b =
+        G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
+    g_variant_builder_add (&b, "{sv}", "node",
+        g_variant_new_uint64 ((guint64) node));
+    if (data->media_class) {
+      g_variant_builder_add (&b, "{sv}", "media-class",
+          g_variant_new_string (data->media_class));
+    }
+    g_variant_builder_add (&b, "{sv}", "role", g_variant_new_string ("test"));
+    g_variant_builder_add (&b, "{sv}", "priority", g_variant_new_uint32 (10));
+    g_assert_true (
+        wp_session_item_configure (item, g_variant_builder_end (&b)));
+  }
+
+  /* activate */
+
+  wp_session_item_activate (item, (GAsyncReadyCallback) on_item_activated, f);
+  g_main_loop_run (f->base.loop);
+
+  g_assert_cmpint (
+      wp_si_endpoint_get_n_streams (WP_SI_ENDPOINT (item)), ==, 1);
+  g_assert_nonnull (
+      stream = wp_si_endpoint_get_stream (WP_SI_ENDPOINT (item), 0));
+
+  /* create session */
+
+  session = WP_SESSION (wp_impl_session_new (f->base.core));
+  g_assert_nonnull (session);
+
+  wp_proxy_augment (WP_PROXY (session), WP_SESSION_FEATURES_STANDARD, NULL,
+      (GAsyncReadyCallback) on_proxy_augmented, f);
+  g_main_loop_run (f->base.loop);
+
+  /* export */
+
+  wp_session_item_export (item, session,
+      (GAsyncReadyCallback) on_item_exported, f);
+  g_main_loop_run (f->base.loop);
+
+  g_assert_cmphex (wp_session_item_get_flags (item), ==,
+      WP_SI_FLAG_CONFIGURED | WP_SI_FLAG_ACTIVE | WP_SI_FLAG_EXPORTED);
+
+  {
+    g_autoptr (WpEndpoint) ep = NULL;
+    g_autoptr (WpProperties) props = NULL;
+    gchar *tmp;
+
+    g_assert_nonnull (
+        ep = wp_session_item_get_associated_proxy (item, WP_TYPE_ENDPOINT));
+    g_assert_nonnull (props = wp_proxy_get_properties (WP_PROXY (ep)));
+
+    g_assert_cmpstr (wp_endpoint_get_name (ep), ==, data->name);
+    g_assert_cmpstr (wp_endpoint_get_media_class (ep), ==,
+        data->expected_media_class);
+    g_assert_cmpint (wp_endpoint_get_direction (ep), ==,
+        data->expected_direction);
+    g_assert_cmpstr (wp_properties_get (props, "endpoint.name"), ==,
+        data->name);
+    g_assert_cmpstr (wp_properties_get (props, "media.class"), ==,
+        data->expected_media_class);
+    g_assert_cmpstr (wp_properties_get (props, "media.role"), ==, "test");
+    g_assert_cmpstr (wp_properties_get (props, "endpoint.priority"), ==, "10");
+
+    tmp = g_strdup_printf ("%d", wp_proxy_get_bound_id (WP_PROXY (session)));
+    g_assert_cmpstr (wp_properties_get (props, "session.id"), ==, tmp);
+    g_free (tmp);
+
+    tmp = g_strdup_printf ("%d", wp_proxy_get_bound_id (WP_PROXY (node)));
+    g_assert_cmpstr (wp_properties_get (props, "node.id"), ==, tmp);
+    g_free (tmp);
+
+    tmp = g_strdup_printf ("%d", wp_proxy_get_bound_id (WP_PROXY (self_client)));
+    g_assert_cmpstr (wp_properties_get (props, "endpoint.client.id"), ==, tmp);
+    g_free (tmp);
+  }
+
+  {
+    g_autoptr (WpEndpointStream) epstr = NULL;
+    g_autoptr (WpProperties) props = NULL;
+    gchar *tmp;
+
+    g_assert_nonnull (
+        epstr = wp_session_item_get_associated_proxy (WP_SESSION_ITEM (stream),
+                WP_TYPE_ENDPOINT_STREAM));
+    g_assert_nonnull (props = wp_proxy_get_properties (WP_PROXY (epstr)));
+
+    g_assert_cmpstr (wp_endpoint_stream_get_name (epstr), ==, "default");
+    g_assert_cmpstr (wp_properties_get (props, "endpoint-stream.name"), ==,
+        "default");
+
+    tmp = g_strdup_printf ("%d", wp_session_item_get_associated_proxy_id (
+            WP_SESSION_ITEM (stream), WP_TYPE_ENDPOINT));
+    g_assert_cmpstr (wp_properties_get (props, "endpoint.id"), ==, tmp);
+    g_free (tmp);
+  }
+
+  wp_session_item_reset (item);
+  g_assert_cmphex (wp_session_item_get_flags (item), ==, 0);
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -249,31 +408,56 @@ main (gint argc, gchar *argv[])
   pw_init (NULL, NULL);
   g_log_set_writer_func (wp_log_writer_default, NULL, NULL);
 
-  const TestConfigureActivateData fakesink_data = {
+  /* data */
+
+  const TestData fakesink_data = {
     "fakesink", "fakesink0", "Fake/Sink", "Fake/Sink", WP_DIRECTION_INPUT
   };
+  const TestData fakesrc_data = {
+    "fakesrc", "fakesrc0", "Fake/Source", "Fake/Source", WP_DIRECTION_OUTPUT
+  };
+  const TestData audiotestsrc_data = {
+    "audiotestsrc", "audiotestsrc0", NULL, "Audio/Source", WP_DIRECTION_OUTPUT
+  };
+
+  /* configure-activate */
+
   g_test_add ("/modules/si-simple-node-endpoint/configure-activate/fakesink",
       TestFixture, &fakesink_data,
       test_si_simple_node_endpoint_setup,
       test_si_simple_node_endpoint_configure_activate,
       test_si_simple_node_endpoint_teardown);
 
-  const TestConfigureActivateData fakesrc_data = {
-    "fakesrc", "fakesrc0", "Fake/Source", "Fake/Source", WP_DIRECTION_OUTPUT
-  };
   g_test_add ("/modules/si-simple-node-endpoint/configure-activate/fakesrc",
       TestFixture, &fakesrc_data,
       test_si_simple_node_endpoint_setup,
       test_si_simple_node_endpoint_configure_activate,
       test_si_simple_node_endpoint_teardown);
 
-  const TestConfigureActivateData audiotestsrc_data = {
-    "audiotestsrc", "audiotestsrc0", NULL, "Audio/Source", WP_DIRECTION_OUTPUT
-  };
   g_test_add ("/modules/si-simple-node-endpoint/configure-activate/audiotestsrc",
       TestFixture, &audiotestsrc_data,
       test_si_simple_node_endpoint_setup,
       test_si_simple_node_endpoint_configure_activate,
+      test_si_simple_node_endpoint_teardown);
+
+  /* export */
+
+  g_test_add ("/modules/si-simple-node-endpoint/export/fakesink",
+      TestFixture, &fakesink_data,
+      test_si_simple_node_endpoint_setup,
+      test_si_simple_node_endpoint_export,
+      test_si_simple_node_endpoint_teardown);
+
+  g_test_add ("/modules/si-simple-node-endpoint/export/fakesrc",
+      TestFixture, &fakesrc_data,
+      test_si_simple_node_endpoint_setup,
+      test_si_simple_node_endpoint_export,
+      test_si_simple_node_endpoint_teardown);
+
+  g_test_add ("/modules/si-simple-node-endpoint/export/audiotestsrc",
+      TestFixture, &audiotestsrc_data,
+      test_si_simple_node_endpoint_setup,
+      test_si_simple_node_endpoint_export,
       test_si_simple_node_endpoint_teardown);
 
   return g_test_run ();

@@ -258,8 +258,8 @@ si_simple_node_endpoint_get_properties (WpSiEndpoint * item)
 
   result = wp_properties_new (
       PW_KEY_MEDIA_ROLE, self->role,
-      "endpoint.priority", self->priority,
       NULL);
+  wp_properties_setf (result, "endpoint.priority", "%u", self->priority);
 
   /* copy useful properties from the node */
   node_props = wp_proxy_get_properties (WP_PROXY (self->node));
