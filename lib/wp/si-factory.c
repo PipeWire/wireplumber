@@ -291,7 +291,7 @@ wp_si_factory_new_simple (const gchar * factory_name,
   g_return_val_if_fail (factory_name != NULL, NULL);
   g_return_val_if_fail (g_type_is_a (si_type, WP_TYPE_SESSION_ITEM), NULL);
   g_return_val_if_fail (
-      g_variant_is_of_type (config_spec, G_VARIANT_TYPE ("a{sv}")), NULL);
+      g_variant_is_of_type (config_spec, G_VARIANT_TYPE ("a(ssymv)")), NULL);
 
   WpSimpleSiFactory *self = g_object_new (
       wp_simple_si_factory_get_type (), NULL);

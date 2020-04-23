@@ -457,7 +457,7 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   GVariantBuilder b;
 
-  g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
+  g_variant_builder_init (&b, G_VARIANT_TYPE ("a(ssymv)"));
   g_variant_builder_add (&b, "(ssymv)", "out-stream", "t",
       WP_SI_CONFIG_OPTION_WRITEABLE | WP_SI_CONFIG_OPTION_REQUIRED, NULL);
   g_variant_builder_add (&b, "(ssymv)", "in-stream", "t",

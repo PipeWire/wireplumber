@@ -58,6 +58,7 @@ si_simple_node_endpoint_reset (WpSessionItem * item)
   self->role[0] = '\0';
   self->priority = 0;
   self->direction = WP_DIRECTION_INPUT;
+  wp_session_item_clear_flag (item, WP_SI_FLAG_CONFIGURED);
 }
 
 static gpointer
@@ -395,7 +396,7 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   GVariantBuilder b;
 
-  g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
+  g_variant_builder_init (&b, G_VARIANT_TYPE ("a(ssymv)"));
   g_variant_builder_add (&b, "(ssymv)", "node", "t",
       WP_SI_CONFIG_OPTION_WRITEABLE | WP_SI_CONFIG_OPTION_REQUIRED, NULL);
   g_variant_builder_add (&b, "(ssymv)", "name", "s",
