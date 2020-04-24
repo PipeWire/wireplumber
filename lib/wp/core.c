@@ -53,9 +53,13 @@ wp_loop_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
 {
   int result;
 
+  wp_trace_boxed (G_TYPE_SOURCE, s, "entering pw main loop");
+
   pw_loop_enter (WP_LOOP_SOURCE(s)->loop);
   result = pw_loop_iterate (WP_LOOP_SOURCE(s)->loop, 0);
   pw_loop_leave (WP_LOOP_SOURCE(s)->loop);
+
+  wp_trace_boxed (G_TYPE_SOURCE, s, "leaving pw main loop");
 
   if (G_UNLIKELY (result < 0))
     wp_warning_boxed (G_TYPE_SOURCE, s,
