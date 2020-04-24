@@ -66,7 +66,10 @@ struct _WpObjectManager
   /* objects that we are interested in, without a ref */
   GPtrArray *objects;
 
-  gboolean pending_objchanged;
+  gboolean installed;
+  gboolean changed;
+  guint pending_objects;
+  GSource *idle_source;
 };
 
 enum {
@@ -78,6 +81,7 @@ enum {
   SIGNAL_OBJECT_ADDED,
   SIGNAL_OBJECT_REMOVED,
   SIGNAL_OBJECTS_CHANGED,
+  SIGNAL_INSTALLED,
   LAST_SIGNAL,
 };
 
@@ -91,7 +95,9 @@ wp_object_manager_init (WpObjectManager * self)
   g_weak_ref_init (&self->core, NULL);
   pw_array_init (&self->interests, sizeof (struct interest));
   self->objects = g_ptr_array_new ();
-  self->pending_objchanged = FALSE;
+  self->installed = FALSE;
+  self->changed = FALSE;
+  self->pending_objects = 0;
 }
 
 static void
@@ -100,6 +106,10 @@ wp_object_manager_finalize (GObject * object)
   WpObjectManager *self = WP_OBJECT_MANAGER (object);
   struct interest *i;
 
+  if (self->idle_source) {
+    g_source_destroy (self->idle_source);
+    g_clear_pointer (&self->idle_source, g_source_unref);
+  }
   g_clear_pointer (&self->objects, g_ptr_array_unref);
 
   pw_array_for_each (i, &self->interests) {
@@ -110,22 +120,6 @@ wp_object_manager_finalize (GObject * object)
   g_weak_ref_clear (&self->core);
 
   G_OBJECT_CLASS (wp_object_manager_parent_class)->finalize (object);
-}
-
-static void
-wp_object_manager_set_property (GObject * object, guint property_id,
-    const GValue * value, GParamSpec * pspec)
-{
-  WpObjectManager *self = WP_OBJECT_MANAGER (object);
-
-  switch (property_id) {
-  case PROP_CORE:
-    g_weak_ref_set (&self->core, g_value_get_object (value));
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
-    break;
-  }
 }
 
 static void
@@ -151,13 +145,12 @@ wp_object_manager_class_init (WpObjectManagerClass * klass)
 
   object_class->finalize = wp_object_manager_finalize;
   object_class->get_property = wp_object_manager_get_property;
-  object_class->set_property = wp_object_manager_set_property;
 
   /* Install the properties */
 
   g_object_class_install_property (object_class, PROP_CORE,
       g_param_spec_object ("core", "core", "The WpCore", WP_TYPE_CORE,
-          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
   /**
    * WpObjectManager::object-added:
@@ -196,6 +189,19 @@ wp_object_manager_class_init (WpObjectManagerClass * klass)
    */
   signals[SIGNAL_OBJECTS_CHANGED] = g_signal_new (
       "objects-changed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
+      0, NULL, NULL, NULL, G_TYPE_NONE, 0);
+
+  /**
+   * WpObjectManager::installed:
+   * @self: the object manager
+   *
+   * This is emitted once after the object manager is installed with
+   * wp_core_install_object_manager(). If there are objects that need
+   * to be prepared asynchronously internally, emission of this signal is
+   * delayed until all objects are ready.
+   */
+  signals[SIGNAL_INSTALLED] = g_signal_new (
+      "installed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
       0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 }
 
@@ -571,26 +577,62 @@ wp_object_manager_is_interested_in_global (WpObjectManager * self,
   return FALSE;
 }
 
-static void
-sync_emit_objects_changed (WpCore *core, GAsyncResult *res, gpointer data)
+static gboolean
+idle_emit_objects_changed (WpObjectManager * self)
 {
-  g_autoptr (WpObjectManager) self = WP_OBJECT_MANAGER (data);
+  g_clear_pointer (&self->idle_source, g_source_unref);
 
+  if (G_UNLIKELY (!self->installed)) {
+    wp_trace_object (self, "installed");
+    g_signal_emit (self, signals[SIGNAL_INSTALLED], 0);
+    self->installed = TRUE;
+  }
   g_signal_emit (self, signals[SIGNAL_OBJECTS_CHANGED], 0);
-  self->pending_objchanged = FALSE;
+
+  return G_SOURCE_REMOVE;
 }
 
-static inline void
-schedule_emit_objects_changed (WpObjectManager * self)
+static void
+wp_object_manager_maybe_objects_changed (WpObjectManager * self)
 {
-  if (self->pending_objchanged)
+  /* always wait until there are no pending objects */
+  if (self->pending_objects > 0)
     return;
 
-  g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
-  if (core) {
-    wp_core_sync (core, NULL, (GAsyncReadyCallback)sync_emit_objects_changed,
-        g_object_ref (self));
-    self->pending_objchanged = TRUE;
+  /* Emit 'objects-changed' when:
+   * - there are no pending objects
+   * - object-added or object-removed has been emitted at least once
+   */
+  if (self->changed) {
+    self->changed = FALSE;
+
+    /* schedule emission in idle; if it is already scheduled from earlier,
+       there is nothing to do; we will emit objects-changed once for all
+       changes... win-win */
+    if (!self->idle_source) {
+      g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
+      if (core) {
+        wp_core_idle_add (core, &self->idle_source,
+            (GSourceFunc) idle_emit_objects_changed, self, NULL);
+      }
+    }
+  }
+  /* Emit 'installed' when:
+   * - there are no pending objects
+   * - !changed: there was no object added
+   * - !installed: not already installed
+   * - the registry does not have pending globals; these may be interesting
+   * to our object manager, so let's wait a bit until they are released
+   * and re-evaluate again later
+   */
+  else if (!self->installed) {
+    g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
+    WpRegistry *reg = wp_core_get_registry (core);
+    if (reg->tmp_globals->len == 0) {
+      wp_trace_object (self, "installed");
+      g_signal_emit (self, signals[SIGNAL_INSTALLED], 0);
+      self->installed = TRUE;
+    }
   }
 }
 
@@ -600,16 +642,20 @@ on_proxy_ready (GObject * proxy, GAsyncResult * res, gpointer data)
   g_autoptr (WpObjectManager) self = WP_OBJECT_MANAGER (data);
   g_autoptr (GError) error = NULL;
 
+  self->pending_objects--;
+
   if (!wp_proxy_augment_finish (WP_PROXY (proxy), res, &error)) {
     wp_message_object (self, "proxy augment failed: %s", error->message);
-    return;
+  } else {
+    g_ptr_array_add (self->objects, proxy);
+    g_signal_emit (self, signals[SIGNAL_OBJECT_ADDED], 0, proxy);
+    self->changed = TRUE;
   }
 
-  g_ptr_array_add (self->objects, proxy);
-  g_signal_emit (self, signals[SIGNAL_OBJECT_ADDED], 0, proxy);
-  schedule_emit_objects_changed (self);
+  wp_object_manager_maybe_objects_changed (self);
 }
 
+/* caller must also call wp_object_manager_maybe_objects_changed() after */
 static void
 wp_object_manager_add_global (WpObjectManager * self, WpGlobal * global)
 {
@@ -618,27 +664,34 @@ wp_object_manager_add_global (WpObjectManager * self, WpGlobal * global)
   if (wp_object_manager_is_interested_in_global (self, global, &features)) {
     g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
 
+    self->pending_objects++;
+
     if (!global->proxy)
       global->proxy = g_object_new (global->type,
           "core", core,
           "global", global,
           NULL);
 
+    wp_trace_object (self, "adding global:%u -> " WP_OBJECT_FORMAT,
+        global->id, WP_OBJECT_ARGS (global->proxy));
+
     wp_proxy_augment (global->proxy, features, NULL, on_proxy_ready,
         g_object_ref (self));
   }
 }
 
+/* caller must also call wp_object_manager_maybe_objects_changed() after */
 static void
 wp_object_manager_add_object (WpObjectManager * self, gpointer object)
 {
   if (wp_object_manager_is_interested_in_object (self, object)) {
     g_ptr_array_add (self->objects, object);
     g_signal_emit (self, signals[SIGNAL_OBJECT_ADDED], 0, object);
-    schedule_emit_objects_changed (self);
+    self->changed = TRUE;
   }
 }
 
+/* caller must also call wp_object_manager_maybe_objects_changed() after */
 static void
 wp_object_manager_rm_object (WpObjectManager * self, gpointer object)
 {
@@ -646,7 +699,7 @@ wp_object_manager_rm_object (WpObjectManager * self, gpointer object)
   if (g_ptr_array_find (self->objects, object, &index)) {
     g_signal_emit (self, signals[SIGNAL_OBJECT_REMOVED], 0, object);
     g_ptr_array_remove_index_fast (self->objects, index);
-    schedule_emit_objects_changed (self);
+    self->changed = TRUE;
   }
 }
 
@@ -710,6 +763,7 @@ wp_registry_notify_add_object (WpRegistry *self, gpointer object)
   for (guint i = 0; i < self->object_managers->len; i++) {
     WpObjectManager *om = g_ptr_array_index (self->object_managers, i);
     wp_object_manager_add_object (om, object);
+    wp_object_manager_maybe_objects_changed (om);
   }
 }
 
@@ -719,6 +773,7 @@ wp_registry_notify_rm_object (WpRegistry *self, gpointer object)
   for (guint i = 0; i < self->object_managers->len; i++) {
     WpObjectManager *om = g_ptr_array_index (self->object_managers, i);
     wp_object_manager_rm_object (om, object);
+    wp_object_manager_maybe_objects_changed (om);
   }
 }
 
@@ -935,12 +990,17 @@ expose_tmp_globals (WpCore *core, GAsyncResult *res, WpRegistry *self)
     if (self->globals->len <= g->id)
       g_ptr_array_set_size (self->globals, g->id + 1);
     g_ptr_array_index (self->globals, g->id) = wp_global_ref (g);
+  }
 
-    /* notify object managers */
-    for (guint i = 0; i < self->object_managers->len; i++) {
-      WpObjectManager *om = g_ptr_array_index (self->object_managers, i);
+  /* notify object managers */
+  for (guint i = 0; i < self->object_managers->len; i++) {
+    WpObjectManager *om = g_ptr_array_index (self->object_managers, i);
+
+    for (guint i = 0; i < tmp_globals->len; i++) {
+      WpGlobal *g = g_ptr_array_index (tmp_globals, i);
       wp_object_manager_add_global (om, g);
     }
+    wp_object_manager_maybe_objects_changed (om);
   }
 }
 
@@ -1122,7 +1182,7 @@ wp_core_install_object_manager (WpCore * self, WpObjectManager * om)
 
   g_object_weak_ref (G_OBJECT (om), object_manager_destroyed, reg);
   g_ptr_array_add (reg->object_managers, om);
-  g_object_set (om, "core", self, NULL);
+  g_weak_ref_set (&om->core, self);
 
   /* add pre-existing objects to the object manager,
      in case it's interested in them */
@@ -1136,6 +1196,8 @@ wp_core_install_object_manager (WpCore * self, WpObjectManager * om)
     GObject *o = g_ptr_array_index (reg->objects, i);
     wp_object_manager_add_object (om, o);
   }
+
+  wp_object_manager_maybe_objects_changed (om);
 }
 
 /* WpGlobal */

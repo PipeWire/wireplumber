@@ -73,10 +73,15 @@ wp_node_finalize (GObject * object)
 }
 
 static void
+wp_node_on_ports_om_installed (WpObjectManager *ports_om, WpNode * self)
+{
+  wp_proxy_set_feature_ready (WP_PROXY (self), WP_NODE_FEATURE_PORTS);
+}
+
+static void
 wp_node_emit_ports_changed (WpObjectManager *ports_om, WpNode * self)
 {
   g_signal_emit (self, signals[SIGNAL_PORTS_CHANGED], 0);
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_NODE_FEATURE_PORTS);
 }
 
 static void
@@ -111,16 +116,12 @@ wp_node_ensure_feature_ports (WpNode * self, guint32 bound_id)
         g_variant_builder_end (&b),
         WP_PROXY_FEATURES_STANDARD);
 
+    g_signal_connect_object (priv->ports_om, "installed",
+        G_CALLBACK (wp_node_on_ports_om_installed), self, 0);
     g_signal_connect_object (priv->ports_om, "objects-changed",
         G_CALLBACK (wp_node_emit_ports_changed), self, 0);
 
     wp_core_install_object_manager (core, priv->ports_om);
-
-    /* special case: we have no ports available, therefore we should already
-       report that the feature is enabled; otherwise, the feature will be
-       enabled as soon as the port proxies are available */
-    if (priv->info->n_input_ports + priv->info->n_output_ports == 0)
-      wp_proxy_set_feature_ready (WP_PROXY (self), WP_NODE_FEATURE_PORTS);
   }
 }
 
