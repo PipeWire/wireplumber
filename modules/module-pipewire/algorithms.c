@@ -330,6 +330,7 @@ select_channels (WpSpaPod *value)
       i++;
     }
     ret = SPA_MAX (vals[1], vals[2]);
+    ret = SPA_MIN (ret, SPA_AUDIO_MAX_CHANNELS);
   }
 
   return ret;
