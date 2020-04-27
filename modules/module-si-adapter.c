@@ -67,6 +67,8 @@ si_adapter_reset (WpSessionItem * item)
   WP_SESSION_ITEM_CLASS (si_adapter_parent_class)->reset (item);
 
   g_clear_object (&self->node);
+
+  wp_session_item_clear_flag (item, WP_SI_FLAG_CONFIGURED);
 }
 
 static gpointer
@@ -172,6 +174,8 @@ si_adapter_configure (WpSessionItem * item, GVariant * args)
   g_variant_lookup (args, "priority", "u", &self->priority);
   g_variant_lookup (args, "enable-control-port", "b", &self->control_port);
   g_variant_lookup (args, "enable-monitor", "b", &self->monitor);
+
+  wp_session_item_set_flag (item, WP_SI_FLAG_CONFIGURED);
 
   return TRUE;
 }
