@@ -48,7 +48,13 @@ struct common_fields
 /* our palette */
 #define DOMAIN_COLOR    COLOR_MAGENTA
 #define LOCATION_COLOR  COLOR_BLUE
-#define OBJECT_COLOR    COLOR_YELLOW
+
+/* available colors for object printouts (the <Object:0xfoobar>) */
+static const gchar *object_colors[] = {
+  COLOR_RED, COLOR_GREEN, COLOR_YELLOW, COLOR_MAGENTA, COLOR_CYAN,
+  COLOR_BRIGHT_RED, COLOR_BRIGHT_GREEN, COLOR_BRIGHT_YELLOW,
+  COLOR_BRIGHT_MAGENTA, COLOR_BRIGHT_CYAN
+};
 
 /*
  * priority numbers are based on GLib's gmessages.c
@@ -173,8 +179,14 @@ write_debug_message (FILE *s, struct common_fields *cf)
 static inline gchar *
 format_message (struct common_fields *cf)
 {
+  const gchar *object_color = "";
+  if (use_color) {
+    guint h = g_direct_hash (cf->object) % G_N_ELEMENTS (object_colors);
+    object_color = object_colors[h];
+  }
+
   return g_strdup_printf ("%s<%s%s%p>%s %s",
-      use_color ? OBJECT_COLOR : "",
+      object_color,
       cf->object_type != 0 ? g_type_name (cf->object_type) : "",
       cf->object_type != 0 ? ":" : "",
       cf->object,
