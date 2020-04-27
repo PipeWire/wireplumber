@@ -20,7 +20,7 @@ G_BEGIN_DECLS
 #define WP_OBJECT_ARGS(object) G_OBJECT_TYPE_NAME(object), object
 
 WP_API
-gboolean wp_log_level_is_enabled (GLogLevelFlags log_level);
+gboolean wp_log_level_is_enabled (GLogLevelFlags log_level) G_GNUC_CONST;
 
 WP_API
 GLogWriterOutput wp_log_writer_default (GLogLevelFlags log_level,
