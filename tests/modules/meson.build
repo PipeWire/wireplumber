@@ -83,3 +83,10 @@ test(
       dependencies: common_deps, c_args: common_args),
   env: common_env,
 )
+
+test(
+  'test-si-audio-softdsp-endpoint',
+  executable('test-si-audio-softdsp-endpoint', 'si-audio-softdsp-endpoint.c',
+      dependencies: common_deps, c_args: common_args),
+  env: common_env,
+)
