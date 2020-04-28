@@ -120,6 +120,9 @@ struct _WpSessionItemClass
 WP_API
 void wp_session_item_reset (WpSessionItem * self);
 
+WP_API
+WpSessionItem * wp_session_item_get_parent (WpSessionItem * self);
+
 /* flags */
 
 WP_API

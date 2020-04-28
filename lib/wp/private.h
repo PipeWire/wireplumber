@@ -179,6 +179,10 @@ WpSpaPod * wp_spa_props_build_props (WpSpaProps * self);
 GPtrArray * wp_spa_props_build_propinfo (WpSpaProps * self);
 GPtrArray * wp_spa_props_build_all_pods (WpSpaProps * self);
 
+/* session item */
+
+void wp_session_item_set_parent (WpSessionItem *self, WpSessionItem *parent);
+
 /* impl endpoint */
 
 #define WP_TYPE_IMPL_ENDPOINT (wp_impl_endpoint_get_type ())

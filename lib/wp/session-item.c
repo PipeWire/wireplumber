@@ -78,6 +78,7 @@ struct _WpSessionItemPrivate
 {
   GWeakRef session;
   guint32 flags;
+  GWeakRef parent;
 
   union {
     WpProxy *impl_proxy;
@@ -106,6 +107,7 @@ wp_session_item_init (WpSessionItem * self)
       wp_session_item_get_instance_private (self);
 
   g_weak_ref_init (&priv->session, NULL);
+  g_weak_ref_init (&priv->parent, NULL);
 }
 
 static void
@@ -125,6 +127,7 @@ wp_session_item_finalize (GObject * object)
   WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
 
   g_weak_ref_clear (&priv->session);
+  g_weak_ref_clear (&priv->parent);
 
   G_OBJECT_CLASS (wp_session_item_parent_class)->finalize (object);
 }
@@ -357,6 +360,45 @@ wp_session_item_reset (WpSessionItem * self)
   g_return_if_fail (WP_SESSION_ITEM_GET_CLASS (self)->reset);
 
   WP_SESSION_ITEM_GET_CLASS (self)->reset (self);
+}
+
+/**
+ * wp_session_item_get_parent:
+ * @self: the session item
+ *
+ * Gets the item's parent, which is the #WpSessionBin this item has been added
+ * to, or NULL if the item does not belong to a session bin.
+ *
+ * Returns: (nullable) (transfer full): the item's parent.
+ */
+WpSessionItem *
+wp_session_item_get_parent (WpSessionItem * self)
+{
+  g_return_val_if_fail (WP_IS_SESSION_ITEM (self), NULL);
+
+  WpSessionItemPrivate *priv =
+      wp_session_item_get_instance_private (self);
+  return g_weak_ref_get (&priv->parent);
+}
+
+/**
+ * wp_session_item_set_parent:
+ * @self: the session item
+ *
+ * Gets the item's parent, which is the #WpSessionBin this item has been added
+ * to, or NULL if the item does not belong to a session bin.
+ *
+ * Returns: (nullable) (transfer full): the item's parent.
+ */
+void
+wp_session_item_set_parent (WpSessionItem *self, WpSessionItem *parent)
+{
+  g_return_if_fail (WP_IS_SESSION_ITEM (self));
+
+  WpSessionItemPrivate *priv =
+      wp_session_item_get_instance_private (self);
+
+  g_weak_ref_set (&priv->parent, parent);
 }
 
 /**

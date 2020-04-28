@@ -96,6 +96,7 @@ wp_session_bin_add (WpSessionBin *self, WpSessionItem *item)
     return FALSE;
 
   g_ptr_array_add (priv->items, item);
+  wp_session_item_set_parent (item, WP_SESSION_ITEM (self));
   return TRUE;
 }
 
@@ -112,6 +113,7 @@ gboolean
 wp_session_bin_remove (WpSessionBin *self, WpSessionItem *item)
 {
   WpSessionBinPrivate *priv = wp_session_bin_get_instance_private (self);
+  wp_session_item_set_parent (item, NULL);
   return g_ptr_array_remove_fast (priv->items, item);
 }
 
