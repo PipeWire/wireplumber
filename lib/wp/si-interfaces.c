@@ -251,7 +251,7 @@ wp_si_stream_get_properties (WpSiStream * self)
  * wp_si_stream_get_parent_endpoint: (virtual get_parent_endpoint)
  * @self: the session item
  *
- * Returns: (transfer none): the endpoint that this stream belongs to
+ * Returns: (transfer full): the endpoint that this stream belongs to
  */
 WpSiEndpoint *
 wp_si_stream_get_parent_endpoint (WpSiStream * self)

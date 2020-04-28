@@ -327,7 +327,8 @@ si_standard_link_activate_execute_step (WpSessionItem * item,
 
   switch (step) {
   case STEP_ACQUIRE: {
-    WpSiEndpoint *out_endpoint, *in_endpoint;
+    g_autoptr (WpSiEndpoint) out_endpoint = NULL;
+    g_autoptr (WpSiEndpoint) in_endpoint = NULL;
     WpSiStreamAcquisition *out_acquisition, *in_acquisition;
 
     out_endpoint = wp_si_stream_get_parent_endpoint (self->out_stream);
@@ -382,7 +383,8 @@ static void
 si_standard_link_activate_rollback (WpSessionItem * item)
 {
   WpSiStandardLink *self = WP_SI_STANDARD_LINK (item);
-  WpSiEndpoint *out_endpoint, *in_endpoint;
+  g_autoptr (WpSiEndpoint) out_endpoint = NULL;
+  g_autoptr (WpSiEndpoint) in_endpoint = NULL;
   WpSiStreamAcquisition *out_acquisition, *in_acquisition;
 
   out_endpoint = wp_si_stream_get_parent_endpoint (self->out_stream);

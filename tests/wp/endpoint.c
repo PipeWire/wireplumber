@@ -84,7 +84,7 @@ test_si_endpoint_get_stream_properties (WpSiStream * self)
 static WpSiEndpoint *
 test_si_endpoint_get_stream_parent_endpoint (WpSiStream * self)
 {
-  return WP_SI_ENDPOINT (self);
+  return WP_SI_ENDPOINT (g_object_ref (self));
 }
 
 static void

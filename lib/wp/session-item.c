@@ -146,7 +146,8 @@ wp_session_item_default_get_associated_proxy (WpSessionItem * self,
   WpSessionItemPrivate *priv;
 
   if (WP_IS_SI_STREAM (self)) {
-    WpSiEndpoint *ep = wp_si_stream_get_parent_endpoint (WP_SI_STREAM (self));
+    g_autoptr (WpSiEndpoint) ep =
+        wp_si_stream_get_parent_endpoint (WP_SI_STREAM (self));
     priv = wp_session_item_get_instance_private (WP_SESSION_ITEM (ep));
   } else {
     priv = wp_session_item_get_instance_private (self);
