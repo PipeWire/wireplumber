@@ -46,23 +46,15 @@
 
 /* WpObjectManager */
 
-struct interest
-{
-  GType g_type;
-  WpProxyFeatures wanted_features;
-  GVariant *constraints; // aa{sv}
-};
-
 struct _WpObjectManager
 {
   GObject parent;
-
   GWeakRef core;
 
-  /* array of struct interest;
-    pw_array has a better API for our use case than GArray */
-  struct pw_array interests;
-
+  /* element-type: WpObjectInterest* */
+  GPtrArray *interests;
+  /* element-type: <GType, WpProxyFeatures> */
+  GHashTable *features;
   /* objects that we are interested in, without a ref */
   GPtrArray *objects;
 
@@ -93,7 +85,9 @@ static void
 wp_object_manager_init (WpObjectManager * self)
 {
   g_weak_ref_init (&self->core, NULL);
-  pw_array_init (&self->interests, sizeof (struct interest));
+  self->interests =
+      g_ptr_array_new_with_free_func ((GDestroyNotify) wp_object_interest_free);
+  self->features = g_hash_table_new (g_direct_hash, g_direct_equal);
   self->objects = g_ptr_array_new ();
   self->installed = FALSE;
   self->changed = FALSE;
@@ -104,19 +98,14 @@ static void
 wp_object_manager_finalize (GObject * object)
 {
   WpObjectManager *self = WP_OBJECT_MANAGER (object);
-  struct interest *i;
 
   if (self->idle_source) {
     g_source_destroy (self->idle_source);
     g_clear_pointer (&self->idle_source, g_source_unref);
   }
   g_clear_pointer (&self->objects, g_ptr_array_unref);
-
-  pw_array_for_each (i, &self->interests) {
-    g_clear_pointer (&i->constraints, g_variant_unref);
-  }
-  pw_array_clear (&self->interests);
-
+  g_clear_pointer (&self->features, g_hash_table_unref);
+  g_clear_pointer (&self->interests, g_ptr_array_unref);
   g_weak_ref_clear (&self->core);
 
   G_OBJECT_CLASS (wp_object_manager_parent_class)->finalize (object);
@@ -276,17 +265,137 @@ wp_object_manager_add_interest (WpObjectManager *self,
     GType gtype, GVariant * constraints,
     WpProxyFeatures wanted_features)
 {
-  struct interest *i;
+  g_autoptr (WpObjectInterest) interest = NULL;
+  g_autoptr (GVariant) c = NULL;
+  GVariantIter iter;
+  WpObjectManagerConstraintType ctype;
+  const gchar *prop_name, *prop_value;
 
   g_return_if_fail (WP_IS_OBJECT_MANAGER (self));
   g_return_if_fail (constraints == NULL ||
       g_variant_is_of_type (constraints, G_VARIANT_TYPE ("aa{sv}")));
 
-  /* grow the array by 1 struct interest and fill it in */
-  i = pw_array_add (&self->interests, sizeof (struct interest));
-  i->g_type = gtype;
-  i->wanted_features = wanted_features;
-  i->constraints = constraints ? g_variant_ref_sink (constraints) : NULL;
+  interest = wp_object_interest_new_type (gtype);
+
+  if (constraints) {
+    g_variant_iter_init (&iter, constraints);
+    while (g_variant_iter_next (&iter, "@a{sv}", &c)) {
+      GVariantDict dict = G_VARIANT_DICT_INIT (c);
+
+      if (!g_variant_dict_lookup (&dict, "type", "i", &ctype)) {
+        g_critical ("Invalid object manager constraint without a type");
+        return;
+      }
+
+      if (!g_variant_dict_lookup (&dict, "name", "&s", &prop_name)) {
+        g_critical ("property constraint is without a property name");
+        return;
+      }
+      if (!g_variant_dict_lookup (&dict, "value", "&s", &prop_value)) {
+        g_critical ("property constraint is without a property value");
+        return;
+      }
+
+      wp_object_interest_add_constraint (interest, (WpConstraintType) ctype,
+          prop_name, WP_CONSTRAINT_VERB_EQUALS, g_variant_new_string (prop_value));
+
+      g_variant_dict_clear (&dict);
+      g_clear_pointer (&c, g_variant_unref);
+    }
+  }
+
+  wp_object_manager_add_interest_full (self, g_steal_pointer (&interest));
+  if (wanted_features != 0)
+    wp_object_manager_request_proxy_features (self, gtype, wanted_features);
+}
+
+/**
+ * wp_object_manager_add_interest_1:
+ * @self: the object manager
+ * @gtype: the #GType of the objects that we are declaring interest in
+ * @...: a list of constraints, terminated by %NULL
+ *
+ * Equivalent to:
+ * |[
+ * WpObjectInterest *i = wp_object_interest_new (gtype, ...);
+ * wp_object_manager_add_interest_full (self, i);
+ * ]|
+ *
+ * The constraints specified in the variable arguments must follow the rules
+ * documented in wp_object_interest_new().
+ */
+void
+wp_object_manager_add_interest_1 (WpObjectManager * self, GType gtype, ...)
+{
+  WpObjectInterest *interest;
+  va_list args;
+
+  g_return_if_fail (WP_IS_OBJECT_MANAGER (self));
+
+  va_start (args, gtype);
+  interest = wp_object_interest_new_valist (gtype, &args);
+  wp_object_manager_add_interest_full (self, interest);
+  va_end (args);
+}
+
+/**
+ * wp_object_manager_add_interest_full: (rename-to wp_object_manager_add_interest)
+ * @self: the object manager
+ * @interest: (transfer full): the interest
+ *
+ * Declares interest in a certain kind of object. Interest consists of a #GType
+ * that the object must be an ancestor of (g_type_is_a must match) and
+ * optionally, a set of additional constraints on certain properties of the
+ * object. Refer to #WpObjectInterest for more details.
+ */
+void
+wp_object_manager_add_interest_full (WpObjectManager *self,
+    WpObjectInterest * interest)
+{
+  g_autoptr (GError) error = NULL;
+
+  g_return_if_fail (WP_IS_OBJECT_MANAGER (self));
+
+  if (G_UNLIKELY (!wp_object_interest_validate (interest, &error))) {
+    wp_critical_object (self, "interest validation failed: %s",
+        error->message);
+    wp_object_interest_free (interest);
+    return;
+  }
+  g_ptr_array_add (self->interests, interest);
+}
+
+/**
+ * wp_object_manager_request_proxy_features:
+ * @self: the object manager
+ * @proxy_type: the #WpProxy descendant type
+ * @wanted_features: the features to enable on this kind of proxy
+ *
+ * Requests the object manager to automatically prepare the @wanted_features
+ * on any managed object that is of the specified @proxy_type. These features
+ * will always be prepared before the object appears on the object manager.
+ */
+void
+wp_object_manager_request_proxy_features (WpObjectManager *self,
+    GType proxy_type, WpProxyFeatures wanted_features)
+{
+  g_autofree GType *children = NULL;
+  GType *child;
+
+  g_return_if_fail (WP_IS_OBJECT_MANAGER (self));
+  g_return_if_fail (g_type_is_a (proxy_type, WP_TYPE_PROXY));
+
+  g_hash_table_insert (self->features, GSIZE_TO_POINTER (proxy_type),
+      GUINT_TO_POINTER (wanted_features));
+
+  child = children = g_type_children (proxy_type, NULL);
+  while (*child) {
+    WpProxyFeatures existing_ft = (WpProxyFeatures) GPOINTER_TO_UINT (
+        g_hash_table_lookup (self->features, GSIZE_TO_POINTER (*child)));
+    g_hash_table_insert (self->features, GSIZE_TO_POINTER (*child),
+        GUINT_TO_POINTER (existing_ft | wanted_features));
+    child++;
+  }
 }
 
 /**
@@ -305,6 +414,7 @@ wp_object_manager_get_n_objects (WpObjectManager * self)
 struct om_iterator_data
 {
   WpObjectManager *om;
+  WpObjectInterest *interest;
   guint index;
 };
 
@@ -321,10 +431,15 @@ om_iterator_next (WpIterator *it, GValue *item)
   struct om_iterator_data *it_data = wp_iterator_get_user_data (it);
   GPtrArray *objects = it_data->om->objects;
 
-  if (G_LIKELY (it_data->index < objects->len)) {
-    g_value_init_from_instance (item,
-        g_ptr_array_index (objects, it_data->index++));
-    return TRUE;
+  while (it_data->index < objects->len) {
+    gpointer obj = g_ptr_array_index (objects, it_data->index++);
+
+    /* take the next object that matches the interest, if any */
+    if (!it_data->interest ||
+        wp_object_interest_matches (it_data->interest, obj)) {
+      g_value_init_from_instance (item, obj);
+      return TRUE;
+    }
   }
   return FALSE;
 }
@@ -341,13 +456,16 @@ om_iterator_fold (WpIterator *it, WpIteratorFoldFunc func, GValue *ret,
   len = it_data->om->objects->len;
 
   while ((obj - base) < len) {
-    g_auto (GValue) item = G_VALUE_INIT;
-    g_value_init_from_instance (&item, *obj);
-    if (!func (&item, ret, data))
-      return FALSE;
+    /* only pass matching objects to the fold func if we have an interest */
+    if (!it_data->interest ||
+        wp_object_interest_matches (it_data->interest, obj)) {
+      g_auto (GValue) item = G_VALUE_INIT;
+      g_value_init_from_instance (&item, *obj);
+      if (!func (&item, ret, data))
+        return FALSE;
+    }
     obj++;
   }
-
   return TRUE;
 }
 
@@ -383,6 +501,75 @@ wp_object_manager_iterate (WpObjectManager * self)
   it = wp_iterator_new (&om_iterator_methods, sizeof (struct om_iterator_data));
   it_data = wp_iterator_get_user_data (it);
   it_data->om = g_object_ref (self);
+  it_data->index = 0;
+  return it;
+}
+
+/**
+ * wp_object_manager_iterate_filtered:
+ * @self: the object manager
+ * @gtype: the #GType of the objects to iterate through
+ * @...: a list of constraints, terminated by %NULL
+ *
+ * Equivalent to:
+ * |[
+ * WpObjectInterest *i = wp_object_interest_new (gtype, ...);
+ * return wp_object_manager_iterate_filtered_full (self, i);
+ * ]|
+ *
+ * The constraints specified in the variable arguments must follow the rules
+ * documented in wp_object_interest_new().
+ *
+ * Returns: (transfer full): a #WpIterator that iterates over all the matching
+ *   objects of this object manager
+ */
+WpIterator *
+wp_object_manager_iterate_filtered (WpObjectManager * self, GType gtype, ...)
+{
+  WpObjectInterest *interest;
+  va_list args;
+
+  g_return_val_if_fail (WP_IS_OBJECT_MANAGER (self), NULL);
+
+  va_start (args, gtype);
+  interest = wp_object_interest_new_valist (gtype, &args);
+  va_end (args);
+
+  return wp_object_manager_iterate_filtered_full (self, interest);
+}
+
+/**
+ * wp_object_manager_iterate_filtered_full: (rename-to wp_object_manager_iterate_filtered)
+ * @self: the object manager
+ * @interest: (transfer full): the interest
+ *
+ * Iterates through all the objects managed by this object manager that
+ * match the specified @interest.
+ *
+ * Returns: (transfer full): a #WpIterator that iterates over all the matching
+ *   objects of this object manager
+ */
+WpIterator *
+wp_object_manager_iterate_filtered_full (WpObjectManager * self,
+    WpObjectInterest * interest)
+{
+  WpIterator *it;
+  struct om_iterator_data *it_data;
+  g_autoptr (GError) error = NULL;
+
+  g_return_val_if_fail (WP_IS_OBJECT_MANAGER (self), NULL);
+
+  if (G_UNLIKELY (!wp_object_interest_validate (interest, &error))) {
+    wp_critical_object (self, "interest validation failed: %s",
+        error->message);
+    wp_object_interest_free (interest);
+    return NULL;
+  }
+
+  it = wp_iterator_new (&om_iterator_methods, sizeof (struct om_iterator_data));
+  it_data = wp_iterator_get_user_data (it);
+  it_data->om = g_object_ref (self);
+  it_data->interest = interest;
   it_data->index = 0;
   return it;
 }
@@ -423,137 +610,78 @@ wp_object_manager_find_proxy (WpObjectManager *self, guint bound_id)
   return NULL;
 }
 
-static gboolean
-check_constraints (GVariant *constraints,
-    WpProperties *global_props,
-    GObject *object)
+/**
+ * wp_object_manager_lookup:
+ * @self: the object manager
+ * @gtype: the #GType of the object to lookup
+ * @...: a list of constraints, terminated by %NULL
+ *
+ * Equivalent to:
+ * |[
+ * WpObjectInterest *i = wp_object_interest_new (gtype, ...);
+ * return wp_object_manager_lookup_full (self, i);
+ * ]|
+ *
+ * The constraints specified in the variable arguments must follow the rules
+ * documented in wp_object_interest_new().
+ *
+ * Returns: (type GObject)(transfer full)(nullable): the first managed object
+ *    that matches the lookup interest, or %NULL if no object matches
+ */
+gpointer
+wp_object_manager_lookup (WpObjectManager * self, GType gtype, ...)
 {
-  GVariantIter iter;
-  GVariant *c;
-  WpObjectManagerConstraintType ctype;
-  const gchar *prop_name, *prop_value;
+  WpObjectInterest *interest;
+  va_list args;
 
-  g_variant_iter_init (&iter, constraints);
-  while (g_variant_iter_next (&iter, "@a{sv}", &c)) {
-    GVariantDict dict = G_VARIANT_DICT_INIT (c);
+  g_return_val_if_fail (WP_IS_OBJECT_MANAGER (self), NULL);
 
-    if (!g_variant_dict_lookup (&dict, "type", "i", &ctype)) {
-      g_critical ("Invalid object manager constraint without a type");
-      goto error;
-    }
+  va_start (args, gtype);
+  interest = wp_object_interest_new_valist (gtype, &args);
+  va_end (args);
 
-    switch (ctype) {
-    case WP_OBJECT_MANAGER_CONSTRAINT_PW_GLOBAL_PROPERTY:
-      if (!global_props)
-        goto next;
+  return wp_object_manager_lookup_full (self, interest);
+}
 
-      if (!g_variant_dict_lookup (&dict, "name", "&s", &prop_name)) {
-        g_critical ("property constraint is without a property name");
-        goto error;
-      }
-      if (!g_variant_dict_lookup (&dict, "value", "&s", &prop_value)) {
-        g_critical ("property constraint is without a property value");
-        goto error;
-      }
-      if (!g_strcmp0 (wp_properties_get (global_props, prop_name), prop_value))
-        goto match;
+/**
+ * wp_object_manager_lookup_full:
+ * @self: the object manager
+ * @interest: (transfer full): the interst
+ *
+ * Searches for an object that matches the specified @interest and returns
+ * it, if found. If more than one objects match, only the first one is returned.
+ * To find multiple objects that match certain criteria,
+ * wp_object_manager_iterate_filtered() is more suitable.
+ *
+ * Returns: (type GObject)(transfer full)(nullable): the first managed object
+ *    that matches the lookup interest, or %NULL if no object matches
+ */
+gpointer
+wp_object_manager_lookup_full (WpObjectManager * self,
+    WpObjectInterest * interest)
+{
+  g_auto (GValue) ret = G_VALUE_INIT;
+  g_autoptr (WpIterator) it =
+      wp_object_manager_iterate_filtered_full (self, interest);
 
-      break;
-    case WP_OBJECT_MANAGER_CONSTRAINT_PW_PROPERTY:
-    {
-      /* pipewire properties are contained in a GObj property called "properties" */
-      g_autoptr (WpProperties) props = NULL;
-      if (object &&
-          g_object_class_find_property (G_OBJECT_GET_CLASS (object), "properties"))
-        g_object_get (object, "properties", &props, NULL);
-      if (!props)
-        goto next;
+  if (wp_iterator_next (it, &ret))
+    return g_value_dup_object (&ret);
 
-      if (!g_variant_dict_lookup (&dict, "name", "&s", &prop_name)) {
-        g_critical ("property constraint is without a property name");
-        goto error;
-      }
-      if (!g_variant_dict_lookup (&dict, "value", "&s", &prop_value)) {
-        g_critical ("property constraint is without a property value");
-        goto error;
-      }
-      if (!g_strcmp0 (wp_properties_get (props, prop_name), prop_value))
-        goto match;
-
-      break;
-    }
-    case WP_OBJECT_MANAGER_CONSTRAINT_G_PROPERTY:
-      if (!object)
-        goto next;
-
-      if (!g_variant_dict_lookup (&dict, "name", "&s", &prop_name)) {
-        g_critical ("property constraint is without a property name");
-        goto error;
-      }
-      if (!g_variant_dict_lookup (&dict, "value", "&s", &prop_value)) {
-        g_critical ("property constraint is without a property value");
-        goto error;
-      }
-
-      if (!g_object_class_find_property (G_OBJECT_GET_CLASS (object), prop_name))
-        goto next;
-
-      if (({
-        g_auto (GValue) value = G_VALUE_INIT;
-        g_auto (GValue) str_value = G_VALUE_INIT;
-
-        g_object_get_property (object, prop_name, &value);
-        g_value_init (&str_value, G_TYPE_STRING);
-
-        g_value_transform (&value, &str_value) &&
-            !g_strcmp0 (g_value_get_string (&str_value), prop_value);
-      }))
-        goto match;
-
-      break;
-    default:
-      g_critical ("Unknown constraint type '%d'", ctype);
-      goto error;
-    }
-
-  next:
-    {
-      g_variant_dict_clear (&dict);
-      g_clear_pointer (&c, g_variant_unref);
-      continue;
-    }
-  match:
-    {
-      g_variant_dict_clear (&dict);
-      g_clear_pointer (&c, g_variant_unref);
-      return TRUE;
-    }
-  error:
-    {
-      g_autofree gchar *dbgstr = g_variant_print (c, TRUE);
-      g_critical ("offending constraint was: %s", dbgstr);
-      goto next;
-    }
-  }
-
-  return FALSE;
+  return NULL;
 }
 
 static gboolean
 wp_object_manager_is_interested_in_object (WpObjectManager * self,
     GObject * object)
 {
-  struct interest *i;
+  gint i;
+  WpObjectInterest *interest = NULL;
 
-  pw_array_for_each (i, &self->interests) {
-    if (g_type_is_a (G_OBJECT_TYPE (object), i->g_type)
-        && (!i->constraints ||
-            check_constraints (i->constraints, NULL, object)))
-    {
+  for (i = 0; i < self->interests->len; i++) {
+    interest = g_ptr_array_index (self->interests, i);
+    if (wp_object_interest_matches (interest, object))
       return TRUE;
-    }
   }
-
   return FALSE;
 }
 
@@ -561,19 +689,19 @@ static gboolean
 wp_object_manager_is_interested_in_global (WpObjectManager * self,
     WpGlobal * global, WpProxyFeatures * wanted_features)
 {
-  struct interest *i;
+  gint i;
+  WpObjectInterest *interest = NULL;
 
-  pw_array_for_each (i, &self->interests) {
-    if (g_type_is_a (global->type, i->g_type)
-        && (!i->constraints ||
-            check_constraints (i->constraints, global->properties,
-                G_OBJECT (global->proxy))))
-    {
-      *wanted_features = i->wanted_features;
+  for (i = 0; i < self->interests->len; i++) {
+    interest = g_ptr_array_index (self->interests, i);
+    if (wp_object_interest_matches_full (interest, global->type,
+            global->proxy, NULL, global->properties)) {
+      gpointer ft = g_hash_table_lookup (self->features,
+          GSIZE_TO_POINTER (global->type));
+      *wanted_features = (WpProxyFeatures) GPOINTER_TO_UINT (ft);
       return TRUE;
     }
   }
-
   return FALSE;
 }
 
