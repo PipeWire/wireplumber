@@ -17,6 +17,13 @@ test(
 )
 
 test(
+  'test-object-interest',
+  executable('test-object-interest', 'object-interest.c',
+      dependencies: common_deps, c_args: common_args),
+  env: common_env,
+)
+
+test(
   'test-properties',
   executable('test-properties', 'properties.c',
       dependencies: common_deps, c_args: common_args),

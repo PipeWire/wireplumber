@@ -21,6 +21,7 @@
 #include "link.h"
 #include "module.h"
 #include "node.h"
+#include "object-interest.h"
 #include "object-manager.h"
 #include "policy.h"
 #include "port.h"
