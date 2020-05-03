@@ -287,9 +287,9 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
       (GCallback) test_endpoint_basic_impl_object_added, fixture);
   g_signal_connect (fixture->export_om, "object-removed",
       (GCallback) test_endpoint_basic_impl_object_removed, fixture);
-  wp_object_manager_add_interest (fixture->export_om,
-      WP_TYPE_ENDPOINT, NULL,
-      WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_CONTROLS);
+  wp_object_manager_add_interest_1 (fixture->export_om, WP_TYPE_ENDPOINT, NULL);
+  wp_object_manager_request_proxy_features (fixture->export_om,
+      WP_TYPE_ENDPOINT, WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_CONTROLS);
   wp_core_install_object_manager (fixture->base.core, fixture->export_om);
 
   /* set up the proxy side */
@@ -297,8 +297,8 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
       (GCallback) test_endpoint_basic_proxy_object_added, fixture);
   g_signal_connect (fixture->proxy_om, "object-removed",
       (GCallback) test_endpoint_basic_proxy_object_removed, fixture);
-  wp_object_manager_add_interest (fixture->proxy_om,
-      WP_TYPE_ENDPOINT, NULL,
+  wp_object_manager_add_interest_1 (fixture->proxy_om, WP_TYPE_ENDPOINT, NULL);
+  wp_object_manager_request_proxy_features (fixture->proxy_om, WP_TYPE_ENDPOINT,
       WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_CONTROLS);
   wp_core_install_object_manager (fixture->base.client_core, fixture->proxy_om);
 

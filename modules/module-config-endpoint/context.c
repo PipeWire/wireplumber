@@ -260,7 +260,8 @@ wp_config_endpoint_context_init (WpConfigEndpointContext *self)
       g_direct_equal, NULL, (GDestroyNotify) g_object_unref);
 
   /* Only handle augmented nodes with info set */
-  wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL,
+  wp_object_manager_add_interest_1 (self->om, WP_TYPE_NODE, NULL);
+  wp_object_manager_request_proxy_features (self->om, WP_TYPE_NODE,
       WP_PROXY_FEATURES_STANDARD);
 
   /* Register the global added/removed callbacks */

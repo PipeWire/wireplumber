@@ -213,8 +213,9 @@ wp_config_static_nodes_context_init (WpConfigStaticNodesContext *self)
   self->devices_om = wp_object_manager_new ();
 
   /* Only handle devices */
-  wp_object_manager_add_interest (self->devices_om,
-      WP_TYPE_DEVICE, NULL, WP_PROXY_FEATURE_INFO);
+  wp_object_manager_add_interest_1 (self->devices_om, WP_TYPE_DEVICE, NULL);
+  wp_object_manager_request_proxy_features (self->devices_om, WP_TYPE_DEVICE,
+      WP_PROXY_FEATURE_INFO);
   g_signal_connect (self->devices_om, "object-added",
       (GCallback) on_device_added, self);
 }
