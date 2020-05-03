@@ -715,6 +715,7 @@ idle_emit_objects_changed (WpObjectManager * self)
     g_signal_emit (self, signals[SIGNAL_INSTALLED], 0);
     self->installed = TRUE;
   }
+  wp_trace_object (self, "emit objects-changed");
   g_signal_emit (self, signals[SIGNAL_OBJECTS_CHANGED], 0);
 
   return G_SOURCE_REMOVE;
@@ -723,6 +724,9 @@ idle_emit_objects_changed (WpObjectManager * self)
 static void
 wp_object_manager_maybe_objects_changed (WpObjectManager * self)
 {
+  wp_trace_object (self, "pending:%u changed:%d idle_source:%p installed:%d",
+      self->pending_objects, self->changed, self->idle_source, self->installed);
+
   /* always wait until there are no pending objects */
   if (self->pending_objects > 0)
     return;
@@ -775,6 +779,7 @@ on_proxy_ready (GObject * proxy, GAsyncResult * res, gpointer data)
   if (!wp_proxy_augment_finish (WP_PROXY (proxy), res, &error)) {
     wp_message_object (self, "proxy augment failed: %s", error->message);
   } else {
+    wp_trace_object (self, "added: " WP_OBJECT_FORMAT, WP_OBJECT_ARGS (proxy));
     g_ptr_array_add (self->objects, proxy);
     g_signal_emit (self, signals[SIGNAL_OBJECT_ADDED], 0, proxy);
     self->changed = TRUE;
@@ -813,6 +818,7 @@ static void
 wp_object_manager_add_object (WpObjectManager * self, gpointer object)
 {
   if (wp_object_manager_is_interested_in_object (self, object)) {
+    wp_trace_object (self, "added: " WP_OBJECT_FORMAT, WP_OBJECT_ARGS (object));
     g_ptr_array_add (self->objects, object);
     g_signal_emit (self, signals[SIGNAL_OBJECT_ADDED], 0, object);
     self->changed = TRUE;
