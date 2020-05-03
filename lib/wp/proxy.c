@@ -126,7 +126,6 @@ proxy_event_bound (void *data, uint32_t global_id)
      pw_proxy_set_bound_id() and this can be very bad... */
   g_warn_if_fail (!priv->global || priv->global->id == global_id);
 
-  g_signal_emit (self, wp_proxy_signals[SIGNAL_BOUND], 0, global_id);
   wp_proxy_set_feature_ready (self, WP_PROXY_FEATURE_BOUND);
 
   /* construct a WpGlobal if it was not already there */
@@ -137,6 +136,8 @@ proxy_event_bound (void *data, uint32_t global_id)
         global_id, PW_PERM_RWX, WP_GLOBAL_FLAG_OWNED_BY_PROXY,
         G_TYPE_FROM_INSTANCE (self), self, NULL, &priv->global);
   }
+
+  g_signal_emit (self, wp_proxy_signals[SIGNAL_BOUND], 0, global_id);
 }
 
 static const struct pw_proxy_events proxy_events = {
