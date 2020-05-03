@@ -94,27 +94,20 @@ wp_node_ensure_feature_ports (WpNode * self, guint32 bound_id)
       (ft & WP_PROXY_FEATURES_STANDARD) == WP_PROXY_FEATURES_STANDARD)
   {
     g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (self));
-    GVariantBuilder b;
 
     if (!bound_id)
       bound_id = wp_proxy_get_bound_id (WP_PROXY (self));
 
-    /* proxy node port -> check for node.id in global properties */
-    g_variant_builder_init (&b, G_VARIANT_TYPE ("aa{sv}"));
-    g_variant_builder_open (&b, G_VARIANT_TYPE_VARDICT);
-    g_variant_builder_add (&b, "{sv}", "type",
-        g_variant_new_int32 (WP_OBJECT_MANAGER_CONSTRAINT_PW_GLOBAL_PROPERTY));
-    g_variant_builder_add (&b, "{sv}", "name",
-        g_variant_new_string (PW_KEY_NODE_ID));
-    g_variant_builder_add (&b, "{sv}", "value",
-        g_variant_new_take_string (g_strdup_printf ("%u", bound_id)));
-    g_variant_builder_close (&b);
+    wp_debug_object (self, "enabling WP_NODE_FEATURE_PORTS, bound_id:%u",
+        bound_id);
 
     priv->ports_om = wp_object_manager_new ();
-    wp_object_manager_add_interest (priv->ports_om,
+    wp_object_manager_add_interest_1 (priv->ports_om,
         WP_TYPE_PORT,
-        g_variant_builder_end (&b),
-        WP_PROXY_FEATURES_STANDARD);
+        WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_NODE_ID, "=u", bound_id,
+        NULL);
+    wp_object_manager_request_proxy_features (priv->ports_om,
+        WP_TYPE_PORT, WP_PROXY_FEATURES_STANDARD);
 
     g_signal_connect_object (priv->ports_om, "installed",
         G_CALLBACK (wp_node_on_ports_om_installed), self, 0);
@@ -426,8 +419,10 @@ wp_node_find_port (WpNode * self, guint32 bound_id)
           WP_NODE_FEATURE_PORTS, NULL);
 
   WpNodePrivate *priv = wp_node_get_instance_private (self);
-  return (WpPort *)
-      wp_object_manager_find_proxy (priv->ports_om, bound_id);
+  return (WpPort *) wp_object_manager_lookup (priv->ports_om,
+      WP_TYPE_PORT,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", bound_id,
+      NULL);
 }
 
 /**
@@ -518,7 +513,7 @@ wp_impl_node_augment (WpProxy * proxy, WpProxyFeatures features)
 
   /* if any of the default features is requested, make sure BOUND
      is also requested, as they all depend on binding the pw_impl_node */
-  if (features & WP_NODE_FEATURES_STANDARD)
+  if (features & WP_PROXY_FEATURES_STANDARD)
     features |= WP_PROXY_FEATURE_BOUND;
 
   if (features & WP_PROXY_FEATURE_BOUND) {

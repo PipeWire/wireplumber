@@ -22,9 +22,10 @@
 
 #define G_LOG_DOMAIN "wp-session"
 
+#include "session.h"
 #include "spa-type.h"
 #include "spa-pod.h"
-#include "session.h"
+#include "debug.h"
 #include "private.h"
 #include "error.h"
 #include "wpenums.h"
@@ -39,6 +40,8 @@
 
 enum {
   SIGNAL_DEFAULT_ENDPOINT_CHANGED,
+  SIGNAL_ENDPOINTS_CHANGED,
+  SIGNAL_LINKS_CHANGED,
   N_SIGNALS,
 };
 
@@ -55,6 +58,8 @@ struct _WpSessionPrivate
   struct spa_hook listener;
   WpObjectManager *endpoints_om;
   WpObjectManager *links_om;
+  gboolean ft_endpoints_requested;
+  gboolean ft_links_requested;
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE (WpSession, wp_session, WP_TYPE_PROXY)
@@ -76,6 +81,101 @@ wp_session_finalize (GObject * object)
   g_clear_pointer (&priv->properties, wp_properties_unref);
 
   G_OBJECT_CLASS (wp_session_parent_class)->finalize (object);
+}
+
+static void
+wp_session_on_endpoints_om_installed (WpObjectManager *endpoints_om,
+    WpSession * self)
+{
+  wp_proxy_set_feature_ready (WP_PROXY (self), WP_SESSION_FEATURE_ENDPOINTS);
+}
+
+static void
+wp_session_emit_endpoints_changed (WpObjectManager *endpoints_om,
+    WpSession * self)
+{
+  g_signal_emit (self, signals[SIGNAL_ENDPOINTS_CHANGED], 0);
+}
+
+static void
+wp_session_on_links_om_installed (WpObjectManager *links_om, WpSession * self)
+{
+  wp_proxy_set_feature_ready (WP_PROXY (self), WP_SESSION_FEATURE_LINKS);
+}
+
+static void
+wp_session_emit_links_changed (WpObjectManager *links_om, WpSession * self)
+{
+  g_signal_emit (self, signals[SIGNAL_LINKS_CHANGED], 0);
+}
+
+static void
+wp_session_ensure_features_endpoints_links (WpSession * self, guint32 bound_id)
+{
+  WpSessionPrivate *priv = wp_session_get_instance_private (self);
+  WpProxyFeatures ft = wp_proxy_get_features (WP_PROXY (self));
+  g_autoptr (WpCore) core = NULL;
+
+  if (!(ft & WP_PROXY_FEATURE_BOUND))
+    return;
+
+  core = wp_proxy_get_core (WP_PROXY (self));
+  if (!bound_id)
+    bound_id = wp_proxy_get_bound_id (WP_PROXY (self));
+
+  if (priv->ft_endpoints_requested && !priv->endpoints_om) {
+    wp_debug_object (self, "enabling WP_SESSION_FEATURE_ENDPOINTS, bound_id:%u",
+        bound_id);
+
+    priv->endpoints_om = wp_object_manager_new ();
+    /* proxy endpoint -> check for session.id in global properties */
+    wp_object_manager_add_interest_1 (priv->endpoints_om,
+        WP_TYPE_ENDPOINT,
+        WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_SESSION_ID, "=u", bound_id,
+        NULL);
+    /* impl endpoint -> check for session.id in standard properties */
+    wp_object_manager_add_interest_1 (priv->endpoints_om,
+        WP_TYPE_IMPL_ENDPOINT,
+        WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_SESSION_ID, "=u", bound_id,
+        NULL);
+
+    wp_object_manager_request_proxy_features (priv->endpoints_om,
+        WP_TYPE_ENDPOINT, WP_ENDPOINT_FEATURES_STANDARD);
+
+    g_signal_connect_object (priv->endpoints_om, "installed",
+        G_CALLBACK (wp_session_on_endpoints_om_installed), self, 0);
+    g_signal_connect_object (priv->endpoints_om, "objects-changed",
+        G_CALLBACK (wp_session_emit_endpoints_changed), self, 0);
+
+    wp_core_install_object_manager (core, priv->endpoints_om);
+  }
+
+  if (priv->ft_links_requested && !priv->links_om) {
+    wp_debug_object (self, "enabling WP_SESSION_FEATURE_LINKS, bound_id:%u",
+        bound_id);
+
+    priv->links_om = wp_object_manager_new ();
+    /* proxy link -> check for session.id in global properties */
+    wp_object_manager_add_interest_1 (priv->links_om,
+        WP_TYPE_ENDPOINT_LINK,
+        WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_SESSION_ID, "=u", bound_id,
+        NULL);
+    /* impl link -> check for session.id in standard properties */
+    wp_object_manager_add_interest_1 (priv->links_om,
+        WP_TYPE_IMPL_ENDPOINT_LINK,
+        WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_SESSION_ID, "=u", bound_id,
+        NULL);
+
+    wp_object_manager_request_proxy_features (priv->links_om,
+        WP_TYPE_ENDPOINT_LINK, WP_PROXY_FEATURES_STANDARD);
+
+    g_signal_connect_object (priv->links_om, "installed",
+        G_CALLBACK (wp_session_on_links_om_installed), self, 0);
+    g_signal_connect_object (priv->links_om, "objects-changed",
+        G_CALLBACK (wp_session_emit_links_changed), self, 0);
+
+    wp_core_install_object_manager (core, priv->links_om);
+  }
 }
 
 static gconstpointer
@@ -174,101 +274,10 @@ wp_session_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 }
 
 static void
-wp_session_enable_feature_endpoints (WpSession * self, guint32 bound_id)
-{
-  WpSessionPrivate *priv = wp_session_get_instance_private (self);
-  g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (self));
-  GVariantBuilder b;
-
-  /* proxy endpoint -> check for session.id in global properties */
-  g_variant_builder_init (&b, G_VARIANT_TYPE ("aa{sv}"));
-  g_variant_builder_open (&b, G_VARIANT_TYPE_VARDICT);
-  g_variant_builder_add (&b, "{sv}", "type",
-      g_variant_new_int32 (WP_OBJECT_MANAGER_CONSTRAINT_PW_GLOBAL_PROPERTY));
-  g_variant_builder_add (&b, "{sv}", "name",
-      g_variant_new_string (PW_KEY_SESSION_ID));
-  g_variant_builder_add (&b, "{sv}", "value",
-      g_variant_new_take_string (g_strdup_printf ("%u", bound_id)));
-  g_variant_builder_close (&b);
-
-  wp_object_manager_add_interest (priv->endpoints_om,
-      WP_TYPE_ENDPOINT,
-      g_variant_builder_end (&b),
-      WP_ENDPOINT_FEATURES_STANDARD);
-
-  /* impl endpoint -> check for session.id in standard properties */
-  g_variant_builder_init (&b, G_VARIANT_TYPE ("aa{sv}"));
-  g_variant_builder_open (&b, G_VARIANT_TYPE_VARDICT);
-  g_variant_builder_add (&b, "{sv}", "type",
-      g_variant_new_int32 (WP_OBJECT_MANAGER_CONSTRAINT_PW_PROPERTY));
-  g_variant_builder_add (&b, "{sv}", "name",
-      g_variant_new_string (PW_KEY_SESSION_ID));
-  g_variant_builder_add (&b, "{sv}", "value",
-      g_variant_new_take_string (g_strdup_printf ("%u", bound_id)));
-  g_variant_builder_close (&b);
-
-  wp_object_manager_add_interest (priv->endpoints_om,
-      WP_TYPE_IMPL_ENDPOINT,
-      g_variant_builder_end (&b),
-      WP_ENDPOINT_FEATURES_STANDARD);
-
-  wp_core_install_object_manager (core, priv->endpoints_om);
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_SESSION_FEATURE_ENDPOINTS);
-}
-
-static void
-wp_session_enable_feature_links (WpSession * self, guint32 bound_id)
-{
-  WpSessionPrivate *priv = wp_session_get_instance_private (self);
-  g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (self));
-  GVariantBuilder b;
-
-  /* proxy link -> check for session.id in global properties */
-  g_variant_builder_init (&b, G_VARIANT_TYPE ("aa{sv}"));
-  g_variant_builder_open (&b, G_VARIANT_TYPE_VARDICT);
-  g_variant_builder_add (&b, "{sv}", "type",
-      g_variant_new_int32 (WP_OBJECT_MANAGER_CONSTRAINT_PW_GLOBAL_PROPERTY));
-  g_variant_builder_add (&b, "{sv}", "name",
-      g_variant_new_string (PW_KEY_SESSION_ID));
-  g_variant_builder_add (&b, "{sv}", "value",
-      g_variant_new_take_string (g_strdup_printf ("%u", bound_id)));
-  g_variant_builder_close (&b);
-
-  wp_object_manager_add_interest (priv->links_om,
-      WP_TYPE_ENDPOINT_LINK,
-      g_variant_builder_end (&b),
-      WP_PROXY_FEATURES_STANDARD);
-
-  /* impl link -> check for session.id in standard properties */
-  g_variant_builder_init (&b, G_VARIANT_TYPE ("aa{sv}"));
-  g_variant_builder_open (&b, G_VARIANT_TYPE_VARDICT);
-  g_variant_builder_add (&b, "{sv}", "type",
-      g_variant_new_int32 (WP_OBJECT_MANAGER_CONSTRAINT_PW_PROPERTY));
-  g_variant_builder_add (&b, "{sv}", "name",
-      g_variant_new_string (PW_KEY_SESSION_ID));
-  g_variant_builder_add (&b, "{sv}", "value",
-      g_variant_new_take_string (g_strdup_printf ("%u", bound_id)));
-  g_variant_builder_close (&b);
-
-  wp_object_manager_add_interest (priv->links_om,
-      WP_TYPE_IMPL_ENDPOINT_LINK,
-      g_variant_builder_end (&b),
-      WP_PROXY_FEATURES_STANDARD);
-
-  wp_core_install_object_manager (core, priv->links_om);
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_SESSION_FEATURE_LINKS);
-}
-
-static void
 wp_session_bound (WpProxy * proxy, guint32 id)
 {
   WpSession *self = WP_SESSION (proxy);
-  WpSessionPrivate *priv = wp_session_get_instance_private (self);
-
-  if (priv->endpoints_om)
-    wp_session_enable_feature_endpoints (self, id);
-  if (priv->links_om)
-    wp_session_enable_feature_links (self, id);
+  wp_session_ensure_features_endpoints_links (self, id);
 }
 
 static void
@@ -286,7 +295,8 @@ wp_session_control_changed (WpProxy * proxy, const char * id_name)
 static void
 wp_session_augment (WpProxy * proxy, WpProxyFeatures features)
 {
-  WpSessionPrivate *priv = wp_session_get_instance_private (WP_SESSION (proxy));
+  WpSession *self = WP_SESSION (proxy);
+  WpSessionPrivate *priv = wp_session_get_instance_private (self);
 
   /* call the parent impl first to ensure we have a pw proxy if necessary */
   WP_PROXY_CLASS (wp_session_parent_class)->augment (proxy, features);
@@ -303,26 +313,10 @@ wp_session_augment (WpProxy * proxy, WpProxyFeatures features)
     pw_session_subscribe_params (pw_proxy, ids, SPA_N_ELEMENTS (ids));
   }
 
-  if (features & WP_SESSION_FEATURE_ENDPOINTS) {
-    priv->endpoints_om = wp_object_manager_new ();
-
-    /* if we are already bound, enable right away;
-       else, continue in the bound() event */
-    if (wp_proxy_get_features (proxy) & WP_PROXY_FEATURE_BOUND) {
-      wp_session_enable_feature_endpoints (WP_SESSION (proxy),
-          wp_proxy_get_bound_id (proxy));
-    }
-  }
-
-  if (features & WP_SESSION_FEATURE_LINKS) {
-    priv->links_om = wp_object_manager_new ();
-
-    /* if we are already bound, enable right away;
-       else, continue in the bound() event */
-    if (wp_proxy_get_features (proxy) & WP_PROXY_FEATURE_BOUND) {
-      wp_session_enable_feature_links (WP_SESSION (proxy),
-          wp_proxy_get_bound_id (proxy));
-    }
+  if (features & (WP_SESSION_FEATURE_ENDPOINTS | WP_SESSION_FEATURE_LINKS)) {
+    priv->ft_endpoints_requested = (features & WP_SESSION_FEATURE_ENDPOINTS);
+    priv->ft_links_requested = (features & WP_SESSION_FEATURE_LINKS);
+    wp_session_ensure_features_endpoints_links (self, 0);
   }
 }
 
@@ -394,6 +388,28 @@ wp_session_class_init (WpSessionClass * klass)
       "default-endpoint-changed", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 2,
       G_TYPE_STRING, G_TYPE_UINT);
+
+  /**
+   * WpSession::endpoints-changed:
+   * @self: the session
+   *
+   * Emitted when the sessions's endpoints change. This is only emitted
+   * when %WP_SESSION_FEATURE_ENDPOINTS is enabled.
+   */
+  signals[SIGNAL_ENDPOINTS_CHANGED] = g_signal_new (
+      "endpoints-changed", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
+
+  /**
+   * WpSession::links-changed:
+   * @self: the session
+   *
+   * Emitted when the session's links change. This is only emitted
+   * when %WP_SESSION_FEATURE_LINKS is enabled.
+   */
+  signals[SIGNAL_LINKS_CHANGED] = g_signal_new (
+      "links-changed", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 }
 
 /**
@@ -465,8 +481,10 @@ wp_session_find_endpoint (WpSession * self, guint32 bound_id)
           WP_SESSION_FEATURE_ENDPOINTS, NULL);
 
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
-  return (WpEndpoint *)
-      wp_object_manager_find_proxy (priv->endpoints_om, bound_id);
+  return (WpEndpoint *) wp_object_manager_lookup (priv->endpoints_om,
+      WP_TYPE_ENDPOINT,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", bound_id,
+      NULL);
 }
 
 /**
@@ -520,8 +538,10 @@ wp_session_find_link (WpSession * self, guint32 bound_id)
           WP_SESSION_FEATURE_LINKS, NULL);
 
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
-  return (WpEndpointLink *)
-      wp_object_manager_find_proxy (priv->links_om, bound_id);
+  return (WpEndpointLink *) wp_object_manager_lookup (priv->links_om,
+      WP_TYPE_ENDPOINT_LINK,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", bound_id,
+      NULL);
 }
 
 /**
@@ -769,26 +789,10 @@ wp_impl_session_augment (WpProxy * proxy, WpProxyFeatures features)
             priv->iface, 0));
   }
 
-  if (features & WP_SESSION_FEATURE_ENDPOINTS) {
-    priv->endpoints_om = wp_object_manager_new ();
-
-    /* if we are already bound, enable right away;
-       else, continue in the bound() event */
-    if (wp_proxy_get_features (proxy) & WP_PROXY_FEATURE_BOUND) {
-      wp_session_enable_feature_endpoints (WP_SESSION (proxy),
-          wp_proxy_get_bound_id (proxy));
-    }
-  }
-
-  if (features & WP_SESSION_FEATURE_LINKS) {
-    priv->links_om = wp_object_manager_new ();
-
-    /* if we are already bound, enable right away;
-       else, continue in the bound() event */
-    if (wp_proxy_get_features (proxy) & WP_PROXY_FEATURE_BOUND) {
-      wp_session_enable_feature_links (WP_SESSION (proxy),
-          wp_proxy_get_bound_id (proxy));
-    }
+  if (features & (WP_SESSION_FEATURE_ENDPOINTS | WP_SESSION_FEATURE_LINKS)) {
+    priv->ft_endpoints_requested = (features & WP_SESSION_FEATURE_ENDPOINTS);
+    priv->ft_links_requested = (features & WP_SESSION_FEATURE_LINKS);
+    wp_session_ensure_features_endpoints_links (WP_SESSION (self), 0);
   }
 }
 
