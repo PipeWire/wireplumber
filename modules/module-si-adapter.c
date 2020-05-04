@@ -210,25 +210,11 @@ on_node_enum_format_done (WpProxy *proxy, GAsyncResult *res,
   }
 
   if (!choose_sensible_raw_audio_format (formats, &self->format)) {
-    uint32_t media_type, media_subtype;
-    struct spa_pod *param;
-
-    g_warning ("failed to choose a sensible audio format");
-
-    /* fall back to spa_pod_fixate */
-    if (formats->len == 0 ||
-        !(param = g_ptr_array_index (formats, 0)) ||
-        spa_format_parse (param, &media_type, &media_subtype) < 0 ||
-        media_type != SPA_MEDIA_TYPE_audio ||
-        media_subtype != SPA_MEDIA_SUBTYPE_raw) {
-      wp_transition_return_error (transition,
-          g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-              "node does not support audio/raw format"));
-      return;
-    }
-
-    spa_pod_fixate (param);
-    spa_format_audio_raw_parse (param, &self->format);
+    wp_warning_object (self, "failed to choose a sensible audio format");
+    wp_transition_return_error (transition,
+        g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+            "failed to choose a sensible audio format"));
+    return;
   }
 
   wp_session_item_set_flag (WP_SESSION_ITEM (self), WP_SI_FLAG_CONFIGURED);
