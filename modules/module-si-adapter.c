@@ -322,12 +322,12 @@ si_adapter_activate_execute_step (WpSessionItem * item,
 
       format = format_audio_raw_build (&self->format);
       pod = wp_spa_pod_new_object ("PortConfig",  "PortConfig",
-	  "direction",  "I", self->direction,
-	  "mode",       "I", SPA_PARAM_PORT_CONFIG_MODE_dsp,
-	  "monitor",    "b", self->monitor,
-	  "control",    "b", self->control_port,
-	  "format",     "P", format,
-	  NULL);
+          "direction",  "I", self->direction,
+          "mode",       "I", SPA_PARAM_PORT_CONFIG_MODE_dsp,
+          "monitor",    "b", self->monitor,
+          "control",    "b", self->control_port,
+          "format",     "P", format,
+          NULL);
       wp_proxy_set_param (WP_PROXY (self->node), SPA_PARAM_PortConfig, 0, pod);
 
       g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (self->node));
