@@ -52,8 +52,9 @@ si_audio_softdsp_endpoint_get_properties (WpSiEndpoint * item)
 static guint
 si_audio_softdsp_endpoint_get_n_streams (WpSiEndpoint * item)
 {
-  WpSiAudioSoftdspEndpoint *self = WP_SI_AUDIO_SOFTDSP_ENDPOINT (item);
-  return self->num_streams;
+  guint n_streams = wp_session_bin_get_n_children (WP_SESSION_BIN (item));
+  /* n_streams includes the adapter; remove it, unless it's the only one */
+  return (n_streams > 1) ? (n_streams - 1) : 1;
 }
 
 static WpSiStream *
@@ -62,6 +63,9 @@ si_audio_softdsp_endpoint_get_stream (WpSiEndpoint * item, guint index)
   WpSiAudioSoftdspEndpoint *self = WP_SI_AUDIO_SOFTDSP_ENDPOINT (item);
   g_autoptr (WpIterator) it = wp_session_bin_iterate (WP_SESSION_BIN (self));
   g_auto (GValue) val = G_VALUE_INIT;
+
+  if (wp_session_bin_get_n_children (WP_SESSION_BIN (item)) == 1)
+    return WP_SI_STREAM (self->adapter);
 
   /* TODO: do not asume the items are always sorted */
   guint i = 0;
