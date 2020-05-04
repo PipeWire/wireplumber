@@ -12,14 +12,6 @@ typedef struct {
   WpBaseTestFixture base;
 } TestFixture;
 
-typedef struct {
-  const gchar *factory;
-  const gchar *name;
-  const gchar *media_class;
-  const gchar *expected_media_class;
-  WpDirection expected_direction;
-} TestData;
-
 static void
 test_si_audio_softdsp_endpoint_setup (TestFixture * f, gconstpointer user_data)
 {
@@ -103,9 +95,6 @@ test_si_audio_softdsp_endpoint_configure_activate (TestFixture * f,
         wp_session_item_configure (adapter, g_variant_builder_end (&b)));
   }
 
-  g_assert_cmphex (wp_session_item_get_flags (adapter), ==,
-      WP_SI_FLAG_CONFIGURED);
-
   {
     g_autoptr (GVariant) v = wp_session_item_get_configuration (adapter);
     guint64 node_i;
@@ -139,8 +128,6 @@ test_si_audio_softdsp_endpoint_configure_activate (TestFixture * f,
         G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
     g_variant_builder_add (&b, "{sv}", "adapter",
         g_variant_new_uint64 ((guint64) adapter));
-    g_variant_builder_add (&b, "{sv}", "num-streams",
-        g_variant_new_uint32 (4));
     g_assert_true (
         wp_session_item_configure (endpoint, g_variant_builder_end (&b)));
   }
@@ -151,12 +138,9 @@ test_si_audio_softdsp_endpoint_configure_activate (TestFixture * f,
   {
     g_autoptr (GVariant) v = wp_session_item_get_configuration (endpoint);
     guint64 adapter_i;
-    guint32 ns;
     g_assert_nonnull (v);
     g_assert_true (g_variant_lookup (v, "adapter", "t", &adapter_i));
     g_assert_cmpuint (adapter_i, ==, (guint64) adapter);
-    g_assert_true (g_variant_lookup (v, "num-streams", "u", &ns));
-    g_assert_cmpuint (ns, ==, 4);
   }
 
   /* activate audio softdsp endpoint */
@@ -168,6 +152,8 @@ test_si_audio_softdsp_endpoint_configure_activate (TestFixture * f,
 
   g_assert_cmphex (wp_session_item_get_flags (endpoint), ==,
       WP_SI_FLAG_CONFIGURED | WP_SI_FLAG_ACTIVE);
+  g_assert_cmphex (wp_session_item_get_flags (adapter), ==,
+      WP_SI_FLAG_CONFIGURED | WP_SI_FLAG_ACTIVE);
 
   /* deactivate - configuration should not be altered  */
 
@@ -175,16 +161,14 @@ test_si_audio_softdsp_endpoint_configure_activate (TestFixture * f,
 
   g_assert_cmphex (wp_session_item_get_flags (endpoint), ==,
       WP_SI_FLAG_CONFIGURED);
+  g_assert_cmphex (wp_session_item_get_flags (adapter), ==, 0);
 
   {
     g_autoptr (GVariant) v = wp_session_item_get_configuration (endpoint);
     guint64 adapter_i;
-    guint32 ns;
     g_assert_nonnull (v);
     g_assert_true (g_variant_lookup (v, "adapter", "t", &adapter_i));
     g_assert_cmpuint (adapter_i, ==, (guint64) adapter);
-    g_assert_true (g_variant_lookup (v, "num-streams", "u", &ns));
-    g_assert_cmpuint (ns, ==, 4);
   }
 }
 
@@ -251,8 +235,6 @@ test_si_audio_softdsp_endpoint_export (TestFixture * f, gconstpointer user_data)
         G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
     g_variant_builder_add (&b, "{sv}", "adapter",
         g_variant_new_uint64 ((guint64) adapter));
-    g_variant_builder_add (&b, "{sv}", "num-streams",
-        g_variant_new_uint32 (4));
     g_assert_true (
         wp_session_item_configure (item, g_variant_builder_end (&b)));
   }
