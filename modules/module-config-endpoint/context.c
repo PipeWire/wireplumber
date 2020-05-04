@@ -14,6 +14,8 @@
 #include "parser-streams.h"
 #include "context.h"
 
+G_DEFINE_QUARK (wp-module-config-endpoint-context-session, session);
+
 struct _WpConfigEndpointContext
 {
   GObject parent;
@@ -21,8 +23,9 @@ struct _WpConfigEndpointContext
   /* Props */
   GWeakRef core;
 
-  WpObjectManager *om;
-  GHashTable *registered_endpoints;
+  WpObjectManager *sessions_om;
+  WpObjectManager *nodes_om;
+  GHashTable *endpoints;
 };
 
 enum {
@@ -40,63 +43,52 @@ static guint signals[N_SIGNALS];
 G_DEFINE_TYPE (WpConfigEndpointContext, wp_config_endpoint_context,
     G_TYPE_OBJECT)
 
-static void
-on_endpoint_created (GObject *initable, GAsyncResult *res, gpointer d)
-{
-  WpConfigEndpointContext *self = d;
-  g_autoptr (WpBaseEndpoint) endpoint = NULL;
-  g_autoptr (WpProxy) proxy = NULL;
-  guint global_id = 0;
-  GError *error = NULL;
-
-  /* Get the endpoint */
-  endpoint = wp_base_endpoint_new_finish (initable, res, &error);
-  if (error) {
-    g_warning ("Failed to create endpoint: %s", error->message);
-    return;
-  }
-
-  /* Get the endpoint global id */
-  g_object_get (endpoint, "node", &proxy, NULL);
-  global_id = wp_proxy_get_bound_id (proxy);
-
-  /* Register the endpoint and add it to the table */
-  wp_base_endpoint_register (endpoint);
-  g_hash_table_insert (self->registered_endpoints, GUINT_TO_POINTER (global_id),
-      g_object_ref (endpoint));
-
-  /* Emit the endpoint-created signal */
-  g_signal_emit (self, signals[SIGNAL_ENDPOINT_CREATED], 0, endpoint);
-}
-
-static GVariant *
-create_streams_variant (WpConfiguration *config, const char *streams)
+static const struct WpParserStreamsData *
+get_streams_data (WpConfiguration *config, const char *file_name)
 {
   g_autoptr (WpConfigParser) parser = NULL;
-  const struct WpParserStreamsData *streams_data = NULL;
-  g_autoptr (GVariantBuilder) ba = NULL;
 
-  if (!streams || !config)
-    return NULL;
+  g_return_val_if_fail (config, 0);
+  g_return_val_if_fail (file_name, 0);
 
   /* Get the streams parser */
   parser = wp_configuration_get_parser (config, WP_PARSER_STREAMS_EXTENSION);
   if (!parser)
-    return NULL;
+    return 0;
 
   /* Get the streams data */
-  streams_data = wp_config_parser_get_matched_data (parser, (gpointer)streams);
-  if (!streams_data || streams_data->n_streams <= 0)
-    return NULL;
+  return wp_config_parser_get_matched_data (parser, (gpointer)file_name);
+}
 
-  /* Build the variant array with the stream name and priority */
-  ba = g_variant_builder_new (G_VARIANT_TYPE ("a(su)"));
-  g_variant_builder_init (ba, G_VARIANT_TYPE_ARRAY);
-  for (guint i = 0; i < streams_data->n_streams; i++)
-    g_variant_builder_add (ba, "(su)", streams_data->streams[i].name,
-        streams_data->streams[i].priority);
+static void
+endpoint_export_finish_cb (WpSessionItem * ep, GAsyncResult * res,
+    WpConfigEndpointContext * self)
+{
+  g_autoptr (GError) error = NULL;
+  gboolean export_ret = wp_session_item_export_finish (ep, res, &error);
+  g_return_if_fail (error == NULL);
+  g_return_if_fail (export_ret);
 
-  return g_variant_new ("a(su)", ba);
+  /* Emit the signal */
+  g_signal_emit (self, signals[SIGNAL_ENDPOINT_CREATED], 0, ep);
+}
+
+static void
+endpoint_activate_finish_cb (WpSessionItem * ep, GAsyncResult * res,
+    WpConfigEndpointContext * self)
+{
+  WpSession * session = NULL;
+  g_autoptr (GError) error = NULL;
+  gboolean activate_ret = wp_session_item_activate_finish (ep, res, &error);
+  g_return_if_fail (error == NULL);
+  g_return_if_fail (activate_ret);
+
+  /* Get the session */
+  session = g_object_get_qdata (G_OBJECT (ep), session_quark ());
+  g_return_if_fail (session);
+
+  wp_session_item_export (ep, WP_SESSION (session),
+      (GAsyncReadyCallback) endpoint_export_finish_cb, self);
 }
 
 static void
@@ -106,74 +98,141 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
   g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
   g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
   g_autoptr (WpProperties) props = wp_proxy_get_properties (proxy);
+  g_autoptr (WpSessionItem) ep = NULL;
+  g_autoptr (WpSessionItem) streams_ep = NULL;
+  g_autoptr (WpSession) session = NULL;
   g_autoptr (WpConfigParser) parser = NULL;
   const struct WpParserEndpointData *endpoint_data = NULL;
-  GVariantBuilder b;
-  g_autoptr (GVariant) endpoint_props = NULL;
-  const char *media_class = NULL, *name = NULL;
-  g_autoptr (GVariant) streams_variant = NULL;
+  const struct WpParserStreamsData *streams_data = NULL;
 
   /* Skip nodes with no media class (JACK Clients) */
-  media_class = wp_properties_get (props, PW_KEY_MEDIA_CLASS);
-  if (!media_class)
+  if (!wp_properties_get (props, PW_KEY_MEDIA_CLASS))
     return;
 
-  /* Get the linked and ep streams data */
+  /* Get the endpoint configuration data */
   parser = wp_configuration_get_parser (config, WP_PARSER_ENDPOINT_EXTENSION);
   endpoint_data = wp_config_parser_get_matched_data (parser, proxy);
   if (!endpoint_data)
     return;
 
-  /* Set the name if it is null */
-  name = endpoint_data->e.name;
-  if (!name)
-    name = wp_properties_get (props, PW_KEY_NODE_NAME);
+  /* Get the session */
+  session = wp_object_manager_lookup (self->sessions_om, WP_TYPE_SESSION,
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "session.name", "=s",
+      endpoint_data->e.session, NULL);
+  if (!session) {
+    wp_warning_object (self, "could not find session for endpoint");
+    return;
+  }
 
-  /* Set the media class if it is null */
-  if (endpoint_data->e.media_class)
-    media_class = endpoint_data->e.media_class;
+  /* Get the streams data */
+  streams_data = endpoint_data->e.streams ?
+      get_streams_data (config, endpoint_data->e.streams) : NULL;
 
-  /* Create the streams variant */
-  streams_variant = create_streams_variant (config, endpoint_data->e.streams);
+  /* Create the endpoint */
+  ep = wp_session_item_make (core, endpoint_data->e.type);
+  if (!ep) {
+    wp_warning_object (self, "could not create endpoint of type %s",
+        endpoint_data->e.type);
+    return;
+  }
 
-  /* Set the properties */
-  g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
-  g_variant_builder_add (&b, "{sv}",
-      "name", g_variant_new_take_string (g_strdup_printf ("%s", name)));
-  g_variant_builder_add (&b, "{sv}",
-      "media-class", g_variant_new_string (media_class));
-  g_variant_builder_add (&b, "{sv}",
-      "direction", g_variant_new_uint32 (endpoint_data->e.direction));
-  g_variant_builder_add (&b, "{sv}",
-      "priority", g_variant_new_uint32 (endpoint_data->e.priority));
-  g_variant_builder_add (&b, "{sv}",
-      "node", g_variant_new_uint64 ((guint64) proxy));
-  if (streams_variant)
-    g_variant_builder_add (&b, "{sv}", "streams",
-        g_steal_pointer (&streams_variant));
-  endpoint_props = g_variant_builder_end (&b);
+  /* Configure the endpoint */
+  {
+    g_auto (GVariantBuilder) b =
+        G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
+    g_variant_builder_add (&b, "{sv}", "node",
+      g_variant_new_uint64 ((guint64) proxy));
 
-  /* Create the endpoint async */
-  wp_factory_make (core, endpoint_data->e.type, WP_TYPE_BASE_ENDPOINT,
-      endpoint_props, on_endpoint_created, self);
+    if (endpoint_data->e.c.name)
+      g_variant_builder_add (&b, "{sv}", "name",
+          g_variant_new_string (endpoint_data->e.c.name));
+
+    if (endpoint_data->e.c.media_class)
+      g_variant_builder_add (&b, "{sv}", "media-class",
+          g_variant_new_string (endpoint_data->e.c.media_class));
+
+    if (endpoint_data->e.c.role)
+      g_variant_builder_add (&b, "{sv}", "role",
+          g_variant_new_string (endpoint_data->e.c.role));
+
+    g_variant_builder_add (&b, "{sv}", "priority",
+        g_variant_new_uint32 (endpoint_data->e.c.priority));
+
+    g_variant_builder_add (&b, "{sv}", "enable-control-port",
+        g_variant_new_boolean (endpoint_data->e.c.enable_control_port));
+
+    g_variant_builder_add (&b, "{sv}", "enable-monitor",
+        g_variant_new_boolean (endpoint_data->e.c.enable_monitor));
+
+    wp_session_item_configure (ep, g_variant_builder_end (&b));
+  }
+
+  /* TODO: for now we always create softdsp audio endpoints if streams data is
+   * valid. However, this will need to change once we have video endpoints. */
+  if (streams_data) {
+    /* Create the steams endpoint */
+    streams_ep = wp_session_item_make (core, "si-audio-softdsp-endpoint");
+
+    /* Configure the streams endpoint */
+    {
+      g_auto (GVariantBuilder) b =
+          G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
+      g_variant_builder_add (&b, "{sv}", "adapter",
+          g_variant_new_uint64 ((guint64) ep));
+      wp_session_item_configure (streams_ep, g_variant_builder_end (&b));
+    }
+
+    /* Add the streams */
+    for (guint i = 0; i < streams_data->n_streams; i++) {
+      const struct WpParserStreamsStreamData *sd = streams_data->streams + i;
+      g_autoptr (WpSessionItem) stream =
+          wp_session_item_make (core, "si-convert");
+      {
+        g_auto (GVariantBuilder) b =
+            G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
+        g_variant_builder_add (&b, "{sv}", "target",
+            g_variant_new_uint64 ((guint64) ep));
+        g_variant_builder_add (&b, "{sv}", "name",
+            g_variant_new_string (sd->name));
+        g_variant_builder_add (&b, "{sv}", "enable-control-port",
+            g_variant_new_boolean (sd->enable_control_port));
+        wp_session_item_configure (stream, g_variant_builder_end (&b));
+      }
+
+      wp_session_bin_add (WP_SESSION_BIN (streams_ep), g_steal_pointer (&stream));
+    }
+  }
+
+  /* Activate endpoint */
+  g_object_set_qdata_full (
+      G_OBJECT (streams_data ? streams_ep : ep), session_quark (),
+      g_steal_pointer (&session), g_object_unref);
+  wp_session_item_activate (streams_data ? streams_ep : ep,
+      (GAsyncReadyCallback) endpoint_activate_finish_cb, self);
+
+  /* Insert the endpoint */
+  g_hash_table_insert (self->endpoints, proxy,
+      streams_data ? g_steal_pointer (&streams_ep) : g_steal_pointer (&ep));
 }
 
 static void
-on_node_removed (WpObjectManager *om, WpProxy *proxy, gpointer d)
+on_sessions_changed (WpObjectManager *om, gpointer d)
 {
   WpConfigEndpointContext *self = d;
-  WpBaseEndpoint *endpoint = NULL;
-  guint32 id = wp_proxy_get_bound_id (proxy);
+  g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
+  g_return_if_fail (core);
 
-  /* Get the endpoint */
-  endpoint = g_hash_table_lookup (self->registered_endpoints,
-      GUINT_TO_POINTER(id));
-  if (!endpoint)
-    return;
+  /* Handle node-added signal and install the nodes object manager */
+  wp_object_manager_add_interest_1 (self->nodes_om, WP_TYPE_NODE, NULL);
+  wp_object_manager_request_proxy_features (self->nodes_om, WP_TYPE_NODE,
+      WP_PROXY_FEATURES_STANDARD);
+  g_signal_connect_object (self->nodes_om, "object-added",
+      G_CALLBACK (on_node_added), self, 0);
+  wp_core_install_object_manager (core, self->nodes_om);
 
-  /* Unregister the endpoint and remove it from the table */
-  wp_base_endpoint_unregister (endpoint);
-  g_hash_table_remove (self->registered_endpoints, GUINT_TO_POINTER(id));
+  /* Remove handler */
+  g_signal_handlers_disconnect_by_func (self->sessions_om,
+      on_sessions_changed, d);
 }
 
 static void
@@ -195,8 +254,13 @@ wp_config_endpoint_context_constructed (GObject * object)
   wp_configuration_reload (config, WP_PARSER_ENDPOINT_EXTENSION);
   wp_configuration_reload (config, WP_PARSER_STREAMS_EXTENSION);
 
-  /* Install the object manager */
-  wp_core_install_object_manager (core, self->om);
+  /* Handle sessions-changed signal and install the session object manager */
+  wp_object_manager_add_interest_1 (self->sessions_om, WP_TYPE_SESSION, NULL);
+  wp_object_manager_request_proxy_features (self->sessions_om, WP_TYPE_SESSION,
+      WP_PROXY_FEATURES_STANDARD);
+  g_signal_connect_object (self->sessions_om, "objects-changed",
+      G_CALLBACK (on_sessions_changed), self, 0);
+  wp_core_install_object_manager (core, self->sessions_om);
 
   G_OBJECT_CLASS (wp_config_endpoint_context_parent_class)->constructed (object);
 }
@@ -246,8 +310,9 @@ wp_config_endpoint_context_finalize (GObject *object)
   }
   g_weak_ref_clear (&self->core);
 
-  g_clear_object (&self->om);
-  g_clear_pointer (&self->registered_endpoints, g_hash_table_unref);
+  g_clear_pointer (&self->endpoints, g_hash_table_unref);
+  g_clear_object (&self->sessions_om);
+  g_clear_object (&self->nodes_om);
 
   G_OBJECT_CLASS (wp_config_endpoint_context_parent_class)->finalize (object);
 }
@@ -255,20 +320,10 @@ wp_config_endpoint_context_finalize (GObject *object)
 static void
 wp_config_endpoint_context_init (WpConfigEndpointContext *self)
 {
-  self->om = wp_object_manager_new ();
-  self->registered_endpoints = g_hash_table_new_full (g_direct_hash,
-      g_direct_equal, NULL, (GDestroyNotify) g_object_unref);
-
-  /* Only handle augmented nodes with info set */
-  wp_object_manager_add_interest_1 (self->om, WP_TYPE_NODE, NULL);
-  wp_object_manager_request_proxy_features (self->om, WP_TYPE_NODE,
-      WP_PROXY_FEATURES_STANDARD);
-
-  /* Register the global added/removed callbacks */
-  g_signal_connect(self->om, "object-added",
-      (GCallback) on_node_added, self);
-  g_signal_connect(self->om, "object-removed",
-      (GCallback) on_node_removed, self);
+  self->nodes_om = wp_object_manager_new ();
+  self->sessions_om = wp_object_manager_new ();
+  self->endpoints = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
+      (GDestroyNotify) g_object_unref);
 }
 
 static void
@@ -290,7 +345,7 @@ wp_config_endpoint_context_class_init (WpConfigEndpointContextClass *klass)
   /* Signals */
   signals[SIGNAL_ENDPOINT_CREATED] = g_signal_new ("endpoint-created",
       G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
-      G_TYPE_NONE, 1, WP_TYPE_ENDPOINT);
+      G_TYPE_NONE, 1, WP_TYPE_SESSION_ITEM);
 }
 
 WpConfigEndpointContext *
@@ -299,11 +354,4 @@ wp_config_endpoint_context_new (WpCore *core)
   return g_object_new (wp_config_endpoint_context_get_type (),
     "core", core,
     NULL);
-}
-
-guint
-wp_config_endpoint_context_get_length (WpConfigEndpointContext *self)
-{
-  g_return_val_if_fail (WP_IS_CONFIG_ENDPOINT_CONTEXT (self), 0);
-  return g_hash_table_size (self->registered_endpoints);
 }

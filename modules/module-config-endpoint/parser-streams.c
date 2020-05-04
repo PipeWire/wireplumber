@@ -97,6 +97,11 @@ streams_for_each (const WpTomlTable *table, gpointer user_data)
   stream->priority = 0;
   wp_toml_table_get_uint32 (table, "priority", &stream->priority);
 
+  /* Parse the optional enable_control_port */
+  stream->enable_control_port = FALSE;
+  wp_toml_table_get_boolean (table, "enable_control_port",
+      &stream->enable_control_port);
+
   /* Increment the number of streams */
   data->n_streams++;
 }
@@ -115,6 +120,7 @@ wp_parser_streams_data_new (const gchar *location)
    * [[streams]]
    * name (string)
    * priority (uint32)
+   * enable_control_port (bool)
    */
 
   /* Get the TOML file */
@@ -152,7 +158,7 @@ wp_parser_streams_add_file (WpConfigParser *parser,
   /* Parse the file */
   data = wp_parser_streams_data_new (name);
   if (!data) {
-    g_warning ("Failed to parse configuration file '%s'", name);
+    wp_warning_object (parser, "Failed to parse configuration file '%s'", name);
     return FALSE;
   }
 

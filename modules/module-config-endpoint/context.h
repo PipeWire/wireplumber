@@ -19,8 +19,6 @@ G_DECLARE_FINAL_TYPE (WpConfigEndpointContext, wp_config_endpoint_context,
 
 WpConfigEndpointContext * wp_config_endpoint_context_new (WpCore *core);
 
-guint wp_config_endpoint_context_get_length (WpConfigEndpointContext *self);
-
 G_END_DECLS
 
 #endif

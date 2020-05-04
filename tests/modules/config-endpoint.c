@@ -7,7 +7,6 @@
  */
 
 #include "../common/base-test-fixture.h"
-#include "config-endpoint/endpoint-audiotestsrc.h"
 #include "../../modules/module-config-endpoint/context.h"
 
 typedef struct {
@@ -15,64 +14,183 @@ typedef struct {
 } TestConfigEndpointFixture;
 
 static void
-config_endpoint_setup (TestConfigEndpointFixture *self, gconstpointer data)
+config_endpoint_setup (TestConfigEndpointFixture *f, gconstpointer data)
 {
-  wp_base_test_fixture_setup (&self->base, 0);
+  wp_base_test_fixture_setup (&f->base, 0);
 
-  /* load audiotestsrc */
-  pw_thread_loop_lock (self->base.server.thread_loop);
-  pw_context_add_spa_lib (self->base.server.context, "audiotestsrc",
-      "audiotestsrc/libspa-audiotestsrc");
-  if (!pw_context_load_module (self->base.server.context,
-        "libpipewire-module-spa-node", "audiotestsrc", NULL)) {
-    pw_thread_loop_unlock (self->base.server.thread_loop);
-    g_test_skip ("audiotestsrc SPA plugin is not installed");
-    return;
+  /* load modules */
+  {
+    g_autoptr (WpTestServerLocker) lock =
+        wp_test_server_locker_new (&f->base.server);
+
+    g_assert_cmpint (pw_context_add_spa_lib (f->base.server.context,
+            "audiotestsrc", "audiotestsrc/libspa-audiotestsrc"), ==, 0);
+    g_assert_nonnull (pw_context_load_module (f->base.server.context,
+            "libpipewire-module-spa-node-factory", NULL, NULL));
+    g_assert_nonnull (pw_context_load_module (f->base.server.context,
+            "libpipewire-module-adapter", NULL, NULL));
   }
-  pw_thread_loop_unlock (self->base.server.thread_loop);
-
-  /* Register the wp-endpoint-audiotestsrc */
-  wp_factory_new (self->base.core, "wp-endpoint-audiotestsrc",
-      wp_endpoint_audiotestsrc_factory);
+  {
+    g_autoptr (GError) error = NULL;
+    WpModule *module = wp_module_load (f->base.core, "C",
+        "libwireplumber-module-si-simple-node-endpoint", NULL, &error);
+    g_assert_no_error (error);
+    g_assert_nonnull (module);
+  }
+  {
+    g_autoptr (GError) error = NULL;
+    WpModule *module = wp_module_load (f->base.core, "C",
+        "libwireplumber-module-si-adapter", NULL, &error);
+    g_assert_no_error (error);
+    g_assert_nonnull (module);
+  }
+  {
+    g_autoptr (GError) error = NULL;
+    WpModule *module = wp_module_load (f->base.core, "C",
+        "libwireplumber-module-si-convert", NULL, &error);
+    g_assert_no_error (error);
+    g_assert_nonnull (module);
+  }
+  {
+    g_autoptr (GError) error = NULL;
+    WpModule *module = wp_module_load (f->base.core, "C",
+        "libwireplumber-module-si-audio-softdsp-endpoint", NULL, &error);
+    g_assert_no_error (error);
+    g_assert_nonnull (module);
+  }
 }
 
 static void
-config_endpoint_teardown (TestConfigEndpointFixture *self, gconstpointer data)
+config_endpoint_teardown (TestConfigEndpointFixture *f, gconstpointer data)
 {
-  wp_base_test_fixture_teardown (&self->base);
+  wp_base_test_fixture_teardown (&f->base);
 }
 
 static void
-on_audiotestsrc_created (WpConfigEndpointContext *ctx, WpEndpoint *ep,
+on_default_session_exported (WpProxy * session, GAsyncResult * res,
     TestConfigEndpointFixture *f)
 {
-  g_assert_nonnull (ep);
+  g_autoptr (GError) error = NULL;
+  g_assert_true (wp_proxy_augment_finish (session, res, &error));
+  g_assert_no_error (error);
+  g_assert_true (WP_IS_IMPL_SESSION (session));
   g_main_loop_quit (f->base.loop);
 }
 
 static void
-basic (TestConfigEndpointFixture *f, gconstpointer data)
+on_audiotestsrc_simple_endpoint_created (WpConfigEndpointContext *ctx,
+    WpSessionItem *ep, TestConfigEndpointFixture *f)
+{
+  g_autoptr (WpNode) node = NULL;
+  g_autoptr (WpProperties) props = NULL;
+  g_assert_nonnull (ep);
+
+  g_autoptr (GVariant) v = wp_session_item_get_configuration (ep);
+  const gchar *str;
+  guint32 prio;
+  g_assert_true (g_variant_lookup (v, "name", "&s", &str));
+  g_assert_cmpstr (str, ==, "audiotestsrc-endpoint");
+  g_assert_true (g_variant_lookup (v, "media-class", "&s", &str));
+  g_assert_cmpstr (str, ==, "Audio/Source");
+  g_assert_true (g_variant_lookup (v, "role", "&s", &str));
+  g_assert_cmpstr (str, ==, "Multimedia");
+  g_assert_true (g_variant_lookup (v, "priority", "u", &prio));
+  g_assert_cmpuint (prio, ==, 0);
+
+  g_main_loop_quit (f->base.loop);
+}
+
+static void
+on_audiotestsrc_streams_endpoint_created (WpConfigEndpointContext *ctx,
+    WpSessionItem *ep, TestConfigEndpointFixture *f)
+{
+  g_assert_nonnull (ep);
+  g_assert_cmpuint (5, ==, wp_session_bin_get_n_children (WP_SESSION_BIN (ep)));
+
+  g_autoptr (GVariant) v = wp_session_item_get_configuration (ep);
+  guint64 p_i;
+  g_assert_true (g_variant_lookup (v, "adapter", "t", &p_i));
+  g_assert_nonnull ((gpointer)p_i);
+
+  g_autoptr (GVariant) v2 = wp_session_item_get_configuration ((gpointer)p_i);
+  const gchar *str;
+  guint32 prio;
+  g_assert_true (g_variant_lookup (v2, "name", "&s", &str));
+  g_assert_cmpstr (str, ==, "audiotestsrc-endpoint");
+  g_assert_true (g_variant_lookup (v2, "media-class", "&s", &str));
+  g_assert_cmpstr (str, ==, "Audio/Source");
+  g_assert_true (g_variant_lookup (v2, "role", "&s", &str));
+  g_assert_cmpstr (str, ==, "Multimedia");
+  g_assert_true (g_variant_lookup (v2, "priority", "u", &prio));
+  g_assert_cmpuint (prio, ==, 0);
+
+  g_main_loop_quit (f->base.loop);
+}
+
+static void
+simple (TestConfigEndpointFixture *f, gconstpointer data)
 {
   /* Set the configuration path */
   g_autoptr (WpConfiguration) config = wp_configuration_get_instance (f->base.core);
   g_assert_nonnull (config);
-  wp_configuration_add_path (config, "config-endpoint/basic");
+  wp_configuration_add_path (config, "config-endpoint/simple");
 
-  /* Create the context and handle the endpoint-created callback */
+  /* Create the endpoint context and handle the endpoint-created callback */
   g_autoptr (WpConfigEndpointContext) ctx =
       wp_config_endpoint_context_new (f->base.core);
   g_assert_nonnull (ctx);
-  g_assert_cmpint (wp_config_endpoint_context_get_length (ctx), ==, 0);
-
-  /* Add a handler to stop the main loop when the endpoint is created */
   g_signal_connect (ctx, "endpoint-created",
-      (GCallback) on_audiotestsrc_created, f);
+      (GCallback) on_audiotestsrc_simple_endpoint_created, f);
 
-  /* Run the main loop */
+  /* Create and export the default session */
+  g_autoptr (WpImplSession) session = wp_impl_session_new (f->base.core);
+  wp_impl_session_set_property (session, "session.name", "default");
+  wp_proxy_augment (WP_PROXY (session), WP_PROXY_FEATURE_BOUND, NULL,
+      (GAsyncReadyCallback) on_default_session_exported, f);
   g_main_loop_run (f->base.loop);
 
-  /* Check if the endpoint was created */
-  g_assert_cmpint (wp_config_endpoint_context_get_length (ctx), ==, 1);
+  /* Create the audiotestsrc node and run until the endpoint is created */
+  g_autoptr (WpNode) node = wp_node_new_from_factory (f->base.core,
+      "spa-node-factory",
+      wp_properties_new (
+          "factory.name", "audiotestsrc",
+          "node.name", "audiotestsrc0",
+          NULL));
+  g_assert_nonnull (node);
+  g_main_loop_run (f->base.loop);
+}
+
+static void
+streams (TestConfigEndpointFixture *f, gconstpointer data)
+{
+  /* Set the configuration path */
+  g_autoptr (WpConfiguration) config = wp_configuration_get_instance (f->base.core);
+  g_assert_nonnull (config);
+  wp_configuration_add_path (config, "config-endpoint/streams");
+
+  /* Create the endpoint context and handle the endpoint-created callback */
+  g_autoptr (WpConfigEndpointContext) ctx =
+      wp_config_endpoint_context_new (f->base.core);
+  g_assert_nonnull (ctx);
+  g_signal_connect (ctx, "endpoint-created",
+      (GCallback) on_audiotestsrc_streams_endpoint_created, f);
+
+  /* Create and export the default session */
+  g_autoptr (WpImplSession) session = wp_impl_session_new (f->base.core);
+  wp_impl_session_set_property (session, "session.name", "default");
+  wp_proxy_augment (WP_PROXY (session), WP_PROXY_FEATURE_BOUND, NULL,
+      (GAsyncReadyCallback) on_default_session_exported, f);
+  g_main_loop_run (f->base.loop);
+
+  /* create audiotestsrc adapter node and run until the endpoint is created */
+  g_autoptr (WpNode) node = wp_node_new_from_factory (f->base.core,
+      "adapter",
+      wp_properties_new (
+          "factory.name", "audiotestsrc",
+          "node.name", "adapter-audiotestsrc0",
+          NULL));
+  g_assert_nonnull (node);
+  g_main_loop_run (f->base.loop);
 }
 
 int
@@ -82,8 +200,10 @@ main (int argc, char *argv[])
   pw_init (NULL, NULL);
   g_log_set_writer_func (wp_log_writer_default, NULL, NULL);
 
-  g_test_add ("/modules/config-endpoint/basic", TestConfigEndpointFixture,
-      NULL, config_endpoint_setup, basic, config_endpoint_teardown);
+  g_test_add ("/modules/config-endpoint/simple", TestConfigEndpointFixture,
+      NULL, config_endpoint_setup, simple, config_endpoint_teardown);
+  g_test_add ("/modules/config-endpoint/streams", TestConfigEndpointFixture,
+      NULL, config_endpoint_setup, streams, config_endpoint_teardown);
 
   return g_test_run ();
 }

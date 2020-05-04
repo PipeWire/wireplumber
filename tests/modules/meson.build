@@ -38,7 +38,6 @@ test(
   executable('test-config-endpoint',
     [
       'config-endpoint.c',
-      'config-endpoint/endpoint-audiotestsrc.c',
       '../../modules/module-config-endpoint/parser-endpoint.c',
       '../../modules/module-config-endpoint/parser-streams.c',
       '../../modules/module-config-endpoint/context.c',

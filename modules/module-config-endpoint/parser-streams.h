@@ -21,6 +21,7 @@ G_BEGIN_DECLS
 struct WpParserStreamsStreamData {
   char *name;
   guint priority;
+  gboolean enable_control_port;
 };
 
 struct WpParserStreamsData {

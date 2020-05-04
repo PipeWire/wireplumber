@@ -32,14 +32,14 @@ wp_parser_endpoint_data_destroy (gpointer p)
 {
   struct WpParserEndpointData *data = p;
 
-  /* Free the strings */
   g_clear_pointer (&data->filename, g_free);
   g_clear_pointer (&data->mn.props, wp_properties_unref);
-  g_clear_pointer (&data->e.name, g_free);
-  g_clear_pointer (&data->e.media_class, g_free);
-  g_clear_pointer (&data->e.props, wp_properties_unref);
+  g_clear_pointer (&data->e.session, g_free);
   g_clear_pointer (&data->e.type, g_free);
   g_clear_pointer (&data->e.streams, g_free);
+  g_clear_pointer (&data->e.c.name, g_free);
+  g_clear_pointer (&data->e.c.media_class, g_free);
+  g_clear_pointer (&data->e.c.role, g_free);
 
   g_slice_free (struct WpParserEndpointData, data);
 }
@@ -76,25 +76,12 @@ parse_properties (WpTomlTable *table, const char *name)
   return props;
 }
 
-static guint
-parse_endpoint_direction (const char *direction)
-{
-  if (g_strcmp0 (direction, "sink") == 0)
-    return PW_DIRECTION_INPUT;
-  else if (g_strcmp0 (direction, "source") == 0)
-    return PW_DIRECTION_OUTPUT;
-
-  g_return_val_if_reached (PW_DIRECTION_INPUT);
-}
-
 static struct WpParserEndpointData *
 wp_parser_endpoint_data_new (const gchar *location)
 {
   g_autoptr (WpTomlFile) file = NULL;
-  g_autoptr (WpTomlTable) table = NULL, mn = NULL, e = NULL;
-  g_autoptr (WpTomlArray) streams = NULL;
+  g_autoptr (WpTomlTable) table = NULL, mn = NULL, e = NULL, c = NULL;
   struct WpParserEndpointData *res = NULL;
-  g_autofree char *direction = NULL;
 
   /* File format:
    * ------------
@@ -102,13 +89,17 @@ wp_parser_endpoint_data_new (const gchar *location)
    * properties (WpProperties)
    *
    * [endpoint]
-   * name (string)
-   * media_class (string)
-   * direction (string)
-   * priority (uint32)
-   * properties (WpProperties)
+   * session (string)
    * type (string)
    * streams (string)
+   *
+   * [endpoint.config]
+   * name (string)
+   * media_class (string)
+   * role (string)
+   * priority (uint32)
+   * enable_control_port (bool)
+   * enable_monitor (bool)
    */
 
   /* Get the TOML file */
@@ -140,32 +131,32 @@ wp_parser_endpoint_data_new (const gchar *location)
   if (!e)
     goto error;
 
-  /* Get the name from the endpoint table */
-  res->e.name = wp_toml_table_get_string (e, "name");
-
-  /* Get the media class from the endpoint table */
-  res->e.media_class = wp_toml_table_get_string (e, "media_class");
-
-  /* Get the direction from the endpoint table */
-  direction = wp_toml_table_get_string (e, "direction");
-  if (!direction)
+  /* Get the endpoint session */
+  res->e.session = wp_toml_table_get_string (e, "session");
+  if (!res->e.session)
     goto error;
-  res->e.direction = parse_endpoint_direction (direction);
-
-  /* Get the priority from the endpoint table */
-  res->e.priority = 0;
-  wp_toml_table_get_uint32 (e, "priority", &res->e.priority);
-
-  /* Get the endpoint properties */
-  res->e.props = parse_properties (e, "properties");
 
   /* Get the endpoint type */
   res->e.type = wp_toml_table_get_string (e, "type");
   if (!res->e.type)
     goto error;
 
-  /* Get the endpoint streams */
+  /* Get the optional streams */
   res->e.streams = wp_toml_table_get_string (e, "streams");
+
+  /* Get the optional endpoint config table */
+  c = wp_toml_table_get_table (e, "config");
+  if (c) {
+    res->e.c.name = wp_toml_table_get_string (c, "name");
+    res->e.c.media_class = wp_toml_table_get_string (c, "media_class");
+    res->e.c.role = wp_toml_table_get_string (c, "role");
+    res->e.c.priority = 0;
+    wp_toml_table_get_uint32 (c, "priority", &res->e.c.priority);
+    res->e.c.enable_control_port = FALSE;
+    wp_toml_table_get_boolean (c, "enable-control-port", &res->e.c.enable_control_port);
+    res->e.c.enable_monitor = FALSE;
+    wp_toml_table_get_boolean (c, "enable-monitor", &res->e.c.enable_monitor);
+  }
 
   return res;
 
@@ -193,7 +184,7 @@ wp_parser_endpoint_add_file (WpConfigParser *parser,
   /* Parse the file */
   data = wp_parser_endpoint_data_new (name);
   if (!data) {
-    g_warning ("Failed to parse configuration file '%s'", name);
+    wp_warning_object (parser, "Failed to parse configuration file '%s'", name);
     return FALSE;
   }
 

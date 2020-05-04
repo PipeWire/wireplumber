@@ -1,9 +1,0 @@
-[match-node]
-properties = [
-  { name = "media.class", value = "Audio/Source" },
-]
-
-[endpoint]
-direction = "source"
-type = "wp-endpoint-audiotestsrc"
-streams = "default.streams"

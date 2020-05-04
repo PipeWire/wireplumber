@@ -21,13 +21,18 @@ struct WpParserEndpointData {
     WpProperties *props;
   } mn;
   struct Endpoint {
-    char *name;
-    char *media_class;
-    guint direction;
-    guint priority;
-    WpProperties *props;
+    char *session;
     char *type;
     char *streams;
+    struct Config {
+      char *name;
+      char *media_class;
+      char *role;
+      guint priority;
+      gboolean enable_control_port;
+      gboolean enable_monitor;
+      guint direction;
+    } c;
   } e;
 };
 
