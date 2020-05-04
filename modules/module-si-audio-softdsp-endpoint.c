@@ -9,8 +9,6 @@
 #include <wp/wp.h>
 #include <pipewire/keys.h>
 
-#include <spa/utils/names.h>
-
 enum {
   STEP_VERIFY_CONFIG = WP_TRANSITION_STEP_CUSTOM_START,
   STEP_ENSURE_ADAPTER_FEATURES,
@@ -120,30 +118,6 @@ si_audio_softdsp_endpoint_get_associated_proxy (WpSessionItem * item,
           item, proxy_type);
 }
 
-static WpNode *
-si_audio_softdsp_endpoint_create_convert_node (WpSiAudioSoftdspEndpoint *self,
-    guint index)
-{
-  g_autoptr (WpNode) node = NULL;
-  g_autoptr (WpCore) core = NULL;
-  g_autoptr (WpProperties) props = NULL;
-
-  /* Get the node and core */
-  node = wp_session_item_get_associated_proxy (self->adapter, WP_TYPE_NODE);
-  core = wp_proxy_get_core (WP_PROXY (node));
-
-  /* Create the convert properties based on the adapter properties */
-  props = wp_properties_copy (wp_proxy_get_properties (WP_PROXY (node)));
-  wp_properties_setf (props, PW_KEY_OBJECT_PATH, "%p/convert", self);
-  wp_properties_setf (props, PW_KEY_NODE_NAME, "%p/convert/%d", self, index);
-  wp_properties_set (props, PW_KEY_MEDIA_CLASS, "Audio/Convert");
-  wp_properties_set (props, PW_KEY_FACTORY_NAME, SPA_NAME_AUDIO_CONVERT);
-
-  /* Create the node */
-  return wp_node_new_from_factory (core, "spa-node-factory",
-      g_steal_pointer (&props));
-}
-
 static gboolean
 si_audio_softdsp_endpoint_configure (WpSessionItem * item, GVariant * args)
 {
@@ -179,11 +153,7 @@ si_audio_softdsp_endpoint_configure (WpSessionItem * item, GVariant * args)
   for (guint i = 0; i < self->num_streams; i++) {
     g_autoptr (WpSessionItem) convert =
         wp_session_item_make (core, "si-convert");
-    g_autoptr (WpNode) convert_node =
-        si_audio_softdsp_endpoint_create_convert_node (self, i);
     g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
-    g_variant_builder_add (&b, "{sv}",
-        "node", g_variant_new_uint64 ((guint64) convert_node));
     g_variant_builder_add (&b, "{sv}",
         "target", g_variant_new_uint64 ((guint64) self->adapter));
     wp_session_item_configure (convert, g_variant_builder_end (&b));

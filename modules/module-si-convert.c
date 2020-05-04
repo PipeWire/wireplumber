@@ -9,6 +9,7 @@
 #include <wp/wp.h>
 #include <pipewire/pipewire.h>
 
+#include <spa/utils/names.h>
 #include <spa/param/format.h>
 #include <spa/param/audio/raw.h>
 #include <spa/param/param.h>
@@ -17,8 +18,7 @@
 
 enum {
   STEP_VERIFY_CONFIG = WP_TRANSITION_STEP_CUSTOM_START,
-  STEP_CHOOSE_FORMAT,
-  STEP_CONFIGURE_PORTS
+  STEP_CREATE_NODE,
 };
 
 struct _WpSiConvert
@@ -26,13 +26,12 @@ struct _WpSiConvert
   WpSessionItem parent;
 
   /* configuration */
-  WpNode *node;
   WpSessionItem *target;
   gchar name[96];
-  gboolean control_port;
   WpDirection direction;
-  struct spa_audio_info_raw format;
+  gboolean control_port;
 
+  WpNode *node;
   GPtrArray *links;
 };
 
@@ -51,6 +50,14 @@ si_convert_init (WpSiConvert * self)
 }
 
 static void
+si_convert_finalize (GObject * object)
+{
+  WpSiConvert *self = WP_SI_CONVERT (object);
+  g_clear_pointer (&self->links, g_ptr_array_unref);
+  G_OBJECT_CLASS (si_convert_parent_class)->finalize (object);
+}
+
+static void
 si_convert_reset (WpSessionItem * item)
 {
   WpSiConvert *self = WP_SI_CONVERT (item);
@@ -58,12 +65,9 @@ si_convert_reset (WpSessionItem * item)
   /* unexport & deactivate first */
   WP_SESSION_ITEM_CLASS (si_convert_parent_class)->reset (item);
 
-  g_clear_object (&self->node);
   g_clear_object (&self->target);
   self->name[0] = '\0';
   self->control_port = FALSE;
-  self->direction = WP_DIRECTION_INPUT;
-  g_ptr_array_set_size (self->links, 0);
 
   wp_session_item_clear_flag (item, WP_SI_FLAG_CONFIGURED);
 }
@@ -84,7 +88,6 @@ static gboolean
 si_convert_configure (WpSessionItem * item, GVariant * args)
 {
   WpSiConvert *self = WP_SI_CONVERT (item);
-  guint64 node_i;
   guint64 target_i;
   const gchar *tmp_str;
 
@@ -92,24 +95,22 @@ si_convert_configure (WpSessionItem * item, GVariant * args)
     return FALSE;
 
   /* reset previous config */
-  si_convert_reset (WP_SESSION_ITEM (self));
+  g_clear_object (&self->target);
+  self->name[0] = '\0';
+  self->control_port = FALSE;
 
-  if (!g_variant_lookup (args, "node", "t", &node_i))
+  if (!g_variant_lookup (args, "target", "t", &target_i) ||
+      !g_variant_lookup (args, "name", "&s", &tmp_str))
     return FALSE;
-  g_return_val_if_fail (WP_IS_NODE (GUINT_TO_POINTER (node_i)), FALSE);
-  self->node = g_object_ref (GUINT_TO_POINTER (node_i));
 
-  if (!g_variant_lookup (args, "target", "t", &target_i))
-    return FALSE;
   g_return_val_if_fail (WP_IS_SESSION_ITEM (GUINT_TO_POINTER (target_i)), FALSE);
   self->target = g_object_ref (GUINT_TO_POINTER (target_i));
 
-  if (g_variant_lookup (args, "name", "&s", &tmp_str))
-    strncpy (self->name, tmp_str, sizeof (self->name) - 1);
+  strncpy (self->name, tmp_str, sizeof (self->name) - 1);
 
-  g_variant_lookup (args, "direction", "y", &self->direction);
   g_variant_lookup (args, "enable-control-port", "b", &self->control_port);
 
+  wp_session_item_set_flag (item, WP_SI_FLAG_CONFIGURED);
   return TRUE;
 }
 
@@ -122,17 +123,11 @@ si_convert_get_configuration (WpSessionItem * item)
   /* Set the properties */
   g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
   g_variant_builder_add (&b, "{sv}",
-      "node", g_variant_new_uint64 ((guint64) self->node));
-  g_variant_builder_add (&b, "{sv}",
       "target", g_variant_new_uint64 ((guint64) self->target));
   g_variant_builder_add (&b, "{sv}",
       "name", g_variant_new_string (self->name));
   g_variant_builder_add (&b, "{sv}",
       "enable-control-port", g_variant_new_boolean (self->control_port));
-  g_variant_builder_add (&b, "{sv}",
-      "direction", g_variant_new_byte (self->direction));
-  g_variant_builder_add (&b, "{sv}",
-      "channels", g_variant_new_uint32 (self->format.channels));
   return g_variant_builder_end (&b);
 }
 
@@ -145,56 +140,14 @@ si_convert_activate_get_next_step (WpSessionItem * item,
       return STEP_VERIFY_CONFIG;
 
     case STEP_VERIFY_CONFIG:
-    case STEP_CHOOSE_FORMAT:
-      return step + 1;
+      return STEP_CREATE_NODE;
 
-    case STEP_CONFIGURE_PORTS:
+    case STEP_CREATE_NODE:
       return WP_TRANSITION_STEP_NONE;
 
     default:
       return WP_TRANSITION_STEP_ERROR;
   }
-}
-
-static void
-on_ports_configuration_done (WpCore * core, GAsyncResult * res,
-    WpTransition * transition)
-{
-  g_autoptr (GError) error = NULL;
-  if (!wp_core_sync_finish (core, res, &error)) {
-    wp_transition_return_error (transition, g_steal_pointer (&error));
-    return;
-  }
-
-  wp_transition_advance (transition);
-}
-
-static WpSpaPod *
-format_audio_raw_build (const struct spa_audio_info_raw *info)
-{
-  g_autoptr (WpSpaPodBuilder) builder = wp_spa_pod_builder_new_object (
-      "Format", "Format");
-  wp_spa_pod_builder_add (builder,
-      "mediaType",    "I", SPA_MEDIA_TYPE_audio,
-      "mediaSubtype", "I", SPA_MEDIA_SUBTYPE_raw,
-      "format",       "I", info->format,
-      "rate",         "i", info->rate,
-      "channels",     "i", info->channels,
-      NULL);
-
-   if (!SPA_FLAG_IS_SET (info->flags, SPA_AUDIO_FLAG_UNPOSITIONED)) {
-     /* Build the position array spa pod */
-     g_autoptr (WpSpaPodBuilder) position_builder = wp_spa_pod_builder_new_array ();
-     for (guint i = 0; i < info->channels; i++)
-       wp_spa_pod_builder_add_id (position_builder, info->position[i]);
-
-     /* Add the position property */
-     wp_spa_pod_builder_add_property (builder, "position");
-     g_autoptr (WpSpaPod) position = wp_spa_pod_builder_end (position_builder);
-     wp_spa_pod_builder_add_pod (builder, position);
-   }
-
-   return wp_spa_pod_builder_end (builder);
 }
 
 static void
@@ -217,12 +170,12 @@ on_convert_running (WpSiConvert *self)
   if (self->direction == WP_DIRECTION_INPUT) {
       g_variant_builder_add (&b, "{sv}", "out-stream",
           g_variant_new_uint64 ((guint64) WP_SI_STREAM (self->target)));
-      g_variant_builder_add (&b, "{sv}", "in-streams",
+      g_variant_builder_add (&b, "{sv}", "in-stream",
           g_variant_new_uint64 ((guint64) WP_SI_STREAM (self)));
   } else {
       g_variant_builder_add (&b, "{sv}", "out-stream",
           g_variant_new_uint64 ((guint64) WP_SI_STREAM (self)));
-      g_variant_builder_add (&b, "{sv}", "in-streams",
+      g_variant_builder_add (&b, "{sv}", "in-stream",
           g_variant_new_uint64 ((guint64) WP_SI_STREAM (self->target)));
   }
 
@@ -242,12 +195,21 @@ on_node_state_changed (WpNode * node, WpNodeState old, WpNodeState curr,
   case WP_NODE_STATE_RUNNING:
     on_convert_running (self);
     break;
-  case WP_NODE_STATE_SUSPENDED:
-  case WP_NODE_STATE_CREATING:
-  case WP_NODE_STATE_ERROR:
   default:
     break;
   }
+}
+
+static void
+on_node_augment_done (WpProxy * node, GAsyncResult * res,
+    WpTransition * transition)
+{
+  g_autoptr (GError) error = NULL;
+  if (!wp_proxy_augment_finish (node, res, &error)) {
+    wp_transition_return_error (transition, g_steal_pointer (&error));
+    return;
+  }
+  wp_transition_advance (transition);
 }
 
 static void
@@ -268,46 +230,70 @@ si_convert_activate_execute_step (WpSessionItem * item,
             g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
                 "si-convert: target was not set on the configuration"));
       }
+      if (!(wp_session_item_get_flags (self->target) & WP_SI_FLAG_CONFIGURED)) {
+        wp_transition_return_error (transition,
+            g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
+                "si-convert: target is not configured"));
+      }
       wp_transition_advance (transition);
       break;
 
-    case STEP_CHOOSE_FORMAT: {
-      /* get the channels from the target */
-      guint32 channels = 2;
-      g_autoptr (GVariant) v = wp_session_item_get_configuration (self->target);
-      g_return_if_fail (v);
-      g_assert_true (g_variant_lookup (v, "channels", "u", &channels));
-      /* set the format with target channels */
-      self->format.format = SPA_AUDIO_FORMAT_F32P;
-      self->format.rate = 48000;
-      self->format.channels = channels;
-      wp_transition_advance (transition);
-      break;
-    }
-
-    case STEP_CONFIGURE_PORTS: {
+    case STEP_CREATE_NODE: {
+      g_autoptr (WpNode) node = NULL;
+      g_autoptr (WpCore) core = NULL;
+      g_autoptr (WpProperties) props = NULL;
+      g_autoptr (GVariant) target_config = NULL;
       g_autoptr (WpSpaPod) format = NULL;
       g_autoptr (WpSpaPod) pod = NULL;
+      guint32 channels = 2;
 
-      /* set the chosen device/client format on the node */
-      format = format_audio_raw_build (&self->format);
+      /* Get the node and core */
+      node = wp_session_item_get_associated_proxy (self->target, WP_TYPE_NODE);
+      core = wp_proxy_get_core (WP_PROXY (node));
+      target_config = wp_session_item_get_configuration (self->target);
+      g_variant_lookup (target_config, "channels", "u", &channels);
+
+      /* Create the convert properties based on the adapter properties */
+      props = wp_properties_copy (wp_proxy_get_properties (WP_PROXY (node)));
+      wp_properties_setf (props, PW_KEY_OBJECT_PATH, "%s:%s",
+          wp_properties_get(props, PW_KEY_OBJECT_PATH),
+          self->name);
+      wp_properties_setf (props, PW_KEY_NODE_NAME, "%s/%s/%s",
+          SPA_NAME_AUDIO_CONVERT,
+          wp_properties_get(props, PW_KEY_NODE_NAME),
+          self->name);
+      wp_properties_set (props, PW_KEY_MEDIA_CLASS, "Audio/Convert");
+      wp_properties_set (props, PW_KEY_FACTORY_NAME, SPA_NAME_AUDIO_CONVERT);
+
+      /* Create the node */
+      self->node = wp_node_new_from_factory (core, "spa-node-factory",
+          g_steal_pointer (&props));
+
+      format = wp_spa_pod_new_object (
+          "Format", "Format",
+          "mediaType",    "I", SPA_MEDIA_TYPE_audio,
+          "mediaSubtype", "I", SPA_MEDIA_SUBTYPE_raw,
+          "format",       "I", SPA_AUDIO_FORMAT_F32P,
+          "rate",         "i", 48000,
+          "channels",     "i", channels,
+          NULL);
 
       /* Configure audioconvert to be both merger and splitter; this means it
-         will have an equal number of input and output ports and just
-         passthrough the same format, but with altered volume.
-         In the future we need to consider writing a simpler volume node for
-         this, as doing merge + split is heavy for our needs */
+        will have an equal number of input and output ports and just passthrough
+        the same format, but with altered volume.
+        In the future we need to consider writing a simpler volume node for this,
+        as doing merge + split is heavy for our needs */
       pod = wp_spa_pod_new_object ("PortConfig", "PortConfig",
           "direction",  "I", pw_direction_reverse (self->direction),
           "mode",       "I", SPA_PARAM_PORT_CONFIG_MODE_dsp,
           "format",     "P", format,
           NULL);
       wp_proxy_set_param (WP_PROXY (self->node), SPA_PARAM_PortConfig, 0, pod);
+      g_clear_pointer (&pod, wp_spa_pod_unref);
 
       pod = wp_spa_pod_new_object ("PortConfig", "PortConfig",
           "direction",  "I", self->direction,
           "mode",       "I", SPA_PARAM_PORT_CONFIG_MODE_dsp,
-          "monitor",    "b", FALSE,
           "control",    "b", self->control_port,
           "format",     "P", format,
           NULL);
@@ -317,9 +303,8 @@ si_convert_activate_execute_step (WpSessionItem * item,
       g_signal_connect_object (self->node, "state-changed",
           (GCallback) on_node_state_changed, self, 0);
 
-      g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (self->node));
-      wp_core_sync (core, NULL,
-          (GAsyncReadyCallback) on_ports_configuration_done, transition);
+      wp_proxy_augment (WP_PROXY (self->node), WP_NODE_FEATURES_STANDARD, NULL,
+          (GAsyncReadyCallback) on_node_augment_done, transition);
       break;
     }
     default:
@@ -333,16 +318,17 @@ si_convert_activate_rollback (WpSessionItem * item)
   WpSiConvert *self = WP_SI_CONVERT (item);
 
   g_ptr_array_set_size (self->links, 0);
-  wp_session_item_clear_flag (item, WP_SI_FLAG_CONFIGURED);
+  g_clear_object (&self->node);
 }
 
 static GVariant *
-si_convert_get_stream_registration_info (WpSiStream * self)
+si_convert_get_stream_registration_info (WpSiStream * item)
 {
+  WpSiConvert *self = WP_SI_CONVERT (item);
   GVariantBuilder b;
 
   g_variant_builder_init (&b, G_VARIANT_TYPE ("(sa{ss})"));
-  g_variant_builder_add (&b, "s", "default");
+  g_variant_builder_add (&b, "s", self->name);
   g_variant_builder_add (&b, "a{ss}", NULL);
 
   return g_variant_builder_end (&b);
@@ -425,14 +411,6 @@ si_convert_port_info_init (WpSiPortInfoInterface * iface)
 }
 
 static void
-si_convert_finalize (GObject * object)
-{
-  WpSiConvert *self = WP_SI_CONVERT (object);
-  g_clear_pointer (&self->links, g_ptr_array_unref);
-  G_OBJECT_CLASS (si_convert_parent_class)->finalize (object);
-}
-
-static void
 si_convert_class_init (WpSiConvertClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
@@ -455,17 +433,12 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   GVariantBuilder b;
 
   g_variant_builder_init (&b, G_VARIANT_TYPE ("a(ssymv)"));
-  g_variant_builder_add (&b, "(ssymv)", "node", "t",
-      WP_SI_CONFIG_OPTION_WRITEABLE | WP_SI_CONFIG_OPTION_REQUIRED, NULL);
   g_variant_builder_add (&b, "(ssymv)", "target", "t",
       WP_SI_CONFIG_OPTION_WRITEABLE | WP_SI_CONFIG_OPTION_REQUIRED, NULL);
   g_variant_builder_add (&b, "(ssymv)", "name", "s",
-      WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
+      WP_SI_CONFIG_OPTION_WRITEABLE | WP_SI_CONFIG_OPTION_REQUIRED, NULL);
   g_variant_builder_add (&b, "(ssymv)", "enable-control-port", "b",
       WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
-  g_variant_builder_add (&b, "(ssymv)", "direction", "y", 0, NULL);
-  g_variant_builder_add (&b, "(ssymv)", "channels", "u", 0, NULL);
-
 
   wp_si_factory_register (core, wp_si_factory_new_simple (
       "si-convert", si_convert_get_type (), g_variant_builder_end (&b)));
