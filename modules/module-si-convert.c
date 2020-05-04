@@ -220,11 +220,6 @@ si_convert_activate_execute_step (WpSessionItem * item,
 
   switch (step) {
     case STEP_VERIFY_CONFIG:
-      if (!self->node) {
-        wp_transition_return_error (transition,
-            g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
-                "si-convert: node was not set on the configuration"));
-      }
       if (!self->target) {
         wp_transition_return_error (transition,
             g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
