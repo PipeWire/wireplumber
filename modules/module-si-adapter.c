@@ -39,17 +39,17 @@ struct _WpSiAdapter
   gboolean monitor;
   WpDirection direction;
   struct spa_audio_info_raw format;
-
-  WpObjectManager *ports_om;
 };
 
 static void si_adapter_endpoint_init (WpSiEndpointInterface * iface);
 static void si_adapter_stream_init (WpSiStreamInterface * iface);
+static void si_adapter_port_info_init (WpSiPortInfoInterface * iface);
 
 G_DECLARE_FINAL_TYPE(WpSiAdapter, si_adapter, WP, SI_ADAPTER, WpSessionItem)
 G_DEFINE_TYPE_WITH_CODE (WpSiAdapter, si_adapter, WP_TYPE_SESSION_ITEM,
     G_IMPLEMENT_INTERFACE (WP_TYPE_SI_ENDPOINT, si_adapter_endpoint_init)
-    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_STREAM, si_adapter_stream_init))
+    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_STREAM, si_adapter_stream_init)
+    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_PORT_INFO, si_adapter_port_info_init))
 
 static void
 si_adapter_init (WpSiAdapter * self)
@@ -249,11 +249,14 @@ on_ports_configuration_done (WpCore * core, GAsyncResult * res,
 }
 
 static void
-on_ports_changed (WpObjectManager *om, WpTransition * transition)
+on_feature_ports_ready (WpProxy * node, GAsyncResult * res,
+    WpTransition * transition)
 {
-  WpSiAdapter *self = wp_transition_get_source_object (transition);
-
-  g_debug ("%s:%p port config done", G_OBJECT_TYPE_NAME (self), self);
+  g_autoptr (GError) error = NULL;
+  if (!wp_proxy_augment_finish (node, res, &error)) {
+    wp_transition_return_error (transition, g_steal_pointer (&error));
+    return;
+  }
 
   wp_transition_advance (transition);
 }
@@ -336,32 +339,8 @@ si_adapter_activate_execute_step (WpSessionItem * item,
       break;
     }
     case STEP_GET_PORTS: {
-      GVariantBuilder b;
-      self->ports_om = wp_object_manager_new ();
-
-      /* set a constraint: the port's "node.id" must match
-        the stream's underlying node id */
-      g_variant_builder_init (&b, G_VARIANT_TYPE ("aa{sv}"));
-      g_variant_builder_open (&b, G_VARIANT_TYPE_VARDICT);
-      g_variant_builder_add (&b, "{sv}", "type",
-          g_variant_new_int32 (WP_OBJECT_MANAGER_CONSTRAINT_PW_GLOBAL_PROPERTY));
-      g_variant_builder_add (&b, "{sv}", "name",
-          g_variant_new_string (PW_KEY_NODE_ID));
-      g_variant_builder_add (&b, "{sv}", "value",
-          g_variant_new_take_string (g_strdup_printf ("%u",
-              wp_proxy_get_bound_id (WP_PROXY (self->node)))));
-      g_variant_builder_close (&b);
-
-      /* declare interest on ports with this constraint */
-      wp_object_manager_add_interest (self->ports_om, WP_TYPE_PORT,
-          g_variant_builder_end (&b), WP_PROXY_FEATURES_STANDARD);
-
-      g_signal_connect_object (self->ports_om, "objects-changed",
-          (GCallback) on_ports_changed, transition, 0);
-
-      /* install the object manager */
-      g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (self->node));
-      wp_core_install_object_manager (core, self->ports_om);
+      wp_proxy_augment (WP_PROXY (self->node), WP_NODE_FEATURE_PORTS, NULL,
+          (GAsyncReadyCallback) on_feature_ports_ready, transition);
       break;
     }
     default:
@@ -372,9 +351,6 @@ si_adapter_activate_execute_step (WpSessionItem * item,
 static void
 si_adapter_activate_rollback (WpSessionItem * item)
 {
-  WpSiAdapter *self = WP_SI_ADAPTER (item);
-
-  g_clear_object (&self->ports_om);
   wp_session_item_clear_flag (item, WP_SI_FLAG_CONFIGURED);
 }
 
@@ -495,6 +471,62 @@ si_adapter_stream_init (WpSiStreamInterface * iface)
   iface->get_registration_info = si_adapter_get_stream_registration_info;
   iface->get_properties = si_adapter_get_stream_properties;
   iface->get_parent_endpoint = si_adapter_get_stream_parent_endpoint;
+}
+
+static GVariant *
+si_adapter_get_ports (WpSiPortInfo * item, const gchar * context)
+{
+  WpSiAdapter *self = WP_SI_ADAPTER (item);
+  g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_ARRAY);
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) val = G_VALUE_INIT;
+  WpDirection direction = self->direction;
+  guint32 node_id;
+
+  /* context can only be either NULL or "reverse" */
+  if (!g_strcmp0 (context, "reverse")) {
+    self->direction = (self->direction == WP_DIRECTION_INPUT) ?
+        WP_DIRECTION_OUTPUT : WP_DIRECTION_INPUT;
+  }
+  else if (context != NULL) {
+    /* on any other context, return an empty list of ports */
+    return g_variant_new_array (G_VARIANT_TYPE ("(uuu)"), NULL, 0);
+  }
+
+  g_variant_builder_init (&b, G_VARIANT_TYPE ("a(uuu)"));
+  node_id = wp_proxy_get_bound_id (WP_PROXY (self->node));
+
+  for (it = wp_node_iterate_ports (self->node);
+       wp_iterator_next (it, &val);
+       g_value_unset (&val))
+  {
+    WpPort *port = g_value_get_object (&val);
+    g_autoptr (WpProperties) props = NULL;
+    const gchar *channel;
+    guint32 port_id, channel_id = 0;
+
+    if (wp_port_get_direction (port) != direction)
+      continue;
+
+    port_id = wp_proxy_get_bound_id (WP_PROXY (port));
+
+    /* try to find the audio channel; if channel is NULL, this will silently
+       leave the channel_id to its default value, 0 */
+    props = wp_proxy_get_properties (WP_PROXY (port));
+    channel = wp_properties_get (props, PW_KEY_AUDIO_CHANNEL);
+    wp_spa_type_get_by_nick (WP_SPA_TYPE_TABLE_AUDIO_CHANNEL, channel,
+        &channel_id, NULL, NULL);
+
+    g_variant_builder_add (&b, "(uuu)", node_id, port_id, channel_id);
+  }
+
+  return g_variant_builder_end (&b);
+}
+
+static void
+si_adapter_port_info_init (WpSiPortInfoInterface * iface)
+{
+  iface->get_ports = si_adapter_get_ports;
 }
 
 WP_PLUGIN_EXPORT void
