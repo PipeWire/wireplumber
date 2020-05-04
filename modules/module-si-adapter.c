@@ -43,13 +43,11 @@ struct _WpSiAdapter
   WpObjectManager *ports_om;
 };
 
-static void si_adapter_multi_endpoint_init (WpSiMultiEndpointInterface * iface);
 static void si_adapter_endpoint_init (WpSiEndpointInterface * iface);
 static void si_adapter_stream_init (WpSiStreamInterface * iface);
 
 G_DECLARE_FINAL_TYPE(WpSiAdapter, si_adapter, WP, SI_ADAPTER, WpSessionItem)
 G_DEFINE_TYPE_WITH_CODE (WpSiAdapter, si_adapter, WP_TYPE_SESSION_ITEM,
-    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_MULTI_ENDPOINT, si_adapter_multi_endpoint_init)
     G_IMPLEMENT_INTERFACE (WP_TYPE_SI_ENDPOINT, si_adapter_endpoint_init)
     G_IMPLEMENT_INTERFACE (WP_TYPE_SI_STREAM, si_adapter_stream_init))
 
@@ -392,26 +390,6 @@ si_adapter_class_init (WpSiAdapterClass * klass)
   si_class->activate_get_next_step = si_adapter_activate_get_next_step;
   si_class->activate_execute_step = si_adapter_activate_execute_step;
   si_class->activate_rollback = si_adapter_activate_rollback;
-}
-
-static guint
-si_adapter_get_n_endpoints (WpSiMultiEndpoint * item)
-{
-  return 1;
-}
-
-static WpSiEndpoint *
-si_adapter_get_endpoint (WpSiMultiEndpoint * item, guint index)
-{
-  g_return_val_if_fail (index == 0, NULL);
-  return WP_SI_ENDPOINT (item);
-}
-
-static void
-si_adapter_multi_endpoint_init (WpSiMultiEndpointInterface * iface)
-{
-  iface->get_n_endpoints = si_adapter_get_n_endpoints;
-  iface->get_endpoint = si_adapter_get_endpoint;
 }
 
 static GVariant *

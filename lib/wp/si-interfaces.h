@@ -58,31 +58,6 @@ WP_API
 WpSiStreamAcquisition * wp_si_endpoint_get_stream_acquisition (WpSiEndpoint * self);
 
 /**
- * WP_TYPE_SI_MULTI_ENDPOINT:
- *
- * The #WpSiMultiEndpoint #GType
- */
-#define WP_TYPE_SI_MULTI_ENDPOINT (wp_si_multi_endpoint_get_type ())
-WP_API
-G_DECLARE_INTERFACE (WpSiMultiEndpoint, wp_si_multi_endpoint,
-                     WP, SI_MULTI_ENDPOINT, WpSessionItem)
-
-struct _WpSiMultiEndpointInterface
-{
-  GTypeInterface interface;
-
-  guint (*get_n_endpoints) (WpSiMultiEndpoint * self);
-  WpSiEndpoint * (*get_endpoint) (WpSiMultiEndpoint * self, guint index);
-};
-
-WP_API
-guint wp_si_multi_endpoint_get_n_endpoints (WpSiMultiEndpoint * self);
-
-WP_API
-WpSiEndpoint * wp_si_multi_endpoint_get_endpoint (WpSiMultiEndpoint * self,
-    guint index);
-
-/**
  * WP_TYPE_SI_STREAM:
  *
  * The #WpSiStream #GType

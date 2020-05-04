@@ -136,61 +136,6 @@ wp_si_endpoint_get_stream_acquisition (WpSiEndpoint * self)
 }
 
 /**
- * WpSiMultiEndpoint:
- *
- * An interface for session items that provide multiple PipeWire endpoints.
- *
- * This is useful for items that need to expose more than one endpoints while
- * managing the same nodes underneath. For example, an audio playback device
- * may have one input endpoint for sending audio to the device and one output
- * endpoint for monitoring (exposing the adapter's monitor ports).
- *
- * If an item implements both #WpSiMultiEndpoint and #WpSiEndpoint, then the
- * managing session will only inspect the #WpSiMultiEndpoint interface in
- * order to determine which endpoints to export. Effectively this means that
- * such an item should also include itself in the list of endpoints that
- * it exposes through #WpSiMultiEndpoint in order to be exported to PipeWire.
- */
-G_DEFINE_INTERFACE (WpSiMultiEndpoint, wp_si_multi_endpoint, WP_TYPE_SESSION_ITEM)
-
-static void
-wp_si_multi_endpoint_default_init (WpSiMultiEndpointInterface * iface)
-{
-}
-
-/**
- * wp_si_multi_endpoint_get_n_endpoints: (virtual get_n_endpoints)
- * @self: the session item
- *
- * Returns: the number of endpoints exposed by this item
- */
-guint
-wp_si_multi_endpoint_get_n_endpoints (WpSiMultiEndpoint * self)
-{
-  g_return_val_if_fail (WP_IS_SI_MULTI_ENDPOINT (self), 0);
-  g_return_val_if_fail (WP_SI_MULTI_ENDPOINT_GET_IFACE (self)->get_n_endpoints, 0);
-
-  return WP_SI_MULTI_ENDPOINT_GET_IFACE (self)->get_n_endpoints (self);
-}
-
-/**
- * wp_si_multi_endpoint_get_endpoint: (virtual get_endpoint)
- * @self: the session item
- * @index: the endpoint index, from 0 up to and excluding
- *   wp_si_multi_endpoint_get_n_endpoints()
- *
- * Returns: (transfer none): the endpoint at @index
- */
-WpSiEndpoint *
-wp_si_multi_endpoint_get_endpoint (WpSiMultiEndpoint * self, guint index)
-{
-  g_return_val_if_fail (WP_IS_SI_MULTI_ENDPOINT (self), NULL);
-  g_return_val_if_fail (WP_SI_MULTI_ENDPOINT_GET_IFACE (self)->get_endpoint, NULL);
-
-  return WP_SI_MULTI_ENDPOINT_GET_IFACE (self)->get_endpoint (self, index);
-}
-
-/**
  * WpSiStream:
  *
  * An interface for session items that provide a PipeWire endpoint stream.
