@@ -117,6 +117,18 @@ wp_session_bin_remove (WpSessionBin *self, WpSessionItem *item)
   return g_ptr_array_remove_fast (priv->items, item);
 }
 
+/**
+ * wp_session_bin_get_n_children:
+ * @self: the session bin
+ *
+ * Returns: the number of child items in the bin
+ */
+guint
+wp_session_bin_get_n_children (WpSessionBin *self)
+{
+  WpSessionBinPrivate *priv = wp_session_bin_get_instance_private (self);
+  return priv->items->len;
+}
 
 struct _WpSessionBinIterator
 {

@@ -43,6 +43,9 @@ WP_API
 gboolean wp_session_bin_remove (WpSessionBin *self, WpSessionItem *item);
 
 WP_API
+guint wp_session_bin_get_n_children (WpSessionBin *self);
+
+WP_API
 WpIterator *wp_session_bin_iterate (WpSessionBin *self);
 
 G_END_DECLS
