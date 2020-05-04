@@ -21,7 +21,6 @@ struct _WpSiAudioSoftdspEndpoint
 
   /* configuration */
   WpSessionItem *adapter;
-  guint num_streams;
 
   guint activated_streams;
 };
@@ -102,7 +101,6 @@ si_audio_softdsp_endpoint_reset (WpSessionItem * item)
   WP_SESSION_ITEM_CLASS (si_audio_softdsp_endpoint_parent_class)->reset (item);
 
   g_clear_object (&self->adapter);
-  self->num_streams = 0;
   self->activated_streams = 0;
 
   wp_session_item_clear_flag (item, WP_SI_FLAG_CONFIGURED);
@@ -127,11 +125,6 @@ si_audio_softdsp_endpoint_configure (WpSessionItem * item, GVariant * args)
 {
   WpSiAudioSoftdspEndpoint *self = WP_SI_AUDIO_SOFTDSP_ENDPOINT (item);
   guint64 adapter_i;
-  g_autoptr (WpProperties) props = NULL;
-  g_autoptr (WpNode) node = NULL;
-  g_autoptr (WpCore) core = NULL;
-  g_autoptr (WpSessionItem) adapter = NULL;
-  GVariantBuilder b;
 
   if (wp_session_item_get_flags (item) & (WP_SI_FLAG_ACTIVATING | WP_SI_FLAG_ACTIVE))
     return FALSE;
@@ -139,33 +132,16 @@ si_audio_softdsp_endpoint_configure (WpSessionItem * item, GVariant * args)
   /* reset previous config */
   si_audio_softdsp_endpoint_reset (WP_SESSION_ITEM (self));
 
-  /* get the adapter and its core */
+  /* get the adapter */
   if (!g_variant_lookup (args, "adapter", "t", &adapter_i))
     return FALSE;
   g_return_val_if_fail (WP_IS_SI_ENDPOINT (GUINT_TO_POINTER (adapter_i)), FALSE);
   self->adapter = g_object_ref (GUINT_TO_POINTER (adapter_i));
-  node = wp_session_item_get_associated_proxy (self->adapter, WP_TYPE_NODE);
-  core = wp_proxy_get_core (WP_PROXY (node));
 
   /* add the adapter into the bin */
   wp_session_bin_add (WP_SESSION_BIN (self), g_object_ref (self->adapter));
 
-  /* get the number of streams */
-  g_variant_lookup (args, "num-streams", "u", &self->num_streams);
-
-  /* create, configure and add the convert items into the bin */
-  for (guint i = 0; i < self->num_streams; i++) {
-    g_autoptr (WpSessionItem) convert =
-        wp_session_item_make (core, "si-convert");
-    g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
-    g_variant_builder_add (&b, "{sv}",
-        "target", g_variant_new_uint64 ((guint64) self->adapter));
-    wp_session_item_configure (convert, g_variant_builder_end (&b));
-    wp_session_bin_add (WP_SESSION_BIN (self), g_steal_pointer (&convert));
-  }
-
   wp_session_item_set_flag (item, WP_SI_FLAG_CONFIGURED);
-
   return TRUE;
 }
 
@@ -179,8 +155,6 @@ si_audio_softdsp_endpoint_get_configuration (WpSessionItem * item)
   g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
   g_variant_builder_add (&b, "{sv}",
       "adapter", g_variant_new_uint64 ((guint64) self->adapter));
-  g_variant_builder_add (&b, "{sv}",
-      "num-streams", g_variant_new_uint32 (self->num_streams));
   return g_variant_builder_end (&b);
 }
 
@@ -315,8 +289,6 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   g_variant_builder_init (&b, G_VARIANT_TYPE ("a(ssymv)"));
   g_variant_builder_add (&b, "(ssymv)", "adapter", "t",
       WP_SI_CONFIG_OPTION_WRITEABLE | WP_SI_CONFIG_OPTION_REQUIRED, NULL);
-  g_variant_builder_add (&b, "(ssymv)", "num-streams", "u",
-      WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
 
   wp_si_factory_register (core, wp_si_factory_new_simple (
       "si-audio-softdsp-endpoint", si_audio_softdsp_endpoint_get_type (),
