@@ -148,24 +148,24 @@ static gboolean
 wp_session_bin_iterator_next (WpIterator *iterator, GValue *item)
 {
   WpSessionBinIterator *self = wp_iterator_get_user_data (iterator);
-  WpSessionBinPrivate *bin_priv = wp_session_bin_get_instance_private (self->bin);
-  if (self->index >= bin_priv->items->len)
-    return FALSE;
+  WpSessionBinPrivate *priv = wp_session_bin_get_instance_private (self->bin);
 
-  if (item) {
-    g_value_init (item, G_TYPE_OBJECT);
-    g_value_set_object (item,
-        g_ptr_array_index (bin_priv->items, self->index++));
+  g_return_val_if_fail (item, FALSE);
+
+  if (self->index < priv->items->len) {
+    g_value_init_from_instance (item,
+        g_ptr_array_index (priv->items, self->index++));
+    return TRUE;
   }
 
-  return TRUE;
+  return FALSE;
 }
 
 static void
 wp_session_bin_iterator_finalize (WpIterator *iterator)
 {
   WpSessionBinIterator *self = wp_iterator_get_user_data (iterator);
-  self->bin = NULL;
+  g_clear_object (&self->bin);
 }
 
 /**
@@ -190,7 +190,7 @@ wp_session_bin_iterate (WpSessionBin *self)
   WpIterator *ret = wp_iterator_new (&methods, sizeof (WpSessionBinIterator));
   WpSessionBinIterator *it = wp_iterator_get_user_data (ret);
 
-  it->bin = self;
+  it->bin = g_object_ref (self);
 
   return ret;
 }
