@@ -8,14 +8,10 @@
 
 #include <wp/wp.h>
 #include <pipewire/pipewire.h>
-#include <pipewire/extensions/session-manager.h>
 
-#include <spa/pod/builder.h>
-#include <spa/param/format-utils.h>
+#include <spa/param/format.h>
 #include <spa/param/audio/raw.h>
-#include <spa/param/audio/format-utils.h>
-#include <spa/param/audio/type-info.h>
-#include <spa/param/props.h>
+#include <spa/param/param.h>
 
 #include "module-pipewire/algorithms.h"
 

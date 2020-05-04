@@ -7,8 +7,8 @@
  */
 
 #include <wp/wp.h>
-#include <pipewire/pipewire.h>
-#include <pipewire/extensions/session-manager/keys.h>
+#include <pipewire/keys.h>
+
 #include <spa/utils/names.h>
 
 enum {
@@ -137,7 +137,7 @@ si_audio_softdsp_endpoint_create_convert_node (WpSiAudioSoftdspEndpoint *self,
   wp_properties_setf (props, PW_KEY_OBJECT_PATH, "%p/convert", self);
   wp_properties_setf (props, PW_KEY_NODE_NAME, "%p/convert/%d", self, index);
   wp_properties_set (props, PW_KEY_MEDIA_CLASS, "Audio/Convert");
-  wp_properties_set (props, SPA_KEY_FACTORY_NAME, SPA_NAME_AUDIO_CONVERT);
+  wp_properties_set (props, PW_KEY_FACTORY_NAME, SPA_NAME_AUDIO_CONVERT);
 
   /* Create the node */
   return wp_node_new_from_factory (core, "spa-node-factory",
