@@ -11,8 +11,8 @@
 
 enum {
   STEP_VERIFY_CONFIG = WP_TRANSITION_STEP_CUSTOM_START,
-  STEP_ENSURE_ADAPTER_FEATURES,
-  STEP_ENSURE_CONVERT_FEATURES,
+  STEP_ACTIVATE_ADAPTER,
+  STEP_ACTIVATE_STREAMS,
 };
 
 struct _WpSiAudioSoftdspEndpoint
@@ -162,18 +162,27 @@ static guint
 si_audio_softdsp_endpoint_activate_get_next_step (WpSessionItem * item,
      WpTransition * transition, guint step)
 {
+  WpSiAudioSoftdspEndpoint *self = wp_transition_get_data (transition);
+
   switch (step) {
     case WP_TRANSITION_STEP_NONE:
       return STEP_VERIFY_CONFIG;
 
     case STEP_VERIFY_CONFIG:
-      return STEP_ENSURE_ADAPTER_FEATURES;
+      return STEP_ACTIVATE_ADAPTER;
 
-    case STEP_ENSURE_ADAPTER_FEATURES:
-      return STEP_ENSURE_CONVERT_FEATURES;
+    case STEP_ACTIVATE_ADAPTER:
+      if (wp_session_bin_get_n_children (WP_SESSION_BIN (self)) > 1)
+        return STEP_ACTIVATE_STREAMS;
+      else
+        return WP_TRANSITION_STEP_NONE;
 
-    case STEP_ENSURE_CONVERT_FEATURES:
-      return WP_TRANSITION_STEP_NONE;
+    case STEP_ACTIVATE_STREAMS:
+      if ((self->activated_streams + 1) <
+          wp_session_bin_get_n_children (WP_SESSION_BIN (self)))
+        return STEP_ACTIVATE_STREAMS;
+      else
+        return WP_TRANSITION_STEP_NONE;
 
     default:
       return WP_TRANSITION_STEP_ERROR;
@@ -185,9 +194,11 @@ on_adapter_activated (WpSessionItem * item, GAsyncResult * res,
     WpTransition *transition)
 {
   g_autoptr (GError) error = NULL;
-  gboolean activate_ret = wp_session_item_activate_finish (item, res, &error);
-  g_return_if_fail (error == NULL);
-  g_return_if_fail (activate_ret);
+  if (!wp_session_item_activate_finish (item, res, &error)) {
+    wp_transition_return_error (transition, g_steal_pointer (&error));
+    return;
+  }
+
   wp_transition_advance (transition);
 }
 
@@ -198,13 +209,13 @@ on_convert_activated (WpSessionItem * item, GAsyncResult * res,
   WpSiAudioSoftdspEndpoint *self = wp_transition_get_data (transition);
   g_autoptr (GError) error = NULL;
 
-  gboolean activate_ret = wp_session_item_activate_finish (item, res, &error);
-  g_return_if_fail (error == NULL);
-  g_return_if_fail (activate_ret);
+  if (!wp_session_item_activate_finish (item, res, &error)) {
+    wp_transition_return_error (transition, g_steal_pointer (&error));
+    return;
+  }
 
   self->activated_streams++;
-  if (self->activated_streams >= self->num_streams)
-    wp_transition_advance (transition);
+  wp_transition_advance (transition);
 }
 
 static void
@@ -226,13 +237,13 @@ si_audio_softdsp_endpoint_activate_execute_step (WpSessionItem * item,
       wp_transition_advance (transition);
       break;
 
-    case STEP_ENSURE_ADAPTER_FEATURES:
+    case STEP_ACTIVATE_ADAPTER:
       g_return_if_fail (self->activated_streams == 0);
       wp_session_item_activate (self->adapter,
-          (GAsyncReadyCallback)on_adapter_activated, transition);
+          (GAsyncReadyCallback) on_adapter_activated, transition);
       break;
 
-    case STEP_ENSURE_CONVERT_FEATURES:
+    case STEP_ACTIVATE_STREAMS:
     {
       g_autoptr (WpIterator) it = wp_session_bin_iterate (WP_SESSION_BIN (self));
       g_auto (GValue) val = G_VALUE_INIT;
@@ -241,7 +252,7 @@ si_audio_softdsp_endpoint_activate_execute_step (WpSessionItem * item,
         if (item == self->adapter)
           continue;
         wp_session_item_activate (item,
-            (GAsyncReadyCallback)on_convert_activated, transition);
+            (GAsyncReadyCallback) on_convert_activated, transition);
       }
       break;
     }
