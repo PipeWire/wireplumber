@@ -90,3 +90,10 @@ test(
       dependencies: common_deps, c_args: common_args),
   env: common_env,
 )
+
+test(
+  'test-si-standard-link',
+  executable('test-si-standard-link', 'si-standard-link.c',
+      dependencies: common_deps, c_args: common_args),
+  env: common_env,
+)
