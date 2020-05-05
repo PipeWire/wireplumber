@@ -443,7 +443,7 @@ on_si_link_flags_changed (WpSiLink * item, WpSiFlags flags,
 {
   enum pw_endpoint_link_state old_state = self->info.state;
 
-  if (flags & WP_SI_FLAG_EXPORT_ERROR)
+  if (flags & WP_SI_FLAG_ACTIVATE_ERROR)
     self->info.state = PW_ENDPOINT_LINK_STATE_ERROR;
   else if (flags & WP_SI_FLAG_ACTIVE)
     self->info.state = PW_ENDPOINT_LINK_STATE_ACTIVE;

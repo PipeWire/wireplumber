@@ -144,6 +144,7 @@ wp_session_item_default_get_associated_proxy (WpSessionItem * self,
     GType proxy_type)
 {
   WpSessionItemPrivate *priv;
+  gpointer ret = NULL;
 
   if (WP_IS_SI_STREAM (self)) {
     g_autoptr (WpSiEndpoint) ep =
@@ -154,23 +155,26 @@ wp_session_item_default_get_associated_proxy (WpSessionItem * self,
   }
 
   if (proxy_type == WP_TYPE_SESSION) {
-    return g_weak_ref_get (&priv->session);
+    ret = g_weak_ref_get (&priv->session);
   }
   else if (proxy_type == WP_TYPE_ENDPOINT) {
     if (priv->impl_proxy && WP_IS_ENDPOINT (priv->impl_proxy))
-      return g_object_ref (priv->impl_proxy);
+      ret = g_object_ref (priv->impl_proxy);
   }
   else if (proxy_type == WP_TYPE_ENDPOINT_LINK) {
     if (priv->impl_proxy && WP_IS_ENDPOINT_LINK (priv->impl_proxy))
-      return g_object_ref (priv->impl_proxy);
+      ret = g_object_ref (priv->impl_proxy);
   }
   else if (proxy_type == WP_TYPE_ENDPOINT_STREAM) {
     gpointer impl_stream = priv->impl_streams ?
         g_hash_table_lookup (priv->impl_streams, self) : NULL;
-    return impl_stream ? g_object_ref (impl_stream) : NULL;
+    ret = impl_stream ? g_object_ref (impl_stream) : NULL;
   }
 
-  return NULL;
+  wp_trace_object (self, "associated %s: " WP_OBJECT_FORMAT,
+      g_type_name (proxy_type), WP_OBJECT_ARGS (ret));
+
+  return ret;
 }
 
 static guint
@@ -622,6 +626,8 @@ wp_session_item_activate (WpSessionItem * self,
   g_signal_connect (transition, "notify::completed",
       (GCallback) on_activate_transition_completed, self);
 
+  wp_debug_object (self, "activating item");
+
   priv->flags &= ~WP_SI_FLAG_ACTIVATE_ERROR;
   priv->flags |= WP_SI_FLAG_ACTIVATING;
   g_signal_emit (self, signals[SIGNAL_FLAGS_CHANGED], 0, priv->flags);
@@ -749,6 +755,9 @@ wp_session_item_export (WpSessionItem * self, WpSession * session,
   wp_transition_set_source_tag (transition, wp_session_item_export);
   g_signal_connect (transition, "notify::completed",
       (GCallback) on_export_transition_completed, self);
+
+  wp_debug_object (self, "exporting item on session " WP_OBJECT_FORMAT,
+      WP_OBJECT_ARGS (session));
 
   priv->flags &= ~WP_SI_FLAG_EXPORT_ERROR;
   priv->flags |= WP_SI_FLAG_EXPORTING;

@@ -34,37 +34,6 @@ G_DEFINE_TYPE_WITH_CODE (WpSiStandardLink, si_standard_link, WP_TYPE_SESSION_ITE
     G_IMPLEMENT_INTERFACE (WP_TYPE_SI_LINK, si_standard_link_link_init))
 
 static void
-on_stream_destroyed (gpointer data, GObject * stream)
-{
-  WpSiStandardLink *self = WP_SI_STANDARD_LINK (data);
-
-  if ((gpointer) self->out_stream == (gpointer) stream)
-    self->out_stream = NULL;
-  else if ((gpointer) self->in_stream == (gpointer) stream)
-    self->in_stream = NULL;
-
-  wp_session_item_reset (WP_SESSION_ITEM (self));
-}
-
-static void
-on_stream_flags_changed (WpSessionItem * stream, WpSiFlags flags,
-    WpSiStandardLink *self)
-{
-  /* stream was deactivated; treat it as destroyed and reset */
-  if (!(flags & WP_SI_FLAG_ACTIVE))
-    wp_session_item_reset (WP_SESSION_ITEM (self));
-}
-
-static inline void
-disconnect_stream (WpSiStandardLink *self, WpSiStream * stream)
-{
-  if (stream) {
-    g_signal_handlers_disconnect_by_data (stream, self);
-    g_object_weak_unref (G_OBJECT (stream), on_stream_destroyed, self);
-  }
-}
-
-static void
 si_standard_link_init (WpSiStandardLink * self)
 {
 }
@@ -76,8 +45,6 @@ si_standard_link_reset (WpSessionItem * item)
 
   WP_SESSION_ITEM_CLASS (si_standard_link_parent_class)->reset (item);
 
-  disconnect_stream (self, self->out_stream);
-  disconnect_stream (self, self->in_stream);
   self->out_stream = NULL;
   self->in_stream = NULL;
 
@@ -124,18 +91,8 @@ si_standard_link_configure (WpSessionItem * item, GVariant * args)
       !(wp_session_item_get_flags (in_stream) & WP_SI_FLAG_ACTIVE))
     return FALSE;
 
-  disconnect_stream (self, self->out_stream);
-  disconnect_stream (self, self->in_stream);
-
   self->out_stream = WP_SI_STREAM (out_stream);
   self->in_stream = WP_SI_STREAM (in_stream);
-
-  g_signal_connect_object (self->out_stream, "flags-changed",
-      G_CALLBACK (on_stream_flags_changed), self, 0);
-  g_signal_connect_object (self->in_stream, "flags-changed",
-      G_CALLBACK (on_stream_flags_changed), self, 0);
-  g_object_weak_ref (G_OBJECT (self->out_stream), on_stream_destroyed, self);
-  g_object_weak_ref (G_OBJECT (self->in_stream), on_stream_destroyed, self);
 
   wp_session_item_set_flag (item, WP_SI_FLAG_CONFIGURED);
 
@@ -217,12 +174,12 @@ find_core (WpSiStandardLink * self)
 }
 
 static gboolean
-create_links (WpSiStandardLink * self, GVariant * out_ports, GVariant * in_ports)
+create_links (WpSiStandardLink * self, WpTransition * transition,
+    GVariant * out_ports, GVariant * in_ports)
 {
   g_autoptr (GPtrArray) in_ports_arr = NULL;
   g_autoptr (WpCore) core = NULL;
-  WpLink *link;
-  GVariantIter *iter;
+  GVariantIter *iter = NULL;
   GVariant *child;
   guint32 out_node_id, in_node_id;
   guint32 out_port_id, in_port_id;
@@ -235,9 +192,9 @@ create_links (WpSiStandardLink * self, GVariant * out_ports, GVariant * in_ports
       uint32 port_id;
       uint32 channel;  // enum spa_audio_channel
    */
-  if (!g_variant_is_of_type (out_ports, G_VARIANT_TYPE("a(uuu)")))
+  if (!out_ports || !g_variant_is_of_type (out_ports, G_VARIANT_TYPE("a(uuu)")))
     return FALSE;
-  if (!g_variant_is_of_type (in_ports, G_VARIANT_TYPE("a(uuu)")))
+  if (!in_ports || !g_variant_is_of_type (in_ports, G_VARIANT_TYPE("a(uuu)")))
     return FALSE;
 
   core = find_core (self);
@@ -253,8 +210,9 @@ create_links (WpSiStandardLink * self, GVariant * out_ports, GVariant * in_ports
   g_ptr_array_set_size (in_ports_arr, i);
 
   g_variant_get (in_ports, "a(uuu)", &iter);
-  while ((child = g_variant_iter_next_value (iter)))
-    g_ptr_array_insert (in_ports_arr, --i, child);
+  while ((child = g_variant_iter_next_value (iter))) {
+    g_ptr_array_index (in_ports_arr, --i) = child;
+  }
   g_variant_iter_free (iter);
 
   /* now loop over the out ports and figure out where they should be linked */
@@ -280,6 +238,7 @@ create_links (WpSiStandardLink * self, GVariant * out_ports, GVariant * in_ports
           in_channel == SPA_AUDIO_CHANNEL_UNKNOWN)
       {
         g_autoptr (WpProperties) props = NULL;
+        WpLink *link;
 
         /* Create the properties */
         props = wp_properties_new_empty ();
@@ -288,7 +247,7 @@ create_links (WpSiStandardLink * self, GVariant * out_ports, GVariant * in_ports
         wp_properties_setf (props, PW_KEY_LINK_INPUT_NODE, "%u", in_node_id);
         wp_properties_setf (props, PW_KEY_LINK_INPUT_PORT, "%u", in_port_id);
 
-        g_debug ("Create pw link: %u:%u (%s) -> %u:%u (%s)",
+        wp_debug_object (self, "create pw link: %u:%u (%s) -> %u:%u (%s)",
             out_node_id, out_port_id,
             spa_debug_type_find_name (spa_type_audio_channel, out_channel),
             in_node_id, in_port_id,
@@ -302,7 +261,7 @@ create_links (WpSiStandardLink * self, GVariant * out_ports, GVariant * in_ports
         /* augment to ensure it is created without errors */
         self->n_async_ops_wait++;
         wp_proxy_augment (WP_PROXY (link), WP_PROXY_FEATURES_STANDARD, NULL,
-            (GAsyncReadyCallback) on_link_augmented, self);
+            (GAsyncReadyCallback) on_link_augmented, transition);
 
         /* continue to link all input ports, if requested */
         if (link_all)
@@ -367,7 +326,7 @@ si_standard_link_activate_execute_step (WpSessionItem * item,
     in_ports = wp_si_port_info_get_ports (WP_SI_PORT_INFO (self->in_stream),
         NULL);
 
-    if (!create_links (self, out_ports, in_ports)) {
+    if (!create_links (self, transition, out_ports, in_ports)) {
       wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
               WP_LIBRARY_ERROR_INVARIANT,
               "Bad port info returned from one of the streams"));
@@ -387,18 +346,19 @@ si_standard_link_activate_rollback (WpSessionItem * item)
   g_autoptr (WpSiEndpoint) in_endpoint = NULL;
   WpSiStreamAcquisition *out_acquisition, *in_acquisition;
 
-  out_endpoint = wp_si_stream_get_parent_endpoint (self->out_stream);
-  in_endpoint = wp_si_stream_get_parent_endpoint (self->in_stream);
-  out_acquisition = wp_si_endpoint_get_stream_acquisition (out_endpoint);
-  in_acquisition = wp_si_endpoint_get_stream_acquisition (in_endpoint);
-
-  if (out_acquisition) {
-    wp_si_stream_acquisition_release (out_acquisition, WP_SI_LINK (self),
-        self->out_stream);
+  if (self->out_stream) {
+    out_endpoint = wp_si_stream_get_parent_endpoint (self->out_stream);
+    out_acquisition = wp_si_endpoint_get_stream_acquisition (out_endpoint);
+    if (out_acquisition)
+      wp_si_stream_acquisition_release (out_acquisition, WP_SI_LINK (self),
+          self->out_stream);
   }
-  if (in_acquisition) {
-    wp_si_stream_acquisition_release (in_acquisition, WP_SI_LINK (self),
-        self->in_stream);
+  if (self->in_stream) {
+    in_endpoint = wp_si_stream_get_parent_endpoint (self->in_stream);
+    in_acquisition = wp_si_endpoint_get_stream_acquisition (in_endpoint);
+    if (in_acquisition)
+      wp_si_stream_acquisition_release (in_acquisition, WP_SI_LINK (self),
+          self->in_stream);
   }
 
   g_clear_pointer (&self->node_links, g_ptr_array_unref);
@@ -425,12 +385,6 @@ si_standard_link_get_registration_info (WpSiLink * item)
   return g_variant_builder_end (&b);
 }
 
-static WpProperties *
-si_standard_link_get_properties (WpSiLink * item)
-{
-  return wp_properties_new_empty ();
-}
-
 static WpSiStream *
 si_standard_link_get_out_stream (WpSiLink * item)
 {
@@ -449,7 +403,6 @@ static void
 si_standard_link_link_init (WpSiLinkInterface * iface)
 {
   iface->get_registration_info = si_standard_link_get_registration_info;
-  iface->get_properties = si_standard_link_get_properties;
   iface->get_out_stream = si_standard_link_get_out_stream;
   iface->get_in_stream = si_standard_link_get_in_stream;
 }
