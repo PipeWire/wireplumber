@@ -76,6 +76,9 @@ WpEndpointStream * wp_endpoint_find_stream (WpEndpoint * self, guint32 bound_id)
 WP_API
 WpIterator * wp_endpoint_iterate_streams (WpEndpoint * self);
 
+WP_API
+void wp_endpoint_create_link (WpEndpoint * self, WpProperties * props);
+
 G_END_DECLS
 
 #endif

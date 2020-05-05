@@ -34,6 +34,7 @@
 #include <spa/pod/builder.h>
 #include <spa/pod/parser.h>
 #include <spa/pod/filter.h>
+#include <spa/utils/result.h>
 
 /* WpEndpoint */
 
@@ -420,6 +421,44 @@ wp_endpoint_iterate_streams (WpEndpoint * self)
 
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
   return wp_object_manager_iterate (priv->streams_om);
+}
+
+/**
+ * wp_endpoint_create_link:
+ * @self: the endpoint
+ * @props: the link properties
+ *
+ * Creates a #WpEndpointLink between @self and another endpoint, which
+ * must be specified in @props.
+ * @props may contain:
+ *  - `endpoint-link.output.endpoint`: the bound id of the endpoint
+ *        that is in the %WP_DIRECTION_OUTPUT direction
+ *  - `endpoint-link.output.stream`: the bound id of the endpoint stream
+ *        that is in the %WP_DIRECTION_OUTPUT direction
+ *  - `endpoint-link.input.endpoint`: the bound id of the endpoint
+ *        that is in the %WP_DIRECTION_INPUT direction
+ *  - `endpoint-link.input.stream`: the bound id of the endpoint stream
+ *        that is in the %WP_DIRECTION_INPUT direction
+ *
+ * If either stream id are not specified (or set to -1), then the first
+ * available stream of this endpoint is used for the link.
+ *
+ * The id of @self is not necessary to be specified, so only one of
+ * `endpoint-link.output.endpoint`, `endpoint-link.input.endpoint`
+ * is actually required.
+ */
+void
+wp_endpoint_create_link (WpEndpoint * self, WpProperties * props)
+{
+  WpEndpointPrivate *priv =
+      wp_endpoint_get_instance_private (WP_ENDPOINT (self));
+  int res;
+
+  res = pw_endpoint_create_link (priv->iface, wp_properties_peek_dict (props));
+  if (res < 0) {
+    wp_warning_object (self, "pw_endpoint_create_link: %d: %s", res,
+        spa_strerror (res));
+  }
 }
 
 /* WpImplEndpoint */
