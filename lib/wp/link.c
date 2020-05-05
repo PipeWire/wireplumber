@@ -146,3 +146,32 @@ wp_link_new_from_factory (WpCore * core,
           props ? wp_properties_peek_dict (props) : NULL, 0));
   return self;
 }
+
+/**
+ * wp_link_get_linked_object_ids:
+ * @self: the link
+ * @output_node: (out) (optional): the bound id of the output (source) node
+ * @output_port: (out) (optional): the bound id of the output (source) port
+ * @input_node: (out) (optional): the bound id of the input (sink) node
+ * @input_port: (out) (optional): the bound id of the input (sink) port
+ *
+ * Retrieves the ids of the objects that are linked by this link
+ *
+ * Note: Using this method requires %WP_PROXY_FEATURE_INFO
+ */
+void
+wp_link_get_linked_object_ids (WpLink * self,
+    guint32 * output_node, guint32 * output_port,
+    guint32 * input_node, guint32 * input_port)
+{
+  g_return_if_fail (WP_IS_LINK (self));
+
+  if (output_node)
+    *output_node = self->info->output_node_id;
+  if (output_port)
+    *output_port = self->info->output_port_id;
+  if (input_node)
+    *input_node = self->info->input_node_id;
+  if (input_port)
+    *input_port = self->info->input_port_id;
+}

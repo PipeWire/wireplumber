@@ -26,6 +26,11 @@ WP_API
 WpLink * wp_link_new_from_factory (WpCore * core,
     const gchar * factory_name, WpProperties * properties);
 
+WP_API
+void wp_link_get_linked_object_ids (WpLink * self,
+    guint32 * output_node, guint32 * output_port,
+    guint32 * input_node, guint32 * input_port);
+
 G_END_DECLS
 
 #endif
