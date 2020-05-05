@@ -17,7 +17,8 @@ G_BEGIN_DECLS
 #define WP_LOG_LEVEL_TRACE (1 << G_LOG_LEVEL_USER_SHIFT)
 
 #define WP_OBJECT_FORMAT "<%s:%p>"
-#define WP_OBJECT_ARGS(object) G_OBJECT_TYPE_NAME(object), object
+#define WP_OBJECT_ARGS(object) \
+    (object ? G_OBJECT_TYPE_NAME(object) : "invalid"), object
 
 WP_API
 gboolean wp_log_level_is_enabled (GLogLevelFlags log_level) G_GNUC_CONST;
