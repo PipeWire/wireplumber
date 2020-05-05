@@ -402,30 +402,6 @@ wp_node_get_n_ports (WpNode * self)
 }
 
 /**
- * wp_node_find_port:
- * @self: the node
- * @bound_id: the bound id of the port object to find
- *
- * Requires %WP_NODE_FEATURE_PORTS
- *
- * Returns: (transfer full) (nullable): the port that has the given
- *    @bound_id, or %NULL if there is no such port
- */
-WpPort *
-wp_node_find_port (WpNode * self, guint32 bound_id)
-{
-  g_return_val_if_fail (WP_IS_NODE (self), NULL);
-  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
-          WP_NODE_FEATURE_PORTS, NULL);
-
-  WpNodePrivate *priv = wp_node_get_instance_private (self);
-  return (WpPort *) wp_object_manager_lookup (priv->ports_om,
-      WP_TYPE_PORT,
-      WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", bound_id,
-      NULL);
-}
-
-/**
  * wp_node_iterate_ports:
  * @self: the node
  *
@@ -443,6 +419,97 @@ wp_node_iterate_ports (WpNode * self)
 
   WpNodePrivate *priv = wp_node_get_instance_private (self);
   return wp_object_manager_iterate (priv->ports_om);
+}
+
+/**
+ * wp_node_iterate_ports_filtered:
+ * @self: the node
+ * @...: a list of constraints, terminated by %NULL
+ *
+ * Requires %WP_NODE_FEATURE_PORTS
+ *
+ * The constraints specified in the variable arguments must follow the rules
+ * documented in wp_object_interest_new().
+ *
+ * Returns: (transfer full): a #WpIterator that iterates over all
+ *   the ports that belong to this node and match the constraints
+ */
+WpIterator *
+wp_node_iterate_ports_filtered (WpNode * self, ...)
+{
+  WpObjectInterest *interest;
+  va_list args;
+  va_start (args, self);
+  interest = wp_object_interest_new_valist (WP_TYPE_PORT, &args);
+  va_end (args);
+  return wp_node_iterate_ports_filtered_full (self, interest);
+}
+
+/**
+ * wp_node_iterate_ports_filtered_full: (rename-to wp_node_iterate_ports_filtered)
+ * @self: the node
+ * @interest: (transfer full): the interest
+ *
+ * Requires %WP_NODE_FEATURE_PORTS
+ *
+ * Returns: (transfer full): a #WpIterator that iterates over all
+ *   the ports that belong to this node and match the @interest
+ */
+WpIterator *
+wp_node_iterate_ports_filtered_full (WpNode * self, WpObjectInterest * interest)
+{
+  g_return_val_if_fail (WP_IS_NODE (self), NULL);
+  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+          WP_NODE_FEATURE_PORTS, NULL);
+
+  WpNodePrivate *priv = wp_node_get_instance_private (self);
+  return wp_object_manager_iterate_filtered_full (priv->ports_om, interest);
+}
+
+/**
+ * wp_node_lookup_port:
+ * @self: the node
+ * @...: a list of constraints, terminated by %NULL
+ *
+ * Requires %WP_NODE_FEATURE_PORTS
+ *
+ * The constraints specified in the variable arguments must follow the rules
+ * documented in wp_object_interest_new().
+ *
+ * Returns: (transfer full) (nullable): the first port that matches the
+ *    constraints, or %NULL if there is no such port
+ */
+WpPort *
+wp_node_lookup_port (WpNode * self, ...)
+{
+  WpObjectInterest *interest;
+  va_list args;
+  va_start (args, self);
+  interest = wp_object_interest_new_valist (WP_TYPE_PORT, &args);
+  va_end (args);
+  return wp_node_lookup_port_full (self, interest);
+}
+
+/**
+ * wp_node_lookup_port_full: (rename-to wp_node_lookup_port)
+ * @self: the node
+ * @interest: (transfer full): the interest
+ *
+ * Requires %WP_NODE_FEATURE_PORTS
+ *
+ * Returns: (transfer full) (nullable): the first port that matches the
+ *    @interest, or %NULL if there is no such port
+ */
+WpPort *
+wp_node_lookup_port_full (WpNode * self, WpObjectInterest * interest)
+{
+  g_return_val_if_fail (WP_IS_NODE (self), NULL);
+  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+          WP_NODE_FEATURE_PORTS, NULL);
+
+  WpNodePrivate *priv = wp_node_get_instance_private (self);
+  return (WpPort *)
+      wp_object_manager_lookup_full (priv->ports_om, interest);
 }
 
 

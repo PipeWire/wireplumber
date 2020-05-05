@@ -18,11 +18,11 @@ G_BEGIN_DECLS
 /**
  * WpSessionFeatures:
  * @WP_SESSION_FEATURE_ENDPOINTS: caches information about endpoints, enabling
- *   the use of wp_session_get_n_endpoints(), wp_session_find_endpoint() and
- *   wp_session_iterate_endpoints()
+ *   the use of wp_session_get_n_endpoints(), wp_session_lookup_endpoint(),
+ *   wp_session_iterate_endpoints() and related methods
  * @WP_SESSION_FEATURE_LINKS: caches information about endpoint links, enabling
- *   the use of wp_session_get_n_links(), wp_session_find_link() and
- *   wp_session_iterate_links()
+ *   the use of wp_session_get_n_links(), wp_session_lookup_link(),
+ *   wp_session_iterate_links() and related methods
  *
  * An extension of #WpProxyFeatures
  */
@@ -69,23 +69,53 @@ WP_API
 void wp_session_set_default_endpoint (WpSession * self, const gchar * id_name,
     guint32 id);
 
-WP_API
-guint wp_session_get_n_endpoints (WpSession * self);
+/* endpoints */
 
 WP_API
-WpEndpoint * wp_session_find_endpoint (WpSession * self, guint32 bound_id);
+guint wp_session_get_n_endpoints (WpSession * self);
 
 WP_API
 WpIterator * wp_session_iterate_endpoints (WpSession * self);
 
 WP_API
+WpIterator * wp_session_iterate_endpoints_filtered (WpSession * self, ...)
+    G_GNUC_NULL_TERMINATED;
+
+WP_API
+WpIterator * wp_session_iterate_endpoints_filtered_full (WpSession * self,
+    WpObjectInterest * interest);
+
+WP_API
+WpEndpoint * wp_session_lookup_endpoint (WpSession * self, ...)
+    G_GNUC_NULL_TERMINATED;
+
+WP_API
+WpEndpoint * wp_session_lookup_endpoint_full (WpSession * self,
+    WpObjectInterest * interest);
+
+/* links */
+
+WP_API
 guint wp_session_get_n_links (WpSession * self);
 
 WP_API
-WpEndpointLink * wp_session_find_link (WpSession * self, guint32 bound_id);
+WpIterator * wp_session_iterate_links (WpSession * self);
 
 WP_API
-WpIterator * wp_session_iterate_links (WpSession * self);
+WpIterator * wp_session_iterate_links_filtered (WpSession * self, ...)
+    G_GNUC_NULL_TERMINATED;
+
+WP_API
+WpIterator * wp_session_iterate_links_filtered_full (WpSession * self,
+    WpObjectInterest * interest);
+
+WP_API
+WpEndpointLink * wp_session_lookup_link (WpSession * self, ...)
+    G_GNUC_NULL_TERMINATED;
+
+WP_API
+WpEndpointLink * wp_session_lookup_link_full (WpSession * self,
+    WpObjectInterest * interest);
 
 /**
  * WP_TYPE_IMPL_SESSION:

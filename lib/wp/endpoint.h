@@ -14,14 +14,15 @@
 #include "port.h"
 #include "endpoint-stream.h"
 #include "iterator.h"
+#include "object-interest.h"
 
 G_BEGIN_DECLS
 
 /**
  * WpEndpointFeatures:
  * @WP_ENDPOINT_FEATURE_STREAMS: caches information about streams, enabling
- *   the use of wp_endpoint_get_n_streams(), wp_endpoint_find_stream() and
- *   wp_endpoint_iterate_streams()
+ *   the use of wp_endpoint_get_n_streams(), wp_endpoint_lookup_stream(),
+ *   wp_endpoint_iterate_streams() and related methods
  *
  * An extension of #WpProxyFeatures
  */
@@ -71,10 +72,23 @@ WP_API
 guint wp_endpoint_get_n_streams (WpEndpoint * self);
 
 WP_API
-WpEndpointStream * wp_endpoint_find_stream (WpEndpoint * self, guint32 bound_id);
+WpIterator * wp_endpoint_iterate_streams (WpEndpoint * self);
 
 WP_API
-WpIterator * wp_endpoint_iterate_streams (WpEndpoint * self);
+WpIterator * wp_endpoint_iterate_streams_filtered (WpEndpoint * self, ...)
+    G_GNUC_NULL_TERMINATED;
+
+WP_API
+WpIterator * wp_endpoint_iterate_streams_filtered_full (WpEndpoint * self,
+    WpObjectInterest * interest);
+
+WP_API
+WpEndpointStream * wp_endpoint_lookup_stream (WpEndpoint * self, ...)
+    G_GNUC_NULL_TERMINATED;
+
+WP_API
+WpEndpointStream * wp_endpoint_lookup_stream_full (WpEndpoint * self,
+    WpObjectInterest * interest);
 
 WP_API
 void wp_endpoint_create_link (WpEndpoint * self, WpProperties * props);

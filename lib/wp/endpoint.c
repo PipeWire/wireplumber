@@ -370,6 +370,8 @@ wp_endpoint_get_direction (WpEndpoint * self)
  * wp_endpoint_get_n_streams:
  * @self: the endpoint
  *
+ * Requires %WP_ENDPOINT_FEATURE_STREAMS
+ *
  * Returns: the number of streams of this endpoint
  */
 guint
@@ -384,30 +386,10 @@ wp_endpoint_get_n_streams (WpEndpoint * self)
 }
 
 /**
- * wp_endpoint_find_stream:
- * @self: the endpoint
- * @bound_id: the bound id of the stream object to find
- *
- * Returns: (transfer full) (nullable): the endpoint stream that has the given
- *    @bound_id, or %NULL if there is no such stream
- */
-WpEndpointStream *
-wp_endpoint_find_stream (WpEndpoint * self, guint32 bound_id)
-{
-  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
-  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
-          WP_ENDPOINT_FEATURE_STREAMS, NULL);
-
-  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
-  return (WpEndpointStream *) wp_object_manager_lookup (priv->streams_om,
-      WP_TYPE_ENDPOINT_STREAM,
-      WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", bound_id,
-      NULL);
-}
-
-/**
  * wp_endpoint_iterate_streams:
  * @self: the endpoint
+ *
+ * Requires %WP_ENDPOINT_FEATURE_STREAMS
  *
  * Returns: (transfer full): a #WpIterator that iterates over all
  *   the endpoint streams that belong to this endpoint
@@ -421,6 +403,98 @@ wp_endpoint_iterate_streams (WpEndpoint * self)
 
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
   return wp_object_manager_iterate (priv->streams_om);
+}
+
+/**
+ * wp_endpoint_iterate_streams_filtered:
+ * @self: the endpoint
+ * @...: a list of constraints, terminated by %NULL
+ *
+ * Requires %WP_ENDPOINT_FEATURE_STREAMS
+ *
+ * The constraints specified in the variable arguments must follow the rules
+ * documented in wp_object_interest_new().
+ *
+ * Returns: (transfer full): a #WpIterator that iterates over all
+ *   the streams that belong to this endpoint and match the constraints
+ */
+WpIterator *
+wp_endpoint_iterate_streams_filtered (WpEndpoint * self, ...)
+{
+  WpObjectInterest *interest;
+  va_list args;
+  va_start (args, self);
+  interest = wp_object_interest_new_valist (WP_TYPE_ENDPOINT_STREAM, &args);
+  va_end (args);
+  return wp_endpoint_iterate_streams_filtered_full (self, interest);
+}
+
+/**
+ * wp_endpoint_iterate_streams_filtered_full: (rename-to wp_endpoint_iterate_streams_filtered)
+ * @self: the endpoint
+ * @interest: (transfer full): the interest
+ *
+ * Requires %WP_ENDPOINT_FEATURE_STREAMS
+ *
+ * Returns: (transfer full): a #WpIterator that iterates over all
+ *   the streams that belong to this endpoint and match the @interest
+ */
+WpIterator *
+wp_endpoint_iterate_streams_filtered_full (WpEndpoint * self,
+    WpObjectInterest * interest)
+{
+  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
+  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+          WP_ENDPOINT_FEATURE_STREAMS, NULL);
+
+  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
+  return wp_object_manager_iterate_filtered_full (priv->streams_om, interest);
+}
+
+/**
+ * wp_endpoint_lookup_stream:
+ * @self: the endpoint
+ * @...: a list of constraints, terminated by %NULL
+ *
+ * Requires %WP_ENDPOINT_FEATURE_STREAMS
+ *
+ * The constraints specified in the variable arguments must follow the rules
+ * documented in wp_object_interest_new().
+ *
+ * Returns: (transfer full) (nullable): the first stream that matches the
+ *    constraints, or %NULL if there is no such stream
+ */
+WpEndpointStream *
+wp_endpoint_lookup_stream (WpEndpoint * self, ...)
+{
+  WpObjectInterest *interest;
+  va_list args;
+  va_start (args, self);
+  interest = wp_object_interest_new_valist (WP_TYPE_ENDPOINT_STREAM, &args);
+  va_end (args);
+  return wp_endpoint_lookup_stream_full (self, interest);
+}
+
+/**
+ * wp_endpoint_lookup_stream_full: (rename-to wp_endpoint_lookup_stream)
+ * @self: the endpoint
+ * @interest: (transfer full): the interest
+ *
+ * Requires %WP_ENDPOINT_FEATURE_STREAMS
+ *
+ * Returns: (transfer full) (nullable): the first stream that matches the
+ *    @interest, or %NULL if there is no such stream
+ */
+WpEndpointStream *
+wp_endpoint_lookup_stream_full (WpEndpoint * self, WpObjectInterest * interest)
+{
+  g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
+  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+          WP_ENDPOINT_FEATURE_STREAMS, NULL);
+
+  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
+  return (WpEndpointStream *)
+      wp_object_manager_lookup_full (priv->streams_om, interest);
 }
 
 /**
@@ -701,20 +775,18 @@ impl_create_link (void *object, const struct spa_dict *props)
     g_autoptr (WpEndpoint) peer_ep_proxy = NULL;
     g_autoptr (WpEndpointStream) peer_stream_proxy = NULL;
 
-    peer_ep_proxy = wp_session_find_endpoint (session, peer_ep_id);
+    peer_ep_proxy = wp_session_lookup_endpoint (session,
+        WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", peer_ep_id, NULL);
     if (!peer_ep_proxy) {
       wp_warning_object (self, "endpoint %d not found in session", peer_ep_id);
       return -EINVAL;
     }
 
     if (peer_stream_id != SPA_ID_INVALID) {
-      peer_stream_proxy = wp_endpoint_find_stream (peer_ep_proxy,
-          peer_stream_id);
+      peer_stream_proxy = wp_endpoint_lookup_stream (peer_ep_proxy,
+          WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", peer_stream_id, NULL);
     } else {
-      g_autoptr (WpIterator) it = wp_endpoint_iterate_streams (peer_ep_proxy);
-      g_auto (GValue) val = G_VALUE_INIT;
-      if (wp_iterator_next (it, &val))
-        peer_stream_proxy = g_value_dup_object (&val);
+      peer_stream_proxy = wp_endpoint_lookup_stream (peer_ep_proxy, NULL);
     }
 
     if (!peer_stream_proxy) {

@@ -452,6 +452,8 @@ wp_session_set_default_endpoint (WpSession * self, const char * id_name,
  * wp_session_get_n_endpoints:
  * @self: the session
  *
+ * Requires %WP_SESSION_FEATURE_ENDPOINTS
+ *
  * Returns: the number of endpoints of this session
  */
 guint
@@ -466,30 +468,10 @@ wp_session_get_n_endpoints (WpSession * self)
 }
 
 /**
- * wp_session_find_endpoint:
- * @self: the session
- * @bound_id: the bound id of the endpoint object to find
- *
- * Returns: (transfer full) (nullable): the endpoint that has the given
- *    @bound_id, or %NULL if there is no such endpoint
- */
-WpEndpoint *
-wp_session_find_endpoint (WpSession * self, guint32 bound_id)
-{
-  g_return_val_if_fail (WP_IS_SESSION (self), NULL);
-  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
-          WP_SESSION_FEATURE_ENDPOINTS, NULL);
-
-  WpSessionPrivate *priv = wp_session_get_instance_private (self);
-  return (WpEndpoint *) wp_object_manager_lookup (priv->endpoints_om,
-      WP_TYPE_ENDPOINT,
-      WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", bound_id,
-      NULL);
-}
-
-/**
  * wp_session_iterate_endpoints:
  * @self: the session
+ *
+ * Requires %WP_SESSION_FEATURE_ENDPOINTS
  *
  * Returns: (transfer full): a #WpIterator that iterates over all
  *   the endpoints that belong to this session
@@ -506,8 +488,102 @@ wp_session_iterate_endpoints (WpSession * self)
 }
 
 /**
+ * wp_session_iterate_endpoints_filtered:
+ * @self: the session
+ * @...: a list of constraints, terminated by %NULL
+ *
+ * Requires %WP_SESSION_FEATURE_ENDPOINTS
+ *
+ * The constraints specified in the variable arguments must follow the rules
+ * documented in wp_object_interest_new().
+ *
+ * Returns: (transfer full): a #WpIterator that iterates over all
+ *   the endpoints that belong to this session and match the constraints
+ */
+WpIterator *
+wp_session_iterate_endpoints_filtered (WpSession * self, ...)
+{
+  WpObjectInterest *interest;
+  va_list args;
+  va_start (args, self);
+  interest = wp_object_interest_new_valist (WP_TYPE_ENDPOINT, &args);
+  va_end (args);
+  return wp_session_iterate_endpoints_filtered_full (self, interest);
+}
+
+/**
+ * wp_session_iterate_endpoints_filtered_full: (rename-to wp_session_iterate_endpoints_filtered)
+ * @self: the session
+ * @interest: (transfer full): the interest
+ *
+ * Requires %WP_SESSION_FEATURE_ENDPOINTS
+ *
+ * Returns: (transfer full): a #WpIterator that iterates over all
+ *   the endpoints that belong to this session and match the @interest
+ */
+WpIterator *
+wp_session_iterate_endpoints_filtered_full (WpSession * self,
+    WpObjectInterest * interest)
+{
+  g_return_val_if_fail (WP_IS_SESSION (self), NULL);
+  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+          WP_SESSION_FEATURE_ENDPOINTS, NULL);
+
+  WpSessionPrivate *priv = wp_session_get_instance_private (self);
+  return wp_object_manager_iterate_filtered_full (priv->endpoints_om, interest);
+}
+
+/**
+ * wp_session_lookup_endpoint:
+ * @self: the session
+ * @...: a list of constraints, terminated by %NULL
+ *
+ * Requires %WP_SESSION_FEATURE_ENDPOINTS
+ *
+ * The constraints specified in the variable arguments must follow the rules
+ * documented in wp_object_interest_new().
+ *
+ * Returns: (transfer full) (nullable): the first endpoint that matches the
+ *    constraints, or %NULL if there is no such endpoint
+ */
+WpEndpoint *
+wp_session_lookup_endpoint (WpSession * self, ...)
+{
+  WpObjectInterest *interest;
+  va_list args;
+  va_start (args, self);
+  interest = wp_object_interest_new_valist (WP_TYPE_ENDPOINT, &args);
+  va_end (args);
+  return wp_session_lookup_endpoint_full (self, interest);
+}
+
+/**
+ * wp_session_lookup_endpoint_full: (rename-to wp_session_lookup_endpoint)
+ * @self: the session
+ * @interest: (transfer full): the interest
+ *
+ * Requires %WP_SESSION_FEATURE_ENDPOINTS
+ *
+ * Returns: (transfer full) (nullable): the first endpoint that matches the
+ *    @interest, or %NULL if there is no such endpoint
+ */
+WpEndpoint *
+wp_session_lookup_endpoint_full (WpSession * self, WpObjectInterest * interest)
+{
+  g_return_val_if_fail (WP_IS_SESSION (self), NULL);
+  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+          WP_SESSION_FEATURE_ENDPOINTS, NULL);
+
+  WpSessionPrivate *priv = wp_session_get_instance_private (self);
+  return (WpEndpoint *)
+      wp_object_manager_lookup_full (priv->endpoints_om, interest);
+}
+
+/**
  * wp_session_get_n_links:
  * @self: the session
+ *
+ * Requires %WP_SESSION_FEATURE_LINKS
  *
  * Returns: the number of endpoint links of this session
  */
@@ -523,30 +599,10 @@ wp_session_get_n_links (WpSession * self)
 }
 
 /**
- * wp_session_find_link:
- * @self: the session
- * @bound_id: the bound id of the link object to find
- *
- * Returns: (transfer full) (nullable): the endpoint link that has the given
- *    @bound_id, or %NULL if there is no such endpoint link
- */
-WpEndpointLink *
-wp_session_find_link (WpSession * self, guint32 bound_id)
-{
-  g_return_val_if_fail (WP_IS_SESSION (self), NULL);
-  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
-          WP_SESSION_FEATURE_LINKS, NULL);
-
-  WpSessionPrivate *priv = wp_session_get_instance_private (self);
-  return (WpEndpointLink *) wp_object_manager_lookup (priv->links_om,
-      WP_TYPE_ENDPOINT_LINK,
-      WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", bound_id,
-      NULL);
-}
-
-/**
  * wp_session_iterate_links:
  * @self: the session
+ *
+ * Requires %WP_SESSION_FEATURE_LINKS
  *
  * Returns: (transfer full): a #WpIterator that iterates over all
  *   the endpoint links that belong to this session
@@ -560,6 +616,98 @@ wp_session_iterate_links (WpSession * self)
 
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
   return wp_object_manager_iterate (priv->links_om);
+}
+
+/**
+ * wp_session_iterate_links_filtered:
+ * @self: the session
+ * @...: a list of constraints, terminated by %NULL
+ *
+ * Requires %WP_SESSION_FEATURE_LINKS
+ *
+ * The constraints specified in the variable arguments must follow the rules
+ * documented in wp_object_interest_new().
+ *
+ * Returns: (transfer full): a #WpIterator that iterates over all
+ *   the links that belong to this session and match the constraints
+ */
+WpIterator *
+wp_session_iterate_links_filtered (WpSession * self, ...)
+{
+  WpObjectInterest *interest;
+  va_list args;
+  va_start (args, self);
+  interest = wp_object_interest_new_valist (WP_TYPE_ENDPOINT_LINK, &args);
+  va_end (args);
+  return wp_session_iterate_links_filtered_full (self, interest);
+}
+
+/**
+ * wp_session_iterate_links_filtered_full: (rename-to wp_session_iterate_links_filtered)
+ * @self: the session
+ * @interest: (transfer full): the interest
+ *
+ * Requires %WP_SESSION_FEATURE_LINKS
+ *
+ * Returns: (transfer full): a #WpIterator that iterates over all
+ *   the links that belong to this session and match the @interest
+ */
+WpIterator *
+wp_session_iterate_links_filtered_full (WpSession * self,
+    WpObjectInterest * interest)
+{
+  g_return_val_if_fail (WP_IS_SESSION (self), NULL);
+  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+          WP_SESSION_FEATURE_LINKS, NULL);
+
+  WpSessionPrivate *priv = wp_session_get_instance_private (self);
+  return wp_object_manager_iterate_filtered_full (priv->links_om, interest);
+}
+
+/**
+ * wp_session_lookup_link:
+ * @self: the session
+ * @...: a list of constraints, terminated by %NULL
+ *
+ * Requires %WP_SESSION_FEATURE_LINKS
+ *
+ * The constraints specified in the variable arguments must follow the rules
+ * documented in wp_object_interest_new().
+ *
+ * Returns: (transfer full) (nullable): the first link that matches the
+ *    constraints, or %NULL if there is no such link
+ */
+WpEndpointLink *
+wp_session_lookup_link (WpSession * self, ...)
+{
+  WpObjectInterest *interest;
+  va_list args;
+  va_start (args, self);
+  interest = wp_object_interest_new_valist (WP_TYPE_ENDPOINT_LINK, &args);
+  va_end (args);
+  return wp_session_lookup_link_full (self, interest);
+}
+
+/**
+ * wp_session_lookup_link_full: (rename-to wp_session_lookup_link)
+ * @self: the session
+ * @interest: (transfer full): the interest
+ *
+ * Requires %WP_SESSION_FEATURE_LINKS
+ *
+ * Returns: (transfer full) (nullable): the first link that matches the
+ *    @interest, or %NULL if there is no such link
+ */
+WpEndpointLink *
+wp_session_lookup_link_full (WpSession * self, WpObjectInterest * interest)
+{
+  g_return_val_if_fail (WP_IS_SESSION (self), NULL);
+  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+          WP_SESSION_FEATURE_LINKS, NULL);
+
+  WpSessionPrivate *priv = wp_session_get_instance_private (self);
+  return (WpEndpointLink *)
+      wp_object_manager_lookup_full (priv->links_om, interest);
 }
 
 /* WpImplSession */
