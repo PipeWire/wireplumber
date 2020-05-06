@@ -278,6 +278,9 @@ WpSpaPod *wp_spa_pod_get_choice_child (WpSpaPod *self);
 WP_API
 WpSpaPod *wp_spa_pod_get_array_child (WpSpaPod *self);
 
+WP_API
+WpIterator *wp_spa_pod_iterate (const WpSpaPod *pod);
+
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpSpaPod, wp_spa_pod_unref)
 
 
@@ -459,9 +462,6 @@ void wp_spa_pod_parser_end (WpSpaPodParser *self);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpSpaPodParser, wp_spa_pod_parser_unref)
 
-
-WP_API
-WpIterator *wp_spa_pod_iterator_new (const WpSpaPod *pod);
 
 G_END_DECLS
 

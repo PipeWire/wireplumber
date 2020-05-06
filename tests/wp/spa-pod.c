@@ -703,7 +703,7 @@ test_spa_pod_iterator (void)
     g_autoptr (WpSpaPod) pod = wp_spa_pod_builder_end (b);
     g_assert_nonnull (pod);
 
-    g_autoptr (WpIterator) it = wp_spa_pod_iterator_new (pod);
+    g_autoptr (WpIterator) it = wp_spa_pod_iterate (pod);
     g_assert_nonnull (it);
 
     {
@@ -752,7 +752,7 @@ test_spa_pod_iterator (void)
     g_autoptr (WpSpaPod) pod = wp_spa_pod_builder_end (b);
     g_assert_nonnull (pod);
 
-    g_autoptr (WpIterator) it = wp_spa_pod_iterator_new (pod);
+    g_autoptr (WpIterator) it = wp_spa_pod_iterate (pod);
     g_assert_nonnull (it);
 
     {
@@ -802,7 +802,7 @@ test_spa_pod_iterator (void)
     g_autoptr (WpSpaPod) pod = wp_spa_pod_builder_end (b);
     g_assert_nonnull (pod);
 
-    g_autoptr (WpIterator) it = wp_spa_pod_iterator_new (pod);
+    g_autoptr (WpIterator) it = wp_spa_pod_iterate (pod);
     g_assert_nonnull (it);
 
     {
@@ -855,7 +855,7 @@ test_spa_pod_iterator (void)
     g_autoptr (WpSpaPod) pod = wp_spa_pod_builder_end (b);
     g_assert_nonnull (pod);
 
-    g_autoptr (WpIterator) it = wp_spa_pod_iterator_new (pod);
+    g_autoptr (WpIterator) it = wp_spa_pod_iterate (pod);
     g_assert_nonnull (it);
 
     {
@@ -910,7 +910,7 @@ test_spa_pod_iterator (void)
     g_autoptr (WpSpaPod) pod = wp_spa_pod_builder_end (b);
     g_assert_nonnull (pod);
 
-    g_autoptr (WpIterator) it = wp_spa_pod_iterator_new (pod);
+    g_autoptr (WpIterator) it = wp_spa_pod_iterate (pod);
     g_assert_nonnull (it);
 
     {
@@ -979,7 +979,7 @@ test_spa_pod_unique_owner (void)
   GValue next = G_VALUE_INIT;
   g_autoptr (WpSpaPod) property = NULL;
   {
-    g_autoptr (WpIterator) it = wp_spa_pod_iterator_new (pod);
+    g_autoptr (WpIterator) it = wp_spa_pod_iterate (pod);
     g_assert_nonnull (it);
     g_assert_true (wp_iterator_next (it, &next));
     property = g_value_dup_boxed (&next);

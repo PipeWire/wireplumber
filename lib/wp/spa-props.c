@@ -146,7 +146,7 @@ wp_spa_props_store_from_props (WpSpaProps * self, const WpSpaPod * props,
   if (g_strcmp0 (wp_spa_pod_get_object_type_name (props), "Props") != 0)
     return FALSE;
 
-  it = wp_spa_pod_iterator_new (props);
+  it = wp_spa_pod_iterate (props);
   while (wp_iterator_next (it, &next)) {
     WpSpaPod *p = g_value_get_boxed (&next);
     const char *key_name = NULL;
