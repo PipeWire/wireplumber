@@ -172,9 +172,13 @@ on_convert_running (WpSiConvert *self)
           g_variant_new_uint64 ((guint64) WP_SI_STREAM (self->target)));
       g_variant_builder_add (&b, "{sv}", "in-stream",
           g_variant_new_uint64 ((guint64) WP_SI_STREAM (self)));
+      g_variant_builder_add (&b, "{sv}", "in-stream-port-context",
+          g_variant_new_string ("reverse"));
   } else {
       g_variant_builder_add (&b, "{sv}", "out-stream",
           g_variant_new_uint64 ((guint64) WP_SI_STREAM (self)));
+      g_variant_builder_add (&b, "{sv}", "out-stream-port-context",
+          g_variant_new_string ("reverse"));
       g_variant_builder_add (&b, "{sv}", "in-stream",
           g_variant_new_uint64 ((guint64) WP_SI_STREAM (self->target)));
   }
