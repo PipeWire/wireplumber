@@ -4,5 +4,5 @@ properties = [
 ]
 
 [endpoint]
-direction = "source"
-type = "pw-audio-softdsp-endpoint"
+session = "audio"
+type = "si-adapter"

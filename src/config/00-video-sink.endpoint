@@ -4,5 +4,5 @@ properties = [
 ]
 
 [endpoint]
-type = "video-endpoint"
-direction = "sink"
+session = "video"
+type = "si-simple-node-endpoint"

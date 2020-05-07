@@ -4,5 +4,5 @@ properties = [
 ]
 
 [endpoint]
-direction = "source"
-type = "video-endpoint"
+session = "video"
+type = "si-simple-node-endpoint"

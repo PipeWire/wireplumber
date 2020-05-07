@@ -1,8 +1,8 @@
 [match-node]
 properties = [
-  { name = "media.class", value = "Stream/Input/Video" },
+  { name = "media.class", value = "Stream/Input/Audio" },
 ]
 
 [endpoint]
-direction = "sink"
-type = "video-endpoint"
+session = "audio"
+type = "si-adapter"

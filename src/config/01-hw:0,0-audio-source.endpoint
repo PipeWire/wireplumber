@@ -5,6 +5,8 @@ properties = [
 ]
 
 [endpoint]
-type = "pw-audio-softdsp-endpoint"
-direction = "source"
+session = "audio"
+type = "si-adapter"
+
+[endpoint.config]
 priority = 1
