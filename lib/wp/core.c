@@ -496,6 +496,34 @@ wp_core_idle_add (WpCore * self, GSource **source, GSourceFunc function,
 }
 
 /**
+ * wp_core_idle_add_closure: (rename-to wp_core_idle_add)
+ * @self: the core
+ * @source: (out) (optional): the source
+ * @closure: the closure to invoke
+ *
+ * Adds an idle callback to be called in the same #GMainContext as the
+ * one used by this core.
+ *
+ * This is the same as wp_core_idle_add(), but it allows you to specify
+ * a #GClosure instead of a C callback.
+ */
+void
+wp_core_idle_add_closure (WpCore * self, GSource **source, GClosure * closure)
+{
+  g_autoptr (GSource) s = NULL;
+
+  g_return_if_fail (WP_IS_CORE (self));
+  g_return_if_fail (closure != NULL);
+
+  s = g_idle_source_new ();
+  g_source_set_closure (s, closure);
+  g_source_attach (s, self->context);
+
+  if (source)
+    *source = g_source_ref (s);
+}
+
+/**
  * wp_core_timeout_add:
  * @self: the core
  * @source: (out) (optional): the source
@@ -513,7 +541,7 @@ wp_core_idle_add (WpCore * self, GSource **source, GSourceFunc function,
  * used by this core instead of the default context.
  */
 void
-wp_core_timeout_add (WpCore * self, GSource **source, guint64 timeout_ms,
+wp_core_timeout_add (WpCore * self, GSource **source, guint timeout_ms,
     GSourceFunc function, gpointer data, GDestroyNotify destroy)
 {
   g_autoptr (GSource) s = NULL;
@@ -522,6 +550,36 @@ wp_core_timeout_add (WpCore * self, GSource **source, guint64 timeout_ms,
 
   s = g_timeout_source_new (timeout_ms);
   g_source_set_callback (s, function, data, destroy);
+  g_source_attach (s, self->context);
+
+  if (source)
+    *source = g_source_ref (s);
+}
+
+/**
+ * wp_core_timeout_add_closure: (rename-to wp_core_timeout_add)
+ * @self: the core
+ * @source: (out) (optional): the source
+ * @timeout_ms: the timeout in milliseconds
+ * @closure: the closure to invoke
+ *
+ * Adds a timeout callback to be called at regular intervals in the same
+ * #GMainContext as the one used by this core.
+ *
+ * This is the same as wp_core_timeout_add(), but it allows you to specify
+ * a #GClosure instead of a C callback.
+ */
+void
+wp_core_timeout_add_closure (WpCore * self, GSource **source, guint timeout_ms,
+    GClosure * closure)
+{
+  g_autoptr (GSource) s = NULL;
+
+  g_return_if_fail (WP_IS_CORE (self));
+  g_return_if_fail (closure != NULL);
+
+  s = g_timeout_source_new (timeout_ms);
+  g_source_set_closure (s, closure);
   g_source_attach (s, self->context);
 
   if (source)

@@ -54,8 +54,16 @@ void wp_core_idle_add (WpCore * self, GSource **source, GSourceFunc function,
     gpointer data, GDestroyNotify destroy);
 
 WP_API
-void wp_core_timeout_add (WpCore * self, GSource **source, guint64 timeout_ms,
+void wp_core_idle_add_closure (WpCore * self, GSource **source,
+    GClosure * closure);
+
+WP_API
+void wp_core_timeout_add (WpCore * self, GSource **source, guint timeout_ms,
     GSourceFunc function, gpointer data, GDestroyNotify destroy);
+
+WP_API
+void wp_core_timeout_add_closure (WpCore * self, GSource **source,
+    guint timeout_ms, GClosure * closure);
 
 WP_API
 gboolean wp_core_sync (WpCore * self, GCancellable * cancellable,
