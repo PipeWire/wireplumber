@@ -235,6 +235,7 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
     g_assert_cmpuint (wp_endpoint_link_get_state (ep_link, &error), ==,
         WP_ENDPOINT_LINK_STATE_ACTIVE);
     g_assert_null (error);
+    g_assert_cmpint (f->activation_state, ==, 2);
   }
 
   /* verify the graph state */
@@ -290,6 +291,7 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
     g_assert_cmpuint (wp_endpoint_link_get_state (ep_link, &error), ==,
         WP_ENDPOINT_LINK_STATE_INACTIVE);
     g_assert_null (error);
+    g_assert_cmpint (f->activation_state, ==, 3);
   }
 
   /* verify the graph state */
@@ -328,6 +330,110 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
   }
 }
 
+static void
+on_link_destroyed (WpEndpointLink * link, TestFixture * f)
+{
+  f->activation_state = 10;
+}
+
+static void
+test_si_standard_link_destroy (TestFixture * f, gconstpointer user_data)
+{
+  g_autoptr (WpSession) session_proxy = NULL;
+  g_autoptr (WpEndpoint) src_ep = NULL;
+  g_autoptr (WpEndpoint) sink_ep = NULL;
+  g_autoptr (WpEndpointLink) ep_link = NULL;
+
+  /* find the "audio" session from the client */
+  {
+    g_autoptr (WpObjectManager) om = wp_object_manager_new ();
+    wp_object_manager_add_interest_1 (om, WP_TYPE_SESSION, NULL);
+    wp_object_manager_request_proxy_features (om, WP_TYPE_SESSION,
+        WP_SESSION_FEATURES_STANDARD);
+    g_signal_connect_swapped (om, "installed",
+        G_CALLBACK (g_main_loop_quit), f->base.loop);
+    wp_core_install_object_manager (f->base.client_core, om);
+    g_main_loop_run (f->base.loop);
+
+    g_assert_nonnull (session_proxy =
+        wp_object_manager_lookup (om, WP_TYPE_SESSION,
+            WP_CONSTRAINT_TYPE_PW_PROPERTY, "session.name", "=s", "audio", NULL));
+    g_assert_cmpint (wp_proxy_get_bound_id (WP_PROXY (session_proxy)), ==,
+        wp_proxy_get_bound_id (WP_PROXY (f->session)));
+  }
+
+  /* find the endpoints */
+
+  g_assert_nonnull (src_ep =  wp_session_lookup_endpoint (session_proxy,
+          WP_CONSTRAINT_TYPE_PW_PROPERTY, "endpoint.name", "=s", "audiotestsrc",
+          NULL));
+  g_assert_nonnull (sink_ep =  wp_session_lookup_endpoint (session_proxy,
+          WP_CONSTRAINT_TYPE_PW_PROPERTY, "endpoint.name", "=s", "fakesink",
+          NULL));
+  g_assert_cmpuint (wp_endpoint_get_n_streams (src_ep), ==, 1);
+  g_assert_cmpuint (wp_endpoint_get_n_streams (sink_ep), ==, 1);
+
+  /* create the link */
+  {
+    g_autoptr (WpProperties) props = NULL;
+    g_autofree gchar * id =
+        g_strdup_printf ("%u", wp_proxy_get_bound_id (WP_PROXY (sink_ep)));
+
+    /* only the peer endpoint id is required,
+       everything else will be discovered */
+    props = wp_properties_new ("endpoint-link.input.endpoint", id, NULL);
+    wp_endpoint_create_link (src_ep, props);
+  }
+
+  g_signal_connect_swapped (session_proxy, "links-changed",
+      G_CALLBACK (g_main_loop_quit), f->base.loop);
+  g_main_loop_run (f->base.loop);
+
+  /* verify */
+
+  g_assert_cmpuint (wp_session_get_n_links (session_proxy), ==, 1);
+  g_assert_nonnull (ep_link = wp_session_lookup_link (session_proxy, NULL));
+  g_assert_cmpuint (wp_endpoint_link_get_state (ep_link, NULL), ==,
+      WP_ENDPOINT_LINK_STATE_INACTIVE);
+
+  /* activate */
+
+  g_signal_connect (ep_link, "state-changed",
+      G_CALLBACK (on_link_state_changed), f);
+  wp_endpoint_link_request_state (ep_link, WP_ENDPOINT_LINK_STATE_ACTIVE);
+  g_main_loop_run (f->base.loop);
+  g_assert_cmpuint (wp_endpoint_link_get_state (ep_link, NULL), ==,
+      WP_ENDPOINT_LINK_STATE_ACTIVE);
+
+  /* destroy */
+
+  g_signal_connect (ep_link, "pw-proxy-destroyed",
+      G_CALLBACK (on_link_destroyed), f);
+  wp_proxy_request_destroy (WP_PROXY (ep_link));
+
+  /* loop will quit because the "links-changed" signal from the session
+     is still connected to quit() from earlier */
+  g_main_loop_run (f->base.loop);
+
+  g_assert_cmpint (f->activation_state, ==, 10);
+  g_assert_cmpuint (wp_session_get_n_links (session_proxy), ==, 0);
+  g_assert_cmpuint (wp_proxy_get_bound_id (WP_PROXY (ep_link)), ==, (guint) -1);
+
+  /* verify the link was also destroyed on the session manager core */
+  {
+    g_autoptr (WpObjectManager) om = wp_object_manager_new ();
+
+    wp_object_manager_add_interest_1 (om, WP_TYPE_ENDPOINT_LINK, NULL);
+    g_signal_connect_swapped (om, "installed",
+        G_CALLBACK (g_main_loop_quit), f->base.loop);
+    wp_core_install_object_manager (f->base.core, om);
+    if (!wp_object_manager_is_installed (om))
+      g_main_loop_run (f->base.loop);
+
+    g_assert_cmpuint (wp_object_manager_get_n_objects (om), ==, 0);
+  }
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -339,6 +445,12 @@ main (gint argc, gchar *argv[])
       TestFixture, NULL,
       test_si_standard_link_setup,
       test_si_standard_link_main,
+      test_si_standard_link_teardown);
+
+  g_test_add ("/modules/si-standard-link/destroy",
+      TestFixture, NULL,
+      test_si_standard_link_setup,
+      test_si_standard_link_destroy,
       test_si_standard_link_teardown);
 
   return g_test_run ();

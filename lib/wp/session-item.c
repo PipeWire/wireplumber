@@ -190,6 +190,7 @@ enum {
   EXPORT_STEP_ENDPOINT = WP_TRANSITION_STEP_CUSTOM_START,
   EXPORT_STEP_STREAMS,
   EXPORT_STEP_LINK,
+  EXPORT_STEP_CONNECT_DESTROYED,
 };
 
 static guint
@@ -229,6 +230,9 @@ wp_session_item_default_export_get_next_step (WpSessionItem * self,
 
   case EXPORT_STEP_LINK:
     g_return_val_if_fail (WP_IS_SI_LINK (self), WP_TRANSITION_STEP_ERROR);
+    return EXPORT_STEP_CONNECT_DESTROYED;
+
+  case EXPORT_STEP_CONNECT_DESTROYED:
     return WP_TRANSITION_STEP_NONE;
 
   default:
@@ -259,6 +263,36 @@ on_export_proxy_augmented (WpProxy * proxy, GAsyncResult * res, gpointer data)
   }
 
   wp_transition_advance (transition);
+}
+
+static gboolean
+on_export_proxy_destroyed_deferred (WpSessionItem * self)
+{
+  WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
+
+  g_return_val_if_fail (priv->impl_proxy, G_SOURCE_REMOVE);
+  g_return_val_if_fail (WP_SESSION_ITEM_GET_CLASS (self)->export_rollback,
+      G_SOURCE_REMOVE);
+
+  wp_info_object (self, "destroying " WP_OBJECT_FORMAT
+      " upon request by the server", WP_OBJECT_ARGS (priv->impl_proxy));
+
+  WP_SESSION_ITEM_GET_CLASS (self)->export_rollback (self);
+
+  priv->flags |= WP_SI_FLAG_EXPORT_ERROR;
+  g_signal_emit (self, signals[SIGNAL_FLAGS_CHANGED], 0, priv->flags);
+
+  return G_SOURCE_REMOVE;
+}
+
+static void
+on_export_proxy_destroyed (WpProxy * proxy, gpointer data)
+{
+  WpSessionItem *self = WP_SESSION_ITEM (data);
+  g_autoptr (WpCore) core = wp_proxy_get_core (proxy);
+
+  wp_core_idle_add_closure (core, NULL, g_cclosure_new_object (
+          G_CALLBACK (on_export_proxy_destroyed_deferred), G_OBJECT (self)));
 }
 
 static void
@@ -311,6 +345,12 @@ wp_session_item_default_export_execute_step (WpSessionItem * self,
         transition);
     break;
 
+  case EXPORT_STEP_CONNECT_DESTROYED:
+    g_signal_connect_object (priv->impl_proxy, "pw-proxy-destroyed",
+        G_CALLBACK (on_export_proxy_destroyed), self, 0);
+    wp_transition_advance (transition);
+    break;
+
   default:
     g_return_if_reached ();
   }
@@ -320,6 +360,8 @@ static void
 wp_session_item_default_export_rollback (WpSessionItem * self)
 {
   WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
+  if (priv->impl_proxy)
+    g_signal_handlers_disconnect_by_data (priv->impl_proxy, self);
   g_clear_pointer (&priv->impl_streams, g_hash_table_unref);
   g_clear_object (&priv->impl_proxy);
   g_weak_ref_set (&priv->session, NULL);

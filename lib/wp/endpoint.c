@@ -682,6 +682,19 @@ on_stream_flags_changed (WpSessionItem * stream, WpSiFlags flags,
 {
   /* stream was deactivated; destroy the associated link */
   if (!(flags & WP_SI_FLAG_ACTIVE)) {
+    wp_trace_object (link, "destroying because stream " WP_OBJECT_FORMAT
+        " was deactivated", WP_OBJECT_ARGS (stream));
+    wp_session_item_reset (link);
+    g_object_unref (link);
+  }
+}
+
+static void
+on_link_flags_changed (WpSessionItem * link, WpSiFlags flags, gpointer data)
+{
+  const guint mask = (WP_SI_FLAG_EXPORTED | WP_SI_FLAG_EXPORT_ERROR);
+  if ((flags & mask) == mask) {
+    wp_trace_object (link, "destroying because impl proxy was destroyed");
     wp_session_item_reset (link);
     g_object_unref (link);
   }
@@ -855,6 +868,8 @@ impl_create_link (void *object, const struct spa_dict *props)
         G_CALLBACK (on_stream_flags_changed), link, 0);
     g_signal_connect_object (peer_si_stream, "flags-changed",
         G_CALLBACK (on_stream_flags_changed), link, 0);
+    g_signal_connect (link, "flags-changed",
+        G_CALLBACK (on_link_flags_changed), NULL);
 
     wp_session_item_export (link, session,
         (GAsyncReadyCallback) on_si_link_exported, self);
