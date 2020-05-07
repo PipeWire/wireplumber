@@ -22,6 +22,8 @@ struct _WpSiStandardLink
 
   WpSiStream *out_stream;
   WpSiStream *in_stream;
+  gchar *out_stream_port_context;
+  gchar *in_stream_port_context;
   gboolean manage_lifetime;
 
   GPtrArray *node_links;
@@ -81,6 +83,8 @@ si_standard_link_reset (WpSessionItem * item)
   self->manage_lifetime = FALSE;
   self->out_stream = NULL;
   self->in_stream = NULL;
+  g_clear_pointer (&self->out_stream_port_context, g_free);
+  g_clear_pointer (&self->in_stream_port_context, g_free);
 
   wp_session_item_clear_flag (item, WP_SI_FLAG_CONFIGURED);
 }
@@ -97,6 +101,12 @@ si_standard_link_get_configuration (WpSessionItem * item)
       "out-stream", g_variant_new_uint64 ((guint64) self->out_stream));
   g_variant_builder_add (&b, "{sv}",
       "in-stream", g_variant_new_uint64 ((guint64) self->in_stream));
+  g_variant_builder_add (&b, "{sv}",
+      "out-stream-port-context",
+      g_variant_new_string (self->out_stream_port_context));
+  g_variant_builder_add (&b, "{sv}",
+      "in-stream-port-context",
+       g_variant_new_string (self->in_stream_port_context));
   g_variant_builder_add (&b, "{sv}",
       "manage-lifetime", g_variant_new_boolean (self->manage_lifetime));
   return g_variant_builder_end (&b);
@@ -133,6 +143,11 @@ si_standard_link_configure (WpSessionItem * item, GVariant * args)
 
   self->out_stream = WP_SI_STREAM (out_stream);
   self->in_stream = WP_SI_STREAM (in_stream);
+
+  g_variant_lookup (args, "out-stream-port-context", "s",
+      &self->out_stream_port_context);
+  g_variant_lookup (args, "in-stream-port-context", "s",
+      &self->in_stream_port_context);
 
   /* manage-lifetime == TRUE means that this si-standard-link item is
    * responsible for self-destructing if either
@@ -378,9 +393,9 @@ si_standard_link_activate_execute_step (WpSessionItem * item,
     g_autoptr (GVariant) in_ports = NULL;
 
     out_ports = wp_si_port_info_get_ports (WP_SI_PORT_INFO (self->out_stream),
-        NULL);
+        self->out_stream_port_context);
     in_ports = wp_si_port_info_get_ports (WP_SI_PORT_INFO (self->in_stream),
-        NULL);
+        self->in_stream_port_context);
 
     if (!create_links (self, transition, out_ports, in_ports)) {
       wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
@@ -473,6 +488,10 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
       WP_SI_CONFIG_OPTION_WRITEABLE | WP_SI_CONFIG_OPTION_REQUIRED, NULL);
   g_variant_builder_add (&b, "(ssymv)", "in-stream", "t",
       WP_SI_CONFIG_OPTION_WRITEABLE | WP_SI_CONFIG_OPTION_REQUIRED, NULL);
+  g_variant_builder_add (&b, "(ssymv)", "out-stream-port-context", "s",
+      WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
+  g_variant_builder_add (&b, "(ssymv)", "in-stream-port-context", "s",
+      WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
   g_variant_builder_add (&b, "(ssymv)", "manage-lifetime", "b",
       WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
 
