@@ -98,6 +98,9 @@ struct _WpProxyClass
   void (*control_changed) (WpProxy * self, const char * id_name);
 };
 
+WP_API
+void wp_proxy_request_destroy (WpProxy * self);
+
 /* features API */
 
 WP_API

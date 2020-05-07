@@ -433,6 +433,7 @@ wp_proxy_class_init (WpProxyClass * klass)
       G_TYPE_NONE, 1, G_TYPE_STRING);
 }
 
+/* private */
 void
 wp_proxy_destroy (WpProxy *self)
 {
@@ -443,6 +444,36 @@ wp_proxy_destroy (WpProxy *self)
   priv = wp_proxy_get_instance_private (self);
   if (priv->pw_proxy)
     pw_proxy_destroy (priv->pw_proxy);
+}
+
+/**
+ * wp_proxy_request_destroy:
+ * @self: the proxy
+ *
+ * Requests the PipeWire server to destroy the object represented by this proxy.
+ * If the server allows it, the object will be destroyed and the
+ * WpProxy::pw-proxy-destroyed signal will be emitted. If the server does
+ * not allow it, nothing will happen.
+ *
+ * This is mostly useful for destroying #WpLink and #WpEndpointLink objects.
+ */
+void
+wp_proxy_request_destroy (WpProxy * self)
+{
+  WpProxyPrivate *priv;
+  g_autoptr (WpCore) core = NULL;
+  WpRegistry *reg;
+
+  g_return_if_fail (WP_IS_PROXY (self));
+
+  priv = wp_proxy_get_instance_private (self);
+  core = wp_proxy_get_core (self);
+
+  if (priv->pw_proxy && core) {
+    reg = wp_core_get_registry (core);
+    pw_registry_destroy (reg->pw_registry,
+        pw_proxy_get_bound_id (priv->pw_proxy));
+  }
 }
 
 void
