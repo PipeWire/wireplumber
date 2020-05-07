@@ -36,6 +36,8 @@ struct WpDaemonData
   gint exit_code;
   gchar *exit_message;
   GDestroyNotify free_message;
+
+  GPtrArray *sessions;
 };
 
 static void
@@ -207,6 +209,20 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
                 g_strerror (-ret));
             return FALSE;
           }
+        } else if (!g_strcmp0 (cmd, "create-session")) {
+          g_autoptr (WpImplSession) session = NULL;
+          gchar *name = strtok_r (NULL, " ", &saveptr);
+
+          if (!name) {
+            g_set_error (error, WP_DOMAIN_DAEMON, WP_CODE_INVALID_ARGUMENT,
+              "expected session name at line %i", lineno);
+            return FALSE;
+          }
+
+          session = wp_impl_session_new (d->core);
+          wp_impl_session_set_property (session, "session.name", name);
+
+          g_ptr_array_add (d->sessions, g_steal_pointer (&session));
         } else {
           g_set_error (error, WP_DOMAIN_DAEMON, WP_CODE_INVALID_ARGUMENT,
               "unknown command '%s' at line %i", cmd, lineno);
@@ -239,6 +255,27 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
   return TRUE;
 }
 
+static void
+on_session_exported (WpProxy * session, GAsyncResult * res,
+    struct WpDaemonData *d)
+{
+  g_autoptr (GError) error = NULL;
+  wp_proxy_augment_finish (session, res, &error);
+  if (error)
+    wp_warning ("session could not be exported: %s", error->message);
+}
+
+static void
+on_core_connected (WpCore *core, struct WpDaemonData *d)
+{
+  for (guint i = 0; i < d->sessions->len; i++) {
+    WpSession *session = g_ptr_array_index (d->sessions, i);
+    wp_proxy_augment (WP_PROXY (session),
+        WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_CONTROLS, NULL,
+        (GAsyncReadyCallback) on_session_exported, d);
+  }
+}
+
 static gboolean
 load_commands_file (struct WpDaemonData *d)
 {
@@ -264,6 +301,10 @@ load_commands_file (struct WpDaemonData *d)
     return G_SOURCE_REMOVE;
   }
 
+  /* add handler to export the sessions when connected */
+  if (d->sessions->len > 0)
+    g_signal_connect (d->core, "connected", G_CALLBACK (on_core_connected), d);
+
   /* connect to pipewire */
   if (!wp_core_connect (d->core))
     daemon_exit_static_str (d, WP_CODE_DISCONNECTED, "failed to connect");
@@ -280,6 +321,7 @@ main (gint argc, gchar **argv)
   g_autoptr (WpConfiguration) config = NULL;
   g_autoptr (WpCore) core = NULL;
   g_autoptr (GMainLoop) loop = NULL;
+  g_autoptr (GPtrArray) sessions = NULL;
   const gchar *configuration_path;
 
   g_log_set_writer_func (wp_log_writer_default, NULL, NULL);
@@ -308,6 +350,10 @@ main (gint argc, gchar **argv)
   /* init main loop */
 
   data.loop = loop = g_main_loop_new (NULL, FALSE);
+
+  /* init sessions */
+
+  data.sessions = sessions = g_ptr_array_new_with_free_func (g_object_unref);
 
   /* watch for exit signals */
 
