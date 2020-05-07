@@ -1366,20 +1366,25 @@ wp_global_rm_flag (WpGlobal *global, guint rm_flag)
      notify all listeners that the proxy is gone */
   if (rm_flag == WP_GLOBAL_FLAG_OWNED_BY_PROXY) {
     global->flags &= ~WP_GLOBAL_FLAG_OWNED_BY_PROXY;
-    if (reg)
+    if (reg && global->proxy) {
       wp_registry_notify_rm_object (reg, global->proxy);
+    }
     global->proxy = NULL;
   }
   /* registry removed the global */
   else if (rm_flag == WP_GLOBAL_FLAG_APPEARS_ON_REGISTRY) {
     global->flags &= ~WP_GLOBAL_FLAG_APPEARS_ON_REGISTRY;
 
-    /* if there is a proxy and it's not owning the global, destroy it */
-    if (global->flags == 0 && global->proxy) {
+    /* destroy the proxy if it exists */
+    if (global->proxy) {
       if (reg)
         wp_registry_notify_rm_object (reg, global->proxy);
       wp_proxy_destroy (global->proxy);
-      g_clear_object (&global->proxy);
+
+      /* if the proxy is not owning the global, unref it */
+      if (global->flags == 0)
+        g_object_unref (global->proxy);
+      global->proxy = NULL;
     }
   }
 

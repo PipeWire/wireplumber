@@ -140,10 +140,17 @@ proxy_event_bound (void *data, uint32_t global_id)
   g_signal_emit (self, wp_proxy_signals[SIGNAL_BOUND], 0, global_id);
 }
 
+static void
+proxy_event_removed (void *data)
+{
+  wp_trace_object (data, "removed");
+}
+
 static const struct pw_proxy_events proxy_events = {
   PW_VERSION_PROXY_EVENTS,
   .destroy = proxy_event_destroy,
   .bound = proxy_event_bound,
+  .removed = proxy_event_removed,
 };
 
 void
