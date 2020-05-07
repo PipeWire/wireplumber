@@ -208,6 +208,20 @@ wp_object_manager_new (void)
 }
 
 /**
+ * wp_object_manager_is_installed:
+ * @self: the object manager
+ *
+ * Returns: %TRUE if the object manager is installed (the
+ *   WpObjectManager::installed has been emitted), %FALSE otherwise
+ */
+gboolean
+wp_object_manager_is_installed (WpObjectManager * self)
+{
+  g_return_val_if_fail (WP_IS_OBJECT_MANAGER (self), FALSE);
+  return self->installed;
+}
+
+/**
  * wp_object_manager_add_interest:
  * @self: the object manager
  * @gtype: the #GType of the objects that we are declaring interest in

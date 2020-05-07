@@ -45,6 +45,13 @@ G_DECLARE_FINAL_TYPE (WpObjectManager, wp_object_manager, WP, OBJECT_MANAGER, GO
 WP_API
 WpObjectManager * wp_object_manager_new (void);
 
+/* installation */
+
+WP_API
+gboolean wp_object_manager_is_installed (WpObjectManager * self);
+
+/* interest */
+
 WP_API G_DEPRECATED
 void wp_object_manager_add_interest (WpObjectManager *self,
     GType gtype, GVariant * constraints, WpProxyFeatures wanted_features);
@@ -57,9 +64,13 @@ WP_API
 void wp_object_manager_add_interest_full (WpObjectManager * self,
     WpObjectInterest * interest);
 
+/* proxy features */
+
 WP_API
 void wp_object_manager_request_proxy_features (WpObjectManager *self,
     GType proxy_type, WpProxyFeatures wanted_features);
+
+/* object inspection */
 
 WP_API
 guint wp_object_manager_get_n_objects (WpObjectManager * self);
