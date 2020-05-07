@@ -156,10 +156,8 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
     wp_object_manager_add_interest_1 (om, WP_TYPE_SESSION, NULL);
     wp_object_manager_request_proxy_features (om, WP_TYPE_SESSION,
         WP_SESSION_FEATURES_STANDARD);
-    g_signal_connect_swapped (om, "installed",
-        G_CALLBACK (g_main_loop_quit), f->base.loop);
-    wp_core_install_object_manager (f->base.client_core, om);
-    g_main_loop_run (f->base.loop);
+    test_ensure_object_manager_is_installed (om, f->base.client_core,
+        f->base.loop);
 
     g_assert_nonnull (session_proxy =
         wp_object_manager_lookup (om, WP_TYPE_SESSION,
@@ -253,10 +251,8 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
     wp_object_manager_add_interest_1 (om, WP_TYPE_LINK, NULL);
     wp_object_manager_request_proxy_features (om, WP_TYPE_PROXY,
         WP_PROXY_FEATURES_STANDARD);
-    g_signal_connect_swapped (om, "installed",
-        G_CALLBACK (g_main_loop_quit), f->base.loop);
-    wp_core_install_object_manager (f->base.client_core, om);
-    g_main_loop_run (f->base.loop);
+    test_ensure_object_manager_is_installed (om, f->base.client_core,
+        f->base.loop);
 
     g_assert_nonnull (out_node = wp_object_manager_lookup (om, WP_TYPE_NODE,
         WP_CONSTRAINT_TYPE_PW_PROPERTY, "node.name", "=s", "audiotestsrc",
@@ -308,10 +304,8 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
     wp_object_manager_add_interest_1 (om, WP_TYPE_LINK, NULL);
     wp_object_manager_request_proxy_features (om, WP_TYPE_PROXY,
         WP_PROXY_FEATURES_STANDARD);
-    g_signal_connect_swapped (om, "installed",
-        G_CALLBACK (g_main_loop_quit), f->base.loop);
-    wp_core_install_object_manager (f->base.client_core, om);
-    g_main_loop_run (f->base.loop);
+    test_ensure_object_manager_is_installed (om, f->base.client_core,
+        f->base.loop);
 
     g_assert_nonnull (out_node = wp_object_manager_lookup (om, WP_TYPE_NODE,
         WP_CONSTRAINT_TYPE_PW_PROPERTY, "node.name", "=s", "audiotestsrc",
@@ -350,10 +344,8 @@ test_si_standard_link_destroy (TestFixture * f, gconstpointer user_data)
     wp_object_manager_add_interest_1 (om, WP_TYPE_SESSION, NULL);
     wp_object_manager_request_proxy_features (om, WP_TYPE_SESSION,
         WP_SESSION_FEATURES_STANDARD);
-    g_signal_connect_swapped (om, "installed",
-        G_CALLBACK (g_main_loop_quit), f->base.loop);
-    wp_core_install_object_manager (f->base.client_core, om);
-    g_main_loop_run (f->base.loop);
+    test_ensure_object_manager_is_installed (om, f->base.client_core,
+        f->base.loop);
 
     g_assert_nonnull (session_proxy =
         wp_object_manager_lookup (om, WP_TYPE_SESSION,
@@ -424,11 +416,7 @@ test_si_standard_link_destroy (TestFixture * f, gconstpointer user_data)
     g_autoptr (WpObjectManager) om = wp_object_manager_new ();
 
     wp_object_manager_add_interest_1 (om, WP_TYPE_ENDPOINT_LINK, NULL);
-    g_signal_connect_swapped (om, "installed",
-        G_CALLBACK (g_main_loop_quit), f->base.loop);
-    wp_core_install_object_manager (f->base.core, om);
-    if (!wp_object_manager_is_installed (om))
-      g_main_loop_run (f->base.loop);
+    test_ensure_object_manager_is_installed (om, f->base.core, f->base.loop);
 
     g_assert_cmpuint (wp_object_manager_get_n_objects (om), ==, 0);
   }

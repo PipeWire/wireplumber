@@ -143,3 +143,15 @@ test_si_export_finish_cb (WpSessionItem * item, GAsyncResult * res,
 
   g_main_loop_quit (f->loop);
 }
+
+static G_GNUC_UNUSED void
+test_ensure_object_manager_is_installed (WpObjectManager * om, WpCore * core,
+    GMainLoop * loop)
+{
+  gulong id = g_signal_connect_swapped (om, "installed",
+      G_CALLBACK (g_main_loop_quit), loop);
+  wp_core_install_object_manager (core, om);
+  if (!wp_object_manager_is_installed (om))
+    g_main_loop_run (loop);
+  g_signal_handler_disconnect (om, id);
+}
