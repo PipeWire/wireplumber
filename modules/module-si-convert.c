@@ -32,7 +32,7 @@ struct _WpSiConvert
   gboolean control_port;
 
   WpNode *node;
-  GPtrArray *links;
+  WpSessionItem *link_to_target;
 };
 
 static void si_convert_stream_init (WpSiStreamInterface * iface);
@@ -46,15 +46,6 @@ G_DEFINE_TYPE_WITH_CODE (WpSiConvert, si_convert, WP_TYPE_SESSION_ITEM,
 static void
 si_convert_init (WpSiConvert * self)
 {
-  self->links = g_ptr_array_new_with_free_func (g_object_unref);
-}
-
-static void
-si_convert_finalize (GObject * object)
-{
-  WpSiConvert *self = WP_SI_CONVERT (object);
-  g_clear_pointer (&self->links, g_ptr_array_unref);
-  G_OBJECT_CLASS (si_convert_parent_class)->finalize (object);
 }
 
 static void
@@ -154,9 +145,9 @@ static void
 on_link_activated (WpSessionItem * item, GAsyncResult * res, WpSiConvert * self)
 {
   g_autoptr (GError) error = NULL;
-  gboolean activate_ret = wp_session_item_activate_finish (item, res, &error);
-  g_return_if_fail (error);
-  g_return_if_fail (activate_ret);
+  if (!wp_session_item_activate_finish (item, res, &error)) {
+    wp_warning_object (item, "failed to activate link to the target node");
+  }
 }
 
 static void
@@ -166,6 +157,12 @@ on_convert_running (WpSiConvert *self)
   g_autoptr (WpSessionItem) link = wp_session_item_make (core,
       "si-standard-link");
   g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
+
+  if (G_UNLIKELY (!link)) {
+    wp_warning_object (self, "could not create si-standard-link; "
+        "is the module loaded?");
+    return;
+  }
 
   if (self->direction == WP_DIRECTION_INPUT) {
       g_variant_builder_add (&b, "{sv}", "out-stream",
@@ -185,7 +182,7 @@ on_convert_running (WpSiConvert *self)
 
   wp_session_item_configure (link, g_variant_builder_end (&b));
   wp_session_item_activate (link, (GAsyncReadyCallback) on_link_activated, self);
-  g_ptr_array_add (self->links, g_steal_pointer (&self->links));
+  self->link_to_target = g_steal_pointer (&link);
 }
 
 static void
@@ -194,7 +191,7 @@ on_node_state_changed (WpNode * node, WpNodeState old, WpNodeState curr,
 {
   switch (curr) {
   case WP_NODE_STATE_IDLE:
-    g_ptr_array_set_size (self->links, 0);
+    g_clear_object (&self->link_to_target);
     break;
   case WP_NODE_STATE_RUNNING:
     on_convert_running (self);
@@ -316,7 +313,7 @@ si_convert_activate_rollback (WpSessionItem * item)
 {
   WpSiConvert *self = WP_SI_CONVERT (item);
 
-  g_ptr_array_set_size (self->links, 0);
+  g_clear_object (&self->link_to_target);
   g_clear_object (&self->node);
 }
 
@@ -412,10 +409,7 @@ si_convert_port_info_init (WpSiPortInfoInterface * iface)
 static void
 si_convert_class_init (WpSiConvertClass * klass)
 {
-  GObjectClass *object_class = (GObjectClass *) klass;
   WpSessionItemClass *si_class = (WpSessionItemClass *) klass;
-
-  object_class->finalize = si_convert_finalize;
 
   si_class->reset = si_convert_reset;
   si_class->get_associated_proxy = si_convert_get_associated_proxy;
