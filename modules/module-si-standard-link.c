@@ -22,6 +22,7 @@ struct _WpSiStandardLink
 
   WpSiStream *out_stream;
   WpSiStream *in_stream;
+  gboolean manage_lifetime;
 
   GPtrArray *node_links;
   guint n_async_ops_wait;
@@ -32,6 +33,30 @@ static void si_standard_link_link_init (WpSiLinkInterface * iface);
 G_DECLARE_FINAL_TYPE (WpSiStandardLink, si_standard_link, WP, SI_STANDARD_LINK, WpSessionItem)
 G_DEFINE_TYPE_WITH_CODE (WpSiStandardLink, si_standard_link, WP_TYPE_SESSION_ITEM,
     G_IMPLEMENT_INTERFACE (WP_TYPE_SI_LINK, si_standard_link_link_init))
+
+static void
+on_stream_flags_changed (WpSessionItem * stream, WpSiFlags flags,
+    WpSessionItem * link)
+{
+  /* stream was deactivated; destroy the associated link */
+  if (!(flags & WP_SI_FLAG_ACTIVE)) {
+    wp_trace_object (link, "destroying because stream " WP_OBJECT_FORMAT
+        " was deactivated", WP_OBJECT_ARGS (stream));
+    wp_session_item_reset (link);
+    g_object_unref (link);
+  }
+}
+
+static void
+on_link_flags_changed (WpSessionItem * link, WpSiFlags flags, gpointer data)
+{
+  const guint mask = (WP_SI_FLAG_EXPORTED | WP_SI_FLAG_EXPORT_ERROR);
+  if ((flags & mask) == mask) {
+    wp_trace_object (link, "destroying because impl proxy was destroyed");
+    wp_session_item_reset (link);
+    g_object_unref (link);
+  }
+}
 
 static void
 si_standard_link_init (WpSiStandardLink * self)
@@ -45,6 +70,15 @@ si_standard_link_reset (WpSessionItem * item)
 
   WP_SESSION_ITEM_CLASS (si_standard_link_parent_class)->reset (item);
 
+  if (self->manage_lifetime) {
+    g_signal_handlers_disconnect_by_func (self->out_stream,
+        G_CALLBACK (on_stream_flags_changed), self);
+    g_signal_handlers_disconnect_by_func (self->in_stream,
+        G_CALLBACK (on_stream_flags_changed), self);
+    g_signal_handlers_disconnect_by_func (self,
+        G_CALLBACK (on_link_flags_changed), NULL);
+  }
+  self->manage_lifetime = FALSE;
   self->out_stream = NULL;
   self->in_stream = NULL;
 
@@ -63,6 +97,8 @@ si_standard_link_get_configuration (WpSessionItem * item)
       "out-stream", g_variant_new_uint64 ((guint64) self->out_stream));
   g_variant_builder_add (&b, "{sv}",
       "in-stream", g_variant_new_uint64 ((guint64) self->in_stream));
+  g_variant_builder_add (&b, "{sv}",
+      "manage-lifetime", g_variant_new_boolean (self->manage_lifetime));
   return g_variant_builder_end (&b);
 }
 
@@ -91,8 +127,28 @@ si_standard_link_configure (WpSessionItem * item, GVariant * args)
       !(wp_session_item_get_flags (in_stream) & WP_SI_FLAG_ACTIVE))
     return FALSE;
 
+  /* clear previous configuration; we are not active or exported,
+     so this doesn't have any other side-effects */
+  wp_session_item_reset (item);
+
   self->out_stream = WP_SI_STREAM (out_stream);
   self->in_stream = WP_SI_STREAM (in_stream);
+
+  /* manage-lifetime == TRUE means that this si-standard-link item is
+   * responsible for self-destructing if either
+   *  - one of the streams is deactivated
+   *  - if the WpImplEndpointLink is destroyed upon request
+   *    (wp_proxy_request_destroy())
+   */
+  if (g_variant_lookup (args, "manage-lifetime", "b", &self->manage_lifetime)
+          && self->manage_lifetime) {
+    g_signal_connect_object (self->out_stream, "flags-changed",
+        G_CALLBACK (on_stream_flags_changed), self, 0);
+    g_signal_connect_object (self->in_stream, "flags-changed",
+        G_CALLBACK (on_stream_flags_changed), self, 0);
+    g_signal_connect (self, "flags-changed",
+        G_CALLBACK (on_link_flags_changed), NULL);
+  }
 
   wp_session_item_set_flag (item, WP_SI_FLAG_CONFIGURED);
 
@@ -417,6 +473,8 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
       WP_SI_CONFIG_OPTION_WRITEABLE | WP_SI_CONFIG_OPTION_REQUIRED, NULL);
   g_variant_builder_add (&b, "(ssymv)", "in-stream", "t",
       WP_SI_CONFIG_OPTION_WRITEABLE | WP_SI_CONFIG_OPTION_REQUIRED, NULL);
+  g_variant_builder_add (&b, "(ssymv)", "manage-lifetime", "b",
+      WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
 
   wp_si_factory_register (core, wp_si_factory_new_simple (
           "si-standard-link",

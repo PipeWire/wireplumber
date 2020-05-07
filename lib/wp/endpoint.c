@@ -677,30 +677,6 @@ impl_set_param (void *object, uint32_t id, uint32_t flags,
 }
 
 static void
-on_stream_flags_changed (WpSessionItem * stream, WpSiFlags flags,
-    WpSessionItem * link)
-{
-  /* stream was deactivated; destroy the associated link */
-  if (!(flags & WP_SI_FLAG_ACTIVE)) {
-    wp_trace_object (link, "destroying because stream " WP_OBJECT_FORMAT
-        " was deactivated", WP_OBJECT_ARGS (stream));
-    wp_session_item_reset (link);
-    g_object_unref (link);
-  }
-}
-
-static void
-on_link_flags_changed (WpSessionItem * link, WpSiFlags flags, gpointer data)
-{
-  const guint mask = (WP_SI_FLAG_EXPORTED | WP_SI_FLAG_EXPORT_ERROR);
-  if ((flags & mask) == mask) {
-    wp_trace_object (link, "destroying because impl proxy was destroyed");
-    wp_session_item_reset (link);
-    g_object_unref (link);
-  }
-}
-
-static void
 on_si_link_exported (WpSessionItem * link, GAsyncResult * res, gpointer data)
 {
   WpImplEndpoint *self = WP_IMPL_ENDPOINT (data);
@@ -859,17 +835,12 @@ impl_create_link (void *object, const struct spa_dict *props)
         g_variant_new_uint64 (out_stream_i));
     g_variant_builder_add (&b, "{sv}", "in-stream",
         g_variant_new_uint64 (in_stream_i));
+    g_variant_builder_add (&b, "{sv}", "manage-lifetime",
+        g_variant_new_boolean (TRUE));
     if (G_UNLIKELY (!wp_session_item_configure (link, g_variant_builder_end (&b)))) {
       g_critical ("si-standard-link configuration failed");
       return -ENAVAIL;
     }
-
-    g_signal_connect_object (self_si_stream, "flags-changed",
-        G_CALLBACK (on_stream_flags_changed), link, 0);
-    g_signal_connect_object (peer_si_stream, "flags-changed",
-        G_CALLBACK (on_stream_flags_changed), link, 0);
-    g_signal_connect (link, "flags-changed",
-        G_CALLBACK (on_link_flags_changed), NULL);
 
     wp_session_item_export (link, session,
         (GAsyncReadyCallback) on_si_link_exported, self);
