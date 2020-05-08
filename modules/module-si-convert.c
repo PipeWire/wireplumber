@@ -80,6 +80,7 @@ si_convert_configure (WpSessionItem * item, GVariant * args)
 {
   WpSiConvert *self = WP_SI_CONVERT (item);
   guint64 target_i;
+  g_autoptr (GVariant) target_config = NULL;
   const gchar *tmp_str;
 
   if (wp_session_item_get_flags (item) & (WP_SI_FLAG_ACTIVATING | WP_SI_FLAG_ACTIVE))
@@ -96,6 +97,10 @@ si_convert_configure (WpSessionItem * item, GVariant * args)
 
   g_return_val_if_fail (WP_IS_SESSION_ITEM (GUINT_TO_POINTER (target_i)), FALSE);
   self->target = g_object_ref (GUINT_TO_POINTER (target_i));
+
+  target_config = wp_session_item_get_configuration (GUINT_TO_POINTER (target_i));
+  if (!g_variant_lookup (target_config, "direction", "y", &self->direction))
+    wp_warning_object (item, "direction not found in target endpoint");
 
   strncpy (self->name, tmp_str, sizeof (self->name) - 1);
 
@@ -165,19 +170,21 @@ on_convert_running (WpSiConvert *self)
   }
 
   if (self->direction == WP_DIRECTION_INPUT) {
-      g_variant_builder_add (&b, "{sv}", "out-stream",
-          g_variant_new_uint64 ((guint64) WP_SI_STREAM (self->target)));
-      g_variant_builder_add (&b, "{sv}", "in-stream",
-          g_variant_new_uint64 ((guint64) WP_SI_STREAM (self)));
-      g_variant_builder_add (&b, "{sv}", "in-stream-port-context",
-          g_variant_new_string ("reverse"));
-  } else {
+      /* Playback */
       g_variant_builder_add (&b, "{sv}", "out-stream",
           g_variant_new_uint64 ((guint64) WP_SI_STREAM (self)));
       g_variant_builder_add (&b, "{sv}", "out-stream-port-context",
           g_variant_new_string ("reverse"));
       g_variant_builder_add (&b, "{sv}", "in-stream",
           g_variant_new_uint64 ((guint64) WP_SI_STREAM (self->target)));
+  } else {
+      /* Capture */
+      g_variant_builder_add (&b, "{sv}", "out-stream",
+          g_variant_new_uint64 ((guint64) WP_SI_STREAM (self->target)));
+      g_variant_builder_add (&b, "{sv}", "in-stream",
+          g_variant_new_uint64 ((guint64) WP_SI_STREAM (self)));
+      g_variant_builder_add (&b, "{sv}", "in-stream-port-context",
+          g_variant_new_string ("reverse"));
   }
 
   wp_session_item_configure (link, g_variant_builder_end (&b));
@@ -362,7 +369,7 @@ si_convert_get_ports (WpSiPortInfo * item, const gchar * context)
 
   /* context can only be either NULL or "reverse" */
   if (!g_strcmp0 (context, "reverse")) {
-    self->direction = (self->direction == WP_DIRECTION_INPUT) ?
+    direction = (self->direction == WP_DIRECTION_INPUT) ?
         WP_DIRECTION_OUTPUT : WP_DIRECTION_INPUT;
   }
   else if (context != NULL) {
