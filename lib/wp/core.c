@@ -151,6 +151,9 @@ core_done (void *data, uint32_t id, int seq)
 
   g_hash_table_steal_extended (self->async_tasks, GINT_TO_POINTER (seq), NULL,
       (gpointer *) &task);
+  wp_debug_object (self, "done, seq 0x%x, task " WP_OBJECT_FORMAT,
+      seq, WP_OBJECT_ARGS (task));
+
   if (task)
     g_task_return_boolean (task, TRUE);
 }
@@ -632,6 +635,9 @@ wp_core_sync (WpCore * self, GCancellable * cancellable,
         g_strerror (-seq));
     return FALSE;
   }
+
+  wp_debug_object (self, "sync, seq 0x%x, task " WP_OBJECT_FORMAT,
+      seq, WP_OBJECT_ARGS (task));
 
   g_hash_table_insert (self->async_tasks, GINT_TO_POINTER (seq),
       g_steal_pointer (&task));
