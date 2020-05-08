@@ -604,16 +604,29 @@ wp_session_item_get_configuration (WpSessionItem * self)
   return WP_SESSION_ITEM_GET_CLASS (self)->get_configuration (self);
 }
 
+/* clear the in progress flag before calling the callback, so that
+   it's possible to call wp_session_item_export from within the callback */
 static void
-on_activate_transition_completed (WpTransition * transition, GParamSpec * pspec,
-    WpSessionItem * self)
+on_activate_transition_pre_completed (gpointer data, GClosure *closure)
 {
+  WpTransition *transition = WP_TRANSITION (data);
+  WpSessionItem *self = wp_transition_get_source_object (transition);
+  WpSessionItemPrivate *priv =
+      wp_session_item_get_instance_private (self);
+
+  priv->flags &= ~WP_SI_FLAG_ACTIVATING;
+}
+
+static void
+on_activate_transition_post_completed (gpointer data, GClosure *closure)
+{
+  WpTransition *transition = WP_TRANSITION (data);
+  WpSessionItem *self = wp_transition_get_source_object (transition);
   WpSessionItemPrivate *priv =
       wp_session_item_get_instance_private (self);
 
   priv->flags |= wp_transition_had_error (transition) ?
       WP_SI_FLAG_ACTIVATE_ERROR : WP_SI_FLAG_ACTIVE;
-  priv->flags &= ~WP_SI_FLAG_ACTIVATING;
   g_signal_emit (self, signals[SIGNAL_FLAGS_CHANGED], 0, priv->flags);
 }
 
@@ -661,12 +674,17 @@ wp_session_item_activate (WpSessionItem * self,
   g_return_if_fail (!(priv->flags &
       (WP_SI_FLAGS_MASK_OPERATION_IN_PROGRESS | WP_SI_FLAG_ACTIVE)));
 
+  GClosure *closure =
+      g_cclosure_new (G_CALLBACK (callback), callback_data, NULL);
+
   /* TODO: add a way to cancel the transition if deactivate() is called in the meantime */
-  WpTransition *transition = wp_transition_new (wp_si_transition_get_type (),
-      self, NULL, callback, callback_data);
+  WpTransition *transition = wp_transition_new_closure (
+      wp_si_transition_get_type (), self, NULL, closure);
   wp_transition_set_source_tag (transition, wp_session_item_activate);
-  g_signal_connect (transition, "notify::completed",
-      (GCallback) on_activate_transition_completed, self);
+
+  g_closure_add_marshal_guards (closure,
+      transition, on_activate_transition_pre_completed,
+      transition, on_activate_transition_post_completed);
 
   wp_debug_object (self, "activating item");
 
@@ -730,15 +748,26 @@ wp_session_item_deactivate (WpSessionItem * self)
 }
 
 static void
-on_export_transition_completed (WpTransition * transition, GParamSpec * pspec,
-    WpSessionItem * self)
+on_export_transition_pre_completed (gpointer data, GClosure *closure)
 {
+  WpTransition *transition = WP_TRANSITION (data);
+  WpSessionItem *self = wp_transition_get_source_object (transition);
+  WpSessionItemPrivate *priv =
+      wp_session_item_get_instance_private (self);
+
+  priv->flags &= ~WP_SI_FLAG_EXPORTING;
+}
+
+static void
+on_export_transition_post_completed (gpointer data, GClosure *closure)
+{
+  WpTransition *transition = WP_TRANSITION (data);
+  WpSessionItem *self = wp_transition_get_source_object (transition);
   WpSessionItemPrivate *priv =
       wp_session_item_get_instance_private (self);
 
   priv->flags |= wp_transition_had_error (transition) ?
       WP_SI_FLAG_EXPORT_ERROR : WP_SI_FLAG_EXPORTED;
-  priv->flags &= ~WP_SI_FLAG_EXPORTING;
   g_signal_emit (self, signals[SIGNAL_FLAGS_CHANGED], 0, priv->flags);
 }
 
@@ -791,12 +820,17 @@ wp_session_item_export (WpSessionItem * self, WpSession * session,
 
   g_weak_ref_set (&priv->session, session);
 
+  GClosure *closure =
+      g_cclosure_new (G_CALLBACK (callback), callback_data, NULL);
+
   /* TODO: add a way to cancel the transition if unexport() is called in the meantime */
-  WpTransition *transition = wp_transition_new (wp_si_transition_get_type (),
-      self, NULL, callback, callback_data);
+  WpTransition *transition = wp_transition_new_closure (
+      wp_si_transition_get_type (), self, NULL, closure);
   wp_transition_set_source_tag (transition, wp_session_item_export);
-  g_signal_connect (transition, "notify::completed",
-      (GCallback) on_export_transition_completed, self);
+
+  g_closure_add_marshal_guards (closure,
+      transition, on_export_transition_pre_completed,
+      transition, on_export_transition_post_completed);
 
   wp_debug_object (self, "exporting item on session " WP_OBJECT_FORMAT,
       WP_OBJECT_ARGS (session));
