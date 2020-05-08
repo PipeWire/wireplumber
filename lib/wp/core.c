@@ -339,7 +339,7 @@ wp_core_class_init (WpCoreClass * klass)
 /**
  * wp_core_new:
  * @context: (transfer none) (nullable): the #GMainContext to use for events
- * @properties: (transfer none) (nullable): additional properties, which are
+ * @properties: (transfer full) (nullable): additional properties, which are
  *   passed to `pw_context_new` and `pw_context_connect`
  *
  * Returns: (transfer full): a new #WpCore
@@ -347,6 +347,7 @@ wp_core_class_init (WpCoreClass * klass)
 WpCore *
 wp_core_new (GMainContext *context, WpProperties * properties)
 {
+  g_autoptr (WpProperties) props = properties;
   return g_object_new (WP_TYPE_CORE,
       "context", context,
       "properties", properties,

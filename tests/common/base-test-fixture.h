@@ -77,7 +77,7 @@ wp_base_test_fixture_setup (WpBaseTestFixture * self, WpBaseTestFlags flags)
 
   /* init our core */
   props = wp_properties_new (PW_KEY_REMOTE_NAME, self->server.name, NULL);
-  self->core = wp_core_new (self->context, props);
+  self->core = wp_core_new (self->context, wp_properties_ref (props));
   g_signal_connect (self->core, "disconnected",
       (GCallback) disconnected_callback, self);
 
@@ -86,7 +86,7 @@ wp_base_test_fixture_setup (WpBaseTestFixture * self, WpBaseTestFlags flags)
 
   /* init the second client's core */
   if (flags & WP_BASE_TEST_FLAG_CLIENT_CORE) {
-    self->client_core = wp_core_new (self->context, props);
+    self->client_core = wp_core_new (self->context, wp_properties_ref (props));
     g_signal_connect (self->client_core, "disconnected",
         (GCallback) disconnected_callback, self);
 
