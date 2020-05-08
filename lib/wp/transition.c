@@ -42,8 +42,7 @@ struct _WpTransitionPrivate
   /* source obj & callback */
   GObject *source_object;
   GCancellable *cancellable;
-  GAsyncReadyCallback callback;
-  gpointer callback_data;
+  GClosure *closure;
 
   /* GAsyncResult tag */
   gpointer tag;
@@ -83,6 +82,7 @@ wp_transition_finalize (GObject * object)
     priv->data_destroy (priv->data);
 
   g_clear_error (&priv->error);
+  g_clear_pointer (&priv->closure, g_closure_unref);
   g_clear_object (&priv->cancellable);
   g_clear_object (&priv->source_object);
 
@@ -175,6 +175,35 @@ wp_transition_new (GType type,
     gpointer source_object, GCancellable * cancellable,
     GAsyncReadyCallback callback, gpointer callback_data)
 {
+  return wp_transition_new_closure (type, source_object, cancellable,
+      g_cclosure_new (G_CALLBACK (callback), callback_data, NULL));
+}
+
+/**
+ * wp_transition_new_closure:
+ * @type: the #GType of the #WpTransition subclass to instantiate
+ * @source_object: (nullable) (type GObject): the #GObject that owns this task,
+ *   or %NULL
+ * @cancellable: (nullable): optional #GCancellable
+ * @closure: (nullable): a #GAsyncReadyCallback wrapped in a #GClosure
+ *
+ * Creates a #WpTransition acting on @source_object. When the transition is
+ * done, @closure will be invoked.
+ *
+ * The transition does not automatically start executing steps. You must
+ * call wp_transition_advance() after creating it in order to start it.
+ *
+ * Note that the transition is automatically unref'ed after the @closure
+ * has been executed. If you wish to keep an additional reference on it,
+ * you need to ref it explicitly.
+ *
+ * Returns: (transfer none): the new transition
+ */
+WpTransition *
+wp_transition_new_closure (GType type, gpointer source_object,
+    GCancellable * cancellable, GClosure * closure)
+{
+  g_return_val_if_fail (g_type_is_a (type, WP_TYPE_TRANSITION), NULL);
   g_return_val_if_fail (G_IS_OBJECT (source_object), NULL);
 
   WpTransition *self = g_object_new (type, NULL);
@@ -182,8 +211,13 @@ wp_transition_new (GType type,
 
   priv->source_object = source_object ? g_object_ref (source_object) : NULL;
   priv->cancellable = cancellable ? g_object_ref (cancellable) : NULL;
-  priv->callback = callback;
-  priv->callback_data = callback_data;
+
+  if (closure) {
+    priv->closure = g_closure_ref (closure);
+    g_closure_sink (closure);
+    if (G_CLOSURE_NEEDS_MARSHAL (closure))
+      g_closure_set_marshal (closure, g_cclosure_marshal_VOID__OBJECT);
+  }
 
   return self;
 }
@@ -336,11 +370,15 @@ wp_transition_had_error (WpTransition * self)
 static void
 wp_transition_return (WpTransition * self, WpTransitionPrivate *priv)
 {
-  if (priv->callback) {
-      priv->callback (
-          priv->source_object ? G_OBJECT (priv->source_object) : NULL,
-          G_ASYNC_RESULT (self),
-          priv->callback_data);
+  if (priv->closure) {
+    GValue values[2] = { G_VALUE_INIT, G_VALUE_INIT };
+    g_value_init (&values[0], G_TYPE_OBJECT);
+    g_value_init (&values[1], G_TYPE_OBJECT);
+    g_value_set_object (&values[0], priv->source_object);
+    g_value_set_object (&values[1], self);
+    g_closure_invoke (priv->closure, NULL, 2, values, NULL);
+    g_value_unset (&values[0]);
+    g_value_unset (&values[1]);
   }
 
   g_object_notify (G_OBJECT (self), "completed");

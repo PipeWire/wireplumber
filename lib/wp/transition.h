@@ -55,6 +55,10 @@ WpTransition * wp_transition_new (GType type,
     gpointer source_object, GCancellable * cancellable,
     GAsyncReadyCallback callback, gpointer callback_data);
 
+WP_API
+WpTransition * wp_transition_new_closure (GType type,
+    gpointer source_object, GCancellable * cancellable, GClosure * closure);
+
 /* source object */
 
 WP_API
