@@ -42,17 +42,25 @@
 void
 wp_init (WpInitFlags flags)
 {
-  if (flags & WP_INIT_SET_PW_LOG)
-    pw_log_set (wp_spa_log_get_instance ());
+  enum spa_log_level lvl = 0;
 
   if (flags & WP_INIT_SET_GLIB_LOG)
     g_log_set_writer_func (wp_log_writer_default, NULL, NULL);
 
   /* a dummy message, to initialize the logging system */
-  wp_message ("WirePlumber initializing");
+  wp_info ("WirePlumber initializing");
+
+  if (flags & WP_INIT_SET_PW_LOG && !g_getenv ("WIREPLUMBER_NO_PW_LOG")) {
+    pw_log_level = lvl = wp_spa_log_get_instance ()->level;
+    pw_log_set (wp_spa_log_get_instance ());
+  }
 
   if (flags & WP_INIT_PIPEWIRE)
     pw_init (NULL, NULL);
+
+  /* restore our log level to override PIPEWIRE_DEBUG */
+  if (flags & WP_INIT_SET_PW_LOG && !g_getenv ("WIREPLUMBER_NO_PW_LOG"))
+    pw_log_set_level (lvl);
 
   if (flags & WP_INIT_SPA_TYPES) {
     wp_spa_type_init (TRUE);

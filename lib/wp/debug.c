@@ -109,11 +109,12 @@ wp_debug_initialize (void)
 
     debug = g_getenv ("WIREPLUMBER_DEBUG");
     if (debug && debug[0] != '\0') {
-      /* WP_DEBUG=level:category1,category2 */
+      /* WIREPLUMBER_DEBUG=level:category1,category2 */
       tokens = pw_split_strv (debug, ":", 2, &n_tokens);
 
       /* set the log level */
       enabled_level = atoi (tokens[0]);
+      enabled_level = CLAMP (enabled_level, 0, G_N_ELEMENTS (log_level_info) - 1);
 
       /* enable filtering of debug categories */
       if (n_tokens > 1) {
@@ -132,6 +133,9 @@ wp_debug_initialize (void)
 
     use_color = g_log_writer_supports_color (fileno (stderr));
     output_is_journal = g_log_writer_is_journald (fileno (stderr));
+
+    /* set the log level also on the spa_log */
+    wp_spa_log_get_instance()->level = log_level_info[enabled_level].spa_level;
 
     if (categories)
       pw_free_strv (categories);
@@ -363,7 +367,7 @@ wp_spa_log_logv (void *object,
     { "CODE_LINE", line_str, -1 },
     { "CODE_FUNC", func, -1 },
     { "MESSAGE", NULL, -1 },
-    { "GLIB_DOMAIN", "pw-lib", -1 },
+    { "GLIB_DOMAIN", "pw", -1 },
   };
 
   gint log_level_idx = spa_log_level_index (level);
@@ -398,7 +402,7 @@ static const struct spa_log_methods wp_spa_log_methods = {
 
 static struct spa_log wp_spa_log = {
   .iface = { SPA_TYPE_INTERFACE_Log, SPA_VERSION_LOG, { &wp_spa_log_methods, NULL } },
-  .level = SPA_LOG_LEVEL_INFO,
+  .level = SPA_LOG_LEVEL_WARN,
 };
 
 struct spa_log *
