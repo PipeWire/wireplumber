@@ -14,8 +14,6 @@
 #include <spa/param/audio/raw.h>
 #include <spa/param/param.h>
 
-#include "module-pipewire/algorithms.h"
-
 enum {
   STEP_VERIFY_CONFIG = WP_TRANSITION_STEP_CUSTOM_START,
   STEP_CREATE_NODE,

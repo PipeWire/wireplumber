@@ -14,7 +14,7 @@ test(
   executable('test-algorithms',
     [
       'algorithms.c',
-      '../../modules/module-pipewire/algorithms.c'
+      '../../modules/module-si-adapter/algorithms.c'
     ],
     dependencies: common_deps, c_args: common_args),
   env: common_env,

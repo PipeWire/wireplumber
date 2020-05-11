@@ -46,24 +46,6 @@ shared_library(
 )
 
 shared_library(
-  'wireplumber-module-pipewire',
-  [
-    'module-pipewire.c',
-    'module-pipewire/algorithms.c',
-    'module-pipewire/simple-endpoint-link.c',
-    'module-pipewire/video-endpoint.c',
-    'module-pipewire/audio-softdsp-endpoint.c',
-    'module-pipewire/audio-softdsp-endpoint/stream.c',
-    'module-pipewire/audio-softdsp-endpoint/adapter.c',
-    'module-pipewire/audio-softdsp-endpoint/convert.c',
-  ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-pipewire"'],
-  install : true,
-  install_dir : wireplumber_module_dir,
-  dependencies : [gio_dep, wp_dep, pipewire_dep],
-)
-
-shared_library(
   'wireplumber-module-config-static-nodes',
   [
     'module-config-static-nodes/parser-node.c',
@@ -107,7 +89,7 @@ shared_library(
   'wireplumber-module-si-adapter',
   [
     'module-si-adapter.c',
-    'module-pipewire/algorithms.c',
+    'module-si-adapter/algorithms.c',
   ],
   c_args : [common_c_args, '-DG_LOG_DOMAIN="m-si-adapter"'],
   install : true,
@@ -119,7 +101,6 @@ shared_library(
   'wireplumber-module-si-convert',
   [
     'module-si-convert.c',
-    'module-pipewire/algorithms.c',
   ],
   c_args : [common_c_args, '-DG_LOG_DOMAIN="m-si-convert"'],
   install : true,

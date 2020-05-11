@@ -14,7 +14,7 @@
 #include <spa/param/audio/raw.h>
 #include <spa/param/param.h>
 
-#include "module-pipewire/algorithms.h"
+#include "module-si-adapter/algorithms.h"
 
 enum {
   STEP_VERIFY_CONFIG = WP_TRANSITION_STEP_CUSTOM_START,

@@ -14,7 +14,7 @@
 #include <spa/param/audio/format.h>
 #include <spa/param/audio/format-utils.h>
 
-#include "../../modules/module-pipewire/algorithms.h"
+#include "../../modules/module-si-adapter/algorithms.h"
 
 static void
 test_choose_sensible_raw_audio_format (void)
