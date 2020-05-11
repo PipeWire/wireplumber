@@ -68,13 +68,13 @@ static const struct {
   gchar color[8];
 } log_level_info[] = {
   { 0,                   0,                  "UNK  ", "5", COLOR_BRIGHT_RED },
-  { G_LOG_LEVEL_ERROR,   SPA_LOG_LEVEL_ERROR,"ERROR", "3", COLOR_RED },
+  { G_LOG_LEVEL_ERROR,   0,                  "ERROR", "3", COLOR_RED },
   { G_LOG_LEVEL_CRITICAL,0,                  "CRIT ", "4", COLOR_BRIGHT_MAGENTA },
-  { G_LOG_LEVEL_WARNING, SPA_LOG_LEVEL_WARN, "WARN ", "4", COLOR_BRIGHT_YELLOW },
-  { G_LOG_LEVEL_MESSAGE, 0,                  "MSG  ", "5", COLOR_BRIGHT_GREEN },
+  { G_LOG_LEVEL_WARNING, SPA_LOG_LEVEL_ERROR,"WARN ", "4", COLOR_BRIGHT_YELLOW },
+  { G_LOG_LEVEL_MESSAGE, SPA_LOG_LEVEL_WARN, "MSG  ", "5", COLOR_BRIGHT_GREEN },
   { G_LOG_LEVEL_INFO,    SPA_LOG_LEVEL_INFO, "INFO ", "6", COLOR_GREEN },
-  { G_LOG_LEVEL_DEBUG,   SPA_LOG_LEVEL_DEBUG,"DEBUG", "7", COLOR_CYAN },
-  { WP_LOG_LEVEL_TRACE,  SPA_LOG_LEVEL_TRACE,"TRACE", "7", COLOR_YELLOW },
+  { G_LOG_LEVEL_DEBUG,   SPA_LOG_LEVEL_DEBUG,"DEBUG", "7", COLOR_BRIGHT_CYAN },
+  { WP_LOG_LEVEL_TRACE,  SPA_LOG_LEVEL_TRACE,"TRACE", "7", COLOR_CYAN },
 };
 
 /* map glib's log levels, which are flags in the range (1<<2) to (1<<8),
