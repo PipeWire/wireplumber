@@ -6,6 +6,9 @@
  * SPDX-License-Identifier: MIT
  */
 
+#ifndef __WIREPLUMBER_WP_H__
+#define __WIREPLUMBER_WP_H__
+
 #include "base-endpoint.h"
 #include "client.h"
 #include "configuration.h"
@@ -36,3 +39,20 @@
 #include "spa-type.h"
 #include "transition.h"
 #include "wpenums.h"
+
+G_BEGIN_DECLS
+
+typedef enum {
+  WP_INIT_PIPEWIRE = (1<<0),
+  WP_INIT_SPA_TYPES = (1<<1),
+  WP_INIT_SET_PW_LOG = (1<<2),
+  WP_INIT_SET_GLIB_LOG = (1<<3),
+  WP_INIT_ALL = 0xf,
+} WpInitFlags;
+
+WP_API
+void wp_init (WpInitFlags flags);
+
+G_END_DECLS
+
+#endif

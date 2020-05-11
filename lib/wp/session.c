@@ -344,17 +344,6 @@ wp_session_class_init (WpSessionClass * klass)
   GObjectClass *object_class = (GObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
-  /* Register custom wireplumber session types */
-  wp_spa_type_register (WP_SPA_TYPE_TABLE_PROPS,
-      "Wp:Session:Default:Endpoint:Audio:Source",
-      "wp-session-default-endpoint-audio-source");
-  wp_spa_type_register (WP_SPA_TYPE_TABLE_PROPS,
-      "Wp:Session:Default:Endpoint:Audio:Sink",
-      "wp-session-default-endpoint-audio-sink");
-  wp_spa_type_register (WP_SPA_TYPE_TABLE_PROPS,
-      "Wp:Session:Default:Endpoint:Video:Source",
-      "wp-session-default-endpoint-video-source");
-
   object_class->finalize = wp_session_finalize;
 
   proxy_class->pw_iface_type = PW_TYPE_INTERFACE_Session;

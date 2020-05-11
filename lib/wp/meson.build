@@ -29,6 +29,7 @@ wp_lib_sources = files(
   'spa-props.c',
   'spa-type.c',
   'transition.c',
+  'wp.c',
 )
 
 wp_lib_headers = files(

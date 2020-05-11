@@ -280,9 +280,6 @@ wp_core_class_init (WpCoreClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
 
-  pw_init (NULL, NULL);
-  wp_spa_type_init (TRUE);
-
   object_class->constructed = wp_core_constructed;
   object_class->dispose = wp_core_dispose;
   object_class->finalize = wp_core_finalize;
@@ -326,17 +323,6 @@ wp_core_class_init (WpCoreClass * klass)
   signals[SIGNAL_DISCONNECTED] = g_signal_new ("disconnected",
       G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
       G_TYPE_NONE, 0);
-
-  /* ensure WpProxy subclasses are loaded, which is needed to be able
-    to autodetect the GType of proxies created through wp_proxy_new_global() */
-  g_type_ensure (WP_TYPE_CLIENT);
-  g_type_ensure (WP_TYPE_DEVICE);
-  g_type_ensure (WP_TYPE_ENDPOINT);
-  g_type_ensure (WP_TYPE_ENDPOINT_STREAM);
-  g_type_ensure (WP_TYPE_LINK);
-  g_type_ensure (WP_TYPE_NODE);
-  g_type_ensure (WP_TYPE_PORT);
-  g_type_ensure (WP_TYPE_SESSION);
 }
 
 /**

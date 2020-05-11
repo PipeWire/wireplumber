@@ -275,19 +275,7 @@ main (gint argc, gchar **argv)
   g_autoptr (WpObjectManager) om = NULL;
   g_autoptr (GMainLoop) loop = NULL;
 
-  g_log_set_writer_func (wp_log_writer_default, NULL, NULL);
-
-  /* Register custom wireplumber session types */
-  wp_spa_type_init (TRUE);
-  wp_spa_type_register (WP_SPA_TYPE_TABLE_BASIC,
-      "Wp:Session:Default:Endpoint:Audio:Source",
-      "wp-session-default-endpoint-audio-source");
-  wp_spa_type_register (WP_SPA_TYPE_TABLE_BASIC,
-      "Wp:Session:Default:Endpoint:Audio:Sink",
-      "wp-session-default-endpoint-audio-sink");
-  wp_spa_type_register (WP_SPA_TYPE_TABLE_BASIC,
-      "Wp:Session:Default:Endpoint:Video:Source",
-      "wp-session-default-endpoint-video-source");
+  wp_init (WP_INIT_ALL);
 
   context = g_option_context_new ("- PipeWire Session/Policy Manager Helper CLI");
   g_option_context_add_main_entries (context, entries, NULL);

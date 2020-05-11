@@ -401,8 +401,8 @@ static struct spa_log wp_spa_log = {
   .level = SPA_LOG_LEVEL_INFO,
 };
 
-void
-wp_install_glib_pw_log (void)
+struct spa_log *
+wp_spa_log_get_instance (void)
 {
-  pw_log_set (&wp_spa_log);
+  return &wp_spa_log;
 }

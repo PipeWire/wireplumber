@@ -58,9 +58,6 @@ wp_base_test_fixture_setup (WpBaseTestFixture * self, WpBaseTestFlags flags)
 {
   g_autoptr (WpProperties) props = NULL;
 
-  /* ensure types are loaded */
-  g_type_ensure (WP_TYPE_CORE);
-
   /* init test server */
   wp_test_server_setup (&self->server);
 

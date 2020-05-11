@@ -257,6 +257,7 @@ int
 main (int argc, char *argv[])
 {
   g_test_init (&argc, &argv, NULL);
+  g_log_set_writer_func (wp_log_writer_default, NULL, NULL);
 
   g_test_add_func ("/wp/spa_props/set_get", test_spa_props_set_get);
   g_test_add_func ("/wp/spa_props/build_all", test_spa_props_build_all);

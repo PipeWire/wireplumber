@@ -418,8 +418,7 @@ main (gint argc, gchar *argv[])
   g_auto (AppData) data = {0};
   g_autoptr (GError) error = NULL;
 
-  pw_init (NULL, NULL);
-  g_log_set_writer_func (wp_log_writer_default, NULL, NULL);
+  wp_init (WP_INIT_ALL);
 
   if (argc > 1)
     data.alsa_device = argv[1];

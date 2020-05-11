@@ -426,8 +426,7 @@ gint
 main (gint argc, gchar *argv[])
 {
   g_test_init (&argc, &argv, NULL);
-  pw_init (NULL, NULL);
-  g_log_set_writer_func (wp_log_writer_default, NULL, NULL);
+  wp_init (WP_INIT_ALL);
 
   g_test_add ("/modules/si-standard-link/main",
       TestFixture, NULL,
