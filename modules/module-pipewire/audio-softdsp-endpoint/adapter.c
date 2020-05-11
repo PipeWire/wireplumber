@@ -87,7 +87,7 @@ on_proxy_enum_format_done (WpProxy *proxy, GAsyncResult *res,
     return;
   }
 
-  if (!choose_sensible_raw_audio_format (formats, &self->format)) {
+  if (!choose_sensible_raw_audio_format (formats, 34, &self->format)) {
     uint32_t media_type, media_subtype;
 
     g_warning ("WpAudioAdapter:%p failed to choose a sensible audio format",

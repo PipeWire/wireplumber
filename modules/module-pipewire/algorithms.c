@@ -284,7 +284,7 @@ select_rate (WpSpaPod *value)
 }
 
 static gint
-select_channels (WpSpaPod *value)
+select_channels (WpSpaPod *value, gint preference)
 {
   gint ret = 0;
 
@@ -307,10 +307,13 @@ select_channels (WpSpaPod *value)
     /* choose the most channels */
     g_autoptr (WpIterator) it = wp_spa_pod_iterator_new (value);
     GValue next = G_VALUE_INIT;
+    gint diff = SPA_AUDIO_MAX_CHANNELS;
     while (wp_iterator_next (it, &next)) {
       gint *channel = (gint *) g_value_get_pointer (&next);
-      if (*channel > ret)
+      if (abs (*channel - preference) < diff) {
+        diff = abs (*channel - preference);
         ret = *channel;
+      }
       g_value_unset (&next);
     }
   }
@@ -329,8 +332,8 @@ select_channels (WpSpaPod *value)
       g_value_unset (&next);
       i++;
     }
-    ret = SPA_MAX (vals[1], vals[2]);
-    ret = SPA_MIN (ret, SPA_AUDIO_MAX_CHANNELS);
+    ret = SPA_MAX (vals[1], preference);
+    ret = SPA_MIN (ret, vals[2]);
   }
 
   return ret;
@@ -338,7 +341,7 @@ select_channels (WpSpaPod *value)
 
 gboolean
 choose_sensible_raw_audio_format (GPtrArray *formats,
-    struct spa_audio_info_raw *result)
+    gint channels_preference, struct spa_audio_info_raw *result)
 {
   guint i, most_channels = 0;
   struct spa_audio_info_raw *raw;
@@ -392,7 +395,7 @@ choose_sensible_raw_audio_format (GPtrArray *formats,
 
       /* channels */
       else if (g_strcmp0 (key, "channels") == 0) {
-        raw[i].channels = select_channels (value);
+        raw[i].channels = select_channels (value, channels_preference);
       }
 
       /* position */

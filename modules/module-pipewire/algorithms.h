@@ -12,4 +12,4 @@ gboolean multiport_link_create (GVariant * src_data, GVariant * sink_data,
 
 struct spa_audio_info_raw;
 gboolean choose_sensible_raw_audio_format (GPtrArray *formats,
-    struct spa_audio_info_raw *result);
+    gint channels_preference, struct spa_audio_info_raw *result);

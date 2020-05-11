@@ -207,7 +207,7 @@ on_node_enum_format_done (WpProxy *proxy, GAsyncResult *res,
     return;
   }
 
-  if (!choose_sensible_raw_audio_format (formats, &self->format)) {
+  if (!choose_sensible_raw_audio_format (formats, 34, &self->format)) {
     wp_warning_object (self, "failed to choose a sensible audio format");
     wp_transition_return_error (transition,
         g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
