@@ -446,7 +446,10 @@ si_adapter_get_stream_properties (WpSiStream * self)
 static WpSiEndpoint *
 si_adapter_get_stream_parent_endpoint (WpSiStream * self)
 {
-  return WP_SI_ENDPOINT (g_object_ref (self));
+  WpSessionItem *parent = wp_session_item_get_parent (WP_SESSION_ITEM (self));
+  if (!parent)
+    parent = g_object_ref (WP_SESSION_ITEM (self));
+  return WP_SI_ENDPOINT (parent);
 }
 
 static void
