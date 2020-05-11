@@ -33,6 +33,7 @@ struct _WpSiAdapter
   gchar media_class[32];
   gchar role[32];
   guint priority;
+  guint preferred_n_channels;
   gboolean control_port;
   gboolean monitor;
   WpDirection direction;
@@ -96,6 +97,8 @@ si_adapter_get_configuration (WpSessionItem * item)
   g_variant_builder_add (&b, "{sv}",
       "priority", g_variant_new_uint32 (self->priority));
   g_variant_builder_add (&b, "{sv}",
+      "preferred-n-channels", g_variant_new_uint32 (self->preferred_n_channels));
+  g_variant_builder_add (&b, "{sv}",
       "enable-control-port", g_variant_new_boolean (self->control_port));
   g_variant_builder_add (&b, "{sv}",
       "enable-monitor", g_variant_new_boolean (self->monitor));
@@ -126,6 +129,7 @@ si_adapter_configure (WpSessionItem * item, GVariant * args)
   self->control_port = FALSE;
   self->monitor = FALSE;
   self->direction = WP_DIRECTION_INPUT;
+  self->preferred_n_channels = 0;
 
   if (!g_variant_lookup (args, "node", "t", &node_i))
     return FALSE;
@@ -166,6 +170,7 @@ si_adapter_configure (WpSessionItem * item, GVariant * args)
     self->direction = WP_DIRECTION_OUTPUT;
 
   g_variant_lookup (args, "priority", "u", &self->priority);
+  g_variant_lookup (args, "preferred-n-channels", "u", &self->preferred_n_channels);
   g_variant_lookup (args, "enable-control-port", "b", &self->control_port);
   g_variant_lookup (args, "enable-monitor", "b", &self->monitor);
 
@@ -200,6 +205,7 @@ on_node_enum_format_done (WpProxy *proxy, GAsyncResult *res,
   WpSiAdapter *self = wp_transition_get_source_object (transition);
   g_autoptr (GPtrArray) formats = NULL;
   g_autoptr (GError) error = NULL;
+  gint pref_chan;
 
   formats = wp_proxy_enum_params_collect_finish (proxy, res, &error);
   if (error) {
@@ -207,7 +213,11 @@ on_node_enum_format_done (WpProxy *proxy, GAsyncResult *res,
     return;
   }
 
-  if (!choose_sensible_raw_audio_format (formats, 34, &self->format)) {
+  /* 34 is the max number of channels that SPA knows about
+     in the spa_audio_channel enum */
+  pref_chan = self->preferred_n_channels ? self->preferred_n_channels : 34;
+
+  if (!choose_sensible_raw_audio_format (formats, pref_chan, &self->format)) {
     wp_warning_object (self, "failed to choose a sensible audio format");
     wp_transition_return_error (transition,
         g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
@@ -531,6 +541,8 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   g_variant_builder_add (&b, "(ssymv)", "role", "s",
       WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
   g_variant_builder_add (&b, "(ssymv)", "priority", "u",
+      WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
+  g_variant_builder_add (&b, "(ssymv)", "preferred-n-channels", "u",
       WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
   g_variant_builder_add (&b, "(ssymv)", "enable-control-port", "b",
       WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
