@@ -234,13 +234,12 @@ find_core (WpSiStandardLink * self)
 {
   /* session items are not associated with a core, but surely when linking
     we should be able to find a WpImplEndpointLink associated, or at the very
-    least a WpEndpoint associated with one of the streams... */
+    least a WpNode associated with one of the streams... */
   g_autoptr (WpProxy) proxy = wp_session_item_get_associated_proxy (
       WP_SESSION_ITEM (self), WP_TYPE_ENDPOINT_LINK);
-  if (!proxy) {
+  if (!proxy)
       proxy = wp_session_item_get_associated_proxy (
-          WP_SESSION_ITEM (self->out_stream), WP_TYPE_ENDPOINT);
-  }
+          WP_SESSION_ITEM (self->out_stream), WP_TYPE_NODE);
   return proxy ? wp_proxy_get_core (proxy) : NULL;
 }
 
