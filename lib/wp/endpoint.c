@@ -88,6 +88,7 @@ wp_endpoint_emit_streams_changed (WpObjectManager *streams_om,
     WpEndpoint * self)
 {
   g_signal_emit (self, signals[SIGNAL_STREAMS_CHANGED], 0);
+  wp_proxy_set_feature_ready (WP_PROXY (self), WP_ENDPOINT_FEATURE_STREAMS);
 }
 
 static void
@@ -97,15 +98,15 @@ wp_endpoint_ensure_feature_streams (WpEndpoint * self, guint32 bound_id)
   WpProxyFeatures ft = wp_proxy_get_features (WP_PROXY (self));
 
   if (priv->ft_streams_requested && !priv->streams_om &&
-      (ft & WP_PROXY_FEATURE_BOUND))
+      (ft & WP_PROXY_FEATURES_STANDARD) == WP_PROXY_FEATURES_STANDARD)
   {
     g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (self));
 
     if (!bound_id)
       bound_id = wp_proxy_get_bound_id (WP_PROXY (self));
 
-    wp_debug_object (self, "enabling WP_ENDPOINT_FEATURE_STREAMS, bound_id:%u",
-        bound_id);
+    wp_debug_object (self, "enabling WP_ENDPOINT_FEATURE_STREAMS, bound_id:%u, "
+        "n_streams:%u", bound_id, priv->info->n_streams);
 
     priv->streams_om = wp_object_manager_new ();
     /* proxy endpoint stream -> check for endpoint.id in global properties */
@@ -121,8 +122,18 @@ wp_endpoint_ensure_feature_streams (WpEndpoint * self, guint32 bound_id)
     wp_object_manager_request_proxy_features (priv->streams_om,
         WP_TYPE_ENDPOINT_STREAM, WP_PROXY_FEATURES_STANDARD);
 
-    g_signal_connect_object (priv->streams_om, "installed",
-        G_CALLBACK (wp_endpoint_on_streams_om_installed), self, 0);
+    /* endpoints, under normal circumstances, always have streams.
+       When we export (self is a WpImplEndpoint), we have to export first
+       the endpoint and afterwards the streams (so that the streams can be
+       associated with the endpoint's bound id), but then the issue is that
+       the "installed" signal gets fired here without any streams being ready
+       and we get an endpoint with 0 streams in the WpSession's endpoints
+       object manager... so, unless the endpoint really has no streams,
+       wait for them to be prepared by waiting for the "objects-changed" only */
+    if (G_UNLIKELY (priv->info->n_streams == 0)) {
+      g_signal_connect_object (priv->streams_om, "installed",
+          G_CALLBACK (wp_endpoint_on_streams_om_installed), self, 0);
+    }
     g_signal_connect_object (priv->streams_om, "objects-changed",
         G_CALLBACK (wp_endpoint_emit_streams_changed), self, 0);
 
@@ -237,6 +248,8 @@ endpoint_event_info (void *data, const struct pw_endpoint_info *info)
 
   if (info->change_mask & PW_ENDPOINT_CHANGE_MASK_PROPS)
     g_object_notify (G_OBJECT (self), "properties");
+
+  wp_endpoint_ensure_feature_streams (self, 0);
 }
 
 static const struct pw_endpoint_events endpoint_events = {

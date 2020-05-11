@@ -189,6 +189,7 @@ wp_session_item_default_activate_get_next_step (WpSessionItem * self,
 enum {
   EXPORT_STEP_ENDPOINT = WP_TRANSITION_STEP_CUSTOM_START,
   EXPORT_STEP_STREAMS,
+  EXPORT_STEP_ENDPOINT_FT_STREAMS,
   EXPORT_STEP_LINK,
   EXPORT_STEP_CONNECT_DESTROYED,
 };
@@ -224,9 +225,12 @@ wp_session_item_default_export_get_next_step (WpSessionItem * self,
     /* go to next step only when all impl proxies are augmented */
     if (g_hash_table_size (priv->impl_streams) ==
         wp_si_endpoint_get_n_streams (WP_SI_ENDPOINT (self)))
-      return WP_TRANSITION_STEP_NONE;
+      return EXPORT_STEP_ENDPOINT_FT_STREAMS;
     else
       return step;
+
+  case EXPORT_STEP_ENDPOINT_FT_STREAMS:
+    return WP_TRANSITION_STEP_NONE;
 
   case EXPORT_STEP_LINK:
     g_return_val_if_fail (WP_IS_SI_LINK (self), WP_TRANSITION_STEP_ERROR);
@@ -261,6 +265,9 @@ on_export_proxy_augmented (WpProxy * proxy, GAsyncResult * res, gpointer data)
 
     g_hash_table_insert (priv->impl_streams, si_stream, g_object_ref (proxy));
   }
+
+  wp_debug_object (self, "export proxy " WP_OBJECT_FORMAT " augmented",
+      WP_OBJECT_ARGS (proxy));
 
   wp_transition_advance (transition);
 }
@@ -308,7 +315,7 @@ wp_session_item_default_export_execute_step (WpSessionItem * self,
     priv->impl_endpoint = wp_impl_endpoint_new (core, WP_SI_ENDPOINT (self));
 
     wp_proxy_augment (WP_PROXY (priv->impl_endpoint),
-        WP_ENDPOINT_FEATURES_STANDARD, NULL,
+        WP_PROXY_FEATURES_STANDARD, NULL,
         (GAsyncReadyCallback) on_export_proxy_augmented,
         transition);
     break;
@@ -336,6 +343,16 @@ wp_session_item_default_export_execute_step (WpSessionItem * self,
     }
     break;
   }
+  case EXPORT_STEP_ENDPOINT_FT_STREAMS:
+    /* add feature streams only after the streams are exported, otherwise
+       the endpoint will never be augmented in the first place (because it
+       internally waits for the streams to be ready) */
+    wp_proxy_augment (WP_PROXY (priv->impl_endpoint),
+        WP_ENDPOINT_FEATURE_STREAMS, NULL,
+        (GAsyncReadyCallback) on_export_proxy_augmented,
+        transition);
+    break;
+
   case EXPORT_STEP_LINK:
     priv->impl_link = wp_impl_endpoint_link_new (core, WP_SI_LINK (self));
 
