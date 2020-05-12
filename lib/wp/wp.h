@@ -25,6 +25,7 @@
 #include "node.h"
 #include "object-interest.h"
 #include "object-manager.h"
+#include "plugin.h"
 #include "port.h"
 #include "properties.h"
 #include "proxy.h"

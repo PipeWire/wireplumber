@@ -191,6 +191,7 @@ wp_module_load (WpCore * core, const gchar * abi, const gchar * module_name,
 GVariant *
 wp_module_get_properties (WpModule * self)
 {
+  g_return_val_if_fail (WP_IS_MODULE (self), NULL);
   return self->properties;
 }
 
@@ -203,6 +204,7 @@ wp_module_get_properties (WpModule * self)
 WpCore *
 wp_module_get_core (WpModule * self)
 {
+  g_return_val_if_fail (WP_IS_MODULE (self), NULL);
   return g_weak_ref_get (&self->core);
 }
 
