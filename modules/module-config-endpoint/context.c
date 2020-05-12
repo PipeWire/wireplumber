@@ -208,6 +208,15 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
 }
 
 static void
+on_node_removed (WpObjectManager *om, WpProxy *proxy, gpointer d)
+{
+  WpConfigEndpointContext *self = d;
+
+  /* Remove the endpoint */
+  g_hash_table_remove (self->endpoints, proxy);
+}
+
+static void
 wp_config_endpoint_context_activate (WpPlugin * plugin)
 {
   WpConfigEndpointContext *self = WP_CONFIG_ENDPOINT_CONTEXT (plugin);
@@ -243,6 +252,8 @@ wp_config_endpoint_context_activate (WpPlugin * plugin)
       WP_PROXY_FEATURES_STANDARD);
   g_signal_connect_object (self->nodes_om, "object-added",
       G_CALLBACK (on_node_added), self, 0);
+  g_signal_connect_object (self->nodes_om, "object-removed",
+      G_CALLBACK (on_node_removed), self, 0);
   wp_core_install_object_manager (core, self->nodes_om);
 }
 
