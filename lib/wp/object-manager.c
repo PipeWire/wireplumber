@@ -845,8 +845,8 @@ wp_object_manager_rm_object (WpObjectManager * self, gpointer object)
 {
   guint index;
   if (g_ptr_array_find (self->objects, object, &index)) {
-    g_signal_emit (self, signals[SIGNAL_OBJECT_REMOVED], 0, object);
     g_ptr_array_remove_index_fast (self->objects, index);
+    g_signal_emit (self, signals[SIGNAL_OBJECT_REMOVED], 0, object);
     self->changed = TRUE;
   }
 }
