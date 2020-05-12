@@ -70,6 +70,71 @@ signal_handler (gpointer data)
 }
 
 static void
+on_plugin_added (WpObjectManager * om, WpPlugin * p, struct WpDaemonData *d)
+{
+  wp_info ("Activating plugin " WP_OBJECT_FORMAT, WP_OBJECT_ARGS (p));
+  wp_plugin_activate (p);
+}
+
+static void
+activate_plugins (struct WpDaemonData *d)
+{
+  g_autoptr (WpObjectManager) om = NULL;
+
+  om = wp_object_manager_new ();
+  wp_object_manager_add_interest_1 (om, WP_TYPE_PLUGIN, NULL);
+  g_signal_connect (om, "object-added", G_CALLBACK (on_plugin_added), d);
+  wp_core_install_object_manager (d->core, om);
+
+  /* object-added will be emitted for all plugins synchronously during the
+   install call above and we don't expect anyone to load plugins later,
+   so we don't need to keep a reference to this object manager.
+   This optimization is based on the knowledge of the implementation of
+   WpObjectManager and in other circumstances it should not be relied upon. */
+}
+
+static void
+on_session_exported (WpProxy * session, GAsyncResult * res,
+    struct WpDaemonData *d)
+{
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_proxy_augment_finish (session, res, &error)) {
+    wp_warning_object (session, "session could not be exported: %s",
+        error->message);
+  }
+
+  if (wp_log_level_is_enabled (G_LOG_LEVEL_DEBUG)) {
+    g_autoptr (WpProperties) props = wp_proxy_get_properties (session);
+    wp_debug_object (session, "session '%s' exported",
+        wp_properties_get (props, "session.name"));
+  }
+
+  for (guint i = 0; i < d->sessions->len; i++) {
+    WpProxy *session = g_ptr_array_index (d->sessions, i);
+    if ((wp_proxy_get_features (session) & WP_SESSION_FEATURES_STANDARD)
+            != WP_SESSION_FEATURES_STANDARD) {
+      /* not ready yet */
+      return;
+    }
+  }
+
+  wp_debug ("All sessions exported");
+  activate_plugins (d);
+}
+
+static void
+on_connected (WpCore *core, struct WpDaemonData *d)
+{
+  for (guint i = 0; i < d->sessions->len; i++) {
+    WpProxy *session = g_ptr_array_index (d->sessions, i);
+    wp_proxy_augment (session,
+        WP_SESSION_FEATURES_STANDARD, NULL,
+        (GAsyncReadyCallback) on_session_exported, d);
+  }
+}
+
+static void
 on_disconnected (WpCore *core, struct WpDaemonData * d)
 {
   /* something else triggered the exit; we will certainly get a state
@@ -255,27 +320,6 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
   return TRUE;
 }
 
-static void
-on_session_exported (WpProxy * session, GAsyncResult * res,
-    struct WpDaemonData *d)
-{
-  g_autoptr (GError) error = NULL;
-  wp_proxy_augment_finish (session, res, &error);
-  if (error)
-    wp_warning ("session could not be exported: %s", error->message);
-}
-
-static void
-on_core_connected (WpCore *core, struct WpDaemonData *d)
-{
-  for (guint i = 0; i < d->sessions->len; i++) {
-    WpSession *session = g_ptr_array_index (d->sessions, i);
-    wp_proxy_augment (WP_PROXY (session),
-        WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_CONTROLS, NULL,
-        (GAsyncReadyCallback) on_session_exported, d);
-  }
-}
-
 static gboolean
 load_commands_file (struct WpDaemonData *d)
 {
@@ -300,10 +344,6 @@ load_commands_file (struct WpDaemonData *d)
         error->message);
     return G_SOURCE_REMOVE;
   }
-
-  /* add handler to export the sessions when connected */
-  if (d->sessions->len > 0)
-    g_signal_connect (d->core, "connected", G_CALLBACK (on_core_connected), d);
 
   /* connect to pipewire */
   if (!wp_core_connect (d->core))
@@ -337,6 +377,7 @@ main (gint argc, gchar **argv)
   /* init wireplumber */
 
   data.core = core = wp_core_new (NULL, NULL);
+  g_signal_connect (core, "connected", G_CALLBACK (on_connected), &data);
   g_signal_connect (core, "disconnected", (GCallback) on_disconnected, &data);
 
   /* init configuration */
@@ -368,7 +409,7 @@ main (gint argc, gchar **argv)
 
 out:
   if (data.exit_message) {
-    g_message ("%s", data.exit_message);
+    wp_message ("%s", data.exit_message);
     if (data.free_message)
       data.free_message (data.exit_message);
   }
