@@ -75,8 +75,8 @@ shared_library(
 shared_library(
   'wireplumber-module-config-policy',
   [
-	'module-config-policy/parser-endpoint-link.c',
-	'module-config-policy/config-policy.c',
+    'module-config-policy/parser-endpoint-link.c',
+    'module-config-policy/context.c',
     'module-config-policy.c',
   ],
   c_args : [common_c_args, '-DG_LOG_DOMAIN="m-config-policy"'],

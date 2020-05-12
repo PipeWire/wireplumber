@@ -12,21 +12,8 @@
 
 #include "parser-endpoint-link.h"
 
-static gboolean
-wildcard_match (const char *pattern, const char *str)
-{
-  if(*pattern == '\0' && *str == '\0')
-    return TRUE;
-  if(*pattern == '?' || *pattern == *str)
-    return wildcard_match (pattern+1, str + 1);
-  if(*pattern == '*')
-    return wildcard_match (pattern + 1, str) ||
-        wildcard_match (pattern, str + 1);
-  return FALSE;
-}
-
 gboolean
-wp_parser_endpoint_link_matches_endpoint_data (WpBaseEndpoint *ep,
+wp_parser_endpoint_link_matches_endpoint_data (WpEndpoint *ep,
     const struct WpParserEndpointLinkEndpointData *data)
 {
   g_autoptr (WpProperties) props = NULL;
@@ -34,24 +21,19 @@ wp_parser_endpoint_link_matches_endpoint_data (WpBaseEndpoint *ep,
   g_return_val_if_fail (ep, FALSE);
   g_return_val_if_fail (data, FALSE);
 
-  props = wp_base_endpoint_get_properties (ep);
-  g_return_val_if_fail (props, FALSE);
-
   /* Name */
   if (data->name &&
-        !wildcard_match (data->name, wp_base_endpoint_get_name (ep)))
+        !g_pattern_match_simple (data->name, wp_endpoint_get_name (ep)))
     return FALSE;
 
   /* Media Class */
   if (data->media_class &&
-      g_strcmp0 (wp_base_endpoint_get_media_class (ep), data->media_class) != 0)
-    return FALSE;
-
-  /* Direction */
-  if (wp_base_endpoint_get_direction (ep) != data->direction)
+      g_strcmp0 (wp_endpoint_get_media_class (ep), data->media_class) != 0)
     return FALSE;
 
   /* Properties */
+  props = wp_proxy_get_properties (WP_PROXY (ep));
+  g_return_val_if_fail (props, FALSE);
   if (!wp_properties_matches (props, data->props))
     return FALSE;
 
@@ -123,37 +105,23 @@ parse_properties (WpTomlTable *table, const char *name)
   return props;
 }
 
-static guint
-parse_endpoint_direction (const char *direction)
-{
-  if (g_strcmp0 (direction, "sink") == 0)
-    return PW_DIRECTION_INPUT;
-  else if (g_strcmp0 (direction, "source") == 0)
-    return PW_DIRECTION_OUTPUT;
-
-  g_return_val_if_reached (PW_DIRECTION_INPUT);
-}
-
 static struct WpParserEndpointLinkData *
 wp_parser_endpoint_link_data_new (const gchar *location)
 {
   g_autoptr (WpTomlFile) file = NULL;
   g_autoptr (WpTomlTable) table = NULL, me = NULL, te = NULL, el = NULL;
   struct WpParserEndpointLinkData *res = NULL;
-  g_autofree char *direction = NULL;
 
   /* File format:
    * ------------
    * [match-endpoint]
    * name (string)
    * media_class (string)
-   * direction (string)
    * properties (WpProperties)
    *
    * [target-endpoint]
    * name (string)
    * media_class (string)
-   * direction (string)
    * properties (WpProperties)
    * stream (string)
    *
@@ -189,12 +157,6 @@ wp_parser_endpoint_link_data_new (const gchar *location)
   res->me.endpoint_data.media_class =
       wp_toml_table_get_string (me, "media_class");
 
-  /* Get the direction from the match endpoint table */
-  direction = wp_toml_table_get_string (me, "direction");
-  if (!direction)
-    goto error;
-  res->me.endpoint_data.direction = parse_endpoint_direction (direction);
-
   /* Get the match endpoint properties (Optional) */
   res->me.endpoint_data.props = parse_properties (me, "properties");
 
@@ -210,10 +172,6 @@ wp_parser_endpoint_link_data_new (const gchar *location)
     /* Get the media class from the match endpoint table (Optional) */
     res->te.endpoint_data.media_class =
         wp_toml_table_get_string (te, "media_class");
-
-    /* Set the direction to the match endpoint's reverse one */
-    res->te.endpoint_data.direction =
-        pw_direction_reverse (res->me.endpoint_data.direction);
 
     /* Get the target endpoint properties (Optional) */
     res->te.endpoint_data.props = parse_properties (te, "properties");
@@ -276,7 +234,7 @@ static gconstpointer
 wp_parser_endpoint_link_get_matched_data (WpConfigParser *parser, gpointer data)
 {
   WpParserEndpointLink *self = WP_PARSER_ENDPOINT_LINK (parser);
-  WpBaseEndpoint *ep = WP_BASE_ENDPOINT (data);
+  WpEndpoint *ep = WP_ENDPOINT (data);
   const struct WpParserEndpointLinkData *d = NULL;
 
   /* Find the first data that matches endpoint */

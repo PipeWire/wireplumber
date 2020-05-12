@@ -1,5 +1,5 @@
 [match-endpoint]
-media_class = "Stream/Output/Audio"
+media_class = "Audio/Source"
 
 [target-endpoint]
 media_class = "Audio/Sink"

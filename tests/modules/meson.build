@@ -52,11 +52,8 @@ test(
   executable('test-config-policy',
     [
       'config-policy.c',
-      'config-policy/context.c',
-      'config-policy/endpoint-fake.c',
-      'config-policy/endpoint-link-fake.c',
-      '../../modules/module-config-policy/config-policy.c',
-      '../../modules/module-config-policy/parser-endpoint-link.c'
+      '../../modules/module-config-policy/parser-endpoint-link.c',
+      '../../modules/module-config-policy/context.c',
     ],
     dependencies: common_deps + [wptoml_dep], c_args: common_args),
   env: common_env,

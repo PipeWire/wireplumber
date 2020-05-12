@@ -1,9 +1,7 @@
 [match-endpoint]
-direction = "source"
 media_class = "Stream/Output/Video"
 
 [target-endpoint]
-direction = "sink"
 media_class = "Video/Sink"
 
 [endpoint-link]

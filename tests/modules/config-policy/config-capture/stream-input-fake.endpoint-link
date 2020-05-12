@@ -1,9 +1,0 @@
-[match-endpoint]
-direction = "sink"
-media_class = "Stream/Input/Fake"
-
-[target-endpoint]
-media_class = "Fake/Source"
-
-[endpoint-link]
-keep = false

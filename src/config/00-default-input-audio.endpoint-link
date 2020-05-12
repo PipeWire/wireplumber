@@ -1,6 +1,8 @@
 [match-endpoint]
-direction = "sink"
 media_class = "Stream/Input/Audio"
+
+[target-endpoint]
+media_class = "Audio/Source"
 
 [endpoint-link]
 keep = false
