@@ -13,6 +13,6 @@
 WP_PLUGIN_EXPORT void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
-  WpConfigStaticNodesContext *ctx = wp_config_static_nodes_context_new (core);
-  wp_module_set_destroy_callback (module, g_object_unref, ctx);
+  WpConfigStaticNodesContext *ctx = wp_config_static_nodes_context_new (module);
+  wp_plugin_register (WP_PLUGIN (ctx));
 }

@@ -15,12 +15,9 @@ G_BEGIN_DECLS
 
 #define WP_TYPE_CONFIG_STATIC_NODES_CONTEXT (wp_config_static_nodes_context_get_type ())
 G_DECLARE_FINAL_TYPE (WpConfigStaticNodesContext, wp_config_static_nodes_context,
-    WP, CONFIG_STATIC_NODES_CONTEXT, GObject);
+    WP, CONFIG_STATIC_NODES_CONTEXT, WpPlugin);
 
-WpConfigStaticNodesContext * wp_config_static_nodes_context_new (WpCore *core);
-
-guint wp_config_static_nodes_context_get_length (
-    WpConfigStaticNodesContext *self);
+WpConfigStaticNodesContext * wp_config_static_nodes_context_new (WpModule * module);
 
 G_END_DECLS
 

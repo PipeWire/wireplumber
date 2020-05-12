@@ -25,8 +25,6 @@ test(
   executable('test-config-static-nodes',
     [
       'config-static-nodes.c',
-      '../../modules/module-config-static-nodes/parser-node.c',
-      '../../modules/module-config-static-nodes/context.c',
     ],
     dependencies: common_deps + [wptoml_dep], c_args: common_args),
   env: common_env,
