@@ -38,7 +38,7 @@ WpDevice * wp_device_new_from_factory (WpCore * core,
  * An extension of #WpProxyFeatures
  */
 typedef enum { /*< flags >*/
-  WP_SPA_DEVICE_FEATURE_ACTIVE = WP_PROXY_FEATURE_LAST,
+  WP_SPA_DEVICE_FEATURE_ACTIVE = (WP_PROXY_FEATURE_LAST << 0),
 } WpSpaDeviceFeatures;
 
 /**

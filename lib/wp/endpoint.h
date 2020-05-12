@@ -27,7 +27,7 @@ G_BEGIN_DECLS
  * An extension of #WpProxyFeatures
  */
 typedef enum { /*< flags >*/
-  WP_ENDPOINT_FEATURE_STREAMS = WP_PROXY_FEATURE_LAST,
+  WP_ENDPOINT_FEATURE_STREAMS = (WP_PROXY_FEATURE_LAST << 0),
 } WpEndpointFeatures;
 
 /**

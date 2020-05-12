@@ -43,7 +43,7 @@ typedef enum {
  * An extension of #WpProxyFeatures
  */
 typedef enum { /*< flags >*/
-  WP_NODE_FEATURE_PORTS = WP_PROXY_FEATURE_LAST,
+  WP_NODE_FEATURE_PORTS = (WP_PROXY_FEATURE_LAST << 0),
 } WpNodeFeatures;
 
 /**

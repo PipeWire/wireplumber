@@ -187,7 +187,7 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
           "wp-session-default-endpoint-video-source"), ==, 9);
 
   /* do export */
-  wp_proxy_augment (WP_PROXY (session), WP_PROXY_FEATURE_BOUND, NULL,
+  wp_proxy_augment (WP_PROXY (session), WP_SESSION_FEATURES_STANDARD, NULL,
       (GAsyncReadyCallback) test_session_basic_export_done, fixture);
 
   /* run until objects are created and features are cached */
@@ -201,11 +201,7 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
   /* test round 1: verify the values on the proxy */
 
   g_assert_cmphex (wp_proxy_get_features (fixture->proxy_session), ==,
-      WP_PROXY_FEATURE_PW_PROXY |
-      WP_PROXY_FEATURE_INFO |
-      WP_PROXY_FEATURE_BOUND |
-      WP_PROXY_FEATURE_CONTROLS |
-      WP_SESSION_FEATURE_ENDPOINTS);
+      WP_SESSION_FEATURES_STANDARD);
 
   g_assert_cmpuint (wp_proxy_get_bound_id (fixture->proxy_session), ==,
       wp_proxy_get_bound_id (WP_PROXY (session)));
