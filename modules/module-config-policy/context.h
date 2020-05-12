@@ -15,9 +15,9 @@ G_BEGIN_DECLS
 
 #define WP_TYPE_CONFIG_POLICY_CONTEXT (wp_config_policy_context_get_type ())
 G_DECLARE_FINAL_TYPE (WpConfigPolicyContext, wp_config_policy_context,
-    WP, CONFIG_POLICY_CONTEXT, GObject);
+    WP, CONFIG_POLICY_CONTEXT, WpPlugin);
 
-WpConfigPolicyContext * wp_config_policy_context_new (WpCore *core);
+WpConfigPolicyContext * wp_config_policy_context_new (WpModule *module);
 
 G_END_DECLS
 

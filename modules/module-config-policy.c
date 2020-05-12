@@ -13,6 +13,6 @@
 WP_PLUGIN_EXPORT void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
-  WpConfigPolicyContext *ctx = wp_config_policy_context_new (core);
-  wp_module_set_destroy_callback (module, g_object_unref, ctx);
+  WpConfigPolicyContext *ctx = wp_config_policy_context_new (module);
+  wp_plugin_register (WP_PLUGIN (ctx));
 }

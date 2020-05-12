@@ -7,7 +7,6 @@
  */
 
 #include "../common/base-test-fixture.h"
-#include "../../modules/module-config-policy/context.h"
 
 typedef struct {
   WpBaseTestFixture base;
@@ -193,6 +192,10 @@ config_policy_setup (TestFixture *f, gconstpointer user_data)
         "libwireplumber-module-si-standard-link", NULL, &error);
     g_assert_no_error (error);
     g_assert_nonnull (module);
+    module = wp_module_load (f->base.core, "C",
+        "libwireplumber-module-config-policy", NULL, &error);
+    g_assert_no_error (error);
+    g_assert_nonnull (module);
   }
 
   g_assert_nonnull (
@@ -212,7 +215,7 @@ config_policy_teardown (TestFixture *f, gconstpointer user_data)
 }
 
 static void
-on_link_activated (WpConfigPolicyContext *ctx, WpEndpointLink *ep_link,
+on_link_activated (WpPlugin *ctx, WpEndpointLink *ep_link,
     TestFixture *f)
 {
   g_assert_nonnull (ep_link);
@@ -227,11 +230,16 @@ playback (TestFixture *f, gconstpointer data)
   g_assert_nonnull (config);
   wp_configuration_add_path (config, "config-policy/playback");
 
-  /* Create the policy context and handle the done callback */
-  g_autoptr (WpConfigPolicyContext) ctx =
-      wp_config_policy_context_new (f->base.core);
+  /* Find the plugin context and handle the link-activated callback */
+  g_autoptr (WpObjectManager) om = wp_object_manager_new ();
+  wp_object_manager_add_interest_1 (om, WP_TYPE_PLUGIN, NULL);
+  wp_core_install_object_manager (f->base.core, om);
+  g_autoptr (WpPlugin) ctx = wp_object_manager_lookup (om, WP_TYPE_PLUGIN, NULL);
   g_assert_nonnull (ctx);
   g_signal_connect (ctx, "link-activated", (GCallback) on_link_activated, f);
+
+  /* Activate */
+  wp_plugin_activate (ctx);
 
   /* Create the items and make sure a link is created */
   g_autoptr (WpSessionItem) sink = load_item (f, "fakesink", "Audio/Sink");
