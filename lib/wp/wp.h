@@ -9,7 +9,6 @@
 #ifndef __WIREPLUMBER_WP_H__
 #define __WIREPLUMBER_WP_H__
 
-#include "base-endpoint.h"
 #include "client.h"
 #include "configuration.h"
 #include "core.h"
@@ -26,7 +25,6 @@
 #include "node.h"
 #include "object-interest.h"
 #include "object-manager.h"
-#include "policy.h"
 #include "port.h"
 #include "properties.h"
 #include "proxy.h"

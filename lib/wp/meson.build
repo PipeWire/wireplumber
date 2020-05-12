@@ -1,5 +1,4 @@
 wp_lib_sources = files(
-  'base-endpoint.c',
   'client.c',
   'configuration.c',
   'core.c',
@@ -16,7 +15,6 @@ wp_lib_sources = files(
   'node.c',
   'object-interest.c',
   'object-manager.c',
-  'policy.c',
   'port.c',
   'properties.c',
   'proxy.c',
@@ -33,7 +31,6 @@ wp_lib_sources = files(
 )
 
 wp_lib_headers = files(
-  'base-endpoint.h',
   'client.h',
   'configuration.h',
   'core.h',
@@ -51,7 +48,6 @@ wp_lib_headers = files(
   'node.h',
   'object-interest.h',
   'object-manager.h',
-  'policy.h',
   'port.h',
   'properties.h',
   'proxy.h',
