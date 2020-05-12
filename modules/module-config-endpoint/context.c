@@ -20,17 +20,9 @@ struct _WpConfigEndpointContext
 {
   GObject parent;
 
-  /* Props */
-  GWeakRef core;
-
   WpObjectManager *sessions_om;
   WpObjectManager *nodes_om;
   GHashTable *endpoints;
-};
-
-enum {
-  PROP_0,
-  PROP_CORE,
 };
 
 enum {
@@ -41,7 +33,7 @@ enum {
 static guint signals[N_SIGNALS];
 
 G_DEFINE_TYPE (WpConfigEndpointContext, wp_config_endpoint_context,
-    G_TYPE_OBJECT)
+    WP_TYPE_PLUGIN)
 
 static const struct WpParserStreamsData *
 get_streams_data (WpConfiguration *config, const char *file_name)
@@ -95,7 +87,7 @@ static void
 on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
 {
   WpConfigEndpointContext *self = d;
-  g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
+  g_autoptr (WpCore) core = wp_plugin_get_core (WP_PLUGIN (self));
   g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
   g_autoptr (WpProperties) props = wp_proxy_get_properties (proxy);
   g_autoptr (WpSessionItem) ep = NULL;
@@ -216,30 +208,10 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
 }
 
 static void
-on_sessions_changed (WpObjectManager *om, gpointer d)
+wp_config_endpoint_context_activate (WpPlugin * plugin)
 {
-  WpConfigEndpointContext *self = d;
-  g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
-  g_return_if_fail (core);
-
-  /* Handle node-added signal and install the nodes object manager */
-  wp_object_manager_add_interest_1 (self->nodes_om, WP_TYPE_NODE, NULL);
-  wp_object_manager_request_proxy_features (self->nodes_om, WP_TYPE_NODE,
-      WP_PROXY_FEATURES_STANDARD);
-  g_signal_connect_object (self->nodes_om, "object-added",
-      G_CALLBACK (on_node_added), self, 0);
-  wp_core_install_object_manager (core, self->nodes_om);
-
-  /* Remove handler */
-  g_signal_handlers_disconnect_by_func (self->sessions_om,
-      on_sessions_changed, d);
-}
-
-static void
-wp_config_endpoint_context_constructed (GObject * object)
-{
-  WpConfigEndpointContext *self = WP_CONFIG_ENDPOINT_CONTEXT (object);
-  g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
+  WpConfigEndpointContext *self = WP_CONFIG_ENDPOINT_CONTEXT (plugin);
+  g_autoptr (WpCore) core = wp_plugin_get_core (plugin);
   g_return_if_fail (core);
   g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
   g_return_if_fail (config);
@@ -254,93 +226,55 @@ wp_config_endpoint_context_constructed (GObject * object)
   wp_configuration_reload (config, WP_PARSER_ENDPOINT_EXTENSION);
   wp_configuration_reload (config, WP_PARSER_STREAMS_EXTENSION);
 
-  /* Handle sessions-changed signal and install the session object manager */
+  self->endpoints = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
+      (GDestroyNotify) g_object_unref);
+
+  /* Install the session object manager */
+  self->sessions_om = wp_object_manager_new ();
   wp_object_manager_add_interest_1 (self->sessions_om, WP_TYPE_SESSION, NULL);
   wp_object_manager_request_proxy_features (self->sessions_om, WP_TYPE_SESSION,
-      WP_PROXY_FEATURES_STANDARD);
-  g_signal_connect_object (self->sessions_om, "objects-changed",
-      G_CALLBACK (on_sessions_changed), self, 0);
+      WP_SESSION_FEATURES_STANDARD);
   wp_core_install_object_manager (core, self->sessions_om);
 
-  G_OBJECT_CLASS (wp_config_endpoint_context_parent_class)->constructed (object);
+  /* Handle node-added signal and install the nodes object manager */
+  self->nodes_om = wp_object_manager_new ();
+  wp_object_manager_add_interest_1 (self->nodes_om, WP_TYPE_NODE, NULL);
+  wp_object_manager_request_proxy_features (self->nodes_om, WP_TYPE_NODE,
+      WP_PROXY_FEATURES_STANDARD);
+  g_signal_connect_object (self->nodes_om, "object-added",
+      G_CALLBACK (on_node_added), self, 0);
+  wp_core_install_object_manager (core, self->nodes_om);
 }
 
 static void
-wp_config_endpoint_context_set_property (GObject * object, guint property_id,
-    const GValue * value, GParamSpec * pspec)
+wp_config_endpoint_context_deactivate (WpPlugin *plugin)
 {
-  WpConfigEndpointContext *self = WP_CONFIG_ENDPOINT_CONTEXT (object);
+  WpConfigEndpointContext *self = WP_CONFIG_ENDPOINT_CONTEXT (plugin);
 
-  switch (property_id) {
-  case PROP_CORE:
-    g_weak_ref_set (&self->core, g_value_get_object (value));
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
-    break;
-  }
-}
-
-static void
-wp_config_endpoint_context_get_property (GObject * object, guint property_id,
-    GValue * value, GParamSpec * pspec)
-{
-  WpConfigEndpointContext *self = WP_CONFIG_ENDPOINT_CONTEXT (object);
-
-  switch (property_id) {
-  case PROP_CORE:
-    g_value_take_object (value, g_weak_ref_get (&self->core));
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
-    break;
-  }
-}
-
-static void
-wp_config_endpoint_context_finalize (GObject *object)
-{
-  WpConfigEndpointContext *self = WP_CONFIG_ENDPOINT_CONTEXT (object);
-
-  g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
+  g_autoptr (WpCore) core = wp_plugin_get_core (plugin);
   if (core) {
     g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
     wp_configuration_remove_extension (config, WP_PARSER_ENDPOINT_EXTENSION);
     wp_configuration_remove_extension (config, WP_PARSER_STREAMS_EXTENSION);
   }
-  g_weak_ref_clear (&self->core);
 
   g_clear_pointer (&self->endpoints, g_hash_table_unref);
   g_clear_object (&self->sessions_om);
   g_clear_object (&self->nodes_om);
-
-  G_OBJECT_CLASS (wp_config_endpoint_context_parent_class)->finalize (object);
 }
 
 static void
 wp_config_endpoint_context_init (WpConfigEndpointContext *self)
 {
-  self->nodes_om = wp_object_manager_new ();
-  self->sessions_om = wp_object_manager_new ();
-  self->endpoints = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
-      (GDestroyNotify) g_object_unref);
 }
 
 static void
 wp_config_endpoint_context_class_init (WpConfigEndpointContextClass *klass)
 {
-  GObjectClass *object_class = (GObjectClass *) klass;
+  WpPluginClass *plugin_class = (WpPluginClass *) klass;
 
-  object_class->constructed = wp_config_endpoint_context_constructed;
-  object_class->finalize = wp_config_endpoint_context_finalize;
-  object_class->set_property = wp_config_endpoint_context_set_property;
-  object_class->get_property = wp_config_endpoint_context_get_property;
-
-  /* Properties */
-  g_object_class_install_property (object_class, PROP_CORE,
-      g_param_spec_object ("core", "core", "The wireplumber core",
-          WP_TYPE_CORE,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  plugin_class->activate = wp_config_endpoint_context_activate;
+  plugin_class->deactivate = wp_config_endpoint_context_deactivate;
 
   /* Signals */
   signals[SIGNAL_ENDPOINT_CREATED] = g_signal_new ("endpoint-created",
@@ -349,9 +283,9 @@ wp_config_endpoint_context_class_init (WpConfigEndpointContextClass *klass)
 }
 
 WpConfigEndpointContext *
-wp_config_endpoint_context_new (WpCore *core)
+wp_config_endpoint_context_new (WpModule * module)
 {
   return g_object_new (wp_config_endpoint_context_get_type (),
-    "core", core,
-    NULL);
+      "module", module,
+      NULL);
 }

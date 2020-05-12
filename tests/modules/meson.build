@@ -35,13 +35,7 @@ test(
 
 test(
   'test-config-endpoint',
-  executable('test-config-endpoint',
-    [
-      'config-endpoint.c',
-      '../../modules/module-config-endpoint/parser-endpoint.c',
-      '../../modules/module-config-endpoint/parser-streams.c',
-      '../../modules/module-config-endpoint/context.c',
-    ],
+  executable('test-config-endpoint', 'config-endpoint.c',
     dependencies: common_deps + [wptoml_dep], c_args: common_args),
   env: common_env,
   workdir : meson.current_source_dir(),

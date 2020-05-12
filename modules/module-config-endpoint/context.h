@@ -15,9 +15,9 @@ G_BEGIN_DECLS
 
 #define WP_TYPE_CONFIG_ENDPOINT_CONTEXT (wp_config_endpoint_context_get_type ())
 G_DECLARE_FINAL_TYPE (WpConfigEndpointContext, wp_config_endpoint_context,
-    WP, CONFIG_ENDPOINT_CONTEXT, GObject);
+    WP, CONFIG_ENDPOINT_CONTEXT, WpPlugin);
 
-WpConfigEndpointContext * wp_config_endpoint_context_new (WpCore *core);
+WpConfigEndpointContext * wp_config_endpoint_context_new (WpModule *module);
 
 G_END_DECLS
 

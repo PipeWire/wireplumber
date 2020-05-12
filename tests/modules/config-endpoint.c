@@ -7,7 +7,6 @@
  */
 
 #include "../common/base-test-fixture.h"
-#include "../../modules/module-config-endpoint/context.h"
 
 typedef struct {
   WpBaseTestFixture base;
@@ -58,6 +57,13 @@ config_endpoint_setup (TestConfigEndpointFixture *f, gconstpointer data)
     g_assert_no_error (error);
     g_assert_nonnull (module);
   }
+  {
+    g_autoptr (GError) error = NULL;
+    WpModule *module = wp_module_load (f->base.core, "C",
+        "libwireplumber-module-config-endpoint", NULL, &error);
+    g_assert_no_error (error);
+    g_assert_nonnull (module);
+  }
 }
 
 static void
@@ -67,18 +73,7 @@ config_endpoint_teardown (TestConfigEndpointFixture *f, gconstpointer data)
 }
 
 static void
-on_default_session_exported (WpProxy * session, GAsyncResult * res,
-    TestConfigEndpointFixture *f)
-{
-  g_autoptr (GError) error = NULL;
-  g_assert_true (wp_proxy_augment_finish (session, res, &error));
-  g_assert_no_error (error);
-  g_assert_true (WP_IS_IMPL_SESSION (session));
-  g_main_loop_quit (f->base.loop);
-}
-
-static void
-on_audiotestsrc_simple_endpoint_created (WpConfigEndpointContext *ctx,
+on_audiotestsrc_simple_endpoint_created (GObject *ctx,
     WpSessionItem *ep, TestConfigEndpointFixture *f)
 {
   g_autoptr (WpNode) node = NULL;
@@ -101,7 +96,7 @@ on_audiotestsrc_simple_endpoint_created (WpConfigEndpointContext *ctx,
 }
 
 static void
-on_audiotestsrc_streams_endpoint_created (WpConfigEndpointContext *ctx,
+on_audiotestsrc_streams_endpoint_created (GObject *ctx,
     WpSessionItem *ep, TestConfigEndpointFixture *f)
 {
   g_assert_nonnull (ep);
@@ -135,9 +130,12 @@ simple (TestConfigEndpointFixture *f, gconstpointer data)
   g_assert_nonnull (config);
   wp_configuration_add_path (config, "config-endpoint/simple");
 
-  /* Create the endpoint context and handle the endpoint-created callback */
-  g_autoptr (WpConfigEndpointContext) ctx =
-      wp_config_endpoint_context_new (f->base.core);
+  /* Find the plugin context and handle the endpoint-created callback */
+  g_autoptr (WpObjectManager) om = wp_object_manager_new ();
+  wp_object_manager_add_interest_1 (om, WP_TYPE_PLUGIN, NULL);
+  wp_core_install_object_manager (f->base.core, om);
+
+  g_autoptr (WpPlugin) ctx = wp_object_manager_lookup (om, WP_TYPE_PLUGIN, NULL);
   g_assert_nonnull (ctx);
   g_signal_connect (ctx, "endpoint-created",
       (GCallback) on_audiotestsrc_simple_endpoint_created, f);
@@ -145,9 +143,12 @@ simple (TestConfigEndpointFixture *f, gconstpointer data)
   /* Create and export the default session */
   g_autoptr (WpImplSession) session = wp_impl_session_new (f->base.core);
   wp_impl_session_set_property (session, "session.name", "default");
-  wp_proxy_augment (WP_PROXY (session), WP_PROXY_FEATURE_BOUND, NULL,
-      (GAsyncReadyCallback) on_default_session_exported, f);
+  wp_proxy_augment (WP_PROXY (session), WP_SESSION_FEATURES_STANDARD, NULL,
+      (GAsyncReadyCallback) test_proxy_augment_finish_cb, f);
   g_main_loop_run (f->base.loop);
+
+  /* Activate */
+  wp_plugin_activate (ctx);
 
   /* Create the audiotestsrc node and run until the endpoint is created */
   g_autoptr (WpNode) node = wp_node_new_from_factory (f->base.core,
@@ -168,9 +169,12 @@ streams (TestConfigEndpointFixture *f, gconstpointer data)
   g_assert_nonnull (config);
   wp_configuration_add_path (config, "config-endpoint/streams");
 
-  /* Create the endpoint context and handle the endpoint-created callback */
-  g_autoptr (WpConfigEndpointContext) ctx =
-      wp_config_endpoint_context_new (f->base.core);
+  /* Find the plugin context and handle the endpoint-created callback */
+  g_autoptr (WpObjectManager) om = wp_object_manager_new ();
+  wp_object_manager_add_interest_1 (om, WP_TYPE_PLUGIN, NULL);
+  wp_core_install_object_manager (f->base.core, om);
+
+  g_autoptr (WpPlugin) ctx = wp_object_manager_lookup (om, WP_TYPE_PLUGIN, NULL);
   g_assert_nonnull (ctx);
   g_signal_connect (ctx, "endpoint-created",
       (GCallback) on_audiotestsrc_streams_endpoint_created, f);
@@ -178,9 +182,12 @@ streams (TestConfigEndpointFixture *f, gconstpointer data)
   /* Create and export the default session */
   g_autoptr (WpImplSession) session = wp_impl_session_new (f->base.core);
   wp_impl_session_set_property (session, "session.name", "default");
-  wp_proxy_augment (WP_PROXY (session), WP_PROXY_FEATURE_BOUND, NULL,
-      (GAsyncReadyCallback) on_default_session_exported, f);
+  wp_proxy_augment (WP_PROXY (session), WP_SESSION_FEATURES_STANDARD, NULL,
+      (GAsyncReadyCallback) test_proxy_augment_finish_cb, f);
   g_main_loop_run (f->base.loop);
+
+  /* Activate */
+  wp_plugin_activate (ctx);
 
   /* create audiotestsrc adapter node and run until the endpoint is created */
   g_autoptr (WpNode) node = wp_node_new_from_factory (f->base.core,
