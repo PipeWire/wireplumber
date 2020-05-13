@@ -158,9 +158,32 @@ core_done (void *data, uint32_t id, int seq)
     g_task_return_boolean (task, TRUE);
 }
 
+static gboolean
+core_disconnect_async (WpCore * self)
+{
+  wp_core_disconnect (self);
+  return G_SOURCE_REMOVE;
+}
+
+static void
+core_error (void *data, uint32_t id, int seq, int res, const char *message)
+{
+  WpCore *self = WP_CORE (data);
+
+  wp_warning_object (self, "error id:%u seq:%d res:%d (%s): %s",
+      id, seq, res, spa_strerror(res), message);
+
+  /* protocol socket disconnected; schedule disconnecting our core */
+  if (id == 0 && res == -EPIPE) {
+    wp_core_idle_add_closure (self, NULL, g_cclosure_new_object (
+            G_CALLBACK (core_disconnect_async), G_OBJECT (self)));
+  }
+}
+
 static const struct pw_core_events core_events = {
   PW_VERSION_CORE_EVENTS,
   .done = core_done,
+  .error = core_error,
 };
 
 static void
@@ -168,8 +191,7 @@ proxy_core_destroy (void *data)
 {
   WpCore *self = WP_CORE (data);
   self->pw_core = NULL;
-
-  /* Emit the disconnected signal */
+  wp_debug_object (self, "emit disconnected");
   g_signal_emit (self, signals[SIGNAL_DISCONNECTED], 0);
 }
 
@@ -437,10 +459,11 @@ void
 wp_core_disconnect (WpCore *self)
 {
   wp_registry_detach (&self->registry);
-  g_clear_pointer (&self->pw_core, pw_core_disconnect);
 
-  /* Emit the disconnected signal */
-  g_signal_emit (self, signals[SIGNAL_DISCONNECTED], 0);
+  /* pw_core_disconnect destroys the core proxy
+    and we continue in proxy_core_destroy() */
+  if (self->pw_core)
+    pw_core_disconnect (self->pw_core);
 }
 
 /**
