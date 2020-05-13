@@ -775,11 +775,13 @@ wp_object_manager_maybe_objects_changed (WpObjectManager * self)
    */
   else if (!self->installed) {
     g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
-    WpRegistry *reg = wp_core_get_registry (core);
-    if (reg->tmp_globals->len == 0 && reg->globals->len != 0) {
-      wp_trace_object (self, "installed");
-      g_signal_emit (self, signals[SIGNAL_INSTALLED], 0);
-      self->installed = TRUE;
+    if (core) {
+      WpRegistry *reg = wp_core_get_registry (core);
+      if (reg->tmp_globals->len == 0 && reg->globals->len != 0) {
+        wp_trace_object (self, "installed");
+        g_signal_emit (self, signals[SIGNAL_INSTALLED], 0);
+        self->installed = TRUE;
+      }
     }
   }
 }
