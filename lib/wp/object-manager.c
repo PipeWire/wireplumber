@@ -894,7 +894,7 @@ wp_object_manager_rm_object (WpObjectManager * self, gpointer object)
  *    'bound' event and still associate the proxy with the WpGlobal before
  *    object managers are notified about the existence of this global.
  *
- * 3) WirePlumber global objects (WpModule, WpFactory).
+ * 3) WirePlumber global objects (WpModule, WpPlugin, WpSiFactory).
  *
  *    These are local objects that have nothing to do with PipeWire. They do not
  *    have a global id and they are also not subclasses of WpProxy. The registry

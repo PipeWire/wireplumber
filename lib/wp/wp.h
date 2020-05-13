@@ -18,7 +18,6 @@
 #include "endpoint-link.h"
 #include "endpoint-stream.h"
 #include "error.h"
-#include "factory.h"
 #include "iterator.h"
 #include "link.h"
 #include "module.h"
