@@ -770,11 +770,13 @@ wp_object_manager_maybe_objects_changed (WpObjectManager * self)
    * - the registry does not have pending globals; these may be interesting
    * to our object manager, so let's wait a bit until they are released
    * and re-evaluate again later
+   * - the registry has globals; if we are on early startup where we don't
+   * have any globals yet, wait...
    */
   else if (!self->installed) {
     g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
     WpRegistry *reg = wp_core_get_registry (core);
-    if (reg->tmp_globals->len == 0) {
+    if (reg->tmp_globals->len == 0 && reg->globals->len != 0) {
       wp_trace_object (self, "installed");
       g_signal_emit (self, signals[SIGNAL_INSTALLED], 0);
       self->installed = TRUE;
