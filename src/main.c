@@ -76,7 +76,7 @@ on_plugin_added (WpObjectManager * om, WpPlugin * p, struct WpDaemonData *d)
   wp_plugin_activate (p);
 }
 
-static void
+static gboolean
 activate_plugins (struct WpDaemonData *d)
 {
   g_autoptr (WpObjectManager) om = NULL;
@@ -91,6 +91,8 @@ activate_plugins (struct WpDaemonData *d)
    so we don't need to keep a reference to this object manager.
    This optimization is based on the knowledge of the implementation of
    WpObjectManager and in other circumstances it should not be relied upon. */
+
+  return G_SOURCE_REMOVE;
 }
 
 static void
@@ -120,7 +122,7 @@ on_session_exported (WpProxy * session, GAsyncResult * res,
   }
 
   wp_debug ("All sessions exported");
-  activate_plugins (d);
+  wp_core_idle_add (d->core, NULL, G_SOURCE_FUNC (activate_plugins), d, NULL);
 }
 
 static void
