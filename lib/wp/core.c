@@ -170,9 +170,6 @@ core_error (void *data, uint32_t id, int seq, int res, const char *message)
 {
   WpCore *self = WP_CORE (data);
 
-  wp_warning_object (self, "error id:%u seq:%d res:%d (%s): %s",
-      id, seq, res, spa_strerror(res), message);
-
   /* protocol socket disconnected; schedule disconnecting our core */
   if (id == 0 && res == -EPIPE) {
     wp_core_idle_add_closure (self, NULL, g_cclosure_new_object (
