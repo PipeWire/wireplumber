@@ -91,7 +91,7 @@ list_endpoints (WpObjectManager * om, struct WpCliData * d)
 
     g_print ("Session %u (%s) capture devices:\n", id, name);
     ep_it = wp_session_iterate_endpoints_filtered (session,
-        WP_CONSTRAINT_TYPE_PW_PROPERTY, "media.class", "=s", "Audio/Source",
+        WP_CONSTRAINT_TYPE_PW_PROPERTY, "media.class", "#s", "*/Source",
         NULL);
     for (; wp_iterator_next (ep_it, &ep_val); g_value_unset (&ep_val)) {
       WpEndpoint *ep = g_value_get_object (&ep_val);
@@ -101,7 +101,7 @@ list_endpoints (WpObjectManager * om, struct WpCliData * d)
 
     g_print ("\nSession %u (%s) playback devices:\n", id, name);
     ep_it = wp_session_iterate_endpoints_filtered (session,
-        WP_CONSTRAINT_TYPE_PW_PROPERTY, "media.class", "=s", "Audio/Sink",
+        WP_CONSTRAINT_TYPE_PW_PROPERTY, "media.class", "#s", "*/Sink",
         NULL);
     for (; wp_iterator_next (ep_it, &ep_val); g_value_unset (&ep_val)) {
       WpEndpoint *ep = g_value_get_object (&ep_val);
@@ -111,7 +111,7 @@ list_endpoints (WpObjectManager * om, struct WpCliData * d)
 
     g_print ("\nSession %u (%s) client streams:\n", id, name);
     ep_it = wp_session_iterate_endpoints_filtered (session,
-        WP_CONSTRAINT_TYPE_PW_PROPERTY, "media.class", "#s", "Stream/*/Audio",
+        WP_CONSTRAINT_TYPE_PW_PROPERTY, "media.class", "#s", "Stream/*",
         NULL);
     for (; wp_iterator_next (ep_it, &ep_val); g_value_unset (&ep_val)) {
       WpEndpoint *ep = g_value_get_object (&ep_val);
