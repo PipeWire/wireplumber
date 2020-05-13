@@ -418,17 +418,21 @@ si_standard_link_activate_rollback (WpSessionItem * item)
 
   if (self->out_stream) {
     out_endpoint = wp_si_stream_get_parent_endpoint (self->out_stream);
-    out_acquisition = wp_si_endpoint_get_stream_acquisition (out_endpoint);
-    if (out_acquisition)
-      wp_si_stream_acquisition_release (out_acquisition, WP_SI_LINK (self),
-          self->out_stream);
+    if (out_endpoint) {
+      out_acquisition = wp_si_endpoint_get_stream_acquisition (out_endpoint);
+      if (out_acquisition)
+        wp_si_stream_acquisition_release (out_acquisition, WP_SI_LINK (self),
+            self->out_stream);
+    }
   }
   if (self->in_stream) {
     in_endpoint = wp_si_stream_get_parent_endpoint (self->in_stream);
-    in_acquisition = wp_si_endpoint_get_stream_acquisition (in_endpoint);
-    if (in_acquisition)
-      wp_si_stream_acquisition_release (in_acquisition, WP_SI_LINK (self),
-          self->in_stream);
+    if (in_endpoint) {
+      in_acquisition = wp_si_endpoint_get_stream_acquisition (in_endpoint);
+      if (in_acquisition)
+        wp_si_stream_acquisition_release (in_acquisition, WP_SI_LINK (self),
+            self->in_stream);
+    }
   }
 
   g_clear_pointer (&self->node_links, g_ptr_array_unref);
