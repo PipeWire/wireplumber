@@ -298,7 +298,8 @@ on_export_proxy_destroyed (WpProxy * proxy, gpointer data)
   WpSessionItem *self = WP_SESSION_ITEM (data);
   g_autoptr (WpCore) core = wp_proxy_get_core (proxy);
 
-  wp_core_idle_add_closure (core, NULL, g_cclosure_new_object (
+  if (core)
+    wp_core_idle_add_closure (core, NULL, g_cclosure_new_object (
           G_CALLBACK (on_export_proxy_destroyed_deferred), G_OBJECT (self)));
 }
 
