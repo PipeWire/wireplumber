@@ -41,10 +41,11 @@ wp_test_server_setup (WpTestServer *self)
 static inline void
 wp_test_server_teardown (WpTestServer *self)
 {
-  pw_thread_loop_stop (self->thread_loop);
-  pw_context_destroy (self->context);
-  pw_thread_loop_destroy (self->thread_loop);
-  g_free (self->name);
+  if (self->thread_loop)
+    pw_thread_loop_stop (self->thread_loop);
+  g_clear_pointer (&self->context, pw_context_destroy);
+  g_clear_pointer (&self->thread_loop, pw_thread_loop_destroy);
+  g_clear_pointer (&self->name, g_free);
 }
 
 typedef void WpTestServerLocker;
