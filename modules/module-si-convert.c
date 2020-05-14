@@ -242,6 +242,7 @@ si_convert_activate_execute_step (WpSessionItem * item,
     case STEP_CREATE_NODE: {
       g_autoptr (WpNode) node = NULL;
       g_autoptr (WpCore) core = NULL;
+      g_autoptr (WpProperties) node_props = NULL;
       g_autoptr (WpProperties) props = NULL;
       g_autoptr (GVariant) target_config = NULL;
       g_autoptr (WpSpaPod) format = NULL;
@@ -255,7 +256,8 @@ si_convert_activate_execute_step (WpSessionItem * item,
       g_variant_lookup (target_config, "channels", "u", &channels);
 
       /* Create the convert properties based on the adapter properties */
-      props = wp_properties_copy (wp_proxy_get_properties (WP_PROXY (node)));
+      node_props = wp_proxy_get_properties (WP_PROXY (node));
+      props = wp_properties_copy (node_props);
       wp_properties_setf (props, PW_KEY_OBJECT_PATH, "%s:%s",
           wp_properties_get(props, PW_KEY_OBJECT_PATH),
           self->name);
