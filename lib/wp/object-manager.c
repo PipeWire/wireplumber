@@ -385,6 +385,8 @@ static void
 om_iterator_finalize (WpIterator *it)
 {
   struct om_iterator_data *it_data = wp_iterator_get_user_data (it);
+  if (it_data->interest)
+    wp_object_interest_free (it_data->interest);
   g_object_unref (it_data->om);
 }
 
