@@ -347,7 +347,7 @@ wp_monitor_dbus_device_reservation_complete_release (
     return;
 
   g_dbus_method_invocation_return_value (self->pending_release,
-      g_variant_new ("(b)", g_variant_new_boolean (res)));
+      g_variant_new ("(b)", res));
   g_clear_object (&self->pending_release);
 }
 
