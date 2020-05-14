@@ -324,7 +324,7 @@ wp_config_policy_context_activate (WpPlugin * plugin)
 
   /* Install the session object manager */
   self->sessions_om = wp_object_manager_new ();
-  wp_object_manager_add_interest_1 (self->sessions_om, WP_TYPE_SESSION, NULL);
+  wp_object_manager_add_interest (self->sessions_om, WP_TYPE_SESSION, NULL);
   wp_object_manager_request_proxy_features (self->sessions_om, WP_TYPE_SESSION,
       WP_SESSION_FEATURES_STANDARD);
   g_signal_connect_object (self->sessions_om, "object-added",

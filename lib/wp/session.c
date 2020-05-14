@@ -129,12 +129,12 @@ wp_session_ensure_features_endpoints_links (WpSession * self, guint32 bound_id)
 
     priv->endpoints_om = wp_object_manager_new ();
     /* proxy endpoint -> check for session.id in global properties */
-    wp_object_manager_add_interest_1 (priv->endpoints_om,
+    wp_object_manager_add_interest (priv->endpoints_om,
         WP_TYPE_ENDPOINT,
         WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_SESSION_ID, "=u", bound_id,
         NULL);
     /* impl endpoint -> check for session.id in standard properties */
-    wp_object_manager_add_interest_1 (priv->endpoints_om,
+    wp_object_manager_add_interest (priv->endpoints_om,
         WP_TYPE_IMPL_ENDPOINT,
         WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_SESSION_ID, "=u", bound_id,
         NULL);
@@ -156,12 +156,12 @@ wp_session_ensure_features_endpoints_links (WpSession * self, guint32 bound_id)
 
     priv->links_om = wp_object_manager_new ();
     /* proxy link -> check for session.id in global properties */
-    wp_object_manager_add_interest_1 (priv->links_om,
+    wp_object_manager_add_interest (priv->links_om,
         WP_TYPE_ENDPOINT_LINK,
         WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_SESSION_ID, "=u", bound_id,
         NULL);
     /* impl link -> check for session.id in standard properties */
-    wp_object_manager_add_interest_1 (priv->links_om,
+    wp_object_manager_add_interest (priv->links_om,
         WP_TYPE_IMPL_ENDPOINT_LINK,
         WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_SESSION_ID, "=u", bound_id,
         NULL);

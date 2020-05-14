@@ -132,7 +132,7 @@ simple (TestConfigEndpointFixture *f, gconstpointer data)
 
   /* Find the plugin context and handle the endpoint-created callback */
   g_autoptr (WpObjectManager) om = wp_object_manager_new ();
-  wp_object_manager_add_interest_1 (om, WP_TYPE_PLUGIN, NULL);
+  wp_object_manager_add_interest (om, WP_TYPE_PLUGIN, NULL);
   wp_core_install_object_manager (f->base.core, om);
 
   g_autoptr (WpPlugin) ctx = wp_object_manager_lookup (om, WP_TYPE_PLUGIN, NULL);
@@ -171,7 +171,7 @@ streams (TestConfigEndpointFixture *f, gconstpointer data)
 
   /* Find the plugin context and handle the endpoint-created callback */
   g_autoptr (WpObjectManager) om = wp_object_manager_new ();
-  wp_object_manager_add_interest_1 (om, WP_TYPE_PLUGIN, NULL);
+  wp_object_manager_add_interest (om, WP_TYPE_PLUGIN, NULL);
   wp_core_install_object_manager (f->base.core, om);
 
   g_autoptr (WpPlugin) ctx = wp_object_manager_lookup (om, WP_TYPE_PLUGIN, NULL);

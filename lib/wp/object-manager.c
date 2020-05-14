@@ -225,108 +225,6 @@ wp_object_manager_is_installed (WpObjectManager * self)
  * wp_object_manager_add_interest:
  * @self: the object manager
  * @gtype: the #GType of the objects that we are declaring interest in
- * @constraints: (nullable): a variant of type "aa{sv}" (array of dictionaries)
- *   with additional constraints on the managed objects
- * @wanted_features: a set of features that will automatically be enabled
- *   on managed objects, if they are subclasses of #WpProxy
- *
- * Declares interest in a certain kind of object. Interest consists of a #GType
- * that the object must be an ancestor of (g_type_is_a must match) and
- * optionally, a set of additional constraints on certain properties of the
- * object.
- *
- * The @constraints #GVariant should contain an array of dictionaries ("aa{sv}").
- * Each dictionary must have the following fields:
- *  - "type" (i): The constraint type, #WpObjectManagerConstraintType
- *  - "name" (s): The name of the constrained property
- *  - "value" (s): The value that the property must have
- *
- * For example, to discover all the 'node' objects in the PipeWire graph,
- * the following code can be used:
- * |[
- *   WpObjectManager *om = wp_object_manager_new ();
- *   wp_object_manager_add_interest (om, WP_TYPE_NODE, NULL,
- *       WP_PROXY_FEATURES_STANDARD);
- *   wp_core_install_object_manager (core, om);
- *   WpIterator *nodes_it = wp_object_manager_iterate (om);
- * ]|
- *
- * and to discover all 'port' objects that belong to a specific 'node':
- * |[
- *   WpObjectManager *om = wp_object_manager_new ();
- *
- *   GVariantBuilder b;
- *   g_variant_builder_init (&b, G_VARIANT_TYPE ("aa{sv}"));
- *   g_variant_builder_open (&b, G_VARIANT_TYPE_VARDICT);
- *   g_variant_builder_add (&b, "{sv}", "type",
- *       g_variant_new_int32 (WP_OBJECT_MANAGER_CONSTRAINT_PW_GLOBAL_PROPERTY));
- *   g_variant_builder_add (&b, "{sv}", "name",
- *       g_variant_new_string (PW_KEY_NODE_ID));
- *   g_variant_builder_add (&b, "{sv}", "value",
- *       g_variant_new_string (node_id));
- *   g_variant_builder_close (&b);
- *
- *   wp_object_manager_add_interest (om, WP_TYPE_PORT,
- *       g_variant_builder_end (&b),
- *       WP_PROXY_FEATURES_STANDARD);
- *
- *   wp_core_install_object_manager (core, om);
- *   WpIterator *ports_it = wp_object_manager_iterate (om);
- * ]|
- */
-void
-wp_object_manager_add_interest (WpObjectManager *self,
-    GType gtype, GVariant * constraints,
-    WpProxyFeatures wanted_features)
-{
-  g_autoptr (WpObjectInterest) interest = NULL;
-  g_autoptr (GVariant) c = NULL;
-  GVariantIter iter;
-  WpObjectManagerConstraintType ctype;
-  const gchar *prop_name, *prop_value;
-
-  g_return_if_fail (WP_IS_OBJECT_MANAGER (self));
-  g_return_if_fail (constraints == NULL ||
-      g_variant_is_of_type (constraints, G_VARIANT_TYPE ("aa{sv}")));
-
-  interest = wp_object_interest_new_type (gtype);
-
-  if (constraints) {
-    g_variant_iter_init (&iter, constraints);
-    while (g_variant_iter_next (&iter, "@a{sv}", &c)) {
-      GVariantDict dict = G_VARIANT_DICT_INIT (c);
-
-      if (!g_variant_dict_lookup (&dict, "type", "i", &ctype)) {
-        g_critical ("Invalid object manager constraint without a type");
-        return;
-      }
-
-      if (!g_variant_dict_lookup (&dict, "name", "&s", &prop_name)) {
-        g_critical ("property constraint is without a property name");
-        return;
-      }
-      if (!g_variant_dict_lookup (&dict, "value", "&s", &prop_value)) {
-        g_critical ("property constraint is without a property value");
-        return;
-      }
-
-      wp_object_interest_add_constraint (interest, (WpConstraintType) ctype,
-          prop_name, WP_CONSTRAINT_VERB_EQUALS, g_variant_new_string (prop_value));
-
-      g_variant_dict_clear (&dict);
-      g_clear_pointer (&c, g_variant_unref);
-    }
-  }
-
-  wp_object_manager_add_interest_full (self, g_steal_pointer (&interest));
-  if (wanted_features != 0)
-    wp_object_manager_request_proxy_features (self, gtype, wanted_features);
-}
-
-/**
- * wp_object_manager_add_interest_1:
- * @self: the object manager
- * @gtype: the #GType of the objects that we are declaring interest in
  * @...: a list of constraints, terminated by %NULL
  *
  * Equivalent to:
@@ -339,7 +237,7 @@ wp_object_manager_add_interest (WpObjectManager *self,
  * documented in wp_object_interest_new().
  */
 void
-wp_object_manager_add_interest_1 (WpObjectManager * self, GType gtype, ...)
+wp_object_manager_add_interest (WpObjectManager * self, GType gtype, ...)
 {
   WpObjectInterest *interest;
   va_list args;
@@ -586,42 +484,6 @@ wp_object_manager_iterate_filtered_full (WpObjectManager * self,
   it_data->interest = interest;
   it_data->index = 0;
   return it;
-}
-
-static gboolean
-find_proxy_fold_func (const GValue *item, GValue *ret, gpointer data)
-{
-  if (g_type_is_a (G_VALUE_TYPE (item), WP_TYPE_PROXY)) {
-    WpProxy *proxy = g_value_get_object (item);
-    if (wp_proxy_get_bound_id (proxy) == GPOINTER_TO_UINT (data)) {
-      g_value_init_from_instance (ret, proxy);
-      return FALSE;
-    }
-  }
-  return TRUE;
-}
-
-/**
- * wp_object_manager_find_proxy:
- * @self: the object manager
- * @bound_id: the bound id of the proxy to get
- *
- * Searches the managed objects to find a #WpProxy that has the given @bound_id
- *
- * Returns: (transfer full) (nullable): the proxy that has the given @bound_id,
- *    or %NULL if there is no such proxy managed by this object manager
- */
-WpProxy *
-wp_object_manager_find_proxy (WpObjectManager *self, guint bound_id)
-{
-  g_autoptr (WpIterator) it = wp_object_manager_iterate (self);
-  g_auto (GValue) ret = G_VALUE_INIT;
-
-  if (!wp_iterator_fold (it, find_proxy_fold_func, &ret,
-          GUINT_TO_POINTER (bound_id)))
-    return g_value_dup_object (&ret);
-
-  return NULL;
 }
 
 /**

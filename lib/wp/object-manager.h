@@ -17,23 +17,6 @@
 G_BEGIN_DECLS
 
 /**
- * WpObjectManagerConstraintType:
- * @WP_OBJECT_MANAGER_CONSTRAINT_PW_GLOBAL_PROPERTY: constraint applies
- *   to a PipeWire global property of an object (the ones returned by
- *   wp_proxy_get_global_properties())
- * @WP_OBJECT_MANAGER_CONSTRAINT_PW_PROPERTY: constraint applies
- *   to a PipeWire property of the object (the ones returned by
- *   wp_proxy_get_properties())
- * @WP_OBJECT_MANAGER_CONSTRAINT_G_PROPERTY: constraint applies to a #GObject
- *   property of the managed object
- */
-typedef enum {
-  WP_OBJECT_MANAGER_CONSTRAINT_PW_GLOBAL_PROPERTY = WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
-  WP_OBJECT_MANAGER_CONSTRAINT_PW_PROPERTY,
-  WP_OBJECT_MANAGER_CONSTRAINT_G_PROPERTY,
-} WpObjectManagerConstraintType G_GNUC_DEPRECATED;
-
-/**
  * WP_TYPE_OBJECT_MANAGER:
  *
  * The #WpObjectManager #GType
@@ -52,12 +35,8 @@ gboolean wp_object_manager_is_installed (WpObjectManager * self);
 
 /* interest */
 
-WP_API G_DEPRECATED
-void wp_object_manager_add_interest (WpObjectManager *self,
-    GType gtype, GVariant * constraints, WpProxyFeatures wanted_features);
-
 WP_API
-void wp_object_manager_add_interest_1 (WpObjectManager * self,
+void wp_object_manager_add_interest (WpObjectManager * self,
     GType gtype, ...) G_GNUC_NULL_TERMINATED;
 
 WP_API
@@ -85,9 +64,6 @@ WpIterator * wp_object_manager_iterate_filtered (WpObjectManager * self,
 WP_API
 WpIterator * wp_object_manager_iterate_filtered_full (WpObjectManager * self,
     WpObjectInterest * interest);
-
-WP_API G_DEPRECATED
-WpProxy * wp_object_manager_find_proxy (WpObjectManager *self, guint bound_id);
 
 WP_API
 gpointer wp_object_manager_lookup (WpObjectManager * self,

@@ -238,7 +238,7 @@ test_si_audio_softdsp_endpoint_export (TestFixture * f, gconstpointer user_data)
   /* find self_client, to be used for verifying endpoint.client.id */
 
   clients_om = wp_object_manager_new ();
-  wp_object_manager_add_interest_1 (clients_om, WP_TYPE_CLIENT, NULL);
+  wp_object_manager_add_interest (clients_om, WP_TYPE_CLIENT, NULL);
   wp_object_manager_request_proxy_features (clients_om,
       WP_TYPE_CLIENT, WP_PROXY_FEATURE_BOUND);
   g_signal_connect_swapped (clients_om, "objects-changed",

@@ -240,14 +240,14 @@ wp_config_endpoint_context_activate (WpPlugin * plugin)
 
   /* Install the session object manager */
   self->sessions_om = wp_object_manager_new ();
-  wp_object_manager_add_interest_1 (self->sessions_om, WP_TYPE_SESSION, NULL);
+  wp_object_manager_add_interest (self->sessions_om, WP_TYPE_SESSION, NULL);
   wp_object_manager_request_proxy_features (self->sessions_om, WP_TYPE_SESSION,
       WP_SESSION_FEATURES_STANDARD);
   wp_core_install_object_manager (core, self->sessions_om);
 
   /* Handle node-added signal and install the nodes object manager */
   self->nodes_om = wp_object_manager_new ();
-  wp_object_manager_add_interest_1 (self->nodes_om, WP_TYPE_NODE, NULL);
+  wp_object_manager_add_interest (self->nodes_om, WP_TYPE_NODE, NULL);
   wp_object_manager_request_proxy_features (self->nodes_om, WP_TYPE_NODE,
       WP_PROXY_FEATURES_STANDARD);
   g_signal_connect_object (self->nodes_om, "object-added",

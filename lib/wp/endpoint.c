@@ -110,12 +110,12 @@ wp_endpoint_ensure_feature_streams (WpEndpoint * self, guint32 bound_id)
 
     priv->streams_om = wp_object_manager_new ();
     /* proxy endpoint stream -> check for endpoint.id in global properties */
-    wp_object_manager_add_interest_1 (priv->streams_om,
+    wp_object_manager_add_interest (priv->streams_om,
         WP_TYPE_ENDPOINT_STREAM,
         WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_ENDPOINT_ID, "=u", bound_id,
         NULL);
     /* impl endpoint stream -> check for endpoint.id in standard properties */
-    wp_object_manager_add_interest_1 (priv->streams_om,
+    wp_object_manager_add_interest (priv->streams_om,
         WP_TYPE_IMPL_ENDPOINT_STREAM,
         WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_ENDPOINT_ID, "=u", bound_id,
         NULL);

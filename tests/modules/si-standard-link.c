@@ -153,7 +153,7 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
   /* find the "audio" session from the client */
   {
     g_autoptr (WpObjectManager) om = wp_object_manager_new ();
-    wp_object_manager_add_interest_1 (om, WP_TYPE_SESSION, NULL);
+    wp_object_manager_add_interest (om, WP_TYPE_SESSION, NULL);
     wp_object_manager_request_proxy_features (om, WP_TYPE_SESSION,
         WP_SESSION_FEATURES_STANDARD);
     test_ensure_object_manager_is_installed (om, f->base.client_core,
@@ -246,9 +246,9 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
     g_autoptr (WpLink) link = NULL;
     g_autoptr (WpObjectManager) om = wp_object_manager_new ();
 
-    wp_object_manager_add_interest_1 (om, WP_TYPE_NODE, NULL);
-    wp_object_manager_add_interest_1 (om, WP_TYPE_PORT, NULL);
-    wp_object_manager_add_interest_1 (om, WP_TYPE_LINK, NULL);
+    wp_object_manager_add_interest (om, WP_TYPE_NODE, NULL);
+    wp_object_manager_add_interest (om, WP_TYPE_PORT, NULL);
+    wp_object_manager_add_interest (om, WP_TYPE_LINK, NULL);
     wp_object_manager_request_proxy_features (om, WP_TYPE_PROXY,
         WP_PROXY_FEATURES_STANDARD);
     test_ensure_object_manager_is_installed (om, f->base.client_core,
@@ -299,9 +299,9 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
     g_autoptr (WpLink) link = NULL;
     g_autoptr (WpObjectManager) om = wp_object_manager_new ();
 
-    wp_object_manager_add_interest_1 (om, WP_TYPE_NODE, NULL);
-    wp_object_manager_add_interest_1 (om, WP_TYPE_PORT, NULL);
-    wp_object_manager_add_interest_1 (om, WP_TYPE_LINK, NULL);
+    wp_object_manager_add_interest (om, WP_TYPE_NODE, NULL);
+    wp_object_manager_add_interest (om, WP_TYPE_PORT, NULL);
+    wp_object_manager_add_interest (om, WP_TYPE_LINK, NULL);
     wp_object_manager_request_proxy_features (om, WP_TYPE_PROXY,
         WP_PROXY_FEATURES_STANDARD);
     test_ensure_object_manager_is_installed (om, f->base.client_core,
@@ -341,7 +341,7 @@ test_si_standard_link_destroy (TestFixture * f, gconstpointer user_data)
   /* find the "audio" session from the client */
   {
     g_autoptr (WpObjectManager) om = wp_object_manager_new ();
-    wp_object_manager_add_interest_1 (om, WP_TYPE_SESSION, NULL);
+    wp_object_manager_add_interest (om, WP_TYPE_SESSION, NULL);
     wp_object_manager_request_proxy_features (om, WP_TYPE_SESSION,
         WP_SESSION_FEATURES_STANDARD);
     test_ensure_object_manager_is_installed (om, f->base.client_core,
@@ -415,7 +415,7 @@ test_si_standard_link_destroy (TestFixture * f, gconstpointer user_data)
   {
     g_autoptr (WpObjectManager) om = wp_object_manager_new ();
 
-    wp_object_manager_add_interest_1 (om, WP_TYPE_ENDPOINT_LINK, NULL);
+    wp_object_manager_add_interest (om, WP_TYPE_ENDPOINT_LINK, NULL);
     test_ensure_object_manager_is_installed (om, f->base.core, f->base.loop);
 
     g_assert_cmpuint (wp_object_manager_get_n_objects (om), ==, 0);

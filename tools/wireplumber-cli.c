@@ -277,7 +277,7 @@ main (gint argc, gchar **argv)
 
   /* ls-endpoints */
   if (argc == 2 && !g_strcmp0 (argv[1], "ls-endpoints")) {
-    wp_object_manager_add_interest_1 (om, WP_TYPE_SESSION, NULL);
+    wp_object_manager_add_interest (om, WP_TYPE_SESSION, NULL);
     wp_object_manager_request_proxy_features (om, WP_TYPE_SESSION,
         WP_SESSION_FEATURES_STANDARD);
     func = (GCallback) list_endpoints;
@@ -291,8 +291,8 @@ main (gint argc, gchar **argv)
     }
 
     data.params.set_default.id = id;
-    wp_object_manager_add_interest_1 (om, WP_TYPE_SESSION, NULL);
-    wp_object_manager_add_interest_1 (om, WP_TYPE_ENDPOINT, NULL);
+    wp_object_manager_add_interest (om, WP_TYPE_SESSION, NULL);
+    wp_object_manager_add_interest (om, WP_TYPE_ENDPOINT, NULL);
     wp_object_manager_request_proxy_features (om, WP_TYPE_PROXY,
         WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_CONTROLS);
     func = (GCallback) set_default;
@@ -308,14 +308,14 @@ main (gint argc, gchar **argv)
 
     data.params.set_volume.id = id;
     data.params.set_volume.volume = volume;
-    wp_object_manager_add_interest_1 (om, WP_TYPE_ENDPOINT, NULL);
+    wp_object_manager_add_interest (om, WP_TYPE_ENDPOINT, NULL);
     wp_object_manager_request_proxy_features (om, WP_TYPE_ENDPOINT,
         WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_CONTROLS);
     func = (GCallback) set_volume;
   }
   /* device-node-props */
   else if (argc == 2 && !g_strcmp0 (argv[1], "device-node-props")) {
-    wp_object_manager_add_interest_1 (om, WP_TYPE_NODE, NULL);
+    wp_object_manager_add_interest (om, WP_TYPE_NODE, NULL);
     wp_object_manager_request_proxy_features (om, WP_TYPE_NODE,
         WP_PROXY_FEATURES_STANDARD);
     func = (GCallback) device_node_props;

@@ -82,7 +82,7 @@ activate_plugins (struct WpDaemonData *d)
   g_autoptr (WpObjectManager) om = NULL;
 
   om = wp_object_manager_new ();
-  wp_object_manager_add_interest_1 (om, WP_TYPE_PLUGIN, NULL);
+  wp_object_manager_add_interest (om, WP_TYPE_PLUGIN, NULL);
   g_signal_connect (om, "object-added", G_CALLBACK (on_plugin_added), d);
   wp_core_install_object_manager (d->core, om);
 

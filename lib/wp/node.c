@@ -102,7 +102,7 @@ wp_node_ensure_feature_ports (WpNode * self, guint32 bound_id)
         bound_id);
 
     priv->ports_om = wp_object_manager_new ();
-    wp_object_manager_add_interest_1 (priv->ports_om,
+    wp_object_manager_add_interest (priv->ports_om,
         WP_TYPE_PORT,
         WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_NODE_ID, "=u", bound_id,
         NULL);

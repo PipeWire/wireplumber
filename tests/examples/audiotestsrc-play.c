@@ -218,7 +218,7 @@ start_endpoints_provider (AppData * d)
   /* for example purposes, we pretend we don't have access to the data set by
      start_nodes_provider(), i.e. d->audiotestsrc & d->alsasink */
   d->nodes_om = wp_object_manager_new ();
-  wp_object_manager_add_interest_1 (d->nodes_om, WP_TYPE_NODE, NULL);
+  wp_object_manager_add_interest (d->nodes_om, WP_TYPE_NODE, NULL);
   wp_object_manager_request_proxy_features (d->nodes_om, WP_TYPE_NODE,
       WP_PROXY_FEATURES_STANDARD);
 
