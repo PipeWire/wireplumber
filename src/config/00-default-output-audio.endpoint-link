@@ -3,6 +3,3 @@ media_class = "Stream/Output/Audio"
 
 [target-endpoint]
 media_class = "Audio/Sink"
-
-[endpoint-link]
-keep = false

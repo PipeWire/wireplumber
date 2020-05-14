@@ -7,26 +7,12 @@
  */
 
 #include <pipewire/pipewire.h>
+#include <pipewire/extensions/session-manager.h>
 
 #include <wp/wp.h>
 
 #include "parser-endpoint-link.h"
 #include "context.h"
-
-struct link_info {
-  WpEndpoint *ep;
-  guint32 stream_id;
-  gboolean keep;
-};
-
-static void
-link_info_destroy (gpointer p)
-{
-  struct link_info *li = p;
-  g_return_if_fail (li);
-  g_clear_object (&li->ep);
-  g_slice_free (struct link_info, li);
-}
 
 struct _WpConfigPolicyContext
 {
@@ -46,7 +32,7 @@ G_DEFINE_TYPE (WpConfigPolicyContext, wp_config_policy_context,
     WP_TYPE_PLUGIN)
 
 static WpEndpoint *
-wp_config_policy_context_get_data_target (WpConfigPolicyContext *self,
+wp_config_policy_context_get_endpoint_target (WpConfigPolicyContext *self,
     WpSession *session, const struct WpParserEndpointLinkData *data,
     guint32 *stream_id)
 {
@@ -119,17 +105,77 @@ wp_config_policy_context_get_data_target (WpConfigPolicyContext *self,
   return g_object_ref (target);
 }
 
+static WpEndpointLink *
+wp_config_policy_context_get_endpoint_link (WpConfigPolicyContext *self,
+    WpSession *session, WpEndpoint *ep, WpEndpoint *target)
+{
+  WpEndpointLink *link = NULL;
+  const guint32 ep_id = wp_proxy_get_bound_id (WP_PROXY (ep));
+  const guint32 target_id = wp_proxy_get_bound_id (WP_PROXY (target));
+
+  switch (wp_endpoint_get_direction (ep)) {
+  case WP_DIRECTION_INPUT:
+    /* Capture */
+    link = wp_session_lookup_link (session,
+        WP_CONSTRAINT_TYPE_PW_PROPERTY,
+        PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT, "=u", ep_id,
+        WP_CONSTRAINT_TYPE_PW_PROPERTY,
+        PW_KEY_ENDPOINT_LINK_OUTPUT_ENDPOINT, "=u", target_id, NULL);
+    break;
+  case WP_DIRECTION_OUTPUT:
+    /* Playback */
+    link = wp_session_lookup_link (session,
+        WP_CONSTRAINT_TYPE_PW_PROPERTY,
+        PW_KEY_ENDPOINT_LINK_OUTPUT_ENDPOINT, "=u", ep_id,
+        WP_CONSTRAINT_TYPE_PW_PROPERTY,
+        PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT, "=u", target_id, NULL);
+    break;
+  default:
+    g_return_val_if_reached (NULL);
+  }
+
+  return link;
+}
+
 static void
-wp_config_policy_context_add_link_info (WpConfigPolicyContext *self,
-    GHashTable *table, WpSession *session, WpEndpoint *ep)
+wp_config_policy_context_link_endpoint (WpConfigPolicyContext *self,
+    WpEndpoint *ep, WpEndpoint *target, guint32 target_stream_id)
+{
+  g_autoptr (WpProperties) props = NULL;
+  const guint32 target_id = wp_proxy_get_bound_id (WP_PROXY (target));
+
+  /* Create the link properties */
+  props = wp_properties_new_empty ();
+  switch (wp_endpoint_get_direction (ep)) {
+  case WP_DIRECTION_INPUT:
+    /* Capture */
+    wp_properties_setf (props, PW_KEY_ENDPOINT_LINK_OUTPUT_ENDPOINT, "%u", target_id);
+    wp_properties_setf (props, PW_KEY_ENDPOINT_LINK_OUTPUT_STREAM, "%u", target_stream_id);
+    break;
+  case WP_DIRECTION_OUTPUT:
+    /* Playback */
+    wp_properties_setf (props, PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT, "%u", target_id);
+    wp_properties_setf (props, PW_KEY_ENDPOINT_LINK_INPUT_STREAM, "%u", target_stream_id);
+    break;
+  default:
+    g_return_if_reached ();
+  }
+
+  /* Create the link */
+  wp_endpoint_create_link (ep, props);
+}
+
+static void
+wp_config_policy_context_handle_endpoint (WpConfigPolicyContext *self,
+    WpSession *session, WpEndpoint *ep)
 {
   g_autoptr (WpCore) core = wp_plugin_get_core (WP_PLUGIN (self));
   g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
   g_autoptr (WpConfigParser) parser = NULL;
   const struct WpParserEndpointLinkData *data = NULL;
-  struct link_info *res = NULL;
   g_autoptr (WpEndpoint) target = NULL;
-  guint32 stream_id = SPA_ID_INVALID;
+  g_autoptr (WpEndpointLink) link = NULL;
+  guint32 target_stream_id = SPA_ID_INVALID;
 
   /* Get the parser for the endpoint-link extension */
   parser = wp_configuration_get_parser (config,
@@ -140,101 +186,19 @@ wp_config_policy_context_add_link_info (WpConfigPolicyContext *self,
   if (!data)
     return;
 
-  /* Get the target */
-  target = wp_config_policy_context_get_data_target (self, session, data,
-      &stream_id);
+  /* Get the endpoint target */
+  target = wp_config_policy_context_get_endpoint_target (self, session, data,
+      &target_stream_id);
   if (!target)
     return;
 
-  /* Create the link info */
-  res = g_slice_new0 (struct link_info);
-  res->ep = g_object_ref (ep);
-  res->stream_id = stream_id;
-  res->keep = data->el.keep;
+  /* Return if the endpoint is already linked with that target */
+  link = wp_config_policy_context_get_endpoint_link (self, session, ep, target);
+  if (link)
+    return;
 
-  /* Get the link infos for the target, or create a new one if not found */
-  GPtrArray *link_infos = g_hash_table_lookup (table, target);
-  if (!link_infos) {
-    link_infos = g_ptr_array_new_with_free_func (link_info_destroy);
-    g_ptr_array_add (link_infos, res);
-    g_hash_table_insert (table, g_steal_pointer (&target), link_infos);
-  } else {
-    g_ptr_array_add (link_infos, res);
-  }
-}
-
-static gint
-link_info_compare_func (gconstpointer a, gconstpointer b, gpointer data)
-{
-  struct link_info *li_a = *(struct link_info *const *)a;
-  struct link_info *li_b = *(struct link_info *const *)b;
-  g_autoptr (WpProperties) props_a = NULL;
-  g_autoptr (WpProperties) props_b = NULL;
-  guint prio_a = 0, prio_b = 0;
-  const char *str = NULL;
-  gint res = 0;
-
-  res = (gint) li_a->keep - (gint) li_b->keep;
-  if (res != 0)
-    return res;
-
-  /* Sort from highest priority to lowest */
-  props_a = wp_proxy_get_properties (WP_PROXY (li_a->ep));
-  str = wp_properties_get (props_a, "endpoint.priority");
-  if (str)
-    prio_a = atoi (str);
-  props_b = wp_proxy_get_properties (WP_PROXY (li_b->ep));
-  str = wp_properties_get (props_b, "endpoint.priority");
-  if (str)
-    prio_b = atoi (str);
-  return prio_b - prio_a;
-}
-
-static gboolean
-wp_config_policy_context_handle_pending_link (WpConfigPolicyContext *self,
-    struct link_info *li, WpEndpoint *target)
-{
-  g_autoptr (WpProperties) props = NULL;
-  const guint32 target_id = wp_proxy_get_bound_id (WP_PROXY (target));
-
-  /* Create the link properties */
-  props = wp_properties_new_empty ();
-  switch (wp_endpoint_get_direction (li->ep)) {
-  case WP_DIRECTION_INPUT:
-    /* Capture */
-    wp_properties_setf (props, "endpoint-link.output.endpoint", "%u", target_id);
-    wp_properties_setf (props, "endpoint-link.output.stream", "%u", li->stream_id);
-    break;
-  case WP_DIRECTION_OUTPUT:
-    /* Playback */
-    wp_properties_setf (props, "endpoint-link.input.endpoint", "%u", target_id);
-    wp_properties_setf (props, "endpoint-link.input.stream", "%u", li->stream_id);
-    break;
-  default:
-    g_return_val_if_reached (FALSE);
-  }
-
-  /* Create the link */
-  wp_endpoint_create_link (li->ep, props);
-  return TRUE;
-}
-
-static void
-links_table_handle_foreach (gpointer key, gpointer value, gpointer data)
-{
-  WpConfigPolicyContext *self = data;
-  WpEndpoint *target = key;
-  GPtrArray *link_infos = value;
-
-  /* Sort the link infos by role and creation time */
-  g_ptr_array_sort_with_data (link_infos, link_info_compare_func, target);
-
-  /* Handle the first endpoint and also the ones with keep=true */
-  for (guint i = 0; i < link_infos->len; i++) {
-    struct link_info *li = g_ptr_array_index (link_infos, i);
-    if (i == 0 || li->keep)
-      wp_config_policy_context_handle_pending_link (self, li, target);
-  }
+  /* Link endpoint with target */
+  wp_config_policy_context_link_endpoint (self, ep, target, target_stream_id);
 }
 
 static void
@@ -245,23 +209,12 @@ on_session_endpoints_changed (WpSession *session, WpConfigPolicyContext *self)
 
   wp_debug ("endpoints changed");
 
-  /* Create the links table <target, array-of-link-info> */
-  GHashTable *links_table = g_hash_table_new_full (g_direct_hash,
-      g_direct_equal, g_object_unref, (GDestroyNotify) g_ptr_array_unref);
-
-  /* Fill the links table */
+  /* Handle all endpoints */
   it = wp_session_iterate_endpoints (session);
-  while (wp_iterator_next (it, &val)) {
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
     WpEndpoint *ep = g_value_get_object (&val);
-    wp_config_policy_context_add_link_info (self, links_table, session, ep);
-    g_value_unset (&val);
+    wp_config_policy_context_handle_endpoint (self, session, ep);
   }
-
-  /* Handle the links */
-  g_hash_table_foreach (links_table, links_table_handle_foreach, self);
-
-  /* Clean up */
-  g_clear_pointer (&links_table, g_hash_table_unref);
 }
 
 static void

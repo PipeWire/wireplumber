@@ -109,7 +109,7 @@ static struct WpParserEndpointLinkData *
 wp_parser_endpoint_link_data_new (const gchar *location)
 {
   g_autoptr (WpTomlFile) file = NULL;
-  g_autoptr (WpTomlTable) table = NULL, me = NULL, te = NULL, el = NULL;
+  g_autoptr (WpTomlTable) table = NULL, me = NULL, te = NULL;
   struct WpParserEndpointLinkData *res = NULL;
 
   /* File format:
@@ -124,9 +124,6 @@ wp_parser_endpoint_link_data_new (const gchar *location)
    * media_class (string)
    * properties (WpProperties)
    * stream (string)
-   *
-   * [endpoint-link]
-   * keep (bool)
    */
 
   /* Get the TOML file */
@@ -179,15 +176,6 @@ wp_parser_endpoint_link_data_new (const gchar *location)
     /* Get the target endpoint stream */
     res->te.stream = wp_toml_table_get_string (te, "stream");
   }
-
-  /* Get the target-endpoint table */
-  el = wp_toml_table_get_table (table, "endpoint-link");
-  if (!el)
-    goto error;
-
-  /* Get the endpoint link keep */
-  res->el.keep = FALSE;
-  wp_toml_table_get_boolean (el, "keep", &res->el.keep);
 
   return res;
 
