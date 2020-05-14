@@ -90,12 +90,15 @@ log_level_index (GLogLevelFlags log_level)
 }
 
 static inline gint
-spa_log_level_index (enum spa_log_level lvl)
+level_index_from_spa (gint spa_lvl)
 {
-  for (gint i = 1; i < SPA_N_ELEMENTS (log_level_info); i++)
-    if (lvl == log_level_info[i].spa_level)
-      return i;
-  return 0;
+  return CLAMP (spa_lvl + 2, 0, G_N_ELEMENTS (log_level_info) - 1);
+}
+
+static inline gint
+level_index_to_spa (gint lvl_index)
+{
+  return CLAMP (lvl_index - 2, 0, 5);
 }
 
 static void
@@ -113,8 +116,7 @@ wp_debug_initialize (void)
       tokens = pw_split_strv (debug, ":", 2, &n_tokens);
 
       /* set the log level */
-      enabled_level = atoi (tokens[0]);
-      enabled_level = CLAMP (enabled_level, 0, G_N_ELEMENTS (log_level_info) - 1);
+      enabled_level = level_index_from_spa (atoi (tokens[0]));
 
       /* enable filtering of debug categories */
       if (n_tokens > 1) {
@@ -135,7 +137,7 @@ wp_debug_initialize (void)
     output_is_journal = g_log_writer_is_journald (fileno (stderr));
 
     /* set the log level also on the spa_log */
-    wp_spa_log_get_instance()->level = log_level_info[enabled_level].spa_level;
+    wp_spa_log_get_instance()->level = level_index_to_spa (enabled_level);
 
     if (categories)
       pw_free_strv (categories);
@@ -370,7 +372,7 @@ wp_spa_log_logv (void *object,
     { "GLIB_DOMAIN", "pw", -1 },
   };
 
-  gint log_level_idx = spa_log_level_index (level);
+  gint log_level_idx = level_index_from_spa (level);
   GLogLevelFlags log_level = log_level_info[log_level_idx].log_level;
   fields[0].value = log_level_info[log_level_idx].priority;
 
