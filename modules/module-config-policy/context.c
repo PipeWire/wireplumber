@@ -56,13 +56,13 @@ wp_config_policy_context_get_data_target (WpConfigPolicyContext *self,
 
   g_return_val_if_fail (session, NULL);
 
-  it = wp_session_iterate_endpoints (session);
-
   /* If target-endpoint data was defined in the configuration file, find the
    * matching endpoint based on target-endpoint data */
   if (data->has_te) {
     guint highest_prio = 0;
-    while (wp_iterator_next (it, &val)) {
+    for (it = wp_session_iterate_endpoints (session);
+         wp_iterator_next (it, &val);
+         g_value_unset (&val)) {
       WpEndpoint *ep = g_value_get_object (&val);
       if (wp_parser_endpoint_link_matches_endpoint_data (ep,
           &data->te.endpoint_data)) {
@@ -74,33 +74,24 @@ wp_config_policy_context_get_data_target (WpConfigPolicyContext *self,
           target = ep;
         }
       }
-      g_value_unset (&val);
     }
   }
 
   /* Otherwise, use the default session endpoint */
   else {
-    const char *type_name;
+    guint def_id = 0;
     switch (data->me.endpoint_data.direction) {
       case WP_DIRECTION_INPUT:
-        type_name = "Wp:defaultSource";
+        def_id = wp_session_get_default_endpoint (session, "Wp:defaultSource");
         break;
       case WP_DIRECTION_OUTPUT:
-        type_name = "Wp:defaultSink";
+        def_id = wp_session_get_default_endpoint (session, "Wp:defaultSink");
         break;
       default:
-        g_warn_if_reached ();
-        return NULL;
+        g_return_val_if_reached (NULL);
     }
-    while (wp_iterator_next (it, &val)) {
-      WpEndpoint *ep = g_value_get_object (&val);
-      guint def_id = wp_session_get_default_endpoint (session, type_name);
-      if (def_id == wp_proxy_get_bound_id (WP_PROXY (ep))) {
-        target = ep;
-        break;
-      }
-      g_value_unset (&val);
-    }
+    target = wp_session_lookup_endpoint (session,
+        WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", def_id, NULL);
   }
 
   if (!target)
