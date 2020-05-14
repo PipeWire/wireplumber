@@ -1150,6 +1150,11 @@ expose_tmp_globals (WpCore *core, GAsyncResult *res, WpRegistry *self)
 
     for (guint i = 0; i < tmp_globals->len; i++) {
       WpGlobal *g = g_ptr_array_index (tmp_globals, i);
+
+      /* if global was already removed, drop it */
+      if (g->flags == 0)
+        continue;
+
       wp_object_manager_add_global (om, g);
     }
     wp_object_manager_maybe_objects_changed (om);
