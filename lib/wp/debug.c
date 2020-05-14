@@ -67,14 +67,14 @@ static const struct {
   gchar priority[2];
   gchar color[8];
 } log_level_info[] = {
-  { 0,                   0,                  "UNK  ", "5", COLOR_BRIGHT_RED },
-  { G_LOG_LEVEL_ERROR,   0,                  "ERROR", "3", COLOR_RED },
-  { G_LOG_LEVEL_CRITICAL,0,                  "CRIT ", "4", COLOR_BRIGHT_MAGENTA },
-  { G_LOG_LEVEL_WARNING, SPA_LOG_LEVEL_ERROR,"WARN ", "4", COLOR_BRIGHT_YELLOW },
-  { G_LOG_LEVEL_MESSAGE, SPA_LOG_LEVEL_WARN, "MSG  ", "5", COLOR_BRIGHT_GREEN },
-  { G_LOG_LEVEL_INFO,    SPA_LOG_LEVEL_INFO, "INFO ", "6", COLOR_GREEN },
-  { G_LOG_LEVEL_DEBUG,   SPA_LOG_LEVEL_DEBUG,"DEBUG", "7", COLOR_BRIGHT_CYAN },
-  { WP_LOG_LEVEL_TRACE,  SPA_LOG_LEVEL_TRACE,"TRACE", "7", COLOR_CYAN },
+  { 0,                   0,                  "U", "5", COLOR_BRIGHT_RED },
+  { G_LOG_LEVEL_ERROR,   0,                  "E", "3", COLOR_RED },
+  { G_LOG_LEVEL_CRITICAL,0,                  "C", "4", COLOR_BRIGHT_MAGENTA },
+  { G_LOG_LEVEL_WARNING, SPA_LOG_LEVEL_ERROR,"W", "4", COLOR_BRIGHT_YELLOW },
+  { G_LOG_LEVEL_MESSAGE, SPA_LOG_LEVEL_WARN, "M", "5", COLOR_BRIGHT_GREEN },
+  { G_LOG_LEVEL_INFO,    SPA_LOG_LEVEL_INFO, "I", "6", COLOR_GREEN },
+  { G_LOG_LEVEL_DEBUG,   SPA_LOG_LEVEL_DEBUG,"D", "7", COLOR_BRIGHT_CYAN },
+  { WP_LOG_LEVEL_TRACE,  SPA_LOG_LEVEL_TRACE,"T", "7", COLOR_CYAN },
 };
 
 /* map glib's log levels, which are flags in the range (1<<2) to (1<<8),
@@ -159,13 +159,13 @@ write_debug_message (FILE *s, struct common_fields *cf)
   localtime_r (&now_secs, &now_tm);
   strftime (time_buf, sizeof (time_buf), "%H:%M:%S", &now_tm);
 
-  fprintf (s, "%s.%06d %s%s %s%20.20s %s%s:%s:%s:%s %s\n",
-      /* timestamp */
-      time_buf,
-      (gint) (now % G_USEC_PER_SEC),
+  fprintf (s, "%s%s %s.%06d %s%18.18s %s%s:%s:%s:%s %s\n",
       /* level */
       use_color ? log_level_info[cf->log_level].color : "",
       log_level_info[cf->log_level].name,
+      /* timestamp */
+      time_buf,
+      (gint) (now % G_USEC_PER_SEC),
       /* domain */
       use_color ? DOMAIN_COLOR : "",
       cf->log_domain,
