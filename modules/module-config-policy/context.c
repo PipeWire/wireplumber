@@ -83,10 +83,10 @@ wp_config_policy_context_get_data_target (WpConfigPolicyContext *self,
     const char *type_name;
     switch (data->me.endpoint_data.direction) {
       case WP_DIRECTION_INPUT:
-        type_name = "wp-session-default-endpoint-audio-source";
+        type_name = "Wp:defaultSource";
         break;
       case WP_DIRECTION_OUTPUT:
-        type_name = "wp-session-default-endpoint-audio-sink";
+        type_name = "Wp:defaultSink";
         break;
       default:
         g_warn_if_reached ();

@@ -95,7 +95,7 @@ list_endpoints (WpObjectManager * om, struct WpCliData * d)
         NULL);
     for (; wp_iterator_next (ep_it, &ep_val); g_value_unset (&ep_val)) {
       WpEndpoint *ep = g_value_get_object (&ep_val);
-      print_dev_endpoint (ep, session, "wp-session-default-endpoint-audio-source");
+      print_dev_endpoint (ep, session, "Wp:defaultSource");
     }
     g_clear_pointer (&ep_it, wp_iterator_unref);
 
@@ -105,7 +105,7 @@ list_endpoints (WpObjectManager * om, struct WpCliData * d)
         NULL);
     for (; wp_iterator_next (ep_it, &ep_val); g_value_unset (&ep_val)) {
       WpEndpoint *ep = g_value_get_object (&ep_val);
-      print_dev_endpoint (ep, session, "wp-session-default-endpoint-audio-sink");
+      print_dev_endpoint (ep, session, "Wp:defaultSink");
     }
     g_clear_pointer (&ep_it, wp_iterator_unref);
 
@@ -149,9 +149,9 @@ set_default (WpObjectManager * om, struct WpCliData * d)
     }
 
     if (g_strcmp0 (wp_endpoint_get_media_class (ep), "Audio/Sink") == 0)
-      type_name = "wp-session-default-endpoint-audio-sink";
+      type_name = "Wp:defaultSink";
     else if (g_strcmp0 (wp_endpoint_get_media_class (ep), "Audio/Source") == 0)
-      type_name = "wp-session-default-endpoint-audio-source";
+      type_name = "Wp:defaultSource";
     else {
       g_print ("%u: not a device endpoint\n", id);
       g_main_loop_quit (d->loop);

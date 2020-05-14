@@ -868,17 +868,11 @@ wp_impl_session_init (WpImplSession * self)
 
   /* prepare default endpoint */
   wp_spa_props_register (controls,
-      "wp-session-default-endpoint-audio-source",
-      "Default Audio Source", wp_spa_pod_new_int (0));
+      "Wp:defaultSource", "Default Source", wp_spa_pod_new_int (0));
   wp_spa_props_register (controls,
-      "wp-session-default-endpoint-audio-sink",
-      "Default Audio Sink", wp_spa_pod_new_int (0));
-  wp_spa_props_register (controls,
-      "wp-session-default-endpoint-video-source",
-      "Default Video Source", wp_spa_pod_new_int (0));
+      "Wp:defaultSink", "Default Sink", wp_spa_pod_new_int (0));
 
-  wp_proxy_set_feature_ready (WP_PROXY (self),
-      WP_PROXY_FEATURE_CONTROLS);
+  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_CONTROLS);
 }
 
 static void
