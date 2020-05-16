@@ -62,6 +62,9 @@ struct _WpSessionClass
 };
 
 WP_API
+const gchar * wp_session_get_name (WpSession * self);
+
+WP_API
 guint32 wp_session_get_default_endpoint (WpSession * self,
     const gchar * id_name);
 

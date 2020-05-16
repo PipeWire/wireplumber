@@ -402,6 +402,23 @@ wp_session_class_init (WpSessionClass * klass)
 }
 
 /**
+ * wp_session_get_name:
+ * @self: the session
+ *
+ * Returns: (transfer none): the (unique) name of the session
+ */
+const gchar *
+wp_session_get_name (WpSession * self)
+{
+  g_return_val_if_fail (WP_IS_SESSION (self), NULL);
+  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+          WP_PROXY_FEATURE_INFO, NULL);
+
+  WpSessionPrivate *priv = wp_session_get_instance_private (self);
+  return wp_properties_get (priv->properties, "session.name");
+}
+
+/**
  * wp_session_get_default_endpoint:
  * @self: the session
  * @id_name: the endpoint id name
