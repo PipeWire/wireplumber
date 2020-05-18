@@ -1,6 +1,7 @@
 stages:
   - container
   - build
+  - pages
 
 variables:
   FDO_UPSTREAM_REPO: 'pipewire/wireplumber'
@@ -18,8 +19,13 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2020-05-18.1'
+    FDO_DISTRIBUTION_TAG: '2020-05-18.3'
     FDO_DISTRIBUTION_VERSION: '32'
+    # findutils: used by the .build script below
+    # cmake: required for cpptoml submodule & hotdoc
+    # dbus-devel: required by pipewire
+    # dbus-daemon: required by GDBus unit tests
+    # libxml, json-glib: required by hotdoc
     FDO_DISTRIBUTION_PACKAGES: >-
       findutils
       gcc
@@ -28,10 +34,22 @@ include:
       meson
       cmake
       glib2-devel
-      gtk-doc
       gobject-introspection-devel
       dbus-devel
       dbus-daemon
+      libxml2-devel
+      json-glib-devel
+    # build hotdoc via pip, since there is no rpm package and make sure
+    # to remove its build-deps afterwards to save space.
+    # also install glib2-doc (required to make documentation links to GLib work)
+    # manually, to remove the 'tsflags=nodocs' flag that is enabled by default
+    # in the fedora docker image
+    FDO_DISTRIBUTION_EXEC: >-
+      dnf -y install python3-pip make python3-devel flex clang ;
+      HOTDOC_BUILD_C_EXTENSION=enabled pip3 install --no-cache-dir hotdoc ;
+      rm -rf ~/.cache/pip ;
+      dnf -y remove python3-pip make python3-devel flex clang ;
+      dnf -y install glib2-doc --setopt='tsflags='
 
 .build:
   before_script:
@@ -57,6 +75,7 @@ include:
   script:
     # Build wireplumber
     - meson "$WP_BUILD_DIR" . --prefix="$PREFIX"
+        -Dintrospection=enabled -Ddoc=enabled
     - cd "$WP_BUILD_DIR"
     - ninja
     - ninja test
@@ -80,3 +99,13 @@ build_on_fedora:
     - .fdo.distribution-image@fedora
     - .build
   stage: build
+
+pages:
+  stage: pages
+  dependencies:
+    - build_on_fedora
+  script:
+    - export WP_BUILD_DIR="$PWD/build-wireplumber-build_on_fedora"
+    - cp -R $WP_BUILD_DIR/docs/wireplumber-doc/html/* public/
+  only:
+    - master
