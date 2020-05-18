@@ -1,23 +1,82 @@
-image: registry.freedesktop.org/pipewire/pipewire/fedora:31
+stages:
+  - container
+  - build
 
 variables:
-  DEPENDENCIES: gtk-doc gobject-introspection-devel cmake gcc-c++
+  FDO_UPSTREAM_REPO: 'pipewire/wireplumber'
+  # change to build against a different tag/commit/branch of pipewire
+  PIPEWIRE_HEAD: '0.3.5'
 
-build:
+# ci-templates as of May 1st 2020
+.templates_sha: &templates_sha 59de540b620c45739871d1a073d76d5521989d11
+
+include:
+  - project: 'freedesktop/ci-templates'
+    ref: *templates_sha
+    file: '/templates/fedora.yml'
+
+.fedora:
+  variables:
+    # Update this tag when you want to trigger a rebuild
+    FDO_DISTRIBUTION_TAG: '2020-05-18.1'
+    FDO_DISTRIBUTION_VERSION: '32'
+    FDO_DISTRIBUTION_PACKAGES: >-
+      findutils
+      gcc
+      gcc-c++
+      git
+      meson
+      cmake
+      glib2-devel
+      gtk-doc
+      gobject-introspection-devel
+      dbus-devel
+      dbus-daemon
+
+.build:
   before_script:
-    - dnf update -y --nogpgcheck && dnf install -y --nogpgcheck $DEPENDENCIES
-    - git clone https://gitlab.freedesktop.org/pipewire/pipewire.git
-  script:
+    # setup the environment
+    - export BUILD_ID="$CI_JOB_NAME"
+    - export PREFIX="$PWD/prefix-$BUILD_ID"
+    - export PW_BUILD_DIR="$PWD/build-pipewire-$BUILD_ID"
     # Build pipewire
-    - cd pipewire
-    - meson . _build --prefix=/usr
+    # Fedora also ships that, but without the test plugins that we need...
+    - git clone --depth=1 --branch="$PIPEWIRE_HEAD"
+        https://gitlab.freedesktop.org/pipewire/pipewire.git
+    - meson "$PW_BUILD_DIR" pipewire --prefix="$PREFIX"
         -Dpipewire-alsa=false -Dpipewire-pulseaudio=false -Dpipewire-jack=false
-        -Djack=false -Dvulkan=false -Dgstreamer=false -Dbluez5=false -Dman=false
-        -Dvideotestsrc=true -Daudiotestsrc=true
-    - ninja -C _build
-    - ninja -C _build install
-    - cd ..
+        -Dalsa=false -Dv4l2=false -Djack=false -Dbluez5=false -Dvulkan=false
+        -Dgstreamer=false -Dsystemd=false
+        -Ddocs=false -Dman=false -Dexamples=false -Dpw-cat=false
+        -Dvideotestsrc=true -Daudiotestsrc=true -Dtest=true
+    - ninja -C "$PW_BUILD_DIR" install
+    # misc environment only for wireplumber
+    - export WP_BUILD_DIR="$PWD/build-wireplumber-$BUILD_ID"
+    - export XDG_RUNTIME_DIR="$(mktemp -p $PWD -d xdg-runtime-XXXXXX)"
+    - export PKG_CONFIG_PATH="$(dirname $(find "$PREFIX" -name 'libpipewire-*.pc')):$PKG_CONFIG_PATH"
+  script:
     # Build wireplumber
-    - meson . _build --prefix=/usr
-    - ninja -C _build
-    - ninja -C _build install
+    - meson "$WP_BUILD_DIR" . --prefix="$PREFIX"
+    - cd "$WP_BUILD_DIR"
+    - ninja
+    - ninja test
+    - ninja install
+  artifacts:
+    name: wireplumber-$CI_COMMIT_SHA
+    when: on_failure
+    expire_in: 2 weeks
+    paths:
+      - build-*/meson-logs
+
+container_fedora:
+  extends:
+    - .fedora
+    - .fdo.container-build@fedora
+  stage: container
+
+build_on_fedora:
+  extends:
+    - .fedora
+    - .fdo.distribution-image@fedora
+    - .build
+  stage: build
