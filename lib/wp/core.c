@@ -183,10 +183,22 @@ static const struct pw_core_events core_events = {
   .error = core_error,
 };
 
+static gboolean
+async_tasks_finish (gpointer key, gpointer value, gpointer user_data)
+{
+  GTask *task = G_TASK (value);
+  g_return_val_if_fail (task, FALSE);
+
+  g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_INVARIANT, "core disconnected");
+  return TRUE;
+}
+
 static void
 proxy_core_destroy (void *data)
 {
   WpCore *self = WP_CORE (data);
+  g_hash_table_foreach_remove (self->async_tasks, async_tasks_finish, NULL);
   self->pw_core = NULL;
   wp_debug_object (self, "emit disconnected");
   g_signal_emit (self, signals[SIGNAL_DISCONNECTED], 0);
