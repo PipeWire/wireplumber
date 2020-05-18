@@ -1,5 +1,5 @@
 project('wireplumber', ['c', 'cpp'],
-  version : '0.1.90',
+  version : '0.2.0',
   license : 'MIT',
   meson_version : '>= 0.47.0',
   default_options : [
