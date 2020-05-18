@@ -280,7 +280,6 @@ wp_configuration_reload (WpConfiguration *self, const char *extension)
   GError* error = NULL;
   const gchar *file_name = NULL;
   g_autofree gchar *ext = NULL;
-  g_autofree gchar *location = NULL;
 
   g_return_if_fail (WP_IS_CONFIGURATION (self));
 
@@ -312,7 +311,7 @@ wp_configuration_reload (WpConfiguration *self, const char *extension)
     while ((file_name = g_dir_read_name (conf_dir))) {
       /* Only parse files that have the proper extension */
       if (g_str_has_suffix (file_name, ext)) {
-        location = g_build_filename (path, file_name, NULL);
+        g_autofree gchar * location = g_build_filename (path, file_name, NULL);
 
         wp_debug_object (self, "loading config file: %s", location);
 
