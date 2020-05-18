@@ -9,7 +9,7 @@
 #include <wp/wp.h>
 #include <pipewire/pipewire.h>
 
-#include "../../../modules/module-monitor/dbus-device-reservation.h"
+#include "../../modules/module-monitor/dbus-device-reservation.h"
 
 typedef struct {
   GTestDBus *dbus_test;
