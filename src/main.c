@@ -408,6 +408,7 @@ main (gint argc, gchar **argv)
 
   g_idle_add ((GSourceFunc) load_commands_file, &data);
   g_main_loop_run (data.loop);
+  wp_core_disconnect (core);
 
 out:
   if (data.exit_message) {
