@@ -106,6 +106,7 @@ pages:
     - build_on_fedora
   script:
     - export PREFIX="$PWD/prefix-build_on_fedora"
+    - mkdir public
     - cp -R $PREFIX/share/doc/wireplumber/html/* public/
   artifacts:
     paths:
