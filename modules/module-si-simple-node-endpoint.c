@@ -8,6 +8,7 @@
 
 #include <wp/wp.h>
 #include <pipewire/keys.h>
+#include <pipewire/properties.h>
 #include <pipewire/extensions/session-manager/keys.h>
 
 enum {
@@ -343,12 +344,17 @@ si_simple_node_endpoint_get_ports (WpSiPortInfo * item, const gchar * context)
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
   WpDirection direction = self->direction;
+  gboolean monitor_context = FALSE;
   guint32 node_id;
 
-  /* context can only be either NULL or "reverse" */
+  /* context can only be NULL, "reverse" or "monitor" */
   if (!g_strcmp0 (context, "reverse")) {
     direction = (self->direction == WP_DIRECTION_INPUT) ?
         WP_DIRECTION_OUTPUT : WP_DIRECTION_INPUT;
+  }
+  else if (!g_strcmp0 (context, "monitor")) {
+    direction = WP_DIRECTION_OUTPUT;
+    monitor_context = TRUE;
   }
   else if (context != NULL) {
     /* on any other context, return an empty list of ports */
@@ -364,17 +370,26 @@ si_simple_node_endpoint_get_ports (WpSiPortInfo * item, const gchar * context)
   {
     WpPort *port = g_value_get_object (&val);
     g_autoptr (WpProperties) props = NULL;
+    const gchar *str;
     const gchar *channel;
     guint32 port_id, channel_id = 0;
+    gboolean is_monitor = FALSE;
 
     if (wp_port_get_direction (port) != direction)
+      continue;
+
+    /* skip monitor ports if not monitor context, or skip non-monitor ports if
+     * monitor context */
+    props = wp_proxy_get_properties (WP_PROXY (port));
+    str = wp_properties_get (props, PW_KEY_PORT_MONITOR);
+    is_monitor = str && pw_properties_parse_bool (str);
+    if (is_monitor != monitor_context)
       continue;
 
     port_id = wp_proxy_get_bound_id (WP_PROXY (port));
 
     /* try to find the audio channel; if channel is NULL, this will silently
        leave the channel_id to its default value, 0 */
-    props = wp_proxy_get_properties (WP_PROXY (port));
     channel = wp_properties_get (props, PW_KEY_AUDIO_CHANNEL);
     wp_spa_type_get_by_nick (WP_SPA_TYPE_TABLE_AUDIO_CHANNEL, channel,
         &channel_id, NULL, NULL);
