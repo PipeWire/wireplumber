@@ -215,11 +215,30 @@ config_policy_teardown (TestFixture *f, gconstpointer user_data)
 }
 
 static void
+on_state_changed (WpEndpointLink *ep_link, WpEndpointLinkState old_state,
+    WpEndpointLinkState new_state, const gchar *error, TestFixture *f)
+{
+  switch (new_state) {
+  case WP_ENDPOINT_LINK_STATE_ACTIVE:
+    break;
+  case WP_ENDPOINT_LINK_STATE_ERROR:
+    wp_message_object ("link failed: %s", error);
+    g_test_fail ();
+  case WP_ENDPOINT_LINK_STATE_INACTIVE:
+  case WP_ENDPOINT_LINK_STATE_PREPARING:
+  default:
+    return;
+  }
+
+  g_main_loop_quit (f->base.loop);
+}
+
+static void
 on_link_activated (WpPlugin *ctx, WpEndpointLink *ep_link,
     TestFixture *f)
 {
   g_assert_nonnull (ep_link);
-  g_main_loop_quit (f->base.loop);
+  g_signal_connect (ep_link, "state-changed", (GCallback) on_state_changed, f);
 }
 
 static void
