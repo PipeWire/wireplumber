@@ -347,7 +347,7 @@ si_simple_node_endpoint_get_ports (WpSiPortInfo * item, const gchar * context)
 
   /* context can only be either NULL or "reverse" */
   if (!g_strcmp0 (context, "reverse")) {
-    self->direction = (self->direction == WP_DIRECTION_INPUT) ?
+    direction = (self->direction == WP_DIRECTION_INPUT) ?
         WP_DIRECTION_OUTPUT : WP_DIRECTION_INPUT;
   }
   else if (context != NULL) {
