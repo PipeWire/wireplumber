@@ -15,6 +15,7 @@
 #include "context.h"
 
 G_DEFINE_QUARK (wp-module-config-endpoint-context-session, session);
+G_DEFINE_QUARK (wp-module-config-endpoint-context-monitor, monitor);
 
 struct _WpConfigEndpointContext
 {
@@ -69,11 +70,18 @@ static void
 endpoint_activate_finish_cb (WpSessionItem * ep, GAsyncResult * res,
     WpConfigEndpointContext * self)
 {
+  WpSessionItem * monitor = NULL;
   WpSession * session = NULL;
   g_autoptr (GError) error = NULL;
   gboolean activate_ret = wp_session_item_activate_finish (ep, res, &error);
   g_return_if_fail (error == NULL);
   g_return_if_fail (activate_ret);
+
+  /* Activate monitor if any */
+  monitor = g_object_get_qdata (G_OBJECT (ep), monitor_quark ());
+  if (monitor)
+    wp_session_item_activate (monitor,
+        (GAsyncReadyCallback) endpoint_activate_finish_cb, self);
 
   /* Get the session */
   session = g_object_get_qdata (G_OBJECT (ep), session_quark ());
@@ -96,6 +104,7 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
   g_autoptr (WpConfigParser) parser = NULL;
   const struct WpParserEndpointData *endpoint_data = NULL;
   const struct WpParserStreamsData *streams_data = NULL;
+  WpDirection direction = WP_DIRECTION_INPUT;
 
   /* Skip nodes with no media class (JACK Clients) */
   if (!wp_properties_get (props, PW_KEY_MEDIA_CLASS))
@@ -159,6 +168,15 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
     wp_session_item_configure (ep, g_variant_builder_end (&b));
   }
 
+  /* Get the endpoint direction */
+  {
+    g_autoptr (GVariant) ep_config = wp_session_item_get_configuration (ep);
+    if (!g_variant_lookup (ep_config, "direction", "y", &direction)) {
+      wp_warning_object (self, "could not get endpoint direction");
+      return;
+    }
+  }
+
   /* TODO: for now we always create softdsp audio endpoints if streams data is
    * valid. However, this will need to change once we have video endpoints. */
   if (streams_data) {
@@ -195,10 +213,36 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
     }
   }
 
-  /* Activate endpoint */
+  /* Create monitor endpoint if input direction and enable_monitor is true */
+  if (endpoint_data->e.c.enable_monitor && direction == WP_DIRECTION_INPUT) {
+    g_autoptr (WpSessionItem) monitor_ep =
+        wp_session_item_make (core, "si-monitor-endpoint");
+
+    g_auto (GVariantBuilder) b =
+        G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
+    g_return_if_fail (ep);
+    g_return_if_fail (monitor_ep);
+    g_variant_builder_add (&b, "{sv}", "adapter",
+        g_variant_new_uint64 ((guint64) ep));
+    wp_session_item_configure (monitor_ep, g_variant_builder_end (&b));
+
+    /* Set session */
+    g_object_set_qdata_full (
+        G_OBJECT (monitor_ep), session_quark (),
+        g_object_ref (session), g_object_unref);
+
+    /* Keep a reference in the original endpoint */
+    g_object_set_qdata_full (
+        G_OBJECT (streams_data ? streams_ep : ep), monitor_quark (),
+        g_object_ref (monitor_ep), g_object_unref);
+  }
+
+  /* Set session */
   g_object_set_qdata_full (
       G_OBJECT (streams_data ? streams_ep : ep), session_quark (),
       g_steal_pointer (&session), g_object_unref);
+
+  /* Activate endpoint */
   wp_session_item_activate (streams_data ? streams_ep : ep,
       (GAsyncReadyCallback) endpoint_activate_finish_cb, self);
 
