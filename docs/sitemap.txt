@@ -1,4 +1,8 @@
 index.md
+	installation/from-source.md
+	daemon/running.md
+		daemon/configuration.md
+		daemon/log.md
 	gi-index
-	daemon.md
-		configuration.md
+	contributing.md
+	community.md

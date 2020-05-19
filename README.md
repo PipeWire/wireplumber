@@ -5,9 +5,7 @@ WirePlumber is a modular session / policy manager for
 that wraps PipeWire's API, providing convenience for writing the daemon's
 modules as well as external tools for managing PipeWire.
 
-# Compiling & Running
+# Getting Started
 
-The most recent instructions can be found in the docs:
-
-* [Compilation](docs/index.md)
-* [Running](docs/daemon.md)
+Please refer to the documentation, which is available online
+[here](https://pipewire.pages.freedesktop.org/wireplumber/)

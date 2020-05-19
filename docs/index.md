@@ -5,37 +5,28 @@ WirePlumber is a modular session / policy manager for
 that wraps PipeWire's API, providing convenience for writing the daemon's
 modules as well as external tools for managing PipeWire.
 
-## Compiling
+ * [Installing WirePlumber](installation/from-source.md)
 
-### Dependencies
+## The WirePlumber Daemon
 
-In order to compile WirePlumber you will need:
+The WirePlumber daemon implements the session & policy management service.
+It follows a modular design, having plugins that implement the actual
+management functionality.
 
-* GLib >= 2.58
-* PipeWire 0.3 (master)
+ * [Running the WirePlumber Daemon](daemon/running.md)
+ * [Daemon Configuration](daemon/configuration.md)
+ * [Debug Logging](daemon/log.md)
 
-At the moment, due to heavy development of both PipeWire and WirePlumber,
-it is not always the case that the latest master of WirePlumber works with the
-latest master of PipeWire. The safest PipeWire branch to use with WirePlumber
-master is the `agl-next` branch from
-[my personal clone](https://gitlab.freedesktop.org/gkiagia/pipewire)
+## The WirePlumber Library
 
-### Compilation
+The WirePlumber Library provides API that allows you
+to extend the WirePlumber daemon, to write management or status tools
+for PipeWire (apps that don't do actual media streaming)
+and to write custom session managers for embedded devices.
 
-WirePlumber uses the meson build system. For compatibility and ease of use,
-though, a Makefile is also provided. The Makefile works only after the initial
-configuration of the project with meson.
+ * [API Reference](gi-index)
 
-Here is the very basic sequence of compiling for the first time:
-```
-$ meson build
-$ make
-```
+## Resources
 
-### Running automated tests
-
-WirePlumber has a few automated tests that you can easily run with:
-
-```
-$ make test
-```
+ * [Contribute to WirePlumber](contributing.md)
+ * [Reach out to the community](community.md)
