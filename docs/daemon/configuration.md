@@ -226,10 +226,10 @@ Device modes are being created by "monitors" that watch a specific subsystem
 (udev, bluez, etc...) for devices. Client nodes are being created by client
 applications that try to stream to/from pipewire. As soon as a node is created,
 the `module-config-endpoint` iterates through all the `.endpoint` configuration
-files, in the order that is determined by the `match-node.priority` field,
-and tries to match the node to the node description in the `[match-node]` table.
-Upon a successful match, a new endpoint that follows the description in the
-`[endpoint]` table is created.
+files, in the order that is determined by the filename, and tries to match the
+node to the node description in the `[match-node]` table. Upon a successful
+match, a new endpoint that follows the description in the `[endpoint]` table is
+created.
 
 ## `*.endpoint` configuration files
 
@@ -238,15 +238,6 @@ These files are TOML v0.5 files. At the top-level, they must contain exactly
 
 The `[match-node]` table contains properties that match a pipewire node that
 exists on the graph. Possible fields of this table are:
-
-* `priority`
-
-  Specifies the order in which the `.endpoint` files are being searched for a
-  match with a node. If a node matches the description of more than one
-  `.endpoint` file, the one with the highest priority wins.
-
-  The type of this field is unsigned integer. Bigger numbers mean higher
-  priority.
 
 * `properties`
 
@@ -288,47 +279,16 @@ exists on the graph. Possible fields of this table are:
 The `[endpoint]` table contains a description of the endpoint to be created.
 Possible fields of this table are:
 
+* `session`
+
+  Required. A String representing the session name to be used when exporting the
+  endpoint.
+
 * `type`
 
   Required. Specifies the factory to be used for construction.
-  The only well-known factory at the moment of writing is: `pw-audio-softdsp-endpoint`
-
-* `direction`
-
-  Required. Can be set to either `"sink"` or `"source"`. Specifies the
-  direction of the media flow of this endpoint. A `source` is an endpoint that
-  produces data (i.e. an audio capture device or a playback application) and
-  a `sink` is an endpoint that consumes data (audio playback device or
-  capture application).
-
-* `name`
-
-  Optional. The name of the newly created endpoint. If not specified,
-  the endpoint is named after the node (from the `node.name` property of the node).
-
-* `media_class`
-
-  Optional. A string that specifies an override for the `media.class` property
-  of the node. It can be used in special circumstances to declare that an
-  endpoint is dealing with a different type of data. This is only useful in
-  combination with a policy implementation that is aware of this media class.
-
-* `priority`
-
-  Optional. An unsigned integer that specifies the order in which endpoints are
-  chosen to be the default of a specific device group. Possible device groups
-  are (determined by the endpoint's `media.class`):
-
-  * Audio/Sink
-  * Audio/Source
-  * Video/Source
-
-  Every time a new device endpoint is created, wireplumber picks the "default"
-  of the group that it belongs to, based on this priority number: the endpoint
-  with the biggest priority number wins.
-
-  If not specified, the default priority of an endpoint is equal to zero
-  (i.e. the lowest priority).
+  The only well-known factories at the moment of writing is: `si-adapter` and
+  `si-simple-node-edpoint`.
 
 * `streams`
 
@@ -337,19 +297,62 @@ Possible fields of this table are:
   specific to the implementation of the `pw-audio-softdsp-endpoint` and might
   change in the future.
 
+* `config`
+
+  Optional. Specifies the configuration table used to configure the endpoint.
+  This table can have the following entries:
+
+    * `name`
+
+      Optional. The name of the newly created endpoint. If not specified, the
+      endpoint is named after the node (from the `node.name` property of the
+      node).
+
+    * `media_class`
+
+      Optional. A string that specifies an override for the `media.class`
+      property of the node. It can be used in special circumstances to declare
+      that an endpoint is dealing with a different type of data. This is only
+      useful in combination with a policy implementation that is aware of this
+      media class.
+
+    * `role`
+
+      Optional. A string representing the role of the endpoint.
+
+    * `priority`
+
+      Optional. An unsigned integer that specifies the order in which endpoints
+      are chosen by the policy.
+
+      If not specified, the default priority of an endpoint is equal to zero
+      (i.e. the lowest priority).
+
+    * `enable-control-port`
+
+      Optional. A boolean representing whether the control port should be
+      enabled on the endpoint or not.
+
+    * `enable-monitor`
+
+      Optional. A boolean representing whether the monitor ports should be
+      enabled on the endpoint or not. 
+
 ## `*.streams` configuration files
 
 These files contain lists of streams with their names and priorities.
 They are TOML v0.5 files.
 
 Each `.streams` file must contain exactly one top-level array of tables,
-called `streams`. Every table must contain exactly two fields:
-`name` and `priority`.
+called `streams`. Every table must contain a mandatory `name` field, and 2
+optional fields: `priority` and `enable_control_port`.
 
 The `name` of each stream is used to create the streams on new endpoints.
 
 The `priority` of each stream is being interpreted by the policy module to
 apply restrictions on which app can use the stream at a given time.
+
+The `enable_control_port` is used to enable the control port of the stream.
 
 # module-config-policy
 
@@ -371,27 +374,9 @@ link to another endpoint.
 `.endpoint-link` files can contain 3 top-level tables:
 * `[match-endpoint]`, required
 * `[target-endpoint]`, optional
-* `[endpoint-link]`, required
 
 The `[match-endpoint]` table contains properties that match an endpoint that
 exists on the graph. Possible fields of this table are:
-
-* `priority`
-
-  Specifies the order in which the `.endpoint-link` files are being searched
-  for a match with an endpoint. If an endpoint matches the description of more
-  than one `.endpoint-link` file, the one with the highest priority wins.
-
-  The type of this field is unsigned integer. Bigger numbers mean higher
-  priority.
-
-* `direction`
-
-  Required. Can be set to either `"sink"` or `"source"`. Specifies the
-  direction of the media flow of this endpoint. A `source` is an endpoint that
-  produces data (i.e. an audio capture device or a playback application) and
-  a `sink` is an endpoint that consumes data (audio playback device or
-  capture application).
 
 * `name`
 
@@ -417,7 +402,7 @@ If not specified, `module-config-policy` will look for the session "default"
 endpoint for the type of media that the matching endpoint produces or consumes
 and will use that as a target. Possible fields of this table are:
 
-* `direction`, `name`, `media_class`, `properties`
+* `name`, `media_class`, `properties`
 
   All these fields are permitted and behave exactly as described above for the
   `[match-endpoint]` table.
@@ -428,14 +413,3 @@ and will use that as a target. Possible fields of this table are:
   endpoint. If it is not specified, the stream name is acquired from the
   `media.role` property of the matching endpoint. If specified, the value of
   this field overrides the `media.role`.
-
-The `[endpoint-link]` table specifies properties of the link. Possible fields
-of this table are:
-
-* `keep`
-
-  A boolean field. If set to true, the link is always kept active and ignores
-  policy rules regarding corking or stream priority. This link will also not
-  affect the rules for other links. For example, if a keep=true link is
-  activating a high priority stream, lower priority streams can still work on
-  the same target endpoint for links with keep=false.
