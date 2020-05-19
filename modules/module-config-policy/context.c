@@ -22,7 +22,7 @@ struct _WpConfigPolicyContext
 };
 
 enum {
-  SIGNAL_LINK_ACTIVATED,
+  SIGNAL_LINK_CREATED,
   N_SIGNALS
 };
 
@@ -232,8 +232,8 @@ on_session_links_changed (WpSession *session, WpConfigPolicyContext *self)
         WP_ENDPOINT_LINK_STATE_INACTIVE) {
       wp_endpoint_link_request_state (ep_link, WP_ENDPOINT_LINK_STATE_ACTIVE);
 
-      /* Emit the link activated signal */
-      g_signal_emit (self, signals[SIGNAL_LINK_ACTIVATED], 0, ep_link);
+      /* Emit the link created signal */
+      g_signal_emit (self, signals[SIGNAL_LINK_CREATED], 0, ep_link);
     }
     g_value_unset (&val);
   }
@@ -304,7 +304,7 @@ wp_config_policy_context_class_init (WpConfigPolicyContextClass *klass)
   plugin_class->deactivate = wp_config_policy_context_deactivate;
 
   /* Signals */
-  signals[SIGNAL_LINK_ACTIVATED] = g_signal_new ("link-activated",
+  signals[SIGNAL_LINK_CREATED] = g_signal_new ("link-created",
       G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
       G_TYPE_NONE, 1, WP_TYPE_ENDPOINT_LINK);
 }

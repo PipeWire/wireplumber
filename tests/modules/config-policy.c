@@ -234,7 +234,7 @@ on_state_changed (WpEndpointLink *ep_link, WpEndpointLinkState old_state,
 }
 
 static void
-on_link_activated (WpPlugin *ctx, WpEndpointLink *ep_link,
+on_link_created (WpPlugin *ctx, WpEndpointLink *ep_link,
     TestFixture *f)
 {
   g_assert_nonnull (ep_link);
@@ -255,7 +255,7 @@ playback (TestFixture *f, gconstpointer data)
   wp_core_install_object_manager (f->base.core, om);
   g_autoptr (WpPlugin) ctx = wp_object_manager_lookup (om, WP_TYPE_PLUGIN, NULL);
   g_assert_nonnull (ctx);
-  g_signal_connect (ctx, "link-activated", (GCallback) on_link_activated, f);
+  g_signal_connect (ctx, "link-created", (GCallback) on_link_created, f);
 
   /* Activate */
   wp_plugin_activate (ctx);
