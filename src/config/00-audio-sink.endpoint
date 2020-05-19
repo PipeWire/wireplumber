@@ -7,3 +7,6 @@ properties = [
 session = "audio"
 type = "si-adapter"
 streams = "audio-sink.streams"
+
+[endpoint.config]
+enable-monitor = true
