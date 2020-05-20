@@ -266,6 +266,7 @@ si_simple_node_endpoint_get_properties (WpSiEndpoint * item)
   node_props = wp_proxy_get_properties (WP_PROXY (self->node));
   wp_properties_update_keys (result, node_props,
       PW_KEY_DEVICE_ID,
+      PW_KEY_NODE_TARGET,
       NULL);
 
   /* associate with the node */
