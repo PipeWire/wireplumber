@@ -287,7 +287,7 @@ wp_log_writer_default (GLogLevelFlags log_level,
   }
 
   /* format the message to include the object */
-  if (cf.object && cf.message) {
+  if (cf.object_type && cf.message) {
     cf.message_field->value = cf.message = full_message =
         format_message (&cf);
   }
@@ -331,14 +331,14 @@ wp_log_structured_standard (
     n_fields++;
   }
 
-  if (object != NULL) {
-    if (object_type != 0) {
-      fields[n_fields].key = "WP_OBJECT_TYPE";
-      fields[n_fields].value = &object_type;
-      fields[n_fields].length = sizeof (GType);
-      n_fields++;
-    }
+  if (object_type != 0) {
+    fields[n_fields].key = "WP_OBJECT_TYPE";
+    fields[n_fields].value = &object_type;
+    fields[n_fields].length = sizeof (GType);
+    n_fields++;
+  }
 
+  if (object != NULL) {
     fields[n_fields].key = "WP_OBJECT";
     fields[n_fields].value = &object;
     fields[n_fields].length = sizeof (gconstpointer);

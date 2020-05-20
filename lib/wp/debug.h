@@ -54,17 +54,17 @@ void wp_log_structured_standard (const gchar *log_domain,
     wp_log (WP_LOG_LEVEL_TRACE, 0, NULL, __VA_ARGS__)
 
 #define wp_critical_object(object, ...)  \
-    wp_log (G_LOG_LEVEL_CRITICAL, G_TYPE_FROM_INSTANCE (object), object, __VA_ARGS__)
+    wp_log (G_LOG_LEVEL_CRITICAL, (object) ? G_TYPE_FROM_INSTANCE (object) : G_TYPE_NONE, object, __VA_ARGS__)
 #define wp_warning_object(object, ...)  \
-    wp_log (G_LOG_LEVEL_WARNING, G_TYPE_FROM_INSTANCE (object), object, __VA_ARGS__)
+    wp_log (G_LOG_LEVEL_WARNING, (object) ? G_TYPE_FROM_INSTANCE (object) : G_TYPE_NONE, object, __VA_ARGS__)
 #define wp_message_object(object, ...)  \
-    wp_log (G_LOG_LEVEL_MESSAGE, G_TYPE_FROM_INSTANCE (object), object, __VA_ARGS__)
+    wp_log (G_LOG_LEVEL_MESSAGE, (object) ? G_TYPE_FROM_INSTANCE (object) : G_TYPE_NONE, object, __VA_ARGS__)
 #define wp_info_object(object, ...)  \
-    wp_log (G_LOG_LEVEL_INFO, G_TYPE_FROM_INSTANCE (object), object, __VA_ARGS__)
+    wp_log (G_LOG_LEVEL_INFO, (object) ? G_TYPE_FROM_INSTANCE (object) : G_TYPE_NONE, object, __VA_ARGS__)
 #define wp_debug_object(object, ...)  \
-    wp_log (G_LOG_LEVEL_DEBUG, G_TYPE_FROM_INSTANCE (object), object, __VA_ARGS__)
+    wp_log (G_LOG_LEVEL_DEBUG, (object) ? G_TYPE_FROM_INSTANCE (object) : G_TYPE_NONE, object, __VA_ARGS__)
 #define wp_trace_object(object, ...)  \
-    wp_log (WP_LOG_LEVEL_TRACE, G_TYPE_FROM_INSTANCE (object), object, __VA_ARGS__)
+    wp_log (WP_LOG_LEVEL_TRACE, (object) ? G_TYPE_FROM_INSTANCE (object) : G_TYPE_NONE, object, __VA_ARGS__)
 
 #define wp_critical_boxed(type, object, ...) \
     wp_log (G_LOG_LEVEL_CRITICAL, type, object, __VA_ARGS__)
