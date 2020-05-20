@@ -33,51 +33,93 @@ G_DEFINE_TYPE (WpConfigPolicyContext, wp_config_policy_context,
 
 static WpEndpoint *
 wp_config_policy_context_get_endpoint_target (WpConfigPolicyContext *self,
-    WpSession *session, const struct WpParserEndpointLinkData *data,
-    guint32 *stream_id)
+    WpSession *session, WpEndpoint *ep, guint32 *stream_id)
 {
+  g_autoptr (WpProperties) ep_props = wp_proxy_get_properties (WP_PROXY (ep));
+  const gchar *node_target = NULL;
+  g_autoptr (WpEndpoint) target = NULL;
+  const gchar *stream_name = NULL;
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
-  WpEndpoint *target = NULL;
 
   g_return_val_if_fail (session, NULL);
+  g_return_val_if_fail (ep, NULL);
 
-  /* If target-endpoint data was defined in the configuration file, find the
-   * matching endpoint based on target-endpoint data */
-  if (data->has_te) {
-    guint highest_prio = 0;
+  /* Check if the node target property is set, and use that target */
+  node_target = wp_properties_get (ep_props, PW_KEY_NODE_TARGET);
+  if (node_target) {
+    WpDirection target_dir =
+        wp_endpoint_get_direction (ep) == WP_DIRECTION_INPUT ?
+            WP_DIRECTION_OUTPUT : WP_DIRECTION_INPUT;
     for (it = wp_session_iterate_endpoints (session);
-         wp_iterator_next (it, &val);
-         g_value_unset (&val)) {
-      WpEndpoint *ep = g_value_get_object (&val);
-      if (wp_parser_endpoint_link_matches_endpoint_data (ep,
-          &data->te.endpoint_data)) {
-        g_autoptr (WpProperties) props = wp_proxy_get_properties (WP_PROXY (ep));
-        const char *priority = wp_properties_get (props, "endpoint.priority");
-        const guint prio = atoi (priority);
-        if (highest_prio <= prio) {
-          highest_prio = prio;
-          target = ep;
-        }
+           wp_iterator_next (it, &val);
+           g_value_unset (&val)) {
+      WpEndpoint *candidate = g_value_get_object (&val);
+      g_autoptr (WpProperties) candidate_props =
+          wp_proxy_get_properties (WP_PROXY (candidate));
+      const gchar *candidate_node_id = wp_properties_get (candidate_props,
+          PW_KEY_NODE_ID);
+      if (wp_endpoint_get_direction (candidate) == target_dir &&
+          candidate_node_id && atoi (candidate_node_id) == atoi (node_target)) {
+        target = g_object_ref (candidate);
+        g_value_unset (&val);
+        break;
       }
     }
   }
 
-  /* Otherwise, use the default session endpoint */
+  /* Otherwise, check the endpoint-link configuration files */
   else {
-    guint def_id = 0;
-    switch (data->me.endpoint_data.direction) {
-      case WP_DIRECTION_INPUT:
-        def_id = wp_session_get_default_endpoint (session, "Wp:defaultSource");
-        break;
-      case WP_DIRECTION_OUTPUT:
-        def_id = wp_session_get_default_endpoint (session, "Wp:defaultSink");
-        break;
-      default:
-        g_return_val_if_reached (NULL);
+    g_autoptr (WpCore) core = wp_plugin_get_core (WP_PLUGIN (self));
+    g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
+    g_autoptr (WpConfigParser) parser = wp_configuration_get_parser (config,
+        WP_PARSER_ENDPOINT_LINK_EXTENSION);
+    const struct WpParserEndpointLinkData *data =
+        wp_config_parser_get_matched_data (parser, G_OBJECT (ep));
+    if (!data)
+      return NULL;
+
+    /* If target-endpoint data was defined in the configuration file, find the
+     * matching endpoint based on target-endpoint data */
+    if (data->has_te) {
+      guint highest_prio = 0;
+      for (it = wp_session_iterate_endpoints (session);
+           wp_iterator_next (it, &val);
+           g_value_unset (&val)) {
+        WpEndpoint *candidate = g_value_get_object (&val);
+        if (wp_parser_endpoint_link_matches_endpoint_data (candidate,
+            &data->te.endpoint_data)) {
+          g_autoptr (WpProperties) props =
+              wp_proxy_get_properties (WP_PROXY (candidate));
+          const char *priority = wp_properties_get (props, "endpoint.priority");
+          const guint prio = atoi (priority);
+          if (highest_prio <= prio) {
+            highest_prio = prio;
+            target = g_object_ref (candidate);
+          }
+        }
+      }
     }
-    target = wp_session_lookup_endpoint (session,
-        WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", def_id, NULL);
+
+    /* Otherwise, use the default session endpoint */
+    else {
+      guint def_id = 0;
+      switch (data->me.endpoint_data.direction) {
+        case WP_DIRECTION_INPUT:
+          def_id = wp_session_get_default_endpoint (session, "Wp:defaultSource");
+          break;
+        case WP_DIRECTION_OUTPUT:
+          def_id = wp_session_get_default_endpoint (session, "Wp:defaultSink");
+          break;
+        default:
+          g_return_val_if_reached (NULL);
+      }
+      target = wp_session_lookup_endpoint (session,
+          WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", def_id, NULL);
+    }
+
+    /* Use the stream name from the configuration file */
+    stream_name = data->te.stream;
   }
 
   if (!target)
@@ -91,7 +133,7 @@ wp_config_policy_context_get_endpoint_target (WpConfigPolicyContext *self,
     while (wp_iterator_next (stream_it, &stream_val)) {
       WpProxy *stream = g_value_get_object (&stream_val);
       if (g_strcmp0 (wp_endpoint_stream_get_name (WP_ENDPOINT_STREAM (stream)),
-          data->te.stream) == 0) {
+          stream_name) == 0) {
         *stream_id = wp_proxy_get_bound_id (stream);
         break;
       }
@@ -102,7 +144,7 @@ wp_config_policy_context_get_endpoint_target (WpConfigPolicyContext *self,
     }
   }
 
-  return g_object_ref (target);
+  return g_steal_pointer (&target);
 }
 
 static WpEndpointLink *
@@ -169,25 +211,12 @@ static void
 wp_config_policy_context_handle_endpoint (WpConfigPolicyContext *self,
     WpSession *session, WpEndpoint *ep)
 {
-  g_autoptr (WpCore) core = wp_plugin_get_core (WP_PLUGIN (self));
-  g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
-  g_autoptr (WpConfigParser) parser = NULL;
-  const struct WpParserEndpointLinkData *data = NULL;
   g_autoptr (WpEndpoint) target = NULL;
   g_autoptr (WpEndpointLink) link = NULL;
   guint32 target_stream_id = SPA_ID_INVALID;
 
-  /* Get the parser for the endpoint-link extension */
-  parser = wp_configuration_get_parser (config,
-      WP_PARSER_ENDPOINT_LINK_EXTENSION);
-
-  /* Get the matched endpoint data from the parser */
-  data = wp_config_parser_get_matched_data (parser, G_OBJECT (ep));
-  if (!data)
-    return;
-
   /* Get the endpoint target */
-  target = wp_config_policy_context_get_endpoint_target (self, session, data,
+  target = wp_config_policy_context_get_endpoint_target (self, session, ep,
       &target_stream_id);
   if (!target)
     return;
