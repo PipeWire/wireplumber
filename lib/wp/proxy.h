@@ -141,6 +141,9 @@ gconstpointer wp_proxy_get_info (WpProxy * self);
 WP_API
 WpProperties * wp_proxy_get_properties (WpProxy * self);
 
+WP_API
+const gchar * wp_proxy_get_property (WpProxy * self, const gchar * key);
+
 /* the bound id (aka global id, requires FEATURE_BOUND) */
 
 WP_API

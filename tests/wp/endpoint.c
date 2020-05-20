@@ -343,13 +343,8 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
   g_assert_cmpuint (wp_proxy_get_bound_id (fixture->proxy_endpoint), ==,
       wp_proxy_get_bound_id (fixture->impl_endpoint));
 
-  {
-    g_autoptr (WpProperties) props =
-        wp_proxy_get_properties (fixture->proxy_endpoint);
-
-    g_assert_cmpstr (wp_properties_get (props, "test.property"), ==,
-        "test-value");
-  }
+  g_assert_cmpstr (wp_proxy_get_property (fixture->proxy_endpoint,
+          "test.property"), ==, "test-value");
 
   {
     g_autoptr (WpProperties) props =

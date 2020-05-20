@@ -220,7 +220,7 @@ wp_proxy_finalize (GObject * object)
 }
 
 static void
-wp_proxy_set_property (GObject * object, guint property_id,
+wp_proxy_set_gobj_property (GObject * object, guint property_id,
     const GValue * value, GParamSpec * pspec)
 {
   WpProxy *self = WP_PROXY (object);
@@ -243,7 +243,7 @@ wp_proxy_set_property (GObject * object, guint property_id,
 }
 
 static void
-wp_proxy_get_property (GObject * object, guint property_id, GValue * value,
+wp_proxy_get_gobj_property (GObject * object, guint property_id, GValue * value,
     GParamSpec * pspec)
 {
   WpProxy *self = WP_PROXY (object);
@@ -361,8 +361,8 @@ wp_proxy_class_init (WpProxyClass * klass)
 
   object_class->dispose = wp_proxy_dispose;
   object_class->finalize = wp_proxy_finalize;
-  object_class->get_property = wp_proxy_get_property;
-  object_class->set_property = wp_proxy_set_property;
+  object_class->get_property = wp_proxy_get_gobj_property;
+  object_class->set_property = wp_proxy_set_gobj_property;
 
   klass->augment = wp_proxy_default_augment;
   klass->param = wp_proxy_default_param;
@@ -664,6 +664,8 @@ wp_proxy_get_pw_proxy (WpProxy * self)
  * wp_proxy_get_info:
  * @self: the proxy
  *
+ * Requires %WP_PROXY_FEATURE_INFO
+ *
  * Returns: the pipewire info structure of this object
  *    (pw_node_info, pw_port_info, etc...)
  */
@@ -683,6 +685,8 @@ wp_proxy_get_info (WpProxy * self)
  * wp_proxy_get_properties:
  * @self: the proxy
  *
+ * Requires %WP_PROXY_FEATURE_INFO
+ *
  * Returns: (transfer full): the pipewire properties of this object;
  *   normally these are the properties that are part of the info structure
  */
@@ -696,6 +700,34 @@ wp_proxy_get_properties (WpProxy * self)
 
   return (WP_PROXY_GET_CLASS (self)->get_properties) ?
       WP_PROXY_GET_CLASS (self)->get_properties (self) : NULL;
+}
+
+/**
+ * wp_proxy_get_property:
+ * @self: the proxy
+ * @key: the property name
+ *
+ * Returns the value of a single pipewire property. This is the same as getting
+ * the whole properties structure with wp_proxy_get_properties() and accessing
+ * a single property with wp_properties_get(), but saves one call
+ * and having to clean up the #WpProperties reference count afterwards.
+ *
+ * The value is owned by the proxy, but it is guaranteed to stay alive
+ * until execution returns back to the event loop.
+ *
+ * Requires %WP_PROXY_FEATURE_INFO
+ *
+ * Returns: (transfer none) (nullable): the value of the pipewire property @key
+ *   or %NULL if the property doesn't exist
+ */
+const gchar *
+wp_proxy_get_property (WpProxy * self, const gchar * key)
+{
+  /* the proxy always keeps a ref to the data, so it's safe
+     to discard the ref count of the WpProperties */
+  g_autoptr (WpProperties) props = NULL;
+  props = wp_proxy_get_properties (self);
+  return props ? wp_properties_get (props, key) : NULL;
 }
 
 /**

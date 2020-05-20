@@ -106,12 +106,8 @@ find_highest_prio (WpSession * session, WpDirection dir)
 
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
     WpProxy *ep = g_value_get_object (&val);
-    g_autoptr (WpProperties) props = wp_proxy_get_properties (ep);
-    const gchar *prio_str;
-    gint prio;
-
-    prio_str = wp_properties_get (props, "endpoint.priority");
-    prio = atoi (prio_str);
+    const gchar *prio_str = wp_proxy_get_property (ep, "endpoint.priority");
+    gint prio = atoi (prio_str);
 
     if (prio > highest_prio || id == 0) {
       highest_prio = prio;
