@@ -14,7 +14,7 @@
 #include <spa/monitor/device.h>
 #include <spa/pod/builder.h>
 
-#include "module-monitor/reservation-data.h"
+#include "module-monitor/reserve-device.h"
 #include "module-monitor/reserve-node.h"
 
 G_DEFINE_QUARK (wp-module-monitor-id, id);
@@ -308,7 +308,7 @@ on_node_event_info (WpProxy * proxy, GParamSpec *spec, gpointer data)
 static void
 add_reserve_node_data (WpMonitor * self, WpProxy *node, WpProxy *device)
 {
-  WpMonitorDeviceReservationData *device_data = NULL;
+  WpReserveDevice *device_data = NULL;
   g_autoptr (WpReserveNode) node_data = NULL;
 
   /* Only add reservation data on nodes whose device has reservation data */
@@ -385,14 +385,14 @@ device_created (GObject * proxy, GAsyncResult * res, gpointer user_data)
 }
 
 static void
-add_device_reservation_data (WpMonitor * self, WpSpaDevice *device,
+add_reserve_device_data (WpMonitor * self, WpSpaDevice *device,
   WpProperties *props)
 {
   g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (device));
   const char *card_id = NULL;
   const char *app_dev_name = NULL;
   g_autoptr (WpMonitorDbusDeviceReservation) reservation = NULL;
-  g_autoptr (WpMonitorDeviceReservationData) device_data = NULL;
+  g_autoptr (WpReserveDevice) device_data = NULL;
 
   if ((self->flags & FLAG_DBUS_RESERVATION) == 0)
     return;
@@ -407,11 +407,10 @@ add_device_reservation_data (WpMonitor * self, WpSpaDevice *device,
   reservation = wp_monitor_dbus_device_reservation_new (atoi(card_id),
       "PipeWire", 10, app_dev_name);
 
-  /* Create the device reservation data */
-  device_data = wp_monitor_device_reservation_data_new (WP_PROXY (device),
-      reservation);
+  /* Create the reserve device data */
+  device_data = wp_reserve_device_new (WP_PROXY (device), reservation);
 
-  /* Set the dbus device reservation data on the device */
+  /* Set the reserve device data on the device */
   g_object_set_qdata_full (G_OBJECT (device), data_quark (),
       g_steal_pointer (&device_data), g_object_unref);
 }
@@ -439,7 +438,7 @@ create_device (WpMonitor * self, WpProxy * parent, GList ** children,
   g_object_set_qdata (G_OBJECT (device), id_quark (), GUINT_TO_POINTER (id));
   *children = g_list_prepend (*children, device);
 
-  add_device_reservation_data (self, device, props);
+  add_reserve_device_data (self, device, props);
 }
 
 static void

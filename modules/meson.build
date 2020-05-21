@@ -25,7 +25,7 @@ shared_library(
   [
     'module-monitor.c',
     'module-monitor/reserve-node.c',
-    'module-monitor/reservation-data.c',
+    'module-monitor/reserve-device.c',
     'module-monitor/dbus-device-reservation.c',
     reserve_device_interface_src,
   ],

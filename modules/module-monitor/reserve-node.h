@@ -11,7 +11,7 @@
 
 #include <wp/wp.h>
 
-#include "reservation-data.h"
+#include "reserve-device.h"
 
 G_BEGIN_DECLS
 
@@ -20,7 +20,7 @@ G_BEGIN_DECLS
 G_DECLARE_FINAL_TYPE (WpReserveNode, wp_reserve_node, WP, RESERVE_NODE, GObject)
 
 WpReserveNode * wp_reserve_node_new (WpProxy *node,
-    WpMonitorDeviceReservationData *device_data);
+    WpReserveDevice *device_data);
 
 void
 wp_reserve_node_timeout_release (WpReserveNode *self, guint64 timeout_ms);

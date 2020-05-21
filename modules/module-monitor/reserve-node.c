@@ -14,7 +14,7 @@ struct _WpReserveNode
 
   /* Props */
   GWeakRef node;
-  WpMonitorDeviceReservationData *device_data;
+  WpReserveDevice *device_data;
 
   gboolean acquired;
   GSource *timeout_source;
@@ -32,7 +32,7 @@ static void
 on_node_destroyed (WpProxy *node, WpReserveNode *self)
 {
   if (self->acquired)
-    wp_monitor_device_reservation_data_release (self->device_data);
+    wp_reserve_device_release (self->device_data);
 }
 
 static void
@@ -100,7 +100,7 @@ wp_reserve_node_finalize (GObject * object)
 
   /* Release device if acquired */
   if (self->acquired)
-    wp_monitor_device_reservation_data_release (self->device_data);
+    wp_reserve_device_release (self->device_data);
 
   /* Props */
   g_weak_ref_clear (&self->node);
@@ -135,12 +135,12 @@ wp_reserve_node_class_init (WpReserveNodeClass * klass)
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (object_class, NODE_PROP_DEVICE_DATA,
       g_param_spec_object ("device-data", "device-data",
-      "The monitor device reservation data", WP_TYPE_MONITOR_DEVICE_RESERVATION_DATA,
+      "The monitor device reservation data", WP_TYPE_RESERVE_DEVICE,
       G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
 WpReserveNode *
-wp_reserve_node_new (WpProxy *node, WpMonitorDeviceReservationData *device_data)
+wp_reserve_node_new (WpProxy *node, WpReserveDevice *device_data)
 {
   return g_object_new (WP_TYPE_RESERVE_NODE,
       "node", node,
@@ -154,7 +154,7 @@ timeout_release_callback (gpointer data)
   WpReserveNode *self = data;
   g_return_val_if_fail (self, G_SOURCE_REMOVE);
 
-  wp_monitor_device_reservation_data_release (self->device_data);
+  wp_reserve_device_release (self->device_data);
   self->acquired = FALSE;
   return G_SOURCE_REMOVE;
 }
@@ -196,6 +196,6 @@ wp_reserve_node_acquire (WpReserveNode *self)
     return;
 
   /* Acquire the device */
-  wp_monitor_device_reservation_data_acquire (self->device_data);
+  wp_reserve_device_acquire (self->device_data);
   self->acquired = TRUE;
 }
