@@ -15,10 +15,11 @@
 #include <spa/pod/builder.h>
 
 #include "module-monitor/reservation-data.h"
+#include "module-monitor/reserve-node.h"
 
 G_DEFINE_QUARK (wp-module-monitor-id, id);
 G_DEFINE_QUARK (wp-module-monitor-children, children);
-G_DEFINE_QUARK (wp-module-monitor-reservation, reservation);
+G_DEFINE_QUARK (wp-module-monitor-data, data);
 
 typedef enum {
   FLAG_LOCAL_NODES = (1 << 0),
@@ -282,7 +283,7 @@ find_child (GObject * parent, guint32 id, GList ** children, GList ** link,
 static void
 on_node_event_info (WpProxy * proxy, GParamSpec *spec, gpointer data)
 {
-  WpMonitorNodeReservationData *node_data = data;
+  WpReserveNode *node_data = data;
   const struct pw_node_info *info = wp_proxy_get_info (proxy);
 
   g_return_if_fail (node_data);
@@ -291,11 +292,11 @@ on_node_event_info (WpProxy * proxy, GParamSpec *spec, gpointer data)
   switch (info->state) {
   case PW_NODE_STATE_IDLE:
     /* Release reservation after 3 seconds */
-    wp_monitor_node_reservation_data_timeout_release (node_data, 3000);
+    wp_reserve_node_timeout_release (node_data, 3000);
     break;
   case PW_NODE_STATE_RUNNING:
     /* Clear pending timeout if any and acquire reservation */
-    wp_monitor_node_reservation_data_acquire (node_data);
+    wp_reserve_node_acquire (node_data);
     break;
   case PW_NODE_STATE_SUSPENDED:
     break;
@@ -305,25 +306,25 @@ on_node_event_info (WpProxy * proxy, GParamSpec *spec, gpointer data)
 }
 
 static void
-add_node_reservation_data (WpMonitor * self, WpProxy *node, WpProxy *device)
+add_reserve_node_data (WpMonitor * self, WpProxy *node, WpProxy *device)
 {
   WpMonitorDeviceReservationData *device_data = NULL;
-  g_autoptr (WpMonitorNodeReservationData) node_data = NULL;
+  g_autoptr (WpReserveNode) node_data = NULL;
 
   /* Only add reservation data on nodes whose device has reservation data */
-  device_data = g_object_get_qdata (G_OBJECT (device), reservation_quark ());
+  device_data = g_object_get_qdata (G_OBJECT (device), data_quark ());
   if (!device_data)
     return;
 
   /* Create the node reservation data */
-  node_data = wp_monitor_node_reservation_data_new (node, device_data);
+  node_data = wp_reserve_node_new (node, device_data);
 
   /* Handle the info signal */
   g_signal_connect_object (WP_NODE (node), "notify::info",
       (GCallback) on_node_event_info, node_data, 0);
 
-  /* Set the node reservation data on the node */
-  g_object_set_qdata_full (G_OBJECT (node), reservation_quark (),
+  /* Set the reserve node data on the node */
+  g_object_set_qdata_full (G_OBJECT (node), data_quark (),
       g_steal_pointer (&node_data), g_object_unref);
 }
 
@@ -359,7 +360,7 @@ create_node (WpMonitor * self, WpProxy * parent, GList ** children,
   g_object_set_qdata (G_OBJECT (node), id_quark (), GUINT_TO_POINTER (id));
   *children = g_list_prepend (*children, node);
 
-  add_node_reservation_data (self, node, parent);
+  add_reserve_node_data (self, node, parent);
 }
 
 static void
@@ -411,7 +412,7 @@ add_device_reservation_data (WpMonitor * self, WpSpaDevice *device,
       reservation);
 
   /* Set the dbus device reservation data on the device */
-  g_object_set_qdata_full (G_OBJECT (device), reservation_quark (),
+  g_object_set_qdata_full (G_OBJECT (device), data_quark (),
       g_steal_pointer (&device_data), g_object_unref);
 }
 

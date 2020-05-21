@@ -32,23 +32,6 @@ void
 wp_monitor_device_reservation_data_release (
     WpMonitorDeviceReservationData *self);
 
-
-#define WP_TYPE_MONITOR_NODE_RESERVATION_DATA (wp_monitor_node_reservation_data_get_type ())
-
-G_DECLARE_FINAL_TYPE (WpMonitorNodeReservationData,
-    wp_monitor_node_reservation_data, WP, MONITOR_NODE_RESERVATION_DATA,
-    GObject)
-
-WpMonitorNodeReservationData * wp_monitor_node_reservation_data_new (
-    WpProxy *node, WpMonitorDeviceReservationData *device_data);
-
-void
-wp_monitor_node_reservation_data_timeout_release (
-    WpMonitorNodeReservationData *self, guint64 timeout_ms);
-
-void
-wp_monitor_node_reservation_data_acquire (WpMonitorNodeReservationData *self);
-
 G_END_DECLS
 
 #endif
