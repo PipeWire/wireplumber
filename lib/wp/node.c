@@ -506,6 +506,25 @@ wp_node_lookup_port_full (WpNode * self, WpObjectInterest * interest)
       wp_object_manager_lookup_full (priv->ports_om, interest);
 }
 
+/**
+ * wp_node_send_command:
+ * @self: the node
+ * @command: the command
+ *
+ * Sends a command to a node
+ */
+void wp_node_send_command (WpNode * self, WpNodeCommand command)
+{
+  struct pw_node *pwp;
+  struct spa_command cmd =
+      SPA_NODE_COMMAND_INIT((enum spa_node_command) command);
+
+  g_return_if_fail (WP_IS_NODE (self));
+
+  pwp = (struct pw_node *) wp_proxy_get_pw_proxy (WP_PROXY (self));
+  pw_node_send_command (pwp, &cmd);
+}
+
 
 enum {
   PROP_0,

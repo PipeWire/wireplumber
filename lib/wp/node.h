@@ -35,6 +35,22 @@ typedef enum {
 } WpNodeState;
 
 /**
+ * WpNodeCommand:
+ * @WP_NODE_COMMAND_SUSPEND: suspends the node, the device might close
+ * @WP_NODE_COMMAND_PAUSE: pauses the node, the device will not close
+ * @WP_NODE_COMMAND_START: starts procesing data
+ * @WP_NODE_COMMAND_ENABLE: enables the node
+ * @WP_NODE_COMMAND_DISABLE: disables the node
+ */
+typedef enum {
+  WP_NODE_COMMAND_SUSPEND = 0,
+  WP_NODE_COMMAND_PAUSE = 1,
+  WP_NODE_COMMAND_START = 2,
+  WP_NODE_COMMAND_ENABLE = 3,
+  WP_NODE_COMMAND_DISABLE = 4,
+} WpNodeCommand;
+
+/**
  * WpNodeFeatures:
  * @WP_NODE_FEATURE_PORTS: caches information about ports, enabling
  *   the use of wp_node_get_n_ports(), wp_node_lookup_port(),
@@ -102,6 +118,9 @@ WpPort * wp_node_lookup_port (WpNode * self, ...) G_GNUC_NULL_TERMINATED;
 
 WP_API
 WpPort * wp_node_lookup_port_full (WpNode * self, WpObjectInterest * interest);
+
+WP_API
+void wp_node_send_command (WpNode * self, WpNodeCommand command);
 
 /**
  * WP_TYPE_IMPL_NODE:
