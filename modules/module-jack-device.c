@@ -11,25 +11,34 @@
 #include <spa/node/keys.h>
 #include <spa/utils/names.h>
 
-struct module_data
+struct _WpJackDevice
 {
+  WpPlugin parent;
   WpDevice *jack_device;
 };
+
+G_DECLARE_FINAL_TYPE (WpJackDevice, wp_jack_device, WP, JACK_DEVICE, WpPlugin)
+G_DEFINE_TYPE (WpJackDevice, wp_jack_device, WP_TYPE_PLUGIN)
 
 static void
 augment_done (GObject * proxy, GAsyncResult * res, gpointer user_data)
 {
+  WpJackDevice *self = WP_JACK_DEVICE (user_data);
+
   g_autoptr (GError) error = NULL;
   if (!wp_proxy_augment_finish (WP_PROXY (proxy), res, &error)) {
-    g_warning ("%s", error->message);
+    wp_warning_object (self, "%s", error->message);
   }
 }
 
 static void
-create_jack_device (WpCore *core, struct module_data *data)
+wp_jack_device_activate (WpPlugin * plugin)
 {
+  WpJackDevice *self = WP_JACK_DEVICE (plugin);
+  g_autoptr (WpCore) core = wp_plugin_get_core (plugin);
   WpProperties *props = NULL;
-  g_return_if_fail (data);
+
+  g_return_if_fail (core);
 
   /* Create the jack device props */
   props = wp_properties_new (
@@ -38,30 +47,40 @@ create_jack_device (WpCore *core, struct module_data *data)
         NULL);
 
   /* Create the jack device */
-  data->jack_device = wp_device_new_from_factory (core, "spa-device-factory",
+  self->jack_device = wp_device_new_from_factory (core, "spa-device-factory",
       props);
 
   /* Augment */
-  wp_proxy_augment (WP_PROXY (data->jack_device), WP_PROXY_FEATURES_STANDARD,
-      NULL, augment_done, NULL);
+  wp_proxy_augment (WP_PROXY (self->jack_device), WP_PROXY_FEATURES_STANDARD,
+      NULL, augment_done, self);
 }
 
 static void
-module_destroy (gpointer d)
+wp_jack_device_deactivate (WpPlugin * plugin)
 {
-  struct module_data *data = d;
+  WpJackDevice *self = WP_JACK_DEVICE (plugin);
 
-  g_clear_object (&data->jack_device);
+  g_clear_object (&self->jack_device);
+}
 
-  g_slice_free (struct module_data, data);
+static void
+wp_jack_device_init (WpJackDevice * self)
+{
+}
+
+static void
+wp_jack_device_class_init (WpJackDeviceClass * klass)
+{
+  WpPluginClass *plugin_class = (WpPluginClass *) klass;
+
+  plugin_class->activate = wp_jack_device_activate;
+  plugin_class->deactivate = wp_jack_device_deactivate;
 }
 
 WP_PLUGIN_EXPORT void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
-  struct module_data *data = g_slice_new0 (struct module_data);
-  wp_module_set_destroy_callback (module, module_destroy, data);
-
-  /* Create the Jack Device when core is connected */
-  g_signal_connect (core, "connected", (GCallback) create_jack_device, data);
+  wp_plugin_register (g_object_new (wp_jack_device_get_type (),
+      "module", module,
+      NULL));
 }
