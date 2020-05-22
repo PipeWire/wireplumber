@@ -7,8 +7,19 @@
  */
 
 #include "debug.h"
+#include "spa-pod.h"
+#include "private.h"
 #include <pipewire/pipewire.h>
 #include <spa/support/log.h>
+
+static GString *spa_dbg_str = NULL;
+#define spa_debug(...) \
+({ \
+  g_string_append_printf (spa_dbg_str, __VA_ARGS__); \
+  g_string_append_c (spa_dbg_str, '\n'); \
+})
+
+#include <spa/debug/pod.h>
 
 static gsize initialized = 0;
 static gboolean use_color = FALSE;
@@ -185,10 +196,19 @@ write_debug_message (FILE *s, struct common_fields *cf)
 static inline gchar *
 format_message (struct common_fields *cf)
 {
+  g_autofree gchar *extra_message = NULL;
   const gchar *object_color = "";
   if (use_color) {
     guint h = g_direct_hash (cf->object) % G_N_ELEMENTS (object_colors);
     object_color = object_colors[h];
+  }
+
+  if (cf->object_type == WP_TYPE_SPA_POD && cf->object && !spa_dbg_str) {
+    spa_dbg_str = g_string_new (cf->message);
+    g_string_append (spa_dbg_str, ":\n");
+    spa_debug_pod (2, NULL, wp_spa_pod_get_spa_pod (cf->object));
+    extra_message = g_string_free (spa_dbg_str, FALSE);
+    spa_dbg_str = NULL;
   }
 
   return g_strdup_printf ("%s<%s%s%p>%s %s",
@@ -197,7 +217,7 @@ format_message (struct common_fields *cf)
       cf->object_type != 0 ? ":" : "",
       cf->object,
       use_color ? RESET_COLOR : "",
-      cf->message);
+      extra_message ? extra_message : cf->message);
 }
 
 static inline void
