@@ -17,7 +17,7 @@ shared_library(
 reserve_device_interface_src = gnome.gdbus_codegen('reserve-device-interface',
   sources: 'module-monitor/org.freedesktop.ReserveDevice1.xml',
   interface_prefix : 'org.freedesktop.ReserveDevice1.',
-  namespace : 'WpMonitor'
+  namespace : 'Wp'
 )
 
 shared_library(

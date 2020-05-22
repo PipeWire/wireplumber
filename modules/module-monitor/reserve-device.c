@@ -17,7 +17,7 @@ struct _WpReserveDevice
 
   /* Props */
   GWeakRef device;
-  WpMonitorDbusDeviceReservation *reservation;
+  WpDbusDeviceReservation *reservation;
 
   guint n_acquired;
 };
@@ -34,7 +34,7 @@ static void
 on_device_done (WpCore *core, GAsyncResult *res, WpReserveDevice *self)
 {
   if (self->reservation)
-    wp_monitor_dbus_device_reservation_complete_release (self->reservation,
+    wp_dbus_device_reservation_complete_release (self->reservation,
         TRUE);
 }
 
@@ -42,14 +42,13 @@ static void
 on_reservation_acquired (GObject *obj, GAsyncResult *res, gpointer user_data)
 {
   WpReserveDevice *self = user_data;
-  WpMonitorDbusDeviceReservation *reserv =
-      WP_MONITOR_DBUS_DEVICE_RESERVATION (obj);
+  WpDbusDeviceReservation *reserv = WP_DBUS_DEVICE_RESERVATION (obj);
   g_autoptr (GError) error = NULL;
   g_autoptr (WpProxy) device = NULL;
   g_autoptr (WpSpaPod) profile = NULL;
 
   /* Finish */
-  if (!wp_monitor_dbus_device_reservation_async_finish (reserv, res, &error)) {
+  if (!wp_dbus_device_reservation_async_finish (reserv, res, &error)) {
     g_warning ("%s", error->message);
     return;
   }
@@ -68,7 +67,7 @@ on_reservation_acquired (GObject *obj, GAsyncResult *res, gpointer user_data)
 }
 
 static void
-on_reservation_release (WpMonitorDbusDeviceReservation *reservation, int forced,
+on_reservation_release (WpDbusDeviceReservation *reservation, int forced,
     WpReserveDevice *self)
 {
   g_autoptr (WpProxy) device = NULL;
@@ -97,7 +96,7 @@ on_reservation_release (WpMonitorDbusDeviceReservation *reservation, int forced,
 static void
 on_device_destroyed (WpProxy *device, WpReserveDevice *self)
 {
-  wp_monitor_dbus_device_reservation_release (self->reservation);
+  wp_dbus_device_reservation_release (self->reservation);
 }
 
 static void
@@ -117,7 +116,7 @@ wp_reserve_device_constructed (GObject * object)
     (GCallback) on_reservation_release, self, 0);
 
   /* Try to acquire the device */
-  wp_monitor_dbus_device_reservation_acquire (self->reservation, NULL,
+  wp_dbus_device_reservation_acquire (self->reservation, NULL,
      on_reservation_acquired, self);
 
   G_OBJECT_CLASS (wp_reserve_device_parent_class)->constructed (object);
@@ -166,7 +165,7 @@ wp_reserve_device_finalize (GObject * object)
 {
   WpReserveDevice *self = WP_RESERVE_DEVICE (object);
 
-  wp_monitor_dbus_device_reservation_release (self->reservation);
+  wp_dbus_device_reservation_release (self->reservation);
 
   /* Props */
   g_weak_ref_clear (&self->device);
@@ -200,13 +199,12 @@ wp_reserve_device_class_init (WpReserveDeviceClass * klass)
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (object_class, DEVICE_PROP_RESERVATION,
       g_param_spec_object ("reservation", "reservation",
-      "The dbus device reservation", WP_TYPE_MONITOR_DBUS_DEVICE_RESERVATION,
+      "The dbus device reservation", WP_TYPE_DBUS_DEVICE_RESERVATION,
       G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
 WpReserveDevice *
-wp_reserve_device_new (WpProxy *device,
-    WpMonitorDbusDeviceReservation *reservation)
+wp_reserve_device_new (WpProxy *device, WpDbusDeviceReservation *reservation)
 {
   return g_object_new (WP_TYPE_RESERVE_DEVICE,
       "device", device,
@@ -221,7 +219,7 @@ wp_reserve_device_acquire (WpReserveDevice *self)
   g_return_if_fail (self->reservation);
 
   if (self->n_acquired == 0)
-    wp_monitor_dbus_device_reservation_acquire (self->reservation, NULL,
+    wp_dbus_device_reservation_acquire (self->reservation, NULL,
         on_reservation_acquired, self);
 
   self->n_acquired++;
@@ -234,7 +232,7 @@ wp_reserve_device_release (WpReserveDevice *self)
   g_return_if_fail (self->reservation);
 
   if (self->n_acquired == 1)
-    wp_monitor_dbus_device_reservation_release (self->reservation);
+    wp_dbus_device_reservation_release (self->reservation);
 
   self->n_acquired--;
 }

@@ -16,7 +16,7 @@
 #define DEVICE_RESERVATION_SERVICE_PREFIX "org.freedesktop.ReserveDevice1."
 #define DEVICE_RESERVATION_OBJECT_PREFIX "/org/freedesktop/ReserveDevice1/"
 
-struct _WpMonitorDbusDeviceReservation
+struct _WpDbusDeviceReservation
 {
   GObject parent;
 
@@ -53,8 +53,8 @@ enum
 
 static guint device_reservation_signals[SIGNAL_LAST] = { 0 };
 
-G_DEFINE_TYPE (WpMonitorDbusDeviceReservation,
-    wp_monitor_dbus_device_reservation, G_TYPE_OBJECT)
+G_DEFINE_TYPE (WpDbusDeviceReservation, wp_dbus_device_reservation,
+    G_TYPE_OBJECT)
 
 static void
 handle_method_call (GDBusConnection *connection, const char *sender,
@@ -62,7 +62,7 @@ handle_method_call (GDBusConnection *connection, const char *sender,
     const char *method_name, GVariant *parameters,
     GDBusMethodInvocation *invocation, gpointer data)
 {
-  WpMonitorDbusDeviceReservation *self = data;
+  WpDbusDeviceReservation *self = data;
 
   if (g_strcmp0 (method_name, "RequestRelease") == 0) {
     gint priority;
@@ -70,11 +70,11 @@ handle_method_call (GDBusConnection *connection, const char *sender,
 
     if (priority > self->priority) {
       if (self->pending_release)
-        wp_monitor_dbus_device_reservation_complete_release (self, FALSE);
+        wp_dbus_device_reservation_complete_release (self, FALSE);
       self->pending_release = g_object_ref (invocation);
       g_signal_emit (self, device_reservation_signals[SIGNAL_RELEASE], 0, 0);
     } else {
-      wp_monitor_dbus_device_reservation_complete_release (self, FALSE);
+      wp_dbus_device_reservation_complete_release (self, FALSE);
     }
   }
 }
@@ -84,7 +84,7 @@ handle_get_property (GDBusConnection *connection, const char *sender,
     const char *object_path, const char *interface_name,
     const char *property, GError **error, gpointer data)
 {
-  WpMonitorDbusDeviceReservation *self = data;
+  WpDbusDeviceReservation *self = data;
   GVariant *ret = NULL;
 
   if (g_strcmp0 (property, "ApplicationName") == 0)
@@ -101,7 +101,7 @@ static void
 on_bus_acquired (GDBusConnection *connection, const gchar *name,
     gpointer user_data)
 {
-  WpMonitorDbusDeviceReservation *self = user_data;
+  WpDbusDeviceReservation *self = user_data;
   g_autoptr (GError) error = NULL;
   static const GDBusInterfaceVTable interface_vtable = {
     handle_method_call,
@@ -109,11 +109,11 @@ on_bus_acquired (GDBusConnection *connection, const gchar *name,
     NULL,  /* Don't allow setting a property */
   };
 
-  g_debug ("WpMonitorDbusDeviceReservation:%p bus acquired", self);
+  wp_debug_object (self, "bus acquired");
 
   self->registered_id = g_dbus_connection_register_object (connection,
       self->object_path,
-      wp_monitor_org_freedesktop_reserve_device1_interface_info (),
+      wp_org_freedesktop_reserve_device1_interface_info (),
       &interface_vtable,
       g_object_ref (self),
       g_object_unref,
@@ -126,8 +126,8 @@ static void
 on_name_acquired (GDBusConnection *connection, const gchar *name,
     gpointer user_data)
 {
-  WpMonitorDbusDeviceReservation *self = user_data;
-  g_debug ("WpMonitorDbusDeviceReservation:%p name acquired", self);
+  WpDbusDeviceReservation *self = user_data;
+  wp_debug_object (self, "name acquired");
 
   self->connection = connection;
 
@@ -139,8 +139,7 @@ on_name_acquired (GDBusConnection *connection, const gchar *name,
 }
 
 static void
-wp_monitor_dbus_device_reservation_unregister_object (
-    WpMonitorDbusDeviceReservation *self)
+wp_dbus_device_reservation_unregister_object (WpDbusDeviceReservation *self)
 {
   if (self->connection && self->registered_id > 0) {
     g_dbus_connection_unregister_object (self->connection, self->registered_id);
@@ -153,13 +152,13 @@ static void
 on_name_lost (GDBusConnection *connection, const gchar *name,
     gpointer user_data)
 {
-  WpMonitorDbusDeviceReservation *self = user_data;
-  g_debug ("WpMonitorDbusDeviceReservation:%p name lost\n", self);
+  WpDbusDeviceReservation *self = user_data;
+  wp_debug_object (self, "name lost");
 
   self->connection = connection;
 
   /* Unregister object */
-  wp_monitor_dbus_device_reservation_unregister_object (self);
+  wp_dbus_device_reservation_unregister_object (self);
 
   /* Trigger the acquired task */
   if (self->pending_task) {
@@ -172,10 +171,9 @@ on_name_lost (GDBusConnection *connection, const gchar *name,
 }
 
 static void
-wp_monitor_dbus_device_reservation_constructed (GObject * object)
+wp_dbus_device_reservation_constructed (GObject * object)
 {
-  WpMonitorDbusDeviceReservation *self =
-      WP_MONITOR_DBUS_DEVICE_RESERVATION (object);
+  WpDbusDeviceReservation *self = WP_DBUS_DEVICE_RESERVATION (object);
 
   /* Set service name and object path */
   self->service_name = g_strdup_printf (DEVICE_RESERVATION_SERVICE_PREFIX
@@ -183,16 +181,14 @@ wp_monitor_dbus_device_reservation_constructed (GObject * object)
   self->object_path = g_strdup_printf (DEVICE_RESERVATION_OBJECT_PREFIX
       "Audio%d", self->card_id);
 
-  G_OBJECT_CLASS (
-      wp_monitor_dbus_device_reservation_parent_class)->constructed (object);
+  G_OBJECT_CLASS (wp_dbus_device_reservation_parent_class)->constructed (object);
 }
 
 static void
-wp_monitor_dbus_device_reservation_get_property (GObject * object,
-    guint property_id, GValue * value, GParamSpec * pspec)
+wp_dbus_device_reservation_get_property (GObject * object, guint property_id,
+    GValue * value, GParamSpec * pspec)
 {
-  WpMonitorDbusDeviceReservation *self =
-      WP_MONITOR_DBUS_DEVICE_RESERVATION (object);
+  WpDbusDeviceReservation *self = WP_DBUS_DEVICE_RESERVATION (object);
 
   switch (property_id) {
   case PROP_CARD_ID:
@@ -214,11 +210,10 @@ wp_monitor_dbus_device_reservation_get_property (GObject * object,
 }
 
 static void
-wp_monitor_dbus_device_reservation_set_property (GObject * object,
+wp_dbus_device_reservation_set_property (GObject * object,
     guint property_id, const GValue * value, GParamSpec * pspec)
 {
-  WpMonitorDbusDeviceReservation *self =
-      WP_MONITOR_DBUS_DEVICE_RESERVATION (object);
+  WpDbusDeviceReservation *self = WP_DBUS_DEVICE_RESERVATION (object);
 
   switch (property_id) {
   case PROP_CARD_ID:
@@ -242,10 +237,9 @@ wp_monitor_dbus_device_reservation_set_property (GObject * object,
 }
 
 static void
-wp_monitor_dbus_device_reservation_finalize (GObject * object)
+wp_dbus_device_reservation_finalize (GObject * object)
 {
-  WpMonitorDbusDeviceReservation *self =
-      WP_MONITOR_DBUS_DEVICE_RESERVATION (object);
+  WpDbusDeviceReservation *self = WP_DBUS_DEVICE_RESERVATION (object);
 
   /* Finish pending task */
   if (self->pending_task) {
@@ -257,8 +251,8 @@ wp_monitor_dbus_device_reservation_finalize (GObject * object)
   g_clear_pointer (&self->pending_property_name, g_free);
 
   /* Unregister and release */
-  wp_monitor_dbus_device_reservation_unregister_object (self);
-  wp_monitor_dbus_device_reservation_release (self);
+  wp_dbus_device_reservation_unregister_object (self);
+  wp_dbus_device_reservation_release (self);
 
   g_clear_object (&self->pending_release);
   g_clear_pointer (&self->service_name, g_free);
@@ -268,25 +262,23 @@ wp_monitor_dbus_device_reservation_finalize (GObject * object)
   g_clear_pointer (&self->application_name, g_free);
   g_clear_pointer (&self->app_dev_name, g_free);
 
-  G_OBJECT_CLASS (
-      wp_monitor_dbus_device_reservation_parent_class)->finalize (object);
+  G_OBJECT_CLASS ( wp_dbus_device_reservation_parent_class)->finalize (object);
 }
 
 static void
-wp_monitor_dbus_device_reservation_init (WpMonitorDbusDeviceReservation * self)
+wp_dbus_device_reservation_init (WpDbusDeviceReservation * self)
 {
 }
 
 static void
-wp_monitor_dbus_device_reservation_class_init (
-    WpMonitorDbusDeviceReservationClass * klass)
+wp_dbus_device_reservation_class_init (WpDbusDeviceReservationClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
 
-  object_class->constructed = wp_monitor_dbus_device_reservation_constructed;
-  object_class->get_property = wp_monitor_dbus_device_reservation_get_property;
-  object_class->set_property = wp_monitor_dbus_device_reservation_set_property;
-  object_class->finalize = wp_monitor_dbus_device_reservation_finalize;
+  object_class->constructed = wp_dbus_device_reservation_constructed;
+  object_class->get_property = wp_dbus_device_reservation_get_property;
+  object_class->set_property = wp_dbus_device_reservation_set_property;
+  object_class->finalize = wp_dbus_device_reservation_finalize;
 
   /* Properties */
   g_object_class_install_property (object_class, PROP_CARD_ID,
@@ -312,11 +304,11 @@ wp_monitor_dbus_device_reservation_class_init (
       0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_INT);
 }
 
-WpMonitorDbusDeviceReservation *
-wp_monitor_dbus_device_reservation_new (gint card_id,
-    const char *application_name, gint priority, const char *app_dev_name)
+WpDbusDeviceReservation *
+wp_dbus_device_reservation_new (gint card_id, const char *application_name,
+    gint priority, const char *app_dev_name)
 {
-  return g_object_new (WP_TYPE_MONITOR_DBUS_DEVICE_RESERVATION,
+  return g_object_new (WP_TYPE_DBUS_DEVICE_RESERVATION,
       "card-id", card_id,
       "application-name", application_name,
       "priority", priority,
@@ -325,10 +317,9 @@ wp_monitor_dbus_device_reservation_new (gint card_id,
 }
 
 void
-wp_monitor_dbus_device_reservation_release (
-    WpMonitorDbusDeviceReservation *self)
+wp_dbus_device_reservation_release (WpDbusDeviceReservation *self)
 {
-  g_return_if_fail (WP_IS_MONITOR_DBUS_DEVICE_RESERVATION (self));
+  g_return_if_fail (WP_IS_DBUS_DEVICE_RESERVATION (self));
   if (self->owner_id == 0)
     return;
 
@@ -338,10 +329,10 @@ wp_monitor_dbus_device_reservation_release (
 }
 
 void
-wp_monitor_dbus_device_reservation_complete_release (
-    WpMonitorDbusDeviceReservation *self, gboolean res)
+wp_dbus_device_reservation_complete_release (WpDbusDeviceReservation *self,
+    gboolean res)
 {
-  g_return_if_fail (WP_IS_MONITOR_DBUS_DEVICE_RESERVATION (self));
+  g_return_if_fail (WP_IS_DBUS_DEVICE_RESERVATION (self));
 
   if (!self->pending_release)
     return;
@@ -354,17 +345,16 @@ wp_monitor_dbus_device_reservation_complete_release (
 static void
 on_unowned (gpointer user_data)
 {
-  WpMonitorDbusDeviceReservation *self = user_data;
-  wp_monitor_dbus_device_reservation_unregister_object (self);
+  WpDbusDeviceReservation *self = user_data;
+  wp_dbus_device_reservation_unregister_object (self);
   g_object_unref (self);
 }
 
 gboolean
-wp_monitor_dbus_device_reservation_acquire (
-    WpMonitorDbusDeviceReservation *self, GCancellable *cancellable,
-    GAsyncReadyCallback callback, gpointer user_data)
+wp_dbus_device_reservation_acquire (WpDbusDeviceReservation *self,
+    GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-  g_return_val_if_fail (WP_IS_MONITOR_DBUS_DEVICE_RESERVATION (self), FALSE);
+  g_return_val_if_fail (WP_IS_DBUS_DEVICE_RESERVATION (self), FALSE);
   g_return_val_if_fail (!self->pending_task, FALSE);
   if (self->owner_id > 0)
     return FALSE;
@@ -385,13 +375,13 @@ wp_monitor_dbus_device_reservation_acquire (
 static void
 on_request_release_done (GObject *proxy, GAsyncResult *res, gpointer user_data)
 {
-  WpMonitorDbusDeviceReservation *self = user_data;
+  WpDbusDeviceReservation *self = user_data;
   g_autoptr (GError) error = NULL;
   gboolean ret;
 
   /* Finish */
-  wp_monitor_org_freedesktop_reserve_device1_call_request_release_finish (
-      WP_MONITOR_ORG_FREEDESKTOP_RESERVE_DEVICE1 (proxy),
+  wp_org_freedesktop_reserve_device1_call_request_release_finish (
+      WP_ORG_FREEDESKTOP_RESERVE_DEVICE1 (proxy),
       &ret, res, &error);
 
   /* Return */
@@ -406,12 +396,12 @@ on_request_release_done (GObject *proxy, GAsyncResult *res, gpointer user_data)
 static void
 on_proxy_done_request_release (GObject *obj, GAsyncResult *res, gpointer data)
 {
-  WpMonitorDbusDeviceReservation *self = data;
-  g_autoptr (WpMonitorOrgFreedesktopReserveDevice1) proxy = NULL;
+  WpDbusDeviceReservation *self = data;
+  g_autoptr (WpOrgFreedesktopReserveDevice1) proxy = NULL;
   g_autoptr (GError) error = NULL;
 
   /* Finish */
-  proxy = wp_monitor_org_freedesktop_reserve_device1_proxy_new_for_bus_finish (
+  proxy = wp_org_freedesktop_reserve_device1_proxy_new_for_bus_finish (
       res, &error);
 
   /* Check for errors */
@@ -424,23 +414,22 @@ on_proxy_done_request_release (GObject *obj, GAsyncResult *res, gpointer data)
 
   /* Request release */
   g_return_if_fail (proxy);
-  wp_monitor_org_freedesktop_reserve_device1_call_request_release (proxy,
+  wp_org_freedesktop_reserve_device1_call_request_release (proxy,
      self->priority, NULL, on_request_release_done, self);
 }
 
 gboolean
-wp_monitor_dbus_device_reservation_request_release (
-    WpMonitorDbusDeviceReservation *self, GCancellable *cancellable,
-    GAsyncReadyCallback callback, gpointer user_data)
+wp_dbus_device_reservation_request_release (WpDbusDeviceReservation *self,
+    GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
 {
-  g_return_val_if_fail (WP_IS_MONITOR_DBUS_DEVICE_RESERVATION (self), FALSE);
+  g_return_val_if_fail (WP_IS_DBUS_DEVICE_RESERVATION (self), FALSE);
   g_return_val_if_fail (!self->pending_task, FALSE);
 
   /* Set the new task */
   self->pending_task = g_task_new (self, cancellable, callback, user_data);
 
   /* Get the proxy */
-  wp_monitor_org_freedesktop_reserve_device1_proxy_new_for_bus (
+  wp_org_freedesktop_reserve_device1_proxy_new_for_bus (
       G_BUS_TYPE_SESSION, G_BUS_NAME_OWNER_FLAGS_NONE, self->service_name,
       self->object_path, NULL, on_proxy_done_request_release, self);
   return TRUE;
@@ -449,13 +438,13 @@ wp_monitor_dbus_device_reservation_request_release (
 static void
 on_proxy_done_request_property (GObject *obj, GAsyncResult *res, gpointer data)
 {
-  WpMonitorDbusDeviceReservation *self = data;
-  g_autoptr (WpMonitorOrgFreedesktopReserveDevice1) proxy = NULL;
+  WpDbusDeviceReservation *self = data;
+  g_autoptr (WpOrgFreedesktopReserveDevice1) proxy = NULL;
   g_autoptr (GError) error = NULL;
 
   /* Finish */
-  proxy = wp_monitor_org_freedesktop_reserve_device1_proxy_new_for_bus_finish (
-      res, &error);
+  proxy = wp_org_freedesktop_reserve_device1_proxy_new_for_bus_finish (res,
+      &error);
 
   /* Check for errors */
   g_return_if_fail (self->pending_task);
@@ -470,15 +459,15 @@ on_proxy_done_request_property (GObject *obj, GAsyncResult *res, gpointer data)
   g_return_if_fail (self->pending_property_name);
 
   if (g_strcmp0 (self->pending_property_name, "ApplicationName") == 0) {
-    char *v = wp_monitor_org_freedesktop_reserve_device1_dup_application_name (proxy);
+    char *v = wp_org_freedesktop_reserve_device1_dup_application_name (proxy);
     g_task_return_pointer (self->pending_task, v, g_free);
   }
   else if (g_strcmp0 (self->pending_property_name, "ApplicationDeviceName") == 0) {
-    char *v = wp_monitor_org_freedesktop_reserve_device1_dup_application_device_name (proxy);
+    char *v = wp_org_freedesktop_reserve_device1_dup_application_device_name (proxy);
     g_task_return_pointer (self->pending_task, v, g_free);
   }
   else if (g_strcmp0 (self->pending_property_name, "Priority") == 0) {
-    gint v = wp_monitor_org_freedesktop_reserve_device1_get_priority (proxy);
+    gint v = wp_org_freedesktop_reserve_device1_get_priority (proxy);
     g_task_return_pointer (self->pending_task, GINT_TO_POINTER (v), NULL);
   }
   else {
@@ -491,11 +480,11 @@ on_proxy_done_request_property (GObject *obj, GAsyncResult *res, gpointer data)
 }
 
 gboolean
-wp_monitor_dbus_device_reservation_request_property (
-    WpMonitorDbusDeviceReservation *self, const char *name,
-    GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+wp_dbus_device_reservation_request_property (WpDbusDeviceReservation *self,
+    const char *name, GCancellable *cancellable, GAsyncReadyCallback callback,
+    gpointer user_data)
 {
-  g_return_val_if_fail (WP_IS_MONITOR_DBUS_DEVICE_RESERVATION (self), FALSE);
+  g_return_val_if_fail (WP_IS_DBUS_DEVICE_RESERVATION (self), FALSE);
   g_return_val_if_fail (!self->pending_task, FALSE);
 
   /* Set the new task and property name */
@@ -504,17 +493,17 @@ wp_monitor_dbus_device_reservation_request_property (
   self->pending_property_name = g_strdup (name);
 
   /* Get the proxy */
-  wp_monitor_org_freedesktop_reserve_device1_proxy_new_for_bus (
+  wp_org_freedesktop_reserve_device1_proxy_new_for_bus (
       G_BUS_TYPE_SESSION, G_BUS_NAME_OWNER_FLAGS_NONE, self->service_name,
       self->object_path, NULL, on_proxy_done_request_property, self);
   return TRUE;
 }
 
 gpointer
-wp_monitor_dbus_device_reservation_async_finish (
-    WpMonitorDbusDeviceReservation *self, GAsyncResult * res, GError ** error)
+wp_dbus_device_reservation_async_finish (WpDbusDeviceReservation *self,
+    GAsyncResult * res, GError ** error)
 {
-  g_return_val_if_fail (WP_IS_MONITOR_DBUS_DEVICE_RESERVATION (self), FALSE);
+  g_return_val_if_fail (WP_IS_DBUS_DEVICE_RESERVATION (self), FALSE);
   g_return_val_if_fail (g_task_is_valid (res, self), FALSE);
 
   return g_task_propagate_pointer (G_TASK (res), error);

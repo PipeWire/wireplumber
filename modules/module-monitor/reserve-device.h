@@ -21,7 +21,7 @@ G_DECLARE_FINAL_TYPE (WpReserveDevice, wp_reserve_device, WP, RESERVE_DEVICE,
     GObject)
 
 WpReserveDevice * wp_reserve_device_new (WpProxy *device,
-    WpMonitorDbusDeviceReservation *reservation);
+    WpDbusDeviceReservation *reservation);
 
 void
 wp_reserve_device_acquire (WpReserveDevice *self);

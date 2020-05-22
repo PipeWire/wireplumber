@@ -391,7 +391,7 @@ add_reserve_device_data (WpMonitor * self, WpSpaDevice *device,
   g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (device));
   const char *card_id = NULL;
   const char *app_dev_name = NULL;
-  g_autoptr (WpMonitorDbusDeviceReservation) reservation = NULL;
+  g_autoptr (WpDbusDeviceReservation) reservation = NULL;
   g_autoptr (WpReserveDevice) device_data = NULL;
 
   if ((self->flags & FLAG_DBUS_RESERVATION) == 0)
@@ -404,7 +404,7 @@ add_reserve_device_data (WpMonitor * self, WpSpaDevice *device,
   app_dev_name = wp_properties_get (props, SPA_KEY_API_ALSA_PATH);
 
   /* Create the dbus device reservation */
-  reservation = wp_monitor_dbus_device_reservation_new (atoi(card_id),
+  reservation = wp_dbus_device_reservation_new (atoi(card_id),
       "PipeWire", 10, app_dev_name);
 
   /* Create the reserve device data */
