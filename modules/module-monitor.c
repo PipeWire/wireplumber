@@ -345,6 +345,13 @@ create_node (WpMonitor * self, WpProxy * parent, GList ** children,
 
   props = wp_properties_copy (props);
   wp_properties_set (props, SPA_KEY_FACTORY_NAME, spa_factory);
+
+  /* add device id property */
+  if (wp_proxy_get_features (parent) & WP_PROXY_FEATURE_BOUND) {
+    guint32 device_id = wp_proxy_get_bound_id (parent);
+    wp_properties_setf (props, PW_KEY_DEVICE_ID, "%u", device_id);
+  }
+
   setup_node_props (parent_props, props);
 
   /* create the node */
