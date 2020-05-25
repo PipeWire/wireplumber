@@ -47,11 +47,15 @@ GType wp_iterator_get_type (void);
 
 typedef struct _WpIterator WpIterator;
 
+/* ref count */
+
 WP_API
 WpIterator *wp_iterator_ref (WpIterator *self);
 
 WP_API
 void wp_iterator_unref (WpIterator *self);
+
+/* iteration api */
 
 WP_API
 void wp_iterator_reset (WpIterator *self);
@@ -66,6 +70,11 @@ gboolean wp_iterator_fold (WpIterator *self, WpIteratorFoldFunc func,
 WP_API
 gboolean wp_iterator_foreach (WpIterator *self, WpIteratorForeachFunc func,
     gpointer data);
+
+/* constructors */
+
+WP_API
+WpIterator * wp_iterator_new_ptr_array (GPtrArray * items, GType item_type);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpIterator, wp_iterator_unref)
 
