@@ -38,7 +38,7 @@ typedef enum { /*< flags >*/
  */
 #define WP_ENDPOINT_FEATURES_STANDARD \
     (WP_PROXY_FEATURES_STANDARD | \
-     WP_PROXY_FEATURE_CONTROLS | \
+     WP_PROXY_FEATURE_PROPS | \
      WP_ENDPOINT_FEATURE_STREAMS)
 
 /**

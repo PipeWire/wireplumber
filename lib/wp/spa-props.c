@@ -9,6 +9,7 @@
 #define G_LOG_DOMAIN "wp-spa-props"
 
 #include "private.h"
+#include "debug.h"
 #include <spa/pod/pod.h>
 #include <spa/pod/builder.h>
 #include <spa/pod/parser.h>
@@ -23,6 +24,7 @@ struct entry
 {
   gchar *id_name;
   gchar *description;
+  WpSpaPod *type;
   WpSpaPod *value;
 };
 
@@ -38,6 +40,7 @@ entry_free (struct entry *e)
 {
   g_free (e->id_name);
   g_free (e->description);
+  g_clear_pointer (&e->type, wp_spa_pod_unref);
   g_clear_pointer (&e->value, wp_spa_pod_unref);
   g_slice_free (struct entry, e);
 }
@@ -57,7 +60,9 @@ wp_spa_props_register (WpSpaProps * self, const char *id_name,
   struct entry *e = entry_new ();
   e->id_name = g_strdup (id_name);
   e->description = g_strdup (description);
-  e->value = pod;
+  e->type = pod;
+  e->value = wp_spa_pod_is_choice (e->type) ?
+      wp_spa_pod_get_choice_child (e->type) : wp_spa_pod_ref (e->type);
   self->entries = g_list_append (self->entries, e);
 }
 
@@ -69,14 +74,12 @@ wp_spa_props_register_from_prop_info (WpSpaProps * self,
   const gchar *id_name, *description;
   g_autoptr (WpSpaPod) type = NULL;
 
-
   if (!wp_spa_pod_get_object (prop_info,
       "PropInfo", NULL,
       "id", "I", &id,
       "name", "s", &description,
       "type", "P", &type,
       NULL)) {
-    g_assert_true (FALSE);
     g_warning ("Bad prop info object");
     return FALSE;
   }
@@ -103,8 +106,7 @@ wp_spa_props_get_stored (WpSpaProps * self, const char * id_name)
     return NULL;
 
   e = (struct entry *) l->data;
-  return wp_spa_pod_is_choice (e->value) ?
-      wp_spa_pod_get_choice_child (e->value) : wp_spa_pod_ref (e->value);
+  return wp_spa_pod_ref (e->value);
 }
 
 // exported set --> cache + update(variant to pod -> push)
@@ -123,10 +125,16 @@ wp_spa_props_store (WpSpaProps * self, const char * id_name,
 
   e = (struct entry *) l->data;
 
-  pod = wp_spa_pod_is_choice (e->value) ?
-      wp_spa_pod_get_choice_child (e->value) : wp_spa_pod_ref (e->value);
+  wp_trace ("storing %s, entry:%p", id_name, e);
 
-  return !wp_spa_pod_equal (pod, value) && wp_spa_pod_set_pod (pod, value);
+  /* TODO check the type */
+
+  if (!wp_spa_pod_equal (e->value, value)) {
+    g_clear_pointer (&e->value, wp_spa_pod_unref);
+    e->value = wp_spa_pod_copy (value);
+    return TRUE;
+  }
+  return FALSE;
 }
 
 // exported event set --> pod to variant -> cache
@@ -174,10 +182,9 @@ wp_spa_props_build_props (WpSpaProps * self)
   for (l = self->entries; l != NULL; l = g_list_next (l)) {
     struct entry * e = (struct entry *) l->data;
     if (e->id_name && e->value) {
-      g_autoptr (WpSpaPod) pod = wp_spa_pod_is_choice (e->value) ?
-          wp_spa_pod_get_choice_child (e->value) : wp_spa_pod_ref (e->value);
+      wp_trace ("building %s, entry:%p", e->id_name, e);
       wp_spa_pod_builder_add_property (b, e->id_name);
-      wp_spa_pod_builder_add_pod (b, pod);
+      wp_spa_pod_builder_add_pod (b, e->value);
     }
   }
 
@@ -204,7 +211,7 @@ wp_spa_props_build_propinfo (WpSpaProps * self)
         "PropInfo", "PropInfo",
         "id", "I", id,
         "name", "s", e->description,
-        "type", "P", e->value,
+        "type", "P", e->type,
         NULL));
   }
 

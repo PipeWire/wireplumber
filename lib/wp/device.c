@@ -81,34 +81,37 @@ wp_device_get_properties (WpProxy * self)
   return wp_properties_new_wrap_dict (priv->info->props);
 }
 
+struct spa_param_info *
+wp_device_get_param_info (WpProxy * self, guint * n_params)
+{
+  WpDevicePrivate *priv = wp_device_get_instance_private (WP_DEVICE (self));
+  *n_params = priv->info->n_params;
+  return priv->info->params;
+}
+
 static gint
 wp_device_enum_params (WpProxy * self, guint32 id, guint32 start,
     guint32 num, const WpSpaPod * filter)
 {
-  struct pw_device *pwp;
-  int device_enum_params_result;
+  struct pw_device *pwp = (struct pw_device *) wp_proxy_get_pw_proxy (self);
+  return pw_device_enum_params (pwp, 0, id, start, num,
+      filter ? wp_spa_pod_get_spa_pod (filter) : NULL);
+}
 
-  pwp = (struct pw_device *) wp_proxy_get_pw_proxy (self);
-  device_enum_params_result = pw_device_enum_params (pwp, 0, id, start, num,
-      wp_spa_pod_get_spa_pod (filter));
-  g_warn_if_fail (device_enum_params_result >= 0);
-
-  return device_enum_params_result;
+static gint
+wp_device_subscribe_params (WpProxy * self, guint32 *ids, guint32 n_ids)
+{
+  struct pw_device *pwp = (struct pw_device *) wp_proxy_get_pw_proxy (self);
+  return pw_device_subscribe_params (pwp, ids, n_ids);
 }
 
 static gint
 wp_device_set_param (WpProxy * self, guint32 id, guint32 flags,
     const WpSpaPod *param)
 {
-  struct pw_device *pwp;
-  int device_set_param_result;
-
-  pwp = (struct pw_device *) wp_proxy_get_pw_proxy (self);
-  device_set_param_result = pw_device_set_param (pwp, id, flags,
+  struct pw_device *pwp = (struct pw_device *) wp_proxy_get_pw_proxy (self);
+  return pw_device_set_param (pwp, id, flags,
       wp_spa_pod_get_spa_pod (param));
-  g_warn_if_fail (device_set_param_result >= 0);
-
-  return device_set_param_result;
 }
 
 static void
@@ -124,6 +127,9 @@ device_event_info(void *data, const struct pw_device_info *info)
 
   if (info->change_mask & PW_DEVICE_CHANGE_MASK_PROPS)
     g_object_notify (G_OBJECT (self), "properties");
+
+  if (info->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS)
+    g_object_notify (G_OBJECT (self), "param-info");
 }
 
 static const struct pw_device_events device_events = {
@@ -154,7 +160,9 @@ wp_device_class_init (WpDeviceClass * klass)
 
   proxy_class->get_info = wp_device_get_info;
   proxy_class->get_properties = wp_device_get_properties;
+  proxy_class->get_param_info = wp_device_get_param_info;
   proxy_class->enum_params = wp_device_enum_params;
+  proxy_class->subscribe_params = wp_device_subscribe_params;
   proxy_class->set_param = wp_device_set_param;
 
   proxy_class->pw_proxy_created = wp_device_pw_proxy_created;
@@ -203,7 +211,7 @@ wp_device_new_from_factory (WpCore * core,
 
 struct _WpSpaDevice
 {
-  WpDevice parent;
+  WpProxy parent;
   struct spa_handle *handle;
   struct spa_device *interface;
   struct spa_hook listener;
@@ -336,12 +344,6 @@ wp_spa_device_augment (WpProxy * proxy, WpProxyFeatures features)
   }
 }
 
-static gconstpointer
-wp_spa_device_get_info (WpProxy * proxy)
-{
-  return NULL;
-}
-
 static WpProperties *
 wp_spa_device_get_properties (WpProxy * proxy)
 {
@@ -354,13 +356,8 @@ wp_spa_device_enum_params (WpProxy * proxy, guint32 id, guint32 start,
     guint32 num, const WpSpaPod * filter)
 {
   WpSpaDevice *self = WP_SPA_DEVICE (proxy);
-  int device_enum_params_result;
-
-  device_enum_params_result = spa_device_enum_params (self->interface,
-      0, id, start, num, wp_spa_pod_get_spa_pod (filter));
-  g_warn_if_fail (device_enum_params_result >= 0);
-
-  return device_enum_params_result;
+  return spa_device_enum_params (self->interface,
+      0, id, start, num, filter ? wp_spa_pod_get_spa_pod (filter) : NULL);
 }
 
 static gint
@@ -368,13 +365,8 @@ wp_spa_device_set_param (WpProxy * proxy, guint32 id, guint32 flags,
     const WpSpaPod *param)
 {
   WpSpaDevice *self = WP_SPA_DEVICE (proxy);
-  int device_set_param_result;
-
-  device_set_param_result = spa_device_set_param (self->interface,
+  return spa_device_set_param (self->interface,
       id, flags, wp_spa_pod_get_spa_pod (param));
-  g_warn_if_fail (device_set_param_result >= 0);
-
-  return device_set_param_result;
 }
 
 static void
@@ -387,7 +379,6 @@ wp_spa_device_class_init (WpSpaDeviceClass * klass)
 
   proxy_class->augment = wp_spa_device_augment;
 
-  proxy_class->get_info = wp_spa_device_get_info;
   proxy_class->get_properties = wp_spa_device_get_properties;
   proxy_class->enum_params = wp_spa_device_enum_params;
   proxy_class->set_param = wp_spa_device_set_param;

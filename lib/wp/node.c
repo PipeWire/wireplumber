@@ -147,47 +147,37 @@ wp_node_get_properties (WpProxy * self)
   return wp_properties_new_wrap_dict (priv->info->props);
 }
 
+static struct spa_param_info *
+wp_node_get_param_info (WpProxy * proxy, guint * n_params)
+{
+  WpNodePrivate *priv = wp_node_get_instance_private (WP_NODE (proxy));
+
+  *n_params = priv->info->n_params;
+  return priv->info->params;
+}
+
 static gint
 wp_node_enum_params (WpProxy * self, guint32 id, guint32 start,
     guint32 num, const WpSpaPod * filter)
 {
-  struct pw_node *pwp;
-  int node_enum_params_result;
-
-  pwp = (struct pw_node *) wp_proxy_get_pw_proxy (self);
-  node_enum_params_result = pw_node_enum_params (pwp, 0, id, start, num,
+  struct pw_node *pwp = (struct pw_node *) wp_proxy_get_pw_proxy (self);
+  return pw_node_enum_params (pwp, 0, id, start, num,
       filter ? wp_spa_pod_get_spa_pod (filter) : NULL);
-  g_warn_if_fail (node_enum_params_result >= 0);
-
-  return node_enum_params_result;
 }
 
 static gint
-wp_node_subscribe_params (WpProxy * self, guint32 n_ids, guint32 *ids)
+wp_node_subscribe_params (WpProxy * self, guint32 *ids, guint32 n_ids)
 {
-  struct pw_node *pwp;
-  int node_subscribe_params_result;
-
-  pwp = (struct pw_node *) wp_proxy_get_pw_proxy (self);
-  node_subscribe_params_result = pw_node_subscribe_params (pwp, ids, n_ids);
-  g_warn_if_fail (node_subscribe_params_result >= 0);
-
-  return node_subscribe_params_result;
+  struct pw_node *pwp = (struct pw_node *) wp_proxy_get_pw_proxy (self);
+  return pw_node_subscribe_params (pwp, ids, n_ids);
 }
 
 static gint
 wp_node_set_param (WpProxy * self, guint32 id, guint32 flags,
     const WpSpaPod *param)
 {
-  struct pw_node *pwp;
-  int node_set_param_result;
-
-  pwp = (struct pw_node *) wp_proxy_get_pw_proxy (self);
-  node_set_param_result = pw_node_set_param (pwp, id, flags,
-      wp_spa_pod_get_spa_pod (param));
-  g_warn_if_fail (node_set_param_result >= 0);
-
-  return node_set_param_result;
+  struct pw_node *pwp = (struct pw_node *) wp_proxy_get_pw_proxy (self);
+  return pw_node_set_param (pwp, id, flags, wp_spa_pod_get_spa_pod (param));
 }
 
 static void
@@ -205,6 +195,9 @@ node_event_info(void *data, const struct pw_node_info *info)
 
   if (info->change_mask & PW_NODE_CHANGE_MASK_PROPS)
     g_object_notify (G_OBJECT (self), "properties");
+
+  if (info->change_mask & PW_NODE_CHANGE_MASK_PARAMS)
+    g_object_notify (G_OBJECT (self), "param-info");
 
   if (info->change_mask & PW_NODE_CHANGE_MASK_STATE)
     g_signal_emit (self, signals[SIGNAL_STATE_CHANGED], 0, old_state,
@@ -249,6 +242,7 @@ wp_node_class_init (WpNodeClass * klass)
   proxy_class->augment = wp_node_augment;
   proxy_class->get_info = wp_node_get_info;
   proxy_class->get_properties = wp_node_get_properties;
+  proxy_class->get_param_info = wp_node_get_param_info;
   proxy_class->enum_params = wp_node_enum_params;
   proxy_class->subscribe_params = wp_node_subscribe_params;
   proxy_class->set_param = wp_node_set_param;
@@ -604,11 +598,9 @@ wp_impl_node_augment (WpProxy * proxy, WpProxyFeatures features)
             PW_TYPE_INTERFACE_Node, NULL, self->pw_impl_node, 0));
   }
 
-  if (features & WP_NODE_FEATURE_PORTS) {
-    WpNodePrivate *priv = wp_node_get_instance_private (WP_NODE (self));
-    priv->ft_ports_requested = TRUE;
-    wp_node_ensure_feature_ports (WP_NODE (self), 0);
-  }
+  /* get misc features from the parent implementation */
+  features &= ~WP_PROXY_FEATURES_STANDARD;
+  WP_PROXY_CLASS (wp_impl_node_parent_class)->augment (proxy, features);
 }
 
 static void

@@ -64,32 +64,28 @@ wp_port_get_properties (WpProxy * self)
   return wp_properties_new_wrap_dict (WP_PORT (self)->info->props);
 }
 
+static struct spa_param_info *
+wp_port_get_param_info (WpProxy * proxy, guint * n_params)
+{
+  WpPort *self = WP_PORT (proxy);
+  *n_params = self->info->n_params;
+  return self->info->params;
+}
+
 static gint
 wp_port_enum_params (WpProxy * self, guint32 id, guint32 start,
     guint32 num, const WpSpaPod * filter)
 {
-  struct pw_port *pwp;
-  int port_enum_params_result;
-
-  pwp = (struct pw_port *) wp_proxy_get_pw_proxy (self);
-  port_enum_params_result = pw_port_enum_params (pwp, 0, id, start, num,
-      wp_spa_pod_get_spa_pod (filter));
-  g_warn_if_fail (port_enum_params_result >= 0);
-
-  return port_enum_params_result;
+  struct pw_port *pwp = (struct pw_port *) wp_proxy_get_pw_proxy (self);
+  return pw_port_enum_params (pwp, 0, id, start, num,
+      filter ? wp_spa_pod_get_spa_pod (filter) : NULL);
 }
 
 static gint
-wp_port_subscribe_params (WpProxy * self, guint32 n_ids, guint32 *ids)
+wp_port_subscribe_params (WpProxy * self, guint32 *ids, guint32 n_ids)
 {
-  struct pw_port *pwp;
-  int port_subscribe_params_result;
-
-  pwp = (struct pw_port *) wp_proxy_get_pw_proxy (self);
-  port_subscribe_params_result = pw_port_subscribe_params (pwp, ids, n_ids);
-  g_warn_if_fail (port_subscribe_params_result >= 0);
-
-  return port_subscribe_params_result;
+  struct pw_port *pwp = (struct pw_port *) wp_proxy_get_pw_proxy (self);
+  return pw_port_subscribe_params (pwp, ids, n_ids);
 }
 
 static void
@@ -104,6 +100,9 @@ port_event_info(void *data, const struct pw_port_info *info)
 
   if (info->change_mask & PW_PORT_CHANGE_MASK_PROPS)
     g_object_notify (G_OBJECT (self), "properties");
+
+  if (info->change_mask & PW_PORT_CHANGE_MASK_PARAMS)
+    g_object_notify (G_OBJECT (self), "param-info");
 }
 
 static const struct pw_port_events port_events = {
@@ -133,6 +132,7 @@ wp_port_class_init (WpPortClass * klass)
 
   proxy_class->get_info = wp_port_get_info;
   proxy_class->get_properties = wp_port_get_properties;
+  proxy_class->get_param_info = wp_port_get_param_info;
   proxy_class->enum_params = wp_port_enum_params;
   proxy_class->subscribe_params = wp_port_subscribe_params;
 

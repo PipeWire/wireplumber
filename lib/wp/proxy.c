@@ -48,8 +48,8 @@ struct _WpProxyPrivate
 
   GHashTable *async_tasks; // <int seq, GTask*>
 
-  /* controls */
-  WpSpaProps controls;
+  /* props cache */
+  WpSpaProps props;
 };
 
 enum {
@@ -62,6 +62,7 @@ enum {
   PROP_PW_PROXY,
   PROP_INFO,
   PROP_PROPERTIES,
+  PROP_PARAM_INFO,
   PROP_BOUND_ID,
 };
 
@@ -71,7 +72,7 @@ enum
   SIGNAL_PW_PROXY_DESTROYED,
   SIGNAL_BOUND,
   SIGNAL_PARAM,
-  SIGNAL_CONTROL_CHANGED,
+  SIGNAL_PROP_CHANGED,
   LAST_SIGNAL,
 };
 
@@ -214,7 +215,7 @@ wp_proxy_finalize (GObject * object)
   g_clear_pointer (&priv->global, wp_global_unref);
   g_weak_ref_clear (&priv->core);
   g_clear_pointer (&priv->async_tasks, g_hash_table_unref);
-  wp_spa_props_clear (&priv->controls);
+  wp_spa_props_clear (&priv->props);
 
   G_OBJECT_CLASS (wp_proxy_parent_class)->finalize (object);
 }
@@ -271,6 +272,9 @@ wp_proxy_get_gobj_property (GObject * object, guint property_id, GValue * value,
   case PROP_PROPERTIES:
     g_value_take_boxed (value, wp_proxy_get_properties (self));
     break;
+  case PROP_PARAM_INFO:
+    g_value_take_variant (value, wp_proxy_get_param_info (self));
+    break;
   case PROP_BOUND_ID:
     g_value_set_uint (value, wp_proxy_get_bound_id (self));
     break;
@@ -304,54 +308,21 @@ wp_proxy_default_augment (WpProxy * self, WpProxyFeatures features)
     /* bind */
     wp_proxy_set_pw_proxy (self, wp_global_bind (priv->global));
   }
-}
 
-static void
-wp_proxy_default_param (WpProxy * self, gint seq, const gchar * id_name,
-    guint32 index, guint32 next, const WpSpaPod *param)
-{
-  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
-  g_autoptr (GPtrArray) changed_ids = NULL;
-  const gchar * prop_id;
+  if (features & WP_PROXY_FEATURE_PROPS) {
+    WpProxyClass *klass = WP_PROXY_GET_CLASS (self);
+    uint32_t ids[] = { SPA_PARAM_Props };
 
-  if (g_strcmp0 ("PropInfo", id_name) == 0) {
-    wp_spa_props_register_from_prop_info (&priv->controls, param);
-  }
-
-  else if (g_strcmp0 ("Props", id_name) == 0) {
-    changed_ids = g_ptr_array_new_with_free_func (g_free);
-    wp_spa_props_store_from_props (&priv->controls, param, changed_ids);
-
-    for (guint i = 0; i < changed_ids->len; i++) {
-      prop_id = g_ptr_array_index (changed_ids, i);
-      g_signal_emit (self, wp_proxy_signals[SIGNAL_CONTROL_CHANGED], 0, prop_id);
+    if (!klass->enum_params || !klass->subscribe_params) {
+      wp_proxy_augment_error (self, g_error_new (WP_DOMAIN_LIBRARY,
+            WP_LIBRARY_ERROR_OPERATION_FAILED,
+            "Proxy does not support enum/subscribe params API"));
+      return;
     }
 
-    wp_proxy_set_feature_ready (self, WP_PROXY_FEATURE_CONTROLS);
+    klass->enum_params (self, SPA_PARAM_PropInfo, 0, -1, NULL);
+    klass->subscribe_params (self, ids, SPA_N_ELEMENTS (ids));
   }
-}
-
-static WpSpaPod *
-wp_proxy_default_get_control (WpProxy * self, const gchar * id_name)
-{
-  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
-  return wp_spa_props_get_stored (&priv->controls, id_name);
-}
-
-static gboolean
-wp_proxy_default_set_control (WpProxy * self, const gchar * id_name,
-    const WpSpaPod * value)
-{
-  g_return_val_if_fail (WP_PROXY_GET_CLASS (self)->set_param, FALSE);
-
-  g_autoptr (WpSpaPod) param = wp_spa_pod_new_object (
-      "Props", "Props",
-      id_name, "P", value,
-      NULL);
-
-  /* our spa_props will be updated by the param event */
-  return WP_PROXY_GET_CLASS (self)->set_param (self, SPA_PARAM_Props, 0,
-      param) >= 0;
 }
 
 static void
@@ -365,9 +336,6 @@ wp_proxy_class_init (WpProxyClass * klass)
   object_class->set_property = wp_proxy_set_gobj_property;
 
   klass->augment = wp_proxy_default_augment;
-  klass->param = wp_proxy_default_param;
-  klass->get_control = wp_proxy_default_get_control;
-  klass->set_control = wp_proxy_default_set_control;
 
   /* Install the properties */
 
@@ -408,6 +376,11 @@ wp_proxy_class_init (WpProxyClass * klass)
           "The pipewire properties of the object", WP_TYPE_PROPERTIES,
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (object_class, PROP_PARAM_INFO,
+      g_param_spec_variant ("param-info", "param-info",
+          "The param info of the object", G_VARIANT_TYPE ("a{ss}"), NULL,
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+
   g_object_class_install_property (object_class, PROP_BOUND_ID,
       g_param_spec_uint ("bound-id", "bound-id",
           "The id that this object has on the registry", 0, G_MAXUINT, 0,
@@ -429,15 +402,9 @@ wp_proxy_class_init (WpProxyClass * klass)
       G_STRUCT_OFFSET (WpProxyClass, bound), NULL, NULL, NULL,
       G_TYPE_NONE, 1, G_TYPE_UINT);
 
-  wp_proxy_signals[SIGNAL_PARAM] = g_signal_new (
-      "param", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
-      G_STRUCT_OFFSET (WpProxyClass, param), NULL, NULL, NULL, G_TYPE_NONE, 5,
-      G_TYPE_INT, G_TYPE_STRING, G_TYPE_UINT, G_TYPE_UINT, WP_TYPE_SPA_POD);
-
-  wp_proxy_signals[SIGNAL_CONTROL_CHANGED] = g_signal_new (
-      "control-changed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
-      G_STRUCT_OFFSET (WpProxyClass, control_changed), NULL, NULL, NULL,
-      G_TYPE_NONE, 1, G_TYPE_STRING);
+  wp_proxy_signals[SIGNAL_PROP_CHANGED] = g_signal_new (
+      "prop-changed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
+      0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_STRING);
 }
 
 /* private */
@@ -731,6 +698,69 @@ wp_proxy_get_property (WpProxy * self, const gchar * key)
 }
 
 /**
+ * wp_proxy_get_param_info:
+ * @self: the proxy
+ *
+ * Returns the available parameters of this proxy. The return value is
+ * a variant of type `a{ss}`, where the key of each map entry is a spa param
+ * type id (the same ids that you can pass in wp_proxy_enum_params())
+ * and the value is a string that can contain the following letters,
+ * each of them representing a flag:
+ *   - `r`: the param is readable (`SPA_PARAM_INFO_READ`)
+ *   - `w`: the param is writable (`SPA_PARAM_INFO_WRITE`)
+ *   - `s`: the param was updated (`SPA_PARAM_INFO_SERIAL`)
+ *
+ * For params that are readable, you can query them with wp_proxy_enum_params()
+ *
+ * Params that are writable can be set with wp_proxy_set_param()
+ *
+ * Requires %WP_PROXY_FEATURE_INFO
+ *
+ * Returns: (transfer full) (nullable): a variant of type `a{ss}` or %NULL
+ *   if the proxy does not support params at all
+ */
+GVariant *
+wp_proxy_get_param_info (WpProxy * self)
+{
+  g_auto (GVariantBuilder) b =
+      G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_DICTIONARY);
+  guint n_params = 0;
+  struct spa_param_info *info;
+
+  g_return_val_if_fail (WP_IS_PROXY (self), NULL);
+
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  g_warn_if_fail (priv->ft_ready & WP_PROXY_FEATURE_INFO);
+
+  info = (WP_PROXY_GET_CLASS (self)->get_param_info) ?
+      WP_PROXY_GET_CLASS (self)->get_param_info (self, &n_params) : NULL;
+  if (!info || n_params == 0)
+    return NULL;
+
+  for (guint i = 0; i < n_params; i++) {
+    const gchar *nick = NULL;
+    gchar flags[4];
+    guint flags_idx = 0;
+
+    wp_spa_type_get_by_id (WP_SPA_TYPE_TABLE_PARAM, info[i].id, NULL, &nick,
+        NULL);
+    g_return_val_if_fail (nick != NULL, NULL);
+
+    if (info[i].flags & SPA_PARAM_INFO_READ)
+      flags[flags_idx++] = 'r';
+    if (info[i].flags & SPA_PARAM_INFO_WRITE)
+      flags[flags_idx++] = 'w';
+    if (info[i].flags & SPA_PARAM_INFO_SERIAL)
+      flags[flags_idx++] = 's';
+    flags[flags_idx] = '\0';
+
+    g_variant_builder_add (&b, "{ss}", nick, flags);
+  }
+
+  return g_variant_builder_end (&b);
+}
+
+/**
  * wp_proxy_get_bound_id:
  * @self: the proxy
  *
@@ -781,42 +811,6 @@ wp_proxy_find_async_task (WpProxy * self, int seq, gboolean steal)
   return task;
 }
 
-/**
- * wp_proxy_enum_params:
- * @self: the proxy
- * @id: the parameter id to enum or PW_ID_ANY for all
- * @start: the start index or 0 for the first param
- * @num: the maximum number of params to retrieve
- * @filter: (nullable): a param filter or NULL
- *
- * Starts enumeration of object parameters. For each param, the
- * #WpProxy::param signal will be emited.
- *
- * This method gives access to the low level `enum_params` method of the object,
- * if it exists. For most use cases, prefer using a higher level API, such as
- * wp_proxy_enum_params_collect() or something from the subclasses of #WpProxy
- *
- * Returns: On success, this returns a sequence number that can be used
- *  to track which emissions of the #WpProxy::param signal are responses
- *  to this call. On failure, it returns a negative number, which could be:
- *  * -EINVAL: An invalid parameter was passed
- *  * -EIO: The object is not ready to receive this method call
- *  * -ENOTSUP: this method is not supported on this object
- */
-gint
-wp_proxy_enum_params (WpProxy * self, guint32 id, guint32 start,
-    guint32 num, const WpSpaPod * filter)
-{
-  g_return_val_if_fail (WP_IS_PROXY (self), -EINVAL);
-
-  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
-  g_return_val_if_fail (priv->pw_proxy, -EIO);
-
-  return (WP_PROXY_GET_CLASS (self)->enum_params) ?
-      WP_PROXY_GET_CLASS (self)->enum_params (self, id, start, num, filter) :
-      -ENOTSUP;
-}
-
 static void
 enum_params_done (WpCore * core, GAsyncResult * res, gpointer data)
 {
@@ -842,28 +836,26 @@ enum_params_done (WpCore * core, GAsyncResult * res, gpointer data)
 }
 
 /**
- * wp_proxy_enum_params_collect:
+ * wp_proxy_enum_params:
  * @self: the proxy
- * @id: the parameter id to enum or PW_ID_ANY for all
- * @start: the start index or 0 for the first param
- * @num: the maximum number of params to retrieve
- * @filter: (nullable): a param filter or NULL
+ * @id: (nullable): the parameter id to enumerate or %NULL for all parameters
+ * @filter: (nullable): a param filter or %NULL
  * @cancellable: (nullable): a cancellable for the async operation
  * @callback: (scope async): a callback to call with the result
  * @user_data: (closure): data to pass to @callback
  *
  * Enumerate object parameters. This will asynchronously return the result,
  * or an error, by calling the given @callback. The result is going to
- * be a #GPtrArray containing spa_pod pointers, which can be retrieved
- * with wp_proxy_enum_params_collect_finish().
+ * be a #WpIterator containing #WpSpaPod objects, which can be retrieved
+ * with wp_proxy_enum_params_finish().
  */
 void
-wp_proxy_enum_params_collect (WpProxy * self,
-    guint32 id, guint32 start, guint32 num, const WpSpaPod * filter,
-    GCancellable * cancellable, GAsyncReadyCallback callback,
-    gpointer user_data)
+wp_proxy_enum_params (WpProxy * self, const gchar * id,
+    const WpSpaPod *filter, GCancellable * cancellable,
+    GAsyncReadyCallback callback, gpointer user_data)
 {
   g_autoptr (GTask) task = NULL;
+  guint32 id_num = 0;
   int seq;
   GPtrArray *params;
 
@@ -874,9 +866,18 @@ wp_proxy_enum_params_collect (WpProxy * self,
   params = g_ptr_array_new_with_free_func ((GDestroyNotify) wp_spa_pod_unref);
   g_task_set_task_data (task, params, (GDestroyNotify) g_ptr_array_unref);
 
+  if (!wp_spa_type_get_by_nick (WP_SPA_TYPE_TABLE_PARAM, id, &id_num,
+          NULL, NULL)) {
+    wp_critical_object (self, "invalid param id: %s", id);
+    return;
+  }
+
   /* call enum_params */
-  seq = wp_proxy_enum_params (self, id, start, num, filter);
+  seq = (WP_PROXY_GET_CLASS (self)->enum_params) ?
+      WP_PROXY_GET_CLASS (self)->enum_params (self, id_num, 0, -1, filter) :
+      -ENOTSUP;
   if (G_UNLIKELY (seq < 0)) {
+    wp_message_object (self, "enum_params failed: %s", spa_strerror (seq));
     g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
         WP_LIBRARY_ERROR_OPERATION_FAILED, "enum_params failed: %s",
         spa_strerror (seq));
@@ -892,144 +893,127 @@ wp_proxy_enum_params_collect (WpProxy * self,
 }
 
 /**
- * wp_proxy_enum_params_collect_finish:
+ * wp_proxy_enum_params_finish:
+ * @self: the proxy
+ * @res: the async result
+ * @error: (out) (optional): the reported error of the operation, if any
  *
- * Returns: (transfer full) (element-type WpSpaPod*):
- *    the collected params
+ * Returns: (transfer full) (nullable): an iterator to iterate over the
+ *   collected params, or %NULL if the operation resulted in error;
+ *   the items in the iterator are #WpSpaPod
  */
-GPtrArray *
-wp_proxy_enum_params_collect_finish (WpProxy * self,
-    GAsyncResult * res, GError ** error)
+WpIterator *
+wp_proxy_enum_params_finish (WpProxy * self, GAsyncResult * res,
+    GError ** error)
 {
   g_return_val_if_fail (WP_IS_PROXY (self), NULL);
   g_return_val_if_fail (g_task_is_valid (res, self), NULL);
 
-  return g_task_propagate_pointer (G_TASK (res), error);
-}
+  GPtrArray *array = g_task_propagate_pointer (G_TASK (res), error);
+  if (!array)
+    return NULL;
 
-/**
- * wp_proxy_subscribe_params: (skip)
- * @self: the proxy
- * @n_ids: the number of IDs specified in the the variable arugments list
- *
- * Sets up the proxy to automatically emit the #WpProxy::param signal for
- * the given ids when they are changed.
- *
- * Returns: A positive number or zero on success. On failure, it returns
- *   a negative number. Well known failure codes are:
- *   * -EINVAL: An invalid parameter was passed
- *   * -EIO: The object is not ready to receive this method call
- *   * -ENOTSUP: this method is not supported on this object
- */
-gint
-wp_proxy_subscribe_params (WpProxy * self, guint32 n_ids, ...)
-{
-  g_return_val_if_fail (WP_IS_PROXY (self), -EINVAL);
-  g_return_val_if_fail (n_ids != 0, -EINVAL);
-
-  va_list args;
-  guint32 *ids = g_alloca (n_ids * sizeof (guint32));
-
-  va_start (args, n_ids);
-  for (gint i = 0; i < n_ids; i++)
-    ids[i] = va_arg (args, guint32);
-  va_end (args);
-
-  return wp_proxy_subscribe_params_array (self, n_ids, ids);
-}
-
-/**
- * wp_proxy_subscribe_params_array: (rename-to wp_proxy_subscribe_params)
- * @self: the proxy
- * @n_ids: the number of IDs specified in @ids
- * @ids: (array length=n_ids): a list of param IDs to subscribe to
- *
- * Sets up the proxy to automatically emit the #WpProxy::param signal for
- * the given ids when they are changed.
- *
- * Returns: A positive number or zero on success. On failure, it returns
- *   a negative number. Well known failure codes are:
- *   * -EINVAL: An invalid parameter was passed
- *   * -EIO: The object is not ready to receive this method call
- *   * -ENOTSUP: this method is not supported on this object
- */
-gint
-wp_proxy_subscribe_params_array (WpProxy * self, guint32 n_ids, guint32 *ids)
-{
-  g_return_val_if_fail (WP_IS_PROXY (self), -EINVAL);
-  g_return_val_if_fail (n_ids != 0, -EINVAL);
-  g_return_val_if_fail (ids != NULL, -EINVAL);
-
-  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
-  g_return_val_if_fail (priv->pw_proxy, -EIO);
-
-  return (WP_PROXY_GET_CLASS (self)->subscribe_params) ?
-      WP_PROXY_GET_CLASS (self)->subscribe_params (self, n_ids, ids) :
-      -ENOTSUP;
+  return wp_iterator_new_ptr_array (array, WP_TYPE_SPA_POD);
 }
 
 /**
  * wp_proxy_set_param:
  * @self: the proxy
  * @id: the parameter id to set
- * @flags: extra parameter flags
  * @param: the parameter to set
  *
  * Sets a parameter on the object.
- *
- * Returns: A positive number or zero on success. On failure, it returns
- *   a negative number. Well known failure codes are:
- *   * -EINVAL: An invalid parameter was passed
- *   * -EIO: The object is not ready to receive this method call
- *   * -ENOTSUP: this method is not supported on this object
  */
-gint
-wp_proxy_set_param (WpProxy * self, guint32 id, guint32 flags,
-    const WpSpaPod *param)
+void
+wp_proxy_set_param (WpProxy * self, const gchar * id, const WpSpaPod *param)
 {
-  g_return_val_if_fail (WP_IS_PROXY (self), -EINVAL);
+  guint32 id_num = 0;
+  gint ret;
 
-  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
-  g_return_val_if_fail (priv->pw_proxy, -EIO);
+  g_return_if_fail (WP_IS_PROXY (self));
 
-  return (WP_PROXY_GET_CLASS (self)->set_param) ?
-      WP_PROXY_GET_CLASS (self)->set_param (self, id, flags, param) :
+  if (!wp_spa_type_get_by_nick (WP_SPA_TYPE_TABLE_PARAM, id, &id_num,
+          NULL, NULL)) {
+    wp_critical_object (self, "invalid param id: %s", id);
+    return;
+  }
+
+  ret = (WP_PROXY_GET_CLASS (self)->set_param) ?
+      WP_PROXY_GET_CLASS (self)->set_param (self, id_num, 0, param) :
       -ENOTSUP;
+  if (G_UNLIKELY (ret < 0)) {
+    wp_message_object (self, "set_param failed: %s", spa_strerror (ret));
+  }
 }
 
 /**
- * wp_proxy_get_control:
+ * wp_proxy_iterate_prop_info:
  * @self: the proxy
- * @id_name: the control id name
  *
- * Returns: (transfer full) (nullable): the spa pod containing the value
- *   of this control, or %NULL if @control_id does not exist on this proxy
+ * Requires %WP_PROXY_FEATURE_PROPS
+ *
+ * Returns: (transfer full) (nullable): an iterator to iterate over the
+ *   `SPA_PARAM_PropInfo` params, or %NULL if the object has no props;
+ *   the items in the iterator are #WpSpaPod
  */
-WpSpaPod *
-wp_proxy_get_control (WpProxy * self, const gchar * id_name)
+WpIterator *
+wp_proxy_iterate_prop_info (WpProxy * self)
 {
   g_return_val_if_fail (WP_IS_PROXY (self), NULL);
-  g_return_val_if_fail (WP_PROXY_GET_CLASS (self)->get_control, NULL);
 
-  return WP_PROXY_GET_CLASS (self)->get_control (self, id_name);
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  g_return_val_if_fail (priv->ft_ready & WP_PROXY_FEATURE_PROPS, NULL);
+
+  GPtrArray *array = wp_spa_props_build_propinfo (&priv->props);
+  if (!array)
+    return NULL;
+
+  return wp_iterator_new_ptr_array (array, WP_TYPE_SPA_POD);
 }
 
 /**
- * wp_proxy_set_control:
+ * wp_proxy_get_prop:
  * @self: the proxy
- * @id_name: the control id name
- * @value: the new value for this control, as a spa pod
+ * @prop_name: the prop name
  *
- * Returns: %TRUE on success, %FALSE if an error occurred
+ * Requires %WP_PROXY_FEATURE_PROPS
+ *
+ * Returns: (transfer full) (nullable): the spa pod containing the value
+ *   of this prop, or %NULL if @prop_name does not exist on this proxy
  */
-gboolean
-wp_proxy_set_control (WpProxy * self, const gchar * id_name,
+WpSpaPod *
+wp_proxy_get_prop (WpProxy * self, const gchar * prop_name)
+{
+  g_return_val_if_fail (WP_IS_PROXY (self), NULL);
+
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  g_return_val_if_fail (priv->ft_ready & WP_PROXY_FEATURE_PROPS, NULL);
+
+  return wp_spa_props_get_stored (&priv->props, prop_name);
+}
+
+/**
+ * wp_proxy_set_prop:
+ * @self: the proxy
+ * @prop_name: the prop name
+ * @value: the new value for this prop, as a spa pod
+ *
+ * Sets a single property in the `SPA_PARAM_Props` param of this object.
+ */
+void
+wp_proxy_set_prop (WpProxy * self, const gchar * prop_name,
     const WpSpaPod * value)
 {
-  g_return_val_if_fail (WP_IS_PROXY (self), FALSE);
-  g_return_val_if_fail (WP_PROXY_GET_CLASS (self)->set_control, FALSE);
+  g_return_if_fail (WP_IS_PROXY (self));
+  g_return_if_fail (value != NULL);
 
-  return WP_PROXY_GET_CLASS (self)->set_control (self, id_name, value);
+  g_autoptr (WpSpaPod) param = wp_spa_pod_new_object (
+      "Props", "Props",
+      prop_name, "P", value,
+      NULL);
+
+  /* our spa_props will be updated by the param event */
+  wp_proxy_set_param (self, "Props", param);
 }
 
 void
@@ -1037,22 +1021,50 @@ wp_proxy_handle_event_param (void * proxy, int seq, uint32_t id,
     uint32_t index, uint32_t next, const struct spa_pod *param)
 {
   WpProxy *self = WP_PROXY (proxy);
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  g_autoptr (WpSpaPod) w_param = wp_spa_pod_new_regular_wrap (param);
   GTask *task;
 
-  const gchar *id_name = NULL;
-  wp_spa_type_get_by_id (WP_SPA_TYPE_TABLE_PARAM, id, NULL, &id_name, NULL);
-  g_return_if_fail (id_name);
-
-  g_autoptr (WpSpaPod) pod = wp_spa_pod_new_regular_wrap_copy (param);
-  g_signal_emit (self, wp_proxy_signals[SIGNAL_PARAM], 0, seq, id_name, index,
-      next, pod);
-
-  /* if this param event was emited because of enum_params_collect(),
+  /* if this param event was emited because of enum_params(),
    * copy the param in the result array of that API */
   task = wp_proxy_find_async_task (self, seq, FALSE);
   if (task) {
     GPtrArray *array = g_task_get_task_data (task);
-    g_ptr_array_add (array, g_steal_pointer (&pod));
+    g_ptr_array_add (array, wp_spa_pod_copy (w_param));
+  }
+  /* else consider this to be a prop update, either triggered from augment()
+   * or because we are subscribed to props */
+  else {
+    switch (id) {
+      case SPA_PARAM_PropInfo:
+        if (!(priv->ft_ready & WP_PROXY_FEATURE_PROPS)) {
+          wp_trace_object (self, "got PropInfo");
+          wp_trace_boxed (WP_TYPE_SPA_POD, w_param, "PropInfo pod");
+
+          wp_spa_props_register_from_prop_info (&priv->props, w_param);
+        }
+        break;
+      case SPA_PARAM_Props: {
+        g_autoptr (GPtrArray) changed_ids =
+            g_ptr_array_new_with_free_func (g_free);
+
+        wp_trace_object (self, "got Props");
+        wp_trace_boxed (WP_TYPE_SPA_POD, w_param, "Props pod");
+
+        wp_spa_props_store_from_props (&priv->props, w_param, changed_ids);
+        wp_proxy_set_feature_ready (self, WP_PROXY_FEATURE_PROPS);
+
+        for (guint i = 0; i < changed_ids->len; i++) {
+          const gchar *prop_id = g_ptr_array_index (changed_ids, i);
+          g_signal_emit (self, wp_proxy_signals[SIGNAL_PROP_CHANGED], 0,
+              prop_id);
+        }
+        break;
+      }
+      default:
+        /* and ignore other kinds of params for now */
+        break;
+    }
   }
 }
 
@@ -1060,5 +1072,5 @@ WpSpaProps *
 wp_proxy_get_spa_props (WpProxy * self)
 {
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
-  return &priv->controls;
+  return &priv->props;
 }

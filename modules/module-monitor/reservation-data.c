@@ -65,7 +65,7 @@ on_reservation_acquired (GObject *obj, GAsyncResult *res, gpointer user_data)
       "Profile", "Profile",
       "index", "i", 1,
       NULL);
-  wp_proxy_set_param (device, SPA_PARAM_Profile, 0, profile);
+  wp_proxy_set_param (device, "Profile", profile);
 }
 
 static void
@@ -89,7 +89,7 @@ on_reservation_release (WpMonitorDbusDeviceReservation *reservation, int forced,
       "Profile", "Profile",
       "index", "i", 0,
       NULL);
-  wp_proxy_set_param (device, SPA_PARAM_Profile, 0, profile);
+  wp_proxy_set_param (device, "Profile", profile);
 
   /* Complete release on done */
   wp_core_sync (core, NULL, (GAsyncReadyCallback)on_device_done, self);

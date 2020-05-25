@@ -291,7 +291,7 @@ si_convert_activate_execute_step (WpSessionItem * item,
           "mode",       "I", SPA_PARAM_PORT_CONFIG_MODE_dsp,
           "format",     "P", format,
           NULL);
-      wp_proxy_set_param (WP_PROXY (self->node), SPA_PARAM_PortConfig, 0, pod);
+      wp_proxy_set_param (WP_PROXY (self->node), "PortConfig", pod);
       g_clear_pointer (&pod, wp_spa_pod_unref);
 
       pod = wp_spa_pod_new_object ("PortConfig", "PortConfig",
@@ -300,7 +300,7 @@ si_convert_activate_execute_step (WpSessionItem * item,
           "control",    "b", self->control_port,
           "format",     "P", format,
           NULL);
-      wp_proxy_set_param (WP_PROXY (self->node), SPA_PARAM_PortConfig, 0, pod);
+      wp_proxy_set_param (WP_PROXY (self->node), "PortConfig", pod);
 
       /* handle the info callback */
       g_signal_connect_object (self->node, "state-changed",

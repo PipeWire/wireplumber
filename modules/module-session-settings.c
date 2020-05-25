@@ -228,7 +228,7 @@ wp_session_settings_activate (WpPlugin * plugin)
   wp_object_manager_add_interest (self->sessions_om, WP_TYPE_SESSION, NULL);
   wp_object_manager_request_proxy_features (self->sessions_om, WP_TYPE_SESSION,
       WP_PROXY_FEATURES_STANDARD |
-      WP_PROXY_FEATURE_CONTROLS |
+      WP_PROXY_FEATURE_PROPS |
       WP_SESSION_FEATURE_ENDPOINTS);
   g_signal_connect_object (self->sessions_om, "object-added",
       G_CALLBACK (on_session_added), self, 0);

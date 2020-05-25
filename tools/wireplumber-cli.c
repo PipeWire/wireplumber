@@ -48,11 +48,11 @@ print_dev_endpoint (WpEndpoint *ep, WpSession *session, const gchar *type_name)
   gfloat volume = 0.0;
   gboolean mute = FALSE;
 
-  if ((ctrl = wp_proxy_get_control (WP_PROXY (ep), "volume"))) {
+  if ((ctrl = wp_proxy_get_prop (WP_PROXY (ep), "volume"))) {
     wp_spa_pod_get_float (ctrl, &volume);
     has_audio_controls = TRUE;
   }
-  if ((ctrl = wp_proxy_get_control (WP_PROXY (ep), "mute"))) {
+  if ((ctrl = wp_proxy_get_prop (WP_PROXY (ep), "mute"))) {
     wp_spa_pod_get_boolean (ctrl, &mute);
     has_audio_controls = TRUE;
   }
@@ -178,7 +178,7 @@ set_volume (WpObjectManager * om, struct WpCliData * d)
       NULL);
   if (ep) {
     g_autoptr (WpSpaPod) vol = wp_spa_pod_new_float (d->params.set_volume.volume);
-    wp_proxy_set_control (WP_PROXY (ep), "volume", vol);
+    wp_proxy_set_prop (WP_PROXY (ep), "volume", vol);
     wp_core_sync (d->core, NULL, (GAsyncReadyCallback) async_quit, d);
     return;
   }
@@ -294,7 +294,7 @@ main (gint argc, gchar **argv)
     wp_object_manager_add_interest (om, WP_TYPE_SESSION, NULL);
     wp_object_manager_add_interest (om, WP_TYPE_ENDPOINT, NULL);
     wp_object_manager_request_proxy_features (om, WP_TYPE_PROXY,
-        WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_CONTROLS);
+        WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_PROPS);
     func = (GCallback) set_default;
   }
   /* set-volume <id> <vol> */
@@ -310,7 +310,7 @@ main (gint argc, gchar **argv)
     data.params.set_volume.volume = volume;
     wp_object_manager_add_interest (om, WP_TYPE_ENDPOINT, NULL);
     wp_object_manager_request_proxy_features (om, WP_TYPE_ENDPOINT,
-        WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_CONTROLS);
+        WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_PROPS);
     func = (GCallback) set_volume;
   }
   /* device-node-props */

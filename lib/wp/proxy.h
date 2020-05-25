@@ -18,6 +18,7 @@
 G_BEGIN_DECLS
 
 struct pw_proxy;
+struct spa_param_info;
 typedef struct _WpCore WpCore;
 
 /**
@@ -31,12 +32,15 @@ typedef struct _WpCore WpCore;
  * ones and they can also be enabled with wp_proxy_augment().
  */
 typedef enum { /*< flags >*/
+  /* standard features */
   WP_PROXY_FEATURE_PW_PROXY     = (1 << 0),
   WP_PROXY_FEATURE_INFO         = (1 << 1),
   WP_PROXY_FEATURE_BOUND        = (1 << 2),
-  WP_PROXY_FEATURE_CONTROLS     = (1 << 3),
 
-  WP_PROXY_FEATURE_LAST         = (1 << 5), /*< skip >*/
+  /* param caching features */
+  WP_PROXY_FEATURE_PROPS        = (1 << 3),
+
+  WP_PROXY_FEATURE_LAST         = (1 << 16), /*< skip >*/
 } WpProxyFeatures;
 
 /**
@@ -78,24 +82,19 @@ struct _WpProxyClass
 
   gconstpointer (*get_info) (WpProxy * self);
   WpProperties * (*get_properties) (WpProxy * self);
+  struct spa_param_info * (*get_param_info) (WpProxy * self, guint * n_params);
 
   gint (*enum_params) (WpProxy * self, guint32 id, guint32 start, guint32 num,
       const WpSpaPod * filter);
-  gint (*subscribe_params) (WpProxy * self, guint32 n_ids, guint32 *ids);
+  gint (*subscribe_params) (WpProxy * self, guint32 *ids, guint32 n_ids);
   gint (*set_param) (WpProxy * self, guint32 id, guint32 flags,
       const WpSpaPod * param);
-  WpSpaPod * (*get_control) (WpProxy * self, const gchar * id_name);
-  gboolean (*set_control) (WpProxy * self, const gchar * id_name,
-      const WpSpaPod * value);
 
   /* signals */
 
   void (*pw_proxy_created) (WpProxy * self, struct pw_proxy * proxy);
   void (*pw_proxy_destroyed) (WpProxy * self);
   void (*bound) (WpProxy * self, guint32 id);
-  void (*param) (WpProxy * self, gint seq, const gchar * id_name, guint32 index,
-      guint32 next, const WpSpaPod *param);
-  void (*control_changed) (WpProxy * self, const char * id_name);
 };
 
 WP_API
@@ -144,43 +143,39 @@ WpProperties * wp_proxy_get_properties (WpProxy * self);
 WP_API
 const gchar * wp_proxy_get_property (WpProxy * self, const gchar * key);
 
+WP_API
+GVariant * wp_proxy_get_param_info (WpProxy * self);
+
 /* the bound id (aka global id, requires FEATURE_BOUND) */
 
 WP_API
 guint32 wp_proxy_get_bound_id (WpProxy * self);
 
-/* common API of most proxied objects */
+/* params API */
 
 WP_API
-gint wp_proxy_enum_params (WpProxy * self, guint32 id, guint32 start,
-    guint32 num, const WpSpaPod * filter);
+void wp_proxy_enum_params (WpProxy * self, const gchar * id,
+    const WpSpaPod *filter, GCancellable * cancellable,
+    GAsyncReadyCallback callback, gpointer user_data);
 
 WP_API
-void wp_proxy_enum_params_collect (WpProxy * self,
-    guint32 id, guint32 start, guint32 num, const WpSpaPod *filter,
-    GCancellable * cancellable, GAsyncReadyCallback callback,
-    gpointer user_data);
+WpIterator * wp_proxy_enum_params_finish (WpProxy * self, GAsyncResult * res,
+    GError ** error);
 
 WP_API
-GPtrArray * wp_proxy_enum_params_collect_finish (WpProxy * self,
-    GAsyncResult * res, GError ** error);
+void wp_proxy_set_param (WpProxy * self, const gchar * id,
+    const WpSpaPod * param);
+
+/* PARAM_PropInfo - PARAM_Props */
 
 WP_API
-gint wp_proxy_subscribe_params (WpProxy * self, guint32 n_ids, ...);
+WpIterator * wp_proxy_iterate_prop_info (WpProxy * self);
 
 WP_API
-gint wp_proxy_subscribe_params_array (WpProxy * self, guint32 n_ids,
-    guint32 *ids);
+WpSpaPod * wp_proxy_get_prop (WpProxy * self, const gchar * prop_name);
 
 WP_API
-gint wp_proxy_set_param (WpProxy * self, guint32 id, guint32 flags,
-    const WpSpaPod *param);
-
-WP_API
-WpSpaPod * wp_proxy_get_control (WpProxy * self, const gchar * id_name);
-
-WP_API
-gboolean wp_proxy_set_control (WpProxy * self, const gchar * id_name,
+void wp_proxy_set_prop (WpProxy * self, const gchar * prop_name,
     const WpSpaPod * value);
 
 G_END_DECLS

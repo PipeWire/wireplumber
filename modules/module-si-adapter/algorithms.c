@@ -340,22 +340,21 @@ select_channels (WpSpaPod *value, gint preference)
 }
 
 gboolean
-choose_sensible_raw_audio_format (GPtrArray *formats,
+choose_sensible_raw_audio_format (WpIterator *formats,
     gint channels_preference, struct spa_audio_info_raw *result)
 {
-  guint i, most_channels = 0;
-  struct spa_audio_info_raw *raw;
+  guint most_channels = 0;
+  struct spa_audio_info_raw raw;
+  g_auto (GValue) item = G_VALUE_INIT;
 
-  raw = g_alloca (sizeof (struct spa_audio_info_raw) * formats->len);
-
-  for (i = 0; i < formats->len; i++) {
-    WpSpaPod *pod = g_ptr_array_index (formats, i);
+  for (; wp_iterator_next (formats, &item); g_value_unset (&item)) {
+    WpSpaPod *pod = g_value_get_boxed (&item);
     uint32_t mtype, mstype;
 
     /* initialize all fields to zero (SPA_AUDIO_FORMAT_UNKNOWN etc) and set
        the unpositioned flag, which means there is no channel position array */
-    spa_memzero (&raw[i], sizeof(struct spa_audio_info_raw));
-    SPA_FLAG_SET(raw[i].flags, SPA_AUDIO_FLAG_UNPOSITIONED);
+    spa_memzero (&raw, sizeof(struct spa_audio_info_raw));
+    SPA_FLAG_SET(raw.flags, SPA_AUDIO_FLAG_UNPOSITIONED);
 
     if (!wp_spa_pod_is_object (pod)) {
       g_warning ("non-object POD appeared on formats list; this node is buggy");
@@ -374,7 +373,7 @@ choose_sensible_raw_audio_format (GPtrArray *formats,
     if (!(mtype == SPA_MEDIA_TYPE_audio && mstype == SPA_MEDIA_SUBTYPE_raw))
       continue;
 
-    /* go through the fields and populate raw[i] */
+    /* go through the fields and populate raw */
     g_autoptr (WpIterator) it = wp_spa_pod_iterate (pod);
     GValue next = G_VALUE_INIT;
     while (wp_iterator_next (it, &next)) {
@@ -385,30 +384,30 @@ choose_sensible_raw_audio_format (GPtrArray *formats,
 
       /* format */
       if (g_strcmp0 (key, "format") == 0) {
-        raw[i].format = select_format (value);
+        raw.format = select_format (value);
       }
 
       /* rate */
       else if (g_strcmp0 (key, "rate") == 0) {
-        raw[i].rate = select_rate (value);
+        raw.rate = select_rate (value);
       }
 
       /* channels */
       else if (g_strcmp0 (key, "channels") == 0) {
-        raw[i].channels = select_channels (value, channels_preference);
+        raw.channels = select_channels (value, channels_preference);
       }
 
       /* position */
       else if (g_strcmp0 (key, "position") == 0) {
         /* just copy the array, there is no choice here */
         g_return_val_if_fail (wp_spa_pod_is_array (value), FALSE);
-        SPA_FLAG_CLEAR (raw[i].flags, SPA_AUDIO_FLAG_UNPOSITIONED);
+        SPA_FLAG_CLEAR (raw.flags, SPA_AUDIO_FLAG_UNPOSITIONED);
         g_autoptr (WpIterator) array_it = wp_spa_pod_iterate (value);
         GValue array_next = G_VALUE_INIT;
         guint j = 0;
         while (wp_iterator_next (array_it, &array_next)) {
           guint32 *pos_id = (guint32 *)g_value_get_pointer (&array_next);
-          raw[i].position[j] = *pos_id;
+          raw.position[j] = *pos_id;
           g_value_unset (&array_next);
           j++;
         }
@@ -418,10 +417,10 @@ choose_sensible_raw_audio_format (GPtrArray *formats,
     }
 
     /* figure out if this one is the best so far */
-    if (raw[i].format != SPA_AUDIO_FORMAT_UNKNOWN &&
-        raw[i].channels > most_channels ) {
-      most_channels = raw[i].channels;
-      *result = raw[i];
+    if (raw.format != SPA_AUDIO_FORMAT_UNKNOWN &&
+        raw.channels > most_channels ) {
+      most_channels = raw.channels;
+      *result = raw;
     }
   }
 

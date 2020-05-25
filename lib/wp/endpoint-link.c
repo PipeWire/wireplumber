@@ -85,34 +85,32 @@ wp_endpoint_link_get_properties (WpProxy * proxy)
   return wp_properties_ref (priv->properties);
 }
 
+static struct spa_param_info *
+wp_endpoint_link_get_param_info (WpProxy * proxy, guint * n_params)
+{
+  WpEndpointLink *self = WP_ENDPOINT_LINK (proxy);
+  WpEndpointLinkPrivate *priv = wp_endpoint_link_get_instance_private (self);
+
+  *n_params = priv->info->n_params;
+  return priv->info->params;
+}
+
 static gint
 wp_endpoint_link_enum_params (WpProxy * self, guint32 id, guint32 start,
     guint32 num, const WpSpaPod * filter)
 {
   WpEndpointLinkPrivate *priv =
       wp_endpoint_link_get_instance_private (WP_ENDPOINT_LINK (self));
-  int endpoint_link_enum_params_result;
-
-  endpoint_link_enum_params_result =
-      pw_endpoint_link_enum_params (priv->iface, 0, id, start, num,
-      wp_spa_pod_get_spa_pod (filter));
-  g_warn_if_fail (endpoint_link_enum_params_result >= 0);
-
-  return endpoint_link_enum_params_result;
+  return pw_endpoint_link_enum_params (priv->iface, 0, id, start, num,
+      filter ? wp_spa_pod_get_spa_pod (filter) : NULL);
 }
 
 static gint
-wp_endpoint_link_subscribe_params (WpProxy * self, guint32 n_ids, guint32 *ids)
+wp_endpoint_link_subscribe_params (WpProxy * self, guint32 *ids, guint32 n_ids)
 {
   WpEndpointLinkPrivate *priv =
       wp_endpoint_link_get_instance_private (WP_ENDPOINT_LINK (self));
-  int endpoint_link_subscribe_params_result;
-
-  endpoint_link_subscribe_params_result =
-      pw_endpoint_link_subscribe_params (priv->iface, ids, n_ids);
-  g_warn_if_fail (endpoint_link_subscribe_params_result >= 0);
-
-  return endpoint_link_subscribe_params_result;
+  return pw_endpoint_link_subscribe_params (priv->iface, ids, n_ids);
 }
 
 static gint
@@ -121,14 +119,8 @@ wp_endpoint_link_set_param (WpProxy * self, guint32 id, guint32 flags,
 {
   WpEndpointLinkPrivate *priv =
       wp_endpoint_link_get_instance_private (WP_ENDPOINT_LINK (self));
-  int endpoint_link_set_param_result;
-
-  endpoint_link_set_param_result =
-      pw_endpoint_link_set_param (priv->iface, id, flags,
-          wp_spa_pod_get_spa_pod (param));
-  g_warn_if_fail (endpoint_link_set_param_result >= 0);
-
-  return endpoint_link_set_param_result;
+  return pw_endpoint_link_set_param (priv->iface, id, flags,
+      wp_spa_pod_get_spa_pod (param));
 }
 
 static void
@@ -151,6 +143,9 @@ endpoint_link_event_info (void *data, const struct pw_endpoint_link_info *info)
 
   if (info->change_mask & PW_ENDPOINT_LINK_CHANGE_MASK_PROPS)
     g_object_notify (G_OBJECT (self), "properties");
+
+  if (info->change_mask & PW_ENDPOINT_LINK_CHANGE_MASK_PARAMS)
+    g_object_notify (G_OBJECT (self), "param-info");
 
   if (info->change_mask & PW_ENDPOINT_LINK_CHANGE_MASK_STATE) {
     g_signal_emit (self, signals[SIGNAL_STATE_CHANGED], 0,
@@ -188,6 +183,7 @@ wp_endpoint_link_class_init (WpEndpointLinkClass * klass)
 
   proxy_class->get_info = wp_endpoint_link_get_info;
   proxy_class->get_properties = wp_endpoint_link_get_properties;
+  proxy_class->get_param_info = wp_endpoint_link_get_param_info;
   proxy_class->enum_params = wp_endpoint_link_enum_params;
   proxy_class->subscribe_params = wp_endpoint_link_subscribe_params;
   proxy_class->set_param = wp_endpoint_link_set_param;
@@ -609,6 +605,7 @@ wp_impl_endpoint_link_augment (WpProxy * proxy, WpProxyFeatures features)
     self->info.n_params = 0;
     priv->info = &self->info;
     g_object_notify (G_OBJECT (self), "info");
+    g_object_notify (G_OBJECT (self), "param-info");
 
     wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
   }
@@ -644,9 +641,9 @@ wp_impl_endpoint_link_class_init (WpImplEndpointLinkClass * klass)
   object_class->get_property = wp_impl_endpoint_link_get_property;
 
   proxy_class->augment = wp_impl_endpoint_link_augment;
-
+  proxy_class->enum_params = NULL;
+  proxy_class->subscribe_params = NULL;
   proxy_class->pw_proxy_created = NULL;
-  proxy_class->param = NULL;
 
   g_object_class_install_property (object_class, IMPL_PROP_ITEM,
       g_param_spec_object ("item", "item", "item", WP_TYPE_SI_LINK,

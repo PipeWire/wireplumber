@@ -116,11 +116,11 @@ test_session_basic_export_done (WpProxy * session, GAsyncResult * res,
 }
 
 static void
-test_session_basic_default_endpoint_changed (WpSession * session,
-    const char *type_name, guint32 id, TestSessionFixture *fixture)
+test_session_basic_prop_changed (WpSession * session,
+    const char *type_name, TestSessionFixture *fixture)
 {
-  g_debug ("endpoint changed: %s (%s, %u)", G_OBJECT_TYPE_NAME (session),
-      type_name, id);
+  g_debug ("prop changed: %s (%s)", G_OBJECT_TYPE_NAME (session),
+      type_name);
 
   g_assert_true (WP_IS_SESSION (session));
 
@@ -220,10 +220,10 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
           "Wp:defaultSource"), ==, 9);
 
   /* setup change signals */
-  g_signal_connect (fixture->proxy_session, "default-endpoint-changed",
-      (GCallback) test_session_basic_default_endpoint_changed, fixture);
-  g_signal_connect (session, "default-endpoint-changed",
-      (GCallback) test_session_basic_default_endpoint_changed, fixture);
+  g_signal_connect (fixture->proxy_session, "prop-changed",
+      (GCallback) test_session_basic_prop_changed, fixture);
+  g_signal_connect (session, "prop-changed",
+      (GCallback) test_session_basic_prop_changed, fixture);
   g_signal_connect (fixture->proxy_session, "notify::properties",
       (GCallback) test_session_basic_notify_properties, fixture);
   g_signal_connect (session, "notify::properties",

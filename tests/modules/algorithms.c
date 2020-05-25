@@ -43,7 +43,10 @@ test_choose_sensible_raw_audio_format (void)
         NULL);
     g_assert_nonnull (param1);
     g_ptr_array_add (formats, g_steal_pointer (&param1));
-    g_assert_true (choose_sensible_raw_audio_format (formats, 34, &info));
+
+    g_autoptr (WpIterator) it =
+        wp_iterator_new_ptr_array (g_ptr_array_ref (formats), WP_TYPE_SPA_POD);
+    g_assert_true (choose_sensible_raw_audio_format (it, 34, &info));
     g_assert_cmpint (info.format, ==, SPA_AUDIO_FORMAT_S16);
     g_assert_cmpint (info.rate, ==, 44100);
     g_assert_cmpint (info.channels, ==, 8);
@@ -65,7 +68,10 @@ test_choose_sensible_raw_audio_format (void)
         NULL);
     g_assert_nonnull (param1);
     g_ptr_array_add (formats, g_steal_pointer (&param1));
-    g_assert_true (choose_sensible_raw_audio_format (formats, 2, &info));
+
+    g_autoptr (WpIterator) it =
+        wp_iterator_new_ptr_array (g_ptr_array_ref (formats), WP_TYPE_SPA_POD);
+    g_assert_true (choose_sensible_raw_audio_format (it, 2, &info));
     g_assert_cmpint (info.format, ==, SPA_AUDIO_FORMAT_S16);
     g_assert_cmpint (info.rate, ==, 44100);
     g_assert_cmpint (info.channels, ==, 2);
@@ -102,7 +108,10 @@ test_choose_sensible_raw_audio_format (void)
         NULL);
     g_assert_nonnull (param3);
     g_ptr_array_add (formats, g_steal_pointer (&param3));
-    g_assert_true (choose_sensible_raw_audio_format (formats, 34, &info));
+
+    g_autoptr (WpIterator) it =
+        wp_iterator_new_ptr_array (g_ptr_array_ref (formats), WP_TYPE_SPA_POD);
+    g_assert_true (choose_sensible_raw_audio_format (it, 34, &info));
     g_assert_cmpint (info.format, ==, SPA_AUDIO_FORMAT_F32);
     g_assert_cmpint (info.rate, ==, 48000);
     g_assert_cmpint (info.channels, ==, 5);

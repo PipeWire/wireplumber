@@ -150,18 +150,6 @@ wp_endpoint_augment (WpProxy * proxy, WpProxyFeatures features)
   /* call the parent impl first to ensure we have a pw proxy if necessary */
   WP_PROXY_CLASS (wp_endpoint_parent_class)->augment (proxy, features);
 
-  if (features & WP_PROXY_FEATURE_CONTROLS) {
-    struct pw_endpoint *pw_proxy = NULL;
-    uint32_t ids[] = { SPA_PARAM_Props };
-
-    pw_proxy = (struct pw_endpoint *) wp_proxy_get_pw_proxy (proxy);
-    if (!pw_proxy)
-      return;
-
-    pw_endpoint_enum_params (pw_proxy, 0, SPA_PARAM_PropInfo, 0, -1, NULL);
-    pw_endpoint_subscribe_params (pw_proxy, ids, SPA_N_ELEMENTS (ids));
-  }
-
   if (features & WP_ENDPOINT_FEATURE_STREAMS) {
     priv->ft_streams_requested = TRUE;
     wp_endpoint_ensure_feature_streams (self, 0);
@@ -186,33 +174,32 @@ wp_endpoint_get_properties (WpProxy * proxy)
   return wp_properties_ref (priv->properties);
 }
 
+static struct spa_param_info *
+wp_endpoint_get_param_info (WpProxy * proxy, guint * n_params)
+{
+  WpEndpoint *self = WP_ENDPOINT (proxy);
+  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
+
+  *n_params = priv->info->n_params;
+  return priv->info->params;
+}
+
 static gint
 wp_endpoint_enum_params (WpProxy * self, guint32 id, guint32 start,
     guint32 num, const WpSpaPod * filter)
 {
   WpEndpointPrivate *priv =
       wp_endpoint_get_instance_private (WP_ENDPOINT (self));
-  int endpoint_enum_params_result;
-
-  endpoint_enum_params_result = pw_endpoint_enum_params (priv->iface, 0, id,
-      start, num, wp_spa_pod_get_spa_pod (filter));
-  g_warn_if_fail (endpoint_enum_params_result >= 0);
-
-  return endpoint_enum_params_result;
+  return pw_endpoint_enum_params (priv->iface, 0, id,
+      start, num, filter ? wp_spa_pod_get_spa_pod (filter) : NULL);
 }
 
 static gint
-wp_endpoint_subscribe_params (WpProxy * self, guint32 n_ids, guint32 *ids)
+wp_endpoint_subscribe_params (WpProxy * self, guint32 *ids, guint32 n_ids)
 {
   WpEndpointPrivate *priv =
       wp_endpoint_get_instance_private (WP_ENDPOINT (self));
-  int endpoint_subscribe_params_result;
-
-  endpoint_subscribe_params_result = pw_endpoint_subscribe_params (priv->iface,
-      ids, n_ids);
-  g_warn_if_fail (endpoint_subscribe_params_result >= 0);
-
-  return endpoint_subscribe_params_result;
+  return pw_endpoint_subscribe_params (priv->iface, ids, n_ids);
 }
 
 static gint
@@ -221,13 +208,8 @@ wp_endpoint_set_param (WpProxy * self, guint32 id, guint32 flags,
 {
   WpEndpointPrivate *priv =
       wp_endpoint_get_instance_private (WP_ENDPOINT (self));
-  int endpoint_set_param_result;
-
-  endpoint_set_param_result = pw_endpoint_set_param (priv->iface, id, flags,
+  return pw_endpoint_set_param (priv->iface, id, flags,
       wp_spa_pod_get_spa_pod (param));
-  g_warn_if_fail (endpoint_set_param_result >= 0);
-
-  return endpoint_set_param_result;
 }
 
 static void
@@ -248,6 +230,9 @@ endpoint_event_info (void *data, const struct pw_endpoint_info *info)
 
   if (info->change_mask & PW_ENDPOINT_CHANGE_MASK_PROPS)
     g_object_notify (G_OBJECT (self), "properties");
+
+  if (info->change_mask & PW_ENDPOINT_CHANGE_MASK_PARAMS)
+    g_object_notify (G_OBJECT (self), "param-info");
 
   wp_endpoint_ensure_feature_streams (self, 0);
 }
@@ -311,6 +296,7 @@ wp_endpoint_class_init (WpEndpointClass * klass)
   proxy_class->augment = wp_endpoint_augment;
   proxy_class->get_info = wp_endpoint_get_info;
   proxy_class->get_properties = wp_endpoint_get_properties;
+  proxy_class->get_param_info = wp_endpoint_get_param_info;
   proxy_class->enum_params = wp_endpoint_enum_params;
   proxy_class->subscribe_params = wp_endpoint_subscribe_params;
   proxy_class->set_param = wp_endpoint_set_param;
@@ -619,10 +605,8 @@ impl_enum_params (void *object, int seq,
       for (guint i = start; i < params->len; i++) {
         WpSpaPod *pod = g_ptr_array_index (params, i);
         const struct spa_pod *param = wp_spa_pod_get_spa_pod (pod);
-
         if (spa_pod_filter (&b, &result, param, filter) == 0) {
           pw_endpoint_emit_param (&self->hooks, seq, id, i, i+1, result);
-          wp_proxy_handle_event_param (self, seq, id, i, i+1, result);
           if (++count == num)
             break;
         }
@@ -635,7 +619,6 @@ impl_enum_params (void *object, int seq,
         const struct spa_pod *param = wp_spa_pod_get_spa_pod (pod);
         if (spa_pod_filter (&b, &result, param, filter) == 0) {
           pw_endpoint_emit_param (&self->hooks, seq, id, 0, 1, result);
-          wp_proxy_handle_event_param (self, seq, id, 0, 1, result);
         }
       }
       break;
@@ -666,25 +649,23 @@ impl_set_param (void *object, uint32_t id, uint32_t flags,
 {
   WpImplEndpoint *self = WP_IMPL_ENDPOINT (object);
   g_autoptr (GPtrArray) changed_ids = NULL;
-  WpSpaProps *controls = wp_proxy_get_spa_props (WP_PROXY (self));
+  WpSpaProps *props = wp_proxy_get_spa_props (WP_PROXY (self));
 
   if (id != SPA_PARAM_Props)
     return -ENOENT;
 
   changed_ids = g_ptr_array_new_with_free_func (g_free);
   g_autoptr (WpSpaPod) pod = wp_spa_pod_new_regular_wrap_copy (param);
-  wp_spa_props_store_from_props (controls, pod, changed_ids);
+  wp_spa_props_store_from_props (props, pod, changed_ids);
+
+  for (guint i = 0; i < changed_ids->len; i++) {
+    const gchar *prop_id = g_ptr_array_index (changed_ids, i);
+    g_signal_emit_by_name (self, "prop-changed", prop_id);
+  }
 
   /* notify subscribers */
   if (self->subscribed)
     impl_enum_params (self, 1, SPA_PARAM_Props, 0, UINT32_MAX, NULL);
-
-  /* notify controls locally */
-  for (guint i = 0; i < changed_ids->len; i++) {
-    const gchar * prop_id = g_ptr_array_index (changed_ids, i);
-    WP_PROXY_GET_CLASS (WP_PROXY (self))->control_changed (WP_PROXY (self),
-        prop_id);
-  }
 
   return 0;
 }
@@ -917,7 +898,7 @@ wp_impl_endpoint_init (WpImplEndpoint * self)
 
   priv->iface = (struct pw_endpoint *) &self->iface;
 
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_CONTROLS);
+  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_PROPS);
 }
 
 static void
@@ -1025,6 +1006,7 @@ wp_impl_endpoint_augment (WpProxy * proxy, WpProxyFeatures features)
     self->info.n_params = SPA_N_ELEMENTS (impl_param_info);
     priv->info = &self->info;
     g_object_notify (G_OBJECT (self), "info");
+    g_object_notify (G_OBJECT (self), "param-info");
 
     wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
   }
@@ -1065,9 +1047,9 @@ wp_impl_endpoint_class_init (WpImplEndpointClass * klass)
   object_class->get_property = wp_impl_endpoint_get_property;
 
   proxy_class->augment = wp_impl_endpoint_augment;
-
+  proxy_class->enum_params = NULL;
+  proxy_class->subscribe_params = NULL;
   proxy_class->pw_proxy_created = NULL;
-  proxy_class->param = NULL;
 
   g_object_class_install_property (object_class, IMPL_PROP_ITEM,
       g_param_spec_object ("item", "item", "item", WP_TYPE_SI_ENDPOINT,
