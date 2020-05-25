@@ -55,10 +55,6 @@ G_DECLARE_DERIVABLE_TYPE (WpSession, wp_session, WP, SESSION, WpProxy)
 struct _WpSessionClass
 {
   WpProxyClass parent_class;
-
-  guint32 (*get_default_endpoint) (WpSession * self, const gchar * id_name);
-  void (*set_default_endpoint) (WpSession * self, const gchar * id_name,
-      guint32 id);
 };
 
 WP_API
@@ -66,11 +62,11 @@ const gchar * wp_session_get_name (WpSession * self);
 
 WP_API
 guint32 wp_session_get_default_endpoint (WpSession * self,
-    const gchar * id_name);
+    WpDirection direction);
 
 WP_API
-void wp_session_set_default_endpoint (WpSession * self, const gchar * id_name,
-    guint32 id);
+void wp_session_set_default_endpoint (WpSession * self,
+    WpDirection direction, guint32 id);
 
 /* endpoints */
 

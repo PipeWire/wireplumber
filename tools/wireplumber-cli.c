@@ -38,11 +38,11 @@ async_quit (WpCore *core, GAsyncResult *res, struct WpCliData * d)
 }
 
 static void
-print_dev_endpoint (WpEndpoint *ep, WpSession *session, const gchar *type_name)
+print_dev_endpoint (WpEndpoint *ep, WpSession *session, WpDirection dir)
 {
   guint32 id = wp_proxy_get_bound_id (WP_PROXY (ep));
-  gboolean is_default = (session && type_name != NULL &&
-          wp_session_get_default_endpoint (session, type_name) == id);
+  gboolean is_default = (session &&
+          wp_session_get_default_endpoint (session, dir) == id);
   g_autoptr (WpSpaPod) ctrl = NULL;
   gboolean has_audio_controls = FALSE;
   gfloat volume = 0.0;
@@ -95,7 +95,7 @@ list_endpoints (WpObjectManager * om, struct WpCliData * d)
         NULL);
     for (; wp_iterator_next (ep_it, &ep_val); g_value_unset (&ep_val)) {
       WpEndpoint *ep = g_value_get_object (&ep_val);
-      print_dev_endpoint (ep, session, "Wp:defaultSource");
+      print_dev_endpoint (ep, session, WP_DIRECTION_OUTPUT);
     }
     g_clear_pointer (&ep_it, wp_iterator_unref);
 
@@ -105,7 +105,7 @@ list_endpoints (WpObjectManager * om, struct WpCliData * d)
         NULL);
     for (; wp_iterator_next (ep_it, &ep_val); g_value_unset (&ep_val)) {
       WpEndpoint *ep = g_value_get_object (&ep_val);
-      print_dev_endpoint (ep, session, "Wp:defaultSink");
+      print_dev_endpoint (ep, session, WP_DIRECTION_INPUT);
     }
     g_clear_pointer (&ep_it, wp_iterator_unref);
 
@@ -135,7 +135,7 @@ set_default (WpObjectManager * om, struct WpCliData * d)
       WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", id,
       NULL);
   if (ep) {
-    const gchar * type_name;
+    WpDirection dir;
     g_autoptr (WpProperties) props = wp_proxy_get_properties (WP_PROXY (ep));
     const gchar *sess_id_str = wp_properties_get (props, "session.id");
     guint32 sess_id = sess_id_str ? atoi (sess_id_str) : 0;
@@ -149,16 +149,16 @@ set_default (WpObjectManager * om, struct WpCliData * d)
     }
 
     if (g_strcmp0 (wp_endpoint_get_media_class (ep), "Audio/Sink") == 0)
-      type_name = "Wp:defaultSink";
+      dir = WP_DIRECTION_INPUT;
     else if (g_strcmp0 (wp_endpoint_get_media_class (ep), "Audio/Source") == 0)
-      type_name = "Wp:defaultSource";
+      dir = WP_DIRECTION_OUTPUT;
     else {
       g_print ("%u: not a device endpoint\n", id);
       g_main_loop_quit (d->loop);
       return;
     }
 
-    wp_session_set_default_endpoint (session, type_name, id);
+    wp_session_set_default_endpoint (session, dir, id);
     wp_core_sync (d->core, NULL, (GAsyncReadyCallback) async_quit, d);
     return;
   }

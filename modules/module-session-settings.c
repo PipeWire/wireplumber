@@ -18,6 +18,9 @@
 G_DEFINE_QUARK (wp-session-settings-sink-file, session_settings_sink_file)
 G_DEFINE_QUARK (wp-session-settings-source-file, session_settings_source_file)
 
+#define direction_to_dbg_string(dir) \
+  ((dir == WP_DIRECTION_INPUT) ? "sink" : "source")
+
 struct _WpSessionSettings
 {
   WpPlugin parent;
@@ -51,7 +54,7 @@ wp_session_settings_finalize (GObject * object)
 }
 
 static void
-on_default_endpoint_changed (WpSession * session, const gchar * type,
+on_default_endpoint_changed (WpSession * session, WpDirection dir,
     guint32 id, WpSessionSettings * self)
 {
   GFile *file = NULL;
@@ -59,22 +62,20 @@ on_default_endpoint_changed (WpSession * session, const gchar * type,
   g_autoptr (GError) error = NULL;
   g_autoptr (WpEndpoint) ep = NULL;
 
-  wp_debug_object (self, "%s on " WP_OBJECT_FORMAT " changed (%u), storing",
-      type, WP_OBJECT_ARGS (session), id);
+  wp_debug_object (self, "default %s on " WP_OBJECT_FORMAT " changed (%u), "
+      "storing", direction_to_dbg_string (dir), WP_OBJECT_ARGS (session), id);
 
-  if (g_strcmp0 (type, "Wp:defaultSink") == 0)
-    file = g_object_get_qdata (G_OBJECT (session),
-        session_settings_sink_file_quark ());
-  else if (g_strcmp0 (type, "Wp:defaultSource") == 0)
-    file = g_object_get_qdata (G_OBJECT (session),
+  file = g_object_get_qdata (G_OBJECT (session),
+        (dir == WP_DIRECTION_INPUT) ?
+        session_settings_sink_file_quark () :
         session_settings_source_file_quark ());
   g_return_if_fail (file);
 
   ep = wp_session_lookup_endpoint (session,
       WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", id, NULL);
   if (!ep) {
-    wp_warning_object (self, "%s (%u) on " WP_OBJECT_FORMAT " not found",
-        type, id, WP_OBJECT_ARGS (session));
+    wp_warning_object (self, "default %s (%u) on " WP_OBJECT_FORMAT " not found",
+        direction_to_dbg_string (dir), id, WP_OBJECT_ARGS (session));
     return;
   }
 
@@ -166,14 +167,12 @@ reevaluate_defaults (WpSessionSettings * self,
     id = find_highest_prio (session, dir);
 
   wp_debug_object (self, "selecting default %s for " WP_OBJECT_FORMAT ": %u",
-      (dir == WP_DIRECTION_INPUT) ? "sink" : "source",
-      WP_OBJECT_ARGS (session), id);
+      direction_to_dbg_string (dir), WP_OBJECT_ARGS (session), id);
 
   /* block the signal to avoid storing this on the file;
      only selections done by the user should be stored */
   g_signal_handlers_block_by_func (session, on_default_endpoint_changed, self);
-  wp_session_set_default_endpoint (session,
-      (dir == WP_DIRECTION_INPUT) ? "Wp:defaultSink" : "Wp:defaultSource", id);
+  wp_session_set_default_endpoint (session, dir, id);
   g_signal_handlers_unblock_by_func (session, on_default_endpoint_changed, self);
 }
 

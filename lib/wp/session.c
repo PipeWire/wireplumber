@@ -65,8 +65,25 @@ struct _WpSessionPrivate
 G_DEFINE_TYPE_WITH_PRIVATE (WpSession, wp_session, WP_TYPE_PROXY)
 
 static void
+wp_session_prop_changed (WpSession * self, const gchar * prop, gpointer data)
+{
+  if (g_strcmp0 (prop, "Wp:defaultSink") == 0) {
+    g_signal_emit (self, signals[SIGNAL_DEFAULT_ENDPOINT_CHANGED], 0,
+        WP_DIRECTION_INPUT,
+        wp_session_get_default_endpoint (self, WP_DIRECTION_INPUT));
+  }
+  else if (g_strcmp0 (prop, "Wp:defaultSource") == 0) {
+    g_signal_emit (self, signals[SIGNAL_DEFAULT_ENDPOINT_CHANGED], 0,
+        WP_DIRECTION_OUTPUT,
+        wp_session_get_default_endpoint (self, WP_DIRECTION_OUTPUT));
+  }
+}
+
+static void
 wp_session_init (WpSession * self)
 {
+  g_signal_connect (self, "prop-changed",
+      G_CALLBACK (wp_session_prop_changed), NULL);
 }
 
 static void
@@ -293,24 +310,6 @@ wp_session_augment (WpProxy * proxy, WpProxyFeatures features)
   }
 }
 
-static guint32
-get_default_endpoint (WpSession * self, const gchar * id_name)
-{
-  g_autoptr (WpSpaPod) pod = wp_proxy_get_prop (WP_PROXY (self), id_name);
-  gint32 value;
-
-  if (pod && wp_spa_pod_get_int (pod, &value))
-    return (guint32) value;
-  return 0;
-}
-
-static void
-set_default_endpoint (WpSession * self, const gchar * id_name, guint32 id)
-{
-  g_autoptr (WpSpaPod) param = wp_spa_pod_new_int (id);
-  wp_proxy_set_prop (WP_PROXY (self), id_name, param);
-}
-
 static void
 wp_session_class_init (WpSessionClass * klass)
 {
@@ -333,23 +332,20 @@ wp_session_class_init (WpSessionClass * klass)
   proxy_class->pw_proxy_created = wp_session_pw_proxy_created;
   proxy_class->bound = wp_session_bound;
 
-  klass->get_default_endpoint = get_default_endpoint;
-  klass->set_default_endpoint = set_default_endpoint;
-
   /**
    * WpSession::default-endpoint-changed:
    * @self: the session
-   * @type: the endpoint type
+   * @direction: the endpoint direction
    * @id: the endpoint's bound id
    *
-   * Emitted when the default endpoint of a specific type changes.
+   * Emitted when the default endpoint of a specific direction changes.
    * The passed @id is the bound id (wp_proxy_get_bound_id()) of the new
    * default endpoint.
    */
   signals[SIGNAL_DEFAULT_ENDPOINT_CHANGED] = g_signal_new (
       "default-endpoint-changed", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 2,
-      G_TYPE_STRING, G_TYPE_UINT);
+      WP_TYPE_DIRECTION, G_TYPE_UINT);
 
   /**
    * WpSession::endpoints-changed:
@@ -394,37 +390,69 @@ wp_session_get_name (WpSession * self)
 /**
  * wp_session_get_default_endpoint:
  * @self: the session
- * @id_name: the endpoint id name
+ * @direction: the endpoint direction
  *
- * Returns: the bound id of the default endpoint of this @type
+ * Returns: the bound id of the default endpoint of this @direction
  */
 guint32
-wp_session_get_default_endpoint (WpSession * self,
-    const gchar * id_name)
+wp_session_get_default_endpoint (WpSession * self, WpDirection direction)
 {
-  g_return_val_if_fail (WP_IS_SESSION (self), SPA_ID_INVALID);
-  g_return_val_if_fail (WP_SESSION_GET_CLASS (self)->get_default_endpoint,
-      SPA_ID_INVALID);
+  g_autoptr (WpSpaPod) pod = NULL;
+  const gchar *id_name = NULL;
+  gint32 value;
 
-  return WP_SESSION_GET_CLASS (self)->get_default_endpoint (self, id_name);
+  g_return_val_if_fail (WP_IS_SESSION (self), SPA_ID_INVALID);
+
+  switch (direction) {
+    case WP_DIRECTION_INPUT:
+      id_name = "Wp:defaultSink";
+      break;
+    case WP_DIRECTION_OUTPUT:
+      id_name = "Wp:defaultSource";
+      break;
+    default:
+      g_return_val_if_reached (SPA_ID_INVALID);
+      break;
+  }
+
+  pod = wp_proxy_get_prop (WP_PROXY (self), id_name);
+  if (pod && wp_spa_pod_get_int (pod, &value))
+    return (guint32) value;
+  return 0;
 }
 
 /**
  * wp_session_set_default_endpoint:
  * @self: the session
- * @id_name: the endpoint id name
- * @id: the bound id of the endpoint to set as the default for this @type
+ * @direction: the endpoint direction
+ * @id: the bound id of the endpoint to set as the default for this @direction
  *
- * Sets the default endpoint for this @type to be the one identified with @id
+ * Sets the default endpoint for this @direction to be the one identified
+ * with @id
  */
 void
-wp_session_set_default_endpoint (WpSession * self, const char * id_name,
+wp_session_set_default_endpoint (WpSession * self, WpDirection direction,
     guint32 id)
 {
-  g_return_if_fail (WP_IS_SESSION (self));
-  g_return_if_fail (WP_SESSION_GET_CLASS (self)->set_default_endpoint);
+  g_autoptr (WpSpaPod) pod = NULL;
+  const gchar *id_name = NULL;
 
-  WP_SESSION_GET_CLASS (self)->set_default_endpoint (self, id_name, id);
+  g_return_if_fail (WP_IS_SESSION (self));
+
+  switch (direction) {
+    case WP_DIRECTION_INPUT:
+      id_name = "Wp:defaultSink";
+      break;
+    case WP_DIRECTION_OUTPUT:
+      id_name = "Wp:defaultSource";
+      break;
+    default:
+      g_return_if_reached ();
+      break;
+  }
+
+  pod = wp_spa_pod_new_int (id);
+  wp_proxy_set_prop (WP_PROXY (self), id_name, pod);
 }
 
 /**

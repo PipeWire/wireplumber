@@ -103,17 +103,8 @@ wp_config_policy_context_get_endpoint_target (WpConfigPolicyContext *self,
 
     /* Otherwise, use the default session endpoint */
     else {
-      guint def_id = 0;
-      switch (data->me.endpoint_data.direction) {
-        case WP_DIRECTION_INPUT:
-          def_id = wp_session_get_default_endpoint (session, "Wp:defaultSource");
-          break;
-        case WP_DIRECTION_OUTPUT:
-          def_id = wp_session_get_default_endpoint (session, "Wp:defaultSink");
-          break;
-        default:
-          g_return_val_if_reached (NULL);
-      }
+      guint def_id = wp_session_get_default_endpoint (session,
+          data->me.endpoint_data.direction);
       target = wp_session_lookup_endpoint (session,
           WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", def_id, NULL);
     }

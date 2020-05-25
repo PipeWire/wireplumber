@@ -170,9 +170,9 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
   session = wp_impl_session_new (fixture->base.core);
   wp_impl_session_set_property (session, "test.property", "test-value");
   wp_session_set_default_endpoint (WP_SESSION (session),
-      "Wp:defaultSink", 5);
+      WP_DIRECTION_INPUT, 5);
   wp_session_set_default_endpoint (WP_SESSION (session),
-      "Wp:defaultSource", 9);
+      WP_DIRECTION_OUTPUT, 9);
 
   /* verify properties are set before export */
   {
@@ -182,9 +182,9 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
         "test-value");
   }
   g_assert_cmpuint (wp_session_get_default_endpoint (WP_SESSION (session),
-          "Wp:defaultSink"), ==, 5);
+          WP_DIRECTION_INPUT), ==, 5);
   g_assert_cmpuint (wp_session_get_default_endpoint (WP_SESSION (session),
-          "Wp:defaultSource"), ==, 9);
+          WP_DIRECTION_OUTPUT), ==, 9);
 
   /* do export */
   wp_proxy_augment (WP_PROXY (session), WP_SESSION_FEATURES_STANDARD, NULL,
@@ -214,10 +214,10 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
   }
   g_assert_cmpuint (wp_session_get_default_endpoint (
           WP_SESSION (fixture->proxy_session),
-          "Wp:defaultSink"), ==, 5);
+          WP_DIRECTION_INPUT), ==, 5);
   g_assert_cmpuint (wp_session_get_default_endpoint (
           WP_SESSION (fixture->proxy_session),
-          "Wp:defaultSource"), ==, 9);
+          WP_DIRECTION_OUTPUT), ==, 9);
 
   /* setup change signals */
   g_signal_connect (fixture->proxy_session, "prop-changed",
@@ -231,7 +231,7 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
 
   /* change default endpoint on the proxy */
   wp_session_set_default_endpoint (WP_SESSION (fixture->proxy_session),
-      "Wp:defaultSink", 73);
+      WP_DIRECTION_INPUT, 73);
 
   /* run until the change is on both sides */
   fixture->n_events = 0;
@@ -242,20 +242,20 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
 
   g_assert_cmpuint (wp_session_get_default_endpoint (
           WP_SESSION (fixture->proxy_session),
-          "Wp:defaultSink"), ==, 73);
+          WP_DIRECTION_INPUT), ==, 73);
   g_assert_cmpuint (wp_session_get_default_endpoint (
           WP_SESSION (fixture->proxy_session),
-          "Wp:defaultSource"), ==, 9);
+          WP_DIRECTION_OUTPUT), ==, 9);
 
   g_assert_cmpuint (wp_session_get_default_endpoint (
-          WP_SESSION (session), "Wp:defaultSink"), ==, 73);
+          WP_SESSION (session), WP_DIRECTION_INPUT), ==, 73);
   g_assert_cmpuint (wp_session_get_default_endpoint (
-          WP_SESSION (session), "Wp:defaultSource"), ==, 9);
+          WP_SESSION (session), WP_DIRECTION_OUTPUT), ==, 9);
 
   /* change default endpoint on the exported */
   fixture->n_events = 0;
   wp_session_set_default_endpoint (WP_SESSION (session),
-      "Wp:defaultSource", 44);
+      WP_DIRECTION_OUTPUT, 44);
 
   /* run until the change is on both sides */
   g_main_loop_run (fixture->base.loop);
@@ -264,10 +264,10 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
   /* test round 3: verify the value change on both sides */
 
   g_assert_cmpuint (wp_session_get_default_endpoint (
-          WP_SESSION (session), "Wp:defaultSource"), ==, 44);
+          WP_SESSION (session), WP_DIRECTION_OUTPUT), ==, 44);
   g_assert_cmpuint (wp_session_get_default_endpoint (
           WP_SESSION (fixture->proxy_session),
-          "Wp:defaultSource"), ==, 44);
+          WP_DIRECTION_OUTPUT), ==, 44);
 
   /* change a property on the exported */
   fixture->n_events = 0;
