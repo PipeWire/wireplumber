@@ -15,7 +15,7 @@ shared_library(
 )
 
 reserve_device_interface_src = gnome.gdbus_codegen('reserve-device-interface',
-  sources: 'module-monitor/org.freedesktop.ReserveDevice1.xml',
+  sources: 'module-device-activation/org.freedesktop.ReserveDevice1.xml',
   interface_prefix : 'org.freedesktop.ReserveDevice1.',
   namespace : 'Wp'
 )
@@ -24,12 +24,23 @@ shared_library(
   'wireplumber-module-monitor',
   [
     'module-monitor.c',
-    'module-monitor/reserve-node.c',
-    'module-monitor/reserve-device.c',
-    'module-monitor/dbus-device-reservation.c',
-    reserve_device_interface_src,
   ],
   c_args : [common_c_args, '-DG_LOG_DOMAIN="m-monitor"'],
+  install : true,
+  install_dir : wireplumber_module_dir,
+  dependencies : [wp_dep, pipewire_dep],
+)
+
+shared_library(
+  'wireplumber-module-device-activation',
+  [
+    'module-device-activation.c',
+    'module-device-activation/reserve-node.c',
+    'module-device-activation/reserve-device.c',
+    'module-device-activation/dbus-device-reservation.c',
+    reserve_device_interface_src,
+  ],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-device-activation"'],
   install : true,
   install_dir : wireplumber_module_dir,
   dependencies : [wp_dep, pipewire_dep, giounix_dep],

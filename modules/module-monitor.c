@@ -14,18 +14,12 @@
 #include <spa/monitor/device.h>
 #include <spa/pod/builder.h>
 
-#include "module-monitor/reserve-device.h"
-#include "module-monitor/reserve-node.h"
-
 G_DEFINE_QUARK (wp-module-monitor-id, id);
 G_DEFINE_QUARK (wp-module-monitor-children, children);
-G_DEFINE_QUARK (wp-module-monitor-data, data);
 
 typedef enum {
   FLAG_LOCAL_NODES = (1 << 0),
   FLAG_USE_ADAPTER = (1 << 1),
-  FLAG_ACTIVATE_DEVICES = (1 << 2),
-  FLAG_DBUS_RESERVATION = (1 << 3),
 } MonitorFlags;
 
 static const struct {
@@ -34,8 +28,6 @@ static const struct {
 } flag_names[] = {
   { FLAG_LOCAL_NODES, "local-nodes" },
   { FLAG_USE_ADAPTER, "use-adapter" },
-  { FLAG_ACTIVATE_DEVICES, "activate-devices" },
-  { FLAG_DBUS_RESERVATION, "dbus-reservation" }
 };
 
 enum {
@@ -281,54 +273,6 @@ find_child (GObject * parent, guint32 id, GList ** children, GList ** link,
 }
 
 static void
-on_node_event_info (WpProxy * proxy, GParamSpec *spec, gpointer data)
-{
-  WpReserveNode *node_data = data;
-  const struct pw_node_info *info = wp_proxy_get_info (proxy);
-
-  g_return_if_fail (node_data);
-
-  /* handle the different states */
-  switch (info->state) {
-  case PW_NODE_STATE_IDLE:
-    /* Release reservation after 3 seconds */
-    wp_reserve_node_timeout_release (node_data, 3000);
-    break;
-  case PW_NODE_STATE_RUNNING:
-    /* Clear pending timeout if any and acquire reservation */
-    wp_reserve_node_acquire (node_data);
-    break;
-  case PW_NODE_STATE_SUSPENDED:
-    break;
-  default:
-    break;
-  }
-}
-
-static void
-add_reserve_node_data (WpMonitor * self, WpProxy *node, WpProxy *device)
-{
-  WpReserveDevice *device_data = NULL;
-  g_autoptr (WpReserveNode) node_data = NULL;
-
-  /* Only add reservation data on nodes whose device has reservation data */
-  device_data = g_object_get_qdata (G_OBJECT (device), data_quark ());
-  if (!device_data)
-    return;
-
-  /* Create the node reservation data */
-  node_data = wp_reserve_node_new (node, device_data);
-
-  /* Handle the info signal */
-  g_signal_connect_object (WP_NODE (node), "notify::info",
-      (GCallback) on_node_event_info, node_data, 0);
-
-  /* Set the reserve node data on the node */
-  g_object_set_qdata_full (G_OBJECT (node), data_quark (),
-      g_steal_pointer (&node_data), g_object_unref);
-}
-
-static void
 create_node (WpMonitor * self, WpProxy * parent, GList ** children,
     guint id, const gchar * spa_factory, WpProperties * props,
     WpProperties * parent_props)
@@ -366,39 +310,6 @@ create_node (WpMonitor * self, WpProxy * parent, GList ** children,
 
   g_object_set_qdata (G_OBJECT (node), id_quark (), GUINT_TO_POINTER (id));
   *children = g_list_prepend (*children, node);
-
-  add_reserve_node_data (self, node, parent);
-}
-
-static void
-add_reserve_device_data (WpMonitor * self, WpProxy *device)
-{
-  g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (device));
-  g_autoptr (WpProperties) props = wp_proxy_get_properties (device);
-  const char *card_id = NULL;
-  const char *app_dev_name = NULL;
-  g_autoptr (WpDbusDeviceReservation) reservation = NULL;
-  g_autoptr (WpReserveDevice) device_data = NULL;
-
-  if ((self->flags & FLAG_DBUS_RESERVATION) == 0)
-    return;
-
-  card_id = wp_properties_get (props, SPA_KEY_API_ALSA_CARD);
-  if (!card_id)
-    return;
-
-  app_dev_name = wp_properties_get (props, SPA_KEY_API_ALSA_PATH);
-
-  /* Create the dbus device reservation */
-  reservation = wp_dbus_device_reservation_new (atoi(card_id),
-      "PipeWire", 10, app_dev_name);
-
-  /* Create the reserve device data */
-  device_data = wp_reserve_device_new (device, reservation);
-
-  /* Set the reserve device data on the device */
-  g_object_set_qdata_full (G_OBJECT (device), data_quark (),
-      g_steal_pointer (&device_data), g_object_unref);
 }
 
 static void
@@ -410,16 +321,6 @@ device_created (GObject * proxy, GAsyncResult * res, gpointer user_data)
   if (!wp_proxy_augment_finish (WP_PROXY (proxy), res, &error)) {
     wp_warning_object (self, "%s", error->message);
     return;
-  }
-
-  if (self->flags & FLAG_DBUS_RESERVATION) {
-    add_reserve_device_data (self, WP_PROXY (proxy));
-  } else if (self->flags & FLAG_ACTIVATE_DEVICES) {
-    g_autoptr (WpSpaPod) profile = wp_spa_pod_new_object (
-      "Profile", "Profile",
-      "index", "i", 1,
-      NULL);
-    wp_proxy_set_param (WP_PROXY (proxy), "Profile", profile);
   }
 }
 
