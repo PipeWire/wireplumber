@@ -364,31 +364,10 @@ create_node (WpMonitor * self, WpProxy * parent, GList ** children,
 }
 
 static void
-device_created (GObject * proxy, GAsyncResult * res, gpointer user_data)
-{
-  WpMonitor * self = user_data;
-  g_autoptr (GError) error = NULL;
-
-  if (!wp_proxy_augment_finish (WP_PROXY (proxy), res, &error)) {
-    wp_warning_object (self, "%s", error->message);
-    return;
-  }
-
-  if (self->flags & FLAG_ACTIVATE_DEVICES &&
-      !(self->flags & FLAG_DBUS_RESERVATION)) {
-    g_autoptr (WpSpaPod) profile = wp_spa_pod_new_object (
-      "Profile", "Profile",
-      "index", "i", 1,
-      NULL);
-    wp_proxy_set_param (WP_PROXY (proxy), "Profile", profile);
-  }
-}
-
-static void
-add_reserve_device_data (WpMonitor * self, WpSpaDevice *device,
-  WpProperties *props)
+add_reserve_device_data (WpMonitor * self, WpProxy *device)
 {
   g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (device));
+  g_autoptr (WpProperties) props = wp_proxy_get_properties (device);
   const char *card_id = NULL;
   const char *app_dev_name = NULL;
   g_autoptr (WpDbusDeviceReservation) reservation = NULL;
@@ -408,11 +387,33 @@ add_reserve_device_data (WpMonitor * self, WpSpaDevice *device,
       "PipeWire", 10, app_dev_name);
 
   /* Create the reserve device data */
-  device_data = wp_reserve_device_new (WP_PROXY (device), reservation);
+  device_data = wp_reserve_device_new (device, reservation);
 
   /* Set the reserve device data on the device */
   g_object_set_qdata_full (G_OBJECT (device), data_quark (),
       g_steal_pointer (&device_data), g_object_unref);
+}
+
+static void
+device_created (GObject * proxy, GAsyncResult * res, gpointer user_data)
+{
+  WpMonitor * self = user_data;
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_proxy_augment_finish (WP_PROXY (proxy), res, &error)) {
+    wp_warning_object (self, "%s", error->message);
+    return;
+  }
+
+  if (self->flags & FLAG_DBUS_RESERVATION) {
+    add_reserve_device_data (self, WP_PROXY (proxy));
+  } else if (self->flags & FLAG_ACTIVATE_DEVICES) {
+    g_autoptr (WpSpaPod) profile = wp_spa_pod_new_object (
+      "Profile", "Profile",
+      "index", "i", 1,
+      NULL);
+    wp_proxy_set_param (WP_PROXY (proxy), "Profile", profile);
+  }
 }
 
 static void
@@ -437,8 +438,6 @@ create_device (WpMonitor * self, WpProxy * parent, GList ** children,
 
   g_object_set_qdata (G_OBJECT (device), id_quark (), GUINT_TO_POINTER (id));
   *children = g_list_prepend (*children, device);
-
-  add_reserve_device_data (self, device, props);
 }
 
 static void
