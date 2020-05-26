@@ -11,6 +11,8 @@
 #include <spa/pod/builder.h>
 #include <pipewire/pipewire.h>
 
+G_DEFINE_QUARK (wp-reserve-device-jack-n-acquired, jack_n_acquired);
+
 struct _WpReserveDevice
 {
   GObject parent;
@@ -18,6 +20,9 @@ struct _WpReserveDevice
   /* Props */
   GWeakRef device;
   WpDbusDeviceReservation *reservation;
+
+  /* JACK */
+  WpObjectManager *jack_device_om;
 
   guint n_acquired;
 };
@@ -31,6 +36,37 @@ enum {
 G_DEFINE_TYPE (WpReserveDevice, wp_reserve_device, G_TYPE_OBJECT)
 
 static void
+set_device_profile (WpProxy *device, gint index)
+{
+  g_return_if_fail (device);
+  g_autoptr (WpSpaPod) profile = wp_spa_pod_new_object (
+      "Profile", "Profile",
+      "index", "i", index,
+      NULL);
+  wp_proxy_set_param (device, "Profile", profile);
+}
+
+static gint
+decrement_jack_n_acquired (WpProxy *device)
+{
+  gpointer p = g_object_get_qdata (G_OBJECT (device), jack_n_acquired_quark ());
+  gint val = p ? GPOINTER_TO_INT (p) : 0;
+  g_object_set_qdata_full (G_OBJECT (device), jack_n_acquired_quark (),
+        GINT_TO_POINTER (val--), NULL);
+  return val;
+}
+
+static gint
+increment_jack_n_acquired (WpProxy *device)
+{
+  gpointer p = g_object_get_qdata (G_OBJECT (device), jack_n_acquired_quark ());
+  gint val = p ? GPOINTER_TO_INT (p) : 0;
+  g_object_set_qdata_full (G_OBJECT (device), jack_n_acquired_quark (),
+        GINT_TO_POINTER (val++), NULL);
+  return val;
+}
+
+static void
 on_device_done (WpCore *core, GAsyncResult *res, WpReserveDevice *self)
 {
   if (self->reservation)
@@ -40,30 +76,64 @@ on_device_done (WpCore *core, GAsyncResult *res, WpReserveDevice *self)
 }
 
 static void
+on_application_name_done (GObject *obj, GAsyncResult *res, gpointer user_data)
+{
+  WpReserveDevice *self = user_data;
+  g_autoptr (GError) e = NULL;
+  g_autofree gchar *name = NULL;
+  g_autoptr (WpProxy) jack_device = NULL;
+
+  /* Note that the ApplicationName property is optional as described in the
+   * specification (http://git.0pointer.net/reserve.git/tree/reserve.txt), so
+   * some audio servers can return NULL, and this is not an error */
+  name = wp_dbus_device_reservation_async_finish (self->reservation, res, &e);
+  if (e) {
+    wp_warning_object (self, "could not get application name: %s", e->message);
+    return;
+  }
+
+  wp_info_object (self, "owner: %s", name ? name : "unknown");
+
+  /* Only enable the JACK device if the owner is the JACK audio server */
+  if (!name || g_strcmp0 (name, "Jack audio server") != 0)
+    return;
+
+  /* Get the JACK device and increment the jack acquisition. We only enable the
+   * JACK device if this is the first acquisition */
+  jack_device = wp_object_manager_lookup (self->jack_device_om, WP_TYPE_DEVICE,
+      NULL);
+  if (jack_device && increment_jack_n_acquired (jack_device) == 1)
+    set_device_profile (jack_device, 1);
+}
+
+static void
 on_reservation_acquired (GObject *obj, GAsyncResult *res, gpointer user_data)
 {
   WpReserveDevice *self = user_data;
   g_autoptr (GError) e = NULL;
+  g_autoptr (WpProxy) jack_device = NULL;
   g_autoptr (WpProxy) device = NULL;
-  g_autoptr (WpSpaPod) profile = NULL;
 
-  /* Finish */
+  /* If the audio device could not be acquired, check who owns it and maybe
+   * enable the JACK device */
   if (!wp_dbus_device_reservation_async_finish (self->reservation, res, &e)) {
     wp_info_object (self, "could not own device: %s", e->message);
+    wp_dbus_device_reservation_request_property (self->reservation,
+        "ApplicationName", NULL, on_application_name_done, self);
     return;
   }
 
-  /* Get the device */
-  device = g_weak_ref_get (&self->device);
-  if (!device)
-    return;
-
-  /* Set profile 1 */
-  profile = wp_spa_pod_new_object (
-      "Profile", "Profile",
-      "index", "i", 1,
+  /* Get the JACK device and decrement the jack acquisition. We only disable the
+   * JACK device if there is no acquisitions */
+  jack_device = wp_object_manager_lookup (self->jack_device_om, WP_TYPE_DEVICE,
       NULL);
-  wp_proxy_set_param (device, "Profile", profile);
+  if (jack_device && decrement_jack_n_acquired (jack_device) == 0)
+    set_device_profile (jack_device, 0);
+
+  /* Enable Audio device */
+  device = g_weak_ref_get (&self->device);
+  if (device)
+    set_device_profile (device, 1);
 }
 
 static void
@@ -72,7 +142,6 @@ on_reservation_release (WpDbusDeviceReservation *reservation, gboolean forced,
 {
   g_autoptr (WpProxy) device = NULL;
   g_autoptr (WpCore) core = NULL;
-  g_autoptr (WpSpaPod) profile = NULL;
 
   /* Release reservation */
   wp_dbus_device_reservation_release (reservation);
@@ -85,12 +154,8 @@ on_reservation_release (WpDbusDeviceReservation *reservation, gboolean forced,
   if (!core)
     return;
 
-  /* Set profile 0 */
-  profile = wp_spa_pod_new_object (
-      "Profile", "Profile",
-      "index", "i", 0,
-      NULL);
-  wp_proxy_set_param (device, "Profile", profile);
+  /* Disable device */
+  set_device_profile (device, 0);
 
   /* Only complete the release if not forced */
   if (!forced)
@@ -107,7 +172,22 @@ static void
 wp_reserve_device_constructed (GObject * object)
 {
   WpReserveDevice *self = WP_RESERVE_DEVICE (object);
-  g_autoptr (WpProxy) device = g_weak_ref_get (&self->device);
+  g_autoptr (WpProxy) device = NULL;
+  g_autoptr (WpCore) core = NULL;
+
+  device = g_weak_ref_get (&self->device);
+  g_return_if_fail (device);
+  core = wp_proxy_get_core (device);
+  g_return_if_fail (core);
+
+  /* Create the JACK device object manager */
+  self->jack_device_om = wp_object_manager_new ();
+  wp_object_manager_add_interest (self->jack_device_om, WP_TYPE_DEVICE,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_DEVICE_API, "=s", "jack",
+      NULL);
+  wp_object_manager_request_proxy_features (self->jack_device_om,
+      WP_TYPE_DEVICE, WP_PROXY_FEATURES_STANDARD);
+  wp_core_install_object_manager (core, self->jack_device_om);
 
   /* Make sure the device is released when the pw proxy device is destroyed */
   g_return_if_fail (device);
@@ -170,6 +250,9 @@ wp_reserve_device_finalize (GObject * object)
   WpReserveDevice *self = WP_RESERVE_DEVICE (object);
 
   wp_dbus_device_reservation_release (self->reservation);
+
+  /* JACK */
+  g_clear_object (&self->jack_device_om);
 
   /* Props */
   g_weak_ref_clear (&self->device);
