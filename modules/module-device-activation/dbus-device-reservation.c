@@ -373,8 +373,7 @@ wp_dbus_device_reservation_acquire (WpDbusDeviceReservation *self,
       G_BUS_NAME_OWNER_FLAGS_ALLOW_REPLACEMENT : G_BUS_NAME_OWNER_FLAGS_NONE,
       on_bus_acquired, on_name_acquired, on_name_lost, g_object_ref (self),
       on_unowned);
-  g_return_val_if_fail (self->owner_id > 0, FALSE);
-  return TRUE;
+  return self->owner_id > 0;
 }
 
 static void
