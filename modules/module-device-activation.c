@@ -10,6 +10,7 @@
 
 #include <pipewire/pipewire.h>
 #include <spa/utils/keys.h>
+#include <spa/utils/names.h>
 
 #include "module-device-activation/reserve-device.h"
 #include "module-device-activation/reserve-node.h"
@@ -151,10 +152,15 @@ on_device_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
 }
 
 static void
-wp_device_activation_activate (WpPlugin * plugin)
+activate_sync (WpCore *core, GAsyncResult *res, WpDeviceActivation *self)
 {
-  WpDeviceActivation *self = WP_DEVICE_ACTIVATION (plugin);
-  g_autoptr (WpCore) core = wp_plugin_get_core (WP_PLUGIN (self));
+  g_autoptr (GError) error = NULL;
+
+  /* Check for errors */
+  if (!wp_core_sync_finish (core, res, &error)) {
+    wp_warning_object (self, "core sync error: %s", error->message);
+    return;
+  }
 
   /* Create the devices object manager and handle the device added signal */
   self->spa_devices_om = wp_object_manager_new ();
@@ -174,6 +180,16 @@ wp_device_activation_activate (WpPlugin * plugin)
   g_signal_connect_object (self->nodes_om, "object-added",
       G_CALLBACK (on_node_added), self, 0);
   wp_core_install_object_manager (core, self->nodes_om);
+}
+
+static void
+wp_device_activation_activate (WpPlugin * plugin)
+{
+  WpDeviceActivation *self = WP_DEVICE_ACTIVATION (plugin);
+  g_autoptr (WpCore) core = wp_plugin_get_core (WP_PLUGIN (self));
+
+  /* Sync to make sure jack device is exported before activating the plugin */
+  wp_core_sync (core, NULL, (GAsyncReadyCallback) activate_sync, self);
 }
 
 static void
