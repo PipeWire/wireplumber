@@ -5,8 +5,4 @@ properties = [
 
 [endpoint]
 session = "audio"
-type = "si-adapter"
-streams = "audio-sink.streams"
-
-[endpoint.config]
-enable-monitor = true
+type = "si-simple-node-endpoint"

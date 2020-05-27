@@ -5,4 +5,4 @@ properties = [
 
 [endpoint]
 session = "audio"
-type = "si-adapter"
+type = "si-simple-node-endpoint"
