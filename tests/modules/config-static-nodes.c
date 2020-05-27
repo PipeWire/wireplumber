@@ -16,7 +16,7 @@ static void
 config_static_nodes_setup (TestConfigStaticNodesFixture *self,
     gconstpointer data)
 {
-  wp_base_test_fixture_setup (&self->base, WP_BASE_TEST_FLAG_DONT_CONNECT);
+  wp_base_test_fixture_setup (&self->base, 0);
 
   /* load audioconvert plugin */
   pw_thread_loop_lock (self->base.server.thread_loop);
@@ -66,9 +66,6 @@ basic (TestConfigStaticNodesFixture *f, gconstpointer data)
 
   /* Activate */
   wp_plugin_activate (ctx);
-
-  /* Connect */
-  g_assert_true (wp_core_connect (f->base.core));
 
   /* Run the main loop */
   g_main_loop_run (f->base.loop);

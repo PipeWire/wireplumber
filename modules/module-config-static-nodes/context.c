@@ -114,24 +114,12 @@ parser_node_foreach_func (const struct WpParserNodeData *node_data,
 }
 
 static void
-start_static_nodes (WpConfigStaticNodesContext *self)
-{
-  g_autoptr (WpCore) core = wp_plugin_get_core (WP_PLUGIN (self));
-  g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
-  g_autoptr (WpConfigParser) parser =
-      wp_configuration_get_parser (config, WP_PARSER_NODE_EXTENSION);
-
-  /* Create static nodes without match-device */
-  wp_parser_node_foreach (WP_PARSER_NODE (parser), parser_node_foreach_func,
-      self);
-}
-
-static void
 wp_config_static_nodes_context_activate (WpPlugin * plugin)
 {
   WpConfigStaticNodesContext *self = WP_CONFIG_STATIC_NODES_CONTEXT (plugin);
   g_autoptr (WpCore) core = wp_plugin_get_core (plugin);
   g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
+  g_autoptr (WpConfigParser) parser = NULL;
 
   /* Add the node parser and parse the node files */
   wp_configuration_add_extension (config, WP_PARSER_NODE_EXTENSION,
@@ -141,9 +129,10 @@ wp_config_static_nodes_context_activate (WpPlugin * plugin)
   /* Install the object manager */
   wp_core_install_object_manager (core, self->devices_om);
 
-  /* Start creating static nodes when the connected callback is triggered */
-  g_signal_connect_object (core, "connected", (GCallback) start_static_nodes,
-      self, G_CONNECT_SWAPPED);
+  /* Create static nodes without match-device */
+  parser = wp_configuration_get_parser (config, WP_PARSER_NODE_EXTENSION);
+  wp_parser_node_foreach (WP_PARSER_NODE (parser), parser_node_foreach_func,
+      self);
 }
 
 static void
