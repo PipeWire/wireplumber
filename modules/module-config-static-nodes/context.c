@@ -36,8 +36,7 @@ on_node_created (GObject * proxy, GAsyncResult * res, gpointer user_data)
   g_autoptr (GError) error = NULL;
 
   if (!wp_proxy_augment_finish (WP_PROXY (proxy), res, &error)) {
-    g_warning ("WpConfigStaticNodesContext:%p: failed to export node: %s",
-        self, error->message);
+    wp_warning_object (self, "failed to export node: %s", error->message);
     return;
   }
 
@@ -62,7 +61,7 @@ wp_config_static_nodes_context_create_node (WpConfigStaticNodesContext *self,
       (WpProxy *) wp_node_new_from_factory (core, node_data->n.factory,
           wp_properties_ref (node_data->n.props));
   if (!node) {
-    g_warning ("WpConfigStaticNodesContext:%p: failed to create node", self);
+    wp_warning_object (self, "failed to create node");
     return;
   }
 
