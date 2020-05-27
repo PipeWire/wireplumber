@@ -149,9 +149,8 @@ wp_reserve_node_new (WpProxy *node, WpReserveDevice *device_data)
 }
 
 static gboolean
-timeout_release_callback (gpointer data)
+timeout_release_callback (WpReserveNode *self)
 {
-  WpReserveNode *self = data;
   g_return_val_if_fail (self, G_SOURCE_REMOVE);
 
   wp_reserve_device_release (self->device_data);
@@ -177,8 +176,9 @@ wp_reserve_node_timeout_release (WpReserveNode *self, guint64 timeout_ms)
   g_clear_pointer (&self->timeout_source, g_source_unref);
 
   /* Add new timeout release callback */
-  wp_core_timeout_add (core, &self->timeout_source, timeout_ms,
-        timeout_release_callback, g_object_ref (self), g_object_unref);
+  wp_core_timeout_add_closure (core, &self->timeout_source, timeout_ms,
+        g_cclosure_new_object (G_CALLBACK (timeout_release_callback),
+            G_OBJECT (self)));
 }
 
 void
