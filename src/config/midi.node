@@ -1,0 +1,7 @@
+[node]
+factory = "spa-node-factory"
+local = false
+properties = [
+  { name = "factory.name", value = "api.alsa.seq.bridge" },
+  { name = "node.name", value = "Midi-Bridge" },
+]
