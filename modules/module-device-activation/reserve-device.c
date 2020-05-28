@@ -75,6 +75,9 @@ on_reservation_release (WpDbusDeviceReservation *reservation, gboolean forced,
   g_autoptr (WpCore) core = NULL;
   g_autoptr (WpSpaPod) profile = NULL;
 
+  /* Release reservation */
+  wp_dbus_device_reservation_release (reservation);
+
   /* Get the device and core */
   device = g_weak_ref_get (&self->device);
   if (!device)
