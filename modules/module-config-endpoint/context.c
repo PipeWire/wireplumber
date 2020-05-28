@@ -59,8 +59,10 @@ endpoint_export_finish_cb (WpSessionItem * ep, GAsyncResult * res,
 {
   g_autoptr (GError) error = NULL;
   gboolean export_ret = wp_session_item_export_finish (ep, res, &error);
-  g_return_if_fail (error == NULL);
-  g_return_if_fail (export_ret);
+  if (!export_ret) {
+    wp_warning_object (self, "failed to export endpoint: %s", error->message);
+    return;
+  }
 
   /* Emit the signal */
   g_signal_emit (self, signals[SIGNAL_ENDPOINT_CREATED], 0, ep);
@@ -74,8 +76,10 @@ endpoint_activate_finish_cb (WpSessionItem * ep, GAsyncResult * res,
   WpSession * session = NULL;
   g_autoptr (GError) error = NULL;
   gboolean activate_ret = wp_session_item_activate_finish (ep, res, &error);
-  g_return_if_fail (error == NULL);
-  g_return_if_fail (activate_ret);
+  if (!activate_ret) {
+    wp_warning_object (self, "failed to activate endpoint: %s", error->message);
+    return;
+  }
 
   /* Activate monitor if any */
   monitor = g_object_get_qdata (G_OBJECT (ep), monitor_quark ());
