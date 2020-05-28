@@ -133,8 +133,8 @@ on_name_acquired (GDBusConnection *connection, const gchar *name,
 
   /* Trigger the acquired task */
   if (self->pending_task) {
-    g_task_return_pointer (self->pending_task, GUINT_TO_POINTER (TRUE), NULL);
-    g_clear_object (&self->pending_task);
+    g_autoptr (GTask) task = g_steal_pointer (&self->pending_task);
+    g_task_return_pointer (task, GUINT_TO_POINTER (TRUE), NULL);
   }
 }
 
@@ -165,11 +165,11 @@ on_name_lost (GDBusConnection *connection, const gchar *name,
    * means that another audio server acquired the device with replacement, so we
    * trigger the release signal with forced set to TRUE */
   if (self->pending_task) {
+    g_autoptr (GTask) task = g_steal_pointer (&self->pending_task);
     GError *error = g_error_new (WP_DOMAIN_LIBRARY,
         WP_LIBRARY_ERROR_OPERATION_FAILED,
         "dbus name lost before acquiring (connection=%p)", connection);
-    g_task_return_error (self->pending_task, error);
-    g_clear_object (&self->pending_task);
+    g_task_return_error (task, error);
   } else {
     g_signal_emit (self, device_reservation_signals[SIGNAL_RELEASE], 0, TRUE);
   }
@@ -248,11 +248,11 @@ wp_dbus_device_reservation_finalize (GObject * object)
 
   /* Finish pending task */
   if (self->pending_task) {
+    g_autoptr (GTask) task = g_steal_pointer (&self->pending_task);
     GError *error = g_error_new (WP_DOMAIN_LIBRARY,
         WP_LIBRARY_ERROR_OPERATION_FAILED, "finishing before task is done");
-    g_task_return_error (self->pending_task, error);
+    g_task_return_error (task, error);
   }
-  g_clear_object (&self->pending_task);
   g_clear_pointer (&self->pending_property_name, g_free);
 
   /* Unregister and release */
@@ -381,20 +381,19 @@ on_request_release_done (GObject *proxy, GAsyncResult *res, gpointer user_data)
 {
   WpDbusDeviceReservation *self = user_data;
   g_autoptr (GError) error = NULL;
+  g_autoptr (GTask) task = g_steal_pointer (&self->pending_task);
   gboolean ret;
+
+  g_return_if_fail (task);
 
   /* Finish */
   wp_org_freedesktop_reserve_device1_call_request_release_finish (
       WP_ORG_FREEDESKTOP_RESERVE_DEVICE1 (proxy),
       &ret, res, &error);
-
-  /* Return */
-  g_return_if_fail (self->pending_task);
   if (error)
-    g_task_return_error (self->pending_task, g_steal_pointer (&error));
+    g_task_return_error (task, g_steal_pointer (&error));
   else
-    g_task_return_pointer (self->pending_task, GUINT_TO_POINTER (ret), NULL);
-  g_clear_object (&self->pending_task);
+    g_task_return_pointer (task, GUINT_TO_POINTER (ret), NULL);
 }
 
 static void
@@ -403,16 +402,14 @@ on_proxy_done_request_release (GObject *obj, GAsyncResult *res, gpointer data)
   WpDbusDeviceReservation *self = data;
   g_autoptr (WpOrgFreedesktopReserveDevice1) proxy = NULL;
   g_autoptr (GError) error = NULL;
+  g_return_if_fail (self->pending_task);
 
   /* Finish */
   proxy = wp_org_freedesktop_reserve_device1_proxy_new_for_bus_finish (
       res, &error);
-
-  /* Check for errors */
-  g_return_if_fail (self->pending_task);
   if (error) {
-    g_task_return_error (self->pending_task, g_steal_pointer (&error));
-    g_clear_object (&self->pending_task);
+    g_autoptr (GTask) task = g_steal_pointer (&self->pending_task);
+    g_task_return_error (task, g_steal_pointer (&error));
     return;
   }
 
@@ -445,16 +442,14 @@ on_proxy_done_request_property (GObject *obj, GAsyncResult *res, gpointer data)
   WpDbusDeviceReservation *self = data;
   g_autoptr (WpOrgFreedesktopReserveDevice1) proxy = NULL;
   g_autoptr (GError) error = NULL;
+  g_autoptr (GTask) task = g_steal_pointer (&self->pending_task);
+  g_return_if_fail (task);
 
   /* Finish */
   proxy = wp_org_freedesktop_reserve_device1_proxy_new_for_bus_finish (res,
       &error);
-
-  /* Check for errors */
-  g_return_if_fail (self->pending_task);
   if (error) {
-    g_task_return_error (self->pending_task, g_steal_pointer (&error));
-    g_clear_object (&self->pending_task);
+    g_task_return_error (task, g_steal_pointer (&error));
     return;
   }
 
@@ -464,23 +459,22 @@ on_proxy_done_request_property (GObject *obj, GAsyncResult *res, gpointer data)
 
   if (g_strcmp0 (self->pending_property_name, "ApplicationName") == 0) {
     char *v = wp_org_freedesktop_reserve_device1_dup_application_name (proxy);
-    g_task_return_pointer (self->pending_task, v, g_free);
+    g_task_return_pointer (task, v, g_free);
   }
   else if (g_strcmp0 (self->pending_property_name, "ApplicationDeviceName") == 0) {
     char *v = wp_org_freedesktop_reserve_device1_dup_application_device_name (proxy);
-    g_task_return_pointer (self->pending_task, v, g_free);
+    g_task_return_pointer (task, v, g_free);
   }
   else if (g_strcmp0 (self->pending_property_name, "Priority") == 0) {
     gint v = wp_org_freedesktop_reserve_device1_get_priority (proxy);
-    g_task_return_pointer (self->pending_task, GINT_TO_POINTER (v), NULL);
+    g_task_return_pointer (task, GINT_TO_POINTER (v), NULL);
   }
   else {
     GError *error = g_error_new (WP_DOMAIN_LIBRARY,
         WP_LIBRARY_ERROR_OPERATION_FAILED, "invalid property '%s' on proxy",
         self->pending_property_name);
-    g_task_return_error (self->pending_task, error);
+    g_task_return_error (task, error);
   }
-  g_clear_object (&self->pending_task);
 }
 
 gboolean
