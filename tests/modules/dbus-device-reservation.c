@@ -37,7 +37,7 @@ test_dbus_teardown (TestDbusFixture *self, gconstpointer data)
 
 static void
 on_reservation_release (WpDbusDeviceReservation *reservation,
-    int forced, TestDbusFixture *self)
+    gboolean forced, TestDbusFixture *self)
 {
   wp_dbus_device_reservation_release (reservation);
   wp_dbus_device_reservation_complete_release (reservation, TRUE);

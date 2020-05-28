@@ -67,7 +67,7 @@ on_reservation_acquired (GObject *obj, GAsyncResult *res, gpointer user_data)
 }
 
 static void
-on_reservation_release (WpDbusDeviceReservation *reservation, int forced,
+on_reservation_release (WpDbusDeviceReservation *reservation, gboolean forced,
     WpReserveDevice *self)
 {
   g_autoptr (WpProxy) device = NULL;

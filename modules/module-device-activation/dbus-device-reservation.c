@@ -72,7 +72,7 @@ handle_method_call (GDBusConnection *connection, const char *sender,
       if (self->pending_release)
         wp_dbus_device_reservation_complete_release (self, FALSE);
       self->pending_release = g_object_ref (invocation);
-      g_signal_emit (self, device_reservation_signals[SIGNAL_RELEASE], 0, 0);
+      g_signal_emit (self, device_reservation_signals[SIGNAL_RELEASE], 0, FALSE);
     } else {
       wp_dbus_device_reservation_complete_release (self, FALSE);
     }
@@ -301,7 +301,7 @@ wp_dbus_device_reservation_class_init (WpDbusDeviceReservationClass * klass)
   /* Signals */
   device_reservation_signals[SIGNAL_RELEASE] = g_signal_new (
       "release", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
-      0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_INT);
+      0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_BOOLEAN);
 }
 
 WpDbusDeviceReservation *
