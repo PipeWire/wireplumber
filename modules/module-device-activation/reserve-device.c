@@ -43,14 +43,13 @@ static void
 on_reservation_acquired (GObject *obj, GAsyncResult *res, gpointer user_data)
 {
   WpReserveDevice *self = user_data;
-  WpDbusDeviceReservation *reserv = WP_DBUS_DEVICE_RESERVATION (obj);
-  g_autoptr (GError) error = NULL;
+  g_autoptr (GError) e = NULL;
   g_autoptr (WpProxy) device = NULL;
   g_autoptr (WpSpaPod) profile = NULL;
 
   /* Finish */
-  if (!wp_dbus_device_reservation_async_finish (reserv, res, &error)) {
-    g_warning ("%s", error->message);
+  if (!wp_dbus_device_reservation_async_finish (self->reservation, res, &e)) {
+    wp_info_object (self, "could not own device: %s", e->message);
     return;
   }
 
