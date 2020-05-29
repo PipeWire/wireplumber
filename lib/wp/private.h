@@ -11,6 +11,7 @@
 
 #include "core.h"
 #include "object-manager.h"
+#include "props.h"
 #include "proxy.h"
 #include "endpoint.h"
 #include "endpoint-stream.h"
@@ -28,7 +29,6 @@ struct spa_pod_builder;
 
 typedef struct _WpRegistry WpRegistry;
 typedef struct _WpGlobal WpGlobal;
-typedef struct _WpSpaProps WpSpaProps;
 
 /* registry */
 
@@ -108,6 +108,11 @@ struct pw_proxy * wp_global_bind (WpGlobal * global);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpGlobal, wp_global_unref)
 
+/* props */
+
+void wp_props_handle_proxy_param_event (WpProps * self, guint32 id,
+    WpSpaPod * pod);
+
 /* proxy */
 
 void wp_proxy_destroy (WpProxy *self);
@@ -119,7 +124,8 @@ void wp_proxy_augment_error (WpProxy * self, GError * error);
 void wp_proxy_handle_event_param (void * proxy, int seq, uint32_t id,
     uint32_t index, uint32_t next, const struct spa_pod *param);
 
-WpSpaProps *wp_proxy_get_spa_props (WpProxy * self);
+WpProps * wp_proxy_get_props (WpProxy * self);
+void wp_proxy_set_props (WpProxy * self, WpProps * props);
 
 /* iterator */
 
@@ -152,32 +158,6 @@ WpSpaPod * wp_spa_pod_new_property_wrap_copy (WpSpaTypeTable table, guint32 key,
 WpSpaPod * wp_spa_pod_new_control_wrap_copy (guint32 offset, guint32 type,
     const struct spa_pod *pod);
 const struct spa_pod *wp_spa_pod_get_spa_pod (const WpSpaPod *self);
-
-/* spa props */
-
-struct _WpSpaProps
-{
-  GList *entries;
-};
-
-void wp_spa_props_clear (WpSpaProps * self);
-
-void wp_spa_props_register (WpSpaProps * self,
-    const char *id_name, const gchar *description, WpSpaPod *type);
-gboolean wp_spa_props_register_from_prop_info (WpSpaProps * self,
-    const WpSpaPod * prop_info);
-
-WpSpaPod *
-wp_spa_props_get_stored (WpSpaProps * self, const char * id_name);
-
-gboolean wp_spa_props_store (WpSpaProps * self, const char *id_name,
-    const WpSpaPod * value);
-gboolean wp_spa_props_store_from_props (WpSpaProps * self,
-    const WpSpaPod * props, GPtrArray * changed_ids);
-
-WpSpaPod * wp_spa_props_build_props (WpSpaProps * self);
-GPtrArray * wp_spa_props_build_propinfo (WpSpaProps * self);
-GPtrArray * wp_spa_props_build_all_pods (WpSpaProps * self);
 
 /* session item */
 

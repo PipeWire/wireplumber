@@ -1,6 +1,6 @@
 /* WirePlumber
  *
- * Copyright © 2019 Collabora Ltd.
+ * Copyright © 2019-2020 Collabora Ltd.
  *    @author George Kiagiadakis <george.kiagiadakis@collabora.com>
  *
  * SPDX-License-Identifier: MIT
@@ -14,7 +14,9 @@ struct _TestSiEndpoint
   WpSessionItem parent;
   const gchar *name;
   const gchar *media_class;
+  WpNode *node;
   WpDirection direction;
+  gboolean changed_properties;
 };
 
 G_DECLARE_FINAL_TYPE (TestSiEndpoint, test_si_endpoint,
@@ -38,7 +40,11 @@ test_si_endpoint_get_registration_info (WpSiEndpoint * item)
 static WpProperties *
 test_si_endpoint_get_properties (WpSiEndpoint * item)
 {
-  return wp_properties_new ("test.property", "test-value", NULL);
+  TestSiEndpoint *self = TEST_SI_ENDPOINT (item);
+  if (self->changed_properties)
+    return wp_properties_new ("test.property", "changed-value", NULL);
+  else
+    return wp_properties_new ("test.property", "test-value", NULL);
 }
 
 static guint
@@ -104,9 +110,24 @@ test_si_endpoint_init (TestSiEndpoint * self)
 {
 }
 
+static gpointer
+wp_si_endpoint_get_associated_proxy (WpSessionItem * item, GType proxy_type)
+{
+  TestSiEndpoint * self = TEST_SI_ENDPOINT (item);
+
+  if (proxy_type == WP_TYPE_NODE && self->node)
+    return g_object_ref (self->node);
+
+  return WP_SESSION_ITEM_CLASS (test_si_endpoint_parent_class)->
+      get_associated_proxy (item, proxy_type);
+}
+
 static void
 test_si_endpoint_class_init (TestSiEndpointClass * klass)
 {
+  WpSessionItemClass *item_class = (WpSessionItemClass *) klass;
+
+  item_class->get_associated_proxy = wp_si_endpoint_get_associated_proxy;
 }
 
 /*******************/
@@ -141,7 +162,7 @@ test_endpoint_teardown (TestEndpointFixture *self, gconstpointer user_data)
 }
 
 static void
-test_endpoint_basic_impl_object_added (WpObjectManager *om,
+test_endpoint_impl_object_added (WpObjectManager *om,
     WpEndpoint *endpoint, TestEndpointFixture *fixture)
 {
   g_debug ("impl object added");
@@ -157,7 +178,7 @@ test_endpoint_basic_impl_object_added (WpObjectManager *om,
 }
 
 static void
-test_endpoint_basic_impl_object_removed (WpObjectManager *om,
+test_endpoint_impl_object_removed (WpObjectManager *om,
     WpEndpoint *endpoint, TestEndpointFixture *fixture)
 {
   g_debug ("impl object removed");
@@ -173,7 +194,7 @@ test_endpoint_basic_impl_object_removed (WpObjectManager *om,
 }
 
 static void
-test_endpoint_basic_proxy_object_added (WpObjectManager *om,
+test_endpoint_proxy_object_added (WpObjectManager *om,
     WpEndpoint *endpoint, TestEndpointFixture *fixture)
 {
   g_debug ("proxy object added");
@@ -189,7 +210,7 @@ test_endpoint_basic_proxy_object_added (WpObjectManager *om,
 }
 
 static void
-test_endpoint_basic_proxy_object_removed (WpObjectManager *om,
+test_endpoint_proxy_object_removed (WpObjectManager *om,
     WpEndpoint *endpoint, TestEndpointFixture *fixture)
 {
   g_debug ("proxy object removed");
@@ -205,7 +226,7 @@ test_endpoint_basic_proxy_object_removed (WpObjectManager *om,
 }
 
 static void
-test_endpoint_basic_activate_done (WpSessionItem * item, GAsyncResult * res,
+test_endpoint_activate_done (WpSessionItem * item, GAsyncResult * res,
     TestEndpointFixture *fixture)
 {
   g_autoptr (GError) error = NULL;
@@ -217,7 +238,7 @@ test_endpoint_basic_activate_done (WpSessionItem * item, GAsyncResult * res,
 }
 
 static void
-test_endpoint_basic_export_done (WpSessionItem * item, GAsyncResult * res,
+test_endpoint_export_done (WpSessionItem * item, GAsyncResult * res,
     TestEndpointFixture *fixture)
 {
   g_autoptr (GError) error = NULL;
@@ -232,7 +253,7 @@ test_endpoint_basic_export_done (WpSessionItem * item, GAsyncResult * res,
 }
 
 static void
-test_endpoint_basic_session_bound (WpProxy * session, GAsyncResult * res,
+test_endpoint_session_bound (WpProxy * session, GAsyncResult * res,
     TestEndpointFixture *fixture)
 {
   g_autoptr (GError) error = NULL;
@@ -247,21 +268,18 @@ test_endpoint_basic_session_bound (WpProxy * session, GAsyncResult * res,
   g_main_loop_quit (fixture->base.loop);
 }
 
-#if 0
 static void
-test_endpoint_basic_control_changed (WpEndpoint * endpoint,
+test_endpoint_prop_changed (WpProxy * proxy,
     const gchar * id_name, TestEndpointFixture *fixture)
 {
-  g_debug ("endpoint changed: %s (%s)", G_OBJECT_TYPE_NAME (endpoint), id_name);
+  wp_debug_object (proxy, "prop changed: %s", id_name);
 
-  g_assert_true (WP_IS_ENDPOINT (endpoint));
-
-  if (++fixture->n_events == 2)
+  if (++fixture->n_events == 3)
     g_main_loop_quit (fixture->base.loop);
 }
 
 static void
-test_endpoint_basic_notify_properties (WpEndpoint * endpoint, GParamSpec * param,
+test_endpoint_notify_properties (WpEndpoint * endpoint, GParamSpec * param,
     TestEndpointFixture *fixture)
 {
   g_debug ("properties changed: %s", G_OBJECT_TYPE_NAME (endpoint));
@@ -271,22 +289,18 @@ test_endpoint_basic_notify_properties (WpEndpoint * endpoint, GParamSpec * param
   if (++fixture->n_events == 2)
     g_main_loop_quit (fixture->base.loop);
 }
-#endif
 
 static void
-test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
+test_endpoint_no_props (TestEndpointFixture *fixture, gconstpointer data)
 {
   g_autoptr (TestSiEndpoint) endpoint = NULL;
   g_autoptr (WpImplSession) session = NULL;
-  // gfloat float_value;
-  // gboolean boolean_value;
-  // g_autoptr (WpSpaPod) ctrl = NULL;
 
   /* set up the export side */
   g_signal_connect (fixture->export_om, "object-added",
-      (GCallback) test_endpoint_basic_impl_object_added, fixture);
+      (GCallback) test_endpoint_impl_object_added, fixture);
   g_signal_connect (fixture->export_om, "object-removed",
-      (GCallback) test_endpoint_basic_impl_object_removed, fixture);
+      (GCallback) test_endpoint_impl_object_removed, fixture);
   wp_object_manager_add_interest (fixture->export_om, WP_TYPE_ENDPOINT, NULL);
   wp_object_manager_request_proxy_features (fixture->export_om,
       WP_TYPE_ENDPOINT, WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_PROPS);
@@ -294,9 +308,9 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
 
   /* set up the proxy side */
   g_signal_connect (fixture->proxy_om, "object-added",
-      (GCallback) test_endpoint_basic_proxy_object_added, fixture);
+      (GCallback) test_endpoint_proxy_object_added, fixture);
   g_signal_connect (fixture->proxy_om, "object-removed",
-      (GCallback) test_endpoint_basic_proxy_object_removed, fixture);
+      (GCallback) test_endpoint_proxy_object_removed, fixture);
   wp_object_manager_add_interest (fixture->proxy_om, WP_TYPE_ENDPOINT, NULL);
   wp_object_manager_request_proxy_features (fixture->proxy_om, WP_TYPE_ENDPOINT,
       WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_PROPS);
@@ -305,7 +319,7 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
   /* create session */
   session = wp_impl_session_new (fixture->base.core);
   wp_proxy_augment (WP_PROXY (session), WP_PROXY_FEATURE_BOUND, NULL,
-      (GAsyncReadyCallback) test_endpoint_basic_session_bound, fixture);
+      (GAsyncReadyCallback) test_endpoint_session_bound, fixture);
 
   /* run until session is bound */
   g_main_loop_run (fixture->base.loop);
@@ -319,11 +333,11 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
   endpoint->media_class = "Audio/Source";
   endpoint->direction = WP_DIRECTION_OUTPUT;
   wp_session_item_activate (WP_SESSION_ITEM (endpoint),
-      (GAsyncReadyCallback) test_endpoint_basic_activate_done, fixture);
+      (GAsyncReadyCallback) test_endpoint_activate_done, fixture);
   g_assert_cmpint (wp_session_item_get_flags (WP_SESSION_ITEM (endpoint)),
       &, WP_SI_FLAG_ACTIVE);
   wp_session_item_export (WP_SESSION_ITEM (endpoint), WP_SESSION (session),
-      (GAsyncReadyCallback) test_endpoint_basic_export_done, fixture);
+      (GAsyncReadyCallback) test_endpoint_export_done, fixture);
 
   /* run until objects are created and features are cached */
   fixture->n_events = 0;
@@ -332,14 +346,10 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
   g_assert_nonnull (fixture->impl_endpoint);
   g_assert_nonnull (fixture->proxy_endpoint);
 
-  /* test round 1: verify the values on the proxy */
+  /* verify the values on the proxy */
 
   g_assert_cmphex (wp_proxy_get_features (fixture->proxy_endpoint), ==,
-      WP_PROXY_FEATURE_PW_PROXY |
-      WP_PROXY_FEATURE_INFO |
-      WP_PROXY_FEATURE_BOUND |
-      WP_PROXY_FEATURE_PROPS);
-
+      WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_PROPS);
   g_assert_cmpuint (wp_proxy_get_bound_id (fixture->proxy_endpoint), ==,
       wp_proxy_get_bound_id (fixture->impl_endpoint));
 
@@ -367,98 +377,25 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
   g_assert_cmpint (WP_DIRECTION_OUTPUT, ==,
       wp_endpoint_get_direction (WP_ENDPOINT (fixture->proxy_endpoint)));
 
-#if 0
-  g_assert_true (wp_endpoint_get_control_float (
-          WP_ENDPOINT (fixture->proxy_endpoint),
-          WP_ENDPOINT_CONTROL_VOLUME, &float_value));
-  g_assert_true (wp_endpoint_get_control_boolean (
-          WP_ENDPOINT (fixture->proxy_endpoint),
-          WP_ENDPOINT_CONTROL_MUTE, &boolean_value));
-  g_assert_cmpfloat_with_epsilon (float_value, 0.7f, 0.001);
-  g_assert_cmpint (boolean_value, ==, TRUE);
-
-  /* setup change signals */
-  g_signal_connect (fixture->proxy_endpoint, "control-changed",
-      (GCallback) test_endpoint_basic_control_changed, fixture);
-  g_signal_connect (endpoint, "control-changed",
-      (GCallback) test_endpoint_basic_control_changed, fixture);
+  /* test property changes */
   g_signal_connect (fixture->proxy_endpoint, "notify::properties",
-      (GCallback) test_endpoint_basic_notify_properties, fixture);
-  g_signal_connect (endpoint, "notify::properties",
-      (GCallback) test_endpoint_basic_notify_properties, fixture);
-
-  /* change control on the proxy */
-  ctrl = wp_spa_pod_new_float (1.0f);
-  g_assert_true (wp_endpoint_set_control (WP_ENDPOINT (fixture->proxy_endpoint),
-      "volume", ctrl));
-
-  /* run until the change is on both sides */
-  fixture->n_events = 0;
-  g_main_loop_run (fixture->base.loop);
-  g_assert_cmpint (fixture->n_events, ==, 2);
-
-  /* test round 2: verify the value change on both sides */
-
-  ctrl = wp_endpoint_get_control (WP_ENDPOINT (fixture->proxy_endpoint), "volume");
-  g_assert_nonnull (ctrl);
-  g_assert_true (wp_spa_pod_get_float (ctrl, &float_value));
-  ctrl = wp_endpoint_get_control (WP_ENDPOINT (fixture->proxy_endpoint), "mute");
-  g_assert_nonnull (ctrl);
-  g_assert_true (wp_spa_pod_get_boolean (ctrl, &boolean_value));
-  g_assert_cmpfloat_with_epsilon (float_value, 1.0f, 0.001);
-  g_assert_cmpint (boolean_value, ==, TRUE);
-
-  ctrl = wp_endpoint_get_control (WP_ENDPOINT (endpoint), "volume");
-  g_assert_nonnull (ctrl);
-  g_assert_true (wp_spa_pod_get_float (ctrl, &float_value));
-  ctrl = wp_endpoint_get_control (WP_ENDPOINT (endpoint), "mute");
-  g_assert_nonnull (ctrl);
-  g_assert_true (wp_spa_pod_get_boolean (ctrl, &boolean_value));
-  g_assert_cmpfloat_with_epsilon (float_value, 1.0f, 0.001);
-  g_assert_cmpint (boolean_value, ==, TRUE);
-
-  /* change control on the impl */
-  fixture->n_events = 0;
-  ctrl = wp_spa_pod_new_boolean (FALSE);
-  g_assert_true (wp_endpoint_set_control (WP_ENDPOINT (endpoint), "mute", ctrl));
-
-  /* run until the change is on both sides */
-  g_main_loop_run (fixture->base.loop);
-  g_assert_cmpint (fixture->n_events, ==, 2);
-
-  /* test round 3: verify the value change on both sides */
-
-  ctrl = wp_endpoint_get_control (WP_ENDPOINT (fixture->proxy_endpoint), "volume");
-  g_assert_nonnull (ctrl);
-  g_assert_true (wp_spa_pod_get_float (ctrl, &float_value));
-  ctrl = wp_endpoint_get_control (WP_ENDPOINT (fixture->proxy_endpoint), "mute");
-  g_assert_nonnull (ctrl);
-  g_assert_true (wp_spa_pod_get_boolean (ctrl, &boolean_value));
-  g_assert_cmpfloat_with_epsilon (float_value, 1.0f, 0.001);
-  g_assert_cmpint (boolean_value, ==, FALSE);
-
-  ctrl = wp_endpoint_get_control (WP_ENDPOINT (endpoint), "volume");
-  g_assert_nonnull (ctrl);
-  g_assert_true (wp_spa_pod_get_float (ctrl, &float_value));
-  ctrl = wp_endpoint_get_control (WP_ENDPOINT (endpoint), "mute");
-  g_assert_nonnull (ctrl);
-  g_assert_true (wp_spa_pod_get_boolean (ctrl, &boolean_value));
-  g_assert_cmpfloat_with_epsilon (float_value, 1.0f, 0.001);
-  g_assert_cmpint (boolean_value, ==, FALSE);
+      (GCallback) test_endpoint_notify_properties, fixture);
+  g_signal_connect (fixture->impl_endpoint, "notify::properties",
+      (GCallback) test_endpoint_notify_properties, fixture);
 
   /* change a property on the impl */
   fixture->n_events = 0;
-  wp_impl_endpoint_set_property (endpoint, "test.property", "changed-value");
+  endpoint->changed_properties = TRUE;
+  g_signal_emit_by_name (endpoint, "endpoint-properties-changed");
 
   /* run until the change is on both sides */
   g_main_loop_run (fixture->base.loop);
   g_assert_cmpint (fixture->n_events, ==, 2);
 
-  /* test round 4: verify the property change on both sides */
-
+  /* verify the property change on both sides */
   {
     g_autoptr (WpProperties) props =
-        wp_proxy_get_properties (WP_PROXY (endpoint));
+        wp_proxy_get_properties (fixture->impl_endpoint);
     g_assert_cmpstr (wp_properties_get (props, "test.property"), ==,
         "changed-value");
   }
@@ -468,10 +405,316 @@ test_endpoint_basic (TestEndpointFixture *fixture, gconstpointer data)
     g_assert_cmpstr (wp_properties_get (props, "test.property"), ==,
         "changed-value");
   }
-#endif
 
   /* destroy impl endpoint */
   fixture->n_events = 0;
+  g_clear_object (&endpoint);
+
+  /* run until objects are destroyed */
+  g_main_loop_run (fixture->base.loop);
+  g_assert_cmpint (fixture->n_events, ==, 2);
+  g_assert_null (fixture->impl_endpoint);
+  g_assert_null (fixture->proxy_endpoint);
+}
+
+static void
+test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
+{
+  g_autoptr (TestSiEndpoint) endpoint = NULL;
+  g_autoptr (WpImplSession) session = NULL;
+
+  /* load modules */
+  {
+    g_autoptr (WpTestServerLocker) lock =
+        wp_test_server_locker_new (&fixture->base.server);
+
+    g_assert_cmpint (pw_context_add_spa_lib (fixture->base.server.context,
+            "audiotestsrc", "audiotestsrc/libspa-audiotestsrc"), ==, 0);
+    g_assert_nonnull (pw_context_load_module (fixture->base.server.context,
+            "libpipewire-module-adapter", NULL, NULL));
+  }
+
+  /* set up the export side */
+  g_signal_connect (fixture->export_om, "object-added",
+      (GCallback) test_endpoint_impl_object_added, fixture);
+  g_signal_connect (fixture->export_om, "object-removed",
+      (GCallback) test_endpoint_impl_object_removed, fixture);
+  wp_object_manager_add_interest (fixture->export_om, WP_TYPE_ENDPOINT, NULL);
+  wp_object_manager_request_proxy_features (fixture->export_om,
+      WP_TYPE_ENDPOINT, WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_PROPS);
+  wp_core_install_object_manager (fixture->base.core, fixture->export_om);
+
+  /* set up the proxy side */
+  g_signal_connect (fixture->proxy_om, "object-added",
+      (GCallback) test_endpoint_proxy_object_added, fixture);
+  g_signal_connect (fixture->proxy_om, "object-removed",
+      (GCallback) test_endpoint_proxy_object_removed, fixture);
+  wp_object_manager_add_interest (fixture->proxy_om, WP_TYPE_ENDPOINT, NULL);
+  wp_object_manager_request_proxy_features (fixture->proxy_om, WP_TYPE_ENDPOINT,
+      WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_PROPS);
+  wp_core_install_object_manager (fixture->base.client_core, fixture->proxy_om);
+
+  /* create session */
+  session = wp_impl_session_new (fixture->base.core);
+  wp_proxy_augment (WP_PROXY (session), WP_PROXY_FEATURE_BOUND, NULL,
+      (GAsyncReadyCallback) test_endpoint_session_bound, fixture);
+
+  /* run until session is bound */
+  g_main_loop_run (fixture->base.loop);
+  g_assert_cmpint (wp_proxy_get_features (WP_PROXY (session)), &,
+      WP_PROXY_FEATURE_BOUND);
+  g_assert_cmpint (wp_proxy_get_bound_id (WP_PROXY (session)), >, 0);
+
+  /* create endpoint */
+  endpoint = g_object_new (test_si_endpoint_get_type (), NULL);
+  endpoint->name = "test-endpoint";
+  endpoint->media_class = "Audio/Source";
+  endpoint->direction = WP_DIRECTION_OUTPUT;
+
+  /* associate a node that has props */
+  endpoint->node = wp_node_new_from_factory (fixture->base.core,
+      "adapter",
+      wp_properties_new (
+          "factory.name", "audiotestsrc",
+          "node.name", "audiotestsrc.adapter",
+          NULL));
+  g_assert_nonnull (endpoint->node);
+  wp_proxy_augment (WP_PROXY (endpoint->node), WP_PROXY_FEATURES_STANDARD, NULL,
+      (GAsyncReadyCallback) test_proxy_augment_finish_cb, fixture);
+  g_main_loop_run (fixture->base.loop);
+
+  g_assert_cmpint (wp_proxy_get_features (WP_PROXY (endpoint->node)), ==,
+      WP_PROXY_FEATURES_STANDARD);
+
+  /* activate & export the endpoint */
+  wp_session_item_activate (WP_SESSION_ITEM (endpoint),
+      (GAsyncReadyCallback) test_endpoint_activate_done, fixture);
+  g_assert_cmpint (wp_session_item_get_flags (WP_SESSION_ITEM (endpoint)),
+      &, WP_SI_FLAG_ACTIVE);
+  wp_session_item_export (WP_SESSION_ITEM (endpoint), WP_SESSION (session),
+      (GAsyncReadyCallback) test_endpoint_export_done, fixture);
+
+  /* run until objects are created and features are cached */
+  fixture->n_events = 0;
+  g_main_loop_run (fixture->base.loop);
+  g_assert_cmpint (fixture->n_events, ==, 3);
+  g_assert_nonnull (fixture->impl_endpoint);
+  g_assert_nonnull (fixture->proxy_endpoint);
+
+  /* verify features; the endpoint must have also augmented the node */
+
+  g_assert_cmpint (wp_proxy_get_features (WP_PROXY (endpoint->node)), ==,
+      WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_PROPS);
+  g_assert_cmphex (wp_proxy_get_features (fixture->proxy_endpoint), ==,
+      WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_PROPS);
+
+  /* verify props */
+
+  {
+    g_autoptr (WpSpaPod) pod =
+        wp_proxy_get_prop (fixture->proxy_endpoint, "volume");
+    gfloat float_value = 0.0f;
+    g_assert_nonnull (pod);
+    g_assert_true (wp_spa_pod_get_float (pod, &float_value));
+    g_assert_cmpfloat_with_epsilon (float_value, 1.0f, 0.001);
+  }
+  {
+    g_autoptr (WpSpaPod) pod =
+        wp_proxy_get_prop (fixture->proxy_endpoint, "mute");
+    gboolean boolean_value = TRUE;
+    g_assert_nonnull (pod);
+    g_assert_true (wp_spa_pod_get_boolean (pod, &boolean_value));
+    g_assert_cmpint (boolean_value, ==, FALSE);
+  }
+
+  /* setup change signals */
+  g_signal_connect (fixture->proxy_endpoint, "prop-changed",
+      (GCallback) test_endpoint_prop_changed, fixture);
+  g_signal_connect (fixture->impl_endpoint, "prop-changed",
+      (GCallback) test_endpoint_prop_changed, fixture);
+  g_signal_connect (endpoint->node, "prop-changed",
+      (GCallback) test_endpoint_prop_changed, fixture);
+
+  /* change control on the proxy */
+  fixture->n_events = 0;
+  wp_proxy_set_prop (fixture->proxy_endpoint, "volume",
+      wp_spa_pod_new_float (0.7f));
+
+  /* run until the change is on all sides */
+  g_main_loop_run (fixture->base.loop);
+  g_assert_cmpint (fixture->n_events, ==, 3);
+
+  /* verify the value change on all sides */
+  {
+    g_autoptr (WpSpaPod) pod =
+        wp_proxy_get_prop (fixture->proxy_endpoint, "volume");
+    gfloat float_value = 0.0f;
+    g_assert_nonnull (pod);
+    g_assert_true (wp_spa_pod_get_float (pod, &float_value));
+    g_assert_cmpfloat_with_epsilon (float_value, 0.7f, 0.001);
+  }
+  {
+    g_autoptr (WpSpaPod) pod =
+        wp_proxy_get_prop (fixture->proxy_endpoint, "mute");
+    gboolean boolean_value = TRUE;
+    g_assert_nonnull (pod);
+    g_assert_true (wp_spa_pod_get_boolean (pod, &boolean_value));
+    g_assert_cmpint (boolean_value, ==, FALSE);
+  }
+  {
+    g_autoptr (WpSpaPod) pod =
+        wp_proxy_get_prop (fixture->impl_endpoint, "volume");
+    gfloat float_value = 0.0f;
+    g_assert_nonnull (pod);
+    g_assert_true (wp_spa_pod_get_float (pod, &float_value));
+    g_assert_cmpfloat_with_epsilon (float_value, 0.7f, 0.001);
+  }
+  {
+    g_autoptr (WpSpaPod) pod =
+        wp_proxy_get_prop (fixture->impl_endpoint, "mute");
+    gboolean boolean_value = TRUE;
+    g_assert_nonnull (pod);
+    g_assert_true (wp_spa_pod_get_boolean (pod, &boolean_value));
+    g_assert_cmpint (boolean_value, ==, FALSE);
+  }
+  {
+    g_autoptr (WpSpaPod) pod =
+        wp_proxy_get_prop (WP_PROXY (endpoint->node), "volume");
+    gfloat float_value = 0.0f;
+    g_assert_nonnull (pod);
+    g_assert_true (wp_spa_pod_get_float (pod, &float_value));
+    g_assert_cmpfloat_with_epsilon (float_value, 0.7f, 0.001);
+  }
+  {
+    g_autoptr (WpSpaPod) pod =
+        wp_proxy_get_prop (WP_PROXY (endpoint->node), "mute");
+    gboolean boolean_value = TRUE;
+    g_assert_nonnull (pod);
+    g_assert_true (wp_spa_pod_get_boolean (pod, &boolean_value));
+    g_assert_cmpint (boolean_value, ==, FALSE);
+  }
+
+  /* change control on the impl */
+  fixture->n_events = 0;
+  wp_proxy_set_prop (fixture->impl_endpoint, "mute",
+      wp_spa_pod_new_boolean (TRUE));
+
+  /* run until the change is on all sides */
+  g_main_loop_run (fixture->base.loop);
+  g_assert_cmpint (fixture->n_events, ==, 3);
+
+  /* verify the value change on all sides */
+  {
+    g_autoptr (WpSpaPod) pod =
+        wp_proxy_get_prop (fixture->proxy_endpoint, "volume");
+    gfloat float_value = 0.0f;
+    g_assert_nonnull (pod);
+    g_assert_true (wp_spa_pod_get_float (pod, &float_value));
+    g_assert_cmpfloat_with_epsilon (float_value, 0.7f, 0.001);
+  }
+  {
+    g_autoptr (WpSpaPod) pod =
+        wp_proxy_get_prop (fixture->proxy_endpoint, "mute");
+    gboolean boolean_value = FALSE;
+    g_assert_nonnull (pod);
+    g_assert_true (wp_spa_pod_get_boolean (pod, &boolean_value));
+    g_assert_cmpint (boolean_value, ==, TRUE);
+  }
+  {
+    g_autoptr (WpSpaPod) pod =
+        wp_proxy_get_prop (fixture->impl_endpoint, "volume");
+    gfloat float_value = 0.0f;
+    g_assert_nonnull (pod);
+    g_assert_true (wp_spa_pod_get_float (pod, &float_value));
+    g_assert_cmpfloat_with_epsilon (float_value, 0.7f, 0.001);
+  }
+  {
+    g_autoptr (WpSpaPod) pod =
+        wp_proxy_get_prop (fixture->impl_endpoint, "mute");
+    gboolean boolean_value = FALSE;
+    g_assert_nonnull (pod);
+    g_assert_true (wp_spa_pod_get_boolean (pod, &boolean_value));
+    g_assert_cmpint (boolean_value, ==, TRUE);
+  }
+  {
+    g_autoptr (WpSpaPod) pod =
+        wp_proxy_get_prop (WP_PROXY (endpoint->node), "volume");
+    gfloat float_value = 0.0f;
+    g_assert_nonnull (pod);
+    g_assert_true (wp_spa_pod_get_float (pod, &float_value));
+    g_assert_cmpfloat_with_epsilon (float_value, 0.7f, 0.001);
+  }
+  {
+    g_autoptr (WpSpaPod) pod =
+        wp_proxy_get_prop (WP_PROXY (endpoint->node), "mute");
+    gboolean boolean_value = FALSE;
+    g_assert_nonnull (pod);
+    g_assert_true (wp_spa_pod_get_boolean (pod, &boolean_value));
+    g_assert_cmpint (boolean_value, ==, TRUE);
+  }
+
+  /* change control on the node */
+  fixture->n_events = 0;
+  wp_proxy_set_prop (WP_PROXY (endpoint->node), "volume",
+      wp_spa_pod_new_float (0.2f));
+
+  /* run until the change is on all sides */
+  g_main_loop_run (fixture->base.loop);
+  g_assert_cmpint (fixture->n_events, ==, 3);
+
+  /* verify the value change on all sides */
+  {
+    g_autoptr (WpSpaPod) pod =
+        wp_proxy_get_prop (fixture->proxy_endpoint, "volume");
+    gfloat float_value = 0.0f;
+    g_assert_nonnull (pod);
+    g_assert_true (wp_spa_pod_get_float (pod, &float_value));
+    g_assert_cmpfloat_with_epsilon (float_value, 0.2f, 0.001);
+  }
+  {
+    g_autoptr (WpSpaPod) pod =
+        wp_proxy_get_prop (fixture->proxy_endpoint, "mute");
+    gboolean boolean_value = FALSE;
+    g_assert_nonnull (pod);
+    g_assert_true (wp_spa_pod_get_boolean (pod, &boolean_value));
+    g_assert_cmpint (boolean_value, ==, TRUE);
+  }
+  {
+    g_autoptr (WpSpaPod) pod =
+        wp_proxy_get_prop (fixture->impl_endpoint, "volume");
+    gfloat float_value = 0.0f;
+    g_assert_nonnull (pod);
+    g_assert_true (wp_spa_pod_get_float (pod, &float_value));
+    g_assert_cmpfloat_with_epsilon (float_value, 0.2f, 0.001);
+  }
+  {
+    g_autoptr (WpSpaPod) pod =
+        wp_proxy_get_prop (fixture->impl_endpoint, "mute");
+    gboolean boolean_value = FALSE;
+    g_assert_nonnull (pod);
+    g_assert_true (wp_spa_pod_get_boolean (pod, &boolean_value));
+    g_assert_cmpint (boolean_value, ==, TRUE);
+  }
+  {
+    g_autoptr (WpSpaPod) pod =
+        wp_proxy_get_prop (WP_PROXY (endpoint->node), "volume");
+    gfloat float_value = 0.0f;
+    g_assert_nonnull (pod);
+    g_assert_true (wp_spa_pod_get_float (pod, &float_value));
+    g_assert_cmpfloat_with_epsilon (float_value, 0.2f, 0.001);
+  }
+  {
+    g_autoptr (WpSpaPod) pod =
+        wp_proxy_get_prop (WP_PROXY (endpoint->node), "mute");
+    gboolean boolean_value = FALSE;
+    g_assert_nonnull (pod);
+    g_assert_true (wp_spa_pod_get_boolean (pod, &boolean_value));
+    g_assert_cmpint (boolean_value, ==, TRUE);
+  }
+
+  /* destroy impl endpoint */
+  fixture->n_events = 0;
+  g_clear_object (&endpoint->node);
   g_clear_object (&endpoint);
 
   /* run until objects are destroyed */
@@ -487,8 +730,10 @@ main (gint argc, gchar *argv[])
   g_test_init (&argc, &argv, NULL);
   wp_init (WP_INIT_ALL);
 
-  g_test_add ("/wp/endpoint/basic", TestEndpointFixture, NULL,
-      test_endpoint_setup, test_endpoint_basic, test_endpoint_teardown);
+  g_test_add ("/wp/endpoint/no-props", TestEndpointFixture, NULL,
+      test_endpoint_setup, test_endpoint_no_props, test_endpoint_teardown);
+  g_test_add ("/wp/endpoint/with-props", TestEndpointFixture, NULL,
+      test_endpoint_setup, test_endpoint_with_props, test_endpoint_teardown);
 
   return g_test_run ();
 }

@@ -95,6 +95,7 @@ struct _WpProxyClass
   void (*pw_proxy_created) (WpProxy * self, struct pw_proxy * proxy);
   void (*pw_proxy_destroyed) (WpProxy * self);
   void (*bound) (WpProxy * self, guint32 id);
+  void (*prop_changed) (WpProxy * self, const gchar * prop_name);
 };
 
 WP_API
@@ -176,7 +177,7 @@ WpSpaPod * wp_proxy_get_prop (WpProxy * self, const gchar * prop_name);
 
 WP_API
 void wp_proxy_set_prop (WpProxy * self, const gchar * prop_name,
-    const WpSpaPod * value);
+    WpSpaPod * value);
 
 G_END_DECLS
 

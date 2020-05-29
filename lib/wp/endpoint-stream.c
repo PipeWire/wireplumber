@@ -21,6 +21,8 @@
 #define G_LOG_DOMAIN "wp-endpoint-stream"
 
 #include "endpoint-stream.h"
+#include "debug.h"
+#include "node.h"
 #include "private.h"
 #include "error.h"
 
@@ -270,16 +272,17 @@ impl_enum_params (void *object, int seq,
   struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buf, sizeof (buf));
   struct spa_pod *result;
   guint count = 0;
-  WpSpaProps *props = wp_proxy_get_spa_props (WP_PROXY (self));
+  WpProps *props = wp_proxy_get_props (WP_PROXY (self));
 
   switch (id) {
     case SPA_PARAM_PropInfo: {
-      g_autoptr (GPtrArray) params = wp_spa_props_build_propinfo (props);
+      g_autoptr (WpIterator) params = wp_props_iterate_prop_info (props);
+      g_auto (GValue) item = G_VALUE_INIT;
+      guint i = 0;
 
-      for (guint i = start; i < params->len; i++) {
-        WpSpaPod *pod = g_ptr_array_index (params, i);
+      for (; wp_iterator_next (params, &item); g_value_unset (&item), i++) {
+        WpSpaPod *pod = g_value_get_boxed (&item);
         const struct spa_pod *param = wp_spa_pod_get_spa_pod (pod);
-
         if (spa_pod_filter (&b, &result, param, filter) == 0) {
           pw_endpoint_stream_emit_param (&self->hooks, seq, id, i, i+1, result);
           if (++count == num)
@@ -290,7 +293,7 @@ impl_enum_params (void *object, int seq,
     }
     case SPA_PARAM_Props: {
       if (start == 0) {
-        g_autoptr (WpSpaPod) pod = wp_spa_props_build_props (props);
+        g_autoptr (WpSpaPod) pod = wp_props_get_all (props);
         const struct spa_pod *param = wp_spa_pod_get_spa_pod (pod);
         if (spa_pod_filter (&b, &result, param, filter) == 0) {
           pw_endpoint_stream_emit_param (&self->hooks, seq, id, 0, 1, result);
@@ -323,25 +326,12 @@ impl_set_param (void *object, uint32_t id, uint32_t flags,
     const struct spa_pod *param)
 {
   WpImplEndpointStream *self = WP_IMPL_ENDPOINT_STREAM (object);
-  g_autoptr (GPtrArray) changed_ids = NULL;
-  WpSpaProps *props = wp_proxy_get_spa_props (WP_PROXY (self));
 
   if (id != SPA_PARAM_Props)
     return -ENOENT;
 
-  changed_ids = g_ptr_array_new_with_free_func (g_free);
-  g_autoptr (WpSpaPod) pod = wp_spa_pod_new_regular_wrap_copy (param);
-  wp_spa_props_store_from_props (props, pod, changed_ids);
-
-  for (guint i = 0; i < changed_ids->len; i++) {
-    const gchar *prop_id = g_ptr_array_index (changed_ids, i);
-    g_signal_emit_by_name (self, "prop-changed", prop_id);
-  }
-
-  /* notify subscribers */
-  if (self->subscribed)
-    impl_enum_params (self, 1, SPA_PARAM_Props, 0, UINT32_MAX, NULL);
-
+  WpProps *props = wp_proxy_get_props (WP_PROXY (self));
+  wp_props_set (props, NULL, wp_spa_pod_new_regular_wrap (param));
   return 0;
 }
 
@@ -397,8 +387,6 @@ wp_impl_endpoint_stream_init (WpImplEndpointStream * self)
   spa_hook_list_init (&self->hooks);
 
   priv->iface = (struct pw_endpoint_stream *) &self->iface;
-
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_PROPS);
 }
 
 static void
@@ -447,81 +435,128 @@ wp_impl_endpoint_stream_get_property (GObject * object, guint property_id,
 }
 
 static void
-wp_impl_endpoint_stream_augment (WpProxy * proxy, WpProxyFeatures features)
+wp_impl_endpoint_stream_export (WpImplEndpointStream * self)
 {
-  WpImplEndpointStream *self = WP_IMPL_ENDPOINT_STREAM (proxy);
   WpEndpointStreamPrivate *priv =
       wp_endpoint_stream_get_instance_private (WP_ENDPOINT_STREAM (self));
-  g_autoptr (GVariant) info = NULL;
-  g_autoptr (GVariantIter) immutable_props = NULL;
-  g_autoptr (WpProperties) props = NULL;
+  g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (self));
+  struct pw_core *pw_core = wp_core_get_pw_core (core);
 
-  /* PW_PROXY depends on BOUND */
-  if (features & WP_PROXY_FEATURE_PW_PROXY)
-    features |= WP_PROXY_FEATURE_BOUND;
+  g_autoptr (GVariantIter) immutable_properties = NULL;
+  g_autoptr (WpProperties) properties = NULL;
+  const gchar *key, *value;
 
-  /* BOUND depends on INFO */
-  if (features & WP_PROXY_FEATURE_BOUND)
-    features |= WP_PROXY_FEATURE_INFO;
+  /* no pw_core -> we are not connected */
+  if (!pw_core) {
+    wp_proxy_augment_error (WP_PROXY (self), g_error_new (WP_DOMAIN_LIBRARY,
+          WP_LIBRARY_ERROR_OPERATION_FAILED,
+          "The WirePlumber core is not connected; "
+          "object cannot be exported to PipeWire"));
+    return;
+  }
 
-  if (features & WP_PROXY_FEATURE_INFO) {
-    const gchar *key, *value;
+  wp_debug_object (self, "exporting");
 
-    /* get info from the interface */
+  /* get info from the interface */
+  {
+    g_autoptr (GVariant) info = NULL;
     info = wp_si_stream_get_registration_info (self->item);
-    g_variant_get (info, "(sa{ss})", &self->info.name, &immutable_props);
+    g_variant_get (info, "(sa{ss})", &self->info.name, &immutable_properties);
 
     /* associate with the endpoint */
     self->info.endpoint_id = wp_session_item_get_associated_proxy_id (
         WP_SESSION_ITEM (self->item), WP_TYPE_ENDPOINT);
-
-    /* construct export properties (these will come back through
-       the registry and appear in wp_proxy_get_global_properties) */
-    props = wp_properties_new (
-        PW_KEY_ENDPOINT_STREAM_NAME, self->info.name,
-        NULL);
-    wp_properties_setf (props, PW_KEY_ENDPOINT_ID, "%d", self->info.endpoint_id);
-
-    /* populate immutable (global) properties */
-    while (g_variant_iter_next (immutable_props, "{&s&s}", &key, &value))
-      wp_properties_set (props, key, value);
-
-    /* populate standard properties */
-    populate_properties (self, props);
-
-    /* subscribe to changes */
-    g_signal_connect_object (self->item, "stream-properties-changed",
-        G_CALLBACK (on_si_stream_properties_changed), self, 0);
-
-    /* finalize info struct */
-    self->info.version = PW_VERSION_ENDPOINT_STREAM_INFO;
-    self->info.params = impl_param_info;
-    self->info.n_params = SPA_N_ELEMENTS (impl_param_info);
-    priv->info = &self->info;
-    g_object_notify (G_OBJECT (self), "info");
-    g_object_notify (G_OBJECT (self), "param-info");
-
-    wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
   }
 
-  if (features & WP_PROXY_FEATURE_BOUND) {
-    g_autoptr (WpCore) core = wp_proxy_get_core (proxy);
-    struct pw_core *pw_core = wp_core_get_pw_core (core);
+  /* construct export properties (these will come back through
+      the registry and appear in wp_proxy_get_global_properties) */
+  properties = wp_properties_new (
+      PW_KEY_ENDPOINT_STREAM_NAME, self->info.name,
+      NULL);
+  wp_properties_setf (properties, PW_KEY_ENDPOINT_ID,
+      "%d", self->info.endpoint_id);
 
-    /* no pw_core -> we are not connected */
-    if (!pw_core) {
-      wp_proxy_augment_error (proxy, g_error_new (WP_DOMAIN_LIBRARY,
-            WP_LIBRARY_ERROR_OPERATION_FAILED,
-            "The WirePlumber core is not connected; "
-            "object cannot be exported to PipeWire"));
-      return;
+  /* populate immutable (global) properties */
+  while (g_variant_iter_next (immutable_properties, "{&s&s}", &key, &value))
+    wp_properties_set (properties, key, value);
+
+  /* populate standard properties */
+  populate_properties (self, properties);
+
+  /* subscribe to changes */
+  g_signal_connect_object (self->item, "stream-properties-changed",
+      G_CALLBACK (on_si_stream_properties_changed), self, 0);
+
+  /* finalize info struct */
+  self->info.version = PW_VERSION_ENDPOINT_STREAM_INFO;
+  self->info.params = impl_param_info;
+  self->info.n_params = SPA_N_ELEMENTS (impl_param_info);
+  priv->info = &self->info;
+
+  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
+  g_object_notify (G_OBJECT (self), "info");
+  g_object_notify (G_OBJECT (self), "param-info");
+
+  wp_proxy_set_pw_proxy (WP_PROXY (self), pw_core_export (pw_core,
+          PW_TYPE_INTERFACE_EndpointStream,
+          wp_properties_peek_dict (properties),
+          priv->iface, 0));
+}
+
+static void
+wp_impl_endpoint_stream_continue_feature_props (WpProxy * node,
+    GAsyncResult * res, WpImplEndpointStream * self)
+{
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_proxy_augment_finish (node, res, &error)) {
+    wp_proxy_augment_error (WP_PROXY (self), g_steal_pointer (&error));
+    return;
+  }
+
+  WpProps *props = wp_proxy_get_props (node);
+  wp_proxy_set_props (WP_PROXY (self), g_object_ref (props));
+  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_PROPS);
+  wp_impl_endpoint_stream_export (self);
+}
+
+static void
+wp_impl_endpoint_stream_augment (WpProxy * proxy, WpProxyFeatures features)
+{
+  WpImplEndpointStream *self = WP_IMPL_ENDPOINT_STREAM (proxy);
+  g_autoptr (GVariant) info = NULL;
+  g_autoptr (GVariantIter) immutable_props = NULL;
+  g_autoptr (WpProperties) props = NULL;
+
+  /* if any of these features are requested, export,
+     after ensuring that we have a WpProps so that enum_params works */
+  if (features & (WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_PROPS)) {
+    g_autoptr (WpProxy) node = wp_session_item_get_associated_proxy (
+        WP_SESSION_ITEM (self->item), WP_TYPE_NODE);
+
+    if (node) {
+      /* if the item has a node, use the props of that node */
+      wp_proxy_augment (node, WP_PROXY_FEATURE_PROPS, NULL,
+          (GAsyncReadyCallback) wp_impl_endpoint_stream_continue_feature_props,
+          self);
+    } else {
+      /* else install an empty WpProps */
+      WpProps *props = wp_props_new (WP_PROPS_MODE_STORE, proxy);
+      wp_proxy_set_props (proxy, props);
+      wp_proxy_set_feature_ready (proxy, WP_PROXY_FEATURE_PROPS);
+      wp_impl_endpoint_stream_export (self);
     }
-
-    wp_proxy_set_pw_proxy (proxy, pw_core_export (pw_core,
-            PW_TYPE_INTERFACE_EndpointStream,
-            wp_properties_peek_dict (props),
-            priv->iface, 0));
   }
+}
+
+static void
+wp_impl_endpoint_stream_prop_changed (WpProxy * proxy, const gchar * prop_name)
+{
+  WpImplEndpointStream *self = WP_IMPL_ENDPOINT_STREAM (proxy);
+
+  /* notify subscribers */
+  if (self->subscribed)
+    impl_enum_params (self, 1, SPA_PARAM_Props, 0, UINT32_MAX, NULL);
 }
 
 static void
@@ -538,6 +573,7 @@ wp_impl_endpoint_stream_class_init (WpImplEndpointStreamClass * klass)
   proxy_class->enum_params = NULL;
   proxy_class->subscribe_params = NULL;
   proxy_class->pw_proxy_created = NULL;
+  proxy_class->prop_changed = wp_impl_endpoint_stream_prop_changed;
 
   g_object_class_install_property (object_class, IMPL_PROP_ITEM,
       g_param_spec_object ("item", "item", "item", WP_TYPE_SI_STREAM,

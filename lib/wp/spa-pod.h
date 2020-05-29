@@ -367,6 +367,9 @@ WP_API
 void wp_spa_pod_builder_add_property (WpSpaPodBuilder *self, const char *key);
 
 WP_API
+void wp_spa_pod_builder_add_property_id (WpSpaPodBuilder *self, guint32 id);
+
+WP_API
 void wp_spa_pod_builder_add_control (WpSpaPodBuilder *self, guint32 offset,
     const char *type_name);
 

@@ -27,6 +27,7 @@
 #include "plugin.h"
 #include "port.h"
 #include "properties.h"
+#include "props.h"
 #include "proxy.h"
 #include "session.h"
 #include "session-bin.h"

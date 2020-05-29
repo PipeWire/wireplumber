@@ -49,7 +49,7 @@ struct _WpProxyPrivate
   GHashTable *async_tasks; // <int seq, GTask*>
 
   /* props cache */
-  WpSpaProps props;
+  WpProps *props;
 };
 
 enum {
@@ -211,11 +211,11 @@ wp_proxy_finalize (GObject * object)
   WpProxy *self = WP_PROXY (object);
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
 
+  g_clear_object (&priv->props);
   g_clear_pointer (&priv->augment_tasks, g_ptr_array_unref);
   g_clear_pointer (&priv->global, wp_global_unref);
   g_weak_ref_clear (&priv->core);
   g_clear_pointer (&priv->async_tasks, g_hash_table_unref);
-  wp_spa_props_clear (&priv->props);
 
   G_OBJECT_CLASS (wp_proxy_parent_class)->finalize (object);
 }
@@ -309,7 +309,7 @@ wp_proxy_default_augment (WpProxy * self, WpProxyFeatures features)
     wp_proxy_set_pw_proxy (self, wp_global_bind (priv->global));
   }
 
-  if (features & WP_PROXY_FEATURE_PROPS) {
+  if (features & WP_PROXY_FEATURE_PROPS && !priv->props) {
     WpProxyClass *klass = WP_PROXY_GET_CLASS (self);
     uint32_t ids[] = { SPA_PARAM_Props };
 
@@ -320,6 +320,7 @@ wp_proxy_default_augment (WpProxy * self, WpProxyFeatures features)
       return;
     }
 
+    wp_proxy_set_props (self, wp_props_new (WP_PROPS_MODE_CACHE, self));
     klass->enum_params (self, SPA_PARAM_PropInfo, 0, -1, NULL);
     klass->subscribe_params (self, ids, SPA_N_ELEMENTS (ids));
   }
@@ -404,7 +405,8 @@ wp_proxy_class_init (WpProxyClass * klass)
 
   wp_proxy_signals[SIGNAL_PROP_CHANGED] = g_signal_new (
       "prop-changed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST,
-      0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_STRING);
+      G_STRUCT_OFFSET (WpProxyClass, prop_changed), NULL, NULL, NULL,
+      G_TYPE_NONE, 1, G_TYPE_STRING);
 }
 
 /* private */
@@ -964,11 +966,7 @@ wp_proxy_iterate_prop_info (WpProxy * self)
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
   g_return_val_if_fail (priv->ft_ready & WP_PROXY_FEATURE_PROPS, NULL);
 
-  GPtrArray *array = wp_spa_props_build_propinfo (&priv->props);
-  if (!array)
-    return NULL;
-
-  return wp_iterator_new_ptr_array (array, WP_TYPE_SPA_POD);
+  return wp_props_iterate_prop_info (priv->props);
 }
 
 /**
@@ -989,31 +987,27 @@ wp_proxy_get_prop (WpProxy * self, const gchar * prop_name)
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
   g_return_val_if_fail (priv->ft_ready & WP_PROXY_FEATURE_PROPS, NULL);
 
-  return wp_spa_props_get_stored (&priv->props, prop_name);
+  return wp_props_get (priv->props, prop_name);
 }
 
 /**
  * wp_proxy_set_prop:
  * @self: the proxy
  * @prop_name: the prop name
- * @value: the new value for this prop, as a spa pod
+ * @value: (transfer full): the new value for this prop, as a spa pod
  *
  * Sets a single property in the `SPA_PARAM_Props` param of this object.
  */
 void
-wp_proxy_set_prop (WpProxy * self, const gchar * prop_name,
-    const WpSpaPod * value)
+wp_proxy_set_prop (WpProxy * self, const gchar * prop_name, WpSpaPod * value)
 {
   g_return_if_fail (WP_IS_PROXY (self));
   g_return_if_fail (value != NULL);
 
-  g_autoptr (WpSpaPod) param = wp_spa_pod_new_object (
-      "Props", "Props",
-      prop_name, "P", value,
-      NULL);
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  g_return_if_fail (priv->ft_ready & WP_PROXY_FEATURE_PROPS);
 
-  /* our spa_props will be updated by the param event */
-  wp_proxy_set_param (self, "Props", param);
+  wp_props_set (priv->props, prop_name, value);
 }
 
 void
@@ -1034,43 +1028,52 @@ wp_proxy_handle_event_param (void * proxy, int seq, uint32_t id,
   }
   /* else consider this to be a prop update, either triggered from augment()
    * or because we are subscribed to props */
-  else {
+  else if (priv->props) {
     switch (id) {
       case SPA_PARAM_PropInfo:
-        if (!(priv->ft_ready & WP_PROXY_FEATURE_PROPS)) {
-          wp_trace_object (self, "got PropInfo");
-          wp_trace_boxed (WP_TYPE_SPA_POD, w_param, "PropInfo pod");
-
-          wp_spa_props_register_from_prop_info (&priv->props, w_param);
-        }
+        wp_trace_boxed (WP_TYPE_SPA_POD, w_param,
+            "storing PropInfo on " WP_OBJECT_FORMAT, WP_OBJECT_ARGS (self));
+        wp_props_register_from_info (priv->props, g_steal_pointer (&w_param));
         break;
-      case SPA_PARAM_Props: {
-        g_autoptr (GPtrArray) changed_ids =
-            g_ptr_array_new_with_free_func (g_free);
+      case SPA_PARAM_Props:
+        wp_trace_boxed (WP_TYPE_SPA_POD, w_param,
+            "storing Props on " WP_OBJECT_FORMAT, WP_OBJECT_ARGS (self));
+        wp_props_store (priv->props, NULL, g_steal_pointer (&w_param));
 
-        wp_trace_object (self, "got Props");
-        wp_trace_boxed (WP_TYPE_SPA_POD, w_param, "Props pod");
-
-        wp_spa_props_store_from_props (&priv->props, w_param, changed_ids);
+        /* we receive PropInfo before Props; once we get Props, we know we have
+           completed caching of props, so the feature is ready */
         wp_proxy_set_feature_ready (self, WP_PROXY_FEATURE_PROPS);
-
-        for (guint i = 0; i < changed_ids->len; i++) {
-          const gchar *prop_id = g_ptr_array_index (changed_ids, i);
-          g_signal_emit (self, wp_proxy_signals[SIGNAL_PROP_CHANGED], 0,
-              prop_id);
-        }
         break;
-      }
       default:
-        /* and ignore other kinds of params for now */
         break;
     }
   }
 }
 
-WpSpaProps *
-wp_proxy_get_spa_props (WpProxy * self)
+WpProps *
+wp_proxy_get_props (WpProxy * self)
 {
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
-  return &priv->props;
+  return priv->props;
+}
+
+static void
+propagate_prop_changed (WpProps * props, const gchar * name, WpProxy * self)
+{
+  /* only emit if FEATURE_PROPS is enabled, because users might call
+     wp_proxy_get_prop() in the handler and it will assert */
+  if (wp_proxy_get_features (self) & WP_PROXY_FEATURE_PROPS)
+    g_signal_emit (self, wp_proxy_signals[SIGNAL_PROP_CHANGED], 0, name);
+}
+
+void
+wp_proxy_set_props (WpProxy * self, WpProps * props)
+{
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+
+  g_return_if_fail (priv->props == NULL);
+  priv->props = props;
+
+  g_signal_connect_object (props, "prop-changed",
+      G_CALLBACK (propagate_prop_changed), self, 0);
 }

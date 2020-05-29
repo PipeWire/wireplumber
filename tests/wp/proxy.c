@@ -206,10 +206,7 @@ test_node (TestFixture *f, gconstpointer data)
     g_assert_cmpstr ("PropInfo", ==, wp_spa_pod_get_object_type_name (pod));
   }
 
-  {
-    g_autoptr (WpSpaPod) vol = wp_spa_pod_new_float (0.8);
-    wp_proxy_set_prop (proxy, "volume", vol);
-  }
+  wp_proxy_set_prop (proxy, "volume", wp_spa_pod_new_float (0.8));
 
   g_signal_connect_swapped (proxy, "prop-changed",
       G_CALLBACK (g_main_loop_quit), f->base.loop);

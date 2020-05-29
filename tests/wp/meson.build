@@ -38,6 +38,13 @@ test(
 )
 
 test(
+  'test-props',
+  executable('test-props', 'props.c',
+      dependencies: common_deps, c_args: common_args),
+  env: common_env,
+)
+
+test(
   'test-proxy',
   executable('test-proxy', 'proxy.c',
       dependencies: common_deps, c_args: common_args),
@@ -61,17 +68,6 @@ test(
 test(
   'test-spa-pod',
   executable('test-spa-pod', 'spa-pod.c',
-      dependencies: common_deps, c_args: common_args),
-  env: common_env,
-)
-
-test(
-  'test-spa-props',
-  executable('test-spa-props',
-      [
-        'spa-props.c',
-        '../../lib/wp/spa-props.c'
-      ],
       dependencies: common_deps, c_args: common_args),
   env: common_env,
 )

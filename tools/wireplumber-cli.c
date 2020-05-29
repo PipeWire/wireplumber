@@ -177,8 +177,8 @@ set_volume (WpObjectManager * om, struct WpCliData * d)
       WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", id,
       NULL);
   if (ep) {
-    g_autoptr (WpSpaPod) vol = wp_spa_pod_new_float (d->params.set_volume.volume);
-    wp_proxy_set_prop (WP_PROXY (ep), "volume", vol);
+    wp_proxy_set_prop (WP_PROXY (ep), "volume",
+        wp_spa_pod_new_float (d->params.set_volume.volume));
     wp_core_sync (d->core, NULL, (GAsyncReadyCallback) async_quit, d);
     return;
   }

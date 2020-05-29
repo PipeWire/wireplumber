@@ -2154,6 +2154,19 @@ wp_spa_pod_builder_add_property (WpSpaPodBuilder *self, const char *key)
 }
 
 /**
+ * wp_spa_pod_builder_add_property_id:
+ * @self: the spa pod builder object
+ * @id: the id of the property
+ *
+ * Adds a property into the builder
+ */
+void
+wp_spa_pod_builder_add_property_id (WpSpaPodBuilder *self, guint32 id)
+{
+  spa_pod_builder_prop (&self->builder, id, 0);
+}
+
+/**
  * wp_spa_pod_builder_add_control:
  * @self: the spa pod builder object
  * @offset: the offset of the control
