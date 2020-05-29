@@ -160,13 +160,18 @@ on_name_lost (GDBusConnection *connection, const gchar *name,
   /* Unregister object */
   wp_dbus_device_reservation_unregister_object (self);
 
-  /* Trigger the acquired task */
+  /* If pending task is set, it means that we could not acquire the device, so
+   * just return the pending task with an error. If pending task is not set, it
+   * means that another audio server acquired the device with replacement, so we
+   * trigger the release signal with forced set to TRUE */
   if (self->pending_task) {
     GError *error = g_error_new (WP_DOMAIN_LIBRARY,
         WP_LIBRARY_ERROR_OPERATION_FAILED,
         "dbus name lost before acquiring (connection=%p)", connection);
     g_task_return_error (self->pending_task, error);
     g_clear_object (&self->pending_task);
+  } else {
+    g_signal_emit (self, device_reservation_signals[SIGNAL_RELEASE], 0, TRUE);
   }
 }
 

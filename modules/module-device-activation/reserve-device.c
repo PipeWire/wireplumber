@@ -34,8 +34,9 @@ static void
 on_device_done (WpCore *core, GAsyncResult *res, WpReserveDevice *self)
 {
   if (self->reservation)
-    wp_dbus_device_reservation_complete_release (self->reservation,
-        TRUE);
+    wp_dbus_device_reservation_complete_release (self->reservation, TRUE);
+  else
+    wp_warning_object (self, "release not completed");
 }
 
 static void
@@ -89,8 +90,9 @@ on_reservation_release (WpDbusDeviceReservation *reservation, gboolean forced,
       NULL);
   wp_proxy_set_param (device, "Profile", profile);
 
-  /* Complete release on done */
-  wp_core_sync (core, NULL, (GAsyncReadyCallback)on_device_done, self);
+  /* Only complete the release if not forced */
+  if (!forced)
+    wp_core_sync (core, NULL, (GAsyncReadyCallback)on_device_done, self);
 }
 
 static void

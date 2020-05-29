@@ -40,7 +40,8 @@ on_reservation_release (WpDbusDeviceReservation *reservation,
     gboolean forced, TestDbusFixture *self)
 {
   wp_dbus_device_reservation_release (reservation);
-  wp_dbus_device_reservation_complete_release (reservation, TRUE);
+  if (!forced)
+    wp_dbus_device_reservation_complete_release (reservation, TRUE);
 }
 
 static void
