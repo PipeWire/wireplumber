@@ -1071,6 +1071,9 @@ wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
     global->proxy = proxy;
     g_ptr_array_add (self->tmp_globals, wp_global_ref (global));
 
+    /* ensure we have 'object.id' so that we can filter by id on object managers */
+    wp_properties_setf (global->properties, PW_KEY_OBJECT_ID, "%u", global->id);
+
     /* schedule exposing when adding the first global */
     if (self->tmp_globals->len == 1) {
       wp_core_sync (core, NULL, (GAsyncReadyCallback) expose_tmp_globals, self);
