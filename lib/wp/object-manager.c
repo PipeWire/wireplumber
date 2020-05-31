@@ -370,7 +370,7 @@ om_iterator_fold (WpIterator *it, WpIteratorFoldFunc func, GValue *ret,
   while ((obj - base) < len) {
     /* only pass matching objects to the fold func if we have an interest */
     if (!it_data->interest ||
-        wp_object_interest_matches (it_data->interest, obj)) {
+        wp_object_interest_matches (it_data->interest, *obj)) {
       g_auto (GValue) item = G_VALUE_INIT;
       g_value_init_from_instance (&item, *obj);
       if (!func (&item, ret, data))
