@@ -121,7 +121,8 @@ wp_endpoint_ensure_feature_streams (WpEndpoint * self, guint32 bound_id)
         WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_ENDPOINT_ID, "=u", bound_id,
         NULL);
     wp_object_manager_request_proxy_features (priv->streams_om,
-        WP_TYPE_ENDPOINT_STREAM, WP_PROXY_FEATURES_STANDARD);
+        WP_TYPE_ENDPOINT_STREAM,
+        WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_PROPS);
 
     /* endpoints, under normal circumstances, always have streams.
        When we export (self is a WpImplEndpoint), we have to export first
