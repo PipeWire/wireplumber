@@ -11,6 +11,7 @@
 
 #include <glib-object.h>
 #include "defs.h"
+#include "iterator.h"
 
 G_BEGIN_DECLS
 
@@ -131,6 +132,17 @@ gint wp_properties_setf (WpProperties * self, const gchar * key,
 WP_API
 gint wp_properties_setf_valist (WpProperties * self, const gchar * key,
     const gchar * format, va_list args);
+
+/* iterate */
+
+WP_API
+WpIterator * wp_properties_iterate (WpProperties * self);
+
+WP_API
+const gchar * wp_properties_iterator_item_get_key (const GValue * item);
+
+WP_API
+const gchar * wp_properties_iterator_item_get_value (const GValue * item);
 
 /* convert */
 

@@ -40,6 +40,7 @@
 #define G_LOG_DOMAIN "wp-properties"
 
 #include "properties.h"
+#include "private.h"
 
 #include <errno.h>
 #include <pipewire/properties.h>
@@ -713,6 +714,121 @@ wp_properties_setf_valist (WpProperties * self, const gchar * key,
   g_return_val_if_fail (!(self->flags & FLAG_IS_DICT), -EINVAL);
 
   return pw_properties_setva (self->props, key, format, args);
+}
+
+struct dict_iterator_data
+{
+  WpProperties *properties;
+  const struct spa_dict_item *item;
+};
+
+static void
+dict_iterator_reset (WpIterator *it)
+{
+  struct dict_iterator_data *it_data = wp_iterator_get_user_data (it);
+  it_data->item = wp_properties_peek_dict (it_data->properties)->items;
+}
+
+static gboolean
+dict_iterator_next (WpIterator *it, GValue *item)
+{
+  struct dict_iterator_data *it_data = wp_iterator_get_user_data (it);
+  const struct spa_dict *dict = wp_properties_peek_dict (it_data->properties);
+
+  if ((it_data->item - dict->items) < dict->n_items) {
+    g_value_init (item, G_TYPE_POINTER);
+    g_value_set_pointer (item, it_data->item);
+    it_data->item++;
+    return TRUE;
+  }
+  return FALSE;
+}
+
+static gboolean
+dict_iterator_fold (WpIterator *it, WpIteratorFoldFunc func, GValue *ret,
+    gpointer data)
+{
+  struct dict_iterator_data *it_data = wp_iterator_get_user_data (it);
+  const struct spa_dict *dict = wp_properties_peek_dict (it_data->properties);
+  const struct spa_dict_item *i;
+
+  spa_dict_for_each (i, dict) {
+    g_auto (GValue) item = G_VALUE_INIT;
+    g_value_init (&item, G_TYPE_POINTER);
+    g_value_set_pointer (&item, i);
+    if (!func (&item, ret, data))
+      return FALSE;
+  }
+  return TRUE;
+}
+
+static void
+dict_iterator_finalize (WpIterator *it)
+{
+  struct dict_iterator_data *it_data = wp_iterator_get_user_data (it);
+  wp_properties_unref (it_data->properties);
+}
+
+static const WpIteratorMethods dict_iterator_methods = {
+  .reset = dict_iterator_reset,
+  .next = dict_iterator_next,
+  .fold = dict_iterator_fold,
+  .finalize = dict_iterator_finalize,
+};
+
+/**
+ * wp_properties_iterate:
+ * @self: a properties object
+ *
+ * Returns: (transfer full): an iterator that iterates over the properties.
+ *   Use wp_properties_iterator_item_get_key() and
+ *   wp_properties_iterator_item_get_value() to parse the items returned by
+ *   this iterator.
+ */
+WpIterator *
+wp_properties_iterate (WpProperties * self)
+{
+  g_autoptr (WpIterator) it = NULL;
+  struct dict_iterator_data *it_data;
+
+  g_return_val_if_fail (self != NULL, NULL);
+
+  it = wp_iterator_new (&dict_iterator_methods,
+      sizeof (struct dict_iterator_data));
+  it_data = wp_iterator_get_user_data (it);
+  it_data->properties = wp_properties_ref (self);
+  it_data->item = wp_properties_peek_dict (it_data->properties)->items;
+  return g_steal_pointer (&it);
+}
+
+/**
+ * wp_properties_iterator_item_get_key:
+ * @item: a #GValue that was returned from the #WpIterator of
+ *   wp_properties_iterate()
+ *
+ * Returns: (transfer none): the property key of the @item
+ */
+const gchar *
+wp_properties_iterator_item_get_key (const GValue * item)
+{
+  const struct spa_dict_item *dict_item = g_value_get_pointer (item);
+  g_return_val_if_fail (dict_item != NULL, NULL);
+  return dict_item->key;
+}
+
+/**
+ * wp_properties_iterator_item_get_value:
+ * @item: a #GValue that was returned from the #WpIterator of
+ *   wp_properties_iterate()
+ *
+ * Returns: (transfer none): the property value of the @item
+ */
+const gchar *
+wp_properties_iterator_item_get_value (const GValue * item)
+{
+  const struct spa_dict_item *dict_item = g_value_get_pointer (item);
+  g_return_val_if_fail (dict_item != NULL, NULL);
+  return dict_item->value;
 }
 
 /**
