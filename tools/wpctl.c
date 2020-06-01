@@ -8,6 +8,8 @@
 
 #include <wp/wp.h>
 #include <stdio.h>
+#include <pipewire/keys.h>
+#include <pipewire/extensions/session-manager/keys.h>
 
 typedef struct _WpCtl WpCtl;
 struct _WpCtl
@@ -24,6 +26,12 @@ static struct {
     struct {
       gboolean show_streams;
     } status;
+
+    struct {
+      guint32 id;
+      gboolean show_referenced;
+      gboolean show_associated;
+    } inspect;
 
     struct {
       guint32 id;
@@ -229,6 +237,211 @@ status_run (WpCtl * self)
   }
 
   g_main_loop_quit (self->loop);
+}
+
+/* inspect */
+
+static gboolean
+inspect_parse_positional (gint argc, gchar ** argv, GError **error)
+{
+  if (argc < 3) {
+    g_set_error (error, wpctl_error_domain_quark(), 0, "ID is required");
+    return FALSE;
+  }
+
+  long id = strtol (argv[2], NULL, 10);
+  if (id <= 0) {
+    g_set_error (error, wpctl_error_domain_quark(), 0,
+        "'%s' is not a valid number", argv[2]);
+    return FALSE;
+  }
+
+  cmdline.inspect.id = id;
+  return TRUE;
+}
+
+static gboolean
+inspect_prepare (WpCtl * self, GError ** error)
+{
+  /* collect all objects */
+  wp_object_manager_add_interest (self->om, WP_TYPE_PROXY, NULL);
+  wp_object_manager_request_proxy_features (self->om, WP_TYPE_PROXY,
+      WP_PROXY_FEATURES_STANDARD);
+  return TRUE;
+}
+
+static inline void
+inspect_prefix_line (guint nest_level, gboolean node)
+{
+  for (guint i = 1; i < nest_level; i++)
+    printf (TREE_INDENT_EMPTY TREE_INDENT_LINE);
+  if (nest_level > 0)
+    printf (TREE_INDENT_EMPTY "%s", node ? TREE_INDENT_NODE : TREE_INDENT_LINE);
+}
+
+struct {
+  const gchar *key;
+  const gchar *type;
+} assoc_keys[] = {
+  { PW_KEY_CLIENT_ID, "Client" },
+  { PW_KEY_DEVICE_ID, "Device" },
+  { PW_KEY_ENDPOINT_CLIENT_ID, NULL },
+  { PW_KEY_ENDPOINT_STREAM_ID, "EndpointStream" },
+  { PW_KEY_ENDPOINT_LINK_OUTPUT_ENDPOINT, NULL },
+  { PW_KEY_ENDPOINT_LINK_OUTPUT_STREAM, NULL },
+  { PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT, NULL },
+  { PW_KEY_ENDPOINT_LINK_INPUT_STREAM, NULL },
+  { PW_KEY_ENDPOINT_ID, "Endpoint" },
+  { PW_KEY_LINK_INPUT_NODE, NULL },
+  { PW_KEY_LINK_INPUT_PORT, NULL },
+  { PW_KEY_LINK_OUTPUT_NODE, NULL },
+  { PW_KEY_LINK_OUTPUT_PORT, NULL },
+  { PW_KEY_LINK_ID, "Link" },
+  { PW_KEY_NODE_ID, "Node" },
+  { PW_KEY_PORT_ID, "Port" },
+  { PW_KEY_SESSION_ID, "Session" },
+};
+
+static inline gboolean
+key_is_object_reference (const gchar *key)
+{
+  for (guint i = 0; i < G_N_ELEMENTS (assoc_keys); i++)
+    if (!g_strcmp0 (key, assoc_keys[i].key))
+      return TRUE;
+  return FALSE;
+}
+
+static inline const gchar *
+get_association_key (WpProxy * proxy)
+{
+  for (guint i = 0; i < G_N_ELEMENTS (assoc_keys); i++) {
+    if (assoc_keys[i].type &&
+        strstr (WP_PROXY_GET_CLASS (proxy)->pw_iface_type, assoc_keys[i].type))
+      return assoc_keys[i].key;
+  }
+  return NULL;
+}
+
+struct property_item {
+  const gchar *key;
+  const gchar *value;
+};
+
+static gint
+property_item_compare (gconstpointer a, gconstpointer b)
+{
+  return g_strcmp0 (
+      ((struct property_item *) a)->key,
+      ((struct property_item *) b)->key);
+}
+
+static void
+inspect_print_object (WpCtl * self, WpProxy * proxy, guint nest_level)
+{
+  g_autoptr (WpProperties) properties = wp_proxy_get_properties (proxy);
+  g_autoptr (WpProperties) global_p = wp_proxy_get_global_properties (proxy);
+  g_autoptr (GArray) array =
+      g_array_new (FALSE, FALSE, sizeof (struct property_item));
+
+  /* print basic object info */
+  inspect_prefix_line (nest_level, TRUE);
+  printf ("id %u, type %s\n",
+      wp_proxy_get_bound_id (proxy),
+      WP_PROXY_GET_CLASS (proxy)->pw_iface_type);
+
+  /* merge the two property sets */
+  properties = wp_properties_ensure_unique_owner (properties);
+  wp_properties_add (properties, global_p);
+  wp_properties_set (properties, "object.id", NULL);
+
+  /* copy key/value pointers to an array for sorting */
+  {
+    g_autoptr (WpIterator) it = NULL;
+    g_auto (GValue) item = G_VALUE_INIT;
+
+    for (it = wp_properties_iterate (properties);
+          wp_iterator_next (it, &item);
+          g_value_unset (&item)) {
+      struct property_item prop_item = {
+        .key = wp_properties_iterator_item_get_key (&item),
+        .value = wp_properties_iterator_item_get_value (&item),
+      };
+      g_array_append_val (array, prop_item);
+    }
+  }
+
+  /* sort */
+  g_array_sort (array, property_item_compare);
+
+  /* print */
+  for (guint i = 0; i < array->len; i++) {
+    struct property_item *prop_item =
+        &g_array_index (array, struct property_item, i);
+    gboolean is_global =
+        (wp_properties_get (global_p, prop_item->key) != NULL);
+
+    inspect_prefix_line (nest_level, FALSE);
+    printf ("  %c %s = \"%s\"\n", is_global ? '*' : ' ',
+        prop_item->key, prop_item->value);
+
+    /* if the property is referencing an object, print the object */
+    if (cmdline.inspect.show_referenced && nest_level == 0 &&
+        key_is_object_reference (prop_item->key))
+    {
+      guint id = (guint) strtol (prop_item->value, NULL, 10);
+      g_autoptr (WpProxy) refer_proxy =
+          wp_object_manager_lookup (self->om, WP_TYPE_PROXY,
+          WP_CONSTRAINT_TYPE_G_PROPERTY,
+          "bound-id", "=u", id, NULL);
+
+      if (refer_proxy)
+        inspect_print_object (self, refer_proxy, nest_level + 1);
+    }
+  }
+
+  /* print associated objects */
+  if (cmdline.inspect.show_associated && nest_level == 0) {
+    const gchar *lookup_key = get_association_key (proxy);
+    if (lookup_key) {
+      g_autoptr (WpIterator) it =
+          wp_object_manager_iterate_filtered (self->om, WP_TYPE_PROXY,
+              WP_CONSTRAINT_TYPE_PW_PROPERTY,
+              lookup_key, "=u", wp_proxy_get_bound_id (proxy), NULL);
+      g_auto (GValue) item = G_VALUE_INIT;
+
+      inspect_prefix_line (nest_level, TRUE);
+      printf ("associated objects:\n");
+
+      for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
+        WpProxy *assoc_proxy = g_value_get_object (&item);
+        inspect_print_object (self, assoc_proxy, nest_level + 1);
+      }
+    }
+  }
+}
+
+static void
+inspect_run (WpCtl * self)
+{
+  g_autoptr (WpProxy) proxy = NULL;
+  guint32 id = cmdline.inspect.id;
+
+  proxy = wp_object_manager_lookup (self->om, WP_TYPE_PROXY,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", id, NULL);
+  if (!proxy) {
+    printf ("Object '%d' not found\n", id);
+    goto out_err;
+  }
+
+  inspect_print_object (self, proxy, 0);
+
+out:
+  g_main_loop_quit (self->loop);
+  return;
+
+out_err:
+  self->exit_code = 3;
+  goto out;
 }
 
 /* set-default */
@@ -472,7 +685,7 @@ out:
   g_main_loop_quit (self->loop);
 }
 
-#define N_ENTRIES 2
+#define N_ENTRIES 3
 
 static const struct subcommand {
   /* the name to match on the command line */
@@ -505,6 +718,23 @@ static const struct subcommand {
     .parse_positional = NULL,
     .prepare = status_prepare,
     .run = status_run,
+  },
+  {
+    .name = "inspect",
+    .positional_args = "ID",
+    .summary = "Displays information about the specified object",
+    .description = NULL,
+    .entries = {
+      { "referenced", 'r', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE,
+        &cmdline.inspect.show_referenced,
+        "Show objects that are referenced in properties", NULL },
+      { "associated", 'a', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE,
+        &cmdline.inspect.show_associated, "Show associated objects", NULL },
+      { NULL }
+    },
+    .parse_positional = inspect_parse_positional,
+    .prepare = inspect_prepare,
+    .run = inspect_run,
   },
   {
     .name = "set-default",
