@@ -437,37 +437,37 @@ wp_dbus_device_reservation_request_release (WpDbusDeviceReservation *self,
 }
 
 static void
-on_proxy_done_request_property (GObject *obj, GAsyncResult *res, gpointer data)
+on_request_property_done (GObject *proxy, GAsyncResult *res, gpointer data)
 {
   WpDbusDeviceReservation *self = data;
-  g_autoptr (WpOrgFreedesktopReserveDevice1) proxy = NULL;
   g_autoptr (GError) error = NULL;
   g_autoptr (GTask) task = g_steal_pointer (&self->pending_task);
+  g_autoptr (GVariant) ret = NULL;
+  g_autoptr (GVariant) var = NULL;
   g_return_if_fail (task);
 
   /* Finish */
-  proxy = wp_org_freedesktop_reserve_device1_proxy_new_for_bus_finish (res,
-      &error);
-  if (error) {
-    g_task_return_error (task, g_steal_pointer (&error));
-    return;
+  ret = g_dbus_proxy_call_finish (G_DBUS_PROXY (proxy), res, &error);
+  if (!ret) {
+    GError *error = g_error_new (WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_OPERATION_FAILED, "failed to get property '%s' on proxy",
+        self->pending_property_name);
+    g_task_return_error (task, error);
   }
 
-  /* Request the property */
-  g_return_if_fail (proxy);
-  g_return_if_fail (self->pending_property_name);
-
+  /* Get the property value */
+  g_variant_get (ret, "(v)", &var);
+  g_return_if_fail (var);
   if (g_strcmp0 (self->pending_property_name, "ApplicationName") == 0) {
-    char *v = wp_org_freedesktop_reserve_device1_dup_application_name (proxy);
-    g_task_return_pointer (task, v, g_free);
+    g_task_return_pointer (task, g_variant_dup_string (var, NULL), NULL);
   }
   else if (g_strcmp0 (self->pending_property_name, "ApplicationDeviceName") == 0) {
-    char *v = wp_org_freedesktop_reserve_device1_dup_application_device_name (proxy);
-    g_task_return_pointer (task, v, g_free);
+    gchar *v = NULL;
+    g_variant_get (ret, "(v)", &v);
+    g_task_return_pointer (task, g_variant_dup_string (var, NULL), NULL);
   }
   else if (g_strcmp0 (self->pending_property_name, "Priority") == 0) {
-    gint v = wp_org_freedesktop_reserve_device1_get_priority (proxy);
-    g_task_return_pointer (task, GINT_TO_POINTER (v), NULL);
+    g_task_return_pointer (task, GINT_TO_POINTER (g_variant_get_int32 (var)), NULL);
   }
   else {
     GError *error = g_error_new (WP_DOMAIN_LIBRARY,
@@ -475,6 +475,37 @@ on_proxy_done_request_property (GObject *obj, GAsyncResult *res, gpointer data)
         self->pending_property_name);
     g_task_return_error (task, error);
   }
+}
+
+static void
+on_proxy_done_request_property (GObject *obj, GAsyncResult *res, gpointer data)
+{
+  WpDbusDeviceReservation *self = data;
+  g_autoptr (WpOrgFreedesktopReserveDevice1) proxy = NULL;
+  g_autoptr (GError) error = NULL;
+  g_return_if_fail (self->pending_task);
+
+  /* Finish */
+  proxy = wp_org_freedesktop_reserve_device1_proxy_new_for_bus_finish (res,
+      &error);
+  if (error) {
+    g_autoptr (GTask) task = g_steal_pointer (&self->pending_task);
+    g_task_return_error (task, g_steal_pointer (&error));
+    return;
+  }
+
+  /* Request the property call the Get method */
+  g_return_if_fail (proxy);
+  g_return_if_fail (self->pending_property_name);
+  g_dbus_proxy_call (
+      G_DBUS_PROXY (proxy),
+      "org.freedesktop.DBus.Properties.Get",
+      g_variant_new ("(ss)", "org.freedesktop.ReserveDevice1", self->pending_property_name),
+      G_DBUS_CALL_FLAGS_NONE,
+      -1,
+      NULL,
+      on_request_property_done,
+      self);
 }
 
 gboolean
