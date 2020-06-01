@@ -676,6 +676,11 @@ wp_object_manager_add_global (WpObjectManager * self, WpGlobal * global)
 {
   WpProxyFeatures features = 0;
 
+  /* do not allow proxies that don't have a defined subclass;
+     bind will fail because proxy_class->pw_iface_type is NULL */
+  if (global->type == WP_TYPE_PROXY)
+    return;
+
   if (wp_object_manager_is_interested_in_global (self, global, &features)) {
     g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
 
