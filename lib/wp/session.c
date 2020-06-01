@@ -193,7 +193,8 @@ wp_session_get_properties (WpProxy * proxy)
   WpSession *self = WP_SESSION (proxy);
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
 
-  return wp_properties_ref (priv->properties);
+  return priv->properties ?
+      wp_properties_ref (priv->properties) : wp_properties_new_empty ();
 }
 
 static struct spa_param_info *
