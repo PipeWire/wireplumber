@@ -173,8 +173,7 @@ wp_endpoint_get_properties (WpProxy * proxy)
   WpEndpoint *self = WP_ENDPOINT (proxy);
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
 
-  return priv->properties ?
-      wp_properties_ref (priv->properties) : wp_properties_new_empty ();
+  return wp_properties_ref (priv->properties);
 }
 
 static struct spa_param_info *

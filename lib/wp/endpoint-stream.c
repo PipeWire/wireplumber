@@ -80,8 +80,7 @@ wp_endpoint_stream_get_properties (WpProxy * proxy)
   WpEndpointStream *self = WP_ENDPOINT_STREAM (proxy);
   WpEndpointStreamPrivate *priv = wp_endpoint_stream_get_instance_private (self);
 
-  return priv->properties ?
-      wp_properties_ref (priv->properties) : wp_properties_new_empty ();
+  return wp_properties_ref (priv->properties);
 }
 
 static struct spa_param_info *
