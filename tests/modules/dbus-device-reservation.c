@@ -124,6 +124,7 @@ test_dbus_basic (TestDbusFixture *self, gconstpointer data)
   g_main_loop_run (self->loop);
   g_assert_nonnull (self->property);
   g_assert_cmpstr (self->property, ==, "Server");
+  g_free (self->property);
 
   /* Request the app device name property on r1 and make sure it is hw:0,0 */
   self->property = NULL;
@@ -132,6 +133,7 @@ test_dbus_basic (TestDbusFixture *self, gconstpointer data)
   g_main_loop_run (self->loop);
   g_assert_nonnull (self->property);
   g_assert_cmpstr (self->property, ==, "hw:0,0");
+  g_free (self->property);
 
   /* Request the priority property on r2 and make sure it is also 10 because r1
    * owns the device */
@@ -171,6 +173,7 @@ test_dbus_basic (TestDbusFixture *self, gconstpointer data)
   g_main_loop_run (self->loop);
   g_assert_nonnull (self->property);
   g_assert_cmpstr (self->property, ==, "PipeWire");
+  g_free (self->property);
 
   /* Request the app device name property on r2 and make sure it is hw:0,0 */
   self->property = NULL;
@@ -179,6 +182,7 @@ test_dbus_basic (TestDbusFixture *self, gconstpointer data)
   g_main_loop_run (self->loop);
   g_assert_nonnull (self->property);
   g_assert_cmpstr (self->property, ==, "hw:0,0");
+  g_free (self->property);
 
   /* Request the priority property on r1 and make sure it is also 15 because r2
    * owns the device now */
