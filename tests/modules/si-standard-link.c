@@ -215,6 +215,16 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
   }
 
   {
+    g_autoptr (WpProperties) p = wp_proxy_get_properties (WP_PROXY (ep_link));
+
+    g_assert_nonnull (p);
+    g_assert_nonnull (wp_properties_get (p, "endpoint-link.input.endpoint"));
+    g_assert_nonnull (wp_properties_get (p, "endpoint-link.input.stream"));
+    g_assert_nonnull (wp_properties_get (p, "endpoint-link.output.endpoint"));
+    g_assert_nonnull (wp_properties_get (p, "endpoint-link.output.stream"));
+  }
+
+  {
     const gchar *error = NULL;
     g_assert_cmpuint (wp_endpoint_link_get_state (ep_link, &error), ==,
         WP_ENDPOINT_LINK_STATE_INACTIVE);
