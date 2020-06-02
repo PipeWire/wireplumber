@@ -216,6 +216,7 @@ struct _WpSpaDevice
   struct spa_device *interface;
   struct spa_hook listener;
   WpProperties *properties;
+  gboolean ft_active_requested;
 };
 
 enum
@@ -303,6 +304,18 @@ static const struct spa_device_events spa_device_events = {
 };
 
 static void
+wp_spa_device_activate (WpSpaDevice *self)
+{
+  gint res = spa_device_add_listener (self->interface, &self->listener,
+        &spa_device_events, self);
+  if (res < 0) {
+    wp_proxy_augment_error (WP_PROXY (self), g_error_new (WP_DOMAIN_LIBRARY,
+            WP_LIBRARY_ERROR_OPERATION_FAILED,
+            "failed to initialize device: %s", spa_strerror (res)));
+  }
+}
+
+static void
 wp_spa_device_augment (WpProxy * proxy, WpProxyFeatures features)
 {
   WpSpaDevice *self = WP_SPA_DEVICE (proxy);
@@ -334,13 +347,12 @@ wp_spa_device_augment (WpProxy * proxy, WpProxyFeatures features)
   }
 
   if (features & WP_SPA_DEVICE_FEATURE_ACTIVE) {
-    gint res = spa_device_add_listener (self->interface, &self->listener,
-        &spa_device_events, self);
-    if (res < 0) {
-      wp_proxy_augment_error (proxy, g_error_new (WP_DOMAIN_LIBRARY,
-              WP_LIBRARY_ERROR_OPERATION_FAILED,
-              "failed to initialize device: %s", spa_strerror (res)));
-    }
+    /* if both BOUND and ACTIVE are requested,
+       delay the second until after we have a bound_id */
+    if (features & WP_PROXY_FEATURE_BOUND)
+      self->ft_active_requested = TRUE;
+    else
+      wp_spa_device_activate (self);
   }
 }
 
@@ -370,6 +382,14 @@ wp_spa_device_set_param (WpProxy * proxy, guint32 id, guint32 flags,
 }
 
 static void
+wp_spa_device_bound (WpProxy * proxy, guint32 id)
+{
+  WpSpaDevice *self = WP_SPA_DEVICE (proxy);
+  if (self->ft_active_requested)
+    wp_spa_device_activate (self);
+}
+
+static void
 wp_spa_device_class_init (WpSpaDeviceClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
@@ -382,6 +402,7 @@ wp_spa_device_class_init (WpSpaDeviceClass * klass)
   proxy_class->get_properties = wp_spa_device_get_properties;
   proxy_class->enum_params = wp_spa_device_enum_params;
   proxy_class->set_param = wp_spa_device_set_param;
+  proxy_class->bound = wp_spa_device_bound;
 
   /**
    * WpSpaDevice::object-info:
