@@ -527,6 +527,7 @@ void
 wp_proxy_set_feature_ready (WpProxy * self, WpProxyFeatures feature)
 {
   WpProxyPrivate *priv;
+  g_autoptr (GPtrArray) ready_tasks = NULL;
   guint i;
 
   g_return_if_fail (WP_IS_PROXY (self));
@@ -551,16 +552,24 @@ wp_proxy_set_feature_ready (WpProxy * self, WpProxyFeatures feature)
     destroy the proxy, in case the registry is no longer holding a reference */
   g_object_ref (self);
 
+  /* move the ready tasks to another array to avoid recursion issues */
+  ready_tasks = g_ptr_array_new_with_free_func (g_object_unref);
+
   /* return from the task if all the wanted features are now ready */
   for (i = priv->augment_tasks->len; i > 0; i--) {
     GTask *task = g_ptr_array_index (priv->augment_tasks, i - 1);
     WpProxyFeatures wanted = GPOINTER_TO_UINT (g_task_get_task_data (task));
 
     if ((priv->ft_ready & wanted) == wanted) {
-      g_task_return_boolean (task, TRUE);
       /* this is safe as long as we are traversing the array backwards */
-      g_ptr_array_remove_index_fast (priv->augment_tasks, i - 1);
+      g_ptr_array_add (ready_tasks,
+          g_ptr_array_steal_index_fast (priv->augment_tasks, i - 1));
     }
+  }
+
+  for (i = 0; i < ready_tasks->len; i++) {
+    GTask *task = g_ptr_array_index (ready_tasks, i);
+    g_task_return_boolean (task, TRUE);
   }
 
   g_object_unref (self);
