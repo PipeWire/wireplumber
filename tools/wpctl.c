@@ -118,20 +118,25 @@ print_stream (const GValue *item, gpointer data)
   print_controls (WP_PROXY (stream));
 }
 
+static const gchar *
+get_endpoint_friendly_name (WpEndpoint * ep)
+{
+  const gchar *name =
+      wp_proxy_get_property (WP_PROXY (ep), "endpoint.description");
+  if (!name)
+    name = wp_endpoint_get_name (ep);
+  return name;
+}
+
 static void
 print_endpoint (const GValue *item, gpointer data)
 {
   WpEndpoint *ep = g_value_get_object (item);
   guint32 id = wp_proxy_get_bound_id (WP_PROXY (ep));
   guint32 default_id = GPOINTER_TO_UINT (data);
-  const gchar *name;
-
-  name = wp_proxy_get_property (WP_PROXY (ep), "endpoint.description");
-  if (!name)
-    name = wp_endpoint_get_name (ep);
 
   printf (TREE_INDENT_LINE "%c %4u. %-60s",
-      (default_id == id) ? '*' : ' ', id, name);
+      (default_id == id) ? '*' : ' ', id, get_endpoint_friendly_name (ep));
   print_controls (WP_PROXY (ep));
 
   if (cmdline.status.show_streams) {
@@ -168,9 +173,9 @@ print_endpoint_link (const GValue *item, gpointer data)
       WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", in_stream_id, NULL);
 
   printf (TREE_INDENT_EMPTY "  %4u. [%u. %s|%s] ➞ [%u. %s|%s]\n", id,
-      out_ep_id, wp_endpoint_get_name (out_ep),
+      out_ep_id, get_endpoint_friendly_name (out_ep),
       wp_endpoint_stream_get_name (out_stream),
-      in_ep_id, wp_endpoint_get_name (in_ep),
+      in_ep_id, get_endpoint_friendly_name (in_ep),
       wp_endpoint_stream_get_name (in_stream));
 }
 
