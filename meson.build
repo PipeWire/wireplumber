@@ -1,5 +1,5 @@
 project('wireplumber', ['c', 'cpp'],
-  version : '0.2.90',
+  version : '0.2.95',
   license : 'MIT',
   meson_version : '>= 0.51.0',
   default_options : [
@@ -9,7 +9,7 @@ project('wireplumber', ['c', 'cpp'],
   ]
 )
 
-wireplumber_api_version = '0.1'
+wireplumber_api_version = '0.3'
 wireplumber_so_version = '0'
 
 wireplumber_headers_dir = join_paths(get_option('includedir'), 'wireplumber-' + wireplumber_api_version, 'wp')
