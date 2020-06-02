@@ -18,7 +18,6 @@ G_BEGIN_DECLS
 struct WpParserEndpointLinkEndpointData {
   char *name;
   char *media_class;
-  guint direction;
   WpProperties *props;
 };
 
