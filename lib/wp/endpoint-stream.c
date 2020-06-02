@@ -37,6 +37,11 @@
 
 /* WpEndpointStream */
 
+enum {
+  PROP_0,
+  PROP_NAME,
+};
+
 typedef struct _WpEndpointStreamPrivate WpEndpointStreamPrivate;
 struct _WpEndpointStreamPrivate
 {
@@ -63,6 +68,23 @@ wp_endpoint_stream_finalize (GObject * object)
   g_clear_pointer (&priv->info, pw_endpoint_stream_info_free);
 
   G_OBJECT_CLASS (wp_endpoint_stream_parent_class)->finalize (object);
+}
+
+static void
+wp_endpoint_stream_get_gobj_property (GObject * object, guint property_id,
+    GValue * value, GParamSpec * pspec)
+{
+  WpEndpointStream *self = WP_ENDPOINT_STREAM (object);
+  WpEndpointStreamPrivate *priv = wp_endpoint_stream_get_instance_private (self);
+
+  switch (property_id) {
+  case PROP_NAME:
+    g_value_set_string (value, priv->info ? priv->info->name : NULL);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
 }
 
 static gconstpointer
@@ -168,6 +190,7 @@ wp_endpoint_stream_class_init (WpEndpointStreamClass * klass)
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
   object_class->finalize = wp_endpoint_stream_finalize;
+  object_class->get_property = wp_endpoint_stream_get_gobj_property;
 
   proxy_class->pw_iface_type = PW_TYPE_INTERFACE_EndpointStream;
   proxy_class->pw_iface_version = PW_VERSION_ENDPOINT_STREAM;
@@ -180,6 +203,15 @@ wp_endpoint_stream_class_init (WpEndpointStreamClass * klass)
   proxy_class->set_param = wp_endpoint_stream_set_param;
 
   proxy_class->pw_proxy_created = wp_endpoint_stream_pw_proxy_created;
+
+  /**
+   * WpEndpointStream:name:
+   *
+   * The name of the endpoint stream
+   */
+  g_object_class_install_property (object_class, PROP_NAME,
+      g_param_spec_string ("name", "name", "name", NULL,
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 }
 
 /**
