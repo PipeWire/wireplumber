@@ -146,73 +146,50 @@ setup_device_props (WpProperties *p)
 static void
 setup_node_props (WpProperties *dev_props, WpProperties *node_props)
 {
-  const gchar *api, *name, *description, *factory;
-
-  /* Make the device properties directly available on the node */
-  wp_properties_update_keys (node_props, dev_props,
-      SPA_KEY_DEVICE_API,
-      SPA_KEY_DEVICE_NAME,
-      SPA_KEY_DEVICE_ALIAS,
-      SPA_KEY_DEVICE_NICK,
-      SPA_KEY_DEVICE_DESCRIPTION,
-      SPA_KEY_DEVICE_ICON,
-      SPA_KEY_DEVICE_ICON_NAME,
-      SPA_KEY_DEVICE_PLUGGED_USEC,
-      SPA_KEY_DEVICE_BUS_ID,
-      SPA_KEY_DEVICE_BUS_PATH,
-      SPA_KEY_DEVICE_BUS,
-      SPA_KEY_DEVICE_SUBSYSTEM,
-      SPA_KEY_DEVICE_SYSFS_PATH,
-      SPA_KEY_DEVICE_VENDOR_ID,
-      SPA_KEY_DEVICE_VENDOR_NAME,
-      SPA_KEY_DEVICE_PRODUCT_ID,
-      SPA_KEY_DEVICE_PRODUCT_NAME,
-      SPA_KEY_DEVICE_SERIAL,
-      SPA_KEY_DEVICE_CLASS,
-      SPA_KEY_DEVICE_CAPABILITIES,
-      SPA_KEY_DEVICE_FORM_FACTOR,
-      PW_KEY_DEVICE_INTENDED_ROLES,
-      NULL);
+  const gchar *api, *devname, *description, *factory;
 
   /* get some strings that we are going to need below */
-  api = wp_properties_get (node_props, SPA_KEY_DEVICE_API);
+  api = wp_properties_get (dev_props, SPA_KEY_DEVICE_API);
   factory = wp_properties_get (node_props, SPA_KEY_FACTORY_NAME);
 
-  name = wp_properties_get (node_props, SPA_KEY_DEVICE_NAME);
-  if (G_UNLIKELY (!name))
-    name = wp_properties_get (node_props, SPA_KEY_DEVICE_NICK);
-  if (G_UNLIKELY (!name))
-    name = wp_properties_get (node_props, SPA_KEY_DEVICE_ALIAS);
-  if (G_UNLIKELY (!name))
-    name = "unknown-device";
+  devname = wp_properties_get (dev_props, SPA_KEY_DEVICE_NAME);
+  if (G_UNLIKELY (!devname))
+    devname = wp_properties_get (dev_props, SPA_KEY_DEVICE_NICK);
+  if (G_UNLIKELY (!devname))
+    devname = wp_properties_get (dev_props, SPA_KEY_DEVICE_ALIAS);
+  if (G_UNLIKELY (!devname))
+    devname = "unknown-device";
 
-  description = wp_properties_get (node_props, SPA_KEY_DEVICE_DESCRIPTION);
+  description = wp_properties_get (dev_props, SPA_KEY_DEVICE_DESCRIPTION);
   if (!description)
-    description = name;
+    description = devname;
 
   /* set ALSA specific properties */
   if (!g_strcmp0 (api, "alsa:pcm")) {
-    const gchar *str;
+    const gchar *pcm_name, *dev, *subdev, *stream;
 
     /* compose the node name */
-    str = wp_properties_get (node_props, SPA_KEY_API_ALSA_PCM_ID);
-    wp_properties_setf (node_props, PW_KEY_NODE_NAME, "%s/%s/%s",
-        factory, name, str);
+    if (!(dev = wp_properties_get (node_props, SPA_KEY_API_ALSA_PCM_DEVICE)))
+      dev = "0";
+    if (!(subdev = wp_properties_get (node_props, SPA_KEY_API_ALSA_PCM_SUBDEVICE)))
+      subdev = "0";
+    if (!(stream = wp_properties_get (node_props, SPA_KEY_API_ALSA_PCM_STREAM)))
+      stream = "unknown";
+
+    wp_properties_setf (node_props, PW_KEY_NODE_NAME, "%s.%s.%s.%s",
+        devname, stream, dev, subdev);
 
     /* compose the node description */
-    str = wp_properties_get (node_props, SPA_KEY_API_ALSA_PCM_NAME);
-    wp_properties_setf (node_props, PW_KEY_NODE_DESCRIPTION, "%s: %s",
-        description, str);
+    pcm_name = wp_properties_get (node_props, SPA_KEY_API_ALSA_PCM_NAME);
+    if (!pcm_name)
+      pcm_name = wp_properties_get (node_props, SPA_KEY_API_ALSA_PCM_ID);
 
-    wp_properties_update_keys (node_props, dev_props,
-        SPA_KEY_API_ALSA_CARD,
-        SPA_KEY_API_ALSA_CARD_ID,
-        SPA_KEY_API_ALSA_CARD_COMPONENTS,
-        SPA_KEY_API_ALSA_CARD_DRIVER,
-        SPA_KEY_API_ALSA_CARD_NAME,
-        SPA_KEY_API_ALSA_CARD_LONGNAME,
-        SPA_KEY_API_ALSA_CARD_MIXERNAME,
-        NULL);
+    if (g_strcmp0 (subdev, "0") != 0)
+      wp_properties_setf (node_props, PW_KEY_NODE_DESCRIPTION, "%s: %s (%s)",
+          description, pcm_name, subdev);
+    else
+      wp_properties_setf (node_props, PW_KEY_NODE_DESCRIPTION, "%s: %s",
+          description, pcm_name);
 
   /* set BLUEZ 5 specific properties */
   } else if (!g_strcmp0 (api, "bluez5")) {
@@ -220,8 +197,8 @@ setup_node_props (WpProperties *dev_props, WpProperties *node_props)
         wp_properties_get (node_props, SPA_KEY_API_BLUEZ5_PROFILE);
 
     /* compose the node name */
-    wp_properties_setf (node_props, PW_KEY_NODE_NAME, "%s/%s/%s",
-        factory, name, profile);
+    wp_properties_setf (node_props, PW_KEY_NODE_NAME, "%s.%s.%s",
+        factory, devname, profile);
 
     /* compose the node description */
     wp_properties_setf (node_props, PW_KEY_NODE_DESCRIPTION, "%s (%s)",
@@ -234,8 +211,7 @@ setup_node_props (WpProperties *dev_props, WpProperties *node_props)
 
   /* set node properties for other APIs */
   } else {
-    wp_properties_setf (node_props, PW_KEY_NODE_NAME, "%s/%s",
-        factory, name);
+    wp_properties_setf (node_props, PW_KEY_NODE_NAME, "%s.%s", factory, devname);
     wp_properties_set (node_props, PW_KEY_NODE_DESCRIPTION, description);
   }
 }
