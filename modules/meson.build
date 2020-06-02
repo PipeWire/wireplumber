@@ -82,6 +82,7 @@ shared_library(
 shared_library(
   'wireplumber-module-config-static-objects',
   [
+    'module-config-static-objects/parser-device.c',
     'module-config-static-objects/parser-node.c',
     'module-config-static-objects/context.c',
     'module-config-static-objects.c',
