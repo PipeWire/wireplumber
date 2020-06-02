@@ -256,6 +256,7 @@ create_links (WpSiStandardLink * self, WpTransition * transition,
   guint32 out_channel, in_channel;
   gboolean link_all = FALSE;
   guint i;
+  guint32 eplink_id;
 
   /* tuple format:
       uint32 node_id;
@@ -269,6 +270,9 @@ create_links (WpSiStandardLink * self, WpTransition * transition,
 
   core = find_core (self);
   g_return_val_if_fail (core, FALSE);
+
+  eplink_id = wp_session_item_get_associated_proxy_id (WP_SESSION_ITEM (self),
+      WP_TYPE_ENDPOINT_LINK);
 
   self->n_async_ops_wait = 0;
   self->node_links = g_ptr_array_new_with_free_func (g_object_unref);
@@ -316,6 +320,8 @@ create_links (WpSiStandardLink * self, WpTransition * transition,
         wp_properties_setf (props, PW_KEY_LINK_OUTPUT_PORT, "%u", out_port_id);
         wp_properties_setf (props, PW_KEY_LINK_INPUT_NODE, "%u", in_node_id);
         wp_properties_setf (props, PW_KEY_LINK_INPUT_PORT, "%u", in_port_id);
+        if (eplink_id != SPA_ID_INVALID)
+          wp_properties_setf (props, "endpoint-link.id", "%u", eplink_id);
 
         wp_debug_object (self, "create pw link: %u:%u (%s) -> %u:%u (%s)",
             out_node_id, out_port_id,

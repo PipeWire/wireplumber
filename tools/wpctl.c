@@ -286,6 +286,7 @@ struct {
   { PW_KEY_CLIENT_ID, "Client" },
   { PW_KEY_DEVICE_ID, "Device" },
   { PW_KEY_ENDPOINT_CLIENT_ID, NULL },
+  { "endpoint-link.id", "EndpointLink" },
   { PW_KEY_ENDPOINT_STREAM_ID, "EndpointStream" },
   { PW_KEY_ENDPOINT_LINK_OUTPUT_ENDPOINT, NULL },
   { PW_KEY_ENDPOINT_LINK_OUTPUT_STREAM, NULL },
