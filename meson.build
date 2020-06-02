@@ -12,6 +12,8 @@ project('wireplumber', ['c', 'cpp'],
 wireplumber_api_version = '0.1'
 wireplumber_so_version = '0'
 
+wireplumber_headers_dir = join_paths(get_option('includedir'), 'wireplumber-' + wireplumber_api_version, 'wp')
+
 if get_option('libdir').startswith('/')
   wireplumber_module_dir = join_paths(get_option('libdir'), 'wireplumber-' + wireplumber_api_version)
 else

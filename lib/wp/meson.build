@@ -64,7 +64,7 @@ wp_lib_headers = files(
 )
 
 install_headers(wp_lib_headers,
-  subdir : join_paths('wireplumber-' + wireplumber_api_version, 'wp')
+  install_dir : wireplumber_headers_dir
 )
 
 enums = gnome.mkenums_simple('wpenums',
@@ -72,14 +72,25 @@ enums = gnome.mkenums_simple('wpenums',
   header_prefix: '#include "wp/defs.h"',
   decorator: 'WP_API',
   install_header: true,
-  install_dir: join_paths(get_option('includedir'), 'wireplumber-' + wireplumber_api_version, 'wp'),
+  install_dir: wireplumber_headers_dir,
 )
 wpenums_h = enums[1]
 wpenums_c = enums[0]
 wp_gen_sources = [wpenums_h]
 
+wpversion_data = configuration_data()
+wpversion_data.set('version', meson.project_version())
+wpversion_data.set('api_version', wireplumber_api_version)
+wpversion = configure_file(
+  input : 'wpversion.h.in',
+  output : 'wpversion.h',
+  configuration : wpversion_data,
+  install_dir: wireplumber_headers_dir
+)
+wp_gen_sources += [wpversion]
+
 wp_lib = library('wireplumber-' + wireplumber_api_version,
-  wp_lib_sources, wpenums_c, wpenums_h,
+  wp_lib_sources, wpenums_c, wpenums_h, wpversion,
   c_args : [
     '-D_GNU_SOURCE',
     '-DG_LOG_USE_STRUCTURED',

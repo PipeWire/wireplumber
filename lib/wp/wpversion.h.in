@@ -1,0 +1,2 @@
+#define WIREPLUMBER_VERSION "@version@"
+#define WIREPLUMBER_API_VERSION "@api_version@"

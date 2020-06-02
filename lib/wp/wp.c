@@ -48,7 +48,7 @@ wp_init (WpInitFlags flags)
     g_log_set_writer_func (wp_log_writer_default, NULL, NULL);
 
   /* a dummy message, to initialize the logging system */
-  wp_info ("WirePlumber initializing");
+  wp_info ("WirePlumber " WIREPLUMBER_VERSION " initializing");
 
   if (flags & WP_INIT_SET_PW_LOG && !g_getenv ("WIREPLUMBER_NO_PW_LOG")) {
     pw_log_level = lvl = wp_spa_log_get_instance ()->level;

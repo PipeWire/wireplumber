@@ -38,6 +38,7 @@
 #include "spa-type.h"
 #include "transition.h"
 #include "wpenums.h"
+#include "wpversion.h"
 
 G_BEGIN_DECLS
 
