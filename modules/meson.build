@@ -80,13 +80,13 @@ shared_library(
 )
 
 shared_library(
-  'wireplumber-module-config-static-nodes',
+  'wireplumber-module-config-static-objects',
   [
-    'module-config-static-nodes/parser-node.c',
-    'module-config-static-nodes/context.c',
-    'module-config-static-nodes.c',
+    'module-config-static-objects/parser-node.c',
+    'module-config-static-objects/context.c',
+    'module-config-static-objects.c',
   ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-config-static-nodes"'],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-config-static-objects"'],
   install : true,
   install_dir : wireplumber_module_dir,
   dependencies : [wp_dep, wptoml_dep, pipewire_dep],

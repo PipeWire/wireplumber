@@ -8,11 +8,11 @@
 
 #include <wp/wp.h>
 
-#include "module-config-static-nodes/context.h"
+#include "module-config-static-objects/context.h"
 
 WP_PLUGIN_EXPORT void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
-  WpConfigStaticNodesContext *ctx = wp_config_static_nodes_context_new (module);
+  WpConfigStaticObjectsContext *ctx = wp_config_static_objects_context_new (module);
   wp_plugin_register (WP_PLUGIN (ctx));
 }

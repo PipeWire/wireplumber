@@ -11,43 +11,43 @@
 #include "parser-node.h"
 #include "context.h"
 
-struct _WpConfigStaticNodesContext
+struct _WpConfigStaticObjectsContext
 {
   GObject parent;
 
   WpObjectManager *devices_om;
-  GPtrArray *static_nodes;
+  GPtrArray *static_objects;
 };
 
 enum {
-  SIGNAL_NODE_CREATED,
+  SIGNAL_OBJECT_CREATED,
   N_SIGNALS
 };
 
 static guint signals[N_SIGNALS];
 
-G_DEFINE_TYPE (WpConfigStaticNodesContext, wp_config_static_nodes_context,
+G_DEFINE_TYPE (WpConfigStaticObjectsContext, wp_config_static_objects_context,
     WP_TYPE_PLUGIN)
 
 static void
-on_node_created (GObject * proxy, GAsyncResult * res, gpointer user_data)
+on_object_created (GObject * proxy, GAsyncResult * res, gpointer user_data)
 {
-  WpConfigStaticNodesContext *self = user_data;
+  WpConfigStaticObjectsContext *self = user_data;
   g_autoptr (GError) error = NULL;
 
   if (!wp_proxy_augment_finish (WP_PROXY (proxy), res, &error)) {
-    wp_warning_object (self, "failed to export node: %s", error->message);
+    wp_warning_object (self, "failed to export object: %s", error->message);
     return;
   }
 
-  g_ptr_array_add (self->static_nodes, g_object_ref (proxy));
+  g_ptr_array_add (self->static_objects, g_object_ref (proxy));
 
   /* Emit the node-created signal */
-  g_signal_emit (self, signals[SIGNAL_NODE_CREATED], 0, proxy);
+  g_signal_emit (self, signals[SIGNAL_OBJECT_CREATED], 0, proxy);
 }
 
 static void
-wp_config_static_nodes_context_create_node (WpConfigStaticNodesContext *self,
+wp_config_static_objects_context_create_node (WpConfigStaticObjectsContext *self,
   const struct WpParserNodeData *node_data)
 {
   g_autoptr (WpProxy) node = NULL;
@@ -66,13 +66,14 @@ wp_config_static_nodes_context_create_node (WpConfigStaticNodesContext *self,
   }
 
   /* export */
-  wp_proxy_augment (node, WP_PROXY_FEATURES_STANDARD, NULL, on_node_created, self);
+  wp_proxy_augment (node, WP_PROXY_FEATURES_STANDARD, NULL, on_object_created,
+      self);
 }
 
 static void
 on_device_added (WpObjectManager *om, WpProxy *proxy, gpointer p)
 {
-  WpConfigStaticNodesContext *self = p;
+  WpConfigStaticObjectsContext *self = p;
   g_autoptr (WpProperties) dev_props = NULL;
   g_autoptr (WpCore) core = wp_plugin_get_core (WP_PLUGIN (self));
   g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
@@ -94,18 +95,18 @@ on_device_added (WpObjectManager *om, WpProxy *proxy, gpointer p)
     return;
 
   /* Create the node */
-  wp_config_static_nodes_context_create_node (self, node_data);
+  wp_config_static_objects_context_create_node (self, node_data);
 }
 
 static gboolean
 parser_node_foreach_func (const struct WpParserNodeData *node_data,
     gpointer data)
 {
-  WpConfigStaticNodesContext *self = data;
+  WpConfigStaticObjectsContext *self = data;
 
   /* Only create nodes that don't have match-device info */
   if (!node_data->has_md) {
-    wp_config_static_nodes_context_create_node (self, node_data);
+    wp_config_static_objects_context_create_node (self, node_data);
     return TRUE;
   }
 
@@ -113,9 +114,9 @@ parser_node_foreach_func (const struct WpParserNodeData *node_data,
 }
 
 static void
-wp_config_static_nodes_context_activate (WpPlugin * plugin)
+wp_config_static_objects_context_activate (WpPlugin * plugin)
 {
-  WpConfigStaticNodesContext *self = WP_CONFIG_STATIC_NODES_CONTEXT (plugin);
+  WpConfigStaticObjectsContext *self = WP_CONFIG_STATIC_OBJECTS_CONTEXT (plugin);
   g_autoptr (WpCore) core = wp_plugin_get_core (plugin);
   g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
   g_autoptr (WpConfigParser) parser = NULL;
@@ -135,12 +136,12 @@ wp_config_static_nodes_context_activate (WpPlugin * plugin)
 }
 
 static void
-wp_config_static_nodes_context_deactivate (WpPlugin *plugin)
+wp_config_static_objects_context_deactivate (WpPlugin *plugin)
 {
-  WpConfigStaticNodesContext *self = WP_CONFIG_STATIC_NODES_CONTEXT (plugin);
+  WpConfigStaticObjectsContext *self = WP_CONFIG_STATIC_OBJECTS_CONTEXT (plugin);
 
   g_clear_object (&self->devices_om);
-  g_clear_pointer (&self->static_nodes, g_ptr_array_unref);
+  g_clear_pointer (&self->static_objects, g_ptr_array_unref);
 
   g_autoptr (WpCore) core = wp_plugin_get_core (plugin);
   if (core) {
@@ -150,9 +151,9 @@ wp_config_static_nodes_context_deactivate (WpPlugin *plugin)
 }
 
 static void
-wp_config_static_nodes_context_init (WpConfigStaticNodesContext *self)
+wp_config_static_objects_context_init (WpConfigStaticObjectsContext *self)
 {
-  self->static_nodes = g_ptr_array_new_with_free_func (g_object_unref);
+  self->static_objects = g_ptr_array_new_with_free_func (g_object_unref);
   self->devices_om = wp_object_manager_new ();
 
   /* Only handle devices */
@@ -164,23 +165,23 @@ wp_config_static_nodes_context_init (WpConfigStaticNodesContext *self)
 }
 
 static void
-wp_config_static_nodes_context_class_init (WpConfigStaticNodesContextClass *klass)
+wp_config_static_objects_context_class_init (WpConfigStaticObjectsContextClass *klass)
 {
   WpPluginClass *plugin_class = (WpPluginClass *) klass;
 
-  plugin_class->activate = wp_config_static_nodes_context_activate;
-  plugin_class->deactivate = wp_config_static_nodes_context_deactivate;
+  plugin_class->activate = wp_config_static_objects_context_activate;
+  plugin_class->deactivate = wp_config_static_objects_context_deactivate;
 
   /* Signals */
-  signals[SIGNAL_NODE_CREATED] = g_signal_new ("node-created",
+  signals[SIGNAL_OBJECT_CREATED] = g_signal_new ("object-created",
       G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
       G_TYPE_NONE, 1, WP_TYPE_PROXY);
 }
 
-WpConfigStaticNodesContext *
-wp_config_static_nodes_context_new (WpModule * module)
+WpConfigStaticObjectsContext *
+wp_config_static_objects_context_new (WpModule * module)
 {
-  return g_object_new (wp_config_static_nodes_context_get_type (),
+  return g_object_new (wp_config_static_objects_context_get_type (),
       "module", module,
       NULL);
 }

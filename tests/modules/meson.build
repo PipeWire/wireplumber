@@ -21,10 +21,10 @@ test(
 )
 
 test(
-  'test-config-static-nodes',
-  executable('test-config-static-nodes',
+  'test-config-static-objects',
+  executable('test-config-static-objects',
     [
-      'config-static-nodes.c',
+      'config-static-objects.c',
     ],
     dependencies: common_deps + [wptoml_dep], c_args: common_args),
   env: common_env,

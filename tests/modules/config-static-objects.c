@@ -10,10 +10,10 @@
 
 typedef struct {
   WpBaseTestFixture base;
-} TestConfigStaticNodesFixture;
+} TestConfigStaticObjectsFixture;
 
 static void
-config_static_nodes_setup (TestConfigStaticNodesFixture *self,
+config_static_objects_setup (TestConfigStaticObjectsFixture *self,
     gconstpointer data)
 {
   wp_base_test_fixture_setup (&self->base, 0);
@@ -29,40 +29,40 @@ config_static_nodes_setup (TestConfigStaticNodesFixture *self,
   /* load wireplumber module */
   g_autoptr (GError) error = NULL;
   WpModule *module = wp_module_load (self->base.core, "C",
-      "libwireplumber-module-config-static-nodes", NULL, &error);
+      "libwireplumber-module-config-static-objects", NULL, &error);
   g_assert_no_error (error);
   g_assert_nonnull (module);
 }
 
 static void
-config_static_nodes_teardown (TestConfigStaticNodesFixture *self,
+config_static_objects_teardown (TestConfigStaticObjectsFixture *self,
     gconstpointer data)
 {
   wp_base_test_fixture_teardown (&self->base);
 }
 
 static void
-on_node_created (WpPlugin *ctx, WpProxy *proxy, TestConfigStaticNodesFixture *f)
+on_object_created (WpPlugin *ctx, WpProxy *proxy, TestConfigStaticObjectsFixture *f)
 {
   g_assert_nonnull (proxy);
   g_main_loop_quit (f->base.loop);
 }
 
 static void
-basic (TestConfigStaticNodesFixture *f, gconstpointer data)
+basic (TestConfigStaticObjectsFixture *f, gconstpointer data)
 {
   /* Set the configuration path */
   g_autoptr (WpConfiguration) config = wp_configuration_get_instance (f->base.core);
   g_assert_nonnull (config);
-  wp_configuration_add_path (config, "config-static-nodes/basic");
+  wp_configuration_add_path (config, "config-static-objects/basic");
 
-  /* Find the plugin context and handle the node-created callback */
+  /* Find the plugin context and handle the object-created callback */
   g_autoptr (WpObjectManager) om = wp_object_manager_new ();
   wp_object_manager_add_interest (om, WP_TYPE_PLUGIN, NULL);
   wp_core_install_object_manager (f->base.core, om);
   g_autoptr (WpPlugin) ctx = wp_object_manager_lookup (om, WP_TYPE_PLUGIN, NULL);
   g_assert_nonnull (ctx);
-  g_signal_connect (ctx, "node-created", (GCallback) on_node_created, f);
+  g_signal_connect (ctx, "object-created", (GCallback) on_object_created, f);
 
   /* Activate */
   wp_plugin_activate (ctx);
@@ -77,9 +77,9 @@ main (int argc, char *argv[])
   g_test_init (&argc, &argv, NULL);
   wp_init (WP_INIT_ALL);
 
-  g_test_add ("/modules/config-static-nodes/basic",
-      TestConfigStaticNodesFixture, NULL,
-      config_static_nodes_setup, basic, config_static_nodes_teardown);
+  g_test_add ("/modules/config-static-objects/basic",
+      TestConfigStaticObjectsFixture, NULL,
+      config_static_objects_setup, basic, config_static_objects_teardown);
 
   return g_test_run ();
 }
