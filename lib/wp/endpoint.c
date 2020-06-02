@@ -40,6 +40,13 @@
 /* WpEndpoint */
 
 enum {
+  PROP_0,
+  PROP_NAME,
+  PROP_MEDIA_CLASS,
+  PROP_DIRECTION,
+};
+
+enum {
   SIGNAL_STREAMS_CHANGED,
   N_SIGNALS,
 };
@@ -75,6 +82,29 @@ wp_endpoint_finalize (GObject * object)
   g_clear_pointer (&priv->info, pw_endpoint_info_free);
 
   G_OBJECT_CLASS (wp_endpoint_parent_class)->finalize (object);
+}
+
+static void
+wp_endpoint_get_gobj_property (GObject * object, guint property_id,
+    GValue * value, GParamSpec * pspec)
+{
+  WpEndpoint *self = WP_ENDPOINT (object);
+  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
+
+  switch (property_id) {
+  case PROP_NAME:
+    g_value_set_string (value, priv->info ? priv->info->name : NULL);
+    break;
+  case PROP_MEDIA_CLASS:
+    g_value_set_string (value, priv->info ? priv->info->media_class : NULL);
+    break;
+  case PROP_DIRECTION:
+    g_value_set_enum (value, priv->info ? priv->info->direction : 0);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
 }
 
 static void
@@ -270,6 +300,7 @@ wp_endpoint_class_init (WpEndpointClass * klass)
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
   object_class->finalize = wp_endpoint_finalize;
+  object_class->get_property = wp_endpoint_get_gobj_property;
 
   proxy_class->pw_iface_type = PW_TYPE_INTERFACE_Endpoint;
   proxy_class->pw_iface_version = PW_VERSION_ENDPOINT;
@@ -295,6 +326,33 @@ wp_endpoint_class_init (WpEndpointClass * klass)
   signals[SIGNAL_STREAMS_CHANGED] = g_signal_new (
       "streams-changed", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
+
+  /**
+   * WpEndpoint:name:
+   *
+   * The name of the endpoint
+   */
+  g_object_class_install_property (object_class, PROP_NAME,
+      g_param_spec_string ("name", "name", "name", NULL,
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+
+  /**
+   * WpEndpoint:media-class:
+   *
+   * The media class of the endpoint (ex. "Audio/Sink")
+   */
+  g_object_class_install_property (object_class, PROP_MEDIA_CLASS,
+      g_param_spec_string ("media-class", "media-class", "media-class", NULL,
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+
+  /**
+   * WpEndpoint:direction:
+   *
+   * The direction of the endpoint
+   */
+  g_object_class_install_property (object_class, PROP_DIRECTION,
+      g_param_spec_enum ("direction", "direction", "direction",
+          WP_TYPE_DIRECTION, 0, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 }
 
 /**
