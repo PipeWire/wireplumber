@@ -546,18 +546,24 @@ void
 wp_proxy_augment_error (WpProxy * self, GError * error)
 {
   WpProxyPrivate *priv;
-  guint i;
 
   g_return_if_fail (WP_IS_PROXY (self));
 
   priv = wp_proxy_get_instance_private (self);
 
-  for (i = 0; i < priv->augment_tasks->len; i++) {
-    GTask *task = g_ptr_array_index (priv->augment_tasks, i);
-    g_task_return_error (task, g_error_copy (error));
+  /* steal the array to avoid recursion here */
+  if (priv->augment_tasks->len > 0) {
+    guint i;
+    g_autoptr (GPtrArray) augment_tasks =
+        g_steal_pointer (&priv->augment_tasks);
+    priv->augment_tasks = g_ptr_array_new_with_free_func (g_object_unref);
+
+    for (i = 0; i < augment_tasks->len; i++) {
+      GTask *task = g_ptr_array_index (augment_tasks, i);
+      g_task_return_error (task, g_error_copy (error));
+    }
   }
 
-  g_ptr_array_set_size (priv->augment_tasks, 0);
   g_error_free (error);
 }
 
