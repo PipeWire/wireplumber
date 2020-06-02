@@ -285,6 +285,43 @@ wp_proxy_get_gobj_property (GObject * object, guint property_id, GValue * value,
 }
 
 static void
+wp_proxy_enable_feature_props (WpProxy * self)
+{
+  WpProxyClass *klass = WP_PROXY_GET_CLASS (self);
+  struct spa_param_info *param_info;
+  guint n_params;
+  guint have_propinfo = FALSE, have_props = FALSE;
+  uint32_t ids[] = { SPA_PARAM_Props };
+
+  /* check if we actually have props */
+  param_info = klass->get_param_info (self, &n_params);
+  for (guint i = 0; i < n_params; i++) {
+    if (param_info[i].id == SPA_PARAM_PropInfo)
+      have_propinfo = TRUE;
+    else if (param_info[i].id == SPA_PARAM_Props)
+      have_props = TRUE;
+  }
+
+  if (have_propinfo && have_props) {
+    if (!klass->enum_params || !klass->subscribe_params) {
+      wp_proxy_augment_error (self, g_error_new (WP_DOMAIN_LIBRARY,
+            WP_LIBRARY_ERROR_INVARIANT,
+            "Proxy does not support enum/subscribe params API"));
+      return;
+    }
+
+    klass->enum_params (self, SPA_PARAM_PropInfo, 0, -1, NULL);
+    klass->subscribe_params (self, ids, SPA_N_ELEMENTS (ids));
+  } else {
+    /* declare as ready with no props */
+    wp_proxy_set_feature_ready (self, WP_PROXY_FEATURE_PROPS);
+  }
+
+  g_signal_handlers_disconnect_by_func (self,
+      wp_proxy_enable_feature_props, self);
+}
+
+static void
 wp_proxy_default_augment (WpProxy * self, WpProxyFeatures features)
 {
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
@@ -310,19 +347,13 @@ wp_proxy_default_augment (WpProxy * self, WpProxyFeatures features)
   }
 
   if (features & WP_PROXY_FEATURE_PROPS && !priv->props) {
-    WpProxyClass *klass = WP_PROXY_GET_CLASS (self);
-    uint32_t ids[] = { SPA_PARAM_Props };
-
-    if (!klass->enum_params || !klass->subscribe_params) {
-      wp_proxy_augment_error (self, g_error_new (WP_DOMAIN_LIBRARY,
-            WP_LIBRARY_ERROR_OPERATION_FAILED,
-            "Proxy does not support enum/subscribe params API"));
-      return;
-    }
-
     wp_proxy_set_props (self, wp_props_new (WP_PROPS_MODE_CACHE, self));
-    klass->enum_params (self, SPA_PARAM_PropInfo, 0, -1, NULL);
-    klass->subscribe_params (self, ids, SPA_N_ELEMENTS (ids));
+
+    if (priv->ft_ready & WP_PROXY_FEATURE_INFO)
+      wp_proxy_enable_feature_props (self);
+    else
+      g_signal_connect (self, "notify::param-info",
+          G_CALLBACK (wp_proxy_enable_feature_props), self);
   }
 }
 
