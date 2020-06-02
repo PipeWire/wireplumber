@@ -124,9 +124,14 @@ print_endpoint (const GValue *item, gpointer data)
   WpEndpoint *ep = g_value_get_object (item);
   guint32 id = wp_proxy_get_bound_id (WP_PROXY (ep));
   guint32 default_id = GPOINTER_TO_UINT (data);
+  const gchar *name;
+
+  name = wp_proxy_get_property (WP_PROXY (ep), "endpoint.description");
+  if (!name)
+    name = wp_endpoint_get_name (ep);
 
   printf (TREE_INDENT_LINE "%c %4u. %-60s",
-      (default_id == id) ? '*' : ' ', id, wp_endpoint_get_name (ep));
+      (default_id == id) ? '*' : ' ', id, name);
   print_controls (WP_PROXY (ep));
 
   if (cmdline.status.show_streams) {

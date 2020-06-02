@@ -116,7 +116,7 @@ si_monitor_endpoint_configure (WpSessionItem * item, GVariant * args)
 
   /* set the name */
   g_variant_lookup (adapter_config, "name", "&s", &name);
-  g_snprintf (self->name, sizeof (self->name) - 1, "Monitor of %s", name);
+  g_snprintf (self->name, sizeof (self->name) - 1, "monitor.%s", name);
 
   wp_session_item_set_flag (item, WP_SI_FLAG_CONFIGURED);
   return TRUE;
@@ -207,8 +207,14 @@ static WpProperties *
 si_monitor_endpoint_get_properties (WpSiEndpoint * item)
 {
   WpSiMonitorEndpoint *self = WP_SI_MONITOR_ENDPOINT (item);
+  WpProperties *properties;
+  g_autofree gchar *description = NULL;
 
-  return wp_si_endpoint_get_properties (WP_SI_ENDPOINT (self->adapter));
+  properties = wp_si_endpoint_get_properties (WP_SI_ENDPOINT (self->adapter));
+  description = g_strdup_printf ("Monitor of %s",
+      wp_properties_get (properties, "endpoint.description"));
+  wp_properties_set (properties, "endpoint.description", description);
+  return properties;
 }
 
 static guint

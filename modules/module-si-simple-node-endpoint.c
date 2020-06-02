@@ -128,9 +128,7 @@ si_simple_node_endpoint_configure (WpSessionItem * item, GVariant * args)
   if (g_variant_lookup (args, "name", "&s", &tmp_str)) {
     strncpy (self->name, tmp_str, sizeof (self->name) - 1);
   } else {
-    tmp_str = wp_properties_get (props, PW_KEY_NODE_DESCRIPTION);
-    if (G_UNLIKELY (!tmp_str))
-      tmp_str = wp_properties_get (props, PW_KEY_NODE_NAME);
+    tmp_str = wp_properties_get (props, PW_KEY_NODE_NAME);
     if (G_LIKELY (tmp_str))
       strncpy (self->name, tmp_str, sizeof (self->name) - 1);
   }
@@ -272,6 +270,9 @@ si_simple_node_endpoint_get_properties (WpSiEndpoint * item)
   /* associate with the node */
   wp_properties_setf (result, PW_KEY_NODE_ID, "%d",
       wp_proxy_get_bound_id (WP_PROXY (self->node)));
+
+  wp_properties_set (result, "endpoint.description",
+      wp_properties_get (node_props, PW_KEY_NODE_DESCRIPTION));
 
   /* propagate the device icon, if this is a device */
   const gchar *icon = wp_properties_get (node_props, PW_KEY_DEVICE_ICON_NAME);
