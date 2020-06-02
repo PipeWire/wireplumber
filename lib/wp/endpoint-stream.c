@@ -161,13 +161,6 @@ wp_endpoint_stream_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy
       &endpoint_stream_events, self);
 }
 
-static const gchar *
-get_name (WpEndpointStream * self)
-{
-  WpEndpointStreamPrivate *priv = wp_endpoint_stream_get_instance_private (self);
-  return priv->info->name;
-}
-
 static void
 wp_endpoint_stream_class_init (WpEndpointStreamClass * klass)
 {
@@ -187,8 +180,6 @@ wp_endpoint_stream_class_init (WpEndpointStreamClass * klass)
   proxy_class->set_param = wp_endpoint_stream_set_param;
 
   proxy_class->pw_proxy_created = wp_endpoint_stream_pw_proxy_created;
-
-  klass->get_name = get_name;
 }
 
 /**
@@ -201,9 +192,11 @@ const gchar *
 wp_endpoint_stream_get_name (WpEndpointStream * self)
 {
   g_return_val_if_fail (WP_IS_ENDPOINT_STREAM (self), NULL);
-  g_return_val_if_fail (WP_ENDPOINT_STREAM_GET_CLASS (self)->get_name, NULL);
+  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+          WP_PROXY_FEATURE_INFO, NULL);
 
-  return WP_ENDPOINT_STREAM_GET_CLASS (self)->get_name (self);
+  WpEndpointStreamPrivate *priv = wp_endpoint_stream_get_instance_private (self);
+  return priv->info->name;
 }
 
 

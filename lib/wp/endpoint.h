@@ -53,10 +53,6 @@ G_DECLARE_DERIVABLE_TYPE (WpEndpoint, wp_endpoint, WP, ENDPOINT, WpProxy)
 struct _WpEndpointClass
 {
   WpProxyClass parent_class;
-
-  const gchar * (*get_name) (WpEndpoint * self);
-  const gchar * (*get_media_class) (WpEndpoint * self);
-  WpDirection (*get_direction) (WpEndpoint * self);
 };
 
 WP_API

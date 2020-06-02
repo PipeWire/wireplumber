@@ -27,8 +27,6 @@ G_DECLARE_DERIVABLE_TYPE (WpEndpointStream, wp_endpoint_stream,
 struct _WpEndpointStreamClass
 {
   WpProxyClass parent_class;
-
-  const gchar * (*get_name) (WpEndpointStream * self);
 };
 
 WP_API

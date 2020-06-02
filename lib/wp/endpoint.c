@@ -263,27 +263,6 @@ wp_endpoint_bound (WpProxy * proxy, guint32 id)
   wp_endpoint_ensure_feature_streams (self, id);
 }
 
-static const gchar *
-get_name (WpEndpoint * self)
-{
-  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
-  return priv->info->name;
-}
-
-static const gchar *
-get_media_class (WpEndpoint * self)
-{
-  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
-  return priv->info->media_class;
-}
-
-static WpDirection
-get_direction (WpEndpoint * self)
-{
-  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
-  return priv->info->direction;
-}
-
 static void
 wp_endpoint_class_init (WpEndpointClass * klass)
 {
@@ -305,10 +284,6 @@ wp_endpoint_class_init (WpEndpointClass * klass)
 
   proxy_class->pw_proxy_created = wp_endpoint_pw_proxy_created;
   proxy_class->bound = wp_endpoint_bound;
-
-  klass->get_name = get_name;
-  klass->get_media_class = get_media_class;
-  klass->get_direction = get_direction;
 
   /**
    * WpEndpoint::streams-changed:
@@ -332,9 +307,11 @@ const gchar *
 wp_endpoint_get_name (WpEndpoint * self)
 {
   g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
-  g_return_val_if_fail (WP_ENDPOINT_GET_CLASS (self)->get_name, NULL);
+  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+          WP_PROXY_FEATURE_INFO, NULL);
 
-  return WP_ENDPOINT_GET_CLASS (self)->get_name (self);
+  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
+  return priv->info->name;
 }
 
 /**
@@ -347,9 +324,11 @@ const gchar *
 wp_endpoint_get_media_class (WpEndpoint * self)
 {
   g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
-  g_return_val_if_fail (WP_ENDPOINT_GET_CLASS (self)->get_media_class, NULL);
+  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+          WP_PROXY_FEATURE_INFO, NULL);
 
-  return WP_ENDPOINT_GET_CLASS (self)->get_media_class (self);
+  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
+  return priv->info->media_class;
 }
 
 /**
@@ -362,9 +341,11 @@ WpDirection
 wp_endpoint_get_direction (WpEndpoint * self)
 {
   g_return_val_if_fail (WP_IS_ENDPOINT (self), 0);
-  g_return_val_if_fail (WP_ENDPOINT_GET_CLASS (self)->get_direction, 0);
+  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+          WP_PROXY_FEATURE_INFO, 0);
 
-  return WP_ENDPOINT_GET_CLASS (self)->get_direction (self);
+  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
+  return (WpDirection) priv->info->direction;
 }
 
 /**
