@@ -737,7 +737,7 @@ dict_iterator_next (WpIterator *it, GValue *item)
 
   if ((it_data->item - dict->items) < dict->n_items) {
     g_value_init (item, G_TYPE_POINTER);
-    g_value_set_pointer (item, it_data->item);
+    g_value_set_pointer (item, (gpointer) it_data->item);
     it_data->item++;
     return TRUE;
   }
@@ -755,7 +755,7 @@ dict_iterator_fold (WpIterator *it, WpIteratorFoldFunc func, GValue *ret,
   spa_dict_for_each (i, dict) {
     g_auto (GValue) item = G_VALUE_INIT;
     g_value_init (&item, G_TYPE_POINTER);
-    g_value_set_pointer (&item, i);
+    g_value_set_pointer (&item, (gpointer) i);
     if (!func (&item, ret, data))
       return FALSE;
   }
