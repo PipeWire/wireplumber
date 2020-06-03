@@ -285,6 +285,18 @@ wp_proxy_get_gobj_property (GObject * object, guint property_id, GValue * value,
 }
 
 static void
+wp_proxy_enum_props_done (WpCore * core, GAsyncResult * res, WpProxy * self)
+{
+  g_autoptr (GError) error = NULL;
+  if (!wp_core_sync_finish (core, res, &error)) {
+    wp_warning_object (self, "core sync failed: %s", error->message);
+  }
+
+  wp_trace_object (self, "enum props done");
+  wp_proxy_set_feature_ready (self, WP_PROXY_FEATURE_PROPS);
+}
+
+static void
 wp_proxy_enable_feature_props (WpProxy * self)
 {
   WpProxyClass *klass = WP_PROXY_GET_CLASS (self);
@@ -303,6 +315,8 @@ wp_proxy_enable_feature_props (WpProxy * self)
   }
 
   if (have_propinfo && have_props) {
+    g_autoptr (WpCore) core = wp_proxy_get_core (self);
+
     if (!klass->enum_params || !klass->subscribe_params) {
       wp_proxy_augment_error (self, g_error_new (WP_DOMAIN_LIBRARY,
             WP_LIBRARY_ERROR_INVARIANT,
@@ -312,6 +326,8 @@ wp_proxy_enable_feature_props (WpProxy * self)
 
     klass->enum_params (self, SPA_PARAM_PropInfo, 0, -1, NULL);
     klass->subscribe_params (self, ids, SPA_N_ELEMENTS (ids));
+    wp_core_sync (core, NULL, (GAsyncReadyCallback) wp_proxy_enum_props_done,
+        self);
   } else {
     /* declare as ready with no props */
     wp_proxy_set_feature_ready (self, WP_PROXY_FEATURE_PROPS);
@@ -1085,10 +1101,6 @@ wp_proxy_handle_event_param (void * proxy, int seq, uint32_t id,
         wp_trace_boxed (WP_TYPE_SPA_POD, w_param,
             "storing Props on " WP_OBJECT_FORMAT, WP_OBJECT_ARGS (self));
         wp_props_store (priv->props, NULL, g_steal_pointer (&w_param));
-
-        /* we receive PropInfo before Props; once we get Props, we know we have
-           completed caching of props, so the feature is ready */
-        wp_proxy_set_feature_ready (self, WP_PROXY_FEATURE_PROPS);
         break;
       default:
         break;
