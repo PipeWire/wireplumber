@@ -197,7 +197,9 @@ static inline gchar *
 format_message (struct common_fields *cf)
 {
   g_autofree gchar *extra_message = NULL;
+  g_autofree gchar *extra_object = NULL;
   const gchar *object_color = "";
+
   if (use_color) {
     guint h = g_direct_hash (cf->object) % G_N_ELEMENTS (object_colors);
     object_color = object_colors[h];
@@ -210,11 +212,16 @@ format_message (struct common_fields *cf)
     extra_message = g_string_free (spa_dbg_str, FALSE);
     spa_dbg_str = NULL;
   }
+  else if (cf->object && g_type_is_a (cf->object_type, WP_TYPE_PROXY) &&
+      (wp_proxy_get_features ((WpProxy *) cf->object) & WP_PROXY_FEATURE_BOUND)) {
+    extra_object = g_strdup_printf (":%u:",
+        wp_proxy_get_bound_id ((WpProxy *) cf->object));
+  }
 
   return g_strdup_printf ("%s<%s%s%p>%s %s",
       object_color,
       cf->object_type != 0 ? g_type_name (cf->object_type) : "",
-      cf->object_type != 0 ? ":" : "",
+      extra_object ? extra_object : ":",
       cf->object,
       use_color ? RESET_COLOR : "",
       extra_message ? extra_message : cf->message);
