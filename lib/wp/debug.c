@@ -6,6 +6,11 @@
  * SPDX-License-Identifier: MIT
  */
 
+/**
+ * SECTION: debug
+ * @title: Debug Logging
+ */
+
 #include "debug.h"
 #include "spa-pod.h"
 #include "private.h"
@@ -259,6 +264,15 @@ extract_common_fields (struct common_fields *cf, const GLogField *fields,
   }
 }
 
+/**
+ * wp_log_level_is_enabled:
+ * @log_level: a log level
+ *
+ * Use this to figure out if a debug message is going to be printed or not,
+ * so that you can avoid allocating resources just for debug logging purposes
+ *
+ * Returns: whether the log level is currently enabled
+ */
 gboolean
 wp_log_level_is_enabled (GLogLevelFlags log_level)
 {
@@ -266,6 +280,14 @@ wp_log_level_is_enabled (GLogLevelFlags log_level)
   return log_level_index (log_level) <= enabled_level;
 }
 
+/**
+ * wp_log_writer_default:
+ *
+ * WirePlumber's #GLogWriterFunc
+ *
+ * This is installed automatically when you call wp_init() with
+ * %WP_INIT_SET_GLIB_LOG set in the flags
+ */
 GLogWriterOutput
 wp_log_writer_default (GLogLevelFlags log_level,
     const GLogField *fields, gsize n_fields, gpointer user_data)
@@ -328,6 +350,11 @@ wp_log_writer_default (GLogLevelFlags log_level,
   return G_LOG_WRITER_HANDLED;
 }
 
+/**
+ * wp_log_structured_standard:
+ *
+ * Used internally by the debug logging macros. Avoid using it directly.
+ */
 void
 wp_log_structured_standard (
     const gchar *log_domain,
@@ -434,6 +461,14 @@ static struct spa_log wp_spa_log = {
   .level = SPA_LOG_LEVEL_WARN,
 };
 
+/**
+ * wp_spa_log_get_instance:
+ *
+ * Returns: WirePlumber's instance of `spa_log`, which can be used to redirect
+ *   PipeWire's log messages to the currently installed #GLogWriterFunc.
+ *   This is installed automatically when you call wp_init() with
+ *   %WP_INIT_SET_PW_LOG set in the flags
+ */
 struct spa_log *
 wp_spa_log_get_instance (void)
 {
