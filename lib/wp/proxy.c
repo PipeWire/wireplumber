@@ -1078,7 +1078,7 @@ wp_proxy_handle_event_param (void * proxy, int seq, uint32_t id,
 {
   WpProxy *self = WP_PROXY (proxy);
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
-  g_autoptr (WpSpaPod) w_param = wp_spa_pod_new_regular_wrap (param);
+  g_autoptr (WpSpaPod) w_param = wp_spa_pod_new_wrap (param);
   GTask *task;
 
   /* if this param event was emited because of enum_params(),

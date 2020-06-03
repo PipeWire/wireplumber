@@ -178,7 +178,7 @@ wp_spa_pod_new (const struct spa_pod *pod)
 }
 
 WpSpaPod *
-wp_spa_pod_new_regular_wrap (struct spa_pod *pod)
+wp_spa_pod_new_wrap (struct spa_pod *pod)
 {
   WpSpaPod *self = wp_spa_pod_new (pod);
   self->flags = FLAG_NO_OWNERSHIP;
@@ -191,7 +191,7 @@ WpSpaPod *
 wp_spa_pod_new_property_wrap (WpSpaTypeTable table, guint32 key, guint32 flags,
     struct spa_pod *pod)
 {
-  WpSpaPod *self = wp_spa_pod_new_regular_wrap (pod);
+  WpSpaPod *self = wp_spa_pod_new_wrap (pod);
   self->type = WP_SPA_POD_PROPERTY;
   self->static_pod.data_property.table = table;
   self->static_pod.data_property.key = key;
@@ -202,7 +202,7 @@ wp_spa_pod_new_property_wrap (WpSpaTypeTable table, guint32 key, guint32 flags,
 WpSpaPod *
 wp_spa_pod_new_control_wrap (guint32 offset, guint32 type, struct spa_pod *pod)
 {
-  WpSpaPod *self = wp_spa_pod_new_regular_wrap (pod);
+  WpSpaPod *self = wp_spa_pod_new_wrap (pod);
   self->type = WP_SPA_POD_CONTROL;
   self->static_pod.data_control.offset = offset;
   self->static_pod.data_control.type = type;
@@ -210,7 +210,7 @@ wp_spa_pod_new_control_wrap (guint32 offset, guint32 type, struct spa_pod *pod)
 }
 
 WpSpaPod *
-wp_spa_pod_new_regular_wrap_copy (const struct spa_pod *pod)
+wp_spa_pod_new_wrap_copy (const struct spa_pod *pod)
 {
   WpSpaPod *self = wp_spa_pod_new (pod);
   self->flags = 0;
@@ -226,7 +226,7 @@ WpSpaPod *
 wp_spa_pod_new_property_wrap_copy (WpSpaTypeTable table, guint32 key,
     guint32 flags, const struct spa_pod *pod)
 {
-  WpSpaPod *self = wp_spa_pod_new_regular_wrap_copy (pod);
+  WpSpaPod *self = wp_spa_pod_new_wrap_copy (pod);
   self->type = WP_SPA_POD_PROPERTY;
   self->static_pod.data_property.table = table;
   self->static_pod.data_property.key = key;
@@ -238,7 +238,7 @@ WpSpaPod *
 wp_spa_pod_new_control_wrap_copy (guint32 offset, guint32 type,
     const struct spa_pod *pod)
 {
-  WpSpaPod *self = wp_spa_pod_new_regular_wrap_copy (pod);
+  WpSpaPod *self = wp_spa_pod_new_wrap_copy (pod);
   self->type = WP_SPA_POD_CONTROL;
   self->static_pod.data_control.offset = offset;
   self->static_pod.data_control.type = type;
@@ -319,7 +319,7 @@ wp_spa_pod_copy (const WpSpaPod *other)
   default:
     break;
   }
-  return wp_spa_pod_new_regular_wrap_copy (other->pod);
+  return wp_spa_pod_new_wrap_copy (other->pod);
 }
 
 /**
@@ -1733,7 +1733,7 @@ wp_spa_pod_get_property (const WpSpaPod *self, const char **key,
       self->static_pod.data_property.key, NULL, key, NULL))
     return FALSE;
   if (value)
-    *value = wp_spa_pod_new_regular_wrap (self->pod);
+    *value = wp_spa_pod_new_wrap (self->pod);
 
   return TRUE;
 }
@@ -1762,7 +1762,7 @@ wp_spa_pod_get_control (const WpSpaPod *self, guint32 *offset,
       self->static_pod.data_control.type, NULL, type_name, NULL))
     g_return_val_if_reached (FALSE);
   if (value)
-    *value = wp_spa_pod_new_regular_wrap (self->pod);
+    *value = wp_spa_pod_new_wrap (self->pod);
 
   return TRUE;
 }
@@ -1779,7 +1779,7 @@ WpSpaPod *
 wp_spa_pod_get_choice_child (WpSpaPod *self)
 {
   g_return_val_if_fail (wp_spa_pod_is_choice (self), NULL);
-  return wp_spa_pod_new_regular_wrap (SPA_POD_CHOICE_CHILD (self->pod));
+  return wp_spa_pod_new_wrap (SPA_POD_CHOICE_CHILD (self->pod));
 }
 
 /**
@@ -1794,7 +1794,7 @@ WpSpaPod *
 wp_spa_pod_get_array_child (WpSpaPod *self)
 {
   g_return_val_if_fail (wp_spa_pod_is_array (self), NULL);
-  return wp_spa_pod_new_regular_wrap (SPA_POD_ARRAY_CHILD (self->pod));
+  return wp_spa_pod_new_wrap (SPA_POD_ARRAY_CHILD (self->pod));
 }
 
 /**
@@ -2644,7 +2644,7 @@ wp_spa_pod_parser_get_pod (WpSpaPodParser *self)
   if (!res || !p)
     return NULL;
 
-  return wp_spa_pod_new_regular_wrap (p);
+  return wp_spa_pod_new_wrap (p);
 }
 
 /**
@@ -2729,7 +2729,7 @@ wp_spa_pod_parser_get_valist (WpSpaPodParser *self, va_list args)
       case 'V':  /* Choice */
       case 'O':  /* Object */
       case 'T':  /* Struct */
-        *va_arg(args, WpSpaPod**) = wp_spa_pod_new_regular_wrap_copy (pod);
+        *va_arg(args, WpSpaPod**) = wp_spa_pod_new_wrap_copy (pod);
         break;
       default:
         SPA_POD_PARSER_COLLECT (pod, *format, args);
@@ -2847,7 +2847,7 @@ wp_spa_pod_iterator_next_struct (WpSpaPodIterator *self, GValue *item)
 
   if (item) {
     g_value_init (item, WP_TYPE_SPA_POD);
-    g_value_take_boxed (item, wp_spa_pod_new_regular_wrap (self->curr.pod));
+    g_value_take_boxed (item, wp_spa_pod_new_wrap (self->curr.pod));
   }
   return TRUE;
 }
@@ -2976,7 +2976,7 @@ wp_spa_pod_iterator_fold (WpIterator *iterator, WpIteratorFoldFunc func,
     SPA_POD_STRUCT_FOREACH (self->pod->pod, p) {
       GValue v = G_VALUE_INIT;
       g_value_init (&v, WP_TYPE_SPA_POD);
-      g_value_take_boxed (&v, wp_spa_pod_new_regular_wrap (p));
+      g_value_take_boxed (&v, wp_spa_pod_new_wrap (p));
       const gboolean res = func (&v, ret, data);
       g_value_unset (&v);
       if (!res)
