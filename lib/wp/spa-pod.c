@@ -19,7 +19,8 @@
 #define WP_SPA_POD_BUILDER_REALLOC_STEP_SIZE 64
 
 enum {
-  FLAG_NO_OWNERSHIP = (1 << 0)
+  FLAG_NO_OWNERSHIP = (1 << 0),
+  FLAG_CONSTANT = (1 << 1)
 };
 
 typedef enum {
@@ -161,10 +162,22 @@ wp_spa_pod_unref (WpSpaPod *self)
 }
 
 static WpSpaPod *
-wp_spa_pod_new (const struct spa_pod *pod)
+wp_spa_pod_new (const struct spa_pod *pod, WpSpaPodType type, guint32 flags)
 {
   WpSpaPod *self = g_slice_new0 (WpSpaPod);
   g_ref_count_init (&self->ref);
+  self->flags = flags;
+  self->type = type;
+
+  /* Copy the reference if no ownership, otherwise copy the pod */
+  if (self->flags & FLAG_NO_OWNERSHIP) {
+    self->pod = (struct spa_pod *)pod;
+  } else {
+    self->builder = wp_spa_pod_builder_new (
+      SPA_ROUND_UP_N (sizeof (*pod) + pod->size, 8), pod->type);
+    self->pod = self->builder->builder.data;
+    spa_pod_builder_primitive (&self->builder->builder, pod);
+  }
 
   /* Set the prop table if it is an object */
   if (pod->type == SPA_TYPE_Object) {
@@ -180,19 +193,21 @@ wp_spa_pod_new (const struct spa_pod *pod)
 WpSpaPod *
 wp_spa_pod_new_wrap (struct spa_pod *pod)
 {
-  WpSpaPod *self = wp_spa_pod_new (pod);
-  self->flags = FLAG_NO_OWNERSHIP;
-  self->type = WP_SPA_POD_REGULAR;
-  self->pod = pod;
-  return self;
+  return wp_spa_pod_new (pod, WP_SPA_POD_REGULAR, FLAG_NO_OWNERSHIP);
+}
+
+WpSpaPod *
+wp_spa_pod_new_wrap_const (const struct spa_pod *pod)
+{
+  return wp_spa_pod_new (pod, WP_SPA_POD_REGULAR,
+      FLAG_NO_OWNERSHIP | FLAG_CONSTANT);
 }
 
 WpSpaPod *
 wp_spa_pod_new_property_wrap (WpSpaTypeTable table, guint32 key, guint32 flags,
     struct spa_pod *pod)
 {
-  WpSpaPod *self = wp_spa_pod_new_wrap (pod);
-  self->type = WP_SPA_POD_PROPERTY;
+  WpSpaPod *self = wp_spa_pod_new (pod, WP_SPA_POD_PROPERTY, FLAG_NO_OWNERSHIP);
   self->static_pod.data_property.table = table;
   self->static_pod.data_property.key = key;
   self->static_pod.data_property.flags = flags;
@@ -200,10 +215,33 @@ wp_spa_pod_new_property_wrap (WpSpaTypeTable table, guint32 key, guint32 flags,
 }
 
 WpSpaPod *
-wp_spa_pod_new_control_wrap (guint32 offset, guint32 type, struct spa_pod *pod)
+wp_spa_pod_new_property_wrap_const (WpSpaTypeTable table, guint32 key,
+    guint32 flags, const struct spa_pod *pod)
 {
-  WpSpaPod *self = wp_spa_pod_new_wrap (pod);
-  self->type = WP_SPA_POD_CONTROL;
+  WpSpaPod *self = wp_spa_pod_new (pod, WP_SPA_POD_PROPERTY,
+      FLAG_NO_OWNERSHIP | FLAG_CONSTANT);
+  self->static_pod.data_property.table = table;
+  self->static_pod.data_property.key = key;
+  self->static_pod.data_property.flags = flags;
+  return self;
+}
+
+WpSpaPod *
+wp_spa_pod_new_control_wrap (guint32 offset, guint32 type,
+    struct spa_pod *pod)
+{
+  WpSpaPod *self = wp_spa_pod_new (pod, WP_SPA_POD_CONTROL, FLAG_NO_OWNERSHIP);
+  self->static_pod.data_control.offset = offset;
+  self->static_pod.data_control.type = type;
+  return self;
+}
+
+WpSpaPod *
+wp_spa_pod_new_control_wrap_const (guint32 offset, guint32 type,
+    const struct spa_pod *pod)
+{
+  WpSpaPod *self = wp_spa_pod_new (pod, WP_SPA_POD_CONTROL,
+      FLAG_NO_OWNERSHIP | FLAG_CONSTANT);
   self->static_pod.data_control.offset = offset;
   self->static_pod.data_control.type = type;
   return self;
@@ -212,22 +250,14 @@ wp_spa_pod_new_control_wrap (guint32 offset, guint32 type, struct spa_pod *pod)
 WpSpaPod *
 wp_spa_pod_new_wrap_copy (const struct spa_pod *pod)
 {
-  WpSpaPod *self = wp_spa_pod_new (pod);
-  self->flags = 0;
-  self->type = WP_SPA_POD_REGULAR;
-  self->builder = wp_spa_pod_builder_new (
-      SPA_ROUND_UP_N (sizeof (*pod) + pod->size, 8), pod->type);
-  self->pod = self->builder->builder.data;
-  spa_pod_builder_primitive (&self->builder->builder, pod);
-  return self;
+  return wp_spa_pod_new (pod, WP_SPA_POD_REGULAR, 0);
 }
 
 WpSpaPod *
 wp_spa_pod_new_property_wrap_copy (WpSpaTypeTable table, guint32 key,
     guint32 flags, const struct spa_pod *pod)
 {
-  WpSpaPod *self = wp_spa_pod_new_wrap_copy (pod);
-  self->type = WP_SPA_POD_PROPERTY;
+  WpSpaPod *self = wp_spa_pod_new (pod, WP_SPA_POD_PROPERTY, 0);
   self->static_pod.data_property.table = table;
   self->static_pod.data_property.key = key;
   self->static_pod.data_property.flags = flags;
@@ -238,8 +268,7 @@ WpSpaPod *
 wp_spa_pod_new_control_wrap_copy (guint32 offset, guint32 type,
     const struct spa_pod *pod)
 {
-  WpSpaPod *self = wp_spa_pod_new_wrap_copy (pod);
-  self->type = WP_SPA_POD_CONTROL;
+  WpSpaPod *self = wp_spa_pod_new (pod, WP_SPA_POD_CONTROL, 0);
   self->static_pod.data_control.offset = offset;
   self->static_pod.data_control.type = type;
   return self;
@@ -1282,6 +1311,7 @@ gboolean
 wp_spa_pod_set_boolean (WpSpaPod *self, gboolean value)
 {
   g_return_val_if_fail (wp_spa_pod_is_boolean (self), FALSE);
+  g_return_val_if_fail (!(self->flags & FLAG_CONSTANT), FALSE);
   ((struct spa_pod_bool *)self->pod)->value = value ? true : false;
   return TRUE;
 }
@@ -1299,6 +1329,7 @@ gboolean
 wp_spa_pod_set_id (WpSpaPod *self, guint32 value)
 {
   g_return_val_if_fail (wp_spa_pod_is_id (self), FALSE);
+  g_return_val_if_fail (!(self->flags & FLAG_CONSTANT), FALSE);
   ((struct spa_pod_id *)self->pod)->value = value;
   return TRUE;
 }
@@ -1316,6 +1347,7 @@ gboolean
 wp_spa_pod_set_int (WpSpaPod *self, gint value)
 {
   g_return_val_if_fail (wp_spa_pod_is_int (self), FALSE);
+  g_return_val_if_fail (!(self->flags & FLAG_CONSTANT), FALSE);
   ((struct spa_pod_int *)self->pod)->value = value;
   return TRUE;
 }
@@ -1333,6 +1365,7 @@ gboolean
 wp_spa_pod_set_long (WpSpaPod *self, glong value)
 {
   g_return_val_if_fail (wp_spa_pod_is_long (self), FALSE);
+  g_return_val_if_fail (!(self->flags & FLAG_CONSTANT), FALSE);
   ((struct spa_pod_long *)self->pod)->value = value;
   return TRUE;
 }
@@ -1350,6 +1383,7 @@ gboolean
 wp_spa_pod_set_float (WpSpaPod *self, float value)
 {
   g_return_val_if_fail (wp_spa_pod_is_float (self), FALSE);
+  g_return_val_if_fail (!(self->flags & FLAG_CONSTANT), FALSE);
   ((struct spa_pod_float *)self->pod)->value = value;
   return TRUE;
 }
@@ -1367,6 +1401,7 @@ gboolean
 wp_spa_pod_set_double (WpSpaPod *self, double value)
 {
   g_return_val_if_fail (wp_spa_pod_is_double (self), FALSE);
+  g_return_val_if_fail (!(self->flags & FLAG_CONSTANT), FALSE);
   ((struct spa_pod_double *)self->pod)->value = value;
   return TRUE;
 }
@@ -1388,6 +1423,7 @@ wp_spa_pod_set_pointer (WpSpaPod *self, const char *type_name,
   guint32 id = 0;
 
   g_return_val_if_fail (wp_spa_pod_is_pointer (self), FALSE);
+  g_return_val_if_fail (!(self->flags & FLAG_CONSTANT), FALSE);
 
   if (!wp_spa_type_get_by_nick (WP_SPA_TYPE_TABLE_BASIC, type_name, &id, NULL,
       NULL))
@@ -1411,6 +1447,7 @@ gboolean
 wp_spa_pod_set_fd (WpSpaPod *self, gint64 value)
 {
   g_return_val_if_fail (wp_spa_pod_is_fd (self), FALSE);
+  g_return_val_if_fail (!(self->flags & FLAG_CONSTANT), FALSE);
   ((struct spa_pod_fd *)self->pod)->value = value;
   return TRUE;
 }
@@ -1429,6 +1466,7 @@ gboolean
 wp_spa_pod_set_rectangle (WpSpaPod *self, guint32 width, guint32 height)
 {
   g_return_val_if_fail (wp_spa_pod_is_rectangle (self), FALSE);
+  g_return_val_if_fail (!(self->flags & FLAG_CONSTANT), FALSE);
   ((struct spa_pod_rectangle *)self->pod)->value.width = width;
   ((struct spa_pod_rectangle *)self->pod)->value.height = height;
   return TRUE;
@@ -1448,6 +1486,7 @@ gboolean
 wp_spa_pod_set_fraction (WpSpaPod *self, guint32 num, guint32 denom)
 {
   g_return_val_if_fail (wp_spa_pod_is_fraction (self), FALSE);
+  g_return_val_if_fail (!(self->flags & FLAG_CONSTANT), FALSE);
   ((struct spa_pod_fraction *)self->pod)->value.num = num;
   ((struct spa_pod_fraction *)self->pod)->value.denom = denom;
   return TRUE;
@@ -1468,6 +1507,7 @@ wp_spa_pod_set_pod (WpSpaPod *self, const WpSpaPod *pod)
 {
   g_return_val_if_fail (self->type == pod->type, FALSE);
   g_return_val_if_fail (SPA_POD_TYPE (self->pod) == SPA_POD_TYPE (pod->pod), FALSE);
+  g_return_val_if_fail (!(self->flags & FLAG_CONSTANT), FALSE);
 
   switch (SPA_POD_TYPE (self->pod)) {
   case SPA_TYPE_None:

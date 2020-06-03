@@ -148,10 +148,15 @@ gpointer wp_iterator_get_user_data (WpIterator *self);
 
 typedef struct _WpSpaPod WpSpaPod;
 WpSpaPod * wp_spa_pod_new_wrap (struct spa_pod *pod);
+WpSpaPod * wp_spa_pod_new_wrap_const (const struct spa_pod *pod);
 WpSpaPod * wp_spa_pod_new_property_wrap (WpSpaTypeTable table, guint32 key,
     guint32 flags, struct spa_pod *pod);
+WpSpaPod * wp_spa_pod_new_property_wrap_const (WpSpaTypeTable table,
+    guint32 key, guint32 flags, const struct spa_pod *pod);
 WpSpaPod * wp_spa_pod_new_control_wrap (guint32 offset, guint32 type,
     struct spa_pod *pod);
+WpSpaPod * wp_spa_pod_new_control_wrap_const (guint32 offset, guint32 type,
+    const struct spa_pod *pod);
 WpSpaPod * wp_spa_pod_new_wrap_copy (const struct spa_pod *pod);
 WpSpaPod * wp_spa_pod_new_property_wrap_copy (WpSpaTypeTable table, guint32 key,
     guint32 flags, const struct spa_pod *pod);
