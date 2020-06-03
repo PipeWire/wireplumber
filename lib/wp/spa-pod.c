@@ -247,13 +247,13 @@ wp_spa_pod_new_control_wrap_const (guint32 offset, guint32 type,
   return self;
 }
 
-WpSpaPod *
+static WpSpaPod *
 wp_spa_pod_new_wrap_copy (const struct spa_pod *pod)
 {
   return wp_spa_pod_new (pod, WP_SPA_POD_REGULAR, 0);
 }
 
-WpSpaPod *
+static WpSpaPod *
 wp_spa_pod_new_property_wrap_copy (WpSpaTypeTable table, guint32 key,
     guint32 flags, const struct spa_pod *pod)
 {
@@ -264,7 +264,7 @@ wp_spa_pod_new_property_wrap_copy (WpSpaTypeTable table, guint32 key,
   return self;
 }
 
-WpSpaPod *
+static WpSpaPod *
 wp_spa_pod_new_control_wrap_copy (guint32 offset, guint32 type,
     const struct spa_pod *pod)
 {

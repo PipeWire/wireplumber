@@ -157,11 +157,6 @@ WpSpaPod * wp_spa_pod_new_control_wrap (guint32 offset, guint32 type,
     struct spa_pod *pod);
 WpSpaPod * wp_spa_pod_new_control_wrap_const (guint32 offset, guint32 type,
     const struct spa_pod *pod);
-WpSpaPod * wp_spa_pod_new_wrap_copy (const struct spa_pod *pod);
-WpSpaPod * wp_spa_pod_new_property_wrap_copy (WpSpaTypeTable table, guint32 key,
-    guint32 flags, const struct spa_pod *pod);
-WpSpaPod * wp_spa_pod_new_control_wrap_copy (guint32 offset, guint32 type,
-    const struct spa_pod *pod);
 const struct spa_pod *wp_spa_pod_get_spa_pod (const WpSpaPod *self);
 
 /* session item */
