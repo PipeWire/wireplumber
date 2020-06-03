@@ -120,6 +120,10 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
   if (!endpoint_data)
     return;
 
+  wp_info_object (self, "node %u " WP_OBJECT_FORMAT " matches %s",
+      wp_proxy_get_bound_id (proxy), WP_OBJECT_ARGS (proxy),
+      endpoint_data->filename);
+
   /* Get the session */
   session = wp_object_manager_lookup (self->sessions_om, WP_TYPE_SESSION,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "session.name", "=s",
