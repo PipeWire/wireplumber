@@ -830,7 +830,7 @@ impl_set_param (void *object, uint32_t id, uint32_t flags,
     return -ENOENT;
 
   WpProps *props = wp_proxy_get_props (WP_PROXY (self));
-  wp_props_set (props, NULL, wp_spa_pod_new_wrap (param));
+  wp_props_set (props, NULL, wp_spa_pod_new_wrap_const (param));
   return 0;
 }
 
