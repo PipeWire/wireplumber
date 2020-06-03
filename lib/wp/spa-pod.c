@@ -459,6 +459,7 @@ wp_spa_pod_new_int (gint value)
 {
   WpSpaPod *self = g_slice_new0 (WpSpaPod);
   g_ref_count_init (&self->ref);
+  self->type = WP_SPA_POD_REGULAR;
   self->static_pod.pod_int = SPA_POD_INIT_Int (value);
   self->pod = &self->static_pod.pod_int.pod;
   return self;
