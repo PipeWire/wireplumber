@@ -3053,15 +3053,14 @@ static void
 wp_spa_pod_iterator_finalize (WpIterator *iterator)
 {
   WpSpaPodIterator *self = wp_iterator_get_user_data (iterator);
-  self->pod = NULL;
+  g_clear_pointer (&self->pod, wp_spa_pod_unref);
 }
 
 /**
  * wp_spa_pod_iterate:
  * @pod: a spa pod object
  *
- * Creates a new iterator for a spa pod object. The @pod object must be valid
- * for the entire life-cycle of the returned iterator.
+ * Creates a new iterator for a spa pod object.
  *
  * Returns: (transfer full): the new spa pod iterator
  */
@@ -3078,7 +3077,7 @@ wp_spa_pod_iterate (WpSpaPod *pod)
   WpIterator *it = wp_iterator_new (&methods, sizeof (WpSpaPodIterator));
   WpSpaPodIterator *self = wp_iterator_get_user_data (it);
 
-  self->pod = pod;
+  self->pod = wp_spa_pod_ref (pod);
 
   return it;
 }
