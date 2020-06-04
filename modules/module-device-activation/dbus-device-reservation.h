@@ -13,6 +13,10 @@
 
 G_BEGIN_DECLS
 
+#define JACK_APPLICATION_NAME "Jack audio server"
+#define PULSEAUDIO_APPLICATION_NAME "PulseAudio Sound Server"
+#define PIPEWIRE_APPLICATION_NAME "PipeWire"
+
 #define WP_TYPE_DBUS_DEVICE_RESERVATION (wp_dbus_device_reservation_get_type ())
 G_DECLARE_FINAL_TYPE (WpDbusDeviceReservation, wp_dbus_device_reservation, WP,
     DBUS_DEVICE_RESERVATION, GObject)

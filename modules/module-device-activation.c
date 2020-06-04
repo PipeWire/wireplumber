@@ -116,8 +116,8 @@ add_reserve_device_data (WpDeviceActivation * self, WpProxy *device,
   app_dev_name = wp_properties_get (props, SPA_KEY_API_ALSA_PATH);
 
   /* Create the dbus device reservation */
-  reservation = wp_dbus_device_reservation_new (card_id, "PipeWire", 10,
-      app_dev_name);
+  reservation = wp_dbus_device_reservation_new (card_id,
+      PIPEWIRE_APPLICATION_NAME, 10, app_dev_name);
 
   /* Create the reserve device data */
   device_data = wp_reserve_device_new (device, reservation);

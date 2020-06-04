@@ -67,6 +67,36 @@ increment_jack_n_acquired (WpProxy *device)
 }
 
 static void
+enable_jack_device (WpReserveDevice *self) {
+  g_autoptr (WpProxy) jack_device = NULL;
+  g_return_if_fail (self);
+
+  /* Get the JACK device and increment the jack acquisition. We only enable the
+   * JACK device if this is the first acquisition */
+  jack_device = wp_object_manager_lookup (self->jack_device_om, WP_TYPE_DEVICE,
+      NULL);
+  if (jack_device && increment_jack_n_acquired (jack_device) == 1) {
+    set_device_profile (jack_device, 1);
+    wp_info_object (self, "jack device enabled");
+  }
+}
+
+static void
+disable_jack_device (WpReserveDevice *self) {
+  g_autoptr (WpProxy) jack_device = NULL;
+  g_return_if_fail (self);
+
+  /* Get the JACK device and decrement the jack acquisition. We only disable the
+   * JACK device if there is no more acquisitions */
+  jack_device = wp_object_manager_lookup (self->jack_device_om, WP_TYPE_DEVICE,
+      NULL);
+  if (jack_device && decrement_jack_n_acquired (jack_device) == 0) {
+    set_device_profile (jack_device, 0);
+    wp_info_object (self, "jack device disabled");
+  }
+}
+
+static void
 on_device_done (WpCore *core, GAsyncResult *res, WpReserveDevice *self)
 {
   if (self->reservation)
@@ -81,7 +111,6 @@ on_application_name_done (GObject *obj, GAsyncResult *res, gpointer user_data)
   WpReserveDevice *self = user_data;
   g_autoptr (GError) e = NULL;
   g_autofree gchar *name = NULL;
-  g_autoptr (WpProxy) jack_device = NULL;
 
   /* Note that the ApplicationName property is optional as described in the
    * specification (http://git.0pointer.net/reserve.git/tree/reserve.txt), so
@@ -95,15 +124,8 @@ on_application_name_done (GObject *obj, GAsyncResult *res, gpointer user_data)
   wp_info_object (self, "owner: %s", name ? name : "unknown");
 
   /* Only enable the JACK device if the owner is the JACK audio server */
-  if (!name || g_strcmp0 (name, "Jack audio server") != 0)
-    return;
-
-  /* Get the JACK device and increment the jack acquisition. We only enable the
-   * JACK device if this is the first acquisition */
-  jack_device = wp_object_manager_lookup (self->jack_device_om, WP_TYPE_DEVICE,
-      NULL);
-  if (jack_device && increment_jack_n_acquired (jack_device) == 1)
-    set_device_profile (jack_device, 1);
+  if (name && g_strcmp0 (name, JACK_APPLICATION_NAME) == 0)
+    enable_jack_device (self);
 }
 
 static void
@@ -111,7 +133,6 @@ on_reservation_acquired (GObject *obj, GAsyncResult *res, gpointer user_data)
 {
   WpReserveDevice *self = user_data;
   g_autoptr (GError) e = NULL;
-  g_autoptr (WpProxy) jack_device = NULL;
   g_autoptr (WpProxy) device = NULL;
 
   /* If the audio device could not be acquired, check who owns it and maybe
@@ -123,12 +144,8 @@ on_reservation_acquired (GObject *obj, GAsyncResult *res, gpointer user_data)
     return;
   }
 
-  /* Get the JACK device and decrement the jack acquisition. We only disable the
-   * JACK device if there is no acquisitions */
-  jack_device = wp_object_manager_lookup (self->jack_device_om, WP_TYPE_DEVICE,
-      NULL);
-  if (jack_device && decrement_jack_n_acquired (jack_device) == 0)
-    set_device_profile (jack_device, 0);
+  /* Always disable the JACK device because we are the owner */
+  disable_jack_device (self);
 
   /* Enable Audio device */
   device = g_weak_ref_get (&self->device);
