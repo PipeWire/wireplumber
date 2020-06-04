@@ -91,7 +91,7 @@ wp_device_get_param_info (WpProxy * self, guint * n_params)
 
 static gint
 wp_device_enum_params (WpProxy * self, guint32 id, guint32 start,
-    guint32 num, const WpSpaPod * filter)
+    guint32 num, WpSpaPod * filter)
 {
   struct pw_device *pwp = (struct pw_device *) wp_proxy_get_pw_proxy (self);
   return pw_device_enum_params (pwp, 0, id, start, num,
@@ -106,8 +106,7 @@ wp_device_subscribe_params (WpProxy * self, guint32 *ids, guint32 n_ids)
 }
 
 static gint
-wp_device_set_param (WpProxy * self, guint32 id, guint32 flags,
-    const WpSpaPod *param)
+wp_device_set_param (WpProxy * self, guint32 id, guint32 flags, WpSpaPod *param)
 {
   struct pw_device *pwp = (struct pw_device *) wp_proxy_get_pw_proxy (self);
   return pw_device_set_param (pwp, id, flags,
@@ -365,7 +364,7 @@ wp_spa_device_get_properties (WpProxy * proxy)
 
 static gint
 wp_spa_device_enum_params (WpProxy * proxy, guint32 id, guint32 start,
-    guint32 num, const WpSpaPod * filter)
+    guint32 num, WpSpaPod * filter)
 {
   WpSpaDevice *self = WP_SPA_DEVICE (proxy);
   return spa_device_enum_params (self->interface,
@@ -374,7 +373,7 @@ wp_spa_device_enum_params (WpProxy * proxy, guint32 id, guint32 start,
 
 static gint
 wp_spa_device_set_param (WpProxy * proxy, guint32 id, guint32 flags,
-    const WpSpaPod *param)
+    WpSpaPod *param)
 {
   WpSpaDevice *self = WP_SPA_DEVICE (proxy);
   return spa_device_set_param (self->interface,

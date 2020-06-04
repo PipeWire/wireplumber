@@ -34,16 +34,16 @@ WP_API
 void wp_spa_pod_unref (WpSpaPod *self);
 
 WP_API
-const char *wp_spa_pod_get_type_name (const WpSpaPod *self);
+const char *wp_spa_pod_get_type_name (WpSpaPod *self);
 
 WP_API
-const char *wp_spa_pod_get_choice_type_name (const WpSpaPod *self);
+const char *wp_spa_pod_get_choice_type_name (WpSpaPod *self);
 
 WP_API
-const char *wp_spa_pod_get_object_type_name (const WpSpaPod *self);
+const char *wp_spa_pod_get_object_type_name (WpSpaPod *self);
 
 WP_API
-WpSpaPod *wp_spa_pod_copy (const WpSpaPod *other);
+WpSpaPod *wp_spa_pod_copy (WpSpaPod *other);
 
 WP_API
 gboolean wp_spa_pod_is_unique_owner ( WpSpaPod *self);
@@ -112,104 +112,103 @@ WP_API
 WpSpaPod *wp_spa_pod_new_sequence_valist (guint unit, va_list args);
 
 WP_API
-gboolean wp_spa_pod_is_none (const WpSpaPod *self);
+gboolean wp_spa_pod_is_none (WpSpaPod *self);
 
 WP_API
-gboolean wp_spa_pod_is_boolean (const WpSpaPod *self);
+gboolean wp_spa_pod_is_boolean (WpSpaPod *self);
 
 WP_API
-gboolean wp_spa_pod_is_id (const WpSpaPod *self);
+gboolean wp_spa_pod_is_id (WpSpaPod *self);
 
 WP_API
-gboolean wp_spa_pod_is_int (const WpSpaPod *self);
+gboolean wp_spa_pod_is_int (WpSpaPod *self);
 
 WP_API
-gboolean wp_spa_pod_is_long (const WpSpaPod *self);
+gboolean wp_spa_pod_is_long (WpSpaPod *self);
 
 WP_API
-gboolean wp_spa_pod_is_float (const WpSpaPod *self);
+gboolean wp_spa_pod_is_float (WpSpaPod *self);
 
 WP_API
-gboolean wp_spa_pod_is_double (const WpSpaPod *self);
+gboolean wp_spa_pod_is_double (WpSpaPod *self);
 
 WP_API
-gboolean wp_spa_pod_is_string (const WpSpaPod *self);
+gboolean wp_spa_pod_is_string (WpSpaPod *self);
 
 WP_API
-gboolean wp_spa_pod_is_bytes (const WpSpaPod *self);
+gboolean wp_spa_pod_is_bytes (WpSpaPod *self);
 
 WP_API
-gboolean wp_spa_pod_is_pointer (const WpSpaPod *self);
+gboolean wp_spa_pod_is_pointer (WpSpaPod *self);
 
 WP_API
-gboolean wp_spa_pod_is_fd (const WpSpaPod *self);
+gboolean wp_spa_pod_is_fd (WpSpaPod *self);
 
 WP_API
-gboolean wp_spa_pod_is_rectangle (const WpSpaPod *self);
+gboolean wp_spa_pod_is_rectangle (WpSpaPod *self);
 
 WP_API
-gboolean wp_spa_pod_is_fraction (const WpSpaPod *self);
+gboolean wp_spa_pod_is_fraction (WpSpaPod *self);
 
 WP_API
-gboolean wp_spa_pod_is_array (const WpSpaPod *self);
+gboolean wp_spa_pod_is_array (WpSpaPod *self);
 
 WP_API
-gboolean wp_spa_pod_is_choice (const WpSpaPod *self);
+gboolean wp_spa_pod_is_choice (WpSpaPod *self);
 
 WP_API
-gboolean wp_spa_pod_is_object (const WpSpaPod *self);
+gboolean wp_spa_pod_is_object (WpSpaPod *self);
 
 WP_API
-gboolean wp_spa_pod_is_struct (const WpSpaPod *self);
+gboolean wp_spa_pod_is_struct (WpSpaPod *self);
 
 WP_API
-gboolean wp_spa_pod_is_sequence (const WpSpaPod *self);
+gboolean wp_spa_pod_is_sequence (WpSpaPod *self);
 
 WP_API
-gboolean wp_spa_pod_is_property (const WpSpaPod *self);
+gboolean wp_spa_pod_is_property (WpSpaPod *self);
 
 WP_API
-gboolean wp_spa_pod_is_control (const WpSpaPod *self);
+gboolean wp_spa_pod_is_control (WpSpaPod *self);
 
 WP_API
-gboolean wp_spa_pod_get_boolean (const WpSpaPod *self, gboolean *value);
+gboolean wp_spa_pod_get_boolean (WpSpaPod *self, gboolean *value);
 
 WP_API
-gboolean wp_spa_pod_get_id (const WpSpaPod *self, guint32 *value);
+gboolean wp_spa_pod_get_id (WpSpaPod *self, guint32 *value);
 
 WP_API
-gboolean wp_spa_pod_get_int (const WpSpaPod *self, gint *value);
+gboolean wp_spa_pod_get_int (WpSpaPod *self, gint *value);
 
 WP_API
-gboolean wp_spa_pod_get_long (const WpSpaPod *self, glong *value);
+gboolean wp_spa_pod_get_long (WpSpaPod *self, glong *value);
 
 WP_API
-gboolean wp_spa_pod_get_float (const WpSpaPod *self, float *value);
+gboolean wp_spa_pod_get_float (WpSpaPod *self, float *value);
 
 WP_API
-gboolean wp_spa_pod_get_double (const WpSpaPod *self, double *value);
+gboolean wp_spa_pod_get_double (WpSpaPod *self, double *value);
 
 WP_API
-gboolean wp_spa_pod_get_string (const WpSpaPod *self, const char **value);
+gboolean wp_spa_pod_get_string (WpSpaPod *self, const char **value);
 
 WP_API
-gboolean wp_spa_pod_get_bytes (const WpSpaPod *self, gconstpointer *value,
+gboolean wp_spa_pod_get_bytes (WpSpaPod *self, gconstpointer *value,
     guint32 *len);
 
 WP_API
-gboolean wp_spa_pod_get_pointer (const WpSpaPod *self, const char **type_name,
+gboolean wp_spa_pod_get_pointer (WpSpaPod *self, const char **type_name,
    gconstpointer *value);
 
 WP_API
-gboolean wp_spa_pod_get_fd (const WpSpaPod *self, gint64 *value);
+gboolean wp_spa_pod_get_fd (WpSpaPod *self, gint64 *value);
 
 WP_API
-gboolean wp_spa_pod_get_rectangle (const WpSpaPod *self, guint32 *width,
+gboolean wp_spa_pod_get_rectangle (WpSpaPod *self, guint32 *width,
     guint32 *height);
 
 WP_API
-gboolean wp_spa_pod_get_fraction (const WpSpaPod *self, guint32 *num,
-    guint32 *denom);
+gboolean wp_spa_pod_get_fraction (WpSpaPod *self, guint32 *num, guint32 *denom);
 
 WP_API
 gboolean wp_spa_pod_set_boolean (WpSpaPod *self, gboolean value);
@@ -244,32 +243,31 @@ WP_API
 gboolean wp_spa_pod_set_fraction (WpSpaPod *self, guint32 num, guint32 denom);
 
 WP_API
-gboolean wp_spa_pod_set_pod (WpSpaPod *self, const WpSpaPod *pod);
+gboolean wp_spa_pod_set_pod (WpSpaPod *self, WpSpaPod *pod);
 
 WP_API
-gboolean wp_spa_pod_equal (const WpSpaPod *self, const WpSpaPod *pod);
+gboolean wp_spa_pod_equal (WpSpaPod *self, WpSpaPod *pod);
 
 WP_API
-gboolean wp_spa_pod_get_object (const WpSpaPod *self, const char *type_name,
+gboolean wp_spa_pod_get_object (WpSpaPod *self, const char *type_name,
     const char **id_name, ...) G_GNUC_NULL_TERMINATED;
 
 WP_API
-gboolean wp_spa_pod_get_object_valist (const WpSpaPod *self,
-    const char *type_name, const char **id_name, va_list args);
+gboolean wp_spa_pod_get_object_valist (WpSpaPod *self, const char *type_name,
+    const char **id_name, va_list args);
 
 WP_API
-gboolean wp_spa_pod_get_struct (const WpSpaPod *self, ...)
-    G_GNUC_NULL_TERMINATED;
+gboolean wp_spa_pod_get_struct (WpSpaPod *self, ...) G_GNUC_NULL_TERMINATED;
 
 WP_API
-gboolean wp_spa_pod_get_struct_valist (const WpSpaPod *self, va_list args);
+gboolean wp_spa_pod_get_struct_valist (WpSpaPod *self, va_list args);
 
 WP_API
-gboolean wp_spa_pod_get_property (const WpSpaPod *self, const char **key,
+gboolean wp_spa_pod_get_property (WpSpaPod *self, const char **key,
     WpSpaPod **value);
 
 WP_API
-gboolean wp_spa_pod_get_control (const WpSpaPod *self, guint32 *offset,
+gboolean wp_spa_pod_get_control (WpSpaPod *self, guint32 *offset,
     const char **type_name, WpSpaPod **value);
 
 WP_API
@@ -279,7 +277,7 @@ WP_API
 WpSpaPod *wp_spa_pod_get_array_child (WpSpaPod *self);
 
 WP_API
-WpIterator *wp_spa_pod_iterate (const WpSpaPod *pod);
+WpIterator *wp_spa_pod_iterate (WpSpaPod *pod);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpSpaPod, wp_spa_pod_unref)
 
@@ -361,7 +359,7 @@ void wp_spa_pod_builder_add_fraction (WpSpaPodBuilder *self, guint32 num,
     guint32 denom);
 
 WP_API
-void wp_spa_pod_builder_add_pod (WpSpaPodBuilder *self, const WpSpaPod *pod);
+void wp_spa_pod_builder_add_pod (WpSpaPodBuilder *self, WpSpaPod *pod);
 
 WP_API
 void wp_spa_pod_builder_add_property (WpSpaPodBuilder *self, const char *key);
@@ -403,11 +401,11 @@ WP_API
 void wp_spa_pod_parser_unref (WpSpaPodParser *self);
 
 WP_API
-WpSpaPodParser *wp_spa_pod_parser_new_object (const WpSpaPod *pod,
+WpSpaPodParser *wp_spa_pod_parser_new_object (WpSpaPod *pod,
     const char *type_name, const char **id_name);
 
 WP_API
-WpSpaPodParser *wp_spa_pod_parser_new_struct (const WpSpaPod *pod);
+WpSpaPodParser *wp_spa_pod_parser_new_struct (WpSpaPod *pod);
 
 WP_API
 gboolean wp_spa_pod_parser_get_boolean (WpSpaPodParser *self, gboolean *value);

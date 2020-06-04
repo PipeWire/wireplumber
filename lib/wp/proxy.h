@@ -85,10 +85,10 @@ struct _WpProxyClass
   struct spa_param_info * (*get_param_info) (WpProxy * self, guint * n_params);
 
   gint (*enum_params) (WpProxy * self, guint32 id, guint32 start, guint32 num,
-      const WpSpaPod * filter);
+      WpSpaPod * filter);
   gint (*subscribe_params) (WpProxy * self, guint32 *ids, guint32 n_ids);
   gint (*set_param) (WpProxy * self, guint32 id, guint32 flags,
-      const WpSpaPod * param);
+      WpSpaPod * param);
 
   /* signals */
 
@@ -155,17 +155,16 @@ guint32 wp_proxy_get_bound_id (WpProxy * self);
 /* params API */
 
 WP_API
-void wp_proxy_enum_params (WpProxy * self, const gchar * id,
-    const WpSpaPod *filter, GCancellable * cancellable,
-    GAsyncReadyCallback callback, gpointer user_data);
+void wp_proxy_enum_params (WpProxy * self, const gchar * id, WpSpaPod *filter,
+    GCancellable * cancellable, GAsyncReadyCallback callback,
+    gpointer user_data);
 
 WP_API
 WpIterator * wp_proxy_enum_params_finish (WpProxy * self, GAsyncResult * res,
     GError ** error);
 
 WP_API
-void wp_proxy_set_param (WpProxy * self, const gchar * id,
-    const WpSpaPod * param);
+void wp_proxy_set_param (WpProxy * self, const gchar * id, WpSpaPod * param);
 
 /* PARAM_PropInfo - PARAM_Props */
 

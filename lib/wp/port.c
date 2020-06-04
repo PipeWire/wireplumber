@@ -73,8 +73,8 @@ wp_port_get_param_info (WpProxy * proxy, guint * n_params)
 }
 
 static gint
-wp_port_enum_params (WpProxy * self, guint32 id, guint32 start,
-    guint32 num, const WpSpaPod * filter)
+wp_port_enum_params (WpProxy * self, guint32 id, guint32 start, guint32 num,
+    WpSpaPod * filter)
 {
   struct pw_port *pwp = (struct pw_port *) wp_proxy_get_pw_proxy (self);
   return pw_port_enum_params (pwp, 0, id, start, num,

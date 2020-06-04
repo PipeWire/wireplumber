@@ -157,8 +157,8 @@ wp_node_get_param_info (WpProxy * proxy, guint * n_params)
 }
 
 static gint
-wp_node_enum_params (WpProxy * self, guint32 id, guint32 start,
-    guint32 num, const WpSpaPod * filter)
+wp_node_enum_params (WpProxy * self, guint32 id, guint32 start, guint32 num,
+    WpSpaPod * filter)
 {
   struct pw_node *pwp = (struct pw_node *) wp_proxy_get_pw_proxy (self);
   return pw_node_enum_params (pwp, 0, id, start, num,
@@ -173,8 +173,7 @@ wp_node_subscribe_params (WpProxy * self, guint32 *ids, guint32 n_ids)
 }
 
 static gint
-wp_node_set_param (WpProxy * self, guint32 id, guint32 flags,
-    const WpSpaPod *param)
+wp_node_set_param (WpProxy * self, guint32 id, guint32 flags, WpSpaPod *param)
 {
   struct pw_node *pwp = (struct pw_node *) wp_proxy_get_pw_proxy (self);
   return pw_node_set_param (pwp, id, flags, wp_spa_pod_get_spa_pod (param));

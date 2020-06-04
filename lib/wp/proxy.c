@@ -914,9 +914,9 @@ enum_params_done (WpCore * core, GAsyncResult * res, gpointer data)
  * with wp_proxy_enum_params_finish().
  */
 void
-wp_proxy_enum_params (WpProxy * self, const gchar * id,
-    const WpSpaPod *filter, GCancellable * cancellable,
-    GAsyncReadyCallback callback, gpointer user_data)
+wp_proxy_enum_params (WpProxy * self, const gchar * id, WpSpaPod *filter,
+    GCancellable * cancellable, GAsyncReadyCallback callback,
+    gpointer user_data)
 {
   g_autoptr (GTask) task = NULL;
   guint32 id_num = 0;
@@ -989,7 +989,7 @@ wp_proxy_enum_params_finish (WpProxy * self, GAsyncResult * res,
  * Sets a parameter on the object.
  */
 void
-wp_proxy_set_param (WpProxy * self, const gchar * id, const WpSpaPod *param)
+wp_proxy_set_param (WpProxy * self, const gchar * id, WpSpaPod *param)
 {
   guint32 id_num = 0;
   gint ret;

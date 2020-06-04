@@ -117,7 +117,7 @@ wp_endpoint_stream_get_param_info (WpProxy * proxy, guint * n_params)
 
 static gint
 wp_endpoint_stream_enum_params (WpProxy * self, guint32 id, guint32 start,
-    guint32 num, const WpSpaPod * filter)
+    guint32 num, WpSpaPod * filter)
 {
   WpEndpointStreamPrivate *priv =
       wp_endpoint_stream_get_instance_private (WP_ENDPOINT_STREAM (self));
@@ -135,7 +135,7 @@ wp_endpoint_stream_subscribe_params (WpProxy * self, guint32 *ids, guint32 n_ids
 
 static gint
 wp_endpoint_stream_set_param (WpProxy * self, guint32 id, guint32 flags,
-    const WpSpaPod *param)
+    WpSpaPod *param)
 {
   WpEndpointStreamPrivate *priv =
       wp_endpoint_stream_get_instance_private (WP_ENDPOINT_STREAM (self));

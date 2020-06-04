@@ -85,7 +85,7 @@ struct _WpSpaPodParser
 {
   guint32 type;
   struct spa_pod_parser parser;
-  const WpSpaPod *pod;
+  WpSpaPod *pod;
   struct spa_pod_frame frame;
   WpSpaTypeTable prop_table;  /* Only used when parsing properties */
 };
@@ -289,7 +289,7 @@ wp_spa_pod_get_spa_pod (const WpSpaPod *self)
  * Returns: the type name of the spa pod object
  */
 const char *
-wp_spa_pod_get_type_name (const WpSpaPod *self)
+wp_spa_pod_get_type_name (WpSpaPod *self)
 {
   const char *nick = NULL;
   if (!wp_spa_type_get_by_id (WP_SPA_TYPE_TABLE_BASIC, SPA_POD_TYPE (self->pod),
@@ -299,7 +299,7 @@ wp_spa_pod_get_type_name (const WpSpaPod *self)
 }
 
 const char *
-wp_spa_pod_get_choice_type_name (const WpSpaPod *self)
+wp_spa_pod_get_choice_type_name (WpSpaPod *self)
 {
   g_return_val_if_fail (wp_spa_pod_is_choice (self), NULL);
 
@@ -311,7 +311,7 @@ wp_spa_pod_get_choice_type_name (const WpSpaPod *self)
 }
 
 const char *
-wp_spa_pod_get_object_type_name (const WpSpaPod *self)
+wp_spa_pod_get_object_type_name (WpSpaPod *self)
 {
   g_return_val_if_fail (wp_spa_pod_is_object (self), NULL);
 
@@ -331,7 +331,7 @@ wp_spa_pod_get_object_type_name (const WpSpaPod *self)
  * Returns: (transfer full): The newly copied spa pod
  */
 WpSpaPod *
-wp_spa_pod_copy (const WpSpaPod *other)
+wp_spa_pod_copy (WpSpaPod *other)
 {
   g_return_val_if_fail (other, NULL);
   switch (other->type) {
@@ -792,7 +792,7 @@ wp_spa_pod_new_sequence_valist (guint unit, va_list args)
  * Returns: TRUE if it is of type none, FALSE otherwise
  */
 gboolean
-wp_spa_pod_is_none (const WpSpaPod *self)
+wp_spa_pod_is_none (WpSpaPod *self)
 {
   return self->type == WP_SPA_POD_REGULAR && spa_pod_is_none (self->pod);
 }
@@ -806,7 +806,7 @@ wp_spa_pod_is_none (const WpSpaPod *self)
  * Returns: TRUE if it is of type boolean, FALSE otherwise
  */
 gboolean
-wp_spa_pod_is_boolean (const WpSpaPod *self)
+wp_spa_pod_is_boolean (WpSpaPod *self)
 {
   return self->type == WP_SPA_POD_REGULAR &&
       spa_pod_is_bool (self->pod) ? TRUE : FALSE;
@@ -821,7 +821,7 @@ wp_spa_pod_is_boolean (const WpSpaPod *self)
  * Returns: TRUE if it is of type Id, FALSE otherwise
  */
 gboolean
-wp_spa_pod_is_id (const WpSpaPod *self)
+wp_spa_pod_is_id (WpSpaPod *self)
 {
   return self->type == WP_SPA_POD_REGULAR && spa_pod_is_id (self->pod);
 }
@@ -835,7 +835,7 @@ wp_spa_pod_is_id (const WpSpaPod *self)
  * Returns: TRUE if it is of type int, FALSE otherwise
  */
 gboolean
-wp_spa_pod_is_int (const WpSpaPod *self)
+wp_spa_pod_is_int (WpSpaPod *self)
 {
   return self->type == WP_SPA_POD_REGULAR && spa_pod_is_int (self->pod);
 }
@@ -849,7 +849,7 @@ wp_spa_pod_is_int (const WpSpaPod *self)
  * Returns: TRUE if it is of type long, FALSE otherwise
  */
 gboolean
-wp_spa_pod_is_long (const WpSpaPod *self)
+wp_spa_pod_is_long (WpSpaPod *self)
 {
   return self->type == WP_SPA_POD_REGULAR && spa_pod_is_long (self->pod);
 }
@@ -863,7 +863,7 @@ wp_spa_pod_is_long (const WpSpaPod *self)
  * Returns: TRUE if it is of type float, FALSE otherwise
  */
 gboolean
-wp_spa_pod_is_float (const WpSpaPod *self)
+wp_spa_pod_is_float (WpSpaPod *self)
 {
   return self->type == WP_SPA_POD_REGULAR && spa_pod_is_float (self->pod);
 }
@@ -877,7 +877,7 @@ wp_spa_pod_is_float (const WpSpaPod *self)
  * Returns: TRUE if it is of type double, FALSE otherwise
  */
 gboolean
-wp_spa_pod_is_double (const WpSpaPod *self)
+wp_spa_pod_is_double (WpSpaPod *self)
 {
   return self->type == WP_SPA_POD_REGULAR && spa_pod_is_double (self->pod);
 }
@@ -891,7 +891,7 @@ wp_spa_pod_is_double (const WpSpaPod *self)
  * Returns: TRUE if it is of type string, FALSE otherwise
  */
 gboolean
-wp_spa_pod_is_string (const WpSpaPod *self)
+wp_spa_pod_is_string (WpSpaPod *self)
 {
   return self->type == WP_SPA_POD_REGULAR && spa_pod_is_string (self->pod);
 }
@@ -905,7 +905,7 @@ wp_spa_pod_is_string (const WpSpaPod *self)
  * Returns: TRUE if it is of type bytes, FALSE otherwise
  */
 gboolean
-wp_spa_pod_is_bytes (const WpSpaPod *self)
+wp_spa_pod_is_bytes (WpSpaPod *self)
 {
   return self->type == WP_SPA_POD_REGULAR && spa_pod_is_bytes (self->pod);
 }
@@ -919,7 +919,7 @@ wp_spa_pod_is_bytes (const WpSpaPod *self)
  * Returns: TRUE if it is of type pointer, FALSE otherwise
  */
 gboolean
-wp_spa_pod_is_pointer (const WpSpaPod *self)
+wp_spa_pod_is_pointer (WpSpaPod *self)
 {
   return self->type == WP_SPA_POD_REGULAR && spa_pod_is_pointer (self->pod);
 }
@@ -933,7 +933,7 @@ wp_spa_pod_is_pointer (const WpSpaPod *self)
  * Returns: TRUE if it is of type Fd, FALSE otherwise
  */
 gboolean
-wp_spa_pod_is_fd (const WpSpaPod *self)
+wp_spa_pod_is_fd (WpSpaPod *self)
 {
   return self->type == WP_SPA_POD_REGULAR && spa_pod_is_fd (self->pod);
 }
@@ -947,7 +947,7 @@ wp_spa_pod_is_fd (const WpSpaPod *self)
  * Returns: TRUE if it is of type rectangle, FALSE otherwise
  */
 gboolean
-wp_spa_pod_is_rectangle (const WpSpaPod *self)
+wp_spa_pod_is_rectangle (WpSpaPod *self)
 {
   return self->type == WP_SPA_POD_REGULAR && spa_pod_is_rectangle (self->pod);
 }
@@ -961,7 +961,7 @@ wp_spa_pod_is_rectangle (const WpSpaPod *self)
  * Returns: TRUE if it is of type fraction, FALSE otherwise
  */
 gboolean
-wp_spa_pod_is_fraction (const WpSpaPod *self)
+wp_spa_pod_is_fraction (WpSpaPod *self)
 {
   return self->type == WP_SPA_POD_REGULAR && spa_pod_is_fraction (self->pod);
 }
@@ -975,7 +975,7 @@ wp_spa_pod_is_fraction (const WpSpaPod *self)
  * Returns: TRUE if it is of type array, FALSE otherwise
  */
 gboolean
-wp_spa_pod_is_array (const WpSpaPod *self)
+wp_spa_pod_is_array (WpSpaPod *self)
 {
   return self->type == WP_SPA_POD_REGULAR && spa_pod_is_array (self->pod);
 }
@@ -989,7 +989,7 @@ wp_spa_pod_is_array (const WpSpaPod *self)
  * Returns: TRUE if it is of type choice, FALSE otherwise
  */
 gboolean
-wp_spa_pod_is_choice (const WpSpaPod *self)
+wp_spa_pod_is_choice (WpSpaPod *self)
 {
   return self->type == WP_SPA_POD_REGULAR && spa_pod_is_choice (self->pod);
 }
@@ -1003,7 +1003,7 @@ wp_spa_pod_is_choice (const WpSpaPod *self)
  * Returns: TRUE if it is of type object, FALSE otherwise
  */
 gboolean
-wp_spa_pod_is_object (const WpSpaPod *self)
+wp_spa_pod_is_object (WpSpaPod *self)
 {
   return self->type == WP_SPA_POD_REGULAR && spa_pod_is_object (self->pod);
 }
@@ -1017,7 +1017,7 @@ wp_spa_pod_is_object (const WpSpaPod *self)
  * Returns: TRUE if it is of type struct, FALSE otherwise
  */
 gboolean
-wp_spa_pod_is_struct (const WpSpaPod *self)
+wp_spa_pod_is_struct (WpSpaPod *self)
 {
   return self->type == WP_SPA_POD_REGULAR && spa_pod_is_struct (self->pod);
 }
@@ -1031,7 +1031,7 @@ wp_spa_pod_is_struct (const WpSpaPod *self)
  * Returns: TRUE if it is of type sequence, FALSE otherwise
  */
 gboolean
-wp_spa_pod_is_sequence (const WpSpaPod *self)
+wp_spa_pod_is_sequence (WpSpaPod *self)
 {
   return self->type == WP_SPA_POD_REGULAR && spa_pod_is_sequence (self->pod);
 }
@@ -1045,7 +1045,7 @@ wp_spa_pod_is_sequence (const WpSpaPod *self)
  * Returns: TRUE if it is of type property, FALSE otherwise
  */
 gboolean
-wp_spa_pod_is_property (const WpSpaPod *self)
+wp_spa_pod_is_property (WpSpaPod *self)
 {
   return self->type == WP_SPA_POD_PROPERTY;
 }
@@ -1059,7 +1059,7 @@ wp_spa_pod_is_property (const WpSpaPod *self)
  * Returns: TRUE if it is of type control, FALSE otherwise
  */
 gboolean
-wp_spa_pod_is_control (const WpSpaPod *self)
+wp_spa_pod_is_control (WpSpaPod *self)
 {
   return self->type == WP_SPA_POD_CONTROL;
 }
@@ -1074,7 +1074,7 @@ wp_spa_pod_is_control (const WpSpaPod *self)
  * Returns: TRUE if the value was obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_get_boolean (const WpSpaPod *self, gboolean *value)
+wp_spa_pod_get_boolean (WpSpaPod *self, gboolean *value)
 {
   g_return_val_if_fail (self, FALSE);
   g_return_val_if_fail (value, FALSE);
@@ -1094,7 +1094,7 @@ wp_spa_pod_get_boolean (const WpSpaPod *self, gboolean *value)
  * Returns: TRUE if the value was obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_get_id (const WpSpaPod *self, guint32 *value)
+wp_spa_pod_get_id (WpSpaPod *self, guint32 *value)
 {
   g_return_val_if_fail (self, FALSE);
   g_return_val_if_fail (value, FALSE);
@@ -1114,7 +1114,7 @@ wp_spa_pod_get_id (const WpSpaPod *self, guint32 *value)
  * Returns: TRUE if the value was obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_get_int (const WpSpaPod *self, gint *value)
+wp_spa_pod_get_int (WpSpaPod *self, gint *value)
 {
   g_return_val_if_fail (self, FALSE);
   g_return_val_if_fail (value, FALSE);
@@ -1131,7 +1131,7 @@ wp_spa_pod_get_int (const WpSpaPod *self, gint *value)
  * Returns: TRUE if the value was obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_get_long (const WpSpaPod *self, glong *value)
+wp_spa_pod_get_long (WpSpaPod *self, glong *value)
 {
   g_return_val_if_fail (self, FALSE);
   g_return_val_if_fail (value, FALSE);
@@ -1148,7 +1148,7 @@ wp_spa_pod_get_long (const WpSpaPod *self, glong *value)
  * Returns: TRUE if the value was obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_get_float (const WpSpaPod *self, float *value)
+wp_spa_pod_get_float (WpSpaPod *self, float *value)
 {
   g_return_val_if_fail (self, FALSE);
   g_return_val_if_fail (value, FALSE);
@@ -1165,7 +1165,7 @@ wp_spa_pod_get_float (const WpSpaPod *self, float *value)
  * Returns: TRUE if the value was obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_get_double (const WpSpaPod *self, double *value)
+wp_spa_pod_get_double (WpSpaPod *self, double *value)
 {
   g_return_val_if_fail (self, FALSE);
   g_return_val_if_fail (value, FALSE);
@@ -1182,7 +1182,7 @@ wp_spa_pod_get_double (const WpSpaPod *self, double *value)
  * Returns: TRUE if the value was obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_get_string (const WpSpaPod *self, const char **value)
+wp_spa_pod_get_string (WpSpaPod *self, const char **value)
 {
   g_return_val_if_fail (self, FALSE);
   g_return_val_if_fail (value, FALSE);
@@ -1200,7 +1200,7 @@ wp_spa_pod_get_string (const WpSpaPod *self, const char **value)
  * Returns: TRUE if the value was obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_get_bytes (const WpSpaPod *self, gconstpointer *value, guint32 *len)
+wp_spa_pod_get_bytes (WpSpaPod *self, gconstpointer *value, guint32 *len)
 {
   g_return_val_if_fail (self, FALSE);
   g_return_val_if_fail (value, FALSE);
@@ -1219,7 +1219,7 @@ wp_spa_pod_get_bytes (const WpSpaPod *self, gconstpointer *value, guint32 *len)
  * Returns: TRUE if the value was obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_get_pointer (const WpSpaPod *self, const char **type_name,
+wp_spa_pod_get_pointer (WpSpaPod *self, const char **type_name,
     gconstpointer *value)
 {
   gboolean res;
@@ -1246,7 +1246,7 @@ wp_spa_pod_get_pointer (const WpSpaPod *self, const char **type_name,
  * Returns: TRUE if the value was obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_get_fd (const WpSpaPod *self, gint64 *value)
+wp_spa_pod_get_fd (WpSpaPod *self, gint64 *value)
 {
   g_return_val_if_fail (self, FALSE);
   g_return_val_if_fail (value, FALSE);
@@ -1264,7 +1264,7 @@ wp_spa_pod_get_fd (const WpSpaPod *self, gint64 *value)
  * Returns: TRUE if the value was obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_get_rectangle (const WpSpaPod *self, guint32 *width, guint32 *height)
+wp_spa_pod_get_rectangle (WpSpaPod *self, guint32 *width, guint32 *height)
 {
   g_return_val_if_fail (self, FALSE);
   struct spa_rectangle rectangle = { 0, };
@@ -1287,7 +1287,7 @@ wp_spa_pod_get_rectangle (const WpSpaPod *self, guint32 *width, guint32 *height)
  * Returns: TRUE if the value was obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_get_fraction (const WpSpaPod *self, guint32 *num, guint32 *denom)
+wp_spa_pod_get_fraction (WpSpaPod *self, guint32 *num, guint32 *denom)
 {
   g_return_val_if_fail (self, FALSE);
   struct spa_fraction fraction = { 0, };
@@ -1504,7 +1504,7 @@ wp_spa_pod_set_fraction (WpSpaPod *self, guint32 num, guint32 denom)
  * Returns: TRUE if the value could be set, FALSE othewrise.
  */
 gboolean
-wp_spa_pod_set_pod (WpSpaPod *self, const WpSpaPod *pod)
+wp_spa_pod_set_pod (WpSpaPod *self, WpSpaPod *pod)
 {
   g_return_val_if_fail (self->type == pod->type, FALSE);
   g_return_val_if_fail (SPA_POD_TYPE (self->pod) == SPA_POD_TYPE (pod->pod), FALSE);
@@ -1584,7 +1584,7 @@ wp_spa_pod_set_pod (WpSpaPod *self, const WpSpaPod *pod)
  * Returns: TRUE if both spa pod objects have the same values, FALSE othewrise.
  */
 gboolean
-wp_spa_pod_equal (const WpSpaPod *self, const WpSpaPod *pod)
+wp_spa_pod_equal (WpSpaPod *self, WpSpaPod *pod)
 {
   if (self->type != pod->type)
     return FALSE;
@@ -1678,7 +1678,7 @@ wp_spa_pod_equal (const WpSpaPod *self, const WpSpaPod *pod)
  * Returns: TRUE if the object properties values were obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_get_object (const WpSpaPod *self, const char *type_name,
+wp_spa_pod_get_object (WpSpaPod *self, const char *type_name,
     const char **id_name, ...)
 {
   va_list args;
@@ -1701,7 +1701,7 @@ wp_spa_pod_get_object (const WpSpaPod *self, const char *type_name,
  * Returns: TRUE if the object properties values were obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_get_object_valist (const WpSpaPod *self, const char *type_name,
+wp_spa_pod_get_object_valist (WpSpaPod *self, const char *type_name,
     const char **id_name, va_list args)
 {
   g_return_val_if_fail (self, FALSE);
@@ -1723,7 +1723,7 @@ wp_spa_pod_get_object_valist (const WpSpaPod *self, const char *type_name,
  * Returns: TRUE if the struct values were obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_get_struct (const WpSpaPod *self, ...)
+wp_spa_pod_get_struct (WpSpaPod *self, ...)
 {
   va_list args;
   gboolean res;
@@ -1743,7 +1743,7 @@ wp_spa_pod_get_struct (const WpSpaPod *self, ...)
  * Returns: TRUE if the struct values were obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_get_struct_valist (const WpSpaPod *self, va_list args)
+wp_spa_pod_get_struct_valist (WpSpaPod *self, va_list args)
 {
   g_return_val_if_fail (self, FALSE);
   g_return_val_if_fail (wp_spa_pod_is_struct (self), FALSE);
@@ -1764,7 +1764,7 @@ wp_spa_pod_get_struct_valist (const WpSpaPod *self, va_list args)
  * Returns: TRUE if the value was obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_get_property (const WpSpaPod *self, const char **key,
+wp_spa_pod_get_property (WpSpaPod *self, const char **key,
     WpSpaPod **value)
 {
   g_return_val_if_fail (self, FALSE);
@@ -1791,8 +1791,8 @@ wp_spa_pod_get_property (const WpSpaPod *self, const char **key,
  * Returns: TRUE if the value was obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_get_control (const WpSpaPod *self, guint32 *offset,
-    const char **type_name, WpSpaPod **value)
+wp_spa_pod_get_control (WpSpaPod *self, guint32 *offset, const char **type_name,
+    WpSpaPod **value)
 {
   g_return_val_if_fail (self, FALSE);
   g_return_val_if_fail (wp_spa_pod_is_control (self), FALSE);
@@ -2173,7 +2173,7 @@ wp_spa_pod_builder_add_fraction (WpSpaPodBuilder *self, guint32 num,
  * Adds a pod value into the builder
  */
 void
-wp_spa_pod_builder_add_pod (WpSpaPodBuilder *self, const WpSpaPod *pod)
+wp_spa_pod_builder_add_pod (WpSpaPodBuilder *self, WpSpaPod *pod)
 {
   spa_pod_builder_primitive (&self->builder, pod->pod);
 }
@@ -2385,7 +2385,7 @@ wp_spa_pod_parser_unref (WpSpaPodParser *self)
 }
 
 static WpSpaPodParser *
-wp_spa_pod_parser_new (const WpSpaPod *pod, guint32 type)
+wp_spa_pod_parser_new (WpSpaPod *pod, guint32 type)
 {
   WpSpaPodParser *self = g_rc_box_new0 (WpSpaPodParser);
   self->type = type;
@@ -2406,7 +2406,7 @@ wp_spa_pod_parser_new (const WpSpaPod *pod, guint32 type)
  * Returns: (transfer full): The new spa pod parser
  */
 WpSpaPodParser *
-wp_spa_pod_parser_new_object (const WpSpaPod *pod, const char *type_name,
+wp_spa_pod_parser_new_object (WpSpaPod *pod, const char *type_name,
     const char **id_name)
 {
   WpSpaPodParser *self = NULL;
@@ -2435,7 +2435,7 @@ wp_spa_pod_parser_new_object (const WpSpaPod *pod, const char *type_name,
  * Returns: (transfer full): The new spa pod parser
  */
 WpSpaPodParser *
-wp_spa_pod_parser_new_struct (const WpSpaPod *pod)
+wp_spa_pod_parser_new_struct (WpSpaPod *pod)
 {
   WpSpaPodParser *self = NULL;
 
@@ -2797,7 +2797,7 @@ wp_spa_pod_parser_end (WpSpaPodParser *self)
 
 struct _WpSpaPodIterator
 {
-  const WpSpaPod *pod;
+  WpSpaPod *pod;
   union {
     gpointer value;                   /* Array and Choice */
     struct spa_pod *pod;              /* Struct */
@@ -3066,7 +3066,7 @@ wp_spa_pod_iterator_finalize (WpIterator *iterator)
  * Returns: (transfer full): the new spa pod iterator
  */
 WpIterator *
-wp_spa_pod_iterate (const WpSpaPod *pod)
+wp_spa_pod_iterate (WpSpaPod *pod)
 {
   static const WpIteratorMethods methods = {
     .reset = wp_spa_pod_iterator_reset,

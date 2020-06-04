@@ -208,7 +208,7 @@ wp_session_get_param_info (WpProxy * proxy, guint * n_params)
 
 static gint
 wp_session_enum_params (WpProxy * self, guint32 id, guint32 start,
-    guint32 num, const WpSpaPod * filter)
+    guint32 num, WpSpaPod * filter)
 {
   WpSessionPrivate *priv = wp_session_get_instance_private (WP_SESSION (self));
   return pw_session_enum_params (priv->iface, 0, id,
@@ -224,7 +224,7 @@ wp_session_subscribe_params (WpProxy * self, guint32 *ids, guint32 n_ids)
 
 static gint
 wp_session_set_param (WpProxy * self, guint32 id, guint32 flags,
-    const WpSpaPod *param)
+    WpSpaPod *param)
 {
   WpSessionPrivate *priv = wp_session_get_instance_private (WP_SESSION (self));
   return pw_session_set_param (priv->iface, id, flags,

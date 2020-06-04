@@ -666,7 +666,7 @@ static void
 object_foreach (const GValue *item, gpointer data)
 {
   guint32 *total_props = data;
-  const WpSpaPod *prop = g_value_get_boxed (item);
+  WpSpaPod *prop = g_value_get_boxed (item);
   g_assert_true (wp_spa_pod_is_property (prop));
   *total_props += 1;
 }
@@ -682,7 +682,7 @@ static void
 sequence_foreach (const GValue *item, gpointer data)
 {
   guint32 *offset_total = data;
-  const WpSpaPod *control = g_value_get_boxed (item);
+  WpSpaPod *control = g_value_get_boxed (item);
   g_assert_true (wp_spa_pod_is_control (control));
   guint32 offset = 0;
   g_assert_true (wp_spa_pod_get_control (control, &offset, NULL, NULL));

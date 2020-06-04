@@ -97,7 +97,7 @@ wp_endpoint_link_get_param_info (WpProxy * proxy, guint * n_params)
 
 static gint
 wp_endpoint_link_enum_params (WpProxy * self, guint32 id, guint32 start,
-    guint32 num, const WpSpaPod * filter)
+    guint32 num, WpSpaPod * filter)
 {
   WpEndpointLinkPrivate *priv =
       wp_endpoint_link_get_instance_private (WP_ENDPOINT_LINK (self));
@@ -115,7 +115,7 @@ wp_endpoint_link_subscribe_params (WpProxy * self, guint32 *ids, guint32 n_ids)
 
 static gint
 wp_endpoint_link_set_param (WpProxy * self, guint32 id, guint32 flags,
-    const WpSpaPod *param)
+    WpSpaPod *param)
 {
   WpEndpointLinkPrivate *priv =
       wp_endpoint_link_get_instance_private (WP_ENDPOINT_LINK (self));
