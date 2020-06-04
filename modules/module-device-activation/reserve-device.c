@@ -108,9 +108,10 @@ on_device_done (WpCore *core, GAsyncResult *res, WpReserveDevice *self)
 }
 
 static void
-on_application_name_done (GObject *obj, GAsyncResult *res, gpointer user_data)
+on_application_name_appeared (GObject *obj, GAsyncResult *res, gpointer data)
 {
-  WpReserveDevice *self = user_data;
+  WpReserveDevice *self = data;
+  g_autoptr (WpProxy) device = g_weak_ref_get (&self->device);
   g_autoptr (GError) e = NULL;
   g_autofree gchar *name = NULL;
 
@@ -123,36 +124,57 @@ on_application_name_done (GObject *obj, GAsyncResult *res, gpointer user_data)
     return;
   }
 
-  wp_info_object (self, "owner: %s", name ? name : "unknown");
+  wp_info_object (self, "owner appeared: %s", name ? name : "unknown");
 
-  /* Only enable the JACK device if the owner is the JACK audio server */
-  if (name && g_strcmp0 (name, JACK_APPLICATION_NAME) == 0)
-    enable_jack_device (self);
-}
-
-static void
-on_reservation_acquired (GObject *obj, GAsyncResult *res, gpointer user_data)
-{
-  WpReserveDevice *self = user_data;
-  g_autoptr (GError) e = NULL;
-  g_autoptr (WpProxy) device = NULL;
-
-  /* If the audio device could not be acquired, check who owns it and maybe
+  /* If the JACK server owns the audio device, we disable the audio device and
    * enable the JACK device */
-  if (!wp_dbus_device_reservation_async_finish (self->reservation, res, &e)) {
-    wp_info_object (self, "could not own device: %s", e->message);
-    wp_dbus_device_reservation_request_property (self->reservation,
-        "ApplicationName", NULL, on_application_name_done, self);
+  if (name && g_strcmp0 (name, JACK_APPLICATION_NAME) == 0) {
+    if (device)
+      set_device_profile (device, 0);
+    enable_jack_device (self);
     return;
   }
 
-  /* Always disable the JACK device because we are the owner */
-  disable_jack_device (self);
+  /* If we (PipeWire) own the audio device, we enable the audio device and
+   * disable the JACK device */
+  else if (name && g_strcmp0 (name, PIPEWIRE_APPLICATION_NAME) == 0) {
+    disable_jack_device (self);
+    if (device)
+      set_device_profile (device, 1);
+    return;
+  }
 
-  /* Enable Audio device */
-  device = g_weak_ref_get (&self->device);
+  /* If another server different to JACK and PipeWire (ie PulseAudio) owns the
+   * device, we disable both the audio device and the JACK device */
+  else {
+    disable_jack_device (self);
+    if (device)
+      set_device_profile (device, 0);
+  }
+}
+
+static void
+on_reservation_owner_appeared (WpDbusDeviceReservation *reservation,
+    const gchar *owner, WpReserveDevice *self)
+{
+  /* Request the application name to know who is the new owner */
+  wp_dbus_device_reservation_request_property (self->reservation,
+      "ApplicationName", NULL, on_application_name_appeared, self);
+}
+
+static void
+on_reservation_owner_vanished (WpDbusDeviceReservation *reservation,
+    WpReserveDevice *self)
+{
+  g_autoptr (WpProxy) device = g_weak_ref_get (&self->device);
+
+  wp_info_object (self, "owner vanished");
+
+  /* Always disable both JACK device and audio device when owner vanishes. The
+   * devices will always be enabled later when a new owner appears */
+  disable_jack_device (self);
   if (device)
-    set_device_profile (device, 1);
+    set_device_profile (device, 0);
 }
 
 static void
@@ -215,12 +237,15 @@ wp_reserve_device_constructed (GObject * object)
 
   /* Handle the reservation signals */
   g_return_if_fail (self->reservation);
+  g_signal_connect_object (self->reservation, "owner-appeared",
+    (GCallback) on_reservation_owner_appeared, self, 0);
+  g_signal_connect_object (self->reservation, "owner-vanished",
+    (GCallback) on_reservation_owner_vanished, self, 0);
   g_signal_connect_object (self->reservation, "release",
     (GCallback) on_reservation_release, self, 0);
 
   /* Try to acquire the device */
-  wp_dbus_device_reservation_acquire (self->reservation, NULL,
-     on_reservation_acquired, self);
+  wp_dbus_device_reservation_acquire (self->reservation);
 
   G_OBJECT_CLASS (wp_reserve_device_parent_class)->constructed (object);
 }
@@ -325,8 +350,7 @@ wp_reserve_device_acquire (WpReserveDevice *self)
   g_return_if_fail (self->reservation);
 
   if (self->n_acquired == 0)
-    wp_dbus_device_reservation_acquire (self->reservation, NULL,
-        on_reservation_acquired, self);
+    wp_dbus_device_reservation_acquire (self->reservation);
 
   self->n_acquired++;
 }

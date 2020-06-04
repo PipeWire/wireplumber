@@ -29,6 +29,7 @@ struct _WpDbusDeviceReservation
   char *service_name;
   char *object_path;
   GDBusConnection *connection;
+  guint watcher_id;
   guint owner_id;
   guint registered_id;
   GDBusMethodInvocation *pending_release;
@@ -48,6 +49,8 @@ enum {
 enum
 {
   SIGNAL_RELEASE,
+  SIGNAL_OWNER_APPEARED,
+  SIGNAL_OWNER_VANISHED,
   SIGNAL_LAST,
 };
 
@@ -130,12 +133,6 @@ on_name_acquired (GDBusConnection *connection, const gchar *name,
   wp_debug_object (self, "name acquired");
 
   self->connection = connection;
-
-  /* Trigger the acquired task */
-  if (self->pending_task) {
-    g_autoptr (GTask) task = g_steal_pointer (&self->pending_task);
-    g_task_return_pointer (task, GUINT_TO_POINTER (TRUE), NULL);
-  }
 }
 
 static void
@@ -160,19 +157,25 @@ on_name_lost (GDBusConnection *connection, const gchar *name,
   /* Unregister object */
   wp_dbus_device_reservation_unregister_object (self);
 
-  /* If pending task is set, it means that we could not acquire the device, so
-   * just return the pending task with an error. If pending task is not set, it
-   * means that another audio server acquired the device with replacement, so we
-   * trigger the release signal with forced set to TRUE */
-  if (self->pending_task) {
-    g_autoptr (GTask) task = g_steal_pointer (&self->pending_task);
-    GError *error = g_error_new (WP_DOMAIN_LIBRARY,
-        WP_LIBRARY_ERROR_OPERATION_FAILED,
-        "dbus name lost before acquiring (connection=%p)", connection);
-    g_task_return_error (task, error);
-  } else {
-    g_signal_emit (self, device_reservation_signals[SIGNAL_RELEASE], 0, TRUE);
-  }
+  /* Emit release signal with forced set to TRUE */
+  g_signal_emit (self, device_reservation_signals[SIGNAL_RELEASE], 0, TRUE);
+}
+
+static void
+on_name_appeared (GDBusConnection *connection, const gchar *name,
+    const gchar *owner, gpointer user_data)
+{
+  WpDbusDeviceReservation *self = user_data;
+  g_signal_emit (self, device_reservation_signals[SIGNAL_OWNER_APPEARED], 0,
+      owner);
+}
+
+static void
+on_name_vanished (GDBusConnection *connection, const gchar *name,
+    gpointer user_data)
+{
+  WpDbusDeviceReservation *self = user_data;
+  g_signal_emit (self, device_reservation_signals[SIGNAL_OWNER_VANISHED], 0);
 }
 
 static void
@@ -185,6 +188,12 @@ wp_dbus_device_reservation_constructed (GObject * object)
       "Audio%d", self->card_id);
   self->object_path = g_strdup_printf (DEVICE_RESERVATION_OBJECT_PREFIX
       "Audio%d", self->card_id);
+
+  /* Watch for the name */
+  self->watcher_id = g_bus_watch_name (G_BUS_TYPE_SESSION, self->service_name,
+      G_BUS_NAME_WATCHER_FLAGS_NONE, on_name_appeared, on_name_vanished, self,
+      NULL);
+  g_return_if_fail (self->watcher_id > 0);
 
   G_OBJECT_CLASS (wp_dbus_device_reservation_parent_class)->constructed (object);
 }
@@ -255,6 +264,10 @@ wp_dbus_device_reservation_finalize (GObject * object)
   }
   g_clear_pointer (&self->pending_property_name, g_free);
 
+  /* Unwatch the name */
+  if (self->watcher_id > 0)
+    g_bus_unwatch_name (self->watcher_id);
+
   /* Unregister and release */
   wp_dbus_device_reservation_unregister_object (self);
   wp_dbus_device_reservation_release (self);
@@ -307,6 +320,12 @@ wp_dbus_device_reservation_class_init (WpDbusDeviceReservationClass * klass)
   device_reservation_signals[SIGNAL_RELEASE] = g_signal_new (
       "release", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
       0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_BOOLEAN);
+  device_reservation_signals[SIGNAL_OWNER_APPEARED] = g_signal_new (
+      "owner-appeared", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
+      0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_STRING);
+  device_reservation_signals[SIGNAL_OWNER_VANISHED] = g_signal_new (
+      "owner-vanished", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
+      0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 }
 
 WpDbusDeviceReservation *
@@ -356,16 +375,12 @@ on_unowned (gpointer user_data)
 }
 
 gboolean
-wp_dbus_device_reservation_acquire (WpDbusDeviceReservation *self,
-    GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+wp_dbus_device_reservation_acquire (WpDbusDeviceReservation *self)
 {
   g_return_val_if_fail (WP_IS_DBUS_DEVICE_RESERVATION (self), FALSE);
   g_return_val_if_fail (!self->pending_task, FALSE);
   if (self->owner_id > 0)
     return FALSE;
-
-  /* Set the new task */
-  self->pending_task = g_task_new (self, cancellable, callback, user_data);
 
   /* Aquire */
   self->owner_id = g_bus_own_name (G_BUS_TYPE_SESSION, self->service_name,

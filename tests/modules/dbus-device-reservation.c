@@ -14,7 +14,7 @@
 typedef struct {
   GTestDBus *dbus_test;
   GMainLoop *loop;
-  gboolean acquired;
+  gboolean owner_appeared;
   gboolean released;
   gpointer property;
 } TestDbusFixture;
@@ -45,14 +45,10 @@ on_reservation_release (WpDbusDeviceReservation *reservation,
 }
 
 static void
-on_acquired_done (GObject *obj, GAsyncResult *res, gpointer user_data)
+on_reservation_owner_appeared (WpDbusDeviceReservation *reservation,
+    const gchar *owner, TestDbusFixture *self)
 {
-  TestDbusFixture *self = user_data;
-  WpDbusDeviceReservation *r = WP_DBUS_DEVICE_RESERVATION (obj);
-  g_autoptr (GError) e = NULL;
-  wp_dbus_device_reservation_async_finish (r, res, &e);
-  g_assert_null (e);
-  self->acquired = TRUE;
+  self->owner_appeared = TRUE;
   g_main_loop_quit (self->loop);
 }
 
@@ -102,12 +98,15 @@ test_dbus_basic (TestDbusFixture *self, gconstpointer data)
   r1 = create_representation (self, 0, "Server", 10, "hw:0,0");
   r2 = create_representation (self, 0, "PipeWire", 15, "hw:0,0");
 
+  /* Only handle owner-appeared on r1 */
+  g_signal_connect (r1, "owner-appeared",
+      (GCallback) on_reservation_owner_appeared, self);
+
   /* Acquire the device on r1 */
-  self->acquired = FALSE;
-  g_assert_true (wp_dbus_device_reservation_acquire (r1, NULL,
-      on_acquired_done, self));
+  self->owner_appeared = FALSE;
+  g_assert_true (wp_dbus_device_reservation_acquire (r1));
   g_main_loop_run (self->loop);
-  g_assert_true (self->acquired);
+  g_assert_true (self->owner_appeared);
 
   /* Request the priority property on r1 and make sure it is 10 */
   self->property = NULL;
@@ -152,11 +151,10 @@ test_dbus_basic (TestDbusFixture *self, gconstpointer data)
   g_assert_true (self->released);
 
   /* Acquire the device on r2 */
-  self->acquired = FALSE;
-  g_assert_true (wp_dbus_device_reservation_acquire (r2, NULL,
-      on_acquired_done, self));
+  self->owner_appeared = FALSE;
+  g_assert_true (wp_dbus_device_reservation_acquire (r2));
   g_main_loop_run (self->loop);
-  g_assert_true (self->acquired);
+  g_assert_true (self->owner_appeared);
 
   /* Request the priority property on r2 and make sure it is 15 */
   self->property = NULL;

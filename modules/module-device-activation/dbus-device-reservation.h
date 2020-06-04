@@ -30,9 +30,7 @@ void wp_dbus_device_reservation_release (WpDbusDeviceReservation *self);
 void wp_dbus_device_reservation_complete_release (WpDbusDeviceReservation *self,
     gboolean res);
 
-gboolean wp_dbus_device_reservation_acquire (WpDbusDeviceReservation *self,
-    GCancellable *cancellable, GAsyncReadyCallback callback,
-    gpointer user_data);
+gboolean wp_dbus_device_reservation_acquire (WpDbusDeviceReservation *self);
 
 gboolean wp_dbus_device_reservation_request_release (
     WpDbusDeviceReservation *self, GCancellable *cancellable,
