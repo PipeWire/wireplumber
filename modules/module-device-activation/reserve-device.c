@@ -25,6 +25,7 @@ struct _WpReserveDevice
   WpObjectManager *jack_device_om;
 
   guint n_acquired;
+  GSource *timeout_source;
 };
 
 enum {
@@ -157,9 +158,22 @@ static void
 on_reservation_owner_appeared (WpDbusDeviceReservation *reservation,
     const gchar *owner, WpReserveDevice *self)
 {
+  /* Clear the current timeout acquire callback */
+  if (self->timeout_source)
+      g_source_destroy (self->timeout_source);
+  g_clear_pointer (&self->timeout_source, g_source_unref);
+
   /* Request the application name to know who is the new owner */
   wp_dbus_device_reservation_request_property (self->reservation,
       "ApplicationName", NULL, on_application_name_appeared, self);
+}
+
+static gboolean
+timeout_acquire_callback (WpReserveDevice *self)
+{
+  g_return_val_if_fail (self, G_SOURCE_REMOVE);
+  wp_dbus_device_reservation_acquire (self->reservation);
+  return G_SOURCE_REMOVE;
 }
 
 static void
@@ -167,6 +181,7 @@ on_reservation_owner_vanished (WpDbusDeviceReservation *reservation,
     WpReserveDevice *self)
 {
   g_autoptr (WpProxy) device = g_weak_ref_get (&self->device);
+  g_autoptr (WpCore) core = NULL;
 
   wp_info_object (self, "owner vanished");
 
@@ -175,6 +190,18 @@ on_reservation_owner_vanished (WpDbusDeviceReservation *reservation,
   disable_jack_device (self);
   if (device)
     set_device_profile (device, 0);
+
+  /* Clear the current timeout acquire callback */
+  if (self->timeout_source)
+      g_source_destroy (self->timeout_source);
+  g_clear_pointer (&self->timeout_source, g_source_unref);
+
+  /* Try to acquire the device if it has no owner for at least 3 seconds */
+  core = device ? wp_proxy_get_core (device) : NULL;
+  if (core)
+    wp_core_timeout_add_closure (core, &self->timeout_source, 3000,
+        g_cclosure_new_object (G_CALLBACK (timeout_acquire_callback),
+        G_OBJECT (self)));
 }
 
 static void
@@ -292,6 +319,11 @@ static void
 wp_reserve_device_finalize (GObject * object)
 {
   WpReserveDevice *self = WP_RESERVE_DEVICE (object);
+
+  /* Clear the current timeout acquire callback */
+  if (self->timeout_source)
+      g_source_destroy (self->timeout_source);
+  g_clear_pointer (&self->timeout_source, g_source_unref);
 
   wp_dbus_device_reservation_release (self->reservation);
 
