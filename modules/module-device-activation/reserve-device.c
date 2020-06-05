@@ -50,9 +50,11 @@ static gint
 decrement_jack_n_acquired (WpProxy *device)
 {
   gpointer p = g_object_get_qdata (G_OBJECT (device), jack_n_acquired_quark ());
-  gint val = p ? GPOINTER_TO_INT (p) : 0;
-  g_object_set_qdata_full (G_OBJECT (device), jack_n_acquired_quark (),
-        GINT_TO_POINTER (val--), NULL);
+  gint val = GPOINTER_TO_INT (p);
+  if (val == 0)
+    return -1;
+  g_object_set_qdata (G_OBJECT (device), jack_n_acquired_quark (),
+      GINT_TO_POINTER (--val));
   return val;
 }
 
@@ -60,9 +62,9 @@ static gint
 increment_jack_n_acquired (WpProxy *device)
 {
   gpointer p = g_object_get_qdata (G_OBJECT (device), jack_n_acquired_quark ());
-  gint val = p ? GPOINTER_TO_INT (p) : 0;
-  g_object_set_qdata_full (G_OBJECT (device), jack_n_acquired_quark (),
-        GINT_TO_POINTER (val++), NULL);
+  gint val = GPOINTER_TO_INT (p);
+  g_object_set_qdata (G_OBJECT (device), jack_n_acquired_quark (),
+      GINT_TO_POINTER (++val));
   return val;
 }
 
