@@ -1,0 +1,9 @@
+[match-node]
+properties = [
+  { name = "media.class", value = "Audio/Source" },
+  { name = "device.api", value = "bluez5" },
+]
+
+[endpoint]
+session = "audio"
+type = "si-adapter"
