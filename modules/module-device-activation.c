@@ -128,26 +128,43 @@ add_reserve_device_data (WpDeviceActivation * self, WpProxy *device,
 }
 
 static void
+set_device_profile (WpProxy *device, gint index)
+{
+  g_return_if_fail (device);
+  g_autoptr (WpSpaPod) profile = wp_spa_pod_new_object (
+      "Profile", "Profile",
+      "index", "i", index,
+      NULL);
+  wp_proxy_set_param (device, "Profile", profile);
+}
+
+static void
 on_device_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
 {
   WpDeviceActivation *self = WP_DEVICE_ACTIVATION (d);
-  const gchar *card_id = NULL;
+  const gchar *device_api = wp_proxy_get_property (proxy, PW_KEY_DEVICE_API);
+  g_return_if_fail (device_api);
 
-  /* TODO: for now we only activate devices with the ALSA Card property set.
-   * However, we eventually need to handle Video and MIDI devices too */
-  card_id = wp_proxy_get_property (proxy, SPA_KEY_API_ALSA_CARD);
-  if (!card_id)
-    return;
+  /* ALSA */
+  if (g_str_has_prefix (device_api, "alsa")) {
+    /* If "dbus" mode, let dbus handle the activation, otherwise activate */
+    if (self->mode && g_strcmp0 (self->mode, "dbus") == 0) {
+      const gchar *id = wp_proxy_get_property (proxy, SPA_KEY_API_ALSA_CARD);
+      g_return_if_fail (id);
+      add_reserve_device_data (self, proxy, atoi (id));
+    } else {
+      set_device_profile (proxy, 1);
+    }
+  }
 
-  /* Depending on the mode, activate or let dbus activate the devices */
-  if (self->mode && g_strcmp0 (self->mode, "dbus") == 0) {
-    add_reserve_device_data (self, proxy, atoi (card_id));
-  } else {
-    g_autoptr (WpSpaPod) profile = wp_spa_pod_new_object (
-        "Profile", "Profile",
-        "index", "i", 1,
-        NULL);
-    wp_proxy_set_param (proxy, "Profile", profile);
+  /* Bluez5 */
+  else if (g_str_has_prefix (device_api, "bluez5")) {
+    set_device_profile (proxy, 1);
+  }
+
+  /* Video */
+  else if (g_str_has_prefix (device_api, "v4l2")) {
+    /* No need to activate video devices */
   }
 }
 
