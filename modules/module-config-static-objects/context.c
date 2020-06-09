@@ -51,15 +51,15 @@ static void
 wp_config_static_objects_context_create_node (WpConfigStaticObjectsContext *self,
   const struct WpParserNodeData *node_data)
 {
-  g_autoptr (WpProxy) node = NULL;
+  g_autoptr (GObject) node = NULL;
   g_autoptr (WpCore) core = wp_plugin_get_core (WP_PLUGIN (self));
   g_return_if_fail (core);
 
   /* Create the node */
   node = node_data->n.local ?
-      (WpProxy *) wp_impl_node_new_from_pw_factory (core, node_data->n.factory,
+      (GObject *) wp_impl_node_new_from_pw_factory (core, node_data->n.factory,
           wp_properties_ref (node_data->n.props)) :
-      (WpProxy *) wp_node_new_from_factory (core, node_data->n.factory,
+      (GObject *) wp_node_new_from_factory (core, node_data->n.factory,
           wp_properties_ref (node_data->n.props));
   if (!node) {
     wp_warning_object (self, "failed to create node");
@@ -67,8 +67,14 @@ wp_config_static_objects_context_create_node (WpConfigStaticObjectsContext *self
   }
 
   /* export */
-  wp_proxy_augment (node, WP_PROXY_FEATURES_STANDARD, NULL, on_object_created,
-      self);
+  if (WP_IS_IMPL_NODE (node)) {
+    wp_impl_node_export (WP_IMPL_NODE (node));
+    g_ptr_array_add (self->static_objects, g_object_ref (node));
+    g_signal_emit (self, signals[SIGNAL_OBJECT_CREATED], 0, node);
+  } else {
+    wp_proxy_augment (WP_PROXY (node), WP_PROXY_FEATURES_STANDARD, NULL,
+        on_object_created, self);
+  }
 }
 
 static void

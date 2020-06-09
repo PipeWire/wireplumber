@@ -254,7 +254,7 @@ create_node (WpMonitor * self, WpProxy * parent, GList ** children,
     WpProperties * parent_props)
 {
   g_autoptr (WpCore) core = wp_proxy_get_core (parent);
-  WpProxy *node = NULL;
+  GObject *node = NULL;
   const gchar *pw_factory_name;
 
   wp_debug_object (self, "%s new node %u (%s)", self->factory, id, spa_factory);
@@ -276,13 +276,17 @@ create_node (WpMonitor * self, WpProxy * parent, GList ** children,
 
   /* create the node */
   node = (self->flags & FLAG_LOCAL_NODES) ?
-      (WpProxy *) wp_impl_node_new_from_pw_factory (core, pw_factory_name, props) :
-      (WpProxy *) wp_node_new_from_factory (core, pw_factory_name, props);
+      (GObject *) wp_impl_node_new_from_pw_factory (core, pw_factory_name, props) :
+      (GObject *) wp_node_new_from_factory (core, pw_factory_name, props);
   if (!node)
     return;
 
   /* export to pipewire by requesting FEATURE_BOUND */
-  wp_proxy_augment (node, WP_PROXY_FEATURE_BOUND, NULL, augment_done, self);
+  if (WP_IS_IMPL_NODE (node))
+    wp_impl_node_export (WP_IMPL_NODE (node));
+  else
+    wp_proxy_augment (WP_PROXY (node), WP_PROXY_FEATURES_STANDARD, NULL,
+        augment_done, self);
 
   g_object_set_qdata (G_OBJECT (node), id_quark (), GUINT_TO_POINTER (id));
   *children = g_list_prepend (*children, node);
