@@ -249,15 +249,17 @@ find_child (GObject * parent, guint32 id, GList ** children, GList ** link,
 }
 
 static void
-create_node (WpMonitor * self, WpProxy * parent, GList ** children,
+create_node (WpMonitor * self, WpSpaDevice * parent, GList ** children,
     guint id, const gchar * spa_factory, WpProperties * props,
     WpProperties * parent_props)
 {
-  g_autoptr (WpCore) core = wp_proxy_get_core (parent);
+  g_autoptr (WpCore) core = NULL;
   GObject *node = NULL;
   const gchar *pw_factory_name;
 
   wp_debug_object (self, "%s new node %u (%s)", self->factory, id, spa_factory);
+
+  g_object_get (parent, "core", &core, NULL);
 
   /* use the adapter instead of spa-node-factory if requested */
   pw_factory_name =
@@ -267,8 +269,8 @@ create_node (WpMonitor * self, WpProxy * parent, GList ** children,
   wp_properties_set (props, SPA_KEY_FACTORY_NAME, spa_factory);
 
   /* add device id property */
-  if (wp_proxy_get_features (parent) & WP_PROXY_FEATURE_BOUND) {
-    guint32 device_id = wp_proxy_get_bound_id (parent);
+  {
+    guint32 device_id = wp_spa_device_get_bound_id (parent);
     wp_properties_setf (props, PW_KEY_DEVICE_ID, "%u", device_id);
   }
 
@@ -293,26 +295,29 @@ create_node (WpMonitor * self, WpProxy * parent, GList ** children,
 }
 
 static void
-device_created (GObject * proxy, GAsyncResult * res, gpointer user_data)
+device_created (GObject * device, GAsyncResult * res, gpointer user_data)
 {
   WpMonitor * self = user_data;
   g_autoptr (GError) error = NULL;
 
-  if (!wp_proxy_augment_finish (WP_PROXY (proxy), res, &error)) {
+  if (!wp_spa_device_export_finish (WP_SPA_DEVICE (device), res, &error)) {
     wp_warning_object (self, "%s", error->message);
     return;
   }
+
+  wp_spa_device_activate (WP_SPA_DEVICE (device));
 }
 
 static void
-create_device (WpMonitor * self, WpProxy * parent, GList ** children,
+create_device (WpMonitor * self, WpSpaDevice * parent, GList ** children,
     guint id, const gchar * spa_factory, WpProperties * props)
 {
-  g_autoptr (WpCore) core = wp_proxy_get_core (parent);
+  g_autoptr (WpCore) core = NULL;
   WpSpaDevice *device;
 
   wp_debug_object (self, "%s new device %u", self->factory, id);
 
+  g_object_get (parent, "core", &core, NULL);
   props = wp_properties_copy (props);
   setup_device_props (props);
 
@@ -320,9 +325,8 @@ create_device (WpMonitor * self, WpProxy * parent, GList ** children,
     return;
 
   g_signal_connect (device, "object-info", (GCallback) on_object_info, self);
-  wp_proxy_augment (WP_PROXY (device),
-      WP_PROXY_FEATURE_BOUND | WP_SPA_DEVICE_FEATURE_ACTIVE,
-      NULL, device_created, self);
+
+  wp_spa_device_export (device, NULL, device_created, self);
 
   g_object_set_qdata (G_OBJECT (device), id_quark (), GUINT_TO_POINTER (id));
   *children = g_list_prepend (*children, device);
@@ -344,9 +348,9 @@ on_object_info (WpSpaDevice * device,
   /* new object, construct... */
   if (type != G_TYPE_NONE && !link) {
     if (type == WP_TYPE_DEVICE) {
-      create_device (self, WP_PROXY (device), &children, id, spa_factory, props);
+      create_device (self, device, &children, id, spa_factory, props);
     } else if (type == WP_TYPE_NODE) {
-      create_node (self, WP_PROXY (device), &children, id, spa_factory, props,
+      create_node (self, device, &children, id, spa_factory, props,
           parent_props);
     } else {
       wp_debug_object (self, "%s got device object-info for unknown object "
@@ -376,9 +380,8 @@ wp_monitor_activate (WpPlugin * plugin)
   g_signal_connect (self->monitor, "object-info", (GCallback) on_object_info,
       self);
 
-  /* no FEATURE_BOUND here; exporting the monitor device is buggy */
-  wp_proxy_augment (WP_PROXY (self->monitor), WP_SPA_DEVICE_FEATURE_ACTIVE,
-      NULL, augment_done, self);
+  /* activate directly; exporting the monitor device is buggy */
+  wp_spa_device_activate (self->monitor);
 }
 
 static void

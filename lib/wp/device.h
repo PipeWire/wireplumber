@@ -31,28 +31,35 @@ WpDevice * wp_device_new_from_factory (WpCore * core,
 /* WpSpaDevice */
 
 /**
- * WpSpaDeviceFeatures:
- * @WP_SPA_DEVICE_FEATURE_ACTIVE: activates the device, making it query the
- *    hardware and emit the #WpSpaDevice::object-info signal
- *
- * An extension of #WpProxyFeatures
- */
-typedef enum { /*< flags >*/
-  WP_SPA_DEVICE_FEATURE_ACTIVE = (WP_PROXY_FEATURE_LAST << 0),
-} WpSpaDeviceFeatures;
-
-/**
  * WP_TYPE_SPA_DEVICE:
  *
  * The #WpSpaDevice #GType
  */
 #define WP_TYPE_SPA_DEVICE (wp_spa_device_get_type ())
 WP_API
-G_DECLARE_FINAL_TYPE (WpSpaDevice, wp_spa_device, WP, SPA_DEVICE, WpProxy)
+G_DECLARE_FINAL_TYPE (WpSpaDevice, wp_spa_device, WP, SPA_DEVICE, GObject)
+
+WP_API
+WpSpaDevice * wp_spa_device_new_wrap (WpCore * core,
+    gpointer spa_device_handle);
 
 WP_API
 WpSpaDevice * wp_spa_device_new_from_spa_factory (WpCore * core,
     const gchar * factory_name, WpProperties * properties);
+
+WP_API
+guint32 wp_spa_device_get_bound_id (WpSpaDevice * self);
+
+WP_API
+void wp_spa_device_export (WpSpaDevice * self, GCancellable * cancellable,
+    GAsyncReadyCallback callback, gpointer user_data);
+
+WP_API
+gboolean wp_spa_device_export_finish (WpSpaDevice * self, GAsyncResult * res,
+    GError ** error);
+
+WP_API
+void wp_spa_device_activate (WpSpaDevice * self);
 
 G_END_DECLS
 

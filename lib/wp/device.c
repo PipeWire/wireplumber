@@ -208,14 +208,22 @@ wp_device_new_from_factory (WpCore * core,
 }
 
 
+enum {
+  PROP_0,
+  PROP_CORE,
+  PROP_SPA_DEVICE_HANDLE,
+};
+
 struct _WpSpaDevice
 {
   WpProxy parent;
+  GWeakRef core;
   struct spa_handle *handle;
-  struct spa_device *interface;
+  struct spa_device *device;
   struct spa_hook listener;
   WpProperties *properties;
-  gboolean ft_active_requested;
+  struct pw_proxy *proxy;
+  struct spa_hook proxy_listener;
 };
 
 enum
@@ -226,11 +234,34 @@ enum
 
 static guint spa_device_signals[SPA_DEVICE_LAST_SIGNAL] = { 0 };
 
-G_DEFINE_TYPE (WpSpaDevice, wp_spa_device, WP_TYPE_PROXY)
+G_DEFINE_TYPE (WpSpaDevice, wp_spa_device, G_TYPE_OBJECT)
 
 static void
 wp_spa_device_init (WpSpaDevice * self)
 {
+  g_weak_ref_init (&self->core, NULL);
+  self->properties = wp_properties_new_empty ();
+}
+
+static void
+wp_spa_device_constructed (GObject *object)
+{
+  WpSpaDevice *self = WP_SPA_DEVICE (object);
+  gint res;
+
+  g_return_if_fail (self->handle);
+
+  /* Get the handle interface */
+  res = spa_handle_get_interface (self->handle, SPA_TYPE_INTERFACE_Device,
+      (gpointer *) &self->device);
+  if (res < 0) {
+    wp_warning_object (self,
+        "Could not get device interface from SPA handle: %s",
+        spa_strerror (res));
+    return;
+  }
+
+  G_OBJECT_CLASS (wp_spa_device_parent_class)->constructed (object);
 }
 
 static void
@@ -238,10 +269,50 @@ wp_spa_device_finalize (GObject * object)
 {
   WpSpaDevice *self = WP_SPA_DEVICE (object);
 
+  self->device = NULL;
   g_clear_pointer (&self->handle, pw_unload_spa_handle);
   g_clear_pointer (&self->properties, wp_properties_unref);
+  g_weak_ref_clear (&self->core);
 
   G_OBJECT_CLASS (wp_spa_device_parent_class)->finalize (object);
+}
+
+static void
+wp_spa_device_set_property (GObject * object, guint property_id,
+    const GValue * value, GParamSpec * pspec)
+{
+  WpSpaDevice *self = WP_SPA_DEVICE (object);
+
+  switch (property_id) {
+  case PROP_CORE:
+    g_weak_ref_set (&self->core, g_value_get_object (value));
+    break;
+  case PROP_SPA_DEVICE_HANDLE:
+    self->handle = g_value_get_pointer (value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
+}
+
+static void
+wp_spa_device_get_property (GObject * object, guint property_id, GValue * value,
+    GParamSpec * pspec)
+{
+  WpSpaDevice *self = WP_SPA_DEVICE (object);
+
+  switch (property_id) {
+  case PROP_CORE:
+    g_value_take_object (value, g_weak_ref_get (&self->core));
+    break;
+  case PROP_SPA_DEVICE_HANDLE:
+    g_value_set_pointer (value, self->handle);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
 }
 
 static void
@@ -257,21 +328,6 @@ spa_device_event_info (void *data, const struct spa_device_info *info)
    */
   if (info->change_mask & SPA_DEVICE_CHANGE_MASK_PROPS)
     wp_properties_update_from_dict (self->properties, info->props);
-
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_SPA_DEVICE_FEATURE_ACTIVE);
-}
-
-static void
-spa_device_event_result (void *data, int seq, int res, uint32_t type,
-    const void *result)
-{
-  if (type != SPA_RESULT_TYPE_DEVICE_PARAMS)
-    return;
-
-  const struct spa_result_device_params *srdp = result;
-  wp_proxy_handle_event_param (WP_PROXY (data), seq, srdp->id, srdp->index,
-      srdp->next, srdp->param);
 }
 
 static void
@@ -298,110 +354,27 @@ spa_device_event_object_info (void *data, uint32_t id,
 static const struct spa_device_events spa_device_events = {
   SPA_VERSION_DEVICE_EVENTS,
   .info = spa_device_event_info,
-  .result = spa_device_event_result,
   .object_info = spa_device_event_object_info
 };
-
-static void
-wp_spa_device_activate (WpSpaDevice *self)
-{
-  gint res = spa_device_add_listener (self->interface, &self->listener,
-        &spa_device_events, self);
-  if (res < 0) {
-    wp_proxy_augment_error (WP_PROXY (self), g_error_new (WP_DOMAIN_LIBRARY,
-            WP_LIBRARY_ERROR_OPERATION_FAILED,
-            "failed to initialize device: %s", spa_strerror (res)));
-  }
-}
-
-static void
-wp_spa_device_augment (WpProxy * proxy, WpProxyFeatures features)
-{
-  WpSpaDevice *self = WP_SPA_DEVICE (proxy);
-
-  /* if any of the standard features is requested, make sure BOUND
-     is also requested, as they all depend on binding the pw_spa_device */
-  if (features & WP_PROXY_FEATURES_STANDARD)
-    features |= WP_PROXY_FEATURE_BOUND;
-
-  if (features & WP_PROXY_FEATURE_BOUND) {
-    g_autoptr (WpCore) core = wp_proxy_get_core (proxy);
-    struct pw_core *pw_core = wp_core_get_pw_core (core);
-
-    /* no pw_core -> we are not connected */
-    if (!pw_core) {
-      wp_proxy_augment_error (proxy, g_error_new (WP_DOMAIN_LIBRARY,
-              WP_LIBRARY_ERROR_OPERATION_FAILED,
-              "The WirePlumber core is not connected; "
-              "object cannot be exported to PipeWire"));
-      return;
-    }
-
-    /* export to get a proxy; feature will complete
-         when the pw_proxy.bound event will be called. */
-    wp_proxy_set_pw_proxy (proxy, pw_core_export (pw_core,
-            SPA_TYPE_INTERFACE_Device,
-            wp_properties_peek_dict (self->properties),
-            self->interface, 0));
-  }
-
-  if (features & WP_SPA_DEVICE_FEATURE_ACTIVE) {
-    /* if both BOUND and ACTIVE are requested,
-       delay the second until after we have a bound_id */
-    if (features & WP_PROXY_FEATURE_BOUND)
-      self->ft_active_requested = TRUE;
-    else
-      wp_spa_device_activate (self);
-  }
-}
-
-static WpProperties *
-wp_spa_device_get_properties (WpProxy * proxy)
-{
-  WpSpaDevice *self = WP_SPA_DEVICE (proxy);
-  return wp_properties_ref (self->properties);
-}
-
-static gint
-wp_spa_device_enum_params (WpProxy * proxy, guint32 id, guint32 start,
-    guint32 num, WpSpaPod * filter)
-{
-  WpSpaDevice *self = WP_SPA_DEVICE (proxy);
-  return spa_device_enum_params (self->interface,
-      0, id, start, num, filter ? wp_spa_pod_get_spa_pod (filter) : NULL);
-}
-
-static gint
-wp_spa_device_set_param (WpProxy * proxy, guint32 id, guint32 flags,
-    WpSpaPod *param)
-{
-  WpSpaDevice *self = WP_SPA_DEVICE (proxy);
-  return spa_device_set_param (self->interface,
-      id, flags, wp_spa_pod_get_spa_pod (param));
-}
-
-static void
-wp_spa_device_bound (WpProxy * proxy, guint32 id)
-{
-  WpSpaDevice *self = WP_SPA_DEVICE (proxy);
-  if (self->ft_active_requested)
-    wp_spa_device_activate (self);
-}
 
 static void
 wp_spa_device_class_init (WpSpaDeviceClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
-  WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
+  object_class->constructed = wp_spa_device_constructed;
   object_class->finalize = wp_spa_device_finalize;
+  object_class->set_property = wp_spa_device_set_property;
+  object_class->get_property = wp_spa_device_get_property;
 
-  proxy_class->augment = wp_spa_device_augment;
+  g_object_class_install_property (object_class, PROP_CORE,
+      g_param_spec_object ("core", "core", "The WpCore", WP_TYPE_CORE,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
-  proxy_class->get_properties = wp_spa_device_get_properties;
-  proxy_class->enum_params = wp_spa_device_enum_params;
-  proxy_class->set_param = wp_spa_device_set_param;
-  proxy_class->bound = wp_spa_device_bound;
+  g_object_class_install_property (object_class, PROP_SPA_DEVICE_HANDLE,
+      g_param_spec_pointer ("spa-device-handle", "spa-device-handle",
+          "The spa device handle",
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   /**
    * WpSpaDevice::object-info:
@@ -435,6 +408,22 @@ wp_spa_device_class_init (WpSpaDeviceClass * klass)
 }
 
 /**
+ * wp_spa_device_new_wrap:
+ * @core: the wireplumber core
+ * @spa_device_handle: the spa device handle
+ *
+ * Returns: (transfer full): A new #WpSpaDevice
+ */
+WpSpaDevice *
+wp_spa_device_new_wrap (WpCore * core, gpointer spa_device_handle)
+{
+  return g_object_new (WP_TYPE_SPA_DEVICE,
+      "core", core,
+      "spa-device-handle", spa_device_handle,
+      NULL);
+}
+
+/**
  * wp_spa_device_new_from_spa_factory:
  * @core: the wireplumber core
  * @factory_name: the name of the SPA factory
@@ -458,34 +447,85 @@ wp_spa_device_new_from_spa_factory (WpCore * core,
 {
   g_autoptr (WpProperties) props = properties;
   struct pw_context *pw_context = wp_core_get_pw_context (core);
-  g_autoptr (WpSpaDevice) self = NULL;
-  gint res;
+  struct spa_handle *handle = NULL;
 
   g_return_val_if_fail (pw_context != NULL, NULL);
 
-  self = g_object_new (WP_TYPE_SPA_DEVICE, "core", core, NULL);
-
   /* Load the monitor handle */
-  self->handle = pw_context_load_spa_handle (pw_context,
-      factory_name, props ? wp_properties_peek_dict (props) : NULL);
-  if (!self->handle) {
-    wp_warning_object (self, "SPA handle '%s' could not be loaded; "
-        "is it installed?", factory_name);
+  handle = pw_context_load_spa_handle (pw_context, factory_name,
+      props ? wp_properties_peek_dict (props) : NULL);
+  if (!handle) {
+    wp_warning ("SPA handle '%s' could not be loaded; is it installed?",
+        factory_name);
     return NULL;
   }
 
-  /* Get the handle interface */
-  res = spa_handle_get_interface (self->handle, SPA_TYPE_INTERFACE_Device,
-      (gpointer *) &self->interface);
-  if (res < 0) {
-    wp_warning_object (self,
-        "Could not get device interface from SPA handle: %s",
+  return wp_spa_device_new_wrap (core, handle);
+}
+
+guint32
+wp_spa_device_get_bound_id (WpSpaDevice * self)
+{
+  g_return_val_if_fail (WP_IS_SPA_DEVICE (self), SPA_ID_INVALID);
+  return self->proxy ? pw_proxy_get_bound_id (self->proxy) : SPA_ID_INVALID;
+}
+
+static void
+proxy_event_bound (void *data, uint32_t global_id)
+{
+  GTask *task = G_TASK (data);
+  WpSpaDevice *self = g_task_get_source_object (task);
+
+  spa_hook_remove (&self->proxy_listener);
+  g_task_return_boolean (task, TRUE);
+}
+
+static const struct pw_proxy_events proxy_events = {
+  PW_VERSION_PROXY_EVENTS,
+  .bound = proxy_event_bound,
+};
+
+void
+wp_spa_device_export (WpSpaDevice * self, GCancellable * cancellable,
+    GAsyncReadyCallback callback, gpointer user_data)
+{
+  g_autoptr (GTask) task = NULL;
+
+  g_return_if_fail (WP_IS_SPA_DEVICE (self));
+  g_return_if_fail (!self->proxy);
+
+  g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
+  struct pw_core *pw_core = wp_core_get_pw_core (core);
+
+  g_return_if_fail (pw_core);
+
+  task = g_task_new (self, cancellable, callback, user_data);
+  self->proxy = pw_core_export (pw_core,
+      SPA_TYPE_INTERFACE_Device,
+      wp_properties_peek_dict (self->properties),
+      self->device, 0);
+  pw_proxy_add_listener (self->proxy, &self->proxy_listener,
+      &proxy_events, task);
+}
+
+gboolean
+wp_spa_device_export_finish (WpSpaDevice * self, GAsyncResult * res,
+    GError ** error)
+{
+  g_return_val_if_fail (WP_IS_SPA_DEVICE (self), FALSE);
+  g_return_val_if_fail (g_task_is_valid (res, self), FALSE);
+
+  return g_task_propagate_boolean (G_TASK (res), error);
+}
+
+void
+wp_spa_device_activate (WpSpaDevice * self)
+{
+  g_return_if_fail (WP_IS_SPA_DEVICE (self));
+
+  gint res = spa_device_add_listener (self->device, &self->listener,
+        &spa_device_events, self);
+  if (res < 0)
+    wp_warning_object (self, "failed to activate device: %s",
         spa_strerror (res));
-    return NULL;
-  }
-
-  self->properties = props ?
-      g_steal_pointer (&props) : wp_properties_new_empty ();
-
-  return g_steal_pointer (&self);
 }

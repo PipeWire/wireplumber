@@ -92,7 +92,7 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
   device_id = wp_proxy_get_property (proxy, PW_KEY_DEVICE_ID);
   if (!device_id)
     return;
-  device = wp_object_manager_lookup (self->spa_devices_om, WP_TYPE_SPA_DEVICE,
+  device = wp_object_manager_lookup (self->spa_devices_om, WP_TYPE_DEVICE,
       WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=i", atoi (device_id), NULL);
   if (!device) {
     wp_warning_object (self, "cannot find device for node reservation data");
@@ -185,10 +185,10 @@ activate_sync (WpCore *core, GAsyncResult *res, WpDeviceActivation *self)
 
   /* Create the devices object manager and handle the device added signal */
   self->spa_devices_om = wp_object_manager_new ();
-  wp_object_manager_add_interest (self->spa_devices_om, WP_TYPE_SPA_DEVICE,
+  wp_object_manager_add_interest (self->spa_devices_om, WP_TYPE_DEVICE,
       NULL);
   wp_object_manager_request_proxy_features (self->spa_devices_om,
-      WP_TYPE_SPA_DEVICE, WP_PROXY_FEATURE_BOUND);
+      WP_TYPE_DEVICE, WP_PROXY_FEATURE_BOUND);
   g_signal_connect_object (self->spa_devices_om, "object-added",
       G_CALLBACK (on_device_added), self, 0);
   wp_core_install_object_manager (core, self->spa_devices_om);
