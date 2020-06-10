@@ -103,7 +103,7 @@ struct _WpCore
   GObject parent;
 
   /* main loop integration */
-  GMainContext *context;
+  GMainContext *g_main_context;
 
   /* extra properties */
   WpProperties *properties;
@@ -122,7 +122,7 @@ struct _WpCore
 
 enum {
   PROP_0,
-  PROP_CONTEXT,
+  PROP_G_MAIN_CONTEXT,
   PROP_PROPERTIES,
   PROP_PW_CONTEXT,
   PROP_PW_CORE,
@@ -225,7 +225,7 @@ wp_core_constructed (GObject *object)
 
   /* loop */
   source = wp_loop_source_new ();
-  g_source_attach (source, self->context);
+  g_source_attach (source, self->g_main_context);
 
   /* context */
   if (!self->pw_context) {
@@ -273,7 +273,7 @@ wp_core_finalize (GObject * obj)
     g_clear_pointer (&self->pw_context, pw_context_destroy);
 
   g_clear_pointer (&self->properties, wp_properties_unref);
-  g_clear_pointer (&self->context, g_main_context_unref);
+  g_clear_pointer (&self->g_main_context, g_main_context_unref);
   g_clear_pointer (&self->async_tasks, g_hash_table_unref);
 
   wp_debug_object (self, "WpCore destroyed");
@@ -288,8 +288,8 @@ wp_core_get_property (GObject * object, guint property_id,
   WpCore *self = WP_CORE (object);
 
   switch (property_id) {
-  case PROP_CONTEXT:
-    g_value_set_boxed (value, self->context);
+  case PROP_G_MAIN_CONTEXT:
+    g_value_set_boxed (value, self->g_main_context);
     break;
   case PROP_PROPERTIES:
     g_value_set_boxed (value, self->properties);
@@ -313,8 +313,8 @@ wp_core_set_property (GObject * object, guint property_id,
   WpCore *self = WP_CORE (object);
 
   switch (property_id) {
-  case PROP_CONTEXT:
-    self->context = g_value_dup_boxed (value);
+  case PROP_G_MAIN_CONTEXT:
+    self->g_main_context = g_value_dup_boxed (value);
     break;
   case PROP_PROPERTIES:
     self->properties = g_value_dup_boxed (value);
@@ -339,9 +339,9 @@ wp_core_class_init (WpCoreClass * klass)
   object_class->get_property = wp_core_get_property;
   object_class->set_property = wp_core_set_property;
 
-  g_object_class_install_property (object_class, PROP_CONTEXT,
-      g_param_spec_boxed ("context", "context", "A GMainContext to attach to",
-          G_TYPE_MAIN_CONTEXT,
+  g_object_class_install_property (object_class, PROP_G_MAIN_CONTEXT,
+      g_param_spec_boxed ("g-main-context", "g-main-context",
+          "A GMainContext to attach to", G_TYPE_MAIN_CONTEXT,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (object_class, PROP_PROPERTIES,
@@ -391,7 +391,7 @@ wp_core_new (GMainContext *context, WpProperties * properties)
 {
   g_autoptr (WpProperties) props = properties;
   return g_object_new (WP_TYPE_CORE,
-      "context", context,
+      "g-main-context", context,
       "properties", properties,
       "pw-context", NULL,
       NULL);
@@ -409,7 +409,7 @@ WpCore *
 wp_core_clone (WpCore * self)
 {
   return g_object_new (WP_TYPE_CORE,
-      "context", self->context,
+      "g-main-context", self->g_main_context,
       "properties", self->properties,
       "pw-context", self->pw_context,
       NULL);
@@ -426,7 +426,7 @@ GMainContext *
 wp_core_get_context (WpCore * self)
 {
   g_return_val_if_fail (WP_IS_CORE (self), NULL);
-  return self->context;
+  return self->g_main_context;
 }
 
 /**
@@ -552,7 +552,7 @@ wp_core_idle_add (WpCore * self, GSource **source, GSourceFunc function,
 
   s = g_idle_source_new ();
   g_source_set_callback (s, function, data, destroy);
-  g_source_attach (s, self->context);
+  g_source_attach (s, self->g_main_context);
 
   if (source)
     *source = g_source_ref (s);
@@ -580,7 +580,7 @@ wp_core_idle_add_closure (WpCore * self, GSource **source, GClosure * closure)
 
   s = g_idle_source_new ();
   g_source_set_closure (s, closure);
-  g_source_attach (s, self->context);
+  g_source_attach (s, self->g_main_context);
 
   if (source)
     *source = g_source_ref (s);
@@ -613,7 +613,7 @@ wp_core_timeout_add (WpCore * self, GSource **source, guint timeout_ms,
 
   s = g_timeout_source_new (timeout_ms);
   g_source_set_callback (s, function, data, destroy);
-  g_source_attach (s, self->context);
+  g_source_attach (s, self->g_main_context);
 
   if (source)
     *source = g_source_ref (s);
@@ -643,7 +643,7 @@ wp_core_timeout_add_closure (WpCore * self, GSource **source, guint timeout_ms,
 
   s = g_timeout_source_new (timeout_ms);
   g_source_set_closure (s, closure);
-  g_source_attach (s, self->context);
+  g_source_attach (s, self->g_main_context);
 
   if (source)
     *source = g_source_ref (s);
