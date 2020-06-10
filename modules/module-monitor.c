@@ -139,7 +139,7 @@ setup_device_props (WpProperties *p)
     s = wp_properties_get (p, PW_KEY_DEVICE_BUS);
 
     wp_properties_setf (p, PW_KEY_DEVICE_ICON_NAME,
-        "%s-analog%s%s", d, s ? "-" : "", s);
+        "%s-analog%s%s", d, s ? "-" : "", s ? s : "");
   }
 }
 
