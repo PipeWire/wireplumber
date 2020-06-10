@@ -906,11 +906,11 @@ wp_properties_unref_and_take_pw_properties (WpProperties * self)
  * @self: a properties object
  * @other: a set of properties to match
  *
- * Checks if the property values contained in @other are matching with the
+ * Checks if all property values contained in @other are matching with the
  * values in @self.
  *
- * If a property is contained in one set and not the other, the result is not
- * affected. If a property is contained in both sets, then the value of the
+ * If a property is contained in @other and not in @self, the result is not
+ * matched. If a property is contained in both sets, then the value of the
  * property in @other is interpreted as a glob-style pattern
  * (using g_pattern_match_simple()) and the value in @self is checked to
  * see if it matches with this pattern.
@@ -927,11 +927,11 @@ wp_properties_matches (WpProperties * self, WpProperties *other)
 
   g_return_val_if_fail (self != NULL, FALSE);
 
-  /* Check if the property values match the ones from 'other' */
-  dict = wp_properties_peek_dict (self);
+  /* Check if the property values match the ones from 'self' */
+  dict = wp_properties_peek_dict (other);
   spa_dict_for_each(item, dict) {
-    value = wp_properties_get (other, item->key);
-    if (value && !g_pattern_match_simple (value, item->value))
+    value = wp_properties_get (self, item->key);
+    if (!value || !g_pattern_match_simple (value, item->value))
       return FALSE;
   }
 
