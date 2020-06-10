@@ -556,10 +556,10 @@ wp_proxy_set_feature_ready (WpProxy * self, WpProxyFeatures feature)
 
   priv->ft_ready |= feature;
 
-  if (wp_log_level_is_enabled (G_LOG_LEVEL_DEBUG)) {
+  if (wp_log_level_is_enabled (WP_LOG_LEVEL_TRACE)) {
     g_autofree gchar *str = g_flags_to_string (WP_TYPE_PROXY_FEATURES,
         priv->ft_ready);
-    wp_debug_object (self, "features changed: %s", str);
+    wp_trace_object (self, "features changed: %s", str);
   }
 
   g_object_notify (G_OBJECT (self), "features");

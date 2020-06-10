@@ -135,6 +135,7 @@ set_device_profile (WpProxy *device, gint index)
       "Profile", "Profile",
       "index", "i", index,
       NULL);
+  wp_debug_object (device, "set profile %d", index);
   wp_proxy_set_param (device, "Profile", profile);
 }
 
@@ -144,6 +145,9 @@ on_device_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
   WpDeviceActivation *self = WP_DEVICE_ACTIVATION (d);
   const gchar *device_api = wp_proxy_get_property (proxy, PW_KEY_DEVICE_API);
   g_return_if_fail (device_api);
+
+  wp_debug_object (self, "device " WP_OBJECT_FORMAT " added, api '%s'",
+      WP_OBJECT_ARGS (proxy), device_api);
 
   /* ALSA */
   if (g_str_has_prefix (device_api, "alsa")) {

@@ -44,6 +44,7 @@ set_device_profile (WpProxy *device, gint index)
       "Profile", "Profile",
       "index", "i", index,
       NULL);
+  wp_debug_object (device, "set profile %d", index);
   wp_proxy_set_param (device, "Profile", profile);
 }
 
