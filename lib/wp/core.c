@@ -222,15 +222,29 @@ wp_core_constructed (GObject *object)
 {
   WpCore *self = WP_CORE (object);
   g_autoptr (GSource) source = NULL;
-  struct pw_properties *p = NULL;
 
   /* loop */
   source = wp_loop_source_new ();
   g_source_attach (source, self->context);
 
   /* context */
-  p = self->properties ? wp_properties_to_pw_properties (self->properties) : NULL;
-  self->pw_context = pw_context_new (WP_LOOP_SOURCE(source)->loop, p, 0);
+  if (!self->pw_context) {
+    struct pw_properties *p = NULL;
+    p = self->properties ? wp_properties_to_pw_properties (self->properties) : NULL;
+    self->pw_context = pw_context_new (WP_LOOP_SOURCE(source)->loop, p,
+        sizeof (grefcount));
+    g_return_if_fail (self->pw_context);
+
+    /* Init refcount */
+    grefcount *rc = pw_context_get_user_data (self->pw_context);
+    g_return_if_fail (rc);
+    g_ref_count_init (rc);
+  } else {
+    /* Increase refcount */
+    grefcount *rc = pw_context_get_user_data (self->pw_context);
+    g_return_if_fail (rc);
+    g_ref_count_inc (rc);
+  }
 
   G_OBJECT_CLASS (wp_core_parent_class)->constructed (object);
 }
@@ -249,9 +263,14 @@ static void
 wp_core_finalize (GObject * obj)
 {
   WpCore *self = WP_CORE (obj);
+  grefcount *rc = pw_context_get_user_data (self->pw_context);
+  g_return_if_fail (rc);
 
   wp_core_disconnect (self);
-  g_clear_pointer (&self->pw_context, pw_context_destroy);
+
+  /* Clear pw-context if refcount reaches 0 */
+  if (g_ref_count_dec (rc))
+    g_clear_pointer (&self->pw_context, pw_context_destroy);
 
   g_clear_pointer (&self->properties, wp_properties_unref);
   g_clear_pointer (&self->context, g_main_context_unref);
@@ -300,6 +319,9 @@ wp_core_set_property (GObject * object, guint property_id,
   case PROP_PROPERTIES:
     self->properties = g_value_dup_boxed (value);
     break;
+  case PROP_PW_CONTEXT:
+    self->pw_context = g_value_get_pointer (value);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
@@ -329,7 +351,7 @@ wp_core_class_init (WpCoreClass * klass)
 
   g_object_class_install_property (object_class, PROP_PW_CONTEXT,
       g_param_spec_pointer ("pw-context", "pw-context", "The pipewire context",
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (object_class, PROP_PW_CORE,
       g_param_spec_pointer ("pw-core", "pw-core", "The pipewire core",
@@ -371,6 +393,25 @@ wp_core_new (GMainContext *context, WpProperties * properties)
   return g_object_new (WP_TYPE_CORE,
       "context", context,
       "properties", properties,
+      "pw-context", NULL,
+      NULL);
+}
+
+/**
+ * wp_core_clone:
+ * @self: the core
+ *
+ * Clones a core with the same context as @self
+ *
+ * Returns: (transfer full): the clone #WpCore
+ */
+WpCore *
+wp_core_clone (WpCore * self)
+{
+  return g_object_new (WP_TYPE_CORE,
+      "context", self->context,
+      "properties", self->properties,
+      "pw-context", self->pw_context,
       NULL);
 }
 

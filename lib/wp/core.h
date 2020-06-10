@@ -28,6 +28,9 @@ WP_API
 WpCore * wp_core_new (GMainContext *context, WpProperties * properties);
 
 WP_API
+WpCore * wp_core_clone (WpCore * self);
+
+WP_API
 GMainContext * wp_core_get_context (WpCore * self);
 
 WP_API

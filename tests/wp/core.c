@@ -101,6 +101,37 @@ test_core_client_disconnected (TestFixture *f, gconstpointer data)
   g_assert_cmpuint (wp_object_manager_get_n_objects (f->om), ==, 0);
 }
 
+static void
+test_core_clone (TestFixture *f, gconstpointer data)
+{
+  g_assert_false (wp_core_is_connected (f->base.core));
+
+  /* clone */
+  g_autoptr (WpCore) clone = wp_core_clone (f->base.core);
+  g_assert_nonnull (clone);
+  g_assert_false (wp_core_is_connected (clone));
+
+  /* connect clone */
+  g_assert_true (wp_core_connect (clone));
+  g_assert_true (wp_core_is_connected (clone));
+  g_assert_false (wp_core_is_connected (f->base.core));
+
+  /* connect core */
+  g_assert_true (wp_core_connect (f->base.core));
+  g_assert_true (wp_core_is_connected (clone));
+  g_assert_true (wp_core_is_connected (f->base.core));
+
+  /* disconnect clone */
+  wp_core_disconnect (clone);
+  g_assert_false (wp_core_is_connected (clone));
+  g_assert_true (wp_core_is_connected (f->base.core));
+
+  /* disconnect core */
+  wp_core_disconnect (f->base.core);
+  g_assert_false (wp_core_is_connected (f->base.core));
+  g_assert_false (wp_core_is_connected (clone));
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -111,6 +142,8 @@ main (gint argc, gchar *argv[])
       test_core_setup, test_core_server_disconnected, test_core_teardown);
   g_test_add ("/wp/core/client-disconnected", TestFixture, NULL,
       test_core_setup, test_core_client_disconnected, test_core_teardown);
+  g_test_add ("/wp/core/cline", TestFixture, NULL,
+      test_core_setup, test_core_clone, test_core_teardown);
 
   return g_test_run ();
 }
