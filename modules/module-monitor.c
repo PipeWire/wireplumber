@@ -32,6 +32,7 @@ static const struct {
 
 enum {
   PROP_0,
+  PROP_LOCAL_CORE,
   PROP_FACTORY,
   PROP_FLAGS,
 };
@@ -41,6 +42,7 @@ struct _WpMonitor
   WpPlugin parent;
 
   /* Props */
+  WpCore *local_core;
   gchar *factory;
   MonitorFlags flags;
 
@@ -253,13 +255,10 @@ create_node (WpMonitor * self, WpSpaDevice * parent, GList ** children,
     guint id, const gchar * spa_factory, WpProperties * props,
     WpProperties * parent_props)
 {
-  g_autoptr (WpCore) core = NULL;
   GObject *node = NULL;
   const gchar *pw_factory_name;
 
   wp_debug_object (self, "%s new node %u (%s)", self->factory, id, spa_factory);
-
-  g_object_get (parent, "core", &core, NULL);
 
   /* use the adapter instead of spa-node-factory if requested */
   pw_factory_name =
@@ -276,10 +275,12 @@ create_node (WpMonitor * self, WpSpaDevice * parent, GList ** children,
 
   setup_node_props (parent_props, props);
 
-  /* create the node */
+  /* create the node using the local core */
   node = (self->flags & FLAG_LOCAL_NODES) ?
-      (GObject *) wp_impl_node_new_from_pw_factory (core, pw_factory_name, props) :
-      (GObject *) wp_node_new_from_factory (core, pw_factory_name, props);
+      (GObject *) wp_impl_node_new_from_pw_factory (self->local_core,
+          pw_factory_name, props) :
+      (GObject *) wp_node_new_from_factory (self->local_core, pw_factory_name,
+          props);
   if (!node)
     return;
 
@@ -312,16 +313,15 @@ static void
 create_device (WpMonitor * self, WpSpaDevice * parent, GList ** children,
     guint id, const gchar * spa_factory, WpProperties * props)
 {
-  g_autoptr (WpCore) core = NULL;
   WpSpaDevice *device;
 
   wp_debug_object (self, "%s new device %u", self->factory, id);
 
-  g_object_get (parent, "core", &core, NULL);
   props = wp_properties_copy (props);
   setup_device_props (props);
 
-  if (!(device = wp_spa_device_new_from_spa_factory (core, spa_factory, props)))
+  if (!(device = wp_spa_device_new_from_spa_factory (self->local_core,
+      spa_factory, props)))
     return;
 
   g_signal_connect (device, "object-info", (GCallback) on_object_info, self);
@@ -372,11 +372,10 @@ static void
 wp_monitor_activate (WpPlugin * plugin)
 {
   WpMonitor *self = WP_MONITOR (plugin);
-  g_autoptr (WpCore) core = wp_plugin_get_core (plugin);
 
   /* create the monitor and handle onject-info callback */
-  self->monitor = wp_spa_device_new_from_spa_factory (core, self->factory,
-      NULL);
+  self->monitor = wp_spa_device_new_from_spa_factory (self->local_core,
+      self->factory, NULL);
   g_signal_connect (self->monitor, "object-info", (GCallback) on_object_info,
       self);
 
@@ -399,6 +398,10 @@ wp_monitor_set_property (GObject * object, guint property_id,
   WpMonitor *self = WP_MONITOR (object);
 
   switch (property_id) {
+  case PROP_LOCAL_CORE:
+    g_clear_object (&self->local_core);
+    self->local_core = g_value_dup_object (value);
+    break;
   case PROP_FACTORY:
     g_clear_pointer (&self->factory, g_free);
     self->factory = g_value_dup_string (value);
@@ -419,6 +422,9 @@ wp_monitor_get_property (GObject * object, guint property_id, GValue * value,
   WpMonitor *self = WP_MONITOR (object);
 
   switch (property_id) {
+  case PROP_LOCAL_CORE:
+    g_value_set_object (value, self->local_core);
+    break;
   case PROP_FACTORY:
     g_value_set_string (value, self->factory);
     break;
@@ -437,6 +443,7 @@ wp_monitor_finalize (GObject * object)
   WpMonitor *self = WP_MONITOR (object);
 
   g_clear_pointer (&self->factory, g_free);
+  g_clear_object (&self->local_core);
 
   G_OBJECT_CLASS (wp_monitor_parent_class)->finalize (object);
 }
@@ -460,6 +467,10 @@ wp_monitor_class_init (WpMonitorClass * klass)
   plugin_class->deactivate = wp_monitor_deactivate;
 
   /* Properties */
+  g_object_class_install_property (object_class, PROP_LOCAL_CORE,
+      g_param_spec_object ("local-core", "local-core", "The local WpCore",
+          WP_TYPE_CORE,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
   g_object_class_install_property (object_class, PROP_FACTORY,
       g_param_spec_string ("factory", "factory",
           "The monitor factory name", NULL,
@@ -476,10 +487,20 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   GVariantIter iter;
   GVariant *value;
   gchar *key;
+  g_autoptr (WpCore) local_core = NULL;
 
   if (!args)
     return;
 
+  /* All monitors will share a new core for local objects */
+  local_core = wp_core_clone (core);
+  g_return_if_fail (local_core);
+  if (!wp_core_connect (local_core)) {
+    wp_warning ("failed to connect local core");
+    return;
+  }
+
+  /* Register all monitors */
   g_variant_iter_init (&iter, args);
   while (g_variant_iter_next (&iter, "{sv}", &key, &value)) {
     const gchar *factory = NULL;
@@ -504,6 +525,7 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
       /* Register */
       wp_plugin_register (g_object_new (wp_monitor_get_type (),
           "module", module,
+          "local-core", local_core,
           "factory", factory,
           "flags", flags,
           NULL));
