@@ -140,6 +140,52 @@ set_device_profile (WpProxy *device, gint index)
 }
 
 static void
+on_device_enum_profile_done (WpProxy *proxy, GAsyncResult *res,
+    WpDeviceActivation *self)
+{
+  g_autoptr (WpIterator) profiles = NULL;
+  g_auto (GValue) item = G_VALUE_INIT;
+  g_autoptr (GError) error = NULL;
+  guint profile_index = 1;
+
+  profiles = wp_proxy_enum_params_finish (proxy, res, &error);
+  if (error) {
+    wp_warning_object (self, "failed to enum profiles in bluetooth device");
+    return;
+  }
+
+  /* Get the first available profile */
+  for (; wp_iterator_next (profiles, &item); g_value_unset (&item)) {
+    WpSpaPod *pod = g_value_get_boxed (&item);
+    gint index = 0;
+    const gchar *name = NULL;
+
+    g_return_if_fail (pod);
+    g_return_if_fail (wp_spa_pod_is_object (pod));
+
+    /* Parse */
+    if (!wp_spa_pod_get_object (pod,
+        "ParamProfile", NULL,
+        "index", "i", &index,
+        "name", "s", &name,
+        NULL)) {
+      wp_warning_object (self, "bluetooth profile does not have index / name");
+      continue;
+    }
+
+    /* TODO: for now we always use the first profile available */
+    profile_index = index;
+    break;
+  }
+
+  /* TODO: Currently, it seems that the bluetooth device allways returns an
+   * empty list of profiles when doing EnumProfile, so for now we use a default
+   * profile with index 1 if the list is empty. We should return an error
+   * if none of them were found */
+  set_device_profile (proxy, profile_index);
+}
+
+static void
 on_device_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
 {
   WpDeviceActivation *self = WP_DEVICE_ACTIVATION (d);
@@ -163,7 +209,9 @@ on_device_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
 
   /* Bluez5 */
   else if (g_str_has_prefix (device_api, "bluez5")) {
-    set_device_profile (proxy, 1);
+    /* Enum available bluetooth profiles */
+    wp_proxy_enum_params (WP_PROXY (proxy), "EnumProfile", NULL, NULL,
+          (GAsyncReadyCallback) on_device_enum_profile_done, self);
   }
 
   /* Video */
