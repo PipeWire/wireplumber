@@ -151,10 +151,10 @@ on_device_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
 
   /* ALSA */
   if (g_str_has_prefix (device_api, "alsa")) {
-    /* If "dbus" mode, let dbus handle the activation, otherwise activate */
-    if (self->mode && g_strcmp0 (self->mode, "dbus") == 0) {
-      const gchar *id = wp_proxy_get_property (proxy, SPA_KEY_API_ALSA_CARD);
-      g_return_if_fail (id);
+    const gchar *id = wp_proxy_get_property (proxy, SPA_KEY_API_ALSA_CARD);
+    /* If "dbus" mode and Id is valid, let dbus handle the activation,
+     * otherwise always activate the device */
+    if (self->mode && g_strcmp0 (self->mode, "dbus") == 0 && id) {
       add_reserve_device_data (self, proxy, atoi (id));
     } else {
       set_device_profile (proxy, 1);
