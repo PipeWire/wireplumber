@@ -188,7 +188,7 @@ activate_sync (WpCore *core, GAsyncResult *res, WpDeviceActivation *self)
   wp_object_manager_add_interest (self->spa_devices_om, WP_TYPE_DEVICE,
       NULL);
   wp_object_manager_request_proxy_features (self->spa_devices_om,
-      WP_TYPE_DEVICE, WP_PROXY_FEATURE_BOUND);
+      WP_TYPE_DEVICE, WP_PROXY_FEATURES_STANDARD);
   g_signal_connect_object (self->spa_devices_om, "object-added",
       G_CALLBACK (on_device_added), self, 0);
   wp_core_install_object_manager (core, self->spa_devices_om);
