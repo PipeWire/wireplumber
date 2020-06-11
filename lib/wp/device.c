@@ -478,6 +478,7 @@ proxy_event_bound (void *data, uint32_t global_id)
 
   spa_hook_remove (&self->proxy_listener);
   g_task_return_boolean (task, TRUE);
+  g_object_unref (task);
 }
 
 static const struct pw_proxy_events proxy_events = {
@@ -505,7 +506,7 @@ wp_spa_device_export (WpSpaDevice * self, GCancellable * cancellable,
       wp_properties_peek_dict (self->properties),
       self->device, 0);
   pw_proxy_add_listener (self->proxy, &self->proxy_listener,
-      &proxy_events, task);
+      &proxy_events, g_steal_pointer (&task));
 }
 
 gboolean
