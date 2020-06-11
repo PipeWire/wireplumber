@@ -473,31 +473,46 @@ wp_monitor_class_init (WpMonitorClass * klass)
 WP_PLUGIN_EXPORT void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
-  const gchar *factory = NULL;
-  MonitorFlags flags = 0;
+  GVariantIter iter;
+  GVariant *value;
+  gchar *key;
 
-  /* Get the factory */
-  if (!g_variant_lookup (args, "factory", "s", &factory)) {
-    wp_warning ("Failed to load monitor: no 'factory' key specified");
+  if (!args)
     return;
-  }
 
-  /* Get the flags */
-  GVariantIter *iter;
-  if (g_variant_lookup (args, "flags", "as", &iter)) {
-    gchar *flag_str = NULL;
-    while (g_variant_iter_loop (iter, "s", &flag_str)) {
-      for (gint i = 0; i < SPA_N_ELEMENTS (flag_names); i++) {
-        if (!g_strcmp0 (flag_str, flag_names[i].name))
-          flags |= flag_names[i].flag;
+  g_variant_iter_init (&iter, args);
+  while (g_variant_iter_next (&iter, "{sv}", &key, &value)) {
+    const gchar *factory = NULL;
+    MonitorFlags flags = 0;
+
+    /* Get the factory */
+    if (g_variant_lookup (value, "factory", "s", &factory)) {
+      GVariantIter *flags_iter;
+
+      /* Get the flags */
+      if (g_variant_lookup (value, "flags", "as", &flags_iter)) {
+        gchar *flag_str = NULL;
+        while (g_variant_iter_loop (flags_iter, "s", &flag_str)) {
+          for (gint i = 0; i < SPA_N_ELEMENTS (flag_names); i++) {
+            if (!g_strcmp0 (flag_str, flag_names[i].name))
+              flags |= flag_names[i].flag;
+          }
+        }
+        g_variant_iter_free (flags_iter);
       }
-    }
-    g_variant_iter_free (iter);
-  }
 
-  wp_plugin_register (g_object_new (wp_monitor_get_type (),
+      /* Register */
+      wp_plugin_register (g_object_new (wp_monitor_get_type (),
           "module", module,
           "factory", factory,
           "flags", flags,
           NULL));
+
+    } else {
+      wp_warning ("no 'factory' key specified for monitor '%s'", key);
+    }
+
+    g_variant_unref (value);
+    g_free (key);
+  }
 }
