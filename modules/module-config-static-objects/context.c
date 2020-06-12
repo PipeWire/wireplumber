@@ -16,6 +16,7 @@ struct _WpConfigStaticObjectsContext
 {
   GObject parent;
 
+  WpCore *local_core;
   WpObjectManager *devices_om;
   GPtrArray *static_objects;
 };
@@ -52,15 +53,14 @@ wp_config_static_objects_context_create_node (WpConfigStaticObjectsContext *self
   const struct WpParserNodeData *node_data)
 {
   g_autoptr (GObject) node = NULL;
-  g_autoptr (WpCore) core = wp_plugin_get_core (WP_PLUGIN (self));
-  g_return_if_fail (core);
+  g_return_if_fail (self->local_core);
 
   /* Create the node */
   node = node_data->n.local ?
-      (GObject *) wp_impl_node_new_from_pw_factory (core, node_data->n.factory,
-          wp_properties_ref (node_data->n.props)) :
-      (GObject *) wp_node_new_from_factory (core, node_data->n.factory,
-          wp_properties_ref (node_data->n.props));
+      (GObject *) wp_impl_node_new_from_pw_factory (self->local_core,
+          node_data->n.factory, wp_properties_ref (node_data->n.props)) :
+      (GObject *) wp_node_new_from_factory (self->local_core,
+          node_data->n.factory, wp_properties_ref (node_data->n.props));
   if (!node) {
     wp_warning_object (self, "failed to create node");
     return;
@@ -110,12 +110,11 @@ parser_device_foreach_func (const struct WpParserDeviceData *device_data,
     gpointer data)
 {
   WpConfigStaticObjectsContext *self = data;
-  g_autoptr (WpCore) core = wp_plugin_get_core (WP_PLUGIN (self));
   g_autoptr (WpDevice) device = NULL;
-  g_return_val_if_fail (core, FALSE);
+  g_return_val_if_fail (self->local_core, FALSE);
 
   /* Create the device */
-  device = wp_device_new_from_factory (core, device_data->factory,
+  device = wp_device_new_from_factory (self->local_core, device_data->factory,
       device_data->props ? wp_properties_ref (device_data->props) : NULL);
   if (!device) {
     wp_warning_object (self, "failed to create device");
@@ -151,6 +150,13 @@ wp_config_static_objects_context_activate (WpPlugin * plugin)
   g_autoptr (WpCore) core = wp_plugin_get_core (plugin);
   g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
 
+  /* Create and connect the local core */
+  self->local_core = wp_core_clone (core);
+  if (!wp_core_connect (self->local_core)) {
+    wp_warning_object (self, "failed to connect local core");
+    return;
+  }
+
   self->static_objects = g_ptr_array_new_with_free_func (g_object_unref);
 
   /* Create and install the device object manager */
@@ -160,7 +166,7 @@ wp_config_static_objects_context_activate (WpPlugin * plugin)
       WP_PROXY_FEATURE_INFO);
   g_signal_connect (self->devices_om, "object-added",
       (GCallback) on_device_added, self);
-  wp_core_install_object_manager (core, self->devices_om);
+  wp_core_install_object_manager (self->local_core, self->devices_om);
 
   /* Add the node parser and parse the node files */
   wp_configuration_add_extension (config, WP_PARSER_NODE_EXTENSION,
@@ -203,6 +209,8 @@ wp_config_static_objects_context_deactivate (WpPlugin *plugin)
     wp_configuration_remove_extension (config, WP_PARSER_DEVICE_EXTENSION);
     wp_configuration_remove_extension (config, WP_PARSER_NODE_EXTENSION);
   }
+
+  g_clear_object (&self->local_core);
 }
 
 static void
