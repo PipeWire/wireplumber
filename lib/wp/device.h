@@ -41,7 +41,7 @@ G_DECLARE_FINAL_TYPE (WpSpaDevice, wp_spa_device, WP, SPA_DEVICE, GObject)
 
 WP_API
 WpSpaDevice * wp_spa_device_new_wrap (WpCore * core,
-    gpointer spa_device_handle);
+    gpointer spa_device_handle, WpProperties * properties);
 
 WP_API
 WpSpaDevice * wp_spa_device_new_from_spa_factory (WpCore * core,

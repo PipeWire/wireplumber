@@ -212,6 +212,7 @@ enum {
   PROP_0,
   PROP_CORE,
   PROP_SPA_DEVICE_HANDLE,
+  PROP_PROPERTIES,
 };
 
 struct _WpSpaDevice
@@ -290,6 +291,12 @@ wp_spa_device_set_property (GObject * object, guint property_id,
   case PROP_SPA_DEVICE_HANDLE:
     self->handle = g_value_get_pointer (value);
     break;
+  case PROP_PROPERTIES: {
+    WpProperties *p = g_value_get_boxed (value);
+    if (p)
+      wp_properties_update (self->properties, p);
+    break;
+  }
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
@@ -308,6 +315,9 @@ wp_spa_device_get_property (GObject * object, guint property_id, GValue * value,
     break;
   case PROP_SPA_DEVICE_HANDLE:
     g_value_set_pointer (value, self->handle);
+    break;
+  case PROP_PROPERTIES:
+    g_value_take_boxed (value, wp_properties_ref (self->properties));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -376,6 +386,11 @@ wp_spa_device_class_init (WpSpaDeviceClass * klass)
           "The spa device handle",
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (object_class, PROP_PROPERTIES,
+      g_param_spec_boxed ("properties", "properties",
+          "Properties of the device", WP_TYPE_PROPERTIES,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
   /**
    * WpSpaDevice::object-info:
    * @self: the #WpSpaDevice
@@ -411,15 +426,19 @@ wp_spa_device_class_init (WpSpaDeviceClass * klass)
  * wp_spa_device_new_wrap:
  * @core: the wireplumber core
  * @spa_device_handle: the spa device handle
+ * @properties: (nullable) (transfer full): additional properties of the device
  *
  * Returns: (transfer full): A new #WpSpaDevice
  */
 WpSpaDevice *
-wp_spa_device_new_wrap (WpCore * core, gpointer spa_device_handle)
+wp_spa_device_new_wrap (WpCore * core, gpointer spa_device_handle,
+    WpProperties * properties)
 {
+  g_autoptr (WpProperties) props = properties;
   return g_object_new (WP_TYPE_SPA_DEVICE,
       "core", core,
       "spa-device-handle", spa_device_handle,
+      "properties", props,
       NULL);
 }
 
@@ -460,7 +479,7 @@ wp_spa_device_new_from_spa_factory (WpCore * core,
     return NULL;
   }
 
-  return wp_spa_device_new_wrap (core, handle);
+  return wp_spa_device_new_wrap (core, handle, g_steal_pointer (&props));
 }
 
 guint32
