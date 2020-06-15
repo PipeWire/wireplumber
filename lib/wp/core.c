@@ -111,6 +111,7 @@ struct _WpCore
   /* pipewire main objects */
   struct pw_context *pw_context;
   struct pw_core *pw_core;
+  struct pw_core_info *info;
 
   /* pipewire main listeners */
   struct spa_hook core_listener;
@@ -142,6 +143,21 @@ static guint32 signals[NUM_SIGNALS];
  * The #WpCore #GType
  */
 G_DEFINE_TYPE (WpCore, wp_core, G_TYPE_OBJECT)
+
+static void
+core_info (void *data, const struct pw_core_info * info)
+{
+  WpCore *self = WP_CORE (data);
+  gboolean new_connection = (self->info == NULL);
+
+  self->info = pw_core_info_update (self->info, info);
+
+  wp_info_object (self, "connected to server: %s, cookie: %u",
+      self->info->name, self->info->cookie);
+
+  if (new_connection)
+    g_signal_emit (self, signals[SIGNAL_CONNECTED], 0);
+}
 
 static void
 core_done (void *data, uint32_t id, int seq)
@@ -179,6 +195,7 @@ core_error (void *data, uint32_t id, int seq, int res, const char *message)
 
 static const struct pw_core_events core_events = {
   PW_VERSION_CORE_EVENTS,
+  .info = core_info,
   .done = core_done,
   .error = core_error,
 };
@@ -199,6 +216,7 @@ proxy_core_destroy (void *data)
 {
   WpCore *self = WP_CORE (data);
   g_hash_table_foreach_remove (self->async_tasks, async_tasks_finish, NULL);
+  g_clear_pointer (&self->info, pw_core_info_free);
   self->pw_core = NULL;
   wp_debug_object (self, "emit disconnected");
   g_signal_emit (self, signals[SIGNAL_DISCONNECTED], 0);
@@ -490,9 +508,6 @@ wp_core_connect (WpCore *self)
 
   /* Add the registry listener */
   wp_registry_attach (&self->registry, self->pw_core);
-
-  /* Emit the connected signal */
-  g_signal_emit (self, signals[SIGNAL_CONNECTED], 0);
 
   return TRUE;
 }
