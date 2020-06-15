@@ -248,7 +248,12 @@ wp_core_constructed (GObject *object)
   /* context */
   if (!self->pw_context) {
     struct pw_properties *p = NULL;
-    p = self->properties ? wp_properties_to_pw_properties (self->properties) : NULL;
+
+    /* properties are fully stored in the pw_context, no need to keep a copy */
+    p = self->properties ?
+        wp_properties_unref_and_take_pw_properties (self->properties) : NULL;
+    self->properties = NULL;
+
     self->pw_context = pw_context_new (WP_LOOP_SOURCE(source)->loop, p,
         sizeof (grefcount));
     g_return_if_fail (self->pw_context);
@@ -310,7 +315,7 @@ wp_core_get_property (GObject * object, guint property_id,
     g_value_set_boxed (value, self->g_main_context);
     break;
   case PROP_PROPERTIES:
-    g_value_set_boxed (value, self->properties);
+    g_value_take_boxed (value, wp_core_get_properties (self));
     break;
   case PROP_PW_CONTEXT:
     g_value_set_pointer (value, self->pw_context);
@@ -542,6 +547,162 @@ wp_core_is_connected (WpCore * self)
 {
   g_return_val_if_fail (WP_IS_CORE (self), FALSE);
   return self->pw_core != NULL;
+}
+
+/**
+ * wp_core_get_remote_cookie:
+ * @self: the core
+ *
+ * Returns: The cookie of the PipeWire instance that @self is connected to.
+ *     The cookie is a unique random number for identifying an instance of
+ *     PipeWire
+ */
+guint32
+wp_core_get_remote_cookie (WpCore * self)
+{
+  g_return_val_if_fail (wp_core_is_connected (self), 0);
+  g_return_val_if_fail (self->info, 0);
+
+  return self->info->cookie;
+}
+
+/**
+ * wp_core_get_remote_name:
+ * @self: the core
+ *
+ * Returns: The name of the PipeWire instance that @self is connected to
+ */
+const gchar *
+wp_core_get_remote_name (WpCore * self)
+{
+  g_return_val_if_fail (wp_core_is_connected (self), NULL);
+  g_return_val_if_fail (self->info, NULL);
+
+  return self->info->name;
+}
+
+/**
+ * wp_core_get_remote_user_name:
+ * @self: the core
+ *
+ * Returns: The name of the user that started the PipeWire instance that
+ *     @self is connected to
+ */
+const gchar *
+wp_core_get_remote_user_name (WpCore * self)
+{
+  g_return_val_if_fail (wp_core_is_connected (self), NULL);
+  g_return_val_if_fail (self->info, NULL);
+
+  return self->info->user_name;
+}
+
+/**
+ * wp_core_get_remote_host_name:
+ * @self: the core
+ *
+ * Returns: The name of the host where the PipeWire instance that
+ *     @self is connected to is running on
+ */
+const gchar *
+wp_core_get_remote_host_name (WpCore * self)
+{
+  g_return_val_if_fail (wp_core_is_connected (self), NULL);
+  g_return_val_if_fail (self->info, NULL);
+
+  return self->info->host_name;
+}
+
+/**
+ * wp_core_get_remote_version:
+ * @self: the core
+ *
+ * Returns: The version of the PipeWire instance that @self is connected to
+ */
+const gchar *
+wp_core_get_remote_version (WpCore * self)
+{
+  g_return_val_if_fail (wp_core_is_connected (self), NULL);
+  g_return_val_if_fail (self->info, NULL);
+
+  return self->info->version;
+}
+
+/**
+ * wp_core_get_remote_properties:
+ * @self: the core
+ *
+ * Returns: (transfer full): the properties of the PipeWire instance that
+ *     @self is connected to
+ */
+WpProperties *
+wp_core_get_remote_properties (WpCore * self)
+{
+  g_return_val_if_fail (wp_core_is_connected (self), NULL);
+  g_return_val_if_fail (self->info, NULL);
+
+  return wp_properties_new_wrap_dict (self->info->props);
+}
+
+/**
+ * wp_core_get_properties:
+ * @self: the core
+ *
+ * Returns: (transfer full): the properties of @self
+ */
+WpProperties *
+wp_core_get_properties (WpCore * self)
+{
+  g_return_val_if_fail (WP_IS_CORE (self), NULL);
+
+  /* pw_core has all the properties of the pw_context,
+     plus our updates, passed in pw_context_connect() */
+  if (self->pw_core)
+    return wp_properties_new_wrap (pw_core_get_properties (self->pw_core));
+
+  /* if there is no connection yet, return the properties of the context */
+  else if (!self->properties)
+    return wp_properties_new_wrap (pw_context_get_properties (self->pw_context));
+
+  /* ... plus any further updates that we got from wp_core_update_properties() */
+  else {
+    /* we need to copy here in order to augment with the updates */
+    WpProperties *ret =
+        wp_properties_new_copy (pw_context_get_properties (self->pw_context));
+    wp_properties_update (ret, self->properties);
+    return ret;
+  }
+}
+
+/**
+ * wp_core_update_properties:
+ * @self: the core
+ * @updates: (transfer full): updates to apply to the properties of @self;
+ *    this does not need to include properties that have not changed
+ *
+ * Updates the properties of @self on the connection, making them appear on
+ * the client object that represents this connection.
+ *
+ * If @self is not connected yet, these properties are stored and passed to
+ * `pw_context_connect` when connecting.
+ */
+void
+wp_core_update_properties (WpCore * self, WpProperties * updates)
+{
+  g_autoptr (WpProperties) upd = updates;
+
+  g_return_if_fail (WP_IS_CORE (self));
+  g_return_if_fail (updates != NULL);
+
+  /* store updates locally so that
+    - they persist after disconnection
+    - we can pass them to pw_context_connect */
+  if (!self->properties)
+    self->properties = wp_properties_new_empty ();
+  wp_properties_update (self->properties, upd);
+
+  if (self->pw_core)
+    pw_core_update_properties (self->pw_core, wp_properties_peek_dict (upd));
 }
 
 /**

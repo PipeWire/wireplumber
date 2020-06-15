@@ -50,6 +50,32 @@ void wp_core_disconnect (WpCore *self);
 WP_API
 gboolean wp_core_is_connected (WpCore * self);
 
+/* Properties */
+
+WP_API
+guint32 wp_core_get_remote_cookie (WpCore * self);
+
+WP_API
+const gchar * wp_core_get_remote_name (WpCore * self);
+
+WP_API
+const gchar * wp_core_get_remote_user_name (WpCore * self);
+
+WP_API
+const gchar * wp_core_get_remote_host_name (WpCore * self);
+
+WP_API
+const gchar * wp_core_get_remote_version (WpCore * self);
+
+WP_API
+WpProperties * wp_core_get_remote_properties (WpCore * self);
+
+WP_API
+WpProperties * wp_core_get_properties (WpCore * self);
+
+WP_API
+void wp_core_update_properties (WpCore * self, WpProperties * updates);
+
 /* Callback */
 
 WP_API
