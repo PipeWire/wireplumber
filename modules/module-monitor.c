@@ -373,6 +373,11 @@ wp_monitor_activate (WpPlugin * plugin)
 {
   WpMonitor *self = WP_MONITOR (plugin);
 
+  if (!wp_core_connect (self->local_core)) {
+    wp_warning_object (plugin, "failed to connect monitor core");
+    return;
+  }
+
   /* create the monitor and handle onject-info callback */
   self->monitor = wp_spa_device_new_from_spa_factory (self->local_core,
       self->factory, NULL);
@@ -388,6 +393,7 @@ wp_monitor_deactivate (WpPlugin * plugin)
 {
   WpMonitor *self = WP_MONITOR (plugin);
 
+  wp_core_disconnect (self->local_core);
   g_clear_object (&self->monitor);
 }
 
@@ -497,11 +503,6 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   wp_core_update_properties (local_core, wp_properties_new (
           PW_KEY_APP_NAME, "WirePlumber (monitor)",
           NULL));
-
-  if (!wp_core_connect (local_core)) {
-    wp_warning ("failed to connect local core");
-    return;
-  }
 
   /* Register all monitors */
   g_variant_iter_init (&iter, args);
