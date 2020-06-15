@@ -42,7 +42,7 @@ WP_API
 WpProperties * wp_properties_new_string (const gchar * str);
 
 WP_API
-WpProperties * wp_properties_new_wrap (struct pw_properties * props);
+WpProperties * wp_properties_new_wrap (const struct pw_properties * props);
 
 WP_API
 WpProperties * wp_properties_new_take (struct pw_properties * props);

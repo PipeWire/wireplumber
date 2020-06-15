@@ -156,7 +156,7 @@ wp_properties_new_string (const gchar * str)
  * @props: a native `pw_properties` structure to wrap
  *
  * Constructs a new #WpProperties that wraps the given @props structure,
- * allowing reading & writing properties on that @props structure through
+ * allowing reading properties on that @props structure through
  * the #WpProperties API.
  *
  * Care must be taken when using this function, since the returned #WpProperties
@@ -164,10 +164,14 @@ wp_properties_new_string (const gchar * str)
  * to free @props, the returned #WpProperties will crash when used. In addition,
  * the returned #WpProperties object will not try to free @props when destroyed.
  *
+ * Furthermore, note that the returned #WpProperties object is immutable. That
+ * means that you cannot add or modify any properties on it, unless you make
+ * a copy first.
+ *
  * Returns: (transfer full): the newly constructed properties set
  */
 WpProperties *
-wp_properties_new_wrap (struct pw_properties * props)
+wp_properties_new_wrap (const struct pw_properties * props)
 {
   WpProperties * self;
 
@@ -176,7 +180,7 @@ wp_properties_new_wrap (struct pw_properties * props)
   self = g_slice_new0 (WpProperties);
   g_ref_count_init (&self->ref);
   self->flags = FLAG_NO_OWNERSHIP;
-  self->props = props;
+  self->props = (struct pw_properties *) props;
   return self;
 }
 
@@ -377,6 +381,7 @@ wp_properties_update (WpProperties * self, WpProperties * props)
 {
   g_return_val_if_fail (self != NULL, -EINVAL);
   g_return_val_if_fail (!(self->flags & FLAG_IS_DICT), -EINVAL);
+  g_return_val_if_fail (!(self->flags & FLAG_NO_OWNERSHIP), -EINVAL);
 
   return pw_properties_update (self->props, wp_properties_peek_dict (props));
 }
@@ -398,6 +403,7 @@ wp_properties_update_from_dict (WpProperties * self,
 {
   g_return_val_if_fail (self != NULL, -EINVAL);
   g_return_val_if_fail (!(self->flags & FLAG_IS_DICT), -EINVAL);
+  g_return_val_if_fail (!(self->flags & FLAG_NO_OWNERSHIP), -EINVAL);
 
   return pw_properties_update (self->props, dict);
 }
@@ -419,6 +425,7 @@ wp_properties_add (WpProperties * self, WpProperties * props)
 {
   g_return_val_if_fail (self != NULL, -EINVAL);
   g_return_val_if_fail (!(self->flags & FLAG_IS_DICT), -EINVAL);
+  g_return_val_if_fail (!(self->flags & FLAG_NO_OWNERSHIP), -EINVAL);
 
   return pw_properties_add (self->props, wp_properties_peek_dict (props));
 }
@@ -441,6 +448,7 @@ wp_properties_add_from_dict (WpProperties * self,
 {
   g_return_val_if_fail (self != NULL, -EINVAL);
   g_return_val_if_fail (!(self->flags & FLAG_IS_DICT), -EINVAL);
+  g_return_val_if_fail (!(self->flags & FLAG_NO_OWNERSHIP), -EINVAL);
 
   return pw_properties_add (self->props, dict);
 }
@@ -468,6 +476,7 @@ wp_properties_update_keys (WpProperties * self, WpProperties * props,
 
   g_return_val_if_fail (self != NULL, -EINVAL);
   g_return_val_if_fail (!(self->flags & FLAG_IS_DICT), -EINVAL);
+  g_return_val_if_fail (!(self->flags & FLAG_NO_OWNERSHIP), -EINVAL);
 
   va_list args;
   va_start (args, key1);
@@ -501,6 +510,7 @@ wp_properties_update_keys_from_dict (WpProperties * self,
 
   g_return_val_if_fail (self != NULL, -EINVAL);
   g_return_val_if_fail (!(self->flags & FLAG_IS_DICT), -EINVAL);
+  g_return_val_if_fail (!(self->flags & FLAG_NO_OWNERSHIP), -EINVAL);
 
   va_list args;
   va_start (args, key1);
@@ -528,6 +538,7 @@ wp_properties_update_keys_array (WpProperties * self, WpProperties * props,
 {
   g_return_val_if_fail (self != NULL, -EINVAL);
   g_return_val_if_fail (!(self->flags & FLAG_IS_DICT), -EINVAL);
+  g_return_val_if_fail (!(self->flags & FLAG_NO_OWNERSHIP), -EINVAL);
 
   return pw_properties_update_keys (self->props,
       wp_properties_peek_dict (props), keys);
@@ -555,6 +566,7 @@ wp_properties_add_keys (WpProperties * self, WpProperties * props,
 
   g_return_val_if_fail (self != NULL, -EINVAL);
   g_return_val_if_fail (!(self->flags & FLAG_IS_DICT), -EINVAL);
+  g_return_val_if_fail (!(self->flags & FLAG_NO_OWNERSHIP), -EINVAL);
 
   va_list args;
   va_start (args, key1);
@@ -589,6 +601,7 @@ wp_properties_add_keys_from_dict (WpProperties * self,
 
   g_return_val_if_fail (self != NULL, -EINVAL);
   g_return_val_if_fail (!(self->flags & FLAG_IS_DICT), -EINVAL);
+  g_return_val_if_fail (!(self->flags & FLAG_NO_OWNERSHIP), -EINVAL);
 
   va_list args;
   va_start (args, key1);
@@ -618,6 +631,7 @@ wp_properties_add_keys_array (WpProperties * self, WpProperties * props,
 {
   g_return_val_if_fail (self != NULL, -EINVAL);
   g_return_val_if_fail (!(self->flags & FLAG_IS_DICT), -EINVAL);
+  g_return_val_if_fail (!(self->flags & FLAG_NO_OWNERSHIP), -EINVAL);
 
   return pw_properties_add_keys (self->props,
       wp_properties_peek_dict (props), keys);
@@ -661,6 +675,7 @@ wp_properties_set (WpProperties * self, const gchar * key,
 {
   g_return_val_if_fail (self != NULL, -EINVAL);
   g_return_val_if_fail (!(self->flags & FLAG_IS_DICT), -EINVAL);
+  g_return_val_if_fail (!(self->flags & FLAG_NO_OWNERSHIP), -EINVAL);
 
   return pw_properties_set (self->props, key, value);
 }
@@ -712,6 +727,7 @@ wp_properties_setf_valist (WpProperties * self, const gchar * key,
 {
   g_return_val_if_fail (self != NULL, -EINVAL);
   g_return_val_if_fail (!(self->flags & FLAG_IS_DICT), -EINVAL);
+  g_return_val_if_fail (!(self->flags & FLAG_NO_OWNERSHIP), -EINVAL);
 
   return pw_properties_setva (self->props, key, format, args);
 }

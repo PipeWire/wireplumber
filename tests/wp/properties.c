@@ -85,13 +85,6 @@ test_properties_wrap (void)
   g_assert_true (wp_properties_peek_dict (p) == &props->dict);
   g_assert_cmpstr (wp_properties_get (p, "key1"), ==, "value1");
 
-  /* value changes should be reflected on both objects */
-  g_assert_cmpint (wp_properties_setf (p, "foobar", "%d", 2), ==, 1);
-  g_assert_cmpstr (pw_properties_get (props, "foobar"), ==, "2");
-
-  g_assert_cmpint (pw_properties_setf (props, "test", "some-%s", "value"), ==, 1);
-  g_assert_cmpstr (wp_properties_get (p, "test"), ==, "some-value");
-
   wp_properties_unref (g_steal_pointer (&p));
   /* because wrap does not free the original object, this should not crash */
   pw_properties_free (props);
