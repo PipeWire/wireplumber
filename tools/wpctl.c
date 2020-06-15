@@ -72,8 +72,11 @@ static gboolean
 status_prepare (WpCtl * self, GError ** error)
 {
   wp_object_manager_add_interest (self->om, WP_TYPE_SESSION, NULL);
+  wp_object_manager_add_interest (self->om, WP_TYPE_CLIENT, NULL);
   wp_object_manager_request_proxy_features (self->om, WP_TYPE_SESSION,
       WP_SESSION_FEATURES_STANDARD);
+  wp_object_manager_request_proxy_features (self->om, WP_TYPE_CLIENT,
+      WP_PROXY_FEATURES_STANDARD);
   return TRUE;
 }
 
@@ -185,7 +188,33 @@ status_run (WpCtl * self)
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
 
-  it = wp_object_manager_iterate (self->om);
+  /* server + clients */
+  printf ("PipeWire '%s' [%s, %s@%s, cookie:%u]\n",
+      wp_core_get_remote_name (self->core),
+      wp_core_get_remote_version (self->core),
+      wp_core_get_remote_user_name (self->core),
+      wp_core_get_remote_host_name (self->core),
+      wp_core_get_remote_cookie (self->core));
+
+  printf (TREE_INDENT_END "Clients:\n");
+  it = wp_object_manager_iterate_filtered (self->om, WP_TYPE_CLIENT, NULL);
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    WpProxy *client = g_value_get_object (&val);
+    g_autoptr (WpProperties) properties = wp_proxy_get_properties (client);
+
+    printf (TREE_INDENT_EMPTY "  %4u. %-35s [%s, %s@%s, pid:%s]\n",
+        wp_proxy_get_bound_id (client),
+        wp_properties_get (properties, PW_KEY_APP_NAME),
+        wp_properties_get (properties, PW_KEY_CORE_VERSION),
+        wp_properties_get (properties, PW_KEY_APP_PROCESS_USER),
+        wp_properties_get (properties, PW_KEY_APP_PROCESS_HOST),
+        wp_properties_get (properties, PW_KEY_APP_PROCESS_ID));
+  }
+  wp_iterator_unref (it);
+  printf ("\n");
+
+  /* sessions */
+  it = wp_object_manager_iterate_filtered (self->om, WP_TYPE_SESSION, NULL);
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
     WpSession *session = g_value_get_object (&val);
     g_autoptr (WpIterator) child_it = NULL;
@@ -197,8 +226,6 @@ status_run (WpCtl * self)
     printf ("Session %u (%s)\n",
         wp_proxy_get_bound_id (WP_PROXY (session)),
         wp_session_get_name (session));
-
-    printf (TREE_INDENT_LINE "\n");
 
     printf (TREE_INDENT_NODE "Sink endpoints:\n");
     child_it = wp_session_iterate_endpoints_filtered (session,
