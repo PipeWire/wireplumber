@@ -58,9 +58,15 @@ To do this,
 1. fork the project on https://gitlab.freedesktop.org/pipewire/wireplumber
 2. clone the forked project on your computer
 3. make changes in a new git branch
-4. push that branch on the forked project
-5. follow the link shown by `git push` to create the merge request
-(or alternatively, visit your forked project on gitlab and create it from there)
+4. rebase your changes on top of the latest `master` of the main repository
+5. push that branch on the forked repository
+6. follow the link shown by `git push` to create the merge request
+(or alternatively, visit your forked repository on gitlab and create it from there)
+
+While creating the merge request, it is important to enable the
+`allow commits from members who can merge to the target branch` option
+so that maintainers are able to rebase your branch, since WirePlumber uses
+a fast-forward merge policy.
 
 For more detailed information, check out
 [gitlab's manual on merge requests](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
