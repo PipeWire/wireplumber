@@ -494,7 +494,10 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 
   /* All monitors will share a new core for local objects */
   local_core = wp_core_clone (core);
-  g_return_if_fail (local_core);
+  wp_core_update_properties (local_core, wp_properties_new (
+          PW_KEY_APP_NAME, "WirePlumber (monitor)",
+          NULL));
+
   if (!wp_core_connect (local_core)) {
     wp_warning ("failed to connect local core");
     return;

@@ -378,7 +378,9 @@ main (gint argc, gchar **argv)
 
   /* init wireplumber */
 
-  data.core = core = wp_core_new (NULL, NULL);
+  data.core = core = wp_core_new (NULL, wp_properties_new (
+          PW_KEY_APP_NAME, "WirePlumber",
+          NULL));
   g_signal_connect (core, "connected", G_CALLBACK (on_connected), &data);
   g_signal_connect (core, "disconnected", (GCallback) on_disconnected, &data);
 

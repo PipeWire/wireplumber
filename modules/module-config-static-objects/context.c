@@ -7,6 +7,7 @@
  */
 
 #include <wp/wp.h>
+#include <pipewire/keys.h>
 
 #include "parser-device.h"
 #include "parser-node.h"
@@ -152,6 +153,9 @@ wp_config_static_objects_context_activate (WpPlugin * plugin)
 
   /* Create and connect the local core */
   self->local_core = wp_core_clone (core);
+  wp_core_update_properties (self->local_core, wp_properties_new (
+        PW_KEY_APP_NAME, "WirePlumber (static-objects)",
+        NULL));
   if (!wp_core_connect (self->local_core)) {
     wp_warning_object (self, "failed to connect local core");
     return;
