@@ -152,6 +152,10 @@ const struct spa_dict * wp_properties_peek_dict (WpProperties * self);
 WP_API
 struct pw_properties * wp_properties_to_pw_properties (WpProperties * self);
 
+WP_API
+struct pw_properties * wp_properties_unref_and_take_pw_properties (
+    WpProperties * self);
+
 /* comparison */
 
 WP_API

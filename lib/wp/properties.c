@@ -877,6 +877,31 @@ wp_properties_to_pw_properties (WpProperties * self)
 }
 
 /**
+ * wp_properties_unref_and_take_pw_properties:
+ * @self: (transfer full): a properties object
+ *
+ * Similar to wp_properties_to_pw_properties(), but this method avoids making
+ * a copy of the properties by returning the `struct pw_properties` that is
+ * stored internally and then freeing the #WpProperties wrapper.
+ *
+ * If @self is not uniquely owned (see wp_properties_ensure_unique_owner()),
+ * then this method does make a copy and is the same as
+ * wp_properties_to_pw_properties(), performance-wise.
+ *
+ * Returns: (transfer full): the properties in @self as a `struct pw_properties`
+ */
+struct pw_properties *
+wp_properties_unref_and_take_pw_properties (WpProperties * self)
+{
+  g_return_val_if_fail (self != NULL, NULL);
+
+  g_autoptr (WpProperties) unique = wp_properties_ensure_unique_owner (self);
+  /* set the flag so that unref-ing @unique will not destroy unique->props */
+  unique->flags = FLAG_NO_OWNERSHIP;
+  return unique->props;
+}
+
+/**
  * wp_properties_matches:
  * @self: a properties object
  * @other: a set of properties to match
