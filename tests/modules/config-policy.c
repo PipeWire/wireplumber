@@ -30,6 +30,7 @@ load_item (TestFixture * f, const gchar * factory, const gchar * media_class)
       wp_properties_new (
           "factory.name", factory,
           "node.name", factory,
+          "node.autoconnect", "true",
           NULL));
   g_assert_nonnull (node);
 
@@ -80,6 +81,7 @@ load_adapter_item (TestFixture * f, const gchar * factory,
       wp_properties_new (
           "factory.name", factory,
           "node.name", factory,
+          "node.autoconnect", "true",
           NULL));
   g_assert_nonnull (node);
 
