@@ -761,11 +761,14 @@ wp_object_interest_matches_full (WpObjectInterest * self,
       }
       case WP_CONSTRAINT_TYPE_G_PROPERTY: {
         GType value_type;
+        GParamSpec *pspec = NULL;
 
         if (object)
-          exists = !!g_object_class_find_property (G_OBJECT_GET_CLASS (object), c->subject);
+          exists = !!(pspec = g_object_class_find_property (
+              G_OBJECT_GET_CLASS (object), c->subject));
 
         if (exists && c->subject_type) {
+          g_value_init (&value, pspec->value_type);
           g_object_get_property (object, c->subject, &value);
           value_type = G_VALUE_TYPE (&value);
 
