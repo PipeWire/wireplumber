@@ -57,6 +57,13 @@ wp_config_policy_context_get_endpoint_target (WpConfigPolicyContext *self,
         WP_CONSTRAINT_TYPE_G_PROPERTY, "direction", "=u", target_dir,
         WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_ID, "=s", node_target,
         NULL);
+    /* as a transition helper, also accept endpoint IDs in node.target */
+    if (!target) {
+      target = wp_session_lookup_endpoint (session,
+          WP_CONSTRAINT_TYPE_G_PROPERTY, "direction", "=u", target_dir,
+          WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=s", node_target,
+          NULL);
+    }
     wp_debug_object (self, "node.target = %s -> target = " WP_OBJECT_FORMAT,
         node_target, WP_OBJECT_ARGS (target));
   }
