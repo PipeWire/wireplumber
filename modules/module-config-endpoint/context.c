@@ -173,6 +173,9 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
     g_variant_builder_add (&b, "{sv}", "enable-monitor",
         g_variant_new_boolean (endpoint_data->e.c.enable_monitor));
 
+    g_variant_builder_add (&b, "{sv}", "preferred-n-channels",
+        g_variant_new_uint32 (endpoint_data->e.c.preferred_n_channels));
+
     wp_session_item_configure (ep, g_variant_builder_end (&b));
   }
 

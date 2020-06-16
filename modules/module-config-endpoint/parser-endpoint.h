@@ -32,6 +32,7 @@ struct WpParserEndpointData {
       gboolean enable_control_port;
       gboolean enable_monitor;
       guint direction;
+      guint preferred_n_channels;
     } c;
   } e;
 };

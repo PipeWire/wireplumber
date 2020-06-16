@@ -156,6 +156,8 @@ wp_parser_endpoint_data_new (const gchar *location)
     wp_toml_table_get_boolean (c, "enable-control-port", &res->e.c.enable_control_port);
     res->e.c.enable_monitor = FALSE;
     wp_toml_table_get_boolean (c, "enable-monitor", &res->e.c.enable_monitor);
+    res->e.c.preferred_n_channels = 0;
+    wp_toml_table_get_uint32 (c, "preferred-n-channels", &res->e.c.preferred_n_channels);
   }
 
   return res;
