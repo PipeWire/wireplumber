@@ -1,0 +1,19 @@
+# match any audiotestsrc that is wrapped in an adapter
+# and configure it to use si-adapter with 2 channels because:
+# 1. being an adapter, it needs PortConfig
+# 2. it has no max number of channels (so it ends up with 34 or so,
+#    unless we specify a preference)
+
+[match-node]
+properties = [
+  { name = "media.class", value = "Audio/Source" },
+  { name = "factory.name", value = "audiotestsrc" },
+  { name = "library.name", value = "audioconvert/libspa-audioconvert" }
+]
+
+[endpoint]
+session = "audio"
+type = "si-adapter"
+
+[endpoint.config]
+preferred-n-channels = 2
