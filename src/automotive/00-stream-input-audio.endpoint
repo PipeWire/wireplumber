@@ -1,8 +1,0 @@
-[match-node]
-properties = [
-  { name = "media.class", value = "Stream/Input/Audio" },
-]
-
-[endpoint]
-direction = "sink"
-type = "pw-audio-softdsp-endpoint"
