@@ -9,4 +9,4 @@ session = "audio"
 type = "si-simple-node-endpoint"
 
 [endpoint.config]
-priority = 10
+priority = 20

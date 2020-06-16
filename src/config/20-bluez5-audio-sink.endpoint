@@ -11,3 +11,4 @@ streams = "audio-sink.streams"
 
 [endpoint.config]
 enable-monitor = true
+priority = 10

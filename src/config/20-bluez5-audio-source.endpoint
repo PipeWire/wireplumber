@@ -7,3 +7,6 @@ properties = [
 [endpoint]
 session = "audio"
 type = "si-adapter"
+
+[endpoint.config]
+priority = 10
