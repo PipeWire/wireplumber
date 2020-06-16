@@ -157,7 +157,7 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
   gchar *cur, *linestart, *saveptr;
   gchar *cmd;
   gint lineno = 1, block_lines = 1, in_block = 0;
-  gboolean eof = FALSE;
+  gboolean eof = FALSE, in_comment = FALSE;
   GVariant *properties;
 
   linestart = cur = buffer;
@@ -186,16 +186,23 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
           case '}':
             in_block--;
             break;
+          case '#':
+            in_comment = TRUE;
+            break;
           case '\n':  // found a newline inside a block
             block_lines++;
+            in_comment = FALSE;
             break;
           default:
             break;
         }
+        /* replace comments with spaces to make the parser ignore them */
+        if (in_comment)
+          *cur = ' ';
         cur++;
       }
 
-      if (*cur == '\n') {
+      if (!in_block && *cur == '\n') {
         /* found the end of a line */
         *cur = '\0';
 
@@ -221,7 +228,7 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
           /* if there are remaining characters after the module name,
              treat it as a serialized GVariant for the properties */
           props = module + strlen(module) + 1;
-          if (cur - props > 0) {
+          if (cur - props > 0 && !in_comment) {
             g_autoptr (GError) tmperr = NULL;
             g_autofree gchar *context = NULL;
 
@@ -300,6 +307,7 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
         linestart = ++cur;
         lineno += block_lines;
         block_lines = 1;
+        in_comment = FALSE;
       }
     }
 
