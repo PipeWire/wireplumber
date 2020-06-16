@@ -273,6 +273,8 @@ si_simple_node_endpoint_get_properties (WpSiEndpoint * item)
 
   wp_properties_set (result, "endpoint.description",
       wp_properties_get (node_props, PW_KEY_NODE_DESCRIPTION));
+  wp_properties_set (result, PW_KEY_ENDPOINT_AUTOCONNECT,
+      wp_properties_get (node_props, PW_KEY_NODE_AUTOCONNECT));
 
   /* propagate the device icon, if this is a device */
   const gchar *icon = wp_properties_get (node_props, PW_KEY_DEVICE_ICON_NAME);
