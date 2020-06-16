@@ -747,7 +747,7 @@ wp_object_interest_matches_full (WpObjectInterest * self,
     switch (c->type) {
       case WP_CONSTRAINT_TYPE_PW_PROPERTY:
         lookup_props = pw_props;
-        G_GNUC_FALLTHROUGH;
+        /* G_GNUC_FALLTHROUGH */;
 
       case WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY: {
         const gchar *lookup_str = NULL;
