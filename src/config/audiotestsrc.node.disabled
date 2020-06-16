@@ -1,0 +1,11 @@
+# Creates a static audio test source node & endpoint for testing
+# Rename this file to remove the .disabled extension in order to enable it
+# Note that you also need to add this line in pipewire.conf:
+#   add-spa-lib audiotestsrc audiotestsrc/libspa-audiotestsrc
+
+[node]
+factory = "adapter"
+properties = [
+  { name = "factory.name", value = "audiotestsrc" },
+  { name = "node.name", value = "Audio Test Source" },
+]

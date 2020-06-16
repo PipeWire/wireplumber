@@ -1,2 +1,3 @@
 build/
 subprojects/cpptoml/
+src/config/*testsrc.node
