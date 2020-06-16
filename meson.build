@@ -30,7 +30,7 @@ cmake = import('cmake')
 cpptoml = cmake.subproject('cpptoml')
 cpptoml_dep = cpptoml.dependency('cpptoml')
 
-gobject_dep = dependency('gobject-2.0', version : '>= 2.60')
+gobject_dep = dependency('gobject-2.0', version : '>= 2.58')
 gmodule_dep = dependency('gmodule-2.0', version : '== ' + gobject_dep.version())
 gio_dep = dependency('gio-2.0', version : '== ' + gobject_dep.version())
 giounix_dep = dependency('gio-unix-2.0', version : '== ' + gobject_dep.version())
