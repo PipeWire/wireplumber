@@ -31,7 +31,7 @@ WP_API
 WpCore * wp_core_clone (WpCore * self);
 
 WP_API
-GMainContext * wp_core_get_context (WpCore * self);
+GMainContext * wp_core_get_g_main_context (WpCore * self);
 
 WP_API
 struct pw_context * wp_core_get_pw_context (WpCore * self);

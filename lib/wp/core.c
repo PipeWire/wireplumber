@@ -439,14 +439,14 @@ wp_core_clone (WpCore * self)
 }
 
 /**
- * wp_core_get_context:
+ * wp_core_get_g_main_context:
  * @self: the core
  *
  * Returns: (transfer none) (nullable): the #GMainContext that is in use by
  *   this core for events
  */
 GMainContext *
-wp_core_get_context (WpCore * self)
+wp_core_get_g_main_context (WpCore * self)
 {
   g_return_val_if_fail (WP_IS_CORE (self), NULL);
   return self->g_main_context;
