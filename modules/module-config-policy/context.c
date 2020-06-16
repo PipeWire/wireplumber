@@ -213,6 +213,12 @@ wp_config_policy_context_handle_endpoint (WpConfigPolicyContext *self,
   g_autoptr (WpEndpoint) target = NULL;
   g_autoptr (WpEndpointLink) link = NULL;
   guint32 target_stream_id = SPA_ID_INVALID;
+  const gchar *ac = NULL;
+
+  /* No need to link if autoconnect == false */
+  ac = wp_proxy_get_property (WP_PROXY (ep), PW_KEY_ENDPOINT_AUTOCONNECT);
+  if (!(!g_strcmp0 (ac, "true") || !g_strcmp0 (ac, "1")))
+    return;
 
   /* Get the endpoint target */
   target = wp_config_policy_context_get_endpoint_target (self, session, ep,
