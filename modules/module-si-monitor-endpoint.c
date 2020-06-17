@@ -209,11 +209,18 @@ si_monitor_endpoint_get_properties (WpSiEndpoint * item)
   WpSiMonitorEndpoint *self = WP_SI_MONITOR_ENDPOINT (item);
   WpProperties *properties;
   g_autofree gchar *description = NULL;
+  guint32 endpoint_id = 0;
 
   properties = wp_si_endpoint_get_properties (WP_SI_ENDPOINT (self->adapter));
   description = g_strdup_printf ("Monitor of %s",
       wp_properties_get (properties, "endpoint.description"));
   wp_properties_set (properties, "endpoint.description", description);
+
+  endpoint_id = wp_session_item_get_associated_proxy_id (self->adapter,
+      WP_TYPE_ENDPOINT);
+  if (endpoint_id)
+    wp_properties_setf (properties, PW_KEY_ENDPOINT_MONITOR, "%u", endpoint_id);
+
   return properties;
 }
 
