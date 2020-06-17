@@ -309,7 +309,8 @@ create_links (WpSiStandardLink * self, WpTransition * transition,
       if (link_all ||
           out_channel == in_channel ||
           out_channel == SPA_AUDIO_CHANNEL_UNKNOWN ||
-          in_channel == SPA_AUDIO_CHANNEL_UNKNOWN)
+          in_channel == SPA_AUDIO_CHANNEL_UNKNOWN ||
+          in_channel == SPA_AUDIO_CHANNEL_MONO)
       {
         g_autoptr (WpProperties) props = NULL;
         WpLink *link;
