@@ -53,16 +53,26 @@ get_streams_data (WpConfiguration *config, const char *file_name)
   return wp_config_parser_get_matched_data (parser, (gpointer)file_name);
 }
 
+static void endpoint_activate_finish_cb (WpSessionItem * ep, GAsyncResult * res,
+    WpConfigEndpointContext * self);
+
 static void
 endpoint_export_finish_cb (WpSessionItem * ep, GAsyncResult * res,
     WpConfigEndpointContext * self)
 {
+  WpSessionItem * monitor = NULL;
   g_autoptr (GError) error = NULL;
   gboolean export_ret = wp_session_item_export_finish (ep, res, &error);
   if (!export_ret) {
     wp_warning_object (self, "failed to export endpoint: %s", error->message);
     return;
   }
+
+  /* Activate monitor if any */
+  monitor = g_object_get_qdata (G_OBJECT (ep), monitor_quark ());
+  if (monitor)
+    wp_session_item_activate (monitor,
+        (GAsyncReadyCallback) endpoint_activate_finish_cb, self);
 
   /* Emit the signal */
   g_signal_emit (self, signals[SIGNAL_ENDPOINT_CREATED], 0, ep);
@@ -72,7 +82,6 @@ static void
 endpoint_activate_finish_cb (WpSessionItem * ep, GAsyncResult * res,
     WpConfigEndpointContext * self)
 {
-  WpSessionItem * monitor = NULL;
   WpSession * session = NULL;
   g_autoptr (GError) error = NULL;
   gboolean activate_ret = wp_session_item_activate_finish (ep, res, &error);
@@ -80,12 +89,6 @@ endpoint_activate_finish_cb (WpSessionItem * ep, GAsyncResult * res,
     wp_warning_object (self, "failed to activate endpoint: %s", error->message);
     return;
   }
-
-  /* Activate monitor if any */
-  monitor = g_object_get_qdata (G_OBJECT (ep), monitor_quark ());
-  if (monitor)
-    wp_session_item_activate (monitor,
-        (GAsyncReadyCallback) endpoint_activate_finish_cb, self);
 
   /* Get the session */
   session = g_object_get_qdata (G_OBJECT (ep), session_quark ());
