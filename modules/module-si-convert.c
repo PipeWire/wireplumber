@@ -185,6 +185,10 @@ on_convert_running (WpSiConvert *self)
           g_variant_new_string ("reverse"));
   }
 
+  /* always create passive links; that means that they won't hold the graph
+     running if they are the only links left around */
+  g_variant_builder_add (&b, "{sv}", "passive", g_variant_new_boolean (TRUE));
+
   wp_session_item_configure (link, g_variant_builder_end (&b));
   wp_session_item_activate (link, (GAsyncReadyCallback) on_link_activated, self);
   self->link_to_target = g_steal_pointer (&link);

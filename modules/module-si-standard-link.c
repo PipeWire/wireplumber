@@ -25,6 +25,7 @@ struct _WpSiStandardLink
   gchar *out_stream_port_context;
   gchar *in_stream_port_context;
   gboolean manage_lifetime;
+  gboolean passive;
 
   GPtrArray *node_links;
   guint n_async_ops_wait;
@@ -81,6 +82,7 @@ si_standard_link_reset (WpSessionItem * item)
         G_CALLBACK (on_link_flags_changed), NULL);
   }
   self->manage_lifetime = FALSE;
+  self->passive = FALSE;
   self->out_stream = NULL;
   self->in_stream = NULL;
   g_clear_pointer (&self->out_stream_port_context, g_free);
@@ -109,6 +111,8 @@ si_standard_link_get_configuration (WpSessionItem * item)
        g_variant_new_string (self->in_stream_port_context));
   g_variant_builder_add (&b, "{sv}",
       "manage-lifetime", g_variant_new_boolean (self->manage_lifetime));
+  g_variant_builder_add (&b, "{sv}",
+      "passive", g_variant_new_boolean (self->passive));
   return g_variant_builder_end (&b);
 }
 
@@ -148,6 +152,7 @@ si_standard_link_configure (WpSessionItem * item, GVariant * args)
       &self->out_stream_port_context);
   g_variant_lookup (args, "in-stream-port-context", "s",
       &self->in_stream_port_context);
+  g_variant_lookup (args, "passive", "b", &self->passive);
 
   /* manage-lifetime == TRUE means that this si-standard-link item is
    * responsible for self-destructing if either
@@ -323,6 +328,8 @@ create_links (WpSiStandardLink * self, WpTransition * transition,
         wp_properties_setf (props, PW_KEY_LINK_INPUT_PORT, "%u", in_port_id);
         if (eplink_id != SPA_ID_INVALID)
           wp_properties_setf (props, "endpoint-link.id", "%u", eplink_id);
+        if (self->passive)
+          wp_properties_set (props, PW_KEY_LINK_PASSIVE, "true");
 
         wp_debug_object (self, "create pw link: %u:%u (%s) -> %u:%u (%s)",
             out_node_id, out_port_id,
@@ -504,6 +511,8 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   g_variant_builder_add (&b, "(ssymv)", "in-stream-port-context", "s",
       WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
   g_variant_builder_add (&b, "(ssymv)", "manage-lifetime", "b",
+      WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
+  g_variant_builder_add (&b, "(ssymv)", "passive", "b",
       WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
 
   wp_si_factory_register (core, wp_si_factory_new_simple (
