@@ -162,7 +162,7 @@ static guint
 si_audio_softdsp_endpoint_activate_get_next_step (WpSessionItem * item,
      WpTransition * transition, guint step)
 {
-  WpSiAudioSoftdspEndpoint *self = wp_transition_get_data (transition);
+  WpSiAudioSoftdspEndpoint *self = wp_transition_get_source_object (transition);
 
   switch (step) {
     case WP_TRANSITION_STEP_NONE:
@@ -206,7 +206,7 @@ static void
 on_convert_activated (WpSessionItem * item, GAsyncResult * res,
     WpTransition *transition)
 {
-  WpSiAudioSoftdspEndpoint *self = wp_transition_get_data (transition);
+  WpSiAudioSoftdspEndpoint *self = wp_transition_get_source_object (transition);
   g_autoptr (GError) error = NULL;
 
   if (!wp_session_item_activate_finish (item, res, &error)) {
@@ -223,8 +223,6 @@ si_audio_softdsp_endpoint_activate_execute_step (WpSessionItem * item,
     WpTransition * transition, guint step)
 {
   WpSiAudioSoftdspEndpoint *self = WP_SI_AUDIO_SOFTDSP_ENDPOINT (item);
-
-  wp_transition_set_data (transition, g_object_ref (self), g_object_unref);
 
   switch (step) {
     case STEP_VERIFY_CONFIG:
