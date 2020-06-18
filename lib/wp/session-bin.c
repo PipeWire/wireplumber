@@ -33,6 +33,8 @@ si_session_bin_reset (WpSessionItem * item)
   WpSessionBin * self = WP_SESSION_BIN (item);
   WpSessionBinPrivate *priv = wp_session_bin_get_instance_private (self);
 
+  WP_SESSION_ITEM_CLASS (wp_session_bin_parent_class)->reset (item);
+
   g_ptr_array_set_size (priv->items, 0);
 }
 
