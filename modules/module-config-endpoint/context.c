@@ -16,6 +16,7 @@
 
 G_DEFINE_QUARK (wp-module-config-endpoint-context-session, session);
 G_DEFINE_QUARK (wp-module-config-endpoint-context-monitor, monitor);
+G_DEFINE_QUARK (wp-module-config-endpoint-context-endpoint, endpoint);
 
 struct _WpConfigEndpointContext
 {
@@ -23,7 +24,6 @@ struct _WpConfigEndpointContext
 
   WpObjectManager *sessions_om;
   WpObjectManager *nodes_om;
-  GHashTable *endpoints;
 };
 
 enum {
@@ -60,17 +60,20 @@ static void
 endpoint_export_finish_cb (WpSessionItem * ep, GAsyncResult * res,
     WpConfigEndpointContext * self)
 {
+  g_autoptr (GObject) node = NULL;
   WpSessionItem * monitor = NULL;
   g_autoptr (GError) error = NULL;
-  gboolean export_ret = wp_session_item_export_finish (ep, res, &error);
-  if (!export_ret) {
+
+  if (!wp_session_item_export_finish (ep, res, &error)) {
     wp_warning_object (self, "failed to export endpoint: %s", error->message);
     return;
   }
 
-  /* Activate monitor if any */
-  monitor = g_object_get_qdata (G_OBJECT (ep), monitor_quark ());
-  if (monitor)
+  /* Activate monitor, if there is one and if ep is not the monitor itself */
+  node = wp_session_item_get_associated_proxy (ep, WP_TYPE_NODE);
+  if (node)
+    monitor = g_object_get_qdata (node, monitor_quark ());
+  if (monitor && ep != monitor)
     wp_session_item_activate (monitor,
         (GAsyncReadyCallback) endpoint_activate_finish_cb, self);
 
@@ -241,14 +244,12 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
     wp_session_item_configure (monitor_ep, g_variant_builder_end (&b));
 
     /* Set session */
-    g_object_set_qdata_full (
-        G_OBJECT (monitor_ep), session_quark (),
+    g_object_set_qdata_full (G_OBJECT (monitor_ep), session_quark (),
         g_object_ref (session), g_object_unref);
 
-    /* Keep a reference in the original endpoint */
-    g_object_set_qdata_full (
-        G_OBJECT (streams_data ? streams_ep : ep), monitor_quark (),
-        g_object_ref (monitor_ep), g_object_unref);
+    /* Keep a reference in the proxy */
+    g_object_set_qdata_full (G_OBJECT (proxy), monitor_quark (),
+        g_steal_pointer (&monitor_ep), g_object_unref);
   }
 
   /* Set session */
@@ -261,17 +262,24 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
       (GAsyncReadyCallback) endpoint_activate_finish_cb, self);
 
   /* Insert the endpoint */
-  g_hash_table_insert (self->endpoints, proxy,
-      streams_data ? g_steal_pointer (&streams_ep) : g_steal_pointer (&ep));
+  g_object_set_qdata_full (G_OBJECT (proxy), endpoint_quark (),
+      streams_data ? g_steal_pointer (&streams_ep) : g_steal_pointer (&ep),
+      g_object_unref);
 }
 
 static void
 on_node_removed (WpObjectManager *om, WpProxy *proxy, gpointer d)
 {
-  WpConfigEndpointContext *self = d;
+  /* Remove the endpoint and its monitor, if any */
+  g_object_set_qdata (G_OBJECT (proxy), monitor_quark (), NULL);
+  g_object_set_qdata (G_OBJECT (proxy), endpoint_quark (), NULL);
+}
 
-  /* Remove the endpoint */
-  g_hash_table_remove (self->endpoints, proxy);
+static void
+remove_all_nodes (const GValue *item, gpointer data)
+{
+  WpProxy *p = g_value_get_object (item);
+  on_node_removed (NULL, p, NULL);
 }
 
 static void
@@ -292,9 +300,6 @@ wp_config_endpoint_context_activate (WpPlugin * plugin)
   /* Parse the files */
   wp_configuration_reload (config, WP_PARSER_ENDPOINT_EXTENSION);
   wp_configuration_reload (config, WP_PARSER_STREAMS_EXTENSION);
-
-  self->endpoints = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
-      (GDestroyNotify) g_object_unref);
 
   /* Install the session object manager */
   self->sessions_om = wp_object_manager_new ();
@@ -327,7 +332,10 @@ wp_config_endpoint_context_deactivate (WpPlugin *plugin)
     wp_configuration_remove_extension (config, WP_PARSER_STREAMS_EXTENSION);
   }
 
-  g_clear_pointer (&self->endpoints, g_hash_table_unref);
+  {
+    g_autoptr (WpIterator) it = wp_object_manager_iterate (self->nodes_om);
+    wp_iterator_foreach (it, remove_all_nodes, NULL);
+  }
   g_clear_object (&self->sessions_om);
   g_clear_object (&self->nodes_om);
 }
