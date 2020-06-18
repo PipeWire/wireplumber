@@ -4,5 +4,6 @@ index.md
 		daemon/configuration.md
 		daemon/log.md
 	gi-index
-	contributing.md
+	contributing/contributing.md
+		contributing/testing.md
 	community.md

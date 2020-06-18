@@ -28,5 +28,5 @@ and to write custom session managers for embedded devices.
 
 ## Resources
 
- * [Contribute to WirePlumber](contributing.md)
+ * [Contribute to WirePlumber](contributing/contributing.md)
  * [Reach out to the community](community.md)

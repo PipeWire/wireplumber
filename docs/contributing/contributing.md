@@ -17,27 +17,7 @@ of the changes respects the coding style of the project
 
 ## Tests
 
-WirePlumber has automated tests that you can easily run with:
-
-```
-$ meson test -C build
-```
-
-This will automatically compile all test dependencies, so you can be sure
-that this always tests your latest changes.
-
-If you wish to run a specific test instead of all of them, you can run:
-```
-$ meson test -C build test-name
-```
-
-When debugging a single test, you can additionally enable verbose test output
-by appending `-v` and you can also run the test in gdb by appending `--gdb`.
-
-For more information on how to use `meson test`, please refer to
-[meson's manual](https://mesonbuild.com/Unit-tests.html)
-
-> When submitting changes for review, always ensure that all tests pass
+See [Testing](testing.md)
 
 ## Running in gdb / valgrind / etc...
 
