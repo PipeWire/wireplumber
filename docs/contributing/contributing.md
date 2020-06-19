@@ -17,7 +17,7 @@ of the changes respects the coding style of the project
 
 ## Tests
 
-See [Testing](testing.md)
+See [Testing](contributing/testing.md)
 
 ## Running in gdb / valgrind / etc...
 
