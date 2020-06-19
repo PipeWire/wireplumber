@@ -492,7 +492,7 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   GVariantIter iter;
   GVariant *value;
-  gchar *key;
+  const gchar *key;
   g_autoptr (WpCore) local_core = NULL;
 
   if (!args)
@@ -506,18 +506,18 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 
   /* Register all monitors */
   g_variant_iter_init (&iter, args);
-  while (g_variant_iter_next (&iter, "{sv}", &key, &value)) {
+  while (g_variant_iter_next (&iter, "{&sv}", &key, &value)) {
     const gchar *factory = NULL;
     MonitorFlags flags = 0;
 
     /* Get the factory */
-    if (g_variant_lookup (value, "factory", "s", &factory)) {
+    if (g_variant_lookup (value, "factory", "&s", &factory)) {
       GVariantIter *flags_iter;
 
       /* Get the flags */
       if (g_variant_lookup (value, "flags", "as", &flags_iter)) {
-        gchar *flag_str = NULL;
-        while (g_variant_iter_loop (flags_iter, "s", &flag_str)) {
+        const gchar *flag_str = NULL;
+        while (g_variant_iter_loop (flags_iter, "&s", &flag_str)) {
           for (gint i = 0; i < SPA_N_ELEMENTS (flag_names); i++) {
             if (!g_strcmp0 (flag_str, flag_names[i].name))
               flags |= flag_names[i].flag;
@@ -539,6 +539,5 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
     }
 
     g_variant_unref (value);
-    g_free (key);
   }
 }
