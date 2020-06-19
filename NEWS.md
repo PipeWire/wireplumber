@@ -1,3 +1,53 @@
+# WirePlumber 0.2.96
+
+Second pre-release (RC2) of WirePlumber 0.3.0
+
+Changes since 0.2.95:
+  - Quite some work went into fixing bugs related to the `ReserveDevice1`
+    D-Bus API. It is now possible to start a JACK server before or after
+    WirePlumber and WirePlumber will automatically stop using the device that
+    JACK opens, while at the same time it will enable the special "JACK device"
+    that allows PipeWire to interface with JACK
+
+  - Fixed a number of issues that did not previously allow using the spa
+    bluez5 device with WirePlumber. Now it is possible to at least use the
+    A2DP sink (output to bluetooth speakers) without major issues
+
+  - On the API level, `WpCore` was changed to allow having multiple instances
+    that share the same `pw_context`. This is useful to have multiple
+    connections to PipeWire, while sharing the context infrastructure
+
+  - `WpCore` also gained support for retrieving server info & properties
+    and `wpctl status` now also prints info about the server & all clients
+
+  - `module-monitor` was modified to allow loading multiple monitor instances
+    with one instance of the module itself
+
+  - Audio nodes are now configured with the sample rate that is defined
+    globally in `pipewire.conf` with `set-prop default.clock.rate <rate>`
+
+  - Policy now respects the `node.autoconnect` property; additionally, it is
+    now possible to specify endpoint ids in the `node.target` property of nodes
+    (so endpoint ids are accepted in the `PIPEWIRE_NODE` environment variable,
+    and in the `path` property of the pipewire gstreamer elements)
+
+  - Fixed an issue where links between the si-convert audioconvert nodes and
+    the actual device nodes would stay active forever; they are now declared
+    as "passive" links, which allows the nodes to suspend. This requires
+    changes to PipeWire that were commited after 0.3.6; when using WirePlumber
+    with 0.3.5 or 0.3.6, it is recommended to disable streams on audio sinks
+    by commenting out the `streams = "audio-sink.streams"` lines in the
+    .endpoint configuration files
+
+  - `wireplumber.conf` now accepts comments to be present inside blocks and
+    at the end of valid configuration lines
+
+  - Improved documentation and restructured the default configuration to be
+    more readable and sensible
+
+  - Fixed issues that prevented using WirePlumber with GLib < 2.60;
+    2.58 is now the actual minimum requirement
+
 # WirePlumber 0.2.95
 
 First pre-release of WirePlumber 0.3.0.
