@@ -1,3 +1,4 @@
 build/
 subprojects/cpptoml/
+subprojects/anatole/
 src/config/*testsrc.node

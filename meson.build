@@ -39,6 +39,7 @@ gmodule_dep = dependency('gmodule-2.0', version : '== ' + gobject_dep.version())
 gio_dep = dependency('gio-2.0', version : '== ' + gobject_dep.version())
 giounix_dep = dependency('gio-unix-2.0', version : '== ' + gobject_dep.version())
 pipewire_dep = dependency('libpipewire-0.3')
+anatole_dep = dependency('anatole', fallback: ['anatole', 'libanatole_dep'])
 
 gnome = import('gnome')
 pkgconfig = import('pkgconfig')
