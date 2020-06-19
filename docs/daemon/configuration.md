@@ -106,8 +106,7 @@ and ignored. Possible commands are:
   Example:
   ```
   load-module C libwireplumber-module-monitor {
-    "factory": <"api.alsa.enum.udev">,
-    "flags": <["use-adapter", "activate-devices"]>
+    "alsa": <{"factory": <"api.alsa.enum.udev">, "flags": <["use-adapter"]>}>
   }
   ```
 
@@ -180,7 +179,11 @@ their properties to provide enough context.
 
 `module-monitor` does not read any configuration files, however, it supports
 configuration through parameters defined in the main `wireplumber.conf`.
-Possible parameters are:
+
+At the top level, each parameter is creating a monitor instance. The paramter
+key is considered to be a friendly name for this instance and can be any string.
+The value of each such parameter is meant to be a dictionary with parameters
+for this instance. Possible instance parameters are:
 
 * `factory`
 
@@ -336,7 +339,15 @@ Possible fields of this table are:
     * `enable-monitor`
 
       Optional. A boolean representing whether the monitor ports should be
-      enabled on the endpoint or not. 
+      enabled on the endpoint or not.
+
+    * `preferred-n-channels`
+
+      Optional. An unsigned integer that specifies a preference in the number
+      of audio channels that an audio node should be configured with. Note that
+      if the node does not support this many channels, it will be configured
+      with the closest possible number of channels. This is only available
+      with the `si-adapter` factory.
 
 ## `*.streams` configuration files
 
