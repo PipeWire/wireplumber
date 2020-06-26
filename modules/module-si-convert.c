@@ -269,16 +269,24 @@ si_convert_activate_execute_step (WpSessionItem * item,
 
       /* Create the convert properties based on the adapter properties */
       node_props = wp_proxy_get_properties (WP_PROXY (node));
-      props = wp_properties_copy (node_props);
+      props = wp_properties_new (
+          PW_KEY_MEDIA_CLASS, "Audio/Convert",
+          PW_KEY_FACTORY_NAME, SPA_NAME_AUDIO_CONVERT,
+          /* make it a driver, so that it activates when linked */
+          PW_KEY_NODE_DRIVER, "true",
+          /* the default mode is 'split', which breaks audio in this case */
+          "factory.mode", "convert",
+          NULL);
       wp_properties_setf (props, PW_KEY_OBJECT_PATH, "%s:%s",
-          wp_properties_get(props, PW_KEY_OBJECT_PATH),
+          wp_properties_get (node_props, PW_KEY_OBJECT_PATH),
           self->name);
-      wp_properties_setf (props, PW_KEY_NODE_NAME, "%s/%s/%s",
+      wp_properties_setf (props, PW_KEY_NODE_NAME, "%s.%s.%s",
           SPA_NAME_AUDIO_CONVERT,
-          wp_properties_get(props, PW_KEY_NODE_NAME),
+          wp_properties_get (node_props, PW_KEY_NODE_NAME),
           self->name);
-      wp_properties_set (props, PW_KEY_MEDIA_CLASS, "Audio/Convert");
-      wp_properties_set (props, PW_KEY_FACTORY_NAME, SPA_NAME_AUDIO_CONVERT);
+      wp_properties_setf (props, PW_KEY_NODE_DESCRIPTION,
+          "Stream volume for %s: %s",
+          wp_properties_get (node_props, PW_KEY_NODE_DESCRIPTION), self->name);
 
       /* Create the node */
       self->node = wp_node_new_from_factory (core, "spa-node-factory",
