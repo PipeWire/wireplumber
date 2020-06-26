@@ -332,7 +332,7 @@ wp_config_endpoint_context_deactivate (WpPlugin *plugin)
     wp_configuration_remove_extension (config, WP_PARSER_STREAMS_EXTENSION);
   }
 
-  {
+  if (self->nodes_om) {
     g_autoptr (WpIterator) it = wp_object_manager_iterate (self->nodes_om);
     wp_iterator_foreach (it, remove_all_nodes, NULL);
   }
