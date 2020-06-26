@@ -324,6 +324,9 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
       strncpy (buffer, linestart, cur - linestart);
       linestart = buffer;
       cur = buffer + (cur - linestart);
+    } else {
+      /* reset for the next g_input_stream_read() call */
+      linestart = cur = buffer;
     }
   } while (!eof);
 
