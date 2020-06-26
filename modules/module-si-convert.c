@@ -252,12 +252,20 @@ si_convert_activate_execute_step (WpSessionItem * item,
       g_autoptr (WpSpaPod) format = NULL;
       g_autoptr (WpSpaPod) pod = NULL;
       guint32 channels = 2;
+      guint32 rate;
 
       /* Get the node and core */
       node = wp_session_item_get_associated_proxy (self->target, WP_TYPE_NODE);
       core = wp_proxy_get_core (WP_PROXY (node));
+
+      /* set channels & rate */
       target_config = wp_session_item_get_configuration (self->target);
       g_variant_lookup (target_config, "channels", "u", &channels);
+      rate = ({
+        g_autoptr (WpProperties) props = wp_core_get_remote_properties (core);
+        const gchar *rate_str = wp_properties_get (props, "default.clock.rate");
+        rate_str ? atoi (rate_str) : 48000;
+      });
 
       /* Create the convert properties based on the adapter properties */
       node_props = wp_proxy_get_properties (WP_PROXY (node));
@@ -281,7 +289,7 @@ si_convert_activate_execute_step (WpSessionItem * item,
           "mediaType",    "I", SPA_MEDIA_TYPE_audio,
           "mediaSubtype", "I", SPA_MEDIA_SUBTYPE_raw,
           "format",       "I", SPA_AUDIO_FORMAT_F32P,
-          "rate",         "i", 48000,
+          "rate",         "i", rate,
           "channels",     "i", channels,
           NULL);
 
