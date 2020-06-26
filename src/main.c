@@ -163,7 +163,8 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
   linestart = cur = buffer;
 
   do {
-    bytes_read = g_input_stream_read (stream, cur, sizeof (buffer), NULL, error);
+    bytes_read = g_input_stream_read (stream, cur,
+        sizeof (buffer) - (cur - linestart), NULL, error);
     if (bytes_read < 0)
       return FALSE;
     else if (bytes_read == 0) {
