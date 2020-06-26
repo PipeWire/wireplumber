@@ -187,10 +187,10 @@ setup_node_props (WpProperties *dev_props, WpProperties *node_props)
       pcm_name = wp_properties_get (node_props, SPA_KEY_API_ALSA_PCM_ID);
 
     if (g_strcmp0 (subdev, "0") != 0)
-      wp_properties_setf (node_props, PW_KEY_NODE_DESCRIPTION, "%s: %s (%s)",
+      wp_properties_setf (node_props, PW_KEY_NODE_DESCRIPTION, "%s (%s %s)",
           description, pcm_name, subdev);
     else
-      wp_properties_setf (node_props, PW_KEY_NODE_DESCRIPTION, "%s: %s",
+      wp_properties_setf (node_props, PW_KEY_NODE_DESCRIPTION, "%s (%s)",
           description, pcm_name);
 
   /* set BLUEZ 5 specific properties */
