@@ -17,6 +17,7 @@
 enum {
   STEP_VERIFY_CONFIG = WP_TRANSITION_STEP_CUSTOM_START,
   STEP_CREATE_NODE,
+  STEP_INSTALL_LINKS_WATCH,
 };
 
 struct _WpSiConvert
@@ -30,6 +31,7 @@ struct _WpSiConvert
   gboolean control_port;
 
   WpNode *node;
+  WpObjectManager *links_watch;
   WpSessionItem *link_to_target;
 };
 
@@ -137,6 +139,9 @@ si_convert_activate_get_next_step (WpSessionItem * item,
       return STEP_CREATE_NODE;
 
     case STEP_CREATE_NODE:
+      return STEP_INSTALL_LINKS_WATCH;
+
+    case STEP_INSTALL_LINKS_WATCH:
       return WP_TRANSITION_STEP_NONE;
 
     default:
@@ -154,7 +159,7 @@ on_link_activated (WpSessionItem * item, GAsyncResult * res, WpSiConvert * self)
 }
 
 static void
-on_convert_running (WpSiConvert *self)
+do_link_to_target (WpSiConvert *self)
 {
   g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (self->node));
   g_autoptr (WpSessionItem) link = wp_session_item_make (core,
@@ -195,19 +200,12 @@ on_convert_running (WpSiConvert *self)
 }
 
 static void
-on_node_state_changed (WpNode * node, WpNodeState old, WpNodeState curr,
-    WpSiConvert * self)
+on_links_changed (WpObjectManager * om, WpSiConvert * self)
 {
-  switch (curr) {
-  case WP_NODE_STATE_IDLE:
+  if (wp_object_manager_get_n_objects (om) == 0)
     g_clear_object (&self->link_to_target);
-    break;
-  case WP_NODE_STATE_RUNNING:
-    on_convert_running (self);
-    break;
-  default:
-    break;
-  }
+  else if (!self->link_to_target)
+    do_link_to_target (self);
 }
 
 static void
@@ -272,8 +270,6 @@ si_convert_activate_execute_step (WpSessionItem * item,
       props = wp_properties_new (
           PW_KEY_MEDIA_CLASS, "Audio/Convert",
           PW_KEY_FACTORY_NAME, SPA_NAME_AUDIO_CONVERT,
-          /* make it a driver, so that it activates when linked */
-          PW_KEY_NODE_DRIVER, "true",
           /* the default mode is 'split', which breaks audio in this case */
           "factory.mode", "convert",
           NULL);
@@ -322,12 +318,56 @@ si_convert_activate_execute_step (WpSessionItem * item,
           NULL);
       wp_proxy_set_param (WP_PROXY (self->node), "PortConfig", pod);
 
-      /* handle the info callback */
-      g_signal_connect_object (self->node, "state-changed",
-          (GCallback) on_node_state_changed, self, 0);
-
       wp_proxy_augment (WP_PROXY (self->node), WP_NODE_FEATURES_STANDARD, NULL,
           (GAsyncReadyCallback) on_node_augment_done, transition);
+      break;
+    }
+    case STEP_INSTALL_LINKS_WATCH: {
+      g_autoptr (WpCore) core = NULL;
+      g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_TUPLE);
+      g_autoptr (WpIterator) it = NULL;
+      g_auto (GValue) val = G_VALUE_INIT;
+      GVariant *ports_v = NULL;
+
+      /* Get the core */
+      core = wp_proxy_get_core (WP_PROXY (self->node));
+
+      /* get a list of our ports */
+      for (it = wp_node_iterate_ports (self->node);
+          wp_iterator_next (it, &val);
+          g_value_unset (&val))
+      {
+        WpPort *port = g_value_get_object (&val);
+
+        if (wp_port_get_direction (port) != self->direction)
+          continue;
+        g_variant_builder_add (&b, "u", wp_proxy_get_bound_id (WP_PROXY (port)));
+      }
+      ports_v = g_variant_builder_end (&b);
+
+      /* create the object manager */
+      self->links_watch = wp_object_manager_new ();
+      wp_object_manager_request_proxy_features (self->links_watch,
+          WP_TYPE_LINK, WP_PROXY_FEATURE_BOUND);
+
+      /* interested in links that have one of our ports in their
+         'link.input.port' or 'link.output.port' global property */
+      wp_object_manager_add_interest_full (self->links_watch, ({
+        WpObjectInterest *interest = wp_object_interest_new_type (WP_TYPE_LINK);
+        wp_object_interest_add_constraint (interest,
+            WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
+            (self->direction == WP_DIRECTION_INPUT) ?
+                PW_KEY_LINK_INPUT_PORT : PW_KEY_LINK_OUTPUT_PORT,
+            WP_CONSTRAINT_VERB_IN_LIST,
+            ports_v);
+        interest;
+      }));
+
+      g_signal_connect_object (self->links_watch, "objects-changed",
+          G_CALLBACK (on_links_changed), self, 0);
+
+      wp_core_install_object_manager (core, self->links_watch);
+      wp_transition_advance (transition);
       break;
     }
     default:
@@ -341,6 +381,7 @@ si_convert_activate_rollback (WpSessionItem * item)
   WpSiConvert *self = WP_SI_CONVERT (item);
 
   g_clear_object (&self->link_to_target);
+  g_clear_object (&self->links_watch);
   g_clear_object (&self->node);
 }
 
