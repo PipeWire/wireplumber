@@ -1,3 +1,25 @@
+# WirePlumber 0.3.0
+
+The desktop-ready release!
+
+Changes since 0.2.96:
+  - Changed how the device endpoints & nodes are named
+    to make them look better in JACK graph tools, such as qjackctl.
+    JACK tools use the ':' character as a separator to distinguish the node
+    name from the port name (since there are no actual nodes in JACK) and
+    having ':' in our node names made the graph look strange in JACK
+
+  - Fixed an issue with parsing wireplumber.conf that could cause
+    out-of-bounds memory access
+
+  - Fixed some pw_proxy object leaks that would show up in the log
+
+  - Fixed more issues with unlinking the stream volume (si-convert) node
+    from the ALSA sink node and suspending the both;
+    This now also works with PipeWire 0.3.5 and 0.3.6, so it is possible
+    to use these PipeWire versions with WirePlumber without disabling streams
+    on audio sinks.
+
 # WirePlumber 0.2.96
 
 Second pre-release (RC2) of WirePlumber 0.3.0
