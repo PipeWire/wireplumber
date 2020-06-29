@@ -393,7 +393,6 @@ wp_monitor_deactivate (WpPlugin * plugin)
 {
   WpMonitor *self = WP_MONITOR (plugin);
 
-  wp_core_disconnect (self->local_core);
   g_clear_object (&self->monitor);
 }
 

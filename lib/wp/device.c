@@ -270,6 +270,7 @@ wp_spa_device_finalize (GObject * object)
 {
   WpSpaDevice *self = WP_SPA_DEVICE (object);
 
+  g_clear_pointer (&self->proxy, pw_proxy_destroy);
   self->device = NULL;
   g_clear_pointer (&self->handle, pw_unload_spa_handle);
   g_clear_pointer (&self->properties, wp_properties_unref);
