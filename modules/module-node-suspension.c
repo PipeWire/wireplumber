@@ -36,6 +36,8 @@ timeout_suspend_node_callback (WpNode *node)
   GSource *source = NULL;
   g_return_val_if_fail (node, G_SOURCE_REMOVE);
 
+  wp_info_object (node, "was idle for a while; suspending ...");
+
   /* Suspend and unref the source */
   wp_node_send_command (node, WP_NODE_COMMAND_SUSPEND);
   source = g_object_steal_qdata (G_OBJECT (node), source_quark ());
@@ -91,7 +93,12 @@ wp_node_suspension_activate (WpPlugin * plugin)
 
   /* Create the nodes object manager and handle the node added signal */
   self->nodes_om = wp_object_manager_new ();
-  wp_object_manager_add_interest (self->nodes_om, WP_TYPE_NODE, NULL);
+  wp_object_manager_add_interest (self->nodes_om, WP_TYPE_NODE,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "media.class", "#s", "Audio/*",
+      NULL);
+  wp_object_manager_add_interest (self->nodes_om, WP_TYPE_NODE,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "media.class", "#s", "Video/*",
+      NULL);
   wp_object_manager_request_proxy_features (self->nodes_om, WP_TYPE_NODE,
       WP_PROXY_FEATURES_STANDARD);
   g_signal_connect_object (self->nodes_om, "object-added",
