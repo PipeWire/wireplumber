@@ -1,14 +1,22 @@
 # Creates a static video test source node & endpoint for testing
 # Rename this file to remove the .disabled extension in order to enable it
-# Note that you also need to add this line in pipewire.conf:
-#   add-spa-lib videotestsrc videotestsrc/libspa-videotestsrc
 
 [node]
 factory = "spa-node-factory"
 properties = [
   { name = "factory.name", value = "videotestsrc" },
+  { name = "library.name", value = "videotestsrc/libspa-videotestsrc" },
   { name = "node.name", value = "Video Test Source" },
   # pattern 0 -> SMPTE + snow
   # pattern 1 -> snow
   { name = "Spa:Pod:Object:Param:Props:patternType", value = "1" },
 ]
+
+# Uncomment to run the node in WirePlumber instead of PipeWire
+# Note: you will also need to add
+#
+#   load-pipewire-module libpipewire-module-spa-node-factory
+#
+# in wireplumber.conf if you uncomment this
+#
+#local = true
