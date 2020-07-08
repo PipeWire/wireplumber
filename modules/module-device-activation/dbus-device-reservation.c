@@ -468,6 +468,7 @@ on_request_property_done (GObject *proxy, GAsyncResult *res, gpointer data)
         WP_LIBRARY_ERROR_OPERATION_FAILED, "failed to get property '%s' on proxy",
         self->pending_property_name);
     g_task_return_error (task, error);
+    return;
   }
 
   /* Get the property value */
