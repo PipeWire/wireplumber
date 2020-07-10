@@ -455,18 +455,19 @@ static void
 on_request_property_done (GObject *proxy, GAsyncResult *res, gpointer data)
 {
   WpDbusDeviceReservation *self = data;
-  g_autoptr (GError) error = NULL;
+  g_autoptr (GError) e = NULL;
   g_autoptr (GTask) task = g_steal_pointer (&self->pending_task);
   g_autoptr (GVariant) ret = NULL;
   g_autoptr (GVariant) var = NULL;
   g_return_if_fail (task);
 
   /* Finish */
-  ret = g_dbus_proxy_call_finish (G_DBUS_PROXY (proxy), res, &error);
-  if (!ret) {
+  ret = g_dbus_proxy_call_finish (G_DBUS_PROXY (proxy), res, &e);
+  if (e) {
     GError *error = g_error_new (WP_DOMAIN_LIBRARY,
-        WP_LIBRARY_ERROR_OPERATION_FAILED, "failed to get property '%s' on proxy",
-        self->pending_property_name);
+        WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "failed to get property '%s' on proxy: %s",
+        self->pending_property_name, e->message);
     g_task_return_error (task, error);
     return;
   }
