@@ -10,7 +10,7 @@
 #include <functional>
 
 /* CPPTOML */
-#include <include/cpptoml.h>
+#include <cpptoml.h>
 
 /* TOML */
 #include "private.h"
