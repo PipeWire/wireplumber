@@ -24,6 +24,15 @@ For more information on how to use `meson test`, please refer to
 
 > When submitting changes for review, always ensure that all tests pass
 
+Please note that many WirePlumber tests require specific SPA test plugins
+to be available in your PipeWire installation. More specifically, PipeWire
+needs to be configured with the following options enabled:
+```
+-Dvideotestsrc=true -Daudiotestsrc=true -Dtest=true
+```
+If these SPA plugins are not found in the system, some tests will fail.
+This is expected.
+
 ## WirePlumber examples
 
 WirePlumber ships examples in `test/examples`.
