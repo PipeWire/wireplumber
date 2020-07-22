@@ -165,7 +165,7 @@ on_device_enum_profile_done (WpProxy *proxy, GAsyncResult *res,
 
     /* Parse */
     if (!wp_spa_pod_get_object (pod,
-        "ParamProfile", NULL,
+        "Profile", NULL,
         "index", "i", &index,
         "name", "s", &name,
         NULL)) {
