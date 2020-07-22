@@ -172,16 +172,12 @@ on_device_enum_profile_done (WpProxy *proxy, GAsyncResult *res,
       wp_warning_object (self, "bluetooth profile does not have index / name");
       continue;
     }
+    wp_info_object (self, "bluez profile found: %s (%d)", name, index);
 
-    /* TODO: for now we always use the first profile available */
+    /* TODO: we assume the last profile is the one with highest priority */
     profile_index = index;
-    break;
   }
 
-  /* TODO: Currently, it seems that the bluetooth device allways returns an
-   * empty list of profiles when doing EnumProfile, so for now we use a default
-   * profile with index 1 if the list is empty. We should return an error
-   * if none of them were found */
   set_device_profile (proxy, profile_index);
 }
 
