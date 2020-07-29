@@ -1,3 +1,5 @@
+WIREPLUMBER_DEBUG ?= 3
+
 all:
 	ninja -C build
 
@@ -14,6 +16,7 @@ run: all
 	WIREPLUMBER_MODULE_DIR=build/modules \
 	WIREPLUMBER_CONFIG_FILE=src/config/wireplumber.conf \
 	WIREPLUMBER_CONFIG_DIR=src/config \
+	WIREPLUMBER_DEBUG=$(WIREPLUMBER_DEBUG) \
 	$(DBG) ./build/src/wireplumber
 
 test: all
