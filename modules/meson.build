@@ -21,6 +21,17 @@ reserve_device_interface_src = gnome.gdbus_codegen('reserve-device-interface',
 )
 
 shared_library(
+  'wireplumber-module-metadata-settings',
+  [
+    'module-metadata-settings.c',
+  ],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-metadata"'],
+  install : true,
+  install_dir : wireplumber_module_dir,
+  dependencies : [wp_dep, pipewire_dep],
+)
+
+shared_library(
   'wireplumber-module-monitor',
   [
     'module-monitor.c',
