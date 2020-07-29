@@ -182,10 +182,12 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
       while (cur - buffer < bytes_read && (in_block || *cur != '\n')) {
         switch (*cur) {
           case '{':
-            in_block++;
+            if (!in_comment)
+              in_block++;
             break;
           case '}':
-            in_block--;
+            if (!in_comment)
+              in_block--;
             break;
           case '#':
             in_comment = TRUE;
