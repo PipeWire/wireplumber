@@ -50,6 +50,9 @@ wp_config_policy_context_get_endpoint_target (WpConfigPolicyContext *self,
       " (name:'%s', media_class:'%s')", WP_OBJECT_ARGS (ep),
       wp_endpoint_get_name (ep), wp_endpoint_get_media_class (ep));
 
+  /* Check if the media role property is set, and use it as stream name */
+  stream_name = wp_proxy_get_property (WP_PROXY (ep), PW_KEY_MEDIA_ROLE);
+
   /* Check if the node target property is set, and use that target */
   node_target = wp_proxy_get_property (WP_PROXY (ep), PW_KEY_NODE_TARGET);
   if (node_target) {
@@ -117,8 +120,9 @@ wp_config_policy_context_get_endpoint_target (WpConfigPolicyContext *self,
         }
       }
 
-      /* Use the stream name from the configuration file */
-      stream_name = data->te.stream;
+      /* Use the stream name from the configuration file if NULL */
+      if (!stream_name)
+        stream_name = data->te.stream;
 
       if (target)
         g_object_ref (target);
