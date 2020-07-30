@@ -188,6 +188,18 @@ shared_library(
 )
 
 shared_library(
+  'wireplumber-module-si-bluez5-endpoint',
+  [
+    'module-si-bluez5-endpoint.c',
+  ],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-si-bluez5-endpoint"'],
+  install : true,
+  install_dir : wireplumber_module_dir,
+  dependencies : [wp_dep, pipewire_dep],
+)
+
+
+shared_library(
   'wireplumber-module-si-standard-link',
   [
     'module-si-standard-link.c',
