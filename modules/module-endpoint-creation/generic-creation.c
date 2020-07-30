@@ -1,29 +1,37 @@
 /* WirePlumber
  *
- * Copyright © 2019 Collabora Ltd.
+ * Copyright © 2020 Collabora Ltd.
  *    @author Julian Bouzas <julian.bouzas@collabora.com>
  *
  * SPDX-License-Identifier: MIT
  */
 
-#include <pipewire/pipewire.h>
-
 #include <wp/wp.h>
 
+#include <pipewire/pipewire.h>
+
+#include "generic-creation.h"
 #include "parser-endpoint.h"
 #include "parser-streams.h"
-#include "context.h"
 
 G_DEFINE_QUARK (wp-module-config-endpoint-context-session, session);
 G_DEFINE_QUARK (wp-module-config-endpoint-context-monitor, monitor);
 G_DEFINE_QUARK (wp-module-config-endpoint-context-endpoint, endpoint);
 
-struct _WpConfigEndpointContext
+struct _WpGenericCreation
 {
   GObject parent;
 
+  /* properties */
+  GWeakRef core;
+
+  GPtrArray *nodes;
   WpObjectManager *sessions_om;
-  WpObjectManager *nodes_om;
+};
+
+enum {
+  PROP_0,
+  PROP_CORE,
 };
 
 enum {
@@ -33,8 +41,7 @@ enum {
 
 static guint signals[N_SIGNALS];
 
-G_DEFINE_TYPE (WpConfigEndpointContext, wp_config_endpoint_context,
-    WP_TYPE_PLUGIN)
+G_DEFINE_TYPE (WpGenericCreation, wp_generic_creation, G_TYPE_OBJECT)
 
 static const struct WpParserStreamsData *
 get_streams_data (WpConfiguration *config, const char *file_name)
@@ -54,11 +61,11 @@ get_streams_data (WpConfiguration *config, const char *file_name)
 }
 
 static void endpoint_activate_finish_cb (WpSessionItem * ep, GAsyncResult * res,
-    WpConfigEndpointContext * self);
+    WpGenericCreation * self);
 
 static void
 endpoint_export_finish_cb (WpSessionItem * ep, GAsyncResult * res,
-    WpConfigEndpointContext * self)
+    WpGenericCreation * self)
 {
   g_autoptr (GObject) node = NULL;
   WpSessionItem * monitor = NULL;
@@ -77,13 +84,13 @@ endpoint_export_finish_cb (WpSessionItem * ep, GAsyncResult * res,
     wp_session_item_activate (monitor,
         (GAsyncReadyCallback) endpoint_activate_finish_cb, self);
 
-  /* Emit the signal */
+  /* Emit the endpoint created signal */
   g_signal_emit (self, signals[SIGNAL_ENDPOINT_CREATED], 0, ep);
 }
 
 static void
 endpoint_activate_finish_cb (WpSessionItem * ep, GAsyncResult * res,
-    WpConfigEndpointContext * self)
+    WpGenericCreation * self)
 {
   WpSession * session = NULL;
   g_autoptr (GError) error = NULL;
@@ -102,12 +109,132 @@ endpoint_activate_finish_cb (WpSessionItem * ep, GAsyncResult * res,
 }
 
 static void
-on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
+wp_generic_creation_constructed (GObject *object)
 {
-  WpConfigEndpointContext *self = d;
-  g_autoptr (WpCore) core = wp_plugin_get_core (WP_PLUGIN (self));
+  WpGenericCreation *self = WP_GENERIC_CREATION (object);
+  g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
   g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
-  g_autoptr (WpProperties) props = wp_proxy_get_properties (proxy);
+
+  /* Load the configuration files */
+  wp_configuration_add_extension (config, WP_PARSER_ENDPOINT_EXTENSION,
+      WP_TYPE_PARSER_ENDPOINT);
+  wp_configuration_add_extension (config, WP_PARSER_STREAMS_EXTENSION,
+      WP_TYPE_PARSER_STREAMS);
+  wp_configuration_reload (config, WP_PARSER_ENDPOINT_EXTENSION);
+  wp_configuration_reload (config, WP_PARSER_STREAMS_EXTENSION);
+
+  /* Create the sessions object manager */
+  self->sessions_om = wp_object_manager_new ();
+  wp_object_manager_add_interest (self->sessions_om, WP_TYPE_SESSION, NULL);
+  wp_object_manager_request_proxy_features (self->sessions_om, WP_TYPE_SESSION,
+      WP_SESSION_FEATURES_STANDARD);
+  wp_core_install_object_manager (core, self->sessions_om);
+
+  G_OBJECT_CLASS (wp_generic_creation_parent_class)->constructed (object);
+}
+
+static void
+wp_generic_creation_finalize (GObject * object)
+{
+  WpGenericCreation *self = WP_GENERIC_CREATION (object);
+  g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
+
+  /* Unload the configuration files */
+  if (core) {
+    g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
+    wp_configuration_remove_extension (config, WP_PARSER_ENDPOINT_EXTENSION);
+    wp_configuration_remove_extension (config, WP_PARSER_STREAMS_EXTENSION);
+  }
+
+  g_clear_pointer (&self->nodes, g_ptr_array_unref);
+  g_clear_object (&self->sessions_om);
+
+  G_OBJECT_CLASS (wp_generic_creation_parent_class)->finalize (object);
+}
+
+static void
+wp_generic_creation_set_property (GObject * object, guint property_id,
+    const GValue * value, GParamSpec * pspec)
+{
+  WpGenericCreation *self = WP_GENERIC_CREATION (object);
+
+  switch (property_id) {
+  case PROP_CORE:
+    g_weak_ref_set (&self->core, g_value_get_object (value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
+}
+
+static void
+wp_generic_creation_get_property (GObject * object, guint property_id,
+    GValue * value, GParamSpec * pspec)
+{
+  WpGenericCreation *self = WP_GENERIC_CREATION (object);
+
+  switch (property_id) {
+  case PROP_CORE:
+    g_value_take_object (value, g_weak_ref_get (&self->core));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
+}
+
+static void
+free_node (gpointer node)
+{
+  /* Remove the endpoint and its monitor, if any */
+  g_object_set_qdata (G_OBJECT (node), monitor_quark (), NULL);
+  g_object_set_qdata (G_OBJECT (node), endpoint_quark (), NULL);
+
+  g_object_unref (G_OBJECT (node));
+}
+
+static void
+wp_generic_creation_init (WpGenericCreation *self)
+{
+  self->nodes = g_ptr_array_new_with_free_func (free_node);
+}
+
+static void
+wp_generic_creation_class_init (WpGenericCreationClass *klass)
+{
+  GObjectClass *object_class = (GObjectClass *) klass;
+
+  object_class->constructed = wp_generic_creation_constructed;
+  object_class->finalize = wp_generic_creation_finalize;
+  object_class->set_property = wp_generic_creation_set_property;
+  object_class->get_property = wp_generic_creation_get_property;
+
+  /* properties */
+  g_object_class_install_property (object_class, PROP_CORE,
+      g_param_spec_object ("core", "core", "The WpCore", WP_TYPE_CORE,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
+  /* Signals */
+  signals[SIGNAL_ENDPOINT_CREATED] = g_signal_new ("endpoint-created",
+      G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
+      G_TYPE_NONE, 1, WP_TYPE_SESSION_ITEM);
+}
+
+WpGenericCreation *
+wp_generic_creation_new (WpCore *core)
+{
+  return g_object_new (wp_generic_creation_get_type (),
+      "core", core,
+      NULL);
+}
+
+void
+wp_generic_creation_add_node (WpGenericCreation * self, WpNode *node)
+{
+  g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
+  g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
+  g_autoptr (WpProperties) props = wp_proxy_get_properties (WP_PROXY (node));
   g_autoptr (WpSessionItem) ep = NULL;
   g_autoptr (WpSessionItem) streams_ep = NULL;
   g_autoptr (WpSession) session = NULL;
@@ -122,12 +249,12 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
 
   /* Get the endpoint configuration data */
   parser = wp_configuration_get_parser (config, WP_PARSER_ENDPOINT_EXTENSION);
-  endpoint_data = wp_config_parser_get_matched_data (parser, proxy);
+  endpoint_data = wp_config_parser_get_matched_data (parser, node);
   if (!endpoint_data)
     return;
 
   wp_info_object (self, "node %u " WP_OBJECT_FORMAT " matches %s",
-      wp_proxy_get_bound_id (proxy), WP_OBJECT_ARGS (proxy),
+      wp_proxy_get_bound_id (WP_PROXY (node)), WP_OBJECT_ARGS (node),
       endpoint_data->filename);
 
   /* Get the session */
@@ -156,7 +283,7 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
     g_auto (GVariantBuilder) b =
         G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
     g_variant_builder_add (&b, "{sv}", "node",
-      g_variant_new_uint64 ((guint64) proxy));
+      g_variant_new_uint64 ((guint64) node));
 
     if (endpoint_data->e.c.name)
       g_variant_builder_add (&b, "{sv}", "name",
@@ -247,8 +374,8 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
     g_object_set_qdata_full (G_OBJECT (monitor_ep), session_quark (),
         g_object_ref (session), g_object_unref);
 
-    /* Keep a reference in the proxy */
-    g_object_set_qdata_full (G_OBJECT (proxy), monitor_quark (),
+    /* Keep a reference in the node */
+    g_object_set_qdata_full (G_OBJECT (node), monitor_quark (),
         g_steal_pointer (&monitor_ep), g_object_unref);
   }
 
@@ -262,107 +389,16 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
       (GAsyncReadyCallback) endpoint_activate_finish_cb, self);
 
   /* Insert the endpoint */
-  g_object_set_qdata_full (G_OBJECT (proxy), endpoint_quark (),
+  g_object_set_qdata_full (G_OBJECT (node), endpoint_quark (),
       streams_data ? g_steal_pointer (&streams_ep) : g_steal_pointer (&ep),
       g_object_unref);
+
+  /* Add the node in the array */
+  g_ptr_array_add (self->nodes, g_object_ref (node));
 }
 
-static void
-on_node_removed (WpObjectManager *om, WpProxy *proxy, gpointer d)
+void
+wp_generic_creation_remove_node (WpGenericCreation * self, WpNode *node)
 {
-  /* Remove the endpoint and its monitor, if any */
-  g_object_set_qdata (G_OBJECT (proxy), monitor_quark (), NULL);
-  g_object_set_qdata (G_OBJECT (proxy), endpoint_quark (), NULL);
-}
-
-static void
-remove_all_nodes (const GValue *item, gpointer data)
-{
-  WpProxy *p = g_value_get_object (item);
-  on_node_removed (NULL, p, NULL);
-}
-
-static void
-wp_config_endpoint_context_activate (WpPlugin * plugin)
-{
-  WpConfigEndpointContext *self = WP_CONFIG_ENDPOINT_CONTEXT (plugin);
-  g_autoptr (WpCore) core = wp_plugin_get_core (plugin);
-  g_return_if_fail (core);
-  g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
-  g_return_if_fail (config);
-
-  /* Add the endpoint and streams parsers */
-  wp_configuration_add_extension (config, WP_PARSER_ENDPOINT_EXTENSION,
-      WP_TYPE_PARSER_ENDPOINT);
-  wp_configuration_add_extension (config, WP_PARSER_STREAMS_EXTENSION,
-      WP_TYPE_PARSER_STREAMS);
-
-  /* Parse the files */
-  wp_configuration_reload (config, WP_PARSER_ENDPOINT_EXTENSION);
-  wp_configuration_reload (config, WP_PARSER_STREAMS_EXTENSION);
-
-  /* Install the session object manager */
-  self->sessions_om = wp_object_manager_new ();
-  wp_object_manager_add_interest (self->sessions_om, WP_TYPE_SESSION, NULL);
-  wp_object_manager_request_proxy_features (self->sessions_om, WP_TYPE_SESSION,
-      WP_SESSION_FEATURES_STANDARD);
-  wp_core_install_object_manager (core, self->sessions_om);
-
-  /* Handle node-added signal and install the nodes object manager */
-  self->nodes_om = wp_object_manager_new ();
-  wp_object_manager_add_interest (self->nodes_om, WP_TYPE_NODE, NULL);
-  wp_object_manager_request_proxy_features (self->nodes_om, WP_TYPE_NODE,
-      WP_PROXY_FEATURES_STANDARD);
-  g_signal_connect_object (self->nodes_om, "object-added",
-      G_CALLBACK (on_node_added), self, 0);
-  g_signal_connect_object (self->nodes_om, "object-removed",
-      G_CALLBACK (on_node_removed), self, 0);
-  wp_core_install_object_manager (core, self->nodes_om);
-}
-
-static void
-wp_config_endpoint_context_deactivate (WpPlugin *plugin)
-{
-  WpConfigEndpointContext *self = WP_CONFIG_ENDPOINT_CONTEXT (plugin);
-
-  g_autoptr (WpCore) core = wp_plugin_get_core (plugin);
-  if (core) {
-    g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
-    wp_configuration_remove_extension (config, WP_PARSER_ENDPOINT_EXTENSION);
-    wp_configuration_remove_extension (config, WP_PARSER_STREAMS_EXTENSION);
-  }
-
-  if (self->nodes_om) {
-    g_autoptr (WpIterator) it = wp_object_manager_iterate (self->nodes_om);
-    wp_iterator_foreach (it, remove_all_nodes, NULL);
-  }
-  g_clear_object (&self->sessions_om);
-  g_clear_object (&self->nodes_om);
-}
-
-static void
-wp_config_endpoint_context_init (WpConfigEndpointContext *self)
-{
-}
-
-static void
-wp_config_endpoint_context_class_init (WpConfigEndpointContextClass *klass)
-{
-  WpPluginClass *plugin_class = (WpPluginClass *) klass;
-
-  plugin_class->activate = wp_config_endpoint_context_activate;
-  plugin_class->deactivate = wp_config_endpoint_context_deactivate;
-
-  /* Signals */
-  signals[SIGNAL_ENDPOINT_CREATED] = g_signal_new ("endpoint-created",
-      G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
-      G_TYPE_NONE, 1, WP_TYPE_SESSION_ITEM);
-}
-
-WpConfigEndpointContext *
-wp_config_endpoint_context_new (WpModule * module)
-{
-  return g_object_new (wp_config_endpoint_context_get_type (),
-      "module", module,
-      NULL);
+  g_ptr_array_remove (self->nodes, node);
 }

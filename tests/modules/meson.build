@@ -32,8 +32,8 @@ test(
 )
 
 test(
-  'test-config-endpoint',
-  executable('test-config-endpoint', 'config-endpoint.c',
+  'test-endpoint-creation',
+  executable('test-endpoint-creation', 'endpoint-creation.c',
     dependencies: common_deps + [wptoml_dep], c_args: common_args),
   env: common_env,
   workdir : meson.current_source_dir(),

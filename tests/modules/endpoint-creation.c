@@ -10,10 +10,10 @@
 
 typedef struct {
   WpBaseTestFixture base;
-} TestConfigEndpointFixture;
+} TestEndpointCreationFixture;
 
 static void
-config_endpoint_setup (TestConfigEndpointFixture *f, gconstpointer data)
+endpoint_creation_setup (TestEndpointCreationFixture *f, gconstpointer data)
 {
   wp_base_test_fixture_setup (&f->base, 0);
 
@@ -62,21 +62,21 @@ config_endpoint_setup (TestConfigEndpointFixture *f, gconstpointer data)
   {
     g_autoptr (GError) error = NULL;
     WpModule *module = wp_module_load (f->base.core, "C",
-        "libwireplumber-module-config-endpoint", NULL, &error);
+        "libwireplumber-module-endpoint-creation", NULL, &error);
     g_assert_no_error (error);
     g_assert_nonnull (module);
   }
 }
 
 static void
-config_endpoint_teardown (TestConfigEndpointFixture *f, gconstpointer data)
+endpoint_creation_teardown (TestEndpointCreationFixture *f, gconstpointer data)
 {
   wp_base_test_fixture_teardown (&f->base);
 }
 
 static void
-on_audiotestsrc_simple_endpoint_created (GObject *ctx,
-    WpSessionItem *ep, TestConfigEndpointFixture *f)
+on_audiotestsrc_simple_endpoint_created (GObject *ctx, WpSessionItem *ep,
+    TestEndpointCreationFixture *f)
 {
   g_autoptr (WpNode) node = NULL;
   g_autoptr (WpProperties) props = NULL;
@@ -98,8 +98,8 @@ on_audiotestsrc_simple_endpoint_created (GObject *ctx,
 }
 
 static void
-on_audiotestsrc_streams_endpoint_created (GObject *ctx,
-    WpSessionItem *ep, TestConfigEndpointFixture *f)
+on_audiotestsrc_streams_endpoint_created (GObject *ctx, WpSessionItem *ep,
+    TestEndpointCreationFixture *f)
 {
   g_assert_nonnull (ep);
   g_assert_cmpuint (5, ==, wp_session_bin_get_n_children (WP_SESSION_BIN (ep)));
@@ -125,12 +125,12 @@ on_audiotestsrc_streams_endpoint_created (GObject *ctx,
 }
 
 static void
-simple (TestConfigEndpointFixture *f, gconstpointer data)
+simple (TestEndpointCreationFixture *f, gconstpointer data)
 {
   /* Set the configuration path */
   g_autoptr (WpConfiguration) config = wp_configuration_get_instance (f->base.core);
   g_assert_nonnull (config);
-  wp_configuration_add_path (config, "config-endpoint/simple");
+  wp_configuration_add_path (config, "endpoint-creation/simple");
 
   /* Find the plugin context and handle the endpoint-created callback */
   g_autoptr (WpObjectManager) om = wp_object_manager_new ();
@@ -164,12 +164,12 @@ simple (TestConfigEndpointFixture *f, gconstpointer data)
 }
 
 static void
-streams (TestConfigEndpointFixture *f, gconstpointer data)
+streams (TestEndpointCreationFixture *f, gconstpointer data)
 {
   /* Set the configuration path */
   g_autoptr (WpConfiguration) config = wp_configuration_get_instance (f->base.core);
   g_assert_nonnull (config);
-  wp_configuration_add_path (config, "config-endpoint/streams");
+  wp_configuration_add_path (config, "endpoint-creation/streams");
 
   /* Find the plugin context and handle the endpoint-created callback */
   g_autoptr (WpObjectManager) om = wp_object_manager_new ();
@@ -208,10 +208,10 @@ main (int argc, char *argv[])
   g_test_init (&argc, &argv, NULL);
   wp_init (WP_INIT_ALL);
 
-  g_test_add ("/modules/config-endpoint/simple", TestConfigEndpointFixture,
-      NULL, config_endpoint_setup, simple, config_endpoint_teardown);
-  g_test_add ("/modules/config-endpoint/streams", TestConfigEndpointFixture,
-      NULL, config_endpoint_setup, streams, config_endpoint_teardown);
+  g_test_add ("/modules/endpoint-creation/simple", TestEndpointCreationFixture,
+      NULL, endpoint_creation_setup, simple, endpoint_creation_teardown);
+  g_test_add ("/modules/endpoint-creation/streams", TestEndpointCreationFixture,
+      NULL, endpoint_creation_setup, streams, endpoint_creation_teardown);
 
   return g_test_run ();
 }

@@ -94,14 +94,15 @@ shared_library(
 )
 
 shared_library(
-  'wireplumber-module-config-endpoint',
+  'wireplumber-module-endpoint-creation',
   [
-    'module-config-endpoint/parser-endpoint.c',
-    'module-config-endpoint/parser-streams.c',
-    'module-config-endpoint/context.c',
-    'module-config-endpoint.c',
+    'module-endpoint-creation/generic-creation.c',
+    'module-endpoint-creation/limited-creation.c',
+    'module-endpoint-creation/parser-endpoint.c',
+    'module-endpoint-creation/parser-streams.c',
+    'module-endpoint-creation.c',
   ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-config-endpoint"'],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-endpoint-creation"'],
   install : true,
   install_dir : wireplumber_module_dir,
   dependencies : [wp_dep, wptoml_dep, pipewire_dep],
