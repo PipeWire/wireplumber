@@ -98,6 +98,7 @@ shared_library(
   [
     'module-endpoint-creation/generic-creation.c',
     'module-endpoint-creation/limited-creation.c',
+    'module-endpoint-creation/limited-creation-bluez5.c',
     'module-endpoint-creation/parser-endpoint.c',
     'module-endpoint-creation/parser-streams.c',
     'module-endpoint-creation.c',

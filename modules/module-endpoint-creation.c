@@ -12,6 +12,7 @@
 
 #include "module-endpoint-creation/generic-creation.h"
 #include "module-endpoint-creation/limited-creation.h"
+#include "module-endpoint-creation/limited-creation-bluez5.h"
 
 struct _WpEndpointCreation
 {
@@ -45,6 +46,12 @@ on_endpoint_created (WpLimitedCreation *li, WpSessionItem *ep,
 static WpLimitedCreation *
 create_device_limited_creation (WpEndpointCreation *self, WpProxy *device)
 {
+  const gchar *device_api = wp_proxy_get_property (device, PW_KEY_DEVICE_API);
+
+  /* Bluez5 */
+  if (g_strcmp0 (device_api, "bluez5") == 0)
+    return wp_limited_creation_bluez5_new (WP_DEVICE (device));
+
   /* Create future device limited creations here if needed */
 
   return NULL;
