@@ -15,12 +15,14 @@ G_BEGIN_DECLS
 
 #define WP_METADATA_FEATURES_STANDARD \
     (WP_PROXY_FEATURES_STANDARD)
+
 /**
  * WP_TYPE_METADATA:
  *
  * The #WpMetadata #GType
  */
 #define WP_TYPE_METADATA (wp_metadata_get_type ())
+
 WP_API
 G_DECLARE_DERIVABLE_TYPE (WpMetadata, wp_metadata, WP, METADATA, WpProxy)
 
@@ -36,10 +38,13 @@ struct _WpMetadataClass
  * The #WpImplMetadata #GType
  */
 #define WP_TYPE_IMPL_METADATA (wp_impl_metadata_get_type ())
+
 WP_API
 G_DECLARE_FINAL_TYPE (WpImplMetadata, wp_impl_metadata, WP, IMPL_METADATA, WpMetadata)
+
 WP_API
 WpImplMetadata * wp_impl_metadata_new (WpCore * core);
+
 G_END_DECLS
 
 #endif
