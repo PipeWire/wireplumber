@@ -19,7 +19,7 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2020-08-31.1'
+    FDO_DISTRIBUTION_TAG: '2020-09-01.1'
     FDO_DISTRIBUTION_VERSION: '32'
     # findutils: used by the .build script below
     # cmake: required for cpptoml submodule & hotdoc
@@ -39,6 +39,8 @@ include:
       dbus-daemon
       libxml2-devel
       json-glib-devel
+      lua-devel
+      gperf
     # build hotdoc via pip, since there is no rpm package and make sure
     # to remove its build-deps afterwards to save space.
     # also install glib2-doc (required to make documentation links to GLib work)
