@@ -195,6 +195,31 @@ wp_configuration_remove_path (WpConfiguration *self, const char *path)
 }
 
 /**
+ * wp_configuration_find_file:
+ * @self: the configuration
+ * @filename: the name of the file to find
+ *
+ * Searches all known configuration directories for a file named @filename
+ * and returns the absolute path to it, or %NULL if it was not found
+ *
+ * Returns: (transfer full) (nullable): the absolute path to the file, if found
+ */
+gchar *
+wp_configuration_find_file (WpConfiguration * self, const gchar * filename)
+{
+  for (gint i = 0; i < self->paths->len; i++) {
+    g_autofree gchar *path = NULL;
+
+    path = g_build_filename (g_ptr_array_index (self->paths, i), filename, NULL);
+    if (g_file_test (path, G_FILE_TEST_EXISTS | G_FILE_TEST_IS_REGULAR)) {
+      return g_steal_pointer (&path);
+    }
+  }
+
+  return NULL;
+}
+
+/**
  * wp_configuration_add_extension:
  * @self: the configuration
  * @extension: a filename extension

@@ -72,6 +72,10 @@ WP_API
 void wp_configuration_remove_path (WpConfiguration *self, const char *path);
 
 WP_API
+gchar * wp_configuration_find_file (WpConfiguration * self,
+    const gchar * filename);
+
+WP_API
 gboolean wp_configuration_add_extension (WpConfiguration *self,
     const gchar * extension, GType parser_type);
 
