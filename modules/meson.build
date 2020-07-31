@@ -21,9 +21,9 @@ reserve_device_interface_src = gnome.gdbus_codegen('reserve-device-interface',
 )
 
 shared_library(
-  'wireplumber-module-metadata-settings',
+  'wireplumber-module-metadata',
   [
-    'module-metadata-settings.c',
+    'module-metadata.c',
   ],
   c_args : [common_c_args, '-DG_LOG_DOMAIN="m-metadata"'],
   install : true,
