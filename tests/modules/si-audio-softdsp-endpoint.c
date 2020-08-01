@@ -98,6 +98,9 @@ test_si_audio_softdsp_endpoint_configure_activate (TestFixture * f,
         wp_session_item_configure (adapter, g_variant_builder_end (&b)));
   }
 
+  g_assert_cmphex (wp_session_item_get_flags (adapter), ==,
+      WP_SI_FLAG_CONFIGURED);
+
   {
     g_autoptr (GVariant) v = wp_session_item_get_configuration (adapter);
     guint64 node_i;
@@ -163,6 +166,9 @@ test_si_audio_softdsp_endpoint_configure_activate (TestFixture * f,
         g_assert_true (
             wp_session_item_configure (stream, g_variant_builder_end (&b)));
       }
+
+      g_assert_cmphex (wp_session_item_get_flags (stream), ==,
+          WP_SI_FLAG_CONFIGURED);
 
       g_assert_true (wp_session_bin_add (WP_SESSION_BIN (endpoint),
               g_steal_pointer (&stream)));
