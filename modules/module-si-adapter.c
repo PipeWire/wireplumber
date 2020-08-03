@@ -449,12 +449,13 @@ si_adapter_endpoint_init (WpSiEndpointInterface * iface)
 }
 
 static GVariant *
-si_adapter_get_stream_registration_info (WpSiStream * self)
+si_adapter_get_stream_registration_info (WpSiStream * stream)
 {
+  WpSiAdapter *self = WP_SI_ADAPTER (stream);
   GVariantBuilder b;
 
   g_variant_builder_init (&b, G_VARIANT_TYPE ("(sa{ss})"));
-  g_variant_builder_add (&b, "s", "default");
+  g_variant_builder_add (&b, "s", self->name);
   g_variant_builder_add (&b, "a{ss}", NULL);
 
   return g_variant_builder_end (&b);

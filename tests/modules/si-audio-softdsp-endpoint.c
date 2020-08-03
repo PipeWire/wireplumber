@@ -200,7 +200,7 @@ test_si_audio_softdsp_endpoint_configure_activate (TestFixture * f,
     const gchar *stream_name;
 
     g_variant_get (info, "(&sa{ss})", &stream_name, NULL);
-    g_assert_cmpstr (stream_name, ==, "default");
+    g_assert_cmpstr (stream_name, ==, "audiotestsrc.adapter");
     g_assert_true ((gpointer) stream == (gpointer) adapter);
   } else {
     for (guint i = 0; i < requested_streams; i++) {
