@@ -56,7 +56,7 @@ test_proxy_basic_object_added (WpObjectManager *om, WpProxy *proxy,
     g_assert_nonnull (omcore);
     g_assert_true (pcore == omcore);
   }
-  g_assert_cmphex (wp_proxy_get_global_permissions (proxy), ==, PW_PERM_RWX);
+  g_assert_cmphex (wp_proxy_get_global_permissions (proxy), ==, PW_PERM_ALL);
   g_assert_true (WP_IS_CLIENT (proxy));
 
   g_assert_cmphex (wp_proxy_get_features (proxy), ==, 0);
