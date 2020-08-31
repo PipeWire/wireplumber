@@ -6,7 +6,7 @@ stages:
 variables:
   FDO_UPSTREAM_REPO: 'pipewire/wireplumber'
   # change to build against a different tag/commit/branch of pipewire
-  PIPEWIRE_HEAD: '0.3.5'
+  PIPEWIRE_HEAD: '613824ab0b447ee7307aeef662fccc758b759e0e'
 
 # ci-templates as of May 1st 2020
 .templates_sha: &templates_sha 59de540b620c45739871d1a073d76d5521989d11
@@ -19,7 +19,7 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2020-05-18.3'
+    FDO_DISTRIBUTION_TAG: '2020-08-31.1'
     FDO_DISTRIBUTION_VERSION: '32'
     # findutils: used by the .build script below
     # cmake: required for cpptoml submodule & hotdoc
