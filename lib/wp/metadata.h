@@ -31,6 +31,20 @@ struct _WpMetadataClass
   WpProxyClass parent_class;
 };
 
+WP_API
+WpIterator * wp_metadata_find (WpMetadata * self, guint32 subject,
+    const gchar * key, const gchar * type);
+
+WP_API
+void wp_metadata_iterator_item_extract (const GValue * item, guint32 * subject,
+    const gchar ** key, const gchar ** type, const gchar ** value);
+
+WP_API
+void wp_metadata_set (WpMetadata * self, guint32 subject,
+    const gchar * key, const gchar * type, const gchar * value);
+
+WP_API
+void wp_metadata_clear (WpMetadata * self);
 
 /**
  * WP_TYPE_IMPL_MEATADATA:
