@@ -1,6 +1,6 @@
 /* WirePlumber
  *
- * Copyright © 2019 Collabora Ltd.
+ * Copyright © 2020 Collabora Ltd.
  *    @author Raghavendra Rao <raghavendra.rao@collabora.com>
  *
  * SPDX-License-Identifier: MIT
@@ -12,9 +12,6 @@
 #include "proxy.h"
 
 G_BEGIN_DECLS
-
-#define WP_METADATA_FEATURES_STANDARD \
-    (WP_PROXY_FEATURES_STANDARD)
 
 /**
  * WP_TYPE_METADATA:

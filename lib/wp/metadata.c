@@ -1,6 +1,6 @@
 /* WirePlumber
  *
- * Copyright © 2019-2020 Collabora Ltd.
+ * Copyright © 2020 Collabora Ltd.
  *    @author Raghavendra Rao <raghavendra.rao@collabora.com>
  *
  * SPDX-License-Identifier: MIT
