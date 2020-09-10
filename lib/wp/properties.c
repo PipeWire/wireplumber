@@ -41,6 +41,7 @@
 
 #include "properties.h"
 #include "private.h"
+#include "debug.h"
 
 #include <errno.h>
 #include <pipewire/properties.h>
@@ -286,6 +287,41 @@ wp_properties_new_copy_dict (const struct spa_dict * dict)
   self->flags = 0;
   self->props = pw_properties_new_dict (dict);
   return self;
+}
+
+/**
+ * wp_properties_new_from_gvariant:
+ * @asv: a dictionary (a{sv}) #GVariant with string values
+ *
+ * Constructs a new #WpProperties that contains a copy of all the key-value
+ * pairs contained in the @asv dictionary. The values in @asv must be of type
+ * %G_VARIANT_TYPE_STRING, otherwise they are ignored.
+ *
+ * Returns: (transfer full): a properties set that contains the key-value
+ *   pairs that @asv contains
+ */
+WpProperties *
+wp_properties_new_from_gvariant (GVariant * asv)
+{
+  GVariantIter iter;
+  const gchar *key, *value_str;
+  GVariant *value;
+  g_autoptr (WpProperties) self = wp_properties_new_empty ();
+
+  g_variant_iter_init (&iter, asv);
+  while (g_variant_iter_loop (&iter, "{&sv}", &key, &value)) {
+    if (!g_variant_is_of_type (value, G_VARIANT_TYPE_STRING)) {
+      g_autofree gchar * tmp = g_variant_print (value, TRUE);
+      wp_message_boxed (WP_TYPE_PROPERTIES, self, "could not parse dictionary "
+          "value for key '%s', expected string, got %s", key, tmp);
+      continue;
+    }
+
+    value_str = g_variant_get_string (value, NULL);
+    wp_properties_set (self, key, value_str);
+  }
+
+  return g_steal_pointer (&self);
 }
 
 /**
@@ -899,6 +935,32 @@ wp_properties_unref_and_take_pw_properties (WpProperties * self)
   /* set the flag so that unref-ing @unique will not destroy unique->props */
   unique->flags = FLAG_NO_OWNERSHIP;
   return unique->props;
+}
+
+/**
+ * wp_properties_to_gvariant:
+ * @self: a properties object
+ *
+ * Returns: (transfer floating): a dictionary (a{sv}) #GVariant that contains
+ *    all the key-value pairs that @self contains. The value is always of type
+ *    %G_VARIANT_TYPE_STRING.
+ */
+GVariant *
+wp_properties_to_gvariant (WpProperties * self)
+{
+  GVariantBuilder b;
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) val = G_VALUE_INIT;
+
+  g_variant_builder_init (&b, G_VARIANT_TYPE ("a{sv}"));
+
+  it = wp_properties_iterate (self);
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    g_variant_builder_add (&b, "{sv}",
+        wp_properties_iterator_item_get_key (&val),
+        g_variant_new_string (wp_properties_iterator_item_get_value (&val)));
+  }
+  return g_variant_builder_end (&b);
 }
 
 /**

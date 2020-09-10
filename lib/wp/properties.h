@@ -57,6 +57,9 @@ WP_API
 WpProperties * wp_properties_new_copy_dict (const struct spa_dict * dict);
 
 WP_API
+WpProperties * wp_properties_new_from_gvariant (GVariant * asv);
+
+WP_API
 WpProperties * wp_properties_copy (WpProperties * other);
 
 /* ref counting */
@@ -155,6 +158,9 @@ struct pw_properties * wp_properties_to_pw_properties (WpProperties * self);
 WP_API
 struct pw_properties * wp_properties_unref_and_take_pw_properties (
     WpProperties * self);
+
+WP_API
+GVariant * wp_properties_to_gvariant (WpProperties * self);
 
 /* comparison */
 
