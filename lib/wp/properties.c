@@ -40,6 +40,7 @@
 #define G_LOG_DOMAIN "wp-properties"
 
 #include "properties.h"
+#include "debug.h"
 
 #include <errno.h>
 #include <pipewire/properties.h>
@@ -284,6 +285,35 @@ wp_properties_new_copy_dict (const struct spa_dict * dict)
   g_ref_count_init (&self->ref);
   self->flags = 0;
   self->props = pw_properties_new_dict (dict);
+  return self;
+}
+
+/**
+ * wp_properties_new_from_variant:
+ * @variant: a #GVariant of type (a{ss})
+ *
+ * Constructs a new #WpProperties that contains a copy of all the key-value
+ * pairs contained in the @variant dictionary.
+ *
+ * Returns: (transfer full): a properties set that contains the key-value
+ *   pairs that @variant contains
+ */
+WpProperties *
+wp_properties_new_from_variant (GVariant * variant)
+{
+  WpProperties *self;
+  GVariantIter iter;
+  const gchar *key, *value;
+
+  g_return_val_if_fail (
+      g_variant_is_of_type (variant, G_VARIANT_TYPE ("a{ss}")), NULL);
+
+  self = wp_properties_new_empty ();
+
+  g_variant_iter_init (&iter, variant);
+  while (g_variant_iter_loop (&iter, "{&s&s}", &key, &value))
+    wp_properties_set (self, key, value);
+
   return self;
 }
 
@@ -899,6 +929,33 @@ wp_properties_unref_and_take_pw_properties (WpProperties * self)
   /* set the flag so that unref-ing @unique will not destroy unique->props */
   unique->flags = FLAG_NO_OWNERSHIP;
   return unique->props;
+}
+
+/**
+ * wp_properties_to_variant:
+ * @self: a properties object
+ *
+ * Returns: (transfer floating): a #GVariant of type (a{ss}) that contains
+ *    all the key-value pairs that @self contains
+ */
+GVariant *
+wp_properties_to_variant (WpProperties * self)
+{
+  GVariantBuilder b;
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) val = G_VALUE_INIT;
+
+  g_return_val_if_fail (self != NULL, NULL);
+
+  g_variant_builder_init (&b, G_VARIANT_TYPE ("a{ss}"));
+
+  it = wp_properties_iterate (self);
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    g_variant_builder_add (&b, "{ss}",
+        wp_properties_iterator_item_get_key (&val),
+        wp_properties_iterator_item_get_value (&val));
+  }
+  return g_variant_builder_end (&b);
 }
 
 /**
