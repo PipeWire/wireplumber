@@ -300,11 +300,13 @@ void
 wp_configuration_reload (WpConfiguration *self, const char *extension)
 {
   guint i;
-  const char *path = NULL;
-  GDir* conf_dir = NULL;
-  GError* error = NULL;
+  const gchar *base_path = NULL;
+  const gchar *e = NULL;
+  gchar path[1024];
+  gchar ext[16];
+  GDir *conf_dir = NULL;
+  GError *error = NULL;
   const gchar *file_name = NULL;
-  g_autofree gchar *ext = NULL;
 
   g_return_if_fail (WP_IS_CONFIGURATION (self));
 
@@ -319,20 +321,37 @@ wp_configuration_reload (WpConfiguration *self, const char *extension)
   /* Reset the parser */
   wp_config_parser_reset (parser);
 
+  /* figure out the actual file extension */
+  e = g_strrstr (extension, "/");
+  if (e) {
+    g_snprintf (ext, sizeof(ext)-1, ".%s", e+1);
+  } else {
+    g_snprintf (ext, sizeof(ext)-1, ".%s", extension);
+  }
+
   /* Load extension files in all paths */
   for (i = 0; i < self->paths->len; i++) {
     /* Get the path */
-    path = g_ptr_array_index(self->paths, i);
+    base_path = g_ptr_array_index(self->paths, i);
+
+    /* append subdir, if specified in the extension string */
+    if (e) {
+      g_snprintf (path, sizeof(path)-1, "%s" G_DIR_SEPARATOR_S "%.*s",
+          base_path, (int) (e - extension), extension);
+    } else {
+      g_snprintf (path, sizeof(path)-1, "%s", base_path);
+    }
 
     /* Open the directory */
     conf_dir = g_dir_open (path, 0, &error);
     if (!conf_dir) {
-      wp_warning_object (self, "Could not open configuration path '%s'", path);
+      wp_message_object (self, "Could not open configuration path '%s': %s",
+          path, error->message);
+      g_clear_error (&error);
       continue;
     }
 
     /* Parse each configuration file matching the extension */
-    ext = g_strdup_printf (".%s", extension);
     while ((file_name = g_dir_read_name (conf_dir))) {
       /* Only parse files that have the proper extension */
       if (g_str_has_suffix (file_name, ext)) {
