@@ -1,0 +1,39 @@
+--
+-- Creates a static audio test source node for testing
+--
+-- Change "node" to "exported-node" to run the node in WirePlumber
+-- instead of PipeWire.
+--
+-- static_object {
+--   type = "node",
+--   factory = "adapter",
+--   properties = {
+--     ["factory.name"] = "audiotestsrc",
+--     ["library.name"] = "audiotestsrc/libspa-audiotestsrc",
+--     ["node.name"] = "Audio Test Source",
+--   }
+-- }
+
+
+--
+-- Creates a static video test source node for testing
+--
+-- Change "node" to "exported-node" to run the node in WirePlumber
+-- instead of PipeWire. Note that in this case you will also need to add
+--
+--   load-pipewire-module libpipewire-module-spa-node-factory
+--
+-- in wireplumber.conf
+--
+-- static_object {
+--   type = "node",
+--   factory = "spa-node-factory",
+--   properties = {
+--     ["factory.name"] = "videotestsrc",
+--     ["library.name"] = "videotestsrc/libspa-videotestsrc",
+--     ["node.name"] = "Video Test Source",
+--     -- pattern 0 -> SMPTE + snow
+--     -- pattern 1 -> snow
+--     ["Spa:Pod:Object:Param:Props:patternType"] = "1",
+--   }
+-- }
