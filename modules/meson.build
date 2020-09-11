@@ -68,6 +68,26 @@ shared_library(
   dependencies : [wp_dep, pipewire_dep, giounix_dep],
 )
 
+m_lua_scripting_resources = gnome.compile_resources(
+    'm-lua-scripting-resources',
+    'module-lua-scripting/gresource.xml',
+    source_dir: 'module-lua-scripting',
+    c_name: '_m_lua_scripting_resources')
+
+shared_library(
+  'wireplumber-module-lua-scripting',
+  [
+    'module-lua-scripting.c',
+    'module-lua-scripting/anatole-config-parser.c',
+    'module-lua-scripting/graph-loader.c',
+    m_lua_scripting_resources,
+  ],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-lua-scripting"'],
+  install : true,
+  install_dir : wireplumber_module_dir,
+  dependencies : [wp_dep, pipewire_dep, anatole_dep],
+)
+
 shared_library(
   'wireplumber-module-node-suspension',
   [
