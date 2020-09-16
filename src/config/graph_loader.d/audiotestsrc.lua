@@ -3,7 +3,7 @@
 --
 
 --[[
-objects["audiotestsrc"] = {
+static_object {
   type = "node",
   factory = "adapter",
   properties = {

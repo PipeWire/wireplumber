@@ -2,7 +2,7 @@
 -- ALSA midi bridge
 --
 
-objects["midi"] = {
+static_object {
   type = "node",
   factory = "spa-node-factory",
   properties = {

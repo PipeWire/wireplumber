@@ -15,7 +15,7 @@
 
 G_DEFINE_QUARK (wp-m-lua-graph-loader-id, id);
 G_DEFINE_QUARK (wp-m-lua-graph-loader-children, children);
-G_DEFINE_QUARK (wp-m-lua-graph-loader-create_object_cb, create_object_cb);
+G_DEFINE_QUARK (wp-m-lua-graph-loader-callbacks, callbacks);
 
 typedef enum {
   OBJECT_TYPE_MONITOR,
@@ -85,9 +85,14 @@ on_object_info (WpSpaDevice * device,
   if (type != G_TYPE_NONE && !link) {
     if (type == WP_TYPE_DEVICE || type == WP_TYPE_NODE) {
       /* create through a lua callback, if specified */
-      const gchar *create_obj_cb =
-          g_object_get_qdata (G_OBJECT (device), create_object_cb_quark ());
-      if (create_obj_cb) {
+      const gchar *create_child_cb = NULL;
+      GVariant *callbacks =
+          g_object_get_qdata (G_OBJECT (device), callbacks_quark ());
+
+      if (callbacks)
+        g_variant_lookup (callbacks, "create-child", "&s", &create_child_cb);
+
+      if (create_child_cb) {
         GVariantBuilder b;
         g_autoptr (GError) error = NULL;
         g_autoptr (WpProperties) properties = wp_properties_ref (props);
@@ -115,10 +120,10 @@ on_object_info (WpSpaDevice * device,
             wp_properties_to_gvariant (parent_props));
 
         /* fire the callback */
-        anatole_engine_call_function (engine, create_obj_cb,
+        anatole_engine_call_function (engine, create_child_cb,
             g_variant_builder_end (&b), &error);
         if (error) {
-          wp_message_object (self, "call to '%s' failed: %s", create_obj_cb,
+          wp_message_object (self, "call to '%s' failed: %s", create_child_cb,
               error->message);
         }
       }
@@ -243,12 +248,11 @@ create_object (WpLuaGraphLoader * self, GVariant * object_desc)
   switch (type) {
     case OBJECT_TYPE_MONITOR:
     case OBJECT_TYPE_EXPORTED_DEVICE: {
-      const gchar *create_obj_cb = NULL;
+      GVariant *callbacks = NULL;
 
-      if (g_variant_lookup (object_desc,
-              "on_create_object", "&s", &create_obj_cb)) {
-        g_object_set_qdata_full (object, create_object_cb_quark (),
-            g_strdup (create_obj_cb), g_free);
+      if (g_variant_lookup (object_desc, "callbacks", "@a{sv}", &callbacks)) {
+        g_object_set_qdata_full (object, callbacks_quark (),
+            callbacks, (GDestroyNotify) g_variant_unref);
       }
       g_signal_connect (object,
           "object-info", (GCallback) on_object_info, self);

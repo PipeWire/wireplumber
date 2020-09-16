@@ -9,18 +9,15 @@
 -- ALSA monitor
 --
 
-objects["alsa"] = {
+static_object {
   type = "monitor",
   factory = "api.alsa.enum.udev",
-  on_create_object = "on_alsa_monitor_create_object",
+  callbacks = {
+    ["create-child"] = "alsaCreateDevice"
+  }
 }
 
-local use_acp = true
-
-function on_alsa_monitor_create_object(child_id, type, spa_factory, properties, monitor_props)
-  -- we only expect to handle devices from the alsa udev monitor
-  if type ~= "device" then return end
-
+local function alsaDeviceSetupProperties(properties)
   -- ensure the device has a name
   if not properties["device.name"] then
     local s = properties["device.bus-id"] or properties["device.bus-path"] or "unknown"
@@ -77,27 +74,21 @@ function on_alsa_monitor_create_object(child_id, type, spa_factory, properties, 
     if b then b = ("-" .. b) else b = "" end
     properties["device.icon-name"] = icon .. "-analog" .. b
   end
-
-  -- override the device factory to use ACP
-  if use_acp then
-    spa_factory = "api.alsa.acp.device"
-  end
-
-  -- create the device
-  local object_description = {
-    ["type"] = "exported-device",
-    ["factory"] = spa_factory,
-    ["properties"] = properties,
-    ["on_create_object"] = "on_alsa_device_create_object",
-    ["child_id"] = child_id,
-  }
-  wp.create_object(object_description)
 end
 
-function on_alsa_device_create_object(child_id, type, spa_factory, properties, dev_props)
-  -- we only expect to create nodes
-  if type ~= "node" then return end
+function alsaCreateDevice(child_id, type, spa_factory, props, monitor_props)
+  alsaDeviceSetupProperties(props)
+  createChild (child_id, {
+    type = "exported-device",
+    factory = "api.alsa.acp.device",
+    properties = props,
+    callbacks = {
+      ["create-child"] = "alsaCreateNode"
+    }
+  })
+end
 
+local function alsaNodeSetupProperties(properties, dev_props)
   local dev = properties["api.alsa.pcm.device"] or properties["alsa.device"] or "0"
   local subdev = properties["api.alsa.pcm.subdevice"] or properties["alsa.subdevice"] or "0"
   local stream = properties["api.alsa.pcm.stream"] or "unknown"
@@ -134,14 +125,14 @@ function on_alsa_device_create_object(child_id, type, spa_factory, properties, d
       properties["node.description"] = desc
     end
   end
+end
 
-  properties["factory.name"] = spa_factory
-
-  local object_description = {
-    ["type"] = "node",
-    ["factory"] = "adapter",
-    ["properties"] = properties,
-    ["child_id"] = child_id,
-  }
-  wp.create_object(object_description)
+function alsaCreateNode(child_id, type, spa_factory, props, dev_props)
+  alsaNodeSetupProperties(props, dev_props)
+  props["factory.name"] = spa_factory
+  createChild (child_id, {
+    type = "node",
+    factory = "adapter",
+    properties = props,
+  })
 end

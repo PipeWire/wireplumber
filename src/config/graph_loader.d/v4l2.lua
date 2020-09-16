@@ -9,16 +9,15 @@
 -- V4L2 monitor
 --
 
-objects["v4l2"] = {
+static_object {
   type = "monitor",
   factory = "api.v4l2.enum.udev",
-  on_create_object = "on_v4l2_monitor_create_object",
+  callbacks = {
+    ["create-child"] = "v4l2CreateDevice"
+  }
 }
 
-function on_v4l2_monitor_create_object(child_id, type, spa_factory, properties, monitor_props)
-  -- we only expect to handle devices from a monitor
-  if type ~= "device" then return end
-
+function v4l2CreateDevice(child_id, type, spa_factory, properties, monitor_props)
   -- ensure the device has a name
   properties["device.name"] = properties["device.name"]
       or "v4l2_device." .. (properties["device.bus-id"] or properties["device.bus-path"] or "unknown")
@@ -29,20 +28,17 @@ function on_v4l2_monitor_create_object(child_id, type, spa_factory, properties, 
       or "Unknown device"
 
   -- create the device
-  local object_description = {
-    ["type"] = "exported-device",
-    ["factory"] = spa_factory,
-    ["properties"] = properties,
-    ["on_create_object"] = "on_v4l2_device_create_object",
-    ["child_id"] = child_id,
-  }
-  wp.create_object(object_description)
+  createChild(child_id, {
+    type = "exported-device",
+    factory = spa_factory,
+    properties = properties,
+    callbacks = {
+      ["create-child"] = "v4l2CreateNode"
+    }
+  })
 end
 
-function on_v4l2_device_create_object(child_id, type, spa_factory, properties, dev_props)
-  -- we only expect to create nodes
-  if type ~= "node" then return end
-
+function v4l2CreateNode(child_id, type, spa_factory, properties, dev_props)
   local devname = dev_props["device.name"]
       or dev_props["device.nick"]
       or dev_props["device.alias"]
@@ -52,11 +48,9 @@ function on_v4l2_device_create_object(child_id, type, spa_factory, properties, d
 
   properties["factory.name"] = spa_factory
 
-  local object_description = {
-    ["type"] = "node",
-    ["factory"] = "spa-node-factory",
-    ["properties"] = properties,
-    ["child_id"] = child_id,
-  }
-  wp.create_object(object_description)
+  createChild(child_id, {
+    type = "node",
+    factory = "spa-node-factory",
+    properties = properties,
+  })
 end

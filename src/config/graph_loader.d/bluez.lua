@@ -9,31 +9,26 @@
 -- Bluez monitor
 --
 
-objects["bluez"] = {
+static_object {
   type = "monitor",
   factory = "api.bluez5.enum.dbus",
-  on_create_object = "on_bluez_monitor_create_object",
+  callbacks = {
+    ["create-child"] = "bluezCreateDevice",
+  }
 }
 
-function on_bluez_monitor_create_object(child_id, type, spa_factory, properties, monitor_props)
-  -- we only expect to handle devices from a monitor
-  if type ~= "device" then return end
-
-  -- create the device
-  local object_description = {
-    ["type"] = "exported-device",
-    ["factory"] = spa_factory,
-    ["properties"] = properties,
-    ["on_create_object"] = "on_bluez_device_create_object",
-    ["child_id"] = child_id,
-  }
-  wp.create_object(object_description)
+function bluezCreateDevice(child_id, type, spa_factory, properties, monitor_props)
+  createChild(child_id, {
+    type = "exported-device",
+    factory = spa_factory,
+    properties = properties,
+    callbacks = {
+      ["create-child"] = "bluezCreateNode",
+    }
+  })
 end
 
-function on_bluez_device_create_object(child_id, type, spa_factory, properties, dev_props)
-  -- we only expect to create nodes
-  if type ~= "node" then return end
-
+function bluezCreateNode(child_id, type, spa_factory, properties, dev_props)
   local devname = dev_props["device.description"]
       or dev_props["device.name"]
       or dev_props["device.nick"]
@@ -48,11 +43,9 @@ function on_bluez_device_create_object(child_id, type, spa_factory, properties, 
 
   properties["factory.name"] = spa_factory
 
-  local object_description = {
-    ["type"] = "exported-node",
-    ["factory"] = "adapter",
-    ["properties"] = properties,
-    ["child_id"] = child_id,
-  }
-  wp.create_object(object_description)
+  createChild(child_id, {
+    type = "exported-node",
+    factory = "adapter",
+    properties = properties,
+  })
 end
