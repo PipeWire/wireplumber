@@ -61,7 +61,7 @@ wp_anatole_config_parser_add_file (WpConfigParser * parser, const gchar * file)
   WpAnatoleConfigParser * self = WP_ANATOLE_CONFIG_PARSER (parser);
   g_autoptr (GError) error = NULL;
 
-  if (!anatole_engine_load_script (self->engine, file, &error)) {
+  if (!anatole_engine_load_script_from_path (self->engine, file, &error)) {
     wp_warning_object (self, "failed to load '%s': %s", file, error->message);
     return FALSE;
   }

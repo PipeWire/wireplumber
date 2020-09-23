@@ -425,7 +425,7 @@ wp_anatole_policy_activate (WpPlugin * plugin)
   /* initialize the lua engine */
   self->engine = anatole_engine_new ("wp");
   wp_anatole_policy_load_lua_functions (self);
-  if (!anatole_engine_load_script (self->engine, script_path, &error)) {
+  if (!anatole_engine_load_script_from_path (self->engine, script_path, &error)) {
     wp_warning_object (self, "script load error: %s", error->message);
     g_clear_object (&self->engine);
     return;
