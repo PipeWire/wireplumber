@@ -20,14 +20,8 @@ G_BEGIN_DECLS
 G_DECLARE_FINAL_TYPE (WpReserveDevice, wp_reserve_device, WP, RESERVE_DEVICE,
     GObject)
 
-WpReserveDevice * wp_reserve_device_new (WpProxy *device,
-    WpDbusDeviceReservation *reservation);
-
-void
-wp_reserve_device_acquire (WpReserveDevice *self);
-
-void
-wp_reserve_device_release (WpReserveDevice *self);
+WpReserveDevice * wp_reserve_device_new (WpCore *core,
+    WpDbusDeviceReservation *reservation, GClosure *manager_closure);
 
 G_END_DECLS
 

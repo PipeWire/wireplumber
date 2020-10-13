@@ -18,20 +18,21 @@ struct _WpReserveDevice
   GObject parent;
 
   /* Props */
-  GWeakRef device;
+  GWeakRef core;
   WpDbusDeviceReservation *reservation;
+  GClosure *manager_closure;
 
   /* JACK */
   WpObjectManager *jack_device_om;
 
-  guint n_acquired;
   GSource *timeout_source;
 };
 
 enum {
-  DEVICE_PROP_0,
-  DEVICE_PROP_DEVICE,
-  DEVICE_PROP_RESERVATION,
+  PROP_0,
+  PROP_CORE,
+  PROP_RESERVATION,
+  PROP_MANAGER_CLOSURE,
 };
 
 G_DEFINE_TYPE (WpReserveDevice, wp_reserve_device, G_TYPE_OBJECT)
@@ -101,6 +102,27 @@ disable_jack_device (WpReserveDevice *self) {
 }
 
 static void
+invoke_manager_closure (WpReserveDevice *self, gboolean create)
+{
+  GValue values[2] = { G_VALUE_INIT, G_VALUE_INIT };
+
+  g_return_if_fail (self->manager_closure);
+
+  g_value_init (&values[0], G_TYPE_OBJECT);
+  g_value_init (&values[1], G_TYPE_BOOLEAN);
+  g_value_set_object (&values[0], self);
+  g_value_set_boolean (&values[1], create);
+
+  if (G_CLOSURE_NEEDS_MARSHAL (self->manager_closure))
+    g_closure_set_marshal (self->manager_closure,
+        g_cclosure_marshal_VOID__BOOLEAN);
+  g_closure_invoke (self->manager_closure, NULL, 2, values, NULL);
+
+  g_value_unset (&values[0]);
+  g_value_unset (&values[1]);
+}
+
+static void
 on_device_done (WpCore *core, GAsyncResult *res, WpReserveDevice *self)
 {
   if (self->reservation)
@@ -113,7 +135,6 @@ static void
 on_application_name_appeared (GObject *obj, GAsyncResult *res, gpointer data)
 {
   WpReserveDevice *self = data;
-  g_autoptr (WpProxy) device = g_weak_ref_get (&self->device);
   g_autoptr (GError) e = NULL;
   g_autofree gchar *name = NULL;
 
@@ -131,8 +152,7 @@ on_application_name_appeared (GObject *obj, GAsyncResult *res, gpointer data)
   /* If the JACK server owns the audio device, we disable the audio device and
    * enable the JACK device */
   if (name && g_strcmp0 (name, JACK_APPLICATION_NAME) == 0) {
-    if (device)
-      set_device_profile (device, 0);
+    invoke_manager_closure (self, FALSE);
     enable_jack_device (self);
     return;
   }
@@ -141,8 +161,7 @@ on_application_name_appeared (GObject *obj, GAsyncResult *res, gpointer data)
    * disable the JACK device */
   else if (name && g_strcmp0 (name, PIPEWIRE_APPLICATION_NAME) == 0) {
     disable_jack_device (self);
-    if (device)
-      set_device_profile (device, 1);
+    invoke_manager_closure (self, TRUE);
     return;
   }
 
@@ -150,8 +169,7 @@ on_application_name_appeared (GObject *obj, GAsyncResult *res, gpointer data)
    * device, we disable both the audio device and the JACK device */
   else {
     disable_jack_device (self);
-    if (device)
-      set_device_profile (device, 0);
+    invoke_manager_closure (self, FALSE);
   }
 }
 
@@ -181,16 +199,14 @@ static void
 on_reservation_owner_vanished (WpDbusDeviceReservation *reservation,
     WpReserveDevice *self)
 {
-  g_autoptr (WpProxy) device = g_weak_ref_get (&self->device);
-  g_autoptr (WpCore) core = NULL;
+  g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
 
   wp_info_object (self, "owner vanished");
 
-  /* Always disable both JACK device and audio device when owner vanishes. The
-   * devices will always be enabled later when a new owner appears */
+  /* Always disable JACK device and destroy audio device when owner vanishes.
+   * The devices will be enabled/created later when a new owner appears */
   disable_jack_device (self);
-  if (device)
-    set_device_profile (device, 0);
+  invoke_manager_closure (self, FALSE);
 
   /* Clear the current timeout acquire callback */
   if (self->timeout_source)
@@ -198,43 +214,28 @@ on_reservation_owner_vanished (WpDbusDeviceReservation *reservation,
   g_clear_pointer (&self->timeout_source, g_source_unref);
 
   /* Try to acquire the device if it has no owner for at least 3 seconds */
-  core = device ? wp_proxy_get_core (device) : NULL;
-  if (core)
-    wp_core_timeout_add_closure (core, &self->timeout_source, 3000,
-        g_cclosure_new_object (G_CALLBACK (timeout_acquire_callback),
-        G_OBJECT (self)));
+  g_return_if_fail (core);
+  wp_core_timeout_add_closure (core, &self->timeout_source, 3000,
+      g_cclosure_new_object (G_CALLBACK (timeout_acquire_callback),
+      G_OBJECT (self)));
 }
 
 static void
 on_reservation_release (WpDbusDeviceReservation *reservation, gboolean forced,
     WpReserveDevice *self)
 {
-  g_autoptr (WpProxy) device = NULL;
-  g_autoptr (WpCore) core = NULL;
-
   /* Release reservation */
   wp_dbus_device_reservation_release (reservation);
 
-  /* Get the device and core */
-  device = g_weak_ref_get (&self->device);
-  if (!device)
-    return;
-  core = wp_proxy_get_core (device);
-  if (!core)
-    return;
-
-  /* Disable device */
-  set_device_profile (device, 0);
+  /* Destroy the device */
+  invoke_manager_closure (self, FALSE);
 
   /* Only complete the release if not forced */
-  if (!forced)
+  if (!forced) {
+    g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
+    g_return_if_fail (core);
     wp_core_sync (core, NULL, (GAsyncReadyCallback)on_device_done, self);
-}
-
-static void
-on_device_destroyed (WpProxy *device, WpReserveDevice *self)
-{
-  wp_dbus_device_reservation_release (self->reservation);
+  }
 }
 
 static void
@@ -242,11 +243,7 @@ wp_reserve_device_constructed (GObject * object)
 {
   WpReserveDevice *self = WP_RESERVE_DEVICE (object);
   g_autoptr (WpProxy) device = NULL;
-  g_autoptr (WpCore) core = NULL;
-
-  device = g_weak_ref_get (&self->device);
-  g_return_if_fail (device);
-  core = wp_proxy_get_core (device);
+  g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
   g_return_if_fail (core);
 
   /* Create the JACK device object manager */
@@ -257,11 +254,6 @@ wp_reserve_device_constructed (GObject * object)
   wp_object_manager_request_proxy_features (self->jack_device_om,
       WP_TYPE_DEVICE, WP_PROXY_FEATURES_STANDARD);
   wp_core_install_object_manager (core, self->jack_device_om);
-
-  /* Make sure the device is released when the pw proxy device is destroyed */
-  g_return_if_fail (device);
-  g_signal_connect_object (device, "pw-proxy-destroyed",
-      (GCallback) on_device_destroyed, self, 0);
 
   /* Handle the reservation signals */
   g_return_if_fail (self->reservation);
@@ -285,11 +277,14 @@ wp_reserve_device_get_property (GObject * object,
   WpReserveDevice *self = WP_RESERVE_DEVICE (object);
 
   switch (property_id) {
-  case DEVICE_PROP_DEVICE:
-    g_value_take_object (value, g_weak_ref_get (&self->device));
+  case PROP_CORE:
+    g_value_take_object (value, g_weak_ref_get (&self->core));
     break;
-  case DEVICE_PROP_RESERVATION:
+  case PROP_RESERVATION:
     g_value_set_object (value, self->reservation);
+    break;
+  case PROP_MANAGER_CLOSURE:
+    g_value_set_boxed (value, self->manager_closure);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -304,11 +299,14 @@ wp_reserve_device_set_property (GObject * object,
   WpReserveDevice *self = WP_RESERVE_DEVICE (object);
 
   switch (property_id) {
-  case DEVICE_PROP_DEVICE:
-    g_weak_ref_set (&self->device, g_value_get_object (value));
+  case PROP_CORE:
+    g_weak_ref_set (&self->core, g_value_get_object (value));
     break;
-  case DEVICE_PROP_RESERVATION:
+  case PROP_RESERVATION:
     self->reservation = g_value_dup_object (value);
+    break;
+  case PROP_MANAGER_CLOSURE:
+    self->manager_closure = g_value_dup_boxed (value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -332,8 +330,9 @@ wp_reserve_device_finalize (GObject * object)
   g_clear_object (&self->jack_device_om);
 
   /* Props */
-  g_weak_ref_clear (&self->device);
+  g_weak_ref_clear (&self->core);
   g_clear_object (&self->reservation);
+  g_clear_pointer (&self->manager_closure, g_closure_unref);
 
   G_OBJECT_CLASS (wp_reserve_device_parent_class)->finalize (object);
 }
@@ -342,9 +341,7 @@ static void
 wp_reserve_device_init (WpReserveDevice * self)
 {
   /* Props */
-  g_weak_ref_init (&self->device, NULL);
-
-  self->n_acquired = 0;
+  g_weak_ref_init (&self->core, NULL);
 }
 
 static void
@@ -358,44 +355,27 @@ wp_reserve_device_class_init (WpReserveDeviceClass * klass)
   object_class->finalize = wp_reserve_device_finalize;
 
   /* Props */
-  g_object_class_install_property (object_class, DEVICE_PROP_DEVICE,
-      g_param_spec_object ("device", "device", "The device", WP_TYPE_PROXY,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
-  g_object_class_install_property (object_class, DEVICE_PROP_RESERVATION,
+  g_object_class_install_property (object_class, PROP_CORE,
+      g_param_spec_object ("core", "core",
+      "The wireplumber core", WP_TYPE_CORE,
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (object_class, PROP_RESERVATION,
       g_param_spec_object ("reservation", "reservation",
       "The dbus device reservation", WP_TYPE_DBUS_DEVICE_RESERVATION,
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (object_class, PROP_MANAGER_CLOSURE,
+      g_param_spec_boxed ("manager-closure", "manager-closure",
+      "The closure that manages the device", G_TYPE_CLOSURE,
       G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
 WpReserveDevice *
-wp_reserve_device_new (WpProxy *device, WpDbusDeviceReservation *reservation)
+wp_reserve_device_new (WpCore *core, WpDbusDeviceReservation *reservation,
+    GClosure *manager_closure)
 {
   return g_object_new (WP_TYPE_RESERVE_DEVICE,
-      "device", device,
+      "core", core,
       "reservation", reservation,
+      "manager-closure", manager_closure,
       NULL);
-}
-
-void
-wp_reserve_device_acquire (WpReserveDevice *self)
-{
-  g_return_if_fail (WP_IS_RESERVE_DEVICE (self));
-  g_return_if_fail (self->reservation);
-
-  if (self->n_acquired == 0)
-    wp_dbus_device_reservation_acquire (self->reservation);
-
-  self->n_acquired++;
-}
-
-void
-wp_reserve_device_release (WpReserveDevice *self)
-{
-  g_return_if_fail (WP_IS_RESERVE_DEVICE (self));
-  g_return_if_fail (self->reservation);
-
-  if (self->n_acquired == 1)
-    wp_dbus_device_reservation_release (self->reservation);
-
-  self->n_acquired--;
 }

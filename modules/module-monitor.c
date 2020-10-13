@@ -11,6 +11,7 @@
 
 #include <pipewire/pipewire.h>
 #include <spa/utils/keys.h>
+#include <spa/utils/names.h>
 #include <spa/monitor/device.h>
 #include <spa/pod/builder.h>
 
@@ -46,6 +47,8 @@ struct _WpMonitor
   gchar *factory;
   MonitorFlags flags;
 
+  GWeakRef dbus_reservation;
+  WpObjectManager *plugins_om;
   WpSpaDevice *monitor;
 };
 
@@ -56,6 +59,25 @@ static void on_object_info (WpSpaDevice * device,
     guint id, GType type, const gchar * spa_factory,
     WpProperties * props, WpProperties * parent_props,
     WpMonitor * self);
+
+struct DeviceData {
+  WpMonitor *self;
+  WpSpaDevice *parent;
+  guint id;
+  gchar *spa_factory;
+  WpProperties *props;
+  WpSpaDevice *device;
+};
+
+static void
+device_data_free (gpointer data, GClosure *closure)
+{
+  struct DeviceData *dd = data;
+  g_clear_object (&dd->parent);
+  g_clear_pointer (&dd->props, wp_properties_unref);
+  g_clear_pointer (&dd->spa_factory, g_free);
+  g_slice_free (struct DeviceData, dd);
+}
 
 static void
 setup_device_props (WpProperties *p)
@@ -309,27 +331,117 @@ device_created (GObject * device, GAsyncResult * res, gpointer user_data)
   wp_spa_device_activate (WP_SPA_DEVICE (device));
 }
 
-static void
-create_device (WpMonitor * self, WpSpaDevice * parent, GList ** children,
-    guint id, const gchar * spa_factory, WpProperties * props)
+static WpSpaDevice *
+create_device (WpMonitor * self, WpSpaDevice * parent, guint id,
+    const gchar * spa_factory, WpProperties * props)
 {
-  WpSpaDevice *device;
+  WpSpaDevice *device = NULL;
+  GList *children = NULL;
+  GList *link = NULL;
+  GObject *child = NULL;
+
+  g_return_val_if_fail (parent, NULL);
+  g_return_val_if_fail (spa_factory, NULL);
+
+  find_child (G_OBJECT (parent), id, &children, &link, &child);
+
+  /* Create the device */
+  device = wp_spa_device_new_from_spa_factory (self->local_core, spa_factory,
+      props);
+  if (!device)
+    return NULL;
+
+  /* Handle object-info singal */
+  g_signal_connect (device, "object-info", (GCallback) on_object_info, self);
+
+  /* Export the device */
+  wp_spa_device_export (device, NULL, device_created, self);
+
+  /* Set device data */
+  g_object_set_qdata (G_OBJECT (device), id_quark (), GUINT_TO_POINTER (id));
+  children = g_list_prepend (children, device);
+
+  /* Set parent data */
+  g_object_set_qdata_full (G_OBJECT (parent), children_quark (), children,
+    (GDestroyNotify) free_children);
+
+  wp_info_object (self, "device %p created", device);
+
+  return device;
+}
+
+static void
+on_reservation_manage_device (GObject *obj, gboolean create, gpointer data)
+{
+  struct DeviceData *dd = data;
+  WpMonitor *self = dd->self;
+  g_autoptr (WpPlugin) dr = g_weak_ref_get (&self->dbus_reservation);
+  g_return_if_fail (dd);
+
+  /* Create */
+  if (create && !dd->device) {
+    dd->device = create_device (dd->self, dd->parent, dd->id, dd->spa_factory,
+        dd->props ? wp_properties_ref (dd->props) : NULL);
+  }
+
+  /* Destroy */
+  else if (!create && dd->device) {
+    GList *children = NULL;
+    GList *link = NULL;
+    GObject *child = NULL;
+
+    /* Remove the device from its parent children list */
+    find_child (G_OBJECT (dd->parent), dd->id, &children, &link, &child);
+    children = g_list_remove_link (children, link);
+    g_object_set_qdata_full (G_OBJECT (dd->parent), children_quark (), children,
+      (GDestroyNotify) free_children);
+
+    /* Release the device and its children */
+    g_list_free_full (link, g_object_unref);
+    wp_info_object (self, "device %p destroyed", dd->device);
+    dd->device = NULL;
+  }
+}
+
+static void
+maybe_create_device (WpMonitor * self, WpSpaDevice * parent, guint id,
+    const gchar * spa_factory, WpProperties * props)
+{
+  g_autoptr (WpPlugin) dr = g_weak_ref_get (&self->dbus_reservation);
+  const gchar *card_id = NULL;
 
   wp_debug_object (self, "%s new device %u", self->factory, id);
 
+  /* Create the properties */
   props = wp_properties_copy (props);
   setup_device_props (props);
 
-  if (!(device = wp_spa_device_new_from_spa_factory (self->local_core,
-      spa_factory, props)))
-    return;
+  /* If dbus reservation API exists, let dbus manage the device, otherwise just
+   * create it and never destroy it */
+  card_id = wp_properties_get (props, SPA_KEY_API_ALSA_CARD);
+  if (dr && card_id) {
+    const gchar *appdev = wp_properties_get (props, SPA_KEY_API_ALSA_PATH);
+    g_autoptr (GClosure) closure = NULL;
+    struct DeviceData *dd = NULL;
 
-  g_signal_connect (device, "object-info", (GCallback) on_object_info, self);
+    /* Create the closure */
+    dd = g_slice_new0 (struct DeviceData);
+    dd->self = self;
+    dd->parent = g_object_ref (parent);
+    dd->spa_factory = g_strdup (spa_factory);
+    dd->props = props;
+    dd->device = NULL;
 
-  wp_spa_device_export (device, NULL, device_created, self);
+    /* Create the closure */
+    closure = g_cclosure_new (G_CALLBACK (on_reservation_manage_device), dd,
+        device_data_free);
+    g_object_watch_closure (G_OBJECT (self), closure);
 
-  g_object_set_qdata (G_OBJECT (device), id_quark (), GUINT_TO_POINTER (id));
-  *children = g_list_prepend (*children, device);
+    g_signal_emit_by_name (dr, "create-reservation", atoi (card_id), appdev,
+        closure);
+  } else {
+    create_device (self, parent, id, spa_factory, props);
+  }
 }
 
 static void
@@ -348,7 +460,8 @@ on_object_info (WpSpaDevice * device,
   /* new object, construct... */
   if (type != G_TYPE_NONE && !link) {
     if (type == WP_TYPE_DEVICE) {
-      create_device (self, device, &children, id, spa_factory, props);
+      maybe_create_device (self, device, id, spa_factory, props);
+      return;
     } else if (type == WP_TYPE_NODE) {
       create_node (self, device, &children, id, spa_factory, props,
           parent_props);
@@ -369,14 +482,36 @@ on_object_info (WpSpaDevice * device,
 }
 
 static void
+on_plugin_added (WpObjectManager *om, WpPlugin *plugin, gpointer d)
+{
+  WpMonitor *self = WP_MONITOR (d);
+  g_autoptr (WpPlugin) dr = g_weak_ref_get (&self->dbus_reservation);
+
+  if (dr)
+    wp_warning_object (self, "skipping additional dbus reservation plugin");
+  else
+    g_weak_ref_set (&self->dbus_reservation, plugin);
+}
+
+static void
 wp_monitor_activate (WpPlugin * plugin)
 {
   WpMonitor *self = WP_MONITOR (plugin);
+  g_autoptr (WpCore) core = wp_plugin_get_core (WP_PLUGIN (self));
 
   if (!wp_core_connect (self->local_core)) {
     wp_warning_object (plugin, "failed to connect monitor core");
     return;
   }
+
+  /* Create the plugin object manager */
+  self->plugins_om = wp_object_manager_new ();
+  wp_object_manager_add_interest (self->plugins_om, WP_TYPE_PLUGIN,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "name", "=s", "dbus-reservation",
+      NULL);
+  g_signal_connect_object (self->plugins_om, "object-added",
+      G_CALLBACK (on_plugin_added), self, 0);
+  wp_core_install_object_manager (core, self->plugins_om);
 
   /* create the monitor and handle onject-info callback */
   self->monitor = wp_spa_device_new_from_spa_factory (self->local_core,
@@ -394,6 +529,8 @@ wp_monitor_deactivate (WpPlugin * plugin)
   WpMonitor *self = WP_MONITOR (plugin);
 
   g_clear_object (&self->monitor);
+  g_clear_object (&self->plugins_om);
+  g_weak_ref_clear (&self->dbus_reservation);
 }
 
 static void
