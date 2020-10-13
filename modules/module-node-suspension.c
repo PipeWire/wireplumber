@@ -132,6 +132,7 @@ WP_PLUGIN_EXPORT void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   wp_plugin_register (g_object_new (wp_node_suspension_get_type (),
+      "name", "node-suspension",
       "module", module,
       NULL));
 }

@@ -240,6 +240,7 @@ WpConfigStaticObjectsContext *
 wp_config_static_objects_context_new (WpModule * module)
 {
   return g_object_new (wp_config_static_objects_context_get_type (),
+      "name", "config-static-objects",
       "module", module,
       NULL);
 }

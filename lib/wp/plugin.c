@@ -18,12 +18,14 @@
 
 enum {
   PROP_0,
+  PROP_NAME,
   PROP_MODULE,
 };
 
 typedef struct _WpPluginPrivate WpPluginPrivate;
 struct _WpPluginPrivate
 {
+  gchar *name;
   GWeakRef module;
 };
 
@@ -65,6 +67,7 @@ wp_plugin_finalize (GObject * object)
   WpPluginPrivate *priv = wp_plugin_get_instance_private (self);
 
   g_weak_ref_clear (&priv->module);
+  g_clear_pointer (&priv->name, g_free);
 
   G_OBJECT_CLASS (wp_plugin_parent_class)->finalize (object);
 }
@@ -77,6 +80,10 @@ wp_plugin_set_property (GObject * object, guint property_id,
   WpPluginPrivate *priv = wp_plugin_get_instance_private (self);
 
   switch (property_id) {
+  case PROP_NAME:
+    g_clear_pointer (&priv->name, g_free);
+    priv->name = g_value_dup_string (value);
+    break;
   case PROP_MODULE:
     g_weak_ref_set (&priv->module, g_value_get_object (value));
     break;
@@ -94,6 +101,9 @@ wp_plugin_get_property (GObject * object, guint property_id,
   WpPluginPrivate *priv = wp_plugin_get_instance_private (self);
 
   switch (property_id) {
+  case PROP_NAME:
+    g_value_set_string (value, priv->name);
+    break;
   case PROP_MODULE:
     g_value_take_object (value, g_weak_ref_get (&priv->module));
     break;
@@ -112,6 +122,16 @@ wp_plugin_class_init (WpPluginClass * klass)
   object_class->finalize = wp_plugin_finalize;
   object_class->set_property = wp_plugin_set_property;
   object_class->get_property = wp_plugin_get_property;
+
+  /**
+   * WpPlugin:name:
+   * The name of this plugin.
+   * Implementations should initialize this in the constructor.
+   */
+  g_object_class_install_property (object_class, PROP_NAME,
+      g_param_spec_string ("name", "name",
+          "The name of this plugin", NULL,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   /**
    * WpPlugin:module:
@@ -137,6 +157,21 @@ wp_plugin_register (WpPlugin * plugin)
   g_return_if_fail (WP_IS_CORE (core));
 
   wp_registry_register_object (wp_core_get_registry (core), plugin);
+}
+
+/**
+ * wp_plugin_get_name:
+ * @self: the plugin
+ *
+ * Returns: the name of this plugin
+ */
+const gchar *
+wp_plugin_get_name (WpPlugin * self)
+{
+  g_return_val_if_fail (WP_IS_PLUGIN (self), NULL);
+
+  WpPluginPrivate *priv = wp_plugin_get_instance_private (self);
+  return priv->name;
 }
 
 /**

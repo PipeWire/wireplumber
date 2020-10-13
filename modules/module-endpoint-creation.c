@@ -188,6 +188,7 @@ WP_PLUGIN_EXPORT void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   wp_plugin_register (g_object_new (wp_endpoint_creation_get_type (),
+      "name", "endpoint-creation",
       "module", module,
       NULL));
 }

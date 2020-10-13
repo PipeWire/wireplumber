@@ -344,6 +344,7 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   g_variant_lookup (args, "mode", "s", &mode);
 
   wp_plugin_register (g_object_new (wp_device_activation_get_type (),
+      "name", "device-activation",
       "module", module,
       "mode", mode,
       NULL));

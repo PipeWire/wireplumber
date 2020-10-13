@@ -358,6 +358,7 @@ WpConfigPolicyContext *
 wp_config_policy_context_new (WpModule * module)
 {
   return g_object_new (wp_config_policy_context_get_type (),
+      "name", "config-policy",
       "module", module,
       NULL);
 }

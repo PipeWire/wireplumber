@@ -506,6 +506,7 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   /* Register all monitors */
   g_variant_iter_init (&iter, args);
   while (g_variant_iter_next (&iter, "{&sv}", &key, &value)) {
+    g_autofree char *plugin_name = NULL;
     const gchar *factory = NULL;
     MonitorFlags flags = 0;
 
@@ -526,7 +527,9 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
       }
 
       /* Register */
+      plugin_name = g_strdup_printf ("monitor-%s", factory);
       wp_plugin_register (g_object_new (wp_monitor_get_type (),
+          "name", plugin_name,
           "module", module,
           "local-core", local_core,
           "factory", factory,

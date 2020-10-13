@@ -258,6 +258,7 @@ WP_PLUGIN_EXPORT void
 wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   wp_plugin_register (g_object_new (wp_session_settings_get_type (),
+          "name", "session-settings",
           "module", module,
           NULL));
 }
