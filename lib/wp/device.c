@@ -217,7 +217,7 @@ enum {
 
 struct _WpSpaDevice
 {
-  WpProxy parent;
+  GObject parent;
   GWeakRef core;
   struct spa_handle *handle;
   struct spa_device *device;
