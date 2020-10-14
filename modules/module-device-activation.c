@@ -89,7 +89,11 @@ on_device_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
 
   /* ALSA */
   if (g_str_has_prefix (device_api, "alsa")) {
-    set_device_profile (proxy, 1);
+    const gchar *acp = wp_proxy_get_property (proxy, "device.api.alsa.acp");
+
+    /* Skip ACP devices as they are automatically enabled when created */
+    if (!acp || !atoi (acp))
+      set_device_profile (proxy, 1);
   }
 
   /* Bluez5 */
