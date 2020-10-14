@@ -2,6 +2,7 @@ common_deps = [gobject_dep, gio_dep, wp_dep, pipewire_dep]
 common_env = [
   'G_TEST_SRCDIR=@0@'.format(meson.current_source_dir()),
   'G_TEST_BUILDDIR=@0@'.format(meson.current_build_dir()),
+  'XDG_CONFIG_HOME=@0@'.format(meson.current_source_dir() / '.config'),
   'WIREPLUMBER_MODULE_DIR=@0@'.format(meson.current_build_dir() / '..' / '..' / 'modules'),
   'WIREPLUMBER_DEBUG=7',
 ]
@@ -81,6 +82,13 @@ test(
 test(
   'test-spa-type',
   executable('test-spa-type', 'spa-type.c',
+      dependencies: common_deps, c_args: common_args),
+  env: common_env,
+)
+
+test(
+  'test-state',
+  executable('test-state', 'state.c',
       dependencies: common_deps, c_args: common_args),
   env: common_env,
 )

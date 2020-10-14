@@ -37,6 +37,7 @@
 #include "si-interfaces.h"
 #include "spa-pod.h"
 #include "spa-type.h"
+#include "state.h"
 #include "transition.h"
 #include "wpenums.h"
 #include "wpversion.h"
