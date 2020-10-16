@@ -46,6 +46,11 @@ static struct {
       guint32 id;
       guint mute;
     } set_mute;
+
+    struct {
+      guint32 id;
+      gint index;
+    } set_profile;
   };
 } cmdline;
 
@@ -723,6 +728,66 @@ out:
   g_main_loop_quit (self->loop);
 }
 
+/* set-profile */
+
+static gboolean
+set_profile_parse_positional (gint argc, gchar ** argv, GError **error)
+{
+  if (argc < 4) {
+    g_set_error (error, wpctl_error_domain_quark(), 0,
+        "ID and INDEX are required");
+    return FALSE;
+  }
+
+  long id = strtol (argv[2], NULL, 10);
+  int index = atoi (argv[3]);
+  if (id < 0) {
+    g_set_error (error, wpctl_error_domain_quark(), 0,
+        "'%s' is not a valid index", argv[2]);
+    return FALSE;
+  }
+
+  cmdline.set_profile.id = id;
+  cmdline.set_profile.index = index;
+  return TRUE;
+}
+
+static gboolean
+set_profile_prepare (WpCtl * self, GError ** error)
+{
+  wp_object_manager_add_interest (self->om, WP_TYPE_PROXY,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
+      "object.id", "=u", cmdline.set_profile.id,
+      NULL);
+  wp_object_manager_request_proxy_features (self->om, WP_TYPE_PROXY,
+      WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_PROPS);
+  return TRUE;
+}
+
+static void
+set_profile_run (WpCtl * self)
+{
+  g_autoptr (WpProxy) proxy = NULL;
+  g_autoptr (WpSpaPod) pod = NULL;
+
+  proxy = wp_object_manager_lookup (self->om, WP_TYPE_PROXY, NULL);
+  if (!proxy) {
+    printf ("Object '%d' not found\n", cmdline.set_profile.id);
+    goto out;
+  }
+  pod = wp_spa_pod_new_object (
+      "Profile", "Profile",
+      "index", "i", cmdline.set_profile.index,
+      NULL);
+  wp_proxy_set_param (proxy, "Profile", pod);
+  wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
+  return;
+
+out:
+  self->exit_code = 3;
+  g_main_loop_quit (self->loop);
+}
+
 #define N_ENTRIES 3
 
 static const struct subcommand {
@@ -805,6 +870,16 @@ static const struct subcommand {
     .prepare = set_mute_prepare,
     .run = set_mute_run,
   },
+  {
+    .name = "set-profile",
+    .positional_args = "ID INDEX",
+    .summary = "Sets the profile of ID to INDEX (integer, 0 is 'off')",
+    .description = NULL,
+    .entries = { { NULL } },
+    .parse_positional = set_profile_parse_positional,
+    .prepare = set_profile_prepare,
+    .run = set_profile_run,
+  }
 };
 
 gint
