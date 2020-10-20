@@ -16,6 +16,8 @@ struct _WpDeviceActivation
 {
   WpPlugin parent;
 
+  GWeakRef default_profile;
+  WpObjectManager *plugins_om;
   WpObjectManager *devices_om;
 };
 
@@ -24,89 +26,109 @@ G_DECLARE_FINAL_TYPE (WpDeviceActivation, wp_device_activation, WP,
 G_DEFINE_TYPE (WpDeviceActivation, wp_device_activation, WP_TYPE_PLUGIN)
 
 static void
-set_device_profile (WpProxy *device, gint index)
+set_device_profile (WpDeviceActivation *self, WpProxy *device, gint index)
 {
+  g_autoptr (WpSpaPod) profile = NULL;
+
   g_return_if_fail (device);
-  g_autoptr (WpSpaPod) profile = wp_spa_pod_new_object (
+
+  /* Set profile */
+  profile = wp_spa_pod_new_object (
       "Profile", "Profile",
       "index", "i", index,
       NULL);
-  wp_debug_object (device, "set profile %d", index);
   wp_proxy_set_param (device, "Profile", profile);
+
+  wp_info_object (self, "profile %d set on device " WP_OBJECT_FORMAT, index,
+      WP_OBJECT_ARGS (device));
 }
 
 static void
 on_device_enum_profile_done (WpProxy *proxy, GAsyncResult *res,
     WpDeviceActivation *self)
 {
+  g_autoptr (WpPlugin) dp = g_weak_ref_get (&self->default_profile);
   g_autoptr (WpIterator) profiles = NULL;
-  g_auto (GValue) item = G_VALUE_INIT;
   g_autoptr (GError) error = NULL;
-  guint profile_index = 1;
+  const gchar *name = NULL;
+  gint index = -1;
 
+  /* Finish */
   profiles = wp_proxy_enum_params_finish (proxy, res, &error);
   if (error) {
-    wp_warning_object (self, "failed to enum profiles in bluetooth device");
+    wp_warning_object (self, "failed to enum profiles on device");
     return;
   }
 
-  /* Get the first available profile */
-  for (; wp_iterator_next (profiles, &item); g_value_unset (&item)) {
-    WpSpaPod *pod = g_value_get_boxed (&item);
-    gint index = 0;
-    const gchar *name = NULL;
+  /* Get the default profile name if default-profile module is loaded */
+  if (dp)
+    g_signal_emit_by_name (dp, "get-profile", WP_DEVICE (proxy), &name);
 
-    g_return_if_fail (pod);
-    g_return_if_fail (wp_spa_pod_is_object (pod));
+  /* Find the profile index */
+  if (name) {
+    g_auto (GValue) item = G_VALUE_INIT;
+    for (; wp_iterator_next (profiles, &item); g_value_unset (&item)) {
+      WpSpaPod *pod = g_value_get_boxed (&item);
+      gint i = 0;
+      const gchar *n = NULL;
 
-    /* Parse */
-    if (!wp_spa_pod_get_object (pod,
-        "Profile", NULL,
-        "index", "i", &index,
-        "name", "s", &name,
-        NULL)) {
-      wp_warning_object (self, "bluetooth profile does not have index / name");
-      continue;
+      /* Parse */
+      if (!wp_spa_pod_get_object (pod,
+          "Profile", NULL,
+          "index", "i", &i,
+          "name", "s", &n,
+          NULL)) {
+        continue;
+      }
+
+      if (g_strcmp0 (name, n) == 0) {
+        index = i;
+        break;
+      }
     }
-    wp_info_object (self, "bluez profile found: %s (%d)", name, index);
-
-    /* TODO: we assume the last profile is the one with highest priority */
-    profile_index = index;
   }
 
-  set_device_profile (proxy, profile_index);
+  /* If not profile was found, use index 1 for ALSA (no ACP) and Bluez5 */
+  if (index < 0) {
+    /* Alsa */
+    const gchar *api = wp_proxy_get_property (proxy, PW_KEY_DEVICE_API);
+    if (api && g_str_has_prefix (api, "alsa")) {
+      const gchar *acp = wp_proxy_get_property (proxy, "device.api.alsa.acp");
+      if (!acp || !atoi (acp))
+        index = 1;
+    }
+
+    /* Bluez5 */
+    else if (api && g_str_has_prefix (api, "bluez5")) {
+      index = 1;
+    }
+  }
+
+  /* Set the profile */
+  if (index >= 0)
+    set_device_profile (self, proxy, index);
 }
 
 static void
 on_device_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
 {
   WpDeviceActivation *self = WP_DEVICE_ACTIVATION (d);
-  const gchar *device_api = wp_proxy_get_property (proxy, PW_KEY_DEVICE_API);
-  g_return_if_fail (device_api);
 
-  wp_debug_object (self, "device " WP_OBJECT_FORMAT " added, api '%s'",
-      WP_OBJECT_ARGS (proxy), device_api);
+  /* Enum available profiles */
+  wp_proxy_enum_params (WP_PROXY (proxy), "EnumProfile", NULL, NULL,
+      (GAsyncReadyCallback) on_device_enum_profile_done, self);
+}
 
-  /* ALSA */
-  if (g_str_has_prefix (device_api, "alsa")) {
-    const gchar *acp = wp_proxy_get_property (proxy, "device.api.alsa.acp");
+static void
+on_plugin_added (WpObjectManager *om, WpPlugin *plugin, gpointer d)
+{
+  WpDeviceActivation *self = WP_DEVICE_ACTIVATION (d);
+  g_autoptr (WpPlugin) dp = g_weak_ref_get (&self->default_profile);
 
-    /* Skip ACP devices as they are automatically enabled when created */
-    if (!acp || !atoi (acp))
-      set_device_profile (proxy, 1);
-  }
-
-  /* Bluez5 */
-  else if (g_str_has_prefix (device_api, "bluez5")) {
-    /* Enum available bluetooth profiles */
-    wp_proxy_enum_params (WP_PROXY (proxy), "EnumProfile", NULL, NULL,
-          (GAsyncReadyCallback) on_device_enum_profile_done, self);
-  }
-
-  /* Video */
-  else if (g_str_has_prefix (device_api, "v4l2")) {
-    /* No need to activate video devices */
-  }
+  if (dp)
+    wp_warning_object (self, "skipping additional default profile plugin");
+  else
+    g_weak_ref_set (&self->default_profile, plugin);
 }
 
 static void
@@ -114,6 +136,15 @@ wp_device_activation_activate (WpPlugin * plugin)
 {
   WpDeviceActivation *self = WP_DEVICE_ACTIVATION (plugin);
   g_autoptr (WpCore) core = wp_plugin_get_core (WP_PLUGIN (self));
+
+  /* Create the plugin object manager */
+  self->plugins_om = wp_object_manager_new ();
+  wp_object_manager_add_interest (self->plugins_om, WP_TYPE_PLUGIN,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "name", "=s", "default-profile",
+      NULL);
+  g_signal_connect_object (self->plugins_om, "object-added",
+      G_CALLBACK (on_plugin_added), self, 0);
+  wp_core_install_object_manager (core, self->plugins_om);
 
   /* Create the devices object manager */
   self->devices_om = wp_object_manager_new ();
@@ -131,6 +162,8 @@ wp_device_activation_deactivate (WpPlugin * plugin)
   WpDeviceActivation *self = WP_DEVICE_ACTIVATION (plugin);
 
   g_clear_object (&self->devices_om);
+  g_clear_object (&self->plugins_om);
+  g_weak_ref_clear (&self->default_profile);
 }
 
 static void
