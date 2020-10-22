@@ -423,6 +423,12 @@ wp_transition_advance (WpTransition * self)
   g_autoptr (WpTransition) self_ref = g_object_ref (self);
   WpTransitionPrivate *priv = wp_transition_get_instance_private (self);
   guint next_step;
+  GError *error = NULL;
+
+  if (g_cancellable_set_error_if_cancelled (priv->cancellable, &error)) {
+    wp_transition_return_error (self, error);
+    return;
+  }
 
   /* find the next step */
   next_step = WP_TRANSITION_GET_CLASS (self)->get_next_step (self, priv->step);
