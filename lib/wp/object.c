@@ -1,0 +1,439 @@
+/* WirePlumber
+ *
+ * Copyright © 2020 Collabora Ltd.
+ *    @author George Kiagiadakis <george.kiagiadakis@collabora.com>
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
+ * SECTION: object
+ * @title: Base object type
+ */
+
+#define G_LOG_DOMAIN "wp-object"
+
+#include "object.h"
+#include "debug.h"
+#include "core.h"
+
+struct _WpFeatureActivationTransition
+{
+  WpTransition parent;
+  WpObjectFeatures missing;
+};
+
+/**
+ * WpFeatureActivationTransition:
+ *
+ * A #WpTransition that is used by #WpObject to implement feature activation.
+ */
+G_DEFINE_TYPE (WpFeatureActivationTransition,
+               wp_feature_activation_transition,
+               WP_TYPE_TRANSITION)
+
+static void
+wp_feature_activation_transition_init (
+    WpFeatureActivationTransition * transition)
+{
+}
+
+static WpObjectFeatures
+wp_feature_activation_transition_calc_missing_features (
+    WpFeatureActivationTransition * self, WpObject * object)
+{
+  /* missing features = features that have been requested,
+     they are supported and they are not active yet;
+     note that supported features may change while the transition is ongoing,
+     which is why we store the requested features as they were originally
+     and keep trying to activate everything that is supported at the time */
+  WpObjectFeatures requested =
+      wp_feature_activation_transition_get_requested_features (self);
+  WpObjectFeatures supported = wp_object_get_supported_features (object);
+  WpObjectFeatures active = wp_object_get_active_features (object);
+  return (requested & supported & ~active);
+}
+
+static guint
+wp_feature_activation_transition_get_next_step (
+    WpTransition * transition, guint step)
+{
+  WpFeatureActivationTransition *self =
+      WP_FEATURE_ACTIVATION_TRANSITION (transition);
+  WpObject *object = wp_transition_get_source_object (transition);
+
+  self->missing =
+      wp_feature_activation_transition_calc_missing_features (self, object);
+  wp_trace_object (object, "missing features to activate: 0x%x",
+      self->missing);
+
+  /* nothing to activate, we are done */
+  if (self->missing == 0)
+    return WP_TRANSITION_STEP_NONE;
+
+  g_return_val_if_fail (WP_OBJECT_GET_CLASS (object)->activate_get_next_step,
+      WP_TRANSITION_STEP_ERROR);
+
+  step = WP_OBJECT_GET_CLASS (object)->activate_get_next_step (object, self,
+      step, self->missing);
+
+  g_return_val_if_fail (step == WP_TRANSITION_STEP_NONE ||
+          WP_OBJECT_GET_CLASS (object)->activate_execute_step,
+      WP_TRANSITION_STEP_ERROR);
+  return step;
+}
+
+static void
+wp_feature_activation_transition_execute_step (
+    WpTransition * transition, guint step)
+{
+  WpFeatureActivationTransition *self =
+      WP_FEATURE_ACTIVATION_TRANSITION (transition);
+  WpObject *object = wp_transition_get_source_object (transition);
+
+  WP_OBJECT_GET_CLASS (object)->activate_execute_step (object, self, step,
+      self->missing);
+}
+
+static void
+wp_feature_activation_transition_class_init (
+    WpFeatureActivationTransitionClass * klass)
+{
+  WpTransitionClass *transition_class = (WpTransitionClass *) klass;
+
+  transition_class->get_next_step =
+      wp_feature_activation_transition_get_next_step;
+  transition_class->execute_step =
+      wp_feature_activation_transition_execute_step;
+}
+
+/**
+ * wp_feature_activation_transition_get_requested_features:
+ * @self: the transition
+ *
+ * Returns: the features that were requested to be activated in this transition;
+ *   this contains the features as they were passed in wp_object_activate() and
+ *   therefore it may contain unsupported or already active features
+ */
+WpObjectFeatures
+wp_feature_activation_transition_get_requested_features (
+    WpFeatureActivationTransition * self)
+{
+  return GPOINTER_TO_UINT (wp_transition_get_data (WP_TRANSITION (self)));
+}
+
+
+typedef struct _WpObjectPrivate WpObjectPrivate;
+struct _WpObjectPrivate
+{
+  /* properties */
+  GWeakRef core;
+
+  /* features state */
+  WpObjectFeatures ft_active;
+  GQueue *transitions; // element-type: WpFeatureActivationTransition*
+  GSource *idle_advnc_source;
+};
+
+enum {
+  PROP_0,
+  PROP_CORE,
+  PROP_ACTIVE_FEATURES,
+  PROP_SUPPORTED_FEATURES,
+};
+
+/**
+ * WpObject:
+ *
+ * Base class for objects that may have optional activatable features.
+ */
+G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (WpObject, wp_object, G_TYPE_OBJECT)
+
+static void
+wp_object_init (WpObject * self)
+{
+  WpObjectPrivate *priv = wp_object_get_instance_private (self);
+
+  g_weak_ref_init (&priv->core, NULL);
+  priv->transitions = g_queue_new ();
+}
+
+static void
+wp_object_dispose (GObject * object)
+{
+  WpObject *self = WP_OBJECT (object);
+  WpObjectPrivate *priv = wp_object_get_instance_private (self);
+
+  wp_object_deactivate (self, WP_OBJECT_FEATURES_ALL);
+
+  if (priv->idle_advnc_source)
+    g_source_destroy (priv->idle_advnc_source);
+
+  G_OBJECT_CLASS (wp_object_parent_class)->dispose (object);
+}
+
+static void
+wp_object_finalize (GObject * object)
+{
+  WpObject *self = WP_OBJECT (object);
+  WpObjectPrivate *priv = wp_object_get_instance_private (self);
+
+  /* there should be no transitions, since transitions hold a ref on WpObject */
+  g_warn_if_fail (g_queue_is_empty (priv->transitions));
+  g_clear_pointer (&priv->transitions, g_queue_free);
+  g_clear_pointer (&priv->idle_advnc_source, g_source_unref);
+  g_weak_ref_clear (&priv->core);
+
+  /* everything must have been deactivated in dispose() */
+  g_warn_if_fail (priv->ft_active == 0);
+
+  G_OBJECT_CLASS (wp_object_parent_class)->finalize (object);
+}
+
+static void
+wp_object_set_property (GObject * object, guint property_id,
+    const GValue * value, GParamSpec * pspec)
+{
+  WpObject *self = WP_OBJECT (object);
+  WpObjectPrivate *priv = wp_object_get_instance_private (self);
+
+  switch (property_id) {
+  case PROP_CORE:
+    g_weak_ref_set (&priv->core, g_value_get_object (value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
+}
+
+static void
+wp_object_get_property (GObject * object, guint property_id, GValue * value,
+    GParamSpec * pspec)
+{
+  WpObject *self = WP_OBJECT (object);
+  WpObjectPrivate *priv = wp_object_get_instance_private (self);
+
+  switch (property_id) {
+  case PROP_CORE:
+    g_value_take_object (value, g_weak_ref_get (&priv->core));
+    break;
+  case PROP_ACTIVE_FEATURES:
+    g_value_set_uint (value, priv->ft_active);
+    break;
+  case PROP_SUPPORTED_FEATURES:
+    g_value_set_uint (value, wp_object_get_supported_features (self));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
+}
+
+static void
+wp_object_class_init (WpObjectClass * klass)
+{
+  GObjectClass *object_class = (GObjectClass *) klass;
+
+  object_class->dispose = wp_object_dispose;
+  object_class->finalize = wp_object_finalize;
+  object_class->get_property = wp_object_get_property;
+  object_class->set_property = wp_object_set_property;
+
+  g_object_class_install_property (object_class, PROP_CORE,
+      g_param_spec_object ("core", "core", "The WpCore", WP_TYPE_CORE,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (object_class, PROP_ACTIVE_FEATURES,
+      g_param_spec_uint ("active-features", "active-features",
+          "The active WpObjectFeatures on this proxy", 0, G_MAXUINT, 0,
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (object_class, PROP_SUPPORTED_FEATURES,
+      g_param_spec_uint ("supported-features", "supported-features",
+          "The supported WpObjectFeatures on this proxy", 0, G_MAXUINT, 0,
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+}
+
+/**
+ * wp_object_get_core:
+ * @self: the object
+ *
+ * Returns: (transfer full): the core associated with this object
+ */
+WpCore *
+wp_object_get_core (WpObject * self)
+{
+  g_return_val_if_fail (WP_IS_OBJECT (self), NULL);
+
+  WpObjectPrivate *priv = wp_object_get_instance_private (self);
+  return g_weak_ref_get (&priv->core);
+}
+
+/**
+ * wp_object_get_active_features:
+ * @self: the object
+ *
+ * Returns: a bitset containing the active features of this object
+ */
+WpObjectFeatures
+wp_object_get_active_features (WpObject * self)
+{
+  g_return_val_if_fail (WP_IS_OBJECT (self), 0);
+
+  WpObjectPrivate *priv = wp_object_get_instance_private (self);
+  return priv->ft_active;
+}
+
+/**
+ * wp_object_get_supported_features:
+ * @self: the object
+ *
+ * Returns: a bitset containing the supported features of this object;
+ *   note that supported features may change at runtime
+ */
+WpObjectFeatures
+wp_object_get_supported_features (WpObject * self)
+{
+  g_return_val_if_fail (WP_IS_OBJECT (self), 0);
+  g_return_val_if_fail (WP_OBJECT_GET_CLASS (self)->get_supported_features, 0);
+
+  return WP_OBJECT_GET_CLASS (self)->get_supported_features (self);
+}
+
+static gboolean
+wp_object_advance_transitions (WpObject * self)
+{
+  WpObjectPrivate *priv = wp_object_get_instance_private (self);
+  WpTransition *t;
+
+  /* clear before advancing; a transition may need to schedule
+     a new call to wp_object_advance_transitions() */
+  g_clear_pointer (&priv->idle_advnc_source, g_source_unref);
+
+  while ((t = g_queue_peek_head (priv->transitions))) {
+    wp_transition_advance (t);
+    if (!wp_transition_get_completed (t))
+      break;
+    g_object_unref (g_queue_pop_head (priv->transitions));
+  }
+
+  return G_SOURCE_REMOVE;
+}
+
+/**
+ * wp_object_activate:
+ * @self: the object
+ * @features: the features to enable
+ * @cancellable: (nullable): a cancellable for the async operation
+ * @callback: (scope async): a function to call when activation is complete
+ * @user_data: (closure): data for @callback
+ *
+ * Activates the requested @features and calls @callback when this is done.
+ * @features may contain unsupported or already active features. The operation
+ * will filter them and activate only ones that are supported and inactive.
+ *
+ * If multiple calls to this method is done, the operations will be executed
+ * one after the other to ensure features only get activated once.
+ *
+ * Note that @callback may be called in sync while this method is being called,
+ * if there are no features to activate.
+ */
+void
+wp_object_activate (WpObject * self,
+    WpObjectFeatures features, GCancellable * cancellable,
+    GAsyncReadyCallback callback, gpointer user_data)
+{
+  g_return_if_fail (WP_IS_OBJECT (self));
+
+  WpObjectPrivate *priv = wp_object_get_instance_private (self);
+  g_autoptr (WpCore) core = g_weak_ref_get (&priv->core);
+
+  g_return_if_fail (core != NULL);
+
+  GClosure *closure =
+      g_cclosure_new (G_CALLBACK (callback), user_data, NULL);
+  WpTransition *transition = wp_transition_new_closure (
+      WP_TYPE_FEATURE_ACTIVATION_TRANSITION, self, cancellable, closure);
+  wp_transition_set_source_tag (transition, wp_object_activate);
+  wp_transition_set_data (transition, GUINT_TO_POINTER (features), NULL);
+
+  g_queue_push_tail (priv->transitions, g_object_ref (transition));
+
+  if (!priv->idle_advnc_source) {
+    wp_core_idle_add (core, &priv->idle_advnc_source,
+        G_SOURCE_FUNC (wp_object_advance_transitions), self, NULL);
+  }
+}
+
+/**
+ * wp_object_activate_finish:
+ * @self: the object
+ * @res: the async operation result
+ * @error: (out) (optional): the error of the operation, if any
+ *
+ * Returns: %TRUE if the requested features were activated,
+ *   %FALSE if there was an error
+ */
+gboolean
+wp_object_activate_finish (WpObject * self, GAsyncResult * res, GError ** error)
+{
+  g_return_val_if_fail (WP_IS_OBJECT (self), FALSE);
+  g_return_val_if_fail (
+      g_async_result_is_tagged (res, wp_object_activate), FALSE);
+  return wp_transition_finish (res, error);
+}
+
+/**
+ * wp_object_deactivate
+ * @self: the object
+ * @features: the features to deactivate
+ *
+ * Deactivates the given @features, leaving the object in the state it was
+ * before they were enabled. This is seldom needed to call manually, but it
+ * can be used to save resources if some features are no longer needed.
+ */
+void
+wp_object_deactivate (WpObject * self, WpObjectFeatures features)
+{
+  g_return_if_fail (WP_IS_OBJECT (self));
+  g_return_if_fail (WP_OBJECT_GET_CLASS (self)->deactivate);
+
+  WP_OBJECT_GET_CLASS (self)->deactivate (self, features);
+}
+
+/**
+ * wp_object_update_features:
+ *
+ * Private method to be called by subclasses. Allows subclasses to update
+ * the currently active features. @activated should contain new features and
+ * @deactivated should contain features that were just deactivated.
+ *
+ * Calling this method also advances the activation transitions.
+ */
+void
+wp_object_update_features (WpObject * self, WpObjectFeatures activated,
+    WpObjectFeatures deactivated)
+{
+  g_return_if_fail (WP_IS_OBJECT (self));
+
+  WpObjectPrivate *priv = wp_object_get_instance_private (self);
+  gint old_ft = priv->ft_active;
+
+  priv->ft_active |= activated;
+  priv->ft_active &= ~deactivated;
+
+  if (priv->ft_active != old_ft) {
+    wp_debug_object (self, "features changed 0x%x -> 0x%x", old_ft,
+        priv->ft_active);
+    g_object_notify (G_OBJECT (self), "active-features");
+  }
+
+  if (!g_queue_is_empty (priv->transitions) && !priv->idle_advnc_source) {
+    g_autoptr (WpCore) core = g_weak_ref_get (&priv->core);
+    g_return_if_fail (core != NULL);
+
+    wp_core_idle_add (core, &priv->idle_advnc_source,
+        G_SOURCE_FUNC (wp_object_advance_transitions), self, NULL);
+  }
+}
