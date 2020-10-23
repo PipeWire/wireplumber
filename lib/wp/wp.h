@@ -31,6 +31,7 @@
 #include "properties.h"
 #include "props.h"
 #include "proxy.h"
+#include "proxy-interfaces.h"
 #include "session.h"
 #include "session-bin.h"
 #include "session-item.h"
