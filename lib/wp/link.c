@@ -1,13 +1,32 @@
 /* WirePlumber
  *
- * Copyright © 2019 Collabora Ltd.
+ * Copyright © 2019-2020 Collabora Ltd.
  *    @author Julian Bouzas <julian.bouzas@collabora.com>
  *
  * SPDX-License-Identifier: MIT
  */
 
 /**
- * SECTION: WpLink
+ * SECTION: link
+ * @title: PipeWire Link
+ */
+
+#define G_LOG_DOMAIN "wp-link"
+
+#include "link.h"
+#include "private/pipewire-object-mixin.h"
+
+struct _WpLink
+{
+  WpGlobalProxy parent;
+  struct pw_link_info *info;
+  struct spa_hook listener;
+};
+
+static void wp_link_pipewire_object_interface_init (WpPipewireObjectInterface * iface);
+
+/**
+ * WpLink:
  *
  * The #WpLink class allows accessing the properties and methods of a
  * PipeWire link object (`struct pw_link`).
@@ -18,50 +37,34 @@
  * wp_link_new_from_factory(), which creates a new link object
  * on the remote PipeWire server by calling into a factory.
  */
-
-#define G_LOG_DOMAIN "wp-link"
-
-#include "link.h"
-#include "private.h"
-
-#include <pipewire/pipewire.h>
-
-struct _WpLink
-{
-  WpProxy parent;
-  struct pw_link_info *info;
-
-  /* The link proxy listener */
-  struct spa_hook listener;
-};
-
-G_DEFINE_TYPE (WpLink, wp_link, WP_TYPE_PROXY)
+G_DEFINE_TYPE_WITH_CODE (WpLink, wp_link, WP_TYPE_GLOBAL_PROXY,
+    G_IMPLEMENT_INTERFACE (WP_TYPE_PIPEWIRE_OBJECT, wp_link_pipewire_object_interface_init));
 
 static void
 wp_link_init (WpLink * self)
 {
 }
 
+static WpObjectFeatures
+wp_link_get_supported_features (WpObject * object)
+{
+  return WP_PROXY_FEATURE_BOUND | WP_PIPEWIRE_OBJECT_FEATURE_INFO;
+}
+
 static void
-wp_link_finalize (GObject * object)
+wp_link_activate_execute_step (WpObject * object,
+    WpFeatureActivationTransition * transition, guint step,
+    WpObjectFeatures missing)
 {
-  WpLink *self = WP_LINK (object);
-
-  g_clear_pointer (&self->info, pw_link_info_free);
-
-  G_OBJECT_CLASS (wp_link_parent_class)->finalize (object);
-}
-
-static gconstpointer
-wp_link_get_info (WpProxy * self)
-{
-  return WP_LINK (self)->info;
-}
-
-static WpProperties *
-wp_link_get_properties (WpProxy * self)
-{
-  return wp_properties_new_wrap_dict (WP_LINK (self)->info->props);
+  switch (step) {
+  case WP_PIPEWIRE_OBJECT_MIXIN_STEP_CACHE_INFO:
+    /* just wait, info will be emitted anyway after binding */
+    break;
+  default:
+    WP_OBJECT_CLASS (wp_link_parent_class)->
+        activate_execute_step (object, transition, step, missing);
+    break;
+  }
 }
 
 static void
@@ -70,12 +73,11 @@ link_event_info(void *data, const struct pw_link_info *info)
   WpLink *self = WP_LINK (data);
 
   self->info = pw_link_info_update (self->info, info);
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
+  wp_object_update_features (WP_OBJECT (self),
+      WP_PIPEWIRE_OBJECT_FEATURE_INFO, 0);
 
-  g_object_notify (G_OBJECT (self), "info");
-
-  if (info->change_mask & PW_LINK_CHANGE_MASK_PROPS)
-    g_object_notify (G_OBJECT (self), "properties");
+  wp_pipewire_object_mixin_handle_event_info (self, info,
+      PW_LINK_CHANGE_MASK_PROPS, 0);
 }
 
 static const struct pw_link_events link_events = {
@@ -92,20 +94,63 @@ wp_link_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 }
 
 static void
+wp_link_pw_proxy_destroyed (WpProxy * proxy)
+{
+  g_clear_pointer (&WP_LINK (proxy)->info, pw_link_info_free);
+  wp_object_update_features (WP_OBJECT (proxy), 0,
+      WP_PIPEWIRE_OBJECT_FEATURE_INFO);
+}
+
+static void
 wp_link_class_init (WpLinkClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
+  WpObjectClass *wpobject_class = (WpObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
-  object_class->finalize = wp_link_finalize;
+  object_class->get_property = wp_pipewire_object_mixin_get_property;
+
+  wpobject_class->get_supported_features = wp_link_get_supported_features;
+  wpobject_class->activate_get_next_step =
+      wp_pipewire_object_mixin_activate_get_next_step;
+  wpobject_class->activate_execute_step = wp_link_activate_execute_step;
 
   proxy_class->pw_iface_type = PW_TYPE_INTERFACE_Link;
   proxy_class->pw_iface_version = PW_VERSION_LINK;
-
-  proxy_class->get_info = wp_link_get_info;
-  proxy_class->get_properties = wp_link_get_properties;
-
   proxy_class->pw_proxy_created = wp_link_pw_proxy_created;
+  proxy_class->pw_proxy_destroyed = wp_link_pw_proxy_destroyed;
+
+  wp_pipewire_object_mixin_class_override_properties (object_class);
+}
+
+static gconstpointer
+wp_link_get_native_info (WpPipewireObject * obj)
+{
+  return WP_LINK (obj)->info;
+}
+
+static WpProperties *
+wp_link_get_properties (WpPipewireObject * obj)
+{
+  return wp_properties_new_wrap_dict (WP_LINK (obj)->info->props);
+}
+
+static GVariant *
+wp_link_get_param_info (WpPipewireObject * obj)
+{
+  return NULL;
+}
+
+static void
+wp_link_pipewire_object_interface_init (WpPipewireObjectInterface * iface)
+{
+  iface->get_native_info = wp_link_get_native_info;
+  iface->get_properties = wp_link_get_properties;
+  iface->get_param_info = wp_link_get_param_info;
+  iface->enum_params = wp_pipewire_object_mixin_enum_params_unimplemented;
+  iface->enum_params_finish = wp_pipewire_object_mixin_enum_params_finish;
+  iface->enum_cached_params = wp_pipewire_object_mixin_enum_cached_params;
+  iface->set_param = wp_pipewire_object_mixin_set_param_unimplemented;
 }
 
 /**
@@ -119,9 +164,9 @@ wp_link_class_init (WpLinkClass * klass)
  *
  * Because of the nature of the PipeWire protocol, this operation completes
  * asynchronously at some point in the future. In order to find out when
- * this is done, you should call wp_proxy_augment(), requesting at least
+ * this is done, you should call wp_object_activate(), requesting at least
  * %WP_PROXY_FEATURE_BOUND. When this feature is ready, the link is ready for
- * use on the server. If the link cannot be created, this augment operation
+ * use on the server. If the link cannot be created, this activation operation
  * will fail.
  *
  * Returns: (nullable) (transfer full): the new link or %NULL if the core

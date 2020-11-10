@@ -9,7 +9,7 @@
 #ifndef __WIREPLUMBER_PORT_H__
 #define __WIREPLUMBER_PORT_H__
 
-#include "proxy.h"
+#include "global-proxy.h"
 
 G_BEGIN_DECLS
 
@@ -32,7 +32,7 @@ typedef enum {
  */
 #define WP_TYPE_PORT (wp_port_get_type ())
 WP_API
-G_DECLARE_FINAL_TYPE (WpPort, wp_port, WP, PORT, WpProxy)
+G_DECLARE_FINAL_TYPE (WpPort, wp_port, WP, PORT, WpGlobalProxy)
 
 WP_API
 WpDirection wp_port_get_direction (WpPort * self);

@@ -433,6 +433,9 @@ wp_transition_advance (WpTransition * self)
   /* find the next step */
   next_step = WP_TRANSITION_GET_CLASS (self)->get_next_step (self, priv->step);
 
+  wp_trace_object (priv->source_object, "transition: %d -> %d", priv->step,
+      next_step);
+
   if (next_step == WP_TRANSITION_STEP_ERROR) {
     /* return error if the callback didn't do it already */
     if (G_UNLIKELY (!priv->error)) {
@@ -453,6 +456,8 @@ wp_transition_advance (WpTransition * self)
   /* still at the same step, this means we are waiting for something */
   if (next_step == priv->step)
     return;
+
+  wp_trace_object (priv->source_object, "transition: execute %d", next_step);
 
   /* execute the next step */
   priv->step = next_step;
@@ -516,5 +521,9 @@ wp_transition_finish (GAsyncResult * res, GError ** error)
     g_propagate_error (error, priv->error);
     priv->error = NULL;
   }
+
+  wp_trace_object (priv->source_object, "transition: finished %s",
+      (priv->step == WP_TRANSITION_STEP_NONE) ? "ok" : "with error");
+
   return (priv->step == WP_TRANSITION_STEP_NONE);
 }

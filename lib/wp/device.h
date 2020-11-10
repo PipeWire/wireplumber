@@ -9,7 +9,7 @@
 #ifndef __WIREPLUMBER_DEVICE_H__
 #define __WIREPLUMBER_DEVICE_H__
 
-#include "proxy.h"
+#include "global-proxy.h"
 
 G_BEGIN_DECLS
 
@@ -22,7 +22,7 @@ G_BEGIN_DECLS
  */
 #define WP_TYPE_DEVICE (wp_device_get_type ())
 WP_API
-G_DECLARE_FINAL_TYPE (WpDevice, wp_device, WP, DEVICE, WpProxy)
+G_DECLARE_FINAL_TYPE (WpDevice, wp_device, WP, DEVICE, WpGlobalProxy)
 
 WP_API
 WpDevice * wp_device_new_from_factory (WpCore * core,

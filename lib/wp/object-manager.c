@@ -15,14 +15,14 @@
  *
  * There are 4 kinds of objects that can be managed by a #WpObjectManager:
  *   * remote PipeWire global objects that are advertised on the registry;
- *     these are bound locally to subclasses of #WpProxy
+ *     these are bound locally to subclasses of #WpGlobalProxy
  *   * remote PipeWire global objects that are created by calling a remote
  *     factory through the WirePlumber API; these are very similar to other
- *     global objects but it should be noted that the same #WpProxy instance
- *     that created them appears in the #WpObjectManager (as soon as its
- *     %WP_PROXY_FEATURE_BOUND is enabled)
+ *     global objects but it should be noted that the same #WpGlobalProxy
+ *     instance that created them appears in the #WpObjectManager (as soon as
+ *     its %WP_PROXY_FEATURE_BOUND is enabled)
  *   * local PipeWire objects that are being exported to PipeWire
- *     (#WpImplNode, WpImplEndpoint [private], etc); these appear in the
+ *     (#WpImplSession, WpImplEndpoint [private], etc); these appear in the
  *     #WpObjectManager as soon as they are exported (so, when their
  *     %WP_PROXY_FEATURE_BOUND is enabled)
  *   * WirePlumber-specific objects, such as WirePlumber factories
@@ -278,29 +278,29 @@ wp_object_manager_add_interest_full (WpObjectManager *self,
 }
 
 /**
- * wp_object_manager_request_proxy_features:
+ * wp_object_manager_request_object_features:
  * @self: the object manager
- * @proxy_type: the #WpProxy descendant type
- * @wanted_features: the features to enable on this kind of proxy
+ * @object_type: the #WpProxy descendant type
+ * @wanted_features: the features to enable on this kind of object
  *
  * Requests the object manager to automatically prepare the @wanted_features
- * on any managed object that is of the specified @proxy_type. These features
+ * on any managed object that is of the specified @object_type. These features
  * will always be prepared before the object appears on the object manager.
  */
 void
-wp_object_manager_request_proxy_features (WpObjectManager *self,
-    GType proxy_type, WpProxyFeatures wanted_features)
+wp_object_manager_request_object_features (WpObjectManager *self,
+    GType object_type, WpProxyFeatures wanted_features)
 {
   g_autofree GType *children = NULL;
   GType *child;
 
   g_return_if_fail (WP_IS_OBJECT_MANAGER (self));
-  g_return_if_fail (g_type_is_a (proxy_type, WP_TYPE_PROXY));
+  g_return_if_fail (g_type_is_a (object_type, WP_TYPE_OBJECT));
 
-  g_hash_table_insert (self->features, GSIZE_TO_POINTER (proxy_type),
+  g_hash_table_insert (self->features, GSIZE_TO_POINTER (object_type),
       GUINT_TO_POINTER (wanted_features));
 
-  child = children = g_type_children (proxy_type, NULL);
+  child = children = g_type_children (object_type, NULL);
   while (*child) {
     WpProxyFeatures existing_ft = (WpProxyFeatures) GPOINTER_TO_UINT (
         g_hash_table_lookup (self->features, GSIZE_TO_POINTER (*child)));
@@ -565,7 +565,7 @@ wp_object_manager_is_interested_in_object (WpObjectManager * self,
 
 static gboolean
 wp_object_manager_is_interested_in_global (WpObjectManager * self,
-    WpGlobal * global, WpProxyFeatures * wanted_features)
+    WpGlobal * global, WpObjectFeatures * wanted_features)
 {
   gint i;
   WpObjectInterest *interest = NULL;
@@ -576,7 +576,7 @@ wp_object_manager_is_interested_in_global (WpObjectManager * self,
             global->proxy, NULL, global->properties)) {
       gpointer ft = g_hash_table_lookup (self->features,
           GSIZE_TO_POINTER (global->type));
-      *wanted_features = (WpProxyFeatures) GPOINTER_TO_UINT (ft);
+      *wanted_features = (WpObjectFeatures) GPOINTER_TO_UINT (ft);
       return TRUE;
     }
   }
@@ -658,8 +658,8 @@ on_proxy_ready (GObject * proxy, GAsyncResult * res, gpointer data)
 
   self->pending_objects--;
 
-  if (!wp_proxy_augment_finish (WP_PROXY (proxy), res, &error)) {
-    wp_message_object (self, "proxy augment failed: %s", error->message);
+  if (!wp_object_activate_finish (WP_OBJECT (proxy), res, &error)) {
+    wp_message_object (self, "proxy activation failed: %s", error->message);
   } else {
     wp_trace_object (self, "added: " WP_OBJECT_FORMAT, WP_OBJECT_ARGS (proxy));
     g_ptr_array_add (self->objects, proxy);
@@ -678,7 +678,7 @@ wp_object_manager_add_global (WpObjectManager * self, WpGlobal * global)
 
   /* do not allow proxies that don't have a defined subclass;
      bind will fail because proxy_class->pw_iface_type is NULL */
-  if (global->type == WP_TYPE_PROXY)
+  if (global->type == WP_TYPE_GLOBAL_PROXY)
     return;
 
   if (wp_object_manager_is_interested_in_global (self, global, &features)) {
@@ -695,8 +695,8 @@ wp_object_manager_add_global (WpObjectManager * self, WpGlobal * global)
     wp_trace_object (self, "adding global:%u -> " WP_OBJECT_FORMAT,
         global->id, WP_OBJECT_ARGS (global->proxy));
 
-    wp_proxy_augment (global->proxy, features, NULL, on_proxy_ready,
-        g_object_ref (self));
+    wp_object_activate (WP_OBJECT (global->proxy), features, NULL,
+        on_proxy_ready, g_object_ref (self));
   }
 }
 
@@ -742,7 +742,7 @@ wp_object_manager_rm_object (WpObjectManager * self, gpointer object)
  *
  * 2) PipeWire global objects, which were constructed by this process, either
  *    by calling into a remove factory (see wp_node_new_from_factory()) or
- *    by exporting a local object (WpImplNode etc...).
+ *    by exporting a local object (WpImplSession etc...).
  *
  *    These objects are also represented by a WpGlobal, which may however be
  *    constructed before they appear on the registry. The associated WpProxy
@@ -805,7 +805,7 @@ object_manager_destroyed (gpointer data, GObject * om)
   g_ptr_array_remove_fast (self->object_managers, om);
 }
 
-/* find the subclass of WpProxy that can handle
+/* find the subclass of WpPipewireGloabl that can handle
    the given pipewire interface type of the given version */
 static inline GType
 find_proxy_instance_type (const char * type, guint32 version)
@@ -813,7 +813,7 @@ find_proxy_instance_type (const char * type, guint32 version)
   g_autofree GType *children;
   guint n_children;
 
-  children = g_type_children (WP_TYPE_PROXY, &n_children);
+  children = g_type_children (WP_TYPE_GLOBAL_PROXY, &n_children);
 
   for (gint i = 0; i < n_children; i++) {
     WpProxyClass *klass = (WpProxyClass *) g_type_class_ref (children[i]);
@@ -826,7 +826,7 @@ find_proxy_instance_type (const char * type, guint32 version)
     g_type_class_unref (klass);
   }
 
-  return WP_TYPE_PROXY;
+  return WP_TYPE_GLOBAL_PROXY;
 }
 
 /* called by the registry when a global appears */
@@ -1043,7 +1043,7 @@ expose_tmp_globals (WpCore *core, GAsyncResult *res, WpRegistry *self)
 void
 wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
     guint32 permissions, guint32 flag, GType type,
-    WpProxy *proxy, const struct spa_dict *props,
+    WpGlobalProxy *proxy, const struct spa_dict *props,
     WpGlobal ** new_global)
 {
   g_autoptr (WpGlobal) global = NULL;
@@ -1260,7 +1260,7 @@ wp_global_rm_flag (WpGlobal *global, guint rm_flag)
     if (global->proxy) {
       if (reg)
         wp_registry_notify_rm_object (reg, global->proxy);
-      wp_proxy_destroy (global->proxy);
+      wp_object_deactivate (WP_OBJECT (global->proxy), WP_PROXY_FEATURE_BOUND);
 
       /* if the proxy is not owning the global, unref it */
       if (global->flags == 0)

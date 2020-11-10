@@ -9,9 +9,19 @@
 #ifndef __WIREPLUMBER_METADATA_H__
 #define __WIREPLUMBER_METADATA_H__
 
-#include "proxy.h"
+#include "global-proxy.h"
 
 G_BEGIN_DECLS
+
+/**
+ * WpMetadataFeatures:
+ * @WP_METADATA_FEATURE_DATA: caches metadata locally
+ *
+ * An extension of #WpProxyFeatures
+ */
+typedef enum { /*< flags >*/
+  WP_METADATA_FEATURE_DATA = (WP_PROXY_FEATURE_CUSTOM_START << 0),
+} WpMetadataFeatures;
 
 /**
  * WP_TYPE_METADATA:
@@ -21,11 +31,11 @@ G_BEGIN_DECLS
 #define WP_TYPE_METADATA (wp_metadata_get_type ())
 
 WP_API
-G_DECLARE_DERIVABLE_TYPE (WpMetadata, wp_metadata, WP, METADATA, WpProxy)
+G_DECLARE_DERIVABLE_TYPE (WpMetadata, wp_metadata, WP, METADATA, WpGlobalProxy)
 
 struct _WpMetadataClass
 {
-  WpProxyClass parent_class;
+  WpGlobalProxyClass parent_class;
 };
 
 WP_API

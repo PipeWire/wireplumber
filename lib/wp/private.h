@@ -33,20 +33,6 @@ struct spa_pod_builder;
 void wp_props_handle_proxy_param_event (WpProps * self, guint32 id,
     WpSpaPod * pod);
 
-/* proxy */
-
-void wp_proxy_destroy (WpProxy *self);
-void wp_proxy_set_pw_proxy (WpProxy * self, struct pw_proxy * proxy);
-
-void wp_proxy_set_feature_ready (WpProxy * self, WpProxyFeatures feature);
-void wp_proxy_augment_error (WpProxy * self, GError * error);
-
-void wp_proxy_handle_event_param (void * proxy, int seq, uint32_t id,
-    uint32_t index, uint32_t next, const struct spa_pod *param);
-
-WpProps * wp_proxy_get_props (WpProxy * self);
-void wp_proxy_set_props (WpProxy * self, WpProps * props);
-
 /* iterator */
 
 struct _WpIteratorMethods {

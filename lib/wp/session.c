@@ -7,36 +7,20 @@
  */
 
 /**
- * SECTION: WpSession
- *
- * The #WpSession class allows accessing the properties and methods of a
- * PipeWire session object (`struct pw_session` from the session-manager
- * extension).
- *
- * A #WpSession is constructed internally when a new session appears on the
- * PipeWire registry and it is made available through the #WpObjectManager API.
- *
- * A #WpImplSession allows implementing a session and exporting it to PipeWire,
- * which is done by augmenting the #WpImplSession with %WP_PROXY_FEATURE_BOUND.
+ * SECTION: session
+ * @title: PipeWire Session
  */
 
 #define G_LOG_DOMAIN "wp-session"
 
 #include "session.h"
-#include "spa-type.h"
-#include "spa-pod.h"
-#include "debug.h"
-#include "private.h"
 #include "error.h"
 #include "wpenums.h"
+#include "private.h"
+#include "private/pipewire-object-mixin.h"
 
-#include <pipewire/pipewire.h>
 #include <pipewire/extensions/session-manager.h>
 #include <pipewire/extensions/session-manager/introspect-funcs.h>
-
-#include <spa/pod/builder.h>
-#include <spa/pod/parser.h>
-#include <spa/pod/filter.h>
 
 enum {
   SIGNAL_DEFAULT_ENDPOINT_CHANGED,
@@ -47,8 +31,6 @@ enum {
 
 static guint32 signals[N_SIGNALS] = {0};
 
-/* WpSession */
-
 typedef struct _WpSessionPrivate WpSessionPrivate;
 struct _WpSessionPrivate
 {
@@ -58,11 +40,23 @@ struct _WpSessionPrivate
   struct spa_hook listener;
   WpObjectManager *endpoints_om;
   WpObjectManager *links_om;
-  gboolean ft_endpoints_requested;
-  gboolean ft_links_requested;
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE (WpSession, wp_session, WP_TYPE_PROXY)
+static void wp_session_pipewire_object_interface_init (WpPipewireObjectInterface * iface);
+
+/**
+ * WpSession:
+ *
+ * The #WpSession class allows accessing the properties and methods of a
+ * PipeWire session object (`struct pw_session` from the session-manager
+ * extension).
+ *
+ * A #WpSession is constructed internally when a new session appears on the
+ * PipeWire registry and it is made available through the #WpObjectManager API.
+ */
+G_DEFINE_TYPE_WITH_CODE (WpSession, wp_session, WP_TYPE_GLOBAL_PROXY,
+    G_ADD_PRIVATE (WpSession)
+    G_IMPLEMENT_INTERFACE (WP_TYPE_PIPEWIRE_OBJECT, wp_session_pipewire_object_interface_init));
 
 static void
 wp_session_init (WpSession * self)
@@ -70,24 +64,10 @@ wp_session_init (WpSession * self)
 }
 
 static void
-wp_session_finalize (GObject * object)
-{
-  WpSession *self = WP_SESSION (object);
-  WpSessionPrivate *priv = wp_session_get_instance_private (self);
-
-  g_clear_object (&priv->endpoints_om);
-  g_clear_object (&priv->links_om);
-  g_clear_pointer (&priv->info, pw_session_info_free);
-  g_clear_pointer (&priv->properties, wp_properties_unref);
-
-  G_OBJECT_CLASS (wp_session_parent_class)->finalize (object);
-}
-
-static void
 wp_session_on_endpoints_om_installed (WpObjectManager *endpoints_om,
     WpSession * self)
 {
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_SESSION_FEATURE_ENDPOINTS);
+  wp_object_update_features (WP_OBJECT (self), WP_SESSION_FEATURE_ENDPOINTS, 0);
 }
 
 static void
@@ -100,7 +80,7 @@ wp_session_emit_endpoints_changed (WpObjectManager *endpoints_om,
 static void
 wp_session_on_links_om_installed (WpObjectManager *links_om, WpSession * self)
 {
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_SESSION_FEATURE_LINKS);
+  wp_object_update_features (WP_OBJECT (self), WP_SESSION_FEATURE_LINKS, 0);
 }
 
 static void
@@ -110,20 +90,14 @@ wp_session_emit_links_changed (WpObjectManager *links_om, WpSession * self)
 }
 
 static void
-wp_session_ensure_features_endpoints_links (WpSession * self, guint32 bound_id)
+wp_session_enable_features_endpoints_links (WpSession * self,
+    WpObjectFeatures missing)
 {
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
-  WpProxyFeatures ft = wp_proxy_get_features (WP_PROXY (self));
-  g_autoptr (WpCore) core = NULL;
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
+  guint32 bound_id = wp_proxy_get_bound_id (WP_PROXY (self));
 
-  if (!(ft & WP_PROXY_FEATURE_BOUND))
-    return;
-
-  core = wp_proxy_get_core (WP_PROXY (self));
-  if (!bound_id)
-    bound_id = wp_proxy_get_bound_id (WP_PROXY (self));
-
-  if (priv->ft_endpoints_requested && !priv->endpoints_om) {
+  if (missing & WP_SESSION_FEATURE_ENDPOINTS) {
     wp_debug_object (self, "enabling WP_SESSION_FEATURE_ENDPOINTS, bound_id:%u",
         bound_id);
 
@@ -139,8 +113,8 @@ wp_session_ensure_features_endpoints_links (WpSession * self, guint32 bound_id)
         WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_SESSION_ID, "=u", bound_id,
         NULL);
 
-    wp_object_manager_request_proxy_features (priv->endpoints_om,
-        WP_TYPE_ENDPOINT, WP_ENDPOINT_FEATURES_STANDARD);
+    wp_object_manager_request_object_features (priv->endpoints_om,
+        WP_TYPE_ENDPOINT, WP_OBJECT_FEATURES_ALL);
 
     g_signal_connect_object (priv->endpoints_om, "installed",
         G_CALLBACK (wp_session_on_endpoints_om_installed), self, 0);
@@ -150,7 +124,7 @@ wp_session_ensure_features_endpoints_links (WpSession * self, guint32 bound_id)
     wp_core_install_object_manager (core, priv->endpoints_om);
   }
 
-  if (priv->ft_links_requested && !priv->links_om) {
+  if (missing & WP_SESSION_FEATURE_LINKS) {
     wp_debug_object (self, "enabling WP_SESSION_FEATURE_LINKS, bound_id:%u",
         bound_id);
 
@@ -166,8 +140,8 @@ wp_session_ensure_features_endpoints_links (WpSession * self, guint32 bound_id)
         WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_SESSION_ID, "=u", bound_id,
         NULL);
 
-    wp_object_manager_request_proxy_features (priv->links_om,
-        WP_TYPE_ENDPOINT_LINK, WP_PROXY_FEATURES_STANDARD);
+    wp_object_manager_request_object_features (priv->links_om,
+        WP_TYPE_ENDPOINT_LINK, WP_OBJECT_FEATURES_ALL);
 
     g_signal_connect_object (priv->links_om, "installed",
         G_CALLBACK (wp_session_on_links_om_installed), self, 0);
@@ -178,57 +152,81 @@ wp_session_ensure_features_endpoints_links (WpSession * self, guint32 bound_id)
   }
 }
 
-static gconstpointer
-wp_session_get_info (WpProxy * proxy)
+static WpObjectFeatures
+wp_session_get_supported_features (WpObject * object)
 {
-  WpSession *self = WP_SESSION (proxy);
+  WpSession *self = WP_SESSION (object);
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
 
-  return priv->info;
+  return
+      WP_PROXY_FEATURE_BOUND |
+      WP_SESSION_FEATURE_ENDPOINTS |
+      WP_SESSION_FEATURE_LINKS |
+      WP_PIPEWIRE_OBJECT_FEATURE_INFO |
+      wp_pipewire_object_mixin_param_info_to_features (
+          priv->info ? priv->info->params : NULL,
+          priv->info ? priv->info->n_params : 0);
 }
 
-static WpProperties *
-wp_session_get_properties (WpProxy * proxy)
+enum {
+  STEP_CHILDREN = WP_PIPEWIRE_OBJECT_MIXIN_STEP_CUSTOM_START,
+};
+
+static guint
+wp_session_activate_get_next_step (WpObject * object,
+    WpFeatureActivationTransition * transition, guint step,
+    WpObjectFeatures missing)
 {
-  WpSession *self = WP_SESSION (proxy);
+  step = wp_pipewire_object_mixin_activate_get_next_step (object, transition,
+      step, missing);
+
+  /* extend the mixin's state machine; when the only remaining feature(s) to
+     enable are FEATURE_ENDPOINTS or FEATURE_LINKS, advance to STEP_CHILDREN */
+  if (step == WP_PIPEWIRE_OBJECT_MIXIN_STEP_CACHE_INFO &&
+      (missing & ~(WP_SESSION_FEATURE_ENDPOINTS | WP_SESSION_FEATURE_LINKS)) == 0)
+    return STEP_CHILDREN;
+
+  return step;
+}
+
+static void
+wp_session_activate_execute_step (WpObject * object,
+    WpFeatureActivationTransition * transition, guint step,
+    WpObjectFeatures missing)
+{
+  switch (step) {
+  case WP_PIPEWIRE_OBJECT_MIXIN_STEP_CACHE_INFO:
+    wp_pipewire_object_mixin_cache_info (object, transition);
+    break;
+  case STEP_CHILDREN:
+    wp_session_enable_features_endpoints_links (WP_SESSION (object),
+        missing);
+    break;
+  default:
+    WP_OBJECT_CLASS (wp_session_parent_class)->
+        activate_execute_step (object, transition, step, missing);
+    break;
+  }
+}
+
+static void
+wp_session_deactivate (WpObject * object, WpObjectFeatures features)
+{
+  WpSession *self = WP_SESSION (object);
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
 
-  return wp_properties_ref (priv->properties);
-}
+  wp_pipewire_object_mixin_deactivate (object, features);
 
-static struct spa_param_info *
-wp_session_get_param_info (WpProxy * proxy, guint * n_params)
-{
-  WpSession *self = WP_SESSION (proxy);
-  WpSessionPrivate *priv = wp_session_get_instance_private (self);
+  if (features & WP_SESSION_FEATURE_ENDPOINTS) {
+    g_clear_object (&priv->endpoints_om);
+    wp_object_update_features (object, 0, WP_SESSION_FEATURE_ENDPOINTS);
+  }
+  if (features & WP_SESSION_FEATURE_LINKS) {
+    g_clear_object (&priv->links_om);
+    wp_object_update_features (object, 0, WP_SESSION_FEATURE_LINKS);
+  }
 
-  *n_params = priv->info->n_params;
-  return priv->info->params;
-}
-
-static gint
-wp_session_enum_params (WpProxy * self, guint32 id, guint32 start,
-    guint32 num, WpSpaPod * filter)
-{
-  WpSessionPrivate *priv = wp_session_get_instance_private (WP_SESSION (self));
-  return pw_session_enum_params (priv->iface, 0, id,
-      start, num, filter ? wp_spa_pod_get_spa_pod (filter) : NULL);
-}
-
-static gint
-wp_session_subscribe_params (WpProxy * self, guint32 *ids, guint32 n_ids)
-{
-  WpSessionPrivate *priv = wp_session_get_instance_private (WP_SESSION (self));
-  return pw_session_subscribe_params (priv->iface, ids, n_ids);
-}
-
-static gint
-wp_session_set_param (WpProxy * self, guint32 id, guint32 flags,
-    WpSpaPod *param)
-{
-  WpSessionPrivate *priv = wp_session_get_instance_private (WP_SESSION (self));
-  return pw_session_set_param (priv->iface, id, flags,
-      wp_spa_pod_get_spa_pod (param));
+  WP_OBJECT_CLASS (wp_session_parent_class)->deactivate (object, features);
 }
 
 static void
@@ -244,20 +242,17 @@ session_event_info (void *data, const struct pw_session_info *info)
     priv->properties = wp_properties_new_wrap_dict (priv->info->props);
   }
 
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
-  g_object_notify (G_OBJECT (self), "info");
+  wp_object_update_features (WP_OBJECT (self),
+      WP_PIPEWIRE_OBJECT_FEATURE_INFO, 0);
 
-  if (info->change_mask & PW_SESSION_CHANGE_MASK_PROPS)
-    g_object_notify (G_OBJECT (self), "properties");
-
-  if (info->change_mask & PW_SESSION_CHANGE_MASK_PARAMS)
-    g_object_notify (G_OBJECT (self), "param-info");
+  wp_pipewire_object_mixin_handle_event_info (self, info,
+      PW_SESSION_CHANGE_MASK_PROPS, PW_SESSION_CHANGE_MASK_PARAMS);
 }
 
 static const struct pw_session_events session_events = {
   PW_VERSION_SESSION_EVENTS,
   .info = session_event_info,
-  .param = wp_proxy_handle_event_param,
+  .param = wp_pipewire_object_mixin_handle_event_param,
 };
 
 static void
@@ -271,67 +266,44 @@ wp_session_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 }
 
 static void
-wp_session_bound (WpProxy * proxy, guint32 id)
-{
-  WpSession *self = WP_SESSION (proxy);
-  wp_session_ensure_features_endpoints_links (self, id);
-}
-
-static void
-wp_session_augment (WpProxy * proxy, WpProxyFeatures features)
+wp_session_pw_proxy_destroyed (WpProxy * proxy)
 {
   WpSession *self = WP_SESSION (proxy);
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
 
-  /* call the parent impl first to ensure we have a pw proxy if necessary */
-  WP_PROXY_CLASS (wp_session_parent_class)->augment (proxy, features);
+  g_clear_pointer (&priv->properties, wp_properties_unref);
+  g_clear_pointer (&priv->info, pw_session_info_free);
+  g_clear_object (&priv->endpoints_om);
+  g_clear_object (&priv->links_om);
+  wp_object_update_features (WP_OBJECT (self), 0,
+      WP_PIPEWIRE_OBJECT_FEATURE_INFO |
+      WP_SESSION_FEATURE_ENDPOINTS |
+      WP_SESSION_FEATURE_LINKS);
 
-  if (features & (WP_SESSION_FEATURE_ENDPOINTS | WP_SESSION_FEATURE_LINKS)) {
-    priv->ft_endpoints_requested = (features & WP_SESSION_FEATURE_ENDPOINTS);
-    priv->ft_links_requested = (features & WP_SESSION_FEATURE_LINKS);
-    wp_session_ensure_features_endpoints_links (self, 0);
-  }
-}
-
-static void
-wp_session_prop_changed (WpProxy * proxy, const gchar * prop)
-{
-  WpSession *self = WP_SESSION (proxy);
-
-  if (g_strcmp0 (prop, "Wp:defaultSink") == 0) {
-    g_signal_emit (self, signals[SIGNAL_DEFAULT_ENDPOINT_CHANGED], 0,
-        WP_DIRECTION_INPUT,
-        wp_session_get_default_endpoint (self, WP_DIRECTION_INPUT));
-  }
-  else if (g_strcmp0 (prop, "Wp:defaultSource") == 0) {
-    g_signal_emit (self, signals[SIGNAL_DEFAULT_ENDPOINT_CHANGED], 0,
-        WP_DIRECTION_OUTPUT,
-        wp_session_get_default_endpoint (self, WP_DIRECTION_OUTPUT));
-  }
+  wp_pipewire_object_mixin_deactivate (WP_OBJECT (proxy),
+      WP_OBJECT_FEATURES_ALL);
 }
 
 static void
 wp_session_class_init (WpSessionClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
+  WpObjectClass *wpobject_class = (WpObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
-  object_class->finalize = wp_session_finalize;
+  object_class->get_property = wp_pipewire_object_mixin_get_property;
+
+  wpobject_class->get_supported_features = wp_session_get_supported_features;
+  wpobject_class->activate_get_next_step = wp_session_activate_get_next_step;
+  wpobject_class->activate_execute_step = wp_session_activate_execute_step;
+  wpobject_class->deactivate = wp_session_deactivate;
 
   proxy_class->pw_iface_type = PW_TYPE_INTERFACE_Session;
   proxy_class->pw_iface_version = PW_VERSION_SESSION;
-
-  proxy_class->augment = wp_session_augment;
-  proxy_class->get_info = wp_session_get_info;
-  proxy_class->get_properties = wp_session_get_properties;
-  proxy_class->get_param_info = wp_session_get_param_info;
-  proxy_class->enum_params = wp_session_enum_params;
-  proxy_class->subscribe_params = wp_session_subscribe_params;
-  proxy_class->set_param = wp_session_set_param;
-
   proxy_class->pw_proxy_created = wp_session_pw_proxy_created;
-  proxy_class->bound = wp_session_bound;
-  proxy_class->prop_changed = wp_session_prop_changed;
+  proxy_class->pw_proxy_destroyed = wp_session_pw_proxy_destroyed;
+
+  wp_pipewire_object_mixin_class_override_properties (object_class);
 
   /**
    * WpSession::default-endpoint-changed:
@@ -371,9 +343,68 @@ wp_session_class_init (WpSessionClass * klass)
       G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 }
 
+static gconstpointer
+wp_session_get_native_info (WpPipewireObject * obj)
+{
+  WpSession *self = WP_SESSION (obj);
+  WpSessionPrivate *priv = wp_session_get_instance_private (self);
+
+  return priv->info;
+}
+
+static WpProperties *
+wp_session_get_properties (WpPipewireObject * obj)
+{
+  WpSession *self = WP_SESSION (obj);
+  WpSessionPrivate *priv = wp_session_get_instance_private (self);
+
+  return wp_properties_ref (priv->properties);
+}
+
+static GVariant *
+wp_session_get_param_info (WpPipewireObject * obj)
+{
+  WpSession *self = WP_SESSION (obj);
+  WpSessionPrivate *priv = wp_session_get_instance_private (self);
+
+  return wp_pipewire_object_mixin_param_info_to_gvariant (priv->info->params,
+      priv->info->n_params);
+}
+
+static void
+wp_session_enum_params (WpPipewireObject * obj, const gchar * id,
+    WpSpaPod *filter, GCancellable * cancellable,
+    GAsyncReadyCallback callback, gpointer user_data)
+{
+  wp_pipewire_object_mixin_enum_params (pw_session, obj, id, filter,
+      cancellable, callback, user_data);
+}
+
+static void
+wp_session_set_param (WpPipewireObject * obj, const gchar * id,
+    WpSpaPod * param)
+{
+  wp_pipewire_object_mixin_set_param (pw_session, obj, id, param);
+}
+
+static void
+wp_session_pipewire_object_interface_init (
+    WpPipewireObjectInterface * iface)
+{
+  iface->get_native_info = wp_session_get_native_info;
+  iface->get_properties = wp_session_get_properties;
+  iface->get_param_info = wp_session_get_param_info;
+  iface->enum_params = wp_session_enum_params;
+  iface->enum_params_finish = wp_pipewire_object_mixin_enum_params_finish;
+  iface->enum_cached_params = wp_pipewire_object_mixin_enum_cached_params;
+  iface->set_param = wp_session_set_param;
+}
+
 /**
  * wp_session_get_name:
  * @self: the session
+ *
+ * Requires %WP_PIPEWIRE_OBJECT_FEATURE_INFO
  *
  * Returns: (transfer none): the (unique) name of the session
  */
@@ -381,77 +412,11 @@ const gchar *
 wp_session_get_name (WpSession * self)
 {
   g_return_val_if_fail (WP_IS_SESSION (self), NULL);
-  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
-          WP_PROXY_FEATURE_INFO, NULL);
+  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
+          WP_PIPEWIRE_OBJECT_FEATURE_INFO, NULL);
 
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
   return wp_properties_get (priv->properties, "session.name");
-}
-
-/**
- * wp_session_get_default_endpoint:
- * @self: the session
- * @direction: the endpoint direction
- *
- * Returns: the bound id of the default endpoint of this @direction
- */
-guint32
-wp_session_get_default_endpoint (WpSession * self, WpDirection direction)
-{
-  g_autoptr (WpSpaPod) pod = NULL;
-  const gchar *id_name = NULL;
-  gint32 value;
-
-  g_return_val_if_fail (WP_IS_SESSION (self), SPA_ID_INVALID);
-
-  switch (direction) {
-    case WP_DIRECTION_INPUT:
-      id_name = "Wp:defaultSink";
-      break;
-    case WP_DIRECTION_OUTPUT:
-      id_name = "Wp:defaultSource";
-      break;
-    default:
-      g_return_val_if_reached (SPA_ID_INVALID);
-      break;
-  }
-
-  pod = wp_proxy_get_prop (WP_PROXY (self), id_name);
-  if (pod && wp_spa_pod_get_int (pod, &value))
-    return (guint32) value;
-  return 0;
-}
-
-/**
- * wp_session_set_default_endpoint:
- * @self: the session
- * @direction: the endpoint direction
- * @id: the bound id of the endpoint to set as the default for this @direction
- *
- * Sets the default endpoint for this @direction to be the one identified
- * with @id
- */
-void
-wp_session_set_default_endpoint (WpSession * self, WpDirection direction,
-    guint32 id)
-{
-  const gchar *id_name = NULL;
-
-  g_return_if_fail (WP_IS_SESSION (self));
-
-  switch (direction) {
-    case WP_DIRECTION_INPUT:
-      id_name = "Wp:defaultSink";
-      break;
-    case WP_DIRECTION_OUTPUT:
-      id_name = "Wp:defaultSource";
-      break;
-    default:
-      g_return_if_reached ();
-      break;
-  }
-
-  wp_proxy_set_prop (WP_PROXY (self), id_name, wp_spa_pod_new_int (id));
 }
 
 /**
@@ -466,7 +431,7 @@ guint
 wp_session_get_n_endpoints (WpSession * self)
 {
   g_return_val_if_fail (WP_IS_SESSION (self), 0);
-  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
           WP_SESSION_FEATURE_ENDPOINTS, 0);
 
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
@@ -486,7 +451,7 @@ WpIterator *
 wp_session_iterate_endpoints (WpSession * self)
 {
   g_return_val_if_fail (WP_IS_SESSION (self), NULL);
-  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
           WP_SESSION_FEATURE_ENDPOINTS, NULL);
 
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
@@ -532,7 +497,7 @@ wp_session_iterate_endpoints_filtered_full (WpSession * self,
     WpObjectInterest * interest)
 {
   g_return_val_if_fail (WP_IS_SESSION (self), NULL);
-  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
           WP_SESSION_FEATURE_ENDPOINTS, NULL);
 
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
@@ -577,7 +542,7 @@ WpEndpoint *
 wp_session_lookup_endpoint_full (WpSession * self, WpObjectInterest * interest)
 {
   g_return_val_if_fail (WP_IS_SESSION (self), NULL);
-  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
           WP_SESSION_FEATURE_ENDPOINTS, NULL);
 
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
@@ -597,7 +562,7 @@ guint
 wp_session_get_n_links (WpSession * self)
 {
   g_return_val_if_fail (WP_IS_SESSION (self), 0);
-  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
           WP_SESSION_FEATURE_LINKS, 0);
 
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
@@ -617,7 +582,7 @@ WpIterator *
 wp_session_iterate_links (WpSession * self)
 {
   g_return_val_if_fail (WP_IS_SESSION (self), NULL);
-  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
           WP_SESSION_FEATURE_LINKS, NULL);
 
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
@@ -663,7 +628,7 @@ wp_session_iterate_links_filtered_full (WpSession * self,
     WpObjectInterest * interest)
 {
   g_return_val_if_fail (WP_IS_SESSION (self), NULL);
-  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
           WP_SESSION_FEATURE_LINKS, NULL);
 
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
@@ -708,7 +673,7 @@ WpEndpointLink *
 wp_session_lookup_link_full (WpSession * self, WpObjectInterest * interest)
 {
   g_return_val_if_fail (WP_IS_SESSION (self), NULL);
-  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
           WP_SESSION_FEATURE_LINKS, NULL);
 
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
@@ -726,9 +691,14 @@ struct _WpImplSession
   struct spa_interface iface;
   struct spa_hook_list hooks;
   struct pw_session_info info;
-  gboolean subscribed;
 };
 
+/**
+ * WpImplSession:
+ *
+ * A #WpImplSession allows implementing a session and exporting it to PipeWire.
+ * To export a #WpImplSession, activate %WP_PROXY_FEATURE_BOUND.
+ */
 G_DEFINE_TYPE (WpImplSession, wp_impl_session, WP_TYPE_SESSION)
 
 #define pw_session_emit(hooks,method,version,...) \
@@ -737,11 +707,6 @@ G_DEFINE_TYPE (WpImplSession, wp_impl_session, WP_TYPE_SESSION)
 
 #define pw_session_emit_info(hooks,...)  pw_session_emit(hooks, info, 0, ##__VA_ARGS__)
 #define pw_session_emit_param(hooks,...) pw_session_emit(hooks, param, 0, ##__VA_ARGS__)
-
-static struct spa_param_info impl_param_info[] = {
-  SPA_PARAM_INFO (SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE),
-  SPA_PARAM_INFO (SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ)
-};
 
 static int
 impl_add_listener(void *object,
@@ -767,56 +732,12 @@ impl_enum_params (void *object, int seq,
     uint32_t id, uint32_t start, uint32_t num,
     const struct spa_pod *filter)
 {
-  WpImplSession *self = WP_IMPL_SESSION (object);
-  char buf[1024];
-  struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buf, sizeof (buf));
-  struct spa_pod *result;
-  guint count = 0;
-  WpProps *props = wp_proxy_get_props (WP_PROXY (self));
-
-  switch (id) {
-    case SPA_PARAM_PropInfo: {
-      g_autoptr (WpIterator) params = wp_props_iterate_prop_info (props);
-      g_auto (GValue) item = G_VALUE_INIT;
-      guint i = 0;
-
-      for (; wp_iterator_next (params, &item); g_value_unset (&item), i++) {
-        WpSpaPod *pod = g_value_get_boxed (&item);
-        const struct spa_pod *param = wp_spa_pod_get_spa_pod (pod);
-        if (spa_pod_filter (&b, &result, param, filter) == 0) {
-          pw_session_emit_param (&self->hooks, seq, id, i, i+1, result);
-          if (++count == num)
-            break;
-        }
-      }
-      break;
-    }
-    case SPA_PARAM_Props: {
-      if (start == 0) {
-        g_autoptr (WpSpaPod) pod = wp_props_get_all (props);
-        const struct spa_pod *param = wp_spa_pod_get_spa_pod (pod);
-        if (spa_pod_filter (&b, &result, param, filter) == 0) {
-          pw_session_emit_param (&self->hooks, seq, id, 0, 1, result);
-        }
-      }
-      break;
-    }
-    default:
-      return -ENOENT;
-  }
-
-  return 0;
+  return -ENOENT;
 }
 
 static int
 impl_subscribe_params (void *object, uint32_t *ids, uint32_t n_ids)
 {
-  WpImplSession *self = WP_IMPL_SESSION (object);
-  for (guint i = 0; i < n_ids; i++) {
-    if (ids[i] == SPA_PARAM_Props)
-      self->subscribed = TRUE;
-    impl_enum_params (self, 1, ids[i], 0, UINT32_MAX, NULL);
-  }
   return 0;
 }
 
@@ -824,14 +745,7 @@ static int
 impl_set_param (void *object, uint32_t id, uint32_t flags,
     const struct spa_pod *param)
 {
-  WpImplSession *self = WP_IMPL_SESSION (object);
-
-  if (id != SPA_PARAM_Props)
-    return -ENOENT;
-
-  WpProps *props = wp_proxy_get_props (WP_PROXY (self));
-  wp_props_set (props, NULL, wp_spa_pod_new_wrap_const (param));
-  return 0;
+  return -ENOENT;
 }
 
 static const struct pw_session_methods impl_session = {
@@ -848,7 +762,6 @@ wp_impl_session_init (WpImplSession * self)
   /* reuse the parent's private to optimize memory usage and to be able
      to re-use some of the parent's methods without reimplementing them */
   WpSessionPrivate *priv = wp_session_get_instance_private (WP_SESSION (self));
-  WpProps *props;
 
   self->iface = SPA_INTERFACE_INIT (
       PW_TYPE_INTERFACE_Session,
@@ -863,21 +776,9 @@ wp_impl_session_init (WpImplSession * self)
   self->info.version = PW_VERSION_SESSION_INFO;
   self->info.props =
       (struct spa_dict *) wp_properties_peek_dict (priv->properties);
-  self->info.params = impl_param_info;
-  self->info.n_params = SPA_N_ELEMENTS (impl_param_info);
+  self->info.params = NULL;
+  self->info.n_params = 0;
   priv->info = &self->info;
-  g_object_notify (G_OBJECT (self), "info");
-
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
-
-  /* prepare props */
-  props = wp_props_new (WP_PROPS_MODE_STORE, WP_PROXY (self));
-  wp_props_register (props,
-      "Wp:defaultSource", "Default Source", wp_spa_pod_new_int (0));
-  wp_props_register (props,
-      "Wp:defaultSink", "Default Sink", wp_spa_pod_new_int (0));
-  wp_proxy_set_props (WP_PROXY (self), props);
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_PROPS);
 }
 
 static void
@@ -885,32 +786,30 @@ wp_impl_session_finalize (GObject * object)
 {
   WpSessionPrivate *priv = wp_session_get_instance_private (WP_SESSION (object));
 
-  /* set to NULL to prevent parent's finalize from calling free() on it */
-  priv->info = NULL;
+  g_clear_pointer (&priv->properties, wp_properties_unref);
 
   G_OBJECT_CLASS (wp_impl_session_parent_class)->finalize (object);
 }
 
 static void
-wp_impl_session_augment (WpProxy * proxy, WpProxyFeatures features)
+wp_impl_session_activate_execute_step (WpObject * object,
+    WpFeatureActivationTransition * transition, guint step,
+    WpObjectFeatures missing)
 {
-  WpImplSession *self = WP_IMPL_SESSION (proxy);
+  WpImplSession *self = WP_IMPL_SESSION (object);
   WpSessionPrivate *priv = wp_session_get_instance_private (WP_SESSION (self));
 
-  /* PW_PROXY depends on BOUND */
-  if (features & WP_PROXY_FEATURE_PW_PROXY)
-    features |= WP_PROXY_FEATURE_BOUND;
-
-  if (features & WP_PROXY_FEATURE_BOUND) {
-    g_autoptr (WpCore) core = wp_proxy_get_core (proxy);
+  switch (step) {
+  case WP_PIPEWIRE_OBJECT_MIXIN_STEP_BIND: {
+    g_autoptr (WpCore) core = wp_object_get_core (object);
     struct pw_core *pw_core = wp_core_get_pw_core (core);
 
     /* no pw_core -> we are not connected */
     if (!pw_core) {
-      wp_proxy_augment_error (proxy, g_error_new (WP_DOMAIN_LIBRARY,
-            WP_LIBRARY_ERROR_OPERATION_FAILED,
-            "The WirePlumber core is not connected; "
-            "object cannot be exported to PipeWire"));
+      wp_transition_return_error (WP_TRANSITION (transition), g_error_new (
+              WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+              "The WirePlumber core is not connected; "
+              "object cannot be exported to PipeWire"));
       return;
     }
 
@@ -919,44 +818,49 @@ wp_impl_session_augment (WpProxy * proxy, WpProxyFeatures features)
     wp_properties_set (priv->properties, PW_KEY_CLIENT_ID, NULL);
     wp_properties_set (priv->properties, PW_KEY_FACTORY_ID, NULL);
 
-    wp_proxy_set_pw_proxy (proxy, pw_core_export (pw_core,
+    wp_proxy_set_pw_proxy (WP_PROXY (self), pw_core_export (pw_core,
             PW_TYPE_INTERFACE_Session,
             wp_properties_peek_dict (priv->properties),
             priv->iface, 0));
-  }
 
-  if (features & (WP_SESSION_FEATURE_ENDPOINTS | WP_SESSION_FEATURE_LINKS)) {
-    priv->ft_endpoints_requested = (features & WP_SESSION_FEATURE_ENDPOINTS);
-    priv->ft_links_requested = (features & WP_SESSION_FEATURE_LINKS);
-    wp_session_ensure_features_endpoints_links (WP_SESSION (self), 0);
+    wp_object_update_features (WP_OBJECT (self),
+        WP_PIPEWIRE_OBJECT_FEATURE_INFO, 0);
+    break;
+  }
+  default:
+    WP_OBJECT_CLASS (wp_impl_session_parent_class)->
+        activate_execute_step (object, transition, step, missing);
+    break;
   }
 }
 
 static void
-wp_impl_session_prop_changed (WpProxy * proxy, const gchar * prop_name)
+wp_impl_session_pw_proxy_destroyed (WpProxy * proxy)
 {
   WpImplSession *self = WP_IMPL_SESSION (proxy);
+  WpSessionPrivate *priv = wp_session_get_instance_private (WP_SESSION (self));
 
-  /* notify subscribers */
-  if (self->subscribed)
-    impl_enum_params (self, 1, SPA_PARAM_Props, 0, UINT32_MAX, NULL);
-
-  WP_PROXY_CLASS (wp_impl_session_parent_class)->prop_changed (proxy, prop_name);
+  g_clear_object (&priv->endpoints_om);
+  g_clear_object (&priv->links_om);
+  wp_object_update_features (WP_OBJECT (self), 0,
+      WP_PIPEWIRE_OBJECT_FEATURE_INFO |
+      WP_SESSION_FEATURE_ENDPOINTS |
+      WP_SESSION_FEATURE_LINKS);
 }
 
 static void
 wp_impl_session_class_init (WpImplSessionClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
+  WpObjectClass *wpobject_class = (WpObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
   object_class->finalize = wp_impl_session_finalize;
 
-  proxy_class->augment = wp_impl_session_augment;
-  proxy_class->enum_params = NULL;
-  proxy_class->subscribe_params = NULL;
+  wpobject_class->activate_execute_step = wp_impl_session_activate_execute_step;
+
   proxy_class->pw_proxy_created = NULL;
-  proxy_class->prop_changed = wp_impl_session_prop_changed;
+  proxy_class->pw_proxy_destroyed = wp_impl_session_pw_proxy_destroyed;
 }
 
 /**
@@ -1001,7 +905,7 @@ wp_impl_session_set_property (WpImplSession * self,
   g_object_notify (G_OBJECT (self), "properties");
 
   /* update only after the session has been exported */
-  if (wp_proxy_get_features (WP_PROXY (self)) & WP_PROXY_FEATURE_BOUND) {
+  if (wp_object_get_active_features (WP_OBJECT (self)) & WP_PROXY_FEATURE_BOUND) {
     self->info.change_mask = PW_SESSION_CHANGE_MASK_PROPS;
     pw_session_emit_info (&self->hooks, &self->info);
     self->info.change_mask = 0;
@@ -1034,7 +938,7 @@ wp_impl_session_update_properties (WpImplSession * self,
   g_object_notify (G_OBJECT (self), "properties");
 
   /* update only after the session has been exported */
-  if (wp_proxy_get_features (WP_PROXY (self)) & WP_PROXY_FEATURE_BOUND) {
+  if (wp_object_get_active_features (WP_OBJECT (self)) & WP_PROXY_FEATURE_BOUND) {
     self->info.change_mask = PW_SESSION_CHANGE_MASK_PROPS;
     pw_session_emit_info (&self->hooks, &self->info);
     self->info.change_mask = 0;

@@ -14,6 +14,8 @@
 #define G_LOG_DOMAIN "wp-object-interest"
 
 #include "object-interest.h"
+#include "global-proxy.h"
+#include "proxy-interfaces.h"
 #include "debug.h"
 #include "error.h"
 #include "private.h"
@@ -308,7 +310,8 @@ gboolean
 wp_object_interest_validate (WpObjectInterest * self, GError ** error)
 {
   struct constraint *c;
-  gboolean is_proxy;
+  gboolean is_pwobj;
+  gboolean is_global;
 
   g_return_val_if_fail (self != NULL, FALSE);
 
@@ -322,7 +325,8 @@ wp_object_interest_validate (WpObjectInterest * self, GError ** error)
     return FALSE;
   }
 
-  is_proxy = g_type_is_a (self->gtype, WP_TYPE_PROXY);
+  is_pwobj = g_type_is_a (self->gtype, WP_TYPE_PIPEWIRE_OBJECT);
+  is_global = g_type_is_a (self->gtype, WP_TYPE_GLOBAL_PROXY);
 
   pw_array_for_each (c, &self->constraints) {
     const GVariantType *value_type = NULL;
@@ -334,10 +338,16 @@ wp_object_interest_validate (WpObjectInterest * self, GError ** error)
       return FALSE;
     }
 
-    if (!is_proxy && (c->type == WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY ||
-            c->type == WP_CONSTRAINT_TYPE_PW_PROPERTY)) {
+    if (!is_pwobj && c->type == WP_CONSTRAINT_TYPE_PW_PROPERTY) {
       g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
-          "constraint type %d cannot apply to non-WpProxy type '%s'",
+          "constraint type %d cannot apply to non-WpPipewireObject type '%s'",
+          c->type, g_type_name (self->gtype));
+      return FALSE;
+    }
+
+    if (!is_global && c->type == WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY) {
+      g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
+          "constraint type %d cannot apply to non-WpGlobalProxy type '%s'",
           c->type, g_type_name (self->gtype));
       return FALSE;
     }
@@ -698,8 +708,8 @@ wp_object_interest_matches (WpObjectInterest * self, gpointer object)
  * are any constraints that require them, the match will fail.
  * As a special case, if @object is not %NULL and is a subclass of #WpProxy,
  * then @pw_props and @pw_global_props, if required, will be internally
- * retrieved from @object by calling wp_proxy_get_properties() and
- * wp_proxy_get_global_properties() respectively.
+ * retrieved from @object by calling wp_pipewire_object_get_properties() and
+ * wp_global_proxy_get_global_properties() respectively.
  *
  * Returns: %TRUE if the the type matches this interest and the properties
  *   match the constraints, %FALSE otherwise
@@ -727,14 +737,20 @@ wp_object_interest_matches_full (WpObjectInterest * self,
     return FALSE;
 
   /* prepare for constraint lookups on proxy properties */
-  if (object && g_type_is_a (object_type, WP_TYPE_PROXY)) {
-    WpProxy *p = WP_PROXY (object);
+  if (object) {
+    if (!pw_global_props && WP_IS_GLOBAL_PROXY (object)) {
+      WpGlobalProxy *pwg = (WpGlobalProxy *) object;
+      pw_global_props = global_props =
+          wp_global_proxy_get_global_properties (pwg);
+    }
 
-    if (!pw_global_props)
-      pw_global_props = global_props = wp_proxy_get_global_properties (p);
+    if (!pw_props && WP_IS_PIPEWIRE_OBJECT (object)) {
+      WpObject *oo = (WpObject *) object;
+      WpPipewireObject *pwo = (WpPipewireObject *) object;
 
-    if (!pw_props && wp_proxy_get_features (p) & WP_PROXY_FEATURE_INFO)
-      pw_props = props = wp_proxy_get_properties (p);
+      if (wp_object_get_active_features (oo) & WP_PIPEWIRE_OBJECT_FEATURE_INFO)
+        pw_props = props = wp_pipewire_object_get_properties (pwo);
+    }
   }
 
   /* check all constraints; if any of them fails at any point, fail the match */

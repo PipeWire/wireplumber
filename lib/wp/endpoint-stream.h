@@ -9,8 +9,7 @@
 #ifndef __WIREPLUMBER_ENDPOINT_STREAM_H__
 #define __WIREPLUMBER_ENDPOINT_STREAM_H__
 
-#include "proxy.h"
-#include "spa-pod.h"
+#include "global-proxy.h"
 
 G_BEGIN_DECLS
 
@@ -22,11 +21,11 @@ G_BEGIN_DECLS
 #define WP_TYPE_ENDPOINT_STREAM (wp_endpoint_stream_get_type ())
 WP_API
 G_DECLARE_DERIVABLE_TYPE (WpEndpointStream, wp_endpoint_stream,
-                          WP, ENDPOINT_STREAM, WpProxy)
+                          WP, ENDPOINT_STREAM, WpGlobalProxy)
 
 struct _WpEndpointStreamClass
 {
-  WpProxyClass parent_class;
+  WpGlobalProxyClass parent_class;
 };
 
 WP_API

@@ -9,7 +9,7 @@
 #ifndef __WIREPLUMBER_LINK_H__
 #define __WIREPLUMBER_LINK_H__
 
-#include "proxy.h"
+#include "global-proxy.h"
 
 G_BEGIN_DECLS
 
@@ -20,7 +20,7 @@ G_BEGIN_DECLS
  */
 #define WP_TYPE_LINK (wp_link_get_type ())
 WP_API
-G_DECLARE_FINAL_TYPE (WpLink, wp_link, WP, LINK, WpProxy)
+G_DECLARE_FINAL_TYPE (WpLink, wp_link, WP, LINK, WpGlobalProxy)
 
 WP_API
 WpLink * wp_link_new_from_factory (WpCore * core,

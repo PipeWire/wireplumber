@@ -222,7 +222,7 @@ wp_session_item_default_export_get_next_step (WpSessionItem * self,
     g_return_val_if_fail (WP_IS_SI_ENDPOINT (self), WP_TRANSITION_STEP_ERROR);
     g_return_val_if_fail (priv->impl_streams, WP_TRANSITION_STEP_ERROR);
 
-    /* go to next step only when all impl proxies are augmented */
+    /* go to next step only when all impl proxies are activated */
     if (g_hash_table_size (priv->impl_streams) ==
         wp_si_endpoint_get_n_streams (WP_SI_ENDPOINT (self)))
       return EXPORT_STEP_ENDPOINT_FT_STREAMS;
@@ -245,14 +245,14 @@ wp_session_item_default_export_get_next_step (WpSessionItem * self,
 }
 
 static void
-on_export_proxy_augmented (WpProxy * proxy, GAsyncResult * res, gpointer data)
+on_export_proxy_activated (WpObject * proxy, GAsyncResult * res, gpointer data)
 {
   WpTransition *transition = WP_TRANSITION (data);
   WpSessionItem *self = wp_transition_get_source_object (transition);
   WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
   g_autoptr (GError) error = NULL;
 
-  if (!wp_proxy_augment_finish (proxy, res, &error)) {
+  if (!wp_object_activate_finish (proxy, res, &error)) {
     wp_transition_return_error (transition, g_steal_pointer (&error));
     return;
   }
@@ -266,7 +266,7 @@ on_export_proxy_augmented (WpProxy * proxy, GAsyncResult * res, gpointer data)
     g_hash_table_insert (priv->impl_streams, si_stream, g_object_ref (proxy));
   }
 
-  wp_debug_object (self, "export proxy " WP_OBJECT_FORMAT " augmented",
+  wp_debug_object (self, "export proxy " WP_OBJECT_FORMAT " activated",
       WP_OBJECT_ARGS (proxy));
 
   wp_transition_advance (transition);
@@ -293,10 +293,10 @@ on_export_proxy_destroyed_deferred (WpSessionItem * self)
 }
 
 static void
-on_export_proxy_destroyed (WpProxy * proxy, gpointer data)
+on_export_proxy_destroyed (WpObject * proxy, gpointer data)
 {
   WpSessionItem *self = WP_SESSION_ITEM (data);
-  g_autoptr (WpCore) core = wp_proxy_get_core (proxy);
+  g_autoptr (WpCore) core = wp_object_get_core (proxy);
 
   if (core)
     wp_core_idle_add_closure (core, NULL, g_cclosure_new_object (
@@ -309,15 +309,15 @@ wp_session_item_default_export_execute_step (WpSessionItem * self,
 {
   WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
   g_autoptr (WpSession) session = g_weak_ref_get (&priv->session);
-  g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (session));
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (session));
 
   switch (step) {
   case EXPORT_STEP_ENDPOINT:
     priv->impl_endpoint = wp_impl_endpoint_new (core, WP_SI_ENDPOINT (self));
 
-    wp_proxy_augment (WP_PROXY (priv->impl_endpoint),
-        WP_PROXY_FEATURES_STANDARD, NULL,
-        (GAsyncReadyCallback) on_export_proxy_augmented,
+    wp_object_activate (WP_OBJECT (priv->impl_endpoint),
+        WP_PIPEWIRE_OBJECT_FEATURES_ALL, NULL,
+        (GAsyncReadyCallback) on_export_proxy_activated,
         transition);
     break;
 
@@ -333,33 +333,33 @@ wp_session_item_default_export_execute_step (WpSessionItem * self,
       WpImplEndpointStream *impl_stream =
           wp_impl_endpoint_stream_new (core, stream);
 
-      wp_proxy_augment (WP_PROXY (impl_stream),
-          WP_PROXY_FEATURES_STANDARD, NULL,
-          (GAsyncReadyCallback) on_export_proxy_augmented,
+      wp_object_activate (WP_OBJECT (impl_stream),
+          WP_OBJECT_FEATURES_ALL, NULL,
+          (GAsyncReadyCallback) on_export_proxy_activated,
           transition);
 
       /* the augment task holds a ref; object will be added to
-         priv->impl_streams when augmented */
+         priv->impl_streams when activated */
       g_object_unref (impl_stream);
     }
     break;
   }
   case EXPORT_STEP_ENDPOINT_FT_STREAMS:
     /* add feature streams only after the streams are exported, otherwise
-       the endpoint will never be augmented in the first place (because it
+       the endpoint will never be activated in the first place (because it
        internally waits for the streams to be ready) */
-    wp_proxy_augment (WP_PROXY (priv->impl_endpoint),
+    wp_object_activate (WP_OBJECT (priv->impl_endpoint),
         WP_ENDPOINT_FEATURE_STREAMS, NULL,
-        (GAsyncReadyCallback) on_export_proxy_augmented,
+        (GAsyncReadyCallback) on_export_proxy_activated,
         transition);
     break;
 
   case EXPORT_STEP_LINK:
     priv->impl_link = wp_impl_endpoint_link_new (core, WP_SI_LINK (self));
 
-    wp_proxy_augment (WP_PROXY (priv->impl_link),
-        WP_PROXY_FEATURES_STANDARD, NULL,
-        (GAsyncReadyCallback) on_export_proxy_augmented,
+    wp_object_activate (WP_OBJECT (priv->impl_link),
+        WP_OBJECT_FEATURES_ALL, NULL,
+        (GAsyncReadyCallback) on_export_proxy_activated,
         transition);
     break;
 

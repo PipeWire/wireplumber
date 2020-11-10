@@ -9,8 +9,7 @@
 #ifndef __WIREPLUMBER_ENDPOINT_H__
 #define __WIREPLUMBER_ENDPOINT_H__
 
-#include "spa-pod.h"
-#include "proxy.h"
+#include "global-proxy.h"
 #include "port.h"
 #include "endpoint-stream.h"
 #include "iterator.h"
@@ -27,19 +26,8 @@ G_BEGIN_DECLS
  * An extension of #WpProxyFeatures
  */
 typedef enum { /*< flags >*/
-  WP_ENDPOINT_FEATURE_STREAMS = (WP_PROXY_FEATURE_LAST << 0),
+  WP_ENDPOINT_FEATURE_STREAMS = (WP_PROXY_FEATURE_CUSTOM_START << 0),
 } WpEndpointFeatures;
-
-/**
- * WP_ENDPOINT_FEATURES_STANDARD:
- *
- * A constant set of features that contains the standard features that are
- * available in the #WpEndpoint class.
- */
-#define WP_ENDPOINT_FEATURES_STANDARD \
-    (WP_PROXY_FEATURES_STANDARD | \
-     WP_PROXY_FEATURE_PROPS | \
-     WP_ENDPOINT_FEATURE_STREAMS)
 
 /**
  * WP_TYPE_ENDPOINT:
@@ -48,11 +36,11 @@ typedef enum { /*< flags >*/
  */
 #define WP_TYPE_ENDPOINT (wp_endpoint_get_type ())
 WP_API
-G_DECLARE_DERIVABLE_TYPE (WpEndpoint, wp_endpoint, WP, ENDPOINT, WpProxy)
+G_DECLARE_DERIVABLE_TYPE (WpEndpoint, wp_endpoint, WP, ENDPOINT, WpGlobalProxy)
 
 struct _WpEndpointClass
 {
-  WpProxyClass parent_class;
+  WpGlobalProxyClass parent_class;
 };
 
 WP_API

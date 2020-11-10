@@ -20,10 +20,10 @@ G_BEGIN_DECLS
  * @WP_CONSTRAINT_TYPE_NONE: invalid constraint type
  * @WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY: constraint applies
  *   to a PipeWire global property of the object (the ones returned by
- *   wp_proxy_get_global_properties())
+ *   wp_global_proxy_get_global_properties())
  * @WP_CONSTRAINT_TYPE_PW_PROPERTY: constraint applies
  *   to a PipeWire property of the object (the ones returned by
- *   wp_proxy_get_properties())
+ *   wp_pipewire_object_get_properties())
  * @WP_CONSTRAINT_TYPE_G_PROPERTY: constraint applies to a #GObject
  *   property of the object
  */

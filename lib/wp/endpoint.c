@@ -7,41 +7,26 @@
  */
 
 /**
- * SECTION: WpEndpoint
- *
- * The #WpEndpoint class allows accessing the properties and methods of a
- * PipeWire endpoint object (`struct pw_endpoint` from the session-manager
- * extension).
- *
- * A #WpEndpoint is constructed internally when a new endpoint appears on the
- * PipeWire registry and it is made available through the #WpObjectManager API.
+ * SECTION: endpoint
+ * @title: PIpeWire Endpoint
  */
 
 #define G_LOG_DOMAIN "wp-endpoint"
 
 #include "endpoint.h"
-#include "debug.h"
 #include "node.h"
 #include "session.h"
-#include "private.h"
 #include "error.h"
 #include "wpenums.h"
 #include "si-factory.h"
+#include "private.h"
+#include "private/pipewire-object-mixin.h"
 
-#include <pipewire/pipewire.h>
 #include <pipewire/extensions/session-manager.h>
 #include <pipewire/extensions/session-manager/introspect-funcs.h>
 
-#include <spa/pod/builder.h>
-#include <spa/pod/parser.h>
-#include <spa/pod/filter.h>
-#include <spa/utils/result.h>
-
-/* WpEndpoint */
-
 enum {
-  PROP_0,
-  PROP_NAME,
+  PROP_NAME = WP_PIPEWIRE_OBJECT_MIXIN_PROP_CUSTOM_START,
   PROP_MEDIA_CLASS,
   PROP_DIRECTION,
 };
@@ -61,10 +46,23 @@ struct _WpEndpointPrivate
   struct pw_endpoint *iface;
   struct spa_hook listener;
   WpObjectManager *streams_om;
-  gboolean ft_streams_requested;
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE (WpEndpoint, wp_endpoint, WP_TYPE_PROXY)
+static void wp_endpoint_pipewire_object_interface_init (WpPipewireObjectInterface * iface);
+
+/**
+ * WpEndpoint:
+ *
+ * The #WpEndpoint class allows accessing the properties and methods of a
+ * PipeWire endpoint object (`struct pw_endpoint` from the session-manager
+ * extension).
+ *
+ * A #WpEndpoint is constructed internally when a new endpoint appears on the
+ * PipeWire registry and it is made available through the #WpObjectManager API.
+ */
+G_DEFINE_TYPE_WITH_CODE (WpEndpoint, wp_endpoint, WP_TYPE_GLOBAL_PROXY,
+    G_ADD_PRIVATE (WpEndpoint)
+    G_IMPLEMENT_INTERFACE (WP_TYPE_PIPEWIRE_OBJECT, wp_endpoint_pipewire_object_interface_init));
 
 static void
 wp_endpoint_init (WpEndpoint * self)
@@ -72,20 +70,7 @@ wp_endpoint_init (WpEndpoint * self)
 }
 
 static void
-wp_endpoint_finalize (GObject * object)
-{
-  WpEndpoint *self = WP_ENDPOINT (object);
-  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
-
-  g_clear_object (&priv->streams_om);
-  g_clear_pointer (&priv->properties, wp_properties_unref);
-  g_clear_pointer (&priv->info, pw_endpoint_info_free);
-
-  G_OBJECT_CLASS (wp_endpoint_parent_class)->finalize (object);
-}
-
-static void
-wp_endpoint_get_gobj_property (GObject * object, guint property_id,
+wp_endpoint_get_property (GObject * object, guint property_id,
     GValue * value, GParamSpec * pspec)
 {
   WpEndpoint *self = WP_ENDPOINT (object);
@@ -102,7 +87,7 @@ wp_endpoint_get_gobj_property (GObject * object, guint property_id,
     g_value_set_enum (value, priv->info ? priv->info->direction : 0);
     break;
   default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    wp_pipewire_object_mixin_get_property (object, property_id, value, pspec);
     break;
   }
 }
@@ -111,7 +96,7 @@ static void
 wp_endpoint_on_streams_om_installed (WpObjectManager *streams_om,
     WpEndpoint * self)
 {
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_ENDPOINT_FEATURE_STREAMS);
+  wp_object_update_features (WP_OBJECT (self), WP_ENDPOINT_FEATURE_STREAMS, 0);
 }
 
 static void
@@ -119,129 +104,120 @@ wp_endpoint_emit_streams_changed (WpObjectManager *streams_om,
     WpEndpoint * self)
 {
   g_signal_emit (self, signals[SIGNAL_STREAMS_CHANGED], 0);
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_ENDPOINT_FEATURE_STREAMS);
+  wp_object_update_features (WP_OBJECT (self), WP_ENDPOINT_FEATURE_STREAMS, 0);
 }
 
 static void
-wp_endpoint_ensure_feature_streams (WpEndpoint * self, guint32 bound_id)
+wp_endpoint_enable_feature_streams (WpEndpoint * self)
 {
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
-  WpProxyFeatures ft = wp_proxy_get_features (WP_PROXY (self));
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
+  guint32 bound_id = wp_proxy_get_bound_id (WP_PROXY (self));
 
-  if (priv->ft_streams_requested && !priv->streams_om &&
-      (ft & WP_PROXY_FEATURES_STANDARD) == WP_PROXY_FEATURES_STANDARD)
-  {
-    g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (self));
+  wp_debug_object (self, "enabling WP_ENDPOINT_FEATURE_STREAMS, bound_id:%u, "
+      "n_streams:%u", bound_id, priv->info->n_streams);
 
-    if (!bound_id)
-      bound_id = wp_proxy_get_bound_id (WP_PROXY (self));
+  priv->streams_om = wp_object_manager_new ();
+  /* proxy endpoint stream -> check for endpoint.id in global properties */
+  wp_object_manager_add_interest (priv->streams_om,
+      WP_TYPE_ENDPOINT_STREAM,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_ENDPOINT_ID, "=u", bound_id,
+      NULL);
+  /* impl endpoint stream -> check for endpoint.id in standard properties */
+  wp_object_manager_add_interest (priv->streams_om,
+      WP_TYPE_IMPL_ENDPOINT_STREAM,
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_ENDPOINT_ID, "=u", bound_id,
+      NULL);
+  wp_object_manager_request_object_features (priv->streams_om,
+      WP_TYPE_ENDPOINT_STREAM, WP_OBJECT_FEATURES_ALL);
 
-    wp_debug_object (self, "enabling WP_ENDPOINT_FEATURE_STREAMS, bound_id:%u, "
-        "n_streams:%u", bound_id, priv->info->n_streams);
+  /* endpoints, under normal circumstances, always have streams.
+     When we export (self is a WpImplEndpoint), we have to export first
+     the endpoint and afterwards the streams (so that the streams can be
+     associated with the endpoint's bound id), but then the issue is that
+     the "installed" signal gets fired here without any streams being ready
+     and we get an endpoint with 0 streams in the WpSession's endpoints
+     object manager... so, unless the endpoint really has no streams,
+     wait for them to be prepared by waiting for the "objects-changed" only */
+  if (G_UNLIKELY (priv->info->n_streams == 0)) {
+    g_signal_connect_object (priv->streams_om, "installed",
+        G_CALLBACK (wp_endpoint_on_streams_om_installed), self, 0);
+  }
+  g_signal_connect_object (priv->streams_om, "objects-changed",
+      G_CALLBACK (wp_endpoint_emit_streams_changed), self, 0);
 
-    priv->streams_om = wp_object_manager_new ();
-    /* proxy endpoint stream -> check for endpoint.id in global properties */
-    wp_object_manager_add_interest (priv->streams_om,
-        WP_TYPE_ENDPOINT_STREAM,
-        WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_ENDPOINT_ID, "=u", bound_id,
-        NULL);
-    /* impl endpoint stream -> check for endpoint.id in standard properties */
-    wp_object_manager_add_interest (priv->streams_om,
-        WP_TYPE_IMPL_ENDPOINT_STREAM,
-        WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_ENDPOINT_ID, "=u", bound_id,
-        NULL);
-    wp_object_manager_request_proxy_features (priv->streams_om,
-        WP_TYPE_ENDPOINT_STREAM,
-        WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_PROPS);
+  wp_core_install_object_manager (core, priv->streams_om);
+}
 
-    /* endpoints, under normal circumstances, always have streams.
-       When we export (self is a WpImplEndpoint), we have to export first
-       the endpoint and afterwards the streams (so that the streams can be
-       associated with the endpoint's bound id), but then the issue is that
-       the "installed" signal gets fired here without any streams being ready
-       and we get an endpoint with 0 streams in the WpSession's endpoints
-       object manager... so, unless the endpoint really has no streams,
-       wait for them to be prepared by waiting for the "objects-changed" only */
-    if (G_UNLIKELY (priv->info->n_streams == 0)) {
-      g_signal_connect_object (priv->streams_om, "installed",
-          G_CALLBACK (wp_endpoint_on_streams_om_installed), self, 0);
-    }
-    g_signal_connect_object (priv->streams_om, "objects-changed",
-        G_CALLBACK (wp_endpoint_emit_streams_changed), self, 0);
+static WpObjectFeatures
+wp_endpoint_get_supported_features (WpObject * object)
+{
+  WpEndpoint *self = WP_ENDPOINT (object);
+  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
 
-    wp_core_install_object_manager (core, priv->streams_om);
+  return
+      WP_PROXY_FEATURE_BOUND |
+      WP_ENDPOINT_FEATURE_STREAMS |
+      WP_PIPEWIRE_OBJECT_FEATURE_INFO |
+      wp_pipewire_object_mixin_param_info_to_features (
+          priv->info ? priv->info->params : NULL,
+          priv->info ? priv->info->n_params : 0);
+}
+
+enum {
+  STEP_STREAMS = WP_PIPEWIRE_OBJECT_MIXIN_STEP_CUSTOM_START,
+};
+
+static guint
+wp_endpoint_activate_get_next_step (WpObject * object,
+    WpFeatureActivationTransition * transition, guint step,
+    WpObjectFeatures missing)
+{
+  step = wp_pipewire_object_mixin_activate_get_next_step (object, transition,
+      step, missing);
+
+  /* extend the mixin's state machine; when the only remaining feature to
+     enable is FEATURE_STREAMS, advance to STEP_STREAMS */
+  if (step == WP_PIPEWIRE_OBJECT_MIXIN_STEP_CACHE_INFO &&
+      missing == WP_ENDPOINT_FEATURE_STREAMS)
+    return STEP_STREAMS;
+
+  return step;
+}
+
+static void
+wp_endpoint_activate_execute_step (WpObject * object,
+    WpFeatureActivationTransition * transition, guint step,
+    WpObjectFeatures missing)
+{
+  switch (step) {
+  case WP_PIPEWIRE_OBJECT_MIXIN_STEP_CACHE_INFO:
+    wp_pipewire_object_mixin_cache_info (object, transition);
+    break;
+  case STEP_STREAMS:
+    wp_endpoint_enable_feature_streams (WP_ENDPOINT (object));
+    break;
+  default:
+    WP_OBJECT_CLASS (wp_endpoint_parent_class)->
+        activate_execute_step (object, transition, step, missing);
+    break;
   }
 }
 
 static void
-wp_endpoint_augment (WpProxy * proxy, WpProxyFeatures features)
+wp_endpoint_deactivate (WpObject * object, WpObjectFeatures features)
 {
-  WpEndpoint *self = WP_ENDPOINT (proxy);
+  WpEndpoint *self = WP_ENDPOINT (object);
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
 
-  /* call the parent impl first to ensure we have a pw proxy if necessary */
-  WP_PROXY_CLASS (wp_endpoint_parent_class)->augment (proxy, features);
+  wp_pipewire_object_mixin_deactivate (object, features);
 
   if (features & WP_ENDPOINT_FEATURE_STREAMS) {
-    priv->ft_streams_requested = TRUE;
-    wp_endpoint_ensure_feature_streams (self, 0);
+    g_clear_object (&priv->streams_om);
+    wp_object_update_features (object, 0, WP_ENDPOINT_FEATURE_STREAMS);
   }
-}
 
-static gconstpointer
-wp_endpoint_get_info (WpProxy * proxy)
-{
-  WpEndpoint *self = WP_ENDPOINT (proxy);
-  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
-
-  return priv->info;
-}
-
-static WpProperties *
-wp_endpoint_get_properties (WpProxy * proxy)
-{
-  WpEndpoint *self = WP_ENDPOINT (proxy);
-  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
-
-  return wp_properties_ref (priv->properties);
-}
-
-static struct spa_param_info *
-wp_endpoint_get_param_info (WpProxy * proxy, guint * n_params)
-{
-  WpEndpoint *self = WP_ENDPOINT (proxy);
-  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
-
-  *n_params = priv->info->n_params;
-  return priv->info->params;
-}
-
-static gint
-wp_endpoint_enum_params (WpProxy * self, guint32 id, guint32 start, guint32 num,
-    WpSpaPod * filter)
-{
-  WpEndpointPrivate *priv =
-      wp_endpoint_get_instance_private (WP_ENDPOINT (self));
-  return pw_endpoint_enum_params (priv->iface, 0, id,
-      start, num, filter ? wp_spa_pod_get_spa_pod (filter) : NULL);
-}
-
-static gint
-wp_endpoint_subscribe_params (WpProxy * self, guint32 *ids, guint32 n_ids)
-{
-  WpEndpointPrivate *priv =
-      wp_endpoint_get_instance_private (WP_ENDPOINT (self));
-  return pw_endpoint_subscribe_params (priv->iface, ids, n_ids);
-}
-
-static gint
-wp_endpoint_set_param (WpProxy * self, guint32 id, guint32 flags,
-    WpSpaPod *param)
-{
-  WpEndpointPrivate *priv =
-      wp_endpoint_get_instance_private (WP_ENDPOINT (self));
-  return pw_endpoint_set_param (priv->iface, id, flags,
-      wp_spa_pod_get_spa_pod (param));
+  WP_OBJECT_CLASS (wp_endpoint_parent_class)->deactivate (object, features);
 }
 
 static void
@@ -257,22 +233,17 @@ endpoint_event_info (void *data, const struct pw_endpoint_info *info)
     priv->properties = wp_properties_new_wrap_dict (priv->info->props);
   }
 
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
-  g_object_notify (G_OBJECT (self), "info");
+  wp_object_update_features (WP_OBJECT (self),
+      WP_PIPEWIRE_OBJECT_FEATURE_INFO, 0);
 
-  if (info->change_mask & PW_ENDPOINT_CHANGE_MASK_PROPS)
-    g_object_notify (G_OBJECT (self), "properties");
-
-  if (info->change_mask & PW_ENDPOINT_CHANGE_MASK_PARAMS)
-    g_object_notify (G_OBJECT (self), "param-info");
-
-  wp_endpoint_ensure_feature_streams (self, 0);
+  wp_pipewire_object_mixin_handle_event_info (self, info,
+      PW_ENDPOINT_CHANGE_MASK_PROPS, PW_ENDPOINT_CHANGE_MASK_PARAMS);
 }
 
 static const struct pw_endpoint_events endpoint_events = {
   PW_VERSION_ENDPOINT_EVENTS,
   .info = endpoint_event_info,
-  .param = wp_proxy_handle_event_param,
+  .param = wp_pipewire_object_mixin_handle_event_param,
 };
 
 static void
@@ -287,34 +258,41 @@ wp_endpoint_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 }
 
 static void
-wp_endpoint_bound (WpProxy * proxy, guint32 id)
+wp_endpoint_pw_proxy_destroyed (WpProxy * proxy)
 {
   WpEndpoint *self = WP_ENDPOINT (proxy);
-  wp_endpoint_ensure_feature_streams (self, id);
+  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
+
+  g_clear_pointer (&priv->properties, wp_properties_unref);
+  g_clear_pointer (&priv->info, pw_endpoint_info_free);
+  g_clear_object (&priv->streams_om);
+  wp_object_update_features (WP_OBJECT (proxy), 0,
+      WP_PIPEWIRE_OBJECT_FEATURE_INFO | WP_ENDPOINT_FEATURE_STREAMS);
+
+  wp_pipewire_object_mixin_deactivate (WP_OBJECT (proxy),
+      WP_OBJECT_FEATURES_ALL);
 }
 
 static void
 wp_endpoint_class_init (WpEndpointClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
+  WpObjectClass *wpobject_class = (WpObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
-  object_class->finalize = wp_endpoint_finalize;
-  object_class->get_property = wp_endpoint_get_gobj_property;
+  object_class->get_property = wp_endpoint_get_property;
+
+  wpobject_class->get_supported_features = wp_endpoint_get_supported_features;
+  wpobject_class->activate_get_next_step = wp_endpoint_activate_get_next_step;
+  wpobject_class->activate_execute_step = wp_endpoint_activate_execute_step;
+  wpobject_class->deactivate = wp_endpoint_deactivate;
 
   proxy_class->pw_iface_type = PW_TYPE_INTERFACE_Endpoint;
   proxy_class->pw_iface_version = PW_VERSION_ENDPOINT;
-
-  proxy_class->augment = wp_endpoint_augment;
-  proxy_class->get_info = wp_endpoint_get_info;
-  proxy_class->get_properties = wp_endpoint_get_properties;
-  proxy_class->get_param_info = wp_endpoint_get_param_info;
-  proxy_class->enum_params = wp_endpoint_enum_params;
-  proxy_class->subscribe_params = wp_endpoint_subscribe_params;
-  proxy_class->set_param = wp_endpoint_set_param;
-
   proxy_class->pw_proxy_created = wp_endpoint_pw_proxy_created;
-  proxy_class->bound = wp_endpoint_bound;
+  proxy_class->pw_proxy_destroyed = wp_endpoint_pw_proxy_destroyed;
+
+  wp_pipewire_object_mixin_class_override_properties (object_class);
 
   /**
    * WpEndpoint::streams-changed:
@@ -355,9 +333,68 @@ wp_endpoint_class_init (WpEndpointClass * klass)
           WP_TYPE_DIRECTION, 0, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 }
 
+static gconstpointer
+wp_endpoint_get_native_info (WpPipewireObject * obj)
+{
+  WpEndpoint *self = WP_ENDPOINT (obj);
+  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
+
+  return priv->info;
+}
+
+static WpProperties *
+wp_endpoint_get_properties (WpPipewireObject * obj)
+{
+  WpEndpoint *self = WP_ENDPOINT (obj);
+  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
+
+  return wp_properties_ref (priv->properties);
+}
+
+static GVariant *
+wp_endpoint_get_param_info (WpPipewireObject * obj)
+{
+  WpEndpoint *self = WP_ENDPOINT (obj);
+  WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
+
+  return wp_pipewire_object_mixin_param_info_to_gvariant (priv->info->params,
+      priv->info->n_params);
+}
+
+static void
+wp_endpoint_enum_params (WpPipewireObject * obj, const gchar * id,
+    WpSpaPod *filter, GCancellable * cancellable,
+    GAsyncReadyCallback callback, gpointer user_data)
+{
+  wp_pipewire_object_mixin_enum_params (pw_endpoint, obj, id, filter,
+      cancellable, callback, user_data);
+}
+
+static void
+wp_endpoint_set_param (WpPipewireObject * obj, const gchar * id,
+    WpSpaPod * param)
+{
+  wp_pipewire_object_mixin_set_param (pw_endpoint, obj, id, param);
+}
+
+static void
+wp_endpoint_pipewire_object_interface_init (
+    WpPipewireObjectInterface * iface)
+{
+  iface->get_native_info = wp_endpoint_get_native_info;
+  iface->get_properties = wp_endpoint_get_properties;
+  iface->get_param_info = wp_endpoint_get_param_info;
+  iface->enum_params = wp_endpoint_enum_params;
+  iface->enum_params_finish = wp_pipewire_object_mixin_enum_params_finish;
+  iface->enum_cached_params = wp_pipewire_object_mixin_enum_cached_params;
+  iface->set_param = wp_endpoint_set_param;
+}
+
 /**
  * wp_endpoint_get_name:
  * @self: the endpoint
+ *
+ * Requires %WP_PIPEWIRE_OBJECT_FEATURE_INFO
  *
  * Returns: the name of the endpoint
  */
@@ -365,8 +402,8 @@ const gchar *
 wp_endpoint_get_name (WpEndpoint * self)
 {
   g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
-  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
-          WP_PROXY_FEATURE_INFO, NULL);
+  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
+          WP_PIPEWIRE_OBJECT_FEATURE_INFO, NULL);
 
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
   return priv->info->name;
@@ -376,14 +413,16 @@ wp_endpoint_get_name (WpEndpoint * self)
  * wp_endpoint_get_media_class:
  * @self: the endpoint
  *
+ * Requires %WP_PIPEWIRE_OBJECT_FEATURE_INFO
+ *
  * Returns: the media class of the endpoint (ex. "Audio/Sink")
  */
 const gchar *
 wp_endpoint_get_media_class (WpEndpoint * self)
 {
   g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
-  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
-          WP_PROXY_FEATURE_INFO, NULL);
+  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
+          WP_PIPEWIRE_OBJECT_FEATURE_INFO, NULL);
 
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
   return priv->info->media_class;
@@ -393,14 +432,16 @@ wp_endpoint_get_media_class (WpEndpoint * self)
  * wp_endpoint_get_direction:
  * @self: the endpoint
  *
+ * Requires %WP_PIPEWIRE_OBJECT_FEATURE_INFO
+ *
  * Returns: the direction of this endpoint
  */
 WpDirection
 wp_endpoint_get_direction (WpEndpoint * self)
 {
   g_return_val_if_fail (WP_IS_ENDPOINT (self), 0);
-  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
-          WP_PROXY_FEATURE_INFO, 0);
+  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
+          WP_PIPEWIRE_OBJECT_FEATURE_INFO, 0);
 
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
   return (WpDirection) priv->info->direction;
@@ -418,7 +459,7 @@ guint
 wp_endpoint_get_n_streams (WpEndpoint * self)
 {
   g_return_val_if_fail (WP_IS_ENDPOINT (self), 0);
-  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
           WP_ENDPOINT_FEATURE_STREAMS, 0);
 
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
@@ -438,7 +479,7 @@ WpIterator *
 wp_endpoint_iterate_streams (WpEndpoint * self)
 {
   g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
-  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
           WP_ENDPOINT_FEATURE_STREAMS, NULL);
 
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
@@ -484,7 +525,7 @@ wp_endpoint_iterate_streams_filtered_full (WpEndpoint * self,
     WpObjectInterest * interest)
 {
   g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
-  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
           WP_ENDPOINT_FEATURE_STREAMS, NULL);
 
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
@@ -529,7 +570,7 @@ WpEndpointStream *
 wp_endpoint_lookup_stream_full (WpEndpoint * self, WpObjectInterest * interest)
 {
   g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
-  g_return_val_if_fail (wp_proxy_get_features (WP_PROXY (self)) &
+  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
           WP_ENDPOINT_FEATURE_STREAMS, NULL);
 
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
@@ -589,7 +630,6 @@ struct _WpImplEndpoint
   struct spa_interface iface;
   struct spa_hook_list hooks;
   struct pw_endpoint_info info;
-  gboolean subscribed;
 
   WpSiEndpoint *item;
 };
@@ -603,10 +643,10 @@ G_DEFINE_TYPE (WpImplEndpoint, wp_impl_endpoint, WP_TYPE_ENDPOINT)
 #define pw_endpoint_emit_info(hooks,...)  pw_endpoint_emit(hooks, info, 0, ##__VA_ARGS__)
 #define pw_endpoint_emit_param(hooks,...) pw_endpoint_emit(hooks, param, 0, ##__VA_ARGS__)
 
-static struct spa_param_info impl_param_info[] = {
-  SPA_PARAM_INFO (SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE),
-  SPA_PARAM_INFO (SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ)
-};
+// static struct spa_param_info impl_param_info[] = {
+//   SPA_PARAM_INFO (SPA_PARAM_Props, SPA_PARAM_INFO_READWRITE),
+//   SPA_PARAM_INFO (SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ)
+// };
 
 static int
 impl_add_listener(void *object,
@@ -632,57 +672,12 @@ impl_enum_params (void *object, int seq,
     uint32_t id, uint32_t start, uint32_t num,
     const struct spa_pod *filter)
 {
-  WpImplEndpoint *self = WP_IMPL_ENDPOINT (object);
-  char buf[1024];
-  struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buf, sizeof (buf));
-  struct spa_pod *result;
-  guint count = 0;
-  WpProps *props = wp_proxy_get_props (WP_PROXY (self));
-
-  switch (id) {
-    case SPA_PARAM_PropInfo: {
-      g_autoptr (WpIterator) params = wp_props_iterate_prop_info (props);
-      g_auto (GValue) item = G_VALUE_INIT;
-      guint i = 0;
-
-      for (; wp_iterator_next (params, &item); g_value_unset (&item), i++) {
-        WpSpaPod *pod = g_value_get_boxed (&item);
-        const struct spa_pod *param = wp_spa_pod_get_spa_pod (pod);
-        if (spa_pod_filter (&b, &result, param, filter) == 0) {
-          pw_endpoint_emit_param (&self->hooks, seq, id, i, i+1, result);
-          if (++count == num)
-            break;
-        }
-      }
-      break;
-    }
-    case SPA_PARAM_Props: {
-      if (start == 0) {
-        g_autoptr (WpSpaPod) pod = wp_props_get_all (props);
-        const struct spa_pod *param = wp_spa_pod_get_spa_pod (pod);
-        if (spa_pod_filter (&b, &result, param, filter) == 0) {
-          pw_endpoint_emit_param (&self->hooks, seq, id, 0, 1, result);
-        }
-      }
-      break;
-    }
-    default:
-      return -ENOENT;
-  }
-
-  return 0;
+  return -ENOENT;
 }
 
 static int
 impl_subscribe_params (void *object, uint32_t *ids, uint32_t n_ids)
 {
-  WpImplEndpoint *self = WP_IMPL_ENDPOINT (object);
-
-  for (guint i = 0; i < n_ids; i++) {
-    if (ids[i] == SPA_PARAM_Props)
-      self->subscribed = TRUE;
-    impl_enum_params (self, 1, ids[i], 0, UINT32_MAX, NULL);
-  }
   return 0;
 }
 
@@ -690,14 +685,7 @@ static int
 impl_set_param (void *object, uint32_t id, uint32_t flags,
     const struct spa_pod *param)
 {
-  WpImplEndpoint *self = WP_IMPL_ENDPOINT (object);
-
-  if (id != SPA_PARAM_Props)
-    return -ENOENT;
-
-  WpProps *props = wp_proxy_get_props (WP_PROXY (self));
-  wp_props_set (props, NULL, wp_spa_pod_new_wrap_const (param));
-  return 0;
+  return -ENOENT;
 }
 
 static void
@@ -839,7 +827,7 @@ impl_create_link (void *object, const struct spa_dict *props)
     GVariantBuilder b;
     guint64 out_stream_i, in_stream_i;
 
-    core = wp_proxy_get_core (WP_PROXY (self));
+    core = wp_object_get_core (WP_OBJECT (self));
     link = wp_session_item_make (core, "si-standard-link");
     if (!link) {
       wp_warning_object (self, "si-standard-link factory is not available");
@@ -898,14 +886,14 @@ populate_properties (WpImplEndpoint * self, WpProperties *global_props)
 
   self->info.props = priv->properties ?
       (struct spa_dict *) wp_properties_peek_dict (priv->properties) : NULL;
-
-  g_object_notify (G_OBJECT (self), "properties");
 }
 
 static void
 on_si_endpoint_properties_changed (WpSiEndpoint * item, WpImplEndpoint * self)
 {
-  populate_properties (self, wp_proxy_get_global_properties (WP_PROXY (self)));
+  populate_properties (self,
+      wp_global_proxy_get_global_properties (WP_GLOBAL_PROXY (self)));
+  g_object_notify (G_OBJECT (self), "properties");
 
   self->info.change_mask = PW_ENDPOINT_CHANGE_MASK_PROPS;
   pw_endpoint_emit_info (&self->hooks, &self->info);
@@ -927,20 +915,6 @@ wp_impl_endpoint_init (WpImplEndpoint * self)
   spa_hook_list_init (&self->hooks);
 
   priv->iface = (struct pw_endpoint *) &self->iface;
-}
-
-static void
-wp_impl_endpoint_finalize (GObject * object)
-{
-  WpImplEndpoint *self = WP_IMPL_ENDPOINT (object);
-  WpEndpointPrivate *priv =
-      wp_endpoint_get_instance_private (WP_ENDPOINT (self));
-
-  g_free (self->info.name);
-  g_free (self->info.media_class);
-  priv->info = NULL;
-
-  G_OBJECT_CLASS (wp_impl_endpoint_parent_class)->finalize (object);
 }
 
 static void
@@ -975,157 +949,189 @@ wp_impl_endpoint_get_property (GObject * object, guint property_id,
   }
 }
 
-static void
-wp_impl_endpoint_export (WpImplEndpoint *self)
+enum {
+  STEP_ACTIVATE_NODE = STEP_STREAMS + 1,
+};
+
+static guint
+wp_impl_endpoint_activate_get_next_step (WpObject * object,
+    WpFeatureActivationTransition * transition, guint step,
+    WpObjectFeatures missing)
 {
-  WpEndpointPrivate *priv =
-      wp_endpoint_get_instance_private (WP_ENDPOINT (self));
-  g_autoptr (GVariantIter) immutable_properties = NULL;
-  g_autoptr (WpProperties) properties = NULL;
-  g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (self));
-  struct pw_core *pw_core = wp_core_get_pw_core (core);
+  WpImplEndpoint *self = WP_IMPL_ENDPOINT (object);
 
-  /* no pw_core -> we are not connected */
-  if (!pw_core) {
-    wp_proxy_augment_error (WP_PROXY (self), g_error_new (WP_DOMAIN_LIBRARY,
-          WP_LIBRARY_ERROR_OPERATION_FAILED,
-          "The WirePlumber core is not connected; "
-          "object cannot be exported to PipeWire"));
-    return;
+  /* bind if not already bound */
+  if (missing & WP_PROXY_FEATURE_BOUND) {
+    g_autoptr (WpObject) node = wp_session_item_get_associated_proxy (
+        WP_SESSION_ITEM (self->item), WP_TYPE_NODE);
+
+    /* if the item has a node, cache its props so that enum_params works */
+    if (node && !(wp_object_get_active_features (node) &
+                      WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PROPS))
+      return STEP_ACTIVATE_NODE;
+    else
+      return WP_PIPEWIRE_OBJECT_MIXIN_STEP_BIND;
   }
-
-  wp_debug_object (self, "exporting");
-
-  /* get info from the interface */
-  {
-    g_autoptr (GVariant) info = NULL;
-    guchar direction;
-
-    info = wp_si_endpoint_get_registration_info (self->item);
-    g_variant_get (info, "(ssya{ss})", &self->info.name,
-        &self->info.media_class, &direction, &immutable_properties);
-
-    self->info.direction = (enum pw_direction) direction;
-    self->info.n_streams = wp_si_endpoint_get_n_streams (self->item);
-
-    /* associate with the session */
-    self->info.session_id = wp_session_item_get_associated_proxy_id (
-        WP_SESSION_ITEM (self->item), WP_TYPE_SESSION);
-  }
-
-  /* construct export properties (these will come back through
-    the registry and appear in wp_proxy_get_global_properties) */
-  properties = wp_properties_new (
-      PW_KEY_ENDPOINT_NAME, self->info.name,
-      PW_KEY_MEDIA_CLASS, self->info.media_class,
-      NULL);
-  wp_properties_setf (properties, PW_KEY_SESSION_ID,
-      "%d", self->info.session_id);
-
-  /* populate immutable (global) properties */
-  {
-    const gchar *key, *value;
-    while (g_variant_iter_next (immutable_properties, "{&s&s}", &key, &value))
-      wp_properties_set (properties, key, value);
-  }
-
-  /* populate standard properties */
-  populate_properties (self, properties);
-
-  /* subscribe to changes */
-  g_signal_connect_object (self->item, "endpoint-properties-changed",
-      G_CALLBACK (on_si_endpoint_properties_changed), self, 0);
-
-  /* finalize info struct */
-  self->info.version = PW_VERSION_ENDPOINT_INFO;
-  self->info.params = impl_param_info;
-  self->info.n_params = SPA_N_ELEMENTS (impl_param_info);
-  priv->info = &self->info;
-
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
-  g_object_notify (G_OBJECT (self), "info");
-  g_object_notify (G_OBJECT (self), "param-info");
-
-  wp_proxy_set_pw_proxy (WP_PROXY (self), pw_core_export (pw_core,
-          PW_TYPE_INTERFACE_Endpoint,
-          wp_properties_peek_dict (properties),
-          priv->iface, 0));
+  /* enable FEATURE_STREAMS when there is nothing else left to activate */
+  else if (missing == WP_ENDPOINT_FEATURE_STREAMS)
+    return STEP_STREAMS;
+  else
+    return WP_PIPEWIRE_OBJECT_MIXIN_STEP_CACHE_INFO;
 }
 
 static void
-wp_impl_endpoint_continue_feature_props (WpProxy * node, GAsyncResult * res,
-    WpImplEndpoint * self)
+wp_impl_endpoint_node_activated (WpObject * node,
+    GAsyncResult * res, WpTransition * transition)
 {
   g_autoptr (GError) error = NULL;
 
-  if (!wp_proxy_augment_finish (node, res, &error)) {
-    wp_proxy_augment_error (WP_PROXY (self), g_steal_pointer (&error));
+  if (!wp_object_activate_finish (node, res, &error)) {
+    wp_transition_return_error (transition, g_steal_pointer (&error));
     return;
   }
 
-  WpProps *props = wp_proxy_get_props (node);
-  wp_proxy_set_props (WP_PROXY (self), g_object_ref (props));
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_PROPS);
-  wp_impl_endpoint_export (self);
+  wp_transition_advance (transition);
 }
 
 static void
-wp_impl_endpoint_augment (WpProxy * proxy, WpProxyFeatures features)
+wp_impl_endpoint_activate_execute_step (WpObject * object,
+    WpFeatureActivationTransition * transition, guint step,
+    WpObjectFeatures missing)
+{
+  WpImplEndpoint *self = WP_IMPL_ENDPOINT (object);
+  WpEndpointPrivate *priv =
+      wp_endpoint_get_instance_private (WP_ENDPOINT (self));
+
+  switch (step) {
+  case STEP_ACTIVATE_NODE: {
+    g_autoptr (WpObject) node = wp_session_item_get_associated_proxy (
+        WP_SESSION_ITEM (self->item), WP_TYPE_NODE);
+
+    wp_object_activate (node,
+        WP_PROXY_FEATURE_BOUND | WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PROPS,
+        NULL, (GAsyncReadyCallback) wp_impl_endpoint_node_activated,
+        transition);
+    break;
+  }
+  case WP_PIPEWIRE_OBJECT_MIXIN_STEP_BIND: {
+    g_autoptr (GVariantIter) immutable_properties = NULL;
+    g_autoptr (WpProperties) properties = NULL;
+    g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
+    struct pw_core *pw_core = wp_core_get_pw_core (core);
+
+    /* no pw_core -> we are not connected */
+    if (!pw_core) {
+      wp_transition_return_error (WP_TRANSITION (transition), g_error_new (
+              WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+              "The WirePlumber core is not connected; "
+              "object cannot be exported to PipeWire"));
+      return;
+    }
+
+    wp_debug_object (self, "exporting");
+
+    /* get info from the interface */
+    {
+      g_autoptr (GVariant) info = NULL;
+      guchar direction;
+
+      info = wp_si_endpoint_get_registration_info (self->item);
+      g_variant_get (info, "(ssya{ss})", &self->info.name,
+          &self->info.media_class, &direction, &immutable_properties);
+
+      self->info.direction = (enum pw_direction) direction;
+      self->info.n_streams = wp_si_endpoint_get_n_streams (self->item);
+
+      /* associate with the session */
+      self->info.session_id = wp_session_item_get_associated_proxy_id (
+          WP_SESSION_ITEM (self->item), WP_TYPE_SESSION);
+    }
+
+    /* construct export properties (these will come back through
+      the registry and appear in wp_proxy_get_global_properties) */
+    properties = wp_properties_new (
+        PW_KEY_ENDPOINT_NAME, self->info.name,
+        PW_KEY_MEDIA_CLASS, self->info.media_class,
+        NULL);
+    wp_properties_setf (properties, PW_KEY_SESSION_ID,
+        "%d", self->info.session_id);
+
+    /* populate immutable (global) properties */
+    {
+      const gchar *key, *value;
+      while (g_variant_iter_next (immutable_properties, "{&s&s}", &key, &value))
+        wp_properties_set (properties, key, value);
+    }
+
+    /* populate standard properties */
+    populate_properties (self, properties);
+
+    /* subscribe to changes */
+    g_signal_connect_object (self->item, "endpoint-properties-changed",
+        G_CALLBACK (on_si_endpoint_properties_changed), self, 0);
+
+    /* finalize info struct */
+    self->info.version = PW_VERSION_ENDPOINT_INFO;
+    self->info.params = NULL;
+    self->info.n_params = 0;
+    priv->info = &self->info;
+
+    /* bind */
+    wp_proxy_set_pw_proxy (WP_PROXY (self), pw_core_export (pw_core,
+            PW_TYPE_INTERFACE_Endpoint,
+            wp_properties_peek_dict (properties),
+            priv->iface, 0));
+
+    /* notify */
+    wp_object_update_features (object,
+        WP_PIPEWIRE_OBJECT_FEATURE_INFO
+        /*| WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PROPS */, 0);
+    g_object_notify (G_OBJECT (self), "properties");
+    g_object_notify (G_OBJECT (self), "param-info");
+
+    break;
+  }
+  default:
+    WP_OBJECT_CLASS (wp_impl_endpoint_parent_class)->
+        activate_execute_step (object, transition, step, missing);
+    break;
+  }
+}
+
+static void
+wp_impl_endpoint_pw_proxy_destroyed (WpProxy * proxy)
 {
   WpImplEndpoint *self = WP_IMPL_ENDPOINT (proxy);
   WpEndpointPrivate *priv =
       wp_endpoint_get_instance_private (WP_ENDPOINT (self));
 
-  /* if any of these features are requested, export,
-     after ensuring that we have a WpProps so that enum_params works */
-  if (features & (WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_PROPS)) {
-    g_autoptr (WpProxy) node = wp_session_item_get_associated_proxy (
-        WP_SESSION_ITEM (self->item), WP_TYPE_NODE);
-
-    if (node) {
-      /* if the item has a node, use the props of that node */
-      wp_proxy_augment (node, WP_PROXY_FEATURE_PROPS, NULL,
-          (GAsyncReadyCallback) wp_impl_endpoint_continue_feature_props, self);
-    } else {
-      /* else install an empty WpProps */
-      WpProps *props = wp_props_new (WP_PROPS_MODE_STORE, proxy);
-      wp_proxy_set_props (proxy, props);
-      wp_proxy_set_feature_ready (proxy, WP_PROXY_FEATURE_PROPS);
-      wp_impl_endpoint_export (self);
-    }
-  }
-
-  if (features & WP_ENDPOINT_FEATURE_STREAMS) {
-    priv->ft_streams_requested = TRUE;
-    wp_endpoint_ensure_feature_streams (WP_ENDPOINT (self), 0);
-  }
-}
-
-static void
-wp_impl_endpoint_prop_changed (WpProxy * proxy, const gchar * prop_name)
-{
-  WpImplEndpoint *self = WP_IMPL_ENDPOINT (proxy);
-
-  /* notify subscribers */
-  if (self->subscribed)
-    impl_enum_params (self, 1, SPA_PARAM_Props, 0, UINT32_MAX, NULL);
+  g_signal_handlers_disconnect_by_data (self->item, self);
+  g_clear_pointer (&priv->properties, wp_properties_unref);
+  g_clear_pointer (&self->info.name, g_free);
+  g_clear_pointer (&self->info.media_class, g_free);
+  priv->info = NULL;
+  wp_object_update_features (WP_OBJECT (proxy), 0,
+      WP_PIPEWIRE_OBJECT_FEATURE_INFO
+      /*| WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PROPS */);
 }
 
 static void
 wp_impl_endpoint_class_init (WpImplEndpointClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
+  WpObjectClass *wpobject_class = (WpObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
-  object_class->finalize = wp_impl_endpoint_finalize;
   object_class->set_property = wp_impl_endpoint_set_property;
   object_class->get_property = wp_impl_endpoint_get_property;
 
-  proxy_class->augment = wp_impl_endpoint_augment;
-  proxy_class->enum_params = NULL;
-  proxy_class->subscribe_params = NULL;
+  wpobject_class->activate_get_next_step =
+      wp_impl_endpoint_activate_get_next_step;
+  wpobject_class->activate_execute_step =
+      wp_impl_endpoint_activate_execute_step;
+
   proxy_class->pw_proxy_created = NULL;
-  proxy_class->prop_changed = wp_impl_endpoint_prop_changed;
+  proxy_class->pw_proxy_destroyed = wp_impl_endpoint_pw_proxy_destroyed;
 
   g_object_class_install_property (object_class, IMPL_PROP_ITEM,
       g_param_spec_object ("item", "item", "item", WP_TYPE_SI_ENDPOINT,

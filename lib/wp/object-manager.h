@@ -10,7 +10,7 @@
 #define __WIREPLUMBER_OBJECT_MANAGER_H__
 
 #include <glib-object.h>
-#include "proxy.h"
+#include "object.h"
 #include "iterator.h"
 #include "object-interest.h"
 
@@ -43,11 +43,11 @@ WP_API
 void wp_object_manager_add_interest_full (WpObjectManager * self,
     WpObjectInterest * interest);
 
-/* proxy features */
+/* object features */
 
 WP_API
-void wp_object_manager_request_proxy_features (WpObjectManager *self,
-    GType proxy_type, WpProxyFeatures wanted_features);
+void wp_object_manager_request_object_features (WpObjectManager *self,
+    GType object_type, WpObjectFeatures wanted_features);
 
 /* object inspection */
 

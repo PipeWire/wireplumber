@@ -9,7 +9,7 @@
 #ifndef __WIREPLUMBER_ENDPOINT_LINK_H__
 #define __WIREPLUMBER_ENDPOINT_LINK_H__
 
-#include "proxy.h"
+#include "global-proxy.h"
 
 G_BEGIN_DECLS
 
@@ -35,11 +35,11 @@ typedef enum {
 #define WP_TYPE_ENDPOINT_LINK (wp_endpoint_link_get_type ())
 WP_API
 G_DECLARE_DERIVABLE_TYPE (WpEndpointLink, wp_endpoint_link,
-                          WP, ENDPOINT_LINK, WpProxy)
+                          WP, ENDPOINT_LINK, WpGlobalProxy)
 
 struct _WpEndpointLinkClass
 {
-  WpProxyClass parent_class;
+  WpGlobalProxyClass parent_class;
 };
 
 WP_API

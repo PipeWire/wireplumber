@@ -218,7 +218,7 @@ format_message (struct common_fields *cf)
     spa_dbg_str = NULL;
   }
   else if (cf->object && g_type_is_a (cf->object_type, WP_TYPE_PROXY) &&
-      (wp_proxy_get_features ((WpProxy *) cf->object) & WP_PROXY_FEATURE_BOUND)) {
+      (wp_object_get_active_features ((WpObject *) cf->object) & WP_PROXY_FEATURE_BOUND)) {
     extra_object = g_strdup_printf (":%u:",
         wp_proxy_get_bound_id ((WpProxy *) cf->object));
   }

@@ -7,20 +7,18 @@
  */
 
 /**
- * SECTION: WpMetadata
- *
- * The #WpMetadata class allows accessing the properties and methods of
- * Pipewire metadata object (`struct pw_metadata`).
- *
+ * SECTION: metadata
+ * @title: PipeWire Metadata
  */
 
 #define G_LOG_DOMAIN "wp-metadata"
 
 #include "metadata.h"
+#include "core.h"
 #include "debug.h"
-#include "private.h"
 #include "error.h"
 #include "wpenums.h"
+#include "private.h"
 
 #include <pipewire/pipewire.h>
 #include <pipewire/extensions/metadata.h>
@@ -114,7 +112,13 @@ struct _WpMetadataPrivate
   struct pw_array metadata;
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE (WpMetadata, wp_metadata, WP_TYPE_PROXY)
+/**
+ * WpMetadata:
+ *
+ * The #WpMetadata class allows accessing the properties and methods of
+ * PipeWire metadata object (`struct pw_metadata`).
+ */
+G_DEFINE_TYPE_WITH_PRIVATE (WpMetadata, wp_metadata, WP_TYPE_GLOBAL_PROXY)
 
 static void
 wp_metadata_init (WpMetadata * self)
@@ -129,10 +133,52 @@ wp_metadata_finalize (GObject * object)
   WpMetadataPrivate *priv =
       wp_metadata_get_instance_private (WP_METADATA (object));
 
-  clear_items (&priv->metadata);
   pw_array_clear (&priv->metadata);
 
   G_OBJECT_CLASS (wp_metadata_parent_class)->finalize (object);
+}
+
+static WpObjectFeatures
+wp_metadata_get_supported_features (WpObject * object)
+{
+  return WP_PROXY_FEATURE_BOUND | WP_METADATA_FEATURE_DATA;
+}
+
+enum {
+  STEP_BIND = WP_TRANSITION_STEP_CUSTOM_START,
+  STEP_CACHE
+};
+
+static guint
+wp_metadata_activate_get_next_step (WpObject * object,
+    WpFeatureActivationTransition * transition, guint step,
+    WpObjectFeatures missing)
+{
+  g_return_val_if_fail (
+      missing & (WP_PROXY_FEATURE_BOUND | WP_METADATA_FEATURE_DATA),
+      WP_TRANSITION_STEP_ERROR);
+
+  /* bind if not already bound */
+  if (missing & WP_PROXY_FEATURE_BOUND)
+    return STEP_BIND;
+  else
+    return STEP_CACHE;
+}
+
+static void
+wp_metadata_activate_execute_step (WpObject * object,
+    WpFeatureActivationTransition * transition, guint step,
+    WpObjectFeatures missing)
+{
+  switch (step) {
+  case STEP_CACHE:
+    /* just wait for initial_sync_done() */
+    break;
+  default:
+    WP_OBJECT_CLASS (wp_metadata_parent_class)->
+        activate_execute_step (object, transition, step, missing);
+    break;
+  }
 }
 
 static int
@@ -194,7 +240,7 @@ initial_sync_done (WpCore * core, GAsyncResult * res, WpMetadata * self)
     return;
   }
 
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
+  wp_object_update_features (WP_OBJECT (self), WP_METADATA_FEATURE_DATA, 0);
 }
 
 static void
@@ -202,7 +248,7 @@ wp_metadata_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 {
   WpMetadata *self = WP_METADATA (proxy);
   WpMetadataPrivate *priv = wp_metadata_get_instance_private (self);
-  g_autoptr (WpCore) core = wp_proxy_get_core (proxy);
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
 
   priv->iface = (struct pw_metadata *) pw_proxy;
   pw_metadata_add_listener (priv->iface, &priv->listener,
@@ -211,17 +257,32 @@ wp_metadata_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 }
 
 static void
+wp_metadata_pw_proxy_destroyed (WpProxy * proxy)
+{
+  WpMetadata *self = WP_METADATA (proxy);
+  WpMetadataPrivate *priv = wp_metadata_get_instance_private (self);
+
+  clear_items (&priv->metadata);
+  wp_object_update_features (WP_OBJECT (self), 0, WP_METADATA_FEATURE_DATA);
+}
+
+static void
 wp_metadata_class_init (WpMetadataClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
+  WpObjectClass *wpobject_class = (WpObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
   object_class->finalize = wp_metadata_finalize;
 
+  wpobject_class->get_supported_features = wp_metadata_get_supported_features;
+  wpobject_class->activate_get_next_step = wp_metadata_activate_get_next_step;
+  wpobject_class->activate_execute_step = wp_metadata_activate_execute_step;
+
   proxy_class->pw_iface_type = PW_TYPE_INTERFACE_Metadata;
   proxy_class->pw_iface_version = PW_VERSION_METADATA;
-
   proxy_class->pw_proxy_created = wp_metadata_pw_proxy_created;
+  proxy_class->pw_proxy_destroyed = wp_metadata_pw_proxy_destroyed;
 
   signals[SIGNAL_CHANGED] = g_signal_new ("changed", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 4,
@@ -421,6 +482,13 @@ struct _WpImplMetadata
   struct spa_hook_list hooks;
 };
 
+/**
+ * WpImplMetadata:
+ *
+ * The #WpImplMetadata class implements a PipeWire metadata object. It can
+ * be exported and made available by requesting the %WP_PROXY_FEATURE_BOUND
+ * feature.
+ */
 G_DEFINE_TYPE (WpImplMetadata, wp_impl_metadata, WP_TYPE_METADATA)
 
 #define pw_metadata_emit(hooks,method,version,...) \
@@ -500,7 +568,19 @@ wp_impl_metadata_init (WpImplMetadata * self)
   spa_hook_list_init (&self->hooks);
 
   priv->iface = (struct pw_metadata *) &self->iface;
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
+  wp_object_update_features (WP_OBJECT (self), WP_METADATA_FEATURE_DATA, 0);
+}
+
+static void
+wp_impl_metadata_dispose (GObject * object)
+{
+  WpMetadataPrivate *priv =
+      wp_metadata_get_instance_private (WP_METADATA (object));
+
+  clear_items (&priv->metadata);
+  wp_object_update_features (WP_OBJECT (object), 0, WP_METADATA_FEATURE_DATA);
+
+  G_OBJECT_CLASS (wp_impl_metadata_parent_class)->dispose (object);
 }
 
 static void
@@ -513,44 +593,68 @@ wp_impl_metadata_on_changed (WpImplMetadata * self, guint32 subject,
 }
 
 static void
-wp_impl_metadata_augment (WpProxy * proxy, WpProxyFeatures features)
+wp_impl_metadata_activate_execute_step (WpObject * object,
+    WpFeatureActivationTransition * transition, guint step,
+    WpObjectFeatures missing)
 {
-  WpImplMetadata *self = WP_IMPL_METADATA (proxy);
+  WpImplMetadata *self = WP_IMPL_METADATA (object);
   WpMetadataPrivate *priv =
       wp_metadata_get_instance_private (WP_METADATA (self));
 
-  /* PW_PROXY depends on BOUND */
-  if (features & WP_PROXY_FEATURE_PW_PROXY)
-    features |= WP_PROXY_FEATURE_BOUND;
-
-  if (features & WP_PROXY_FEATURE_BOUND) {
-    g_autoptr (WpCore) core = wp_proxy_get_core (proxy);
+  switch (step) {
+  case STEP_BIND: {
+    g_autoptr (WpCore) core = wp_object_get_core (object);
     struct pw_core *pw_core = wp_core_get_pw_core (core);
 
     /* no pw_core -> we are not connected */
     if (!pw_core) {
-      wp_proxy_augment_error (proxy, g_error_new (WP_DOMAIN_LIBRARY,
-              WP_LIBRARY_ERROR_OPERATION_FAILED,
+      wp_transition_return_error (WP_TRANSITION (transition), g_error_new (
+              WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
               "The WirePlumber core is not connected; "
               "object cannot be exported to PipeWire"));
       return;
     }
 
-    wp_proxy_set_pw_proxy (proxy, pw_core_export (pw_core,
+    wp_proxy_set_pw_proxy (WP_PROXY (self), pw_core_export (pw_core,
             PW_TYPE_INTERFACE_Metadata,
             NULL, priv->iface, 0));
     g_signal_connect (self, "changed",
         (GCallback) wp_impl_metadata_on_changed, NULL);
+    break;
   }
+  case STEP_CACHE:
+    /* never reached because WP_METADATA_FEATURE_DATA is always enabled */
+    g_assert_not_reached ();
+    break;
+  default:
+    WP_OBJECT_CLASS (wp_impl_metadata_parent_class)->
+        activate_execute_step (object, transition, step, missing);
+    break;
+  }
+}
+
+static void
+wp_impl_metadata_pw_proxy_destroyed (WpProxy * proxy)
+{
+  g_signal_handlers_disconnect_by_func (proxy,
+      (GCallback) wp_impl_metadata_on_changed, NULL);
 }
 
 static void
 wp_impl_metadata_class_init (WpImplMetadataClass * klass)
 {
+  GObjectClass *object_class = (GObjectClass *) klass;
+  WpObjectClass *wpobject_class = (WpObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
-  proxy_class->augment = wp_impl_metadata_augment;
+  object_class->dispose = wp_impl_metadata_dispose;
+
+  wpobject_class->activate_execute_step =
+      wp_impl_metadata_activate_execute_step;
+
+  /* disable adding a listener for events */
   proxy_class->pw_proxy_created = NULL;
+  proxy_class->pw_proxy_destroyed = wp_impl_metadata_pw_proxy_destroyed;
 }
 
 WpImplMetadata *

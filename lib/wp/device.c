@@ -7,7 +7,31 @@
  */
 
 /**
- * SECTION: WpDevice
+ * SECTION: device
+ * @title: PipeWire Device
+ */
+
+#define G_LOG_DOMAIN "wp-device"
+
+#include "device.h"
+#include "node.h"
+#include "core.h"
+#include "private/pipewire-object-mixin.h"
+
+#include <pipewire/impl.h>
+#include <spa/monitor/device.h>
+
+struct _WpDevice
+{
+  WpGlobalProxy parent;
+  struct pw_device_info *info;
+  struct spa_hook listener;
+};
+
+static void wp_device_pipewire_object_interface_init (WpPipewireObjectInterface * iface);
+
+/**
+ * WpDevice:
  *
  * The #WpDevice class allows accessing the properties and methods of a
  * PipeWire device object (`struct pw_device`).
@@ -17,154 +41,156 @@
  * Alternatively, a #WpDevice can also be constructed using
  * wp_device_new_from_factory(), which creates a new device object
  * on the remote PipeWire server by calling into a factory.
- *
- * A #WpSpaDevice allows running a `spa_device` object locally,
- * loading the implementation from a SPA factory. This is useful to run device
- * monitors inside the session manager and have control over creating the
- * actual nodes that the `spa_device` requests to create.
  */
-
-#define G_LOG_DOMAIN "wp-device"
-
-#include "device.h"
-#include "debug.h"
-#include "node.h"
-#include "error.h"
-#include "private.h"
-
-#include <pipewire/pipewire.h>
-#include <pipewire/impl.h>
-#include <spa/monitor/device.h>
-#include <spa/utils/result.h>
-
-struct _WpDevice
-{
-  WpProxy parent;
-};
-
-typedef struct _WpDevicePrivate WpDevicePrivate;
-struct _WpDevicePrivate
-{
-  struct pw_device_info *info;
-  struct spa_hook listener;
-};
-
-G_DEFINE_TYPE_WITH_PRIVATE (WpDevice, wp_device, WP_TYPE_PROXY)
+G_DEFINE_TYPE_WITH_CODE (WpDevice, wp_device, WP_TYPE_GLOBAL_PROXY,
+    G_IMPLEMENT_INTERFACE (WP_TYPE_PIPEWIRE_OBJECT, wp_device_pipewire_object_interface_init));
 
 static void
 wp_device_init (WpDevice * self)
 {
 }
 
-static void
-wp_device_finalize (GObject * object)
+static WpObjectFeatures
+wp_device_get_supported_features (WpObject * object)
 {
   WpDevice *self = WP_DEVICE (object);
-  WpDevicePrivate *priv = wp_device_get_instance_private (self);
 
-  g_clear_pointer (&priv->info, pw_device_info_free);
-
-  G_OBJECT_CLASS (wp_device_parent_class)->finalize (object);
+  return WP_PROXY_FEATURE_BOUND | WP_PIPEWIRE_OBJECT_FEATURE_INFO |
+      wp_pipewire_object_mixin_param_info_to_features (
+          self->info ? self->info->params : NULL,
+          self->info ? self->info->n_params : 0);
 }
 
-static gconstpointer
-wp_device_get_info (WpProxy * self)
+static void
+wp_device_activate_execute_step (WpObject * object,
+    WpFeatureActivationTransition * transition, guint step,
+    WpObjectFeatures missing)
 {
-  WpDevicePrivate *priv = wp_device_get_instance_private (WP_DEVICE (self));
-  return priv->info;
+  switch (step) {
+  case WP_PIPEWIRE_OBJECT_MIXIN_STEP_CACHE_INFO:
+    wp_pipewire_object_mixin_cache_info (object, transition);
+    break;
+  default:
+    WP_OBJECT_CLASS (wp_device_parent_class)->
+        activate_execute_step (object, transition, step, missing);
+    break;
+  }
 }
 
-static WpProperties *
-wp_device_get_properties (WpProxy * self)
+static void
+wp_device_deactivate (WpObject * object, WpObjectFeatures features)
 {
-  WpDevicePrivate *priv = wp_device_get_instance_private (WP_DEVICE (self));
-  return wp_properties_new_wrap_dict (priv->info->props);
-}
+  wp_pipewire_object_mixin_deactivate (object, features);
 
-struct spa_param_info *
-wp_device_get_param_info (WpProxy * self, guint * n_params)
-{
-  WpDevicePrivate *priv = wp_device_get_instance_private (WP_DEVICE (self));
-  *n_params = priv->info->n_params;
-  return priv->info->params;
-}
-
-static gint
-wp_device_enum_params (WpProxy * self, guint32 id, guint32 start,
-    guint32 num, WpSpaPod * filter)
-{
-  struct pw_device *pwp = (struct pw_device *) wp_proxy_get_pw_proxy (self);
-  return pw_device_enum_params (pwp, 0, id, start, num,
-      filter ? wp_spa_pod_get_spa_pod (filter) : NULL);
-}
-
-static gint
-wp_device_subscribe_params (WpProxy * self, guint32 *ids, guint32 n_ids)
-{
-  struct pw_device *pwp = (struct pw_device *) wp_proxy_get_pw_proxy (self);
-  return pw_device_subscribe_params (pwp, ids, n_ids);
-}
-
-static gint
-wp_device_set_param (WpProxy * self, guint32 id, guint32 flags, WpSpaPod *param)
-{
-  struct pw_device *pwp = (struct pw_device *) wp_proxy_get_pw_proxy (self);
-  return pw_device_set_param (pwp, id, flags,
-      wp_spa_pod_get_spa_pod (param));
+  WP_OBJECT_CLASS (wp_device_parent_class)->deactivate (object, features);
 }
 
 static void
 device_event_info(void *data, const struct pw_device_info *info)
 {
   WpDevice *self = WP_DEVICE (data);
-  WpDevicePrivate *priv = wp_device_get_instance_private (self);
 
-  priv->info = pw_device_info_update (priv->info, info);
-  wp_proxy_set_feature_ready (WP_PROXY (self), WP_PROXY_FEATURE_INFO);
+  self->info = pw_device_info_update (self->info, info);
+  wp_object_update_features (WP_OBJECT (self),
+      WP_PIPEWIRE_OBJECT_FEATURE_INFO, 0);
 
-  g_object_notify (G_OBJECT (self), "info");
-
-  if (info->change_mask & PW_DEVICE_CHANGE_MASK_PROPS)
-    g_object_notify (G_OBJECT (self), "properties");
-
-  if (info->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS)
-    g_object_notify (G_OBJECT (self), "param-info");
+  wp_pipewire_object_mixin_handle_event_info (self, info,
+      PW_DEVICE_CHANGE_MASK_PROPS, PW_DEVICE_CHANGE_MASK_PARAMS);
 }
 
 static const struct pw_device_events device_events = {
   PW_VERSION_DEVICE_EVENTS,
   .info = device_event_info,
-  .param = wp_proxy_handle_event_param,
+  .param = wp_pipewire_object_mixin_handle_event_param,
 };
 
 static void
 wp_device_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 {
   WpDevice *self = WP_DEVICE (proxy);
-  WpDevicePrivate *priv = wp_device_get_instance_private (self);
-  pw_device_add_listener ((struct pw_device *) pw_proxy,
-      &priv->listener, &device_events, self);
+  pw_device_add_listener ((struct pw_port *) pw_proxy,
+      &self->listener, &device_events, self);
+}
+
+static void
+wp_device_pw_proxy_destroyed (WpProxy * proxy)
+{
+  g_clear_pointer (&WP_DEVICE (proxy)->info, pw_device_info_free);
+  wp_object_update_features (WP_OBJECT (proxy), 0,
+      WP_PIPEWIRE_OBJECT_FEATURE_INFO);
+
+  wp_pipewire_object_mixin_deactivate (WP_OBJECT (proxy),
+      WP_OBJECT_FEATURES_ALL);
 }
 
 static void
 wp_device_class_init (WpDeviceClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
+  WpObjectClass *wpobject_class = (WpObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
-  object_class->finalize = wp_device_finalize;
+  object_class->get_property = wp_pipewire_object_mixin_get_property;
+
+  wpobject_class->get_supported_features = wp_device_get_supported_features;
+  wpobject_class->activate_get_next_step =
+      wp_pipewire_object_mixin_activate_get_next_step;
+  wpobject_class->activate_execute_step = wp_device_activate_execute_step;
+  wpobject_class->deactivate = wp_device_deactivate;
 
   proxy_class->pw_iface_type = PW_TYPE_INTERFACE_Device;
   proxy_class->pw_iface_version = PW_VERSION_DEVICE;
-
-  proxy_class->get_info = wp_device_get_info;
-  proxy_class->get_properties = wp_device_get_properties;
-  proxy_class->get_param_info = wp_device_get_param_info;
-  proxy_class->enum_params = wp_device_enum_params;
-  proxy_class->subscribe_params = wp_device_subscribe_params;
-  proxy_class->set_param = wp_device_set_param;
-
   proxy_class->pw_proxy_created = wp_device_pw_proxy_created;
+  proxy_class->pw_proxy_destroyed = wp_device_pw_proxy_destroyed;
+
+  wp_pipewire_object_mixin_class_override_properties (object_class);
+}
+
+static gconstpointer
+wp_device_get_native_info (WpPipewireObject * obj)
+{
+  return WP_DEVICE (obj)->info;
+}
+
+static WpProperties *
+wp_device_get_properties (WpPipewireObject * obj)
+{
+  return wp_properties_new_wrap_dict (WP_DEVICE (obj)->info->props);
+}
+
+static GVariant *
+wp_device_get_param_info (WpPipewireObject * obj)
+{
+  WpDevice *self = WP_DEVICE (obj);
+  return wp_pipewire_object_mixin_param_info_to_gvariant (self->info->params,
+      self->info->n_params);
+}
+
+static void
+wp_device_enum_params (WpPipewireObject * obj, const gchar * id,
+    WpSpaPod *filter, GCancellable * cancellable,
+    GAsyncReadyCallback callback, gpointer user_data)
+{
+  wp_pipewire_object_mixin_enum_params (pw_device, obj, id, filter, cancellable,
+      callback, user_data);
+}
+
+static void
+wp_device_set_param (WpPipewireObject * obj, const gchar * id, WpSpaPod * param)
+{
+  wp_pipewire_object_mixin_set_param (pw_device, obj, id, param);
+}
+
+static void
+wp_device_pipewire_object_interface_init (WpPipewireObjectInterface * iface)
+{
+  iface->get_native_info = wp_device_get_native_info;
+  iface->get_properties = wp_device_get_properties;
+  iface->get_param_info = wp_device_get_param_info;
+  iface->enum_params = wp_device_enum_params;
+  iface->enum_params_finish = wp_pipewire_object_mixin_enum_params_finish;
+  iface->enum_cached_params = wp_pipewire_object_mixin_enum_cached_params;
+  iface->set_param = wp_device_set_param;
 }
 
 /**
@@ -178,9 +204,9 @@ wp_device_class_init (WpDeviceClass * klass)
  *
  * Because of the nature of the PipeWire protocol, this operation completes
  * asynchronously at some point in the future. In order to find out when
- * this is done, you should call wp_proxy_augment(), requesting at least
+ * this is done, you should call wp_object_activate(), requesting at least
  * %WP_PROXY_FEATURE_BOUND. When this feature is ready, the device is ready for
- * use on the server. If the device cannot be created, this augment operation
+ * use on the server. If the device cannot be created, this activation operation
  * will fail.
  *
  * Returns: (nullable) (transfer full): the new device or %NULL if the core
@@ -235,6 +261,14 @@ enum
 
 static guint spa_device_signals[SPA_DEVICE_LAST_SIGNAL] = { 0 };
 
+/**
+ * WpSpaDevice:
+ *
+ * A #WpSpaDevice allows running a `spa_device` object locally,
+ * loading the implementation from a SPA factory. This is useful to run device
+ * monitors inside the session manager and have control over creating the
+ * actual nodes that the `spa_device` requests to create.
+ */
 G_DEFINE_TYPE (WpSpaDevice, wp_spa_device, G_TYPE_OBJECT)
 
 static void

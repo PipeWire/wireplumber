@@ -1,7 +1,6 @@
 /* WirePlumber
  *
- * Copyright © 2019 Collabora Ltd.
- *    @author Julian Bouzas <julian.bouzas@collabora.com>
+ * Copyright © 2020 Collabora Ltd.
  *    @author George Kiagiadakis <george.kiagiadakis@collabora.com>
  *
  * SPDX-License-Identifier: MIT
@@ -10,50 +9,54 @@
 #ifndef __WIREPLUMBER_PROXY_H__
 #define __WIREPLUMBER_PROXY_H__
 
-#include <gio/gio.h>
-
-#include "spa-pod.h"
-#include "properties.h"
+#include "object.h"
 
 G_BEGIN_DECLS
 
 struct pw_proxy;
-struct spa_param_info;
-typedef struct _WpCore WpCore;
 
 /**
  * WpProxyFeatures:
  *
- * Flags that specify functionality that is available on this class.
- * Use wp_proxy_augment() to enable more features and wp_proxy_get_features()
- * to find out which features are already enabled.
- *
- * Subclasses may also specify additional features that can be ORed with these
- * ones and they can also be enabled with wp_proxy_augment().
+ * Flags to be used as #WpObjectFeatures for #WpProxy subclasses.
  */
 typedef enum { /*< flags >*/
   /* standard features */
-  WP_PROXY_FEATURE_PW_PROXY     = (1 << 0),
-  WP_PROXY_FEATURE_INFO         = (1 << 1),
-  WP_PROXY_FEATURE_BOUND        = (1 << 2),
+  WP_PROXY_FEATURE_BOUND                       = (1 << 0),
 
-  /* param caching features */
-  WP_PROXY_FEATURE_PROPS        = (1 << 3),
+  /* WpPipewireObjectInterface */
+  WP_PIPEWIRE_OBJECT_FEATURE_INFO              = (1 << 4),
+  WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PROPS       = (1 << 5),
+  WP_PIPEWIRE_OBJECT_FEATURE_PARAM_FORMAT      = (1 << 6),
+  WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PROFILE     = (1 << 7),
+  WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PORT_CONFIG = (1 << 8),
+  WP_PIPEWIRE_OBJECT_FEATURE_PARAM_ROUTE       = (1 << 9),
 
-  WP_PROXY_FEATURE_LAST         = (1 << 16), /*< skip >*/
+  WP_PROXY_FEATURE_CUSTOM_START                = (1 << 16), /*< skip >*/
 } WpProxyFeatures;
 
 /**
- * WP_PROXY_FEATURES_STANDARD:
+ * WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL:
  *
- * A constant set of features that contains the standard features that are
- * available in the #WpProxy class. The standard features are usually all
- * enabled at once, even if not requested explicitly. It is a good practice,
- * though, to enable only the features that you actually need. This leaves
- * room for optimizations in the #WpProxy class.
+ * The minimal feature set for proxies implementing #WpPipewireObject.
+ * This is a subset of #WP_PIPEWIRE_OBJECT_FEATURES_ALL
  */
-#define WP_PROXY_FEATURES_STANDARD \
-    (WP_PROXY_FEATURE_PW_PROXY | WP_PROXY_FEATURE_INFO | WP_PROXY_FEATURE_BOUND)
+static const WpObjectFeatures WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL =
+    (WP_PROXY_FEATURE_BOUND | WP_PIPEWIRE_OBJECT_FEATURE_INFO);
+
+/**
+ * WP_PIPEWIRE_OBJECT_FEATURES_ALL:
+ *
+ * The complete common feature set for proxies implementing #WpPipewireObject.
+ * This is a subset of #WP_OBJECT_FEATURES_ALL
+ */
+static const WpObjectFeatures WP_PIPEWIRE_OBJECT_FEATURES_ALL =
+    (WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL |
+     WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PROPS |
+     WP_PIPEWIRE_OBJECT_FEATURE_PARAM_FORMAT |
+     WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PROFILE |
+     WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PORT_CONFIG |
+     WP_PIPEWIRE_OBJECT_FEATURE_PARAM_ROUTE);
 
 /**
  * WP_TYPE_PROXY:
@@ -62,7 +65,7 @@ typedef enum { /*< flags >*/
  */
 #define WP_TYPE_PROXY (wp_proxy_get_type ())
 WP_API
-G_DECLARE_DERIVABLE_TYPE (WpProxy, wp_proxy, WP, PROXY, GObject)
+G_DECLARE_DERIVABLE_TYPE (WpProxy, wp_proxy, WP, PROXY, WpObject)
 
 /**
  * WpProxyClass:
@@ -73,110 +76,28 @@ G_DECLARE_DERIVABLE_TYPE (WpProxy, wp_proxy, WP, PROXY, GObject)
  */
 struct _WpProxyClass
 {
-  GObjectClass parent_class;
+  WpObjectClass parent_class;
 
   const gchar * pw_iface_type;
   guint32 pw_iface_version;
-
-  void (*augment) (WpProxy *self, WpProxyFeatures features);
-
-  gconstpointer (*get_info) (WpProxy * self);
-  WpProperties * (*get_properties) (WpProxy * self);
-  struct spa_param_info * (*get_param_info) (WpProxy * self, guint * n_params);
-
-  gint (*enum_params) (WpProxy * self, guint32 id, guint32 start, guint32 num,
-      WpSpaPod * filter);
-  gint (*subscribe_params) (WpProxy * self, guint32 *ids, guint32 n_ids);
-  gint (*set_param) (WpProxy * self, guint32 id, guint32 flags,
-      WpSpaPod * param);
 
   /* signals */
 
   void (*pw_proxy_created) (WpProxy * self, struct pw_proxy * proxy);
   void (*pw_proxy_destroyed) (WpProxy * self);
   void (*bound) (WpProxy * self, guint32 id);
-  void (*prop_changed) (WpProxy * self, const gchar * prop_name);
 };
-
-WP_API
-void wp_proxy_request_destroy (WpProxy * self);
-
-/* features API */
-
-WP_API
-void wp_proxy_augment (WpProxy *self,
-    WpProxyFeatures wanted_features, GCancellable * cancellable,
-    GAsyncReadyCallback callback, gpointer user_data);
-
-WP_API
-gboolean wp_proxy_augment_finish (WpProxy * self, GAsyncResult * res,
-    GError ** error);
-
-WP_API
-WpProxyFeatures wp_proxy_get_features (WpProxy * self);
-
-/* the owner core */
-
-WP_API
-WpCore * wp_proxy_get_core (WpProxy * self);
-
-/* global object API */
-
-WP_API
-guint32 wp_proxy_get_global_permissions (WpProxy * self);
-
-WP_API
-WpProperties * wp_proxy_get_global_properties (WpProxy * self);
-
-/* native pw_proxy object getter (requires FEATURE_PW_PROXY) */
-
-WP_API
-struct pw_proxy * wp_proxy_get_pw_proxy (WpProxy * self);
-
-/* native info structure + wrappers (requires FEATURE_INFO) */
-
-WP_API
-gconstpointer wp_proxy_get_info (WpProxy * self);
-
-WP_API
-WpProperties * wp_proxy_get_properties (WpProxy * self);
-
-WP_API
-const gchar * wp_proxy_get_property (WpProxy * self, const gchar * key);
-
-WP_API
-GVariant * wp_proxy_get_param_info (WpProxy * self);
-
-/* the bound id (aka global id, requires FEATURE_BOUND) */
 
 WP_API
 guint32 wp_proxy_get_bound_id (WpProxy * self);
 
-/* params API */
+WP_API
+struct pw_proxy * wp_proxy_get_pw_proxy (WpProxy * self);
+
+/* for subclasses only */
 
 WP_API
-void wp_proxy_enum_params (WpProxy * self, const gchar * id, WpSpaPod *filter,
-    GCancellable * cancellable, GAsyncReadyCallback callback,
-    gpointer user_data);
-
-WP_API
-WpIterator * wp_proxy_enum_params_finish (WpProxy * self, GAsyncResult * res,
-    GError ** error);
-
-WP_API
-void wp_proxy_set_param (WpProxy * self, const gchar * id, WpSpaPod * param);
-
-/* PARAM_PropInfo - PARAM_Props */
-
-WP_API
-WpIterator * wp_proxy_iterate_prop_info (WpProxy * self);
-
-WP_API
-WpSpaPod * wp_proxy_get_prop (WpProxy * self, const gchar * prop_name);
-
-WP_API
-void wp_proxy_set_prop (WpProxy * self, const gchar * prop_name,
-    WpSpaPod * value);
+void wp_proxy_set_pw_proxy (WpProxy * self, struct pw_proxy * proxy);
 
 G_END_DECLS
 

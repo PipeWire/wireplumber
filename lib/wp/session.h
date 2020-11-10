@@ -9,7 +9,7 @@
 #ifndef __WIREPLUMBER_SESSION_H__
 #define __WIREPLUMBER_SESSION_H__
 
-#include "proxy.h"
+#include "global-proxy.h"
 #include "endpoint.h"
 #include "endpoint-link.h"
 
@@ -27,21 +27,9 @@ G_BEGIN_DECLS
  * An extension of #WpProxyFeatures
  */
 typedef enum { /*< flags >*/
-  WP_SESSION_FEATURE_ENDPOINTS = (WP_PROXY_FEATURE_LAST << 0),
-  WP_SESSION_FEATURE_LINKS = (WP_PROXY_FEATURE_LAST << 1),
+  WP_SESSION_FEATURE_ENDPOINTS = (WP_PROXY_FEATURE_CUSTOM_START << 0),
+  WP_SESSION_FEATURE_LINKS = (WP_PROXY_FEATURE_CUSTOM_START << 1),
 } WpSessionFeatures;
-
-/**
- * WP_SESSION_FEATURES_STANDARD:
- *
- * A constant set of features that contains the standard features that are
- * available in the #WpSession class.
- */
-#define WP_SESSION_FEATURES_STANDARD \
-    (WP_PROXY_FEATURES_STANDARD | \
-     WP_PROXY_FEATURE_PROPS | \
-     WP_SESSION_FEATURE_ENDPOINTS | \
-     WP_SESSION_FEATURE_LINKS)
 
 /**
  * WP_TYPE_SESSION:
@@ -50,23 +38,15 @@ typedef enum { /*< flags >*/
  */
 #define WP_TYPE_SESSION (wp_session_get_type ())
 WP_API
-G_DECLARE_DERIVABLE_TYPE (WpSession, wp_session, WP, SESSION, WpProxy)
+G_DECLARE_DERIVABLE_TYPE (WpSession, wp_session, WP, SESSION, WpGlobalProxy)
 
 struct _WpSessionClass
 {
-  WpProxyClass parent_class;
+  WpGlobalProxyClass parent_class;
 };
 
 WP_API
 const gchar * wp_session_get_name (WpSession * self);
-
-WP_API
-guint32 wp_session_get_default_endpoint (WpSession * self,
-    WpDirection direction);
-
-WP_API
-void wp_session_set_default_endpoint (WpSession * self,
-    WpDirection direction, guint32 id);
 
 /* endpoints */
 

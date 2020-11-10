@@ -9,7 +9,7 @@
 #ifndef __WIREPLUMBER_NODE_H__
 #define __WIREPLUMBER_NODE_H__
 
-#include "proxy.h"
+#include "global-proxy.h"
 #include "port.h"
 #include "iterator.h"
 #include "object-interest.h"
@@ -59,18 +59,8 @@ typedef enum {
  * An extension of #WpProxyFeatures
  */
 typedef enum { /*< flags >*/
-  WP_NODE_FEATURE_PORTS = (WP_PROXY_FEATURE_LAST << 0),
+  WP_NODE_FEATURE_PORTS = (WP_PROXY_FEATURE_CUSTOM_START << 0),
 } WpNodeFeatures;
-
-/**
- * WP_NODE_FEATURES_STANDARD:
- *
- * A constant set of features that contains the standard features that are
- * available in the #WpNode class.
- */
-#define WP_NODE_FEATURES_STANDARD \
-    (WP_PROXY_FEATURES_STANDARD | \
-     WP_NODE_FEATURE_PORTS)
 
 /**
  * WP_TYPE_NODE:
@@ -79,12 +69,7 @@ typedef enum { /*< flags >*/
  */
 #define WP_TYPE_NODE (wp_node_get_type ())
 WP_API
-G_DECLARE_DERIVABLE_TYPE (WpNode, wp_node, WP, NODE, WpProxy)
-
-struct _WpNodeClass
-{
-  WpProxyClass parent_class;
-};
+G_DECLARE_FINAL_TYPE (WpNode, wp_node, WP, NODE, WpGlobalProxy)
 
 WP_API
 WpNode * wp_node_new_from_factory (WpCore * core,
