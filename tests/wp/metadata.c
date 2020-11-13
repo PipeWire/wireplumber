@@ -98,14 +98,14 @@ test_metadata_basic_proxy_object_removed (WpObjectManager *om,
 }
 
 static void
-test_metadata_basic_export_done (WpProxy * metadata, GAsyncResult * res,
+test_metadata_basic_export_done (WpObject * metadata, GAsyncResult * res,
     TestFixture *fixture)
 {
   g_autoptr (GError) error = NULL;
 
   g_debug ("export done");
 
-  g_assert_true (wp_proxy_augment_finish (metadata, res, &error));
+  g_assert_true (wp_object_activate_finish (metadata, res, &error));
   g_assert_no_error (error);
 
   g_assert_true (WP_IS_IMPL_METADATA (metadata));
@@ -140,8 +140,8 @@ test_metadata_basic (TestFixture *fixture, gconstpointer data)
       (GCallback) test_metadata_basic_exported_object_removed, fixture);
   wp_object_manager_add_interest (fixture->export_om,
       WP_TYPE_IMPL_METADATA, NULL);
-  wp_object_manager_request_proxy_features (fixture->export_om,
-      WP_TYPE_IMPL_METADATA, WP_PROXY_FEATURES_STANDARD);
+  wp_object_manager_request_object_features (fixture->export_om,
+      WP_TYPE_IMPL_METADATA, WP_OBJECT_FEATURES_ALL);
   wp_core_install_object_manager (fixture->base.core, fixture->export_om);
 
   /* set up the proxy side */
@@ -150,8 +150,8 @@ test_metadata_basic (TestFixture *fixture, gconstpointer data)
   g_signal_connect (fixture->proxy_om, "object-removed",
       (GCallback) test_metadata_basic_proxy_object_removed, fixture);
   wp_object_manager_add_interest (fixture->proxy_om, WP_TYPE_METADATA, NULL);
-  wp_object_manager_request_proxy_features (fixture->proxy_om,
-      WP_TYPE_METADATA, WP_PROXY_FEATURES_STANDARD);
+  wp_object_manager_request_object_features (fixture->proxy_om,
+      WP_TYPE_METADATA, WP_OBJECT_FEATURES_ALL);
   wp_core_install_object_manager (fixture->base.client_core, fixture->proxy_om);
 
   /* create metadata */
@@ -187,7 +187,7 @@ test_metadata_basic (TestFixture *fixture, gconstpointer data)
   }
 
   /* do export */
-  wp_proxy_augment (WP_PROXY (metadata), WP_PROXY_FEATURES_STANDARD, NULL,
+  wp_object_activate (WP_OBJECT (metadata), WP_OBJECT_FEATURES_ALL, NULL,
       (GAsyncReadyCallback) test_metadata_basic_export_done, fixture);
 
   /* run until objects are created and features are cached */

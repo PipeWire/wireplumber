@@ -43,12 +43,12 @@ test(
   env: common_env,
 )
 
-test(
-  'test-props',
-  executable('test-props', 'props.c',
-      dependencies: common_deps, c_args: common_args),
-  env: common_env,
-)
+# test(
+#   'test-props',
+#   executable('test-props', 'props.c',
+#       dependencies: common_deps, c_args: common_args),
+#   env: common_env,
+# )
 
 test(
   'test-proxy',

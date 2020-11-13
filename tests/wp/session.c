@@ -99,32 +99,19 @@ test_session_basic_proxy_object_removed (WpObjectManager *om,
 }
 
 static void
-test_session_basic_export_done (WpProxy * session, GAsyncResult * res,
+test_session_basic_export_done (WpObject * session, GAsyncResult * res,
     TestSessionFixture *fixture)
 {
   g_autoptr (GError) error = NULL;
 
   g_debug ("export done");
 
-  g_assert_true (wp_proxy_augment_finish (session, res, &error));
+  g_assert_true (wp_object_activate_finish (session, res, &error));
   g_assert_no_error (error);
 
   g_assert_true (WP_IS_IMPL_SESSION (session));
 
   if (++fixture->n_events == 3)
-    g_main_loop_quit (fixture->base.loop);
-}
-
-static void
-test_session_basic_prop_changed (WpSession * session,
-    const char *type_name, TestSessionFixture *fixture)
-{
-  g_debug ("prop changed: %s (%s)", G_OBJECT_TYPE_NAME (session),
-      type_name);
-
-  g_assert_true (WP_IS_SESSION (session));
-
-  if (++fixture->n_events == 2)
     g_main_loop_quit (fixture->base.loop);
 }
 
@@ -152,8 +139,8 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
       (GCallback) test_session_basic_exported_object_removed, fixture);
   wp_object_manager_add_interest (fixture->export_om,
       WP_TYPE_IMPL_SESSION, NULL);
-  wp_object_manager_request_proxy_features (fixture->export_om,
-      WP_TYPE_IMPL_SESSION, WP_SESSION_FEATURES_STANDARD);
+  wp_object_manager_request_object_features (fixture->export_om,
+      WP_TYPE_IMPL_SESSION, WP_OBJECT_FEATURES_ALL);
   wp_core_install_object_manager (fixture->base.core, fixture->export_om);
 
   /* set up the proxy side */
@@ -162,32 +149,24 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
   g_signal_connect (fixture->proxy_om, "object-removed",
       (GCallback) test_session_basic_proxy_object_removed, fixture);
   wp_object_manager_add_interest (fixture->proxy_om, WP_TYPE_SESSION, NULL);
-  wp_object_manager_request_proxy_features (fixture->proxy_om,
-      WP_TYPE_SESSION, WP_SESSION_FEATURES_STANDARD);
+  wp_object_manager_request_object_features (fixture->proxy_om,
+      WP_TYPE_SESSION, WP_OBJECT_FEATURES_ALL);
   wp_core_install_object_manager (fixture->base.client_core, fixture->proxy_om);
 
   /* create session */
   session = wp_impl_session_new (fixture->base.core);
   wp_impl_session_set_property (session, "test.property", "test-value");
-  wp_session_set_default_endpoint (WP_SESSION (session),
-      WP_DIRECTION_INPUT, 5);
-  wp_session_set_default_endpoint (WP_SESSION (session),
-      WP_DIRECTION_OUTPUT, 9);
 
   /* verify properties are set before export */
   {
     g_autoptr (WpProperties) props =
-        wp_proxy_get_properties (WP_PROXY (session));
+        wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (session));
     g_assert_cmpstr (wp_properties_get (props, "test.property"), ==,
         "test-value");
   }
-  g_assert_cmpuint (wp_session_get_default_endpoint (WP_SESSION (session),
-          WP_DIRECTION_INPUT), ==, 5);
-  g_assert_cmpuint (wp_session_get_default_endpoint (WP_SESSION (session),
-          WP_DIRECTION_OUTPUT), ==, 9);
 
   /* do export */
-  wp_proxy_augment (WP_PROXY (session), WP_SESSION_FEATURES_STANDARD, NULL,
+  wp_object_activate (WP_OBJECT (session), WP_OBJECT_FEATURES_ALL, NULL,
       (GAsyncReadyCallback) test_session_basic_export_done, fixture);
 
   /* run until objects are created and features are cached */
@@ -200,74 +179,25 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
 
   /* test round 1: verify the values on the proxy */
 
-  g_assert_cmphex (wp_proxy_get_features (fixture->proxy_session), ==,
-      WP_SESSION_FEATURES_STANDARD);
+  g_assert_cmphex (
+      wp_object_get_active_features (WP_OBJECT (fixture->proxy_session)), ==,
+      wp_object_get_supported_features (WP_OBJECT (fixture->proxy_session)));
 
   g_assert_cmpuint (wp_proxy_get_bound_id (fixture->proxy_session), ==,
       wp_proxy_get_bound_id (WP_PROXY (session)));
 
   {
-    g_autoptr (WpProperties) props =
-        wp_proxy_get_properties (fixture->proxy_session);
+    g_autoptr (WpProperties) props = wp_pipewire_object_get_properties (
+        WP_PIPEWIRE_OBJECT (fixture->proxy_session));
     g_assert_cmpstr (wp_properties_get (props, "test.property"), ==,
         "test-value");
   }
-  g_assert_cmpuint (wp_session_get_default_endpoint (
-          WP_SESSION (fixture->proxy_session),
-          WP_DIRECTION_INPUT), ==, 5);
-  g_assert_cmpuint (wp_session_get_default_endpoint (
-          WP_SESSION (fixture->proxy_session),
-          WP_DIRECTION_OUTPUT), ==, 9);
 
   /* setup change signals */
-  g_signal_connect (fixture->proxy_session, "prop-changed",
-      (GCallback) test_session_basic_prop_changed, fixture);
-  g_signal_connect (session, "prop-changed",
-      (GCallback) test_session_basic_prop_changed, fixture);
   g_signal_connect (fixture->proxy_session, "notify::properties",
       (GCallback) test_session_basic_notify_properties, fixture);
   g_signal_connect (session, "notify::properties",
       (GCallback) test_session_basic_notify_properties, fixture);
-
-  /* change default endpoint on the proxy */
-  wp_session_set_default_endpoint (WP_SESSION (fixture->proxy_session),
-      WP_DIRECTION_INPUT, 73);
-
-  /* run until the change is on both sides */
-  fixture->n_events = 0;
-  g_main_loop_run (fixture->base.loop);
-  g_assert_cmpint (fixture->n_events, ==, 2);
-
-  /* test round 2: verify the value change on both sides */
-
-  g_assert_cmpuint (wp_session_get_default_endpoint (
-          WP_SESSION (fixture->proxy_session),
-          WP_DIRECTION_INPUT), ==, 73);
-  g_assert_cmpuint (wp_session_get_default_endpoint (
-          WP_SESSION (fixture->proxy_session),
-          WP_DIRECTION_OUTPUT), ==, 9);
-
-  g_assert_cmpuint (wp_session_get_default_endpoint (
-          WP_SESSION (session), WP_DIRECTION_INPUT), ==, 73);
-  g_assert_cmpuint (wp_session_get_default_endpoint (
-          WP_SESSION (session), WP_DIRECTION_OUTPUT), ==, 9);
-
-  /* change default endpoint on the exported */
-  fixture->n_events = 0;
-  wp_session_set_default_endpoint (WP_SESSION (session),
-      WP_DIRECTION_OUTPUT, 44);
-
-  /* run until the change is on both sides */
-  g_main_loop_run (fixture->base.loop);
-  g_assert_cmpint (fixture->n_events, ==, 2);
-
-  /* test round 3: verify the value change on both sides */
-
-  g_assert_cmpuint (wp_session_get_default_endpoint (
-          WP_SESSION (session), WP_DIRECTION_OUTPUT), ==, 44);
-  g_assert_cmpuint (wp_session_get_default_endpoint (
-          WP_SESSION (fixture->proxy_session),
-          WP_DIRECTION_OUTPUT), ==, 44);
 
   /* change a property on the exported */
   fixture->n_events = 0;
@@ -277,17 +207,16 @@ test_session_basic (TestSessionFixture *fixture, gconstpointer data)
   g_main_loop_run (fixture->base.loop);
   g_assert_cmpint (fixture->n_events, ==, 2);
 
-  /* test round 4: verify the property change on both sides */
-
+  /* verify the property change on both sides */
   {
     g_autoptr (WpProperties) props =
-        wp_proxy_get_properties (WP_PROXY (session));
+        wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (session));
     g_assert_cmpstr (wp_properties_get (props, "test.property"), ==,
         "changed-value");
   }
   {
-    g_autoptr (WpProperties) props =
-        wp_proxy_get_properties (fixture->proxy_session);
+    g_autoptr (WpProperties) props = wp_pipewire_object_get_properties (
+        WP_PIPEWIRE_OBJECT (fixture->proxy_session));
     g_assert_cmpstr (wp_properties_get (props, "test.property"), ==,
         "changed-value");
   }

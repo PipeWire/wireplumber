@@ -127,11 +127,11 @@ wp_base_test_fixture_teardown (WpBaseTestFixture * self)
 }
 
 static G_GNUC_UNUSED void
-test_proxy_augment_finish_cb (WpProxy * proxy, GAsyncResult * res,
+test_object_activate_finish_cb (WpObject * object, GAsyncResult * res,
     WpBaseTestFixture * f)
 {
   g_autoptr (GError) error = NULL;
-  gboolean augment_ret = wp_proxy_augment_finish (proxy, res, &error);
+  gboolean augment_ret = wp_object_activate_finish (object, res, &error);
   g_assert_no_error (error);
   g_assert_true (augment_ret);
 

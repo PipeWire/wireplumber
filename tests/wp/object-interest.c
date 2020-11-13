@@ -261,7 +261,7 @@ test_object_interest_teardown (TestFixture * f, gconstpointer data)
     g_assert_true (ret); \
     \
     g_assert_true (wp_object_interest_matches_full (interest, \
-            WP_TYPE_PROXY, NULL, props, global_props)); \
+            WP_TYPE_NODE, NULL, props, global_props)); \
     \
     g_clear_pointer (&interest, wp_object_interest_free); \
   } G_STMT_END
@@ -278,7 +278,7 @@ test_object_interest_teardown (TestFixture * f, gconstpointer data)
     g_assert_true (ret); \
     \
     g_assert_false (wp_object_interest_matches_full (interest, \
-            WP_TYPE_PROXY, NULL, props, global_props)); \
+            WP_TYPE_NODE, NULL, props, global_props)); \
     \
     g_clear_pointer (&interest, wp_object_interest_free); \
   } G_STMT_END
@@ -654,42 +654,42 @@ test_object_interest_pw_props (TestFixture * f, gconstpointer data)
       "format.dsp", "32 bit float mono audio",
       NULL);
 
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "object.id", "~(ii)", 0, 100, NULL);
   TEST_EXPECT_MATCH_WP_PROPS (i, props, global_props);
 
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "object.id", "=i", 11, NULL);
   TEST_EXPECT_NO_MATCH_WP_PROPS (i, props, global_props);
 
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "format.dsp", "#s", "*audio*", NULL);
   TEST_EXPECT_MATCH_WP_PROPS (i, props, global_props);
 
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "port.physical", "=b", TRUE, NULL);
   TEST_EXPECT_MATCH_WP_PROPS (i, props, global_props);
 
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "audio.channel", "c(sss)",
       "MONO", "FL", "FR", NULL);
   TEST_EXPECT_MATCH_WP_PROPS (i, props, global_props);
 
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "audio.volume", "=d", 0.8, NULL);
   TEST_EXPECT_MATCH_WP_PROPS (i, props, global_props);
 
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "audio.volume", "~(dd)", 0.0, 0.5,
       NULL);
   TEST_EXPECT_NO_MATCH_WP_PROPS (i, props, global_props);
 
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "object.id", "=i", 10,
       NULL);
   TEST_EXPECT_MATCH_WP_PROPS (i, props, global_props);
 
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "object.id", "+",
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "format.dsp", "+",
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "port.name", "-",
@@ -706,81 +706,81 @@ test_object_interest_validate (TestFixture * f, gconstpointer data)
   g_autoptr (WpObjectInterest) i = NULL;
 
   /* invalid type */
-  i = wp_object_interest_new (WP_TYPE_PROXY, 32, "object.id", "+", NULL);
+  i = wp_object_interest_new (WP_TYPE_NODE, 32, "object.id", "+", NULL);
   TEST_EXPECT_VALIDATION_ERROR (i);
 
-  /* non-WpProxy type with pw property constraint */
+  /* non-WpPipewireObject type with pw property constraint */
   i = wp_object_interest_new (TEST_TYPE_A,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "object.id", "+", NULL);
   TEST_EXPECT_VALIDATION_ERROR (i);
 
   /* bad verb; the varargs constructor would assert here */
-  i = wp_object_interest_new_type (WP_TYPE_PROXY);
+  i = wp_object_interest_new_type (WP_TYPE_NODE);
   wp_object_interest_add_constraint (i, WP_CONSTRAINT_TYPE_PW_PROPERTY,
       "object.id", 0, g_variant_new_string ("10"));
   TEST_EXPECT_VALIDATION_ERROR (i);
 
   /* no subject; the varargs version would assert here */
-  i = wp_object_interest_new_type (WP_TYPE_PROXY);
+  i = wp_object_interest_new_type (WP_TYPE_NODE);
   wp_object_interest_add_constraint (i, WP_CONSTRAINT_TYPE_PW_PROPERTY,
       NULL, WP_CONSTRAINT_VERB_EQUALS, g_variant_new_int32 (10));
   TEST_EXPECT_VALIDATION_ERROR (i);
 
   /* no value for verb that requires it */
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "object.id", "=", NULL);
   TEST_EXPECT_VALIDATION_ERROR (i);
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "object.id", "~", NULL);
   TEST_EXPECT_VALIDATION_ERROR (i);
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "object.id", "c", NULL);
   TEST_EXPECT_VALIDATION_ERROR (i);
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "object.id", "#", NULL);
   TEST_EXPECT_VALIDATION_ERROR (i);
 
   /* value given for verb that doesn't require it */
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "object.id", "+s", "10", NULL);
   TEST_EXPECT_VALIDATION_ERROR (i);
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "object.id", "-s", "10", NULL);
   TEST_EXPECT_VALIDATION_ERROR (i);
 
   /* tuple required */
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "object.id", "ci", 10, NULL);
   TEST_EXPECT_VALIDATION_ERROR (i);
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "object.id", "~i", 10, NULL);
   TEST_EXPECT_VALIDATION_ERROR (i);
 
   /* invalid value type */
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "object.id", "=y", (guchar) 10, NULL);
   TEST_EXPECT_VALIDATION_ERROR (i);
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "object.id", "=n", (gint16) 10, NULL);
   TEST_EXPECT_VALIDATION_ERROR (i);
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "object.id", "=q", (guint16) 10, NULL);
   TEST_EXPECT_VALIDATION_ERROR (i);
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "object.id", "c(bb)", TRUE, FALSE, NULL);
   TEST_EXPECT_VALIDATION_ERROR (i);
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "object.id", "~(ss)", "0", "20", NULL);
   TEST_EXPECT_VALIDATION_ERROR (i);
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "object.id", "#i", 10, NULL);
   TEST_EXPECT_VALIDATION_ERROR (i);
 
   /* tuple with different types */
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "object.id", "c(si)", "9", 10, NULL);
   TEST_EXPECT_VALIDATION_ERROR (i);
-  i = wp_object_interest_new (WP_TYPE_PROXY,
+  i = wp_object_interest_new (WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "object.id", "~(iu)", -10, 20, NULL);
   TEST_EXPECT_VALIDATION_ERROR (i);
 }
