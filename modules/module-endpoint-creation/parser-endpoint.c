@@ -203,12 +203,12 @@ static gconstpointer
 wp_parser_endpoint_get_matched_data (WpConfigParser *parser, gpointer data)
 {
   WpParserEndpoint *self = WP_PARSER_ENDPOINT (parser);
-  WpProxy *proxy = WP_PROXY (data);
+  WpPipewireObject *proxy = WP_PIPEWIRE_OBJECT (data);
   const struct WpParserEndpointData *d = NULL;
   g_autoptr (WpProperties) props = NULL;
 
   g_return_val_if_fail (proxy, NULL);
-  props = wp_proxy_get_properties (proxy);
+  props = wp_pipewire_object_get_properties (proxy);
 
   /* Find the first data that matches node */
   for (guint i = 0; i < self->datas->len; i++) {

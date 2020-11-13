@@ -24,7 +24,7 @@ G_DECLARE_FINAL_TYPE (WpDeviceActivation, wp_device_activation, WP,
 G_DEFINE_TYPE (WpDeviceActivation, wp_device_activation, WP_TYPE_PLUGIN)
 
 static void
-set_device_profile (WpProxy *device, gint index)
+set_device_profile (WpPipewireObject *device, gint index)
 {
   g_return_if_fail (device);
   g_autoptr (WpSpaPod) profile = wp_spa_pod_new_object (
@@ -32,11 +32,11 @@ set_device_profile (WpProxy *device, gint index)
       "index", "i", index,
       NULL);
   wp_debug_object (device, "set profile %d", index);
-  wp_proxy_set_param (device, "Profile", profile);
+  wp_pipewire_object_set_param (device, "Profile", profile);
 }
 
 static void
-on_device_enum_profile_done (WpProxy *proxy, GAsyncResult *res,
+on_device_enum_profile_done (WpPipewireObject *proxy, GAsyncResult *res,
     WpDeviceActivation *self)
 {
   g_autoptr (WpIterator) profiles = NULL;
@@ -44,7 +44,7 @@ on_device_enum_profile_done (WpProxy *proxy, GAsyncResult *res,
   g_autoptr (GError) error = NULL;
   guint profile_index = 1;
 
-  profiles = wp_proxy_enum_params_finish (proxy, res, &error);
+  profiles = wp_pipewire_object_enum_params_finish (proxy, res, &error);
   if (error) {
     wp_warning_object (self, "failed to enum profiles in bluetooth device");
     return;
@@ -78,10 +78,11 @@ on_device_enum_profile_done (WpProxy *proxy, GAsyncResult *res,
 }
 
 static void
-on_device_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
+on_device_added (WpObjectManager *om, WpPipewireObject *proxy, gpointer d)
 {
   WpDeviceActivation *self = WP_DEVICE_ACTIVATION (d);
-  const gchar *device_api = wp_proxy_get_property (proxy, PW_KEY_DEVICE_API);
+  const gchar *device_api =
+      wp_pipewire_object_get_property (proxy, PW_KEY_DEVICE_API);
   g_return_if_fail (device_api);
 
   wp_debug_object (self, "device " WP_OBJECT_FORMAT " added, api '%s'",
@@ -95,7 +96,7 @@ on_device_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
   /* Bluez5 */
   else if (g_str_has_prefix (device_api, "bluez5")) {
     /* Enum available bluetooth profiles */
-    wp_proxy_enum_params (WP_PROXY (proxy), "EnumProfile", NULL, NULL,
+    wp_pipewire_object_enum_params (proxy, "EnumProfile", NULL, NULL,
           (GAsyncReadyCallback) on_device_enum_profile_done, self);
   }
 
@@ -114,8 +115,8 @@ wp_device_activation_activate (WpPlugin * plugin)
   /* Create the devices object manager */
   self->devices_om = wp_object_manager_new ();
   wp_object_manager_add_interest (self->devices_om, WP_TYPE_DEVICE, NULL);
-  wp_object_manager_request_proxy_features (self->devices_om,
-      WP_TYPE_DEVICE, WP_PROXY_FEATURES_STANDARD);
+  wp_object_manager_request_object_features (self->devices_om,
+      WP_TYPE_DEVICE, WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
   g_signal_connect_object (self->devices_om, "object-added",
       G_CALLBACK (on_device_added), self, 0);
   wp_core_install_object_manager (core, self->devices_om);

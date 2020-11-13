@@ -1,4 +1,4 @@
 subdir('wp')
 subdir('wptoml')
-#subdir('modules')
-#subdir('examples')
+subdir('modules')
+subdir('examples')

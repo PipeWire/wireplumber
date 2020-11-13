@@ -123,7 +123,7 @@ si_simple_node_endpoint_configure (WpSessionItem * item, GVariant * args)
   g_return_val_if_fail (WP_IS_NODE (GUINT_TO_POINTER (node_i)), FALSE);
 
   self->node = g_object_ref (GUINT_TO_POINTER (node_i));
-  props = wp_proxy_get_properties (WP_PROXY (self->node));
+  props = wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (self->node));
 
   if (g_variant_lookup (args, "name", "&s", &tmp_str)) {
     strncpy (self->name, tmp_str, sizeof (self->name) - 1);
@@ -180,10 +180,10 @@ si_simple_node_endpoint_activate_get_next_step (WpSessionItem * item,
 }
 
 static void
-on_node_augmented (WpProxy * node, GAsyncResult * res, WpTransition * transition)
+on_node_activated (WpObject * node, GAsyncResult * res, WpTransition * transition)
 {
   g_autoptr (GError) error = NULL;
-  if (!wp_proxy_augment_finish (node, res, &error)) {
+  if (!wp_object_activate_finish (node, res, &error)) {
     wp_transition_return_error (transition, g_steal_pointer (&error));
     return;
   }
@@ -209,8 +209,9 @@ si_simple_node_endpoint_activate_execute_step (WpSessionItem * item,
       break;
 
     case STEP_ENSURE_NODE_FEATURES:
-      wp_proxy_augment (WP_PROXY (self->node), WP_NODE_FEATURES_STANDARD,
-          NULL, (GAsyncReadyCallback) on_node_augmented, transition);
+      wp_object_activate (WP_OBJECT (self->node),
+          WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL | WP_NODE_FEATURE_PORTS,
+          NULL, (GAsyncReadyCallback) on_node_activated, transition);
       break;
 
     default:
@@ -261,7 +262,7 @@ si_simple_node_endpoint_get_properties (WpSiEndpoint * item)
   wp_properties_setf (result, "endpoint.priority", "%u", self->priority);
 
   /* copy useful properties from the node */
-  node_props = wp_proxy_get_properties (WP_PROXY (self->node));
+  node_props = wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (self->node));
   wp_properties_update_keys (result, node_props,
       PW_KEY_DEVICE_ID,
       PW_KEY_NODE_TARGET,
@@ -384,7 +385,7 @@ si_simple_node_endpoint_get_ports (WpSiPortInfo * item, const gchar * context)
 
     /* skip monitor ports if not monitor context, or skip non-monitor ports if
      * monitor context */
-    props = wp_proxy_get_properties (WP_PROXY (port));
+    props = wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (port));
     str = wp_properties_get (props, PW_KEY_PORT_MONITOR);
     is_monitor = str && pw_properties_parse_bool (str);
     if (is_monitor != monitor_context)

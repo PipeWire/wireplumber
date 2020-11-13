@@ -71,7 +71,7 @@ enable_endpoint (WpLimitedCreationBluez5 *self, WpNode *node,
 {
   g_autoptr (WpDevice) device = wp_limited_creation_get_device (
       WP_LIMITED_CREATION (self));
-  g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (device));
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (device));
 
   wp_info_object (self, "enabling endpoint %d", direction);
 
@@ -96,7 +96,8 @@ enable_endpoint (WpLimitedCreationBluez5 *self, WpNode *node,
         g_variant_new_uint64 ((guint64) device));
     g_variant_builder_add (&b, "{sv}", "name",
         g_variant_new_printf ("Bluez5.%s.%s",
-            wp_proxy_get_property (WP_PROXY (device), PW_KEY_DEVICE_NAME),
+            wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (device),
+                PW_KEY_DEVICE_NAME),
             direction == WP_DIRECTION_INPUT ? "Sink" : "Source"));
     g_variant_builder_add (&b, "{sv}", "direction",
         g_variant_new_uint32 (direction));
@@ -178,7 +179,7 @@ wp_limited_creation_bluez5_nodes_changed (WpLimitedCreation * ctx)
 }
 
 static void
-on_device_enum_profile_done (WpProxy *proxy, GAsyncResult *res,
+on_device_enum_profile_done (WpPipewireObject *proxy, GAsyncResult *res,
     WpLimitedCreationBluez5 *self)
 {
   g_autoptr (WpIterator) profiles = NULL;
@@ -187,7 +188,7 @@ on_device_enum_profile_done (WpProxy *proxy, GAsyncResult *res,
   guint32 n_profiles = 0;
 
   /* Finish */
-  profiles = wp_proxy_enum_params_finish (proxy, res, &error);
+  profiles = wp_pipewire_object_enum_params_finish (proxy, res, &error);
   if (error) {
     wp_warning_object (self, "failed to enum profiles in bluetooth device");
     return;
@@ -263,8 +264,9 @@ wp_limited_creation_bluez5_constructed (GObject *object)
   g_autoptr (WpDevice) device = wp_limited_creation_get_device (
       WP_LIMITED_CREATION (self));
   g_return_if_fail (device);
-  wp_proxy_enum_params (WP_PROXY (device), "EnumProfile", NULL, NULL,
-          (GAsyncReadyCallback) on_device_enum_profile_done, self);
+  wp_pipewire_object_enum_params (WP_PIPEWIRE_OBJECT (device),
+      "EnumProfile", NULL, NULL,
+      (GAsyncReadyCallback) on_device_enum_profile_done, self);
 
   G_OBJECT_CLASS (wp_limited_creation_bluez5_parent_class)->constructed (object);
 }

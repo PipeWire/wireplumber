@@ -155,7 +155,7 @@ static void
 si_bluez5_endpoint_add_stream (WpSiBluez5Endpoint * self, guint32 stream_id,
     const gchar *name, WpNode *node)
 {
-  g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (self->device));
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self->device));
   g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
 
   /* Bluez5 stream or Fake stream */
@@ -217,8 +217,8 @@ si_bluez5_endpoint_configure (WpSessionItem * item, GVariant * args)
 
   /* get the direction */
   if (node) {
-    const gchar *media_class =
-        wp_proxy_get_property (WP_PROXY (node), PW_KEY_MEDIA_CLASS);
+    const gchar *media_class = wp_pipewire_object_get_property (
+        WP_PIPEWIRE_OBJECT (node), PW_KEY_MEDIA_CLASS);
     self->direction = g_strcmp0 (media_class, "Audio/Sink") == 0 ?
         WP_DIRECTION_INPUT : WP_DIRECTION_OUTPUT;
   } else {
@@ -244,7 +244,8 @@ si_bluez5_endpoint_configure (WpSessionItem * item, GVariant * args)
   /* get the current stream id */
   if (node) {
     self->stream_id = get_stream_id_from_profile_name (
-        wp_proxy_get_property (WP_PROXY (node), SPA_KEY_API_BLUEZ5_PROFILE));
+        wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (node),
+            SPA_KEY_API_BLUEZ5_PROFILE));
   } else {
     /* Otherwise, the device is set with the oposite profile */
     if (a2dp_stream && !sco_stream)
@@ -393,7 +394,8 @@ si_bluez5_endpoint_get_properties (WpSiEndpoint * item)
   WpProperties *properties;
   g_autofree gchar *description = NULL;
 
-  properties = wp_proxy_get_properties (WP_PROXY (self->device));
+  properties =
+      wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (self->device));
   properties = wp_properties_ensure_unique_owner (properties);
   description = g_strdup_printf ("Bluez5-%s of %s",
       self->direction == WP_DIRECTION_INPUT ? "Sink" : "Source",
@@ -454,13 +456,13 @@ set_device_profile (WpDevice *device, gint index)
       "Profile", "Profile",
       "index", "i", index,
       NULL);
-  wp_proxy_set_param (WP_PROXY (device), "Profile", profile);
+  wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (device), "Profile", profile);
 }
 
 static void
 abort_acquisition (WpSessionItem * ac, GTask *task, const gchar *msg)
 {
-  g_autoptr (WpProxy) link = NULL;
+  g_autoptr (WpGlobalProxy) link = NULL;
   GError *e = NULL;
 
   /* return error to abort the link activation */
@@ -470,7 +472,7 @@ abort_acquisition (WpSessionItem * ac, GTask *task, const gchar *msg)
   /* destroy the link */
   link = wp_session_item_get_associated_proxy (ac, WP_TYPE_ENDPOINT_LINK);
   g_return_if_fail (link);
-  wp_proxy_request_destroy (link);
+  wp_global_proxy_request_destroy (link);
 }
 
 static void

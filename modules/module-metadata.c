@@ -32,9 +32,8 @@ wp_metadata_plugin_activate (WpPlugin * plugin)
   g_return_if_fail (core);
 
   self->metadata = wp_impl_metadata_new (core);
-  wp_proxy_augment (WP_PROXY(self->metadata),
-        WP_PROXY_FEATURES_STANDARD, NULL,
-        NULL, self);
+  wp_object_activate (WP_OBJECT (self->metadata),
+        WP_OBJECT_FEATURES_ALL, NULL, NULL, self);
 }
 
 static void

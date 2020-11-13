@@ -126,8 +126,8 @@ wp_generic_creation_constructed (GObject *object)
   /* Create the sessions object manager */
   self->sessions_om = wp_object_manager_new ();
   wp_object_manager_add_interest (self->sessions_om, WP_TYPE_SESSION, NULL);
-  wp_object_manager_request_proxy_features (self->sessions_om, WP_TYPE_SESSION,
-      WP_SESSION_FEATURES_STANDARD);
+  wp_object_manager_request_object_features (self->sessions_om, WP_TYPE_SESSION,
+      WP_OBJECT_FEATURES_ALL);
   wp_core_install_object_manager (core, self->sessions_om);
 
   G_OBJECT_CLASS (wp_generic_creation_parent_class)->constructed (object);
@@ -234,7 +234,8 @@ wp_generic_creation_add_node (WpGenericCreation * self, WpNode *node)
 {
   g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
   g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
-  g_autoptr (WpProperties) props = wp_proxy_get_properties (WP_PROXY (node));
+  g_autoptr (WpProperties) props =
+      wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (node));
   g_autoptr (WpSessionItem) ep = NULL;
   g_autoptr (WpSessionItem) streams_ep = NULL;
   g_autoptr (WpSession) session = NULL;

@@ -241,12 +241,12 @@ setup_node_props (WpProperties *dev_props, WpProperties *node_props)
 }
 
 static void
-augment_done (GObject * proxy, GAsyncResult * res, gpointer user_data)
+activate_done (WpObject * proxy, GAsyncResult * res, gpointer user_data)
 {
   WpMonitor *self = user_data;
 
   g_autoptr (GError) error = NULL;
-  if (!wp_proxy_augment_finish (WP_PROXY (proxy), res, &error)) {
+  if (!wp_object_activate_finish (proxy, res, &error)) {
     wp_warning_object (self, "%s", error->message);
   }
 }
@@ -310,8 +310,8 @@ create_node (WpMonitor * self, WpSpaDevice * parent, GList ** children,
   if (WP_IS_IMPL_NODE (node))
     wp_impl_node_export (WP_IMPL_NODE (node));
   else
-    wp_proxy_augment (WP_PROXY (node), WP_PROXY_FEATURES_STANDARD, NULL,
-        augment_done, self);
+    wp_object_activate (WP_OBJECT (node), WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
+        NULL, (GAsyncReadyCallback) activate_done, self);
 
   g_object_set_qdata (G_OBJECT (node), id_quark (), GUINT_TO_POINTER (id));
   *children = g_list_prepend (*children, node);

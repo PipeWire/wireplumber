@@ -138,7 +138,7 @@ si_adapter_configure (WpSessionItem * item, GVariant * args)
   g_return_val_if_fail (WP_IS_NODE (GUINT_TO_POINTER (node_i)), FALSE);
 
   self->node = g_object_ref (GUINT_TO_POINTER (node_i));
-  props = wp_proxy_get_properties (WP_PROXY (self->node));
+  props = wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (self->node));
 
   if (g_variant_lookup (args, "name", "&s", &tmp_str)) {
     strncpy (self->name, tmp_str, sizeof (self->name) - 1);
@@ -199,7 +199,7 @@ si_adapter_activate_get_next_step (WpSessionItem * item,
 }
 
 static void
-on_node_enum_format_done (WpProxy *proxy, GAsyncResult *res,
+on_node_enum_format_done (WpPipewireObject * proxy, GAsyncResult * res,
     WpTransition * transition)
 {
   WpSiAdapter *self = wp_transition_get_source_object (transition);
@@ -207,7 +207,7 @@ on_node_enum_format_done (WpProxy *proxy, GAsyncResult *res,
   g_autoptr (GError) error = NULL;
   gint pref_chan;
 
-  formats = wp_proxy_enum_params_finish (proxy, res, &error);
+  formats = wp_pipewire_object_enum_params_finish (proxy, res, &error);
   if (error) {
     wp_transition_return_error (transition, g_steal_pointer (&error));
     return;
@@ -243,11 +243,11 @@ on_ports_configuration_done (WpCore * core, GAsyncResult * res,
 }
 
 static void
-on_feature_ports_ready (WpProxy * node, GAsyncResult * res,
+on_feature_ports_ready (WpObject * node, GAsyncResult * res,
     WpTransition * transition)
 {
   g_autoptr (GError) error = NULL;
-  if (!wp_proxy_augment_finish (node, res, &error)) {
+  if (!wp_object_activate_finish (node, res, &error)) {
     wp_transition_return_error (transition, g_steal_pointer (&error));
     return;
   }
@@ -300,7 +300,8 @@ si_adapter_activate_execute_step (WpSessionItem * item,
       break;
 
     case STEP_CHOOSE_FORMAT:
-      wp_proxy_enum_params (WP_PROXY (self->node), "EnumFormat", NULL, NULL,
+      wp_pipewire_object_enum_params (WP_PIPEWIRE_OBJECT (self->node),
+          "EnumFormat", NULL, NULL,
           (GAsyncReadyCallback) on_node_enum_format_done, transition);
       break;
 
@@ -310,12 +311,13 @@ si_adapter_activate_execute_step (WpSessionItem * item,
 
       /* set the chosen device/client format on the node */
       format = format_audio_raw_build (&self->format);
-      wp_proxy_set_param (WP_PROXY (self->node), "Format", format);
+      wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (self->node),
+          "Format", format);
 
       /* now choose the DSP format: keep the chanels but use F32 plannar @ 48K */
       self->format.format = SPA_AUDIO_FORMAT_F32P;
       self->format.rate = ({
-        g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (self->node));
+        g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self->node));
         g_autoptr (WpProperties) props = wp_core_get_remote_properties (core);
         const gchar *rate_str = wp_properties_get (props, "default.clock.rate");
         rate_str ? atoi (rate_str) : 48000;
@@ -332,15 +334,16 @@ si_adapter_activate_execute_step (WpSessionItem * item,
           "control",    "b", self->control_port,
           "format",     "P", port_format,
           NULL);
-      wp_proxy_set_param (WP_PROXY (self->node), "PortConfig", pod);
+      wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (self->node),
+          "PortConfig", pod);
 
-      g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (self->node));
+      g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self->node));
       wp_core_sync (core, NULL,
           (GAsyncReadyCallback) on_ports_configuration_done, transition);
       break;
     }
     case STEP_GET_PORTS: {
-      wp_proxy_augment (WP_PROXY (self->node), WP_NODE_FEATURE_PORTS, NULL,
+      wp_object_activate (WP_OBJECT (self->node), WP_NODE_FEATURE_PORTS, NULL,
           (GAsyncReadyCallback) on_feature_ports_ready, transition);
       break;
     }
@@ -397,7 +400,8 @@ si_adapter_get_properties (WpSiEndpoint * item)
   wp_properties_setf (result, "endpoint.priority", "%u", self->priority);
 
   /* copy useful properties from the node */
-  node_props = wp_proxy_get_properties (WP_PROXY (self->node));
+  node_props =
+      wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (self->node));
   wp_properties_update_keys (result, node_props,
       PW_KEY_DEVICE_ID,
       PW_KEY_NODE_TARGET,
@@ -528,7 +532,7 @@ si_adapter_get_ports (WpSiPortInfo * item, const gchar * context)
 
     /* skip monitor ports if not monitor context, or skip non-monitor ports if
      * monitor context */
-    props = wp_proxy_get_properties (WP_PROXY (port));
+    props = wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (port));
     str = wp_properties_get (props, PW_KEY_PORT_MONITOR);
     is_monitor = str && pw_properties_parse_bool (str);
     if (is_monitor != monitor_context)

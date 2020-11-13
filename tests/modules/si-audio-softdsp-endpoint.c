@@ -79,8 +79,8 @@ test_si_audio_softdsp_endpoint_configure_activate (TestFixture * f,
           "node.name", "audiotestsrc.adapter",
           NULL));
   g_assert_nonnull (node);
-  wp_proxy_augment (WP_PROXY (node), WP_PROXY_FEATURES_STANDARD, NULL,
-      (GAsyncReadyCallback) test_proxy_augment_finish_cb, f);
+  wp_object_activate (WP_OBJECT (node), WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
+      NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
   g_main_loop_run (f->base.loop);
 
   /* create adapter */
@@ -186,8 +186,8 @@ test_si_audio_softdsp_endpoint_configure_activate (TestFixture * f,
       WP_SI_FLAG_CONFIGURED | WP_SI_FLAG_ACTIVE);
   g_assert_cmphex (wp_session_item_get_flags (adapter), ==,
       WP_SI_FLAG_CONFIGURED | WP_SI_FLAG_ACTIVE);
-  g_assert_cmphex (wp_proxy_get_features (WP_PROXY (node)), ==,
-      WP_NODE_FEATURES_STANDARD);
+  g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (node)), ==,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL | WP_NODE_FEATURE_PORTS);
 
   /* check streams */
 
@@ -247,7 +247,7 @@ test_si_audio_softdsp_endpoint_export (TestFixture * f, gconstpointer user_data)
 
   clients_om = wp_object_manager_new ();
   wp_object_manager_add_interest (clients_om, WP_TYPE_CLIENT, NULL);
-  wp_object_manager_request_proxy_features (clients_om,
+  wp_object_manager_request_object_features (clients_om,
       WP_TYPE_CLIENT, WP_PROXY_FEATURE_BOUND);
   g_signal_connect_swapped (clients_om, "objects-changed",
       G_CALLBACK (g_main_loop_quit), f->base.loop);
@@ -265,8 +265,8 @@ test_si_audio_softdsp_endpoint_export (TestFixture * f, gconstpointer user_data)
           "node.name", "audiotestsrc.adapter",
           NULL));
   g_assert_nonnull (node);
-  wp_proxy_augment (WP_PROXY (node), WP_PROXY_FEATURES_STANDARD, NULL,
-      (GAsyncReadyCallback) test_proxy_augment_finish_cb, f);
+  wp_object_activate (WP_OBJECT (node), WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
+      NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
   g_main_loop_run (f->base.loop);
 
 
@@ -309,8 +309,8 @@ test_si_audio_softdsp_endpoint_export (TestFixture * f, gconstpointer user_data)
   session = WP_SESSION (wp_impl_session_new (f->base.core));
   g_assert_nonnull (session);
 
-  wp_proxy_augment (WP_PROXY (session), WP_SESSION_FEATURES_STANDARD, NULL,
-      (GAsyncReadyCallback) test_proxy_augment_finish_cb, f);
+  wp_object_activate (WP_OBJECT (session), WP_OBJECT_FEATURES_ALL, NULL,
+      (GAsyncReadyCallback) test_object_activate_finish_cb, f);
   g_main_loop_run (f->base.loop);
 
   /* export */
@@ -331,7 +331,8 @@ test_si_audio_softdsp_endpoint_export (TestFixture * f, gconstpointer user_data)
 
     g_assert_nonnull (
         ep = wp_session_item_get_associated_proxy (item, WP_TYPE_ENDPOINT));
-    g_assert_nonnull (props = wp_proxy_get_properties (WP_PROXY (ep)));
+    g_assert_nonnull (
+        props = wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (ep)));
 
     g_assert_cmpstr (wp_endpoint_get_name (ep), ==, "audiotestsrc.adapter");
     g_assert_cmpstr (wp_endpoint_get_media_class (ep), ==,

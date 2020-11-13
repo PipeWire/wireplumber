@@ -80,7 +80,7 @@ wp_limited_creation_constructed (GObject *object)
   WpLimitedCreationPrivate *priv =
       wp_limited_creation_get_instance_private (self);
   g_autoptr (WpDevice) device = g_weak_ref_get (&priv->device);
-  g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (device));
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (device));
 
   g_return_if_fail (device);
   g_return_if_fail (core);
@@ -88,8 +88,8 @@ wp_limited_creation_constructed (GObject *object)
   /* Create the sessions object manager */
   priv->sessions_om = wp_object_manager_new ();
   wp_object_manager_add_interest (priv->sessions_om, WP_TYPE_SESSION, NULL);
-  wp_object_manager_request_proxy_features (priv->sessions_om, WP_TYPE_SESSION,
-      WP_SESSION_FEATURES_STANDARD);
+  wp_object_manager_request_object_features (priv->sessions_om, WP_TYPE_SESSION,
+      WP_OBJECT_FEATURES_ALL);
   wp_core_install_object_manager (core, priv->sessions_om);
 
   /* Create the nodes object manager */
@@ -97,8 +97,8 @@ wp_limited_creation_constructed (GObject *object)
   wp_object_manager_add_interest (priv->nodes_om, WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_DEVICE_ID, "=i",
       wp_proxy_get_bound_id (WP_PROXY (device)), NULL);
-  wp_object_manager_request_proxy_features (priv->nodes_om, WP_TYPE_NODE,
-      WP_PROXY_FEATURES_STANDARD);
+  wp_object_manager_request_object_features (priv->nodes_om, WP_TYPE_NODE,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
   g_signal_connect_object (priv->nodes_om, "objects-changed",
       G_CALLBACK (on_nodes_changed), self, 0);
   g_signal_connect_object (priv->nodes_om, "object-added",

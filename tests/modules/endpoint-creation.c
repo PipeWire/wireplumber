@@ -145,8 +145,8 @@ simple (TestEndpointCreationFixture *f, gconstpointer data)
   /* Create and export the default session */
   g_autoptr (WpImplSession) session = wp_impl_session_new (f->base.core);
   wp_impl_session_set_property (session, "session.name", "default");
-  wp_proxy_augment (WP_PROXY (session), WP_SESSION_FEATURES_STANDARD, NULL,
-      (GAsyncReadyCallback) test_proxy_augment_finish_cb, f);
+  wp_object_activate (WP_OBJECT (session), WP_OBJECT_FEATURES_ALL, NULL,
+      (GAsyncReadyCallback) test_object_activate_finish_cb, f);
   g_main_loop_run (f->base.loop);
 
   /* Activate */
@@ -184,8 +184,8 @@ streams (TestEndpointCreationFixture *f, gconstpointer data)
   /* Create and export the default session */
   g_autoptr (WpImplSession) session = wp_impl_session_new (f->base.core);
   wp_impl_session_set_property (session, "session.name", "default");
-  wp_proxy_augment (WP_PROXY (session), WP_SESSION_FEATURES_STANDARD, NULL,
-      (GAsyncReadyCallback) test_proxy_augment_finish_cb, f);
+  wp_object_activate (WP_OBJECT (session), WP_OBJECT_FEATURES_ALL, NULL,
+      (GAsyncReadyCallback) test_object_activate_finish_cb, f);
   g_main_loop_run (f->base.loop);
 
   /* Activate */

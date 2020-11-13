@@ -219,13 +219,13 @@ on_stream_acquired (WpSiStreamAcquisition * acq, GAsyncResult * res,
 }
 
 static void
-on_link_augmented (WpProxy * proxy, GAsyncResult * res,
+on_link_activated (WpObject * proxy, GAsyncResult * res,
     WpTransition * transition)
 {
   WpSiStandardLink *self = wp_transition_get_source_object (transition);
   g_autoptr (GError) error = NULL;
 
-  if (!wp_proxy_augment_finish (proxy, res, &error)) {
+  if (!wp_object_activate_finish (proxy, res, &error)) {
     wp_transition_return_error (transition, g_steal_pointer (&error));
     return;
   }
@@ -240,12 +240,12 @@ find_core (WpSiStandardLink * self)
   /* session items are not associated with a core, but surely when linking
     we should be able to find a WpImplEndpointLink associated, or at the very
     least a WpNode associated with one of the streams... */
-  g_autoptr (WpProxy) proxy = wp_session_item_get_associated_proxy (
+  g_autoptr (WpObject) proxy = wp_session_item_get_associated_proxy (
       WP_SESSION_ITEM (self), WP_TYPE_ENDPOINT_LINK);
   if (!proxy)
       proxy = wp_session_item_get_associated_proxy (
           WP_SESSION_ITEM (self->out_stream), WP_TYPE_NODE);
-  return proxy ? wp_proxy_get_core (proxy) : NULL;
+  return proxy ? wp_object_get_core (proxy) : NULL;
 }
 
 static gboolean
@@ -342,10 +342,11 @@ create_links (WpSiStandardLink * self, WpTransition * transition,
             g_steal_pointer (&props));
         g_ptr_array_add (self->node_links, link);
 
-        /* augment to ensure it is created without errors */
+        /* activate to ensure it is created without errors */
         self->n_async_ops_wait++;
-        wp_proxy_augment (WP_PROXY (link), WP_PROXY_FEATURES_STANDARD, NULL,
-            (GAsyncReadyCallback) on_link_augmented, transition);
+        wp_object_activate (WP_OBJECT (link),
+            WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL, NULL,
+            (GAsyncReadyCallback) on_link_activated, transition);
 
         /* continue to link all input ports, if requested */
         if (link_all)

@@ -99,8 +99,8 @@ wp_node_suspension_activate (WpPlugin * plugin)
   wp_object_manager_add_interest (self->nodes_om, WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "media.class", "#s", "Video/*",
       NULL);
-  wp_object_manager_request_proxy_features (self->nodes_om, WP_TYPE_NODE,
-      WP_PROXY_FEATURES_STANDARD);
+  wp_object_manager_request_object_features (self->nodes_om, WP_TYPE_NODE,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
   g_signal_connect_object (self->nodes_om, "object-added",
       G_CALLBACK (on_node_added), self, 0);
   wp_core_install_object_manager (core, self->nodes_om);

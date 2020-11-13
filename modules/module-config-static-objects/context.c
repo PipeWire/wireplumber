@@ -38,7 +38,7 @@ on_object_created (GObject * proxy, GAsyncResult * res, gpointer user_data)
   WpConfigStaticObjectsContext *self = user_data;
   g_autoptr (GError) error = NULL;
 
-  if (!wp_proxy_augment_finish (WP_PROXY (proxy), res, &error)) {
+  if (!wp_object_activate_finish (WP_OBJECT (proxy), res, &error)) {
     wp_warning_object (self, "failed to export object: %s", error->message);
     return;
   }
@@ -73,13 +73,13 @@ wp_config_static_objects_context_create_node (WpConfigStaticObjectsContext *self
     g_ptr_array_add (self->static_objects, g_object_ref (node));
     g_signal_emit (self, signals[SIGNAL_OBJECT_CREATED], 0, node);
   } else {
-    wp_proxy_augment (WP_PROXY (node), WP_PROXY_FEATURES_STANDARD, NULL,
-        on_object_created, self);
+    wp_object_activate (WP_OBJECT (node), WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
+        NULL, on_object_created, self);
   }
 }
 
 static void
-on_device_added (WpObjectManager *om, WpProxy *proxy, gpointer p)
+on_device_added (WpObjectManager *om, WpObject *proxy, gpointer p)
 {
   WpConfigStaticObjectsContext *self = p;
   g_autoptr (WpProperties) dev_props = NULL;
@@ -89,11 +89,11 @@ on_device_added (WpObjectManager *om, WpProxy *proxy, gpointer p)
   const struct WpParserNodeData *node_data = NULL;
 
   /* Skip devices without info feature */
-  if ((wp_proxy_get_features(proxy) & WP_PROXY_FEATURE_INFO) == 0)
+  if (!(wp_object_get_active_features (proxy) & WP_PIPEWIRE_OBJECT_FEATURE_INFO))
     return;
 
   /* Get the device properties */
-  dev_props = wp_proxy_get_properties (proxy);
+  dev_props = wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (proxy));
   g_return_if_fail (dev_props);
 
   /* Get the parser node data and skip the node if not found */
@@ -123,8 +123,8 @@ parser_device_foreach_func (const struct WpParserDeviceData *device_data,
   }
 
   /* export */
-  wp_proxy_augment (WP_PROXY (device), WP_PROXY_FEATURES_STANDARD, NULL,
-     on_object_created, self);
+  wp_object_activate (WP_OBJECT (device), WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
+      NULL, on_object_created, self);
 
   return TRUE;
 }
@@ -166,8 +166,8 @@ wp_config_static_objects_context_activate (WpPlugin * plugin)
   /* Create and install the device object manager */
   self->devices_om = wp_object_manager_new ();
   wp_object_manager_add_interest (self->devices_om, WP_TYPE_DEVICE, NULL);
-  wp_object_manager_request_proxy_features (self->devices_om, WP_TYPE_DEVICE,
-      WP_PROXY_FEATURE_INFO);
+  wp_object_manager_request_object_features (self->devices_om, WP_TYPE_DEVICE,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
   g_signal_connect (self->devices_om, "object-added",
       (GCallback) on_device_added, self);
   wp_core_install_object_manager (self->local_core, self->devices_om);

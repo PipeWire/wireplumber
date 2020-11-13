@@ -32,7 +32,7 @@ wp_parser_endpoint_link_matches_endpoint_data (WpEndpoint *ep,
     return FALSE;
 
   /* Properties */
-  props = wp_proxy_get_properties (WP_PROXY (ep));
+  props = wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (ep));
   g_return_val_if_fail (props, FALSE);
   if (!wp_properties_matches (props, data->props))
     return FALSE;

@@ -38,7 +38,7 @@ enum {
 G_DEFINE_TYPE (WpReserveDevice, wp_reserve_device, G_TYPE_OBJECT)
 
 static void
-set_device_profile (WpProxy *device, gint index)
+set_device_profile (WpPipewireObject *device, gint index)
 {
   g_return_if_fail (device);
   g_autoptr (WpSpaPod) profile = wp_spa_pod_new_object (
@@ -46,11 +46,11 @@ set_device_profile (WpProxy *device, gint index)
       "index", "i", index,
       NULL);
   wp_debug_object (device, "set profile %d", index);
-  wp_proxy_set_param (device, "Profile", profile);
+  wp_pipewire_object_set_param (device, "Profile", profile);
 }
 
 static gint
-decrement_jack_n_acquired (WpProxy *device)
+decrement_jack_n_acquired (WpPipewireObject *device)
 {
   gpointer p = g_object_get_qdata (G_OBJECT (device), jack_n_acquired_quark ());
   gint val = GPOINTER_TO_INT (p);
@@ -62,7 +62,7 @@ decrement_jack_n_acquired (WpProxy *device)
 }
 
 static gint
-increment_jack_n_acquired (WpProxy *device)
+increment_jack_n_acquired (WpPipewireObject *device)
 {
   gpointer p = g_object_get_qdata (G_OBJECT (device), jack_n_acquired_quark ());
   gint val = GPOINTER_TO_INT (p);
@@ -73,7 +73,7 @@ increment_jack_n_acquired (WpProxy *device)
 
 static void
 enable_jack_device (WpReserveDevice *self) {
-  g_autoptr (WpProxy) jack_device = NULL;
+  g_autoptr (WpPipewireObject) jack_device = NULL;
   g_return_if_fail (self);
 
   /* Get the JACK device and increment the jack acquisition. We only enable the
@@ -88,7 +88,7 @@ enable_jack_device (WpReserveDevice *self) {
 
 static void
 disable_jack_device (WpReserveDevice *self) {
-  g_autoptr (WpProxy) jack_device = NULL;
+  g_autoptr (WpPipewireObject) jack_device = NULL;
   g_return_if_fail (self);
 
   /* Get the JACK device and decrement the jack acquisition. We only disable the
@@ -251,8 +251,8 @@ wp_reserve_device_constructed (GObject * object)
   wp_object_manager_add_interest (self->jack_device_om, WP_TYPE_DEVICE,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_DEVICE_API, "=s", "jack",
       NULL);
-  wp_object_manager_request_proxy_features (self->jack_device_om,
-      WP_TYPE_DEVICE, WP_PROXY_FEATURES_STANDARD);
+  wp_object_manager_request_object_features (self->jack_device_om,
+      WP_TYPE_DEVICE, WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
   wp_core_install_object_manager (core, self->jack_device_om);
 
   /* Handle the reservation signals */

@@ -121,7 +121,7 @@ on_interrupted (AppData * d)
 
   g_autoptr (WpEndpointLink) link = wp_session_lookup_link (d->session, NULL);
   if (link)
-    wp_proxy_request_destroy (WP_PROXY (link));
+    wp_global_proxy_request_destroy (WP_GLOBAL_PROXY (link));
 
   /* remove the interrupt handler so that we can actually
      interrupt if things get stuck */
@@ -219,8 +219,8 @@ start_endpoints_provider (AppData * d)
      start_nodes_provider(), i.e. d->audiotestsrc & d->alsasink */
   d->nodes_om = wp_object_manager_new ();
   wp_object_manager_add_interest (d->nodes_om, WP_TYPE_NODE, NULL);
-  wp_object_manager_request_proxy_features (d->nodes_om, WP_TYPE_NODE,
-      WP_PROXY_FEATURES_STANDARD);
+  wp_object_manager_request_object_features (d->nodes_om, WP_TYPE_NODE,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
 
   d->session_items = g_ptr_array_new_with_free_func (g_object_unref);
 
@@ -235,11 +235,11 @@ start_endpoints_provider (AppData * d)
  */
 
 static void
-on_node_ready (WpProxy * node, GAsyncResult * res, AppData * d)
+on_node_ready (WpObject * node, GAsyncResult * res, AppData * d)
 {
   g_autoptr (GError) error = NULL;
 
-  if (!wp_proxy_augment_finish (node, res, &error)) {
+  if (!wp_object_activate_finish (node, res, &error)) {
     g_printerr ("Failed to prepare node: %s\n", error->message);
     g_main_loop_quit (d->loop);
     return;
@@ -262,7 +262,8 @@ start_nodes_provider (AppData * d)
           "node.name", "audiotestsrc",
           NULL));
   g_assert (d->audiotestsrc);
-  wp_proxy_augment (WP_PROXY (d->audiotestsrc), WP_PROXY_FEATURES_STANDARD, NULL,
+  wp_object_activate (WP_OBJECT (d->audiotestsrc),
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL, NULL,
       (GAsyncReadyCallback) on_node_ready, d);
 
   d->alsasink = wp_node_new_from_factory (d->core,
@@ -276,7 +277,8 @@ start_nodes_provider (AppData * d)
           "api.alsa.path", d->alsa_device,
           NULL));
   g_assert (d->alsasink);
-  wp_proxy_augment (WP_PROXY (d->alsasink), WP_PROXY_FEATURES_STANDARD, NULL,
+  wp_object_activate (WP_OBJECT (d->alsasink),
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL, NULL,
       (GAsyncReadyCallback) on_node_ready, d);
 }
 
@@ -285,11 +287,11 @@ start_nodes_provider (AppData * d)
  */
 
 static void
-on_session_ready (WpProxy * session, GAsyncResult * res, AppData * d)
+on_session_ready (WpObject * session, GAsyncResult * res, AppData * d)
 {
   g_autoptr (GError) error = NULL;
 
-  if (!wp_proxy_augment_finish (session, res, &error)) {
+  if (!wp_object_activate_finish (session, res, &error)) {
     g_printerr ("Failed to prepare session: %s\n", error->message);
     g_main_loop_quit (d->loop);
     return;
@@ -383,7 +385,7 @@ appdata_init (AppData * d, GError ** error)
   /* create a session */
   d->session = WP_SESSION (session = wp_impl_session_new (d->core));
   wp_impl_session_set_property (session, "session.name", "audio");
-  wp_proxy_augment (WP_PROXY (session), WP_SESSION_FEATURES_STANDARD, NULL,
+  wp_object_activate (WP_OBJECT (session), WP_OBJECT_FEATURES_ALL, NULL,
       (GAsyncReadyCallback) on_session_ready, d);
   return TRUE;
 }

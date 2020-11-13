@@ -34,8 +34,8 @@ load_item (TestFixture * f, const gchar * factory, const gchar * media_class)
           NULL));
   g_assert_nonnull (node);
 
-  wp_proxy_augment (WP_PROXY (node), WP_PROXY_FEATURES_STANDARD, NULL,
-      (GAsyncReadyCallback) test_proxy_augment_finish_cb, f);
+  wp_object_activate (WP_OBJECT (node), WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
+      NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
   g_main_loop_run (f->base.loop);
 
   /* configure */
@@ -85,8 +85,8 @@ load_adapter_item (TestFixture * f, const gchar * factory,
           NULL));
   g_assert_nonnull (node);
 
-  wp_proxy_augment (WP_PROXY (node), WP_PROXY_FEATURES_STANDARD, NULL,
-      (GAsyncReadyCallback) test_proxy_augment_finish_cb, f);
+  wp_object_activate (WP_OBJECT (node), WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
+      NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
   g_main_loop_run (f->base.loop);
 
   /* configure adapter */
@@ -206,8 +206,8 @@ config_policy_setup (TestFixture *f, gconstpointer user_data)
       f->session = WP_SESSION (wp_impl_session_new (f->base.core)));
   wp_impl_session_set_property (WP_IMPL_SESSION (f->session),
       "session.name", "audio");
-  wp_proxy_augment (WP_PROXY (f->session), WP_SESSION_FEATURES_STANDARD, NULL,
-      (GAsyncReadyCallback) test_proxy_augment_finish_cb, f);
+  wp_object_activate (WP_OBJECT (f->session), WP_OBJECT_FEATURES_ALL, NULL,
+      (GAsyncReadyCallback) test_object_activate_finish_cb, f);
   g_main_loop_run (f->base.loop);
 }
 

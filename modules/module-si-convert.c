@@ -161,7 +161,7 @@ on_link_activated (WpSessionItem * item, GAsyncResult * res, WpSiConvert * self)
 static void
 do_link_to_target (WpSiConvert *self)
 {
-  g_autoptr (WpCore) core = wp_proxy_get_core (WP_PROXY (self->node));
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self->node));
   g_autoptr (WpSessionItem) link = wp_session_item_make (core,
       "si-standard-link");
   g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
@@ -209,11 +209,11 @@ on_links_changed (WpObjectManager * om, WpSiConvert * self)
 }
 
 static void
-on_node_augment_done (WpProxy * node, GAsyncResult * res,
+on_node_activate_done (WpObject * node, GAsyncResult * res,
     WpTransition * transition)
 {
   g_autoptr (GError) error = NULL;
-  if (!wp_proxy_augment_finish (node, res, &error)) {
+  if (!wp_object_activate_finish (node, res, &error)) {
     wp_transition_return_error (transition, g_steal_pointer (&error));
     return;
   }
@@ -254,7 +254,7 @@ si_convert_activate_execute_step (WpSessionItem * item,
 
       /* Get the node and core */
       node = wp_session_item_get_associated_proxy (self->target, WP_TYPE_NODE);
-      core = wp_proxy_get_core (WP_PROXY (node));
+      core = wp_object_get_core (WP_OBJECT (node));
 
       /* set channels & rate */
       target_config = wp_session_item_get_configuration (self->target);
@@ -266,7 +266,7 @@ si_convert_activate_execute_step (WpSessionItem * item,
       });
 
       /* Create the convert properties based on the adapter properties */
-      node_props = wp_proxy_get_properties (WP_PROXY (node));
+      node_props = wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (node));
       props = wp_properties_new (
           PW_KEY_MEDIA_CLASS, "Audio/Convert",
           PW_KEY_FACTORY_NAME, SPA_NAME_AUDIO_CONVERT,
@@ -307,7 +307,8 @@ si_convert_activate_execute_step (WpSessionItem * item,
           "mode",       "I", SPA_PARAM_PORT_CONFIG_MODE_dsp,
           "format",     "P", format,
           NULL);
-      wp_proxy_set_param (WP_PROXY (self->node), "PortConfig", pod);
+      wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (self->node),
+          "PortConfig", pod);
       g_clear_pointer (&pod, wp_spa_pod_unref);
 
       pod = wp_spa_pod_new_object ("PortConfig", "PortConfig",
@@ -316,10 +317,12 @@ si_convert_activate_execute_step (WpSessionItem * item,
           "control",    "b", self->control_port,
           "format",     "P", format,
           NULL);
-      wp_proxy_set_param (WP_PROXY (self->node), "PortConfig", pod);
+      wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (self->node),
+          "PortConfig", pod);
 
-      wp_proxy_augment (WP_PROXY (self->node), WP_NODE_FEATURES_STANDARD, NULL,
-          (GAsyncReadyCallback) on_node_augment_done, transition);
+      wp_object_activate (WP_OBJECT (self->node),
+          WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL | WP_NODE_FEATURE_PORTS, NULL,
+          (GAsyncReadyCallback) on_node_activate_done, transition);
       break;
     }
     case STEP_INSTALL_LINKS_WATCH: {
@@ -330,7 +333,7 @@ si_convert_activate_execute_step (WpSessionItem * item,
       GVariant *ports_v = NULL;
 
       /* Get the core */
-      core = wp_proxy_get_core (WP_PROXY (self->node));
+      core = wp_object_get_core (WP_OBJECT (self->node));
 
       /* get a list of our ports */
       for (it = wp_node_iterate_ports (self->node);
@@ -347,7 +350,7 @@ si_convert_activate_execute_step (WpSessionItem * item,
 
       /* create the object manager */
       self->links_watch = wp_object_manager_new ();
-      wp_object_manager_request_proxy_features (self->links_watch,
+      wp_object_manager_request_object_features (self->links_watch,
           WP_TYPE_LINK, WP_PROXY_FEATURE_BOUND);
 
       /* interested in links that have one of our ports in their
@@ -457,7 +460,7 @@ si_convert_get_ports (WpSiPortInfo * item, const gchar * context)
 
     /* try to find the audio channel; if channel is NULL, this will silently
        leave the channel_id to its default value, 0 */
-    props = wp_proxy_get_properties (WP_PROXY (port));
+    props = wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (port));
     channel = wp_properties_get (props, PW_KEY_AUDIO_CHANNEL);
     wp_spa_type_get_by_nick (WP_SPA_TYPE_TABLE_AUDIO_CHANNEL, channel,
         &channel_id, NULL, NULL);

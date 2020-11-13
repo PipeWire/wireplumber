@@ -72,7 +72,7 @@ endif
 
 subdir('lib')
 subdir('docs')
-#subdir('modules')
+subdir('modules')
 #subdir('src')
 subdir('tests')
 #subdir('tools')

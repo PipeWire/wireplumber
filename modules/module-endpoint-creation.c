@@ -46,7 +46,8 @@ on_endpoint_created (WpLimitedCreation *li, WpSessionItem *ep,
 static WpLimitedCreation *
 create_device_limited_creation (WpEndpointCreation *self, WpProxy *device)
 {
-  const gchar *device_api = wp_proxy_get_property (device, PW_KEY_DEVICE_API);
+  const gchar *device_api = wp_pipewire_object_get_property (
+      WP_PIPEWIRE_OBJECT (device), PW_KEY_DEVICE_API);
 
   /* Bluez5 */
   if (g_strcmp0 (device_api, "bluez5") == 0)
@@ -91,7 +92,8 @@ on_device_removed (WpObjectManager *om, WpProxy *proxy, gpointer d)
 static gboolean
 has_node_limited_creation (WpEndpointCreation *self, WpProxy *node)
 {
-  const gchar *device_id = wp_proxy_get_property (node, PW_KEY_DEVICE_ID);
+  const gchar *device_id = wp_pipewire_object_get_property (
+      WP_PIPEWIRE_OBJECT (node), PW_KEY_DEVICE_ID);
   if (!device_id)
     return FALSE;
 
@@ -134,8 +136,8 @@ wp_endpoint_creation_activate (WpPlugin * plugin)
   /* Install devices object manager */
   self->devices_om = wp_object_manager_new ();
   wp_object_manager_add_interest (self->devices_om, WP_TYPE_DEVICE, NULL);
-  wp_object_manager_request_proxy_features (self->devices_om,
-      WP_TYPE_DEVICE, WP_PROXY_FEATURES_STANDARD);
+  wp_object_manager_request_object_features (self->devices_om,
+      WP_TYPE_DEVICE, WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
   g_signal_connect_object (self->devices_om, "object-added",
       G_CALLBACK (on_device_added), self, 0);
   g_signal_connect_object (self->devices_om, "object-removed",
@@ -145,8 +147,8 @@ wp_endpoint_creation_activate (WpPlugin * plugin)
   /* Install nodes object manager */
   self->nodes_om = wp_object_manager_new ();
   wp_object_manager_add_interest (self->nodes_om, WP_TYPE_NODE, NULL);
-  wp_object_manager_request_proxy_features (self->nodes_om, WP_TYPE_NODE,
-      WP_PROXY_FEATURES_STANDARD);
+  wp_object_manager_request_object_features (self->nodes_om, WP_TYPE_NODE,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
   g_signal_connect_object (self->nodes_om, "object-added",
       G_CALLBACK (on_node_added), self, 0);
   g_signal_connect_object (self->nodes_om, "object-removed",

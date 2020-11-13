@@ -51,10 +51,12 @@ wp_config_policy_context_get_endpoint_target (WpConfigPolicyContext *self,
       wp_endpoint_get_name (ep), wp_endpoint_get_media_class (ep));
 
   /* Check if the media role property is set, and use it as stream name */
-  stream_name = wp_proxy_get_property (WP_PROXY (ep), PW_KEY_MEDIA_ROLE);
+  stream_name = wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (ep),
+      PW_KEY_MEDIA_ROLE);
 
   /* Check if the node target property is set, and use that target */
-  node_target = wp_proxy_get_property (WP_PROXY (ep), PW_KEY_NODE_TARGET);
+  node_target = wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (ep),
+      PW_KEY_NODE_TARGET);
   if (node_target) {
     target = wp_session_lookup_endpoint (session,
         WP_CONSTRAINT_TYPE_G_PROPERTY, "direction", "=u", target_dir,
@@ -79,7 +81,9 @@ wp_config_policy_context_get_endpoint_target (WpConfigPolicyContext *self,
         WP_PARSER_ENDPOINT_LINK_EXTENSION);
     const struct WpParserEndpointLinkData *data =
         wp_config_parser_get_matched_data (parser, G_OBJECT (ep));
-    guint def_id = wp_session_get_default_endpoint (session, target_dir);
+
+    /* FIXME: port to WpMetadata-based defaults */
+    guint def_id = 0; //wp_session_get_default_endpoint (session, target_dir);
 
     /* If target-endpoint data was defined in the configuration file, find the
      * matching endpoint based on target-endpoint data */
@@ -107,8 +111,8 @@ wp_config_policy_context_get_endpoint_target (WpConfigPolicyContext *self,
           }
           /* otherwise find the endpoint with the highest priority */
           else {
-            const char *priority =
-                wp_proxy_get_property (WP_PROXY (candidate), "endpoint.priority");
+            const char *priority = wp_pipewire_object_get_property (
+                WP_PIPEWIRE_OBJECT (candidate), "endpoint.priority");
             prio = priority ? atoi (priority) : 0;
             if (highest_prio < prio) {
               highest_prio = prio;
@@ -227,7 +231,8 @@ wp_config_policy_context_handle_endpoint (WpConfigPolicyContext *self,
   const gchar *ac = NULL;
 
   /* No need to link if autoconnect == false */
-  ac = wp_proxy_get_property (WP_PROXY (ep), PW_KEY_ENDPOINT_AUTOCONNECT);
+  ac = wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (ep),
+      PW_KEY_ENDPOINT_AUTOCONNECT);
   if (!(!g_strcmp0 (ac, "true") || !g_strcmp0 (ac, "1")))
     return;
 
@@ -314,8 +319,8 @@ wp_config_policy_context_activate (WpPlugin * plugin)
   /* Install the session object manager */
   self->sessions_om = wp_object_manager_new ();
   wp_object_manager_add_interest (self->sessions_om, WP_TYPE_SESSION, NULL);
-  wp_object_manager_request_proxy_features (self->sessions_om, WP_TYPE_SESSION,
-      WP_SESSION_FEATURES_STANDARD);
+  wp_object_manager_request_object_features (self->sessions_om, WP_TYPE_SESSION,
+      WP_OBJECT_FEATURES_ALL);
   g_signal_connect_object (self->sessions_om, "object-added",
       G_CALLBACK (on_session_added), self, 0);
   wp_core_install_object_manager (core, self->sessions_om);

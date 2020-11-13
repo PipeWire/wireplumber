@@ -28,7 +28,8 @@ static void
 client_added (WpObjectManager * om, WpClient *client, WpClientPermissions * self)
 {
   guint32 id = wp_proxy_get_bound_id (WP_PROXY (client));
-  const char *access = wp_proxy_get_property (WP_PROXY (client), PW_KEY_ACCESS);
+  const char *access = wp_pipewire_object_get_property (
+      WP_PIPEWIRE_OBJECT (client), PW_KEY_ACCESS);
 
   wp_debug_object (self, "Client added: %d, access: %s", id, access);
 
@@ -48,8 +49,8 @@ wp_client_permissions_activate (WpPlugin * plugin)
 
   self->om = wp_object_manager_new ();
   wp_object_manager_add_interest (self->om, WP_TYPE_CLIENT, NULL);
-  wp_object_manager_request_proxy_features (self->om, WP_TYPE_CLIENT,
-      WP_PROXY_FEATURES_STANDARD);
+  wp_object_manager_request_object_features (self->om, WP_TYPE_CLIENT,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
 
   g_signal_connect (self->om, "object-added", (GCallback) client_added, self);
 
