@@ -450,10 +450,10 @@ wp_impl_endpoint_stream_activate_get_next_step (WpObject * object,
         WP_SESSION_ITEM (self->item), WP_TYPE_NODE);
 
     /* if the item has a node, cache its props so that enum_params works */
-    if (node && !(wp_object_get_active_features (node) &
-                      WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PROPS))
-      return STEP_ACTIVATE_NODE;
-    else
+    // if (node && !(wp_object_get_active_features (node) &
+    //                   WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PROPS))
+    //   return STEP_ACTIVATE_NODE;
+    // else
       return WP_PIPEWIRE_OBJECT_MIXIN_STEP_BIND;
   }
   /* cache info if supported */
@@ -490,7 +490,7 @@ wp_impl_endpoint_stream_activate_execute_step (WpObject * object,
         WP_SESSION_ITEM (self->item), WP_TYPE_NODE);
 
     wp_object_activate (node,
-        WP_PROXY_FEATURE_BOUND | WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PROPS,
+        WP_PROXY_FEATURE_BOUND /*| WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PROPS */,
         NULL, (GAsyncReadyCallback) wp_impl_endpoint_stream_node_activated,
         transition);
     break;
