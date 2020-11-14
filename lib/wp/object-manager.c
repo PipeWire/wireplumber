@@ -277,6 +277,24 @@ wp_object_manager_add_interest_full (WpObjectManager *self,
   g_ptr_array_add (self->interests, interest);
 }
 
+static void
+store_children_object_features (GHashTable *store, GType object_type,
+    WpObjectFeatures wanted_features)
+{
+  g_autofree GType *children = NULL;
+  GType *child;
+
+  child = children = g_type_children (object_type, NULL);
+  while (*child) {
+    WpObjectFeatures existing_ft = (WpObjectFeatures) GPOINTER_TO_UINT (
+        g_hash_table_lookup (store, GSIZE_TO_POINTER (*child)));
+    g_hash_table_insert (store, GSIZE_TO_POINTER (*child),
+        GUINT_TO_POINTER (existing_ft | wanted_features));
+    store_children_object_features (store, *child, wanted_features);
+    child++;
+  }
+}
+
 /**
  * wp_object_manager_request_object_features:
  * @self: the object manager
@@ -289,25 +307,14 @@ wp_object_manager_add_interest_full (WpObjectManager *self,
  */
 void
 wp_object_manager_request_object_features (WpObjectManager *self,
-    GType object_type, WpProxyFeatures wanted_features)
+    GType object_type, WpObjectFeatures wanted_features)
 {
-  g_autofree GType *children = NULL;
-  GType *child;
-
   g_return_if_fail (WP_IS_OBJECT_MANAGER (self));
   g_return_if_fail (g_type_is_a (object_type, WP_TYPE_OBJECT));
 
   g_hash_table_insert (self->features, GSIZE_TO_POINTER (object_type),
       GUINT_TO_POINTER (wanted_features));
-
-  child = children = g_type_children (object_type, NULL);
-  while (*child) {
-    WpProxyFeatures existing_ft = (WpProxyFeatures) GPOINTER_TO_UINT (
-        g_hash_table_lookup (self->features, GSIZE_TO_POINTER (*child)));
-    g_hash_table_insert (self->features, GSIZE_TO_POINTER (*child),
-        GUINT_TO_POINTER (existing_ft | wanted_features));
-    child++;
-  }
+  store_children_object_features (self->features, object_type, wanted_features);
 }
 
 /**
