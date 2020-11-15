@@ -13,6 +13,7 @@
 
 #include "debug.h"
 #include "spa-pod.h"
+#include "proxy.h"
 #include "private.h"
 #include <pipewire/pipewire.h>
 #include <spa/support/log.h>

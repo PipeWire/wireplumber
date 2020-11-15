@@ -28,7 +28,7 @@
 
 #include "core.h"
 #include "wp.h"
-#include "private.h"
+#include "private/registry.h"
 
 #include <pipewire/pipewire.h>
 

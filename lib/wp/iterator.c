@@ -8,8 +8,8 @@
 
 #define G_LOG_DOMAIN "wp-iterator"
 
-#include "private.h"
 #include "iterator.h"
+#include <spa/utils/defs.h>
 
 struct _WpIterator
 {
@@ -58,6 +58,19 @@ wp_iterator_default_foreach (WpIterator *self, WpIteratorForeachFunc func,
   return wp_iterator_fold (self, foreach_fold_func, NULL, &d);
 }
 
+/**
+ * wp_iterator_new:
+ * @methods: method implementations for the new iterator
+ * @user_size: size of the user_data structure to be allocated
+ *
+ * Constructs an iterator that uses the provided @methods to implement its API.
+ * The WpIterator structure is internally allocated with @user_size additional
+ * space at the end. A pointer to this space can be retrieved with
+ * wp_iterator_get_user_data() and is available for implementation-specific
+ * storage.
+ *
+ * Returns: (transfer full): a new custom iterator
+ */
 WpIterator *
 wp_iterator_new (const WpIteratorMethods *methods, size_t user_size)
 {
@@ -73,6 +86,14 @@ wp_iterator_new (const WpIteratorMethods *methods, size_t user_size)
   return self;
 }
 
+/**
+ * wp_iterator_get_user_data:
+ * @self: an iterator object
+ *
+ * Note: this only for use by implementations of WpIterator
+ *
+ * Returns: a pointer to the implementation-specific storage area
+ */
 gpointer
 wp_iterator_get_user_data (WpIterator *self)
 {

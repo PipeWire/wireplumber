@@ -18,7 +18,8 @@
 #include "proxy-interfaces.h"
 #include "debug.h"
 #include "error.h"
-#include "private.h"
+
+#include <pipewire/pipewire.h>
 
 struct constraint
 {

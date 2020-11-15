@@ -18,7 +18,6 @@
 #include "debug.h"
 #include "error.h"
 #include "wpenums.h"
-#include "private.h"
 
 #include <pipewire/pipewire.h>
 #include <pipewire/extensions/metadata.h>

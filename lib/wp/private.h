@@ -14,9 +14,7 @@
 #include "props.h"
 #include "proxy.h"
 #include "session-item.h"
-#include "iterator.h"
 #include "spa-type.h"
-#include "private/registry.h"
 
 #include <stdint.h>
 #include <pipewire/pipewire.h>
@@ -30,23 +28,6 @@ struct spa_pod_builder;
 
 void wp_props_handle_proxy_param_event (WpProps * self, guint32 id,
     WpSpaPod * pod);
-
-/* iterator */
-
-struct _WpIteratorMethods {
-  void (*reset) (WpIterator *self);
-  gboolean (*next) (WpIterator *self, GValue *item);
-  gboolean (*fold) (WpIterator *self, WpIteratorFoldFunc func,
-      GValue *ret, gpointer data);
-  gboolean (*foreach) (WpIterator *self, WpIteratorForeachFunc func,
-      gpointer data);
-  void (*finalize) (WpIterator *self);
-};
-typedef struct _WpIteratorMethods WpIteratorMethods;
-
-WpIterator * wp_iterator_new (const WpIteratorMethods *methods,
-    size_t user_size);
-gpointer wp_iterator_get_user_data (WpIterator *self);
 
 /* spa pod */
 

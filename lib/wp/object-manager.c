@@ -41,7 +41,8 @@
 
 #include "object-manager.h"
 #include "debug.h"
-#include "private.h"
+#include "private/registry.h"
+
 #include <pipewire/pipewire.h>
 
 /* WpObjectManager */

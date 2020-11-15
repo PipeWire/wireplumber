@@ -14,7 +14,7 @@
 #define G_LOG_DOMAIN "wp-plugin"
 
 #include "plugin.h"
-#include "private.h"
+#include "private/registry.h"
 
 enum {
   PROP_0,

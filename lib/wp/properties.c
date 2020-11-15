@@ -40,7 +40,6 @@
 #define G_LOG_DOMAIN "wp-properties"
 
 #include "properties.h"
-#include "private.h"
 
 #include <errno.h>
 #include <pipewire/properties.h>

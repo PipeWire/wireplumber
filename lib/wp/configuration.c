@@ -16,7 +16,7 @@
 
 #include "configuration.h"
 #include "debug.h"
-#include "private.h"
+#include "private/registry.h"
 
 struct _WpConfiguration
 {
