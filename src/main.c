@@ -38,6 +38,7 @@ struct WpDaemonData
   GDestroyNotify free_message;
 
   GPtrArray *sessions;
+  guint n_sessions_exported;
 };
 
 static void
@@ -96,43 +97,37 @@ activate_plugins (struct WpDaemonData *d)
 }
 
 static void
-on_session_exported (WpProxy * session, GAsyncResult * res,
+on_session_exported (WpObject * session, GAsyncResult * res,
     struct WpDaemonData *d)
 {
   g_autoptr (GError) error = NULL;
 
-  if (!wp_proxy_augment_finish (session, res, &error)) {
+  if (!wp_object_activate_finish (session, res, &error)) {
     wp_warning_object (session, "session could not be exported: %s",
         error->message);
   }
 
   if (wp_log_level_is_enabled (G_LOG_LEVEL_DEBUG)) {
-    g_autoptr (WpProperties) props = wp_proxy_get_properties (session);
+    g_autoptr (WpProperties) props =
+        wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (session));
     wp_debug_object (session, "session '%s' exported",
         wp_properties_get (props, "session.name"));
   }
 
-  for (guint i = 0; i < d->sessions->len; i++) {
-    WpProxy *session = g_ptr_array_index (d->sessions, i);
-    if ((wp_proxy_get_features (session) & WP_SESSION_FEATURES_STANDARD)
-            != WP_SESSION_FEATURES_STANDARD) {
-      /* not ready yet */
-      return;
-    }
+  if (++d->n_sessions_exported == d->sessions->len) {
+    wp_debug ("All sessions exported");
+    wp_core_idle_add (d->core, NULL, G_SOURCE_FUNC (activate_plugins), d, NULL);
   }
-
-  wp_debug ("All sessions exported");
-  wp_core_idle_add (d->core, NULL, G_SOURCE_FUNC (activate_plugins), d, NULL);
 }
 
 static void
 on_connected (WpCore *core, struct WpDaemonData *d)
 {
+  d->n_sessions_exported = 0;
   for (guint i = 0; i < d->sessions->len; i++) {
-    WpProxy *session = g_ptr_array_index (d->sessions, i);
-    wp_proxy_augment (session,
-        WP_SESSION_FEATURES_STANDARD, NULL,
-        (GAsyncReadyCallback) on_session_exported, d);
+    WpObject *session = g_ptr_array_index (d->sessions, i);
+    wp_object_activate (session, WP_OBJECT_FEATURES_ALL,
+        NULL, (GAsyncReadyCallback) on_session_exported, d);
   }
 }
 
