@@ -25,6 +25,16 @@ wp_metadata_plugin_init (WpMetadataPlugin * self)
 }
 
 static void
+on_metadata_activated (GObject * obj, GAsyncResult * res, gpointer user_data)
+{
+  g_autoptr (GError) error = NULL;
+  if (!wp_object_activate_finish (WP_OBJECT (obj), res, &error)) {
+    wp_warning_object (user_data, "failed to activate WpImplMetadata: %s",
+        error->message);
+  }
+}
+
+static void
 wp_metadata_plugin_activate (WpPlugin * plugin)
 {
   WpMetadataPlugin * self = WP_METADATA_PLUGIN (plugin);
@@ -33,7 +43,7 @@ wp_metadata_plugin_activate (WpPlugin * plugin)
 
   self->metadata = wp_impl_metadata_new (core);
   wp_object_activate (WP_OBJECT (self->metadata),
-        WP_OBJECT_FEATURES_ALL, NULL, NULL, self);
+        WP_OBJECT_FEATURES_ALL, NULL, on_metadata_activated, self);
 }
 
 static void
