@@ -13,9 +13,7 @@
 #include "object-manager.h"
 #include "props.h"
 #include "proxy.h"
-#include "endpoint.h"
-#include "endpoint-stream.h"
-#include "si-interfaces.h"
+#include "session-item.h"
 #include "iterator.h"
 #include "spa-type.h"
 #include "private/registry.h"
@@ -68,31 +66,6 @@ const struct spa_pod *wp_spa_pod_get_spa_pod (const WpSpaPod *self);
 /* session item */
 
 void wp_session_item_set_parent (WpSessionItem *self, WpSessionItem *parent);
-
-/* impl endpoint */
-
-#define WP_TYPE_IMPL_ENDPOINT (wp_impl_endpoint_get_type ())
-G_DECLARE_FINAL_TYPE (WpImplEndpoint, wp_impl_endpoint,
-                      WP, IMPL_ENDPOINT, WpEndpoint)
-
-WpImplEndpoint * wp_impl_endpoint_new (WpCore * core, WpSiEndpoint * item);
-
-/* impl endpoint stream */
-
-#define WP_TYPE_IMPL_ENDPOINT_STREAM (wp_impl_endpoint_stream_get_type ())
-G_DECLARE_FINAL_TYPE (WpImplEndpointStream, wp_impl_endpoint_stream,
-                      WP, IMPL_ENDPOINT_STREAM, WpEndpointStream)
-
-WpImplEndpointStream * wp_impl_endpoint_stream_new (WpCore * core,
-    WpSiStream * item);
-
-/* impl endpoint link */
-
-#define WP_TYPE_IMPL_ENDPOINT_LINK (wp_impl_endpoint_link_get_type ())
-G_DECLARE_FINAL_TYPE (WpImplEndpointLink, wp_impl_endpoint_link,
-                      WP, IMPL_ENDPOINT_LINK, WpEndpointLink)
-
-WpImplEndpointLink * wp_impl_endpoint_link_new (WpCore * core, WpSiLink * item);
 
 G_END_DECLS
 

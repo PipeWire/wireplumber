@@ -15,9 +15,10 @@
 
 #include "session-item.h"
 #include "debug.h"
-#include "private.h"
 #include "error.h"
 #include "wpenums.h"
+#include "private.h"
+#include "private/impl-endpoint.h"
 
 struct _WpSiTransition
 {
