@@ -8,13 +8,12 @@
 
 #define G_LOG_DOMAIN "wp-spa-pod"
 
+#include "spa-pod.h"
+#include "spa-type.h"
+
 #include <spa/utils/type-info.h>
 #include <spa/pod/builder.h>
 #include <spa/pod/parser.h>
-
-#include "private.h"
-#include "spa-pod.h"
-#include "spa-type.h"
 
 #define WP_SPA_POD_BUILDER_REALLOC_STEP_SIZE 64
 
@@ -190,12 +189,29 @@ wp_spa_pod_new (const struct spa_pod *pod, WpSpaPodType type, guint32 flags)
   return self;
 }
 
+/**
+ * wp_spa_pod_new_wrap:
+ * @pod: a spa_pod
+ *
+ * Returns: a new #WpSpaPod that references the data in @pod. @pod is not
+ *   copied, so it needs to stay alive. The returned #WpSpaPod can be modified
+ *   by using the setter functions, in which case @pod will be modified
+ *   underneath.
+ */
 WpSpaPod *
 wp_spa_pod_new_wrap (struct spa_pod *pod)
 {
   return wp_spa_pod_new (pod, WP_SPA_POD_REGULAR, FLAG_NO_OWNERSHIP);
 }
 
+/**
+ * wp_spa_pod_new_wrap_const:
+ * @pod: a constant spa_pod
+ *
+ * Returns: a new #WpSpaPod that references the data in @pod. @pod is not
+ *   copied, so it needs to stay alive. The returned #WpSpaPod cannot be
+ *   modified, unless it's copied first.
+ */
 WpSpaPod *
 wp_spa_pod_new_wrap_const (const struct spa_pod *pod)
 {
@@ -203,7 +219,7 @@ wp_spa_pod_new_wrap_const (const struct spa_pod *pod)
       FLAG_NO_OWNERSHIP | FLAG_CONSTANT);
 }
 
-WpSpaPod *
+static WpSpaPod *
 wp_spa_pod_new_property_wrap (WpSpaTypeTable table, guint32 key, guint32 flags,
     struct spa_pod *pod)
 {
@@ -214,7 +230,20 @@ wp_spa_pod_new_property_wrap (WpSpaTypeTable table, guint32 key, guint32 flags,
   return self;
 }
 
-WpSpaPod *
+static WpSpaPod *
+wp_spa_pod_new_control_wrap (guint32 offset, guint32 type,
+    struct spa_pod *pod)
+{
+  WpSpaPod *self = wp_spa_pod_new (pod, WP_SPA_POD_CONTROL, FLAG_NO_OWNERSHIP);
+  self->static_pod.data_control.offset = offset;
+  self->static_pod.data_control.type = type;
+  return self;
+}
+
+#if 0
+/* there is no use for these _const variants, but let's keep them just in case */
+
+static WpSpaPod *
 wp_spa_pod_new_property_wrap_const (WpSpaTypeTable table, guint32 key,
     guint32 flags, const struct spa_pod *pod)
 {
@@ -226,17 +255,7 @@ wp_spa_pod_new_property_wrap_const (WpSpaTypeTable table, guint32 key,
   return self;
 }
 
-WpSpaPod *
-wp_spa_pod_new_control_wrap (guint32 offset, guint32 type,
-    struct spa_pod *pod)
-{
-  WpSpaPod *self = wp_spa_pod_new (pod, WP_SPA_POD_CONTROL, FLAG_NO_OWNERSHIP);
-  self->static_pod.data_control.offset = offset;
-  self->static_pod.data_control.type = type;
-  return self;
-}
-
-WpSpaPod *
+static WpSpaPod *
 wp_spa_pod_new_control_wrap_const (guint32 offset, guint32 type,
     const struct spa_pod *pod)
 {
@@ -246,6 +265,7 @@ wp_spa_pod_new_control_wrap_const (guint32 offset, guint32 type,
   self->static_pod.data_control.type = type;
   return self;
 }
+#endif
 
 static WpSpaPod *
 wp_spa_pod_new_wrap_copy (const struct spa_pod *pod)
@@ -274,6 +294,16 @@ wp_spa_pod_new_control_wrap_copy (guint32 offset, guint32 type,
   return self;
 }
 
+/**
+ * wp_spa_pod_get_spa_pod:
+ * @self: a spa pod object
+ *
+ * Converts a #WpSpaPod pointer to a `struct spa_pod` one, for use with
+ * native pipewire & spa functions. The returned pointer is owned by #WpSpaPod
+ * and may not be modified or freed.
+ *
+ * Returns: a const pointer to the underlying spa_pod structure
+ */
 const struct spa_pod *
 wp_spa_pod_get_spa_pod (const WpSpaPod *self)
 {

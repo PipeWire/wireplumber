@@ -59,6 +59,10 @@ void wp_props_set (WpProps * self, const gchar * name, WpSpaPod * value);
 WP_API
 void wp_props_store (WpProps * self, const gchar * name, WpSpaPod * value);
 
+WP_PRIVATE_API
+void wp_props_handle_proxy_param_event (WpProps * self, guint32 id,
+    WpSpaPod * pod);
+
 G_END_DECLS
 
 #endif

@@ -16,6 +16,8 @@
 
 G_BEGIN_DECLS
 
+struct spa_pod;
+
 /**
  * WP_TYPE_SPA_POD:
  *
@@ -32,6 +34,15 @@ WpSpaPod *wp_spa_pod_ref (WpSpaPod *self);
 
 WP_API
 void wp_spa_pod_unref (WpSpaPod *self);
+
+WP_API
+WpSpaPod * wp_spa_pod_new_wrap (struct spa_pod *pod);
+
+WP_API
+WpSpaPod * wp_spa_pod_new_wrap_const (const struct spa_pod *pod);
+
+WP_API
+const struct spa_pod * wp_spa_pod_get_spa_pod (const WpSpaPod *self);
 
 WP_API
 const char *wp_spa_pod_get_type_name (WpSpaPod *self);

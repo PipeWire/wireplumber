@@ -13,7 +13,6 @@
 #include "spa-type.h"
 #include "spa-pod.h"
 #include "debug.h"
-#include "private.h"
 
 #include <pipewire/pipewire.h>
 #include <spa/utils/result.h>
