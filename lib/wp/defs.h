@@ -27,4 +27,12 @@
 # endif
 #endif
 
+#ifndef WP_PRIVATE_API
+# ifdef BUILDING_WP
+#  define WP_PRIVATE_API
+# else
+#  define WP_PRIVATE_API __attribute__ ((deprecated ("Private API")))
+# endif
+#endif
+
 #endif
