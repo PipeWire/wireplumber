@@ -363,6 +363,7 @@ metadata_iterator_finalize (WpIterator *it)
 }
 
 static const WpIteratorMethods metadata_iterator_methods = {
+  .version = WP_ITERATOR_METHODS_VERSION,
   .reset = metadata_iterator_reset,
   .next = metadata_iterator_next,
   .fold = metadata_iterator_fold,

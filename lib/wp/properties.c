@@ -785,6 +785,7 @@ dict_iterator_finalize (WpIterator *it)
 }
 
 static const WpIteratorMethods dict_iterator_methods = {
+  .version = WP_ITERATOR_METHODS_VERSION,
   .reset = dict_iterator_reset,
   .next = dict_iterator_next,
   .fold = dict_iterator_fold,

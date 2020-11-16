@@ -399,6 +399,7 @@ om_iterator_finalize (WpIterator *it)
 }
 
 static const WpIteratorMethods om_iterator_methods = {
+  .version = WP_ITERATOR_METHODS_VERSION,
   .reset = om_iterator_reset,
   .next = om_iterator_next,
   .fold = om_iterator_fold,

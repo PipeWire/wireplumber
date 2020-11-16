@@ -48,8 +48,12 @@ GType wp_iterator_get_type (void);
 typedef struct _WpIterator WpIterator;
 typedef struct _WpIteratorMethods WpIteratorMethods;
 
+static const guint32 WP_ITERATOR_METHODS_VERSION = 0;
+
 struct _WpIteratorMethods
 {
+  guint32 version;
+
   void (*reset) (WpIterator *self);
   gboolean (*next) (WpIterator *self, GValue *item);
   gboolean (*fold) (WpIterator *self, WpIteratorFoldFunc func,

@@ -270,6 +270,7 @@ ptr_array_iterator_finalize (WpIterator *it)
 }
 
 static const WpIteratorMethods ptr_array_iterator_methods = {
+  .version = WP_ITERATOR_METHODS_VERSION,
   .reset = ptr_array_iterator_reset,
   .next = ptr_array_iterator_next,
   .fold = ptr_array_iterator_fold,

@@ -3098,6 +3098,7 @@ WpIterator *
 wp_spa_pod_iterate (WpSpaPod *pod)
 {
   static const WpIteratorMethods methods = {
+    .version = WP_ITERATOR_METHODS_VERSION,
     .reset = wp_spa_pod_iterator_reset,
     .next = wp_spa_pod_iterator_next,
     .fold = wp_spa_pod_iterator_fold,

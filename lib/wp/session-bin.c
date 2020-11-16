@@ -182,6 +182,7 @@ WpIterator *
 wp_session_bin_iterate (WpSessionBin *self)
 {
   static const WpIteratorMethods methods = {
+    .version = WP_ITERATOR_METHODS_VERSION,
     .reset = wp_session_bin_iterator_reset,
     .next = wp_session_bin_iterator_next,
     .fold = NULL,
