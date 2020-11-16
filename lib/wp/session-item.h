@@ -123,6 +123,9 @@ void wp_session_item_reset (WpSessionItem * self);
 WP_API
 WpSessionItem * wp_session_item_get_parent (WpSessionItem * self);
 
+WP_PRIVATE_API
+void wp_session_item_set_parent (WpSessionItem *self, WpSessionItem *parent);
+
 /* flags */
 
 WP_API

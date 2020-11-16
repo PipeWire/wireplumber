@@ -44,10 +44,6 @@ WpSpaPod * wp_spa_pod_new_control_wrap_const (guint32 offset, guint32 type,
     const struct spa_pod *pod);
 const struct spa_pod *wp_spa_pod_get_spa_pod (const WpSpaPod *self);
 
-/* session item */
-
-void wp_session_item_set_parent (WpSessionItem *self, WpSessionItem *parent);
-
 G_END_DECLS
 
 #endif

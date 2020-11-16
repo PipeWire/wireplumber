@@ -13,7 +13,6 @@
 
 #define G_LOG_DOMAIN "wp-sb"
 
-#include "private.h"
 #include "session-bin.h"
 
 typedef struct _WpSessionBinPrivate WpSessionBinPrivate;

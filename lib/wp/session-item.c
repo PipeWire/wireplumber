@@ -14,11 +14,13 @@
 #define G_LOG_DOMAIN "wp-si"
 
 #include "session-item.h"
+#include "core.h"
 #include "debug.h"
 #include "error.h"
 #include "wpenums.h"
-#include "private.h"
 #include "private/impl-endpoint.h"
+
+#include <spa/utils/defs.h>
 
 struct _WpSiTransition
 {
@@ -450,11 +452,10 @@ wp_session_item_get_parent (WpSessionItem * self)
 /**
  * wp_session_item_set_parent:
  * @self: the session item
+ * @parent: (transfer none): the parent item
  *
- * Gets the item's parent, which is the #WpSessionBin this item has been added
- * to, or NULL if the item does not belong to a session bin.
- *
- * Returns: (nullable) (transfer full): the item's parent.
+ * Private API.
+ * Sets the item's parent; used internally by #WpSessionBin.
  */
 void
 wp_session_item_set_parent (WpSessionItem *self, WpSessionItem *parent)
