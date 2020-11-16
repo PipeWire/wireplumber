@@ -16,6 +16,7 @@
 #include "endpoint.h"
 #include "node.h"
 #include "session.h"
+#include "object-manager.h"
 #include "error.h"
 #include "wpenums.h"
 #include "si-factory.h"

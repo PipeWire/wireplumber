@@ -9,14 +9,9 @@
 #ifndef __WIREPLUMBER_PRIVATE_H__
 #define __WIREPLUMBER_PRIVATE_H__
 
-#include "core.h"
-#include "object-manager.h"
 #include "props.h"
-#include "proxy.h"
-#include "session-item.h"
 #include "spa-type.h"
 
-#include <stdint.h>
 #include <pipewire/pipewire.h>
 
 G_BEGIN_DECLS

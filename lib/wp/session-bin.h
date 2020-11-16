@@ -9,7 +9,6 @@
 #ifndef __WIREPLUMBER_SESSION_BIN_H__
 #define __WIREPLUMBER_SESSION_BIN_H__
 
-#include "core.h"
 #include "session-item.h"
 #include "iterator.h"
 

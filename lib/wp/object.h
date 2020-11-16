@@ -9,11 +9,10 @@
 #ifndef __WIREPLUMBER_OBJECT_H__
 #define __WIREPLUMBER_OBJECT_H__
 
+#include "core.h"
 #include "transition.h"
 
 G_BEGIN_DECLS
-
-typedef struct _WpCore WpCore;
 
 /**
  * WpObjectFeatures:

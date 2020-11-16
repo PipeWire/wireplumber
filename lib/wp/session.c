@@ -14,6 +14,7 @@
 #define G_LOG_DOMAIN "wp-session"
 
 #include "session.h"
+#include "object-manager.h"
 #include "error.h"
 #include "wpenums.h"
 #include "private/impl-endpoint.h"

@@ -9,14 +9,15 @@
 #ifndef __WIREPLUMBER_CORE_H__
 #define __WIREPLUMBER_CORE_H__
 
-#include <glib-object.h>
-#include "object-manager.h"
-#include "proxy.h"
+#include <gio/gio.h>
+#include "defs.h"
+#include "properties.h"
 
 G_BEGIN_DECLS
 
 struct pw_context;
 struct pw_core;
+typedef struct _WpObjectManager WpObjectManager;
 
 #define WP_TYPE_CORE (wp_core_get_type ())
 WP_API
