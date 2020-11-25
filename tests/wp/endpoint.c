@@ -268,15 +268,15 @@ test_endpoint_session_bound (WpObject * session, GAsyncResult * res,
   g_main_loop_quit (fixture->base.loop);
 }
 
-// static void
-// test_endpoint_prop_changed (WpProxy * proxy,
-//     const gchar * id_name, TestEndpointFixture *fixture)
-// {
-//   wp_debug_object (proxy, "prop changed: %s", id_name);
+static void
+test_endpoint_params_changed (WpPipewireObject * proxy,
+    guint32 id, TestEndpointFixture *fixture)
+{
+  wp_debug_object (proxy, "params changed: %u", id);
 
-//   if (++fixture->n_events == 3)
-//     g_main_loop_quit (fixture->base.loop);
-// }
+  if (++fixture->n_events == 3)
+    g_main_loop_quit (fixture->base.loop);
+}
 
 static void
 test_endpoint_notify_properties (WpEndpoint * endpoint, GParamSpec * param,
@@ -419,7 +419,6 @@ test_endpoint_no_props (TestEndpointFixture *fixture, gconstpointer data)
   g_assert_null (fixture->proxy_endpoint);
 }
 
-#if 0
 static void
 test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
 {
@@ -459,12 +458,12 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
 
   /* create session */
   session = wp_impl_session_new (fixture->base.core);
-  wp_object_activate (WP_PROXY (session), WP_PROXY_FEATURE_BOUND, NULL,
+  wp_object_activate (WP_OBJECT (session), WP_PROXY_FEATURE_BOUND, NULL,
       (GAsyncReadyCallback) test_endpoint_session_bound, fixture);
 
   /* run until session is bound */
   g_main_loop_run (fixture->base.loop);
-  g_assert_cmpint (wp_object_get_active_features (WP_PROXY (session)), &,
+  g_assert_cmpint (wp_object_get_active_features (WP_OBJECT (session)), &,
       WP_PROXY_FEATURE_BOUND);
   g_assert_cmpint (wp_proxy_get_bound_id (WP_PROXY (session)), >, 0);
 
@@ -482,12 +481,13 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
           "node.name", "audiotestsrc.adapter",
           NULL));
   g_assert_nonnull (endpoint->node);
-  wp_object_activate (WP_PROXY (endpoint->node), WP_PROXY_FEATURES_STANDARD, NULL,
+  wp_object_activate (WP_OBJECT (endpoint->node),
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL, NULL,
       (GAsyncReadyCallback) test_object_activate_finish_cb, fixture);
   g_main_loop_run (fixture->base.loop);
 
-  g_assert_cmpint (wp_object_get_active_features (WP_PROXY (endpoint->node)), ==,
-      WP_PROXY_FEATURES_STANDARD);
+  g_assert_cmpint (wp_object_get_active_features (WP_OBJECT (endpoint->node)),
+      ==, WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
 
   /* activate & export the endpoint */
   wp_session_item_activate (WP_SESSION_ITEM (endpoint),
@@ -505,43 +505,50 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
   g_assert_nonnull (fixture->proxy_endpoint);
 
   /* verify features; the endpoint must have also augmented the node */
-
-  g_assert_cmpint (wp_object_get_active_features (WP_PROXY (endpoint->node)), ==,
-      WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_PROPS);
-  g_assert_cmphex (wp_object_get_active_features (fixture->proxy_endpoint), ==,
-      WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_PROPS);
+  g_assert_cmpint (
+      wp_object_get_active_features (WP_OBJECT (endpoint->node)), &,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL | WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PROPS);
+  g_assert_cmphex (
+      wp_object_get_active_features (WP_OBJECT (fixture->proxy_endpoint)), &,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL | WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PROPS);
 
   /* verify props */
-
   {
-    g_autoptr (WpSpaPod) pod =
-        wp_proxy_get_prop (fixture->proxy_endpoint, "volume");
+    g_autoptr (WpIterator) iterator = NULL;
+    g_auto (GValue) item = G_VALUE_INIT;
+    g_autoptr (WpSpaPod) pod = NULL;
     gfloat float_value = 0.0f;
-    g_assert_nonnull (pod);
-    g_assert_true (wp_spa_pod_get_float (pod, &float_value));
-    g_assert_cmpfloat_with_epsilon (float_value, 1.0f, 0.001);
-  }
-  {
-    g_autoptr (WpSpaPod) pod =
-        wp_proxy_get_prop (fixture->proxy_endpoint, "mute");
     gboolean boolean_value = TRUE;
-    g_assert_nonnull (pod);
-    g_assert_true (wp_spa_pod_get_boolean (pod, &boolean_value));
+
+    iterator = wp_pipewire_object_enum_params_sync (
+        WP_PIPEWIRE_OBJECT (fixture->proxy_endpoint), "Props", NULL);
+    g_assert_nonnull (iterator);
+
+    g_assert_true (wp_iterator_next (iterator, &item));
+    g_assert_nonnull ((pod = g_value_dup_boxed (&item)));
+
+    g_assert_true (wp_spa_pod_get_object (pod, "Props", NULL,
+            "volume", "f", &float_value,
+            "mute", "b", &boolean_value,
+            NULL));
+    g_assert_cmpfloat_with_epsilon (float_value, 1.0f, 0.001);
     g_assert_cmpint (boolean_value, ==, FALSE);
   }
 
   /* setup change signals */
-  g_signal_connect (fixture->proxy_endpoint, "prop-changed",
-      (GCallback) test_endpoint_prop_changed, fixture);
-  g_signal_connect (fixture->impl_endpoint, "prop-changed",
-      (GCallback) test_endpoint_prop_changed, fixture);
-  g_signal_connect (endpoint->node, "prop-changed",
-      (GCallback) test_endpoint_prop_changed, fixture);
+  g_signal_connect (fixture->proxy_endpoint, "params-changed",
+      (GCallback) test_endpoint_params_changed, fixture);
+  g_signal_connect (fixture->impl_endpoint, "params-changed",
+      (GCallback) test_endpoint_params_changed, fixture);
+  g_signal_connect (endpoint->node, "params-changed",
+      (GCallback) test_endpoint_params_changed, fixture);
 
   /* change control on the proxy */
   fixture->n_events = 0;
-  wp_proxy_set_prop (fixture->proxy_endpoint, "volume",
-      wp_spa_pod_new_float (0.7f));
+  wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (fixture->proxy_endpoint),
+      "Props", 0,
+      wp_spa_pod_new_object ("Props", "Props",
+          "volume", "f", 0.7f, NULL));
 
   /* run until the change is on all sides */
   g_main_loop_run (fixture->base.loop);
@@ -549,58 +556,75 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
 
   /* verify the value change on all sides */
   {
-    g_autoptr (WpSpaPod) pod =
-        wp_proxy_get_prop (fixture->proxy_endpoint, "volume");
+    g_autoptr (WpIterator) iterator = NULL;
+    g_auto (GValue) item = G_VALUE_INIT;
+    g_autoptr (WpSpaPod) pod = NULL;
     gfloat float_value = 0.0f;
-    g_assert_nonnull (pod);
-    g_assert_true (wp_spa_pod_get_float (pod, &float_value));
-    g_assert_cmpfloat_with_epsilon (float_value, 0.7f, 0.001);
-  }
-  {
-    g_autoptr (WpSpaPod) pod =
-        wp_proxy_get_prop (fixture->proxy_endpoint, "mute");
     gboolean boolean_value = TRUE;
-    g_assert_nonnull (pod);
-    g_assert_true (wp_spa_pod_get_boolean (pod, &boolean_value));
+
+    iterator = wp_pipewire_object_enum_params_sync (
+        WP_PIPEWIRE_OBJECT (fixture->proxy_endpoint), "Props", NULL);
+    g_assert_nonnull (iterator);
+
+    g_assert_true (wp_iterator_next (iterator, &item));
+    g_assert_nonnull ((pod = g_value_dup_boxed (&item)));
+
+    g_assert_true (wp_spa_pod_get_object (pod, "Props", NULL,
+            "volume", "f", &float_value,
+            "mute", "b", &boolean_value,
+            NULL));
+    g_assert_cmpfloat_with_epsilon (float_value, 0.7f, 0.001);
     g_assert_cmpint (boolean_value, ==, FALSE);
   }
   {
-    g_autoptr (WpSpaPod) pod =
-        wp_proxy_get_prop (fixture->impl_endpoint, "volume");
+    g_autoptr (WpIterator) iterator = NULL;
+    g_auto (GValue) item = G_VALUE_INIT;
+    g_autoptr (WpSpaPod) pod = NULL;
     gfloat float_value = 0.0f;
-    g_assert_nonnull (pod);
-    g_assert_true (wp_spa_pod_get_float (pod, &float_value));
-    g_assert_cmpfloat_with_epsilon (float_value, 0.7f, 0.001);
-  }
-  {
-    g_autoptr (WpSpaPod) pod =
-        wp_proxy_get_prop (fixture->impl_endpoint, "mute");
     gboolean boolean_value = TRUE;
-    g_assert_nonnull (pod);
-    g_assert_true (wp_spa_pod_get_boolean (pod, &boolean_value));
+
+    iterator = wp_pipewire_object_enum_params_sync (
+        WP_PIPEWIRE_OBJECT (fixture->impl_endpoint), "Props", NULL);
+    g_assert_nonnull (iterator);
+
+    g_assert_true (wp_iterator_next (iterator, &item));
+    g_assert_nonnull ((pod = g_value_dup_boxed (&item)));
+
+    g_assert_true (wp_spa_pod_get_object (pod, "Props", NULL,
+            "volume", "f", &float_value,
+            "mute", "b", &boolean_value,
+            NULL));
+    g_assert_cmpfloat_with_epsilon (float_value, 0.7f, 0.001);
     g_assert_cmpint (boolean_value, ==, FALSE);
   }
   {
-    g_autoptr (WpSpaPod) pod =
-        wp_proxy_get_prop (WP_PROXY (endpoint->node), "volume");
+    g_autoptr (WpIterator) iterator = NULL;
+    g_auto (GValue) item = G_VALUE_INIT;
+    g_autoptr (WpSpaPod) pod = NULL;
     gfloat float_value = 0.0f;
-    g_assert_nonnull (pod);
-    g_assert_true (wp_spa_pod_get_float (pod, &float_value));
-    g_assert_cmpfloat_with_epsilon (float_value, 0.7f, 0.001);
-  }
-  {
-    g_autoptr (WpSpaPod) pod =
-        wp_proxy_get_prop (WP_PROXY (endpoint->node), "mute");
     gboolean boolean_value = TRUE;
-    g_assert_nonnull (pod);
-    g_assert_true (wp_spa_pod_get_boolean (pod, &boolean_value));
+
+    iterator = wp_pipewire_object_enum_params_sync (
+        WP_PIPEWIRE_OBJECT (endpoint->node), "Props", NULL);
+    g_assert_nonnull (iterator);
+
+    g_assert_true (wp_iterator_next (iterator, &item));
+    g_assert_nonnull ((pod = g_value_dup_boxed (&item)));
+
+    g_assert_true (wp_spa_pod_get_object (pod, "Props", NULL,
+            "volume", "f", &float_value,
+            "mute", "b", &boolean_value,
+            NULL));
+    g_assert_cmpfloat_with_epsilon (float_value, 0.7f, 0.001);
     g_assert_cmpint (boolean_value, ==, FALSE);
   }
 
   /* change control on the impl */
   fixture->n_events = 0;
-  wp_proxy_set_prop (fixture->impl_endpoint, "mute",
-      wp_spa_pod_new_boolean (TRUE));
+  wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (fixture->impl_endpoint),
+      "Props", 0,
+      wp_spa_pod_new_object ("Props", "Props",
+          "mute", "b", TRUE, NULL));
 
   /* run until the change is on all sides */
   g_main_loop_run (fixture->base.loop);
@@ -608,58 +632,75 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
 
   /* verify the value change on all sides */
   {
-    g_autoptr (WpSpaPod) pod =
-        wp_proxy_get_prop (fixture->proxy_endpoint, "volume");
+    g_autoptr (WpIterator) iterator = NULL;
+    g_auto (GValue) item = G_VALUE_INIT;
+    g_autoptr (WpSpaPod) pod = NULL;
     gfloat float_value = 0.0f;
-    g_assert_nonnull (pod);
-    g_assert_true (wp_spa_pod_get_float (pod, &float_value));
+    gboolean boolean_value = TRUE;
+
+    iterator = wp_pipewire_object_enum_params_sync (
+        WP_PIPEWIRE_OBJECT (fixture->proxy_endpoint), "Props", NULL);
+    g_assert_nonnull (iterator);
+
+    g_assert_true (wp_iterator_next (iterator, &item));
+    g_assert_nonnull ((pod = g_value_dup_boxed (&item)));
+
+    g_assert_true (wp_spa_pod_get_object (pod, "Props", NULL,
+            "volume", "f", &float_value,
+            "mute", "b", &boolean_value,
+            NULL));
     g_assert_cmpfloat_with_epsilon (float_value, 0.7f, 0.001);
-  }
-  {
-    g_autoptr (WpSpaPod) pod =
-        wp_proxy_get_prop (fixture->proxy_endpoint, "mute");
-    gboolean boolean_value = FALSE;
-    g_assert_nonnull (pod);
-    g_assert_true (wp_spa_pod_get_boolean (pod, &boolean_value));
     g_assert_cmpint (boolean_value, ==, TRUE);
   }
   {
-    g_autoptr (WpSpaPod) pod =
-        wp_proxy_get_prop (fixture->impl_endpoint, "volume");
+    g_autoptr (WpIterator) iterator = NULL;
+    g_auto (GValue) item = G_VALUE_INIT;
+    g_autoptr (WpSpaPod) pod = NULL;
     gfloat float_value = 0.0f;
-    g_assert_nonnull (pod);
-    g_assert_true (wp_spa_pod_get_float (pod, &float_value));
+    gboolean boolean_value = TRUE;
+
+    iterator = wp_pipewire_object_enum_params_sync (
+        WP_PIPEWIRE_OBJECT (fixture->impl_endpoint), "Props", NULL);
+    g_assert_nonnull (iterator);
+
+    g_assert_true (wp_iterator_next (iterator, &item));
+    g_assert_nonnull ((pod = g_value_dup_boxed (&item)));
+
+    g_assert_true (wp_spa_pod_get_object (pod, "Props", NULL,
+            "volume", "f", &float_value,
+            "mute", "b", &boolean_value,
+            NULL));
     g_assert_cmpfloat_with_epsilon (float_value, 0.7f, 0.001);
-  }
-  {
-    g_autoptr (WpSpaPod) pod =
-        wp_proxy_get_prop (fixture->impl_endpoint, "mute");
-    gboolean boolean_value = FALSE;
-    g_assert_nonnull (pod);
-    g_assert_true (wp_spa_pod_get_boolean (pod, &boolean_value));
     g_assert_cmpint (boolean_value, ==, TRUE);
   }
   {
-    g_autoptr (WpSpaPod) pod =
-        wp_proxy_get_prop (WP_PROXY (endpoint->node), "volume");
+    g_autoptr (WpIterator) iterator = NULL;
+    g_auto (GValue) item = G_VALUE_INIT;
+    g_autoptr (WpSpaPod) pod = NULL;
     gfloat float_value = 0.0f;
-    g_assert_nonnull (pod);
-    g_assert_true (wp_spa_pod_get_float (pod, &float_value));
+    gboolean boolean_value = TRUE;
+
+    iterator = wp_pipewire_object_enum_params_sync (
+        WP_PIPEWIRE_OBJECT (endpoint->node), "Props", NULL);
+    g_assert_nonnull (iterator);
+
+    g_assert_true (wp_iterator_next (iterator, &item));
+    g_assert_nonnull ((pod = g_value_dup_boxed (&item)));
+
+    g_assert_true (wp_spa_pod_get_object (pod, "Props", NULL,
+            "volume", "f", &float_value,
+            "mute", "b", &boolean_value,
+            NULL));
     g_assert_cmpfloat_with_epsilon (float_value, 0.7f, 0.001);
-  }
-  {
-    g_autoptr (WpSpaPod) pod =
-        wp_proxy_get_prop (WP_PROXY (endpoint->node), "mute");
-    gboolean boolean_value = FALSE;
-    g_assert_nonnull (pod);
-    g_assert_true (wp_spa_pod_get_boolean (pod, &boolean_value));
     g_assert_cmpint (boolean_value, ==, TRUE);
   }
 
   /* change control on the node */
   fixture->n_events = 0;
-  wp_proxy_set_prop (WP_PROXY (endpoint->node), "volume",
-      wp_spa_pod_new_float (0.2f));
+  wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (endpoint->node),
+      "Props", 0,
+      wp_spa_pod_new_object ("Props", "Props",
+          "volume", "f", 0.2f, NULL));
 
   /* run until the change is on all sides */
   g_main_loop_run (fixture->base.loop);
@@ -667,51 +708,66 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
 
   /* verify the value change on all sides */
   {
-    g_autoptr (WpSpaPod) pod =
-        wp_proxy_get_prop (fixture->proxy_endpoint, "volume");
+    g_autoptr (WpIterator) iterator = NULL;
+    g_auto (GValue) item = G_VALUE_INIT;
+    g_autoptr (WpSpaPod) pod = NULL;
     gfloat float_value = 0.0f;
-    g_assert_nonnull (pod);
-    g_assert_true (wp_spa_pod_get_float (pod, &float_value));
+    gboolean boolean_value = TRUE;
+
+    iterator = wp_pipewire_object_enum_params_sync (
+        WP_PIPEWIRE_OBJECT (fixture->proxy_endpoint), "Props", NULL);
+    g_assert_nonnull (iterator);
+
+    g_assert_true (wp_iterator_next (iterator, &item));
+    g_assert_nonnull ((pod = g_value_dup_boxed (&item)));
+
+    g_assert_true (wp_spa_pod_get_object (pod, "Props", NULL,
+            "volume", "f", &float_value,
+            "mute", "b", &boolean_value,
+            NULL));
     g_assert_cmpfloat_with_epsilon (float_value, 0.2f, 0.001);
-  }
-  {
-    g_autoptr (WpSpaPod) pod =
-        wp_proxy_get_prop (fixture->proxy_endpoint, "mute");
-    gboolean boolean_value = FALSE;
-    g_assert_nonnull (pod);
-    g_assert_true (wp_spa_pod_get_boolean (pod, &boolean_value));
     g_assert_cmpint (boolean_value, ==, TRUE);
   }
   {
-    g_autoptr (WpSpaPod) pod =
-        wp_proxy_get_prop (fixture->impl_endpoint, "volume");
+    g_autoptr (WpIterator) iterator = NULL;
+    g_auto (GValue) item = G_VALUE_INIT;
+    g_autoptr (WpSpaPod) pod = NULL;
     gfloat float_value = 0.0f;
-    g_assert_nonnull (pod);
-    g_assert_true (wp_spa_pod_get_float (pod, &float_value));
+    gboolean boolean_value = TRUE;
+
+    iterator = wp_pipewire_object_enum_params_sync (
+        WP_PIPEWIRE_OBJECT (fixture->impl_endpoint), "Props", NULL);
+    g_assert_nonnull (iterator);
+
+    g_assert_true (wp_iterator_next (iterator, &item));
+    g_assert_nonnull ((pod = g_value_dup_boxed (&item)));
+
+    g_assert_true (wp_spa_pod_get_object (pod, "Props", NULL,
+            "volume", "f", &float_value,
+            "mute", "b", &boolean_value,
+            NULL));
     g_assert_cmpfloat_with_epsilon (float_value, 0.2f, 0.001);
-  }
-  {
-    g_autoptr (WpSpaPod) pod =
-        wp_proxy_get_prop (fixture->impl_endpoint, "mute");
-    gboolean boolean_value = FALSE;
-    g_assert_nonnull (pod);
-    g_assert_true (wp_spa_pod_get_boolean (pod, &boolean_value));
     g_assert_cmpint (boolean_value, ==, TRUE);
   }
   {
-    g_autoptr (WpSpaPod) pod =
-        wp_proxy_get_prop (WP_PROXY (endpoint->node), "volume");
+    g_autoptr (WpIterator) iterator = NULL;
+    g_auto (GValue) item = G_VALUE_INIT;
+    g_autoptr (WpSpaPod) pod = NULL;
     gfloat float_value = 0.0f;
-    g_assert_nonnull (pod);
-    g_assert_true (wp_spa_pod_get_float (pod, &float_value));
+    gboolean boolean_value = TRUE;
+
+    iterator = wp_pipewire_object_enum_params_sync (
+        WP_PIPEWIRE_OBJECT (endpoint->node), "Props", NULL);
+    g_assert_nonnull (iterator);
+
+    g_assert_true (wp_iterator_next (iterator, &item));
+    g_assert_nonnull ((pod = g_value_dup_boxed (&item)));
+
+    g_assert_true (wp_spa_pod_get_object (pod, "Props", NULL,
+            "volume", "f", &float_value,
+            "mute", "b", &boolean_value,
+            NULL));
     g_assert_cmpfloat_with_epsilon (float_value, 0.2f, 0.001);
-  }
-  {
-    g_autoptr (WpSpaPod) pod =
-        wp_proxy_get_prop (WP_PROXY (endpoint->node), "mute");
-    gboolean boolean_value = FALSE;
-    g_assert_nonnull (pod);
-    g_assert_true (wp_spa_pod_get_boolean (pod, &boolean_value));
     g_assert_cmpint (boolean_value, ==, TRUE);
   }
 
@@ -726,7 +782,6 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
   g_assert_null (fixture->impl_endpoint);
   g_assert_null (fixture->proxy_endpoint);
 }
-#endif
 
 gint
 main (gint argc, gchar *argv[])
@@ -736,8 +791,8 @@ main (gint argc, gchar *argv[])
 
   g_test_add ("/wp/endpoint/no-props", TestEndpointFixture, NULL,
       test_endpoint_setup, test_endpoint_no_props, test_endpoint_teardown);
-  // g_test_add ("/wp/endpoint/with-props", TestEndpointFixture, NULL,
-  //     test_endpoint_setup, test_endpoint_with_props, test_endpoint_teardown);
+  g_test_add ("/wp/endpoint/with-props", TestEndpointFixture, NULL,
+      test_endpoint_setup, test_endpoint_with_props, test_endpoint_teardown);
 
   return g_test_run ();
 }
