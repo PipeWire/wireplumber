@@ -19,11 +19,10 @@
 struct _WpClient
 {
   WpGlobalProxy parent;
-  struct pw_client_info *info;
-  struct spa_hook listener;
 };
 
-static void wp_client_pipewire_object_interface_init (WpPipewireObjectInterface * iface);
+static void wp_client_pw_object_mixin_priv_interface_init (
+    WpPwObjectMixinPrivInterface * iface);
 
 /**
  * WpClient:
@@ -34,17 +33,14 @@ static void wp_client_pipewire_object_interface_init (WpPipewireObjectInterface 
  * #WpObjectManager API.
  */
 G_DEFINE_TYPE_WITH_CODE (WpClient, wp_client, WP_TYPE_GLOBAL_PROXY,
-    G_IMPLEMENT_INTERFACE (WP_TYPE_PIPEWIRE_OBJECT, wp_client_pipewire_object_interface_init));
+    G_IMPLEMENT_INTERFACE (WP_TYPE_PIPEWIRE_OBJECT,
+        wp_pw_object_mixin_object_interface_init)
+    G_IMPLEMENT_INTERFACE (WP_TYPE_PW_OBJECT_MIXIN_PRIV,
+        wp_client_pw_object_mixin_priv_interface_init))
 
 static void
 wp_client_init (WpClient * self)
 {
-}
-
-static WpObjectFeatures
-wp_client_get_supported_features (WpObject * object)
-{
-  return WP_PROXY_FEATURE_BOUND | WP_PIPEWIRE_OBJECT_FEATURE_INFO;
 }
 
 static void
@@ -53,48 +49,30 @@ wp_client_activate_execute_step (WpObject * object,
     WpObjectFeatures missing)
 {
   switch (step) {
-  case WP_PIPEWIRE_OBJECT_MIXIN_STEP_CACHE_INFO:
-    /* just wait, info will be emitted anyway after binding */
-    break;
-  default:
+  case WP_PW_OBJECT_MIXIN_STEP_BIND:
+  case WP_TRANSITION_STEP_ERROR:
+    /* base class can handle BIND and ERROR */
     WP_OBJECT_CLASS (wp_client_parent_class)->
         activate_execute_step (object, transition, step, missing);
     break;
+  case WP_PW_OBJECT_MIXIN_STEP_WAIT_INFO:
+    /* just wait, info will be emitted anyway after binding */
+    break;
+  default:
+    g_assert_not_reached ();
   }
-}
-
-static void
-client_event_info(void *data, const struct pw_client_info *info)
-{
-  WpClient *self = WP_CLIENT (data);
-
-  self->info = pw_client_info_update (self->info, info);
-  wp_object_update_features (WP_OBJECT (self),
-      WP_PIPEWIRE_OBJECT_FEATURE_INFO, 0);
-
-  wp_pipewire_object_mixin_handle_event_info (self, info,
-      PW_CLIENT_CHANGE_MASK_PROPS, 0);
 }
 
 static const struct pw_client_events client_events = {
   PW_VERSION_CLIENT_EVENTS,
-  .info = client_event_info,
+  .info = (HandleEventInfoFunc(client)) wp_pw_object_mixin_handle_event_info,
 };
 
 static void
 wp_client_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 {
-  WpClient *self = WP_CLIENT (proxy);
-  pw_client_add_listener ((struct pw_port *) pw_proxy,
-      &self->listener, &client_events, self);
-}
-
-static void
-wp_client_pw_proxy_destroyed (WpProxy * proxy)
-{
-  g_clear_pointer (&WP_CLIENT (proxy)->info, pw_client_info_free);
-  wp_object_update_features (WP_OBJECT (proxy), 0,
-      WP_PIPEWIRE_OBJECT_FEATURE_INFO);
+  wp_pw_object_mixin_handle_pw_proxy_created (proxy, pw_proxy,
+      client, &client_events);
 }
 
 static void
@@ -104,49 +82,28 @@ wp_client_class_init (WpClientClass * klass)
   WpObjectClass *wpobject_class = (WpObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
-  object_class->get_property = wp_pipewire_object_mixin_get_property;
+  object_class->get_property = wp_pw_object_mixin_get_property;
 
-  wpobject_class->get_supported_features = wp_client_get_supported_features;
+  wpobject_class->get_supported_features =
+      wp_pw_object_mixin_get_supported_features;
   wpobject_class->activate_get_next_step =
-      wp_pipewire_object_mixin_activate_get_next_step;
+      wp_pw_object_mixin_activate_get_next_step;
   wpobject_class->activate_execute_step = wp_client_activate_execute_step;
 
   proxy_class->pw_iface_type = PW_TYPE_INTERFACE_Client;
   proxy_class->pw_iface_version = PW_VERSION_CLIENT;
   proxy_class->pw_proxy_created = wp_client_pw_proxy_created;
-  proxy_class->pw_proxy_destroyed = wp_client_pw_proxy_destroyed;
+  proxy_class->pw_proxy_destroyed =
+      wp_pw_object_mixin_handle_pw_proxy_destroyed;
 
-  wp_pipewire_object_mixin_class_override_properties (object_class);
-}
-
-static gconstpointer
-wp_client_get_native_info (WpPipewireObject * obj)
-{
-  return WP_CLIENT (obj)->info;
-}
-
-static WpProperties *
-wp_client_get_properties (WpPipewireObject * obj)
-{
-  return wp_properties_new_wrap_dict (WP_CLIENT (obj)->info->props);
-}
-
-static GVariant *
-wp_client_get_param_info (WpPipewireObject * obj)
-{
-  return NULL;
+  wp_pw_object_mixin_class_override_properties (object_class);
 }
 
 static void
-wp_client_pipewire_object_interface_init (WpPipewireObjectInterface * iface)
+wp_client_pw_object_mixin_priv_interface_init (
+    WpPwObjectMixinPrivInterface * iface)
 {
-  iface->get_native_info = wp_client_get_native_info;
-  iface->get_properties = wp_client_get_properties;
-  iface->get_param_info = wp_client_get_param_info;
-  iface->enum_params = wp_pipewire_object_mixin_enum_params_unimplemented;
-  iface->enum_params_finish = wp_pipewire_object_mixin_enum_params_finish;
-  iface->enum_cached_params = wp_pipewire_object_mixin_enum_cached_params;
-  iface->set_param = wp_pipewire_object_mixin_set_param_unimplemented;
+  wp_pw_object_mixin_priv_interface_info_init_no_params (iface, client, CLIENT);
 }
 
 /**

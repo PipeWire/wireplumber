@@ -45,8 +45,20 @@ wp_pipewire_object_default_init (WpPipewireObjectInterface * iface)
           "The param info of the object", G_VARIANT_TYPE ("a{ss}"), NULL,
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
+  /**
+   * WpPipewireObject::params-changed:
+   * @self: the pipewire object
+   * @id: the parameter id
+   *
+   * Emitted when the params for @id have changed. On proxies that cache
+   * params from a remote object, this is emitted after the cached values
+   * have changed.
+   *
+   * You can expect this to be emitted only when the relevant
+   * WP_PIPEWIRE_OBJECT_FEATURE_PARAM_* has been activated.
+   */
   g_signal_new ("params-changed", G_TYPE_FROM_INTERFACE (iface),
-      G_SIGNAL_RUN_FIRST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_STRING);
+      G_SIGNAL_RUN_FIRST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_UINT);
 }
 
 /**
@@ -216,6 +228,7 @@ wp_pipewire_object_enum_params_finish (WpPipewireObject * self,
  * wp_pipewire_object_enum_cached_params
  * @self: the pipewire object
  * @id: the parameter id to enumerate
+ * @filter: (nullable): a param filter or %NULL
  *
  * This method can be used to retrieve object parameters in a synchronous way
  * (in contrast with wp_pipewire_object_enum_params(), which is async),
@@ -234,30 +247,35 @@ wp_pipewire_object_enum_params_finish (WpPipewireObject * self,
  *    the items in the iterator are #WpSpaPod
  */
 WpIterator *
-wp_pipewire_object_enum_cached_params (WpPipewireObject * self,
-    const gchar * id)
+wp_pipewire_object_enum_params_sync (WpPipewireObject * self,
+    const gchar * id, WpSpaPod * filter)
 {
   g_return_val_if_fail (WP_IS_PIPEWIRE_OBJECT (self), NULL);
-  g_return_val_if_fail (WP_PIPEWIRE_OBJECT_GET_IFACE (self)->enum_cached_params,
+  g_return_val_if_fail (WP_PIPEWIRE_OBJECT_GET_IFACE (self)->enum_params_sync,
       NULL);
 
-  return WP_PIPEWIRE_OBJECT_GET_IFACE (self)->enum_cached_params (self, id);
+  return WP_PIPEWIRE_OBJECT_GET_IFACE (self)->enum_params_sync (self, id,
+      filter);
 }
 
 /**
  * wp_pipewire_object_set_param:
  * @self: the pipewire object
  * @id: the parameter id to set
- * @param: the parameter to set
+ * @flags: optional flags or 0
+ * @param: (transfer full): the parameter to set
  *
  * Sets a parameter on the object.
+ *
+ * Returns: %TRUE on success, %FALSE if setting the param failed
  */
-void
+gboolean
 wp_pipewire_object_set_param (WpPipewireObject * self, const gchar * id,
-    WpSpaPod * param)
+    guint32 flags, WpSpaPod * param)
 {
-  g_return_if_fail (WP_IS_PIPEWIRE_OBJECT (self));
-  g_return_if_fail (WP_PIPEWIRE_OBJECT_GET_IFACE (self)->set_param);
+  g_return_val_if_fail (WP_IS_PIPEWIRE_OBJECT (self), FALSE);
+  g_return_val_if_fail (WP_PIPEWIRE_OBJECT_GET_IFACE (self)->set_param, FALSE);
 
-  WP_PIPEWIRE_OBJECT_GET_IFACE (self)->set_param (self, id, param);
+  return WP_PIPEWIRE_OBJECT_GET_IFACE (self)->set_param (self, id, flags,
+      param);
 }

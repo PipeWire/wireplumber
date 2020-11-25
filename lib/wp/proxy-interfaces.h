@@ -36,17 +36,17 @@ struct _WpPipewireObjectInterface
   GVariant * (*get_param_info) (WpPipewireObject * self);
 
   void (*enum_params) (WpPipewireObject * self, const gchar * id,
-      WpSpaPod *filter, GCancellable * cancellable,
+      WpSpaPod * filter, GCancellable * cancellable,
       GAsyncReadyCallback callback, gpointer user_data);
 
   WpIterator * (*enum_params_finish) (WpPipewireObject * self,
       GAsyncResult * res, GError ** error);
 
-  WpIterator * (*enum_cached_params) (WpPipewireObject * self,
-      const gchar * id);
+  WpIterator * (*enum_params_sync) (WpPipewireObject * self,
+      const gchar * id, WpSpaPod * filter);
 
-  void (*set_param) (WpPipewireObject * self, const gchar * id,
-      WpSpaPod * param);
+  gboolean (*set_param) (WpPipewireObject * self, const gchar * id,
+      guint32 flags, WpSpaPod * param);
 };
 
 WP_API
@@ -75,12 +75,12 @@ WpIterator * wp_pipewire_object_enum_params_finish (WpPipewireObject * self,
     GAsyncResult * res, GError ** error);
 
 WP_API
-WpIterator * wp_pipewire_object_enum_cached_params (WpPipewireObject * self,
-    const gchar * id);
+WpIterator * wp_pipewire_object_enum_params_sync (WpPipewireObject * self,
+    const gchar * id, WpSpaPod * filter);
 
 WP_API
-void wp_pipewire_object_set_param (WpPipewireObject * self, const gchar * id,
-    WpSpaPod * param);
+gboolean wp_pipewire_object_set_param (WpPipewireObject * self,
+    const gchar * id, guint32 flags, WpSpaPod * param);
 
 
 G_END_DECLS

@@ -32,7 +32,7 @@ set_device_profile (WpPipewireObject *device, gint index)
       "index", "i", index,
       NULL);
   wp_debug_object (device, "set profile %d", index);
-  wp_pipewire_object_set_param (device, "Profile", profile);
+  wp_pipewire_object_set_param (device, "Profile", 0, profile);
 }
 
 static void

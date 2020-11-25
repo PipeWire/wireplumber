@@ -312,7 +312,7 @@ si_adapter_activate_execute_step (WpSessionItem * item,
       /* set the chosen device/client format on the node */
       format = format_audio_raw_build (&self->format);
       wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (self->node),
-          "Format", format);
+          "Format", 0, format);
 
       /* now choose the DSP format: keep the chanels but use F32 plannar @ 48K */
       self->format.format = SPA_AUDIO_FORMAT_F32P;
@@ -335,7 +335,7 @@ si_adapter_activate_execute_step (WpSessionItem * item,
           "format",     "P", port_format,
           NULL);
       wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (self->node),
-          "PortConfig", pod);
+          "PortConfig", 0, pod);
 
       g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self->node));
       wp_core_sync (core, NULL,

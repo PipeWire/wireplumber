@@ -121,6 +121,8 @@ wp_global_proxy_activate_get_next_step (WpObject * object,
     WpFeatureActivationTransition * transition, guint step,
     WpObjectFeatures missing)
 {
+  /* we only support BOUND, so this is the only
+     feature that can be in @missing */
   g_return_val_if_fail (missing == WP_PROXY_FEATURE_BOUND,
       WP_TRANSITION_STEP_ERROR);
 

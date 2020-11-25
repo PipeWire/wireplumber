@@ -248,7 +248,6 @@ si_convert_activate_execute_step (WpSessionItem * item,
       g_autoptr (WpProperties) props = NULL;
       g_autoptr (GVariant) target_config = NULL;
       g_autoptr (WpSpaPod) format = NULL;
-      g_autoptr (WpSpaPod) pod = NULL;
       guint32 channels = 2;
       guint32 rate;
 
@@ -302,23 +301,22 @@ si_convert_activate_execute_step (WpSessionItem * item,
         the same format, but with altered volume.
         In the future we need to consider writing a simpler volume node for this,
         as doing merge + split is heavy for our needs */
-      pod = wp_spa_pod_new_object ("PortConfig", "PortConfig",
-          "direction",  "I", pw_direction_reverse (self->direction),
-          "mode",       "I", SPA_PARAM_PORT_CONFIG_MODE_dsp,
-          "format",     "P", format,
-          NULL);
       wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (self->node),
-          "PortConfig", pod);
-      g_clear_pointer (&pod, wp_spa_pod_unref);
+          "PortConfig", 0,
+          wp_spa_pod_new_object ("PortConfig", "PortConfig",
+              "direction",  "I", pw_direction_reverse (self->direction),
+              "mode",       "I", SPA_PARAM_PORT_CONFIG_MODE_dsp,
+              "format",     "P", format,
+              NULL));
 
-      pod = wp_spa_pod_new_object ("PortConfig", "PortConfig",
-          "direction",  "I", self->direction,
-          "mode",       "I", SPA_PARAM_PORT_CONFIG_MODE_dsp,
-          "control",    "b", self->control_port,
-          "format",     "P", format,
-          NULL);
       wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (self->node),
-          "PortConfig", pod);
+          "PortConfig", 0,
+          wp_spa_pod_new_object ("PortConfig", "PortConfig",
+              "direction",  "I", self->direction,
+              "mode",       "I", SPA_PARAM_PORT_CONFIG_MODE_dsp,
+              "control",    "b", self->control_port,
+              "format",     "P", format,
+              NULL));
 
       wp_object_activate (WP_OBJECT (self->node),
           WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL | WP_NODE_FEATURE_PORTS, NULL,

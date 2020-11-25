@@ -16,6 +16,7 @@
 #include "node.h"
 #include "core.h"
 #include "object-manager.h"
+#include "debug.h"
 #include "wpenums.h"
 #include "private/pipewire-object-mixin.h"
 
@@ -32,12 +33,11 @@ static guint32 signals[N_SIGNALS] = {0};
 struct _WpNode
 {
   WpGlobalProxy parent;
-  struct pw_node_info *info;
-  struct spa_hook listener;
   WpObjectManager *ports_om;
 };
 
-static void wp_node_pipewire_object_interface_init (WpPipewireObjectInterface * iface);
+static void wp_node_pw_object_mixin_priv_interface_init (
+    WpPwObjectMixinPrivInterface * iface);
 
 /**
  * WpNode:
@@ -52,7 +52,10 @@ static void wp_node_pipewire_object_interface_init (WpPipewireObjectInterface * 
  * on the remote PipeWire server by calling into a factory.
  */
 G_DEFINE_TYPE_WITH_CODE (WpNode, wp_node, WP_TYPE_GLOBAL_PROXY,
-    G_IMPLEMENT_INTERFACE (WP_TYPE_PIPEWIRE_OBJECT, wp_node_pipewire_object_interface_init));
+    G_IMPLEMENT_INTERFACE (WP_TYPE_PIPEWIRE_OBJECT,
+        wp_pw_object_mixin_object_interface_init)
+    G_IMPLEMENT_INTERFACE (WP_TYPE_PW_OBJECT_MIXIN_PRIV,
+        wp_node_pw_object_mixin_priv_interface_init))
 
 static void
 wp_node_init (WpNode * self)
@@ -99,36 +102,13 @@ wp_node_enable_feature_ports (WpNode * self)
 static WpObjectFeatures
 wp_node_get_supported_features (WpObject * object)
 {
-  WpNode *self = WP_NODE (object);
-  return
-      WP_PROXY_FEATURE_BOUND |
-      WP_NODE_FEATURE_PORTS |
-      WP_PIPEWIRE_OBJECT_FEATURE_INFO |
-      wp_pipewire_object_mixin_param_info_to_features (
-          self->info ? self->info->params : NULL,
-          self->info ? self->info->n_params : 0);
+  return wp_pw_object_mixin_get_supported_features (object)
+      | WP_NODE_FEATURE_PORTS;
 }
 
 enum {
-  STEP_PORTS = WP_PIPEWIRE_OBJECT_MIXIN_STEP_CUSTOM_START,
+  STEP_PORTS = WP_PW_OBJECT_MIXIN_STEP_CUSTOM_START,
 };
-
-static guint
-wp_node_activate_get_next_step (WpObject * object,
-    WpFeatureActivationTransition * transition, guint step,
-    WpObjectFeatures missing)
-{
-  step = wp_pipewire_object_mixin_activate_get_next_step (object, transition,
-      step, missing);
-
-  /* extend the mixin's state machine; when the only remaining feature to
-     enable is FEATURE_PORTS, advance to STEP_PORTS */
-  if (step == WP_PIPEWIRE_OBJECT_MIXIN_STEP_CACHE_INFO &&
-      missing == WP_NODE_FEATURE_PORTS)
-    return STEP_PORTS;
-
-  return step;
-}
 
 static void
 wp_node_activate_execute_step (WpObject * object,
@@ -136,27 +116,33 @@ wp_node_activate_execute_step (WpObject * object,
     WpObjectFeatures missing)
 {
   switch (step) {
-  case WP_PIPEWIRE_OBJECT_MIXIN_STEP_CACHE_INFO:
-    wp_pipewire_object_mixin_cache_info (object, transition);
+  case WP_PW_OBJECT_MIXIN_STEP_BIND:
+  case WP_TRANSITION_STEP_ERROR:
+    /* base class can handle BIND and ERROR */
+    WP_OBJECT_CLASS (wp_node_parent_class)->
+        activate_execute_step (object, transition, step, missing);
+    break;
+  case WP_PW_OBJECT_MIXIN_STEP_WAIT_INFO:
+    /* just wait, info will be emitted anyway after binding */
+    break;
+  case WP_PW_OBJECT_MIXIN_STEP_CACHE_PARAMS:
+    wp_pw_object_mixin_cache_params (object, missing);
     break;
   case STEP_PORTS:
     wp_node_enable_feature_ports (WP_NODE (object));
     break;
   default:
-    WP_OBJECT_CLASS (wp_node_parent_class)->
-        activate_execute_step (object, transition, step, missing);
-    break;
+    g_assert_not_reached ();
   }
 }
 
 static void
 wp_node_deactivate (WpObject * object, WpObjectFeatures features)
 {
-  WpNode *self = WP_NODE (object);
-
-  wp_pipewire_object_mixin_deactivate (object, features);
+  wp_pw_object_mixin_deactivate (object, features);
 
   if (features & WP_NODE_FEATURE_PORTS) {
+    WpNode *self = WP_NODE (object);
     g_clear_object (&self->ports_om);
     wp_object_update_features (object, 0, WP_NODE_FEATURE_PORTS);
   }
@@ -164,37 +150,17 @@ wp_node_deactivate (WpObject * object, WpObjectFeatures features)
   WP_OBJECT_CLASS (wp_node_parent_class)->deactivate (object, features);
 }
 
-static void
-node_event_info(void *data, const struct pw_node_info *info)
-{
-  WpNode *self = WP_NODE (data);
-  enum pw_node_state old_state = self->info ?
-      self->info->state : PW_NODE_STATE_CREATING;
-
-  self->info = pw_node_info_update (self->info, info);
-  wp_object_update_features (WP_OBJECT (self),
-      WP_PIPEWIRE_OBJECT_FEATURE_INFO, 0);
-
-  if (info->change_mask & PW_NODE_CHANGE_MASK_STATE)
-    g_signal_emit (self, signals[SIGNAL_STATE_CHANGED], 0, old_state,
-        self->info->state);
-
-  wp_pipewire_object_mixin_handle_event_info (self, info,
-      PW_NODE_CHANGE_MASK_PROPS, PW_NODE_CHANGE_MASK_PARAMS);
-}
-
 static const struct pw_node_events node_events = {
   PW_VERSION_NODE_EVENTS,
-  .info = node_event_info,
-  .param = wp_pipewire_object_mixin_handle_event_param,
+  .info = (HandleEventInfoFunc(node)) wp_pw_object_mixin_handle_event_info,
+  .param = wp_pw_object_mixin_handle_event_param,
 };
 
 static void
 wp_node_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 {
-  WpNode *self = WP_NODE (proxy);
-  pw_node_add_listener ((struct pw_port *) pw_proxy,
-      &self->listener, &node_events, self);
+  wp_pw_object_mixin_handle_pw_proxy_created (proxy, pw_proxy,
+      node, &node_events);
 }
 
 static void
@@ -202,13 +168,10 @@ wp_node_pw_proxy_destroyed (WpProxy * proxy)
 {
   WpNode *self = WP_NODE (proxy);
 
-  g_clear_pointer (&self->info, pw_node_info_free);
-  g_clear_object (&self->ports_om);
-  wp_object_update_features (WP_OBJECT (self), 0,
-      WP_PIPEWIRE_OBJECT_FEATURE_INFO | WP_NODE_FEATURE_PORTS);
+  wp_pw_object_mixin_handle_pw_proxy_destroyed (proxy);
 
-  wp_pipewire_object_mixin_deactivate (WP_OBJECT (self),
-      WP_OBJECT_FEATURES_ALL);
+  g_clear_object (&self->ports_om);
+  wp_object_update_features (WP_OBJECT (self), 0, WP_NODE_FEATURE_PORTS);
 }
 
 static void
@@ -218,10 +181,11 @@ wp_node_class_init (WpNodeClass * klass)
   WpObjectClass *wpobject_class = (WpObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
-  object_class->get_property = wp_pipewire_object_mixin_get_property;
+  object_class->get_property = wp_pw_object_mixin_get_property;
 
   wpobject_class->get_supported_features = wp_node_get_supported_features;
-  wpobject_class->activate_get_next_step = wp_node_activate_get_next_step;
+  wpobject_class->activate_get_next_step =
+      wp_pw_object_mixin_activate_get_next_step;
   wpobject_class->activate_execute_step = wp_node_activate_execute_step;
   wpobject_class->deactivate = wp_node_deactivate;
 
@@ -230,7 +194,7 @@ wp_node_class_init (WpNodeClass * klass)
   proxy_class->pw_proxy_created = wp_node_pw_proxy_created;
   proxy_class->pw_proxy_destroyed = wp_node_pw_proxy_destroyed;
 
-  wp_pipewire_object_mixin_class_override_properties (object_class);
+  wp_pw_object_mixin_class_override_properties (object_class);
 
   /**
    * WpNode::state-changed:
@@ -258,50 +222,44 @@ wp_node_class_init (WpNodeClass * klass)
       G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 }
 
-static gconstpointer
-wp_node_get_native_info (WpPipewireObject * obj)
+static void
+wp_node_process_info (gpointer instance, gpointer old_info, gpointer i)
 {
-  return WP_NODE (obj)->info;
+  const struct pw_node_info *info = i;
+
+  if (info->change_mask & PW_NODE_CHANGE_MASK_STATE) {
+    enum pw_node_state old_state = old_info ?
+        ((struct pw_node_info *) old_info)->state : PW_NODE_STATE_CREATING;
+    g_signal_emit (instance, signals[SIGNAL_STATE_CHANGED], 0,
+        old_state, info->state);
+  }
 }
 
-static WpProperties *
-wp_node_get_properties (WpPipewireObject * obj)
+static gint
+wp_node_enum_params (gpointer instance, guint32 id,
+    guint32 start, guint32 num, WpSpaPod *filter)
 {
-  return wp_properties_new_wrap_dict (WP_NODE (obj)->info->props);
+  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (instance);
+  return pw_node_enum_params (d->iface, 0, id, start, num,
+      filter ? wp_spa_pod_get_spa_pod (filter) : NULL);
 }
 
-static GVariant *
-wp_node_get_param_info (WpPipewireObject * obj)
+static gint
+wp_node_set_param (gpointer instance, guint32 id, guint32 flags,
+    WpSpaPod * param)
 {
-  WpNode *self = WP_NODE (obj);
-  return wp_pipewire_object_mixin_param_info_to_gvariant (self->info->params,
-      self->info->n_params);
+  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (instance);
+  return pw_node_set_param (d->iface, id, flags,
+      wp_spa_pod_get_spa_pod (param));
 }
 
 static void
-wp_node_enum_params (WpPipewireObject * obj, const gchar * id,
-    WpSpaPod *filter, GCancellable * cancellable,
-    GAsyncReadyCallback callback, gpointer user_data)
+wp_node_pw_object_mixin_priv_interface_init (
+    WpPwObjectMixinPrivInterface * iface)
 {
-  wp_pipewire_object_mixin_enum_params (pw_node, obj, id, filter, cancellable,
-      callback, user_data);
-}
-
-static void
-wp_node_set_param (WpPipewireObject * obj, const gchar * id, WpSpaPod * param)
-{
-  wp_pipewire_object_mixin_set_param (pw_node, obj, id, param);
-}
-
-static void
-wp_node_pipewire_object_interface_init (WpPipewireObjectInterface * iface)
-{
-  iface->get_native_info = wp_node_get_native_info;
-  iface->get_properties = wp_node_get_properties;
-  iface->get_param_info = wp_node_get_param_info;
+  wp_pw_object_mixin_priv_interface_info_init (iface, node, NODE);
+  iface->process_info = wp_node_process_info;
   iface->enum_params = wp_node_enum_params;
-  iface->enum_params_finish = wp_pipewire_object_mixin_enum_params_finish;
-  iface->enum_cached_params = wp_pipewire_object_mixin_enum_cached_params;
   iface->set_param = wp_node_set_param;
 }
 
@@ -351,9 +309,12 @@ wp_node_get_state (WpNode * self, const gchar ** error)
   g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
           WP_PIPEWIRE_OBJECT_FEATURE_INFO, WP_NODE_STATE_ERROR);
 
+  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (self);
+  const struct pw_node_info *info = d->info;
+
   if (error)
-    *error = self->info->error;
-  return (WpNodeState) self->info->state;
+    *error = info->error;
+  return (WpNodeState) info->state;
 }
 
 /**
@@ -372,9 +333,12 @@ wp_node_get_n_input_ports (WpNode * self, guint * max)
   g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
           WP_PIPEWIRE_OBJECT_FEATURE_INFO, 0);
 
+  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (self);
+  const struct pw_node_info *info = d->info;
+
   if (max)
-    *max = self->info->max_input_ports;
-  return self->info->n_input_ports;
+    *max = info->max_input_ports;
+  return info->n_input_ports;
 }
 
 /**
@@ -393,9 +357,12 @@ wp_node_get_n_output_ports (WpNode * self, guint * max)
   g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
           WP_PIPEWIRE_OBJECT_FEATURE_INFO, 0);
 
+  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (self);
+  const struct pw_node_info *info = d->info;
+
   if (max)
-    *max = self->info->max_output_ports;
-  return self->info->n_output_ports;
+    *max = info->max_output_ports;
+  return info->n_output_ports;
 }
 
 /**

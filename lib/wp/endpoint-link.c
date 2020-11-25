@@ -14,6 +14,7 @@
 #define G_LOG_DOMAIN "wp-endpoint-link"
 
 #include "endpoint-link.h"
+#include "debug.h"
 #include "error.h"
 #include "wpenums.h"
 #include "private/impl-endpoint.h"
@@ -29,16 +30,8 @@ enum {
 
 static guint32 signals[N_SIGNALS] = {0};
 
-typedef struct _WpEndpointLinkPrivate WpEndpointLinkPrivate;
-struct _WpEndpointLinkPrivate
-{
-  WpProperties *properties;
-  struct pw_endpoint_link_info *info;
-  struct pw_endpoint_link *iface;
-  struct spa_hook listener;
-};
-
-static void wp_endpoint_link_pipewire_object_interface_init (WpPipewireObjectInterface * iface);
+static void wp_endpoint_link_pw_object_mixin_priv_interface_init (
+    WpPwObjectMixinPrivInterface * iface);
 
 /**
  * WpEndpointLink:
@@ -52,24 +45,14 @@ static void wp_endpoint_link_pipewire_object_interface_init (WpPipewireObjectInt
  * #WpObjectManager API.
  */
 G_DEFINE_TYPE_WITH_CODE (WpEndpointLink, wp_endpoint_link, WP_TYPE_GLOBAL_PROXY,
-    G_ADD_PRIVATE (WpEndpointLink)
-    G_IMPLEMENT_INTERFACE (WP_TYPE_PIPEWIRE_OBJECT, wp_endpoint_link_pipewire_object_interface_init));
+    G_IMPLEMENT_INTERFACE (WP_TYPE_PIPEWIRE_OBJECT,
+        wp_pw_object_mixin_object_interface_init)
+    G_IMPLEMENT_INTERFACE (WP_TYPE_PW_OBJECT_MIXIN_PRIV,
+        wp_endpoint_link_pw_object_mixin_priv_interface_init));
 
 static void
 wp_endpoint_link_init (WpEndpointLink * self)
 {
-}
-
-static WpObjectFeatures
-wp_endpoint_link_get_supported_features (WpObject * object)
-{
-  WpEndpointLink *self = WP_ENDPOINT_LINK (object);
-  WpEndpointLinkPrivate *priv = wp_endpoint_link_get_instance_private (self);
-
-  return WP_PROXY_FEATURE_BOUND | WP_PIPEWIRE_OBJECT_FEATURE_INFO |
-      wp_pipewire_object_mixin_param_info_to_features (
-          priv->info ? priv->info->params : NULL,
-          priv->info ? priv->info->n_params : 0);
 }
 
 static void
@@ -78,81 +61,41 @@ wp_endpoint_link_activate_execute_step (WpObject * object,
     WpObjectFeatures missing)
 {
   switch (step) {
-  case WP_PIPEWIRE_OBJECT_MIXIN_STEP_CACHE_INFO:
-    wp_pipewire_object_mixin_cache_info (object, transition);
-    break;
-  default:
+  case WP_PW_OBJECT_MIXIN_STEP_BIND:
+  case WP_TRANSITION_STEP_ERROR:
+    /* base class can handle BIND and ERROR */
     WP_OBJECT_CLASS (wp_endpoint_link_parent_class)->
         activate_execute_step (object, transition, step, missing);
     break;
+  case WP_PW_OBJECT_MIXIN_STEP_WAIT_INFO:
+    /* just wait, info will be emitted anyway after binding */
+    break;
+  case WP_PW_OBJECT_MIXIN_STEP_CACHE_PARAMS:
+    wp_pw_object_mixin_cache_params (object, missing);
+    break;
+  default:
+    g_assert_not_reached ();
   }
 }
 
 static void
 wp_endpoint_link_deactivate (WpObject * object, WpObjectFeatures features)
 {
-  wp_pipewire_object_mixin_deactivate (object, features);
-
+  wp_pw_object_mixin_deactivate (object, features);
   WP_OBJECT_CLASS (wp_endpoint_link_parent_class)->deactivate (object, features);
-}
-
-static void
-endpoint_link_event_info (void *data, const struct pw_endpoint_link_info *info)
-{
-  WpEndpointLink *self = WP_ENDPOINT_LINK (data);
-  WpEndpointLinkPrivate *priv = wp_endpoint_link_get_instance_private (self);
-  WpEndpointLinkState old_state = priv->info ?
-      (WpEndpointLinkState) priv->info->state : WP_ENDPOINT_LINK_STATE_ERROR;
-
-  priv->info = pw_endpoint_link_info_update (priv->info, info);
-
-  if (info->change_mask & PW_ENDPOINT_LINK_CHANGE_MASK_PROPS) {
-    g_clear_pointer (&priv->properties, wp_properties_unref);
-    priv->properties = wp_properties_new_wrap_dict (priv->info->props);
-  }
-
-  wp_object_update_features (WP_OBJECT (self),
-      WP_PIPEWIRE_OBJECT_FEATURE_INFO, 0);
-
-  if (info->change_mask & PW_ENDPOINT_LINK_CHANGE_MASK_STATE) {
-    g_signal_emit (self, signals[SIGNAL_STATE_CHANGED], 0,
-        old_state, info->state, info->error);
-  }
-
-  wp_pipewire_object_mixin_handle_event_info (self, info,
-      PW_ENDPOINT_LINK_CHANGE_MASK_PROPS, PW_ENDPOINT_LINK_CHANGE_MASK_PARAMS);
 }
 
 static const struct pw_endpoint_link_events endpoint_link_events = {
   PW_VERSION_ENDPOINT_LINK_EVENTS,
-  .info = endpoint_link_event_info,
-  .param = wp_pipewire_object_mixin_handle_event_param,
+  .info = (HandleEventInfoFunc(endpoint_link)) wp_pw_object_mixin_handle_event_info,
+  .param = wp_pw_object_mixin_handle_event_param,
 };
 
 static void
 wp_endpoint_link_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 {
-  WpEndpointLink *self = WP_ENDPOINT_LINK (proxy);
-  WpEndpointLinkPrivate *priv = wp_endpoint_link_get_instance_private (self);
-
-  priv->iface = (struct pw_endpoint_link *) pw_proxy;
-  pw_endpoint_link_add_listener (priv->iface, &priv->listener,
-      &endpoint_link_events, self);
-}
-
-static void
-wp_endpoint_link_pw_proxy_destroyed (WpProxy * proxy)
-{
-  WpEndpointLink *self = WP_ENDPOINT_LINK (proxy);
-  WpEndpointLinkPrivate *priv = wp_endpoint_link_get_instance_private (self);
-
-  g_clear_pointer (&priv->properties, wp_properties_unref);
-  g_clear_pointer (&priv->info, pw_endpoint_link_info_free);
-  wp_object_update_features (WP_OBJECT (proxy), 0,
-      WP_PIPEWIRE_OBJECT_FEATURE_INFO);
-
-  wp_pipewire_object_mixin_deactivate (WP_OBJECT (proxy),
-      WP_OBJECT_FEATURES_ALL);
+  wp_pw_object_mixin_handle_pw_proxy_created (proxy, pw_proxy,
+      endpoint_link, &endpoint_link_events);
 }
 
 static void
@@ -162,12 +105,12 @@ wp_endpoint_link_class_init (WpEndpointLinkClass * klass)
   WpObjectClass *wpobject_class = (WpObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
-  object_class->get_property = wp_pipewire_object_mixin_get_property;
+  object_class->get_property = wp_pw_object_mixin_get_property;
 
   wpobject_class->get_supported_features =
-      wp_endpoint_link_get_supported_features;
+      wp_pw_object_mixin_get_supported_features;
   wpobject_class->activate_get_next_step =
-      wp_pipewire_object_mixin_activate_get_next_step;
+      wp_pw_object_mixin_activate_get_next_step;
   wpobject_class->activate_execute_step =
       wp_endpoint_link_activate_execute_step;
   wpobject_class->deactivate = wp_endpoint_link_deactivate;
@@ -175,9 +118,10 @@ wp_endpoint_link_class_init (WpEndpointLinkClass * klass)
   proxy_class->pw_iface_type = PW_TYPE_INTERFACE_EndpointLink;
   proxy_class->pw_iface_version = PW_VERSION_ENDPOINT_LINK;
   proxy_class->pw_proxy_created = wp_endpoint_link_pw_proxy_created;
-  proxy_class->pw_proxy_destroyed = wp_endpoint_link_pw_proxy_destroyed;
+  proxy_class->pw_proxy_destroyed =
+      wp_pw_object_mixin_handle_pw_proxy_destroyed;
 
-  wp_pipewire_object_mixin_class_override_properties (object_class);
+  wp_pw_object_mixin_class_override_properties (object_class);
 
   /**
    * WpEndpointLink::state-changed:
@@ -195,60 +139,46 @@ wp_endpoint_link_class_init (WpEndpointLinkClass * klass)
       WP_TYPE_ENDPOINT_LINK_STATE, WP_TYPE_ENDPOINT_LINK_STATE, G_TYPE_STRING);
 }
 
-static gconstpointer
-wp_endpoint_link_get_native_info (WpPipewireObject * obj)
-{
-  WpEndpointLink *self = WP_ENDPOINT_LINK (obj);
-  WpEndpointLinkPrivate *priv = wp_endpoint_link_get_instance_private (self);
-
-  return priv->info;
-}
-
-static WpProperties *
-wp_endpoint_link_get_properties (WpPipewireObject * obj)
-{
-  WpEndpointLink *self = WP_ENDPOINT_LINK (obj);
-  WpEndpointLinkPrivate *priv = wp_endpoint_link_get_instance_private (self);
-
-  return wp_properties_ref (priv->properties);
-}
-
-static GVariant *
-wp_endpoint_link_get_param_info (WpPipewireObject * obj)
-{
-  WpEndpointLink *self = WP_ENDPOINT_LINK (obj);
-  WpEndpointLinkPrivate *priv = wp_endpoint_link_get_instance_private (self);
-
-  return wp_pipewire_object_mixin_param_info_to_gvariant (priv->info->params,
-      priv->info->n_params);
-}
-
 static void
-wp_endpoint_link_enum_params (WpPipewireObject * obj, const gchar * id,
-    WpSpaPod *filter, GCancellable * cancellable,
-    GAsyncReadyCallback callback, gpointer user_data)
+wp_endpoint_link_process_info (gpointer instance, gpointer old_info, gpointer i)
 {
-  wp_pipewire_object_mixin_enum_params (pw_endpoint_link, obj, id, filter,
-      cancellable, callback, user_data);
+  const struct pw_endpoint_link_info *info = i;
+
+  if (info->change_mask & PW_ENDPOINT_LINK_CHANGE_MASK_STATE) {
+    WpEndpointLinkState old_state = old_info ?
+        (WpEndpointLinkState) ((struct pw_endpoint_link_info *) old_info)->state
+        : WP_ENDPOINT_LINK_STATE_ERROR;
+    g_signal_emit (instance, signals[SIGNAL_STATE_CHANGED], 0,
+        old_state, info->state, info->error);
+  }
 }
 
-static void
-wp_endpoint_link_set_param (WpPipewireObject * obj, const gchar * id,
+static gint
+wp_endpoint_link_enum_params (gpointer instance, guint32 id,
+    guint32 start, guint32 num, WpSpaPod *filter)
+{
+  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (instance);
+  return pw_endpoint_link_enum_params (d->iface, 0, id, start, num,
+      filter ? wp_spa_pod_get_spa_pod (filter) : NULL);
+}
+
+static gint
+wp_endpoint_link_set_param (gpointer instance, guint32 id, guint32 flags,
     WpSpaPod * param)
 {
-  wp_pipewire_object_mixin_set_param (pw_endpoint_link, obj, id, param);
+  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (instance);
+  return pw_endpoint_link_set_param (d->iface, id, flags,
+      wp_spa_pod_get_spa_pod (param));
 }
 
 static void
-wp_endpoint_link_pipewire_object_interface_init (
-    WpPipewireObjectInterface * iface)
+wp_endpoint_link_pw_object_mixin_priv_interface_init (
+    WpPwObjectMixinPrivInterface * iface)
 {
-  iface->get_native_info = wp_endpoint_link_get_native_info;
-  iface->get_properties = wp_endpoint_link_get_properties;
-  iface->get_param_info = wp_endpoint_link_get_param_info;
+  wp_pw_object_mixin_priv_interface_info_init (iface,
+      endpoint_link, ENDPOINT_LINK);
+  iface->process_info = wp_endpoint_link_process_info;
   iface->enum_params = wp_endpoint_link_enum_params;
-  iface->enum_params_finish = wp_pipewire_object_mixin_enum_params_finish;
-  iface->enum_cached_params = wp_pipewire_object_mixin_enum_cached_params;
   iface->set_param = wp_endpoint_link_set_param;
 }
 
@@ -275,17 +205,18 @@ wp_endpoint_link_get_linked_object_ids (WpEndpointLink * self,
 {
   g_return_if_fail (WP_IS_ENDPOINT_LINK (self));
 
-  WpEndpointLinkPrivate *priv = wp_endpoint_link_get_instance_private (self);
-  g_return_if_fail (priv->info);
+  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (self);
+  struct pw_endpoint_link_info *info = d->info;
+  g_return_if_fail (info);
 
   if (output_endpoint)
-    *output_endpoint = priv->info->output_endpoint_id;
+    *output_endpoint = info->output_endpoint_id;
   if (output_stream)
-    *output_stream = priv->info->output_stream_id;
+    *output_stream = info->output_stream_id;
   if (input_endpoint)
-    *input_endpoint = priv->info->input_endpoint_id;
+    *input_endpoint = info->input_endpoint_id;
   if (input_stream)
-    *input_stream = priv->info->input_stream_id;
+    *input_stream = info->input_stream_id;
 }
 
 /**
@@ -304,12 +235,13 @@ wp_endpoint_link_get_state (WpEndpointLink * self, const gchar ** error)
 {
   g_return_val_if_fail (WP_IS_ENDPOINT_LINK (self), WP_ENDPOINT_LINK_STATE_ERROR);
 
-  WpEndpointLinkPrivate *priv = wp_endpoint_link_get_instance_private (self);
-  g_return_val_if_fail (priv->info, WP_ENDPOINT_LINK_STATE_ERROR);
+  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (self);
+  struct pw_endpoint_link_info *info = d->info;
+  g_return_val_if_fail (info, WP_ENDPOINT_LINK_STATE_ERROR);
 
   if (error)
-    *error = priv->info->error;
-  return (WpEndpointLinkState) priv->info->state;
+    *error = info->error;
+  return (WpEndpointLinkState) info->state;
 }
 
 /**
@@ -327,10 +259,10 @@ wp_endpoint_link_request_state (WpEndpointLink * self,
 {
   g_return_if_fail (WP_IS_ENDPOINT_LINK (self));
 
-  WpEndpointLinkPrivate *priv = wp_endpoint_link_get_instance_private (self);
-  g_return_if_fail (priv->iface);
+  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (self);
+  g_return_if_fail (d->iface);
 
-  pw_endpoint_link_request_state (priv->iface,
+  pw_endpoint_link_request_state (d->iface,
       (enum pw_endpoint_link_state) target);
 }
 
@@ -346,62 +278,18 @@ struct _WpImplEndpointLink
   WpEndpointLink parent;
 
   struct spa_interface iface;
-  struct spa_hook_list hooks;
   struct pw_endpoint_link_info info;
+  WpProperties *immutable_props;
 
   WpSiLink *item;
 };
 
-G_DEFINE_TYPE (WpImplEndpointLink, wp_impl_endpoint_link, WP_TYPE_ENDPOINT_LINK)
+static void wp_endpoint_link_impl_pw_object_mixin_priv_interface_init (
+    WpPwObjectMixinPrivInterface * iface);
 
-#define pw_endpoint_link_emit(hooks,method,version,...) \
-    spa_hook_list_call_simple(hooks, struct pw_endpoint_link_events, \
-        method, version, ##__VA_ARGS__)
-
-#define pw_endpoint_link_emit_info(hooks,...)  \
-    pw_endpoint_link_emit(hooks, info, 0, ##__VA_ARGS__)
-#define pw_endpoint_link_emit_param(hooks,...) \
-    pw_endpoint_link_emit(hooks, param, 0, ##__VA_ARGS__)
-
-static int
-impl_add_listener(void *object,
-    struct spa_hook *listener,
-    const struct pw_endpoint_link_events *events,
-    void *data)
-{
-  WpImplEndpointLink *self = WP_IMPL_ENDPOINT_LINK (object);
-  struct spa_hook_list save;
-
-  spa_hook_list_isolate (&self->hooks, &save, listener, events, data);
-
-  self->info.change_mask = PW_ENDPOINT_LINK_CHANGE_MASK_ALL;
-  pw_endpoint_link_emit_info (&self->hooks, &self->info);
-  self->info.change_mask = 0;
-
-  spa_hook_list_join (&self->hooks, &save);
-  return 0;
-}
-
-static int
-impl_enum_params (void *object, int seq,
-    uint32_t id, uint32_t start, uint32_t num,
-    const struct spa_pod *filter)
-{
-  return -ENOENT;
-}
-
-static int
-impl_subscribe_params (void *object, uint32_t *ids, uint32_t n_ids)
-{
-  return 0;
-}
-
-static int
-impl_set_param (void *object, uint32_t id, uint32_t flags,
-    const struct spa_pod *param)
-{
-  return -ENOENT;
-}
+G_DEFINE_TYPE_WITH_CODE (WpImplEndpointLink, wp_impl_endpoint_link, WP_TYPE_ENDPOINT_LINK,
+    G_IMPLEMENT_INTERFACE (WP_TYPE_PW_OBJECT_MIXIN_PRIV,
+        wp_endpoint_link_impl_pw_object_mixin_priv_interface_init))
 
 static void
 on_item_activated (WpSessionItem * item, GAsyncResult * res, gpointer data)
@@ -444,40 +332,48 @@ impl_request_state (void *object, enum pw_endpoint_link_state state)
 
 static const struct pw_endpoint_link_methods impl_endpoint_link = {
   PW_VERSION_ENDPOINT_LINK_METHODS,
-  .add_listener = impl_add_listener,
-  .subscribe_params = impl_subscribe_params,
-  .enum_params = impl_enum_params,
-  .set_param = impl_set_param,
+  .add_listener =
+      (ImplAddListenerFunc(endpoint_link)) wp_pw_object_mixin_impl_add_listener,
+  .subscribe_params = wp_pw_object_mixin_impl_subscribe_params,
+  .enum_params = wp_pw_object_mixin_impl_enum_params,
+  .set_param = wp_pw_object_mixin_impl_set_param,
   .request_state = impl_request_state,
 };
 
 static void
-populate_properties (WpImplEndpointLink * self, WpProperties *global_props)
+wp_impl_endpoint_link_init (WpImplEndpointLink * self)
 {
-  WpEndpointLinkPrivate *priv =
-      wp_endpoint_link_get_instance_private (WP_ENDPOINT_LINK (self));
+  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (self);
 
-  g_clear_pointer (&priv->properties, wp_properties_unref);
-  priv->properties = wp_si_link_get_properties (self->item);
-  if (!priv->properties)
-    priv->properties = wp_properties_new_empty ();
-  priv->properties = wp_properties_ensure_unique_owner (priv->properties);
-  wp_properties_update (priv->properties, global_props);
+  self->iface = SPA_INTERFACE_INIT (
+      PW_TYPE_INTERFACE_EndpointLink,
+      PW_VERSION_ENDPOINT_LINK,
+      &impl_endpoint_link, self);
 
-  self->info.props = priv->properties ?
-      (struct spa_dict *) wp_properties_peek_dict (priv->properties) : NULL;
+  d->info = &self->info;
+  d->iface = &self->iface;
+}
+
+static void
+populate_properties (WpImplEndpointLink * self)
+{
+  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (self);
+
+  g_clear_pointer (&d->properties, wp_properties_unref);
+  d->properties = wp_si_link_get_properties (self->item);
+  if (!d->properties)
+    d->properties = wp_properties_new_empty ();
+  d->properties = wp_properties_ensure_unique_owner (d->properties);
+  wp_properties_update (d->properties, self->immutable_props);
+
+  self->info.props = (struct spa_dict *) wp_properties_peek_dict (d->properties);
 }
 
 static void
 on_si_link_properties_changed (WpSiLink * item, WpImplEndpointLink * self)
 {
-  populate_properties (self,
-      wp_global_proxy_get_global_properties (WP_GLOBAL_PROXY (self)));
-  g_object_notify (G_OBJECT (self), "properties");
-
-  self->info.change_mask = PW_ENDPOINT_LINK_CHANGE_MASK_PROPS;
-  pw_endpoint_link_emit_info (&self->hooks, &self->info);
-  self->info.change_mask = 0;
+  populate_properties (self);
+  wp_pw_object_mixin_notify_info (self, PW_ENDPOINT_LINK_CHANGE_MASK_PROPS);
 }
 
 static void
@@ -499,30 +395,98 @@ on_si_link_flags_changed (WpSiLink * item, WpSiFlags flags,
     g_clear_pointer (&self->info.error, g_free);
 
   if (old_state != self->info.state) {
-    self->info.change_mask = PW_ENDPOINT_LINK_CHANGE_MASK_STATE;
-    pw_endpoint_link_emit_info (&self->hooks, &self->info);
-    self->info.change_mask = 0;
-
+    wp_pw_object_mixin_notify_info (self, PW_ENDPOINT_LINK_CHANGE_MASK_STATE);
     g_signal_emit (self, signals[SIGNAL_STATE_CHANGED], 0,
         old_state, self->info.state, self->info.error);
   }
 }
 
 static void
-wp_impl_endpoint_link_init (WpImplEndpointLink * self)
+wp_impl_endpoint_link_constructed (GObject * object)
 {
-  /* reuse the parent's private to optimize memory usage and to be able
-     to re-use some of the parent's methods without reimplementing them */
-  WpEndpointLinkPrivate *priv =
-      wp_endpoint_link_get_instance_private (WP_ENDPOINT_LINK (self));
+  WpImplEndpointLink *self = WP_IMPL_ENDPOINT_LINK (object);
+  g_autoptr (GVariant) info = NULL;
+  g_autoptr (GVariantIter) immutable_props = NULL;
+  const gchar *key, *value;
+  WpSiStream *stream;
 
-  self->iface = SPA_INTERFACE_INIT (
-      PW_TYPE_INTERFACE_EndpointLink,
-      PW_VERSION_ENDPOINT_LINK,
-      &impl_endpoint_link, self);
-  spa_hook_list_init (&self->hooks);
+  self->info.version = PW_VERSION_ENDPOINT_LINK_INFO;
+  self->info.error = NULL;
+  self->info.params = NULL;
+  self->info.n_params = 0;
 
-  priv->iface = (struct pw_endpoint_link *) &self->iface;
+  /* get info from the interface */
+  info = wp_si_link_get_registration_info (self->item);
+  g_variant_get (info, "a{ss}", &immutable_props);
+
+  /* get the current state */
+  self->info.state =
+      (wp_session_item_get_flags (WP_SESSION_ITEM (self->item))
+          & WP_SI_FLAG_ACTIVE)
+      ? PW_ENDPOINT_LINK_STATE_ACTIVE
+      : PW_ENDPOINT_LINK_STATE_INACTIVE;
+
+  /* associate with the session, the endpoints and the streams */
+  self->info.session_id = wp_session_item_get_associated_proxy_id (
+      WP_SESSION_ITEM (self->item), WP_TYPE_SESSION);
+
+  stream = wp_si_link_get_out_stream (self->item);
+  self->info.output_endpoint_id = wp_session_item_get_associated_proxy_id (
+      WP_SESSION_ITEM (stream), WP_TYPE_ENDPOINT);
+  self->info.output_stream_id = wp_session_item_get_associated_proxy_id (
+      WP_SESSION_ITEM (stream), WP_TYPE_ENDPOINT_STREAM);
+
+  stream = wp_si_link_get_in_stream (self->item);
+  self->info.input_endpoint_id = wp_session_item_get_associated_proxy_id (
+      WP_SESSION_ITEM (stream), WP_TYPE_ENDPOINT);
+  self->info.input_stream_id = wp_session_item_get_associated_proxy_id (
+      WP_SESSION_ITEM (stream), WP_TYPE_ENDPOINT_STREAM);
+
+  /* construct export properties (these will come back through
+      the registry and appear in wp_proxy_get_global_properties) */
+  self->immutable_props = wp_properties_new_empty ();
+  wp_properties_setf (self->immutable_props,
+      PW_KEY_SESSION_ID, "%d", self->info.session_id);
+  wp_properties_setf (self->immutable_props,
+      PW_KEY_ENDPOINT_LINK_OUTPUT_ENDPOINT, "%d", self->info.output_endpoint_id);
+  wp_properties_setf (self->immutable_props,
+      PW_KEY_ENDPOINT_LINK_OUTPUT_STREAM, "%d", self->info.output_stream_id);
+  wp_properties_setf (self->immutable_props,
+      PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT, "%d", self->info.input_endpoint_id);
+  wp_properties_setf (self->immutable_props,
+      PW_KEY_ENDPOINT_LINK_INPUT_STREAM, "%d", self->info.input_stream_id);
+
+  /* populate immutable (global) properties */
+  while (g_variant_iter_next (immutable_props, "{&s&s}", &key, &value))
+    wp_properties_set (self->immutable_props, key, value);
+
+  /* populate standard properties */
+  populate_properties (self);
+
+  /* subscribe to changes */
+  g_signal_connect_object (self->item, "link-properties-changed",
+      G_CALLBACK (on_si_link_properties_changed), self, 0);
+  g_signal_connect_object (self->item, "flags-changed",
+      G_CALLBACK (on_si_link_flags_changed), self, 0);
+
+  wp_object_update_features (WP_OBJECT (self),
+      WP_PIPEWIRE_OBJECT_FEATURE_INFO, 0);
+
+  G_OBJECT_CLASS (wp_impl_endpoint_link_parent_class)->constructed (object);
+}
+
+static void
+wp_impl_endpoint_link_dispose (GObject * object)
+{
+  WpImplEndpointLink *self = WP_IMPL_ENDPOINT_LINK (object);
+
+  g_clear_pointer (&self->immutable_props, wp_properties_unref);
+  g_clear_pointer (&self->info.error, g_free);
+
+  wp_object_update_features (WP_OBJECT (self), 0,
+      WP_PIPEWIRE_OBJECT_FEATURE_INFO);
+
+  G_OBJECT_CLASS (wp_impl_endpoint_link_parent_class)->dispose (object);
 }
 
 static void
@@ -563,16 +527,9 @@ wp_impl_endpoint_link_activate_execute_step (WpObject * object,
     WpObjectFeatures missing)
 {
   WpImplEndpointLink *self = WP_IMPL_ENDPOINT_LINK (object);
-  WpEndpointLinkPrivate *priv =
-      wp_endpoint_link_get_instance_private (WP_ENDPOINT_LINK (self));
 
   switch (step) {
-  case WP_PIPEWIRE_OBJECT_MIXIN_STEP_BIND: {
-    g_autoptr (GVariant) info = NULL;
-    g_autoptr (GVariantIter) immutable_props = NULL;
-    g_autoptr (WpProperties) props = NULL;
-    const gchar *key, *value;
-    WpSiStream *stream;
+  case WP_PW_OBJECT_MIXIN_STEP_BIND: {
     g_autoptr (WpCore) core = wp_object_get_core (object);
     struct pw_core *pw_core = wp_core_get_pw_core (core);
 
@@ -585,77 +542,11 @@ wp_impl_endpoint_link_activate_execute_step (WpObject * object,
       return;
     }
 
-    /* get info from the interface */
-    info = wp_si_link_get_registration_info (self->item);
-    g_variant_get (info, "a{ss}", &immutable_props);
-
-    /* get the current state */
-    self->info.state =
-        (wp_session_item_get_flags (WP_SESSION_ITEM (self->item))
-            & WP_SI_FLAG_ACTIVE)
-        ? PW_ENDPOINT_LINK_STATE_ACTIVE
-        : PW_ENDPOINT_LINK_STATE_INACTIVE;
-
-    /* associate with the session, the endpoints and the streams */
-    self->info.session_id = wp_session_item_get_associated_proxy_id (
-        WP_SESSION_ITEM (self->item), WP_TYPE_SESSION);
-
-    stream = wp_si_link_get_out_stream (self->item);
-    self->info.output_endpoint_id = wp_session_item_get_associated_proxy_id (
-        WP_SESSION_ITEM (stream), WP_TYPE_ENDPOINT);
-    self->info.output_stream_id = wp_session_item_get_associated_proxy_id (
-        WP_SESSION_ITEM (stream), WP_TYPE_ENDPOINT_STREAM);
-
-    stream = wp_si_link_get_in_stream (self->item);
-    self->info.input_endpoint_id = wp_session_item_get_associated_proxy_id (
-        WP_SESSION_ITEM (stream), WP_TYPE_ENDPOINT);
-    self->info.input_stream_id = wp_session_item_get_associated_proxy_id (
-        WP_SESSION_ITEM (stream), WP_TYPE_ENDPOINT_STREAM);
-
-    /* construct export properties (these will come back through
-       the registry and appear in wp_proxy_get_global_properties) */
-    props = wp_properties_new_empty ();
-    wp_properties_setf (props, PW_KEY_SESSION_ID, "%d", self->info.session_id);
-    wp_properties_setf (props, PW_KEY_ENDPOINT_LINK_OUTPUT_ENDPOINT, "%d",
-        self->info.output_endpoint_id);
-    wp_properties_setf (props, PW_KEY_ENDPOINT_LINK_OUTPUT_STREAM, "%d",
-        self->info.output_stream_id);
-    wp_properties_setf (props, PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT, "%d",
-        self->info.input_endpoint_id);
-    wp_properties_setf (props, PW_KEY_ENDPOINT_LINK_INPUT_STREAM, "%d",
-        self->info.input_stream_id);
-
-    /* populate immutable (global) properties */
-    while (g_variant_iter_next (immutable_props, "{&s&s}", &key, &value))
-      wp_properties_set (props, key, value);
-
-    /* populate standard properties */
-    populate_properties (self, props);
-
-    /* subscribe to changes */
-    g_signal_connect_object (self->item, "link-properties-changed",
-        G_CALLBACK (on_si_link_properties_changed), self, 0);
-    g_signal_connect_object (self->item, "flags-changed",
-        G_CALLBACK (on_si_link_flags_changed), self, 0);
-
-    /* finalize info struct */
-    self->info.version = PW_VERSION_ENDPOINT_LINK_INFO;
-    self->info.error = NULL;
-    self->info.params = NULL;
-    self->info.n_params = 0;
-    priv->info = &self->info;
-
     /* bind */
     wp_proxy_set_pw_proxy (WP_PROXY (self), pw_core_export (pw_core,
             PW_TYPE_INTERFACE_EndpointLink,
-            wp_properties_peek_dict (props),
-            priv->iface, 0));
-
-    /* notify */
-    wp_object_update_features (object, WP_PIPEWIRE_OBJECT_FEATURE_INFO, 0);
-    g_object_notify (G_OBJECT (self), "properties");
-    g_object_notify (G_OBJECT (self), "param-info");
-
+            wp_properties_peek_dict (self->immutable_props),
+            &self->iface, 0));
     break;
   }
   default:
@@ -666,27 +557,14 @@ wp_impl_endpoint_link_activate_execute_step (WpObject * object,
 }
 
 static void
-wp_impl_endpoint_link_pw_proxy_destroyed (WpProxy * proxy)
-{
-  WpImplEndpointLink *self = WP_IMPL_ENDPOINT_LINK (proxy);
-  WpEndpointLinkPrivate *priv =
-      wp_endpoint_link_get_instance_private (WP_ENDPOINT_LINK (self));
-
-  g_signal_handlers_disconnect_by_data (self->item, self);
-  g_clear_pointer (&priv->properties, wp_properties_unref);
-  g_clear_pointer (&self->info.error, g_free);
-  priv->info = NULL;
-  wp_object_update_features (WP_OBJECT (proxy), 0,
-      WP_PIPEWIRE_OBJECT_FEATURE_INFO);
-}
-
-static void
 wp_impl_endpoint_link_class_init (WpImplEndpointLinkClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
   WpObjectClass *wpobject_class = (WpObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
+  object_class->constructed = wp_impl_endpoint_link_constructed;
+  object_class->dispose = wp_impl_endpoint_link_dispose;
   object_class->set_property = wp_impl_endpoint_link_set_property;
   object_class->get_property = wp_impl_endpoint_link_get_property;
 
@@ -694,11 +572,39 @@ wp_impl_endpoint_link_class_init (WpImplEndpointLinkClass * klass)
       wp_impl_endpoint_link_activate_execute_step;
 
   proxy_class->pw_proxy_created = NULL;
-  proxy_class->pw_proxy_destroyed = wp_impl_endpoint_link_pw_proxy_destroyed;
+  proxy_class->pw_proxy_destroyed = NULL;
 
   g_object_class_install_property (object_class, IMPL_PROP_ITEM,
       g_param_spec_object ("item", "item", "item", WP_TYPE_SI_LINK,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+}
+
+#define pw_endpoint_link_emit(hooks,method,version,...) \
+    spa_hook_list_call_simple(hooks, struct pw_endpoint_link_events, \
+        method, version, ##__VA_ARGS__)
+
+static void
+wp_impl_endpoint_link_emit_info (struct spa_hook_list * hooks, gconstpointer info)
+{
+  pw_endpoint_link_emit (hooks, info, 0, info);
+}
+
+static void
+wp_impl_endpoint_link_emit_param (struct spa_hook_list * hooks, int seq,
+      guint32 id, guint32 index, guint32 next, const struct spa_pod *param)
+{
+  pw_endpoint_link_emit (hooks, param, 0, seq, id, index, next, param);
+}
+
+static void
+wp_endpoint_link_impl_pw_object_mixin_priv_interface_init (
+    WpPwObjectMixinPrivInterface * iface)
+{
+  iface->flags |= WP_PW_OBJECT_MIXIN_PRIV_NO_PARAM_CACHE;
+  iface->enum_params = NULL;
+  iface->set_param = NULL;
+  iface->emit_info = wp_impl_endpoint_link_emit_info;
+  iface->emit_param = wp_impl_endpoint_link_emit_param;
 }
 
 WpImplEndpointLink *

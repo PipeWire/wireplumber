@@ -16,6 +16,7 @@
 #include "session.h"
 #include "object-manager.h"
 #include "error.h"
+#include "debug.h"
 #include "wpenums.h"
 #include "private/impl-endpoint.h"
 #include "private/pipewire-object-mixin.h"
@@ -35,15 +36,12 @@ static guint32 signals[N_SIGNALS] = {0};
 typedef struct _WpSessionPrivate WpSessionPrivate;
 struct _WpSessionPrivate
 {
-  WpProperties *properties;
-  struct pw_session_info *info;
-  struct pw_session *iface;
-  struct spa_hook listener;
   WpObjectManager *endpoints_om;
   WpObjectManager *links_om;
 };
 
-static void wp_session_pipewire_object_interface_init (WpPipewireObjectInterface * iface);
+static void wp_session_pw_object_mixin_priv_interface_init (
+    WpPwObjectMixinPrivInterface * iface);
 
 /**
  * WpSession:
@@ -57,7 +55,10 @@ static void wp_session_pipewire_object_interface_init (WpPipewireObjectInterface
  */
 G_DEFINE_TYPE_WITH_CODE (WpSession, wp_session, WP_TYPE_GLOBAL_PROXY,
     G_ADD_PRIVATE (WpSession)
-    G_IMPLEMENT_INTERFACE (WP_TYPE_PIPEWIRE_OBJECT, wp_session_pipewire_object_interface_init));
+    G_IMPLEMENT_INTERFACE (WP_TYPE_PIPEWIRE_OBJECT,
+        wp_pw_object_mixin_object_interface_init)
+    G_IMPLEMENT_INTERFACE (WP_TYPE_PW_OBJECT_MIXIN_PRIV,
+        wp_session_pw_object_mixin_priv_interface_init))
 
 static void
 wp_session_init (WpSession * self)
@@ -156,39 +157,14 @@ wp_session_enable_features_endpoints_links (WpSession * self,
 static WpObjectFeatures
 wp_session_get_supported_features (WpObject * object)
 {
-  WpSession *self = WP_SESSION (object);
-  WpSessionPrivate *priv = wp_session_get_instance_private (self);
-
-  return
-      WP_PROXY_FEATURE_BOUND |
-      WP_SESSION_FEATURE_ENDPOINTS |
-      WP_SESSION_FEATURE_LINKS |
-      WP_PIPEWIRE_OBJECT_FEATURE_INFO |
-      wp_pipewire_object_mixin_param_info_to_features (
-          priv->info ? priv->info->params : NULL,
-          priv->info ? priv->info->n_params : 0);
+  return wp_pw_object_mixin_get_supported_features(object)
+      | WP_SESSION_FEATURE_ENDPOINTS
+      | WP_SESSION_FEATURE_LINKS;
 }
 
 enum {
-  STEP_CHILDREN = WP_PIPEWIRE_OBJECT_MIXIN_STEP_CUSTOM_START,
+  STEP_CHILDREN = WP_PW_OBJECT_MIXIN_STEP_CUSTOM_START,
 };
-
-static guint
-wp_session_activate_get_next_step (WpObject * object,
-    WpFeatureActivationTransition * transition, guint step,
-    WpObjectFeatures missing)
-{
-  step = wp_pipewire_object_mixin_activate_get_next_step (object, transition,
-      step, missing);
-
-  /* extend the mixin's state machine; when the only remaining feature(s) to
-     enable are FEATURE_ENDPOINTS or FEATURE_LINKS, advance to STEP_CHILDREN */
-  if (step == WP_PIPEWIRE_OBJECT_MIXIN_STEP_CACHE_INFO &&
-      (missing & ~(WP_SESSION_FEATURE_ENDPOINTS | WP_SESSION_FEATURE_LINKS)) == 0)
-    return STEP_CHILDREN;
-
-  return step;
-}
 
 static void
 wp_session_activate_execute_step (WpObject * object,
@@ -196,17 +172,24 @@ wp_session_activate_execute_step (WpObject * object,
     WpObjectFeatures missing)
 {
   switch (step) {
-  case WP_PIPEWIRE_OBJECT_MIXIN_STEP_CACHE_INFO:
-    wp_pipewire_object_mixin_cache_info (object, transition);
+  case WP_PW_OBJECT_MIXIN_STEP_BIND:
+  case WP_TRANSITION_STEP_ERROR:
+    /* base class can handle BIND and ERROR */
+    WP_OBJECT_CLASS (wp_session_parent_class)->
+        activate_execute_step (object, transition, step, missing);
+    break;
+  case WP_PW_OBJECT_MIXIN_STEP_WAIT_INFO:
+    /* just wait, info will be emitted anyway after binding */
+    break;
+  case WP_PW_OBJECT_MIXIN_STEP_CACHE_PARAMS:
+    wp_pw_object_mixin_cache_params (object, missing);
     break;
   case STEP_CHILDREN:
     wp_session_enable_features_endpoints_links (WP_SESSION (object),
         missing);
     break;
   default:
-    WP_OBJECT_CLASS (wp_session_parent_class)->
-        activate_execute_step (object, transition, step, missing);
-    break;
+    g_assert_not_reached ();
   }
 }
 
@@ -216,7 +199,7 @@ wp_session_deactivate (WpObject * object, WpObjectFeatures features)
   WpSession *self = WP_SESSION (object);
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
 
-  wp_pipewire_object_mixin_deactivate (object, features);
+  wp_pw_object_mixin_deactivate (object, features);
 
   if (features & WP_SESSION_FEATURE_ENDPOINTS) {
     g_clear_object (&priv->endpoints_om);
@@ -230,40 +213,17 @@ wp_session_deactivate (WpObject * object, WpObjectFeatures features)
   WP_OBJECT_CLASS (wp_session_parent_class)->deactivate (object, features);
 }
 
-static void
-session_event_info (void *data, const struct pw_session_info *info)
-{
-  WpSession *self = WP_SESSION (data);
-  WpSessionPrivate *priv = wp_session_get_instance_private (self);
-
-  priv->info = pw_session_info_update (priv->info, info);
-
-  if (info->change_mask & PW_SESSION_CHANGE_MASK_PROPS) {
-    g_clear_pointer (&priv->properties, wp_properties_unref);
-    priv->properties = wp_properties_new_wrap_dict (priv->info->props);
-  }
-
-  wp_object_update_features (WP_OBJECT (self),
-      WP_PIPEWIRE_OBJECT_FEATURE_INFO, 0);
-
-  wp_pipewire_object_mixin_handle_event_info (self, info,
-      PW_SESSION_CHANGE_MASK_PROPS, PW_SESSION_CHANGE_MASK_PARAMS);
-}
-
 static const struct pw_session_events session_events = {
   PW_VERSION_SESSION_EVENTS,
-  .info = session_event_info,
-  .param = wp_pipewire_object_mixin_handle_event_param,
+  .info = (HandleEventInfoFunc(session)) wp_pw_object_mixin_handle_event_info,
+  .param = wp_pw_object_mixin_handle_event_param,
 };
 
 static void
 wp_session_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 {
-  WpSession *self = WP_SESSION (proxy);
-  WpSessionPrivate *priv = wp_session_get_instance_private (self);
-
-  priv->iface = (struct pw_session *) pw_proxy;
-  pw_session_add_listener (priv->iface, &priv->listener, &session_events, self);
+  wp_pw_object_mixin_handle_pw_proxy_created (proxy, pw_proxy,
+      session, &session_events);
 }
 
 static void
@@ -272,17 +232,13 @@ wp_session_pw_proxy_destroyed (WpProxy * proxy)
   WpSession *self = WP_SESSION (proxy);
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
 
-  g_clear_pointer (&priv->properties, wp_properties_unref);
-  g_clear_pointer (&priv->info, pw_session_info_free);
+  wp_pw_object_mixin_handle_pw_proxy_destroyed (proxy);
+
   g_clear_object (&priv->endpoints_om);
   g_clear_object (&priv->links_om);
   wp_object_update_features (WP_OBJECT (self), 0,
-      WP_PIPEWIRE_OBJECT_FEATURE_INFO |
       WP_SESSION_FEATURE_ENDPOINTS |
       WP_SESSION_FEATURE_LINKS);
-
-  wp_pipewire_object_mixin_deactivate (WP_OBJECT (proxy),
-      WP_OBJECT_FEATURES_ALL);
 }
 
 static void
@@ -292,10 +248,11 @@ wp_session_class_init (WpSessionClass * klass)
   WpObjectClass *wpobject_class = (WpObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
-  object_class->get_property = wp_pipewire_object_mixin_get_property;
+  object_class->get_property = wp_pw_object_mixin_get_property;
 
   wpobject_class->get_supported_features = wp_session_get_supported_features;
-  wpobject_class->activate_get_next_step = wp_session_activate_get_next_step;
+  wpobject_class->activate_get_next_step =
+      wp_pw_object_mixin_activate_get_next_step;
   wpobject_class->activate_execute_step = wp_session_activate_execute_step;
   wpobject_class->deactivate = wp_session_deactivate;
 
@@ -304,7 +261,7 @@ wp_session_class_init (WpSessionClass * klass)
   proxy_class->pw_proxy_created = wp_session_pw_proxy_created;
   proxy_class->pw_proxy_destroyed = wp_session_pw_proxy_destroyed;
 
-  wp_pipewire_object_mixin_class_override_properties (object_class);
+  wp_pw_object_mixin_class_override_properties (object_class);
 
   /**
    * WpSession::default-endpoint-changed:
@@ -344,60 +301,30 @@ wp_session_class_init (WpSessionClass * klass)
       G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 }
 
-static gconstpointer
-wp_session_get_native_info (WpPipewireObject * obj)
+static gint
+wp_session_enum_params (gpointer instance, guint32 id,
+    guint32 start, guint32 num, WpSpaPod *filter)
 {
-  WpSession *self = WP_SESSION (obj);
-  WpSessionPrivate *priv = wp_session_get_instance_private (self);
-
-  return priv->info;
+  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (instance);
+  return pw_session_enum_params (d->iface, 0, id, start, num,
+      filter ? wp_spa_pod_get_spa_pod (filter) : NULL);
 }
 
-static WpProperties *
-wp_session_get_properties (WpPipewireObject * obj)
-{
-  WpSession *self = WP_SESSION (obj);
-  WpSessionPrivate *priv = wp_session_get_instance_private (self);
-
-  return wp_properties_ref (priv->properties);
-}
-
-static GVariant *
-wp_session_get_param_info (WpPipewireObject * obj)
-{
-  WpSession *self = WP_SESSION (obj);
-  WpSessionPrivate *priv = wp_session_get_instance_private (self);
-
-  return wp_pipewire_object_mixin_param_info_to_gvariant (priv->info->params,
-      priv->info->n_params);
-}
-
-static void
-wp_session_enum_params (WpPipewireObject * obj, const gchar * id,
-    WpSpaPod *filter, GCancellable * cancellable,
-    GAsyncReadyCallback callback, gpointer user_data)
-{
-  wp_pipewire_object_mixin_enum_params (pw_session, obj, id, filter,
-      cancellable, callback, user_data);
-}
-
-static void
-wp_session_set_param (WpPipewireObject * obj, const gchar * id,
+static gint
+wp_session_set_param (gpointer instance, guint32 id, guint32 flags,
     WpSpaPod * param)
 {
-  wp_pipewire_object_mixin_set_param (pw_session, obj, id, param);
+  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (instance);
+  return pw_session_set_param (d->iface, id, flags,
+      wp_spa_pod_get_spa_pod (param));
 }
 
 static void
-wp_session_pipewire_object_interface_init (
-    WpPipewireObjectInterface * iface)
+wp_session_pw_object_mixin_priv_interface_init (
+    WpPwObjectMixinPrivInterface * iface)
 {
-  iface->get_native_info = wp_session_get_native_info;
-  iface->get_properties = wp_session_get_properties;
-  iface->get_param_info = wp_session_get_param_info;
+  wp_pw_object_mixin_priv_interface_info_init (iface, session, SESSION);
   iface->enum_params = wp_session_enum_params;
-  iface->enum_params_finish = wp_pipewire_object_mixin_enum_params_finish;
-  iface->enum_cached_params = wp_pipewire_object_mixin_enum_cached_params;
   iface->set_param = wp_session_set_param;
 }
 
@@ -416,8 +343,8 @@ wp_session_get_name (WpSession * self)
   g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
           WP_PIPEWIRE_OBJECT_FEATURE_INFO, NULL);
 
-  WpSessionPrivate *priv = wp_session_get_instance_private (self);
-  return wp_properties_get (priv->properties, "session.name");
+  return wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (self),
+      "session.name");
 }
 
 /**
@@ -690,9 +617,12 @@ struct _WpImplSession
   WpSession parent;
 
   struct spa_interface iface;
-  struct spa_hook_list hooks;
   struct pw_session_info info;
 };
+
+
+static void wp_session_impl_pw_object_mixin_priv_interface_init (
+    WpPwObjectMixinPrivInterface * iface);
 
 /**
  * WpImplSession:
@@ -700,96 +630,50 @@ struct _WpImplSession
  * A #WpImplSession allows implementing a session and exporting it to PipeWire.
  * To export a #WpImplSession, activate %WP_PROXY_FEATURE_BOUND.
  */
-G_DEFINE_TYPE (WpImplSession, wp_impl_session, WP_TYPE_SESSION)
-
-#define pw_session_emit(hooks,method,version,...) \
-    spa_hook_list_call_simple(hooks, struct pw_session_events, \
-        method, version, ##__VA_ARGS__)
-
-#define pw_session_emit_info(hooks,...)  pw_session_emit(hooks, info, 0, ##__VA_ARGS__)
-#define pw_session_emit_param(hooks,...) pw_session_emit(hooks, param, 0, ##__VA_ARGS__)
-
-static int
-impl_add_listener(void *object,
-    struct spa_hook *listener,
-    const struct pw_session_events *events,
-    void *data)
-{
-  WpImplSession *self = WP_IMPL_SESSION (object);
-  struct spa_hook_list save;
-
-  spa_hook_list_isolate (&self->hooks, &save, listener, events, data);
-
-  self->info.change_mask = PW_SESSION_CHANGE_MASK_ALL;
-  pw_session_emit_info (&self->hooks, &self->info);
-  self->info.change_mask = 0;
-
-  spa_hook_list_join (&self->hooks, &save);
-  return 0;
-}
-
-static int
-impl_enum_params (void *object, int seq,
-    uint32_t id, uint32_t start, uint32_t num,
-    const struct spa_pod *filter)
-{
-  return -ENOENT;
-}
-
-static int
-impl_subscribe_params (void *object, uint32_t *ids, uint32_t n_ids)
-{
-  return 0;
-}
-
-static int
-impl_set_param (void *object, uint32_t id, uint32_t flags,
-    const struct spa_pod *param)
-{
-  return -ENOENT;
-}
+G_DEFINE_TYPE_WITH_CODE (WpImplSession, wp_impl_session, WP_TYPE_SESSION,
+    G_IMPLEMENT_INTERFACE (WP_TYPE_PW_OBJECT_MIXIN_PRIV,
+        wp_session_impl_pw_object_mixin_priv_interface_init))
 
 static const struct pw_session_methods impl_session = {
   PW_VERSION_SESSION_METHODS,
-  .add_listener = impl_add_listener,
-  .subscribe_params = impl_subscribe_params,
-  .enum_params = impl_enum_params,
-  .set_param = impl_set_param,
+  .add_listener =
+      (ImplAddListenerFunc(session)) wp_pw_object_mixin_impl_add_listener,
+  .subscribe_params = wp_pw_object_mixin_impl_subscribe_params,
+  .enum_params = wp_pw_object_mixin_impl_enum_params,
+  .set_param = wp_pw_object_mixin_impl_set_param,
 };
 
 static void
 wp_impl_session_init (WpImplSession * self)
 {
-  /* reuse the parent's private to optimize memory usage and to be able
-     to re-use some of the parent's methods without reimplementing them */
-  WpSessionPrivate *priv = wp_session_get_instance_private (WP_SESSION (self));
+  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (self);
 
   self->iface = SPA_INTERFACE_INIT (
       PW_TYPE_INTERFACE_Session,
       PW_VERSION_SESSION,
       &impl_session, self);
-  spa_hook_list_init (&self->hooks);
 
-  priv->iface = (struct pw_session *) &self->iface;
+  d->info = &self->info;
+  d->iface = &self->iface;
 
   /* prepare INFO */
-  priv->properties = wp_properties_new_empty ();
+  d->properties = wp_properties_new_empty ();
   self->info.version = PW_VERSION_SESSION_INFO;
-  self->info.props =
-      (struct spa_dict *) wp_properties_peek_dict (priv->properties);
+  self->info.props = (struct spa_dict *) wp_properties_peek_dict (d->properties);
   self->info.params = NULL;
   self->info.n_params = 0;
-  priv->info = &self->info;
+
+  wp_object_update_features (WP_OBJECT (self),
+        WP_PIPEWIRE_OBJECT_FEATURE_INFO, 0);
 }
 
 static void
-wp_impl_session_finalize (GObject * object)
+wp_impl_session_dispose (GObject * object)
 {
-  WpSessionPrivate *priv = wp_session_get_instance_private (WP_SESSION (object));
+  wp_object_update_features (WP_OBJECT (object), 0,
+      WP_PIPEWIRE_OBJECT_FEATURE_INFO);
 
-  g_clear_pointer (&priv->properties, wp_properties_unref);
-
-  G_OBJECT_CLASS (wp_impl_session_parent_class)->finalize (object);
+  G_OBJECT_CLASS (wp_impl_session_parent_class)->dispose (object);
 }
 
 static void
@@ -798,10 +682,10 @@ wp_impl_session_activate_execute_step (WpObject * object,
     WpObjectFeatures missing)
 {
   WpImplSession *self = WP_IMPL_SESSION (object);
-  WpSessionPrivate *priv = wp_session_get_instance_private (WP_SESSION (self));
+  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (self);
 
   switch (step) {
-  case WP_PIPEWIRE_OBJECT_MIXIN_STEP_BIND: {
+  case WP_PW_OBJECT_MIXIN_STEP_BIND: {
     g_autoptr (WpCore) core = wp_object_get_core (object);
     struct pw_core *pw_core = wp_core_get_pw_core (core);
 
@@ -815,17 +699,14 @@ wp_impl_session_activate_execute_step (WpObject * object,
     }
 
     /* make sure these props are not present; they are added by the server */
-    wp_properties_set (priv->properties, PW_KEY_OBJECT_ID, NULL);
-    wp_properties_set (priv->properties, PW_KEY_CLIENT_ID, NULL);
-    wp_properties_set (priv->properties, PW_KEY_FACTORY_ID, NULL);
+    wp_properties_set (d->properties, PW_KEY_OBJECT_ID, NULL);
+    wp_properties_set (d->properties, PW_KEY_CLIENT_ID, NULL);
+    wp_properties_set (d->properties, PW_KEY_FACTORY_ID, NULL);
 
     wp_proxy_set_pw_proxy (WP_PROXY (self), pw_core_export (pw_core,
             PW_TYPE_INTERFACE_Session,
-            wp_properties_peek_dict (priv->properties),
-            priv->iface, 0));
-
-    wp_object_update_features (WP_OBJECT (self),
-        WP_PIPEWIRE_OBJECT_FEATURE_INFO, 0);
+            wp_properties_peek_dict (d->properties),
+            &self->iface, 0));
     break;
   }
   default:
@@ -844,7 +725,6 @@ wp_impl_session_pw_proxy_destroyed (WpProxy * proxy)
   g_clear_object (&priv->endpoints_om);
   g_clear_object (&priv->links_om);
   wp_object_update_features (WP_OBJECT (self), 0,
-      WP_PIPEWIRE_OBJECT_FEATURE_INFO |
       WP_SESSION_FEATURE_ENDPOINTS |
       WP_SESSION_FEATURE_LINKS);
 }
@@ -856,12 +736,38 @@ wp_impl_session_class_init (WpImplSessionClass * klass)
   WpObjectClass *wpobject_class = (WpObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
-  object_class->finalize = wp_impl_session_finalize;
+  object_class->dispose = wp_impl_session_dispose;
 
   wpobject_class->activate_execute_step = wp_impl_session_activate_execute_step;
 
   proxy_class->pw_proxy_created = NULL;
   proxy_class->pw_proxy_destroyed = wp_impl_session_pw_proxy_destroyed;
+}
+
+#define pw_session_emit(hooks,method,version,...) \
+    spa_hook_list_call_simple(hooks, struct pw_session_events, \
+        method, version, ##__VA_ARGS__)
+
+static void
+wp_impl_session_emit_info (struct spa_hook_list * hooks, gconstpointer info)
+{
+  pw_session_emit (hooks, info, 0, info);
+}
+
+static void
+wp_impl_session_emit_param (struct spa_hook_list * hooks, int seq,
+      guint32 id, guint32 index, guint32 next, const struct spa_pod *param)
+{
+  pw_session_emit (hooks, param, 0, seq, id, index, next, param);
+}
+
+static void
+wp_session_impl_pw_object_mixin_priv_interface_init (
+    WpPwObjectMixinPrivInterface * iface)
+{
+  iface->flags |= WP_PW_OBJECT_MIXIN_PRIV_NO_PARAM_CACHE;
+  iface->emit_info = wp_impl_session_emit_info;
+  iface->emit_param = wp_impl_session_emit_param;
 }
 
 /**
@@ -896,21 +802,11 @@ void
 wp_impl_session_set_property (WpImplSession * self,
     const gchar * key, const gchar * value)
 {
-  WpSessionPrivate *priv;
-
   g_return_if_fail (WP_IS_IMPL_SESSION (self));
-  priv = wp_session_get_instance_private (WP_SESSION (self));
 
-  wp_properties_set (priv->properties, key, value);
-
-  g_object_notify (G_OBJECT (self), "properties");
-
-  /* update only after the session has been exported */
-  if (wp_object_get_active_features (WP_OBJECT (self)) & WP_PROXY_FEATURE_BOUND) {
-    self->info.change_mask = PW_SESSION_CHANGE_MASK_PROPS;
-    pw_session_emit_info (&self->hooks, &self->info);
-    self->info.change_mask = 0;
-  }
+  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (self);
+  wp_properties_set (d->properties, key, value);
+  wp_pw_object_mixin_notify_info (self, PW_SESSION_CHANGE_MASK_PROPS);
 }
 
 /**
@@ -929,19 +825,9 @@ void
 wp_impl_session_update_properties (WpImplSession * self,
     WpProperties * updates)
 {
-  WpSessionPrivate *priv;
-
   g_return_if_fail (WP_IS_IMPL_SESSION (self));
-  priv = wp_session_get_instance_private (WP_SESSION (self));
 
-  wp_properties_update (priv->properties, updates);
-
-  g_object_notify (G_OBJECT (self), "properties");
-
-  /* update only after the session has been exported */
-  if (wp_object_get_active_features (WP_OBJECT (self)) & WP_PROXY_FEATURE_BOUND) {
-    self->info.change_mask = PW_SESSION_CHANGE_MASK_PROPS;
-    pw_session_emit_info (&self->hooks, &self->info);
-    self->info.change_mask = 0;
-  }
+  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (self);
+  wp_properties_update (d->properties, updates);
+  wp_pw_object_mixin_notify_info (self, PW_SESSION_CHANGE_MASK_PROPS);
 }

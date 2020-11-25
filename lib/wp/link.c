@@ -19,11 +19,10 @@
 struct _WpLink
 {
   WpGlobalProxy parent;
-  struct pw_link_info *info;
-  struct spa_hook listener;
 };
 
-static void wp_link_pipewire_object_interface_init (WpPipewireObjectInterface * iface);
+static void wp_link_pw_object_mixin_priv_interface_init (
+    WpPwObjectMixinPrivInterface * iface);
 
 /**
  * WpLink:
@@ -38,17 +37,14 @@ static void wp_link_pipewire_object_interface_init (WpPipewireObjectInterface * 
  * on the remote PipeWire server by calling into a factory.
  */
 G_DEFINE_TYPE_WITH_CODE (WpLink, wp_link, WP_TYPE_GLOBAL_PROXY,
-    G_IMPLEMENT_INTERFACE (WP_TYPE_PIPEWIRE_OBJECT, wp_link_pipewire_object_interface_init));
+    G_IMPLEMENT_INTERFACE (WP_TYPE_PIPEWIRE_OBJECT,
+        wp_pw_object_mixin_object_interface_init)
+    G_IMPLEMENT_INTERFACE (WP_TYPE_PW_OBJECT_MIXIN_PRIV,
+        wp_link_pw_object_mixin_priv_interface_init))
 
 static void
 wp_link_init (WpLink * self)
 {
-}
-
-static WpObjectFeatures
-wp_link_get_supported_features (WpObject * object)
-{
-  return WP_PROXY_FEATURE_BOUND | WP_PIPEWIRE_OBJECT_FEATURE_INFO;
 }
 
 static void
@@ -57,48 +53,30 @@ wp_link_activate_execute_step (WpObject * object,
     WpObjectFeatures missing)
 {
   switch (step) {
-  case WP_PIPEWIRE_OBJECT_MIXIN_STEP_CACHE_INFO:
-    /* just wait, info will be emitted anyway after binding */
-    break;
-  default:
+  case WP_PW_OBJECT_MIXIN_STEP_BIND:
+  case WP_TRANSITION_STEP_ERROR:
+    /* base class can handle BIND and ERROR */
     WP_OBJECT_CLASS (wp_link_parent_class)->
         activate_execute_step (object, transition, step, missing);
     break;
+  case WP_PW_OBJECT_MIXIN_STEP_WAIT_INFO:
+    /* just wait, info will be emitted anyway after binding */
+    break;
+  default:
+    g_assert_not_reached ();
   }
-}
-
-static void
-link_event_info(void *data, const struct pw_link_info *info)
-{
-  WpLink *self = WP_LINK (data);
-
-  self->info = pw_link_info_update (self->info, info);
-  wp_object_update_features (WP_OBJECT (self),
-      WP_PIPEWIRE_OBJECT_FEATURE_INFO, 0);
-
-  wp_pipewire_object_mixin_handle_event_info (self, info,
-      PW_LINK_CHANGE_MASK_PROPS, 0);
 }
 
 static const struct pw_link_events link_events = {
   PW_VERSION_LINK_EVENTS,
-  .info = link_event_info,
+  .info = (HandleEventInfoFunc(link)) wp_pw_object_mixin_handle_event_info,
 };
 
 static void
 wp_link_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 {
-  WpLink *self = WP_LINK (proxy);
-  pw_link_add_listener ((struct pw_link *) pw_proxy,
-      &self->listener, &link_events, self);
-}
-
-static void
-wp_link_pw_proxy_destroyed (WpProxy * proxy)
-{
-  g_clear_pointer (&WP_LINK (proxy)->info, pw_link_info_free);
-  wp_object_update_features (WP_OBJECT (proxy), 0,
-      WP_PIPEWIRE_OBJECT_FEATURE_INFO);
+  wp_pw_object_mixin_handle_pw_proxy_created (proxy, pw_proxy,
+      link, &link_events);
 }
 
 static void
@@ -108,49 +86,28 @@ wp_link_class_init (WpLinkClass * klass)
   WpObjectClass *wpobject_class = (WpObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
-  object_class->get_property = wp_pipewire_object_mixin_get_property;
+  object_class->get_property = wp_pw_object_mixin_get_property;
 
-  wpobject_class->get_supported_features = wp_link_get_supported_features;
+  wpobject_class->get_supported_features =
+      wp_pw_object_mixin_get_supported_features;
   wpobject_class->activate_get_next_step =
-      wp_pipewire_object_mixin_activate_get_next_step;
+      wp_pw_object_mixin_activate_get_next_step;
   wpobject_class->activate_execute_step = wp_link_activate_execute_step;
 
   proxy_class->pw_iface_type = PW_TYPE_INTERFACE_Link;
   proxy_class->pw_iface_version = PW_VERSION_LINK;
   proxy_class->pw_proxy_created = wp_link_pw_proxy_created;
-  proxy_class->pw_proxy_destroyed = wp_link_pw_proxy_destroyed;
+  proxy_class->pw_proxy_destroyed =
+      wp_pw_object_mixin_handle_pw_proxy_destroyed;
 
-  wp_pipewire_object_mixin_class_override_properties (object_class);
-}
-
-static gconstpointer
-wp_link_get_native_info (WpPipewireObject * obj)
-{
-  return WP_LINK (obj)->info;
-}
-
-static WpProperties *
-wp_link_get_properties (WpPipewireObject * obj)
-{
-  return wp_properties_new_wrap_dict (WP_LINK (obj)->info->props);
-}
-
-static GVariant *
-wp_link_get_param_info (WpPipewireObject * obj)
-{
-  return NULL;
+  wp_pw_object_mixin_class_override_properties (object_class);
 }
 
 static void
-wp_link_pipewire_object_interface_init (WpPipewireObjectInterface * iface)
+wp_link_pw_object_mixin_priv_interface_init (
+    WpPwObjectMixinPrivInterface * iface)
 {
-  iface->get_native_info = wp_link_get_native_info;
-  iface->get_properties = wp_link_get_properties;
-  iface->get_param_info = wp_link_get_param_info;
-  iface->enum_params = wp_pipewire_object_mixin_enum_params_unimplemented;
-  iface->enum_params_finish = wp_pipewire_object_mixin_enum_params_finish;
-  iface->enum_cached_params = wp_pipewire_object_mixin_enum_cached_params;
-  iface->set_param = wp_pipewire_object_mixin_set_param_unimplemented;
+  wp_pw_object_mixin_priv_interface_info_init_no_params (iface, link, LINK);
 }
 
 /**
@@ -202,7 +159,7 @@ wp_link_new_from_factory (WpCore * core,
  *
  * Retrieves the ids of the objects that are linked by this link
  *
- * Note: Using this method requires %WP_PROXY_FEATURE_INFO
+ * Note: Using this method requires %WP_PIPEWIRE_OBJECT_FEATURE_INFO
  */
 void
 wp_link_get_linked_object_ids (WpLink * self,
@@ -211,12 +168,16 @@ wp_link_get_linked_object_ids (WpLink * self,
 {
   g_return_if_fail (WP_IS_LINK (self));
 
+  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (self);
+  struct pw_link_info *info = d->info;
+  g_return_if_fail (info);
+
   if (output_node)
-    *output_node = self->info->output_node_id;
+    *output_node = info->output_node_id;
   if (output_port)
-    *output_port = self->info->output_port_id;
+    *output_port = info->output_port_id;
   if (input_node)
-    *input_node = self->info->input_node_id;
+    *input_node = info->input_node_id;
   if (input_port)
-    *input_port = self->info->input_port_id;
+    *input_port = info->input_port_id;
 }
