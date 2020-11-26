@@ -197,7 +197,6 @@ on_device_enum_profile_done (WpPipewireObject *proxy, GAsyncResult *res,
   /* Iterate all profiles */
   for (; wp_iterator_next (profiles, &item); g_value_unset (&item)) {
     WpSpaPod *pod = g_value_get_boxed (&item);
-    g_autoptr (WpSpaPodParser) pp = NULL;
     gint index = 0;
     const gchar *name = NULL;
     const gchar *desc = NULL;

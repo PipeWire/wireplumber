@@ -30,6 +30,7 @@ wp_lib_sources = files(
   'si-interfaces.c',
   'spa-pod.c',
   'spa-type.c',
+  'state.c',
   'transition.c',
   'wp.c',
 )
@@ -66,6 +67,7 @@ wp_lib_headers = files(
   'si-interfaces.h',
   'spa-pod.h',
   'spa-type.h',
+  'state.h',
   'transition.h',
   'wp.h',
 )
