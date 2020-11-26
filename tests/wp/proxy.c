@@ -191,6 +191,88 @@ test_node (TestFixture *f, gconstpointer data)
   g_main_loop_run (f->base.loop);
 }
 
+static void
+test_serialize (TestFixture *f, gconstpointer data)
+{
+  g_autoptr (WpPipewireObject) proxy = NULL;
+  g_autoptr (GVariant) v = NULL;
+
+  /* load audiotestsrc on the server side */
+  {
+    g_autoptr (WpTestServerLocker) lock =
+        wp_test_server_locker_new (&f->base.server);
+
+    g_assert_cmpint (pw_context_add_spa_lib (f->base.server.context,
+            "audiotestsrc", "audiotestsrc/libspa-audiotestsrc"), ==, 0);
+    g_assert_nonnull (pw_context_load_module (f->base.server.context,
+            "libpipewire-module-adapter", NULL, NULL));
+  }
+
+  proxy = WP_PIPEWIRE_OBJECT (wp_node_new_from_factory (f->base.core,
+      "adapter",
+      wp_properties_new (
+          "factory.name", "audiotestsrc",
+          "node.name", "audiotestsrc.adapter",
+          NULL)));
+  g_assert_nonnull (proxy);
+  wp_object_activate (WP_OBJECT (proxy), WP_OBJECT_FEATURES_ALL,
+      NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
+  g_main_loop_run (f->base.loop);
+
+  /* basic tests */
+  g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (proxy)), &,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
+  g_assert_true (WP_IS_NODE (proxy));
+  g_assert_true (WP_IS_SERIALIZABLE (proxy));
+
+  /* serialize */
+  v = wp_serializable_to_asv (WP_SERIALIZABLE (proxy));
+  g_assert_nonnull (v);
+  g_assert_true (g_variant_is_of_type (v, G_VARIANT_TYPE_VARDICT));
+
+  /* check contents */
+  {
+    guint32 val = 0xffffff;
+    g_assert_true (g_variant_lookup (v, "id", "u", &val));
+    g_assert_cmpuint (val, ==, wp_proxy_get_bound_id (WP_PROXY (proxy)));
+
+    val = 0xffffff;
+    g_assert_true (g_variant_lookup (v, "permissions", "u", &val));
+    g_assert_cmpuint (val, ==,
+        wp_global_proxy_get_permissions (WP_GLOBAL_PROXY (proxy)));
+  }
+
+  {
+    const gchar *val;
+    g_autoptr (GVariant) props = NULL;
+    g_assert_true (g_variant_lookup (v, "global-properties", "@a{ss}", &props));
+    g_assert_nonnull (props);
+    g_assert_true (g_variant_is_of_type (props, G_VARIANT_TYPE ("a{ss}")));
+    g_assert_true (g_variant_lookup (props, "node.name", "&s", &val));
+    g_assert_cmpstr (val, ==, "audiotestsrc.adapter");
+  }
+  {
+    const gchar *val;
+    g_autoptr (GVariant) props = NULL;
+    g_assert_true (g_variant_lookup (v, "properties", "@a{ss}", &props));
+    g_assert_nonnull (props);
+    g_assert_true (g_variant_is_of_type (props, G_VARIANT_TYPE ("a{ss}")));
+    g_assert_true (g_variant_lookup (props, "factory.name", "&s", &val));
+    g_assert_cmpstr (val, ==, "audiotestsrc");
+  }
+  {
+    const gchar *flags_str;
+    g_autoptr (GVariant) param_info = NULL;
+    g_assert_true (g_variant_lookup (v, "param-info", "@a{ss}", &param_info));
+    g_assert_nonnull (param_info);
+    g_assert_true (g_variant_is_of_type (param_info, G_VARIANT_TYPE ("a{ss}")));
+    g_assert_true (g_variant_lookup (param_info, "PropInfo", "&s", &flags_str));
+    g_assert_cmpstr (flags_str, ==, "r");
+    g_assert_true (g_variant_lookup (param_info, "Props", "&s", &flags_str));
+    g_assert_cmpstr (flags_str, ==, "rw");
+  }
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -201,6 +283,8 @@ main (gint argc, gchar *argv[])
       test_proxy_setup, test_proxy_basic, test_proxy_teardown);
   g_test_add ("/wp/proxy/node", TestFixture, NULL,
       test_proxy_setup, test_node, test_proxy_teardown);
+  g_test_add ("/wp/proxy/serialize", TestFixture, NULL,
+      test_proxy_setup, test_serialize, test_proxy_teardown);
 
   return g_test_run ();
 }

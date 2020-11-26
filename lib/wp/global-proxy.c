@@ -14,6 +14,8 @@
 #define G_LOG_DOMAIN "wp-global-proxy"
 
 #include "global-proxy.h"
+#include "serializable.h"
+#include "proxy-interfaces.h"
 #include "private/registry.h"
 #include "core.h"
 #include "error.h"
@@ -31,13 +33,17 @@ enum {
   PROP_GLOBAL_PROPERTIES,
 };
 
+static void wp_global_proxy_serializable_init (WpSerializableInterface * iface);
+
 /**
  * WpGlobalProxy:
  *
  * A proxy that represents a PipeWire global object, i.e. an object that is
  * made available through the PipeWire registry.
  */
-G_DEFINE_TYPE_WITH_PRIVATE (WpGlobalProxy, wp_global_proxy, WP_TYPE_PROXY)
+G_DEFINE_TYPE_WITH_CODE (WpGlobalProxy, wp_global_proxy, WP_TYPE_PROXY,
+    G_ADD_PRIVATE (WpGlobalProxy)
+    G_IMPLEMENT_INTERFACE (WP_TYPE_SERIALIZABLE, wp_global_proxy_serializable_init))
 
 static void
 wp_global_proxy_init (WpGlobalProxy * self)
@@ -203,6 +209,47 @@ wp_global_proxy_class_init (WpGlobalProxyClass * klass)
       g_param_spec_boxed ("global-properties", "global-properties",
           "The pipewire global properties", WP_TYPE_PROPERTIES,
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+}
+
+static void
+wp_global_proxy_to_asv (WpSerializable * instance, GVariantBuilder * b)
+{
+  WpGlobalProxy *self = WP_GLOBAL_PROXY (instance);
+  g_autoptr (GVariant) empty_dict =
+      g_variant_ref_sink (g_variant_new_array (G_VARIANT_TYPE ("{ss}"), NULL, 0));
+  GVariant *v;
+
+  g_variant_builder_add (b, "{sv}", "id",
+      g_variant_new_uint32 (wp_proxy_get_bound_id (WP_PROXY (self))));
+  g_variant_builder_add (b, "{sv}", "permissions",
+      g_variant_new_uint32 (wp_global_proxy_get_permissions (self)));
+
+  {
+    g_autoptr (WpProperties) p = wp_global_proxy_get_global_properties (self);
+    v = p ? wp_properties_to_variant (p) : empty_dict;
+  }
+  g_variant_builder_add (b, "{sv}", "global-properties", v);
+
+  if (WP_IS_PIPEWIRE_OBJECT (self)) {
+    WpPipewireObject *pwobj = WP_PIPEWIRE_OBJECT (self);
+
+    {
+      g_autoptr (WpProperties) p = wp_pipewire_object_get_properties (pwobj);
+      v = p ? wp_properties_to_variant (p) : empty_dict;
+    }
+    g_variant_builder_add (b, "{sv}", "properties", v);
+
+    v = wp_pipewire_object_get_param_info (pwobj);
+    g_variant_builder_add (b, "{sv}", "param-info", v ? v : empty_dict);
+
+    /* TODO params */
+  }
+}
+
+static void
+wp_global_proxy_serializable_init (WpSerializableInterface * iface)
+{
+  iface->to_asv = wp_global_proxy_to_asv;
 }
 
 /**
