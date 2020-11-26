@@ -38,10 +38,6 @@ WpSession * wp_limited_creation_lookup_session (WpLimitedCreation *self, ...);
 WpSession * wp_limited_creation_lookup_session_full (WpLimitedCreation *self,
   WpObjectInterest * interest);
 
-void wp_limited_creation_add_node (WpLimitedCreation * self, WpNode *node);
-
-void wp_limited_creation_remove_node (WpLimitedCreation * self, WpNode *node);
-
 /* for subclasses only */
 void wp_endpoint_creation_notify_endpoint_created(WpLimitedCreation * self,
     WpSessionItem *ep);

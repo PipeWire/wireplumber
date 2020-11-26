@@ -21,6 +21,7 @@ G_DEFINE_QUARK (wp-module-monitor-children, children);
 typedef enum {
   FLAG_LOCAL_NODES = (1 << 0),
   FLAG_USE_ADAPTER = (1 << 1),
+  FLAG_USE_ACP = (1 << 2),
 } MonitorFlags;
 
 static const struct {
@@ -29,6 +30,7 @@ static const struct {
 } flag_names[] = {
   { FLAG_LOCAL_NODES, "local-nodes" },
   { FLAG_USE_ADAPTER, "use-adapter" },
+  { FLAG_USE_ACP, "use-acp" },
 };
 
 enum {
@@ -80,11 +82,16 @@ device_data_free (gpointer data, GClosure *closure)
 }
 
 static void
-setup_device_props (WpProperties *p)
+setup_device_props (WpMonitor * self, WpProperties *p)
 {
   const gchar *s, *d, *api;
 
   api = wp_properties_get (p, SPA_KEY_DEVICE_API);
+
+  /* if alsa and ACP, set acp property to true */
+  if (!g_strcmp0 (api, "alsa") && (self->flags & FLAG_USE_ACP))
+    wp_properties_setf (p, "device.api.alsa.acp", "%d",
+        self->flags & FLAG_USE_ACP ? TRUE : FALSE);
 
   /* set the device name if it's not already set */
   if (!wp_properties_get (p, SPA_KEY_DEVICE_NAME)) {
@@ -339,14 +346,18 @@ create_device (WpMonitor * self, WpSpaDevice * parent, guint id,
   GList *children = NULL;
   GList *link = NULL;
   GObject *child = NULL;
+  const char *factory_name = NULL;
 
   g_return_val_if_fail (parent, NULL);
   g_return_val_if_fail (spa_factory, NULL);
 
   find_child (G_OBJECT (parent), id, &children, &link, &child);
 
+  factory_name = self->flags & FLAG_USE_ACP ?
+      SPA_NAME_API_ALSA_ACP_DEVICE : spa_factory;
+
   /* Create the device */
-  device = wp_spa_device_new_from_spa_factory (self->local_core, spa_factory,
+  device = wp_spa_device_new_from_spa_factory (self->local_core, factory_name,
       props);
   if (!device)
     return NULL;
@@ -414,7 +425,7 @@ maybe_create_device (WpMonitor * self, WpSpaDevice * parent, guint id,
 
   /* Create the properties */
   props = wp_properties_copy (props);
-  setup_device_props (props);
+  setup_device_props (self, props);
 
   /* If dbus reservation API exists, let dbus manage the device, otherwise just
    * create it and never destroy it */
