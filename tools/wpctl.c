@@ -32,11 +32,11 @@ static struct {
       gboolean show_referenced;
       gboolean show_associated;
     } inspect;
-
+#if 0
     struct {
       guint32 id;
     } set_default;
-
+#endif
     struct {
       guint32 id;
       gfloat volume;
@@ -78,10 +78,12 @@ status_prepare (WpCtl * self, GError ** error)
 {
   wp_object_manager_add_interest (self->om, WP_TYPE_SESSION, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_CLIENT, NULL);
-  wp_object_manager_request_proxy_features (self->om, WP_TYPE_SESSION,
-      WP_SESSION_FEATURES_STANDARD);
-  wp_object_manager_request_proxy_features (self->om, WP_TYPE_CLIENT,
-      WP_PROXY_FEATURES_STANDARD);
+  wp_object_manager_request_object_features (self->om, WP_TYPE_SESSION,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL |
+      WP_SESSION_FEATURE_ENDPOINTS |
+      WP_SESSION_FEATURE_LINKS);
+  wp_object_manager_request_object_features (self->om, WP_TYPE_CLIENT,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
   return TRUE;
 }
 
@@ -91,21 +93,21 @@ status_prepare (WpCtl * self, GError ** error)
 #define TREE_INDENT_EMPTY "    "
 
 static void
-print_controls (WpProxy * proxy)
+print_controls (WpPipewireObject * pwobj)
 {
-  g_autoptr (WpSpaPod) ctrl = NULL;
-  gboolean has_audio_controls = FALSE;
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) value = G_VALUE_INIT;
+  gboolean has_audio_controls = TRUE;
   gfloat volume = 0.0;
   gboolean mute = FALSE;
 
-  if ((ctrl = wp_proxy_get_prop (proxy, "volume"))) {
-    wp_spa_pod_get_float (ctrl, &volume);
-    has_audio_controls = TRUE;
-  }
-  if ((ctrl = wp_proxy_get_prop (proxy, "mute"))) {
-    wp_spa_pod_get_boolean (ctrl, &mute);
-    has_audio_controls = TRUE;
-  }
+  it = wp_pipewire_object_enum_params_sync (pwobj, "Props", NULL);
+  if (!it || !wp_iterator_next (it, &value) ||
+      !wp_spa_pod_get_object (g_value_get_boxed (&value), "Props", NULL,
+          "volume", "f", &volume,
+          "mute", "b", &mute,
+          NULL))
+    has_audio_controls = FALSE;
 
   if (has_audio_controls)
     printf (" vol: %.2f %s\n", volume, mute ? "MUTED" : "");
@@ -123,14 +125,14 @@ print_stream (const GValue *item, gpointer data)
   printf (TREE_INDENT_LINE TREE_INDENT_EMPTY " %s%4u. %-53s",
       (--(*n_streams) == 0) ? TREE_INDENT_END : TREE_INDENT_NODE,
       id, wp_endpoint_stream_get_name (stream));
-  print_controls (WP_PROXY (stream));
+  print_controls (WP_PIPEWIRE_OBJECT (stream));
 }
 
 static const gchar *
 get_endpoint_friendly_name (WpEndpoint * ep)
 {
-  const gchar *name =
-      wp_proxy_get_property (WP_PROXY (ep), "endpoint.description");
+  const gchar *name = wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (ep),
+      "endpoint.description");
   if (!name)
     name = wp_endpoint_get_name (ep);
   return name;
@@ -145,7 +147,7 @@ print_endpoint (const GValue *item, gpointer data)
 
   printf (TREE_INDENT_LINE "%c %4u. %-60s",
       (default_id == id) ? '*' : ' ', id, get_endpoint_friendly_name (ep));
-  print_controls (WP_PROXY (ep));
+  print_controls (WP_PIPEWIRE_OBJECT (ep));
 
   if (cmdline.status.show_streams) {
     g_autoptr (WpIterator) it = wp_endpoint_iterate_streams (ep);
@@ -205,7 +207,8 @@ status_run (WpCtl * self)
   it = wp_object_manager_iterate_filtered (self->om, WP_TYPE_CLIENT, NULL);
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
     WpProxy *client = g_value_get_object (&val);
-    g_autoptr (WpProperties) properties = wp_proxy_get_properties (client);
+    g_autoptr (WpProperties) properties =
+        wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (client));
 
     printf (TREE_INDENT_EMPTY "  %4u. %-35s [%s, %s@%s, pid:%s]\n",
         wp_proxy_get_bound_id (client),
@@ -223,10 +226,10 @@ status_run (WpCtl * self)
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
     WpSession *session = g_value_get_object (&val);
     g_autoptr (WpIterator) child_it = NULL;
-    guint32 default_sink =
-        wp_session_get_default_endpoint (session, WP_DIRECTION_INPUT);
-    guint32 default_source =
-        wp_session_get_default_endpoint (session, WP_DIRECTION_OUTPUT);
+    guint32 default_sink = 0;
+//        wp_session_get_default_endpoint (session, WP_DIRECTION_INPUT);
+    guint32 default_source = 0;
+//        wp_session_get_default_endpoint (session, WP_DIRECTION_OUTPUT);
 
     printf ("Session %u (%s)\n",
         wp_proxy_get_bound_id (WP_PROXY (session)),
@@ -306,9 +309,9 @@ static gboolean
 inspect_prepare (WpCtl * self, GError ** error)
 {
   /* collect all objects */
-  wp_object_manager_add_interest (self->om, WP_TYPE_PROXY, NULL);
-  wp_object_manager_request_proxy_features (self->om, WP_TYPE_PROXY,
-      WP_PROXY_FEATURES_STANDARD);
+  wp_object_manager_add_interest (self->om, WP_TYPE_GLOBAL_PROXY, NULL);
+  wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
   return TRUE;
 }
 
@@ -381,8 +384,10 @@ property_item_compare (gconstpointer a, gconstpointer b)
 static void
 inspect_print_object (WpCtl * self, WpProxy * proxy, guint nest_level)
 {
-  g_autoptr (WpProperties) properties = wp_proxy_get_properties (proxy);
-  g_autoptr (WpProperties) global_p = wp_proxy_get_global_properties (proxy);
+  g_autoptr (WpProperties) properties =
+      wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (proxy));
+  g_autoptr (WpProperties) global_p =
+      wp_global_proxy_get_global_properties (WP_GLOBAL_PROXY (proxy));
   g_autoptr (GArray) array =
       g_array_new (FALSE, FALSE, sizeof (struct property_item));
 
@@ -433,9 +438,8 @@ inspect_print_object (WpCtl * self, WpProxy * proxy, guint nest_level)
     {
       guint id = (guint) strtol (prop_item->value, NULL, 10);
       g_autoptr (WpProxy) refer_proxy =
-          wp_object_manager_lookup (self->om, WP_TYPE_PROXY,
-          WP_CONSTRAINT_TYPE_G_PROPERTY,
-          "bound-id", "=u", id, NULL);
+          wp_object_manager_lookup (self->om, WP_TYPE_GLOBAL_PROXY,
+              WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", id, NULL);
 
       if (refer_proxy)
         inspect_print_object (self, refer_proxy, nest_level + 1);
@@ -447,8 +451,8 @@ inspect_print_object (WpCtl * self, WpProxy * proxy, guint nest_level)
     const gchar *lookup_key = get_association_key (proxy);
     if (lookup_key) {
       g_autoptr (WpIterator) it =
-          wp_object_manager_iterate_filtered (self->om, WP_TYPE_PROXY,
-              WP_CONSTRAINT_TYPE_PW_PROPERTY,
+          wp_object_manager_iterate_filtered (self->om,
+              WP_TYPE_PIPEWIRE_OBJECT, WP_CONSTRAINT_TYPE_PW_PROPERTY,
               lookup_key, "=u", wp_proxy_get_bound_id (proxy), NULL);
       g_auto (GValue) item = G_VALUE_INIT;
 
@@ -469,7 +473,7 @@ inspect_run (WpCtl * self)
   g_autoptr (WpProxy) proxy = NULL;
   guint32 id = cmdline.inspect.id;
 
-  proxy = wp_object_manager_lookup (self->om, WP_TYPE_PROXY,
+  proxy = wp_object_manager_lookup (self->om, WP_TYPE_GLOBAL_PROXY,
       WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", id, NULL);
   if (!proxy) {
     printf ("Object '%d' not found\n", id);
@@ -488,7 +492,7 @@ out_err:
 }
 
 /* set-default */
-
+#if 0
 static gboolean
 set_default_parse_positional (gint argc, gchar ** argv, GError **error)
 {
@@ -516,10 +520,10 @@ set_default_prepare (WpCtl * self, GError ** error)
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
       "object.id", "=u", cmdline.set_default.id,
       NULL);
-  wp_object_manager_request_proxy_features (self->om, WP_TYPE_SESSION,
-      WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_PROPS);
-  wp_object_manager_request_proxy_features (self->om, WP_TYPE_ENDPOINT,
-      WP_PROXY_FEATURES_STANDARD);
+  wp_object_manager_request_object_features (self->om, WP_TYPE_SESSION,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
+  wp_object_manager_request_object_features (self->om, WP_TYPE_ENDPOINT,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
   return TRUE;
 }
 
@@ -567,6 +571,7 @@ out:
   self->exit_code = 3;
   g_main_loop_quit (self->loop);
 }
+#endif
 
 /* set-volume */
 
@@ -607,32 +612,36 @@ set_volume_prepare (WpCtl * self, GError ** error)
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
       "object.id", "=u", cmdline.set_volume.id,
       NULL);
-  wp_object_manager_request_proxy_features (self->om, WP_TYPE_PROXY,
-      WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_PROPS);
+  wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL |
+      WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PROPS);
   return TRUE;
 }
 
 static void
 set_volume_run (WpCtl * self)
 {
-  g_autoptr (WpProxy) proxy = NULL;
-  g_autoptr (WpSpaPod) pod = NULL;
+  g_autoptr (WpPipewireObject) proxy = NULL;
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) value = G_VALUE_INIT;
   gfloat volume;
 
-  proxy = wp_object_manager_lookup (self->om, WP_TYPE_PROXY, NULL);
+  proxy = wp_object_manager_lookup (self->om, WP_TYPE_GLOBAL_PROXY, NULL);
   if (!proxy) {
     printf ("Object '%d' not found\n", cmdline.set_volume.id);
     goto out;
   }
 
-  pod = wp_proxy_get_prop (proxy, "volume");
-  if (!pod || !wp_spa_pod_get_float (pod, &volume)) {
+  it = wp_pipewire_object_enum_params_sync (proxy, "Props", NULL);
+  if (!it || !wp_iterator_next (it, &value) ||
+      !wp_spa_pod_get_object (g_value_get_boxed (&value), "Props", NULL,
+          "volume", "f", &volume, NULL)) {
     printf ("Object '%d' does not support volume\n", cmdline.set_volume.id);
     goto out;
   }
 
-  wp_proxy_set_prop (proxy, "volume",
-      wp_spa_pod_new_float (cmdline.set_volume.volume));
+  wp_pipewire_object_set_param (proxy, "Props", 0, wp_spa_pod_new_object (
+          "Props", "Props", "volume", "f", cmdline.set_volume.volume, NULL));
   wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
   return;
 
@@ -690,26 +699,30 @@ set_mute_prepare (WpCtl * self, GError ** error)
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
       "object.id", "=u", cmdline.set_mute.id,
       NULL);
-  wp_object_manager_request_proxy_features (self->om, WP_TYPE_PROXY,
-      WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_PROPS);
+  wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL |
+      WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PROPS);
   return TRUE;
 }
 
 static void
 set_mute_run (WpCtl * self)
 {
-  g_autoptr (WpProxy) proxy = NULL;
-  g_autoptr (WpSpaPod) pod = NULL;
+  g_autoptr (WpPipewireObject) proxy = NULL;
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) value = G_VALUE_INIT;
   gboolean mute;
 
-  proxy = wp_object_manager_lookup (self->om, WP_TYPE_PROXY, NULL);
+  proxy = wp_object_manager_lookup (self->om, WP_TYPE_GLOBAL_PROXY, NULL);
   if (!proxy) {
     printf ("Object '%d' not found\n", cmdline.set_mute.id);
     goto out;
   }
 
-  pod = wp_proxy_get_prop (proxy, "mute");
-  if (!pod || !wp_spa_pod_get_boolean (pod, &mute)) {
+  it = wp_pipewire_object_enum_params_sync (proxy, "Props", NULL);
+  if (!it || !wp_iterator_next (it, &value) ||
+      !wp_spa_pod_get_object (g_value_get_boxed (&value), "Props", NULL,
+          "mute", "b", &mute, NULL)) {
     printf ("Object '%d' does not support mute\n", cmdline.set_mute.id);
     goto out;
   }
@@ -719,7 +732,8 @@ set_mute_run (WpCtl * self)
   else
     mute = !!cmdline.set_mute.mute;
 
-  wp_proxy_set_prop (proxy, "mute", wp_spa_pod_new_boolean (mute));
+  wp_pipewire_object_set_param (proxy, "Props", 0, wp_spa_pod_new_object (
+          "Props", "Props", "mute", "b", mute, NULL));
   wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
   return;
 
@@ -755,31 +769,30 @@ set_profile_parse_positional (gint argc, gchar ** argv, GError **error)
 static gboolean
 set_profile_prepare (WpCtl * self, GError ** error)
 {
-  wp_object_manager_add_interest (self->om, WP_TYPE_PROXY,
+  wp_object_manager_add_interest (self->om, WP_TYPE_GLOBAL_PROXY,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
       "object.id", "=u", cmdline.set_profile.id,
       NULL);
-  wp_object_manager_request_proxy_features (self->om, WP_TYPE_PROXY,
-      WP_PROXY_FEATURES_STANDARD | WP_PROXY_FEATURE_PROPS);
+  wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
   return TRUE;
 }
 
 static void
 set_profile_run (WpCtl * self)
 {
-  g_autoptr (WpProxy) proxy = NULL;
-  g_autoptr (WpSpaPod) pod = NULL;
+  g_autoptr (WpPipewireObject) proxy = NULL;
 
-  proxy = wp_object_manager_lookup (self->om, WP_TYPE_PROXY, NULL);
+  proxy = wp_object_manager_lookup (self->om, WP_TYPE_GLOBAL_PROXY, NULL);
   if (!proxy) {
     printf ("Object '%d' not found\n", cmdline.set_profile.id);
     goto out;
   }
-  pod = wp_spa_pod_new_object (
-      "Profile", "Profile",
-      "index", "i", cmdline.set_profile.index,
-      NULL);
-  wp_proxy_set_param (proxy, "Profile", pod);
+  wp_pipewire_object_set_param (proxy, "Profile", 0,
+      wp_spa_pod_new_object (
+        "Profile", "Profile",
+        "index", "i", cmdline.set_profile.index,
+        NULL));
   wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
   return;
 
@@ -839,6 +852,7 @@ static const struct subcommand {
     .prepare = inspect_prepare,
     .run = inspect_run,
   },
+#if 0
   {
     .name = "set-default",
     .positional_args = "ID",
@@ -850,6 +864,7 @@ static const struct subcommand {
     .prepare = set_default_prepare,
     .run = set_default_run,
   },
+#endif
   {
     .name = "set-volume",
     .positional_args = "ID VOL",
@@ -889,8 +904,6 @@ main (gint argc, gchar **argv)
   const struct subcommand *cmd = NULL;
   g_autoptr (GError) error = NULL;
   g_autofree gchar *summary = NULL;
-  g_autofree gchar *group_desc = NULL;
-  g_autofree gchar *group_help_desc = NULL;
 
   wp_init (WP_INIT_ALL);
 
