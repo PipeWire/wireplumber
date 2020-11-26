@@ -320,7 +320,7 @@ wp_object_interest_validate (WpObjectInterest * self, GError ** error)
   if (self->valid)
     return TRUE;
 
-  if (!G_TYPE_IS_OBJECT (self->gtype)) {
+  if (!G_TYPE_IS_OBJECT (self->gtype) && !G_TYPE_IS_INTERFACE (self->gtype)) {
     g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
         "type '%s' is not a GObject", g_type_name (self->gtype));
     return FALSE;
