@@ -290,10 +290,11 @@ wp_properties_new_copy_dict (const struct spa_dict * dict)
 
 /**
  * wp_properties_new_from_variant:
- * @variant: a #GVariant of type (a{ss})
+ * @variant: a #GVariant of type `a{ss}` or `a{sv}`
  *
  * Constructs a new #WpProperties that contains a copy of all the key-value
- * pairs contained in the @variant dictionary.
+ * pairs contained in the @variant dictionary. The @variant may either be
+ * `a{ss}` or `a{sv}`, but the values must be strings in either case.
  *
  * Returns: (transfer full): a properties set that contains the key-value
  *   pairs that @variant contains
@@ -303,16 +304,32 @@ wp_properties_new_from_variant (GVariant * variant)
 {
   WpProperties *self;
   GVariantIter iter;
-  const gchar *key, *value;
+  const gchar *key;
 
   g_return_val_if_fail (
-      g_variant_is_of_type (variant, G_VARIANT_TYPE ("a{ss}")), NULL);
+      g_variant_is_of_type (variant, G_VARIANT_TYPE ("a{ss}")) ||
+      g_variant_is_of_type (variant, G_VARIANT_TYPE ("a{sv}")),
+      NULL);
 
   self = wp_properties_new_empty ();
-
   g_variant_iter_init (&iter, variant);
-  while (g_variant_iter_loop (&iter, "{&s&s}", &key, &value))
-    wp_properties_set (self, key, value);
+
+  if (g_variant_is_of_type (variant, G_VARIANT_TYPE ("a{ss}"))) {
+    const gchar *value;
+    while (g_variant_iter_loop (&iter, "{&s&s}", &key, &value))
+      wp_properties_set (self, key, value);
+  }
+  else {
+    GVariant *value;
+    while (g_variant_iter_loop (&iter, "{&sv}", &key, &value)) {
+      if (!g_variant_is_of_type(value, G_VARIANT_TYPE_STRING)) {
+        wp_info_boxed (WP_TYPE_PROPERTIES, self,
+            "skipping non-string value for key '%s'", key);
+        continue;
+      }
+      wp_properties_set (self, key, g_variant_get_string (value, NULL));
+    }
+  }
 
   return self;
 }
