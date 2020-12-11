@@ -1,2 +1,3 @@
-subdir('wptoml')
 subdir('wp')
+subdir('wplua')
+subdir('wptoml')
