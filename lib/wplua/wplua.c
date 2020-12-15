@@ -14,6 +14,8 @@
 
 extern void _wplua_register_resource (void);
 
+G_DEFINE_QUARK (wplua, wp_domain_lua);
+
 static void
 _wplua_openlibs (lua_State *L)
 {
@@ -163,7 +165,7 @@ _wplua_load_buffer (lua_State * L, const gchar *buf, gsize size,
 
   ret = luaL_loadbuffer (L, buf, size, name);
   if (ret != LUA_OK) {
-    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+    g_set_error (error, WP_DOMAIN_LUA, WP_LUA_ERROR_COMPILATION,
         "Failed to compile: %s", lua_tostring (L, -1));
     lua_pop (L, sandbox + 1);
     return FALSE;
@@ -171,7 +173,7 @@ _wplua_load_buffer (lua_State * L, const gchar *buf, gsize size,
 
   ret = lua_pcall (L, sandbox, 0, 0);
   if (ret != LUA_OK) {
-    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+    g_set_error (error, WP_DOMAIN_LUA, WP_LUA_ERROR_RUNTIME,
         "Failed to run: %s", lua_tostring (L, -1));
     lua_pop (L, 1);
     return FALSE;

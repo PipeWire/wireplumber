@@ -17,6 +17,29 @@
 
 G_BEGIN_DECLS
 
+/**
+ * WP_DOMAIN_LUA:
+ *
+ * A #GError domain for errors that occurred within the context of the
+ * WirePlumber lua library.
+ */
+#define WP_DOMAIN_LUA (wp_domain_lua_quark ())
+GQuark wp_domain_lua_quark (void);
+
+/**
+ * WpLuaError:
+ * @WP_LUA_ERROR_COMPILATION: a compilation error, i.e. invalid Lua code
+ * @WP_LUA_ERROR_RUNTIME: a runtime error, i.e. misbehaving Lua code
+ *
+ * Error codes that can appear in a #GError when the error domain
+ * is %WP_DOMAIN_LUA
+ */
+typedef enum {
+  WP_LUA_ERROR_COMPILATION,
+  WP_LUA_ERROR_RUNTIME,
+} WpLuaError;
+
+
 lua_State * wplua_new (void);
 void wplua_free (lua_State * L);
 

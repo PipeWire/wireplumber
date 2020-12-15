@@ -426,7 +426,7 @@ test_wplua_sandbox ()
     "o = TestObject.new()\n";
   wplua_load_buffer (L, code2, sizeof (code2) - 1, &error);
   g_debug ("expected error: %s", error ? error->message : "null");
-  g_assert_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED);
+  g_assert_error (error, WP_DOMAIN_LUA, WP_LUA_ERROR_RUNTIME);
   g_clear_error (&error);
 
   const gchar code3[] =
@@ -443,21 +443,21 @@ test_wplua_sandbox ()
     "o:call('change', 'by Lua', 55)\n";
   wplua_load_buffer (L, code5, sizeof (code5) - 1, &error);
   g_debug ("expected error: %s", error ? error->message : "null");
-  g_assert_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED);
+  g_assert_error (error, WP_DOMAIN_LUA, WP_LUA_ERROR_RUNTIME);
   g_clear_error (&error);
 
   const gchar code6[] =
     "string.test = 'hello world'\n";
   wplua_load_buffer (L, code6, sizeof (code6) - 1, &error);
   g_debug ("expected error: %s", error ? error->message : "null");
-  g_assert_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED);
+  g_assert_error (error, WP_DOMAIN_LUA, WP_LUA_ERROR_RUNTIME);
   g_clear_error (&error);
 
   const gchar code7[] =
     "Table.test = 'hello world'\n";
   wplua_load_buffer (L, code7, sizeof (code7) - 1, &error);
   g_debug ("expected error: %s", error ? error->message : "null");
-  g_assert_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED);
+  g_assert_error (error, WP_DOMAIN_LUA, WP_LUA_ERROR_RUNTIME);
   g_clear_error (&error);
 
   wplua_free (L);
