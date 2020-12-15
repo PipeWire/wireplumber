@@ -403,6 +403,66 @@ test_wplua_signals ()
   wplua_free (L);
 }
 
+static void
+test_wplua_sandbox ()
+{
+  g_autoptr (GError) error = NULL;
+  lua_State *L = wplua_new ();
+
+  wplua_register_type_methods(L, TEST_TYPE_OBJECT,
+      l_test_object_new, l_test_object_methods);
+
+  const gchar code[] =
+    "SANDBOX_EXPORT = {\n"
+    "  Test = TestObject.new,\n"
+    "  Table = { test = 'foobar' }\n"
+    "}\n";
+  wplua_load_buffer (L, code, sizeof (code) - 1, &error);
+  g_assert_no_error (error);
+
+  wplua_enable_sandbox (L);
+
+  const gchar code2[] =
+    "o = TestObject.new()\n";
+  wplua_load_buffer (L, code2, sizeof (code2) - 1, &error);
+  g_debug ("expected error: %s", error ? error->message : "null");
+  g_assert_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED);
+  g_clear_error (&error);
+
+  const gchar code3[] =
+    "o = Test()\n";
+  wplua_load_buffer (L, code3, sizeof (code3) - 1, &error);
+  g_assert_no_error (error);
+
+  const gchar code4[] =
+    "assert(string.len(Table.test) == 6)\n";
+  wplua_load_buffer (L, code4, sizeof (code4) - 1, &error);
+  g_assert_no_error (error);
+
+  const gchar code5[] =
+    "o:call('change', 'by Lua', 55)\n";
+  wplua_load_buffer (L, code5, sizeof (code5) - 1, &error);
+  g_debug ("expected error: %s", error ? error->message : "null");
+  g_assert_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED);
+  g_clear_error (&error);
+
+  const gchar code6[] =
+    "string.test = 'hello world'\n";
+  wplua_load_buffer (L, code6, sizeof (code6) - 1, &error);
+  g_debug ("expected error: %s", error ? error->message : "null");
+  g_assert_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED);
+  g_clear_error (&error);
+
+  const gchar code7[] =
+    "Table.test = 'hello world'\n";
+  wplua_load_buffer (L, code7, sizeof (code7) - 1, &error);
+  g_debug ("expected error: %s", error ? error->message : "null");
+  g_assert_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED);
+  g_clear_error (&error);
+
+  wplua_free (L);
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -414,6 +474,7 @@ main (gint argc, gchar *argv[])
   g_test_add_func ("/wplua/properties", test_wplua_properties);
   g_test_add_func ("/wplua/closure", test_wplua_closure);
   g_test_add_func ("/wplua/signals", test_wplua_signals);
+  g_test_add_func ("/wplua/sandbox", test_wplua_sandbox);
 
   return g_test_run ();
 }

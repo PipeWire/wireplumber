@@ -20,6 +20,8 @@ G_BEGIN_DECLS
 lua_State * wplua_new (void);
 void wplua_free (lua_State * L);
 
+void wplua_enable_sandbox (lua_State * L);
+
 void wplua_register_type_methods (lua_State * L, GType type,
     lua_CFunction constructor, const luaL_Reg * methods);
 

@@ -10,6 +10,10 @@
 #include "private.h"
 #include <wp/wp.h>
 
+#define URI_SANDBOX "resource:///org/freedesktop/pipewire/wireplumber/wplua/sandbox.lua"
+
+extern void _wplua_register_resource (void);
+
 static void
 _wplua_openlibs (lua_State *L)
 {
@@ -21,7 +25,7 @@ _wplua_openlibs (lua_State *L)
     /* {LUA_COLIBNAME, luaopen_coroutine}, */
     {LUA_TABLIBNAME, luaopen_table},
     /* {LUA_IOLIBNAME, luaopen_io}, */
-    /* {LUA_OSLIBNAME, luaopen_os}, */
+    {LUA_OSLIBNAME, luaopen_os},
     {LUA_STRLIBNAME, luaopen_string},
     {LUA_MATHLIBNAME, luaopen_math},
     {LUA_UTF8LIBNAME, luaopen_utf8},
@@ -53,9 +57,15 @@ _wplua_typeclass___call (lua_State *L)
 lua_State *
 wplua_new (void)
 {
+  static gboolean resource_registered = FALSE;
   lua_State *L = luaL_newstate ();
 
   wp_debug ("initializing lua_State %p", L);
+
+  if (!resource_registered) {
+    _wplua_register_resource ();
+    resource_registered = TRUE;
+  }
 
   _wplua_openlibs (L);
   _wplua_init_gboxed (L);
@@ -87,6 +97,16 @@ wplua_free (lua_State * L)
 {
   wp_debug ("closing lua_State %p", L);
   lua_close (L);
+}
+
+void
+wplua_enable_sandbox (lua_State * L)
+{
+  g_autoptr (GError) error = NULL;
+  wp_debug ("enabling Lua sandbox");
+  if (!wplua_load_uri (L, URI_SANDBOX, &error)) {
+    wp_critical ("Failed to load sandbox: %s", error->message);
+  }
 }
 
 void
@@ -128,19 +148,28 @@ wplua_register_type_methods (lua_State * L, GType type,
   }
 }
 
-gboolean
+static gboolean
 _wplua_load_buffer (lua_State * L, const gchar *buf, gsize size,
     const gchar * name, GError **error)
 {
-  int ret;ret = luaL_loadbuffer (L, buf, size, name);
+  int ret;
+  int sandbox = 0;
+
+  /* wrap with sandbox() if it's loaded */
+  if (lua_getglobal (L, "sandbox") == LUA_TFUNCTION)
+    sandbox = 1;
+  else
+    lua_pop (L, 1);
+
+  ret = luaL_loadbuffer (L, buf, size, name);
   if (ret != LUA_OK) {
     g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
         "Failed to compile: %s", lua_tostring (L, -1));
-    lua_pop (L, 1);
+    lua_pop (L, sandbox + 1);
     return FALSE;
   }
 
-  ret = lua_pcall (L, 0, 0, 0);
+  ret = lua_pcall (L, sandbox, 0, 0);
   if (ret != LUA_OK) {
     g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
         "Failed to run: %s", lua_tostring (L, -1));
@@ -177,8 +206,8 @@ wplua_load_uri (lua_State * L, const gchar *uri, GError **error)
 
   file = g_file_new_for_uri (uri);
   if (!(bytes = g_file_load_bytes (file, NULL, NULL, &err))) {
-    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-            "Failed to load '%s': %s", uri, err->message);
+    g_propagate_prefixed_error (error, err, "Failed to load '%s':", uri);
+    err = NULL;
     return FALSE;
   }
 

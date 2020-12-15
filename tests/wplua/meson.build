@@ -7,7 +7,7 @@ common_env = [
 
 test(
   'test-wplua',
-  executable('test-toml', 'wplua.c', dependencies: common_deps),
+  executable('test-wplua', 'wplua.c', dependencies: common_deps),
   env: common_env,
   workdir : meson.current_source_dir(),
 )

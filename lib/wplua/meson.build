@@ -7,8 +7,15 @@ wplua_lib_sources = [
   'wplua.c',
 ]
 
+wplua_resources = gnome.compile_resources(
+    'wplua-resources',
+    'gresource.xml',
+    c_name: '_wplua',
+    extra_args: '--manual-register',
+    source_dir: meson.current_source_dir())
+
 wplua_lib = static_library('wplua-' + wireplumber_api_version,
-  wplua_lib_sources,
+  [ wplua_lib_sources, wplua_resources ],
   c_args : [
     '-D_GNU_SOURCE',
     '-DG_LOG_USE_STRUCTURED',
