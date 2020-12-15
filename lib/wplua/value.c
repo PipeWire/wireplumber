@@ -8,6 +8,46 @@
 
 #include "wplua.h"
 #include "private.h"
+#include <wp/wp.h>
+
+static WpProperties *
+table_to_properties (lua_State *L, int idx)
+{
+  WpProperties *p = wp_properties_new_empty ();
+  const gchar *key, *value;
+
+  lua_pushnil(L);
+  while (lua_next (L, idx) != 0) {
+    /* copy key & value to convert them to string */
+    lua_pushvalue (L, -2);
+    key = lua_tostring (L, -1);
+    lua_pushvalue (L, -2);
+    value = lua_tostring (L, -1);
+    wp_properties_set (p, key, value);
+    lua_pop (L, 3);
+  }
+  return p;
+}
+
+static void
+properties_to_table (lua_State *L, WpProperties *p)
+{
+  lua_newtable (L);
+  if (p) {
+    g_autoptr (WpIterator) it = wp_properties_iterate (p);
+    GValue v = G_VALUE_INIT;
+    const gchar *key, *value;
+
+    while (wp_iterator_next (it, &v)) {
+      key = wp_properties_iterator_item_get_key (&v);
+      value = wp_properties_iterator_item_get_value (&v);
+      lua_pushstring (L, key);
+      lua_pushstring (L, value);
+      lua_settable (L, -3);
+      g_value_unset (&v);
+    }
+  }
+}
 
 void
 wplua_lua_to_gvalue (lua_State *L, int idx, GValue *v)
@@ -59,6 +99,9 @@ wplua_lua_to_gvalue (lua_State *L, int idx, GValue *v)
   case G_TYPE_BOXED:
     if (_wplua_isgvalue_userdata (L, idx, G_VALUE_TYPE (v)))
       g_value_set_boxed (v, wplua_toboxed (L, idx));
+    /* table -> WpProperties */
+    else if (lua_istable (L, idx) && G_VALUE_TYPE (v) == WP_TYPE_PROPERTIES)
+      g_value_take_boxed (v, table_to_properties (L, idx));
     break;
   case G_TYPE_OBJECT:
   case G_TYPE_INTERFACE:
@@ -127,7 +170,10 @@ wplua_gvalue_to_lua (lua_State *L, const GValue *v)
     lua_pushlightuserdata (L, g_value_get_pointer (v));
     break;
   case G_TYPE_BOXED:
-    wplua_pushboxed (L, G_VALUE_TYPE (v), g_value_dup_boxed (v));
+    if (G_VALUE_TYPE (v) == WP_TYPE_PROPERTIES)
+      properties_to_table (L, g_value_get_boxed (v));
+    else
+      wplua_pushboxed (L, G_VALUE_TYPE (v), g_value_dup_boxed (v));
     break;
   case G_TYPE_OBJECT:
   case G_TYPE_INTERFACE:
