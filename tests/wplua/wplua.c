@@ -258,7 +258,7 @@ test_wplua_construct ()
       l_test_object_new, l_test_object_methods);
 
   const gchar code[] =
-    "o = TestObject.new()\n"
+    "o = TestObject_new()\n"
     "assert (type(o) == 'userdata')\n";
   wplua_load_buffer (L, code, sizeof (code) - 1, &error);
   g_assert_no_error (error);
@@ -284,7 +284,7 @@ test_wplua_properties ()
       l_test_object_new, l_test_object_methods);
 
   const gchar code[] =
-    "o = TestObject.new()\n"
+    "o = TestObject_new()\n"
     "o['test-string'] = 'string from lua'\n"
     "o['test-int'] = -15\n"
     "o['test-uint'] = 1123456789\n"
@@ -377,7 +377,7 @@ test_wplua_signals ()
       l_test_object_new, l_test_object_methods);
 
   const gchar code[] =
-    "o = TestObject.new()\n"
+    "o = TestObject_new()\n"
     "\n"
     "o:connect('acquire', function (obj)\n"
     "    assert(obj == o)\n"
@@ -414,7 +414,7 @@ test_wplua_sandbox ()
 
   const gchar code[] =
     "SANDBOX_EXPORT = {\n"
-    "  Test = TestObject.new,\n"
+    "  Test = TestObject_new,\n"
     "  Table = { test = 'foobar' }\n"
     "}\n";
   wplua_load_buffer (L, code, sizeof (code) - 1, &error);
@@ -423,14 +423,15 @@ test_wplua_sandbox ()
   wplua_enable_sandbox (L);
 
   const gchar code2[] =
-    "o = TestObject.new()\n";
+    "o = TestObject_new()\n";
   wplua_load_buffer (L, code2, sizeof (code2) - 1, &error);
   g_debug ("expected error: %s", error ? error->message : "null");
   g_assert_error (error, WP_DOMAIN_LUA, WP_LUA_ERROR_RUNTIME);
   g_clear_error (&error);
 
   const gchar code3[] =
-    "o = Test()\n";
+    "o = Test()\n"
+    "o:toggle()\n";
   wplua_load_buffer (L, code3, sizeof (code3) - 1, &error);
   g_assert_no_error (error);
 

@@ -42,20 +42,6 @@ _wplua_openlibs (lua_State *L)
   }
 }
 
-static int
-_wplua_typeclass___call (lua_State *L)
-{
-  luaL_checktype (L, 1, LUA_TTABLE);
-  lua_pushliteral (L, "new");
-  if (lua_rawget (L, 1) != LUA_TFUNCTION) {
-    luaL_error (L, "class has no constructor");
-    return 0;
-  }
-  lua_replace (L, 1);
-  lua_call (L, lua_gettop (L) - 1, LUA_MULTRET);
-  return lua_gettop (L);
-}
-
 lua_State *
 wplua_new (void)
 {
@@ -73,17 +59,6 @@ wplua_new (void)
   _wplua_init_gboxed (L);
   _wplua_init_gobject (L);
   _wplua_init_closure (L);
-
-  {
-    static const luaL_Reg typeclass_meta[] = {
-      { "__call", _wplua_typeclass___call },
-      { NULL, NULL }
-    };
-
-    luaL_newmetatable (L, "TypeClass");
-    luaL_setfuncs (L, typeclass_meta, 0);
-    lua_pop (L, 1);
-  }
 
   {
     GHashTable *t = g_hash_table_new (g_direct_hash, g_direct_equal);
@@ -139,14 +114,18 @@ wplua_register_type_methods (lua_State * L, GType type,
 
   /* register constructor */
   if (constructor) {
+    luaL_Buffer b;
+
     wp_debug ("Registering class for '%s'", g_type_name (type));
 
-    lua_newtable (L);
-    luaL_setmetatable (L, "TypeClass");
-    lua_pushliteral (L, "new");
+    luaL_buffinit (L, &b);
+    luaL_addstring (&b, g_type_name (type));
+    luaL_addchar (&b, '_');
+    luaL_addstring (&b, "new");
+    luaL_pushresult (&b);
     lua_pushcfunction (L, constructor);
-    lua_settable (L, -3);
-    lua_setglobal (L, g_type_name (type));
+    lua_setglobal (L, lua_tostring (L, -2));
+    lua_pop (L, 1);
   }
 }
 
