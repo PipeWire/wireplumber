@@ -218,7 +218,8 @@ wplua_checkobject (lua_State *L, int idx, GType type)
 }
 
 gboolean
-wplua_isobject (lua_State *L, int idx)
+wplua_isobject (lua_State *L, int idx, GType type)
 {
-  return _wplua_isgvalue_userdata (L, idx, G_TYPE_OBJECT);
+  if (!g_type_is_a (type, G_TYPE_OBJECT)) return FALSE;
+  return _wplua_isgvalue_userdata (L, idx, type);
 }

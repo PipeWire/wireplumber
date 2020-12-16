@@ -52,13 +52,13 @@ void wplua_register_type_methods (lua_State * L, GType type,
 void wplua_pushobject (lua_State * L, gpointer object);
 gpointer wplua_toobject (lua_State *L, int idx);
 gpointer wplua_checkobject (lua_State *L, int idx, GType type);
-gboolean wplua_isobject (lua_State *L, int idx);
+gboolean wplua_isobject (lua_State *L, int idx, GType type);
 
 /* push -> transfer full; get -> transfer none */
 void wplua_pushboxed (lua_State * L, GType type, gpointer object);
 gpointer wplua_toboxed (lua_State *L, int idx);
 gpointer wplua_checkboxed (lua_State *L, int idx, GType type);
-gboolean wplua_isboxed (lua_State *L, int idx);
+gboolean wplua_isboxed (lua_State *L, int idx, GType type);
 
 /* transfer floating */
 GClosure * wplua_function_to_closure (lua_State *L, int idx);

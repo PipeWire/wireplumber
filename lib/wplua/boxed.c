@@ -26,7 +26,7 @@ find_method_in_luaL_Reg (luaL_Reg *reg, const gchar *method)
 static int
 _wplua_gboxed___index (lua_State *L)
 {
-  luaL_argcheck (L, wplua_isboxed (L, 1), 1,
+  luaL_argcheck (L, wplua_isboxed (L, 1, G_TYPE_BOXED), 1,
       "expected userdata storing GValue<GBoxed>");
   GValue *obj_v = lua_touserdata (L, 1);
   const gchar *key = luaL_checkstring (L, 2);
@@ -100,7 +100,8 @@ wplua_checkboxed (lua_State *L, int idx, GType type)
 }
 
 gboolean
-wplua_isboxed (lua_State *L, int idx)
+wplua_isboxed (lua_State *L, int idx, GType type)
 {
-  return _wplua_isgvalue_userdata (L, idx, G_TYPE_BOXED);
+  if (!g_type_is_a (type, G_TYPE_BOXED)) return FALSE;
+  return _wplua_isgvalue_userdata (L, idx, type);
 }
