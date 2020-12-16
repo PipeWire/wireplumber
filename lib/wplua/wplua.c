@@ -62,8 +62,9 @@ wplua_new (void)
 
   {
     GHashTable *t = g_hash_table_new (g_direct_hash, g_direct_equal);
+    lua_pushliteral (L, "wplua_vtables");
     wplua_pushboxed (L, G_TYPE_HASH_TABLE, t);
-    lua_setglobal (L, "__wplua_vtables");
+    lua_settable (L, LUA_REGISTRYINDEX);
   }
 
   return L;
@@ -98,7 +99,8 @@ wplua_register_type_methods (lua_State * L, GType type,
   if (methods) {
     GHashTable *vtables;
 
-    lua_getglobal (L, "__wplua_vtables");
+    lua_pushliteral (L, "wplua_vtables");
+    lua_gettable (L, LUA_REGISTRYINDEX);
     vtables = wplua_toboxed (L, -1);
     lua_pop (L, 1);
 

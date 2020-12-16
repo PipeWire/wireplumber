@@ -117,7 +117,8 @@ wplua_function_to_closure (lua_State *L, int idx)
   WpLuaClosure *wlc = (WpLuaClosure *) c;
   GPtrArray *closures;
 
-  lua_getglobal (L, "__wplua_closures");
+  lua_pushliteral (L, "wplua_closures");
+  lua_gettable (L, LUA_REGISTRYINDEX);
   closures = wplua_toboxed (L, -1);
   lua_pop (L, 1);
 
@@ -149,6 +150,7 @@ _wplua_init_closure (lua_State *L)
 {
   GPtrArray *a = g_ptr_array_new_with_free_func (
       (GDestroyNotify) _wplua_closure_destroy);
+  lua_pushliteral (L, "wplua_closures");
   wplua_pushboxed (L, G_TYPE_PTR_ARRAY, a);
-  lua_setglobal (L, "__wplua_closures");
+  lua_settable (L, LUA_REGISTRYINDEX);
 }
