@@ -217,6 +217,7 @@ wplua_load_uri (lua_State * L, const gchar *uri, GError **error)
   g_autoptr (GFile) file = NULL;
   g_autoptr (GBytes) bytes = NULL;
   g_autoptr (GError) err = NULL;
+  g_autofree gchar *name = NULL;
   gconstpointer data;
   gsize size;
 
@@ -230,8 +231,9 @@ wplua_load_uri (lua_State * L, const gchar *uri, GError **error)
     return FALSE;
   }
 
+  name = g_path_get_basename (uri);
   data = g_bytes_get_data (bytes, &size);
-  return _wplua_load_buffer (L, data, size, uri, error);
+  return _wplua_load_buffer (L, data, size, name, error);
 }
 
 gboolean
