@@ -42,6 +42,43 @@ _wplua_openlibs (lua_State *L)
   }
 }
 
+static int
+_wplua_errhandler (lua_State *L)
+{
+  luaL_traceback (L, L, NULL, 1);
+  wp_warning ("%s\n%s", lua_tostring (L, -2), lua_tostring (L, -1));
+  lua_pop (L, 2);
+  return 0;
+}
+
+int
+_wplua_pcall (lua_State *L, int nargs, int nret)
+{
+  int hpos = lua_gettop (L) - nargs;
+  int ret = LUA_OK;
+
+  lua_pushcfunction (L, _wplua_errhandler);
+  lua_insert (L, hpos);
+
+  ret = lua_pcall (L, nargs, nret, hpos);
+  switch (ret) {
+  case LUA_ERRMEM:
+    wp_critical ("not enough memory");
+    break;
+  case LUA_ERRERR:
+    wp_critical ("error running the message handler");
+    break;
+  case LUA_ERRGCMM:
+    wp_critical ("error running __gc");
+    break;
+  default:
+    break;
+  }
+
+  lua_remove (L, hpos);
+  return ret;
+}
+
 lua_State *
 wplua_new (void)
 {
@@ -152,11 +189,10 @@ _wplua_load_buffer (lua_State * L, const gchar *buf, gsize size,
     return FALSE;
   }
 
-  ret = lua_pcall (L, sandbox, 0, 0);
+  ret = _wplua_pcall (L, sandbox, 0);
   if (ret != LUA_OK) {
     g_set_error (error, WP_DOMAIN_LUA, WP_LUA_ERROR_RUNTIME,
-        "Failed to run: %s", lua_tostring (L, -1));
-    lua_pop (L, 1);
+        "Runtime error while loading '%s'", name);
     return FALSE;
   }
 

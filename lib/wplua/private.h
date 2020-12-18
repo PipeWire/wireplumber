@@ -29,6 +29,9 @@ gboolean _wplua_isgvalue_userdata (lua_State *L, int idx, GType type);
 int _wplua_gvalue_userdata___gc (lua_State *L);
 int _wplua_gvalue_userdata___eq (lua_State *L);
 
+/* wplua.c */
+int _wplua_pcall (lua_State *L, int nargs, int nret);
+
 G_END_DECLS
 
 #endif

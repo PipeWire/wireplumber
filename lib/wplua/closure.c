@@ -7,6 +7,7 @@
  */
 
 #include "wplua.h"
+#include "private.h"
 #include <wp/wp.h>
 
 typedef struct _WpLuaClosure WpLuaClosure;
@@ -15,47 +16,6 @@ struct _WpLuaClosure
   GClosure closure;
   int func_ref;
 };
-
-static int
-_wplua_closure_errhandler (lua_State *L)
-{
-  wp_warning ("%s", lua_tostring (L, -1));
-  lua_pop (L, 1);
-
-  luaL_traceback (L, L, "traceback:\n", 1);
-  wp_warning ("%s", lua_tostring (L, -1));
-  lua_pop (L, 1);
-
-  return 0;
-}
-
-static int
-_wplua_closure_pcall (lua_State *L, int nargs, int nret)
-{
-  int hpos = lua_gettop (L) - nargs;
-  int ret = LUA_OK;
-
-  lua_pushcfunction (L, _wplua_closure_errhandler);
-  lua_insert (L, hpos);
-
-  ret = lua_pcall (L, nargs, nret, hpos);
-  switch (ret) {
-  case LUA_ERRMEM:
-    wp_critical ("not enough memory");
-    break;
-  case LUA_ERRERR:
-    wp_critical ("error running the message handler");
-    break;
-  case LUA_ERRGCMM:
-    wp_critical ("error running __gc");
-    break;
-  default:
-    break;
-  }
-
-  lua_remove (L, hpos);
-  return ret;
-}
 
 static void
 _wplua_closure_marshal (GClosure *closure, GValue *return_value,
@@ -81,7 +41,7 @@ _wplua_closure_marshal (GClosure *closure, GValue *return_value,
     wplua_gvalue_to_lua (L, &param_values[i]);
 
   /* call in protected mode */
-  int res = _wplua_closure_pcall (L, n_param_values, return_value ? 1 : 0);
+  int res = _wplua_pcall (L, n_param_values, return_value ? 1 : 0);
 
   /* handle the result */
   if (res == LUA_OK && return_value && lua_gettop (L) >= 1)
