@@ -172,6 +172,19 @@ _wplua_gobject___newindex (lua_State *L)
   return 0;
 }
 
+static int
+_wplua_gobject__tostring (lua_State *L)
+{
+  GObject *obj;
+  gchar *str;
+
+  obj = wplua_checkobject (L, 1, G_TYPE_OBJECT);
+  str = g_strdup_printf (WP_OBJECT_FORMAT, WP_OBJECT_ARGS (obj));
+  lua_pushstring (L, str);
+  g_free (str);
+  return 1;
+}
+
 void
 _wplua_init_gobject (lua_State *L)
 {
@@ -180,6 +193,7 @@ _wplua_init_gobject (lua_State *L)
     { "__eq", _wplua_gvalue_userdata___eq },
     { "__index", _wplua_gobject___index },
     { "__newindex", _wplua_gobject___newindex },
+    { "__tostring", _wplua_gobject__tostring },
     { NULL, NULL }
   };
 
