@@ -40,7 +40,7 @@ struct WpDaemonData
   GPtrArray *sessions;
 };
 
-static void
+static G_GNUC_PRINTF (3, 4) void
 daemon_exit (struct WpDaemonData * d, gint code, const gchar *format, ...)
 {
   va_list args;
@@ -316,17 +316,20 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
 
     /* reached the end of the data that was read */
 
-    if (cur - linestart >= sizeof (buffer)) {
+    if (cur - linestart >= (gssize) sizeof (buffer)) {
       g_set_error (error, WP_DOMAIN_DAEMON, WP_CODE_OPERATION_FAILED,
           "line %i exceeds the maximum allowed line size (%d bytes)",
           lineno, (gint) sizeof (buffer));
       return FALSE;
     } else if (cur - linestart > 0) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-truncation"
       /* we have unparsed data, move it to the
        * beginning of the buffer and continue */
       strncpy (buffer, linestart, cur - linestart);
       linestart = buffer;
       cur = buffer + (cur - linestart);
+#pragma GCC diagnostic pop
     } else {
       /* reset for the next g_input_stream_read() call */
       linestart = cur = buffer;
