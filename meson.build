@@ -47,15 +47,29 @@ build_gir = gir.found()
 
 wp_lib_include_dir = include_directories('lib')
 
+common_flags = [
+  '-fvisibility=hidden',
+  '-Wsuggest-attribute=format',
+  '-Wsign-compare',
+  '-Wpointer-arith',
+  '-Wpointer-sign',
+  '-Wformat',
+  '-Wformat-security',
+  '-Wimplicit-fallthrough',
+  '-Wmissing-braces',
+  '-Wtype-limits',
+  '-Wvariadic-macros',
+  '-Wno-missing-field-initializers',
+  '-Wno-unused-parameter',
+  '-Wno-pedantic',
+  '-Wold-style-declaration',
+  '-Wunused-result',
+]
 cc = meson.get_compiler('c')
-if cc.has_argument('-fvisibility=hidden')
-  add_project_arguments('-fvisibility=hidden', language: 'c')
-endif
+add_project_arguments(cc.get_supported_arguments(common_flags), language: 'c')
 
 ccpp = meson.get_compiler('cpp')
-if ccpp.has_argument('-fvisibility=hidden')
-  add_project_arguments('-fvisibility=hidden', language: 'cpp')
-endif
+add_project_arguments(ccpp.get_supported_arguments(common_flags), language: 'cpp')
 
 have_audiofade = cc.compiles('''
   #include <spa/utils/names.h>
