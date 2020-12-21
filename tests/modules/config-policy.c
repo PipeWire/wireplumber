@@ -226,7 +226,7 @@ on_state_changed (WpEndpointLink *ep_link, WpEndpointLinkState old_state,
   case WP_ENDPOINT_LINK_STATE_ACTIVE:
     break;
   case WP_ENDPOINT_LINK_STATE_ERROR:
-    wp_message_object ("link failed: %s", error);
+    wp_warning ("link failed: %s", error);
     g_test_fail ();
   case WP_ENDPOINT_LINK_STATE_INACTIVE:
   case WP_ENDPOINT_LINK_STATE_PREPARING:

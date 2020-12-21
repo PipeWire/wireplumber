@@ -639,9 +639,9 @@ impl_create_link (void *object, const struct spa_dict *props)
 
   /* convert to int - allow unspecified streams */
   self_ep_id = wp_proxy_get_bound_id (WP_PROXY (self));
-  self_stream_id = self_stream ? atoi (self_stream) : SPA_ID_INVALID;
-  peer_ep_id = atoi (peer_ep);
-  peer_stream_id = peer_stream ? atoi (peer_stream) : SPA_ID_INVALID;
+  self_stream_id = self_stream ? (guint32) atoi (self_stream) : SPA_ID_INVALID;
+  peer_ep_id = (guint32) atoi (peer_ep);
+  peer_stream_id = peer_stream ? (guint32) atoi (peer_stream) : SPA_ID_INVALID;
 
   /* find our stream */
   if (self_stream_id != SPA_ID_INVALID) {

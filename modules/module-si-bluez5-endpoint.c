@@ -464,11 +464,10 @@ static void
 abort_acquisition (WpSessionItem * ac, GTask *task, const gchar *msg)
 {
   g_autoptr (WpGlobalProxy) link = NULL;
-  GError *e = NULL;
 
   /* return error to abort the link activation */
-  e = g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED, msg);
-  g_task_return_error (task, e);
+  g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
+      WP_LIBRARY_ERROR_OPERATION_FAILED, "%s", msg);
 
   /* destroy the link */
   link = wp_session_item_get_associated_proxy (ac, WP_TYPE_ENDPOINT_LINK);

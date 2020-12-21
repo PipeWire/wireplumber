@@ -561,7 +561,7 @@ static gboolean
 wp_object_manager_is_interested_in_object (WpObjectManager * self,
     GObject * object)
 {
-  gint i;
+  guint i;
   WpObjectInterest *interest = NULL;
 
   for (i = 0; i < self->interests->len; i++) {
@@ -576,7 +576,7 @@ static gboolean
 wp_object_manager_is_interested_in_global (WpObjectManager * self,
     WpGlobal * global, WpObjectFeatures * wanted_features)
 {
-  gint i;
+  guint i;
   WpObjectInterest *interest = NULL;
 
   for (i = 0; i < self->interests->len; i++) {
@@ -824,7 +824,7 @@ find_proxy_instance_type (const char * type, guint32 version)
 
   children = g_type_children (WP_TYPE_GLOBAL_PROXY, &n_children);
 
-  for (gint i = 0; i < n_children; i++) {
+  for (guint i = 0; i < n_children; i++) {
     WpProxyClass *klass = (WpProxyClass *) g_type_class_ref (children[i]);
     if (g_strcmp0 (klass->pw_iface_type, type) == 0 &&
         klass->pw_iface_version == version) {

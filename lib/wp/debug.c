@@ -108,7 +108,7 @@ log_level_index (GLogLevelFlags log_level)
 static inline gint
 level_index_from_spa (gint spa_lvl)
 {
-  return CLAMP (spa_lvl + 2, 0, G_N_ELEMENTS (log_level_info) - 1);
+  return CLAMP (spa_lvl + 2, 0, (gint) G_N_ELEMENTS (log_level_info) - 1);
 }
 
 static inline gint
@@ -236,7 +236,7 @@ static inline void
 extract_common_fields (struct common_fields *cf, const GLogField *fields,
     gsize n_fields)
 {
-  for (gint i = 0; i < n_fields; i++) {
+  for (guint i = 0; i < n_fields; i++) {
     if (g_strcmp0 (fields[i].key, "GLIB_DOMAIN") == 0) {
       cf->log_domain = fields[i].value;
     }
@@ -406,7 +406,7 @@ wp_log_structured_standard (
   g_log_structured_array (log_level, fields, n_fields);
 }
 
-static void
+static G_GNUC_PRINTF (6, 0) void
 wp_spa_log_logv (void *object,
     enum spa_log_level level,
     const char *file,
@@ -436,7 +436,7 @@ wp_spa_log_logv (void *object,
   g_log_structured_array (log_level, fields, SPA_N_ELEMENTS (fields));
 }
 
-static void
+static G_GNUC_PRINTF (6, 7) void
 wp_spa_log_log (void *object,
     enum spa_log_level level,
     const char *file,

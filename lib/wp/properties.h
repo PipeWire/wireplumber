@@ -131,7 +131,7 @@ gint wp_properties_setf (WpProperties * self, const gchar * key,
 
 WP_API
 gint wp_properties_setf_valist (WpProperties * self, const gchar * key,
-    const gchar * format, va_list args);
+    const gchar * format, va_list args) G_GNUC_PRINTF(3, 0);
 
 /* iterate */
 

@@ -666,7 +666,7 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
       if (g_variant_lookup (value, "flags", "as", &flags_iter)) {
         const gchar *flag_str = NULL;
         while (g_variant_iter_loop (flags_iter, "&s", &flag_str)) {
-          for (gint i = 0; i < SPA_N_ELEMENTS (flag_names); i++) {
+          for (guint i = 0; i < SPA_N_ELEMENTS (flag_names); i++) {
             if (!g_strcmp0 (flag_str, flag_names[i].name))
               flags |= flag_names[i].flag;
           }

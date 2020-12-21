@@ -125,7 +125,7 @@ wp_client_update_permissions (WpClient * self, guint n_perm, ...)
       g_alloca (n_perm * sizeof (struct pw_permission));
 
   va_start (args, n_perm);
-  for (gint i = 0; i < n_perm; i++) {
+  for (guint i = 0; i < n_perm; i++) {
     perm[i].id = va_arg (args, guint32);
     perm[i].permissions = va_arg (args, guint32);
   }
