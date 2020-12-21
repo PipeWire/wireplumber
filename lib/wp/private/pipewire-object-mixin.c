@@ -585,7 +585,7 @@ wp_pw_object_mixin_cache_params (WpObject * object, WpObjectFeatures missing)
 
   g_return_if_fail (!(iface->flags & WP_PW_OBJECT_MIXIN_PRIV_NO_PARAM_CACHE));
 
-  for (gint i = 0; i < G_N_ELEMENTS (params_features); i++) {
+  for (guint i = 0; i < G_N_ELEMENTS (params_features); i++) {
     if (missing & params_features[i].feature) {
       param_info = find_param_info (object, params_features[i].param_ids[0]);
       if (param_info && param_info->flags & SPA_PARAM_INFO_READ) {
@@ -620,7 +620,7 @@ wp_pw_object_mixin_deactivate (WpObject * object, WpObjectFeatures features)
 
   /* deactivate param caching */
   if (!(iface->flags & WP_PW_OBJECT_MIXIN_PRIV_NO_PARAM_CACHE)) {
-    for (gint i = 0; i < G_N_ELEMENTS (params_features); i++) {
+    for (guint i = 0; i < G_N_ELEMENTS (params_features); i++) {
       if (features & params_features[i].feature) {
         wp_pw_object_mixin_store_param (d, params_features[i].param_ids[0],
             WP_PW_OBJECT_MIXIN_STORE_PARAM_REMOVE, NULL);
@@ -648,7 +648,7 @@ wp_pw_object_mixin_handle_pw_proxy_destroyed (WpProxy * proxy)
 
   /* deactivate param caching */
   if (!(iface->flags & WP_PW_OBJECT_MIXIN_PRIV_NO_PARAM_CACHE)) {
-    for (gint i = 0; i < G_N_ELEMENTS (params_features); i++) {
+    for (guint i = 0; i < G_N_ELEMENTS (params_features); i++) {
       wp_pw_object_mixin_store_param (d, params_features[i].param_ids[0],
           WP_PW_OBJECT_MIXIN_STORE_PARAM_REMOVE, NULL);
       wp_pw_object_mixin_store_param (d, params_features[i].param_ids[1],

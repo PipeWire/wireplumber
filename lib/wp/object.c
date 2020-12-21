@@ -418,7 +418,7 @@ wp_object_update_features (WpObject * self, WpObjectFeatures activated,
   g_return_if_fail (WP_IS_OBJECT (self));
 
   WpObjectPrivate *priv = wp_object_get_instance_private (self);
-  gint old_ft = priv->ft_active;
+  guint old_ft = priv->ft_active;
 
   priv->ft_active |= activated;
   priv->ft_active &= ~deactivated;
