@@ -86,14 +86,6 @@ static const luaL_Reg global_proxy_methods[] = {
 /* WpIterator */
 
 static int
-iterator_reset (lua_State *L)
-{
-  WpIterator *it = wplua_checkboxed (L, 1, WP_TYPE_ITERATOR);
-  wp_iterator_reset (it);
-  return 0;
-}
-
-static int
 iterator_next (lua_State *L)
 {
   WpIterator *it = wplua_checkboxed (L, 1, WP_TYPE_ITERATOR);
@@ -106,11 +98,13 @@ iterator_next (lua_State *L)
   }
 }
 
-static const luaL_Reg iterator_methods[] = {
-  { "reset", iterator_reset },
-  { "next", iterator_next },
-  { NULL, NULL }
-};
+static int
+push_wpiterator (lua_State *L, WpIterator *it)
+{
+  lua_pushcfunction (L, iterator_next);
+  wplua_pushboxed (L, WP_TYPE_ITERATOR, it);
+  return 2;
+}
 
 /* WpObjectInterest */
 
@@ -317,13 +311,111 @@ object_manager_iterate (lua_State *L)
 {
   WpObjectManager *om = wplua_checkobject (L, 1, WP_TYPE_OBJECT_MANAGER);
   WpIterator *it = wp_object_manager_iterate (om);
-  wplua_pushboxed (L, WP_TYPE_ITERATOR, it);
-  return 1;
+  return push_wpiterator (L, it);
 }
 
 static const luaL_Reg object_manager_methods[] = {
   { "activate", object_manager_activate },
   { "iterate", object_manager_iterate },
+  { NULL, NULL }
+};
+
+/* WpSession */
+
+static int
+session_iterate_endpoints (lua_State *L)
+{
+  WpSession *session = wplua_checkobject (L, 1, WP_TYPE_SESSION);
+  WpIterator *it = wp_session_iterate_endpoints (session);
+  return push_wpiterator (L, it);
+}
+
+static int
+session_iterate_links (lua_State *L)
+{
+  WpSession *session = wplua_checkobject (L, 1, WP_TYPE_SESSION);
+  WpIterator *it = wp_session_iterate_links (session);
+  return push_wpiterator (L, it);
+}
+
+static const luaL_Reg session_methods[] = {
+  { "iterate_endpoints", session_iterate_endpoints },
+  { "iterate_links", session_iterate_links },
+  { NULL, NULL }
+};
+
+/* WpEndpoint */
+
+static int
+endpoint_iterate_streams (lua_State *L)
+{
+  WpEndpoint *ep = wplua_checkobject (L, 1, WP_TYPE_ENDPOINT);
+  WpIterator *it = wp_endpoint_iterate_streams (ep);
+  return push_wpiterator (L, it);
+}
+
+static int
+endpoint_create_link (lua_State *L)
+{
+  WpEndpoint *ep = wplua_checkobject (L, 1, WP_TYPE_ENDPOINT);
+  luaL_checktype (L, 2, LUA_TTABLE);
+  WpProperties *props = wplua_table_to_properties (L, 2);
+  wp_endpoint_create_link (ep, props);
+  return 0;
+}
+
+static const luaL_Reg endpoint_methods[] = {
+  { "iterate_streams", endpoint_iterate_streams },
+  { "create_link", endpoint_create_link },
+  { NULL, NULL }
+};
+
+/* WpEndpointLink */
+
+static int
+endpoint_link_get_state (lua_State *L)
+{
+  WpEndpointLink *eplink = wplua_checkobject (L, 1, WP_TYPE_ENDPOINT_LINK);
+  const gchar *error = NULL;
+  WpEndpointLinkState state = wp_endpoint_link_get_state (eplink, &error);
+  g_autoptr (GEnumClass) state_class =
+      g_type_class_ref (WP_TYPE_ENDPOINT_LINK_STATE);
+  lua_pushstring (L, g_enum_get_value (state_class, state)->value_nick);
+  if (error)
+    lua_pushstring (L, error);
+  return error ? 2 : 1;
+}
+
+static int
+endpoint_link_request_state (lua_State *L)
+{
+  WpEndpointLink *eplink = wplua_checkobject (L, 1, WP_TYPE_ENDPOINT_LINK);
+  const gchar *states[] = { "inactive", "active" };
+  int state = luaL_checkoption (L, 2, NULL, states);
+  wp_endpoint_link_request_state (eplink, (WpEndpointLinkState) (state+1));
+  return 0;
+}
+
+static int
+endpoint_link_get_linked_object_ids (lua_State *L)
+{
+  WpEndpointLink *eplink = wplua_checkobject (L, 1, WP_TYPE_ENDPOINT_LINK);
+  guint32 output_endpoint, output_stream;
+  guint32 input_endpoint, input_stream;
+  wp_endpoint_link_get_linked_object_ids (eplink,
+      &output_endpoint, &output_stream,
+      &input_endpoint, &input_stream);
+  lua_pushinteger (L, output_endpoint);
+  lua_pushinteger (L, output_stream);
+  lua_pushinteger (L, input_endpoint);
+  lua_pushinteger (L, input_stream);
+  return 4;
+}
+
+static const luaL_Reg endpoint_link_methods[] = {
+  { "get_state", endpoint_link_get_state },
+  { "request_state", endpoint_link_request_state },
+  { "get_linked_object_ids", endpoint_link_get_linked_object_ids },
   { NULL, NULL }
 };
 
@@ -337,12 +429,16 @@ wp_lua_scripting_api_init (lua_State *L)
 
   wplua_register_type_methods (L, WP_TYPE_GLOBAL_PROXY,
       NULL, global_proxy_methods);
-  wplua_register_type_methods (L, WP_TYPE_ITERATOR,
-      NULL, iterator_methods);
   wplua_register_type_methods (L, WP_TYPE_OBJECT_INTEREST,
       object_interest_new, NULL);
   wplua_register_type_methods (L, WP_TYPE_OBJECT_MANAGER,
       object_manager_new, object_manager_methods);
+  wplua_register_type_methods (L, WP_TYPE_SESSION,
+      NULL, session_methods);
+  wplua_register_type_methods (L, WP_TYPE_ENDPOINT,
+      NULL, endpoint_methods);
+  wplua_register_type_methods (L, WP_TYPE_ENDPOINT_LINK,
+      NULL, endpoint_link_methods);
 
   wplua_load_uri (L, URI_API, &error);
   if (G_UNLIKELY (error))
