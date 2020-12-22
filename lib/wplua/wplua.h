@@ -9,7 +9,7 @@
 #ifndef __WPLUA_H__
 #define __WPLUA_H__
 
-#include <glib-object.h>
+#include <wp/wp.h>
 
 #include <lua.h>
 #include <lauxlib.h>
@@ -64,6 +64,9 @@ gboolean wplua_isboxed (lua_State *L, int idx, GType type);
 GClosure * wplua_function_to_closure (lua_State *L, int idx);
 void wplua_lua_to_gvalue (lua_State *L, int idx, GValue *v);
 int wplua_gvalue_to_lua (lua_State *L, const GValue *v);
+
+WpProperties * wplua_table_to_properties (lua_State *L, int idx);
+void wplua_properties_to_table (lua_State *L, WpProperties *p);
 
 gboolean wplua_load_buffer (lua_State * L, const gchar *buf, gsize size,
     GError **error);

@@ -10,8 +10,8 @@
 #include "private.h"
 #include <wp/wp.h>
 
-static WpProperties *
-table_to_properties (lua_State *L, int idx)
+WpProperties *
+wplua_table_to_properties (lua_State *L, int idx)
 {
   WpProperties *p = wp_properties_new_empty ();
   const gchar *key, *value;
@@ -29,8 +29,8 @@ table_to_properties (lua_State *L, int idx)
   return p;
 }
 
-static void
-properties_to_table (lua_State *L, WpProperties *p)
+void
+wplua_properties_to_table (lua_State *L, WpProperties *p)
 {
   lua_newtable (L);
   if (p) {
@@ -101,7 +101,7 @@ wplua_lua_to_gvalue (lua_State *L, int idx, GValue *v)
       g_value_set_boxed (v, wplua_toboxed (L, idx));
     /* table -> WpProperties */
     else if (lua_istable (L, idx) && G_VALUE_TYPE (v) == WP_TYPE_PROPERTIES)
-      g_value_take_boxed (v, table_to_properties (L, idx));
+      g_value_take_boxed (v, wplua_table_to_properties (L, idx));
     break;
   case G_TYPE_OBJECT:
   case G_TYPE_INTERFACE:
@@ -171,7 +171,7 @@ wplua_gvalue_to_lua (lua_State *L, const GValue *v)
     break;
   case G_TYPE_BOXED:
     if (G_VALUE_TYPE (v) == WP_TYPE_PROPERTIES)
-      properties_to_table (L, g_value_get_boxed (v));
+      wplua_properties_to_table (L, g_value_get_boxed (v));
     else
       wplua_pushboxed (L, G_VALUE_TYPE (v), g_value_dup_boxed (v));
     break;
