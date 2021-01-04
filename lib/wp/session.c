@@ -25,7 +25,6 @@
 #include <pipewire/extensions/session-manager/introspect-funcs.h>
 
 enum {
-  SIGNAL_DEFAULT_ENDPOINT_CHANGED,
   SIGNAL_ENDPOINTS_CHANGED,
   SIGNAL_LINKS_CHANGED,
   N_SIGNALS,
@@ -262,21 +261,6 @@ wp_session_class_init (WpSessionClass * klass)
   proxy_class->pw_proxy_destroyed = wp_session_pw_proxy_destroyed;
 
   wp_pw_object_mixin_class_override_properties (object_class);
-
-  /**
-   * WpSession::default-endpoint-changed:
-   * @self: the session
-   * @direction: the endpoint direction
-   * @id: the endpoint's bound id
-   *
-   * Emitted when the default endpoint of a specific direction changes.
-   * The passed @id is the bound id (wp_proxy_get_bound_id()) of the new
-   * default endpoint.
-   */
-  signals[SIGNAL_DEFAULT_ENDPOINT_CHANGED] = g_signal_new (
-      "default-endpoint-changed", G_TYPE_FROM_CLASS (klass),
-      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 2,
-      WP_TYPE_DIRECTION, G_TYPE_UINT);
 
   /**
    * WpSession::endpoints-changed:
