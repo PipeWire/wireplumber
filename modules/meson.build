@@ -89,16 +89,16 @@ shared_library(
   dependencies : [wp_dep, pipewire_dep],
 )
 
-# shared_library(
-#   'wireplumber-module-session-settings',
-#   [
-#     'module-session-settings.c',
-#   ],
-#   c_args : [common_c_args, '-DG_LOG_DOMAIN="m-session-settings"'],
-#   install : true,
-#   install_dir : wireplumber_module_dir,
-#   dependencies : [wp_dep],
-# )
+shared_library(
+  'wireplumber-module-default-metadata',
+  [
+    'module-default-metadata.c',
+  ],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-default-metadata"'],
+  install : true,
+  install_dir : wireplumber_module_dir,
+  dependencies : [wp_dep],
+)
 
 shared_library(
   'wireplumber-module-config-static-objects',
