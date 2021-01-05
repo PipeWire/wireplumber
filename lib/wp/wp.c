@@ -62,15 +62,8 @@ wp_init (WpInitFlags flags)
   if (flags & WP_INIT_SET_PW_LOG && !g_getenv ("WIREPLUMBER_NO_PW_LOG"))
     pw_log_set_level (lvl);
 
-  if (flags & WP_INIT_SPA_TYPES) {
+  if (flags & WP_INIT_SPA_TYPES)
     wp_spa_type_init (TRUE);
-
-    /* Register custom wireplumber session types */
-    wp_spa_type_register (WP_SPA_TYPE_TABLE_PROPS,
-        "Wp:Pod:Object:Param:Props:defaultSource", "Wp:defaultSource");
-    wp_spa_type_register (WP_SPA_TYPE_TABLE_PROPS,
-        "Wp:Pod:Object:Param:Props:defaultSink", "Wp:defaultSink");
-  }
 
   /* ensure WpProxy subclasses are loaded, which is needed to be able
     to autodetect the GType of proxies created through wp_proxy_new_global() */
