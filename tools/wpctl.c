@@ -11,6 +11,9 @@
 #include <pipewire/keys.h>
 #include <pipewire/extensions/session-manager/keys.h>
 
+#define default_endpoint_key(dir) ((dir == WP_DIRECTION_INPUT) ? \
+  "default.session.endpoint.sink" : "default.session.endpoint.source")
+
 typedef struct _WpCtl WpCtl;
 struct _WpCtl
 {
@@ -32,11 +35,9 @@ static struct {
       gboolean show_referenced;
       gboolean show_associated;
     } inspect;
-#if 0
     struct {
       guint32 id;
     } set_default;
-#endif
     struct {
       guint32 id;
       gfloat volume;
@@ -76,8 +77,11 @@ async_quit (WpCore *core, GAsyncResult *res, WpCtl * self)
 static gboolean
 status_prepare (WpCtl * self, GError ** error)
 {
+  wp_object_manager_add_interest (self->om, WP_TYPE_METADATA, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_SESSION, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_CLIENT, NULL);
+  wp_object_manager_request_object_features (self->om, WP_TYPE_METADATA,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_SESSION,
       WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL |
       WP_SESSION_FEATURE_ENDPOINTS |
@@ -194,6 +198,9 @@ status_run (WpCtl * self)
 {
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
+  g_autoptr (WpMetadata)  metadata = NULL;
+
+  metadata = wp_object_manager_lookup (self->om, WP_TYPE_METADATA, NULL);
 
   /* server + clients */
   printf ("PipeWire '%s' [%s, %s@%s, cookie:%u]\n",
@@ -225,15 +232,27 @@ status_run (WpCtl * self)
   it = wp_object_manager_iterate_filtered (self->om, WP_TYPE_SESSION, NULL);
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
     WpSession *session = g_value_get_object (&val);
+    guint session_id = wp_proxy_get_bound_id (WP_PROXY (session));
     g_autoptr (WpIterator) child_it = NULL;
     guint32 default_sink = 0;
-//        wp_session_get_default_endpoint (session, WP_DIRECTION_INPUT);
     guint32 default_source = 0;
-//        wp_session_get_default_endpoint (session, WP_DIRECTION_OUTPUT);
 
-    printf ("Session %u (%s)\n",
-        wp_proxy_get_bound_id (WP_PROXY (session)),
-        wp_session_get_name (session));
+    /* find default sink and source endpoints if metadata was found */
+    if (metadata) {
+      g_autoptr (WpIterator) m_it = NULL;
+      g_auto (GValue) m_val = G_VALUE_INIT;
+      m_it = wp_metadata_iterate (metadata, session_id);
+      for (; wp_iterator_next (m_it, &m_val); g_value_unset (&m_val)) {
+        const gchar *k = NULL, *v = NULL;
+        wp_metadata_iterator_item_extract (&m_val, NULL, &k, NULL, &v);
+        if (!g_strcmp0 (k, default_endpoint_key (WP_DIRECTION_INPUT)))
+          default_sink = atoi (v);
+        else if (!g_strcmp0 (k, default_endpoint_key (WP_DIRECTION_OUTPUT)))
+          default_source = atoi (v);
+      }
+    }
+
+    printf ("Session %u (%s)\n", session_id, wp_session_get_name (session));
 
     printf (TREE_INDENT_NODE "Sink endpoints:\n");
     child_it = wp_session_iterate_endpoints_filtered (session,
@@ -492,7 +511,6 @@ out_err:
 }
 
 /* set-default */
-#if 0
 static gboolean
 set_default_parse_positional (gint argc, gchar ** argv, GError **error)
 {
@@ -515,12 +533,12 @@ set_default_parse_positional (gint argc, gchar ** argv, GError **error)
 static gboolean
 set_default_prepare (WpCtl * self, GError ** error)
 {
-  wp_object_manager_add_interest (self->om, WP_TYPE_SESSION, NULL);
+  wp_object_manager_add_interest (self->om, WP_TYPE_METADATA, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_ENDPOINT,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
       "object.id", "=u", cmdline.set_default.id,
       NULL);
-  wp_object_manager_request_object_features (self->om, WP_TYPE_SESSION,
+  wp_object_manager_request_object_features (self->om, WP_TYPE_METADATA,
       WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_ENDPOINT,
       WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
@@ -531,11 +549,18 @@ static void
 set_default_run (WpCtl * self)
 {
   g_autoptr (WpEndpoint) ep = NULL;
-  g_autoptr (WpSession) session = NULL;
+  g_autoptr (WpMetadata) metadata = NULL;
   guint32 id = cmdline.set_default.id;
   const gchar *sess_id_str;
+  g_autofree gchar *ep_id_str = NULL;
   guint32 sess_id;
   WpDirection dir;
+
+  metadata = wp_object_manager_lookup (self->om, WP_TYPE_METADATA, NULL);
+  if (!metadata) {
+    printf ("No metadata found\n");
+    goto out;
+  }
 
   ep = wp_object_manager_lookup (self->om, WP_TYPE_ENDPOINT, NULL);
   if (!ep) {
@@ -543,15 +568,9 @@ set_default_run (WpCtl * self)
     goto out;
   }
 
-  sess_id_str = wp_proxy_get_property (WP_PROXY (ep), "session.id");
+  sess_id_str = wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (ep),
+      "session.id");
   sess_id = sess_id_str ? atoi (sess_id_str) : 0;
-
-  session = wp_object_manager_lookup (self->om, WP_TYPE_SESSION,
-      WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", sess_id, NULL);
-  if (!session) {
-    printf ("Endpoint %u has invalid session id %u\n", id, sess_id);
-    goto out;
-  }
 
   if (g_str_has_suffix (wp_endpoint_get_media_class (ep), "/Sink"))
     dir = WP_DIRECTION_INPUT;
@@ -563,7 +582,9 @@ set_default_run (WpCtl * self)
     goto out;
   }
 
-  wp_session_set_default_endpoint (session, dir, id);
+  ep_id_str = g_strdup_printf ("%d", id);
+  wp_metadata_set (metadata, sess_id, default_endpoint_key (dir), "Spa:Int",
+    ep_id_str);
   wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
   return;
 
@@ -571,7 +592,6 @@ out:
   self->exit_code = 3;
   g_main_loop_quit (self->loop);
 }
-#endif
 
 /* set-volume */
 
@@ -852,7 +872,6 @@ static const struct subcommand {
     .prepare = inspect_prepare,
     .run = inspect_run,
   },
-#if 0
   {
     .name = "set-default",
     .positional_args = "ID",
@@ -864,7 +883,6 @@ static const struct subcommand {
     .prepare = set_default_prepare,
     .run = set_default_run,
   },
-#endif
   {
     .name = "set-volume",
     .positional_args = "ID VOL",
