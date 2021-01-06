@@ -14,10 +14,14 @@
 #include "parser-endpoint-link.h"
 #include "context.h"
 
+#define default_endpoint_key(dir) ((dir == WP_DIRECTION_INPUT) ? \
+  "default.session.endpoint.sink" : "default.session.endpoint.source")
+
 struct _WpConfigPolicyContext
 {
   GObject parent;
 
+  WpObjectManager *metadatas_om;
   WpObjectManager *sessions_om;
 };
 
@@ -75,15 +79,24 @@ wp_config_policy_context_get_endpoint_target (WpConfigPolicyContext *self,
 
   /* Otherwise, check the endpoint-link configuration files */
   if (!target) {
+    g_autoptr (WpMetadata) m = NULL;
     g_autoptr (WpCore) core = wp_plugin_get_core (WP_PLUGIN (self));
     g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
     g_autoptr (WpConfigParser) parser = wp_configuration_get_parser (config,
         WP_PARSER_ENDPOINT_LINK_EXTENSION);
     const struct WpParserEndpointLinkData *data =
         wp_config_parser_get_matched_data (parser, G_OBJECT (ep));
+    guint def_id = 0;
 
-    /* FIXME: port to WpMetadata-based defaults */
-    guint def_id = 0; //wp_session_get_default_endpoint (session, target_dir);
+    /* find default sink and source endpoints if metadata was found */
+    m = wp_object_manager_lookup (self->metadatas_om, WP_TYPE_METADATA, NULL);
+    if (m) {
+      const char *v = wp_metadata_find (m,
+          wp_proxy_get_bound_id (WP_PROXY (session)),
+          default_endpoint_key (target_dir), NULL);
+      if (v)
+        def_id = atoi (v);
+    }
 
     /* If target-endpoint data was defined in the configuration file, find the
      * matching endpoint based on target-endpoint data */
@@ -316,6 +329,13 @@ wp_config_policy_context_activate (WpPlugin * plugin)
   /* Parse the files */
   wp_configuration_reload (config, WP_PARSER_ENDPOINT_LINK_EXTENSION);
 
+  /* Install the metadatas object manager */
+  self->metadatas_om = wp_object_manager_new ();
+  wp_object_manager_add_interest (self->metadatas_om, WP_TYPE_METADATA, NULL);
+  wp_object_manager_request_object_features (self->metadatas_om,
+      WP_TYPE_METADATA, WP_OBJECT_FEATURES_ALL);
+  wp_core_install_object_manager (core, self->metadatas_om);
+
   /* Install the session object manager */
   self->sessions_om = wp_object_manager_new ();
   wp_object_manager_add_interest (self->sessions_om, WP_TYPE_SESSION, NULL);
@@ -337,6 +357,7 @@ wp_config_policy_context_deactivate (WpPlugin *plugin)
     wp_configuration_remove_extension (config, WP_PARSER_ENDPOINT_LINK_EXTENSION);
   }
 
+  g_clear_object (&self->metadatas_om);
   g_clear_object (&self->sessions_om);
 }
 
