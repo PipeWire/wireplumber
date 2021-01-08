@@ -38,6 +38,7 @@ struct _WpState
   gchar *name;
 
   gchar *location;
+  GKeyFile *keyfile;
 };
 
 G_DEFINE_TYPE (WpState, wp_state, G_TYPE_OBJECT)
@@ -113,6 +114,7 @@ wp_state_finalize (GObject * object)
 
   g_clear_pointer (&self->name, g_free);
   g_clear_pointer (&self->location, g_free);
+  g_clear_pointer (&self->keyfile, g_key_file_free);
 
   G_OBJECT_CLASS (wp_state_parent_class)->finalize (object);
 }
@@ -120,6 +122,7 @@ wp_state_finalize (GObject * object)
 static void
 wp_state_init (WpState * self)
 {
+  self->keyfile = g_key_file_new ();
 }
 
 static void
@@ -204,6 +207,7 @@ wp_state_clear (WpState *self)
 /**
  * wp_state_save:
  * @self: the state
+ * @group: the group name where the properties will be save
  * @props: (transfer none): the properties to save
  *
  * Saves new properties in the state, overwriting all previous data.
@@ -211,53 +215,30 @@ wp_state_clear (WpState *self)
  * Returns: TRUE if the properties could be saved, FALSE otherwise
  */
 gboolean
-wp_state_save (WpState *self, WpProperties *props)
+wp_state_save (WpState *self, const gchar *group, WpProperties *props)
 {
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) item = G_VALUE_INIT;
-  g_autofree gchar *tmp_name = NULL, *tmp_location = NULL;
-  gulong tmp_size;
-  int fd;
-  FILE *f;
 
   g_return_val_if_fail (WP_IS_STATE (self), FALSE);
+  g_return_val_if_fail (group, FALSE);
   wp_state_ensure_location (self);
 
   wp_info_object (self, "saving state into %s", self->location);
 
-  /* Get the temporary name and location */
-  tmp_size = strlen (self->name) + 5;
-  tmp_name = g_malloc (tmp_size);
-  g_snprintf (tmp_name, tmp_size, "%s.tmp", self->name);
-  tmp_location = get_new_location (tmp_name);
-  g_return_val_if_fail (tmp_location, FALSE);
+  g_key_file_remove_group (self->keyfile, group, NULL);
 
-  /* Open */
-  fd = open (tmp_location, O_CLOEXEC | O_CREAT | O_WRONLY | O_TRUNC, 0700);
-  if (fd == -1) {
-    wp_critical_object (self, "can't open %s", tmp_location);
-    return FALSE;
-  }
-
-  /* Write */
-  f = fdopen(fd, "w");
+  /* Set the properties */
   for (it = wp_properties_iterate (props);
       wp_iterator_next (it, &item);
       g_value_unset (&item)) {
-    const gchar *p = wp_properties_iterator_item_get_key (&item);
-    while (*p) {
-      if (*p == ' ' || *p == '\\')
-        fputc('\\', f);
-      fprintf(f, "%c", *p++);
-    }
-    fprintf(f, " %s\n", wp_properties_iterator_item_get_value (&item));
+    const gchar *key = wp_properties_iterator_item_get_key (&item);
+    const gchar *val = wp_properties_iterator_item_get_value (&item);
+    g_key_file_set_string (self->keyfile, group, key, val);
   }
-  fclose(f);
 
-  /* Rename temporary file */
-  if (rename(tmp_location, self->location) < 0) {
-    wp_critical_object("can't rename temporary file '%s' to '%s'", tmp_name,
-        self->name);
+  if (!g_key_file_save_to_file (self->keyfile, self->location, NULL)) {
+    wp_critical_object (self, "can't save %s", self->location);
     return FALSE;
   }
 
@@ -267,54 +248,42 @@ wp_state_save (WpState *self, WpProperties *props)
 /**
  * wp_state_load:
  * @self: the state
+ * @group: the group which the properties will be loaded from
  *
  * Loads the state data into new properties.
  *
  * Returns (transfer full): the new properties with the state data
  */
 WpProperties *
-wp_state_load (WpState *self)
+wp_state_load (WpState *self, const gchar *group)
 {
   g_autoptr (WpProperties) props = wp_properties_new_empty ();
-  int fd;
-  FILE *f;
-  char line[1024];
+  gchar ** keys = NULL;
 
   g_return_val_if_fail (WP_IS_STATE (self), NULL);
+  g_return_val_if_fail (group, NULL);
   wp_state_ensure_location (self);
 
   /* Open */
-  wp_info_object (self, "loading state from %s", self->location);
-  fd = open (self->location, O_CLOEXEC | O_RDONLY);
-  if (fd == -1) {
-    /* We consider empty state if fill does not exist */
-    if (errno == ENOENT)
-      return g_steal_pointer (&props);
-    wp_critical_object (self, "can't open %s", self->location);
-    return NULL;
-  }
+  if (!g_key_file_load_from_file (self->keyfile, self->location,
+      G_KEY_FILE_NONE, NULL))
+    return g_steal_pointer (&props);
 
-  /* Read */
-  f = fdopen(fd, "r");
-  while (fgets (line, sizeof(line)-1, f)) {
-    char *val, *key, *k, *p;
-    val = strrchr(line, '\n');
-    if (val)
-      *val = '\0';
+  /* Load all keys */
+  keys = g_key_file_get_keys (self->keyfile, group, NULL, NULL);
+  if (!keys)
+    return g_steal_pointer (&props);
 
-    key = k = p = line;
-    while (*p) {
-      if (*p == ' ')
-	break;
-      if (*p == '\\')
-	p++;
-      *k++ = *p++;
-    }
-    *k = '\0';
-    val = ++p;
+  for (guint i = 0; keys[i]; i++) {
+    const gchar *key = keys[i];
+    g_autofree gchar *val = NULL;
+    val = g_key_file_get_string (self->keyfile, group, key, NULL);
+    if (!val)
+      continue;
     wp_properties_set (props, key, val);
   }
-  fclose(f);
+
+  g_strfreev (keys);
 
   return g_steal_pointer (&props);
 }

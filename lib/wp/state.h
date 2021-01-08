@@ -37,10 +37,10 @@ WP_API
 void wp_state_clear (WpState *self);
 
 WP_API
-gboolean wp_state_save (WpState *self, WpProperties *props);
+gboolean wp_state_save (WpState *self, const gchar *group, WpProperties *props);
 
 WP_API
-WpProperties * wp_state_load (WpState *self);
+WpProperties * wp_state_load (WpState *self, const gchar *group);
 
 G_END_DECLS
 
