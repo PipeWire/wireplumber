@@ -106,6 +106,36 @@ push_wpiterator (lua_State *L, WpIterator *it)
   return 2;
 }
 
+/* Metadata WpIterator */
+
+static int
+metadata_iterator_next (lua_State *L)
+{
+  WpIterator *it = wplua_checkboxed (L, 1, WP_TYPE_ITERATOR);
+  GValue item = G_VALUE_INIT;
+  if (wp_iterator_next (it, &item)) {
+    guint32 s = 0;
+    const gchar *k = NULL, *t = NULL, *v = NULL;
+    wp_metadata_iterator_item_extract (&item, &s, &k, &t, &v);
+    lua_pushinteger (L, s);
+    lua_pushstring (L, k);
+    lua_pushstring (L, t);
+    lua_pushstring (L, v);
+    return 4;
+  } else {
+    lua_pushnil (L);
+    return 1;
+  }
+}
+
+static int
+push_metadata_wpiterator (lua_State *L, WpIterator *it)
+{
+  lua_pushcfunction (L, metadata_iterator_next);
+  wplua_pushboxed (L, WP_TYPE_ITERATOR, it);
+  return 2;
+}
+
 /* WpObjectInterest */
 
 static GVariant *
@@ -314,9 +344,54 @@ object_manager_iterate (lua_State *L)
   return push_wpiterator (L, it);
 }
 
+static int
+object_manager_lookup (lua_State *L)
+{
+  WpObjectManager *om = wplua_checkobject (L, 1, WP_TYPE_OBJECT_MANAGER);
+  WpObject *o = NULL;
+  if (lua_isuserdata (L, 2)) {
+    WpObjectInterest *oi = wplua_checkboxed (L, 2, WP_TYPE_OBJECT_INTEREST);
+    o = wp_object_manager_lookup_full (om, oi);
+  } else {
+    o = wp_object_manager_lookup (om, WP_TYPE_OBJECT, NULL);
+  }
+  wplua_pushobject (L, o);
+  return 1;
+}
+
 static const luaL_Reg object_manager_methods[] = {
   { "activate", object_manager_activate },
   { "iterate", object_manager_iterate },
+  { "lookup", object_manager_lookup },
+  { NULL, NULL }
+};
+
+/* WpMetadata */
+
+static int
+metadata_iterate (lua_State *L)
+{
+  WpMetadata *metadata = wplua_checkobject (L, 1, WP_TYPE_METADATA);
+  lua_Integer subject = luaL_checkinteger (L, 2);
+  g_autoptr (WpIterator) it = wp_metadata_iterate (metadata, subject);
+  return push_metadata_wpiterator (L, it);
+}
+
+static int
+metadata_find (lua_State *L)
+{
+  WpMetadata *metadata = wplua_checkobject (L, 1, WP_TYPE_METADATA);
+  lua_Integer subject = luaL_checkinteger (L, 2);
+  const char *key = luaL_checkstring (L, 3), *v = NULL, *t = NULL;
+  v = wp_metadata_find (metadata, subject, key, &t);
+  lua_pushstring (L, v);
+  lua_pushstring (L, t);
+  return 2;
+}
+
+static const luaL_Reg metadata_methods[] = {
+  { "iterate", metadata_iterate },
+  { "find", metadata_find },
   { NULL, NULL }
 };
 
@@ -433,6 +508,8 @@ wp_lua_scripting_api_init (lua_State *L)
       object_interest_new, NULL);
   wplua_register_type_methods (L, WP_TYPE_OBJECT_MANAGER,
       object_manager_new, object_manager_methods);
+  wplua_register_type_methods (L, WP_TYPE_METADATA,
+      NULL, metadata_methods);
   wplua_register_type_methods (L, WP_TYPE_SESSION,
       NULL, session_methods);
   wplua_register_type_methods (L, WP_TYPE_ENDPOINT,

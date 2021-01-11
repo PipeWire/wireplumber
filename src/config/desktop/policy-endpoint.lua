@@ -17,6 +17,11 @@ reverse_direction = {
   ["output"] = "input",
 }
 
+default_endpoint_key = {
+  ["input"] = "default.session.endpoint.sink",
+  ["output"] = "default.session.endpoint.source",
+}
+
 function findTarget (session, ep)
   local target = nil
 
@@ -39,6 +44,7 @@ function findTarget (session, ep)
 
   -- try to find the best target
   if not target then
+    local metadata = om_metadata:lookup()
     local direction = reverse_direction[ep['direction']]
     local media_class = target_class_assoc[ep['media-class']]
     local highest_prio = -1
@@ -47,13 +53,16 @@ function findTarget (session, ep)
       if candidate_ep['direction'] == direction and
          candidate_ep['media-class'] == media_class
       then
-        --[[
-        if candidate_ep['bound-id'] == session.default_target[direction] then
-          target = candidate_ep
-          Log.debug(session, "choosing default endpoint " .. target['bound-id']);
-          break
+        -- honor default endpoint, if present
+        if metadata then
+          local key = default_endpoint_key[direction]
+          local value = metadata:find(session['bound-id'], key)
+          if candidate_ep['bound-id'] == tonumber(value) then
+            target = candidate_ep
+            Log.debug(session, "choosing default endpoint " .. target['bound-id']);
+            break
+          end
         end
-        ]]
 
         local prio = tonumber(candidate_ep.properties["endpoint.priority"]) or 0
         if highest_prio < prio then
@@ -108,6 +117,7 @@ function handleLink (link)
   end
 end
 
+om_metadata = ObjectManager { Interest { type = "metadata" } }
 om = ObjectManager { Interest { type = "session" } }
 
 om:connect("object-added", function (om, session)
@@ -124,4 +134,5 @@ om:connect("object-added", function (om, session)
   end)
 end)
 
+om_metadata:activate()
 om:activate()
