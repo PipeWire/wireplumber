@@ -40,14 +40,17 @@ gio_dep = dependency('gio-2.0', version : '== ' + gobject_dep.version())
 giounix_dep = dependency('gio-unix-2.0', version : '== ' + gobject_dep.version())
 pipewire_dep = dependency('libpipewire-0.3')
 
-lua_dep = dependency('lua', version: '>= 5.3.0', required: false)
+lua_dep = dependency('lua', version: ['>=5.3.0', '<5.4.0'], required: false)
 if not lua_dep.found()
-    lua_dep = dependency('lua5.3', version: '>= 5.3.0', required: false)
+    lua_dep = dependency('lua5.3', required: false)
     if not lua_dep.found()
-        lua_dep = dependency('lua-5.3', version: '>= 5.3.0', required: false)
+        lua_dep = dependency('lua-5.3', required: false)
         if not lua_dep.found()
-          lua_proj = subproject('lua')
-          lua_dep = lua_proj.get_variable('lua_dep')
+          lua_dep = dependency('lua53', required: false)
+          if not lua_dep.found()
+            lua_proj = subproject('lua')
+            lua_dep = lua_proj.get_variable('lua_dep')
+          endif
         endif
     endif
 endif
