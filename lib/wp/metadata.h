@@ -39,12 +39,15 @@ struct _WpMetadataClass
 };
 
 WP_API
-WpIterator * wp_metadata_find (WpMetadata * self, guint32 subject,
-    const gchar * key, const gchar * type);
+WpIterator * wp_metadata_iterate (WpMetadata * self, guint32 subject);
 
 WP_API
 void wp_metadata_iterator_item_extract (const GValue * item, guint32 * subject,
     const gchar ** key, const gchar ** type, const gchar ** value);
+
+WP_API
+const gchar * wp_metadata_find (WpMetadata * self, guint32 subject,
+    const gchar * key, const gchar ** type);
 
 WP_API
 void wp_metadata_set (WpMetadata * self, guint32 subject,

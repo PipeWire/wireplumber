@@ -161,8 +161,7 @@ test_metadata_basic (TestFixture *fixture, gconstpointer data)
 
   /* verify properties are set before export */
   {
-    g_autoptr (WpIterator) iter =
-        wp_metadata_find (metadata, PW_ID_ANY, NULL, NULL);
+    g_autoptr (WpIterator) iter = wp_metadata_iterate (metadata, PW_ID_ANY);
     g_auto (GValue) val = G_VALUE_INIT;
     guint subject = -1;
     const gchar *key = NULL, *type = NULL, *value = NULL;
@@ -201,7 +200,7 @@ test_metadata_basic (TestFixture *fixture, gconstpointer data)
   /* test round 1: verify the values on the proxy */
   {
     g_autoptr (WpIterator) iter =
-        wp_metadata_find (fixture->proxy_metadata, PW_ID_ANY, NULL, NULL);
+        wp_metadata_iterate (fixture->proxy_metadata, PW_ID_ANY);
     g_auto (GValue) val = G_VALUE_INIT;
     guint subject = -1;
     const gchar *key = NULL, *type = NULL, *value = NULL;
@@ -243,7 +242,7 @@ test_metadata_basic (TestFixture *fixture, gconstpointer data)
   /* test round 2: verify the value change on both sides */
   {
     g_autoptr (WpIterator) iter =
-        wp_metadata_find (fixture->proxy_metadata, PW_ID_ANY, NULL, NULL);
+        wp_metadata_iterate (fixture->proxy_metadata, PW_ID_ANY);
     g_auto (GValue) val = G_VALUE_INIT;
     guint subject = -1;
     const gchar *key = NULL, *type = NULL, *value = NULL;
@@ -275,8 +274,7 @@ test_metadata_basic (TestFixture *fixture, gconstpointer data)
     g_assert_false (wp_iterator_next (iter, &val));
   }
   {
-    g_autoptr (WpIterator) iter =
-        wp_metadata_find (metadata, PW_ID_ANY, NULL, NULL);
+    g_autoptr (WpIterator) iter = wp_metadata_iterate (metadata, PW_ID_ANY);
     g_auto (GValue) val = G_VALUE_INIT;
     guint subject = -1;
     const gchar *key = NULL, *type = NULL, *value = NULL;
@@ -320,7 +318,7 @@ test_metadata_basic (TestFixture *fixture, gconstpointer data)
   /* test round 3: verify the value change on both sides */
   {
     g_autoptr (WpIterator) iter =
-        wp_metadata_find (fixture->proxy_metadata, PW_ID_ANY, NULL, NULL);
+        wp_metadata_iterate (fixture->proxy_metadata, PW_ID_ANY);
     g_auto (GValue) val = G_VALUE_INIT;
     guint subject = -1;
     const gchar *key = NULL, *type = NULL, *value = NULL;
@@ -360,8 +358,7 @@ test_metadata_basic (TestFixture *fixture, gconstpointer data)
     g_assert_false (wp_iterator_next (iter, &val));
   }
   {
-    g_autoptr (WpIterator) iter =
-        wp_metadata_find (metadata, PW_ID_ANY, NULL, NULL);
+    g_autoptr (WpIterator) iter = wp_metadata_iterate (metadata, PW_ID_ANY);
     g_auto (GValue) val = G_VALUE_INIT;
     guint subject = -1;
     const gchar *key = NULL, *type = NULL, *value = NULL;
@@ -403,8 +400,7 @@ test_metadata_basic (TestFixture *fixture, gconstpointer data)
 
   /* find with constraints */
   {
-    g_autoptr (WpIterator) iter =
-        wp_metadata_find (metadata, 0, NULL, NULL);
+    g_autoptr (WpIterator) iter = wp_metadata_iterate (metadata, 0);
     g_auto (GValue) val = G_VALUE_INIT;
     guint subject = -1;
     const gchar *key = NULL, *type = NULL, *value = NULL;
@@ -436,21 +432,10 @@ test_metadata_basic (TestFixture *fixture, gconstpointer data)
     g_assert_false (wp_iterator_next (iter, &val));
   }
   {
-    g_autoptr (WpIterator) iter =
-        wp_metadata_find (metadata, 0, "3rd.key", NULL);
-    g_auto (GValue) val = G_VALUE_INIT;
-    guint subject = -1;
-    const gchar *key = NULL, *type = NULL, *value = NULL;
-
-    g_assert_true (wp_iterator_next (iter, &val));
-    wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
-    g_assert_cmpint (subject, ==, 0);
-    g_assert_cmpstr (key, ==, "3rd.key");
+    const gchar *value = NULL, *type = NULL;
+    value = wp_metadata_find (metadata, 0, "3rd.key", &type);
     g_assert_cmpstr (type, ==, "string");
     g_assert_cmpstr (value, ==, "3rd.value");
-    g_value_unset (&val);
-
-    g_assert_false (wp_iterator_next (iter, &val));
   }
 
   /* destroy impl metadata */

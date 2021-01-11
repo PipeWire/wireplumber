@@ -293,8 +293,6 @@ struct metadata_iterator_data
   WpMetadata *metadata;
   const struct item *item;
   guint32 subject;
-  gchar *key;
-  gchar *type;
 };
 
 static void
@@ -316,9 +314,7 @@ metadata_iterator_next (WpIterator *it, GValue *item)
 
   while (pw_array_check (&priv->metadata, it_data->item)) {
     if ((it_data->subject == PW_ID_ANY ||
-            it_data->subject == it_data->item->subject) &&
-        (!it_data->key || !g_strcmp0 (it_data->key, it_data->item->key)) &&
-        (!it_data->type || !g_strcmp0 (it_data->type, it_data->item->type))) {
+            it_data->subject == it_data->item->subject)) {
       g_value_init (item, G_TYPE_POINTER);
       g_value_set_pointer (item, (gpointer) it_data->item);
       it_data->item++;
@@ -340,9 +336,7 @@ metadata_iterator_fold (WpIterator *it, WpIteratorFoldFunc func, GValue *ret,
 
   pw_array_for_each (i, &priv->metadata) {
     if ((it_data->subject == PW_ID_ANY ||
-            it_data->subject == it_data->item->subject) &&
-        (!it_data->key || !g_strcmp0 (it_data->key, it_data->item->key)) &&
-        (!it_data->type || !g_strcmp0 (it_data->type, it_data->item->type))) {
+            it_data->subject == it_data->item->subject)) {
       g_auto (GValue) item = G_VALUE_INIT;
       g_value_init (&item, G_TYPE_POINTER);
       g_value_set_pointer (&item, (gpointer) i);
@@ -358,8 +352,6 @@ metadata_iterator_finalize (WpIterator *it)
 {
   struct metadata_iterator_data *it_data = wp_iterator_get_user_data (it);
   g_object_unref (it_data->metadata);
-  g_free (it_data->key);
-  g_free (it_data->type);
 }
 
 static const WpIteratorMethods metadata_iterator_methods = {
@@ -371,13 +363,11 @@ static const WpIteratorMethods metadata_iterator_methods = {
 };
 
 /**
- * wp_metadata_find:
+ * wp_metadata_iterate:
  * @self: a metadata object
  * @subject: the metadata subject id, or %PW_ID_ANY
- * @key: (nullable): the metadata key to find, or %NULL
- * @type: (nullable): the metadata type to find, or %NULL
  *
- * Find metadata that matches the given @subject, @key and @type. If no
+ * Iterates over metadata items that matches the given @subject. If no
  * constraints are specified, the returned iterator iterates over all the
  * stored metadata.
  *
@@ -390,8 +380,7 @@ static const WpIteratorMethods metadata_iterator_methods = {
  *   this iterator.
  */
 WpIterator *
-wp_metadata_find (WpMetadata * self, guint32 subject,
-    const gchar * key, const gchar * type)
+wp_metadata_iterate (WpMetadata * self, guint32 subject)
 {
   WpMetadataPrivate *priv;
   g_autoptr (WpIterator) it = NULL;
@@ -406,8 +395,6 @@ wp_metadata_find (WpMetadata * self, guint32 subject,
   it_data->metadata = g_object_ref (self);
   it_data->item = pw_array_first (&priv->metadata);
   it_data->subject = subject;
-  it_data->key = g_strdup (key);
-  it_data->type = g_strdup (type);
   return g_steal_pointer (&it);
 }
 
@@ -436,6 +423,36 @@ wp_metadata_iterator_item_extract (const GValue * item, guint32 * subject,
     *type = i->type;
   if (value)
     *value = i->value;
+}
+
+/**
+ * wp_metadata_find:
+ * @self: a metadata object
+ * @subject: the metadata subject id
+ * @key: the metadata key name
+ * @type: (out)(optional): the metadata type name
+ *
+ * Finds the metadata value given its @subject and &key.
+ *
+ * Returns: the metadata string value, or NULL if not found.
+ */
+const gchar *
+wp_metadata_find (WpMetadata * self, guint32 subject, const gchar * key,
+  const gchar ** type)
+{
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) val = G_VALUE_INIT;
+  it = wp_metadata_iterate (self, subject);
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    const gchar *k = NULL, *t = NULL, *v = NULL;
+    wp_metadata_iterator_item_extract (&val, NULL, &k, &t, &v);
+    if (g_strcmp0 (k, key) == 0) {
+      if (type)
+        *type = t;
+      return v;
+    }
+  }
+  return NULL;
 }
 
 /**
