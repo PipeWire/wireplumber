@@ -535,19 +535,20 @@ wp_impl_endpoint_stream_set_param (gpointer instance, guint32 id, guint32 flags,
   WpImplEndpointStream *self = WP_IMPL_ENDPOINT_STREAM (instance);
   g_autoptr (WpPipewireObject) node = wp_session_item_get_associated_proxy (
         WP_SESSION_ITEM (self->item), WP_TYPE_NODE);
-  const gchar *idstr = NULL;
 
   if (!node) {
     wp_warning_object (self, "associated node is no longer available");
     return -EPIPE;
   }
 
-  if (!wp_spa_type_get_by_id (WP_SPA_TYPE_TABLE_PARAM, id, NULL, &idstr, NULL)) {
+  WpSpaIdValue idval = wp_spa_id_value_from_number ("Spa:Enum:ParamId", id);
+  if (!idval) {
     wp_critical_object (self, "invalid param id: %u", id);
     return -EINVAL;
   }
 
-  return wp_pipewire_object_set_param (node, idstr, flags, param) ? 0 : -EIO;
+  return wp_pipewire_object_set_param (node, wp_spa_id_value_short_name (idval),
+      flags, param) ? 0 : -EIO;
 }
 
 #define pw_endpoint_stream_emit(hooks,method,version,...) \

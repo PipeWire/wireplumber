@@ -11,15 +11,14 @@
 static void
 test_spa_pod_basic (void)
 {
-  wp_spa_type_init (TRUE);
-
   /* None */
   {
     g_autoptr (WpSpaPod) pod = wp_spa_pod_new_none ();
     g_assert_nonnull (pod);
     g_assert_true (wp_spa_pod_is_none (pod));
     g_assert_false (wp_spa_pod_is_id (pod));
-    g_assert_cmpstr ("None", ==, wp_spa_pod_get_type_name (pod));
+    g_assert_cmpstr ("Spa:None", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (pod)));
     g_autoptr (WpSpaPod) other = wp_spa_pod_new_none ();
     g_assert_true (wp_spa_pod_equal (pod, other));
   }
@@ -36,7 +35,8 @@ test_spa_pod_basic (void)
       gboolean value = FALSE;
       g_assert_true (wp_spa_pod_get_boolean (pod, &value));
       g_assert_true (value);
-      g_assert_cmpstr ("Bool", ==, wp_spa_pod_get_type_name (pod));
+      g_assert_cmpstr ("Spa:Bool", ==,
+          wp_spa_type_name (wp_spa_pod_get_spa_type (pod)));
       g_assert_true (wp_spa_pod_set_boolean (pod, FALSE));
       g_assert_true (wp_spa_pod_get_boolean (pod, &value));
       g_assert_false (value);
@@ -49,7 +49,8 @@ test_spa_pod_basic (void)
     gboolean value = FALSE;
     g_assert_true (wp_spa_pod_get_boolean (copy, &value));
     g_assert_false (value);
-    g_assert_cmpstr ("Bool", ==, wp_spa_pod_get_type_name (copy));
+    g_assert_cmpstr ("Spa:Bool", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (copy)));
     g_autoptr (WpSpaPod) other = wp_spa_pod_new_boolean (TRUE);
     g_assert_true (wp_spa_pod_set_pod (copy, other));
     g_assert_true (wp_spa_pod_get_boolean (copy, &value));
@@ -65,7 +66,8 @@ test_spa_pod_basic (void)
     guint32 value = 0;
     g_assert_true (wp_spa_pod_get_id (pod, &value));
     g_assert_cmpuint (value, ==, 5);
-    g_assert_cmpstr ("Id", ==, wp_spa_pod_get_type_name (pod));
+    g_assert_cmpstr ("Spa:Id", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (pod)));
     g_assert_true (wp_spa_pod_set_id (pod, 10));
     g_assert_true (wp_spa_pod_get_id (pod, &value));
     g_assert_cmpuint (value, ==, 10);
@@ -84,7 +86,8 @@ test_spa_pod_basic (void)
     gint value = 0;
     g_assert_true (wp_spa_pod_get_int (pod, &value));
     g_assert_cmpint (value, ==, -12);
-    g_assert_cmpstr ("Int", ==, wp_spa_pod_get_type_name (pod));
+    g_assert_cmpstr ("Spa:Int", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (pod)));
     g_assert_true (wp_spa_pod_set_int (pod, 9999));
     g_assert_true (wp_spa_pod_get_int (pod, &value));
     g_assert_cmpint (value, ==, 9999);
@@ -103,7 +106,8 @@ test_spa_pod_basic (void)
     long value = 0;
     g_assert_true (wp_spa_pod_get_long (pod, &value));
     g_assert_cmpint (value, ==, LONG_MAX);
-    g_assert_cmpstr ("Long", ==, wp_spa_pod_get_type_name (pod));
+    g_assert_cmpstr ("Spa:Long", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (pod)));
     g_assert_true (wp_spa_pod_set_long (pod, LONG_MIN));
     g_assert_true (wp_spa_pod_get_long (pod, &value));
     g_assert_cmpuint (value, ==, LONG_MIN);
@@ -122,7 +126,8 @@ test_spa_pod_basic (void)
     float value = 0;
     g_assert_true (wp_spa_pod_get_float (pod, &value));
     g_assert_cmpfloat_with_epsilon (value, 3.14, 0.001);
-    g_assert_cmpstr ("Float", ==, wp_spa_pod_get_type_name (pod));
+    g_assert_cmpstr ("Spa:Float", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (pod)));
     g_assert_true (wp_spa_pod_set_float (pod, 1.0));
     g_assert_true (wp_spa_pod_get_float (pod, &value));
     g_assert_cmpfloat_with_epsilon (value, 1.0, 0.001);
@@ -141,7 +146,8 @@ test_spa_pod_basic (void)
     double value = 0;
     g_assert_true (wp_spa_pod_get_double (pod, &value));
     g_assert_cmpfloat_with_epsilon (value, 2.718281828, 0.0000000001);
-    g_assert_cmpstr ("Double", ==, wp_spa_pod_get_type_name (pod));
+    g_assert_cmpstr ("Spa:Double", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (pod)));
     g_assert_true (wp_spa_pod_set_double (pod, 2.0));
     g_assert_true (wp_spa_pod_get_double (pod, &value));
     g_assert_cmpfloat_with_epsilon (value, 2.0, 0.0000000001);
@@ -161,7 +167,8 @@ test_spa_pod_basic (void)
     g_assert_true (wp_spa_pod_get_string (pod, &value));
     g_assert_nonnull (value);
     g_assert_cmpstr (value, ==, "WirePlumber");
-    g_assert_cmpstr ("String", ==, wp_spa_pod_get_type_name (pod));
+    g_assert_cmpstr ("Spa:String", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (pod)));
     g_autoptr (WpSpaPod) other = wp_spa_pod_new_string ("Other");
     g_assert_nonnull (other);
     g_assert_true (wp_spa_pod_set_pod (pod, other));
@@ -182,7 +189,8 @@ test_spa_pod_basic (void)
     g_assert_nonnull (value);
     g_assert_cmpmem (value, len, "bytes", 5);
     g_assert_cmpuint (len, ==, 5);
-    g_assert_cmpstr ("Bytes", ==, wp_spa_pod_get_type_name (pod));
+    g_assert_cmpstr ("Spa:Bytes", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (pod)));
     g_autoptr (WpSpaPod) other = wp_spa_pod_new_bytes ("pod", 3);
     g_assert_true (wp_spa_pod_set_pod (pod, other));
     g_assert_true (wp_spa_pod_get_bytes (pod, &value, &len));
@@ -195,35 +203,26 @@ test_spa_pod_basic (void)
   /* Pointer */
   {
     gint i = 3;
-    g_autoptr (WpSpaPod) pod = wp_spa_pod_new_pointer ("Int", &i);
+    g_autoptr (WpSpaPod) pod = wp_spa_pod_new_pointer ("Spa:Pointer:Buffer", &i);
     g_assert_nonnull (pod);
     g_assert_true (wp_spa_pod_is_pointer (pod));
-    const char *type_name = NULL;
     gconstpointer p = NULL;
-    g_assert_true (wp_spa_pod_get_pointer (pod, &type_name, &p));
-    g_assert_nonnull (type_name);
+    g_assert_true (wp_spa_pod_get_pointer (pod, &p));
     g_assert_nonnull (p);
-    g_assert_cmpstr (type_name, ==, "Int");
     g_assert_true (p == &i);
     g_assert_cmpint (*(gint *)p, ==, 3);
-    g_assert_cmpstr ("Pointer", ==, wp_spa_pod_get_type_name (pod));
-    gboolean b = TRUE;
-    g_assert_true (wp_spa_pod_set_pointer (pod, "Bool", &b));
-    g_assert_true (wp_spa_pod_get_pointer (pod, &type_name, &p));
-    g_assert_nonnull (type_name);
-    g_assert_nonnull (p);
-    g_assert_cmpstr (type_name, ==, "Bool");
-    g_assert_true (p == &b);
-    g_assert_cmpint (*(gboolean *)p, ==, TRUE);
+    g_assert_cmpstr ("Spa:Pointer:Buffer", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (pod)));
+
     float f = 1.1;
-    g_autoptr (WpSpaPod) other = wp_spa_pod_new_pointer ("Float", &f);
+    g_autoptr (WpSpaPod) other = wp_spa_pod_new_pointer ("Spa:Pointer:Meta", &f);
     g_assert_true (wp_spa_pod_set_pod (pod, other));
-    g_assert_true (wp_spa_pod_get_pointer (pod, &type_name, &p));
-    g_assert_nonnull (type_name);
+    g_assert_true (wp_spa_pod_get_pointer (pod, &p));
     g_assert_nonnull (p);
-    g_assert_cmpstr (type_name, ==, "Float");
     g_assert_true (p == &f);
     g_assert_cmpfloat_with_epsilon (*(float *)p, 1.1, 0.01);
+    g_assert_cmpstr ("Spa:Pointer:Meta", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (pod)));
     g_assert_true (wp_spa_pod_equal (pod, other));
   }
 
@@ -235,7 +234,8 @@ test_spa_pod_basic (void)
     gint64 value = 0;
     g_assert_true (wp_spa_pod_get_fd (pod, &value));
     g_assert_cmpint (value, ==, 4);
-    g_assert_cmpstr ("Fd", ==, wp_spa_pod_get_type_name (pod));
+    g_assert_cmpstr ("Spa:Fd", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (pod)));
     g_assert_true (wp_spa_pod_set_fd (pod, 1));
     g_assert_true (wp_spa_pod_get_fd (pod, &value));
     g_assert_cmpuint (value, ==, 1);
@@ -256,7 +256,8 @@ test_spa_pod_basic (void)
     g_assert_true (wp_spa_pod_get_rectangle (pod, &width, &height));
     g_assert_cmpint (width, ==, 1920);
     g_assert_cmpint (height, ==, 1080);
-    g_assert_cmpstr ("Rectangle", ==, wp_spa_pod_get_type_name (pod));
+    g_assert_cmpstr ("Spa:Rectangle", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (pod)));
     g_assert_true (wp_spa_pod_set_rectangle (pod, 640, 480));
     g_assert_true (wp_spa_pod_get_rectangle (pod, &width, &height));
     g_assert_cmpint (width, ==, 640);
@@ -279,7 +280,8 @@ test_spa_pod_basic (void)
     g_assert_true (wp_spa_pod_get_fraction (pod, &num, &denom));
     g_assert_cmpint (num, ==, 16);
     g_assert_cmpint (denom, ==, 9);
-    g_assert_cmpstr ("Fraction", ==, wp_spa_pod_get_type_name (pod));
+    g_assert_cmpstr ("Spa:Fraction", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (pod)));
     g_assert_true (wp_spa_pod_set_fraction (pod, 4, 3));
     g_assert_true (wp_spa_pod_get_fraction (pod, &num, &denom));
     g_assert_cmpint (num, ==, 4);
@@ -291,27 +293,26 @@ test_spa_pod_basic (void)
     g_assert_cmpint (denom, ==, 1);
     g_assert_true (wp_spa_pod_equal (pod, other));
   }
-
-  wp_spa_type_deinit ();
 }
 
 static void
 test_spa_pod_choice (void)
 {
-  wp_spa_type_init (TRUE);
-
   /* Static Enum */
   {
     g_autoptr (WpSpaPod) pod = wp_spa_pod_new_choice (
         "Enum", "i", 0, "i", 1, "i", 2, NULL);
     g_assert_nonnull (pod);
     g_assert_true (wp_spa_pod_is_choice (pod));
-    g_assert_cmpstr ("Choice", ==, wp_spa_pod_get_type_name (pod));
-    g_assert_cmpstr ("Enum", ==, wp_spa_pod_get_choice_type_name (pod));
+    g_assert_cmpstr ("Spa:Pod:Choice", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (pod)));
+    g_assert_cmpstr ("Enum", ==,
+        wp_spa_id_value_short_name (wp_spa_pod_get_choice_type (pod)));
 
     g_autoptr (WpSpaPod) child = wp_spa_pod_get_choice_child (pod);
     g_assert_nonnull (child);
-    g_assert_cmpstr ("Int", ==, wp_spa_pod_get_type_name (child));
+    g_assert_cmpstr ("Spa:Int", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (child)));
     gint value = 1;
     g_assert_true (wp_spa_pod_get_int (child, &value));
     g_assert_cmpint (value, ==, 0);
@@ -326,12 +327,14 @@ test_spa_pod_choice (void)
         "default value", NULL);
     g_assert_nonnull (pod);
     g_assert_true (wp_spa_pod_is_choice (pod));
-    g_assert_cmpstr ("Choice", ==, wp_spa_pod_get_type_name (pod));
+    g_assert_cmpstr ("Spa:Pod:Choice", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (pod)));
 
     {
       g_autoptr (WpSpaPod) child = wp_spa_pod_get_choice_child (pod);
       g_assert_nonnull (child);
-      g_assert_cmpstr ("String", ==, wp_spa_pod_get_type_name (child));
+      g_assert_cmpstr ("Spa:String", ==,
+          wp_spa_type_name (wp_spa_pod_get_spa_type (child)));
       const char *value = NULL;
       g_assert_true (wp_spa_pod_get_string (child, &value));
       g_assert_nonnull (value);
@@ -345,7 +348,8 @@ test_spa_pod_choice (void)
     {
       g_autoptr (WpSpaPod) child = wp_spa_pod_get_choice_child (pod);
       g_assert_nonnull (child);
-      g_assert_cmpstr ("String", ==, wp_spa_pod_get_type_name (child));
+      g_assert_cmpstr ("Spa:String", ==,
+          wp_spa_type_name (wp_spa_pod_get_spa_type (child)));
       const char *value = NULL;
       g_assert_true (wp_spa_pod_get_string (child, &value));
       g_assert_nonnull (value);
@@ -362,21 +366,18 @@ test_spa_pod_choice (void)
     g_autoptr (WpSpaPod) pod = wp_spa_pod_builder_end (b);
     g_assert_nonnull (pod);
     g_assert_true (wp_spa_pod_is_choice (pod));
-    g_assert_cmpstr ("Choice", ==, wp_spa_pod_get_type_name (pod));
+    g_assert_cmpstr ("Spa:Pod:Choice", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (pod)));
   }
 
   /* It is not possible to use the parser to get the contents of a choice, you
    * need to use the iterator API to achieve that. This is because there is no
    * `spa_pod_parser_get_choice` API in the SPA library */
-
-  wp_spa_type_deinit ();
 }
 
 static void
 test_spa_pod_array (void)
 {
-  wp_spa_type_init (TRUE);
-
   /* Dynamic */
   {
     WpSpaPodBuilder *b = wp_spa_pod_builder_new_array ();
@@ -388,13 +389,15 @@ test_spa_pod_array (void)
     g_autoptr (WpSpaPod) pod = wp_spa_pod_builder_end (b);
     g_assert_nonnull (pod);
     g_assert_true (wp_spa_pod_is_array (pod));
-    g_assert_cmpstr ("Array", ==, wp_spa_pod_get_type_name (pod));
+    g_assert_cmpstr ("Spa:Array", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (pod)));
     wp_spa_pod_builder_unref (b);
     g_assert_true (wp_spa_pod_is_array (pod));
 
     g_autoptr (WpSpaPod) child = wp_spa_pod_get_array_child (pod);
     g_assert_nonnull (child);
-    g_assert_cmpstr ("Bool", ==, wp_spa_pod_get_type_name (child));
+    g_assert_cmpstr ("Spa:Bool", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (child)));
     gboolean value = TRUE;
     g_assert_true (wp_spa_pod_get_boolean (child, &value));
     g_assert_false (value);
@@ -403,19 +406,15 @@ test_spa_pod_array (void)
   /* It is not possible to use the parser to get the contents of an array, you
    * need to use the iterator API to achieve that. This is because there is no
    * `spa_pod_parser_get_array` API in the SPA library. */
-
-  wp_spa_type_deinit ();
 }
 
 static void
 test_spa_pod_object (void)
 {
-  wp_spa_type_init (TRUE);
-
   /* Static */
   {
     g_autoptr (WpSpaPod) pod = wp_spa_pod_new_object (
-        "Props", "Props",
+        "Spa:Pod:Object:Param:Props", "Props",
         "mute", "b", FALSE,
         "volume", "f", 0.5,
         "frequency", "i", 440,
@@ -424,8 +423,8 @@ test_spa_pod_object (void)
         NULL);
     g_assert_nonnull (pod);
     g_assert_true (wp_spa_pod_is_object (pod));
-    g_assert_cmpstr ("Object", ==, wp_spa_pod_get_type_name (pod));
-    g_assert_cmpstr ("Props", ==, wp_spa_pod_get_object_type_name (pod));
+    g_assert_cmpstr ("Spa:Pod:Object:Param:Props", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (pod)));
 
     const char *id_name;
     gboolean mute = TRUE;
@@ -434,7 +433,7 @@ test_spa_pod_object (void)
     const char *device;
     gint64 device_fd;
     g_assert_true (wp_spa_pod_get_object (pod,
-        "Props", &id_name,
+        &id_name,
         "mute", "b", &mute,
         "volume", "f", &vol,
         "frequency", "i", &frequency,
@@ -452,7 +451,7 @@ test_spa_pod_object (void)
   /* Dynamic */
   {
     g_autoptr (WpSpaPodBuilder) b = wp_spa_pod_builder_new_object (
-        "Props", "Props");
+        "Spa:Pod:Object:Param:Props", "Props");
     wp_spa_pod_builder_add_property (b, "mute");
     wp_spa_pod_builder_add_boolean (b, FALSE);
     wp_spa_pod_builder_add_property (b, "volume");
@@ -466,7 +465,8 @@ test_spa_pod_object (void)
     g_autoptr (WpSpaPod) pod = wp_spa_pod_builder_end (b);
     g_assert_nonnull (pod);
     g_assert_true (wp_spa_pod_is_object (pod));
-    g_assert_cmpstr ("Object", ==, wp_spa_pod_get_type_name (pod));
+    g_assert_cmpstr ("Spa:Pod:Object:Param:Props", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (pod)));
 
     const char *id_name;
     gboolean mute = TRUE;
@@ -474,8 +474,7 @@ test_spa_pod_object (void)
     gint frequency;
     const char *device;
     gint64 device_fd;
-    g_autoptr (WpSpaPodParser) p = wp_spa_pod_parser_new_object (pod,
-        "Props", &id_name);
+    g_autoptr (WpSpaPodParser) p = wp_spa_pod_parser_new_object (pod, &id_name);
     g_assert_nonnull (pod);
     g_assert_true (wp_spa_pod_parser_get (p, "mute", "b", &mute, NULL));
     g_assert_true (wp_spa_pod_parser_get (p, "volume", "f", &vol, NULL));
@@ -490,15 +489,11 @@ test_spa_pod_object (void)
     g_assert_cmpstr (device, ==, "device-name");
     g_assert_cmpint (device_fd, ==, 5);
   }
-
-  wp_spa_type_deinit ();
 }
 
 static void
 test_spa_pod_struct (void)
 {
-  wp_spa_type_init (TRUE);
-
   /* Dynamic */
   {
     g_autoptr (WpSpaPodBuilder) b = wp_spa_pod_builder_new_struct ();
@@ -510,7 +505,7 @@ test_spa_pod_struct (void)
     wp_spa_pod_builder_add_double (b, 2.718281828);
     wp_spa_pod_builder_add_string (b, "WirePlumber");
     wp_spa_pod_builder_add_bytes (b, "bytes", 5);
-    wp_spa_pod_builder_add_pointer (b, "Struct", b);
+    wp_spa_pod_builder_add_pointer (b, "Spa:Pointer:Buffer", b);
     wp_spa_pod_builder_add_fd (b, 4);
     wp_spa_pod_builder_add_rectangle (b, 1920, 1080);
     wp_spa_pod_builder_add_fraction (b, 16, 9);
@@ -520,7 +515,7 @@ test_spa_pod_struct (void)
     }
     {
       g_autoptr (WpSpaPod) pod = wp_spa_pod_new_object (
-        "Props", "Props",
+        "Spa:Pod:Object:Param:Props", "Props",
         "mute", "b", FALSE,
         NULL);
       wp_spa_pod_builder_add (b, "P", pod, NULL);
@@ -528,7 +523,8 @@ test_spa_pod_struct (void)
     g_autoptr (WpSpaPod) pod = wp_spa_pod_builder_end (b);
     g_assert_nonnull (pod);
     g_assert_true (wp_spa_pod_is_struct (pod));
-    g_assert_cmpstr ("Struct", ==, wp_spa_pod_get_type_name (pod));
+    g_assert_cmpstr ("Spa:Pod:Struct", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (pod)));
 
     g_autoptr (WpSpaPodParser) p = wp_spa_pod_parser_new_struct (pod);
     g_assert_nonnull (pod);
@@ -568,11 +564,8 @@ test_spa_pod_struct (void)
     g_assert_cmpuint (len_bytes, ==, 5);
 
     gconstpointer value_pointer;
-    const char *type_pointer;
-    g_assert_true (wp_spa_pod_parser_get_pointer (p, &type_pointer, &value_pointer));
-    g_assert_nonnull (type_pointer);
+    g_assert_true (wp_spa_pod_parser_get_pointer (p, &value_pointer));
     g_assert_nonnull (value_pointer);
-    g_assert_cmpstr (type_pointer, ==, "Struct");
     g_assert_true (value_pointer == b);
 
     gint64 value_fd;
@@ -604,28 +597,25 @@ test_spa_pod_struct (void)
     gboolean mute = TRUE;
 
     g_assert_true (wp_spa_pod_get_object (value_object,
-        "Props", &id_name,
+        &id_name,
         "mute", "b", &mute,
         NULL));
     g_assert_cmpstr (id_name, ==, "Props");
     g_assert_false (mute);
   }
-
-  wp_spa_type_deinit ();
 }
 
 static void
 test_spa_pod_sequence (void)
 {
-  wp_spa_type_init (TRUE);
-
   /* Static */
   {
     g_autoptr (WpSpaPod) pod = wp_spa_pod_new_sequence (0,
         10, "Properties", "l", 9999, NULL);
     g_assert_nonnull (pod);
     g_assert_true (wp_spa_pod_is_sequence (pod));
-    g_assert_cmpstr ("Sequence", ==, wp_spa_pod_get_type_name (pod));
+    g_assert_cmpstr ("Spa:Pod:Sequence", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (pod)));
   }
 
   /* Dynamic */
@@ -636,14 +626,13 @@ test_spa_pod_sequence (void)
     g_autoptr (WpSpaPod) pod = wp_spa_pod_builder_end (b);
     g_assert_nonnull (pod);
     g_assert_true (wp_spa_pod_is_sequence (pod));
-    g_assert_cmpstr ("Sequence", ==, wp_spa_pod_get_type_name (pod));
+    g_assert_cmpstr ("Spa:Pod:Sequence", ==,
+        wp_spa_type_name (wp_spa_pod_get_spa_type (pod)));
   }
 
   /* It is not possible to use the parser to get the contents of a sequence, you
    * need to use the iterator API to achieve that. This is because there is no
    * `spa_pod_parser_get_sequence` API in the SPA library. */
-
-  wp_spa_type_deinit ();
 }
 
 static void
@@ -692,8 +681,6 @@ sequence_foreach (const GValue *item, gpointer data)
 static void
 test_spa_pod_iterator (void)
 {
-  wp_spa_type_init (TRUE);
-
   /* Choice */
   {
     g_autoptr (WpSpaPodBuilder) b = wp_spa_pod_builder_new_choice ("Enum");
@@ -794,7 +781,7 @@ test_spa_pod_iterator (void)
   /* Object */
   {
     g_autoptr (WpSpaPodBuilder) b = wp_spa_pod_builder_new_object (
-        "Props", "Props");
+        "Spa:Pod:Object:Param:Props", "Props");
     wp_spa_pod_builder_add_property (b, "mute");
     wp_spa_pod_builder_add_boolean (b, FALSE);
     wp_spa_pod_builder_add_property (b, "device");
@@ -957,18 +944,14 @@ test_spa_pod_iterator (void)
     g_assert_true (wp_iterator_foreach (it, sequence_foreach, &offset_total));
     g_assert_cmpuint (offset_total, ==, 50);
   }
-
-  wp_spa_type_deinit ();
 }
 
 static void
 test_spa_pod_unique_owner (void)
 {
-  wp_spa_type_init (TRUE);
-
   /* Create an object */
   WpSpaPod *pod = wp_spa_pod_new_object (
-        "PropInfo", "PropInfo",
+        "Spa:Pod:Object:Param:PropInfo", "PropInfo",
         "id", "I", 1,
         "name", "s", "prop-info-name",
         NULL);
@@ -1024,21 +1007,17 @@ test_spa_pod_unique_owner (void)
 
   /* Destroy the property */
   g_value_unset (&next);
-
-  wp_spa_type_deinit ();
 }
 
 static void
 test_spa_pod_port_config (void)
 {
-  wp_spa_type_init (TRUE);
-
   const gint rate = 48000;
   const gint channels = 2;
 
   /* Build the format to make sure the types exist */
   g_autoptr (WpSpaPodBuilder) builder = wp_spa_pod_builder_new_object (
-     "Format", "Format");
+     "Spa:Pod:Object:Param:Format", "Format");
   wp_spa_pod_builder_add (builder,
      "mediaType",    "I", 0,
      "mediaSubtype", "I", 0,
@@ -1056,7 +1035,8 @@ test_spa_pod_port_config (void)
   g_assert_nonnull (format);
 
   /* Build the port config to make sure the types exist */
-  g_autoptr (WpSpaPod) pod = wp_spa_pod_new_object ("PortConfig",  "PortConfig",
+  g_autoptr (WpSpaPod) pod = wp_spa_pod_new_object (
+      "Spa:Pod:Object:Param:PortConfig", "PortConfig",
       "direction",  "I", 0,
       "mode",       "I", 0,
       "monitor",    "b", FALSE,
@@ -1064,8 +1044,6 @@ test_spa_pod_port_config (void)
       "format",     "P", format,
       NULL);
   g_assert_nonnull (pod);
-
-  wp_spa_type_deinit ();
 }
 
 int

@@ -84,16 +84,17 @@ select_format (WpSpaPod *value)
     return ret;
   }
 
-  const gchar * choice_type_name = wp_spa_pod_get_choice_type_name (value);
+  guint32 choice_type =
+      wp_spa_id_value_number (wp_spa_pod_get_choice_type (value));
 
   /* None */
-  if (g_strcmp0 ("None", choice_type_name) == 0) {
+  if (choice_type == SPA_CHOICE_None) {
     g_autoptr (WpSpaPod) child = wp_spa_pod_get_choice_child (value);
     wp_spa_pod_get_id (child, &ret);
   }
 
   /* Enum */
-  else if (g_strcmp0 ("Enum", choice_type_name) == 0) {
+  else if (choice_type == SPA_CHOICE_Enum) {
     g_autoptr (WpIterator) it = wp_spa_pod_iterate (value);
     GValue next = G_VALUE_INIT;
     while (wp_iterator_next (it, &next)) {
@@ -125,16 +126,17 @@ select_rate (WpSpaPod *value)
     return ret;
   }
 
-  const gchar * choice_type_name = wp_spa_pod_get_choice_type_name (value);
+  guint32 choice_type =
+      wp_spa_id_value_number (wp_spa_pod_get_choice_type (value));
 
   /* None */
-  if (g_strcmp0 ("None", choice_type_name) == 0) {
+  if (choice_type == SPA_CHOICE_None) {
     g_autoptr (WpSpaPod) child = wp_spa_pod_get_choice_child (value);
     wp_spa_pod_get_int (child, &ret);
   }
 
   /* Enum */
-  else if (g_strcmp0 ("Enum", choice_type_name) == 0) {
+  else if (choice_type == SPA_CHOICE_Enum) {
     /* pick the one closest to 48Khz */
     g_autoptr (WpIterator) it = wp_spa_pod_iterate (value);
     GValue next = G_VALUE_INIT;
@@ -147,7 +149,7 @@ select_rate (WpSpaPod *value)
   }
 
   /* Range */
-  else if (g_strcmp0 ("Range", choice_type_name) == 0) {
+  else if (choice_type == SPA_CHOICE_Range) {
     /* a range is typically 3 items: default, min, max;
        however, sometimes ALSA drivers give bad min & max values
        and pipewire picks a bad default... try to fix that here;
@@ -180,16 +182,17 @@ select_channels (WpSpaPod *value, gint preference)
     return ret;
   }
 
-  const gchar * choice_type_name = wp_spa_pod_get_choice_type_name (value);
+  guint32 choice_type =
+      wp_spa_id_value_number (wp_spa_pod_get_choice_type (value));
 
   /* None */
-  if (g_strcmp0 ("None", choice_type_name) == 0) {
+  if (choice_type == SPA_CHOICE_None) {
     g_autoptr (WpSpaPod) child = wp_spa_pod_get_choice_child (value);
     wp_spa_pod_get_int (child, &ret);
   }
 
   /* Enum */
-  else if (g_strcmp0 ("Enum", choice_type_name) == 0) {
+  else if (choice_type == SPA_CHOICE_Enum) {
     /* choose the most channels */
     g_autoptr (WpIterator) it = wp_spa_pod_iterate (value);
     GValue next = G_VALUE_INIT;
@@ -205,7 +208,7 @@ select_channels (WpSpaPod *value, gint preference)
   }
 
   /* Range */
-  else if (g_strcmp0 ("Range", choice_type_name) == 0) {
+  else if (choice_type == SPA_CHOICE_Range) {
     /* a range is typically 3 items: default, min, max;
        we want the most channels, but let's not trust max
        to really be the max... ALSA drivers can be broken */
@@ -247,8 +250,7 @@ choose_sensible_raw_audio_format (WpIterator *formats,
       continue;
     }
 
-    if (!wp_spa_pod_get_object (pod,
-        "Format", NULL,
+    if (!wp_spa_pod_get_object (pod, NULL,
         "mediaType", "I", &mtype,
         "mediaSubtype", "I", &mstype,
         NULL)) {

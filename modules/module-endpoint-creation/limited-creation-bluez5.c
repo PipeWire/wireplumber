@@ -207,8 +207,7 @@ on_device_enum_profile_done (WpPipewireObject *proxy, GAsyncResult *res,
 
     /* Parse profile */
     {
-      g_autoptr (WpSpaPodParser) pp = wp_spa_pod_parser_new_object (pod,
-          "Profile", NULL);
+      g_autoptr (WpSpaPodParser) pp = wp_spa_pod_parser_new_object (pod, NULL);
       g_return_if_fail (pp);
       g_return_if_fail (wp_spa_pod_parser_get (pp, "index", "i", &index, NULL));
       if (index == 0) {

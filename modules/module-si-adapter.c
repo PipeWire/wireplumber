@@ -259,7 +259,7 @@ static WpSpaPod *
 format_audio_raw_build (const struct spa_audio_info_raw *info)
 {
   g_autoptr (WpSpaPodBuilder) builder = wp_spa_pod_builder_new_object (
-      "Format", "Format");
+      "Spa:Pod:Object:Param:Format", "Format");
   wp_spa_pod_builder_add (builder,
       "mediaType",    "I", SPA_MEDIA_TYPE_audio,
       "mediaSubtype", "I", SPA_MEDIA_SUBTYPE_raw,
@@ -327,7 +327,8 @@ si_adapter_activate_execute_step (WpSessionItem * item,
           self->format.channels, self->format.rate);
 
       port_format = format_audio_raw_build (&self->format);
-      pod = wp_spa_pod_new_object ("PortConfig",  "PortConfig",
+      pod = wp_spa_pod_new_object (
+          "Spa:Pod:Object:Param:PortConfig", "PortConfig",
           "direction",  "I", self->direction,
           "mode",       "I", SPA_PARAM_PORT_CONFIG_MODE_dsp,
           "monitor",    "b", self->monitor,
@@ -543,8 +544,12 @@ si_adapter_get_ports (WpSiPortInfo * item, const gchar * context)
     /* try to find the audio channel; if channel is NULL, this will silently
        leave the channel_id to its default value, 0 */
     channel = wp_properties_get (props, PW_KEY_AUDIO_CHANNEL);
-    wp_spa_type_get_by_nick (WP_SPA_TYPE_TABLE_AUDIO_CHANNEL, channel,
-        &channel_id, NULL, NULL);
+    if (channel) {
+      WpSpaIdValue idval = wp_spa_id_value_from_short_name (
+          "Spa:Enum:AudioChannel", channel);
+      if (idval)
+        channel_id = wp_spa_id_value_number (idval);
+    }
 
     g_variant_builder_add (&b, "(uuu)", node_id, port_id, channel_id);
   }

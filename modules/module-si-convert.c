@@ -288,7 +288,7 @@ si_convert_activate_execute_step (WpSessionItem * item,
           g_steal_pointer (&props));
 
       format = wp_spa_pod_new_object (
-          "Format", "Format",
+          "Spa:Pod:Object:Param:Format", "Format",
           "mediaType",    "I", SPA_MEDIA_TYPE_audio,
           "mediaSubtype", "I", SPA_MEDIA_SUBTYPE_raw,
           "format",       "I", SPA_AUDIO_FORMAT_F32P,
@@ -303,7 +303,8 @@ si_convert_activate_execute_step (WpSessionItem * item,
         as doing merge + split is heavy for our needs */
       wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (self->node),
           "PortConfig", 0,
-          wp_spa_pod_new_object ("PortConfig", "PortConfig",
+          wp_spa_pod_new_object (
+              "Spa:Pod:Object:Param:PortConfig", "PortConfig",
               "direction",  "I", pw_direction_reverse (self->direction),
               "mode",       "I", SPA_PARAM_PORT_CONFIG_MODE_dsp,
               "format",     "P", format,
@@ -311,7 +312,8 @@ si_convert_activate_execute_step (WpSessionItem * item,
 
       wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (self->node),
           "PortConfig", 0,
-          wp_spa_pod_new_object ("PortConfig", "PortConfig",
+          wp_spa_pod_new_object (
+              "Spa:Pod:Object:Param:PortConfig", "PortConfig",
               "direction",  "I", self->direction,
               "mode",       "I", SPA_PARAM_PORT_CONFIG_MODE_dsp,
               "control",    "b", self->control_port,
@@ -460,8 +462,12 @@ si_convert_get_ports (WpSiPortInfo * item, const gchar * context)
        leave the channel_id to its default value, 0 */
     props = wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (port));
     channel = wp_properties_get (props, PW_KEY_AUDIO_CHANNEL);
-    wp_spa_type_get_by_nick (WP_SPA_TYPE_TABLE_AUDIO_CHANNEL, channel,
-        &channel_id, NULL, NULL);
+    if (channel) {
+      WpSpaIdValue idval = wp_spa_id_value_from_short_name (
+          "Spa:Enum:AudioChannel", channel);
+      if (idval)
+        channel_id = wp_spa_id_value_number (idval);
+    }
 
     g_variant_builder_add (&b, "(uuu)", node_id, port_id, channel_id);
   }

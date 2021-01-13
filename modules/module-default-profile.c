@@ -63,8 +63,7 @@ find_device_profile (WpPipewireObject *device, const gchar *lookup_name)
     const gchar *name = NULL;
 
     /* Parse */
-    if (!wp_spa_pod_get_object (pod,
-        "Profile", NULL,
+    if (!wp_spa_pod_get_object (pod, NULL,
         "index", "i", &index,
         "name", "s", &name,
         NULL)) {
@@ -191,8 +190,7 @@ on_device_profile_notified (WpPipewireObject *device, GAsyncResult *res,
 
   /* Parse the profile */
   WpSpaPod *pod = g_value_get_boxed (&item);
-  if (!wp_spa_pod_get_object (pod,
-      "Profile", NULL,
+  if (!wp_spa_pod_get_object (pod, NULL,
       "index", "i", &index,
       "name", "s", &name,
       NULL)) {

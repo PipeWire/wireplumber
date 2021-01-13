@@ -396,8 +396,12 @@ si_simple_node_endpoint_get_ports (WpSiPortInfo * item, const gchar * context)
     /* try to find the audio channel; if channel is NULL, this will silently
        leave the channel_id to its default value, 0 */
     channel = wp_properties_get (props, PW_KEY_AUDIO_CHANNEL);
-    wp_spa_type_get_by_nick (WP_SPA_TYPE_TABLE_AUDIO_CHANNEL, channel,
-        &channel_id, NULL, NULL);
+    if (channel) {
+      WpSpaIdValue idval = wp_spa_id_value_from_short_name (
+          "Spa:Enum:AudioChannel", channel);
+      if (idval)
+        channel_id = wp_spa_id_value_number (idval);
+    }
 
     g_variant_builder_add (&b, "(uuu)", node_id, port_id, channel_id);
   }

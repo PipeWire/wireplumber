@@ -34,7 +34,7 @@ set_device_profile (WpDeviceActivation *self,
   /* Set profile */
   wp_pipewire_object_set_param (device, "Profile", 0,
       wp_spa_pod_new_object (
-          "Profile", "Profile",
+          "Spa:Pod:Object:Param:Profile", "Profile",
           "index", "i", index,
           NULL));
 
@@ -72,8 +72,7 @@ on_device_enum_profile_done (WpPipewireObject *proxy, GAsyncResult *res,
       const gchar *n = NULL;
 
       /* Parse */
-      if (!wp_spa_pod_get_object (pod,
-          "Profile", NULL,
+      if (!wp_spa_pod_get_object (pod, NULL,
           "index", "i", &i,
           "name", "s", &n,
           NULL)) {

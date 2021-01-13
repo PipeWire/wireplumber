@@ -83,12 +83,13 @@ wp_pw_object_mixin_get_param_info (WpPipewireObject * obj)
   g_variant_builder_init (&b, G_VARIANT_TYPE ("a{ss}"));
 
   for (guint i = 0; i < n_params; i++) {
+    WpSpaIdValue idval;
     const gchar *nick = NULL;
     gchar flags[3];
     guint flags_idx = 0;
 
-    wp_spa_type_get_by_id (WP_SPA_TYPE_TABLE_PARAM, info[i].id, NULL, &nick,
-        NULL);
+    idval = wp_spa_id_value_from_number ("Spa:Enum:ParamId", info[i].id);
+    nick = wp_spa_id_value_short_name (idval);
     g_return_val_if_fail (nick != NULL, NULL);
 
     if (info[i].flags & SPA_PARAM_INFO_READ)
@@ -170,8 +171,8 @@ wp_pw_object_mixin_enum_params_unchecked (gpointer obj,
   /* debug */
   if (wp_log_level_is_enabled (G_LOG_LEVEL_DEBUG)) {
     const gchar *name = NULL;
-    wp_spa_type_get_by_id (WP_SPA_TYPE_TABLE_PARAM, id, &name, NULL, NULL);
-
+    name = wp_spa_id_value_short_name (
+        wp_spa_id_value_from_number ("Spa:Enum:ParamId", id));
     wp_debug_object (obj, "enum id %u (%s), seq 0x%x (%u), task "
         WP_OBJECT_FORMAT "%s", id, name, seq, seq, WP_OBJECT_ARGS (task),
         iface->enum_params_sync ? ", sync" : "");
@@ -199,7 +200,7 @@ wp_pw_object_mixin_enum_params (WpPipewireObject * obj, const gchar * id,
     GAsyncReadyCallback callback, gpointer user_data)
 {
   WpPwObjectMixinPrivInterface *iface = WP_PW_OBJECT_MIXIN_PRIV_GET_IFACE (obj);
-  guint32 param_id = 0;
+  WpSpaIdValue param_id;
 
   if (!(iface->enum_params || iface->enum_params_sync)) {
     g_task_report_new_error (obj, callback, user_data, NULL,
@@ -209,13 +210,14 @@ wp_pw_object_mixin_enum_params (WpPipewireObject * obj, const gchar * id,
   }
 
   /* translate the id */
-  if (!wp_spa_type_get_by_nick (WP_SPA_TYPE_TABLE_PARAM, id, &param_id,
-          NULL, NULL)) {
+  param_id = wp_spa_id_value_from_short_name ("Spa:Enum:ParamId", id);
+  if (!param_id) {
     wp_critical_object (obj, "invalid param id: %s", id);
     return;
   }
 
-  wp_pw_object_mixin_enum_params_unchecked (obj, param_id, filter,
+  wp_pw_object_mixin_enum_params_unchecked (obj,
+      wp_spa_id_value_number (param_id), filter,
       cancellable, callback, user_data);
 }
 
@@ -238,22 +240,24 @@ wp_pw_object_mixin_enum_params_sync (WpPipewireObject * obj, const gchar * id,
 {
   WpPwObjectMixinPrivInterface *iface = WP_PW_OBJECT_MIXIN_PRIV_GET_IFACE (obj);
   GPtrArray *params = NULL;
-  guint32 param_id = 0;
+  WpSpaIdValue param_id;
 
   /* translate the id */
-  if (!wp_spa_type_get_by_nick (WP_SPA_TYPE_TABLE_PARAM, id, &param_id,
-          NULL, NULL)) {
+  param_id = wp_spa_id_value_from_short_name ("Spa:Enum:ParamId", id);
+  if (!param_id) {
     wp_critical_object (obj, "invalid param id: %s", id);
     return NULL;
   }
 
   if (iface->enum_params_sync) {
     /* use enum_params_sync if supported */
-    params = iface->enum_params_sync (obj, param_id, 0, -1, filter);
+    params = iface->enum_params_sync (obj, wp_spa_id_value_number (param_id),
+        0, -1, filter);
   } else {
     /* otherwise, find and return the cached params */
     WpPwObjectMixinData *data = wp_pw_object_mixin_get_data (obj);
-    params = wp_pw_object_mixin_get_stored_params (data, param_id);
+    params = wp_pw_object_mixin_get_stored_params (data,
+        wp_spa_id_value_number (param_id));
     /* TODO filter */
   }
 
@@ -265,7 +269,7 @@ wp_pw_object_mixin_set_param (WpPipewireObject * obj, const gchar * id,
     guint32 flags, WpSpaPod * param)
 {
   WpPwObjectMixinPrivInterface *iface = WP_PW_OBJECT_MIXIN_PRIV_GET_IFACE (obj);
-  guint32 param_id = 0;
+  WpSpaIdValue param_id;
   gint ret;
 
   if (!iface->set_param) {
@@ -273,14 +277,14 @@ wp_pw_object_mixin_set_param (WpPipewireObject * obj, const gchar * id,
     return FALSE;
   }
 
-  if (!wp_spa_type_get_by_nick (WP_SPA_TYPE_TABLE_PARAM, id, &param_id,
-          NULL, NULL)) {
+  param_id = wp_spa_id_value_from_short_name ("Spa:Enum:ParamId", id);
+  if (!param_id) {
     wp_critical_object (obj, "invalid param id: %s", id);
     wp_spa_pod_unref (param);
     return FALSE;
   }
 
-  ret = iface->set_param (obj, param_id, flags, param);
+  ret = iface->set_param (obj, wp_spa_id_value_number (param_id), flags, param);
 
   if (G_UNLIKELY (SPA_RESULT_IS_ERROR (ret))) {
     wp_message_object (obj, "set_param failed: %s", spa_strerror (ret));
@@ -940,7 +944,8 @@ wp_pw_object_mixin_notify_params_changed (gpointer instance, guint32 id)
 
   if (wp_log_level_is_enabled (G_LOG_LEVEL_DEBUG)) {
     const gchar *name = NULL;
-    wp_spa_type_get_by_id (WP_SPA_TYPE_TABLE_PARAM, id, &name, NULL, NULL);
+    name = wp_spa_id_value_short_name (wp_spa_id_value_from_number (
+        "Spa:Enum:ParamId", id));
     wp_debug_object (instance, "notify param id:%u (%s)", id, name);
   }
 

@@ -42,7 +42,7 @@ set_device_profile (WpPipewireObject *device, gint index)
 {
   g_return_if_fail (device);
   g_autoptr (WpSpaPod) profile = wp_spa_pod_new_object (
-      "Profile", "Profile",
+      "Spa:Pod:Object:Param:Profile", "Profile",
       "index", "i", index,
       NULL);
   wp_debug_object (device, "set profile %d", index);

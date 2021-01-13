@@ -63,7 +63,7 @@ wp_init (WpInitFlags flags)
     pw_log_set_level (lvl);
 
   if (flags & WP_INIT_SPA_TYPES)
-    wp_spa_type_init (TRUE);
+    wp_spa_dynamic_type_init ();
 
   /* ensure WpProxy subclasses are loaded, which is needed to be able
     to autodetect the GType of proxies created through wp_proxy_new_global() */

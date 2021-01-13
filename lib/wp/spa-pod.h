@@ -13,6 +13,7 @@
 
 #include "defs.h"
 #include "iterator.h"
+#include "spa-type.h"
 
 G_BEGIN_DECLS
 
@@ -45,19 +46,16 @@ WP_API
 const struct spa_pod * wp_spa_pod_get_spa_pod (const WpSpaPod *self);
 
 WP_API
-const char *wp_spa_pod_get_type_name (WpSpaPod *self);
+WpSpaType wp_spa_pod_get_spa_type (WpSpaPod *self);
 
 WP_API
-const char *wp_spa_pod_get_choice_type_name (WpSpaPod *self);
-
-WP_API
-const char *wp_spa_pod_get_object_type_name (WpSpaPod *self);
+WpSpaIdValue wp_spa_pod_get_choice_type (WpSpaPod *self);
 
 WP_API
 WpSpaPod *wp_spa_pod_copy (WpSpaPod *other);
 
 WP_API
-gboolean wp_spa_pod_is_unique_owner ( WpSpaPod *self);
+gboolean wp_spa_pod_is_unique_owner (WpSpaPod *self);
 
 WP_API
 WpSpaPod *wp_spa_pod_ensure_unique_owner (WpSpaPod *self);
@@ -102,11 +100,11 @@ WP_API
 WpSpaPod *wp_spa_pod_new_fraction (guint32 num, guint32 denom);
 
 WP_API
-WpSpaPod *wp_spa_pod_new_choice (const char *type_name, ...)
+WpSpaPod *wp_spa_pod_new_choice (const char *choice_type, ...)
     G_GNUC_NULL_TERMINATED;
 
 WP_API
-WpSpaPod *wp_spa_pod_new_choice_valist (const char *type_name, va_list args);
+WpSpaPod *wp_spa_pod_new_choice_valist (const char *choice_type, va_list args);
 
 WP_API
 WpSpaPod *wp_spa_pod_new_object (const char *type_name, const char *id_name,
@@ -208,8 +206,7 @@ gboolean wp_spa_pod_get_bytes (WpSpaPod *self, gconstpointer *value,
     guint32 *len);
 
 WP_API
-gboolean wp_spa_pod_get_pointer (WpSpaPod *self, const char **type_name,
-   gconstpointer *value);
+gboolean wp_spa_pod_get_pointer (WpSpaPod *self, gconstpointer *value);
 
 WP_API
 gboolean wp_spa_pod_get_fd (WpSpaPod *self, gint64 *value);
@@ -260,11 +257,11 @@ WP_API
 gboolean wp_spa_pod_equal (WpSpaPod *self, WpSpaPod *pod);
 
 WP_API
-gboolean wp_spa_pod_get_object (WpSpaPod *self, const char *type_name,
+gboolean wp_spa_pod_get_object (WpSpaPod *self,
     const char **id_name, ...) G_GNUC_NULL_TERMINATED;
 
 WP_API
-gboolean wp_spa_pod_get_object_valist (WpSpaPod *self, const char *type_name,
+gboolean wp_spa_pod_get_object_valist (WpSpaPod *self,
     const char **id_name, va_list args);
 
 WP_API
@@ -279,7 +276,7 @@ gboolean wp_spa_pod_get_property (WpSpaPod *self, const char **key,
 
 WP_API
 gboolean wp_spa_pod_get_control (WpSpaPod *self, guint32 *offset,
-    const char **type_name, WpSpaPod **value);
+    const char **ctl_type, WpSpaPod **value);
 
 WP_API
 WpSpaPod *wp_spa_pod_get_choice_child (WpSpaPod *self);
@@ -314,7 +311,7 @@ WP_API
 WpSpaPodBuilder *wp_spa_pod_builder_new_array (void);
 
 WP_API
-WpSpaPodBuilder *wp_spa_pod_builder_new_choice (const char *type_name);
+WpSpaPodBuilder *wp_spa_pod_builder_new_choice (const char *choice_type);
 
 WP_API
 WpSpaPodBuilder *wp_spa_pod_builder_new_object (const char *type_name,
@@ -380,7 +377,7 @@ void wp_spa_pod_builder_add_property_id (WpSpaPodBuilder *self, guint32 id);
 
 WP_API
 void wp_spa_pod_builder_add_control (WpSpaPodBuilder *self, guint32 offset,
-    const char *type_name);
+    const char *ctl_type);
 
 WP_API
 void wp_spa_pod_builder_add (WpSpaPodBuilder *self, ...) G_GNUC_NULL_TERMINATED;
@@ -413,7 +410,7 @@ void wp_spa_pod_parser_unref (WpSpaPodParser *self);
 
 WP_API
 WpSpaPodParser *wp_spa_pod_parser_new_object (WpSpaPod *pod,
-    const char *type_name, const char **id_name);
+    const char **id_name);
 
 WP_API
 WpSpaPodParser *wp_spa_pod_parser_new_struct (WpSpaPod *pod);
@@ -446,7 +443,7 @@ gboolean wp_spa_pod_parser_get_bytes (WpSpaPodParser *self,
 
 WP_API
 gboolean wp_spa_pod_parser_get_pointer (WpSpaPodParser *self,
-    const char **type_name, gconstpointer *value);
+    gconstpointer *value);
 
 WP_API
 gboolean wp_spa_pod_parser_get_fd (WpSpaPodParser *self, gint64 *value);

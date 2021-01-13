@@ -107,7 +107,7 @@ print_controls (WpPipewireObject * pwobj)
 
   it = wp_pipewire_object_enum_params_sync (pwobj, "Props", NULL);
   if (!it || !wp_iterator_next (it, &value) ||
-      !wp_spa_pod_get_object (g_value_get_boxed (&value), "Props", NULL,
+      !wp_spa_pod_get_object (g_value_get_boxed (&value), NULL,
           "volume", "f", &volume,
           "mute", "b", &mute,
           NULL))
@@ -654,14 +654,16 @@ set_volume_run (WpCtl * self)
 
   it = wp_pipewire_object_enum_params_sync (proxy, "Props", NULL);
   if (!it || !wp_iterator_next (it, &value) ||
-      !wp_spa_pod_get_object (g_value_get_boxed (&value), "Props", NULL,
+      !wp_spa_pod_get_object (g_value_get_boxed (&value), NULL,
           "volume", "f", &volume, NULL)) {
     printf ("Object '%d' does not support volume\n", cmdline.set_volume.id);
     goto out;
   }
 
   wp_pipewire_object_set_param (proxy, "Props", 0, wp_spa_pod_new_object (
-          "Props", "Props", "volume", "f", cmdline.set_volume.volume, NULL));
+          "Spa:Pod:Object:Param:Props", "Props",
+          "volume", "f", cmdline.set_volume.volume,
+          NULL));
   wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
   return;
 
@@ -741,7 +743,7 @@ set_mute_run (WpCtl * self)
 
   it = wp_pipewire_object_enum_params_sync (proxy, "Props", NULL);
   if (!it || !wp_iterator_next (it, &value) ||
-      !wp_spa_pod_get_object (g_value_get_boxed (&value), "Props", NULL,
+      !wp_spa_pod_get_object (g_value_get_boxed (&value), NULL,
           "mute", "b", &mute, NULL)) {
     printf ("Object '%d' does not support mute\n", cmdline.set_mute.id);
     goto out;
@@ -753,7 +755,9 @@ set_mute_run (WpCtl * self)
     mute = !!cmdline.set_mute.mute;
 
   wp_pipewire_object_set_param (proxy, "Props", 0, wp_spa_pod_new_object (
-          "Props", "Props", "mute", "b", mute, NULL));
+          "Spa:Pod:Object:Param:Props", "Props",
+          "mute", "b", mute,
+          NULL));
   wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
   return;
 
@@ -810,7 +814,7 @@ set_profile_run (WpCtl * self)
   }
   wp_pipewire_object_set_param (proxy, "Profile", 0,
       wp_spa_pod_new_object (
-        "Profile", "Profile",
+        "Spa:Pod:Object:Param:Profile", "Profile",
         "index", "i", cmdline.set_profile.index,
         NULL));
   wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);

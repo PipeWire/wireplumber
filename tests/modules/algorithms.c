@@ -19,8 +19,6 @@
 static void
 test_choose_sensible_raw_audio_format (void)
 {
-  wp_spa_type_init (TRUE);
-
   uint32_t layout[] = { SPA_AUDIO_CHANNEL_FL, SPA_AUDIO_CHANNEL_FR,
                         SPA_AUDIO_CHANNEL_FC, SPA_AUDIO_CHANNEL_LFE,
                         SPA_AUDIO_CHANNEL_RL, SPA_AUDIO_CHANNEL_RR };
@@ -31,7 +29,7 @@ test_choose_sensible_raw_audio_format (void)
   {
     g_ptr_array_remove_range (formats, 0, formats->len);
     g_autoptr (WpSpaPod) param1 = wp_spa_pod_new_object (
-        "Format", "Format",
+        "Spa:Pod:Object:Param:Format", "Format",
         "mediaType",    SPA_POD_Id(SPA_MEDIA_TYPE_audio),
         "mediaSubtype", SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
         "format",       SPA_POD_CHOICE_ENUM_Id(3,
@@ -56,7 +54,7 @@ test_choose_sensible_raw_audio_format (void)
   {
     g_ptr_array_remove_range (formats, 0, formats->len);
     g_autoptr (WpSpaPod) param1 = wp_spa_pod_new_object (
-        "Format", "Format",
+        "Spa:Pod:Object:Param:Format", "Format",
         "mediaType",    SPA_POD_Id(SPA_MEDIA_TYPE_audio),
         "mediaSubtype", SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
         "format",       SPA_POD_CHOICE_ENUM_Id(3,
@@ -81,7 +79,7 @@ test_choose_sensible_raw_audio_format (void)
   {
     g_ptr_array_remove_range (formats, 0, formats->len);
     g_autoptr (WpSpaPod) param2 = wp_spa_pod_new_object (
-        "Format", "Format",
+        "Spa:Pod:Object:Param:Format", "Format",
         "mediaType",    SPA_POD_Id(SPA_MEDIA_TYPE_audio),
         "mediaSubtype", SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
         "format",       SPA_POD_CHOICE_ENUM_Id(3,
@@ -95,7 +93,7 @@ test_choose_sensible_raw_audio_format (void)
     g_assert_nonnull (param2);
     g_ptr_array_add (formats, g_steal_pointer (&param2));
     g_autoptr (WpSpaPod) param3 = wp_spa_pod_new_object (
-        "Format", "Format",
+        "Spa:Pod:Object:Param:Format", "Format",
         "mediaType",    SPA_POD_Id(SPA_MEDIA_TYPE_audio),
         "mediaSubtype", SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
         "format",       SPA_POD_CHOICE_ENUM_Id(3,
@@ -123,8 +121,6 @@ test_choose_sensible_raw_audio_format (void)
     g_assert_cmpint (info.position[4], ==, layout[4]);
     g_assert_cmpint (info.position[5], ==, 0);
   }
-
-  wp_spa_type_deinit ();
 }
 
 int

@@ -527,7 +527,7 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
     g_assert_true (wp_iterator_next (iterator, &item));
     g_assert_nonnull ((pod = g_value_dup_boxed (&item)));
 
-    g_assert_true (wp_spa_pod_get_object (pod, "Props", NULL,
+    g_assert_true (wp_spa_pod_get_object (pod, NULL,
             "volume", "f", &float_value,
             "mute", "b", &boolean_value,
             NULL));
@@ -547,7 +547,7 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
   fixture->n_events = 0;
   wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (fixture->proxy_endpoint),
       "Props", 0,
-      wp_spa_pod_new_object ("Props", "Props",
+      wp_spa_pod_new_object ("Spa:Pod:Object:Param:Props", "Props",
           "volume", "f", 0.7f, NULL));
 
   /* run until the change is on all sides */
@@ -569,7 +569,7 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
     g_assert_true (wp_iterator_next (iterator, &item));
     g_assert_nonnull ((pod = g_value_dup_boxed (&item)));
 
-    g_assert_true (wp_spa_pod_get_object (pod, "Props", NULL,
+    g_assert_true (wp_spa_pod_get_object (pod, NULL,
             "volume", "f", &float_value,
             "mute", "b", &boolean_value,
             NULL));
@@ -590,7 +590,7 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
     g_assert_true (wp_iterator_next (iterator, &item));
     g_assert_nonnull ((pod = g_value_dup_boxed (&item)));
 
-    g_assert_true (wp_spa_pod_get_object (pod, "Props", NULL,
+    g_assert_true (wp_spa_pod_get_object (pod, NULL,
             "volume", "f", &float_value,
             "mute", "b", &boolean_value,
             NULL));
@@ -611,7 +611,7 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
     g_assert_true (wp_iterator_next (iterator, &item));
     g_assert_nonnull ((pod = g_value_dup_boxed (&item)));
 
-    g_assert_true (wp_spa_pod_get_object (pod, "Props", NULL,
+    g_assert_true (wp_spa_pod_get_object (pod, NULL,
             "volume", "f", &float_value,
             "mute", "b", &boolean_value,
             NULL));
@@ -623,7 +623,7 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
   fixture->n_events = 0;
   wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (fixture->impl_endpoint),
       "Props", 0,
-      wp_spa_pod_new_object ("Props", "Props",
+      wp_spa_pod_new_object ("Spa:Pod:Object:Param:Props", "Props",
           "mute", "b", TRUE, NULL));
 
   /* run until the change is on all sides */
@@ -645,7 +645,7 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
     g_assert_true (wp_iterator_next (iterator, &item));
     g_assert_nonnull ((pod = g_value_dup_boxed (&item)));
 
-    g_assert_true (wp_spa_pod_get_object (pod, "Props", NULL,
+    g_assert_true (wp_spa_pod_get_object (pod, NULL,
             "volume", "f", &float_value,
             "mute", "b", &boolean_value,
             NULL));
@@ -666,7 +666,7 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
     g_assert_true (wp_iterator_next (iterator, &item));
     g_assert_nonnull ((pod = g_value_dup_boxed (&item)));
 
-    g_assert_true (wp_spa_pod_get_object (pod, "Props", NULL,
+    g_assert_true (wp_spa_pod_get_object (pod, NULL,
             "volume", "f", &float_value,
             "mute", "b", &boolean_value,
             NULL));
@@ -687,7 +687,7 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
     g_assert_true (wp_iterator_next (iterator, &item));
     g_assert_nonnull ((pod = g_value_dup_boxed (&item)));
 
-    g_assert_true (wp_spa_pod_get_object (pod, "Props", NULL,
+    g_assert_true (wp_spa_pod_get_object (pod, NULL,
             "volume", "f", &float_value,
             "mute", "b", &boolean_value,
             NULL));
@@ -699,7 +699,7 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
   fixture->n_events = 0;
   wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (endpoint->node),
       "Props", 0,
-      wp_spa_pod_new_object ("Props", "Props",
+      wp_spa_pod_new_object ("Spa:Pod:Object:Param:Props", "Props",
           "volume", "f", 0.2f, NULL));
 
   /* run until the change is on all sides */
@@ -721,7 +721,7 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
     g_assert_true (wp_iterator_next (iterator, &item));
     g_assert_nonnull ((pod = g_value_dup_boxed (&item)));
 
-    g_assert_true (wp_spa_pod_get_object (pod, "Props", NULL,
+    g_assert_true (wp_spa_pod_get_object (pod, NULL,
             "volume", "f", &float_value,
             "mute", "b", &boolean_value,
             NULL));
@@ -742,7 +742,7 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
     g_assert_true (wp_iterator_next (iterator, &item));
     g_assert_nonnull ((pod = g_value_dup_boxed (&item)));
 
-    g_assert_true (wp_spa_pod_get_object (pod, "Props", NULL,
+    g_assert_true (wp_spa_pod_get_object (pod, NULL,
             "volume", "f", &float_value,
             "mute", "b", &boolean_value,
             NULL));
@@ -763,7 +763,7 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
     g_assert_true (wp_iterator_next (iterator, &item));
     g_assert_nonnull ((pod = g_value_dup_boxed (&item)));
 
-    g_assert_true (wp_spa_pod_get_object (pod, "Props", NULL,
+    g_assert_true (wp_spa_pod_get_object (pod, NULL,
             "volume", "f", &float_value,
             "mute", "b", &boolean_value,
             NULL));

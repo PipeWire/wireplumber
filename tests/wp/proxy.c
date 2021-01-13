@@ -106,7 +106,8 @@ test_node_enum_params_done (WpPipewireObject *node, GAsyncResult *res,
     g_assert_cmpuint (G_VALUE_TYPE (&item), ==, WP_TYPE_SPA_POD);
     g_assert_nonnull (pod = g_value_get_boxed (&item));
     g_assert_true (wp_spa_pod_is_object (pod));
-    g_assert_cmpstr ("PropInfo", ==, wp_spa_pod_get_object_type_name (pod));
+    g_assert_cmpuint (wp_spa_type_from_name ("Spa:Pod:Object:Param:PropInfo"),
+        ==, wp_spa_pod_get_spa_type (pod));
     n_params++;
   }
   g_assert_cmpint (n_params, >, 0);
