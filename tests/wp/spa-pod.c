@@ -952,7 +952,7 @@ test_spa_pod_unique_owner (void)
   /* Create an object */
   WpSpaPod *pod = wp_spa_pod_new_object (
         "Spa:Pod:Object:Param:PropInfo", "PropInfo",
-        "id", "I", 1,
+        "id", "K", "unknown",
         "name", "s", "prop-info-name",
         NULL);
   g_assert_nonnull (pod);
@@ -1019,9 +1019,9 @@ test_spa_pod_port_config (void)
   g_autoptr (WpSpaPodBuilder) builder = wp_spa_pod_builder_new_object (
      "Spa:Pod:Object:Param:Format", "Format");
   wp_spa_pod_builder_add (builder,
-     "mediaType",    "I", 0,
-     "mediaSubtype", "I", 0,
-     "format",       "I", 0,
+     "mediaType",    "K", "audio",
+     "mediaSubtype", "K", "raw",
+     "format",       "K", "S16LE",
      "rate",         "i", rate,
      "channels",     "i", channels,
      NULL);
@@ -1037,8 +1037,8 @@ test_spa_pod_port_config (void)
   /* Build the port config to make sure the types exist */
   g_autoptr (WpSpaPod) pod = wp_spa_pod_new_object (
       "Spa:Pod:Object:Param:PortConfig", "PortConfig",
-      "direction",  "I", 0,
-      "mode",       "I", 0,
+      "direction",  "K", "Input",
+      "mode",       "K", "dsp",
       "monitor",    "b", FALSE,
       "control",    "b", FALSE,
       "format",     "P", format,

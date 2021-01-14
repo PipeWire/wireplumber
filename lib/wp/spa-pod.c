@@ -2260,7 +2260,10 @@ wp_spa_pod_builder_add (WpSpaPodBuilder *self, ...)
 void
 wp_spa_pod_builder_add_valist (WpSpaPodBuilder *self, va_list args)
 {
+  WpSpaIdTable table = wp_spa_type_get_values_table (self->type);
+
   do {
+    WpSpaIdValue key = NULL;
     const char *format;
     int n_values = 1;
     struct spa_pod_frame f;
@@ -2270,9 +2273,7 @@ wp_spa_pod_builder_add_valist (WpSpaPodBuilder *self, va_list args)
       const char *key_name = va_arg(args, const char *);
       if (!key_name)
         return;
-      WpSpaIdTable table = wp_spa_type_get_values_table (self->type);
-      WpSpaIdValue key =
-          wp_spa_id_table_find_value_from_short_name (table, key_name);
+      key = wp_spa_id_table_find_value_from_short_name (table, key_name);
       g_return_if_fail (key != NULL);
 
       spa_pod_builder_prop (&self->builder, wp_spa_id_value_number (key), 0);
@@ -2311,6 +2312,17 @@ wp_spa_pod_builder_add_valist (WpSpaPodBuilder *self, va_list args)
       case 'T':  /* Struct */
         spa_pod_builder_primitive (&self->builder, va_arg(args, WpSpaPod *)->pod);
         break;
+      case 'K': { /* Id as string - WirePlumber extension */
+        const char * id = va_arg(args, const char *);
+        if (key) {
+          WpSpaIdTable id_table = NULL;
+          wp_spa_id_value_get_value_type (key, &id_table);
+          WpSpaIdValue id_val =
+              wp_spa_id_table_find_value_from_short_name (id_table, id);
+          spa_pod_builder_id (&self->builder, wp_spa_id_value_number (id_val));
+        }
+        break;
+      }
       default:
         SPA_POD_BUILDER_COLLECT(&self->builder, *format, args);
         break;
@@ -2709,8 +2721,10 @@ gboolean
 wp_spa_pod_parser_get_valist (WpSpaPodParser *self, va_list args)
 {
   const struct spa_pod_prop *prop = NULL;
+  WpSpaIdTable table = wp_spa_type_get_values_table (self->type);
 
   do {
+    WpSpaIdValue key = NULL;
     bool optional;
     const struct spa_pod *pod = NULL;
     const char *format;
@@ -2719,9 +2733,7 @@ wp_spa_pod_parser_get_valist (WpSpaPodParser *self, va_list args)
       const char *key_name = va_arg(args, const char *);
       if (!key_name)
         break;
-      WpSpaIdTable table = wp_spa_type_get_values_table (self->type);
-      WpSpaIdValue key =
-          wp_spa_id_table_find_value_from_short_name (table, key_name);
+      key = wp_spa_id_table_find_value_from_short_name (table, key_name);
       g_return_val_if_fail (key != NULL, FALSE);
 
       const struct spa_pod_object *object = (const struct spa_pod_object *)
@@ -2757,6 +2769,17 @@ wp_spa_pod_parser_get_valist (WpSpaPodParser *self, va_list args)
       case 'T':  /* Struct */
         *va_arg(args, WpSpaPod**) = wp_spa_pod_new_wrap_copy (pod);
         break;
+      case 'K': { /* Id as string - WirePlumber extension */
+        const char ** idstr = va_arg(args, const char **);
+        uint32_t id = SPA_POD_VALUE(struct spa_pod_id, pod);
+        if (key) {
+          WpSpaIdTable id_table = NULL;
+          wp_spa_id_value_get_value_type (key, &id_table);
+          WpSpaIdValue id_val = wp_spa_id_table_find_value (id_table, id);
+          *idstr = wp_spa_id_value_short_name (id_val);
+        }
+        break;
+      }
       default:
         SPA_POD_PARSER_COLLECT (pod, *format, args);
         break;

@@ -261,8 +261,8 @@ format_audio_raw_build (const struct spa_audio_info_raw *info)
   g_autoptr (WpSpaPodBuilder) builder = wp_spa_pod_builder_new_object (
       "Spa:Pod:Object:Param:Format", "Format");
   wp_spa_pod_builder_add (builder,
-      "mediaType",    "I", SPA_MEDIA_TYPE_audio,
-      "mediaSubtype", "I", SPA_MEDIA_SUBTYPE_raw,
+      "mediaType",    "K", "audio",
+      "mediaSubtype", "K", "raw",
       "format",       "I", info->format,
       "rate",         "i", info->rate,
       "channels",     "i", info->channels,
@@ -330,7 +330,7 @@ si_adapter_activate_execute_step (WpSessionItem * item,
       pod = wp_spa_pod_new_object (
           "Spa:Pod:Object:Param:PortConfig", "PortConfig",
           "direction",  "I", self->direction,
-          "mode",       "I", SPA_PARAM_PORT_CONFIG_MODE_dsp,
+          "mode",       "K", "dsp",
           "monitor",    "b", self->monitor,
           "control",    "b", self->control_port,
           "format",     "P", port_format,

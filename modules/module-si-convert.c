@@ -289,9 +289,9 @@ si_convert_activate_execute_step (WpSessionItem * item,
 
       format = wp_spa_pod_new_object (
           "Spa:Pod:Object:Param:Format", "Format",
-          "mediaType",    "I", SPA_MEDIA_TYPE_audio,
-          "mediaSubtype", "I", SPA_MEDIA_SUBTYPE_raw,
-          "format",       "I", SPA_AUDIO_FORMAT_F32P,
+          "mediaType",    "K", "audio",
+          "mediaSubtype", "K", "raw",
+          "format",       "K", "F32P",
           "rate",         "i", rate,
           "channels",     "i", channels,
           NULL);
@@ -306,7 +306,7 @@ si_convert_activate_execute_step (WpSessionItem * item,
           wp_spa_pod_new_object (
               "Spa:Pod:Object:Param:PortConfig", "PortConfig",
               "direction",  "I", pw_direction_reverse (self->direction),
-              "mode",       "I", SPA_PARAM_PORT_CONFIG_MODE_dsp,
+              "mode",       "K", "dsp",
               "format",     "P", format,
               NULL));
 
@@ -315,7 +315,7 @@ si_convert_activate_execute_step (WpSessionItem * item,
           wp_spa_pod_new_object (
               "Spa:Pod:Object:Param:PortConfig", "PortConfig",
               "direction",  "I", self->direction,
-              "mode",       "I", SPA_PARAM_PORT_CONFIG_MODE_dsp,
+              "mode",       "K", "dsp",
               "control",    "b", self->control_port,
               "format",     "P", format,
               NULL));
