@@ -8,6 +8,7 @@
 
 #include <wp/wp.h>
 #include <errno.h>
+#include <pipewire/keys.h>
 
 #define STATE_NAME "default-metadata"
 #define SAVE_INTERVAL_MS 1000
@@ -17,6 +18,9 @@
 
 #define default_endpoint_key(dir) ((dir == WP_DIRECTION_INPUT) ? \
   "default.session.endpoint.sink" : "default.session.endpoint.source")
+
+#define default_audio_node_key(dir) ((dir == WP_DIRECTION_INPUT) ? \
+  "default.audio.sink" : "default.audio.source")
 
 G_DECLARE_FINAL_TYPE (WpDefaultMetadata, wp_default_metadata, WP,
     DEFAULT_METADATA, WpPlugin)
@@ -71,6 +75,52 @@ timeout_save_default_endpoints (WpDefaultMetadata *self, guint dir, guint ms)
       self->default_endpoints + dir, NULL);
 }
 
+static WpEndpoint *
+find_endpoint_with_endpoint_id (WpDefaultMetadata * self, guint session_id,
+    guint ep_id, WpSession **session)
+{
+  g_autoptr (WpSession) s = NULL;
+  g_autoptr (WpEndpoint) ep = NULL;
+
+  s = wp_object_manager_lookup (self->sessions_om, WP_TYPE_SESSION,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", session_id, NULL);
+  if (!s)
+      return NULL;
+
+  ep = wp_session_lookup_endpoint (s, WP_CONSTRAINT_TYPE_G_PROPERTY,
+      "bound-id", "=u", ep_id, NULL);
+  if (!ep)
+    return NULL;
+
+  if (session)
+    *session = g_object_ref (s);
+
+  return g_object_ref (ep);
+}
+
+static WpEndpoint *
+find_endpoint_with_node_id (WpDefaultMetadata * self, guint node_id,
+    WpSession **session)
+{
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) value = G_VALUE_INIT;
+
+  it = wp_object_manager_iterate (self->sessions_om);
+  for (; wp_iterator_next (it, &value); g_value_unset (&value)) {
+    WpSession *s = g_value_get_object (&value);
+    g_autoptr (WpEndpoint) ep = NULL;
+    ep = wp_session_lookup_endpoint (s, WP_CONSTRAINT_TYPE_PW_PROPERTY,
+        PW_KEY_NODE_ID, "=u", node_id, NULL);
+    if (ep) {
+      if (session)
+        *session = g_object_ref (s);
+      return g_object_ref (ep);
+    }
+  }
+
+  return NULL;
+}
+
 static void
 on_default_metadata_changed (WpMetadata *m, guint32 subject,
     const gchar *key, const gchar *type, const gchar *value, gpointer *d)
@@ -80,26 +130,48 @@ on_default_metadata_changed (WpMetadata *m, guint32 subject,
   g_autoptr (WpEndpoint) ep = NULL;
   const gchar *session_name = NULL, *ep_name = NULL;
   guint dir = WP_DIRECTION_INPUT;
+  gboolean is_default_ep = FALSE;
 
   /* Get the direction */
-  if (!g_strcmp0 (key, default_endpoint_key (WP_DIRECTION_INPUT)))
+  if (!g_strcmp0 (key, default_endpoint_key (WP_DIRECTION_INPUT))) {
     dir = WP_DIRECTION_INPUT;
-  else if (!g_strcmp0 (key, default_endpoint_key (WP_DIRECTION_OUTPUT)))
+    is_default_ep = TRUE;
+  } else if (!g_strcmp0 (key, default_endpoint_key (WP_DIRECTION_OUTPUT))) {
     dir = WP_DIRECTION_OUTPUT;
-  else
+    is_default_ep = TRUE;
+  } else if (!g_strcmp0 (key, default_audio_node_key (WP_DIRECTION_INPUT))) {
+    dir = WP_DIRECTION_INPUT;
+    is_default_ep = FALSE;
+  } else if (!g_strcmp0 (key, default_audio_node_key (WP_DIRECTION_OUTPUT))) {
+    dir = WP_DIRECTION_OUTPUT;
+    is_default_ep = FALSE;
+  } else {
+    return;
+  }
+
+  /* Get the edpoint and session */
+  ep = is_default_ep ?
+      find_endpoint_with_endpoint_id (self, subject, atoi (value), &session) :
+      find_endpoint_with_node_id (self, atoi (value), &session);
+  if (!ep || !session)
     return;
 
-  /* Find the session */
-  session = wp_object_manager_lookup (self->sessions_om, WP_TYPE_SESSION,
-      WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", subject, NULL);
-  if (!session)
-    return;
-
-  /* Find the endpoint */
-  ep = wp_session_lookup_endpoint (session, WP_CONSTRAINT_TYPE_G_PROPERTY,
-      "bound-id", "=u", atoi (value), NULL);
-  if (!ep)
-    return;
+  /* Update the default node when default endpoint changes, and vice versa */
+  g_signal_handlers_block_by_func (m, on_default_metadata_changed, self);
+  if (is_default_ep) {
+    const gchar *n_id = NULL, *mc = NULL;
+    n_id = wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (ep),
+        PW_KEY_NODE_ID);
+    mc = wp_endpoint_get_media_class (ep);
+    if (n_id && g_str_has_prefix (mc, "Audio/"))
+      wp_metadata_set (m, 0, default_audio_node_key (dir), "Spa:Int", n_id);
+  } else {
+    g_autofree gchar *v = g_strdup_printf ("%d",
+        wp_proxy_get_bound_id (WP_PROXY (ep)));
+    wp_metadata_set (m, wp_proxy_get_bound_id (WP_PROXY (session)),
+        default_endpoint_key (dir), "Spa:Int", v);
+  }
+  g_signal_handlers_unblock_by_func (m, on_default_metadata_changed, self);
 
   /* Get the session name and endpoint name */
   session_name = wp_session_get_name (session);
@@ -112,13 +184,13 @@ on_default_metadata_changed (WpMetadata *m, guint32 subject,
   timeout_save_default_endpoints (self, dir, SAVE_INTERVAL_MS);
 }
 
-static guint32
-find_highest_prio (WpSession * session, WpDirection dir)
+static WpEndpoint *
+find_highest_priority_endpoint (WpSession * session, WpDirection dir)
 {
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
   gint highest_prio = 0;
-  guint32 id = 0;
+  WpEndpoint *res = NULL;
 
   it = wp_session_iterate_endpoints_filtered (session,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "media.class", "#s",
@@ -126,25 +198,26 @@ find_highest_prio (WpSession * session, WpDirection dir)
       NULL);
 
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
-    WpProxy *ep = g_value_get_object (&val);
+    WpEndpoint *ep = g_value_get_object (&val);
     const gchar *prio_str = wp_pipewire_object_get_property (
         WP_PIPEWIRE_OBJECT (ep), "endpoint.priority");
     gint prio = atoi (prio_str);
 
-    if (prio > highest_prio || id == 0) {
+    if (prio > highest_prio || res == NULL) {
       highest_prio = prio;
-      id = wp_proxy_get_bound_id (ep);
+      res = ep;
     }
   }
-  return id;
+  return res ? g_object_ref (res) : NULL;
 }
 
 static void
 reevaluate_default_endpoints (WpDefaultMetadata * self, WpMetadata *m,
     WpSession *session, guint dir)
 {
-  guint32 ep_id = 0;
-  const gchar *session_name = NULL, *ep_name = NULL;
+  g_autoptr (WpEndpoint) ep = NULL;
+  const gchar *session_name = NULL, *ep_name = NULL, *n_id = NULL, *mc = NULL;
+  guint ep_id = 0;
 
   g_return_if_fail (m);
   g_return_if_fail (self->default_endpoints[dir].props);
@@ -153,31 +226,40 @@ reevaluate_default_endpoints (WpDefaultMetadata * self, WpMetadata *m,
   session_name = wp_session_get_name (session);
   ep_name = wp_properties_get (self->default_endpoints[dir].props, session_name);
   if (ep_name) {
-    g_autoptr (WpEndpoint) ep = wp_session_lookup_endpoint (session,
+    ep = wp_session_lookup_endpoint (session,
         WP_CONSTRAINT_TYPE_PW_PROPERTY, "endpoint.name", "=s", ep_name,
         WP_CONSTRAINT_TYPE_PW_PROPERTY, "media.class", "#s",
         (dir == WP_DIRECTION_INPUT) ? "*/Sink" : "*/Source", NULL);
-    if (ep)
-      ep_id = wp_proxy_get_bound_id (WP_PROXY (ep));
   }
 
   /* If not found, use the highest priority one */
-  if (ep_id == 0)
-    ep_id = find_highest_prio (session, dir);
+  if (!ep)
+    ep = find_highest_priority_endpoint (session, dir);
 
-  if (ep_id != 0) {
+  if (ep) {
+    ep_id = wp_proxy_get_bound_id (WP_PROXY (ep));
+    n_id = wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (ep),
+        PW_KEY_NODE_ID);
+    mc = wp_endpoint_get_media_class (ep);
+
     /* block the signal to avoid storing this; only selections done by the user
      * should be stored */
-    g_autofree gchar *value = g_strdup_printf ("%d", ep_id);
     g_signal_handlers_block_by_func (m, on_default_metadata_changed, self);
+
+    /* Set default endpoint */
+    g_autofree gchar *value = g_strdup_printf ("%d", ep_id);
     wp_metadata_set (m, wp_proxy_get_bound_id (WP_PROXY (session)),
         default_endpoint_key (dir), "Spa:Int", value);
+
+    /* Also set the default node if audio endpoint and node Id is present */
+    if (n_id && g_str_has_prefix (mc, "Audio/"))
+      wp_metadata_set (m, 0, default_audio_node_key (dir), "Spa:Int", n_id);
+
     g_signal_handlers_unblock_by_func (m, on_default_metadata_changed, self);
 
     wp_info_object (self, "set default %s endpoint with id %d on session '%s'",
         direction_to_dbg_string (dir), ep_id, session_name);
   }
-
 }
 
 static void

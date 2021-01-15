@@ -97,7 +97,7 @@ shared_library(
   c_args : [common_c_args, '-DG_LOG_DOMAIN="m-default-metadata"'],
   install : true,
   install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep],
+  dependencies : [wp_dep, pipewire_dep],
 )
 
 shared_library(
