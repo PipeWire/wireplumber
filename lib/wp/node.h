@@ -114,7 +114,7 @@ void wp_node_send_command (WpNode * self, WpNodeCommand command);
  */
 #define WP_TYPE_IMPL_NODE (wp_impl_node_get_type ())
 WP_API
-G_DECLARE_FINAL_TYPE (WpImplNode, wp_impl_node, WP, IMPL_NODE, GObject)
+G_DECLARE_FINAL_TYPE (WpImplNode, wp_impl_node, WP, IMPL_NODE, WpProxy)
 
 WP_API
 WpImplNode * wp_impl_node_new_wrap (WpCore * core, struct pw_impl_node * node);
@@ -122,9 +122,6 @@ WpImplNode * wp_impl_node_new_wrap (WpCore * core, struct pw_impl_node * node);
 WP_API
 WpImplNode * wp_impl_node_new_from_pw_factory (WpCore * core,
     const gchar * factory_name, WpProperties * properties);
-
-WP_API
-void wp_impl_node_export (WpImplNode * self);
 
 G_END_DECLS
 

@@ -517,13 +517,12 @@ void wp_node_send_command (WpNode * self, WpNodeCommand command)
 
 enum {
   PROP_0,
-  PROP_CORE,
   PROP_PW_IMPL_NODE,
 };
 
 struct _WpImplNode
 {
-  GObject parent;
+  WpProxy parent;
   GWeakRef core;
   struct pw_impl_node *pw_impl_node;
   struct pw_proxy *proxy;
@@ -535,15 +534,13 @@ struct _WpImplNode
  * A #WpImplNode allows running a node implementation (`struct pw_impl_node`)
  * locally, loading the implementation from factory or wrapping a manually
  * constructed `pw_impl_node`. This object can then be exported to PipeWire
- * by requesting %WP_PROXY_FEATURE_BOUND and be used as if it was a #WpNode
- * proxy to a remote object.
+ * by requesting %WP_PROXY_FEATURE_BOUND.
  */
-G_DEFINE_TYPE (WpImplNode, wp_impl_node, G_TYPE_OBJECT)
+G_DEFINE_TYPE (WpImplNode, wp_impl_node, WP_TYPE_PROXY)
 
 static void
 wp_impl_node_init (WpImplNode * self)
 {
-  g_weak_ref_init (&self->core, NULL);
 }
 
 static void
@@ -551,9 +548,7 @@ wp_impl_node_finalize (GObject * object)
 {
   WpImplNode *self = WP_IMPL_NODE (object);
 
-  g_clear_pointer (&self->proxy, pw_proxy_destroy);
   g_clear_pointer (&self->pw_impl_node, pw_impl_node_destroy);
-  g_weak_ref_clear (&self->core);
 
   G_OBJECT_CLASS (wp_impl_node_parent_class)->finalize (object);
 }
@@ -565,9 +560,6 @@ wp_impl_node_set_property (GObject * object, guint property_id,
   WpImplNode *self = WP_IMPL_NODE (object);
 
   switch (property_id) {
-  case PROP_CORE:
-    g_weak_ref_set (&self->core, g_value_get_object (value));
-    break;
   case PROP_PW_IMPL_NODE:
     self->pw_impl_node = g_value_get_pointer (value);
     break;
@@ -584,9 +576,6 @@ wp_impl_node_get_property (GObject * object, guint property_id, GValue * value,
   WpImplNode *self = WP_IMPL_NODE (object);
 
   switch (property_id) {
-  case PROP_CORE:
-    g_value_take_object (value, g_weak_ref_get (&self->core));
-    break;
   case PROP_PW_IMPL_NODE:
     g_value_set_pointer (value, self->pw_impl_node);
     break;
@@ -596,18 +585,65 @@ wp_impl_node_get_property (GObject * object, guint property_id, GValue * value,
   }
 }
 
+static WpObjectFeatures
+wp_impl_node_get_supported_features (WpObject * object)
+{
+  return WP_PROXY_FEATURE_BOUND;
+}
+
+enum {
+  STEP_EXPORT = WP_TRANSITION_STEP_CUSTOM_START,
+};
+
+static guint
+wp_impl_node_activate_get_next_step (WpObject * object,
+    WpFeatureActivationTransition * transition, guint step,
+    WpObjectFeatures missing)
+{
+  /* we only support BOUND, so this is the only
+     feature that can be in @missing */
+  g_return_val_if_fail (missing == WP_PROXY_FEATURE_BOUND,
+      WP_TRANSITION_STEP_ERROR);
+
+  return STEP_EXPORT;
+}
+
+static void
+wp_impl_node_activate_execute_step (WpObject * object,
+      WpFeatureActivationTransition * transition, guint step,
+      WpObjectFeatures missing)
+{
+  WpImplNode *self = WP_IMPL_NODE (object);
+
+  switch (step) {
+  case STEP_EXPORT: {
+    g_autoptr (WpCore) core = wp_object_get_core (object);
+    struct pw_core *pw_core = wp_core_get_pw_core (core);
+    g_return_if_fail (pw_core);
+
+    wp_proxy_set_pw_proxy (WP_PROXY (self),
+        pw_core_export (pw_core, PW_TYPE_INTERFACE_Node, NULL,
+            self->pw_impl_node, 0));
+    break;
+  }
+  default:
+    g_assert_not_reached ();
+  }
+}
+
 static void
 wp_impl_node_class_init (WpImplNodeClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
+  WpObjectClass *wpobject_class = (WpObjectClass *) klass;
 
   object_class->finalize = wp_impl_node_finalize;
   object_class->set_property = wp_impl_node_set_property;
   object_class->get_property = wp_impl_node_get_property;
 
-  g_object_class_install_property (object_class, PROP_CORE,
-      g_param_spec_object ("core", "core", "The WpCore", WP_TYPE_CORE,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  wpobject_class->get_supported_features = wp_impl_node_get_supported_features;
+  wpobject_class->activate_get_next_step = wp_impl_node_activate_get_next_step;
+  wpobject_class->activate_execute_step = wp_impl_node_activate_execute_step;
 
   g_object_class_install_property (object_class, PROP_PW_IMPL_NODE,
       g_param_spec_pointer ("pw-impl-node", "pw-impl-node",
@@ -675,19 +711,4 @@ wp_impl_node_new_from_pw_factory (WpCore * core,
   }
 
   return wp_impl_node_new_wrap (core, node);
-}
-
-/**
- * wp_impl_node_export:
- */
-void
-wp_impl_node_export (WpImplNode * self)
-{
-  g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
-  struct pw_core *pw_core = wp_core_get_pw_core (core);
-
-  g_return_if_fail (pw_core);
-
-  self->proxy = pw_core_export (pw_core,
-      PW_TYPE_INTERFACE_Node, NULL, self->pw_impl_node, 0);
 }

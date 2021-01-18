@@ -257,7 +257,7 @@ static void
 create_node (WpMonitor * self, WpSpaDevice * parent, guint id,
     const gchar * spa_factory, WpProperties * props, WpProperties * dev_props)
 {
-  GObject *node = NULL;
+  WpObject *node = NULL;
   const gchar *pw_factory_name;
 
   wp_debug_object (self, WP_OBJECT_FORMAT " new node %u (%s)",
@@ -280,21 +280,18 @@ create_node (WpMonitor * self, WpSpaDevice * parent, guint id,
 
   /* create the node using the local core */
   node = (self->flags & FLAG_LOCAL_NODES) ?
-      (GObject *) wp_impl_node_new_from_pw_factory (self->local_core,
+      (WpObject *) wp_impl_node_new_from_pw_factory (self->local_core,
           pw_factory_name, props) :
-      (GObject *) wp_node_new_from_factory (self->local_core, pw_factory_name,
+      (WpObject *) wp_node_new_from_factory (self->local_core, pw_factory_name,
           props);
   if (!node)
     return;
 
   /* export to pipewire */
-  if (WP_IS_IMPL_NODE (node))
-    wp_impl_node_export (WP_IMPL_NODE (node));
-  else
-    wp_object_activate (WP_OBJECT (node), WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
-        NULL, (GAsyncReadyCallback) activate_done, self);
+  wp_object_activate (node, WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
+      NULL, (GAsyncReadyCallback) activate_done, self);
 
-  wp_spa_device_store_managed_object (parent, id, node);
+  wp_spa_device_store_managed_object (parent, id, G_OBJECT (node));
 }
 
 static void
