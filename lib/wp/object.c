@@ -164,6 +164,8 @@ wp_object_dispose (GObject * object)
   WpObject *self = WP_OBJECT (object);
   WpObjectPrivate *priv = wp_object_get_instance_private (self);
 
+  wp_trace_object (self, "dispose");
+
   wp_object_deactivate (self, WP_OBJECT_FEATURES_ALL);
 
   if (priv->idle_advnc_source)
@@ -304,6 +306,10 @@ wp_object_get_supported_features (WpObject * self)
 static gboolean
 wp_object_advance_transitions (WpObject * self)
 {
+  /* keep @self alive; in rare cases, the last transition may be
+     holding the last ref on @self and g_queue_peek_head will crash
+     right after droping that last ref */
+  g_autoptr (WpObject) self_ref = g_object_ref (self);
   WpObjectPrivate *priv = wp_object_get_instance_private (self);
   WpTransition *t;
 

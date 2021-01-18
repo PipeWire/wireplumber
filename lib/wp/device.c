@@ -17,9 +17,11 @@
 #include "node.h"
 #include "core.h"
 #include "debug.h"
+#include "error.h"
 #include "private/pipewire-object-mixin.h"
 
 #include <pipewire/impl.h>
+#include <spa/debug/types.h>
 #include <spa/monitor/device.h>
 #include <spa/utils/result.h>
 
@@ -192,26 +194,23 @@ wp_device_new_from_factory (WpCore * core,
 
 enum {
   PROP_0,
-  PROP_CORE,
   PROP_SPA_DEVICE_HANDLE,
   PROP_PROPERTIES,
 };
 
 struct _WpSpaDevice
 {
-  GObject parent;
-  GWeakRef core;
+  WpProxy parent;
   struct spa_handle *handle;
   struct spa_device *device;
   struct spa_hook listener;
   WpProperties *properties;
-  struct pw_proxy *proxy;
-  struct spa_hook proxy_listener;
+  GPtrArray *managed_objs;
 };
 
 enum
 {
-  SIGNAL_OBJECT_INFO,
+  SIGNAL_CREATE_OBJECT,
   SPA_DEVICE_LAST_SIGNAL,
 };
 
@@ -224,14 +223,30 @@ static guint spa_device_signals[SPA_DEVICE_LAST_SIGNAL] = { 0 };
  * loading the implementation from a SPA factory. This is useful to run device
  * monitors inside the session manager and have control over creating the
  * actual nodes that the `spa_device` requests to create.
+ *
+ * To enable the spa device, call wp_object_activate() requesting
+ * %WP_SPA_DEVICE_FEATURE_ENABLED.
+ *
+ * For actual devices (not device monitors) it also possible and desirable
+ * to export the device to PipeWire, which can be done by requesting
+ * %WP_PROXY_FEATURE_BOUND from wp_object_activate(). When exporting, the
+ * export should be done before enabling the device, by requesting both
+ * features at the same time.
  */
-G_DEFINE_TYPE (WpSpaDevice, wp_spa_device, G_TYPE_OBJECT)
+G_DEFINE_TYPE (WpSpaDevice, wp_spa_device, WP_TYPE_PROXY)
+
+static void
+object_unref_safe (gpointer object)
+{
+  if (object)
+    g_object_unref (object);
+}
 
 static void
 wp_spa_device_init (WpSpaDevice * self)
 {
-  g_weak_ref_init (&self->core, NULL);
   self->properties = wp_properties_new_empty ();
+  self->managed_objs = g_ptr_array_new_with_free_func (object_unref_safe);
 }
 
 static void
@@ -260,11 +275,10 @@ wp_spa_device_finalize (GObject * object)
 {
   WpSpaDevice *self = WP_SPA_DEVICE (object);
 
-  g_clear_pointer (&self->proxy, pw_proxy_destroy);
   self->device = NULL;
   g_clear_pointer (&self->handle, pw_unload_spa_handle);
   g_clear_pointer (&self->properties, wp_properties_unref);
-  g_weak_ref_clear (&self->core);
+  g_clear_pointer (&self->managed_objs, g_ptr_array_unref);
 
   G_OBJECT_CLASS (wp_spa_device_parent_class)->finalize (object);
 }
@@ -276,9 +290,6 @@ wp_spa_device_set_property (GObject * object, guint property_id,
   WpSpaDevice *self = WP_SPA_DEVICE (object);
 
   switch (property_id) {
-  case PROP_CORE:
-    g_weak_ref_set (&self->core, g_value_get_object (value));
-    break;
   case PROP_SPA_DEVICE_HANDLE:
     self->handle = g_value_get_pointer (value);
     break;
@@ -301,9 +312,6 @@ wp_spa_device_get_property (GObject * object, guint property_id, GValue * value,
   WpSpaDevice *self = WP_SPA_DEVICE (object);
 
   switch (property_id) {
-  case PROP_CORE:
-    g_value_take_object (value, g_weak_ref_get (&self->core));
-    break;
   case PROP_SPA_DEVICE_HANDLE:
     g_value_set_pointer (value, self->handle);
     break;
@@ -336,20 +344,20 @@ spa_device_event_object_info (void *data, uint32_t id,
     const struct spa_device_object_info *info)
 {
   WpSpaDevice *self = WP_SPA_DEVICE (data);
-  GType type = G_TYPE_NONE;
-  g_autoptr (WpProperties) props = NULL;
 
   if (info) {
-    if (!g_strcmp0 (info->type, SPA_TYPE_INTERFACE_Device))
-      type = WP_TYPE_DEVICE;
-    else if (!g_strcmp0 (info->type, SPA_TYPE_INTERFACE_Node))
-      type = WP_TYPE_NODE;
+    const gchar *type;
+    g_autoptr (WpProperties) props = NULL;
 
+    type = spa_debug_type_short_name (info->type);
     props = wp_properties_new_wrap_dict (info->props);
-  }
 
-  g_signal_emit (self, spa_device_signals[SIGNAL_OBJECT_INFO], 0, id, type,
-      info ? info->factory_name : NULL, props, self->properties);
+    g_signal_emit (self, spa_device_signals[SIGNAL_CREATE_OBJECT], 0,
+        id, type, info->factory_name, props);
+  }
+  else {
+    wp_spa_device_store_managed_object (self, id, NULL);
+  }
 }
 
 static const struct spa_device_events spa_device_events = {
@@ -358,19 +366,93 @@ static const struct spa_device_events spa_device_events = {
   .object_info = spa_device_event_object_info
 };
 
+static WpObjectFeatures
+wp_spa_device_get_supported_features (WpObject * object)
+{
+  return WP_PROXY_FEATURE_BOUND | WP_SPA_DEVICE_FEATURE_ENABLED;
+}
+
+enum {
+  STEP_EXPORT = WP_TRANSITION_STEP_CUSTOM_START,
+  STEP_ADD_DEVICE_LISTENER,
+};
+
+static guint
+wp_spa_device_activate_get_next_step (WpObject * object,
+    WpFeatureActivationTransition * transition, guint step,
+    WpObjectFeatures missing)
+{
+  if (missing & WP_PROXY_FEATURE_BOUND)
+    return STEP_EXPORT;
+  else if (missing & WP_SPA_DEVICE_FEATURE_ENABLED)
+    return STEP_ADD_DEVICE_LISTENER;
+  else
+    return WP_TRANSITION_STEP_NONE;
+}
+
+static void
+wp_spa_device_activate_execute_step (WpObject * object,
+      WpFeatureActivationTransition * transition, guint step,
+      WpObjectFeatures missing)
+{
+  WpSpaDevice *self = WP_SPA_DEVICE (object);
+
+  switch (step) {
+  case STEP_EXPORT: {
+    g_autoptr (WpCore) core = wp_object_get_core (object);
+    struct pw_core *pw_core = wp_core_get_pw_core (core);
+    g_return_if_fail (pw_core);
+
+    wp_proxy_set_pw_proxy (WP_PROXY (self),
+        pw_core_export (pw_core, SPA_TYPE_INTERFACE_Device,
+            wp_properties_peek_dict (self->properties),
+            self->device, 0));
+    break;
+  }
+  case STEP_ADD_DEVICE_LISTENER: {
+    gint res = spa_device_add_listener (self->device, &self->listener,
+        &spa_device_events, self);
+    if (res < 0)
+      wp_transition_return_error (WP_TRANSITION (transition),
+          g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+              "failed to activate device: %s", spa_strerror (res)));
+    else
+      wp_object_update_features (object, WP_SPA_DEVICE_FEATURE_ENABLED, 0);
+    break;
+  }
+  default:
+    g_assert_not_reached ();
+  }
+}
+
+static void
+wp_spa_device_deactivate (WpObject * object, WpObjectFeatures features)
+{
+  WP_OBJECT_CLASS (wp_spa_device_parent_class)->deactivate (object, features);
+
+  if (features & WP_SPA_DEVICE_FEATURE_ENABLED) {
+    WpSpaDevice *self = WP_SPA_DEVICE (object);
+    spa_hook_remove (&self->listener);
+    g_ptr_array_set_size (self->managed_objs, 0);
+    wp_object_update_features (object, 0, WP_SPA_DEVICE_FEATURE_ENABLED);
+  }
+}
+
 static void
 wp_spa_device_class_init (WpSpaDeviceClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
+  WpObjectClass *wpobject_class = (WpObjectClass *) klass;
 
   object_class->constructed = wp_spa_device_constructed;
   object_class->finalize = wp_spa_device_finalize;
   object_class->set_property = wp_spa_device_set_property;
   object_class->get_property = wp_spa_device_get_property;
 
-  g_object_class_install_property (object_class, PROP_CORE,
-      g_param_spec_object ("core", "core", "The WpCore", WP_TYPE_CORE,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  wpobject_class->get_supported_features = wp_spa_device_get_supported_features;
+  wpobject_class->activate_get_next_step = wp_spa_device_activate_get_next_step;
+  wpobject_class->activate_execute_step = wp_spa_device_activate_execute_step;
+  wpobject_class->deactivate = wp_spa_device_deactivate;
 
   g_object_class_install_property (object_class, PROP_SPA_DEVICE_HANDLE,
       g_param_spec_pointer ("spa-device-handle", "spa-device-handle",
@@ -383,34 +465,25 @@ wp_spa_device_class_init (WpSpaDeviceClass * klass)
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   /**
-   * WpSpaDevice::object-info:
+   * WpSpaDevice::create-object:
    * @self: the #WpSpaDevice
    * @id: the id of the managed object
-   * @type: the #WpProxy subclass type that the managed object should have,
-   *   or %G_TYPE_NONE if the object is being destroyed
-   * @factory: (nullable): the name of the SPA factory to use to construct
-   *    the managed object, or %NULL if the object is being destroyed
-   * @properties: (nullable): additional properties that the managed object
-   *    should have, or %NULL if the object is being destroyed
-   * @parent_props: the properties of the device itself
+   * @type: the SPA type that the managed object should have
+   * @factory: the name of the SPA factory to use to construct the managed object
+   * @properties: additional properties that the managed object should have
    *
-   * This signal is emitted when the device is creating or destroying a managed
-   * object. The handler is expected to actually construct or destroy the
-   * object using the requested SPA @factory and with the given @properties.
-   *
-   * The handler may also use @parent_props to enrich the properties set
-   * that will be assigned on the object. @parent_props contains all the
-   * properties that this device object has.
-   *
-   * When the object is being created, @type can either be %WP_TYPE_DEVICE
-   * or %WP_TYPE_NODE. The handler is free to create a substitute of those,
-   * like %WP_TYPE_SPA_DEVICE instead of %WP_TYPE_DEVICE, depending on the
-   * use case.
+   * This signal is emitted when the device is creating a managed object
+   * The handler is expected to actually construct the object using the
+   * requested SPA @factory and with the given @properties.
+   * The handler should then store the object with
+   * wp_spa_device_store_managed_object(). The #WpSpaDevice will later unref
+   * the reference stored by this function when the managed object is to be
+   * destroyed.
    */
-  spa_device_signals[SIGNAL_OBJECT_INFO] = g_signal_new (
-      "object-info", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
-      0, NULL, NULL, NULL, G_TYPE_NONE, 5, G_TYPE_UINT, G_TYPE_GTYPE,
-      G_TYPE_STRING, WP_TYPE_PROPERTIES, WP_TYPE_PROPERTIES);
+  spa_device_signals[SIGNAL_CREATE_OBJECT] = g_signal_new (
+      "create-object", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
+      0, NULL, NULL, NULL, G_TYPE_NONE, 4, G_TYPE_UINT, G_TYPE_STRING,
+      G_TYPE_STRING, WP_TYPE_PROPERTIES);
 }
 
 /**
@@ -444,7 +517,7 @@ wp_spa_device_new_wrap (WpCore * core, gpointer spa_device_handle,
  * @factory_name.
  *
  * To export this device to the PipeWire server, you need to call
- * wp_proxy_augment() requesting %WP_PROXY_FEATURE_BOUND and
+ * wp_object_activate() requesting %WP_PROXY_FEATURE_BOUND and
  * wait for the operation to complete.
  *
  * Returns: (nullable) (transfer full): A new #WpSpaDevice wrapping the
@@ -473,70 +546,56 @@ wp_spa_device_new_from_spa_factory (WpCore * core,
   return wp_spa_device_new_wrap (core, handle, g_steal_pointer (&props));
 }
 
-guint32
-wp_spa_device_get_bound_id (WpSpaDevice * self)
+/**
+ * wp_spa_device_get_properties:
+ * @self: the spa device
+ *
+ * Returns: (transfer full): the device properties
+ */
+WpProperties *
+wp_spa_device_get_properties (WpSpaDevice * self)
 {
-  g_return_val_if_fail (WP_IS_SPA_DEVICE (self), SPA_ID_INVALID);
-  return self->proxy ? pw_proxy_get_bound_id (self->proxy) : SPA_ID_INVALID;
+  g_return_val_if_fail (WP_IS_SPA_DEVICE (self), NULL);
+  return wp_properties_ref (self->properties);
 }
 
-static void
-proxy_event_bound (void *data, uint32_t global_id)
+/**
+ * wp_spa_device_get_managed_object:
+ * @self: the spa device
+ * @id: the (device-internal) id of the object to get
+ *
+ * Returns: (transfer full): the managed object associated with @id
+ */
+GObject *
+wp_spa_device_get_managed_object (WpSpaDevice * self, guint id)
 {
-  GTask *task = G_TASK (data);
-  WpSpaDevice *self = g_task_get_source_object (task);
+  g_return_val_if_fail (WP_IS_SPA_DEVICE (self), NULL);
 
-  spa_hook_remove (&self->proxy_listener);
-  g_task_return_boolean (task, TRUE);
-  g_object_unref (task);
+  GObject *ret = (id < self->managed_objs->len) ?
+      g_ptr_array_index (self->managed_objs, id) : NULL;
+  return ret ? g_object_ref (ret) : ret;
 }
 
-static const struct pw_proxy_events proxy_events = {
-  PW_VERSION_PROXY_EVENTS,
-  .bound = proxy_event_bound,
-};
-
+/**
+ * wp_spa_device_store_managed_object:
+ * @self: the spa device
+ * @id: the (device-internal) id of the object
+ * @object: (transfer full) (nullable): the object to store or %NULL to remove
+ *   the managed object associated with @id
+ */
 void
-wp_spa_device_export (WpSpaDevice * self, GCancellable * cancellable,
-    GAsyncReadyCallback callback, gpointer user_data)
-{
-  g_autoptr (GTask) task = NULL;
-
-  g_return_if_fail (WP_IS_SPA_DEVICE (self));
-  g_return_if_fail (!self->proxy);
-
-  g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
-  struct pw_core *pw_core = wp_core_get_pw_core (core);
-
-  g_return_if_fail (pw_core);
-
-  task = g_task_new (self, cancellable, callback, user_data);
-  self->proxy = pw_core_export (pw_core,
-      SPA_TYPE_INTERFACE_Device,
-      wp_properties_peek_dict (self->properties),
-      self->device, 0);
-  pw_proxy_add_listener (self->proxy, &self->proxy_listener,
-      &proxy_events, g_steal_pointer (&task));
-}
-
-gboolean
-wp_spa_device_export_finish (WpSpaDevice * self, GAsyncResult * res,
-    GError ** error)
-{
-  g_return_val_if_fail (WP_IS_SPA_DEVICE (self), FALSE);
-  g_return_val_if_fail (g_task_is_valid (res, self), FALSE);
-
-  return g_task_propagate_boolean (G_TASK (res), error);
-}
-
-void
-wp_spa_device_activate (WpSpaDevice * self)
+wp_spa_device_store_managed_object (WpSpaDevice * self, guint id,
+    GObject * object)
 {
   g_return_if_fail (WP_IS_SPA_DEVICE (self));
 
-  gint res = spa_device_add_listener (self->device, &self->listener,
-        &spa_device_events, self);
-  if (res < 0)
-    wp_warning_object (self, "failed to activate device: %s",
-        spa_strerror (res));
+  if (id >= self->managed_objs->len)
+    g_ptr_array_set_size (self->managed_objs, id + 1);
+
+  /* replace the item at @id; g_ptr_array_insert is tempting to use here
+     instead, but it's wrong because it will not remove the previous item */
+  gpointer *ptr = &g_ptr_array_index (self->managed_objs, id);
+  if (*ptr)
+    g_object_unref (*ptr);
+  *ptr = object;
 }

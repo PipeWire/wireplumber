@@ -15,9 +15,6 @@
 #include <spa/monitor/device.h>
 #include <spa/pod/builder.h>
 
-G_DEFINE_QUARK (wp-module-monitor-id, id);
-G_DEFINE_QUARK (wp-module-monitor-children, children);
-
 typedef enum {
   FLAG_LOCAL_NODES = (1 << 0),
   FLAG_USE_ADAPTER = (1 << 1),
@@ -57,10 +54,9 @@ struct _WpMonitor
 G_DECLARE_FINAL_TYPE (WpMonitor, wp_monitor, WP, MONITOR, WpPlugin)
 G_DEFINE_TYPE (WpMonitor, wp_monitor, WP_TYPE_PLUGIN)
 
-static void on_object_info (WpSpaDevice * device,
-    guint id, GType type, const gchar * spa_factory,
-    WpProperties * props, WpProperties * parent_props,
-    WpMonitor * self);
+static void on_create_object (WpSpaDevice * device,
+    guint id, const gchar * type, const gchar * spa_factory,
+    WpProperties * props, WpMonitor * self);
 
 struct DeviceData {
   WpMonitor *self;
@@ -68,7 +64,6 @@ struct DeviceData {
   guint id;
   gchar *spa_factory;
   WpProperties *props;
-  WpSpaDevice *device;
 };
 
 static void
@@ -259,35 +254,14 @@ activate_done (WpObject * proxy, GAsyncResult * res, gpointer user_data)
 }
 
 static void
-free_children (GList * children)
-{
-  g_list_free_full (children, g_object_unref);
-}
-
-static void
-find_child (GObject * parent, guint32 id, GList ** children, GList ** link,
-    GObject ** child)
-{
-  *children = g_object_steal_qdata (parent, children_quark ());
-
-  /* Find the child */
-  for (*link = *children; *link != NULL; *link = g_list_next (*link)) {
-    *child = G_OBJECT ((*link)->data);
-    guint32 child_id = GPOINTER_TO_UINT (g_object_get_qdata (*child, id_quark ()));
-    if (id == child_id)
-      break;
-  }
-}
-
-static void
-create_node (WpMonitor * self, WpSpaDevice * parent, GList ** children,
-    guint id, const gchar * spa_factory, WpProperties * props,
-    WpProperties * parent_props)
+create_node (WpMonitor * self, WpSpaDevice * parent, guint id,
+    const gchar * spa_factory, WpProperties * props, WpProperties * dev_props)
 {
   GObject *node = NULL;
   const gchar *pw_factory_name;
 
-  wp_debug_object (self, "%s new node %u (%s)", self->factory, id, spa_factory);
+  wp_debug_object (self, WP_OBJECT_FORMAT " new node %u (%s)",
+      WP_OBJECT_ARGS (parent), id, spa_factory);
 
   /* use the adapter instead of spa-node-factory if requested */
   pw_factory_name =
@@ -298,11 +272,11 @@ create_node (WpMonitor * self, WpSpaDevice * parent, GList ** children,
 
   /* add device id property */
   {
-    guint32 device_id = wp_spa_device_get_bound_id (parent);
+    guint32 device_id = wp_proxy_get_bound_id (WP_PROXY (parent));
     wp_properties_setf (props, PW_KEY_DEVICE_ID, "%u", device_id);
   }
 
-  setup_node_props (parent_props, props);
+  setup_node_props (dev_props, props);
 
   /* create the node using the local core */
   node = (self->flags & FLAG_LOCAL_NODES) ?
@@ -313,45 +287,25 @@ create_node (WpMonitor * self, WpSpaDevice * parent, GList ** children,
   if (!node)
     return;
 
-  /* export to pipewire by requesting FEATURE_BOUND */
+  /* export to pipewire */
   if (WP_IS_IMPL_NODE (node))
     wp_impl_node_export (WP_IMPL_NODE (node));
   else
     wp_object_activate (WP_OBJECT (node), WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
         NULL, (GAsyncReadyCallback) activate_done, self);
 
-  g_object_set_qdata (G_OBJECT (node), id_quark (), GUINT_TO_POINTER (id));
-  *children = g_list_prepend (*children, node);
+  wp_spa_device_store_managed_object (parent, id, node);
 }
 
 static void
-device_created (GObject * device, GAsyncResult * res, gpointer user_data)
-{
-  WpMonitor * self = user_data;
-  g_autoptr (GError) error = NULL;
-
-  if (!wp_spa_device_export_finish (WP_SPA_DEVICE (device), res, &error)) {
-    wp_warning_object (self, "%s", error->message);
-    return;
-  }
-
-  wp_spa_device_activate (WP_SPA_DEVICE (device));
-}
-
-static WpSpaDevice *
 create_device (WpMonitor * self, WpSpaDevice * parent, guint id,
     const gchar * spa_factory, WpProperties * props)
 {
   WpSpaDevice *device = NULL;
-  GList *children = NULL;
-  GList *link = NULL;
-  GObject *child = NULL;
   const char *factory_name = NULL;
 
-  g_return_val_if_fail (parent, NULL);
-  g_return_val_if_fail (spa_factory, NULL);
-
-  find_child (G_OBJECT (parent), id, &children, &link, &child);
+  g_return_if_fail (parent);
+  g_return_if_fail (spa_factory);
 
   factory_name = self->flags & FLAG_USE_ACP ?
       SPA_NAME_API_ALSA_ACP_DEVICE : spa_factory;
@@ -360,58 +314,31 @@ create_device (WpMonitor * self, WpSpaDevice * parent, guint id,
   device = wp_spa_device_new_from_spa_factory (self->local_core, factory_name,
       props);
   if (!device)
-    return NULL;
+    return;
 
-  /* Handle object-info singal */
-  g_signal_connect (device, "object-info", (GCallback) on_object_info, self);
+  /* Handle create-object singal */
+  g_signal_connect (device, "create-object", (GCallback) on_create_object, self);
 
   /* Export the device */
-  wp_spa_device_export (device, NULL, device_created, self);
+  wp_object_activate (WP_OBJECT (device), WP_OBJECT_FEATURES_ALL,
+      NULL, (GAsyncReadyCallback) activate_done, self);
 
-  /* Set device data */
-  g_object_set_qdata (G_OBJECT (device), id_quark (), GUINT_TO_POINTER (id));
-  children = g_list_prepend (children, device);
+  wp_spa_device_store_managed_object (parent, id, G_OBJECT (device));
 
-  /* Set parent data */
-  g_object_set_qdata_full (G_OBJECT (parent), children_quark (), children,
-    (GDestroyNotify) free_children);
-
-  wp_info_object (self, "device %p created", device);
-
-  return device;
+  wp_debug_object (self, "device %p created", device);
 }
 
 static void
 on_reservation_manage_device (GObject *obj, gboolean create, gpointer data)
 {
   struct DeviceData *dd = data;
-  WpMonitor *self = dd->self;
-  g_autoptr (WpPlugin) dr = g_weak_ref_get (&self->dbus_reservation);
   g_return_if_fail (dd);
 
-  /* Create */
-  if (create && !dd->device) {
-    dd->device = create_device (dd->self, dd->parent, dd->id, dd->spa_factory,
+  if (create)
+    create_device (dd->self, dd->parent, dd->id, dd->spa_factory,
         dd->props ? wp_properties_ref (dd->props) : NULL);
-  }
-
-  /* Destroy */
-  else if (!create && dd->device) {
-    GList *children = NULL;
-    GList *link = NULL;
-    GObject *child = NULL;
-
-    /* Remove the device from its parent children list */
-    find_child (G_OBJECT (dd->parent), dd->id, &children, &link, &child);
-    children = g_list_remove_link (children, link);
-    g_object_set_qdata_full (G_OBJECT (dd->parent), children_quark (), children,
-      (GDestroyNotify) free_children);
-
-    /* Release the device and its children */
-    g_list_free_full (link, g_object_unref);
-    wp_info_object (self, "device %p destroyed", dd->device);
-    dd->device = NULL;
-  }
+  else
+    wp_spa_device_store_managed_object (dd->parent, dd->id, NULL);
 }
 
 static void
@@ -441,7 +368,6 @@ maybe_create_device (WpMonitor * self, WpSpaDevice * parent, guint id,
     dd->parent = g_object_ref (parent);
     dd->spa_factory = g_strdup (spa_factory);
     dd->props = props;
-    dd->device = NULL;
 
     /* Create the closure */
     closure = g_cclosure_new (G_CALLBACK (on_reservation_manage_device), dd,
@@ -456,40 +382,20 @@ maybe_create_device (WpMonitor * self, WpSpaDevice * parent, guint id,
 }
 
 static void
-on_object_info (WpSpaDevice * device,
-    guint id, GType type, const gchar * spa_factory,
-    WpProperties * props, WpProperties * parent_props,
-    WpMonitor * self)
+on_create_object (WpSpaDevice * device,
+    guint id, const gchar * type, const gchar * spa_factory,
+    WpProperties * props, WpMonitor * self)
 {
-  GList *children = NULL;
-  GList *link = NULL;
-  GObject *child = NULL;
-
-  /* Find the child */
-  find_child (G_OBJECT (device), id, &children, &link, &child);
-
-  /* new object, construct... */
-  if (type != G_TYPE_NONE && !link) {
-    if (type == WP_TYPE_DEVICE) {
-      maybe_create_device (self, device, id, spa_factory, props);
-      return;
-    } else if (type == WP_TYPE_NODE) {
-      create_node (self, device, &children, id, spa_factory, props,
-          parent_props);
-    } else {
-      wp_debug_object (self, "%s got device object-info for unknown object "
-          "type %s", self->factory, g_type_name (type));
-    }
+  if (!g_strcmp0 (type, "Device")) {
+    maybe_create_device (self, device, id, spa_factory, props);
+  } else if (!g_strcmp0 (type, "Node")) {
+    g_autoptr (WpProperties) parent_props =
+        wp_spa_device_get_properties (device);
+    create_node (self, device, id, spa_factory, props, parent_props);
+  } else {
+    wp_debug_object (self, "%s got device create-object for unknown object "
+        "type: %s", self->factory, type);
   }
-  /* object removed, delete... */
-  else if (type == G_TYPE_NONE && link) {
-    g_object_unref (child);
-    children = g_list_delete_link (children, link);
-  }
-
-  /* put back the children */
-  g_object_set_qdata_full (G_OBJECT (device), children_quark (), children,
-      (GDestroyNotify) free_children);
 }
 
 static void
@@ -524,14 +430,15 @@ wp_monitor_activate (WpPlugin * plugin)
       G_CALLBACK (on_plugin_added), self, 0);
   wp_core_install_object_manager (core, self->plugins_om);
 
-  /* create the monitor and handle onject-info callback */
+  /* create the monitor and handle create-object callback */
   self->monitor = wp_spa_device_new_from_spa_factory (self->local_core,
       self->factory, NULL);
-  g_signal_connect (self->monitor, "object-info", (GCallback) on_object_info,
-      self);
+  g_signal_connect (self->monitor, "create-object",
+      (GCallback) on_create_object, self);
 
-  /* activate directly; exporting the monitor device is buggy */
-  wp_spa_device_activate (self->monitor);
+  /* activate monitor */
+  wp_object_activate (WP_OBJECT (self->monitor), WP_SPA_DEVICE_FEATURE_ENABLED,
+      NULL, (GAsyncReadyCallback) activate_done, self);
 }
 
 static void
