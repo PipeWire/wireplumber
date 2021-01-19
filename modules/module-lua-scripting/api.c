@@ -395,7 +395,7 @@ object_manager_lookup (lua_State *L)
   WpObject *o = NULL;
   if (lua_isuserdata (L, 2)) {
     WpObjectInterest *oi = wplua_checkboxed (L, 2, WP_TYPE_OBJECT_INTEREST);
-    o = wp_object_manager_lookup_full (om, oi);
+    o = wp_object_manager_lookup_full (om, wp_object_interest_ref (oi));
   } else {
     o = wp_object_manager_lookup (om, WP_TYPE_OBJECT, NULL);
   }
