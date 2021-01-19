@@ -86,8 +86,8 @@ static void
 wp_object_manager_init (WpObjectManager * self)
 {
   g_weak_ref_init (&self->core, NULL);
-  self->interests =
-      g_ptr_array_new_with_free_func ((GDestroyNotify) wp_object_interest_free);
+  self->interests = g_ptr_array_new_with_free_func (
+      (GDestroyNotify) wp_object_interest_unref);
   self->features = g_hash_table_new (g_direct_hash, g_direct_equal);
   self->objects = g_ptr_array_new ();
   self->installed = FALSE;
@@ -272,7 +272,7 @@ wp_object_manager_add_interest_full (WpObjectManager *self,
   if (G_UNLIKELY (!wp_object_interest_validate (interest, &error))) {
     wp_critical_object (self, "interest validation failed: %s",
         error->message);
-    wp_object_interest_free (interest);
+    wp_object_interest_unref (interest);
     return;
   }
   g_ptr_array_add (self->interests, interest);
@@ -393,8 +393,7 @@ static void
 om_iterator_finalize (WpIterator *it)
 {
   struct om_iterator_data *it_data = wp_iterator_get_user_data (it);
-  if (it_data->interest)
-    wp_object_interest_free (it_data->interest);
+  g_clear_pointer (&it_data->interest, wp_object_interest_unref);
   g_object_unref (it_data->om);
 }
 
@@ -485,7 +484,7 @@ wp_object_manager_iterate_filtered_full (WpObjectManager * self,
   if (G_UNLIKELY (!wp_object_interest_validate (interest, &error))) {
     wp_critical_object (self, "interest validation failed: %s",
         error->message);
-    wp_object_interest_free (interest);
+    wp_object_interest_unref (interest);
     return NULL;
   }
 

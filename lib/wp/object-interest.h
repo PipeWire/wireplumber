@@ -85,7 +85,10 @@ WP_API
 WpObjectInterest * wp_object_interest_copy (WpObjectInterest * self);
 
 WP_API
-void wp_object_interest_free (WpObjectInterest * self);
+WpObjectInterest * wp_object_interest_ref (WpObjectInterest *self);
+
+WP_API
+void wp_object_interest_unref (WpObjectInterest * self);
 
 WP_API
 gboolean wp_object_interest_validate (WpObjectInterest * self, GError ** error);
@@ -98,7 +101,7 @@ gboolean wp_object_interest_matches_full (WpObjectInterest * self,
     GType object_type, gpointer object, WpProperties * pw_props,
     WpProperties * pw_global_props);
 
-G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpObjectInterest, wp_object_interest_free)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpObjectInterest, wp_object_interest_unref)
 
 G_END_DECLS
 

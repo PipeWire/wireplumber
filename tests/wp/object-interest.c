@@ -230,7 +230,7 @@ test_object_interest_teardown (TestFixture * f, gconstpointer data)
     \
     g_assert_true (wp_object_interest_matches (interest, f->object)); \
     \
-    g_clear_pointer (&interest, wp_object_interest_free); \
+    g_clear_pointer (&interest, wp_object_interest_unref); \
   } G_STMT_END
 
 #define TEST_EXPECT_NO_MATCH(interest) \
@@ -246,7 +246,7 @@ test_object_interest_teardown (TestFixture * f, gconstpointer data)
     \
     g_assert_false (wp_object_interest_matches (interest, f->object)); \
     \
-    g_clear_pointer (&interest, wp_object_interest_free); \
+    g_clear_pointer (&interest, wp_object_interest_unref); \
   } G_STMT_END
 
 #define TEST_EXPECT_MATCH_WP_PROPS(interest, props, global_props) \
@@ -263,7 +263,7 @@ test_object_interest_teardown (TestFixture * f, gconstpointer data)
     g_assert_true (wp_object_interest_matches_full (interest, \
             WP_TYPE_NODE, NULL, props, global_props)); \
     \
-    g_clear_pointer (&interest, wp_object_interest_free); \
+    g_clear_pointer (&interest, wp_object_interest_unref); \
   } G_STMT_END
 
 #define TEST_EXPECT_NO_MATCH_WP_PROPS(interest, props, global_props) \
@@ -280,7 +280,7 @@ test_object_interest_teardown (TestFixture * f, gconstpointer data)
     g_assert_false (wp_object_interest_matches_full (interest, \
             WP_TYPE_NODE, NULL, props, global_props)); \
     \
-    g_clear_pointer (&interest, wp_object_interest_free); \
+    g_clear_pointer (&interest, wp_object_interest_unref); \
   } G_STMT_END
 
 #define TEST_EXPECT_VALIDATION_ERROR(interest) \
@@ -294,7 +294,7 @@ test_object_interest_teardown (TestFixture * f, gconstpointer data)
     g_assert_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT); \
     g_assert_false (ret); \
     \
-    g_clear_pointer (&interest, wp_object_interest_free); \
+    g_clear_pointer (&interest, wp_object_interest_unref); \
   } G_STMT_END
 
 static void

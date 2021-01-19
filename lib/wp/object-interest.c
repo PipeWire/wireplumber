@@ -32,6 +32,7 @@ struct constraint
 
 struct _WpObjectInterest
 {
+  grefcount ref;
   gboolean valid;
   GType gtype;
   struct pw_array constraints;
@@ -48,7 +49,7 @@ struct _WpObjectInterest
  * are satisfied.
  */
 G_DEFINE_BOXED_TYPE (WpObjectInterest, wp_object_interest,
-                     wp_object_interest_copy, wp_object_interest_free)
+                     wp_object_interest_copy, wp_object_interest_unref)
 
 /**
  * wp_object_interest_new:
@@ -163,6 +164,7 @@ wp_object_interest_new_type (GType gtype)
 {
   WpObjectInterest *self = g_slice_new0 (WpObjectInterest);
   g_return_val_if_fail (self != NULL, NULL);
+  g_ref_count_init (&self->ref);
   self->gtype = gtype;
   pw_array_init (&self->constraints, sizeof (struct constraint));
   return self;
@@ -276,12 +278,19 @@ wp_object_interest_copy (WpObjectInterest * self)
 }
 
 /**
- * wp_object_interest_free:
- * @self: (transfer full): the object interest to free
+ * wp_object_interest_ref:
+ * @self: the object interest to ref
  *
- * Releases @self and all the memory associated with it
+ * Returns: (transfer full): @self with an additional reference count on it
  */
-void
+WpObjectInterest *
+wp_object_interest_ref (WpObjectInterest *self)
+{
+  g_ref_count_inc (&self->ref);
+  return self;
+}
+
+static void
 wp_object_interest_free (WpObjectInterest * self)
 {
   struct constraint *c;
@@ -294,6 +303,20 @@ wp_object_interest_free (WpObjectInterest * self)
   }
   pw_array_clear (&self->constraints);
   g_slice_free (WpObjectInterest, self);
+}
+
+/**
+ * wp_object_interest_unref:
+ * @self: (transfer full): the object interest to unref
+ *
+ * Decreases the reference count on @self and frees it when the ref count
+ * reaches zero.
+ */
+void
+wp_object_interest_unref (WpObjectInterest * self)
+{
+  if (g_ref_count_dec (&self->ref))
+    wp_object_interest_free (self);
 }
 
 /**
