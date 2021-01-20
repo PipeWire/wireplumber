@@ -371,11 +371,9 @@ main (gint argc, gchar **argv)
   struct WpDaemonData data = {0};
   g_autoptr (GOptionContext) context = NULL;
   g_autoptr (GError) error = NULL;
-  g_autoptr (WpConfiguration) config = NULL;
   g_autoptr (WpCore) core = NULL;
   g_autoptr (GMainLoop) loop = NULL;
   g_autoptr (GPtrArray) sessions = NULL;
-  const gchar *configuration_path;
 
   wp_init (WP_INIT_ALL);
 
@@ -397,11 +395,14 @@ main (gint argc, gchar **argv)
 
   /* init configuration */
 
-  configuration_path = g_getenv ("WIREPLUMBER_CONFIG_DIR");
-  if (!configuration_path)
-    configuration_path = WIREPLUMBER_DEFAULT_CONFIG_DIR;
-  config = wp_configuration_get_instance (core);
-  wp_configuration_add_path (config, configuration_path);
+  {
+    g_autoptr (WpConfiguration) config = NULL;
+    const gchar *path = g_getenv ("WIREPLUMBER_CONFIG_DIR");
+    if (!path)
+      path = WIREPLUMBER_DEFAULT_CONFIG_DIR;
+    config = wp_configuration_get_instance (core);
+    wp_configuration_add_path (config, path);
+  }
 
   /* init main loop */
 
