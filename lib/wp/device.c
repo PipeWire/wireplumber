@@ -340,6 +340,30 @@ spa_device_event_info (void *data, const struct spa_device_info *info)
 }
 
 static void
+spa_device_event_event (void *data, const struct spa_event *event)
+{
+  WpSpaDevice *self = WP_SPA_DEVICE (data);
+  g_autoptr (WpSpaPod) pod =
+      wp_spa_pod_new_wrap_const ((const struct spa_pod *) event);
+  guint32 id;
+  const gchar *type;
+  g_autoptr (WpSpaPod) props = NULL;
+  g_autoptr (GObject) child = NULL;
+
+  wp_spa_pod_get_object (pod, &type,
+      "Object", "i", &id,
+      "Props", "?P", &props,
+      NULL);
+
+  child = wp_spa_device_get_managed_object (self, id);
+
+  if (child && !g_strcmp0 (type, "ObjectConfig") &&
+      WP_IS_PIPEWIRE_OBJECT (child) && props) {
+    wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (child), "Props", 0, props);
+  }
+}
+
+static void
 spa_device_event_object_info (void *data, uint32_t id,
     const struct spa_device_object_info *info)
 {
@@ -363,7 +387,8 @@ spa_device_event_object_info (void *data, uint32_t id,
 static const struct spa_device_events spa_device_events = {
   SPA_VERSION_DEVICE_EVENTS,
   .info = spa_device_event_info,
-  .object_info = spa_device_event_object_info
+  .event = spa_device_event_event,
+  .object_info = spa_device_event_object_info,
 };
 
 static WpObjectFeatures

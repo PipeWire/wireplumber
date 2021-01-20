@@ -69,6 +69,7 @@ static const WpSpaIdTableInfo static_id_tables[] = {
   { SPA_TYPE_INFO_Control, spa_type_control },
   { SPA_TYPE_INFO_Data, spa_type_data_type },
   { SPA_TYPE_INFO_Meta, spa_type_meta_type },
+  { SPA_TYPE_INFO_DeviceEventId, spa_type_device_event_id },
   { SPA_TYPE_INFO_NodeEvent, spa_type_node_event_id },
   { SPA_TYPE_INFO_NodeCommand, spa_type_node_command_id },
   { NULL, NULL }
