@@ -651,13 +651,12 @@ on_activate_transition_post_completed (gpointer data, GClosure *closure)
 }
 
 /**
- * wp_session_item_activate:
+ * wp_session_item_activate_closure:
  * @self: the session item
- * @callback: (scope async): a callback to call when activation is finished
- * @callback_data: (closure): data passed to @callback
+ * @closure: (transfer full): the closure to use when activation is completed
  *
  * Activates the item asynchronously.
- * You can use wp_session_item_activate_finish() in the @callback to get
+ * You can use wp_session_item_activate_finish() in the closure callback to get
  * the result of this operation.
  *
  * This internally starts a #WpTransition that calls into
@@ -682,9 +681,7 @@ on_activate_transition_post_completed (gpointer data, GClosure *closure)
  * already activated.
  */
 void
-wp_session_item_activate (WpSessionItem * self,
-    GAsyncReadyCallback callback,
-    gpointer callback_data)
+wp_session_item_activate_closure (WpSessionItem * self, GClosure *closure)
 {
   g_return_if_fail (WP_IS_SESSION_ITEM (self));
 
@@ -693,9 +690,6 @@ wp_session_item_activate (WpSessionItem * self,
 
   g_return_if_fail (!(priv->flags &
       (WP_SI_FLAGS_MASK_OPERATION_IN_PROGRESS | WP_SI_FLAG_ACTIVE)));
-
-  GClosure *closure =
-      g_cclosure_new (G_CALLBACK (callback), callback_data, NULL);
 
   /* TODO: add a way to cancel the transition if deactivate() is called in the meantime */
   WpTransition *transition = wp_transition_new_closure (
@@ -719,6 +713,33 @@ wp_session_item_activate (WpSessionItem * self,
   WP_SI_TRANSITION (transition)->rollback =
       WP_SESSION_ITEM_GET_CLASS (self)->activate_rollback;
   wp_transition_advance (transition);
+}
+
+/**
+ * wp_session_item_activate:
+ * @self: the session item
+ * @callback: (scope async): a callback to call when activation is finished
+ * @callback_data: (closure): data passed to @callback
+ *
+ * @callback and @callback_data version of wp_session_item_activate_closure()
+ */
+void
+wp_session_item_activate (WpSessionItem * self,
+    GAsyncReadyCallback callback,
+    gpointer callback_data)
+{
+  g_return_if_fail (WP_IS_SESSION_ITEM (self));
+
+  WpSessionItemPrivate *priv =
+      wp_session_item_get_instance_private (self);
+
+  g_return_if_fail (!(priv->flags &
+      (WP_SI_FLAGS_MASK_OPERATION_IN_PROGRESS | WP_SI_FLAG_ACTIVE)));
+
+  GClosure *closure =
+      g_cclosure_new (G_CALLBACK (callback), callback_data, NULL);
+
+  wp_session_item_activate_closure (self, closure);
 }
 
 /**

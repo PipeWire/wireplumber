@@ -158,6 +158,9 @@ GVariant * wp_session_item_get_configuration (WpSessionItem * self);
 /* state management */
 
 WP_API
+void wp_session_item_activate_closure (WpSessionItem * self, GClosure *closure);
+
+WP_API
 void wp_session_item_activate (WpSessionItem * self,
     GAsyncReadyCallback callback, gpointer callback_data);
 
