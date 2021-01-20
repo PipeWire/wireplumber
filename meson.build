@@ -38,7 +38,7 @@ gobject_dep = dependency('gobject-2.0', version : '>= 2.58')
 gmodule_dep = dependency('gmodule-2.0', version : '== ' + gobject_dep.version())
 gio_dep = dependency('gio-2.0', version : '== ' + gobject_dep.version())
 giounix_dep = dependency('gio-unix-2.0', version : '== ' + gobject_dep.version())
-pipewire_dep = dependency('libpipewire-0.3')
+pipewire_dep = dependency('libpipewire-0.3', version: '>= 0.3.20')
 
 lua_dep = dependency('lua', version: ['>=5.3.0', '<5.4.0'], required: false)
 if not lua_dep.found()
