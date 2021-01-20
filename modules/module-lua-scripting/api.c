@@ -139,7 +139,7 @@ static int
 iterator_next (lua_State *L)
 {
   WpIterator *it = wplua_checkboxed (L, 1, WP_TYPE_ITERATOR);
-  GValue v = G_VALUE_INIT;
+  g_auto (GValue) v = G_VALUE_INIT;
   if (wp_iterator_next (it, &v)) {
     return wplua_gvalue_to_lua (L, &v);
   } else {
@@ -162,7 +162,7 @@ static int
 metadata_iterator_next (lua_State *L)
 {
   WpIterator *it = wplua_checkboxed (L, 1, WP_TYPE_ITERATOR);
-  GValue item = G_VALUE_INIT;
+  g_auto (GValue) item = G_VALUE_INIT;
   if (wp_iterator_next (it, &item)) {
     guint32 s = 0;
     const gchar *k = NULL, *t = NULL, *v = NULL;

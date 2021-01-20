@@ -96,7 +96,7 @@ function handleEndpoint (session, ep)
   end
 
   -- if not, find a suitable target and link
-  target = findTarget (session, ep)
+  local target = findTarget (session, ep)
   if target then
     local ep_is_output = (ep.direction == "output")
     local target_id = target['bound-id']
