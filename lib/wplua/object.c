@@ -50,10 +50,16 @@ _wplua_gobject_call (lua_State *L)
 
   g_signal_emitv (vals, sig_id, detail, &ret);
 
+  for (guint i = 0; i < n_params + 1; i++) {
+    g_value_unset (&vals[i]);
+  }
+
+  int n_ret = 0;
   if (query.return_type != G_TYPE_NONE)
-    return wplua_gvalue_to_lua (L, &ret);
-  else
-    return 0;
+    n_ret = wplua_gvalue_to_lua (L, &ret);
+
+  g_value_unset (&ret);
+  return n_ret;
 }
 
 static int
