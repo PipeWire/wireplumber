@@ -25,6 +25,8 @@ struct _WpLuaScriptingPlugin
   /* data */
   WpCore *export_core;
   gchar *config_ext;
+
+  WpConfiguration *config;
 };
 
 enum {
@@ -106,8 +108,9 @@ wp_lua_scripting_plugin_activate (WpPlugin * plugin)
 {
   WpLuaScriptingPlugin * self = WP_LUA_SCRIPTING_PLUGIN (plugin);
   g_autoptr (WpCore) core = wp_plugin_get_core (plugin);
-  g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
   g_autoptr (WpConfigParser) engine = NULL;
+
+  self->config = wp_configuration_get_instance (core);
 
   /* initialize secondary connection to pipewire */
   self->export_core = wp_core_clone (core);
@@ -121,26 +124,24 @@ wp_lua_scripting_plugin_activate (WpPlugin * plugin)
 
   /* load the lua scripts & execute them via the engine */
   self->config_ext = g_strdup_printf ("%s/lua", self->profile);
-  wp_configuration_add_extension (config, self->config_ext,
+  wp_configuration_add_extension (self->config, self->config_ext,
       WP_TYPE_LUA_SCRIPTING_ENGINE);
 
-  engine = wp_configuration_get_parser (config, self->config_ext);
-  g_signal_connect (engine, "init-lua-context",
-      G_CALLBACK (wp_lua_scripting_plugin_init_lua_ctx), plugin);
+  engine = wp_configuration_get_parser (self->config, self->config_ext);
+  g_signal_connect_object (engine, "init-lua-context",
+      G_CALLBACK (wp_lua_scripting_plugin_init_lua_ctx), self, 0);
 
-  wp_configuration_reload (config, self->config_ext);
+  wp_configuration_reload (self->config, self->config_ext);
 }
 
 static void
 wp_lua_scripting_plugin_deactivate (WpPlugin * plugin)
 {
   WpLuaScriptingPlugin * self = WP_LUA_SCRIPTING_PLUGIN (plugin);
-  g_autoptr (WpCore) core = wp_plugin_get_core (plugin);
 
-  if (core) {
-    g_autoptr (WpConfiguration) config = wp_configuration_get_instance (core);
-    wp_configuration_remove_extension (config, self->config_ext);
-  }
+  if (self->config && self->config_ext)
+    wp_configuration_remove_extension (self->config, self->config_ext);
+  g_clear_object (&self->config);
   g_clear_pointer (&self->config_ext, g_free);
   g_clear_object (&self->export_core);
 }
