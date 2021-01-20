@@ -174,6 +174,10 @@ void wp_session_item_deactivate (WpSessionItem * self);
 /* exporting */
 
 WP_API
+void wp_session_item_export_closure (WpSessionItem * self, WpSession * session,
+    GClosure *closure);
+
+WP_API
 void wp_session_item_export (WpSessionItem * self, WpSession * session,
     GAsyncReadyCallback callback, gpointer callback_data);
 

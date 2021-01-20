@@ -813,11 +813,10 @@ on_export_transition_post_completed (gpointer data, GClosure *closure)
 }
 
 /**
- * wp_session_item_export:
+ * wp_session_item_export_closure:
  * @self: the session item
  * @session: the session on which to export this item
- * @callback: (scope async): a callback to call when exporting is finished
- * @callback_data: (closure): data passed to @callback
+ * @closure: (transfer full): the closure to use when export is completed
  *
  * Exports this item asynchronously on PipeWire, making it part of the
  * specified @session. You can use wp_session_item_export_finish() in the
@@ -847,8 +846,8 @@ on_export_transition_post_completed (gpointer data, GClosure *closure)
  * already exported.
  */
 void
-wp_session_item_export (WpSessionItem * self, WpSession * session,
-    GAsyncReadyCallback callback, gpointer callback_data)
+wp_session_item_export_closure (WpSessionItem * self, WpSession * session,
+    GClosure *closure)
 {
   g_return_if_fail (WP_IS_SESSION_ITEM (self));
   g_return_if_fail (WP_IS_SESSION (session));
@@ -860,9 +859,6 @@ wp_session_item_export (WpSessionItem * self, WpSession * session,
       (WP_SI_FLAGS_MASK_OPERATION_IN_PROGRESS | WP_SI_FLAG_EXPORTED)));
 
   g_weak_ref_set (&priv->session, session);
-
-  GClosure *closure =
-      g_cclosure_new (G_CALLBACK (callback), callback_data, NULL);
 
   /* TODO: add a way to cancel the transition if unexport() is called in the meantime */
   WpTransition *transition = wp_transition_new_closure (
@@ -887,6 +883,34 @@ wp_session_item_export (WpSessionItem * self, WpSession * session,
   WP_SI_TRANSITION (transition)->rollback =
       WP_SESSION_ITEM_GET_CLASS (self)->export_rollback;
   wp_transition_advance (transition);
+}
+
+/**
+ * wp_session_item_export:
+ * @self: the session item
+ * @session: the session on which to export this item
+ * @callback: (scope async): a callback to call when exporting is finished
+ * @callback_data: (closure): data passed to @callback
+ *
+ * @callback and @callback_data version of wp_session_item_export_closure()
+ */
+void
+wp_session_item_export (WpSessionItem * self, WpSession * session,
+    GAsyncReadyCallback callback, gpointer callback_data)
+{
+  g_return_if_fail (WP_IS_SESSION_ITEM (self));
+  g_return_if_fail (WP_IS_SESSION (session));
+
+  WpSessionItemPrivate *priv =
+      wp_session_item_get_instance_private (self);
+
+  g_return_if_fail (!(priv->flags &
+      (WP_SI_FLAGS_MASK_OPERATION_IN_PROGRESS | WP_SI_FLAG_EXPORTED)));
+
+  GClosure *closure =
+      g_cclosure_new (G_CALLBACK (callback), callback_data, NULL);
+
+  wp_session_item_export_closure (self, session, closure);
 }
 
 /**
