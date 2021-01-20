@@ -73,7 +73,6 @@ signal_handler (gpointer data)
 static void
 on_plugin_added (WpObjectManager * om, WpPlugin * p, struct WpDaemonData *d)
 {
-  wp_info ("Activating plugin " WP_OBJECT_FORMAT, WP_OBJECT_ARGS (p));
   wp_plugin_activate (p);
 }
 

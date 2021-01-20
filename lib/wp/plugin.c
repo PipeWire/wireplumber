@@ -14,6 +14,7 @@
 #define G_LOG_DOMAIN "wp-plugin"
 
 #include "plugin.h"
+#include "debug.h"
 #include "private/registry.h"
 
 enum {
@@ -215,6 +216,8 @@ wp_plugin_activate (WpPlugin * self)
   g_return_if_fail (WP_IS_PLUGIN (self));
   g_return_if_fail (WP_PLUGIN_GET_CLASS (self)->activate);
 
+  wp_info_object (self, "activating plugin '%s'", wp_plugin_get_name (self));
+
   WP_PLUGIN_GET_CLASS (self)->activate (self);
 }
 
@@ -230,6 +233,8 @@ wp_plugin_deactivate (WpPlugin * self)
 {
   g_return_if_fail (WP_IS_PLUGIN (self));
   g_return_if_fail (WP_PLUGIN_GET_CLASS (self)->deactivate);
+
+  wp_info_object (self, "deactivating plugin '%s'", wp_plugin_get_name (self));
 
   WP_PLUGIN_GET_CLASS (self)->deactivate (self);
 }
