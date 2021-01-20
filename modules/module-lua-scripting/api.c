@@ -6,11 +6,28 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "wp/global-proxy.h"
 #include <wp/wp.h>
 #include <wplua/wplua.h>
 
 #define URI_API "resource:///org/freedesktop/pipewire/wireplumber/m-lua-scripting/api.lua"
+
+/* helpers */
+
+static WpCore *
+get_wp_core (lua_State *L)
+{
+  lua_pushliteral (L, "wireplumber_core");
+  lua_gettable (L, LUA_REGISTRYINDEX);
+  return lua_touserdata (L, -1);
+}
+
+static WpCore *
+get_wp_export_core (lua_State *L)
+{
+  lua_pushliteral (L, "wireplumber_export_core");
+  lua_gettable (L, LUA_REGISTRYINDEX);
+  return lua_touserdata (L, -1);
+}
 
 /* WpDebug */
 
@@ -65,6 +82,39 @@ static const luaL_Reg log_funcs[] = {
   { "info", log_info },
   { "debug", log_debug },
   { "trace", log_trace },
+  { NULL, NULL }
+};
+
+/* WpObject */
+
+static void
+object_activate_done (WpObject *o, GAsyncResult *res, gpointer data)
+{
+  g_autoptr (GError) error = NULL;
+  if (!wp_object_activate_finish (o, res, &error)) {
+    wp_warning_object (o, "failed to activate: %s", error->message);
+  }
+}
+
+static int
+object_activate (lua_State *L)
+{
+  WpObject *o = wplua_checkobject (L, 1, WP_TYPE_OBJECT);
+  WpObjectFeatures features = 0;
+
+  if (lua_type (L, 2) != LUA_TNONE) {
+    features = luaL_checkinteger (L, 2);
+  } else {
+    features = WP_OBJECT_FEATURES_ALL;
+  }
+
+  wp_object_activate (o, features, NULL,
+      (GAsyncReadyCallback) object_activate_done, NULL);
+  return 0;
+}
+
+static const luaL_Reg object_methods[] = {
+  { "activate", object_activate },
   { NULL, NULL }
 };
 
@@ -326,13 +376,7 @@ static int
 object_manager_activate (lua_State *L)
 {
   WpObjectManager *om = wplua_checkobject (L, 1, WP_TYPE_OBJECT_MANAGER);
-  WpCore *core;
-
-  lua_pushliteral (L, "wireplumber_core");
-  lua_gettable (L, LUA_REGISTRYINDEX);
-  core = lua_touserdata (L, -1);
-
-  wp_core_install_object_manager (core, om);
+  wp_core_install_object_manager (get_wp_core (L), om);
   return 0;
 }
 
@@ -494,6 +538,115 @@ static const luaL_Reg endpoint_link_methods[] = {
   { NULL, NULL }
 };
 
+/* Device */
+
+static int
+device_new (lua_State *L)
+{
+  const char *factory = luaL_checkstring (L, 1);
+  WpProperties *properties = NULL;
+
+  if (lua_type (L, 2) != LUA_TNONE) {
+    luaL_checktype (L, 2, LUA_TTABLE);
+    properties = wplua_table_to_properties (L, 2);
+  }
+
+  WpDevice *d = wp_device_new_from_factory (get_wp_export_core (L),
+      factory, properties);
+  wplua_pushobject (L, d);
+  return 1;
+}
+
+/* WpSpaDevice */
+
+static int
+spa_device_new (lua_State *L)
+{
+  const char *factory = luaL_checkstring (L, 1);
+  WpProperties *properties = NULL;
+
+  if (lua_type (L, 2) != LUA_TNONE) {
+    luaL_checktype (L, 2, LUA_TTABLE);
+    properties = wplua_table_to_properties (L, 2);
+  }
+
+  WpSpaDevice *d = wp_spa_device_new_from_spa_factory (get_wp_export_core (L),
+      factory, properties);
+  wplua_pushobject (L, d);
+  return 1;
+}
+
+static int
+spa_device_get_managed_object (lua_State *L)
+{
+  WpSpaDevice *device = wplua_checkobject (L, 1, WP_TYPE_SPA_DEVICE);
+  guint id = luaL_checkinteger (L, 2);
+  GObject *obj = wp_spa_device_get_managed_object (device, id);
+  if (obj)
+    wplua_pushobject (L, obj);
+  return obj ? 1 : 0;
+}
+
+static int
+spa_device_store_managed_object (lua_State *L)
+{
+  WpSpaDevice *device = wplua_checkobject (L, 1, WP_TYPE_SPA_DEVICE);
+  guint id = luaL_checkinteger (L, 2);
+  GObject *obj = (lua_type (L, 3) != LUA_TNIL) ?
+      g_object_ref (wplua_checkobject (L, 3, G_TYPE_OBJECT)) : NULL;
+
+  wp_spa_device_store_managed_object (device, id, obj);
+  return 0;
+}
+
+static const luaL_Reg spa_device_methods[] = {
+  { "get_managed_object", spa_device_get_managed_object },
+  { "store_managed_object", spa_device_store_managed_object },
+  { NULL, NULL }
+};
+
+/* Node */
+
+static int
+node_new (lua_State *L)
+{
+  const char *factory = luaL_checkstring (L, 1);
+  WpProperties *properties = NULL;
+
+  if (lua_type (L, 2) != LUA_TNONE) {
+    luaL_checktype (L, 2, LUA_TTABLE);
+    properties = wplua_table_to_properties (L, 2);
+  }
+
+  WpNode *d = wp_node_new_from_factory (get_wp_export_core (L),
+      factory, properties);
+  wplua_pushobject (L, d);
+  return 1;
+}
+
+static const luaL_Reg node_methods[] = {
+  { NULL, NULL }
+};
+
+/* ImplNode */
+
+static int
+impl_node_new (lua_State *L)
+{
+  const char *factory = luaL_checkstring (L, 1);
+  WpProperties *properties = NULL;
+
+  if (lua_type (L, 2) != LUA_TNONE) {
+    luaL_checktype (L, 2, LUA_TTABLE);
+    properties = wplua_table_to_properties (L, 2);
+  }
+
+  WpImplNode *d = wp_impl_node_new_from_pw_factory (get_wp_export_core (L),
+     factory, properties);
+  wplua_pushobject (L, d);
+  return 1;
+}
+
 void
 wp_lua_scripting_api_init (lua_State *L)
 {
@@ -502,6 +655,8 @@ wp_lua_scripting_api_init (lua_State *L)
   luaL_newlib (L, log_funcs);
   lua_setglobal (L, "WpDebug");
 
+  wplua_register_type_methods (L, WP_TYPE_OBJECT,
+      NULL, object_methods);
   wplua_register_type_methods (L, WP_TYPE_GLOBAL_PROXY,
       NULL, global_proxy_methods);
   wplua_register_type_methods (L, WP_TYPE_OBJECT_INTEREST,
@@ -516,6 +671,14 @@ wp_lua_scripting_api_init (lua_State *L)
       NULL, endpoint_methods);
   wplua_register_type_methods (L, WP_TYPE_ENDPOINT_LINK,
       NULL, endpoint_link_methods);
+  wplua_register_type_methods (L, WP_TYPE_DEVICE,
+      device_new, NULL);
+  wplua_register_type_methods (L, WP_TYPE_SPA_DEVICE,
+      spa_device_new, spa_device_methods);
+  wplua_register_type_methods (L, WP_TYPE_NODE,
+      node_new, node_methods);
+  wplua_register_type_methods (L, WP_TYPE_IMPL_NODE,
+      impl_node_new, NULL);
 
   wplua_load_uri (L, URI_API, &error);
   if (G_UNLIKELY (error))

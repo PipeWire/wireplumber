@@ -69,9 +69,52 @@ local function Constraint (spec)
   return debug.setmetatable(spec, { __name = "Constraint" })
 end
 
+local Features = {
+  PipewireObject = {
+    MINIMAL = 0x11,
+  },
+  ALL = 0xffffffff,
+}
+
+local Feature = {
+  Proxy = {
+    BOUND             = 1,
+  },
+  PipewireObject = {
+    INFO              = (1 << 4),
+    PARAM_PROPS       = (1 << 5),
+    PARAM_FORMAT      = (1 << 6),
+    PARAM_PROFILE     = (1 << 7),
+    PARAM_PORT_CONFIG = (1 << 8),
+    PARAM_ROUTE       = (1 << 9),
+  },
+  SpaDevice = {
+    ENABLED           = (1 << 16),
+  },
+  Node = {
+    PORTS             = (1 << 16),
+  },
+  Session = {
+    ENDPOINTS         = (1 << 16),
+    LINKS             = (1 << 17),
+  },
+  Endpoint = {
+    STREAMS           = (1 << 16),
+  },
+  Metadata = {
+    DATA              = (1 << 16),
+  },
+}
+
 SANDBOX_EXPORT = {
+  Features = Features,
+  Feature = Feature,
   Log = WpDebug,
   ObjectManager = WpObjectManager_new,
   Interest = WpObjectInterest_new,
   Constraint = Constraint,
+  Device = WpDevice_new,
+  SpaDevice = WpSpaDevice_new,
+  Node = WpNode_new,
+  LocalNode = WpImplNode_new,
 }
