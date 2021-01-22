@@ -112,6 +112,7 @@ SANDBOX_EXPORT = {
   Log = WpDebug,
   ObjectManager = WpObjectManager_new,
   Interest = WpObjectInterest_new,
+  SessionItem = WpSessionItem_new,
   Constraint = Constraint,
   Device = WpDevice_new,
   SpaDevice = WpSpaDevice_new,

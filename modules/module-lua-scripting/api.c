@@ -647,6 +647,142 @@ impl_node_new (lua_State *L)
   return 1;
 }
 
+/* WpSessionItem */
+
+static int
+session_item_new (lua_State *L)
+{
+  WpSessionItem *si = NULL;
+  const char *type = luaL_checkstring (L, 1);
+  WpCore *core = NULL;
+
+  lua_pushliteral (L, "wireplumber_core");
+  lua_gettable (L, LUA_REGISTRYINDEX);
+  core = lua_touserdata (L, -1);
+
+  si = wp_session_item_make (core, type);
+  wplua_pushobject (L, si);
+  return 1;
+}
+
+static int
+session_item_reset (lua_State *L)
+{
+  WpSessionItem *si = wplua_checkobject (L, 1, WP_TYPE_SESSION_ITEM);
+  wp_session_item_reset (si);
+  return 0;
+}
+
+static int
+session_item_configure (lua_State *L)
+{
+  WpSessionItem *si = wplua_checkobject (L, 1, WP_TYPE_SESSION_ITEM);
+  g_auto (GVariantBuilder) b =
+      G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
+  GVariant *config = NULL;
+  gboolean is_key = TRUE;
+  const gchar *key = NULL;
+
+  /* validate arguments */
+  luaL_checktype (L, 2, LUA_TTABLE);
+
+  /* build the configuration */
+  lua_pushnil (L);
+  while (lua_next (L, 2)) {
+    if (is_key) {
+      is_key = FALSE;
+      key = lua_tostring (L, -1);
+    } else {
+      is_key = TRUE;
+      switch (lua_type (L, -1)) {
+        case LUA_TBOOLEAN:
+          g_variant_builder_add (&b, "{sv}", key,
+              g_variant_new_boolean (lua_toboolean (L, -1)));
+          break;
+        case LUA_TNUMBER:
+          g_variant_builder_add (&b, "{sv}", key,
+              g_variant_new_int64 (lua_tointeger (L, -1)));
+          break;
+        case LUA_TSTRING:
+          g_variant_builder_add (&b, "{sv}", key,
+              g_variant_new_string (lua_tostring (L, -1)));
+          break;
+        case LUA_TUSERDATA: {
+          GValue *v = lua_touserdata (L, -1);
+          gpointer p = NULL;
+          if (G_VALUE_HOLDS_OBJECT (v)) {
+            p = g_value_get_object (v);
+          } else if (G_VALUE_HOLDS_BOXED (v)) {
+            p = g_value_get_boxed (v);
+          } else if (G_VALUE_HOLDS_POINTER (v)) {
+            p = g_value_get_pointer (v);
+          } else {
+            luaL_error (L, "Key '%s' does not hold a valid pointer", key);
+            break;
+          }
+          g_variant_builder_add (&b, "{sv}", key,
+              g_variant_new_uint64 ((guint64)p));
+          break;
+        }
+        default:
+          luaL_error (L, "Key '%s' with value type '%s' is not supported", key,
+              lua_typename(L, lua_type(L, -1)));
+          break;
+      }
+    }
+    lua_pop (L, 1);
+  }
+  config = g_variant_builder_end (&b);
+
+  lua_pushboolean (L, wp_session_item_configure (si, config));
+  return 1;
+}
+
+static int
+session_item_activate (lua_State *L)
+{
+  WpSessionItem *si = wplua_checkobject (L, 1, WP_TYPE_SESSION_ITEM);
+  GClosure *closure = wplua_function_to_closure (L, 2);
+  wp_session_item_activate_closure (si, closure);
+  return 0;
+}
+
+static int
+session_item_deactivate (lua_State *L)
+{
+  WpSessionItem *si = wplua_checkobject (L, 1, WP_TYPE_SESSION_ITEM);
+  wp_session_item_deactivate (si);
+  return 0;
+}
+
+static int
+session_item_export (lua_State *L)
+{
+  WpSessionItem *si = wplua_checkobject (L, 1, WP_TYPE_SESSION_ITEM);
+  WpSession *session = wplua_checkobject (L, 2, WP_TYPE_SESSION);
+  GClosure *closure = wplua_function_to_closure (L, 3);
+  wp_session_item_export_closure (si, session, closure);
+  return 0;
+}
+
+static int
+session_item_unexport (lua_State *L)
+{
+  WpSessionItem *si = wplua_checkobject (L, 1, WP_TYPE_SESSION_ITEM);
+  wp_session_item_unexport (si);
+  return 0;
+}
+
+static const luaL_Reg session_item_methods[] = {
+  { "reset", session_item_reset },
+  { "configure", session_item_configure },
+  { "activate", session_item_activate },
+  { "deactivate", session_item_deactivate },
+  { "export", session_item_export },
+  { "unexport", session_item_unexport },
+  { NULL, NULL }
+};
+
 void
 wp_lua_scripting_api_init (lua_State *L)
 {
@@ -679,6 +815,8 @@ wp_lua_scripting_api_init (lua_State *L)
       node_new, node_methods);
   wplua_register_type_methods (L, WP_TYPE_IMPL_NODE,
       impl_node_new, NULL);
+  wplua_register_type_methods (L, WP_TYPE_SESSION_ITEM,
+      session_item_new, session_item_methods);
 
   wplua_load_uri (L, URI_API, &error);
   if (G_UNLIKELY (error))
