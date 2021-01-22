@@ -9,19 +9,22 @@ to disable and replace with WirePlumber. This can be achieved by editing
 
 ```
 diff --git a/src/daemon/pipewire.conf.in b/src/daemon/pipewire.conf.in
-index b659d460..93299ec2 100644
+index cebded96..dee1743b 100644
 --- a/src/daemon/pipewire.conf.in
 +++ b/src/daemon/pipewire.conf.in
-@@ -73,4 +73,4 @@ create-object spa-node-factory factory.name=support.node.driver node.name=Dummy
- # Execute the given program. This is usually used to start the
- # session manager. run the session manager with -h for options
- #
--exec pipewire-media-session # -d alsa-seq,alsa-pcm,bluez5,metadata
-+exec wireplumber
+@@ -99,7 +99,8 @@ exec = {
+     # Start the session manager. Run the session manager with -h for
+     # options.
+     #
+-    "@media_session_path@" = { args = ""}
++    #"@media_session_path@" = { args = ""}
++    "wireplumber" = {}
+     #
+     # You can optionally start the pulseaudio-server here as well
+     # but it better to start it as a systemd service.
 ```
 
 This setup assumes that WirePlumber is *installed* on the target system.
-If you wish
 
 ## Run independently or without installing
 
@@ -29,7 +32,7 @@ If you wish to debug WirePlumber, it may be useful to run it separately from
 PipeWire or run it directly from the source tree without installing.
 To do so:
 
-1. Comment out with `#` the `exec` line from `pipewire.conf`
+1. Comment out with `#` the `"wireplumber" = {}` line from `pipewire.conf`
 2. Run pipewire:
   - if it is installed, execute `pipewire`
   - if it is **not** installed, execute `make run` in the **pipewire** source tree
