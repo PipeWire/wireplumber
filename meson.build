@@ -1,7 +1,7 @@
 project('wireplumber', ['c', 'cpp'],
   version : '0.3.50',
   license : 'MIT',
-  meson_version : '>= 0.51.0',
+  meson_version : '>= 0.54.0',
   default_options : [
     'warning_level=1',
     'buildtype=debugoptimized',
@@ -40,19 +40,20 @@ gio_dep = dependency('gio-2.0', version : '== ' + gobject_dep.version())
 giounix_dep = dependency('gio-unix-2.0', version : '== ' + gobject_dep.version())
 pipewire_dep = dependency('libpipewire-0.3', version: '>= 0.3.20')
 
-lua_dep = dependency('lua', version: ['>=5.3.0', '<5.4.0'], required: false)
-if not lua_dep.found()
+if get_option('system-lua')
+  lua_dep = dependency('lua', version: ['>=5.3.0', '<5.4.0'], required: false)
+  if not lua_dep.found()
     lua_dep = dependency('lua5.3', required: false)
     if not lua_dep.found()
-        lua_dep = dependency('lua-5.3', required: false)
-        if not lua_dep.found()
-          lua_dep = dependency('lua53', required: false)
-          if not lua_dep.found()
-            lua_proj = subproject('lua')
-            lua_dep = lua_proj.get_variable('lua_dep')
-          endif
-        endif
+      lua_dep = dependency('lua53', required: false)
+      if not lua_dep.found()
+        lua_dep = dependency('lua-5.3', required: true , allow_fallback: false)
+      endif
     endif
+  endif
+else
+  lua_proj = subproject('lua', default_options: ['default_library=static'])
+  lua_dep = lua_proj.get_variable('lua_dep')
 endif
 
 gnome = import('gnome')
