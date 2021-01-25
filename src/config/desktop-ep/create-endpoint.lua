@@ -11,6 +11,7 @@ session_items = {
 }
 
 function addEndpoint (node, session_name, endpoint_type, priority)
+  local id = node["bound-id"]
   local name = node.properties['node.name']
   local media_class = node.properties['media.class']
   local session = nil
@@ -25,10 +26,10 @@ function addEndpoint (node, session_name, endpoint_type, priority)
   end
 
   -- create endpoint
-  session_items.endpoints[node] = SessionItem ( endpoint_type )
+  session_items.endpoints[id] = SessionItem ( endpoint_type )
 
   -- configure endpoint
-  if not session_items.endpoints[node]:configure ({
+  if not session_items.endpoints[id]:configure ({
       "node", node,
       "name", name,
       "media-class", media_class,
@@ -39,7 +40,7 @@ function addEndpoint (node, session_name, endpoint_type, priority)
   end
 
   -- activate endpoint
-  session_items.endpoints[node]:activate (function (activated_ep)
+  session_items.endpoints[id]:activate (function (activated_ep)
     Log.debug(node, "activated endpoint " .. name);
 
     -- export endpoint
@@ -49,17 +50,17 @@ function addEndpoint (node, session_name, endpoint_type, priority)
       -- only use monitor for input endpoints
       if string.find (media_class, "Input") or string.find (media_class, "Sink") then
         -- create monitor
-        session_items.monitors[node] = SessionItem ( "si-monitor-endpoint" )
+        session_items.monitors[id] = SessionItem ( "si-monitor-endpoint" )
 
         -- configure monitor
-	if not session_items.monitors[node]:configure ({
-	    "adapter", session_items.endpoints[node]
+	if not session_items.monitors[id]:configure ({
+	    "adapter", session_items.endpoints[id]
 	  }) then
 	  Log.warning(node, "failed to configure monitor " .. name);
 	end
 
 	-- activate monitor
-	session_items.monitors[node]:activate (function (activated_mon)
+	session_items.monitors[id]:activate (function (activated_mon)
 	  Log.debug(node, "activated monitor " .. name);
 
 	  -- export monitor
@@ -73,8 +74,9 @@ function addEndpoint (node, session_name, endpoint_type, priority)
 end
 
 function removeEndpoint (node)
-  session_items.monitors[node] = nil
-  session_items.endpoints[node] = nil
+  local id = node["bound-id"]
+  session_items.monitors[id] = nil
+  session_items.endpoints[id] = nil
 end
 
 sessions_om = ObjectManager { Interest { type = "session" } }
