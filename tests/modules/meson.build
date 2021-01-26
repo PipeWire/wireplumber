@@ -51,19 +51,6 @@ test(
 )
 
 test(
-  'test-dbus-device-reservation',
-  executable('test-dbus-device-reservation',
-    [
-      'dbus-device-reservation.c',
-      '../../modules/module-dbus-reservation/dbus-device-reservation.c',
-      reserve_device_interface_src,
-    ],
-    dependencies: common_deps + [giounix_dep], c_args: common_args),
-  env: common_env,
-  workdir : meson.current_source_dir(),
-)
-
-test(
   'test-reserve-device',
   executable('test-reserve-device', 'reserve-device.c',
     dependencies: common_deps, c_args: common_args),
