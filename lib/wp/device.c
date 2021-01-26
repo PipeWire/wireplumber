@@ -211,6 +211,7 @@ struct _WpSpaDevice
 enum
 {
   SIGNAL_CREATE_OBJECT,
+  SIGNAL_OBJECT_REMOVED,
   SPA_DEVICE_LAST_SIGNAL,
 };
 
@@ -380,6 +381,7 @@ spa_device_event_object_info (void *data, uint32_t id,
         id, type, info->factory_name, props);
   }
   else {
+    g_signal_emit (self, spa_device_signals[SIGNAL_OBJECT_REMOVED], 0, id);
     wp_spa_device_store_managed_object (self, id, NULL);
   }
 }
@@ -509,6 +511,23 @@ wp_spa_device_class_init (WpSpaDeviceClass * klass)
       "create-object", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
       0, NULL, NULL, NULL, G_TYPE_NONE, 4, G_TYPE_UINT, G_TYPE_STRING,
       G_TYPE_STRING, WP_TYPE_PROPERTIES);
+
+  /**
+   * WpSpaDevice::object-removed:
+   * @self: the #WpSpaDevice
+   * @id: the id of the managed object that was removed
+   *
+   * This signal is emitted when the device has deleted a managed object.
+   * The handler may optionally release additional resources associated
+   * with this object.
+   *
+   * It is not necessary to call wp_spa_device_store_managed_object()
+   * to remove the managed object, as this is done internally after this
+   * signal is fired.
+   */
+  spa_device_signals[SIGNAL_OBJECT_REMOVED] = g_signal_new (
+      "object-removed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
+      0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_UINT);
 }
 
 /**
