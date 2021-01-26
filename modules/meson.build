@@ -14,12 +14,6 @@ shared_library(
   dependencies : [wp_dep, pipewire_dep],
 )
 
-reserve_device_interface_src = gnome.gdbus_codegen('reserve-device-interface',
-  sources: 'module-dbus-reservation/org.freedesktop.ReserveDevice1.xml',
-  interface_prefix : 'org.freedesktop.ReserveDevice1.',
-  namespace : 'Wp'
-)
-
 shared_library(
   'wireplumber-module-metadata',
   [
@@ -40,20 +34,6 @@ shared_library(
   install : true,
   install_dir : wireplumber_module_dir,
   dependencies : [wp_dep, pipewire_dep],
-)
-
-shared_library(
-  'wireplumber-module-dbus-reservation',
-  [
-    'module-dbus-reservation.c',
-    'module-dbus-reservation/reserve-device.c',
-    'module-dbus-reservation/dbus-device-reservation.c',
-    reserve_device_interface_src,
-  ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-dbus-reservation"'],
-  install : true,
-  install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep, pipewire_dep, giounix_dep],
 )
 
 shared_library(
@@ -141,6 +121,23 @@ shared_library(
   install : true,
   install_dir : wireplumber_module_dir,
   dependencies : [wp_dep, wptoml_dep, pipewire_dep],
+)
+
+subdir('module-reserve-device')
+shared_library(
+  'wireplumber-module-reserve-device',
+  [
+    'module-reserve-device/plugin.c',
+    'module-reserve-device/reserve-device.c',
+    'module-reserve-device/transitions.c',
+    reserve_device_interface_src,
+    reserve_device_enums,
+  ],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-reserve-device"'],
+  include_directories: reserve_device_includes,
+  install : true,
+  install_dir : wireplumber_module_dir,
+  dependencies : [wp_dep, giounix_dep],
 )
 
 shared_library(

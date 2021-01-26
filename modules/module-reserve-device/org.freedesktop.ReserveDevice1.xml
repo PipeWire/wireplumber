@@ -1,0 +1,11 @@
+<node>
+ <interface name="org.freedesktop.ReserveDevice1">
+  <method name="RequestRelease">
+   <arg name="priority" type="i" direction="in"/>
+   <arg name="result" type="b" direction="out"/>
+  </method>
+  <property name="Priority" type="i" access="read"/>
+  <property name="ApplicationName" type="s" access="read"/>
+  <property name="ApplicationDeviceName" type="s" access="read"/>
+ </interface>
+</node>

@@ -64,6 +64,13 @@ test(
 )
 
 test(
+  'test-reserve-device',
+  executable('test-reserve-device', 'reserve-device.c',
+    dependencies: common_deps, c_args: common_args),
+  env: common_env,
+)
+
+test(
   'test-si-simple-node-endpoint',
   executable('test-si-simple-node-endpoint', 'si-simple-node-endpoint.c',
       dependencies: common_deps, c_args: common_args),
