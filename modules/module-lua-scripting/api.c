@@ -85,6 +85,20 @@ static const luaL_Reg log_funcs[] = {
   { NULL, NULL }
 };
 
+/* WpPlugin */
+
+static int
+plugin_find (lua_State *L)
+{
+  const char *name = luaL_checkstring (L, 1);
+  WpPlugin *plugin = wp_plugin_find (get_wp_core (L), name);
+  if (plugin)
+    wplua_pushobject (L, plugin);
+  else
+    lua_pushnil (L);
+  return 1;
+}
+
 /* WpObject */
 
 static void
@@ -790,6 +804,9 @@ wp_lua_scripting_api_init (lua_State *L)
 
   luaL_newlib (L, log_funcs);
   lua_setglobal (L, "WpDebug");
+
+  lua_pushcfunction (L, plugin_find);
+  lua_setglobal (L, "WpPlugin_find");
 
   wplua_register_type_methods (L, WP_TYPE_OBJECT,
       NULL, object_methods);
