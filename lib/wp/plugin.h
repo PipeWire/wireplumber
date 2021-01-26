@@ -39,6 +39,9 @@ WP_API
 void wp_plugin_register (WpPlugin * plugin);
 
 WP_API
+WpPlugin * wp_plugin_find (WpCore * core, const gchar * plugin_name);
+
+WP_API
 const gchar * wp_plugin_get_name (WpPlugin * self);
 
 WP_API

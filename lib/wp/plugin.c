@@ -26,7 +26,7 @@ enum {
 typedef struct _WpPluginPrivate WpPluginPrivate;
 struct _WpPluginPrivate
 {
-  gchar *name;
+  GQuark name_quark;
   GWeakRef module;
 };
 
@@ -68,7 +68,6 @@ wp_plugin_finalize (GObject * object)
   WpPluginPrivate *priv = wp_plugin_get_instance_private (self);
 
   g_weak_ref_clear (&priv->module);
-  g_clear_pointer (&priv->name, g_free);
 
   G_OBJECT_CLASS (wp_plugin_parent_class)->finalize (object);
 }
@@ -82,8 +81,7 @@ wp_plugin_set_property (GObject * object, guint property_id,
 
   switch (property_id) {
   case PROP_NAME:
-    g_clear_pointer (&priv->name, g_free);
-    priv->name = g_value_dup_string (value);
+    priv->name_quark = g_quark_from_string (g_value_get_string (value));
     break;
   case PROP_MODULE:
     g_weak_ref_set (&priv->module, g_value_get_object (value));
@@ -103,7 +101,7 @@ wp_plugin_get_property (GObject * object, guint property_id,
 
   switch (property_id) {
   case PROP_NAME:
-    g_value_set_string (value, priv->name);
+    g_value_set_string (value, g_quark_to_string (priv->name_quark));
     break;
   case PROP_MODULE:
     g_value_take_object (value, g_weak_ref_get (&priv->module));
@@ -160,6 +158,36 @@ wp_plugin_register (WpPlugin * plugin)
   wp_registry_register_object (wp_core_get_registry (core), plugin);
 }
 
+static gboolean
+find_plugin_func (gpointer plugin, gpointer name_quark)
+{
+  if (!WP_IS_PLUGIN (plugin))
+    return FALSE;
+
+  WpPluginPrivate *priv = wp_plugin_get_instance_private (plugin);
+  return priv->name_quark == GPOINTER_TO_UINT (name_quark);
+}
+
+/**
+ * wp_plugin_find:
+ * @core: the core
+ * @plugin_name: the lookup name
+ *
+ * Returns: (transfer full) (nullable): the plugin matching the lookup name
+ */
+WpPlugin *
+wp_plugin_find (WpCore * core, const gchar * plugin_name)
+{
+  g_return_val_if_fail (WP_IS_CORE (core), NULL);
+
+  GQuark q = g_quark_try_string (plugin_name);
+  if (q == 0)
+    return NULL;
+  GObject *p = wp_registry_find_object (wp_core_get_registry (core),
+      (GEqualFunc) find_plugin_func, GUINT_TO_POINTER (q));
+  return p ? WP_PLUGIN (p) : NULL;
+}
+
 /**
  * wp_plugin_get_name:
  * @self: the plugin
@@ -172,7 +200,7 @@ wp_plugin_get_name (WpPlugin * self)
   g_return_val_if_fail (WP_IS_PLUGIN (self), NULL);
 
   WpPluginPrivate *priv = wp_plugin_get_instance_private (self);
-  return priv->name;
+  return g_quark_to_string (priv->name_quark);
 }
 
 /**
