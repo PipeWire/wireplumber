@@ -33,7 +33,8 @@ _wplua_gboxed___index (lua_State *L)
   lua_CFunction func = NULL;
   GHashTable *vtables;
 
-  lua_getglobal (L, "__wplua_vtables");
+  lua_pushliteral (L, "wplua_vtables");
+  lua_gettable (L, LUA_REGISTRYINDEX);
   vtables = wplua_toboxed (L, -1);
   lua_pop (L, 1);
 
