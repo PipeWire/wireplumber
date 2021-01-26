@@ -7,7 +7,7 @@
 
 Config = {
   use_acp = true,
-  --use_device_reservation = true,
+  use_device_reservation = true,
   enable_midi = true,
   enable_jack_client = false,
 }
@@ -23,6 +23,10 @@ if Config.enable_jack_client then
   jack_device = Device("spa-device-factory", {
     ["factory.name"] = "api.jack.device"
   })
+end
+
+if Config.use_device_reservation then
+  rd_plugin = Plugin("reserve-device")
 end
 
 function createNode(parent, id, type, factory, properties)
@@ -140,13 +144,100 @@ function createDevice(parent, id, type, factory, properties)
     factory = "api.alsa.acp.device"
   end
 
-  -- create the device
-  local device = SpaDevice(factory, properties)
-  device:connect("create-object", createNode)
-  device:activate(Feature.SpaDevice.ENABLED | Feature.Proxy.BOUND)
-  parent:store_managed_object(id, device)
+  -- use device reservation, if available
+  if rd_plugin then
+    local rd_name = "Audio" .. properties["api.alsa.card"]
+    local rd = rd_plugin:call("create-reservation",
+        rd_name, "WirePlumber", properties["device.name"], -20);
+
+    properties["api.dbus.ReserveDevice1"] = rd_name
+
+    -- unlike pipewire-media-session, this logic here keeps the device
+    -- acquired at all times and destroys it if someone else acquires
+    rd:connect("notify::state", function (rd, pspec)
+      local state = rd["state"]
+
+      if state == "acquired" then
+        -- create the device
+        local device = SpaDevice(factory, properties)
+        device:connect("create-object", createNode)
+        device:activate(Feature.SpaDevice.ENABLED | Feature.Proxy.BOUND)
+        parent:store_managed_object(id, device)
+
+      elseif state == "available" then
+        -- attempt to acquire again
+        rd:call("acquire")
+
+      elseif state == "busy" then
+        -- destroy the device
+        parent:store_managed_object(id, nil)
+      end
+    end)
+
+    if jack_device then
+      rd:connect("notify::owner-name-changed", function (rd, pspec)
+        if rd["state"] == "busy" and
+           rd["owner-application-name"] == "Jack audio server" then
+            -- TODO enable the jack device
+        else
+            -- TODO disable the jack device
+        end
+      end)
+    end
+
+    rd:call("acquire")
+  else
+    -- create the device
+    local device = SpaDevice(factory, properties)
+    device:connect("create-object", createNode)
+    device:activate(Feature.SpaDevice.ENABLED | Feature.Proxy.BOUND)
+    parent:store_managed_object(id, device)
+  end
 end
 
 monitor = SpaDevice("api.alsa.enum.udev")
 monitor:connect("create-object", createDevice)
-monitor:activate(Feature.SpaDevice.ENABLED)
+
+function activateMonitor()
+  if rd_plugin then
+    monitor:connect("object-removed", function (parent, id)
+      local device = parent:get_managed_object(id)
+      local rd_name = device.properties["api.dbus.ReserveDevice1"]
+      if rd_name then
+        rd_plugin:call("destroy-reservation", rd_name)
+      end
+    end)
+  end
+
+  Log.info("Activating ALSA monitor")
+  monitor:activate(Feature.SpaDevice.ENABLED)
+end
+
+if rd_plugin then
+  -- delay activation until the d-bus connection is ready
+  if rd_plugin["state"] == "connecting" then
+    rd_plugin:connect("notify::state", function (rdp, pspec)
+      -- "connected" -> ready
+      if rd_plugin["state"] == "connected" then
+        activateMonitor()
+
+      -- "closed" -> the d-bus connection failed
+      elseif rd_plugin["state"] == "closed" then
+        rd_plugin = nil
+        activateMonitor()
+      end
+      -- TODO disconnect signal handler
+    end)
+
+  -- d-bus connection has failed
+  elseif rd_plugin["state"] == "closed" then
+    rd_plugin = nil
+    activateMonitor()
+
+  -- d-bus connection is ready
+  elseif rd_plugin["state"] == "connected" then
+    activateMonitor()
+  end
+else
+  activateMonitor()
+end
