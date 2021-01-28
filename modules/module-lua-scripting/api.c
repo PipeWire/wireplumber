@@ -11,6 +11,8 @@
 
 #define URI_API "resource:///org/freedesktop/pipewire/wireplumber/m-lua-scripting/api.lua"
 
+void wp_lua_scripting_pod_init (lua_State *L);
+
 /* helpers */
 
 static WpCore *
@@ -963,6 +965,8 @@ wp_lua_scripting_api_init (lua_State *L)
 
   lua_pushcfunction (L, plugin_find);
   lua_setglobal (L, "WpPlugin_find");
+
+  wp_lua_scripting_pod_init (L);
 
   wplua_register_type_methods (L, WP_TYPE_OBJECT,
       NULL, object_methods);
