@@ -1,8 +1,0 @@
-[match-node]
-properties = [
-  { name = "media.class", value = "Stream/Output/Audio" },
-]
-
-[endpoint]
-session = "audio"
-type = "si-adapter"

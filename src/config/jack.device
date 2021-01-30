@@ -1,5 +1,0 @@
-factory = "spa-device-factory"
-properties = [
-  { name = "factory.name", value = "api.jack.device" },
-  { name = "node.name", value = "JACK-Device" },
-]

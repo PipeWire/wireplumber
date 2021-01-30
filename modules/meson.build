@@ -26,17 +26,6 @@ shared_library(
 )
 
 shared_library(
-  'wireplumber-module-monitor',
-  [
-    'module-monitor.c',
-  ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-monitor"'],
-  install : true,
-  install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep, pipewire_dep],
-)
-
-shared_library(
   'wireplumber-module-default-profile',
   [
     'module-default-profile.c',
@@ -78,49 +67,6 @@ shared_library(
   install : true,
   install_dir : wireplumber_module_dir,
   dependencies : [wp_dep, pipewire_dep],
-)
-
-shared_library(
-  'wireplumber-module-config-static-objects',
-  [
-    'module-config-static-objects/parser-device.c',
-    'module-config-static-objects/parser-node.c',
-    'module-config-static-objects/context.c',
-    'module-config-static-objects.c',
-  ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-config-static-objects"'],
-  install : true,
-  install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep, wptoml_dep, pipewire_dep],
-)
-
-shared_library(
-  'wireplumber-module-endpoint-creation',
-  [
-    'module-endpoint-creation/generic-creation.c',
-    'module-endpoint-creation/limited-creation.c',
-    'module-endpoint-creation/limited-creation-bluez5.c',
-    'module-endpoint-creation/parser-endpoint.c',
-    'module-endpoint-creation/parser-streams.c',
-    'module-endpoint-creation.c',
-  ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-endpoint-creation"'],
-  install : true,
-  install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep, wptoml_dep, pipewire_dep],
-)
-
-shared_library(
-  'wireplumber-module-config-policy',
-  [
-    'module-config-policy/parser-endpoint-link.c',
-    'module-config-policy/context.c',
-    'module-config-policy.c',
-  ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-config-policy"'],
-  install : true,
-  install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep, wptoml_dep, pipewire_dep],
 )
 
 subdir('module-reserve-device')

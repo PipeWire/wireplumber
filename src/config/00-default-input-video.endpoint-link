@@ -1,5 +1,0 @@
-[match-endpoint]
-media_class = "Stream/Input/Video"
-
-[target-endpoint]
-media_class = "Video/Source"

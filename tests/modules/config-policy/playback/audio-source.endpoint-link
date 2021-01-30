@@ -1,8 +1,0 @@
-[match-endpoint]
-media_class = "Audio/Source"
-
-[target-endpoint]
-media_class = "Audio/Sink"
-
-[endpoint-link]
-keep = false

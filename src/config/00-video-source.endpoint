@@ -1,8 +1,0 @@
-[match-node]
-properties = [
-  { name = "media.class", value = "Video/Source" },
-]
-
-[endpoint]
-session = "video"
-type = "si-simple-node-endpoint"

@@ -21,36 +21,6 @@ test(
 )
 
 test(
-  'test-config-static-objects',
-  executable('test-config-static-objects',
-    [
-      'config-static-objects.c',
-    ],
-    dependencies: common_deps + [wptoml_dep], c_args: common_args),
-  env: common_env,
-  workdir : meson.current_source_dir(),
-)
-
-test(
-  'test-endpoint-creation',
-  executable('test-endpoint-creation', 'endpoint-creation.c',
-    dependencies: common_deps + [wptoml_dep], c_args: common_args),
-  env: common_env,
-  workdir : meson.current_source_dir(),
-)
-
-test(
-  'test-config-policy',
-  executable('test-config-policy',
-    [
-      'config-policy.c',
-    ],
-    dependencies: common_deps + [wptoml_dep], c_args: common_args),
-  env: common_env,
-  workdir : meson.current_source_dir(),
-)
-
-test(
   'test-reserve-device',
   executable('test-reserve-device', 'reserve-device.c',
     dependencies: common_deps, c_args: common_args),

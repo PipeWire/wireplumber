@@ -1,9 +1,0 @@
-[[streams]]
-name = "Multimedia"
-priority = 0
-enable_control_port = false
-
-[[streams]]
-name = "Notification"
-priority = 1
-enable_control_port = false

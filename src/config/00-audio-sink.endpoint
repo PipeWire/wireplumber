@@ -1,8 +1,0 @@
-[match-node]
-properties = [
-  { name = "media.class", value = "Audio/Sink" },
-]
-
-[endpoint]
-session = "audio"
-type = "si-simple-node-endpoint"
