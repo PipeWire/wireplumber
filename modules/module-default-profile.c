@@ -332,11 +332,12 @@ wp_default_profile_class_init (WpDefaultProfileClass * klass)
       NULL, G_TYPE_NONE, 2, WP_TYPE_DEVICE, G_TYPE_POINTER);
 }
 
-WP_PLUGIN_EXPORT void
-wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
+WP_PLUGIN_EXPORT gboolean
+wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
   wp_plugin_register (g_object_new (wp_default_profile_get_type (),
       "name", STATE_NAME,
       "core", core,
       NULL));
+  return TRUE;
 }

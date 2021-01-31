@@ -182,12 +182,12 @@ wp_device_activation_class_init (WpDeviceActivationClass * klass)
   plugin_class->disable = wp_device_activation_disable;
 }
 
-
-WP_PLUGIN_EXPORT void
-wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
+WP_PLUGIN_EXPORT gboolean
+wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
   wp_plugin_register (g_object_new (wp_device_activation_get_type (),
       "name", "device-activation",
       "core", core,
       NULL));
+  return TRUE;
 }

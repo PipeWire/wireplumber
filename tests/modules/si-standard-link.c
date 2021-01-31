@@ -86,14 +86,13 @@ test_si_standard_link_setup (TestFixture * f, gconstpointer user_data)
   }
   {
     g_autoptr (GError) error = NULL;
-    WpModule *module = wp_module_load (f->base.core, "C",
-        "libwireplumber-module-si-simple-node-endpoint", NULL, &error);
+    wp_core_load_component (f->base.core,
+        "libwireplumber-module-si-simple-node-endpoint", "module", NULL, &error);
     g_assert_no_error (error);
-    g_assert_nonnull (module);
-    module = wp_module_load (f->base.core, "C",
-        "libwireplumber-module-si-standard-link", NULL, &error);
+
+    wp_core_load_component (f->base.core,
+        "libwireplumber-module-si-standard-link", "module", NULL, &error);
     g_assert_no_error (error);
-    g_assert_nonnull (module);
   }
 
   g_assert_nonnull (

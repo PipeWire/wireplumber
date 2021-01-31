@@ -70,11 +70,12 @@ wp_metadata_plugin_class_init (WpMetadataPluginClass * klass)
   plugin_class->disable = wp_metadata_plugin_disable;
 }
 
-WP_PLUGIN_EXPORT void
-wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
+WP_PLUGIN_EXPORT gboolean
+wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
   wp_plugin_register (g_object_new (wp_metadata_plugin_get_type (),
           "name", "metadata",
           "core", core,
           NULL));
+  return TRUE;
 }

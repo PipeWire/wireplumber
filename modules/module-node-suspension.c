@@ -130,11 +130,12 @@ wp_node_suspension_class_init (WpNodeSuspensionClass * klass)
   plugin_class->disable = wp_node_suspension_disable;
 }
 
-WP_PLUGIN_EXPORT void
-wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
+WP_PLUGIN_EXPORT gboolean
+wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
   wp_plugin_register (g_object_new (wp_node_suspension_get_type (),
       "name", "node-suspension",
       "core", core,
       NULL));
+  return TRUE;
 }

@@ -174,8 +174,8 @@ si_fake_stream_port_info_init (WpSiPortInfoInterface * iface)
   iface->get_ports = si_fake_stream_get_ports;
 }
 
-WP_PLUGIN_EXPORT void
-wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
+WP_PLUGIN_EXPORT gboolean
+wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
   GVariantBuilder b;
 
@@ -185,4 +185,5 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 
   wp_si_factory_register (core, wp_si_factory_new_simple (
       "si-fake-stream", si_fake_stream_get_type (), g_variant_builder_end (&b)));
+  return TRUE;
 }

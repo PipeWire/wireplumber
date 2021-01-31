@@ -307,7 +307,6 @@ on_session_ready (WpObject * session, GAsyncResult * res, AppData * d)
 static gboolean
 appdata_init (AppData * d, GError ** error)
 {
-  WpModule *module;
   WpImplSession *session;
 
   /* setup the internal test PipeWire server */
@@ -353,24 +352,24 @@ appdata_init (AppData * d, GError ** error)
           NULL));
 
   /* load wireplumber modules (wireplumber.conf) */
-  if (!(module = wp_module_load (d->core, "C",
-          "libwireplumber-module-si-simple-node-endpoint", NULL, error)))
+  if (!(wp_core_load_component (d->core,
+          "libwireplumber-module-si-simple-node-endpoint", "module", NULL, error)))
     return FALSE;
 
-  if (!(module = wp_module_load (d->core, "C",
-          "libwireplumber-module-si-audio-softdsp-endpoint", NULL, error)))
+  if (!(wp_core_load_component (d->core,
+          "libwireplumber-module-si-audio-softdsp-endpoint", "module", NULL, error)))
     return FALSE;
 
-  if (!(module = wp_module_load (d->core, "C",
-          "libwireplumber-module-si-adapter", NULL, error)))
+  if (!(wp_core_load_component (d->core,
+          "libwireplumber-module-si-adapter", "module", NULL, error)))
     return FALSE;
 
-  if (!(module = wp_module_load (d->core, "C",
-          "libwireplumber-module-si-convert", NULL, error)))
+  if (!(wp_core_load_component (d->core,
+          "libwireplumber-module-si-convert", "module", NULL, error)))
     return FALSE;
 
-  if (!(module = wp_module_load (d->core, "C",
-          "libwireplumber-module-si-standard-link", NULL, error)))
+  if (!(wp_core_load_component (d->core,
+          "libwireplumber-module-si-standard-link", "module", NULL, error)))
     return FALSE;
 
   /* connect */

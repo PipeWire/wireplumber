@@ -168,14 +168,15 @@ wp_lua_scripting_plugin_class_init (WpLuaScriptingPluginClass * klass)
           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 }
 
-WP_PLUGIN_EXPORT void
-wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
+WP_PLUGIN_EXPORT gboolean
+wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
   const gchar *profile;
 
   if (!g_variant_lookup (args, "profile", "&s", &profile)) {
-    wp_warning_object (module, "module-lua-scripting requires a 'profile'");
-    return;
+    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
+        "module-lua-scripting requires a 'profile'");
+    return FALSE;
   }
 
   wp_plugin_register (g_object_new (wp_lua_scripting_plugin_get_type (),
@@ -183,4 +184,5 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
           "core", core,
           "profile", profile,
           NULL));
+  return TRUE;
 }

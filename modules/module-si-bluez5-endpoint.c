@@ -540,8 +540,8 @@ si_bluez5_endpoint_stream_acquisition_init (
   iface->release = si_bluez5_endpoint_stream_acquisition_release;
 }
 
-WP_PLUGIN_EXPORT void
-wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
+WP_PLUGIN_EXPORT gboolean
+wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
   GVariantBuilder b;
 
@@ -568,4 +568,5 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   wp_si_factory_register (core, wp_si_factory_new_simple (
       "si-bluez5-endpoint", si_bluez5_endpoint_get_type (),
       g_variant_builder_end (&b)));
+  return TRUE;
 }

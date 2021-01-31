@@ -415,8 +415,8 @@ si_simple_node_endpoint_port_info_init (WpSiPortInfoInterface * iface)
   iface->get_ports = si_simple_node_endpoint_get_ports;
 }
 
-WP_PLUGIN_EXPORT void
-wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
+WP_PLUGIN_EXPORT gboolean
+wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
   GVariantBuilder b;
 
@@ -436,4 +436,5 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   wp_si_factory_register (core, wp_si_factory_new_simple (
       "si-simple-node-endpoint", si_simple_node_endpoint_get_type (),
       g_variant_builder_end (&b)));
+  return TRUE;
 }

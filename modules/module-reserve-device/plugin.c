@@ -271,11 +271,12 @@ wp_reserve_device_plugin_class_init (WpReserveDevicePluginClass * klass)
 
 }
 
-WP_PLUGIN_EXPORT void
-wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
+WP_PLUGIN_EXPORT gboolean
+wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
   wp_plugin_register (g_object_new (wp_reserve_device_plugin_get_type (),
       "name", "reserve-device",
       "core", core,
       NULL));
+  return TRUE;
 }

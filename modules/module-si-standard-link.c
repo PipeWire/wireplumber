@@ -497,8 +497,8 @@ si_standard_link_link_init (WpSiLinkInterface * iface)
   iface->get_in_stream = si_standard_link_get_in_stream;
 }
 
-WP_PLUGIN_EXPORT void
-wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
+WP_PLUGIN_EXPORT gboolean
+wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
   GVariantBuilder b;
 
@@ -520,4 +520,5 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
           "si-standard-link",
           si_standard_link_get_type (),
           g_variant_builder_end (&b)));
+  return TRUE;
 }

@@ -10,6 +10,7 @@
 #define __WIREPLUMBER_WP_H__
 
 #include "client.h"
+#include "component-loader.h"
 #include "configuration.h"
 #include "core.h"
 #include "debug.h"

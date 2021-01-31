@@ -251,22 +251,21 @@ parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
             properties = g_variant_new_parsed ("@a{sv} {}");
           }
 
-          if (!wp_module_load (d->core, abi, module, properties, error)) {
+          if (!wp_core_load_component (d->core, module, "module", properties,
+                  error))
             return FALSE;
-          }
+
         } else if (!g_strcmp0 (cmd, "load-pipewire-module")) {
           gchar *module, *props;
 
           module = strtok_r (NULL, " ", &saveptr);
           props = module + strlen(module) + 1;
+          properties = g_variant_new_string (props);
 
-          if (!pw_context_load_module (wp_core_get_pw_context (d->core), module,
-                  props, NULL)) {
-            g_set_error (error, WP_DOMAIN_DAEMON, WP_CODE_OPERATION_FAILED,
-                "failed to load pipewire module '%s': %s", module,
-                g_strerror (errno));
+          if (!wp_core_load_component (d->core, module, "pw_module", properties,
+                  error))
             return FALSE;
-          }
+
         } else if (!g_strcmp0 (cmd, "add-spa-lib")) {
           gchar *regex, *lib;
           gint ret;

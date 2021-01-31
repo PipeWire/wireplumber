@@ -74,11 +74,12 @@ wp_client_permissions_class_init (WpClientPermissionsClass * klass)
   plugin_class->disable = wp_client_permissions_disable;
 }
 
-WP_PLUGIN_EXPORT void
-wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
+WP_PLUGIN_EXPORT gboolean
+wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
   wp_plugin_register (g_object_new (wp_client_permissions_get_type (),
           "name", "client-permissions",
           "core", core,
           NULL));
+  return TRUE;
 }

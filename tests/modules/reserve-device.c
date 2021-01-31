@@ -28,17 +28,15 @@ test_rd_setup (RdTestFixture *f, gconstpointer data)
 
   {
     g_autoptr (GError) error = NULL;
-    WpModule *module = wp_module_load (f->base.core, "C",
-        "libwireplumber-module-reserve-device", NULL, &error);
+    wp_core_load_component (f->base.core,
+        "libwireplumber-module-reserve-device", "module", NULL, &error);
     g_assert_no_error (error);
-    g_assert_nonnull (module);
   }
   {
     g_autoptr (GError) error = NULL;
-    WpModule *module = wp_module_load (f->base.client_core, "C",
-        "libwireplumber-module-reserve-device", NULL, &error);
+    wp_core_load_component (f->base.client_core,
+        "libwireplumber-module-reserve-device", "module", NULL, &error);
     g_assert_no_error (error);
-    g_assert_nonnull (module);
   }
 
   f->rd_plugin_1 = wp_plugin_find (f->base.core, "reserve-device");

@@ -290,8 +290,8 @@ si_audio_softdsp_endpoint_class_init (WpSiAudioSoftdspEndpointClass * klass)
   si_class->activate_rollback = si_audio_softdsp_endpoint_activate_rollback;
 }
 
-WP_PLUGIN_EXPORT void
-wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
+WP_PLUGIN_EXPORT gboolean
+wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
   GVariantBuilder b;
 
@@ -302,4 +302,5 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
   wp_si_factory_register (core, wp_si_factory_new_simple (
       "si-audio-softdsp-endpoint", si_audio_softdsp_endpoint_get_type (),
       g_variant_builder_end (&b)));
+  return TRUE;
 }

@@ -35,24 +35,21 @@ test_si_audio_softdsp_endpoint_setup (TestFixture * f, gconstpointer user_data)
   }
   {
     g_autoptr (GError) error = NULL;
-    WpModule *module = wp_module_load (f->base.core, "C",
-        "libwireplumber-module-si-adapter", NULL, &error);
+    wp_core_load_component (f->base.core,
+        "libwireplumber-module-si-adapter", "module", NULL, &error);
     g_assert_no_error (error);
-    g_assert_nonnull (module);
   }
   {
     g_autoptr (GError) error = NULL;
-    WpModule *module = wp_module_load (f->base.core, "C",
-        "libwireplumber-module-si-convert", NULL, &error);
+    wp_core_load_component (f->base.core,
+        "libwireplumber-module-si-convert", "module", NULL, &error);
     g_assert_no_error (error);
-    g_assert_nonnull (module);
   }
   {
     g_autoptr (GError) error = NULL;
-    WpModule *module = wp_module_load (f->base.core, "C",
-        "libwireplumber-module-si-audio-softdsp-endpoint", NULL, &error);
+    wp_core_load_component (f->base.core,
+        "libwireplumber-module-si-audio-softdsp-endpoint", "module", NULL, &error);
     g_assert_no_error (error);
-    g_assert_nonnull (module);
   }
 }
 
