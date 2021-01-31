@@ -20,14 +20,12 @@
 enum {
   PROP_0,
   PROP_NAME,
-  PROP_MODULE,
 };
 
 typedef struct _WpPluginPrivate WpPluginPrivate;
 struct _WpPluginPrivate
 {
   GQuark name_quark;
-  GWeakRef module;
 };
 
 /**
@@ -38,38 +36,22 @@ struct _WpPluginPrivate
  *
  * Typically, a plugin is created within a module and then registered to
  * make it available for use by the daemon. The daemon is responsible for
- * calling #WpPluginClass.activate() after all modules have been loaded,
+ * calling wp_object_activate() on it after all modules have been loaded,
  * the core is connected and the initial discovery of global objects is
  * done.
+ *
+ * Being a #WpObject subclass, the plugin inherits #WpObject's activation
+ * system. For most implementations, there is only need for activating one
+ * feature, %WP_PLUGIN_FEATURE_ENABLED, and this can be done by implementing
+ * only #WpPluginClass.enable() and #WpPluginClass.disable(). For more advanced
+ * plugins that need to have more features, you may implement directly the
+ * functions of #WpObjectClass and ignore the ones of #WpPluginClass.
  */
-G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (WpPlugin, wp_plugin, G_TYPE_OBJECT)
+G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (WpPlugin, wp_plugin, WP_TYPE_OBJECT)
 
 static void
 wp_plugin_init (WpPlugin * self)
 {
-  WpPluginPrivate *priv = wp_plugin_get_instance_private (self);
-  g_weak_ref_init (&priv->module, NULL);
-}
-
-static void
-wp_plugin_dispose (GObject * object)
-{
-  WpPlugin *self = WP_PLUGIN (object);
-
-  wp_plugin_deactivate (self);
-
-  G_OBJECT_CLASS (wp_plugin_parent_class)->dispose (object);
-}
-
-static void
-wp_plugin_finalize (GObject * object)
-{
-  WpPlugin *self = WP_PLUGIN (object);
-  WpPluginPrivate *priv = wp_plugin_get_instance_private (self);
-
-  g_weak_ref_clear (&priv->module);
-
-  G_OBJECT_CLASS (wp_plugin_parent_class)->finalize (object);
 }
 
 static void
@@ -82,9 +64,6 @@ wp_plugin_set_property (GObject * object, guint property_id,
   switch (property_id) {
   case PROP_NAME:
     priv->name_quark = g_quark_from_string (g_value_get_string (value));
-    break;
-  case PROP_MODULE:
-    g_weak_ref_set (&priv->module, g_value_get_object (value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -103,12 +82,64 @@ wp_plugin_get_property (GObject * object, guint property_id,
   case PROP_NAME:
     g_value_set_string (value, g_quark_to_string (priv->name_quark));
     break;
-  case PROP_MODULE:
-    g_value_take_object (value, g_weak_ref_get (&priv->module));
-    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
+  }
+}
+
+static WpObjectFeatures
+wp_plugin_get_supported_features (WpObject * self)
+{
+  return WP_PLUGIN_FEATURE_ENABLED;
+}
+
+enum {
+  STEP_ENABLE = WP_TRANSITION_STEP_CUSTOM_START,
+};
+
+static guint
+wp_plugin_activate_get_next_step (WpObject * object,
+    WpFeatureActivationTransition * transition, guint step,
+    WpObjectFeatures missing)
+{
+  /* we only support ENABLED, so this is the only
+     feature that can be in @missing */
+  g_return_val_if_fail (missing == WP_PLUGIN_FEATURE_ENABLED,
+      WP_TRANSITION_STEP_ERROR);
+
+  return STEP_ENABLE;
+}
+
+static void
+wp_plugin_activate_execute_step (WpObject * object,
+    WpFeatureActivationTransition * transition, guint step,
+    WpObjectFeatures missing)
+{
+  switch (step) {
+  case STEP_ENABLE: {
+    WpPlugin *self = WP_PLUGIN (object);
+    wp_info_object (self, "enabling plugin '%s'", wp_plugin_get_name (self));
+    g_return_if_fail (WP_PLUGIN_GET_CLASS (self)->enable);
+    WP_PLUGIN_GET_CLASS (self)->enable (self, WP_TRANSITION (transition));
+    break;
+  }
+  case WP_TRANSITION_STEP_ERROR:
+    break;
+  default:
+    g_assert_not_reached ();
+  }
+}
+
+static void
+wp_plugin_deactivate (WpObject * object, WpObjectFeatures features)
+{
+  if (features & WP_PLUGIN_FEATURE_ENABLED) {
+    WpPlugin *self = WP_PLUGIN (object);
+    wp_info_object (self, "disabling plugin '%s'", wp_plugin_get_name (self));
+    if (WP_PLUGIN_GET_CLASS (self)->disable)
+      WP_PLUGIN_GET_CLASS (self)->disable (self);
+    wp_object_update_features (WP_OBJECT (self), 0, WP_PLUGIN_FEATURE_ENABLED);
   }
 }
 
@@ -116,11 +147,15 @@ static void
 wp_plugin_class_init (WpPluginClass * klass)
 {
   GObjectClass * object_class = (GObjectClass *) klass;
+  WpObjectClass * wpobject_class = (WpObjectClass *) klass;
 
-  object_class->dispose = wp_plugin_dispose;
-  object_class->finalize = wp_plugin_finalize;
   object_class->set_property = wp_plugin_set_property;
   object_class->get_property = wp_plugin_get_property;
+
+  wpobject_class->get_supported_features = wp_plugin_get_supported_features;
+  wpobject_class->activate_get_next_step = wp_plugin_activate_get_next_step;
+  wpobject_class->activate_execute_step = wp_plugin_activate_execute_step;
+  wpobject_class->deactivate = wp_plugin_deactivate;
 
   /**
    * WpPlugin:name:
@@ -130,16 +165,6 @@ wp_plugin_class_init (WpPluginClass * klass)
   g_object_class_install_property (object_class, PROP_NAME,
       g_param_spec_string ("name", "name",
           "The name of this plugin", NULL,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
-
-  /**
-   * WpPlugin:module:
-   * The module that created this plugin.
-   * Implementations should initialize this in the constructor.
-   */
-  g_object_class_install_property (object_class, PROP_MODULE,
-      g_param_spec_object ("module", "module",
-          "The module that owns this plugin", WP_TYPE_MODULE,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
@@ -152,7 +177,7 @@ wp_plugin_class_init (WpPluginClass * klass)
 void
 wp_plugin_register (WpPlugin * plugin)
 {
-  g_autoptr (WpCore) core = wp_plugin_get_core (plugin);
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
   g_return_if_fail (WP_IS_CORE (core));
 
   wp_registry_register_object (wp_core_get_registry (core), plugin);
@@ -204,65 +229,22 @@ wp_plugin_get_name (WpPlugin * self)
 }
 
 /**
- * wp_plugin_get_module:
+ * WpPluginClass.enable:
  * @self: the plugin
+ * @transition: the activation transition
  *
- * Returns: (transfer full): the module associated with this plugin
- */
-WpModule *
-wp_plugin_get_module (WpPlugin * self)
-{
-  g_return_val_if_fail (WP_IS_PLUGIN (self), NULL);
-
-  WpPluginPrivate *priv = wp_plugin_get_instance_private (self);
-  return g_weak_ref_get (&priv->module);
-}
-
-/**
- * wp_plugin_get_core:
- * @self: the plugin
- *
- * Returns: (transfer full): the core associated with this plugin
- */
-WpCore *
-wp_plugin_get_core (WpPlugin * self)
-{
-  g_autoptr (WpModule) module = wp_plugin_get_module (self);
-  return module ? wp_module_get_core (module) : NULL;
-}
-
-/**
- * wp_plugin_activate: (virtual activate)
- * @self: the plugin
- *
- * Activates the plugin. The plugin is required to start any operations only
+ * Enables the plugin. The plugin is required to start any operations only
  * when this method is called and not before.
+ *
+ * When enabling the plugin is done, you must call wp_object_update_features()
+ * with %WP_PLUGIN_FEATURE_ENABLED marked as activated, or return an error
+ * on @transition.
  */
-void
-wp_plugin_activate (WpPlugin * self)
-{
-  g_return_if_fail (WP_IS_PLUGIN (self));
-  g_return_if_fail (WP_PLUGIN_GET_CLASS (self)->activate);
-
-  wp_info_object (self, "activating plugin '%s'", wp_plugin_get_name (self));
-
-  WP_PLUGIN_GET_CLASS (self)->activate (self);
-}
 
 /**
- * wp_plugin_deactivate: (virtual deactivate)
+ * WpPluginClass.disable:
  * @self: the plugin
  *
- * Deactivates the plugin. The plugin is required to stop all operations and
+ * Disables the plugin. The plugin is required to stop all operations and
  * release all resources associated with it.
  */
-void
-wp_plugin_deactivate (WpPlugin * self)
-{
-  g_return_if_fail (WP_IS_PLUGIN (self));
-  g_return_if_fail (WP_PLUGIN_GET_CLASS (self)->deactivate);
-
-  wp_info_object (self, "deactivating plugin '%s'", wp_plugin_get_name (self));
-
-  WP_PLUGIN_GET_CLASS (self)->deactivate (self);
-}

@@ -94,7 +94,7 @@ timeout_save_profiles (WpDefaultProfile *self, guint ms)
 {
   WpDefaultProfilePrivate *priv =
       wp_default_profile_get_instance_private (self);
-  g_autoptr (WpCore) core = wp_plugin_get_core (WP_PLUGIN (self));
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
 
   g_return_if_fail (core);
   g_return_if_fail (priv->profiles);
@@ -251,9 +251,9 @@ on_device_added (WpObjectManager *om, WpPipewireObject *proxy, gpointer d)
 }
 
 static void
-wp_default_profile_activate (WpPlugin * plugin)
+wp_default_profile_enable (WpPlugin * plugin, WpTransition * transition)
 {
-  g_autoptr (WpCore) core = wp_plugin_get_core (plugin);
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
   WpDefaultProfile *self = WP_DEFAULT_PROFILE (plugin);
   WpDefaultProfilePrivate *priv =
       wp_default_profile_get_instance_private (self);
@@ -266,10 +266,12 @@ wp_default_profile_activate (WpPlugin * plugin)
   g_signal_connect_object (priv->devices_om, "object-added",
       G_CALLBACK (on_device_added), self, 0);
   wp_core_install_object_manager (core, priv->devices_om);
+
+  wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
 }
 
 static void
-wp_default_profile_deactivate (WpPlugin * plugin)
+wp_default_profile_disable (WpPlugin * plugin)
 {
   WpDefaultProfile *self = WP_DEFAULT_PROFILE (plugin);
   WpDefaultProfilePrivate *priv =
@@ -317,8 +319,8 @@ wp_default_profile_class_init (WpDefaultProfileClass * klass)
   WpPluginClass *plugin_class = (WpPluginClass *) klass;
 
   object_class->finalize = wp_default_profile_finalize;
-  plugin_class->activate = wp_default_profile_activate;
-  plugin_class->deactivate = wp_default_profile_deactivate;
+  plugin_class->enable = wp_default_profile_enable;
+  plugin_class->disable = wp_default_profile_disable;
 
   klass->get_profile = wp_default_profile_get_profile;
 
@@ -335,6 +337,6 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   wp_plugin_register (g_object_new (wp_default_profile_get_type (),
       "name", STATE_NAME,
-      "module", module,
+      "core", core,
       NULL));
 }

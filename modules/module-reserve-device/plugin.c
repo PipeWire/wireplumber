@@ -56,7 +56,7 @@ wp_reserve_device_plugin_finalize (GObject * object)
 }
 
 static void
-wp_reserve_device_plugin_disable (WpReserveDevicePlugin *self)
+wp_reserve_device_plugin_disable_internal (WpReserveDevicePlugin *self)
 {
   g_hash_table_remove_all (self->reserve_devices);
   g_clear_object (&self->manager);
@@ -66,6 +66,8 @@ wp_reserve_device_plugin_disable (WpReserveDevicePlugin *self)
     self->state = WP_DBUS_CONNECTION_STATE_CLOSED;
     g_object_notify (G_OBJECT (self), "state");
   }
+
+  wp_object_update_features (WP_OBJECT (self), 0, WP_PLUGIN_FEATURE_ENABLED);
 }
 
 static void
@@ -74,20 +76,21 @@ on_connection_closed (GDBusConnection *connection,
 {
   WpReserveDevicePlugin *self = WP_RESERVE_DEVICE_PLUGIN (data);
   wp_info_object (self, "D-Bus connection closed: %s", error->message);
-  wp_reserve_device_plugin_disable (self);
+  wp_reserve_device_plugin_disable_internal (self);
 }
 
 static void
 got_bus (GObject * obj, GAsyncResult * res, gpointer data)
 {
-  WpReserveDevicePlugin *self = WP_RESERVE_DEVICE_PLUGIN (data);
+  WpTransition *transition = WP_TRANSITION (data);
+  WpReserveDevicePlugin *self = wp_transition_get_source_object (transition);
   g_autoptr (GError) error = NULL;
 
   self->connection = g_dbus_connection_new_for_address_finish (res, &error);
   if (!self->connection) {
-    wp_message_object (self, "Failed to connect to session bus: %s",
-        error->message);
-    wp_reserve_device_plugin_disable (self);
+    wp_reserve_device_plugin_disable_internal (self);
+    g_prefix_error (&error, "Failed to connect to session bus: ");
+    wp_transition_return_error (transition, g_steal_pointer (&error));
     return;
   }
 
@@ -102,10 +105,12 @@ got_bus (GObject * obj, GAsyncResult * res, gpointer data)
 
   self->state = WP_DBUS_CONNECTION_STATE_CONNECTED;
   g_object_notify (G_OBJECT (self), "state");
+
+  wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
 }
 
 static void
-wp_reserve_device_plugin_activate (WpPlugin * plugin)
+wp_reserve_device_plugin_enable (WpPlugin * plugin, WpTransition * transition)
 {
   WpReserveDevicePlugin *self = WP_RESERVE_DEVICE_PLUGIN (plugin);
   g_autoptr (GError) error = NULL;
@@ -115,8 +120,8 @@ wp_reserve_device_plugin_activate (WpPlugin * plugin)
 
   address = g_dbus_address_get_for_bus_sync (G_BUS_TYPE_SESSION, NULL, &error);
   if (!address) {
-    wp_message_object (self, "Error acquiring session bus address: %s",
-        error->message);
+    g_prefix_error (&error, "Error acquiring session bus address: ");
+    wp_transition_return_error (transition, g_steal_pointer (&error));
     return;
   }
 
@@ -128,17 +133,16 @@ wp_reserve_device_plugin_activate (WpPlugin * plugin)
   g_dbus_connection_new_for_address (address,
       G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT |
       G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION,
-      NULL, self->cancellable, got_bus, self);
+      NULL, self->cancellable, got_bus, transition);
 }
 
 static void
-wp_reserve_device_plugin_deactivate (WpPlugin * plugin)
+wp_reserve_device_plugin_disable (WpPlugin * plugin)
 {
   WpReserveDevicePlugin *self = WP_RESERVE_DEVICE_PLUGIN (plugin);
 
   g_cancellable_cancel (self->cancellable);
-  wp_reserve_device_plugin_disable (self);
-
+  wp_reserve_device_plugin_disable_internal (self);
   g_clear_object (&self->cancellable);
   self->cancellable = g_cancellable_new ();
 }
@@ -216,8 +220,8 @@ wp_reserve_device_plugin_class_init (WpReserveDevicePluginClass * klass)
   object_class->finalize = wp_reserve_device_plugin_finalize;
   object_class->get_property = wp_reserve_device_plugin_get_property;
 
-  plugin_class->activate = wp_reserve_device_plugin_activate;
-  plugin_class->deactivate = wp_reserve_device_plugin_deactivate;
+  plugin_class->enable = wp_reserve_device_plugin_enable;
+  plugin_class->disable = wp_reserve_device_plugin_disable;
 
   g_object_class_install_property (object_class, PROP_STATE,
       g_param_spec_enum ("state", "state", "The state",
@@ -272,6 +276,6 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   wp_plugin_register (g_object_new (wp_reserve_device_plugin_get_type (),
       "name", "reserve-device",
-      "module", module,
+      "core", core,
       NULL));
 }

@@ -51,7 +51,7 @@ static void
 on_node_state_changed (WpNode * node, WpNodeState old, WpNodeState curr,
     WpNodeSuspension * self)
 {
-  g_autoptr (WpCore) core = wp_plugin_get_core (WP_PLUGIN (self));
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_return_if_fail (core);
 
   /* Always clear the current source if any */
@@ -86,10 +86,10 @@ on_node_added (WpObjectManager *om, WpProxy *proxy, gpointer d)
 }
 
 static void
-wp_node_suspension_activate (WpPlugin * plugin)
+wp_node_suspension_enable (WpPlugin * plugin, WpTransition * transition)
 {
   WpNodeSuspension *self = WP_NODE_SUSPENSION (plugin);
-  g_autoptr (WpCore) core = wp_plugin_get_core (WP_PLUGIN (self));
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
 
   /* Create the nodes object manager and handle the node added signal */
   self->nodes_om = wp_object_manager_new ();
@@ -104,10 +104,12 @@ wp_node_suspension_activate (WpPlugin * plugin)
   g_signal_connect_object (self->nodes_om, "object-added",
       G_CALLBACK (on_node_added), self, 0);
   wp_core_install_object_manager (core, self->nodes_om);
+
+  wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
 }
 
 static void
-wp_node_suspension_deactivate (WpPlugin * plugin)
+wp_node_suspension_disable (WpPlugin * plugin)
 {
   WpNodeSuspension *self = WP_NODE_SUSPENSION (plugin);
 
@@ -124,8 +126,8 @@ wp_node_suspension_class_init (WpNodeSuspensionClass * klass)
 {
   WpPluginClass *plugin_class = (WpPluginClass *) klass;
 
-  plugin_class->activate = wp_node_suspension_activate;
-  plugin_class->deactivate = wp_node_suspension_deactivate;
+  plugin_class->enable = wp_node_suspension_enable;
+  plugin_class->disable = wp_node_suspension_disable;
 }
 
 WP_PLUGIN_EXPORT void
@@ -133,6 +135,6 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   wp_plugin_register (g_object_new (wp_node_suspension_get_type (),
       "name", "node-suspension",
-      "module", module,
+      "core", core,
       NULL));
 }

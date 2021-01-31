@@ -90,7 +90,7 @@ static void
 wp_lua_scripting_plugin_init_lua_ctx (WpConfigParser * engine, lua_State * L,
     WpLuaScriptingPlugin * self)
 {
-  g_autoptr (WpCore) core = wp_plugin_get_core (WP_PLUGIN (self));
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
 
   lua_pushliteral (L, "wireplumber_core");
   lua_pushlightuserdata (L, core);
@@ -104,10 +104,10 @@ wp_lua_scripting_plugin_init_lua_ctx (WpConfigParser * engine, lua_State * L,
 }
 
 static void
-wp_lua_scripting_plugin_activate (WpPlugin * plugin)
+wp_lua_scripting_plugin_enable (WpPlugin * plugin, WpTransition * transition)
 {
   WpLuaScriptingPlugin * self = WP_LUA_SCRIPTING_PLUGIN (plugin);
-  g_autoptr (WpCore) core = wp_plugin_get_core (plugin);
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
   g_autoptr (WpConfigParser) engine = NULL;
 
   self->config = wp_configuration_get_instance (core);
@@ -118,7 +118,9 @@ wp_lua_scripting_plugin_activate (WpPlugin * plugin)
         PW_KEY_APP_NAME, "WirePlumber (export)",
         NULL));
   if (!wp_core_connect (self->export_core)) {
-    wp_warning_object (self, "failed to connect export core");
+    wp_transition_return_error (transition, g_error_new (
+        WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "failed to connect export core"));
     return;
   }
 
@@ -132,10 +134,11 @@ wp_lua_scripting_plugin_activate (WpPlugin * plugin)
       G_CALLBACK (wp_lua_scripting_plugin_init_lua_ctx), self, 0);
 
   wp_configuration_reload (self->config, self->config_ext);
+  wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
 }
 
 static void
-wp_lua_scripting_plugin_deactivate (WpPlugin * plugin)
+wp_lua_scripting_plugin_disable (WpPlugin * plugin)
 {
   WpLuaScriptingPlugin * self = WP_LUA_SCRIPTING_PLUGIN (plugin);
 
@@ -156,8 +159,8 @@ wp_lua_scripting_plugin_class_init (WpLuaScriptingPluginClass * klass)
   object_class->set_property = wp_lua_scripting_plugin_set_property;
   object_class->get_property = wp_lua_scripting_plugin_get_property;
 
-  plugin_class->activate = wp_lua_scripting_plugin_activate;
-  plugin_class->deactivate = wp_lua_scripting_plugin_deactivate;
+  plugin_class->enable = wp_lua_scripting_plugin_enable;
+  plugin_class->disable = wp_lua_scripting_plugin_disable;
 
   g_object_class_install_property(object_class, PROP_PROFILE,
       g_param_spec_string ("profile", "profile",
@@ -177,7 +180,7 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 
   wp_plugin_register (g_object_new (wp_lua_scripting_plugin_get_type (),
           "name", "lua-scripting",
-          "module", module,
+          "core", core,
           "profile", profile,
           NULL));
 }

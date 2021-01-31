@@ -9,9 +9,19 @@
 #ifndef __WIREPLUMBER_PLUGIN_H__
 #define __WIREPLUMBER_PLUGIN_H__
 
-#include "module.h"
+#include "object.h"
 
 G_BEGIN_DECLS
+
+/**
+ * WpPluginFeatures:
+ * @WP_PLUGIN_FEATURE_ENABLED: enables the plugin
+ *
+ * Flags to be used as #WpObjectFeatures for #WpPlugin subclasses.
+ */
+typedef enum { /*< flags >*/
+  WP_PLUGIN_FEATURE_ENABLED = (1 << 0),
+} WpPluginFeatures;
 
 /**
  * WP_TYPE_PLUGIN:
@@ -20,19 +30,17 @@ G_BEGIN_DECLS
  */
 #define WP_TYPE_PLUGIN (wp_plugin_get_type ())
 WP_API
-G_DECLARE_DERIVABLE_TYPE (WpPlugin, wp_plugin, WP, PLUGIN, GObject)
+G_DECLARE_DERIVABLE_TYPE (WpPlugin, wp_plugin, WP, PLUGIN, WpObject)
 
 /**
  * WpPluginClass:
- * @activate: See wp_plugin_activate()
- * @deactivate: See wp_plugin_deactivate()
  */
 struct _WpPluginClass
 {
-  GObjectClass parent_class;
+  WpObjectClass parent_class;
 
-  void (*activate) (WpPlugin * self);
-  void (*deactivate) (WpPlugin * self);
+  void (*enable) (WpPlugin * self, WpTransition * transition);
+  void (*disable) (WpPlugin * self);
 };
 
 WP_API
@@ -43,18 +51,6 @@ WpPlugin * wp_plugin_find (WpCore * core, const gchar * plugin_name);
 
 WP_API
 const gchar * wp_plugin_get_name (WpPlugin * self);
-
-WP_API
-WpModule * wp_plugin_get_module (WpPlugin * self);
-
-WP_API
-WpCore * wp_plugin_get_core (WpPlugin * self);
-
-WP_API
-void wp_plugin_activate (WpPlugin * self);
-
-WP_API
-void wp_plugin_deactivate (WpPlugin * self);
 
 G_END_DECLS
 

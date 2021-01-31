@@ -132,10 +132,10 @@ on_plugin_added (WpObjectManager *om, WpPlugin *plugin, gpointer d)
 }
 
 static void
-wp_device_activation_activate (WpPlugin * plugin)
+wp_device_activation_enable (WpPlugin * plugin, WpTransition * transition)
 {
   WpDeviceActivation *self = WP_DEVICE_ACTIVATION (plugin);
-  g_autoptr (WpCore) core = wp_plugin_get_core (WP_PLUGIN (self));
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
 
   /* Create the plugin object manager */
   self->plugins_om = wp_object_manager_new ();
@@ -154,10 +154,12 @@ wp_device_activation_activate (WpPlugin * plugin)
   g_signal_connect_object (self->devices_om, "object-added",
       G_CALLBACK (on_device_added), self, 0);
   wp_core_install_object_manager (core, self->devices_om);
+
+  wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
 }
 
 static void
-wp_device_activation_deactivate (WpPlugin * plugin)
+wp_device_activation_disable (WpPlugin * plugin)
 {
   WpDeviceActivation *self = WP_DEVICE_ACTIVATION (plugin);
 
@@ -176,8 +178,8 @@ wp_device_activation_class_init (WpDeviceActivationClass * klass)
 {
   WpPluginClass *plugin_class = (WpPluginClass *) klass;
 
-  plugin_class->activate = wp_device_activation_activate;
-  plugin_class->deactivate = wp_device_activation_deactivate;
+  plugin_class->enable = wp_device_activation_enable;
+  plugin_class->disable = wp_device_activation_disable;
 }
 
 
@@ -186,6 +188,6 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   wp_plugin_register (g_object_new (wp_device_activation_get_type (),
       "name", "device-activation",
-      "module", module,
+      "core", core,
       NULL));
 }

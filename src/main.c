@@ -71,9 +71,19 @@ signal_handler (gpointer data)
 }
 
 static void
-on_plugin_added (WpObjectManager * om, WpPlugin * p, struct WpDaemonData *d)
+on_plugin_activated (WpObject * p, GAsyncResult * res, struct WpDaemonData *d)
 {
-  wp_plugin_activate (p);
+  g_autoptr (GError) error = NULL;
+  if (!wp_object_activate_finish (p, res, &error)) {
+    wp_warning_object (p, "%s", error->message);
+  }
+}
+
+static void
+on_plugin_added (WpObjectManager * om, WpObject * p, struct WpDaemonData *d)
+{
+  wp_object_activate (p, WP_PLUGIN_FEATURE_ENABLED, NULL,
+      (GAsyncReadyCallback) on_plugin_activated, d);
 }
 
 static gboolean

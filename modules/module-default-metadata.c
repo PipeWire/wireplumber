@@ -62,7 +62,7 @@ timeout_save_callback (gpointer p)
 static void
 timeout_save_default_endpoints (WpDefaultMetadata *self, guint dir, guint ms)
 {
-  g_autoptr (WpCore) core = wp_plugin_get_core (WP_PLUGIN (self));
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_return_if_fail (core);
 
   /* Clear the current timeout callback */
@@ -290,7 +290,7 @@ static void
 on_metadata_added (WpObjectManager *om, WpMetadata *metadata, gpointer d)
 {
   WpDefaultMetadata * self = WP_DEFAULT_METADATA (d);
-  g_autoptr (WpCore) core = wp_plugin_get_core (WP_PLUGIN (self));
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
 
   g_return_if_fail (core);
 
@@ -314,10 +314,10 @@ on_metadata_added (WpObjectManager *om, WpMetadata *metadata, gpointer d)
 }
 
 static void
-wp_default_metadata_activate (WpPlugin * plugin)
+wp_default_metadata_enable (WpPlugin * plugin, WpTransition * transition)
 {
   WpDefaultMetadata * self = WP_DEFAULT_METADATA (plugin);
-  g_autoptr (WpCore) core = wp_plugin_get_core (plugin);
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
 
   g_return_if_fail (core);
 
@@ -330,10 +330,12 @@ wp_default_metadata_activate (WpPlugin * plugin)
   g_signal_connect_object (self->metadatas_om, "object-added",
       G_CALLBACK (on_metadata_added), self, 0);
   wp_core_install_object_manager (core, self->metadatas_om);
+
+  wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
 }
 
 static void
-wp_default_metadata_deactivate (WpPlugin * plugin)
+wp_default_metadata_disable (WpPlugin * plugin)
 {
   WpDefaultMetadata * self = WP_DEFAULT_METADATA (plugin);
 
@@ -396,8 +398,8 @@ wp_default_metadata_class_init (WpDefaultMetadataClass * klass)
 
   object_class->finalize = wp_default_metadata_finalize;
 
-  plugin_class->activate = wp_default_metadata_activate;
-  plugin_class->deactivate = wp_default_metadata_deactivate;
+  plugin_class->enable = wp_default_metadata_enable;
+  plugin_class->disable = wp_default_metadata_disable;
 }
 
 WP_PLUGIN_EXPORT void
@@ -405,6 +407,6 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   wp_plugin_register (g_object_new (wp_default_metadata_get_type (),
           "name", "default-metadata",
-          "module", module,
+          "core", core,
           NULL));
 }

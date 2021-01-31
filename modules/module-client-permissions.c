@@ -40,10 +40,10 @@ client_added (WpObjectManager * om, WpClient *client, WpClientPermissions * self
 }
 
 static void
-wp_client_permissions_activate (WpPlugin * plugin)
+wp_client_permissions_enable (WpPlugin * plugin, WpTransition * transition)
 {
   WpClientPermissions * self = WP_CLIENT_PERMISSIONS (plugin);
-  g_autoptr (WpCore) core = wp_plugin_get_core (plugin);
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
 
   g_return_if_fail (core);
 
@@ -51,14 +51,14 @@ wp_client_permissions_activate (WpPlugin * plugin)
   wp_object_manager_add_interest (self->om, WP_TYPE_CLIENT, NULL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_CLIENT,
       WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
-
   g_signal_connect (self->om, "object-added", (GCallback) client_added, self);
-
   wp_core_install_object_manager (core, self->om);
+
+  wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
 }
 
 static void
-wp_client_permissions_deactivate (WpPlugin * plugin)
+wp_client_permissions_disable (WpPlugin * plugin)
 {
   WpClientPermissions * self = WP_CLIENT_PERMISSIONS (plugin);
 
@@ -70,8 +70,8 @@ wp_client_permissions_class_init (WpClientPermissionsClass * klass)
 {
   WpPluginClass *plugin_class = (WpPluginClass *) klass;
 
-  plugin_class->activate = wp_client_permissions_activate;
-  plugin_class->deactivate = wp_client_permissions_deactivate;
+  plugin_class->enable = wp_client_permissions_enable;
+  plugin_class->disable = wp_client_permissions_disable;
 }
 
 WP_PLUGIN_EXPORT void
@@ -79,6 +79,6 @@ wireplumber__module_init (WpModule * module, WpCore * core, GVariant * args)
 {
   wp_plugin_register (g_object_new (wp_client_permissions_get_type (),
           "name", "client-permissions",
-          "module", module,
+          "core", core,
           NULL));
 }
