@@ -404,7 +404,7 @@ test_wplua_signals ()
 }
 
 static void
-test_wplua_sandbox ()
+test_wplua_sandbox_script ()
 {
   g_autoptr (GError) error = NULL;
   lua_State *L = wplua_new ();
@@ -420,7 +420,7 @@ test_wplua_sandbox ()
   wplua_load_buffer (L, code, sizeof (code) - 1, &error);
   g_assert_no_error (error);
 
-  wplua_enable_sandbox (L);
+  wplua_enable_sandbox (L, WP_LUA_SANDBOX_ISOLATE_ENV);
 
   const gchar code2[] =
     "o = TestObject_new()\n";
@@ -464,6 +464,44 @@ test_wplua_sandbox ()
   wplua_free (L);
 }
 
+static void
+test_wplua_sandbox_config ()
+{
+  g_autoptr (GError) error = NULL;
+  lua_State *L = wplua_new ();
+
+  wplua_enable_sandbox (L, WP_LUA_SANDBOX_MINIMAL_STD);
+
+  const gchar code3[] =
+    "o = { answer = 42 }\n";
+  wplua_load_buffer (L, code3, sizeof (code3) - 1, &error);
+  g_assert_no_error (error);
+
+  /* no assert() in minimal_std mode, resort to other means of failure */
+  const gchar code4[] =
+    "if (o.answer ~= 42) then\n"
+    "  non_existent_function()\n"
+    "end\n";
+  wplua_load_buffer (L, code4, sizeof (code4) - 1, &error);
+  g_assert_no_error (error);
+
+  /* string.* is protected */
+  const gchar code6[] =
+    "string.test = 'hello world'\n";
+  wplua_load_buffer (L, code6, sizeof (code6) - 1, &error);
+  g_debug ("expected error: %s", error ? error->message : "null");
+  g_assert_error (error, WP_DOMAIN_LUA, WP_LUA_ERROR_RUNTIME);
+  g_clear_error (&error);
+
+  /* this would be an error if the assert function was exported, but it's not */
+  const gchar code7[] =
+    "assert = 'hello world'\n";
+  wplua_load_buffer (L, code7, sizeof (code7) - 1, &error);
+  g_assert_no_error (error);
+
+  wplua_free (L);
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -475,7 +513,8 @@ main (gint argc, gchar *argv[])
   g_test_add_func ("/wplua/properties", test_wplua_properties);
   g_test_add_func ("/wplua/closure", test_wplua_closure);
   g_test_add_func ("/wplua/signals", test_wplua_signals);
-  g_test_add_func ("/wplua/sandbox", test_wplua_sandbox);
+  g_test_add_func ("/wplua/sandbox/script", test_wplua_sandbox_script);
+  g_test_add_func ("/wplua/sandbox/config", test_wplua_sandbox_config);
 
   return g_test_run ();
 }

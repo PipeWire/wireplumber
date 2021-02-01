@@ -39,11 +39,15 @@ typedef enum {
   WP_LUA_ERROR_RUNTIME,
 } WpLuaError;
 
+typedef enum {
+  WP_LUA_SANDBOX_MINIMAL_STD,
+  WP_LUA_SANDBOX_ISOLATE_ENV,
+} WpLuaSandboxFlags;
 
 lua_State * wplua_new (void);
 void wplua_free (lua_State * L);
 
-void wplua_enable_sandbox (lua_State * L);
+void wplua_enable_sandbox (lua_State * L, WpLuaSandboxFlags flags);
 
 void wplua_register_type_methods (lua_State * L, GType type,
     lua_CFunction constructor, const luaL_Reg * methods);

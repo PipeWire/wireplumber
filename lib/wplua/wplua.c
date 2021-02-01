@@ -115,10 +115,20 @@ wplua_free (lua_State * L)
 }
 
 void
-wplua_enable_sandbox (lua_State * L)
+wplua_enable_sandbox (lua_State * L, WpLuaSandboxFlags flags)
 {
   g_autoptr (GError) error = NULL;
   wp_debug ("enabling Lua sandbox");
+
+  lua_newtable (L);
+  lua_pushliteral (L, "minimal_std");
+  lua_pushboolean (L, (flags & WP_LUA_SANDBOX_MINIMAL_STD));
+  lua_settable (L, -3);
+  lua_pushliteral (L, "isolate_env");
+  lua_pushboolean (L, (flags & WP_LUA_SANDBOX_ISOLATE_ENV));
+  lua_settable (L, -3);
+  lua_setglobal (L, "SANDBOX_CONFIG");
+
   if (!wplua_load_uri (L, URI_SANDBOX, &error)) {
     wp_critical ("Failed to load sandbox: %s", error->message);
   }
