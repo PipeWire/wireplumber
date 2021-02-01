@@ -186,8 +186,8 @@ shared_library(
   'wireplumber-module-lua-scripting',
   [
     'module-lua-scripting.c',
-    'module-lua-scripting/engine.c',
     'module-lua-scripting/api.c',
+    'module-lua-scripting/config.c',
      m_lua_scripting_resources,
   ],
   c_args : [common_c_args, '-DG_LOG_DOMAIN="m-lua-scripting"'],

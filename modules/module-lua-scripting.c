@@ -10,33 +10,22 @@
 #include <wplua/wplua.h>
 #include <pipewire/keys.h>
 
-#define WP_TYPE_LUA_SCRIPTING_ENGINE \
-    (wp_lua_scripting_engine_get_type ())
-GType wp_lua_scripting_engine_get_type ();
 void wp_lua_scripting_api_init (lua_State *L);
+gboolean wp_lua_scripting_load_configuration (const gchar * conf_file,
+    WpCore * core, GError ** error);
 
 struct _WpLuaScriptingPlugin
 {
-  WpPlugin parent;
+  WpComponentLoader parent;
 
-  /* properties */
-  gchar *profile;
-
-  /* data */
   WpCore *export_core;
-  gchar *config_ext;
-
-  WpConfiguration *config;
-};
-
-enum {
-  PROP_0,
-  PROP_PROFILE,
+  lua_State *L;
 };
 
 G_DECLARE_FINAL_TYPE (WpLuaScriptingPlugin, wp_lua_scripting_plugin,
-                      WP, LUA_SCRIPTING_PLUGIN, WpPlugin)
-G_DEFINE_TYPE (WpLuaScriptingPlugin, wp_lua_scripting_plugin, WP_TYPE_PLUGIN)
+                      WP, LUA_SCRIPTING_PLUGIN, WpComponentLoader)
+G_DEFINE_TYPE (WpLuaScriptingPlugin, wp_lua_scripting_plugin,
+               WP_TYPE_COMPONENT_LOADER)
 
 static void
 wp_lua_scripting_plugin_init (WpLuaScriptingPlugin * self)
@@ -44,73 +33,10 @@ wp_lua_scripting_plugin_init (WpLuaScriptingPlugin * self)
 }
 
 static void
-wp_lua_scripting_plugin_finalize (GObject * object)
-{
-  WpLuaScriptingPlugin * self = WP_LUA_SCRIPTING_PLUGIN (object);
-
-  g_clear_pointer (&self->profile, g_free);
-
-  G_OBJECT_CLASS (wp_lua_scripting_plugin_parent_class)->finalize (object);
-}
-
-static void
-wp_lua_scripting_plugin_set_property (GObject * object, guint property_id,
-    const GValue * value, GParamSpec * pspec)
-{
-  WpLuaScriptingPlugin * self = WP_LUA_SCRIPTING_PLUGIN (object);
-
-  switch (property_id) {
-  case PROP_PROFILE:
-    g_clear_pointer (&self->profile, g_free);
-    self->profile = g_value_dup_string (value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
-    break;
-  }
-}
-
-static void
-wp_lua_scripting_plugin_get_property (GObject * object, guint property_id,
-    GValue * value, GParamSpec * pspec)
-{
-  WpLuaScriptingPlugin * self = WP_LUA_SCRIPTING_PLUGIN (object);
-
-  switch (property_id) {
-  case PROP_PROFILE:
-    g_value_set_string (value, self->profile);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
-    break;
-  }
-}
-
-static void
-wp_lua_scripting_plugin_init_lua_ctx (WpConfigParser * engine, lua_State * L,
-    WpLuaScriptingPlugin * self)
-{
-  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
-
-  lua_pushliteral (L, "wireplumber_core");
-  lua_pushlightuserdata (L, core);
-  lua_settable (L, LUA_REGISTRYINDEX);
-
-  lua_pushliteral (L, "wireplumber_export_core");
-  lua_pushlightuserdata (L, self->export_core);
-  lua_settable (L, LUA_REGISTRYINDEX);
-
-  wp_lua_scripting_api_init (L);
-}
-
-static void
 wp_lua_scripting_plugin_enable (WpPlugin * plugin, WpTransition * transition)
 {
   WpLuaScriptingPlugin * self = WP_LUA_SCRIPTING_PLUGIN (plugin);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
-  g_autoptr (WpConfigParser) engine = NULL;
-
-  self->config = wp_configuration_get_instance (core);
 
   /* initialize secondary connection to pipewire */
   self->export_core = wp_core_clone (core);
@@ -124,16 +50,20 @@ wp_lua_scripting_plugin_enable (WpPlugin * plugin, WpTransition * transition)
     return;
   }
 
-  /* load the lua scripts & execute them via the engine */
-  self->config_ext = g_strdup_printf ("%s/lua", self->profile);
-  wp_configuration_add_extension (self->config, self->config_ext,
-      WP_TYPE_LUA_SCRIPTING_ENGINE);
+  /* init lua engine */
+  self->L = wplua_new ();
 
-  engine = wp_configuration_get_parser (self->config, self->config_ext);
-  g_signal_connect_object (engine, "init-lua-context",
-      G_CALLBACK (wp_lua_scripting_plugin_init_lua_ctx), self, 0);
+  lua_pushliteral (self->L, "wireplumber_core");
+  lua_pushlightuserdata (self->L, core);
+  lua_settable (self->L, LUA_REGISTRYINDEX);
 
-  wp_configuration_reload (self->config, self->config_ext);
+  lua_pushliteral (self->L, "wireplumber_export_core");
+  lua_pushlightuserdata (self->L, self->export_core);
+  lua_settable (self->L, LUA_REGISTRYINDEX);
+
+  wp_lua_scripting_api_init (self->L);
+  wplua_enable_sandbox (self->L, WP_LUA_SANDBOX_ISOLATE_ENV);
+
   wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
 }
 
@@ -142,47 +72,88 @@ wp_lua_scripting_plugin_disable (WpPlugin * plugin)
 {
   WpLuaScriptingPlugin * self = WP_LUA_SCRIPTING_PLUGIN (plugin);
 
-  if (self->config && self->config_ext)
-    wp_configuration_remove_extension (self->config, self->config_ext);
-  g_clear_object (&self->config);
-  g_clear_pointer (&self->config_ext, g_free);
+  g_clear_pointer (&self->L, wplua_free);
   g_clear_object (&self->export_core);
+}
+
+static gboolean
+wp_lua_scripting_plugin_supports_type (WpComponentLoader * cl,
+    const gchar * type)
+{
+  return (!g_strcmp0 (type, "script/lua") || !g_strcmp0 (type, "config/lua"));
+}
+
+static gchar *
+find_script (const gchar * script)
+{
+  if (g_path_is_absolute (script) &&
+      g_file_test (script, G_FILE_TEST_EXISTS | G_FILE_TEST_IS_REGULAR))
+    return g_strdup (script);
+
+  /* /etc/wireplumber/scripts */
+  {
+    g_autofree gchar * file = g_build_filename (
+        wp_get_config_dir (), "scripts", script, NULL);
+    if (g_file_test (file, G_FILE_TEST_EXISTS | G_FILE_TEST_IS_REGULAR))
+      return g_steal_pointer (&file);
+  }
+
+  /* {XDG_DATA_DIRS,/usr/local/share,/usr/share}/wireplumber/scripts */
+  const gchar * const * data_dirs = g_get_system_data_dirs ();
+  while (*data_dirs) {
+    g_autofree gchar * file = g_build_filename (
+        *data_dirs, "wireplumber", "scripts", script, NULL);
+    if (g_file_test (file, G_FILE_TEST_EXISTS | G_FILE_TEST_IS_REGULAR))
+      return g_steal_pointer (&file);
+    data_dirs++;
+  }
+  return NULL;
+}
+
+static gboolean
+wp_lua_scripting_plugin_load (WpComponentLoader * cl, const gchar * component,
+    const gchar * type, GVariant * args, GError ** error)
+{
+  WpLuaScriptingPlugin * self = WP_LUA_SCRIPTING_PLUGIN (cl);
+
+  /* interpret component as a script */
+  if (!g_strcmp0 (type, "script/lua")) {
+    g_autofree gchar * file = find_script (component);
+    if (!file) {
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
+          "Could not locate script '%s'", component);
+      return FALSE;
+    }
+    return wplua_load_path (self->L, file, error);
+  }
+  /* interpret component as a configuration file */
+  else if (!g_strcmp0 (type, "config/lua")) {
+    g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (cl));
+    return wp_lua_scripting_load_configuration (component, core, error);
+  }
+
+  g_return_val_if_reached (FALSE);
 }
 
 static void
 wp_lua_scripting_plugin_class_init (WpLuaScriptingPluginClass * klass)
 {
-  GObjectClass *object_class = (GObjectClass *) klass;
   WpPluginClass *plugin_class = (WpPluginClass *) klass;
-
-  object_class->finalize = wp_lua_scripting_plugin_finalize;
-  object_class->set_property = wp_lua_scripting_plugin_set_property;
-  object_class->get_property = wp_lua_scripting_plugin_get_property;
+  WpComponentLoaderClass *cl_class = (WpComponentLoaderClass *) klass;
 
   plugin_class->enable = wp_lua_scripting_plugin_enable;
   plugin_class->disable = wp_lua_scripting_plugin_disable;
 
-  g_object_class_install_property(object_class, PROP_PROFILE,
-      g_param_spec_string ("profile", "profile",
-          "The configuration profile", NULL,
-          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+  cl_class->supports_type = wp_lua_scripting_plugin_supports_type;
+  cl_class->load = wp_lua_scripting_plugin_load;
 }
 
 WP_PLUGIN_EXPORT gboolean
 wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
-  const gchar *profile;
-
-  if (!g_variant_lookup (args, "profile", "&s", &profile)) {
-    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
-        "module-lua-scripting requires a 'profile'");
-    return FALSE;
-  }
-
   wp_plugin_register (g_object_new (wp_lua_scripting_plugin_get_type (),
           "name", "lua-scripting",
           "core", core,
-          "profile", profile,
           NULL));
   return TRUE;
 }
