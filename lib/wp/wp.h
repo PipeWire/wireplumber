@@ -58,6 +58,12 @@ typedef enum {
 WP_API
 void wp_init (WpInitFlags flags);
 
+WP_API
+const gchar * wp_get_module_dir (void);
+
+WP_API
+const gchar * wp_get_config_dir (void);
+
 G_END_DECLS
 
 #endif

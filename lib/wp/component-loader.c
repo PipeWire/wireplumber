@@ -14,7 +14,7 @@
 #define G_LOG_DOMAIN "wp-comp-loader"
 
 #include "component-loader.h"
-#include "error.h"
+#include "wp.h"
 #include "private/registry.h"
 #include <pipewire/impl.h>
 
@@ -33,18 +33,6 @@ wp_component_loader_class_init (WpComponentLoaderClass * klass)
 {
 }
 
-static const gchar *
-get_module_dir (void)
-{
-  static const gchar *module_dir = NULL;
-  if (!module_dir) {
-    module_dir = g_getenv ("WIREPLUMBER_MODULE_DIR");
-    if (!module_dir)
-      module_dir = WIREPLUMBER_DEFAULT_MODULE_DIR;
-  }
-  return module_dir;
-}
-
 static gboolean
 load_module (WpCore * core, const gchar * module_name,
     GVariant * args, GError ** error)
@@ -53,7 +41,7 @@ load_module (WpCore * core, const gchar * module_name,
   GModule *gmodule;
   gpointer module_init;
 
-  module_path = g_module_build_path (get_module_dir (), module_name);
+  module_path = g_module_build_path (wp_get_module_dir (), module_name);
   gmodule = g_module_open (module_path, G_MODULE_BIND_LOCAL);
   if (!gmodule) {
     g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,

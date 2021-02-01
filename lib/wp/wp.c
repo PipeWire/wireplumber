@@ -78,3 +78,27 @@ wp_init (WpInitFlags flags)
   g_type_ensure (WP_TYPE_PORT);
   g_type_ensure (WP_TYPE_SESSION);
 }
+
+const gchar *
+wp_get_module_dir (void)
+{
+  static const gchar *module_dir = NULL;
+  if (!module_dir) {
+    module_dir = g_getenv ("WIREPLUMBER_MODULE_DIR");
+    if (!module_dir)
+      module_dir = WIREPLUMBER_DEFAULT_MODULE_DIR;
+  }
+  return module_dir;
+}
+
+const gchar *
+wp_get_config_dir (void)
+{
+  static const gchar *config_dir = NULL;
+  if (!config_dir) {
+    config_dir = g_getenv ("WIREPLUMBER_CONFIG_DIR");
+    if (!config_dir)
+      config_dir = WIREPLUMBER_DEFAULT_CONFIG_DIR;
+  }
+  return config_dir;
+}
