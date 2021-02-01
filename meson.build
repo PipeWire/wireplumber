@@ -26,6 +26,12 @@ else
   wireplumber_config_dir = join_paths(get_option('prefix'), get_option('sysconfdir'), 'wireplumber')
 endif
 
+if get_option('datadir').startswith('/')
+  wireplumber_data_dir = join_paths(get_option('datadir'), 'wireplumber')
+else
+  wireplumber_data_dir = join_paths(get_option('prefix'), get_option('datadir'), 'wireplumber')
+endif
+
 if get_option('wrap_mode') == 'nodownload'
   cpptoml_dep = dependency('cpptoml')
 else

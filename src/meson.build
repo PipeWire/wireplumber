@@ -8,6 +8,10 @@ install_subdir('config',
   install_dir: wireplumber_config_dir,
   strip_directory : true
 )
+install_subdir('scripts',
+  install_dir: wireplumber_data_dir,
+  strip_directory : false
+)
 
 executable('wireplumber',
   wp_sources,
