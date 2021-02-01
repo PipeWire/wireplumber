@@ -77,6 +77,8 @@ gboolean wplua_load_buffer (lua_State * L, const gchar *buf, gsize size,
 gboolean wplua_load_uri (lua_State * L, const gchar *uri, GError **error);
 gboolean wplua_load_path (lua_State * L, const gchar *path, GError **error);
 
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(lua_State, wplua_free)
+
 G_END_DECLS
 
 #endif
