@@ -69,6 +69,7 @@ G_DEFINE_BOXED_TYPE (WpObjectInterest, wp_object_interest,
  * The format string is interpreted as follows:
  *  - the first character is the constraint verb:
  *     - `=`: %WP_CONSTRAINT_VERB_EQUALS
+ *     - `!`: %WP_CONSTRAINT_VERB_NOT_EQUALS
  *     - `c`: %WP_CONSTRAINT_VERB_IN_LIST
  *     - `~`: %WP_CONSTRAINT_VERB_IN_RANGE
  *     - `#`: %WP_CONSTRAINT_VERB_MATCHES
@@ -384,6 +385,7 @@ wp_object_interest_validate (WpObjectInterest * self, GError ** error)
 
     switch (c->verb) {
       case WP_CONSTRAINT_VERB_EQUALS:
+      case WP_CONSTRAINT_VERB_NOT_EQUALS:
       case WP_CONSTRAINT_VERB_IN_LIST:
       case WP_CONSTRAINT_VERB_IN_RANGE:
       case WP_CONSTRAINT_VERB_MATCHES:
@@ -412,6 +414,7 @@ wp_object_interest_validate (WpObjectInterest * self, GError ** error)
 
     switch (c->verb) {
       case WP_CONSTRAINT_VERB_EQUALS:
+      case WP_CONSTRAINT_VERB_NOT_EQUALS:
         if (!g_variant_type_equal (value_type, G_VARIANT_TYPE_STRING) &&
             !g_variant_type_equal (value_type, G_VARIANT_TYPE_BOOLEAN) &&
             !g_variant_type_equal (value_type, G_VARIANT_TYPE_INT32) &&
@@ -420,7 +423,7 @@ wp_object_interest_validate (WpObjectInterest * self, GError ** error)
             !g_variant_type_equal (value_type, G_VARIANT_TYPE_UINT64) &&
             !g_variant_type_equal (value_type, G_VARIANT_TYPE_DOUBLE)) {
           g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
-              "WP_CONSTRAINT_VERB_EQUALS requires a basic GVariant type"
+              "WP_CONSTRAINT_VERB_{NOT_,}EQUALS requires a basic GVariant type"
               " (actual type was '%s')", g_variant_get_type_string (c->value));
           return FALSE;
         }
@@ -840,6 +843,11 @@ wp_object_interest_matches_full (WpObjectInterest * self,
       case WP_CONSTRAINT_VERB_EQUALS:
         if (!exists ||
             !constraint_verb_equals (c->subject_type, &value, c->value))
+          return FALSE;
+        break;
+      case WP_CONSTRAINT_VERB_NOT_EQUALS:
+        if (exists &&
+            constraint_verb_equals (c->subject_type, &value, c->value))
           return FALSE;
         break;
       case WP_CONSTRAINT_VERB_MATCHES:

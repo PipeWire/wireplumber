@@ -408,6 +408,97 @@ test_object_interest_constraint_equals (TestFixture * f, gconstpointer data)
 }
 
 static void
+test_object_interest_constraint_not_equals (TestFixture * f, gconstpointer data)
+{
+  g_autoptr (WpObjectInterest) i = NULL;
+
+  i = wp_object_interest_new (TEST_TYPE_A,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "test-string", "!s", "toast", NULL);
+  TEST_EXPECT_NO_MATCH (i);
+
+  i = wp_object_interest_new (TEST_TYPE_A,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "test-string", "!s", "fail", NULL);
+  TEST_EXPECT_MATCH (i);
+
+
+  i = wp_object_interest_new (TEST_TYPE_A,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "test-int", "!i", -30, NULL);
+  TEST_EXPECT_NO_MATCH (i);
+
+  i = wp_object_interest_new (TEST_TYPE_A,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "test-int", "!i", 100, NULL);
+  TEST_EXPECT_MATCH (i);
+
+
+  i = wp_object_interest_new (TEST_TYPE_A,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "test-uint", "!u", 50, NULL);
+  TEST_EXPECT_NO_MATCH (i);
+
+  i = wp_object_interest_new (TEST_TYPE_A,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "test-uint", "!u", 100, NULL);
+  TEST_EXPECT_MATCH (i);
+
+
+  i = wp_object_interest_new (TEST_TYPE_A,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "test-int64",
+      "!x", G_GINT64_CONSTANT (-0x1d636b02300a7aa7), NULL);
+  TEST_EXPECT_NO_MATCH (i);
+
+  i = wp_object_interest_new (TEST_TYPE_A,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "test-int64",
+      "!x", G_GINT64_CONSTANT (100), NULL);
+  TEST_EXPECT_MATCH (i);
+
+
+  i = wp_object_interest_new (TEST_TYPE_A,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "test-uint64",
+      "!t", G_GUINT64_CONSTANT (0x1d636b02300a7aa7), NULL);
+  TEST_EXPECT_NO_MATCH (i);
+
+  i = wp_object_interest_new (TEST_TYPE_A,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "test-uint64",
+      "!t", G_GUINT64_CONSTANT (100), NULL);
+  TEST_EXPECT_MATCH (i);
+
+
+  i = wp_object_interest_new (TEST_TYPE_A,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "test-double",
+      "!d", 3.1415926545897932384626433, NULL);
+  TEST_EXPECT_NO_MATCH (i);
+
+  i = wp_object_interest_new (TEST_TYPE_A,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "test-double", "!d", 3.14, NULL);
+  TEST_EXPECT_MATCH (i);
+
+
+  i = wp_object_interest_new (TEST_TYPE_A,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "test-float", "!d", 3.14, NULL);
+  TEST_EXPECT_NO_MATCH (i);
+
+  i = wp_object_interest_new (TEST_TYPE_A,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "test-float", "!d", 1.0, NULL);
+  TEST_EXPECT_MATCH (i);
+
+
+  i = wp_object_interest_new (TEST_TYPE_A,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "test-boolean", "!b", TRUE, NULL);
+  TEST_EXPECT_NO_MATCH (i);
+
+  i = wp_object_interest_new (TEST_TYPE_A,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "test-boolean", "!b", FALSE, NULL);
+  TEST_EXPECT_MATCH (i);
+
+
+  i = wp_object_interest_new (TEST_TYPE_A,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "test-double", "!d", 2.0,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "test-uint", "!u", 51,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "test-string", "!s", "FAIL",
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "unknown-property", "!s", "FAIL",
+      NULL);
+  TEST_EXPECT_MATCH (i);
+}
+
+static void
 test_object_interest_constraint_list (TestFixture * f, gconstpointer data)
 {
   g_autoptr (WpObjectInterest) i = NULL;
@@ -801,6 +892,12 @@ main (int argc, char *argv[])
       TestFixture, NULL,
       test_object_interest_setup,
       test_object_interest_constraint_equals,
+      test_object_interest_teardown);
+
+  g_test_add ("/wp/object-interest/not-equals",
+      TestFixture, NULL,
+      test_object_interest_setup,
+      test_object_interest_constraint_not_equals,
       test_object_interest_teardown);
 
   g_test_add ("/wp/object-interest/list",

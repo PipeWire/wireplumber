@@ -38,6 +38,8 @@ typedef enum {
  * WpConstraintVerb:
  * @WP_CONSTRAINT_VERB_EQUALS: `=` the subject's value must equal the
  *   constraint's value
+ * @WP_CONSTRAINT_VERB_NOT_EQUALS: `!` the subject's value must be different
+ *   from the constraint's value
  * @WP_CONSTRAINT_VERB_IN_LIST: `c` the subject's value must equal at least
  *   one of the values in the list given as the constraint's value
  * @WP_CONSTRAINT_VERB_IN_RANGE: `~` the subject's value must be a number
@@ -49,6 +51,7 @@ typedef enum {
  */
 typedef enum {
   WP_CONSTRAINT_VERB_EQUALS = '=',
+  WP_CONSTRAINT_VERB_NOT_EQUALS = '!',
   WP_CONSTRAINT_VERB_IN_LIST = 'c',
   WP_CONSTRAINT_VERB_IN_RANGE = '~',
   WP_CONSTRAINT_VERB_MATCHES = '#',
