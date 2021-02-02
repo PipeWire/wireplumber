@@ -22,7 +22,7 @@ include:
     FDO_DISTRIBUTION_TAG: '2020-08-31.1'
     FDO_DISTRIBUTION_VERSION: '32'
     # findutils: used by the .build script below
-    # cmake: required for cpptoml submodule & hotdoc
+    # cmake: required for hotdoc
     # dbus-devel: required by pipewire
     # dbus-daemon: required by GDBus unit tests
     # libxml, json-glib: required by hotdoc

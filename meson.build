@@ -32,14 +32,6 @@ else
   wireplumber_data_dir = join_paths(get_option('prefix'), get_option('datadir'), 'wireplumber')
 endif
 
-if get_option('wrap_mode') == 'nodownload'
-  cpptoml_dep = dependency('cpptoml')
-else
-  cmake = import('cmake')
-  cpptoml = cmake.subproject('cpptoml')
-  cpptoml_dep = cpptoml.dependency('cpptoml')
-endif
-
 gobject_dep = dependency('gobject-2.0', version : '>= 2.58')
 gmodule_dep = dependency('gmodule-2.0', version : '== ' + gobject_dep.version())
 gio_dep = dependency('gio-2.0', version : '== ' + gobject_dep.version())

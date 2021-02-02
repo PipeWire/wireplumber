@@ -1,5 +1,4 @@
 build/
-subprojects/cpptoml/
 subprojects/lua-*
 subprojects/packagecache/
 src/config/*testsrc.node

@@ -1,5 +1,4 @@
 subdir('wp')
 subdir('wplua')
-subdir('wptoml')
 subdir('modules')
 subdir('examples')

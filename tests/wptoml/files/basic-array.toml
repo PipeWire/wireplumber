@@ -1,4 +1,0 @@
-bool-array = [true, false, false, false, false, true, false]
-int64-array = [1, 2, 3, 4, 5]
-double-array = [0.1, 1.1, 2.1]
-str-array = ["a ", "string ", "array"]
