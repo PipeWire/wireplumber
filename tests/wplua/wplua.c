@@ -502,6 +502,62 @@ test_wplua_sandbox_config ()
   wplua_free (L);
 }
 
+static void
+test_wplua_convert_asv ()
+{
+  g_autoptr (GError) error = NULL;
+  lua_State *L = wplua_new ();
+
+  g_autoptr (GVariant) v = g_variant_new_parsed ("@a{sv} { "
+      "'test-int': <42>, "
+      "'test-double': <3.14>, "
+      "'test-string': <'foobar'>, "
+      "'test-boolean': <true>, "
+      "'nested-table': <@a{sv} { 'string': <'baz'> }> "
+      "}");
+  wplua_asv_to_table (L, v);
+  lua_setglobal (L, "o");
+
+  const gchar code2[] =
+    "assert (o['test-string'] == 'foobar')\n"
+    "assert (o['test-int'] == 42)\n"
+    "assert (math.abs (o['test-double'] - 3.14) < 0.0000000001)\n"
+    "assert (o['test-boolean'] == true)\n"
+    "assert (o['nested-table']['string'] == 'baz')\n";
+  wplua_load_buffer (L, code2, sizeof (code2) - 1, &error);
+  g_assert_no_error (error);
+
+  lua_getglobal (L, "o");
+  g_autoptr (GVariant) fromlua = wplua_table_to_asv (L, -1);
+
+  gint64 test_int = 0;
+  g_assert_true (g_variant_lookup (fromlua, "test-int", "x", &test_int));
+  g_assert_cmpint (test_int, ==, 42);
+
+  gdouble test_double = 0;
+  g_assert_true (g_variant_lookup (fromlua, "test-double", "d", &test_double));
+  g_assert_cmpfloat_with_epsilon (test_double, 3.14, 0.0000000001);
+
+  const gchar *test_str = NULL;
+  g_assert_true (g_variant_lookup (fromlua, "test-string", "&s", &test_str));
+  g_assert_cmpstr (test_str, ==, "foobar");
+
+  gboolean test_boolean = FALSE;
+  g_assert_true (g_variant_lookup (fromlua, "test-boolean", "b", &test_boolean));
+  g_assert_true (test_boolean);
+
+  g_autoptr (GVariant) nested = NULL;
+  g_assert_true (g_variant_lookup (fromlua, "nested-table", "@a{sv}", &nested));
+  g_assert_nonnull (nested);
+  g_assert_true (g_variant_is_of_type (nested, G_VARIANT_TYPE_VARDICT));
+
+  test_str = NULL;
+  g_assert_true (g_variant_lookup (nested, "string", "&s", &test_str));
+  g_assert_cmpstr (test_str, ==, "baz");
+
+  wplua_free (L);
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -515,6 +571,7 @@ main (gint argc, gchar *argv[])
   g_test_add_func ("/wplua/signals", test_wplua_signals);
   g_test_add_func ("/wplua/sandbox/script", test_wplua_sandbox_script);
   g_test_add_func ("/wplua/sandbox/config", test_wplua_sandbox_config);
+  g_test_add_func ("/wplua/convert/asv", test_wplua_convert_asv);
 
   return g_test_run ();
 }
