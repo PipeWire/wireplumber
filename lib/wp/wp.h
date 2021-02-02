@@ -64,6 +64,9 @@ const gchar * wp_get_module_dir (void);
 WP_API
 const gchar * wp_get_config_dir (void);
 
+WP_API
+const gchar * wp_get_data_dir (void);
+
 G_END_DECLS
 
 #endif

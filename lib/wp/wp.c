@@ -102,3 +102,15 @@ wp_get_config_dir (void)
   }
   return config_dir;
 }
+
+const gchar *
+wp_get_data_dir (void)
+{
+  static const gchar *data_dir = NULL;
+  if (!data_dir) {
+    data_dir = g_getenv ("WIREPLUMBER_DATA_DIR");
+    if (!data_dir)
+      data_dir = WIREPLUMBER_DEFAULT_DATA_DIR;
+  }
+  return data_dir;
+}
