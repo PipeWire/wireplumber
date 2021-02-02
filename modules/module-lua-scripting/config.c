@@ -13,10 +13,13 @@
 static gboolean
 add_spa_libs (lua_State *L, WpCore * core, GError ** error)
 {
-  switch (lua_getglobal (L, "spa_libs")) {
+  lua_getglobal (L, "SANDBOX_COMMON_ENV");
+
+  switch (lua_getfield (L, -1, "spa_libs")) {
   case LUA_TTABLE:
     break;
   case LUA_TNIL:
+    wp_debug ("no spa_libs specified");
     goto done;
   default:
     g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
@@ -36,6 +39,8 @@ add_spa_libs (lua_State *L, WpCore * core, GError ** error)
     const gchar *regex = lua_tostring (L, -2);
     const gchar *lib = lua_tostring (L, -1);
 
+    wp_debug ("add spa lib: %s -> %s", regex, lib);
+
     int ret = pw_context_add_spa_lib (wp_core_get_pw_context (core), regex,
         lib);
     if (ret < 0) {
@@ -49,7 +54,7 @@ add_spa_libs (lua_State *L, WpCore * core, GError ** error)
   }
 
 done:
-  lua_pop (L, 1); /* pop the spa_libs table */
+  lua_pop (L, 2); /* pop spa_libs & SANDBOX_COMMON_ENV */
   return TRUE;
 }
 
@@ -109,10 +114,13 @@ lua_to_gvariant (lua_State *L, int index)
 static gboolean
 load_components (lua_State *L, WpCore * core, GError ** error)
 {
-  switch (lua_getglobal (L, "components")) {
+  lua_getglobal (L, "SANDBOX_COMMON_ENV");
+
+  switch (lua_getfield (L, -1, "components")) {
   case LUA_TTABLE:
     break;
   case LUA_TNIL:
+    wp_debug ("no components specified");
     goto done;
   default:
     g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
@@ -157,6 +165,8 @@ load_components (lua_State *L, WpCore * core, GError ** error)
       args = lua_to_gvariant (L, -1);
     }
 
+    wp_debug ("load component: %s (%s)", component, type);
+
     if (!wp_core_load_component (core, component, type, args, error))
       return FALSE;
 
@@ -165,7 +175,7 @@ load_components (lua_State *L, WpCore * core, GError ** error)
   }
 
 done:
-  lua_pop (L, 1); /* pop the components table */
+  lua_pop (L, 2); /* pop components & SANDBOX_COMMON_ENV */
   return TRUE;
 }
 

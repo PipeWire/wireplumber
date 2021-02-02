@@ -115,18 +115,33 @@ find_script (const gchar * script)
   {
     g_autofree gchar * file = g_build_filename (
         wp_get_config_dir (), "scripts", script, NULL);
+
+    wp_trace ("trying %s", file);
+
+    if (g_file_test (file, G_FILE_TEST_EXISTS | G_FILE_TEST_IS_REGULAR))
+      return g_steal_pointer (&file);
+  }
+
+  {
+    g_autofree gchar * file = g_build_filename (
+        wp_get_data_dir (), "scripts", script, NULL);
+
+    wp_trace ("trying %s", file);
+
     if (g_file_test (file, G_FILE_TEST_EXISTS | G_FILE_TEST_IS_REGULAR))
       return g_steal_pointer (&file);
   }
 
   /* {XDG_DATA_DIRS,/usr/local/share,/usr/share}/wireplumber/scripts */
   const gchar * const * data_dirs = g_get_system_data_dirs ();
-  while (*data_dirs) {
+  for (; *data_dirs; data_dirs++) {
     g_autofree gchar * file = g_build_filename (
         *data_dirs, "wireplumber", "scripts", script, NULL);
+
+    wp_trace ("trying %s", file);
+
     if (g_file_test (file, G_FILE_TEST_EXISTS | G_FILE_TEST_IS_REGULAR))
       return g_steal_pointer (&file);
-    data_dirs++;
   }
   return NULL;
 }
