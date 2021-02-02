@@ -18,6 +18,7 @@ struct _WpLuaScriptingPlugin
 {
   WpComponentLoader parent;
 
+  GPtrArray *scripts;
   WpCore *export_core;
   lua_State *L;
 };
@@ -30,6 +31,17 @@ G_DEFINE_TYPE (WpLuaScriptingPlugin, wp_lua_scripting_plugin,
 static void
 wp_lua_scripting_plugin_init (WpLuaScriptingPlugin * self)
 {
+  self->scripts = g_ptr_array_new_with_free_func (g_free);
+}
+
+static void
+wp_lua_scripting_plugin_finalize (GObject * object)
+{
+  WpLuaScriptingPlugin * self = WP_LUA_SCRIPTING_PLUGIN (object);
+
+  g_clear_pointer (&self->scripts, g_ptr_array_unref);
+
+  G_OBJECT_CLASS (wp_lua_scripting_plugin_parent_class)->finalize (object);
 }
 
 static void
@@ -63,6 +75,15 @@ wp_lua_scripting_plugin_enable (WpPlugin * plugin, WpTransition * transition)
 
   wp_lua_scripting_api_init (self->L);
   wplua_enable_sandbox (self->L, WP_LUA_SANDBOX_ISOLATE_ENV);
+
+  /* execute scripts that were queued in for loading */
+  for (guint i = 0; i < self->scripts->len; i++) {
+    GError * error = NULL;
+    if (!wplua_load_path (self->L, g_ptr_array_index (self->scripts, i), &error)) {
+      wp_transition_return_error (transition, error);
+      return;
+    }
+  }
 
   wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
 }
@@ -118,13 +139,16 @@ wp_lua_scripting_plugin_load (WpComponentLoader * cl, const gchar * component,
 
   /* interpret component as a script */
   if (!g_strcmp0 (type, "script/lua")) {
-    g_autofree gchar * file = find_script (component);
+    gchar * file = find_script (component);
     if (!file) {
       g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
           "Could not locate script '%s'", component);
       return FALSE;
     }
-    return wplua_load_path (self->L, file, error);
+
+    /* keep in a list and delay loading until the plugin is enabled */
+    g_ptr_array_add (self->scripts, file);
+    return self->L ? wplua_load_path (self->L, file, error) : TRUE;
   }
   /* interpret component as a configuration file */
   else if (!g_strcmp0 (type, "config/lua")) {
@@ -138,8 +162,11 @@ wp_lua_scripting_plugin_load (WpComponentLoader * cl, const gchar * component,
 static void
 wp_lua_scripting_plugin_class_init (WpLuaScriptingPluginClass * klass)
 {
+  GObjectClass *object_class = (GObjectClass *) klass;
   WpPluginClass *plugin_class = (WpPluginClass *) klass;
   WpComponentLoaderClass *cl_class = (WpComponentLoaderClass *) klass;
+
+  object_class->finalize = wp_lua_scripting_plugin_finalize;
 
   plugin_class->enable = wp_lua_scripting_plugin_enable;
   plugin_class->disable = wp_lua_scripting_plugin_disable;
