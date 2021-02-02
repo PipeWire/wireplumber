@@ -249,12 +249,18 @@ wplua_load_uri (lua_State * L, const gchar *uri, GError **error)
 gboolean
 wplua_load_path (lua_State * L, const gchar *path, GError **error)
 {
+  g_autofree gchar *abs_path = NULL;
   g_autofree gchar *uri = NULL;
 
   g_return_val_if_fail (L != NULL, FALSE);
   g_return_val_if_fail (path != NULL, FALSE);
 
-  if (!(uri = g_filename_to_uri (path, NULL, error)))
+  if (!g_path_is_absolute (path)) {
+    g_autofree gchar *cwd = g_get_current_dir ();
+    abs_path = g_build_filename (cwd, path, NULL);
+  }
+
+  if (!(uri = g_filename_to_uri (abs_path ? abs_path : path, NULL, error)))
     return FALSE;
 
   return wplua_load_uri (L, uri, error);
