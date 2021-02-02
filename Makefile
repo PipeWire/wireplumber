@@ -14,8 +14,8 @@ clean:
 
 run: all
 	WIREPLUMBER_MODULE_DIR=build/modules \
-	WIREPLUMBER_CONFIG_FILE=src/config/wireplumber.conf \
 	WIREPLUMBER_CONFIG_DIR=src/config \
+	WIREPLUMBER_DATA_DIR=src \
 	WIREPLUMBER_DEBUG=$(WIREPLUMBER_DEBUG) \
 	$(DBG) ./build/src/wireplumber
 

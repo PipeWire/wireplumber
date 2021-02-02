@@ -1,19 +1,21 @@
 /* WirePlumber
  *
- * Copyright © 2019 Collabora Ltd.
+ * Copyright © 2019-2021 Collabora Ltd.
  *    @author George Kiagiadakis <george.kiagiadakis@collabora.com>
  *
  * SPDX-License-Identifier: MIT
  */
 
 #include <wp/wp.h>
-#include <gio/gio.h>
 #include <glib-unix.h>
-#include <pipewire/pipewire.h>
-#include <pipewire/impl.h>
+#include <pipewire/keys.h>
+
+static gchar * config_file = NULL;
 
 static GOptionEntry entries[] =
 {
+  { "config-file", 'c', G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING, &config_file,
+    "The configuration file to load components from", NULL },
   { NULL }
 };
 
@@ -28,7 +30,160 @@ enum WpExitCode
   WP_CODE_INVALID_ARGUMENT,
 };
 
-struct WpDaemonData
+/*** WpInitTransition ***/
+
+struct _WpInitTransition
+{
+  WpTransition parent;
+  WpObjectManager *om;
+  guint pending_plugins;
+};
+
+enum {
+  STEP_LOAD_MODULE = WP_TRANSITION_STEP_CUSTOM_START,
+  STEP_LOAD_CONFIG,
+  STEP_CONNECT,
+  STEP_ACTIVATE_PLUGINS,
+  STEP_ACTIVATE_SCRIPTS,
+};
+
+G_DECLARE_FINAL_TYPE (WpInitTransition, wp_init_transition,
+                      WP, INIT_TRANSITION, WpTransition)
+G_DEFINE_TYPE (WpInitTransition, wp_init_transition, WP_TYPE_TRANSITION)
+
+static void
+wp_init_transition_init (WpInitTransition * self)
+{
+}
+
+static guint
+wp_init_transition_get_next_step (WpTransition * transition, guint step)
+{
+  switch (step) {
+  case WP_TRANSITION_STEP_NONE: return STEP_LOAD_MODULE;
+  case STEP_LOAD_MODULE:        return STEP_LOAD_CONFIG;
+  case STEP_LOAD_CONFIG:        return STEP_CONNECT;
+  case STEP_CONNECT:            return STEP_ACTIVATE_PLUGINS;
+  case STEP_ACTIVATE_PLUGINS: {
+    WpInitTransition *self = WP_INIT_TRANSITION (transition);
+    if (self->pending_plugins == 0)
+      return STEP_ACTIVATE_SCRIPTS;
+    else
+      return STEP_ACTIVATE_PLUGINS;
+  }
+  case STEP_ACTIVATE_SCRIPTS:   return WP_TRANSITION_STEP_NONE;
+  default:
+    g_return_val_if_reached (WP_TRANSITION_STEP_ERROR);
+  }
+}
+
+static void
+on_plugin_activated (WpObject * p, GAsyncResult * res, WpInitTransition *self)
+{
+  GError *error = NULL;
+
+  if (!wp_object_activate_finish (p, res, &error)) {
+    wp_transition_return_error (WP_TRANSITION (self), error);
+    return;
+  }
+
+  --self->pending_plugins;
+  wp_transition_advance (WP_TRANSITION (self));
+}
+
+static void
+on_plugin_added (WpObjectManager * om, WpObject * p, WpInitTransition *self)
+{
+  self->pending_plugins++;
+  wp_object_activate (p, WP_PLUGIN_FEATURE_ENABLED, NULL,
+      (GAsyncReadyCallback) on_plugin_activated, self);
+}
+
+static void
+wp_init_transition_execute_step (WpTransition * transition, guint step)
+{
+  WpInitTransition *self = WP_INIT_TRANSITION (transition);
+  WpCore *core = wp_transition_get_source_object (transition);
+  GError *error = NULL;
+
+  switch (step) {
+  case STEP_LOAD_MODULE:
+    if (!wp_core_load_component (core, "libwireplumber-module-lua-scripting",
+            "module", NULL, &error)) {
+      wp_transition_return_error (transition, error);
+      return;
+    }
+    wp_transition_advance (transition);
+    break;
+
+  case STEP_LOAD_CONFIG: {
+    const gchar *f = config_file ? config_file : "config.lua";
+
+    if (!wp_core_load_component (core, f, "config/lua", NULL, &error)) {
+      wp_transition_return_error (transition, error);
+      return;
+    }
+    wp_transition_advance (transition);
+    break;
+  }
+
+  case STEP_CONNECT:
+    g_signal_connect_object (core, "connected",
+        G_CALLBACK (wp_transition_advance), transition, G_CONNECT_SWAPPED);
+
+    if (!wp_core_connect (core)) {
+      wp_transition_return_error (transition, g_error_new (WP_DOMAIN_DAEMON,
+          WP_CODE_OPERATION_FAILED, "Failed to connect to PipeWire"));
+      return;
+    }
+    break;
+
+  case STEP_ACTIVATE_PLUGINS:
+    wp_info_object (self, "Activating plugins...");
+
+    self->om = wp_object_manager_new ();
+    wp_object_manager_add_interest (self->om, WP_TYPE_PLUGIN,
+        WP_CONSTRAINT_TYPE_G_PROPERTY, "name", "!s", "lua-scripting",
+        NULL);
+    g_signal_connect_object (self->om, "object-added",
+        G_CALLBACK (on_plugin_added), self, 0);
+    g_signal_connect_object (self->om, "installed",
+        G_CALLBACK (wp_transition_advance), transition, G_CONNECT_SWAPPED);
+    wp_core_install_object_manager (core, self->om);
+    break;
+
+  case STEP_ACTIVATE_SCRIPTS: {
+    g_clear_object (&self->om);
+
+    wp_info_object (self, "Executing scripts...");
+
+    WpPlugin *p = wp_plugin_find (core, "lua-scripting");
+    wp_object_activate (WP_OBJECT (p), WP_PLUGIN_FEATURE_ENABLED, NULL,
+        (GAsyncReadyCallback) on_plugin_activated, self);
+    break;
+  }
+
+  case WP_TRANSITION_STEP_ERROR:
+    g_clear_object (&self->om);
+    break;
+
+  default:
+    g_assert_not_reached ();
+  }
+}
+
+static void
+wp_init_transition_class_init (WpInitTransitionClass * klass)
+{
+  WpTransitionClass * transition_class = (WpTransitionClass *) klass;
+
+  transition_class->get_next_step = wp_init_transition_get_next_step;
+  transition_class->execute_step = wp_init_transition_execute_step;
+}
+
+/*** WpDaemon ***/
+
+typedef struct
 {
   WpCore *core;
   GMainLoop *loop;
@@ -36,13 +191,23 @@ struct WpDaemonData
   gint exit_code;
   gchar *exit_message;
   GDestroyNotify free_message;
+} WpDaemon;
 
-  GPtrArray *sessions;
-  guint n_sessions_exported;
-};
+static void
+daemon_clear (WpDaemon * self)
+{
+  if (self->free_message) {
+    g_clear_pointer (&self->exit_message, self->free_message);
+    self->free_message = NULL;
+  }
+  g_clear_pointer (&self->loop, g_main_loop_unref);
+  g_clear_object (&self->core);
+}
+
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (WpDaemon, daemon_clear)
 
 static G_GNUC_PRINTF (3, 4) void
-daemon_exit (struct WpDaemonData * d, gint code, const gchar *format, ...)
+daemon_exit (WpDaemon * d, gint code, const gchar *format, ...)
 {
   va_list args;
   va_start (args, format);
@@ -54,7 +219,7 @@ daemon_exit (struct WpDaemonData * d, gint code, const gchar *format, ...)
 }
 
 static void
-daemon_exit_static_str (struct WpDaemonData * d, gint code, const gchar *str)
+daemon_exit_static_str (WpDaemon * d, gint code, const gchar *str)
 {
   d->exit_code = code;
   d->exit_message = (gchar *) str;
@@ -62,89 +227,10 @@ daemon_exit_static_str (struct WpDaemonData * d, gint code, const gchar *str)
   g_main_loop_quit (d->loop);
 }
 
-static gboolean
-signal_handler (gpointer data)
-{
-  struct WpDaemonData *d = data;
-  daemon_exit_static_str (d, WP_CODE_INTERRUPTED, "interrupted by signal");
-  return G_SOURCE_CONTINUE;
-}
-
 static void
-on_plugin_activated (WpObject * p, GAsyncResult * res, struct WpDaemonData *d)
+on_disconnected (WpCore *core, WpDaemon * d)
 {
-  g_autoptr (GError) error = NULL;
-  if (!wp_object_activate_finish (p, res, &error)) {
-    wp_warning_object (p, "%s", error->message);
-  }
-}
-
-static void
-on_plugin_added (WpObjectManager * om, WpObject * p, struct WpDaemonData *d)
-{
-  wp_object_activate (p, WP_PLUGIN_FEATURE_ENABLED, NULL,
-      (GAsyncReadyCallback) on_plugin_activated, d);
-}
-
-static gboolean
-activate_plugins (struct WpDaemonData *d)
-{
-  g_autoptr (WpObjectManager) om = NULL;
-
-  om = wp_object_manager_new ();
-  wp_object_manager_add_interest (om, WP_TYPE_PLUGIN, NULL);
-  g_signal_connect (om, "object-added", G_CALLBACK (on_plugin_added), d);
-  wp_core_install_object_manager (d->core, om);
-
-  /* object-added will be emitted for all plugins synchronously during the
-   install call above and we don't expect anyone to load plugins later,
-   so we don't need to keep a reference to this object manager.
-   This optimization is based on the knowledge of the implementation of
-   WpObjectManager and in other circumstances it should not be relied upon. */
-
-  return G_SOURCE_REMOVE;
-}
-
-static void
-on_session_exported (WpObject * session, GAsyncResult * res,
-    struct WpDaemonData *d)
-{
-  g_autoptr (GError) error = NULL;
-
-  if (!wp_object_activate_finish (session, res, &error)) {
-    wp_warning_object (session, "session could not be exported: %s",
-        error->message);
-  }
-
-  if (wp_log_level_is_enabled (G_LOG_LEVEL_DEBUG)) {
-    g_autoptr (WpProperties) props =
-        wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (session));
-    wp_debug_object (session, "session '%s' exported",
-        wp_properties_get (props, "session.name"));
-  }
-
-  if (++d->n_sessions_exported == d->sessions->len) {
-    wp_debug ("All sessions exported");
-    wp_core_idle_add (d->core, NULL, G_SOURCE_FUNC (activate_plugins), d, NULL);
-  }
-}
-
-static void
-on_connected (WpCore *core, struct WpDaemonData *d)
-{
-  d->n_sessions_exported = 0;
-  for (guint i = 0; i < d->sessions->len; i++) {
-    WpObject *session = g_ptr_array_index (d->sessions, i);
-    wp_object_activate (session, WP_OBJECT_FEATURES_ALL,
-        NULL, (GAsyncReadyCallback) on_session_exported, d);
-  }
-}
-
-static void
-on_disconnected (WpCore *core, struct WpDaemonData * d)
-{
-  /* something else triggered the exit; we will certainly get a state
-   * change while destroying the remote, but let's not change the message */
+  /* something else triggered the exit; let's not change the message */
   if (d->exit_message)
     return;
 
@@ -153,291 +239,66 @@ on_disconnected (WpCore *core, struct WpDaemonData * d)
 }
 
 static gboolean
-parse_commands_file (struct WpDaemonData *d, GInputStream * stream,
-    GError ** error)
+signal_handler (gpointer data)
 {
-  gchar buffer[4096];
-  gssize bytes_read;
-  gchar *cur, *linestart, *saveptr;
-  gchar *cmd;
-  gint lineno = 1, block_lines = 1, in_block = 0;
-  gboolean eof = FALSE, in_comment = FALSE;
-  GVariant *properties;
-
-  linestart = cur = buffer;
-
-  do {
-    bytes_read = g_input_stream_read (stream, cur,
-        sizeof (buffer) - (cur - linestart), NULL, error);
-    if (bytes_read < 0)
-      return FALSE;
-    else if (bytes_read == 0) {
-      eof = TRUE;
-      /* terminate the remaining data, so that we consume it all */
-      if (cur != linestart) {
-        *cur = '\n';
-      }
-    }
-
-    bytes_read += (cur - linestart);
-
-    while (cur - buffer < bytes_read) {
-      /* advance cur to the end of the line that is at the end of the block */
-      while (cur - buffer < bytes_read && (in_block || *cur != '\n')) {
-        switch (*cur) {
-          case '{':
-            if (!in_comment)
-              in_block++;
-            break;
-          case '}':
-            if (!in_comment)
-              in_block--;
-            break;
-          case '#':
-            in_comment = TRUE;
-            break;
-          case '\n':  // found a newline inside a block
-            block_lines++;
-            in_comment = FALSE;
-            break;
-          default:
-            break;
-        }
-        /* replace comments with spaces to make the parser ignore them */
-        if (in_comment)
-          *cur = ' ';
-        cur++;
-      }
-
-      if (!in_block && *cur == '\n') {
-        /* found the end of a line */
-        *cur = '\0';
-
-        /* tokenize and execute */
-        cmd = strtok_r (linestart, " ", &saveptr);
-
-        if (!cmd || cmd[0] == '#') {
-          /* empty line or comment, skip */
-        } else if (!g_strcmp0 (cmd, "load-module")) {
-          gchar *abi, *module, *props;
-
-          abi = strtok_r (NULL, " ", &saveptr);
-          module = strtok_r (NULL, " ", &saveptr);
-
-          if (!abi || !module ||
-              (abi && abi[0] == '{') || (module && module[0] == '{'))
-          {
-            g_set_error (error, WP_DOMAIN_DAEMON, WP_CODE_INVALID_ARGUMENT,
-                "expected ABI and MODULE at line %i", lineno);
-            return FALSE;
-          }
-
-          /* if there are remaining characters after the module name,
-             treat it as a serialized GVariant for the properties */
-          props = module + strlen(module) + 1;
-          if (cur - props > 0 && !in_comment) {
-            g_autoptr (GError) tmperr = NULL;
-            g_autofree gchar *context = NULL;
-
-            properties = g_variant_parse (G_VARIANT_TYPE_VARDICT, props, cur,
-                NULL, &tmperr);
-            if (!properties) {
-              context = g_variant_parse_error_print_context (tmperr, props);
-              g_set_error (error, WP_DOMAIN_DAEMON, WP_CODE_INVALID_ARGUMENT,
-                  "GVariant parse error after line %i:\n%s", lineno, context);
-              return FALSE;
-            }
-          } else {
-            properties = g_variant_new_parsed ("@a{sv} {}");
-          }
-
-          if (!wp_core_load_component (d->core, module, "module", properties,
-                  error))
-            return FALSE;
-
-        } else if (!g_strcmp0 (cmd, "load-pipewire-module")) {
-          gchar *module, *props;
-
-          module = strtok_r (NULL, " ", &saveptr);
-          props = module + strlen(module) + 1;
-          properties = g_variant_new_string (props);
-
-          if (!wp_core_load_component (d->core, module, "pw_module", properties,
-                  error))
-            return FALSE;
-
-        } else if (!g_strcmp0 (cmd, "add-spa-lib")) {
-          gchar *regex, *lib;
-          gint ret;
-
-          regex = strtok_r (NULL, " ", &saveptr);
-          lib = strtok_r (NULL, " ", &saveptr);
-
-          if (!regex || !lib ||
-              (regex && regex[0] == '{') || (lib && lib[0] == '{'))
-          {
-            g_set_error (error, WP_DOMAIN_DAEMON, WP_CODE_INVALID_ARGUMENT,
-                "expected REGEX and LIB at line %i", lineno);
-            return FALSE;
-          }
-
-          ret = pw_context_add_spa_lib (wp_core_get_pw_context (d->core), regex,
-              lib);
-          if (ret < 0) {
-            g_set_error (error, WP_DOMAIN_DAEMON, WP_CODE_OPERATION_FAILED,
-                "failed to add spa lib ('%s' on '%s'): %s", regex, lib,
-                g_strerror (-ret));
-            return FALSE;
-          }
-        } else if (!g_strcmp0 (cmd, "create-session")) {
-          g_autoptr (WpImplSession) session = NULL;
-          gchar *name = strtok_r (NULL, " ", &saveptr);
-
-          if (!name) {
-            g_set_error (error, WP_DOMAIN_DAEMON, WP_CODE_INVALID_ARGUMENT,
-              "expected session name at line %i", lineno);
-            return FALSE;
-          }
-
-          session = wp_impl_session_new (d->core);
-          wp_impl_session_set_property (session, "session.name", name);
-
-          g_ptr_array_add (d->sessions, g_steal_pointer (&session));
-        } else {
-          g_set_error (error, WP_DOMAIN_DAEMON, WP_CODE_INVALID_ARGUMENT,
-              "unknown command '%s' at line %i", cmd, lineno);
-          return FALSE;
-        }
-
-        /* continue with the next line */
-        linestart = ++cur;
-        lineno += block_lines;
-        block_lines = 1;
-        in_comment = FALSE;
-      }
-    }
-
-    /* reached the end of the data that was read */
-
-    if (cur - linestart >= (gssize) sizeof (buffer)) {
-      g_set_error (error, WP_DOMAIN_DAEMON, WP_CODE_OPERATION_FAILED,
-          "line %i exceeds the maximum allowed line size (%d bytes)",
-          lineno, (gint) sizeof (buffer));
-      return FALSE;
-    } else if (cur - linestart > 0) {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstringop-truncation"
-      /* we have unparsed data, move it to the
-       * beginning of the buffer and continue */
-      strncpy (buffer, linestart, cur - linestart);
-      linestart = buffer;
-      cur = buffer + (cur - linestart);
-#pragma GCC diagnostic pop
-    } else {
-      /* reset for the next g_input_stream_read() call */
-      linestart = cur = buffer;
-    }
-  } while (!eof);
-
-  return TRUE;
+  WpDaemon *d = data;
+  daemon_exit_static_str (d, WP_CODE_INTERRUPTED, "interrupted by signal");
+  return G_SOURCE_CONTINUE;
 }
 
 static gboolean
-load_commands_file (struct WpDaemonData *d)
+init_start (WpTransition * transition)
 {
-  g_autoptr (GFile) file = NULL;
-  g_autoptr (GError) error = NULL;
-  g_autoptr (GFileInputStream) istream = NULL;
-  const gchar *filename;
-
-  filename = g_getenv ("WIREPLUMBER_CONFIG_FILE");
-  if (!filename)
-    filename = WIREPLUMBER_DEFAULT_CONFIG_FILE;
-
-  file = g_file_new_for_path (filename);
-  istream = g_file_read (file, NULL, &error);
-  if (!istream) {
-    daemon_exit (d, WP_CODE_INVALID_ARGUMENT, "%s", error->message);
-    return G_SOURCE_REMOVE;
-  }
-
-  if (!parse_commands_file (d, G_INPUT_STREAM (istream), &error)) {
-    daemon_exit (d, error->code, "Failed to read '%s': %s", filename,
-        error->message);
-    return G_SOURCE_REMOVE;
-  }
-
-  /* connect to pipewire */
-  if (!wp_core_connect (d->core))
-    daemon_exit_static_str (d, WP_CODE_DISCONNECTED, "failed to connect");
-
+  wp_transition_advance (transition);
   return G_SOURCE_REMOVE;
+}
+
+static void
+init_done (WpCore * core, GAsyncResult * res, WpDaemon * d)
+{
+  g_autoptr (GError) error = NULL;
+  if (!wp_transition_finish (res, &error))
+    daemon_exit (d, WP_CODE_OPERATION_FAILED, "%s", error->message);
 }
 
 gint
 main (gint argc, gchar **argv)
 {
-  struct WpDaemonData data = {0};
+  g_auto (WpDaemon) d = {0};
   g_autoptr (GOptionContext) context = NULL;
   g_autoptr (GError) error = NULL;
-  g_autoptr (WpCore) core = NULL;
-  g_autoptr (GMainLoop) loop = NULL;
-  g_autoptr (GPtrArray) sessions = NULL;
 
   wp_init (WP_INIT_ALL);
 
   context = g_option_context_new ("- PipeWire Session/Policy Manager");
   g_option_context_add_main_entries (context, entries, NULL);
   if (!g_option_context_parse (context, &argc, &argv, &error)) {
-    data.exit_message = error->message;
-    data.exit_code = WP_CODE_INVALID_ARGUMENT;
-    goto out;
+    wp_message ("%s", error->message);
+    return WP_CODE_INVALID_ARGUMENT;
   }
 
-  /* init wireplumber */
-
-  data.core = core = wp_core_new (NULL, wp_properties_new (
+  /* init wireplumber daemon */
+  d.loop = g_main_loop_new (NULL, FALSE);
+  d.core = wp_core_new (NULL, wp_properties_new (
           PW_KEY_APP_NAME, "WirePlumber",
           NULL));
-  g_signal_connect (core, "connected", G_CALLBACK (on_connected), &data);
-  g_signal_connect (core, "disconnected", (GCallback) on_disconnected, &data);
-
-  /* init configuration */
-
-  {
-    g_autoptr (WpConfiguration) config = NULL;
-    const gchar *path = g_getenv ("WIREPLUMBER_CONFIG_DIR");
-    if (!path)
-      path = WIREPLUMBER_DEFAULT_CONFIG_DIR;
-    config = wp_configuration_get_instance (core);
-    wp_configuration_add_path (config, path);
-  }
-
-  /* init main loop */
-
-  data.loop = loop = g_main_loop_new (NULL, FALSE);
-
-  /* init sessions */
-
-  data.sessions = sessions = g_ptr_array_new_with_free_func (g_object_unref);
+  g_signal_connect (d.core, "disconnected", G_CALLBACK (on_disconnected), &d);
 
   /* watch for exit signals */
+  g_unix_signal_add (SIGINT, signal_handler, &d);
+  g_unix_signal_add (SIGTERM, signal_handler, &d);
+  g_unix_signal_add (SIGHUP, signal_handler, &d);
 
-  g_unix_signal_add (SIGINT, signal_handler, &data);
-  g_unix_signal_add (SIGTERM, signal_handler, &data);
-  g_unix_signal_add (SIGHUP, signal_handler, &data);
+  /* initialization transition */
+  g_idle_add ((GSourceFunc) init_start,
+      wp_transition_new (wp_init_transition_get_type (), d.core,
+          NULL, (GAsyncReadyCallback) init_done, &d));
 
   /* run */
+  g_main_loop_run (d.loop);
+  wp_core_disconnect (d.core);
 
-  g_idle_add ((GSourceFunc) load_commands_file, &data);
-  g_main_loop_run (data.loop);
-  wp_core_disconnect (core);
-
-out:
-  if (data.exit_message) {
-    wp_message ("%s", data.exit_message);
-    if (data.free_message)
-      data.free_message (data.exit_message);
-  }
-  return data.exit_code;
+  if (d.exit_message)
+    wp_message ("%s", d.exit_message);
+  return d.exit_code;
 }
