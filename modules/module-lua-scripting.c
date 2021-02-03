@@ -18,10 +18,34 @@ struct _WpLuaScriptingPlugin
 {
   WpComponentLoader parent;
 
-  GPtrArray *scripts;
+  GArray *scripts;
   WpCore *export_core;
   lua_State *L;
 };
+
+struct ScriptData
+{
+  gchar *filename;
+  GVariant *args;
+};
+
+static void
+script_data_clear (struct ScriptData * d)
+{
+  g_clear_pointer (&d->filename, g_free);
+  g_clear_pointer (&d->args, g_variant_unref);
+}
+
+static gboolean
+execute_script (lua_State *L, struct ScriptData * s, GError ** error)
+{
+  int nargs = 0;
+  if (s->args) {
+    wplua_asv_to_table (L, s->args);
+    nargs++;
+  }
+  return wplua_load_path (L, s->filename, nargs, 0, error);
+}
 
 G_DECLARE_FINAL_TYPE (WpLuaScriptingPlugin, wp_lua_scripting_plugin,
                       WP, LUA_SCRIPTING_PLUGIN, WpComponentLoader)
@@ -31,7 +55,8 @@ G_DEFINE_TYPE (WpLuaScriptingPlugin, wp_lua_scripting_plugin,
 static void
 wp_lua_scripting_plugin_init (WpLuaScriptingPlugin * self)
 {
-  self->scripts = g_ptr_array_new_with_free_func (g_free);
+  self->scripts = g_array_new (FALSE, TRUE, sizeof (struct ScriptData));
+  g_array_set_clear_func (self->scripts, (GDestroyNotify) script_data_clear);
 }
 
 static void
@@ -39,7 +64,7 @@ wp_lua_scripting_plugin_finalize (GObject * object)
 {
   WpLuaScriptingPlugin * self = WP_LUA_SCRIPTING_PLUGIN (object);
 
-  g_clear_pointer (&self->scripts, g_ptr_array_unref);
+  g_clear_pointer (&self->scripts, g_array_unref);
 
   G_OBJECT_CLASS (wp_lua_scripting_plugin_parent_class)->finalize (object);
 }
@@ -79,7 +104,8 @@ wp_lua_scripting_plugin_enable (WpPlugin * plugin, WpTransition * transition)
   /* execute scripts that were queued in for loading */
   for (guint i = 0; i < self->scripts->len; i++) {
     GError * error = NULL;
-    if (!wplua_load_path (self->L, g_ptr_array_index (self->scripts, i), 0, 0, &error)) {
+    struct ScriptData * s = &g_array_index (self->scripts, struct ScriptData, i);
+    if (!execute_script (self->L, s, &error)) {
       wp_transition_return_error (transition, error);
       return;
     }
@@ -154,16 +180,21 @@ wp_lua_scripting_plugin_load (WpComponentLoader * cl, const gchar * component,
 
   /* interpret component as a script */
   if (!g_strcmp0 (type, "script/lua")) {
-    gchar * file = find_script (component);
-    if (!file) {
+    struct ScriptData s = {0};
+
+    s.filename = find_script (component);
+    if (!s.filename) {
       g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
           "Could not locate script '%s'", component);
       return FALSE;
     }
 
+    if (args && g_variant_is_of_type (args, G_VARIANT_TYPE_VARDICT))
+      s.args = g_variant_ref (args);
+
     /* keep in a list and delay loading until the plugin is enabled */
-    g_ptr_array_add (self->scripts, file);
-    return self->L ? wplua_load_path (self->L, file, 0, 0, error) : TRUE;
+    g_array_append_val (self->scripts, s);
+    return self->L ? execute_script (self->L, &s, error) : TRUE;
   }
   /* interpret component as a configuration file */
   else if (!g_strcmp0 (type, "config/lua")) {
