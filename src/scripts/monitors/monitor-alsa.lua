@@ -209,31 +209,22 @@ function activateMonitor()
   monitor:activate(Feature.SpaDevice.ENABLED)
 end
 
-if rd_plugin then
-  -- delay activation until the d-bus connection is ready
-  if rd_plugin["state"] == "connecting" then
-    rd_plugin:connect("notify::state", function (rdp, pspec)
-      -- "connected" -> ready
-      if rd_plugin["state"] == "connected" then
-        activateMonitor()
-
-      -- "closed" -> the d-bus connection failed
-      elseif rd_plugin["state"] == "closed" then
-        rd_plugin = nil
-        activateMonitor()
-      end
-      -- TODO disconnect signal handler
-    end)
-
-  -- d-bus connection has failed
-  elseif rd_plugin["state"] == "closed" then
-    rd_plugin = nil
-    activateMonitor()
-
-  -- d-bus connection is ready
-  elseif rd_plugin["state"] == "connected" then
-    activateMonitor()
-  end
-else
-  activateMonitor()
+-- if the reserve-device plugin is enabled, at the point of script execution
+-- it is expected to be connected. if it is not, assume the d-bus connection
+-- has failed and continue without it
+if rd_plugin and rd_plugin["state"] ~= "connected" then
+  rd_plugin = nil
 end
+
+if rd_plugin then
+  monitor:connect("object-removed", function (parent, id)
+    local device = parent:get_managed_object(id)
+    local rd_name = device.properties["api.dbus.ReserveDevice1"]
+    if rd_name then
+      rd_plugin:call("destroy-reservation", rd_name)
+    end
+  end)
+end
+
+Log.info("Activating ALSA monitor")
+monitor:activate(Feature.SpaDevice.ENABLED)
