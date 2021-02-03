@@ -34,6 +34,10 @@ function load_monitor(s, a)
   load_script("monitors/monitor-" .. s .. ".lua", a)
 end
 
+function load_access(s, a)
+  load_script("access/access-" .. s .. ".lua", a)
+end
+
 -- Session item factories, building blocks for the session management graph
 -- Do not disable these unless you really know what you are doing
 load_module("si-adapter")
@@ -62,9 +66,10 @@ load_script("suspend-node.lua")
 -- Automatically sets device profiles to 'On'
 load_module("device-activation")
 
--- Grants access to security confined clients
-load_module("client-permissions")
-
+function enable_access()
+  -- Flatpak access
+  load_access("flatpak")
+end
 
 function enable_audio()
   -- Enables functionality to save and restore default device profiles
@@ -104,6 +109,7 @@ end
 -- split these calls into .lua files in config.lua.d/
 -- to get a similar effect as the 'with-audio', 'with-pusleaudio', etc
 -- flag files that ship with pipewire-media-session
+enable_access()
 enable_audio()
 enable_bluetooth()
 enable_endpoints()

@@ -4,17 +4,6 @@ common_c_args = [
 ]
 
 shared_library(
-  'wireplumber-module-client-permissions',
-  [
-    'module-client-permissions.c'
-  ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-client-permissions"'],
-  install : true,
-  install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep, pipewire_dep],
-)
-
-shared_library(
   'wireplumber-module-metadata',
   [
     'module-metadata.c',
