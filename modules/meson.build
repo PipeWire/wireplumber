@@ -64,6 +64,20 @@ shared_library(
   dependencies : [wp_dep, giounix_dep],
 )
 
+subdir('module-portal-permissionstore')
+shared_library(
+  'wireplumber-module-portal-permissionstore',
+  [
+    'module-portal-permissionstore/plugin.c',
+    portal_permissionstore_enums,
+  ],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-portal-permissionstore"'],
+  include_directories: portal_permissionstore_includes,
+  install : true,
+  install_dir : wireplumber_module_dir,
+  dependencies : [wp_dep, giounix_dep],
+)
+
 shared_library(
   'wireplumber-module-si-adapter',
   [
