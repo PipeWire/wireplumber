@@ -24,9 +24,9 @@ function load_pw_module(m)
   end
 end
 
-function load_script(s)
+function load_script(s, a)
   if not components[s] then
-    components[s] = { s, type = "script/lua" }
+    components[s] = { s, type = "script/lua", args = a }
   end
 end
 
@@ -88,6 +88,10 @@ function enable_bluetooth()
 end
 
 function enable_endpoints()
+  load_script("static-sessions.lua", {
+    ["audio"] = {},
+    ["video"] = {},
+  })
   load_script("create-endpoint.lua")
   load_script("policy-endpoint.lua")
 end
