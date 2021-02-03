@@ -7,6 +7,7 @@
  */
 
 #include <wp/wp.h>
+#include <pipewire/pipewire.h>
 #include <wplua/wplua.h>
 
 #define URI_API "resource:///org/freedesktop/pipewire/wireplumber/m-lua-scripting/api.lua"
@@ -855,6 +856,84 @@ impl_node_new (lua_State *L)
   return 1;
 }
 
+/* Client */
+
+static gboolean
+client_parse_permissions (const gchar * perms_str, guint32 *perms)
+{
+  guint32 res = 0;
+
+  if (g_strcmp0 (perms_str, "all") == 0) {
+    res = PW_PERM_ALL;
+  } else {
+    for (guint i = 0; i < strlen (perms_str); i++) {
+      switch (perms_str[i]) {
+        case 'r':
+          res |= PW_PERM_R;
+          break;
+        case 'w':
+          res |= PW_PERM_W;
+          break;
+        case 'x':
+          res |= PW_PERM_X;
+          break;
+        case 'm':
+          res |= PW_PERM_M;
+        case '-':
+          break;
+        default:
+          return FALSE;
+      }
+    }
+  }
+
+  if (perms)
+    *perms = res;
+
+  return TRUE;
+}
+
+static int
+client_update_permissions (lua_State *L)
+{
+  WpClient *client = wplua_checkobject (L, 1, WP_TYPE_CLIENT);
+  guint n_perm = 0;
+  guint size = 16;
+  g_autofree struct pw_permission *arr =
+      g_malloc0_n (size, sizeof (struct pw_permission));
+
+  luaL_checktype (L, 2, LUA_TTABLE);
+
+  lua_pushnil(L);
+  while (lua_next (L, -2)) {
+    if (lua_type (L, -1) == LUA_TNUMBER && lua_type (L, -2) == LUA_TSTRING) {
+      guint32 id = lua_tointeger (L, -2);
+      const gchar *perms_str = lua_tostring (L, -1);
+      guint32 perms = 0;
+      if (client_parse_permissions (perms_str, &perms)) {
+        if (size < n_perm) {
+          size += 16;
+          arr = g_realloc (arr, size * sizeof (struct pw_permission));
+        }
+        arr[n_perm].id = id;
+        arr[n_perm].permissions = perms;
+        n_perm++;
+      } else {
+        wp_warning ("Ignored invalid permission '%s'", perms_str);
+      }
+    }
+    lua_pop (L, 1);
+  }
+
+  wp_client_update_permissions_array (client, n_perm, arr);
+  return 0;
+}
+
+static const luaL_Reg client_methods[] = {
+  { "update_permissions", client_update_permissions },
+  { NULL, NULL }
+};
+
 /* WpSessionItem */
 
 static int
@@ -1030,6 +1109,8 @@ wp_lua_scripting_api_init (lua_State *L)
       node_new, node_methods);
   wplua_register_type_methods (L, WP_TYPE_IMPL_NODE,
       impl_node_new, NULL);
+  wplua_register_type_methods (L, WP_TYPE_CLIENT,
+      NULL, client_methods);
   wplua_register_type_methods (L, WP_TYPE_SESSION_ITEM,
       session_item_new, session_item_methods);
 
