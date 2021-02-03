@@ -477,6 +477,31 @@ static const luaL_Reg session_methods[] = {
   { NULL, NULL }
 };
 
+/* WpImplSession */
+
+static int
+impl_session_new (lua_State *L)
+{
+  WpImplSession *session = wp_impl_session_new (get_wp_core (L));
+  wplua_pushobject (L, session);
+  return 1;
+}
+
+static int
+impl_session_update_properties (lua_State *L)
+{
+  WpImplSession *session = wplua_checkobject (L, 1, WP_TYPE_IMPL_SESSION);
+  luaL_checktype (L, 2, LUA_TTABLE);
+  WpProperties *props = wplua_table_to_properties (L, 2);
+  wp_impl_session_update_properties (session, props);
+  return 0;
+}
+
+static const luaL_Reg impl_session_methods[] = {
+  { "update_properties", impl_session_update_properties },
+  { NULL, NULL }
+};
+
 /* WpEndpoint */
 
 static int
@@ -820,6 +845,8 @@ wp_lua_scripting_api_init (lua_State *L)
       NULL, metadata_methods);
   wplua_register_type_methods (L, WP_TYPE_SESSION,
       NULL, session_methods);
+  wplua_register_type_methods (L, WP_TYPE_IMPL_SESSION,
+      impl_session_new, impl_session_methods);
   wplua_register_type_methods (L, WP_TYPE_ENDPOINT,
       NULL, endpoint_methods);
   wplua_register_type_methods (L, WP_TYPE_ENDPOINT_LINK,
