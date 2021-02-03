@@ -1,11 +1,10 @@
-project('wireplumber', ['c', 'cpp'],
+project('wireplumber', ['c'],
   version : '0.3.50',
   license : 'MIT',
   meson_version : '>= 0.54.0',
   default_options : [
     'warning_level=1',
     'buildtype=debugoptimized',
-    'cpp_std=c++11',
   ]
 )
 
@@ -81,9 +80,6 @@ common_flags = [
 ]
 cc = meson.get_compiler('c')
 add_project_arguments(cc.get_supported_arguments(common_flags), language: 'c')
-
-ccpp = meson.get_compiler('cpp')
-add_project_arguments(ccpp.get_supported_arguments(common_flags), language: 'cpp')
 
 have_audiofade = cc.compiles('''
   #include <spa/utils/names.h>
