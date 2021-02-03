@@ -260,7 +260,7 @@ test_wplua_construct ()
   const gchar code[] =
     "o = TestObject_new()\n"
     "assert (type(o) == 'userdata')\n";
-  wplua_load_buffer (L, code, sizeof (code) - 1, &error);
+  wplua_load_buffer (L, code, sizeof (code) - 1, 0, 0, &error);
   g_assert_no_error (error);
 
   g_assert_cmpint (lua_getglobal (L, "o"), ==, LUA_TUSERDATA);
@@ -293,7 +293,7 @@ test_wplua_properties ()
     "o['test-float'] = 3.1415\n"
     "o['test-double'] = 0.123456789\n"
     "o['test-boolean'] = true\n";
-  wplua_load_buffer (L, code, sizeof (code) - 1, &error);
+  wplua_load_buffer (L, code, sizeof (code) - 1, 0, 0, &error);
   g_assert_no_error (error);
 
   g_assert_cmpint (lua_getglobal (L, "o"), ==, LUA_TUSERDATA);
@@ -318,7 +318,7 @@ test_wplua_properties ()
     "assert (math.abs (o['test-float'] - 3.1415) < 0.00001)\n"
     "assert (math.abs (o['test-double'] - 0.123456789) < 0.0000000001)\n"
     "assert (o['test-boolean'] == true)\n";
-  wplua_load_buffer (L, code2, sizeof (code2) - 1, &error);
+  wplua_load_buffer (L, code2, sizeof (code2) - 1, 0, 0, &error);
   g_assert_no_error (error);
 
   wplua_free (L);
@@ -340,7 +340,7 @@ test_wplua_closure ()
     "  assert(s == expected_str)\n"
     "  f_was_called = true\n"
     "end\n";
-  wplua_load_buffer (L, code, sizeof (code) - 1, &error);
+  wplua_load_buffer (L, code, sizeof (code) - 1, 0, 0, &error);
   g_assert_no_error (error);
 
   lua_getglobal (L, "f");
@@ -398,7 +398,7 @@ test_wplua_signals ()
     "o['test-boolean'] = true\n"
     "o:toggle()\n"
     "assert(o['test-boolean'] == false)\n";
-  wplua_load_buffer (L, code, sizeof (code) - 1, &error);
+  wplua_load_buffer (L, code, sizeof (code) - 1, 0, 0, &error);
   g_assert_no_error (error);
   wplua_free (L);
 }
@@ -417,14 +417,14 @@ test_wplua_sandbox_script ()
     "  Test = TestObject_new,\n"
     "  Table = { test = 'foobar' }\n"
     "}\n";
-  wplua_load_buffer (L, code, sizeof (code) - 1, &error);
+  wplua_load_buffer (L, code, sizeof (code) - 1, 0, 0, &error);
   g_assert_no_error (error);
 
   wplua_enable_sandbox (L, WP_LUA_SANDBOX_ISOLATE_ENV);
 
   const gchar code2[] =
     "o = TestObject_new()\n";
-  wplua_load_buffer (L, code2, sizeof (code2) - 1, &error);
+  wplua_load_buffer (L, code2, sizeof (code2) - 1, 0, 0, &error);
   g_debug ("expected error: %s", error ? error->message : "null");
   g_assert_error (error, WP_DOMAIN_LUA, WP_LUA_ERROR_RUNTIME);
   g_clear_error (&error);
@@ -432,31 +432,31 @@ test_wplua_sandbox_script ()
   const gchar code3[] =
     "o = Test()\n"
     "o:toggle()\n";
-  wplua_load_buffer (L, code3, sizeof (code3) - 1, &error);
+  wplua_load_buffer (L, code3, sizeof (code3) - 1, 0, 0, &error);
   g_assert_no_error (error);
 
   const gchar code4[] =
     "assert(string.len(Table.test) == 6)\n";
-  wplua_load_buffer (L, code4, sizeof (code4) - 1, &error);
+  wplua_load_buffer (L, code4, sizeof (code4) - 1, 0, 0, &error);
   g_assert_no_error (error);
 
   const gchar code5[] =
     "o:call('change', 'by Lua', 55)\n";
-  wplua_load_buffer (L, code5, sizeof (code5) - 1, &error);
+  wplua_load_buffer (L, code5, sizeof (code5) - 1, 0, 0, &error);
   g_debug ("expected error: %s", error ? error->message : "null");
   g_assert_error (error, WP_DOMAIN_LUA, WP_LUA_ERROR_RUNTIME);
   g_clear_error (&error);
 
   const gchar code6[] =
     "string.test = 'hello world'\n";
-  wplua_load_buffer (L, code6, sizeof (code6) - 1, &error);
+  wplua_load_buffer (L, code6, sizeof (code6) - 1, 0, 0, &error);
   g_debug ("expected error: %s", error ? error->message : "null");
   g_assert_error (error, WP_DOMAIN_LUA, WP_LUA_ERROR_RUNTIME);
   g_clear_error (&error);
 
   const gchar code7[] =
     "Table.test = 'hello world'\n";
-  wplua_load_buffer (L, code7, sizeof (code7) - 1, &error);
+  wplua_load_buffer (L, code7, sizeof (code7) - 1, 0, 0, &error);
   g_debug ("expected error: %s", error ? error->message : "null");
   g_assert_error (error, WP_DOMAIN_LUA, WP_LUA_ERROR_RUNTIME);
   g_clear_error (&error);
@@ -474,7 +474,7 @@ test_wplua_sandbox_config ()
 
   const gchar code3[] =
     "o = { answer = 42 }\n";
-  wplua_load_buffer (L, code3, sizeof (code3) - 1, &error);
+  wplua_load_buffer (L, code3, sizeof (code3) - 1, 0, 0, &error);
   g_assert_no_error (error);
 
   /* no assert() in minimal_std mode, resort to other means of failure */
@@ -482,13 +482,13 @@ test_wplua_sandbox_config ()
     "if (o.answer ~= 42) then\n"
     "  non_existent_function()\n"
     "end\n";
-  wplua_load_buffer (L, code4, sizeof (code4) - 1, &error);
+  wplua_load_buffer (L, code4, sizeof (code4) - 1, 0, 0, &error);
   g_assert_no_error (error);
 
   /* string.* is protected */
   const gchar code6[] =
     "string.test = 'hello world'\n";
-  wplua_load_buffer (L, code6, sizeof (code6) - 1, &error);
+  wplua_load_buffer (L, code6, sizeof (code6) - 1, 0, 0, &error);
   g_debug ("expected error: %s", error ? error->message : "null");
   g_assert_error (error, WP_DOMAIN_LUA, WP_LUA_ERROR_RUNTIME);
   g_clear_error (&error);
@@ -496,7 +496,7 @@ test_wplua_sandbox_config ()
   /* this would be an error if the assert function was exported, but it's not */
   const gchar code7[] =
     "assert = 'hello world'\n";
-  wplua_load_buffer (L, code7, sizeof (code7) - 1, &error);
+  wplua_load_buffer (L, code7, sizeof (code7) - 1, 0, 0, &error);
   g_assert_no_error (error);
 
   wplua_free (L);
@@ -524,7 +524,7 @@ test_wplua_convert_asv ()
     "assert (math.abs (o['test-double'] - 3.14) < 0.0000000001)\n"
     "assert (o['test-boolean'] == true)\n"
     "assert (o['nested-table']['string'] == 'baz')\n";
-  wplua_load_buffer (L, code2, sizeof (code2) - 1, &error);
+  wplua_load_buffer (L, code2, sizeof (code2) - 1, 0, 0, &error);
   g_assert_no_error (error);
 
   lua_getglobal (L, "o");
@@ -558,6 +558,40 @@ test_wplua_convert_asv ()
   wplua_free (L);
 }
 
+static void
+test_wplua_script_arguments ()
+{
+  g_autoptr (GError) error = NULL;
+  lua_State *L = wplua_new ();
+
+  g_autoptr (GVariant) v = g_variant_new_parsed ("@a{sv} { "
+      "'test-int': <42>, "
+      "'test-double': <3.14>, "
+      "'test-string': <'foobar'>, "
+      "'test-boolean': <true>, "
+      "'nested-table': <@a{sv} { 'string': <'baz'> }> "
+      "}");
+  wplua_asv_to_table (L, v);
+
+  const gchar code2[] =
+    "local o = ...\n"
+    "assert (o['test-string'] == 'foobar')\n"
+    "assert (o['test-int'] == 42)\n"
+    "assert (math.abs (o['test-double'] - 3.14) < 0.0000000001)\n"
+    "assert (o['test-boolean'] == true)\n"
+    "assert (o['nested-table']['string'] == 'baz')\n";
+  wplua_load_buffer (L, code2, sizeof (code2) - 1, 1, 0, &error);
+  g_assert_no_error (error);
+
+  /* same test, but with sandbox enabled */
+  wplua_enable_sandbox (L, WP_LUA_SANDBOX_ISOLATE_ENV);
+  wplua_asv_to_table (L, v);
+  wplua_load_buffer (L, code2, sizeof (code2) - 1, 1, 0, &error);
+  g_assert_no_error (error);
+
+  wplua_free (L);
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -572,6 +606,7 @@ main (gint argc, gchar *argv[])
   g_test_add_func ("/wplua/sandbox/script", test_wplua_sandbox_script);
   g_test_add_func ("/wplua/sandbox/config", test_wplua_sandbox_config);
   g_test_add_func ("/wplua/convert/asv", test_wplua_convert_asv);
+  g_test_add_func ("/wplua/script_arguments", test_wplua_script_arguments);
 
   return g_test_run ();
 }

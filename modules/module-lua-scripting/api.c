@@ -835,7 +835,7 @@ wp_lua_scripting_api_init (lua_State *L)
   wplua_register_type_methods (L, WP_TYPE_SESSION_ITEM,
       session_item_new, session_item_methods);
 
-  wplua_load_uri (L, URI_API, &error);
+  wplua_load_uri (L, URI_API, 0, 0, &error);
   if (G_UNLIKELY (error))
     wp_critical ("Failed to load api: %s", error->message);
 }

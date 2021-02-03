@@ -80,7 +80,7 @@ if SANDBOX_CONFIG["isolate_env"] then
   -- store all of them in a global table so that they are not garbage collected
   SANDBOX_ENV_LIST = {}
 
-  function sandbox(chunk)
+  function sandbox(chunk, ...)
     -- chunk's environment will be an empty table with __index
     -- to access our SANDBOX_ENV (without being able to write it)
     local env = setmetatable({}, {
@@ -91,7 +91,7 @@ if SANDBOX_CONFIG["isolate_env"] then
     -- set it as the chunk's 1st upvalue (__ENV)
     debug.setupvalue(chunk, 1, env)
     -- execute the chunk
-    chunk()
+    chunk(...)
   end
 else
   -- in common_env mode, use the same environment for all loaded chunks
@@ -101,10 +101,10 @@ else
     __index = SANDBOX_ENV,
   })
 
-  function sandbox(chunk)
+  function sandbox(chunk, ...)
     -- set it as the chunk's 1st upvalue (__ENV)
     debug.setupvalue(chunk, 1, SANDBOX_COMMON_ENV)
     -- execute the chunk
-    chunk()
+    chunk(...)
   end
 end

@@ -76,9 +76,11 @@ GVariant * wplua_table_to_asv (lua_State *L, int idx);
 void wplua_asv_to_table (lua_State *L, GVariant *p);
 
 gboolean wplua_load_buffer (lua_State * L, const gchar *buf, gsize size,
+     int nargs, int nres, GError **error);
+gboolean wplua_load_uri (lua_State * L, const gchar *uri, int nargs, int nres,
     GError **error);
-gboolean wplua_load_uri (lua_State * L, const gchar *uri, GError **error);
-gboolean wplua_load_path (lua_State * L, const gchar *path, GError **error);
+gboolean wplua_load_path (lua_State * L, const gchar *path, int nargs, int nres,
+    GError **error);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC(lua_State, wplua_free)
 

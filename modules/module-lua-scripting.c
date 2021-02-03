@@ -79,7 +79,7 @@ wp_lua_scripting_plugin_enable (WpPlugin * plugin, WpTransition * transition)
   /* execute scripts that were queued in for loading */
   for (guint i = 0; i < self->scripts->len; i++) {
     GError * error = NULL;
-    if (!wplua_load_path (self->L, g_ptr_array_index (self->scripts, i), &error)) {
+    if (!wplua_load_path (self->L, g_ptr_array_index (self->scripts, i), 0, 0, &error)) {
       wp_transition_return_error (transition, error);
       return;
     }
@@ -163,7 +163,7 @@ wp_lua_scripting_plugin_load (WpComponentLoader * cl, const gchar * component,
 
     /* keep in a list and delay loading until the plugin is enabled */
     g_ptr_array_add (self->scripts, file);
-    return self->L ? wplua_load_path (self->L, file, error) : TRUE;
+    return self->L ? wplua_load_path (self->L, file, 0, 0, error) : TRUE;
   }
   /* interpret component as a configuration file */
   else if (!g_strcmp0 (type, "config/lua")) {
