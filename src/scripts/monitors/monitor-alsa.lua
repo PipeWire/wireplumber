@@ -5,12 +5,8 @@
 --
 -- SPDX-License-Identifier: MIT
 
-Config = {
-  use_acp = true,
-  use_device_reservation = true,
-  enable_midi = true,
-  enable_jack_client = false,
-}
+-- Receive script arguments from config.lua
+local Config = ...
 
 if Config.enable_midi then
   midi_bridge = Node("spa-node-factory", {

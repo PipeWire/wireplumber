@@ -30,8 +30,8 @@ function load_script(s, a)
   end
 end
 
-function load_monitor(s)
-  load_script("monitors/monitor-" .. s .. ".lua")
+function load_monitor(s, a)
+  load_script("monitors/monitor-" .. s .. ".lua", a)
 end
 
 -- Session item factories, building blocks for the session management graph
@@ -80,7 +80,12 @@ function enable_audio()
   load_module("reserve-device")
 
   -- ALSA device management via udev
-  load_monitor("alsa")
+  load_monitor("alsa", {
+    use_acp = true,
+    use_device_reservation = true,
+    enable_midi = true,
+    enable_jack_client = false,
+  })
 end
 
 function enable_bluetooth()
