@@ -691,15 +691,8 @@ impl_node_new (lua_State *L)
 static int
 session_item_new (lua_State *L)
 {
-  WpSessionItem *si = NULL;
   const char *type = luaL_checkstring (L, 1);
-  WpCore *core = NULL;
-
-  lua_pushliteral (L, "wireplumber_core");
-  lua_gettable (L, LUA_REGISTRYINDEX);
-  core = lua_touserdata (L, -1);
-
-  si = wp_session_item_make (core, type);
+  WpSessionItem *si = wp_session_item_make (get_wp_core (L), type);
   wplua_pushobject (L, si);
   return 1;
 }
