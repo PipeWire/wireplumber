@@ -58,59 +58,6 @@ done:
   return TRUE;
 }
 
-static GVariant *
-lua_to_gvariant (lua_State *L, int index)
-{
-  GVariantBuilder b;
-  g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
-
-  int table = lua_absindex (L, index);
-
-  lua_pushnil (L);
-  while (lua_next (L, table)) {
-    /* each argument must have a string as key */
-    if (lua_type (L, -2) != LUA_TSTRING) {
-      wp_warning ("skipping bad component argument key");
-      continue; /* skip, it's probably harmless */
-    }
-    const char *key = lua_tostring (L, -2);
-
-    switch (lua_type (L, -1)) {
-    case LUA_TBOOLEAN:
-      g_variant_builder_add (&b, "{sv}", key,
-          g_variant_new_boolean (lua_toboolean (L, -1)));
-      break;
-
-    case LUA_TNUMBER:
-      if (lua_isinteger (L, -1)) {
-        g_variant_builder_add (&b, "{sv}", key,
-            g_variant_new_int64 (lua_tointeger (L, -1)));
-      } else {
-        g_variant_builder_add (&b, "{sv}", key,
-            g_variant_new_double (lua_tonumber (L, -1)));
-      }
-      break;
-
-    case LUA_TSTRING:
-      g_variant_builder_add (&b, "{sv}", key,
-          g_variant_new_string (lua_tostring (L, -1)));
-      break;
-
-    case LUA_TTABLE:
-      g_variant_builder_add (&b, "{sv}", key, lua_to_gvariant (L, -1));
-      break;
-
-    default:
-      wp_warning ("skipping bad component argument value");
-      break;
-    }
-
-    lua_pop (L, 1);
-  }
-
-  return g_variant_builder_end (&b);
-}
-
 static gboolean
 load_components (lua_State *L, WpCore * core, GError ** error)
 {
@@ -162,7 +109,7 @@ load_components (lua_State *L, WpCore * core, GError ** error)
     /* optional component arguments */
     GVariant *args = NULL;
     if (lua_getfield (L, table, "args") == LUA_TTABLE) {
-      args = lua_to_gvariant (L, -1);
+      args = wplua_table_to_asv (L, -1);
     }
 
     wp_debug ("load component: %s (%s)", component, type);
