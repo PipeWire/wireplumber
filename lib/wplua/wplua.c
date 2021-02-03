@@ -127,9 +127,8 @@ wplua_enable_sandbox (lua_State * L, WpLuaSandboxFlags flags)
   lua_pushliteral (L, "isolate_env");
   lua_pushboolean (L, (flags & WP_LUA_SANDBOX_ISOLATE_ENV));
   lua_settable (L, -3);
-  lua_setglobal (L, "SANDBOX_CONFIG");
 
-  if (!wplua_load_uri (L, URI_SANDBOX, 0, 0, &error)) {
+  if (!wplua_load_uri (L, URI_SANDBOX, 1, 0, &error)) {
     wp_critical ("Failed to load sandbox: %s", error->message);
   }
 }

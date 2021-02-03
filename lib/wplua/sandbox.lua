@@ -8,6 +8,7 @@
 --
 -- SPDX-License-Identifier: MIT
 
+local SANDBOX_CONFIG = ...
 local SANDBOX_ENV = {}
 
 local function populate_env(id)
