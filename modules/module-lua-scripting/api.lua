@@ -110,6 +110,7 @@ SANDBOX_EXPORT = {
   Features = Features,
   Feature = Feature,
   Log = WpDebug,
+  Core = WpCore,
   Plugin = WpPlugin_find,
   ObjectManager = WpObjectManager_new,
   Interest = WpObjectInterest_new,

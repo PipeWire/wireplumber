@@ -29,6 +29,86 @@ get_wp_export_core (lua_State *L)
   return lua_touserdata (L, -1);
 }
 
+/* WpCore */
+
+static int
+core_get_info (lua_State *L)
+{
+  WpCore * core = get_wp_core (L);
+  g_autoptr (WpProperties) p = wp_core_get_remote_properties (core);
+
+  lua_newtable (L);
+  lua_pushinteger (L, wp_core_get_remote_cookie (core));
+  lua_setfield (L, -2, "cookie");
+  lua_pushstring (L, wp_core_get_remote_name (core));
+  lua_setfield (L, -2, "name");
+  lua_pushstring (L, wp_core_get_remote_user_name (core));
+  lua_setfield (L, -2, "user_name");
+  lua_pushstring (L, wp_core_get_remote_host_name (core));
+  lua_setfield (L, -2, "host_name");
+  lua_pushstring (L, wp_core_get_remote_version (core));
+  lua_setfield (L, -2, "version");
+  wplua_properties_to_table (L, p);
+  lua_setfield (L, -2, "properties");
+  return 1;
+}
+
+static int
+core_idle_add (lua_State *L)
+{
+  luaL_checktype (L, 1, LUA_TFUNCTION);
+  wp_core_idle_add_closure (get_wp_core (L), NULL,
+      wplua_function_to_closure (L, 1));
+  return 0;
+}
+
+static int
+core_timeout_add (lua_State *L)
+{
+  lua_Integer timeout_ms = luaL_checkinteger (L, 1);
+  luaL_checktype (L, 2, LUA_TFUNCTION);
+  wp_core_timeout_add_closure (get_wp_core (L), NULL, timeout_ms,
+      wplua_function_to_closure (L, 2));
+  return 0;
+}
+
+static void
+on_core_done (WpCore * core, GAsyncResult * res, GClosure * closure)
+{
+  g_autoptr (GError) error = NULL;
+  GValue val = G_VALUE_INIT;
+  int n_vals = 0;
+
+  if (!wp_core_sync_finish (core, res, &error)) {
+    g_value_init (&val, G_TYPE_STRING);
+    g_value_set_string (&val, error->message);
+    n_vals = 1;
+  }
+  g_closure_invoke (closure, NULL, n_vals, &val, NULL);
+  g_value_unset (&val);
+  g_closure_invalidate (closure);
+  g_closure_unref (closure);
+}
+
+static int
+core_sync (lua_State *L)
+{
+  luaL_checktype (L, 1, LUA_TFUNCTION);
+  GClosure * closure = wplua_function_to_closure (L, 1);
+  g_closure_sink (g_closure_ref (closure));
+  wp_core_sync (get_wp_core (L), NULL, (GAsyncReadyCallback) on_core_done,
+      closure);
+  return 0;
+}
+
+static const luaL_Reg core_funcs[] = {
+  { "get_info", core_get_info },
+  { "idle_add", core_idle_add },
+  { "timeout_add", core_timeout_add },
+  { "sync", core_sync },
+  { NULL, NULL }
+};
+
 /* WpDebug */
 
 static int
@@ -822,6 +902,9 @@ wp_lua_scripting_api_init (lua_State *L)
 
   luaL_newlib (L, log_funcs);
   lua_setglobal (L, "WpDebug");
+
+  luaL_newlib (L, core_funcs);
+  lua_setglobal (L, "WpCore");
 
   lua_pushcfunction (L, plugin_find);
   lua_setglobal (L, "WpPlugin_find");
