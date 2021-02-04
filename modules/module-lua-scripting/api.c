@@ -527,6 +527,16 @@ object_manager_iterate (lua_State *L)
 }
 
 static int
+object_manager_iterate_filtered (lua_State *L)
+{
+  WpObjectManager *om = wplua_checkobject (L, 1, WP_TYPE_OBJECT_MANAGER);
+  WpObjectInterest *oi = wplua_checkboxed (L, 2, WP_TYPE_OBJECT_INTEREST);
+  WpIterator *it =
+      wp_object_manager_iterate_filtered_full (om, wp_object_interest_ref (oi));
+  return push_wpiterator (L, it);
+}
+
+static int
 object_manager_lookup (lua_State *L)
 {
   WpObjectManager *om = wplua_checkobject (L, 1, WP_TYPE_OBJECT_MANAGER);
@@ -544,6 +554,7 @@ object_manager_lookup (lua_State *L)
 static const luaL_Reg object_manager_methods[] = {
   { "activate", object_manager_activate },
   { "iterate", object_manager_iterate },
+  { "iterate_filtered", object_manager_iterate_filtered },
   { "lookup", object_manager_lookup },
   { NULL, NULL }
 };
