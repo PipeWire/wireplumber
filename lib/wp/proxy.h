@@ -92,6 +92,9 @@ WP_API
 guint32 wp_proxy_get_bound_id (WpProxy * self);
 
 WP_API
+const gchar * wp_proxy_get_interface_type (WpProxy * self, guint32 * version);
+
+WP_API
 struct pw_proxy * wp_proxy_get_pw_proxy (WpProxy * self);
 
 /* for subclasses only */

@@ -187,6 +187,29 @@ wp_proxy_get_bound_id (WpProxy * self)
 }
 
 /**
+ * wp_proxy_get_interface_type:
+ * @self: the proxy
+ * @version: (out) (optional): the version of the interface
+ *
+ * Returns: the PipeWire type of the interface that is being proxied
+ */
+const gchar *
+wp_proxy_get_interface_type (WpProxy * self, guint32 * version)
+{
+  g_return_val_if_fail (WP_IS_PROXY (self), NULL);
+
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  if (priv->pw_proxy)
+    return pw_proxy_get_type (priv->pw_proxy, version);
+  else {
+    WpProxyClass *klass = WP_PROXY_GET_CLASS (self);
+    if (version)
+      *version = klass->pw_iface_version;
+    return klass->pw_iface_type;
+  }
+}
+
+/**
  * wp_proxy_get_pw_proxy:
  *
  * Returns: a pointer to the underlying `pw_proxy` object

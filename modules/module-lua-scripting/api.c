@@ -238,6 +238,24 @@ static const luaL_Reg object_methods[] = {
   { NULL, NULL }
 };
 
+/* WpProxy */
+
+static int
+proxy_get_interface_type (lua_State *L)
+{
+  WpProxy * p = wplua_checkobject (L, 1, WP_TYPE_PROXY);
+  guint32 version = 0;
+  const gchar *type = wp_proxy_get_interface_type (p, &version);
+  lua_pushstring (L, type);
+  lua_pushinteger (L, version);
+  return 2;
+}
+
+static const luaL_Reg proxy_methods[] = {
+  { "get_interface_type", proxy_get_interface_type },
+  { NULL, NULL }
+};
+
 /* WpGlobalProxy */
 
 static int
@@ -937,6 +955,8 @@ wp_lua_scripting_api_init (lua_State *L)
 
   wplua_register_type_methods (L, WP_TYPE_OBJECT,
       NULL, object_methods);
+  wplua_register_type_methods (L, WP_TYPE_PROXY,
+      NULL, proxy_methods);
   wplua_register_type_methods (L, WP_TYPE_GLOBAL_PROXY,
       NULL, global_proxy_methods);
   wplua_register_type_methods (L, WP_TYPE_OBJECT_INTEREST,
