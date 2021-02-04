@@ -37,7 +37,7 @@ if SANDBOX_CONFIG["minimal_std"] then
 else
   -- full list, used for scripts
   ([[
-    _VERSION assert error    ipairs   next pairs
+    _VERSION assert error    ipairs   next pairs  print
     pcall    select tonumber tostring type xpcall
 
     table utf8

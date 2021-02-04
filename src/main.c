@@ -10,15 +10,6 @@
 #include <glib-unix.h>
 #include <pipewire/keys.h>
 
-static gchar * config_file = NULL;
-
-static GOptionEntry entries[] =
-{
-  { "config-file", 'c', G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING, &config_file,
-    "The configuration file to load components from", NULL },
-  { NULL }
-};
-
 #define WP_DOMAIN_DAEMON (wp_domain_daemon_quark ())
 static G_DEFINE_QUARK (wireplumber-daemon, wp_domain_daemon);
 
@@ -28,6 +19,40 @@ enum WpExitCode
   WP_CODE_INTERRUPTED,
   WP_CODE_OPERATION_FAILED,
   WP_CODE_INVALID_ARGUMENT,
+};
+
+static gchar * config_file = NULL;
+static gchar * exec_script = NULL;
+static GVariantBuilder exec_args_b =
+    G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
+
+static gboolean
+parse_exec_script_arg (const gchar *option_name, const gchar *value,
+    gpointer data, GError **error)
+{
+  g_auto(GStrv) tokens = g_strsplit (value, "=", 2);
+  if (!tokens[0] || *g_strstrip (tokens[0]) == '\0') {
+    g_set_error (error, WP_DOMAIN_DAEMON, WP_CODE_INVALID_ARGUMENT,
+        "invalid script argument '%s'; must be in key=value format", value);
+    return FALSE;
+  }
+
+  g_variant_builder_add (&exec_args_b, "{sv}", tokens[0], tokens[1] ?
+          g_variant_new_string (g_strstrip (tokens[1])) :
+          g_variant_new_boolean (TRUE));
+  return TRUE;
+}
+
+static GOptionEntry entries[] =
+{
+  { "config-file", 'c', G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING, &config_file,
+    "The configuration file to load components from", NULL },
+  { "execute", 'e', G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING, &exec_script,
+    "Runs WirePlumber in interactive script execution mode, "
+    "executing the given script", NULL },
+  { G_OPTION_REMAINING, 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_CALLBACK,
+    parse_exec_script_arg, NULL, NULL },
+  { NULL }
 };
 
 /*** WpInitTransition ***/
@@ -42,6 +67,7 @@ struct _WpInitTransition
 enum {
   STEP_LOAD_MODULE = WP_TRANSITION_STEP_CUSTOM_START,
   STEP_LOAD_CONFIG,
+  STEP_LOAD_SCRIPT,
   STEP_CONNECT,
   STEP_ACTIVATE_PLUGINS,
   STEP_ACTIVATE_SCRIPTS,
@@ -61,9 +87,16 @@ wp_init_transition_get_next_step (WpTransition * transition, guint step)
 {
   switch (step) {
   case WP_TRANSITION_STEP_NONE: return STEP_LOAD_MODULE;
-  case STEP_LOAD_MODULE:        return STEP_LOAD_CONFIG;
-  case STEP_LOAD_CONFIG:        return STEP_CONNECT;
   case STEP_CONNECT:            return STEP_ACTIVATE_PLUGINS;
+  case STEP_ACTIVATE_SCRIPTS:   return WP_TRANSITION_STEP_NONE;
+
+  case STEP_LOAD_MODULE:
+    return exec_script ? STEP_LOAD_SCRIPT : STEP_LOAD_CONFIG;
+
+  case STEP_LOAD_CONFIG:
+  case STEP_LOAD_SCRIPT:
+    return STEP_CONNECT;
+
   case STEP_ACTIVATE_PLUGINS: {
     WpInitTransition *self = WP_INIT_TRANSITION (transition);
     if (self->pending_plugins == 0)
@@ -71,7 +104,7 @@ wp_init_transition_get_next_step (WpTransition * transition, guint step)
     else
       return STEP_ACTIVATE_PLUGINS;
   }
-  case STEP_ACTIVATE_SCRIPTS:   return WP_TRANSITION_STEP_NONE;
+
   default:
     g_return_val_if_reached (WP_TRANSITION_STEP_ERROR);
   }
@@ -120,6 +153,16 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
     const gchar *f = config_file ? config_file : "config.lua";
 
     if (!wp_core_load_component (core, f, "config/lua", NULL, &error)) {
+      wp_transition_return_error (transition, error);
+      return;
+    }
+    wp_transition_advance (transition);
+    break;
+  }
+
+  case STEP_LOAD_SCRIPT: {
+    GVariant *args = g_variant_builder_end (&exec_args_b);
+    if (!wp_core_load_component (core, exec_script, "script/lua", args, &error)) {
       wp_transition_return_error (transition, error);
       return;
     }
@@ -281,6 +324,7 @@ main (gint argc, gchar **argv)
   d.loop = g_main_loop_new (NULL, FALSE);
   d.core = wp_core_new (NULL, wp_properties_new (
           PW_KEY_APP_NAME, "WirePlumber",
+          "wireplumber.interactive", exec_script ? "true" : "false",
           NULL));
   g_signal_connect (d.core, "disconnected", G_CALLBACK (on_disconnected), &d);
 

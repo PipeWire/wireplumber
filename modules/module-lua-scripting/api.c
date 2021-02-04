@@ -101,11 +101,37 @@ core_sync (lua_State *L)
   return 0;
 }
 
+static gboolean
+core_disconnect (WpCore * core)
+{
+  wp_core_disconnect (core);
+  return G_SOURCE_REMOVE;
+}
+
+static int
+core_quit (lua_State *L)
+{
+  WpCore * core = get_wp_core (L);
+  g_autoptr (WpProperties) p = wp_core_get_properties (core);
+  const gchar *interactive = wp_properties_get (p, "wireplumber.interactive");
+  if (!interactive || g_strcmp0 (interactive, "true") != 0) {
+    wp_warning ("script attempted to quit, but wireplumber "
+        "is not running in script interactive mode; ignoring");
+    return 0;
+  }
+
+  /* wp_core_disconnect() will immediately destroy the lua plugin
+     and the lua engine, so we cannot call it directly */
+  wp_core_idle_add (core, NULL, G_SOURCE_FUNC (core_disconnect), core, NULL);
+  return 0;
+}
+
 static const luaL_Reg core_funcs[] = {
   { "get_info", core_get_info },
   { "idle_add", core_idle_add },
   { "timeout_add", core_timeout_add },
   { "sync", core_sync },
+  { "quit", core_quit },
   { NULL, NULL }
 };
 
