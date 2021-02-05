@@ -19,7 +19,7 @@ typedef gboolean (*primitive_lua_add_func) (WpSpaPodBuilder *, WpSpaIdValue,
     lua_State *, int);
 
 struct primitive_lua_type {
-  const char *primitive_type_name;
+  WpSpaType primitive_type;
   primitive_lua_add_func primitive_lua_add_funcs[MAX_LUA_TYPES];
 };
 
@@ -268,47 +268,47 @@ builder_add_lua_userdata (WpSpaPodBuilder *b, WpSpaIdValue key_id,
 }
 
 static const struct primitive_lua_type primitive_lua_types[] = {
-  {"Spa:Bool", {
+  {SPA_TYPE_Bool, {
     [LUA_TBOOLEAN] = builder_add_boolean_lua_boolean,
     [LUA_TNUMBER] = builder_add_boolean_lua_number,
     [LUA_TSTRING] = builder_add_boolean_lua_string,
   }},
-  {"Spa:Id", {
+  {SPA_TYPE_Id, {
     [LUA_TNUMBER] = builder_add_id_lua_number,
     [LUA_TSTRING] = builder_add_id_lua_string,
   }},
-  {"Spa:Int", {
+  {SPA_TYPE_Int, {
     [LUA_TBOOLEAN] = builder_add_int_lua_boolean,
     [LUA_TNUMBER] = builder_add_int_lua_number,
     [LUA_TSTRING] = builder_add_int_lua_string,
   }},
-  {"Spa:Long", {
+  {SPA_TYPE_Long, {
     [LUA_TBOOLEAN] = builder_add_long_lua_boolean,
     [LUA_TNUMBER] = builder_add_long_lua_number,
     [LUA_TSTRING] = builder_add_long_lua_string,
   }},
-  {"Spa:Float", {
+  {SPA_TYPE_Float, {
     [LUA_TBOOLEAN] = builder_add_float_lua_boolean,
     [LUA_TNUMBER] = builder_add_float_lua_number,
   }},
-  {"Spa:Double", {
+  {SPA_TYPE_Double, {
     [LUA_TBOOLEAN] = builder_add_double_lua_boolean,
     [LUA_TNUMBER] = builder_add_double_lua_number,
   }},
-  {"Spa:String", {
+  {SPA_TYPE_String, {
     [LUA_TBOOLEAN] = builder_add_string_lua_boolean,
     [LUA_TNUMBER] = builder_add_string_lua_number,
     [LUA_TSTRING] = builder_add_string_lua_string,
   }},
-  {"Spa:Bytes", {
+  {SPA_TYPE_Bytes, {
     [LUA_TNUMBER] = builder_add_bytes_lua_number,
     [LUA_TSTRING] = builder_add_bytes_lua_string,
   }},
-  {"Spa:Fd", {
+  {SPA_TYPE_Fd, {
     [LUA_TNUMBER] = builder_add_fd_lua_number,
     [LUA_TSTRING] = builder_add_fd_lua_string,
   }},
-  {NULL, {}},
+  {0, {}},
 };
 
 /* None */
@@ -474,29 +474,24 @@ object_add_property (WpSpaPodBuilder *b, WpSpaIdTable table,
 {
   guint i;
   WpSpaIdValue prop_id = NULL;
-  const gchar *prop_type_name = NULL;
+  WpSpaType prop_type = WP_SPA_TYPE_INVALID;
 
   /* Return if type is none */
   if (lua_type (L, idx) == LUA_TNONE)
     return FALSE;
 
   /* Get the property type name */
-  {
-    prop_id = wp_spa_id_table_find_value_from_short_name (table, key);
-    if (!prop_id)
-      return FALSE;
-    WpSpaType prop_type = wp_spa_id_value_get_value_type (prop_id, NULL);
-    if (prop_type == WP_SPA_TYPE_INVALID)
-      return FALSE;
-    prop_type_name = wp_spa_type_name (prop_type);
-    if (!prop_type_name)
-      return FALSE;
-  }
+  prop_id = wp_spa_id_table_find_value_from_short_name (table, key);
+  if (!prop_id)
+    return FALSE;
+  prop_type = wp_spa_id_value_get_value_type (prop_id, NULL);
+  if (prop_type == WP_SPA_TYPE_INVALID)
+    return FALSE;
 
   /* Check if we can add primitive property directly from LUA type */
-  for (i = 0; primitive_lua_types[i].primitive_type_name; i++) {
+  for (i = 0; primitive_lua_types[i].primitive_type; i++) {
     const struct primitive_lua_type *t = primitive_lua_types + i;
-    if (g_strcmp0 (t->primitive_type_name, prop_type_name) == 0) {
+    if (t->primitive_type == prop_type) {
       primitive_lua_add_func f = t->primitive_lua_add_funcs[lua_type (L, idx)];
       if (f) {
         wp_spa_pod_builder_add_property (b, key);
@@ -681,13 +676,13 @@ spa_pod_sequence_new (lua_State *L)
 /* Array */
 
 static gboolean
-array_add_value (WpSpaPodBuilder *b, const gchar *array_type_name, lua_State *L,
+array_add_value (WpSpaPodBuilder *b, WpSpaType array_type, lua_State *L,
     int idx)
 {
   guint i;
-  for (i = 0; primitive_lua_types[i].primitive_type_name; i++) {
+  for (i = 0; primitive_lua_types[i].primitive_type; i++) {
     const struct primitive_lua_type *t = primitive_lua_types + i;
-    if (g_strcmp0 (t->primitive_type_name, array_type_name) == 0) {
+    if (t->primitive_type == array_type) {
       primitive_lua_add_func f = t->primitive_lua_add_funcs[lua_type (L, idx)];
       if (f) {
         return f (b, NULL, L, idx);
@@ -701,7 +696,7 @@ static int
 spa_pod_array_new (lua_State *L)
 {
   g_autoptr (WpSpaPodBuilder) builder = NULL;
-  const gchar *type_name = NULL;
+  WpSpaType type = WP_SPA_TYPE_INVALID;
 
   luaL_checktype (L, 1, LUA_TTABLE);
 
@@ -710,13 +705,20 @@ spa_pod_array_new (lua_State *L)
   lua_pushnil (L);
   while (lua_next (L, 1)) {
     /* First filed is always the array type */
-    if (!type_name && lua_type (L, -1) == LUA_TSTRING) {
-      type_name = lua_tostring (L, -1);
+    if (type == WP_SPA_TYPE_INVALID) {
+      if (lua_type (L, -1) == LUA_TSTRING) {
+        const gchar *type_name = lua_tostring (L, -1);
+        type = wp_spa_type_from_name (type_name);
+        if (type == WP_SPA_TYPE_INVALID)
+          luaL_error (L, "Unknown type '%s'", type_name);
+      } else {
+        luaL_error (L, "Pod.Array{} must have the item type on its first field");
+      }
     }
 
     /* Remaining fields are always the array values */
-    else if (!array_add_value (builder, type_name, L, -1))
-      luaL_error (L, "Array value '%s' could not be added");
+    else if (!array_add_value (builder, type, L, -1))
+      luaL_error (L, "Array value could not be added");
 
     lua_pop (L, 1);
   }
