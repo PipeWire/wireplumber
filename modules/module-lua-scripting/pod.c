@@ -469,7 +469,7 @@ spa_pod_fraction_new (lua_State *L)
 /* Object */
 
 static gboolean
-object_add_property (WpSpaPodBuilder *b, const gchar *object_type_name,
+object_add_property (WpSpaPodBuilder *b, WpSpaIdTable table,
     const gchar *key, lua_State *L, int idx)
 {
   guint i;
@@ -482,12 +482,6 @@ object_add_property (WpSpaPodBuilder *b, const gchar *object_type_name,
 
   /* Get the property type name */
   {
-    WpSpaType object_type = wp_spa_type_from_name (object_type_name);
-    if (object_type == WP_SPA_TYPE_INVALID)
-      return FALSE;
-    WpSpaIdTable table = wp_spa_type_get_values_table (object_type);
-    if (!table)
-      return FALSE;
     prop_id = wp_spa_id_table_find_value_from_short_name (table, key);
     if (!prop_id)
       return FALSE;
@@ -526,6 +520,8 @@ spa_pod_object_new (lua_State *L)
   g_autoptr (WpSpaPodBuilder) builder = NULL;
   const gchar *fields[2] = { NULL, NULL };  // type_name, name_id
   guint field_counter = 0;
+  WpSpaType object_type = WP_SPA_TYPE_INVALID;
+  WpSpaIdTable table = NULL;
 
   luaL_checktype (L, 1, LUA_TTABLE);
 
@@ -537,14 +533,24 @@ spa_pod_object_new (lua_State *L)
         fields[field_counter] = lua_tostring (L, -1);
         field_counter++;
       }
-      if (fields[0] && fields[1])
+      if (fields[0] && fields[1]) {
+        object_type = wp_spa_type_from_name (fields[0]);
+        if (object_type == WP_SPA_TYPE_INVALID)
+          luaL_error (L, "Invalid object type '%s'", fields[0]);
+
+        table = wp_spa_type_get_values_table (object_type);
+        if (!table)
+          luaL_error (L, "Object type '%s' has incomplete type information",
+              fields[0]);
+
         builder = wp_spa_pod_builder_new_object (fields[0], fields[1]);
+      }
     }
 
     /* Remaining fields are the object properties */
     else {
       const gchar *key = lua_tostring (L, -2);
-      if (!object_add_property (builder, fields[0], key, L, -1))
+      if (!object_add_property (builder, table, key, L, -1))
         luaL_error (L, "Property '%s' could not be added", key);
     }
 
