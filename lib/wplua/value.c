@@ -209,7 +209,7 @@ wplua_lua_to_gvalue (lua_State *L, int idx, GValue *v)
     break;
   case G_TYPE_ENUM:
     if (lua_type (L, idx) == LUA_TSTRING) {
-      GEnumClass *klass = g_type_class_peek (G_VALUE_TYPE (v));
+      g_autoptr (GEnumClass) klass = g_type_class_ref (G_VALUE_TYPE (v));
       GEnumValue *value = g_enum_get_value_by_nick (klass, lua_tostring (L, idx));
       if (value)
         g_value_set_enum (v, value->value);
@@ -283,7 +283,7 @@ wplua_gvalue_to_lua (lua_State *L, const GValue *v)
     wplua_pushobject (L, g_value_dup_object (v));
     break;
   case G_TYPE_ENUM: {
-    GEnumClass *klass = g_type_class_peek (G_VALUE_TYPE (v));
+    g_autoptr (GEnumClass) klass = g_type_class_ref (G_VALUE_TYPE (v));
     GEnumValue *value = g_enum_get_value (klass, g_value_get_enum (v));
     if (value)
       lua_pushstring (L, value->value_nick);
