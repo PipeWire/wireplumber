@@ -783,31 +783,40 @@ spa_pod_get_type_name (lua_State *L)
 }
 
 static void
-push_primitive_values (lua_State *L, WpSpaPod *pod, const gchar* type_name,
+push_primitive_values (lua_State *L, WpSpaPod *pod, WpSpaType type,
     guint start_index)
 {
   g_auto (GValue) item = G_VALUE_INIT;
   g_autoptr (WpIterator) it = wp_spa_pod_new_iterator (pod);
   for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
     gpointer p = g_value_get_pointer (&item);
-    if (!p || !type_name)
+    if (!p)
       continue;
-    if (g_strcmp0 (type_name, "Spa:Bool") == 0)
+    switch (type) {
+    case SPA_TYPE_Bool:
       lua_pushboolean (L, *(gboolean *)p);
-    else if (g_strcmp0 (type_name, "Spa:Id") == 0)
+      break;
+    case SPA_TYPE_Id:
       lua_pushinteger (L, *(guint32 *)p);
-    else if (g_strcmp0 (type_name, "Spa:Int") == 0)
+      break;
+    case SPA_TYPE_Int:
       lua_pushinteger (L, *(gint *)p);
-    else if (g_strcmp0 (type_name, "Spa:Long") == 0)
+      break;
+    case SPA_TYPE_Long:
       lua_pushinteger (L, *(long *)p);
-    else if (g_strcmp0 (type_name, "Spa:Float") == 0)
+      break;
+    case SPA_TYPE_Float:
       lua_pushnumber (L, *(float *)p);
-    else if (g_strcmp0 (type_name, "Spa:Double") == 0)
+      break;
+    case SPA_TYPE_Double:
       lua_pushnumber (L, *(double *)p);
-    else if (g_strcmp0 (type_name, "Spa:Fd") == 0)
+      break;
+    case SPA_TYPE_Fd:
       lua_pushnumber (L, *(gint64 *)p);
-    else
+      break;
+    default:
       continue;
+    }
     lua_rawseti (L, -2, start_index++);
   }
 }
@@ -995,23 +1004,23 @@ push_luapod (lua_State *L, WpSpaPod *pod, WpSpaIdValue field_idval)
   /* Array */
   else if (wp_spa_pod_is_array (pod)) {
     g_autoptr (WpSpaPod) child = wp_spa_pod_get_array_child (pod);
-    const gchar *type_name = wp_spa_type_name (wp_spa_pod_get_spa_type (child));
+    WpSpaType type = wp_spa_pod_get_spa_type (child);
     lua_newtable (L);
-    lua_pushstring (L, type_name);
+    lua_pushstring (L, wp_spa_type_name (type));
     lua_rawseti (L, -2, 0);
-    push_primitive_values (L, pod, type_name, 1);
+    push_primitive_values (L, pod, type, 1);
   }
 
   /* Choice */
   else if (wp_spa_pod_is_choice (pod)) {
     g_autoptr (WpSpaPod) child = wp_spa_pod_get_choice_child (pod);
-    const gchar *type_name = wp_spa_type_name (wp_spa_pod_get_spa_type (child));
+    WpSpaType type = wp_spa_pod_get_spa_type (child);
     const gchar *choice_type = NULL;
     choice_type = wp_spa_id_value_short_name (wp_spa_pod_get_choice_type (pod));
     lua_newtable (L);
     lua_pushstring (L, choice_type);
     lua_rawseti (L, -2, 0);
-    push_primitive_values (L, pod, type_name, 1);
+    push_primitive_values (L, pod, type, 1);
   }
 
   /* Error */
