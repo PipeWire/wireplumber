@@ -502,16 +502,17 @@ wp_node_lookup_port_full (WpNode * self, WpObjectInterest * interest)
  *
  * Sends a command to a node
  */
-void wp_node_send_command (WpNode * self, WpNodeCommand command)
+void wp_node_send_command (WpNode * self, const gchar * command)
 {
-  struct pw_node *pwp;
-  struct spa_command cmd =
-      SPA_NODE_COMMAND_INIT((enum spa_node_command) command);
+  WpSpaIdValue command_value = wp_spa_id_value_from_short_name (
+      "Spa:Pod:Object:Command:Node", command);
 
   g_return_if_fail (WP_IS_NODE (self));
+  g_return_if_fail (command_value != NULL);
 
-  pwp = (struct pw_node *) wp_proxy_get_pw_proxy (WP_PROXY (self));
-  pw_node_send_command (pwp, &cmd);
+  struct spa_command cmd =
+      SPA_NODE_COMMAND_INIT(wp_spa_id_value_number (command_value));
+  pw_node_send_command (wp_proxy_get_pw_proxy (WP_PROXY (self)), &cmd);
 }
 
 

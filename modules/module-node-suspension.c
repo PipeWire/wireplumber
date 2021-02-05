@@ -39,7 +39,7 @@ timeout_suspend_node_callback (WpNode *node)
   wp_info_object (node, "was idle for a while; suspending ...");
 
   /* Suspend and unref the source */
-  wp_node_send_command (node, WP_NODE_COMMAND_SUSPEND);
+  wp_node_send_command (node, "Suspend");
   source = g_object_steal_qdata (G_OBJECT (node), source_quark ());
   if (source)
     g_source_unref (source);
