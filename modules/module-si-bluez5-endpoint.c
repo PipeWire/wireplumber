@@ -349,7 +349,8 @@ static void
 si_bluez5_endpoint_activate_rollback (WpSessionItem * item)
 {
   WpSiBluez5Endpoint *self = WP_SI_BLUEZ5_ENDPOINT (item);
-  g_autoptr (WpIterator) it = wp_session_bin_iterate (WP_SESSION_BIN (self));
+  g_autoptr (WpIterator) it =
+      wp_session_bin_new_iterator (WP_SESSION_BIN (self));
   g_auto (GValue) val = G_VALUE_INIT;
 
   /* deactivate all items */

@@ -33,7 +33,7 @@
  *
  * Upon installing a #WpObjectManager on a #WpCore, any pre-existing objects
  * that match the interests of this #WpObjectManager will immediately become
- * available to get through wp_object_manager_iterate() and the
+ * available to get through wp_object_manager_new_iterator() and the
  * #WpObjectManager::object-added signal will be emitted for all of them.
  */
 
@@ -175,7 +175,7 @@ wp_object_manager_class_init (WpObjectManagerClass * klass)
    * from this object manager. This signal is useful to get notified only once
    * when multiple changes happen in a short timespan. The receiving callback
    * may retrieve the updated list of objects by calling
-   * wp_object_manager_iterate()
+   * wp_object_manager_new_iterator()
    */
   signals[SIGNAL_OBJECTS_CHANGED] = g_signal_new (
       "objects-changed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
@@ -406,14 +406,14 @@ static const WpIteratorMethods om_iterator_methods = {
 };
 
 /**
- * wp_object_manager_iterate:
+ * wp_object_manager_new_iterator:
  * @self: the object manager
  *
  * Returns: (transfer full): a #WpIterator that iterates over all the managed
  *   objects of this object manager
  */
 WpIterator *
-wp_object_manager_iterate (WpObjectManager * self)
+wp_object_manager_new_iterator (WpObjectManager * self)
 {
   WpIterator *it;
   struct om_iterator_data *it_data;
@@ -428,7 +428,7 @@ wp_object_manager_iterate (WpObjectManager * self)
 }
 
 /**
- * wp_object_manager_iterate_filtered:
+ * wp_object_manager_new_filtered_iterator:
  * @self: the object manager
  * @gtype: the #GType of the objects to iterate through
  * @...: a list of constraints, terminated by %NULL
@@ -436,7 +436,7 @@ wp_object_manager_iterate (WpObjectManager * self)
  * Equivalent to:
  * |[
  * WpObjectInterest *i = wp_object_interest_new (gtype, ...);
- * return wp_object_manager_iterate_filtered_full (self, i);
+ * return wp_object_manager_new_filtered_iterator_full (self, i);
  * ]|
  *
  * The constraints specified in the variable arguments must follow the rules
@@ -446,7 +446,8 @@ wp_object_manager_iterate (WpObjectManager * self)
  *   objects of this object manager
  */
 WpIterator *
-wp_object_manager_iterate_filtered (WpObjectManager * self, GType gtype, ...)
+wp_object_manager_new_filtered_iterator (WpObjectManager * self, GType gtype,
+    ...)
 {
   WpObjectInterest *interest;
   va_list args;
@@ -457,11 +458,11 @@ wp_object_manager_iterate_filtered (WpObjectManager * self, GType gtype, ...)
   interest = wp_object_interest_new_valist (gtype, &args);
   va_end (args);
 
-  return wp_object_manager_iterate_filtered_full (self, interest);
+  return wp_object_manager_new_filtered_iterator_full (self, interest);
 }
 
 /**
- * wp_object_manager_iterate_filtered_full: (rename-to wp_object_manager_iterate_filtered)
+ * wp_object_manager_new_filtered_iterator_full: (rename-to wp_object_manager_new_filtered_iterator)
  * @self: the object manager
  * @interest: (transfer full): the interest
  *
@@ -472,7 +473,7 @@ wp_object_manager_iterate_filtered (WpObjectManager * self, GType gtype, ...)
  *   objects of this object manager
  */
 WpIterator *
-wp_object_manager_iterate_filtered_full (WpObjectManager * self,
+wp_object_manager_new_filtered_iterator_full (WpObjectManager * self,
     WpObjectInterest * interest)
 {
   WpIterator *it;
@@ -537,7 +538,7 @@ wp_object_manager_lookup (WpObjectManager * self, GType gtype, ...)
  * Searches for an object that matches the specified @interest and returns
  * it, if found. If more than one objects match, only the first one is returned.
  * To find multiple objects that match certain criteria,
- * wp_object_manager_iterate_filtered() is more suitable.
+ * wp_object_manager_new_filtered_iterator() is more suitable.
  *
  * Returns: (type GObject)(transfer full)(nullable): the first managed object
  *    that matches the lookup interest, or %NULL if no object matches
@@ -548,7 +549,7 @@ wp_object_manager_lookup_full (WpObjectManager * self,
 {
   g_auto (GValue) ret = G_VALUE_INIT;
   g_autoptr (WpIterator) it =
-      wp_object_manager_iterate_filtered_full (self, interest);
+      wp_object_manager_new_filtered_iterator_full (self, interest);
 
   if (wp_iterator_next (it, &ret))
     return g_value_dup_object (&ret);

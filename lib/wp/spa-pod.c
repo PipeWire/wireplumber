@@ -3063,7 +3063,7 @@ wp_spa_pod_iterator_finalize (WpIterator *iterator)
 }
 
 /**
- * wp_spa_pod_iterate:
+ * wp_spa_pod_new_iterator:
  * @pod: a spa pod object
  *
  * Creates a new iterator for a spa pod object.
@@ -3071,7 +3071,7 @@ wp_spa_pod_iterator_finalize (WpIterator *iterator)
  * Returns: (transfer full): the new spa pod iterator
  */
 WpIterator *
-wp_spa_pod_iterate (WpSpaPod *pod)
+wp_spa_pod_new_iterator (WpSpaPod *pod)
 {
   static const WpIteratorMethods methods = {
     .version = WP_ITERATOR_METHODS_VERSION,

@@ -100,7 +100,7 @@ wp_pipewire_object_get_properties (WpPipewireObject * self)
 }
 
 /**
- * wp_pipewire_object_iterate_properties:
+ * wp_pipewire_object_new_properties_iterator:
  * @self: the pipewire object
  *
  * Requires %WP_PIPEWIRE_OBJECT_FEATURE_INFO
@@ -111,11 +111,11 @@ wp_pipewire_object_get_properties (WpPipewireObject * self)
  *   this iterator.
  */
 WpIterator *
-wp_pipewire_object_iterate_properties (WpPipewireObject * self)
+wp_pipewire_object_new_properties_iterator (WpPipewireObject * self)
 {
   g_autoptr (WpProperties) properties =
       wp_pipewire_object_get_properties (self);
-  return properties ? wp_properties_iterate (properties) : NULL;
+  return properties ? wp_properties_new_iterator (properties) : NULL;
 }
 
 /**

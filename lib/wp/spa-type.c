@@ -361,7 +361,7 @@ wp_spa_id_table_from_name (const gchar *name)
 }
 
 /**
- * wp_spa_id_table_iterate:
+ * wp_spa_id_table_new_iterator:
  * @type: the id table
  *
  * This function returns an iterator that allows you to iterate through the
@@ -371,7 +371,7 @@ wp_spa_id_table_from_name (const gchar *name)
  * Returns: a #WpIterator that iterates over #WpSpaIdValue items
  */
 WpIterator *
-wp_spa_id_table_iterate (WpSpaIdTable table)
+wp_spa_id_table_new_iterator (WpSpaIdTable table)
 {
   g_return_val_if_fail (table != NULL, NULL);
 

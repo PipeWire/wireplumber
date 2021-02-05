@@ -351,7 +351,7 @@ wp_session_get_n_endpoints (WpSession * self)
 }
 
 /**
- * wp_session_iterate_endpoints:
+ * wp_session_new_endpoints_iterator:
  * @self: the session
  *
  * Requires %WP_SESSION_FEATURE_ENDPOINTS
@@ -360,18 +360,18 @@ wp_session_get_n_endpoints (WpSession * self)
  *   the endpoints that belong to this session
  */
 WpIterator *
-wp_session_iterate_endpoints (WpSession * self)
+wp_session_new_endpoints_iterator (WpSession * self)
 {
   g_return_val_if_fail (WP_IS_SESSION (self), NULL);
   g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
           WP_SESSION_FEATURE_ENDPOINTS, NULL);
 
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
-  return wp_object_manager_iterate (priv->endpoints_om);
+  return wp_object_manager_new_iterator (priv->endpoints_om);
 }
 
 /**
- * wp_session_iterate_endpoints_filtered:
+ * wp_session_new_endpoints_filtered_iterator:
  * @self: the session
  * @...: a list of constraints, terminated by %NULL
  *
@@ -384,18 +384,18 @@ wp_session_iterate_endpoints (WpSession * self)
  *   the endpoints that belong to this session and match the constraints
  */
 WpIterator *
-wp_session_iterate_endpoints_filtered (WpSession * self, ...)
+wp_session_new_endpoints_filtered_iterator (WpSession * self, ...)
 {
   WpObjectInterest *interest;
   va_list args;
   va_start (args, self);
   interest = wp_object_interest_new_valist (WP_TYPE_ENDPOINT, &args);
   va_end (args);
-  return wp_session_iterate_endpoints_filtered_full (self, interest);
+  return wp_session_new_endpoints_filtered_iterator_full (self, interest);
 }
 
 /**
- * wp_session_iterate_endpoints_filtered_full: (rename-to wp_session_iterate_endpoints_filtered)
+ * wp_session_new_endpoints_filtered_iterator_full: (rename-to wp_session_new_endpoints_filtered_iterator)
  * @self: the session
  * @interest: (transfer full): the interest
  *
@@ -405,7 +405,7 @@ wp_session_iterate_endpoints_filtered (WpSession * self, ...)
  *   the endpoints that belong to this session and match the @interest
  */
 WpIterator *
-wp_session_iterate_endpoints_filtered_full (WpSession * self,
+wp_session_new_endpoints_filtered_iterator_full (WpSession * self,
     WpObjectInterest * interest)
 {
   g_return_val_if_fail (WP_IS_SESSION (self), NULL);
@@ -413,7 +413,8 @@ wp_session_iterate_endpoints_filtered_full (WpSession * self,
           WP_SESSION_FEATURE_ENDPOINTS, NULL);
 
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
-  return wp_object_manager_iterate_filtered_full (priv->endpoints_om, interest);
+  return wp_object_manager_new_filtered_iterator_full (priv->endpoints_om,
+      interest);
 }
 
 /**
@@ -482,7 +483,7 @@ wp_session_get_n_links (WpSession * self)
 }
 
 /**
- * wp_session_iterate_links:
+ * wp_session_new_links_iterator:
  * @self: the session
  *
  * Requires %WP_SESSION_FEATURE_LINKS
@@ -491,18 +492,18 @@ wp_session_get_n_links (WpSession * self)
  *   the endpoint links that belong to this session
  */
 WpIterator *
-wp_session_iterate_links (WpSession * self)
+wp_session_new_links_iterator (WpSession * self)
 {
   g_return_val_if_fail (WP_IS_SESSION (self), NULL);
   g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
           WP_SESSION_FEATURE_LINKS, NULL);
 
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
-  return wp_object_manager_iterate (priv->links_om);
+  return wp_object_manager_new_iterator (priv->links_om);
 }
 
 /**
- * wp_session_iterate_links_filtered:
+ * wp_session_new_links_filtered_iterator:
  * @self: the session
  * @...: a list of constraints, terminated by %NULL
  *
@@ -515,18 +516,18 @@ wp_session_iterate_links (WpSession * self)
  *   the links that belong to this session and match the constraints
  */
 WpIterator *
-wp_session_iterate_links_filtered (WpSession * self, ...)
+wp_session_new_links_filtered_iterator (WpSession * self, ...)
 {
   WpObjectInterest *interest;
   va_list args;
   va_start (args, self);
   interest = wp_object_interest_new_valist (WP_TYPE_ENDPOINT_LINK, &args);
   va_end (args);
-  return wp_session_iterate_links_filtered_full (self, interest);
+  return wp_session_new_links_filtered_iterator_full (self, interest);
 }
 
 /**
- * wp_session_iterate_links_filtered_full: (rename-to wp_session_iterate_links_filtered)
+ * wp_session_new_links_filtered_iterator_full: (rename-to wp_session_new_links_filtered_iterator)
  * @self: the session
  * @interest: (transfer full): the interest
  *
@@ -536,7 +537,7 @@ wp_session_iterate_links_filtered (WpSession * self, ...)
  *   the links that belong to this session and match the @interest
  */
 WpIterator *
-wp_session_iterate_links_filtered_full (WpSession * self,
+wp_session_new_links_filtered_iterator_full (WpSession * self,
     WpObjectInterest * interest)
 {
   g_return_val_if_fail (WP_IS_SESSION (self), NULL);
@@ -544,7 +545,8 @@ wp_session_iterate_links_filtered_full (WpSession * self,
           WP_SESSION_FEATURE_LINKS, NULL);
 
   WpSessionPrivate *priv = wp_session_get_instance_private (self);
-  return wp_object_manager_iterate_filtered_full (priv->links_om, interest);
+  return wp_object_manager_new_filtered_iterator_full (priv->links_om,
+      interest);
 }
 
 /**

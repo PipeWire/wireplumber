@@ -19,10 +19,10 @@ G_BEGIN_DECLS
  * WpSessionFeatures:
  * @WP_SESSION_FEATURE_ENDPOINTS: caches information about endpoints, enabling
  *   the use of wp_session_get_n_endpoints(), wp_session_lookup_endpoint(),
- *   wp_session_iterate_endpoints() and related methods
+ *   wp_session_new_endpoints_iterator() and related methods
  * @WP_SESSION_FEATURE_LINKS: caches information about endpoint links, enabling
  *   the use of wp_session_get_n_links(), wp_session_lookup_link(),
- *   wp_session_iterate_links() and related methods
+ *   wp_session_new_links_iterator() and related methods
  *
  * An extension of #WpProxyFeatures
  */
@@ -54,14 +54,14 @@ WP_API
 guint wp_session_get_n_endpoints (WpSession * self);
 
 WP_API
-WpIterator * wp_session_iterate_endpoints (WpSession * self);
+WpIterator * wp_session_new_endpoints_iterator (WpSession * self);
 
 WP_API
-WpIterator * wp_session_iterate_endpoints_filtered (WpSession * self, ...)
+WpIterator * wp_session_new_endpoints_filtered_iterator (WpSession * self, ...)
     G_GNUC_NULL_TERMINATED;
 
 WP_API
-WpIterator * wp_session_iterate_endpoints_filtered_full (WpSession * self,
+WpIterator * wp_session_new_endpoints_filtered_iterator_full (WpSession * self,
     WpObjectInterest * interest);
 
 WP_API
@@ -78,14 +78,14 @@ WP_API
 guint wp_session_get_n_links (WpSession * self);
 
 WP_API
-WpIterator * wp_session_iterate_links (WpSession * self);
+WpIterator * wp_session_new_links_iterator (WpSession * self);
 
 WP_API
-WpIterator * wp_session_iterate_links_filtered (WpSession * self, ...)
+WpIterator * wp_session_new_links_filtered_iterator (WpSession * self, ...)
     G_GNUC_NULL_TERMINATED;
 
 WP_API
-WpIterator * wp_session_iterate_links_filtered_full (WpSession * self,
+WpIterator * wp_session_new_links_filtered_iterator_full (WpSession * self,
     WpObjectInterest * interest);
 
 WP_API

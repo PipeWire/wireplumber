@@ -285,7 +285,7 @@ WP_API
 WpSpaPod *wp_spa_pod_get_array_child (WpSpaPod *self);
 
 WP_API
-WpIterator *wp_spa_pod_iterate (WpSpaPod *pod);
+WpIterator *wp_spa_pod_new_iterator (WpSpaPod *pod);
 
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpSpaPod, wp_spa_pod_unref)
 

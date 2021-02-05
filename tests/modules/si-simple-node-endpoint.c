@@ -153,7 +153,7 @@ test_si_simple_node_endpoint_configure_activate (TestFixture * f,
     g_assert_cmpuint (channel, ==, 0);
 
     {
-      g_autoptr (WpIterator) it = wp_node_iterate_ports (node);
+      g_autoptr (WpIterator) it = wp_node_new_ports_iterator (node);
       g_auto (GValue) val = G_VALUE_INIT;
       WpProxy *port;
 

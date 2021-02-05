@@ -35,7 +35,7 @@ wplua_properties_to_table (lua_State *L, WpProperties *p)
 {
   lua_newtable (L);
   if (p) {
-    g_autoptr (WpIterator) it = wp_properties_iterate (p);
+    g_autoptr (WpIterator) it = wp_properties_new_iterator (p);
     GValue v = G_VALUE_INIT;
     const gchar *key, *value;
 

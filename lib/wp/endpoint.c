@@ -401,7 +401,7 @@ wp_endpoint_get_n_streams (WpEndpoint * self)
 }
 
 /**
- * wp_endpoint_iterate_streams:
+ * wp_endpoint_new_streams_iterator:
  * @self: the endpoint
  *
  * Requires %WP_ENDPOINT_FEATURE_STREAMS
@@ -410,18 +410,18 @@ wp_endpoint_get_n_streams (WpEndpoint * self)
  *   the endpoint streams that belong to this endpoint
  */
 WpIterator *
-wp_endpoint_iterate_streams (WpEndpoint * self)
+wp_endpoint_new_streams_iterator (WpEndpoint * self)
 {
   g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
   g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
           WP_ENDPOINT_FEATURE_STREAMS, NULL);
 
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
-  return wp_object_manager_iterate (priv->streams_om);
+  return wp_object_manager_new_iterator (priv->streams_om);
 }
 
 /**
- * wp_endpoint_iterate_streams_filtered:
+ * wp_endpoint_new_streams_filtered_iterator:
  * @self: the endpoint
  * @...: a list of constraints, terminated by %NULL
  *
@@ -434,18 +434,18 @@ wp_endpoint_iterate_streams (WpEndpoint * self)
  *   the streams that belong to this endpoint and match the constraints
  */
 WpIterator *
-wp_endpoint_iterate_streams_filtered (WpEndpoint * self, ...)
+wp_endpoint_new_streams_filtered_iterator (WpEndpoint * self, ...)
 {
   WpObjectInterest *interest;
   va_list args;
   va_start (args, self);
   interest = wp_object_interest_new_valist (WP_TYPE_ENDPOINT_STREAM, &args);
   va_end (args);
-  return wp_endpoint_iterate_streams_filtered_full (self, interest);
+  return wp_endpoint_new_streams_filtered_iterator_full (self, interest);
 }
 
 /**
- * wp_endpoint_iterate_streams_filtered_full: (rename-to wp_endpoint_iterate_streams_filtered)
+ * wp_endpoint_new_streams_filtered_iterator_full: (rename-to wp_endpoint_new_streams_filtered_iterator)
  * @self: the endpoint
  * @interest: (transfer full): the interest
  *
@@ -455,7 +455,7 @@ wp_endpoint_iterate_streams_filtered (WpEndpoint * self, ...)
  *   the streams that belong to this endpoint and match the @interest
  */
 WpIterator *
-wp_endpoint_iterate_streams_filtered_full (WpEndpoint * self,
+wp_endpoint_new_streams_filtered_iterator_full (WpEndpoint * self,
     WpObjectInterest * interest)
 {
   g_return_val_if_fail (WP_IS_ENDPOINT (self), NULL);
@@ -463,7 +463,8 @@ wp_endpoint_iterate_streams_filtered_full (WpEndpoint * self,
           WP_ENDPOINT_FEATURE_STREAMS, NULL);
 
   WpEndpointPrivate *priv = wp_endpoint_get_instance_private (self);
-  return wp_object_manager_iterate_filtered_full (priv->streams_om, interest);
+  return wp_object_manager_new_filtered_iterator_full (priv->streams_om,
+      interest);
 }
 
 /**

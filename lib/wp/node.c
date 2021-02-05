@@ -388,7 +388,7 @@ wp_node_get_n_ports (WpNode * self)
 }
 
 /**
- * wp_node_iterate_ports:
+ * wp_node_new_ports_iterator:
  * @self: the node
  *
  * Requires %WP_NODE_FEATURE_PORTS
@@ -397,17 +397,17 @@ wp_node_get_n_ports (WpNode * self)
  *   the ports that belong to this node
  */
 WpIterator *
-wp_node_iterate_ports (WpNode * self)
+wp_node_new_ports_iterator (WpNode * self)
 {
   g_return_val_if_fail (WP_IS_NODE (self), NULL);
   g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
           WP_NODE_FEATURE_PORTS, NULL);
 
-  return wp_object_manager_iterate (self->ports_om);
+  return wp_object_manager_new_iterator (self->ports_om);
 }
 
 /**
- * wp_node_iterate_ports_filtered:
+ * wp_node_new_ports_filtered_iterator:
  * @self: the node
  * @...: a list of constraints, terminated by %NULL
  *
@@ -420,18 +420,18 @@ wp_node_iterate_ports (WpNode * self)
  *   the ports that belong to this node and match the constraints
  */
 WpIterator *
-wp_node_iterate_ports_filtered (WpNode * self, ...)
+wp_node_new_ports_filtered_iterator (WpNode * self, ...)
 {
   WpObjectInterest *interest;
   va_list args;
   va_start (args, self);
   interest = wp_object_interest_new_valist (WP_TYPE_PORT, &args);
   va_end (args);
-  return wp_node_iterate_ports_filtered_full (self, interest);
+  return wp_node_new_ports_filtered_iterator_full (self, interest);
 }
 
 /**
- * wp_node_iterate_ports_filtered_full: (rename-to wp_node_iterate_ports_filtered)
+ * wp_node_new_ports_filtered_iterator_full: (rename-to wp_node_new_ports_filtered_iterator)
  * @self: the node
  * @interest: (transfer full): the interest
  *
@@ -441,13 +441,15 @@ wp_node_iterate_ports_filtered (WpNode * self, ...)
  *   the ports that belong to this node and match the @interest
  */
 WpIterator *
-wp_node_iterate_ports_filtered_full (WpNode * self, WpObjectInterest * interest)
+wp_node_new_ports_filtered_iterator_full (WpNode * self,
+    WpObjectInterest * interest)
 {
   g_return_val_if_fail (WP_IS_NODE (self), NULL);
   g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
           WP_NODE_FEATURE_PORTS, NULL);
 
-  return wp_object_manager_iterate_filtered_full (self->ports_om, interest);
+  return wp_object_manager_new_filtered_iterator_full (self->ports_om,
+      interest);
 }
 
 /**

@@ -336,7 +336,7 @@ si_convert_activate_execute_step (WpSessionItem * item,
       core = wp_object_get_core (WP_OBJECT (self->node));
 
       /* get a list of our ports */
-      for (it = wp_node_iterate_ports (self->node);
+      for (it = wp_node_new_ports_iterator (self->node);
           wp_iterator_next (it, &val);
           g_value_unset (&val))
       {
@@ -444,7 +444,7 @@ si_convert_get_ports (WpSiPortInfo * item, const gchar * context)
   g_variant_builder_init (&b, G_VARIANT_TYPE ("a(uuu)"));
   node_id = wp_proxy_get_bound_id (WP_PROXY (self->node));
 
-  for (it = wp_node_iterate_ports (self->node);
+  for (it = wp_node_new_ports_iterator (self->node);
        wp_iterator_next (it, &val);
        g_value_unset (&val))
   {

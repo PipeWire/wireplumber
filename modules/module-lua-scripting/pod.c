@@ -783,7 +783,7 @@ push_primitive_values (lua_State *L, WpSpaPod *pod, const gchar* type_name,
     guint start_index)
 {
   g_auto (GValue) item = G_VALUE_INIT;
-  g_autoptr (WpIterator) it = wp_spa_pod_iterate (pod);
+  g_autoptr (WpIterator) it = wp_spa_pod_new_iterator (pod);
   for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
     gpointer p = g_value_get_pointer (&item);
     if (!p || !type_name)
@@ -928,7 +928,7 @@ push_luapod (lua_State *L, WpSpaPod *pod)
     lua_rawseti (L, -2, 0);
     lua_pushstring (L, id_name);
     lua_rawseti (L, -2, 1);
-    it = wp_spa_pod_iterate (pod);
+    it = wp_spa_pod_new_iterator (pod);
     for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
       WpSpaPod *prop = g_value_get_boxed (&item);
       const gchar *key = NULL;
@@ -942,7 +942,7 @@ push_luapod (lua_State *L, WpSpaPod *pod)
   /* Struct */
   else if (wp_spa_pod_is_struct (pod)) {
     g_auto (GValue) item = G_VALUE_INIT;
-    g_autoptr (WpIterator) it = wp_spa_pod_iterate (pod);
+    g_autoptr (WpIterator) it = wp_spa_pod_new_iterator (pod);
     guint i = 0;
     lua_newtable (L);
     for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
@@ -955,7 +955,7 @@ push_luapod (lua_State *L, WpSpaPod *pod)
   /* Sequence */
   else if (wp_spa_pod_is_sequence (pod)) {
     g_auto (GValue) item = G_VALUE_INIT;
-    g_autoptr (WpIterator) it = wp_spa_pod_iterate (pod);
+    g_autoptr (WpIterator) it = wp_spa_pod_new_iterator (pod);
     guint i = 0;
     lua_newtable (L);
     for (; wp_iterator_next (it, &item); g_value_unset (&item)) {

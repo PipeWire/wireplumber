@@ -229,7 +229,7 @@ wp_state_save (WpState *self, const gchar *group, WpProperties *props)
   g_key_file_remove_group (self->keyfile, group, NULL);
 
   /* Set the properties */
-  for (it = wp_properties_iterate (props);
+  for (it = wp_properties_new_iterator (props);
       wp_iterator_next (it, &item);
       g_value_unset (&item)) {
     const gchar *key = wp_properties_iterator_item_get_key (&item);

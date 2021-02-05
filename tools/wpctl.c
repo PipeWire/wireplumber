@@ -154,7 +154,7 @@ print_endpoint (const GValue *item, gpointer data)
   print_controls (WP_PIPEWIRE_OBJECT (ep));
 
   if (cmdline.status.show_streams) {
-    g_autoptr (WpIterator) it = wp_endpoint_iterate_streams (ep);
+    g_autoptr (WpIterator) it = wp_endpoint_new_streams_iterator (ep);
     guint n_streams = wp_endpoint_get_n_streams (ep);
     wp_iterator_foreach (it, print_stream, &n_streams);
     printf (TREE_INDENT_LINE "\n");
@@ -211,7 +211,7 @@ status_run (WpCtl * self)
       wp_core_get_remote_cookie (self->core));
 
   printf (TREE_INDENT_END "Clients:\n");
-  it = wp_object_manager_iterate_filtered (self->om, WP_TYPE_CLIENT, NULL);
+  it = wp_object_manager_new_filtered_iterator (self->om, WP_TYPE_CLIENT, NULL);
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
     WpProxy *client = g_value_get_object (&val);
     g_autoptr (WpProperties) properties =
@@ -229,7 +229,8 @@ status_run (WpCtl * self)
   printf ("\n");
 
   /* sessions */
-  it = wp_object_manager_iterate_filtered (self->om, WP_TYPE_SESSION, NULL);
+  it = wp_object_manager_new_filtered_iterator (self->om, WP_TYPE_SESSION,
+      NULL);
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
     WpSession *session = g_value_get_object (&val);
     guint session_id = wp_proxy_get_bound_id (WP_PROXY (session));
@@ -241,7 +242,7 @@ status_run (WpCtl * self)
     if (metadata) {
       g_autoptr (WpIterator) m_it = NULL;
       g_auto (GValue) m_val = G_VALUE_INIT;
-      m_it = wp_metadata_iterate (metadata, session_id);
+      m_it = wp_metadata_new_iterator (metadata, session_id);
       for (; wp_iterator_next (m_it, &m_val); g_value_unset (&m_val)) {
         const gchar *k = NULL, *v = NULL;
         wp_metadata_iterator_item_extract (&m_val, NULL, &k, NULL, &v);
@@ -255,7 +256,7 @@ status_run (WpCtl * self)
     printf ("Session %u (%s)\n", session_id, wp_session_get_name (session));
 
     printf (TREE_INDENT_NODE "Sink endpoints:\n");
-    child_it = wp_session_iterate_endpoints_filtered (session,
+    child_it = wp_session_new_endpoints_filtered_iterator (session,
         WP_CONSTRAINT_TYPE_PW_PROPERTY, "media.class", "#s", "*/Sink",
         NULL);
     wp_iterator_foreach (child_it, print_endpoint,
@@ -265,7 +266,7 @@ status_run (WpCtl * self)
     printf (TREE_INDENT_LINE "\n");
 
     printf (TREE_INDENT_NODE "Source endpoints:\n");
-    child_it = wp_session_iterate_endpoints_filtered (session,
+    child_it = wp_session_new_endpoints_filtered_iterator (session,
         WP_CONSTRAINT_TYPE_PW_PROPERTY, "media.class", "#s", "*/Source",
         NULL);
     wp_iterator_foreach (child_it, print_endpoint,
@@ -275,7 +276,7 @@ status_run (WpCtl * self)
     printf (TREE_INDENT_LINE "\n");
 
     printf (TREE_INDENT_NODE "Playback client endpoints:\n");
-    child_it = wp_session_iterate_endpoints_filtered (session,
+    child_it = wp_session_new_endpoints_filtered_iterator (session,
         WP_CONSTRAINT_TYPE_PW_PROPERTY, "media.class", "#s", "Stream/Output/*",
         NULL);
     wp_iterator_foreach (child_it, print_endpoint, NULL);
@@ -284,7 +285,7 @@ status_run (WpCtl * self)
     printf (TREE_INDENT_LINE "\n");
 
     printf (TREE_INDENT_NODE "Capture client endpoints:\n");
-    child_it = wp_session_iterate_endpoints_filtered (session,
+    child_it = wp_session_new_endpoints_filtered_iterator (session,
         WP_CONSTRAINT_TYPE_PW_PROPERTY, "media.class", "#s", "Stream/Input/*",
         NULL);
     wp_iterator_foreach (child_it, print_endpoint, NULL);
@@ -293,7 +294,7 @@ status_run (WpCtl * self)
     printf (TREE_INDENT_LINE "\n");
 
     printf (TREE_INDENT_END "Endpoint links:\n");
-    child_it = wp_session_iterate_links (session);
+    child_it = wp_session_new_links_iterator (session);
     wp_iterator_foreach (child_it, print_endpoint_link, session);
     g_clear_pointer (&child_it, wp_iterator_unref);
 
@@ -426,7 +427,7 @@ inspect_print_object (WpCtl * self, WpProxy * proxy, guint nest_level)
     g_autoptr (WpIterator) it = NULL;
     g_auto (GValue) item = G_VALUE_INIT;
 
-    for (it = wp_properties_iterate (properties);
+    for (it = wp_properties_new_iterator (properties);
           wp_iterator_next (it, &item);
           g_value_unset (&item)) {
       struct property_item prop_item = {
@@ -470,7 +471,7 @@ inspect_print_object (WpCtl * self, WpProxy * proxy, guint nest_level)
     const gchar *lookup_key = get_association_key (proxy);
     if (lookup_key) {
       g_autoptr (WpIterator) it =
-          wp_object_manager_iterate_filtered (self->om,
+          wp_object_manager_new_filtered_iterator (self->om,
               WP_TYPE_PIPEWIRE_OBJECT, WP_CONSTRAINT_TYPE_PW_PROPERTY,
               lookup_key, "=u", wp_proxy_get_bound_id (proxy), NULL);
       g_auto (GValue) item = G_VALUE_INIT;

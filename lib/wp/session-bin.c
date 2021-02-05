@@ -170,7 +170,7 @@ wp_session_bin_iterator_finalize (WpIterator *iterator)
 }
 
 /**
- * wp_session_bin_iterate:
+ * wp_session_bin_new_iterator:
  * @self: the session bin
  * @item (transfer none): the session item to be removed
  *
@@ -179,7 +179,7 @@ wp_session_bin_iterator_finalize (WpIterator *iterator)
  * Returns (transfer full): The session bin iterator.
  */
 WpIterator *
-wp_session_bin_iterate (WpSessionBin *self)
+wp_session_bin_new_iterator (WpSessionBin *self)
 {
   static const WpIteratorMethods methods = {
     .version = WP_ITERATOR_METHODS_VERSION,

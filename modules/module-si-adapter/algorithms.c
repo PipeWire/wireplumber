@@ -95,7 +95,7 @@ select_format (WpSpaPod *value)
 
   /* Enum */
   else if (choice_type == SPA_CHOICE_Enum) {
-    g_autoptr (WpIterator) it = wp_spa_pod_iterate (value);
+    g_autoptr (WpIterator) it = wp_spa_pod_new_iterator (value);
     GValue next = G_VALUE_INIT;
     while (wp_iterator_next (it, &next)) {
       enum spa_audio_format *format_id = (enum spa_audio_format *)
@@ -138,7 +138,7 @@ select_rate (WpSpaPod *value)
   /* Enum */
   else if (choice_type == SPA_CHOICE_Enum) {
     /* pick the one closest to 48Khz */
-    g_autoptr (WpIterator) it = wp_spa_pod_iterate (value);
+    g_autoptr (WpIterator) it = wp_spa_pod_new_iterator (value);
     GValue next = G_VALUE_INIT;
     while (wp_iterator_next (it, &next)) {
       gint *rate = (gint *) g_value_get_pointer (&next);
@@ -154,7 +154,7 @@ select_rate (WpSpaPod *value)
        however, sometimes ALSA drivers give bad min & max values
        and pipewire picks a bad default... try to fix that here;
        the default should be the one closest to 48K */
-    g_autoptr (WpIterator) it = wp_spa_pod_iterate (value);
+    g_autoptr (WpIterator) it = wp_spa_pod_new_iterator (value);
     GValue next = G_VALUE_INIT;
     gint vals[3];
     gint i = 0, min, max;
@@ -194,7 +194,7 @@ select_channels (WpSpaPod *value, gint preference)
   /* Enum */
   else if (choice_type == SPA_CHOICE_Enum) {
     /* choose the most channels */
-    g_autoptr (WpIterator) it = wp_spa_pod_iterate (value);
+    g_autoptr (WpIterator) it = wp_spa_pod_new_iterator (value);
     GValue next = G_VALUE_INIT;
     gint diff = SPA_AUDIO_MAX_CHANNELS;
     while (wp_iterator_next (it, &next)) {
@@ -212,7 +212,7 @@ select_channels (WpSpaPod *value, gint preference)
     /* a range is typically 3 items: default, min, max;
        we want the most channels, but let's not trust max
        to really be the max... ALSA drivers can be broken */
-    g_autoptr (WpIterator) it = wp_spa_pod_iterate (value);
+    g_autoptr (WpIterator) it = wp_spa_pod_new_iterator (value);
     GValue next = G_VALUE_INIT;
     gint vals[3];
     gint i = 0;
@@ -262,7 +262,7 @@ choose_sensible_raw_audio_format (WpIterator *formats,
       continue;
 
     /* go through the fields and populate raw */
-    g_autoptr (WpIterator) it = wp_spa_pod_iterate (pod);
+    g_autoptr (WpIterator) it = wp_spa_pod_new_iterator (pod);
     GValue next = G_VALUE_INIT;
     while (wp_iterator_next (it, &next)) {
       WpSpaPod *p = g_value_get_boxed (&next);
@@ -290,7 +290,7 @@ choose_sensible_raw_audio_format (WpIterator *formats,
         /* just copy the array, there is no choice here */
         g_return_val_if_fail (wp_spa_pod_is_array (value), FALSE);
         SPA_FLAG_CLEAR (raw.flags, SPA_AUDIO_FLAG_UNPOSITIONED);
-        g_autoptr (WpIterator) array_it = wp_spa_pod_iterate (value);
+        g_autoptr (WpIterator) array_it = wp_spa_pod_new_iterator (value);
         GValue array_next = G_VALUE_INIT;
         guint j = 0;
         while (wp_iterator_next (array_it, &array_next)) {

@@ -105,7 +105,7 @@ find_endpoint_with_node_id (WpDefaultMetadata * self, guint node_id,
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) value = G_VALUE_INIT;
 
-  it = wp_object_manager_iterate (self->sessions_om);
+  it = wp_object_manager_new_iterator (self->sessions_om);
   for (; wp_iterator_next (it, &value); g_value_unset (&value)) {
     WpSession *s = g_value_get_object (&value);
     g_autoptr (WpEndpoint) ep = NULL;
@@ -192,7 +192,7 @@ find_highest_priority_endpoint (WpSession * session, WpDirection dir)
   gint highest_prio = 0;
   WpEndpoint *res = NULL;
 
-  it = wp_session_iterate_endpoints_filtered (session,
+  it = wp_session_new_endpoints_filtered_iterator (session,
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "media.class", "#s",
       (dir == WP_DIRECTION_INPUT) ? "*/Sink" : "*/Source",
       NULL);

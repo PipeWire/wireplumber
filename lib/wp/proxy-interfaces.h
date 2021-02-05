@@ -56,7 +56,8 @@ WP_API
 WpProperties * wp_pipewire_object_get_properties (WpPipewireObject * self);
 
 WP_API
-WpIterator * wp_pipewire_object_iterate_properties (WpPipewireObject * self);
+WpIterator * wp_pipewire_object_new_properties_iterator (
+    WpPipewireObject * self);
 
 WP_API
 const gchar * wp_pipewire_object_get_property (WpPipewireObject * self,

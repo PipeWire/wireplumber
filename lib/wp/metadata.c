@@ -363,7 +363,7 @@ static const WpIteratorMethods metadata_iterator_methods = {
 };
 
 /**
- * wp_metadata_iterate:
+ * wp_metadata_new_iterator:
  * @self: a metadata object
  * @subject: the metadata subject id, or %PW_ID_ANY
  *
@@ -380,7 +380,7 @@ static const WpIteratorMethods metadata_iterator_methods = {
  *   this iterator.
  */
 WpIterator *
-wp_metadata_iterate (WpMetadata * self, guint32 subject)
+wp_metadata_new_iterator (WpMetadata * self, guint32 subject)
 {
   WpMetadataPrivate *priv;
   g_autoptr (WpIterator) it = NULL;
@@ -442,7 +442,7 @@ wp_metadata_find (WpMetadata * self, guint32 subject, const gchar * key,
 {
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
-  it = wp_metadata_iterate (self, subject);
+  it = wp_metadata_new_iterator (self, subject);
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
     const gchar *k = NULL, *t = NULL, *v = NULL;
     wp_metadata_iterator_item_extract (&val, NULL, &k, &t, &v);

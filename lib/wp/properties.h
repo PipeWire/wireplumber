@@ -136,7 +136,7 @@ gint wp_properties_setf_valist (WpProperties * self, const gchar * key,
 /* iterate */
 
 WP_API
-WpIterator * wp_properties_iterate (WpProperties * self);
+WpIterator * wp_properties_new_iterator (WpProperties * self);
 
 WP_API
 const gchar * wp_properties_iterator_item_get_key (const GValue * item);

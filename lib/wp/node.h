@@ -38,7 +38,7 @@ typedef enum {
  * WpNodeFeatures:
  * @WP_NODE_FEATURE_PORTS: caches information about ports, enabling
  *   the use of wp_node_get_n_ports(), wp_node_lookup_port(),
- *   wp_node_iterate_ports() and related methods
+ *   wp_node_new_ports_iterator() and related methods
  *
  * An extension of #WpProxyFeatures
  */
@@ -72,14 +72,14 @@ WP_API
 guint wp_node_get_n_ports (WpNode * self);
 
 WP_API
-WpIterator * wp_node_iterate_ports (WpNode * self);
+WpIterator * wp_node_new_ports_iterator (WpNode * self);
 
 WP_API
-WpIterator * wp_node_iterate_ports_filtered (WpNode * self, ...)
+WpIterator * wp_node_new_ports_filtered_iterator (WpNode * self, ...)
     G_GNUC_NULL_TERMINATED;
 
 WP_API
-WpIterator * wp_node_iterate_ports_filtered_full (WpNode * self,
+WpIterator * wp_node_new_ports_filtered_iterator_full (WpNode * self,
     WpObjectInterest * interest);
 
 WP_API

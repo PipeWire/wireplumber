@@ -55,15 +55,15 @@ WP_API
 guint wp_object_manager_get_n_objects (WpObjectManager * self);
 
 WP_API
-WpIterator * wp_object_manager_iterate (WpObjectManager * self);
+WpIterator * wp_object_manager_new_iterator (WpObjectManager * self);
 
 WP_API
-WpIterator * wp_object_manager_iterate_filtered (WpObjectManager * self,
+WpIterator * wp_object_manager_new_filtered_iterator (WpObjectManager * self,
     GType gtype, ...);
 
 WP_API
-WpIterator * wp_object_manager_iterate_filtered_full (WpObjectManager * self,
-    WpObjectInterest * interest);
+WpIterator * wp_object_manager_new_filtered_iterator_full (
+    WpObjectManager * self, WpObjectInterest * interest);
 
 WP_API
 gpointer wp_object_manager_lookup (WpObjectManager * self,

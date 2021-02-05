@@ -60,7 +60,8 @@ static WpSiStream *
 si_audio_softdsp_endpoint_get_stream (WpSiEndpoint * item, guint index)
 {
   WpSiAudioSoftdspEndpoint *self = WP_SI_AUDIO_SOFTDSP_ENDPOINT (item);
-  g_autoptr (WpIterator) it = wp_session_bin_iterate (WP_SESSION_BIN (self));
+  g_autoptr (WpIterator) it =
+      wp_session_bin_new_iterator (WP_SESSION_BIN (self));
   g_auto (GValue) val = G_VALUE_INIT;
 
   if (wp_session_bin_get_n_children (WP_SESSION_BIN (item)) == 1)
@@ -243,7 +244,8 @@ si_audio_softdsp_endpoint_activate_execute_step (WpSessionItem * item,
 
     case STEP_ACTIVATE_STREAMS:
     {
-      g_autoptr (WpIterator) it = wp_session_bin_iterate (WP_SESSION_BIN (self));
+      g_autoptr (WpIterator) it =
+          wp_session_bin_new_iterator (WP_SESSION_BIN (self));
       g_auto (GValue) val = G_VALUE_INIT;
       for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
         WpSessionItem *item = g_value_get_object (&val);
@@ -264,7 +266,8 @@ static void
 si_audio_softdsp_endpoint_activate_rollback (WpSessionItem * item)
 {
   WpSiAudioSoftdspEndpoint *self = WP_SI_AUDIO_SOFTDSP_ENDPOINT (item);
-  g_autoptr (WpIterator) it = wp_session_bin_iterate (WP_SESSION_BIN (self));
+  g_autoptr (WpIterator) it =
+      wp_session_bin_new_iterator (WP_SESSION_BIN (self));
   g_auto (GValue) val = G_VALUE_INIT;
 
   /* deactivate all items */

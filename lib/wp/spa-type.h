@@ -62,7 +62,7 @@ WP_API
 WpSpaIdTable wp_spa_id_table_from_name (const gchar *name);
 
 WP_API
-WpIterator * wp_spa_id_table_iterate (WpSpaIdTable table);
+WpIterator * wp_spa_id_table_new_iterator (WpSpaIdTable table);
 
 WP_API
 WpSpaIdValue wp_spa_id_table_find_value (WpSpaIdTable table, guint value);

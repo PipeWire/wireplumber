@@ -793,7 +793,7 @@ static const WpIteratorMethods dict_iterator_methods = {
 };
 
 /**
- * wp_properties_iterate:
+ * wp_properties_new_iterator:
  * @self: a properties object
  *
  * Returns: (transfer full): an iterator that iterates over the properties.
@@ -802,7 +802,7 @@ static const WpIteratorMethods dict_iterator_methods = {
  *   this iterator.
  */
 WpIterator *
-wp_properties_iterate (WpProperties * self)
+wp_properties_new_iterator (WpProperties * self)
 {
   g_autoptr (WpIterator) it = NULL;
   struct dict_iterator_data *it_data;
@@ -820,7 +820,7 @@ wp_properties_iterate (WpProperties * self)
 /**
  * wp_properties_iterator_item_get_key:
  * @item: a #GValue that was returned from the #WpIterator of
- *   wp_properties_iterate()
+ *   wp_properties_new_iterator()
  *
  * Returns: (transfer none): the property key of the @item
  */
@@ -835,7 +835,7 @@ wp_properties_iterator_item_get_key (const GValue * item)
 /**
  * wp_properties_iterator_item_get_value:
  * @item: a #GValue that was returned from the #WpIterator of
- *   wp_properties_iterate()
+ *   wp_properties_new_iterator()
  *
  * Returns: (transfer none): the property value of the @item
  */

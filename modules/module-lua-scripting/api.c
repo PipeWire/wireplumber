@@ -543,7 +543,7 @@ static int
 object_manager_iterate (lua_State *L)
 {
   WpObjectManager *om = wplua_checkobject (L, 1, WP_TYPE_OBJECT_MANAGER);
-  WpIterator *it = wp_object_manager_iterate (om);
+  WpIterator *it = wp_object_manager_new_iterator (om);
   return push_wpiterator (L, it);
 }
 
@@ -552,8 +552,8 @@ object_manager_iterate_filtered (lua_State *L)
 {
   WpObjectManager *om = wplua_checkobject (L, 1, WP_TYPE_OBJECT_MANAGER);
   WpObjectInterest *oi = wplua_checkboxed (L, 2, WP_TYPE_OBJECT_INTEREST);
-  WpIterator *it =
-      wp_object_manager_iterate_filtered_full (om, wp_object_interest_ref (oi));
+  WpIterator *it = wp_object_manager_new_filtered_iterator_full (om,
+      wp_object_interest_ref (oi));
   return push_wpiterator (L, it);
 }
 
@@ -590,7 +590,7 @@ metadata_iterate (lua_State *L)
 {
   WpMetadata *metadata = wplua_checkobject (L, 1, WP_TYPE_METADATA);
   lua_Integer subject = luaL_checkinteger (L, 2);
-  g_autoptr (WpIterator) it = wp_metadata_iterate (metadata, subject);
+  g_autoptr (WpIterator) it = wp_metadata_new_iterator (metadata, subject);
   return push_metadata_wpiterator (L, it);
 }
 
@@ -618,7 +618,7 @@ static int
 session_iterate_endpoints (lua_State *L)
 {
   WpSession *session = wplua_checkobject (L, 1, WP_TYPE_SESSION);
-  WpIterator *it = wp_session_iterate_endpoints (session);
+  WpIterator *it = wp_session_new_endpoints_iterator (session);
   return push_wpiterator (L, it);
 }
 
@@ -626,7 +626,7 @@ static int
 session_iterate_links (lua_State *L)
 {
   WpSession *session = wplua_checkobject (L, 1, WP_TYPE_SESSION);
-  WpIterator *it = wp_session_iterate_links (session);
+  WpIterator *it = wp_session_new_links_iterator (session);
   return push_wpiterator (L, it);
 }
 
@@ -667,7 +667,7 @@ static int
 endpoint_iterate_streams (lua_State *L)
 {
   WpEndpoint *ep = wplua_checkobject (L, 1, WP_TYPE_ENDPOINT);
-  WpIterator *it = wp_endpoint_iterate_streams (ep);
+  WpIterator *it = wp_endpoint_new_streams_iterator (ep);
   return push_wpiterator (L, it);
 }
 

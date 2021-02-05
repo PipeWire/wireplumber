@@ -156,7 +156,7 @@ test_spa_type_iterate (void)
     g_assert_true (wp_spa_type_is_object (type));
 
     WpSpaIdTable table = wp_spa_type_get_values_table (type);
-    g_autoptr (WpIterator) it = wp_spa_id_table_iterate (table);
+    g_autoptr (WpIterator) it = wp_spa_id_table_new_iterator (table);
     g_auto (GValue) value = G_VALUE_INIT;
     WpSpaIdValue id = NULL;
 
@@ -219,7 +219,7 @@ test_spa_type_iterate (void)
     WpSpaIdTable table = wp_spa_id_table_from_name ("Spa:Enum:Choice");
     g_assert_nonnull (table);
 
-    g_autoptr (WpIterator) it = wp_spa_id_table_iterate (table);
+    g_autoptr (WpIterator) it = wp_spa_id_table_new_iterator (table);
     g_auto (GValue) value = G_VALUE_INIT;
     WpSpaIdValue id = NULL;
 
@@ -293,7 +293,7 @@ test_spa_type_register (void)
       wp_spa_id_table_from_name ("Spa:Enum:CustomEnum"));
 
   {
-    g_autoptr (WpIterator) it = wp_spa_id_table_iterate (enum_table);
+    g_autoptr (WpIterator) it = wp_spa_id_table_new_iterator (enum_table);
     g_auto (GValue) value = G_VALUE_INIT;
     WpSpaIdValue id = NULL;
 
@@ -325,7 +325,7 @@ test_spa_type_register (void)
 
   {
     WpSpaIdTable table = wp_spa_type_get_values_table (obj_type);
-    g_autoptr (WpIterator) it = wp_spa_id_table_iterate (table);
+    g_autoptr (WpIterator) it = wp_spa_id_table_new_iterator (table);
     g_auto (GValue) value = G_VALUE_INIT;
     WpSpaIdValue id = NULL;
 

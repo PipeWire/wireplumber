@@ -45,7 +45,7 @@ WP_API
 guint wp_session_bin_get_n_children (WpSessionBin *self);
 
 WP_API
-WpIterator *wp_session_bin_iterate (WpSessionBin *self);
+WpIterator *wp_session_bin_new_iterator (WpSessionBin *self);
 
 G_END_DECLS
 

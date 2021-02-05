@@ -369,7 +369,7 @@ si_simple_node_endpoint_get_ports (WpSiPortInfo * item, const gchar * context)
   g_variant_builder_init (&b, G_VARIANT_TYPE ("a(uuu)"));
   node_id = wp_proxy_get_bound_id (WP_PROXY (self->node));
 
-  for (it = wp_node_iterate_ports (self->node);
+  for (it = wp_node_new_ports_iterator (self->node);
        wp_iterator_next (it, &val);
        g_value_unset (&val))
   {
