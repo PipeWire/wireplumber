@@ -1018,47 +1018,35 @@ static const luaL_Reg spa_pod_methods[] = {
   { NULL, NULL }
 };
 
+static const luaL_Reg spa_pod_constructors[] = {
+  { "None", spa_pod_none_new },
+  { "Boolean", spa_pod_boolean_new },
+  { "Id", spa_pod_id_new },
+  { "Int", spa_pod_int_new },
+  { "Long", spa_pod_long_new },
+  { "Float", spa_pod_float_new },
+  { "Double", spa_pod_double_new },
+  { "String", spa_pod_string_new },
+  { "Bytes", spa_pod_bytes_new },
+  { "Pointer", spa_pod_pointer_new },
+  { "Fd", spa_pod_fd_new },
+  { "Rectangle", spa_pod_rectangle_new },
+  { "Fraction", spa_pod_fraction_new },
+  { "Object", spa_pod_object_new },
+  { "Struct", spa_pod_struct_new },
+  { "Sequence", spa_pod_sequence_new },
+  { "Array", spa_pod_array_new },
+  { "Choice", spa_pod_choice_new },
+  { NULL, NULL }
+};
+
 /* Init */
 
 void
 wp_lua_scripting_pod_init (lua_State *L)
 {
-  lua_pushcfunction (L, spa_pod_none_new);
-  lua_setglobal (L, "WpSpaPodNone_new");
-  lua_pushcfunction (L, spa_pod_boolean_new);
-  lua_setglobal (L, "WpSpaPodBoolean_new");
-  lua_pushcfunction (L, spa_pod_id_new);
-  lua_setglobal (L, "WpSpaPodId_new");
-  lua_pushcfunction (L, spa_pod_int_new);
-  lua_setglobal (L, "WpSpaPodInt_new");
-  lua_pushcfunction (L, spa_pod_long_new);
-  lua_setglobal (L, "WpSpaPodLong_new");
-  lua_pushcfunction (L, spa_pod_float_new);
-  lua_setglobal (L, "WpSpaPodFloat_new");
-  lua_pushcfunction (L, spa_pod_double_new);
-  lua_setglobal (L, "WpSpaPodDouble_new");
-  lua_pushcfunction (L, spa_pod_string_new);
-  lua_setglobal (L, "WpSpaPodString_new");
-  lua_pushcfunction (L, spa_pod_bytes_new);
-  lua_setglobal (L, "WpSpaPodBytes_new");
-  lua_pushcfunction (L, spa_pod_pointer_new);
-  lua_setglobal (L, "WpSpaPodPointer_new");
-  lua_pushcfunction (L, spa_pod_fd_new);
-  lua_setglobal (L, "WpSpaPodFd_new");
-  lua_pushcfunction (L, spa_pod_rectangle_new);
-  lua_setglobal (L, "WpSpaPodRectangle_new");
-  lua_pushcfunction (L, spa_pod_fraction_new);
-  lua_setglobal (L, "WpSpaPodFraction_new");
-  lua_pushcfunction (L, spa_pod_object_new);
-  lua_setglobal (L, "WpSpaPodObject_new");
-  lua_pushcfunction (L, spa_pod_struct_new);
-  lua_setglobal (L, "WpSpaPodStruct_new");
-  lua_pushcfunction (L, spa_pod_sequence_new);
-  lua_setglobal (L, "WpSpaPodSequence_new");
-  lua_pushcfunction (L, spa_pod_array_new);
-  lua_setglobal (L, "WpSpaPodArray_new");
-  lua_pushcfunction (L, spa_pod_choice_new);
-  lua_setglobal (L, "WpSpaPodChoice_new");
+  luaL_newlib (L, spa_pod_constructors);
+  lua_setglobal (L, "WpSpaPod");
 
   wplua_register_type_methods (L, WP_TYPE_SPA_POD, NULL, spa_pod_methods);
 }
