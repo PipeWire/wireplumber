@@ -59,21 +59,21 @@ function addEndpoint (node, session_name, endpoint_type, priority)
         session_items.monitors[id] = SessionItem ( "si-monitor-endpoint" )
 
         -- configure monitor
-	if not session_items.monitors[id]:configure ({
-	    "adapter", session_items.endpoints[id]
-	  }) then
-	  Log.warning(node, "failed to configure monitor " .. name);
-	end
+        if not session_items.monitors[id]:configure ({
+            "adapter", session_items.endpoints[id]
+          }) then
+          Log.warning(node, "failed to configure monitor " .. name);
+        end
 
-	-- activate monitor
-	session_items.monitors[id]:activate (function (activated_mon)
-	  Log.debug(node, "activated monitor " .. name);
+        -- activate monitor
+        session_items.monitors[id]:activate (function (activated_mon)
+          Log.debug(node, "activated monitor " .. name);
 
-	  -- export monitor
-	  activated_mon:export (session, function (exported_mon)
-	    Log.info(node, "exported monitor " .. name);
-	  end)
-	end)
+          -- export monitor
+          activated_mon:export (session, function (exported_mon)
+            Log.info(node, "exported monitor " .. name);
+          end)
+        end)
       end
     end)
   end)
