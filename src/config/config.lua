@@ -57,7 +57,7 @@ load_module("si-standard-link")
 load_monitor("v4l2")
 
 -- Automatically suspends idle nodes after 3 seconds
-load_module("node-suspension")
+load_script("suspend-node.lua")
 
 -- Automatically sets device profiles to 'On'
 load_module("device-activation")

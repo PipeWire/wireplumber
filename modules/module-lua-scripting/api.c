@@ -31,6 +31,21 @@ get_wp_export_core (lua_State *L)
   return lua_touserdata (L, -1);
 }
 
+/* GSource */
+
+static int
+source_destroy (lua_State *L)
+{
+  GSource *source = wplua_checkboxed (L, 1, G_TYPE_SOURCE);
+  g_source_destroy (source);
+  return 0;
+}
+
+static const luaL_Reg source_methods[] = {
+  { "destroy", source_destroy },
+  { NULL, NULL }
+};
+
 /* WpCore */
 
 static int
@@ -58,20 +73,24 @@ core_get_info (lua_State *L)
 static int
 core_idle_add (lua_State *L)
 {
+  GSource *source = NULL;
   luaL_checktype (L, 1, LUA_TFUNCTION);
-  wp_core_idle_add_closure (get_wp_core (L), NULL,
+  wp_core_idle_add_closure (get_wp_core (L), &source,
       wplua_function_to_closure (L, 1));
-  return 0;
+  wplua_pushboxed (L, G_TYPE_SOURCE, source);
+  return 1;
 }
 
 static int
 core_timeout_add (lua_State *L)
 {
+  GSource *source = NULL;
   lua_Integer timeout_ms = luaL_checkinteger (L, 1);
   luaL_checktype (L, 2, LUA_TFUNCTION);
-  wp_core_timeout_add_closure (get_wp_core (L), NULL, timeout_ms,
+  wp_core_timeout_add_closure (get_wp_core (L), &source, timeout_ms,
       wplua_function_to_closure (L, 2));
-  return 0;
+  wplua_pushboxed (L, G_TYPE_SOURCE, source);
+  return 1;
 }
 
 static void
@@ -800,7 +819,17 @@ node_new (lua_State *L)
   return 1;
 }
 
+static int
+node_send_command (lua_State *L)
+{
+  WpNode *node = wplua_checkobject (L, 1, WP_TYPE_NODE);
+  const char *command = luaL_checkstring (L, 2);
+  wp_node_send_command (node, command);
+  return 0;
+}
+
 static const luaL_Reg node_methods[] = {
+  { "send_command", node_send_command },
   { NULL, NULL }
 };
 
@@ -968,6 +997,8 @@ wp_lua_scripting_api_init (lua_State *L)
 
   wp_lua_scripting_pod_init (L);
 
+  wplua_register_type_methods (L, G_TYPE_SOURCE,
+      NULL, source_methods);
   wplua_register_type_methods (L, WP_TYPE_OBJECT,
       NULL, object_methods);
   wplua_register_type_methods (L, WP_TYPE_PROXY,
