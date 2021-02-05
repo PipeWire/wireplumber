@@ -47,42 +47,39 @@ function addEndpoint (node, session_name, endpoint_type, priority)
 
   -- activate endpoint
   session_items.endpoints[id]:activate (function (activated_ep)
-    Log.debug(node, "activated endpoint " .. name);
+    Log.debug(activated_ep, "activated endpoint " .. name);
 
     -- export endpoint
     activated_ep:export (session, function (exported_ep)
-      Log.info(node, "exported endpoint " .. name);
+      Log.info(exported_ep, "exported endpoint " .. name);
 
-      -- only use monitor for input endpoints
-      if string.find (media_class, "Input") or string.find (media_class, "Sink") then
+      -- only use monitor audio sinks
+      if media_class == "Audio/Sink" then
         -- create monitor
-        session_items.monitors[id] = SessionItem ( "si-monitor-endpoint" )
+        local monitor = SessionItem ( "si-monitor-endpoint" )
 
         -- configure monitor
-        if not session_items.monitors[id]:configure ({
+        if not monitor:configure ({
             "adapter", session_items.endpoints[id]
           }) then
-          Log.warning(node, "failed to configure monitor " .. name);
+          Log.warning(monitor, "failed to configure monitor " .. name);
+          return
         end
 
+        session_items.monitors[id] = monitor
+
         -- activate monitor
-        session_items.monitors[id]:activate (function (activated_mon)
-          Log.debug(node, "activated monitor " .. name);
+        monitor:activate (function (activated_mon)
+          Log.debug(activated_mon, "activated monitor " .. name);
 
           -- export monitor
           activated_mon:export (session, function (exported_mon)
-            Log.info(node, "exported monitor " .. name);
+            Log.info(exported_mon, "exported monitor " .. name);
           end)
         end)
       end
     end)
   end)
-end
-
-function removeEndpoint (node)
-  local id = node["bound-id"]
-  session_items.monitors[id] = nil
-  session_items.endpoints[id] = nil
 end
 
 sessions_om = ObjectManager { Interest { type = "session" } }
@@ -104,14 +101,9 @@ nodes_om:connect("object-added", function (om, node)
 end)
 
 nodes_om:connect("object-removed", function (om, node)
-  local media_class = node.properties['media.class']
-
-  -- skip nodes without media class
-  if media_class == nil then
-    return
-  end
-
-  removeEndpoint (node)
+  local id = node["bound-id"]
+  session_items.monitors[id] = nil
+  session_items.endpoints[id] = nil
 end)
 
 sessions_om:activate()
