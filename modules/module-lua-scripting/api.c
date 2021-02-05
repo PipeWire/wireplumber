@@ -568,8 +568,11 @@ object_manager_lookup (lua_State *L)
   } else {
     o = wp_object_manager_lookup (om, WP_TYPE_OBJECT, NULL);
   }
-  wplua_pushobject (L, o);
-  return 1;
+  if (o) {
+    wplua_pushobject (L, o);
+    return 1;
+  }
+  return 0;
 }
 
 static const luaL_Reg object_manager_methods[] = {
