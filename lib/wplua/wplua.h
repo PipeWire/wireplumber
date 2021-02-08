@@ -73,7 +73,7 @@ WpProperties * wplua_table_to_properties (lua_State *L, int idx);
 void wplua_properties_to_table (lua_State *L, WpProperties *p);
 
 GVariant * wplua_table_to_asv (lua_State *L, int idx);
-void wplua_asv_to_table (lua_State *L, GVariant *p);
+void wplua_gvariant_to_table (lua_State *L, GVariant *p);
 
 gboolean wplua_load_buffer (lua_State * L, const gchar *buf, gsize size,
      int nargs, int nres, GError **error);

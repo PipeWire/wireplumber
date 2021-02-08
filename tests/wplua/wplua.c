@@ -515,7 +515,7 @@ test_wplua_convert_asv ()
       "'test-boolean': <true>, "
       "'nested-table': <@a{sv} { 'string': <'baz'> }> "
       "}");
-  wplua_asv_to_table (L, v);
+  wplua_gvariant_to_table (L, v);
   lua_setglobal (L, "o");
 
   const gchar code2[] =
@@ -571,7 +571,7 @@ test_wplua_script_arguments ()
       "'test-boolean': <true>, "
       "'nested-table': <@a{sv} { 'string': <'baz'> }> "
       "}");
-  wplua_asv_to_table (L, v);
+  wplua_gvariant_to_table (L, v);
 
   const gchar code2[] =
     "local o = ...\n"
@@ -585,7 +585,7 @@ test_wplua_script_arguments ()
 
   /* same test, but with sandbox enabled */
   wplua_enable_sandbox (L, WP_LUA_SANDBOX_ISOLATE_ENV);
-  wplua_asv_to_table (L, v);
+  wplua_gvariant_to_table (L, v);
   wplua_load_buffer (L, code2, sizeof (code2) - 1, 1, 0, &error);
   g_assert_no_error (error);
 

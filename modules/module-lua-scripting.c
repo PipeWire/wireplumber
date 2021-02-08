@@ -41,7 +41,7 @@ execute_script (lua_State *L, struct ScriptData * s, GError ** error)
 {
   int nargs = 0;
   if (s->args) {
-    wplua_asv_to_table (L, s->args);
+    wplua_gvariant_to_table (L, s->args);
     nargs++;
   }
   return wplua_load_path (L, s->filename, nargs, 0, error);
