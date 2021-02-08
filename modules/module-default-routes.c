@@ -44,7 +44,9 @@ struct _WpDefaultRoutesPrivate
 {
   WpState *state;
   WpProperties *routes;
+  WpProperties *props;
   GSource *routes_timeout;
+  GSource *props_timeout;
 
   GHashTable *current_routes;
   GHashTable *default_routes;
@@ -55,6 +57,7 @@ struct _WpDefaultRoutesPrivate
 G_DEFINE_TYPE_WITH_PRIVATE (WpDefaultRoutes, wp_default_routes,
     WP_TYPE_PLUGIN)
 
+#define ALLOW_CHARS "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_."
 #define MAX_JSON_STRING_LEN 256
 
 static gint
@@ -91,6 +94,307 @@ find_device_route (WpPipewireObject *device, const gchar *lookup_name,
   }
 
   return -1;
+}
+
+static gboolean
+timeout_save_properties_cb (WpDefaultRoutes *self)
+{
+  WpDefaultRoutesPrivate *priv = wp_default_routes_get_instance_private (self);
+
+  if (!wp_state_save (priv->state, "properties", priv->props))
+    wp_warning_object (self, "could not save properties");
+
+  return G_SOURCE_REMOVE;
+}
+
+static void
+timeout_save_properties (WpDefaultRoutes *self, guint ms)
+{
+  WpDefaultRoutesPrivate *priv = wp_default_routes_get_instance_private (self);
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
+
+  g_return_if_fail (core);
+  g_return_if_fail (priv->props);
+
+  /* Clear the current timeout callback */
+  if (priv->props_timeout)
+      g_source_destroy (priv->props_timeout);
+  g_clear_pointer (&priv->props_timeout, g_source_unref);
+
+  /* Add the timeout callback */
+  wp_core_timeout_add_closure (core, &priv->props_timeout, ms,
+      g_cclosure_new_object (G_CALLBACK (timeout_save_properties_cb),
+      G_OBJECT (self)));
+}
+
+static uint32_t
+channel_from_name (const char *name)
+{
+  for (gint i = 0; spa_type_audio_channel[i].name; i++) {
+    if (g_strcmp0 (name, spa_debug_type_short_name (spa_type_audio_channel[i].name)) == 0)
+      return spa_type_audio_channel[i].type;
+	}
+	return SPA_AUDIO_CHANNEL_UNKNOWN;
+}
+
+static const char *
+channel_to_name(guint channel)
+{
+  for (gint i = 0; spa_type_audio_channel[i].name; i++) {
+    if (spa_type_audio_channel[i].type == channel)
+      return spa_debug_type_short_name (spa_type_audio_channel[i].name);
+  }
+  return "UNK";
+}
+
+static GArray *
+parse_channel_volumes(const gchar *chvol_str)
+{
+  struct spa_json array;
+  struct spa_json item;
+  GArray *values = NULL;
+  float val;
+
+  spa_json_init (&array, chvol_str, strlen (chvol_str));
+  if (spa_json_enter_array (&array, &item) <= 0)
+    return NULL;
+
+  values = g_array_new (FALSE, FALSE, sizeof (float));
+  while (spa_json_get_float (&item, &val) > 0)
+    g_array_append_val (values, val);
+
+  return values;
+}
+
+static GPtrArray *
+parse_channel_map (const gchar *chmap_str)
+{
+  struct spa_json array;
+  struct spa_json item;
+  GPtrArray *values;
+  char val[MAX_JSON_STRING_LEN];
+
+  spa_json_init (&array, chmap_str, strlen (chmap_str));
+  if (spa_json_enter_array (&array, &item) <= 0)
+    return NULL;
+
+  values = g_ptr_array_new ();
+  g_ptr_array_set_free_func (values, g_free);
+  while (spa_json_get_string (&item, val, MAX_JSON_STRING_LEN) > 0)
+    g_ptr_array_add (values, g_strdup (val));
+
+  return values;
+}
+
+static void
+apply_routes_properties (WpDefaultRoutes *self, WpPipewireObject *device,
+    const gchar *name, WpDirection direction, gint device_id)
+{
+  WpDefaultRoutesPrivate *priv = wp_default_routes_get_instance_private (self);
+  g_autoptr (WpSpaPodBuilder) builder =
+      wp_spa_pod_builder_new_object ("Spa:Pod:Object:Param:Props", "Route");
+  g_autoptr (WpSpaPod) props = NULL;
+  const gchar *dev_name = NULL;
+  const gchar *prop_value = NULL;
+  gchar *prop_name = NULL;
+  gchar *routes_name = NULL;
+  gchar *dir_str = direction == WP_DIRECTION_INPUT ? "input" : "output";
+  gint index;
+
+  g_return_if_fail (priv->props);
+
+  index = find_device_route (device, name, device_id);
+  if (index < 0) {
+    wp_info_object (self, "route '%s' (%d) is not valid", name, index);
+    return;
+  }
+
+  /* Get the device name */
+  dev_name = wp_pipewire_object_get_property (device, PW_KEY_DEVICE_NAME);
+  g_return_if_fail (dev_name);
+
+  /*
+   * Property keys cannot contain spaces or brackets,
+   * make sure we use a valid string
+   */
+  routes_name = g_strcanon (g_strdup (name), ALLOW_CHARS, '_');
+
+  prop_name = g_strdup_printf ("%s:%s:%s:%s", dev_name, dir_str, routes_name,
+      "volume");
+  prop_value = wp_properties_get (priv->props, prop_name);
+  g_free (prop_name);
+  if (prop_value) {
+    wp_spa_pod_builder_add_property (builder, "volume");
+    wp_spa_pod_builder_add_float (builder, strtof (prop_value, NULL));
+  }
+
+  prop_name = g_strdup_printf ("%s:%s:%s:%s", dev_name, dir_str, routes_name,
+      "mute");
+  prop_value = wp_properties_get (priv->props, prop_name);
+  g_free (prop_name);
+  if (prop_value) {
+    wp_spa_pod_builder_add_property (builder, "mute");
+    wp_spa_pod_builder_add_boolean (builder,
+        g_strcmp0 (prop_value, "true") == 0 ? TRUE : FALSE);
+  }
+
+  prop_name = g_strdup_printf ("%s:%s:%s:%s", dev_name, dir_str, routes_name,
+      "channelVolumes");
+  prop_value = wp_properties_get (priv->props, prop_name);
+  g_free (prop_name);
+  if (prop_value) {
+    g_autoptr (GArray) values = parse_channel_volumes (prop_value);
+    if (values) {
+      g_autoptr (WpSpaPodBuilder) chvol_builder = wp_spa_pod_builder_new_array ();
+      /* Build the channelVolumes array spa pod */
+      for (guint i = 0; i < values->len; i++) {
+        wp_spa_pod_builder_add_float (chvol_builder,
+            g_array_index (values, float, i));
+      }
+      /* Add the channelVolumes property */
+      wp_spa_pod_builder_add_property (builder, "channelVolumes");
+      g_autoptr (WpSpaPod) chvol = wp_spa_pod_builder_end (chvol_builder);
+      wp_spa_pod_builder_add_pod (builder, chvol);
+    }
+  }
+
+  prop_name = g_strdup_printf ("%s:%s:%s:%s", dev_name, dir_str, routes_name,
+      "channelMap");
+  prop_value = wp_properties_get (priv->props, prop_name);
+  g_free (prop_name);
+  if (prop_value) {
+    g_autoptr (GPtrArray) values = parse_channel_map (prop_value);
+    if (values) {
+      g_autoptr (WpSpaPodBuilder) chmap_builder = wp_spa_pod_builder_new_array ();
+      /* Build the channelMap array spa pod */
+      for (guint i = 0; i < values->len; i++) {
+        gchar *channel = g_ptr_array_index (values, i);
+        wp_spa_pod_builder_add_id (chmap_builder, channel_from_name (channel));
+      }
+      /* Add the channelMap property */
+      wp_spa_pod_builder_add_property (builder, "channelMap");
+      g_autoptr (WpSpaPod) chmap = wp_spa_pod_builder_end (chmap_builder);
+      wp_spa_pod_builder_add_pod (builder, chmap);
+    }
+  }
+
+  props = wp_spa_pod_builder_end (builder);
+
+  wp_pipewire_object_set_param (device, "Route", 0,
+      wp_spa_pod_new_object (
+          "Spa:Pod:Object:Param:Route", "Route",
+          "index", "i", index,
+          "device", "i", device_id,
+          "props", "O", props,
+          NULL));
+  wp_info_object (self, "properties set for route %d on " WP_OBJECT_FORMAT,
+      index, WP_OBJECT_ARGS (device));
+}
+
+static void
+save_routes_properties (WpDefaultRoutes *self, WpPipewireObject *device,
+    const gchar *name, WpDirection direction, WpSpaPod *properties)
+{
+  WpDefaultRoutesPrivate *priv = wp_default_routes_get_instance_private (self);
+  const gchar *dev_name = NULL;
+  gchar *routes_name = NULL;
+  gchar *prop_name = NULL;
+  gchar *prop_value = NULL;
+  g_autoptr (WpIterator) props = NULL;
+  g_auto (GValue) item = G_VALUE_INIT;
+  gchar *dir_str = direction == WP_DIRECTION_INPUT ? "input" : "output";
+
+  g_return_if_fail (properties);
+  g_return_if_fail (priv->props);
+
+  /* Get the device name */
+  dev_name = wp_pipewire_object_get_property (device, PW_KEY_DEVICE_NAME);
+  g_return_if_fail (dev_name);
+
+  routes_name = g_strcanon (g_strdup (name), ALLOW_CHARS, '_');
+
+  props = wp_spa_pod_new_iterator (properties);
+  for (; wp_iterator_next (props, &item); g_value_unset (&item)) {
+    WpSpaPod *pod = g_value_get_boxed (&item);
+    const char *p_key = NULL;
+    g_autoptr (WpSpaPod) p_val = NULL;
+    wp_spa_pod_get_property (pod, &p_key, &p_val);
+
+    prop_name = g_strdup_printf ("%s:%s:%s:%s", dev_name, dir_str,
+        routes_name, p_key);
+
+    /* volume */
+    if (g_strcmp0 (p_key, "volume") == 0) {
+      float vol = 0.0f;
+      wp_spa_pod_get_float (p_val, &vol);
+      prop_value = g_strdup_printf ("%f", vol);
+    }
+    /* mute */
+    else if (g_strcmp0 (p_key, "mute") == 0) {
+      gboolean b = FALSE;
+      wp_spa_pod_get_boolean (p_val, &b);
+      prop_value = g_strdup (b ? "true" : "false");
+    }
+    /* channelVolumes */
+    else if (g_strcmp0 (p_key, "channelVolumes") == 0) {
+      g_autoptr (WpIterator) it2 = wp_spa_pod_new_iterator (p_val);
+      g_auto (GValue) item2 = G_VALUE_INIT;
+      guint i = 0, n_vols = 0;
+      float vols[SPA_AUDIO_MAX_CHANNELS];
+
+      for (; wp_iterator_next (it2, &item2); g_value_unset (&item2)) {
+        float *vol = (float *) g_value_get_pointer (&item2);
+        vols[n_vols] = *vol;
+        n_vols++;
+      }
+      if (n_vols > 0) {
+        size_t size;
+        FILE *f;
+
+        f = open_memstream (&prop_value, &size);
+        fprintf (f, "[ ");
+        for (i = 0; i < n_vols; i++)
+          fprintf (f, "%s%f", i > 0 ? ", " : "", vols[i]);
+        fprintf (f, " ]");
+        fclose (f);
+      }
+    }
+    /* channelMap */
+    else if (g_strcmp0 (p_key, "channelMap") == 0) {
+      g_autoptr (WpIterator) it2 = wp_spa_pod_new_iterator (p_val);
+      g_auto (GValue) item2 = G_VALUE_INIT;
+      guint i = 0, n_vals = 0;
+      guint vals[SPA_AUDIO_MAX_CHANNELS];
+
+      for (; wp_iterator_next (it2, &item2); g_value_unset (&item2)) {
+        guint *val = (guint *) g_value_get_pointer (&item2);
+        vals[n_vals] = *val;
+        n_vals++;
+      }
+      if (n_vals > 0) {
+        size_t size;
+        FILE *f;
+
+        f = open_memstream (&prop_value, &size);
+        fprintf (f, "[ ");
+        for (i = 0; i < n_vals; i++)
+          fprintf (f, "%s\"%s\"", i > 0 ? ", " : "", channel_to_name (vals[i]));
+        fprintf (f, " ]");
+        fclose (f);
+      }
+    }
+
+    if (prop_value) {
+      wp_properties_set (priv->props, prop_name, prop_value);
+      g_free (prop_value);
+    }
+    if (prop_name)
+      g_free (prop_name);
+
+    prop_name = prop_value = NULL;
+  }
+  g_free (routes_name);
+  timeout_save_properties (self, SAVE_INTERVAL_MS);
 }
 
 static gchar *
@@ -308,6 +612,7 @@ on_device_routes_notified (WpPipewireObject *device, GAsyncResult *res,
   const gchar *name = NULL;
   gint device_id, direction = 0;
   GHashTable *new_routes;
+  GHashTable *ht;
 
   /* Finish */
   routes = wp_pipewire_object_enum_params_finish (device, res, &error);
@@ -322,17 +627,34 @@ on_device_routes_notified (WpPipewireObject *device, GAsyncResult *res,
     return;
   }
 
+  ht = g_hash_table_lookup (priv->current_routes, device);
+
   for (; wp_iterator_next (routes, &item); g_value_unset (&item)) {
     /* Parse the route */
     WpSpaPod *pod = g_value_get_boxed (&item);
+    WpSpaPod *props;
     if (!wp_spa_pod_get_object (pod, NULL,
         "direction", "I", &direction,
         "device", "i", &device_id,
         "name", "s", &name,
+        "props", "P", &props,
         NULL)) {
       wp_warning_object (self, "failed to parse current route");
       continue;
     }
+
+    if (ht) {
+      if (g_hash_table_contains (ht, name))
+        save_routes_properties (self, device, name, direction, props);
+      else if (g_hash_table_size (ht) > 0)
+        /*
+         * Apply route properties only once we have filled the `current_routes`
+         * table for this device. This prevents race conditions when a device
+         * appears.
+         */
+        apply_routes_properties (self, device, name, direction, device_id);
+    }
+
     g_hash_table_insert (new_routes, g_strdup (name),
         GINT_TO_POINTER (device_id));
   }
@@ -453,6 +775,9 @@ wp_default_routes_finalize (GObject * object)
   WpDefaultRoutesPrivate *priv = wp_default_routes_get_instance_private (self);
 
   /* Clear the current timeout callback */
+  if (priv->props_timeout)
+    g_source_destroy (priv->props_timeout);
+  g_clear_pointer (&priv->props_timeout, g_source_unref);
   if (priv->routes_timeout)
     g_source_destroy (priv->routes_timeout);
   g_clear_pointer (&priv->routes_timeout, g_source_unref);
@@ -480,6 +805,11 @@ wp_default_routes_init (WpDefaultRoutes * self)
   priv->routes = wp_state_load (priv->state, "routes");
   if (!priv->routes) {
     wp_warning_object (self, "could not load routes");
+  }
+  /* Load the saved properties */
+  priv->props = wp_state_load (priv->state, "properties");
+  if (!priv->props) {
+    wp_warning_object (self, "could not load properties");
   }
 }
 
