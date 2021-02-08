@@ -26,6 +26,17 @@ shared_library(
 )
 
 shared_library(
+  'wireplumber-module-default-routes',
+  [
+    'module-default-routes.c',
+  ],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-default-routes"'],
+  install : true,
+  install_dir : wireplumber_module_dir,
+  dependencies : [wp_dep, pipewire_dep],
+)
+
+shared_library(
   'wireplumber-module-device-activation',
   [
     'module-device-activation.c',

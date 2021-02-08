@@ -51,3 +51,6 @@ load_script("suspend-node.lua")
 
 -- Automatically sets device profiles to 'On'
 load_module("device-activation")
+
+-- Automatically save and restore default routes
+load_module("default-routes")
