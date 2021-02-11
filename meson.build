@@ -1,7 +1,8 @@
 project('wireplumber', ['c'],
   version : '0.3.60',
   license : 'MIT',
-  meson_version : '>= 0.54.0',
+  # we need 0.54 only to set default_library=static in the lua subproject
+  meson_version : get_option('system-lua') ? '>= 0.51.0' : '>= 0.54.0',
   default_options : [
     'warning_level=1',
     'buildtype=debugoptimized',
