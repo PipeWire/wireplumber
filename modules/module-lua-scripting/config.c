@@ -126,6 +126,12 @@ done:
   return TRUE;
 }
 
+static gint
+sort_filelist (gconstpointer a, gconstpointer b)
+{
+  return g_strcmp0 (*(const gchar **) a, *(const gchar **) b);
+}
+
 gboolean
 wp_lua_scripting_load_configuration (const gchar * conf_file,
     WpCore * core, GError ** error)
@@ -154,16 +160,25 @@ wp_lua_scripting_load_configuration (const gchar * conf_file,
     if (!conf_dir)
       return FALSE;
 
+    /* sort files before loading them */
+    g_autoptr (GPtrArray) filenames = g_ptr_array_new ();
     const gchar *filename = NULL;
     while ((filename = g_dir_read_name (conf_dir))) {
       /* Only parse files that have the proper extension */
       if (g_str_has_suffix (filename, ".lua")) {
-        g_autofree gchar * file = g_build_filename (path, filename, NULL);
-        wp_info ("loading config file: %s", file);
-        if (!wplua_load_path (L, file, 0, 0, error))
-          return FALSE;
-        found = TRUE;
+        g_ptr_array_add (filenames, (gpointer) filename);
       }
+    }
+    g_ptr_array_sort (filenames, sort_filelist);
+
+    /* load */
+    for (guint i = 0; i < filenames->len; i++) {
+      g_autofree gchar * file = g_build_filename (path,
+          g_ptr_array_index (filenames, i), NULL);
+      wp_info ("loading config file: %s", file);
+      if (!wplua_load_path (L, file, 0, 0, error))
+        return FALSE;
+      found = TRUE;
     }
   }
 
