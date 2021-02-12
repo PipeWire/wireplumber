@@ -497,6 +497,30 @@ object_interest_new (lua_State *L)
   return 1;
 }
 
+static int
+object_interest_matches (lua_State *L)
+{
+  WpObjectInterest *interest = wplua_checkboxed (L, 1, WP_TYPE_OBJECT_INTEREST);
+  gboolean matches = FALSE;
+
+  if (wplua_isobject (L, 2, G_TYPE_OBJECT)) {
+    matches = wp_object_interest_matches (interest, wplua_toobject (L, 2));
+  }
+  else if (lua_istable (L, 2)) {
+    g_autoptr (WpProperties) props = wplua_table_to_properties (L, 2);
+    matches = wp_object_interest_matches (interest, props);
+  } else
+    luaL_argerror (L, 2, "expected GObject or table");
+
+  lua_pushboolean (L, matches);
+  return 1;
+}
+
+static const luaL_Reg object_interest_methods[] = {
+  { "matches", object_interest_matches },
+  { NULL, NULL }
+};
+
 /* WpObjectManager */
 
 static int
@@ -1088,7 +1112,7 @@ wp_lua_scripting_api_init (lua_State *L)
   wplua_register_type_methods (L, WP_TYPE_GLOBAL_PROXY,
       NULL, global_proxy_methods);
   wplua_register_type_methods (L, WP_TYPE_OBJECT_INTEREST,
-      object_interest_new, NULL);
+      object_interest_new, object_interest_methods);
   wplua_register_type_methods (L, WP_TYPE_OBJECT_MANAGER,
       object_manager_new, object_manager_methods);
   wplua_register_type_methods (L, WP_TYPE_METADATA,
