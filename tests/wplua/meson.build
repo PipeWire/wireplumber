@@ -27,3 +27,10 @@ test(
   env: common_env,
   workdir : meson.current_source_dir(),
 )
+test(
+  'test-lua-monitor-rules',
+  script_tester,
+  args: ['monitor-rules.lua'],
+  env: common_env,
+  workdir : meson.current_source_dir(),
+)
