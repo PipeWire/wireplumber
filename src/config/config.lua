@@ -57,9 +57,6 @@ load_module("si-standard-link")
 --
 -- load_pw_module ("spa-node-factory")
 
--- Video4Linux2 device management via udev
-load_monitor("v4l2")
-
 -- Automatically suspends idle nodes after 3 seconds
 load_script("suspend-node.lua")
 
