@@ -99,10 +99,6 @@ function enable_audio()
   })
 end
 
-function enable_bluetooth()
-  load_monitor("bluez5")
-end
-
 function enable_endpoints()
   load_script("static-sessions.lua", {
     ["audio"] = {},
@@ -112,10 +108,5 @@ function enable_endpoints()
   load_script("policy-endpoint.lua")
 end
 
--- split these calls into .lua files in config.lua.d/
--- to get a similar effect as the 'with-audio', 'with-pusleaudio', etc
--- flag files that ship with pipewire-media-session
 enable_access()
-enable_audio()
-enable_bluetooth()
 enable_endpoints()
