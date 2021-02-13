@@ -559,6 +559,58 @@ test_wplua_convert_asv ()
 }
 
 static void
+test_wplua_convert_gvariant_array ()
+{
+  g_autoptr (GError) error = NULL;
+  lua_State *L = wplua_new ();
+
+  g_autoptr (GVariant) v = g_variant_new_parsed ("@av [ "
+      "<42>, <3.14>, <'foobar'>, <true>, "
+      "<@a{sv} { 'string': <'baz'> }> ]");
+  wplua_gvariant_to_lua (L, v);
+  lua_setglobal (L, "o");
+
+  const gchar code2[] =
+    "assert (o[1] == 42)\n"
+    "assert (math.abs (o[2] - 3.14) < 0.0000000001)\n"
+    "assert (o[3] == 'foobar')\n"
+    "assert (o[4] == true)\n"
+    "assert (o[5]['string'] == 'baz')\n";
+  wplua_load_buffer (L, code2, sizeof (code2) - 1, 0, 0, &error);
+  g_assert_no_error (error);
+
+  lua_getglobal (L, "o");
+  g_autoptr (GVariant) fromlua = wplua_lua_to_gvariant (L, -1);
+
+  gint64 test_int = 0;
+  g_assert_true (g_variant_lookup (fromlua, "1", "x", &test_int));
+  g_assert_cmpint (test_int, ==, 42);
+
+  gdouble test_double = 0;
+  g_assert_true (g_variant_lookup (fromlua, "2", "d", &test_double));
+  g_assert_cmpfloat_with_epsilon (test_double, 3.14, 0.0000000001);
+
+  const gchar *test_str = NULL;
+  g_assert_true (g_variant_lookup (fromlua, "3", "&s", &test_str));
+  g_assert_cmpstr (test_str, ==, "foobar");
+
+  gboolean test_boolean = FALSE;
+  g_assert_true (g_variant_lookup (fromlua, "4", "b", &test_boolean));
+  g_assert_true (test_boolean);
+
+  g_autoptr (GVariant) nested = NULL;
+  g_assert_true (g_variant_lookup (fromlua, "5", "@a{sv}", &nested));
+  g_assert_nonnull (nested);
+  g_assert_true (g_variant_is_of_type (nested, G_VARIANT_TYPE_VARDICT));
+
+  test_str = NULL;
+  g_assert_true (g_variant_lookup (nested, "string", "&s", &test_str));
+  g_assert_cmpstr (test_str, ==, "baz");
+
+  wplua_free (L);
+}
+
+static void
 test_wplua_script_arguments ()
 {
   g_autoptr (GError) error = NULL;
@@ -606,6 +658,8 @@ main (gint argc, gchar *argv[])
   g_test_add_func ("/wplua/sandbox/script", test_wplua_sandbox_script);
   g_test_add_func ("/wplua/sandbox/config", test_wplua_sandbox_config);
   g_test_add_func ("/wplua/convert/asv", test_wplua_convert_asv);
+  g_test_add_func ("/wplua/convert/gvariant_array",
+      test_wplua_convert_gvariant_array);
   g_test_add_func ("/wplua/script_arguments", test_wplua_script_arguments);
 
   return g_test_run ();

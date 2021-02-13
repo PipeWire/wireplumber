@@ -134,7 +134,7 @@ wplua_gvariant_to_lua (lua_State *L, GVariant  *variant)
       lua_settable (L, -3);
     }
   }
-  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE ("a?"))) {
+  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_ARRAY)) {
     gsize n_children, i;
     n_children = g_variant_n_children (variant);
     lua_createtable (L, n_children, 0);
@@ -142,7 +142,7 @@ wplua_gvariant_to_lua (lua_State *L, GVariant  *variant)
       g_autoptr (GVariant) value;
       value = g_variant_get_child_value (variant, i);
       wplua_gvariant_to_lua (L, value);
-      lua_seti (L, -2, i);
+      lua_seti (L, -2, i + 1);
     }
   }
   else {
