@@ -109,7 +109,7 @@ load_components (lua_State *L, WpCore * core, GError ** error)
     /* optional component arguments */
     GVariant *args = NULL;
     if (lua_getfield (L, table, "args") == LUA_TTABLE) {
-      args = wplua_table_to_asv (L, -1);
+      args = wplua_lua_to_gvariant (L, -1);
     }
 
     wp_debug ("load component: %s (%s)", component, type);

@@ -69,11 +69,11 @@ GClosure * wplua_function_to_closure (lua_State *L, int idx);
 void wplua_lua_to_gvalue (lua_State *L, int idx, GValue *v);
 int wplua_gvalue_to_lua (lua_State *L, const GValue *v);
 
+GVariant * wplua_lua_to_gvariant (lua_State *L, int idx);
+void wplua_gvariant_to_lua (lua_State *L, GVariant *p);
+
 WpProperties * wplua_table_to_properties (lua_State *L, int idx);
 void wplua_properties_to_table (lua_State *L, WpProperties *p);
-
-GVariant * wplua_table_to_asv (lua_State *L, int idx);
-void wplua_gvariant_to_table (lua_State *L, GVariant *p);
 
 gboolean wplua_load_buffer (lua_State * L, const gchar *buf, gsize size,
      int nargs, int nres, GError **error);

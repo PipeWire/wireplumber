@@ -51,56 +51,106 @@ wplua_properties_to_table (lua_State *L, WpProperties *p)
 }
 
 GVariant *
-wplua_table_to_asv (lua_State *L, int idx)
+wplua_lua_to_gvariant (lua_State *L, int idx)
 {
-  g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
-  int table = lua_absindex (L, idx);
+  switch (lua_type (L, idx)) {
+  case LUA_TNIL:
+    return g_variant_new ("()");
+  case LUA_TBOOLEAN:
+    return g_variant_new_boolean (lua_toboolean (L, idx));
+  case LUA_TNUMBER:
+    if (lua_isinteger (L, idx))
+      return g_variant_new_int64 (lua_tointeger (L, idx));
+    else
+      return g_variant_new_double (lua_tonumber (L, idx));
+  case LUA_TSTRING:
+    return g_variant_new_string (lua_tostring (L, idx));
+  case LUA_TTABLE: {
+    GVariantBuilder b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
+    const gchar *key;
+    int table = lua_absindex (L, idx);
 
-  lua_pushnil (L);
-  while (lua_next (L, table)) {
-    /* each argument must have a string as key */
-    if (lua_type (L, -2) != LUA_TSTRING) {
-      wp_warning ("skipping non-string key");
-      lua_pop (L, 1);
-      continue; /* skip, it's probably harmless */
+    lua_pushnil (L);
+    while (lua_next (L, table) != 0) {
+      /* copy key to convert it to string */
+      lua_pushvalue (L, -2);
+      key = lua_tostring (L, -1);
+      g_variant_builder_add (&b, "{sv}", key, wplua_lua_to_gvariant (L, -2));
+      lua_pop (L, 2);
     }
-
-    const char *key = lua_tostring (L, -2);
-
-    switch (lua_type (L, -1)) {
-    case LUA_TBOOLEAN:
-      g_variant_builder_add (&b, "{sv}", key,
-          g_variant_new_boolean (lua_toboolean (L, -1)));
-      break;
-
-    case LUA_TNUMBER:
-      if (lua_isinteger (L, -1)) {
-        g_variant_builder_add (&b, "{sv}", key,
-            g_variant_new_int64 (lua_tointeger (L, -1)));
-      } else {
-        g_variant_builder_add (&b, "{sv}", key,
-            g_variant_new_double (lua_tonumber (L, -1)));
-      }
-      break;
-
-    case LUA_TSTRING:
-      g_variant_builder_add (&b, "{sv}", key,
-          g_variant_new_string (lua_tostring (L, -1)));
-      break;
-
-    case LUA_TTABLE:
-      g_variant_builder_add (&b, "{sv}", key, wplua_table_to_asv (L, -1));
-      break;
-
-    default:
-      wp_warning ("skipping bad value (its type cannot be represented in GVariant)");
-      break;
-    }
-
-    lua_pop (L, 1);
+    return g_variant_builder_end (&b);
   }
+  default:
+    wp_warning ("skipping bad value (its type cannot be represented in GVariant)");
+    return NULL;
+  }
+}
 
-  return g_variant_builder_end (&b);
+void
+wplua_gvariant_to_lua (lua_State *L, GVariant  *variant)
+{
+  if (variant == NULL || g_variant_is_of_type (variant, G_VARIANT_TYPE_UNIT)) {
+    lua_pushnil (L);
+  }
+  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_INT16)) {
+    lua_pushinteger (L, g_variant_get_int16 (variant));
+  }
+  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_INT32)) {
+    lua_pushinteger (L, g_variant_get_int32 (variant));
+  }
+  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_INT64)) {
+    lua_pushinteger (L, g_variant_get_int64 (variant));
+  }
+  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_UINT16)) {
+    lua_pushinteger (L, g_variant_get_uint16 (variant));
+  }
+  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_UINT32)) {
+    lua_pushinteger (L, g_variant_get_uint32 (variant));
+  }
+  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_UINT64)) {
+    lua_pushinteger (L, g_variant_get_uint64 (variant));
+  }
+  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_DOUBLE)) {
+    lua_pushnumber (L, g_variant_get_double (variant));
+  }
+  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_BOOLEAN)) {
+    lua_pushboolean (L, g_variant_get_boolean (variant));
+  }
+  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_STRING)) {
+    lua_pushstring (L, g_variant_get_string (variant, NULL));
+  }
+  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_VARIANT)) {
+    wplua_gvariant_to_lua (L, g_variant_get_variant (variant));
+  }
+  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_DICTIONARY)) {
+    gsize n_children, i;
+    n_children = g_variant_n_children (variant);
+    lua_createtable (L, 0, n_children);
+    for (i = 0; i < n_children; i++) {
+      g_autoptr (GVariant) key, value;
+      g_variant_get_child (variant, i, "{@?@*}", &key, &value);
+      wplua_gvariant_to_lua (L, key);
+      wplua_gvariant_to_lua (L, value);
+      lua_settable (L, -3);
+    }
+  }
+  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE ("a?"))) {
+    gsize n_children, i;
+    n_children = g_variant_n_children (variant);
+    lua_createtable (L, n_children, 0);
+    for (i = 0; i < n_children; i++) {
+      g_autoptr (GVariant) value;
+      value = g_variant_get_child_value (variant, i);
+      wplua_gvariant_to_lua (L, value);
+      lua_seti (L, -2, i);
+    }
+  }
+  else {
+    g_autofree gchar *type_name =
+        g_variant_type_dup_string (g_variant_get_type (variant));
+    wp_warning ("Unhandled GVariant type %s", type_name);
+    lua_pushnil (L);
+  }
 }
 
 void
@@ -176,95 +226,12 @@ wplua_lua_to_gvalue (lua_State *L, int idx, GValue *v)
     g_value_set_flags (v, lua_tointeger (L, idx));
     break;
   case G_TYPE_VARIANT:
-    if (lua_istable (L, idx))
-      g_value_set_variant (v, wplua_table_to_asv (L, idx));
+    g_value_set_variant (v, wplua_lua_to_gvariant (L, idx));
     break;
   default:
     break;
   }
 }
-
-void
-wplua_gvariant_to_table (lua_State *L, GVariant  *variant)
-{
-  if (variant == NULL) {
-    lua_pushnil (L);
-  }
-
-  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_INT16)) {
-    lua_pushinteger (L, g_variant_get_int16 (variant));
-  }
-
-  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_INT32)) {
-    lua_pushinteger (L, g_variant_get_int32 (variant));
-  }
-
-  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_INT64)) {
-    lua_pushinteger (L, g_variant_get_int64 (variant));
-  }
-
-  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_UINT16)) {
-    lua_pushinteger (L, g_variant_get_uint16 (variant));
-  }
-
-  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_UINT32)) {
-    lua_pushinteger (L, g_variant_get_uint32 (variant));
-  }
-
-  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_UINT64)) {
-    lua_pushinteger (L, g_variant_get_uint64 (variant));
-  }
-
-  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_DOUBLE)) {
-    lua_pushnumber (L, g_variant_get_double (variant));
-  }
-
-  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_BOOLEAN)) {
-    lua_pushboolean (L, g_variant_get_boolean (variant));
-  }
-
-  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_STRING)) {
-    lua_pushstring (L, g_variant_get_string (variant, NULL));
-  }
-
-  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_VARIANT)) {
-    wplua_gvariant_to_table (L, g_variant_get_variant (variant));
-  }
-
-  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_DICTIONARY)) {
-    gsize n_children, i;
-    n_children = g_variant_n_children (variant);
-    lua_createtable (L, 0, n_children);
-    for (i = 0; i < n_children; i++) {
-      g_autoptr (GVariant) key, value;
-      g_variant_get_child (variant, i, "{@?@*}", &key, &value);
-      wplua_gvariant_to_table (L, key);
-      wplua_gvariant_to_table (L, value);
-      lua_settable (L, -3);
-    }
-  }
-
-  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE ("a?"))) {
-    gsize n_children, i;
-    n_children = g_variant_n_children (variant);
-    lua_createtable (L, n_children, 0);
-    for (i = 0; i < n_children; i++) {
-      g_autoptr (GVariant) value;
-      value = g_variant_get_child_value (variant, i);
-      wplua_gvariant_to_table (L, value);
-      lua_seti (L, -2, i);
-    }
-  }
-
-  /* FIXME maybe implement if needed */
-  else {
-    g_autofree gchar *type_name =
-        g_variant_type_dup_string (g_variant_get_type (variant));
-    wp_warning ("Unhandled gvariant type %s", type_name);
-    lua_pushnil (L);
-  }
-}
-
 
 int
 wplua_gvalue_to_lua (lua_State *L, const GValue *v)
@@ -339,7 +306,7 @@ wplua_gvalue_to_lua (lua_State *L, const GValue *v)
   }
   case G_TYPE_VARIANT: {
     GVariant *variant = g_value_get_variant (v);
-    wplua_gvariant_to_table (L, variant);
+    wplua_gvariant_to_lua (L, variant);
     break;
   }
   default:
