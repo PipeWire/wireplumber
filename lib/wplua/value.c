@@ -231,44 +231,6 @@ wplua_gvariant_to_table (lua_State *L, GVariant  *variant)
     wplua_gvariant_to_table (L, g_variant_get_variant (variant));
   }
 
-  else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_VARDICT)) {
-    lua_newtable (L);
-    GVariantIter iter;
-    g_variant_iter_init (&iter, variant);
-    const gchar *key;
-    GVariant *value;
-    while (g_variant_iter_loop (&iter, "{&sv}", &key, &value)) {
-      lua_pushstring (L, key);
-      if (g_variant_is_of_type (value, G_VARIANT_TYPE_BOOLEAN)) {
-        lua_pushboolean (L, g_variant_get_boolean (value));
-      }
-      else if (g_variant_is_of_type (value, G_VARIANT_TYPE_INT16)) {
-        lua_pushinteger (L, g_variant_get_int16 (value));
-      }
-      else if (g_variant_is_of_type (value, G_VARIANT_TYPE_INT32)) {
-        lua_pushinteger (L, g_variant_get_int32 (value));
-      }
-      else if (g_variant_is_of_type (value, G_VARIANT_TYPE_INT64)) {
-        lua_pushinteger (L, g_variant_get_int64 (value));
-      }
-      else if (g_variant_is_of_type (value, G_VARIANT_TYPE_DOUBLE)) {
-        lua_pushnumber (L, g_variant_get_double (value));
-      }
-      else if (g_variant_is_of_type (value, G_VARIANT_TYPE_STRING)) {
-        lua_pushstring (L, g_variant_get_string (value, NULL));
-      }
-      else if (g_variant_is_of_type (value, G_VARIANT_TYPE_VARDICT)) {
-        wplua_gvariant_to_table (L, value);
-      }
-      else {
-        wp_warning ("skipping bad value (its type cannot be represented in lua)");
-        lua_pop (L, 1);
-        continue;
-      }
-      lua_settable (L, -3);
-    }
-  }
-
   else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_DICTIONARY)) {
     gsize n_children, i;
     n_children = g_variant_n_children (variant);
