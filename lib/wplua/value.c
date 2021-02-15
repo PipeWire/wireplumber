@@ -130,6 +130,15 @@ wplua_gvariant_to_lua (lua_State *L, GVariant  *variant)
       g_autoptr (GVariant) key, value;
       g_variant_get_child (variant, i, "{@?@*}", &key, &value);
       wplua_gvariant_to_lua (L, key);
+      /* if the key is a string convertible to integer, convert it */
+      if (lua_type (L, -1) == LUA_TSTRING) {
+        int isnum = 0;
+        lua_Integer num = lua_tointegerx (L, -1, &isnum);
+        if (isnum) {
+          lua_pop (L, 1);
+          lua_pushinteger (L, num);
+        }
+      }
       wplua_gvariant_to_lua (L, value);
       lua_settable (L, -3);
     }
