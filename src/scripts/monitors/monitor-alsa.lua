@@ -6,32 +6,93 @@
 -- SPDX-License-Identifier: MIT
 
 -- Receive script arguments from config.lua
-local Config = ...
+local config = ...
 
-if Config.enable_midi then
-  midi_bridge = Node("spa-node-factory", {
-    ["factory.name"] = "api.alsa.seq.bridge",
-    ["node.name"] = "MIDI Bridge"
-  })
+-- ensure config.properties is not nil
+config.properties = config.properties or {}
+
+-- preprocess rules and create Interest objects
+for _, r in ipairs(config.rules or {}) do
+  r.interests = {}
+  for _, i in ipairs(r.matches) do
+    local interest_desc = { type = "properties" }
+    for _, c in ipairs(i) do
+      c.type = "pw"
+      table.insert(interest_desc, Constraint(c))
+    end
+    local interest = Interest(interest_desc)
+    table.insert(r.interests, interest)
+  end
+  r.matches = nil
 end
 
-if Config.enable_jack_client then
-  jack_device = Device("spa-device-factory", {
-    ["factory.name"] = "api.jack.device"
-  })
+-- applies properties from config.rules when asked to
+function rulesApplyProperties(properties)
+  for _, r in ipairs(config.rules or {}) do
+    if r.apply_properties then
+      for _, interest in ipairs(r.interests) do
+        if interest:matches(properties) then
+          for k, v in pairs(r.apply_properties) do
+            properties[k] = v
+          end
+        end
+      end
+    end
+  end
 end
 
-if Config.use_device_reservation then
-  rd_plugin = Plugin("reserve-device")
+function findDuplicate(parent, id, property, value)
+  for i = 0, id - 1, 1 do
+    local obj = parent:get_managed_object(i)
+    if obj and obj.properties[property] == value then
+      return true
+    end
+  end
+  return false
 end
 
 function createNode(parent, id, type, factory, properties)
   local dev_props = parent.properties
-  local dev = properties["api.alsa.pcm.device"] or properties["alsa.device"] or "0"
-  local subdev = properties["api.alsa.pcm.subdevice"] or properties["alsa.subdevice"] or "0"
+
+  -- set the device id and spa factory name; REQUIRED, do not change
+  properties["device.id"] = parent["bound-id"]
+  properties["factory.name"] = factory
+
+  -- set the default pause-on-idle setting
+  properties["node.pause-on-idle"] = false
+
+  -- try to negotiate the max ammount of channels
+  if dev_props["api.alsa.use-acp"] ~= "true" then
+    properties["audio.channels"] = properties["audio.channels"] or "64"
+  end
+
+  local dev = properties["api.alsa.pcm.device"]
+              or properties["alsa.device"] or "0"
+  local subdev = properties["api.alsa.pcm.subdevice"]
+                 or properties["alsa.subdevice"] or "0"
   local stream = properties["api.alsa.pcm.stream"] or "unknown"
-  local profile = properties["device.profile.name"] or "unknown"
+  local profile = properties["device.profile.name"]
+                  or (stream .. "." .. dev .. "." .. subdev)
   local profile_desc = properties["device.profile.description"]
+
+  -- set priority
+  if not properties["priority.driver"] then
+    local priority = (dev == "0") and 1000 or 744
+    if stream == "capture" then
+      priority = priority + 1000
+    end
+
+    priority = priority - (tonumber(dev) * 16) - tonumber(subdev)
+
+    if profile:find("^analog%-") then
+      priority = priority + 9
+    elseif profile:find("^iec958%-") then
+      priority = priority + 8
+    end
+
+    properties["priority.driver"] = priority
+    properties["priority.session"] = priority
+  end
 
   -- ensure the node has a media class
   if not properties["media.class"] then
@@ -43,13 +104,33 @@ function createNode(parent, id, type, factory, properties)
   end
 
   -- ensure the node has a name
+  if not properties["node.name"] then
+    local name =
+        (stream == "capture" and "alsa_input" or "alsa_output")
+        .. "." ..
+        (dev_props["device.name"]:gsub("^alsa_card%.(.+)", "%1") or
+         dev_props["device.name"] or
+         "unnamed-device")
+         .. "." ..
+         profile
+
+    properties["node.name"] = name
+
+    -- deduplicate nodes with the same name
+    for counter = 2, 99, 1 do
+      if findDuplicate(parent, id, "node.name", properties["node.name"]) then
+        properties["node.name"] = name .. "." .. counter
+      else
+        break
+      end
+    end
+  end
+
+  -- and a nick
   properties["node.nick"] = properties["node.nick"]
       or dev_props["device.nick"]
-      or dev_props["api.alsa.card_name"]
+      or dev_props["api.alsa.card.name"]
       or dev_props["alsa.card_name"]
-
-  properties["node.name"] = properties["node.name"]
-      or (dev_props["device.name"] or "unknown") .. "." .. stream .. "." .. dev .. "." .. subdev
 
   -- ensure the node has a description
   if not properties["node.description"] then
@@ -67,9 +148,8 @@ function createNode(parent, id, type, factory, properties)
     end
   end
 
-  -- set the device id and spa factory name; REQUIRED, do not change
-  properties["device.id"] = parent["bound-id"]
-  properties["factory.name"] = factory
+  -- apply properties from config.rules
+  rulesApplyProperties(properties)
 
   -- create the node
   local node = Node("adapter", properties)
@@ -77,11 +157,30 @@ function createNode(parent, id, type, factory, properties)
   parent:store_managed_object(id, node)
 end
 
-function createDevice(parent, id, type, factory, properties)
-  -- ensure the device has a name
-  if not properties["device.name"] then
-    local s = properties["device.bus-id"] or properties["device.bus-path"] or "unknown"
-    properties["device.name"] = "alsa_card." .. s
+function createDevice(parent, id, factory, properties)
+  local device = SpaDevice(factory, properties)
+  device:connect("create-object", createNode)
+  device:activate(Feature.SpaDevice.ENABLED | Feature.Proxy.BOUND)
+  parent:store_managed_object(id, device)
+end
+
+function prepareDevice(parent, id, type, factory, properties)
+  -- ensure the device has an appropriate name
+  local name = "alsa_card." ..
+    (properties["device.name"] or
+     properties["device.bus-id"] or
+     properties["device.bus-path"] or
+     tostring(id))
+
+  properties["device.name"] = name
+
+  -- deduplicate devices with the same name
+  for counter = 2, 99, 1 do
+    if findDuplicate(parent, id, "device.name", properties["device.name"]) then
+      properties["device.name"] = name .. "." .. counter
+    else
+      break
+    end
   end
 
   -- ensure the device has a description
@@ -96,55 +195,58 @@ function createDevice(parent, id, type, factory, properties)
       d = "Modem"
     end
 
-    d = d or properties["device.product.name"] or "Unknown device"
+    d = d or properties["device.product.name"]
+          or properties["api.alsa.card.name"]
+          or properties["alsa.card_name"]
+          or "Unknown device"
     properties["device.description"] = d
   end
+
+  -- ensure the device has a nick
+  properties["device.nick"] =
+      properties["device.nick"] or
+      properties["api.alsa.card.name"]
 
   -- set the icon name
   if not properties["device.icon-name"] then
     local icon = nil
+    local icon_map = {
+      -- form factor -> icon
+      ["microphone"] = "audio-input-microphone",
+      ["webcam"] = "camera-web",
+      ["handset"] = "phone",
+      ["portable"] = "multimedia-player",
+      ["tv"] = "video-display",
+      ["headset"] = "audio-headset",
+      ["headphone"] = "audio-headphones",
+      ["speaker"] = "audio-speakers",
+      ["hands-free"] = "audio-handsfree",
+    }
     local f = properties["device.form-factor"]
     local c = properties["device.class"]
     local b = properties["device.bus"]
 
-    if f == "microphone" then
-      icon = "audio-input-microphone"
-    elseif f == "webcam" then
-      icon = "camera-web"
-    elseif f == "handset" then
-      icon = "phone"
-    elseif f == "portable" then
-      icon = "multimedia-player"
-    elseif f == "tv" then
-      icon = "video-display"
-    elseif f == "headset" then
-      icon = "audio-headset"
-    elseif f == "headphone" then
-      icon = "audio-headphones"
-    elseif f == "speaker" then
-      icon = "audio-speakers"
-    elseif f == "hands-free" then
-      icon = "audio-handsfree"
-    elseif c == "modem" then
-      icon = "modem"
-    end
-
-    icon = icon or "audio-card"
-
-    if b then b = ("-" .. b) else b = "" end
-    properties["device.icon-name"] = icon .. "-analog" .. b
+    icon = icon_map[f] or ((c == "modem") and "modem") or "audio-card"
+    properties["device.icon-name"] = icon .. "-analog" .. (b and ("-" .. b) or "")
   end
 
+  -- apply properties from config.rules
+  rulesApplyProperties(properties)
+
   -- override the device factory to use ACP
-  if Config.use_acp then
+  if properties["api.alsa.use-acp"] then
+    Log.info("Enabling the use of ACP on " .. properties["device.name"])
     factory = "api.alsa.acp.device"
   end
 
   -- use device reservation, if available
-  if rd_plugin then
+  if rd_plugin and properties["api.alsa.card"] then
     local rd_name = "Audio" .. properties["api.alsa.card"]
     local rd = rd_plugin:call("create-reservation",
-        rd_name, "WirePlumber", properties["device.name"], -20);
+        rd_name,
+        config.properties["alsa.reserve.application-name"] or "WirePlumber",
+        properties["device.name"],
+        config.properties["alsa.reserve.priority"] or -20);
 
     properties["api.dbus.ReserveDevice1"] = rd_name
 
@@ -155,10 +257,7 @@ function createDevice(parent, id, type, factory, properties)
 
       if state == "acquired" then
         -- create the device
-        local device = SpaDevice(factory, properties)
-        device:connect("create-object", createNode)
-        device:activate(Feature.SpaDevice.ENABLED | Feature.Proxy.BOUND)
-        parent:store_managed_object(id, device)
+        createDevice(parent, id, factory, properties)
 
       elseif state == "available" then
         -- attempt to acquire again
@@ -184,38 +283,37 @@ function createDevice(parent, id, type, factory, properties)
     rd:call("acquire")
   else
     -- create the device
-    local device = SpaDevice(factory, properties)
-    device:connect("create-object", createNode)
-    device:activate(Feature.SpaDevice.ENABLED | Feature.Proxy.BOUND)
-    parent:store_managed_object(id, device)
+    createDevice(parent, id, factory, properties)
   end
 end
 
-monitor = SpaDevice("api.alsa.enum.udev")
-monitor:connect("create-object", createDevice)
+monitor = SpaDevice("api.alsa.enum.udev", config.properties)
+monitor:connect("create-object", prepareDevice)
 
-function activateMonitor()
-  if rd_plugin then
-    monitor:connect("object-removed", function (parent, id)
-      local device = parent:get_managed_object(id)
-      local rd_name = device.properties["api.dbus.ReserveDevice1"]
-      if rd_name then
-        rd_plugin:call("destroy-reservation", rd_name)
-      end
-    end)
-  end
+-- create the JACK device (for PipeWire to act as client to a JACK server)
+if config.properties["alsa.jack-device"] then
+  jack_device = Device("spa-device-factory", {
+    ["factory.name"] = "api.jack.device",
+    ["node.name"] = "JACK-Device",
+  })
+end
 
-  Log.info("Activating ALSA monitor")
-  monitor:activate(Feature.SpaDevice.ENABLED)
+-- reservation is only disabled by explicitly setting it to false
+if config.properties["alsa.reserve"] == true or
+   config.properties["alsa.reserve"] == nil then
+  rd_plugin = Plugin("reserve-device")
 end
 
 -- if the reserve-device plugin is enabled, at the point of script execution
 -- it is expected to be connected. if it is not, assume the d-bus connection
 -- has failed and continue without it
 if rd_plugin and rd_plugin["state"] ~= "connected" then
+  Log.message("reserve-device plugin is not connected to D-Bus, "
+              .. "disabling device reservation")
   rd_plugin = nil
 end
 
+-- destroy device reservations when the corresponding devices are removed
 if rd_plugin then
   monitor:connect("object-removed", function (parent, id)
     local device = parent:get_managed_object(id)

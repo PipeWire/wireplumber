@@ -86,14 +86,6 @@ function enable_audio()
 
   -- Enables device reservation via org.freedesktop.ReserveDevice1 on D-Bus
   load_module("reserve-device")
-
-  -- ALSA device management via udev
-  load_monitor("alsa", {
-    use_acp = true,
-    use_device_reservation = true,
-    enable_midi = true,
-    enable_jack_client = false,
-  })
 end
 
 function enable_endpoints()
