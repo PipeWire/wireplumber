@@ -38,17 +38,6 @@ function load_access(s, a)
   load_script("access/access-" .. s .. ".lua", a)
 end
 
--- Session item factories, building blocks for the session management graph
--- Do not disable these unless you really know what you are doing
-load_module("si-adapter")
-load_module("si-audio-softdsp-endpoint")
-load_module("si-bluez5-endpoint")
-load_module("si-convert")
-load_module("si-fake-stream")
-load_module("si-monitor-endpoint")
-load_module("si-simple-node-endpoint")
-load_module("si-standard-link")
-
 -- Additional PipeWire modules can be loaded in WirePlumber like this.
 -- libpipewire already loads all the modules that we normally need, though.
 -- module-spa-node-factory may be needed if you want to use a monitor with
@@ -85,14 +74,4 @@ function enable_audio()
   load_module("metadata")
 end
 
-function enable_endpoints()
-  load_script("static-sessions.lua", {
-    ["audio"] = {},
-    ["video"] = {},
-  })
-  load_script("create-endpoint.lua")
-  load_script("policy-endpoint.lua")
-end
-
 enable_access()
-enable_endpoints()
