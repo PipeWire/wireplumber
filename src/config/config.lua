@@ -31,7 +31,7 @@ function load_script(s, a)
 end
 
 function load_monitor(s, a)
-  load_script("monitors/monitor-" .. s .. ".lua", a)
+  load_script("monitors/" .. s .. ".lua", a)
 end
 
 function load_access(s, a)
