@@ -1,6 +1,8 @@
 -- ALSA monitor config file --
 
-local properties = {
+alsa_monitor = {}
+
+alsa_monitor.properties = {
   -- Create a JACK device. This is not enabled by default because
   -- it requires that the PipeWire JACK replacement libraries are
   -- not used by the session manager, in order to be able to
@@ -13,7 +15,7 @@ local properties = {
   --["alsa.reserve.application-name"] = "WirePlumber",
 }
 
-local rules = {
+alsa_monitor.rules = {
   -- An array of matches/actions to evaluate.
   {
     -- Rules for matching a device or node. It is an array of
@@ -96,14 +98,14 @@ local rules = {
   }
 }
 
-function enable_alsa()
+function alsa_monitor.enable()
   -- The "reserve-device" module needs to be loaded for reservation to work
-  if properties["alsa.reserve"] then
+  if alsa_monitor.properties["alsa.reserve"] then
     load_module("reserve-device")
   end
 
   load_monitor("alsa", {
-    properties = properties,
-    rules = rules,
+    properties = alsa_monitor.properties,
+    rules = alsa_monitor.rules,
   })
 end

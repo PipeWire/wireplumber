@@ -1,6 +1,8 @@
 -- Bluez monitor config file --
 
-local properties = {
+bluez_monitor = {}
+
+bluez_monitor.properties = {
   -- MSBC is not expected to work on all headset + adapter combinations.
   --["bluez5.msbc-support"] = true,
   --["bluez5.sbc-xq-support"] = true,
@@ -19,7 +21,7 @@ local properties = {
   --["bluez5.codecs"] = "[ sbc aac ldac aptx aptx_hd ]",
 }
 
-local rules = {
+bluez_monitor.rules = {
   -- An array of matches/actions to evaluate.
   {
     -- Rules for matching a device or node. It is an array of
@@ -59,9 +61,9 @@ local rules = {
   },
 }
 
-function enable_bluetooth()
+function bluez_monitor.enable()
   load_monitor("bluez5", {
-    properties = properties,
-    rules = rules,
+    properties = bluez_monitor.properties,
+    rules = bluez_monitor.rules,
   })
 end

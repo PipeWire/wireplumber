@@ -1,8 +1,10 @@
 -- V4L2 monitor config file --
 
-local properties = { }
+v4l2_monitor = {}
 
-local rules = {
+v4l2_monitor.properties = { }
+
+v4l2_monitor.rules = {
   -- An array of matches/actions to evaluate.
   {
     -- Rules for matching a device or node. It is an array of
@@ -39,9 +41,9 @@ local rules = {
   },
 }
 
-function enable_v4l2()
+function v4l2_monitor.enable()
   load_monitor("v4l2", {
-    properties = properties,
-    rules = rules,
+    properties = v4l2_monitor.properties,
+    rules = v4l2_monitor.rules,
   })
 end

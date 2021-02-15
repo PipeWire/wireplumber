@@ -1,3 +1,3 @@
 enable_audio()
-enable_alsa()
-enable_bluetooth()
+alsa_monitor.enable()
+bluez_monitor.enable()
