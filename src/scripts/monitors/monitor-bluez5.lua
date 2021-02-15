@@ -56,11 +56,13 @@ function createNode(parent, id, type, factory, properties)
       or "bluetooth-device"
 
   -- set the node name
-  properties["node.name"] =
+  local name =
       ((factory:find("sink") and "bluez_output") or
        (factory:find("source") and "bluez_input" or factory)) .. "." ..
       (properties["api.bluez5.address"] or dev_props["device.name"]) .. "." ..
       (properties["api.bluez5.profile"] or "unknown")
+  -- sanitize name
+  properties["node.name"] = name:gsub("([^%w_%-%.])", "_")
 
   -- set priority
   if not properties["priority.driver"] then

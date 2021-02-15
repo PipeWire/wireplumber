@@ -114,6 +114,9 @@ function createNode(parent, id, type, factory, properties)
          .. "." ..
          profile
 
+    -- sanitize name
+    name = name:gsub("([^%w_%-%.])", "_")
+
     properties["node.name"] = name
 
     -- deduplicate nodes with the same name
@@ -127,10 +130,12 @@ function createNode(parent, id, type, factory, properties)
   end
 
   -- and a nick
-  properties["node.nick"] = properties["node.nick"]
+  local nick = properties["node.nick"]
       or dev_props["device.nick"]
       or dev_props["api.alsa.card.name"]
       or dev_props["alsa.card_name"]
+  -- also sanitize nick, but allow all characters except :
+  properties["node.nick"] = nick:gsub("(:)", "_")
 
   -- ensure the node has a description
   if not properties["node.description"] then

@@ -68,6 +68,9 @@ function createNode(parent, id, type, factory, properties)
        dev_props["device.alias"] or
        "v4l2-device")
 
+  -- sanitize name
+  name = name:gsub("([^%w_%-%.])", "_")
+
   properties["node.name"] = name
 
   -- deduplicate nodes with the same name
