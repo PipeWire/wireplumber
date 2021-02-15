@@ -66,7 +66,7 @@ function createNode(parent, id, type, factory, properties)
 
   -- set priority
   if not properties["priority.driver"] then
-    local priority = factory:find("sink") and 2010 or 1010
+    local priority = factory:find("source") and 2010 or 1010
     properties["priority.driver"] = priority
     properties["priority.session"] = priority
   end
