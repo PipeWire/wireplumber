@@ -7,8 +7,8 @@ local properties = {
   -- connect to the real JACK server.
   --["alsa.jack-device"] = false,
 
-  -- Reserve devices.
-  --["alsa.reserve"] = true,
+  -- Reserve devices via org.freedesktop.ReserveDevice1 on D-Bus
+  ["alsa.reserve"] = true,
   --["alsa.reserve.priority"] = -20,
   --["alsa.reserve.application-name"] = "WirePlumber",
 }
@@ -97,6 +97,11 @@ local rules = {
 }
 
 function enable_alsa()
+  -- The "reserve-device" module needs to be loaded for reservation to work
+  if properties["alsa.reserve"] then
+    load_module("reserve-device")
+  end
+
   load_monitor("alsa", {
     properties = properties,
     rules = rules,

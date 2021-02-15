@@ -303,9 +303,8 @@ if config.properties["alsa.jack-device"] then
   })
 end
 
--- reservation is only disabled by explicitly setting it to false
-if config.properties["alsa.reserve"] == true or
-   config.properties["alsa.reserve"] == nil then
+-- enable device reservation if requested
+if config.properties["alsa.reserve"] then
   rd_plugin = Plugin("reserve-device")
 end
 

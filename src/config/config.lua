@@ -83,9 +83,6 @@ function enable_audio()
 
   -- Implements storing metadata about objects in RAM
   load_module("metadata")
-
-  -- Enables device reservation via org.freedesktop.ReserveDevice1 on D-Bus
-  load_module("reserve-device")
 end
 
 function enable_endpoints()
