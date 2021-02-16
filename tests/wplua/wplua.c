@@ -609,6 +609,44 @@ test_wplua_convert_gvariant_array ()
 
   wplua_free (L);
 }
+static void
+test_wplua_convert_wp_properties ()
+{
+  g_autoptr (GError) error = NULL;
+  lua_State *L = wplua_new ();
+
+  const gchar code[] =
+    "props = { "
+    "  ['test-int'] = 42, "
+    "  ['test-double'] = 3.14, "
+    "  ['test-string'] = 'foobar', "
+    "  ['test-boolean'] = false, "
+    "}\n";
+  wplua_load_buffer (L, code, sizeof (code) - 1, 0, 0, &error);
+  g_assert_no_error (error);
+
+  lua_getglobal (L, "props");
+  g_autoptr (WpProperties) fromlua = wplua_table_to_properties (L, -1);
+
+  g_assert_cmpstr (wp_properties_get (fromlua, "test-int"), ==, "42");
+  g_assert_cmpstr (wp_properties_get (fromlua, "test-double"), ==, "3.14");
+  g_assert_cmpstr (wp_properties_get (fromlua, "test-string"), ==, "foobar");
+  g_assert_cmpstr (wp_properties_get (fromlua, "test-boolean"), ==, "false");
+
+  lua_pop(L, 1);
+  wplua_properties_to_table (L, fromlua);
+  lua_setglobal (L, "fromc");
+
+  const gchar code2[] =
+    "assert (fromc['test-string'] == 'foobar')\n"
+    "assert (fromc['test-int'] == '42')\n"
+    "assert (fromc['test-double'] == '3.14')\n"
+    "assert (fromc['test-boolean'] == 'false')\n";
+  wplua_load_buffer (L, code2, sizeof (code2) - 1, 0, 0, &error);
+  g_assert_no_error (error);
+
+  wplua_free (L);
+}
 
 static void
 test_wplua_script_arguments ()
@@ -660,6 +698,8 @@ main (gint argc, gchar *argv[])
   g_test_add_func ("/wplua/convert/asv", test_wplua_convert_asv);
   g_test_add_func ("/wplua/convert/gvariant_array",
       test_wplua_convert_gvariant_array);
+  g_test_add_func ("/wplua/convert/wp_properties",
+      test_wplua_convert_wp_properties);
   g_test_add_func ("/wplua/script_arguments", test_wplua_script_arguments);
 
   return g_test_run ();

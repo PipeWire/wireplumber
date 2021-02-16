@@ -20,10 +20,8 @@ wplua_table_to_properties (lua_State *L, int idx)
   lua_pushnil(L);
   while (lua_next (L, table) != 0) {
     /* copy key & value to convert them to string */
-    lua_pushvalue (L, -2);
-    key = lua_tostring (L, -1);
-    lua_pushvalue (L, -2);
-    value = lua_tostring (L, -1);
+    key = luaL_tolstring (L, -2, NULL);
+    value = luaL_tolstring (L, -2, NULL);
     wp_properties_set (p, key, value);
     lua_pop (L, 3);
   }
