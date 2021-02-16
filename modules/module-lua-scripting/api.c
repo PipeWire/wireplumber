@@ -1087,6 +1087,37 @@ static const luaL_Reg session_item_methods[] = {
   { NULL, NULL }
 };
 
+/* WpPipewireObject */
+
+static int
+pipewire_object_set_params (lua_State *L)
+{
+  WpPipewireObject *pipewire_object = wplua_checkobject (L, 1, WP_TYPE_PIPEWIRE_OBJECT);
+  const gchar *id = luaL_checkstring (L, 2);
+  WpSpaPod *pod = wplua_checkboxed (L, 3, WP_TYPE_SPA_POD);
+
+  /* set the selected format on the node */
+  wp_pipewire_object_set_param (pipewire_object, id, 0, pod);
+  return 0;
+}
+
+static int
+pipewire_object_iterate_params (lua_State *L)
+{
+  WpPipewireObject *pipewire_object = wplua_checkobject (L, 1, WP_TYPE_PIPEWIRE_OBJECT);
+  const gchar *id = luaL_checkstring (L, 2);
+
+  WpIterator *it = wp_pipewire_object_enum_params_sync (pipewire_object, id, NULL);
+
+  return push_wpiterator (L, it);
+}
+
+static const luaL_Reg pipewire_object_methods[] = {
+  { "iterate_params", pipewire_object_iterate_params },
+  { "set_params" , pipewire_object_set_params },
+  { NULL, NULL }
+};
+
 void
 wp_lua_scripting_api_init (lua_State *L)
 {
@@ -1137,6 +1168,8 @@ wp_lua_scripting_api_init (lua_State *L)
       NULL, client_methods);
   wplua_register_type_methods (L, WP_TYPE_SESSION_ITEM,
       session_item_new, session_item_methods);
+  wplua_register_type_methods (L, WP_TYPE_PIPEWIRE_OBJECT,
+      NULL, pipewire_object_methods);
 
   wplua_load_uri (L, URI_API, 0, 0, &error);
   if (G_UNLIKELY (error))

@@ -139,7 +139,8 @@ wplua_register_type_methods (lua_State * L, GType type,
 {
   g_return_if_fail (L != NULL);
   g_return_if_fail (G_TYPE_FUNDAMENTAL (type) == G_TYPE_OBJECT ||
-                    G_TYPE_FUNDAMENTAL (type) == G_TYPE_BOXED);
+                    G_TYPE_FUNDAMENTAL (type) == G_TYPE_BOXED ||
+                    G_TYPE_FUNDAMENTAL (type) == G_TYPE_INTERFACE);
 
   /* register methods */
   if (methods) {
