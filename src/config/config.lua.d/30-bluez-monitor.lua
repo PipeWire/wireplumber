@@ -14,8 +14,9 @@ bluez_monitor.properties = {
   --
   -- Supported headset roles: hsp_hs (HSP Headset),
   --                          hsp_ag (HSP Audio Gateway),
+  --                          hfp_hf (HFP Hands-Free),
   --                          hfp_ag (HFP Audio Gateway)
-  --["bluez5.headset-roles"] = "[ hsp_hs hsp_ag hfp_ag ]",
+  --["bluez5.headset-roles"] = "[ hsp_hs hsp_ag hfp_hf hfp_ag ]",
 
   -- Enabled A2DP codecs (default: all).
   --["bluez5.codecs"] = "[ sbc aac ldac aptx aptx_hd ]",
