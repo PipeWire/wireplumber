@@ -335,9 +335,33 @@ spa_pod_boolean_new (lua_State *L)
 static int
 spa_pod_id_new (lua_State *L)
 {
-  gint64 value = lua_tointeger (L, 1);
-  wplua_pushboxed (L, WP_TYPE_SPA_POD, wp_spa_pod_new_id (value));
-  return 1;
+  /* Id number */
+  if (lua_type (L, 1) == LUA_TNUMBER) {
+    gint64 value = lua_tointeger (L, 1);
+    wplua_pushboxed (L, WP_TYPE_SPA_POD, wp_spa_pod_new_id (value));
+    return 1;
+  }
+
+  /* Table name and key name */
+  else if (lua_type (L, 1) == LUA_TSTRING) {
+    const gchar *table_name = lua_tostring (L, 1);
+    const gchar *key_name = lua_tostring (L, 2);
+    WpSpaIdTable table = NULL;
+    WpSpaIdValue value = NULL;
+    table = wp_spa_id_table_from_name (table_name);
+    if (!table)
+      luaL_error (L, "table '%s' does not exist", table_name);
+    value = wp_spa_id_table_find_value_from_short_name (table, key_name);
+    if (!value)
+      luaL_error (L, "key '%s' does not exist in '%s'", key_name, table_name);
+    wplua_pushboxed (L, WP_TYPE_SPA_POD,
+        wp_spa_pod_new_id (wp_spa_id_value_number (value)));
+    return 1;
+  }
+
+  /* Error */
+  luaL_error (L, "Invalid parameters");
+  return 0;
 }
 
 /* Int */

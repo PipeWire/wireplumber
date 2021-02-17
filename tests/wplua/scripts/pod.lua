@@ -12,6 +12,9 @@ assert (pod:get_type_name() == "Spa:Bool")
 pod = Pod.Id (4)
 assert (pod:parse() == 4)
 assert (pod:get_type_name() == "Spa:Id")
+pod = Pod.Id("Spa:Enum:AudioChannel", "FL")
+assert (pod:parse() == 3)
+assert (pod:get_type_name() == "Spa:Id")
 
 -- Int
 pod = Pod.Int (64)
