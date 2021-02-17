@@ -311,6 +311,88 @@ static const struct primitive_lua_type primitive_lua_types[] = {
   {0, {}},
 };
 
+static gboolean
+builder_add_key (WpSpaPodBuilder *b, WpSpaIdTable table, lua_State *L, int idx)
+{
+  /* Number */
+  if (lua_type (L, -1) == LUA_TNUMBER) {
+    wp_spa_pod_builder_add_id (b, lua_tonumber (L, idx));
+    return TRUE;
+  }
+
+  /* String */
+  else if (lua_type (L, -1) == LUA_TSTRING) {
+    const gchar *key = lua_tostring (L, idx);
+    WpSpaIdValue val = wp_spa_id_table_find_value_from_short_name (table, key);
+    if (val) {
+      wp_spa_pod_builder_add_id (b, wp_spa_id_value_number (val));
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+static gboolean
+builder_add_value (WpSpaPodBuilder *b, WpSpaType array_type, lua_State *L,
+    int idx)
+{
+  guint i;
+  for (i = 0; primitive_lua_types[i].primitive_type; i++) {
+    const struct primitive_lua_type *t = primitive_lua_types + i;
+    if (t->primitive_type == array_type) {
+      primitive_lua_add_func f = t->primitive_lua_add_funcs[lua_type (L, idx)];
+      if (f) {
+        return f (b, NULL, L, idx);
+      }
+    }
+  }
+  return FALSE;
+}
+
+static void
+builder_add_table (lua_State *L, WpSpaPodBuilder *builder)
+{
+  const gchar *type_name = NULL;
+  WpSpaType type = WP_SPA_TYPE_INVALID;
+  WpSpaIdTable table = NULL;
+
+  luaL_checktype (L, 1, LUA_TTABLE);
+
+  lua_pushnil (L);
+  while (lua_next (L, 1)) {
+    /* First filed is always the item type or table */
+    if (type == WP_SPA_TYPE_INVALID && !table) {
+      if (lua_type (L, -1) == LUA_TSTRING) {
+        type_name = lua_tostring (L, -1);
+        type = wp_spa_type_from_name (type_name);
+        if (type == WP_SPA_TYPE_INVALID) {
+          table = wp_spa_id_table_from_name (type_name);
+          if (!table)
+            luaL_error (L, "Unknown type '%s'", type_name);
+        }
+      } else {
+        luaL_error (L,
+            "must have the item type or table on its first field");
+      }
+    }
+
+    /* Add remaining table key elements */
+    else if (table) {
+      if (!builder_add_key (builder, table, L, -1))
+        luaL_error (L, "key could not be added");
+    }
+
+    /* Add remaining value elements */
+    else if (type != WP_SPA_TYPE_INVALID) {
+      if (!builder_add_value (builder, type, L, -1))
+        luaL_error (L, "value could not be added");
+    }
+
+    lua_pop (L, 1);
+  }
+}
+
 /* None */
 
 static int
@@ -693,105 +775,58 @@ spa_pod_sequence_new (lua_State *L)
 
 /* Array */
 
-static gboolean
-array_add_value (WpSpaPodBuilder *b, WpSpaType array_type, lua_State *L,
-    int idx)
-{
-  guint i;
-  for (i = 0; primitive_lua_types[i].primitive_type; i++) {
-    const struct primitive_lua_type *t = primitive_lua_types + i;
-    if (t->primitive_type == array_type) {
-      primitive_lua_add_func f = t->primitive_lua_add_funcs[lua_type (L, idx)];
-      if (f) {
-        return f (b, NULL, L, idx);
-      }
-    }
-  }
-  return FALSE;
-}
-
 static int
 spa_pod_array_new (lua_State *L)
 {
-  g_autoptr (WpSpaPodBuilder) builder = NULL;
-  WpSpaType type = WP_SPA_TYPE_INVALID;
+  g_autoptr (WpSpaPodBuilder) builder = wp_spa_pod_builder_new_array ();
+  builder_add_table (L, builder);
+  wplua_pushboxed (L, WP_TYPE_SPA_POD, wp_spa_pod_builder_end (builder));
+  return 1;
+}
 
-  luaL_checktype (L, 1, LUA_TTABLE);
+/* Choice */
 
-  builder = wp_spa_pod_builder_new_array ();
-
-  lua_pushnil (L);
-  while (lua_next (L, 1)) {
-    /* First filed is always the array type */
-    if (type == WP_SPA_TYPE_INVALID) {
-      if (lua_type (L, -1) == LUA_TSTRING) {
-        const gchar *type_name = lua_tostring (L, -1);
-        type = wp_spa_type_from_name (type_name);
-        if (type == WP_SPA_TYPE_INVALID)
-          luaL_error (L, "Unknown type '%s'", type_name);
-      } else {
-        luaL_error (L, "Pod.Array{} must have the item type on its first field");
-      }
-    }
-
-    /* Remaining fields are always the array values */
-    else if (!array_add_value (builder, type, L, -1))
-      luaL_error (L, "Array value could not be added");
-
-    lua_pop (L, 1);
-  }
-
+static int
+spa_pod_choice_none_new (lua_State *L)
+{
+  g_autoptr (WpSpaPodBuilder) builder = wp_spa_pod_builder_new_choice ("None");
+  builder_add_table (L, builder);
   wplua_pushboxed (L, WP_TYPE_SPA_POD, wp_spa_pod_builder_end (builder));
   return 1;
 }
 
 static int
-spa_pod_choice_new (lua_State *L)
+spa_pod_choice_range_new (lua_State *L)
 {
-  g_autoptr (WpSpaPodBuilder) builder = NULL;
-  const gchar *type_name = NULL;
+  g_autoptr (WpSpaPodBuilder) builder = wp_spa_pod_builder_new_choice ("Range");
+  builder_add_table (L, builder);
+  wplua_pushboxed (L, WP_TYPE_SPA_POD, wp_spa_pod_builder_end (builder));
+  return 1;
+}
 
-  luaL_checktype (L, 1, LUA_TTABLE);
+static int
+spa_pod_choice_step_new (lua_State *L)
+{
+  g_autoptr (WpSpaPodBuilder) builder = wp_spa_pod_builder_new_choice ("Step");
+  builder_add_table (L, builder);
+  wplua_pushboxed (L, WP_TYPE_SPA_POD, wp_spa_pod_builder_end (builder));
+  return 1;
+}
 
-  lua_pushnil (L);
-  while (lua_next (L, 1)) {
-    /* First filed is always the choice type */
-    if (!type_name && lua_type (L, -1) == LUA_TSTRING) {
-      type_name = lua_tostring (L, -1);
-      builder = wp_spa_pod_builder_new_choice (type_name);
-    }
+static int
+spa_pod_choice_enum_new (lua_State *L)
+{
+  g_autoptr (WpSpaPodBuilder) builder = wp_spa_pod_builder_new_choice ("Enum");
+  builder_add_table (L, builder);
+  wplua_pushboxed (L, WP_TYPE_SPA_POD, wp_spa_pod_builder_end (builder));
+  return 1;
+}
 
-    /* Remaining fields are always the choice values */
-    else {
-      switch (lua_type (L, -1)) {
-        case LUA_TBOOLEAN:
-          wp_spa_pod_builder_add_boolean (builder, lua_toboolean (L, -1));
-          break;
-        case LUA_TNUMBER:
-          if (lua_isinteger (L, -1))
-            wp_spa_pod_builder_add_long (builder, lua_tointeger (L, -1));
-          else
-	    wp_spa_pod_builder_add_double (builder, lua_tonumber (L, -1));
-          break;
-        case LUA_TSTRING:
-          wp_spa_pod_builder_add_string (builder, lua_tostring (L, -1));
-          break;
-        case LUA_TUSERDATA: {
-          WpSpaPod *pod = wplua_checkboxed (L, -1, WP_TYPE_SPA_POD);
-          wp_spa_pod_builder_add_pod (builder, pod);
-          break;
-        }
-        default: {
-          luaL_error (L, "Choice value does not support lua type ",
-	      lua_typename(L, lua_type(L, -1)));
-	  break;
-        }
-      }
-    }
-
-    lua_pop (L, 1);
-  }
-
+static int
+spa_pod_choice_flags_new (lua_State *L)
+{
+  g_autoptr (WpSpaPodBuilder) builder = wp_spa_pod_builder_new_choice ("Flags");
+  builder_add_table (L, builder);
   wplua_pushboxed (L, WP_TYPE_SPA_POD, wp_spa_pod_builder_end (builder));
   return 1;
 }
@@ -1100,7 +1135,15 @@ static const luaL_Reg spa_pod_constructors[] = {
   { "Struct", spa_pod_struct_new },
   { "Sequence", spa_pod_sequence_new },
   { "Array", spa_pod_array_new },
-  { "Choice", spa_pod_choice_new },
+  { NULL, NULL }
+};
+
+static const luaL_Reg spa_pod_choice_constructors[] = {
+  { "None", spa_pod_choice_none_new },
+  { "Range", spa_pod_choice_range_new },
+  { "Step", spa_pod_choice_step_new },
+  { "Enum", spa_pod_choice_enum_new },
+  { "Flags", spa_pod_choice_flags_new },
   { NULL, NULL }
 };
 
@@ -1110,6 +1153,8 @@ void
 wp_lua_scripting_pod_init (lua_State *L)
 {
   luaL_newlib (L, spa_pod_constructors);
+  luaL_newlib (L, spa_pod_choice_constructors);
+  lua_setfield (L, -2, "Choice");
   lua_setglobal (L, "WpSpaPod");
 
   wplua_register_type_methods (L, WP_TYPE_SPA_POD, NULL, spa_pod_methods);

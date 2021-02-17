@@ -117,17 +117,52 @@ assert (not val[2])
 assert (not val[3])
 assert (val[4])
 assert (pod:get_type_name() == "Spa:Array")
+pod = Pod.Array { "Spa:Enum:AudioChannel", "FL", "FR" }
+val = pod:parse()
+assert (val.pod_type == "Array")
+assert (val.value_type == "Spa:Id")
+assert (val[1] == 3)
+assert (val[2] == 4)
 
 -- Choice
-pod = Pod.Choice { "Enum", 5, 6, 7, 8 }
+pod = Pod.Choice.None { "Spa:Bool", false }
+val = pod:parse()
+assert(val.pod_type == "Choice.None")
+assert(val.value_type == "Spa:Bool")
+assert(not val[1])
+pod = Pod.Choice.Range { "Spa:Float", 1.0, 0.0, 1.0 }
+val = pod:parse()
+assert (pod:get_type_name() == "Spa:Pod:Choice")
+assert(val.pod_type == "Choice.Range")
+assert(val.value_type == "Spa:Float")
+assert(val[1] == 1.0)
+assert(val[2] == 0.0)
+assert(val[3] == 1.0)
+assert (pod:get_type_name() == "Spa:Pod:Choice")
+pod = Pod.Choice.Step { "Spa:Int", 5, 10 }
+val = pod:parse()
+assert(val.pod_type == "Choice.Step")
+assert(val.value_type == "Spa:Int")
+assert(val[1] == 5)
+assert(val[2] == 10)
+assert (pod:get_type_name() == "Spa:Pod:Choice")
+pod = Pod.Choice.Enum { "Spa:Enum:AudioChannel", "FL", "FL", "FR" }
 val = pod:parse()
 assert (val.pod_type == "Choice.Enum")
-assert (val.value_type == "Spa:Long")
-assert (val[1] == 5)
-assert (val[2] == 6)
-assert (val[3] == 7)
-assert (val[4] == 8)
+assert (val.value_type == "Spa:Id")
+assert (val[1] == 3)
+assert (val[2] == 3)
+assert (val[3] == 4)
 assert (pod:get_type_name() == "Spa:Pod:Choice")
+pod = Pod.Choice.Flags { "Spa:Int", 1 << 0, 1 << 2, 1 << 3}
+val = pod:parse()
+assert (val.pod_type == "Choice.Flags")
+assert (val.value_type == "Spa:Int")
+assert (val[1] == 1 << 0)
+assert (val[2] == 1 << 2)
+assert (val[3] == 1 << 3)
+assert (pod:get_type_name() == "Spa:Pod:Choice")
+
 
 -- Nested Pods
 pod = Pod.Object {
@@ -141,7 +176,7 @@ pod = Pod.Object {
     mediaSubtype = "raw",
     rate = 48000,
     channels = 2,
-    position = Pod.Array { "Spa:Id", 0, 1 }
+    position = Pod.Array { "Spa:Enum:AudioChannel", "FL", "FR" }
   }
 }
 val = pod:parse()
@@ -158,5 +193,5 @@ assert (val.properties.format.properties.rate == 48000)
 assert (val.properties.format.properties.channels == 2)
 assert (val.properties.format.properties.position.pod_type == "Array")
 assert (val.properties.format.properties.position.value_type == "Spa:Id")
-assert (val.properties.format.properties.position[1] == 0 and val.properties.format.properties.position[2] == 1)
+assert (val.properties.format.properties.position[1] == 3 and val.properties.format.properties.position[2] == 4)
 assert (pod:get_type_name() == "Spa:Pod:Object:Param:PortConfig")
