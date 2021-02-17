@@ -921,6 +921,8 @@ push_luapod (lua_State *L, WpSpaPod *pod, WpSpaIdValue field_idval)
     guint32 width = 0, height = 0;
     wp_spa_pod_get_rectangle (pod, &width, &height);
     lua_newtable (L);
+    lua_pushstring (L, "Rectangle");
+    lua_setfield (L, -2, "pod_type");
     lua_pushinteger (L, width);
     lua_setfield (L, -2, "width");
     lua_pushinteger (L, height);
@@ -932,6 +934,8 @@ push_luapod (lua_State *L, WpSpaPod *pod, WpSpaIdValue field_idval)
     guint32 num = 0, denom = 0;
     wp_spa_pod_get_fraction (pod, &num, &denom);
     lua_newtable (L);
+    lua_pushstring (L, "Fraction");
+    lua_setfield (L, -2, "pod_type");
     lua_pushinteger (L, num);
     lua_setfield (L, -2, "num");
     lua_pushinteger (L, denom);
@@ -947,11 +951,14 @@ push_luapod (lua_State *L, WpSpaPod *pod, WpSpaIdValue field_idval)
     g_autoptr (WpIterator) it = NULL;
     wp_spa_pod_get_object (pod, &id_name, NULL);
     lua_newtable (L);
+    lua_pushstring (L, "Object");
+    lua_setfield (L, -2, "pod_type");
     lua_pushstring (L, wp_spa_type_name (type));
     lua_rawseti (L, -2, 1);
     lua_pushstring (L, id_name);
     lua_rawseti (L, -2, 2);
     it = wp_spa_pod_new_iterator (pod);
+    lua_newtable (L);
     for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
       WpSpaPod *prop = g_value_get_boxed (&item);
       const gchar *key = NULL;
@@ -963,6 +970,7 @@ push_luapod (lua_State *L, WpSpaPod *pod, WpSpaIdValue field_idval)
           wp_spa_id_table_find_value_from_short_name (values_table, key));
       lua_setfield (L, -2, key);
     }
+    lua_setfield (L, -2, "properties");
   }
 
   /* Struct */
@@ -971,6 +979,8 @@ push_luapod (lua_State *L, WpSpaPod *pod, WpSpaIdValue field_idval)
     g_autoptr (WpIterator) it = wp_spa_pod_new_iterator (pod);
     guint i = 1;
     lua_newtable (L);
+    lua_pushstring (L, "Struct");
+    lua_setfield (L, -2, "pod_type");
     for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
       WpSpaPod *val = g_value_get_boxed (&item);
       push_luapod (L, val, NULL);
@@ -984,6 +994,8 @@ push_luapod (lua_State *L, WpSpaPod *pod, WpSpaIdValue field_idval)
     g_autoptr (WpIterator) it = wp_spa_pod_new_iterator (pod);
     guint i = 1;
     lua_newtable (L);
+    lua_pushstring (L, "Sequence");
+    lua_setfield (L, -2, "pod_type");
     for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
       WpSpaPod *control = g_value_get_boxed (&item);
       guint32 offset = 0;
@@ -1006,21 +1018,25 @@ push_luapod (lua_State *L, WpSpaPod *pod, WpSpaIdValue field_idval)
     g_autoptr (WpSpaPod) child = wp_spa_pod_get_array_child (pod);
     WpSpaType type = wp_spa_pod_get_spa_type (child);
     lua_newtable (L);
+    lua_pushstring (L, "Array");
+    lua_setfield (L, -2, "pod_type");
     lua_pushstring (L, wp_spa_type_name (type));
-    lua_rawseti (L, -2, 1);
-    push_primitive_values (L, pod, type, 2);
+    lua_setfield (L, -2, "value_type");
+    push_primitive_values (L, pod, type, 1);
   }
 
   /* Choice */
   else if (wp_spa_pod_is_choice (pod)) {
     g_autoptr (WpSpaPod) child = wp_spa_pod_get_choice_child (pod);
     WpSpaType type = wp_spa_pod_get_spa_type (child);
-    const gchar *choice_type = NULL;
-    choice_type = wp_spa_id_value_short_name (wp_spa_pod_get_choice_type (pod));
+    g_autofree const gchar *choice_type = g_strdup_printf ("Choice.%s",
+        wp_spa_id_value_short_name (wp_spa_pod_get_choice_type (pod)));
     lua_newtable (L);
     lua_pushstring (L, choice_type);
-    lua_rawseti (L, -2, 1);
-    push_primitive_values (L, pod, type, 2);
+    lua_setfield (L, -2, "pod_type");
+    lua_pushstring (L, wp_spa_type_name (type));
+    lua_setfield (L, -2, "value_type");
+    push_primitive_values (L, pod, type, 1);
   }
 
   /* Error */
