@@ -948,9 +948,9 @@ push_luapod (lua_State *L, WpSpaPod *pod, WpSpaIdValue field_idval)
     wp_spa_pod_get_object (pod, &id_name, NULL);
     lua_newtable (L);
     lua_pushstring (L, wp_spa_type_name (type));
-    lua_rawseti (L, -2, 0);
-    lua_pushstring (L, id_name);
     lua_rawseti (L, -2, 1);
+    lua_pushstring (L, id_name);
+    lua_rawseti (L, -2, 2);
     it = wp_spa_pod_new_iterator (pod);
     for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
       WpSpaPod *prop = g_value_get_boxed (&item);
@@ -969,7 +969,7 @@ push_luapod (lua_State *L, WpSpaPod *pod, WpSpaIdValue field_idval)
   else if (wp_spa_pod_is_struct (pod)) {
     g_auto (GValue) item = G_VALUE_INIT;
     g_autoptr (WpIterator) it = wp_spa_pod_new_iterator (pod);
-    guint i = 0;
+    guint i = 1;
     lua_newtable (L);
     for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
       WpSpaPod *val = g_value_get_boxed (&item);
@@ -982,7 +982,7 @@ push_luapod (lua_State *L, WpSpaPod *pod, WpSpaIdValue field_idval)
   else if (wp_spa_pod_is_sequence (pod)) {
     g_auto (GValue) item = G_VALUE_INIT;
     g_autoptr (WpIterator) it = wp_spa_pod_new_iterator (pod);
-    guint i = 0;
+    guint i = 1;
     lua_newtable (L);
     for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
       WpSpaPod *control = g_value_get_boxed (&item);
@@ -1007,8 +1007,8 @@ push_luapod (lua_State *L, WpSpaPod *pod, WpSpaIdValue field_idval)
     WpSpaType type = wp_spa_pod_get_spa_type (child);
     lua_newtable (L);
     lua_pushstring (L, wp_spa_type_name (type));
-    lua_rawseti (L, -2, 0);
-    push_primitive_values (L, pod, type, 1);
+    lua_rawseti (L, -2, 1);
+    push_primitive_values (L, pod, type, 2);
   }
 
   /* Choice */
@@ -1019,8 +1019,8 @@ push_luapod (lua_State *L, WpSpaPod *pod, WpSpaIdValue field_idval)
     choice_type = wp_spa_id_value_short_name (wp_spa_pod_get_choice_type (pod));
     lua_newtable (L);
     lua_pushstring (L, choice_type);
-    lua_rawseti (L, -2, 0);
-    push_primitive_values (L, pod, type, 1);
+    lua_rawseti (L, -2, 1);
+    push_primitive_values (L, pod, type, 2);
   }
 
   /* Error */

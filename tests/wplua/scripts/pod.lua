@@ -70,7 +70,7 @@ assert (pod:get_type_name() == "Spa:Fraction")
 -- Struct
 pod = Pod.Struct { true, 1, "string" }
 val = pod:parse()
-assert (val[0] and val[1] == 1 and val[2] == "string")
+assert (val[1] and val[2] == 1 and val[3] == "string")
 assert (pod:get_type_name() == "Spa:Pod:Struct")
 
 -- Object
@@ -81,8 +81,8 @@ pod = Pod.Object {
   monitor = true
 }
 val = pod:parse()
-assert (val[0] == "Spa:Pod:Object:Param:PortConfig")
-assert (val[1] == "PortConfig")
+assert (val[1] == "Spa:Pod:Object:Param:PortConfig")
+assert (val[2] == "PortConfig")
 assert (val.direction == "Input")
 assert (val.mode == "dsp")
 assert (val.monitor)
@@ -95,29 +95,29 @@ pod = Pod.Sequence {
   {offset = 40, typename = "Properties", value = 4},
 }
 val = pod:parse()
-assert (val[0].offset == 10 and val[0].typename == "Properties" and val[0].value == 1)
-assert (val[1].offset == 20 and val[1].typename == "Properties" and val[1].value == 2)
-assert (val[2].offset == 40 and val[2].typename == "Properties" and val[2].value == 4)
+assert (val[1].offset == 10 and val[1].typename == "Properties" and val[1].value == 1)
+assert (val[2].offset == 20 and val[2].typename == "Properties" and val[2].value == 2)
+assert (val[3].offset == 40 and val[3].typename == "Properties" and val[3].value == 4)
 assert (pod:get_type_name() == "Spa:Pod:Sequence")
 
 -- Array
 pod = Pod.Array { "Spa:Bool", true, false, false, true }
 val = pod:parse()
-assert (val[0] == "Spa:Bool")
-assert (val[1])
-assert (not val[2])
+assert (val[1] == "Spa:Bool")
+assert (val[2])
 assert (not val[3])
-assert (val[4])
+assert (not val[4])
+assert (val[5])
 assert (pod:get_type_name() == "Spa:Array")
 
 -- Choice
 pod = Pod.Choice { "Enum", 5, 6, 7, 8 }
 val = pod:parse()
-assert (val[0] == "Enum")
-assert (val[1] == 5)
-assert (val[2] == 6)
-assert (val[3] == 7)
-assert (val[4] == 8)
+assert (val[1] == "Enum")
+assert (val[2] == 5)
+assert (val[3] == 6)
+assert (val[4] == 7)
+assert (val[5] == 8)
 assert (pod:get_type_name() == "Spa:Pod:Choice")
 
 -- Nested Pods
@@ -136,8 +136,8 @@ pod = Pod.Object {
   }
 }
 val = pod:parse()
-assert (val[0] == "Spa:Pod:Object:Param:PortConfig")
-assert (val[1] == "PortConfig")
+assert (val[1] == "Spa:Pod:Object:Param:PortConfig")
+assert (val[2] == "PortConfig")
 assert (val.direction == "Input")
 assert (val.mode == "dsp")
 assert (val.monitor)
@@ -145,5 +145,5 @@ assert (val.format.mediaType == "audio")
 assert (val.format.mediaSubtype == "raw")
 assert (val.format.rate == 48000)
 assert (val.format.channels == 2)
-assert (val.format.position[0] == "Spa:Id" and val.format.position[1] == 0 and val.format.position[2] == 1)
+assert (val.format.position[1] == "Spa:Id" and val.format.position[2] == 0 and val.format.position[3] == 1)
 assert (pod:get_type_name() == "Spa:Pod:Object:Param:PortConfig")
