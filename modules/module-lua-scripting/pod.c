@@ -953,10 +953,8 @@ push_luapod (lua_State *L, WpSpaPod *pod, WpSpaIdValue field_idval)
     lua_newtable (L);
     lua_pushstring (L, "Object");
     lua_setfield (L, -2, "pod_type");
-    lua_pushstring (L, wp_spa_type_name (type));
-    lua_rawseti (L, -2, 1);
     lua_pushstring (L, id_name);
-    lua_rawseti (L, -2, 2);
+    lua_setfield (L, -2, "id_type");
     it = wp_spa_pod_new_iterator (pod);
     lua_newtable (L);
     for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
