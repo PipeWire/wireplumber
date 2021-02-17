@@ -175,7 +175,7 @@ pod = Pod.Object {
     mediaType = "audio",
     mediaSubtype = "raw",
     rate = 48000,
-    channels = 2,
+    channels = Pod.Choice.Range { "Spa:Int", 2, 1, 32 },
     position = Pod.Array { "Spa:Enum:AudioChannel", "FL", "FR" }
   }
 }
@@ -190,7 +190,11 @@ assert (val.properties.format.id_type == "Format")
 assert (val.properties.format.properties.mediaType == "audio")
 assert (val.properties.format.properties.mediaSubtype == "raw")
 assert (val.properties.format.properties.rate == 48000)
-assert (val.properties.format.properties.channels == 2)
+assert (val.properties.format.properties.channels.pod_type == "Choice.Range")
+assert (val.properties.format.properties.channels.value_type == "Spa:Int")
+assert (val.properties.format.properties.channels[1] == 2)
+assert (val.properties.format.properties.channels[2] == 1)
+assert (val.properties.format.properties.channels[3] == 32)
 assert (val.properties.format.properties.position.pod_type == "Array")
 assert (val.properties.format.properties.position.value_type == "Spa:Id")
 assert (val.properties.format.properties.position[1] == 3 and val.properties.format.properties.position[2] == 4)

@@ -253,13 +253,31 @@ builder_add_fd_lua_string (WpSpaPodBuilder *b, WpSpaIdValue key_id,
 }
 
 static inline gboolean
+is_pod_type_compatible (WpSpaType type, WpSpaPod *pod)
+{
+  /* Check if the pod type matches */
+  if (type == wp_spa_pod_get_spa_type (pod))
+    return TRUE;
+
+  /* Otherwise, check if the child type of Choice pod matches */
+  if (wp_spa_pod_is_choice (pod)) {
+    g_autoptr (WpSpaPod) child = wp_spa_pod_get_choice_child (pod);
+    WpSpaType child_type = wp_spa_pod_get_spa_type (child);
+    if (type == child_type)
+      return TRUE;
+  }
+
+  return FALSE;
+}
+
+static inline gboolean
 builder_add_lua_userdata (WpSpaPodBuilder *b, WpSpaIdValue key_id,
     lua_State *L, int idx)
 {
   WpSpaPod *pod = wplua_checkboxed (L, idx, WP_TYPE_SPA_POD);
   if (pod) {
     WpSpaType prop_type = wp_spa_id_value_get_value_type (key_id, NULL);
-    if (prop_type == wp_spa_pod_get_spa_type (pod)) {
+    if (is_pod_type_compatible (prop_type, pod)) {
       wp_spa_pod_builder_add_pod (b, pod);
       return TRUE;
     }
