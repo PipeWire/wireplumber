@@ -163,7 +163,8 @@ static int
 log_log (lua_State *L, GLogLevelFlags lvl)
 {
   lua_Debug ar;
-  const gchar *message;
+  const gchar *message, *tmp;
+  gchar domain[25];
   gchar line_str[11];
   gconstpointer instance = NULL;
   GType type = G_TYPE_INVALID;
@@ -182,10 +183,14 @@ log_log (lua_State *L, GLogLevelFlags lvl)
   }
 
   message = luaL_checkstring (L, index);
-  sprintf (line_str, "%d", ar.currentline);
+  tmp = g_strrstr (ar.source, ".lua");
+  snprintf (domain, 25, "script/%.*s",
+      tmp ? MIN((gint)(tmp - ar.source), 17) : 17,
+      ar.source);
+  snprintf (line_str, 11, "%d", ar.currentline);
   ar.name = ar.name ? ar.name : "chunk";
 
-  wp_log_structured_standard (G_LOG_DOMAIN, lvl,
+  wp_log_structured_standard (domain, lvl,
       ar.source, line_str, ar.name, type, instance, "%s", message);
   return 0;
 }
