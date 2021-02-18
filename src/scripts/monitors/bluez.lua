@@ -48,12 +48,14 @@ function createNode(parent, id, type, factory, properties)
   properties["node.pause-on-idle"] = false
 
   -- set the node description
-  properties["node.description"] =
+  local desc =
       dev_props["device.description"]
       or dev_props["device.name"]
       or dev_props["device.nick"]
       or dev_props["device.alias"]
       or "bluetooth-device"
+  -- sanitize description, replace ':' with ' '
+  properties["node.description"] = desc:gsub("(:)", " ")
 
   -- set the node name
   local name =

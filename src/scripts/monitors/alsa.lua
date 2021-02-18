@@ -134,8 +134,8 @@ function createNode(parent, id, type, factory, properties)
       or dev_props["device.nick"]
       or dev_props["api.alsa.card.name"]
       or dev_props["alsa.card_name"]
-  -- also sanitize nick, but allow all characters except :
-  properties["node.nick"] = nick:gsub("(:)", "_")
+  -- also sanitize nick, replace ':' with ' '
+  properties["node.nick"] = nick:gsub("(:)", " ")
 
   -- ensure the node has a description
   if not properties["node.description"] then
@@ -143,14 +143,15 @@ function createNode(parent, id, type, factory, properties)
     local name = properties["api.alsa.pcm.name"] or properties["api.alsa.pcm.id"] or dev
 
     if profile_desc then
-      properties["node.description"] = desc .. " " .. profile_desc
+      desc = desc .. " " .. profile_desc
     elseif subdev == "0" then
-      properties["node.description"] = desc .. " (" .. name .. " " .. subdev .. ")"
+      desc = desc .. " (" .. name .. " " .. subdev .. ")"
     elseif dev == "0" then
-      properties["node.description"] = desc .. " (" .. name .. ")"
-    else
-      properties["node.description"] = desc
+      desc = desc .. " (" .. name .. ")"
     end
+
+    -- also sanitize description, replace ':' with ' '
+    properties["node.description"] = desc:gsub("(:)", " ")
   end
 
   -- apply properties from config.rules

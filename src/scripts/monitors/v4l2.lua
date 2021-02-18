@@ -67,7 +67,6 @@ function createNode(parent, id, type, factory, properties)
        dev_props["device.nick"] or
        dev_props["device.alias"] or
        "v4l2-device")
-
   -- sanitize name
   name = name:gsub("([^%w_%-%.])", "_")
 
@@ -83,7 +82,9 @@ function createNode(parent, id, type, factory, properties)
   end
 
   -- set the node description
-  properties["node.description"] = dev_props["device.description"] or "v4l2-device"
+  local desc = dev_props["device.description"] or "v4l2-device"
+  -- sanitize description, replace ':' with ' '
+  properties["node.description"] = desc:gsub("(:)", " ")
 
   -- apply properties from config.rules
   rulesApplyProperties(properties)
