@@ -183,6 +183,7 @@ log_log (lua_State *L, GLogLevelFlags lvl)
 
   message = luaL_checkstring (L, index);
   sprintf (line_str, "%d", ar.currentline);
+  ar.name = ar.name ? ar.name : "chunk";
 
   wp_log_structured_standard (G_LOG_DOMAIN, lvl,
       ar.source, line_str, ar.name, type, instance, "%s", message);
