@@ -1,5 +1,3 @@
-ID_ALL = 0xffffffff
-
 MEDIA_ROLE_NONE = 0
 MEDIA_ROLE_CAMERA = 1 << 0
 
@@ -33,7 +31,7 @@ function setPermissions (client, nodes_om, allow_client, allow_nodes)
   Log.info(client, "Granting ALL access to client " .. client_id)
 
   -- Update permissions on client
-  client:update_permissions ({[client_id] = allow_client and "rwx" or "-"})
+  client:update_permissions { [client_id] = allow_client and "all" or "-" }
 
   -- Update permissions on client's nodes
   for node in nodes_om:iterate_filtered( Interest { type = "node",
@@ -42,7 +40,7 @@ function setPermissions (client, nodes_om, allow_client, allow_nodes)
     Constraint { "media.class", "=", "Video/Source" },
   }) do
     local node_id = node["bound-id"]
-    client:update_permissions ({[node_id] = allow_nodes and "rwx" or "-"})
+    client:update_permissions { [node_id] = allow_nodes and "all" or "-" }
   end
 end
 
@@ -93,19 +91,24 @@ function updateClientPermissions (client, nodes_om, permissions)
 end
 
 -- Create portal clients object manager
-clients_om = ObjectManager { Interest { type = "client",
-  Constraint { "pipewire.access", "=", "portal" },
-} }
+clients_om = ObjectManager {
+  Interest {
+    type = "client",
+    Constraint { "pipewire.access", "=", "portal" },
+  }
+}
 
 -- Set permissions to portal clients from the permission store if loaded
 pps_plugin = Plugin("portal-permissionstore")
 if pps_plugin then
   local nodes_om = ObjectManager { Interest { type = "node" } }
   nodes_om:activate()
+
   clients_om:connect("object-added", function (om, client)
     local new_perms = pps_plugin:call("lookup", "devices", "camera");
     updateClientPermissions (client, nodes_om, new_perms)
   end)
+
   pps_plugin:connect("changed", function (p, table, id, deleted, permissions)
     if table == "devices" or id == "camera" then
       for app_id, _ in pairs(permissions) do
@@ -122,7 +125,7 @@ else
   clients_om:connect("object-added", function (om, client)
     local id = client["bound-id"]
     Log.info(client, "Granting ALL access to client " .. id)
-    client:update_permissions ({ [ID_ALL] = "rwx" })
+    client:update_permissions { ["any"] = "all" }
   end)
 end
 
