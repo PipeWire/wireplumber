@@ -27,7 +27,16 @@ om:connect("object-added", function (om, node)
 
     -- Add a timeout source if idle for at least 3 seconds
     if cur_state == "idle" then
-      sources[id] = Core.timeout_add(3000, function()
+      -- honor "session.suspend-timeout-seconds" if specified
+      local timeout =
+          tonumber(node.properties["session.suspend-timeout-seconds"]) or 3
+
+      if timeout == 0 then
+        return
+      end
+
+      -- add idle timeout; multiply by 1000, timeout_add() expects ms
+      sources[id] = Core.timeout_add(timeout * 1000, function()
         -- Suspend the node
         Log.info(node, "was idle for a while; suspending ...")
         node:send_command("Suspend")
