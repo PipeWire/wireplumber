@@ -891,35 +891,25 @@ impl_node_new (lua_State *L)
 static gboolean
 client_parse_permissions (const gchar * perms_str, guint32 *perms)
 {
-  guint32 res = 0;
+  *perms = 0;
 
-  if (g_strcmp0 (perms_str, "all") == 0) {
-    res = PW_PERM_ALL;
-  } else {
+  if (!perms_str)
+    return FALSE;
+  else if (g_strcmp0 (perms_str, "all") == 0)
+    *perms = PW_PERM_ALL;
+  else {
     for (guint i = 0; i < strlen (perms_str); i++) {
       switch (perms_str[i]) {
-        case 'r':
-          res |= PW_PERM_R;
-          break;
-        case 'w':
-          res |= PW_PERM_W;
-          break;
-        case 'x':
-          res |= PW_PERM_X;
-          break;
-        case 'm':
-          res |= PW_PERM_M;
-        case '-':
-          break;
+        case 'r': *perms |= PW_PERM_R; break;
+        case 'w': *perms |= PW_PERM_W; break;
+        case 'x': *perms |= PW_PERM_X; break;
+        case 'm': *perms |= PW_PERM_M; break;
+        case '-': break;
         default:
           return FALSE;
       }
     }
   }
-
-  if (perms)
-    *perms = res;
-
   return TRUE;
 }
 
@@ -927,35 +917,35 @@ static int
 client_update_permissions (lua_State *L)
 {
   WpClient *client = wplua_checkobject (L, 1, WP_TYPE_CLIENT);
-  guint n_perm = 0;
-  guint size = 16;
-  g_autofree struct pw_permission *arr =
-      g_malloc0_n (size, sizeof (struct pw_permission));
+  g_autoptr (GArray) arr = NULL;
 
   luaL_checktype (L, 2, LUA_TTABLE);
 
   lua_pushnil(L);
   while (lua_next (L, -2)) {
-    if (lua_type (L, -1) == LUA_TNUMBER && lua_type (L, -2) == LUA_TSTRING) {
-      guint32 id = lua_tointeger (L, -2);
-      const gchar *perms_str = lua_tostring (L, -1);
-      guint32 perms = 0;
-      if (client_parse_permissions (perms_str, &perms)) {
-        if (size < n_perm) {
-          size += 16;
-          arr = g_realloc (arr, size * sizeof (struct pw_permission));
-        }
-        arr[n_perm].id = id;
-        arr[n_perm].permissions = perms;
-        n_perm++;
-      } else {
-        wp_warning ("Ignored invalid permission '%s'", perms_str);
-      }
-    }
+    struct pw_permission perm = {0};
+
+    if (lua_type (L, -2) == LUA_TSTRING &&
+        (!g_ascii_strcasecmp (lua_tostring(L, -2), "any") ||
+         !g_ascii_strcasecmp (lua_tostring(L, -2), "all")))
+      perm.id = PW_ID_ANY;
+    else if (lua_isinteger (L, -2))
+      perm.id = lua_tointeger (L, -2);
+    else
+      luaL_error (L, "invalid key for permissions array");
+
+    if (!client_parse_permissions (lua_tostring (L, -1), &perm.permissions))
+      luaL_error (L, "invalid permission string: '%s'", lua_tostring (L, -1));
+
+    if (!arr)
+      arr = g_array_new (FALSE, FALSE, sizeof (struct pw_permission));
+
+    g_array_append_val (arr, perm);
     lua_pop (L, 1);
   }
 
-  wp_client_update_permissions_array (client, n_perm, arr);
+  wp_client_update_permissions_array (client, arr->len,
+      (const struct pw_permission *) arr->data);
   return 0;
 }
 
