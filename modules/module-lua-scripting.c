@@ -131,9 +131,9 @@ wp_lua_scripting_plugin_supports_type (WpComponentLoader * cl,
 }
 
 static gchar *
-find_script (const gchar * script)
+find_script (const gchar * script, const gchar *interactive)
 {
-  if (g_path_is_absolute (script) &&
+  if ((!g_strcmp0 (interactive, "true") || g_path_is_absolute (script)) &&
       g_file_test (script, G_FILE_TEST_EXISTS | G_FILE_TEST_IS_REGULAR))
     return g_strdup (script);
 
@@ -177,12 +177,16 @@ wp_lua_scripting_plugin_load (WpComponentLoader * cl, const gchar * component,
     const gchar * type, GVariant * args, GError ** error)
 {
   WpLuaScriptingPlugin * self = WP_LUA_SCRIPTING_PLUGIN (cl);
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (cl));
 
   /* interpret component as a script */
   if (!g_strcmp0 (type, "script/lua")) {
+    g_autoptr (WpProperties) p = wp_core_get_properties (core);
+    const gchar *interactive = wp_properties_get (p, "wireplumber.interactive");
+
     struct ScriptData s = {0};
 
-    s.filename = find_script (component);
+    s.filename = find_script (component, interactive);
     if (!s.filename) {
       g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
           "Could not locate script '%s'", component);
@@ -198,7 +202,6 @@ wp_lua_scripting_plugin_load (WpComponentLoader * cl, const gchar * component,
   }
   /* interpret component as a configuration file */
   else if (!g_strcmp0 (type, "config/lua")) {
-    g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (cl));
     return wp_lua_scripting_load_configuration (component, core, error);
   }
 

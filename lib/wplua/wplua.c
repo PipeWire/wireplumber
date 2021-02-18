@@ -192,6 +192,13 @@ _wplua_load_buffer (lua_State * L, const gchar *buf, gsize size,
   else
     lua_pop (L, 1);
 
+  /* skip shebang, if present */
+  if (g_str_has_prefix (buf, "#!/")) {
+    const char *tmp = strchr (buf, '\n');
+    size -= (tmp - buf);
+    buf = tmp;
+  }
+
   ret = luaL_loadbuffer (L, buf, size, name);
   if (ret != LUA_OK) {
     g_set_error (error, WP_DOMAIN_LUA, WP_LUA_ERROR_COMPILATION,
