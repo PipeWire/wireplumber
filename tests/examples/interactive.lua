@@ -1,3 +1,5 @@
+#!/usr/bin/wireplumber -e
+--
 -- WirePlumber
 --
 -- Copyright © 2021 Collabora Ltd.
@@ -8,10 +10,9 @@
 -- This is an example of an interactive script
 --
 -- Execute with:
--- wireplumber -e /path/to/interactive.lua option1=value1 option2=value2 ...
---
--- Using an absolute path to the script is necessary, otherwise
--- wireplumber will try to locate the script in $WIREPLUMBER_DATA_DIR/scripts
+--   wireplumber -e ./interactive.lua option1=value1 option2=value2 ...
+-- or:
+--   ./interactive.lua option1=value1 option2=value2
 -----------------------------------------------------------------------------
 
 --
