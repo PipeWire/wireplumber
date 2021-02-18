@@ -51,6 +51,10 @@ function findDuplicate(parent, id, property, value)
   return false
 end
 
+function nonempty(str)
+  return str ~= "" and str or nil
+end
+
 function createNode(parent, id, type, factory, properties)
   local dev_props = parent.properties
 
@@ -139,14 +143,15 @@ function createNode(parent, id, type, factory, properties)
 
   -- ensure the node has a description
   if not properties["node.description"] then
-    local desc = dev_props["device.description"] or "unknown"
-    local name = properties["api.alsa.pcm.name"] or properties["api.alsa.pcm.id"] or dev
+    local desc = nonempty(dev_props["device.description"]) or "unknown"
+    local name = nonempty(properties["api.alsa.pcm.name"]) or
+                 nonempty(properties["api.alsa.pcm.id"]) or dev
 
     if profile_desc then
       desc = desc .. " " .. profile_desc
-    elseif subdev == "0" then
+    elseif subdev ~= "0" then
       desc = desc .. " (" .. name .. " " .. subdev .. ")"
-    elseif dev == "0" then
+    elseif dev ~= "0" then
       desc = desc .. " (" .. name .. ")"
     end
 
