@@ -51,16 +51,3 @@ load_script("suspend-node.lua")
 
 -- Automatically sets device profiles to 'On'
 load_module("device-activation")
-
-function enable_access()
-  -- Flatpak access
-  load_access("flatpak")
-
-  -- Enables portal permissions via org.freedesktop.impl.portal.PermissionStore
-  load_module("portal-permissionstore")
-
-  -- Portal access
-  load_access("portal")
-end
-
-enable_access()
