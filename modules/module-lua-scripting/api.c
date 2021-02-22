@@ -649,21 +649,71 @@ static int
 session_iterate_endpoints (lua_State *L)
 {
   WpSession *session = wplua_checkobject (L, 1, WP_TYPE_SESSION);
-  WpIterator *it = wp_session_new_endpoints_iterator (session);
+  WpIterator *it = NULL;
+  if (lua_isuserdata (L, 2)) {
+    WpObjectInterest *oi = wplua_checkboxed (L, 2, WP_TYPE_OBJECT_INTEREST);
+    it = wp_session_new_endpoints_filtered_iterator_full (session,
+        wp_object_interest_ref (oi));
+  } else {
+    it = wp_session_new_endpoints_iterator (session);
+  }
   return push_wpiterator (L, it);
+}
+
+static int
+session_lookup_endpoint (lua_State *L)
+{
+  WpSession *session = wplua_checkobject (L, 1, WP_TYPE_SESSION);
+  WpEndpoint *ep = NULL;
+  if (lua_isuserdata (L, 2)) {
+    WpObjectInterest *oi = wplua_checkboxed (L, 2, WP_TYPE_OBJECT_INTEREST);
+    ep = wp_session_lookup_endpoint_full (session, wp_object_interest_ref (oi));
+  } else {
+    ep = wp_session_lookup_endpoint (session, NULL);
+  }
+  if (!ep)
+    return 0;
+  wplua_pushobject (L, ep);
+  return 1;
 }
 
 static int
 session_iterate_links (lua_State *L)
 {
   WpSession *session = wplua_checkobject (L, 1, WP_TYPE_SESSION);
-  WpIterator *it = wp_session_new_links_iterator (session);
+  WpIterator *it = NULL;
+  if (lua_isuserdata (L, 2)) {
+    WpObjectInterest *oi = wplua_checkboxed (L, 2, WP_TYPE_OBJECT_INTEREST);
+    it = wp_session_new_links_filtered_iterator_full (session,
+        wp_object_interest_ref (oi));
+  } else {
+    it = wp_session_new_links_iterator (session);
+  }
   return push_wpiterator (L, it);
+}
+
+static int
+session_lookup_link (lua_State *L)
+{
+  WpSession *session = wplua_checkobject (L, 1, WP_TYPE_SESSION);
+  WpEndpointLink *l = NULL;
+  if (lua_isuserdata (L, 2)) {
+    WpObjectInterest *oi = wplua_checkboxed (L, 2, WP_TYPE_OBJECT_INTEREST);
+    l = wp_session_lookup_link_full (session, wp_object_interest_ref (oi));
+  } else {
+    l = wp_session_lookup_link (session, NULL);
+  }
+  if (!l)
+    return 0;
+  wplua_pushobject (L, l);
+  return 0;
 }
 
 static const luaL_Reg session_methods[] = {
   { "iterate_endpoints", session_iterate_endpoints },
+  { "lookup_endpoint", session_lookup_endpoint },
   { "iterate_links", session_iterate_links },
+  { "lookup_link", session_lookup_link },
   { NULL, NULL }
 };
 
