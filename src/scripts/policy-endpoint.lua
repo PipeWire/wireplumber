@@ -5,6 +5,13 @@
 --
 -- SPDX-License-Identifier: MIT
 
+-- Receive script arguments from config.lua
+local config = ...
+
+-- ensure config.move and config.follow are not nil
+config.move = config.move or false
+config.follow = config.follow or false
+
 target_class_assoc = {
   ["Stream/Input/Audio"] = "Audio/Source",
   ["Stream/Output/Audio"] = "Audio/Sink",
@@ -22,8 +29,137 @@ default_endpoint_key = {
   ["output"] = "default.session.endpoint.source",
 }
 
+metadata_key_target_class_assoc = {
+  ["default.session.endpoint.sink"] = {
+    ["audio"] = "Stream/Output/Audio",
+    ["video"] = "Stream/Output/Video",
+  },
+  ["default.session.endpoint.source"] = {
+    ["audio"] = "Stream/Input/Audio",
+    ["video"] = "Stream/Input/Video",
+  },
+}
+
+default_endpoint_target = {
+  ["Stream/Input/Audio"] = nil,
+  ["Stream/Output/Audio"] = nil
+}
+
+-- Endpoint Ids not linked to its node.target prop
+auto_linked_endpoints = {}
+
+function createLink (ep, target)
+  if ep:get_n_streams() > 0 and target:get_n_streams() > 0 then
+    local ep_id = ep['bound-id']
+    local target_id = target['bound-id']
+    local ep_is_output = (ep.direction == "output")
+    local props = {
+      ['endpoint-link.output.endpoint'] = (ep_is_output and ep_id) or target_id,
+      ['endpoint-link.output.stream'] = -1,
+      ['endpoint-link.input.endpoint'] = (ep_is_output and target_id) or ep_id,
+      ['endpoint-link.input.stream'] = -1,
+    }
+    ep:create_link (props)
+  end
+end
+
+function isEndpointLinkedWith (session, ep, target)
+  local ep_id = ep["bound_id"]
+  local target_id = target["bound_id"]
+  for link in session:iterate_links() do
+    local out_ep, _, in_ep, _ = link:get_linked_object_ids()
+    if (out_ep == ep_id and in_ep == target_id) or
+        (out_ep == target_id and in_ep == ep_id) then
+      return true
+    end
+  end
+  return false
+end
+
+function moveEndpoint (session, ep, target)
+  local ep_id = ep['bound-id']
+  local ep_is_output = (ep.direction == "output")
+  local total_links = 0
+  local moving = false
+
+  -- return if already moved
+  if isEndpointLinkedWith(session, ep, target) then
+    return
+  end
+
+  -- destroy all previous links
+  for link in session:iterate_links() do
+    local out_ep, _, in_ep, _ = link:get_linked_object_ids()
+    if (ep_is_output and out_ep == ep_id) or
+        (not ep_is_output and in_ep == ep_id) then
+      local curr_target = nil
+      total_links = total_links + 1
+      -- create new link when all previous links were destroyed
+      link:connect ("pw-proxy-destroyed", function (l)
+        total_links = total_links - 1
+        if total_links == 0 then
+          createLink (ep, target)
+        end
+      end)
+      link:request_destroy ()
+      moving = true
+    end
+  end
+
+  -- create link if never linked
+  if not moving then
+    createLink (ep, target)
+  end
+end
+
+function moveEndpointFromNodeId (ep_node_id, target_node_id)
+  for session in om_session:iterate() do
+    local ep = session:lookup_endpoint (Interest {
+        type = "endpoint",
+        Constraint { "node.id", "=", tostring(ep_node_id), type = "pw" }
+    })
+    if ep then
+      local target = session:lookup_endpoint (Interest {
+          type = "endpoint",
+          Constraint { "node.id", "=", tostring(target_node_id), type = "pw" }
+      })
+      if target then
+        moveEndpoint (session, ep, target)
+        break
+      end
+    end
+  end
+end
+
+function reevaluateAutoLinkedEndpoints (ep_media_class, target_id)
+  -- make sure the target Id has changed
+  if default_endpoint_target[ep_media_class] == target_id then
+    return
+  end
+  default_endpoint_target[ep_media_class] = target_id
+
+  -- move auto linked endpoints to the new target
+  for session in om_session:iterate_filtered (Interest { type = "session" } ) do
+    local target = session:lookup_endpoint (Interest {
+        type = "endpoint",
+        Constraint { "bound-id", "=", target_id, type = "gobject" }
+    })
+    if target then
+      for ep in session:iterate_endpoints (Interest{
+          type = "endpoint",
+          Constraint { "media-class", "=", ep_media_class, type = "gobject" },
+      } ) do
+        if auto_linked_endpoints[ep["bound-id"]] == true then
+          moveEndpoint (session, ep, target)
+        end
+      end
+    end
+  end
+end
+
 function findTarget (session, ep)
   local target = nil
+  local auto_linked = false
 
   Log.trace(session, "Searching link target for " .. ep['bound-id'] ..
                      " (name:'" .. ep['name'] ..
@@ -53,6 +189,9 @@ function findTarget (session, ep)
       if candidate_ep['direction'] == direction and
          candidate_ep['media-class'] == media_class
       then
+        -- we consider auto linked any target that is not in node.target prop
+        auto_linked = true
+
         -- honor default endpoint, if present
         if metadata then
           local key = default_endpoint_key[direction]
@@ -75,7 +214,7 @@ function findTarget (session, ep)
     end
   end
 
-  return target
+  return target, auto_linked
 end
 
 function handleEndpoint (session, ep)
@@ -96,17 +235,10 @@ function handleEndpoint (session, ep)
   end
 
   -- if not, find a suitable target and link
-  local target = findTarget (session, ep)
+  local target, auto_linked = findTarget (session, ep)
   if target then
-    local ep_is_output = (ep.direction == "output")
-    local target_id = target['bound-id']
-    local props = {
-      ['endpoint-link.output.endpoint'] = (ep_is_output and ep_id) or target_id,
-      ['endpoint-link.output.stream'] = -1,
-      ['endpoint-link.input.endpoint'] = (ep_is_output and target_id) or ep_id,
-      ['endpoint-link.input.stream'] = -1,
-    }
-    ep:create_link (props)
+    createLink (ep, target)
+    auto_linked_endpoints[ep_id] = auto_linked
   end
 end
 
@@ -118,9 +250,9 @@ function handleLink (link)
 end
 
 om_metadata = ObjectManager { Interest { type = "metadata" } }
-om = ObjectManager { Interest { type = "session" } }
+om_session = ObjectManager { Interest { type = "session" } }
 
-om:connect("object-added", function (om, session)
+om_session:connect("object-added", function (om, session)
   session:connect('endpoints-changed', function (session)
     for ep in session:iterate_endpoints() do
       handleEndpoint(session, ep)
@@ -134,5 +266,25 @@ om:connect("object-added", function (om, session)
   end)
 end)
 
+om_metadata:connect("object-added", function (om, metadata)
+  metadata:connect("changed", function (m, subject, key, t, value)
+    if config.move and key == "target.node" then
+      moveEndpointFromNodeId (subject, tonumber (value))
+    elseif config.follow and string.find(key, "default.session.endpoint") then
+      local session = om_session:lookup (Interest {
+          type = "session",
+          Constraint { "bound-id", "=", subject, type = "gobject" }
+      })
+      if session then
+        local target_class =
+            metadata_key_target_class_assoc[key][session.properties["session.name"]]
+        if target_class then
+          reevaluateAutoLinkedEndpoints (target_class, tonumber (value))
+        end
+      end
+    end
+  end)
+end)
+
 om_metadata:activate()
-om:activate()
+om_session:activate()

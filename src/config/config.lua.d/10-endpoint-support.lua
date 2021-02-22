@@ -8,6 +8,11 @@ endpoint_support.sessions = {
   ["video"] = {},
 }
 
+endpoint_support.policy = {
+  move = true,   -- moves endpoints when metadata target.node changes
+  follow = true  -- moves endpoints to the default device when it has changed
+}
+
 function endpoint_support.enable()
   -- Session item factories, building blocks for the session management graph
   -- Do not disable these unless you really know what you are doing
@@ -27,5 +32,5 @@ function endpoint_support.enable()
   load_script("create-endpoint.lua")
 
   -- Link endpoints to each other to make media flow in the graph
-  load_script("policy-endpoint.lua")
+  load_script("policy-endpoint.lua", endpoint_support.policy)
 end
