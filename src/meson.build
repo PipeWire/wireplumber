@@ -11,6 +11,8 @@ install_subdir('scripts',
   strip_directory : false
 )
 
+subdir('systemd')
+
 executable('wireplumber',
   wp_sources,
   c_args : [

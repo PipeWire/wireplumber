@@ -4,3 +4,18 @@ option('doc', type : 'feature', value : 'auto',
        description: 'Enable documentation.')
 option('system-lua', type : 'boolean', value : 'false',
        description : 'Use lua from the system instead of the bundled one')
+option('systemd',
+       type: 'feature', value: 'auto',
+       description: 'Enable installing systemd units')
+option('systemd-system-service',
+       type : 'boolean', value : false,
+       description: 'Install systemd system service file')
+option('systemd-user-service',
+       type : 'boolean', value : true,
+       description: 'Install systemd user service file')
+option('systemd-system-unit-dir',
+       type : 'string',
+       description : 'Directory for system systemd units')
+option('systemd-user-unit-dir',
+       type : 'string',
+       description : 'Directory for user systemd units')

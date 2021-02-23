@@ -13,6 +13,12 @@ wireplumber_so_version = '0'
 
 wireplumber_headers_dir = join_paths(get_option('includedir'), 'wireplumber-' + wireplumber_api_version, 'wp')
 
+if get_option('bindir').startswith('/')
+  wireplumber_bin_dir = get_option('bindir')
+else
+  wireplumber_bin_dir = join_paths(get_option('prefix'), get_option('bindir'))
+endif
+
 if get_option('libdir').startswith('/')
   wireplumber_module_dir = join_paths(get_option('libdir'), 'wireplumber-' + wireplumber_api_version)
 else
