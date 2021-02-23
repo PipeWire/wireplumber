@@ -274,7 +274,9 @@ test_endpoint_params_changed (WpPipewireObject * proxy,
 {
   wp_debug_object (proxy, "params changed: %u", id);
 
-  if (++fixture->n_events == 3)
+  /* only count changes of id 2 (Props); PipeWire 0.3.22+git changed
+     behaviour and emits changes to PropInfo as well then the Props change */
+  if (id == 2 && ++fixture->n_events == 3)
     g_main_loop_quit (fixture->base.loop);
 }
 
