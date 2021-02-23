@@ -861,7 +861,7 @@ spa_pod_get_type_name (lua_State *L)
 
 static void
 push_primitive_values (lua_State *L, WpSpaPod *pod, WpSpaType type,
-    guint start_index)
+    guint start_index, WpSpaIdTable idtable)
 {
   g_auto (GValue) item = G_VALUE_INIT;
   g_autoptr (WpIterator) it = wp_spa_pod_new_iterator (pod);
@@ -873,9 +873,16 @@ push_primitive_values (lua_State *L, WpSpaPod *pod, WpSpaType type,
     case SPA_TYPE_Bool:
       lua_pushboolean (L, *(gboolean *)p);
       break;
-    case SPA_TYPE_Id:
-      lua_pushinteger (L, *(guint32 *)p);
+    case SPA_TYPE_Id: {
+      WpSpaIdValue idval = NULL;
+      if (idtable)
+        idval = wp_spa_id_table_find_value (idtable, *(guint32 *)p);
+      if (idval)
+        lua_pushstring (L, wp_spa_id_value_short_name (idval));
+      else
+        lua_pushinteger (L, *(guint32 *)p);
       break;
+    }
     case SPA_TYPE_Int:
       lua_pushinteger (L, *(gint *)p);
       break;
@@ -1092,12 +1099,16 @@ push_luapod (lua_State *L, WpSpaPod *pod, WpSpaIdValue field_idval)
   else if (wp_spa_pod_is_array (pod)) {
     g_autoptr (WpSpaPod) child = wp_spa_pod_get_array_child (pod);
     WpSpaType type = wp_spa_pod_get_spa_type (child);
+    WpSpaIdTable idtable = NULL;
+    if (field_idval && type == SPA_TYPE_Id && SPA_TYPE_Array ==
+            wp_spa_id_value_get_value_type (field_idval, &idtable))
+        wp_spa_id_value_array_get_item_type (field_idval, &idtable);
     lua_newtable (L);
     lua_pushstring (L, "Array");
     lua_setfield (L, -2, "pod_type");
     lua_pushstring (L, wp_spa_type_name (type));
     lua_setfield (L, -2, "value_type");
-    push_primitive_values (L, pod, type, 1);
+    push_primitive_values (L, pod, type, 1, idtable);
   }
 
   /* Choice */
@@ -1106,12 +1117,15 @@ push_luapod (lua_State *L, WpSpaPod *pod, WpSpaIdValue field_idval)
     WpSpaType type = wp_spa_pod_get_spa_type (child);
     g_autofree const gchar *choice_type = g_strdup_printf ("Choice.%s",
         wp_spa_id_value_short_name (wp_spa_pod_get_choice_type (pod)));
+    WpSpaIdTable idtable = NULL;
+    if (field_idval && type == SPA_TYPE_Id)
+      wp_spa_id_value_get_value_type (field_idval, &idtable);
     lua_newtable (L);
     lua_pushstring (L, choice_type);
     lua_setfield (L, -2, "pod_type");
     lua_pushstring (L, wp_spa_type_name (type));
     lua_setfield (L, -2, "value_type");
-    push_primitive_values (L, pod, type, 1);
+    push_primitive_values (L, pod, type, 1, idtable);
   }
 
   /* Error */

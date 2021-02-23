@@ -175,6 +175,7 @@ pod = Pod.Object {
     mediaType = "audio",
     mediaSubtype = "raw",
     rate = 48000,
+    format = Pod.Choice.Enum { "Spa:Enum:AudioFormat", "S16LE", "S16LE", "F32LE" },
     channels = Pod.Choice.Range { "Spa:Int", 2, 1, 32 },
     position = Pod.Array { "Spa:Enum:AudioChannel", "FL", "FR" }
   }
@@ -190,6 +191,11 @@ assert (val.properties.format.object_id == "Format")
 assert (val.properties.format.properties.mediaType == "audio")
 assert (val.properties.format.properties.mediaSubtype == "raw")
 assert (val.properties.format.properties.rate == 48000)
+assert (val.properties.format.properties.format.pod_type == "Choice.Enum")
+assert (val.properties.format.properties.format.value_type == "Spa:Id")
+assert (val.properties.format.properties.format[1] == "S16LE")
+assert (val.properties.format.properties.format[2] == "S16LE")
+assert (val.properties.format.properties.format[3] == "F32LE")
 assert (val.properties.format.properties.channels.pod_type == "Choice.Range")
 assert (val.properties.format.properties.channels.value_type == "Spa:Int")
 assert (val.properties.format.properties.channels[1] == 2)
@@ -197,5 +203,6 @@ assert (val.properties.format.properties.channels[2] == 1)
 assert (val.properties.format.properties.channels[3] == 32)
 assert (val.properties.format.properties.position.pod_type == "Array")
 assert (val.properties.format.properties.position.value_type == "Spa:Id")
-assert (val.properties.format.properties.position[1] == 3 and val.properties.format.properties.position[2] == 4)
+assert (val.properties.format.properties.position[1] == "FL")
+assert (val.properties.format.properties.position[2] == "FR")
 assert (pod:get_type_name() == "Spa:Pod:Object:Param:PortConfig")
