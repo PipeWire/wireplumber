@@ -88,7 +88,7 @@ pod = Pod.Object {
 }
 val = pod:parse()
 assert (val.pod_type == "Object")
-assert (val.id_type == "PortConfig")
+assert (val.object_id == "PortConfig")
 assert (val.properties.direction == "Input")
 assert (val.properties.mode == "dsp")
 assert (val.properties.monitor)
@@ -181,12 +181,12 @@ pod = Pod.Object {
 }
 val = pod:parse()
 assert (val.pod_type == "Object")
-assert (val.id_type == "PortConfig")
+assert (val.object_id == "PortConfig")
 assert (val.properties.direction == "Input")
 assert (val.properties.mode == "dsp")
 assert (val.properties.monitor)
 assert (val.properties.format.pod_type == "Object")
-assert (val.properties.format.id_type == "Format")
+assert (val.properties.format.object_id == "Format")
 assert (val.properties.format.properties.mediaType == "audio")
 assert (val.properties.format.properties.mediaSubtype == "raw")
 assert (val.properties.format.properties.rate == 48000)

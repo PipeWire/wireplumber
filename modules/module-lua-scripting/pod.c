@@ -1031,7 +1031,7 @@ push_luapod (lua_State *L, WpSpaPod *pod, WpSpaIdValue field_idval)
     lua_pushstring (L, "Object");
     lua_setfield (L, -2, "pod_type");
     lua_pushstring (L, id_name);
-    lua_setfield (L, -2, "id_type");
+    lua_setfield (L, -2, "object_id");
     it = wp_spa_pod_new_iterator (pod);
     lua_newtable (L);
     for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
