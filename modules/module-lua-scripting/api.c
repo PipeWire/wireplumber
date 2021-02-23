@@ -745,6 +745,14 @@ static const luaL_Reg impl_session_methods[] = {
 /* WpEndpoint */
 
 static int
+endpoint_get_n_streams (lua_State *L)
+{
+  WpEndpoint *ep = wplua_checkobject (L, 1, WP_TYPE_ENDPOINT);
+  lua_pushnumber (L, wp_endpoint_get_n_streams (ep));
+  return 1;
+}
+
+static int
 endpoint_iterate_streams (lua_State *L)
 {
   WpEndpoint *ep = wplua_checkobject (L, 1, WP_TYPE_ENDPOINT);
@@ -763,6 +771,7 @@ endpoint_create_link (lua_State *L)
 }
 
 static const luaL_Reg endpoint_methods[] = {
+  { "get_n_streams", endpoint_get_n_streams },
   { "iterate_streams", endpoint_iterate_streams },
   { "create_link", endpoint_create_link },
   { NULL, NULL }
