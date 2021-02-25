@@ -37,10 +37,11 @@ else
   wireplumber_data_dir = join_paths(get_option('prefix'), get_option('datadir'), 'wireplumber')
 endif
 
-gobject_dep = dependency('gobject-2.0', version : '>= 2.58')
-gmodule_dep = dependency('gmodule-2.0', version : '== ' + gobject_dep.version())
-gio_dep = dependency('gio-2.0', version : '== ' + gobject_dep.version())
-giounix_dep = dependency('gio-unix-2.0', version : '== ' + gobject_dep.version())
+glib_req_version = '>= 2.58'
+gobject_dep = dependency('gobject-2.0', version : glib_req_version)
+gmodule_dep = dependency('gmodule-2.0', version : glib_req_version)
+gio_dep = dependency('gio-2.0', version : glib_req_version)
+giounix_dep = dependency('gio-unix-2.0', version : glib_req_version)
 pipewire_dep = dependency('libpipewire-0.3', version: '>= 0.3.20')
 
 if get_option('system-lua')
