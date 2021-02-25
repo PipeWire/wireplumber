@@ -23,7 +23,6 @@
 #include "iterator.h"
 #include "link.h"
 #include "metadata.h"
-#include "module.h"
 #include "node.h"
 #include "object-interest.h"
 #include "object-manager.h"
