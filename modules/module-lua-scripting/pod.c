@@ -1048,9 +1048,11 @@ push_luapod (lua_State *L, WpSpaPod *pod, WpSpaIdValue field_idval)
       //FIXME: this is suboptimal because _get_property() converts
       // the key to a short name and we convert it back
       wp_spa_pod_get_property (prop, &key, &val);
-      push_luapod (L, val,
-          wp_spa_id_table_find_value_from_short_name (values_table, key));
-      lua_setfield (L, -2, key);
+      if (key) {
+        push_luapod (L, val,
+            wp_spa_id_table_find_value_from_short_name (values_table, key));
+        lua_setfield (L, -2, key);
+      }
     }
     lua_setfield (L, -2, "properties");
   }
