@@ -1040,8 +1040,6 @@ session_item_configure (lua_State *L)
   g_auto (GVariantBuilder) b =
       G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
   GVariant *config = NULL;
-  gboolean is_key = TRUE;
-  const gchar *key = NULL;
 
   /* validate arguments */
   luaL_checktype (L, 2, LUA_TTABLE);
@@ -1049,48 +1047,24 @@ session_item_configure (lua_State *L)
   /* build the configuration */
   lua_pushnil (L);
   while (lua_next (L, 2)) {
-    if (is_key) {
-      is_key = FALSE;
-      key = lua_tostring (L, -1);
-    } else {
-      is_key = TRUE;
-      switch (lua_type (L, -1)) {
-        case LUA_TBOOLEAN:
-          g_variant_builder_add (&b, "{sv}", key,
-              g_variant_new_boolean (lua_toboolean (L, -1)));
-          break;
-        case LUA_TNUMBER:
-          g_variant_builder_add (&b, "{sv}", key,
-              g_variant_new_int64 (lua_tointeger (L, -1)));
-          break;
-        case LUA_TSTRING:
-          g_variant_builder_add (&b, "{sv}", key,
-              g_variant_new_string (lua_tostring (L, -1)));
-          break;
-        case LUA_TUSERDATA: {
-          GValue *v = lua_touserdata (L, -1);
-          gpointer p = NULL;
-          if (G_VALUE_HOLDS_OBJECT (v)) {
-            p = g_value_get_object (v);
-          } else if (G_VALUE_HOLDS_BOXED (v)) {
-            p = g_value_get_boxed (v);
-          } else if (G_VALUE_HOLDS_POINTER (v)) {
-            p = g_value_get_pointer (v);
-          } else {
-            luaL_error (L, "Key '%s' does not hold a valid pointer", key);
-            break;
-          }
-          g_variant_builder_add (&b, "{sv}", key,
-              g_variant_new_uint64 ((guint64)p));
-          break;
-        }
-        default:
-          luaL_error (L, "Key '%s' with value type '%s' is not supported", key,
-              lua_typename(L, lua_type(L, -1)));
-          break;
+    const gchar *key = NULL;
+    GVariant *var = NULL;
+
+    switch (lua_type (L, -1)) {
+      case LUA_TUSERDATA: {
+        GValue *v = lua_touserdata (L, -1);
+        gpointer p = g_value_peek_pointer (v);
+        var = g_variant_new_uint64 ((guint64) p);
+        break;
       }
+      default:
+        var = wplua_lua_to_gvariant (L, -1);
+        break;
     }
-    lua_pop (L, 1);
+
+    key = luaL_tolstring (L, -2, NULL);
+    g_variant_builder_add (&b, "{sv}", key, var);
+    lua_pop (L, 2);
   }
   config = g_variant_builder_end (&b);
 

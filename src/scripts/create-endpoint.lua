@@ -32,12 +32,12 @@ function addEndpoint (node, session_name, endpoint_type, priority)
   session_items.endpoints[id] = SessionItem ( endpoint_type )
 
   -- configure endpoint
-  if not session_items.endpoints[id]:configure ({
-      "node", node,
-      "name", name,
-      "media-class", media_class,
-      "priority", priority,
-      }) then
+  if not session_items.endpoints[id]:configure {
+      ["node"] = node,
+      ["name"] = name,
+      ["media-class"] = media_class,
+      ["priority"] = priority,
+  } then
     Log.warning(node, "failed to configure endpoint");
     return
   end
@@ -56,9 +56,9 @@ function addEndpoint (node, session_name, endpoint_type, priority)
         local monitor = SessionItem ( "si-monitor-endpoint" )
 
         -- configure monitor
-        if not monitor:configure ({
-            "adapter", session_items.endpoints[id]
-          }) then
+        if not monitor:configure {
+            ["adapter"] = session_items.endpoints[id]
+        } then
           Log.warning(monitor, "failed to configure monitor " .. name);
           return
         end
