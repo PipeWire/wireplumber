@@ -17,19 +17,17 @@ function addEndpoint (node, session_name, endpoint_type, priority)
   local name = nil
 
   -- find the session
-  session = sessions_om:lookup(Interest { type = "session",
-    Constraint { "session.name", "=", session_name, type = "pw-global" }
-  })
+  session = sessions_om:lookup {
+    type = "session",
+    Constraint { "session.name", "=", session_name }
+  }
   if session == nil then
     Log.warning(node, "could not find session");
     return
   end
 
   -- get the endpoint name
-  name = node.properties['node.name']
-  if name == nil then
-    name = "endpoint.node." .. id
-  end
+  name = node.properties['node.name'] or "endpoint.node." .. id
 
   -- create endpoint
   session_items.endpoints[id] = SessionItem ( endpoint_type )

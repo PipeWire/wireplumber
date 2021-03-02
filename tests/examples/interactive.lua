@@ -65,7 +65,7 @@ obj_mgr:connect("installed", function (om)
   -- Print connected clients
   --
   print ("\nClients:")
-  for obj in om:iterate_filtered(Interest { type = "client" }) do
+  for obj in om:iterate { type = "client" } do
 
     --
     -- 'bound-id' and 'global-properties' are GObject
@@ -82,7 +82,7 @@ obj_mgr:connect("installed", function (om)
   -- Print devices
   --
   print ("\nDevices:")
-  for obj in om:iterate_filtered(Interest { type = "device" }) do
+  for obj in om:iterate { type = "device" } do
     local id = obj["bound-id"]
     local global_props = obj["global-properties"]
 
@@ -116,7 +116,7 @@ obj_mgr:connect("installed", function (om)
   local interest = Interest { type = "node",
     Constraint { "media.class", "matches", "*/Sink" }
   }
-  for obj in om:iterate_filtered(interest) do
+  for obj in om:iterate(interest) do
     printNode(obj)
   end
 
@@ -127,7 +127,7 @@ obj_mgr:connect("installed", function (om)
   local interest = Interest { type = "node",
     Constraint { "media.class", "matches", "*/Source" }
   }
-  for obj in om:iterate_filtered(interest) do
+  for obj in om:iterate(interest) do
     printNode(obj)
   end
 
@@ -138,7 +138,7 @@ obj_mgr:connect("installed", function (om)
   local interest = Interest { type = "node",
     Constraint { "media.class", "matches", "Stream/*" }
   }
-  for obj in om:iterate_filtered(interest) do
+  for obj in om:iterate(interest) do
     printNode(obj)
   end
 

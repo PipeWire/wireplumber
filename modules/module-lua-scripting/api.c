@@ -462,17 +462,17 @@ object_interest_new_add_constraint (lua_State *L, GType type,
 }
 
 static int
-object_interest_new (lua_State *L)
+object_interest_new_index (lua_State *L, int idx)
 {
   WpObjectInterest *interest = NULL;
   GType type = 0;
   gchar *typestr;
 
-  luaL_checktype (L, 1, LUA_TTABLE);
+  luaL_checktype (L, idx, LUA_TTABLE);
 
   /* type = "string" -> required */
   lua_pushliteral (L, "type");
-  if (lua_gettable (L, -2) != LUA_TSTRING)
+  if (lua_gettable (L, idx) != LUA_TSTRING)
     luaL_error (L, "Interest: expected 'type' as string");
 
   /* "device" -> "WpDevice" */
@@ -492,7 +492,7 @@ object_interest_new (lua_State *L)
 
   /* add constraints */
   lua_pushnil (L);
-  while (lua_next (L, 1)) {
+  while (lua_next (L, idx)) {
     /* if the key isn't "type" */
     if (!(lua_type (L, -2) == LUA_TSTRING &&
           !g_strcmp0 ("type", lua_tostring (L, -2))))
@@ -501,6 +501,12 @@ object_interest_new (lua_State *L)
   }
 
   return 1;
+}
+
+static int
+object_interest_new (lua_State *L)
+{
+  return object_interest_new_index (L, 1);
 }
 
 static int
@@ -526,6 +532,20 @@ static const luaL_Reg object_interest_methods[] = {
   { "matches", object_interest_matches },
   { NULL, NULL }
 };
+
+static WpObjectInterest *
+get_optional_object_interest (lua_State *L, int idx)
+{
+  if (lua_isnil (L, idx))
+    return NULL;
+  else if (lua_isuserdata (L, idx))
+    return wplua_checkboxed (L, idx, WP_TYPE_OBJECT_INTEREST);
+  else if (lua_istable (L, idx)) {
+    object_interest_new_index (L, idx);
+    return wplua_toboxed (L, -1);
+  } else
+    return NULL;
+}
 
 /* WpObjectManager */
 
@@ -574,17 +594,11 @@ static int
 object_manager_iterate (lua_State *L)
 {
   WpObjectManager *om = wplua_checkobject (L, 1, WP_TYPE_OBJECT_MANAGER);
-  WpIterator *it = wp_object_manager_new_iterator (om);
-  return push_wpiterator (L, it);
-}
-
-static int
-object_manager_iterate_filtered (lua_State *L)
-{
-  WpObjectManager *om = wplua_checkobject (L, 1, WP_TYPE_OBJECT_MANAGER);
-  WpObjectInterest *oi = wplua_checkboxed (L, 2, WP_TYPE_OBJECT_INTEREST);
-  WpIterator *it = wp_object_manager_new_filtered_iterator_full (om,
-      wp_object_interest_ref (oi));
+  WpObjectInterest *oi = get_optional_object_interest (L, 2);
+  WpIterator *it = oi ?
+      wp_object_manager_new_filtered_iterator_full (om,
+          wp_object_interest_ref (oi)) :
+      wp_object_manager_new_iterator (om);
   return push_wpiterator (L, it);
 }
 
@@ -592,13 +606,10 @@ static int
 object_manager_lookup (lua_State *L)
 {
   WpObjectManager *om = wplua_checkobject (L, 1, WP_TYPE_OBJECT_MANAGER);
-  WpObject *o = NULL;
-  if (lua_isuserdata (L, 2)) {
-    WpObjectInterest *oi = wplua_checkboxed (L, 2, WP_TYPE_OBJECT_INTEREST);
-    o = wp_object_manager_lookup_full (om, wp_object_interest_ref (oi));
-  } else {
-    o = wp_object_manager_lookup (om, WP_TYPE_OBJECT, NULL);
-  }
+  WpObjectInterest *oi = get_optional_object_interest (L, 2);
+  WpObject *o = oi ?
+      wp_object_manager_lookup_full (om, wp_object_interest_ref (oi)) :
+      wp_object_manager_lookup (om, G_TYPE_OBJECT, NULL);
   if (o) {
     wplua_pushobject (L, o);
     return 1;
@@ -609,7 +620,6 @@ object_manager_lookup (lua_State *L)
 static const luaL_Reg object_manager_methods[] = {
   { "activate", object_manager_activate },
   { "iterate", object_manager_iterate },
-  { "iterate_filtered", object_manager_iterate_filtered },
   { "lookup", object_manager_lookup },
   { NULL, NULL }
 };
@@ -649,14 +659,11 @@ static int
 session_iterate_endpoints (lua_State *L)
 {
   WpSession *session = wplua_checkobject (L, 1, WP_TYPE_SESSION);
-  WpIterator *it = NULL;
-  if (lua_isuserdata (L, 2)) {
-    WpObjectInterest *oi = wplua_checkboxed (L, 2, WP_TYPE_OBJECT_INTEREST);
-    it = wp_session_new_endpoints_filtered_iterator_full (session,
-        wp_object_interest_ref (oi));
-  } else {
-    it = wp_session_new_endpoints_iterator (session);
-  }
+  WpObjectInterest *oi = get_optional_object_interest (L, 2);
+  WpIterator *it = oi ?
+      wp_session_new_endpoints_filtered_iterator_full (session,
+          wp_object_interest_ref (oi)) :
+      wp_session_new_endpoints_iterator (session);
   return push_wpiterator (L, it);
 }
 
@@ -664,31 +671,26 @@ static int
 session_lookup_endpoint (lua_State *L)
 {
   WpSession *session = wplua_checkobject (L, 1, WP_TYPE_SESSION);
-  WpEndpoint *ep = NULL;
-  if (lua_isuserdata (L, 2)) {
-    WpObjectInterest *oi = wplua_checkboxed (L, 2, WP_TYPE_OBJECT_INTEREST);
-    ep = wp_session_lookup_endpoint_full (session, wp_object_interest_ref (oi));
-  } else {
-    ep = wp_session_lookup_endpoint (session, NULL);
+  WpObjectInterest *oi = get_optional_object_interest (L, 2);
+  WpEndpoint *ep = oi ?
+      wp_session_lookup_endpoint_full (session, wp_object_interest_ref (oi)) :
+      wp_session_lookup_endpoint (session, NULL);
+  if (ep) {
+    wplua_pushobject (L, ep);
+    return 1;
   }
-  if (!ep)
-    return 0;
-  wplua_pushobject (L, ep);
-  return 1;
+  return 0;
 }
 
 static int
 session_iterate_links (lua_State *L)
 {
   WpSession *session = wplua_checkobject (L, 1, WP_TYPE_SESSION);
-  WpIterator *it = NULL;
-  if (lua_isuserdata (L, 2)) {
-    WpObjectInterest *oi = wplua_checkboxed (L, 2, WP_TYPE_OBJECT_INTEREST);
-    it = wp_session_new_links_filtered_iterator_full (session,
-        wp_object_interest_ref (oi));
-  } else {
-    it = wp_session_new_links_iterator (session);
-  }
+  WpObjectInterest *oi = get_optional_object_interest (L, 2);
+  WpIterator *it = oi ?
+      wp_session_new_links_filtered_iterator_full (session,
+          wp_object_interest_ref (oi)) :
+      wp_session_new_links_iterator (session);
   return push_wpiterator (L, it);
 }
 
@@ -696,16 +698,14 @@ static int
 session_lookup_link (lua_State *L)
 {
   WpSession *session = wplua_checkobject (L, 1, WP_TYPE_SESSION);
-  WpEndpointLink *l = NULL;
-  if (lua_isuserdata (L, 2)) {
-    WpObjectInterest *oi = wplua_checkboxed (L, 2, WP_TYPE_OBJECT_INTEREST);
-    l = wp_session_lookup_link_full (session, wp_object_interest_ref (oi));
-  } else {
-    l = wp_session_lookup_link (session, NULL);
+  WpObjectInterest *oi = get_optional_object_interest (L, 2);
+  WpEndpointLink *l = oi ?
+      wp_session_lookup_link_full (session, wp_object_interest_ref (oi)) :
+      wp_session_lookup_link (session, NULL);
+  if (l) {
+    wplua_pushobject (L, l);
+    return 1;
   }
-  if (!l)
-    return 0;
-  wplua_pushobject (L, l);
   return 0;
 }
 
