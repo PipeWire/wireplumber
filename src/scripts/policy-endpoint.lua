@@ -115,12 +115,10 @@ end
 function moveEndpointFromNodeId (ep_node_id, target_node_id)
   for session in om_session:iterate() do
     local ep = session:lookup_endpoint {
-        type = "endpoint",
         Constraint { "node.id", "=", tostring(ep_node_id), type = "pw" }
     }
     if ep then
       local target = session:lookup_endpoint {
-          type = "endpoint",
           Constraint { "node.id", "=", tostring(target_node_id), type = "pw" }
       }
       if target then
@@ -139,14 +137,12 @@ function reevaluateAutoLinkedEndpoints (ep_media_class, target_id)
   default_endpoint_target[ep_media_class] = target_id
 
   -- move auto linked endpoints to the new target
-  for session in om_session:iterate { type = "session" } do
+  for session in om_session:iterate() do
     local target = session:lookup_endpoint {
-        type = "endpoint",
         Constraint { "bound-id", "=", target_id, type = "gobject" }
     }
     if target then
       for ep in session:iterate_endpoints {
-          type = "endpoint",
           Constraint { "media-class", "=", ep_media_class, type = "gobject" },
       } do
         if auto_linked_endpoints[ep["bound-id"]] == true then
@@ -272,7 +268,6 @@ om_metadata:connect("object-added", function (om, metadata)
       moveEndpointFromNodeId (subject, tonumber (value))
     elseif config.follow and string.find(key, "default.session.endpoint") then
       local session = om_session:lookup {
-          type = "session",
           Constraint { "bound-id", "=", subject, type = "gobject" }
       }
       if session then

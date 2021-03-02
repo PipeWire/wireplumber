@@ -18,7 +18,6 @@ function addEndpoint (node, session_name, endpoint_type, priority)
 
   -- find the session
   session = sessions_om:lookup {
-    type = "session",
     Constraint { "session.name", "=", session_name }
   }
   if session == nil then

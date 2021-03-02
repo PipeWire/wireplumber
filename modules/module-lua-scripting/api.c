@@ -462,30 +462,31 @@ object_interest_new_add_constraint (lua_State *L, GType type,
 }
 
 static int
-object_interest_new_index (lua_State *L, int idx)
+object_interest_new_index (lua_State *L, int idx, GType def_type)
 {
   WpObjectInterest *interest = NULL;
-  GType type = 0;
+  GType type = def_type;
   gchar *typestr;
 
   luaL_checktype (L, idx, LUA_TTABLE);
 
-  /* type = "string" -> required */
+  /* type = "string" */
   lua_pushliteral (L, "type");
-  if (lua_gettable (L, idx) != LUA_TSTRING)
-    luaL_error (L, "Interest: expected 'type' as string");
+  if (lua_gettable (L, idx) == LUA_TSTRING) {
+    /* "device" -> "WpDevice" */
+    typestr = g_strdup_printf ("Wp%s", lua_tostring (L, -1));
+    if (typestr[2] != 0) {
+      typestr[2] = g_ascii_toupper (typestr[2]);
+      type = g_type_from_name (typestr);
+    }
+    g_free (typestr);
 
-  /* "device" -> "WpDevice" */
-  typestr = g_strdup_printf ("Wp%s", lua_tostring (L, -1));
-  if (typestr[2] != 0) {
-    typestr[2] = g_ascii_toupper (typestr[2]);
-    type = g_type_from_name (typestr);
+    if (type == G_TYPE_INVALID)
+      luaL_error (L, "Interest: unknown type '%s'", lua_tostring (L, -1));
   }
-  g_free (typestr);
+  else if (def_type == G_TYPE_INVALID)
+    luaL_error (L, "Interest: expected 'type' as string");
   lua_pop (L, 1);
-
-  if (!type)
-    luaL_error (L, "Interest: unknown type '%s'", lua_tostring (L, -1));
 
   interest = wp_object_interest_new_type (type);
   wplua_pushboxed (L, WP_TYPE_OBJECT_INTEREST, interest);
@@ -506,7 +507,7 @@ object_interest_new_index (lua_State *L, int idx)
 static int
 object_interest_new (lua_State *L)
 {
-  return object_interest_new_index (L, 1);
+  return object_interest_new_index (L, 1, G_TYPE_INVALID);
 }
 
 static int
@@ -534,14 +535,14 @@ static const luaL_Reg object_interest_methods[] = {
 };
 
 static WpObjectInterest *
-get_optional_object_interest (lua_State *L, int idx)
+get_optional_object_interest (lua_State *L, int idx, GType def_type)
 {
   if (lua_isnil (L, idx))
     return NULL;
   else if (lua_isuserdata (L, idx))
     return wplua_checkboxed (L, idx, WP_TYPE_OBJECT_INTEREST);
   else if (lua_istable (L, idx)) {
-    object_interest_new_index (L, idx);
+    object_interest_new_index (L, idx, def_type);
     return wplua_toboxed (L, -1);
   } else
     return NULL;
@@ -594,7 +595,7 @@ static int
 object_manager_iterate (lua_State *L)
 {
   WpObjectManager *om = wplua_checkobject (L, 1, WP_TYPE_OBJECT_MANAGER);
-  WpObjectInterest *oi = get_optional_object_interest (L, 2);
+  WpObjectInterest *oi = get_optional_object_interest (L, 2, G_TYPE_OBJECT);
   WpIterator *it = oi ?
       wp_object_manager_new_filtered_iterator_full (om,
           wp_object_interest_ref (oi)) :
@@ -606,7 +607,7 @@ static int
 object_manager_lookup (lua_State *L)
 {
   WpObjectManager *om = wplua_checkobject (L, 1, WP_TYPE_OBJECT_MANAGER);
-  WpObjectInterest *oi = get_optional_object_interest (L, 2);
+  WpObjectInterest *oi = get_optional_object_interest (L, 2, G_TYPE_OBJECT);
   WpObject *o = oi ?
       wp_object_manager_lookup_full (om, wp_object_interest_ref (oi)) :
       wp_object_manager_lookup (om, G_TYPE_OBJECT, NULL);
@@ -659,7 +660,7 @@ static int
 session_iterate_endpoints (lua_State *L)
 {
   WpSession *session = wplua_checkobject (L, 1, WP_TYPE_SESSION);
-  WpObjectInterest *oi = get_optional_object_interest (L, 2);
+  WpObjectInterest *oi = get_optional_object_interest (L, 2, WP_TYPE_ENDPOINT);
   WpIterator *it = oi ?
       wp_session_new_endpoints_filtered_iterator_full (session,
           wp_object_interest_ref (oi)) :
@@ -671,7 +672,7 @@ static int
 session_lookup_endpoint (lua_State *L)
 {
   WpSession *session = wplua_checkobject (L, 1, WP_TYPE_SESSION);
-  WpObjectInterest *oi = get_optional_object_interest (L, 2);
+  WpObjectInterest *oi = get_optional_object_interest (L, 2, WP_TYPE_ENDPOINT);
   WpEndpoint *ep = oi ?
       wp_session_lookup_endpoint_full (session, wp_object_interest_ref (oi)) :
       wp_session_lookup_endpoint (session, NULL);
@@ -686,7 +687,7 @@ static int
 session_iterate_links (lua_State *L)
 {
   WpSession *session = wplua_checkobject (L, 1, WP_TYPE_SESSION);
-  WpObjectInterest *oi = get_optional_object_interest (L, 2);
+  WpObjectInterest *oi = get_optional_object_interest (L, 2, WP_TYPE_ENDPOINT_LINK);
   WpIterator *it = oi ?
       wp_session_new_links_filtered_iterator_full (session,
           wp_object_interest_ref (oi)) :
@@ -698,7 +699,7 @@ static int
 session_lookup_link (lua_State *L)
 {
   WpSession *session = wplua_checkobject (L, 1, WP_TYPE_SESSION);
-  WpObjectInterest *oi = get_optional_object_interest (L, 2);
+  WpObjectInterest *oi = get_optional_object_interest (L, 2, WP_TYPE_ENDPOINT_LINK);
   WpEndpointLink *l = oi ?
       wp_session_lookup_link_full (session, wp_object_interest_ref (oi)) :
       wp_session_lookup_link (session, NULL);

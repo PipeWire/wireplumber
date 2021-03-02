@@ -35,7 +35,6 @@ function setPermissions (client, nodes_om, allow_client, allow_nodes)
 
   -- Update permissions on client's nodes
   for node in nodes_om:iterate {
-    type = "node",
     Constraint { "client.id", "=", client_id },
     Constraint { "media.role", "=", "Camera" },
     Constraint { "media.class", "=", "Video/Source" },
@@ -114,7 +113,6 @@ if pps_plugin then
     if table == "devices" or id == "camera" then
       for app_id, _ in pairs(permissions) do
         for client in clients_om:iterate {
-            type = "client",
             Constraint { "pipewire.access.portal.app_id", "=", app_id }
         } do
           updateClientPermissions (client, nodes_om, permissions)
