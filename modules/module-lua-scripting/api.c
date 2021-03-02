@@ -402,8 +402,7 @@ object_interest_new_add_constraint (lua_State *L, GType type,
   if (lua_gettable (L, constraint_idx) == LUA_TNUMBER)
     ctype = lua_tointeger (L, -1);
   else
-    ctype = g_type_is_a (type, WP_TYPE_GLOBAL_PROXY) ?
-        WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY : WP_CONSTRAINT_TYPE_G_PROPERTY;
+    ctype = WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY;
   lua_pop (L, 1);
 
   /* get t[1] (the subject) and t[2] (the verb) */
