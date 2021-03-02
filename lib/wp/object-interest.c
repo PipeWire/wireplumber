@@ -335,8 +335,6 @@ gboolean
 wp_object_interest_validate (WpObjectInterest * self, GError ** error)
 {
   struct constraint *c;
-  gboolean is_pwobj;
-  gboolean is_global;
   gboolean is_props;
 
   g_return_val_if_fail (self != NULL, FALSE);
@@ -352,8 +350,6 @@ wp_object_interest_validate (WpObjectInterest * self, GError ** error)
     return FALSE;
   }
 
-  is_pwobj = g_type_is_a (self->gtype, WP_TYPE_PIPEWIRE_OBJECT);
-  is_global = g_type_is_a (self->gtype, WP_TYPE_GLOBAL_PROXY);
   is_props = g_type_is_a (self->gtype, WP_TYPE_PROPERTIES);
 
   pw_array_for_each (c, &self->constraints) {
@@ -363,21 +359,6 @@ wp_object_interest_validate (WpObjectInterest * self, GError ** error)
         c->type > WP_CONSTRAINT_TYPE_G_PROPERTY) {
       g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
           "invalid constraint type %d", c->type);
-      return FALSE;
-    }
-
-    if (!is_pwobj && !is_props && c->type == WP_CONSTRAINT_TYPE_PW_PROPERTY) {
-      g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
-          "constraint type %d cannot apply to type '%s' "
-          "(not a WpPipewireObject or WpProperties)",
-          c->type, g_type_name (self->gtype));
-      return FALSE;
-    }
-
-    if (!is_global && c->type == WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY) {
-      g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
-          "constraint type %d cannot apply to non-WpGlobalProxy type '%s'",
-          c->type, g_type_name (self->gtype));
       return FALSE;
     }
 

@@ -800,11 +800,6 @@ test_object_interest_validate (TestFixture * f, gconstpointer data)
   i = wp_object_interest_new (WP_TYPE_NODE, 32, "object.id", "+", NULL);
   TEST_EXPECT_VALIDATION_ERROR (i);
 
-  /* non-WpPipewireObject type with pw property constraint */
-  i = wp_object_interest_new (TEST_TYPE_A,
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "object.id", "+", NULL);
-  TEST_EXPECT_VALIDATION_ERROR (i);
-
   /* bad verb; the varargs constructor would assert here */
   i = wp_object_interest_new_type (WP_TYPE_NODE);
   wp_object_interest_add_constraint (i, WP_CONSTRAINT_TYPE_PW_PROPERTY,
