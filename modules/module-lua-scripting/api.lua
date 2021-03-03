@@ -120,6 +120,7 @@ SANDBOX_EXPORT = {
   SpaDevice = WpSpaDevice_new,
   Node = WpNode_new,
   LocalNode = WpImplNode_new,
+  Link = WpLink_new,
   ImplSession = WpImplSession_new,
   Pod = WpSpaPod,
 }

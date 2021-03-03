@@ -945,6 +945,24 @@ impl_node_new (lua_State *L)
   return 1;
 }
 
+/* Link */
+
+static int
+link_new (lua_State *L)
+{
+  const char *factory = luaL_checkstring (L, 1);
+  WpProperties *properties = NULL;
+
+  if (lua_type (L, 2) != LUA_TNONE) {
+    luaL_checktype (L, 2, LUA_TTABLE);
+    properties = wplua_table_to_properties (L, 2);
+  }
+
+  WpLink *l = wp_link_new_from_factory (get_wp_core (L), factory, properties);
+  wplua_pushobject (L, l);
+  return 1;
+}
+
 /* Client */
 
 static gboolean
@@ -1193,6 +1211,8 @@ wp_lua_scripting_api_init (lua_State *L)
       node_new, node_methods);
   wplua_register_type_methods (L, WP_TYPE_IMPL_NODE,
       impl_node_new, NULL);
+  wplua_register_type_methods (L, WP_TYPE_LINK,
+      link_new, NULL);
   wplua_register_type_methods (L, WP_TYPE_CLIENT,
       NULL, client_methods);
   wplua_register_type_methods (L, WP_TYPE_SESSION_ITEM,
