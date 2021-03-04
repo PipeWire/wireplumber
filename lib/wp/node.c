@@ -203,7 +203,7 @@ wp_node_class_init (WpNodeClass * klass)
    * @new_state: the new state
    *
    * Emitted when the node changes state. This is only emitted
-   * when %WP_PROXY_FEATURE_INFO is enabled.
+   * when %WP_PIPEWIRE_OBJECT_FEATURE_INFO is enabled.
    */
   signals[SIGNAL_STATE_CHANGED] = g_signal_new (
       "state-changed", G_TYPE_FROM_CLASS (klass),
@@ -681,7 +681,7 @@ wp_impl_node_new_wrap (WpCore * core, struct pw_impl_node * node)
  * @factory_name.
  *
  * To export this node to the PipeWire server, you need to call
- * wp_proxy_augment() requesting %WP_PROXY_FEATURE_BOUND and
+ * wp_object_activate() requesting %WP_PROXY_FEATURE_BOUND and
  * wait for the operation to complete.
  *
  * Returns: (nullable) (transfer full): A new #WpImplNode wrapping the

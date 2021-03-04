@@ -7,8 +7,8 @@
  */
 
 /**
- * SECTION: WpSessionBin
- * @title: Session Bin
+ * SECTION: session-bin
+ * @title: Session Item Bin
  */
 
 #define G_LOG_DOMAIN "wp-sb"

@@ -7,7 +7,8 @@
  */
 
 /**
- * SECTION: WpProperties
+ * SECTION: properties
+ * @title: PipeWire Properties Dictionary
  *
  * #WpProperties is a data structure that contains string key-value pairs,
  * which are used to send/receive/attach arbitrary properties to PipeWire

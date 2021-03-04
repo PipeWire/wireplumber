@@ -365,7 +365,7 @@ static const WpIteratorMethods metadata_iterator_methods = {
 /**
  * wp_metadata_new_iterator:
  * @self: a metadata object
- * @subject: the metadata subject id, or %PW_ID_ANY
+ * @subject: the metadata subject id, or -1 (PW_ID_ANY)
  *
  * Iterates over metadata items that matches the given @subject. If no
  * constraints are specified, the returned iterator iterates over all the

@@ -6,6 +6,11 @@
  * SPDX-License-Identifier: MIT
  */
 
+/**
+ * SECTION: spa-pod
+ * @title: Spa Pod (Plain Old Data)
+ */
+
 #define G_LOG_DOMAIN "wp-spa-pod"
 
 #include "spa-pod.h"
@@ -316,7 +321,7 @@ wp_spa_pod_get_spa_pod (const WpSpaPod *self)
  * If the pod is an object property or a control, this will return the type
  * of the contained value.
  *
- * Returns: the type of the spa pod
+ * Returns: (transfer none): the type of the spa pod
  */
 WpSpaType
 wp_spa_pod_get_spa_type (WpSpaPod *self)
@@ -2220,16 +2225,16 @@ wp_spa_pod_builder_add_property_id (WpSpaPodBuilder *self, guint32 id)
  * wp_spa_pod_builder_add_control:
  * @self: the spa pod builder object
  * @offset: the offset of the control
- * @type_name: the type name of the control
+ * @ctl_type: the type name of the control
  *
  * Adds a control into the builder
  */
 void
 wp_spa_pod_builder_add_control (WpSpaPodBuilder *self, guint32 offset,
-    const char *type_name)
+    const char *ctl_type)
 {
   WpSpaIdValue id = wp_spa_id_value_from_short_name (
-      SPA_TYPE_INFO_Control, type_name);
+      SPA_TYPE_INFO_Control, ctl_type);
   g_return_if_fail (id != NULL);
   spa_pod_builder_control (&self->builder, offset, wp_spa_id_value_number (id));
 }

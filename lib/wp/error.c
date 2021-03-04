@@ -7,7 +7,8 @@
  */
 
 /**
- * SECTION: Error
+ * SECTION: error
+ * @title: Error codes
  *
  * Error domain and codes for #GError
  */

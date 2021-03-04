@@ -7,7 +7,7 @@
  */
 
 /**
- * SECTION: WpSessionItem
+ * SECTION: session-item
  * @title: Session Items
  */
 

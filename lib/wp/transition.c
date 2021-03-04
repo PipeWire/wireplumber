@@ -7,7 +7,8 @@
  */
 
 /**
- * SECTION: WpTransition
+ * SECTION: transition
+ * @title: Transitions
  *
  * A transition is an asynchronous operation, like #GTask, that contains
  * an internal state machine, where a series of 'steps' are executed in order

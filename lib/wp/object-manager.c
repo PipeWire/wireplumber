@@ -7,7 +7,8 @@
  */
 
 /**
- * SECTION: WpObjectManager
+ * SECTION: object-manager
+ * @title: Object Manager
  *
  * The #WpObjectManager class provides a way to collect a set of objects
  * and be notified when objects that fulfill a certain set of criteria are

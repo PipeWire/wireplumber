@@ -7,8 +7,8 @@
  */
 
 /**
- * SECTION: WpSiInterfaces
- * @title: WpSessionItem Interfaces
+ * SECTION: si-interfaces
+ * @title: Session Item Interfaces
  */
 
 #define G_LOG_DOMAIN "wp-si-interfaces"

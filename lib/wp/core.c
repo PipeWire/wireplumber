@@ -7,7 +7,8 @@
  */
 
 /**
- * SECTION: WpCore
+ * SECTION: core
+ * @title: Core
  *
  * The core is the central object around which everything operates. It is
  * essential to create a #WpCore before using any other WirePlumber API.

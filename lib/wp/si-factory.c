@@ -7,7 +7,7 @@
  */
 
 /**
- * SECTION: WpSiFactory
+ * SECTION: si-factory
  * @title: Session Items Factory
  */
 

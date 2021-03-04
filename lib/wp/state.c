@@ -7,7 +7,8 @@
  */
 
 /**
- * SECTION: WpState
+ * SECTION: state
+ * @title: State Storage
  *
  * The #WpState class saves and loads properties from a file
  */

@@ -24,16 +24,21 @@
  * On the top level, there is a list of types like Int, Bool, String, Id, Object.
  * These are called fundamental types (terms borrowed from #GType).
  * Fundamental types can be derived and therefore we can have other types
- * that represent specific enums or objects, for instance.
+ * that represent specific objects, for instance.
  *
- * Enum and flag types are all derived directly from `SPA_TYPE_Id`. These types
+ * Enum and flag types are all represented with `SPA_TYPE_Id`. These types
  * may have a list of possible values that one can select from (enums)
- * or combine (flags). These values are accessed with the #WpSpaIdValue API.
+ * or combine (flags). These values are accessed with the #WpSpaIdTable API.
  *
  * Object types can have fields. All objects always have a special "id" field,
- * whose type can be given by wp_spa_object_type_get_id_type() and optionally,
- * they can also have other object-specific fields, which are also accessed
- * with the #WpSpaIdValue API.
+ * which is an enum. Its possible values can be given by
+ * wp_spa_type_get_object_id_values_table(). Optionally, objects can also have
+ * other object-specific fields, which can be accessed with
+ * wp_spa_type_get_values_table().
+ *
+ * Every object field or enum value is represented by a #WpSpaIdValue. In the
+ * case of object fields, each field can be of a specific type, which is
+ * returned by wp_spa_id_value_get_value_type().
  */
 
 #define G_LOG_DOMAIN "wp-spa-type"
@@ -159,7 +164,8 @@ wp_spa_type_info_find_by_name (const gchar *name)
  *
  * Looks up the type id from a given type name
  *
- * Returns: the corresponding type id or %WP_SPA_TYPE_INVALID if not found
+ * Returns: (transfer none): the corresponding type id or %WP_SPA_TYPE_INVALID
+ *   if not found
  */
 WpSpaType
 wp_spa_type_from_name (const gchar *name)
@@ -172,8 +178,9 @@ wp_spa_type_from_name (const gchar *name)
  * wp_spa_type_parent:
  * @type: a type id
  *
- * Returns: the direct parent type of the given @type; if the type is
- *   fundamental (i.e. has no parent), the returned type is the same as @type
+ * Returns: (transfer none): the direct parent type of the given @type; if the
+ *   type is fundamental (i.e. has no parent), the returned type is the same
+ *   as @type
  */
 WpSpaType
 wp_spa_type_parent (WpSpaType type)
@@ -331,6 +338,18 @@ static const WpIteratorMethods spa_type_info_iterator_methods = {
   .fold = spa_type_info_iterator_fold,
 };
 
+/**
+ * wp_spa_id_table_from_name:
+ * @name: the full name of an id table
+ *
+ * Finds a #WpSpaIdTable given its name. This name can either be the full type
+ * name of an object type, or the name of an enum (which is not(!!) a type).
+ *
+ * For example, "Spa:Pod:Object:Param:Format" and "Spa:Enum:ParamId" are
+ * both valid table names.
+ *
+ * Returns: (nullable): the associated table, or %NULL
+ */
 WpSpaIdTable
 wp_spa_id_table_from_name (const gchar *name)
 {
@@ -362,7 +381,7 @@ wp_spa_id_table_from_name (const gchar *name)
 
 /**
  * wp_spa_id_table_new_iterator:
- * @type: the id table
+ * @table: the id table
  *
  * This function returns an iterator that allows you to iterate through the
  * values associated with this table.
@@ -383,6 +402,13 @@ wp_spa_id_table_new_iterator (WpSpaIdTable table)
   return it;
 }
 
+/**
+ * wp_spa_id_table_find_value:
+ * @table: the id table
+ * @value: a numeric value that is contained in the table
+ *
+ * Returns: (nullable): the #WpSpaIdValue associated with @value, or %NULL
+ */
 WpSpaIdValue
 wp_spa_id_table_find_value (WpSpaIdTable table, guint value)
 {
@@ -397,6 +423,13 @@ wp_spa_id_table_find_value (WpSpaIdTable table, guint value)
   return NULL;
 }
 
+/**
+ * wp_spa_id_table_find_value_from_name:
+ * @table: the id table
+ * @name: the full name of a value that is contained in the table
+ *
+ * Returns: (nullable): the #WpSpaIdValue associated with @name, or %NULL
+ */
 WpSpaIdValue
 wp_spa_id_table_find_value_from_name (WpSpaIdTable table, const gchar * name)
 {
@@ -411,6 +444,13 @@ wp_spa_id_table_find_value_from_name (WpSpaIdTable table, const gchar * name)
   return NULL;
 }
 
+/**
+ * wp_spa_id_table_find_value_from_short_name:
+ * @table: the id table
+ * @short_name: the short name of a value that is contained in the table
+ *
+ * Returns: (nullable): the #WpSpaIdValue associated with @short_name, or %NULL
+ */
 WpSpaIdValue
 wp_spa_id_table_find_value_from_short_name (WpSpaIdTable table,
     const gchar * short_name)
@@ -566,7 +606,7 @@ wp_spa_id_value_short_name (WpSpaIdValue id)
  * `SPA_TYPE_Object`, @table is set to point to the #WpSpaIdTable that contains
  * the possible Id values / object fields.
  *
- * Returns: the value type associated with @id
+ * Returns: (transfer none): the value type associated with @id
  */
 WpSpaType
 wp_spa_id_value_get_value_type (WpSpaIdValue id, WpSpaIdTable * table)
@@ -603,8 +643,8 @@ wp_spa_id_value_get_value_type (WpSpaIdValue id, WpSpaIdTable * table)
  * `SPA_TYPE_Object`, @table is set to point to the #WpSpaIdTable that contains
  * the possible Id values / object fields.
  *
- * Returns: the type that is allowed in the array, if @id represents
- *   an object field that takes an array as value
+ * Returns: (transfer none): the type that is allowed in the array, if @id
+ *   represents an object field that takes an array as value
  */
 WpSpaType
 wp_spa_id_value_array_get_item_type (WpSpaIdValue id, WpSpaIdTable * table)
@@ -671,7 +711,7 @@ wp_spa_dynamic_type_deinit (void)
  * otherwise guaranteed to be kept in memory until wp_spa_dynamic_type_deinit()
  * is called. No memory copy is done by this function.
  *
- * Returns: the new type
+ * Returns: (transfer none): the new type
  */
 WpSpaType
 wp_spa_dynamic_type_register (const gchar *name, WpSpaType parent,
