@@ -2,7 +2,6 @@ wp_lib_sources = files(
   'private/pipewire-object-mixin.c',
   'client.c',
   'component-loader.c',
-  'configuration.c',
   'core.c',
   'debug.c',
   'device.c',
@@ -38,7 +37,6 @@ wp_lib_sources = files(
 wp_lib_headers = files(
   'client.h',
   'component-loader.h',
-  'configuration.h',
   'core.h',
   'debug.h',
   'defs.h',

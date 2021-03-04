@@ -11,7 +11,6 @@
 
 #include "client.h"
 #include "component-loader.h"
-#include "configuration.h"
 #include "core.h"
 #include "debug.h"
 #include "device.h"
