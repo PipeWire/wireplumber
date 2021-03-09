@@ -8,6 +8,7 @@
 
 #include <wp/wp.h>
 #include <pipewire/pipewire.h>
+#include <pipewire/extensions/session-manager/keys.h>
 
 #include <spa/utils/names.h>
 #include <spa/param/format.h>
@@ -35,12 +36,12 @@ struct _WpSiConvert
   WpSessionItem *link_to_target;
 };
 
-static void si_convert_stream_init (WpSiStreamInterface * iface);
+static void si_convert_endpoint_init (WpSiEndpointInterface * iface);
 static void si_convert_port_info_init (WpSiPortInfoInterface * iface);
 
 G_DECLARE_FINAL_TYPE(WpSiConvert, si_convert, WP, SI_CONVERT, WpSessionItem)
 G_DEFINE_TYPE_WITH_CODE (WpSiConvert, si_convert, WP_TYPE_SESSION_ITEM,
-    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_STREAM, si_convert_stream_init)
+    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_ENDPOINT, si_convert_endpoint_init)
     G_IMPLEMENT_INTERFACE (WP_TYPE_SI_PORT_INFO, si_convert_port_info_init))
 
 static void
@@ -174,19 +175,19 @@ do_link_to_target (WpSiConvert *self)
 
   if (self->direction == WP_DIRECTION_INPUT) {
       /* Playback */
-      g_variant_builder_add (&b, "{sv}", "out-stream",
-          g_variant_new_uint64 ((guint64) WP_SI_STREAM (self)));
-      g_variant_builder_add (&b, "{sv}", "out-stream-port-context",
+      g_variant_builder_add (&b, "{sv}", "out-endpoint",
+          g_variant_new_uint64 ((guint64) WP_SI_ENDPOINT (self)));
+      g_variant_builder_add (&b, "{sv}", "out-endpoint-port-context",
           g_variant_new_string ("reverse"));
-      g_variant_builder_add (&b, "{sv}", "in-stream",
-          g_variant_new_uint64 ((guint64) WP_SI_STREAM (self->target)));
+      g_variant_builder_add (&b, "{sv}", "in-endpoint",
+          g_variant_new_uint64 ((guint64) WP_SI_ENDPOINT (self->target)));
   } else {
       /* Capture */
-      g_variant_builder_add (&b, "{sv}", "out-stream",
-          g_variant_new_uint64 ((guint64) WP_SI_STREAM (self->target)));
-      g_variant_builder_add (&b, "{sv}", "in-stream",
-          g_variant_new_uint64 ((guint64) WP_SI_STREAM (self)));
-      g_variant_builder_add (&b, "{sv}", "in-stream-port-context",
+      g_variant_builder_add (&b, "{sv}", "out-endpoint",
+          g_variant_new_uint64 ((guint64) WP_SI_ENDPOINT (self->target)));
+      g_variant_builder_add (&b, "{sv}", "in-endpoint",
+          g_variant_new_uint64 ((guint64) WP_SI_ENDPOINT (self)));
+      g_variant_builder_add (&b, "{sv}", "in-endpoint-port-context",
           g_variant_new_string ("reverse"));
   }
 
@@ -280,7 +281,7 @@ si_convert_activate_execute_step (WpSessionItem * item,
           wp_properties_get (node_props, PW_KEY_NODE_NAME),
           self->name);
       wp_properties_setf (props, PW_KEY_NODE_DESCRIPTION,
-          "Stream volume for %s: %s",
+          "Converter volume for %s: %s",
           wp_properties_get (node_props, PW_KEY_NODE_DESCRIPTION), self->name);
 
       /* Create the node */
@@ -389,36 +390,43 @@ si_convert_activate_rollback (WpSessionItem * item)
 }
 
 static GVariant *
-si_convert_get_stream_registration_info (WpSiStream * item)
+si_convert_get_registration_info (WpSiEndpoint * item)
 {
   WpSiConvert *self = WP_SI_CONVERT (item);
   GVariantBuilder b;
 
-  g_variant_builder_init (&b, G_VARIANT_TYPE ("(sa{ss})"));
+  g_variant_builder_init (&b, G_VARIANT_TYPE ("(ssya{ss})"));
   g_variant_builder_add (&b, "s", self->name);
+  g_variant_builder_add (&b, "s", "Audio/Convert");
+  g_variant_builder_add (&b, "y", (guchar) self->direction);
   g_variant_builder_add (&b, "a{ss}", NULL);
 
   return g_variant_builder_end (&b);
 }
 
 static WpProperties *
-si_convert_get_stream_properties (WpSiStream * self)
+si_convert_get_properties (WpSiEndpoint * item)
 {
-  return NULL;
-}
+  WpSiConvert *self = WP_SI_CONVERT (item);
+  WpProperties *result = wp_properties_new_empty ();
 
-static WpSiEndpoint *
-si_convert_get_stream_parent_endpoint (WpSiStream * self)
-{
-  return WP_SI_ENDPOINT (wp_session_item_get_parent (WP_SESSION_ITEM (self)));
+  wp_properties_set (result, "endpoint.priority", NULL);
+  wp_properties_setf (result, "endpoint.description", "%s", "Audio Converter");
+  wp_properties_setf (result, PW_KEY_ENDPOINT_AUTOCONNECT, "%d", FALSE);
+  wp_properties_set (result, PW_KEY_ENDPOINT_CLIENT_ID, NULL);
+
+  /* associate with the node */
+  wp_properties_setf (result, PW_KEY_NODE_ID, "%d",
+      wp_proxy_get_bound_id (WP_PROXY (self->node)));
+
+  return result;
 }
 
 static void
-si_convert_stream_init (WpSiStreamInterface * iface)
+si_convert_endpoint_init (WpSiEndpointInterface * iface)
 {
-  iface->get_registration_info = si_convert_get_stream_registration_info;
-  iface->get_properties = si_convert_get_stream_properties;
-  iface->get_parent_endpoint = si_convert_get_stream_parent_endpoint;
+  iface->get_registration_info = si_convert_get_registration_info;
+  iface->get_properties = si_convert_get_properties;
 }
 
 static GVariant *

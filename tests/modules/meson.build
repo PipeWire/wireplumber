@@ -35,8 +35,15 @@ test(
 )
 
 test(
-  'test-si-audio-softdsp-endpoint',
-  executable('test-si-audio-softdsp-endpoint', 'si-audio-softdsp-endpoint.c',
+  'test-si-adapter',
+  executable('test-si-adapter', 'si-adapter.c',
+      dependencies: common_deps, c_args: common_args),
+  env: common_env,
+)
+
+test(
+  'test-si-convert',
+  executable('test-si-convert', 'si-convert.c',
       dependencies: common_deps, c_args: common_args),
   env: common_env,
 )

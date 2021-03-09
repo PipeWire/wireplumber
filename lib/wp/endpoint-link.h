@@ -44,8 +44,7 @@ struct _WpEndpointLinkClass
 
 WP_API
 void wp_endpoint_link_get_linked_object_ids (WpEndpointLink * self,
-    guint32 * output_endpoint, guint32 * output_stream,
-    guint32 * input_endpoint, guint32 * input_stream);
+    guint32 * output_endpoint, guint32 * input_endpoint);
 
 WP_API
 WpEndpointLinkState wp_endpoint_link_get_state (WpEndpointLink * self,

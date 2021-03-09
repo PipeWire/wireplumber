@@ -47,63 +47,15 @@ test_si_endpoint_get_properties (WpSiEndpoint * item)
     return wp_properties_new ("test.property", "test-value", NULL);
 }
 
-static guint
-test_si_endpoint_get_n_streams (WpSiEndpoint * item)
-{
-  return 1;
-}
-
-static WpSiStream *
-test_si_endpoint_get_stream (WpSiEndpoint * item, guint index)
-{
-  g_return_val_if_fail (index == 0, NULL);
-  return WP_SI_STREAM (item);
-}
-
 static void
 test_si_endpoint_endpoint_init (WpSiEndpointInterface * iface)
 {
   iface->get_registration_info = test_si_endpoint_get_registration_info;
   iface->get_properties = test_si_endpoint_get_properties;
-  iface->get_n_streams = test_si_endpoint_get_n_streams;
-  iface->get_stream = test_si_endpoint_get_stream;
-}
-
-static GVariant *
-test_si_endpoint_get_stream_registration_info (WpSiStream * self)
-{
-  GVariantBuilder b;
-
-  g_variant_builder_init (&b, G_VARIANT_TYPE ("(sa{ss})"));
-  g_variant_builder_add (&b, "s", "default");
-  g_variant_builder_add (&b, "a{ss}", NULL);
-
-  return g_variant_builder_end (&b);
-}
-
-static WpProperties *
-test_si_endpoint_get_stream_properties (WpSiStream * self)
-{
-  return wp_properties_new ("stream.property", "test-value-2", NULL);
-}
-
-static WpSiEndpoint *
-test_si_endpoint_get_stream_parent_endpoint (WpSiStream * self)
-{
-  return WP_SI_ENDPOINT (g_object_ref (self));
-}
-
-static void
-test_si_endpoint_stream_init (WpSiStreamInterface * iface)
-{
-  iface->get_registration_info = test_si_endpoint_get_stream_registration_info;
-  iface->get_properties = test_si_endpoint_get_stream_properties;
-  iface->get_parent_endpoint = test_si_endpoint_get_stream_parent_endpoint;
 }
 
 G_DEFINE_TYPE_WITH_CODE (TestSiEndpoint, test_si_endpoint, WP_TYPE_SESSION_ITEM,
-    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_ENDPOINT, test_si_endpoint_endpoint_init)
-    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_STREAM, test_si_endpoint_stream_init))
+    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_ENDPOINT, test_si_endpoint_endpoint_init))
 
 static void
 test_si_endpoint_init (TestSiEndpoint * self)

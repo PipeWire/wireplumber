@@ -27,10 +27,6 @@ struct _WpCtl
 static struct {
   union {
     struct {
-      gboolean show_streams;
-    } status;
-
-    struct {
       guint32 id;
       gboolean show_referenced;
       gboolean show_associated;
@@ -119,19 +115,6 @@ print_controls (WpPipewireObject * pwobj)
     printf ("\n");
 }
 
-static void
-print_stream (const GValue *item, gpointer data)
-{
-  WpEndpointStream *stream = g_value_get_object (item);
-  guint32 id = wp_proxy_get_bound_id (WP_PROXY (stream));
-  guint *n_streams = data;
-
-  printf (TREE_INDENT_LINE TREE_INDENT_EMPTY " %s%4u. %-53s",
-      (--(*n_streams) == 0) ? TREE_INDENT_END : TREE_INDENT_NODE,
-      id, wp_endpoint_stream_get_name (stream));
-  print_controls (WP_PIPEWIRE_OBJECT (stream));
-}
-
 static const gchar *
 get_endpoint_friendly_name (WpEndpoint * ep)
 {
@@ -152,13 +135,6 @@ print_endpoint (const GValue *item, gpointer data)
   printf (TREE_INDENT_LINE "%c %4u. %-60s",
       (default_id == id) ? '*' : ' ', id, get_endpoint_friendly_name (ep));
   print_controls (WP_PIPEWIRE_OBJECT (ep));
-
-  if (cmdline.status.show_streams) {
-    g_autoptr (WpIterator) it = wp_endpoint_new_streams_iterator (ep);
-    guint n_streams = wp_endpoint_get_n_streams (ep);
-    wp_iterator_foreach (it, print_stream, &n_streams);
-    printf (TREE_INDENT_LINE "\n");
-  }
 }
 
 static void
@@ -167,30 +143,20 @@ print_endpoint_link (const GValue *item, gpointer data)
   WpEndpointLink *link = g_value_get_object (item);
   WpSession *session = data;
   guint32 id = wp_proxy_get_bound_id (WP_PROXY (link));
-  guint32 out_ep_id, out_stream_id, in_ep_id, in_stream_id;
+  guint32 out_ep_id, in_ep_id;
   g_autoptr (WpEndpoint) out_ep = NULL;
   g_autoptr (WpEndpoint) in_ep = NULL;
-  g_autoptr (WpEndpointStream) out_stream = NULL;
-  g_autoptr (WpEndpointStream) in_stream = NULL;
 
-  wp_endpoint_link_get_linked_object_ids (link,
-      &out_ep_id, &out_stream_id, &in_ep_id, &in_stream_id);
+  wp_endpoint_link_get_linked_object_ids (link, &out_ep_id, &in_ep_id);
 
   out_ep = wp_session_lookup_endpoint (session,
       WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", out_ep_id, NULL);
   in_ep = wp_session_lookup_endpoint (session,
       WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", in_ep_id, NULL);
 
-  out_stream = wp_endpoint_lookup_stream (out_ep,
-      WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", out_stream_id, NULL);
-  in_stream = wp_endpoint_lookup_stream (in_ep,
-      WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", in_stream_id, NULL);
-
-  printf (TREE_INDENT_EMPTY "  %4u. [%u. %s|%s] ➞ [%u. %s|%s]\n", id,
+  printf (TREE_INDENT_EMPTY "  %4u. [%u. %s] ➞ [%u. %s]\n", id,
       out_ep_id, get_endpoint_friendly_name (out_ep),
-      wp_endpoint_stream_get_name (out_stream),
-      in_ep_id, get_endpoint_friendly_name (in_ep),
-      wp_endpoint_stream_get_name (in_stream));
+      in_ep_id, get_endpoint_friendly_name (in_ep));
 }
 
 static void
@@ -625,10 +591,6 @@ set_volume_prepare (WpCtl * self, GError ** error)
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
       "object.id", "=u", cmdline.set_volume.id,
       NULL);
-  wp_object_manager_add_interest (self->om, WP_TYPE_ENDPOINT_STREAM,
-      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
-      "object.id", "=u", cmdline.set_volume.id,
-      NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
       "object.id", "=u", cmdline.set_volume.id,
@@ -711,10 +673,6 @@ static gboolean
 set_mute_prepare (WpCtl * self, GError ** error)
 {
   wp_object_manager_add_interest (self->om, WP_TYPE_ENDPOINT,
-      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
-      "object.id", "=u", cmdline.set_mute.id,
-      NULL);
-  wp_object_manager_add_interest (self->om, WP_TYPE_ENDPOINT_STREAM,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
       "object.id", "=u", cmdline.set_mute.id,
       NULL);
@@ -851,11 +809,7 @@ static const struct subcommand {
     .positional_args = "",
     .summary = "Displays the current state of objects in PipeWire",
     .description = NULL,
-    .entries = {
-      { "streams", 's', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE,
-        &cmdline.status.show_streams, "Also show endpoint streams", NULL },
-      { NULL }
-    },
+    .entries = { { NULL } },
     .parse_positional = NULL,
     .prepare = status_prepare,
     .run = status_run,

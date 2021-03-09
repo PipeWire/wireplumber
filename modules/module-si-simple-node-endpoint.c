@@ -30,14 +30,12 @@ struct _WpSiSimpleNodeEndpoint
 };
 
 static void si_simple_node_endpoint_endpoint_init (WpSiEndpointInterface * iface);
-static void si_simple_node_endpoint_stream_init (WpSiStreamInterface * iface);
 static void si_simple_node_endpoint_port_info_init (WpSiPortInfoInterface * iface);
 
 G_DECLARE_FINAL_TYPE(WpSiSimpleNodeEndpoint, si_simple_node_endpoint,
                      WP, SI_SIMPLE_NODE_ENDPOINT, WpSessionItem)
 G_DEFINE_TYPE_WITH_CODE (WpSiSimpleNodeEndpoint, si_simple_node_endpoint, WP_TYPE_SESSION_ITEM,
     G_IMPLEMENT_INTERFACE (WP_TYPE_SI_ENDPOINT, si_simple_node_endpoint_endpoint_init)
-    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_STREAM, si_simple_node_endpoint_stream_init)
     G_IMPLEMENT_INTERFACE (WP_TYPE_SI_PORT_INFO, si_simple_node_endpoint_port_info_init))
 
 static void
@@ -292,53 +290,11 @@ si_simple_node_endpoint_get_properties (WpSiEndpoint * item)
   return result;
 }
 
-static guint
-si_simple_node_endpoint_get_n_streams (WpSiEndpoint * item)
-{
-  return 1;
-}
-
-static WpSiStream *
-si_simple_node_endpoint_get_stream (WpSiEndpoint * item, guint index)
-{
-  g_return_val_if_fail (index == 0, NULL);
-  return WP_SI_STREAM (item);
-}
-
 static void
 si_simple_node_endpoint_endpoint_init (WpSiEndpointInterface * iface)
 {
   iface->get_registration_info = si_simple_node_endpoint_get_registration_info;
   iface->get_properties = si_simple_node_endpoint_get_properties;
-  iface->get_n_streams = si_simple_node_endpoint_get_n_streams;
-  iface->get_stream = si_simple_node_endpoint_get_stream;
-}
-
-static GVariant *
-si_simple_node_endpoint_get_stream_registration_info (WpSiStream * self)
-{
-  GVariantBuilder b;
-
-  g_variant_builder_init (&b, G_VARIANT_TYPE ("(sa{ss})"));
-  g_variant_builder_add (&b, "s", "default");
-  g_variant_builder_add (&b, "a{ss}", NULL);
-
-  return g_variant_builder_end (&b);
-}
-
-static WpSiEndpoint *
-si_simple_node_endpoint_get_stream_parent_endpoint (WpSiStream * self)
-{
-  return WP_SI_ENDPOINT (g_object_ref (self));
-}
-
-static void
-si_simple_node_endpoint_stream_init (WpSiStreamInterface * iface)
-{
-  iface->get_registration_info =
-      si_simple_node_endpoint_get_stream_registration_info;
-  iface->get_parent_endpoint =
-      si_simple_node_endpoint_get_stream_parent_endpoint;
 }
 
 static GVariant *

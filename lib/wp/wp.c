@@ -71,7 +71,6 @@ wp_init (WpInitFlags flags)
   g_type_ensure (WP_TYPE_DEVICE);
   g_type_ensure (WP_TYPE_ENDPOINT);
   g_type_ensure (WP_TYPE_ENDPOINT_LINK);
-  g_type_ensure (WP_TYPE_ENDPOINT_STREAM);
   g_type_ensure (WP_TYPE_LINK);
   g_type_ensure (WP_TYPE_METADATA);
   g_type_ensure (WP_TYPE_NODE);

@@ -113,33 +113,11 @@ shared_library(
 )
 
 shared_library(
-  'wireplumber-module-si-fake-stream',
-  [
-    'module-si-fake-stream.c',
-  ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-si-fake-stream"'],
-  install : true,
-  install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep, pipewire_dep],
-)
-
-shared_library(
   'wireplumber-module-si-simple-node-endpoint',
   [
     'module-si-simple-node-endpoint.c',
   ],
   c_args : [common_c_args, '-DG_LOG_DOMAIN="m-si-simple-node-endpoint"'],
-  install : true,
-  install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep, pipewire_dep],
-)
-
-shared_library(
-  'wireplumber-module-si-audio-softdsp-endpoint',
-  [
-    'module-si-audio-softdsp-endpoint.c',
-  ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-si-audio-softdsp-endpoint"'],
   install : true,
   install_dir : wireplumber_module_dir,
   dependencies : [wp_dep, pipewire_dep],
@@ -155,18 +133,6 @@ shared_library(
   install_dir : wireplumber_module_dir,
   dependencies : [wp_dep, pipewire_dep],
 )
-
-shared_library(
-  'wireplumber-module-si-bluez5-endpoint',
-  [
-    'module-si-bluez5-endpoint.c',
-  ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-si-bluez5-endpoint"'],
-  install : true,
-  install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep, pipewire_dep],
-)
-
 
 shared_library(
   'wireplumber-module-si-standard-link',

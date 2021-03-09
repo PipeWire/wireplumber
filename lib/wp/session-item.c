@@ -88,7 +88,6 @@ struct _WpSessionItemPrivate
     WpImplEndpoint *impl_endpoint;
     WpImplEndpointLink *impl_link;
   };
-  GHashTable *impl_streams;
 };
 
 enum {
@@ -146,16 +145,8 @@ static gpointer
 wp_session_item_default_get_associated_proxy (WpSessionItem * self,
     GType proxy_type)
 {
-  WpSessionItemPrivate *priv;
+  WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
   gpointer ret = NULL;
-
-  if (WP_IS_SI_STREAM (self)) {
-    g_autoptr (WpSiEndpoint) ep =
-        wp_si_stream_get_parent_endpoint (WP_SI_STREAM (self));
-    priv = wp_session_item_get_instance_private (WP_SESSION_ITEM (ep));
-  } else {
-    priv = wp_session_item_get_instance_private (self);
-  }
 
   if (proxy_type == WP_TYPE_SESSION) {
     ret = g_weak_ref_get (&priv->session);
@@ -167,11 +158,6 @@ wp_session_item_default_get_associated_proxy (WpSessionItem * self,
   else if (proxy_type == WP_TYPE_ENDPOINT_LINK) {
     if (priv->impl_proxy && WP_IS_ENDPOINT_LINK (priv->impl_proxy))
       ret = g_object_ref (priv->impl_proxy);
-  }
-  else if (proxy_type == WP_TYPE_ENDPOINT_STREAM) {
-    gpointer impl_stream = priv->impl_streams ?
-        g_hash_table_lookup (priv->impl_streams, self) : NULL;
-    ret = impl_stream ? g_object_ref (impl_stream) : NULL;
   }
 
   wp_trace_object (self, "associated %s: " WP_OBJECT_FORMAT,
@@ -191,8 +177,6 @@ wp_session_item_default_activate_get_next_step (WpSessionItem * self,
 
 enum {
   EXPORT_STEP_ENDPOINT = WP_TRANSITION_STEP_CUSTOM_START,
-  EXPORT_STEP_STREAMS,
-  EXPORT_STEP_ENDPOINT_FT_STREAMS,
   EXPORT_STEP_LINK,
   EXPORT_STEP_CONNECT_DESTROYED,
 };
@@ -201,8 +185,6 @@ static guint
 wp_session_item_default_export_get_next_step (WpSessionItem * self,
     WpTransition * transition, guint step)
 {
-  WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
-
   switch (step) {
   case WP_TRANSITION_STEP_NONE:
     if (WP_IS_SI_ENDPOINT (self))
@@ -219,20 +201,6 @@ wp_session_item_default_export_get_next_step (WpSessionItem * self,
 
   case EXPORT_STEP_ENDPOINT:
     g_return_val_if_fail (WP_IS_SI_ENDPOINT (self), WP_TRANSITION_STEP_ERROR);
-    return EXPORT_STEP_STREAMS;
-
-  case EXPORT_STEP_STREAMS:
-    g_return_val_if_fail (WP_IS_SI_ENDPOINT (self), WP_TRANSITION_STEP_ERROR);
-    g_return_val_if_fail (priv->impl_streams, WP_TRANSITION_STEP_ERROR);
-
-    /* go to next step only when all impl proxies are activated */
-    if (g_hash_table_size (priv->impl_streams) ==
-        wp_si_endpoint_get_n_streams (WP_SI_ENDPOINT (self)))
-      return EXPORT_STEP_ENDPOINT_FT_STREAMS;
-    else
-      return step;
-
-  case EXPORT_STEP_ENDPOINT_FT_STREAMS:
     return WP_TRANSITION_STEP_NONE;
 
   case EXPORT_STEP_LINK:
@@ -252,21 +220,11 @@ on_export_proxy_activated (WpObject * proxy, GAsyncResult * res, gpointer data)
 {
   WpTransition *transition = WP_TRANSITION (data);
   WpSessionItem *self = wp_transition_get_source_object (transition);
-  WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
   g_autoptr (GError) error = NULL;
 
   if (!wp_object_activate_finish (proxy, res, &error)) {
     wp_transition_return_error (transition, g_steal_pointer (&error));
     return;
-  }
-
-  if (WP_IS_IMPL_ENDPOINT_STREAM (proxy)) {
-    g_autoptr (WpSiStream) si_stream = NULL;
-
-    g_object_get (proxy, "item", &si_stream, NULL);
-    g_return_if_fail (si_stream != NULL);
-
-    g_hash_table_insert (priv->impl_streams, si_stream, g_object_ref (proxy));
   }
 
   wp_debug_object (self, "export proxy " WP_OBJECT_FORMAT " activated",
@@ -324,39 +282,6 @@ wp_session_item_default_export_execute_step (WpSessionItem * self,
         transition);
     break;
 
-  case EXPORT_STEP_STREAMS: {
-    guint i, n_streams;
-
-    priv->impl_streams = g_hash_table_new_full (g_direct_hash, g_direct_equal,
-        NULL, g_object_unref);
-
-    n_streams = wp_si_endpoint_get_n_streams (WP_SI_ENDPOINT (self));
-    for (i = 0; i < n_streams; i++) {
-      WpSiStream *stream = wp_si_endpoint_get_stream (WP_SI_ENDPOINT (self), i);
-      WpImplEndpointStream *impl_stream =
-          wp_impl_endpoint_stream_new (core, stream);
-
-      wp_object_activate (WP_OBJECT (impl_stream),
-          WP_OBJECT_FEATURES_ALL, NULL,
-          (GAsyncReadyCallback) on_export_proxy_activated,
-          transition);
-
-      /* the augment task holds a ref; object will be added to
-         priv->impl_streams when activated */
-      g_object_unref (impl_stream);
-    }
-    break;
-  }
-  case EXPORT_STEP_ENDPOINT_FT_STREAMS:
-    /* add feature streams only after the streams are exported, otherwise
-       the endpoint will never be activated in the first place (because it
-       internally waits for the streams to be ready) */
-    wp_object_activate (WP_OBJECT (priv->impl_endpoint),
-        WP_ENDPOINT_FEATURE_STREAMS, NULL,
-        (GAsyncReadyCallback) on_export_proxy_activated,
-        transition);
-    break;
-
   case EXPORT_STEP_LINK:
     priv->impl_link = wp_impl_endpoint_link_new (core, WP_SI_LINK (self));
 
@@ -383,7 +308,6 @@ wp_session_item_default_export_rollback (WpSessionItem * self)
   WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
   if (priv->impl_proxy)
     g_signal_handlers_disconnect_by_data (priv->impl_proxy, self);
-  g_clear_pointer (&priv->impl_streams, g_hash_table_unref);
   g_clear_object (&priv->impl_proxy);
   g_weak_ref_set (&priv->session, NULL);
 }
@@ -546,9 +470,6 @@ wp_session_item_clear_flag (WpSessionItem * self, WpSiFlags flag)
  *  - An exported #WpSiEndpoint should have at least:
  *      - an associated #WpEndpoint
  *      - an associated #WpSession
- *  - An exported #WpSiStream should have at least:
- *      - an associated #WpEndpointStream
- *      - an associated #WpEndpoint
  *  - In cases where the item wraps a single PipeWire node, it should also
  *    have an associated #WpNode
  *

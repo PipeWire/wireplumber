@@ -58,14 +58,12 @@ test_si_simple_node_endpoint_configure_activate (TestFixture * f,
   const TestData *data = user_data;
   g_autoptr (WpNode) node = NULL;
   g_autoptr (WpSessionItem) item = NULL;
-  WpSiStream *stream;
 
   /* create item */
 
   item = wp_session_item_make (f->base.core, "si-simple-node-endpoint");
   g_assert_nonnull (item);
   g_assert_true (WP_IS_SI_ENDPOINT (item));
-  g_assert_true (WP_IS_SI_STREAM (item));
   g_assert_true (WP_IS_SI_PORT_INFO (item));
 
   node = wp_node_new_from_factory (f->base.core,
@@ -130,11 +128,6 @@ test_si_simple_node_endpoint_configure_activate (TestFixture * f,
   g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (node)), ==,
       WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL | WP_NODE_FEATURE_PORTS);
 
-  g_assert_cmpint (
-      wp_si_endpoint_get_n_streams (WP_SI_ENDPOINT (item)), ==, 1);
-  g_assert_nonnull (
-      stream = wp_si_endpoint_get_stream (WP_SI_ENDPOINT (item), 0));
-
   if (data->expected_direction == WP_DIRECTION_INPUT)
     g_assert_cmpuint (wp_node_get_n_input_ports (node, NULL), ==, 1);
   else
@@ -144,7 +137,7 @@ test_si_simple_node_endpoint_configure_activate (TestFixture * f,
   {
     guint32 node_id, port_id, channel;
     g_autoptr (GVariant) v =
-        wp_si_port_info_get_ports (WP_SI_PORT_INFO (stream), NULL);
+        wp_si_port_info_get_ports (WP_SI_PORT_INFO (item), NULL);
 
     g_assert_true (g_variant_is_of_type (v, G_VARIANT_TYPE ("a(uuu)")));
     g_assert_cmpint (g_variant_n_children (v), ==, 1);
@@ -229,7 +222,6 @@ test_si_simple_node_endpoint_export (TestFixture * f, gconstpointer user_data)
   g_autoptr (WpSessionItem) item = NULL;
   g_autoptr (WpObjectManager) clients_om = NULL;
   g_autoptr (WpClient) self_client = NULL;
-  WpSiStream *stream;
 
   /* find self_client, to be used for verifying endpoint.client.id */
 
@@ -284,11 +276,6 @@ test_si_simple_node_endpoint_export (TestFixture * f, gconstpointer user_data)
       (GAsyncReadyCallback) test_si_activate_finish_cb, f);
   g_main_loop_run (f->base.loop);
 
-  g_assert_cmpint (
-      wp_si_endpoint_get_n_streams (WP_SI_ENDPOINT (item)), ==, 1);
-  g_assert_nonnull (
-      stream = wp_si_endpoint_get_stream (WP_SI_ENDPOINT (item), 0));
-
   /* create session */
 
   session = WP_SESSION (wp_impl_session_new (f->base.core));
@@ -339,27 +326,6 @@ test_si_simple_node_endpoint_export (TestFixture * f, gconstpointer user_data)
 
     tmp = g_strdup_printf ("%d", wp_proxy_get_bound_id (WP_PROXY (self_client)));
     g_assert_cmpstr (wp_properties_get (props, "endpoint.client.id"), ==, tmp);
-    g_free (tmp);
-  }
-
-  {
-    g_autoptr (WpEndpointStream) epstr = NULL;
-    g_autoptr (WpProperties) props = NULL;
-    gchar *tmp;
-
-    g_assert_nonnull (
-        epstr = wp_session_item_get_associated_proxy (WP_SESSION_ITEM (stream),
-                WP_TYPE_ENDPOINT_STREAM));
-    g_assert_nonnull (
-        props = wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (epstr)));
-
-    g_assert_cmpstr (wp_endpoint_stream_get_name (epstr), ==, "default");
-    g_assert_cmpstr (wp_properties_get (props, "endpoint-stream.name"), ==,
-        "default");
-
-    tmp = g_strdup_printf ("%d", wp_session_item_get_associated_proxy_id (
-            WP_SESSION_ITEM (stream), WP_TYPE_ENDPOINT));
-    g_assert_cmpstr (wp_properties_get (props, "endpoint.id"), ==, tmp);
     g_free (tmp);
   }
 

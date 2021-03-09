@@ -10,7 +10,6 @@
 #define __WIREPLUMBER_PRIVATE_IMPL_ENDPOINT_H__
 
 #include "endpoint.h"
-#include "endpoint-stream.h"
 #include "endpoint-link.h"
 #include "si-interfaces.h"
 
@@ -23,15 +22,6 @@ G_DECLARE_FINAL_TYPE (WpImplEndpoint, wp_impl_endpoint,
                       WP, IMPL_ENDPOINT, WpEndpoint)
 
 WpImplEndpoint * wp_impl_endpoint_new (WpCore * core, WpSiEndpoint * item);
-
-/* impl endpoint stream */
-
-#define WP_TYPE_IMPL_ENDPOINT_STREAM (wp_impl_endpoint_stream_get_type ())
-G_DECLARE_FINAL_TYPE (WpImplEndpointStream, wp_impl_endpoint_stream,
-                      WP, IMPL_ENDPOINT_STREAM, WpEndpointStream)
-
-WpImplEndpointStream * wp_impl_endpoint_stream_new (WpCore * core,
-    WpSiStream * item);
 
 /* impl endpoint link */
 

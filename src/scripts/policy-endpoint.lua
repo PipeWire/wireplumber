@@ -49,25 +49,23 @@ default_endpoint_target = {
 auto_linked_endpoints = {}
 
 function createLink (ep, target)
-  if ep:get_n_streams() > 0 and target:get_n_streams() > 0 then
-    local ep_id = ep['bound-id']
-    local target_id = target['bound-id']
-    local ep_is_output = (ep.direction == "output")
-    local props = {
-      ['endpoint-link.output.endpoint'] = (ep_is_output and ep_id) or target_id,
-      ['endpoint-link.output.stream'] = -1,
-      ['endpoint-link.input.endpoint'] = (ep_is_output and target_id) or ep_id,
-      ['endpoint-link.input.stream'] = -1,
-    }
-    ep:create_link (props)
-  end
+  local ep_id = ep['bound-id']
+  local target_id = target['bound-id']
+  local ep_is_output = (ep.direction == "output")
+  local props = {
+    ['endpoint-link.output.endpoint'] = (ep_is_output and ep_id) or target_id,
+    ['endpoint-link.output.stream'] = -1,
+    ['endpoint-link.input.endpoint'] = (ep_is_output and target_id) or ep_id,
+    ['endpoint-link.input.stream'] = -1,
+  }
+  ep:create_link (props)
 end
 
 function isEndpointLinkedWith (session, ep, target)
   local ep_id = ep["bound_id"]
   local target_id = target["bound_id"]
   for link in session:iterate_links() do
-    local out_ep, _, in_ep, _ = link:get_linked_object_ids()
+    local out_ep, in_ep = link:get_linked_object_ids()
     if (out_ep == ep_id and in_ep == target_id) or
         (out_ep == target_id and in_ep == ep_id) then
       return true
@@ -89,7 +87,7 @@ function moveEndpoint (session, ep, target)
 
   -- destroy all previous links
   for link in session:iterate_links() do
-    local out_ep, _, in_ep, _ = link:get_linked_object_ids()
+    local out_ep, in_ep = link:get_linked_object_ids()
     if (ep_is_output and out_ep == ep_id) or
         (not ep_is_output and in_ep == ep_id) then
       local curr_target = nil
@@ -224,7 +222,7 @@ function handleEndpoint (session, ep)
 
   -- check if this endpoint is already linked
   for link in session:iterate_links() do
-    local out_ep, _, in_ep, _ = link:get_linked_object_ids()
+    local out_ep, in_ep = link:get_linked_object_ids()
     if out_ep == ep_id or in_ep == ep_id then
       return
     end

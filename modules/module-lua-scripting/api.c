@@ -755,22 +755,6 @@ static const luaL_Reg impl_session_methods[] = {
 /* WpEndpoint */
 
 static int
-endpoint_get_n_streams (lua_State *L)
-{
-  WpEndpoint *ep = wplua_checkobject (L, 1, WP_TYPE_ENDPOINT);
-  lua_pushnumber (L, wp_endpoint_get_n_streams (ep));
-  return 1;
-}
-
-static int
-endpoint_iterate_streams (lua_State *L)
-{
-  WpEndpoint *ep = wplua_checkobject (L, 1, WP_TYPE_ENDPOINT);
-  WpIterator *it = wp_endpoint_new_streams_iterator (ep);
-  return push_wpiterator (L, it);
-}
-
-static int
 endpoint_create_link (lua_State *L)
 {
   WpEndpoint *ep = wplua_checkobject (L, 1, WP_TYPE_ENDPOINT);
@@ -781,8 +765,6 @@ endpoint_create_link (lua_State *L)
 }
 
 static const luaL_Reg endpoint_methods[] = {
-  { "get_n_streams", endpoint_get_n_streams },
-  { "iterate_streams", endpoint_iterate_streams },
   { "create_link", endpoint_create_link },
   { NULL, NULL }
 };
@@ -817,16 +799,13 @@ static int
 endpoint_link_get_linked_object_ids (lua_State *L)
 {
   WpEndpointLink *eplink = wplua_checkobject (L, 1, WP_TYPE_ENDPOINT_LINK);
-  guint32 output_endpoint, output_stream;
-  guint32 input_endpoint, input_stream;
-  wp_endpoint_link_get_linked_object_ids (eplink,
-      &output_endpoint, &output_stream,
-      &input_endpoint, &input_stream);
+  guint32 output_endpoint;
+  guint32 input_endpoint;
+  wp_endpoint_link_get_linked_object_ids (eplink, &output_endpoint,
+      &input_endpoint);
   lua_pushinteger (L, output_endpoint);
-  lua_pushinteger (L, output_stream);
   lua_pushinteger (L, input_endpoint);
-  lua_pushinteger (L, input_stream);
-  return 4;
+  return 2;
 }
 
 static const luaL_Reg endpoint_link_methods[] = {

@@ -42,13 +42,11 @@ struct _WpSiAdapter
 };
 
 static void si_adapter_endpoint_init (WpSiEndpointInterface * iface);
-static void si_adapter_stream_init (WpSiStreamInterface * iface);
 static void si_adapter_port_info_init (WpSiPortInfoInterface * iface);
 
 G_DECLARE_FINAL_TYPE(WpSiAdapter, si_adapter, WP, SI_ADAPTER, WpSessionItem)
 G_DEFINE_TYPE_WITH_CODE (WpSiAdapter, si_adapter, WP_TYPE_SESSION_ITEM,
     G_IMPLEMENT_INTERFACE (WP_TYPE_SI_ENDPOINT, si_adapter_endpoint_init)
-    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_STREAM, si_adapter_stream_init)
     G_IMPLEMENT_INTERFACE (WP_TYPE_SI_PORT_INFO, si_adapter_port_info_init))
 
 static void
@@ -431,62 +429,11 @@ si_adapter_get_properties (WpSiEndpoint * item)
   return result;
 }
 
-static guint
-si_adapter_get_n_streams (WpSiEndpoint * item)
-{
-  return 1;
-}
-
-static WpSiStream *
-si_adapter_get_stream (WpSiEndpoint * item, guint index)
-{
-  g_return_val_if_fail (index == 0, NULL);
-  return WP_SI_STREAM (item);
-}
-
 static void
 si_adapter_endpoint_init (WpSiEndpointInterface * iface)
 {
   iface->get_registration_info = si_adapter_get_registration_info;
   iface->get_properties = si_adapter_get_properties;
-  iface->get_n_streams = si_adapter_get_n_streams;
-  iface->get_stream = si_adapter_get_stream;
-}
-
-static GVariant *
-si_adapter_get_stream_registration_info (WpSiStream * stream)
-{
-  WpSiAdapter *self = WP_SI_ADAPTER (stream);
-  GVariantBuilder b;
-
-  g_variant_builder_init (&b, G_VARIANT_TYPE ("(sa{ss})"));
-  g_variant_builder_add (&b, "s", self->name);
-  g_variant_builder_add (&b, "a{ss}", NULL);
-
-  return g_variant_builder_end (&b);
-}
-
-static WpProperties *
-si_adapter_get_stream_properties (WpSiStream * self)
-{
-  return NULL;
-}
-
-static WpSiEndpoint *
-si_adapter_get_stream_parent_endpoint (WpSiStream * self)
-{
-  WpSessionItem *parent = wp_session_item_get_parent (WP_SESSION_ITEM (self));
-  if (!parent)
-    parent = g_object_ref (WP_SESSION_ITEM (self));
-  return WP_SI_ENDPOINT (parent);
-}
-
-static void
-si_adapter_stream_init (WpSiStreamInterface * iface)
-{
-  iface->get_registration_info = si_adapter_get_stream_registration_info;
-  iface->get_properties = si_adapter_get_stream_properties;
-  iface->get_parent_endpoint = si_adapter_get_stream_parent_endpoint;
 }
 
 static GVariant *

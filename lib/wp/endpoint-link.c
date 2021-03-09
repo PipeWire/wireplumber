@@ -187,12 +187,8 @@ wp_endpoint_link_pw_object_mixin_priv_interface_init (
  * @self: the endpoint link
  * @output_endpoint: (out) (optional): the bound id of the output (source)
  *    endpoint
- * @output_stream: (out) (optional): the bound id of the output (source)
- *    endpoint's stream
  * @input_endpoint: (out) (optional): the bound id of the input (sink)
  *    endpoint
- * @input_stream: (out) (optional): the bound id of the input (sink)
- *    endpoint's stream
  *
  * Retrieves the ids of the objects that are linked by this endpoint link
  *
@@ -200,8 +196,7 @@ wp_endpoint_link_pw_object_mixin_priv_interface_init (
  */
 void
 wp_endpoint_link_get_linked_object_ids (WpEndpointLink * self,
-    guint32 * output_endpoint, guint32 * output_stream,
-    guint32 * input_endpoint, guint32 * input_stream)
+    guint32 * output_endpoint, guint32 * input_endpoint)
 {
   g_return_if_fail (WP_IS_ENDPOINT_LINK (self));
 
@@ -211,12 +206,8 @@ wp_endpoint_link_get_linked_object_ids (WpEndpointLink * self,
 
   if (output_endpoint)
     *output_endpoint = info->output_endpoint_id;
-  if (output_stream)
-    *output_stream = info->output_stream_id;
   if (input_endpoint)
     *input_endpoint = info->input_endpoint_id;
-  if (input_stream)
-    *input_stream = info->input_stream_id;
 }
 
 /**
@@ -408,7 +399,7 @@ wp_impl_endpoint_link_constructed (GObject * object)
   g_autoptr (GVariant) info = NULL;
   g_autoptr (GVariantIter) immutable_props = NULL;
   const gchar *key, *value;
-  WpSiStream *stream;
+  WpSiEndpoint *endpoint;
 
   self->info.version = PW_VERSION_ENDPOINT_LINK_INFO;
   self->info.error = NULL;
@@ -426,21 +417,17 @@ wp_impl_endpoint_link_constructed (GObject * object)
       ? PW_ENDPOINT_LINK_STATE_ACTIVE
       : PW_ENDPOINT_LINK_STATE_INACTIVE;
 
-  /* associate with the session, the endpoints and the streams */
+  /* associate with the session and the endpoints */
   self->info.session_id = wp_session_item_get_associated_proxy_id (
       WP_SESSION_ITEM (self->item), WP_TYPE_SESSION);
 
-  stream = wp_si_link_get_out_stream (self->item);
+  endpoint = wp_si_link_get_out_endpoint (self->item);
   self->info.output_endpoint_id = wp_session_item_get_associated_proxy_id (
-      WP_SESSION_ITEM (stream), WP_TYPE_ENDPOINT);
-  self->info.output_stream_id = wp_session_item_get_associated_proxy_id (
-      WP_SESSION_ITEM (stream), WP_TYPE_ENDPOINT_STREAM);
+      WP_SESSION_ITEM (endpoint), WP_TYPE_ENDPOINT);
 
-  stream = wp_si_link_get_in_stream (self->item);
+  endpoint = wp_si_link_get_in_endpoint (self->item);
   self->info.input_endpoint_id = wp_session_item_get_associated_proxy_id (
-      WP_SESSION_ITEM (stream), WP_TYPE_ENDPOINT);
-  self->info.input_stream_id = wp_session_item_get_associated_proxy_id (
-      WP_SESSION_ITEM (stream), WP_TYPE_ENDPOINT_STREAM);
+      WP_SESSION_ITEM (endpoint), WP_TYPE_ENDPOINT);
 
   /* construct export properties (these will come back through
       the registry and appear in wp_proxy_get_global_properties) */
@@ -450,11 +437,7 @@ wp_impl_endpoint_link_constructed (GObject * object)
   wp_properties_setf (self->immutable_props,
       PW_KEY_ENDPOINT_LINK_OUTPUT_ENDPOINT, "%d", self->info.output_endpoint_id);
   wp_properties_setf (self->immutable_props,
-      PW_KEY_ENDPOINT_LINK_OUTPUT_STREAM, "%d", self->info.output_stream_id);
-  wp_properties_setf (self->immutable_props,
       PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT, "%d", self->info.input_endpoint_id);
-  wp_properties_setf (self->immutable_props,
-      PW_KEY_ENDPOINT_LINK_INPUT_STREAM, "%d", self->info.input_stream_id);
 
   /* populate immutable (global) properties */
   while (g_variant_iter_next (immutable_props, "{&s&s}", &key, &value))

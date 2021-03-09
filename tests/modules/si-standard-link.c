@@ -173,8 +173,6 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
   g_assert_nonnull (sink_ep =  wp_session_lookup_endpoint (session_proxy,
           WP_CONSTRAINT_TYPE_PW_PROPERTY, "endpoint.name", "=s", "fakesink",
           NULL));
-  g_assert_cmpuint (wp_endpoint_get_n_streams (src_ep), ==, 1);
-  g_assert_cmpuint (wp_endpoint_get_n_streams (sink_ep), ==, 1);
 
   /* create the link */
   {
@@ -198,19 +196,11 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
   g_assert_nonnull (ep_link = wp_session_lookup_link (session_proxy, NULL));
 
   {
-    guint32 out_ep, out_stream, in_ep, in_stream;
-    g_autoptr (WpEndpointStream) src_stream = NULL;
-    g_autoptr (WpEndpointStream) sink_stream = NULL;
+    guint32 out_ep, in_ep;
 
-    g_assert_nonnull (src_stream = wp_endpoint_lookup_stream (src_ep, NULL));
-    g_assert_nonnull (sink_stream = wp_endpoint_lookup_stream (sink_ep, NULL));
-
-    wp_endpoint_link_get_linked_object_ids (ep_link, &out_ep, &out_stream,
-        &in_ep, &in_stream);
+    wp_endpoint_link_get_linked_object_ids (ep_link, &out_ep, &in_ep);
     g_assert_cmpuint (out_ep, ==, wp_proxy_get_bound_id (WP_PROXY (src_ep)));
     g_assert_cmpuint (in_ep, ==, wp_proxy_get_bound_id (WP_PROXY (sink_ep)));
-    g_assert_cmpuint (out_stream, ==, wp_proxy_get_bound_id (WP_PROXY (src_stream)));
-    g_assert_cmpuint (in_stream, ==, wp_proxy_get_bound_id (WP_PROXY (sink_stream)));
   }
 
   {
@@ -219,9 +209,7 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
 
     g_assert_nonnull (p);
     g_assert_nonnull (wp_properties_get (p, "endpoint-link.input.endpoint"));
-    g_assert_nonnull (wp_properties_get (p, "endpoint-link.input.stream"));
     g_assert_nonnull (wp_properties_get (p, "endpoint-link.output.endpoint"));
-    g_assert_nonnull (wp_properties_get (p, "endpoint-link.output.stream"));
   }
 
   {
@@ -367,13 +355,11 @@ test_si_standard_link_destroy (TestFixture * f, gconstpointer user_data)
   /* find the endpoints */
 
   g_assert_nonnull (src_ep =  wp_session_lookup_endpoint (session_proxy,
-          WP_CONSTRAINT_TYPE_PW_PROPERTY, "endpoint.name", "=s", "audiotestsrc",
-          NULL));
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "endpoint.name", "=s", "audiotestsrc",
+      NULL));
   g_assert_nonnull (sink_ep =  wp_session_lookup_endpoint (session_proxy,
-          WP_CONSTRAINT_TYPE_PW_PROPERTY, "endpoint.name", "=s", "fakesink",
-          NULL));
-  g_assert_cmpuint (wp_endpoint_get_n_streams (src_ep), ==, 1);
-  g_assert_cmpuint (wp_endpoint_get_n_streams (sink_ep), ==, 1);
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "endpoint.name", "=s", "fakesink",
+      NULL));
 
   /* create the link */
   {

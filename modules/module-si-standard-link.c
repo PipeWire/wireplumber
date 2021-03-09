@@ -20,10 +20,10 @@ struct _WpSiStandardLink
 {
   WpSessionItem parent;
 
-  WpSiStream *out_stream;
-  WpSiStream *in_stream;
-  gchar *out_stream_port_context;
-  gchar *in_stream_port_context;
+  WpSiEndpoint *out_endpoint;
+  WpSiEndpoint *in_endpoint;
+  gchar *out_endpoint_port_context;
+  gchar *in_endpoint_port_context;
   gboolean manage_lifetime;
   gboolean passive;
 
@@ -38,13 +38,13 @@ G_DEFINE_TYPE_WITH_CODE (WpSiStandardLink, si_standard_link, WP_TYPE_SESSION_ITE
     G_IMPLEMENT_INTERFACE (WP_TYPE_SI_LINK, si_standard_link_link_init))
 
 static void
-on_stream_flags_changed (WpSessionItem * stream, WpSiFlags flags,
+on_flags_changed (WpSessionItem * endpoint, WpSiFlags flags,
     WpSessionItem * link)
 {
-  /* stream was deactivated; destroy the associated link */
+  /* endpoint was deactivated; destroy the associated link */
   if (!(flags & WP_SI_FLAG_ACTIVE)) {
-    wp_trace_object (link, "destroying because stream " WP_OBJECT_FORMAT
-        " was deactivated", WP_OBJECT_ARGS (stream));
+    wp_trace_object (link, "destroying because endpoint " WP_OBJECT_FORMAT
+        " was deactivated", WP_OBJECT_ARGS (endpoint));
     wp_session_item_reset (link);
     g_object_unref (link);
   }
@@ -74,19 +74,19 @@ si_standard_link_reset (WpSessionItem * item)
   WP_SESSION_ITEM_CLASS (si_standard_link_parent_class)->reset (item);
 
   if (self->manage_lifetime) {
-    g_signal_handlers_disconnect_by_func (self->out_stream,
-        G_CALLBACK (on_stream_flags_changed), self);
-    g_signal_handlers_disconnect_by_func (self->in_stream,
-        G_CALLBACK (on_stream_flags_changed), self);
+    g_signal_handlers_disconnect_by_func (self->out_endpoint,
+        G_CALLBACK (on_flags_changed), self);
+    g_signal_handlers_disconnect_by_func (self->in_endpoint,
+        G_CALLBACK (on_flags_changed), self);
     g_signal_handlers_disconnect_by_func (self,
         G_CALLBACK (on_link_flags_changed), NULL);
   }
   self->manage_lifetime = FALSE;
   self->passive = FALSE;
-  self->out_stream = NULL;
-  self->in_stream = NULL;
-  g_clear_pointer (&self->out_stream_port_context, g_free);
-  g_clear_pointer (&self->in_stream_port_context, g_free);
+  self->out_endpoint = NULL;
+  self->in_endpoint = NULL;
+  g_clear_pointer (&self->out_endpoint_port_context, g_free);
+  g_clear_pointer (&self->in_endpoint_port_context, g_free);
 
   wp_session_item_clear_flag (item, WP_SI_FLAG_CONFIGURED);
 }
@@ -100,15 +100,15 @@ si_standard_link_get_configuration (WpSessionItem * item)
   /* Set the properties */
   g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
   g_variant_builder_add (&b, "{sv}",
-      "out-stream", g_variant_new_uint64 ((guint64) self->out_stream));
+      "out-endpoint", g_variant_new_uint64 ((guint64) self->out_endpoint));
   g_variant_builder_add (&b, "{sv}",
-      "in-stream", g_variant_new_uint64 ((guint64) self->in_stream));
+      "in-endpoint", g_variant_new_uint64 ((guint64) self->in_endpoint));
   g_variant_builder_add (&b, "{sv}",
-      "out-stream-port-context",
-      g_variant_new_string (self->out_stream_port_context));
+      "out-endpoint-port-context",
+      g_variant_new_string (self->out_endpoint_port_context));
   g_variant_builder_add (&b, "{sv}",
-      "in-stream-port-context",
-       g_variant_new_string (self->in_stream_port_context));
+      "in-endpoint-port-context",
+       g_variant_new_string (self->in_endpoint_port_context));
   g_variant_builder_add (&b, "{sv}",
       "manage-lifetime", g_variant_new_boolean (self->manage_lifetime));
   g_variant_builder_add (&b, "{sv}",
@@ -120,52 +120,52 @@ static gboolean
 si_standard_link_configure (WpSessionItem * item, GVariant * args)
 {
   WpSiStandardLink *self = WP_SI_STANDARD_LINK (item);
-  guint64 out_stream_i, in_stream_i;
-  WpSessionItem *out_stream, *in_stream;
+  guint64 out_endpoint_i, in_endpoint_i;
+  WpSessionItem *out_endpoint, *in_endpoint;
 
   if (wp_session_item_get_flags (item) &
           (WP_SI_FLAG_ACTIVATING | WP_SI_FLAG_ACTIVE |
            WP_SI_FLAG_EXPORTING | WP_SI_FLAG_EXPORTED))
     return FALSE;
 
-  if (!g_variant_lookup (args, "out-stream", "t", &out_stream_i) ||
-      !g_variant_lookup (args, "in-stream", "t", &in_stream_i))
+  if (!g_variant_lookup (args, "out-endpoint", "t", &out_endpoint_i) ||
+      !g_variant_lookup (args, "in-endpoint", "t", &in_endpoint_i))
     return FALSE;
 
-  out_stream = GUINT_TO_POINTER (out_stream_i);
-  in_stream = GUINT_TO_POINTER (in_stream_i);
+  out_endpoint = GUINT_TO_POINTER (out_endpoint_i);
+  in_endpoint = GUINT_TO_POINTER (in_endpoint_i);
 
-  if (!WP_IS_SI_STREAM (out_stream) || !WP_IS_SI_STREAM (in_stream) ||
-      !WP_IS_SI_PORT_INFO (out_stream) || !WP_IS_SI_PORT_INFO (in_stream) ||
-      !(wp_session_item_get_flags (out_stream) & WP_SI_FLAG_ACTIVE) ||
-      !(wp_session_item_get_flags (in_stream) & WP_SI_FLAG_ACTIVE))
+  if (!WP_IS_SI_ENDPOINT (out_endpoint) || !WP_IS_SI_ENDPOINT (in_endpoint) ||
+      !WP_IS_SI_PORT_INFO (out_endpoint) || !WP_IS_SI_PORT_INFO (in_endpoint) ||
+      !(wp_session_item_get_flags (out_endpoint) & WP_SI_FLAG_ACTIVE) ||
+      !(wp_session_item_get_flags (in_endpoint) & WP_SI_FLAG_ACTIVE))
     return FALSE;
 
   /* clear previous configuration; we are not active or exported,
      so this doesn't have any other side-effects */
   wp_session_item_reset (item);
 
-  self->out_stream = WP_SI_STREAM (out_stream);
-  self->in_stream = WP_SI_STREAM (in_stream);
+  self->out_endpoint = WP_SI_ENDPOINT (out_endpoint);
+  self->in_endpoint = WP_SI_ENDPOINT (in_endpoint);
 
-  g_variant_lookup (args, "out-stream-port-context", "s",
-      &self->out_stream_port_context);
-  g_variant_lookup (args, "in-stream-port-context", "s",
-      &self->in_stream_port_context);
+  g_variant_lookup (args, "out-endpoint-port-context", "s",
+      &self->out_endpoint_port_context);
+  g_variant_lookup (args, "in-endpoint-port-context", "s",
+      &self->in_endpoint_port_context);
   g_variant_lookup (args, "passive", "b", &self->passive);
 
   /* manage-lifetime == TRUE means that this si-standard-link item is
    * responsible for self-destructing if either
-   *  - one of the streams is deactivated
+   *  - one of the endpoints is deactivated
    *  - if the WpImplEndpointLink is destroyed upon request
    *    (wp_proxy_request_destroy())
    */
   if (g_variant_lookup (args, "manage-lifetime", "b", &self->manage_lifetime)
           && self->manage_lifetime) {
-    g_signal_connect_object (self->out_stream, "flags-changed",
-        G_CALLBACK (on_stream_flags_changed), self, 0);
-    g_signal_connect_object (self->in_stream, "flags-changed",
-        G_CALLBACK (on_stream_flags_changed), self, 0);
+    g_signal_connect_object (self->out_endpoint, "flags-changed",
+        G_CALLBACK (on_flags_changed), self, 0);
+    g_signal_connect_object (self->in_endpoint, "flags-changed",
+        G_CALLBACK (on_flags_changed), self, 0);
     g_signal_connect (self, "flags-changed",
         G_CALLBACK (on_link_flags_changed), NULL);
   }
@@ -203,13 +203,13 @@ si_standard_link_activate_get_next_step (WpSessionItem * item,
 }
 
 static void
-on_stream_acquired (WpSiStreamAcquisition * acq, GAsyncResult * res,
+on_endpoint_acquired (WpSiEndpointAcquisition * acq, GAsyncResult * res,
     WpTransition * transition)
 {
   WpSiStandardLink *self = wp_transition_get_source_object (transition);
   g_autoptr (GError) error = NULL;
 
-  if (!wp_si_stream_acquisition_acquire_finish (acq, res, &error)) {
+  if (!wp_si_endpoint_acquisition_acquire_finish (acq, res, &error)) {
     wp_transition_return_error (transition, g_steal_pointer (&error));
     return;
   }
@@ -239,12 +239,12 @@ find_core (WpSiStandardLink * self)
 {
   /* session items are not associated with a core, but surely when linking
     we should be able to find a WpImplEndpointLink associated, or at the very
-    least a WpNode associated with one of the streams... */
+    least a WpNode associated with one of the endpoints... */
   g_autoptr (WpObject) proxy = wp_session_item_get_associated_proxy (
       WP_SESSION_ITEM (self), WP_TYPE_ENDPOINT_LINK);
   if (!proxy)
       proxy = wp_session_item_get_associated_proxy (
-          WP_SESSION_ITEM (self->out_stream), WP_TYPE_NODE);
+          WP_SESSION_ITEM (self->out_endpoint), WP_TYPE_NODE);
   return proxy ? wp_object_get_core (proxy) : NULL;
 }
 
@@ -372,14 +372,12 @@ si_standard_link_activate_execute_step (WpSessionItem * item,
 
   switch (step) {
   case STEP_ACQUIRE: {
-    g_autoptr (WpSiEndpoint) out_endpoint = NULL;
-    g_autoptr (WpSiEndpoint) in_endpoint = NULL;
-    WpSiStreamAcquisition *out_acquisition, *in_acquisition;
+    WpSiEndpointAcquisition *out_acquisition, *in_acquisition;
 
-    out_endpoint = wp_si_stream_get_parent_endpoint (self->out_stream);
-    in_endpoint = wp_si_stream_get_parent_endpoint (self->in_stream);
-    out_acquisition = wp_si_endpoint_get_stream_acquisition (out_endpoint);
-    in_acquisition = wp_si_endpoint_get_stream_acquisition (in_endpoint);
+    out_acquisition = wp_si_endpoint_get_endpoint_acquisition (
+        self->out_endpoint);
+    in_acquisition = wp_si_endpoint_get_endpoint_acquisition (
+        self->in_endpoint);
 
     if (out_acquisition && in_acquisition)
       self->n_async_ops_wait = 2;
@@ -392,13 +390,13 @@ si_standard_link_activate_execute_step (WpSessionItem * item,
     }
 
     if (out_acquisition) {
-      wp_si_stream_acquisition_acquire (out_acquisition, WP_SI_LINK (self),
-          self->out_stream, (GAsyncReadyCallback) on_stream_acquired,
+      wp_si_endpoint_acquisition_acquire (out_acquisition, WP_SI_LINK (self),
+          self->out_endpoint, (GAsyncReadyCallback) on_endpoint_acquired,
           transition);
     }
     if (in_acquisition) {
-      wp_si_stream_acquisition_acquire (in_acquisition, WP_SI_LINK (self),
-          self->in_stream, (GAsyncReadyCallback) on_stream_acquired,
+      wp_si_endpoint_acquisition_acquire (in_acquisition, WP_SI_LINK (self),
+          self->in_endpoint, (GAsyncReadyCallback) on_endpoint_acquired,
           transition);
     }
     break;
@@ -407,15 +405,15 @@ si_standard_link_activate_execute_step (WpSessionItem * item,
     g_autoptr (GVariant) out_ports = NULL;
     g_autoptr (GVariant) in_ports = NULL;
 
-    out_ports = wp_si_port_info_get_ports (WP_SI_PORT_INFO (self->out_stream),
-        self->out_stream_port_context);
-    in_ports = wp_si_port_info_get_ports (WP_SI_PORT_INFO (self->in_stream),
-        self->in_stream_port_context);
+    out_ports = wp_si_port_info_get_ports (WP_SI_PORT_INFO (self->out_endpoint),
+        self->out_endpoint_port_context);
+    in_ports = wp_si_port_info_get_ports (WP_SI_PORT_INFO (self->in_endpoint),
+        self->in_endpoint_port_context);
 
     if (!create_links (self, transition, out_ports, in_ports)) {
       wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
               WP_LIBRARY_ERROR_INVARIANT,
-              "Bad port info returned from one of the streams"));
+              "Bad port info returned from one of the endpoints"));
     }
     break;
   }
@@ -428,27 +426,21 @@ static void
 si_standard_link_activate_rollback (WpSessionItem * item)
 {
   WpSiStandardLink *self = WP_SI_STANDARD_LINK (item);
-  g_autoptr (WpSiEndpoint) out_endpoint = NULL;
-  g_autoptr (WpSiEndpoint) in_endpoint = NULL;
-  WpSiStreamAcquisition *out_acquisition, *in_acquisition;
+  WpSiEndpointAcquisition *out_acquisition, *in_acquisition;
 
-  if (self->out_stream) {
-    out_endpoint = wp_si_stream_get_parent_endpoint (self->out_stream);
-    if (out_endpoint) {
-      out_acquisition = wp_si_endpoint_get_stream_acquisition (out_endpoint);
-      if (out_acquisition)
-        wp_si_stream_acquisition_release (out_acquisition, WP_SI_LINK (self),
-            self->out_stream);
-    }
+  if (self->out_endpoint) {
+    out_acquisition =
+        wp_si_endpoint_get_endpoint_acquisition (self->out_endpoint);
+    if (out_acquisition)
+      wp_si_endpoint_acquisition_release (out_acquisition, WP_SI_LINK (self),
+          self->out_endpoint);
   }
-  if (self->in_stream) {
-    in_endpoint = wp_si_stream_get_parent_endpoint (self->in_stream);
-    if (in_endpoint) {
-      in_acquisition = wp_si_endpoint_get_stream_acquisition (in_endpoint);
-      if (in_acquisition)
-        wp_si_stream_acquisition_release (in_acquisition, WP_SI_LINK (self),
-            self->in_stream);
-    }
+  if (self->in_endpoint) {
+    in_acquisition =
+        wp_si_endpoint_get_endpoint_acquisition (self->in_endpoint);
+    if (in_acquisition)
+      wp_si_endpoint_acquisition_release (in_acquisition, WP_SI_LINK (self),
+          self->in_endpoint);
   }
 
   g_clear_pointer (&self->node_links, g_ptr_array_unref);
@@ -475,26 +467,26 @@ si_standard_link_get_registration_info (WpSiLink * item)
   return g_variant_builder_end (&b);
 }
 
-static WpSiStream *
-si_standard_link_get_out_stream (WpSiLink * item)
+static WpSiEndpoint *
+si_standard_link_get_out_endpoint (WpSiLink * item)
 {
   WpSiStandardLink *self = WP_SI_STANDARD_LINK (item);
-  return self->out_stream;
+  return self->out_endpoint;
 }
 
-static WpSiStream *
-si_standard_link_get_in_stream (WpSiLink * item)
+static WpSiEndpoint *
+si_standard_link_get_in_endpoint (WpSiLink * item)
 {
   WpSiStandardLink *self = WP_SI_STANDARD_LINK (item);
-  return self->in_stream;
+  return self->in_endpoint;
 }
 
 static void
 si_standard_link_link_init (WpSiLinkInterface * iface)
 {
   iface->get_registration_info = si_standard_link_get_registration_info;
-  iface->get_out_stream = si_standard_link_get_out_stream;
-  iface->get_in_stream = si_standard_link_get_in_stream;
+  iface->get_out_endpoint = si_standard_link_get_out_endpoint;
+  iface->get_in_endpoint = si_standard_link_get_in_endpoint;
 }
 
 WP_PLUGIN_EXPORT gboolean
@@ -503,13 +495,13 @@ wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
   GVariantBuilder b;
 
   g_variant_builder_init (&b, G_VARIANT_TYPE ("a(ssymv)"));
-  g_variant_builder_add (&b, "(ssymv)", "out-stream", "t",
+  g_variant_builder_add (&b, "(ssymv)", "out-endpoint", "t",
       WP_SI_CONFIG_OPTION_WRITEABLE | WP_SI_CONFIG_OPTION_REQUIRED, NULL);
-  g_variant_builder_add (&b, "(ssymv)", "in-stream", "t",
+  g_variant_builder_add (&b, "(ssymv)", "in-endpoint", "t",
       WP_SI_CONFIG_OPTION_WRITEABLE | WP_SI_CONFIG_OPTION_REQUIRED, NULL);
-  g_variant_builder_add (&b, "(ssymv)", "out-stream-port-context", "s",
+  g_variant_builder_add (&b, "(ssymv)", "out-endpoint-port-context", "s",
       WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
-  g_variant_builder_add (&b, "(ssymv)", "in-stream-port-context", "s",
+  g_variant_builder_add (&b, "(ssymv)", "in-endpoint-port-context", "s",
       WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
   g_variant_builder_add (&b, "(ssymv)", "manage-lifetime", "b",
       WP_SI_CONFIG_OPTION_WRITEABLE, NULL);

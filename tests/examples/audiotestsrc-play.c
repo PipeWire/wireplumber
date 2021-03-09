@@ -72,14 +72,10 @@ on_endpoints_changed (WpSession * session, AppData * d)
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "media.class", "=s", "Audio/Sink", NULL);
 
   if (src) {
-    g_print ("Got endpoint src: %s (%u streams)\n",
-      wp_endpoint_get_name (src),
-      wp_endpoint_get_n_streams (src));
+    g_print ("Got endpoint src: %s\n", wp_endpoint_get_name (src));
   }
   if (sink) {
-    g_print ("Got endpoint sink: %s (%u streams)\n",
-      wp_endpoint_get_name (sink),
-      wp_endpoint_get_n_streams (sink));
+    g_print ("Got endpoint sink: %s\n", wp_endpoint_get_name (sink));
   }
 
   if (src && sink) {
@@ -354,10 +350,6 @@ appdata_init (AppData * d, GError ** error)
   /* load wireplumber modules (wireplumber.conf) */
   if (!(wp_core_load_component (d->core,
           "libwireplumber-module-si-simple-node-endpoint", "module", NULL, error)))
-    return FALSE;
-
-  if (!(wp_core_load_component (d->core,
-          "libwireplumber-module-si-audio-softdsp-endpoint", "module", NULL, error)))
     return FALSE;
 
   if (!(wp_core_load_component (d->core,
