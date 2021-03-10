@@ -28,8 +28,8 @@ test(
 )
 
 test(
-  'test-si-simple-node-endpoint',
-  executable('test-si-simple-node-endpoint', 'si-simple-node-endpoint.c',
+  'test-si-node',
+  executable('test-si-node', 'si-node.c',
       dependencies: common_deps, c_args: common_args),
   env: common_env,
 )

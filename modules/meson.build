@@ -113,11 +113,11 @@ shared_library(
 )
 
 shared_library(
-  'wireplumber-module-si-simple-node-endpoint',
+  'wireplumber-module-si-node',
   [
-    'module-si-simple-node-endpoint.c',
+    'module-si-node.c',
   ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-si-simple-node-endpoint"'],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-si-node"'],
   install : true,
   install_dir : wireplumber_module_dir,
   dependencies : [wp_dep, pipewire_dep],

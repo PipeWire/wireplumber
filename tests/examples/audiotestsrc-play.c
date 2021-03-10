@@ -349,7 +349,7 @@ appdata_init (AppData * d, GError ** error)
 
   /* load wireplumber modules (wireplumber.conf) */
   if (!(wp_core_load_component (d->core,
-          "libwireplumber-module-si-simple-node-endpoint", "module", NULL, error)))
+          "libwireplumber-module-si-node", "module", NULL, error)))
     return FALSE;
 
   if (!(wp_core_load_component (d->core,

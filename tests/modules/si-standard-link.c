@@ -27,7 +27,7 @@ load_item (TestFixture * f, const gchar * factory, const gchar * media_class)
 
   /* create item */
 
-  item = wp_session_item_make (f->base.core, "si-simple-node-endpoint");
+  item = wp_session_item_make (f->base.core, "si-node");
   g_assert_nonnull (item);
 
   node = wp_node_new_from_factory (f->base.core,
@@ -87,7 +87,7 @@ test_si_standard_link_setup (TestFixture * f, gconstpointer user_data)
   {
     g_autoptr (GError) error = NULL;
     wp_core_load_component (f->base.core,
-        "libwireplumber-module-si-simple-node-endpoint", "module", NULL, &error);
+        "libwireplumber-module-si-node", "module", NULL, &error);
     g_assert_no_error (error);
 
     wp_core_load_component (f->base.core,

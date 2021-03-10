@@ -21,7 +21,7 @@ typedef struct {
 } TestData;
 
 static void
-test_si_simple_node_endpoint_setup (TestFixture * f, gconstpointer user_data)
+test_si_node_setup (TestFixture * f, gconstpointer user_data)
 {
   wp_base_test_fixture_setup (&f->base, 0);
 
@@ -40,20 +40,19 @@ test_si_simple_node_endpoint_setup (TestFixture * f, gconstpointer user_data)
   {
     g_autoptr (GError) error = NULL;
     wp_core_load_component (f->base.core,
-        "libwireplumber-module-si-simple-node-endpoint", "module", NULL, &error);
+        "libwireplumber-module-si-node", "module", NULL, &error);
     g_assert_no_error (error);
   }
 }
 
 static void
-test_si_simple_node_endpoint_teardown (TestFixture * f, gconstpointer user_data)
+test_si_node_teardown (TestFixture * f, gconstpointer user_data)
 {
   wp_base_test_fixture_teardown (&f->base);
 }
 
 static void
-test_si_simple_node_endpoint_configure_activate (TestFixture * f,
-    gconstpointer user_data)
+test_si_node_configure_activate (TestFixture * f, gconstpointer user_data)
 {
   const TestData *data = user_data;
   g_autoptr (WpNode) node = NULL;
@@ -61,7 +60,7 @@ test_si_simple_node_endpoint_configure_activate (TestFixture * f,
 
   /* create item */
 
-  item = wp_session_item_make (f->base.core, "si-simple-node-endpoint");
+  item = wp_session_item_make (f->base.core, "si-node");
   g_assert_nonnull (item);
   g_assert_true (WP_IS_SI_ENDPOINT (item));
   g_assert_true (WP_IS_SI_PORT_INFO (item));
@@ -214,7 +213,7 @@ test_si_simple_node_endpoint_configure_activate (TestFixture * f,
 }
 
 static void
-test_si_simple_node_endpoint_export (TestFixture * f, gconstpointer user_data)
+test_si_node_export (TestFixture * f, gconstpointer user_data)
 {
   const TestData *data = user_data;
   g_autoptr (WpNode) node = NULL;
@@ -238,7 +237,7 @@ test_si_simple_node_endpoint_export (TestFixture * f, gconstpointer user_data)
 
   /* create item */
 
-  item = wp_session_item_make (f->base.core, "si-simple-node-endpoint");
+  item = wp_session_item_make (f->base.core, "si-node");
   g_assert_nonnull (item);
 
   node = wp_node_new_from_factory (f->base.core,
@@ -353,43 +352,43 @@ main (gint argc, gchar *argv[])
 
   /* configure-activate */
 
-  g_test_add ("/modules/si-simple-node-endpoint/configure-activate/fakesink",
+  g_test_add ("/modules/si-node/configure-activate/fakesink",
       TestFixture, &fakesink_data,
-      test_si_simple_node_endpoint_setup,
-      test_si_simple_node_endpoint_configure_activate,
-      test_si_simple_node_endpoint_teardown);
+      test_si_node_setup,
+      test_si_node_configure_activate,
+      test_si_node_teardown);
 
-  g_test_add ("/modules/si-simple-node-endpoint/configure-activate/fakesrc",
+  g_test_add ("/modules/si-node/configure-activate/fakesrc",
       TestFixture, &fakesrc_data,
-      test_si_simple_node_endpoint_setup,
-      test_si_simple_node_endpoint_configure_activate,
-      test_si_simple_node_endpoint_teardown);
+      test_si_node_setup,
+      test_si_node_configure_activate,
+      test_si_node_teardown);
 
-  g_test_add ("/modules/si-simple-node-endpoint/configure-activate/audiotestsrc",
+  g_test_add ("/modules/si-node/configure-activate/audiotestsrc",
       TestFixture, &audiotestsrc_data,
-      test_si_simple_node_endpoint_setup,
-      test_si_simple_node_endpoint_configure_activate,
-      test_si_simple_node_endpoint_teardown);
+      test_si_node_setup,
+      test_si_node_configure_activate,
+      test_si_node_teardown);
 
   /* export */
 
-  g_test_add ("/modules/si-simple-node-endpoint/export/fakesink",
+  g_test_add ("/modules/si-node/export/fakesink",
       TestFixture, &fakesink_data,
-      test_si_simple_node_endpoint_setup,
-      test_si_simple_node_endpoint_export,
-      test_si_simple_node_endpoint_teardown);
+      test_si_node_setup,
+      test_si_node_export,
+      test_si_node_teardown);
 
-  g_test_add ("/modules/si-simple-node-endpoint/export/fakesrc",
+  g_test_add ("/modules/si-node/export/fakesrc",
       TestFixture, &fakesrc_data,
-      test_si_simple_node_endpoint_setup,
-      test_si_simple_node_endpoint_export,
-      test_si_simple_node_endpoint_teardown);
+      test_si_node_setup,
+      test_si_node_export,
+      test_si_node_teardown);
 
-  g_test_add ("/modules/si-simple-node-endpoint/export/audiotestsrc",
+  g_test_add ("/modules/si-node/export/audiotestsrc",
       TestFixture, &audiotestsrc_data,
-      test_si_simple_node_endpoint_setup,
-      test_si_simple_node_endpoint_export,
-      test_si_simple_node_endpoint_teardown);
+      test_si_node_setup,
+      test_si_node_export,
+      test_si_node_teardown);
 
   return g_test_run ();
 }

@@ -16,10 +16,10 @@ endpoint_support.policy = {
 function endpoint_support.enable()
   -- Session item factories, building blocks for the session management graph
   -- Do not disable these unless you really know what you are doing
+  load_module("si-node")
   load_module("si-adapter")
   load_module("si-convert")
   load_module("si-monitor-endpoint")
-  load_module("si-simple-node-endpoint")
   load_module("si-standard-link")
 
   -- Create sessions statically at startup

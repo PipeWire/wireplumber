@@ -16,7 +16,7 @@ enum {
   STEP_ENSURE_NODE_FEATURES,
 };
 
-struct _WpSiSimpleNodeEndpoint
+struct _WpSiNode
 {
   WpSessionItem parent;
 
@@ -29,27 +29,26 @@ struct _WpSiSimpleNodeEndpoint
   WpDirection direction;
 };
 
-static void si_simple_node_endpoint_endpoint_init (WpSiEndpointInterface * iface);
-static void si_simple_node_endpoint_port_info_init (WpSiPortInfoInterface * iface);
+static void si_node_endpoint_init (WpSiEndpointInterface * iface);
+static void si_node_port_info_init (WpSiPortInfoInterface * iface);
 
-G_DECLARE_FINAL_TYPE(WpSiSimpleNodeEndpoint, si_simple_node_endpoint,
-                     WP, SI_SIMPLE_NODE_ENDPOINT, WpSessionItem)
-G_DEFINE_TYPE_WITH_CODE (WpSiSimpleNodeEndpoint, si_simple_node_endpoint, WP_TYPE_SESSION_ITEM,
-    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_ENDPOINT, si_simple_node_endpoint_endpoint_init)
-    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_PORT_INFO, si_simple_node_endpoint_port_info_init))
+G_DECLARE_FINAL_TYPE(WpSiNode, si_node, WP, SI_NODE, WpSessionItem)
+G_DEFINE_TYPE_WITH_CODE (WpSiNode, si_node, WP_TYPE_SESSION_ITEM,
+    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_ENDPOINT, si_node_endpoint_init)
+    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_PORT_INFO, si_node_port_info_init))
 
 static void
-si_simple_node_endpoint_init (WpSiSimpleNodeEndpoint * self)
+si_node_init (WpSiNode * self)
 {
 }
 
 static void
-si_simple_node_endpoint_reset (WpSessionItem * item)
+si_node_reset (WpSessionItem * item)
 {
-  WpSiSimpleNodeEndpoint *self = WP_SI_SIMPLE_NODE_ENDPOINT (item);
+  WpSiNode *self = WP_SI_NODE (item);
 
   /* unexport & deactivate first */
-  WP_SESSION_ITEM_CLASS (si_simple_node_endpoint_parent_class)->reset (item);
+  WP_SESSION_ITEM_CLASS (si_node_parent_class)->reset (item);
 
   g_clear_object (&self->node);
   self->name[0] = '\0';
@@ -61,22 +60,21 @@ si_simple_node_endpoint_reset (WpSessionItem * item)
 }
 
 static gpointer
-si_simple_node_endpoint_get_associated_proxy (WpSessionItem * item,
-    GType proxy_type)
+si_node_get_associated_proxy (WpSessionItem * item, GType proxy_type)
 {
-  WpSiSimpleNodeEndpoint *self = WP_SI_SIMPLE_NODE_ENDPOINT (item);
+  WpSiNode *self = WP_SI_NODE (item);
 
   if (proxy_type == WP_TYPE_NODE)
     return self->node ? g_object_ref (self->node) : NULL;
 
-  return WP_SESSION_ITEM_CLASS (si_simple_node_endpoint_parent_class)->
+  return WP_SESSION_ITEM_CLASS (si_node_parent_class)->
       get_associated_proxy (item, proxy_type);
 }
 
 static GVariant *
-si_simple_node_endpoint_get_configuration (WpSessionItem * item)
+si_node_get_configuration (WpSessionItem * item)
 {
-  WpSiSimpleNodeEndpoint *self = WP_SI_SIMPLE_NODE_ENDPOINT (item);
+  WpSiNode *self = WP_SI_NODE (item);
   GVariantBuilder b;
 
   /* Set the properties */
@@ -97,9 +95,9 @@ si_simple_node_endpoint_get_configuration (WpSessionItem * item)
 }
 
 static gboolean
-si_simple_node_endpoint_configure (WpSessionItem * item, GVariant * args)
+si_node_configure (WpSessionItem * item, GVariant * args)
 {
-  WpSiSimpleNodeEndpoint *self = WP_SI_SIMPLE_NODE_ENDPOINT (item);
+  WpSiNode *self = WP_SI_NODE (item);
   guint64 node_i;
   const gchar *tmp_str;
   g_autoptr (WpProperties) props = NULL;
@@ -159,8 +157,8 @@ si_simple_node_endpoint_configure (WpSessionItem * item, GVariant * args)
 }
 
 static guint
-si_simple_node_endpoint_activate_get_next_step (WpSessionItem * item,
-     WpTransition * transition, guint step)
+si_node_activate_get_next_step (WpSessionItem * item, WpTransition * transition,
+    guint step)
 {
   switch (step) {
     case WP_TRANSITION_STEP_NONE:
@@ -190,18 +188,17 @@ on_node_activated (WpObject * node, GAsyncResult * res, WpTransition * transitio
 }
 
 static void
-si_simple_node_endpoint_activate_execute_step (WpSessionItem * item,
-    WpTransition * transition, guint step)
+si_node_activate_execute_step (WpSessionItem * item, WpTransition * transition,
+    guint step)
 {
-  WpSiSimpleNodeEndpoint *self = WP_SI_SIMPLE_NODE_ENDPOINT (item);
+  WpSiNode *self = WP_SI_NODE (item);
 
   switch (step) {
     case STEP_VERIFY_CONFIG:
       if (G_UNLIKELY (!(wp_session_item_get_flags (item) & WP_SI_FLAG_CONFIGURED))) {
         wp_transition_return_error (transition,
             g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
-                "si-simple-node-endpoint: cannot activate item without it "
-                "being configured first"));
+                "si-node: cannot activate without being configured first"));
       }
       wp_transition_advance (transition);
       break;
@@ -218,24 +215,22 @@ si_simple_node_endpoint_activate_execute_step (WpSessionItem * item,
 }
 
 static void
-si_simple_node_endpoint_class_init (WpSiSimpleNodeEndpointClass * klass)
+si_node_class_init (WpSiNodeClass * klass)
 {
   WpSessionItemClass *si_class = (WpSessionItemClass *) klass;
 
-  si_class->reset = si_simple_node_endpoint_reset;
-  si_class->get_associated_proxy = si_simple_node_endpoint_get_associated_proxy;
-  si_class->configure = si_simple_node_endpoint_configure;
-  si_class->get_configuration = si_simple_node_endpoint_get_configuration;
-  si_class->activate_get_next_step =
-      si_simple_node_endpoint_activate_get_next_step;
-  si_class->activate_execute_step =
-      si_simple_node_endpoint_activate_execute_step;
+  si_class->reset = si_node_reset;
+  si_class->get_associated_proxy = si_node_get_associated_proxy;
+  si_class->configure = si_node_configure;
+  si_class->get_configuration = si_node_get_configuration;
+  si_class->activate_get_next_step = si_node_activate_get_next_step;
+  si_class->activate_execute_step = si_node_activate_execute_step;
 }
 
 static GVariant *
-si_simple_node_endpoint_get_registration_info (WpSiEndpoint * item)
+si_node_get_registration_info (WpSiEndpoint * item)
 {
-  WpSiSimpleNodeEndpoint *self = WP_SI_SIMPLE_NODE_ENDPOINT (item);
+  WpSiNode *self = WP_SI_NODE (item);
   GVariantBuilder b;
 
   g_variant_builder_init (&b, G_VARIANT_TYPE ("(ssya{ss})"));
@@ -248,9 +243,9 @@ si_simple_node_endpoint_get_registration_info (WpSiEndpoint * item)
 }
 
 static WpProperties *
-si_simple_node_endpoint_get_properties (WpSiEndpoint * item)
+si_node_get_properties (WpSiEndpoint * item)
 {
-  WpSiSimpleNodeEndpoint *self = WP_SI_SIMPLE_NODE_ENDPOINT (item);
+  WpSiNode *self = WP_SI_NODE (item);
   g_autoptr (WpProperties) node_props = NULL;
   WpProperties *result;
 
@@ -291,16 +286,16 @@ si_simple_node_endpoint_get_properties (WpSiEndpoint * item)
 }
 
 static void
-si_simple_node_endpoint_endpoint_init (WpSiEndpointInterface * iface)
+si_node_endpoint_init (WpSiEndpointInterface * iface)
 {
-  iface->get_registration_info = si_simple_node_endpoint_get_registration_info;
-  iface->get_properties = si_simple_node_endpoint_get_properties;
+  iface->get_registration_info = si_node_get_registration_info;
+  iface->get_properties = si_node_get_properties;
 }
 
 static GVariant *
-si_simple_node_endpoint_get_ports (WpSiPortInfo * item, const gchar * context)
+si_node_get_ports (WpSiPortInfo * item, const gchar * context)
 {
-  WpSiSimpleNodeEndpoint *self = WP_SI_SIMPLE_NODE_ENDPOINT (item);
+  WpSiNode *self = WP_SI_NODE (item);
   g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_ARRAY);
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
@@ -366,9 +361,9 @@ si_simple_node_endpoint_get_ports (WpSiPortInfo * item, const gchar * context)
 }
 
 static void
-si_simple_node_endpoint_port_info_init (WpSiPortInfoInterface * iface)
+si_node_port_info_init (WpSiPortInfoInterface * iface)
 {
-  iface->get_ports = si_simple_node_endpoint_get_ports;
+  iface->get_ports = si_node_get_ports;
 }
 
 WP_PLUGIN_EXPORT gboolean
@@ -389,8 +384,7 @@ wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
       WP_SI_CONFIG_OPTION_WRITEABLE, NULL);
   g_variant_builder_add (&b, "(ssymv)", "direction", "y", 0, NULL);
 
-  wp_si_factory_register (core, wp_si_factory_new_simple (
-      "si-simple-node-endpoint", si_simple_node_endpoint_get_type (),
-      g_variant_builder_end (&b)));
+  wp_si_factory_register (core, wp_si_factory_new_simple ("si-node",
+      si_node_get_type (), g_variant_builder_end (&b)));
   return TRUE;
 }
