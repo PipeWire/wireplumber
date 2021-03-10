@@ -53,7 +53,7 @@ function addEndpoint (node, session_name, endpoint_type, priority)
       -- only use monitor audio sinks
       if media_class == "Audio/Sink" then
         -- create monitor
-        local monitor = SessionItem ( "si-monitor-endpoint" )
+        local monitor = SessionItem ( "si-monitor" )
 
         -- configure monitor
         if not monitor:configure {

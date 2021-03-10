@@ -15,7 +15,7 @@ enum {
   STEP_ENSURE_ADAPTER_ACTIVATED,
 };
 
-struct _WpSiMonitorEndpoint
+struct _WpSiMonitor
 {
   WpSessionItem parent;
 
@@ -24,27 +24,26 @@ struct _WpSiMonitorEndpoint
   gchar name[96];
 };
 
-static void si_monitor_endpoint_endpoint_init (WpSiEndpointInterface * iface);
-static void si_monitor_endpoint_port_info_init (WpSiPortInfoInterface * iface);
+static void si_monitor_endpoint_init (WpSiEndpointInterface * iface);
+static void si_monitor_port_info_init (WpSiPortInfoInterface * iface);
 
-G_DECLARE_FINAL_TYPE(WpSiMonitorEndpoint, si_monitor_endpoint,
-                     WP, SI_MONITOR_ENDPOINT, WpSessionItem)
-G_DEFINE_TYPE_WITH_CODE (WpSiMonitorEndpoint, si_monitor_endpoint, WP_TYPE_SESSION_ITEM,
-    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_ENDPOINT, si_monitor_endpoint_endpoint_init)
-    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_PORT_INFO, si_monitor_endpoint_port_info_init))
+G_DECLARE_FINAL_TYPE(WpSiMonitor, si_monitor, WP, SI_MONITOR, WpSessionItem)
+G_DEFINE_TYPE_WITH_CODE (WpSiMonitor, si_monitor, WP_TYPE_SESSION_ITEM,
+    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_ENDPOINT, si_monitor_endpoint_init)
+    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_PORT_INFO, si_monitor_port_info_init))
 
 static void
-si_monitor_endpoint_init (WpSiMonitorEndpoint * self)
+si_monitor_init (WpSiMonitor * self)
 {
 }
 
 static void
-si_monitor_endpoint_reset (WpSessionItem * item)
+si_monitor_reset (WpSessionItem * item)
 {
-  WpSiMonitorEndpoint *self = WP_SI_MONITOR_ENDPOINT (item);
+  WpSiMonitor *self = WP_SI_MONITOR (item);
 
   /* unexport & deactivate first */
-  WP_SESSION_ITEM_CLASS (si_monitor_endpoint_parent_class)->reset (item);
+  WP_SESSION_ITEM_CLASS (si_monitor_parent_class)->reset (item);
 
   g_clear_object (&self->adapter);
   self->name[0] = '\0';
@@ -53,22 +52,22 @@ si_monitor_endpoint_reset (WpSessionItem * item)
 }
 
 static gpointer
-si_monitor_endpoint_get_associated_proxy (WpSessionItem * item,
+si_monitor_get_associated_proxy (WpSessionItem * item,
     GType proxy_type)
 {
-  WpSiMonitorEndpoint *self = WP_SI_MONITOR_ENDPOINT (item);
+  WpSiMonitor *self = WP_SI_MONITOR (item);
 
   if (proxy_type == WP_TYPE_NODE)
     return wp_session_item_get_associated_proxy (self->adapter, proxy_type);
 
-  return WP_SESSION_ITEM_CLASS (si_monitor_endpoint_parent_class)->
+  return WP_SESSION_ITEM_CLASS (si_monitor_parent_class)->
       get_associated_proxy (item, proxy_type);
 }
 
 static GVariant *
-si_monitor_endpoint_get_configuration (WpSessionItem * item)
+si_monitor_get_configuration (WpSessionItem * item)
 {
-  WpSiMonitorEndpoint *self = WP_SI_MONITOR_ENDPOINT (item);
+  WpSiMonitor *self = WP_SI_MONITOR (item);
   GVariantBuilder b;
 
   /* Set the properties */
@@ -79,9 +78,9 @@ si_monitor_endpoint_get_configuration (WpSessionItem * item)
 }
 
 static gboolean
-si_monitor_endpoint_configure (WpSessionItem * item, GVariant * args)
+si_monitor_configure (WpSessionItem * item, GVariant * args)
 {
-  WpSiMonitorEndpoint *self = WP_SI_MONITOR_ENDPOINT (item);
+  WpSiMonitor *self = WP_SI_MONITOR (item);
   guint64 adapter_i;
   g_autoptr (GVariant) adapter_config = NULL;
   WpDirection direction = WP_DIRECTION_INPUT;
@@ -91,7 +90,7 @@ si_monitor_endpoint_configure (WpSessionItem * item, GVariant * args)
     return FALSE;
 
   /* reset previous config */
-  si_monitor_endpoint_reset (WP_SESSION_ITEM (self));
+  si_monitor_reset (WP_SESSION_ITEM (self));
 
   /* get the adapter */
   if (!g_variant_lookup (args, "adapter", "t", &adapter_i))
@@ -121,7 +120,7 @@ si_monitor_endpoint_configure (WpSessionItem * item, GVariant * args)
 }
 
 static guint
-si_monitor_endpoint_activate_get_next_step (WpSessionItem * item,
+si_monitor_activate_get_next_step (WpSessionItem * item,
      WpTransition * transition, guint step)
 {
   switch (step) {
@@ -140,18 +139,17 @@ si_monitor_endpoint_activate_get_next_step (WpSessionItem * item,
 }
 
 static void
-si_monitor_endpoint_activate_execute_step (WpSessionItem * item,
+si_monitor_activate_execute_step (WpSessionItem * item,
     WpTransition * transition, guint step)
 {
-  WpSiMonitorEndpoint *self = WP_SI_MONITOR_ENDPOINT (item);
+  WpSiMonitor *self = WP_SI_MONITOR (item);
 
   switch (step) {
     case STEP_VERIFY_CONFIG:
       if (G_UNLIKELY (!(wp_session_item_get_flags (item) & WP_SI_FLAG_CONFIGURED))) {
         wp_transition_return_error (transition,
             g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
-                "si-monitor-endpoint: cannot activate item without it "
-                "being configured first"));
+                "si-monitor: cannot activate without being configured first"));
       }
       wp_transition_advance (transition);
       break;
@@ -160,8 +158,8 @@ si_monitor_endpoint_activate_execute_step (WpSessionItem * item,
       if (!(wp_session_item_get_flags (self->adapter) & WP_SI_FLAG_ACTIVE)) {
         wp_transition_return_error (transition,
             g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
-                "si-monitor-endpoint: cannot activate item without its adapter "
-                "being activated first"));
+                "si-monitor: cannot activate without its adapter being "
+                "activated first"));
       }
       wp_transition_advance (transition);
       break;
@@ -172,24 +170,22 @@ si_monitor_endpoint_activate_execute_step (WpSessionItem * item,
 }
 
 static void
-si_monitor_endpoint_class_init (WpSiMonitorEndpointClass * klass)
+si_monitor_class_init (WpSiMonitorClass * klass)
 {
   WpSessionItemClass *si_class = (WpSessionItemClass *) klass;
 
-  si_class->reset = si_monitor_endpoint_reset;
-  si_class->get_associated_proxy = si_monitor_endpoint_get_associated_proxy;
-  si_class->configure = si_monitor_endpoint_configure;
-  si_class->get_configuration = si_monitor_endpoint_get_configuration;
-  si_class->activate_get_next_step =
-      si_monitor_endpoint_activate_get_next_step;
-  si_class->activate_execute_step =
-      si_monitor_endpoint_activate_execute_step;
+  si_class->reset = si_monitor_reset;
+  si_class->get_associated_proxy = si_monitor_get_associated_proxy;
+  si_class->configure = si_monitor_configure;
+  si_class->get_configuration = si_monitor_get_configuration;
+  si_class->activate_get_next_step = si_monitor_activate_get_next_step;
+  si_class->activate_execute_step = si_monitor_activate_execute_step;
 }
 
 static GVariant *
-si_monitor_endpoint_get_registration_info (WpSiEndpoint * item)
+si_monitor_get_registration_info (WpSiEndpoint * item)
 {
-  WpSiMonitorEndpoint *self = WP_SI_MONITOR_ENDPOINT (item);
+  WpSiMonitor *self = WP_SI_MONITOR (item);
   GVariantBuilder b;
 
   g_variant_builder_init (&b, G_VARIANT_TYPE ("(ssya{ss})"));
@@ -202,9 +198,9 @@ si_monitor_endpoint_get_registration_info (WpSiEndpoint * item)
 }
 
 static WpProperties *
-si_monitor_endpoint_get_properties (WpSiEndpoint * item)
+si_monitor_get_properties (WpSiEndpoint * item)
 {
-  WpSiMonitorEndpoint *self = WP_SI_MONITOR_ENDPOINT (item);
+  WpSiMonitor *self = WP_SI_MONITOR (item);
   WpProperties *properties;
   g_autofree gchar *description = NULL;
   guint32 endpoint_id = 0;
@@ -223,24 +219,24 @@ si_monitor_endpoint_get_properties (WpSiEndpoint * item)
 }
 
 static void
-si_monitor_endpoint_endpoint_init (WpSiEndpointInterface * iface)
+si_monitor_endpoint_init (WpSiEndpointInterface * iface)
 {
-  iface->get_registration_info = si_monitor_endpoint_get_registration_info;
-  iface->get_properties = si_monitor_endpoint_get_properties;
+  iface->get_registration_info = si_monitor_get_registration_info;
+  iface->get_properties = si_monitor_get_properties;
 }
 
 static GVariant *
-si_monitor_endpoint_get_ports (WpSiPortInfo * item, const gchar * context)
+si_monitor_get_ports (WpSiPortInfo * item, const gchar * context)
 {
-  WpSiMonitorEndpoint *self = WP_SI_MONITOR_ENDPOINT (item);
+  WpSiMonitor *self = WP_SI_MONITOR (item);
 
   return wp_si_port_info_get_ports (WP_SI_PORT_INFO (self->adapter), "monitor");
 }
 
 static void
-si_monitor_endpoint_port_info_init (WpSiPortInfoInterface * iface)
+si_monitor_port_info_init (WpSiPortInfoInterface * iface)
 {
-  iface->get_ports = si_monitor_endpoint_get_ports;
+  iface->get_ports = si_monitor_get_ports;
 }
 
 WP_PLUGIN_EXPORT gboolean
@@ -252,8 +248,7 @@ wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
   g_variant_builder_add (&b, "(ssymv)", "adapter", "t",
       WP_SI_CONFIG_OPTION_WRITEABLE | WP_SI_CONFIG_OPTION_REQUIRED, NULL);
 
-  wp_si_factory_register (core, wp_si_factory_new_simple (
-      "si-monitor-endpoint", si_monitor_endpoint_get_type (),
-      g_variant_builder_end (&b)));
+  wp_si_factory_register (core, wp_si_factory_new_simple ("si-monitor",
+      si_monitor_get_type (), g_variant_builder_end (&b)));
   return TRUE;
 }

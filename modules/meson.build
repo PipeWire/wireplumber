@@ -124,11 +124,11 @@ shared_library(
 )
 
 shared_library(
-  'wireplumber-module-si-monitor-endpoint',
+  'wireplumber-module-si-monitor',
   [
-    'module-si-monitor-endpoint.c',
+    'module-si-monitor.c',
   ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-si-monitor-endpoint"'],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-si-monitor"'],
   install : true,
   install_dir : wireplumber_module_dir,
   dependencies : [wp_dep, pipewire_dep],

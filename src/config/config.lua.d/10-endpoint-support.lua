@@ -19,7 +19,7 @@ function endpoint_support.enable()
   load_module("si-node")
   load_module("si-adapter")
   load_module("si-convert")
-  load_module("si-monitor-endpoint")
+  load_module("si-monitor")
   load_module("si-standard-link")
 
   -- Create sessions statically at startup
