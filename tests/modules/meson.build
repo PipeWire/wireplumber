@@ -10,11 +10,11 @@ common_args = [
 ]
 
 test(
-  'test-algorithms',
-  executable('test-algorithms',
+  'test-audio-utils',
+  executable('test-audio-utils',
     [
-      'algorithms.c',
-      '../../modules/module-si-adapter/algorithms.c'
+      'audio-utils.c',
+      '../../modules/module-si-adapter/audio-utils.c'
     ],
     dependencies: common_deps, c_args: common_args),
   env: common_env,

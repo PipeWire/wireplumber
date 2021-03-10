@@ -12,7 +12,7 @@
 #include <spa/param/format-utils.h>
 #include <spa/param/audio/format.h>
 
-#include "algorithms.h"
+#include "audio-utils.h"
 
 static enum spa_audio_format
 select_format (WpSpaPod *value)

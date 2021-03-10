@@ -14,7 +14,7 @@
 #include <spa/param/audio/format.h>
 #include <spa/param/audio/format-utils.h>
 
-#include "../../modules/module-si-adapter/algorithms.h"
+#include "../../modules/module-si-adapter/audio-utils.h"
 
 static void
 test_choose_sensible_raw_audio_format (void)
@@ -129,7 +129,7 @@ main (int argc, char *argv[])
   g_test_init (&argc, &argv, NULL);
   g_log_set_writer_func (wp_log_writer_default, NULL, NULL);
 
-  g_test_add_func ("/modules/algorithms/choose_sensible_raw_audio_format",
+  g_test_add_func ("/modules/audio_utils/choose_sensible_raw_audio_format",
       test_choose_sensible_raw_audio_format);
 
   return g_test_run ();

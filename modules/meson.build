@@ -93,7 +93,7 @@ shared_library(
   'wireplumber-module-si-adapter',
   [
     'module-si-adapter.c',
-    'module-si-adapter/algorithms.c',
+    'module-si-adapter/audio-utils.c',
   ],
   c_args : [common_c_args, '-DG_LOG_DOMAIN="m-si-adapter"'],
   install : true,
