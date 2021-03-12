@@ -335,15 +335,7 @@ wp_object_advance_transitions (WpObject * self)
  * @callback: (scope async): a function to call when activation is complete
  * @user_data: (closure): data for @callback
  *
- * Activates the requested @features and calls @callback when this is done.
- * @features may contain unsupported or already active features. The operation
- * will filter them and activate only ones that are supported and inactive.
- *
- * If multiple calls to this method is done, the operations will be executed
- * one after the other to ensure features only get activated once.
- *
- * Note that @callback may be called in sync while this method is being called,
- * if there are no features to activate.
+ * Callback version of wp_object_activate_closure
  */
 void
 wp_object_activate (WpObject * self,
@@ -352,13 +344,40 @@ wp_object_activate (WpObject * self,
 {
   g_return_if_fail (WP_IS_OBJECT (self));
 
+  GClosure *closure = g_cclosure_new (G_CALLBACK (callback), user_data, NULL);
+
+  wp_object_activate_closure (self, features, cancellable, closure);
+}
+
+/**
+ * wp_object_activate_closure:
+ * @self: the object
+ * @features: the features to enable
+ * @cancellable: (nullable): a cancellable for the async operation
+ * @closure: (transfer full): the closure to use when activation is completed
+ *
+ * Activates the requested @features and invokes @closure when this is done.
+ * @features may contain unsupported or already active features. The operation
+ * will filter them and activate only ones that are supported and inactive.
+ *
+ * If multiple calls to this method is done, the operations will be executed
+ * one after the other to ensure features only get activated once.
+ *
+ * Note that @closure may be invoked in sync while this method is being called,
+ * if there are no features to activate.
+ */
+void
+wp_object_activate_closure (WpObject * self,
+    WpObjectFeatures features, GCancellable * cancellable,
+    GClosure *closure)
+{
+  g_return_if_fail (WP_IS_OBJECT (self));
+
   WpObjectPrivate *priv = wp_object_get_instance_private (self);
   g_autoptr (WpCore) core = g_weak_ref_get (&priv->core);
 
   g_return_if_fail (core != NULL);
 
-  GClosure *closure =
-      g_cclosure_new (G_CALLBACK (callback), user_data, NULL);
   WpTransition *transition = wp_transition_new_closure (
       WP_TYPE_FEATURE_ACTIVATION_TRANSITION, self, cancellable, closure);
   wp_transition_set_source_tag (transition, wp_object_activate);

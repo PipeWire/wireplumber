@@ -94,6 +94,10 @@ void wp_object_activate (WpObject * self,
     GAsyncReadyCallback callback, gpointer user_data);
 
 WP_API
+void wp_object_activate_closure (WpObject * self,
+    WpObjectFeatures features, GCancellable * cancellable, GClosure *closure);
+
+WP_API
 gboolean wp_object_activate_finish (WpObject * self, GAsyncResult * res,
     GError ** error);
 
