@@ -261,8 +261,18 @@ object_activate (lua_State *L)
   return 0;
 }
 
+static int
+object_deactivate (lua_State *L)
+{
+  WpObject *o = wplua_checkobject (L, 1, WP_TYPE_OBJECT);
+  WpObjectFeatures features = luaL_checkinteger (L, 2);
+  wp_object_deactivate (o, features);
+  return 0;
+}
+
 static const luaL_Reg object_methods[] = {
   { "activate", object_activate },
+  { "deactivate", object_deactivate },
   { NULL, NULL }
 };
 
