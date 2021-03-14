@@ -705,7 +705,7 @@ on_device_added (WpObjectManager *om, WpPipewireObject *device, gpointer d)
   const gchar *routes = NULL;
   GHashTable *ht;
 
-  wp_warning_object (self, "device " WP_OBJECT_FORMAT " added",
+  wp_debug_object (self, "device " WP_OBJECT_FORMAT " added",
       WP_OBJECT_ARGS (device));
 
   /* Enum available routes */
@@ -731,7 +731,7 @@ on_device_removed (WpObjectManager *om, WpPipewireObject *device, gpointer d)
   WpDefaultRoutes *self = WP_DEFAULT_ROUTES (d);
   WpDefaultRoutesPrivate *priv = wp_default_routes_get_instance_private (self);
 
-  wp_warning_object (self, "device " WP_OBJECT_FORMAT " removed",
+  wp_debug_object (self, "device " WP_OBJECT_FORMAT " removed",
       WP_OBJECT_ARGS (device));
 
   g_hash_table_remove (priv->current_routes, device);
@@ -794,7 +794,7 @@ wp_default_routes_init (WpDefaultRoutes * self)
 
   priv->state = wp_state_new (STATE_NAME);
 
-  wp_warning_object (self, "module default route loaded");
+  wp_debug_object (self, "module default route loaded");
 
   priv->current_routes = g_hash_table_new_full (g_direct_hash, g_direct_equal,
       NULL, (GDestroyNotify) g_hash_table_destroy);
