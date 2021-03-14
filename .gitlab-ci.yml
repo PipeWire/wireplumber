@@ -62,11 +62,11 @@ include:
     - git clone --depth=1 --branch="$PIPEWIRE_HEAD"
         https://gitlab.freedesktop.org/pipewire/pipewire.git
     - meson "$PW_BUILD_DIR" pipewire --prefix="$PREFIX"
-        -Dpipewire-alsa=false -Dpipewire-pulseaudio=false -Dpipewire-jack=false
-        -Dalsa=false -Dv4l2=false -Djack=false -Dbluez5=false -Dvulkan=false
-        -Dgstreamer=false -Dsystemd=false
-        -Ddocs=false -Dman=false -Dexamples=false -Dpw-cat=false
-        -Dvideotestsrc=true -Daudiotestsrc=true -Dtest=true
+        -Dpipewire-alsa=disabled -Dpipewire-pulseaudio=disabled -Dpipewire-jack=disabled
+        -Dalsa=disabled -Dv4l2=disabled -Djack=disabled -Dbluez5=disabled -Dvulkan=disabled
+        -Dgstreamer=disabled -Dsystemd=disabled
+        -Ddocs=disabled -Dman=disabled -Dexamples=disabled -Dpw-cat=disabled
+        -Dvideotestsrc=enabled -Daudiotestsrc=enabled -Dtest=enabled
     - ninja -C "$PW_BUILD_DIR" install
     # misc environment only for wireplumber
     - export WP_BUILD_DIR="$PWD/build-wireplumber-$BUILD_ID"
