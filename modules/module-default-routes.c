@@ -717,7 +717,8 @@ on_device_added (WpObjectManager *om, WpPipewireObject *device, gpointer d)
   g_return_if_fail (dev_name);
 
   routes = wp_properties_get (priv->routes, dev_name);
-  g_return_if_fail (routes);
+  if (!routes)
+    return;
 
   ht = parse_routes (routes);
   g_return_if_fail (ht);
