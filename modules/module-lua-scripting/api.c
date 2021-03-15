@@ -248,16 +248,16 @@ static int
 object_activate (lua_State *L)
 {
   WpObject *o = wplua_checkobject (L, 1, WP_TYPE_OBJECT);
-  WpObjectFeatures features = 0;
+  WpObjectFeatures features = luaL_checkinteger (L, 2);
 
-  if (lua_type (L, 2) != LUA_TNONE) {
-    features = luaL_checkinteger (L, 2);
+  if (lua_type (L, 3) != LUA_TNONE) {
+    GClosure *closure = wplua_function_to_closure (L, 3);
+    wp_object_activate_closure (o, features, NULL, closure);
   } else {
-    features = WP_OBJECT_FEATURES_ALL;
+    wp_object_activate (o, features, NULL,
+        (GAsyncReadyCallback) object_activate_done, NULL);
   }
 
-  wp_object_activate (o, features, NULL,
-      (GAsyncReadyCallback) object_activate_done, NULL);
   return 0;
 }
 
