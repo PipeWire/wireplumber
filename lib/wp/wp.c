@@ -6,6 +6,8 @@
  * SPDX-License-Identifier: MIT
  */
 
+#define G_LOG_DOMAIN "wp"
+
 #include "wp.h"
 #include <pipewire/pipewire.h>
 
@@ -42,25 +44,23 @@
 void
 wp_init (WpInitFlags flags)
 {
-  enum spa_log_level lvl = 0;
-
   if (flags & WP_INIT_SET_GLIB_LOG)
     g_log_set_writer_func (wp_log_writer_default, NULL, NULL);
 
   /* a dummy message, to initialize the logging system */
   wp_info ("WirePlumber " WIREPLUMBER_VERSION " initializing");
 
+  /* set PIPEWIRE_DEBUG and the spa_log interface that pipewire will use */
   if (flags & WP_INIT_SET_PW_LOG && !g_getenv ("WIREPLUMBER_NO_PW_LOG")) {
-    pw_log_level = lvl = wp_spa_log_get_instance ()->level;
+    g_autofree gchar *lvl_str = NULL;
+    pw_log_level = wp_spa_log_get_instance ()->level;
+    lvl_str = g_strdup_printf ("%d", pw_log_level);
+    g_setenv ("PIPEWIRE_DEBUG", lvl_str, TRUE);
     pw_log_set (wp_spa_log_get_instance ());
   }
 
   if (flags & WP_INIT_PIPEWIRE)
     pw_init (NULL, NULL);
-
-  /* restore our log level to override PIPEWIRE_DEBUG */
-  if (flags & WP_INIT_SET_PW_LOG && !g_getenv ("WIREPLUMBER_NO_PW_LOG"))
-    pw_log_set_level (lvl);
 
   if (flags & WP_INIT_SPA_TYPES)
     wp_spa_dynamic_type_init ();
