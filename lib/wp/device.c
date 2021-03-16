@@ -447,6 +447,8 @@ wp_spa_device_activate_execute_step (WpObject * object,
       wp_object_update_features (object, WP_SPA_DEVICE_FEATURE_ENABLED, 0);
     break;
   }
+  case WP_TRANSITION_STEP_ERROR:
+    break;
   default:
     g_assert_not_reached ();
   }
