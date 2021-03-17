@@ -17,6 +17,8 @@ struct _TestSiEndpoint
   WpNode *node;
   WpDirection direction;
   gboolean changed_properties;
+  WpSession *session;
+  WpProxy *impl_endpoint;
 };
 
 G_DECLARE_FINAL_TYPE (TestSiEndpoint, test_si_endpoint,
@@ -63,15 +65,90 @@ test_si_endpoint_init (TestSiEndpoint * self)
 }
 
 static gpointer
-wp_si_endpoint_get_associated_proxy (WpSessionItem * item, GType proxy_type)
+si_endpoint_get_associated_proxy (WpSessionItem * item, GType proxy_type)
 {
   TestSiEndpoint * self = TEST_SI_ENDPOINT (item);
 
-  if (proxy_type == WP_TYPE_NODE && self->node)
-    return g_object_ref (self->node);
+  if (proxy_type == WP_TYPE_NODE)
+    return self->node ? g_object_ref (self->node) : NULL;
+  else if (proxy_type == WP_TYPE_SESSION)
+    return self->session ? g_object_ref (self->session) : NULL;
 
-  return WP_SESSION_ITEM_CLASS (test_si_endpoint_parent_class)->
-      get_associated_proxy (item, proxy_type);
+  return NULL;
+}
+
+static void
+si_endpoint_reset (WpSessionItem * item)
+{
+  TestSiEndpoint * self = TEST_SI_ENDPOINT (item);
+
+  wp_object_deactivate (WP_OBJECT (self),
+      WP_SESSION_ITEM_FEATURE_ACTIVE | WP_SESSION_ITEM_FEATURE_EXPORTED);
+
+  g_clear_object (&self->node);
+  g_clear_object (&self->session);
+
+  WP_SESSION_ITEM_CLASS (test_si_endpoint_parent_class)->reset (item);
+}
+
+static void
+si_endpoint_disable_active (WpSessionItem *si)
+{
+  TestSiEndpoint * self = TEST_SI_ENDPOINT (si);
+
+  wp_object_update_features (WP_OBJECT (self), 0,
+      WP_SESSION_ITEM_FEATURE_ACTIVE);
+}
+
+static void
+si_endpoint_disable_exported (WpSessionItem *si)
+{
+  TestSiEndpoint * self = TEST_SI_ENDPOINT (si);
+
+  g_clear_object (&self->impl_endpoint);
+  wp_object_update_features (WP_OBJECT (self), 0,
+      WP_SESSION_ITEM_FEATURE_EXPORTED);
+}
+
+static void
+si_endpoint_enable_active (WpSessionItem *si, WpTransition *transition)
+{
+  TestSiEndpoint * self = TEST_SI_ENDPOINT (si);
+
+  wp_object_update_features (WP_OBJECT (self),
+      WP_SESSION_ITEM_FEATURE_ACTIVE, 0);
+}
+
+static void
+on_impl_endpoint_activated (WpObject * object, GAsyncResult * res,
+    WpTransition * transition)
+{
+  TestSiEndpoint *self = wp_transition_get_source_object (transition);
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_object_activate_finish (object, res, &error)) {
+    wp_transition_return_error (transition, g_steal_pointer (&error));
+    return;
+  }
+
+  wp_object_update_features (WP_OBJECT (self),
+          WP_SESSION_ITEM_FEATURE_EXPORTED, 0);
+}
+
+static void
+si_endpoint_enable_exported (WpSessionItem *si, WpTransition *transition)
+{
+  TestSiEndpoint * self = TEST_SI_ENDPOINT (si);
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
+
+  self->impl_endpoint = WP_PROXY (wp_impl_endpoint_new (core,
+      WP_SI_ENDPOINT (self)));
+  g_signal_connect_object (self->impl_endpoint, "pw-proxy-destroyed",
+      G_CALLBACK (wp_session_item_handle_proxy_destroyed), self, 0);
+
+  wp_object_activate (WP_OBJECT (self->impl_endpoint),
+      WP_OBJECT_FEATURES_ALL, NULL,
+      (GAsyncReadyCallback) on_impl_endpoint_activated, transition);
 }
 
 static void
@@ -79,7 +156,12 @@ test_si_endpoint_class_init (TestSiEndpointClass * klass)
 {
   WpSessionItemClass *item_class = (WpSessionItemClass *) klass;
 
-  item_class->get_associated_proxy = wp_si_endpoint_get_associated_proxy;
+  item_class->reset = si_endpoint_reset;
+  item_class->get_associated_proxy = si_endpoint_get_associated_proxy;
+  item_class->disable_active = si_endpoint_disable_active;
+  item_class->disable_exported = si_endpoint_disable_exported;
+  item_class->enable_active = si_endpoint_enable_active;
+  item_class->enable_exported = si_endpoint_enable_exported;
 }
 
 /*******************/
@@ -178,26 +260,14 @@ test_endpoint_proxy_object_removed (WpObjectManager *om,
 }
 
 static void
-test_endpoint_activate_done (WpSessionItem * item, GAsyncResult * res,
+test_endpoint_activate_done (WpObject * object, GAsyncResult * res,
     TestEndpointFixture *fixture)
 {
   g_autoptr (GError) error = NULL;
 
   g_debug ("activate done");
 
-  g_assert_true (wp_session_item_activate_finish (item, res, &error));
-  g_assert_no_error (error);
-}
-
-static void
-test_endpoint_export_done (WpSessionItem * item, GAsyncResult * res,
-    TestEndpointFixture *fixture)
-{
-  g_autoptr (GError) error = NULL;
-
-  g_debug ("export done");
-
-  g_assert_true (wp_session_item_export_finish (item, res, &error));
+  g_assert_true (wp_object_activate_finish (object, res, &error));
   g_assert_no_error (error);
 
   if (++fixture->n_events == 3)
@@ -282,20 +352,21 @@ test_endpoint_no_props (TestEndpointFixture *fixture, gconstpointer data)
   g_assert_cmpint (wp_proxy_get_bound_id (WP_PROXY (session)), >, 0);
 
   /* create endpoint */
-  endpoint = g_object_new (test_si_endpoint_get_type (), NULL);
+  endpoint = g_object_new (test_si_endpoint_get_type (),
+      "core", fixture->base.core, NULL);
   endpoint->name = "test-endpoint";
   endpoint->media_class = "Audio/Source";
   endpoint->direction = WP_DIRECTION_OUTPUT;
-  wp_session_item_activate (WP_SESSION_ITEM (endpoint),
-      (GAsyncReadyCallback) test_endpoint_activate_done, fixture);
-  g_assert_cmpint (wp_session_item_get_flags (WP_SESSION_ITEM (endpoint)),
-      &, WP_SI_FLAG_ACTIVE);
-  wp_session_item_export (WP_SESSION_ITEM (endpoint), WP_SESSION (session),
-      (GAsyncReadyCallback) test_endpoint_export_done, fixture);
+  endpoint->session = WP_SESSION (g_object_ref (session));
+  wp_object_activate (WP_OBJECT (endpoint),
+      WP_SESSION_ITEM_FEATURE_ACTIVE | WP_SESSION_ITEM_FEATURE_EXPORTED,
+      NULL, (GAsyncReadyCallback) test_endpoint_activate_done, fixture);
 
   /* run until objects are created and features are cached */
   fixture->n_events = 0;
   g_main_loop_run (fixture->base.loop);
+  g_assert_cmpint (wp_object_get_active_features (WP_OBJECT (endpoint)), ==,
+      WP_SESSION_ITEM_FEATURE_ACTIVE | WP_SESSION_ITEM_FEATURE_EXPORTED);
   g_assert_cmpint (fixture->n_events, ==, 3);
   g_assert_nonnull (fixture->impl_endpoint);
   g_assert_nonnull (fixture->proxy_endpoint);
@@ -422,10 +493,12 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
   g_assert_cmpint (wp_proxy_get_bound_id (WP_PROXY (session)), >, 0);
 
   /* create endpoint */
-  endpoint = g_object_new (test_si_endpoint_get_type (), NULL);
+  endpoint = g_object_new (test_si_endpoint_get_type (),
+      "core", fixture->base.core, NULL);
   endpoint->name = "test-endpoint";
   endpoint->media_class = "Audio/Source";
   endpoint->direction = WP_DIRECTION_OUTPUT;
+  endpoint->session = WP_SESSION (g_object_ref (session));
 
   /* associate a node that has props */
   endpoint->node = wp_node_new_from_factory (fixture->base.core,
@@ -444,16 +517,15 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
       ==, WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
 
   /* activate & export the endpoint */
-  wp_session_item_activate (WP_SESSION_ITEM (endpoint),
-      (GAsyncReadyCallback) test_endpoint_activate_done, fixture);
-  g_assert_cmpint (wp_session_item_get_flags (WP_SESSION_ITEM (endpoint)),
-      &, WP_SI_FLAG_ACTIVE);
-  wp_session_item_export (WP_SESSION_ITEM (endpoint), WP_SESSION (session),
-      (GAsyncReadyCallback) test_endpoint_export_done, fixture);
+  wp_object_activate (WP_OBJECT (endpoint),
+      WP_SESSION_ITEM_FEATURE_ACTIVE | WP_SESSION_ITEM_FEATURE_EXPORTED,
+      NULL, (GAsyncReadyCallback) test_endpoint_activate_done, fixture);
 
   /* run until objects are created and features are cached */
   fixture->n_events = 0;
   g_main_loop_run (fixture->base.loop);
+  g_assert_cmpint (wp_object_get_active_features (WP_OBJECT (endpoint)), ==,
+      WP_SESSION_ITEM_FEATURE_ACTIVE | WP_SESSION_ITEM_FEATURE_EXPORTED);
   g_assert_cmpint (fixture->n_events, ==, 3);
   g_assert_nonnull (fixture->impl_endpoint);
   g_assert_nonnull (fixture->proxy_endpoint);
@@ -727,7 +799,6 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
 
   /* destroy impl endpoint */
   fixture->n_events = 0;
-  g_clear_object (&endpoint->node);
   g_clear_object (&endpoint);
 
   /* run until objects are destroyed */

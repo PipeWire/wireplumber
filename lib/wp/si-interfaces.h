@@ -11,8 +11,6 @@
 
 #include "session-item.h"
 #include "properties.h"
-#include "endpoint.h"
-#include "endpoint-link.h"
 
 G_BEGIN_DECLS
 

@@ -107,6 +107,10 @@ local Feature = {
   Metadata = {
     DATA              = (1 << 16),
   },
+  SessionItem = {
+    ACTIVE            = (1 << 0),
+    EXPORTED          = (1 << 1),
+  },
 }
 
 SANDBOX_EXPORT = {

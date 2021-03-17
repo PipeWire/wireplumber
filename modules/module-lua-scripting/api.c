@@ -1043,83 +1043,54 @@ static int
 session_item_configure (lua_State *L)
 {
   WpSessionItem *si = wplua_checkobject (L, 1, WP_TYPE_SESSION_ITEM);
-  g_auto (GVariantBuilder) b =
-      G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
-  GVariant *config = NULL;
+  WpProperties *props = wp_properties_new_empty ();
 
   /* validate arguments */
   luaL_checktype (L, 2, LUA_TTABLE);
 
-  /* build the configuration */
+  /* build the configuration properties */
   lua_pushnil (L);
   while (lua_next (L, 2)) {
     const gchar *key = NULL;
-    GVariant *var = NULL;
+    g_autofree gchar *var = NULL;
 
     switch (lua_type (L, -1)) {
+      case LUA_TBOOLEAN:
+        var = g_strdup_printf ("%u", lua_toboolean (L, -1));
+        break;
+      case LUA_TNUMBER:
+        if (lua_isinteger (L, -1))
+          var = g_strdup_printf ("%lld", lua_tointeger (L, -1));
+        else
+          var = g_strdup_printf ("%f", lua_tonumber (L, -1));
+        break;
+      case LUA_TSTRING:
+        var = g_strdup (lua_tostring (L, -1));
+        break;
       case LUA_TUSERDATA: {
         GValue *v = lua_touserdata (L, -1);
         gpointer p = g_value_peek_pointer (v);
-        var = g_variant_new_uint64 ((guint64) p);
+        var = g_strdup_printf ("%p", p);
         break;
       }
       default:
-        var = wplua_lua_to_gvariant (L, -1);
+        luaL_error (L, "configure does not support lua type ",
+            lua_typename(L, lua_type(L, -1)));
         break;
     }
 
     key = luaL_tolstring (L, -2, NULL);
-    g_variant_builder_add (&b, "{sv}", key, var);
+    wp_properties_set (props, key, var);
     lua_pop (L, 2);
   }
-  config = g_variant_builder_end (&b);
 
-  lua_pushboolean (L, wp_session_item_configure (si, config));
+  lua_pushboolean (L, wp_session_item_configure (si, props));
   return 1;
-}
-
-static int
-session_item_activate (lua_State *L)
-{
-  WpSessionItem *si = wplua_checkobject (L, 1, WP_TYPE_SESSION_ITEM);
-  GClosure *closure = wplua_function_to_closure (L, 2);
-  wp_session_item_activate_closure (si, closure);
-  return 0;
-}
-
-static int
-session_item_deactivate (lua_State *L)
-{
-  WpSessionItem *si = wplua_checkobject (L, 1, WP_TYPE_SESSION_ITEM);
-  wp_session_item_deactivate (si);
-  return 0;
-}
-
-static int
-session_item_export (lua_State *L)
-{
-  WpSessionItem *si = wplua_checkobject (L, 1, WP_TYPE_SESSION_ITEM);
-  WpSession *session = wplua_checkobject (L, 2, WP_TYPE_SESSION);
-  GClosure *closure = wplua_function_to_closure (L, 3);
-  wp_session_item_export_closure (si, session, closure);
-  return 0;
-}
-
-static int
-session_item_unexport (lua_State *L)
-{
-  WpSessionItem *si = wplua_checkobject (L, 1, WP_TYPE_SESSION_ITEM);
-  wp_session_item_unexport (si);
-  return 0;
 }
 
 static const luaL_Reg session_item_methods[] = {
   { "reset", session_item_reset },
   { "configure", session_item_configure },
-  { "activate", session_item_activate },
-  { "deactivate", session_item_deactivate },
-  { "export", session_item_export },
-  { "unexport", session_item_unexport },
   { NULL, NULL }
 };
 

@@ -147,42 +147,24 @@ start_policy_manager (AppData * d)
  */
 
 static void
-on_si_exported (WpSessionItem * item, GAsyncResult * res, AppData * d)
+on_si_activated (WpObject * object, GAsyncResult * res, AppData * d)
 {
   g_autoptr (GError) error = NULL;
 
-  if (!wp_session_item_export_finish (item, res, &error)) {
-    g_printerr ("Failed to export session item: %s\n", error->message);
-    g_main_loop_quit (d->loop);
-    return;
-  }
-
-  g_print ("Item " WP_OBJECT_FORMAT " exported\n", WP_OBJECT_ARGS (item));
-}
-
-static void
-on_si_activated (WpSessionItem * item, GAsyncResult * res, AppData * d)
-{
-  g_autoptr (GError) error = NULL;
-
-  if (!wp_session_item_activate_finish (item, res, &error)) {
+  if (!wp_object_activate_finish (object, res, &error)) {
     g_printerr ("Failed to activate session item: %s\n", error->message);
     g_main_loop_quit (d->loop);
     return;
   }
 
-  g_print ("Item " WP_OBJECT_FORMAT " activated, exporting\n",
-      WP_OBJECT_ARGS (item));
-
-  wp_session_item_export (item, d->session,
-      (GAsyncReadyCallback) on_si_exported, d);
+  g_print ("Item " WP_OBJECT_FORMAT " exported\n", WP_OBJECT_ARGS (object));
 }
 
 static void
 on_node_added (WpObjectManager * om, WpNode *node, AppData * d)
 {
   g_autoptr (WpSessionItem) item = NULL;
-  g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
+  g_autoptr (WpProperties) props = wp_properties_new_empty ();
 
   g_print ("Node " WP_OBJECT_FORMAT " added, creating session item\n",
       WP_OBJECT_ARGS (node));
@@ -191,17 +173,18 @@ on_node_added (WpObjectManager * om, WpNode *node, AppData * d)
   item = wp_session_item_make (d->core, "si-adapter");
 
   /* and configure it */
-  g_variant_builder_add (&b, "{sv}", "node",
-      g_variant_new_uint64 ((guint64) node));
-  g_variant_builder_add (&b, "{sv}", "preferred-n-channels",
-      g_variant_new_uint32 (2));
-  if (!wp_session_item_configure (item, g_variant_builder_end (&b))) {
+  wp_properties_setf (props, "node", "%p", node);
+  wp_properties_setf (props, "session", "%p", d->session);
+  wp_properties_setf (props, "preferred-n-channels", "%u", 2);
+  if (!wp_session_item_configure (item, g_steal_pointer (&props))) {
     g_printerr ("Failed to configure session item\n");
     g_main_loop_quit (d->loop);
     return;
   }
 
-  wp_session_item_activate (item, (GAsyncReadyCallback) on_si_activated, d);
+  wp_object_activate (WP_OBJECT (item),
+      WP_SESSION_ITEM_FEATURE_ACTIVE | WP_SESSION_ITEM_FEATURE_EXPORTED,
+      NULL, (GAsyncReadyCallback) on_si_activated, d);
   g_ptr_array_add (d->session_items, g_steal_pointer (&item));
 }
 

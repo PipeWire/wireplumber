@@ -27,22 +27,18 @@ struct _WpSiFactoryClass
 {
   GObjectClass parent_class;
 
-  WpSessionItem * (*construct) (WpSiFactory * self);
-  GVariant * (*get_config_spec) (WpSiFactory * self);
+  WpSessionItem * (*construct) (WpSiFactory * self, WpCore * core);
 };
 
 WP_API
 WpSiFactory * wp_si_factory_new_simple (const gchar * factory_name,
-    GType si_type, GVariant * config_spec);
+    GType si_type);
 
 WP_API
 const gchar * wp_si_factory_get_name (WpSiFactory * self);
 
 WP_API
-WpSessionItem * wp_si_factory_construct (WpSiFactory * self);
-
-WP_API
-GVariant * wp_si_factory_get_config_spec (WpSiFactory * self);
+WpSessionItem * wp_si_factory_construct (WpSiFactory * self, WpCore * core);
 
 WP_API
 void wp_si_factory_register (WpCore * core, WpSiFactory * factory);

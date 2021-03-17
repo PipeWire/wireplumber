@@ -18,7 +18,6 @@
 #include "error.h"
 #include "debug.h"
 #include "wpenums.h"
-#include "private/impl-endpoint.h"
 #include "private/pipewire-object-mixin.h"
 
 #include <pipewire/extensions/session-manager.h>

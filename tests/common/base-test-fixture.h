@@ -139,30 +139,6 @@ test_object_activate_finish_cb (WpObject * object, GAsyncResult * res,
 }
 
 static G_GNUC_UNUSED void
-test_si_activate_finish_cb (WpSessionItem * item, GAsyncResult * res,
-    WpBaseTestFixture * f)
-{
-  g_autoptr (GError) error = NULL;
-  gboolean activate_ret = wp_session_item_activate_finish (item, res, &error);
-  g_assert_no_error (error);
-  g_assert_true (activate_ret);
-
-  g_main_loop_quit (f->loop);
-}
-
-static G_GNUC_UNUSED void
-test_si_export_finish_cb (WpSessionItem * item, GAsyncResult * res,
-    WpBaseTestFixture * f)
-{
-  g_autoptr (GError) error = NULL;
-  gboolean export_ret = wp_session_item_export_finish (item, res, &error);
-  g_assert_no_error (error);
-  g_assert_true (export_ret);
-
-  g_main_loop_quit (f->loop);
-}
-
-static G_GNUC_UNUSED void
 test_ensure_object_manager_is_installed (WpObjectManager * om, WpCore * core,
     GMainLoop * loop)
 {

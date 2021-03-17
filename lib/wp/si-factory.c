@@ -124,40 +124,12 @@ wp_si_factory_get_name (WpSiFactory * self)
  * Returns: (transfer full): a new session item instance
  */
 WpSessionItem *
-wp_si_factory_construct (WpSiFactory * self)
+wp_si_factory_construct (WpSiFactory * self, WpCore * core)
 {
   g_return_val_if_fail (WP_IS_SI_FACTORY (self), NULL);
   g_return_val_if_fail (WP_SI_FACTORY_GET_CLASS (self)->construct, NULL);
 
-  return WP_SI_FACTORY_GET_CLASS (self)->construct (self);
-}
-
-/**
- * wp_si_factory_get_config_spec:
- * @self: the factory
- *
- * Returns a description of all the configuration options that the constructed
- * items of this factory have. Configuration options are a way for items to
- * accept input from external sources that affects their behavior, or to
- * provide output for other items to consume as their configuration.
- *
- * The returned GVariant has the a(ssymv) type. This is an array of tuples,
- * where each tuple has the following values, in order:
- *  * s (string): the name of the option
- *  * s (string): a GVariant type string, describing the type of the data
- *  * y (byte): a combination of #WpSiConfigOptionFlags
- *  * mv (optional variant): optionally, an additional variant
- *    This is provided to allow extensions.
- *
- * Returns: (transfer full): the configuration description
- */
-GVariant *
-wp_si_factory_get_config_spec (WpSiFactory * self)
-{
-  g_return_val_if_fail (WP_IS_SI_FACTORY (self), NULL);
-  g_return_val_if_fail (WP_SI_FACTORY_GET_CLASS (self)->get_config_spec, NULL);
-
-  return WP_SI_FACTORY_GET_CLASS (self)->get_config_spec (self);
+  return WP_SI_FACTORY_GET_CLASS (self)->construct (self, core);
 }
 
 /**
@@ -221,14 +193,13 @@ WpSessionItem *
 wp_session_item_make (WpCore * core, const gchar * factory_name)
 {
   g_autoptr (WpSiFactory) f = wp_si_factory_find (core, factory_name);
-  return f ? wp_si_factory_construct (f) : NULL;
+  return f ? wp_si_factory_construct (f, core) : NULL;
 }
 
 struct _WpSimpleSiFactory
 {
   WpSiFactory parent;
   GType si_type;
-  GVariant *config_spec;
 };
 
 G_DECLARE_FINAL_TYPE (WpSimpleSiFactory, wp_simple_si_factory,
@@ -240,38 +211,20 @@ wp_simple_si_factory_init (WpSimpleSiFactory * self)
 {
 }
 
-static void
-wp_simple_si_factory_finalize (GObject * object)
-{
-  WpSimpleSiFactory * self = WP_SIMPLE_SI_FACTORY (object);
-
-  g_clear_pointer (&self->config_spec, g_variant_unref);
-
-  G_OBJECT_CLASS (wp_simple_si_factory_parent_class)->finalize (object);
-}
-
 static WpSessionItem *
-wp_simple_si_factory_construct (WpSiFactory * self)
+wp_simple_si_factory_construct (WpSiFactory * self, WpCore *core)
 {
-  return g_object_new (WP_SIMPLE_SI_FACTORY (self)->si_type, NULL);
-}
-
-static GVariant *
-wp_simple_si_factory_get_config_spec (WpSiFactory * self)
-{
-  return g_variant_ref (WP_SIMPLE_SI_FACTORY (self)->config_spec);
+  return g_object_new (WP_SIMPLE_SI_FACTORY (self)->si_type,
+      "core", core,
+      NULL);
 }
 
 static void
 wp_simple_si_factory_class_init (WpSimpleSiFactoryClass * klass)
 {
-  GObjectClass * object_class = (GObjectClass *) klass;
   WpSiFactoryClass * factory_class = (WpSiFactoryClass *) klass;
 
-  object_class->finalize = wp_simple_si_factory_finalize;
-
   factory_class->construct = wp_simple_si_factory_construct;
-  factory_class->get_config_spec = wp_simple_si_factory_get_config_spec;
 }
 
 /**
@@ -279,19 +232,14 @@ wp_simple_si_factory_class_init (WpSimpleSiFactoryClass * klass)
  * @factory_name: the factory name; must be a static string!
  * @si_type: the #WpSessionItem subclass type to instantiate for
  *    constructing items
- * @config_spec: (transfer floating): the config spec that will be returned
- *    by wp_si_factory_get_config_spec()
  *
  * Returns: (transfer full): the new factory
  */
 WpSiFactory *
-wp_si_factory_new_simple (const gchar * factory_name,
-    GType si_type, GVariant * config_spec)
+wp_si_factory_new_simple (const gchar * factory_name, GType si_type)
 {
   g_return_val_if_fail (factory_name != NULL, NULL);
   g_return_val_if_fail (g_type_is_a (si_type, WP_TYPE_SESSION_ITEM), NULL);
-  g_return_val_if_fail (
-      g_variant_is_of_type (config_spec, G_VARIANT_TYPE ("a(ssymv)")), NULL);
 
   WpSimpleSiFactory *self = g_object_new (
       wp_simple_si_factory_get_type (), NULL);
@@ -302,7 +250,6 @@ wp_si_factory_new_simple (const gchar * factory_name,
   priv->name_quark = g_quark_from_static_string (factory_name);
 
   self->si_type = si_type;
-  self->config_spec = g_variant_ref_sink (config_spec);
 
   return WP_SI_FACTORY (self);
 }

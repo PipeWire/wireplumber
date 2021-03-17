@@ -69,57 +69,66 @@ test_si_adapter_configure_activate (TestFixture * f,
   g_assert_nonnull (adapter);
   g_assert_true (WP_IS_SI_ENDPOINT (adapter));
 
-  /* configure adapter */
+  /* configure */
   {
-    g_auto (GVariantBuilder) b =
-        G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
-    g_variant_builder_add (&b, "{sv}", "node",
-        g_variant_new_uint64 ((guint64) node));
-    g_assert_true (
-        wp_session_item_configure (adapter, g_variant_builder_end (&b)));
+    WpProperties *props = wp_properties_new_empty ();
+    wp_properties_setf (props, "node", "%p", node);
+    wp_properties_set (props, "role", "Multimedia");
+    g_assert_true (wp_session_item_configure (adapter, props));
+    g_assert_true (wp_session_item_is_configured (adapter));
   }
 
-  g_assert_cmphex (wp_session_item_get_flags (adapter), ==,
-      WP_SI_FLAG_CONFIGURED);
-
+  /* validate configuration */
   {
-    g_autoptr (GVariant) v = wp_session_item_get_configuration (adapter);
-    guint64 node_i;
-    const gchar *str;
-    guchar dir;
-    guint32 prio;
-    guint32 channels;
-    g_assert_nonnull (v);
-    g_assert_true (g_variant_lookup (v, "node", "t", &node_i));
-    g_assert_cmpuint (node_i, ==, (guint64) node);
-    g_assert_true (g_variant_lookup (v, "name", "&s", &str));
-    g_assert_cmpstr (str, ==, "audiotestsrc.adapter");
-    g_assert_true (g_variant_lookup (v, "media-class", "&s", &str));
-    g_assert_cmpstr (str, ==, "Audio/Source");
-    g_assert_true (g_variant_lookup (v, "direction", "y", &dir));
-    g_assert_cmpuint (dir, ==, WP_DIRECTION_OUTPUT);
-    g_assert_true (g_variant_lookup (v, "priority", "u", &prio));
-    g_assert_cmpuint (prio, ==, 0);
-    g_assert_true (g_variant_lookup (v, "channels", "u", &channels));
-    g_assert_cmpuint (channels, ==, 0);
+    const gchar *str = NULL;
+    g_autoptr (WpProperties) props = wp_session_item_get_properties (adapter);
+    g_assert_nonnull (props);
+    str = wp_properties_get (props, "name");
+    g_assert_nonnull (str);
+    g_assert_cmpstr ("audiotestsrc.adapter", ==, str);
+    str = wp_properties_get (props, "media-class");
+    g_assert_nonnull (str);
+    g_assert_cmpstr ("Audio/Source", ==, str);
+    str = wp_properties_get (props, "role");
+    g_assert_nonnull (str);
+    g_assert_cmpstr ("Multimedia", ==, str);
+    str = wp_properties_get (props, "direction");
+    g_assert_nonnull (str);
+    g_assert_cmpstr ("1", ==, str);
+    str = wp_properties_get (props, "priority");
+    g_assert_nonnull (str);
+    g_assert_cmpstr ("0", ==, str);
+    str = wp_properties_get (props, "preferred-n-channels");
+    g_assert_nonnull (str);
+    g_assert_cmpstr ("0", ==, str);
+    str = wp_properties_get (props, "enable-control-port");
+    g_assert_nonnull (str);
+    g_assert_cmpstr ("0", ==, str);
+    str = wp_properties_get (props, "enable-monitor");
+    g_assert_nonnull (str);
+    g_assert_cmpstr ("0", ==, str);
+    str = wp_properties_get (props, "si-factory-name");
+    g_assert_nonnull (str);
+    g_assert_cmpstr ("si-adapter", ==, str);
   }
 
-  /* activate adapter */
-  {
-    wp_session_item_activate (adapter,
-        (GAsyncReadyCallback) test_si_activate_finish_cb, f);
-    g_main_loop_run (f->base.loop);
-  }
-
-  g_assert_cmphex (wp_session_item_get_flags (adapter), ==,
-      WP_SI_FLAG_CONFIGURED | WP_SI_FLAG_ACTIVE);
+  /* activate */
+  wp_object_activate (WP_OBJECT (adapter), WP_SESSION_ITEM_FEATURE_ACTIVE,
+      NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
+  g_main_loop_run (f->base.loop);
+  g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (adapter)), ==,
+      WP_SESSION_ITEM_FEATURE_ACTIVE);
   g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (node)), ==,
       WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL | WP_NODE_FEATURE_PORTS);
 
   /* deactivate - configuration should not be altered  */
+  wp_object_deactivate (WP_OBJECT (adapter), WP_SESSION_ITEM_FEATURE_ACTIVE);
+  g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (adapter)), ==, 0);
+  g_assert_true (wp_session_item_is_configured (adapter));
 
-  wp_session_item_deactivate (adapter);
-  g_assert_cmphex (wp_session_item_get_flags (adapter), ==, 0);
+  /* reset */
+  wp_session_item_reset (adapter);
+  g_assert_false (wp_session_item_is_configured (adapter));
 }
 
 static void
@@ -132,7 +141,6 @@ test_si_adapter_export (TestFixture * f, gconstpointer user_data)
   g_autoptr (WpClient) self_client = NULL;
 
   /* find self_client, to be used for verifying endpoint.client.id */
-
   clients_om = wp_object_manager_new ();
   wp_object_manager_add_interest (clients_om, WP_TYPE_CLIENT, NULL);
   wp_object_manager_request_object_features (clients_om,
@@ -144,8 +152,14 @@ test_si_adapter_export (TestFixture * f, gconstpointer user_data)
   g_assert_nonnull (self_client =
       wp_object_manager_lookup (clients_om, WP_TYPE_CLIENT, NULL));
 
-  /* create item */
+  /* create session */
+  session = WP_SESSION (wp_impl_session_new (f->base.core));
+  g_assert_nonnull (session);
+  wp_object_activate (WP_OBJECT (session), WP_OBJECT_FEATURES_ALL, NULL,
+      (GAsyncReadyCallback) test_object_activate_finish_cb, f);
+  g_main_loop_run (f->base.loop);
 
+  /* create adapter */
   node = wp_node_new_from_factory (f->base.core,
       "adapter",
       wp_properties_new (
@@ -156,47 +170,28 @@ test_si_adapter_export (TestFixture * f, gconstpointer user_data)
   wp_object_activate (WP_OBJECT (node), WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
       NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
   g_main_loop_run (f->base.loop);
-
-
   adapter = wp_session_item_make (f->base.core, "si-adapter");
   g_assert_nonnull (adapter);
   g_assert_true (WP_IS_SI_ENDPOINT (adapter));
 
+  /* configure */
   {
-    g_auto (GVariantBuilder) b =
-        G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
-    g_variant_builder_add (&b, "{sv}", "node",
-        g_variant_new_uint64 ((guint64) node));
-    g_assert_true (
-        wp_session_item_configure (adapter, g_variant_builder_end (&b)));
+    WpProperties *props = wp_properties_new_empty ();
+    wp_properties_setf (props, "node", "%p", node);
+    wp_properties_setf (props, "session", "%p", session);
+    g_assert_true (wp_session_item_configure (adapter, props));
+    g_assert_true (wp_session_item_is_configured (adapter));
   }
 
-  /* activate */
-
-  {
-    wp_session_item_activate (adapter,
-        (GAsyncReadyCallback) test_si_activate_finish_cb, f);
-    g_main_loop_run (f->base.loop);
-  }
-
-  /* create session */
-
-  session = WP_SESSION (wp_impl_session_new (f->base.core));
-  g_assert_nonnull (session);
-
-  wp_object_activate (WP_OBJECT (session), WP_OBJECT_FEATURES_ALL, NULL,
-      (GAsyncReadyCallback) test_object_activate_finish_cb, f);
+  /* activate and export */
+  wp_object_activate (WP_OBJECT (adapter),
+      WP_SESSION_ITEM_FEATURE_ACTIVE | WP_SESSION_ITEM_FEATURE_EXPORTED,
+      NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
   g_main_loop_run (f->base.loop);
+  g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (adapter)), ==,
+      WP_SESSION_ITEM_FEATURE_ACTIVE | WP_SESSION_ITEM_FEATURE_EXPORTED);
 
-  /* export */
-
-  wp_session_item_export (adapter, session,
-      (GAsyncReadyCallback) test_si_export_finish_cb, f);
-  g_main_loop_run (f->base.loop);
-
-  g_assert_cmphex (wp_session_item_get_flags (adapter), ==,
-      WP_SI_FLAG_CONFIGURED | WP_SI_FLAG_ACTIVE | WP_SI_FLAG_EXPORTED);
-
+  /* validate */
   {
     g_autoptr (WpEndpoint) ep = NULL;
     g_autoptr (WpProperties) props = NULL;
@@ -228,6 +223,10 @@ test_si_adapter_export (TestFixture * f, gconstpointer user_data)
     g_assert_cmpstr (wp_properties_get (props, "endpoint.client.id"), ==, tmp);
     g_free (tmp);
   }
+
+  /* reset */
+  wp_session_item_reset (adapter);
+  g_assert_false (wp_session_item_is_configured (adapter));
 }
 
 gint

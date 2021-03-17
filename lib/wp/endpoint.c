@@ -23,7 +23,6 @@
 #include "wpenums.h"
 #include "spa-type.h"
 #include "si-factory.h"
-#include "private/impl-endpoint.h"
 #include "private/pipewire-object-mixin.h"
 
 #include <pipewire/extensions/session-manager.h>
@@ -349,7 +348,7 @@ on_si_link_exported (WpSessionItem * link, GAsyncResult * res, gpointer data)
   WpImplEndpoint *self = WP_IMPL_ENDPOINT (data);
   g_autoptr (GError) error = NULL;
 
-  if (!wp_session_item_export_finish (link, res, &error)) {
+  if (!wp_object_activate_finish (WP_OBJECT (link), res, &error)) {
     wp_warning_object (self, "failed to export link: %s", error->message);
     g_object_unref (link);
   }
@@ -418,8 +417,8 @@ impl_create_link (void *object, const struct spa_dict *props)
   {
     g_autoptr (WpSessionItem) link = NULL;
     g_autoptr (WpCore) core = NULL;
-    GVariantBuilder b;
-    guint64 out_endpoint_i, in_endpoint_i;
+    WpProperties *props = NULL;
+    WpSiEndpoint *out_endpoint, *in_endpoint;
 
     core = wp_object_get_core (WP_OBJECT (self));
     link = wp_session_item_make (core, "si-standard-link");
@@ -429,27 +428,26 @@ impl_create_link (void *object, const struct spa_dict *props)
     }
 
     if (self->info.direction == PW_DIRECTION_OUTPUT) {
-      out_endpoint_i = (guint64) self->item;
-      in_endpoint_i = (guint64) peer_si_endpoint;
+      out_endpoint = self->item;
+      in_endpoint = peer_si_endpoint;
     } else {
-      out_endpoint_i = (guint64) peer_si_endpoint;
-      in_endpoint_i = (guint64) self->item;
+      out_endpoint = peer_si_endpoint;
+      in_endpoint = self->item;
     }
 
-    g_variant_builder_init (&b, G_VARIANT_TYPE_VARDICT);
-    g_variant_builder_add (&b, "{sv}", "out-endpoint",
-        g_variant_new_uint64 (out_endpoint_i));
-    g_variant_builder_add (&b, "{sv}", "in-endpoint",
-        g_variant_new_uint64 (in_endpoint_i));
-    g_variant_builder_add (&b, "{sv}", "manage-lifetime",
-        g_variant_new_boolean (TRUE));
-    if (G_UNLIKELY (!wp_session_item_configure (link, g_variant_builder_end (&b)))) {
+    props = wp_properties_new_empty ();
+    wp_properties_setf (props, "out-endpoint", "%p", out_endpoint);
+    wp_properties_setf (props, "in-endpoint", "%p", in_endpoint);
+    wp_properties_setf (props, "session", "%p", session);
+    wp_properties_setf (props, "manage-lifetime", "%u", TRUE);
+
+    if (G_UNLIKELY (!wp_session_item_configure (link, props))) {
       g_critical ("si-standard-link configuration failed");
       return -ENAVAIL;
     }
 
-    wp_session_item_export (link, session,
-        (GAsyncReadyCallback) on_si_link_exported, self);
+    wp_object_activate (WP_OBJECT (link), WP_SESSION_ITEM_FEATURE_EXPORTED,
+        NULL, (GAsyncReadyCallback) on_si_link_exported, self);
     link = NULL;
   }
 

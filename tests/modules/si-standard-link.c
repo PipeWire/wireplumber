@@ -23,7 +23,6 @@ load_item (TestFixture * f, const gchar * factory, const gchar * media_class)
 {
   g_autoptr (WpNode) node = NULL;
   g_autoptr (WpSessionItem) item = NULL;
-  g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
 
   /* create item */
 
@@ -44,23 +43,23 @@ load_item (TestFixture * f, const gchar * factory, const gchar * media_class)
 
   /* configure */
 
-  g_variant_builder_add (&b, "{sv}", "node",
-      g_variant_new_uint64 ((guint64) node));
-  g_variant_builder_add (&b, "{sv}", "media-class",
-      g_variant_new_string (media_class));
-  g_assert_true (wp_session_item_configure (item, g_variant_builder_end (&b)));
-
-  /* activate */
-
-  wp_session_item_activate (item,
-      (GAsyncReadyCallback) test_si_activate_finish_cb, f);
-  g_main_loop_run (f->base.loop);
+  {
+    WpProperties *props = wp_properties_new_empty ();
+    wp_properties_setf (props, "node", "%p", node);
+    wp_properties_set (props, "media-class", media_class);
+    wp_properties_setf (props, "session", "%p", f->session);
+    g_assert_true (wp_session_item_configure (item, props));
+    g_assert_true (wp_session_item_is_configured (item));
+  }
 
   /* export */
 
-  wp_session_item_export (item, f->session,
-      (GAsyncReadyCallback) test_si_export_finish_cb, f);
+  wp_object_activate (WP_OBJECT (item),
+      WP_SESSION_ITEM_FEATURE_ACTIVE | WP_SESSION_ITEM_FEATURE_EXPORTED,
+      NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
   g_main_loop_run (f->base.loop);
+  g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (item)), ==,
+      WP_SESSION_ITEM_FEATURE_ACTIVE | WP_SESSION_ITEM_FEATURE_EXPORTED);
 
   return g_steal_pointer (&item);
 }
@@ -124,14 +123,10 @@ on_link_state_changed (WpEndpointLink * link, WpEndpointLinkState old,
   switch (f->activation_state++) {
     case 0:
       g_assert_cmpuint (old, ==, WP_ENDPOINT_LINK_STATE_INACTIVE);
-      g_assert_cmpuint (new, ==, WP_ENDPOINT_LINK_STATE_PREPARING);
-      break;
-    case 1:
-      g_assert_cmpuint (old, ==, WP_ENDPOINT_LINK_STATE_PREPARING);
       g_assert_cmpuint (new, ==, WP_ENDPOINT_LINK_STATE_ACTIVE);
       g_main_loop_quit (f->base.loop);
       break;
-    case 2:
+    case 1:
       g_assert_cmpuint (old, ==, WP_ENDPOINT_LINK_STATE_ACTIVE);
       g_assert_cmpuint (new, ==, WP_ENDPOINT_LINK_STATE_INACTIVE);
       g_main_loop_quit (f->base.loop);
@@ -231,7 +226,7 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
     g_assert_cmpuint (wp_endpoint_link_get_state (ep_link, &error), ==,
         WP_ENDPOINT_LINK_STATE_ACTIVE);
     g_assert_null (error);
-    g_assert_cmpint (f->activation_state, ==, 2);
+    g_assert_cmpint (f->activation_state, ==, 1);
   }
 
   /* verify the graph state */
@@ -285,7 +280,7 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
     g_assert_cmpuint (wp_endpoint_link_get_state (ep_link, &error), ==,
         WP_ENDPOINT_LINK_STATE_INACTIVE);
     g_assert_null (error);
-    g_assert_cmpint (f->activation_state, ==, 3);
+    g_assert_cmpint (f->activation_state, ==, 2);
   }
 
   /* verify the graph state */

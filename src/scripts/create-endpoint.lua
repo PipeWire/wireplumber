@@ -37,45 +37,38 @@ function addEndpoint (node, session_name, endpoint_type, priority)
       ["name"] = name,
       ["media-class"] = media_class,
       ["priority"] = priority,
+      ["session"] = session,
   } then
     Log.warning(node, "failed to configure endpoint");
     return
   end
 
-  -- activate endpoint
-  session_items.endpoints[id]:activate (function (activated_ep)
-    Log.debug(activated_ep, "activated endpoint " .. name);
+  -- activate and export endpoint
+  session_items.endpoints[id]:activate (Feature.Object.ALL, function (activated_ep)
+    Log.info(activated_ep, "activated and exported endpoint " .. name);
 
-    -- export endpoint
-    activated_ep:export (session, function (exported_ep)
-      Log.info(exported_ep, "exported endpoint " .. name);
+    -- only use monitor audio sinks
+    if media_class == "Audio/Sink" then
+      -- create monitor
+      local monitor = SessionItem ( "si-monitor" )
 
-      -- only use monitor audio sinks
-      if media_class == "Audio/Sink" then
-        -- create monitor
-        local monitor = SessionItem ( "si-monitor" )
-
-        -- configure monitor
-        if not monitor:configure {
-            ["adapter"] = session_items.endpoints[id]
-        } then
-          Log.warning(monitor, "failed to configure monitor " .. name);
-          return
-        end
-
-        session_items.monitors[id] = monitor
-
-        -- activate monitor
-        monitor:activate (function (activated_mon)
-          Log.debug(activated_mon, "activated monitor " .. name);
-
-          -- export monitor
-          activated_mon:export (session, function (exported_mon)
-            Log.info(exported_mon, "exported monitor " .. name);
-          end)
-        end)
+      -- configure monitor
+      if not monitor:configure {
+          ["endpoint"] = session_items.endpoints[id],
+          ["name"] = "Monitor." .. name,
+          ["session"] = session,
+      } then
+        Log.warning(monitor, "failed to configure monitor " .. name);
+        return
       end
-    end)
+
+      session_items.monitors[id] = monitor
+
+      -- activate and export monitor
+      monitor:activate (Feature.Object.ALL, function (activated_mon)
+        Log.info(activated_mon, "activated and exported monitor " .. name);
+      end)
+    end
   end)
 end
 

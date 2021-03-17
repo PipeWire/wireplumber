@@ -84,16 +84,11 @@ test_si_convert_configure_activate (TestFixture * f,
   /* configure target */
 
   {
-    g_auto (GVariantBuilder) b =
-        G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
-    g_variant_builder_add (&b, "{sv}", "node",
-        g_variant_new_uint64 ((guint64) target_node));
-    g_assert_true (
-        wp_session_item_configure (target, g_variant_builder_end (&b)));
+    WpProperties *props = wp_properties_new_empty ();
+    wp_properties_setf (props, "node", "%p", target_node);
+    g_assert_true (wp_session_item_configure (target, props));
+    g_assert_true (wp_session_item_is_configured (target));
   }
-
-  g_assert_cmphex (wp_session_item_get_flags (target), ==,
-      WP_SI_FLAG_CONFIGURED);
 
   /* create convert */
 
@@ -104,44 +99,42 @@ test_si_convert_configure_activate (TestFixture * f,
   /* configure convert */
 
   {
-    g_auto (GVariantBuilder) b =
-        G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
-    g_variant_builder_add (&b, "{sv}", "target",
-        g_variant_new_uint64 ((guint64) target));
-    g_variant_builder_add (&b, "{sv}", "name",
-        g_variant_new_string ("convert"));
-    g_assert_true (
-        wp_session_item_configure (convert, g_variant_builder_end (&b)));
-
-    g_assert_cmphex (wp_session_item_get_flags (convert), ==,
-      WP_SI_FLAG_CONFIGURED);
+    WpProperties *props = wp_properties_new_empty ();
+    wp_properties_setf (props, "target", "%p", target);
+    wp_properties_set (props, "name", "convert");
+    g_assert_true (wp_session_item_configure (convert, props));
+    g_assert_true (wp_session_item_is_configured (convert));
   }
 
   {
-    g_autoptr (GVariant) v = wp_session_item_get_configuration (convert);
-    guint64 target_i;
-    const gchar *name;
-    g_assert_nonnull (v);
-    g_assert_true (g_variant_lookup (v, "target", "t", &target_i));
-    g_assert_cmpuint (target_i, ==, (guint64) target);
-    g_assert_true (g_variant_lookup (v, "name", "&s", &name));
-    g_assert_cmpstr (name, ==, "convert");
+    const gchar *str = NULL;
+    g_autoptr (WpProperties) props = wp_session_item_get_properties (convert);
+    g_assert_nonnull (props);
+    str = wp_properties_get (props, "name");
+    g_assert_nonnull (str);
+    g_assert_cmpstr ("convert", ==, str);
+    str = wp_properties_get (props, "direction");
+    g_assert_nonnull (str);
+    g_assert_cmpstr ("1", ==, str);
+    str = wp_properties_get (props, "enable-control-port");
+    g_assert_nonnull (str);
+    g_assert_cmpstr ("0", ==, str);
+    str = wp_properties_get (props, "si-factory-name");
+    g_assert_nonnull (str);
+    g_assert_cmpstr ("si-convert", ==, str);
   }
 
   /* activate convert */
 
-  {
-    wp_session_item_activate (convert,
-        (GAsyncReadyCallback) test_si_activate_finish_cb, f);
-    g_main_loop_run (f->base.loop);
-  }
+  wp_object_activate (WP_OBJECT (convert), WP_SESSION_ITEM_FEATURE_ACTIVE,
+      NULL,  (GAsyncReadyCallback) test_object_activate_finish_cb, f);
+  g_main_loop_run (f->base.loop);
+  g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (convert)), ==,
+      WP_SESSION_ITEM_FEATURE_ACTIVE);
 
-  g_assert_cmphex (wp_session_item_get_flags (convert), ==,
-      WP_SI_FLAG_CONFIGURED | WP_SI_FLAG_ACTIVE);
-
-  /* deactivate  */
-
-  wp_session_item_deactivate (convert);
+  /* reset */
+  wp_session_item_reset (convert);
+  g_assert_false (wp_session_item_is_configured (convert));
 }
 
 static void
@@ -167,6 +160,15 @@ test_si_convert_export (TestFixture * f, gconstpointer user_data)
   g_assert_nonnull (self_client =
       wp_object_manager_lookup (clients_om, WP_TYPE_CLIENT, NULL));
 
+  /* create session */
+
+  session = WP_SESSION (wp_impl_session_new (f->base.core));
+  g_assert_nonnull (session);
+
+  wp_object_activate (WP_OBJECT (session), WP_OBJECT_FEATURES_ALL, NULL,
+      (GAsyncReadyCallback) test_object_activate_finish_cb, f);
+  g_main_loop_run (f->base.loop);
+
   /* create target node */
 
   target_node = wp_node_new_from_factory (f->base.core,
@@ -190,14 +192,10 @@ test_si_convert_export (TestFixture * f, gconstpointer user_data)
   /* configure target */
 
   {
-    g_auto (GVariantBuilder) b =
-        G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
-    g_variant_builder_add (&b, "{sv}", "node",
-        g_variant_new_uint64 ((guint64) target_node));
-    g_assert_true (
-        wp_session_item_configure (target, g_variant_builder_end (&b)));
-    g_assert_cmphex (wp_session_item_get_flags (target), ==,
-      WP_SI_FLAG_CONFIGURED);
+    WpProperties *props = wp_properties_new_empty ();
+    wp_properties_setf (props, "node", "%p", target_node);
+    g_assert_true (wp_session_item_configure (target, props));
+    g_assert_true (wp_session_item_is_configured (target));
   }
 
   /* create convert */
@@ -207,43 +205,24 @@ test_si_convert_export (TestFixture * f, gconstpointer user_data)
 
   /* configure convert */
   {
-    g_auto (GVariantBuilder) b =
-        G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
-    g_variant_builder_add (&b, "{sv}", "target",
-        g_variant_new_uint64 ((guint64) target));
-    g_variant_builder_add (&b, "{sv}", "name",
-        g_variant_new_string ("convert"));
-    g_assert_true (
-        wp_session_item_configure (convert, g_variant_builder_end (&b)));
-    g_assert_cmphex (wp_session_item_get_flags (convert), ==,
-      WP_SI_FLAG_CONFIGURED);
+    WpProperties *props = wp_properties_new_empty ();
+    wp_properties_setf (props, "target", "%p", target);
+    wp_properties_set (props, "name", "convert");
+    wp_properties_setf (props, "session", "%p", session);
+    g_assert_true (wp_session_item_configure (convert, props));
+    g_assert_true (wp_session_item_is_configured (convert));
   }
 
   /* activate convert */
 
   {
-    wp_session_item_activate (convert,
-        (GAsyncReadyCallback) test_si_activate_finish_cb, f);
+    wp_object_activate (WP_OBJECT (convert),
+        WP_SESSION_ITEM_FEATURE_ACTIVE | WP_SESSION_ITEM_FEATURE_EXPORTED,
+        NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
     g_main_loop_run (f->base.loop);
+    g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (convert)), ==,
+        WP_SESSION_ITEM_FEATURE_ACTIVE | WP_SESSION_ITEM_FEATURE_EXPORTED);
   }
-
-  /* create session */
-
-  session = WP_SESSION (wp_impl_session_new (f->base.core));
-  g_assert_nonnull (session);
-
-  wp_object_activate (WP_OBJECT (session), WP_OBJECT_FEATURES_ALL, NULL,
-      (GAsyncReadyCallback) test_object_activate_finish_cb, f);
-  g_main_loop_run (f->base.loop);
-
-  /* export */
-
-  wp_session_item_export (convert, session,
-      (GAsyncReadyCallback) test_si_export_finish_cb, f);
-  g_main_loop_run (f->base.loop);
-
-  g_assert_cmphex (wp_session_item_get_flags (convert), ==,
-      WP_SI_FLAG_CONFIGURED | WP_SI_FLAG_ACTIVE | WP_SI_FLAG_EXPORTED);
 
   {
     g_autoptr (WpEndpoint) ep = NULL;
@@ -268,6 +247,10 @@ test_si_convert_export (TestFixture * f, gconstpointer user_data)
     g_assert_cmpstr (wp_properties_get (props, "session.id"), ==, tmp);
     g_free (tmp);
   }
+
+  /* reset */
+  wp_session_item_reset (convert);
+  g_assert_false (wp_session_item_is_configured (convert));
 }
 
 gint
@@ -277,13 +260,11 @@ main (gint argc, gchar *argv[])
   wp_init (WP_INIT_ALL);
 
   /* configure-activate */
-
   g_test_add ("/modules/si-convert/configure-activate",
       TestFixture, NULL,
       test_si_convert_setup,
       test_si_convert_configure_activate,
       test_si_convert_teardown);
-
  /* export */
 
  g_test_add ("/modules/si-convert/export",
