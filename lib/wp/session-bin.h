@@ -33,9 +33,6 @@ struct _WpSessionBinClass
 };
 
 WP_API
-WpSessionBin *wp_session_bin_new (void);
-
-WP_API
 gboolean wp_session_bin_add (WpSessionBin *self, WpSessionItem *item);
 
 WP_API

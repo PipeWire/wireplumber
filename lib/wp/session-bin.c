@@ -67,18 +67,6 @@ wp_session_bin_class_init (WpSessionBinClass * klass)
 }
 
 /**
- * wp_session_bin_new:
- * Creates a new session bin.
- *
- * Returns: TRUE if the item was added into the session bin, FALSE otherwise
- */
-WpSessionBin *
-wp_session_bin_new (void)
-{
-  return g_object_new (WP_TYPE_SESSION_BIN, NULL);
-}
-
-/**
  * wp_session_bin_add:
  * @self: the session bin
  * @item (transfer full): the session item to be added
