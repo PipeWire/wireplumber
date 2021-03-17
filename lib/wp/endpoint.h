@@ -13,6 +13,7 @@
 #include "port.h"
 #include "iterator.h"
 #include "object-interest.h"
+#include "si-interfaces.h"
 
 G_BEGIN_DECLS
 
@@ -41,6 +42,19 @@ WpDirection wp_endpoint_get_direction (WpEndpoint * self);
 
 WP_API
 void wp_endpoint_create_link (WpEndpoint * self, WpProperties * props);
+
+/**
+ * WP_TYPE_IMPL_ENDPOINT:
+ *
+ * The #WpImplEndpoint #GType
+ */
+#define WP_TYPE_IMPL_ENDPOINT (wp_impl_endpoint_get_type ())
+WP_API
+G_DECLARE_FINAL_TYPE (WpImplEndpoint, wp_impl_endpoint,
+                      WP, IMPL_ENDPOINT, WpEndpoint)
+
+WP_API
+WpImplEndpoint * wp_impl_endpoint_new (WpCore * core, WpSiEndpoint * item);
 
 G_END_DECLS
 
