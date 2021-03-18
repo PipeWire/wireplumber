@@ -14,7 +14,7 @@ test(
   executable('test-audio-utils',
     [
       'audio-utils.c',
-      '../../modules/module-si-adapter/audio-utils.c'
+      '../../modules/module-si-audio-adapter/audio-utils.c'
     ],
     dependencies: common_deps, c_args: common_args),
   env: common_env,
@@ -35,8 +35,8 @@ test(
 )
 
 test(
-  'test-si-adapter',
-  executable('test-si-adapter', 'si-adapter.c',
+  'test-si-audio-adapter',
+  executable('test-si-audio-adapter', 'si-audio-adapter.c',
       dependencies: common_deps, c_args: common_args),
   env: common_env,
 )

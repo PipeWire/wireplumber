@@ -36,7 +36,7 @@ test_si_convert_setup (TestFixture * f, gconstpointer user_data)
   {
     g_autoptr (GError) error = NULL;
     wp_core_load_component (f->base.core,
-        "libwireplumber-module-si-adapter", "module", NULL, &error);
+        "libwireplumber-module-si-audio-adapter", "module", NULL, &error);
     g_assert_no_error (error);
   }
   {
@@ -77,7 +77,7 @@ test_si_convert_configure_activate (TestFixture * f,
 
   /* create target */
 
-  target = wp_session_item_make (f->base.core, "si-adapter");
+  target = wp_session_item_make (f->base.core, "si-audio-adapter");
   g_assert_nonnull (target);
   g_assert_true (WP_IS_SI_ENDPOINT (target));
 
@@ -185,7 +185,7 @@ test_si_convert_export (TestFixture * f, gconstpointer user_data)
 
   /* create target */
 
-  target = wp_session_item_make (f->base.core, "si-adapter");
+  target = wp_session_item_make (f->base.core, "si-audio-adapter");
   g_assert_nonnull (target);
   g_assert_true (WP_IS_SI_ENDPOINT (target));
 

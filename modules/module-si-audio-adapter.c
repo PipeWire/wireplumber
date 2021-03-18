@@ -15,11 +15,11 @@
 #include <spa/param/audio/raw.h>
 #include <spa/param/param.h>
 
-#include "module-si-adapter/audio-utils.h"
+#include "module-si-audio-adapter/audio-utils.h"
 
-#define SI_FACTORY_NAME "si-adapter"
+#define SI_FACTORY_NAME "si-audio-adapter"
 
-struct _WpSiAdapter
+struct _WpSiAudioAdapter
 {
   WpSessionItem parent;
 
@@ -42,23 +42,25 @@ struct _WpSiAdapter
   WpImplEndpoint *impl_endpoint;
 };
 
-static void si_adapter_endpoint_init (WpSiEndpointInterface * iface);
-static void si_adapter_port_info_init (WpSiPortInfoInterface * iface);
+static void si_audio_adapter_endpoint_init (WpSiEndpointInterface * iface);
+static void si_audio_adapter_port_info_init (WpSiPortInfoInterface * iface);
 
-G_DECLARE_FINAL_TYPE(WpSiAdapter, si_adapter, WP, SI_ADAPTER, WpSessionItem)
-G_DEFINE_TYPE_WITH_CODE (WpSiAdapter, si_adapter, WP_TYPE_SESSION_ITEM,
-    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_ENDPOINT, si_adapter_endpoint_init)
-    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_PORT_INFO, si_adapter_port_info_init))
+G_DECLARE_FINAL_TYPE(WpSiAudioAdapter, si_audio_adapter, WP, SI_AUDIO_ADAPTER,
+    WpSessionItem)
+G_DEFINE_TYPE_WITH_CODE (WpSiAudioAdapter, si_audio_adapter,
+    WP_TYPE_SESSION_ITEM,
+    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_ENDPOINT, si_audio_adapter_endpoint_init)
+    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_PORT_INFO, si_audio_adapter_port_info_init))
 
 static void
-si_adapter_init (WpSiAdapter * self)
+si_audio_adapter_init (WpSiAudioAdapter * self)
 {
 }
 
 static void
-si_adapter_reset (WpSessionItem * item)
+si_audio_adapter_reset (WpSessionItem * item)
 {
-  WpSiAdapter *self = WP_SI_ADAPTER (item);
+  WpSiAudioAdapter *self = WP_SI_AUDIO_ADAPTER (item);
 
   /* deactivate first */
   wp_object_deactivate (WP_OBJECT (self),
@@ -76,13 +78,13 @@ si_adapter_reset (WpSessionItem * item)
   self->direction = WP_DIRECTION_INPUT;
   self->preferred_n_channels = 0;
 
-  WP_SESSION_ITEM_CLASS (si_adapter_parent_class)->reset (item);
+  WP_SESSION_ITEM_CLASS (si_audio_adapter_parent_class)->reset (item);
 }
 
 static gboolean
-si_adapter_configure (WpSessionItem * item, WpProperties *p)
+si_audio_adapter_configure (WpSessionItem * item, WpProperties *p)
 {
-  WpSiAdapter *self = WP_SI_ADAPTER (item);
+  WpSiAudioAdapter *self = WP_SI_AUDIO_ADAPTER (item);
   g_autoptr (WpProperties) si_props = wp_properties_ensure_unique_owner (p);
   WpNode *node = NULL;
   WpProperties *node_props = NULL;
@@ -90,7 +92,7 @@ si_adapter_configure (WpSessionItem * item, WpProperties *p)
   const gchar *str;
 
   /* reset previous config */
-  si_adapter_reset (item);
+  si_audio_adapter_reset (item);
 
   str = wp_properties_get (si_props, "node");
   if (!str || sscanf(str, "%p", &node) != 1 || !WP_IS_NODE (node))
@@ -183,9 +185,9 @@ si_adapter_configure (WpSessionItem * item, WpProperties *p)
 }
 
 static gpointer
-si_adapter_get_associated_proxy (WpSessionItem * item, GType proxy_type)
+si_audio_adapter_get_associated_proxy (WpSessionItem * item, GType proxy_type)
 {
-  WpSiAdapter *self = WP_SI_ADAPTER (item);
+  WpSiAudioAdapter *self = WP_SI_AUDIO_ADAPTER (item);
 
   if (proxy_type == WP_TYPE_NODE)
     return self->node ? g_object_ref (self->node) : NULL;
@@ -198,9 +200,9 @@ si_adapter_get_associated_proxy (WpSessionItem * item, GType proxy_type)
 }
 
 static void
-si_adapter_disable_active (WpSessionItem *si)
+si_audio_adapter_disable_active (WpSessionItem *si)
 {
-  WpSiAdapter *self = WP_SI_ADAPTER (si);
+  WpSiAudioAdapter *self = WP_SI_AUDIO_ADAPTER (si);
 
   self->format = (struct spa_audio_info_raw){ 0 };
   wp_object_update_features (WP_OBJECT (self), 0,
@@ -208,9 +210,9 @@ si_adapter_disable_active (WpSessionItem *si)
 }
 
 static void
-si_adapter_disable_exported (WpSessionItem *si)
+si_audio_adapter_disable_exported (WpSessionItem *si)
 {
-  WpSiAdapter *self = WP_SI_ADAPTER (si);
+  WpSiAudioAdapter *self = WP_SI_AUDIO_ADAPTER (si);
 
   g_clear_object (&self->impl_endpoint);
   wp_object_update_features (WP_OBJECT (self), 0,
@@ -221,7 +223,7 @@ static void
 on_feature_ports_ready (WpObject * node, GAsyncResult * res,
     WpTransition * transition)
 {
-  WpSiAdapter *self = wp_transition_get_source_object (transition);
+  WpSiAudioAdapter *self = wp_transition_get_source_object (transition);
   g_autoptr (GError) error = NULL;
 
   if (!wp_object_activate_finish (node, res, &error)) {
@@ -237,7 +239,7 @@ static void
 on_ports_configuration_done (WpCore * core, GAsyncResult * res,
     WpTransition * transition)
 {
-  WpSiAdapter *self = wp_transition_get_source_object (transition);
+  WpSiAudioAdapter *self = wp_transition_get_source_object (transition);
   g_autoptr (GError) error = NULL;
 
   if (!wp_core_sync_finish (core, res, &error)) {
@@ -278,7 +280,7 @@ format_audio_raw_build (const struct spa_audio_info_raw *info)
 }
 
 static void
-si_adapter_configure_ports (WpSiAdapter *self, WpTransition * transition)
+si_audio_adapter_configure_ports (WpSiAudioAdapter *self, WpTransition * transition)
 {
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_autoptr (WpSpaPod) format = NULL, port_format = NULL;
@@ -320,7 +322,7 @@ static void
 on_node_enum_format_done (WpPipewireObject * proxy, GAsyncResult * res,
     WpTransition * transition)
 {
-  WpSiAdapter *self = wp_transition_get_source_object (transition);
+  WpSiAudioAdapter *self = wp_transition_get_source_object (transition);
   g_autoptr (WpIterator) formats = NULL;
   g_autoptr (GError) error = NULL;
   gint pref_chan;
@@ -343,14 +345,14 @@ on_node_enum_format_done (WpPipewireObject * proxy, GAsyncResult * res,
     return;
   }
 
-  si_adapter_configure_ports (self, transition);
+  si_audio_adapter_configure_ports (self, transition);
 }
 
 static void
 on_impl_endpoint_activated (WpObject * object, GAsyncResult * res,
     WpTransition * transition)
 {
-  WpSiAdapter *self = wp_transition_get_source_object (transition);
+  WpSiAudioAdapter *self = wp_transition_get_source_object (transition);
   g_autoptr (GError) error = NULL;
 
   if (!wp_object_activate_finish (object, res, &error)) {
@@ -363,14 +365,14 @@ on_impl_endpoint_activated (WpObject * object, GAsyncResult * res,
 }
 
 static void
-si_adapter_enable_active (WpSessionItem *si, WpTransition *transition)
+si_audio_adapter_enable_active (WpSessionItem *si, WpTransition *transition)
 {
-  WpSiAdapter *self = WP_SI_ADAPTER (si);
+  WpSiAudioAdapter *self = WP_SI_AUDIO_ADAPTER (si);
 
   if (!wp_session_item_is_configured (si)) {
     wp_transition_return_error (transition,
         g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
-        "si-adapter: item is not configured"));
+        "si-audio-adapter: item is not configured"));
     return;
   }
 
@@ -380,9 +382,9 @@ si_adapter_enable_active (WpSessionItem *si, WpTransition *transition)
 }
 
 static void
-si_adapter_enable_exported (WpSessionItem *si, WpTransition *transition)
+si_audio_adapter_enable_exported (WpSessionItem *si, WpTransition *transition)
 {
-  WpSiAdapter *self = WP_SI_ADAPTER (si);
+  WpSiAudioAdapter *self = WP_SI_AUDIO_ADAPTER (si);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
 
   self->impl_endpoint = wp_impl_endpoint_new (core, WP_SI_ENDPOINT (self));
@@ -396,23 +398,23 @@ si_adapter_enable_exported (WpSessionItem *si, WpTransition *transition)
 }
 
 static void
-si_adapter_class_init (WpSiAdapterClass * klass)
+si_audio_adapter_class_init (WpSiAudioAdapterClass * klass)
 {
   WpSessionItemClass *si_class = (WpSessionItemClass *) klass;
 
-  si_class->reset = si_adapter_reset;
-  si_class->configure = si_adapter_configure;
-  si_class->get_associated_proxy = si_adapter_get_associated_proxy;
-  si_class->disable_active = si_adapter_disable_active;
-  si_class->disable_exported = si_adapter_disable_exported;
-  si_class->enable_active = si_adapter_enable_active;
-  si_class->enable_exported = si_adapter_enable_exported;
+  si_class->reset = si_audio_adapter_reset;
+  si_class->configure = si_audio_adapter_configure;
+  si_class->get_associated_proxy = si_audio_adapter_get_associated_proxy;
+  si_class->disable_active = si_audio_adapter_disable_active;
+  si_class->disable_exported = si_audio_adapter_disable_exported;
+  si_class->enable_active = si_audio_adapter_enable_active;
+  si_class->enable_exported = si_audio_adapter_enable_exported;
 }
 
 static GVariant *
-si_adapter_get_registration_info (WpSiEndpoint * item)
+si_audio_adapter_get_registration_info (WpSiEndpoint * item)
 {
-  WpSiAdapter *self = WP_SI_ADAPTER (item);
+  WpSiAudioAdapter *self = WP_SI_AUDIO_ADAPTER (item);
   GVariantBuilder b;
 
   g_variant_builder_init (&b, G_VARIANT_TYPE ("(ssya{ss})"));
@@ -425,9 +427,9 @@ si_adapter_get_registration_info (WpSiEndpoint * item)
 }
 
 static WpProperties *
-si_adapter_get_properties (WpSiEndpoint * item)
+si_audio_adapter_get_properties (WpSiEndpoint * item)
 {
-  WpSiAdapter *self = WP_SI_ADAPTER (item);
+  WpSiAudioAdapter *self = WP_SI_AUDIO_ADAPTER (item);
   g_autoptr (WpProperties) node_props = NULL;
   WpProperties *result;
 
@@ -468,16 +470,16 @@ si_adapter_get_properties (WpSiEndpoint * item)
 }
 
 static void
-si_adapter_endpoint_init (WpSiEndpointInterface * iface)
+si_audio_adapter_endpoint_init (WpSiEndpointInterface * iface)
 {
-  iface->get_registration_info = si_adapter_get_registration_info;
-  iface->get_properties = si_adapter_get_properties;
+  iface->get_registration_info = si_audio_adapter_get_registration_info;
+  iface->get_properties = si_audio_adapter_get_properties;
 }
 
 static GVariant *
-si_adapter_get_ports (WpSiPortInfo * item, const gchar * context)
+si_audio_adapter_get_ports (WpSiPortInfo * item, const gchar * context)
 {
-  WpSiAdapter *self = WP_SI_ADAPTER (item);
+  WpSiAudioAdapter *self = WP_SI_AUDIO_ADAPTER (item);
   g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_ARRAY);
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
@@ -543,15 +545,15 @@ si_adapter_get_ports (WpSiPortInfo * item, const gchar * context)
 }
 
 static void
-si_adapter_port_info_init (WpSiPortInfoInterface * iface)
+si_audio_adapter_port_info_init (WpSiPortInfoInterface * iface)
 {
-  iface->get_ports = si_adapter_get_ports;
+  iface->get_ports = si_audio_adapter_get_ports;
 }
 
 WP_PLUGIN_EXPORT gboolean
 wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
   wp_si_factory_register (core, wp_si_factory_new_simple (SI_FACTORY_NAME,
-      si_adapter_get_type ()));
+      si_audio_adapter_get_type ()));
   return TRUE;
 }

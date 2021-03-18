@@ -13,7 +13,7 @@ typedef struct {
 } TestFixture;
 
 static void
-test_si_adapter_setup (TestFixture * f, gconstpointer user_data)
+test_si_audio_adapter_setup (TestFixture * f, gconstpointer user_data)
 {
   wp_base_test_fixture_setup (&f->base, 0);
 
@@ -34,19 +34,19 @@ test_si_adapter_setup (TestFixture * f, gconstpointer user_data)
   {
     g_autoptr (GError) error = NULL;
     wp_core_load_component (f->base.core,
-        "libwireplumber-module-si-adapter", "module", NULL, &error);
+        "libwireplumber-module-si-audio-adapter", "module", NULL, &error);
     g_assert_no_error (error);
   }
 }
 
 static void
-test_si_adapter_teardown (TestFixture * f, gconstpointer user_data)
+test_si_audio_adapter_teardown (TestFixture * f, gconstpointer user_data)
 {
   wp_base_test_fixture_teardown (&f->base);
 }
 
 static void
-test_si_adapter_configure_activate (TestFixture * f,
+test_si_audio_adapter_configure_activate (TestFixture * f,
     gconstpointer user_data)
 {
   g_autoptr (WpNode) node = NULL;
@@ -65,7 +65,7 @@ test_si_adapter_configure_activate (TestFixture * f,
   g_main_loop_run (f->base.loop);
 
   /* create adapter */
-  adapter = wp_session_item_make (f->base.core, "si-adapter");
+  adapter = wp_session_item_make (f->base.core, "si-audio-adapter");
   g_assert_nonnull (adapter);
   g_assert_true (WP_IS_SI_ENDPOINT (adapter));
 
@@ -109,7 +109,7 @@ test_si_adapter_configure_activate (TestFixture * f,
     g_assert_cmpstr ("0", ==, str);
     str = wp_properties_get (props, "si-factory-name");
     g_assert_nonnull (str);
-    g_assert_cmpstr ("si-adapter", ==, str);
+    g_assert_cmpstr ("si-audio-adapter", ==, str);
   }
 
   /* activate */
@@ -132,7 +132,7 @@ test_si_adapter_configure_activate (TestFixture * f,
 }
 
 static void
-test_si_adapter_export (TestFixture * f, gconstpointer user_data)
+test_si_audio_adapter_export (TestFixture * f, gconstpointer user_data)
 {
   g_autoptr (WpNode) node = NULL;
   g_autoptr (WpSession) session = NULL;
@@ -170,7 +170,7 @@ test_si_adapter_export (TestFixture * f, gconstpointer user_data)
   wp_object_activate (WP_OBJECT (node), WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
       NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
   g_main_loop_run (f->base.loop);
-  adapter = wp_session_item_make (f->base.core, "si-adapter");
+  adapter = wp_session_item_make (f->base.core, "si-audio-adapter");
   g_assert_nonnull (adapter);
   g_assert_true (WP_IS_SI_ENDPOINT (adapter));
 
@@ -237,19 +237,19 @@ main (gint argc, gchar *argv[])
 
   /* configure-activate */
 
-  g_test_add ("/modules/si-adapter/configure-activate",
+  g_test_add ("/modules/si-audio-adapter/configure-activate",
       TestFixture, NULL,
-      test_si_adapter_setup,
-      test_si_adapter_configure_activate,
-      test_si_adapter_teardown);
+      test_si_audio_adapter_setup,
+      test_si_audio_adapter_configure_activate,
+      test_si_audio_adapter_teardown);
 
  /* export */
 
- g_test_add ("/modules/si-adapter/export",
+ g_test_add ("/modules/si-audio-adapter/export",
       TestFixture, NULL,
-      test_si_adapter_setup,
-      test_si_adapter_export,
-      test_si_adapter_teardown);
+      test_si_audio_adapter_setup,
+      test_si_audio_adapter_export,
+      test_si_audio_adapter_teardown);
 
   return g_test_run ();
 }

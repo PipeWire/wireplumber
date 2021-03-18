@@ -14,7 +14,7 @@
 #include <spa/param/audio/format.h>
 #include <spa/param/audio/format-utils.h>
 
-#include "../../modules/module-si-adapter/audio-utils.h"
+#include "../../modules/module-si-audio-adapter/audio-utils.h"
 
 static void
 test_choose_sensible_raw_audio_format (void)

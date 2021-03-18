@@ -84,7 +84,7 @@ nodes_om:connect("object-added", function (om, node)
   end
 
   if string.find (media_class, "Audio") then
-    addEndpoint (node, "audio", "si-adapter", 1)
+    addEndpoint (node, "audio", "si-audio-adapter", 1)
   else
     addEndpoint (node, "video", "si-node", 1)
   end

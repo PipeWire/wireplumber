@@ -290,8 +290,8 @@ Possible fields of this table are:
 * `type`
 
   Required. Specifies the factory to be used for construction.
-  The only well-known factories at the moment of writing is: `si-adapter` and
-  `si-simple-node-edpoint`.
+  The only well-known factories at the moment of writing is: `si-audio-adapter`
+  and `si-simple-node-edpoint`.
 
 * `streams`
 
@@ -347,7 +347,7 @@ Possible fields of this table are:
       of audio channels that an audio node should be configured with. Note that
       if the node does not support this many channels, it will be configured
       with the closest possible number of channels. This is only available
-      with the `si-adapter` factory.
+      with the `si-audio-adapter` factory.
 
 ## `*.streams` configuration files
 

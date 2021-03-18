@@ -169,8 +169,8 @@ on_node_added (WpObjectManager * om, WpNode *node, AppData * d)
   g_print ("Node " WP_OBJECT_FORMAT " added, creating session item\n",
       WP_OBJECT_ARGS (node));
 
-  /* load the "si-adapter" Session Item */
-  item = wp_session_item_make (d->core, "si-adapter");
+  /* load the "si-audio-adapter" Session Item */
+  item = wp_session_item_make (d->core, "si-audio-adapter");
 
   /* and configure it */
   wp_properties_setf (props, "node", "%p", node);
@@ -336,7 +336,7 @@ appdata_init (AppData * d, GError ** error)
     return FALSE;
 
   if (!(wp_core_load_component (d->core,
-          "libwireplumber-module-si-adapter", "module", NULL, error)))
+          "libwireplumber-module-si-audio-adapter", "module", NULL, error)))
     return FALSE;
 
   if (!(wp_core_load_component (d->core,

@@ -90,12 +90,12 @@ shared_library(
 )
 
 shared_library(
-  'wireplumber-module-si-adapter',
+  'wireplumber-module-si-audio-adapter',
   [
-    'module-si-adapter.c',
-    'module-si-adapter/audio-utils.c',
+    'module-si-audio-adapter.c',
+    'module-si-audio-adapter/audio-utils.c',
   ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-si-adapter"'],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-si-audio-adapter"'],
   install : true,
   install_dir : wireplumber_module_dir,
   dependencies : [wp_dep, pipewire_dep],
