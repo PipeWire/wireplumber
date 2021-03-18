@@ -90,6 +90,14 @@ WP_API
 guint32 wp_session_item_get_associated_proxy_id (WpSessionItem * self,
     GType proxy_type);
 
+/* registry */
+
+WP_API
+void wp_session_item_register (WpSessionItem * self);
+
+WP_API
+void wp_session_item_remove (WpSessionItem * self);
+
 /* properties */
 
 WP_API

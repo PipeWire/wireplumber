@@ -346,6 +346,40 @@ wp_session_item_get_associated_proxy_id (WpSessionItem * self, GType proxy_type)
 }
 
 /**
+ * wp_session_item_register:
+ * @self: (transfer full): the session item
+ *
+ * Registers the session item to its associated core
+ */
+void
+wp_session_item_register (WpSessionItem * self)
+{
+  g_autoptr (WpCore) core = NULL;
+
+  g_return_if_fail (WP_IS_SESSION_ITEM (self));
+
+  core = wp_object_get_core (WP_OBJECT (self));
+  wp_registry_register_object (wp_core_get_registry (core), self);
+}
+
+/**
+ * wp_session_item_remove:
+ * @self: (transfer none): the session item
+ *
+ * Removes the session item from the registry
+ */
+void
+wp_session_item_remove (WpSessionItem * self)
+{
+  g_autoptr (WpCore) core = NULL;
+
+  g_return_if_fail (WP_IS_SESSION_ITEM (self));
+
+  core = wp_object_get_core (WP_OBJECT (self));
+  wp_registry_remove_object (wp_core_get_registry (core), self);
+}
+
+/**
  * wp_session_item_get_properties:
  * @self: the session item
  *

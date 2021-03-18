@@ -1088,9 +1088,27 @@ session_item_configure (lua_State *L)
   return 1;
 }
 
+static int
+session_item_register (lua_State *L)
+{
+  WpSessionItem *si = wplua_checkobject (L, 1, WP_TYPE_SESSION_ITEM);
+  wp_session_item_register (g_object_ref (si));
+  return 0;
+}
+
+static int
+session_item_remove (lua_State *L)
+{
+  WpSessionItem *si = wplua_checkobject (L, 1, WP_TYPE_SESSION_ITEM);
+  wp_session_item_remove (si);
+  return 0;
+}
+
 static const luaL_Reg session_item_methods[] = {
   { "reset", session_item_reset },
   { "configure", session_item_configure },
+  { "register", session_item_register },
+  { "remove", session_item_remove },
   { NULL, NULL }
 };
 
