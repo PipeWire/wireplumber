@@ -9,12 +9,35 @@
 #include <stdio.h>
 
 #include <wp/wp.h>
+#include "../common/base-test-fixture.h"
 
 G_DEFINE_QUARK (test-domain, test_domain)
+
+typedef struct {
+  WpBaseTestFixture base;
+  WpObjectManager *si_om;
+  gint n_items;
+} TestSessionItemFixture;
+
+static void
+test_session_item_setup (TestSessionItemFixture *self, gconstpointer user_data)
+{
+  wp_base_test_fixture_setup (&self->base, WP_BASE_TEST_FLAG_CLIENT_CORE);
+  self->si_om = wp_object_manager_new ();
+  self->n_items = 0;
+}
+
+static void
+test_session_item_teardown (TestSessionItemFixture *self, gconstpointer user_data)
+{
+  g_clear_object (&self->si_om);
+  wp_base_test_fixture_teardown (&self->base);
+}
 
 struct _TestSiDummy
 {
   WpSessionItem parent;
+  const gchar *name;
   gboolean fail;
   WpSession *session;
   gboolean activate_done;
@@ -126,7 +149,8 @@ si_dummy_step_activate (gpointer data)
 static void
 si_dummy_enable_active (WpSessionItem *si, WpTransition *transition)
 {
-  g_idle_add (si_dummy_step_activate, transition);
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (si));
+  wp_core_idle_add (core, NULL, si_dummy_step_activate, transition, NULL);
 }
 
 static gboolean
@@ -153,7 +177,8 @@ si_dummy_step_export (gpointer data)
 static void
 si_dummy_enable_exported (WpSessionItem *si, WpTransition *transition)
 {
-  g_idle_add (si_dummy_step_export, transition);
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (si));
+  wp_core_idle_add (core, NULL, si_dummy_step_export, transition, NULL);
 }
 
 static void
@@ -193,13 +218,12 @@ expect_activate_failure (WpObject * object, GAsyncResult * res, gpointer data)
 }
 
 static void
-test_configuration (void)
+test_configuration (TestSessionItemFixture *fixture, gconstpointer data)
 {
-  g_autoptr (WpCore) core = wp_core_new (NULL, NULL);
   g_autoptr (WpSessionItem) item = NULL;
   TestSiDummy *dummy;
 
-  item = g_object_new (si_dummy_get_type (), "core", core, NULL);
+  item = g_object_new (si_dummy_get_type (), "core", fixture->base.core, NULL);
   dummy = TEST_SI_DUMMY (item);
 
   {
@@ -222,15 +246,12 @@ test_configuration (void)
 }
 
 static void
-test_activation (void)
+test_activation (TestSessionItemFixture *fixture, gconstpointer data)
 {
-  g_autoptr (WpCore) core = wp_core_new (NULL, NULL);
   g_autoptr (WpSessionItem) item = NULL;
-  g_autoptr (GMainLoop) loop = NULL;
   TestSiDummy *dummy;
 
-  loop = g_main_loop_new (NULL, FALSE);
-  item = g_object_new (si_dummy_get_type (), "core", core, NULL);
+  item = g_object_new (si_dummy_get_type (), "core", fixture->base.core, NULL);
   dummy = TEST_SI_DUMMY (item);
 
   {
@@ -241,8 +262,8 @@ test_activation (void)
   }
 
   wp_object_activate (WP_OBJECT (item), WP_SESSION_ITEM_FEATURE_ACTIVE,
-      NULL, (GAsyncReadyCallback) expect_activate_success, loop);
-  g_main_loop_run (loop);
+      NULL, (GAsyncReadyCallback) expect_activate_success, fixture->base.loop);
+  g_main_loop_run (fixture->base.loop);
   g_assert_cmpint (wp_object_get_active_features (WP_OBJECT (item)), ==,
       WP_SESSION_ITEM_FEATURE_ACTIVE);
   g_assert_true (dummy->activate_done);
@@ -253,16 +274,12 @@ test_activation (void)
 }
 
 static void
-test_activation_error (void)
+test_activation_error (TestSessionItemFixture *fixture, gconstpointer data)
 {
   g_autoptr (WpSessionItem) item = NULL;
-  g_autoptr (GMainLoop) loop = NULL;
-  g_autoptr (WpCore) core = NULL;
   TestSiDummy *dummy;
 
-  loop = g_main_loop_new (NULL, FALSE);
-  core = wp_core_new (NULL, NULL);
-  item = g_object_new (si_dummy_get_type (), "core", core, NULL);
+  item = g_object_new (si_dummy_get_type (), "core", fixture->base.core, NULL);
   dummy = TEST_SI_DUMMY (item);
 
   {
@@ -273,8 +290,8 @@ test_activation_error (void)
   }
 
   wp_object_activate (WP_OBJECT (item), WP_SESSION_ITEM_FEATURE_ACTIVE,
-      NULL, (GAsyncReadyCallback) expect_activate_failure, loop);
-  g_main_loop_run (loop);
+      NULL, (GAsyncReadyCallback) expect_activate_failure, fixture->base.loop);
+  g_main_loop_run (fixture->base.loop);
   g_assert_cmpint (wp_object_get_active_features (WP_OBJECT (item)), ==, 0);
   g_assert_false (dummy->activate_done);
   g_assert_true (dummy->fail);
@@ -291,19 +308,15 @@ test_activation_error (void)
 }
 
 static void
-test_export (void)
+test_export (TestSessionItemFixture *fixture, gconstpointer data)
 {
   g_autoptr (WpSessionItem) item = NULL;
-  g_autoptr (GMainLoop) loop = NULL;
-  g_autoptr (WpCore) core = NULL;
   g_autoptr (WpSession) session = NULL;
   g_autoptr (WpSession) assoc_session = NULL;
   TestSiDummy *dummy;
 
-  loop = g_main_loop_new (NULL, FALSE);
-  core = wp_core_new (NULL, NULL);
-  session = (WpSession *) wp_impl_session_new (core);
-  item = g_object_new (si_dummy_get_type (), "core", core, NULL);
+  session = (WpSession *) wp_impl_session_new (fixture->base.core);
+  item = g_object_new (si_dummy_get_type (), "core", fixture->base.core, NULL);
   dummy = TEST_SI_DUMMY (item);
 
   {
@@ -316,8 +329,8 @@ test_export (void)
 
   wp_object_activate (WP_OBJECT (item),
       WP_SESSION_ITEM_FEATURE_ACTIVE | WP_SESSION_ITEM_FEATURE_EXPORTED,
-      NULL, (GAsyncReadyCallback) expect_activate_success, loop);
-  g_main_loop_run (loop);
+      NULL, (GAsyncReadyCallback) expect_activate_success, fixture->base.loop);
+  g_main_loop_run (fixture->base.loop);
   g_assert_cmpint (wp_object_get_active_features (WP_OBJECT (item)), ==,
       WP_SESSION_ITEM_FEATURE_ACTIVE | WP_SESSION_ITEM_FEATURE_EXPORTED);
   g_assert_true (dummy->activate_done);
@@ -339,18 +352,14 @@ test_export (void)
 }
 
 static void
-test_export_error (void)
+test_export_error (TestSessionItemFixture *fixture, gconstpointer data)
 {
   g_autoptr (WpSessionItem) item = NULL;
-  g_autoptr (GMainLoop) loop = NULL;
-  g_autoptr (WpCore) core = NULL;
   g_autoptr (WpSession) session = NULL;
   TestSiDummy *dummy;
 
-  loop = g_main_loop_new (NULL, FALSE);
-  core = wp_core_new (NULL, NULL);
-  session = (WpSession *) wp_impl_session_new (core);
-  item = g_object_new (si_dummy_get_type (), "core", core, NULL);
+  session = (WpSession *) wp_impl_session_new (fixture->base.core);
+  item = g_object_new (si_dummy_get_type (), "core", fixture->base.core, NULL);
   dummy = TEST_SI_DUMMY (item);
 
   {
@@ -363,8 +372,8 @@ test_export_error (void)
 
   wp_object_activate (WP_OBJECT (item),
       WP_SESSION_ITEM_FEATURE_ACTIVE | WP_SESSION_ITEM_FEATURE_EXPORTED,
-      NULL, (GAsyncReadyCallback) expect_activate_failure, loop);
-  g_main_loop_run (loop);
+      NULL, (GAsyncReadyCallback) expect_activate_failure, fixture->base.loop);
+  g_main_loop_run (fixture->base.loop);
   g_assert_cmpint (wp_object_get_active_features (WP_OBJECT (item)), ==, 0);
   g_assert_false (dummy->activate_done);
   g_assert_false (dummy->export_done);
@@ -382,17 +391,155 @@ test_export_error (void)
   g_assert_false (wp_session_item_is_configured (item));
 }
 
+static void
+test_session_item_added (WpObjectManager *om, WpSessionItem *item,
+    TestSessionItemFixture *fixture)
+{
+  g_assert_true (WP_IS_SESSION_ITEM (item));
+  fixture->n_items++;
+  g_main_loop_quit (fixture->base.loop);
+}
+
+static void
+test_session_item_removed (WpObjectManager *om, WpSessionItem *item,
+    TestSessionItemFixture *fixture)
+{
+  g_assert_true (WP_IS_SESSION_ITEM (item));
+  fixture->n_items--;
+  g_main_loop_quit (fixture->base.loop);
+}
+
+static gboolean
+idle_register (gpointer data)
+{
+  WpSessionItem *item = data;
+  wp_session_item_register (g_object_ref (item));
+  return G_SOURCE_REMOVE;
+}
+
+static gboolean
+idle_remove (gpointer data)
+{
+  WpSessionItem *item = data;
+  wp_session_item_remove (item);
+  return G_SOURCE_REMOVE;
+}
+
+static void
+test_registration (TestSessionItemFixture *fixture, gconstpointer data)
+{
+  g_autoptr (WpSessionItem) item = NULL;
+  g_autoptr (WpSessionItem) item2 = NULL;
+
+  g_signal_connect (fixture->si_om, "object-added",
+      (GCallback) test_session_item_added, fixture);
+  g_signal_connect (fixture->si_om, "object-removed",
+      (GCallback) test_session_item_removed, fixture);
+  wp_object_manager_add_interest (fixture->si_om, WP_TYPE_SESSION_ITEM, NULL);
+  wp_core_install_object_manager (fixture->base.core, fixture->si_om);
+
+  /* create, configure and export first session item */
+  item = g_object_new (si_dummy_get_type (), "core", fixture->base.core, NULL);
+  g_assert_nonnull (item);
+  {
+    g_autoptr (WpProperties) p = wp_properties_new_empty ();
+    wp_properties_setf (p, "fail", "%u", FALSE);
+    g_assert_true (wp_session_item_configure (item, g_steal_pointer (&p)));
+    g_assert_true (wp_session_item_is_configured (item));
+  }
+
+  /* create and configure second session item */
+  item2 = g_object_new (si_dummy_get_type (), "core", fixture->base.core, NULL);
+  g_assert_nonnull (item2);
+  {
+    g_autoptr (WpProperties) p = wp_properties_new_empty ();
+    wp_properties_setf (p, "fail", "%u", TRUE);
+    g_assert_true (wp_session_item_configure (item2, g_steal_pointer (&p)));
+    g_assert_true (wp_session_item_is_configured (item2));
+  }
+
+  /* register item */
+  wp_core_idle_add (fixture->base.core, NULL, idle_register, item, NULL);
+  g_main_loop_run (fixture->base.loop);
+  g_assert_cmpint (fixture->n_items, ==, 1);
+
+  /* register item2 */
+  wp_core_idle_add (fixture->base.core, NULL, idle_register, item2, NULL);
+  g_main_loop_run (fixture->base.loop);
+  g_assert_cmpint (fixture->n_items, ==, 2);
+
+  /* lookup item, which has fail set to false */
+  {
+    g_autoptr (WpSessionItem) si = wp_object_manager_lookup (
+        fixture->si_om, WP_TYPE_SESSION_ITEM,
+        WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "fail", "=b", FALSE, NULL);
+    g_assert_nonnull (si);
+    g_assert_true (si == item);
+  }
+
+  /* lookup item2, which has fail set to true */
+  {
+    g_autoptr (WpSessionItem) si = wp_object_manager_lookup (
+        fixture->si_om, WP_TYPE_SESSION_ITEM,
+        WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "fail", "=b", TRUE, NULL);
+    g_assert_nonnull (si);
+    g_assert_true (si == item2);
+  }
+
+  /* remove item */
+  wp_core_idle_add (fixture->base.core, NULL, idle_remove, item, NULL);
+  g_main_loop_run (fixture->base.loop);
+  g_assert_cmpint (fixture->n_items, ==, 1);
+
+  /* make sure item cannot be found */
+  {
+    g_autoptr (WpSessionItem) si = wp_object_manager_lookup (
+        fixture->si_om, WP_TYPE_SESSION_ITEM,
+        WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "fail", "=b", FALSE, NULL);
+    g_assert_null (si);
+  }
+
+  /* make sure item2 is still there */
+  {
+    g_autoptr (WpSessionItem) si = wp_object_manager_lookup (
+        fixture->si_om, WP_TYPE_SESSION_ITEM,
+        WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "fail", "=b", TRUE, NULL);
+    g_assert_nonnull (si);
+    g_assert_true (si == item2);
+  }
+
+  /* remove item2 */
+  wp_core_idle_add (fixture->base.core, NULL, idle_remove, item2, NULL);
+  g_main_loop_run (fixture->base.loop);
+  g_assert_cmpint (fixture->n_items, ==, 0);
+
+  /* make sure item cannot be found */
+  {
+    g_autoptr (WpSessionItem) si = wp_object_manager_lookup (
+        fixture->si_om, WP_TYPE_SESSION_ITEM,
+        WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "fail", "=b", TRUE, NULL);
+    g_assert_null (si);
+  }
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
   g_test_init (&argc, &argv, NULL);
   wp_init (WP_INIT_ALL);
 
-  g_test_add_func ("/wp/session-item/configuration", test_configuration);
-  g_test_add_func ("/wp/session-item/activation", test_activation);
-  g_test_add_func ("/wp/session-item/activation-error", test_activation_error);
-  g_test_add_func ("/wp/session-item/export", test_export);
-  g_test_add_func ("/wp/session-item/export-error", test_export_error);
+  g_test_add ("/wp/session-item/configuration", TestSessionItemFixture, NULL,
+      test_session_item_setup, test_configuration, test_session_item_teardown);
+  g_test_add ("/wp/session-item/activation", TestSessionItemFixture, NULL,
+      test_session_item_setup, test_activation, test_session_item_teardown);
+  g_test_add ("/wp/session-item/activation-error", TestSessionItemFixture, NULL,
+      test_session_item_setup, test_activation_error, test_session_item_teardown);
+  g_test_add ("/wp/session-item/export", TestSessionItemFixture, NULL,
+      test_session_item_setup, test_export, test_session_item_teardown);
+  g_test_add ("/wp/session-item/export-error", TestSessionItemFixture, NULL,
+      test_session_item_setup, test_export_error, test_session_item_teardown);
+  g_test_add ("/wp/session-item/registration", TestSessionItemFixture, NULL,
+      test_session_item_setup, test_registration, test_session_item_teardown);
 
   return g_test_run ();
 }
