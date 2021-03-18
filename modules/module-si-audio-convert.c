@@ -15,9 +15,9 @@
 #include <spa/param/audio/raw.h>
 #include <spa/param/param.h>
 
-#define SI_FACTORY_NAME "si-convert"
+#define SI_FACTORY_NAME "si-audio-convert"
 
-struct _WpSiConvert
+struct _WpSiAudioConvert
 {
   WpSessionItem parent;
 
@@ -37,23 +37,25 @@ struct _WpSiConvert
   WpImplEndpoint *impl_endpoint;
 };
 
-static void si_convert_endpoint_init (WpSiEndpointInterface * iface);
-static void si_convert_port_info_init (WpSiPortInfoInterface * iface);
+static void si_audio_convert_endpoint_init (WpSiEndpointInterface * iface);
+static void si_audio_convert_port_info_init (WpSiPortInfoInterface * iface);
 
-G_DECLARE_FINAL_TYPE(WpSiConvert, si_convert, WP, SI_CONVERT, WpSessionItem)
-G_DEFINE_TYPE_WITH_CODE (WpSiConvert, si_convert, WP_TYPE_SESSION_ITEM,
-    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_ENDPOINT, si_convert_endpoint_init)
-    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_PORT_INFO, si_convert_port_info_init))
+G_DECLARE_FINAL_TYPE(WpSiAudioConvert, si_audio_convert, WP, SI_AUDIO_CONVERT,
+    WpSessionItem)
+G_DEFINE_TYPE_WITH_CODE (WpSiAudioConvert, si_audio_convert,
+    WP_TYPE_SESSION_ITEM,
+    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_ENDPOINT, si_audio_convert_endpoint_init)
+    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_PORT_INFO, si_audio_convert_port_info_init))
 
 static void
-si_convert_init (WpSiConvert * self)
+si_audio_convert_init (WpSiAudioConvert * self)
 {
 }
 
 static void
-si_convert_reset (WpSessionItem * item)
+si_audio_convert_reset (WpSessionItem * item)
 {
-  WpSiConvert *self = WP_SI_CONVERT (item);
+  WpSiAudioConvert *self = WP_SI_AUDIO_CONVERT (item);
 
   /* deactivate first */
   wp_object_deactivate (WP_OBJECT (self),
@@ -66,13 +68,13 @@ si_convert_reset (WpSessionItem * item)
   self->direction = WP_DIRECTION_INPUT;
   self->control_port = FALSE;
 
-  WP_SESSION_ITEM_CLASS (si_convert_parent_class)->reset (item);
+  WP_SESSION_ITEM_CLASS (si_audio_convert_parent_class)->reset (item);
 }
 
 static gboolean
-si_convert_configure (WpSessionItem * item, WpProperties *p)
+si_audio_convert_configure (WpSessionItem * item, WpProperties *p)
 {
-  WpSiConvert *self = WP_SI_CONVERT (item);
+  WpSiAudioConvert *self = WP_SI_AUDIO_CONVERT (item);
   g_autoptr (WpProperties) si_props = wp_properties_ensure_unique_owner (p);
   WpSessionItem *target;
   WpProperties *target_props = NULL;
@@ -80,7 +82,7 @@ si_convert_configure (WpSessionItem * item, WpProperties *p)
   const gchar *str;
 
   /* reset previous config */
-  si_convert_reset (item);
+  si_audio_convert_reset (item);
 
   str = wp_properties_get (si_props, "name");
   if (!str)
@@ -126,9 +128,9 @@ si_convert_configure (WpSessionItem * item, WpProperties *p)
 }
 
 static gpointer
-si_convert_get_associated_proxy (WpSessionItem * item, GType proxy_type)
+si_audio_convert_get_associated_proxy (WpSessionItem * item, GType proxy_type)
 {
-  WpSiConvert *self = WP_SI_CONVERT (item);
+  WpSiAudioConvert *self = WP_SI_AUDIO_CONVERT (item);
 
   if (proxy_type == WP_TYPE_NODE)
     return self->node ? g_object_ref (self->node) : NULL;
@@ -141,9 +143,9 @@ si_convert_get_associated_proxy (WpSessionItem * item, GType proxy_type)
 }
 
 static void
-si_convert_disable_active (WpSessionItem *si)
+si_audio_convert_disable_active (WpSessionItem *si)
 {
-  WpSiConvert *self = WP_SI_CONVERT (si);
+  WpSiAudioConvert *self = WP_SI_AUDIO_CONVERT (si);
 
   g_clear_object (&self->node);
   g_clear_object (&self->links_watch);
@@ -153,9 +155,9 @@ si_convert_disable_active (WpSessionItem *si)
 }
 
 static void
-si_convert_disable_exported (WpSessionItem *si)
+si_audio_convert_disable_exported (WpSessionItem *si)
 {
-  WpSiConvert *self = WP_SI_CONVERT (si);
+  WpSiAudioConvert *self = WP_SI_AUDIO_CONVERT (si);
 
   g_clear_object (&self->impl_endpoint);
   wp_object_update_features (WP_OBJECT (self), 0,
@@ -163,7 +165,8 @@ si_convert_disable_exported (WpSessionItem *si)
 }
 
 static void
-on_link_activated (WpSessionItem * item, GAsyncResult * res, WpSiConvert * self)
+on_link_activated (WpSessionItem * item, GAsyncResult * res,
+    WpSiAudioConvert * self)
 {
   g_autoptr (GError) error = NULL;
   if (!wp_object_activate_finish (WP_OBJECT (item), res, &error))
@@ -172,7 +175,7 @@ on_link_activated (WpSessionItem * item, GAsyncResult * res, WpSiConvert * self)
 }
 
 static void
-do_link_to_target (WpSiConvert *self)
+do_link_to_target (WpSiAudioConvert *self)
 {
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self->node));
   g_autoptr (WpSessionItem) link = wp_session_item_make (core,
@@ -210,7 +213,7 @@ do_link_to_target (WpSiConvert *self)
 }
 
 static void
-on_links_changed (WpObjectManager * om, WpSiConvert * self)
+on_links_changed (WpObjectManager * om, WpSiAudioConvert * self)
 {
   if (wp_object_manager_get_n_objects (om) == 0)
     g_clear_object (&self->link_to_target);
@@ -219,7 +222,7 @@ on_links_changed (WpObjectManager * om, WpSiConvert * self)
 }
 
 static void
-si_convert_do_links_watch (WpSiConvert *self, WpTransition *transition)
+si_audio_convert_do_links_watch (WpSiAudioConvert *self, WpTransition *transition)
 {
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_TUPLE);
@@ -268,7 +271,7 @@ static void
 on_node_activate_done (WpObject * node, GAsyncResult * res,
     WpTransition * transition)
 {
-  WpSiConvert *self = wp_transition_get_source_object (transition);
+  WpSiAudioConvert *self = wp_transition_get_source_object (transition);
   g_autoptr (GError) error = NULL;
 
   if (!wp_object_activate_finish (node, res, &error)) {
@@ -276,14 +279,14 @@ on_node_activate_done (WpObject * node, GAsyncResult * res,
     return;
   }
 
-  si_convert_do_links_watch (self, transition);
+  si_audio_convert_do_links_watch (self, transition);
 }
 
 static void
 on_impl_endpoint_activated (WpObject * object, GAsyncResult * res,
     WpTransition * transition)
 {
-  WpSiConvert *self = wp_transition_get_source_object (transition);
+  WpSiAudioConvert *self = wp_transition_get_source_object (transition);
   g_autoptr (GError) error = NULL;
 
   if (!wp_object_activate_finish (object, res, &error)) {
@@ -296,9 +299,9 @@ on_impl_endpoint_activated (WpObject * object, GAsyncResult * res,
 }
 
 static void
-si_convert_enable_active (WpSessionItem *si, WpTransition *transition)
+si_audio_convert_enable_active (WpSessionItem *si, WpTransition *transition)
 {
-  WpSiConvert *self = WP_SI_CONVERT (si);
+  WpSiAudioConvert *self = WP_SI_AUDIO_CONVERT (si);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_autoptr (WpNode) node = NULL;
   g_autoptr (WpProperties) node_props = NULL;
@@ -312,7 +315,7 @@ si_convert_enable_active (WpSessionItem *si, WpTransition *transition)
   if (!wp_session_item_is_configured (WP_SESSION_ITEM (self))) {
     wp_transition_return_error (transition,
         g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
-        "si-convert: item is not configured"));
+        "si-audio-convert: item is not configured"));
     return;
   }
 
@@ -392,9 +395,9 @@ si_convert_enable_active (WpSessionItem *si, WpTransition *transition)
 }
 
 static void
-si_convert_enable_exported (WpSessionItem *si, WpTransition *transition)
+si_audio_convert_enable_exported (WpSessionItem *si, WpTransition *transition)
 {
-  WpSiConvert *self = WP_SI_CONVERT (si);
+  WpSiAudioConvert *self = WP_SI_AUDIO_CONVERT (si);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
 
   self->impl_endpoint = wp_impl_endpoint_new (core, WP_SI_ENDPOINT (self));
@@ -408,9 +411,9 @@ si_convert_enable_exported (WpSessionItem *si, WpTransition *transition)
 }
 
 static GVariant *
-si_convert_get_registration_info (WpSiEndpoint * item)
+si_audio_convert_get_registration_info (WpSiEndpoint * item)
 {
-  WpSiConvert *self = WP_SI_CONVERT (item);
+  WpSiAudioConvert *self = WP_SI_AUDIO_CONVERT (item);
   GVariantBuilder b;
 
   g_variant_builder_init (&b, G_VARIANT_TYPE ("(ssya{ss})"));
@@ -423,9 +426,9 @@ si_convert_get_registration_info (WpSiEndpoint * item)
 }
 
 static WpProperties *
-si_convert_get_properties (WpSiEndpoint * item)
+si_audio_convert_get_properties (WpSiEndpoint * item)
 {
-  WpSiConvert *self = WP_SI_CONVERT (item);
+  WpSiAudioConvert *self = WP_SI_AUDIO_CONVERT (item);
   WpProperties *result = wp_properties_new_empty ();
 
   wp_properties_set (result, "endpoint.priority", NULL);
@@ -441,16 +444,16 @@ si_convert_get_properties (WpSiEndpoint * item)
 }
 
 static void
-si_convert_endpoint_init (WpSiEndpointInterface * iface)
+si_audio_convert_endpoint_init (WpSiEndpointInterface * iface)
 {
-  iface->get_registration_info = si_convert_get_registration_info;
-  iface->get_properties = si_convert_get_properties;
+  iface->get_registration_info = si_audio_convert_get_registration_info;
+  iface->get_properties = si_audio_convert_get_properties;
 }
 
 static GVariant *
-si_convert_get_ports (WpSiPortInfo * item, const gchar * context)
+si_audio_convert_get_ports (WpSiPortInfo * item, const gchar * context)
 {
-  WpSiConvert *self = WP_SI_CONVERT (item);
+  WpSiAudioConvert *self = WP_SI_AUDIO_CONVERT (item);
   g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_ARRAY);
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
@@ -502,29 +505,29 @@ si_convert_get_ports (WpSiPortInfo * item, const gchar * context)
 }
 
 static void
-si_convert_port_info_init (WpSiPortInfoInterface * iface)
+si_audio_convert_port_info_init (WpSiPortInfoInterface * iface)
 {
-  iface->get_ports = si_convert_get_ports;
+  iface->get_ports = si_audio_convert_get_ports;
 }
 
 static void
-si_convert_class_init (WpSiConvertClass * klass)
+si_audio_convert_class_init (WpSiAudioConvertClass * klass)
 {
   WpSessionItemClass *si_class = (WpSessionItemClass *) klass;
 
-  si_class->reset = si_convert_reset;
-  si_class->configure = si_convert_configure;
-  si_class->get_associated_proxy = si_convert_get_associated_proxy;
-  si_class->disable_active = si_convert_disable_active;
-  si_class->disable_exported = si_convert_disable_exported;
-  si_class->enable_active = si_convert_enable_active;
-  si_class->enable_exported = si_convert_enable_exported;
+  si_class->reset = si_audio_convert_reset;
+  si_class->configure = si_audio_convert_configure;
+  si_class->get_associated_proxy = si_audio_convert_get_associated_proxy;
+  si_class->disable_active = si_audio_convert_disable_active;
+  si_class->disable_exported = si_audio_convert_disable_exported;
+  si_class->enable_active = si_audio_convert_enable_active;
+  si_class->enable_exported = si_audio_convert_enable_exported;
 }
 
 WP_PLUGIN_EXPORT gboolean
 wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
   wp_si_factory_register (core, wp_si_factory_new_simple (SI_FACTORY_NAME,
-      si_convert_get_type ()));
+      si_audio_convert_get_type ()));
   return TRUE;
 }

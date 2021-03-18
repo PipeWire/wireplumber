@@ -340,7 +340,7 @@ appdata_init (AppData * d, GError ** error)
     return FALSE;
 
   if (!(wp_core_load_component (d->core,
-          "libwireplumber-module-si-convert", "module", NULL, error)))
+          "libwireplumber-module-si-audio-convert", "module", NULL, error)))
     return FALSE;
 
   if (!(wp_core_load_component (d->core,

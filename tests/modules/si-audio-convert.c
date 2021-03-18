@@ -13,7 +13,7 @@ typedef struct {
 } TestFixture;
 
 static void
-test_si_convert_setup (TestFixture * f, gconstpointer user_data)
+test_si_audio_convert_setup (TestFixture * f, gconstpointer user_data)
 {
   wp_base_test_fixture_setup (&f->base, 0);
 
@@ -42,19 +42,19 @@ test_si_convert_setup (TestFixture * f, gconstpointer user_data)
   {
     g_autoptr (GError) error = NULL;
     wp_core_load_component (f->base.core,
-        "libwireplumber-module-si-convert", "module", NULL, &error);
+        "libwireplumber-module-si-audio-convert", "module", NULL, &error);
     g_assert_no_error (error);
   }
 }
 
 static void
-test_si_convert_teardown (TestFixture * f, gconstpointer user_data)
+test_si_audio_convert_teardown (TestFixture * f, gconstpointer user_data)
 {
   wp_base_test_fixture_teardown (&f->base);
 }
 
 static void
-test_si_convert_configure_activate (TestFixture * f,
+test_si_audio_convert_configure_activate (TestFixture * f,
     gconstpointer user_data)
 {
   g_autoptr (WpNode) target_node = NULL;
@@ -92,7 +92,7 @@ test_si_convert_configure_activate (TestFixture * f,
 
   /* create convert */
 
-  convert = wp_session_item_make (f->base.core, "si-convert");
+  convert = wp_session_item_make (f->base.core, "si-audio-convert");
   g_assert_nonnull (convert);
   g_assert_true (WP_IS_SI_ENDPOINT (convert));
 
@@ -121,7 +121,7 @@ test_si_convert_configure_activate (TestFixture * f,
     g_assert_cmpstr ("0", ==, str);
     str = wp_properties_get (props, "si-factory-name");
     g_assert_nonnull (str);
-    g_assert_cmpstr ("si-convert", ==, str);
+    g_assert_cmpstr ("si-audio-convert", ==, str);
   }
 
   /* activate convert */
@@ -138,7 +138,7 @@ test_si_convert_configure_activate (TestFixture * f,
 }
 
 static void
-test_si_convert_export (TestFixture * f, gconstpointer user_data)
+test_si_audio_convert_export (TestFixture * f, gconstpointer user_data)
 {
   g_autoptr (WpNode) target_node = NULL;
   g_autoptr (WpSessionItem) target = NULL;
@@ -200,7 +200,7 @@ test_si_convert_export (TestFixture * f, gconstpointer user_data)
 
   /* create convert */
 
-  convert = wp_session_item_make (f->base.core, "si-convert");
+  convert = wp_session_item_make (f->base.core, "si-audio-convert");
   g_assert_nonnull (convert);
 
   /* configure convert */
@@ -260,18 +260,18 @@ main (gint argc, gchar *argv[])
   wp_init (WP_INIT_ALL);
 
   /* configure-activate */
-  g_test_add ("/modules/si-convert/configure-activate",
+  g_test_add ("/modules/si-audio-convert/configure-activate",
       TestFixture, NULL,
-      test_si_convert_setup,
-      test_si_convert_configure_activate,
-      test_si_convert_teardown);
+      test_si_audio_convert_setup,
+      test_si_audio_convert_configure_activate,
+      test_si_audio_convert_teardown);
  /* export */
 
- g_test_add ("/modules/si-convert/export",
+ g_test_add ("/modules/si-audio-convert/export",
       TestFixture, NULL,
-      test_si_convert_setup,
-      test_si_convert_export,
-      test_si_convert_teardown);
+      test_si_audio_convert_setup,
+      test_si_audio_convert_export,
+      test_si_audio_convert_teardown);
 
   return g_test_run ();
 }

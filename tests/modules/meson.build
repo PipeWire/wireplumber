@@ -42,8 +42,8 @@ test(
 )
 
 test(
-  'test-si-convert',
-  executable('test-si-convert', 'si-convert.c',
+  'test-si-audio-convert',
+  executable('test-si-audio-convert', 'si-audio-convert.c',
       dependencies: common_deps, c_args: common_args),
   env: common_env,
 )
