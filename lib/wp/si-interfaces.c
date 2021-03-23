@@ -29,18 +29,10 @@ wp_si_endpoint_default_get_properties (WpSiEndpoint * self)
   return NULL;
 }
 
-static WpSiEndpointAcquisition *
-wp_si_endpoint_default_get_endpoint_acquisition (WpSiEndpoint * self)
-{
-  return NULL;
-}
-
 static void
 wp_si_endpoint_default_init (WpSiEndpointInterface * iface)
 {
   iface->get_properties = wp_si_endpoint_default_get_properties;
-  iface->get_endpoint_acquisition =
-      wp_si_endpoint_default_get_endpoint_acquisition;
 
   g_signal_new ("endpoint-properties-changed", G_TYPE_FROM_INTERFACE (iface),
       G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
@@ -81,24 +73,6 @@ wp_si_endpoint_get_properties (WpSiEndpoint * self)
   g_return_val_if_fail (WP_SI_ENDPOINT_GET_IFACE (self)->get_properties, NULL);
 
   return WP_SI_ENDPOINT_GET_IFACE (self)->get_properties (self);
-}
-
-/**
- * wp_si_endpoint_get_endpoint_acquisition: (virtual get_endpoint_acquisition)
- * @self: the session item
- *
- * Returns: (transfer none) (nullable): the endpoint acquisition interface
- *   associated with this endpoint, or %NULL if this endpoint does not require
- *   acquiring endpoints before linking them
- */
-WpSiEndpointAcquisition *
-wp_si_endpoint_get_endpoint_acquisition (WpSiEndpoint * self)
-{
-  g_return_val_if_fail (WP_IS_SI_ENDPOINT (self), NULL);
-  g_return_val_if_fail (
-      WP_SI_ENDPOINT_GET_IFACE (self)->get_endpoint_acquisition, NULL);
-
-  return WP_SI_ENDPOINT_GET_IFACE (self)->get_endpoint_acquisition (self);
 }
 
 /**
@@ -199,9 +173,16 @@ wp_si_link_get_in_endpoint (WpSiLink * self)
  */
 G_DEFINE_INTERFACE (WpSiPortInfo, wp_si_port_info, WP_TYPE_SESSION_ITEM)
 
+static WpSiAcquisition *
+wp_si_port_info_default_get_acquisition (WpSiPortInfo * self)
+{
+  return NULL;
+}
+
 static void
 wp_si_port_info_default_init (WpSiPortInfoInterface * iface)
 {
+  iface->get_acquisition = wp_si_port_info_default_get_acquisition;
 }
 
 /**
@@ -255,93 +236,106 @@ wp_si_port_info_get_ports (WpSiPortInfo * self, const gchar * context)
 }
 
 /**
- * WpSiEndpointAcquisition:
+ * wp_si_port_info_get_acquisition: (virtual get_acquisition)
+ * @self: the session item
  *
- * This interface provides a way to request an endpoint for linking before doing
- * so. This allows endpoint implementations to apply internal policy rules.
+ * Returns: (transfer none) (nullable): the acquisition interface associated
+ *   with this item, or %NULL if this item does not require acquiring items
+ *   before linking them
+ */
+WpSiAcquisition *
+wp_si_port_info_get_acquisition (WpSiPortInfo * self)
+{
+  g_return_val_if_fail (WP_IS_SI_PORT_INFO (self), NULL);
+  g_return_val_if_fail (
+      WP_SI_PORT_INFO_GET_IFACE (self)->get_acquisition, NULL);
+
+  return WP_SI_PORT_INFO_GET_IFACE (self)->get_acquisition (self);
+}
+
+/**
+ * WpSiAcquisition:
  *
- * A #WpSiEndpointAcquisition is associated directly with a #WpSiEndpoint via
- * wp_si_endpoint_get_endpoint_acquisition(). In order to allow switching
- * policies, it is recommended that endpoint implementations use a separate
+ * This interface provides a way to request an item for linking before doing
+ * so. This allows item implementations to apply internal policy rules.
+ *
+ * A #WpSiAcquisition is associated directly with a #WpSiPortInfo via
+ * wp_si_port_info_get_acquisition(). In order to allow switching policies, it
+ * is recommended that port info implementations use a separate
  * session item to implement this interface and allow replacing it.
  */
-G_DEFINE_INTERFACE (WpSiEndpointAcquisition, wp_si_endpoint_acquisition,
-                    WP_TYPE_SESSION_ITEM)
+G_DEFINE_INTERFACE (WpSiAcquisition, wp_si_acquisition, WP_TYPE_SESSION_ITEM)
 
 static void
-wp_si_endpoint_acquisition_default_init (
-    WpSiEndpointAcquisitionInterface * iface)
+wp_si_acquisition_default_init (WpSiAcquisitionInterface * iface)
 {
 }
 
 /**
- * wp_si_endpoint_acquisition_acquire: (virtual acquire)
+ * wp_si_acquisition_acquire: (virtual acquire)
  * @self: the session item
- * @acquisitor: the link that is trying to acquire an endpoint
- * @endpoint: the endpoint that is being acquired
+ * @acquisitor: the link that is trying to acquire a port info item
+ * @item: the item that is being acquired
  * @callback: (scope async): the callback to call when the operation is done
  * @data: (closure): user data for @callback
  *
- * Acquires the @endpoint for linking by @acquisitor.
+ * Acquires the @item for linking by @acquisitor.
  *
  * When a link is not allowed by policy, this operation should return
  * an error.
  *
  * When a link needs to be delayed for a short amount of time (ex. to apply
- * a fade out effect on another endpoint), this operation should finish with a
+ * a fade out effect on another item), this operation should finish with a
  * delay. It is safe to assume that after this operation completes,
- * the endpoint will be linked immediately.
+ * the item will be linked immediately.
  */
 void
-wp_si_endpoint_acquisition_acquire (WpSiEndpointAcquisition * self,
-    WpSiLink * acquisitor, WpSiEndpoint * endpoint,
-    GAsyncReadyCallback callback, gpointer data)
+wp_si_acquisition_acquire (WpSiAcquisition * self, WpSiLink * acquisitor,
+    WpSiPortInfo * item, GAsyncReadyCallback callback, gpointer data)
 {
-  g_return_if_fail (WP_IS_SI_ENDPOINT_ACQUISITION (self));
-  g_return_if_fail (WP_SI_ENDPOINT_ACQUISITION_GET_IFACE (self)->acquire);
+  g_return_if_fail (WP_IS_SI_ACQUISITION (self));
+  g_return_if_fail (WP_SI_ACQUISITION_GET_IFACE (self)->acquire);
 
-  WP_SI_ENDPOINT_ACQUISITION_GET_IFACE (self)->acquire (self, acquisitor,
-      endpoint, callback, data);
+  WP_SI_ACQUISITION_GET_IFACE (self)->acquire (self, acquisitor, item, callback,
+      data);
 }
 
 /**
- * wp_si_endpoint_acquisition_acquire_finish: (virtual acquire_finish)
+ * wp_si_acquisition_acquire_finish: (virtual acquire_finish)
  * @self: the session item
  * @res: the async result
  * @error: (out) (optional): the operation's error, if it occurred
  *
- * Finishes the operation started by wp_si_endpoint_acquisition_acquire().
+ * Finishes the operation started by wp_si_acquisition_acquire().
  * This is meant to be called in the callback that was passed to that method.
  *
  * Returns: %TRUE on success, %FALSE if there was an error
  */
 gboolean
-wp_si_endpoint_acquisition_acquire_finish (WpSiEndpointAcquisition * self,
-    GAsyncResult * res, GError ** error)
+wp_si_acquisition_acquire_finish (WpSiAcquisition * self, GAsyncResult * res,
+    GError ** error)
 {
-  g_return_val_if_fail (WP_IS_SI_ENDPOINT_ACQUISITION (self), FALSE);
-  g_return_val_if_fail (
-      WP_SI_ENDPOINT_ACQUISITION_GET_IFACE (self)->acquire_finish, FALSE);
+  g_return_val_if_fail (WP_IS_SI_ACQUISITION (self), FALSE);
+  g_return_val_if_fail (WP_SI_ACQUISITION_GET_IFACE (self)->acquire_finish,
+      FALSE);
 
-  return WP_SI_ENDPOINT_ACQUISITION_GET_IFACE (self)->acquire_finish (self, res,
-      error);
+  return WP_SI_ACQUISITION_GET_IFACE (self)->acquire_finish (self, res, error);
 }
 
 /**
- * wp_si_endpoint_acquisition_release: (virtual release)
+ * wp_si_acquisition_release: (virtual release)
  * @self: the session item
- * @acquisitor: the link that had previously acquired the endpoint
- * @endpoint: the endpoint that is being released
+ * @acquisitor: the link that had previously acquired the item
+ * @item: the port info item that is being released
  *
- * Releases the @endpoint, which means that it is being unlinked.
+ * Releases the @item, which means that it is being unlinked.
  */
 void
-wp_si_endpoint_acquisition_release (WpSiEndpointAcquisition * self,
-    WpSiLink * acquisitor, WpSiEndpoint * endpoint)
+wp_si_acquisition_release (WpSiAcquisition * self, WpSiLink * acquisitor,
+    WpSiPortInfo * item)
 {
-  g_return_if_fail (WP_IS_SI_ENDPOINT_ACQUISITION (self));
-  g_return_if_fail (WP_SI_ENDPOINT_ACQUISITION_GET_IFACE (self)->release);
+  g_return_if_fail (WP_IS_SI_ACQUISITION (self));
+  g_return_if_fail (WP_SI_ACQUISITION_GET_IFACE (self)->release);
 
-  WP_SI_ENDPOINT_ACQUISITION_GET_IFACE (self)->release (self, acquisitor,
-      endpoint);
+  WP_SI_ACQUISITION_GET_IFACE (self)->release (self, acquisitor, item);
 }

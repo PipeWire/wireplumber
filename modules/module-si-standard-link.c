@@ -216,21 +216,20 @@ si_standard_link_disable_active (WpSessionItem *si)
   WpSiStandardLink *self = WP_SI_STANDARD_LINK (si);
   g_autoptr (WpSessionItem) si_out = g_weak_ref_get (&self->out_endpoint);
   g_autoptr (WpSessionItem) si_in = g_weak_ref_get (&self->in_endpoint);
-  WpSiEndpointAcquisition *out_acquisition, *in_acquisition;
+  WpSiAcquisition *out_acquisition, *in_acquisition;
 
   if (si_out) {
-    out_acquisition = wp_si_endpoint_get_endpoint_acquisition (
-        WP_SI_ENDPOINT (si_out));
+    out_acquisition = wp_si_port_info_get_acquisition (
+        WP_SI_PORT_INFO (si_out));
     if (out_acquisition)
-      wp_si_endpoint_acquisition_release (out_acquisition, WP_SI_LINK (self),
-          WP_SI_ENDPOINT (si_out));
+      wp_si_acquisition_release (out_acquisition, WP_SI_LINK (self),
+          WP_SI_PORT_INFO (si_out));
   }
   if (si_in) {
-    in_acquisition = wp_si_endpoint_get_endpoint_acquisition (
-        WP_SI_ENDPOINT (si_in));
+    in_acquisition = wp_si_port_info_get_acquisition (WP_SI_PORT_INFO (si_in));
     if (in_acquisition)
-      wp_si_endpoint_acquisition_release (in_acquisition, WP_SI_LINK (self),
-          WP_SI_ENDPOINT (si_in));
+      wp_si_acquisition_release (in_acquisition, WP_SI_LINK (self),
+          WP_SI_PORT_INFO (si_in));
   }
 
   g_clear_pointer (&self->node_links, g_ptr_array_unref);
@@ -251,13 +250,13 @@ si_standard_link_disable_exported (WpSessionItem *si)
 }
 
 static void
-on_endpoint_acquired (WpSiEndpointAcquisition * acq, GAsyncResult * res,
+on_item_acquired (WpSiAcquisition * acq, GAsyncResult * res,
     WpTransition * transition)
 {
   WpSiStandardLink *self = wp_transition_get_source_object (transition);
   g_autoptr (GError) error = NULL;
 
-  if (!wp_si_endpoint_acquisition_acquire_finish (acq, res, &error)) {
+  if (!wp_si_acquisition_acquire_finish (acq, res, &error)) {
     wp_transition_return_error (transition, g_steal_pointer (&error));
     return;
   }
@@ -427,7 +426,7 @@ si_standard_link_enable_active (WpSessionItem *si, WpTransition *transition)
   WpSiStandardLink *self = WP_SI_STANDARD_LINK (si);
   g_autoptr (WpSessionItem) si_out = NULL;
   g_autoptr (WpSessionItem) si_in = NULL;
-  WpSiEndpointAcquisition *out_acquisition, *in_acquisition;
+  WpSiAcquisition *out_acquisition, *in_acquisition;
 
   if (!wp_session_item_is_configured (si)) {
     wp_transition_return_error (transition,
@@ -439,10 +438,8 @@ si_standard_link_enable_active (WpSessionItem *si, WpTransition *transition)
   /* acquire */
   si_out = g_weak_ref_get (&self->out_endpoint);
   si_in = g_weak_ref_get (&self->in_endpoint);
-  out_acquisition = wp_si_endpoint_get_endpoint_acquisition (
-      WP_SI_ENDPOINT (si_out));
-  in_acquisition = wp_si_endpoint_get_endpoint_acquisition (
-      WP_SI_ENDPOINT (si_in));
+  out_acquisition = wp_si_port_info_get_acquisition (WP_SI_PORT_INFO (si_out));
+  in_acquisition = wp_si_port_info_get_acquisition (WP_SI_PORT_INFO (si_in));
 
   if (out_acquisition && in_acquisition)
     self->n_async_ops_wait = 2;
@@ -455,13 +452,13 @@ si_standard_link_enable_active (WpSessionItem *si, WpTransition *transition)
   }
 
   if (out_acquisition) {
-    wp_si_endpoint_acquisition_acquire (out_acquisition, WP_SI_LINK (self),
-        WP_SI_ENDPOINT (si_out), (GAsyncReadyCallback) on_endpoint_acquired,
+    wp_si_acquisition_acquire (out_acquisition, WP_SI_LINK (self),
+        WP_SI_PORT_INFO (si_out), (GAsyncReadyCallback) on_item_acquired,
         transition);
   }
   if (in_acquisition) {
-    wp_si_endpoint_acquisition_acquire (in_acquisition, WP_SI_LINK (self),
-        WP_SI_ENDPOINT (si_in), (GAsyncReadyCallback) on_endpoint_acquired,
+    wp_si_acquisition_acquire (in_acquisition, WP_SI_LINK (self),
+        WP_SI_PORT_INFO (si_in), (GAsyncReadyCallback) on_item_acquired,
         transition);
   }
 }
