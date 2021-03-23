@@ -436,8 +436,8 @@ impl_create_link (void *object, const struct spa_dict *props)
     }
 
     props = wp_properties_new_empty ();
-    wp_properties_setf (props, "out-endpoint", "%p", out_endpoint);
-    wp_properties_setf (props, "in-endpoint", "%p", in_endpoint);
+    wp_properties_setf (props, "out-item", "%p", out_endpoint);
+    wp_properties_setf (props, "in-item", "%p", in_endpoint);
     wp_properties_setf (props, "session", "%p", session);
     wp_properties_setf (props, "manage-lifetime", "%u", TRUE);
 

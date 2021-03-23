@@ -76,6 +76,94 @@ wp_si_endpoint_get_properties (WpSiEndpoint * self)
 }
 
 /**
+ * WpSiPortInfo:
+ *
+ * An interface for retrieving PipeWire port information from a session item.
+ * This information is used to create links in the nodes graph.
+ */
+G_DEFINE_INTERFACE (WpSiPortInfo, wp_si_port_info, WP_TYPE_SESSION_ITEM)
+
+static WpSiAcquisition *
+wp_si_port_info_default_get_acquisition (WpSiPortInfo * self)
+{
+  return NULL;
+}
+
+static void
+wp_si_port_info_default_init (WpSiPortInfoInterface * iface)
+{
+  iface->get_acquisition = wp_si_port_info_default_get_acquisition;
+}
+
+/**
+ * wp_si_port_info_get_ports: (virtual get_ports)
+ * @self: the session item
+ * @context: (nullable): an optional context for the ports
+ *
+ * This method returns a variant of type "a(uuu)", where each tuple in the
+ * array contains the following information:
+ *   - u: (guint32) node id
+ *   - u: (guint32) port id (the port must belong on the node specified above)
+ *   - u: (guint32) the audio channel (enum spa_audio_channel) that this port
+ *        makes available, or 0 for non-audio content
+ *
+ * The order in which ports appear in this array is important when no channel
+ * information is available. The link implementation should link the ports
+ * in the order they appear. This is normally a good enough substitute for
+ * channel matching.
+ *
+ * The @context argument can be used to get different sets of ports from
+ * the item. The following well-known contexts are defined:
+ *   - %NULL: get the standard ports to be linked
+ *   - "monitor": get the monitor ports
+ *   - "control": get the control port
+ *   - "reverse": get the reverse direction ports, if this item controls a
+ *                filter node, which would have ports on both directions
+ *
+ * Contexts other than %NULL may only be used internally to ease the
+ * implementation of more complex item relationships. For example, a
+ * #WpSessionItem that is in control of an input (sink) adapter node may
+ * implement #WpSiPortInfo where the %NULL context will return the standard
+ * input ports and the "monitor" context will return the adapter's monitor
+ * ports. When linking this item to another item, the %NULL context
+ * will always be used, but the item may internally spawn a secondary
+ * #WpSessionItem that implements the "monitor" item. That secondary
+ * item may implement #WpSiPortInfo, chaining calls to the #WpSiPortInfo
+ * of the original item using the "monitor" context. This way, the monitor
+ * #WpSessionItem does not need to share control of the underlying node; it
+ * only proxies calls to satisfy the API.
+ *
+ * Returns: (transfer full): a #GVariant containing information about the
+ *   ports of this item
+ */
+GVariant *
+wp_si_port_info_get_ports (WpSiPortInfo * self, const gchar * context)
+{
+  g_return_val_if_fail (WP_IS_SI_PORT_INFO (self), NULL);
+  g_return_val_if_fail (WP_SI_PORT_INFO_GET_IFACE (self)->get_ports, NULL);
+
+  return WP_SI_PORT_INFO_GET_IFACE (self)->get_ports (self, context);
+}
+
+/**
+ * wp_si_port_info_get_acquisition: (virtual get_acquisition)
+ * @self: the session item
+ *
+ * Returns: (transfer none) (nullable): the acquisition interface associated
+ *   with this item, or %NULL if this item does not require acquiring items
+ *   before linking them
+ */
+WpSiAcquisition *
+wp_si_port_info_get_acquisition (WpSiPortInfo * self)
+{
+  g_return_val_if_fail (WP_IS_SI_PORT_INFO (self), NULL);
+  g_return_val_if_fail (
+      WP_SI_PORT_INFO_GET_IFACE (self)->get_acquisition, NULL);
+
+  return WP_SI_PORT_INFO_GET_IFACE (self)->get_acquisition (self);
+}
+
+/**
  * WpSiLink:
  *
  * An interface for session items that provide a PipeWire endpoint link.
@@ -132,125 +220,33 @@ wp_si_link_get_properties (WpSiLink * self)
 }
 
 /**
- * wp_si_link_get_out_endpoint: (virtual get_out_endpoint)
+ * wp_si_link_get_out_item: (virtual get_out_item)
  * @self: the session item
  *
- * Returns: (transfer full): the output endpoint that is linked by this link
+ * Returns: (transfer none): the output item that is linked by this link
  */
-WpSiEndpoint *
-wp_si_link_get_out_endpoint (WpSiLink * self)
+WpSiPortInfo *
+wp_si_link_get_out_item (WpSiLink * self)
 {
   g_return_val_if_fail (WP_IS_SI_LINK (self), NULL);
-  g_return_val_if_fail (WP_SI_LINK_GET_IFACE (self)->get_out_endpoint, NULL);
+  g_return_val_if_fail (WP_SI_LINK_GET_IFACE (self)->get_out_item, NULL);
 
-  return WP_SI_LINK_GET_IFACE (self)->get_out_endpoint (self);
+  return WP_SI_LINK_GET_IFACE (self)->get_out_item (self);
 }
 
 /**
- * wp_si_link_get_in_endpoint: (virtual get_in_endpoint)
+ * wp_si_link_get_in_item: (virtual get_in_item)
  * @self: the session item
  *
- * Returns: (transfer full): the input endpoint that is linked by this link
+ * Returns: (transfer none): the input item that is linked by this link
  */
-WpSiEndpoint *
-wp_si_link_get_in_endpoint (WpSiLink * self)
+WpSiPortInfo *
+wp_si_link_get_in_item (WpSiLink * self)
 {
   g_return_val_if_fail (WP_IS_SI_LINK (self), NULL);
-  g_return_val_if_fail (WP_SI_LINK_GET_IFACE (self)->get_in_endpoint, NULL);
+  g_return_val_if_fail (WP_SI_LINK_GET_IFACE (self)->get_in_item, NULL);
 
-  return WP_SI_LINK_GET_IFACE (self)->get_in_endpoint (self);
-}
-
-/**
- * WpSiPortInfo:
- *
- * An interface for retrieving PipeWire port information from a session item.
- * This information is used to create links in the nodes graph.
- *
- * This is normally implemented by the same session items that implement
- * #WpSiEndpoint. The standard link implementation expects to be able to cast
- * a #WpSiEndpoint into a #WpSiPortInfo.
- */
-G_DEFINE_INTERFACE (WpSiPortInfo, wp_si_port_info, WP_TYPE_SESSION_ITEM)
-
-static WpSiAcquisition *
-wp_si_port_info_default_get_acquisition (WpSiPortInfo * self)
-{
-  return NULL;
-}
-
-static void
-wp_si_port_info_default_init (WpSiPortInfoInterface * iface)
-{
-  iface->get_acquisition = wp_si_port_info_default_get_acquisition;
-}
-
-/**
- * wp_si_port_info_get_ports: (virtual get_ports)
- * @self: the session item
- * @context: (nullable): an optional context for the ports
- *
- * This method returns a variant of type "a(uuu)", where each tuple in the
- * array contains the following information:
- *   - u: (guint32) node id
- *   - u: (guint32) port id (the port must belong on the node specified above)
- *   - u: (guint32) the audio channel (enum spa_audio_channel) that this port
- *        makes available, or 0 for non-audio content
- *
- * The order in which ports appear in this array is important when no channel
- * information is available. The link implementation should link the ports
- * in the order they appear. This is normally a good enough substitute for
- * channel matching.
- *
- * The @context argument can be used to get different sets of ports from
- * the item. The following well-known contexts are defined:
- *   - %NULL: get the standard ports to be linked
- *   - "monitor": get the monitor ports
- *   - "control": get the control port
- *   - "reverse": get the reverse direction ports, if this item controls a
- *                filter node, which would have ports on both directions
- *
- * Contexts other than %NULL may only be used internally to ease the
- * implementation of more complex endpoint relationships. For example, a
- * #WpSessionItem that is in control of an input (sink) adapter node may
- * implement #WpSiPortInfo where the %NULL context will return the standard
- * input ports and the "monitor" context will return the adapter's monitor
- * ports. When linking this endpoint to another endpoint, the %NULL context
- * will always be used, but the item may internally spawn a secondary
- * #WpSessionItem that implements the "monitor" endpoint. That secondary
- * endpoint may implement #WpSiPortInfo, chaining calls to the #WpSiPortInfo
- * of the original item using the "monitor" context. This way, the monitor
- * #WpSessionItem does not need to share control of the underlying node; it
- * only proxies calls to satisfy the API.
- *
- * Returns: (transfer full): a #GVariant containing information about the
- *   ports of this item
- */
-GVariant *
-wp_si_port_info_get_ports (WpSiPortInfo * self, const gchar * context)
-{
-  g_return_val_if_fail (WP_IS_SI_PORT_INFO (self), NULL);
-  g_return_val_if_fail (WP_SI_PORT_INFO_GET_IFACE (self)->get_ports, NULL);
-
-  return WP_SI_PORT_INFO_GET_IFACE (self)->get_ports (self, context);
-}
-
-/**
- * wp_si_port_info_get_acquisition: (virtual get_acquisition)
- * @self: the session item
- *
- * Returns: (transfer none) (nullable): the acquisition interface associated
- *   with this item, or %NULL if this item does not require acquiring items
- *   before linking them
- */
-WpSiAcquisition *
-wp_si_port_info_get_acquisition (WpSiPortInfo * self)
-{
-  g_return_val_if_fail (WP_IS_SI_PORT_INFO (self), NULL);
-  g_return_val_if_fail (
-      WP_SI_PORT_INFO_GET_IFACE (self)->get_acquisition, NULL);
-
-  return WP_SI_PORT_INFO_GET_IFACE (self)->get_acquisition (self);
+  return WP_SI_LINK_GET_IFACE (self)->get_in_item (self);
 }
 
 /**

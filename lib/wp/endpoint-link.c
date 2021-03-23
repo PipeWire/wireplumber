@@ -395,8 +395,8 @@ wp_impl_endpoint_link_constructed (GObject * object)
   g_autoptr (GVariant) info = NULL;
   g_autoptr (GVariantIter) immutable_props = NULL;
   const gchar *key, *value;
-  g_autoptr (WpSiEndpoint) si_out = NULL;
-  g_autoptr (WpSiEndpoint) si_in = NULL;
+  g_autoptr (WpSiPortInfo) si_out = NULL;
+  g_autoptr (WpSiPortInfo) si_in = NULL;
 
   self->info.version = PW_VERSION_ENDPOINT_LINK_INFO;
   self->info.error = NULL;
@@ -418,11 +418,11 @@ wp_impl_endpoint_link_constructed (GObject * object)
   self->info.session_id = wp_session_item_get_associated_proxy_id (
       WP_SESSION_ITEM (self->item), WP_TYPE_SESSION);
 
-  si_out = wp_si_link_get_out_endpoint (self->item);
+  si_out = wp_si_link_get_out_item (self->item);
   self->info.output_endpoint_id = wp_session_item_get_associated_proxy_id (
       WP_SESSION_ITEM (si_out), WP_TYPE_ENDPOINT);
 
-  si_in = wp_si_link_get_in_endpoint (self->item);
+  si_in = wp_si_link_get_in_item (self->item);
   self->info.input_endpoint_id = wp_session_item_get_associated_proxy_id (
       WP_SESSION_ITEM (si_in), WP_TYPE_ENDPOINT);
 

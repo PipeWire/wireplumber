@@ -18,10 +18,10 @@ struct _WpSiStandardLink
   WpSessionItem parent;
 
   /* configuration */
-  GWeakRef out_endpoint;
-  GWeakRef in_endpoint;
-  const gchar *out_endpoint_port_context;
-  const gchar *in_endpoint_port_context;
+  GWeakRef out_item;
+  GWeakRef in_item;
+  const gchar *out_item_port_context;
+  const gchar *in_item_port_context;
   WpSession *session;
   gboolean manage_lifetime;
   gboolean passive;
@@ -45,20 +45,20 @@ G_DEFINE_TYPE_WITH_CODE (WpSiStandardLink, si_standard_link,
 static void
 si_standard_link_init (WpSiStandardLink * self)
 {
-  g_weak_ref_init (&self->out_endpoint, NULL);
-  g_weak_ref_init (&self->in_endpoint, NULL);
+  g_weak_ref_init (&self->out_item, NULL);
+  g_weak_ref_init (&self->in_item, NULL);
 }
 
 static void
-on_endpoint_features_changed (WpObject * endpoint, GParamSpec * param,
+on_item_features_changed (WpObject * item, GParamSpec * param,
     WpSessionItem * link)
 {
-  guint features = wp_object_get_active_features (endpoint);
+  guint features = wp_object_get_active_features (item);
 
-  /* endpoint was deactivated; destroy the associated link */
+  /* item was deactivated; destroy the associated link */
   if (!(features & WP_SESSION_ITEM_FEATURE_ACTIVE)) {
-    wp_trace_object (link, "destroying because endpoint " WP_OBJECT_FORMAT
-        " was deactivated", WP_OBJECT_ARGS (endpoint));
+    wp_trace_object (link, "destroying because item " WP_OBJECT_FORMAT
+        " was deactivated", WP_OBJECT_ARGS (item));
     wp_session_item_reset (link);
     g_object_unref (link);
   }
@@ -83,15 +83,15 @@ si_standard_link_reset (WpSessionItem * item)
 
   /* disconnect all signals */
   if (self->manage_lifetime) {
-    g_autoptr (WpSessionItem) si_out = g_weak_ref_get (&self->out_endpoint);
-    g_autoptr (WpSessionItem) si_in = g_weak_ref_get (&self->in_endpoint);
+    g_autoptr (WpSessionItem) si_out = g_weak_ref_get (&self->out_item);
+    g_autoptr (WpSessionItem) si_in = g_weak_ref_get (&self->in_item);
     if (si_out) {
       g_signal_handlers_disconnect_by_func (si_out,
-          G_CALLBACK (on_endpoint_features_changed), self);
+          G_CALLBACK (on_item_features_changed), self);
     }
     if (si_in) {
       g_signal_handlers_disconnect_by_func (si_in,
-          G_CALLBACK (on_endpoint_features_changed), self);
+          G_CALLBACK (on_item_features_changed), self);
     }
     g_signal_handlers_disconnect_by_func (self,
         G_CALLBACK (on_link_features_changed), NULL);
@@ -102,10 +102,10 @@ si_standard_link_reset (WpSessionItem * item)
       WP_SESSION_ITEM_FEATURE_ACTIVE | WP_SESSION_ITEM_FEATURE_EXPORTED);
 
   /* reset */
-  g_weak_ref_set (&self->out_endpoint, NULL);
-  g_weak_ref_set (&self->in_endpoint, NULL);
-  self->out_endpoint_port_context = NULL;
-  self->in_endpoint_port_context = NULL;
+  g_weak_ref_set (&self->out_item, NULL);
+  g_weak_ref_set (&self->in_item, NULL);
+  self->out_item_port_context = NULL;
+  self->in_item_port_context = NULL;
   g_clear_object (&self->session);
   self->manage_lifetime = FALSE;
   self->passive = FALSE;
@@ -114,14 +114,13 @@ si_standard_link_reset (WpSessionItem * item)
 }
 
 static WpSessionItem *
-get_and_validate_endpoint (WpProperties * props, const gchar *key)
+get_and_validate_item (WpProperties * props, const gchar *key)
 {
   WpSessionItem *res = NULL;
   const gchar *str = NULL;
 
   str = wp_properties_get (props, key);
-  if (!str || sscanf(str, "%p", &res) != 1 ||
-      !WP_IS_SI_ENDPOINT (res) || !WP_IS_SI_PORT_INFO (res) ||
+  if (!str || sscanf(str, "%p", &res) != 1 || !WP_IS_SI_PORT_INFO (res) ||
       !(wp_object_get_active_features (WP_OBJECT (res)) &
           WP_SESSION_ITEM_FEATURE_ACTIVE))
     return NULL;
@@ -134,26 +133,26 @@ si_standard_link_configure (WpSessionItem * item, WpProperties * p)
 {
   WpSiStandardLink *self = WP_SI_STANDARD_LINK (item);
   g_autoptr (WpProperties) si_props = wp_properties_ensure_unique_owner (p);
-  WpSessionItem *out_endpoint, *in_endpoint;
+  WpSessionItem *out_item, *in_item;
   WpSession *session = NULL;
   const gchar *str;
 
   /* reset previous config */
   si_standard_link_reset (item);
 
-  out_endpoint = get_and_validate_endpoint (si_props, "out-endpoint");
-  if (!out_endpoint)
+  out_item = get_and_validate_item (si_props, "out-item");
+  if (!out_item)
     return FALSE;
 
-  in_endpoint = get_and_validate_endpoint (si_props, "in-endpoint");
-  if (!in_endpoint)
+  in_item = get_and_validate_item (si_props, "in-item");
+  if (!in_item)
     return FALSE;
 
-  self->out_endpoint_port_context =
-      wp_properties_get (si_props, "out-endpoint-port-context");
+  self->out_item_port_context = wp_properties_get (si_props,
+      "out-item-port-context");
 
-  self->out_endpoint_port_context =
-      wp_properties_get (si_props, "in-endpoint-port-context");
+  self->out_item_port_context = wp_properties_get (si_props,
+      "in-item-port-context");
 
   str = wp_properties_get (si_props, "manage-lifetime");
   if (str && sscanf(str, "%u", &self->manage_lifetime) != 1)
@@ -177,16 +176,16 @@ si_standard_link_configure (WpSessionItem * item, WpProperties * p)
     wp_properties_setf (si_props, "session", "%p", session);
 
   if (self->manage_lifetime) {
-    g_signal_connect_object (out_endpoint, "notify::active-features",
-        G_CALLBACK (on_endpoint_features_changed), self, 0);
-    g_signal_connect_object (in_endpoint, "notify::active-features",
-        G_CALLBACK (on_endpoint_features_changed), self, 0);
+    g_signal_connect_object (out_item, "notify::active-features",
+        G_CALLBACK (on_item_features_changed), self, 0);
+    g_signal_connect_object (in_item, "notify::active-features",
+        G_CALLBACK (on_item_features_changed), self, 0);
     g_signal_connect (self, "notify::active-features",
         G_CALLBACK (on_link_features_changed), NULL);
   }
 
-  g_weak_ref_set(&self->out_endpoint, out_endpoint);
-  g_weak_ref_set(&self->in_endpoint, in_endpoint);
+  g_weak_ref_set(&self->out_item, out_item);
+  g_weak_ref_set(&self->in_item, in_item);
   if (session)
     self->session = g_object_ref (session);
 
@@ -214,8 +213,8 @@ static void
 si_standard_link_disable_active (WpSessionItem *si)
 {
   WpSiStandardLink *self = WP_SI_STANDARD_LINK (si);
-  g_autoptr (WpSessionItem) si_out = g_weak_ref_get (&self->out_endpoint);
-  g_autoptr (WpSessionItem) si_in = g_weak_ref_get (&self->in_endpoint);
+  g_autoptr (WpSessionItem) si_out = g_weak_ref_get (&self->out_item);
+  g_autoptr (WpSessionItem) si_in = g_weak_ref_get (&self->in_item);
   WpSiAcquisition *out_acquisition, *in_acquisition;
 
   if (si_out) {
@@ -404,20 +403,20 @@ create_links (WpSiStandardLink * self, WpTransition * transition,
 static void
 si_standard_link_do_link (WpSiStandardLink *self, WpTransition *transition)
 {
-  g_autoptr (WpSessionItem) si_out = g_weak_ref_get (&self->out_endpoint);
-  g_autoptr (WpSessionItem) si_in = g_weak_ref_get (&self->in_endpoint);
+  g_autoptr (WpSessionItem) si_out = g_weak_ref_get (&self->out_item);
+  g_autoptr (WpSessionItem) si_in = g_weak_ref_get (&self->in_item);
   g_autoptr (GVariant) out_ports = NULL;
   g_autoptr (GVariant) in_ports = NULL;
 
   out_ports = wp_si_port_info_get_ports (WP_SI_PORT_INFO (si_out),
-      self->out_endpoint_port_context);
+      self->out_item_port_context);
   in_ports = wp_si_port_info_get_ports (WP_SI_PORT_INFO (si_in),
-      self->in_endpoint_port_context);
+      self->in_item_port_context);
 
   if (!create_links (self, transition, out_ports, in_ports))
       wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
           WP_LIBRARY_ERROR_INVARIANT,
-          "Bad port info returned from one of the endpoints"));
+          "Bad port info returned from one of the items"));
 }
 
 static void
@@ -436,8 +435,8 @@ si_standard_link_enable_active (WpSessionItem *si, WpTransition *transition)
   }
 
   /* acquire */
-  si_out = g_weak_ref_get (&self->out_endpoint);
-  si_in = g_weak_ref_get (&self->in_endpoint);
+  si_out = g_weak_ref_get (&self->out_item);
+  si_in = g_weak_ref_get (&self->in_item);
   out_acquisition = wp_si_port_info_get_acquisition (WP_SI_PORT_INFO (si_out));
   in_acquisition = wp_si_port_info_get_acquisition (WP_SI_PORT_INFO (si_in));
 
@@ -501,8 +500,8 @@ si_standard_link_finalize (GObject * object)
 {
   WpSiStandardLink *self = WP_SI_STANDARD_LINK (object);
 
-  g_weak_ref_clear (&self->out_endpoint);
-  g_weak_ref_clear (&self->in_endpoint);
+  g_weak_ref_clear (&self->out_item);
+  g_weak_ref_clear (&self->in_item);
 }
 
 static void
@@ -530,26 +529,26 @@ si_standard_link_get_registration_info (WpSiLink * item)
   return g_variant_builder_end (&b);
 }
 
-static WpSiEndpoint *
-si_standard_link_get_out_endpoint (WpSiLink * item)
+static WpSiPortInfo *
+si_standard_link_get_out_item (WpSiLink * item)
 {
   WpSiStandardLink *self = WP_SI_STANDARD_LINK (item);
-  return WP_SI_ENDPOINT (g_weak_ref_get (&self->out_endpoint));
+  return WP_SI_PORT_INFO (g_weak_ref_get (&self->out_item));
 }
 
-static WpSiEndpoint *
-si_standard_link_get_in_endpoint (WpSiLink * item)
+static WpSiPortInfo *
+si_standard_link_get_in_item (WpSiLink * item)
 {
   WpSiStandardLink *self = WP_SI_STANDARD_LINK (item);
-  return WP_SI_ENDPOINT (g_weak_ref_get (&self->in_endpoint));
+  return WP_SI_PORT_INFO (g_weak_ref_get (&self->in_item));
 }
 
 static void
 si_standard_link_link_init (WpSiLinkInterface * iface)
 {
   iface->get_registration_info = si_standard_link_get_registration_info;
-  iface->get_out_endpoint = si_standard_link_get_out_endpoint;
-  iface->get_in_endpoint = si_standard_link_get_in_endpoint;
+  iface->get_out_item = si_standard_link_get_out_item;
+  iface->get_in_item = si_standard_link_get_in_item;
 }
 
 WP_PLUGIN_EXPORT gboolean
