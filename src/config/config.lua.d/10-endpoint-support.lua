@@ -25,8 +25,8 @@ function endpoint_support.enable()
   -- Create sessions statically at startup
   load_script("static-sessions.lua", endpoint_support.sessions)
 
-  -- Create endpoints for nodes that appear in the graph
-  load_script("create-endpoint.lua")
+  -- Create items for nodes that appear in the graph
+  load_script("create-item.lua")
 
   -- Link endpoints to each other to make media flow in the graph
   load_script("policy-endpoint.lua", endpoint_support.policy)
