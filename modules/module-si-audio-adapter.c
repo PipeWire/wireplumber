@@ -220,10 +220,30 @@ si_audio_adapter_disable_exported (WpSessionItem *si)
 }
 
 static void
+on_sync_done (WpCore * core, GAsyncResult * res, WpTransition * transition)
+{
+  WpSiAudioAdapter *self = wp_transition_get_source_object (transition);
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_core_sync_finish (core, res, &error)) {
+    wp_transition_return_error (transition, g_steal_pointer (&error));
+    return;
+  }
+
+  /* make sure ports are available */
+  if (wp_node_get_n_ports (self->node) > 0)
+      wp_object_update_features (WP_OBJECT (self),
+          WP_SESSION_ITEM_FEATURE_ACTIVE, 0);
+  else
+      wp_core_sync (core, NULL, (GAsyncReadyCallback) on_sync_done, transition);
+}
+
+static void
 on_feature_ports_ready (WpObject * node, GAsyncResult * res,
     WpTransition * transition)
 {
   WpSiAudioAdapter *self = wp_transition_get_source_object (transition);
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_autoptr (GError) error = NULL;
 
   if (!wp_object_activate_finish (node, res, &error)) {
@@ -231,8 +251,7 @@ on_feature_ports_ready (WpObject * node, GAsyncResult * res,
     return;
   }
 
-  wp_object_update_features (WP_OBJECT (self),
-      WP_SESSION_ITEM_FEATURE_ACTIVE, 0);
+  wp_core_sync (core, NULL, (GAsyncReadyCallback) on_sync_done, transition);
 }
 
 static void
