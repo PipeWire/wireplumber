@@ -470,26 +470,36 @@ object_interest_new_add_constraint (lua_State *L, GType type,
   lua_settop (L, constraint_idx);
 }
 
+static GType
+parse_gtype (const gchar *str)
+{
+  g_autofree gchar *typestr = NULL;
+  GType res = G_TYPE_INVALID;
+
+  g_return_val_if_fail (str, res);
+
+  /* "device" -> "WpDevice" */
+  typestr = g_strdup_printf ("Wp%s", str);
+  if (typestr[2] != 0) {
+    typestr[2] = g_ascii_toupper (typestr[2]);
+    res = g_type_from_name (typestr);
+  }
+
+  return res;
+}
+
 static int
 object_interest_new_index (lua_State *L, int idx, GType def_type)
 {
   WpObjectInterest *interest = NULL;
   GType type = def_type;
-  gchar *typestr;
 
   luaL_checktype (L, idx, LUA_TTABLE);
 
   /* type = "string" */
   lua_pushliteral (L, "type");
   if (lua_gettable (L, idx) == LUA_TSTRING) {
-    /* "device" -> "WpDevice" */
-    typestr = g_strdup_printf ("Wp%s", lua_tostring (L, -1));
-    if (typestr[2] != 0) {
-      typestr[2] = g_ascii_toupper (typestr[2]);
-      type = g_type_from_name (typestr);
-    }
-    g_free (typestr);
-
+    type = parse_gtype (lua_tostring (L, -1));
     if (type == G_TYPE_INVALID)
       luaL_error (L, "Interest: unknown type '%s'", lua_tostring (L, -1));
   }
@@ -1032,6 +1042,17 @@ session_item_new (lua_State *L)
 }
 
 static int
+session_item_get_associated_proxy (lua_State *L)
+{
+  WpSessionItem *si = wplua_checkobject (L, 1, WP_TYPE_SESSION_ITEM);
+  const char *typestr = luaL_checkstring (L, 2);
+  WpProxy *proxy = wp_session_item_get_associated_proxy (si,
+      parse_gtype (typestr));
+  wplua_pushobject (L, proxy);
+  return 1;
+}
+
+static int
 session_item_reset (lua_State *L)
 {
   WpSessionItem *si = wplua_checkobject (L, 1, WP_TYPE_SESSION_ITEM);
@@ -1105,6 +1126,7 @@ session_item_remove (lua_State *L)
 }
 
 static const luaL_Reg session_item_methods[] = {
+  { "get_associated_proxy", session_item_get_associated_proxy },
   { "reset", session_item_reset },
   { "configure", session_item_configure },
   { "register", session_item_register },
@@ -1112,7 +1134,7 @@ static const luaL_Reg session_item_methods[] = {
   { NULL, NULL }
 };
 
-/* WpSessionItem */
+/* WpSessionBin */
 
 static int
 session_bin_add (lua_State *L)
