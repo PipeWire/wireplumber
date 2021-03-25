@@ -69,6 +69,11 @@ WpSessionItem * wp_session_item_get_parent (WpSessionItem * self);
 WP_PRIVATE_API
 void wp_session_item_set_parent (WpSessionItem *self, WpSessionItem *parent);
 
+/* Id */
+
+WP_API
+guint wp_session_item_get_id (WpSessionItem * self);
+
 /* configuration */
 
 WP_API
