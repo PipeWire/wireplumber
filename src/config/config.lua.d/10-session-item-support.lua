@@ -27,6 +27,9 @@ function session_item_support.enable()
   -- Create items for nodes that appear in the graph
   load_script("create-item.lua")
 
+  -- Link nodes to each other to make media flow in the graph
+  load_script("policy-node.lua")
+
   -- Link endpoints to each other to make media flow in the graph
   load_script("policy-endpoint.lua", session_item_support.policy)
 end
