@@ -424,7 +424,8 @@ wp_object_deactivate (WpObject * self, WpObjectFeatures features)
   g_return_if_fail (WP_IS_OBJECT (self));
   g_return_if_fail (WP_OBJECT_GET_CLASS (self)->deactivate);
 
-  WP_OBJECT_GET_CLASS (self)->deactivate (self, features);
+  WpObjectPrivate *priv = wp_object_get_instance_private (self);
+  WP_OBJECT_GET_CLASS (self)->deactivate (self, features & priv->ft_active);
 }
 
 /**
