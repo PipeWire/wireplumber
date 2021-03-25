@@ -73,6 +73,12 @@ function createNode(parent, id, type, factory, properties)
     properties["priority.session"] = priority
   end
 
+  -- autoconnect if it's a stream
+  if properties["api.bluez5.profile"] == "headset-audio-gateway" or
+     factory:find("a2dp.source") then
+    properties["node.autoconnect"] = true
+  end
+
   -- apply properties from config.rules
   rulesApplyProperties(properties)
 
