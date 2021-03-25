@@ -138,7 +138,7 @@ si_standard_link_configure (WpSessionItem * item, WpProperties * p)
     return FALSE;
 
   in_endpoint = get_and_validate_endpoint (si_props, "in-endpoint");
-  if (!out_endpoint)
+  if (!in_endpoint)
     return FALSE;
 
   self->out_endpoint_port_context =
