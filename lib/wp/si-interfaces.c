@@ -161,7 +161,7 @@ wp_si_link_get_properties (WpSiLink * self)
  * wp_si_link_get_out_endpoint: (virtual get_out_endpoint)
  * @self: the session item
  *
- * Returns: (transfer none): the output endpoint that is linked by this link
+ * Returns: (transfer full): the output endpoint that is linked by this link
  */
 WpSiEndpoint *
 wp_si_link_get_out_endpoint (WpSiLink * self)
@@ -176,7 +176,7 @@ wp_si_link_get_out_endpoint (WpSiLink * self)
  * wp_si_link_get_in_endpoint: (virtual get_in_endpoint)
  * @self: the session item
  *
- * Returns: (transfer none): the input endpoint that is linked by this link
+ * Returns: (transfer full): the input endpoint that is linked by this link
  */
 WpSiEndpoint *
 wp_si_link_get_in_endpoint (WpSiLink * self)
