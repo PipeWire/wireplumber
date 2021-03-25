@@ -84,16 +84,32 @@ function createNode(parent, id, type, factory, properties)
 end
 
 function createDevice(parent, id, type, factory, properties)
-  -- apply properties from config.rules
-  rulesApplyProperties(properties)
+  local device = parent:get_managed_object(id)
+  if not device then
+    -- apply properties from config.rules
+    rulesApplyProperties(properties)
 
-  -- create the device
-  local device = SpaDevice(factory, properties)
-  device:connect("create-object", createNode)
-  device:activate(Feature.SpaDevice.ENABLED | Feature.Proxy.BOUND)
-  parent:store_managed_object(id, device)
+    -- create the device
+    device = SpaDevice(factory, properties)
+    device:connect("create-object", createNode)
+    parent:store_managed_object(id, device)
+  end
+
+  Log.info(parent, string.format("%d, %s (%s): %s",
+        id, properties["device.description"],
+        properties["api.bluez5.address"], properties["api.bluez5.connection"]))
+
+  -- activate the device after the bluez profiles are connected
+  if properties["api.bluez5.connection"] == "connected" then
+    device:activate(Feature.SpaDevice.ENABLED | Feature.Proxy.BOUND)
+  else
+    device:deactivate(Features.ALL)
+  end
 end
 
-monitor = SpaDevice("api.bluez5.enum.dbus", config.properties or {})
+local monitor_props = config.properties or {}
+monitor_props["api.bluez5.connection-info"] = true
+
+monitor = SpaDevice("api.bluez5.enum.dbus", monitor_props)
 monitor:connect("create-object", createDevice)
 monitor:activate(Feature.SpaDevice.ENABLED)
