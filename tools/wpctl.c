@@ -14,6 +14,9 @@
 #define default_endpoint_key(dir) ((dir == WP_DIRECTION_INPUT) ? \
   "default.session.endpoint.sink" : "default.session.endpoint.source")
 
+#define default_audio_node_key(dir) ((dir == WP_DIRECTION_INPUT) ? \
+  "default.configured.audio.sink" : "default.configured.audio.source")
+
 typedef struct _WpCtl WpCtl;
 struct _WpCtl
 {
@@ -74,6 +77,7 @@ static gboolean
 status_prepare (WpCtl * self, GError ** error)
 {
   wp_object_manager_add_interest (self->om, WP_TYPE_METADATA, NULL);
+  wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_SESSION, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_CLIENT, NULL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_METADATA,
@@ -83,6 +87,8 @@ status_prepare (WpCtl * self, GError ** error)
       WP_SESSION_FEATURE_ENDPOINTS |
       WP_SESSION_FEATURE_LINKS);
   wp_object_manager_request_object_features (self->om, WP_TYPE_CLIENT,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
+  wp_object_manager_request_object_features (self->om, WP_TYPE_NODE,
       WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
   return TRUE;
 }
@@ -165,6 +171,8 @@ status_run (WpCtl * self)
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
   g_autoptr (WpMetadata)  metadata = NULL;
+  guint32 default_audio_sink = 0;
+  guint32 default_audio_source = 0;
 
   metadata = wp_object_manager_lookup (self->om, WP_TYPE_METADATA, NULL);
 
@@ -176,20 +184,60 @@ status_run (WpCtl * self)
       wp_core_get_remote_host_name (self->core),
       wp_core_get_remote_cookie (self->core));
 
-  printf (TREE_INDENT_END "Clients:\n");
+  printf (TREE_INDENT_NODE "Clients:\n");
   it = wp_object_manager_new_filtered_iterator (self->om, WP_TYPE_CLIENT, NULL);
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
     WpProxy *client = g_value_get_object (&val);
     g_autoptr (WpProperties) properties =
         wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (client));
 
-    printf (TREE_INDENT_EMPTY "  %4u. %-35s [%s, %s@%s, pid:%s]\n",
+    printf (TREE_INDENT_LINE "  %4u. %-35s [%s, %s@%s, pid:%s]\n",
         wp_proxy_get_bound_id (client),
         wp_properties_get (properties, PW_KEY_APP_NAME),
         wp_properties_get (properties, PW_KEY_CORE_VERSION),
         wp_properties_get (properties, PW_KEY_APP_PROCESS_USER),
         wp_properties_get (properties, PW_KEY_APP_PROCESS_HOST),
         wp_properties_get (properties, PW_KEY_APP_PROCESS_ID));
+  }
+  wp_iterator_unref (it);
+
+  /* find default sink and source nodes if metadata was found */
+  if (metadata) {
+    g_autoptr (WpIterator) m_it = NULL;
+    g_auto (GValue) m_val = G_VALUE_INIT;
+    m_it = wp_metadata_new_iterator (metadata, 0);
+    for (; wp_iterator_next (m_it, &m_val); g_value_unset (&m_val)) {
+      const gchar *k = NULL, *v = NULL;
+      wp_metadata_iterator_item_extract (&m_val, NULL, &k, NULL, &v);
+      if (!g_strcmp0 (k, default_audio_node_key (WP_DIRECTION_INPUT)))
+        default_audio_sink = atoi (v);
+      else if (!g_strcmp0 (k, default_audio_node_key (WP_DIRECTION_OUTPUT)))
+        default_audio_source = atoi (v);
+    }
+  }
+
+  printf (TREE_INDENT_END "Nodes:\n");
+  it = wp_object_manager_new_filtered_iterator (self->om, WP_TYPE_NODE, NULL);
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    WpProxy *node = g_value_get_object (&val);
+    guint32 id = wp_proxy_get_bound_id (node);
+    g_autoptr (WpProperties) props =
+        wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (node));
+    WpDirection direction = WP_DIRECTION_INPUT;
+    const gchar *media_class = wp_properties_get (props, PW_KEY_MEDIA_CLASS);
+    if (!media_class)
+      continue;
+    if (strstr (media_class, "Source") ||
+        strstr (media_class, "Output"))
+      direction = WP_DIRECTION_OUTPUT;
+
+    printf (TREE_INDENT_EMPTY "%c %4u. %-15s %-35s\n",
+        direction == WP_DIRECTION_INPUT ?
+            (default_audio_sink == id ? '*' : ' ') :
+            (default_audio_source == id ? '*' : ' '),
+        id,
+        media_class,
+        wp_properties_get (props, PW_KEY_NODE_NAME));
   }
   wp_iterator_unref (it);
   printf ("\n");
@@ -501,11 +549,17 @@ static gboolean
 set_default_prepare (WpCtl * self, GError ** error)
 {
   wp_object_manager_add_interest (self->om, WP_TYPE_METADATA, NULL);
+  wp_object_manager_add_interest (self->om, WP_TYPE_NODE,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
+      "object.id", "=u", cmdline.set_default.id,
+      NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_ENDPOINT,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
       "object.id", "=u", cmdline.set_default.id,
       NULL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_METADATA,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
+  wp_object_manager_request_object_features (self->om, WP_TYPE_NODE,
       WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_ENDPOINT,
       WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
@@ -515,11 +569,12 @@ set_default_prepare (WpCtl * self, GError ** error)
 static void
 set_default_run (WpCtl * self)
 {
-  g_autoptr (WpEndpoint) ep = NULL;
   g_autoptr (WpMetadata) metadata = NULL;
+  g_autoptr (WpProxy) proxy = NULL;
   guint32 id = cmdline.set_default.id;
+  const char *media_class;
   const gchar *sess_id_str;
-  g_autofree gchar *ep_id_str = NULL;
+  g_autofree gchar *id_str = NULL;
   guint32 sess_id;
   WpDirection dir;
 
@@ -529,29 +584,59 @@ set_default_run (WpCtl * self)
     goto out;
   }
 
-  ep = wp_object_manager_lookup (self->om, WP_TYPE_ENDPOINT, NULL);
-  if (!ep) {
-    printf ("Endpoint '%d' not found\n", id);
-    goto out;
+  proxy = wp_object_manager_lookup (self->om, WP_TYPE_NODE, NULL);
+  if (!proxy) {
+    proxy = wp_object_manager_lookup (self->om, WP_TYPE_ENDPOINT, NULL);
+    if (!proxy) {
+      printf ("Node or Endpoint '%d' not found\n", id);
+      goto out;
+    }
   }
 
-  sess_id_str = wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (ep),
-      "session.id");
-  sess_id = sess_id_str ? atoi (sess_id_str) : 0;
+  if (WP_IS_NODE (proxy)) {
+    media_class = wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (proxy),
+        PW_KEY_MEDIA_CLASS);
+    if (!strstr (media_class, "Audio")) {
+      printf ("%u is not an audio node (media.class = %s)\n",
+          id, media_class);
+      goto out;
+    }
+    if (g_str_has_suffix (media_class, "/Sink"))
+      dir = WP_DIRECTION_INPUT;
+    else if (g_str_has_suffix (media_class, "/Source"))
+      dir = WP_DIRECTION_OUTPUT;
+    else {
+      printf ("%u is not a device node (media.class = %s)\n",
+          id, media_class);
+      goto out;
+    }
 
-  if (g_str_has_suffix (wp_endpoint_get_media_class (ep), "/Sink"))
-    dir = WP_DIRECTION_INPUT;
-  else if (g_str_has_suffix (wp_endpoint_get_media_class (ep), "/Source"))
-    dir = WP_DIRECTION_OUTPUT;
-  else {
-    printf ("%u is not a device endpoint (media.class = %s)\n",
-        id, wp_endpoint_get_media_class (ep));
-    goto out;
+    id_str = g_strdup_printf ("%d", id);
+    wp_metadata_set (metadata, 0, default_audio_node_key (dir), "Spa:Int",
+      id_str);
   }
 
-  ep_id_str = g_strdup_printf ("%d", id);
-  wp_metadata_set (metadata, sess_id, default_endpoint_key (dir), "Spa:Int",
-    ep_id_str);
+  else if (WP_IS_ENDPOINT (proxy)) {
+    sess_id_str = wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (proxy),
+        "session.id");
+    sess_id = sess_id_str ? atoi (sess_id_str) : 0;
+    media_class = wp_endpoint_get_media_class (WP_ENDPOINT (proxy));
+
+    if (g_str_has_suffix (media_class, "/Sink"))
+      dir = WP_DIRECTION_INPUT;
+    else if (g_str_has_suffix (media_class, "/Source"))
+      dir = WP_DIRECTION_OUTPUT;
+    else {
+      printf ("%u is not a device endpoint (media.class = %s)\n",
+          id, media_class);
+      goto out;
+    }
+
+    id_str = g_strdup_printf ("%d", id);
+    wp_metadata_set (metadata, sess_id, default_endpoint_key (dir), "Spa:Int",
+      id_str);
+  }
+
   wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
   return;
 
