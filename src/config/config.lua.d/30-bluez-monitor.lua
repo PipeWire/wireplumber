@@ -3,8 +3,6 @@
 bluez_monitor = {}
 
 bluez_monitor.properties = {
-  -- MSBC is not expected to work on all headset + adapter combinations.
-  --["bluez5.msbc-support"] = true,
   --["bluez5.sbc-xq-support"] = true,
 
   -- Enabled headset roles (default: [ hsp_hs hfp_ag ]), this
@@ -36,7 +34,19 @@ bluez_monitor.rules = {
     },
     -- Apply properties on the matched object.
     apply_properties = {
-      -- ["device.nick"] = "My Device",
+      -- Autoconnect device profiles, disabled by default
+      -- if the property is not specified.
+      ["bluez5.reconnect-profiles"]  = "[ hfp_hf hsp_hs a2dp_sink ]",
+
+      -- MSBC is not expected to work on all headset + adapter combinations.
+      --["bluez5.msbc-support"] = false,
+
+      -- LDAC encoding quality
+      -- Available values: auto (Adaptive Bitrate, default)
+      --                   hq   (High Quality, 990/909kbps)
+      --                   sq   (Standard Quality, 660/606kbps)
+      --                   mq   (Mobile use Quality, 330/303kbps)
+      --["bluez5.a2dp.ldac.quality"] = "auto",
     },
   },
   {
