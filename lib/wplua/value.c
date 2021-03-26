@@ -25,6 +25,10 @@ wplua_table_to_properties (lua_State *L, int idx)
     wp_properties_set (p, key, value);
     lua_pop (L, 3);
   }
+
+  /* sort, because the lua table has a random order and it's too messy to read */
+  wp_properties_sort (p);
+
   return p;
 }
 
