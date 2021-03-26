@@ -159,6 +159,13 @@ function createNode(parent, id, type, factory, properties)
     properties["node.description"] = desc:gsub("(:)", " ")
   end
 
+  -- add api.alsa.card.* properties for rule matching purposes
+  for k, v in pairs(dev_props) do
+    if k:find("^api%.alsa%.card%..*") then
+      properties[k] = v
+    end
+  end
+
   -- apply properties from config.rules
   rulesApplyProperties(properties)
 
