@@ -144,6 +144,11 @@ const gchar * wp_properties_iterator_item_get_key (const GValue * item);
 WP_API
 const gchar * wp_properties_iterator_item_get_value (const GValue * item);
 
+/* sort */
+
+WP_API
+void wp_properties_sort (WpProperties * self);
+
 /* convert */
 
 WP_API

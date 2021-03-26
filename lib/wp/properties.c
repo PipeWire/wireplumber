@@ -848,6 +848,16 @@ wp_properties_iterator_item_get_value (const GValue * item)
   return dict_item->value;
 }
 
+void
+wp_properties_sort (WpProperties * self)
+{
+  g_return_if_fail (self != NULL);
+  g_return_if_fail (!(self->flags & FLAG_IS_DICT));
+  g_return_if_fail (!(self->flags & FLAG_NO_OWNERSHIP));
+
+  return spa_dict_qsort (&self->props->dict);
+}
+
 /**
  * wp_properties_peek_dict:
  * @self: a properties object
