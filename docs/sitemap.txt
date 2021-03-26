@@ -1,9 +1,0 @@
-index.md
-	installation/from-source.md
-	daemon/running.md
-		daemon/configuration.md
-		daemon/log.md
-	gi-index
-	contributing/contributing.md
-		contributing/testing.md
-	community.md
