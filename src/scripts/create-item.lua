@@ -22,7 +22,7 @@ function addItem (node, item_type)
   end
 
   -- activate item
-  items[id]:activate (Feature.Object.ALL, function (item)
+  items[id]:activate (Features.ALL, function (item)
     Log.info(item, "activated item for node " .. tostring(id))
     item:register ()
   end)

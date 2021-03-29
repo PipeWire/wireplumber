@@ -24,6 +24,6 @@ if sessions_config then
         ["session.name"] = k
       })
     end
-    sessions[k]:activate(Feature.Object.ALL)
+    sessions[k]:activate(Features.ALL)
   end
 end

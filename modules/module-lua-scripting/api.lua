@@ -77,9 +77,6 @@ local Features = {
 }
 
 local Feature = {
-  Object = {
-    ALL               = 0xffffffff,
-  },
   Proxy = {
     BOUND             = 1,
   },
