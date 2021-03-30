@@ -54,3 +54,9 @@ load_module("device-activation")
 
 -- Automatically save and restore default routes
 load_module("default-routes")
+
+-- Implements storing metadata about objects in RAM
+load_module("metadata")
+
+-- Enables saving and restoring default nodes
+load_module("default-nodes")

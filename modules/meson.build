@@ -48,11 +48,11 @@ shared_library(
 )
 
 shared_library(
-  'wireplumber-module-default-metadata',
+  'wireplumber-module-default-nodes',
   [
-    'module-default-metadata.c',
+    'module-default-nodes.c',
   ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-default-metadata"'],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-default-nodes"'],
   install : true,
   install_dir : wireplumber_module_dir,
   dependencies : [wp_dep, pipewire_dep],

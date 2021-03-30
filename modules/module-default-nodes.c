@@ -11,7 +11,7 @@
 #include <pipewire/keys.h>
 #include <spa/utils/json.h>
 
-#define STATE_NAME "default-nodes"
+#define NAME "default-nodes"
 #define SAVE_INTERVAL_MS 1000
 
 enum {
@@ -39,21 +39,14 @@ static const gchar * MEDIA_CLASS[N_DEFAULT_NODES] = {
   [VIDEO_SOURCE] = "Video/Source",
 };
 
-#define direction_to_dbg_string(dir) \
-  ((dir == WP_DIRECTION_INPUT) ? "sink" : "source")
-
-G_DECLARE_FINAL_TYPE (WpDefaultMetadata, wp_default_metadata, WP,
-    DEFAULT_METADATA, WpPlugin)
-
+typedef struct _WpDefaultNode WpDefaultNode;
 struct _WpDefaultNode
 {
-  WpDefaultMetadata *self;
   gchar *value;
   gchar *config_value;
 };
-typedef struct _WpDefaultNode WpDefaultNode;
 
-struct _WpDefaultMetadata
+struct _WpDefaultNodes
 {
   WpPlugin parent;
   WpState *state;
@@ -63,19 +56,21 @@ struct _WpDefaultMetadata
   GSource *timeout_source;
 };
 
-G_DEFINE_TYPE (WpDefaultMetadata, wp_default_metadata, WP_TYPE_PLUGIN)
+G_DECLARE_FINAL_TYPE (WpDefaultNodes, wp_default_nodes,
+                      WP, DEFAULT_NODES, WpPlugin)
+G_DEFINE_TYPE (WpDefaultNodes, wp_default_nodes, WP_TYPE_PLUGIN)
 
 static void
-wp_default_metadata_init (WpDefaultMetadata * self)
+wp_default_nodes_init (WpDefaultNodes * self)
 {
 }
 
 static void
-load_state (WpDefaultMetadata * self)
+load_state (WpDefaultNodes * self)
 {
-  g_autoptr (WpProperties) props = wp_state_load (self->state, STATE_NAME);
+  g_autoptr (WpProperties) props = wp_state_load (self->state, NAME);
   if (!props)
-    wp_warning_object (self, "could not load " STATE_NAME);
+    wp_warning_object (self, "could not load " NAME);
   else {
     for (gint i = 0; i < N_DEFAULT_NODES; i++) {
       const gchar *value = wp_properties_get (props, DEFAULT_CONFIG_KEY[i]);
@@ -87,7 +82,7 @@ load_state (WpDefaultMetadata * self)
 static gboolean
 timeout_save_state_callback (gpointer data)
 {
-  WpDefaultMetadata *self = data;
+  WpDefaultNodes *self = data;
   g_autoptr (WpProperties) props = wp_properties_new_empty ();
 
   for (gint i = 0; i < N_DEFAULT_NODES; i++) {
@@ -96,15 +91,15 @@ timeout_save_state_callback (gpointer data)
           self->defaults[i].config_value);
   }
 
-  if (!wp_state_save (self->state, STATE_NAME, props))
-    wp_warning_object (self, "could not save " STATE_NAME);
+  if (!wp_state_save (self->state, NAME, props))
+    wp_warning_object (self, "could not save " NAME);
 
   g_clear_pointer (&self->timeout_source, g_source_unref);
   return G_SOURCE_REMOVE;
 }
 
 static void
-timer_start (WpDefaultMetadata *self)
+timer_start (WpDefaultNodes *self)
 {
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_return_if_fail (core);
@@ -118,7 +113,7 @@ timer_start (WpDefaultMetadata *self)
 }
 
 static WpNode *
-find_highest_priority_node (WpDefaultMetadata * self, gint node_t)
+find_highest_priority_node (WpDefaultNodes * self, gint node_t)
 {
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
@@ -144,7 +139,7 @@ find_highest_priority_node (WpDefaultMetadata * self, gint node_t)
 }
 
 static void
-reevaluate_default_node (WpDefaultMetadata * self, WpMetadata *m, gint node_t)
+reevaluate_default_node (WpDefaultNodes * self, WpMetadata *m, gint node_t)
 {
   g_autoptr (WpNode) node = NULL;
   const gchar *node_name = NULL;
@@ -210,7 +205,7 @@ static void
 on_metadata_changed (WpMetadata *m, guint32 subject,
     const gchar *key, const gchar *type, const gchar *value, gpointer d)
 {
-  WpDefaultMetadata * self = WP_DEFAULT_METADATA (d);
+  WpDefaultNodes * self = WP_DEFAULT_NODES (d);
   gint node_t = -1;
   gchar name[1024];
 
@@ -244,7 +239,7 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
 }
 
 static void
-on_nodes_changed (WpObjectManager * om, WpDefaultMetadata * self)
+on_nodes_changed (WpObjectManager * om, WpDefaultNodes * self)
 {
   g_autoptr (WpMetadata) metadata = NULL;
 
@@ -263,7 +258,7 @@ on_nodes_changed (WpObjectManager * om, WpDefaultMetadata * self)
 static void
 on_metadata_added (WpObjectManager *om, WpMetadata *metadata, gpointer d)
 {
-  WpDefaultMetadata * self = WP_DEFAULT_METADATA (d);
+  WpDefaultNodes * self = WP_DEFAULT_NODES (d);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_return_if_fail (core);
 
@@ -282,13 +277,13 @@ on_metadata_added (WpObjectManager *om, WpMetadata *metadata, gpointer d)
 }
 
 static void
-wp_default_metadata_enable (WpPlugin * plugin, WpTransition * transition)
+wp_default_nodes_enable (WpPlugin * plugin, WpTransition * transition)
 {
-  WpDefaultMetadata * self = WP_DEFAULT_METADATA (plugin);
+  WpDefaultNodes * self = WP_DEFAULT_NODES (plugin);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
   g_return_if_fail (core);
 
-  self->state = wp_state_new (STATE_NAME);
+  self->state = wp_state_new (NAME);
   load_state (self);
 
   /* Create the metadatas object manager */
@@ -306,9 +301,9 @@ wp_default_metadata_enable (WpPlugin * plugin, WpTransition * transition)
 }
 
 static void
-wp_default_metadata_disable (WpPlugin * plugin)
+wp_default_nodes_disable (WpPlugin * plugin)
 {
-  WpDefaultMetadata * self = WP_DEFAULT_METADATA (plugin);
+  WpDefaultNodes * self = WP_DEFAULT_NODES (plugin);
 
   /* Clear the current timeout callback */
   if (self->timeout_source)
@@ -321,19 +316,19 @@ wp_default_metadata_disable (WpPlugin * plugin)
 }
 
 static void
-wp_default_metadata_class_init (WpDefaultMetadataClass * klass)
+wp_default_nodes_class_init (WpDefaultNodesClass * klass)
 {
   WpPluginClass *plugin_class = (WpPluginClass *) klass;
 
-  plugin_class->enable = wp_default_metadata_enable;
-  plugin_class->disable = wp_default_metadata_disable;
+  plugin_class->enable = wp_default_nodes_enable;
+  plugin_class->disable = wp_default_nodes_disable;
 }
 
 WP_PLUGIN_EXPORT gboolean
 wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
-  wp_plugin_register (g_object_new (wp_default_metadata_get_type (),
-          "name", "default-metadata",
+  wp_plugin_register (g_object_new (wp_default_nodes_get_type (),
+          "name", NAME,
           "core", core,
           NULL));
   return TRUE;
