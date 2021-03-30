@@ -111,8 +111,9 @@ end
 function handleSiPortInfo (si)
   -- only handle unlinked session items
   for silink in silinks_om:iterate() do
-    if silink.properties["out-item-id"] == si.id or
-          silink.properties["in-item-id"] == si.id then
+    local out_id_str = silink.properties["out-item-id"]
+    local in_id_str = silink.properties["in-item-id"]
+    if tonumber (out_id_str) == si.id or tonumber (in_id_str) == si.id then
       return
     end
   end
@@ -149,8 +150,9 @@ function reevaulateSiLinks ()
   for silink in silinks_om:iterate() do
     local used = false
     for si in siportinfos_om:iterate() do
-      if silink.properties["out-item-id"] == si.id or
-          silink.properties["in-item-id"] == si.id then
+      local out_id_str = silink.properties["out-item-id"]
+      local in_id_str = silink.properties["out-item-id"]
+      if tonumber (out_id_str) == si.id or tonumber (in_id_str) == si.id then
         used = true
         break
       end
