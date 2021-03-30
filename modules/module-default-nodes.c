@@ -12,7 +12,8 @@
 #include <spa/utils/json.h>
 
 #define NAME "default-nodes"
-#define SAVE_INTERVAL_MS 1000
+#define DEFAULT_SAVE_INTERVAL_MS 1000
+#define DEFAULT_USE_PERSISTENT_STORAGE TRUE
 
 enum {
   AUDIO_SINK,
@@ -39,6 +40,12 @@ static const gchar * MEDIA_CLASS[N_DEFAULT_NODES] = {
   [VIDEO_SOURCE] = "Video/Source",
 };
 
+enum {
+  PROP_0,
+  PROP_SAVE_INTERVAL_MS,
+  PROP_USE_PERSISTENT_STORAGE,
+};
+
 typedef struct _WpDefaultNode WpDefaultNode;
 struct _WpDefaultNode
 {
@@ -49,11 +56,16 @@ struct _WpDefaultNode
 struct _WpDefaultNodes
 {
   WpPlugin parent;
+
   WpState *state;
   WpDefaultNode defaults[N_DEFAULT_NODES];
   WpObjectManager *metadatas_om;
   WpObjectManager *nodes_om;
   GSource *timeout_source;
+
+  /* properties */
+  guint save_interval_ms;
+  gboolean use_persistent_storage;
 };
 
 G_DECLARE_FINAL_TYPE (WpDefaultNodes, wp_default_nodes,
@@ -104,11 +116,11 @@ timer_start (WpDefaultNodes *self)
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_return_if_fail (core);
 
-  if (self->timeout_source)
+  if (self->timeout_source || !self->use_persistent_storage)
     return;
 
   /* Add the timeout callback */
-  wp_core_timeout_add (core, &self->timeout_source, SAVE_INTERVAL_MS,
+  wp_core_timeout_add (core, &self->timeout_source, self->save_interval_ms,
       timeout_save_state_callback, self, NULL);
 }
 
@@ -283,8 +295,10 @@ wp_default_nodes_enable (WpPlugin * plugin, WpTransition * transition)
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
   g_return_if_fail (core);
 
-  self->state = wp_state_new (NAME);
-  load_state (self);
+  if (self->use_persistent_storage) {
+    self->state = wp_state_new (NAME);
+    load_state (self);
+  }
 
   /* Create the metadatas object manager */
   self->metadatas_om = wp_object_manager_new ();
@@ -316,20 +330,62 @@ wp_default_nodes_disable (WpPlugin * plugin)
 }
 
 static void
+wp_default_nodes_set_property (GObject * object, guint property_id,
+    const GValue * value, GParamSpec * pspec)
+{
+  WpDefaultNodes * self = WP_DEFAULT_NODES (object);
+
+  switch (property_id) {
+  case PROP_SAVE_INTERVAL_MS:
+    self->save_interval_ms = g_value_get_uint (value);
+    break;
+  case PROP_USE_PERSISTENT_STORAGE:
+    self->use_persistent_storage =  g_value_get_boolean (value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
+}
+
+static void
 wp_default_nodes_class_init (WpDefaultNodesClass * klass)
 {
+  GObjectClass *object_class = (GObjectClass *) klass;
   WpPluginClass *plugin_class = (WpPluginClass *) klass;
+
+  object_class->set_property = wp_default_nodes_set_property;
 
   plugin_class->enable = wp_default_nodes_enable;
   plugin_class->disable = wp_default_nodes_disable;
+
+  g_object_class_install_property (object_class, PROP_SAVE_INTERVAL_MS,
+      g_param_spec_uint ("save-interval-ms", "save-interval-ms",
+          "save-interval-ms", 1, G_MAXUINT32, DEFAULT_SAVE_INTERVAL_MS,
+          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (object_class, PROP_USE_PERSISTENT_STORAGE,
+      g_param_spec_boolean ("use-persistent-storage", "use-persistent-storage",
+          "use-persistent-storage", DEFAULT_USE_PERSISTENT_STORAGE,
+          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
 WP_PLUGIN_EXPORT gboolean
 wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
+  guint save_interval_ms = DEFAULT_SAVE_INTERVAL_MS;
+  gboolean use_persistent_storage = DEFAULT_USE_PERSISTENT_STORAGE;
+
+  if (args) {
+    g_variant_lookup (args, "save-interval-ms", "u", &save_interval_ms);
+    g_variant_lookup (args, "use-persistent-storage", "b", &save_interval_ms);
+  }
+
   wp_plugin_register (g_object_new (wp_default_nodes_get_type (),
           "name", NAME,
           "core", core,
+          "save-interval-ms", save_interval_ms,
+          "use-persistent-storage", use_persistent_storage,
           NULL));
   return TRUE;
 }
