@@ -553,15 +553,9 @@ set_default_prepare (WpCtl * self, GError ** error)
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
       "object.id", "=u", cmdline.set_default.id,
       NULL);
-  wp_object_manager_add_interest (self->om, WP_TYPE_ENDPOINT,
-      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
-      "object.id", "=u", cmdline.set_default.id,
-      NULL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_METADATA,
-      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
+      WP_OBJECT_FEATURES_ALL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_NODE,
-      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
-  wp_object_manager_request_object_features (self->om, WP_TYPE_ENDPOINT,
       WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
   return TRUE;
 }
@@ -572,11 +566,10 @@ set_default_run (WpCtl * self)
   g_autoptr (WpMetadata) metadata = NULL;
   g_autoptr (WpProxy) proxy = NULL;
   guint32 id = cmdline.set_default.id;
-  const char *media_class;
-  const gchar *sess_id_str;
-  g_autofree gchar *id_str = NULL;
-  guint32 sess_id;
-  WpDirection dir;
+  const gchar *media_class;
+  const gchar *key;
+  const gchar *name;
+  gchar buf[1024];
 
   metadata = wp_object_manager_lookup (self->om, WP_TYPE_METADATA, NULL);
   if (!metadata) {
@@ -586,56 +579,33 @@ set_default_run (WpCtl * self)
 
   proxy = wp_object_manager_lookup (self->om, WP_TYPE_NODE, NULL);
   if (!proxy) {
-    proxy = wp_object_manager_lookup (self->om, WP_TYPE_ENDPOINT, NULL);
-    if (!proxy) {
-      printf ("Node or Endpoint '%d' not found\n", id);
-      goto out;
-    }
+    printf ("Node '%d' not found\n", id);
+    goto out;
   }
 
-  if (WP_IS_NODE (proxy)) {
-    media_class = wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (proxy),
-        PW_KEY_MEDIA_CLASS);
-    if (!strstr (media_class, "Audio")) {
-      printf ("%u is not an audio node (media.class = %s)\n",
-          id, media_class);
-      goto out;
-    }
-    if (g_str_has_suffix (media_class, "/Sink"))
-      dir = WP_DIRECTION_INPUT;
-    else if (g_str_has_suffix (media_class, "/Source"))
-      dir = WP_DIRECTION_OUTPUT;
-    else {
-      printf ("%u is not a device node (media.class = %s)\n",
-          id, media_class);
-      goto out;
-    }
-
-    id_str = g_strdup_printf ("%d", id);
-    wp_metadata_set (metadata, 0, default_audio_node_key (dir), "Spa:Int",
-      id_str);
+  media_class = wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (proxy),
+      PW_KEY_MEDIA_CLASS);
+  if (!g_strcmp0 (media_class, "Audio/Sink"))
+    key = "default.configured.audio.sink";
+  else if (!g_strcmp0 (media_class, "Audio/Source"))
+    key = "default.configured.audio.source";
+  else if (!g_strcmp0 (media_class, "Video/Source"))
+    key = "default.configured.video.source";
+  else {
+    printf ("%u is not a device node (media.class = %s)\n",
+        id, media_class);
+    goto out;
   }
 
-  else if (WP_IS_ENDPOINT (proxy)) {
-    sess_id_str = wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (proxy),
-        "session.id");
-    sess_id = sess_id_str ? atoi (sess_id_str) : 0;
-    media_class = wp_endpoint_get_media_class (WP_ENDPOINT (proxy));
-
-    if (g_str_has_suffix (media_class, "/Sink"))
-      dir = WP_DIRECTION_INPUT;
-    else if (g_str_has_suffix (media_class, "/Source"))
-      dir = WP_DIRECTION_OUTPUT;
-    else {
-      printf ("%u is not a device endpoint (media.class = %s)\n",
-          id, media_class);
-      goto out;
-    }
-
-    id_str = g_strdup_printf ("%d", id);
-    wp_metadata_set (metadata, sess_id, default_endpoint_key (dir), "Spa:Int",
-      id_str);
+  name = wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (proxy),
+      PW_KEY_NODE_NAME);
+  if (!name) {
+    printf ("node %u does not have a valid node.name\n", id);
+    goto out;
   }
+
+  g_snprintf (buf, sizeof(buf), "{ \"name\": \"%s\" }", name);
+  wp_metadata_set (metadata, 0, key, "Spa:String:JSON", buf);
 
   wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
   return;
