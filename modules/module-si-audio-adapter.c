@@ -192,9 +192,18 @@ on_sync_done (WpCore * core, GAsyncResult * res, WpTransition * transition)
 {
   WpSiAudioAdapter *self = wp_transition_get_source_object (transition);
   g_autoptr (GError) error = NULL;
+  guint32 active = 0;
 
   if (!wp_core_sync_finish (core, res, &error)) {
     wp_transition_return_error (transition, g_steal_pointer (&error));
+    return;
+  }
+
+  active = wp_object_get_active_features (WP_OBJECT (self->node));
+  if (!(active & WP_NODE_FEATURE_PORTS)) {
+    wp_transition_return_error (transition,
+        g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+            "node feature ports is not enabled, aborting activation"));
     return;
   }
 
