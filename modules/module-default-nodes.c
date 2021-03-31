@@ -230,6 +230,16 @@ on_metadata_added (WpObjectManager *om, WpMetadata *metadata, gpointer d)
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_return_if_fail (core);
 
+  for (gint i = 0; i < N_DEFAULT_NODES; i++) {
+    gchar buf[1024];
+    if (self->defaults[i].config_value) {
+      g_snprintf (buf, sizeof(buf), "{ \"name\": \"%s\" }",
+          self->defaults[i].config_value);
+      wp_metadata_set (metadata, 0, DEFAULT_CONFIG_KEY[i], "Spa:String:JSON",
+          buf);
+    }
+  }
+
   /* Handle the changed signal */
   g_signal_connect_object (metadata, "changed",
       G_CALLBACK (on_metadata_changed), self, 0);
