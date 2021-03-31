@@ -58,6 +58,17 @@ shared_library(
   dependencies : [wp_dep, pipewire_dep],
 )
 
+shared_library(
+  'wireplumber-module-default-nodes-api',
+  [
+    'module-default-nodes-api.c',
+  ],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-default-nodes-api"'],
+  install : true,
+  install_dir : wireplumber_module_dir,
+  dependencies : [wp_dep, pipewire_dep],
+)
+
 subdir('module-reserve-device')
 shared_library(
   'wireplumber-module-reserve-device',
