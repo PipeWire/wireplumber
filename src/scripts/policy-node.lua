@@ -5,6 +5,13 @@
 --
 -- SPDX-License-Identifier: MIT
 
+-- Receive script arguments from config.lua
+local config = ...
+
+-- ensure config.move and config.follow are not nil
+config.move = config.move or false
+config.follow = config.follow or false
+
 target_class_assoc = {
   ["Stream/Input/Audio"] = "Audio/Source",
   ["Stream/Output/Audio"] = "Audio/Sink",
@@ -61,57 +68,91 @@ function createLink (si, si_target)
   end)
 end
 
-function findTarget (node, target_media_class)
-  local target = nil
-
-  -- honor node.target, if present
-  local target_id = node.properties["node.target"]
-  if target_id then
-    for candidate_si in siportinfos_om:iterate() do
-      local n = candidate_si:get_associated_proxy ("node")
-      if n and n['bound-id'] == tonumber(target_id) then
-        target = candidate_si
-        break
-      end
-    end
-  end
-
-  -- try to find the best target
-  if target == nil then
-    local def_id = default_nodes:call("get-default-node", target_media_class)
-
-    for candidate_si in siportinfos_om:iterate() do
-      local n = candidate_si:get_associated_proxy ("node")
-      if n and n.properties["media.class"] == target_media_class then
-        -- honor default node, if present
-        local n_id = n["bound-id"]
-        if def_id ~= Id.INVALID and n_id == def_id then
-          target = candidate_si
-          Log.debug (node, "choosing default node " .. n_id)
-          break
-        end
-
-        -- otherwise just use this candidate
-        if target == nil then
-          target = candidate_si
+function findTargetByTargetNodeMetadata (node, target_media_class)
+  local node_id = node['bound-id']
+  local metadata = metadatas_om:lookup()
+  if metadata then
+    local value = metadata:find(node_id, "target.node")
+    if value then
+      for si_target in siportinfos_om:iterate() do
+        local target_node = si_target:get_associated_proxy ("node")
+        if target_node["bound-id"] == tonumber(value) then
+          return si_target
         end
       end
     end
   end
+  return nil
+end
 
-  return target
+function findTargetByNodeTargetProperty (node, target_media_class)
+  local target_id_str = node.properties["node.target"]
+  if target_id_str then
+    for si_target in siportinfos_om:iterate() do
+      local target_node = si_target:get_associated_proxy ("node")
+      if target_node["bound-id"] == tonumber(target_id_str) then
+        return si_target
+      end
+    end
+  end
+  return nil
+end
+
+function findTargetByDefaultNode (node, target_media_class)
+  local def_id = default_nodes:call("get-default-node", target_media_class)
+  if def_id ~= Id.INVALID then
+    for si_target in siportinfos_om:iterate() do
+      local target_node = si_target:get_associated_proxy ("node")
+      if target_node["bound-id"] == def_id then
+        return si_target
+      end
+    end
+  end
+  return nil
+end
+
+function findTargetByFirstAvailable (node, target_media_class)
+  for si_target in siportinfos_om:iterate() do
+    local target_node = si_target:get_associated_proxy ("node")
+    if target_node.properties["media.class"] == target_media_class then
+      return si_target
+    end
+  end
+  return nil
+end
+
+function findTarget (node, target_class_assoc)
+  local si_target = findTargetByTargetNodeMetadata (node, target_media_class)
+  if not si_target then
+    si_target = findTargetByNodeTargetProperty (node, target_media_class)
+    if not si_target then
+      si_target = findTargetByDefaultNode (node, target_class_assoc)
+      if not si_target then
+        si_target = findTargetByFirstAvailable (node, target_media_class)
+      end
+    end
+  end
+  return si_target
+end
+
+function getSiLinkAndSiPeer (si)
+  for silink in silinks_om:iterate() do
+    local out_id = tonumber(silink.properties["out-item-id"])
+    local in_id = tonumber(silink.properties["in-item-id"])
+    if out_id == si.id then
+      return silink, siportinfos_om:lookup {
+        Constraint { "id", "=", in_id, type = "gobject" }
+      }
+    elseif in_id == si.id then
+      return silink, siportinfos_om:lookup {
+        Constraint { "id", "=", out_id, type = "gobject" }
+      }
+    end
+  end
+  return nil, nil
 end
 
 function handleSiPortInfo (si)
-  -- only handle unlinked session items
-  for silink in silinks_om:iterate() do
-    local out_id_str = silink.properties["out-item-id"]
-    local in_id_str = silink.properties["in-item-id"]
-    if tonumber (out_id_str) == si.id or tonumber (in_id_str) == si.id then
-      return
-    end
-  end
-
   -- only handle session items that has a node associated proxy
   local node = si:get_associated_proxy ("node")
   if not node or not node.properties then
@@ -125,21 +166,37 @@ function handleSiPortInfo (si)
     return
   end
 
-  -- find a suitable target and link
+  Log.info (si, "handling item " .. node.properties["node.name"])
+
+  -- find proper target
   local si_target = findTarget (node, target_media_class)
-  if si_target then
-    createLink (si, si_target)
+  if not si_target then
+    Log.info (si, "target not found")
+    return
   end
+
+  -- Check if item is linked to proper target, otherwise re-link
+  local si_link, si_peer = getSiLinkAndSiPeer (si)
+  if si_link then
+    if si_peer and si_peer.id == si_target.id then
+      Log.info (si, "already linked to proper target")
+      return
+    end
+
+    si_link:remove ()
+    Log.info (si, "moving to new target")
+  end
+
+  -- create new link
+  createLink (si, si_target)
 end
 
-function reevaluateSiPortInfos ()
+function reevaluateLinks ()
   -- check port info session items and register new links
   for si in siportinfos_om:iterate() do
     handleSiPortInfo (si)
   end
-end
 
-function reevaulateSiLinks ()
   -- check link session items and unregister them if not used
   for silink in silinks_om:iterate() do
     local used = false
@@ -159,13 +216,32 @@ function reevaulateSiLinks ()
 end
 
 default_nodes = Plugin("default-nodes-api")
+metadatas_om = ObjectManager { Interest { type = "metadata" } }
 siportinfos_om = ObjectManager { Interest { type = "SiPortInfo" } }
 silinks_om = ObjectManager { Interest { type = "SiLink" } }
 
+-- listen for default node changes if config.follow is enabled
+if config.follow then
+  default_nodes:connect("changed", function (p)
+    reevaluateLinks ()
+  end)
+end
+
+-- listen for target.node metadata changes if config.move is enabled
+if config.move then
+  metadatas_om:connect("object-added", function (om, metadata)
+    metadata:connect("changed", function (m, subject, key, t, value)
+      if key == "target.node" then
+        reevaluateLinks ()
+      end
+    end)
+  end)
+end
+
 siportinfos_om:connect("objects-changed", function (om)
-  reevaluateSiPortInfos ()
-  reevaulateSiLinks ()
+  reevaluateLinks ()
 end)
 
+metadatas_om:activate()
 siportinfos_om:activate()
 silinks_om:activate()
