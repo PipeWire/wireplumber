@@ -192,6 +192,9 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
       self->defaults[node_t].config_value = g_strdup (name);
     }
 
+    wp_debug_object (m, "changed '%s' -> '%s'", key,
+        self->defaults[node_t].config_value);
+
     /* re-evaluate the default, taking into account the new configured default;
        block recursive calls to this handler as an optimization */
     g_signal_handlers_block_by_func (m, on_metadata_changed, d);

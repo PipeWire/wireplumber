@@ -60,3 +60,6 @@ load_module("metadata")
 
 -- Enables saving and restoring default nodes
 load_module("default-nodes")
+
+-- API to access default nodes from scripts
+load_module("default-nodes-api")

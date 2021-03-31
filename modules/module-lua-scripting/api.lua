@@ -69,6 +69,11 @@ local function Constraint (spec)
   return debug.setmetatable(spec, { __name = "Constraint" })
 end
 
+local Id = {
+  INVALID = 0xffffffff,
+  ANY = 0xffffffff,
+}
+
 local Features = {
   PipewireObject = {
     MINIMAL = 0x11,
@@ -111,6 +116,7 @@ local Feature = {
 }
 
 SANDBOX_EXPORT = {
+  Id = Id,
   Features = Features,
   Feature = Feature,
   Log = WpDebug,

@@ -9,12 +9,6 @@ target_class_assoc = {
   ["Stream/Input/Audio"] = "Audio/Source",
   ["Stream/Output/Audio"] = "Audio/Sink",
   ["Stream/Input/Video"] = "Video/Source",
-  ["Stream/Output/Video"] = "Video/Sink",
-}
-
-default_audio_node_key = {
-  ["Audio/Sink"] = "default.configured.audio.sink",
-  ["Audio/Source"] = "default.configured.audio.source",
 }
 
 function createLink (si, si_target)
@@ -43,6 +37,10 @@ function createLink (si, si_target)
       in_context = "reverse"
     end
   end
+
+  Log.info (string.format("link %s <-> %s",
+      node.properties["node.name"],
+      target_node.properties["node.name"]))
 
   -- create and configure link
   local si_link = SessionItem ( "si-standard-link" )
@@ -80,21 +78,17 @@ function findTarget (node, target_media_class)
 
   -- try to find the best target
   if target == nil then
-    local metadata = metadatas_om:lookup()
+    local def_id = default_nodes:call("get-default-node", target_media_class)
 
     for candidate_si in siportinfos_om:iterate() do
       local n = candidate_si:get_associated_proxy ("node")
       if n and n.properties["media.class"] == target_media_class then
         -- honor default node, if present
-        if metadata then
-          local key = default_audio_node_key[target_media_class]
-          local value = metadata:find(0, key)
-          local n_id = n["bound-id"]
-          if value and n_id == tonumber(value) then
-            target = candidate_si
-            Log.debug (node, "choosing default node " .. n_id)
-            break
-          end
+        local n_id = n["bound-id"]
+        if def_id ~= Id.INVALID and n_id == def_id then
+          target = candidate_si
+          Log.debug (node, "choosing default node " .. n_id)
+          break
         end
 
         -- otherwise just use this candidate
@@ -164,7 +158,7 @@ function reevaulateSiLinks ()
   end
 end
 
-metadatas_om = ObjectManager { Interest { type = "metadata" } }
+default_nodes = Plugin("default-nodes-api")
 siportinfos_om = ObjectManager { Interest { type = "SiPortInfo" } }
 silinks_om = ObjectManager { Interest { type = "SiLink" } }
 
@@ -173,6 +167,5 @@ siportinfos_om:connect("objects-changed", function (om)
   reevaulateSiLinks ()
 end)
 
-metadatas_om:activate()
 siportinfos_om:activate()
 silinks_om:activate()

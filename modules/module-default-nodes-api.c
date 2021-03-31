@@ -82,6 +82,8 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
       self->defaults[node_t] = g_strdup (name);
     }
 
+    wp_debug_object (m, "changed '%s' -> '%s'", key, self->defaults[node_t]);
+
     schedule_changed_notification (self);
   }
 }
