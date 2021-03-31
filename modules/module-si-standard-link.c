@@ -429,7 +429,7 @@ si_standard_link_enable_active (WpSessionItem *si, WpTransition *transition)
   WpSiStandardLink *self = WP_SI_STANDARD_LINK (si);
   g_autoptr (WpSessionItem) si_out = NULL;
   g_autoptr (WpSessionItem) si_in = NULL;
-  WpSiAcquisition *out_acquisition, *in_acquisition;
+  WpSiAcquisition *out_acquisition = NULL, *in_acquisition = NULL;
 
   if (!wp_session_item_is_configured (si)) {
     wp_transition_return_error (transition,
@@ -438,12 +438,19 @@ si_standard_link_enable_active (WpSessionItem *si, WpTransition *transition)
     return;
   }
 
-  /* acquire */
+  /* make sure in/out items are valid */
   si_out = g_weak_ref_get (&self->out_item);
   si_in = g_weak_ref_get (&self->in_item);
+  if (!si_out || !si_in) {
+    wp_transition_return_error (transition,
+        g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
+            "si-standard-link: in/out items are not valid anymore"));
+    return;
+  }
+
+  /* acquire */
   out_acquisition = wp_si_port_info_get_acquisition (WP_SI_PORT_INFO (si_out));
   in_acquisition = wp_si_port_info_get_acquisition (WP_SI_PORT_INFO (si_in));
-
   if (out_acquisition && in_acquisition)
     self->n_async_ops_wait = 2;
   else if (out_acquisition || in_acquisition)
