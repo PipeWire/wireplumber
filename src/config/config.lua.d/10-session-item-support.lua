@@ -29,7 +29,4 @@ function session_item_support.enable()
 
   -- Link nodes to each other to make media flow in the graph
   load_script("policy-node.lua", session_item_support.policy)
-
-  -- Link endpoints to each other to make media flow in the graph
-  load_script("policy-endpoint.lua", session_item_support.policy)
 end
