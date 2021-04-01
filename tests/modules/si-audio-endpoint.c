@@ -96,11 +96,22 @@ test_si_audio_endpoint_configure_activate (TestFixture * f,
   g_assert_nonnull (endpoint);
   g_assert_true (WP_IS_SI_ENDPOINT (endpoint));
 
-  /* configure endpoint */
+  /* configure endpoint without target */
 
   {
     WpProperties *props = wp_properties_new_empty ();
     wp_properties_set (props, "name", "endpoint");
+    wp_properties_set (props, "media.class", "Audio/Source");
+    g_assert_true (wp_session_item_configure (endpoint, props));
+    g_assert_true (wp_session_item_is_configured (endpoint));
+  }
+
+  /* re-configure endpoint with target */
+
+  {
+    WpProperties *props = wp_properties_new_empty ();
+    wp_properties_set (props, "name", "endpoint");
+    wp_properties_set (props, "media.class", "Audio/Source");
     wp_properties_setf (props, "target", "%p", target);
     g_assert_true (wp_session_item_configure (endpoint, props));
     g_assert_true (wp_session_item_is_configured (endpoint));
@@ -204,6 +215,7 @@ test_si_audio_endpoint_export (TestFixture * f, gconstpointer user_data)
   {
     WpProperties *props = wp_properties_new_empty ();
     wp_properties_set (props, "name", "endpoint");
+    wp_properties_set (props, "media.class", "Audio/Source");
     wp_properties_setf (props, "target", "%p", target);
     wp_properties_setf (props, "session", "%p", session);
     g_assert_true (wp_session_item_configure (endpoint, props));

@@ -63,6 +63,7 @@ load_endpoint (TestFixture * f, const gchar * factory, const gchar * media_class
   {
     WpProperties *props = wp_properties_new_empty ();
     wp_properties_set (props, "name", factory);
+    wp_properties_set (props, "media.class", media_class);
     wp_properties_setf (props, "target", "%p", target);
     wp_properties_setf (props, "session", "%p", f->session);
     g_assert_true (wp_session_item_configure (endpoint, props));

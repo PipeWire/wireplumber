@@ -19,11 +19,12 @@ struct _WpSiAudioEndpoint
 
   /* configuration */
   gchar name[96];
-  WpSessionItem *target;
-  WpSession *session;
+  gchar media_class[32];
   WpDirection direction;
   gchar role[32];
   guint priority;
+  WpSessionItem *target;
+  WpSession *session;
 
   /* activation */
   WpNode *node;
@@ -61,11 +62,11 @@ si_audio_endpoint_reset (WpSessionItem * item)
 
   /* reset */
   self->name[0] = '\0';
-  g_clear_object (&self->target);
-  g_clear_object (&self->session);
   self->direction = WP_DIRECTION_INPUT;
   self->role[0] = '\0';
   self->priority = 0;
+  g_clear_object (&self->target);
+  g_clear_object (&self->session);
 
   WP_SESSION_ITEM_CLASS (si_audio_endpoint_parent_class)->reset (item);
 }
@@ -75,8 +76,7 @@ si_audio_endpoint_configure (WpSessionItem * item, WpProperties *p)
 {
   WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (item);
   g_autoptr (WpProperties) si_props = wp_properties_ensure_unique_owner (p);
-  WpSessionItem *target;
-  WpProperties *target_props = NULL;
+  WpSessionItem *target = NULL;
   WpSession *session = NULL;
   const gchar *str;
 
@@ -88,19 +88,15 @@ si_audio_endpoint_configure (WpSessionItem * item, WpProperties *p)
     return FALSE;
   strncpy (self->name, str, sizeof (self->name) - 1);
 
-  str = wp_properties_get (si_props, "target");
-  if (!str || sscanf(str, "%p", &target) != 1 || !WP_IS_SI_PORT_INFO (target))
+  str = wp_properties_get (si_props, "media.class");
+  if (!str)
     return FALSE;
+  strncpy (self->media_class, str, sizeof (self->media_class) - 1);
 
-  target_props = wp_session_item_get_properties (WP_SESSION_ITEM (target));
-
-  str = wp_properties_get (si_props, "direction");
-  if (!str) {
-    str = wp_properties_get (target_props, "direction");
-    wp_properties_set (si_props, "direction", str);
-  }
-  if (!str || sscanf(str, "%u", &self->direction) != 1)
-    return FALSE;
+  if (strstr (self->media_class, "Source") ||
+      strstr (self->media_class, "Output"))
+    self->direction = WP_DIRECTION_OUTPUT;
+  wp_properties_setf (si_props, "direction", "%u", self->direction);
 
   str = wp_properties_get (si_props, "role");
   if (str) {
@@ -116,6 +112,16 @@ si_audio_endpoint_configure (WpSessionItem * item, WpProperties *p)
   if (!str)
     wp_properties_setf (si_props, "priority", "%u", self->priority);
 
+  /* target is optional (endpoint won't do anything if not set) */
+  str = wp_properties_get (si_props, "target");
+  if (str && (sscanf(str, "%p", &target) != 1 || !WP_IS_SI_PORT_INFO (target)))
+    return FALSE;
+  if (target) {
+    wp_properties_setf (si_props, "target", "%p", target);
+    wp_properties_setf (si_props, "target.id", "%u",
+        wp_session_item_get_id (target));
+  }
+
   /* session is optional (only needed if we want to export) */
   str = wp_properties_get (si_props, "session");
   if (str && (sscanf(str, "%p", &session) != 1 || !WP_IS_SESSION (session)))
@@ -123,7 +129,8 @@ si_audio_endpoint_configure (WpSessionItem * item, WpProperties *p)
   if (!str)
     wp_properties_setf (si_props, "session", "%p", session);
 
-  self->target = g_object_ref (target);
+  if (target)
+    self->target = g_object_ref (target);
   if (session)
     self->session = g_object_ref (session);
 
@@ -183,9 +190,12 @@ on_target_link_activated (WpSessionItem * item, GAsyncResult * res,
 static void
 link_to_target (WpSiAudioEndpoint * self)
 {
-  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self->node));
+  g_autoptr (WpCore) core = NULL;
   WpProperties *props = NULL;
   g_autoptr (WpSessionItem) link = NULL;
+
+  g_return_if_fail (self->target);
+  core = wp_object_get_core (WP_OBJECT (self->node));
 
   link = wp_session_item_make (core, "si-standard-link");
   if (G_UNLIKELY (!link)) {
@@ -221,7 +231,7 @@ on_links_changed (WpObjectManager * om, WpSiAudioEndpoint * self)
 {
   if (wp_object_manager_get_n_objects (om) == 0)
     g_clear_object (&self->target_link);
-  else if (!self->target_link)
+  else if (!self->target_link && self->target)
     link_to_target (self);
 }
 
@@ -306,8 +316,7 @@ si_audio_endpoint_enable_active (WpSessionItem *si, WpTransition *transition)
   self->node = wp_node_new_from_factory (core, "adapter",
       wp_properties_new (
           PW_KEY_NODE_NAME, name,
-          PW_KEY_MEDIA_CLASS, self->direction == WP_DIRECTION_INPUT ?
-              "Audio/Sink" : "Audio/Source",
+          PW_KEY_MEDIA_CLASS, self->media_class,
           PW_KEY_FACTORY_NAME, "support.null-audio-sink",
           PW_KEY_NODE_DESCRIPTION, desc,
           SPA_KEY_AUDIO_POSITION, "FL,FR",
@@ -406,8 +415,7 @@ si_audio_endpoint_get_registration_info (WpSiEndpoint * item)
 
   g_variant_builder_init (&b, G_VARIANT_TYPE ("(ssya{ss})"));
   g_variant_builder_add (&b, "s", self->name);
-  g_variant_builder_add (&b, "s", self->direction == WP_DIRECTION_INPUT ?
-      "Audio/Sink" : "Audio/Source");
+  g_variant_builder_add (&b, "s", self->media_class);
   g_variant_builder_add (&b, "y", self->direction);
   g_variant_builder_add (&b, "a{ss}", NULL);
 
