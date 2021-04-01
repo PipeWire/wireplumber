@@ -57,6 +57,7 @@ function createLink (si, si_target)
     ["out.item.port.context"] = out_context,
     ["in.item.port.context"] = in_context,
     ["manage.lifetime"] = false,
+    ["is.policy.item.link"] = true,
   } then
     Log.warning (si_link, "failed to configure si-standard-link")
   end
@@ -216,8 +217,16 @@ end
 
 default_nodes = Plugin("default-nodes-api")
 metadatas_om = ObjectManager { Interest { type = "metadata" } }
-siportinfos_om = ObjectManager { Interest { type = "SiPortInfo" } }
-silinks_om = ObjectManager { Interest { type = "SiLink" } }
+siportinfos_om = ObjectManager { Interest { type = "SiPortInfo",
+  -- only handle si-audio-adapter and si-node
+  Constraint {
+    "si.factory.name", "c", "si-audio-adapter", "si-node", type = "pw-global" },
+  }
+}
+silinks_om = ObjectManager { Interest { type = "SiLink",
+  -- only handle links created by this policy
+  Constraint { "is.policy.item.link", "=", true, type = "pw-global" },
+} }
 
 -- listen for default node changes if config.follow is enabled
 if config.follow then
