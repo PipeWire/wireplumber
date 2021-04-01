@@ -1014,6 +1014,9 @@ expose_tmp_globals (WpCore *core, GAsyncResult *res, WpRegistry *self)
     if (g->flags == 0)
       continue;
 
+    g_return_if_fail (self->globals->len <= g->id ||
+        g_ptr_array_index (self->globals, g->id) == NULL);
+
     /* set the registry, so that wp_global_rm_flag() can work full-scale */
     g->registry = self;
 
@@ -1060,8 +1063,6 @@ wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
   WpCore *core = wp_registry_get_core (self);
 
   g_return_if_fail (flag != 0);
-  g_return_if_fail (self->globals->len <= id ||
-      g_ptr_array_index (self->globals, id) == NULL);
 
   for (guint i = 0; i < self->tmp_globals->len; i++) {
     WpGlobal *g = g_ptr_array_index (self->tmp_globals, i);
