@@ -4,8 +4,8 @@ session_item_support = {}
 
 session_item_support.sessions = {
   -- [session name] = { session properties }
-  ["audio"] = {},
-  ["video"] = {},
+  ["audio"] = { ["media.type"] = "Audio" },
+  ["video"] = { ["media.type"] = "Video" },
 }
 
 session_item_support.policy = {
