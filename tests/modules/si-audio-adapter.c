@@ -86,7 +86,7 @@ test_si_audio_adapter_configure_activate (TestFixture * f,
     str = wp_properties_get (props, "name");
     g_assert_nonnull (str);
     g_assert_cmpstr ("audiotestsrc.adapter", ==, str);
-    str = wp_properties_get (props, "media-class");
+    str = wp_properties_get (props, "media.class");
     g_assert_nonnull (str);
     g_assert_cmpstr ("Audio/Source", ==, str);
     str = wp_properties_get (props, "role");
@@ -98,16 +98,16 @@ test_si_audio_adapter_configure_activate (TestFixture * f,
     str = wp_properties_get (props, "priority");
     g_assert_nonnull (str);
     g_assert_cmpstr ("0", ==, str);
-    str = wp_properties_get (props, "preferred-n-channels");
+    str = wp_properties_get (props, "preferred.n.channels");
     g_assert_nonnull (str);
     g_assert_cmpstr ("0", ==, str);
-    str = wp_properties_get (props, "enable-control-port");
+    str = wp_properties_get (props, "enable.control.port");
     g_assert_nonnull (str);
     g_assert_cmpstr ("0", ==, str);
-    str = wp_properties_get (props, "enable-monitor");
+    str = wp_properties_get (props, "enable.monitor");
     g_assert_nonnull (str);
     g_assert_cmpstr ("0", ==, str);
-    str = wp_properties_get (props, "si-factory-name");
+    str = wp_properties_get (props, "si.factory.name");
     g_assert_nonnull (str);
     g_assert_cmpstr ("si-audio-adapter", ==, str);
   }

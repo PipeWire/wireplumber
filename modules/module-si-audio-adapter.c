@@ -103,7 +103,7 @@ si_audio_adapter_configure (WpSessionItem * item, WpProperties *p)
     wp_properties_set (si_props, "name", self->name);
   }
 
-  str = wp_properties_get (si_props, "media-class");
+  str = wp_properties_get (si_props, "media.class");
   if (str) {
     strncpy (self->media_class, str, sizeof (self->media_class) - 1);
   } else {
@@ -112,7 +112,7 @@ si_audio_adapter_configure (WpSessionItem * item, WpProperties *p)
       strncpy (self->media_class, str, sizeof (self->media_class) - 1);
     else
       strncpy (self->media_class, "Unknown", sizeof (self->media_class) - 1);
-    wp_properties_set (si_props, "media-class", self->media_class);
+    wp_properties_set (si_props, "media.class", self->media_class);
   }
 
   str = wp_properties_get (si_props, "role");
@@ -138,29 +138,29 @@ si_audio_adapter_configure (WpSessionItem * item, WpProperties *p)
   if (!str)
     wp_properties_setf (si_props, "priority", "%u", self->priority);
 
-  str = wp_properties_get (si_props, "preferred-n-channels");
+  str = wp_properties_get (si_props, "preferred.n.channels");
   if (str && sscanf(str, "%u", &self->preferred_n_channels) != 1)
     return FALSE;
   if (!str)
-    wp_properties_setf (si_props, "preferred-n-channels", "%u",
+    wp_properties_setf (si_props, "preferred.n.channels", "%u",
         self->preferred_n_channels);
 
-  str = wp_properties_get (si_props, "enable-control-port");
+  str = wp_properties_get (si_props, "enable.control.port");
   if (str && sscanf(str, "%u", &self->control_port) != 1)
     return FALSE;
   if (!str)
-    wp_properties_setf (si_props, "enable-control-port", "%u",
+    wp_properties_setf (si_props, "enable.control.port", "%u",
         self->control_port);
 
-  str = wp_properties_get (si_props, "enable-monitor");
+  str = wp_properties_get (si_props, "enable.monitor");
   if (str && sscanf(str, "%u", &self->monitor) != 1)
     return FALSE;
   if (!str)
-    wp_properties_setf (si_props, "enable-monitor", "%u", self->monitor);
+    wp_properties_setf (si_props, "enable.monitor", "%u", self->monitor);
 
   self->node = g_object_ref (node);
 
-  wp_properties_set (si_props, "si-factory-name", SI_FACTORY_NAME);
+  wp_properties_set (si_props, "si.factory.name", SI_FACTORY_NAME);
   wp_session_item_set_properties (WP_SESSION_ITEM (self),
       g_steal_pointer (&si_props));
   return TRUE;

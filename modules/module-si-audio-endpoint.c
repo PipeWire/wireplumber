@@ -127,7 +127,7 @@ si_audio_endpoint_configure (WpSessionItem * item, WpProperties *p)
   if (session)
     self->session = g_object_ref (session);
 
-  wp_properties_set (si_props, "si-factory-name", SI_FACTORY_NAME);
+  wp_properties_set (si_props, "si.factory.name", SI_FACTORY_NAME);
   wp_session_item_set_properties (WP_SESSION_ITEM (self),
       g_steal_pointer (&si_props));
   return TRUE;
@@ -196,14 +196,14 @@ link_to_target (WpSiAudioEndpoint * self)
   props = wp_properties_new_empty ();
   if (self->direction == WP_DIRECTION_INPUT) {
       /* Playback */
-      wp_properties_setf (props, "out-item", "%p", self);
-      wp_properties_setf (props, "in-item", "%p", self->target);
-      wp_properties_set (props, "out-item-port-context", "reverse");
+      wp_properties_setf (props, "out.item", "%p", self);
+      wp_properties_setf (props, "in.item", "%p", self->target);
+      wp_properties_set (props, "out.item.port.context", "reverse");
   } else {
       /* Capture */
-      wp_properties_setf (props, "out-item", "%p", self->target);
-      wp_properties_setf (props, "in-item", "%p", self);
-      wp_properties_set (props, "in-item-port-context", "reverse");
+      wp_properties_setf (props, "out.item", "%p", self->target);
+      wp_properties_setf (props, "in.item", "%p", self);
+      wp_properties_set (props, "in.item.port.context", "reverse");
   }
 
   /* always create passive links; that means that they won't hold the graph

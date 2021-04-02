@@ -52,11 +52,11 @@ function createLink (si, si_target)
   -- create and configure link
   local si_link = SessionItem ( "si-standard-link" )
   if not si_link:configure {
-    ["out-item"] = out_item,
-    ["in-item"] = in_item,
-    ["out-item-port-context"] = out_context,
-    ["in-item-port-context"] = in_context,
-    ["manage-lifetime"] = false,
+    ["out.item"] = out_item,
+    ["in.item"] = in_item,
+    ["out.item.port.context"] = out_context,
+    ["in.item.port.context"] = in_context,
+    ["manage.lifetime"] = false,
   } then
     Log.warning (si_link, "failed to configure si-standard-link")
   end
@@ -137,8 +137,8 @@ end
 
 function getSiLinkAndSiPeer (si)
   for silink in silinks_om:iterate() do
-    local out_id = tonumber(silink.properties["out-item-id"])
-    local in_id = tonumber(silink.properties["in-item-id"])
+    local out_id = tonumber(silink.properties["out.item.id"])
+    local in_id = tonumber(silink.properties["in.item.id"])
     if out_id == si.id then
       return silink, siportinfos_om:lookup {
         Constraint { "id", "=", in_id, type = "gobject" }
@@ -201,8 +201,8 @@ function reevaluateLinks ()
   for silink in silinks_om:iterate() do
     local used = false
     for si in siportinfos_om:iterate() do
-      local out_id_str = silink.properties["out-item-id"]
-      local in_id_str = silink.properties["out-item-id"]
+      local out_id_str = silink.properties["out.item.id"]
+      local in_id_str = silink.properties["out.item.id"]
       if tonumber (out_id_str) == si.id or tonumber (in_id_str) == si.id then
         used = true
         break

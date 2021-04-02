@@ -140,29 +140,29 @@ si_standard_link_configure (WpSessionItem * item, WpProperties * p)
   /* reset previous config */
   si_standard_link_reset (item);
 
-  out_item = get_and_validate_item (si_props, "out-item");
+  out_item = get_and_validate_item (si_props, "out.item");
   if (!out_item)
     return FALSE;
-  wp_properties_setf (si_props, "out-item-id", "%u",
+  wp_properties_setf (si_props, "out.item.id", "%u",
       wp_session_item_get_id (out_item));
 
-  in_item = get_and_validate_item (si_props, "in-item");
+  in_item = get_and_validate_item (si_props, "in.item");
   if (!in_item)
     return FALSE;
-  wp_properties_setf (si_props, "in-item-id", "%u",
+  wp_properties_setf (si_props, "in.item.id", "%u",
       wp_session_item_get_id (in_item));
 
   self->out_item_port_context = wp_properties_get (si_props,
-      "out-item-port-context");
+      "out.item.port.context");
 
   self->out_item_port_context = wp_properties_get (si_props,
-      "in-item-port-context");
+      "in.item.port.context");
 
-  str = wp_properties_get (si_props, "manage-lifetime");
+  str = wp_properties_get (si_props, "manage.lifetime");
   if (str && sscanf(str, "%u", &self->manage_lifetime) != 1)
     return FALSE;
   if (!str)
-    wp_properties_setf (si_props, "manage-lifetime", "%u",
+    wp_properties_setf (si_props, "manage.lifetime", "%u",
         self->manage_lifetime);
 
   str = wp_properties_get (si_props, "passive");
@@ -193,7 +193,7 @@ si_standard_link_configure (WpSessionItem * item, WpProperties * p)
   if (session)
     self->session = g_object_ref (session);
 
-  wp_properties_set (si_props, "si-factory-name", SI_FACTORY_NAME);
+  wp_properties_set (si_props, "si.factory.name", SI_FACTORY_NAME);
   wp_session_item_set_properties (WP_SESSION_ITEM (self),
       g_steal_pointer (&si_props));
   return TRUE;

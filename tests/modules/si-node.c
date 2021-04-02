@@ -81,7 +81,7 @@ test_si_node_configure_activate (TestFixture * f, gconstpointer user_data)
   {
     WpProperties *props = wp_properties_new_empty ();
     wp_properties_setf (props, "node", "%p", node);
-    wp_properties_set (props, "media-class", data->media_class);
+    wp_properties_set (props, "media.class", data->media_class);
     g_assert_true (wp_session_item_configure (item, props));
     g_assert_true (wp_session_item_is_configured (item));
   }
@@ -93,13 +93,13 @@ test_si_node_configure_activate (TestFixture * f, gconstpointer user_data)
     str = wp_properties_get (props, "name");
     g_assert_nonnull (str);
     g_assert_cmpstr (data->name, ==, str);
-    str = wp_properties_get (props, "media-class");
+    str = wp_properties_get (props, "media.class");
     g_assert_nonnull (str);
     g_assert_cmpstr (data->expected_media_class, ==, str);
     str = wp_properties_get (props, "direction");
     g_assert_nonnull (str);
     g_assert_cmpstr (data->expected_direction == 0 ? "0" : "1", ==, str);
-    str = wp_properties_get (props, "si-factory-name");
+    str = wp_properties_get (props, "si.factory.name");
     g_assert_nonnull (str);
     g_assert_cmpstr ("si-node", ==, str);
   }
@@ -158,13 +158,13 @@ test_si_node_configure_activate (TestFixture * f, gconstpointer user_data)
     str = wp_properties_get (props, "name");
     g_assert_nonnull (str);
     g_assert_cmpstr (data->name, ==, str);
-    str = wp_properties_get (props, "media-class");
+    str = wp_properties_get (props, "media.class");
     g_assert_nonnull (str);
     g_assert_cmpstr (data->expected_media_class, ==, str);
     str = wp_properties_get (props, "direction");
     g_assert_nonnull (str);
     g_assert_cmpstr (data->expected_direction == 0 ? "0" : "1", ==, str);
-    str = wp_properties_get (props, "si-factory-name");
+    str = wp_properties_get (props, "si.factory.name");
     g_assert_nonnull (str);
     g_assert_cmpstr ("si-node", ==, str);
   }

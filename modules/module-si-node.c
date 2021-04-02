@@ -86,7 +86,7 @@ si_node_configure (WpSessionItem * item, WpProperties *p)
     wp_properties_set (si_props, "name", self->name);
   }
 
-  str = wp_properties_get (si_props, "media-class");
+  str = wp_properties_get (si_props, "media.class");
   if (str) {
     strncpy (self->media_class, str, sizeof (self->media_class) - 1);
   } else {
@@ -95,7 +95,7 @@ si_node_configure (WpSessionItem * item, WpProperties *p)
       strncpy (self->media_class, str, sizeof (self->media_class) - 1);
     else
       strncpy (self->media_class, "Unknown", sizeof (self->media_class) - 1);
-    wp_properties_set (si_props, "media-class", self->media_class);
+    wp_properties_set (si_props, "media.class", self->media_class);
   }
 
   str = wp_properties_get (si_props, "role");
@@ -123,7 +123,7 @@ si_node_configure (WpSessionItem * item, WpProperties *p)
 
   self->node = g_object_ref (node);
 
-  wp_properties_set (si_props, "si-factory-name", SI_FACTORY_NAME);
+  wp_properties_set (si_props, "si.factory.name", SI_FACTORY_NAME);
   wp_session_item_set_properties (WP_SESSION_ITEM (self),
       g_steal_pointer (&si_props));
   return TRUE;
