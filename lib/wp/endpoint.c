@@ -141,14 +141,6 @@ wp_endpoint_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 }
 
 static void
-wp_endpoint_pw_proxy_destroyed (WpProxy * proxy)
-{
-  wp_pw_object_mixin_handle_pw_proxy_destroyed (proxy);
-
-  wp_object_update_features (WP_OBJECT (proxy), 0, 0);
-}
-
-static void
 wp_endpoint_class_init (WpEndpointClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
@@ -166,7 +158,8 @@ wp_endpoint_class_init (WpEndpointClass * klass)
   proxy_class->pw_iface_type = PW_TYPE_INTERFACE_Endpoint;
   proxy_class->pw_iface_version = PW_VERSION_ENDPOINT;
   proxy_class->pw_proxy_created = wp_endpoint_pw_proxy_created;
-  proxy_class->pw_proxy_destroyed = wp_endpoint_pw_proxy_destroyed;
+  proxy_class->pw_proxy_destroyed =
+      wp_pw_object_mixin_handle_pw_proxy_destroyed;
 
   wp_pw_object_mixin_class_override_properties (object_class);
 
@@ -717,12 +710,6 @@ wp_impl_endpoint_activate_execute_step (WpObject * object,
 }
 
 static void
-wp_impl_endpoint_pw_proxy_destroyed (WpProxy * proxy)
-{
-  wp_object_update_features (WP_OBJECT (proxy), 0, 0);
-}
-
-static void
 wp_impl_endpoint_class_init (WpImplEndpointClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
@@ -740,7 +727,7 @@ wp_impl_endpoint_class_init (WpImplEndpointClass * klass)
       wp_impl_endpoint_activate_execute_step;
 
   proxy_class->pw_proxy_created = NULL;
-  proxy_class->pw_proxy_destroyed = wp_impl_endpoint_pw_proxy_destroyed;
+  proxy_class->pw_proxy_destroyed = NULL;
 
   g_object_class_install_property (object_class, IMPL_PROP_ITEM,
       g_param_spec_object ("item", "item", "item", WP_TYPE_SI_ENDPOINT,
