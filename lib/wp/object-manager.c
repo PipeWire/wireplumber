@@ -1253,6 +1253,10 @@ wp_global_rm_flag (WpGlobal *global, guint rm_flag)
   if (!(global->flags & rm_flag))
     return;
 
+  wp_trace_boxed (WP_TYPE_GLOBAL, global,
+      "remove global %u flag 0x%x [flags:0x%x, reg:%p]",
+      global->id, rm_flag, global->flags, reg);
+
   /* global was owned by the proxy; by removing the flag, we clear out
      also the proxy pointer, which is presumably no longer valid and we
      notify all listeners that the proxy is gone */
@@ -1269,19 +1273,28 @@ wp_global_rm_flag (WpGlobal *global, guint rm_flag)
 
     /* destroy the proxy if it exists */
     if (global->proxy) {
+      /* steal the proxy to avoid calling wp_registry_notify_rm_object()
+         again while removing OWNED_BY_PROXY;
+         keep a temporary ref so that _deactivate() doesn't crash in case the
+         pw-proxy-destroyed signal causes external references to be dropped */
+      g_autoptr (WpGlobalProxy) proxy =
+          g_object_ref (g_steal_pointer (&global->proxy));
+
+      /* notify all listeners that the proxy is gone */
       if (reg)
-        wp_registry_notify_rm_object (reg, global->proxy);
-      wp_object_deactivate (WP_OBJECT (global->proxy), WP_PROXY_FEATURE_BOUND);
+        wp_registry_notify_rm_object (reg, proxy);
+
+      /* remove FEATURE_BOUND to destroy the underlying pw_proxy */
+      wp_object_deactivate (WP_OBJECT (proxy), WP_PROXY_FEATURE_BOUND);
 
       /* if the proxy is not owning the global, unref it */
       if (global->flags == 0)
-        g_object_unref (global->proxy);
-      global->proxy = NULL;
+        g_object_unref (proxy);
     }
   }
 
-  /* drop the registry's ref on global when it has no flags anymore */
-  if (global->flags == 0 && reg) {
+  /* drop the registry's ref on global when it does not appear on the registry anymore */
+  if (!(global->flags & WP_GLOBAL_FLAG_APPEARS_ON_REGISTRY) && reg) {
     g_clear_pointer (&g_ptr_array_index (reg->globals, global->id), wp_global_unref);
   }
 }
