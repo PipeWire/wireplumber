@@ -155,7 +155,7 @@ si_standard_link_configure (WpSessionItem * item, WpProperties * p)
   self->out_item_port_context = wp_properties_get (si_props,
       "out.item.port.context");
 
-  self->out_item_port_context = wp_properties_get (si_props,
+  self->in_item_port_context = wp_properties_get (si_props,
       "in.item.port.context");
 
   str = wp_properties_get (si_props, "manage.lifetime");
