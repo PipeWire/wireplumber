@@ -611,6 +611,14 @@ object_manager_activate (lua_State *L)
 }
 
 static int
+object_manager_get_n_objects (lua_State *L)
+{
+  WpObjectManager *om = wplua_checkobject (L, 1, WP_TYPE_OBJECT_MANAGER);
+  lua_pushinteger (L, wp_object_manager_get_n_objects (om));
+  return 1;
+}
+
+static int
 object_manager_iterate (lua_State *L)
 {
   WpObjectManager *om = wplua_checkobject (L, 1, WP_TYPE_OBJECT_MANAGER);
@@ -639,6 +647,7 @@ object_manager_lookup (lua_State *L)
 
 static const luaL_Reg object_manager_methods[] = {
   { "activate", object_manager_activate },
+  { "get_n_objects", object_manager_get_n_objects },
   { "iterate", object_manager_iterate },
   { "lookup", object_manager_lookup },
   { NULL, NULL }
