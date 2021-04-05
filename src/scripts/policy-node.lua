@@ -121,12 +121,12 @@ function findTargetByFirstAvailable (node, target_media_class)
   return nil
 end
 
-function findTarget (node, target_class_assoc)
+function findTarget (node, target_media_class)
   local si_target = findTargetByTargetNodeMetadata (node, target_media_class)
   if not si_target then
     si_target = findTargetByNodeTargetProperty (node, target_media_class)
     if not si_target then
-      si_target = findTargetByDefaultNode (node, target_class_assoc)
+      si_target = findTargetByDefaultNode (node, target_media_class)
       if not si_target then
         si_target = findTargetByFirstAvailable (node, target_media_class)
       end
