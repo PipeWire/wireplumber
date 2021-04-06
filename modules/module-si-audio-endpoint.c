@@ -245,12 +245,12 @@ si_audio_endpoint_setup_links_om (WpSiAudioEndpoint *self,
   g_auto (GValue) val = G_VALUE_INIT;
   GVariant *ports_v = NULL;
 
-  /* get a list of our output ports */
+  /* get a list of our external ports */
   for (it = wp_node_new_ports_iterator (self->node);
       wp_iterator_next (it, &val);
       g_value_unset (&val)) {
     WpPort *port = g_value_get_object (&val);
-    if (wp_port_get_direction (port) != WP_DIRECTION_OUTPUT)
+    if (wp_port_get_direction (port) != self->direction)
       continue;
     g_variant_builder_add (&b, "u", wp_proxy_get_bound_id (WP_PROXY (port)));
   }
@@ -261,12 +261,13 @@ si_audio_endpoint_setup_links_om (WpSiAudioEndpoint *self,
   wp_object_manager_request_object_features (self->links_om,
       WP_TYPE_LINK, WP_PROXY_FEATURE_BOUND);
 
-  /* interested in links that have one of our ports in their
-     'link.output.port' global property */
+  /* interested in links that have one of our external ports */
   wp_object_manager_add_interest_full (self->links_om, ({
     WpObjectInterest *interest = wp_object_interest_new_type (WP_TYPE_LINK);
     wp_object_interest_add_constraint (interest,
-        WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_LINK_OUTPUT_PORT,
+        WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
+            self->direction == WP_DIRECTION_INPUT ?
+                PW_KEY_LINK_INPUT_PORT : PW_KEY_LINK_OUTPUT_PORT,
         WP_CONSTRAINT_VERB_IN_LIST,
         ports_v);
     interest;
@@ -296,6 +297,29 @@ on_node_activate_done (WpObject * node, GAsyncResult * res,
   si_audio_endpoint_setup_links_om (self, transition);
 }
 
+static WpSpaPod *
+build_2_channels_audio_format ()
+{
+  g_autoptr (WpSpaPod) channels = NULL;
+
+  {
+    g_autoptr (WpSpaPodBuilder) b = wp_spa_pod_builder_new_array ();
+    wp_spa_pod_builder_add_id (b, SPA_AUDIO_CHANNEL_FL);
+    wp_spa_pod_builder_add_id (b, SPA_AUDIO_CHANNEL_FR);
+    channels = wp_spa_pod_builder_end (b);
+  }
+
+  return wp_spa_pod_new_object (
+      "Spa:Pod:Object:Param:Format", "Format",
+      "mediaType",    "K", "audio",
+      "mediaSubtype", "K", "raw",
+      "format",       "K", "F32P",
+      "rate",         "i", 48000,
+      "channels",     "i", 2,
+      "position",     "P", channels,
+      NULL);
+}
+
 static void
 si_audio_endpoint_enable_active (WpSessionItem *si, WpTransition *transition)
 {
@@ -316,7 +340,7 @@ si_audio_endpoint_enable_active (WpSessionItem *si, WpTransition *transition)
   self->node = wp_node_new_from_factory (core, "adapter",
       wp_properties_new (
           PW_KEY_NODE_NAME, name,
-          PW_KEY_MEDIA_CLASS, self->media_class,
+          PW_KEY_MEDIA_CLASS, "Audio/Duplex",
           PW_KEY_FACTORY_NAME, "support.null-audio-sink",
           PW_KEY_NODE_DESCRIPTION, desc,
           SPA_KEY_AUDIO_POSITION, "FL,FR",
@@ -329,29 +353,14 @@ si_audio_endpoint_enable_active (WpSessionItem *si, WpTransition *transition)
   }
 
   /* TODO: for now we always configure ports to be 2 channels at 48KHz */
-  format = wp_spa_pod_new_object (
-      "Spa:Pod:Object:Param:Format", "Format",
-      "mediaType",    "K", "audio",
-      "mediaSubtype", "K", "raw",
-      "format",       "K", "F32P",
-      "rate",         "i", 48000,
-      "channels",     "i", 2,
-      NULL);
+  format = build_2_channels_audio_format ();
   wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (self->node),
       "PortConfig", 0,
       wp_spa_pod_new_object (
           "Spa:Pod:Object:Param:PortConfig", "PortConfig",
           "direction",  "I", WP_DIRECTION_INPUT,
           "mode",       "K", "dsp",
-          "format",     "P", format,
-          NULL));
-  wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (self->node),
-      "PortConfig", 0,
-      wp_spa_pod_new_object (
-          "Spa:Pod:Object:Param:PortConfig", "PortConfig",
-          "direction",  "I", WP_DIRECTION_OUTPUT,
-          "mode",       "K", "dsp",
-          "control",    "b", FALSE,
+          "monitor",    "b", TRUE,
           "format",     "P", format,
           NULL));
 

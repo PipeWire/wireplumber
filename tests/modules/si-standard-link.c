@@ -286,7 +286,7 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
     g_assert_nonnull (in_node = wp_object_manager_lookup (om, WP_TYPE_NODE,
         WP_CONSTRAINT_TYPE_PW_PROPERTY, "node.name", "=s", "control.fakesink",
         NULL));
-    g_assert_cmpuint (wp_object_manager_get_n_objects (om), ==, 11);
+    g_assert_cmpuint (wp_object_manager_get_n_objects (om), ==, 13);
 
     it = wp_object_manager_new_filtered_iterator (om, WP_TYPE_LINK, NULL);
     for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
@@ -354,7 +354,7 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
         WP_CONSTRAINT_TYPE_PW_PROPERTY, "port.direction", "=s", "in",
         NULL));
     g_assert_null (link = wp_object_manager_lookup (om, WP_TYPE_LINK, NULL));
-    g_assert_cmpuint (wp_object_manager_get_n_objects (om), ==, 9);
+    g_assert_cmpuint (wp_object_manager_get_n_objects (om), ==, 11);
   }
 }
 
