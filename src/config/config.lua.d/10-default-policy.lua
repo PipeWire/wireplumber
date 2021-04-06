@@ -18,7 +18,6 @@ function default_policy.enable()
   -- Do not disable these unless you really know what you are doing
   load_module("si-node")
   load_module("si-audio-adapter")
-  load_module("si-audio-convert")
   load_module("si-standard-link")
 
   -- Create sessions statically at startup

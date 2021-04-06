@@ -42,13 +42,6 @@ test(
 )
 
 test(
-  'test-si-audio-convert',
-  executable('test-si-audio-convert', 'si-audio-convert.c',
-      dependencies: common_deps, c_args: common_args),
-  env: common_env,
-)
-
-test(
   'test-si-audio-endpoint',
   executable('test-si-audio-endpoint', 'si-audio-endpoint.c',
       dependencies: common_deps, c_args: common_args),
