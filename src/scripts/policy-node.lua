@@ -199,16 +199,15 @@ function reevaluateLinks ()
 
   -- check link session items and unregister them if not used
   for silink in silinks_om:iterate() do
-    local used = false
+    local used = 0
+    local out_id_str = silink.properties["out.item.id"]
+    local in_id_str = silink.properties["in.item.id"]
     for si in siportinfos_om:iterate() do
-      local out_id_str = silink.properties["out.item.id"]
-      local in_id_str = silink.properties["out.item.id"]
       if tonumber (out_id_str) == si.id or tonumber (in_id_str) == si.id then
-        used = true
-        break
+        used = used + 1
       end
     end
-    if not used then
+    if used ~= 2 then
       silink:remove ()
       Log.info (silink, "link removed")
     end
