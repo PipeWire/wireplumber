@@ -28,16 +28,15 @@ function addItem (node, item_type)
   end)
 end
 
-nodes_om = ObjectManager { Interest { type = "node" } }
+nodes_om = ObjectManager { Interest { type = "node",
+  Constraint { "media.class", "c",
+    "Stream/Input/Audio", "Stream/Output/Audio", "Stream/Input/Video",
+    "Audio/Source", "Audio/Sink", "Video/Source",
+    type = "pw-global" },
+} }
 
 nodes_om:connect("object-added", function (om, node)
   local media_class = node.properties['media.class']
-
-  -- skip nodes without media class
-  if media_class == nil then
-    return
-  end
-
   if string.find (media_class, "Audio") then
     addItem (node, "si-audio-adapter")
   else
