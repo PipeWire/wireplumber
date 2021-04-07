@@ -513,6 +513,8 @@ si_standard_link_finalize (GObject * object)
 
   g_weak_ref_clear (&self->out_item);
   g_weak_ref_clear (&self->in_item);
+
+  G_OBJECT_CLASS (si_standard_link_parent_class)->finalize (object);
 }
 
 static void
