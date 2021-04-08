@@ -69,7 +69,7 @@ function createLink (si, si_target)
   end)
 end
 
-function findTargetByTargetNodeMetadata (node, target_media_class)
+function findTargetByTargetNodeMetadata (node)
   local node_id = node['bound-id']
   local metadata = metadatas_om:lookup()
   if metadata then
@@ -86,7 +86,7 @@ function findTargetByTargetNodeMetadata (node, target_media_class)
   return nil
 end
 
-function findTargetByNodeTargetProperty (node, target_media_class)
+function findTargetByNodeTargetProperty (node)
   local target_id_str = node.properties["node.target"]
   if target_id_str then
     for si_target in siportinfos_om:iterate() do
@@ -99,7 +99,7 @@ function findTargetByNodeTargetProperty (node, target_media_class)
   return nil
 end
 
-function findTargetByDefaultNode (node, target_media_class)
+function findTargetByDefaultNode (target_media_class)
   local def_id = default_nodes:call("get-default-node", target_media_class)
   if def_id ~= Id.INVALID then
     for si_target in siportinfos_om:iterate() do
@@ -112,7 +112,7 @@ function findTargetByDefaultNode (node, target_media_class)
   return nil
 end
 
-function findTargetByFirstAvailable (node, target_media_class)
+function findTargetByFirstAvailable (target_media_class)
   for si_target in siportinfos_om:iterate() do
     local target_node = si_target:get_associated_proxy ("node")
     if target_node.properties["media.class"] == target_media_class then
@@ -122,16 +122,18 @@ function findTargetByFirstAvailable (node, target_media_class)
   return nil
 end
 
-function findTarget (node, target_media_class)
-  local si_target = findTargetByTargetNodeMetadata (node, target_media_class)
+function findDefinedTarget (node)
+  local si_target = findTargetByTargetNodeMetadata (node)
   if not si_target then
-    si_target = findTargetByNodeTargetProperty (node, target_media_class)
-    if not si_target then
-      si_target = findTargetByDefaultNode (node, target_media_class)
-      if not si_target then
-        si_target = findTargetByFirstAvailable (node, target_media_class)
-      end
-    end
+    si_target = findTargetByNodeTargetProperty (node)
+  end
+  return si_target
+end
+
+function findUndefinedTarget (target_media_class)
+  local si_target = findTargetByDefaultNode (target_media_class)
+  if not si_target then
+    si_target = findTargetByFirstAvailable (target_media_class)
   end
   return si_target
 end
@@ -169,8 +171,11 @@ function handleSiPortInfo (si)
 
   Log.info (si, "handling item " .. node.properties["node.name"])
 
-  -- find proper target
-  local si_target = findTarget (node, target_media_class)
+  -- find target
+  local si_target = findDefinedTarget (node)
+  if not si_target then
+    si_target = findUndefinedTarget (target_media_class)
+  end
   if not si_target then
     Log.info (si, "target not found")
     return
