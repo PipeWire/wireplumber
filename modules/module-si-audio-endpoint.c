@@ -160,6 +160,8 @@ si_audio_endpoint_disable_active (WpSessionItem *si)
 {
   WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (si);
 
+  if (self->node)
+    wp_object_deactivate (WP_OBJECT (self->node), WP_OBJECT_FEATURES_ALL);
   g_clear_object (&self->node);
   g_clear_object (&self->links_om);
   g_clear_object (&self->target_link);
