@@ -169,6 +169,13 @@ function handleSiPortInfo (si)
     return
   end
 
+  -- Determine if we can handle item by this policy
+  local media_role = node.properties["media.role"]
+  if siendpoints_om:get_n_objects () > 0 and media_role ~= nil then
+    Log.info (si, "item won't be handled by this policy")
+    return
+  end
+
   Log.info (si, "handling item " .. node.properties["node.name"])
 
   -- find target
@@ -222,6 +229,7 @@ end
 
 default_nodes = Plugin("default-nodes-api")
 metadatas_om = ObjectManager { Interest { type = "metadata" } }
+siendpoints_om = ObjectManager { Interest { type = "SiEndpoint" }}
 siportinfos_om = ObjectManager { Interest { type = "SiPortInfo",
   -- only handle si-audio-adapter and si-node
   Constraint {
@@ -256,5 +264,6 @@ siportinfos_om:connect("objects-changed", function (om)
 end)
 
 metadatas_om:activate()
+siendpoints_om:activate()
 siportinfos_om:activate()
 silinks_om:activate()
