@@ -128,8 +128,20 @@ test_si_standard_link_setup (TestFixture * f, gconstpointer user_data)
 }
 
 static void
+on_core_sync_done (WpCore *core, GAsyncResult *res, TestFixture * f)
+{
+  g_autoptr (GError) error = NULL;
+  gboolean ret = wp_core_sync_finish (core, res, &error);
+  g_assert_no_error (error);
+  g_assert_true (ret);
+  g_main_loop_quit (f->base.loop);
+}
+
+static void
 test_si_standard_link_teardown (TestFixture * f, gconstpointer user_data)
 {
+  wp_core_sync (f->base.core, NULL, (GAsyncReadyCallback) on_core_sync_done, f);
+  g_main_loop_run (f->base.loop);
   g_clear_object (&f->sink_item);
   g_clear_object (&f->src_item);
   g_clear_object (&f->session);
