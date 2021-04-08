@@ -61,29 +61,38 @@ wp_mixer_api_init (WpMixerApi * self)
 {
 }
 
-static void
+static gboolean
 node_info_fill (struct node_info * info, WpSpaPod * props)
 {
   g_autoptr (WpSpaPod) channelVolumes = NULL;
   g_autoptr (WpSpaPod) channelMap = NULL;
 
+  if (!wp_spa_pod_get_object (props, NULL,
+          "mute", "b", &info->mute,
+          "channelVolumes", "P", &channelVolumes,
+          NULL))
+    return FALSE;
+
+  /* default values */
+  info->base = 1.0;
+  info->step = 1.0 / 65536.0;
+
   wp_spa_pod_get_object (props, NULL,
-      "mute", "b", &info->mute,
-      "volumeBase", "f", &info->base,
-      "volumeStep", "f", &info->step,
-      "channelVolumes", "P", &channelVolumes,
-      "channelMap", "P", &channelMap,
+      "channelMap", "?P", &channelMap,
+      "volumeBase", "?f", &info->base,
+      "volumeStep", "?f", &info->step,
       NULL);
 
-  if (channelVolumes)
-    info->volume.channels = spa_pod_copy_array (
-        wp_spa_pod_get_spa_pod (channelVolumes), SPA_TYPE_Float,
-        info->volume.values, SPA_AUDIO_MAX_CHANNELS);
+  info->volume.channels = spa_pod_copy_array (
+      wp_spa_pod_get_spa_pod (channelVolumes), SPA_TYPE_Float,
+      info->volume.values, SPA_AUDIO_MAX_CHANNELS);
 
   if (channelMap)
     info->map.channels = spa_pod_copy_array (
         wp_spa_pod_get_spa_pod (channelMap), SPA_TYPE_Id,
         info->map.map, SPA_AUDIO_MAX_CHANNELS);
+
+  return TRUE;
 }
 
 static void
@@ -111,7 +120,7 @@ collect_node_info (WpMixerApi * self, struct node_info *info,
     it = wp_pipewire_object_enum_params_sync (dev, "Route", NULL);
     for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
       WpSpaPod *param = g_value_get_boxed (&val);
-      gint32 r_index, r_device;
+      gint32 r_index = -1, r_device = -1;
       g_autoptr (WpSpaPod) props = NULL;
 
       if (!wp_spa_pod_get_object (param, NULL,
@@ -123,12 +132,12 @@ collect_node_info (WpMixerApi * self, struct node_info *info,
       if (r_device != p_device)
         continue;
 
-      if (props) {
+      if (props && node_info_fill (info, props)) {
         info->device_id = wp_proxy_get_bound_id (WP_PROXY (dev));
         info->route_index = r_index;
         info->route_device = r_device;
-        node_info_fill (info, props);
         have_volume = TRUE;
+        break;
       }
     }
   }
@@ -140,7 +149,8 @@ collect_node_info (WpMixerApi * self, struct node_info *info,
     it = wp_pipewire_object_enum_params_sync (node, "Props", NULL);
     for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
       WpSpaPod *param = g_value_get_boxed (&val);
-      node_info_fill (info, param);
+      if (node_info_fill (info, param))
+        break;
     }
   }
 }
