@@ -69,6 +69,27 @@ local function Constraint (spec)
   return debug.setmetatable(spec, { __name = "Constraint" })
 end
 
+local function dump_table(t, indent)
+  local indent_str = ""
+  indent = indent or 1
+  for i = 1, indent, 1 do
+    indent_str = indent_str .. "\t"
+  end
+
+  for k, v in pairs(t) do
+    if (type(v) == "table") then
+      print (indent_str .. tostring(k) .. ": ")
+      dump_table(v, indent + 1)
+    else
+      print (indent_str .. tostring(k) .. ": " .. tostring(v))
+    end
+  end
+end
+
+local Debug = {
+  dump_table = dump_table,
+}
+
 local Id = {
   INVALID = 0xffffffff,
   ANY = 0xffffffff,
@@ -116,6 +137,7 @@ local Feature = {
 }
 
 SANDBOX_EXPORT = {
+  Debug = Debug,
   Id = Id,
   Features = Features,
   Feature = Feature,
