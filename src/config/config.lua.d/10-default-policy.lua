@@ -54,4 +54,7 @@ function default_policy.enable()
 
   -- Link nodes to each other to make media flow in the graph
   load_script("policy-node.lua", default_policy.policy)
+
+  -- Link endpoints with other items to make media flow in the graph
+  load_script("policy-endpoint.lua", default_policy.policy)
 end
