@@ -17,7 +17,9 @@ struct _WpCtl
   GOptionContext *context;
   GMainLoop *loop;
   WpCore *core;
+  GPtrArray *apis;
   WpObjectManager *om;
+  guint pending_plugins;
   gint exit_code;
 };
 
@@ -53,6 +55,7 @@ G_DEFINE_QUARK (wpctl-error, wpctl_error_domain)
 static void
 wp_ctl_clear (WpCtl * self)
 {
+  g_clear_pointer (&self->apis, g_ptr_array_unref);
   g_clear_object (&self->om);
   g_clear_object (&self->core);
   g_clear_pointer (&self->loop, g_main_loop_unref);
@@ -72,7 +75,6 @@ status_prepare (WpCtl * self, GError ** error)
 {
   wp_object_manager_add_interest (self->om, WP_TYPE_SESSION, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_CLIENT, NULL);
-  wp_object_manager_add_interest (self->om, WP_TYPE_METADATA, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_DEVICE, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_PORT, NULL);
@@ -91,6 +93,31 @@ status_prepare (WpCtl * self, GError ** error)
 #define TREE_INDENT_END  " └─ "
 #define TREE_INDENT_EMPTY "    "
 
+struct print_context
+{
+  WpCtl *self;
+  guint32 default_node;
+  WpPlugin *mixer_api;
+};
+
+static void
+print_controls (guint32 id, struct print_context *context)
+{
+  g_autoptr (GVariant) dict = NULL;
+
+  if (context->mixer_api)
+    g_signal_emit_by_name (context->mixer_api, "get-volume", id, &dict);
+
+  if (dict) {
+    gboolean mute = FALSE;
+    gdouble volume = 1.0;
+    if (g_variant_lookup (dict, "mute", "b", &mute) &&
+        g_variant_lookup (dict, "volume", "d", &volume))
+      printf (" [vol: %.2f%s", volume, mute ? " MUTED]" : "]");
+  }
+  printf ("\n");
+}
+
 static void
 print_device (const GValue *item, gpointer data)
 {
@@ -108,7 +135,7 @@ static void
 print_dev_node (const GValue *item, gpointer data)
 {
   WpPipewireObject *obj = g_value_get_object (item);
-  const gchar *def_node_value = data;
+  struct print_context *context = data;
   guint32 id = wp_proxy_get_bound_id (WP_PROXY (obj));
   gboolean is_default = FALSE;
   const gchar *name = wp_pipewire_object_get_property (obj, PW_KEY_NODE_DESCRIPTION);
@@ -117,10 +144,10 @@ print_dev_node (const GValue *item, gpointer data)
   if (!name)
     name = wp_pipewire_object_get_property (obj, PW_KEY_NODE_NAME);
 
-  is_default = (def_node_value && strstr(def_node_value,
-          wp_pipewire_object_get_property (obj, PW_KEY_NODE_NAME)));
+  is_default = (context->default_node == id);
 
-  printf (TREE_INDENT_LINE "%c %4u. %-35s\n", is_default ? '*' : ' ', id, name);
+  printf (TREE_INDENT_LINE "%c %4u. %-35s", is_default ? '*' : ' ', id, name);
+  print_controls (id, context);
 }
 
 static void
@@ -171,29 +198,6 @@ print_stream_node (const GValue *item, gpointer data)
   }
 }
 
-static void
-print_controls (WpPipewireObject * pwobj)
-{
-  g_autoptr (WpIterator) it = NULL;
-  g_auto (GValue) value = G_VALUE_INIT;
-  gboolean has_audio_controls = TRUE;
-  gfloat volume = 0.0;
-  gboolean mute = FALSE;
-
-  it = wp_pipewire_object_enum_params_sync (pwobj, "Props", NULL);
-  if (!it || !wp_iterator_next (it, &value) ||
-      !wp_spa_pod_get_object (g_value_get_boxed (&value), NULL,
-          "volume", "f", &volume,
-          "mute", "b", &mute,
-          NULL))
-    has_audio_controls = FALSE;
-
-  if (has_audio_controls)
-    printf (" vol: %.2f %s\n", volume, mute ? "MUTED" : "");
-  else
-    printf ("\n");
-}
-
 static const gchar *
 get_endpoint_friendly_name (WpEndpoint * ep)
 {
@@ -213,7 +217,7 @@ print_endpoint (const GValue *item, gpointer data)
 
   printf (TREE_INDENT_LINE "%c %4u. %-60s",
       (default_id == id) ? '*' : ' ', id, get_endpoint_friendly_name (ep));
-  print_controls (WP_PIPEWIRE_OBJECT (ep));
+  //print_controls (WP_PIPEWIRE_OBJECT (ep));
 }
 
 // static void
@@ -243,12 +247,11 @@ status_run (WpCtl * self)
 {
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
-  g_autoptr (WpMetadata)  metadata = NULL;
-  const gchar *def_node_value = NULL;
+  g_autoptr (WpPlugin) def_nodes_api = NULL;
+  struct print_context context = { .self = self };
 
-  metadata = wp_object_manager_lookup (self->om, WP_TYPE_METADATA,
-      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
-      NULL);
+  def_nodes_api = wp_plugin_find (self->core, "default-nodes-api");
+  context.mixer_api = wp_plugin_find (self->core, "mixer-api");
 
   /* server + clients */
   printf ("PipeWire '%s' [%s, %s@%s, cookie:%u]\n",
@@ -290,7 +293,7 @@ status_run (WpCtl * self)
 
     if (media_type && *media_type != '\0') {
       gchar media_type_glob[16];
-      gchar def_node_key[24];
+      gchar media_class[24];
 
       g_snprintf (media_type_glob, sizeof(media_type_glob), "*%s*", media_type);
 
@@ -305,35 +308,33 @@ status_run (WpCtl * self)
       printf (TREE_INDENT_LINE "\n");
 
       printf (TREE_INDENT_NODE "Sinks:\n");
-      if (metadata) {
-        g_snprintf (def_node_key, sizeof(def_node_key), "default.%s.sink",
-            media_type);
-        def_node_key[8] = g_ascii_tolower(def_node_key[8]); // Audio -> audio
-        def_node_value = wp_metadata_find (metadata, 0, def_node_key, NULL);
-      }
+      g_snprintf (media_class, sizeof(media_class), "%s/Sink", media_type);
+      context.default_node = -1;
+      if (def_nodes_api)
+        g_signal_emit_by_name (def_nodes_api, "get-default-node", media_class,
+            &context.default_node);
       child_it = wp_object_manager_new_filtered_iterator (self->om,
           WP_TYPE_NODE,
           WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "*/Sink*",
           WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
           NULL);
-      wp_iterator_foreach (child_it, print_dev_node, (gpointer) def_node_value);
+      wp_iterator_foreach (child_it, print_dev_node, (gpointer) &context);
       g_clear_pointer (&child_it, wp_iterator_unref);
 
       printf (TREE_INDENT_LINE "\n");
 
       printf (TREE_INDENT_NODE "Sources:\n");
-      if (metadata) {
-        g_snprintf (def_node_key, sizeof(def_node_key), "default.%s.source",
-            media_type);
-        def_node_key[8] = g_ascii_tolower(def_node_key[8]); // Audio -> audio
-        def_node_value = wp_metadata_find (metadata, 0, def_node_key, NULL);
-      }
+      g_snprintf (media_class, sizeof(media_class), "%s/Source", media_type);
+      context.default_node = -1;
+      if (def_nodes_api)
+        g_signal_emit_by_name (def_nodes_api, "get-default-node", media_class,
+            &context.default_node);
       child_it = wp_object_manager_new_filtered_iterator (self->om,
           WP_TYPE_NODE,
           WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "*/Source*",
           WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
           NULL);
-      wp_iterator_foreach (child_it, print_dev_node, (gpointer) def_node_value);
+      wp_iterator_foreach (child_it, print_dev_node, (gpointer) &context);
       g_clear_pointer (&child_it, wp_iterator_unref);
 
       printf (TREE_INDENT_LINE "\n");
@@ -374,6 +375,7 @@ status_run (WpCtl * self)
     printf ("\n");
   }
 
+  g_clear_object (&context.mixer_api);
   g_main_loop_quit (self->loop);
 }
 
@@ -710,8 +712,7 @@ set_volume_prepare (WpCtl * self, GError ** error)
       "object.id", "=u", cmdline.set_volume.id,
       NULL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
-      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL |
-      WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PROPS);
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
   return TRUE;
 }
 
@@ -719,9 +720,10 @@ static void
 set_volume_run (WpCtl * self)
 {
   g_autoptr (WpPipewireObject) proxy = NULL;
-  g_autoptr (WpIterator) it = NULL;
-  g_auto (GValue) value = G_VALUE_INIT;
-  gfloat volume;
+  g_autoptr (WpPlugin) mixer_api = wp_plugin_find (self->core, "mixer-api");
+  g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
+  GVariant *variant = NULL;
+  gboolean res = FALSE;
 
   proxy = wp_object_manager_lookup (self->om, WP_TYPE_GLOBAL_PROXY, NULL);
   if (!proxy) {
@@ -729,18 +731,17 @@ set_volume_run (WpCtl * self)
     goto out;
   }
 
-  it = wp_pipewire_object_enum_params_sync (proxy, "Props", NULL);
-  if (!it || !wp_iterator_next (it, &value) ||
-      !wp_spa_pod_get_object (g_value_get_boxed (&value), NULL,
-          "volume", "f", &volume, NULL)) {
+  g_variant_builder_add (&b, "{sv}", "volume",
+      g_variant_new_double (cmdline.set_volume.volume));
+  variant = g_variant_builder_end (&b);
+
+  g_signal_emit_by_name (mixer_api, "set-volume", cmdline.set_volume.id,
+      variant, &res);
+  if (!res) {
     printf ("Object '%d' does not support volume\n", cmdline.set_volume.id);
     goto out;
   }
 
-  wp_pipewire_object_set_param (proxy, "Props", 0, wp_spa_pod_new_object (
-          "Spa:Pod:Object:Param:Props", "Props",
-          "volume", "f", cmdline.set_volume.volume,
-          NULL));
   wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
   return;
 
@@ -795,8 +796,7 @@ set_mute_prepare (WpCtl * self, GError ** error)
       "object.id", "=u", cmdline.set_mute.id,
       NULL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
-      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL |
-      WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PROPS);
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
   return TRUE;
 }
 
@@ -804,9 +804,11 @@ static void
 set_mute_run (WpCtl * self)
 {
   g_autoptr (WpPipewireObject) proxy = NULL;
-  g_autoptr (WpIterator) it = NULL;
-  g_auto (GValue) value = G_VALUE_INIT;
-  gboolean mute;
+  g_autoptr (WpPlugin) mixer_api = wp_plugin_find (self->core, "mixer-api");
+  g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
+  GVariant *variant = NULL;
+  gboolean res = FALSE;
+  gboolean mute = FALSE;
 
   proxy = wp_object_manager_lookup (self->om, WP_TYPE_GLOBAL_PROXY, NULL);
   if (!proxy) {
@@ -814,23 +816,26 @@ set_mute_run (WpCtl * self)
     goto out;
   }
 
-  it = wp_pipewire_object_enum_params_sync (proxy, "Props", NULL);
-  if (!it || !wp_iterator_next (it, &value) ||
-      !wp_spa_pod_get_object (g_value_get_boxed (&value), NULL,
-          "mute", "b", &mute, NULL)) {
+  g_signal_emit_by_name (mixer_api, "get-volume", cmdline.set_mute.id, &variant);
+  if (!variant) {
     printf ("Object '%d' does not support mute\n", cmdline.set_mute.id);
     goto out;
   }
+
+  g_variant_lookup (variant, "mute", "b", &mute);
+  g_clear_pointer (&variant, g_variant_unref);
 
   if (cmdline.set_mute.mute == 2)
     mute = !mute;
   else
     mute = !!cmdline.set_mute.mute;
 
-  wp_pipewire_object_set_param (proxy, "Props", 0, wp_spa_pod_new_object (
-          "Spa:Pod:Object:Param:Props", "Props",
-          "mute", "b", mute,
-          NULL));
+  g_variant_builder_add (&b, "{sv}", "mute", g_variant_new_boolean (mute));
+  variant = g_variant_builder_end (&b);
+
+  g_signal_emit_by_name (mixer_api, "set-volume", cmdline.set_mute.id,
+      variant, &res);
+
   wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
   return;
 
@@ -988,6 +993,22 @@ static const struct subcommand {
   }
 };
 
+static void
+on_plugin_activated (WpObject * p, GAsyncResult * res, WpCtl * ctl)
+{
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_object_activate_finish (p, res, &error)) {
+    fprintf (stderr, "%s", error->message);
+    ctl->exit_code = 1;
+    g_main_loop_quit (ctl->loop);
+    return;
+  }
+
+  if (--ctl->pending_plugins == 0)
+    wp_core_install_object_manager (ctl->core, ctl->om);
+}
+
 gint
 main (gint argc, gchar **argv)
 {
@@ -1002,6 +1023,7 @@ main (gint argc, gchar **argv)
       "COMMAND [COMMAND_OPTIONS] - WirePlumber Control CLI");
   ctl.loop = g_main_loop_new (NULL, FALSE);
   ctl.core = wp_core_new (NULL, NULL);
+  ctl.apis = g_ptr_array_new_with_free_func (g_object_unref);
   ctl.om = wp_object_manager_new ();
 
   /* find the subcommand */
@@ -1067,6 +1089,20 @@ main (gint argc, gchar **argv)
     return 1;
   }
 
+  /* load required API modules */
+  if (!wp_core_load_component (ctl.core,
+      "libwireplumber-module-default-nodes-api", "module", NULL, &error)) {
+    fprintf (stderr, "%s\n", error->message);
+    return 1;
+  }
+  if (!wp_core_load_component (ctl.core,
+      "libwireplumber-module-mixer-api", "module", NULL, &error)) {
+    fprintf (stderr, "%s\n", error->message);
+    return 1;
+  }
+  g_ptr_array_add (ctl.apis, wp_plugin_find (ctl.core, "default-nodes-api"));
+  g_ptr_array_add (ctl.apis, wp_plugin_find (ctl.core, "mixer-api"));
+
   /* connect */
   if (!wp_core_connect (ctl.core)) {
     fprintf (stderr, "Could not connect to PipeWire\n");
@@ -1078,7 +1114,14 @@ main (gint argc, gchar **argv)
       (GCallback) g_main_loop_quit, ctl.loop);
   g_signal_connect_swapped (ctl.om, "installed",
       (GCallback) cmd->run, &ctl);
-  wp_core_install_object_manager (ctl.core, ctl.om);
+
+  for (guint i = 0; i < ctl.apis->len; i++) {
+    WpPlugin *plugin = g_ptr_array_index (ctl.apis, i);
+    ctl.pending_plugins++;
+    wp_object_activate (WP_OBJECT (plugin), WP_PLUGIN_FEATURE_ENABLED, NULL,
+        (GAsyncReadyCallback) on_plugin_activated, &ctl);
+  }
+
   g_main_loop_run (ctl.loop);
 
   wp_ctl_clear (&ctl);
