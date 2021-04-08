@@ -15,8 +15,7 @@ struct _WpDefaultNodesApi
   WpPlugin parent;
 
   gchar *defaults[N_DEFAULT_NODES];
-  WpObjectManager *metadatas_om;
-  WpObjectManager *nodes_om;
+  WpObjectManager *om;
   GSource *idle_source;
 };
 
@@ -89,22 +88,28 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
 }
 
 static void
-on_metadata_added (WpObjectManager *om, WpMetadata *metadata, gpointer d)
+on_metadata_added (WpObjectManager *om, WpObject *obj, WpDefaultNodesApi * self)
 {
-  WpDefaultNodesApi * self = WP_DEFAULT_NODES_API (d);
-  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
-  g_return_if_fail (core);
+  if (WP_IS_METADATA (obj)) {
+    g_autoptr (WpIterator) it = wp_metadata_new_iterator (WP_METADATA (obj), 0);
+    g_auto (GValue) val = G_VALUE_INIT;
 
-  /* Handle the changed signal */
-  g_signal_connect_object (metadata, "changed",
-      G_CALLBACK (on_metadata_changed), self, 0);
+    for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+      guint32 subject;
+      const gchar *key, *type, *value;
+      wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
+      on_metadata_changed (WP_METADATA (obj), subject, key, type, value, self);
+    }
 
-  /* Create the nodes object manager */
-  self->nodes_om = wp_object_manager_new ();
-  wp_object_manager_add_interest (self->nodes_om, WP_TYPE_NODE, NULL);
-  wp_object_manager_request_object_features (self->nodes_om, WP_TYPE_NODE,
-      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
-  wp_core_install_object_manager (core, self->nodes_om);
+    g_signal_connect_object (obj, "changed",
+        G_CALLBACK (on_metadata_changed), self, 0);
+  }
+}
+
+static void
+on_om_installed (WpObjectManager * om, WpDefaultNodesApi * self)
+{
+  wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
 }
 
 static void
@@ -115,17 +120,20 @@ wp_default_nodes_api_enable (WpPlugin * plugin, WpTransition * transition)
   g_return_if_fail (core);
 
   /* Create the metadatas object manager */
-  self->metadatas_om = wp_object_manager_new ();
-  wp_object_manager_add_interest (self->metadatas_om, WP_TYPE_METADATA,
+  self->om = wp_object_manager_new ();
+  wp_object_manager_add_interest (self->om, WP_TYPE_METADATA,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
       NULL);
-  wp_object_manager_request_object_features (self->metadatas_om,
+  wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL);
+  wp_object_manager_request_object_features (self->om,
       WP_TYPE_METADATA, WP_OBJECT_FEATURES_ALL);
-  g_signal_connect_object (self->metadatas_om, "object-added",
+  wp_object_manager_request_object_features (self->om,
+      WP_TYPE_NODE, WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
+  g_signal_connect_object (self->om, "object-added",
       G_CALLBACK (on_metadata_added), self, 0);
-  wp_core_install_object_manager (core, self->metadatas_om);
-
-  wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
+  g_signal_connect_object (self->om, "installed",
+      G_CALLBACK (on_om_installed), self, 0);
+  wp_core_install_object_manager (core, self->om);
 }
 
 static void
@@ -137,8 +145,8 @@ wp_default_nodes_api_disable (WpPlugin * plugin)
     g_source_destroy (self->idle_source);
   g_clear_pointer (&self->idle_source, g_source_unref);
 
-  g_clear_object (&self->metadatas_om);
-  g_clear_object (&self->nodes_om);
+  g_clear_object (&self->om);
+  g_clear_object (&self->om);
 }
 
 static guint
@@ -153,7 +161,7 @@ wp_default_nodes_api_get_default_node (WpDefaultNodesApi * self,
     }
   }
   if (node_t != -1 && self->defaults[node_t]) {
-    g_autoptr (WpNode) node = wp_object_manager_lookup (self->nodes_om,
+    g_autoptr (WpNode) node = wp_object_manager_lookup (self->om,
         WP_TYPE_NODE,
         WP_CONSTRAINT_TYPE_PW_PROPERTY,
         PW_KEY_NODE_NAME, "=s", self->defaults[node_t],
