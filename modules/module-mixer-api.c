@@ -32,6 +32,7 @@ struct node_info {
   struct volume volume;
   struct channel_map map;
   bool mute;
+  float svolume;
   float base;
   float step;
 };
@@ -74,6 +75,7 @@ node_info_fill (struct node_info * info, WpSpaPod * props)
     return FALSE;
 
   /* default values */
+  info->svolume = 1.0;
   info->base = 1.0;
   info->step = 1.0 / 65536.0;
 
@@ -81,6 +83,7 @@ node_info_fill (struct node_info * info, WpSpaPod * props)
       "channelMap", "?P", &channelMap,
       "volumeBase", "?f", &info->base,
       "volumeStep", "?f", &info->step,
+      "volume",     "?f", &info->svolume,
       NULL);
 
   info->volume.channels = spa_pod_copy_array (
@@ -313,8 +316,16 @@ wp_mixer_api_set_volume (WpMixerApi * self, guint32 id, GVariant * vvolume)
     GVariantIter iter;
     const gchar *idx_str;
     GVariant *v;
+    gdouble val;
 
     g_variant_lookup (vvolume, "mute", "b", &mute);
+
+    if (g_variant_lookup (vvolume, "volume", "d", &val)) {
+      new_volume = info->volume;
+      for (uint i = 0; i < new_volume.channels; i++)
+        new_volume.values[i] = val;
+    }
+
     if (g_variant_lookup (vvolume, "channelVolumes", "a{sv}", &iter)) {
       /* keep the existing volume values for unspecified channels */
       new_volume = info->volume;
@@ -323,7 +334,6 @@ wp_mixer_api_set_volume (WpMixerApi * self, guint32 id, GVariant * vvolume)
         guint index = atoi (idx_str);
         const gchar *channel_str = NULL;
         WpSpaIdValue channel = NULL;
-        gdouble val;
 
         if (g_variant_lookup (v, "channel", "&s", &channel_str)) {
           channel = wp_spa_id_table_find_value_from_short_name (
@@ -412,6 +422,8 @@ wp_mixer_api_get_volume (WpMixerApi * self, guint32 id)
   g_variant_builder_add (&b, "{sv}", "mute", g_variant_new_boolean (info->mute));
   g_variant_builder_add (&b, "{sv}", "base", g_variant_new_double (info->base));
   g_variant_builder_add (&b, "{sv}", "step", g_variant_new_double (info->step));
+  g_variant_builder_add (&b, "{sv}", "volume", g_variant_new_double (
+          (info->volume.channels > 0) ? info->volume.values[0] : info->svolume));
 
   for (guint i = 0; i < info->volume.channels; i++) {
     gchar index_str[10];
