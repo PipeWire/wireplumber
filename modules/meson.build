@@ -165,3 +165,14 @@ shared_library(
   install_dir : wireplumber_module_dir,
   dependencies : [wp_dep, pipewire_dep, wplua_dep],
 )
+
+shared_library(
+  'wireplumber-module-mixer-api',
+  [
+    'module-mixer-api.c',
+  ],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-mixer-api"'],
+  install : true,
+  install_dir : wireplumber_module_dir,
+  dependencies : [wp_dep, pipewire_dep],
+)
