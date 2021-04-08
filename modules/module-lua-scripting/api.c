@@ -19,17 +19,23 @@ void wp_lua_scripting_pod_init (lua_State *L);
 static WpCore *
 get_wp_core (lua_State *L)
 {
+  WpCore *core = NULL;
   lua_pushliteral (L, "wireplumber_core");
   lua_gettable (L, LUA_REGISTRYINDEX);
-  return lua_touserdata (L, -1);
+  core = lua_touserdata (L, -1);
+  lua_pop (L, 1);
+  return core;
 }
 
 static WpCore *
 get_wp_export_core (lua_State *L)
 {
+  WpCore *core = NULL;
   lua_pushliteral (L, "wireplumber_export_core");
   lua_gettable (L, LUA_REGISTRYINDEX);
-  return lua_touserdata (L, -1);
+  core = lua_touserdata (L, -1);
+  lua_pop (L, 1);
+  return core;
 }
 
 /* GSource */
@@ -148,12 +154,29 @@ core_quit (lua_State *L)
   return 0;
 }
 
+#include "require.c"
+
+static int
+core_require_api (lua_State *L)
+{
+  WpCore * core = get_wp_core (L);
+  g_autoptr (WpProperties) p = wp_core_get_properties (core);
+  const gchar *interactive = wp_properties_get (p, "wireplumber.interactive");
+  if (!interactive || g_strcmp0 (interactive, "true") != 0) {
+    wp_warning ("script attempted to load an API module, but wireplumber "
+        "is not running in script interactive mode; ignoring");
+    return 0;
+  }
+  return wp_require_api_transition_new_from_lua (L, core);
+}
+
 static const luaL_Reg core_funcs[] = {
   { "get_info", core_get_info },
   { "idle_add", core_idle_add },
   { "timeout_add", core_timeout_add },
   { "sync", core_sync },
   { "quit", core_quit },
+  { "require_api", core_require_api },
   { NULL, NULL }
 };
 
