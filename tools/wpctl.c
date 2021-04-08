@@ -11,12 +11,6 @@
 #include <pipewire/keys.h>
 #include <pipewire/extensions/session-manager/keys.h>
 
-#define default_endpoint_key(dir) ((dir == WP_DIRECTION_INPUT) ? \
-  "default.session.endpoint.sink" : "default.session.endpoint.source")
-
-#define default_audio_node_key(dir) ((dir == WP_DIRECTION_INPUT) ? \
-  "default.configured.audio.sink" : "default.configured.audio.source")
-
 typedef struct _WpCtl WpCtl;
 struct _WpCtl
 {
