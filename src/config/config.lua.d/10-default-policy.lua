@@ -10,6 +10,7 @@ default_policy.sessions = {
 
 default_policy.endpoints = {
   -- [endpoint name] = { endpoint properties }
+--[[
   ["endpoint.music"] = {
     ["media.class"] = "Audio/Sink",
     ["role"] = "Music",
@@ -28,6 +29,7 @@ default_policy.endpoints = {
     ["priority"] = 90,
     ["session.name"] = "audio",
   },
+--]]
 }
 
 default_policy.policy = {
