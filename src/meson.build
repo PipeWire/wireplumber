@@ -12,6 +12,7 @@ install_subdir('scripts',
 )
 
 subdir('systemd')
+subdir('tools')
 
 executable('wireplumber',
   wp_sources,
