@@ -26,18 +26,10 @@ test_si_audio_endpoint_setup (TestFixture * f, gconstpointer user_data)
             "fake*", "test/libspa-test"), ==, 0);
     g_assert_cmpint (pw_context_add_spa_lib (f->base.server.context,
             "audiotestsrc", "audiotestsrc/libspa-audiotestsrc"), ==, 0);
-    g_assert_cmpint (pw_context_add_spa_lib (f->base.server.context,
-            "audio.convert", "audioconvert/libspa-audioconvert"), ==, 0);
     g_assert_nonnull (pw_context_load_module (f->base.server.context,
             "libpipewire-module-spa-node-factory", NULL, NULL));
     g_assert_nonnull (pw_context_load_module (f->base.server.context,
             "libpipewire-module-adapter", NULL, NULL));
-  }
-  {
-    g_autoptr (GError) error = NULL;
-    wp_core_load_component (f->base.core,
-        "libwireplumber-module-si-audio-adapter", "module", NULL, &error);
-    g_assert_no_error (error);
   }
   {
     g_autoptr (GError) error = NULL;
@@ -57,38 +49,7 @@ static void
 test_si_audio_endpoint_configure_activate (TestFixture * f,
     gconstpointer user_data)
 {
-  g_autoptr (WpNode) target_node = NULL;
-  g_autoptr (WpSessionItem) target = NULL;
   g_autoptr (WpSessionItem) endpoint = NULL;
-
-  /* create target node */
-
-  target_node = wp_node_new_from_factory (f->base.core,
-      "adapter",
-      wp_properties_new (
-          "factory.name", "audiotestsrc",
-          "node.name", "audiotestsrc.adapter",
-          NULL));
-  g_assert_nonnull (target_node);
-  wp_object_activate (WP_OBJECT (target_node),
-      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL, NULL,
-      (GAsyncReadyCallback) test_object_activate_finish_cb, f);
-  g_main_loop_run (f->base.loop);
-
-  /* create target */
-
-  target = wp_session_item_make (f->base.core, "si-audio-adapter");
-  g_assert_nonnull (target);
-  g_assert_true (WP_IS_SI_PORT_INFO (target));
-
-  /* configure target */
-
-  {
-    WpProperties *props = wp_properties_new_empty ();
-    wp_properties_setf (props, "node", "%p", target_node);
-    g_assert_true (wp_session_item_configure (target, props));
-    g_assert_true (wp_session_item_is_configured (target));
-  }
 
   /* create endpoint */
 
@@ -96,23 +57,12 @@ test_si_audio_endpoint_configure_activate (TestFixture * f,
   g_assert_nonnull (endpoint);
   g_assert_true (WP_IS_SI_ENDPOINT (endpoint));
 
-  /* configure endpoint without target */
+  /* configure endpoint */
 
   {
     WpProperties *props = wp_properties_new_empty ();
     wp_properties_set (props, "name", "endpoint");
     wp_properties_set (props, "media.class", "Audio/Source");
-    g_assert_true (wp_session_item_configure (endpoint, props));
-    g_assert_true (wp_session_item_is_configured (endpoint));
-  }
-
-  /* re-configure endpoint with target */
-
-  {
-    WpProperties *props = wp_properties_new_empty ();
-    wp_properties_set (props, "name", "endpoint");
-    wp_properties_set (props, "media.class", "Audio/Source");
-    wp_properties_setf (props, "target", "%p", target);
     g_assert_true (wp_session_item_configure (endpoint, props));
     g_assert_true (wp_session_item_is_configured (endpoint));
   }
@@ -148,8 +98,6 @@ test_si_audio_endpoint_configure_activate (TestFixture * f,
 static void
 test_si_audio_endpoint_export (TestFixture * f, gconstpointer user_data)
 {
-  g_autoptr (WpNode) target_node = NULL;
-  g_autoptr (WpSessionItem) target = NULL;
   g_autoptr (WpSessionItem) endpoint = NULL;
   g_autoptr (WpSession) session = NULL;
   g_autoptr (WpObjectManager) clients_om = NULL;
@@ -177,35 +125,6 @@ test_si_audio_endpoint_export (TestFixture * f, gconstpointer user_data)
       (GAsyncReadyCallback) test_object_activate_finish_cb, f);
   g_main_loop_run (f->base.loop);
 
-  /* create target node */
-
-  target_node = wp_node_new_from_factory (f->base.core,
-      "adapter",
-      wp_properties_new (
-          "factory.name", "audiotestsrc",
-          "node.name", "audiotestsrc.adapter",
-          NULL));
-  g_assert_nonnull (target_node);
-  wp_object_activate (WP_OBJECT (target_node),
-      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL, NULL,
-      (GAsyncReadyCallback) test_object_activate_finish_cb, f);
-  g_main_loop_run (f->base.loop);
-
-  /* create target */
-
-  target = wp_session_item_make (f->base.core, "si-audio-adapter");
-  g_assert_nonnull (target);
-  g_assert_true (WP_IS_SI_PORT_INFO (target));
-
-  /* configure target */
-
-  {
-    WpProperties *props = wp_properties_new_empty ();
-    wp_properties_setf (props, "node", "%p", target_node);
-    g_assert_true (wp_session_item_configure (target, props));
-    g_assert_true (wp_session_item_is_configured (target));
-  }
-
   /* create endpoint */
 
   endpoint = wp_session_item_make (f->base.core, "si-audio-endpoint");
@@ -216,7 +135,6 @@ test_si_audio_endpoint_export (TestFixture * f, gconstpointer user_data)
     WpProperties *props = wp_properties_new_empty ();
     wp_properties_set (props, "name", "endpoint");
     wp_properties_set (props, "media.class", "Audio/Source");
-    wp_properties_setf (props, "target", "%p", target);
     wp_properties_setf (props, "session", "%p", session);
     g_assert_true (wp_session_item_configure (endpoint, props));
     g_assert_true (wp_session_item_is_configured (endpoint));

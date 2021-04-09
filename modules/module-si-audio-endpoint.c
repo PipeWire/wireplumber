@@ -23,13 +23,10 @@ struct _WpSiAudioEndpoint
   WpDirection direction;
   gchar role[32];
   guint priority;
-  WpSessionItem *target;
   WpSession *session;
 
   /* activation */
   WpNode *node;
-  WpObjectManager *links_om;
-  WpSessionItem *target_link;
 
   /* export */
   WpImplEndpoint *impl_endpoint;
@@ -65,7 +62,6 @@ si_audio_endpoint_reset (WpSessionItem * item)
   self->direction = WP_DIRECTION_INPUT;
   self->role[0] = '\0';
   self->priority = 0;
-  g_clear_object (&self->target);
   g_clear_object (&self->session);
 
   WP_SESSION_ITEM_CLASS (si_audio_endpoint_parent_class)->reset (item);
@@ -76,7 +72,6 @@ si_audio_endpoint_configure (WpSessionItem * item, WpProperties *p)
 {
   WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (item);
   g_autoptr (WpProperties) si_props = wp_properties_ensure_unique_owner (p);
-  WpSessionItem *target = NULL;
   WpSession *session = NULL;
   const gchar *str;
 
@@ -112,16 +107,6 @@ si_audio_endpoint_configure (WpSessionItem * item, WpProperties *p)
   if (!str)
     wp_properties_setf (si_props, "priority", "%u", self->priority);
 
-  /* target is optional (endpoint won't do anything if not set) */
-  str = wp_properties_get (si_props, "target");
-  if (str && (sscanf(str, "%p", &target) != 1 || !WP_IS_SI_PORT_INFO (target)))
-    return FALSE;
-  if (target) {
-    wp_properties_setf (si_props, "target", "%p", target);
-    wp_properties_setf (si_props, "target.id", "%u",
-        wp_session_item_get_id (target));
-  }
-
   /* session is optional (only needed if we want to export) */
   str = wp_properties_get (si_props, "session");
   if (str && (sscanf(str, "%p", &session) != 1 || !WP_IS_SESSION (session)))
@@ -129,8 +114,6 @@ si_audio_endpoint_configure (WpSessionItem * item, WpProperties *p)
   if (!str)
     wp_properties_setf (si_props, "session", "%p", session);
 
-  if (target)
-    self->target = g_object_ref (target);
   if (session)
     self->session = g_object_ref (session);
 
@@ -163,8 +146,6 @@ si_audio_endpoint_disable_active (WpSessionItem *si)
   if (self->node)
     wp_object_deactivate (WP_OBJECT (self->node), WP_OBJECT_FEATURES_ALL);
   g_clear_object (&self->node);
-  g_clear_object (&self->links_om);
-  g_clear_object (&self->target_link);
   wp_object_update_features (WP_OBJECT (self), 0,
       WP_SESSION_ITEM_FEATURE_ACTIVE);
 }
@@ -180,110 +161,6 @@ si_audio_endpoint_disable_exported (WpSessionItem *si)
 }
 
 static void
-on_target_link_activated (WpSessionItem * item, GAsyncResult * res,
-    WpSiAudioEndpoint * self)
-{
-  g_autoptr (GError) error = NULL;
-  if (!wp_object_activate_finish (WP_OBJECT (item), res, &error))
-    wp_warning_object (item, "failed to activate target link: %s",
-        error->message);
-}
-
-static void
-link_to_target (WpSiAudioEndpoint * self)
-{
-  g_autoptr (WpCore) core = NULL;
-  WpProperties *props = NULL;
-  g_autoptr (WpSessionItem) link = NULL;
-
-  g_return_if_fail (self->target);
-  core = wp_object_get_core (WP_OBJECT (self->node));
-
-  link = wp_session_item_make (core, "si-standard-link");
-  if (G_UNLIKELY (!link)) {
-    wp_warning_object (self, "could not create link; is the module loaded?");
-    return;
-  }
-
-  props = wp_properties_new_empty ();
-  if (self->direction == WP_DIRECTION_INPUT) {
-      /* Playback */
-      wp_properties_setf (props, "out.item", "%p", self);
-      wp_properties_setf (props, "in.item", "%p", self->target);
-      wp_properties_set (props, "out.item.port.context", "reverse");
-  } else {
-      /* Capture */
-      wp_properties_setf (props, "out.item", "%p", self->target);
-      wp_properties_setf (props, "in.item", "%p", self);
-      wp_properties_set (props, "in.item.port.context", "reverse");
-  }
-
-  /* always create passive links; that means that they won't hold the graph
-     running if they are the only links left around */
-  wp_properties_setf (props, "passive", "%u", TRUE);
-
-  wp_session_item_configure (link, props);
-  wp_object_activate (WP_OBJECT (link), WP_SESSION_ITEM_FEATURE_ACTIVE, NULL,
-      (GAsyncReadyCallback) on_target_link_activated, self);
-  self->target_link = g_steal_pointer (&link);
-}
-
-static void
-on_links_changed (WpObjectManager * om, WpSiAudioEndpoint * self)
-{
-  if (wp_object_manager_get_n_objects (om) == 0)
-    g_clear_object (&self->target_link);
-  else if (!self->target_link && self->target)
-    link_to_target (self);
-}
-
-static void
-si_audio_endpoint_setup_links_om (WpSiAudioEndpoint *self,
-    WpTransition *transition)
-{
-  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
-  g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_TUPLE);
-  g_autoptr (WpIterator) it = NULL;
-  g_auto (GValue) val = G_VALUE_INIT;
-  GVariant *ports_v = NULL;
-
-  /* get a list of our external ports */
-  for (it = wp_node_new_ports_iterator (self->node);
-      wp_iterator_next (it, &val);
-      g_value_unset (&val)) {
-    WpPort *port = g_value_get_object (&val);
-    if (wp_port_get_direction (port) != self->direction)
-      continue;
-    g_variant_builder_add (&b, "u", wp_proxy_get_bound_id (WP_PROXY (port)));
-  }
-  ports_v = g_variant_builder_end (&b);
-
-  /* create the links object manager */
-  self->links_om = wp_object_manager_new ();
-  wp_object_manager_request_object_features (self->links_om,
-      WP_TYPE_LINK, WP_PROXY_FEATURE_BOUND);
-
-  /* interested in links that have one of our external ports */
-  wp_object_manager_add_interest_full (self->links_om, ({
-    WpObjectInterest *interest = wp_object_interest_new_type (WP_TYPE_LINK);
-    wp_object_interest_add_constraint (interest,
-        WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
-            self->direction == WP_DIRECTION_INPUT ?
-                PW_KEY_LINK_INPUT_PORT : PW_KEY_LINK_OUTPUT_PORT,
-        WP_CONSTRAINT_VERB_IN_LIST,
-        ports_v);
-    interest;
-  }));
-
-  g_signal_connect_object (self->links_om, "objects-changed",
-      G_CALLBACK (on_links_changed), self, 0);
-  wp_core_install_object_manager (core, self->links_om);
-
-  wp_object_update_features (WP_OBJECT (self),
-      WP_SESSION_ITEM_FEATURE_ACTIVE, 0);
-}
-
-static void
 on_node_activate_done (WpObject * node, GAsyncResult * res,
     WpTransition * transition)
 {
@@ -296,7 +173,8 @@ on_node_activate_done (WpObject * node, GAsyncResult * res,
     return;
   }
 
-  si_audio_endpoint_setup_links_om (self, transition);
+  wp_object_update_features (WP_OBJECT (self),
+      WP_SESSION_ITEM_FEATURE_ACTIVE, 0);
 }
 
 static WpSpaPod *

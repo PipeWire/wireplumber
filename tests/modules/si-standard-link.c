@@ -21,37 +21,7 @@ typedef struct {
 static WpSessionItem *
 load_endpoint (TestFixture * f, const gchar * factory, const gchar * media_class)
 {
-  g_autoptr (WpNode) target_node = NULL;
-  g_autoptr (WpSessionItem) target = NULL;
   g_autoptr (WpSessionItem) endpoint = NULL;
-
-  /* create target node */
-
-  target_node = wp_node_new_from_factory (f->base.core,
-      "adapter",
-      wp_properties_new (
-          "factory.name", factory,
-          "node.name", factory,
-          NULL));
-  g_assert_nonnull (target_node);
-
-  /* create target */
-
-  target = wp_session_item_make (f->base.core, "si-audio-adapter");
-  g_assert_nonnull (target);
-  g_assert_true (WP_IS_SI_PORT_INFO (target));
-
-  /* configure target */
-
-  {
-    WpProperties *props = wp_properties_new_empty ();
-    wp_properties_setf (props, "node", "%p", target_node);
-    wp_properties_set (props, "name", factory);
-    wp_properties_set (props, "media.class", media_class);
-    wp_properties_set (props, "role", "role");
-    g_assert_true (wp_session_item_configure (target, props));
-    g_assert_true (wp_session_item_is_configured (target));
-  }
 
   /* create endpoint */
 
@@ -64,7 +34,6 @@ load_endpoint (TestFixture * f, const gchar * factory, const gchar * media_class
     WpProperties *props = wp_properties_new_empty ();
     wp_properties_set (props, "name", factory);
     wp_properties_set (props, "media.class", media_class);
-    wp_properties_setf (props, "target", "%p", target);
     wp_properties_setf (props, "session", "%p", f->session);
     g_assert_true (wp_session_item_configure (endpoint, props));
     g_assert_true (wp_session_item_is_configured (endpoint));
@@ -103,10 +72,6 @@ test_si_standard_link_setup (TestFixture * f, gconstpointer user_data)
   }
   {
     g_autoptr (GError) error = NULL;
-    wp_core_load_component (f->base.core,
-        "libwireplumber-module-si-audio-adapter", "module", NULL, &error);
-    g_assert_no_error (error);
-
     wp_core_load_component (f->base.core,
         "libwireplumber-module-si-audio-endpoint", "module", NULL, &error);
     g_assert_no_error (error);
@@ -286,7 +251,7 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
     g_assert_nonnull (in_node = wp_object_manager_lookup (om, WP_TYPE_NODE,
         WP_CONSTRAINT_TYPE_PW_PROPERTY, "node.name", "=s", "control.fakesink",
         NULL));
-    g_assert_cmpuint (wp_object_manager_get_n_objects (om), ==, 13);
+    g_assert_cmpuint (wp_object_manager_get_n_objects (om), ==, 12);
 
     it = wp_object_manager_new_filtered_iterator (om, WP_TYPE_LINK, NULL);
     for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
@@ -354,7 +319,7 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
         WP_CONSTRAINT_TYPE_PW_PROPERTY, "port.direction", "=s", "in",
         NULL));
     g_assert_null (link = wp_object_manager_lookup (om, WP_TYPE_LINK, NULL));
-    g_assert_cmpuint (wp_object_manager_get_n_objects (om), ==, 11);
+    g_assert_cmpuint (wp_object_manager_get_n_objects (om), ==, 10);
   }
 }
 

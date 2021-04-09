@@ -62,37 +62,6 @@ function findDefinedTarget (node, om)
   return si_target
 end
 
-function findTargetByDefaultNode (target_media_class, om)
-  local def_id = default_nodes:call("get-default-node", target_media_class)
-  if def_id ~= Id.INVALID then
-    for si_target in om:iterate() do
-      local target_node = si_target:get_associated_proxy ("node")
-      if target_node["bound-id"] == def_id then
-        return si_target
-      end
-    end
-  end
-  return nil
-end
-
-function findTargetByFirstAvailable (target_media_class, om)
-  for si_target in om:iterate() do
-    local target_node = si_target:get_associated_proxy ("node")
-    if target_node.properties["media.class"] == target_media_class then
-      return si_target
-    end
-  end
-  return nil
-end
-
-function findUndefinedTarget (target_media_class, om)
-  local si_target = findTargetByDefaultNode (target_media_class, om)
-  if not si_target then
-    si_target = findTargetByFirstAvailable (target_media_class, om)
-  end
-  return si_target
-end
-
 function findTargetEndpoint (node, target_media_class)
   local media_role = node.properties["media.role"]
   local highest_priority = -1
@@ -129,63 +98,6 @@ function findTargetEndpoint (node, target_media_class)
   end
 
   return target
-end
-
-function reconfigureEndpoint (si_ep)
-  Log.info (si_ep, "handling endpoint " .. si_ep.properties["name"])
-
-  -- get media class
-  local ep_media_class = si_ep.properties["media.class"]
-
-  -- find a target with matching media class
-  local si_target = findUndefinedTarget (ep_media_class, siportinfos_om)
-  if not si_target then
-    Log.info (si_ep, "Could not find target for endpoint")
-    return falsed
-  end
-
-  -- skip already configured endpoints matching target
-  local target_id_str = si_ep.properties["target.id"]
-  if target_id_str and tonumber(target_id_str) == si_target.id then
-    Log.info (si_ep, "endpoint already configured with correct target")
-    return false
-  end
-
-  -- find the session
-  local session_name = si_ep.properties["session.name"]
-  local session = sessions_om:lookup {
-    Constraint { "session.name", "=", session_name }
-  }
-  if not session then
-    Log.warning(si_ep, "could not find session for endpoint");
-    return false
-  end
-
-  -- unlink all streams
-  for silink in silinks_om:iterate() do
-    local out_id = tonumber (silink.properties["out.item.id"])
-    local in_id = tonumber (silink.properties["in.item.id"])
-    if si_ep.id == out_id or si_ep.id == in_id then
-      silink:remove ()
-      Log.info (silink, "link removed")
-    end
-  end
-
-  -- add target and session properties
-  local ep_props = si_ep.properties
-  ep_props["target"] = si_target
-  ep_props["session"] = session
-
-  -- reconfigure endpoint
-  si_ep:reset ()
-  si_ep:configure (ep_props)
-  si_ep:activate (Features.ALL, function (item)
-    Log.info (item, "configured endpoint '" .. ep_props.name ..
-        "' for session '" .. session_name .. "' and target " .. si_target.id)
-    reevaluateEndpointLinks ()
-  end)
-
-  return true
 end
 
 function createLink (si, si_target_ep)
@@ -226,7 +138,7 @@ function createLink (si, si_target_ep)
     ["out.item.port.context"] = out_context,
     ["in.item.port.context"] = in_context,
     ["manage.lifetime"] = false,
-    ["is.policy.endpoint.link"] = true,
+    ["is.policy.endpoint.client.link"] = true,
   } then
     Log.warning (si_link, "failed to configure si-standard-link")
     return
@@ -299,18 +211,7 @@ function handleSiPortInfo (si)
   createLink (si, si_target_ep)
 end
 
-function reevaluateEndpoints ()
-  local res = false
-  -- reconfigure endpoints
-  for si_ep in siendpoints_om:iterate() do
-    if reconfigureEndpoint (si_ep) then
-      res = true
-    end
-  end
-  return res
-end
-
-function reevaluateEndpointLinks ()
+function reevaluateLinks ()
   -- check port info session items and register new links
   for si in siportinfos_om:iterate() do
     handleSiPortInfo (si)
@@ -328,15 +229,8 @@ function reevaluateEndpointLinks ()
   end
 end
 
-function reevaluateItems ()
-  if not reevaluateEndpoints () then
-    reevaluateEndpointLinks ()
-  end
-end
-
 default_nodes = Plugin("default-nodes-api")
 metadatas_om = ObjectManager { Interest { type = "metadata" } }
-sessions_om = ObjectManager { Interest { type = "session" } }
 siendpoints_om = ObjectManager { Interest { type = "SiEndpoint" }}
 siportinfos_om = ObjectManager { Interest { type = "SiPortInfo",
   -- only handle si-audio-adapter and si-node
@@ -346,13 +240,13 @@ siportinfos_om = ObjectManager { Interest { type = "SiPortInfo",
 }
 silinks_om = ObjectManager { Interest { type = "SiLink",
   -- only handle links created by this policy
-  Constraint { "is.policy.endpoint.link", "=", true, type = "pw-global" },
+  Constraint { "is.policy.endpoint.client.link", "=", true, type = "pw-global" },
 } }
 
 -- listen for default node changes if config.follow is enabled
 if config.follow then
   default_nodes:connect("changed", function (p)
-    reevaluateItems ()
+    reevaluateLinks ()
   end)
 end
 
@@ -361,18 +255,17 @@ if config.move then
   metadatas_om:connect("object-added", function (om, metadata)
     metadata:connect("changed", function (m, subject, key, t, value)
       if key == "target.node" then
-        reevaluateItems ()
+        reevaluateLinks ()
       end
     end)
   end)
 end
 
 siportinfos_om:connect("objects-changed", function (om)
-  reevaluateItems ()
+  reevaluateLinks ()
 end)
 
 metadatas_om:activate()
-sessions_om:activate()
 siendpoints_om:activate()
 siportinfos_om:activate()
 silinks_om:activate()
