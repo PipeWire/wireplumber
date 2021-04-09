@@ -1101,7 +1101,11 @@ main (gint argc, gchar **argv)
     return 1;
   }
   g_ptr_array_add (ctl.apis, wp_plugin_find (ctl.core, "default-nodes-api"));
-  g_ptr_array_add (ctl.apis, wp_plugin_find (ctl.core, "mixer-api"));
+  g_ptr_array_add (ctl.apis, ({
+    WpPlugin *p = wp_plugin_find (ctl.core, "mixer-api");
+    g_object_set (G_OBJECT (p), "scale", 1 /* cubic */, NULL);
+    p;
+  }));
 
   /* connect */
   if (!wp_core_connect (ctl.core)) {

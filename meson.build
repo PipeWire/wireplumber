@@ -37,12 +37,15 @@ else
   wireplumber_data_dir = join_paths(get_option('prefix'), get_option('datadir'), 'wireplumber')
 endif
 
+cc = meson.get_compiler('c')
+
 glib_req_version = '>= 2.58'
 gobject_dep = dependency('gobject-2.0', version : glib_req_version)
 gmodule_dep = dependency('gmodule-2.0', version : glib_req_version)
 gio_dep = dependency('gio-2.0', version : glib_req_version)
 giounix_dep = dependency('gio-unix-2.0', version : glib_req_version)
 pipewire_dep = dependency('libpipewire-0.3', version: '>= 0.3.20')
+mathlib = cc.find_library('m')
 
 if get_option('system-lua')
   lua_dep = dependency('lua', version: ['>=5.3.0', '<5.4.0'], required: false)
@@ -85,7 +88,6 @@ common_flags = [
   '-Wold-style-declaration',
   '-Wunused-result',
 ]
-cc = meson.get_compiler('c')
 add_project_arguments(cc.get_supported_arguments(common_flags), language: 'c')
 
 have_audiofade = cc.compiles('''

@@ -174,5 +174,5 @@ shared_library(
   c_args : [common_c_args, '-DG_LOG_DOMAIN="m-mixer-api"'],
   install : true,
   install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep, pipewire_dep],
+  dependencies : [wp_dep, pipewire_dep, mathlib],
 )

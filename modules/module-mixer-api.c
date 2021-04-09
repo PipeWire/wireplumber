@@ -7,8 +7,8 @@
  */
 
 #include <wp/wp.h>
+#include <math.h>
 #include <pipewire/pipewire.h>
-
 #include <spa/pod/iter.h>
 #include <spa/param/audio/raw.h>
 
@@ -43,6 +43,9 @@ struct _WpMixerApi
   WpObjectManager *om;
   GHashTable *node_infos;
   guint32 seq;
+
+  /* properties */
+  gint scale;
 };
 
 enum {
@@ -52,14 +55,73 @@ enum {
   N_SIGNALS
 };
 
+enum {
+  PROP_0,
+  PROP_SCALE,
+};
+
 static guint signals[N_SIGNALS] = {0};
 
 G_DECLARE_FINAL_TYPE (WpMixerApi, wp_mixer_api, WP, MIXER_API, WpPlugin)
 G_DEFINE_TYPE (WpMixerApi, wp_mixer_api, WP_TYPE_PLUGIN)
 
+enum {
+  SCALE_LINEAR,
+  SCALE_CUBIC,
+};
+
+static GType
+wp_mixer_api_volume_scale_enum_get_type (void)
+{
+  static volatile gsize gtype_id = 0;
+  static const GEnumValue values[] = {
+    { (gint) SCALE_LINEAR, "SCALE_LINEAR", "linear" },
+    { (gint) SCALE_CUBIC, "SCALE_CUBIC", "cubic" },
+    { 0, NULL, NULL }
+  };
+  if (g_once_init_enter (&gtype_id)) {
+    GType new_type = g_enum_register_static (
+        g_intern_static_string ("WpMixerApiVolumeScale"), values);
+    g_once_init_leave (&gtype_id, new_type);
+  }
+  return (GType) gtype_id;
+}
+
 static void
 wp_mixer_api_init (WpMixerApi * self)
 {
+}
+
+static void
+wp_mixer_api_get_property (GObject * object, guint property_id,
+    GValue * value, GParamSpec * pspec)
+{
+  WpMixerApi *self = WP_MIXER_API (object);
+
+  switch (property_id) {
+  case PROP_SCALE:
+    g_value_set_enum (value, self->scale);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
+}
+
+static void
+wp_mixer_api_set_property (GObject * object, guint property_id,
+    const GValue * value, GParamSpec * pspec)
+{
+  WpMixerApi *self = WP_MIXER_API (object);
+
+  switch (property_id) {
+  case PROP_SCALE:
+    self->scale = g_value_get_enum (value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
 }
 
 static gboolean
@@ -293,6 +355,28 @@ wp_mixer_api_disable (WpPlugin * plugin)
   g_clear_pointer (&self->node_infos, g_hash_table_unref);
 }
 
+static inline gdouble
+volume_from_linear (float vol, gint scale)
+{
+  if (vol <= 0.0f)
+    return 0.0;
+  else if (scale == SCALE_CUBIC)
+    return cbrt(vol);
+  else
+    return vol;
+}
+
+static inline float
+volume_to_linear (gdouble vol, gint scale)
+{
+  if (vol <= 0.0f)
+    return 0.0;
+  else if (scale == SCALE_CUBIC)
+    return vol * vol * vol;
+  else
+    return vol;
+}
+
 static gboolean
 wp_mixer_api_set_volume (WpMixerApi * self, guint32 id, GVariant * vvolume)
 {
@@ -310,7 +394,7 @@ wp_mixer_api_set_volume (WpMixerApi * self, guint32 id, GVariant * vvolume)
     gdouble val = g_variant_get_double (vvolume);
     new_volume = info->volume;
     for (uint i = 0; i < new_volume.channels; i++)
-      new_volume.values[i] = val;
+      new_volume.values[i] = volume_to_linear (val, self->scale);
   }
   else if (g_variant_is_of_type (vvolume, G_VARIANT_TYPE_VARDICT)) {
     GVariantIter iter;
@@ -323,7 +407,7 @@ wp_mixer_api_set_volume (WpMixerApi * self, guint32 id, GVariant * vvolume)
     if (g_variant_lookup (vvolume, "volume", "d", &val)) {
       new_volume = info->volume;
       for (uint i = 0; i < new_volume.channels; i++)
-        new_volume.values[i] = val;
+        new_volume.values[i] = volume_to_linear (val, self->scale);
     }
 
     if (g_variant_lookup (vvolume, "channelVolumes", "a{sv}", &iter)) {
@@ -356,7 +440,7 @@ wp_mixer_api_set_volume (WpMixerApi * self, guint32 id, GVariant * vvolume)
         }
 
         if (g_variant_lookup (v, "volume", "d", &val)) {
-          new_volume.values[index] = val;
+          new_volume.values[index] = volume_to_linear (val, self->scale);
         }
       }
     }
@@ -423,7 +507,8 @@ wp_mixer_api_get_volume (WpMixerApi * self, guint32 id)
   g_variant_builder_add (&b, "{sv}", "base", g_variant_new_double (info->base));
   g_variant_builder_add (&b, "{sv}", "step", g_variant_new_double (info->step));
   g_variant_builder_add (&b, "{sv}", "volume", g_variant_new_double (
-          (info->volume.channels > 0) ? info->volume.values[0] : info->svolume));
+          volume_from_linear ((info->volume.channels > 0) ?
+              info->volume.values[0] : info->svolume, self->scale)));
 
   for (guint i = 0; i < info->volume.channels; i++) {
     gchar index_str[10];
@@ -431,7 +516,8 @@ wp_mixer_api_get_volume (WpMixerApi * self, guint32 id)
         G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
 
     g_variant_builder_add (&b_vol_nested, "{sv}",
-        "volume", g_variant_new_double (info->volume.values[i]));
+        "volume", g_variant_new_double (
+            volume_from_linear (info->volume.values[i], self->scale)));
 
     if (i < info->map.channels) {
       WpSpaIdValue v =
@@ -456,10 +542,19 @@ wp_mixer_api_get_volume (WpMixerApi * self, guint32 id)
 static void
 wp_mixer_api_class_init (WpMixerApiClass * klass)
 {
+  GObjectClass *object_class = (GObjectClass *) klass;
   WpPluginClass *plugin_class = (WpPluginClass *) klass;
+
+  object_class->set_property = wp_mixer_api_set_property;
+  object_class->get_property = wp_mixer_api_get_property;
 
   plugin_class->enable = wp_mixer_api_enable;
   plugin_class->disable = wp_mixer_api_disable;
+
+  g_object_class_install_property (object_class, PROP_SCALE,
+      g_param_spec_enum ("scale", "scale", "scale",
+          wp_mixer_api_volume_scale_enum_get_type (),
+          SCALE_LINEAR, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
   signals[ACTION_SET_VOLUME] = g_signal_new_class_handler (
       "set-volume", G_TYPE_FROM_CLASS (klass),
