@@ -23,7 +23,7 @@ function createEndpoint (factory_name, properties)
   end
 
   -- activate and register endpoint
-  ep:activate (Features.ALL, function (item)
+  ep:activate (Feature.SessionItem.ACTIVE, function (item)
     ep:register ()
     Log.info(ep, "registered endpoint " .. properties.name)
   end)
