@@ -1,4 +1,4 @@
-#!/usr/bin/wireplumber -e
+#!/usr/bin/wpexec
 --
 -- WirePlumber
 --
@@ -10,7 +10,7 @@
 -- This is an example of an interactive script
 --
 -- Execute with:
---   wireplumber -e ./interactive.lua option1=value1 option2=value2 ...
+--   wpexec ./interactive.lua option1=value1 option2=value2 ...
 -- or:
 --   ./interactive.lua option1=value1 option2=value2
 -----------------------------------------------------------------------------

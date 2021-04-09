@@ -1,4 +1,4 @@
-#!/usr/bin/wireplumber -e
+#!/usr/bin/wpexec
 --
 -- WirePlumber
 --
