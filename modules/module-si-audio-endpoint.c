@@ -206,8 +206,9 @@ si_audio_endpoint_enable_active (WpSessionItem *si, WpTransition *transition)
   WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (si);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_autoptr (WpSpaPod) format = NULL;
-  g_autofree gchar *name =g_strdup_printf ("control.%s", self->name);
-  g_autofree gchar *desc =g_strdup_printf ("Control for %s", self->name);
+  g_autofree gchar *name = g_strdup_printf ("control.%s", self->name);
+  g_autofree gchar *desc = g_strdup_printf ("%s %s Endpoint", self->role,
+      (self->direction == WP_DIRECTION_OUTPUT) ? "Capture" : "Playback");
 
   if (!wp_session_item_is_configured (si)) {
     wp_transition_return_error (transition,
@@ -319,9 +320,10 @@ si_audio_endpoint_get_properties (WpSiEndpoint * item)
 
   wp_properties_set (result, "endpoint.name", self->name);
   wp_properties_setf (result, "endpoint.priority", "%u", self->priority);
-  wp_properties_set (result, "endpoint.description", "Audio Endpoint");
-  wp_properties_setf (result, PW_KEY_ENDPOINT_AUTOCONNECT, "%d", FALSE);
-  wp_properties_set (result, PW_KEY_ENDPOINT_CLIENT_ID, NULL);
+  wp_properties_setf (result, "endpoint.description", "%s: %s",
+      (self->direction == WP_DIRECTION_OUTPUT) ? "Capture" : "Playback",
+      self->role);
+  wp_properties_set (result, "media.role", self->role);
 
   /* associate with the node */
   wp_properties_setf (result, PW_KEY_NODE_ID, "%d",
