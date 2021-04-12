@@ -76,15 +76,12 @@ status_prepare (WpCtl * self, GError ** error)
   wp_object_manager_add_interest (self->om, WP_TYPE_SESSION, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_CLIENT, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_DEVICE, NULL);
+  wp_object_manager_add_interest (self->om, WP_TYPE_ENDPOINT, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_PORT, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_LINK, NULL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
       WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
-  wp_object_manager_request_object_features (self->om, WP_TYPE_SESSION,
-      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL |
-      WP_SESSION_FEATURE_ENDPOINTS |
-      WP_SESSION_FEATURE_LINKS);
   return TRUE;
 }
 
@@ -137,17 +134,37 @@ print_dev_node (const GValue *item, gpointer data)
   WpPipewireObject *obj = g_value_get_object (item);
   struct print_context *context = data;
   guint32 id = wp_proxy_get_bound_id (WP_PROXY (obj));
-  gboolean is_default = FALSE;
-  const gchar *name = wp_pipewire_object_get_property (obj, PW_KEY_NODE_DESCRIPTION);
+  gboolean is_default = (context->default_node == id);
+  const gchar *name =
+      wp_pipewire_object_get_property (obj, PW_KEY_NODE_DESCRIPTION);
   if (!name)
     name = wp_pipewire_object_get_property (obj, PW_KEY_APP_NAME);
   if (!name)
     name = wp_pipewire_object_get_property (obj, PW_KEY_NODE_NAME);
 
-  is_default = (context->default_node == id);
-
   printf (TREE_INDENT_LINE "%c %4u. %-35s", is_default ? '*' : ' ', id, name);
   print_controls (id, context);
+}
+
+static void
+print_endpoint (const GValue *item, gpointer data)
+{
+  WpPipewireObject *obj = g_value_get_object (item);
+  struct print_context *context = data;
+  guint32 id = wp_proxy_get_bound_id (WP_PROXY (obj));
+  guint32 node_id = -1;
+  gboolean is_default = (context->default_node == id);
+  const gchar *str, *name;
+
+  if ((str = wp_pipewire_object_get_property (obj, "node.id")))
+    node_id = atoi (str);
+
+  name = wp_pipewire_object_get_property (obj, "endpoint.description");
+  if (!name)
+    name = wp_pipewire_object_get_property (obj, "endpoint.name");
+
+  printf (TREE_INDENT_LINE "%c %4u. %-35s", is_default ? '*' : ' ', id, name);
+  print_controls (node_id, context);
 }
 
 static void
@@ -160,7 +177,7 @@ print_stream_node (const GValue *item, gpointer data)
   if (!name)
     name = wp_pipewire_object_get_property (obj, PW_KEY_NODE_NAME);
 
-  printf (TREE_INDENT_LINE "  %4u. %-60s\n", id, name);
+  printf (TREE_INDENT_EMPTY "  %4u. %-60s\n", id, name);
 
   g_autoptr (WpIterator) it = wp_object_manager_new_filtered_iterator (self->om,
       WP_TYPE_PORT, WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_ID, "=u", id,
@@ -174,7 +191,7 @@ print_stream_node (const GValue *item, gpointer data)
     name = wp_pipewire_object_get_property (obj, PW_KEY_PORT_NAME);
     WpDirection dir = wp_port_get_direction (port);
 
-    printf (TREE_INDENT_LINE "       %4u. %-15s", id, name);
+    printf (TREE_INDENT_EMPTY "       %4u. %-15s", id, name);
 
     g_autoptr (WpLink) link = wp_object_manager_lookup (self->om, WP_TYPE_LINK,
         WP_CONSTRAINT_TYPE_PW_PROPERTY, (dir == WP_DIRECTION_OUTPUT) ?
@@ -196,28 +213,6 @@ print_stream_node (const GValue *item, gpointer data)
       printf ("\n");
     }
   }
-}
-
-static const gchar *
-get_endpoint_friendly_name (WpEndpoint * ep)
-{
-  const gchar *name = wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (ep),
-      "endpoint.description");
-  if (!name)
-    name = wp_endpoint_get_name (ep);
-  return name;
-}
-
-static void
-print_endpoint (const GValue *item, gpointer data)
-{
-  WpEndpoint *ep = g_value_get_object (item);
-  guint32 id = wp_proxy_get_bound_id (WP_PROXY (ep));
-  guint32 default_id = GPOINTER_TO_UINT (data);
-
-  printf (TREE_INDENT_LINE "%c %4u. %-60s",
-      (default_id == id) ? '*' : ' ', id, get_endpoint_friendly_name (ep));
-  //print_controls (WP_PIPEWIRE_OBJECT (ep));
 }
 
 // static void
@@ -323,6 +318,17 @@ status_run (WpCtl * self)
 
       printf (TREE_INDENT_LINE "\n");
 
+      printf (TREE_INDENT_NODE "Sink endpoints:\n");
+      child_it = wp_object_manager_new_filtered_iterator (self->om,
+          WP_TYPE_ENDPOINT,
+          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "*/Sink*",
+          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
+          NULL);
+      wp_iterator_foreach (child_it, print_endpoint, (gpointer) &context);
+      g_clear_pointer (&child_it, wp_iterator_unref);
+
+      printf (TREE_INDENT_LINE "\n");
+
       printf (TREE_INDENT_NODE "Sources:\n");
       g_snprintf (media_class, sizeof(media_class), "%s/Source", media_type);
       context.default_node = -1;
@@ -339,7 +345,18 @@ status_run (WpCtl * self)
 
       printf (TREE_INDENT_LINE "\n");
 
-      printf (TREE_INDENT_NODE "Streams:\n");
+      printf (TREE_INDENT_NODE "Source endpoints:\n");
+      child_it = wp_object_manager_new_filtered_iterator (self->om,
+          WP_TYPE_ENDPOINT,
+          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "*/Source*",
+          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
+          NULL);
+      wp_iterator_foreach (child_it, print_endpoint, (gpointer) &context);
+      g_clear_pointer (&child_it, wp_iterator_unref);
+
+      printf (TREE_INDENT_LINE "\n");
+
+      printf (TREE_INDENT_END "Streams:\n");
       child_it = wp_object_manager_new_filtered_iterator (self->om,
           WP_TYPE_NODE,
           WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "Stream/*",
@@ -347,25 +364,7 @@ status_run (WpCtl * self)
           NULL);
       wp_iterator_foreach (child_it, print_stream_node, self);
       g_clear_pointer (&child_it, wp_iterator_unref);
-
-      printf (TREE_INDENT_LINE "\n");
     }
-
-    printf (TREE_INDENT_NODE "Sink endpoints:\n");
-    child_it = wp_session_new_endpoints_filtered_iterator (session,
-        WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "*/Sink",
-        NULL);
-    wp_iterator_foreach (child_it, print_endpoint, self);
-    g_clear_pointer (&child_it, wp_iterator_unref);
-
-    printf (TREE_INDENT_LINE "\n");
-
-    printf (TREE_INDENT_END "Source endpoints:\n");
-    child_it = wp_session_new_endpoints_filtered_iterator (session,
-        WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "*/Source",
-        NULL);
-    wp_iterator_foreach (child_it, print_endpoint, self);
-    g_clear_pointer (&child_it, wp_iterator_unref);
 
     // printf (TREE_INDENT_END "Endpoint links:\n");
     // child_it = wp_session_new_links_iterator (session);
@@ -724,6 +723,7 @@ set_volume_run (WpCtl * self)
   g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
   GVariant *variant = NULL;
   gboolean res = FALSE;
+  guint32 node_id = cmdline.set_volume.id;
 
   proxy = wp_object_manager_lookup (self->om, WP_TYPE_GLOBAL_PROXY, NULL);
   if (!proxy) {
@@ -731,14 +731,24 @@ set_volume_run (WpCtl * self)
     goto out;
   }
 
+  if (WP_IS_ENDPOINT (proxy)) {
+    const gchar *str = wp_pipewire_object_get_property (proxy, "node.id");
+    if (!str) {
+      printf ("Endpoint '%d' does not have an associated node\n",
+          cmdline.set_volume.id);
+      goto out;
+    }
+    node_id = atoi (str);
+  }
+
   g_variant_builder_add (&b, "{sv}", "volume",
       g_variant_new_double (cmdline.set_volume.volume));
   variant = g_variant_builder_end (&b);
 
-  g_signal_emit_by_name (mixer_api, "set-volume", cmdline.set_volume.id,
-      variant, &res);
+  g_signal_emit_by_name (mixer_api, "set-volume", node_id, variant, &res);
   if (!res) {
-    printf ("Object '%d' does not support volume\n", cmdline.set_volume.id);
+    printf ("Object '%d' (node %d) does not support volume\n",
+        cmdline.set_volume.id, node_id);
     goto out;
   }
 
@@ -809,6 +819,7 @@ set_mute_run (WpCtl * self)
   GVariant *variant = NULL;
   gboolean res = FALSE;
   gboolean mute = FALSE;
+  guint32 node_id = cmdline.set_mute.id;
 
   proxy = wp_object_manager_lookup (self->om, WP_TYPE_GLOBAL_PROXY, NULL);
   if (!proxy) {
@@ -816,9 +827,20 @@ set_mute_run (WpCtl * self)
     goto out;
   }
 
-  g_signal_emit_by_name (mixer_api, "get-volume", cmdline.set_mute.id, &variant);
+  if (WP_IS_ENDPOINT (proxy)) {
+    const gchar *str = wp_pipewire_object_get_property (proxy, "node.id");
+    if (!str) {
+      printf ("Endpoint '%d' does not have an associated node\n",
+          cmdline.set_mute.id);
+      goto out;
+    }
+    node_id = atoi (str);
+  }
+
+  g_signal_emit_by_name (mixer_api, "get-volume", node_id, &variant);
   if (!variant) {
-    printf ("Object '%d' does not support mute\n", cmdline.set_mute.id);
+    printf ("Object '%d' (node %d) does not support mute\n",
+        cmdline.set_mute.id, node_id);
     goto out;
   }
 
@@ -833,8 +855,7 @@ set_mute_run (WpCtl * self)
   g_variant_builder_add (&b, "{sv}", "mute", g_variant_new_boolean (mute));
   variant = g_variant_builder_end (&b);
 
-  g_signal_emit_by_name (mixer_api, "set-volume", cmdline.set_mute.id,
-      variant, &res);
+  g_signal_emit_by_name (mixer_api, "set-volume", node_id, variant, &res);
 
   wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
   return;
