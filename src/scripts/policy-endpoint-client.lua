@@ -145,7 +145,7 @@ function createLink (si, si_target_ep)
   end
 
   -- activate and register
-  si_link:activate (Features.ALL, function (link)
+  si_link:activate (Feature.SessionItem.ACTIVE, function (link)
     Log.info (link, "link activated")
     link:register ()
   end)
