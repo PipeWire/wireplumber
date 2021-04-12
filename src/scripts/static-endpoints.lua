@@ -24,8 +24,8 @@ function createEndpoint (factory_name, properties)
 
   -- activate and register endpoint
   ep:activate (Features.ALL, function (item)
-    ep:register ()
-    Log.info(ep, "registered endpoint " .. properties.name)
+    item:register ()
+    Log.info(item, "registered endpoint " .. properties.name)
   end)
 end
 
