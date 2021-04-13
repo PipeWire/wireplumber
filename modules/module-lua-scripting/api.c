@@ -38,6 +38,28 @@ get_wp_export_core (lua_State *L)
   return core;
 }
 
+/* GLib */
+
+static int
+glib_get_monotonic_time (lua_State *L)
+{
+  lua_pushinteger (L, g_get_monotonic_time ());
+  return 1;
+}
+
+static int
+glib_get_real_time (lua_State *L)
+{
+  lua_pushinteger (L, g_get_real_time ());
+  return 1;
+}
+
+static const luaL_Reg glib_methods[] = {
+  { "get_monotonic_time", glib_get_monotonic_time },
+  { "get_real_time", glib_get_real_time },
+  { NULL, NULL }
+};
+
 /* GSource */
 
 static int
@@ -1217,6 +1239,9 @@ void
 wp_lua_scripting_api_init (lua_State *L)
 {
   g_autoptr (GError) error = NULL;
+
+  luaL_newlib (L, glib_methods);
+  lua_setglobal (L, "GLib");
 
   luaL_newlib (L, log_funcs);
   lua_setglobal (L, "WpDebug");
