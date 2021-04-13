@@ -315,9 +315,29 @@ object_deactivate (lua_State *L)
   return 0;
 }
 
+static int
+object_get_active_features (lua_State *L)
+{
+  WpObject *o = wplua_checkobject (L, 1, WP_TYPE_OBJECT);
+  WpObjectFeatures features = wp_object_get_active_features (o);
+  lua_pushinteger (L, features);
+  return 1;
+}
+
+static int
+object_get_supported_features (lua_State *L)
+{
+  WpObject *o = wplua_checkobject (L, 1, WP_TYPE_OBJECT);
+  WpObjectFeatures features = wp_object_get_supported_features (o);
+  lua_pushinteger (L, features);
+  return 1;
+}
+
 static const luaL_Reg object_methods[] = {
   { "activate", object_activate },
   { "deactivate", object_deactivate },
+  { "get_active_features", object_get_active_features },
+  { "get_supported_features", object_get_supported_features },
   { NULL, NULL }
 };
 
