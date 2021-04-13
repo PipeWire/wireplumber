@@ -10,11 +10,57 @@
 #include "private.h"
 #include <wp/wp.h>
 
+/* This structure is added to a lua global and it's only referenced from there;
+   When the lua_State closes, it is unrefed and its finalize function below
+   invalidates all the closures so that nothing attempts to call into a lua
+   function after the state is closed */
+typedef struct _WpLuaClosureStore WpLuaClosureStore;
+struct _WpLuaClosureStore
+{
+  GPtrArray *closures;
+};
+
+static WpLuaClosureStore *
+_wplua_closure_store_new (void)
+{
+  WpLuaClosureStore *self = g_rc_box_new (WpLuaClosureStore);
+  self->closures = g_ptr_array_new ();
+  return self;
+}
+
+static void
+_wplua_closure_store_finalize (WpLuaClosureStore * self)
+{
+  for (guint i = self->closures->len; i > 0; i--) {
+    GClosure *c = g_ptr_array_index (self->closures, i-1);
+    g_closure_invalidate (c);
+    g_ptr_array_remove_index_fast (self->closures, i-1);
+  }
+  g_ptr_array_unref (self->closures);
+}
+
+static WpLuaClosureStore *
+_wplua_closure_store_ref (WpLuaClosureStore * self)
+{
+  return g_rc_box_acquire (self);
+}
+
+static void
+_wplua_closure_store_unref (WpLuaClosureStore * self)
+{
+  g_rc_box_release_full (self, (GDestroyNotify) _wplua_closure_store_finalize);
+}
+
+G_DEFINE_BOXED_TYPE(WpLuaClosureStore, _wplua_closure_store,
+    _wplua_closure_store_ref, _wplua_closure_store_unref)
+
+
 typedef struct _WpLuaClosure WpLuaClosure;
 struct _WpLuaClosure
 {
   GClosure closure;
   int func_ref;
+  GPtrArray *closures;
 };
 
 static void
@@ -61,6 +107,13 @@ _wplua_closure_invalidate (lua_State *L, WpLuaClosure *c)
   c->func_ref = LUA_NOREF;
 }
 
+static void
+_wplua_closure_finalize (lua_State *L, WpLuaClosure *c)
+{
+  g_ptr_array_remove_fast (c->closures, c);
+  g_ptr_array_unref (c->closures);
+}
+
 /**
  * wplua_function_to_closure:
  *
@@ -75,12 +128,7 @@ wplua_function_to_closure (lua_State *L, int idx)
 
   GClosure *c = g_closure_new_simple (sizeof (WpLuaClosure), L);
   WpLuaClosure *wlc = (WpLuaClosure *) c;
-  GPtrArray *closures;
-
-  lua_pushliteral (L, "wplua_closures");
-  lua_gettable (L, LUA_REGISTRYINDEX);
-  closures = wplua_toboxed (L, -1);
-  lua_pop (L, 1);
+  WpLuaClosureStore *store;
 
   lua_pushvalue (L, idx);
   wlc->func_ref = luaL_ref (L, LUA_REGISTRYINDEX);
@@ -90,27 +138,30 @@ wplua_function_to_closure (lua_State *L, int idx)
   g_closure_set_marshal (c, _wplua_closure_marshal);
   g_closure_add_invalidate_notifier (c, L,
       (GClosureNotify) _wplua_closure_invalidate);
+  g_closure_add_finalize_notifier (c, L,
+      (GClosureNotify) _wplua_closure_finalize);
 
-  /* keep a ref in lua, so that we can invalidate
-     the closure when lua_State closes */
-  g_ptr_array_add (closures, g_closure_ref (c));
+  /* keep a weak ref of the closure in the store's array,
+     so that we can invalidate the closure when lua_State closes;
+     keep a strong ref of the array in the closure so that
+     _wplua_closure_finalize() works even after the state is closed */
+  lua_pushliteral (L, "wplua_closures");
+  lua_gettable (L, LUA_REGISTRYINDEX);
+  store = wplua_toboxed (L, -1);
+  lua_pop (L, 1);
+
+  g_ptr_array_add (store->closures, c);
+  wlc->closures = g_ptr_array_ref (store->closures);
 
   return c;
-}
-
-static void
-_wplua_closure_destroy (GClosure * c)
-{
-  g_closure_invalidate (c);
-  g_closure_unref (c);
 }
 
 void
 _wplua_init_closure (lua_State *L)
 {
-  GPtrArray *a = g_ptr_array_new_with_free_func (
-      (GDestroyNotify) _wplua_closure_destroy);
   lua_pushliteral (L, "wplua_closures");
-  wplua_pushboxed (L, G_TYPE_PTR_ARRAY, a);
+  wplua_pushboxed (L,
+      _wplua_closure_store_get_type (),
+      _wplua_closure_store_new ());
   lua_settable (L, LUA_REGISTRYINDEX);
 }
