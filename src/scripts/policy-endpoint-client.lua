@@ -139,16 +139,16 @@ function createLink (si, si_target_ep)
     ["in.item.port.context"] = in_context,
     ["manage.lifetime"] = false,
     ["is.policy.endpoint.client.link"] = true,
+    ["media.role"] = si_target_ep.properties["role"],
+    ["target.media.class"] = target_media_class,
+    ["item.plugged.usec"] = si.properties["item.plugged.usec"],
   } then
     Log.warning (si_link, "failed to configure si-standard-link")
     return
   end
 
-  -- activate and register
-  si_link:activate (Feature.SessionItem.ACTIVE, function (link)
-    Log.info (link, "link activated")
-    link:register ()
-  end)
+  -- register
+  si_link:register()
 end
 
 function getSiLinkAndSiPeerEndpoint (si)

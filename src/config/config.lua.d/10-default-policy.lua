@@ -33,8 +33,28 @@ default_policy.endpoints = {
 }
 
 default_policy.policy = {
-  move = true,   -- moves session items when metadata target.node changes
-  follow = true  -- moves session items to the default device when it has changed
+  ["move"] = true,   -- moves session items when metadata target.node changes
+  ["follow"] = true, -- moves session items to the default device when it has changed
+
+--[[
+  ["roles"] = {
+    ["Music"] = {
+      ["alias"] = { "Movie", "Multimedia" },
+      ["priority"] = 10,
+      ["action.default"] = "mix",
+    },
+    ["Game"] = {
+      ["priority"] = 12,
+      ["action.default"] = "cork",
+      ["action.Game"] = "mix",
+    },
+    ["Notification"] = {
+      ["priority"] = 20,
+      ["action.default"] = "cork",
+      ["action.Notification"] = "mix",
+    },
+  },
+--]]
 }
 
 function default_policy.enable()
@@ -59,6 +79,7 @@ function default_policy.enable()
 
   -- Link client nodes with endpoints to make media flow in the graph
   load_script("policy-endpoint-client.lua", default_policy.policy)
+  load_script("policy-endpoint-client-links.lua", default_policy.policy)
 
   -- Link endpoints with device nodes to make media flow in the graph
   load_script("policy-endpoint-device.lua", default_policy.policy)
