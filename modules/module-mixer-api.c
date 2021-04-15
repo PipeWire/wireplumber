@@ -380,8 +380,8 @@ volume_to_linear (gdouble vol, gint scale)
 static gboolean
 wp_mixer_api_set_volume (WpMixerApi * self, guint32 id, GVariant * vvolume)
 {
-  struct node_info *info =
-      g_hash_table_lookup (self->node_infos, GUINT_TO_POINTER (id));
+  struct node_info *info = self->node_infos ?
+      g_hash_table_lookup (self->node_infos, GUINT_TO_POINTER (id)) : NULL;
   struct volume new_volume = {0};
   gint mute = -1;
   WpSpaIdTable t_audioChannel =
@@ -490,8 +490,8 @@ wp_mixer_api_set_volume (WpMixerApi * self, guint32 id, GVariant * vvolume)
 static GVariant *
 wp_mixer_api_get_volume (WpMixerApi * self, guint32 id)
 {
-  struct node_info *info =
-      g_hash_table_lookup (self->node_infos, GUINT_TO_POINTER (id));
+  struct node_info *info = self->node_infos ?
+      g_hash_table_lookup (self->node_infos, GUINT_TO_POINTER (id)) : NULL;
   g_auto (GVariantBuilder) b =
       G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
   g_auto (GVariantBuilder) b_vol =
