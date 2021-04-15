@@ -144,8 +144,6 @@ wp_default_nodes_api_disable (WpPlugin * plugin)
   if (self->idle_source)
     g_source_destroy (self->idle_source);
   g_clear_pointer (&self->idle_source, g_source_unref);
-
-  g_clear_object (&self->om);
   g_clear_object (&self->om);
 }
 
