@@ -13,10 +13,22 @@ target_class_assoc = {
 
 -- Receive script arguments from config.lua
 local config = ...
+config.roles = config.roles or {}
 
--- ensure config.move and config.follow are not nil
-config.move = config.move or false
-config.follow = config.follow or false
+function findRole(role)
+  if role and not config.roles[role] then
+    for r, p in pairs(config.roles) do
+      if type(p.alias) == "table" then
+        for i = 1, #(p.alias), 1 do
+          if role == p.alias[i] then
+            return r
+          end
+        end
+      end
+    end
+  end
+  return role
+end
 
 function getSessionItemById (si_id, om)
   return om:lookup {
@@ -24,76 +36,20 @@ function getSessionItemById (si_id, om)
   }
 end
 
-function findTargetByTargetNodeMetadata (node, om)
-  local node_id = node['bound-id']
-  local metadata = metadatas_om:lookup()
-  if metadata then
-    local value = metadata:find(node_id, "target.node")
-    if value then
-      for si_target in om:iterate() do
-        local target_node = si_target:get_associated_proxy ("node")
-        if target_node["bound-id"] == tonumber(value) then
-          return si_target
-        end
-      end
-    end
-  end
-  return nil
-end
-
-function findTargetByNodeTargetProperty (node, om)
-  local target_id_str = node.properties["node.target"]
-  if target_id_str then
-    for si_target in om:iterate() do
-      local target_node = si_target:get_associated_proxy ("node")
-      if target_node["bound-id"] == tonumber(target_id_str) then
-        return si_target
-      end
-    end
-  end
-  return nil
-end
-
-function findDefinedTarget (node, om)
-  local si_target = findTargetByTargetNodeMetadata (node, om)
-  if not si_target then
-    si_target = findTargetByNodeTargetProperty (node, om)
-  end
-  return si_target
-end
-
 function findTargetEndpoint (node, target_media_class)
-  local media_role = node.properties["media.role"]
+  local media_role = findRole(node.properties["media.role"])
   local highest_priority = -1
   local target = nil
 
-  -- find defined target
-  target = findDefinedTarget (node, siendpoints_om)
-
   -- find highest priority endpoint by role
-  if not target then
-    for si_target_ep in siendpoints_om:iterate {
-      Constraint { "role", "=", media_role, type = "pw-global" },
-      Constraint { "media.class", "=", target_media_class, type = "pw-global" },
-    } do
-      local priority = tonumber(si_target_ep.properties["priority"])
-      if priority > highest_priority then
-        highest_priority = priority
-        target = si_target_ep
-      end
-    end
-  end
-
-  -- find highest priority endpoint regardless of role
-  if not target then
-    for si_target_ep in siendpoints_om:iterate {
-      Constraint { "media.class", "=", target_media_class, type = "pw-global" },
-    } do
-      local priority = tonumber(si_target_ep.properties["priority"])
-      if priority > highest_priority then
-        highest_priority = priority
-        target = si_target_ep
-      end
+  for si_target_ep in siendpoints_om:iterate {
+    Constraint { "role", "=", media_role, type = "pw-global" },
+    Constraint { "media.class", "=", target_media_class, type = "pw-global" },
+  } do
+    local priority = tonumber(si_target_ep.properties["priority"])
+    if priority > highest_priority then
+      highest_priority = priority
+      target = si_target_ep
     end
   end
 
@@ -229,8 +185,6 @@ function reevaluateLinks ()
   end
 end
 
-default_nodes = Plugin("default-nodes-api")
-metadatas_om = ObjectManager { Interest { type = "metadata" } }
 siendpoints_om = ObjectManager { Interest { type = "SiEndpoint" }}
 siportinfos_om = ObjectManager { Interest { type = "SiPortInfo",
   -- only handle si-audio-adapter and si-node
@@ -243,29 +197,10 @@ silinks_om = ObjectManager { Interest { type = "SiLink",
   Constraint { "is.policy.endpoint.client.link", "=", true, type = "pw-global" },
 } }
 
--- listen for default node changes if config.follow is enabled
-if config.follow then
-  default_nodes:connect("changed", function (p)
-    reevaluateLinks ()
-  end)
-end
-
--- listen for target.node metadata changes if config.move is enabled
-if config.move then
-  metadatas_om:connect("object-added", function (om, metadata)
-    metadata:connect("changed", function (m, subject, key, t, value)
-      if key == "target.node" then
-        reevaluateLinks ()
-      end
-    end)
-  end)
-end
-
 siportinfos_om:connect("objects-changed", function (om)
   reevaluateLinks ()
 end)
 
-metadatas_om:activate()
 siendpoints_om:activate()
 siportinfos_om:activate()
 silinks_om:activate()
