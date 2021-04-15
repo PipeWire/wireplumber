@@ -11,23 +11,17 @@ default_policy.sessions = {
 default_policy.endpoints = {
   -- [endpoint name] = { endpoint properties }
 --[[
-  ["endpoint.music"] = {
+  ["endpoint.multimedia"] = {
     ["media.class"] = "Audio/Sink",
-    ["role"] = "Music",
-    ["priority"] = 0,
-    ["session.name"] = "audio",
+    ["role"] = "Multimedia",
   },
   ["endpoint.notifications"] = {
     ["media.class"] = "Audio/Sink",
-    ["role"] = "Notifications",
-    ["priority"] = 50,
-    ["session.name"] = "audio",
+    ["role"] = "Notification",
   },
-  ["endpoint.voice"] = {
-    ["media.class"] = "Audio/Source",
-    ["role"] = "Voice",
-    ["priority"] = 90,
-    ["session.name"] = "audio",
+  ["endpoint.alert"] = {
+    ["media.class"] = "Audio/Sink",
+    ["role"] = "Alert",
   },
 --]]
 }
@@ -38,20 +32,20 @@ default_policy.policy = {
 
 --[[
   ["roles"] = {
-    ["Music"] = {
-      ["alias"] = { "Movie", "Multimedia" },
+    ["Multimedia"] = {
+      ["alias"] = { "Movie", "Music", "Game" },
       ["priority"] = 10,
       ["action.default"] = "mix",
-    },
-    ["Game"] = {
-      ["priority"] = 12,
-      ["action.default"] = "cork",
-      ["action.Game"] = "mix",
     },
     ["Notification"] = {
       ["priority"] = 20,
       ["action.default"] = "cork",
       ["action.Notification"] = "mix",
+    },
+    ["Alert"] = {
+      ["priority"] = 30,
+      ["action.default"] = "cork",
+      ["action.Alert"] = "mix",
     },
   },
 --]]
