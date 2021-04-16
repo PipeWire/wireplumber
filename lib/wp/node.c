@@ -519,8 +519,7 @@ void wp_node_send_command (WpNode * self, const gchar * command)
 
 
 enum {
-  PROP_0,
-  PROP_PW_IMPL_NODE,
+  PROP_PW_IMPL_NODE = WP_PW_OBJECT_MIXIN_PROP_CUSTOM_START,
 };
 
 struct _WpImplNode
@@ -528,8 +527,10 @@ struct _WpImplNode
   WpProxy parent;
   GWeakRef core;
   struct pw_impl_node *pw_impl_node;
-  struct pw_proxy *proxy;
 };
+
+static void wp_impl_node_pw_object_mixin_priv_interface_init (
+    WpPwObjectMixinPrivInterface * iface);
 
 /**
  * WpImplNode:
@@ -539,11 +540,48 @@ struct _WpImplNode
  * constructed `pw_impl_node`. This object can then be exported to PipeWire
  * by requesting %WP_PROXY_FEATURE_BOUND.
  */
-G_DEFINE_TYPE (WpImplNode, wp_impl_node, WP_TYPE_PROXY)
+G_DEFINE_TYPE_WITH_CODE (WpImplNode, wp_impl_node, WP_TYPE_PROXY,
+    G_IMPLEMENT_INTERFACE (WP_TYPE_PIPEWIRE_OBJECT,
+        wp_pw_object_mixin_object_interface_init)
+    G_IMPLEMENT_INTERFACE (WP_TYPE_PW_OBJECT_MIXIN_PRIV,
+        wp_impl_node_pw_object_mixin_priv_interface_init))
 
 static void
 wp_impl_node_init (WpImplNode * self)
 {
+}
+
+static void
+wp_impl_node_constructed (GObject * object)
+{
+  WpImplNode * self = WP_IMPL_NODE (object);
+  WpPwObjectMixinData * data = wp_pw_object_mixin_get_data (self);
+
+  data->info = (gpointer) pw_impl_node_get_info (self->pw_impl_node);
+  data->iface = pw_impl_node_get_implementation (self->pw_impl_node);
+
+  /* TODO handle the actual node properties */
+  data->properties = wp_properties_new_empty();
+
+  WpObjectFeatures ft =
+      wp_pw_object_mixin_get_supported_features (WP_OBJECT (self))
+      & ~WP_PROXY_FEATURE_BOUND;
+  wp_object_update_features (WP_OBJECT (self), ft, 0);
+
+  G_OBJECT_CLASS (wp_impl_node_parent_class)->constructed (object);
+}
+
+static void
+wp_impl_node_dispose (GObject * object)
+{
+  WpImplNode *self = WP_IMPL_NODE (object);
+
+  WpObjectFeatures ft =
+      wp_pw_object_mixin_get_supported_features (WP_OBJECT (self))
+      & ~WP_PROXY_FEATURE_BOUND;
+  wp_object_update_features (WP_OBJECT (self), 0, ft);
+
+  G_OBJECT_CLASS (wp_impl_node_parent_class)->dispose (object);
 }
 
 static void
@@ -583,15 +621,9 @@ wp_impl_node_get_property (GObject * object, guint property_id, GValue * value,
     g_value_set_pointer (value, self->pw_impl_node);
     break;
   default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    wp_pw_object_mixin_get_property (object, property_id, value, pspec);
     break;
   }
-}
-
-static WpObjectFeatures
-wp_impl_node_get_supported_features (WpObject * object)
-{
-  return WP_PROXY_FEATURE_BOUND;
 }
 
 enum {
@@ -603,8 +635,7 @@ wp_impl_node_activate_get_next_step (WpObject * object,
     WpFeatureActivationTransition * transition, guint step,
     WpObjectFeatures missing)
 {
-  /* we only support BOUND, so this is the only
-     feature that can be in @missing */
+  /* BOUND is the only feature that can be in @missing */
   g_return_val_if_fail (missing == WP_PROXY_FEATURE_BOUND,
       WP_TRANSITION_STEP_ERROR);
 
@@ -640,18 +671,65 @@ wp_impl_node_class_init (WpImplNodeClass * klass)
   GObjectClass *object_class = (GObjectClass *) klass;
   WpObjectClass *wpobject_class = (WpObjectClass *) klass;
 
+  object_class->constructed = wp_impl_node_constructed;
+  object_class->dispose = wp_impl_node_dispose;
   object_class->finalize = wp_impl_node_finalize;
   object_class->set_property = wp_impl_node_set_property;
   object_class->get_property = wp_impl_node_get_property;
 
-  wpobject_class->get_supported_features = wp_impl_node_get_supported_features;
+  wpobject_class->get_supported_features =
+      wp_pw_object_mixin_get_supported_features;
   wpobject_class->activate_get_next_step = wp_impl_node_activate_get_next_step;
   wpobject_class->activate_execute_step = wp_impl_node_activate_execute_step;
+
+  wp_pw_object_mixin_class_override_properties (object_class);
 
   g_object_class_install_property (object_class, PROP_PW_IMPL_NODE,
       g_param_spec_pointer ("pw-impl-node", "pw-impl-node",
           "The actual node implementation, struct pw_impl_node *",
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+}
+
+static int
+impl_node_collect_params (void *data, int seq,
+    uint32_t id, uint32_t index, uint32_t next, struct spa_pod *param)
+{
+  GPtrArray *result = data;
+  g_ptr_array_add (result, wp_spa_pod_new_wrap_const (param));
+  return 0;
+}
+
+static GPtrArray *
+wp_impl_node_enum_params_sync (gpointer instance, guint32 id,
+      guint32 start, guint32 num, WpSpaPod *filter)
+{
+  WpImplNode *self = WP_IMPL_NODE (instance);
+  GPtrArray *result =
+      g_ptr_array_new_with_free_func ((GDestroyNotify) wp_spa_pod_unref);
+
+  pw_impl_node_for_each_param (self->pw_impl_node, 1, id, start, num,
+      filter ? wp_spa_pod_get_spa_pod (filter) : NULL,
+      impl_node_collect_params, result);
+  return result;
+}
+
+static gint
+wp_impl_node_set_param (gpointer instance, guint32 id, guint32 flags,
+    WpSpaPod * param)
+{
+  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (instance);
+  return spa_node_set_param (d->iface, id, flags,
+      wp_spa_pod_get_spa_pod (param));
+}
+
+static void
+wp_impl_node_pw_object_mixin_priv_interface_init (
+    WpPwObjectMixinPrivInterface * iface)
+{
+  wp_pw_object_mixin_priv_interface_info_init (iface, node, NODE);
+  iface->flags = WP_PW_OBJECT_MIXIN_PRIV_NO_PARAM_CACHE;
+  iface->enum_params_sync = wp_impl_node_enum_params_sync;
+  iface->set_param = wp_impl_node_set_param;
 }
 
 /**
