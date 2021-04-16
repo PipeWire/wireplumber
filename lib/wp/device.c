@@ -346,17 +346,18 @@ spa_device_event_event (void *data, const struct spa_event *event)
   WpSpaDevice *self = WP_SPA_DEVICE (data);
   g_autoptr (WpSpaPod) pod =
       wp_spa_pod_new_wrap_const ((const struct spa_pod *) event);
-  guint32 id;
-  const gchar *type;
+  guint32 id = -1;
+  const gchar *type = NULL;
   g_autoptr (WpSpaPod) props = NULL;
   g_autoptr (GObject) child = NULL;
 
-  wp_spa_pod_get_object (pod, &type,
-      "Object", "i", &id,
-      "Props", "?P", &props,
-      NULL);
+  wp_trace_boxed (WP_TYPE_SPA_POD, pod, "device event");
 
-  child = wp_spa_device_get_managed_object (self, id);
+  if (wp_spa_pod_get_object (pod, &type,
+          "Object", "i", &id,
+          "Props", "?P", &props,
+          NULL))
+    child = wp_spa_device_get_managed_object (self, id);
 
   if (child && !g_strcmp0 (type, "ObjectConfig") &&
       WP_IS_PIPEWIRE_OBJECT (child) && props) {
