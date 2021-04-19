@@ -27,8 +27,6 @@ struct _WpSiAudioAdapter
   WpNode *node;
   gchar name[96];
   gchar media_class[32];
-  gchar role[32];
-  guint priority;
   guint preferred_n_channels;
   gboolean control_port;
   gboolean monitor;
@@ -63,8 +61,6 @@ si_audio_adapter_reset (WpSessionItem * item)
   g_clear_object (&self->node);
   self->name[0] = '\0';
   self->media_class[0] = '\0';
-  self->role[0] = '\0';
-  self->priority = 0;
   self->control_port = FALSE;
   self->monitor = FALSE;
   self->direction = WP_DIRECTION_INPUT;
@@ -115,28 +111,10 @@ si_audio_adapter_configure (WpSessionItem * item, WpProperties *p)
     wp_properties_set (si_props, "media.class", self->media_class);
   }
 
-  str = wp_properties_get (si_props, "role");
-  if (str) {
-    strncpy (self->role, str, sizeof (self->role) - 1);
-  } else {
-    str = wp_properties_get (node_props, PW_KEY_MEDIA_ROLE);
-    if (str)
-      strncpy (self->role, str, sizeof (self->role) - 1);
-    else
-      strncpy (self->role, "Unknown", sizeof (self->role) - 1);
-    wp_properties_set (si_props, "role", self->role);
-  }
-
   if (strstr (self->media_class, "Source") ||
       strstr (self->media_class, "Output"))
     self->direction = WP_DIRECTION_OUTPUT;
   wp_properties_setf (si_props, "direction", "%u", self->direction);
-
-  str = wp_properties_get (si_props, "priority");
-  if (str && sscanf(str, "%u", &self->priority) != 1)
-    return FALSE;
-  if (!str)
-    wp_properties_setf (si_props, "priority", "%u", self->priority);
 
   str = wp_properties_get (si_props, "preferred.n.channels");
   if (str && sscanf(str, "%u", &self->preferred_n_channels) != 1)

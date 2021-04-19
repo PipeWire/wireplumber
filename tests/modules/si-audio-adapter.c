@@ -73,7 +73,6 @@ test_si_audio_adapter_configure_activate (TestFixture * f,
   {
     WpProperties *props = wp_properties_new_empty ();
     wp_properties_setf (props, "node", "%p", node);
-    wp_properties_set (props, "role", "Multimedia");
     g_assert_true (wp_session_item_configure (adapter, props));
     g_assert_true (wp_session_item_is_configured (adapter));
   }
@@ -89,15 +88,9 @@ test_si_audio_adapter_configure_activate (TestFixture * f,
     str = wp_properties_get (props, "media.class");
     g_assert_nonnull (str);
     g_assert_cmpstr ("Audio/Source", ==, str);
-    str = wp_properties_get (props, "role");
-    g_assert_nonnull (str);
-    g_assert_cmpstr ("Multimedia", ==, str);
     str = wp_properties_get (props, "direction");
     g_assert_nonnull (str);
     g_assert_cmpstr ("1", ==, str);
-    str = wp_properties_get (props, "priority");
-    g_assert_nonnull (str);
-    g_assert_cmpstr ("0", ==, str);
     str = wp_properties_get (props, "preferred.n.channels");
     g_assert_nonnull (str);
     g_assert_cmpstr ("0", ==, str);
