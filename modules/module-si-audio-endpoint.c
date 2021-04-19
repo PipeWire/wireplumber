@@ -225,6 +225,7 @@ si_audio_endpoint_enable_active (WpSessionItem *si, WpTransition *transition)
           PW_KEY_FACTORY_NAME, "support.null-audio-sink",
           PW_KEY_NODE_DESCRIPTION, desc,
           SPA_KEY_AUDIO_POSITION, "FL,FR",
+          "monitor.channel-volumes", "true",
           NULL));
   if (!self->node) {
     wp_transition_return_error (transition,
