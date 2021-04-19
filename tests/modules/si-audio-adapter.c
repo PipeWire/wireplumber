@@ -91,9 +91,6 @@ test_si_audio_adapter_configure_activate (TestFixture * f,
     str = wp_properties_get (props, "direction");
     g_assert_nonnull (str);
     g_assert_cmpstr ("1", ==, str);
-    str = wp_properties_get (props, "preferred.n.channels");
-    g_assert_nonnull (str);
-    g_assert_cmpstr ("0", ==, str);
     str = wp_properties_get (props, "enable.control.port");
     g_assert_nonnull (str);
     g_assert_cmpstr ("0", ==, str);

@@ -27,7 +27,6 @@ struct _WpSiAudioAdapter
   WpNode *node;
   gchar name[96];
   gchar media_class[32];
-  guint preferred_n_channels;
   gboolean control_port;
   gboolean monitor;
   WpDirection direction;
@@ -64,7 +63,6 @@ si_audio_adapter_reset (WpSessionItem * item)
   self->control_port = FALSE;
   self->monitor = FALSE;
   self->direction = WP_DIRECTION_INPUT;
-  self->preferred_n_channels = 0;
 
   WP_SESSION_ITEM_CLASS (si_audio_adapter_parent_class)->reset (item);
 }
@@ -115,13 +113,6 @@ si_audio_adapter_configure (WpSessionItem * item, WpProperties *p)
       strstr (self->media_class, "Output"))
     self->direction = WP_DIRECTION_OUTPUT;
   wp_properties_setf (si_props, "direction", "%u", self->direction);
-
-  str = wp_properties_get (si_props, "preferred.n.channels");
-  if (str && sscanf(str, "%u", &self->preferred_n_channels) != 1)
-    return FALSE;
-  if (!str)
-    wp_properties_setf (si_props, "preferred.n.channels", "%u",
-        self->preferred_n_channels);
 
   str = wp_properties_get (si_props, "enable.control.port");
   if (str && sscanf(str, "%u", &self->control_port) != 1)
@@ -299,7 +290,6 @@ on_node_enum_format_done (WpPipewireObject * proxy, GAsyncResult * res,
   WpSiAudioAdapter *self = wp_transition_get_source_object (transition);
   g_autoptr (WpIterator) formats = NULL;
   g_autoptr (GError) error = NULL;
-  gint pref_chan;
 
   formats = wp_pipewire_object_enum_params_finish (proxy, res, &error);
   if (error) {
@@ -309,9 +299,7 @@ on_node_enum_format_done (WpPipewireObject * proxy, GAsyncResult * res,
 
   /* 34 is the max number of channels that SPA knows about
      in the spa_audio_channel enum */
-  pref_chan = self->preferred_n_channels ? self->preferred_n_channels : 34;
-
-  if (!choose_sensible_raw_audio_format (formats, pref_chan, &self->format)) {
+  if (!choose_sensible_raw_audio_format (formats, 34, &self->format)) {
     wp_warning_object (self, "failed to choose a sensible audio format");
     wp_transition_return_error (transition,
         g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,

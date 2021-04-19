@@ -175,7 +175,6 @@ on_node_added (WpObjectManager * om, WpNode *node, AppData * d)
   /* and configure it */
   wp_properties_setf (props, "node", "%p", node);
   wp_properties_setf (props, "session", "%p", d->session);
-  wp_properties_setf (props, "preferred-n-channels", "%u", 2);
   if (!wp_session_item_configure (item, g_steal_pointer (&props))) {
     g_printerr ("Failed to configure session item\n");
     g_main_loop_quit (d->loop);
