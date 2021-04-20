@@ -40,10 +40,12 @@ endif
 cc = meson.get_compiler('c')
 
 glib_req_version = '>= 2.58'
+glib_dep = dependency('glib-2.0', version : glib_req_version)
 gobject_dep = dependency('gobject-2.0', version : glib_req_version)
 gmodule_dep = dependency('gmodule-2.0', version : glib_req_version)
 gio_dep = dependency('gio-2.0', version : glib_req_version)
 giounix_dep = dependency('gio-unix-2.0', version : glib_req_version)
+spa_dep = dependency('libspa-0.2', version: '>= 0.2')
 pipewire_dep = dependency('libpipewire-0.3', version: '>= 0.3.20')
 mathlib = cc.find_library('m')
 
