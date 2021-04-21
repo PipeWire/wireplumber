@@ -21,7 +21,10 @@ G_BEGIN_DECLS
     (object ? G_OBJECT_TYPE_NAME(object) : "invalid"), object
 
 WP_API
-gboolean wp_log_level_is_enabled (GLogLevelFlags log_level) G_GNUC_CONST;
+gboolean wp_log_level_is_enabled (GLogLevelFlags log_level) G_GNUC_PURE;
+
+WP_API
+void wp_log_set_level (const gchar * level_str);
 
 WP_API
 GLogWriterOutput wp_log_writer_default (GLogLevelFlags log_level,

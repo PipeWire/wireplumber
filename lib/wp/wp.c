@@ -47,7 +47,8 @@ wp_init (WpInitFlags flags)
   if (flags & WP_INIT_SET_GLIB_LOG)
     g_log_set_writer_func (wp_log_writer_default, NULL, NULL);
 
-  /* a dummy message, to initialize the logging system */
+  /* Initialize the logging system */
+  wp_log_set_level (g_getenv ("WIREPLUMBER_DEBUG"));
   wp_info ("WirePlumber " WIREPLUMBER_VERSION " initializing");
 
   /* set PIPEWIRE_DEBUG and the spa_log interface that pipewire will use */

@@ -96,7 +96,7 @@ static const struct {
 /* map glib's log levels, which are flags in the range (1<<2) to (1<<8),
   to the 1-7 range; first calculate the integer part of log2(log_level)
   to bring it down to 2-8 and substract 1 */
-static inline gint
+static G_GNUC_CONST inline gint
 log_level_index (GLogLevelFlags log_level)
 {
   gint logarithm = 0;
@@ -105,63 +105,16 @@ log_level_index (GLogLevelFlags log_level)
   return (logarithm >= 2 && logarithm <= 8) ? (logarithm - 1) : 0;
 }
 
-static inline gint
+static G_GNUC_CONST inline gint
 level_index_from_spa (gint spa_lvl)
 {
   return CLAMP (spa_lvl + 2, 0, (gint) G_N_ELEMENTS (log_level_info) - 1);
 }
 
-static inline gint
+static G_GNUC_CONST inline gint
 level_index_to_spa (gint lvl_index)
 {
   return CLAMP (lvl_index - 2, 0, 5);
-}
-
-static void
-wp_debug_initialize (void)
-{
-  if (g_once_init_enter (&initialized)) {
-    const gchar *debug = NULL;
-    gint n_tokens = 0;
-    gchar **tokens = NULL;
-    gchar **categories = NULL;
-
-    debug = g_getenv ("WIREPLUMBER_DEBUG");
-    if (debug && debug[0] != '\0') {
-      /* WIREPLUMBER_DEBUG=level:category1,category2 */
-      tokens = pw_split_strv (debug, ":", 2, &n_tokens);
-
-      /* set the log level */
-      enabled_level = level_index_from_spa (atoi (tokens[0]));
-
-      /* enable filtering of debug categories */
-      if (n_tokens > 1) {
-        categories = pw_split_strv (tokens[1], ",", INT_MAX, &n_tokens);
-
-        /* alloc space to hold the GPatternSpec pointers */
-        enabled_categories = g_malloc_n ((n_tokens + 1), sizeof (gpointer));
-        if (!enabled_categories)
-          g_error ("out of memory");
-
-        for (gint i = 0; i < n_tokens; i++)
-          enabled_categories[i] = g_pattern_spec_new (categories[i]);
-        enabled_categories[n_tokens] = NULL;
-      }
-    }
-
-    use_color = g_log_writer_supports_color (fileno (stderr));
-    output_is_journal = g_log_writer_is_journald (fileno (stderr));
-
-    /* set the log level also on the spa_log */
-    wp_spa_log_get_instance()->level = level_index_to_spa (enabled_level);
-
-    if (categories)
-      pw_free_strv (categories);
-    if (tokens)
-      pw_free_strv (tokens);
-
-    g_once_init_leave (&initialized, TRUE);
-  }
 }
 
 static inline void
@@ -276,8 +229,61 @@ extract_common_fields (struct common_fields *cf, const GLogField *fields,
 gboolean
 wp_log_level_is_enabled (GLogLevelFlags log_level)
 {
-  wp_debug_initialize ();
   return log_level_index (log_level) <= enabled_level;
+}
+
+/**
+ * wp_log_set_level:
+ * @level_str: a log level description string as it would appear in the
+ *   WIREPLUMBER_DEBUG environment variable "level:category1,category2"
+ *
+ * Configures the log level and enabled categories
+ */
+void
+wp_log_set_level (const gchar * level_str)
+{
+  gint n_tokens = 0;
+  gchar **tokens = NULL;
+  gchar **categories = NULL;
+
+  /* reset to defaults */
+  enabled_level = 4; /* MESSAGE */
+  if (enabled_categories) {
+    GPatternSpec **pspec = enabled_categories;
+    for (; *pspec != NULL; pspec++)
+      g_pattern_spec_free (*pspec);
+    g_clear_pointer (&enabled_categories, g_free);
+  }
+
+  if (level_str && level_str[0] != '\0') {
+    /* level:category1,category2 */
+    tokens = pw_split_strv (level_str, ":", 2, &n_tokens);
+
+    /* set the log level */
+    enabled_level = level_index_from_spa (atoi (tokens[0]));
+
+    /* enable filtering of debug categories */
+    if (n_tokens > 1) {
+      categories = pw_split_strv (tokens[1], ",", INT_MAX, &n_tokens);
+
+      /* alloc space to hold the GPatternSpec pointers */
+      enabled_categories = g_malloc_n ((n_tokens + 1), sizeof (gpointer));
+      if (!enabled_categories)
+        g_error ("out of memory");
+
+      for (gint i = 0; i < n_tokens; i++)
+        enabled_categories[i] = g_pattern_spec_new (categories[i]);
+      enabled_categories[n_tokens] = NULL;
+    }
+  }
+
+  /* set the log level also on the spa_log */
+  wp_spa_log_get_instance()->level = level_index_to_spa (enabled_level);
+
+  if (categories)
+    pw_free_strv (categories);
+  if (tokens)
+    pw_free_strv (tokens);
 }
 
 /**
@@ -303,7 +309,11 @@ wp_log_writer_default (GLogLevelFlags log_level,
     return G_LOG_WRITER_UNHANDLED;
 
   /* one-time initialization */
-  wp_debug_initialize ();
+  if (g_once_init_enter (&initialized)) {
+    use_color = g_log_writer_supports_color (fileno (stderr));
+    output_is_journal = g_log_writer_is_journald (fileno (stderr));
+    g_once_init_leave (&initialized, TRUE);
+  }
 
   cf.log_level = log_level_index (log_level);
 
