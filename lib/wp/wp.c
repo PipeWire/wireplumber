@@ -53,10 +53,11 @@ wp_init (WpInitFlags flags)
 
   /* set PIPEWIRE_DEBUG and the spa_log interface that pipewire will use */
   if (flags & WP_INIT_SET_PW_LOG && !g_getenv ("WIREPLUMBER_NO_PW_LOG")) {
-    g_autofree gchar *lvl_str = NULL;
-    pw_log_level = wp_spa_log_get_instance ()->level;
-    lvl_str = g_strdup_printf ("%d", pw_log_level);
-    g_setenv ("PIPEWIRE_DEBUG", lvl_str, TRUE);
+    if (g_getenv ("WIREPLUMBER_DEBUG")) {
+      gchar lvl_str[2];
+      g_snprintf (lvl_str, 2, "%d", wp_spa_log_get_instance ()->level);
+      g_setenv ("PIPEWIRE_DEBUG", lvl_str, TRUE);
+    }
     pw_log_set (wp_spa_log_get_instance ());
   }
 

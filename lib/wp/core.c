@@ -249,6 +249,7 @@ wp_core_constructed (GObject *object)
   /* context */
   if (!self->pw_context) {
     struct pw_properties *p = NULL;
+    const gchar *str = NULL;
 
     /* properties are fully stored in the pw_context, no need to keep a copy */
     p = self->properties ?
@@ -258,6 +259,12 @@ wp_core_constructed (GObject *object)
     self->pw_context = pw_context_new (WP_LOOP_SOURCE(source)->loop, p,
         sizeof (grefcount));
     g_return_if_fail (self->pw_context);
+
+    /* use the same config option as pipewire to set the log level */
+    p = (struct pw_properties *) pw_context_get_properties (self->pw_context);
+    if (!g_getenv("WIREPLUMBER_DEBUG") &&
+        (str = pw_properties_get(p, "log.level")) != NULL)
+      wp_log_set_level (str);
 
     /* Init refcount */
     grefcount *rc = pw_context_get_user_data (self->pw_context);
