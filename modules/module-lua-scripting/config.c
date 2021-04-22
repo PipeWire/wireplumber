@@ -8,55 +8,6 @@
 
 #include <wp/wp.h>
 #include <wplua/wplua.h>
-#include <pipewire/pipewire.h>
-
-static gboolean
-add_spa_libs (lua_State *L, WpCore * core, GError ** error)
-{
-  lua_getglobal (L, "SANDBOX_COMMON_ENV");
-
-  switch (lua_getfield (L, -1, "spa_libs")) {
-  case LUA_TTABLE:
-    break;
-  case LUA_TNIL:
-    wp_debug ("no spa_libs specified");
-    goto done;
-  default:
-    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
-        "Expected 'spa_libs' to be a table");
-    return FALSE;
-  }
-
-  lua_pushnil (L);
-  while (lua_next (L, -2)) {
-    if (lua_type (L, -2) != LUA_TSTRING ||
-        lua_type (L, -1) != LUA_TSTRING) {
-      g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
-          "'spa_libs' must be a table with string keys and string values");
-      return FALSE;
-    }
-
-    const gchar *regex = lua_tostring (L, -2);
-    const gchar *lib = lua_tostring (L, -1);
-
-    wp_debug ("add spa lib: %s -> %s", regex, lib);
-
-    int ret = pw_context_add_spa_lib (wp_core_get_pw_context (core), regex,
-        lib);
-    if (ret < 0) {
-      g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-          "failed to add spa lib ('%s' on '%s'): %s", regex, lib,
-          g_strerror (-ret));
-      return FALSE;
-    }
-
-    lua_pop (L, 1); /* pop the value */
-  }
-
-done:
-  lua_pop (L, 2); /* pop spa_libs & SANDBOX_COMMON_ENV */
-  return TRUE;
-}
 
 static gboolean
 load_components (lua_State *L, WpCore * core, GError ** error)
@@ -187,9 +138,6 @@ wp_lua_scripting_load_configuration (const gchar * conf_file,
         "Could not locate configuration file '%s'", conf_file);
     return FALSE;
   }
-
-  if (!add_spa_libs (L, core, error))
-    return FALSE;
 
   if (!load_components (L, core, error))
     return FALSE;
