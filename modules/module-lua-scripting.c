@@ -131,9 +131,9 @@ wp_lua_scripting_plugin_supports_type (WpComponentLoader * cl,
 }
 
 static gchar *
-find_script (const gchar * script, const gchar *interactive)
+find_script (const gchar * script, gboolean daemon)
 {
-  if ((!g_strcmp0 (interactive, "true") || g_path_is_absolute (script)) &&
+  if ((!daemon || g_path_is_absolute (script)) &&
       g_file_test (script, G_FILE_TEST_EXISTS | G_FILE_TEST_IS_REGULAR))
     return g_strdup (script);
 
@@ -182,11 +182,12 @@ wp_lua_scripting_plugin_load (WpComponentLoader * cl, const gchar * component,
   /* interpret component as a script */
   if (!g_strcmp0 (type, "script/lua")) {
     g_autoptr (WpProperties) p = wp_core_get_properties (core);
-    const gchar *interactive = wp_properties_get (p, "wireplumber.interactive");
+    const gchar *str = wp_properties_get (p, "wireplumber.daemon");
+    gboolean daemon = !g_strcmp0 (str, "true");
 
     struct ScriptData s = {0};
 
-    s.filename = find_script (component, interactive);
+    s.filename = find_script (component, daemon);
     if (!s.filename) {
       g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
           "Could not locate script '%s'", component);

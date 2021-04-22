@@ -163,10 +163,10 @@ core_quit (lua_State *L)
 {
   WpCore * core = get_wp_core (L);
   g_autoptr (WpProperties) p = wp_core_get_properties (core);
-  const gchar *interactive = wp_properties_get (p, "wireplumber.interactive");
-  if (!interactive || g_strcmp0 (interactive, "true") != 0) {
-    wp_warning ("script attempted to quit, but wireplumber "
-        "is not running in script interactive mode; ignoring");
+  const gchar *daemon = wp_properties_get (p, "wireplumber.daemon");
+  if (!g_strcmp0 (daemon, "true")) {
+    wp_warning ("script attempted to quit, but the engine is "
+        "running in the wireplumber daemon; ignoring");
     return 0;
   }
 
@@ -183,10 +183,10 @@ core_require_api (lua_State *L)
 {
   WpCore * core = get_wp_core (L);
   g_autoptr (WpProperties) p = wp_core_get_properties (core);
-  const gchar *interactive = wp_properties_get (p, "wireplumber.interactive");
-  if (!interactive || g_strcmp0 (interactive, "true") != 0) {
-    wp_warning ("script attempted to load an API module, but wireplumber "
-        "is not running in script interactive mode; ignoring");
+  const gchar *daemon = wp_properties_get (p, "wireplumber.daemon");
+  if (!g_strcmp0 (daemon, "true")) {
+    wp_warning ("script attempted to load an API module, but the engine is "
+        "running in the wireplumber daemon; ignoring");
     return 0;
   }
   return wp_require_api_transition_new_from_lua (L, core);

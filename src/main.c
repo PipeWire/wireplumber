@@ -339,7 +339,7 @@ main (gint argc, gchar **argv)
   properties = wp_properties_new (
       PW_KEY_CONFIG_NAME, config_file ? config_file : "wireplumber.conf",
       PW_KEY_APP_NAME, "WirePlumber",
-      "wireplumber.interactive", "false",
+      "wireplumber.daemon", "true",
       NULL);
 
   if (!g_path_is_absolute (wp_get_config_dir ())) {

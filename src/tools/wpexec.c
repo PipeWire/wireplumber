@@ -228,7 +228,6 @@ main (gint argc, gchar **argv)
   d.loop = g_main_loop_new (NULL, FALSE);
   d.core = wp_core_new (NULL, wp_properties_new (
           PW_KEY_APP_NAME, "wpexec",
-          "wireplumber.interactive", "true",
           NULL));
   g_signal_connect_swapped (d.core, "disconnected",
       G_CALLBACK (g_main_loop_quit), d.loop);
