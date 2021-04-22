@@ -8,7 +8,8 @@
 
 #include <wp/wp.h>
 #include <glib-unix.h>
-#include <pipewire/keys.h>
+#include <pipewire/pipewire.h>
+#include <spa/utils/json.h>
 
 #define WP_DOMAIN_DAEMON (wp_domain_daemon_quark ())
 static G_DEFINE_QUARK (wireplumber-daemon, wp_domain_daemon);
@@ -26,7 +27,7 @@ static gchar * config_file = NULL;
 static GOptionEntry entries[] =
 {
   { "config-file", 'c', G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING, &config_file,
-    "The configuration file to load components from", NULL },
+    "The context configuration file", NULL },
   { NULL }
 };
 
@@ -40,8 +41,7 @@ struct _WpInitTransition
 };
 
 enum {
-  STEP_LOAD_MODULE = WP_TRANSITION_STEP_CUSTOM_START,
-  STEP_LOAD_CONFIG,
+  STEP_LOAD_COMPONENTS = WP_TRANSITION_STEP_CUSTOM_START,
   STEP_CONNECT,
   STEP_ACTIVATE_PLUGINS,
   STEP_ACTIVATE_SCRIPTS,
@@ -60,9 +60,8 @@ static guint
 wp_init_transition_get_next_step (WpTransition * transition, guint step)
 {
   switch (step) {
-  case WP_TRANSITION_STEP_NONE: return STEP_LOAD_MODULE;
-  case STEP_LOAD_MODULE:        return STEP_LOAD_CONFIG;
-  case STEP_LOAD_CONFIG:        return STEP_CONNECT;
+  case WP_TRANSITION_STEP_NONE: return STEP_LOAD_COMPONENTS;
+  case STEP_LOAD_COMPONENTS:    return STEP_CONNECT;
   case STEP_CONNECT:            return STEP_ACTIVATE_PLUGINS;
   case STEP_ACTIVATE_SCRIPTS:   return WP_TRANSITION_STEP_NONE;
 
@@ -106,25 +105,61 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
 {
   WpInitTransition *self = WP_INIT_TRANSITION (transition);
   WpCore *core = wp_transition_get_source_object (transition);
+  struct pw_context *pw_ctx = wp_core_get_pw_context (core);
   GError *error = NULL;
 
   switch (step) {
-  case STEP_LOAD_MODULE:
-    if (!wp_core_load_component (core, "libwireplumber-module-lua-scripting",
-            "module", NULL, &error)) {
-      wp_transition_return_error (transition, error);
+  case STEP_LOAD_COMPONENTS: {
+    struct spa_json it[3];
+    char key[512];
+    const char *str =
+        pw_context_get_conf_section (pw_ctx, "wireplumber.components");
+    if (!str) {
+      wp_transition_return_error (transition, g_error_new (
+          WP_DOMAIN_DAEMON, WP_CODE_INVALID_ARGUMENT,
+          "No components configured in the context conf file; nothing to do"));
       return;
     }
-    wp_transition_advance (transition);
-    break;
 
-  case STEP_LOAD_CONFIG: {
-    const gchar *f = config_file ? config_file : "config.lua";
+    spa_json_init(&it[0], str, strlen(str));
 
-    if (!wp_core_load_component (core, f, "config/lua", NULL, &error)) {
-      wp_transition_return_error (transition, error);
+    if (spa_json_enter_array(&it[0], &it[1]) < 0) {
+      wp_transition_return_error (transition, g_error_new (
+          WP_DOMAIN_DAEMON, WP_CODE_INVALID_ARGUMENT,
+          "wireplumber.components is not a JSON array"));
       return;
     }
+
+    while (spa_json_enter_object(&it[1], &it[2]) > 0) {
+      char *name = NULL, *type = NULL;
+
+      while (spa_json_get_string(&it[2], key, sizeof(key)-1) > 0) {
+        const char *val;
+        int len;
+
+        if ((len = spa_json_next(&it[2], &val)) <= 0)
+          break;
+
+        if (strcmp(key, "name") == 0) {
+          name = (char*)val;
+          spa_json_parse_string(val, len, name);
+        } else if (strcmp(key, "type") == 0) {
+          type = (char*)val;
+          spa_json_parse_string(val, len, type);
+        }
+      }
+      if (name == NULL || type == NULL) {
+        wp_transition_return_error (transition, g_error_new (
+            WP_DOMAIN_DAEMON, WP_CODE_INVALID_ARGUMENT,
+            "component must have both a 'name' and a 'type'"));
+        return;
+      }
+      if (!wp_core_load_component (core, name, type, NULL, &error)) {
+        wp_transition_return_error (transition, error);
+        return;
+      }
+    }
+
     wp_transition_advance (transition);
     break;
   }
@@ -140,28 +175,49 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
     }
     break;
 
-  case STEP_ACTIVATE_PLUGINS:
+  case STEP_ACTIVATE_PLUGINS: {
+    const struct pw_properties *p = pw_context_get_properties (pw_ctx);
+    const char *engine = pw_properties_get (p, "wireplumber.script-engine");
+
     wp_info_object (self, "Activating plugins...");
 
     self->om = wp_object_manager_new ();
-    wp_object_manager_add_interest (self->om, WP_TYPE_PLUGIN,
-        WP_CONSTRAINT_TYPE_G_PROPERTY, "name", "!s", "lua-scripting",
-        NULL);
+    if (engine) {
+      wp_object_manager_add_interest (self->om, WP_TYPE_PLUGIN,
+          WP_CONSTRAINT_TYPE_G_PROPERTY, "name", "!s", engine,
+          NULL);
+    } else {
+      wp_object_manager_add_interest (self->om, WP_TYPE_PLUGIN, NULL);
+    }
     g_signal_connect_object (self->om, "object-added",
         G_CALLBACK (on_plugin_added), self, 0);
     g_signal_connect_object (self->om, "installed",
         G_CALLBACK (wp_transition_advance), transition, G_CONNECT_SWAPPED);
     wp_core_install_object_manager (core, self->om);
     break;
+  }
 
   case STEP_ACTIVATE_SCRIPTS: {
+    const struct pw_properties *p = pw_context_get_properties (pw_ctx);
+    const char *engine = pw_properties_get (p, "wireplumber.script-engine");
+
     g_clear_object (&self->om);
 
-    wp_info_object (self, "Executing scripts...");
+    if (engine) {
+      wp_info_object (self, "Executing scripts...");
 
-    g_autoptr (WpPlugin) p = wp_plugin_find (core, "lua-scripting");
-    wp_object_activate (WP_OBJECT (p), WP_PLUGIN_FEATURE_ENABLED, NULL,
-        (GAsyncReadyCallback) on_plugin_activated, self);
+      g_autoptr (WpPlugin) plugin = wp_plugin_find (core, engine);
+      if (!plugin) {
+        wp_transition_return_error (transition, g_error_new (
+            WP_DOMAIN_DAEMON, WP_CODE_INVALID_ARGUMENT,
+            "script engine '%s' is not loaded", engine));
+        return;
+      }
+      wp_object_activate (WP_OBJECT (plugin), WP_PLUGIN_FEATURE_ENABLED, NULL,
+          (GAsyncReadyCallback) on_plugin_activated, self);
+    } else {
+      wp_transition_advance (transition);
+    }
     break;
   }
 
@@ -269,6 +325,7 @@ main (gint argc, gchar **argv)
   g_auto (WpDaemon) d = {0};
   g_autoptr (GOptionContext) context = NULL;
   g_autoptr (GError) error = NULL;
+  g_autoptr (WpProperties) properties = NULL;
 
   wp_init (WP_INIT_ALL);
 
@@ -279,12 +336,24 @@ main (gint argc, gchar **argv)
     return WP_CODE_INVALID_ARGUMENT;
   }
 
+  properties = wp_properties_new (
+      PW_KEY_CONFIG_NAME, config_file ? config_file : "wireplumber.conf",
+      PW_KEY_APP_NAME, "WirePlumber",
+      "wireplumber.interactive", "false",
+      NULL);
+
+  if (!g_path_is_absolute (wp_get_config_dir ())) {
+    g_autofree gchar *cwd = g_get_current_dir ();
+    g_autofree gchar *conf_dir =
+        g_build_filename (cwd, wp_get_config_dir (), NULL);
+    wp_properties_set (properties, PW_KEY_CONFIG_PREFIX, conf_dir);
+  } else {
+    wp_properties_set (properties, PW_KEY_CONFIG_PREFIX, wp_get_config_dir ());
+  }
+
   /* init wireplumber daemon */
   d.loop = g_main_loop_new (NULL, FALSE);
-  d.core = wp_core_new (NULL, wp_properties_new (
-          PW_KEY_APP_NAME, "WirePlumber",
-          "wireplumber.interactive", "false",
-          NULL));
+  d.core = wp_core_new (NULL, g_steal_pointer (&properties));
   g_signal_connect (d.core, "disconnected", G_CALLBACK (on_disconnected), &d);
 
   /* watch for exit signals */
