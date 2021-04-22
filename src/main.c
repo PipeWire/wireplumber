@@ -106,6 +106,7 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
   WpInitTransition *self = WP_INIT_TRANSITION (transition);
   WpCore *core = wp_transition_get_source_object (transition);
   struct pw_context *pw_ctx = wp_core_get_pw_context (core);
+  const struct pw_properties *props = pw_context_get_properties (pw_ctx);
   GError *error = NULL;
 
   switch (step) {
@@ -164,7 +165,7 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
     break;
   }
 
-  case STEP_CONNECT:
+  case STEP_CONNECT: {
     g_signal_connect_object (core, "connected",
         G_CALLBACK (wp_transition_advance), transition, G_CONNECT_SWAPPED);
 
@@ -173,11 +174,36 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
           WP_CODE_OPERATION_FAILED, "Failed to connect to PipeWire"));
       return;
     }
+
+    /* initialize secondary connection to pipewire */
+    const char *str = pw_properties_get (props, "wireplumber.export-core");
+    if (str && pw_properties_parse_bool (str)) {
+      g_autofree gchar *export_core_name = NULL;
+      g_autoptr (WpCore) export_core = NULL;
+
+      str = pw_properties_get (props, PW_KEY_APP_NAME);
+      export_core_name = g_strdup_printf ("%s [export]", str);
+
+      export_core = wp_core_clone (core);
+      wp_core_update_properties (export_core, wp_properties_new (
+            PW_KEY_APP_NAME, export_core_name,
+            NULL));
+
+      if (!wp_core_connect (export_core)) {
+        wp_transition_return_error (transition, g_error_new (
+            WP_DOMAIN_DAEMON, WP_LIBRARY_ERROR_OPERATION_FAILED,
+            "Failed to connect export core to PipeWire"));
+        return;
+      }
+
+      g_object_set_data_full (G_OBJECT (core), "wireplumber.export-core",
+          g_steal_pointer (&export_core), g_object_unref);
+    }
     break;
+  }
 
   case STEP_ACTIVATE_PLUGINS: {
-    const struct pw_properties *p = pw_context_get_properties (pw_ctx);
-    const char *engine = pw_properties_get (p, "wireplumber.script-engine");
+    const char *engine = pw_properties_get (props, "wireplumber.script-engine");
 
     wp_info_object (self, "Activating plugins...");
 
@@ -198,8 +224,7 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
   }
 
   case STEP_ACTIVATE_SCRIPTS: {
-    const struct pw_properties *p = pw_context_get_properties (pw_ctx);
-    const char *engine = pw_properties_get (p, "wireplumber.script-engine");
+    const char *engine = pw_properties_get (props, "wireplumber.script-engine");
 
     g_clear_object (&self->om);
 
@@ -340,6 +365,7 @@ main (gint argc, gchar **argv)
       PW_KEY_CONFIG_NAME, config_file ? config_file : "wireplumber.conf",
       PW_KEY_APP_NAME, "WirePlumber",
       "wireplumber.daemon", "true",
+      "wireplumber.export-core", "true",
       NULL);
 
   if (!g_path_is_absolute (wp_get_config_dir ())) {

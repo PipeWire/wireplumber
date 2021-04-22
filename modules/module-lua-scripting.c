@@ -76,16 +76,10 @@ wp_lua_scripting_plugin_enable (WpPlugin * plugin, WpTransition * transition)
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
 
   /* initialize secondary connection to pipewire */
-  self->export_core = wp_core_clone (core);
-  wp_core_update_properties (self->export_core, wp_properties_new (
-        PW_KEY_APP_NAME, "WirePlumber (export)",
-        NULL));
-  if (!wp_core_connect (self->export_core)) {
-    wp_transition_return_error (transition, g_error_new (
-        WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-        "failed to connect export core"));
-    return;
-  }
+  self->export_core =
+    g_object_get_data (G_OBJECT (core), "wireplumber.export-core");
+  if (self->export_core)
+    g_object_ref (self->export_core);
 
   /* init lua engine */
   self->L = wplua_new ();

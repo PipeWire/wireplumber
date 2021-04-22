@@ -35,7 +35,7 @@ get_wp_export_core (lua_State *L)
   lua_gettable (L, LUA_REGISTRYINDEX);
   core = lua_touserdata (L, -1);
   lua_pop (L, 1);
-  return core;
+  return core ? core : get_wp_core(L);
 }
 
 /* GLib */
