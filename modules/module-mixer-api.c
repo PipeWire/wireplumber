@@ -30,6 +30,7 @@ struct node_info {
   gint32 route_device;
 
   struct volume volume;
+  struct volume monitorVolume;
   struct channel_map map;
   bool mute;
   float svolume;
@@ -129,6 +130,7 @@ node_info_fill (struct node_info * info, WpSpaPod * props)
 {
   g_autoptr (WpSpaPod) channelVolumes = NULL;
   g_autoptr (WpSpaPod) channelMap = NULL;
+  g_autoptr (WpSpaPod) monitorVolumes = NULL;
 
   if (!wp_spa_pod_get_object (props, NULL,
           "mute", "b", &info->mute,
@@ -146,6 +148,7 @@ node_info_fill (struct node_info * info, WpSpaPod * props)
       "volumeBase", "?f", &info->base,
       "volumeStep", "?f", &info->step,
       "volume",     "?f", &info->svolume,
+      "monitorVolumes", "?P", &monitorVolumes,
       NULL);
 
   info->volume.channels = spa_pod_copy_array (
@@ -156,6 +159,11 @@ node_info_fill (struct node_info * info, WpSpaPod * props)
     info->map.channels = spa_pod_copy_array (
         wp_spa_pod_get_spa_pod (channelMap), SPA_TYPE_Id,
         info->map.map, SPA_AUDIO_MAX_CHANNELS);
+
+  if (monitorVolumes)
+    info->monitorVolume.channels = spa_pod_copy_array (
+        wp_spa_pod_get_spa_pod (monitorVolumes), SPA_TYPE_Float,
+        info->monitorVolume.values, SPA_AUDIO_MAX_CHANNELS);
 
   return TRUE;
 }
@@ -383,6 +391,7 @@ wp_mixer_api_set_volume (WpMixerApi * self, guint32 id, GVariant * vvolume)
   struct node_info *info = self->node_infos ?
       g_hash_table_lookup (self->node_infos, GUINT_TO_POINTER (id)) : NULL;
   struct volume new_volume = {0};
+  struct volume new_monVolume = {0};
   gint mute = -1;
   WpSpaIdTable t_audioChannel =
       wp_spa_id_table_from_name ("Spa:Enum:AudioChannel");
@@ -410,9 +419,16 @@ wp_mixer_api_set_volume (WpMixerApi * self, guint32 id, GVariant * vvolume)
         new_volume.values[i] = volume_to_linear (val, self->scale);
     }
 
+    if (g_variant_lookup (vvolume, "monitorVolume", "d", &val)) {
+      new_monVolume = info->monitorVolume;
+      for (uint i = 0; i < new_monVolume.channels; i++)
+        new_monVolume.values[i] = volume_to_linear (val, self->scale);
+    }
+
     if (g_variant_lookup (vvolume, "channelVolumes", "a{sv}", &iter)) {
       /* keep the existing volume values for unspecified channels */
       new_volume = info->volume;
+      new_monVolume = info->monitorVolume;
 
       while (g_variant_iter_loop (&iter, "{&sv}", &idx_str, &v)) {
         guint index = atoi (idx_str);
@@ -442,6 +458,9 @@ wp_mixer_api_set_volume (WpMixerApi * self, guint32 id, GVariant * vvolume)
         if (g_variant_lookup (v, "volume", "d", &val)) {
           new_volume.values[index] = volume_to_linear (val, self->scale);
         }
+        if (g_variant_lookup (v, "monitorVolume", "d", &val)) {
+          new_monVolume.values[index] = volume_to_linear (val, self->scale);
+        }
       }
     }
   } else {
@@ -457,6 +476,10 @@ wp_mixer_api_set_volume (WpMixerApi * self, guint32 id, GVariant * vvolume)
     wp_spa_pod_builder_add (b, "channelVolumes", "a",
         sizeof(float), SPA_TYPE_Float,
         new_volume.channels, new_volume.values, NULL);
+  if (new_monVolume.channels > 0)
+    wp_spa_pod_builder_add (b, "monitorVolumes", "a",
+        sizeof(float), SPA_TYPE_Float,
+        new_monVolume.channels, new_monVolume.values, NULL);
   if (mute != -1)
     wp_spa_pod_builder_add (b, "mute", "b", (mute == TRUE), NULL);
 
@@ -509,6 +532,10 @@ wp_mixer_api_get_volume (WpMixerApi * self, guint32 id)
   g_variant_builder_add (&b, "{sv}", "volume", g_variant_new_double (
           volume_from_linear ((info->volume.channels > 0) ?
               info->volume.values[0] : info->svolume, self->scale)));
+  if (info->monitorVolume.channels > 0) {
+    g_variant_builder_add (&b, "{sv}", "monitorVolume", g_variant_new_double (
+          volume_from_linear (info->monitorVolume.values[0], self->scale)));
+  }
 
   for (guint i = 0; i < info->volume.channels; i++) {
     gchar index_str[10];
@@ -527,6 +554,12 @@ wp_mixer_api_get_volume (WpMixerApi * self, guint32 id)
         g_variant_builder_add (&b_vol_nested, "{sv}",
           "channel", g_variant_new_string (channel_str));
       }
+    }
+
+    if (i < info->monitorVolume.channels) {
+      g_variant_builder_add (&b_vol_nested, "{sv}",
+          "monitorVolume", g_variant_new_double (
+              volume_from_linear (info->monitorVolume.values[i], self->scale)));
     }
 
     g_snprintf (index_str, 10, "%u", i);
