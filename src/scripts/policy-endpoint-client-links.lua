@@ -7,6 +7,7 @@
 
 local config = ...
 config.roles = config.roles or {}
+config["duck.level"] = config["duck.level"] or 0.3
 
 function findRole(role)
   if role and not config.roles[role] then
@@ -38,6 +39,38 @@ function getAction(dominant_role, other_role)
   return role_config["action." .. other_role]
       or role_config["action.default"]
       or "mix"
+end
+
+function restoreVolume(role, media_class)
+  if not mixer_api then return end
+
+  local ep = endpoints_om:lookup {
+    Constraint { "media.role", "=", role, type = "pw" },
+    Constraint { "media.class", "=", media_class, type = "pw" },
+  }
+
+  if ep and ep.properties["node.id"] then
+    Log.debug(ep, "restore role " .. role)
+    mixer_api:call("set-volume", ep.properties["node.id"], {
+      monitorVolume = 1.0,
+    })
+  end
+end
+
+function duck(role, media_class)
+  if not mixer_api then return end
+
+  local ep = endpoints_om:lookup {
+    Constraint { "media.role", "=", role, type = "pw" },
+    Constraint { "media.class", "=", media_class, type = "pw" },
+  }
+
+  if ep and ep.properties["node.id"] then
+    Log.debug(ep, "duck role " .. role)
+    mixer_api:call("set-volume", ep.properties["node.id"], {
+      monitorVolume = config["duck.level"],
+    })
+  end
 end
 
 function rescan()
@@ -73,7 +106,7 @@ function rescan()
         ((l1.priority == l2.priority) and (l1.plugged > l2.plugged))
   end
 
-  for k, v in pairs(links) do
+  for media_class, v in pairs(links) do
     -- sort on priority and stream creation time
     table.sort(v, compareLinks)
 
@@ -90,8 +123,12 @@ function rescan()
           if not v[i].active then
             v[i].silink:activate(Feature.SessionItem.ACTIVE, pendingOperation())
           end
-        -- elseif action == "duck" then
-        --   TODO
+          restoreVolume(v[i].role, media_class)
+        elseif action == "duck" then
+          if not v[i].active then
+            v[i].silink:activate(Feature.SessionItem.ACTIVE, pendingOperation())
+          end
+          duck(v[i].role, media_class)
         else
           Log.warning("Unknown action: " .. action)
         end
@@ -100,6 +137,7 @@ function rescan()
       if not first_link.active then
         first_link.silink:activate(Feature.SessionItem.ACTIVE, pendingOperation())
       end
+      restoreVolume(first_link.role, media_class)
     end
   end
 end
@@ -134,3 +172,12 @@ silinks_om = ObjectManager {
 }
 silinks_om:connect("objects-changed", maybeRescan)
 silinks_om:activate()
+
+-- enable ducking if mixer-api is loaded
+mixer_api = Plugin("mixer-api")
+if mixer_api then
+  endpoints_om = ObjectManager {
+    Interest { type = "endpoint" },
+  }
+  endpoints_om:activate()
+end

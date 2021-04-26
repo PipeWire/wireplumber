@@ -6,7 +6,7 @@ default_policy.policy.roles = {
   },
   ["Notification"] = {
     ["priority"] = 20,
-    ["action.default"] = "cork",
+    ["action.default"] = "duck",
     ["action.Notification"] = "mix",
   },
   ["Alert"] = {
