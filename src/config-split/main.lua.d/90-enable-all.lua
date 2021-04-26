@@ -2,6 +2,9 @@
 -- dynamic properties of pipewire objects in RAM
 load_module("metadata")
 
+-- Default client access policy
+default_access.enable()
+
 -- Load devices
 alsa_monitor.enable()
 v4l2_monitor.enable()
