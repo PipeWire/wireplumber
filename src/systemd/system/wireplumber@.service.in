@@ -1,0 +1,21 @@
+[Unit]
+Description=Multimedia Service Session Manager (%i)
+After=pipewire.service
+BindsTo=pipewire.service
+AssertPathExists=@WP_CONFIG_DIR@/%i.conf
+
+[Service]
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+Type=simple
+ExecStart=@WP_BINARY@ -c %i.conf
+Restart=on-failure
+User=pipewire
+Environment=PIPEWIRE_RUNTIME_DIR=%t/pipewire
+
+[Install]
+WantedBy=pipewire.service
