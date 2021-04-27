@@ -27,6 +27,9 @@ function default_policy.enable()
   -- API to access mixer controls, needed for volume ducking
   load_module("mixer-api")
 
+  -- Listens for events comming from the wpipc library
+  load_module("ipc", {["path"] = "/tmp/wpipc"})
+
   -- Create sessions statically at startup
   load_script("static-sessions.lua", default_policy.sessions)
 
