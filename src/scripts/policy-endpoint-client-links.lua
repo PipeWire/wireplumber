@@ -73,6 +73,18 @@ function duck(role, media_class)
   end
 end
 
+function getSuspendPlaybackMetadata ()
+  local suspend = false
+  local metadata = metadatas_om:lookup()
+  if metadata then
+    local value = metadata:find(0, "suspend.playback")
+    if value then
+      suspend = value == "1" and true or false
+    end
+  end
+  return suspend
+end
+
 function rescan()
   local links = {
     ["Audio/Source"] = {},
@@ -81,6 +93,14 @@ function rescan()
   }
 
   Log.debug("Rescan endpoint links")
+
+  -- deactivate all links if suspend playback metadata is present
+  local suspend = getSuspendPlaybackMetadata()
+  for silink in silinks_om:iterate() do
+    if suspend then
+      silink:deactivate(Feature.SessionItem.ACTIVE)
+    end
+  end
 
   -- gather info about links
   for silink in silinks_om:iterate() do
@@ -120,12 +140,12 @@ function rescan()
             v[i].silink:deactivate(Feature.SessionItem.ACTIVE)
           end
         elseif action == "mix" then
-          if not v[i].active then
+          if not v[i].active and not suspend then
             v[i].silink:activate(Feature.SessionItem.ACTIVE, pendingOperation())
           end
           restoreVolume(v[i].role, media_class)
         elseif action == "duck" then
-          if not v[i].active then
+          if not v[i].active and not suspend then
             v[i].silink:activate(Feature.SessionItem.ACTIVE, pendingOperation())
           end
           duck(v[i].role, media_class)
@@ -134,7 +154,7 @@ function rescan()
         end
       end
 
-      if not first_link.active then
+      if not first_link.active and not suspend then
         first_link.silink:activate(Feature.SessionItem.ACTIVE, pendingOperation())
       end
       restoreVolume(first_link.role, media_class)
@@ -181,3 +201,13 @@ if mixer_api then
   }
   endpoints_om:activate()
 end
+
+metadatas_om = ObjectManager { Interest { type = "metadata" } }
+metadatas_om:connect("object-added", function (om, metadata)
+  metadata:connect("changed", function (m, subject, key, t, value)
+    if key == "suspend.playback" then
+      maybeRescan()
+    end
+  end)
+end)
+metadatas_om:activate()
