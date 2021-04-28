@@ -657,6 +657,7 @@ wp_impl_node_activate_execute_step (WpObject * object,
     struct pw_core *pw_core = wp_core_get_pw_core (core);
     g_return_if_fail (pw_core);
 
+    wp_proxy_watch_bind_error (WP_PROXY (self), WP_TRANSITION (transition));
     wp_proxy_set_pw_proxy (WP_PROXY (self),
         pw_core_export (pw_core, PW_TYPE_INTERFACE_Node, NULL,
             self->pw_impl_node, 0));

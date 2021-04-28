@@ -192,6 +192,44 @@ test_node (TestFixture *f, gconstpointer data)
   g_main_loop_run (f->base.loop);
 }
 
+static void
+activate_error_cb (WpObject * object, GAsyncResult * res,
+    WpBaseTestFixture * f)
+{
+  g_autoptr (GError) error = NULL;
+  gboolean augment_ret = wp_object_activate_finish (object, res, &error);
+  g_assert_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED);
+  g_assert_false (augment_ret);
+
+  g_main_loop_quit (f->loop);
+}
+
+static void
+test_link_error (TestFixture *f, gconstpointer data)
+{
+  g_autoptr (WpPipewireObject) proxy = NULL;
+
+  /* load audiotestsrc on the server side */
+  {
+    g_autoptr (WpTestServerLocker) lock =
+        wp_test_server_locker_new (&f->base.server);
+
+    g_assert_nonnull (pw_context_load_module (f->base.server.context,
+            "libpipewire-module-link-factory", NULL, NULL));
+  }
+
+  proxy = WP_PIPEWIRE_OBJECT (wp_link_new_from_factory (f->base.core,
+      "link-factory",
+      wp_properties_new (
+          "link.output.node", "invalid",
+          "link.input.node", "invalid",
+          NULL)));
+  g_assert_nonnull (proxy);
+  wp_object_activate (WP_OBJECT (proxy), WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
+      NULL, (GAsyncReadyCallback) activate_error_cb, f);
+  g_main_loop_run (f->base.loop);
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -202,6 +240,8 @@ main (gint argc, gchar *argv[])
       test_proxy_setup, test_proxy_basic, test_proxy_teardown);
   g_test_add ("/wp/proxy/node", TestFixture, NULL,
       test_proxy_setup, test_node, test_proxy_teardown);
+  g_test_add ("/wp/proxy/link_error", TestFixture, NULL,
+      test_proxy_setup, test_link_error, test_proxy_teardown);
 
   return g_test_run ();
 }

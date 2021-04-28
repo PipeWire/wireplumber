@@ -138,6 +138,7 @@ wp_global_proxy_activate_execute_step (WpObject * object,
 
   switch (step) {
   case STEP_BIND:
+    wp_proxy_watch_bind_error (WP_PROXY (self), WP_TRANSITION (transition));
     if (wp_proxy_get_pw_proxy (WP_PROXY (self)) == NULL) {
       if (!wp_global_proxy_bind (self)) {
         wp_transition_return_error (WP_TRANSITION (transition), g_error_new (

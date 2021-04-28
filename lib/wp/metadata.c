@@ -634,6 +634,7 @@ wp_impl_metadata_activate_execute_step (WpObject * object,
       return;
     }
 
+    wp_proxy_watch_bind_error (WP_PROXY (self), WP_TRANSITION (transition));
     wp_proxy_set_pw_proxy (WP_PROXY (self), pw_core_export (pw_core,
             PW_TYPE_INTERFACE_Metadata,
             NULL, priv->iface, 0));

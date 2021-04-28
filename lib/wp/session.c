@@ -690,6 +690,7 @@ wp_impl_session_activate_execute_step (WpObject * object,
     wp_properties_set (d->properties, PW_KEY_CLIENT_ID, NULL);
     wp_properties_set (d->properties, PW_KEY_FACTORY_ID, NULL);
 
+    wp_proxy_watch_bind_error (WP_PROXY (self), WP_TRANSITION (transition));
     wp_proxy_set_pw_proxy (WP_PROXY (self), pw_core_export (pw_core,
             PW_TYPE_INTERFACE_Session,
             wp_properties_peek_dict (d->properties),

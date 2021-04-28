@@ -15,6 +15,7 @@
 
 #include "proxy.h"
 #include "log.h"
+#include "error.h"
 
 #include <pipewire/pipewire.h>
 #include <spa/utils/hook.h>
@@ -266,4 +267,31 @@ wp_proxy_set_pw_proxy (WpProxy * self, struct pw_proxy * proxy)
 
   /* inform subclasses and listeners */
   g_signal_emit (self, signals[SIGNAL_PW_PROXY_CREATED], 0, priv->pw_proxy);
+}
+
+static void
+bind_error (WpProxy * proxy, int seq, int res, const gchar *msg,
+    WpTransition * transition)
+{
+  wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
+          WP_LIBRARY_ERROR_OPERATION_FAILED, "%s", msg));
+}
+
+static void
+bind_success (WpProxy * proxy, uint32_t global_id, WpTransition * transition)
+{
+  g_signal_handlers_disconnect_by_func (proxy, bind_error, transition);
+  g_signal_handlers_disconnect_by_func (proxy, bind_success, transition);
+}
+
+void
+wp_proxy_watch_bind_error (WpProxy * proxy, WpTransition * transition)
+{
+  g_return_if_fail (WP_IS_PROXY (proxy));
+  g_return_if_fail (WP_IS_TRANSITION (transition));
+
+  g_signal_connect_object (proxy, "error", G_CALLBACK (bind_error),
+      transition, 0);
+  g_signal_connect_object (proxy, "bound", G_CALLBACK (bind_success),
+      transition, 0);
 }
