@@ -230,6 +230,53 @@ test_link_error (TestFixture *f, gconstpointer data)
   g_main_loop_run (f->base.loop);
 }
 
+static void
+enum_params_error_cb (WpPipewireObject * object, GAsyncResult * res,
+    WpBaseTestFixture * f)
+{
+  g_autoptr (GError) error = NULL;
+  g_autoptr (WpIterator) it =
+      wp_pipewire_object_enum_params_finish (object, res, &error);
+  g_assert_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED);
+  g_assert_null (it);
+
+  g_main_loop_quit (f->loop);
+}
+
+static void
+test_enum_params_error (TestFixture *f, gconstpointer data)
+{
+  g_autoptr (WpNode) node = NULL;
+
+  /* load audiotestsrc on the server side */
+  {
+    g_autoptr (WpTestServerLocker) lock =
+        wp_test_server_locker_new (&f->base.server);
+
+    g_assert_cmpint (pw_context_add_spa_lib (f->base.server.context,
+            "fake*", "test/libspa-test"), ==, 0);
+    g_assert_nonnull (pw_context_load_module (f->base.server.context,
+            "libpipewire-module-spa-node-factory", NULL, NULL));
+  }
+
+  node = wp_node_new_from_factory (f->base.core,
+      "spa-node-factory",
+      wp_properties_new (
+          "factory.name", "fakesink",
+          "node.name", "Fakesink",
+          NULL));
+  g_assert_nonnull (node);
+
+  wp_object_activate (WP_OBJECT (node), WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
+      NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
+  g_main_loop_run (f->base.loop);
+
+  /* EnumRoute doesn't exist on fakesink, obviously */
+  wp_pipewire_object_enum_params (WP_PIPEWIRE_OBJECT (node), "EnumRoute", NULL,
+      NULL, (GAsyncReadyCallback) enum_params_error_cb, f);
+  g_main_loop_run (f->base.loop);
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -242,6 +289,8 @@ main (gint argc, gchar *argv[])
       test_proxy_setup, test_node, test_proxy_teardown);
   g_test_add ("/wp/proxy/link_error", TestFixture, NULL,
       test_proxy_setup, test_link_error, test_proxy_teardown);
+  g_test_add ("/wp/proxy/enum_params_error", TestFixture, NULL,
+      test_proxy_setup, test_enum_params_error, test_proxy_teardown);
 
   return g_test_run ();
 }
