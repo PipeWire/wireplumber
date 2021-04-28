@@ -568,7 +568,7 @@ enum_params_for_cache_done (GObject * object, GAsyncResult * res, gpointer data)
 
   params = g_task_propagate_pointer (G_TASK (res), &error);
   if (error) {
-    wp_warning_object (object, "enum params failed: %s", error->message);
+    wp_debug_object (object, "enum params failed: %s", error->message);
     return;
   }
 

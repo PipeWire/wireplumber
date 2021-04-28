@@ -93,7 +93,7 @@ proxy_event_error (void *data, int seq, int res, const char *message)
 {
   WpProxy *self = WP_PROXY (data);
 
-  wp_info_object (self, "error seq:%d res:%d (%s) %s",
+  wp_trace_object (self, "error seq:%d res:%d (%s) %s",
       seq, res, spa_strerror(res), message);
   g_signal_emit (self, signals[SIGNAL_ERROR], 0, seq, res, message);
 }
