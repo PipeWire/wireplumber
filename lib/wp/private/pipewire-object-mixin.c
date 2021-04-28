@@ -116,12 +116,12 @@ enum_params_done (WpCore * core, GAsyncResult * res, gpointer data)
   /* finish the sync task */
   wp_core_sync_finish (core, res, &error);
 
-  /* return if the task was cancelled */
-  if (g_task_get_completed (task))
-    return;
-
   /* remove the task from the stored list; ref is held by the g_autoptr */
   d->enum_params_tasks = g_list_remove (d->enum_params_tasks, task);
+
+  /* return if the task was cancelled or received an error */
+  if (g_task_get_completed (task))
+    return;
 
   wp_debug_object (instance, "got %u params, %s, task " WP_OBJECT_FORMAT,
       params->len, error ? "with error" : "ok", WP_OBJECT_ARGS (task));
@@ -131,6 +131,19 @@ enum_params_done (WpCore * core, GAsyncResult * res, gpointer data)
   else {
     g_task_return_pointer (task, g_ptr_array_ref (params),
         (GDestroyNotify) g_ptr_array_unref);
+  }
+}
+
+static void
+enum_params_error (WpProxy * proxy, int seq, int res, const gchar *msg,
+    GTask * task)
+{
+  gint t_seq = GPOINTER_TO_INT (g_task_get_source_tag (G_TASK (task)));
+
+  if (SPA_RESULT_ASYNC_SEQ (t_seq) == SPA_RESULT_ASYNC_SEQ (seq) &&
+      !g_task_get_completed (task)) {
+    g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_OPERATION_FAILED, "%s", msg);
   }
 }
 
@@ -182,6 +195,10 @@ wp_pw_object_mixin_enum_params_unchecked (gpointer obj,
     g_task_return_pointer (task, params, (GDestroyNotify) g_ptr_array_unref);
   } else {
     g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (obj));
+
+    /* watch for errors */
+    g_signal_connect_object (obj, "error", G_CALLBACK (enum_params_error),
+        task, 0);
 
     /* store */
     g_task_set_task_data (task, params, (GDestroyNotify) g_ptr_array_unref);
