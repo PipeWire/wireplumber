@@ -18,6 +18,7 @@
 
 #include <pipewire/pipewire.h>
 #include <spa/utils/hook.h>
+#include <spa/utils/result.h>
 
 typedef struct _WpProxyPrivate WpProxyPrivate;
 struct _WpProxyPrivate
@@ -37,6 +38,7 @@ enum
   SIGNAL_PW_PROXY_CREATED,
   SIGNAL_PW_PROXY_DESTROYED,
   SIGNAL_BOUND,
+  SIGNAL_ERROR,
   LAST_SIGNAL,
 };
 
@@ -85,11 +87,22 @@ proxy_event_removed (void *data)
   wp_trace_object (data, "removed");
 }
 
+static void
+proxy_event_error (void *data, int seq, int res, const char *message)
+{
+  WpProxy *self = WP_PROXY (data);
+
+  wp_info_object (self, "error seq:%d res:%d (%s) %s",
+      seq, res, spa_strerror(res), message);
+  g_signal_emit (self, signals[SIGNAL_ERROR], 0, seq, res, message);
+}
+
 static const struct pw_proxy_events proxy_events = {
   PW_VERSION_PROXY_EVENTS,
   .destroy = proxy_event_destroy,
   .bound = proxy_event_bound,
   .removed = proxy_event_removed,
+  .error = proxy_event_error,
 };
 
 static void
@@ -163,6 +176,11 @@ wp_proxy_class_init (WpProxyClass * klass)
       "bound", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
       G_STRUCT_OFFSET (WpProxyClass, bound), NULL, NULL, NULL,
       G_TYPE_NONE, 1, G_TYPE_UINT);
+
+  signals[SIGNAL_ERROR] = g_signal_new (
+      "error", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
+      G_STRUCT_OFFSET (WpProxyClass, error), NULL, NULL, NULL,
+      G_TYPE_NONE, 3, G_TYPE_INT, G_TYPE_INT, G_TYPE_STRING);
 }
 
 /**
