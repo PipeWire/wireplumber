@@ -62,7 +62,7 @@ test_si_node_configure_activate (TestFixture * f, gconstpointer user_data)
 
   item = wp_session_item_make (f->base.core, "si-node");
   g_assert_nonnull (item);
-  g_assert_true (WP_IS_SI_PORT_INFO (item));
+  g_assert_true (WP_IS_SI_LINKABLE (item));
 
   node = wp_node_new_from_factory (f->base.core,
       "spa-node-factory",
@@ -123,7 +123,7 @@ test_si_node_configure_activate (TestFixture * f, gconstpointer user_data)
   {
     guint32 node_id, port_id, channel;
     g_autoptr (GVariant) v =
-        wp_si_port_info_get_ports (WP_SI_PORT_INFO (item), NULL);
+        wp_si_linkable_get_ports (WP_SI_LINKABLE (item), NULL);
 
     g_assert_true (g_variant_is_of_type (v, G_VARIANT_TYPE ("a(uuu)")));
     g_assert_cmpint (g_variant_n_children (v), ==, 1);

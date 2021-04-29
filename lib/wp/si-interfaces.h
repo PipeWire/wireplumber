@@ -41,29 +41,29 @@ WP_API
 WpProperties * wp_si_endpoint_get_properties (WpSiEndpoint * self);
 
 /**
- * WP_TYPE_SI_PORT_INFO:
+ * WP_TYPE_SI_LINKABLE:
  *
- * The #WpSiPortInfo #GType
+ * The #WpSiLinkable #GType
  */
-#define WP_TYPE_SI_PORT_INFO (wp_si_port_info_get_type ())
+#define WP_TYPE_SI_LINKABLE (wp_si_linkable_get_type ())
 WP_API
-G_DECLARE_INTERFACE (WpSiPortInfo, wp_si_port_info,
-                     WP, SI_PORT_INFO, WpSessionItem)
+G_DECLARE_INTERFACE (WpSiLinkable, wp_si_linkable,
+                     WP, SI_LINKABLE, WpSessionItem)
 
-struct _WpSiPortInfoInterface
+struct _WpSiLinkableInterface
 {
   GTypeInterface interface;
 
-  GVariant * (*get_ports) (WpSiPortInfo * self, const gchar * context);
-  WpSiAcquisition * (*get_acquisition) (WpSiPortInfo * self);
+  GVariant * (*get_ports) (WpSiLinkable * self, const gchar * context);
+  WpSiAcquisition * (*get_acquisition) (WpSiLinkable * self);
 };
 
 WP_API
-GVariant * wp_si_port_info_get_ports (WpSiPortInfo * self,
+GVariant * wp_si_linkable_get_ports (WpSiLinkable * self,
     const gchar * context);
 
 WP_API
-WpSiAcquisition * wp_si_port_info_get_acquisition (WpSiPortInfo * self);
+WpSiAcquisition * wp_si_linkable_get_acquisition (WpSiLinkable * self);
 
 /**
  * WP_TYPE_SI_LINK:
@@ -82,8 +82,8 @@ struct _WpSiLinkInterface
   GVariant * (*get_registration_info) (WpSiLink * self);
   WpProperties * (*get_properties) (WpSiLink * self);
 
-  WpSiPortInfo * (*get_out_item) (WpSiLink * self);
-  WpSiPortInfo * (*get_in_item) (WpSiLink * self);
+  WpSiLinkable * (*get_out_item) (WpSiLink * self);
+  WpSiLinkable * (*get_in_item) (WpSiLink * self);
 };
 
 WP_API
@@ -93,10 +93,10 @@ WP_API
 WpProperties * wp_si_link_get_properties (WpSiLink * self);
 
 WP_API
-WpSiPortInfo * wp_si_link_get_out_item (WpSiLink * self);
+WpSiLinkable * wp_si_link_get_out_item (WpSiLink * self);
 
 WP_API
-WpSiPortInfo * wp_si_link_get_in_item (WpSiLink * self);
+WpSiLinkable * wp_si_link_get_in_item (WpSiLink * self);
 
 /**
  * WP_TYPE_SI_ACQUISITION:
@@ -113,17 +113,17 @@ struct _WpSiAcquisitionInterface
   GTypeInterface interface;
 
   void (*acquire) (WpSiAcquisition * self, WpSiLink * acquisitor,
-      WpSiPortInfo * item, GAsyncReadyCallback callback, gpointer data);
+      WpSiLinkable * item, GAsyncReadyCallback callback, gpointer data);
   gboolean (*acquire_finish) (WpSiAcquisition * self, GAsyncResult * res,
       GError ** error);
 
   void (*release) (WpSiAcquisition * self, WpSiLink * acquisitor,
-      WpSiPortInfo * item);
+      WpSiLinkable * item);
 };
 
 WP_API
 void wp_si_acquisition_acquire (WpSiAcquisition * self, WpSiLink * acquisitor,
-    WpSiPortInfo * item, GAsyncReadyCallback callback, gpointer data);
+    WpSiLinkable * item, GAsyncReadyCallback callback, gpointer data);
 
 WP_API
 gboolean wp_si_acquisition_acquire_finish (
@@ -131,7 +131,7 @@ gboolean wp_si_acquisition_acquire_finish (
 
 WP_API
 void wp_si_acquisition_release (WpSiAcquisition * self, WpSiLink * acquisitor,
-    WpSiPortInfo * item);
+    WpSiLinkable * item);
 
 G_END_DECLS
 

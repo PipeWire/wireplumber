@@ -33,15 +33,15 @@ struct _WpSiAudioEndpoint
 };
 
 static void si_audio_endpoint_endpoint_init (WpSiEndpointInterface * iface);
-static void si_audio_endpoint_port_info_init (WpSiPortInfoInterface * iface);
+static void si_audio_endpoint_linkable_init (WpSiLinkableInterface * iface);
 
 G_DECLARE_FINAL_TYPE(WpSiAudioEndpoint, si_audio_endpoint, WP,
     SI_AUDIO_ENDPOINT, WpSessionItem)
 G_DEFINE_TYPE_WITH_CODE (WpSiAudioEndpoint, si_audio_endpoint,
     WP_TYPE_SESSION_ITEM,
     G_IMPLEMENT_INTERFACE (WP_TYPE_SI_ENDPOINT, si_audio_endpoint_endpoint_init)
-    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_PORT_INFO,
-      si_audio_endpoint_port_info_init))
+    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_LINKABLE,
+        si_audio_endpoint_linkable_init))
 
 static void
 si_audio_endpoint_init (WpSiAudioEndpoint * self)
@@ -341,7 +341,7 @@ si_audio_endpoint_endpoint_init (WpSiEndpointInterface * iface)
 }
 
 static GVariant *
-si_audio_endpoint_get_ports (WpSiPortInfo * item, const gchar * context)
+si_audio_endpoint_get_ports (WpSiLinkable * item, const gchar * context)
 {
   WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (item);
   g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_ARRAY);
@@ -395,7 +395,7 @@ si_audio_endpoint_get_ports (WpSiPortInfo * item, const gchar * context)
 }
 
 static void
-si_audio_endpoint_port_info_init (WpSiPortInfoInterface * iface)
+si_audio_endpoint_linkable_init (WpSiLinkableInterface * iface)
 {
   iface->get_ports = si_audio_endpoint_get_ports;
 }

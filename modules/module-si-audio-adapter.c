@@ -38,13 +38,13 @@ struct _WpSiAudioAdapter
   struct spa_audio_info_raw format;
 };
 
-static void si_audio_adapter_port_info_init (WpSiPortInfoInterface * iface);
+static void si_audio_adapter_linkable_init (WpSiLinkableInterface * iface);
 
 G_DECLARE_FINAL_TYPE(WpSiAudioAdapter, si_audio_adapter, WP, SI_AUDIO_ADAPTER,
     WpSessionItem)
 G_DEFINE_TYPE_WITH_CODE (WpSiAudioAdapter, si_audio_adapter,
     WP_TYPE_SESSION_ITEM,
-    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_PORT_INFO, si_audio_adapter_port_info_init))
+    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_LINKABLE, si_audio_adapter_linkable_init))
 
 static void
 si_audio_adapter_init (WpSiAudioAdapter * self)
@@ -384,7 +384,7 @@ si_audio_adapter_class_init (WpSiAudioAdapterClass * klass)
 }
 
 static GVariant *
-si_audio_adapter_get_ports (WpSiPortInfo * item, const gchar * context)
+si_audio_adapter_get_ports (WpSiLinkable * item, const gchar * context)
 {
   WpSiAudioAdapter *self = WP_SI_AUDIO_ADAPTER (item);
   g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_ARRAY);
@@ -438,7 +438,7 @@ si_audio_adapter_get_ports (WpSiPortInfo * item, const gchar * context)
 }
 
 static void
-si_audio_adapter_port_info_init (WpSiPortInfoInterface * iface)
+si_audio_adapter_linkable_init (WpSiLinkableInterface * iface)
 {
   iface->get_ports = si_audio_adapter_get_ports;
 }

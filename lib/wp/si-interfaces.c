@@ -76,27 +76,27 @@ wp_si_endpoint_get_properties (WpSiEndpoint * self)
 }
 
 /**
- * WpSiPortInfo:
+ * WpSiLinkable:
  *
  * An interface for retrieving PipeWire port information from a session item.
  * This information is used to create links in the nodes graph.
  */
-G_DEFINE_INTERFACE (WpSiPortInfo, wp_si_port_info, WP_TYPE_SESSION_ITEM)
+G_DEFINE_INTERFACE (WpSiLinkable, wp_si_linkable, WP_TYPE_SESSION_ITEM)
 
 static WpSiAcquisition *
-wp_si_port_info_default_get_acquisition (WpSiPortInfo * self)
+wp_si_linkable_default_get_acquisition (WpSiLinkable * self)
 {
   return NULL;
 }
 
 static void
-wp_si_port_info_default_init (WpSiPortInfoInterface * iface)
+wp_si_linkable_default_init (WpSiLinkableInterface * iface)
 {
-  iface->get_acquisition = wp_si_port_info_default_get_acquisition;
+  iface->get_acquisition = wp_si_linkable_default_get_acquisition;
 }
 
 /**
- * wp_si_port_info_get_ports: (virtual get_ports)
+ * wp_si_linkable_get_ports: (virtual get_ports)
  * @self: the session item
  * @context: (nullable): an optional context for the ports
  *
@@ -123,12 +123,12 @@ wp_si_port_info_default_init (WpSiPortInfoInterface * iface)
  * Contexts other than %NULL may only be used internally to ease the
  * implementation of more complex item relationships. For example, a
  * #WpSessionItem that is in control of an input (sink) adapter node may
- * implement #WpSiPortInfo where the %NULL context will return the standard
+ * implement #WpSiLinkable where the %NULL context will return the standard
  * input ports and the "monitor" context will return the adapter's monitor
  * ports. When linking this item to another item, the %NULL context
  * will always be used, but the item may internally spawn a secondary
  * #WpSessionItem that implements the "monitor" item. That secondary
- * item may implement #WpSiPortInfo, chaining calls to the #WpSiPortInfo
+ * item may implement #WpSiLinkable, chaining calls to the #WpSiLinkable
  * of the original item using the "monitor" context. This way, the monitor
  * #WpSessionItem does not need to share control of the underlying node; it
  * only proxies calls to satisfy the API.
@@ -137,16 +137,16 @@ wp_si_port_info_default_init (WpSiPortInfoInterface * iface)
  *   ports of this item
  */
 GVariant *
-wp_si_port_info_get_ports (WpSiPortInfo * self, const gchar * context)
+wp_si_linkable_get_ports (WpSiLinkable * self, const gchar * context)
 {
-  g_return_val_if_fail (WP_IS_SI_PORT_INFO (self), NULL);
-  g_return_val_if_fail (WP_SI_PORT_INFO_GET_IFACE (self)->get_ports, NULL);
+  g_return_val_if_fail (WP_IS_SI_LINKABLE (self), NULL);
+  g_return_val_if_fail (WP_SI_LINKABLE_GET_IFACE (self)->get_ports, NULL);
 
-  return WP_SI_PORT_INFO_GET_IFACE (self)->get_ports (self, context);
+  return WP_SI_LINKABLE_GET_IFACE (self)->get_ports (self, context);
 }
 
 /**
- * wp_si_port_info_get_acquisition: (virtual get_acquisition)
+ * wp_si_linkable_get_acquisition: (virtual get_acquisition)
  * @self: the session item
  *
  * Returns: (transfer none) (nullable): the acquisition interface associated
@@ -154,13 +154,13 @@ wp_si_port_info_get_ports (WpSiPortInfo * self, const gchar * context)
  *   before linking them
  */
 WpSiAcquisition *
-wp_si_port_info_get_acquisition (WpSiPortInfo * self)
+wp_si_linkable_get_acquisition (WpSiLinkable * self)
 {
-  g_return_val_if_fail (WP_IS_SI_PORT_INFO (self), NULL);
+  g_return_val_if_fail (WP_IS_SI_LINKABLE (self), NULL);
   g_return_val_if_fail (
-      WP_SI_PORT_INFO_GET_IFACE (self)->get_acquisition, NULL);
+      WP_SI_LINKABLE_GET_IFACE (self)->get_acquisition, NULL);
 
-  return WP_SI_PORT_INFO_GET_IFACE (self)->get_acquisition (self);
+  return WP_SI_LINKABLE_GET_IFACE (self)->get_acquisition (self);
 }
 
 /**
@@ -225,7 +225,7 @@ wp_si_link_get_properties (WpSiLink * self)
  *
  * Returns: (transfer none): the output item that is linked by this link
  */
-WpSiPortInfo *
+WpSiLinkable *
 wp_si_link_get_out_item (WpSiLink * self)
 {
   g_return_val_if_fail (WP_IS_SI_LINK (self), NULL);
@@ -240,7 +240,7 @@ wp_si_link_get_out_item (WpSiLink * self)
  *
  * Returns: (transfer none): the input item that is linked by this link
  */
-WpSiPortInfo *
+WpSiLinkable *
 wp_si_link_get_in_item (WpSiLink * self)
 {
   g_return_val_if_fail (WP_IS_SI_LINK (self), NULL);
@@ -255,8 +255,8 @@ wp_si_link_get_in_item (WpSiLink * self)
  * This interface provides a way to request an item for linking before doing
  * so. This allows item implementations to apply internal policy rules.
  *
- * A #WpSiAcquisition is associated directly with a #WpSiPortInfo via
- * wp_si_port_info_get_acquisition(). In order to allow switching policies, it
+ * A #WpSiAcquisition is associated directly with a #WpSiLinkable via
+ * wp_si_linkable_get_acquisition(). In order to allow switching policies, it
  * is recommended that port info implementations use a separate
  * session item to implement this interface and allow replacing it.
  */
@@ -287,7 +287,7 @@ wp_si_acquisition_default_init (WpSiAcquisitionInterface * iface)
  */
 void
 wp_si_acquisition_acquire (WpSiAcquisition * self, WpSiLink * acquisitor,
-    WpSiPortInfo * item, GAsyncReadyCallback callback, gpointer data)
+    WpSiLinkable * item, GAsyncReadyCallback callback, gpointer data)
 {
   g_return_if_fail (WP_IS_SI_ACQUISITION (self));
   g_return_if_fail (WP_SI_ACQUISITION_GET_IFACE (self)->acquire);
@@ -328,7 +328,7 @@ wp_si_acquisition_acquire_finish (WpSiAcquisition * self, GAsyncResult * res,
  */
 void
 wp_si_acquisition_release (WpSiAcquisition * self, WpSiLink * acquisitor,
-    WpSiPortInfo * item)
+    WpSiLinkable * item)
 {
   g_return_if_fail (WP_IS_SI_ACQUISITION (self));
   g_return_if_fail (WP_SI_ACQUISITION_GET_IFACE (self)->release);

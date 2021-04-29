@@ -395,8 +395,8 @@ wp_impl_endpoint_link_constructed (GObject * object)
   g_autoptr (GVariant) info = NULL;
   g_autoptr (GVariantIter) immutable_props = NULL;
   const gchar *key, *value;
-  g_autoptr (WpSiPortInfo) si_out = NULL;
-  g_autoptr (WpSiPortInfo) si_in = NULL;
+  g_autoptr (WpSiLinkable) si_out = NULL;
+  g_autoptr (WpSiLinkable) si_in = NULL;
 
   self->info.version = PW_VERSION_ENDPOINT_LINK_INFO;
   self->info.error = NULL;

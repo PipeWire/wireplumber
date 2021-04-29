@@ -67,7 +67,7 @@ test_si_audio_adapter_configure_activate (TestFixture * f,
   /* create adapter */
   adapter = wp_session_item_make (f->base.core, "si-audio-adapter");
   g_assert_nonnull (adapter);
-  g_assert_true (WP_IS_SI_PORT_INFO (adapter));
+  g_assert_true (WP_IS_SI_LINKABLE (adapter));
 
   /* configure */
   {

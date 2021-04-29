@@ -128,7 +128,8 @@ function getSiLinkAndSiPeerEndpoint (si)
   return nil, nil
 end
 
-function isSiPortInfoValid (si)
+
+function isSiLinkableValid (si)
   -- only handle session items that has a node associated proxy
   local node = si:get_associated_proxy ("node")
   if not node or not node.properties then
@@ -151,9 +152,9 @@ function isSiPortInfoValid (si)
   return true
 end
 
-function handleSiPortInfo (si)
+function handleSiLinkable (si)
   -- check if item is valid
-  if not isSiPortInfoValid (si) then
+  if not isSiLinkableValid (si) then
     return
   end
 
@@ -186,9 +187,9 @@ function handleSiPortInfo (si)
   createLink (si, si_target_ep)
 end
 
-function unhandleSiPortInfo (si)
+function unhandleSiLinkable (si)
   -- check if item is valid
-  if not isSiPortInfoValid (si) then
+  if not isSiLinkableValid (si) then
     return
   end
 
@@ -199,7 +200,7 @@ function unhandleSiPortInfo (si)
   for silink in silinks_om:iterate() do
     local out_id = tostring (silink.properties["out.item.id"])
     local in_id = tostring (silink.properties["in.item.id"])
-    for si in siportinfos_om:iterate() do
+    for si in silinkables_om:iterate() do
       if out_id == si.id or in_id == si.id then
         silink:remove ()
         Log.info (silink, "link removed")
@@ -209,7 +210,7 @@ function unhandleSiPortInfo (si)
 end
 
 siendpoints_om = ObjectManager { Interest { type = "SiEndpoint" }}
-siportinfos_om = ObjectManager { Interest { type = "SiPortInfo",
+silinkables_om = ObjectManager { Interest { type = "SiLinkable",
   -- only handle si-audio-adapter and si-node
   Constraint {
     "si.factory.name", "c", "si-audio-adapter", "si-node", type = "pw-global" },
@@ -220,14 +221,14 @@ silinks_om = ObjectManager { Interest { type = "SiLink",
   Constraint { "is.policy.endpoint.client.link", "=", true, type = "pw-global" },
 } }
 
-siportinfos_om:connect("object-added", function (om, si)
-  handleSiPortInfo (si)
+silinkables_om:connect("object-added", function (om, si)
+  handleSiLinkable (si)
 end)
 
-siportinfos_om:connect("object-removed", function (om, si)
-  unhandleSiPortInfo (si)
+silinkables_om:connect("object-removed", function (om, si)
+  unhandleSiLinkable (si)
 end)
 
 siendpoints_om:activate()
-siportinfos_om:activate()
+silinkables_om:activate()
 silinks_om:activate()

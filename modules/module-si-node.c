@@ -26,11 +26,11 @@ struct _WpSiNode
   WpDirection direction;
 };
 
-static void si_node_port_info_init (WpSiPortInfoInterface * iface);
+static void si_node_linkable_init (WpSiLinkableInterface * iface);
 
 G_DECLARE_FINAL_TYPE(WpSiNode, si_node, WP, SI_NODE, WpSessionItem)
 G_DEFINE_TYPE_WITH_CODE (WpSiNode, si_node, WP_TYPE_SESSION_ITEM,
-    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_PORT_INFO, si_node_port_info_init))
+    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_LINKABLE, si_node_linkable_init))
 
 static void
 si_node_init (WpSiNode * self)
@@ -204,7 +204,7 @@ si_node_class_init (WpSiNodeClass * klass)
 }
 
 static GVariant *
-si_node_get_ports (WpSiPortInfo * item, const gchar * context)
+si_node_get_ports (WpSiLinkable * item, const gchar * context)
 {
   WpSiNode *self = WP_SI_NODE (item);
   g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_ARRAY);
@@ -258,7 +258,7 @@ si_node_get_ports (WpSiPortInfo * item, const gchar * context)
 }
 
 static void
-si_node_port_info_init (WpSiPortInfoInterface * iface)
+si_node_linkable_init (WpSiLinkableInterface * iface)
 {
   iface->get_ports = si_node_get_ports;
 }
