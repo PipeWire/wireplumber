@@ -91,7 +91,10 @@ function findTargetByNodeTargetProperty (node)
   if target_id_str then
     for si_target in siportinfos_om:iterate() do
       local target_node = si_target:get_associated_proxy ("node")
-      if target_node["bound-id"] == tonumber(target_id_str) then
+      local target_props = target_node.properties
+      if target_node["bound-id"] == tonumber(target_id_str) or
+         target_props["node.name"] == target_id_str or
+         target_props["object.path"] == target_id_str then
         return si_target
       end
     end
