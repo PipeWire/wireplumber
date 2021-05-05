@@ -401,7 +401,7 @@ create_links (WpSiStandardLink * self, WpTransition * transition,
     }
   }
   g_variant_iter_free (iter);
-  return TRUE;
+  return self->node_links > 0;
 }
 
 static void
@@ -420,7 +420,7 @@ si_standard_link_do_link (WpSiStandardLink *self, WpTransition *transition)
   if (!create_links (self, transition, out_ports, in_ports))
       wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
           WP_LIBRARY_ERROR_INVARIANT,
-          "Bad port info returned from one of the items"));
+          "Failed to create links because of wrong ports"));
 }
 
 static void
