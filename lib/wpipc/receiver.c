@@ -178,6 +178,7 @@ wpipc_receiver_free (struct wpipc_receiver *self)
   wpipc_epoll_thread_destroy (&self->epoll_thread);
   free (self->buffer_read);
   close (self->socket_fd);
+  unlink (self->addr.sun_path);
   free (self);
 }
 
