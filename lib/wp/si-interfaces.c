@@ -76,6 +76,85 @@ wp_si_endpoint_get_properties (WpSiEndpoint * self)
 }
 
 /**
+ * WpSiAdapter:
+ *
+ * An interface for setting and getting the session item format.
+ */
+G_DEFINE_INTERFACE (WpSiAdapter, wp_si_adapter, WP_TYPE_SESSION_ITEM)
+
+static void
+wp_si_adapter_default_init (WpSiAdapterInterface * iface)
+{
+}
+
+/**
+ * wp_si_adapter_get_ports_format: (virtual get_ports_format)
+ * @self: the session item
+ * @mode: (out) (nullable): the mode
+ *
+ * Returns: (transfer full): The format used to configure the ports of the
+ * adapter session item. Some items automatically choose a format when being
+ * activated, others never set a format on activation and the user needs to
+ * manually set it externally with wp_si_adapter_set_ports_format().
+ */
+WpSpaPod *
+wp_si_adapter_get_ports_format (WpSiAdapter * self, const gchar **mode)
+{
+  g_return_val_if_fail (WP_IS_SI_ADAPTER (self), NULL);
+  g_return_val_if_fail (WP_SI_ADAPTER_GET_IFACE (self)->get_ports_format, NULL);
+
+  return WP_SI_ADAPTER_GET_IFACE (self)->get_ports_format (self, mode);
+}
+
+/**
+ * wp_si_adapter_set_ports_format: (virtual set_ports_format)
+ * @self: the session item
+ * @format: (transfer full) (nullable): the format to be set
+ * @mode (nullable): the mode
+ * @callback: (scope async): the callback to call when the operation is done
+ * @data: (closure): user data for @callback
+ *
+ * Sets the format and configures the adapter session item ports using the
+ * given format. The result of the operation can be checked using the
+ * wp_si_adapter_set_ports_format_finish() API. If format is NULL, the adapter
+ * will be configured with the default format. If mode is NULL, the adapter
+ * will use "dsp" mode.
+ */
+void
+wp_si_adapter_set_ports_format (WpSiAdapter * self, WpSpaPod *format,
+    const gchar *mode, GAsyncReadyCallback callback, gpointer data)
+{
+  g_return_if_fail (WP_IS_SI_ADAPTER (self));
+  g_return_if_fail (WP_SI_ADAPTER_GET_IFACE (self)->set_ports_format);
+
+  WP_SI_ADAPTER_GET_IFACE (self)->set_ports_format (self, format, mode,
+      callback, data);
+}
+
+/**
+ * wp_si_adapter_set_ports_format_finish: (virtual set_ports_format_finish)
+ * @self: the session item
+ * @res: the async result
+ * @error: (out) (optional): the operation's error, if it occurred
+ *
+ * Finishes the operation started by wp_si_adapter_set_format().
+ * This is meant to be called in the callback that was passed to that method.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error
+ */
+gboolean
+wp_si_adapter_set_ports_format_finish (WpSiAdapter * self, GAsyncResult * res,
+      GError ** error)
+{
+  g_return_val_if_fail (WP_IS_SI_ADAPTER (self), FALSE);
+  g_return_val_if_fail (WP_SI_ADAPTER_GET_IFACE (self)->set_ports_format_finish,
+     FALSE);
+
+  return WP_SI_ADAPTER_GET_IFACE (self)->set_ports_format_finish (self, res,
+     error);
+}
+
+/**
  * WpSiLinkable:
  *
  * An interface for retrieving PipeWire port information from a session item.

@@ -11,6 +11,7 @@
 
 #include "session-item.h"
 #include "properties.h"
+#include "spa-pod.h"
 
 G_BEGIN_DECLS
 
@@ -39,6 +40,39 @@ GVariant * wp_si_endpoint_get_registration_info (WpSiEndpoint * self);
 
 WP_API
 WpProperties * wp_si_endpoint_get_properties (WpSiEndpoint * self);
+
+/**
+ * WP_TYPE_SI_ADAPTER:
+ *
+ * The #WpSiAdapter #GType
+ */
+#define WP_TYPE_SI_ADAPTER (wp_si_adapter_get_type ())
+WP_API
+G_DECLARE_INTERFACE (WpSiAdapter, wp_si_adapter,
+                     WP, SI_ADAPTER, WpSessionItem)
+
+struct _WpSiAdapterInterface
+{
+  GTypeInterface interface;
+
+  WpSpaPod * (*get_ports_format) (WpSiAdapter * self, const gchar **mode);
+  void (*set_ports_format) (WpSiAdapter * self, WpSpaPod *format,
+      const gchar *mode, GAsyncReadyCallback callback, gpointer data);
+  gboolean (*set_ports_format_finish) (WpSiAdapter * self, GAsyncResult * res,
+      GError ** error);
+};
+
+WP_API
+WpSpaPod *wp_si_adapter_get_ports_format (WpSiAdapter * self,
+    const gchar **mode);
+
+WP_API
+void wp_si_adapter_set_ports_format (WpSiAdapter * self, WpSpaPod *format,
+    const gchar *mode, GAsyncReadyCallback callback, gpointer data);
+
+WP_API
+gboolean wp_si_adapter_set_ports_format_finish (WpSiAdapter * self,
+    GAsyncResult * res, GError ** error);
 
 /**
  * WP_TYPE_SI_LINKABLE:
