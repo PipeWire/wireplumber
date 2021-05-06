@@ -9,7 +9,7 @@
 #include <glib.h>
 #include <wpipc/wpipc.h>
 
-#define TEST_ADDRESS "/tmp/wpipc-sender-receiver"
+#define TEST_ADDRESS "wpipc-sender-receiver"
 
 struct event_data {
   const uint8_t * expected_data;

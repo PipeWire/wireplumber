@@ -18,6 +18,7 @@
 #include <time.h>
 #include <errno.h>
 #include <assert.h>
+#include <pwd.h>
 
 #include "private.h"
 
@@ -87,6 +88,47 @@ wpipc_log (enum wpipc_log_level level, const char *fmt, ...)
   va_start (args, fmt);
   wpipc_logv (level, fmt, args);
   va_end (args);
+}
+
+/* socket path */
+
+int
+wpipc_construct_socket_path (const char *name, char *buf, size_t buf_size)
+{
+  bool path_is_absolute;
+  const char *runtime_dir = NULL;
+  struct passwd pwd, *result = NULL;
+  char buffer[4096];
+  int name_size;
+
+  path_is_absolute = name[0] == '/';
+
+  if (!path_is_absolute) {
+    runtime_dir = getenv("PIPEWIRE_RUNTIME_DIR");
+    if (runtime_dir == NULL)
+      runtime_dir = getenv("XDG_RUNTIME_DIR");
+    if (runtime_dir == NULL)
+      runtime_dir = getenv("HOME");
+    if (runtime_dir == NULL)
+      runtime_dir = getenv("USERPROFILE");
+    if (runtime_dir == NULL) {
+      if (getpwuid_r(getuid(), &pwd, buffer, sizeof(buffer), &result) == 0)
+        runtime_dir = result ? result->pw_dir : NULL;
+    }
+  }
+
+  if (runtime_dir == NULL && !path_is_absolute)
+    return -ENOENT;
+
+  if (path_is_absolute)
+    name_size = snprintf (buf, buf_size, "%s", name) + 1;
+  else
+    name_size = snprintf (buf, buf_size, "%s/%s", runtime_dir, name) + 1;
+
+  if (name_size > (int) buf_size)
+    return -ENAMETOOLONG;
+
+  return 0;
 }
 
 /* socket */

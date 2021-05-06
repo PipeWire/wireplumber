@@ -11,7 +11,7 @@
 #include <spa/pod/parser.h>
 #include <wpipc/wpipc.h>
 
-#define TEST_ADDRESS "/tmp/wpipc-client-server"
+#define TEST_ADDRESS "wpipc-client-server"
 
 static bool
 increment_request_handler (struct wpipc_server *self, int client_fd,

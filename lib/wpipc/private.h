@@ -48,6 +48,11 @@ wpipc_log (enum wpipc_log_level level,
            const char *fmt,
            ...) __attribute__ ((format (printf, 2, 3)));
 
+/* socket path */
+
+int
+wpipc_construct_socket_path (const char *name, char *buf, size_t buf_size);
+
 /* socket */
 
 ssize_t

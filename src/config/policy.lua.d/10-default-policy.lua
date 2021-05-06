@@ -28,7 +28,7 @@ function default_policy.enable()
   load_module("mixer-api")
 
   -- Listens for events comming from the wpipc library
-  load_module("ipc", {["path"] = "/tmp/wpipc"})
+  load_module("ipc", {["path"] = "wpipc"})
 
   -- Create sessions statically at startup
   load_script("static-sessions.lua", default_policy.sessions)
