@@ -48,3 +48,7 @@ wpipc_dep = declare_dependency(
   include_directories: wp_lib_include_dir,
   dependencies: [spa_dep],
 )
+
+pkgconfig.generate(wpipc_lib,
+  subdirs: 'wpipc-' + wpipc_api_version
+)
