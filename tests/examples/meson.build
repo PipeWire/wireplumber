@@ -18,6 +18,6 @@ if wpipc_dep.found()
       '-DG_LOG_DOMAIN="wpipc-client"',
     ],
     install: false,
-    dependencies : [wpipc_dep],
+    dependencies : [wpipc_dep, threads_dep],
   )
 endif

@@ -48,6 +48,7 @@ giounix_dep = dependency('gio-unix-2.0', version : glib_req_version)
 spa_dep = dependency('libspa-0.2', version: '>= 0.2')
 pipewire_dep = dependency('libpipewire-0.3', version: '>= 0.3.20')
 mathlib = cc.find_library('m')
+threads_dep = dependency('threads')
 
 if get_option('system-lua')
   lua_dep = dependency('lua', version: ['>=5.3.0', '<5.4.0'], required: false)
