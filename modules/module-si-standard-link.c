@@ -253,24 +253,6 @@ si_standard_link_disable_exported (WpSessionItem *si)
 }
 
 static void
-on_item_acquired (WpSiAcquisition * acq, GAsyncResult * res,
-    WpTransition * transition)
-{
-  WpSiStandardLink *self = wp_transition_get_source_object (transition);
-  g_autoptr (GError) error = NULL;
-
-  if (!wp_si_acquisition_acquire_finish (acq, res, &error)) {
-    wp_transition_return_error (transition, g_steal_pointer (&error));
-    return;
-  }
-
-  self->n_async_ops_wait--;
-  if (self->n_async_ops_wait == 0)
-    wp_object_update_features (WP_OBJECT (self),
-        WP_SESSION_ITEM_FEATURE_ACTIVE, 0);
-}
-
-static void
 on_link_activated (WpObject * proxy, GAsyncResult * res,
     WpTransition * transition)
 {
@@ -405,22 +387,200 @@ create_links (WpSiStandardLink * self, WpTransition * transition,
 }
 
 static void
-si_standard_link_do_link (WpSiStandardLink *self, WpTransition *transition)
+get_ports_and_create_links (WpSiStandardLink *self, WpTransition *transition)
 {
-  g_autoptr (WpSessionItem) si_out = g_weak_ref_get (&self->out_item);
-  g_autoptr (WpSessionItem) si_in = g_weak_ref_get (&self->in_item);
+  g_autoptr (WpSiLinkable) si_out = NULL;
+  g_autoptr (WpSiLinkable) si_in = NULL;
   g_autoptr (GVariant) out_ports = NULL;
   g_autoptr (GVariant) in_ports = NULL;
 
-  out_ports = wp_si_linkable_get_ports (WP_SI_LINKABLE (si_out),
-      self->out_item_port_context);
-  in_ports = wp_si_linkable_get_ports (WP_SI_LINKABLE (si_in),
-      self->in_item_port_context);
+  si_out = WP_SI_LINKABLE (g_weak_ref_get (&self->out_item));
+  si_in = WP_SI_LINKABLE (g_weak_ref_get (&self->in_item));
+
+  g_return_if_fail (si_out);
+  g_return_if_fail (si_in);
+
+  out_ports = wp_si_linkable_get_ports (si_out, self->out_item_port_context);
+  in_ports = wp_si_linkable_get_ports (si_in, self->in_item_port_context);
 
   if (!create_links (self, transition, out_ports, in_ports))
       wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
           WP_LIBRARY_ERROR_INVARIANT,
           "Failed to create links because of wrong ports"));
+}
+
+static void
+on_adapters_ready (GObject *obj, GAsyncResult * res, gpointer p)
+{
+  WpTransition *transition = p;
+  WpSiStandardLink *self = wp_transition_get_source_object (transition);
+  g_autoptr (GError) error = NULL;
+
+  wp_si_adapter_set_ports_format_finish (WP_SI_ADAPTER (obj), res, &error);
+  if (error) {
+    wp_transition_return_error (transition, g_steal_pointer (&error));
+    return;
+  }
+
+  /* create links */
+  get_ports_and_create_links (self, transition);
+}
+
+static void
+on_out_adapter_ready (GObject *obj, GAsyncResult * res, gpointer p)
+{
+  WpTransition *transition = p;
+  WpSiStandardLink *self = wp_transition_get_source_object (transition);
+  g_autoptr (GError) error = NULL;
+  g_autoptr (WpSiAdapter) si_out = NULL;
+  g_autoptr (WpSiAdapter) si_in = NULL;
+  g_autoptr (WpSpaPod) format = NULL;
+  const gchar *mode = NULL;
+
+  wp_si_adapter_set_ports_format_finish (WP_SI_ADAPTER (obj), res, &error);
+  if (error) {
+    wp_transition_return_error (transition, g_steal_pointer (&error));
+    return;
+  }
+
+  si_out = WP_SI_ADAPTER (g_weak_ref_get (&self->out_item));
+  si_in = WP_SI_ADAPTER (g_weak_ref_get (&self->in_item));
+
+  g_return_if_fail (si_out);
+  g_return_if_fail (si_in);
+
+  /* Get out-format and set in-format */
+  format = wp_si_adapter_get_ports_format (si_out, &mode);
+  g_return_if_fail (mode);
+  g_return_if_fail (format);
+  wp_si_adapter_set_ports_format (si_in, wp_spa_pod_ref (format), mode,
+      on_adapters_ready, transition);
+}
+
+static void
+configure_and_link_adapters (WpSiStandardLink *self,
+    WpTransition *transition)
+{
+  g_autoptr (WpSiAdapter) si_out = NULL;
+  g_autoptr (WpSiAdapter) si_in = NULL;
+  gboolean out_is_device = FALSE;
+  gboolean in_is_device = FALSE;
+  const gchar *str = NULL;
+
+  si_out = WP_SI_ADAPTER (g_weak_ref_get (&self->out_item));
+  si_in = WP_SI_ADAPTER (g_weak_ref_get (&self->in_item));
+
+  g_return_if_fail (si_out);
+  g_return_if_fail (si_in);
+
+  str = wp_session_item_get_property (WP_SESSION_ITEM (si_out), "is.device");
+  out_is_device = str && pw_properties_parse_bool (str);
+  str = wp_session_item_get_property (WP_SESSION_ITEM (si_in), "is.device");
+  in_is_device = str && pw_properties_parse_bool (str);
+
+  /* Out is device node, In is not */
+  if (out_is_device && !in_is_device) {
+    const gchar *out_mode = NULL;
+    g_autoptr (WpSpaPod) out_format =
+        wp_si_adapter_get_ports_format (si_out, &out_mode);
+    g_autoptr (WpSpaPod) in_format =
+        wp_si_adapter_get_ports_format (si_in, NULL);
+    g_return_if_fail (out_mode);
+    g_return_if_fail (out_format);
+    if (in_format && wp_spa_pod_equal (out_format, in_format))
+      get_ports_and_create_links (self, transition);
+    else
+      wp_si_adapter_set_ports_format (si_in, wp_spa_pod_ref (out_format),
+          out_mode, on_adapters_ready, transition);
+  }
+
+  /* Out is not device node, In is */
+  else if (!out_is_device && in_is_device) {
+    const gchar *in_mode = NULL;
+    g_autoptr (WpSpaPod) in_format =
+        wp_si_adapter_get_ports_format (si_in, &in_mode);
+    g_autoptr (WpSpaPod) out_format =
+        wp_si_adapter_get_ports_format (si_out, NULL);
+    g_return_if_fail (in_format);
+    g_return_if_fail (in_mode);
+    if (out_format && wp_spa_pod_equal (in_format, out_format))
+      get_ports_and_create_links (self, transition);
+    else
+      wp_si_adapter_set_ports_format (si_out, wp_spa_pod_ref (in_format),
+          in_mode, on_adapters_ready, transition);
+  }
+
+  /* Both Out and In are device nodes */
+  else if (out_is_device && in_is_device) {
+    const gchar *out_mode = NULL;
+    g_autoptr (WpSpaPod) out_format =
+        wp_si_adapter_get_ports_format (si_out, &out_mode);
+    g_autoptr (WpSpaPod) in_format =
+        wp_si_adapter_get_ports_format (si_out, NULL);
+    g_return_if_fail (out_mode);
+    g_return_if_fail (out_format);
+    g_return_if_fail (in_format);
+    if (wp_spa_pod_equal (out_format, in_format))
+      get_ports_and_create_links (self, transition);
+    else
+      wp_si_adapter_set_ports_format (si_in, wp_spa_pod_ref (out_format),
+          out_mode, on_adapters_ready, transition);
+  }
+
+  /* Neither Out or In are device nodes */
+  else if (!out_is_device && !in_is_device) {
+    const gchar *mode = NULL;
+    g_autoptr (WpSpaPod) out_format = wp_si_adapter_get_ports_format (si_out,
+        &mode);
+    if (out_format) {
+      wp_si_adapter_set_ports_format (si_in, wp_spa_pod_ref (out_format), mode,
+          on_adapters_ready, transition);
+    } else {
+      g_autoptr (WpSpaPod) in_format = wp_si_adapter_get_ports_format (si_in,
+          &mode);
+      if (in_format) {
+        wp_si_adapter_set_ports_format (si_out, wp_spa_pod_ref (in_format),
+            mode, on_adapters_ready, transition);
+      } else {
+        /* Use default format */
+        wp_si_adapter_set_ports_format (si_out, NULL, NULL,
+            on_out_adapter_ready, transition);
+      }
+    }
+  }
+}
+
+static void
+si_standard_link_do_link (WpSiStandardLink *self, WpTransition *transition)
+{
+  g_autoptr (WpSessionItem) si_out = g_weak_ref_get (&self->out_item);
+  g_autoptr (WpSessionItem) si_in = g_weak_ref_get (&self->in_item);
+
+  if (WP_IS_SI_ADAPTER (si_out) && WP_IS_SI_ADAPTER (si_in))
+    configure_and_link_adapters (self, transition);
+  else if (!WP_IS_SI_ADAPTER (si_out) && !WP_IS_SI_ADAPTER (si_in))
+    get_ports_and_create_links (self, transition);
+  else
+    wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
+          WP_LIBRARY_ERROR_INVARIANT,
+          "Adapters cannot be linked with non-adapters"));
+}
+
+static void
+on_item_acquired (WpSiAcquisition * acq, GAsyncResult * res,
+    WpTransition * transition)
+{
+  WpSiStandardLink *self = wp_transition_get_source_object (transition);
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_si_acquisition_acquire_finish (acq, res, &error)) {
+    wp_transition_return_error (transition, g_steal_pointer (&error));
+    return;
+  }
+
+  self->n_async_ops_wait--;
+  if (self->n_async_ops_wait == 0)
+    si_standard_link_do_link (self, transition);
 }
 
 static void
