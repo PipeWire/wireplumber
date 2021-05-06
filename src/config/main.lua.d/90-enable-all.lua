@@ -17,3 +17,6 @@ load_script("suspend-node.lua")
 
 -- Automatically sets device profiles to 'On'
 load_module("device-activation")
+
+-- Listens for events comming from the wpipc library
+--load_module("ipc", {["path"] = "wpipc"})
