@@ -41,7 +41,7 @@
 #define G_LOG_DOMAIN "wp-object-manager"
 
 #include "object-manager.h"
-#include "debug.h"
+#include "log.h"
 #include "private/registry.h"
 
 #include <pipewire/pipewire.h>

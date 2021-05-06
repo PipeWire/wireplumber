@@ -34,7 +34,7 @@
 #define G_LOG_DOMAIN "wp-transition"
 
 #include "transition.h"
-#include "debug.h"
+#include "log.h"
 #include "error.h"
 
 typedef struct _WpTransitionPrivate WpTransitionPrivate;

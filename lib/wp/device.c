@@ -16,7 +16,7 @@
 #include "device.h"
 #include "node.h"
 #include "core.h"
-#include "debug.h"
+#include "log.h"
 #include "error.h"
 #include "private/pipewire-object-mixin.h"
 

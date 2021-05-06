@@ -12,7 +12,7 @@
 #include "core.h"
 #include "spa-type.h"
 #include "spa-pod.h"
-#include "debug.h"
+#include "log.h"
 #include "error.h"
 
 #include <spa/utils/result.h>

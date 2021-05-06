@@ -14,7 +14,7 @@
 #define G_LOG_DOMAIN "wp-object"
 
 #include "object.h"
-#include "debug.h"
+#include "log.h"
 #include "core.h"
 
 struct _WpFeatureActivationTransition

@@ -19,7 +19,7 @@
 #include "session.h"
 #include "object-manager.h"
 #include "error.h"
-#include "debug.h"
+#include "log.h"
 #include "wpenums.h"
 #include "spa-type.h"
 #include "si-factory.h"

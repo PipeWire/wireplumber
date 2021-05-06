@@ -17,7 +17,7 @@
 #include "global-proxy.h"
 #include "session-item.h"
 #include "proxy-interfaces.h"
-#include "debug.h"
+#include "log.h"
 #include "error.h"
 
 #include <pipewire/pipewire.h>

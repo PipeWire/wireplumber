@@ -6,8 +6,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef __WIREPLUMBER_DEBUG_H__
-#define __WIREPLUMBER_DEBUG_H__
+#ifndef __WIREPLUMBER_LOG_H__
+#define __WIREPLUMBER_LOG_H__
 
 #include <glib-object.h>
 #include "defs.h"

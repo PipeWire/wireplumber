@@ -23,7 +23,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-#include "debug.h"
+#include "log.h"
 #include "state.h"
 
 enum {

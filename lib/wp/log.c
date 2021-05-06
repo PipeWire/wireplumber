@@ -7,11 +7,11 @@
  */
 
 /**
- * SECTION: debug
+ * SECTION: log
  * @title: Debug Logging
  */
 
-#include "debug.h"
+#include "log.h"
 #include "spa-pod.h"
 #include "proxy.h"
 #include <pipewire/pipewire.h>

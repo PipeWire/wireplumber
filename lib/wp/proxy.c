@@ -14,7 +14,7 @@
 #define G_LOG_DOMAIN "wp-proxy"
 
 #include "proxy.h"
-#include "debug.h"
+#include "log.h"
 
 #include <pipewire/pipewire.h>
 #include <spa/utils/hook.h>

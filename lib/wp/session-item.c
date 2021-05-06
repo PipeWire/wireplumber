@@ -14,7 +14,7 @@
 #define G_LOG_DOMAIN "wp-si"
 
 #include "session-item.h"
-#include "debug.h"
+#include "log.h"
 #include "error.h"
 #include "private/registry.h"
 

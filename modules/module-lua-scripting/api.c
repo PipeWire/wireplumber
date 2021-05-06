@@ -202,7 +202,7 @@ static const luaL_Reg core_funcs[] = {
   { NULL, NULL }
 };
 
-/* WpDebug */
+/* WpLog */
 
 static int
 log_log (lua_State *L, GLogLevelFlags lvl)
@@ -1264,7 +1264,7 @@ wp_lua_scripting_api_init (lua_State *L)
   lua_setglobal (L, "GLib");
 
   luaL_newlib (L, log_funcs);
-  lua_setglobal (L, "WpDebug");
+  lua_setglobal (L, "WpLog");
 
   luaL_newlib (L, core_funcs);
   lua_setglobal (L, "WpCore");

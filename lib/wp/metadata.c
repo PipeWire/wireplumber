@@ -15,7 +15,7 @@
 
 #include "metadata.h"
 #include "core.h"
-#include "debug.h"
+#include "log.h"
 #include "error.h"
 #include "wpenums.h"
 

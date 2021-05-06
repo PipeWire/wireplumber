@@ -15,7 +15,7 @@
 
 #include "endpoint-link.h"
 #include "session.h"
-#include "debug.h"
+#include "log.h"
 #include "error.h"
 #include "wpenums.h"
 #include "private/pipewire-object-mixin.h"
