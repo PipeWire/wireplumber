@@ -1,3 +1,8 @@
+if get_option('wpipc').disabled()
+  wpipc_dep = disabler()
+  subdir_done()
+endif
+
 wpipc_lib_sources = files(
   'utils.c',
   'protocol.c',

@@ -1,5 +1,5 @@
 subdir('wp')
 subdir('wplua')
-subdir('wpipc')
+subdir('wpipc', if_found: wpipc_dep)
 subdir('modules')
 subdir('examples')
