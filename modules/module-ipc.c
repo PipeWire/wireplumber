@@ -190,7 +190,7 @@ wp_ipc_plugin_disable (WpPlugin * plugin)
   WpIpcPlugin * self = WP_IPC_PLUGIN (plugin);
 
   g_clear_object (&self->metadatas_om);
-  wpipc_server_free (self->server);
+  g_clear_pointer (&self->server, wpipc_server_free);
   g_clear_pointer (&self->suspended_clients, g_hash_table_unref);
 }
 
