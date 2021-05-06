@@ -61,14 +61,6 @@ struct _WpSessionItemClass
   void (*enable_exported) (WpSessionItem * self, WpTransition * transition);
 };
 
-/* parent */
-
-WP_API
-WpSessionItem * wp_session_item_get_parent (WpSessionItem * self);
-
-WP_PRIVATE_API
-void wp_session_item_set_parent (WpSessionItem *self, WpSessionItem *parent);
-
 /* Id */
 
 WP_API
