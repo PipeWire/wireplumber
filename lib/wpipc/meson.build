@@ -21,13 +21,16 @@ wpipc_lib_headers = files(
   'wpipc.h',
 )
 
+wpipc_api_version = '0.1'
+wpipc_so_version = '0'
 
+wpipc_headers_dir = get_option('includedir') / 'wpipc-' + wpipc_api_version / 'wpipc'
 
 install_headers(wpipc_lib_headers,
-  install_dir : get_option('includedir') / 'wpipc-' + wireplumber_api_version / 'wpipc'
+  install_dir : wpipc_headers_dir
 )
 
-wpipc_lib = library('wpipc-' + wireplumber_api_version,
+wpipc_lib = library('wpipc-' + wpipc_api_version,
   wpipc_lib_sources,
   c_args : [
     '-D_GNU_SOURCE',
@@ -36,6 +39,8 @@ wpipc_lib = library('wpipc-' + wireplumber_api_version,
   ],
   install: true,
   dependencies : [dependency('threads'), spa_dep],
+  soversion: wpipc_so_version,
+  version: meson.project_version(),
 )
 
 wpipc_dep = declare_dependency(
