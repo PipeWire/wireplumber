@@ -24,7 +24,7 @@ wpipc_lib_headers = files(
 
 
 install_headers(wpipc_lib_headers,
-  install_dir : join_paths(get_option('includedir'), 'wpipc-' + wireplumber_api_version, 'wpipc')
+  install_dir : get_option('includedir') / 'wpipc-' + wireplumber_api_version / 'wpipc'
 )
 
 wpipc_lib = library('wpipc-' + wireplumber_api_version,

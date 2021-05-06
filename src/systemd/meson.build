@@ -2,7 +2,7 @@ systemd = dependency('systemd', required: get_option('systemd'))
 
 if systemd.found()
   systemd_config = configuration_data()
-  systemd_config.set('WP_BINARY', join_paths(wireplumber_bin_dir, 'wireplumber'))
+  systemd_config.set('WP_BINARY', wireplumber_bin_dir / 'wireplumber')
   systemd_config.set('WP_CONFIG_DIR', wireplumber_config_dir)
 
   # system service
