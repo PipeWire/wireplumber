@@ -27,7 +27,6 @@ typedef struct _WpSessionItemPrivate WpSessionItemPrivate;
 struct _WpSessionItemPrivate
 {
   guint id;
-  GWeakRef parent;
   WpProperties *properties;
 };
 
@@ -57,7 +56,6 @@ wp_session_item_init (WpSessionItem * self)
   WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
 
   priv->id = get_next_id ();
-  g_weak_ref_init (&priv->parent, NULL);
   priv->properties = NULL;
 }
 
@@ -79,17 +77,6 @@ wp_session_item_dispose (GObject * object)
   wp_session_item_reset (self);
 
   G_OBJECT_CLASS (wp_session_item_parent_class)->dispose (object);
-}
-
-static void
-wp_session_item_finalize (GObject * object)
-{
-  WpSessionItem * self = WP_SESSION_ITEM (object);
-  WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
-
-  g_weak_ref_clear (&priv->parent);
-
-  G_OBJECT_CLASS (wp_session_item_parent_class)->finalize (object);
 }
 
 static void
@@ -206,7 +193,6 @@ wp_session_item_class_init (WpSessionItemClass * klass)
   GObjectClass * object_class = (GObjectClass *) klass;
 
   object_class->dispose = wp_session_item_dispose;
-  object_class->finalize = wp_session_item_finalize;
   object_class->get_property = wp_session_item_get_property;
 
   wpobject_class->get_supported_features =
@@ -228,44 +214,6 @@ wp_session_item_class_init (WpSessionItemClass * klass)
       g_param_spec_boxed ("properties", "properties",
           "The session item properties", WP_TYPE_PROPERTIES,
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
-}
-
-/**
- * wp_session_item_get_parent:
- * @self: the session item
- *
- * Gets the item's parent, which is the #WpSessionBin this item has been added
- * to, or NULL if the item does not belong to a session bin.
- *
- * Returns: (nullable) (transfer full): the item's parent.
- */
-WpSessionItem *
-wp_session_item_get_parent (WpSessionItem * self)
-{
-  g_return_val_if_fail (WP_IS_SESSION_ITEM (self), NULL);
-  WpSessionItemPrivate *priv =
-      wp_session_item_get_instance_private (self);
-
-  return g_weak_ref_get (&priv->parent);
-}
-
-/**
- * wp_session_item_set_parent:
- * @self: the session item
- * @parent: (transfer none): the parent item
- *
- * Private API.
- * Sets the item's parent; used internally by #WpSessionBin.
- */
-void
-wp_session_item_set_parent (WpSessionItem *self, WpSessionItem *parent)
-{
-  WpSessionItemPrivate *priv = NULL;
-
-  g_return_if_fail (WP_IS_SESSION_ITEM (self));
-
-  priv = wp_session_item_get_instance_private (self);
-  g_weak_ref_set (&priv->parent, parent);
 }
 
 /**

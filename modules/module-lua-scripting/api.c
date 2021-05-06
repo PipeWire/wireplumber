@@ -1208,22 +1208,6 @@ static const luaL_Reg session_item_methods[] = {
   { NULL, NULL }
 };
 
-/* WpSessionBin */
-
-static int
-session_bin_add (lua_State *L)
-{
-  WpSessionBin *sb = wplua_checkobject (L, 1, WP_TYPE_SESSION_BIN);
-  WpSessionItem *si = wplua_checkobject (L, 2, WP_TYPE_SESSION_ITEM);
-  wp_session_bin_add (sb, g_object_ref (si));
-  return 0;
-}
-
-static const luaL_Reg session_bin_methods[] = {
-  { "add", session_bin_add },
-  { NULL, NULL }
-};
-
 /* WpPipewireObject */
 
 static int
@@ -1310,8 +1294,6 @@ wp_lua_scripting_api_init (lua_State *L)
       NULL, client_methods);
   wplua_register_type_methods (L, WP_TYPE_SESSION_ITEM,
       session_item_new, session_item_methods);
-  wplua_register_type_methods (L, WP_TYPE_SESSION_BIN,
-      NULL, session_bin_methods);
   wplua_register_type_methods (L, WP_TYPE_PIPEWIRE_OBJECT,
       NULL, pipewire_object_methods);
 
