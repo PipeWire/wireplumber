@@ -1,3 +1,34 @@
+# WirePlumber 0.3.95
+
+First pre-release (RC1) of WirePlumber 0.4.0.
+
+Highlights:
+  - Lua scripting engine. All the session management logic is now scripted
+    and there is also the ability to run scripts standalone with `wpexec`
+    (see tests/examples).
+
+  - Compatibility with the latest PipeWire (0.3.26+ required). Also, most
+    features and behavioral logic of pipewire-media-session 0.3.26 are
+    available, making WirePlumber suitable for a desktop PulseAudio & JACK
+    replacement setup.
+
+  - Compatibility with embedded system policies, like the one on AGL, has been
+    restored and is fully configurable.
+
+  - The design of endpoints has been simplified. We now associate endpoints
+    with use cases (roles) instead of physical devices. This removes the need
+    for "endpoint stream" objects, allows more logic to be scripted in lua
+    and makes the graph simpler. It is also possible to run without endpoints
+    at all, matching the behavior of pipewire-media-session and pulseaudio.
+
+  - Configuration is now done using a pipewire-style json .conf file plus lua
+    files. Most of the options go in the lua files, while pipewire context
+    properties, spa_libs and pipewire modules are configured in the json file.
+
+  - Systemd unit files have been added and are the recommended way to run
+    wireplumber. Templated unit files are also available, which allow running
+    multiple instances of wireplumber with a specific configuration each.
+
 # WirePlumber 0.3.0
 
 The desktop-ready release!
