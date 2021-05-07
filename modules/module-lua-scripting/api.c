@@ -278,6 +278,11 @@ plugin_find (lua_State *L)
   return 1;
 }
 
+static const luaL_Reg plugin_funcs[] = {
+  { "find", plugin_find },
+  { NULL, NULL }
+};
+
 /* WpObject */
 
 static void
@@ -1253,8 +1258,8 @@ wp_lua_scripting_api_init (lua_State *L)
   luaL_newlib (L, core_funcs);
   lua_setglobal (L, "WpCore");
 
-  lua_pushcfunction (L, plugin_find);
-  lua_setglobal (L, "WpPlugin_find");
+  luaL_newlib (L, plugin_funcs);
+  lua_setglobal (L, "WpPlugin");
 
   wp_lua_scripting_pod_init (L);
 

@@ -318,7 +318,7 @@ end
 
 -- enable device reservation if requested
 if config.properties["alsa.reserve"] then
-  rd_plugin = Plugin("reserve-device")
+  rd_plugin = Plugin.find("reserve-device")
 end
 
 -- if the reserve-device plugin is enabled, at the point of script execution

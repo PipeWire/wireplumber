@@ -230,7 +230,7 @@ function reevaluateLinks ()
   end
 end
 
-default_nodes = Plugin("default-nodes-api")
+default_nodes = Plugin.find("default-nodes-api")
 metadatas_om = ObjectManager { Interest { type = "metadata" } }
 siendpoints_om = ObjectManager { Interest { type = "SiEndpoint" }}
 siportinfos_om = ObjectManager { Interest { type = "SiPortInfo",

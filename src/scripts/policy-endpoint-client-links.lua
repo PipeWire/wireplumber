@@ -194,7 +194,7 @@ silinks_om:connect("objects-changed", maybeRescan)
 silinks_om:activate()
 
 -- enable ducking if mixer-api is loaded
-mixer_api = Plugin("mixer-api")
+mixer_api = Plugin.find("mixer-api")
 if mixer_api then
   endpoints_om = ObjectManager {
     Interest { type = "endpoint" },

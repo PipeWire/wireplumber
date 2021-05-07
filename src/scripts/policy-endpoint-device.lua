@@ -166,7 +166,7 @@ function reevaluateLinks ()
   end
 end
 
-default_nodes = Plugin("default-nodes-api")
+default_nodes = Plugin.find("default-nodes-api")
 siendpoints_om = ObjectManager { Interest { type = "SiEndpoint" }}
 siportinfos_om = ObjectManager { Interest { type = "SiPortInfo",
   -- only handle si-audio-adapter and si-node

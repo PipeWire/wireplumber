@@ -99,7 +99,7 @@ clients_om = ObjectManager {
 }
 
 -- Set permissions to portal clients from the permission store if loaded
-pps_plugin = Plugin("portal-permissionstore")
+pps_plugin = Plugin.find("portal-permissionstore")
 if pps_plugin then
   local nodes_om = ObjectManager { Interest { type = "node" } }
   nodes_om:activate()
