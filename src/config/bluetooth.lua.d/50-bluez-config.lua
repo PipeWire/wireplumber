@@ -1,4 +1,10 @@
 bluez_monitor.properties = {
+  -- Enable mSBC support, disabled by default. Be aware that
+  -- mSBC is not expected to work on all headset + adapter combinations.
+  -- This can be overloaded for a specific device and native backend
+  -- in rules section.
+  --["bluez5.msbc-support"] = false,
+
   --["bluez5.sbc-xq-support"] = true,
 
   -- Enabled headset roles (default: [ hsp_hs hfp_ag ]), this
@@ -14,6 +20,10 @@ bluez_monitor.properties = {
 
   -- Enabled A2DP codecs (default: all).
   --["bluez5.codecs"] = "[ sbc aac ldac aptx aptx_hd ]",
+
+  -- Properties for the A2DP codec configuration
+  --["bluez5.default.rate"] = 48000,
+  --["bluez5.default.channels"] = 2,
 }
 
 bluez_monitor.rules = {
@@ -30,12 +40,17 @@ bluez_monitor.rules = {
     },
     -- Apply properties on the matched object.
     apply_properties = {
-      -- Autoconnect device profiles, disabled by default
-      -- if the property is not specified.
-      ["bluez5.reconnect-profiles"]  = "[ hfp_hf hsp_hs a2dp_sink ]",
+      -- Auto-connect device profiles on start up or when only partial
+      -- profiles have connected. Disabled by default if the property
+      -- is not specified.
+      --["bluez5.auto-connect"] = "[ hfp_hf hsp_hs a2dp_sink hfp_ag hsp_ag a2dp_source ]",
+      ["bluez5.auto-connect"]  = "[ hfp_hf hsp_hs a2dp_sink ]",
 
-      -- MSBC is not expected to work on all headset + adapter combinations.
+      -- Overload mSBC support for native backend and a specific device.
       --["bluez5.msbc-support"] = false,
+
+      -- Hardware volume control (default: [ hfp_ag hsp_ag a2dp_source ])
+      --["bluez5.hw-volume"] = "[ hfp_hf hsp_hs a2dp_sink hfp_ag hsp_ag a2dp_source ]",
 
       -- LDAC encoding quality
       -- Available values: auto (Adaptive Bitrate, default)
@@ -43,6 +58,14 @@ bluez_monitor.rules = {
       --                   sq   (Standard Quality, 660/606kbps)
       --                   mq   (Mobile use Quality, 330/303kbps)
       --["bluez5.a2dp.ldac.quality"] = "auto",
+
+      -- AAC variable bitrate mode
+      -- Available values: 0 (cbr, default), 1-5 (quality level)
+      --["bluez5.a2dp.aac.bitratemode"] = 0,
+
+      -- Profile connected first
+      -- Available values: a2dp-sink (default), headset-head-unit
+      --["device.profile"] = "a2dp-sink",
     },
   },
   {
@@ -64,6 +87,13 @@ bluez_monitor.rules = {
       --["resample.quality"] = 4,
       --["channelmix.normalize"] = false,
       --["channelmix.mix-lfe"] = false,
+      --["session.suspend-timeout-seconds"] = 5,  -- 0 disables suspend
+      --["monitor.channel-volumes"] = false,
+
+      -- A2DP source role, "input" or "playback"
+      -- Defaults to "playback", playing stream to speakers
+      -- Set to "input" to use as an input for apps
+      --["bluez5.a2dp-source-role"] = "input",
     },
   },
 }
