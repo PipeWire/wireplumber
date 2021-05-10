@@ -16,6 +16,7 @@ function addItem (node, item_type)
   -- configure item
   if not items[id]:configure {
       ["node"] = node,
+      ["enable.monitor"] = true,
       ["item.plugged.usec"] = GLib.get_monotonic_time(),
   } then
     Log.warning(items[id], "failed to configure item for node " .. tostring(id))
