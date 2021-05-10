@@ -5,12 +5,6 @@
 --
 -- SPDX-License-Identifier: MIT
 
-target_class_assoc = {
-  ["Stream/Input/Audio"] = "Audio/Source",
-  ["Stream/Output/Audio"] = "Audio/Sink",
-  ["Stream/Input/Video"] = "Video/Source",
-}
-
 -- Receive script arguments from config.lua
 local config = ...
 config.roles = config.roles or {}
@@ -36,12 +30,24 @@ function getSessionItemById (si_id, om)
   }
 end
 
-function findTargetEndpoint (node, target_media_class)
-  local media_role = findRole(node.properties["media.role"])
+function findTargetEndpoint (node, media_class)
+  local target_class_assoc = {
+    ["Stream/Input/Audio"] = "Audio/Source",
+    ["Stream/Output/Audio"] = "Audio/Sink",
+    ["Stream/Input/Video"] = "Video/Source",
+  }
+  local media_role = nil
   local highest_priority = -1
   local target = nil
 
+  -- get target media class
+  local target_media_class = target_class_assoc[media_class]
+  if not target_media_class then
+    return nil
+  end
+
   -- find highest priority endpoint by role
+  media_role = findRole(node.properties["media.role"])
   for si_target_ep in siendpoints_om:iterate {
     Constraint { "role", "=", media_role, type = "pw-global" },
     Constraint { "media.class", "=", target_media_class, type = "pw-global" },
@@ -70,14 +76,16 @@ function createLink (si, si_target_ep)
     -- capture
     out_item = si_target_ep
     in_item = si
-    if target_class_assoc[media_class] ~= target_media_class then
+    if string.find (target_media_class, "Input") or
+        string.find (target_media_class, "Sink") then
       out_context = "reverse"
     end
   else
     -- playback
     out_item = si
     in_item = si_target_ep
-    if target_class_assoc[media_class] ~= target_media_class then
+    if string.find (target_media_class, "Output") or
+        string.find (target_media_class, "Source") then
       in_context = "reverse"
     end
   end
@@ -120,32 +128,43 @@ function getSiLinkAndSiPeerEndpoint (si)
   return nil, nil
 end
 
-function handleSiPortInfo (si)
+function isSiPortInfoValid (si)
   -- only handle session items that has a node associated proxy
   local node = si:get_associated_proxy ("node")
   if not node or not node.properties then
-    return
+    return false
   end
 
-  -- only handle session item that has a valid target media class
+  -- only handle stream session items
   local media_class = node.properties["media.class"]
-  local target_media_class = target_class_assoc[media_class]
-  if not target_media_class then
-    return
+  if not string.find (media_class, "Stream") then
+    return false
   end
 
   -- Determine if we can handle item by this policy
   local media_role = node.properties["media.role"]
   if siendpoints_om:get_n_objects () == 0 or media_role == nil then
     Log.info (si, "item won't be handled by this policy")
+    return false
+  end
+
+  return true
+end
+
+function handleSiPortInfo (si)
+  -- check if item is valid
+  if not isSiPortInfoValid (si) then
     return
   end
 
+  local node = si:get_associated_proxy ("node")
+  local media_class = node.properties["media.class"]
+  local media_role = node.properties["media.role"]
   Log.info (si, "handling item " .. node.properties["node.name"] ..
       " with role " .. media_role)
 
   -- find proper target endpoint
-  local si_target_ep = findTargetEndpoint (node, target_media_class)
+  local si_target_ep = findTargetEndpoint (node, media_class)
   if not si_target_ep then
     Log.info (si, "target endpoint not found")
     return
@@ -167,20 +186,24 @@ function handleSiPortInfo (si)
   createLink (si, si_target_ep)
 end
 
-function reevaluateLinks ()
-  -- check port info session items and register new links
-  for si in siportinfos_om:iterate() do
-    handleSiPortInfo (si)
+function unhandleSiPortInfo (si)
+  -- check if item is valid
+  if not isSiPortInfoValid (si) then
+    return
   end
 
-  -- check link session items and unregister them if not used
+  local node = si:get_associated_proxy ("node")
+  Log.info (si, "unhandling item " .. node.properties["node.name"])
+
+  -- remove any links associated with this item
   for silink in silinks_om:iterate() do
-    local out_id = tonumber (silink.properties["out.item.id"])
-    local in_id = tonumber (silink.properties["in.item.id"])
-    if (getSessionItemById (out_id, siendpoints_om) and not getSessionItemById (in_id, siportinfos_om)) or
-        (getSessionItemById (in_id, siendpoints_om) and not getSessionItemById (out_id, siportinfos_om)) then
-      silink:remove ()
-      Log.info (silink, "link removed")
+    local out_id = tostring (silink.properties["out.item.id"])
+    local in_id = tostring (silink.properties["in.item.id"])
+    for si in siportinfos_om:iterate() do
+      if out_id == si.id or in_id == si.id then
+        silink:remove ()
+        Log.info (silink, "link removed")
+      end
     end
   end
 end
@@ -197,8 +220,12 @@ silinks_om = ObjectManager { Interest { type = "SiLink",
   Constraint { "is.policy.endpoint.client.link", "=", true, type = "pw-global" },
 } }
 
-siportinfos_om:connect("objects-changed", function (om)
-  reevaluateLinks ()
+siportinfos_om:connect("object-added", function (om, si)
+  handleSiPortInfo (si)
+end)
+
+siportinfos_om:connect("object-removed", function (om, si)
+  unhandleSiPortInfo (si)
 end)
 
 siendpoints_om:activate()

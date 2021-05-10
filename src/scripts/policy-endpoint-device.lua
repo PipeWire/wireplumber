@@ -95,21 +95,28 @@ function createLink (si_ep, si_target)
     return
   end
 
-  -- activate and register
-  si_link:activate (Feature.SessionItem.ACTIVE, function (link)
-    Log.info (link, "link activated")
-    link:register ()
-  end)
+  -- register
+  si_link:register ()
+
+  -- activate
+  si_link:activate (Feature.SessionItem.ACTIVE)
 end
 
-function getSiLinkAndSiPeer (si_ep)
+function getSiLinkAndSiPeer (si_ep, target_media_class)
   for silink in silinks_om:iterate() do
     local out_id = tonumber(silink.properties["out.item.id"])
     local in_id = tonumber(silink.properties["in.item.id"])
-    if out_id == si_ep.id then
-      return silink, getSessionItemById (in_id, siportinfos_om)
-    elseif in_id == si_ep.id then
-      return silink, getSessionItemById (out_id, siportinfos_om)
+    if out_id == si_ep.id or in_id == si_ep.id then
+      local is_out = out_id == si_ep.id and true or false
+      for peer in siportinfos_om:iterate() do
+        if peer.id == (is_out and in_id or out_id) then
+          local peer_node = peer:get_associated_proxy ("node")
+          local peer_media_class = peer_node.properties["media.class"]
+          if peer_media_class == target_media_class then
+            return silink, peer
+          end
+        end
+      end
     end
   end
   return nil, nil
@@ -133,7 +140,7 @@ function handleSiEndpoint (si_ep)
   end
 
   -- Check if item is linked to proper target endpoint, otherwise re-link
-  local si_link, si_peer = getSiLinkAndSiPeer (si_ep)
+  local si_link, si_peer = getSiLinkAndSiPeer (si_ep, target_media_class)
   if si_link then
     if si_peer and si_peer.id == si_target.id then
       Log.info (si_ep, "already linked to proper target")
