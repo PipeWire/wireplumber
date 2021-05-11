@@ -80,7 +80,7 @@ wp_session_item_dispose (GObject * object)
 }
 
 static void
-wp_session_item_get_property (GObject * object, guint property_id,
+wp_session_item_get_gobject_property (GObject * object, guint property_id,
     GValue * value, GParamSpec * pspec)
 {
   WpSessionItem *self = WP_SESSION_ITEM (object);
@@ -193,7 +193,7 @@ wp_session_item_class_init (WpSessionItemClass * klass)
   GObjectClass * object_class = (GObjectClass *) klass;
 
   object_class->dispose = wp_session_item_dispose;
-  object_class->get_property = wp_session_item_get_property;
+  object_class->get_property = wp_session_item_get_gobject_property;
 
   wpobject_class->get_supported_features =
       session_item_default_get_supported_features;
@@ -379,6 +379,24 @@ wp_session_item_get_properties (WpSessionItem * self)
 
   priv = wp_session_item_get_instance_private (self);
   return priv->properties ? wp_properties_ref (priv->properties) : NULL;
+}
+
+/**
+ * wp_session_item_get_property:
+ * @self: the session item
+ * @key: the property key
+ *
+ * Returns: the item property value for the given key.
+ */
+const gchar *
+wp_session_item_get_property (WpSessionItem * self, const gchar *key)
+{
+  WpSessionItemPrivate *priv = NULL;
+
+  g_return_val_if_fail (WP_IS_SESSION_ITEM (self), NULL);
+
+  priv = wp_session_item_get_instance_private (self);
+  return priv->properties ? wp_properties_get (priv->properties, key) : NULL;
 }
 
 /**

@@ -100,6 +100,10 @@ void wp_session_item_remove (WpSessionItem * self);
 WP_API
 WpProperties * wp_session_item_get_properties (WpSessionItem * self);
 
+WP_API
+const gchar * wp_session_item_get_property (WpSessionItem * self,
+    const gchar *key);
+
 /* for subclasses only */
 
 WP_API
