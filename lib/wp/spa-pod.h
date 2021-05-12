@@ -70,10 +70,10 @@ WP_API
 WpSpaPod *wp_spa_pod_new_id (guint32 value);
 
 WP_API
-WpSpaPod *wp_spa_pod_new_int (gint value);
+WpSpaPod *wp_spa_pod_new_int (gint32 value);
 
 WP_API
-WpSpaPod *wp_spa_pod_new_long (glong value);
+WpSpaPod *wp_spa_pod_new_long (gint64 value);
 
 WP_API
 WpSpaPod *wp_spa_pod_new_float (float value);
@@ -187,10 +187,10 @@ WP_API
 gboolean wp_spa_pod_get_id (WpSpaPod *self, guint32 *value);
 
 WP_API
-gboolean wp_spa_pod_get_int (WpSpaPod *self, gint *value);
+gboolean wp_spa_pod_get_int (WpSpaPod *self, gint32 *value);
 
 WP_API
-gboolean wp_spa_pod_get_long (WpSpaPod *self, glong *value);
+gboolean wp_spa_pod_get_long (WpSpaPod *self, gint64 *value);
 
 WP_API
 gboolean wp_spa_pod_get_float (WpSpaPod *self, float *value);
@@ -225,10 +225,10 @@ WP_API
 gboolean wp_spa_pod_set_id (WpSpaPod *self, guint32 value);
 
 WP_API
-gboolean wp_spa_pod_set_int (WpSpaPod *self, gint value);
+gboolean wp_spa_pod_set_int (WpSpaPod *self, gint32 value);
 
 WP_API
-gboolean wp_spa_pod_set_long (WpSpaPod *self, glong value);
+gboolean wp_spa_pod_set_long (WpSpaPod *self, gint64 value);
 
 WP_API
 gboolean wp_spa_pod_set_float (WpSpaPod *self, float value);
@@ -333,10 +333,10 @@ WP_API
 void wp_spa_pod_builder_add_id (WpSpaPodBuilder *self, guint32 value);
 
 WP_API
-void wp_spa_pod_builder_add_int (WpSpaPodBuilder *self, gint value);
+void wp_spa_pod_builder_add_int (WpSpaPodBuilder *self, gint32 value);
 
 WP_API
-void wp_spa_pod_builder_add_long (WpSpaPodBuilder *self, glong value);
+void wp_spa_pod_builder_add_long (WpSpaPodBuilder *self, gint64 value);
 
 WP_API
 void wp_spa_pod_builder_add_float (WpSpaPodBuilder *self, float value);
@@ -422,10 +422,10 @@ WP_API
 gboolean wp_spa_pod_parser_get_id (WpSpaPodParser *self, guint32 *value);
 
 WP_API
-gboolean wp_spa_pod_parser_get_int (WpSpaPodParser *self, gint *value);
+gboolean wp_spa_pod_parser_get_int (WpSpaPodParser *self, gint32 *value);
 
 WP_API
-gboolean wp_spa_pod_parser_get_long (WpSpaPodParser *self, glong *value);
+gboolean wp_spa_pod_parser_get_long (WpSpaPodParser *self, gint64 *value);
 
 WP_API
 gboolean wp_spa_pod_parser_get_float (WpSpaPodParser *self, float *value);

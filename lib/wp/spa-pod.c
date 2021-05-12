@@ -484,7 +484,7 @@ wp_spa_pod_new_id (guint32 value)
  * Returns: (transfer full): The new spa pod
  */
 WpSpaPod *
-wp_spa_pod_new_int (gint value)
+wp_spa_pod_new_int (gint32 value)
 {
   WpSpaPod *self = g_slice_new0 (WpSpaPod);
   g_ref_count_init (&self->ref);
@@ -503,7 +503,7 @@ wp_spa_pod_new_int (gint value)
  * Returns: (transfer full): The new spa pod
  */
 WpSpaPod *
-wp_spa_pod_new_long (glong value)
+wp_spa_pod_new_long (gint64 value)
 {
   WpSpaPod *self = g_slice_new0 (WpSpaPod);
   g_ref_count_init (&self->ref);
@@ -1141,7 +1141,7 @@ wp_spa_pod_get_id (WpSpaPod *self, guint32 *value)
  * Returns: TRUE if the value was obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_get_int (WpSpaPod *self, gint *value)
+wp_spa_pod_get_int (WpSpaPod *self, gint32 *value)
 {
   g_return_val_if_fail (self, FALSE);
   g_return_val_if_fail (value, FALSE);
@@ -1158,7 +1158,7 @@ wp_spa_pod_get_int (WpSpaPod *self, gint *value)
  * Returns: TRUE if the value was obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_get_long (WpSpaPod *self, glong *value)
+wp_spa_pod_get_long (WpSpaPod *self, gint64 *value)
 {
   g_return_val_if_fail (self, FALSE);
   g_return_val_if_fail (value, FALSE);
@@ -1363,7 +1363,7 @@ wp_spa_pod_set_id (WpSpaPod *self, guint32 value)
  * Returns: TRUE if the value could be set, FALSE othewrise.
  */
 gboolean
-wp_spa_pod_set_int (WpSpaPod *self, gint value)
+wp_spa_pod_set_int (WpSpaPod *self, gint32 value)
 {
   g_return_val_if_fail (wp_spa_pod_is_int (self), FALSE);
   g_return_val_if_fail (!(self->flags & FLAG_CONSTANT), FALSE);
@@ -1381,7 +1381,7 @@ wp_spa_pod_set_int (WpSpaPod *self, gint value)
  * Returns: TRUE if the value could be set, FALSE othewrise.
  */
 gboolean
-wp_spa_pod_set_long (WpSpaPod *self, glong value)
+wp_spa_pod_set_long (WpSpaPod *self, gint64 value)
 {
   g_return_val_if_fail (wp_spa_pod_is_long (self), FALSE);
   g_return_val_if_fail (!(self->flags & FLAG_CONSTANT), FALSE);
@@ -2047,7 +2047,7 @@ wp_spa_pod_builder_add_id (WpSpaPodBuilder *self, guint32 value)
  * Adds a int value into the builder
  */
 void
-wp_spa_pod_builder_add_int (WpSpaPodBuilder *self, gint value)
+wp_spa_pod_builder_add_int (WpSpaPodBuilder *self, gint32 value)
 {
   spa_pod_builder_int (&self->builder, value);
 }
@@ -2060,7 +2060,7 @@ wp_spa_pod_builder_add_int (WpSpaPodBuilder *self, gint value)
  * Adds a long value into the builder
  */
 void
-wp_spa_pod_builder_add_long (WpSpaPodBuilder *self, glong value)
+wp_spa_pod_builder_add_long (WpSpaPodBuilder *self, gint64 value)
 {
   spa_pod_builder_long (&self->builder, value);
 }
@@ -2504,7 +2504,7 @@ wp_spa_pod_parser_get_id (WpSpaPodParser *self, guint32 *value)
  * Returns: TRUE if the value was obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_parser_get_int (WpSpaPodParser *self, gint *value)
+wp_spa_pod_parser_get_int (WpSpaPodParser *self, gint32 *value)
 {
   g_return_val_if_fail (value, FALSE);
   return spa_pod_parser_get_int (&self->parser, value) >= 0;
@@ -2520,7 +2520,7 @@ wp_spa_pod_parser_get_int (WpSpaPodParser *self, gint *value)
  * Returns: TRUE if the value was obtained, FALSE otherwise
  */
 gboolean
-wp_spa_pod_parser_get_long (WpSpaPodParser *self, glong *value)
+wp_spa_pod_parser_get_long (WpSpaPodParser *self, gint64 *value)
 {
   g_return_val_if_fail (value, FALSE);
   return spa_pod_parser_get_long (&self->parser, value) >= 0;

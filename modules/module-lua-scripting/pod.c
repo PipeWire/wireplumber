@@ -945,7 +945,7 @@ push_luapod (lua_State *L, WpSpaPod *pod, WpSpaIdValue field_idval)
 
   /* Long */
   else if (wp_spa_pod_is_long (pod)) {
-    glong value = 0;
+    gint64 value = 0;
     wp_spa_pod_get_long (pod, &value);
     lua_pushinteger (L, value);
   }
