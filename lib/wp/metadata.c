@@ -263,6 +263,8 @@ wp_metadata_pw_proxy_destroyed (WpProxy * proxy)
 
   clear_items (&priv->metadata);
   wp_object_update_features (WP_OBJECT (self), 0, WP_METADATA_FEATURE_DATA);
+
+  WP_PROXY_CLASS (wp_metadata_parent_class)->pw_proxy_destroyed (proxy);
 }
 
 static void

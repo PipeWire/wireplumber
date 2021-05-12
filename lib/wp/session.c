@@ -237,6 +237,8 @@ wp_session_pw_proxy_destroyed (WpProxy * proxy)
   wp_object_update_features (WP_OBJECT (self), 0,
       WP_SESSION_FEATURE_ENDPOINTS |
       WP_SESSION_FEATURE_LINKS);
+
+  WP_PROXY_CLASS (wp_session_parent_class)->pw_proxy_destroyed (proxy);
 }
 
 static void

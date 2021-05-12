@@ -100,6 +100,14 @@ wp_device_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 }
 
 static void
+wp_device_pw_proxy_destroyed (WpProxy * proxy)
+{
+  wp_pw_object_mixin_handle_pw_proxy_destroyed (proxy);
+
+  WP_PROXY_CLASS (wp_device_parent_class)->pw_proxy_destroyed (proxy);
+}
+
+static void
 wp_device_class_init (WpDeviceClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
@@ -118,8 +126,7 @@ wp_device_class_init (WpDeviceClass * klass)
   proxy_class->pw_iface_type = PW_TYPE_INTERFACE_Device;
   proxy_class->pw_iface_version = PW_VERSION_DEVICE;
   proxy_class->pw_proxy_created = wp_device_pw_proxy_created;
-  proxy_class->pw_proxy_destroyed =
-      wp_pw_object_mixin_handle_pw_proxy_destroyed;
+  proxy_class->pw_proxy_destroyed = wp_device_pw_proxy_destroyed;
 
   wp_pw_object_mixin_class_override_properties (object_class);
 }

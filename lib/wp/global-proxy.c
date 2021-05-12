@@ -169,6 +169,16 @@ wp_global_proxy_bound (WpProxy * proxy, guint32 global_id)
 }
 
 static void
+wp_global_proxy_destroyed (WpProxy * proxy)
+{
+  WpGlobalProxy *self = WP_GLOBAL_PROXY (proxy);
+  WpGlobalProxyPrivate *priv =
+      wp_global_proxy_get_instance_private (self);
+
+  g_clear_pointer (&priv->global, wp_global_unref);
+}
+
+static void
 wp_global_proxy_class_init (WpGlobalProxyClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
@@ -188,6 +198,7 @@ wp_global_proxy_class_init (WpGlobalProxyClass * klass)
       wp_global_proxy_activate_execute_step;
 
   proxy_class->bound = wp_global_proxy_bound;
+  proxy_class->pw_proxy_destroyed = wp_global_proxy_destroyed;
 
   g_object_class_install_property (object_class, PROP_GLOBAL,
       g_param_spec_boxed ("global", "global", "Internal WpGlobal object",

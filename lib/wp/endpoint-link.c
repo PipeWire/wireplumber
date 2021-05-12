@@ -99,6 +99,14 @@ wp_endpoint_link_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 }
 
 static void
+wp_endpoint_link_pw_proxy_destroyed (WpProxy * proxy)
+{
+  wp_pw_object_mixin_handle_pw_proxy_destroyed (proxy);
+
+  WP_PROXY_CLASS (wp_endpoint_link_parent_class)->pw_proxy_destroyed (proxy);
+}
+
+static void
 wp_endpoint_link_class_init (WpEndpointLinkClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
@@ -118,8 +126,7 @@ wp_endpoint_link_class_init (WpEndpointLinkClass * klass)
   proxy_class->pw_iface_type = PW_TYPE_INTERFACE_EndpointLink;
   proxy_class->pw_iface_version = PW_VERSION_ENDPOINT_LINK;
   proxy_class->pw_proxy_created = wp_endpoint_link_pw_proxy_created;
-  proxy_class->pw_proxy_destroyed =
-      wp_pw_object_mixin_handle_pw_proxy_destroyed;
+  proxy_class->pw_proxy_destroyed = wp_endpoint_link_pw_proxy_destroyed;
 
   wp_pw_object_mixin_class_override_properties (object_class);
 

@@ -172,6 +172,8 @@ wp_node_pw_proxy_destroyed (WpProxy * proxy)
 
   g_clear_object (&self->ports_om);
   wp_object_update_features (WP_OBJECT (self), 0, WP_NODE_FEATURE_PORTS);
+
+  WP_PROXY_CLASS (wp_node_parent_class)->pw_proxy_destroyed (proxy);
 }
 
 static void
