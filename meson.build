@@ -93,6 +93,8 @@ common_flags = [
 ]
 add_project_arguments(cc.get_supported_arguments(common_flags), language: 'c')
 
+doxygen_p = find_program('doxygen', required: get_option('doc'))
+
 subdir('lib')
 subdir('docs')
 subdir('modules')

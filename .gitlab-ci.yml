@@ -19,7 +19,7 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2021-04-01.1'
+    FDO_DISTRIBUTION_TAG: '2021-04-16.1'
     FDO_DISTRIBUTION_VERSION: '32'
     # findutils: used by the .build script below
     # cmake: required for hotdoc
@@ -45,6 +45,7 @@ include:
     # in the fedora docker image
     FDO_DISTRIBUTION_EXEC: >-
       dnf -y install python3-pip doxygen python3-sphinx python3-sphinx_rtd_theme python3-breathe python-docutils ;
+      pip3 install lxml ;
       dnf -y install glib2-doc --setopt='tsflags='
 
 .build:

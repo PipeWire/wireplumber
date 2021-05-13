@@ -106,10 +106,37 @@ wp_lib = library('wireplumber-' + wireplumber_api_version,
 )
 
 if build_gir
+  wp_gtkdoc_conf = configure_file(
+    input: '../../docs/gen-api-gtkdoc.py.in',
+    output: 'gen-api-gtkdoc.py',
+    copy: true
+  )
+
+  script_data = configuration_data()
+  script_data.set('PYTHON', 'python3')
+  script_data.set('OUTDIR', meson.current_build_dir())
+  script_data.set('GIR_PY_SCRIPT', meson.current_build_dir() + '/gen-api-gtkdoc.py')
+  script_data.set('XML_DIR', meson.build_root() + '/docs/doxygen_doc/xml')
+  script_data.set('DOXYGEN_CONF', meson.build_root() + '/docs/doxyfile')
+  script_data.set('DOXYGEN_CMD', doxygen_p.path())
+
+  script_gen_api = configure_file(
+    input: '../../docs/run_gen_api.sh.in',
+    output: 'run_gen_api.sh',
+    configuration: script_data
+  )
+
+  wp_gtkdoc_h = custom_target(
+    'gir',
+    command: script_gen_api,
+    output: 'wp-gtkdoc.h',
+    build_by_default: true,
+  )
+
   wp_gir = gnome.generate_gir(wp_lib,
     namespace: 'Wp',
     nsversion: wireplumber_api_version,
-    sources: [wp_lib_sources, wp_lib_headers, wpenums_c, wpenums_h],
+    sources: [wpenums_c, wpenums_h, wp_gtkdoc_h],
     includes: ['GLib-2.0', 'GObject-2.0', 'Gio-2.0'],
     install: true,
   )

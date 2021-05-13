@@ -4,7 +4,6 @@ if not sphinx_p.found()
   subdir_done()
 endif
 
-doxygen_p = find_program('doxygen', required: get_option('doc'))
 if not doxygen_p.found()
   message('Doxygen not found, not building the documentation')
   subdir_done()
@@ -13,6 +12,18 @@ endif
 breathe_p = find_program('breathe-apidoc', required: get_option('doc'))
 if not breathe_p.found()
   message('Breathe not found, not building the documentation')
+  subdir_done()
+endif
+
+pymod = import('python')
+lxml_p = pymod.find_installation(
+  modules: [
+    'lxml',
+  ],
+  required: get_option('doc')
+)
+if not lxml_p.found()
+  message('lxml not found, not building gtk documentation from Doxygen')
   subdir_done()
 endif
 
@@ -40,9 +51,6 @@ if not build_gir
   if get_option('doc').enabled()
     error('Documentation enabled but introspection not built.')
   endif
-
-#  message('Introspection not built, can\'t build the documentation')
-#  subdir_done()
 endif
 
 doxygen_database = meson.current_build_dir() + '/doxygen_doc'
@@ -57,6 +65,8 @@ sphinx_conf = configure_file(
 		output: 'conf.py',
 		configuration: sphinx_conf_data
 )
+
+# build gir
 
 doxy_conf_data = configuration_data()
 doxy_conf_data.set('SRC_ROOT', meson.source_root())
@@ -73,13 +83,12 @@ dir_data = join_paths(dir_prefix, get_option('datadir'))
 script_data = configuration_data()
 script_data.set('SRCDIR', meson.current_build_dir())
 script_data.set('OUTDIR', meson.current_build_dir() + '/docs')
-script_data.set('DOXYGEN_CONF', meson.current_build_dir() + '/doxyfile')
 
 # Set a different directory for doctrees to avoid installing them
 script_data.set('DOCTREES_DIR', meson.current_build_dir() + '/doctrees')
 
-script_data.set('DOXYGEN_CMD', doxygen_p.path())
 script_data.set('SPHINX_CMD', sphinx_p.path())
+
 script_doxy_sphinx = configure_file(
 	input: 'run_doxygen_sphinx.sh.in',
 	output: 'run_doxygen_sphinx.sh',
