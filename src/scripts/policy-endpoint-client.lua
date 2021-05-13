@@ -198,13 +198,11 @@ function unhandleSiLinkable (si)
 
   -- remove any links associated with this item
   for silink in silinks_om:iterate() do
-    local out_id = tostring (silink.properties["out.item.id"])
-    local in_id = tostring (silink.properties["in.item.id"])
-    for si in silinkables_om:iterate() do
-      if out_id == si.id or in_id == si.id then
-        silink:remove ()
-        Log.info (silink, "link removed")
-      end
+    local out_id = tonumber (silink.properties["out.item.id"])
+    local in_id = tonumber (silink.properties["in.item.id"])
+    if out_id == si.id or in_id == si.id then
+      silink:remove ()
+      Log.info (silink, "link removed")
     end
   end
 end
