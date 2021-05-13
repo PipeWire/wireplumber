@@ -34,7 +34,7 @@ extensions = [
         'breathe',
 ]
 
-breathe_projects = { "WirePlumber": "@BUILD_ROOT@/xml" }
+breathe_projects = { "WirePlumber": "@BUILD_ROOT@/xml", "WirePlumber_Lua" : "@BUILD_ROOT@/xml", }
 breathe_default_members = ('members', 'undoc-members')
 
 breathe_default_project = "WirePlumber"

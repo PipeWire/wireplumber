@@ -5,7 +5,9 @@
  *
  * SPDX-License-Identifier: MIT
  */
-
+/*!
+ * @file api.c
+ */
 #include <wp/wp.h>
 #include <pipewire/pipewire.h>
 #include <wplua/wplua.h>
@@ -13,6 +15,39 @@
 #define URI_API "resource:///org/freedesktop/pipewire/wireplumber/m-lua-scripting/api.lua"
 
 void wp_lua_scripting_pod_init (lua_State *L);
+
+/*!
+ * @struct Core
+ *
+ * @struct Client
+ *
+ * @struct Endpoint
+ *
+ * @struct GlobalProxy
+ *
+ * @struct Metadata
+ *
+ * @struct Node
+ *
+ * @struct Object
+ *
+ * @struct ObjectInterest
+ *
+ * @struct ObjectManager
+ *
+ * @struct PipewireObject
+ *
+ * @struct Proxy
+ *
+ * @struct SessionBin
+ *
+ * @struct SessionItem
+ *
+ * @struct Source
+ *
+ * @struct SpaDevice
+ *
+ */
 
 /* helpers */
 
@@ -62,6 +97,13 @@ static const luaL_Reg glib_methods[] = {
 
 /* GSource */
 
+/*!
+ * @memberof SOurce
+ * @fn Source.destroy()
+ *
+ * @brief Destroys the source.
+ * @returns The status
+ */
 static int
 source_destroy (lua_State *L)
 {
@@ -77,6 +119,11 @@ static const luaL_Reg source_methods[] = {
 
 /* WpCore */
 
+/*!
+ * @memberof Core
+ * @fn Core.get_info()
+ * @returns A dictionary containing the core information
+ */
 static int
 core_get_info (lua_State *L)
 {
@@ -99,6 +146,18 @@ core_get_info (lua_State *L)
   return 1;
 }
 
+/*!
+ * @memberof Core
+ * @fn Core.idle_add()
+ *
+ * @param L: The Lua state
+ *
+ * @brief Adds an idle callback to be called in the same GMainContext as the
+ * one used by this core. This is essentially the same as g_idle_add_full(),
+ * but it adds the created GSource on the GMainContext used by this core instead of the default context.
+ *
+ * @returns the source
+ */
 static int
 core_idle_add (lua_State *L)
 {
@@ -110,6 +169,21 @@ core_idle_add (lua_State *L)
   return 1;
 }
 
+/*!
+ * @memberof Core
+ * @fn Core.timeout_add()
+ *
+ * @param L: The Lua state
+ *
+ * @brief Adds a timeout callback to be called at regular intervals in the same
+ * GMainContext as the one used by this core. The function is called repeatedly
+ * until it returns FALSE, at which point the timeout is automatically destroyed
+ * and the function will not be called again. The first call to the function
+ * will be at the end of the first interval. This is essentially the same as
+ * g_timeout_add_full(), but it adds the created GSource used by this core instead of the default context.
+ *
+ * @returns the source
+ */
 static int
 core_timeout_add (lua_State *L)
 {
@@ -140,6 +214,23 @@ on_core_done (WpCore * core, GAsyncResult * res, GClosure * closure)
   g_closure_unref (closure);
 }
 
+/*!
+ * @memberof Core
+ * @fn Core.sync()
+ *
+ * @param L: The Lua state
+ *
+ * @brief Asks the PipeWire server to call the callback via an event.
+ * Since methods are handled in-order and events are delivered
+ * in-order, this can be used as a barrier to ensure all previous
+ * methods and the resulting events have been handled.
+ *
+ * In both success and error cases, callback is always called. Use
+ * `wp_core_sync_finish()` from within the callback to determine whether
+ * the operation completed successfully or if an error occurred.
+ *
+ * @returns The status
+ */
 static int
 core_sync (lua_State *L)
 {
@@ -158,6 +249,16 @@ core_disconnect (WpCore * core)
   return G_SOURCE_REMOVE;
 }
 
+/*!
+ * @memberof Core
+ * @fn Core.quit()
+ *
+ * @param L: The Lua state
+ *
+ * @brief Quits the core
+ *
+ * @returns The status
+ */
 static int
 core_quit (lua_State *L)
 {
@@ -294,6 +395,16 @@ object_activate_done (WpObject *o, GAsyncResult *res, gpointer data)
   }
 }
 
+/*!
+ * @memberof Object
+ * @fn Object.activate()
+ *
+ * @param L: The Lua state
+ *
+ * @brief Initiates the object activation
+ *
+ * @returns The status
+ */
 static int
 object_activate (lua_State *L)
 {
@@ -311,6 +422,16 @@ object_activate (lua_State *L)
   return 0;
 }
 
+/*!
+ * @memberof Object
+ * @fn Object.deactivate()
+ *
+ * @param L: The Lua state
+ *
+ * @brief Initiates the object deactivation
+ *
+ * @returns The status
+ */
 static int
 object_deactivate (lua_State *L)
 {
@@ -348,6 +469,16 @@ static const luaL_Reg object_methods[] = {
 
 /* WpProxy */
 
+/*!
+ * @memberof Proxy
+ * @fn Proxy.get_interface_type()
+ *
+ * @param L: The Lua state
+ *
+ * @brief Retrieves the interface type
+ *
+ * @returns the interface
+ */
 static int
 proxy_get_interface_type (lua_State *L)
 {
@@ -366,6 +497,16 @@ static const luaL_Reg proxy_methods[] = {
 
 /* WpGlobalProxy */
 
+/*!
+ * @memberof GlobalProxy
+ * @fn GlobalProxy.request_destroy()
+ *
+ * @param L: The Lua state
+ *
+ * @brief Requests the proxy destruction
+ *
+ * @returns The status
+ */
 static int
 global_proxy_request_destroy (lua_State *L)
 {
@@ -599,6 +740,16 @@ object_interest_new (lua_State *L)
   return object_interest_new_index (L, 1, G_TYPE_INVALID);
 }
 
+/*!
+ * @memberof ObjectInterest
+ * @fn ObjectInterest.matches()
+ *
+ * @param L: The Lua state
+ *
+ * @brief Verifies the Object of Interest and pushes the matching result to lua
+ *
+ * @returns whether matched or not
+ */
 static int
 object_interest_matches (lua_State *L)
 {
@@ -672,6 +823,16 @@ object_manager_new (lua_State *L)
   return 1;
 }
 
+/*!
+ * @memberof ObjectManager
+ * @fn ObjectManager.activate()
+ *
+ * @param L: The Lua state
+ *
+ * @brief Activates the Object Manager
+ *
+ * @returns status
+ */
 static int
 object_manager_activate (lua_State *L)
 {
@@ -688,6 +849,16 @@ object_manager_get_n_objects (lua_State *L)
   return 1;
 }
 
+/*!
+ * @memberof ObjectManager
+ * @fn ObjectManager.iterate()
+ *
+ * @param L: The Lua state
+ *
+ * @brief Iterates the Object Manager and provides the next iterator to lua
+ *
+ * @returns the iterator
+ */
 static int
 object_manager_iterate (lua_State *L)
 {
@@ -700,6 +871,16 @@ object_manager_iterate (lua_State *L)
   return push_wpiterator (L, it);
 }
 
+/*!
+ * @memberof ObjectManager
+ * @fn ObjectManager.lookup()
+ *
+ * @param L: The Lua state
+ *
+ * @brief Looksup the Object Manager for the object of interest
+ *
+ * @returns the object of interest or nil
+ */
 static int
 object_manager_lookup (lua_State *L)
 {
@@ -725,6 +906,16 @@ static const luaL_Reg object_manager_methods[] = {
 
 /* WpMetadata */
 
+/*!
+ * @memberof Metadata
+ * @fn Metadata.iterate()
+ *
+ * @param L: The Lua state
+ *
+ * @brief Iterates the metadata and pushes the next iterator to lua
+ *
+ * @returns the iterator
+ */
 static int
 metadata_iterate (lua_State *L)
 {
@@ -734,6 +925,16 @@ metadata_iterate (lua_State *L)
   return push_metadata_wpiterator (L, it);
 }
 
+/*!
+ * @memberof Metadata
+ * @fn Metadata.find()
+ *
+ * @param L: The Lua state
+ *
+ * @brief Finds for the metadata and pushes the data to lua
+ *
+ * @returns the data
+ */
 static int
 metadata_find (lua_State *L)
 {
@@ -796,6 +997,15 @@ spa_device_new (lua_State *L)
   return 1;
 }
 
+/*!
+ * @memberof SpaDevice
+ * @fn SpaDevice.get_managed_object()
+ *
+ * @param L: The Lua state
+ *
+ * @brief Retrives the spa device managed object and pushes it to lua
+ * @returns the Spa Device Object
+ */
 static int
 spa_device_get_managed_object (lua_State *L)
 {
@@ -807,6 +1017,15 @@ spa_device_get_managed_object (lua_State *L)
   return obj ? 1 : 0;
 }
 
+/*!
+ * @memberof SpaDevice
+ * @fn SpaDevice.store_managed_object()
+ *
+ * @param L: The Lua state
+ *
+ * @brief Stores the spa device managed object
+ * @returns The status
+ */
 static int
 spa_device_store_managed_object (lua_State *L)
 {
@@ -844,6 +1063,15 @@ node_new (lua_State *L)
   return 1;
 }
 
+/*!
+ * @memberof Node
+ * @fn Node.send_command()
+ *
+ * @param L: The Lua state
+ *
+ * @brief Sends the node command
+ * @returns The status
+ */
 static int
 node_send_command (lua_State *L)
 {
@@ -922,6 +1150,16 @@ client_parse_permissions (const gchar * perms_str, guint32 *perms)
   return TRUE;
 }
 
+/*!
+ * @memberof Client
+ * @fn Client.update_permissions()
+ *
+ * @param L: The Lua state
+ *
+ * @brief Updates the client permissions and pushes the result to lua
+ *
+ * @returns The status
+ */
 static int
 client_update_permissions (lua_State *L)
 {
@@ -985,6 +1223,16 @@ session_item_get_associated_proxy (lua_State *L)
   return 1;
 }
 
+/*!
+ * @memberof SessionItem
+ * @fn SessionItem.reset()
+ *
+ * @param L: The Lua state
+ *
+ * @brief Resets the Session Item
+ *
+ * @returns The status
+ */
 static int
 session_item_reset (lua_State *L)
 {
@@ -993,6 +1241,16 @@ session_item_reset (lua_State *L)
   return 0;
 }
 
+/*!
+ * @memberof SessionItem
+ * @fn SessionItem.configure()
+ *
+ * @param L: The Lua state
+ *
+ * @brief Configures the Session Item
+ *
+ * @returns the configured Session Item Properties
+ */
 static int
 session_item_configure (lua_State *L)
 {
@@ -1042,6 +1300,16 @@ session_item_configure (lua_State *L)
   return 1;
 }
 
+/*!
+ * @memberof SessionItem
+ * @fn SessionItem.register()
+ *
+ * @param L: The Lua state
+ *
+ * @brief Activates the Session Item
+ *
+ * @returns The status
+ */
 static int
 session_item_register (lua_State *L)
 {
@@ -1050,6 +1318,16 @@ session_item_register (lua_State *L)
   return 0;
 }
 
+/*!
+ * @memberof SessionItem
+ * @fn SessionItem.remove()
+ *
+ * @param L: The Lua state
+ *
+ * @brief Deactivates the Session Item
+ *
+ * @returns The status
+ */
 static int
 session_item_remove (lua_State *L)
 {
@@ -1069,6 +1347,16 @@ static const luaL_Reg session_item_methods[] = {
 
 /* WpPipewireObject */
 
+/*!
+ * @memberof PipewireObject
+ * @fn PipewireObject.set_params()
+ *
+ * @param L: The Lua state
+ *
+ * @brief Sets the selected params on the Pipewire Object AKA Node
+ *
+ * @returns The status
+ */
 static int
 pipewire_object_set_params (lua_State *L)
 {
@@ -1081,6 +1369,16 @@ pipewire_object_set_params (lua_State *L)
   return 0;
 }
 
+/*!
+ * @memberof PipewireObject
+ * @fn PipewireObject.iterate_params()
+ *
+ * @param L: The Lua state
+ *
+ * @brief Iterates the params of the Pipewire Object AKA Node
+ *
+ * @returns the iterator
+ */
 static int
 pipewire_object_iterate_params (lua_State *L)
 {

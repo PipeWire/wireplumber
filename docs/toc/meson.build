@@ -7,8 +7,11 @@ files = [
   'contributing.rst',
   'community.rst',
   'testing.rst',
+  'lua_api.rst'
 ]
 
 foreach file : files
   configure_file(input: file, output: file, copy: true)
 endforeach
+
+subdir('lua_api')

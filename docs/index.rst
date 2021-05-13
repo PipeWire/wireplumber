@@ -43,6 +43,7 @@ Subpages
 * :ref:`installing-wireplumber`
 * :ref:`running-wireplumber-daemon`
 * :ref:`daemon-configuration`
+* :ref:`lua_api`
 * :ref:`contributing`
 * :ref:`testing`
 * :ref:`community`
