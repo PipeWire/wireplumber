@@ -6,9 +6,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-/**
- * SECTION: si-factory
- * @title: Session Items Factory
+/*!
+ * @file si-factory.c
  */
 
 #define G_LOG_DOMAIN "wp-si-factory"
@@ -16,6 +15,18 @@
 #include "si-factory.h"
 #include "private/registry.h"
 
+/*!
+ * @memberof WpSiFactory
+ *
+ * @props @b name
+ *
+ * @code
+ * "name" gchar *
+ * @endcode
+ *
+ * Flags : Read / Write / Construct Only
+ *
+ */
 enum {
   PROP_0,
   PROP_NAME,
@@ -27,10 +38,11 @@ struct _WpSiFactoryPrivate
   GQuark name_quark;
 };
 
-/**
- * WpSiFactory:
+/*!
+ * @struct WpSiFactory
+ * @section si_factory_section Session Items Factory
  *
- * A factory for session items.
+ * @brief A factory for session items.
  *
  * The most simple way to register a new item implementation would be:
  * |[
@@ -44,7 +56,9 @@ struct _WpSiFactoryPrivate
  * |[
  * item = wp_session_item_make (core, "foobar");
  * ]|
+ *
  */
+
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (WpSiFactory, wp_si_factory, G_TYPE_OBJECT)
 
 static void
@@ -99,12 +113,13 @@ wp_si_factory_class_init (WpSiFactoryClass * klass)
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
-/**
- * wp_si_factory_get_name:
- * @self: the factory
+/*!
+ * @memberof WpSiFactory
+ * @param self: the factory
  *
- * Returns: the factory name
+ * @returns the factory name
  */
+
 const gchar *
 wp_si_factory_get_name (WpSiFactory * self)
 {
@@ -114,15 +129,17 @@ wp_si_factory_get_name (WpSiFactory * self)
   return g_quark_to_string (priv->name_quark);
 }
 
-/**
- * wp_si_factory_construct:
- * @self: the factory
+/*!
+ * @memberof WpSiFactory
+ * @param self: the factory
+ * @param core: the core
  *
- * Creates a new instance of the session item that is constructed
+ * @brief Creates a new instance of the session item that is constructed
  * by this factory
  *
- * Returns: (transfer full): a new session item instance
+ * @returns (transfer full): a new session item instance
  */
+
 WpSessionItem *
 wp_si_factory_construct (WpSiFactory * self, WpCore * core)
 {
@@ -132,13 +149,14 @@ wp_si_factory_construct (WpSiFactory * self, WpCore * core)
   return WP_SI_FACTORY_GET_CLASS (self)->construct (self, core);
 }
 
-/**
- * wp_si_factory_register:
- * @core: the core
- * @factory: (transfer full): the factory to register
+/*!
+ * @memberof WpSiFactory
+ * @param core: the core
+ * @param factory: (transfer full): the factory to register
  *
- * Registers the @factory on the @core.
+ * @brief Registers the @em factory on the @em core.
  */
+
 void
 wp_si_factory_register (WpCore * core, WpSiFactory * factory)
 {
@@ -159,13 +177,14 @@ find_factory_func (gpointer factory, gpointer name_quark)
   return priv->name_quark == GPOINTER_TO_UINT (name_quark);
 }
 
-/**
- * wp_si_factory_find:
- * @core: the core
- * @factory_name: the lookup name
+/*!
+ * @memberof WpSiFactory
+ * @param core: the core
+ * @param factory_name: the lookup name
  *
- * Returns: (transfer full) (nullable): the factory matching the lookup name
+ * @returns (transfer full) (nullable): the factory matching the lookup name
  */
+
 WpSiFactory *
 wp_si_factory_find (WpCore * core, const gchar * factory_name)
 {
@@ -179,16 +198,17 @@ wp_si_factory_find (WpCore * core, const gchar * factory_name)
   return f ? WP_SI_FACTORY (f) : NULL;
 }
 
-/**
- * wp_session_item_make:
- * @core: the #WpCore
- * @factory_name: the name of the factory to be used for constructing the object
+/*!
+ * @memberof WpSiFactory
+ * @param core: the [WpCore](@ref core_section)
+ * @param factory_name: the name of the factory to be used for constructing the object
  *
- * Finds the factory associated with the given @name from the @core and
- * uses it to construct a new #WpSessionItem.
+ * @brief Finds the factory associated with the given @em name from the @em core and
+ * uses it to construct a new [WpSessionItem](@ref session_item_section).
  *
- * Returns: (transfer full) (nullable): the new session item
+ * @returns (transfer full) (nullable): the new session item
  */
+
 WpSessionItem *
 wp_session_item_make (WpCore * core, const gchar * factory_name)
 {
@@ -227,14 +247,15 @@ wp_simple_si_factory_class_init (WpSimpleSiFactoryClass * klass)
   factory_class->construct = wp_simple_si_factory_construct;
 }
 
-/**
- * wp_si_factory_new_simple:
- * @factory_name: the factory name; must be a static string!
- * @si_type: the #WpSessionItem subclass type to instantiate for
+/*!
+ * @memberof WpSiFactory
+ * @param factory_name: the factory name; must be a static string!
+ * @param si_type: the [WpSessionItem](@ref session_item_section) subclass type to instantiate for
  *    constructing items
  *
- * Returns: (transfer full): the new factory
+ * @returns (transfer full): the new factory
  */
+
 WpSiFactory *
 wp_si_factory_new_simple (const gchar * factory_name, GType si_type)
 {

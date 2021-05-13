@@ -15,16 +15,27 @@
 
 G_BEGIN_DECLS
 
-/**
- * WP_TYPE_PIPEWIRE_OBJECT:
+/*!
+ * @memberof WpPipewireObject
  *
- * The #WpPipewireObject #GType
+ * @brief The [WpPipewireObject](@ref pipewire_object_section) 
+ * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
+ * GType</a>
+ *
+ * @code
+ * #define WP_TYPE_PIPEWIRE_OBJECT (wp_pipewire_object_get_type ())
+ * @endcode
+ *
  */
 #define WP_TYPE_PIPEWIRE_OBJECT (wp_pipewire_object_get_type ())
 WP_API
 G_DECLARE_INTERFACE (WpPipewireObject, wp_pipewire_object,
                      WP, PIPEWIRE_OBJECT, WpProxy)
 
+/*!
+ * @brief
+ * @em parent_iface
+ */
 struct _WpPipewireObjectInterface
 {
   GTypeInterface parent_iface;

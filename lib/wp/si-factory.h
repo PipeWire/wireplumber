@@ -14,15 +14,28 @@
 
 G_BEGIN_DECLS
 
-/**
- * WP_TYPE_SI_FACTORY:
+/*!
+ * @memberof WpSiFactory
  *
- * The #WpSiFactory #GType
+ * @brief The [WpSiFactory](@ref si_factory_section)
+ * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
+ * GType</a>
+ *
+ * @code
+ * #define WP_TYPE_SI_FACTORY (wp_si_factory_get_type ())
+ * @endcode
+ *
  */
 #define WP_TYPE_SI_FACTORY (wp_si_factory_get_type ())
 WP_API
 G_DECLARE_DERIVABLE_TYPE (WpSiFactory, wp_si_factory, WP, SI_FACTORY, GObject)
 
+/*!
+ * @memberof WpSiFactory
+ *
+ * @brief
+ * @em parent_class
+ */
 struct _WpSiFactoryClass
 {
   GObjectClass parent_class;

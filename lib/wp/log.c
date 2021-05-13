@@ -6,9 +6,12 @@
  * SPDX-License-Identifier: MIT
  */
 
-/**
- * SECTION: log
- * @title: Debug Logging
+/*!
+ * @file debug.c
+ */
+
+/*!
+ * WpDebug:
  */
 
 #include "log.h"
@@ -289,7 +292,9 @@ wp_log_set_level (const gchar * level_str)
 /**
  * wp_log_writer_default:
  *
- * WirePlumber's #GLogWriterFunc
+ * WirePlumber's
+ * <a href="https://developer.gnome.org/glib/stable/glib-Message-Logging.html#GLogWriterFunc">
+ * GLogWriterFunc</a>
  *
  * This is installed automatically when you call wp_init() with
  * %WP_INIT_SET_GLIB_LOG set in the flags
@@ -475,7 +480,9 @@ static struct spa_log wp_spa_log = {
  * wp_spa_log_get_instance:
  *
  * Returns: WirePlumber's instance of `spa_log`, which can be used to redirect
- *   PipeWire's log messages to the currently installed #GLogWriterFunc.
+ *   PipeWire's log messages to the currently installed
+ * <a href="https://developer.gnome.org/glib/stable/glib-Message-Logging.html#GLogWriterFunc">
+ * GLogWriterFunc</a>.
  *   This is installed automatically when you call wp_init() with
  *   %WP_INIT_SET_PW_LOG set in the flags
  */

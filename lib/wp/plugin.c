@@ -6,17 +6,28 @@
  * SPDX-License-Identifier: MIT
  */
 
-/**
- * SECTION: plugin
- * @title: WirePlumber Daemon Plugins
+/*!
+ * @file plugin.c
  */
-
 #define G_LOG_DOMAIN "wp-plugin"
 
 #include "plugin.h"
 #include "log.h"
 #include "private/registry.h"
 
+/*!
+ * @memberof WpPlugin
+ *
+ * @props @b name
+ *
+ * @code
+ * "name" gchar *
+ * @endcode
+ *
+ * The name of this plugin. Implementations should initialize this in the constructor.
+ *
+ * Flags : Read / Write / Construct Only
+ */
 enum {
   PROP_0,
   PROP_NAME,
@@ -28,11 +39,12 @@ struct _WpPluginPrivate
   GQuark name_quark;
 };
 
-/**
- * WpPlugin:
- *
- * #WpPlugin is a base class for objects that provide functionality to the
- * WirePlumber daemon.
+/*!
+ * @struct WpPlugin
+ * @section plugin_section Plugins
+ * 
+ * @brief [WpPlugin](@ref plugin_section) is a base class for objects that
+ * provide functionality to the WirePlumber daemon.
  *
  * Typically, a plugin is created within a module and then registered to
  * make it available for use by the daemon. The daemon is responsible for
@@ -40,13 +52,18 @@ struct _WpPluginPrivate
  * the core is connected and the initial discovery of global objects is
  * done.
  *
- * Being a #WpObject subclass, the plugin inherits #WpObject's activation
- * system. For most implementations, there is only need for activating one
+ * Being a [WpObject](@ref object_section) subclass, the plugin inherits
+ * [WpObject](@ref object_section)'s activation system.
+ * For most implementations, there is only need for activating one
  * feature, %WP_PLUGIN_FEATURE_ENABLED, and this can be done by implementing
- * only #WpPluginClass.enable() and #WpPluginClass.disable(). For more advanced
- * plugins that need to have more features, you may implement directly the
- * functions of #WpObjectClass and ignore the ones of #WpPluginClass.
+ * only [WpPluginClass](@ref plugin_class_section).[enable](@ref plugin_class_enable_section)() and
+ * [WpPluginClass](@ref plugin_class_section).[disable](@ref plugin_class_disable_section)().
+ * For more advanced plugins that need to have more features, you may implement directly the
+ * functions of [WpObjectClass](@ref object_class_section) and ignore the ones of
+ * [WpPluginClass](@ref plugin_class_section).
+ *
  */
+
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (WpPlugin, wp_plugin, WP_TYPE_OBJECT)
 
 static void
@@ -104,7 +121,7 @@ wp_plugin_activate_get_next_step (WpObject * object,
     WpObjectFeatures missing)
 {
   /* we only support ENABLED, so this is the only
-     feature that can be in @missing */
+     feature that can be in @em missing */
   g_return_val_if_fail (missing == WP_PLUGIN_FEATURE_ENABLED,
       WP_TRANSITION_STEP_ERROR);
 
@@ -157,9 +174,9 @@ wp_plugin_class_init (WpPluginClass * klass)
   wpobject_class->activate_execute_step = wp_plugin_activate_execute_step;
   wpobject_class->deactivate = wp_plugin_deactivate;
 
-  /**
+  /*
    * WpPlugin:name:
-   * The name of this plugin.
+   * @brief The name of this plugin.
    * Implementations should initialize this in the constructor.
    */
   g_object_class_install_property (object_class, PROP_NAME,
@@ -168,12 +185,13 @@ wp_plugin_class_init (WpPluginClass * klass)
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
-/**
- * wp_plugin_register:
- * @plugin: (transfer full): the plugin
+/*!
+ * @memberof WpPlugin
+ * @param plugin: (transfer full): the plugin
  *
- * Registers the plugin to its associated core, making it available for use
+ * @brief Registers the plugin to its associated core, making it available for use
  */
+
 void
 wp_plugin_register (WpPlugin * plugin)
 {
@@ -193,13 +211,14 @@ find_plugin_func (gpointer plugin, gpointer name_quark)
   return priv->name_quark == GPOINTER_TO_UINT (name_quark);
 }
 
-/**
- * wp_plugin_find:
- * @core: the core
- * @plugin_name: the lookup name
+/*!
+ * @memberof WpPlugin
+ * @param core: the core
+ * @param plugin_name: the lookup name
  *
- * Returns: (transfer full) (nullable): the plugin matching the lookup name
+ * @returns (transfer full) (nullable): the plugin matching the lookup name
  */
+
 WpPlugin *
 wp_plugin_find (WpCore * core, const gchar * plugin_name)
 {
@@ -213,12 +232,13 @@ wp_plugin_find (WpCore * core, const gchar * plugin_name)
   return p ? WP_PLUGIN (p) : NULL;
 }
 
-/**
- * wp_plugin_get_name:
- * @self: the plugin
+/*!
+ * @memberof WpPlugin
+ * @param self: the plugin
  *
- * Returns: the name of this plugin
+ * @returns the name of this plugin
  */
+
 const gchar *
 wp_plugin_get_name (WpPlugin * self)
 {
@@ -229,21 +249,27 @@ wp_plugin_get_name (WpPlugin * self)
 }
 
 /**
- * WpPluginClass.enable:
- * @self: the plugin
- * @transition: the activation transition
+ * WpPluginClass::enable:
  *
- * Enables the plugin. The plugin is required to start any operations only
+ * @section plugin_class_enable_section enable
+ *
+ * @param self: the plugin
+ * @param transition: the activation transition
+ *
+ * @brief Enables the plugin. The plugin is required to start any operations only
  * when this method is called and not before.
  *
  * When enabling the plugin is done, you must call wp_object_update_features()
  * with %WP_PLUGIN_FEATURE_ENABLED marked as activated, or return an error
- * on @transition.
+ * on @em transition.
  */
 
 /**
- * WpPluginClass.disable:
- * @self: the plugin
+ * WpPluginClass::disable:
+ *
+ * @section plugin_class_disable_section disable
+ *
+ * @param self: the plugin
  *
  * Disables the plugin. The plugin is required to stop all operations and
  * release all resources associated with it.

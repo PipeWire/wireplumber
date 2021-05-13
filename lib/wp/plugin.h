@@ -13,27 +13,42 @@
 
 G_BEGIN_DECLS
 
-/**
- * WpPluginFeatures:
- * @WP_PLUGIN_FEATURE_ENABLED: enables the plugin
+/*!
+ * @memberof WpPlugin
  *
- * Flags to be used as #WpObjectFeatures for #WpPlugin subclasses.
+ * @section plugin_features_section WpPluginFeatures
+ *
+ * @brief
+ * @em WP_PLUGIN_FEATURE_ENABLED: enables the plugin
+ *
+ * Flags to be used as [WpObjectFeatures](@ref object_features_section)
+ * for [WpPlugin](@ref plugin_section) subclasses.
  */
 typedef enum { /*< flags >*/
   WP_PLUGIN_FEATURE_ENABLED = (1 << 0),
 } WpPluginFeatures;
 
-/**
- * WP_TYPE_PLUGIN:
+/*!
+ * @memberof WpPlugin
  *
- * The #WpPlugin #GType
+ * @brief The [WpPlugin](@ref plugin_section)
+ * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
+ * GType</a>
+ *
+ * @code
+ * #define WP_TYPE_PLUGIN (wp_plugin_get_type ())
+ * @endcode
+ *
  */
 #define WP_TYPE_PLUGIN (wp_plugin_get_type ())
 WP_API
 G_DECLARE_DERIVABLE_TYPE (WpPlugin, wp_plugin, WP, PLUGIN, WpObject)
 
-/**
- * WpPluginClass:
+/*!
+ * @brief
+ * @em parent_class
+ * @em enable: See wp_plugin_activate_execute_step()
+ * @em disable: See wp_plugin_deactivate()
  */
 struct _WpPluginClass
 {

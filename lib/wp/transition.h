@@ -14,21 +14,33 @@
 
 G_BEGIN_DECLS
 
-/**
- * WP_TYPE_TRANSITION:
+/*!
+ * @memberof WpTransition
  *
- * The #WpTransition #GType
+ * @brief The [WpTransition](@ref transition_section)
+ * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
+ * GType</a>
+ *
+ * @code
+ * #define WP_TYPE_TRANSITION (wp_transition_get_type ())
+ * @endcode
+ *
  */
 #define WP_TYPE_TRANSITION (wp_transition_get_type ())
 WP_API
 G_DECLARE_DERIVABLE_TYPE (WpTransition, wp_transition, WP, TRANSITION, GObject)
 
-/**
- * WpTransitionStep:
- * @WP_TRANSITION_STEP_NONE: the initial and final step of the transition
- * @WP_TRANSITION_STEP_ERROR: returned by #WpTransitionClass.get_next_step() in
+/*!
+ * @memberof WpTransition
+ *
+ * @section transition_step_section WpTransitionStep
+ *
+ * @brief
+ * @em WP_TRANSITION_STEP_NONE: the initial and final step of the transition
+ * @em WP_TRANSITION_STEP_ERROR: returned by
+ * [WpTransitionClass](@ref transition_class_section).get_next_step() in
  *   case of an error
- * @WP_TRANSITION_STEP_CUSTOM_START: starting value for steps defined in
+ * @em WP_TRANSITION_STEP_CUSTOM_START: starting value for steps defined in
  *   subclasses
  */
 typedef enum {
@@ -37,10 +49,10 @@ typedef enum {
   WP_TRANSITION_STEP_CUSTOM_START = 0x10
 } WpTransitionStep;
 
-/**
- * WpTransitionClass:
- * @get_next_step: See wp_transition_advance()
- * @execute_step: See wp_transition_advance()
+/*!
+ * @brief
+ * @em get_next_step: See wp_transition_advance()
+ * @em execute_step: See wp_transition_advance()
  */
 struct _WpTransitionClass
 {

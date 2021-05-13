@@ -6,41 +6,30 @@
  * SPDX-License-Identifier: MIT
  */
 
+/*!
+ * @file wp.c
+ */
 #define G_LOG_DOMAIN "wp"
 
 #include "wp.h"
 #include <pipewire/pipewire.h>
 
-/**
- * SECTION: wp
- * @title: Library Initialization
+/*!
+ * @struct Wp
+ *
+ * @section wp_section Wp
+ *
  */
 
-
-/**
- * WpInitFlags:
- * @WP_INIT_PIPEWIRE: Initializes libpipewire by calling `pw_init()`
- * @WP_INIT_SPA_TYPES: Initializes WirePlumber's SPA types integration,
- *     required for using #WpSpaPod among other things
- * @WP_INIT_SET_PW_LOG: Enables redirecting debug log messages from
- *     libpipewire to GLib's logging system, by installing WirePlumber's
- *     implementation of `struct spa_log` (see wp_spa_log_get_instance())
- *     with `pw_log_set()`
- * @WP_INIT_SET_GLIB_LOG: Installs WirePlumber's debug log handler,
- *     wp_log_writer_default(), on GLib with g_log_set_writer_func()
- * @WP_INIT_ALL: Enables all of the above
+/*!
+ * @memberof Wp
+ * @param flags: initialization flags
  *
- * See wp_init()
- */
-
-/**
- * wp_init:
- * @flags: initialization flags
- *
- * Initializes WirePlumber and PipeWire underneath. @flags can modify
+ * @brief Initializes WirePlumber and PipeWire underneath. @em flags can modify
  * which parts are initialized, in cases where you want to handle part
  * of this initialization externally.
  */
+
 void
 wp_init (WpInitFlags flags)
 {
@@ -78,6 +67,14 @@ wp_init (WpInitFlags flags)
   g_type_ensure (WP_TYPE_PORT);
 }
 
+/*!
+ * @memberof Wp
+ *
+ * @param Void
+ *
+ * @returns The Wireplumber module directory
+ */
+
 const gchar *
 wp_get_module_dir (void)
 {
@@ -90,6 +87,14 @@ wp_get_module_dir (void)
   return module_dir;
 }
 
+/*!
+ * @memberof Wp
+ *
+ * @param Void
+ *
+ * @returns The Wireplumber config directory
+ */
+
 const gchar *
 wp_get_config_dir (void)
 {
@@ -101,6 +106,14 @@ wp_get_config_dir (void)
   }
   return config_dir;
 }
+
+/*!
+ * @memberof Wp
+ *
+ * @param Void
+ *
+ * @returns The Wireplumber data directory
+ */
 
 const gchar *
 wp_get_data_dir (void)

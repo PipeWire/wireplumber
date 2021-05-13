@@ -6,16 +6,17 @@
  * SPDX-License-Identifier: MIT
  */
 
-/**
- * SECTION: error
- * @title: Error codes
- *
- * Error domain and codes for #GError
- */
-
 #include "error.h"
 
 /**
  * wp_domain_library_quark:
+ *
+ * @file error.c
+ *
+ * @section error_section Error codes
+ *
+ * Error domain and codes for
+ * <a href="https://developer.gnome.org/glib/stable/glib-Error-Reporting.html#GError">
+ * GError</a>
  */
 G_DEFINE_QUARK (wireplumber-library, wp_domain_library);

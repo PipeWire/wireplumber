@@ -131,7 +131,7 @@ struct _WpPwObjectMixinData
   GArray *subscribed_ids;    /* element-type: guint32 */
 };
 
-/* get mixin data (stored as qdata on the @instance) */
+/* get mixin data (stored as qdata on the @em instance) */
 WpPwObjectMixinData * wp_pw_object_mixin_get_data (gpointer instance);
 
 /****************/
@@ -142,8 +142,8 @@ GPtrArray * wp_pw_object_mixin_get_stored_params (WpPwObjectMixinData * data,
     guint32 id);
 
 /* param store manipulation
- * @flags: see below
- * @param: (transfer full): WpSpaPod* or GPtrArray* */
+ * @em flags: see below
+ * @em param: (transfer full): WpSpaPod* or GPtrArray* */
 void wp_pw_object_mixin_store_param (WpPwObjectMixinData * data, guint32 id,
     guint32 flags, gpointer param);
 
@@ -151,7 +151,7 @@ void wp_pw_object_mixin_store_param (WpPwObjectMixinData * data, guint32 id,
 #define WP_PW_OBJECT_MIXIN_STORE_PARAM_SET(x)  ((x) & 0x7fff)
 #define WP_PW_OBJECT_MIXIN_STORE_PARAM_APPEND  (0xffff)
 #define WP_PW_OBJECT_MIXIN_STORE_PARAM_PREPEND (0)
-/* @param is a GPtrArray* */
+/* @em param is a GPtrArray* */
 #define WP_PW_OBJECT_MIXIN_STORE_PARAM_ARRAY   (1 << 16)
 /* clear the existing array of params before storing */
 #define WP_PW_OBJECT_MIXIN_STORE_PARAM_CLEAR   (1 << 17)

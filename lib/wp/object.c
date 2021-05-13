@@ -5,29 +5,34 @@
  *
  * SPDX-License-Identifier: MIT
  */
-
-/**
- * SECTION: object
- * @title: Base object type
+/*!
+ * @file object.c
  */
-
 #define G_LOG_DOMAIN "wp-object"
 
 #include "object.h"
 #include "log.h"
 #include "core.h"
 
+/*!
+ * @struct WpFeatureActivationTransition
+ * @memberof WpObject
+ * @section feature_active_transition_section Feature Activation
+ *
+ * @brief A [WpTransition](@ref transition_section) that is used by
+ * [WpObject](@ref object_section) to implement feature activation.
+ */
+/*!
+ * @brief
+ * @em parent
+ * @em missing
+ */
 struct _WpFeatureActivationTransition
 {
   WpTransition parent;
   WpObjectFeatures missing;
 };
 
-/**
- * WpFeatureActivationTransition:
- *
- * A #WpTransition that is used by #WpObject to implement feature activation.
- */
 G_DEFINE_TYPE (WpFeatureActivationTransition,
                wp_feature_activation_transition,
                WP_TYPE_TRANSITION)
@@ -107,14 +112,15 @@ wp_feature_activation_transition_class_init (
       wp_feature_activation_transition_execute_step;
 }
 
-/**
- * wp_feature_activation_transition_get_requested_features:
- * @self: the transition
+/*!
+ * @memberof WpFeatureActivationTransition
+ * @param self: the transition
  *
- * Returns: the features that were requested to be activated in this transition;
+ * @returns the features that were requested to be activated in this transition;
  *   this contains the features as they were passed in wp_object_activate() and
  *   therefore it may contain unsupported or already active features
  */
+
 WpObjectFeatures
 wp_feature_activation_transition_get_requested_features (
     WpFeatureActivationTransition * self)
@@ -122,7 +128,9 @@ wp_feature_activation_transition_get_requested_features (
   return GPOINTER_TO_UINT (wp_transition_get_data (WP_TRANSITION (self)));
 }
 
-
+/*!
+ * @struct WpObject
+ */
 typedef struct _WpObjectPrivate WpObjectPrivate;
 struct _WpObjectPrivate
 {
@@ -135,6 +143,33 @@ struct _WpObjectPrivate
   GSource *idle_advnc_source;
 };
 
+/*!
+ * @memberof WpObject
+ *
+ * @props @b active-features
+ *
+ * @code
+ * "active-features" guint
+ * @endcode
+ *
+ * Flags : Read
+ *
+ * @props @b core
+ *
+ * @code
+ * "core" WpCore *
+ * @endcode
+ *
+ * Flags : Read / Write / Construct Only
+ *
+ * @props @b supported-features
+ *
+ * @code
+ * "supported-features" <a href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#guint">guint</a>
+ * @endcode
+ *
+ * Flags : Read
+ */
 enum {
   PROP_0,
   PROP_CORE,
@@ -142,11 +177,6 @@ enum {
   PROP_SUPPORTED_FEATURES,
 };
 
-/**
- * WpObject:
- *
- * Base class for objects that may have optional activatable features.
- */
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (WpObject, wp_object, G_TYPE_OBJECT)
 
 static void
@@ -257,12 +287,13 @@ wp_object_class_init (WpObjectClass * klass)
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 }
 
-/**
- * wp_object_get_core:
- * @self: the object
+/*!
+ * @memberof WpObject
+ * @param self: the object
  *
- * Returns: (transfer full): the core associated with this object
+ * @returns (transfer full): the core associated with this object
  */
+
 WpCore *
 wp_object_get_core (WpObject * self)
 {
@@ -272,12 +303,13 @@ wp_object_get_core (WpObject * self)
   return g_weak_ref_get (&priv->core);
 }
 
-/**
- * wp_object_get_active_features:
- * @self: the object
+/*!
+ * @memberof WpObject
+ * @param self: the object
  *
- * Returns: a bitset containing the active features of this object
+ * @returns a bitset containing the active features of this object
  */
+
 WpObjectFeatures
 wp_object_get_active_features (WpObject * self)
 {
@@ -287,13 +319,14 @@ wp_object_get_active_features (WpObject * self)
   return priv->ft_active;
 }
 
-/**
- * wp_object_get_supported_features:
- * @self: the object
+/*!
+ * @memberof WpObject
+ * @param self: the object
  *
- * Returns: a bitset containing the supported features of this object;
+ * @returns a bitset containing the supported features of this object;
  *   note that supported features may change at runtime
  */
+
 WpObjectFeatures
 wp_object_get_supported_features (WpObject * self)
 {
@@ -306,8 +339,8 @@ wp_object_get_supported_features (WpObject * self)
 static gboolean
 wp_object_advance_transitions (WpObject * self)
 {
-  /* keep @self alive; in rare cases, the last transition may be
-     holding the last ref on @self and g_queue_peek_head will crash
+  /* keep @em self alive; in rare cases, the last transition may be
+     holding the last ref on @em self and g_queue_peek_head will crash
      right after droping that last ref */
   g_autoptr (WpObject) self_ref = g_object_ref (self);
   WpObjectPrivate *priv = wp_object_get_instance_private (self);
@@ -327,16 +360,17 @@ wp_object_advance_transitions (WpObject * self)
   return G_SOURCE_REMOVE;
 }
 
-/**
- * wp_object_activate:
- * @self: the object
- * @features: the features to enable
- * @cancellable: (nullable): a cancellable for the async operation
- * @callback: (scope async): a function to call when activation is complete
- * @user_data: (closure): data for @callback
+/*!
+ * @memberof WpObject
+ * @param self: the object
+ * @param features: the features to enable
+ * @param cancellable: (nullable): a cancellable for the async operation
+ * @param callback: (scope async): a function to call when activation is complete
+ * @param user_data: (closure): data for @em callback
  *
- * Callback version of wp_object_activate_closure
+ * @brief Callback version of wp_object_activate_closure
  */
+
 void
 wp_object_activate (WpObject * self,
     WpObjectFeatures features, GCancellable * cancellable,
@@ -349,23 +383,24 @@ wp_object_activate (WpObject * self,
   wp_object_activate_closure (self, features, cancellable, closure);
 }
 
-/**
- * wp_object_activate_closure:
- * @self: the object
- * @features: the features to enable
- * @cancellable: (nullable): a cancellable for the async operation
- * @closure: (transfer full): the closure to use when activation is completed
+/*!
+ * @memberof WpObject
+ * @param self: the object
+ * @param features: the features to enable
+ * @param cancellable: (nullable): a cancellable for the async operation
+ * @param closure: (transfer full): the closure to use when activation is completed
  *
- * Activates the requested @features and invokes @closure when this is done.
- * @features may contain unsupported or already active features. The operation
+ * @brief Activates the requested @em features and invokes @em closure when this is done.
+ * @em features may contain unsupported or already active features. The operation
  * will filter them and activate only ones that are supported and inactive.
  *
  * If multiple calls to this method is done, the operations will be executed
  * one after the other to ensure features only get activated once.
  *
- * Note that @closure may be invoked in sync while this method is being called,
+ * Note that @em closure may be invoked in sync while this method is being called,
  * if there are no features to activate.
  */
+
 void
 wp_object_activate_closure (WpObject * self,
     WpObjectFeatures features, GCancellable * cancellable,
@@ -391,15 +426,16 @@ wp_object_activate_closure (WpObject * self,
   }
 }
 
-/**
- * wp_object_activate_finish:
- * @self: the object
- * @res: the async operation result
- * @error: (out) (optional): the error of the operation, if any
+/*!
+ * @memberof WpObject
+ * @param self: the object
+ * @param res: the async operation result
+ * @param error: (out) (optional): the error of the operation, if any
  *
- * Returns: %TRUE if the requested features were activated,
+ * @returns %TRUE if the requested features were activated,
  *   %FALSE if there was an error
  */
+
 gboolean
 wp_object_activate_finish (WpObject * self, GAsyncResult * res, GError ** error)
 {
@@ -409,15 +445,16 @@ wp_object_activate_finish (WpObject * self, GAsyncResult * res, GError ** error)
   return wp_transition_finish (res, error);
 }
 
-/**
- * wp_object_deactivate
- * @self: the object
- * @features: the features to deactivate
+/*!
+ * @memberof WpObject
+ * @param self: the object
+ * @param features: the features to deactivate
  *
- * Deactivates the given @features, leaving the object in the state it was
+ * @brief Deactivates the given @em features, leaving the object in the state it was
  * before they were enabled. This is seldom needed to call manually, but it
  * can be used to save resources if some features are no longer needed.
  */
+
 void
 wp_object_deactivate (WpObject * self, WpObjectFeatures features)
 {
@@ -428,15 +465,15 @@ wp_object_deactivate (WpObject * self, WpObjectFeatures features)
   WP_OBJECT_GET_CLASS (self)->deactivate (self, features & priv->ft_active);
 }
 
-/**
- * wp_object_update_features:
- *
- * Private method to be called by subclasses. Allows subclasses to update
- * the currently active features. @activated should contain new features and
- * @deactivated should contain features that were just deactivated.
+/*!
+ * @memberof WpObject
+ * @brief Private method to be called by subclasses. Allows subclasses to update
+ * the currently active features. @em activated should contain new features and
+ * @em deactivated should contain features that were just deactivated.
  *
  * Calling this method also advances the activation transitions.
  */
+
 void
 wp_object_update_features (WpObject * self, WpObjectFeatures activated,
     WpObjectFeatures deactivated)

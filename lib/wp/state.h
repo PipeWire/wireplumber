@@ -15,10 +15,17 @@ G_BEGIN_DECLS
 
 /* WpState */
 
-/**
- * WP_TYPE_STATE:
+/*!
+ * @memberof WpState
  *
- * The #WpState #GType
+ * @brief The [WpState](@ref state_section)
+ * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
+ * GType</a>
+ *
+ * @code
+ * #define WP_TYPE_STATE (wp_state_get_type ())
+ * @endcode
+ *
  */
 #define WP_TYPE_STATE (wp_state_get_type ())
 WP_API

@@ -6,25 +6,9 @@
  * SPDX-License-Identifier: MIT
  */
 
-/**
- * SECTION: core
- * @title: Core
- *
- * The core is the central object around which everything operates. It is
- * essential to create a #WpCore before using any other WirePlumber API.
- *
- * The core object has the following responsibilities:
- *  * it initializes the PipeWire library
- *  * it creates a `pw_context` and allows connecting to the PipeWire server,
- *    creating a local `pw_core`
- *  * it glues the PipeWire library's event loop system with GMainLoop
- *  * it maintains a list of registered objects, which other classes use
- *    to keep objects loaded permanently into memory
- *  * it watches the PipeWire registry and keeps track of remote and local
- *    objects that appear in the registry, making them accessible through
- *    the #WpObjectManager API.
+/*!
+ * @file core.c
  */
-
 #define G_LOG_DOMAIN "wp-core"
 
 #include "core.h"
@@ -95,10 +79,26 @@ wp_loop_source_new (void)
   return (GSource *) s;
 }
 
-/**
- * WpCore
+/*!
+ * @struct WpCore
+ *
+ * @section core_section Core
+ *
+ * @brief The core is the central object around which everything operates. It is
+ * essential to create a [WpCore](@ref core_section) before using any other WirePlumber API.
+ *
+ * The core object has the following responsibilities:
+ *  * it initializes the PipeWire library
+ *  * it creates a `pw_context` and allows connecting to the PipeWire server,
+ *    creating a local `pw_core`
+ *  * it glues the PipeWire library's event loop system with GMainLoop
+ *  * it maintains a list of registered objects, which other classes use
+ *    to keep objects loaded permanently into memory
+ *  * it watches the PipeWire registry and keeps track of remote and local
+ *    objects that appear in the registry, making them accessible through
+ *    the [WpObjectManager](@ref object_manager_section) API.
+ *
  */
-
 struct _WpCore
 {
   GObject parent;
@@ -122,6 +122,41 @@ struct _WpCore
   GHashTable *async_tasks; // <int seq, GTask*>
 };
 
+/*!
+ * @memberof WpCore
+ *
+ * @props @b g-main-context
+ *
+ * @code
+ * "g-main-context" GMainContext *
+ * @endcode
+ *
+ * Flags : Read / Write / Construct Only
+ *
+ * @props @b properties
+ *
+ * @code
+ * "properties" WpProperties *
+ * @endcode
+ *
+ * Flags : Read / Write / Construct Only
+ *
+ * @props @b pw-context
+ *
+ * @code
+ * "pw-context" gpointer *
+ * @endcode
+ *
+ * Flags : Read
+ *
+ * @props @b pw-core
+ *
+ * @code
+ * "pw-core" gpointer *
+ * @endcode
+ *
+ * Flags : Read
+ */
 enum {
   PROP_0,
   PROP_G_MAIN_CONTEXT,
@@ -130,6 +165,33 @@ enum {
   PROP_PW_CORE,
 };
 
+/*!
+ * @memberof WpCore
+ *
+ * @signal @b connected
+ *
+ * Params:
+ * @arg @c self: the core
+ *
+ * Emitted when the core is successfully connected to the PipeWire server
+ * @code
+ * connected_callback (WpCore * self,
+ *                     gpointer user_data)
+ * @endcode
+ *
+ *
+ * @signal @b disconnected
+ *
+ * Params:
+ * @arg @c self: the core
+ *
+ * Emitted when the core is disconnected from the PipeWire server
+ * @code
+ * disconnected_callback (WpCore * self,
+ *                        gpointer user_data)
+ * @endcode
+ *
+ */
 enum {
   SIGNAL_CONNECTED,
   SIGNAL_DISCONNECTED,
@@ -138,11 +200,7 @@ enum {
 
 static guint32 signals[NUM_SIGNALS];
 
-/**
- * WP_TYPE_CORE:
- *
- * The #WpCore #GType
- */
+
 G_DEFINE_TYPE (WpCore, wp_core, G_TYPE_OBJECT)
 
 static void
@@ -388,8 +446,9 @@ wp_core_class_init (WpCoreClass * klass)
       g_param_spec_pointer ("pw-core", "pw-core", "The pipewire core",
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
-  /**
+  /*
    * WpCore::connected:
+   *
    * @self: the core
    *
    * Emitted when the core is successfully connected to the PipeWire server
@@ -398,8 +457,9 @@ wp_core_class_init (WpCoreClass * klass)
       G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
       G_TYPE_NONE, 0);
 
-  /**
+  /*
    * WpCore::disconnected:
+   *
    * @self: the core
    *
    * Emitted when the core is disconnected from the PipeWire server
@@ -409,13 +469,16 @@ wp_core_class_init (WpCoreClass * klass)
       G_TYPE_NONE, 0);
 }
 
-/**
- * wp_core_new:
- * @context: (transfer none) (nullable): the #GMainContext to use for events
- * @properties: (transfer full) (nullable): additional properties, which are
+/*!
+ * @memberof WpCore
+ *
+ * @param context: (transfer none) (nullable): the
+ * <a href="https://developer.gnome.org/glib/unstable/glib-The-Main-Event-Loop.html#GMainContext">
+ * GMainContext</a> to use for events
+ * @param properties: (transfer full) (nullable): additional properties, which are
  *   passed to `pw_context_new` and `pw_context_connect`
  *
- * Returns: (transfer full): a new #WpCore
+ * @returns (transfer full): a new [WpCore](@ref core_section)
  */
 WpCore *
 wp_core_new (GMainContext *context, WpProperties * properties)
@@ -428,13 +491,13 @@ wp_core_new (GMainContext *context, WpProperties * properties)
       NULL);
 }
 
-/**
- * wp_core_clone:
- * @self: the core
+/*!
+ * @memberof WpCore
+ * @param self: the core
  *
- * Clones a core with the same context as @self
+ * @brief Clones a core with the same context as @em self
  *
- * Returns: (transfer full): the clone #WpCore
+ * @returns (transfer full): the clone [WpCore](@ref core_section)
  */
 WpCore *
 wp_core_clone (WpCore * self)
@@ -446,12 +509,13 @@ wp_core_clone (WpCore * self)
       NULL);
 }
 
-/**
- * wp_core_get_g_main_context:
- * @self: the core
+/*!
+ * @memberof WpCore
+ * @param self: the core
  *
- * Returns: (transfer none) (nullable): the #GMainContext that is in use by
- *   this core for events
+ * @returns (transfer none) (nullable): the
+ * <a href="https://developer.gnome.org/glib/unstable/glib-The-Main-Event-Loop.html#GMainContext">
+ * GMainContext</a> that is in use by this core for events
  */
 GMainContext *
 wp_core_get_g_main_context (WpCore * self)
@@ -460,11 +524,11 @@ wp_core_get_g_main_context (WpCore * self)
   return self->g_main_context;
 }
 
-/**
- * wp_core_get_pw_context:
- * @self: the core
+/*!
+ * @memberof WpCore
+ * @param self: the core
  *
- * Returns: (transfer none): the internal `pw_context` object
+ * @returns (transfer none): the internal `pw_context` object
  */
 struct pw_context *
 wp_core_get_pw_context (WpCore * self)
@@ -473,11 +537,11 @@ wp_core_get_pw_context (WpCore * self)
   return self->pw_context;
 }
 
-/**
- * wp_core_get_pw_core:
- * @self: the core
+/*!
+ * @memberof WpCore
+ * @param self: the core
  *
- * Returns: (transfer none) (nullable): the internal `pw_core` object,
+ * @returns (transfer none) (nullable): the internal `pw_core` object,
  *   or %NULL if the core is not connected to PipeWire
  */
 struct pw_core *
@@ -487,14 +551,14 @@ wp_core_get_pw_core (WpCore * self)
   return self->pw_core;
 }
 
-/**
- * wp_core_connect:
- * @self: the core
+/*!
+ * @memberof WpCore
+ * @param self: the core
  *
- * Connects this core to the PipeWire server. When connection succeeds,
- * the #WpCore::connected signal is emitted
+ * @brief Connects this core to the PipeWire server. When connection succeeds,
+ * the [WpCore](@ref core_section) [connected](@ref signal_connected_section) signal is emitted
  *
- * Returns: %TRUE if the core is effectively connected or %FALSE if
+ * @returns %TRUE if the core is effectively connected or %FALSE if
  *   connection failed
  */
 gboolean
@@ -525,13 +589,14 @@ wp_core_connect (WpCore *self)
   return TRUE;
 }
 
-/**
- * wp_core_disconnect:
- * @self: the core
+/*!
+ * @memberof WpCore
+ * @param self: the core
  *
- * Disconnects this core from the PipeWire server. This also effectively
- * destroys all #WpProxy objects that were created through the registry,
- * destroys the `pw_core` and finally emits the #WpCore::disconnected signal.
+ * @brief Disconnects this core from the PipeWire server. This also effectively
+ * destroys all [WpCore](@ref core_section) objects that were created through the registry,
+ * destroys the `pw_core` and finally emits the [WpCore](@ref core_section)
+ * [disconnected](@ref signal_disconnected_section) signal.
  */
 void
 wp_core_disconnect (WpCore *self)
@@ -544,11 +609,11 @@ wp_core_disconnect (WpCore *self)
     pw_core_disconnect (self->pw_core);
 }
 
-/**
- * wp_core_is_connected:
- * @self: the core
+/*!
+ * @memberof WpCore
+ * @param self: the core
  *
- * Returns: %TRUE if the core is connected to PipeWire, %FALSE otherwise
+ * @returns %TRUE if the core is connected to PipeWire, %FALSE otherwise
  */
 gboolean
 wp_core_is_connected (WpCore * self)
@@ -557,11 +622,11 @@ wp_core_is_connected (WpCore * self)
   return self->pw_core != NULL;
 }
 
-/**
- * wp_core_get_remote_cookie:
- * @self: the core
+/*!
+ * @memberof WpCore
+ * @param self: the core
  *
- * Returns: The cookie of the PipeWire instance that @self is connected to.
+ * @returns The cookie of the PipeWire instance that @em self is connected to.
  *     The cookie is a unique random number for identifying an instance of
  *     PipeWire
  */
@@ -574,11 +639,11 @@ wp_core_get_remote_cookie (WpCore * self)
   return self->info->cookie;
 }
 
-/**
- * wp_core_get_remote_name:
- * @self: the core
+/*!
+ * @memberof WpCore
+ * @param self: the core
  *
- * Returns: The name of the PipeWire instance that @self is connected to
+ * @returns The name of the PipeWire instance that @em self is connected to
  */
 const gchar *
 wp_core_get_remote_name (WpCore * self)
@@ -589,12 +654,12 @@ wp_core_get_remote_name (WpCore * self)
   return self->info->name;
 }
 
-/**
- * wp_core_get_remote_user_name:
- * @self: the core
+/*!
+ * @memberof WpCore
+ * @param self: the core
  *
- * Returns: The name of the user that started the PipeWire instance that
- *     @self is connected to
+ * @returns The name of the user that started the PipeWire instance that
+ *     @em self is connected to
  */
 const gchar *
 wp_core_get_remote_user_name (WpCore * self)
@@ -605,12 +670,12 @@ wp_core_get_remote_user_name (WpCore * self)
   return self->info->user_name;
 }
 
-/**
- * wp_core_get_remote_host_name:
- * @self: the core
+/*!
+ * @memberof WpCore
+ * @param self: the core
  *
- * Returns: The name of the host where the PipeWire instance that
- *     @self is connected to is running on
+ * @returns The name of the host where the PipeWire instance that
+ *     @em self is connected to is running on
  */
 const gchar *
 wp_core_get_remote_host_name (WpCore * self)
@@ -621,11 +686,11 @@ wp_core_get_remote_host_name (WpCore * self)
   return self->info->host_name;
 }
 
-/**
- * wp_core_get_remote_version:
- * @self: the core
+/*!
+ * @memberof WpCore
+ * @param self: the core
  *
- * Returns: The version of the PipeWire instance that @self is connected to
+ * @returns The version of the PipeWire instance that @em self is connected to
  */
 const gchar *
 wp_core_get_remote_version (WpCore * self)
@@ -636,12 +701,12 @@ wp_core_get_remote_version (WpCore * self)
   return self->info->version;
 }
 
-/**
- * wp_core_get_remote_properties:
- * @self: the core
+/*!
+ * @memberof WpCore
+ * @param self: the core
  *
- * Returns: (transfer full): the properties of the PipeWire instance that
- *     @self is connected to
+ * @returns (transfer full): the properties of the PipeWire instance that
+ *     @em self is connected to
  */
 WpProperties *
 wp_core_get_remote_properties (WpCore * self)
@@ -652,11 +717,11 @@ wp_core_get_remote_properties (WpCore * self)
   return wp_properties_new_wrap_dict (self->info->props);
 }
 
-/**
- * wp_core_get_properties:
- * @self: the core
+/*!
+ * @memberof WpCore
+ * @param self: the core
  *
- * Returns: (transfer full): the properties of @self
+ * @returns (transfer full): the properties of @em self
  */
 WpProperties *
 wp_core_get_properties (WpCore * self)
@@ -682,16 +747,16 @@ wp_core_get_properties (WpCore * self)
   }
 }
 
-/**
- * wp_core_update_properties:
- * @self: the core
- * @updates: (transfer full): updates to apply to the properties of @self;
+/*!
+ * @memberof WpCore
+ * @param self: the core
+ * @param updates: (transfer full): updates to apply to the properties of @em self;
  *    this does not need to include properties that have not changed
  *
- * Updates the properties of @self on the connection, making them appear on
+ * @brief Updates the properties of @em self on the connection, making them appear on
  * the client object that represents this connection.
  *
- * If @self is not connected yet, these properties are stored and passed to
+ * If @em self is not connected yet, these properties are stored and passed to
  * `pw_context_connect` when connecting.
  */
 void
@@ -713,18 +778,22 @@ wp_core_update_properties (WpCore * self, WpProperties * updates)
     pw_core_update_properties (self->pw_core, wp_properties_peek_dict (upd));
 }
 
-/**
- * wp_core_idle_add:
- * @self: the core
- * @source: (out) (optional): the source
- * @function: (scope notified): the function to call
- * @data: (closure): data to pass to @function
- * @destroy: (nullable): a function to destroy @data
+/*!
+ * @memberof WpCore
+ * @param self: the core
+ * @param source: (out) (optional): the source
+ * @param function: (scope notified): the function to call
+ * @param data: (closure): data to pass to @em function
+ * @param destroy: (nullable): a function to destroy @em data
  *
- * Adds an idle callback to be called in the same #GMainContext as the
- * one used by this core. This is essentially the same as g_idle_add_full(),
- * but it adds the created #GSource on the #GMainContext used by this core
- * instead of the default context.
+ * @brief Adds an idle callback to be called in the same
+ * <a href="https://developer.gnome.org/glib/unstable/glib-The-Main-Event-Loop.html#GMainContext">
+ * GMainContext</a> as the one used by this core. This is essentially the same as g_idle_add_full(),
+ * but it adds the created
+ * <a href="https://developer.gnome.org/glib/stable/glib-The-Main-Event-Loop.html#GSource">
+ * GSource</a> on the 
+ * <a href="https://developer.gnome.org/glib/unstable/glib-The-Main-Event-Loop.html#GMainContext">
+ * GMainContext</a> used by this core instead of the default context.
  */
 void
 wp_core_idle_add (WpCore * self, GSource **source, GSourceFunc function,
@@ -742,17 +811,19 @@ wp_core_idle_add (WpCore * self, GSource **source, GSourceFunc function,
     *source = g_source_ref (s);
 }
 
-/**
- * wp_core_idle_add_closure: (rename-to wp_core_idle_add)
- * @self: the core
- * @source: (out) (optional): the source
- * @closure: the closure to invoke
+/*!
+ * @memberof WpCore
+ * @param self: the core
+ * @param source: (out) (optional): the source
+ * @param closure: the closure to invoke
  *
- * Adds an idle callback to be called in the same #GMainContext as the
- * one used by this core.
+ * @brief Adds an idle callback to be called in the same
+ * <a href="https://developer.gnome.org/glib/unstable/glib-The-Main-Event-Loop.html#GMainContext">
+ * GMainContext </a> as the one used by this core.
  *
- * This is the same as wp_core_idle_add(), but it allows you to specify
- * a #GClosure instead of a C callback.
+ * This is the same as wp_core_idle_add(), but it allows you to specify a
+ * <a href="https://developer.gnome.org/gobject/stable/gobject-Closures.html#GClosure-struct">
+ * GClosure</a> instead of a C callback.
  */
 void
 wp_core_idle_add_closure (WpCore * self, GSource **source, GClosure * closure)
@@ -770,22 +841,26 @@ wp_core_idle_add_closure (WpCore * self, GSource **source, GClosure * closure)
     *source = g_source_ref (s);
 }
 
-/**
- * wp_core_timeout_add:
- * @self: the core
- * @source: (out) (optional): the source
- * @timeout_ms: the timeout in milliseconds
- * @function: (scope notified): the function to call
- * @data: (closure): data to pass to @function
- * @destroy: (nullable): a function to destroy @data
+/*!
+ * @memberof WpCore
+ * @param self: the core
+ * @param source: (out) (optional): the source
+ * @param timeout_ms: the timeout in milliseconds
+ * @param function: (scope notified): the function to call
+ * @param data: (closure): data to pass to @em function
+ * @param destroy: (nullable): a function to destroy @em data
  *
- * Adds a timeout callback to be called at regular intervals in the same
- * #GMainContext as the one used by this core. The function is called repeatedly
+ * @brief Adds a timeout callback to be called at regular intervals in the same
+ * <a href="https://developer.gnome.org/glib/unstable/glib-The-Main-Event-Loop.html#GMainContext">
+ * GMainContext</a> as the one used by this core. The function is called repeatedly
  * until it returns FALSE, at which point the timeout is automatically destroyed
  * and the function will not be called again. The first call to the function
  * will be at the end of the first interval. This is essentially the same as
- * g_timeout_add_full(), but it adds the created #GSource on the #GMainContext
- * used by this core instead of the default context.
+ * g_timeout_add_full(), but it adds the created
+ * <a href="https://developer.gnome.org/glib/stable/glib-The-Main-Event-Loop.html#GSource">
+ * GSource</a> on the 
+ * <a href="https://developer.gnome.org/glib/unstable/glib-The-Main-Event-Loop.html#GMainContext">
+ * GMainContext</a> used by this core instead of the default context.
  */
 void
 wp_core_timeout_add (WpCore * self, GSource **source, guint timeout_ms,
@@ -803,18 +878,20 @@ wp_core_timeout_add (WpCore * self, GSource **source, guint timeout_ms,
     *source = g_source_ref (s);
 }
 
-/**
- * wp_core_timeout_add_closure: (rename-to wp_core_timeout_add)
- * @self: the core
- * @source: (out) (optional): the source
- * @timeout_ms: the timeout in milliseconds
- * @closure: the closure to invoke
+/*!
+ * @memberof WpCore
+ * @param self: the core
+ * @param source: (out) (optional): the source
+ * @param timeout_ms: the timeout in milliseconds
+ * @param closure: the closure to invoke
  *
- * Adds a timeout callback to be called at regular intervals in the same
- * #GMainContext as the one used by this core.
+ * @brief Adds a timeout callback to be called at regular intervals in the same
+ * <a href="https://developer.gnome.org/glib/unstable/glib-The-Main-Event-Loop.html#GMainContext">
+ * GMainContext</a> as the one used by this core.
  *
- * This is the same as wp_core_timeout_add(), but it allows you to specify
- * a #GClosure instead of a C callback.
+ * This is the same as wp_core_timeout_add(), but it allows you to specify a
+ * <a href="https://developer.gnome.org/glib/stable/glib-The-Main-Event-Loop.html#GSource">
+ * GClosure</a> instead of a C callback.
  */
 void
 wp_core_timeout_add_closure (WpCore * self, GSource **source, guint timeout_ms,
@@ -833,24 +910,26 @@ wp_core_timeout_add_closure (WpCore * self, GSource **source, guint timeout_ms,
     *source = g_source_ref (s);
 }
 
-/**
- * wp_core_sync:
- * @self: the core
- * @cancellable: (nullable): a #GCancellable to cancel the operation
- * @callback: (scope async): a function to call when the operation is done
- * @user_data: (closure): data to pass to @callback
+/*!
+ * @memberof WpCore
+ * @param self: the core
+ * @param cancellable: (nullable):
+ * a <a href="https://developer.gnome.org/gio/stable/GCancellable.html#GCancellable-struct">
+ * GCancellable</a> to cancel the operation
+ * @param callback: (scope async): a function to call when the operation is done
+ * @param user_data: (closure): data to pass to @em callback
  *
- * Asks the PipeWire server to call the @callback via an event.
+ * @brief Asks the PipeWire server to call the @em callback via an event.
  *
  * Since methods are handled in-order and events are delivered
  * in-order, this can be used as a barrier to ensure all previous
  * methods and the resulting events have been handled.
  *
- * In both success and error cases, @callback is always called. Use
- * wp_core_sync_finish() from within the @callback to determine whether
+ * In both success and error cases, @em callback is always called. Use
+ * wp_core_sync_finish() from within the @em callback to determine whether
  * the operation completed successfully or if an error occurred.
  *
- * Returns: %TRUE if the sync operation was started, %FALSE if an error
+ * @returns %TRUE if the sync operation was started, %FALSE if an error
  *   occurred before returning from this function
  */
 gboolean
@@ -887,16 +966,18 @@ wp_core_sync (WpCore * self, GCancellable * cancellable,
   return TRUE;
 }
 
-/**
- * wp_core_sync_finish:
- * @self: the core
- * @res: a #GAsyncResult
- * @error: (out) (optional): the error that occurred, if any
+/*!
+ * @memberof WpCore
+ * @param self: the core
+ * @param res: a
+ * <a href="https://developer.gnome.org/gio/stable/GAsyncResult.html#GAsyncResult-struct">
+ * GAsyncResult</a>
+ * @param error: (out) (optional): the error that occurred, if any
  *
- * This function is meant to be called from within the callback of
+ * @brief This function is meant to be called from within the callback of
  * wp_core_sync() in order to determine the success or failure of the operation.
  *
- * Returns: %TRUE if the operation succeeded, %FALSE otherwise
+ * @returns %TRUE if the operation succeeded, %FALSE otherwise
  */
 gboolean
 wp_core_sync_finish (WpCore * self, GAsyncResult * res, GError ** error)

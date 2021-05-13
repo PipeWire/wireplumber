@@ -13,10 +13,12 @@
 
 G_BEGIN_DECLS
 
-/**
- * WpDirection:
- * @WP_DIRECTION_INPUT: a sink, consuming input
- * @WP_DIRECTION_OUTPUT: a source, producing output
+/*!
+ * @memberof @WpPort
+ *
+ * @brief
+ * @em WP_DIRECTION_INPUT: a sink, consuming input
+ * @em WP_DIRECTION_OUTPUT: a source, producing output
  *
  * The different directions the endpoint can have
  */
@@ -25,10 +27,17 @@ typedef enum {
   WP_DIRECTION_OUTPUT,
 } WpDirection;
 
-/**
- * WP_TYPE_PORT:
+/*!
+ * @memberof @WpPort
  *
- * The #WpPort #GType
+ * @brief The [WpPort](@ref port_section)
+ * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
+ * GType</a>
+ *
+ * @code
+ * #define WP_TYPE_PORT (wp_port_get_type ())
+ * @endcode
+ *
  */
 #define WP_TYPE_PORT (wp_port_get_type ())
 WP_API

@@ -12,6 +12,9 @@
 #include "reserve-device-interface.h"
 #include "reserve-device-enums.h"
 
+/*
+ * WpReserveDevice:
+ */
 G_DEFINE_TYPE (WpReserveDevice, wp_reserve_device, G_TYPE_OBJECT)
 
 enum
@@ -311,6 +314,11 @@ wp_reserve_device_set_property (GObject * object,
   }
 }
 
+/**
+* wp_reserve_device_class_init
+*
+* @param klass: the reserve device class
+*/
 static void
 wp_reserve_device_class_init (WpReserveDeviceClass * klass)
 {
@@ -357,8 +365,9 @@ wp_reserve_device_class_init (WpReserveDeviceClass * klass)
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
   /**
-   * WpReserveDevice::acquire:
+   * WpReserveDevice acquire:
    *
+   * @section signal_acquire_section acquire
    */
   signals[ACTION_ACQUIRE] = g_signal_new_class_handler (
       "acquire", G_TYPE_FROM_CLASS (klass),
@@ -367,8 +376,9 @@ wp_reserve_device_class_init (WpReserveDeviceClass * klass)
       NULL, NULL, NULL, G_TYPE_NONE, 0);
 
   /**
-   * WpReserveDevice::release:
+   * WpReserveDevice release:
    *
+   * @section signal_release_section release
    */
   signals[ACTION_RELEASE] = g_signal_new_class_handler (
       "release", G_TYPE_FROM_CLASS (klass),
@@ -377,8 +387,9 @@ wp_reserve_device_class_init (WpReserveDeviceClass * klass)
       NULL, NULL, NULL, G_TYPE_NONE, 0);
 
   /**
-   * WpReserveDevice::deny-release:
+   * WpReserveDevice deny-release:
    *
+   * @section signal_deny_release_section deny-release
    */
   signals[ACTION_DENY_RELEASE] = g_signal_new_class_handler (
       "deny-release", G_TYPE_FROM_CLASS (klass),
@@ -387,13 +398,17 @@ wp_reserve_device_class_init (WpReserveDeviceClass * klass)
       NULL, NULL, NULL, G_TYPE_NONE, 0);
 
   /**
-   * WpReserveDevice::release-requested:
-   * @forced: %TRUE if the name was forcibly taken from us,
+   * WpReserveDevice release-requested:
+   *
+   * @section signal_release_requested_section release-requested
+   *
+   * @em forced: %TRUE if the name was forcibly taken from us,
    *    %FALSE if the `RequestRelease()` d-bus method was called
    *
-   * Signaled when the device needs to be released. If @forced is %FALSE,
-   * call #WpReserveDevice::release to release or #WpReserveDevice::deny-release
-   * to refuse and return %FALSE from the `RequestRelease()` d-bus method
+   * @brief Signaled when the device needs to be released. If @em forced is %FALSE,
+   * call [release](@ref signal_release_section) to release or
+   * [deny-release](@ref signal_deny_release_section)
+   * to refuse and return %FALSE from the `RequestRelease()` d-bus method.
    */
   signals[SIGNAL_RELEASE_REQUESTED] = g_signal_new (
       "release-requested", G_TYPE_FROM_CLASS (klass),

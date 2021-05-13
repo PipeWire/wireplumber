@@ -6,16 +6,18 @@
  * SPDX-License-Identifier: MIT
  */
 
-/**
- * SECTION: link
- * @title: PipeWire Link
+/*!
+ * @file link.c
  */
-
 #define G_LOG_DOMAIN "wp-link"
 
 #include "link.h"
 #include "private/pipewire-object-mixin.h"
 
+/*!
+ * @brief
+ * @em parent
+ */
 struct _WpLink
 {
   WpGlobalProxy parent;
@@ -24,18 +26,21 @@ struct _WpLink
 static void wp_link_pw_object_mixin_priv_interface_init (
     WpPwObjectMixinPrivInterface * iface);
 
-/**
- * WpLink:
+/*!
+ * @struct WpLink
  *
- * The #WpLink class allows accessing the properties and methods of a
+ * @section link_section Pipewire Link
+ *
+ * @brief The [WpLink](@ref link_section) class allows accessing the properties and methods of a
  * PipeWire link object (`struct pw_link`).
  *
- * A #WpLink is constructed internally when a new link appears on the
- * PipeWire registry and it is made available through the #WpObjectManager API.
- * Alternatively, a #WpLink can also be constructed using
+ * A [WpLink](@ref link_section) is constructed internally when a new link appears on the
+ * PipeWire registry and it is made available through the [WpObjectManager](@ref object_manager_section) API.
+ * Alternatively, a [WpLink](@ref link_section) can also be constructed using
  * wp_link_new_from_factory(), which creates a new link object
  * on the remote PipeWire server by calling into a factory.
  */
+
 G_DEFINE_TYPE_WITH_CODE (WpLink, wp_link, WP_TYPE_GLOBAL_PROXY,
     G_IMPLEMENT_INTERFACE (WP_TYPE_PIPEWIRE_OBJECT,
         wp_pw_object_mixin_object_interface_init)
@@ -117,14 +122,14 @@ wp_link_pw_object_mixin_priv_interface_init (
   wp_pw_object_mixin_priv_interface_info_init_no_params (iface, link, LINK);
 }
 
-/**
- * wp_link_new_from_factory:
- * @core: the wireplumber core
- * @factory_name: the pipewire factory name to construct the link
- * @properties: (nullable) (transfer full): the properties to pass to the factory
+/*!
+ * @memberof WpLink
+ * @param core: the wireplumber core
+ * @param factory_name: the pipewire factory name to construct the link
+ * @param properties: (nullable) (transfer full): the properties to pass to the factory
  *
- * Constructs a link on the PipeWire server by asking the remote factory
- * @factory_name to create it.
+ * @brief Constructs a link on the PipeWire server by asking the remote factory
+ * @em factory_name to create it.
  *
  * Because of the nature of the PipeWire protocol, this operation completes
  * asynchronously at some point in the future. In order to find out when
@@ -133,9 +138,10 @@ wp_link_pw_object_mixin_priv_interface_init (
  * use on the server. If the link cannot be created, this activation operation
  * will fail.
  *
- * Returns: (nullable) (transfer full): the new link or %NULL if the core
+ * @returns (nullable) (transfer full): the new link or %NULL if the core
  *   is not connected and therefore the link cannot be created
  */
+
 WpLink *
 wp_link_new_from_factory (WpCore * core,
     const gchar * factory_name, WpProperties * properties)
@@ -148,18 +154,19 @@ wp_link_new_from_factory (WpCore * core,
       NULL);
 }
 
-/**
- * wp_link_get_linked_object_ids:
- * @self: the link
- * @output_node: (out) (optional): the bound id of the output (source) node
- * @output_port: (out) (optional): the bound id of the output (source) port
- * @input_node: (out) (optional): the bound id of the input (sink) node
- * @input_port: (out) (optional): the bound id of the input (sink) port
+/*!
+ * @memberof WpLink
+ * @param self: the link
+ * @param output_node: (out) (optional): the bound id of the output (source) node
+ * @param output_port: (out) (optional): the bound id of the output (source) port
+ * @param input_node: (out) (optional): the bound id of the input (sink) node
+ * @param input_port: (out) (optional): the bound id of the input (sink) port
  *
- * Retrieves the ids of the objects that are linked by this link
+ * @brief Retrieves the ids of the objects that are linked by this link
  *
- * Note: Using this method requires %WP_PIPEWIRE_OBJECT_FEATURE_INFO
+ * @note Using this method requires %WP_PIPEWIRE_OBJECT_FEATURE_INFO
  */
+
 void
 wp_link_get_linked_object_ids (WpLink * self,
     guint32 * output_node, guint32 * output_port,

@@ -165,7 +165,7 @@ wp_reserve_device_plugin_create_reservation (WpReserveDevicePlugin *self,
       "priority", priority,
       NULL);
 
-  /* use rd->name to avoid copying @name again */
+  /* use rd->name to avoid copying @em name again */
   g_hash_table_insert (self->reserve_devices, rd->name, rd);
 
   return g_object_ref (rd);
@@ -230,10 +230,12 @@ wp_reserve_device_plugin_class_init (WpReserveDevicePluginClass * klass)
 
   /**
    * WpReserveDevicePlugin::create-reservation:
-   * @name:
-   * @app_name:
-   * @app_dev_name:
-   * @priority:
+   *
+   * @brief
+   * @em name:
+   * @em app_name:
+   * @em app_dev_name:
+   * @em priority:
    *
    * Returns: (transfer full): the reservation object
    */
@@ -246,7 +248,9 @@ wp_reserve_device_plugin_class_init (WpReserveDevicePluginClass * klass)
 
   /**
    * WpReserveDevicePlugin::destroy-reservation:
-   * @name:
+   *
+   * @brief
+   * @em name:
    *
    */
   signals[ACTION_DESTROY_RESERVATION] = g_signal_new_class_handler (
@@ -258,7 +262,9 @@ wp_reserve_device_plugin_class_init (WpReserveDevicePluginClass * klass)
 
   /**
    * WpReserveDevicePlugin::get-reservation:
-   * @name:
+   *
+   * @brief
+   * @em name:
    *
    * Returns: (transfer full): the reservation object
    */

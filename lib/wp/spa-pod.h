@@ -19,10 +19,17 @@ G_BEGIN_DECLS
 
 struct spa_pod;
 
-/**
- * WP_TYPE_SPA_POD:
+/*!
+ * @memberof WpSpaPod
  *
- * The #WpSpaPod #GType
+ * @brief The [WpSpaPod](@ref spa_pod_section)
+ * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
+ * GType</a>
+ *
+ * @code
+ * #define WP_TYPE_SPA_POD (wp_spa_pod_get_type ())
+ * @endcode
+ *
  */
 #define WP_TYPE_SPA_POD (wp_spa_pod_get_type ())
 WP_API
@@ -290,10 +297,19 @@ WpIterator *wp_spa_pod_new_iterator (WpSpaPod *pod);
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpSpaPod, wp_spa_pod_unref)
 
 
-/**
- * WP_TYPE_SPA_POD_BUILDER:
+/*!
+ * @memberof WpSpaPod
  *
- * The #WpSpaPodBuilder #GType
+ * @section spa_pod_builder_section WP_TYPE_SPA_POD_BUILDER
+ *
+ * @brief The [WpSpaPodBuilder](@ref spa_pod_builder_section)
+ * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
+ * GType</a>
+ *
+ * @code
+ * #define WP_TYPE_SPA_POD_BUILDER (wp_spa_pod_builder_get_type ())
+ * @endcode
+ *
  */
 #define WP_TYPE_SPA_POD_BUILDER (wp_spa_pod_builder_get_type ())
 WP_API
@@ -391,10 +407,19 @@ WpSpaPod *wp_spa_pod_builder_end (WpSpaPodBuilder *self);
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpSpaPodBuilder, wp_spa_pod_builder_unref)
 
 
-/**
- * WP_TYPE_SPA_POD_PARSER:
+/*!
+ * @memberof WpSpaPod
  *
- * The #WpSpaPodParser #GType
+ * @section spa_pod_parser_section WP_TYPE_SPA_POD_PARSER
+ *
+ * @brief The [WpSpaPodBuilder](@ref spa_pod_parser_section)
+ * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
+ * GType</a>
+ *
+ * @code
+ * #define WP_TYPE_SPA_POD_PARSER (wp_spa_pod_parser_get_type ())
+ * @endcode
+ *
  */
 #define WP_TYPE_SPA_POD_PARSER (wp_spa_pod_parser_get_type ())
 WP_API

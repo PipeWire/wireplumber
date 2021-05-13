@@ -41,6 +41,16 @@
 
 G_BEGIN_DECLS
 
+/*!
+ * @memberof Wp
+ *
+ * @brief
+ * @arg WP_INIT_PIPEWIRE
+ * @arg WP_INIT_SPA_TYPES
+ * @arg WP_INIT_SET_PW_LOG
+ * @arg WP_INIT_SET_GLIB_LOG
+ * @arg WP_INIT_ALL
+ */
 typedef enum {
   WP_INIT_PIPEWIRE = (1<<0),
   WP_INIT_SPA_TYPES = (1<<1),

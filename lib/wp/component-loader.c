@@ -6,10 +6,15 @@
  * SPDX-License-Identifier: MIT
  */
 
-/**
- * SECTION: component-loader
- * @title: Components
+/*!
+ * @file component-loader.c
  */
+
+/*!
+ * @struct WpComponentLoader
+ * @section component_loader_section Components
+ */
+
 
 #define G_LOG_DOMAIN "wp-comp-loader"
 
@@ -113,17 +118,18 @@ wp_component_loader_load (WpComponentLoader * self, const gchar * component,
       args, error);
 }
 
-/**
- * wp_core_load_component:
- * @self: the core
- * @component: the module name or file name
- * @type: the type of the component
- * @args: (transfer floating)(nullable): additional arguments for the component,
+/*!
+ * @memberof WpCore
+ * @param self: the core
+ * @param component: the module name or file name
+ * @param type: the type of the component
+ * @param args (transfer floating)(nullable): additional arguments for the component,
  *   usually a dict or a string
- * @error: (out) (optional): return location for errors, or NULL to ignore
+ * @param error: (out) (optional): return location for errors, or NULL to ignore
  *
- * Returns: %TRUE if loaded, %FALSE if there was an error
+ * @returns %TRUE if loaded, %FALSE if there was an error
  */
+
 gboolean
 wp_core_load_component (WpCore * self, const gchar * component,
     const gchar * type, GVariant * args, GError ** error)

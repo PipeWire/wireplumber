@@ -17,15 +17,28 @@
 
 G_BEGIN_DECLS
 
-/**
- * WP_TYPE_ENDPOINT:
+/*!
+ * @memberof WpEndpoint
  *
- * The #WpEndpoint #GType
+ * @brief The [WpEndpoint](@ref endpoint_section)
+ * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
+ * GType</a>
+ *
+ * @code
+ * #define WP_TYPE_ENDPOINT (wp_endpoint_get_type ())
+ * @endcode
+ *
  */
 #define WP_TYPE_ENDPOINT (wp_endpoint_get_type ())
 WP_API
 G_DECLARE_DERIVABLE_TYPE (WpEndpoint, wp_endpoint, WP, ENDPOINT, WpGlobalProxy)
 
+/*!
+ * @memberof WpEndpoint
+ *
+ * @brief
+ * @em parent_class
+ */
 struct _WpEndpointClass
 {
   WpGlobalProxyClass parent_class;
@@ -40,10 +53,16 @@ const gchar * wp_endpoint_get_media_class (WpEndpoint * self);
 WP_API
 WpDirection wp_endpoint_get_direction (WpEndpoint * self);
 
-/**
- * WP_TYPE_IMPL_ENDPOINT:
+/*!
+ * @memberof WpEndpoint
  *
- * The #WpImplEndpoint #GType
+ * @brief The [WpImplEndpoint](@ref impl_endpoint_section)
+ * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
+ * GType</a>
+ * @code
+ * #define WP_TYPE_IMPL_ENDPOINT (wp_impl_endpoint_get_type ())
+ * @endcode
+ *
  */
 #define WP_TYPE_IMPL_ENDPOINT (wp_impl_endpoint_get_type ())
 WP_API

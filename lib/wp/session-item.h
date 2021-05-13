@@ -14,10 +14,11 @@
 
 G_BEGIN_DECLS
 
-/**
- * WpSessionItemFeatures:
+/*!
+ * @memberof WpSessionItem
  *
- * Flags to be used as #WpObjectFeatures for #WpSessionItem subclasses.
+ * @brief Flags to be used as [WpObjectFeatures](@ref object_features_section) for
+ * [WpSessionItem](@ref session_item_section) subclasses.
  */
 typedef enum { /*< flags >*/
   /* main features */
@@ -27,25 +28,32 @@ typedef enum { /*< flags >*/
   WP_SESSION_ITEM_FEATURE_CUSTOM_START = (1 << 16), /*< skip >*/
 } WpSessionItemFeatures;
 
-/**
- * WP_TYPE_SESSION_ITEM:
+/*!
+ * @memberof WpSessionItem
  *
- * The #WpSessionItem #GType
+ * @brief The [WpSessionItem](@ref session_item_section) 
+ * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
+ * GType</a>
+ *
+ * @code
+ * #define WP_TYPE_SESSION_ITEM (wp_session_item_get_type ())
+ * @endcode
+ *
  */
 #define WP_TYPE_SESSION_ITEM (wp_session_item_get_type ())
 WP_API
 G_DECLARE_DERIVABLE_TYPE (WpSessionItem, wp_session_item,
                           WP, SESSION_ITEM, WpObject)
 
-/**
- * WpSessionItemClass:
- * @reset: See wp_session_item_reset()
- * @configure: See wp_session_item_configure()
- * @get_associated_proxy: See wp_session_item_get_associated_proxy()
- * @disable_active: disables the active feature of the session item
- * @disable_exported: disables the exported feature of the session item
- * @enable_active: enables the active feature of the session item
- * @enable_exported: enables the exported feature of the session item
+/*!
+ * @brief
+ * @em reset: See wp_session_item_reset()
+ * @em configure: See wp_session_item_configure()
+ * @em get_associated_proxy: See wp_session_item_get_associated_proxy()
+ * @em disable_active: disables the active feature of the session item
+ * @em disable_exported: disables the exported feature of the session item
+ * @em enable_active: enables the active feature of the session item
+ * @em enable_exported: enables the exported feature of the session item
  */
 struct _WpSessionItemClass
 {

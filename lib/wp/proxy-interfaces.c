@@ -5,26 +5,78 @@
  *
  * SPDX-License-Identifier: MIT
  */
-
-/**
- * SECTION: proxy-interfaces
- * @title: PipeWire Object Proxy Interfaces
+/*!
+ * @file proxy-interfaces.c
  */
-
 #define G_LOG_DOMAIN "wp-proxy-ifaces"
 
 #include "proxy-interfaces.h"
 #include "properties.h"
 
-/**
- * WpPipewireObject:
+/*!
+ * @section proxy_interfaces_section PipeWire Object Proxy Interfaces
  *
- * An interface for standard PipeWire objects. The common characteristic
+ * @struct WpPipewireObject
+ * @section pipewire_object_section PipeWire Object
+ *
+ * @brief An interface for standard PipeWire objects. The common characteristic
  * of all objects that implement this interface is the presence of
  * an "info" structure that contains additional properties for this object
  * (in the form of a spa_dict / pw_properties) and optionally also
  * some parameters that can be enumerated and set on the object.
+ *
+ * @section pipewire_object_signals_section Signals
+ *
+ * @b params-changed
+ *
+ * @code
+ * params_changed_callback (WpPipewireObject * self,
+ *                          guint id,
+ *                          gpointer user_data)
+ * @endcode
+ *
+ * Emitted when the params for id have changed. On proxies that cache params from a remote object,
+ * this is emitted after the cached values have changed.
+ *
+ * You can expect this to be emitted only when the relevant WP_PIPEWIRE_OBJECT_FEATURE_PARAM_*
+ * has been activated.
+ *
+ * @b Parameters:
+ *
+ * @arg `self` - the pipewire object
+ * @arg `is` - the parameter id
+ * @arg `user_data`
+ *
+ * Flags: Run First
+ *
+ * @section plugin_props_section Properties
+ *
+ * @b native-info
+ *
+ * @code
+ * "native-info" gpointer
+ * @endcode
+ *
+ * Flags : Read
+ *
+ * @b param-info
+ *
+ * @code
+ * "param-info" GVariant *
+ * @endcode
+ *
+ * Flags : Read
+ *
+ * @b properties
+ *
+ * @code
+ * "properties" WpProperties *
+ * @endcode
+ *
+ * Flags : Read
+ *
  */
+
 G_DEFINE_INTERFACE (WpPipewireObject, wp_pipewire_object, WP_TYPE_PROXY)
 
 static void
@@ -45,12 +97,12 @@ wp_pipewire_object_default_init (WpPipewireObjectInterface * iface)
           "The param info of the object", G_VARIANT_TYPE ("a{ss}"), NULL,
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
-  /**
+  /*
    * WpPipewireObject::params-changed:
    * @self: the pipewire object
    * @id: the parameter id
    *
-   * Emitted when the params for @id have changed. On proxies that cache
+   * @brief Emitted when the params for @em id have changed. On proxies that cache
    * params from a remote object, this is emitted after the cached values
    * have changed.
    *
@@ -61,15 +113,16 @@ wp_pipewire_object_default_init (WpPipewireObjectInterface * iface)
       G_SIGNAL_RUN_FIRST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_UINT);
 }
 
-/**
- * wp_pipewire_object_get_native_info:
- * @self: the pipewire object
+/*!
+ * @memberof WpPipewireObject
+ * @param self: the pipewire object
  *
- * Requires %WP_PIPEWIRE_OBJECT_FEATURE_INFO
+ * @brief Requires %WP_PIPEWIRE_OBJECT_FEATURE_INFO
  *
- * Returns: (nullable): the native pipewire info structure of this object
+ * @returns (nullable): the native pipewire info structure of this object
  *    (pw_node_info, pw_port_info, etc...)
  */
+
 gconstpointer
 wp_pipewire_object_get_native_info (WpPipewireObject * self)
 {
@@ -80,15 +133,16 @@ wp_pipewire_object_get_native_info (WpPipewireObject * self)
   return WP_PIPEWIRE_OBJECT_GET_IFACE (self)->get_native_info (self);
 }
 
-/**
- * wp_pipewire_object_get_properties:
- * @self: the pipewire object
+/*!
+ * @memberof WpPipewireObject
+ * @param self: the pipewire object
  *
- * Requires %WP_PIPEWIRE_OBJECT_FEATURE_INFO
+ * @brief Requires %WP_PIPEWIRE_OBJECT_FEATURE_INFO
  *
- * Returns: (transfer full): the pipewire properties of this object;
+ * @returns (transfer full): the pipewire properties of this object;
  *   normally these are the properties that are part of the info structure
  */
+
 WpProperties *
 wp_pipewire_object_get_properties (WpPipewireObject * self)
 {
@@ -99,17 +153,18 @@ wp_pipewire_object_get_properties (WpPipewireObject * self)
   return WP_PIPEWIRE_OBJECT_GET_IFACE (self)->get_properties (self);
 }
 
-/**
- * wp_pipewire_object_new_properties_iterator:
- * @self: the pipewire object
+/*!
+ * @memberof WpPipewireObject
+ * @param self: the pipewire object
  *
- * Requires %WP_PIPEWIRE_OBJECT_FEATURE_INFO
+ * @brief Requires %WP_PIPEWIRE_OBJECT_FEATURE_INFO
  *
- * Returns: (transfer full): an iterator that iterates over the pipewire
+ * @returns (transfer full): an iterator that iterates over the pipewire
  *   properties of this object. Use wp_properties_iterator_item_get_key() and
  *   wp_properties_iterator_item_get_value() to parse the items returned by
  *   this iterator.
  */
+
 WpIterator *
 wp_pipewire_object_new_properties_iterator (WpPipewireObject * self)
 {
@@ -118,24 +173,26 @@ wp_pipewire_object_new_properties_iterator (WpPipewireObject * self)
   return properties ? wp_properties_new_iterator (properties) : NULL;
 }
 
-/**
- * wp_pipewire_object_get_property:
- * @self: the pipewire object
- * @key: the property name
+/*!
+ * @memberof WpPipewireObject
+ * @param self: the pipewire object
+ * @param key: the property name
  *
- * Returns the value of a single pipewire property. This is the same as getting
+ * @brief Returns the value of a single pipewire property. This is the same as getting
  * the whole properties structure with wp_pipewire_object_get_properties() and
  * accessing a single property with wp_properties_get(), but saves one call
- * and having to clean up the #WpProperties reference count afterwards.
+ * and having to clean up the [WpProperties](@ref properties_section)
+ * reference count afterwards.
  *
  * The value is owned by the proxy, but it is guaranteed to stay alive
  * until execution returns back to the event loop.
  *
  * Requires %WP_PIPEWIRE_OBJECT_FEATURE_INFO
  *
- * Returns: (transfer none) (nullable): the value of the pipewire property @key
+ * @returns (transfer none) (nullable): the value of the pipewire property @em key
  *   or %NULL if the property doesn't exist
  */
+
 const gchar *
 wp_pipewire_object_get_property (WpPipewireObject * self, const gchar * key)
 {
@@ -144,11 +201,11 @@ wp_pipewire_object_get_property (WpPipewireObject * self, const gchar * key)
   return properties ? wp_properties_get (properties, key) : NULL;
 }
 
-/**
- * wp_pipewire_object_get_param_info:
- * @self: the pipewire object
+/*!
+ * @memberof WpPipewireObject
+ * @param self: the pipewire object
  *
- * Returns the available parameters of this pipewire object. The return value
+ * @brief Returns the available parameters of this pipewire object. The return value
  * is a variant of type `a{ss}`, where the key of each map entry is a spa param
  * type id (the same ids that you can pass in wp_pipewire_object_enum_params())
  * and the value is a string that can contain the following letters,
@@ -163,9 +220,10 @@ wp_pipewire_object_get_property (WpPipewireObject * self, const gchar * key)
  *
  * Requires %WP_PIPEWIRE_OBJECT_FEATURE_INFO
  *
- * Returns: (transfer full) (nullable): a variant of type `a{ss}` or %NULL
+ * @returns (transfer full) (nullable): a variant of type `a{ss}` or %NULL
  *   if the object does not support params at all
  */
+
 GVariant *
 wp_pipewire_object_get_param_info (WpPipewireObject * self)
 {
@@ -176,20 +234,22 @@ wp_pipewire_object_get_param_info (WpPipewireObject * self)
   return WP_PIPEWIRE_OBJECT_GET_IFACE (self)->get_param_info (self);
 }
 
-/**
- * wp_pipewire_object_enum_params:
- * @self: the pipewire object
- * @id: (nullable): the parameter id to enumerate or %NULL for all parameters
- * @filter: (nullable): a param filter or %NULL
- * @cancellable: (nullable): a cancellable for the async operation
- * @callback: (scope async): a callback to call with the result
- * @user_data: (closure): data to pass to @callback
+/*!
+ * @memberof WpPipewireObject
+ * @param self: the pipewire object
+ * @param id: (nullable): the parameter id to enumerate or %NULL for all parameters
+ * @param filter: (nullable): a param filter or %NULL
+ * @param cancellable: (nullable): a cancellable for the async operation
+ * @param callback: (scope async): a callback to call with the result
+ * @param user_data: (closure): data to pass to @em callback
  *
- * Enumerate object parameters. This will asynchronously return the result,
- * or an error, by calling the given @callback. The result is going to
- * be a #WpIterator containing #WpSpaPod objects, which can be retrieved
+ * @brief Enumerate object parameters. This will asynchronously return the result,
+ * or an error, by calling the given @em callback. The result is going to
+ * be a [WpIterator](@ref iterator_section) containing
+ * [WpSpaPod](@ref spa_pod_section) objects, which can be retrieved
  * with wp_pipewire_object_enum_params_finish().
  */
+
 void
 wp_pipewire_object_enum_params (WpPipewireObject * self, const gchar * id,
     WpSpaPod *filter, GCancellable * cancellable,
@@ -202,16 +262,17 @@ wp_pipewire_object_enum_params (WpPipewireObject * self, const gchar * id,
       cancellable, callback, user_data);
 }
 
-/**
- * wp_pipewire_object_enum_params_finish:
- * @self: the pipewire object
- * @res: the async result
- * @error: (out) (optional): the reported error of the operation, if any
+/*!
+ * @memberof WpPipewireObject
+ * @param self: the pipewire object
+ * @param res: the async result
+ * @param error: (out) (optional): the reported error of the operation, if any
  *
- * Returns: (transfer full) (nullable): an iterator to iterate over the
+ * @returns (transfer full) (nullable): an iterator to iterate over the
  *   collected params, or %NULL if the operation resulted in error;
- *   the items in the iterator are #WpSpaPod
+ *   the items in the iterator are [WpSpaPod](@ref spa_pod_section)
  */
+
 WpIterator *
 wp_pipewire_object_enum_params_finish (WpPipewireObject * self,
     GAsyncResult * res, GError ** error)
@@ -224,16 +285,16 @@ wp_pipewire_object_enum_params_finish (WpPipewireObject * self,
       error);
 }
 
-/**
- * wp_pipewire_object_enum_cached_params
- * @self: the pipewire object
- * @id: the parameter id to enumerate
- * @filter: (nullable): a param filter or %NULL
+/*!
+ * @memberof WpPipewireObject
+ * @param self: the pipewire object
+ * @param id: the parameter id to enumerate
+ * @param filter: (nullable): a param filter or %NULL
  *
- * This method can be used to retrieve object parameters in a synchronous way
+ * @brief This method can be used to retrieve object parameters in a synchronous way
  * (in contrast with wp_pipewire_object_enum_params(), which is async),
  * provided that the `WP_PIPEWIRE_OBJECT_FEATURE_PARAM_<something>` feature
- * that corresponds to the specified @id has been activated earlier.
+ * that corresponds to the specified @em id has been activated earlier.
  * These features enable monitoring and caching of params underneath, so that
  * they are always available for retrieval with this method.
  *
@@ -242,10 +303,11 @@ wp_pipewire_object_enum_params_finish (WpPipewireObject * self,
  * able to update them yet, so if you really need up-to-date information you
  * should only rely on wp_pipewire_object_enum_params() instead.
  *
- * Returns: (transfer full) (nullable): an iterator to iterate over cached
- *    parameters, or %NULL if paramteres for this @id are not cached;
- *    the items in the iterator are #WpSpaPod
+ * @returns (transfer full) (nullable): an iterator to iterate over cached
+ *    parameters, or %NULL if paramteres for this @em id are not cached;
+ *    the items in the iterator are [WpSpaPod](@ref spa_pod_section)
  */
+
 WpIterator *
 wp_pipewire_object_enum_params_sync (WpPipewireObject * self,
     const gchar * id, WpSpaPod * filter)
@@ -258,17 +320,18 @@ wp_pipewire_object_enum_params_sync (WpPipewireObject * self,
       filter);
 }
 
-/**
- * wp_pipewire_object_set_param:
- * @self: the pipewire object
- * @id: the parameter id to set
- * @flags: optional flags or 0
- * @param: (transfer full): the parameter to set
+/*!
+ * @memberof WpPipewireObject
+ * @param self: the pipewire object
+ * @param id: the parameter id to set
+ * @param flags: optional flags or 0
+ * @param param: (transfer full): the parameter to set
  *
- * Sets a parameter on the object.
+ * @brief Sets a parameter on the object.
  *
- * Returns: %TRUE on success, %FALSE if setting the param failed
+ * @returns %TRUE on success, %FALSE if setting the param failed
  */
+
 gboolean
 wp_pipewire_object_set_param (WpPipewireObject * self, const gchar * id,
     guint32 flags, WpSpaPod * param)

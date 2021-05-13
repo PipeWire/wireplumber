@@ -252,8 +252,10 @@ wp_portal_permissionstore_plugin_class_init (
 
   /**
    * WpPortalPermissionStorePlugin::lookup:
-   * @table: the table name
-   * @id: the Id name
+   *
+   * @brief
+   * @em table: the table name
+   * @em id: the Id name
    *
    * Returns: (transfer full): the GVariant with permissions
    */
@@ -266,10 +268,12 @@ wp_portal_permissionstore_plugin_class_init (
 
   /**
    * WpPortalPermissionStorePlugin::set:
-   * @table: the table name
-   * @create: whether to create the table if it does not exist
-   * @id: the Id name
-   * @permissions: the permissions
+   *
+   * @brief
+   * @em table: the table name
+   * @em create: whether to create the table if it does not exist
+   * @em id: the Id name
+   * @em permissions: the permissions
    *
    * Sets the permissions in the permission store
    */
@@ -282,10 +286,12 @@ wp_portal_permissionstore_plugin_class_init (
 
   /**
    * WpPortalPermissionStorePlugin::changed:
-   * @table: the table name
-   * @id: the Id name
-   * @deleted: whether the permission was deleted or not
-   * @permissions: the GVariant with permissions
+   *
+   * @brief
+   * @em table: the table name
+   * @em id: the Id name
+   * @em deleted: whether the permission was deleted or not
+   * @em permissions: the GVariant with permissions
    *
    * Signaled when the permissions changed
    */

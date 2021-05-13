@@ -95,8 +95,9 @@ foreach file : sphinx_files
 	configure_file(input: file, output: file, copy: true)
 endforeach
 
-# and those in toc
+# and those in toc and api
 subdir('toc')
+subdir('api')
 
 sphinx_doc = custom_target(
 		'breathe',

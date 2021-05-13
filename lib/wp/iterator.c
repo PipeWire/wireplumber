@@ -5,10 +5,8 @@
  *
  * SPDX-License-Identifier: MIT
  */
-
-/**
- * SECTION: iterator
- * @title: Iterator
+/*!
+ * @file iterator.c
  */
 
 #define G_LOG_DOMAIN "wp-iterator"
@@ -16,6 +14,11 @@
 #include "iterator.h"
 #include <spa/utils/defs.h>
 
+/*!
+ * @struct WpIterator
+ * @section iterator_section Iterator
+ *
+ */
 struct _WpIterator
 {
   const WpIteratorMethods *methods;
@@ -63,19 +66,20 @@ wp_iterator_default_foreach (WpIterator *self, WpIteratorForeachFunc func,
   return wp_iterator_fold (self, foreach_fold_func, NULL, &d);
 }
 
-/**
- * wp_iterator_new:
- * @methods: method implementations for the new iterator
- * @user_size: size of the user_data structure to be allocated
+/*!
+ * @memberof WpIterator
+ * @param methods: method implementations for the new iterator
+ * @param user_size: size of the user_data structure to be allocated
  *
- * Constructs an iterator that uses the provided @methods to implement its API.
- * The WpIterator structure is internally allocated with @user_size additional
+ * @brief Constructs an iterator that uses the provided @em methods to implement its API.
+ * The WpIterator structure is internally allocated with @em user_size additional
  * space at the end. A pointer to this space can be retrieved with
  * wp_iterator_get_user_data() and is available for implementation-specific
  * storage.
  *
- * Returns: (transfer full): a new custom iterator
+ * @returns (transfer full): a new custom iterator
  */
+
 WpIterator *
 wp_iterator_new (const WpIteratorMethods *methods, size_t user_size)
 {
@@ -91,26 +95,28 @@ wp_iterator_new (const WpIteratorMethods *methods, size_t user_size)
   return self;
 }
 
-/**
- * wp_iterator_get_user_data:
- * @self: an iterator object
+/*!
+ * @memberof WpIterator
+ * @param self: an iterator object
  *
  * Note: this only for use by implementations of WpIterator
  *
- * Returns: a pointer to the implementation-specific storage area
+ * @returns a pointer to the implementation-specific storage area
  */
+
 gpointer
 wp_iterator_get_user_data (WpIterator *self)
 {
   return self->user_data;
 }
 
-/**
- * wp_iterator_ref:
- * @self: an iterator object
+/*!
+ * @memberof WpIterator
+ * @param self: an iterator object
  *
- * Returns: (transfer full): @self with an additional reference count on it
+ * @returns (transfer full): @em self with an additional reference count on it
  */
+
 WpIterator *
 wp_iterator_ref (WpIterator *self)
 {
@@ -124,25 +130,27 @@ wp_iterator_free (WpIterator *self)
     self->methods->finalize (self);
 }
 
-/**
- * wp_iterator_unref:
- * @self: (transfer full): an iterator object
+/*!
+ * @memberof WpIterator
+ * @param self: (transfer full): an iterator object
  *
- * Decreases the reference count on @self and frees it when the ref count
+ * @brief Decreases the reference count on @em self and frees it when the ref count
  * reaches zero.
  */
+
 void
 wp_iterator_unref (WpIterator *self)
 {
   g_rc_box_release_full (self, (GDestroyNotify) wp_iterator_free);
 }
 
-/**
- * wp_iterator_reset:
- * @self: the iterator
+/*!
+ * @memberof WpIterator
+ * @param self: the iterator
  *
- * Resets the iterator so we can iterate again from the beginning.
+ * @brief Resets the iterator so we can iterate again from the beginning.
  */
+
 void
 wp_iterator_reset (WpIterator *self)
 {
@@ -152,16 +160,17 @@ wp_iterator_reset (WpIterator *self)
   self->methods->reset (self);
 }
 
-/**
- * wp_iterator_next:
- * @self: the iterator
- * @item: (out): the next item of the iterator
+/*!
+ * @memberof WpIterator
+ * @param self: the iterator
+ * @param item: (out): the next item of the iterator
  *
- * Gets the next item of the iterator.
+ * @brief Gets the next item of the iterator.
  *
- * Returns: TRUE if next iterator was obtained, FALSE when the iterator has no
+ * @returns TRUE if next iterator was obtained, FALSE when the iterator has no
  * more items to iterate through.
  */
+
 gboolean
 wp_iterator_next (WpIterator *self, GValue *item)
 {
@@ -171,17 +180,19 @@ wp_iterator_next (WpIterator *self, GValue *item)
   return self->methods->next (self, item);
 }
 
-/**
- * wp_iterator_fold:
- * @self: the iterator
- * @func: (scope call): the fold function
- * @ret: (inout): the accumulator data
- * @data: (closure): the user data
+/*!
+ * @memberof WpIterator
+ * @param self: the iterator
+ * @param func: (scope call): the fold function
+ * @param ret: (inout): the accumulator data
+ * @param data: (closure): the user data
  *
- * Iterates over all items of the iterator calling a function.
+ * @brief Iterates over all items of the iterator calling a function.
  *
- * Returns: TRUE if all the items were processed, FALSE otherwise.
+ * @returns TRUE if all the items were processed, FALSE otherwise.
+ *
  */
+
 gboolean
 wp_iterator_fold (WpIterator *self, WpIteratorFoldFunc func, GValue *ret,
     gpointer data)
@@ -194,16 +205,18 @@ wp_iterator_fold (WpIterator *self, WpIteratorFoldFunc func, GValue *ret,
   return wp_iterator_default_fold (self, func, ret, data);
 }
 
-/**
- * wp_iterator_foreach:
- * @self: the iterator
- * @func: (scope call): the foreach function
- * @data: (closure): the user data
+/*!
+ * @memberof WpIterator
+ * @param self: the iterator
+ * @param func: (scope call): the foreach function
+ * @param data: (closure): the user data
  *
- * Fold a function over the items of the iterator.
+ * @brief Fold a function over the items of the iterator.
  *
- * Returns: TRUE if all the items were processed, FALSE otherwise.
+ * @returns TRUE if all the items were processed, FALSE otherwise.
+ *
  */
+
 gboolean
 wp_iterator_foreach (WpIterator *self, WpIteratorForeachFunc func,
    gpointer data)
@@ -282,13 +295,14 @@ static const WpIteratorMethods ptr_array_iterator_methods = {
   .finalize = ptr_array_iterator_finalize,
 };
 
-/**
- * wp_iterator_new_ptr_array:
- * @items: (transfer full): the items to iterate over
+/*!
+ * @memberof WpIterator
+ * @items: (element-type utf8) (transfer full): the items to iterate over
  * @item_type: the type of each item
  *
- * Returns: (transfer full): a new iterator that iterates over @items
+ * @returns (transfer full): a new iterator that iterates over @em items
  */
+
 WpIterator *
 wp_iterator_new_ptr_array (GPtrArray * items, GType item_type)
 {

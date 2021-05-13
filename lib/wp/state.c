@@ -6,11 +6,16 @@
  * SPDX-License-Identifier: MIT
  */
 
-/**
- * SECTION: state
- * @title: State Storage
+/*!
+ * @file state.c
+ */
+
+/*!
+ * @struct WpState
+ * @section state_section State Storage
  *
- * The #WpState class saves and loads properties from a file
+ * The [WpState](@ref state_section) class saves and loads properties from a file
+ *
  */
 
 #define G_LOG_DOMAIN "wp-state"
@@ -26,11 +31,32 @@
 #include "log.h"
 #include "state.h"
 
+/*!
+ * @memberof WpState
+ *
+ * @props @b name
+ *
+ * @code
+ * "name" gchar *
+ * @endcode
+ *
+ * @brief The file name where the state will be stored.
+ *
+ * Flags : Read / Write / Construct Only
+ *
+ */
 enum {
   PROP_0,
   PROP_NAME,
 };
 
+/*!
+ * @brief
+ * @em parent
+ * @em name
+ * @em location
+ * @em keyfile
+ */
 struct _WpState
 {
   GObject parent;
@@ -135,7 +161,7 @@ wp_state_class_init (WpStateClass * klass)
   object_class->set_property = wp_state_set_property;
   object_class->get_property = wp_state_get_property;
 
-  /**
+  /*
    * WpState:name:
    * The file name where the state will be stored.
    */
@@ -145,12 +171,13 @@ wp_state_class_init (WpStateClass * klass)
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
-/**
- * wp_state_new:
- * @name: the state name
+/*!
+ * @memberof WpState
+ * @param name: the state name
  *
- * Returns: (transfer full): the new #WpState
+ * @returns (transfer full): the new [WpState](@ref state_section)
  */
+
 WpState *
 wp_state_new (const gchar *name)
 {
@@ -160,12 +187,13 @@ wp_state_new (const gchar *name)
       NULL);
 }
 
-/**
- * wp_state_get_name:
- * @self: the state
+/*!
+ * @memberof WpState
+ * @param self: the state
  *
- * Returns: the name of this state
+ * @returns the name of this state
  */
+
 const gchar *
 wp_state_get_name (WpState *self)
 {
@@ -174,12 +202,13 @@ wp_state_get_name (WpState *self)
   return self->name;
 }
 
-/**
- * wp_state_get_location:
- * @self: the state
+/*!
+ * @memberof WpState
+ * @param self: the state
  *
- * Returns: the location of this state
+ * @returns the location of this state
  */
+
 const gchar *
 wp_state_get_location (WpState *self)
 {
@@ -189,12 +218,13 @@ wp_state_get_location (WpState *self)
   return self->location;
 }
 
-/**
- * wp_state_clear:
- * @self: the state
+/*!
+ * @memberof WpState
+ * @param self: the state
  *
  * Clears the state removing its file
  */
+
 void
 wp_state_clear (WpState *self)
 {
@@ -205,16 +235,17 @@ wp_state_clear (WpState *self)
     remove (self->location);
 }
 
-/**
- * wp_state_save:
- * @self: the state
- * @group: the group name where the properties will be save
- * @props: (transfer none): the properties to save
+/*!
+ * @memberof WpState
+ * @param self: the state
+ * @param group: the group name where the properties will be save
+ * @param props: (transfer none): the properties to save
  *
- * Saves new properties in the state, overwriting all previous data.
+ * @brief Saves new properties in the state, overwriting all previous data.
  *
- * Returns: TRUE if the properties could be saved, FALSE otherwise
+ * @returns TRUE if the properties could be saved, FALSE otherwise
  */
+
 gboolean
 wp_state_save (WpState *self, const gchar *group, WpProperties *props)
 {
@@ -246,15 +277,16 @@ wp_state_save (WpState *self, const gchar *group, WpProperties *props)
   return TRUE;
 }
 
-/**
- * wp_state_load:
- * @self: the state
- * @group: the group which the properties will be loaded from
+/*!
+ * @memberof WpState
+ * @param self: the state
+ * @param group: the group which the properties will be loaded from
  *
- * Loads the state data into new properties.
+ * @brief Loads the state data into new properties.
  *
- * Returns (transfer full): the new properties with the state data
+ * @returns (transfer full): the new properties with the state data
  */
+
 WpProperties *
 wp_state_load (WpState *self, const gchar *group)
 {

@@ -6,16 +6,33 @@
  * SPDX-License-Identifier: MIT
  */
 
-/**
- * SECTION: client
- * @title: PipeWire Client
- */
-
 #define G_LOG_DOMAIN "wp-client"
 
 #include "client.h"
 #include "private/pipewire-object-mixin.h"
 
+/*!
+ * @file client.c
+ */
+
+/*!
+ * @section client_section Pipewire Client
+ *
+ * @struct WpClient
+ *
+ * @brief
+ *
+ * The [WpClient](@ref client_section) class allows accessing the properties and methods of a PipeWire
+ * client object (`struct pw_client`). A [WpClient](@ref client_section) is constructed internally
+ * when a new client connects to PipeWire and it is made available through the
+ * [WpObjectManager](@ref object_manager_section) API.
+ *
+ */
+
+/*!
+ * @brief
+ * @em parent
+ */
 struct _WpClient
 {
   WpGlobalProxy parent;
@@ -24,14 +41,6 @@ struct _WpClient
 static void wp_client_pw_object_mixin_priv_interface_init (
     WpPwObjectMixinPrivInterface * iface);
 
-/**
- * WpClient:
- *
- * The #WpClient class allows accessing the properties and methods of a PipeWire
- * client object (`struct pw_client`). A #WpClient is constructed internally
- * when a new client connects to PipeWire and it is made available through the
- * #WpObjectManager API.
- */
 G_DEFINE_TYPE_WITH_CODE (WpClient, wp_client, WP_TYPE_GLOBAL_PROXY,
     G_IMPLEMENT_INTERFACE (WP_TYPE_PIPEWIRE_OBJECT,
         wp_pw_object_mixin_object_interface_init)
@@ -113,15 +122,18 @@ wp_client_pw_object_mixin_priv_interface_init (
   wp_pw_object_mixin_priv_interface_info_init_no_params (iface, client, CLIENT);
 }
 
-/**
- * wp_client_update_permissions:
- * @self: the client
- * @n_perm: the number of permissions specified in the variable arguments
- * @...: @n_perm pairs of #guint32 numbers; the first number is the object id
+/*!
+ * @memberof WpClient
+ *
+ * @param self: the client
+ * @param n_perm: the number of permissions specified in the variable arguments
+ * @...: @em n_perm pairs of
+ * <a href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#guint32">
+ * guint32</a> numbers; the first number is the object id
  *   and the second is the permissions that this client should have
  *   on this object
  *
- * Update client's permissions on a list of objects. An object id of `-1`
+ * @brief Update client's permissions on a list of objects. An object id of `-1`
  * can be used to set the default object permissions for this client
  */
 void
@@ -141,15 +153,17 @@ wp_client_update_permissions (WpClient * self, guint n_perm, ...)
   wp_client_update_permissions_array (self, n_perm, perm);
 }
 
-/**
- * wp_client_update_permissions_array:
- * @self: the client
- * @n_perm: the number of permissions specified in the @permissions array
- * @permissions: (array length=n_perm) (element-type pw_permission): an array
+/*!
+ * @memberof WpClient
+ *
+ * @param self: the client
+ * @param n_perm: the number of permissions specified in the @em permissions array
+ * @param permissions: (array length=n_perm) (element-type pw_permission): an array
  *    of permissions per object id
  *
- * Update client's permissions on a list of objects. An object id of `-1`
+ * @brief Update client's permissions on a list of objects. An object id of `-1`
  * can be used to set the default object permissions for this client
+ *
  */
 void
 wp_client_update_permissions_array (WpClient * self,

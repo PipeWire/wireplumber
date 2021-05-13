@@ -18,10 +18,17 @@ G_BEGIN_DECLS
 struct pw_properties;
 struct spa_dict;
 
-/**
- * WP_TYPE_PROPERTIES:
+/*!
+ * @memberof WpProperties
  *
- * The #WpProperties #GType
+ * @brief The [WpProperties](@ref properties_section)
+ * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
+ * GType</a>
+ *
+ * @code
+ * #define WP_TYPE_PROPERTIES (wp_properties_get_type ())
+ * @endcode
+ *
  */
 #define WP_TYPE_PROPERTIES (wp_properties_get_type ())
 WP_API

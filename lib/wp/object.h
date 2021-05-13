@@ -6,6 +6,10 @@
  * SPDX-License-Identifier: MIT
  */
 
+/*!
+ * @file object.h
+ */
+
 #ifndef __WIREPLUMBER_OBJECT_H__
 #define __WIREPLUMBER_OBJECT_H__
 
@@ -14,10 +18,12 @@
 
 G_BEGIN_DECLS
 
-/**
- * WpObjectFeatures:
+/*!
+ * @memberof WpObject
  *
- * Flags that specify functionality that is available on this class.
+ * @section object_features_section WpObjectFeatures
+ *
+ * @brief Flags that specify functionality that is available on this class.
  *
  * Use wp_object_activate() to enable more features,
  * wp_object_get_supported_features() to see which features are supported and
@@ -30,18 +36,25 @@ G_BEGIN_DECLS
  */
 typedef guint WpObjectFeatures;
 
-/**
- * WP_OBJECT_FEATURES_ALL:
+/*!
+ * @memberof WpObject
  *
- * Special value that can be used to activate
+ * @brief Special value that can be used to activate
  * all the supported features in any given object.
  */
 static const WpObjectFeatures WP_OBJECT_FEATURES_ALL = 0xffffffff;
 
-/**
- * WP_TYPE_FEATURE_ACTIVATION_TRANSITION:
+/*!
+ * @memberof WpFeatureActivationTransition
  *
- * The #WpFeatureActivationTransition #GType
+ * @brief The [WpFeatureActivationTransition](@ref feature_activation_transition_section)
+ * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
+ * GType</a>
+ *
+ * @code
+ * #define WP_TYPE_FEATURE_ACTIVATION_TRANSITION (wp_feature_activation_transition_get_type ())
+ * @endcode
+ *
  */
 #define WP_TYPE_FEATURE_ACTIVATION_TRANSITION \
     (wp_feature_activation_transition_get_type ())
@@ -54,15 +67,28 @@ WP_API
 WpObjectFeatures wp_feature_activation_transition_get_requested_features (
     WpFeatureActivationTransition * self);
 
-/**
- * WP_TYPE_OBJECT:
+/*!
+ * @memberof WpObject
  *
- * The #WpObject #GType
+ * @brief The [WpObject](@ref object_section)
+ * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
+ * GType</a>
+ *
+ * @code
+ * #define WP_TYPE_OBJECT (wp_object_get_type ())
+ * @endcode
+ *
  */
 #define WP_TYPE_OBJECT (wp_object_get_type ())
 WP_API
 G_DECLARE_DERIVABLE_TYPE (WpObject, wp_object, WP, OBJECT, GObject)
 
+/*!
+ * @memberof WpObject
+ *
+ * @brief
+ * @em parent_class
+ */
 struct _WpObjectClass
 {
   GObjectClass parent_class;

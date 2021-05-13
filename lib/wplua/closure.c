@@ -119,7 +119,7 @@ _wplua_closure_finalize (lua_State *L, WpLuaClosure *c)
 /**
  * wplua_function_to_closure:
  *
- * Make a GClosure out of a Lua function at index @idx
+ * Make a GClosure out of a Lua function at index @em idx
  *
  * Returns: (transfer floating): the new closure
  */
