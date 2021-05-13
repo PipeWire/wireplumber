@@ -611,7 +611,7 @@ test_spa_pod_sequence (void)
   /* Static */
   {
     g_autoptr (WpSpaPod) pod = wp_spa_pod_new_sequence (0,
-        10, "Properties", "l", 9999, NULL);
+        10, "Properties", "l", G_GINT64_CONSTANT (9999), NULL);
     g_assert_nonnull (pod);
     g_assert_true (wp_spa_pod_is_sequence (pod));
     g_assert_cmpstr ("Spa:Pod:Sequence", ==,
@@ -622,7 +622,7 @@ test_spa_pod_sequence (void)
   {
     g_autoptr (WpSpaPodBuilder) b = wp_spa_pod_builder_new_sequence (0);
     wp_spa_pod_builder_add_control (b, 10, "Properties");
-    wp_spa_pod_builder_add_long (b, 9999);
+    wp_spa_pod_builder_add_long (b, G_GINT64_CONSTANT (9999));
     g_autoptr (WpSpaPod) pod = wp_spa_pod_builder_end (b);
     g_assert_nonnull (pod);
     g_assert_true (wp_spa_pod_is_sequence (pod));
