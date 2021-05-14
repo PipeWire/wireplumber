@@ -314,6 +314,7 @@ if config.properties["alsa.jack-device"] then
     ["factory.name"] = "api.jack.device",
     ["node.name"] = "JACK-Device",
   })
+  jack_device:activate(Feature.Proxy.BOUND)
 end
 
 -- enable device reservation if requested
