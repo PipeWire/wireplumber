@@ -289,19 +289,11 @@ wp_node_new_from_factory (WpCore * core,
     const gchar * factory_name, WpProperties * properties)
 {
   g_autoptr (WpProperties) props = properties;
-  WpNode *self = NULL;
-  struct pw_core *pw_core = wp_core_get_pw_core (core);
-
-  if (G_UNLIKELY (!pw_core)) {
-    g_critical ("The WirePlumber core is not connected; node cannot be created");
-    return NULL;
-  }
-
-  self = g_object_new (WP_TYPE_NODE, "core", core, NULL);
-  wp_proxy_set_pw_proxy (WP_PROXY (self), pw_core_create_object (pw_core,
-          factory_name, PW_TYPE_INTERFACE_Node, PW_VERSION_NODE,
-          props ? wp_properties_peek_dict (props) : NULL, 0));
-  return self;
+  return g_object_new (WP_TYPE_NODE,
+      "core", core,
+      "factory-name", factory_name,
+      "global-properties", props,
+      NULL);
 }
 
 WpNodeState
