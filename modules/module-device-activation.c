@@ -104,21 +104,12 @@ set_device_profile (WpDeviceActivation *self, WpPipewireObject *device, gint ind
 }
 
 static void
-on_device_enum_profile_done (WpPipewireObject *proxy, GAsyncResult *res,
-    WpDeviceActivation *self)
+handle_device_profiles (WpDeviceActivation *self, WpPipewireObject *proxy,
+    WpIterator *profiles)
 {
   g_autoptr (WpPlugin) dp = g_weak_ref_get (&self->default_profile);
-  g_autoptr (WpIterator) profiles = NULL;
-  g_autoptr (GError) error = NULL;
   const gchar *name = NULL;
   gint index = -1;
-
-  /* Finish */
-  profiles = wp_pipewire_object_enum_params_finish (proxy, res, &error);
-  if (error) {
-    wp_warning_object (self, "failed to enum profiles on device");
-    return;
-  }
 
   /* Get the default profile name if default-profile module is loaded */
   if (dp)
@@ -182,10 +173,14 @@ static void
 on_device_added (WpObjectManager *om, WpPipewireObject *proxy, gpointer d)
 {
   WpDeviceActivation *self = WP_DEVICE_ACTIVATION (d);
+  g_autoptr (WpIterator) profiles = NULL;
 
   /* Enum available profiles */
-  wp_pipewire_object_enum_params (proxy, "EnumProfile", NULL, NULL,
-      (GAsyncReadyCallback) on_device_enum_profile_done, self);
+  profiles = wp_pipewire_object_enum_params_sync (proxy, "EnumProfile", NULL);
+  if (!profiles)
+    return;
+
+  handle_device_profiles (self, proxy, profiles);
 }
 
 static void
@@ -228,7 +223,7 @@ wp_device_activation_enable (WpPlugin * plugin, WpTransition * transition)
   self->devices_om = wp_object_manager_new ();
   wp_object_manager_add_interest (self->devices_om, WP_TYPE_DEVICE, NULL);
   wp_object_manager_request_object_features (self->devices_om,
-      WP_TYPE_DEVICE, WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
+      WP_TYPE_DEVICE, WP_PIPEWIRE_OBJECT_FEATURES_ALL);
   g_signal_connect_object (self->devices_om, "object-added",
       G_CALLBACK (on_device_added), self, 0);
   wp_core_install_object_manager (core, self->devices_om);
