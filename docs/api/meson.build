@@ -1,5 +1,5 @@
 # you need to add here any files you add to the api directory as well
-files = [
+sphinx_files += files(
   'library_root.rst',
   'client_api.rst',
   'components_api.rst',
@@ -27,8 +27,4 @@ files = [
   'spa_type_api.rst',
   'spa_pod_api.rst',
   'wp_api.rst'
-]
-
-foreach file : files
-  configure_file(input: file, output: file, copy: true)
-endforeach
+)

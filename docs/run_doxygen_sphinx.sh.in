@@ -1,2 +1,0 @@
-#!/bin/sh
-@SPHINX_CMD@ -E -Q -j auto -d @DOCTREES_DIR@ @SRCDIR@ @OUTDIR@

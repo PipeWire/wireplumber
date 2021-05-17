@@ -1,5 +1,5 @@
 # you need to add here any files you add to the toc directory as well
-files = [
+sphinx_files += files(
   'lua_core_api.rst',
   'lua_client_api.rst',
   'lua_endpoint_api.rst',
@@ -15,8 +15,4 @@ files = [
   'lua_session_item_api.rst',
   'lua_source_api.rst',
   'lua_spa_device_api.rst',
-]
-
-foreach file : files
-  configure_file(input: file, output: file, copy: true)
-endforeach
+)

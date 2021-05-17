@@ -68,8 +68,6 @@ endif
 
 gnome = import('gnome')
 pkgconfig = import('pkgconfig')
-gir = find_program('g-ir-scanner', required : get_option('introspection'))
-build_gir = gir.found()
 
 wp_lib_include_dir = include_directories('lib')
 
@@ -92,8 +90,6 @@ common_flags = [
   '-Wunused-result',
 ]
 add_project_arguments(cc.get_supported_arguments(common_flags), language: 'c')
-
-doxygen_p = find_program('doxygen', required: get_option('doc'))
 
 subdir('lib')
 subdir('docs')

@@ -1,2 +1,0 @@
-#!/bin/sh
-@DOXYGEN_CMD@ @DOXYGEN_CONF@ && @PYTHON@ @GIR_PY_SCRIPT@ @XML_DIR@ -d @XML_DIR@ -o @OUTDIR@/wp-gtkdoc.h
