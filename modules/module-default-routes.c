@@ -673,34 +673,11 @@ on_device_param_info_notified (WpPipewireObject * device, GParamSpec * param,
 }
 
 static void
-on_device_enum_routes_done (WpPipewireObject *device, GAsyncResult *res,
-    WpDefaultRoutes *self)
-{
-  g_autoptr (WpIterator) routes = NULL;
-  g_autoptr (GError) error = NULL;
-
-  /* Finish */
-  routes = wp_pipewire_object_enum_params_finish (device, res, &error);
-  if (error) {
-    wp_warning_object (self, "failed to enum routes in device "
-        WP_OBJECT_FORMAT, WP_OBJECT_ARGS (device));
-    return;
-  }
-
-  /* Keep a reference of the routes in the device object */
-  g_object_set_qdata_full (G_OBJECT (device), routes_quark (),
-        g_steal_pointer (&routes), (GDestroyNotify) wp_iterator_unref);
-
-  /* Watch for param info changes */
-  g_signal_connect_object (device, "notify::param-info",
-      G_CALLBACK (on_device_param_info_notified), self, 0);
-}
-
-static void
 on_device_added (WpObjectManager *om, WpPipewireObject *device, gpointer d)
 {
   WpDefaultRoutes *self = WP_DEFAULT_ROUTES (d);
   WpDefaultRoutesPrivate *priv = wp_default_routes_get_instance_private (self);
+  g_autoptr (WpIterator) it_routes = NULL;
   const gchar *dev_name = NULL;
   const gchar *routes = NULL;
   GHashTable *ht;
@@ -709,8 +686,17 @@ on_device_added (WpObjectManager *om, WpPipewireObject *device, gpointer d)
       WP_OBJECT_ARGS (device));
 
   /* Enum available routes */
-  wp_pipewire_object_enum_params (device, "EnumRoute", NULL, NULL,
-      (GAsyncReadyCallback) on_device_enum_routes_done, self);
+  it_routes = wp_pipewire_object_enum_params_sync (device, "EnumRoute", NULL);
+  if (!it_routes)
+    return;
+
+  /* Keep a reference of the routes in the device object */
+  g_object_set_qdata_full (G_OBJECT (device), routes_quark (),
+        g_steal_pointer (&it_routes), (GDestroyNotify) wp_iterator_unref);
+
+  /* Watch for param info changes */
+  g_signal_connect_object (device, "notify::param-info",
+      G_CALLBACK (on_device_param_info_notified), self, 0);
 
   /* Load default routes for device */
   dev_name = wp_pipewire_object_get_property (device, PW_KEY_DEVICE_NAME);
@@ -750,7 +736,7 @@ wp_default_routes_enable (WpPlugin * plugin, WpTransition * transition)
   priv->devices_om = wp_object_manager_new ();
   wp_object_manager_add_interest (priv->devices_om, WP_TYPE_DEVICE, NULL);
   wp_object_manager_request_object_features (priv->devices_om,
-      WP_TYPE_DEVICE, WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
+      WP_TYPE_DEVICE, WP_PIPEWIRE_OBJECT_FEATURES_ALL);
   g_signal_connect_object (priv->devices_om, "object-added",
       G_CALLBACK (on_device_added), self, 0);
   g_signal_connect_object (priv->devices_om, "object-removed",
