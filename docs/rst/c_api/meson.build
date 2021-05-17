@@ -1,6 +1,5 @@
 # you need to add here any files you add to the api directory as well
 sphinx_files += files(
-  'library_root.rst',
   'client_api.rst',
   'components_api.rst',
   'core_api.rst',

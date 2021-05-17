@@ -74,9 +74,8 @@ if build_doc
     build_by_default: true,
   )
 
-  sphinx_files = files('index.rst')
-  subdir('api')
-  subdir('toc')
+  sphinx_files = []
+  subdir('rst')
 
   sphinx_conf_data = configuration_data()
   sphinx_conf_data.set('OUTDIR', meson.current_build_dir())
@@ -89,13 +88,13 @@ if build_doc
 
   custom_target('doc',
     command: [sphinx_p,
-      '-q',                   # quiet
-      '-E',                   # rebuild from scratch
-      '-j', 'auto',           # parallel build
-      '-d', '@PRIVATE_DIR@',  # doctrees dir
-      '-c', '@OUTDIR@',       # conf.py dir
-      '@CURRENT_SOURCE_DIR@', # source dir
-      '@OUTPUT@',             # output dir
+      '-q',                       # quiet
+      '-E',                       # rebuild from scratch
+      '-j', 'auto',               # parallel build
+      '-d', '@PRIVATE_DIR@',      # doctrees dir
+      '-c', '@OUTDIR@',           # conf.py dir
+      '@CURRENT_SOURCE_DIR@/rst', # source dir
+      '@OUTPUT@',                 # output dir
     ],
     depend_files: [
       sphinx_conf, sphinx_files,

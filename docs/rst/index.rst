@@ -4,17 +4,18 @@ Wireplumber
 WirePlumber is a modular session / policy manager for `PipeWire <https://pipewire.org>`_ and a GObject-based high-level library that wraps PipeWire's API, providing convenience for writing the daemon's modules as well as external tools for managing PipeWire.
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Contents:
 
-   toc/installing-wireplumber.rst
-   toc/running-wireplumber-daemon.rst
-   toc/daemon-configuration.rst
-   toc/daemon-logging.rst
-   toc/contributing.rst
-   toc/community.rst
-   toc/testing.rst
-   api/library_root.rst
+   installing-wireplumber.rst
+   running-wireplumber-daemon.rst
+   daemon-configuration.rst
+   daemon-logging.rst
+   contributing.rst
+   community.rst
+   testing.rst
+   c_api.rst
+   lua_api.rst
 
 The WirePlumber Daemon
 ----------------------
