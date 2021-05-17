@@ -214,40 +214,26 @@ on_device_param_info_notified (WpPipewireObject * device, GParamSpec * param,
 }
 
 static void
-on_device_enum_profile_done (WpPipewireObject *device, GAsyncResult *res,
-    WpDefaultProfile *self)
-{
-  g_autoptr (WpIterator) profiles = NULL;
-  g_autoptr (GError) error = NULL;
-
-  /* Finish */
-  profiles = wp_pipewire_object_enum_params_finish (device, res, &error);
-  if (error) {
-    wp_warning_object (self, "failed to enum profiles in device "
-        WP_OBJECT_FORMAT, WP_OBJECT_ARGS (device));
-    return;
-  }
-
-  /* Keep a reference of the profiles in the device object */
-  g_object_set_qdata_full (G_OBJECT (device), profiles_quark (),
-        g_steal_pointer (&profiles), (GDestroyNotify) wp_iterator_unref);
-
-  /* Watch for param info changes */
-  g_signal_connect_object (device, "notify::param-info",
-      G_CALLBACK (on_device_param_info_notified), self, 0);
-}
-
-static void
 on_device_added (WpObjectManager *om, WpPipewireObject *proxy, gpointer d)
 {
   WpDefaultProfile *self = WP_DEFAULT_PROFILE (d);
+  g_autoptr (WpIterator) profiles = NULL;
 
   wp_debug_object (self, "device " WP_OBJECT_FORMAT " added",
       WP_OBJECT_ARGS (proxy));
 
   /* Enum available profiles */
-  wp_pipewire_object_enum_params (proxy, "EnumProfile", NULL, NULL,
-      (GAsyncReadyCallback) on_device_enum_profile_done, self);
+  profiles = wp_pipewire_object_enum_params_sync (proxy, "EnumProfile", NULL);
+  if (!profiles)
+    return;
+
+  /* Keep a reference of the profiles in the device object */
+  g_object_set_qdata_full (G_OBJECT (proxy), profiles_quark (),
+        g_steal_pointer (&profiles), (GDestroyNotify) wp_iterator_unref);
+
+  /* Watch for param info changes */
+  g_signal_connect_object (proxy, "notify::param-info",
+      G_CALLBACK (on_device_param_info_notified), self, 0);
 }
 
 static void
@@ -262,7 +248,7 @@ wp_default_profile_enable (WpPlugin * plugin, WpTransition * transition)
   priv->devices_om = wp_object_manager_new ();
   wp_object_manager_add_interest (priv->devices_om, WP_TYPE_DEVICE, NULL);
   wp_object_manager_request_object_features (priv->devices_om,
-      WP_TYPE_DEVICE, WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
+      WP_TYPE_DEVICE, WP_PIPEWIRE_OBJECT_FEATURES_ALL);
   g_signal_connect_object (priv->devices_om, "object-added",
       G_CALLBACK (on_device_added), self, 0);
   wp_core_install_object_manager (core, priv->devices_om);
