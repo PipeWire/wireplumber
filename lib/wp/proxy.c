@@ -256,8 +256,7 @@ wp_proxy_set_pw_proxy (WpProxy * self, struct pw_proxy * proxy)
 
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
 
-  if (!proxy)
-    return;
+  g_return_if_fail (proxy);
 
   g_return_if_fail (priv->pw_proxy == NULL);
   priv->pw_proxy = proxy;
