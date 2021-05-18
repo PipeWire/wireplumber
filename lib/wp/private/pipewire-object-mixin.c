@@ -108,6 +108,7 @@ static void
 enum_params_done (WpCore * core, GAsyncResult * res, gpointer data)
 {
   g_autoptr (GTask) task = G_TASK (data);
+  GList *taskl = NULL;
   g_autoptr (GError) error = NULL;
   gpointer instance = g_task_get_source_object (G_TASK (data));
   GPtrArray *params = g_task_get_task_data (task);
@@ -116,12 +117,13 @@ enum_params_done (WpCore * core, GAsyncResult * res, gpointer data)
   /* finish the sync task */
   wp_core_sync_finish (core, res, &error);
 
-  /* remove the task from the stored list; ref is held by the g_autoptr */
-  d->enum_params_tasks = g_list_remove (d->enum_params_tasks, task);
-
-  /* return if the task was cancelled or received an error */
-  if (g_task_get_completed (task))
+  /* return if task was previously removed from the list */
+  taskl = g_list_find (d->enum_params_tasks, task);
+  if (!taskl)
     return;
+
+  /* remove the task from the stored list; ref is held by the g_autoptr */
+  d->enum_params_tasks = g_list_remove_link (d->enum_params_tasks, taskl);
 
   wp_debug_object (instance, "got %u params, %s, task " WP_OBJECT_FORMAT,
       params->len, error ? "with error" : "ok", WP_OBJECT_ARGS (task));
@@ -138,12 +140,19 @@ static void
 enum_params_error (WpProxy * proxy, int seq, int res, const gchar *msg,
     GTask * task)
 {
-  gint t_seq = GPOINTER_TO_INT (g_task_get_source_tag (G_TASK (task)));
+  gint t_seq = GPOINTER_TO_INT (g_task_get_source_tag (task));
 
-  if (SPA_RESULT_ASYNC_SEQ (t_seq) == SPA_RESULT_ASYNC_SEQ (seq) &&
-      !g_task_get_completed (task)) {
-    g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
-        WP_LIBRARY_ERROR_OPERATION_FAILED, "%s", msg);
+  if (SPA_RESULT_ASYNC_SEQ (t_seq) == SPA_RESULT_ASYNC_SEQ (seq)) {
+    gpointer instance = g_task_get_source_object (task);
+    WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (instance);
+    GList *taskl = NULL;
+
+    taskl = g_list_find (d->enum_params_tasks, task);
+    if (taskl) {
+      d->enum_params_tasks = g_list_remove_link (d->enum_params_tasks, taskl);
+      g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
+          WP_LIBRARY_ERROR_OPERATION_FAILED, "%s", msg);
+    }
   }
 }
 
@@ -682,10 +691,10 @@ wp_pw_object_mixin_handle_pw_proxy_destroyed (WpProxy * proxy)
     GList *link;
     for (link = g_list_first (d->enum_params_tasks);
          link; link = g_list_first (d->enum_params_tasks)) {
+      d->enum_params_tasks = g_list_remove_link (d->enum_params_tasks, link);
       g_task_return_new_error (G_TASK (link->data),
           WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
           "pipewire proxy destroyed before finishing");
-      d->enum_params_tasks = g_list_remove_link (d->enum_params_tasks, link);
     }
   }
 
