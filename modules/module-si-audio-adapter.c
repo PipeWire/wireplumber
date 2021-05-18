@@ -337,17 +337,17 @@ on_sync_done (WpCore * core, GAsyncResult * res, WpSiAudioAdapter *self)
   guint32 active = 0;
 
   if (!wp_core_sync_finish (core, res, &error)) {
-    g_task_return_error (self->format_task, g_steal_pointer (&error));
-    g_clear_object (&self->format_task);
+    g_autoptr (GTask) t = g_steal_pointer (&self->format_task);
+    g_task_return_error (t, g_steal_pointer (&error));
     return;
   }
 
   active = wp_object_get_active_features (WP_OBJECT (self->node));
   if (!(active & WP_NODE_FEATURE_PORTS)) {
-    g_task_return_new_error (self->format_task, WP_DOMAIN_LIBRARY,
+    g_autoptr (GTask) t = g_steal_pointer (&self->format_task);
+    g_task_return_new_error (t, WP_DOMAIN_LIBRARY,
         WP_LIBRARY_ERROR_OPERATION_FAILED,
         "node feature ports is not enabled, aborting set format operation");
-    g_clear_object (&self->format_task);
     return;
   }
 
@@ -359,8 +359,8 @@ on_sync_done (WpCore * core, GAsyncResult * res, WpSiAudioAdapter *self)
 
   /* make sure ports are available */
   if (wp_node_get_n_ports (self->node) > 0) {
-    g_task_return_boolean (self->format_task, TRUE);
-    g_clear_object (&self->format_task);
+    g_autoptr (GTask) t = g_steal_pointer (&self->format_task);
+    g_task_return_boolean (t, TRUE);
   } else {
     wp_core_sync (core, NULL, (GAsyncReadyCallback) on_sync_done, self);
   }
@@ -454,9 +454,9 @@ si_audio_adapter_set_ports_format (WpSiAdapter * item, WpSpaPod *format,
 
   /* cancel previous task if any */
   if (self->format_task) {
-    g_task_return_new_error (self->format_task, WP_DOMAIN_LIBRARY,
-        WP_LIBRARY_ERROR_INVARIANT, "setting new format before previous done");
-    g_clear_object (&self->format_task);
+    g_autoptr (GTask) t = g_steal_pointer (&self->format_task);
+    g_task_return_new_error (t, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
+        "setting new format before previous done");
   }
 
   /* create the new task */
@@ -466,9 +466,9 @@ si_audio_adapter_set_ports_format (WpSiAdapter * item, WpSpaPod *format,
   /* build new format */
   new_format = build_adapter_format (self, format);
   if (!new_format) {
-    g_task_return_new_error (self->format_task, WP_DOMAIN_LIBRARY,
-        WP_LIBRARY_ERROR_INVARIANT, "failed to parse format");
-    g_clear_object (&self->format_task);
+    g_autoptr (GTask) t = g_steal_pointer (&self->format_task);
+    g_task_return_new_error (t, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
+        "failed to parse format");
     return;
   }
 
