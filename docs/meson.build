@@ -74,10 +74,11 @@ if build_doc
     build_by_default: true,
   )
 
-  sphinx_files = []
+  sphinx_files = files('_static'/'custom.css')
   subdir('rst')
 
   sphinx_conf_data = configuration_data()
+  sphinx_conf_data.set('SRCDIR', meson.current_source_dir())
   sphinx_conf_data.set('OUTDIR', meson.current_build_dir())
   sphinx_conf_data.set('VERSION', meson.project_version())
   sphinx_conf = configure_file(

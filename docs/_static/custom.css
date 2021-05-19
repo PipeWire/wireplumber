@@ -1,0 +1,37 @@
+/* expand to full window width */
+.wy-nav-content {
+  max-width: none;
+}
+
+/* style function names */
+.rst-content .sig-name .n {
+  color: #000;
+  padding-left: 0.3em;
+}
+
+/* style parenthesis in function signatures */
+.rst-content .sig-paren {
+  padding: 0.3em;
+}
+
+/* space between pointer symbols and variable names:
+   ex: WpObject *<-padding->self */
+.rst-content .sig span.p+span.n {
+  padding-left: 0.3em;
+}
+
+/* space between macro names and their definitions:
+   ex: FOO_TYPE_BAR<-padding->(foo_bar_get_type()) */
+.rst-content .sig-name+.pre {
+  padding-left: 0.5em;
+}
+
+/* hack for gobject properties, which are marked as cpp signatures */
+.rst-content .sig.sig-object.cpp {
+  padding-left: 0.3em;
+}
+
+div.graphviz {
+  padding-top: 1em;
+  padding-bottom: 1em;
+}
