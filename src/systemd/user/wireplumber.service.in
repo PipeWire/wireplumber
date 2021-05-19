@@ -2,6 +2,7 @@
 Description=Multimedia Service Session Manager
 After=pipewire.service
 BindsTo=pipewire.service
+Conflicts=pipewire-media-session.service
 
 [Service]
 LockPersonality=yes

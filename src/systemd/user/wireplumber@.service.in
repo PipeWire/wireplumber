@@ -3,6 +3,7 @@ Description=Multimedia Service Session Manager (%i)
 After=pipewire.service
 BindsTo=pipewire.service
 AssertPathExists=@WP_CONFIG_DIR@/%i.conf
+Conflicts=pipewire-media-session.service
 
 [Service]
 LockPersonality=yes
