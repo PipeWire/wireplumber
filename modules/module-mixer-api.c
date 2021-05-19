@@ -191,7 +191,7 @@ collect_node_info (WpMixerApi * self, struct node_info *info,
     g_auto (GValue) val = G_VALUE_INIT;
 
     it = wp_pipewire_object_enum_params_sync (dev, "Route", NULL);
-    for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    for (; it && wp_iterator_next (it, &val); g_value_unset (&val)) {
       WpSpaPod *param = g_value_get_boxed (&val);
       gint32 r_index = -1, r_device = -1;
       g_autoptr (WpSpaPod) props = NULL;
@@ -220,7 +220,7 @@ collect_node_info (WpMixerApi * self, struct node_info *info,
     g_auto (GValue) val = G_VALUE_INIT;
 
     it = wp_pipewire_object_enum_params_sync (node, "Props", NULL);
-    for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    for (; it && wp_iterator_next (it, &val); g_value_unset (&val)) {
       WpSpaPod *param = g_value_get_boxed (&val);
       if (node_info_fill (info, param))
         break;
