@@ -180,7 +180,8 @@ on_device_profile_notified (WpPipewireObject *device, GAsyncResult *res,
   /* Finish */
   profiles = wp_pipewire_object_enum_params_finish (device, res, &error);
   if (error) {
-    wp_warning_object (self, "failed to get current profile on device");
+    wp_warning_object (self, "failed to get current profile on device: %s",
+        error->message);
     return;
   }
 
