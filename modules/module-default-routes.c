@@ -617,7 +617,8 @@ on_device_routes_notified (WpPipewireObject *device, GAsyncResult *res,
   /* Finish */
   routes = wp_pipewire_object_enum_params_finish (device, res, &error);
   if (error) {
-    wp_warning_object (self, "failed to get current route on device");
+    wp_warning_object (self, "failed to get current route on device: %s",
+        error->message);
     return;
   }
 
