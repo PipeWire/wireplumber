@@ -207,6 +207,12 @@ function unhandleSiLinkable (si)
   end
 end
 
+function reevaluateSiLinkables ()
+  for si in silinkables_om:iterate() do
+    handleSiLinkable (si)
+  end
+end
+
 siendpoints_om = ObjectManager { Interest { type = "SiEndpoint" }}
 silinkables_om = ObjectManager { Interest { type = "SiLinkable",
   -- only handle si-audio-adapter and si-node
@@ -225,6 +231,7 @@ end)
 
 silinkables_om:connect("object-removed", function (om, si)
   unhandleSiLinkable (si)
+  reevaluateSiLinkables ()
 end)
 
 siendpoints_om:activate()

@@ -292,6 +292,7 @@ end)
 
 silinkables_om:connect("object-removed", function (om, si)
   unhandleSiLinkable (si)
+  reevaluateSiLinkables ()
 end)
 
 metadatas_om:activate()
