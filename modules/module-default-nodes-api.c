@@ -166,7 +166,8 @@ wp_default_nodes_api_get_default_node (WpDefaultNodesApi * self,
         WP_CONSTRAINT_TYPE_PW_PROPERTY,
         PW_KEY_MEDIA_CLASS, "=s", MEDIA_CLASS[node_t],
         NULL);
-    return wp_proxy_get_bound_id (WP_PROXY (node));
+    if (node)
+      return wp_proxy_get_bound_id (WP_PROXY (node));
   }
   return SPA_ID_INVALID;
 }
