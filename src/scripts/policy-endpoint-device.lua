@@ -176,15 +176,21 @@ end
 default_nodes = Plugin.find("default-nodes-api")
 siendpoints_om = ObjectManager { Interest { type = "SiEndpoint" }}
 silinkables_om = ObjectManager { Interest { type = "SiLinkable",
-  -- only handle si-audio-adapter and si-node
-  Constraint {
-    "si.factory.name", "c", "si-audio-adapter", "si-node", type = "pw-global" },
+  -- only handle device si-audio-adapter items
+  Constraint { "si.factory.name", "=", "si-audio-adapter", type = "pw-global" },
+  Constraint { "is.device", "=", true, type = "pw-global" },
   }
 }
 silinks_om = ObjectManager { Interest { type = "SiLink",
   -- only handle links created by this policy
   Constraint { "is.policy.endpoint.device.link", "=", true, type = "pw-global" },
 } }
+clientlinks_om = ObjectManager {
+  Interest {
+    type = "SiLink",
+    Constraint { "is.policy.endpoint.client.link", "=", true },
+  },
+}
 
 -- listen for default node changes if config.follow is enabled
 if config.follow then
@@ -193,10 +199,20 @@ if config.follow then
   end)
 end
 
-silinkables_om:connect("objects-changed", function (om)
+-- start reevaluating endpoints when the first client link is created
+clientlinks_om:connect("object-added", function (om, l)
   reevaluateLinks ()
+
+  -- stop listening to client links from now on
+  clientlinks_om = nil
+
+  -- only reevaluate endpoints when device nodes change from now on
+  silinkables_om:connect("objects-changed", function (om)
+    reevaluateLinks ()
+  end)
 end)
 
 siendpoints_om:activate()
 silinkables_om:activate()
 silinks_om:activate()
+clientlinks_om:activate()
