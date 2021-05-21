@@ -280,36 +280,6 @@ wp_endpoint_get_direction (WpEndpoint * self)
   return (WpDirection) ((struct pw_endpoint_info *) d->info)->direction;
 }
 
-/**
- * wp_endpoint_create_link:
- * @self: the endpoint
- * @props: the link properties
- *
- * Creates a #WpEndpointLink between @self and another endpoint, which
- * must be specified in @props.
- * @props may contain:
- *  - `endpoint-link.output.endpoint`: the bound id of the endpoint
- *        that is in the %WP_DIRECTION_OUTPUT direction
- *  - `endpoint-link.input.endpoint`: the bound id of the endpoint
- *        that is in the %WP_DIRECTION_INPUT direction
- *
- * The id of @self is not necessary to be specified, so only one of
- * `endpoint-link.output.endpoint`, `endpoint-link.input.endpoint`
- * is actually required.
- */
-void
-wp_endpoint_create_link (WpEndpoint * self, WpProperties * props)
-{
-  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (self);
-  int res;
-
-  res = pw_endpoint_create_link (d->iface, wp_properties_peek_dict (props));
-  if (res < 0) {
-    wp_warning_object (self, "pw_endpoint_create_link: %d: %s", res,
-        spa_strerror (res));
-  }
-}
-
 /* WpImplEndpoint */
 
 enum {

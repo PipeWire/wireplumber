@@ -754,18 +754,7 @@ static const luaL_Reg metadata_methods[] = {
 
 /* WpEndpoint */
 
-static int
-endpoint_create_link (lua_State *L)
-{
-  WpEndpoint *ep = wplua_checkobject (L, 1, WP_TYPE_ENDPOINT);
-  luaL_checktype (L, 2, LUA_TTABLE);
-  WpProperties *props = wplua_table_to_properties (L, 2);
-  wp_endpoint_create_link (ep, props);
-  return 0;
-}
-
 static const luaL_Reg endpoint_methods[] = {
-  { "create_link", endpoint_create_link },
   { NULL, NULL }
 };
 
