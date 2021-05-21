@@ -16,16 +16,8 @@ G_BEGIN_DECLS
 /* WpDevice */
 
 /*!
- * @memberof WpDevice
- *
- * @brief The [WpDevice](@ref device_section)
- * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
- * GType</a>
- *
- * @code
- * #define WP_TYPE_DEVICE (wp_device_get_type ())
- * @endcode
- *
+ * \brief The WpDevice GType
+ * \ingroup wpdevice
  */
 #define WP_TYPE_DEVICE (wp_device_get_type ())
 WP_API
@@ -38,29 +30,17 @@ WpDevice * wp_device_new_from_factory (WpCore * core,
 /* WpSpaDevice */
 
 /*!
- * @memberof WpDevice
- *
- * @brief
- * @arg WP_SPA_DEVICE_FEATURE_ENABLED: enables a device
- *
- * Flags to be used as [WpObjectFeatures](@ref object_features_section) for
- * [WpSpaDevice](@ref spa_device_section)
+ * \brief Flags to be used as WpObjectFeatures for WpSpaDevice
+ * \ingroup wpspadevice
  */
 typedef enum { /*< flags >*/
+  /*! enables a spa device */
   WP_SPA_DEVICE_FEATURE_ENABLED = (WP_PROXY_FEATURE_CUSTOM_START << 0),
 } WpSpaDeviceFeatures;
 
 /*!
- * @memberof WpDevice
- *
- * @brief The [WpSpaDevice](@ref spa_device_section)
- * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
- * GType</a>
- *
- * @code
- * #define WP_TYPE_SPA_DEVICE (wp_spa_device_get_type ())
- * @endcode
- *
+ * \brief The WpSpaDevice GType
+ * \ingroup wpspadevice
  */
 #define WP_TYPE_SPA_DEVICE (wp_spa_device_get_type ())
 WP_API

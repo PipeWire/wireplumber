@@ -2,10 +2,24 @@
 
 PipeWire Metadata
 =================
+.. graphviz::
+  :align: center
+
+   digraph inheritance {
+      rankdir=LR;
+      GObject -> WpObject;
+      WpObject -> WpProxy;
+      WpProxy -> WpGlobalProxy;
+      WpGlobalProxy -> WpMetadata;
+      WpMetadata-> WpImplMetadata;
+   }
+
 .. doxygenstruct:: WpMetadata
    :project: WirePlumber
-   :members:
 
 .. doxygenstruct:: WpImplMetadata
    :project: WirePlumber
-   :members:
+
+.. doxygengroup:: wpmetadata
+   :project: WirePlumber
+   :content-only:

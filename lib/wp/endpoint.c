@@ -22,40 +22,27 @@
 #include <pipewire/extensions/session-manager/introspect-funcs.h>
 #include <spa/utils/result.h>
 
+/*! \defgroup wpendpoint WpEndpoint */
 /*!
- * @memberof WpEndpoint
+ * \struct WpEndpoint
  *
- * @props @b direction
+ * The WpEndpoint class allows accessing the properties and methods of a
+ * PipeWire endpoint object (`struct pw_endpoint` from the session-manager extension).
  *
- * @code
- * "direction" WpDirection *
- * @endcode
+ * A WpEndpoint is constructed internally when a new endpoint appears on the
+ * PipeWire registry and it is made available through the WpObjectManager API.
  *
- * @brief The direction of the endpoint
+ * \gproperties
  *
- * Flags : Read
+ * \gproperty{name, gchar *, G_PARAM_READABLE, The name of the endpoint}
  *
- * @props @b media-class
+ * \gproperty{media-class, gchar *, G_PARAM_READABLE,
+ *   The media class of the endpoint (ex. "Audio/Sink")}
  *
- * @code
- * "media-class" gchar *
- * @endcode
- *
- * @brief The media class of the endpoint (ex. "Audio/Sink")
- *
- * Flags : Read
- *
- * @props @b name
- *
- * @code
- * "name" gchar *
- * @endcode
- *
- * @brief The name of the endpoint
- *
- * Flags : Read
- *
+ * \gproperty{direction, WpDirection, G_PARAM_READABLE,
+ *   The direction of the endpoint}
  */
+
 enum {
   PROP_NAME = WP_PW_OBJECT_MIXIN_PROP_CUSTOM_START,
   PROP_MEDIA_CLASS,
@@ -70,23 +57,6 @@ struct _WpEndpointPrivate
 
 static void wp_endpoint_pw_object_mixin_priv_interface_init (
     WpPwObjectMixinPrivInterface * iface);
-
-/*!
- * @file endpoint.c
- */
-
-/*!
- * @struct WpEndpoint
- *
- * @section endpoint_section Pipewire Endpoint
- *
- * @brief The [WpEndpoint](@ref endpoint_section) class allows accessing the properties and methods of a
- * PipeWire endpoint object (`struct pw_endpoint` from the session-manager extension).
- *
- * A [WpEndpoint](@ref endpoint_section) is constructed internally when a new endpoint appears on the
- * PipeWire registry and it is made available through the [WpObjectManager](@ref object_manager_section) API.
- *
- */
 
 G_DEFINE_TYPE_WITH_CODE (WpEndpoint, wp_endpoint, WP_TYPE_GLOBAL_PROXY,
     G_ADD_PRIVATE (WpEndpoint)
@@ -204,29 +174,14 @@ wp_endpoint_class_init (WpEndpointClass * klass)
 
   wp_pw_object_mixin_class_override_properties (object_class);
 
-  /*
-   * WpEndpoint:name:
-   *
-   * @brief The name of the endpoint
-   */
   g_object_class_install_property (object_class, PROP_NAME,
       g_param_spec_string ("name", "name", "name", NULL,
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
-  /*
-   * WpEndpoint:media-class:
-   *
-   * @brief The media class of the endpoint (ex. "Audio/Sink")
-   */
   g_object_class_install_property (object_class, PROP_MEDIA_CLASS,
       g_param_spec_string ("media-class", "media-class", "media-class", NULL,
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
-  /*
-   * WpEndpoint:direction:
-   *
-   * @brief The direction of the endpoint
-   */
   g_object_class_install_property (object_class, PROP_DIRECTION,
       g_param_spec_enum ("direction", "direction", "direction",
           WP_TYPE_DIRECTION, 0, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
@@ -260,14 +215,12 @@ wp_endpoint_pw_object_mixin_priv_interface_init (
 }
 
 /*!
- * @memberof WpEndpoint
- * @param self: the endpoint
- *
- * @brief Requires %WP_PIPEWIRE_OBJECT_FEATURE_INFO
- *
- * @returns the name of the endpoint
+ * \brief Gets the name of the endpoint
+ * \remarks Requires WP_PIPEWIRE_OBJECT_FEATURE_INFO
+ * \ingroup wpendpoint
+ * \param self the endpoint
+ * \returns the name of the endpoint
  */
-
 const gchar *
 wp_endpoint_get_name (WpEndpoint * self)
 {
@@ -280,14 +233,12 @@ wp_endpoint_get_name (WpEndpoint * self)
 }
 
 /*!
- * @memberof WpEndpoint
- * @param self: the endpoint
- *
- * @brief Requires %WP_PIPEWIRE_OBJECT_FEATURE_INFO
- *
- * @returns the media class of the endpoint (ex. "Audio/Sink")
+ * \brief Gets the media class of the endpoint (ex. "Audio/Sink")
+ * \remarks Requires WP_PIPEWIRE_OBJECT_FEATURE_INFO
+ * \ingroup wpendpoint
+ * \param self the endpoint
+ * \returns the media class of the endpoint
  */
-
 const gchar *
 wp_endpoint_get_media_class (WpEndpoint * self)
 {
@@ -300,14 +251,12 @@ wp_endpoint_get_media_class (WpEndpoint * self)
 }
 
 /*!
- * @memberof WpEndpoint
- * @param self: the endpoint
- *
- * @brief Requires %WP_PIPEWIRE_OBJECT_FEATURE_INFO
- *
- * @returns the direction of this endpoint
+ * \brief Gets the direction of the endpoint
+ * \remarks Requires WP_PIPEWIRE_OBJECT_FEATURE_INFO
+ * \ingroup wpendpoint
+ * \param self the endpoint
+ * \returns the direction of this endpoint
  */
-
 WpDirection
 wp_endpoint_get_direction (WpEndpoint * self)
 {
@@ -326,22 +275,6 @@ enum {
   IMPL_PROP_ITEM,
 };
 
-/*!
- * @struct WpImplEndpoint
- * @memberof WpEndpoint
- *
- * @section impl_endpoint_section WpImplEndpoint
- *
- * @section impl_endpoint_class_props_section Properties
- *
- * @b item
- *
- * @code
- * “item” WpSiEndpoint *
- * @endcode
- *
- * @brief Flags : Read / Write / Construct Only
- */
 struct _WpImplEndpoint
 {
   WpEndpoint parent;
@@ -634,6 +567,14 @@ wp_impl_endpoint_activate_execute_step (WpObject * object,
   }
 }
 
+/*!
+ * \struct WpImplEndpoint
+ *
+ * \gproperties
+ *
+ * \gproperty{item, WpSiEndpoint *, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY,
+ *   The session item that implements this endpoint}
+ */
 static void
 wp_impl_endpoint_class_init (WpImplEndpointClass * klass)
 {
@@ -733,13 +674,11 @@ wp_endpoint_impl_pw_object_mixin_priv_interface_init (
 }
 
 /*!
- * @memberof WpEndpoint
- * @param core: the core
- * @param item: the endpoint
- *
- * Returns: (transfer full): a new [WpImplEndpoint](@ref impl_endpoint_section)
+ * \ingroup wpendpoint
+ * \param core the core
+ * \param item the session item that implements the endpoint
+ * \returns (transfer full): a new WpImplEndpoint
  */
-
 WpImplEndpoint *
 wp_impl_endpoint_new (WpCore * core, WpSiEndpoint * item)
 {

@@ -6,69 +6,122 @@
  * SPDX-License-Identifier: MIT
  */
 
-/*!
- * @file object-manager.c
- */
 #define G_LOG_DOMAIN "wp-object-manager"
 
 #include "object-manager.h"
-
-/*!
- * @struct WpObjectManager
- *
- * @section object_manager_section Object Manager
- *
- * @brief The [WpObjectManager](@ref object_manager_section) class provides a way
- * to collect a set of objects and be notified when objects that fulfill a
- * certain set of criteria are created or destroyed.
- *
- * There are 4 kinds of objects that can be managed by a
- * [WpObjectManager](@ref object_manager_section):
- *   * remote PipeWire global objects that are advertised on the registry;
- *     these are bound locally to subclasses of [WpGlobalProxy](@ref global_proxy_section)
- *   * remote PipeWire global objects that are created by calling a remote
- *     factory through the WirePlumber API; these are very similar to other
- *     global objects but it should be noted that the same
- *     [WpGlobalProxy](@ref global_proxy_section)
- *     instance that created them appears in the
- *     [WpObjectManager](@ref object_manager_section) (as soon as
- *     its %WP_PROXY_FEATURE_BOUND is enabled)
- *   * local PipeWire objects that are being exported to PipeWire
- *     ([WpImplSession](@ref impl_session_section), WpImplEndpoint [private], etc); these appear in the
- *     [WpObjectManager](@ref object_manager_section) as soon as they are exported (so, when their
- *     %WP_PROXY_FEATURE_BOUND is enabled)
- *   * WirePlumber-specific objects, such as WirePlumber factories
- *
- * To start an object manager, you first need to declare interest in a certain
- * kind of object by calling wp_object_manager_add_interest() and then install
- * it on the [WpCore](@ref core_section) with wp_core_install_object_manager().
- *
- * Upon installing a [WpObjectManager](@ref object_manager_section) on a
- * [WpCore](@ref core_section), any pre-existing objects
- * that match the interests of this [WpObjectManager](@ref object_manager_section) will immediately become
- * available to get through wp_object_manager_new_iterator() and the
- * [WpObjectManager](@ref object_manager_section)
- * [object-added](@ref signal_object_added_section) signal will be emitted for all of them.
- *
- */
 #include "log.h"
 #include "private/registry.h"
 
 #include <pipewire/pipewire.h>
 
-/* WpObjectManager */
+/*! \defgroup wpobjectmanager WpObjectManager */
 /*!
- * @brief
- * @em parent
- * @em core
- * @em interests
- * @em features
- * @em objects
- * @em installed
- * @em changed
- * @em pending_objects
- * @em idle_source
+ * \struct WpObjectManager
+ *
+ * The WpObjectManager class provides a way to collect a set of objects and
+ * be notified when objects that fulfill a certain set of criteria are created
+ * or destroyed.
+ *
+ * There are 4 kinds of objects that can be managed by a
+ * WpObjectManager:
+ *   * remote PipeWire global objects that are advertised on the registry;
+ *     these are bound locally to subclasses of WpGlobalProxy
+ *   * remote PipeWire global objects that are created by calling a remote
+ *     factory through the WirePlumber API; these are very similar to other
+ *     global objects but it should be noted that the same WpGlobalProxy
+ *     instance that created them appears in the WpObjectManager (as soon as
+ *     its WP_PROXY_FEATURE_BOUND is enabled)
+ *   * local PipeWire objects that are being exported to PipeWire
+ *     (WpImplMetadata, WpImplEndpoint, etc); these appear in the
+ *     WpObjectManager as soon as they are exported (so, when their
+ *     WP_PROXY_FEATURE_BOUND is enabled)
+ *   * WirePlumber-specific objects, such as WirePlumber factories
+ *
+ * To start an object manager, you first need to declare interest in a certain
+ * kind of object by calling wp_object_manager_add_interest() and then install
+ * it on the WpCore with wp_core_install_object_manager().
+ *
+ * Upon installing a WpObjectManager on a WpCore, any pre-existing objects
+ * that match the interests of this WpObjectManager will immediately become
+ * available to get through wp_object_manager_new_iterator() and the
+ * WpObjectManager \c object-added signal will be emitted for all of them.
+ *
+ * \gproperties
+ *
+ * \gproperty{core, WpCore *, G_PARAM_READABLE, The core}
+ *
+ * \gsignals
+ *
+ * \par installed
+ * \parblock
+ * \code
+ * void
+ * installed_callback (WpObjectManager * self,
+ *                     gpointer user_data)
+ * \endcode
+ *
+ * This is emitted once after the object manager is installed with
+ * wp_core_install_object_manager(). If there are objects that need to be
+ * prepared asynchronously internally, emission of this signal is delayed
+ * until all objects are ready.
+ *
+ * Flags: G_SIGNAL_RUN_FIRST
+ * \endparblock
+ *
+ * \par object-added
+ * \parblock
+ * \code
+ * void
+ * object_added_callback (WpObjectManager * self,
+ *                        gpointer object,
+ *                        gpointer user_data)
+ * \endcode
+ *
+ * Emitted when an object that matches the interests of this object manager
+ * is made available.
+ *
+ * Parameters:
+ * - `object` - the managed object that was just added
+ *
+ * Flags: G_SIGNAL_RUN_FIRST
+ * \endparblock
+ *
+ * \par object-removed
+ * \parblock
+ * \code
+ * void
+ * object_removed_callback (WpObjectManager * self,
+ *                          gpointer object,
+ *                          gpointer user_data)
+ * \endcode
+ *
+ * Emitted when an object that was previously added on this object manager is
+ * now being removed (and most likely destroyed). At the time that this signal
+ * is emitted, the object is still alive.
+ *
+ * Parameters:
+ * - `object` - the managed object that is being removed
+ *
+ * Flags: G_SIGNAL_RUN_FIRST
+ * \endparblock
+ *
+ * \par object-changed
+ * \parblock
+ * \code
+ * void
+ * object_changed_callback (WpObjectManager * self,
+ *                          gpointer user_data)
+ * \endcode
+ *
+ * Emitted when one or more objects have been recently added or removed from
+ * this object manager. This signal is useful to get notified only once when
+ * multiple changes happen in a short timespan. The receiving callback may
+ * retrieve the updated list of objects by calling wp_object_manager_new_iterator()
+ *
+ * Flags: G_SIGNAL_RUN_FIRST
+ * \endparblock
  */
+
 struct _WpObjectManager
 {
   GObject parent;
@@ -87,102 +140,11 @@ struct _WpObjectManager
   GSource *idle_source;
 };
 
-/*!
- * @memberof WpObjectManager
- *
- * @props @b core
- *
- * @code
- * "core" WpCore *
- * @endcode
- *
- * Flags : Read
- *
- */
 enum {
   PROP_0,
   PROP_CORE,
 };
 
-/*!
- * @memberof WpObjectManager
- *
- * @signal @b installed
- *
- * @code
- * installed_callback (WpObjectManager * self,
- *                     gpointer user_data)
- * @endcode
- *
- * This is emitted once after the object manager is installed with 
- * wp_core_install_object_manager. If there are objects that need to be prepared
- * asynchronously internally, emission of this signal is delayed until all objects are ready.
- *
- * Parameters:
- *
- * @arg `self` - the object manager
- * @arg `user_data`
- *
- * Flags: Run First
- *
- * @signal @b object-added
- *
- * @code
- * object_added_callback (WpObjectManager * self,
- *                        gpointer object,
- *                        gpointer user_data)
- * @endcode
- *
- * Emitted when an object that matches the interests of this object manager is made available.
- *
- * @b Parameters:
- *
- * @arg `self` - the object manager
- * @arg `object` - the managed object that was just added
- * @arg `user_data`
- *
- * Flags: Run First
- *
- * @signal @b object-removed
- *
- * @code
- * object_removed_callback (WpObjectManager * self,
- *                          gpointer object,
- *                          gpointer user_data)
- * @endcode
- *
- * Emitted when an object that was previously added on this object manager is now being
- * removed (and most likely destroyed). At the time that this signal is emitted, the object
- * is still alive.
- *
- * @b Parameters:
- *
- * @arg `self` - the object manager
- * @arg `object` - the managed object that is being removed
- * @arg `user_data`
- *
- * Flags: Run First
- *
- * @signal @b object-changed
- *
- * @code
- * object_changed_callback (WpObjectManager * self,
- *                          gpointer user_data)
- * @endcode
- *
- * Emitted when one or more objects have been recently added or removed from this object manager.
- * This signal is useful to get notified only once when multiple changes happen in a short timespan.
- * The receiving callback may retrieve the updated list of objects by calling
- * %wp_object_manager_new_iterator
- *
- * Parameters:
- *
- * @arg `self` - the object manager
- * @arg `user_data`
- *
- * Flags: Run First
- *
- */
 enum {
   SIGNAL_OBJECT_ADDED,
   SIGNAL_OBJECT_REMOVED,
@@ -255,70 +217,28 @@ wp_object_manager_class_init (WpObjectManagerClass * klass)
       g_param_spec_object ("core", "core", "The WpCore", WP_TYPE_CORE,
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
-  /*
-   * WpObjectManager::object-added:
-   * @self: the object manager
-   * @object: (transfer none): the managed object that was just added
-   *
-   * @section signal_object_added_section object-added
-   *
-   * @brief Emitted when an object that matches the interests of this object manager
-   * is made available.
-   */
   signals[SIGNAL_OBJECT_ADDED] = g_signal_new (
       "object-added", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
       0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_OBJECT);
 
-  /*
-   * WpObjectManager::object-removed:
-   * @self: the object manager
-   * @object: (transfer none): the managed object that is being removed
-   *
-   * @section signal_object_removed_section object-removed
-   *
-   * @brief Emitted when an object that was previously added on this object manager
-   * is now being removed (and most likely destroyed). At the time that this
-   * signal is emitted, the object is still alive.
-   */
   signals[SIGNAL_OBJECT_REMOVED] = g_signal_new (
       "object-removed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
       0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_OBJECT);
 
-  /*
-   * WpObjectManager::objects-changed:
-   * @self: the object manager
-   *
-   * @brief Emitted when one or more objects have been recently added or removed
-   * from this object manager. This signal is useful to get notified only once
-   * when multiple changes happen in a short timespan. The receiving callback
-   * may retrieve the updated list of objects by calling
-   * wp_object_manager_new_iterator()
-   */
   signals[SIGNAL_OBJECTS_CHANGED] = g_signal_new (
       "objects-changed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
       0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 
-  /*
-   * WpObjectManager::installed:
-   * @self: the object manager
-   *
-   * @brief This is emitted once after the object manager is installed with
-   * wp_core_install_object_manager(). If there are objects that need
-   * to be prepared asynchronously internally, emission of this signal is
-   * delayed until all objects are ready.
-   */
   signals[SIGNAL_INSTALLED] = g_signal_new (
       "installed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
       0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 }
 
 /*!
- * @memberof WpObjectManager
- * @brief Constructs a new object manager.
- *
- * @returns (transfer full): the newly constructed object manager
+ * \brief Constructs a new object manager.
+ * \ingroup wpobjectmanager
+ * \returns (transfer full): the newly constructed object manager
  */
-
 WpObjectManager *
 wp_object_manager_new (void)
 {
@@ -326,13 +246,11 @@ wp_object_manager_new (void)
 }
 
 /*!
- * @memberof WpObjectManager
- * @param self: the object manager
- *
- * @returns %TRUE if the object manager is installed (the
- *   WpObjectManager::installed has been emitted), %FALSE otherwise
+ * \ingroup wpobjectmanager
+ * \param self the object manager
+ * \returns TRUE if the object manager is installed (i.e. the
+ *   WpObjectManager \c installed signal has been emitted), FALSE otherwise
  */
-
 gboolean
 wp_object_manager_is_installed (WpObjectManager * self)
 {
@@ -341,24 +259,20 @@ wp_object_manager_is_installed (WpObjectManager * self)
 }
 
 /*!
- * @memberof WpObjectManager
- * @param self: the object manager
- * @param gtype: the
- * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
- * GType</a>
- * of the objects that we are declaring interest in
- * @...: a list of constraints, terminated by %NULL
- *
- * @brief Equivalent to:
- * |[
+ * \brief Equivalent to:
+ * \code
  * WpObjectInterest *i = wp_object_interest_new (gtype, ...);
  * wp_object_manager_add_interest_full (self, i);
- * ]|
+ * \endcode
  *
  * The constraints specified in the variable arguments must follow the rules
  * documented in wp_object_interest_new().
+ *
+ * \ingroup wpobjectmanager
+ * \param self the object manager
+ * \param gtype the GType of the objects that we are declaring interest in
+ * \param ... a list of constraints, terminated by NULL
  */
-
 void
 wp_object_manager_add_interest (WpObjectManager * self, GType gtype, ...)
 {
@@ -374,18 +288,16 @@ wp_object_manager_add_interest (WpObjectManager * self, GType gtype, ...)
 }
 
 /*!
- * @memberof WpObjectManager
- * @param self: the object manager
- * @param interest: (transfer full): the interest
+ * \brief Declares interest in a certain kind of object.
  *
- * @brief Declares interest in a certain kind of object. Interest consists of a
- * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
- * GType</a>
- * that the object must be an ancestor of (g_type_is_a must match) and
- * optionally, a set of additional constraints on certain properties of the
- * object. Refer to [WpObjectInterest](@ref object_interest_section) for more details.
+ * Interest consists of a GType that the object must be an ancestor of
+ * (g_type_is_a() must match) and optionally, a set of additional constraints
+ * on certain properties of the object. Refer to WpObjectInterest for more details.
+ *
+ * \ingroup wpobjectmanager
+ * \param self the object manager
+ * \param interest (transfer full): the interest
  */
-
 void
 wp_object_manager_add_interest_full (WpObjectManager *self,
     WpObjectInterest * interest)
@@ -422,16 +334,18 @@ store_children_object_features (GHashTable *store, GType object_type,
 }
 
 /*!
- * @memberof WpObjectManager
- * @param self: the object manager
- * @param object_type: the [WpProxy](@ref proxy_section) descendant type
- * @param wanted_features: the features to enable on this kind of object
+ * \brief Requests the object manager to automatically prepare the
+ * \a wanted_features on any managed object that is of the specified
+ * \a object_type.
  *
- * @brief Requests the object manager to automatically prepare the @em wanted_features
- * on any managed object that is of the specified @em object_type. These features
- * will always be prepared before the object appears on the object manager.
+ * These features will always be prepared before the object appears on the
+ * object manager.
+ *
+ * \ingroup wpobjectmanager
+ * \param self the object manager
+ * \param object_type the WpProxy descendant type
+ * \param wanted_features the features to enable on this kind of object
  */
-
 void
 wp_object_manager_request_object_features (WpObjectManager *self,
     GType object_type, WpObjectFeatures wanted_features)
@@ -445,12 +359,10 @@ wp_object_manager_request_object_features (WpObjectManager *self,
 }
 
 /*!
- * @memberof WpObjectManager
- * @param self: the object manager
- *
- * @returns the number of objects managed by this [WpObjectManager](@ref object_manager_section)
+ * \ingroup wpobjectmanager
+ * \param self the object manager
+ * \returns the number of objects managed by this WpObjectManager
  */
-
 guint
 wp_object_manager_get_n_objects (WpObjectManager * self)
 {
@@ -533,13 +445,11 @@ static const WpIteratorMethods om_iterator_methods = {
 };
 
 /*!
- * @memberof WpObjectManager
- * @param self: the object manager
- *
- * @returns (transfer full): a [WpIterator](@ref iterator_section) that iterates over all the managed
+ * \ingroup wpobjectmanager
+ * \param self the object manager
+ * \returns (transfer full): a WpIterator that iterates over all the managed
  *   objects of this object manager
  */
-
 WpIterator *
 wp_object_manager_new_iterator (WpObjectManager * self)
 {
@@ -556,26 +466,22 @@ wp_object_manager_new_iterator (WpObjectManager * self)
 }
 
 /*!
- * @memberof WpObjectManager
- * @param self: the object manager
- * @param gtype: the
- * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
- * GType</a> of the objects to iterate through
- * @...: a list of constraints, terminated by %NULL
- *
- * @brief Equivalent to:
- * |[
+ * \brief Equivalent to:
+ * \code
  * WpObjectInterest *i = wp_object_interest_new (gtype, ...);
  * return wp_object_manager_new_filtered_iterator_full (self, i);
- * ]|
+ * \endcode
  *
  * The constraints specified in the variable arguments must follow the rules
  * documented in wp_object_interest_new().
  *
- * @returns (transfer full): a [WpIterator](@ref iterator_section) that iterates over all the matching
+ * \ingroup wpobjectmanager
+ * \param self the object manager
+ * \param gtype the GType of the objects to iterate through
+ * \param ... a list of constraints, terminated by NULL
+ * \returns (transfer full): a WpIterator that iterates over all the matching
  *   objects of this object manager
  */
-
 WpIterator *
 wp_object_manager_new_filtered_iterator (WpObjectManager * self, GType gtype,
     ...)
@@ -593,17 +499,15 @@ wp_object_manager_new_filtered_iterator (WpObjectManager * self, GType gtype,
 }
 
 /*!
- * @memberof WpObjectManager
- * @param self: the object manager
- * @param interest: (transfer full): the interest
+ * \brief Iterates through all the objects managed by this object manager that
+ * match the specified \a interest.
  *
- * @brief Iterates through all the objects managed by this object manager that
- * match the specified @em interest.
- *
- * @returns (transfer full): a [WpIterator](@ref iterator_section) that iterates over all the matching
+ * \ingroup wpobjectmanager
+ * \param self the object manager
+ * \param interest (transfer full): the interest
+ * \returns (transfer full): a WpIterator that iterates over all the matching
  *   objects of this object manager
  */
-
 WpIterator *
 wp_object_manager_new_filtered_iterator_full (WpObjectManager * self,
     WpObjectInterest * interest)
@@ -630,26 +534,22 @@ wp_object_manager_new_filtered_iterator_full (WpObjectManager * self,
 }
 
 /*!
- * @memberof WpObjectManager
- * @param self: the object manager
- * @param gtype: the
- * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
- * GType</a> of the object to lookup
- * @...: a list of constraints, terminated by %NULL
- *
- * @brief Equivalent to:
- * |[
+ * \brief Equivalent to:
+ * \code
  * WpObjectInterest *i = wp_object_interest_new (gtype, ...);
  * return wp_object_manager_lookup_full (self, i);
- * ]|
+ * \endcode
  *
  * The constraints specified in the variable arguments must follow the rules
  * documented in wp_object_interest_new().
  *
- * @returns (type GObject)(transfer full)(nullable): the first managed object
- *    that matches the lookup interest, or %NULL if no object matches
+ * \ingroup wpobjectmanager
+ * \param self the object manager
+ * \param gtype the GType of the object to lookup
+ * \param ... a list of constraints, terminated by NULL
+ * \returns (type GObject)(transfer full)(nullable): the first managed object
+ *    that matches the lookup interest, or NULL if no object matches
  */
-
 gpointer
 wp_object_manager_lookup (WpObjectManager * self, GType gtype, ...)
 {
@@ -666,19 +566,19 @@ wp_object_manager_lookup (WpObjectManager * self, GType gtype, ...)
 }
 
 /*!
- * @memberof WpObjectManager
- * @param self: the object manager
- * @param interest: (transfer full): the interst
+ * \brief Searches for an object that matches the specified \a interest and
+ * returns it, if found.
  *
- * @brief Searches for an object that matches the specified @em interest and returns
- * it, if found. If more than one objects match, only the first one is returned.
+ * If more than one objects match, only the first one is returned.
  * To find multiple objects that match certain criteria,
  * wp_object_manager_new_filtered_iterator() is more suitable.
  *
- * @returns (type GObject)(transfer full)(nullable): the first managed object
- *    that matches the lookup interest, or %NULL if no object matches
+ * \ingroup wpobjectmanager
+ * \param self the object manager
+ * \param interest (transfer full): the interst
+ * \returns (type GObject)(transfer full)(nullable): the first managed object
+ *    that matches the lookup interest, or NULL if no object matches
  */
-
 gpointer
 wp_object_manager_lookup_full (WpObjectManager * self,
     WpObjectInterest * interest)
@@ -872,9 +772,7 @@ wp_object_manager_rm_object (WpObjectManager * self, gpointer object)
 /*
  * WpRegistry:
  *
- * @section registry_section WpRegistry
- *
- * @brief The registry keeps track of registered objects on the wireplumber core.
+ * The registry keeps track of registered objects on the wireplumber core.
  * There are 3 kinds of registered objects:
  *
  * 1) PipeWire global objects, which live in another process.
@@ -1181,10 +1079,9 @@ expose_tmp_globals (WpCore *core, GAsyncResult *res, WpRegistry *self)
 }
 
 /*
+ * \param new_global (out) (transfer full) (optional): the new global
  *
- * @param new_global: (out) (transfer full) (optional): the new global
- *
- * @brief This is normally called up to 2 times in the same sync cycle:
+ * This is normally called up to 2 times in the same sync cycle:
  * one from registry_global(), another from the proxy bound event
  * Unfortunately the order in which those 2 events happen is specific
  * to the implementation of the object, which is why this is implemented
@@ -1258,16 +1155,14 @@ wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
 }
 
 /*
+ * Finds a registered object
  *
- * @param reg: the registry
- * @param func: (scope call): a function that takes the object being searched
- *   as the first argument and @em data as the second. it should return TRUE if
+ * \param reg the registry
+ * \param func (scope call): a function that takes the object being searched
+ *   as the first argument and \a data as the second. it should return TRUE if
  *   the object is found or FALSE otherwise
- * @param data: the second argument to @em func
- *
- * @brief Finds a registered object
- *
- * @returns (transfer full) (type GObject *) (nullable): the registered object
+ * \param data the second argument to \a func
+ * \returns (transfer full) (type GObject *) (nullable): the registered object
  *   or NULL if not found
  */
 gpointer
@@ -1290,14 +1185,12 @@ wp_registry_find_object (WpRegistry *reg, GEqualFunc func, gconstpointer data)
 }
 
 /*
- *
- * @param reg: the registry
- * @param obj: (transfer full) (type GObject*): the object to register
- *
- * @brief Registers @em obj with the core, making it appear on
- * [WpObjectManager](@ref object_manager_section)
+ * Registers \a obj with the core, making it appear on WpObjectManager
  * instances as well. The core will also maintain a ref to that object
  * until it is removed.
+ *
+ * \param reg the registry
+ * \param obj (transfer full) (type GObject*): the object to register
  */
 void
 wp_registry_register_object (WpRegistry *reg, gpointer obj)
@@ -1317,11 +1210,10 @@ wp_registry_register_object (WpRegistry *reg, gpointer obj)
 }
 
 /*
+ * Detaches and unrefs the specified object from this core
  *
- * @param reg: the registry
- * @param obj: (transfer none) (type GObject*): a pointer to the object to remove
- *
- * @brief Detaches and unrefs the specified object from this core
+ * \param reg the registry
+ * \param obj (transfer none) (type GObject*): a pointer to the object to remove
  */
 void
 wp_registry_remove_object (WpRegistry *reg, gpointer obj)
@@ -1339,15 +1231,16 @@ wp_registry_remove_object (WpRegistry *reg, gpointer obj)
 }
 
 /*!
- * @memberof WpObjectManager
- * @param self: the core
- * @param om: (transfer none): a [WpObjectManager](@ref object_manager_section)
+ * \brief Installs the object manager on this core, activating its internal
+ * management engine.
  *
- * @brief Installs the object manager on this core, activating its internal management
- * engine. This will immediately emit signals about objects added on @em om
- * if objects that the @em om is interested in were in existence already.
+ * This will immediately emit signals about objects added on \a om
+ * if objects that the \a om is interested in were in existence already.
+ *
+ * \ingroup wpobjectmanager
+ * \param self the core
+ * \param om (transfer none): a WpObjectManager
  */
-
 void
 wp_core_install_object_manager (WpCore * self, WpObjectManager * om)
 {

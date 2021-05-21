@@ -14,16 +14,8 @@
 G_BEGIN_DECLS
 
 /*!
- * @memberof WPLink
- *
- * @brief The [WpLink](@ref link_section)
- * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
- * GType</a>
- *
- * @code
- * #define WP_TYPE_LINK (wp_link_get_type ())
- * @endcode
- *
+ * \brief The WpLink GType
+ * \ingroup wplink
  */
 #define WP_TYPE_LINK (wp_link_get_type ())
 WP_API

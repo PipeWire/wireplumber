@@ -20,10 +20,21 @@
 #include <spa/monitor/device.h>
 #include <spa/utils/result.h>
 
+/*! \defgroup wpdevice WpDevice */
 /*!
- * @brief
- * @em parent
+ * \struct WpDevice
+ *
+ * The WpDevice class allows accessing the properties and methods of a
+ * PipeWire device object (`struct pw_device`).
+ *
+ * A WpDevice is constructed internally when a new device appears on the
+ * PipeWire registry and it is made available through the WpObjectManager API.
+ * Alternatively, a WpDevice can also be constructed using
+ * wp_device_new_from_factory(), which creates a new device object
+ * on the remote PipeWire server by calling into a factory.
+ *
  */
+
 struct _WpDevice
 {
   WpGlobalProxy parent;
@@ -31,41 +42,6 @@ struct _WpDevice
 
 static void wp_device_pw_object_mixin_priv_interface_init (
     WpPwObjectMixinPrivInterface * iface);
-
-/*!
- * @file device.c
- */
-
-/*!
- * @struct WpDevice
- * @section device_section Pipewire Device
- *
- * @brief The [WpDevice](@ref device_section) class allows accessing the properties and methods of a
- * PipeWire device object (`struct pw_device`).
- *
- * A [WpDevice](@ref device_section) is constructed internally when a new device appears on the
- * PipeWire registry and it is made available through the [WpObjectManager](@ref object_manager_section) API.
- * Alternatively, a [WpDevice](@ref device_section) can also be constructed using
- * wp_device_new_from_factory(), which creates a new device object
- * on the remote PipeWire server by calling into a factory.
- *
- * @section spa_device_section WpSpaDevice
- *
- * @brief A [WpSpaDevice](@ref spa_device_section) allows running a `spa_device` object locally,
- * loading the implementation from a SPA factory. This is useful to run device
- * monitors inside the session manager and have control over creating the
- * actual nodes that the `spa_device` requests to create.
- *
- * To enable the spa device, call wp_object_activate() requesting
- * %WP_SPA_DEVICE_FEATURE_ENABLED.
- *
- * For actual devices (not device monitors) it also possible and desirable
- * to export the device to PipeWire, which can be done by requesting
- * %WP_PROXY_FEATURE_BOUND from wp_object_activate(). When exporting, the
- * export should be done before enabling the device, by requesting both
- * features at the same time.
- *
- */
 
 G_DEFINE_TYPE_WITH_CODE (WpDevice, wp_device, WP_TYPE_GLOBAL_PROXY,
     G_IMPLEMENT_INTERFACE (WP_TYPE_PIPEWIRE_OBJECT,
@@ -181,13 +157,8 @@ wp_device_pw_object_mixin_priv_interface_init (
 }
 
 /*!
- * @memberof WpDevice
- * @param core: the wireplumber core
- * @param factory_name: the pipewire factory name to construct the device
- * @param properties: (nullable) (transfer full): the properties to pass to the factory
- *
- * @brief Constructs a device on the PipeWire server by asking the remote factory
- * @em factory_name to create it.
+ * \brief Constructs a device on the PipeWire server by asking the remote
+ * factory \a factory_name to create it.
  *
  * Because of the nature of the PipeWire protocol, this operation completes
  * asynchronously at some point in the future. In order to find out when
@@ -196,7 +167,12 @@ wp_device_pw_object_mixin_priv_interface_init (
  * use on the server. If the device cannot be created, this activation operation
  * will fail.
  *
- * @returns (nullable) (transfer full): the new device or %NULL if the core
+ * \ingroup wpdevice
+ * \param core the wireplumber core
+ * \param factory_name the pipewire factory name to construct the device
+ * \param properties (nullable) (transfer full): the properties to pass to the
+ *   factory
+ * \returns (nullable) (transfer full): the new device or %NULL if the core
  *   is not connected and therefore the device cannot be created
  */
 
@@ -212,29 +188,7 @@ wp_device_new_from_factory (WpCore * core,
       NULL);
 }
 
-/*!
- * @memberof WpDevice
- * @props @b properties
- *
- * @code
- * "properties" WpProperties *
- * @endcode
- *
- * @brief Flags : Read / Write / Construct Only
- *
- * @props @b spa-device-handle
- *
- * @code
- * "spa-device-handle" gpointer *
- * @endcode
- *
- * @brief Flags : Read / Write / Construct Only
- */
-enum {
-  PROP_0,
-  PROP_SPA_DEVICE_HANDLE,
-  PROP_PROPERTIES,
-};
+/*! \defgroup wpspadevice WpSpaDevice */
 
 struct _WpSpaDevice
 {
@@ -246,57 +200,12 @@ struct _WpSpaDevice
   GPtrArray *managed_objs;
 };
 
-/*!
- * @memberof WpDevice
- * @signal @b create-object
- *
- * @code
- * create_object_callback (WpSpaDevice * self,
- *                         guint id,
- *                         gchar * type,
- *                         gchar * factory,
- *                         WpProperties * properties,
- *                         gpointer user_data)
- * @endcode
- *
- * @brief This signal is emitted when the device is creating a managed object 
- * The handler is expected to actually construct the object using the requested SPA factory and 
- * with the given properties. The handler should then store the object with
- * wp_spa_device_store_managed_object. The WpSpaDevice will later unref the reference stored by
- * this function when the managed object is to be destroyed.
- *
- * Params:
- * @arg self - the [WpSpaDevice](@ref spa_device_section)
- * @arg id - the id of the managed object
- * @arg type - the SPA type that the managed object should have
- * @arg factory - the name of the SPA factory to use to construct the managed object
- * @arg properties - additional properties that the managed object should have
- * @arg user_data
- *
- * Flags: Run First
- *
- * @signal @b remove-object
- *
- * @code
- * object_removed_callback (WpSpaDevice * self,
- *                          guint id,
- *                          gpointer user_data)
- * @endcode
- *
- * @brief This signal is emitted when the device has deleted a managed object.
- * The handler may optionally release additional resources associated with this object.
- *
- * It is not necessary to call wp_spa_device_store_managed_object() to remove the managed object,
- * as this is done internally after this signal is fired.
- *
- * Params:
- * @arg self - the [WpSpaDevice](@ref spa_device_section)
- * @arg id - the id of the managed object
- * @arg user_data
- *
- * Flags: Run First
- *
- */
+enum {
+  PROP_0,
+  PROP_SPA_DEVICE_HANDLE,
+  PROP_PROPERTIES,
+};
+
 enum
 {
   SIGNAL_CREATE_OBJECT,
@@ -541,6 +450,83 @@ wp_spa_device_deactivate (WpObject * object, WpObjectFeatures features)
   }
 }
 
+/*!
+ * \struct WpSpaDevice
+ *
+ * A WpSpaDevice allows running a `spa_device` object locally,
+ * loading the implementation from a SPA factory. This is useful to run device
+ * monitors inside the session manager and have control over creating the
+ * actual nodes that the `spa_device` requests to create.
+ *
+ * To enable the spa device, call wp_object_activate() requesting
+ * WP_SPA_DEVICE_FEATURE_ENABLED.
+ *
+ * For actual devices (not device monitors) it also possible and desirable
+ * to export the device to PipeWire, which can be done by requesting
+ * WP_PROXY_FEATURE_BOUND from wp_object_activate(). When exporting, the
+ * export should be done before enabling the device, by requesting both
+ * features at the same time.
+ *
+ * \gproperties
+ *
+ * \gproperty{properties, WpProperties *, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY,
+ *   Properties of the spa device}
+ *
+ * \gproperty{spa-device-handle, gpointer, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY,
+ *   The spa device handle}
+ *
+ * \gsignals
+ *
+ * \par create-object
+ * \parblock
+ * \code
+ * void
+ * create_object_callback (WpSpaDevice * self,
+ *                         guint id,
+ *                         gchar * type,
+ *                         gchar * factory,
+ *                         WpProperties * properties,
+ *                         gpointer user_data)
+ * \endcode
+ *
+ * This signal is emitted when the device is creating a managed object
+ * The handler is expected to actually construct the object using the requested
+ * SPA factory and with the given properties. The handler should then store the
+ * object with wp_spa_device_store_managed_object. The WpSpaDevice will later
+ * unref the reference stored by this function when the managed object is to be
+ * destroyed.
+ *
+ * Parameters:
+ * - `id` - the id of the managed object
+ * - `type` - the SPA type that the managed object should have
+ * - `factory` - the name of the SPA factory to use to construct the managed object
+ * - `properties` - additional properties that the managed object should have
+ *
+ * Flags: G_SIGNAL_RUN_FIRST
+ * \endparblock
+ *
+ * \par remove-object
+ * \parblock
+ * \code
+ * void
+ * object_removed_callback (WpSpaDevice * self,
+ *                          guint id,
+ *                          gpointer user_data)
+ * \endcode
+ *
+ * This signal is emitted when the device has deleted a managed object.
+ * The handler may optionally release additional resources associated with this
+ * object.
+ *
+ * It is not necessary to call wp_spa_device_store_managed_object() to remove
+ * the managed object, as this is done internally after this signal is fired.
+ *
+ * Parameters:
+ * - `id` - the id of the managed object
+ *
+ * Flags: G_SIGNAL_RUN_FIRST
+ * \endparblock
+ */
 static void
 wp_spa_device_class_init (WpSpaDeviceClass * klass)
 {
@@ -567,54 +553,23 @@ wp_spa_device_class_init (WpSpaDeviceClass * klass)
           "Properties of the device", WP_TYPE_PROPERTIES,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
-  /*
-   * WpSpaDevice::create-object:
-   * @self: the [WpSpaDevice](@ref spa_device_section)
-   * @id: the id of the managed object
-   * @type: the SPA type that the managed object should have
-   * @factory: the name of the SPA factory to use to construct the managed object
-   * @properties: additional properties that the managed object should have
-   *
-   * @brief This signal is emitted when the device is creating a managed object
-   * The handler is expected to actually construct the object using the
-   * requested SPA @em factory and with the given @em properties.
-   * The handler should then store the object with
-   * wp_spa_device_store_managed_object(). The [WpSpaDevice](@ref spa_device_section) will later unref
-   * the reference stored by this function when the managed object is to be
-   * destroyed.
-   */
   spa_device_signals[SIGNAL_CREATE_OBJECT] = g_signal_new (
       "create-object", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
       0, NULL, NULL, NULL, G_TYPE_NONE, 4, G_TYPE_UINT, G_TYPE_STRING,
       G_TYPE_STRING, WP_TYPE_PROPERTIES);
 
-  /*
-   * WpSpaDevice::object-removed:
-   * @self: the [WpSpaDevice](@ref spa_device_section)
-   * @id: the id of the managed object that was removed
-   *
-   * @brief This signal is emitted when the device has deleted a managed object.
-   * The handler may optionally release additional resources associated
-   * with this object.
-   *
-   * It is not necessary to call wp_spa_device_store_managed_object()
-   * to remove the managed object, as this is done internally after this
-   * signal is fired.
-   */
   spa_device_signals[SIGNAL_OBJECT_REMOVED] = g_signal_new (
       "object-removed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
       0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_UINT);
 }
 
 /*!
- * @memberof WpDevice
- * @param core: the wireplumber core
- * @param spa_device_handle: the spa device handle
- * @param properties: (nullable) (transfer full): additional properties of the device
- *
- * @returns (transfer full): A new [WpSpaDevice](@ref spa_device_section)
+ * \ingroup wpspadevice
+ * \param core the wireplumber core
+ * \param spa_device_handle the spa device handle
+ * \param properties (nullable) (transfer full): additional properties of the device
+ * \returns (transfer full): A new WpSpaDevice
  */
-
 WpSpaDevice *
 wp_spa_device_new_wrap (WpCore * core, gpointer spa_device_handle,
     WpProperties * properties)
@@ -628,24 +583,22 @@ wp_spa_device_new_wrap (WpCore * core, gpointer spa_device_handle,
 }
 
 /*!
- * @memberof WpDevice
- * @param core: the wireplumber core
- * @param factory_name: the name of the SPA factory
- * @param properties: (nullable) (transfer full): properties to be passed to device
- *    constructor
- *
- * @brief Constructs a `SPA_TYPE_INTERFACE_Device` by loading the given SPA
- * @em factory_name.
+ * \brief Constructs a `SPA_TYPE_INTERFACE_Device` by loading the given SPA
+ * \a factory_name.
  *
  * To export this device to the PipeWire server, you need to call
- * wp_object_activate() requesting %WP_PROXY_FEATURE_BOUND and
+ * wp_object_activate() requesting WP_PROXY_FEATURE_BOUND and
  * wait for the operation to complete.
  *
- * @returns (nullable) (transfer full): A new [WpSpaDevice](@ref spa_device_section) wrapping the
- *   device that was constructed by the factory, or %NULL if the factory
+ * \ingroup wpspadevice
+ * \param core the wireplumber core
+ * \param factory_name the name of the SPA factory
+ * \param properties (nullable) (transfer full): properties to be passed to device
+ *    constructor
+ * \returns (nullable) (transfer full): A new WpSpaDevice wrapping the
+ *   device that was constructed by the factory, or NULL if the factory
  *   does not exist or was unable to construct the device
  */
-
 WpSpaDevice *
 wp_spa_device_new_from_spa_factory (WpCore * core,
     const gchar * factory_name, WpProperties * properties)
@@ -669,12 +622,10 @@ wp_spa_device_new_from_spa_factory (WpCore * core,
 }
 
 /*!
- * @memberof WpDevice
- * @param self: the spa device
- *
- * @returns (transfer full): the device properties
+ * \ingroup wpspadevice
+ * \param self the spa device
+ * \returns (transfer full): the device properties
  */
-
 WpProperties *
 wp_spa_device_get_properties (WpSpaDevice * self)
 {
@@ -683,13 +634,11 @@ wp_spa_device_get_properties (WpSpaDevice * self)
 }
 
 /*!
- * @memberof WpDevice
- * @param self: the spa device
- * @param id: the (device-internal) id of the object to get
- *
- * @returns (transfer full): the managed object associated with @em id
+ * \ingroup wpspadevice
+ * \param self the spa device
+ * \param id the (device-internal) id of the object to get
+ * \returns (transfer full): the managed object associated with \a id
  */
-
 GObject *
 wp_spa_device_get_managed_object (WpSpaDevice * self, guint id)
 {
@@ -701,13 +650,12 @@ wp_spa_device_get_managed_object (WpSpaDevice * self, guint id)
 }
 
 /*!
- * @memberof WpDevice
- * @param self: the spa device
- * @param id: the (device-internal) id of the object
- * @param object: (transfer full) (nullable): the object to store or %NULL to remove
- *   the managed object associated with @em id
+ * \ingroup wpspadevice
+ * \param self the spa device
+ * \param id the (device-internal) id of the object
+ * \param object (transfer full) (nullable): the object to store or NULL to remove
+ *   the managed object associated with \a id
  */
-
 void
 wp_spa_device_store_managed_object (WpSpaDevice * self, guint id,
     GObject * object)

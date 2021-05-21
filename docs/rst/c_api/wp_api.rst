@@ -2,5 +2,6 @@
 
 Library Initialization
 ======================
-.. doxygenstruct:: Wp
+.. doxygengroup:: wp
    :project: WirePlumber
+   :content-only:

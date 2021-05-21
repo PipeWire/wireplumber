@@ -6,19 +6,165 @@
  * SPDX-License-Identifier: MIT
  */
 
-/*!
- * @file debug.c
- */
-
-/*!
- * WpDebug:
- */
-
 #include "log.h"
 #include "spa-pod.h"
 #include "proxy.h"
 #include <pipewire/pipewire.h>
 #include <spa/support/log.h>
+
+/*!
+ * \defgroup wplog Debug Logging
+ * \{
+ */
+/*!
+ * \def WP_LOG_LEVEL_TRACE
+ * \brief A custom GLib log level for trace messages (see GLogLevelFlags)
+ */
+/*!
+ * \def WP_OBJECT_FORMAT
+ * \brief A format string to print GObjects with WP_OBJECT_ARGS()
+ * For example:
+ * \code
+ * GObject *myobj = ...;
+ * wp_debug ("This: " WP_OBJECT_FORMAT " is an object", WP_OBJECT_ARGS (myobj));
+ * \endcode
+ */
+/*!
+ * \def WP_OBJECT_ARGS(object)
+ * \brief A macro to format an object for printing with WP_OBJECT_FORMAT
+ */
+/*!
+ * \def wp_critical(...)
+ * \brief Logs a critical message to the standard log via GLib's logging system.
+ * \param ... A format string, followed by format arguments in printf() style
+ */
+/*!
+ * \def wp_critical_object(object, ...)
+ * \brief Logs a critical message to the standard log via GLib's logging system.
+ * \param object A GObject associated with the log; this is printed in a special
+ *   way to make it easier to track messages from a specific object
+ * \param ... A format string, followed by format arguments in printf() style
+ */
+/*!
+ * \def wp_critical_boxed(type, object, ...)
+ * \brief Logs a critical message to the standard log via GLib's logging system.
+ * \param type The type of \a object
+ * \param object A boxed object associated with the log; this is printed in a
+ *   special way to make it easier to track messages from a specific object.
+ *   For some object types, contents from the object are also printed (ex WpSpaPod)
+ * \param ... A format string, followed by format arguments in printf() style
+ */
+/*!
+ * \def wp_warning(...)
+ * \brief Logs a warning message to the standard log via GLib's logging system.
+ * \param ... A format string, followed by format arguments in printf() style
+ */
+/*!
+ * \def wp_warning_object(object, ...)
+ * \brief Logs a warning message to the standard log via GLib's logging system.
+ * \param object A GObject associated with the log; this is printed in a special
+ *   way to make it easier to track messages from a specific object
+ * \param ... A format string, followed by format arguments in printf() style
+ */
+/*!
+ * \def wp_warning_boxed(type, object, ...)
+ * \brief Logs a warning message to the standard log via GLib's logging system.
+ * \param type The type of \a object
+ * \param object A boxed object associated with the log; this is printed in a
+ *   special way to make it easier to track messages from a specific object.
+ *   For some object types, contents from the object are also printed (ex WpSpaPod)
+ * \param ... A format string, followed by format arguments in printf() style
+ */
+/*!
+ * \def wp_message(...)
+ * \brief Logs a standard message to the standard log via GLib's logging system.
+ * \param ... A format string, followed by format arguments in printf() style
+ */
+/*!
+ * \def wp_message_object(object, ...)
+ * \brief Logs a standard message to the standard log via GLib's logging system.
+ * \param object A GObject associated with the log; this is printed in a special
+ *   way to make it easier to track messages from a specific object
+ * \param ... A format string, followed by format arguments in printf() style
+ */
+/*!
+ * \def wp_message_boxed(type, object, ...)
+ * \brief Logs a standard message to the standard log via GLib's logging system.
+ * \param type The type of \a object
+ * \param object A boxed object associated with the log; this is printed in a
+ *   special way to make it easier to track messages from a specific object.
+ *   For some object types, contents from the object are also printed (ex WpSpaPod)
+ * \param ... A format string, followed by format arguments in printf() style
+ */
+/*!
+ * \def wp_info(...)
+ * \brief Logs a info message to the standard log via GLib's logging system.
+ * \param ... A format string, followed by format arguments in printf() style
+ */
+/*!
+ * \def wp_info_object(object, ...)
+ * \brief Logs a info message to the standard log via GLib's logging system.
+ * \param object A GObject associated with the log; this is printed in a special
+ *   way to make it easier to track messages from a specific object
+ * \param ... A format string, followed by format arguments in printf() style
+ */
+/*!
+ * \def wp_info_boxed(type, object, ...)
+ * \brief Logs a info message to the standard log via GLib's logging system.
+ * \param type The type of \a object
+ * \param object A boxed object associated with the log; this is printed in a
+ *   special way to make it easier to track messages from a specific object.
+ *   For some object types, contents from the object are also printed (ex WpSpaPod)
+ * \param ... A format string, followed by format arguments in printf() style
+ */
+/*!
+ * \def wp_debug(...)
+ * \brief Logs a debug message to the standard log via GLib's logging system.
+ * \param ... A format string, followed by format arguments in printf() style
+ */
+/*!
+ * \def wp_debug_object(object, ...)
+ * \brief Logs a debug message to the standard log via GLib's logging system.
+ * \param object A GObject associated with the log; this is printed in a special
+ *   way to make it easier to track messages from a specific object
+ * \param ... A format string, followed by format arguments in printf() style
+ */
+/*!
+ * \def wp_debug_boxed(type, object, ...)
+ * \brief Logs a debug message to the standard log via GLib's logging system.
+ * \param type The type of \a object
+ * \param object A boxed object associated with the log; this is printed in a
+ *   special way to make it easier to track messages from a specific object.
+ *   For some object types, contents from the object are also printed (ex WpSpaPod)
+ * \param ... A format string, followed by format arguments in printf() style
+ */
+/*!
+ * \def wp_trace(...)
+ * \brief Logs a trace message to the standard log via GLib's logging system.
+ * \param ... A format string, followed by format arguments in printf() style
+ */
+/*!
+ * \def wp_trace_object(object, ...)
+ * \brief Logs a trace message to the standard log via GLib's logging system.
+ * \param object A GObject associated with the log; this is printed in a special
+ *   way to make it easier to track messages from a specific object
+ * \param ... A format string, followed by format arguments in printf() style
+ */
+/*!
+ * \def wp_trace_boxed(type, object, ...)
+ * \brief Logs a trace message to the standard log via GLib's logging system.
+ * \param type The type of \a object
+ * \param object A boxed object associated with the log; this is printed in a
+ *   special way to make it easier to track messages from a specific object.
+ *   For some object types, contents from the object are also printed (ex WpSpaPod)
+ * \param ... A format string, followed by format arguments in printf() style
+ */
+/*!
+ * \def wp_log(level, type, object, ...)
+ * \brief The generic form of all the logging macros
+ * \remark Don't use this directly, use one of the other logging macros
+ */
+/*! \} */
 
 static GString *spa_dbg_str = NULL;
 #define spa_debug(...) \
@@ -220,14 +366,12 @@ extract_common_fields (struct common_fields *cf, const GLogField *fields,
   }
 }
 
-/**
- * wp_log_level_is_enabled:
- * @log_level: a log level
- *
- * Use this to figure out if a debug message is going to be printed or not,
+/*!
+ * \brief Use this to figure out if a debug message is going to be printed or not,
  * so that you can avoid allocating resources just for debug logging purposes
- *
- * Returns: whether the log level is currently enabled
+ * \ingroup wplog
+ * \param log_level a log level
+ * \returns whether the log level is currently enabled
  */
 gboolean
 wp_log_level_is_enabled (GLogLevelFlags log_level)
@@ -235,12 +379,11 @@ wp_log_level_is_enabled (GLogLevelFlags log_level)
   return log_level_index (log_level) <= enabled_level;
 }
 
-/**
- * wp_log_set_level:
- * @level_str: a log level description string as it would appear in the
+/*!
+ * \brief Configures the log level and enabled categories
+ * \ingroup wplog
+ * \param level_str a log level description string as it would appear in the
  *   WIREPLUMBER_DEBUG environment variable "level:category1,category2"
- *
- * Configures the log level and enabled categories
  */
 void
 wp_log_set_level (const gchar * level_str)
@@ -289,15 +432,12 @@ wp_log_set_level (const gchar * level_str)
     pw_free_strv (tokens);
 }
 
-/**
- * wp_log_writer_default:
- *
- * WirePlumber's
- * <a href="https://developer.gnome.org/glib/stable/glib-Message-Logging.html#GLogWriterFunc">
- * GLogWriterFunc</a>
+/*!
+ * \brief WirePlumber's GLogWriterFunc
  *
  * This is installed automatically when you call wp_init() with
- * %WP_INIT_SET_GLIB_LOG set in the flags
+ * WP_INIT_SET_GLIB_LOG set in the flags
+ * \ingroup wplog
  */
 GLogWriterOutput
 wp_log_writer_default (GLogLevelFlags log_level,
@@ -365,10 +505,9 @@ wp_log_writer_default (GLogLevelFlags log_level,
   return G_LOG_WRITER_HANDLED;
 }
 
-/**
- * wp_log_structured_standard:
- *
- * Used internally by the debug logging macros. Avoid using it directly.
+/*!
+ * \brief Used internally by the debug logging macros. Avoid using it directly.
+ * \ingroup wplog
  */
 void
 wp_log_structured_standard (
@@ -476,15 +615,12 @@ static struct spa_log wp_spa_log = {
   .level = SPA_LOG_LEVEL_WARN,
 };
 
-/**
- * wp_spa_log_get_instance:
- *
- * Returns: WirePlumber's instance of `spa_log`, which can be used to redirect
- *   PipeWire's log messages to the currently installed
- * <a href="https://developer.gnome.org/glib/stable/glib-Message-Logging.html#GLogWriterFunc">
- * GLogWriterFunc</a>.
+/*!
+ * \ingroup wplog
+ * \returns WirePlumber's instance of `spa_log`, which can be used to redirect
+ *   PipeWire's log messages to the currently installed GLogWriterFunc.
  *   This is installed automatically when you call wp_init() with
- *   %WP_INIT_SET_PW_LOG set in the flags
+ *   WP_INIT_SET_PW_LOG set in the flags
  */
 struct spa_log *
 wp_spa_log_get_instance (void)

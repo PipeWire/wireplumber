@@ -19,16 +19,8 @@ struct pw_properties;
 struct spa_dict;
 
 /*!
- * @memberof WpProperties
- *
- * @brief The [WpProperties](@ref properties_section)
- * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
- * GType</a>
- *
- * @code
- * #define WP_TYPE_PROPERTIES (wp_properties_get_type ())
- * @endcode
- *
+ * \brief The WpProperties GType
+ * \ingroup wpproperties
  */
 #define WP_TYPE_PROPERTIES (wp_properties_get_type ())
 WP_API

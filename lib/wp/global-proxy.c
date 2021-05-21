@@ -13,6 +13,29 @@
 #include "core.h"
 #include "error.h"
 
+/*! \defgroup wpglobalproxy WpGlobalProxy */
+/*!
+ * \struct WpGlobalProxy
+ *
+ * A proxy that represents a PipeWire global object, i.e. an
+ * object that is made available through the PipeWire registry.
+ *
+ * \gproperties
+ *
+ * \gproperty{global, WpGlobal *, G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY,
+ *   Internal WpGlobal object}
+ *
+ * \gproperty{factory-name, gchar *, G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY,
+ *   The factory name}
+ *
+ * \gproperty{global-properties, WpProperties *,
+ *   G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY,
+ *   The pipewire global properties}
+ *
+ * \gproperty{permissions, guint, G_PARAM_READABLE,
+ *   The pipewire global permissions}
+ */
+
 typedef struct _WpGlobalProxyPrivate WpGlobalProxyPrivate;
 struct _WpGlobalProxyPrivate
 {
@@ -21,34 +44,6 @@ struct _WpGlobalProxyPrivate
   WpProperties *properties;
 };
 
-/*!
- * @memberof WpGlobalProxy
- *
- * @props @b global
- *
- * @code
- * “global” object *
- * @endcode
- *
- * @brief Flags : Read / Write / Construct Only
- *
- * @props @b global-properties
- *
- * @code
- * “global-properties” [WpProperties](@ref properties_section) *
- * @endcode
- *
- * @brief Flags : Read
- *
- * @props @b permissions
- *
- * @code
- * “permissions” <a href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#guint">guint</a>
- * @endcode
- *
- * @brief Flags : Read
- *
- */
 enum {
   PROP_0,
   PROP_GLOBAL,
@@ -56,19 +51,6 @@ enum {
   PROP_GLOBAL_PROPERTIES,
   PROP_PERMISSIONS,
 };
-
-/*!
- * @file global-proxy.c
- */
-
-/*!
- * @struct WpGlobalProxy
- * @section global_proxy_section Global Proxy
- *
- * @brief A proxy that represents a PipeWire global object, i.e. an object that is
- * made available through the PipeWire registry.
- *
- */
 
 G_DEFINE_TYPE_WITH_PRIVATE (WpGlobalProxy, wp_global_proxy, WP_TYPE_PROXY)
 
@@ -316,18 +298,18 @@ wp_global_proxy_class_init (WpGlobalProxyClass * klass)
 }
 
 /*!
- * @memberof WpGlobalProxy
- * @param self: the pipewire global
+ * \brief Requests the PipeWire server to destroy the object represented by
+ * this proxy.
  *
- * @brief Requests the PipeWire server to destroy the object represented by this proxy.
  * If the server allows it, the object will be destroyed and the
- * WpProxy::pw-proxy-destroyed signal will be emitted. If the server does
+ * WpProxy's `pw-proxy-destroyed` signal will be emitted. If the server does
  * not allow it, nothing will happen.
  *
- * This is mostly useful for destroying [WpLink](@ref link_section) and
- * [WpEndpointLink](@ref endpoint_link_section) objects.
+ * This is mostly useful for destroying WpLink objects.
+ *
+ * \ingroup wpglobalproxy
+ * \param self the pipewire global
  */
-
 void
 wp_global_proxy_request_destroy (WpGlobalProxy * self)
 {
@@ -344,12 +326,10 @@ wp_global_proxy_request_destroy (WpGlobalProxy * self)
 }
 
 /*!
- * @memberof WpGlobalProxy
- * @param self: the pipewire global
- *
- * @returns the permissions that wireplumber has on this object
+ * \ingroup wpglobalproxy
+ * \param self the pipewire global
+ * \returns the permissions that wireplumber has on this object
  */
-
 guint32
 wp_global_proxy_get_permissions (WpGlobalProxy * self)
 {
@@ -362,13 +342,11 @@ wp_global_proxy_get_permissions (WpGlobalProxy * self)
 }
 
 /*!
- * @memberof WpGlobalProxy
- * @param self: the pipewire global
- *
- * @returns (transfer full): the global (immutable) properties of this
+ * \ingroup wpglobalproxy
+ * \param self the pipewire global
+ * \returns (transfer full): the global (immutable) properties of this
  *   pipewire object
  */
-
 WpProperties *
 wp_global_proxy_get_global_properties (WpGlobalProxy * self)
 {
@@ -383,18 +361,18 @@ wp_global_proxy_get_global_properties (WpGlobalProxy * self)
 }
 
 /*!
- * @memberof WpGlobalProxy
- * @param self: the pipewire global
- *
- * @brief Binds to the global and creates the underlying `pw_proxy`. This may only
- * be called if there is no `pw_proxy` associated with this object yet.
+ * \brief Binds to the global and creates the underlying `pw_proxy`.
  *
  * This is mostly meant to be called internally. It will create the `pw_proxy`
- * and will activate the %WP_PROXY_FEATURE_BOUND feature.
+ * and will activate the WP_PROXY_FEATURE_BOUND feature.
  *
- * @returns %TRUE on success, %FALSE if there is no global to bind to
+ * This may only be called if there is no `pw_proxy` associated with this
+ * object yet.
+ *
+ * \ingroup wpglobalproxy
+ * \param self the pipewire global
+ * \returns TRUE on success, FALSE if there is no global to bind to
  */
-
 gboolean
 wp_global_proxy_bind (WpGlobalProxy * self)
 {

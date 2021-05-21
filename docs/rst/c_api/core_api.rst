@@ -1,7 +1,18 @@
 .. _core_api:
 
-Pipewire Core
-=============
+Core
+====
+.. graphviz::
+  :align: center
+
+   digraph inheritance {
+      rankdir=LR;
+      GObject -> WpCore;
+   }
+
 .. doxygenstruct:: WpCore
    :project: WirePlumber
-   :members:
+
+.. doxygengroup:: wpcore
+   :project: WirePlumber
+   :content-only:

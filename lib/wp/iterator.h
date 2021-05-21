@@ -15,42 +15,27 @@
 G_BEGIN_DECLS
 
 /*!
- * @fn WpIteratorFoldFunc:
- * @memberof WpIterator
- *
- * @param item: the item to fold
- * @param ret: the value collecting the result
- * @param data: data passed to @b wp_iterator_fold
- *
- * A function to be passed to `wp_iterator_fold()`.
- *
- * @returns TRUE if the fold should continue, FALSE if it should stop.
+ * \brief A function to be passed to wp_iterator_fold()
+ * \param item the item to fold
+ * \param ret the value collecting the result
+ * \param data data passed to wp_iterator_fold()
+ * \returns TRUE if the fold should continue, FALSE if it should stop.
+ * \ingroup wpiterator
  */
 typedef gboolean (*WpIteratorFoldFunc) (const GValue *item, GValue *ret,
     gpointer data);
 
 /*!
- * @fn WpIteratorForeachFunc:
- * @memberof WpIterator
- *
- * @param item: the item
- * @param data: the data passed to @b wp_iterator_foreach
- *
- * A function that is called by `wp_iterator_foreach()`.
+ * \brief A function that is called by wp_iterator_foreach().
+ * \param item the item
+ * \param data the data passed to wp_iterator_foreach()
+ * \ingroup wpiterator
  */
 typedef void (*WpIteratorForeachFunc) (const GValue *item, gpointer data);
 
 /*!
- * memberof WpIterator
- *
- * @brief The [WpIterator](@ref iterator_section)
- * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
- * GType</a>
- *
- * @code
- * #define WP_TYPE_ITERATOR (wp_iterator_get_type ())
- * @endcode
- *
+ * \brief The WpIterator GType
+ * \ingroup wpiterator
  */
 #define WP_TYPE_ITERATOR (wp_iterator_get_type ())
 WP_API
@@ -59,6 +44,11 @@ GType wp_iterator_get_type (void);
 typedef struct _WpIterator WpIterator;
 typedef struct _WpIteratorMethods WpIteratorMethods;
 
+/*!
+ * \brief The version to set to _WpIteratorMethods::version.
+ * This allows future expansion of the struct
+ * \ingroup wpiterator
+ */
 static const guint32 WP_ITERATOR_METHODS_VERSION = 0;
 
 struct _WpIteratorMethods

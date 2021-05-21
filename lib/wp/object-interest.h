@@ -16,66 +16,50 @@
 G_BEGIN_DECLS
 
 /*!
- * @memberof WpObjectInterest
- *
- * @brief
- * @arg WP_CONSTRAINT_TYPE_NONE: invalid constraint type
- * @arg WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY: constraint applies
- *   to a PipeWire global property of the object (the ones returned by
- *   wp_global_proxy_get_global_properties())
- * @arg WP_CONSTRAINT_TYPE_PW_PROPERTY: constraint applies
- *   to a PipeWire property of the object (the ones returned by
- *   wp_pipewire_object_get_properties())
- * @arg WP_CONSTRAINT_TYPE_G_PROPERTY: constraint applies to a
- * <a href="https://developer.gnome.org/gobject/stable/gobject-The-Base-Object-Type.html#GObject-struct">
- * GObject</a> property of the object
+ * \brief Constraint types for wp_object_interest_add_constraint()
+ * \ingroup wpobjectinterest
  */
 typedef enum {
+  /*! invalid constraint type */
   WP_CONSTRAINT_TYPE_NONE = 0,
+  /*! constraint applies to a PipeWire global property of the object
+   *  (the ones returned by wp_global_proxy_get_global_properties()) */
   WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
+  /*! constraint applies to a PipeWire property of the object
+   *  (the ones returned by wp_pipewire_object_get_properties()) */
   WP_CONSTRAINT_TYPE_PW_PROPERTY,
+  /*! constraint applies to a GObject property of the object */
   WP_CONSTRAINT_TYPE_G_PROPERTY,
 } WpConstraintType;
 
 /*!
- * @memberof WpObjectInterest
- *
- * @brief
- * @arg WP_CONSTRAINT_VERB_EQUALS: `=` the subject's value must equal the
- *   constraint's value
- * @arg WP_CONSTRAINT_VERB_NOT_EQUALS: `!` the subject's value must be different
- *   from the constraint's value
- * @arg WP_CONSTRAINT_VERB_IN_LIST: `c` the subject's value must equal at least
- *   one of the values in the list given as the constraint's value
- * @arg WP_CONSTRAINT_VERB_IN_RANGE: `~` the subject's value must be a number
- *   in the range defined by the constraint's value
- * @arg WP_CONSTRAINT_VERB_MATCHES: `#` the subject's value must match the
- *   pattern specified in the constraint's value
- * @arg WP_CONSTRAINT_VERB_IS_PRESENT: `+` the subject property must exist
- * @arg WP_CONSTRAINT_VERB_IS_ABSENT: `-` the subject property must not exist
+ * \brief Verbs to use with wp_object_interest_add_constraint()
+ * \ingroup wpobjectinterest
  */
 typedef enum {
+  /*! the subject's value must equal the constraint's value */
   WP_CONSTRAINT_VERB_EQUALS = '=',
+  /*! the subject's value must be different from the constraint's value */
   WP_CONSTRAINT_VERB_NOT_EQUALS = '!',
+  /*! the subject's value must equal at least
+   *  one of the values in the list given as the constraint's value */
   WP_CONSTRAINT_VERB_IN_LIST = 'c',
+  /*! the subject's value must be a number in the range defined
+   *  by the constraint's value */
   WP_CONSTRAINT_VERB_IN_RANGE = '~',
+  /*! the subject's value must match the pattern specified in the
+   *  constraint's value */
   WP_CONSTRAINT_VERB_MATCHES = '#',
+  /*! the subject property must exist */
   WP_CONSTRAINT_VERB_IS_PRESENT = '+',
+  /*! the subject property must not exist */
   WP_CONSTRAINT_VERB_IS_ABSENT = '-',
 } WpConstraintVerb;
 
 /*!
- * @memberof WpObjectInterest
- *
- * @brief The [WpObjectInterest](@ref object_interest_section)
- * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
- * GType</a>
- *
- * @code
- * #define WP_TYPE_OBJECT_INTEREST (wp_object_interest_get_type ())
- * @endcode
+ * \brief The WpObjectInterest GType
+ * \ingroup wpobjectinterest
  */
-
 #define WP_TYPE_OBJECT_INTEREST (wp_object_interest_get_type ())
 WP_API
 GType wp_object_interest_get_type (void) G_GNUC_CONST;

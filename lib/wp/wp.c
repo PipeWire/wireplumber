@@ -6,30 +6,23 @@
  * SPDX-License-Identifier: MIT
  */
 
-/*!
- * @file wp.c
- */
 #define G_LOG_DOMAIN "wp"
 
 #include "wp.h"
 #include <pipewire/pipewire.h>
 
 /*!
- * @struct Wp
- *
- * @section wp_section Wp
- *
+ * \defgroup wp Library Initialization
+ * \{
  */
 
 /*!
- * @memberof Wp
- * @param flags: initialization flags
+ * \param flags: initialization flags
  *
- * @brief Initializes WirePlumber and PipeWire underneath. @em flags can modify
- * which parts are initialized, in cases where you want to handle part
- * of this initialization externally.
+ * Initializes WirePlumber and PipeWire underneath.
+ * \em flags can modify which parts are initialized, in cases where you want
+ * to handle part of this initialization externally.
  */
-
 void
 wp_init (WpInitFlags flags)
 {
@@ -68,13 +61,8 @@ wp_init (WpInitFlags flags)
 }
 
 /*!
- * @memberof Wp
- *
- * @param Void
- *
- * @returns The Wireplumber module directory
+ * \returns The Wireplumber module directory
  */
-
 const gchar *
 wp_get_module_dir (void)
 {
@@ -88,13 +76,8 @@ wp_get_module_dir (void)
 }
 
 /*!
- * @memberof Wp
- *
- * @param Void
- *
- * @returns The Wireplumber config directory
+ * \returns The Wireplumber configuration directory
  */
-
 const gchar *
 wp_get_config_dir (void)
 {
@@ -108,13 +91,8 @@ wp_get_config_dir (void)
 }
 
 /*!
- * @memberof Wp
- *
- * @param Void
- *
- * @returns The Wireplumber data directory
+ * \returns The Wireplumber data directory
  */
-
 const gchar *
 wp_get_data_dir (void)
 {
@@ -126,3 +104,5 @@ wp_get_data_dir (void)
   }
   return data_dir;
 }
+
+/*! \} */

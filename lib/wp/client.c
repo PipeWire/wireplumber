@@ -11,28 +11,16 @@
 #include "client.h"
 #include "private/pipewire-object-mixin.h"
 
+/*! \defgroup wpclient WpClient */
 /*!
- * @file client.c
- */
-
-/*!
- * @section client_section Pipewire Client
+ * \struct WpClient
  *
- * @struct WpClient
- *
- * @brief
- *
- * The [WpClient](@ref client_section) class allows accessing the properties and methods of a PipeWire
- * client object (`struct pw_client`). A [WpClient](@ref client_section) is constructed internally
+ * The WpClient class allows accessing the properties and methods of a PipeWire
+ * client object (`struct pw_client`). A WpClient is constructed internally
  * when a new client connects to PipeWire and it is made available through the
- * [WpObjectManager](@ref object_manager_section) API.
- *
+ * WpObjectManager API.
  */
 
-/*!
- * @brief
- * @em parent
- */
 struct _WpClient
 {
   WpGlobalProxy parent;
@@ -123,18 +111,17 @@ wp_client_pw_object_mixin_priv_interface_init (
 }
 
 /*!
- * @memberof WpClient
+ * \brief Update client's permissions on a list of objects.
  *
- * @param self: the client
- * @param n_perm: the number of permissions specified in the variable arguments
- * @...: @em n_perm pairs of
- * <a href="https://developer.gnome.org/glib/stable/glib-Basic-Types.html#guint32">
- * guint32</a> numbers; the first number is the object id
- *   and the second is the permissions that this client should have
+ * An object id of `-1` can be used to set the default object permissions
+ * for this client
+ *
+ * \ingroup wpclient
+ * \param self the client
+ * \param n_perm the number of permissions specified in the variable arguments
+ * \param ... \a n_perm pairs of guint32 numbers; the first number is the
+ *   object id and the second is the permissions that this client should have
  *   on this object
- *
- * @brief Update client's permissions on a list of objects. An object id of `-1`
- * can be used to set the default object permissions for this client
  */
 void
 wp_client_update_permissions (WpClient * self, guint n_perm, ...)
@@ -154,16 +141,16 @@ wp_client_update_permissions (WpClient * self, guint n_perm, ...)
 }
 
 /*!
- * @memberof WpClient
+ * \brief Update client's permissions on a list of objects.
  *
- * @param self: the client
- * @param n_perm: the number of permissions specified in the @em permissions array
- * @param permissions: (array length=n_perm) (element-type pw_permission): an array
+ * An object id of `-1` can be used to set the default object permissions
+ * for this client
+ *
+ * \ingroup wpclient
+ * \param self the client
+ * \param n_perm the number of permissions specified in the \a permissions array
+ * \param permissions (array length=n_perm) (element-type pw_permission): an array
  *    of permissions per object id
- *
- * @brief Update client's permissions on a list of objects. An object id of `-1`
- * can be used to set the default object permissions for this client
- *
  */
 void
 wp_client_update_permissions_array (WpClient * self,

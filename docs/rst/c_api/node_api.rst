@@ -2,10 +2,22 @@
 
 PipeWire Node
 =============
+.. graphviz::
+  :align: center
+
+   digraph inheritance {
+      rankdir=LR;
+      GObject -> WpObject;
+      WpObject -> WpProxy;
+      WpProxy -> WpGlobalProxy;
+      WpGlobalProxy -> WpNode;
+      GInterface -> WpPipewireObject;
+      WpPipewireObject -> WpNode;
+   }
+
 .. doxygenstruct:: WpNode
    :project: WirePlumber
-   :members:
 
-.. doxygenstruct:: WpImplNode
+.. doxygengroup:: wpnode
    :project: WirePlumber
-   :members:
+   :content-only:

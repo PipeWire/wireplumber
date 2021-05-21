@@ -17,16 +17,8 @@
 G_BEGIN_DECLS
 
 /*!
- * @memberof WpObjectManager
- *
- * @brief The [WpObjectManager](@ref object_manager_section)
- * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
- * GType</a>
- *
- * @code
- * #define WP_TYPE_OBJECT_MANAGER (wp_object_manager_get_type ())
- * @endcode
- *
+ * \brief The WpObjectManager GType
+ * \ingroup wpobjectmanager
  */
 #define WP_TYPE_OBJECT_MANAGER (wp_object_manager_get_type ())
 WP_API

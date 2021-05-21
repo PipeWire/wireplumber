@@ -1,7 +1,7 @@
-.. _device_api:
+.. _impl_node_api:
 
-PipeWire Device
-===============
+Local Nodes
+===========
 .. graphviz::
   :align: center
 
@@ -9,15 +9,15 @@ PipeWire Device
       rankdir=LR;
       GObject -> WpObject;
       WpObject -> WpProxy;
-      WpProxy -> WpGlobalProxy;
-      WpGlobalProxy -> WpDevice;
+      WpProxy -> WpImplNode;
       GInterface -> WpPipewireObject;
-      WpPipewireObject -> WpDevice;
+      WpPipewireObject -> WpImplNode;
    }
 
-.. doxygenstruct:: WpDevice
+.. doxygenstruct:: WpImplNode
    :project: WirePlumber
+   :members:
 
-.. doxygengroup:: wpdevice
+.. doxygengroup:: wpimplnode
    :project: WirePlumber
    :content-only:

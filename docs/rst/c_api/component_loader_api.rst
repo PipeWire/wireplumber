@@ -1,7 +1,7 @@
-.. _plugin_api:
+.. _component_loader_api:
 
-Plugins
-=======
+Component Loader
+================
 .. graphviz::
   :align: center
 
@@ -9,14 +9,15 @@ Plugins
       rankdir=LR;
       GObject -> WpObject;
       WpObject -> WpPlugin;
+      WpPlugin -> WpComponentLoader;
    }
 
-.. doxygenstruct:: WpPlugin
+.. doxygenstruct:: WpComponentLoader
    :project: WirePlumber
 
-.. doxygenstruct:: _WpPluginClass
+.. doxygenstruct:: _WpComponentLoaderClass
    :project: WirePlumber
 
-.. doxygengroup:: wpplugin
+.. doxygengroup:: wpcomponentloader
    :project: WirePlumber
    :content-only:

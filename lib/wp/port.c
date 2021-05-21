@@ -5,18 +5,24 @@
  *
  * SPDX-License-Identifier: MIT
  */
-/*!
- * @file port.c
- */
+
 #define G_LOG_DOMAIN "wp-port"
 
 #include "port.h"
 #include "private/pipewire-object-mixin.h"
 
+/*! \defgroup wpport WpPort */
 /*!
- * @brief
- * @em parent
+ * \struct WpPort
+ *
+ * The WpPort class allows accessing the properties
+ * and methods of a PipeWire port object (`struct pw_port`).
+ *
+ * A WpPort is constructed internally when a new port appears
+ * on the PipeWire registry and it is made available through the
+ * WpObjectManager API.
  */
+
 struct _WpPort
 {
   WpGlobalProxy parent;
@@ -24,19 +30,6 @@ struct _WpPort
 
 static void wp_port_pw_object_mixin_priv_interface_init (
     WpPwObjectMixinPrivInterface * iface);
-
-/*!
- * @struct WpPort
- * @section port_section Port
- *
- * @brief The [WpPort](@ref port_section) class allows accessing the properties
- * and methods of a PipeWire port object (`struct pw_port`).
- *
- * A [WpPort](@ref port_section) is constructed internally when a new port appears
- * on the PipeWire registry and it is made available through the
- * [WpObjectManager](@ref object_manager_section) API.
- *
- */
 
 G_DEFINE_TYPE_WITH_CODE (WpPort, wp_port, WP_TYPE_GLOBAL_PROXY,
     G_IMPLEMENT_INTERFACE (WP_TYPE_PIPEWIRE_OBJECT,
@@ -142,12 +135,10 @@ wp_port_pw_object_mixin_priv_interface_init (
 }
 
 /*!
- * @memberof WpPort
- * @param self: the port
- *
- * @returns the current direction of the port
+ * \ingroup wpport
+ * \param self the port
+ * \returns the current direction of the port
  */
-
 WpDirection
 wp_port_get_direction (WpPort * self)
 {

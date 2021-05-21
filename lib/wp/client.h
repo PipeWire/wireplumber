@@ -16,15 +16,8 @@ G_BEGIN_DECLS
 struct pw_permission;
 
 /*!
- * @memberof WpClient
- *
- * @brief The [WpClient](@ref client_section)
- * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
- * GType</a>
- *
- * @code
- * #define WP_TYPE_CLIENT (wp_client_get_type ())
- * @endcode
+ * \brief The WpClient GType
+ * \ingroup wpclient
  */
 #define WP_TYPE_CLIENT (wp_client_get_type ())
 WP_API

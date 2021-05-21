@@ -19,48 +19,36 @@ G_BEGIN_DECLS
 struct pw_impl_node;
 
 /*!
- * @memberof WpNode
- *
- * @brief
- * @arg WP_NODE_STATE_ERROR: error state
- * @arg WP_NODE_STATE_CREATING: the node is being created
- * @arg WP_NODE_STATE_SUSPENDED: the node is suspended, the device might be closed
- * @arg WP_NODE_STATE_IDLE: the node is running but there is no active port
- * @arg WP_NODE_STATE_RUNNING: the node is running
+ * \brief The state of the node
+ * \ingroup wpnode
  */
 typedef enum {
+  /*! error state */
   WP_NODE_STATE_ERROR = -1,
+  /*! the node is being created */
   WP_NODE_STATE_CREATING = 0,
+  /*! the node is suspended, the device might be closed */
   WP_NODE_STATE_SUSPENDED = 1,
+  /*! the node is running but there is no active port */
   WP_NODE_STATE_IDLE = 2,
+  /*! the node is running */
   WP_NODE_STATE_RUNNING = 3,
 } WpNodeState;
 
 /*!
- * @memberof WpNode
- *
- * @brief
- * @arg WP_NODE_FEATURE_PORTS: caches information about ports, enabling
- *   the use of wp_node_get_n_ports(), wp_node_lookup_port(),
- *   wp_node_new_ports_iterator() and related methods
- *
- * An extension of [WpProxyFeatures](@ref proxy_features_section)
+ * \brief An extension of WpProxyFeatures
+ * \ingroup wpnode
  */
 typedef enum { /*< flags >*/
+  /*! caches information about ports, enabling
+   * the use of wp_node_get_n_ports(), wp_node_lookup_port(),
+   * wp_node_new_ports_iterator() and related methods */
   WP_NODE_FEATURE_PORTS = (WP_PROXY_FEATURE_CUSTOM_START << 0),
 } WpNodeFeatures;
 
 /*!
- * @memberof WpNode
- *
- * @brief The [WpNode](@ref node_section)
- * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
- * GType</a>
- *
- * @code
- * #define WP_TYPE_NODE (wp_node_get_type ())
- * @endcode
- *
+ * \brief The WpNode GType
+ * \ingroup wpnode
  */
 #define WP_TYPE_NODE (wp_node_get_type ())
 WP_API
@@ -103,16 +91,8 @@ WP_API
 void wp_node_send_command (WpNode * self, const gchar *command);
 
 /*!
- * @memberof WpNode
- *
- * @brief The [WpImplNode](@ref impl_node_section)
- * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
- * GType</a>
- *
- * @code
- * #define WP_TYPE_IMPL_NODE (wp_impl_node_get_type ())
- * @endcode
- *
+ * \brief The WpImplNode GType
+ * \ingroup wpimplnode
  */
 #define WP_TYPE_IMPL_NODE (wp_impl_node_get_type ())
 WP_API

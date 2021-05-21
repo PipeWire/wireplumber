@@ -6,9 +6,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-/*!
- * @file node.c
- */
 #define G_LOG_DOMAIN "wp-node"
 
 #include "node.h"
@@ -20,47 +17,56 @@
 
 #include <pipewire/impl.h>
 
+/*! \defgroup wpnode WpNode */
 /*!
- * @memberof WpNode
+ * \struct WpNode
  *
- * @signal @b ports-changed
+ * The WpNode class allows accessing the properties and methods of a
+ * PipeWire node object (`struct pw_node`).
  *
- * @code
+ * A WpNode is constructed internally when a new node appears on the
+ * PipeWire registry and it is made available through the WpObjectManager API.
+ * Alternatively, a WpNode can also be constructed using
+ * wp_node_new_from_factory(), which creates a new node object
+ * on the remote PipeWire server by calling into a factory.
+ *
+ * \gsignals
+ *
+ * \par ports-changed
+ * \parblock
+ * \code
+ * void
  * ports_changed_callback (WpNode * self,
  *                         gpointer user_data)
- * @endcode
+ * \endcode
  *
- * Emitted when the node's ports change. This is only emitted when %WP_NODE_FEATURE_PORTS is enabled.
+ * Emitted when the node's ports change. This is only emitted when
+ * WP_NODE_FEATURE_PORTS is enabled.
  *
- * @b Parameters:
+ * Flags: G_SIGNAL_RUN_LAST
+ * \endparblock
  *
- * @arg `self` - the node
- * @arg `user_data`
- *
- * Flags: Run Last
- *
- * @signal @b state-changed
- *
- * @code
+ * \par state-changed
+ * \parblock
+ * \code
+ * void
  * state_changed_callback (WpNode * self,
  *                         WpNodeState * old_state,
  *                         WpNodeState * new_state,
  *                         gpointer user_data)
- * @endcode
+ * \endcode
  *
  * Emitted when the node changes state. This is only emitted when
- * %WP_PIPEWIRE_OBJECT_FEATURE_INFO is enabled.
+ * WP_PIPEWIRE_OBJECT_FEATURE_INFO is enabled.
  *
- * @b Parameters:
+ * Parameters:
+ * - `old_state` - the old state
+ * - `new_state` - the new state
  *
- * @arg `self` - the node
- * @arg `old_state` - the old state
- * @arg `new_state` - the new state
- * @arg `user_data`
- *
- * Flags: Run Last
- *
+ * Flags: G_SIGNAL_RUN_LAST
+ * \endparblock
  */
+
 enum {
   SIGNAL_STATE_CHANGED,
   SIGNAL_PORTS_CHANGED,
@@ -69,26 +75,6 @@ enum {
 
 static guint32 signals[N_SIGNALS] = {0};
 
-/*!
- * 
- * @struct WpNode
- * @section node_section Node
- *
- * @brief The [WpNode](@ref node_section) class allows accessing the properties and methods of a
- * PipeWire node object (`struct pw_node`).
- *
- * A [WpNode](@ref node_section) is constructed internally when a new node appears on the
- * PipeWire registry and it is made available through the [WpObjectManager](@ref object_manager_section) API.
- * Alternatively, a [WpNode](@ref node_section) can also be constructed using
- * wp_node_new_from_factory(), which creates a new node object
- * on the remote PipeWire server by calling into a factory.
- *
- */
-/*!
- * @brief
- * @em parent
- * @em ports_om
- */
 struct _WpNode
 {
   WpGlobalProxy parent;
@@ -245,26 +231,11 @@ wp_node_class_init (WpNodeClass * klass)
 
   wp_pw_object_mixin_class_override_properties (object_class);
 
-  /*
-   * WpNode::state-changed:
-   * @self: the node
-   * @old_state: the old state
-   * @new_state: the new state
-   *
-   * @brief Emitted when the node changes state. This is only emitted
-   * when %WP_PIPEWIRE_OBJECT_FEATURE_INFO is enabled.
-   */
   signals[SIGNAL_STATE_CHANGED] = g_signal_new (
       "state-changed", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 2,
       WP_TYPE_NODE_STATE, WP_TYPE_NODE_STATE);
 
-  /*
-   * WpNode::ports-changed:
-   *
-   * @brief Emitted when the node's ports change. This is only emitted
-   * when %WP_NODE_FEATURE_PORTS is enabled.
-   */
   signals[SIGNAL_PORTS_CHANGED] = g_signal_new (
       "ports-changed", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
@@ -312,25 +283,24 @@ wp_node_pw_object_mixin_priv_interface_init (
 }
 
 /*!
- * @memberof WpNode
- * @param core: the wireplumber core
- * @param factory_name: the pipewire factory name to construct the node
- * @param properties: (nullable) (transfer full): the properties to pass to the factory
- *
- * @brief Constructs a node on the PipeWire server by asking the remote factory
- * @em param factory_name to create it.
+ * \brief Constructs a node on the PipeWire server by asking the remote factory
+ * \a factory_name to create it.
  *
  * Because of the nature of the PipeWire protocol, this operation completes
  * asynchronously at some point in the future. In order to find out when
  * this is done, you should call wp_object_activate(), requesting at least
- * %WP_PROXY_FEATURE_BOUND. When this feature is ready, the node is ready for
+ * WP_PROXY_FEATURE_BOUND. When this feature is ready, the node is ready for
  * use on the server. If the node cannot be created, this activation operation
  * will fail.
  *
- * @returns (nullable) (transfer full): the new node or %NULL if the core
+ * \ingroup wpnode
+ * \param core the wireplumber core
+ * \param factory_name the pipewire factory name to construct the node
+ * \param properties (nullable) (transfer full): the properties to pass to the
+ *   factory
+ * \returns (nullable) (transfer full): the new node or NULL if the core
  *   is not connected and therefore the node cannot be created
  */
-
 WpNode *
 wp_node_new_from_factory (WpCore * core,
     const gchar * factory_name, WpProperties * properties)
@@ -344,13 +314,11 @@ wp_node_new_from_factory (WpCore * core,
 }
 
 /*!
- * @memberof WpNode
- * @param self: the node
- * @param error: the error
- *
- * @returns the current state of the node
+ * \ingroup wpnode
+ * \param self the node
+ * \param error the error
+ * \returns the current state of the node
  */
-
 WpNodeState
 wp_node_get_state (WpNode * self, const gchar ** error)
 {
@@ -367,15 +335,15 @@ wp_node_get_state (WpNode * self, const gchar ** error)
 }
 
 /*!
- * @memberof WpNode
- * @param self: the node
- * @param max: (out) (optional): the maximum supported number of input ports
+ * \brief Gets the number of input ports of this node
  *
- * @brief Requires %WP_PIPEWIRE_OBJECT_FEATURE_INFO
+ * \remarks Requires WP_PIPEWIRE_OBJECT_FEATURE_INFO
  *
- * @returns the number of input ports of this node, as reported by the node info
+ * \ingroup wpnode
+ * \param self the node
+ * \param max (out) (optional): the maximum supported number of input ports
+ * \returns the number of input ports of this node, as reported by the node info
  */
-
 guint
 wp_node_get_n_input_ports (WpNode * self, guint * max)
 {
@@ -392,15 +360,15 @@ wp_node_get_n_input_ports (WpNode * self, guint * max)
 }
 
 /*!
- * @memberof WpNode
- * @param self: the node
- * @param max: (out) (optional): the maximum supported number of output ports
+ * \brief Gets the number of output ports of this node
  *
- * @brief Requires %WP_PIPEWIRE_OBJECT_FEATURE_INFO
+ * \remarks Requires WP_PIPEWIRE_OBJECT_FEATURE_INFO
  *
- * @returns the number of output ports of this node, as reported by the node info
+ * \ingroup wpnode
+ * \param self the node
+ * \param max (out) (optional): the maximum supported number of output ports
+ * \returns the number of output ports of this node, as reported by the node info
  */
-
 guint
 wp_node_get_n_output_ports (WpNode * self, guint * max)
 {
@@ -417,18 +385,20 @@ wp_node_get_n_output_ports (WpNode * self, guint * max)
 }
 
 /*!
- * @memberof WpNode
- * @param self: the node
+ * \brief Gets the number of ports of this node
  *
- * @brief Requires %WP_NODE_FEATURE_PORTS
+ * Note that this number may not add up to
+ * wp_node_get_n_input_ports() + wp_node_get_n_output_ports()
+ * because it is discovered by looking at the number of available ports
+ * in the registry, however ports may appear there with a delay or may
+ * not appear at all if this client does not have permission to read them
  *
- * @returns the number of ports of this node. Note that this number may not
- *   add up to wp_node_get_n_input_ports() + wp_node_get_n_output_ports()
- *   because it is discovered by looking at the number of available ports
- *   in the registry, however ports may appear there with a delay or may
- *   not appear at all if this client does not have permission to read them
+ * \remarks Requires WP_NODE_FEATURE_PORTS
+ *
+ * \ingroup wpnode
+ * \param self the node
+ * \returns the number of ports of this node.
  */
-
 guint
 wp_node_get_n_ports (WpNode * self)
 {
@@ -440,15 +410,15 @@ wp_node_get_n_ports (WpNode * self)
 }
 
 /*!
- * @memberof WpNode
- * @param self: the node
+ * \brief Gets a new iterator that iterates over all the ports that belong
+ * to this node
  *
- * @brief Requires %WP_NODE_FEATURE_PORTS
+ * \remarks Requires WP_NODE_FEATURE_PORTS
  *
- * @returns (transfer full): a [WpIterator](@ref iterator_section) that iterates over all
- *   the ports that belong to this node
+ * \ingroup wpnode
+ * \param self the node
+ * \returns (transfer full): a WpIterator that iterates over WpPort objects
  */
-
 WpIterator *
 wp_node_new_ports_iterator (WpNode * self)
 {
@@ -460,19 +430,19 @@ wp_node_new_ports_iterator (WpNode * self)
 }
 
 /*!
- * @memberof WpNode
- * @param self: the node
- * @...: a list of constraints, terminated by %NULL
- *
- * @brief Requires %WP_NODE_FEATURE_PORTS
+ * \brief Gets a new iterator that iterates over all
+ * the ports that belong to this node and match the constraints
  *
  * The constraints specified in the variable arguments must follow the rules
  * documented in wp_object_interest_new().
  *
- * @returns (transfer full): a [WpIterator](@ref iterator_section) that iterates over all
- *   the ports that belong to this node and match the constraints
+ * \remarks Requires WP_NODE_FEATURE_PORTS
+ *
+ * \ingroup wpnode
+ * \param self the node
+ * \param ... a list of constraints, terminated by NULL
+ * \returns (transfer full): a WpIterator that iterates over WpPort objects
  */
-
 WpIterator *
 wp_node_new_ports_filtered_iterator (WpNode * self, ...)
 {
@@ -485,16 +455,16 @@ wp_node_new_ports_filtered_iterator (WpNode * self, ...)
 }
 
 /*!
- * @memberof WpNode
- * @param self: the node
- * @param interest: (transfer full): the interest
+ * \brief Gets a new iterator that iterates over all
+ * the ports that belong to this node and match the \a interest
  *
- * @brief Requires %WP_NODE_FEATURE_PORTS
+ * \remarks Requires WP_NODE_FEATURE_PORTS
  *
- * @returns (transfer full): a [WpIterator](@ref iterator_section) that iterates over all
- *   the ports that belong to this node and match the @em interest
+ * \ingroup wpnode
+ * \param self the node
+ * \param interest (transfer full): the interest
+ * \returns (transfer full): a WpIterator that iterates over WpPort objects
  */
-
 WpIterator *
 wp_node_new_ports_filtered_iterator_full (WpNode * self,
     WpObjectInterest * interest)
@@ -508,19 +478,19 @@ wp_node_new_ports_filtered_iterator_full (WpNode * self,
 }
 
 /*!
- * @memberof WpNode
- * @param self: the node
- * @...: a list of constraints, terminated by %NULL
- *
- * @brief Requires %WP_NODE_FEATURE_PORTS
+ * \brief Retrieves the first port that matches the constraints
  *
  * The constraints specified in the variable arguments must follow the rules
  * documented in wp_object_interest_new().
  *
- * @returns (transfer full) (nullable): the first port that matches the
- *    constraints, or %NULL if there is no such port
+ * \remarks Requires WP_NODE_FEATURE_PORTS
+ *
+ * \ingroup wpnode
+ * \param self the node
+ * \param ... a list of constraints, terminated by NULL
+ * \returns (transfer full) (nullable): the first port that matches the
+ *    constraints, or NULL if there is no such port
  */
-
 WpPort *
 wp_node_lookup_port (WpNode * self, ...)
 {
@@ -533,16 +503,16 @@ wp_node_lookup_port (WpNode * self, ...)
 }
 
 /*!
- * @memberof WpNode
- * @param self: the node
- * @param interest: (transfer full): the interest
+ * \brief Retrieves the first port that matches the \a interest
  *
- * @brief Requires %WP_NODE_FEATURE_PORTS
+ * \remarks Requires WP_NODE_FEATURE_PORTS
  *
- * @returns (transfer full) (nullable): the first port that matches the
- *    @em interest, or %NULL if there is no such port
+ * \ingroup wpnode
+ * \param self the node
+ * \param interest (transfer full): the interest
+ * \returns (transfer full) (nullable): the first port that matches the
+ *    \a interest, or NULL if there is no such port
  */
-
 WpPort *
 wp_node_lookup_port_full (WpNode * self, WpObjectInterest * interest)
 {
@@ -555,16 +525,17 @@ wp_node_lookup_port_full (WpNode * self, WpObjectInterest * interest)
 }
 
 /*!
- * @memberof WpNode
- * @param self: the node
- * @param command: the command
+ * \brief Sends a command to a node
  *
- * returns Void
+ * Valid commands are the short string reprepsentations of
+ * `enum spa_node_command`. For example, "Suspend" or "Flush" are valid commands
  *
- * @brief Sends a command to a node
+ * \ingroup wpnode
+ * \param self the node
+ * \param command the command
  */
-
-void wp_node_send_command (WpNode * self, const gchar * command)
+void
+wp_node_send_command (WpNode * self, const gchar * command)
 {
   WpSpaIdValue command_value = wp_spa_id_value_from_short_name (
       "Spa:Pod:Object:Command:Node", command);
@@ -577,32 +548,12 @@ void wp_node_send_command (WpNode * self, const gchar * command)
   pw_node_send_command (wp_proxy_get_pw_proxy (WP_PROXY (self)), &cmd);
 }
 
-/*!
- * @memberof WpImplNode
- *
- * @props @b pw-impl-node
- *
- * @code
- * "pw-impl-node" gpointer
- * @endcode
- *
- * Flags : Read / Write / Construct Only
- */
+/*! \defgroup wpimplnode WpImplNode */
+
 enum {
   PROP_PW_IMPL_NODE = WP_PW_OBJECT_MIXIN_PROP_CUSTOM_START,
 };
 
-/*!
- * @struct WpImplNode:
- * @memberof WpNode
- * @section impl_node_section WpImplNode
- *
- * @brief A [WpImplNode](@ref impl_node_section) allows running a node
- * implementation (`struct pw_impl_node`) locally,
- * loading the implementation from factory or wrapping a manually
- * constructed `pw_impl_node`. This object can then be exported to PipeWire
- * by requesting %WP_PROXY_FEATURE_BOUND.
- */
 struct _WpImplNode
 {
   WpProxy parent;
@@ -739,6 +690,19 @@ wp_impl_node_activate_execute_step (WpObject * object,
   }
 }
 
+/*!
+ * \struct WpImplNode
+ *
+ * A WpImplNode allows running a node implementation (`struct pw_impl_node`)
+ * locally, loading the implementation from factory or wrapping a manually
+ * constructed `pw_impl_node`. This object can then be exported to PipeWire
+ * by requesting WP_PROXY_FEATURE_BOUND.
+ *
+ * \gproperties
+ *
+ * \gproperty{pw-impl-node, gpointer, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY,
+ *   The actual node implementation\, `struct pw_impl_node *`}
+ */
 static void
 wp_impl_node_class_init (WpImplNodeClass * klass)
 {
@@ -807,13 +771,11 @@ wp_impl_node_pw_object_mixin_priv_interface_init (
 }
 
 /*!
- * @memberof WpNode
- * @param core: the wireplumber core
- * @param node: an existing pw_impl_node to wrap
- *
- * @returns (transfer full): A new [WpImplNode](@ref impl_node_section) wrapping @em node
+ * \ingroup wpimplnode
+ * \param core the wireplumber core
+ * \param node an existing pw_impl_node to wrap
+ * \returns (transfer full): A new WpImplNode wrapping \a node
  */
-
 WpImplNode *
 wp_impl_node_new_wrap (WpCore * core, struct pw_impl_node * node)
 {
@@ -824,24 +786,22 @@ wp_impl_node_new_wrap (WpCore * core, struct pw_impl_node * node)
 }
 
 /*!
- * @memberof WpNode
- * @param core: the wireplumber core
- * @param factory_name: the name of the pipewire factory
- * @param properties: (nullable) (transfer full): properties to be passed to node
- *    constructor
- *
- * @brief Constructs a new node, locally on this process, using the specified
- * @em factory_name.
+ * \brief Constructs a new node, locally on this process, using the specified
+ * \a factory_name.
  *
  * To export this node to the PipeWire server, you need to call
- * wp_object_activate() requesting %WP_PROXY_FEATURE_BOUND and
+ * wp_object_activate() requesting WP_PROXY_FEATURE_BOUND and
  * wait for the operation to complete.
  *
- * @returns (nullable) (transfer full): A new [WpImplNode](@ref impl_node_section) wrapping the
+ * \ingroup wpimplnode
+ * \param core the wireplumber core
+ * \param factory_name the name of the pipewire factory
+ * \param properties (nullable) (transfer full): properties to be passed to node
+ *    constructor
+ * \returns (nullable) (transfer full): A new WpImplNode wrapping the
  *   node that was constructed by the factory, or %NULL if the factory
  *   does not exist or was unable to construct the node
  */
-
 WpImplNode *
 wp_impl_node_new_from_pw_factory (WpCore * core,
     const gchar * factory_name, WpProperties * properties)

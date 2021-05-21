@@ -1,7 +1,7 @@
-.. _proxy_api:
+.. _spa_device_api:
 
-PipeWire Proxy
-==============
+Spa Device
+==========
 .. graphviz::
   :align: center
 
@@ -9,14 +9,12 @@ PipeWire Proxy
       rankdir=LR;
       GObject -> WpObject;
       WpObject -> WpProxy;
+      WpProxy -> WpSpaDevice;
    }
 
-.. doxygenstruct:: WpProxy
+.. doxygenstruct:: WpSpaDevice
    :project: WirePlumber
 
-.. doxygenstruct:: _WpProxyClass
-   :project: WirePlumber
-
-.. doxygengroup:: wpproxy
+.. doxygengroup:: wpspadevice
    :project: WirePlumber
    :content-only:

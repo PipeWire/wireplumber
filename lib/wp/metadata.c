@@ -6,9 +6,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-/*!
- * @file metadata.c
- */
 #define G_LOG_DOMAIN "wp-metadata"
 
 #include "metadata.h"
@@ -20,31 +17,39 @@
 #include <pipewire/pipewire.h>
 #include <pipewire/extensions/metadata.h>
 
+/*! \defgroup wpmetadata WpMetadata */
 /*!
- * @memberof WpMetadata
+ * \struct WpMetadata
  *
- * @signal @b changed
+ * The WpMetadata class allows accessing the properties and methods of
+ * PipeWire metadata object (`struct pw_metadata`).
  *
- * @code
+ * A WpMetadata is constructed internally when a new metadata object appears on the
+ * PipeWire registry and it is made available through the WpObjectManager API.
+ *
+ * \gsignals
+ *
+ * \par changed
+ * \parblock
+ * \code
+ * void
  * changed_callback (WpMetadata * self,
  *                   guint object,
- *                   gchar * p0,
- *                   gchar * p1,
- *                   gchar * p2,
+ *                   gchar * key,
+ *                   gchar * type,
+ *                   gchar * value,
  *                   gpointer user_data)
- * @endcode
+ * \endcode
+ * Emited when metadata change
  *
  * Parameters:
+ * - `subject` - the metadata subject id
+ * - `key` - the metadata key
+ * - `type` - the value type
+ * - `value` - the metadata value
  *
- * @arg `self`
- * @arg `object`
- * @arg `p0`
- * @arg `p1`
- * @arg `p2`
- * @arg `user_data`
- *
- * Flags: Run Last
- *
+ * Flags: G_SIGNAL_RUN_LAST
+ * \endparblock
  */
 enum {
   SIGNAL_CHANGED,
@@ -124,15 +129,6 @@ clear_items (struct pw_array * metadata)
   }
   pw_array_reset (metadata);
 }
-
-/*!
- * @struct WpMetadata
- * @section metadata_section Metadata
- *
- * @brief The [WpMetadata](@ref metadata_section) class allows accessing the properties and methods of
- * PipeWire metadata object (`struct pw_metadata`).
- *
- */
 
 typedef struct _WpMetadataPrivate WpMetadataPrivate;
 struct _WpMetadataPrivate
@@ -390,23 +386,22 @@ static const WpIteratorMethods metadata_iterator_methods = {
 };
 
 /*!
- * @memberof WpMetadata
- * @param self: a metadata object
- * @param subject: the metadata subject id, or -1 (PW_ID_ANY)
+ * \brief Iterates over metadata items that matches the given \a subject.
  *
- * @brief Iterates over metadata items that matches the given @em subject. If no
- * constraints are specified, the returned iterator iterates over all the
+ * If no constraints are specified, the returned iterator iterates over all the
  * stored metadata.
  *
  * Note that this method works on cached metadata. When you change metadata
  * with wp_metadata_set(), this cache will be updated on the next round-trip
  * with the pipewire server.
  *
- * @returns (transfer full): an iterator that iterates over the found metadata.
+ * \ingroup wpmetadata
+ * \param self a metadata object
+ * \param subject the metadata subject id, or -1 (PW_ID_ANY)
+ * \returns (transfer full): an iterator that iterates over the found metadata.
  *   Use wp_metadata_iterator_item_extract() to parse the items returned by
  *   this iterator.
  */
-
 WpIterator *
 wp_metadata_new_iterator (WpMetadata * self, guint32 subject)
 {
@@ -427,22 +422,16 @@ wp_metadata_new_iterator (WpMetadata * self, guint32 subject)
 }
 
 /*!
- * @memberof WpMetadata
- * @param item: a
- * <a href="https://developer.gnome.org/gobject/stable/gobject-Generic-values.html#GValue-struct">
- * GValue</a> that was returned from the [WpIterator](@ref iterator_section) of wp_metadata_find()
+ * \brief Extracts the metadata subject, key, type and value out of a
+ * GValue that was returned from the WpIterator of wp_metadata_find()
  *
- * @brief
- * @param subject: (out)(optional): the subject id of the current item
- * @param key: (out)(optional)(transfer none): the key of the current item
- * @param type: (out)(optional)(transfer none): the type of the current item
- * @param value: (out)(optional)(transfer none): the value of the current item
- *
- * Extracts the metadata subject, key, type and value out of a 
- * <a href="https://developer.gnome.org/gobject/stable/gobject-Generic-values.html#GValue-struct">
- * GValue</a> that was returned from the [WpIterator](@ref iterator_section) of wp_metadata_find()
+ * \ingroup wpmetadata
+ * \param item a GValue that was returned from the WpIterator of wp_metadata_find()
+ * \param subject (out)(optional): the subject id of the current item
+ * \param key (out)(optional)(transfer none): the key of the current item
+ * \param type (out)(optional)(transfer none): the type of the current item
+ * \param value (out)(optional)(transfer none): the value of the current item
  */
-
 void
 wp_metadata_iterator_item_extract (const GValue * item, guint32 * subject,
     const gchar ** key, const gchar ** type, const gchar ** value)
@@ -460,17 +449,15 @@ wp_metadata_iterator_item_extract (const GValue * item, guint32 * subject,
 }
 
 /*!
- * @memberof WpMetadata
- * @param self: a metadata object
- * @param subject: the metadata subject id
- * @param key: the metadata key name
- * @param type: (out)(optional): the metadata type name
+ * \brief Finds the metadata value given its \a subject and \a key.
  *
- * @brief Finds the metadata value given its @em subject and &key.
- *
- * @returns the metadata string value, or NULL if not found.
+ * \ingroup wpmetadata
+ * \param self a metadata object
+ * \param subject the metadata subject id
+ * \param key the metadata key name
+ * \param type (out)(optional): the metadata type name
+ * \returns the metadata string value, or NULL if not found.
  */
-
 const gchar *
 wp_metadata_find (WpMetadata * self, guint32 subject, const gchar * key,
   const gchar ** type)
@@ -491,19 +478,18 @@ wp_metadata_find (WpMetadata * self, guint32 subject, const gchar * key,
 }
 
 /*!
- * @memberof WpMetadata
- * @param self: the metadata object
- * @param subject: the subject id for which this metadata property is being set
- * @param key: (nullable): the key to set, or %NULL to remove all metadata for
- *   @em subject
- * @param type: (nullable): the type of the value; %NULL is synonymous to "string"
- * @param value: (nullable): the value to set, or %NULL to unset the given @em key
+ * \brief Sets the metadata associated with the given \a subject and \a key.
+ * Use NULL as a value to unset the given \a key and use NULL in both \a key
+ * and \a value to remove all metadata associated with the given \a subject.
  *
- * @brief Sets the metadata associated with the given @em subject and @em key. Use %NULL as
- * a value to unset the given @em key and use %NULL in both @em key and @em value to
- * remove all metadata associated with the given @em subject.
+ * \ingroup wpmetadata
+ * \param self the metadata object
+ * \param subject the subject id for which this metadata property is being set
+ * \param key (nullable): the key to set, or NULL to remove all metadata for
+ *   \a subject
+ * \param type (nullable): the type of the value; NULL is synonymous to "string"
+ * \param value (nullable): the value to set, or NULL to unset the given \a key
  */
-
 void
 wp_metadata_set (WpMetadata * self, guint32 subject,
     const gchar * key, const gchar * type, const gchar * value)
@@ -513,12 +499,10 @@ wp_metadata_set (WpMetadata * self, guint32 subject,
 }
 
 /*!
- * @memberof WpMetadata
- * @param self: the metadata object
- *
- * @brief Clears permanently all stored metadata.
+ * \brief Clears permanently all stored metadata.
+ * \ingroup wpmetadata
+ * \param self the metadata object
  */
-
 void
 wp_metadata_clear (WpMetadata * self)
 {
@@ -527,9 +511,11 @@ wp_metadata_clear (WpMetadata * self)
 }
 
 /*!
- * @struct WpImplMetadata
- * @memberof WpMetadata
- * @section impl_metadata_section WpImplMetadata
+ * \struct WpImplMetadata
+ * Implementation of the metadata object.
+ *
+ * Activate this object with at least WP_PROXY_FEATURE_BOUND to export it to
+ * PipeWire.
  */
 struct _WpImplMetadata
 {
@@ -709,14 +695,10 @@ wp_impl_metadata_class_init (WpImplMetadataClass * klass)
 }
 
 /*!
- * @memberof WpMetadata
- *
- * @param core: the core
- *
- * @returns (transfer full): a new [WpImplMetadata](@ref impl_metadata_section)
- *
+ * \ingroup wpmetadata
+ * \param core the core
+ * \returns (transfer full): a new WpImplMetadata
  */
-
 WpImplMetadata *
 wp_impl_metadata_new (WpCore * core)
 {

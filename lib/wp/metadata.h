@@ -14,40 +14,23 @@
 G_BEGIN_DECLS
 
 /*!
- * @memberof WpMetadata
- *
- * @brief
- * @em WP_METADATA_FEATURE_DATA: caches metadata locally
- *
- * An extension of [WpProxyFeatures](@ref proxy_features_section)
+ * \brief An extension of WpProxyFeatures for WpMetadata objects
+ * \ingroup wpmetadata
  */
 typedef enum { /*< flags >*/
+  /*! caches metadata locally */
   WP_METADATA_FEATURE_DATA = (WP_PROXY_FEATURE_CUSTOM_START << 0),
 } WpMetadataFeatures;
 
 /*!
- * @memberof WpMetadata
- *
- * @brief The [WpMetadata](@ref metadata_section)
- * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
- * GType</a>
- *
- * @code
- * #define WP_TYPE_METADATA (wp_metadata_get_type ())
- * @endcode
- *
+ * \brief The WpMetadata GType
+ * \ingroup wpmetadata
  */
 #define WP_TYPE_METADATA (wp_metadata_get_type ())
 
 WP_API
 G_DECLARE_DERIVABLE_TYPE (WpMetadata, wp_metadata, WP, METADATA, WpGlobalProxy)
 
-/*!
- * @memberof WpMetadata
- *
- * @brief
- * @em parent_class
- */
 struct _WpMetadataClass
 {
   WpGlobalProxyClass parent_class;
@@ -72,16 +55,8 @@ WP_API
 void wp_metadata_clear (WpMetadata * self);
 
 /*!
- * @memberof WpMetadata
- *
- * @brief The [WpImplMetadata](@ref impl_metadata_section)
- * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
- * GType</a>
- *
- * @code
- * #define WP_TYPE_IMPL_METADATA (wp_impl_metadata_get_type ())
- * @endcode
- *
+ * \brief The WpImplMetadata GType
+ * \ingroup wpmetadata
  */
 #define WP_TYPE_IMPL_METADATA (wp_impl_metadata_get_type ())
 

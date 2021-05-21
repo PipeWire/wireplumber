@@ -6,13 +6,15 @@
  * SPDX-License-Identifier: MIT
  */
 
-/*!
- * @file spa-type
- */
+#define G_LOG_DOMAIN "wp-spa-type"
 
-/*!
- * @struct WpSpaType
- * @section spa_type_section Spa Type Information
+#include "spa-type.h"
+
+#include <spa/utils/type-info.h>
+#include <spa/debug/types.h>
+#include <pipewire/pipewire.h>
+
+/*! \defgroup wpspatype WpSpaType
  *
  * Spa has a type system that is represented by a set of arrays that contain
  * `spa_type_info` structures. This type system is simple, yet complex to
@@ -23,21 +25,16 @@
  * API is that it makes it easy to work with string representations of the
  * types, allowing easier access from script bindings.
  *
- * @section spa_type_hierarchy_section Type hierarchy
- *
- * @subsection spa_type_subsection WpSpaType
+ * \b Type \b hierarchy
  *
  * On the top level, there is a list of types like Int, Bool, String, Id, Object.
- * These are called fundamental types (terms borrowed from 
- * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
- * GType</a>).
+ * These are called fundamental types (terms borrowed from GType).
  * Fundamental types can be derived and therefore we can have other types
  * that represent specific objects, for instance.
  *
  * Enum and flag types are all represented with `SPA_TYPE_Id`. These types
  * may have a list of possible values that one can select from (enums)
- * or combine (flags). These values are accessed with the
- * [WpSpaIdTable](@ref spa_id_table_section) API.
+ * or combine (flags). These values are accessed with the WpSpaIdTable API.
  *
  * Object types can have fields. All objects always have a special "id" field,
  * which is an enum. Its possible values can be given by
@@ -45,19 +42,10 @@
  * other object-specific fields, which can be accessed with
  * wp_spa_type_get_values_table().
  *
- * Every object field or enum value is represented by a
- * [WpSpaIdValue](@ref spa_id_value_section). In the
+ * Every object field or enum value is represented by a WpSpaIdValue. In the
  * case of object fields, each field can be of a specific type, which is
  * returned by wp_spa_id_value_get_value_type().
  */
-
-#define G_LOG_DOMAIN "wp-spa-type"
-
-#include "spa-type.h"
-
-#include <spa/utils/type-info.h>
-#include <spa/debug/types.h>
-#include <pipewire/pipewire.h>
 
 static const WpSpaType SPA_TYPE_VENDOR_WirePlumber = 0x03000000;
 static GArray *extra_types = NULL;
@@ -102,14 +90,8 @@ GType wp_spa_type_get_type (void)
   return id__volatile;
 }
 
-/*
- * WpSpaIdTable:
- */
 G_DEFINE_POINTER_TYPE (WpSpaIdTable, wp_spa_id_table)
 
-/*
- * WpSpaIdValue:
- */
 G_DEFINE_POINTER_TYPE (WpSpaIdValue, wp_spa_id_value)
 
 
@@ -166,15 +148,13 @@ wp_spa_type_info_find_by_name (const gchar *name)
 }
 
 /*!
- * @memberof WpSpaType
- * @param name: the name to look up
+ * \brief Looks up the type id from a given type name
  *
- * @brief Looks up the type id from a given type name
- *
- * @returns (transfer none): the corresponding type id or %WP_SPA_TYPE_INVALID
+ * \ingroup wpspatype
+ * \param name the name to look up
+ * \returns (transfer none): the corresponding type id or WP_SPA_TYPE_INVALID
  *   if not found
  */
-
 WpSpaType
 wp_spa_type_from_name (const gchar *name)
 {
@@ -183,14 +163,12 @@ wp_spa_type_from_name (const gchar *name)
 }
 
 /*!
- * @memberof WpSpaType
- * @param type: a type id
- *
- * @returns (transfer none): the direct parent type of the given @em type; if the
+ * \ingroup wpspatype
+ * \param type a type id
+ * \returns (transfer none): the direct parent type of the given \a type; if the
  *   type is fundamental (i.e. has no parent), the returned type is the same
- *   as @em type
+ *   as \a type
  */
-
 WpSpaType
 wp_spa_type_parent (WpSpaType type)
 {
@@ -199,12 +177,10 @@ wp_spa_type_parent (WpSpaType type)
 }
 
 /*!
- * @memberof WpSpaType
- * @param type: a type id
- *
- * @returns the complete name of the given @em type or %NULL if @em type is invalid
+ * \ingroup wpspatype
+ * \param type a type id
+ * \returns the complete name of the given \a type or NULL if \a type is invalid
  */
-
 const gchar *
 wp_spa_type_name (WpSpaType type)
 {
@@ -213,12 +189,10 @@ wp_spa_type_name (WpSpaType type)
 }
 
 /*!
- * @memberof WpSpaType
- * @param type: a type id
- *
- * @returns %TRUE if the @em type has no parent, %FALSE otherwise
+ * \ingroup wpspatype
+ * \param type a type id
+ * \returns TRUE if the \a type has no parent, FALSE otherwise
  */
-
 gboolean
 wp_spa_type_is_fundamental (WpSpaType type)
 {
@@ -227,12 +201,10 @@ wp_spa_type_is_fundamental (WpSpaType type)
 }
 
 /*!
- * @memberof WpSpaType
- * @param type: a type id
- *
- * @returns %TRUE if the @em type is a SPA_TYPE_Id, %FALSE otherwise
+ * \ingroup wpspatype
+ * \param type a type id
+ * \returns TRUE if the \a type is a SPA_TYPE_Id, FALSE otherwise
  */
-
 gboolean
 wp_spa_type_is_id (WpSpaType type)
 {
@@ -241,12 +213,10 @@ wp_spa_type_is_id (WpSpaType type)
 }
 
 /*!
- * @memberof WpSpaType
- * @param type: a type id
- *
- * @returns %TRUE if the @em type is a SPA_TYPE_Object, %FALSE otherwise
+ * \ingroup wpspatype
+ * \param type a type id
+ * \returns TRUE if the \a type is a SPA_TYPE_Object, FALSE otherwise
  */
-
 gboolean
 wp_spa_type_is_object (WpSpaType type)
 {
@@ -255,18 +225,19 @@ wp_spa_type_is_object (WpSpaType type)
 }
 
 /*!
- * @memberof WpSpaType
- * @param type: the type id of an object type
+ * \brief Gets the table with the values that can be stored in the special "id"
+ *   field of an object of the given \a type
  *
- * @brief Object pods (see [WpSpaPod](@ref spa_pod_section)) always have a special "id" field along with
+ * Object pods (see WpSpaPod) always have a special "id" field along with
  * other fields that can be defined. This "id" field can only store values
  * of a specific `SPA_TYPE_Id` type. This function returns the table that
  * contains the possible values for that field.
  *
- * @returns the table with the values that can be stored in the special "id"
- *   field of an object of the given @em type
+ * \ingroup wpspatype
+ * \param type the type id of an object type
+ * \returns the table with the values that can be stored in the special "id"
+ *   field of an object of the given \a type
  */
-
 WpSpaIdTable
 wp_spa_type_get_object_id_values_table (WpSpaType type)
 {
@@ -282,13 +253,11 @@ wp_spa_type_get_object_id_values_table (WpSpaType type)
 }
 
 /*!
- * @memberof WpSpaType
- * @param type: a type id
- *
- * @returns the associated [WpSpaIdTable](@ref spa_id_table_section) that contains possible
- *   values or object fields for this type, or %NULL
+ * \ingroup wpspatype
+ * \param type a type id
+ * \returns the associated WpSpaIdTable that contains possible
+ *   values or object fields for this type, or NULL
  */
-
 WpSpaIdTable
 wp_spa_type_get_values_table (WpSpaType type)
 {
@@ -353,19 +322,17 @@ static const WpIteratorMethods spa_type_info_iterator_methods = {
 };
 
 /*!
- * @memberof WpSpaType
- * @param name: the full name of an id table
+ * \brief Finds a WpSpaIdTable given its name.
  *
- * @brief Finds a [WpSpaIdTable](@ref spa_id_table_section) given its name.
- * This name can either be the full type
- * name of an object type, or the name of an enum (which is not(!!) a type).
- *
+ * This name can either be the full type name of an object type,
+ * or the name of an enum (which is \b not(!!) a type).
  * For example, "Spa:Pod:Object:Param:Format" and "Spa:Enum:ParamId" are
  * both valid table names.
  *
- * @returns (nullable): the associated table, or %NULL
+ * \ingroup wpspatype
+ * \param name the full name of an id table
+ * \returns (nullable): the associated table, or NULL
  */
-
 WpSpaIdTable
 wp_spa_id_table_from_name (const gchar *name)
 {
@@ -396,17 +363,15 @@ wp_spa_id_table_from_name (const gchar *name)
 }
 
 /*!
- * @memberof WpSpaType
- * @param table: the id table
+ * \brief This function returns an iterator that allows you to iterate
+ * through the values associated with this table.
  *
- * @brief This function returns an iterator that allows you to iterate through the
- * values associated with this table.
- * The items in the iterator are of type [WpSpaIdValue](@ref spa_id_value_section).
+ * The items in the iterator are of type WpSpaIdValue.
  *
- * @returns a [WpIterator](@ref iterator_section) that iterates over
- * [WpSpaIdValue](@ref spa_id_value_section) items
+ * \ingroup wpspatype
+ * \param table the id table
+ * \returns a WpIterator that iterates over WpSpaIdValue items
  */
-
 WpIterator *
 wp_spa_id_table_new_iterator (WpSpaIdTable table)
 {
@@ -421,14 +386,11 @@ wp_spa_id_table_new_iterator (WpSpaIdTable table)
 }
 
 /*!
- * @memberof WpSpaType
- * @param table: the id table
- * @param value: a numeric value that is contained in the table
- *
- * @returns (nullable): the [WpSpaIdValue](@ref spa_id_value_section)
- * associated with @em value, or %NULL
+ * \ingroup wpspatype
+ * \param table the id table
+ * \param value a numeric value that is contained in the table
+ * \returns (nullable): the WpSpaIdValue associated with \a value, or NULL
  */
-
 WpSpaIdValue
 wp_spa_id_table_find_value (WpSpaIdTable table, guint value)
 {
@@ -444,14 +406,11 @@ wp_spa_id_table_find_value (WpSpaIdTable table, guint value)
 }
 
 /*!
- * @memberof WpSpaType
- * @param table: the id table
- * @param name: the full name of a value that is contained in the table
- *
- * @returns (nullable): the [WpSpaIdValue](@ref spa_id_value_section)
- * associated with @em name, or %NULL
+ * \ingroup wpspatype
+ * \param table the id table
+ * \param name the full name of a value that is contained in the table
+ * \returns (nullable): the WpSpaIdValue associated with \a name, or NULL
  */
-
 WpSpaIdValue
 wp_spa_id_table_find_value_from_name (WpSpaIdTable table, const gchar * name)
 {
@@ -467,14 +426,11 @@ wp_spa_id_table_find_value_from_name (WpSpaIdTable table, const gchar * name)
 }
 
 /*!
- * @memberof WpSpaType
- * @param table: the id table
- * @param short_name: the short name of a value that is contained in the table
- *
- * @returns (nullable): the [WpSpaIdValue](@ref spa_id_value_section)
- * associated with @em short_name, or %NULL
+ * \ingroup wpspatype
+ * \param table the id table
+ * \param short_name the short name of a value that is contained in the table
+ * \returns (nullable): the WpSpaIdValue associated with \a short_name, or NULL
  */
-
 WpSpaIdValue
 wp_spa_id_table_find_value_from_short_name (WpSpaIdTable table,
     const gchar * short_name)
@@ -514,16 +470,16 @@ wp_spa_id_name_find_id_table (const gchar * name)
 }
 
 /*!
- * @memberof WpSpaType
- * @param name: the full name of an id value
+ * \brief Looks up an id value (enum, flag or object field) directly from its
+ * full name.
  *
- * @brief Looks up an id value (enum, flag or object field) directly from its full
- * name. For instance, "Spa:Enum:Direction:Input" will resolve to the
+ * For instance, "Spa:Enum:Direction:Input" will resolve to the
  * id value that represents "Input" in the "Spa:Enum:Direction" enum.
  *
- * @returns the id value for @em name, or %NULL if no such id value was found
+ * \ingroup wpspatype
+ * \param name the full name of an id value
+ * \returns the id value for \a name, or NULL if no such id value was found
  */
-
 WpSpaIdValue
 wp_spa_id_value_from_name (const gchar * name)
 {
@@ -534,15 +490,14 @@ wp_spa_id_value_from_name (const gchar * name)
 }
 
 /*!
- * @memberof WpSpaType
- * @param table_name: the name of the [WpSpaIdTable](@ref spa_id_table_section) to look up the value in
- * @param short_name: the short name of the value to look up
+ * \brief Looks up an id value given its container \a table_name and its
+ * \a short_name
  *
- * @brief Looks up an id value given its container @em table_name and its @em short_name
- *
- * @returns the id value or %NULL if it was not found
+ * \ingroup wpspatype
+ * \param table_name the name of the WpSpaIdTable to look up the value in
+ * \param short_name the short name of the value to look up
+ * \returns the id value or NULL if it was not found
  */
-
 WpSpaIdValue
 wp_spa_id_value_from_short_name (const gchar * table_name,
     const gchar * short_name)
@@ -555,16 +510,14 @@ wp_spa_id_value_from_short_name (const gchar * table_name,
 }
 
 /*!
- * @memberof WpSpaType
- * @param table_name: the name of the [WpSpaIdTable](@ref spa_id_table_section) to look up the value in
- * @param id: the numeric representation of the value to look up
+ * \brief Looks up an id value given its container \a table_name and its numeric
+ * representation, \a id
  *
- * @brief Looks up an id value given its container @em table_name and its numeric
- * representation, @em id
- *
- * @returns the id value or %NULL if it was not found
+ * \ingroup wpspatype
+ * \param table_name the name of the WpSpaIdTable to look up the value in
+ * \param id the numeric representation of the value to look up
+ * \returns the id value or NULL if it was not found
  */
-
 WpSpaIdValue
 wp_spa_id_value_from_number (const gchar * table_name, guint id)
 {
@@ -575,12 +528,10 @@ wp_spa_id_value_from_number (const gchar * table_name, guint id)
 }
 
 /*!
- * @memberof WpSpaType
- * @param id: an id value
- *
- * @returns the numeric representation of this id value
+ * \ingroup wpspatype
+ * \param id an id value
+ * \returns the numeric representation of this id value
  */
-
 guint
 wp_spa_id_value_number (WpSpaIdValue id)
 {
@@ -591,12 +542,10 @@ wp_spa_id_value_number (WpSpaIdValue id)
 }
 
 /*!
- * @memberof WpSpaType
- * @param id: an id value
- *
- * @returns the full name of this id value
+ * \ingroup wpspatype
+ * \param id an id value
+ * \returns the full name of this id value
  */
-
 const gchar *
 wp_spa_id_value_name (WpSpaIdValue id)
 {
@@ -607,12 +556,10 @@ wp_spa_id_value_name (WpSpaIdValue id)
 }
 
 /*!
- * @memberof WpSpaType
- * @param id: an id value
- *
- * @returns the short name of this id value
+ * \ingroup wpspatype
+ * \param id an id value
+ * \returns the short name of this id value
  */
-
 const gchar *
 wp_spa_id_value_short_name (WpSpaIdValue id)
 {
@@ -623,21 +570,20 @@ wp_spa_id_value_short_name (WpSpaIdValue id)
 }
 
 /*!
- * @memberof WpSpaType
- * @param id: an id value
- * @param table: (out) (optional): the associated [WpSpaIdTable](@ref spa_id_table_section)
+ * \brief Returns the value type associated with this WpSpaIdValue.
  *
- * @brief Returns the value type associated with this [WpSpaIdValue](@ref spa_id_value_section).
- * This information is useful when @em id represents an object field, which can take a value
- * of an arbitrary type.
+ * This information is useful when \a id represents an object field,
+ * which can take a value of an arbitrary type.
  *
  * When the returned type is (or is derived from) `SPA_TYPE_Id` or
- * `SPA_TYPE_Object`, @em table is set to point to the [WpSpaIdTable](@ref spa_id_table_section)
+ * `SPA_TYPE_Object`, \a table is set to point to the WpSpaIdTable
  * that contains the possible Id values / object fields.
  *
- * @returns (transfer none): the value type associated with @em id
+ * \ingroup wpspatype
+ * \param id an id value
+ * \param table (out) (optional): the associated WpSpaIdTable
+ * \returns (transfer none): the value type associated with \a id
  */
-
 WpSpaType
 wp_spa_id_value_get_value_type (WpSpaIdValue id, WpSpaIdTable * table)
 {
@@ -662,21 +608,19 @@ wp_spa_id_value_get_value_type (WpSpaIdValue id, WpSpaIdTable * table)
 }
 
 /*!
- * @memberof WpSpaType
- * @param id: an id value
- * @param table: (out) (optional): the associated [WpSpaIdTable](@ref spa_id_table_section)
- *
- * @brief If the value type of @em id is `SPA_TYPE_Array`, this function returns the
- * type that is allowed to be contained inside the array.
+ * \brief If the value type of \a id is `SPA_TYPE_Array`, this function
+ * returns the type that is allowed to be contained inside the array.
  *
  * When the returned type is (or is derived from) `SPA_TYPE_Id` or
- * `SPA_TYPE_Object`, @em table is set to point to the [WpSpaIdTable](@ref spa_id_table_section)
+ * `SPA_TYPE_Object`, \a table is set to point to the WpSpaIdTable
  * that contains the possible Id values / object fields.
  *
- * @returns (transfer none): the type that is allowed in the array, if @em id
+ * \ingroup wpspatype
+ * \param id an id value
+ * \param table (out) (optional): the associated WpSpaIdTable
+ * \returns (transfer none): the type that is allowed in the array, if \a id
  *   represents an object field that takes an array as value
  */
-
 WpSpaType
 wp_spa_id_value_array_get_item_type (WpSpaIdValue id, WpSpaIdTable * table)
 {
@@ -691,14 +635,15 @@ wp_spa_id_value_array_get_item_type (WpSpaIdValue id, WpSpaIdTable * table)
 }
 
 /*!
- * @memberof WpSpaType
- * @brief Initializes the spa dynamic type registry.
+ * \brief Initializes the spa dynamic type registry.
+ *
  * This allows registering new spa types at runtime. The spa type system
  * still works if this function is not called.
  *
- * Normally called by wp_init() when %WP_INIT_SPA_TYPES is passed in its flags.
+ * Normally called by wp_init() when WP_INIT_SPA_TYPES is passed in its flags.
+ *
+ * \ingroup wpspatype
  */
-
 void
 wp_spa_dynamic_type_init (void)
 {
@@ -713,14 +658,14 @@ wp_spa_dynamic_type_init (void)
 }
 
 /*!
- * @memberof WpSpaType
+ * \brief Deinitializes the spa type registry.
  *
- * @brief Deinitializes the spa type registry.
  * You do not need to ever call this, unless you want to free memory at the
  * end of the execution of a test, so that it doesn't show as leaked in
  * the memory profiler.
+ *
+ * \ingroup wpspatype
  */
-
 void
 wp_spa_dynamic_type_deinit (void)
 {
@@ -729,22 +674,21 @@ wp_spa_dynamic_type_deinit (void)
 }
 
 /*!
- * @memberof WpSpaType
- * @param name: the name of the type
- * @param parent: the parent type
- * @param values: an array of `spa_type_info` that contains the values of the type,
- *   used only for Object types
+ * \brief Registers an additional type in the spa type system.
  *
- * @brief Registers an additional type in the spa type system.
  * This is useful to add a custom pod object type.
  *
- * Note that both @em name and @em values must be statically allocated, or
+ * Note that both \a name and \a values must be statically allocated, or
  * otherwise guaranteed to be kept in memory until wp_spa_dynamic_type_deinit()
  * is called. No memory copy is done by this function.
  *
- * @returns (transfer none): the new type
+ * \ingroup wpspatype
+ * \param name the name of the type
+ * \param parent the parent type
+ * \param values an array of `spa_type_info` that contains the values of the type,
+ *   used only for Object types
+ * \returns (transfer none): the new type
  */
-
 WpSpaType
 wp_spa_dynamic_type_register (const gchar *name, WpSpaType parent,
     const struct spa_type_info * values)
@@ -759,20 +703,19 @@ wp_spa_dynamic_type_register (const gchar *name, WpSpaType parent,
 }
 
 /*!
- * @memberof WpSpaType
- * @param name: the name of the id table
- * @param values: an array of `spa_type_info` that contains the values of the table
+ * \brief Registers an additional WpSpaIdTable in the spa type system.
  *
- * @brief Registers an additional [WpSpaIdTable](@ref spa_id_table_section) in the spa type system.
  * This is useful to add custom enumeration types.
  *
- * Note that both @em name and @em values must be statically allocated, or
+ * Note that both \a name and \a values must be statically allocated, or
  * otherwise guaranteed to be kept in memory until wp_spa_dynamic_type_deinit()
  * is called. No memory copy is done by this function.
  *
- * @returns the new table
+ * \ingroup wpspatype
+ * \param name the name of the id table
+ * \param values an array of `spa_type_info` that contains the values of the table
+ * \returns the new table
  */
-
 WpSpaIdTable
 wp_spa_dynamic_id_table_register (const gchar *name,
     const struct spa_type_info * values)

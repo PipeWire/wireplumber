@@ -15,28 +15,14 @@
 G_BEGIN_DECLS
 
 /*!
- * @memberof WpGlobalProxy
- *
- * @brief The [WpGlobalProxy](@ref global_proxy_section)
- * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
- * GType</a>
- *
- * @code
- * #define WP_TYPE_GLOBAL_PROXY (wp_global_proxy_get_type ())
- * @endcode
- *
+ * \brief The WpGlobalProxy GType
+ * \ingroup wpglobalproxy
  */
 #define WP_TYPE_GLOBAL_PROXY (wp_global_proxy_get_type ())
 WP_API
 G_DECLARE_DERIVABLE_TYPE (WpGlobalProxy, wp_global_proxy,
                           WP, GLOBAL_PROXY, WpProxy)
 
-/*!
- * @memberof WpGlobalProxy
- *
- * @brief
- * @em parent_class
- */
 struct _WpGlobalProxyClass
 {
   WpProxyClass parent_class;

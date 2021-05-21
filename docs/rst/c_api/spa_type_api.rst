@@ -2,5 +2,5 @@
 
 Spa Type Information
 ====================
-.. doxygenstruct:: WpSpaType
+.. doxygengroup:: wpspatype
    :project: WirePlumber

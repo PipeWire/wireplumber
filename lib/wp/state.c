@@ -6,18 +6,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-/*!
- * @file state.c
- */
-
-/*!
- * @struct WpState
- * @section state_section State Storage
- *
- * The [WpState](@ref state_section) class saves and loads properties from a file
- *
- */
-
 #define G_LOG_DOMAIN "wp-state"
 
 #define WP_STATE_DIR_NAME "wireplumber"
@@ -31,32 +19,22 @@
 #include "log.h"
 #include "state.h"
 
+/*! \defgroup wpstate WpState */
 /*!
- * @memberof WpState
+ * \struct WpState
  *
- * @props @b name
+ * The WpState class saves and loads properties from a file
  *
- * @code
- * "name" gchar *
- * @endcode
- *
- * @brief The file name where the state will be stored.
- *
- * Flags : Read / Write / Construct Only
- *
+ * \gproperties
+ * \gproperty{name, gchar *, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY,
+ *   The file name where the state will be stored.}
  */
+
 enum {
   PROP_0,
   PROP_NAME,
 };
 
-/*!
- * @brief
- * @em parent
- * @em name
- * @em location
- * @em keyfile
- */
 struct _WpState
 {
   GObject parent;
@@ -161,10 +139,6 @@ wp_state_class_init (WpStateClass * klass)
   object_class->set_property = wp_state_set_property;
   object_class->get_property = wp_state_get_property;
 
-  /*
-   * WpState:name:
-   * The file name where the state will be stored.
-   */
   g_object_class_install_property (object_class, PROP_NAME,
       g_param_spec_string ("name", "name",
           "The file name where the state will be stored", NULL,
@@ -172,12 +146,10 @@ wp_state_class_init (WpStateClass * klass)
 }
 
 /*!
- * @memberof WpState
- * @param name: the state name
- *
- * @returns (transfer full): the new [WpState](@ref state_section)
+ * \ingroup wpstate
+ * \param name the state name
+ * \returns (transfer full): the new WpState
  */
-
 WpState *
 wp_state_new (const gchar *name)
 {
@@ -188,12 +160,10 @@ wp_state_new (const gchar *name)
 }
 
 /*!
- * @memberof WpState
- * @param self: the state
- *
- * @returns the name of this state
+ * \ingroup wpstate
+ * \param self the state
+ * \returns the name of this state
  */
-
 const gchar *
 wp_state_get_name (WpState *self)
 {
@@ -203,12 +173,10 @@ wp_state_get_name (WpState *self)
 }
 
 /*!
- * @memberof WpState
- * @param self: the state
- *
- * @returns the location of this state
+ * \ingroup wpstate
+ * \param self the state
+ * \returns the location of this state
  */
-
 const gchar *
 wp_state_get_location (WpState *self)
 {
@@ -219,12 +187,10 @@ wp_state_get_location (WpState *self)
 }
 
 /*!
- * @memberof WpState
- * @param self: the state
- *
- * Clears the state removing its file
+ * \brief Clears the state removing its file
+ * \ingroup wpstate
+ * \param self the state
  */
-
 void
 wp_state_clear (WpState *self)
 {
@@ -236,16 +202,13 @@ wp_state_clear (WpState *self)
 }
 
 /*!
- * @memberof WpState
- * @param self: the state
- * @param group: the group name where the properties will be save
- * @param props: (transfer none): the properties to save
- *
- * @brief Saves new properties in the state, overwriting all previous data.
- *
- * @returns TRUE if the properties could be saved, FALSE otherwise
+ * \brief Saves new properties in the state, overwriting all previous data.
+ * \ingroup wpstate
+ * \param self the state
+ * \param group the group name where the properties will be save
+ * \param props (transfer none): the properties to save
+ * \returns TRUE if the properties could be saved, FALSE otherwise
  */
-
 gboolean
 wp_state_save (WpState *self, const gchar *group, WpProperties *props)
 {
@@ -278,15 +241,12 @@ wp_state_save (WpState *self, const gchar *group, WpProperties *props)
 }
 
 /*!
- * @memberof WpState
- * @param self: the state
- * @param group: the group which the properties will be loaded from
- *
- * @brief Loads the state data into new properties.
- *
- * @returns (transfer full): the new properties with the state data
+ * \brief Loads the state data into new properties.
+ * \ingroup wpstate
+ * \param self the state
+ * \param group the group which the properties will be loaded from
+ * \returns (transfer full): the new properties with the state data
  */
-
 WpProperties *
 wp_state_load (WpState *self, const gchar *group)
 {

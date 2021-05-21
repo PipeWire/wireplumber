@@ -5,9 +5,7 @@
  *
  * SPDX-License-Identifier: MIT
  */
-/*!
- * @file proxy.c
- */
+
 #define G_LOG_DOMAIN "wp-proxy"
 
 #include "proxy.h"
@@ -18,6 +16,85 @@
 #include <spa/utils/hook.h>
 #include <spa/utils/result.h>
 
+/*! \defgroup wpproxy WpProxy */
+/*!
+ * \struct WpProxy
+ *
+ * Base class for all objects that expose PipeWire objects using `pw_proxy`
+ * underneath.
+ *
+ * This base class cannot be instantiated. It provides handling of
+ * pw_proxy's events and exposes common functionality.
+ *
+ * \gproperties
+ *
+ * \gproperty{bound-id, guint, G_PARAM_READABLE,
+ *   The id that this object has on the registry}
+ *
+ * \gproperty{pw-proxy, gpointer, G_PARAM_READABLE,
+ *   The `struct pw_proxy *`}
+ *
+ * \gsignals
+ *
+ * \par bound
+ * \parblock
+ * \code
+ * void
+ * bound_callback (WpProxy * self,
+ *                 guint id,
+ *                 gpointer user_data)
+ * \endcode
+ * Parameters:
+ * - `id` - the bound id of the proxy
+ *
+ * Flags: G_SIGNAL_RUN_FIRST
+ * \endparblock
+ *
+ * \par pw-proxy-created
+ * \parblock
+ * \code
+ * void
+ * pw_proxy_created_callback (WpProxy * self,
+ *                            gpointer object,
+ *                            gpointer user_data)
+ * \endcode
+ * Parameters:
+ * - `object` - pointer to the pw_proxy that was just created
+ *
+ * Flags: G_SIGNAL_RUN_FIRST
+ * \endparblock
+ *
+ * \par pw-proxy-destroyed
+ * \parblock
+ * \code
+ * void
+ * pw_proxy_destroyed_callback (WpProxy * self,
+ *                              gpointer user_data)
+ * \endcode
+ * Flags: G_SIGNAL_RUN_FIRST
+ * \endparblock
+ *
+ * \par error
+ * \parblock
+ * \code
+ * void
+ * error_callback (WpProxy * self,
+ *                 gint seq, gint res, const gchar *message,
+ *                 gpointer user_data)
+ * \endcode
+ * Emitted when an error occurs on the remote object.
+ * The parameters are exactly the same as on the underlying pw_proxy error
+ * callback.
+ *
+ * Parameters:
+ * - `seq` - the sequence number of the operation that caused the error
+ * - `res` - the error code
+ * - `message` - a description of the error
+ *
+ * Flags: G_SIGNAL_RUN_FIRST
+ * \endparblock
+ */
+
 typedef struct _WpProxyPrivate WpProxyPrivate;
 struct _WpProxyPrivate
 {
@@ -25,82 +102,12 @@ struct _WpProxyPrivate
   struct spa_hook listener;
 };
 
-/*!
- * @memberof WpProxy
- *
- * @props @b bound-id
- *
- * @code
- * "bound-id" guint
- * @endcode
- *
- * Flags : Read
- *
- * @props @b pw-proxy
- *
- * @code
- * "pw-proxy" gpointer
- * @endcode
- *
- * Flags : Read
- *
- */
 enum {
   PROP_0,
   PROP_BOUND_ID,
   PROP_PW_PROXY,
 };
 
-/*!
- * @memberof WpProxy
- *
- * @signal @b bound
- *
- * @code
- * bound_callback (WpProxy * self,
- *                 guint object,
- *                 gpointer user_data)
- * @endcode
- *
- * @b Parameters:
- *
- * @arg `self`
- * @arg `object`
- * @arg `user_data`
- *
- * Flags: Run First
- *
- * @signal @b pw-proxy-created
- *
- * @code
- * pw_proxy_created_callback (WpProxy * self,
- *                            gpointer object,
- *                            gpointer user_data)
- * @endcode
- *
- * @b Parameters:
- *
- * @arg `self`
- * @arg `object`
- * @arg `user_data`
- *
- * Flags: Run First
- *
- * @signal @b pw-proxy-destroyed
- *
- * @code
- * pw_proxy_destroyed_callback (WpProxy * self,
- *                            gpointer user_data)
- * @endcode
- *
- * @b Parameters:
- *
- * @arg `self`
- * @arg `user_data`
- *
- * Flags: Run First
- *
- */
 enum
 {
   SIGNAL_PW_PROXY_CREATED,
@@ -111,18 +118,6 @@ enum
 };
 
 static guint signals[LAST_SIGNAL] = { 0 };
-
-/*!
- * @struct WpProxy
- * @section proxy_section Pipewire Object Proxy
- *
- * @brief Base class for all objects that expose PipeWire objects using `pw_proxy`
- * underneath.
- *
- * This base class cannot be instantiated. It provides handling of
- * pw_proxy's events and exposes common functionality.
- *
- */
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (WpProxy, wp_proxy, WP_TYPE_OBJECT)
 
@@ -255,16 +250,18 @@ wp_proxy_class_init (WpProxyClass * klass)
 }
 
 /*!
- * @memberof WpProxy
- * @param self: the proxy
+ * \brief Returns the proxy bound id.
  *
- * @brief Returns the bound id, which is the id that this object has on the
- * pipewire registry (a.k.a. the global id). The object must have the
- * %WP_PROXY_FEATURE_BOUND feature before this method can be called.
+ * The bound id is the id that this object has on the
+ * PipeWire registry (a.k.a. the global id). The object must have the
+ * WP_PROXY_FEATURE_BOUND feature before this method can be called.
  *
- * @returns the bound id of this object
+ * \remarks Requires WP_PROXY_FEATURE_BOUND
+ *
+ * \ingroup wpproxy
+ * \param self the proxy
+ * \returns the bound id of this object
  */
-
 guint32
 wp_proxy_get_bound_id (WpProxy * self)
 {
@@ -277,13 +274,11 @@ wp_proxy_get_bound_id (WpProxy * self)
 }
 
 /*!
- * @memberof WpProxy
- * @param self: the proxy
- * @param version: (out) (optional): the version of the interface
- *
- * @returns the PipeWire type of the interface that is being proxied
+ * \ingroup wpproxy
+ * \param self the proxy
+ * \param version (out) (optional): the version of the interface
+ * \returns the PipeWire type of the interface that is being proxied
  */
-
 const gchar *
 wp_proxy_get_interface_type (WpProxy * self, guint32 * version)
 {
@@ -301,12 +296,10 @@ wp_proxy_get_interface_type (WpProxy * self, guint32 * version)
 }
 
 /*!
- * @memberof WpProxy
- *
- * @param self: the proxy
- * @returns a pointer to the underlying `pw_proxy` object
+ * \ingroup wpproxy
+ * \param self the proxy
+ * \returns a pointer to the underlying `pw_proxy` object
  */
-
 struct pw_proxy *
 wp_proxy_get_pw_proxy (WpProxy * self)
 {
@@ -317,13 +310,14 @@ wp_proxy_get_pw_proxy (WpProxy * self)
 }
 
 /*!
- * @memberof WpProxy
+ * \brief Private method to be used by subclasses to set the `pw_proxy` pointer
+ * when it is available.
  *
- * @brief Private method to be used by subclasses to set the `pw_proxy` pointer
- * when it is available. This can be called only if there is no `pw_proxy`
- * already set. Takes ownership of @em proxy.
+ * This can be called only if there is no `pw_proxy` already set.
+ * Takes ownership of \a proxy.
+ *
+ * \ingroup wpproxy
  */
-
 void
 wp_proxy_set_pw_proxy (WpProxy * self, struct pw_proxy * proxy)
 {
@@ -358,6 +352,17 @@ bind_success (WpProxy * proxy, uint32_t global_id, WpTransition * transition)
   g_signal_handlers_disconnect_by_func (proxy, bind_success, transition);
 }
 
+/*!
+ * \brief Private method to be used by subclasses to watch for errors
+ * during a \a transition that leads the proxy to become bound
+ *
+ * If an error is signaled on the proxy before the \c bound signal is emitted,
+ * the transition will return an error.
+ *
+ * \param proxy the proxy
+ * \param transition the transition that binds the proxy
+ * \ingroup wpproxy
+ */
 void
 wp_proxy_watch_bind_error (WpProxy * proxy, WpTransition * transition)
 {

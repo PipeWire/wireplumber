@@ -20,17 +20,9 @@ struct pw_core;
 typedef struct _WpObjectManager WpObjectManager;
 
 /*!
- * @memberof WpCore
- *
- * @brief The [WpCore](@ref core_section)
- * <a href="https://developer.gnome.org/gobject/stable/gobject-Type-Information.html#GType">
- * GType</a>
- *
- * @code
- * #define WP_TYPE_CORE (wp_core_get_type ())
- * @endcode
+ * \brief The WpCore GType
+ * \ingroup wpcore
  */
-
 #define WP_TYPE_CORE (wp_core_get_type ())
 WP_API
 G_DECLARE_FINAL_TYPE (WpCore, wp_core, WP, CORE, GObject)
