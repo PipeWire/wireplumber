@@ -11,12 +11,10 @@
  * @title: PIpeWire Endpoint
  */
 
-#include "spa/param/param.h"
 #define G_LOG_DOMAIN "wp-endpoint"
 
 #include "endpoint.h"
 #include "node.h"
-#include "session.h"
 #include "object-manager.h"
 #include "error.h"
 #include "log.h"
@@ -342,116 +340,11 @@ static struct spa_param_info impl_param_info[] = {
   SPA_PARAM_INFO (SPA_PARAM_PropInfo, SPA_PARAM_INFO_READ)
 };
 
-static void
-on_si_link_exported (WpSessionItem * link, GAsyncResult * res, gpointer data)
-{
-  WpImplEndpoint *self = WP_IMPL_ENDPOINT (data);
-  g_autoptr (GError) error = NULL;
-
-  if (!wp_object_activate_finish (WP_OBJECT (link), res, &error)) {
-    wp_warning_object (self, "failed to export link: %s", error->message);
-    g_object_unref (link);
-  }
-}
-
 static int
 impl_create_link (void *object, const struct spa_dict *props)
 {
-  WpImplEndpoint *self = WP_IMPL_ENDPOINT (object);
-  const gchar *self_ep, *peer_ep;
-  guint32 peer_ep_id;
-  g_autoptr (WpSiEndpoint) peer_si_endpoint = NULL;
-  g_autoptr (WpSession) session = NULL;
-  g_autoptr (WpEndpoint) peer_ep_proxy = NULL;
-
-  /* find the session */
-  session = wp_session_item_get_associated_proxy (
-      WP_SESSION_ITEM (self->item), WP_TYPE_SESSION);
-  g_return_val_if_fail (session, -ENAVAIL);
-
-  if (self->info.direction == PW_DIRECTION_OUTPUT) {
-    self_ep = spa_dict_lookup (props, PW_KEY_ENDPOINT_LINK_OUTPUT_ENDPOINT);
-    peer_ep = spa_dict_lookup (props, PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT);
-  } else {
-    self_ep = spa_dict_lookup (props, PW_KEY_ENDPOINT_LINK_INPUT_ENDPOINT);
-    peer_ep = spa_dict_lookup (props, PW_KEY_ENDPOINT_LINK_OUTPUT_ENDPOINT);
-  }
-
-  wp_debug_object (self, "requested link between %s [self] & %s [peer]",
-      self_ep, peer_ep);
-
-  /* verify arguments */
-  if (!peer_ep) {
-    wp_warning_object (self,
-        "a peer endpoint must be specified at the very least");
-    return -EINVAL;
-  }
-  if (self_ep && ((guint32) atoi (self_ep))
-          != wp_proxy_get_bound_id (WP_PROXY (self))) {
-    wp_warning_object (self,
-        "creating links for other endpoints is now allowed");
-    return -EACCES;
-  }
-
-  /* convert to int */
-  peer_ep_id = (guint32) atoi (peer_ep);
-
-  /* find the peer endpoint */
-  peer_ep_proxy = wp_session_lookup_endpoint (session,
-      WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", peer_ep_id, NULL);
-  if (!peer_ep_proxy) {
-    wp_warning_object (self, "endpoint %d not found in session", peer_ep_id);
-    return -EINVAL;
-  }
-
-  g_object_get (peer_ep_proxy, "item", &peer_si_endpoint, NULL);
-
-  wp_info_object (self, "creating endpoint link between "
-      "%s " WP_OBJECT_FORMAT ", %s " WP_OBJECT_FORMAT,
-      wp_endpoint_get_name (WP_ENDPOINT (self)),
-      WP_OBJECT_ARGS (self->item),
-      wp_endpoint_get_name (peer_ep_proxy),
-      WP_OBJECT_ARGS (peer_si_endpoint));
-
-  /* create the link */
-  {
-    g_autoptr (WpSessionItem) link = NULL;
-    g_autoptr (WpCore) core = NULL;
-    WpProperties *props = NULL;
-    WpSiEndpoint *out_endpoint, *in_endpoint;
-
-    core = wp_object_get_core (WP_OBJECT (self));
-    link = wp_session_item_make (core, "si-standard-link");
-    if (!link) {
-      wp_warning_object (self, "si-standard-link factory is not available");
-      return -ENAVAIL;
-    }
-
-    if (self->info.direction == PW_DIRECTION_OUTPUT) {
-      out_endpoint = self->item;
-      in_endpoint = peer_si_endpoint;
-    } else {
-      out_endpoint = peer_si_endpoint;
-      in_endpoint = self->item;
-    }
-
-    props = wp_properties_new_empty ();
-    wp_properties_setf (props, "out.item", "%p", out_endpoint);
-    wp_properties_setf (props, "in.item", "%p", in_endpoint);
-    wp_properties_setf (props, "session", "%p", session);
-    wp_properties_setf (props, "manage.lifetime", "%u", TRUE);
-
-    if (G_UNLIKELY (!wp_session_item_configure (link, props))) {
-      g_critical ("si-standard-link configuration failed");
-      return -ENAVAIL;
-    }
-
-    wp_object_activate (WP_OBJECT (link), WP_SESSION_ITEM_FEATURE_EXPORTED,
-        NULL, (GAsyncReadyCallback) on_si_link_exported, self);
-    link = NULL;
-  }
-
-  return 0;
+  /* not implemented */
+  return -EINVAL;
 }
 
 static const struct pw_endpoint_methods impl_endpoint = {
@@ -525,9 +418,8 @@ wp_impl_endpoint_constructed (GObject * object)
 
   self->info.direction = (enum pw_direction) direction;
 
-  /* associate with the session */
-  self->info.session_id = wp_session_item_get_associated_proxy_id (
-      WP_SESSION_ITEM (self->item), WP_TYPE_SESSION);
+  /* associate with the session (no session anymore, use -1) */
+  self->info.session_id = SPA_ID_INVALID;
 
   /* construct export properties (these will come back through
     the registry and appear in wp_proxy_get_global_properties) */

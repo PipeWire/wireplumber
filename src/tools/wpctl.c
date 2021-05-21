@@ -73,7 +73,6 @@ async_quit (WpCore *core, GAsyncResult *res, WpCtl * self)
 static gboolean
 status_prepare (WpCtl * self, GError ** error)
 {
-  wp_object_manager_add_interest (self->om, WP_TYPE_SESSION, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_CLIENT, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_DEVICE, NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_ENDPOINT, NULL);
@@ -215,28 +214,6 @@ print_stream_node (const GValue *item, gpointer data)
   }
 }
 
-// static void
-// print_endpoint_link (const GValue *item, gpointer data)
-// {
-//   WpEndpointLink *link = g_value_get_object (item);
-//   WpSession *session = data;
-//   guint32 id = wp_proxy_get_bound_id (WP_PROXY (link));
-//   guint32 out_ep_id, in_ep_id;
-//   g_autoptr (WpEndpoint) out_ep = NULL;
-//   g_autoptr (WpEndpoint) in_ep = NULL;
-
-//   wp_endpoint_link_get_linked_object_ids (link, &out_ep_id, &in_ep_id);
-
-//   out_ep = wp_session_lookup_endpoint (session,
-//       WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", out_ep_id, NULL);
-//   in_ep = wp_session_lookup_endpoint (session,
-//       WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", in_ep_id, NULL);
-
-//   printf (TREE_INDENT_EMPTY "  %4u. [%u. %s] ➞ [%u. %s]\n", id,
-//       out_ep_id, get_endpoint_friendly_name (out_ep),
-//       in_ep_id, get_endpoint_friendly_name (in_ep));
-// }
-
 static void
 status_run (WpCtl * self)
 {
@@ -275,16 +252,13 @@ status_run (WpCtl * self)
   printf ("\n");
 
   /* sessions */
-  it = wp_object_manager_new_filtered_iterator (self->om, WP_TYPE_SESSION,
-      NULL);
-  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
-    WpSession *session = g_value_get_object (&val);
-    const guint session_id = wp_proxy_get_bound_id (WP_PROXY (session));
-    const gchar *media_type = wp_pipewire_object_get_property (
-        WP_PIPEWIRE_OBJECT (session), PW_KEY_MEDIA_TYPE);
+  const gchar *MEDIA_TYPES[] = { "Audio", "Video" };
+
+  for (guint i = 0; i < G_N_ELEMENTS (MEDIA_TYPES); i++) {
+    const gchar *media_type = MEDIA_TYPES[i];
     g_autoptr (WpIterator) child_it = NULL;
 
-    printf ("Session %u (%s)\n", session_id, wp_session_get_name (session));
+    printf ("%s\n", media_type);
 
     if (media_type && *media_type != '\0') {
       gchar media_type_glob[16];
@@ -365,11 +339,6 @@ status_run (WpCtl * self)
       wp_iterator_foreach (child_it, print_stream_node, self);
       g_clear_pointer (&child_it, wp_iterator_unref);
     }
-
-    // printf (TREE_INDENT_END "Endpoint links:\n");
-    // child_it = wp_session_new_links_iterator (session);
-    // wp_iterator_foreach (child_it, print_endpoint_link, session);
-    // g_clear_pointer (&child_it, wp_iterator_unref);
 
     printf ("\n");
   }

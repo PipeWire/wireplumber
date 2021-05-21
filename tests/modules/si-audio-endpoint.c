@@ -99,7 +99,6 @@ static void
 test_si_audio_endpoint_export (TestFixture * f, gconstpointer user_data)
 {
   g_autoptr (WpSessionItem) endpoint = NULL;
-  g_autoptr (WpSession) session = NULL;
   g_autoptr (WpObjectManager) clients_om = NULL;
   g_autoptr (WpClient) self_client = NULL;
 
@@ -116,15 +115,6 @@ test_si_audio_endpoint_export (TestFixture * f, gconstpointer user_data)
   g_assert_nonnull (self_client =
       wp_object_manager_lookup (clients_om, WP_TYPE_CLIENT, NULL));
 
-  /* create session */
-
-  session = WP_SESSION (wp_impl_session_new (f->base.core));
-  g_assert_nonnull (session);
-
-  wp_object_activate (WP_OBJECT (session), WP_OBJECT_FEATURES_ALL, NULL,
-      (GAsyncReadyCallback) test_object_activate_finish_cb, f);
-  g_main_loop_run (f->base.loop);
-
   /* create endpoint */
 
   endpoint = wp_session_item_make (f->base.core, "si-audio-endpoint");
@@ -135,7 +125,6 @@ test_si_audio_endpoint_export (TestFixture * f, gconstpointer user_data)
     WpProperties *props = wp_properties_new_empty ();
     wp_properties_set (props, "name", "endpoint");
     wp_properties_set (props, "media.class", "Audio/Source");
-    wp_properties_setf (props, "session", "%p", session);
     g_assert_true (wp_session_item_configure (endpoint, props));
     g_assert_true (wp_session_item_is_configured (endpoint));
   }
@@ -154,7 +143,6 @@ test_si_audio_endpoint_export (TestFixture * f, gconstpointer user_data)
   {
     g_autoptr (WpEndpoint) ep = NULL;
     g_autoptr (WpProperties) props = NULL;
-    gchar *tmp;
 
     g_assert_nonnull (
         ep = wp_session_item_get_associated_proxy (endpoint, WP_TYPE_ENDPOINT));
@@ -169,10 +157,6 @@ test_si_audio_endpoint_export (TestFixture * f, gconstpointer user_data)
         "endpoint");
     g_assert_cmpstr (wp_properties_get (props, "media.class"), ==,
         "Audio/Source");
-
-    tmp = g_strdup_printf ("%d", wp_proxy_get_bound_id (WP_PROXY (session)));
-    g_assert_cmpstr (wp_properties_get (props, "session.id"), ==, tmp);
-    g_free (tmp);
   }
 
   /* reset */

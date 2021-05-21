@@ -17,7 +17,6 @@ struct _TestSiEndpoint
   WpNode *node;
   WpDirection direction;
   gboolean changed_properties;
-  WpSession *session;
   WpProxy *impl_endpoint;
 };
 
@@ -71,8 +70,6 @@ si_endpoint_get_associated_proxy (WpSessionItem * item, GType proxy_type)
 
   if (proxy_type == WP_TYPE_NODE)
     return self->node ? g_object_ref (self->node) : NULL;
-  else if (proxy_type == WP_TYPE_SESSION)
-    return self->session ? g_object_ref (self->session) : NULL;
 
   return NULL;
 }
@@ -86,7 +83,6 @@ si_endpoint_reset (WpSessionItem * item)
       WP_SESSION_ITEM_FEATURE_ACTIVE | WP_SESSION_ITEM_FEATURE_EXPORTED);
 
   g_clear_object (&self->node);
-  g_clear_object (&self->session);
 
   WP_SESSION_ITEM_CLASS (test_si_endpoint_parent_class)->reset (item);
 }
@@ -275,22 +271,6 @@ test_endpoint_activate_done (WpObject * object, GAsyncResult * res,
 }
 
 static void
-test_endpoint_session_bound (WpObject * session, GAsyncResult * res,
-    TestEndpointFixture *fixture)
-{
-  g_autoptr (GError) error = NULL;
-
-  g_debug ("session export done");
-
-  g_assert_true (wp_object_activate_finish (session, res, &error));
-  g_assert_no_error (error);
-
-  g_assert_true (WP_IS_IMPL_SESSION (session));
-
-  g_main_loop_quit (fixture->base.loop);
-}
-
-static void
 test_endpoint_params_changed (WpPipewireObject * proxy,
     guint32 id, TestEndpointFixture *fixture)
 {
@@ -318,7 +298,6 @@ static void
 test_endpoint_no_props (TestEndpointFixture *fixture, gconstpointer data)
 {
   g_autoptr (TestSiEndpoint) endpoint = NULL;
-  g_autoptr (WpImplSession) session = NULL;
 
   /* set up the export side */
   g_signal_connect (fixture->export_om, "object-added",
@@ -340,24 +319,12 @@ test_endpoint_no_props (TestEndpointFixture *fixture, gconstpointer data)
       WP_TYPE_ENDPOINT, WP_OBJECT_FEATURES_ALL);
   wp_core_install_object_manager (fixture->base.client_core, fixture->proxy_om);
 
-  /* create session */
-  session = wp_impl_session_new (fixture->base.core);
-  wp_object_activate (WP_OBJECT (session), WP_PROXY_FEATURE_BOUND, NULL,
-      (GAsyncReadyCallback) test_endpoint_session_bound, fixture);
-
-  /* run until session is bound */
-  g_main_loop_run (fixture->base.loop);
-  g_assert_cmpint (wp_object_get_active_features (WP_OBJECT (session)), &,
-      WP_PROXY_FEATURE_BOUND);
-  g_assert_cmpint (wp_proxy_get_bound_id (WP_PROXY (session)), >, 0);
-
   /* create endpoint */
   endpoint = g_object_new (test_si_endpoint_get_type (),
       "core", fixture->base.core, NULL);
   endpoint->name = "test-endpoint";
   endpoint->media_class = "Audio/Source";
   endpoint->direction = WP_DIRECTION_OUTPUT;
-  endpoint->session = WP_SESSION (g_object_ref (session));
   wp_object_activate (WP_OBJECT (endpoint),
       WP_SESSION_ITEM_FEATURE_ACTIVE | WP_SESSION_ITEM_FEATURE_EXPORTED,
       NULL, (GAsyncReadyCallback) test_endpoint_activate_done, fixture);
@@ -386,15 +353,11 @@ test_endpoint_no_props (TestEndpointFixture *fixture, gconstpointer data)
   {
     g_autoptr (WpProperties) props = wp_global_proxy_get_global_properties (
         WP_GLOBAL_PROXY (fixture->proxy_endpoint));
-    g_autofree gchar * session_id = g_strdup_printf ("%u",
-        wp_proxy_get_bound_id (WP_PROXY (session)));
 
     g_assert_cmpstr (wp_properties_get (props, PW_KEY_ENDPOINT_NAME), ==,
         "test-endpoint");
     g_assert_cmpstr (wp_properties_get (props, PW_KEY_MEDIA_CLASS), ==,
         "Audio/Source");
-    g_assert_cmpstr (wp_properties_get (props, PW_KEY_SESSION_ID), ==,
-        session_id);
   }
 
   g_assert_cmpstr ("test-endpoint", ==,
@@ -448,7 +411,6 @@ static void
 test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
 {
   g_autoptr (TestSiEndpoint) endpoint = NULL;
-  g_autoptr (WpImplSession) session = NULL;
 
   /* load modules */
   {
@@ -481,24 +443,12 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
       WP_TYPE_ENDPOINT, WP_OBJECT_FEATURES_ALL);
   wp_core_install_object_manager (fixture->base.client_core, fixture->proxy_om);
 
-  /* create session */
-  session = wp_impl_session_new (fixture->base.core);
-  wp_object_activate (WP_OBJECT (session), WP_PROXY_FEATURE_BOUND, NULL,
-      (GAsyncReadyCallback) test_endpoint_session_bound, fixture);
-
-  /* run until session is bound */
-  g_main_loop_run (fixture->base.loop);
-  g_assert_cmpint (wp_object_get_active_features (WP_OBJECT (session)), &,
-      WP_PROXY_FEATURE_BOUND);
-  g_assert_cmpint (wp_proxy_get_bound_id (WP_PROXY (session)), >, 0);
-
   /* create endpoint */
   endpoint = g_object_new (test_si_endpoint_get_type (),
       "core", fixture->base.core, NULL);
   endpoint->name = "test-endpoint";
   endpoint->media_class = "Audio/Source";
   endpoint->direction = WP_DIRECTION_OUTPUT;
-  endpoint->session = WP_SESSION (g_object_ref (session));
 
   /* associate a node that has props */
   endpoint->node = wp_node_new_from_factory (fixture->base.core,

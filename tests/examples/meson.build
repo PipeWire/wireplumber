@@ -1,3 +1,5 @@
+# disabled temporarily
+if false
 executable('audiotestsrc-play',
   'audiotestsrc-play.c',
   c_args : [
@@ -8,6 +10,7 @@ executable('audiotestsrc-play',
   install: false,
   dependencies : [giounix_dep, wp_dep, pipewire_dep],
 )
+endif
 
 if wpipc_dep.found()
   executable('wpipc-client',

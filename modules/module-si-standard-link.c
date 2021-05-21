@@ -22,16 +22,12 @@ struct _WpSiStandardLink
   GWeakRef in_item;
   const gchar *out_item_port_context;
   const gchar *in_item_port_context;
-  WpSession *session;
   gboolean manage_lifetime;
   gboolean passive;
 
   /* activate */
   GPtrArray *node_links;
   guint n_async_ops_wait;
-
-  /* export */
-  WpImplEndpointLink *impl_endpoint_link;
 };
 
 static void si_standard_link_link_init (WpSiLinkInterface * iface);
@@ -106,7 +102,6 @@ si_standard_link_reset (WpSessionItem * item)
   g_weak_ref_set (&self->in_item, NULL);
   self->out_item_port_context = NULL;
   self->in_item_port_context = NULL;
-  g_clear_object (&self->session);
   self->manage_lifetime = FALSE;
   self->passive = FALSE;
 
@@ -134,7 +129,6 @@ si_standard_link_configure (WpSessionItem * item, WpProperties * p)
   WpSiStandardLink *self = WP_SI_STANDARD_LINK (item);
   g_autoptr (WpProperties) si_props = wp_properties_ensure_unique_owner (p);
   WpSessionItem *out_item, *in_item;
-  WpSession *session = NULL;
   const gchar *str;
 
   /* reset previous config */
@@ -172,13 +166,6 @@ si_standard_link_configure (WpSessionItem * item, WpProperties * p)
     wp_properties_setf (si_props, "passive", "%u",
         self->passive);
 
-  /* session is optional (only needed if we want to export) */
-  str = wp_properties_get (si_props, "session");
-  if (str && (sscanf(str, "%p", &session) != 1 || !WP_IS_SESSION (session)))
-    return FALSE;
-  if (!str)
-    wp_properties_setf (si_props, "session", "%p", session);
-
   if (self->manage_lifetime) {
     g_signal_connect_object (out_item, "notify::active-features",
         G_CALLBACK (on_item_features_changed), self, 0);
@@ -190,8 +177,6 @@ si_standard_link_configure (WpSessionItem * item, WpProperties * p)
 
   g_weak_ref_set(&self->out_item, out_item);
   g_weak_ref_set(&self->in_item, in_item);
-  if (session)
-    self->session = g_object_ref (session);
 
   wp_properties_set (si_props, "si.factory.name", SI_FACTORY_NAME);
   wp_session_item_set_properties (WP_SESSION_ITEM (self),
@@ -202,14 +187,6 @@ si_standard_link_configure (WpSessionItem * item, WpProperties * p)
 static gpointer
 si_standard_link_get_associated_proxy (WpSessionItem * item, GType proxy_type)
 {
-  WpSiStandardLink *self = WP_SI_STANDARD_LINK (item);
-
-  if (proxy_type == WP_TYPE_SESSION)
-    return self->session ? g_object_ref (self->session) : NULL;
-  else if (proxy_type == WP_TYPE_ENDPOINT_LINK)
-    return self->impl_endpoint_link ?
-        g_object_ref (self->impl_endpoint_link) : NULL;
-
   return NULL;
 }
 
@@ -243,16 +220,6 @@ si_standard_link_disable_active (WpSessionItem *si)
 }
 
 static void
-si_standard_link_disable_exported (WpSessionItem *si)
-{
-  WpSiStandardLink *self = WP_SI_STANDARD_LINK (si);
-
-  g_clear_object (&self->impl_endpoint_link);
-  wp_object_update_features (WP_OBJECT (self), 0,
-      WP_SESSION_ITEM_FEATURE_EXPORTED);
-}
-
-static void
 on_link_activated (WpObject * proxy, GAsyncResult * res,
     WpTransition * transition)
 {
@@ -283,7 +250,6 @@ create_links (WpSiStandardLink * self, WpTransition * transition,
   guint32 out_channel, in_channel;
   gboolean link_all = FALSE;
   guint i;
-  guint32 eplink_id;
 
   /* tuple format:
       uint32 node_id;
@@ -297,9 +263,6 @@ create_links (WpSiStandardLink * self, WpTransition * transition,
 
   core = wp_object_get_core (WP_OBJECT (self));
   g_return_val_if_fail (core, FALSE);
-
-  eplink_id = wp_session_item_get_associated_proxy_id (WP_SESSION_ITEM (self),
-      WP_TYPE_ENDPOINT_LINK);
 
   self->n_async_ops_wait = 0;
   self->node_links = g_ptr_array_new_with_free_func (g_object_unref);
@@ -348,8 +311,6 @@ create_links (WpSiStandardLink * self, WpTransition * transition,
         wp_properties_setf (props, PW_KEY_LINK_OUTPUT_PORT, "%u", out_port_id);
         wp_properties_setf (props, PW_KEY_LINK_INPUT_NODE, "%u", in_node_id);
         wp_properties_setf (props, PW_KEY_LINK_INPUT_PORT, "%u", in_port_id);
-        if (eplink_id != SPA_ID_INVALID)
-          wp_properties_setf (props, "endpoint-link.id", "%u", eplink_id);
         if (self->passive)
           wp_properties_set (props, PW_KEY_LINK_PASSIVE, "true");
 
@@ -634,39 +595,6 @@ si_standard_link_enable_active (WpSessionItem *si, WpTransition *transition)
 }
 
 static void
-on_impl_endpoint_link_activated (WpObject * object, GAsyncResult * res,
-    WpTransition * transition)
-{
-  WpSiStandardLink *self = wp_transition_get_source_object (transition);
-  g_autoptr (GError) error = NULL;
-
-  if (!wp_object_activate_finish (object, res, &error)) {
-    wp_transition_return_error (transition, g_steal_pointer (&error));
-    return;
-  }
-
-  wp_object_update_features (WP_OBJECT (self),
-      WP_SESSION_ITEM_FEATURE_EXPORTED, 0);
-}
-
-static void
-si_standard_link_enable_exported (WpSessionItem *si, WpTransition *transition)
-{
-  WpSiStandardLink *self = WP_SI_STANDARD_LINK (si);
-  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
-
-  self->impl_endpoint_link = wp_impl_endpoint_link_new (core,
-      WP_SI_LINK (self));
-
-  g_signal_connect_object (self->impl_endpoint_link, "pw-proxy-destroyed",
-      G_CALLBACK (wp_session_item_handle_proxy_destroyed), self, 0);
-
-  wp_object_activate (WP_OBJECT (self->impl_endpoint_link),
-      WP_OBJECT_FEATURES_ALL, NULL,
-      (GAsyncReadyCallback) on_impl_endpoint_link_activated, transition);
-}
-
-static void
 si_standard_link_finalize (GObject * object)
 {
   WpSiStandardLink *self = WP_SI_STANDARD_LINK (object);
@@ -689,9 +617,7 @@ si_standard_link_class_init (WpSiStandardLinkClass * klass)
   si_class->configure = si_standard_link_configure;
   si_class->get_associated_proxy = si_standard_link_get_associated_proxy;
   si_class->disable_active = si_standard_link_disable_active;
-  si_class->disable_exported = si_standard_link_disable_exported;
   si_class->enable_active = si_standard_link_enable_active;
-  si_class->enable_exported = si_standard_link_enable_exported;
 }
 
 static GVariant *

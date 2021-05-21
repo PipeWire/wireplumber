@@ -11,7 +11,6 @@
 typedef struct {
   WpBaseTestFixture base;
 
-  WpSession *session;
   WpSessionItem *src_item;
   WpSessionItem *sink_item;
   gint activation_state;
@@ -34,7 +33,6 @@ load_endpoint (TestFixture * f, const gchar * factory, const gchar * media_class
     WpProperties *props = wp_properties_new_empty ();
     wp_properties_set (props, "name", factory);
     wp_properties_set (props, "media.class", media_class);
-    wp_properties_setf (props, "session", "%p", f->session);
     g_assert_true (wp_session_item_configure (endpoint, props));
     g_assert_true (wp_session_item_is_configured (endpoint));
   }
@@ -81,14 +79,6 @@ test_si_standard_link_setup (TestFixture * f, gconstpointer user_data)
     g_assert_no_error (error);
   }
 
-  g_assert_nonnull (
-      f->session = WP_SESSION (wp_impl_session_new (f->base.core)));
-  wp_impl_session_set_property (WP_IMPL_SESSION (f->session),
-      "session.name", "audio");
-  wp_object_activate (WP_OBJECT (f->session), WP_OBJECT_FEATURES_ALL, NULL,
-      (GAsyncReadyCallback) test_object_activate_finish_cb, f);
-  g_main_loop_run (f->base.loop);
-
   f->src_item = load_endpoint (f, "audiotestsrc", "Audio/Source");
   f->sink_item = load_endpoint (f, "fakesink", "Audio/Sink");
 }
@@ -110,7 +100,6 @@ test_si_standard_link_teardown (TestFixture * f, gconstpointer user_data)
   g_main_loop_run (f->base.loop);
   g_clear_object (&f->sink_item);
   g_clear_object (&f->src_item);
-  g_clear_object (&f->session);
   wp_base_test_fixture_teardown (&f->base);
 }
 

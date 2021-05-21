@@ -39,7 +39,6 @@ struct _TestSiDummy
   WpSessionItem parent;
   const gchar *name;
   gboolean fail;
-  WpSession *session;
   gboolean activate_done;
   gboolean export_done;
 };
@@ -63,7 +62,6 @@ si_dummy_reset (WpSessionItem * item)
 
   /* reset */
   self->fail = FALSE;
-  g_clear_object (&self->session);
 
   WP_SESSION_ITEM_CLASS (si_dummy_parent_class)->reset (item);
 }
@@ -72,7 +70,6 @@ static gboolean
 si_dummy_configure (WpSessionItem * item, WpProperties * props)
 {
   TestSiDummy *self = TEST_SI_DUMMY (item);
-  WpSession *session = NULL;
   const gchar *str = NULL;
 
   /* reset previous config */
@@ -82,14 +79,6 @@ si_dummy_configure (WpSessionItem * item, WpProperties * props)
   if (!str || sscanf(str, "%u", &self->fail) != 1)
     return FALSE;
 
-  /* session is optional (only needed if we want to export) */
-  str = wp_properties_get (props, "session");
-  if (str && (sscanf(str, "%p", &session) != 1 || !WP_IS_SESSION (session)))
-    return FALSE;
-
-  if (session)
-    self->session = g_object_ref (session);
-
   wp_session_item_set_properties (WP_SESSION_ITEM (self), props);
   return TRUE;
 }
@@ -97,11 +86,6 @@ si_dummy_configure (WpSessionItem * item, WpProperties * props)
 static gpointer
 si_dummy_get_associated_proxy (WpSessionItem * item, GType proxy_type)
 {
-  TestSiDummy *self = TEST_SI_DUMMY (item);
-
-  if (proxy_type == WP_TYPE_SESSION)
-    return self->session ? g_object_ref (self->session) : NULL;
-
   return NULL;
 }
 
@@ -311,18 +295,14 @@ static void
 test_export (TestSessionItemFixture *fixture, gconstpointer data)
 {
   g_autoptr (WpSessionItem) item = NULL;
-  g_autoptr (WpSession) session = NULL;
-  g_autoptr (WpSession) assoc_session = NULL;
   TestSiDummy *dummy;
 
-  session = (WpSession *) wp_impl_session_new (fixture->base.core);
   item = g_object_new (si_dummy_get_type (), "core", fixture->base.core, NULL);
   dummy = TEST_SI_DUMMY (item);
 
   {
     g_autoptr (WpProperties) p = wp_properties_new_empty ();
     wp_properties_setf (p, "fail", "%u", FALSE);
-    wp_properties_setf (p, "session", "%p", session);
     g_assert_true (wp_session_item_configure (item, g_steal_pointer (&p)));
     g_assert_true (wp_session_item_is_configured (item));
   }
@@ -335,10 +315,6 @@ test_export (TestSessionItemFixture *fixture, gconstpointer data)
       WP_SESSION_ITEM_FEATURE_ACTIVE | WP_SESSION_ITEM_FEATURE_EXPORTED);
   g_assert_true (dummy->activate_done);
   g_assert_true (dummy->export_done);
-
-  assoc_session = wp_session_item_get_associated_proxy (item, WP_TYPE_SESSION);
-  g_assert_nonnull (assoc_session);
-  g_assert_true (assoc_session == session);
 
   wp_object_deactivate (WP_OBJECT (item), WP_SESSION_ITEM_FEATURE_EXPORTED);
   g_assert_cmpint (wp_object_get_active_features (WP_OBJECT (item)), ==,
@@ -355,17 +331,14 @@ static void
 test_export_error (TestSessionItemFixture *fixture, gconstpointer data)
 {
   g_autoptr (WpSessionItem) item = NULL;
-  g_autoptr (WpSession) session = NULL;
   TestSiDummy *dummy;
 
-  session = (WpSession *) wp_impl_session_new (fixture->base.core);
   item = g_object_new (si_dummy_get_type (), "core", fixture->base.core, NULL);
   dummy = TEST_SI_DUMMY (item);
 
   {
     g_autoptr (WpProperties) p = wp_properties_new_empty ();
     wp_properties_setf (p, "fail", "%u", TRUE);
-    wp_properties_setf (p, "session", "%p", session);
     g_assert_true (wp_session_item_configure (item, g_steal_pointer (&p)));
     g_assert_true (wp_session_item_is_configured (item));
   }

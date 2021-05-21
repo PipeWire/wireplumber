@@ -24,7 +24,6 @@ struct _WpSiAudioEndpoint
   WpDirection direction;
   gchar role[32];
   guint priority;
-  WpSession *session;
   WpSpaPod *format;
   gchar mode[32];
   GTask *format_task;
@@ -68,7 +67,6 @@ si_audio_endpoint_reset (WpSessionItem * item)
   self->direction = WP_DIRECTION_INPUT;
   self->role[0] = '\0';
   self->priority = 0;
-  g_clear_object (&self->session);
   if (self->format_task) {
     g_autoptr (GTask) t = g_steal_pointer (&self->format_task);
     g_task_return_new_error (t, WP_DOMAIN_LIBRARY,
@@ -86,7 +84,6 @@ si_audio_endpoint_configure (WpSessionItem * item, WpProperties *p)
 {
   WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (item);
   g_autoptr (WpProperties) si_props = wp_properties_ensure_unique_owner (p);
-  WpSession *session = NULL;
   const gchar *str;
 
   /* reset previous config */
@@ -121,16 +118,6 @@ si_audio_endpoint_configure (WpSessionItem * item, WpProperties *p)
   if (!str)
     wp_properties_setf (si_props, "priority", "%u", self->priority);
 
-  /* session is optional (only needed if we want to export) */
-  str = wp_properties_get (si_props, "session");
-  if (str && (sscanf(str, "%p", &session) != 1 || !WP_IS_SESSION (session)))
-    return FALSE;
-  if (!str)
-    wp_properties_setf (si_props, "session", "%p", session);
-
-  if (session)
-    self->session = g_object_ref (session);
-
   wp_properties_set (si_props, "si.factory.name", SI_FACTORY_NAME);
   wp_properties_setf (si_props, "is.device", "%u", FALSE);
   wp_session_item_set_properties (WP_SESSION_ITEM (self),
@@ -145,8 +132,6 @@ si_audio_endpoint_get_associated_proxy (WpSessionItem * item, GType proxy_type)
 
   if (proxy_type == WP_TYPE_NODE)
     return self->node ? g_object_ref (self->node) : NULL;
-  if (proxy_type == WP_TYPE_SESSION)
-    return self->session ? g_object_ref (self->session) : NULL;
   else if (proxy_type == WP_TYPE_ENDPOINT)
     return self->impl_endpoint ? g_object_ref (self->impl_endpoint) : NULL;
 
