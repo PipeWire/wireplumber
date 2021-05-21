@@ -248,7 +248,7 @@ status_run (WpCtl * self)
         wp_properties_get (properties, PW_KEY_APP_PROCESS_HOST),
         wp_properties_get (properties, PW_KEY_APP_PROCESS_ID));
   }
-  wp_iterator_unref (it);
+  g_clear_pointer (&it, wp_iterator_unref);
   printf ("\n");
 
   /* sessions */
