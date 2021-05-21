@@ -13,6 +13,7 @@ release = '@VERSION@'
 extensions = [
   'breathe',
   'sphinx_rtd_theme',
+  'sphinx.ext.graphviz',
 ]
 
 breathe_projects = {
@@ -44,3 +45,5 @@ html_theme_options = {
 
 html_static_path = ['@SRCDIR@/_static']
 html_css_files = ['custom.css']
+
+graphviz_output_format = "svg"

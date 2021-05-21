@@ -3,7 +3,7 @@ pymod = import('python')
 
 python_doc = pymod.find_installation(
   'python3',
-  modules: ['sphinx', 'sphinx_rtd_theme', 'breathe'],
+  modules: ['sphinx', 'sphinx_rtd_theme', 'breathe', 'sphinx.ext.graphviz'],
   required: get_option('doc')
 )
 
