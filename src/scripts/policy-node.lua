@@ -189,6 +189,14 @@ function isSiLinkableValid (si)
   return true
 end
 
+function getNodeReconnect (node)
+  local dont_reconnect = node.properties["node.dont-reconnect"]
+  if dont_reconnect then
+    return not (dont_reconnect == "true" or dont_reconnect == "1")
+  end
+  return true
+end
+
 function handleSiLinkable (si)
   -- check if item is valid
   if not isSiLinkableValid (si) then
@@ -199,9 +207,17 @@ function handleSiLinkable (si)
   local media_class = node.properties["media.class"]
   Log.info (si, "handling item " .. node.properties["node.name"])
 
+  -- get reconnect
+  local reconnect = getNodeReconnect (node)
+
   -- find target
   local si_target = findDefinedTarget (node)
-  if not si_target then
+  if not si_target and not reconnect then
+    Log.info (si, "removing item and node")
+    si:remove()
+    node:request_destroy()
+    return
+  elseif not si_target and reconnect then
     si_target = findUndefinedTarget (media_class)
   end
   if not si_target then
