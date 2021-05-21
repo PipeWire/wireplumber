@@ -1,11 +1,5 @@
 default_policy = {}
 
-default_policy.sessions = {
-  -- [session name] = { session properties }
-  ["audio"] = { ["media.type"] = "Audio" },
-  ["video"] = { ["media.type"] = "Video" },
-}
-
 default_policy.endpoints = {}
 
 default_policy.policy = {
@@ -26,9 +20,6 @@ function default_policy.enable()
 
   -- API to access mixer controls, needed for volume ducking
   load_module("mixer-api")
-
-  -- Create sessions statically at startup
-  load_script("static-sessions.lua", default_policy.sessions)
 
   -- Create endpoints statically at startup
   load_script("static-endpoints.lua", default_policy.endpoints)
