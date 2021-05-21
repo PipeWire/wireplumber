@@ -321,7 +321,8 @@ wp_global_proxy_request_destroy (WpGlobalProxy * self)
 
   if (priv->global && core) {
     WpRegistry *reg = wp_core_get_registry (core);
-    pw_registry_destroy (reg->pw_registry, priv->global->id);
+    if (reg->pw_registry)
+      pw_registry_destroy (reg->pw_registry, priv->global->id);
   }
 }
 
