@@ -99,6 +99,7 @@ if build_doc
     ],
     depend_files: [
       sphinx_conf, sphinx_files,
+      doxyfile_wp, doxyfile_lua,
       doxyxml_wp_depfiles, doxyxml_lua_depfiles,
     ],
     depends: [doxyxml_wp, doxyxml_lua],
