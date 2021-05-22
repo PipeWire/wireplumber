@@ -33,8 +33,10 @@ _wplua_closure_store_finalize (WpLuaClosureStore * self)
 {
   for (guint i = self->closures->len; i > 0; i--) {
     GClosure *c = g_ptr_array_index (self->closures, i-1);
+    g_closure_ref (c);
     g_closure_invalidate (c);
     g_ptr_array_remove_index_fast (self->closures, i-1);
+    g_closure_unref (c);
   }
   g_ptr_array_unref (self->closures);
 }
