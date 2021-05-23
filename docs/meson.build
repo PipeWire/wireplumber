@@ -74,7 +74,10 @@ if build_doc
     build_by_default: true,
   )
 
-  sphinx_files = files('_static'/'custom.css')
+  sphinx_files = files(
+    '_static'/'custom.css',
+    meson.source_root()/'README.rst',
+  )
   subdir('rst')
 
   sphinx_conf_data = configuration_data()
