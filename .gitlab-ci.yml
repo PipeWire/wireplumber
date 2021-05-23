@@ -8,8 +8,8 @@ variables:
   # change to build against a different tag or branch of pipewire
   PIPEWIRE_HEAD: 'master'
 
-# ci-templates as of May 1st 2020
-.templates_sha: &templates_sha 59de540b620c45739871d1a073d76d5521989d11
+# ci-templates as of Mar 19th 2021
+.templates_sha: &templates_sha 290b79e0e78eab67a83766f4e9691be554fc4afd
 
 include:
   - project: 'freedesktop/ci-templates'
@@ -19,33 +19,30 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2021-04-16.1'
-    FDO_DISTRIBUTION_VERSION: '32'
+    FDO_DISTRIBUTION_TAG: '2021-05-23.1'
+    FDO_DISTRIBUTION_VERSION: '34'
     # findutils: used by the .build script below
-    # cmake: required for hotdoc
     # dbus-devel: required by pipewire
     # dbus-daemon: required by GDBus unit tests
-    # libxml, json-glib: required by hotdoc
+    # pip, doxygen: required for documentation
     FDO_DISTRIBUTION_PACKAGES: >-
       findutils
       gcc
       gcc-c++
       git
       meson
-      cmake
       glib2-devel
       gobject-introspection-devel
       dbus-devel
       dbus-daemon
-      libxml2-devel
-      json-glib-devel
-    # install Doxygen, Sphinx and Breathe tools to generate documentation
+      python3-pip
+      doxygen
+    # install Sphinx and Breathe to generate documentation
     # also install glib2-doc (required to make documentation links to GLib work)
     # manually, to remove the 'tsflags=nodocs' flag that is enabled by default
     # in the fedora docker image
     FDO_DISTRIBUTION_EXEC: >-
-      dnf -y install python3-pip doxygen python3-sphinx python3-sphinx_rtd_theme python3-breathe python-docutils ;
-      pip3 install lxml ;
+      pip3 install lxml Sphinx sphinx-rtd-theme breathe ;
       dnf -y install glib2-doc --setopt='tsflags='
 
 .build:
