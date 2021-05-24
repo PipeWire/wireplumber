@@ -40,7 +40,7 @@ if build_doc or build_gir
     configuration: doxy_wp_conf_data
   )
 
-  doxyxml_wp_depfiles = [wp_lib_sources, wp_lib_headers]
+  doxyxml_wp_depfiles = [wp_lib_sources, wp_lib_parse_headers]
   doxyxml_wp = custom_target('doxyxml_wp',
     command: [doxygen_p, doxyfile_wp],
     depend_files: doxyxml_wp_depfiles,
@@ -123,7 +123,7 @@ if build_gir
         '@OUTDIR@/wp/xml',
     ],
     depends: [doxyxml_wp],
-    depend_files: doxyxml_wp_depfiles,
+    depend_files: [doxyxml_wp_depfiles, 'gen-api-gtkdoc.py'],
     output: 'wp-gtkdoc.h',
     build_by_default: true,
   )
@@ -131,7 +131,7 @@ if build_gir
   gnome.generate_gir(wp_lib,
     namespace: 'Wp',
     nsversion: wireplumber_api_version,
-    sources: [wpenums_c, wpenums_h, wp_gtkdoc_h],
+    sources: [wpenums_h, wp_lib_parse_headers, wp_gtkdoc_h],
     includes: ['GLib-2.0', 'GObject-2.0', 'Gio-2.0'],
     install: true,
   )

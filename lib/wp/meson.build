@@ -33,7 +33,7 @@ wp_lib_priv_sources = files(
   'private/pipewire-object-mixin.c',
 )
 
-wp_lib_headers = files(
+wp_lib_parse_headers = files(
   'client.h',
   'component-loader.h',
   'core.h',
@@ -62,6 +62,9 @@ wp_lib_headers = files(
   'spa-type.h',
   'state.h',
   'transition.h',
+)
+
+wp_lib_headers = wp_lib_parse_headers + files(
   'wp.h',
 )
 
@@ -70,7 +73,7 @@ install_headers(wp_lib_headers,
 )
 
 enums = gnome.mkenums_simple('wpenums',
-  sources: wp_lib_headers,
+  sources: wp_lib_parse_headers,
   header_prefix: '#include "wp/defs.h"',
   decorator: 'WP_API',
   install_header: true,

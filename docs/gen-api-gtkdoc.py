@@ -1,7 +1,8 @@
 #!/usr/bin/env python
-
 #
 #  Copyright 2015 The Geany contributors
+#  Copyright 2021 Collabora Ltd.
+#    @author George Kiagiadakis <george.kiagiadakis@collabora.com>
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -129,7 +130,7 @@ class DoxygenProcess(object):
     def __process_element(self, xml):
         s = ""
 
-        if xml.text:
+        if xml.text and re.search('\S', xml.text):
             s += xml.text
         for n in xml.getchildren():
             if n.tag == "emphasis":
@@ -141,7 +142,9 @@ class DoxygenProcess(object):
             if n.tag == "listitem":
                 s += " - " + self.__process_element(n)
             if n.tag == "para":
-                s += self.__process_element(n) + "\n"
+                p = self.__process_element(n)
+                if re.search('\S', p):
+                    s += p + "\n"
             if n.tag == "ref":
                 s += n.text if n.text else ""
             if n.tag == "simplesect":
@@ -165,7 +168,8 @@ class DoxygenProcess(object):
             if n.tag == "htmlonly":
                 s += ""
             if n.tail:
-                s += n.tail
+                if re.search('\S', n.tail):
+                  s += n.tail
             if n.tag.startswith("param"):
                 pass  # parameters are handled separately in DoxyFunction::from_memberdef()
         return s
@@ -328,10 +332,6 @@ def main(args):
     outfile = None
 
     parser = OptionParser(usage="usage: %prog [options] XML_DIR")
-    parser.add_option("--xmldir", metavar="DIRECTORY", help="Path to Doxygen-generated XML files",
-                      action="store", dest="xml_dir")
-    parser.add_option("-d", "--outdir", metavar="DIRECTORY", help="Path to Doxygen-generated XML files",
-                      action="store", dest="outdir", default=".")
     parser.add_option("-o", "--output", metavar="FILE", help="Write output to FILE",
                       action="store", dest="outfile")
     opts, args = parser.parse_args(args[1:])
@@ -342,36 +342,25 @@ def main(args):
         sys.stderr.write("invalid xml directory\n")
         return 1
 
+    symbols = []
     transform = etree.XSLT(etree.parse(os.path.join(xml_dir, "combine.xslt")))
     doc = etree.parse(os.path.join(xml_dir, "index.xml"))
     root = transform(doc)
-
-    other = []
-    enums = []
-    typedefs = []
-
-    c_files = root.xpath(".//compounddef[@kind='file']/compoundname[substring(.,string-length(.)-1)='.c']/..")
     h_files = root.xpath(".//compounddef[@kind='file']/compoundname[substring(.,string-length(.)-1)='.h']/..")
 
     for f in h_files:
-        if not (f.find("compoundname").text.endswith("private.h")):
-            for n0 in f.xpath(".//*/memberdef[@kind='typedef' and @prot='public']"):
-                if not (DoxygenProcess.stringify_children(n0.find("type")).startswith("enum")):
-                    e = DoxyTypedef.from_memberdef(n0)
-                    typedefs.append(e)
-
-        for n0 in f.xpath(".//*/memberdef[@kind='enum' and @prot='public']"):
+        for n0 in f.xpath(".//*/memberdef[@kind='enum']"):
             e = DoxyEnum.from_memberdef(n0)
-            enums.append(e)
+            symbols.append(e)
 
-    for n0 in root.xpath(".//compounddef[@kind='struct' and @prot='public']"):
+    for n0 in root.xpath(".//compounddef[@kind='struct']"):
         e = DoxyStruct.from_compounddef(n0)
-        other.append(e)
+        symbols.append(e)
 
-    for n0 in root.xpath(".//compounddef[@kind='struct' and @prot='public']"):
-        for n1 in n0.xpath(".//*/memberdef[@kind='function' and @prot='public']"):
+    for n0 in root.xpath(".//compounddef[@kind='group']"):
+        for n1 in n0.xpath(".//*/memberdef[@kind='function']"):
             e = DoxyFunction.from_memberdef(n1)
-            other.append(e)
+            symbols.append(e)
 
     if (opts.outfile):
         try:
@@ -385,26 +374,10 @@ def main(args):
     try:
         outfile.write("/*\n * Automatically generated file - do not edit\n */\n\n")
 
-        # write enums first, so typedefs to them are valid (as forward enum declaration
-        # is invalid).  It's fine as an enum can't contain reference to other types.
-        for e in filter(lambda x: x.is_documented(), enums):
-            outfile.write("\n\n")
+        for e in filter(lambda x: x.is_documented(), symbols):
+            outfile.write("\n")
             outfile.write(e.to_gtkdoc())
-            outfile.write(e.definition)
-            outfile.write("\n\n")
-
-        # write typedefs second, they are possibly undocumented but still required (even
-        # if they are documented, they must be written out without gtkdoc)
-        for e in typedefs:
-            outfile.write(e.definition)
-            outfile.write("\n\n")
-
-        # write the rest (structures, functions, ...)
-        for e in filter(lambda x: x.is_documented(), other):
-            outfile.write("\n\n")
-            outfile.write(e.to_gtkdoc())
-            outfile.write(e.definition)
-            outfile.write("\n\n")
+            outfile.write("\n")
 
     except BrokenPipeError:
         # probably piped to head or tail
