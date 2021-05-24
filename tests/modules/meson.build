@@ -48,12 +48,9 @@ test(
   env: common_env,
 )
 
-# disabled temporarily
-if false
 test(
   'test-si-standard-link',
   executable('test-si-standard-link', 'si-standard-link.c',
       dependencies: common_deps, c_args: common_args),
   env: common_env,
 )
-endif
