@@ -87,7 +87,6 @@ function createLink (si_ep, si_target)
     ["in.item"] = in_item,
     ["out.item.port.context"] = out_context,
     ["in.item.port.context"] = in_context,
-    ["manage.lifetime"] = false,
     ["passive"] = true,
     ["is.policy.endpoint.device.link"] = true,
   } then

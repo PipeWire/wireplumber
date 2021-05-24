@@ -22,7 +22,6 @@ struct _WpSiStandardLink
   GWeakRef in_item;
   const gchar *out_item_port_context;
   const gchar *in_item_port_context;
-  gboolean manage_lifetime;
   gboolean passive;
 
   /* activate */
@@ -46,52 +45,9 @@ si_standard_link_init (WpSiStandardLink * self)
 }
 
 static void
-on_item_features_changed (WpObject * item, GParamSpec * param,
-    WpSessionItem * link)
-{
-  guint features = wp_object_get_active_features (item);
-
-  /* item was deactivated; destroy the associated link */
-  if (!(features & WP_SESSION_ITEM_FEATURE_ACTIVE)) {
-    wp_trace_object (link, "destroying because item " WP_OBJECT_FORMAT
-        " was deactivated", WP_OBJECT_ARGS (item));
-    wp_session_item_reset (link);
-    g_object_unref (link);
-  }
-}
-
-static void
-on_link_features_changed (WpObject * link, GParamSpec * param, gpointer data)
-{
-  guint features = wp_object_get_active_features (link);
-
-  if (!(features & WP_SESSION_ITEM_FEATURE_EXPORTED)) {
-    wp_trace_object (link, "destroying because impl proxy was destroyed");
-    wp_session_item_reset (WP_SESSION_ITEM (link));
-    g_object_unref (link);
-  }
-}
-
-static void
 si_standard_link_reset (WpSessionItem * item)
 {
   WpSiStandardLink *self = WP_SI_STANDARD_LINK (item);
-
-  /* disconnect all signals */
-  if (self->manage_lifetime) {
-    g_autoptr (WpSessionItem) si_out = g_weak_ref_get (&self->out_item);
-    g_autoptr (WpSessionItem) si_in = g_weak_ref_get (&self->in_item);
-    if (si_out) {
-      g_signal_handlers_disconnect_by_func (si_out,
-          G_CALLBACK (on_item_features_changed), self);
-    }
-    if (si_in) {
-      g_signal_handlers_disconnect_by_func (si_in,
-          G_CALLBACK (on_item_features_changed), self);
-    }
-    g_signal_handlers_disconnect_by_func (self,
-        G_CALLBACK (on_link_features_changed), NULL);
-  }
 
   /* deactivate first */
   wp_object_deactivate (WP_OBJECT (self),
@@ -102,7 +58,6 @@ si_standard_link_reset (WpSessionItem * item)
   g_weak_ref_set (&self->in_item, NULL);
   self->out_item_port_context = NULL;
   self->in_item_port_context = NULL;
-  self->manage_lifetime = FALSE;
   self->passive = FALSE;
 
   WP_SESSION_ITEM_CLASS (si_standard_link_parent_class)->reset (item);
@@ -152,28 +107,12 @@ si_standard_link_configure (WpSessionItem * item, WpProperties * p)
   self->in_item_port_context = wp_properties_get (si_props,
       "in.item.port.context");
 
-  str = wp_properties_get (si_props, "manage.lifetime");
-  if (str && sscanf(str, "%u", &self->manage_lifetime) != 1)
-    return FALSE;
-  if (!str)
-    wp_properties_setf (si_props, "manage.lifetime", "%u",
-        self->manage_lifetime);
-
   str = wp_properties_get (si_props, "passive");
   if (str && sscanf(str, "%u", &self->passive) != 1)
     return FALSE;
   if (!str)
     wp_properties_setf (si_props, "passive", "%u",
         self->passive);
-
-  if (self->manage_lifetime) {
-    g_signal_connect_object (out_item, "notify::active-features",
-        G_CALLBACK (on_item_features_changed), self, 0);
-    g_signal_connect_object (in_item, "notify::active-features",
-        G_CALLBACK (on_item_features_changed), self, 0);
-    g_signal_connect (self, "notify::active-features",
-        G_CALLBACK (on_link_features_changed), NULL);
-  }
 
   g_weak_ref_set(&self->out_item, out_item);
   g_weak_ref_set(&self->in_item, in_item);

@@ -101,7 +101,6 @@ function createLink (si, si_target_ep)
     ["in.item"] = in_item,
     ["out.item.port.context"] = out_context,
     ["in.item.port.context"] = in_context,
-    ["manage.lifetime"] = false,
     ["is.policy.endpoint.client.link"] = true,
     ["media.role"] = si_target_ep.properties["role"],
     ["target.media.class"] = target_media_class,

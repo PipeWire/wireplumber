@@ -52,7 +52,6 @@ function createLink (si, si_target)
     ["in.item"] = in_item,
     ["out.item.port.context"] = out_context,
     ["in.item.port.context"] = in_context,
-    ["manage.lifetime"] = false,
     ["is.policy.item.link"] = true,
   } then
     Log.warning (si_link, "failed to configure si-standard-link")
