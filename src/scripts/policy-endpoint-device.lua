@@ -98,7 +98,7 @@ function createLink (si_ep, si_target)
   si_link:register ()
 
   -- activate
-  si_link:activate (Feature.SessionItem.ACTIVE)
+  si_link:activate (Feature.SessionItem.ACTIVE, pendingOperation())
 end
 
 function getSiLinkAndSiPeer (si_ep, target_media_class)
@@ -172,6 +172,28 @@ function reevaluateLinks ()
   end
 end
 
+pending_ops = 0
+pending_rescan = false
+
+function pendingOperation()
+  pending_ops = pending_ops + 1
+  return function()
+    pending_ops = pending_ops - 1
+    if pending_ops == 0 and pending_rescan then
+      pending_rescan = false
+      reevaluateLinks ()
+    end
+  end
+end
+
+function maybeReevaluateLinks ()
+  if pending_ops == 0 then
+    reevaluateLinks ()
+  else
+    pending_rescan = true
+  end
+end
+
 default_nodes = Plugin.find("default-nodes-api")
 siendpoints_om = ObjectManager { Interest { type = "SiEndpoint" }}
 silinkables_om = ObjectManager { Interest { type = "SiLinkable",
@@ -184,34 +206,18 @@ silinks_om = ObjectManager { Interest { type = "SiLink",
   -- only handle links created by this policy
   Constraint { "is.policy.endpoint.device.link", "=", true, type = "pw-global" },
 } }
-clientlinks_om = ObjectManager {
-  Interest {
-    type = "SiLink",
-    Constraint { "is.policy.endpoint.client.link", "=", true },
-  },
-}
 
 -- listen for default node changes if config.follow is enabled
 if config.follow then
   default_nodes:connect("changed", function (p)
-    reevaluateLinks ()
+    maybeReevaluateLinks ()
   end)
 end
 
--- start reevaluating endpoints when the first client link is created
-clientlinks_om:connect("object-added", function (om, l)
-  reevaluateLinks ()
-
-  -- stop listening to client links from now on
-  clientlinks_om = nil
-
-  -- only reevaluate endpoints when device nodes change from now on
-  silinkables_om:connect("objects-changed", function (om)
-    reevaluateLinks ()
-  end)
+silinkables_om:connect("objects-changed", function (om)
+  maybeReevaluateLinks ()
 end)
 
 siendpoints_om:activate()
 silinkables_om:activate()
 silinks_om:activate()
-clientlinks_om:activate()
