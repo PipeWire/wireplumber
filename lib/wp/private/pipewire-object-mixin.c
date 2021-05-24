@@ -123,7 +123,7 @@ enum_params_done (WpCore * core, GAsyncResult * res, gpointer data)
     return;
 
   /* remove the task from the stored list; ref is held by the g_autoptr */
-  d->enum_params_tasks = g_list_remove_link (d->enum_params_tasks, taskl);
+  d->enum_params_tasks = g_list_delete_link (d->enum_params_tasks, taskl);
 
   wp_debug_object (instance, "got %u params, %s, task " WP_OBJECT_FORMAT,
       params->len, error ? "with error" : "ok", WP_OBJECT_ARGS (task));
@@ -149,7 +149,7 @@ enum_params_error (WpProxy * proxy, int seq, int res, const gchar *msg,
 
     taskl = g_list_find (d->enum_params_tasks, task);
     if (taskl) {
-      d->enum_params_tasks = g_list_remove_link (d->enum_params_tasks, taskl);
+      d->enum_params_tasks = g_list_delete_link (d->enum_params_tasks, taskl);
       g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
           WP_LIBRARY_ERROR_OPERATION_FAILED, "%s", msg);
     }
@@ -432,7 +432,7 @@ wp_pw_object_mixin_store_param (WpPwObjectMixinData * data, guint32 id,
   }
   else if (s && (flags & WP_PW_OBJECT_MIXIN_STORE_PARAM_REMOVE)) {
     wp_pw_object_mixin_param_store_free (s);
-    data->params = g_list_remove_link (data->params, link);
+    data->params = g_list_delete_link (data->params, link);
     return;
   }
 
@@ -691,8 +691,9 @@ wp_pw_object_mixin_handle_pw_proxy_destroyed (WpProxy * proxy)
     GList *link;
     for (link = g_list_first (d->enum_params_tasks);
          link; link = g_list_first (d->enum_params_tasks)) {
-      d->enum_params_tasks = g_list_remove_link (d->enum_params_tasks, link);
-      g_task_return_new_error (G_TASK (link->data),
+      GTask *task = G_TASK (link->data);
+      d->enum_params_tasks = g_list_delete_link (d->enum_params_tasks, link);
+      g_task_return_new_error (task,
           WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
           "pipewire proxy destroyed before finishing");
     }
