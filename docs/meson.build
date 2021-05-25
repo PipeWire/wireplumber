@@ -52,28 +52,6 @@ endif
 # Build documentation
 
 if build_doc
-  doxy_lua_input = [
-    meson.source_root() / 'modules' / 'module-lua-scripting' / 'api.c',
-    meson.source_root() / 'modules' / 'module-lua-scripting' / 'pod.c',
-  ]
-
-  doxy_lua_conf_data = configuration_data()
-  doxy_lua_conf_data.set('OUTPUT_DIR', meson.current_build_dir() / 'lua')
-  doxy_lua_conf_data.set('INPUT', ' \\\n '.join(doxy_lua_input))
-  doxyfile_lua = configure_file(
-    input: 'Doxyfile.in',
-    output: 'Doxyfile-lua',
-    configuration: doxy_lua_conf_data
-  )
-
-  doxyxml_lua_depfiles = doxy_lua_input
-  doxyxml_lua = custom_target('doxyxml_lua',
-    command: [doxygen_p, doxyfile_lua],
-    depend_files: doxyxml_lua_depfiles,
-    output: 'lua',
-    build_by_default: true,
-  )
-
   sphinx_files = files(
     '_static'/'custom.css',
     meson.source_root()/'README.rst',
@@ -102,10 +80,9 @@ if build_doc
     ],
     depend_files: [
       sphinx_conf, sphinx_files,
-      doxyfile_wp, doxyfile_lua,
-      doxyxml_wp_depfiles, doxyxml_lua_depfiles,
+      doxyfile_wp, doxyxml_wp_depfiles,
     ],
-    depends: [doxyxml_wp, doxyxml_lua],
+    depends: [doxyxml_wp],
     output: 'html',
     install: true,
     install_dir: get_option('datadir') / 'doc' / 'wireplumber',

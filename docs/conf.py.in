@@ -18,13 +18,9 @@ extensions = [
 
 breathe_projects = {
   "WirePlumber": "@OUTDIR@/wp/xml",
-  "WirePlumber_Lua" : "@OUTDIR@/lua/xml",
 }
 breathe_default_project = "WirePlumber"
 
-breathe_default_members = ('members', 'protected-members', 'undoc-members')
-
-primary_domain = 'c'
 breathe_domain_by_extension = {
     "h" : "c",
     "c" : "c",
@@ -47,3 +43,5 @@ html_static_path = ['@SRCDIR@/_static']
 html_css_files = ['custom.css']
 
 graphviz_output_format = "svg"
+
+pygments_style = "friendly"
