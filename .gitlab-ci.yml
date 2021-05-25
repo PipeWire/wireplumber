@@ -19,7 +19,7 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2021-05-23.1'
+    FDO_DISTRIBUTION_TAG: '2021-05-25.1'
     FDO_DISTRIBUTION_VERSION: '34'
     # findutils: used by the .build script below
     # dbus-devel: required by pipewire
