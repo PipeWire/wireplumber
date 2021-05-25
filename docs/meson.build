@@ -106,6 +106,7 @@ if build_gir
   )
 
   gnome.generate_gir(wp_lib,
+    dependencies: wp_dep,
     namespace: 'Wp',
     nsversion: wireplumber_api_version,
     sources: [wpenums_h, wp_lib_parse_headers, wp_gtkdoc_h],
