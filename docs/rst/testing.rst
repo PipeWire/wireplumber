@@ -6,47 +6,55 @@ Testing
 Automated unit tests
 --------------------
 
-WirePlumber has automated tests that you can easily run with::
+WirePlumber has automated tests that you can easily run with:
 
-  $ meson test -C build
+.. code:: console
 
+   $ meson test -C build
 
 This will automatically compile all test dependencies, so you can be sure
 that this always tests your latest changes.
 
-If you wish to run a specific test instead of all of them, you can run::
+If you wish to run a specific test instead of all of them, you can run:
 
-  $ meson test -C build test-name
+.. code:: console
 
+   $ meson test -C build test-name
 
 When debugging a single test, you can additionally enable verbose test output
-by appending *-v* and you can also run the test in gdb by appending *--gdb*.
+by appending ``-v`` and you can also run the test in gdb by appending ``--gdb``.
 
-For more information on how to use *'meson test'*, please refer to
-`mesons manual <https://mesonbuild.com/Unit-tests.html>`_
+For more information on how to use ``meson test``, please refer to
+`meson's manual <https://mesonbuild.com/Unit-tests.html>`_
 
-* When submitting changes for review, always ensure that all tests pass
+.. important::
+
+   When submitting changes for review, always ensure that all tests pass
 
 Please note that many WirePlumber tests require specific SPA test plugins
 to be available in your PipeWire installation. More specifically, PipeWire
-needs to be configured with the following options enabled::
+needs to be configured with the following options enabled:
 
-  -Dvideotestsrc=true -Daudiotestsrc=true -Dtest=true
+.. code:: console
+
+   -Dvideotestsrc=true -Daudiotestsrc=true -Dtest=true
 
 If these SPA plugins are not found in the system, some tests will fail.
 This is expected.
 
 WirePlumber examples
-^^^^^^^^^^^^^^^^^^^^
+--------------------
 
-WirePlumber ships examples in *'test/examples'*.
-Execute them from the top-level directory like this::
+WirePlumber ships examples in ``test/examples``.
+Execute them from the top-level directory with ``wp-uninstalled.sh``:
 
-  $ WIREPLUMBER_MODULE_DIR=build/modules ./build/tests/examples/audiotestsrc-play
+.. code:: console
+
+   $ ./wp-uninstalled.sh ./build/tests/examples/audiotestsrc-play
 
 
-Assuming there is no other process actively using *'hw:0,0'* from alsa, the above
-example should play a test tone on *'hw:0,0'* without errors.
+Assuming there is no other process actively using ``hw:0,0`` from alsa,
+the above example should play a test tone on ``hw:0,0`` without errors.
 
 Native API clients
 ------------------
@@ -54,50 +62,60 @@ Native API clients
 pw-cat
 ^^^^^^
 
-Using the default endpoint::
+Using the default endpoint:
 
-  $ wpctl status  # verify the default endpoints
-  $ pw-record test.wav
-  $ pw-play test.wav
+.. code:: console
+
+   $ wpctl status  # verify the default endpoints
+   $ pw-record test.wav
+   $ pw-play test.wav
 
 
-Using a non-default endpoint::
+Using a non-default endpoint:
 
-  $ pw-record --list-targets  # find the node id
-  $ pw-record --target <node_id> test.wav
-  $ pw-play --list-targets  # find the node id
-  $ pw-play --target <node_id> test.wav
+.. code:: console
+
+   $ pw-record --list-targets  # find the node id
+   $ pw-record --target <node_id> test.wav
+   $ pw-play --list-targets  # find the node id
+   $ pw-play --target <node_id> test.wav
 
 or
 
-Use the commands::
+.. code:: console
 
-  $ wpctl status  # find the capture & playback endpoint ids
-  $ pw-record --target <endpoint_id> test.wav
-  $ pw-play --target <endpoint_id> test.wav
+   $ wpctl status  # find the capture & playback endpoint ids
+   $ pw-record --target <endpoint_id> test.wav
+   $ pw-play --target <endpoint_id> test.wav
 
+.. note::
 
-.. note:: node ids and endpoint ids can be used interchangeably when specifying
-  targets in all use cases.
+   node ids and endpoint ids can be used interchangeably when specifying
+   targets in all use cases
 
 video-play
 ^^^^^^^^^^
 
-Using the default endpoint::
+Using the default endpoint:
 
-  $ cd path/to/pipewire-source-dir
-  $ ./build/src/examples/video-play
+.. code:: console
 
-
-Using a non-default endpoint::
-
-  $ wpctl status  # find the endpoint id from the list
-  $ cd path/to/pipewire-source-dir
-  $ ./build/src/examples/video-play <endpoint_id>
+   $ cd path/to/pipewire-source-dir
+   $ ./build/src/examples/video-play
 
 
-.. note:: Tip: enable videotestsrc in wireplumber's configuration to have more video
-  sources available (see `videotestsrc.node.disabled` in the configuration directory)
+Using a non-default endpoint:
+
+.. code:: console
+
+   $ wpctl status  # find the endpoint id from the list
+   $ cd path/to/pipewire-source-dir
+   $ ./build/src/examples/video-play <endpoint_id>
+
+.. tip::
+
+   enable videotestsrc in wireplumber's configuration to have more video
+   sources available
 
 PulseAudio compat API clients
 -----------------------------
@@ -105,29 +123,25 @@ PulseAudio compat API clients
 pacat
 ^^^^^
 
-Using the default endpoint::
+Using the default endpoint:
 
-  $ wpctl status  # verify the default endpoints
-  $ pw-pulse parecord test.wav
-  $ pw-pulse paplay test.wav
+.. code:: console
 
-
-Using a non-default endpoint::
-
-  $ wpctl status  # find the capture & playback endpoint ids
-  $ PIPEWIRE_NODE=<endpoint_id> pw-pulse parecord test.wav
-  $ PIPEWIRE_NODE=<endpoint_id> pw-pulse paplay test.wav
-
+   $ wpctl status  # verify the default endpoints
+   $ parecord test.wav
+   $ paplay test.wav
 
 pavucontrol
 ^^^^^^^^^^^
 
-Use the command::
+Use the command:
 
-  $ pw-pulse pavucontrol
+.. code:: console
 
-  * Volume level meters should work
-  * Changing the volume should work
+  $ pavucontrol
+
+* Volume level meters should work
+* Changing the volume should work
 
 ALSA compat API clients
 -----------------------
@@ -135,33 +149,38 @@ ALSA compat API clients
 aplay / arecord
 ^^^^^^^^^^^^^^^
 
-.. note:: unless you have installed PipeWire in the default system prefix
-  (`/usr`), the ALSA compat API will not work, unless you copy
-  `libasound_module_pcm_pipewire.so` in the alsa plugins directory
-  (usually `/usr/<libdir>/alsa-lib/`) and that you add the contents of
-  `pipewire-alsa/conf/50-pipewire.conf` in your `~/.asoundrc`
-  (or anywhere else, system-wide, where libasound can read it)
+.. note::
 
-Using the default endpoint::
+   unless you have installed PipeWire in the default system prefix
+   (``/usr``), the ALSA compat API will not work, unless you copy
+   ``libasound_module_pcm_pipewire.so`` in the alsa plugins directory
+   (usually ``/usr/<libdir>/alsa-lib/``) and that you add the contents of
+   ``pipewire-alsa/conf/50-pipewire.conf`` in your ``~/.asoundrc``
+   (or anywhere else, system-wide, where libasound can read it)
 
-  $ wpctl status  # verify the default endpoints
-  $ arecord -D pipewire -f S16_LE -r 48000 test.wav
-  $ aplay -D pipewire test.wav
+Using the default endpoint:
 
+.. code:: console
 
-Using a non-default endpoint::
+   $ wpctl status  # verify the default endpoints
+   $ arecord -D pipewire -f S16_LE -r 48000 test.wav
+   $ aplay -D pipewire test.wav
 
-  $ wpctl status  # find the capture & playback endpoint ids
-  $ PIPEWIRE_NODE=<endpoint_id> arecord -D pipewire -f S16_LE -r 48000 test.wav
-  $ PIPEWIRE_NODE=<endpoint_id> aplay -D pipewire test.wav
+Using a non-default endpoint:
+
+.. code:: console
+
+   $ wpctl status  # find the capture & playback endpoint ids
+   $ PIPEWIRE_NODE=<endpoint_id> arecord -D pipewire -f S16_LE -r 48000 test.wav
+   $ PIPEWIRE_NODE=<endpoint_id> aplay -D pipewire test.wav
 
 or
 
-Use the commands::
+.. code:: console
 
-  $ wpctl status  # find the capture & playback endpoint ids
-  $ arecord -D pipewire:NODE=<endpoint_id> -f S16_LE -r 48000 test.wav
-  $ aplay -D pipewire:NODE=<endpoint_id> test.wav
+   $ wpctl status  # find the capture & playback endpoint ids
+   $ arecord -D pipewire:NODE=<endpoint_id> -f S16_LE -r 48000 test.wav
+   $ aplay -D pipewire:NODE=<endpoint_id> test.wav
 
 
 JACK compat API clients
@@ -170,26 +189,27 @@ JACK compat API clients
 qjackctl
 ^^^^^^^^
 
-Use the commands::
+.. code:: console
 
-  pw-jack qjackctl
+   $ pw-jack qjackctl
 
-  * This should correctly connect.
-  * The "Graph" window should show the PipeWire graph.
+* This should correctly connect.
+* The "Graph" window should show the PipeWire graph.
 
 jack_simple_client
 ^^^^^^^^^^^^^^^^^^
 
-Use the commands::
+.. code:: console
 
-  $ wpctl status  # find the target endpoint id
-  $ wpctl inspect <endpoint_id>  # find the node.id
-  $ PIPEWIRE_NODE=<node_id> pw-jack jack_simple_client
+   $ wpctl status  # find the target endpoint id
+   $ wpctl inspect <endpoint_id>  # find the node.id
+   $ PIPEWIRE_NODE=<node_id> pw-jack jack_simple_client
 
+.. note::
 
-.. note:: The JACK layer is not controlled by the session manager, it creates its own
-  links; which is why it is required to specify a node id (endpoint id will not
-  work)
+   The JACK layer is not controlled by the session manager, it creates its own
+   links; which is why it is required to specify a node id (endpoint id will not
+   work)
 
 Device Reservation
 ------------------
@@ -199,18 +219,26 @@ with PulseAudio
 
 1. With PulseAudio running, start a pulseaudio client.
 
-Use the command::
+.. code:: console
 
-  $ gst-launch-1.0 audiotestsrc ! pulsesink
+   $ gst-launch-1.0 audiotestsrc ! pulsesink
 
 2. Start PipeWire & WirePlumber
+
    - The device in use by PA will not be available in PW
+
 3. Stop the PA client
+
    - A few seconds later, WirePlumber should assume control of the device
-4. *'wpctl status'* should be able to confirm that the device is available
+
+4. ``wpctl status`` should be able to confirm that the device is available
+
 5. Start a PA client again
+
    - It should not be able to play; it will just freeze
+
 6. Stop WirePlumber
+
    - The PA client should immediately start playing
 
 with JACK
@@ -218,33 +246,40 @@ with JACK
 
 1. Start PipeWire & WirePlumber
 
-   * All devices should be available
+   - All devices should be available
 
-2. Start *'jackdbus'*
+2. Start ``jackdbus``
 
-  1. through *'qjackctl'*:
+   1. through ``qjackctl``:
 
-    * Enable *'Setup'* -> *'Misc'* -> *'Enable JACK D-Bus interface'*
+      - Enable *Setup* -> *Misc* -> *Enable JACK D-Bus interface*
+      - Click *Start* on the main window
 
-    * Click *'Start'* on the main window
+   2. or manually:
 
-  2. or manually:
+      - Run ``jackdbus auto``
+      - Run ``qdbus org.jackaudio.service /org/jackaudio/Controller org.jackaudio.JackControl.StartServer``
 
-    * Run *'jackdbus auto'*
+3. Wait a few seconds and run ``wpctl status`` to inspect
 
-    * Run *'qdbus org.jackaudio.service /org/jackaudio/Controller org.jackaudio.JackControl.StartServer'*
-
-3. Wait a few seconds and run *'wpctl status'* to inspect
    - The devices taken by JACK should no longer be available
-   - There should be two *'JACK System'* endpoints (sink & source)
-4. Run an audio client on PipeWire (ex *'pw-play test.wav'*)
-   - Notice how audio now goes through JACK
-5. Stop JACK
-   - through *'qjackctl'*, click *'Stop'*
-   - or manually: *'qdbus org.jackaudio.service /org/jackaudio/Controller org.jackaudio.JackControl.StopServer'*
-6. Wait a few seconds and run *'wpctl status'* to inspect
-   - The devices that were release by JACK should again be available
-   - There should be no *'JACK System'* endpoint
+   - There should be two *JACK System* endpoints (sink & source)
 
-.. note:: You may also start WirePlumber *after* starting JACK. It should immediately
-  go to the state described in step 3
+4. Run an audio client on PipeWire (ex ``pw-play test.wav``)
+
+   - Notice how audio now goes through JACK
+
+5. Stop JACK
+
+   - through ``qjackctl``, click *Stop*
+   - or manually: ``qdbus org.jackaudio.service /org/jackaudio/Controller org.jackaudio.JackControl.StopServer``
+
+6. Wait a few seconds and run ``wpctl status`` to inspect
+
+   - The devices that were release by JACK should again be available
+   - There should be no *JACK System* endpoint
+
+.. note::
+
+   You may also start WirePlumber *after* starting JACK. It should immediately
+   go to the state described in step 3

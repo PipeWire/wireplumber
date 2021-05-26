@@ -35,14 +35,14 @@ WirePlumber uses the `meson build system <https://mesonbuild.com/>`_
 To configure the project, you need to first run `meson`.
 The basic syntax is shown below:
 
-.. code:: bash
+.. code:: console
 
    meson [--prefix=/path] [...options...] [build directory] [source directory]
 
 Assuming you want to build in a directory called 'build' inside the source
 tree, you can run:
 
-.. code:: bash
+.. code:: console
 
    $ meson setup --prefix=/usr build
    $ meson compile -C build
@@ -110,12 +110,12 @@ Installation
 
 To install, simply run the **install** target with ninja:
 
-.. code:: bash
+.. code:: console
 
    $ ninja -C build install
 
 To revert the installation, there is also an **uninstall** target:
 
-.. code:: bash
+.. code:: console
 
    $ ninja -C build uninstall

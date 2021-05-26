@@ -24,6 +24,6 @@ Table of Contents
    :caption: Resources
 
    contributing.rst
-   community.rst
    testing.rst
+   community.rst
    releases.rst
