@@ -1,5 +1,36 @@
-WirePlumber 0.3.95
+WirePlumber 0.3.96
 ~~~~~~~~~~~~~~~~~~
+
+Second pre-release (RC2) of WirePlumber 0.4.0.
+
+Highlights:
+
+  - The policy now configures streams for channel upmixing/downmixing
+
+  - Some issues in the policy have been fixed, related to:
+
+    - plugging a new higher priority device while audio is playing
+    - pavucontrol creating links to other stream nodes for level monitoring
+    - some race condition that could happen at startup
+
+  - Proxy object errors are now handled; this fixes memory leaks of invalid
+    links and generally makes things more robust
+
+  - The systemd service units now conflict with pipewire-media-session.service
+
+  - Session & EndpointLink objects have been removed from the API; these were
+    not in use after recent refactoring, so they have been removed in order to
+    avoid carrying them in the ABI
+
+  - The documentation system has switched to use *Doxygen* & *Sphinx*; some
+    documentation has also been updated and some Lua API documentation has
+    been introduced
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.3.95
+..................
 
 First pre-release (RC1) of WirePlumber 0.4.0.
 
@@ -30,9 +61,6 @@ Highlights:
   - Systemd unit files have been added and are the recommended way to run
     wireplumber. Templated unit files are also available, which allow running
     multiple instances of wireplumber with a specific configuration each.
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.3.0
 .................
