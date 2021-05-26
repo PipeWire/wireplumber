@@ -8,6 +8,7 @@ sphinx_files += files(
   'contributing.rst',
   'community.rst',
   'testing.rst',
+  'releases.rst',
   'c_api.rst',
   'lua_api.rst',
 )

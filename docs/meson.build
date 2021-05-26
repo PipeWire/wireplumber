@@ -55,6 +55,7 @@ if build_doc
   sphinx_files = files(
     '_static'/'custom.css',
     meson.source_root()/'README.rst',
+    meson.source_root()/'NEWS.rst',
   )
   subdir('rst')
 

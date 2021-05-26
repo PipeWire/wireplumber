@@ -26,3 +26,4 @@ Table of Contents
    contributing.rst
    community.rst
    testing.rst
+   releases.rst
