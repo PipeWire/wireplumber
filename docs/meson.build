@@ -106,8 +106,25 @@ if build_gir
     build_by_default: true,
   )
 
+  # A dummy library dependency to force meson to make the gir target
+  # depend on wp-gtkdoc.h, because generate_gir() doesn't add dependencies
+  # on its sources (meson bug)
+  dummy_c = custom_target('dummy_c',
+    command: ['echo', 'int dummy(void) { return 0; }'],
+    capture: true,
+    output: 'dummy.c',
+    build_by_default: true,
+  )
+  libdummy = library('dummy',
+    wp_gtkdoc_h, dummy_c,
+    install: false,
+    soversion: '0',
+    version: '0.0.0',
+  )
+  dummy_dep = declare_dependency(link_with: libdummy)
+
   gnome.generate_gir(wp_lib,
-    dependencies: wp_dep,
+    dependencies: [wp_dep, dummy_dep],
     namespace: 'Wp',
     nsversion: wireplumber_api_version,
     sources: [wpenums_h, wp_lib_parse_headers, wp_gtkdoc_h],
