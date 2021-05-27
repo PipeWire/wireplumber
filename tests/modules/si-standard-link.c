@@ -17,41 +17,56 @@ typedef struct {
 } TestFixture;
 
 static WpSessionItem *
-load_endpoint (TestFixture * f, const gchar * factory, const gchar * media_class)
+load_node (TestFixture * f, const gchar * factory, const gchar * media_class)
 {
-  g_autoptr (WpSessionItem) endpoint = NULL;
+  g_autoptr (WpNode) node = NULL;
+  g_autoptr (WpSessionItem) adapter = NULL;
 
-  /* create endpoint */
+  /* create audiotestsrc adapter node */
+  node = wp_node_new_from_factory (f->base.core,
+      "adapter",
+      wp_properties_new (
+          "factory.name", factory,
+          "node.name", factory,
+          "media.class", media_class,
+          "audio.channels", "2",
+          "audio.position", "[ FL, FR ]",
+          NULL));
+  g_assert_nonnull (node);
+  wp_object_activate (WP_OBJECT (node), WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
+      NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
+  g_main_loop_run (f->base.loop);
 
-  endpoint = wp_session_item_make (f->base.core, "si-audio-endpoint");
-  g_assert_nonnull (endpoint);
-  g_assert_true (WP_IS_SI_ENDPOINT (endpoint));
+  /* create adapter */
+  adapter = wp_session_item_make (f->base.core, "si-audio-adapter");
+  g_assert_nonnull (adapter);
+  g_assert_true (WP_IS_SI_LINKABLE (adapter));
 
-  /* configure endpoint */
+  /* configure */
   {
     WpProperties *props = wp_properties_new_empty ();
-    wp_properties_set (props, "name", factory);
+    wp_properties_setf (props, "node", "%p", node);
     wp_properties_set (props, "media.class", media_class);
-    g_assert_true (wp_session_item_configure (endpoint, props));
-    g_assert_true (wp_session_item_is_configured (endpoint));
+    g_assert_true (wp_session_item_configure (adapter, props));
+    g_assert_true (wp_session_item_is_configured (adapter));
   }
 
-  /* activate and export endpoint */
+  /* activate adapter */
 
-  wp_object_activate (WP_OBJECT (endpoint),
-      WP_SESSION_ITEM_FEATURE_ACTIVE | WP_SESSION_ITEM_FEATURE_EXPORTED,
+  wp_object_activate (WP_OBJECT (adapter),
+      WP_SESSION_ITEM_FEATURE_ACTIVE,
       NULL,  (GAsyncReadyCallback) test_object_activate_finish_cb, f);
   g_main_loop_run (f->base.loop);
-  g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (endpoint)), ==,
-      WP_SESSION_ITEM_FEATURE_ACTIVE | WP_SESSION_ITEM_FEATURE_EXPORTED);
+  g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (adapter)), ==,
+      WP_SESSION_ITEM_FEATURE_ACTIVE);
 
-  return g_steal_pointer (&endpoint);
+  return g_steal_pointer (&adapter);
 }
 
 static void
 test_si_standard_link_setup (TestFixture * f, gconstpointer user_data)
 {
-  wp_base_test_fixture_setup (&f->base, WP_BASE_TEST_FLAG_CLIENT_CORE);
+  wp_base_test_fixture_setup (&f->base, 0);
 
   /* load modules */
   {
@@ -63,14 +78,14 @@ test_si_standard_link_setup (TestFixture * f, gconstpointer user_data)
     g_assert_cmpint (pw_context_add_spa_lib (f->base.server.context,
             "audiotestsrc", "audiotestsrc/libspa-audiotestsrc"), ==, 0);
     g_assert_nonnull (pw_context_load_module (f->base.server.context,
-            "libpipewire-module-spa-node-factory", NULL, NULL));
+            "libpipewire-module-adapter", NULL, NULL));
     g_assert_nonnull (pw_context_load_module (f->base.server.context,
             "libpipewire-module-link-factory", NULL, NULL));
   }
   {
     g_autoptr (GError) error = NULL;
     wp_core_load_component (f->base.core,
-        "libwireplumber-module-si-audio-endpoint", "module", NULL, &error);
+        "libwireplumber-module-si-audio-adapter", "module", NULL, &error);
     g_assert_no_error (error);
 
     wp_core_load_component (f->base.core,
@@ -78,8 +93,8 @@ test_si_standard_link_setup (TestFixture * f, gconstpointer user_data)
     g_assert_no_error (error);
   }
 
-  f->src_item = load_endpoint (f, "audiotestsrc", "Audio/Source");
-  f->sink_item = load_endpoint (f, "fakesink", "Audio/Sink");
+  f->src_item = load_node (f, "audiotestsrc", "Stream/Output/Audio");
+  f->sink_item = load_node (f, "support.null-audio-sink", "Audio/Sink");
 }
 
 static void
@@ -103,15 +118,6 @@ test_si_standard_link_teardown (TestFixture * f, gconstpointer user_data)
 }
 
 static void
-on_object_activated (WpObject *o, GAsyncResult *res, TestFixture * f)
-{
-  g_autoptr (GError) error = NULL;
-  g_assert_true (wp_object_activate_finish (o, res, &error));
-  g_assert_null (error);
-  g_main_loop_quit (f->base.loop);
-}
-
-static void
 test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
 {
   g_autoptr (WpSessionItem) link = NULL;
@@ -130,7 +136,9 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
 
   /* activate */
   wp_object_activate (WP_OBJECT (link), WP_SESSION_ITEM_FEATURE_ACTIVE,
-      NULL, (GAsyncReadyCallback) on_object_activated, f);
+      NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
+  g_main_loop_run (f->base.loop);
+  wp_core_sync (f->base.core, NULL, (GAsyncReadyCallback) on_core_sync_done, f);
   g_main_loop_run (f->base.loop);
 
   /* verify the graph state */
@@ -147,16 +155,16 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
     wp_object_manager_add_interest (om, WP_TYPE_LINK, NULL);
     wp_object_manager_request_object_features (om, WP_TYPE_PROXY,
         WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
-    test_ensure_object_manager_is_installed (om, f->base.client_core,
+    test_ensure_object_manager_is_installed (om, f->base.core,
         f->base.loop);
 
     g_assert_nonnull (out_node = wp_object_manager_lookup (om, WP_TYPE_NODE,
-        WP_CONSTRAINT_TYPE_PW_PROPERTY, "node.name", "=s", "control.audiotestsrc",
+        WP_CONSTRAINT_TYPE_PW_PROPERTY, "node.name", "=s", "audiotestsrc",
         NULL));
     g_assert_nonnull (in_node = wp_object_manager_lookup (om, WP_TYPE_NODE,
-        WP_CONSTRAINT_TYPE_PW_PROPERTY, "node.name", "=s", "control.fakesink",
+        WP_CONSTRAINT_TYPE_PW_PROPERTY, "node.name", "=s", "support.null-audio-sink",
         NULL));
-    g_assert_cmpuint (wp_object_manager_get_n_objects (om), ==, 12);
+    g_assert_cmpuint (wp_object_manager_get_n_objects (om), ==, 8);
 
     it = wp_object_manager_new_filtered_iterator (om, WP_TYPE_LINK, NULL);
     for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
@@ -200,14 +208,14 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
     wp_object_manager_add_interest (om, WP_TYPE_LINK, NULL);
     wp_object_manager_request_object_features (om, WP_TYPE_PROXY,
         WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
-    test_ensure_object_manager_is_installed (om, f->base.client_core,
+    test_ensure_object_manager_is_installed (om, f->base.core,
         f->base.loop);
 
     g_assert_nonnull (out_node = wp_object_manager_lookup (om, WP_TYPE_NODE,
-        WP_CONSTRAINT_TYPE_PW_PROPERTY, "node.name", "=s", "control.audiotestsrc",
+        WP_CONSTRAINT_TYPE_PW_PROPERTY, "node.name", "=s", "audiotestsrc",
         NULL));
     g_assert_nonnull (in_node = wp_object_manager_lookup (om, WP_TYPE_NODE,
-        WP_CONSTRAINT_TYPE_PW_PROPERTY, "node.name", "=s", "control.fakesink",
+        WP_CONSTRAINT_TYPE_PW_PROPERTY, "node.name", "=s", "support.null-audio-sink",
         NULL));
     g_assert_nonnull (out_port = wp_object_manager_lookup (om, WP_TYPE_PORT,
         WP_CONSTRAINT_TYPE_PW_PROPERTY, "port.direction", "=s", "out",
@@ -216,7 +224,7 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
         WP_CONSTRAINT_TYPE_PW_PROPERTY, "port.direction", "=s", "in",
         NULL));
     g_assert_null (link = wp_object_manager_lookup (om, WP_TYPE_LINK, NULL));
-    g_assert_cmpuint (wp_object_manager_get_n_objects (om), ==, 10);
+    g_assert_cmpuint (wp_object_manager_get_n_objects (om), ==, 6);
   }
 }
 
