@@ -283,7 +283,7 @@ create_links (WpSiStandardLink * self, WpTransition * transition,
     }
   }
   g_variant_iter_free (iter);
-  return self->node_links > 0;
+  return self->node_links->len > 0;
 }
 
 static void
