@@ -7,8 +7,10 @@ Lua API Documentation
    :maxdepth: 1
    :caption: Contents:
 
+   lua_api/lua_introduction.rst
    lua_api/lua_gobject.rst
    lua_api/lua_core_api.rst
+   lua_api/lua_log_api.rst
    lua_api/lua_object_api.rst
    lua_api/lua_object_manager_api.rst
    lua_api/lua_object_interest_api.rst
