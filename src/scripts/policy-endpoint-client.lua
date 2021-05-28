@@ -137,7 +137,7 @@ function isSiLinkableValid (si)
 
   -- only handle stream session items
   local media_class = node.properties["media.class"]
-  if not string.find (media_class, "Stream") then
+  if not media_class or not string.find (media_class, "Stream") then
     return false
   end
 
