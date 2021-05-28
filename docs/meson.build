@@ -109,6 +109,7 @@ if build_gir
   # A dummy library dependency to force meson to make the gir target
   # depend on wp-gtkdoc.h, because generate_gir() doesn't add dependencies
   # on its sources (meson bug)
+  # fixed in 0.59 by https://github.com/mesonbuild/meson/pull/8805
   dummy_c = custom_target('dummy_c',
     command: ['echo', 'int dummy(void) { return 0; }'],
     capture: true,
