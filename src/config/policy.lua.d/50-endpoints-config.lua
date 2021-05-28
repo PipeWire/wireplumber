@@ -1,3 +1,8 @@
+-- uncomment to enable role-based endpoints
+-- this is not yet ready for desktop use
+--
+--[[
+
 default_policy.policy.roles = {
   ["Multimedia"] = {
     ["alias"] = { "Movie", "Music", "Game" },
@@ -30,3 +35,5 @@ default_policy.endpoints = {
     ["role"] = "Alert",
   },
 }
+
+]]--
