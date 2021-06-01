@@ -424,6 +424,8 @@ wp_core_class_init (WpCoreClass * klass)
 }
 
 /*!
+ * \brief Creates a new core object
+ *
  * \ingroup wpcore
  * \param context (transfer none) (nullable): the GMainContext to use for events
  * \param properties (transfer full) (nullable): additional properties, which are
@@ -459,6 +461,8 @@ wp_core_clone (WpCore * self)
 }
 
 /*!
+ * \brief Gets the GMainContext of the core
+ *
  * \ingroup wpcore
  * \param self the core
  * \returns (transfer none) (nullable): the GMainContext that is in
@@ -472,6 +476,8 @@ wp_core_get_g_main_context (WpCore * self)
 }
 
 /*!
+ * \brief Gets the internal PipeWire context of the core
+ *
  * \ingroup wpcore
  * \param self the core
  * \returns (transfer none): the internal pw_context object
@@ -484,6 +490,8 @@ wp_core_get_pw_context (WpCore * self)
 }
 
 /*!
+ * \brief Gets the internal PipeWire core of the core
+ *
  * \ingroup wpcore
  * \param self the core
  * \returns (transfer none) (nullable): the internal pw_core object,
@@ -556,6 +564,8 @@ wp_core_disconnect (WpCore *self)
 }
 
 /*!
+ * \brief Checks if the core is connected to PipeWire
+ *
  * \ingroup wpcore
  * \param self the core
  * \returns TRUE if the core is connected to PipeWire, FALSE otherwise
@@ -568,6 +578,8 @@ wp_core_is_connected (WpCore * self)
 }
 
 /*!
+ * \brief Gets the cookie of the core's connected PipeWire instance
+ *
  * \ingroup wpcore
  * \param self the core
  * \returns The cookie of the PipeWire instance that \a self is connected to.
@@ -584,6 +596,7 @@ wp_core_get_remote_cookie (WpCore * self)
 }
 
 /*!
+ * \brief Gets the name of the core's connected PipeWire instance
  * \ingroup wpcore
  * \param self the core
  * \returns The name of the PipeWire instance that \a self is connected to
@@ -598,6 +611,7 @@ wp_core_get_remote_name (WpCore * self)
 }
 
 /*!
+ * \brief Gets the user name of the core's connected PipeWire instance
  * \ingroup wpcore
  * \param self the core
  * \returns The name of the user that started the PipeWire instance that
@@ -613,6 +627,7 @@ wp_core_get_remote_user_name (WpCore * self)
 }
 
 /*!
+ * \brief Gets the host name of the core's connected PipeWire instance
  * \ingroup wpcore
  * \param self the core
  * \returns The name of the host where the PipeWire instance that
@@ -628,6 +643,7 @@ wp_core_get_remote_host_name (WpCore * self)
 }
 
 /*!
+ * \brief Gets the version of the core's connected PipeWire instance
  * \ingroup wpcore
  * \param self the core
  * \returns The version of the PipeWire instance that \a self is connected to
@@ -642,6 +658,7 @@ wp_core_get_remote_version (WpCore * self)
 }
 
 /*!
+ * \brief Gets the properties of the core's connected PipeWire instance
  * \ingroup wpcore
  * \param self the core
  * \returns (transfer full): the properties of the PipeWire instance that
@@ -657,6 +674,7 @@ wp_core_get_remote_properties (WpCore * self)
 }
 
 /*!
+ * \brief Gets the properties of the core
  * \ingroup wpcore
  * \param self the core
  * \returns (transfer full): the properties of \a self

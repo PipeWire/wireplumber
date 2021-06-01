@@ -93,6 +93,7 @@ wp_iterator_new (const WpIteratorMethods *methods, size_t user_size)
 }
 
 /*!
+ * \brief Gets the implementation-specific storage of an iterator
  * \note this only for use by implementations of WpIterator
  *
  * \protected
@@ -107,6 +108,7 @@ wp_iterator_get_user_data (WpIterator *self)
 }
 
 /*!
+ * \brief Increases the reference count of an iterator
  * \ingroup wpiterator
  * \param self an iterator object
  * \returns (transfer full): \a self with an additional reference count on it
@@ -281,8 +283,10 @@ static const WpIteratorMethods ptr_array_iterator_methods = {
 };
 
 /*!
+ * \brief Creates an iterator from a pointer array
+ *
  * \ingroup wpiterator
- * \param items (element-type utf8) (transfer full): the items to iterate over
+ * \param items (element-type gpointer) (transfer full): the items to iterate over
  * \param item_type the type of each item
  * \returns (transfer full): a new iterator that iterates over \a items
  */

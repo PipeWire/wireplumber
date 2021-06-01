@@ -228,6 +228,8 @@ wp_pipewire_object_enum_params (WpPipewireObject * self, const gchar * id,
 }
 
 /*!
+ * \brief Finishes an asynchronous parameter enumeration operation.
+ *
  * \ingroup wppipewireobject
  * \param self the pipewire object
  * \param res the async result

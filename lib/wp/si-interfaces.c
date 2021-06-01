@@ -74,6 +74,8 @@ wp_si_endpoint_get_registration_info (WpSiEndpoint * self)
 }
 
 /*!
+ * \brief Gets the properties of the endpoint
+ *
  * \ingroup wpsiinterfaces
  * \param self the session item
  * \returns (transfer full) (nullable): the properties of the endpoint
@@ -100,6 +102,8 @@ wp_si_adapter_default_init (WpSiAdapterInterface * iface)
 }
 
 /**
+ * \brief Gets the format used to configure the adapter session item's ports
+ *
  * \ingroup wpsiinterfaces
  * \param self the session item
  * \param mode (out) (nullable): the mode
@@ -241,6 +245,8 @@ wp_si_linkable_get_ports (WpSiLinkable * self, const gchar * context)
 }
 
 /*!
+ * \brief Gets the acquisition interface associated with the item
+ *
  * \ingroup wpsiinterfaces
  * \param self the session item
  *
@@ -315,6 +321,8 @@ wp_si_link_get_registration_info (WpSiLink * self)
 }
 
 /*!
+ * \brief Gets the properties of the link
+ *
  * \ingroup wpsiinterfaces
  * \param self the session item
  * \returns (transfer full) (nullable): the properties of the link
@@ -329,6 +337,8 @@ wp_si_link_get_properties (WpSiLink * self)
 }
 
 /*!
+ * \brief Gets the output item linked by the link
+ *
  * \ingroup wpsiinterfaces
  * \param self the session item
  * \returns (transfer none): the output item that is linked by this link
@@ -343,6 +353,8 @@ wp_si_link_get_out_item (WpSiLink * self)
 }
 
 /*!
+ * \brief Gets the input item linked by the link
+ *
  * \ingroup wpsiinterfaces
  * \param self the session item
  * \returns (transfer none): the input item that is linked by this link

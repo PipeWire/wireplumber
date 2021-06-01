@@ -192,6 +192,8 @@ find_plugin_func (gpointer plugin, gpointer name_quark)
 }
 
 /*!
+ * \brief Looks up a plugin.
+ *
  * \ingroup wpplugin
  * \param core the core
  * \param plugin_name the lookup name
@@ -211,6 +213,8 @@ wp_plugin_find (WpCore * core, const gchar * plugin_name)
 }
 
 /*!
+ * \brief Retreives the name of a plugin.
+ *
  * \ingroup wpplugin
  * \param self the plugin
  * \returns the name of this plugin

@@ -245,6 +245,7 @@ wp_object_interest_add_constraint (WpObjectInterest * self,
 }
 
 /*!
+ * \brief Creates a deep copy of an object interest
  * \ingroup wpobjectinterest
  * \param self the object interest to copy
  * \returns (transfer full): a deep copy of \a self
@@ -276,6 +277,7 @@ wp_object_interest_copy (WpObjectInterest * self)
 }
 
 /*!
+ * \brief Increases the reference count of an object interest
  * \ingroup wpobjectinterest
  * \param self the object interest to ref
  * \returns (transfer full): \a self with an additional reference count on it

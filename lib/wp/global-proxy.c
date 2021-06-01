@@ -327,6 +327,7 @@ wp_global_proxy_request_destroy (WpGlobalProxy * self)
 }
 
 /*!
+ * \brief Gets the permissions of a pipewire global
  * \ingroup wpglobalproxy
  * \param self the pipewire global
  * \returns the permissions that wireplumber has on this object
@@ -343,6 +344,7 @@ wp_global_proxy_get_permissions (WpGlobalProxy * self)
 }
 
 /*!
+ * \brief Gets the global properties of a pipewire global
  * \ingroup wpglobalproxy
  * \param self the pipewire global
  * \returns (transfer full): the global (immutable) properties of this

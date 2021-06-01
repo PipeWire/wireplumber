@@ -695,6 +695,7 @@ wp_impl_metadata_class_init (WpImplMetadataClass * klass)
 }
 
 /*!
+ * \brief Creates a new metadata implementation
  * \ingroup wpmetadata
  * \param core the core
  * \returns (transfer full): a new WpImplMetadata

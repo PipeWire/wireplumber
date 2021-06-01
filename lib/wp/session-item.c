@@ -255,6 +255,8 @@ wp_session_item_reset (WpSessionItem * self)
 }
 
 /*!
+ * \brief Configures the session item with a set of properties
+ *
  * \ingroup wpsessionitem
  * \param self the session item
  * \param props (transfer full): the properties used to configure the item
@@ -271,6 +273,8 @@ wp_session_item_configure (WpSessionItem * self, WpProperties * props)
 }
 
 /*!
+ * \brief Checks if the session item is configured
+ *
  * \ingroup wpsessionitem
  * \param self the session item
  * \returns TRUE if the item is configured, FALSE otherwise
@@ -314,6 +318,8 @@ wp_session_item_get_associated_proxy (WpSessionItem * self, GType proxy_type)
 }
 
 /*!
+ * \brief Gets the bound id of a proxy associated with the session item
+ *
  * \ingroup wpsessionitem
  * \param self the session item
  * \param proxy_type a WpProxy subclass GType
@@ -366,6 +372,8 @@ wp_session_item_remove (WpSessionItem * self)
 }
 
 /*!
+ * \brief Gets the properties of a session item.
+ *
  * \ingroup wpsessionitem
  * \param self the session item
  * \returns (transfer full): the item's properties.
@@ -382,6 +390,8 @@ wp_session_item_get_properties (WpSessionItem * self)
 }
 
 /*!
+ * \brief Looks up a named session item property value for a given key.
+ *
  * \ingroup wpsessionitem
  * \param self the session item
  * \param key the property key

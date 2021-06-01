@@ -103,6 +103,7 @@ wp_feature_activation_transition_class_init (
 }
 
 /*!
+ * \brief Gets the features requested to be activated in this transition.
  * \ingroup wpfeatureactivationtransition
  * \param self the transition
  * \returns the features that were requested to be activated in this transition;
@@ -266,6 +267,8 @@ wp_object_class_init (WpObjectClass * klass)
 }
 
 /*!
+ * \brief Gets the core associated with this object.
+ *
  * \ingroup wpobject
  * \param self the object
  * \returns (transfer full): the core associated with this object
@@ -280,6 +283,7 @@ wp_object_get_core (WpObject * self)
 }
 
 /*!
+ * \brief Gets the active features of this object.
  * \ingroup wpobject
  * \param self the object
  * \returns A bitset containing the active features of this object
@@ -294,6 +298,7 @@ wp_object_get_active_features (WpObject * self)
 }
 
 /*!
+ * \brief Gets the supported features of this object.
  * \ingroup wpobject
  * \param self the object
  * \returns A bitset containing the supported features of this object;

@@ -625,6 +625,8 @@ wp_properties_add_keys_array (WpProperties * self, WpProperties * props,
 }
 
 /*!
+ * \brief Looks up a given property value from a key
+ *
  * \ingroup wpproperties
  * \param self a properties object
  * \param key a property key
@@ -778,6 +780,8 @@ static const WpIteratorMethods dict_iterator_methods = {
 };
 
 /*!
+ * \brief Iterates through all the properties in the properties object
+ *
  * \ingroup wpproperties
  * \param self a properties object
  * \returns (transfer full): an iterator that iterates over the properties.
@@ -802,6 +806,8 @@ wp_properties_new_iterator (WpProperties * self)
 }
 
 /*!
+ * \brief Gets the key from a properties iterator item
+ *
  * \ingroup wpproperties
  * \param item a GValue that was returned from the WpIterator of
  *   wp_properties_new_iterator()
@@ -816,6 +822,8 @@ wp_properties_iterator_item_get_key (const GValue * item)
 }
 
 /*!
+ * \brief Gets the value from a properties iterator item
+ *
  * \ingroup wpproperties
  * \param item a GValue that was returned from the WpIterator of
  *   wp_properties_new_iterator()
@@ -845,6 +853,8 @@ wp_properties_sort (WpProperties * self)
 }
 
 /*!
+ * \brief Gets the dictionary wrapped by a properties object
+ *
  * \ingroup wpproperties
  * \param self a properties object
  * \returns (transfer none): the internal properties set as a `struct spa_dict *`
@@ -858,6 +868,8 @@ wp_properties_peek_dict (WpProperties * self)
 }
 
 /*!
+ * \brief Gets a copy of the properties object as a `struct pw_properties`
+ *
  * \ingroup wpproperties
  * \param self a properties object
  * \returns (transfer full): a copy of the properties in \a self

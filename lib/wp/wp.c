@@ -17,11 +17,12 @@
  */
 
 /*!
- * \param flags: initialization flags
+ * \brief Initializes WirePlumber and PipeWire underneath.
  *
- * Initializes WirePlumber and PipeWire underneath.
  * \em flags can modify which parts are initialized, in cases where you want
  * to handle part of this initialization externally.
+ *
+ * \param flags initialization flags
  */
 void
 wp_init (WpInitFlags flags)
@@ -61,6 +62,7 @@ wp_init (WpInitFlags flags)
 }
 
 /*!
+ * \brief Gets the Wireplumber module directory
  * \returns The Wireplumber module directory
  */
 const gchar *
@@ -76,6 +78,7 @@ wp_get_module_dir (void)
 }
 
 /*!
+ * \brief Gets the Wireplumber configuration directory
  * \returns The Wireplumber configuration directory
  */
 const gchar *
@@ -91,6 +94,7 @@ wp_get_config_dir (void)
 }
 
 /*!
+ * \brief Gets the Wireplumber data directory
  * \returns The Wireplumber data directory
  */
 const gchar *

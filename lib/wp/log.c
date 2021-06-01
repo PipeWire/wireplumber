@@ -616,6 +616,7 @@ static struct spa_log wp_spa_log = {
 };
 
 /*!
+ * \brief Gets WirePlumber's instance of `spa_log`
  * \ingroup wplog
  * \returns WirePlumber's instance of `spa_log`, which can be used to redirect
  *   PipeWire's log messages to the currently installed GLogWriterFunc.

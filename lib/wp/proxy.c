@@ -274,6 +274,7 @@ wp_proxy_get_bound_id (WpProxy * self)
 }
 
 /*!
+ * \brief Gets the interface type of the proxied object
  * \ingroup wpproxy
  * \param self the proxy
  * \param version (out) (optional): the version of the interface
@@ -296,6 +297,7 @@ wp_proxy_get_interface_type (WpProxy * self, guint32 * version)
 }
 
 /*!
+ * \brief Gets the `pw_proxy` wrapped by this proxy object
  * \ingroup wpproxy
  * \param self the proxy
  * \returns a pointer to the underlying `pw_proxy` object

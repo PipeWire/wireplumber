@@ -246,6 +246,7 @@ wp_object_manager_new (void)
 }
 
 /*!
+ * \brief Checks if an object manager is installed.
  * \ingroup wpobjectmanager
  * \param self the object manager
  * \returns TRUE if the object manager is installed (i.e. the
@@ -359,6 +360,7 @@ wp_object_manager_request_object_features (WpObjectManager *self,
 }
 
 /*!
+ * \brief Gets the number of objects managed by the object manager.
  * \ingroup wpobjectmanager
  * \param self the object manager
  * \returns the number of objects managed by this WpObjectManager
@@ -445,6 +447,7 @@ static const WpIteratorMethods om_iterator_methods = {
 };
 
 /*!
+ * \brief Iterates through all the objects managed by this object manager.
  * \ingroup wpobjectmanager
  * \param self the object manager
  * \returns (transfer full): a WpIterator that iterates over all the managed
@@ -1155,7 +1158,7 @@ wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
 }
 
 /*
- * Finds a registered object
+ * \brief Finds a registered object
  *
  * \param reg the registry
  * \param func (scope call): a function that takes the object being searched
@@ -1185,9 +1188,11 @@ wp_registry_find_object (WpRegistry *reg, GEqualFunc func, gconstpointer data)
 }
 
 /*
- * Registers \a obj with the core, making it appear on WpObjectManager
- * instances as well. The core will also maintain a ref to that object
- * until it is removed.
+ * \brief Registers \a obj with the core, making it appear on WpObjectManager
+ * instances as well.
+ *
+ * The core will also maintain a ref to that object until it
+ * is removed.
  *
  * \param reg the registry
  * \param obj (transfer full) (type GObject*): the object to register
@@ -1210,7 +1215,7 @@ wp_registry_register_object (WpRegistry *reg, gpointer obj)
 }
 
 /*
- * Detaches and unrefs the specified object from this core
+ * \brief Detaches and unrefs the specified object from this core.
  *
  * \param reg the registry
  * \param obj (transfer none) (type GObject*): a pointer to the object to remove

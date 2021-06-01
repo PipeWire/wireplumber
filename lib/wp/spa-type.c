@@ -163,6 +163,8 @@ wp_spa_type_from_name (const gchar *name)
 }
 
 /*!
+ * \brief Gets the parent type of an SPA type
+ *
  * \ingroup wpspatype
  * \param type a type id
  * \returns (transfer none): the direct parent type of the given \a type; if the
@@ -177,6 +179,8 @@ wp_spa_type_parent (WpSpaType type)
 }
 
 /*!
+ * \brief Gets the name of an SPA type
+ *
  * \ingroup wpspatype
  * \param type a type id
  * \returns the complete name of the given \a type or NULL if \a type is invalid
@@ -189,6 +193,8 @@ wp_spa_type_name (WpSpaType type)
 }
 
 /*!
+ * \brief Checks if an SPA type is a fundamental type
+ *
  * \ingroup wpspatype
  * \param type a type id
  * \returns TRUE if the \a type has no parent, FALSE otherwise
@@ -201,6 +207,8 @@ wp_spa_type_is_fundamental (WpSpaType type)
 }
 
 /*!
+ * \brief Checks if an SPA type is an Id type
+ *
  * \ingroup wpspatype
  * \param type a type id
  * \returns TRUE if the \a type is a SPA_TYPE_Id, FALSE otherwise
@@ -213,6 +221,8 @@ wp_spa_type_is_id (WpSpaType type)
 }
 
 /*!
+ * \brief Checks if an SPA type is an Object type
+ *
  * \ingroup wpspatype
  * \param type a type id
  * \returns TRUE if the \a type is a SPA_TYPE_Object, FALSE otherwise
@@ -253,6 +263,8 @@ wp_spa_type_get_object_id_values_table (WpSpaType type)
 }
 
 /*!
+ * \brief Gets the values table of an SPA type
+ *
  * \ingroup wpspatype
  * \param type a type id
  * \returns the associated WpSpaIdTable that contains possible
@@ -386,6 +398,8 @@ wp_spa_id_table_new_iterator (WpSpaIdTable table)
 }
 
 /*!
+ * \brief Finds a value in an SPA Id table
+ *
  * \ingroup wpspatype
  * \param table the id table
  * \param value a numeric value that is contained in the table
@@ -406,6 +420,8 @@ wp_spa_id_table_find_value (WpSpaIdTable table, guint value)
 }
 
 /*!
+ * \brief Finds a named value in an SPA Id table
+ *
  * \ingroup wpspatype
  * \param table the id table
  * \param name the full name of a value that is contained in the table
@@ -426,6 +442,8 @@ wp_spa_id_table_find_value_from_name (WpSpaIdTable table, const gchar * name)
 }
 
 /*!
+ * \brief Finds a short named value in an SPA Id table
+ *
  * \ingroup wpspatype
  * \param table the id table
  * \param short_name the short name of a value that is contained in the table
@@ -528,6 +546,8 @@ wp_spa_id_value_from_number (const gchar * table_name, guint id)
 }
 
 /*!
+ * \brief Gets the numeric value of an id value
+ *
  * \ingroup wpspatype
  * \param id an id value
  * \returns the numeric representation of this id value
@@ -542,6 +562,8 @@ wp_spa_id_value_number (WpSpaIdValue id)
 }
 
 /*!
+ * \brief Gets the name of an id value
+ *
  * \ingroup wpspatype
  * \param id an id value
  * \returns the full name of this id value
@@ -556,6 +578,8 @@ wp_spa_id_value_name (WpSpaIdValue id)
 }
 
 /*!
+ * \brief Gets the short name of an id value
+ *
  * \ingroup wpspatype
  * \param id an id value
  * \returns the short name of this id value

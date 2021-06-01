@@ -99,6 +99,8 @@ wp_si_factory_class_init (WpSiFactoryClass * klass)
 }
 
 /*!
+ * \brief Gets the name of the factory
+ *
  * \ingroup wpsifactory
  * \param self the factory
  * \returns the factory name
@@ -158,6 +160,8 @@ find_factory_func (gpointer factory, gpointer name_quark)
 }
 
 /*!
+ * \brief Looks up a factory matching a name
+ *
  * \ingroup wpsifactory
  * \param core the core
  * \param factory_name the lookup name
@@ -225,6 +229,8 @@ wp_simple_si_factory_class_init (WpSimpleSiFactoryClass * klass)
 }
 
 /*!
+ * \brief Creates a simple factory that constructs objects of a given GType.
+ *
  * \ingroup wpsifactory
  * \param factory_name the factory name; must be a static string!
  * \param si_type the WpSessionItem subclass type to instantiate for

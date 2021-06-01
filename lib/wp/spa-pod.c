@@ -134,6 +134,7 @@ wp_spa_pod_builder_new (size_t size, WpSpaType type)
 }
 
 /*!
+ * \brief Increases the reference count of a spa pod object
  * \ingroup wpspapod
  * \param self a spa pod object
  * \returns (transfer full): \a self with an additional reference count on it
@@ -194,6 +195,8 @@ wp_spa_pod_new (const struct spa_pod *pod, WpSpaPodType type, guint32 flags)
 }
 
 /*!
+ * \brief Constructs a new WpSpaPod that wraps the given `spa_pod`.
+ *
  * \ingroup wpspapod
  * \param pod a spa_pod
  * \returns a new WpSpaPod that references the data in \a pod. \a pod is not
@@ -208,6 +211,8 @@ wp_spa_pod_new_wrap (struct spa_pod *pod)
 }
 
 /*!
+ * \brief Constructs a new immutable WpSpaPod that wraps the given `spa_pod`.
+ *
  * \ingroup wpspapod
  * \param pod a constant spa_pod
  * \returns a new WpSpaPod that references the data in \a pod. \a pod is not
@@ -1781,6 +1786,8 @@ wp_spa_pod_get_array_child (WpSpaPod *self)
 }
 
 /*!
+ * \brief Increases the reference count of a spa pod builder
+ *
  * \ingroup wpspapod
  * \param self a spa pod builder object
  * \returns (transfer full): \a self with an additional reference count on it
@@ -2287,6 +2294,7 @@ wp_spa_pod_builder_end (WpSpaPodBuilder *self)
 }
 
 /*!
+ * \brief Increases the reference count of a spa pod parser
  * \ingroup wpspapod
  * \param self a spa pod sparser object
  * \returns (transfer full): \a self with an additional reference count on it

@@ -335,6 +335,7 @@ wp_transition_set_data (WpTransition * self, gpointer data,
 }
 
 /*!
+ * \brief Checks if the transition completed.
  * \ingroup wptransition
  * \param self the transition
  * \returns TRUE if the transition has completed (with or without an error),
@@ -351,6 +352,7 @@ wp_transition_get_completed (WpTransition * self)
 }
 
 /*!
+ * \brief Checks if the transition completed with an error.
  * \ingroup wptransition
  * \param self the transition
  * \returns TRUE if the transition completed with an error, FALSE otherwise

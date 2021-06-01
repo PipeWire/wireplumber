@@ -674,6 +674,8 @@ wp_endpoint_impl_pw_object_mixin_priv_interface_init (
 }
 
 /*!
+ * \brief Creates a new endpoint implementation
+ *
  * \ingroup wpendpoint
  * \param core the core
  * \param item the session item that implements the endpoint

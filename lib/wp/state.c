@@ -146,6 +146,7 @@ wp_state_class_init (WpStateClass * klass)
 }
 
 /*!
+ * \brief Constructs a new state object
  * \ingroup wpstate
  * \param name the state name
  * \returns (transfer full): the new WpState
@@ -160,6 +161,7 @@ wp_state_new (const gchar *name)
 }
 
 /*!
+ * \brief Gets the name of a state object
  * \ingroup wpstate
  * \param self the state
  * \returns the name of this state
@@ -173,6 +175,7 @@ wp_state_get_name (WpState *self)
 }
 
 /*!
+ * \brief Gets the location of a state object
  * \ingroup wpstate
  * \param self the state
  * \returns the location of this state
