@@ -308,10 +308,6 @@ wp_object_get_supported_features (WpObject * self)
 static gboolean
 wp_object_advance_transitions (WpObject * self)
 {
-  /* keep \a self alive; in rare cases, the last transition may be
-     holding the last ref on \a self and g_queue_peek_head will crash
-     right after droping that last ref */
-  g_autoptr (WpObject) self_ref = g_object_ref (self);
   WpObjectPrivate *priv = wp_object_get_instance_private (self);
   WpTransition *t;
 
@@ -390,7 +386,8 @@ wp_object_activate_closure (WpObject * self,
 
   if (!priv->idle_advnc_source) {
     wp_core_idle_add (core, &priv->idle_advnc_source,
-        G_SOURCE_FUNC (wp_object_advance_transitions), self, NULL);
+        G_SOURCE_FUNC (wp_object_advance_transitions), g_object_ref (self),
+        g_object_unref);
   }
 }
 
@@ -472,6 +469,7 @@ wp_object_update_features (WpObject * self, WpObjectFeatures activated,
     g_return_if_fail (core != NULL);
 
     wp_core_idle_add (core, &priv->idle_advnc_source,
-        G_SOURCE_FUNC (wp_object_advance_transitions), self, NULL);
+        G_SOURCE_FUNC (wp_object_advance_transitions), g_object_ref (self),
+        g_object_unref);
   }
 }
