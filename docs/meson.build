@@ -40,7 +40,7 @@ if build_doc or build_gir
     configuration: doxy_wp_conf_data
   )
 
-  doxyxml_wp_depfiles = [wp_lib_sources, wp_lib_parse_headers]
+  doxyxml_wp_depfiles = [wp_lib_sources, wp_lib_headers]
   doxyxml_wp = custom_target('doxyxml_wp',
     command: [doxygen_p, doxyfile_wp],
     depend_files: doxyxml_wp_depfiles,
@@ -128,7 +128,8 @@ if build_gir
     dependencies: [wp_dep, dummy_dep],
     namespace: 'Wp',
     nsversion: wireplumber_api_version,
-    sources: [wpenums_h, wp_lib_parse_headers, wp_gtkdoc_h],
+    sources: [wpenums_h, wp_lib_headers, wp_gtkdoc_h],
+    include_directories: [wpenums_include_dir],
     includes: ['GLib-2.0', 'GObject-2.0', 'Gio-2.0'],
     install: true,
   )
