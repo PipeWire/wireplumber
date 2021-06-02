@@ -391,7 +391,7 @@ iterator_next (lua_State *L)
 {
   WpIterator *it = wplua_checkboxed (L, 1, WP_TYPE_ITERATOR);
   g_auto (GValue) v = G_VALUE_INIT;
-  if (wp_iterator_next (it, &v)) {
+  if (it && wp_iterator_next (it, &v)) {
     return wplua_gvalue_to_lua (L, &v);
   } else {
     lua_pushnil (L);
