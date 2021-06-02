@@ -155,4 +155,5 @@ SANDBOX_EXPORT = {
   LocalNode = WpImplNode_new,
   Link = WpLink_new,
   Pod = WpSpaPod,
+  State = WpState_new,
 }

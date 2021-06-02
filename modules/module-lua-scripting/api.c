@@ -1098,6 +1098,54 @@ static const luaL_Reg pipewire_object_methods[] = {
   { NULL, NULL }
 };
 
+/* WpState */
+
+static int
+state_new (lua_State *L)
+{
+  const gchar *name = luaL_checkstring (L, 1);
+  WpState *state = wp_state_new (name);
+  wplua_pushobject (L, state);
+  return 1;
+}
+
+static int
+state_clear (lua_State *L)
+{
+  WpState *state = wplua_checkobject (L, 1, WP_TYPE_STATE);
+  wp_state_clear (state);
+  return 0;
+}
+
+static int
+state_save (lua_State *L)
+{
+  WpState *state = wplua_checkobject (L, 1, WP_TYPE_STATE);
+  const gchar *group = luaL_checkstring (L, 2);
+  luaL_checktype (L, 3, LUA_TTABLE);
+  g_autoptr (WpProperties) props = wplua_table_to_properties (L, 3);
+  gboolean ret = wp_state_save (state, group, props);
+  lua_pushboolean (L, ret);
+  return 1;
+}
+
+static int
+state_load (lua_State *L)
+{
+  WpState *state = wplua_checkobject (L, 1, WP_TYPE_STATE);
+  const gchar *group = luaL_checkstring (L, 2);
+  g_autoptr (WpProperties) props = wp_state_load (state, group);
+  wplua_properties_to_table (L, props);
+  return 1;
+}
+
+static const luaL_Reg state_methods[] = {
+  { "clear", state_clear },
+  { "save" , state_save },
+  { "load" , state_load },
+  { NULL, NULL }
+};
+
 void
 wp_lua_scripting_api_init (lua_State *L)
 {
@@ -1149,6 +1197,8 @@ wp_lua_scripting_api_init (lua_State *L)
       session_item_new, session_item_methods);
   wplua_register_type_methods (L, WP_TYPE_PIPEWIRE_OBJECT,
       NULL, pipewire_object_methods);
+  wplua_register_type_methods (L, WP_TYPE_STATE,
+      state_new, state_methods);
 
   wplua_load_uri (L, URI_API, 0, 0, &error);
   if (G_UNLIKELY (error))
