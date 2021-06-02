@@ -32,7 +32,7 @@ contain the following methods:
    :returns: the available parameters
    :rtype: Iterator; the iteration items are `Spa Pod <lua_spa_pod>`_ objects
 
-.. function:: PipewireObject.set_params(self, param_name, pod)
+.. function:: PipewireObject.set_param(self, param_name, pod)
 
    Binds :c:func:`wp_pipewire_object_set_param`
 

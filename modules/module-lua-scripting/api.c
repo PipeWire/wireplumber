@@ -1070,31 +1070,28 @@ static const luaL_Reg session_item_methods[] = {
 /* WpPipewireObject */
 
 static int
-pipewire_object_set_params (lua_State *L)
+pipewire_object_iterate_params (lua_State *L)
 {
-  WpPipewireObject *pipewire_object = wplua_checkobject (L, 1, WP_TYPE_PIPEWIRE_OBJECT);
+  WpPipewireObject *pwobj = wplua_checkobject (L, 1, WP_TYPE_PIPEWIRE_OBJECT);
   const gchar *id = luaL_checkstring (L, 2);
-  WpSpaPod *pod = wplua_checkboxed (L, 3, WP_TYPE_SPA_POD);
-
-  /* set the selected format on the node */
-  wp_pipewire_object_set_param (pipewire_object, id, 0, pod);
-  return 0;
+  WpIterator *it = wp_pipewire_object_enum_params_sync (pwobj, id, NULL);
+  return push_wpiterator (L, it);
 }
 
 static int
-pipewire_object_iterate_params (lua_State *L)
+pipewire_object_set_param (lua_State *L)
 {
-  WpPipewireObject *pipewire_object = wplua_checkobject (L, 1, WP_TYPE_PIPEWIRE_OBJECT);
+  WpPipewireObject *pwobj = wplua_checkobject (L, 1, WP_TYPE_PIPEWIRE_OBJECT);
   const gchar *id = luaL_checkstring (L, 2);
-
-  WpIterator *it = wp_pipewire_object_enum_params_sync (pipewire_object, id, NULL);
-
-  return push_wpiterator (L, it);
+  WpSpaPod *pod = wplua_checkboxed (L, 3, WP_TYPE_SPA_POD);
+  wp_pipewire_object_set_param (pwobj, id, 0, pod);
+  return 0;
 }
 
 static const luaL_Reg pipewire_object_methods[] = {
   { "iterate_params", pipewire_object_iterate_params },
-  { "set_params" , pipewire_object_set_params },
+  { "set_param" , pipewire_object_set_param },
+  { "set_params" , pipewire_object_set_param }, /* deprecated, compat only */
   { NULL, NULL }
 };
 
