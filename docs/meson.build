@@ -128,7 +128,7 @@ if build_gir
     dependencies: [wp_dep, dummy_dep],
     namespace: 'Wp',
     nsversion: wireplumber_api_version,
-    sources: [wpenums_h, wp_lib_headers, wp_gtkdoc_h],
+    sources: [wpenums_h, wp_gtkdoc_h, wp_lib_headers],
     include_directories: [wpenums_include_dir],
     includes: ['GLib-2.0', 'GObject-2.0', 'Gio-2.0'],
     install: true,

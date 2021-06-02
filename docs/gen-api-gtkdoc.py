@@ -327,6 +327,33 @@ class DoxyFunction(DoxyElement):
         return e
 
 
+class DoxyVariable(DoxyElement):
+    @staticmethod
+    def from_memberdef(xml):
+        name = xml.find("name").text
+        d = normalize_text(xml.find("definition").text)
+        d += ";"
+        e = DoxyVariable(name, d)
+        e.add_brief(xml.find("briefdescription"))
+        t = xml.find("type")
+        if t is not None:
+            typestr = "".join(t.itertext()).strip()
+            if typestr.startswith("const "):
+                typestr = typestr[6:]
+            e.type = "("+typestr+") "
+        else:
+            e.type = ""
+        v = xml.find("initializer")
+        e.value = v.text.replace("=","").replace("\n","") if v is not None else ""
+        return e
+    def to_gtkdoc(self):
+        s = super().to_gtkdoc()
+        # need this to get g-ir-scanner to recognize this as a constant
+        s += "#define "+self.name+" ("+self.type+self.value+")\n"
+        s += "#undef "+self.name+"\n"
+        return s
+
+
 def main(args):
     xml_dir = None
     outfile = None
@@ -360,6 +387,9 @@ def main(args):
     for n0 in root.xpath(".//compounddef[@kind='group']"):
         for n1 in n0.xpath(".//*/memberdef[@kind='function']"):
             e = DoxyFunction.from_memberdef(n1)
+            symbols.append(e)
+        for n1 in n0.xpath(".//*/memberdef[@kind='variable']"):
+            e = DoxyVariable.from_memberdef(n1)
             symbols.append(e)
 
     if (opts.outfile):
