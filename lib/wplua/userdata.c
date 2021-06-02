@@ -36,6 +36,21 @@ _wplua_isgvalue_userdata (lua_State *L, int idx, GType type)
   return TRUE;
 }
 
+GType
+wplua_gvalue_userdata_type (lua_State *L, int idx)
+{
+  GValue *v;
+
+  if (!lua_isuserdata (L, idx))
+    return G_TYPE_INVALID;
+  if (lua_rawlen (L, idx) != sizeof (GValue))
+    return G_TYPE_INVALID;
+  if (!(v = lua_touserdata (L, idx)))
+    return G_TYPE_INVALID;
+
+  return G_VALUE_TYPE (v);
+}
+
 int
 _wplua_gvalue_userdata___gc (lua_State *L)
 {

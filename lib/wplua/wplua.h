@@ -56,6 +56,8 @@ void wplua_enable_sandbox (lua_State * L, WpLuaSandboxFlags flags);
 void wplua_register_type_methods (lua_State * L, GType type,
     lua_CFunction constructor, const luaL_Reg * methods);
 
+GType wplua_gvalue_userdata_type (lua_State *L, int idx);
+
 /* push -> transfer full; get -> transfer none */
 void wplua_pushobject (lua_State * L, gpointer object);
 gpointer wplua_toobject (lua_State *L, int idx);

@@ -226,6 +226,11 @@ log_log (lua_State *L, GLogLevelFlags lvl)
     type = G_TYPE_FROM_INSTANCE (instance);
     index++;
   }
+  else if (wplua_isboxed (L, 1, G_TYPE_BOXED)) {
+    instance = wplua_toboxed (L, 1);
+    type = wplua_gvalue_userdata_type (L, 1);
+    index++;
+  }
 
   message = luaL_checkstring (L, index);
   tmp = g_strrstr (ar.source, ".lua");
