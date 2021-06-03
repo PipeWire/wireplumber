@@ -487,7 +487,6 @@ si_audio_endpoint_set_ports_format (WpSiAdapter * item, WpSpaPod *format,
   WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (item);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_autoptr (WpSpaPod) new_format = NULL;
-  g_autoptr (WpSpaPod) pod = NULL;
 
   g_return_if_fail (core);
 
@@ -517,15 +516,14 @@ si_audio_endpoint_set_ports_format (WpSiAdapter * item, WpSpaPod *format,
   strncpy (self->mode, mode ? mode : "dsp", sizeof (self->mode) - 1);
 
   /* configure DSP with chosen format */
-  pod = wp_spa_pod_new_object (
-      "Spa:Pod:Object:Param:PortConfig", "PortConfig",
-      "direction",  "I", WP_DIRECTION_INPUT,
-      "mode",       "K", self->mode,
-      "monitor",    "b", TRUE,
-      "format",     "P", self->format,
-      NULL);
   wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (self->node),
-      "PortConfig", 0, pod);
+      "PortConfig", 0, wp_spa_pod_new_object (
+          "Spa:Pod:Object:Param:PortConfig", "PortConfig",
+          "direction",  "I", WP_DIRECTION_INPUT,
+          "mode",       "K", self->mode,
+          "monitor",    "b", TRUE,
+          "format",     "P", self->format,
+          NULL));
 
   /* sync until new ports are available */
   wp_core_sync (core, NULL, (GAsyncReadyCallback) on_sync_done, self);

@@ -1089,7 +1089,7 @@ pipewire_object_set_param (lua_State *L)
   WpPipewireObject *pwobj = wplua_checkobject (L, 1, WP_TYPE_PIPEWIRE_OBJECT);
   const gchar *id = luaL_checkstring (L, 2);
   WpSpaPod *pod = wplua_checkboxed (L, 3, WP_TYPE_SPA_POD);
-  wp_pipewire_object_set_param (pwobj, id, 0, pod);
+  wp_pipewire_object_set_param (pwobj, id, 0, wp_spa_pod_ref (pod));
   return 0;
 }
 

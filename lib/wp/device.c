@@ -143,8 +143,9 @@ wp_device_set_param (gpointer instance, guint32 id, guint32 flags,
     WpSpaPod * param)
 {
   WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (instance);
+  g_autoptr (WpSpaPod) p = param;
   return pw_device_set_param (d->iface, id, flags,
-      wp_spa_pod_get_spa_pod (param));
+      wp_spa_pod_get_spa_pod (p));
 }
 
 static void
@@ -342,7 +343,8 @@ spa_device_event_event (void *data, const struct spa_event *event)
 
   if (child && !g_strcmp0 (type, "ObjectConfig") &&
       WP_IS_PIPEWIRE_OBJECT (child) && props) {
-    wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (child), "Props", 0, props);
+    wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (child), "Props", 0,
+        g_steal_pointer (&props));
   }
 }
 
