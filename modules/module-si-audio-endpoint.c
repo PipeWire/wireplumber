@@ -481,11 +481,12 @@ build_adapter_format (WpSiAudioEndpoint * self, WpSpaPod *format)
 }
 
 static void
-si_audio_endpoint_set_ports_format (WpSiAdapter * item, WpSpaPod *format,
+si_audio_endpoint_set_ports_format (WpSiAdapter * item, WpSpaPod *f,
     const gchar *mode, GAsyncReadyCallback callback, gpointer data)
 {
   WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (item);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
+  g_autoptr (WpSpaPod) format = f;
   g_autoptr (WpSpaPod) new_format = NULL;
 
   g_return_if_fail (core);
