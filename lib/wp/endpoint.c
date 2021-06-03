@@ -431,6 +431,7 @@ wp_impl_endpoint_dispose (GObject * object)
 
   g_clear_pointer (&self->immutable_props, wp_properties_unref);
   g_clear_pointer (&self->info.name, g_free);
+  g_clear_pointer (&self->info.media_class, g_free);
 
   wp_object_update_features (WP_OBJECT (self), 0,
       WP_PIPEWIRE_OBJECT_FEATURE_INFO |
