@@ -281,6 +281,8 @@ wp_default_profile_finalize (GObject * object)
 
   g_clear_pointer (&priv->profiles, wp_properties_unref);
   g_clear_object (&priv->state);
+
+  G_OBJECT_CLASS (wp_default_profile_parent_class)->finalize (object);
 }
 
 static void
