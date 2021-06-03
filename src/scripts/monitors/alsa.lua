@@ -188,7 +188,7 @@ function prepareDevice(parent, id, type, factory, properties)
     (properties["device.name"] or
      properties["device.bus-id"] or
      properties["device.bus-path"] or
-     tostring(id))
+     tostring(id)):gsub("([^%w_%-%.])", "_")
 
   properties["device.name"] = name
 

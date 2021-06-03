@@ -92,6 +92,18 @@ end
 function createDevice(parent, id, type, factory, properties)
   local device = parent:get_managed_object(id)
   if not device then
+    -- ensure a proper device name
+    local name =
+        (properties["device.name"] or
+         properties["api.bluez5.address"] or
+         properties["device.description"] or
+         tostring(id)):gsub("([^%w_%-%.])", "_")
+
+    if not name:find("^bluez_card%.", 1) then
+      name = "bluez_card." .. name
+    end
+    properties["device.name"] = name
+
     -- apply properties from config.rules
     rulesApplyProperties(properties)
 
