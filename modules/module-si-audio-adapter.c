@@ -84,7 +84,7 @@ si_audio_adapter_configure (WpSessionItem * item, WpProperties *p)
   WpSiAudioAdapter *self = WP_SI_AUDIO_ADAPTER (item);
   g_autoptr (WpProperties) si_props = wp_properties_ensure_unique_owner (p);
   WpNode *node = NULL;
-  WpProperties *node_props = NULL;
+  g_autoptr (WpProperties) node_props = NULL;
   const gchar *str;
 
   /* reset previous config */

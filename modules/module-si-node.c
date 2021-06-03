@@ -58,7 +58,7 @@ si_node_configure (WpSessionItem * item, WpProperties *p)
   WpSiNode *self = WP_SI_NODE (item);
   g_autoptr (WpProperties) si_props = wp_properties_ensure_unique_owner (p);
   WpNode *node = NULL;
-  WpProperties *node_props = NULL;
+  g_autoptr (WpProperties) node_props = NULL;
   const gchar *str;
 
   /* reset previous config */

@@ -475,7 +475,7 @@ wp_pw_object_mixin_get_property (GObject * object, guint property_id,
         wp_pipewire_object_get_native_info (WP_PIPEWIRE_OBJECT (object)));
     break;
   case WP_PW_OBJECT_MIXIN_PROP_PROPERTIES:
-    g_value_set_boxed (value,
+    g_value_take_boxed (value,
         wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (object)));
     break;
   case WP_PW_OBJECT_MIXIN_PROP_PARAM_INFO:
