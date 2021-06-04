@@ -287,6 +287,11 @@ wp_default_nodes_disable (WpPlugin * plugin)
       g_source_destroy (self->timeout_source);
   g_clear_pointer (&self->timeout_source, g_source_unref);
 
+  for (guint i = 0; i < N_DEFAULT_NODES; i++) {
+    g_clear_pointer (&self->defaults[i].value, g_free);
+    g_clear_pointer (&self->defaults[i].config_value, g_free);
+  }
+
   g_clear_object (&self->metadatas_om);
   g_clear_object (&self->nodes_om);
   g_clear_object (&self->state);
