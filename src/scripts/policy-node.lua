@@ -42,8 +42,8 @@ function createLink (si, si_target)
   end
 
   Log.info (string.format("link %s <-> %s",
-      node.properties["node.name"],
-      target_node.properties["node.name"]))
+      tostring(node.properties["node.name"]),
+      tostring(target_node.properties["node.name"])))
 
   -- create and configure link
   local si_link = SessionItem ( "si-standard-link" )
@@ -204,8 +204,8 @@ function handleSiLinkable (si)
   end
 
   local node = si:get_associated_proxy ("node")
-  local media_class = node.properties["media.class"]
-  Log.info (si, "handling item " .. node.properties["node.name"])
+  local media_class = node.properties["media.class"] or ""
+  Log.info (si, "handling item " .. tostring(node.properties["node.name"]))
 
   -- get reconnect
   local reconnect = getNodeReconnect (node)
@@ -227,7 +227,7 @@ function handleSiLinkable (si)
 
   -- Check if item is linked to proper target, otherwise re-link
   local target_node = si_target:get_associated_proxy ("node")
-  local target_media_class = target_node.properties["media.class"]
+  local target_media_class = target_node.properties["media.class"] or ""
   local si_link, si_peer = getSiLinkAndSiPeer (si, target_media_class)
   if si_link then
     if si_peer and si_peer.id == si_target.id then
@@ -250,7 +250,7 @@ function unhandleSiLinkable (si)
   end
 
   local node = si:get_associated_proxy ("node")
-  Log.info (si, "unhandling item " .. node.properties["node.name"])
+  Log.info (si, "unhandling item " .. tostring(node.properties["node.name"]))
 
   -- remove any links associated with this item
   for silink in silinks_om:iterate() do
