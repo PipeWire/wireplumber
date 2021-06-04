@@ -10,11 +10,7 @@
 
 #define WP_STATE_DIR_NAME "wireplumber"
 
-#include <stdlib.h>
 #include <stdio.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <sys/stat.h>
 
 #include "log.h"
 #include "state.h"
@@ -48,13 +44,6 @@ struct _WpState
 
 G_DEFINE_TYPE (WpState, wp_state, G_TYPE_OBJECT)
 
-static gboolean
-path_exists (const char *path)
-{
-  struct stat info;
-  return stat (path, &info) == 0;
-}
-
 static char *
 get_new_location (const char *name)
 {
@@ -65,8 +54,7 @@ get_new_location (const char *name)
   g_return_val_if_fail (path, NULL);
 
   /* Create the directory if it doesn't exist */
-  if (!path_exists (path))
-    g_mkdir_with_parents (path, 0700);
+  g_mkdir_with_parents (path, 0700);
 
   return g_build_filename (path, name, NULL);
 }
@@ -199,9 +187,7 @@ wp_state_clear (WpState *self)
 {
   g_return_if_fail (WP_IS_STATE (self));
   wp_state_ensure_location (self);
-
-  if (path_exists (self->location))
-    remove (self->location);
+  remove (self->location);
 }
 
 /*!
