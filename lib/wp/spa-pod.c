@@ -2665,7 +2665,7 @@ wp_spa_pod_parser_get_valist (WpSpaPodParser *self, va_list args)
     if ((optional = (*format == '?')))
       format++;
 
-    if (!spa_pod_parser_can_collect (pod, *format)) {
+    if (!pod || !spa_pod_parser_can_collect (pod, *format)) {
       if (!optional)
         return FALSE;
 
