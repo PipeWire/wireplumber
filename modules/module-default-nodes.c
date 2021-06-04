@@ -57,14 +57,10 @@ wp_default_nodes_init (WpDefaultNodes * self)
 static void
 load_state (WpDefaultNodes * self)
 {
-  g_autoptr (WpProperties) props = wp_state_load (self->state, NAME);
-  if (!props)
-    wp_warning_object (self, "could not load " NAME);
-  else {
-    for (gint i = 0; i < N_DEFAULT_NODES; i++) {
-      const gchar *value = wp_properties_get (props, DEFAULT_CONFIG_KEY[i]);
-      self->defaults[i].config_value = g_strdup (value);
-    }
+  g_autoptr (WpProperties) props = wp_state_load (self->state);
+  for (gint i = 0; i < N_DEFAULT_NODES; i++) {
+    const gchar *value = wp_properties_get (props, DEFAULT_CONFIG_KEY[i]);
+    self->defaults[i].config_value = g_strdup (value);
   }
 }
 
@@ -73,6 +69,7 @@ timeout_save_state_callback (gpointer data)
 {
   WpDefaultNodes *self = data;
   g_autoptr (WpProperties) props = wp_properties_new_empty ();
+  g_autoptr (GError) error = NULL;
 
   for (gint i = 0; i < N_DEFAULT_NODES; i++) {
     if (self->defaults[i].config_value)
@@ -80,8 +77,8 @@ timeout_save_state_callback (gpointer data)
           self->defaults[i].config_value);
   }
 
-  if (!wp_state_save (self->state, NAME, props))
-    wp_warning_object (self, "could not save " NAME);
+  if (!wp_state_save (self->state, props, &error))
+    wp_warning_object (self, "%s", error->message);
 
   g_clear_pointer (&self->timeout_source, g_source_unref);
   return G_SOURCE_REMOVE;

@@ -1123,20 +1123,20 @@ static int
 state_save (lua_State *L)
 {
   WpState *state = wplua_checkobject (L, 1, WP_TYPE_STATE);
-  const gchar *group = luaL_checkstring (L, 2);
-  luaL_checktype (L, 3, LUA_TTABLE);
-  g_autoptr (WpProperties) props = wplua_table_to_properties (L, 3);
-  gboolean ret = wp_state_save (state, group, props);
-  lua_pushboolean (L, ret);
-  return 1;
+  luaL_checktype (L, 2, LUA_TTABLE);
+  g_autoptr (WpProperties) props = wplua_table_to_properties (L, 2);
+  g_autoptr (GError) error = NULL;
+  gboolean saved = wp_state_save (state, props, &error);
+  lua_pushboolean (L, saved);
+  lua_pushstring (L, error ? error->message : "");
+  return 2;
 }
 
 static int
 state_load (lua_State *L)
 {
   WpState *state = wplua_checkobject (L, 1, WP_TYPE_STATE);
-  const gchar *group = luaL_checkstring (L, 2);
-  g_autoptr (WpProperties) props = wp_state_load (state, group);
+  g_autoptr (WpProperties) props = wp_state_load (state);
   wplua_properties_to_table (L, props);
   return 1;
 }

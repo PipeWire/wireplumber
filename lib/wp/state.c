@@ -107,7 +107,6 @@ wp_state_finalize (GObject * object)
 
   g_clear_pointer (&self->name, g_free);
   g_clear_pointer (&self->location, g_free);
-  g_clear_pointer (&self->keyfile, g_key_file_free);
 
   G_OBJECT_CLASS (wp_state_parent_class)->finalize (object);
 }
@@ -115,7 +114,6 @@ wp_state_finalize (GObject * object)
 static void
 wp_state_init (WpState * self)
 {
-  self->keyfile = g_key_file_new ();
 }
 
 static void
@@ -194,23 +192,23 @@ wp_state_clear (WpState *self)
  * \brief Saves new properties in the state, overwriting all previous data.
  * \ingroup wpstate
  * \param self the state
- * \param group the group name where the properties will be save
  * \param props (transfer none): the properties to save
+ * \param error (out)(optional): return location for a GError, or NULL
  * \returns TRUE if the properties could be saved, FALSE otherwise
  */
 gboolean
-wp_state_save (WpState *self, const gchar *group, WpProperties *props)
+wp_state_save (WpState *self, WpProperties *props, GError ** error)
 {
+  g_autoptr (GKeyFile) keyfile = g_key_file_new ();
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) item = G_VALUE_INIT;
+  GError *err = NULL;
 
   g_return_val_if_fail (WP_IS_STATE (self), FALSE);
-  g_return_val_if_fail (group, FALSE);
+  g_return_val_if_fail (props, FALSE);
   wp_state_ensure_location (self);
 
   wp_info_object (self, "saving state into %s", self->location);
-
-  g_key_file_remove_group (self->keyfile, group, NULL);
 
   /* Set the properties */
   for (it = wp_properties_new_iterator (props);
@@ -218,11 +216,11 @@ wp_state_save (WpState *self, const gchar *group, WpProperties *props)
       g_value_unset (&item)) {
     const gchar *key = wp_properties_iterator_item_get_key (&item);
     const gchar *val = wp_properties_iterator_item_get_value (&item);
-    g_key_file_set_string (self->keyfile, group, key, val);
+    g_key_file_set_string (keyfile, self->name, key, val);
   }
 
-  if (!g_key_file_save_to_file (self->keyfile, self->location, NULL)) {
-    wp_critical_object (self, "can't save %s", self->location);
+  if (!g_key_file_save_to_file (keyfile, self->location, &err)) {
+    g_propagate_prefixed_error (error, err, "could not save %s: ", self->name);
     return FALSE;
   }
 
@@ -230,36 +228,40 @@ wp_state_save (WpState *self, const gchar *group, WpProperties *props)
 }
 
 /*!
- * \brief Loads the state data into new properties.
+ * \brief Loads the state data from the file system
+ *
+ * This function will never fail. If it cannot load the state, for any reason,
+ * it will simply return an empty WpProperties, behaving as if there was no
+ * previous state stored.
+ *
  * \ingroup wpstate
  * \param self the state
- * \param group the group which the properties will be loaded from
- * \returns (transfer full): the new properties with the state data
+ * \returns (transfer full): a new WpProperties containing the state data
  */
 WpProperties *
-wp_state_load (WpState *self, const gchar *group)
+wp_state_load (WpState *self)
 {
+  g_autoptr (GKeyFile) keyfile = g_key_file_new ();
   g_autoptr (WpProperties) props = wp_properties_new_empty ();
   gchar ** keys = NULL;
 
   g_return_val_if_fail (WP_IS_STATE (self), NULL);
-  g_return_val_if_fail (group, NULL);
   wp_state_ensure_location (self);
 
   /* Open */
-  if (!g_key_file_load_from_file (self->keyfile, self->location,
+  if (!g_key_file_load_from_file (keyfile, self->location,
       G_KEY_FILE_NONE, NULL))
     return g_steal_pointer (&props);
 
   /* Load all keys */
-  keys = g_key_file_get_keys (self->keyfile, group, NULL, NULL);
+  keys = g_key_file_get_keys (keyfile, self->name, NULL, NULL);
   if (!keys)
     return g_steal_pointer (&props);
 
   for (guint i = 0; keys[i]; i++) {
     const gchar *key = keys[i];
     g_autofree gchar *val = NULL;
-    val = g_key_file_get_string (self->keyfile, group, key, NULL);
+    val = g_key_file_get_string (keyfile, self->name, key, NULL);
     if (!val)
       continue;
     wp_properties_set (props, key, val);

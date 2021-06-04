@@ -17,9 +17,8 @@ use_persistent_storage = config["use-persistent-storage"] or false
 dev_infos = {}
 
 -- the state storage
-state_name = "default-routes"
-state = use_persistent_storage and State(state_name) or nil
-state_table = state and state:load(state_name) or {}
+state = use_persistent_storage and State("default-routes") or nil
+state_table = state and state:load() or {}
 
 -- simple serializer {"foo", "bar"} -> "foo;bar;"
 function serializeArray(a)
@@ -71,7 +70,10 @@ function storeAfterTimeout()
     timeout_source:destroy()
   end
   timeout_source = Core.timeout_add(1000, function ()
-    state:save(state_name, state_table)
+    local saved, err = state:save(state_table)
+    if not saved then
+      Log.warning(err)
+    end
     timeout_source = nil
   end)
 end
