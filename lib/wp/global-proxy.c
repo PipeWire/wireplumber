@@ -122,7 +122,7 @@ wp_global_proxy_get_property (GObject * object, guint property_id,
     g_value_set_uint (value, wp_global_proxy_get_permissions (self));
     break;
   case PROP_GLOBAL_PROPERTIES:
-    g_value_set_boxed (value, wp_global_proxy_get_global_properties (self));
+    g_value_take_boxed (value, wp_global_proxy_get_global_properties (self));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
