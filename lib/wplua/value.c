@@ -122,7 +122,8 @@ wplua_gvariant_to_lua (lua_State *L, GVariant  *variant)
     lua_pushstring (L, g_variant_get_string (variant, NULL));
   }
   else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_VARIANT)) {
-    wplua_gvariant_to_lua (L, g_variant_get_variant (variant));
+    g_autoptr (GVariant) v = g_variant_get_variant (variant);
+    wplua_gvariant_to_lua (L, v);
   }
   else if (g_variant_is_of_type (variant, G_VARIANT_TYPE_DICTIONARY)) {
     gsize n_children, i;
