@@ -189,6 +189,14 @@ function isSiLinkableValid (si)
   return true
 end
 
+function getNodeAutoconnect (node)
+  local auto_connect = node.properties["node.autoconnect"]
+  if auto_connect then
+    return (auto_connect == "true" or auto_connect == "1")
+  end
+  return false
+end
+
 function getNodeReconnect (node)
   local dont_reconnect = node.properties["node.dont-reconnect"]
   if dont_reconnect then
@@ -206,6 +214,12 @@ function handleSiLinkable (si)
   local node = si:get_associated_proxy ("node")
   local media_class = node.properties["media.class"] or ""
   Log.info (si, "handling item " .. tostring(node.properties["node.name"]))
+
+  local autoconnect = getNodeAutoconnect (node)
+  if not autoconnect then
+    Log.info (si, "node does not need to be autoconnected")
+    return
+  end
 
   -- get reconnect
   local reconnect = getNodeReconnect (node)
