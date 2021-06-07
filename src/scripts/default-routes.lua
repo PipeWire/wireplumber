@@ -435,11 +435,12 @@ om:connect("objects-changed", function (om)
           route_infos = {},
         }
         dev_infos[device["bound-id"]] = dev_info
-        new_dev_infos[device["bound-id"]] = dev_info
 
         device:connect("params-changed", handleDevice)
         handleDevice(device)
       end
+
+      new_dev_infos[device["bound-id"]] = dev_info
     end
   end
   -- replace list to get rid of dev_info for devices that no longer exist
