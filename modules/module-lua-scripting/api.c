@@ -658,15 +658,9 @@ object_manager_new (lua_State *L)
 
   lua_pushnil (L);
   while (lua_next (L, 1)) {
-    if (!wplua_isboxed (L, -1, WP_TYPE_OBJECT_INTEREST))
-      luaL_error (L, "ObjectManager: expected Interest");
-
-    /* steal the interest out of the GValue to avoid doing mem copy */
-    GValue *v = lua_touserdata (L, -1);
-    wp_object_manager_add_interest_full (om, g_value_get_boxed (v));
-    memset (v, 0, sizeof (GValue));
-    g_value_init (v, WP_TYPE_OBJECT_INTEREST);
-
+    WpObjectInterest *interest =
+        wplua_checkboxed (L, -1, WP_TYPE_OBJECT_INTEREST);
+    wp_object_manager_add_interest_full (om, wp_object_interest_ref (interest));
     lua_pop (L, 1);
   }
 
