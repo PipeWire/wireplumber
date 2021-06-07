@@ -115,9 +115,6 @@ void wp_object_interest_add_constraint (WpObjectInterest * self,
     WpConstraintVerb verb, GVariant * value);
 
 WP_API
-WpObjectInterest * wp_object_interest_copy (WpObjectInterest * self);
-
-WP_API
 WpObjectInterest * wp_object_interest_ref (WpObjectInterest *self);
 
 WP_API

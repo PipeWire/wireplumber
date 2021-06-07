@@ -48,7 +48,7 @@ struct _WpObjectInterest
 };
 
 G_DEFINE_BOXED_TYPE (WpObjectInterest, wp_object_interest,
-                     wp_object_interest_copy, wp_object_interest_unref)
+                     wp_object_interest_ref, wp_object_interest_unref)
 
 /*!
  * \brief Creates a new interest that declares interest in objects of the specified
@@ -242,38 +242,6 @@ wp_object_interest_add_constraint (WpObjectInterest * self,
 
   /* mark as invalid to force validation */
   self->valid = FALSE;
-}
-
-/*!
- * \brief Creates a deep copy of an object interest
- * \ingroup wpobjectinterest
- * \param self the object interest to copy
- * \returns (transfer full): a deep copy of \a self
- */
-WpObjectInterest *
-wp_object_interest_copy (WpObjectInterest * self)
-{
-  WpObjectInterest *copy;
-  struct constraint *c, *cc;
-
-  g_return_val_if_fail (self != NULL, NULL);
-
-  copy = wp_object_interest_new_type (self->gtype);
-  g_return_val_if_fail (copy != NULL, NULL);
-
-  pw_array_ensure_size (&copy->constraints, self->constraints.size);
-  pw_array_for_each (c, &self->constraints) {
-    cc = pw_array_add (&self->constraints, sizeof (struct constraint));
-    g_return_val_if_fail (cc != NULL, NULL);
-    cc->type = c->type;
-    cc->verb = c->verb;
-    cc->subject_type = c->subject_type;
-    cc->subject = g_strdup (c->subject);
-    cc->value = c->value ? g_variant_ref (c->value) : NULL;
-  }
-  copy->valid = self->valid;
-
-  return copy;
 }
 
 /*!
