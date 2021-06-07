@@ -19,5 +19,8 @@ function device_defaults.enable()
   if device_defaults.properties["use-persistent-storage"] then
     -- Enables functionality to save and restore default device profiles
     load_module("default-profile")
+
+    -- Save and restore stream-specific properties
+    load_script("restore-stream.lua")
   end
 end
