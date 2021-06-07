@@ -36,7 +36,7 @@
  *     (WpImplMetadata, WpImplEndpoint, etc); these appear in the
  *     WpObjectManager as soon as they are exported (so, when their
  *     WP_PROXY_FEATURE_BOUND is enabled)
- *   * WirePlumber-specific objects, such as WirePlumber factories
+ *   * WirePlumber-specific objects, such as plugins, factories and session items
  *
  * To start an object manager, you first need to declare interest in a certain
  * kind of object by calling wp_object_manager_add_interest() and then install
