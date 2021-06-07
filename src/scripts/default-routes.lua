@@ -419,29 +419,30 @@ function handleDevice(device)
 end
 
 om = ObjectManager {
-  Interest { type = "device" },
+  Interest {
+    type = "device",
+    Constraint { "device.name", "is-present", type = "pw-global" },
+  }
 }
 
 om:connect("objects-changed", function (om)
   local new_dev_infos = {}
   for device in om:iterate() do
-    if device.properties["device.name"] then
-      local dev_info = dev_infos[device["bound-id"]]
-      -- new device appeared
-      if not dev_info then
-        dev_info = {
-          name = device.properties["device.name"],
-          active_profile = -1,
-          route_infos = {},
-        }
-        dev_infos[device["bound-id"]] = dev_info
+    local dev_info = dev_infos[device["bound-id"]]
+    -- new device appeared
+    if not dev_info then
+      dev_info = {
+        name = device.properties["device.name"],
+        active_profile = -1,
+        route_infos = {},
+      }
+      dev_infos[device["bound-id"]] = dev_info
 
-        device:connect("params-changed", handleDevice)
-        handleDevice(device)
-      end
-
-      new_dev_infos[device["bound-id"]] = dev_info
+      device:connect("params-changed", handleDevice)
+      handleDevice(device)
     end
+
+    new_dev_infos[device["bound-id"]] = dev_info
   end
   -- replace list to get rid of dev_info for devices that no longer exist
   dev_infos = new_dev_infos
