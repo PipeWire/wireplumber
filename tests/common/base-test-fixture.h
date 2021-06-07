@@ -93,7 +93,7 @@ wp_base_test_fixture_setup (WpBaseTestFixture * self, WpBaseTestFlags flags)
 }
 
 static void
-done_callback (WpCore *core, GAsyncResult *res, WpBaseTestFixture *self)
+test_core_done_cb (WpCore *core, GAsyncResult *res, WpBaseTestFixture *self)
 {
   g_autoptr (GError) error = NULL;
   g_assert_true (wp_core_sync_finish (core, res, &error));
@@ -106,14 +106,15 @@ wp_base_test_fixture_teardown (WpBaseTestFixture * self)
 {
   /* wait for all client core pending tasks to be done */
   if (self->client_core && wp_core_is_connected (self->client_core)) {
-    wp_core_sync (self->client_core, NULL, (GAsyncReadyCallback) done_callback,
-        self);
+    wp_core_sync (self->client_core, NULL,
+        (GAsyncReadyCallback) test_core_done_cb, self);
     g_main_loop_run (self->loop);
   }
 
   /* wait for all core pending tasks to be done */
   if (self->core && wp_core_is_connected (self->core)) {
-    wp_core_sync (self->core, NULL, (GAsyncReadyCallback) done_callback, self);
+    wp_core_sync (self->core, NULL, (GAsyncReadyCallback) test_core_done_cb,
+        self);
     g_main_loop_run (self->loop);
   }
 

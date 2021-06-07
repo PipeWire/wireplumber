@@ -10,6 +10,7 @@
 
 #include "object-manager.h"
 #include "log.h"
+#include "proxy-interfaces.h"
 #include "private/registry.h"
 
 #include <pipewire/pipewire.h>
@@ -620,11 +621,27 @@ wp_object_manager_is_interested_in_global (WpObjectManager * self,
 
   for (i = 0; i < self->interests->len; i++) {
     interest = g_ptr_array_index (self->interests, i);
-    if (wp_object_interest_matches_full (interest, 0, global->type,
-            global->proxy, NULL, global->properties) == WP_INTEREST_MATCH_ALL) {
+
+    /* check all constraints */
+    WpInterestMatch match = wp_object_interest_matches_full (interest,
+        WP_INTEREST_MATCH_FLAGS_CHECK_ALL, global->type, global->proxy,
+        NULL, global->properties);
+
+    /* and consider the manager interested if the type and the globals match...
+       if pw_properties / g_properties fail, that's ok because they are not
+       known yet (the proxy is likely NULL and properties not yet retrieved) */
+    if (match & (WP_INTEREST_MATCH_GTYPE |
+                 WP_INTEREST_MATCH_PW_GLOBAL_PROPERTIES)) {
       gpointer ft = g_hash_table_lookup (self->features,
           GSIZE_TO_POINTER (global->type));
       *wanted_features = (WpObjectFeatures) GPOINTER_TO_UINT (ft);
+
+      /* force INFO to be present so that we can check PW_PROPERTIES constraints */
+      if (!(match & WP_INTEREST_MATCH_PW_PROPERTIES) &&
+            !(*wanted_features & WP_PIPEWIRE_OBJECT_FEATURE_INFO) &&
+            g_type_is_a (global->type, WP_TYPE_PIPEWIRE_OBJECT))
+        *wanted_features |= WP_PIPEWIRE_OBJECT_FEATURE_INFO;
+
       return TRUE;
     }
   }
@@ -698,6 +715,30 @@ wp_object_manager_maybe_objects_changed (WpObjectManager * self)
   }
 }
 
+/* caller must also call wp_object_manager_maybe_objects_changed() after */
+static void
+wp_object_manager_add_object (WpObjectManager * self, gpointer object)
+{
+  if (wp_object_manager_is_interested_in_object (self, object)) {
+    wp_trace_object (self, "added: " WP_OBJECT_FORMAT, WP_OBJECT_ARGS (object));
+    g_ptr_array_add (self->objects, object);
+    g_signal_emit (self, signals[SIGNAL_OBJECT_ADDED], 0, object);
+    self->changed = TRUE;
+  }
+}
+
+/* caller must also call wp_object_manager_maybe_objects_changed() after */
+static void
+wp_object_manager_rm_object (WpObjectManager * self, gpointer object)
+{
+  guint index;
+  if (g_ptr_array_find (self->objects, object, &index)) {
+    g_ptr_array_remove_index_fast (self->objects, index);
+    g_signal_emit (self, signals[SIGNAL_OBJECT_REMOVED], 0, object);
+    self->changed = TRUE;
+  }
+}
+
 static void
 on_proxy_ready (GObject * proxy, GAsyncResult * res, gpointer data)
 {
@@ -709,10 +750,7 @@ on_proxy_ready (GObject * proxy, GAsyncResult * res, gpointer data)
   if (!wp_object_activate_finish (WP_OBJECT (proxy), res, &error)) {
     wp_message_object (self, "proxy activation failed: %s", error->message);
   } else {
-    wp_trace_object (self, "added: " WP_OBJECT_FORMAT, WP_OBJECT_ARGS (proxy));
-    g_ptr_array_add (self->objects, proxy);
-    g_signal_emit (self, signals[SIGNAL_OBJECT_ADDED], 0, proxy);
-    self->changed = TRUE;
+    wp_object_manager_add_object (self, proxy);
   }
 
   wp_object_manager_maybe_objects_changed (self);
@@ -745,30 +783,6 @@ wp_object_manager_add_global (WpObjectManager * self, WpGlobal * global)
 
     wp_object_activate (WP_OBJECT (global->proxy), features, NULL,
         on_proxy_ready, g_object_ref (self));
-  }
-}
-
-/* caller must also call wp_object_manager_maybe_objects_changed() after */
-static void
-wp_object_manager_add_object (WpObjectManager * self, gpointer object)
-{
-  if (wp_object_manager_is_interested_in_object (self, object)) {
-    wp_trace_object (self, "added: " WP_OBJECT_FORMAT, WP_OBJECT_ARGS (object));
-    g_ptr_array_add (self->objects, object);
-    g_signal_emit (self, signals[SIGNAL_OBJECT_ADDED], 0, object);
-    self->changed = TRUE;
-  }
-}
-
-/* caller must also call wp_object_manager_maybe_objects_changed() after */
-static void
-wp_object_manager_rm_object (WpObjectManager * self, gpointer object)
-{
-  guint index;
-  if (g_ptr_array_find (self->objects, object, &index)) {
-    g_ptr_array_remove_index_fast (self->objects, index);
-    g_signal_emit (self, signals[SIGNAL_OBJECT_REMOVED], 0, object);
-    self->changed = TRUE;
   }
 }
 

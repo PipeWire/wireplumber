@@ -30,9 +30,17 @@ test(
       dependencies: common_deps, c_args: common_args),
   env: common_env,
 )
+
 test(
   'test-object-interest',
   executable('test-object-interest', 'object-interest.c',
+      dependencies: common_deps, c_args: common_args),
+  env: common_env,
+)
+
+test(
+  'test-object-manager',
+  executable('test-object-manager', 'object-manager.c',
       dependencies: common_deps, c_args: common_args),
   env: common_env,
 )
