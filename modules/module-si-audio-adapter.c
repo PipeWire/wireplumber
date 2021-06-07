@@ -30,6 +30,7 @@ struct _WpSiAudioAdapter
   gboolean monitor;
   WpDirection direction;
   gboolean is_device;
+  gboolean dont_remix;
   WpSpaPod *format;
   gchar mode[32];
   GTask *format_task;
@@ -66,6 +67,7 @@ si_audio_adapter_reset (WpSessionItem * item)
   self->monitor = FALSE;
   self->direction = WP_DIRECTION_INPUT;
   self->is_device = FALSE;
+  self->dont_remix = FALSE;
   if (self->format_task) {
     g_task_return_new_error (self->format_task, WP_DOMAIN_LIBRARY,
         WP_LIBRARY_ERROR_OPERATION_FAILED,
@@ -95,6 +97,9 @@ si_audio_adapter_configure (WpSessionItem * item, WpProperties *p)
     return FALSE;
 
   node_props = wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (node));
+
+  str = wp_properties_get (node_props, PW_KEY_STREAM_DONT_REMIX);
+  self->dont_remix = str && pw_properties_parse_bool (str);
 
   str = wp_properties_get (si_props, "name");
   if (str) {
@@ -143,6 +148,7 @@ si_audio_adapter_configure (WpSessionItem * item, WpProperties *p)
 
   wp_properties_set (si_props, "si.factory.name", SI_FACTORY_NAME);
   wp_properties_setf (si_props, "is.device", "%u", self->is_device);
+  wp_properties_setf (si_props, "dont.remix", "%u", self->dont_remix);
   wp_session_item_set_properties (WP_SESSION_ITEM (self),
       g_steal_pointer (&si_props));
   return TRUE;
@@ -263,7 +269,7 @@ on_feature_ports_ready (WpObject * node, GAsyncResult * res,
   }
 
   /* If device node, enum available formats and set one of them */
-  if (self->is_device)
+  if (self->is_device || self->dont_remix)
     wp_pipewire_object_enum_params (WP_PIPEWIRE_OBJECT (self->node),
         "EnumFormat", NULL, NULL,
         (GAsyncReadyCallback) on_node_enum_format_done, transition);

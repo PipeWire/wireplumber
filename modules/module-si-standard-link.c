@@ -221,11 +221,6 @@ create_links (WpSiStandardLink * self, WpTransition * transition,
   /* now loop over the out ports and figure out where they should be linked */
   g_variant_get (out_ports, "a(uuu)", &iter);
 
-  /* special case for mono inputs: link to all outputs,
-     since we don't support proper channel mapping yet */
-  if (g_variant_iter_n_children (iter) == 1)
-    link_all = TRUE;
-
   while (g_variant_iter_loop (iter, "(uuu)", &out_node_id, &out_port_id,
               &out_channel))
   {
@@ -365,6 +360,8 @@ configure_and_link_adapters (WpSiStandardLink *self,
   g_autoptr (WpSiAdapter) si_in = NULL;
   gboolean out_is_device = FALSE;
   gboolean in_is_device = FALSE;
+  gboolean in_dont_remix = FALSE;
+  gboolean out_dont_remix = FALSE;
   const gchar *str = NULL;
 
   si_out = WP_SI_ADAPTER (g_weak_ref_get (&self->out_item));
@@ -378,6 +375,11 @@ configure_and_link_adapters (WpSiStandardLink *self,
   str = wp_session_item_get_property (WP_SESSION_ITEM (si_in), "is.device");
   in_is_device = str && pw_properties_parse_bool (str);
 
+  str = wp_session_item_get_property (WP_SESSION_ITEM (si_out), "dont.remix");
+  out_dont_remix = str && pw_properties_parse_bool (str);
+  str = wp_session_item_get_property (WP_SESSION_ITEM (si_in), "dont.remix");
+  in_dont_remix = str && pw_properties_parse_bool (str);
+
   /* Out is device node, In is not */
   if (out_is_device && !in_is_device) {
     const gchar *out_mode = NULL;
@@ -387,7 +389,7 @@ configure_and_link_adapters (WpSiStandardLink *self,
         wp_si_adapter_get_ports_format (si_in, NULL);
     g_return_if_fail (out_mode);
     g_return_if_fail (out_format);
-    if (in_format && wp_spa_pod_equal (out_format, in_format))
+    if (in_dont_remix || (in_format && wp_spa_pod_equal (out_format, in_format)))
       get_ports_and_create_links (self, transition);
     else
       wp_si_adapter_set_ports_format (si_in, wp_spa_pod_ref (out_format),
@@ -403,7 +405,7 @@ configure_and_link_adapters (WpSiStandardLink *self,
         wp_si_adapter_get_ports_format (si_out, NULL);
     g_return_if_fail (in_format);
     g_return_if_fail (in_mode);
-    if (out_format && wp_spa_pod_equal (in_format, out_format))
+    if (out_dont_remix || (out_format && wp_spa_pod_equal (in_format, out_format)))
       get_ports_and_create_links (self, transition);
     else
       wp_si_adapter_set_ports_format (si_out, wp_spa_pod_ref (in_format),
