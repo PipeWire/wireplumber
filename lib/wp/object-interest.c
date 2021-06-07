@@ -704,13 +704,13 @@ wp_object_interest_matches (WpObjectInterest * self, gpointer object)
 {
   if (g_type_is_a (self->gtype, WP_TYPE_PROPERTIES)) {
     g_return_val_if_fail (object != NULL, FALSE);
-    return wp_object_interest_matches_full (self, self->gtype, NULL,
-        (WpProperties *) object, NULL);
+    return wp_object_interest_matches_full (self, 0, self->gtype, NULL,
+        (WpProperties *) object, NULL) == WP_INTEREST_MATCH_ALL;
   }
   else {
     g_return_val_if_fail (G_IS_OBJECT (object), FALSE);
-    return wp_object_interest_matches_full (self, G_OBJECT_TYPE (object),
-        object, NULL, NULL);
+    return wp_object_interest_matches_full (self, 0, G_OBJECT_TYPE (object),
+        object, NULL, NULL) == WP_INTEREST_MATCH_ALL;
   }
 }
 
@@ -731,8 +731,17 @@ wp_object_interest_matches (WpObjectInterest * self, gpointer object)
  * retrieved from \a object by calling wp_pipewire_object_get_properties() and
  * wp_global_proxy_get_global_properties() respectively.
  *
+ * When \a flags contains WP_INTEREST_MATCH_FLAGS_CHECK_ALL, all the constraints
+ * are checked and the returned value contains accurate information about which
+ * types of constraints have failed to match, if any. When this flag is not
+ * present, this function returns after the first failure has been encountered.
+ * This means that the returned flags set will contain all but one flag, which
+ * will indicate the kind of constraint that failed (more could have failed,
+ * but they are not checked...)
+ *
  * \ingroup wpobjectinterest
  * \param self the object interest
+ * \param flags flags to alter the behavior of this function
  * \param object_type the type to be checked against the interest's type
  * \param object (type GObject)(transfer none)(nullable): the object to be used for
  *   checking constraints of type WP_CONSTRAINT_TYPE_G_PROPERTY
@@ -740,30 +749,33 @@ wp_object_interest_matches (WpObjectInterest * self, gpointer object)
  *   checking constraints of type WP_CONSTRAINT_TYPE_PW_PROPERTY
  * \param pw_global_props (transfer none)(nullable): the properties to be used for
  *   checking constraints of type WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY
- * \returns TRUE if the the type matches this interest and the properties
- *   match the constraints, FALSE otherwise
+ * \returns flags that indicate which components of the interest match.
+ *   WP_INTEREST_MATCH_ALL indicates a fully successful match; any other
+ *   combination indicates a failure on the component(s) that do not appear on
+ *   the flag set
  */
-gboolean
+WpInterestMatch
 wp_object_interest_matches_full (WpObjectInterest * self,
-    GType object_type, gpointer object, WpProperties * pw_props,
-    WpProperties * pw_global_props)
+    WpInterestMatchFlags flags, GType object_type, gpointer object,
+    WpProperties * pw_props, WpProperties * pw_global_props)
 {
+  WpInterestMatch result = WP_INTEREST_MATCH_ALL;
   g_autoptr (WpProperties) props = NULL;
   g_autoptr (WpProperties) global_props = NULL;
   g_autoptr (GError) error = NULL;
   struct constraint *c;
 
-  g_return_val_if_fail (self != NULL, FALSE);
+  g_return_val_if_fail (self != NULL, WP_INTEREST_MATCH_NONE);
 
   if (G_UNLIKELY (!wp_object_interest_validate (self, &error))) {
     wp_critical_boxed (WP_TYPE_OBJECT_INTEREST, self, "validation failed: %s",
         error->message);
-    return FALSE;
+    return WP_INTEREST_MATCH_NONE;
   }
 
   /* check if the GType matches */
   if (!g_type_is_a (object_type, self->gtype))
-    return FALSE;
+    result &= ~WP_INTEREST_MATCH_GTYPE;
 
   /* prepare for constraint lookups on proxy properties */
   if (object) {
@@ -792,6 +804,11 @@ wp_object_interest_matches_full (WpObjectInterest * self,
     WpProperties *lookup_props = pw_global_props;
     g_auto (GValue) value = G_VALUE_INIT;
     gboolean exists = FALSE;
+
+    /* return early if the match failed and CHECK_ALL is not specified */
+    if (!(flags & WP_INTEREST_MATCH_FLAGS_CHECK_ALL) &&
+        result != WP_INTEREST_MATCH_ALL)
+      return result;
 
     /* collect, check & convert the subject property */
     switch (c->type) {
@@ -833,15 +850,17 @@ wp_object_interest_matches_full (WpObjectInterest * self,
               g_value_init (&value, subject_type_to_gtype (c->subject_type));
               g_value_transform (&orig, &value);
             }
-            else
-              return FALSE;
+            else {
+              result &= ~(1 << c->type);
+              continue;
+            }
           }
         }
 
         break;
       }
       default:
-        g_return_val_if_reached (FALSE);
+        g_return_val_if_reached (WP_INTEREST_MATCH_NONE);
     }
 
     /* match the subject to the constraint's value,
@@ -850,39 +869,39 @@ wp_object_interest_matches_full (WpObjectInterest * self,
       case WP_CONSTRAINT_VERB_EQUALS:
         if (!exists ||
             !constraint_verb_equals (c->subject_type, &value, c->value))
-          return FALSE;
+          result &= ~(1 << c->type);
         break;
       case WP_CONSTRAINT_VERB_NOT_EQUALS:
         if (exists &&
             constraint_verb_equals (c->subject_type, &value, c->value))
-          return FALSE;
+          result &= ~(1 << c->type);
         break;
       case WP_CONSTRAINT_VERB_MATCHES:
         if (!exists ||
             !constraint_verb_matches (c->subject_type, &value, c->value))
-          return FALSE;
+          result &= ~(1 << c->type);
         break;
       case WP_CONSTRAINT_VERB_IN_LIST:
         if (!exists ||
             !constraint_verb_in_list (c->subject_type, &value, c->value))
-          return FALSE;
+          result &= ~(1 << c->type);
         break;
       case WP_CONSTRAINT_VERB_IN_RANGE:
         if (!exists ||
             !constraint_verb_in_range (c->subject_type, &value, c->value))
-          return FALSE;
+          result &= ~(1 << c->type);
         break;
       case WP_CONSTRAINT_VERB_IS_PRESENT:
         if (!exists)
-          return FALSE;
+          result &= ~(1 << c->type);
         break;
       case WP_CONSTRAINT_VERB_IS_ABSENT:
         if (exists)
-          return FALSE;
+          result &= ~(1 << c->type);
         break;
       default:
-        g_return_val_if_reached (FALSE);
+        g_return_val_if_reached (WP_INTEREST_MATCH_NONE);
     }
   }
-  return TRUE;
+  return result;
 }

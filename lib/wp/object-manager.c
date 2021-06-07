@@ -620,8 +620,8 @@ wp_object_manager_is_interested_in_global (WpObjectManager * self,
 
   for (i = 0; i < self->interests->len; i++) {
     interest = g_ptr_array_index (self->interests, i);
-    if (wp_object_interest_matches_full (interest, global->type,
-            global->proxy, NULL, global->properties)) {
+    if (wp_object_interest_matches_full (interest, 0, global->type,
+            global->proxy, NULL, global->properties) == WP_INTEREST_MATCH_ALL) {
       gpointer ft = g_hash_table_lookup (self->features,
           GSIZE_TO_POINTER (global->type));
       *wanted_features = (WpObjectFeatures) GPOINTER_TO_UINT (ft);

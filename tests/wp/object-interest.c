@@ -260,8 +260,8 @@ test_object_interest_teardown (TestFixture * f, gconstpointer data)
     g_assert_no_error (error); \
     g_assert_true (ret); \
     \
-    g_assert_true (wp_object_interest_matches_full (interest, \
-            WP_TYPE_NODE, NULL, props, global_props)); \
+    g_assert_cmphex (wp_object_interest_matches_full (interest, 0, \
+        WP_TYPE_NODE, NULL, props, global_props), ==, WP_INTEREST_MATCH_ALL); \
     \
     g_clear_pointer (&interest, wp_object_interest_unref); \
   } G_STMT_END
@@ -277,8 +277,8 @@ test_object_interest_teardown (TestFixture * f, gconstpointer data)
     g_assert_no_error (error); \
     g_assert_true (ret); \
     \
-    g_assert_false (wp_object_interest_matches_full (interest, \
-            WP_TYPE_NODE, NULL, props, global_props)); \
+    g_assert_cmphex (wp_object_interest_matches_full (interest, 0, \
+        WP_TYPE_NODE, NULL, props, global_props), !=, WP_INTEREST_MATCH_ALL); \
     \
     g_clear_pointer (&interest, wp_object_interest_unref); \
   } G_STMT_END
