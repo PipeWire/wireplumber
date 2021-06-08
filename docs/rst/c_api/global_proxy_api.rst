@@ -13,11 +13,8 @@ PipeWire Global Object Proxy
    }
 
 .. doxygenstruct:: WpGlobalProxy
-   :project: WirePlumber
 
 .. doxygenstruct:: _WpGlobalProxyClass
-   :project: WirePlumber
 
 .. doxygengroup:: wpglobalproxy
-   :project: WirePlumber
    :content-only:

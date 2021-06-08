@@ -3,5 +3,4 @@
 Error Codes
 ===========
 .. doxygengroup:: wperror
-   :project: WirePlumber
    :content-only:

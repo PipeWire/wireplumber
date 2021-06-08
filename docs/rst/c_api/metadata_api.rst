@@ -15,11 +15,8 @@ PipeWire Metadata
    }
 
 .. doxygenstruct:: WpMetadata
-   :project: WirePlumber
 
 .. doxygenstruct:: WpImplMetadata
-   :project: WirePlumber
 
 .. doxygengroup:: wpmetadata
-   :project: WirePlumber
    :content-only:

@@ -3,4 +3,3 @@
 Spa Type Information
 ====================
 .. doxygengroup:: wpspatype
-   :project: WirePlumber

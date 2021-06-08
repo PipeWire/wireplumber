@@ -3,5 +3,4 @@
 Debug Logging
 =============
 .. doxygengroup:: wplog
-   :project: WirePlumber
    :content-only:

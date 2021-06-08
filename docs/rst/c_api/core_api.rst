@@ -11,8 +11,6 @@ Core
    }
 
 .. doxygenstruct:: WpCore
-   :project: WirePlumber
 
 .. doxygengroup:: wpcore
-   :project: WirePlumber
    :content-only:

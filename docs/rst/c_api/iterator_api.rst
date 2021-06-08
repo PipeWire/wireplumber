@@ -11,11 +11,8 @@ Iterator
    }
 
 .. doxygenstruct:: WpIterator
-   :project: WirePlumber
 
 .. doxygenstruct:: _WpIteratorMethods
-   :project: WirePlumber
 
 .. doxygengroup:: wpiterator
-   :project: WirePlumber
    :content-only:

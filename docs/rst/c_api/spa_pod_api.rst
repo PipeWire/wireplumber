@@ -13,14 +13,10 @@ Spa Pod (Plain Old Data)
    }
 
 .. doxygenstruct:: WpSpaPod
-   :project: WirePlumber
 
 .. doxygenstruct:: WpSpaPodBuilder
-   :project: WirePlumber
 
 .. doxygenstruct:: WpSpaPodParser
-   :project: WirePlumber
 
 .. doxygengroup:: wpspapod
-   :project: WirePlumber
    :content-only:

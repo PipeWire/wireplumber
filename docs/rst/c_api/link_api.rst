@@ -16,8 +16,6 @@ PipeWire Link
    }
 
 .. doxygenstruct:: WpLink
-   :project: WirePlumber
 
 .. doxygengroup:: wplink
-   :project: WirePlumber
    :content-only:

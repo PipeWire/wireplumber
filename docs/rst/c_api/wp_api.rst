@@ -3,5 +3,4 @@
 Library Initialization
 ======================
 .. doxygengroup:: wp
-   :project: WirePlumber
    :content-only:

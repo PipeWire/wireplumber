@@ -14,18 +14,13 @@ Transitions
    }
 
 .. doxygenstruct:: WpTransition
-   :project: WirePlumber
 
 .. doxygenstruct:: _WpTransitionClass
-   :project: WirePlumber
 
 .. doxygengroup:: wptransition
-   :project: WirePlumber
    :content-only:
 
 .. doxygenstruct:: WpFeatureActivationTransition
-   :project: WirePlumber
 
 .. doxygengroup:: wpfeatureactivationtransition
-   :project: WirePlumber
    :content-only:

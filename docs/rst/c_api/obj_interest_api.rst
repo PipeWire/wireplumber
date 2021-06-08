@@ -11,8 +11,6 @@ Object Interest
    }
 
 .. doxygenstruct:: WpObjectInterest
-   :project: WirePlumber
 
 .. doxygengroup:: wpobjectinterest
-   :project: WirePlumber
    :content-only:

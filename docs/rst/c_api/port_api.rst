@@ -16,8 +16,6 @@ PipeWire Port
    }
 
 .. doxygenstruct:: WpPort
-   :project: WirePlumber
 
 .. doxygengroup:: wpport
-   :project: WirePlumber
    :content-only:

@@ -16,8 +16,6 @@ PipeWire Client
    }
 
 .. doxygenstruct:: WpClient
-   :project: WirePlumber
 
 .. doxygengroup:: wpclient
-   :project: WirePlumber
    :content-only:

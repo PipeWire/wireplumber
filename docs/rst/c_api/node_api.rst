@@ -16,8 +16,6 @@ PipeWire Node
    }
 
 .. doxygenstruct:: WpNode
-   :project: WirePlumber
 
 .. doxygengroup:: wpnode
-   :project: WirePlumber
    :content-only:

@@ -12,11 +12,8 @@ Session Items
    }
 
 .. doxygenstruct:: WpSessionItem
-   :project: WirePlumber
 
 .. doxygenstruct:: _WpSessionItemClass
-   :project: WirePlumber
 
 .. doxygengroup:: wpsessionitem
-   :project: WirePlumber
    :content-only:

@@ -11,11 +11,8 @@ Session Items Factory
    }
 
 .. doxygenstruct:: WpSiFactory
-   :project: WirePlumber
 
 .. doxygenstruct:: _WpSiFactoryClass
-   :project: WirePlumber
 
 .. doxygengroup:: wpsifactory
-   :project: WirePlumber
    :content-only:

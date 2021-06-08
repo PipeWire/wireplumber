@@ -13,8 +13,6 @@ Spa Device
    }
 
 .. doxygenstruct:: WpSpaDevice
-   :project: WirePlumber
 
 .. doxygengroup:: wpspadevice
-   :project: WirePlumber
    :content-only:

@@ -13,11 +13,8 @@ Component Loader
    }
 
 .. doxygenstruct:: WpComponentLoader
-   :project: WirePlumber
 
 .. doxygenstruct:: _WpComponentLoaderClass
-   :project: WirePlumber
 
 .. doxygengroup:: wpcomponentloader
-   :project: WirePlumber
    :content-only:

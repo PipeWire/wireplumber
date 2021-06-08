@@ -11,8 +11,6 @@ Properties Dictionary
    }
 
 .. doxygenstruct:: WpProperties
-   :project: WirePlumber
 
 .. doxygengroup:: wpproperties
-   :project: WirePlumber
    :content-only:

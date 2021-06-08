@@ -12,11 +12,8 @@ PipeWire Proxy
    }
 
 .. doxygenstruct:: WpProxy
-   :project: WirePlumber
 
 .. doxygenstruct:: _WpProxyClass
-   :project: WirePlumber
 
 .. doxygengroup:: wpproxy
-   :project: WirePlumber
    :content-only:

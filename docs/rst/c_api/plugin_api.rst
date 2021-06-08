@@ -12,11 +12,8 @@ Plugins
    }
 
 .. doxygenstruct:: WpPlugin
-   :project: WirePlumber
 
 .. doxygenstruct:: _WpPluginClass
-   :project: WirePlumber
 
 .. doxygengroup:: wpplugin
-   :project: WirePlumber
    :content-only:

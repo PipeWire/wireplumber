@@ -11,11 +11,8 @@ PipeWire Object
    }
 
 .. doxygenstruct:: WpPipewireObject
-   :project: WirePlumber
 
 .. doxygenstruct:: _WpPipewireObjectInterface
-   :project: WirePlumber
 
 .. doxygengroup:: wppipewireobject
-   :project: WirePlumber
    :content-only:

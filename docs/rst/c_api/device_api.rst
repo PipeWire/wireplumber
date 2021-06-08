@@ -16,8 +16,6 @@ PipeWire Device
    }
 
 .. doxygenstruct:: WpDevice
-   :project: WirePlumber
 
 .. doxygengroup:: wpdevice
-   :project: WirePlumber
    :content-only:

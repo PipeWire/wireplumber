@@ -17,11 +17,8 @@ PipeWire Endpoint
    }
 
 .. doxygenstruct:: WpEndpoint
-   :project: WirePlumber
 
 .. doxygenstruct:: WpImplEndpoint
-   :project: WirePlumber
 
 .. doxygengroup:: wpendpoint
-   :project: WirePlumber
    :content-only:

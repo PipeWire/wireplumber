@@ -11,8 +11,6 @@ Object Manager
    }
 
 .. doxygenstruct:: WpObjectManager
-   :project: WirePlumber
 
 .. doxygengroup:: wpobjectmanager
-   :project: WirePlumber
    :content-only:

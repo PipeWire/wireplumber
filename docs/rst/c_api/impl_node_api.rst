@@ -15,9 +15,7 @@ Local Nodes
    }
 
 .. doxygenstruct:: WpImplNode
-   :project: WirePlumber
    :members:
 
 .. doxygengroup:: wpimplnode
-   :project: WirePlumber
    :content-only:

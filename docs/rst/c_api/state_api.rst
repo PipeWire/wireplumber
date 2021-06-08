@@ -11,8 +11,6 @@ State Storage
    }
 
 .. doxygenstruct:: WpState
-   :project: WirePlumber
 
 .. doxygengroup:: wpstate
-   :project: WirePlumber
    :content-only:
