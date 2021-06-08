@@ -109,6 +109,8 @@ wp_base_test_fixture_teardown (WpBaseTestFixture * self)
     wp_core_sync (self->client_core, NULL,
         (GAsyncReadyCallback) test_core_done_cb, self);
     g_main_loop_run (self->loop);
+    g_signal_handlers_disconnect_by_data (self->client_core, self);
+    wp_core_disconnect (self->client_core);
   }
 
   /* wait for all core pending tasks to be done */
@@ -116,7 +118,13 @@ wp_base_test_fixture_teardown (WpBaseTestFixture * self)
     wp_core_sync (self->core, NULL, (GAsyncReadyCallback) test_core_done_cb,
         self);
     g_main_loop_run (self->loop);
+    g_signal_handlers_disconnect_by_data (self->core, self);
+    wp_core_disconnect (self->core);
   }
+
+  /* double check and ensure that there is no event pending */
+  while (g_main_context_pending (self->context))
+    g_main_context_iteration (self->context, TRUE);
 
   g_main_context_pop_thread_default (self->context);
   g_clear_object (&self->client_core);
