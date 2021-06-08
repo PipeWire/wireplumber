@@ -9,6 +9,7 @@
 #include <wp/wp.h>
 #include <glib-unix.h>
 #include <pipewire/keys.h>
+#include <stdio.h>
 
 #define WP_DOMAIN_DAEMON (wp_domain_daemon_quark ())
 static G_DEFINE_QUARK (wireplumber-daemon, wp_domain_daemon);
@@ -202,7 +203,7 @@ init_done (WpCore * core, GAsyncResult * res, WpExec * d)
 {
   g_autoptr (GError) error = NULL;
   if (!wp_transition_finish (res, &error)) {
-    wp_message ("%s", error->message);
+    fprintf (stderr, "%s\n", error->message);
     d->exit_code = WP_CODE_OPERATION_FAILED;
     g_main_loop_quit (d->loop);
   }
@@ -220,7 +221,7 @@ main (gint argc, gchar **argv)
   context = g_option_context_new ("- WirePlumber script interpreter");
   g_option_context_add_main_entries (context, entries, NULL);
   if (!g_option_context_parse (context, &argc, &argv, &error)) {
-    wp_message ("%s", error->message);
+    fprintf (stderr, "%s\n", error->message);
     return WP_CODE_INVALID_ARGUMENT;
   }
 
@@ -231,6 +232,12 @@ main (gint argc, gchar **argv)
           NULL));
   g_signal_connect_swapped (d.core, "disconnected",
       G_CALLBACK (g_main_loop_quit), d.loop);
+
+  /* at the very least, enable warnings...
+     this is required to spot lua runtime errors, otherwise
+     there is silence and nothing is happening */
+  if (!wp_log_level_is_enabled (G_LOG_LEVEL_WARNING))
+    wp_log_set_level ("1");
 
   /* watch for exit signals */
   g_unix_signal_add (SIGINT, signal_handler, &d);

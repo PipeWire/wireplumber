@@ -354,7 +354,7 @@ main (gint argc, gchar **argv)
   context = g_option_context_new ("- PipeWire Session/Policy Manager");
   g_option_context_add_main_entries (context, entries, NULL);
   if (!g_option_context_parse (context, &argc, &argv, &error)) {
-    wp_message ("%s", error->message);
+    fprintf (stderr, "%s\n", error->message);
     return WP_CODE_INVALID_ARGUMENT;
   }
 
