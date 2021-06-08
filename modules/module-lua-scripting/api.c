@@ -745,9 +745,22 @@ metadata_find (lua_State *L)
   return 2;
 }
 
+static int
+metadata_set (lua_State *L)
+{
+  WpMetadata *metadata = wplua_checkobject (L, 1, WP_TYPE_METADATA);
+  lua_Integer subject = luaL_checkinteger (L, 2);
+  const char *key = luaL_opt (L, luaL_checkstring, 3, NULL);
+  const char *type = luaL_opt (L, luaL_checkstring, 4, NULL);
+  const char *value = luaL_opt (L, luaL_checkstring, 5, NULL);
+  wp_metadata_set (metadata, subject, key, type, value);
+  return 0;
+}
+
 static const luaL_Reg metadata_methods[] = {
   { "iterate", metadata_iterate },
   { "find", metadata_find },
+  { "set", metadata_set },
   { NULL, NULL }
 };
 
