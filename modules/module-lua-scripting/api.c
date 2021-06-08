@@ -729,7 +729,7 @@ metadata_iterate (lua_State *L)
 {
   WpMetadata *metadata = wplua_checkobject (L, 1, WP_TYPE_METADATA);
   lua_Integer subject = luaL_checkinteger (L, 2);
-  g_autoptr (WpIterator) it = wp_metadata_new_iterator (metadata, subject);
+  WpIterator *it = wp_metadata_new_iterator (metadata, subject);
   return push_metadata_wpiterator (L, it);
 }
 
