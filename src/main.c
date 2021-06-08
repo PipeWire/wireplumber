@@ -269,60 +269,40 @@ typedef struct
 {
   WpCore *core;
   GMainLoop *loop;
-
   gint exit_code;
-  gchar *exit_message;
-  GDestroyNotify free_message;
 } WpDaemon;
 
 static void
 daemon_clear (WpDaemon * self)
 {
-  if (self->free_message) {
-    g_clear_pointer (&self->exit_message, self->free_message);
-    self->free_message = NULL;
-  }
   g_clear_pointer (&self->loop, g_main_loop_unref);
   g_clear_object (&self->core);
 }
 
 G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (WpDaemon, daemon_clear)
 
-static G_GNUC_PRINTF (3, 4) void
-daemon_exit (WpDaemon * d, gint code, const gchar *format, ...)
-{
-  va_list args;
-  va_start (args, format);
-  d->exit_code = code;
-  d->exit_message = g_strdup_vprintf (format, args);
-  d->free_message = g_free;
-  va_end (args);
-  g_main_loop_quit (d->loop);
-}
-
 static void
-daemon_exit_static_str (WpDaemon * d, gint code, const gchar *str)
+daemon_exit (WpDaemon * d, gint code)
 {
-  d->exit_code = code;
-  d->exit_message = (gchar *) str;
-  d->free_message = NULL;
+  /* replace OK with an error, but do not replace error with OK */
+  if (d->exit_code == WP_CODE_OK)
+    d->exit_code = code;
   g_main_loop_quit (d->loop);
 }
 
 static void
 on_disconnected (WpCore *core, WpDaemon * d)
 {
-  /* something else triggered the exit; let's not change the message */
-  if (d->exit_message)
-    return;
-  daemon_exit_static_str (d, WP_CODE_OK, "disconnected from pipewire");
+  wp_message ("disconnected from pipewire");
+  daemon_exit (d, WP_CODE_OK);
 }
 
 static gboolean
 signal_handler (gpointer data)
 {
   WpDaemon *d = data;
-  daemon_exit_static_str (d, WP_CODE_OK, "stopped by signal");
+  wp_message ("stopped by signal");
+  daemon_exit (d, WP_CODE_OK);
   return G_SOURCE_CONTINUE;
 }
 
@@ -337,8 +317,10 @@ static void
 init_done (WpCore * core, GAsyncResult * res, WpDaemon * d)
 {
   g_autoptr (GError) error = NULL;
-  if (!wp_transition_finish (res, &error))
-    daemon_exit (d, WP_CODE_OPERATION_FAILED, "%s", error->message);
+  if (!wp_transition_finish (res, &error)) {
+    fprintf (stderr, "%s\n", error->message);
+    daemon_exit (d, WP_CODE_OPERATION_FAILED);
+  }
 }
 
 gint
@@ -392,8 +374,5 @@ main (gint argc, gchar **argv)
   /* run */
   g_main_loop_run (d.loop);
   wp_core_disconnect (d.core);
-
-  if (d.exit_message)
-    wp_message ("%s", d.exit_message);
   return d.exit_code;
 }
