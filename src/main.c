@@ -16,8 +16,7 @@ static G_DEFINE_QUARK (wireplumber-daemon, wp_domain_daemon);
 
 enum WpExitCode
 {
-  WP_CODE_DISCONNECTED = 0,
-  WP_CODE_INTERRUPTED,
+  WP_CODE_OK = 0,
   WP_CODE_OPERATION_FAILED,
   WP_CODE_INVALID_ARGUMENT,
 };
@@ -316,16 +315,14 @@ on_disconnected (WpCore *core, WpDaemon * d)
   /* something else triggered the exit; let's not change the message */
   if (d->exit_message)
     return;
-
-  daemon_exit_static_str (d, WP_CODE_DISCONNECTED,
-      "disconnected from pipewire");
+  daemon_exit_static_str (d, WP_CODE_OK, "disconnected from pipewire");
 }
 
 static gboolean
 signal_handler (gpointer data)
 {
   WpDaemon *d = data;
-  daemon_exit_static_str (d, WP_CODE_INTERRUPTED, "interrupted by signal");
+  daemon_exit_static_str (d, WP_CODE_OK, "stopped by signal");
   return G_SOURCE_CONTINUE;
 }
 
