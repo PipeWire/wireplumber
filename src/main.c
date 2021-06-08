@@ -16,9 +16,12 @@ static G_DEFINE_QUARK (wireplumber-daemon, wp_domain_daemon);
 
 enum WpExitCode
 {
-  WP_CODE_OK = 0,
-  WP_CODE_OPERATION_FAILED,
-  WP_CODE_INVALID_ARGUMENT,
+  /* based on sysexits.h */
+  WP_EXIT_OK = 0,
+  WP_EXIT_USAGE = 64,       /* command line usage error */
+  WP_EXIT_UNAVAILABLE = 69, /* service unavailable */
+  WP_EXIT_SOFTWARE = 70,    /* internal software error */
+  WP_EXIT_CONFIG = 78,      /* configuration error */
 };
 
 static gchar * config_file = NULL;
@@ -116,7 +119,7 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
         pw_context_get_conf_section (pw_ctx, "wireplumber.components");
     if (!str) {
       wp_transition_return_error (transition, g_error_new (
-          WP_DOMAIN_DAEMON, WP_CODE_INVALID_ARGUMENT,
+          WP_DOMAIN_DAEMON, WP_EXIT_CONFIG,
           "No components configured in the context conf file; nothing to do"));
       return;
     }
@@ -125,7 +128,7 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
 
     if (spa_json_enter_array(&it[0], &it[1]) < 0) {
       wp_transition_return_error (transition, g_error_new (
-          WP_DOMAIN_DAEMON, WP_CODE_INVALID_ARGUMENT,
+          WP_DOMAIN_DAEMON, WP_EXIT_CONFIG,
           "wireplumber.components is not a JSON array"));
       return;
     }
@@ -150,7 +153,7 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
       }
       if (name == NULL || type == NULL) {
         wp_transition_return_error (transition, g_error_new (
-            WP_DOMAIN_DAEMON, WP_CODE_INVALID_ARGUMENT,
+            WP_DOMAIN_DAEMON, WP_EXIT_CONFIG,
             "component must have both a 'name' and a 'type'"));
         return;
       }
@@ -170,7 +173,7 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
 
     if (!wp_core_connect (core)) {
       wp_transition_return_error (transition, g_error_new (WP_DOMAIN_DAEMON,
-          WP_CODE_OPERATION_FAILED, "Failed to connect to PipeWire"));
+          WP_EXIT_UNAVAILABLE, "Failed to connect to PipeWire"));
       return;
     }
 
@@ -190,7 +193,7 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
 
       if (!wp_core_connect (export_core)) {
         wp_transition_return_error (transition, g_error_new (
-            WP_DOMAIN_DAEMON, WP_LIBRARY_ERROR_OPERATION_FAILED,
+            WP_DOMAIN_DAEMON, WP_EXIT_UNAVAILABLE,
             "Failed to connect export core to PipeWire"));
         return;
       }
@@ -233,7 +236,7 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
       g_autoptr (WpPlugin) plugin = wp_plugin_find (core, engine);
       if (!plugin) {
         wp_transition_return_error (transition, g_error_new (
-            WP_DOMAIN_DAEMON, WP_CODE_INVALID_ARGUMENT,
+            WP_DOMAIN_DAEMON, WP_EXIT_CONFIG,
             "script engine '%s' is not loaded", engine));
         return;
       }
@@ -285,7 +288,7 @@ static void
 daemon_exit (WpDaemon * d, gint code)
 {
   /* replace OK with an error, but do not replace error with OK */
-  if (d->exit_code == WP_CODE_OK)
+  if (d->exit_code == WP_EXIT_OK)
     d->exit_code = code;
   g_main_loop_quit (d->loop);
 }
@@ -294,7 +297,7 @@ static void
 on_disconnected (WpCore *core, WpDaemon * d)
 {
   wp_message ("disconnected from pipewire");
-  daemon_exit (d, WP_CODE_OK);
+  daemon_exit (d, WP_EXIT_OK);
 }
 
 static gboolean
@@ -302,7 +305,7 @@ signal_handler (gpointer data)
 {
   WpDaemon *d = data;
   wp_message ("stopped by signal");
-  daemon_exit (d, WP_CODE_OK);
+  daemon_exit (d, WP_EXIT_OK);
   return G_SOURCE_CONTINUE;
 }
 
@@ -319,7 +322,8 @@ init_done (WpCore * core, GAsyncResult * res, WpDaemon * d)
   g_autoptr (GError) error = NULL;
   if (!wp_transition_finish (res, &error)) {
     fprintf (stderr, "%s\n", error->message);
-    daemon_exit (d, WP_CODE_OPERATION_FAILED);
+    daemon_exit (d, (error->domain == WP_DOMAIN_DAEMON) ?
+        error->code : WP_EXIT_SOFTWARE);
   }
 }
 
@@ -337,7 +341,7 @@ main (gint argc, gchar **argv)
   g_option_context_add_main_entries (context, entries, NULL);
   if (!g_option_context_parse (context, &argc, &argv, &error)) {
     fprintf (stderr, "%s\n", error->message);
-    return WP_CODE_INVALID_ARGUMENT;
+    return WP_EXIT_USAGE;
   }
 
   properties = wp_properties_new (

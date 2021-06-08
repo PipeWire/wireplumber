@@ -16,9 +16,11 @@ static G_DEFINE_QUARK (wireplumber-daemon, wp_domain_daemon);
 
 enum WpExitCode
 {
-  WP_CODE_OK = 0,
-  WP_CODE_OPERATION_FAILED,
-  WP_CODE_INVALID_ARGUMENT,
+  /* based on sysexits.h */
+  WP_EXIT_OK = 0,
+  WP_EXIT_USAGE = 64,       /* command line usage error */
+  WP_EXIT_UNAVAILABLE = 69, /* service unavailable */
+  WP_EXIT_SOFTWARE = 70,    /* internal software error */
 };
 
 static gchar * exec_script = NULL;
@@ -37,7 +39,7 @@ parse_exec_script_arg (const gchar *option_name, const gchar *value,
 
   g_auto(GStrv) tokens = g_strsplit (value, "=", 2);
   if (!tokens[0] || *g_strstrip (tokens[0]) == '\0') {
-    g_set_error (error, WP_DOMAIN_DAEMON, WP_CODE_INVALID_ARGUMENT,
+    g_set_error (error, WP_DOMAIN_DAEMON, WP_EXIT_USAGE,
         "invalid script argument '%s'; must be in key=value format", value);
     return FALSE;
   }
@@ -136,7 +138,7 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
 
     if (!wp_core_connect (core)) {
       wp_transition_return_error (transition, g_error_new (WP_DOMAIN_DAEMON,
-          WP_CODE_OPERATION_FAILED, "Failed to connect to PipeWire"));
+          WP_EXIT_UNAVAILABLE, "Failed to connect to PipeWire"));
       return;
     }
     break;
@@ -204,7 +206,8 @@ init_done (WpCore * core, GAsyncResult * res, WpExec * d)
   g_autoptr (GError) error = NULL;
   if (!wp_transition_finish (res, &error)) {
     fprintf (stderr, "%s\n", error->message);
-    d->exit_code = WP_CODE_OPERATION_FAILED;
+    d->exit_code = (error->domain == WP_DOMAIN_DAEMON) ?
+        error->code : WP_EXIT_SOFTWARE;
     g_main_loop_quit (d->loop);
   }
 }
@@ -222,7 +225,7 @@ main (gint argc, gchar **argv)
   g_option_context_add_main_entries (context, entries, NULL);
   if (!g_option_context_parse (context, &argc, &argv, &error)) {
     fprintf (stderr, "%s\n", error->message);
-    return WP_CODE_INVALID_ARGUMENT;
+    return WP_EXIT_USAGE;
   }
 
   /* init wireplumber core */
