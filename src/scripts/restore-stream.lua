@@ -82,6 +82,62 @@ function findSuitableKey(node)
   return key
 end
 
+function saveTarget(subject, key, type, value)
+  if key ~= "target.node" then
+    return
+  end
+
+  local node = streams_om:lookup {
+    Constraint { "bound-id", "=", subject, type = "gobject" }
+  }
+  if not node then
+    return
+  end
+
+  local key_base = findSuitableKey(node)
+  if not key_base then
+    return
+  end
+
+  Log.info(node, "saving stream target for " ..
+      tostring(node.properties["node.name"]))
+
+  local target_id = value
+  local target_name = nil
+
+  if not target_id then
+    local metadata = metadata_om:lookup()
+    if metadata then
+      target_id = metadata:find(node["bound-id"], "target.node")
+    end
+  end
+  if target_id then
+    local target_node = allnodes_om:lookup {
+      Constraint { "bound-id", "=", target_id, type = "gobject" }
+    }
+    if target_node then
+      target_name = target_node.properties["node.name"]
+    end
+  end
+  state_table[key_base .. "target"] = target_name
+
+  storeAfterTimeout()
+end
+
+function restoreTarget(node, target_name)
+  local target_node = allnodes_om:lookup {
+    Constraint { "node.name", "=", target_name, type = "pw" }
+  }
+
+  if target_node then
+    local metadata = metadata_om:lookup()
+    if metadata then
+      metadata:set(node["bound-id"], "target.node", "Spa:Id",
+          target_node["bound-id"])
+    end
+  end
+end
+
 function saveStream(node)
   local key_base = findSuitableKey(node)
   if not key_base then
@@ -141,6 +197,11 @@ function restoreStream(node)
   needsRestore = str and true or needsRestore
   props.channelMap = str and parseArray(str) or nil
 
+  local str = state_table[key_base .. "target"]
+  if str then
+    restoreTarget(node, str)
+  end
+
   -- convert arrays to Spa Pod
   if props.channelVolumes then
     table.insert(props.channelVolumes, 1, "Spa:Float")
@@ -160,7 +221,28 @@ function restoreStream(node)
   end
 end
 
-om = ObjectManager {
+metadata_om = ObjectManager {
+  Interest {
+    type = "metadata",
+    Constraint { "metadata.name", "=", "default" },
+  }
+}
+metadata_om:connect("object-added", function (om, metadata)
+  -- process existing metadata
+  for s, k, t, v in metadata:iterate(Id.ANY) do
+    saveTarget(s, k, t, v)
+  end
+  -- and watch for changes
+  metadata:connect("changed", function (m, subject, key, type, value)
+    saveTarget(subject, key, type, value)
+  end)
+end)
+metadata_om:activate()
+
+allnodes_om = ObjectManager { Interest { type = "node" } }
+allnodes_om:activate()
+
+streams_om = ObjectManager {
   -- match stream nodes
   Interest {
     type = "node",
@@ -178,10 +260,16 @@ om = ObjectManager {
     Constraint { "device.routes", "equals", "0", type = "pw" },
   },
 }
-
-om:connect("object-added", function (om, node)
+streams_om:connect("object-added", function (streams_om, node)
   node:connect("params-changed", saveStream)
   restoreStream(node)
 end)
-
-om:activate()
+streams_om:connect("object-removed", function (streams_om, node)
+  -- clear 'target.node' in case it was set
+  -- this needs fixing, it (partly) works only if metadata is WpImplMetadata
+  local metadata = metadata_om:lookup()
+  if metadata then
+    metadata:set(node["bound-id"], "target.node", nil, nil)
+  end
+end)
+streams_om:activate()
