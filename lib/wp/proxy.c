@@ -343,6 +343,11 @@ static void
 bind_error (WpProxy * proxy, int seq, int res, const gchar *msg,
     WpTransition * transition)
 {
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (proxy);
+
+  if (priv->pw_proxy)
+    pw_proxy_destroy (priv->pw_proxy);
+
   wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
           WP_LIBRARY_ERROR_OPERATION_FAILED, "%s", msg));
 }
