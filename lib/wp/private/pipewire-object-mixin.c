@@ -295,8 +295,14 @@ wp_pw_object_mixin_set_param (WpPipewireObject * obj, const gchar * id,
     guint32 flags, WpSpaPod * param)
 {
   WpPwObjectMixinPrivInterface *iface = WP_PW_OBJECT_MIXIN_PRIV_GET_IFACE (obj);
+  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (obj);
   WpSpaIdValue param_id;
   gint ret;
+
+  if (!d->iface) {
+    wp_message_object (obj, "ignoring set_param on already destroyed objects");
+    return FALSE;
+  }
 
   if (!iface->set_param) {
     wp_warning_object (obj, "set_param is not supported on this object");
