@@ -54,6 +54,9 @@ struct _WpSessionItemClass
   void (*enable_active) (WpSessionItem * self, WpTransition * transition);
   /*! enables the exported feature of the session item */
   void (*enable_exported) (WpSessionItem * self, WpTransition * transition);
+
+  /*< private >*/
+  WP_PADDING(5)
 };
 
 /* Id */

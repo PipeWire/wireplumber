@@ -74,6 +74,9 @@ struct _WpObjectClass
       WpObjectFeatures missing);
 
   void (*deactivate) (WpObject * self, WpObjectFeatures features);
+
+  /*< private >*/
+  WP_PADDING(8)
 };
 
 WP_API

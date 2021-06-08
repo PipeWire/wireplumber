@@ -81,6 +81,9 @@ struct _WpProxyClass
   void (*pw_proxy_destroyed) (WpProxy * self);
   void (*bound) (WpProxy * self, guint32 id);
   void (*error) (WpProxy * self, int seq, int res, const char *message);
+
+  /*< private >*/
+  WP_PADDING(6)
 };
 
 WP_API

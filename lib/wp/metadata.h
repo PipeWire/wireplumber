@@ -34,6 +34,9 @@ G_DECLARE_DERIVABLE_TYPE (WpMetadata, wp_metadata, WP, METADATA, WpGlobalProxy)
 struct _WpMetadataClass
 {
   WpGlobalProxyClass parent_class;
+
+  /*< private >*/
+  WP_PADDING(4)
 };
 
 WP_API

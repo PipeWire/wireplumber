@@ -2222,6 +2222,7 @@ PREDEFINED             = DOXYGEN_DOCUMENTATION_BUILD \
                          WP_API= \
                          WP_PRIVATE_API= \
                          WP_PLUGIN_EXPORT= \
+                         WP_PADDING(...)= \
                          G_GNUC_CONST= \
                          G_GNUC_PRINTF(...)= \
                          G_GNUC_NULL_TERMINATED= \

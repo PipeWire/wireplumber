@@ -46,6 +46,9 @@ struct _WpPipewireObjectInterface
 
   gboolean (*set_param) (WpPipewireObject * self, const gchar * id,
       guint32 flags, WpSpaPod * param);
+
+  /*< private >*/
+  WP_PADDING(5)
 };
 
 WP_API

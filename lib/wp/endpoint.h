@@ -28,6 +28,9 @@ G_DECLARE_DERIVABLE_TYPE (WpEndpoint, wp_endpoint, WP, ENDPOINT, WpGlobalProxy)
 struct _WpEndpointClass
 {
   WpGlobalProxyClass parent_class;
+
+  /*< private >*/
+  WP_PADDING(4)
 };
 
 WP_API

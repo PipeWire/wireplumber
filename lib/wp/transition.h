@@ -43,6 +43,9 @@ struct _WpTransitionClass
   guint (*get_next_step) (WpTransition * transition, guint step);
   /*! See wp_transition_advance() */
   void (*execute_step) (WpTransition * transition, guint step);
+
+  /*< private >*/
+  WP_PADDING(6)
 };
 
 WP_API

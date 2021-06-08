@@ -32,6 +32,9 @@ struct _WpSiEndpointInterface
 
   GVariant * (*get_registration_info) (WpSiEndpoint * self);
   WpProperties * (*get_properties) (WpSiEndpoint * self);
+
+  /*< private >*/
+  WP_PADDING(6)
 };
 
 WP_API
@@ -58,6 +61,9 @@ struct _WpSiAdapterInterface
       const gchar *mode, GAsyncReadyCallback callback, gpointer data);
   gboolean (*set_ports_format_finish) (WpSiAdapter * self, GAsyncResult * res,
       GError ** error);
+
+  /*< private >*/
+  WP_PADDING(5)
 };
 
 WP_API
@@ -87,6 +93,9 @@ struct _WpSiLinkableInterface
 
   GVariant * (*get_ports) (WpSiLinkable * self, const gchar * context);
   WpSiAcquisition * (*get_acquisition) (WpSiLinkable * self);
+
+  /*< private >*/
+  WP_PADDING(6)
 };
 
 WP_API
@@ -114,6 +123,9 @@ struct _WpSiLinkInterface
 
   WpSiLinkable * (*get_out_item) (WpSiLink * self);
   WpSiLinkable * (*get_in_item) (WpSiLink * self);
+
+  /*< private >*/
+  WP_PADDING(4)
 };
 
 WP_API
@@ -148,6 +160,9 @@ struct _WpSiAcquisitionInterface
 
   void (*release) (WpSiAcquisition * self, WpSiLink * acquisitor,
       WpSiLinkable * item);
+
+  /*< private >*/
+  WP_PADDING(5)
 };
 
 WP_API

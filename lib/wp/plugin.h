@@ -36,6 +36,9 @@ struct _WpPluginClass
 
   void (*enable) (WpPlugin * self, WpTransition * transition);
   void (*disable) (WpPlugin * self);
+
+  /*< private >*/
+  WP_PADDING(6)
 };
 
 WP_API

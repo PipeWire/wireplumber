@@ -27,6 +27,9 @@ struct _WpSiFactoryClass
   GObjectClass parent_class;
 
   WpSessionItem * (*construct) (WpSiFactory * self, WpCore * core);
+
+  /*< private >*/
+  WP_PADDING(7)
 };
 
 WP_API

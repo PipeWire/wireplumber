@@ -35,4 +35,6 @@
 # endif
 #endif
 
+#define WP_PADDING(n) gpointer _wp_padding[n];
+
 #endif

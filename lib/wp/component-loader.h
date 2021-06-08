@@ -30,6 +30,9 @@ struct _WpComponentLoaderClass
 
   gboolean (*load) (WpComponentLoader * self, const gchar * component,
       const gchar * type, GVariant * args, GError ** error);
+
+  /*< private >*/
+  WP_PADDING(6)
 };
 
 G_END_DECLS
