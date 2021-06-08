@@ -18,6 +18,7 @@ breathe_projects = {
   "WirePlumber": "@OUTDIR@/wp/xml",
 }
 breathe_default_project = "WirePlumber"
+breathe_default_members = ('members', 'undoc-members')
 
 breathe_domain_by_extension = {
     "h" : "c",
