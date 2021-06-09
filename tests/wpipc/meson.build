@@ -1,8 +1,8 @@
 common_deps = [wpipc_dep, glib_dep]
-common_env = [
-  'G_TEST_SRCDIR=@0@'.format(meson.current_source_dir()),
-  'G_TEST_BUILDDIR=@0@'.format(meson.current_build_dir()),
-]
+common_env = environment({
+  'G_TEST_SRCDIR': meson.current_source_dir(),
+  'G_TEST_BUILDDIR': meson.current_build_dir(),
+})
 
 test(
   'test-wpipc-sender-receiver',

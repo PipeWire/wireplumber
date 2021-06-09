@@ -1,12 +1,12 @@
 common_deps = [wplua_dep, pipewire_dep, wp_dep]
-common_env = [
-  'G_TEST_SRCDIR=@0@'.format(meson.current_source_dir()),
-  'G_TEST_BUILDDIR=@0@'.format(meson.current_build_dir()),
-  'WIREPLUMBER_CONFIG_DIR=/invalid',
-  'WIREPLUMBER_DATA_DIR=@0@'.format(meson.current_source_dir()),
-  'WIREPLUMBER_MODULE_DIR=@0@'.format(meson.current_build_dir() / '..' / '..' / 'modules'),
-  'WIREPLUMBER_DEBUG=7',
-]
+common_env = environment({
+  'G_TEST_SRCDIR': meson.current_source_dir(),
+  'G_TEST_BUILDDIR': meson.current_build_dir(),
+  'WIREPLUMBER_CONFIG_DIR': '/invalid',
+  'WIREPLUMBER_DATA_DIR': meson.current_source_dir(),
+  'WIREPLUMBER_MODULE_DIR': meson.current_build_dir() / '..' / '..' / 'modules',
+  'WIREPLUMBER_DEBUG': '7',
+})
 
 test(
   'test-wplua',
