@@ -16,8 +16,11 @@ run: all
 	WIREPLUMBER_DEBUG=$(WIREPLUMBER_DEBUG) \
 	./wp-uninstalled.sh $(DBG) ./build/src/wireplumber
 
-test: all
-	ninja -C build test
+test:
+	meson test -C build
+
+test_valgrind:
+	meson test -C build --setup=valgrind
 
 gdb:
 	$(MAKE) run DBG=gdb

@@ -68,6 +68,7 @@ endif
 
 gnome = import('gnome')
 pkgconfig = import('pkgconfig')
+fs = import('fs')
 
 wp_lib_include_dir = include_directories('lib')
 
