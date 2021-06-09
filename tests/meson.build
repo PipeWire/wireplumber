@@ -22,6 +22,7 @@ if valgrind.found()
       '--leak-check=full',
       '--gen-suppressions=all',
       '--error-exitcode=3',
+      '--keep-debuginfo=yes',
     ],
     env: valgrind_env,
     timeout_multiplier: 2)
