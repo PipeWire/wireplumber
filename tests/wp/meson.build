@@ -1,6 +1,5 @@
 common_deps = [gobject_dep, gio_dep, wp_dep, pipewire_dep]
 common_env = environment({
-  'G_SLICE': 'debug-blocks',
   'G_TEST_SRCDIR': meson.current_source_dir(),
   'G_TEST_BUILDDIR': meson.current_build_dir(),
   'XDG_CONFIG_HOME': meson.current_build_dir() / '.config',

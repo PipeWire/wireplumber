@@ -1,6 +1,5 @@
 common_deps = [wplua_dep, pipewire_dep, wp_dep]
 common_env = environment({
-  'G_SLICE': 'debug-blocks',
   'G_TEST_SRCDIR': meson.current_source_dir(),
   'G_TEST_BUILDDIR': meson.current_build_dir(),
   'WIREPLUMBER_CONFIG_DIR': '/invalid',
