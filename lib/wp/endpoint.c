@@ -353,10 +353,14 @@ on_si_endpoint_properties_changed (WpSiEndpoint * item, WpImplEndpoint * self)
 }
 
 static void
-on_node_params_changed (WpNode * node, guint32 param_id, WpImplEndpoint * self)
+on_node_params_changed (WpNode * node, const gchar *param_name,
+    WpImplEndpoint * self)
 {
-  if (param_id == SPA_PARAM_PropInfo || param_id == SPA_PARAM_Props)
+  if (!g_strcmp0 (param_name, "PropInfo") || !g_strcmp0 (param_name, "Props")) {
+    guint32 param_id = wp_spa_id_value_number (
+        wp_spa_id_value_from_short_name ("Spa:Enum:ParamId", param_name));
     wp_pw_object_mixin_notify_params_changed (self, param_id);
+  }
 }
 
 static void

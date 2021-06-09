@@ -39,7 +39,7 @@
  * \parblock
  * \code
  * params_changed_callback (WpPipewireObject * self,
- *                          guint id,
+ *                          const gchar *id,
  *                          gpointer user_data)
  * \endcode
  *
@@ -50,7 +50,7 @@
  * WP_PIPEWIRE_OBJECT_FEATURE_PARAM_* has been activated.
  *
  * Parameters:
- * - `id` - the parameter id
+ * - `id` - the parameter id as a string (ex "Props", "EnumRoute")
  *
  * Flags: G_SIGNAL_RUN_FIRST
  * \endparblock
@@ -77,7 +77,7 @@ wp_pipewire_object_default_init (WpPipewireObjectInterface * iface)
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
   g_signal_new ("params-changed", G_TYPE_FROM_INTERFACE (iface),
-      G_SIGNAL_RUN_FIRST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_UINT);
+      G_SIGNAL_RUN_FIRST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_STRING);
 }
 
 /*!

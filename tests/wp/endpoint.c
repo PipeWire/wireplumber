@@ -272,13 +272,13 @@ test_endpoint_activate_done (WpObject * object, GAsyncResult * res,
 
 static void
 test_endpoint_params_changed (WpPipewireObject * proxy,
-    guint32 id, TestEndpointFixture *fixture)
+    const gchar * param_name, TestEndpointFixture *fixture)
 {
-  wp_debug_object (proxy, "params changed: %u", id);
+  wp_debug_object (proxy, "params changed: %s", param_name);
 
   /* only count changes of id 2 (Props); PipeWire 0.3.22+git changed
      behaviour and emits changes to PropInfo as well then the Props change */
-  if (id == 2 && ++fixture->n_events == 3)
+  if (!g_strcmp0 (param_name, "Props") && ++fixture->n_events == 3)
     g_main_loop_quit (fixture->base.loop);
 }
 

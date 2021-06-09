@@ -580,6 +580,7 @@ enum_params_for_cache_done (GObject * object, GAsyncResult * res, gpointer data)
   guint32 param_id = GPOINTER_TO_UINT (data);
   g_autoptr (GError) error = NULL;
   g_autoptr (GPtrArray) params = NULL;
+  const gchar *name = NULL;
 
   params = g_task_propagate_pointer (G_TASK (res), &error);
   if (error) {
@@ -587,8 +588,11 @@ enum_params_for_cache_done (GObject * object, GAsyncResult * res, gpointer data)
     return;
   }
 
-  wp_debug_object (object, "cached params id:%u, n_params:%u", param_id,
-      params->len);
+  name = wp_spa_id_value_short_name (wp_spa_id_value_from_number (
+        "Spa:Enum:ParamId", param_id));
+
+  wp_debug_object (object, "cached params id:%u (%s), n_params:%u", param_id,
+      name, params->len);
 
   wp_pw_object_mixin_store_param (d, param_id,
       WP_PW_OBJECT_MIXIN_STORE_PARAM_ARRAY |
@@ -596,7 +600,7 @@ enum_params_for_cache_done (GObject * object, GAsyncResult * res, gpointer data)
       WP_PW_OBJECT_MIXIN_STORE_PARAM_APPEND,
       g_steal_pointer (&params));
 
-  g_signal_emit_by_name (object, "params-changed", param_id);
+  g_signal_emit_by_name (object, "params-changed", name);
 }
 
 G_DEFINE_QUARK (WpPwObjectMixinParamCacheActivatedFeatures, activated_features)
@@ -962,6 +966,7 @@ wp_pw_object_mixin_notify_params_changed (gpointer instance, guint32 id)
   WpPwObjectMixinPrivInterface *iface =
       WP_PW_OBJECT_MIXIN_PRIV_GET_IFACE (instance);
   gboolean subscribed = FALSE;
+  const gchar *name = NULL;
 
   struct spa_param_info * info = find_param_info (instance, id);
   g_return_if_fail (info);
@@ -975,12 +980,10 @@ wp_pw_object_mixin_notify_params_changed (gpointer instance, guint32 id)
     }
   }
 
-  if (wp_log_level_is_enabled (G_LOG_LEVEL_DEBUG)) {
-    const gchar *name = NULL;
-    name = wp_spa_id_value_short_name (wp_spa_id_value_from_number (
+  name = wp_spa_id_value_short_name (wp_spa_id_value_from_number (
         "Spa:Enum:ParamId", id));
-    wp_debug_object (instance, "notify param id:%u (%s)", id, name);
-  }
+
+  wp_debug_object (instance, "notify param id:%u (%s)", id, name);
 
   /* toggle the serial flag; this notifies that there is a data change */
   info->flags ^= SPA_PARAM_INFO_SERIAL;
@@ -992,5 +995,6 @@ wp_pw_object_mixin_notify_params_changed (gpointer instance, guint32 id)
 
   if (subscribed)
     wp_pw_object_mixin_impl_enum_params (instance, 1, id, 0, -1, NULL);
-  g_signal_emit_by_name (instance, "params-changed", id);
+
+  g_signal_emit_by_name (instance, "params-changed", name);
 }

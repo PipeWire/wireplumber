@@ -242,10 +242,11 @@ on_sync_done (WpCore * core, GAsyncResult * res, WpMixerApi * self)
 }
 
 static void
-on_params_changed (WpPipewireObject * obj, guint param_id, WpMixerApi * self)
+on_params_changed (WpPipewireObject * obj, const gchar * param_name,
+    WpMixerApi * self)
 {
-  if ((WP_IS_NODE (obj) && param_id == SPA_PARAM_Props) ||
-      (WP_IS_DEVICE (obj) && param_id == SPA_PARAM_Route)) {
+  if ((WP_IS_NODE (obj) && !g_strcmp0 (param_name, "Props")) ||
+      (WP_IS_DEVICE (obj) && !g_strcmp0 (param_name, "Route"))) {
     g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
     wp_core_sync (core, NULL, (GAsyncReadyCallback) on_sync_done, self);
   }
