@@ -291,11 +291,27 @@ static const luaL_Reg plugin_funcs[] = {
 /* WpObject */
 
 static void
-object_activate_done (WpObject *o, GAsyncResult *res, gpointer data)
+object_activate_done (WpObject *o, GAsyncResult * res, GClosure * closure)
 {
   g_autoptr (GError) error = NULL;
+  GValue val[2] = { G_VALUE_INIT, G_VALUE_INIT };
+  int n_vals = 1;
+
   if (!wp_object_activate_finish (o, res, &error)) {
-    wp_warning_object (o, "failed to activate: %s", error->message);
+    wp_message_object (o, "%s", error->message);
+    if (closure) {
+      g_value_init (&val[1], G_TYPE_STRING);
+      g_value_set_string (&val[1], error->message);
+      n_vals = 2;
+    }
+  }
+  if (closure) {
+    g_value_init_from_instance (&val[0], o);
+    g_closure_invoke (closure, NULL, n_vals, val, NULL);
+    g_value_unset (&val[0]);
+    g_value_unset (&val[1]);
+    g_closure_invalidate (closure);
+    g_closure_unref (closure);
   }
 }
 
@@ -304,15 +320,11 @@ object_activate (lua_State *L)
 {
   WpObject *o = wplua_checkobject (L, 1, WP_TYPE_OBJECT);
   WpObjectFeatures features = luaL_checkinteger (L, 2);
-
-  if (lua_type (L, 3) != LUA_TNONE) {
-    GClosure *closure = wplua_function_to_closure (L, 3);
-    wp_object_activate_closure (o, features, NULL, closure);
-  } else {
-    wp_object_activate (o, features, NULL,
-        (GAsyncReadyCallback) object_activate_done, NULL);
-  }
-
+  GClosure * closure = luaL_opt (L, wplua_checkclosure, 3, NULL);
+  if (closure)
+    g_closure_sink (g_closure_ref (closure));
+  wp_object_activate (o, features, NULL,
+      (GAsyncReadyCallback) object_activate_done, closure);
   return 0;
 }
 
