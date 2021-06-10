@@ -1,5 +1,75 @@
+WirePlumber 0.4.0
+~~~~~~~~~~~~~~~~~
+
+This is the first stable release of the 0.4.x series, which is expected to be
+an API & ABI stable release series to go along with PipeWire 0.3.x. It is
+a fundamental goal of this series to maintain compatibility with
+pipewire-media-session, making WirePlumber suitable for a desktop PulseAudio &
+JACK replacement setup, while supporting other setups as well (ex. automotive)
+by making use of its brand new Lua scripting engine, which allows making
+customizations easily.
+
+Highlights:
+
+  - Re-implemented the default-routes module in lua, using the same logic
+    as the one that pipewire-media-session uses. This fixes a number of issues
+    related to volume controls on alsa devices.
+
+  - Implemented a restore-stream lua script, based on the restore-stream
+    module from media-session. This allows storing stream volumes and targets
+    and restoring them when the stream re-connects
+
+  - Added support for handling dont-remix streams and streams that are not
+    autoconnected. Fixes ``pw-cat -p --target=0`` and the gnome-control-center
+    channel test
+
+  - Device names are now sanitized in the same way as in pipewire-media-session
+
+  - Disabled endpoints in the default configuration. Using endpoints does
+    not provide the best experience on desktop systems yet
+
+  - Fixed a regression introduced in 0.3.96 that would not allow streams to be
+    relinked on their endpoints after having been corked by the policy
+
+Library:
+
+  - Some API methods were changed to adhere to the programming practices
+    followed elsewhere in the codebase and to be future-proof. Also added
+    paddings on public structures so that from this point on, the 0.4.x series
+    is going to be API & ABI stable
+
+  - lua: added WpState and wp_metadata_set() bindings and improved
+    WpObject.activate() to report errors
+
+  - ObjectManager: added support for declaring interest on all kinds of
+    properties of global objects. Previously it was only possible to declare
+    interest on pipewire global properties
+
+Misc:
+
+  - daemon & wpexec: changed the exit codes to follow the standardized codes
+    defined in sysexits.h
+
+  - wpexec now forces the log level to be >= 1 so that lua runtime errors can be
+    printed on the terminal
+
+  - Fixed issues with gobject-introspection data that were introduced by the
+    switch to doxygen
+
+  - Fixed a build issue where wp-gtkdoc.h would not be generated in time
+    for the gobject-introspection target to build
+
+  - Added a valgrind test setup in meson, use with ``meson test --setup=valgrind``
+
+  - Many memory leak and stability fixes
+
+  - Updated more documentation pages
+
+Past releases
+~~~~~~~~~~~~~
+
 WirePlumber 0.3.96
-~~~~~~~~~~~~~~~~~~
+..................
 
 Second pre-release (RC2) of WirePlumber 0.4.0.
 
@@ -25,9 +95,6 @@ Highlights:
   - The documentation system has switched to use *Doxygen* & *Sphinx*; some
     documentation has also been updated and some Lua API documentation has
     been introduced
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.3.95
 ..................
