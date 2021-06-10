@@ -92,7 +92,7 @@ function rescan()
     ["Video/Source"] = {},
   }
 
-  Log.debug("Rescan endpoint links")
+  Log.info("Rescan endpoint links")
 
   -- deactivate all links if suspend playback metadata is present
   local suspend = getSuspendPlaybackMetadata()

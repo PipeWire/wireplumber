@@ -245,7 +245,7 @@ function handleSiLinkable (si)
   local si_link, si_peer = getSiLinkAndSiPeer (si, target_media_class)
   if si_link then
     if si_peer and si_peer.id == si_target.id then
-      Log.info (si, "already linked to proper target")
+      Log.debug (si, "already linked to proper target")
       return
     end
 

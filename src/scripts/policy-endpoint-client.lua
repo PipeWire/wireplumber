@@ -174,7 +174,7 @@ function handleSiLinkable (si)
   local si_link, si_peer_ep = getSiLinkAndSiPeerEndpoint (si)
   if si_link then
     if si_peer_ep and si_peer_ep.id == si_target_ep.id then
-      Log.info (si, "already linked to proper target endpoint")
+      Log.debug (si, "already linked to proper target endpoint")
       return
     end
 
