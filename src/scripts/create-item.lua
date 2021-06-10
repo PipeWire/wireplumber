@@ -30,12 +30,21 @@ function addItem (node, item_type)
   end)
 end
 
-nodes_om = ObjectManager { Interest { type = "node",
-  Constraint { "media.class", "c",
-    "Stream/Input/Audio", "Stream/Output/Audio", "Stream/Input/Video",
-    "Audio/Source", "Audio/Sink", "Video/Source",
-    type = "pw-global" },
-} }
+nodes_om = ObjectManager {
+  Interest {
+    type = "node",
+    Constraint { "media.class", "#", "Stream/*", type = "pw-global" },
+  },
+  Interest {
+    type = "node",
+    Constraint { "media.class", "#", "Video/*", type = "pw-global" },
+  },
+  Interest {
+    type = "node",
+    Constraint { "media.class", "#", "Audio/*", type = "pw-global" },
+    Constraint { "wireplumber.is-endpoint", "-", type = "pw" },
+  },
+}
 
 nodes_om:connect("object-added", function (om, node)
   local media_class = node.properties['media.class']

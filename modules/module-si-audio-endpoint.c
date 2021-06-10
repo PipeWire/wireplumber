@@ -182,6 +182,8 @@ si_audio_endpoint_enable_active (WpSessionItem *si, WpTransition *transition)
   g_autofree gchar *name = g_strdup_printf ("control.%s", self->name);
   g_autofree gchar *desc = g_strdup_printf ("%s %s Endpoint", self->role,
       (self->direction == WP_DIRECTION_OUTPUT) ? "Capture" : "Playback");
+  g_autofree gchar *media = g_strdup_printf ("Audio/%s/Virtual",
+      (self->direction == WP_DIRECTION_OUTPUT) ? "Source" : "Sink");
 
   if (!wp_session_item_is_configured (si)) {
     wp_transition_return_error (transition,
@@ -194,10 +196,11 @@ si_audio_endpoint_enable_active (WpSessionItem *si, WpTransition *transition)
   self->node = wp_node_new_from_factory (core, "adapter",
       wp_properties_new (
           PW_KEY_NODE_NAME, name,
-          PW_KEY_MEDIA_CLASS, "Audio/Duplex",
+          PW_KEY_MEDIA_CLASS, media,
           PW_KEY_FACTORY_NAME, "support.null-audio-sink",
           PW_KEY_NODE_DESCRIPTION, desc,
           "monitor.channel-volumes", "true",
+          "wireplumber.is-endpoint", "true",
           NULL));
   if (!self->node) {
     wp_transition_return_error (transition,
