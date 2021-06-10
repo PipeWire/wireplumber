@@ -375,10 +375,22 @@ configure_and_link_adapters (WpSiStandardLink *self,
   str = wp_session_item_get_property (WP_SESSION_ITEM (si_in), "is.device");
   in_is_device = str && pw_properties_parse_bool (str);
 
+  str = wp_session_item_get_property (WP_SESSION_ITEM (si_out), "si.factory.name");
+  out_is_device = (str && !g_strcmp0 (str, "si-audio-endpoint") && !in_is_device)
+      || out_is_device;
+  str = wp_session_item_get_property (WP_SESSION_ITEM (si_in), "si.factory.name");
+  in_is_device = (str && !g_strcmp0 (str, "si-audio-endpoint") && !out_is_device)
+      || in_is_device;
+
   str = wp_session_item_get_property (WP_SESSION_ITEM (si_out), "dont.remix");
   out_dont_remix = str && pw_properties_parse_bool (str);
   str = wp_session_item_get_property (WP_SESSION_ITEM (si_in), "dont.remix");
   in_dont_remix = str && pw_properties_parse_bool (str);
+
+  wp_debug_object (self, "out [device:%d, dont_remix %d], "
+      "in: [device %d, dont_remix %d]",
+      out_is_device, out_dont_remix,
+      in_is_device, in_dont_remix);
 
   /* Out is device node, In is not */
   if (out_is_device && !in_is_device) {
