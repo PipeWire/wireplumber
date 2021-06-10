@@ -5,6 +5,10 @@ default_policy.endpoints = {}
 default_policy.policy = {
   ["move"] = true,   -- moves session items when metadata target.node changes
   ["follow"] = true, -- moves session items to the default device when it has changed
+
+  -- how much to lower the volume of lower priority streams when ducking
+  -- note that this is a linear volume modifier (not cubic as in pulseaudio)
+  ["duck.level"] = 0.3,
 }
 
 function default_policy.enable()
