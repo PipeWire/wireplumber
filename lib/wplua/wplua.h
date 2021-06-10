@@ -71,6 +71,7 @@ gpointer wplua_checkboxed (lua_State *L, int idx, GType type);
 gboolean wplua_isboxed (lua_State *L, int idx, GType type);
 
 /* transfer floating */
+GClosure * wplua_checkclosure (lua_State *L, int idx);
 GClosure * wplua_function_to_closure (lua_State *L, int idx);
 void wplua_lua_to_gvalue (lua_State *L, int idx, GValue *v);
 int wplua_gvalue_to_lua (lua_State *L, const GValue *v);

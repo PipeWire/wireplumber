@@ -116,6 +116,13 @@ _wplua_closure_finalize (lua_State *L, WpLuaClosure *c)
   g_ptr_array_unref (c->closures);
 }
 
+GClosure *
+wplua_checkclosure (lua_State *L, int idx)
+{
+  luaL_checktype (L, idx, LUA_TFUNCTION);
+  return wplua_function_to_closure (L, idx);
+}
+
 /**
  * wplua_function_to_closure:
  *
