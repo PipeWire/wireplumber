@@ -147,9 +147,7 @@ build_with_coverity:
     - cov-configure --config coverity_conf.xml
         --comptype gcc --compiler cc --template
         --xml-option=append_arg@C:--ppp_translator
-        --xml-option=append_arg@C:"replace/G_SPAWN_ERROR_2BIG.*=.* G_SPAWN_ERROR_TOO_BIG,/G_SPAWN_ERROR_2BIG = G_SPAWN_ERROR_TOO_BIG,"
-        --xml-option=append_arg@C:--ppp_translator
-        --xml-option=append_arg@C:"replace/G_PARAM_PRIVATE.*=.* G_PARAM_STATIC_NAME,/G_PARAM_PRIVATE = G_PARAM_STATIC_NAME,"
+        --xml-option=append_arg@C:"replace/GLIB_(DEPRECATED|AVAILABLE)_ENUMERATOR_IN_\d_\d\d(_FOR\(\w+\)|)\s+=/ ="
     - cov-build --dir cov-int --config coverity_conf.xml ninja -C "$WP_BUILD_DIR"
     - tar caf wireplumber.tar.lzma cov-int
     - curl https://scan.coverity.com/builds?project=$COVERITY_SCAN_PROJECT_NAME
