@@ -149,10 +149,10 @@ build_with_coverity:
         --xml-option=append_arg@C:--ppp_translator
         --xml-option=append_arg@C:"replace/GLIB_(DEPRECATED|AVAILABLE)_ENUMERATOR_IN_\d_\d\d(_FOR\(\w+\)|)\s+=/ ="
     - cov-build --dir cov-int --config coverity_conf.xml ninja -C "$WP_BUILD_DIR"
-    - tar caf wireplumber.tar.lzma cov-int
+    - tar caf wireplumber.tar.gz cov-int
     - curl https://scan.coverity.com/builds?project=$COVERITY_SCAN_PROJECT_NAME
         --form token=$COVERITY_SCAN_TOKEN --form email=$GITLAB_USER_EMAIL
-        --form file=@wireplumber.tar.lzma --form version="`git describe --tags`"
+        --form file=@wireplumber.tar.gz --form version="`git describe --tags`"
         --form description="`git describe --tags` / $CI_COMMIT_TITLE / $CI_COMMIT_REF_NAME:$CI_PIPELINE_ID "
   artifacts:
     name: wireplumber-coverity-$CI_COMMIT_SHA
