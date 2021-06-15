@@ -11,6 +11,7 @@
 #define WP_STATE_DIR_NAME "wireplumber"
 
 #include <stdio.h>
+#include <errno.h>
 
 #include "log.h"
 #include "state.h"
@@ -54,7 +55,8 @@ get_new_location (const char *name)
   g_return_val_if_fail (path, NULL);
 
   /* Create the directory if it doesn't exist */
-  g_mkdir_with_parents (path, 0700);
+  if (g_mkdir_with_parents (path, 0700) < 0)
+    wp_warning ("failed to create directory %s: %s", path, g_strerror (errno));
 
   return g_build_filename (path, name, NULL);
 }
@@ -185,7 +187,8 @@ wp_state_clear (WpState *self)
 {
   g_return_if_fail (WP_IS_STATE (self));
   wp_state_ensure_location (self);
-  remove (self->location);
+  if (remove (self->location) < 0)
+    wp_warning ("failed to remove %s: %s", self->location, g_strerror (errno));
 }
 
 /*!

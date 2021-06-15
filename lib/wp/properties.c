@@ -473,6 +473,7 @@ wp_properties_update_keys (WpProperties * self, WpProperties * props,
     if ((value = wp_properties_get (props, key1)) != NULL)
       changed += wp_properties_set (self, key1, value);
   }
+  va_end (args);
   return changed;
 }
 
@@ -507,6 +508,7 @@ wp_properties_update_keys_from_dict (WpProperties * self,
     if ((value = spa_dict_lookup (dict, key1)) != NULL)
       changed += wp_properties_set (self, key1, value);
   }
+  va_end (args);
   return changed;
 }
 
@@ -564,6 +566,7 @@ wp_properties_add_keys (WpProperties * self, WpProperties * props,
     if (wp_properties_get (self, key1) == NULL)
       changed += wp_properties_set (self, key1, value);
   }
+  va_end (args);
   return changed;
 }
 
@@ -599,6 +602,7 @@ wp_properties_add_keys_from_dict (WpProperties * self,
     if (wp_properties_get (self, key1) == NULL)
       changed += wp_properties_set (self, key1, value);
   }
+  va_end (args);
   return changed;
 }
 

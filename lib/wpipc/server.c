@@ -121,8 +121,11 @@ wpipc_server_new (const char *path, bool start)
   pthread_mutex_init (&priv->mutex, NULL);
   priv->n_request_handlers = 0;
 
-  if (start)
-    wpipc_receiver_start (base);
+  if (start && !wpipc_receiver_start (base)) {
+    wpipc_log_error ("failed to start receiver");
+    wpipc_server_free ((struct wpipc_server *)base);
+    return NULL;
+  }
 
   return (struct wpipc_server *)base;
 }
