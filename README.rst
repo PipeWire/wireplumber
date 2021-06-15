@@ -4,6 +4,9 @@ WirePlumber
 .. image:: https://gitlab.freedesktop.org/pipewire/wireplumber/badges/master/pipeline.svg
    :alt: Pipeline status
 
+.. image:: https://scan.coverity.com/projects/21488/badge.svg
+   :alt: Coverity Scan Build Status
+
 .. image:: https://img.shields.io/tokei/lines/gitlab.freedesktop.org/pipewire/wireplumber
    :alt: Lines of code
 
