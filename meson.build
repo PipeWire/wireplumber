@@ -40,6 +40,12 @@ endif
 cc = meson.get_compiler('c')
 
 glib_req_version = '>= 2.58'
+add_project_arguments([
+    '-DGLIB_VERSION_MIN_REQUIRED=GLIB_VERSION_2_58',
+    '-DGLIB_VERSION_MAX_ALLOWED=GLIB_VERSION_2_58',
+  ], language: 'c'
+)
+
 glib_dep = dependency('glib-2.0', version : glib_req_version)
 gobject_dep = dependency('gobject-2.0', version : glib_req_version)
 gmodule_dep = dependency('gmodule-2.0', version : glib_req_version)
