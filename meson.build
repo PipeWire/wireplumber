@@ -39,10 +39,10 @@ endif
 
 cc = meson.get_compiler('c')
 
-glib_req_version = '>= 2.58'
+glib_req_version = '>= 2.62'
 add_project_arguments([
-    '-DGLIB_VERSION_MIN_REQUIRED=GLIB_VERSION_2_58',
-    '-DGLIB_VERSION_MAX_ALLOWED=GLIB_VERSION_2_58',
+    '-DGLIB_VERSION_MIN_REQUIRED=GLIB_VERSION_2_62',
+    '-DGLIB_VERSION_MAX_ALLOWED=GLIB_VERSION_2_62',
   ], language: 'c'
 )
 
