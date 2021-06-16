@@ -10,7 +10,6 @@ while getopts ":b:c:" opt; do
   case ${opt} in
     b)
       BUILDDIR=${OPTARG}
-      shift 2
       ;;
     c)
       CONFIGDIR=${OPTARG}
