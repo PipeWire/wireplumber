@@ -159,6 +159,16 @@ si_audio_endpoint_disable_exported (WpSessionItem *si)
 }
 
 static void
+on_node_ports_changed (WpObject * node, WpSiAudioEndpoint *self)
+{
+  /* finish the task started by _set_ports_format() */
+  if (self->format_task && wp_node_get_n_ports (self->node) > 0) {
+    g_autoptr (GTask) t = g_steal_pointer (&self->format_task);
+    g_task_return_boolean (t, TRUE);
+  }
+}
+
+static void
 on_node_activate_done (WpObject * node, GAsyncResult * res,
     WpTransition * transition)
 {
@@ -169,6 +179,9 @@ on_node_activate_done (WpObject * node, GAsyncResult * res,
     wp_transition_return_error (transition, g_steal_pointer (&error));
     return;
   }
+
+  g_signal_connect_object (node, "ports-changed",
+      (GCallback) on_node_ports_changed, self, 0);
 
   wp_object_update_features (WP_OBJECT (self),
       WP_SESSION_ITEM_FEATURE_ACTIVE, 0);
@@ -372,42 +385,6 @@ si_audio_endpoint_get_ports_format (WpSiAdapter * item, const gchar **mode)
   return self->format ? wp_spa_pod_ref (self->format) : NULL;
 }
 
-static void
-on_sync_done (WpCore * core, GAsyncResult * res, WpSiAudioEndpoint *self)
-{
-  g_autoptr (GError) error = NULL;
-  guint32 active = 0;
-
-  if (!wp_core_sync_finish (core, res, &error)) {
-    g_autoptr (GTask) t = g_steal_pointer (&self->format_task);
-    g_task_return_error (t, g_steal_pointer (&error));
-    return;
-  }
-
-  active = wp_object_get_active_features (WP_OBJECT (self->node));
-  if (!(active & WP_NODE_FEATURE_PORTS)) {
-    g_autoptr (GTask) t = g_steal_pointer (&self->format_task);
-    g_task_return_new_error (t, WP_DOMAIN_LIBRARY,
-        WP_LIBRARY_ERROR_OPERATION_FAILED,
-        "node feature ports is not enabled, aborting set format operation");
-    return;
-  }
-
-  /* The task might be destroyed by set_ports_format before sync is finished.
-   * The set_ports_format API returns a task error if there is a pending task
-   * so we don't need to do anything here */
-  if (!self->format_task)
-    return;
-
-  /* make sure ports are available */
-  if (wp_node_get_n_ports (self->node) > 0) {
-    g_autoptr (GTask) t = g_steal_pointer (&self->format_task);
-    g_task_return_boolean (t, TRUE);
-  } else {
-    wp_core_sync (core, NULL, (GAsyncReadyCallback) on_sync_done, self);
-  }
-}
-
 static gboolean
 parse_adapter_format (WpSpaPod *format, gint *channels,
    WpSpaPod **position)
@@ -491,6 +468,7 @@ si_audio_endpoint_set_ports_format (WpSiAdapter * item, WpSpaPod *f,
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_autoptr (WpSpaPod) format = f;
   g_autoptr (WpSpaPod) new_format = NULL;
+  guint32 active = 0;
 
   g_return_if_fail (core);
 
@@ -514,6 +492,15 @@ si_audio_endpoint_set_ports_format (WpSiAdapter * item, WpSpaPod *f,
     return;
   }
 
+  active = wp_object_get_active_features (WP_OBJECT (self->node));
+  if (G_UNLIKELY (!(active & WP_NODE_FEATURE_PORTS))) {
+    g_autoptr (GTask) t = g_steal_pointer (&self->format_task);
+    g_task_return_new_error (t, WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "node feature ports is not enabled, aborting set format operation");
+    return;
+  }
+
   /* set format and mode */
   g_clear_pointer (&self->format, wp_spa_pod_unref);
   self->format = g_steal_pointer (&new_format);
@@ -529,8 +516,7 @@ si_audio_endpoint_set_ports_format (WpSiAdapter * item, WpSpaPod *f,
           "format",     "P", self->format,
           NULL));
 
-  /* sync until new ports are available */
-  wp_core_sync (core, NULL, (GAsyncReadyCallback) on_sync_done, self);
+  /* the task finishes with new ports being emitted -> on_node_ports_changed */
 }
 
 static gboolean
