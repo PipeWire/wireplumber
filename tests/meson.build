@@ -28,6 +28,32 @@ if valgrind.found()
     timeout_multiplier: 2)
 endif
 
+# The common test environment
+common_test_env = environment({
+  'XDG_CONFIG_HOME': meson.current_build_dir() / '.config',
+  'WIREPLUMBER_CONFIG_DIR': '/invalid',
+  'WIREPLUMBER_DATA_DIR': '/invalid',
+  'WIREPLUMBER_MODULE_DIR': meson.current_build_dir() / '..' / 'modules',
+  'WIREPLUMBER_DEBUG': '7',
+})
+
+spa_plugindir = spa_dep.get_variable(
+  pkgconfig: 'plugindir', internal: 'plugindir', default_value: '')
+pipewire_moduledir = pipewire_dep.get_variable(
+  pkgconfig: 'moduledir', internal: 'moduledir', default_value: '')
+pipewire_confdatadir = pipewire_dep.get_variable(
+  pkgconfig: 'confdatadir', internal: 'confdatadir', default_value: '')
+
+if spa_plugindir != ''
+  common_test_env.set('SPA_PLUGIN_DIR', spa_plugindir)
+endif
+if pipewire_moduledir != ''
+  common_test_env.set('PIPEWIRE_MODULE_DIR', pipewire_moduledir)
+endif
+if pipewire_confdatadir != ''
+  common_test_env.set('PIPEWIRE_CONFIG_DIR', pipewire_confdatadir)
+endif
+
 subdir('wp')
 subdir('wplua')
 subdir('wpipc', if_found: wpipc_dep)
