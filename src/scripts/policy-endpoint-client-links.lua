@@ -202,7 +202,12 @@ if mixer_api then
   endpoints_om:activate()
 end
 
-metadatas_om = ObjectManager { Interest { type = "metadata" } }
+metadatas_om = ObjectManager {
+  Interest {
+    type = "metadata",
+    Constraint { "metadata.name", "=", "default" },
+  }
+}
 metadatas_om:connect("object-added", function (om, metadata)
   metadata:connect("changed", function (m, subject, key, t, value)
     if key == "suspend.playback" then

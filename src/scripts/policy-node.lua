@@ -284,7 +284,12 @@ function reevaluateSiLinkables ()
 end
 
 default_nodes = Plugin.find("default-nodes-api")
-metadatas_om = ObjectManager { Interest { type = "metadata" } }
+metadatas_om = ObjectManager {
+  Interest {
+    type = "metadata",
+    Constraint { "metadata.name", "=", "default" },
+  }
+}
 siendpoints_om = ObjectManager { Interest { type = "SiEndpoint" }}
 silinkables_om = ObjectManager { Interest { type = "SiLinkable",
   -- only handle si-audio-adapter and si-node

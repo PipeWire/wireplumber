@@ -577,7 +577,10 @@ set_default_parse_positional (gint argc, gchar ** argv, GError **error)
 static gboolean
 set_default_prepare (WpCtl * self, GError ** error)
 {
-  wp_object_manager_add_interest (self->om, WP_TYPE_METADATA, NULL);
+  wp_object_manager_add_interest (self->om, WP_TYPE_METADATA,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
+      "metadata.name", "=s", "default",
+      NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
       "object.id", "=u", cmdline.set_default.id,
