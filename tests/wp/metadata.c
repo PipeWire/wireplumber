@@ -138,8 +138,9 @@ test_metadata_basic (TestFixture *fixture, gconstpointer data)
       (GCallback) test_metadata_basic_exported_object_added, fixture);
   g_signal_connect (fixture->export_om, "object-removed",
       (GCallback) test_metadata_basic_exported_object_removed, fixture);
-  wp_object_manager_add_interest (fixture->export_om,
-      WP_TYPE_IMPL_METADATA, NULL);
+  wp_object_manager_add_interest (fixture->export_om, WP_TYPE_IMPL_METADATA,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
+      NULL);
   wp_object_manager_request_object_features (fixture->export_om,
       WP_TYPE_IMPL_METADATA, WP_OBJECT_FEATURES_ALL);
   wp_core_install_object_manager (fixture->base.core, fixture->export_om);
@@ -149,7 +150,9 @@ test_metadata_basic (TestFixture *fixture, gconstpointer data)
       (GCallback) test_metadata_basic_proxy_object_added, fixture);
   g_signal_connect (fixture->proxy_om, "object-removed",
       (GCallback) test_metadata_basic_proxy_object_removed, fixture);
-  wp_object_manager_add_interest (fixture->proxy_om, WP_TYPE_METADATA, NULL);
+  wp_object_manager_add_interest (fixture->proxy_om, WP_TYPE_METADATA,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
+      NULL);
   wp_object_manager_request_object_features (fixture->proxy_om,
       WP_TYPE_METADATA, WP_OBJECT_FEATURES_ALL);
   wp_core_install_object_manager (fixture->base.client_core, fixture->proxy_om);
