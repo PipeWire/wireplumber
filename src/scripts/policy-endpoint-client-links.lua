@@ -75,7 +75,7 @@ end
 
 function getSuspendPlaybackMetadata ()
   local suspend = false
-  local metadata = metadatas_om:lookup()
+  local metadata = metadata_om:lookup()
   if metadata then
     local value = metadata:find(0, "suspend.playback")
     if value then
@@ -202,17 +202,17 @@ if mixer_api then
   endpoints_om:activate()
 end
 
-metadatas_om = ObjectManager {
+metadata_om = ObjectManager {
   Interest {
     type = "metadata",
     Constraint { "metadata.name", "=", "default" },
   }
 }
-metadatas_om:connect("object-added", function (om, metadata)
+metadata_om:connect("object-added", function (om, metadata)
   metadata:connect("changed", function (m, subject, key, t, value)
     if key == "suspend.playback" then
       maybeRescan()
     end
   end)
 end)
-metadatas_om:activate()
+metadata_om:activate()

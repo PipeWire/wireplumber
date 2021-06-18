@@ -67,7 +67,7 @@ end
 
 function findTargetByTargetNodeMetadata (node)
   local node_id = node['bound-id']
-  local metadata = metadatas_om:lookup()
+  local metadata = metadata_om:lookup()
   if metadata then
     local value = metadata:find(node_id, "target.node")
     if value then
@@ -284,7 +284,7 @@ function reevaluateSiLinkables ()
 end
 
 default_nodes = Plugin.find("default-nodes-api")
-metadatas_om = ObjectManager {
+metadata_om = ObjectManager {
   Interest {
     type = "metadata",
     Constraint { "metadata.name", "=", "default" },
@@ -311,7 +311,7 @@ end
 
 -- listen for target.node metadata changes if config.move is enabled
 if config.move then
-  metadatas_om:connect("object-added", function (om, metadata)
+  metadata_om:connect("object-added", function (om, metadata)
     metadata:connect("changed", function (m, subject, key, t, value)
       if key == "target.node" then
         reevaluateSiLinkables ()
@@ -329,7 +329,7 @@ silinkables_om:connect("object-removed", function (om, si)
   reevaluateSiLinkables ()
 end)
 
-metadatas_om:activate()
+metadata_om:activate()
 siendpoints_om:activate()
 silinkables_om:activate()
 silinks_om:activate()

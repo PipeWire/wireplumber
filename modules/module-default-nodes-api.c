@@ -119,7 +119,7 @@ wp_default_nodes_api_enable (WpPlugin * plugin, WpTransition * transition)
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
   g_return_if_fail (core);
 
-  /* Create the metadatas object manager */
+  /* Create the metadata object manager */
   self->om = wp_object_manager_new ();
   wp_object_manager_add_interest (self->om, WP_TYPE_METADATA,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",

@@ -24,7 +24,7 @@ struct _WpIpcPlugin
   gchar *path;
   GHashTable *suspended_clients;
   struct wpipc_server *server;
-  WpObjectManager *metadatas_om;
+  WpObjectManager *metadata_om;
 };
 
 G_DECLARE_FINAL_TYPE (WpIpcPlugin, wp_ipc_plugin,
@@ -76,7 +76,7 @@ static void
 wp_ipc_plugin_set_metadata (WpIpcPlugin * self, gboolean suspend) {
   g_autoptr (WpMetadata) metadata = NULL;
 
-  metadata = wp_object_manager_lookup (self->metadatas_om, WP_TYPE_METADATA,
+  metadata = wp_object_manager_lookup (self->metadata_om, WP_TYPE_METADATA,
       NULL);
   if (!metadata) {
     wp_warning_object (self, "could not find default metadata");
@@ -172,14 +172,14 @@ wp_ipc_plugin_enable (WpPlugin * plugin, WpTransition * transition)
   wpipc_server_set_request_handler (self->server, SERVER_RESUME_REQUEST_NAME,
       request_handler, self);
 
-  /* Create the metadatas object manager */
-  self->metadatas_om = wp_object_manager_new ();
-  wp_object_manager_add_interest (self->metadatas_om, WP_TYPE_METADATA,
+  /* Create the metadata object manager */
+  self->metadata_om = wp_object_manager_new ();
+  wp_object_manager_add_interest (self->metadata_om, WP_TYPE_METADATA,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
       NULL);
-  wp_object_manager_request_object_features (self->metadatas_om,
+  wp_object_manager_request_object_features (self->metadata_om,
       WP_TYPE_METADATA, WP_OBJECT_FEATURES_ALL);
-  wp_core_install_object_manager (core, self->metadatas_om);
+  wp_core_install_object_manager (core, self->metadata_om);
 
   wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
 }
@@ -189,7 +189,7 @@ wp_ipc_plugin_disable (WpPlugin * plugin)
 {
   WpIpcPlugin * self = WP_IPC_PLUGIN (plugin);
 
-  g_clear_object (&self->metadatas_om);
+  g_clear_object (&self->metadata_om);
   g_clear_pointer (&self->server, wpipc_server_free);
   g_clear_pointer (&self->suspended_clients, g_hash_table_unref);
 }
