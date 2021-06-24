@@ -39,7 +39,7 @@ wp_init (WpInitFlags flags)
     if (g_getenv ("WIREPLUMBER_DEBUG")) {
       gchar lvl_str[2];
       g_snprintf (lvl_str, 2, "%d", wp_spa_log_get_instance ()->level);
-      g_setenv ("PIPEWIRE_DEBUG", lvl_str, TRUE);
+      g_warn_if_fail (g_setenv ("PIPEWIRE_DEBUG", lvl_str, TRUE));
     }
     pw_log_set (wp_spa_log_get_instance ());
   }
