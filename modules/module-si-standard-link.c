@@ -178,7 +178,7 @@ on_link_activated (WpObject * proxy, GAsyncResult * res,
 
 static gboolean
 create_links (WpSiStandardLink * self, WpTransition * transition,
-    GVariant * out_ports, GVariant * in_ports)
+    GVariant * out_ports, GVariant * in_ports, gboolean link_all)
 {
   g_autoptr (GPtrArray) in_ports_arr = NULL;
   g_autoptr (WpCore) core = NULL;
@@ -187,7 +187,6 @@ create_links (WpSiStandardLink * self, WpTransition * transition,
   guint32 out_node_id, in_node_id;
   guint32 out_port_id, in_port_id;
   guint32 out_channel, in_channel;
-  gboolean link_all = FALSE;
   guint i;
 
   /* tuple format:
@@ -298,7 +297,7 @@ get_ports_and_create_links (WpSiStandardLink *self, WpTransition *transition)
   out_ports = wp_si_linkable_get_ports (si_out, self->out_item_port_context);
   in_ports = wp_si_linkable_get_ports (si_in, self->in_item_port_context);
 
-  if (!create_links (self, transition, out_ports, in_ports))
+  if (!create_links (self, transition, out_ports, in_ports, FALSE))
       wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
           WP_LIBRARY_ERROR_INVARIANT,
           "Failed to create links because of wrong ports"));
