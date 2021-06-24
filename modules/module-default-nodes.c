@@ -346,7 +346,8 @@ wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 
   if (args) {
     g_variant_lookup (args, "save-interval-ms", "u", &save_interval_ms);
-    g_variant_lookup (args, "use-persistent-storage", "b", &save_interval_ms);
+    g_variant_lookup (args, "use-persistent-storage", "b",
+        &use_persistent_storage);
   }
 
   wp_plugin_register (g_object_new (wp_default_nodes_get_type (),
