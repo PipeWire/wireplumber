@@ -49,7 +49,7 @@ typedef struct _WpIteratorMethods WpIteratorMethods;
  * This allows future expansion of the struct
  * \ingroup wpiterator
  */
-static const guint32 WP_ITERATOR_METHODS_VERSION = 0;
+#define  WP_ITERATOR_METHODS_VERSION 0U
 
 struct _WpIteratorMethods
 {

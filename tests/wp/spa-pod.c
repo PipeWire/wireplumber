@@ -1026,7 +1026,7 @@ test_spa_pod_port_config (void)
      "channels",     "i", channels,
      NULL);
   g_autoptr (WpSpaPodBuilder) position_builder = wp_spa_pod_builder_new_array ();
-  for (guint i = 0; i < channels; i++)
+  for (gint i = 0; i < channels; i++)
     wp_spa_pod_builder_add_id (position_builder, 0);
   wp_spa_pod_builder_add_property (builder, "position");
   g_autoptr (WpSpaPod) position = wp_spa_pod_builder_end (position_builder);

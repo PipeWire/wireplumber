@@ -74,11 +74,11 @@ typedef enum { /*< flags >*/
  * have been matched
  * \ingroup wpobjectinterest
  */
-static const gint WP_INTEREST_MATCH_ALL =
-    (WP_INTEREST_MATCH_GTYPE |
-     WP_INTEREST_MATCH_PW_GLOBAL_PROPERTIES |
-     WP_INTEREST_MATCH_PW_PROPERTIES |
-     WP_INTEREST_MATCH_G_PROPERTIES);
+#define WP_INTEREST_MATCH_ALL \
+    (WP_INTEREST_MATCH_GTYPE | \
+     WP_INTEREST_MATCH_PW_GLOBAL_PROPERTIES | \
+     WP_INTEREST_MATCH_PW_PROPERTIES | \
+     WP_INTEREST_MATCH_G_PROPERTIES)
 
 /*!
  * \brief Flags to alter the behaviour of wp_object_interest_matches_full()
