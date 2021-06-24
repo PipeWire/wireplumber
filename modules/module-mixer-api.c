@@ -393,7 +393,8 @@ wp_mixer_api_set_volume (WpMixerApi * self, guint32 id, GVariant * vvolume)
       g_hash_table_lookup (self->node_infos, GUINT_TO_POINTER (id)) : NULL;
   struct volume new_volume = {0};
   struct volume new_monVolume = {0};
-  gint mute = -1;
+  gboolean has_mute = FALSE;
+  gboolean mute = FALSE;
   WpSpaIdTable t_audioChannel =
       wp_spa_id_table_from_name ("Spa:Enum:AudioChannel");
 
@@ -412,7 +413,7 @@ wp_mixer_api_set_volume (WpMixerApi * self, guint32 id, GVariant * vvolume)
     GVariant *v;
     gdouble val;
 
-    g_variant_lookup (vvolume, "mute", "b", &mute);
+    has_mute = g_variant_lookup (vvolume, "mute", "b", &mute);
 
     if (g_variant_lookup (vvolume, "volume", "d", &val)) {
       new_volume = info->volume;
@@ -481,8 +482,8 @@ wp_mixer_api_set_volume (WpMixerApi * self, guint32 id, GVariant * vvolume)
     wp_spa_pod_builder_add (b, "monitorVolumes", "a",
         sizeof(float), SPA_TYPE_Float,
         new_monVolume.channels, new_monVolume.values, NULL);
-  if (mute != -1)
-    wp_spa_pod_builder_add (b, "mute", "b", (mute == TRUE), NULL);
+  if (has_mute)
+    wp_spa_pod_builder_add (b, "mute", "b", mute, NULL);
 
   props = wp_spa_pod_builder_end (b);
 
