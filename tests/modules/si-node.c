@@ -137,7 +137,8 @@ test_si_node_configure_activate (TestFixture * f, gconstpointer user_data)
       WpProxy *port;
 
       g_assert_true (wp_iterator_next (it, &val));
-      g_assert_nonnull (port = g_value_get_object (&val));
+      port = g_value_get_object (&val);
+      g_assert_nonnull (port);
       g_assert_cmpuint (port_id, ==, wp_proxy_get_bound_id (port));
     }
   }

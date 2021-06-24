@@ -112,8 +112,8 @@ test_si_audio_endpoint_export (TestFixture * f, gconstpointer user_data)
       G_CALLBACK (g_main_loop_quit), f->base.loop);
   wp_core_install_object_manager (f->base.core, clients_om);
   g_main_loop_run (f->base.loop);
-  g_assert_nonnull (self_client =
-      wp_object_manager_lookup (clients_om, WP_TYPE_CLIENT, NULL));
+  self_client = wp_object_manager_lookup (clients_om, WP_TYPE_CLIENT, NULL);
+  g_assert_nonnull (self_client);
 
   /* create endpoint */
 
@@ -144,10 +144,10 @@ test_si_audio_endpoint_export (TestFixture * f, gconstpointer user_data)
     g_autoptr (WpEndpoint) ep = NULL;
     g_autoptr (WpProperties) props = NULL;
 
-    g_assert_nonnull (
-        ep = wp_session_item_get_associated_proxy (endpoint, WP_TYPE_ENDPOINT));
-    g_assert_nonnull (
-        props = wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (ep)));
+    ep = wp_session_item_get_associated_proxy (endpoint, WP_TYPE_ENDPOINT);
+    g_assert_nonnull (ep);
+    props = wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (ep));
+    g_assert_nonnull (props);
 
     g_assert_cmpstr (wp_endpoint_get_name (ep), ==, "endpoint");
     g_assert_cmpstr (wp_endpoint_get_media_class (ep), ==,

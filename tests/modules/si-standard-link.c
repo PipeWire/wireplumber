@@ -144,12 +144,14 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
     test_ensure_object_manager_is_installed (om, f->base.core,
         f->base.loop);
 
-    g_assert_nonnull (out_node = wp_object_manager_lookup (om, WP_TYPE_NODE,
+    out_node = wp_object_manager_lookup (om, WP_TYPE_NODE,
         WP_CONSTRAINT_TYPE_PW_PROPERTY, "node.name", "=s", "audiotestsrc",
-        NULL));
-    g_assert_nonnull (in_node = wp_object_manager_lookup (om, WP_TYPE_NODE,
+        NULL);
+    g_assert_nonnull (out_node);
+    in_node = wp_object_manager_lookup (om, WP_TYPE_NODE,
         WP_CONSTRAINT_TYPE_PW_PROPERTY, "node.name", "=s", "support.null-audio-sink",
-        NULL));
+        NULL);
+    g_assert_nonnull (in_node);
     g_assert_cmpuint (wp_object_manager_get_n_objects (om), ==, 8);
 
     it = wp_object_manager_new_filtered_iterator (om, WP_TYPE_LINK, NULL);
@@ -162,14 +164,16 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
           &in_pt_id);
       g_assert_cmpuint (out_nd_id, ==, wp_proxy_get_bound_id (WP_PROXY (out_node)));
       g_assert_cmpuint (in_nd_id, ==, wp_proxy_get_bound_id (WP_PROXY (in_node)));
-      g_assert_nonnull (out_port = wp_object_manager_lookup (om, WP_TYPE_PORT,
+      out_port = wp_object_manager_lookup (om, WP_TYPE_PORT,
           WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", out_pt_id,
           WP_CONSTRAINT_TYPE_PW_PROPERTY, "node.id", "=u", out_nd_id,
-          NULL));
-      g_assert_nonnull (in_port = wp_object_manager_lookup (om, WP_TYPE_PORT,
+          NULL);
+      g_assert_nonnull (out_port);
+      in_port = wp_object_manager_lookup (om, WP_TYPE_PORT,
           WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", in_pt_id,
           WP_CONSTRAINT_TYPE_PW_PROPERTY, "node.id", "=u", in_nd_id,
-          NULL));
+          NULL);
+      g_assert_nonnull (in_port);
       total_links++;
     }
     g_assert_cmpuint (total_links, ==, 2);
@@ -195,19 +199,24 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
     test_ensure_object_manager_is_installed (om, f->base.core,
         f->base.loop);
 
-    g_assert_nonnull (out_node = wp_object_manager_lookup (om, WP_TYPE_NODE,
+    out_node = wp_object_manager_lookup (om, WP_TYPE_NODE,
         WP_CONSTRAINT_TYPE_PW_PROPERTY, "node.name", "=s", "audiotestsrc",
-        NULL));
-    g_assert_nonnull (in_node = wp_object_manager_lookup (om, WP_TYPE_NODE,
+        NULL);
+    g_assert_nonnull (out_node);
+    in_node = wp_object_manager_lookup (om, WP_TYPE_NODE,
         WP_CONSTRAINT_TYPE_PW_PROPERTY, "node.name", "=s", "support.null-audio-sink",
-        NULL));
-    g_assert_nonnull (out_port = wp_object_manager_lookup (om, WP_TYPE_PORT,
+        NULL);
+    g_assert_nonnull (in_node);
+    out_port = wp_object_manager_lookup (om, WP_TYPE_PORT,
         WP_CONSTRAINT_TYPE_PW_PROPERTY, "port.direction", "=s", "out",
-        NULL));
-    g_assert_nonnull (in_port = wp_object_manager_lookup (om, WP_TYPE_PORT,
+        NULL);
+    g_assert_nonnull (out_port);
+    in_port = wp_object_manager_lookup (om, WP_TYPE_PORT,
         WP_CONSTRAINT_TYPE_PW_PROPERTY, "port.direction", "=s", "in",
-        NULL));
-    g_assert_null (link = wp_object_manager_lookup (om, WP_TYPE_LINK, NULL));
+        NULL);
+    g_assert_nonnull (in_port);
+    link = wp_object_manager_lookup (om, WP_TYPE_LINK, NULL);
+    g_assert_null (link);
     g_assert_cmpuint (wp_object_manager_get_n_objects (om), ==, 6);
   }
 }

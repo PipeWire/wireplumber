@@ -543,7 +543,8 @@ test_endpoint_with_props (TestEndpointFixture *fixture, gconstpointer data)
     g_assert_nonnull (iterator);
 
     g_assert_true (wp_iterator_next (iterator, &item));
-    g_assert_nonnull ((pod = g_value_dup_boxed (&item)));
+    pod = g_value_dup_boxed (&item);
+    g_assert_nonnull (pod);
 
     g_assert_true (wp_spa_pod_get_object (pod, NULL,
             "volume", "f", &float_value,

@@ -104,7 +104,8 @@ test_node_enum_params_done (WpPipewireObject *node, GAsyncResult *res,
   for (; wp_iterator_next (params, &item); g_value_unset (&item)) {
     WpSpaPod *pod = NULL;
     g_assert_cmpuint (G_VALUE_TYPE (&item), ==, WP_TYPE_SPA_POD);
-    g_assert_nonnull (pod = g_value_get_boxed (&item));
+    pod = g_value_get_boxed (&item);
+    g_assert_nonnull (pod);
     g_assert_true (wp_spa_pod_is_object (pod));
     g_assert_cmpuint (wp_spa_type_from_name ("Spa:Pod:Object:Param:PropInfo"),
         ==, wp_spa_pod_get_spa_type (pod));
@@ -151,24 +152,26 @@ test_node (TestFixture *f, gconstpointer data)
 
   /* info */
   {
-    g_assert_nonnull (info = wp_pipewire_object_get_native_info (proxy));
+    info = wp_pipewire_object_get_native_info (proxy);
+    g_assert_nonnull (info);
     g_assert_cmpint (wp_proxy_get_bound_id (WP_PROXY (proxy)), ==, info->id);
   }
 
   /* properties */
   {
-    const gchar *id;
-    g_assert_nonnull(id =
-        wp_pipewire_object_get_property (proxy, PW_KEY_OBJECT_ID));
+    const gchar *id = wp_pipewire_object_get_property (proxy, PW_KEY_OBJECT_ID);
+    g_assert_nonnull (id);
     g_assert_cmpint (info->id, ==, atoi(id));
   }
   {
     const char *id;
-    g_autoptr (WpProperties) props = wp_pipewire_object_get_properties (proxy);
+    g_autoptr (WpProperties) props = NULL;
 
+    props = wp_pipewire_object_get_properties (proxy);
     g_assert_nonnull (props);
     g_assert_true (wp_properties_peek_dict (props) == info->props);
-    g_assert_nonnull (id = wp_properties_get (props, PW_KEY_OBJECT_ID));
+    id = wp_properties_get (props, PW_KEY_OBJECT_ID);
+    g_assert_nonnull (id);
     g_assert_cmpint (info->id, ==, atoi(id));
   }
 

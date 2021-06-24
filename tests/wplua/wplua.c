@@ -265,7 +265,8 @@ test_wplua_construct ()
 
   g_assert_cmpint (lua_getglobal (L, "o"), ==, LUA_TUSERDATA);
   g_assert_true (wplua_checkobject (L, -1, TEST_TYPE_OBJECT));
-  g_assert_nonnull ((obj = wplua_toobject (L, -1)));
+  obj = wplua_toobject (L, -1);
+  g_assert_nonnull (obj);
   g_object_ref (obj);
   g_assert_cmpint (obj->ref_count, ==, 2);
 
@@ -298,7 +299,8 @@ test_wplua_properties ()
 
   g_assert_cmpint (lua_getglobal (L, "o"), ==, LUA_TUSERDATA);
   g_assert_true (wplua_checkobject (L, -1, TEST_TYPE_OBJECT));
-  g_assert_nonnull ((obj = wplua_toobject (L, -1)));
+  obj = wplua_toobject (L, -1);
+  g_assert_nonnull (obj);
 
   g_assert_cmpstr (obj->test_string, ==, "string from lua");
   g_assert_cmpint (obj->test_int, ==, -15);

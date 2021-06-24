@@ -52,6 +52,7 @@ test_wpipc_protocol ()
     g_assert_true (wpipc_protocol_is_reply_ok (b, sizeof(b)));
     const struct spa_pod *value = NULL;
     g_assert_true (wpipc_protocol_parse_reply_ok (b, sizeof(b), &value));
+    g_assert_nonnull (value);
     g_assert_true (spa_pod_is_none (value));
   }
 
