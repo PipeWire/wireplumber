@@ -355,11 +355,16 @@ static gboolean
 builder_add_value (WpSpaPodBuilder *b, WpSpaType array_type, lua_State *L,
     int idx)
 {
+  int ltype = lua_type (L, idx);
   guint i;
+
+  if (ltype < 0 || ltype >= MAX_LUA_TYPES)
+    return FALSE;
+
   for (i = 0; primitive_lua_types[i].primitive_type; i++) {
     const struct primitive_lua_type *t = primitive_lua_types + i;
     if (t->primitive_type == array_type) {
-      primitive_lua_add_func f = t->primitive_lua_add_funcs[lua_type (L, idx)];
+      primitive_lua_add_func f = t->primitive_lua_add_funcs[ltype];
       if (f) {
         return f (b, NULL, L, idx);
       }
@@ -599,9 +604,9 @@ object_add_property (WpSpaPodBuilder *b, WpSpaIdTable table,
   guint i;
   WpSpaIdValue prop_id = NULL;
   WpSpaType prop_type = WP_SPA_TYPE_INVALID;
+  int ltype = lua_type (L, idx);
 
-  /* Return if type is none */
-  if (lua_type (L, idx) == LUA_TNONE)
+  if (ltype < 0 || ltype >= MAX_LUA_TYPES)
     return FALSE;
 
   /* Get the property type name */
@@ -616,7 +621,7 @@ object_add_property (WpSpaPodBuilder *b, WpSpaIdTable table,
   for (i = 0; primitive_lua_types[i].primitive_type; i++) {
     const struct primitive_lua_type *t = primitive_lua_types + i;
     if (t->primitive_type == prop_type) {
-      primitive_lua_add_func f = t->primitive_lua_add_funcs[lua_type (L, idx)];
+      primitive_lua_add_func f = t->primitive_lua_add_funcs[ltype];
       if (f) {
         wp_spa_pod_builder_add_property (b, key);
         return f (b, prop_id, L, idx);
