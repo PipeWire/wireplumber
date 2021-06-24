@@ -207,7 +207,7 @@ static const luaL_Reg core_funcs[] = {
 static int
 log_log (lua_State *L, GLogLevelFlags lvl)
 {
-  lua_Debug ar;
+  lua_Debug ar = {0};
   const gchar *message, *tmp;
   gchar domain[25];
   gchar line_str[11];
@@ -218,8 +218,8 @@ log_log (lua_State *L, GLogLevelFlags lvl)
   if (!wp_log_level_is_enabled (lvl))
     return 0;
 
-  lua_getstack (L, 1, &ar);
-  lua_getinfo (L, "nSl", &ar);
+  g_warn_if_fail (lua_getstack (L, 1, &ar) == 1);
+  g_warn_if_fail (lua_getinfo (L, "nSl", &ar) == 1);
 
   if (wplua_isobject (L, 1, G_TYPE_OBJECT)) {
     instance = wplua_toobject (L, 1);
@@ -233,7 +233,7 @@ log_log (lua_State *L, GLogLevelFlags lvl)
   }
 
   message = luaL_checkstring (L, index);
-  tmp = g_strrstr (ar.source, ".lua");
+  tmp = ar.source ? g_strrstr (ar.source, ".lua") : NULL;
   snprintf (domain, 25, "script/%.*s",
       tmp ? MIN((gint)(tmp - ar.source), 17) : 17,
       ar.source);
