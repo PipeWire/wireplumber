@@ -215,10 +215,10 @@ builder_add_bytes_lua_number (WpSpaPodBuilder *b, WpSpaIdValue key_id,
 {
   if (lua_isinteger (L, idx)) {
     gint64 value = lua_tointeger (L, idx);
-    wp_spa_pod_builder_add_bytes (b, (gconstpointer)&value, sizeof (&value));
+    wp_spa_pod_builder_add_bytes (b, (gconstpointer)&value, sizeof (value));
   } else {
     double value = lua_tonumber (L, idx);
-    wp_spa_pod_builder_add_bytes (b, (gconstpointer)&value, sizeof (&value));
+    wp_spa_pod_builder_add_bytes (b, (gconstpointer)&value, sizeof (value));
   }
   return TRUE;
 }
