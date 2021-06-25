@@ -26,25 +26,21 @@ function parseMediaRoles (media_roles_str)
   return media_roles
 end
 
-function setPermissions (client, nodes_om, allow_client, allow_nodes)
+function setPermissions (client, allow_client, allow_nodes)
   local client_id = client["bound-id"]
   Log.info(client, "Granting ALL access to client " .. client_id)
 
   -- Update permissions on client
   client:update_permissions { [client_id] = allow_client and "all" or "-" }
 
-  -- Update permissions on client's nodes
-  for node in nodes_om:iterate {
-    Constraint { "client.id", "=", client_id },
-    Constraint { "media.role", "=", "Camera" },
-    Constraint { "media.class", "=", "Video/Source" },
-  } do
+  -- Update permissions on camera source nodes
+  for node in nodes_om:iterate() do
     local node_id = node["bound-id"]
     client:update_permissions { [node_id] = allow_nodes and "all" or "-" }
   end
 end
 
-function updateClientPermissions (client, nodes_om, permissions)
+function updateClientPermissions (client, permissions)
   local client_id = client["bound-id"]
   local str_prop = nil
   local app_id = nil
@@ -66,7 +62,7 @@ function updateClientPermissions (client, nodes_om, permissions)
   end
   if str_prop == "" then
     Log.info (client, "Ignoring portal check for non-sandboxed client")
-    setPermissions (client, nodes_om, true, true)
+    setPermissions (client, true, true)
     return
   end
   app_id = str_prop
@@ -87,7 +83,7 @@ function updateClientPermissions (client, nodes_om, permissions)
   allowed = hasPermission (permissions, app_id, "yes")
 
   Log.info (client, "setting permissions: " .. tostring(allowed))
-  setPermissions (client, nodes_om, allowed, allowed)
+  setPermissions (client, allowed, allowed)
 end
 
 -- Create portal clients object manager
@@ -101,12 +97,18 @@ clients_om = ObjectManager {
 -- Set permissions to portal clients from the permission store if loaded
 pps_plugin = Plugin.find("portal-permissionstore")
 if pps_plugin then
-  local nodes_om = ObjectManager { Interest { type = "node" } }
+  nodes_om = ObjectManager {
+    Interest {
+      type = "node",
+      Constraint { "media.role", "=", "Camera" },
+      Constraint { "media.class", "=", "Video/Source" },
+    }
+  }
   nodes_om:activate()
 
   clients_om:connect("object-added", function (om, client)
     local new_perms = pps_plugin:call("lookup", "devices", "camera");
-    updateClientPermissions (client, nodes_om, new_perms)
+    updateClientPermissions (client, new_perms)
   end)
 
   pps_plugin:connect("changed", function (p, table, id, deleted, permissions)
@@ -115,7 +117,7 @@ if pps_plugin then
         for client in clients_om:iterate {
             Constraint { "pipewire.access.portal.app_id", "=", app_id }
         } do
-          updateClientPermissions (client, nodes_om, permissions)
+          updateClientPermissions (client, permissions)
         end
       end
     end
