@@ -177,9 +177,11 @@ test_transition_basic (void)
   g_assert_true (wp_transition_get_source_tag (t) == test_transition_basic);
   g_assert_true (wp_transition_is_tagged (t, test_transition_basic));
 
+  g_object_ref (t);
   wp_transition_advance (t);
   g_assert_false (wp_transition_get_completed (t));
   g_assert_false (wp_transition_had_error (t));
+  g_object_unref (t);
 
   g_main_loop_run (loop);
 
@@ -249,9 +251,11 @@ test_transition_error (void)
   /* enable error condition */
   ((WpTestTransition *) t)->step_third_error = TRUE;
 
+  g_object_ref (t);
   wp_transition_advance (t);
   g_assert_false (wp_transition_get_completed (t));
   g_assert_false (wp_transition_had_error (t));
+  g_object_unref (t);
 
   g_main_loop_run (loop);
 
