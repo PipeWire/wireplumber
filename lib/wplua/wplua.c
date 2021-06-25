@@ -68,9 +68,6 @@ _wplua_pcall (lua_State *L, int nargs, int nret)
   case LUA_ERRERR:
     wp_critical ("error running the message handler");
     break;
-  case LUA_ERRGCMM:
-    wp_critical ("error running __gc");
-    break;
   default:
     break;
   }
