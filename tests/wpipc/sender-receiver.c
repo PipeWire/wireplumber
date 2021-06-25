@@ -192,7 +192,7 @@ test_wpipc_sender_send ()
   data.n_events = 0;
   data.expected_data = (const uint8_t *)"h";
   data.expected_size = 1;
-  g_assert_true (wpipc_sender_send (s, (const uint8_t *)"h1", 1, reply_callback, &data));
+  g_assert_true (wpipc_sender_send (s, (const uint8_t *)"h", 1, reply_callback, &data));
   wait_for_event (&data, 1);
 
   /* send 2 bytes message (should realloc once to 4) */
