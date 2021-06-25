@@ -57,15 +57,27 @@ mathlib = cc.find_library('m')
 threads_dep = dependency('threads')
 
 if get_option('system-lua')
-  lua_dep = dependency('lua', version: ['>=5.3.0', '<5.4.0'], required: false)
+  lua_dep = dependency('lua-5.4', required: false)
+  if not lua_dep.found()
+    lua_dep = dependency('lua5.4', required: false)
+  endif
+  if not lua_dep.found()
+    lua_dep = dependency('lua54', required: false)
+  endif
+  if not lua_dep.found()
+    lua_dep = dependency('lua-5.3', required: false)
+  endif
   if not lua_dep.found()
     lua_dep = dependency('lua5.3', required: false)
-    if not lua_dep.found()
-      lua_dep = dependency('lua53', required: false)
-      if not lua_dep.found()
-        lua_dep = dependency('lua-5.3', required: true , allow_fallback: false)
-      endif
-    endif
+  endif
+  if not lua_dep.found()
+    lua_dep = dependency('lua53', required: false)
+  endif
+  if not lua_dep.found()
+    lua_dep = dependency('lua', version: ['>=5.3.0'], required: false)
+  endif
+  if not lua_dep.found()
+    error ('Could not find lua. Lua version 5.4 or 5.3 required')
   endif
 else
   lua_proj = subproject('lua', default_options: ['default_library=static'])
