@@ -44,6 +44,7 @@ static void
 wp_reserve_device_init (WpReserveDevice * self)
 {
   g_weak_ref_init (&self->plugin, NULL);
+  g_weak_ref_init (&self->transition, NULL);
 }
 
 static void
@@ -92,8 +93,9 @@ on_name_appeared (GDBusConnection *connection, const gchar *name,
     const gchar *owner, gpointer user_data)
 {
   WpReserveDevice *self = WP_RESERVE_DEVICE (user_data);
+  g_autoptr (WpTransition) t = g_weak_ref_get (&self->transition);
 
-  if (!self->transition) {
+  if (!t || wp_transition_get_completed (t)) {
     self->state = WP_RESERVE_DEVICE_STATE_BUSY;
     wp_info_object (self, "%s busy (by %s)", name, owner);
     g_object_notify (G_OBJECT (self), "state");
@@ -106,8 +108,9 @@ on_name_vanished (GDBusConnection *connection, const gchar *name,
     gpointer user_data)
 {
   WpReserveDevice *self = WP_RESERVE_DEVICE (user_data);
+  g_autoptr (WpTransition) t = g_weak_ref_get (&self->transition);
 
-  if (!self->transition) {
+  if (!t || wp_transition_get_completed (t)) {
     self->state = WP_RESERVE_DEVICE_STATE_AVAILABLE;
     wp_info_object (self, "%s released", name);
     g_object_notify (G_OBJECT (self), "state");
@@ -145,6 +148,7 @@ wp_reserve_device_finalize (GObject * object)
     g_bus_unown_name (self->owner_id);
 
   g_weak_ref_clear (&self->plugin);
+  g_weak_ref_clear (&self->transition);
   g_clear_pointer (&self->name, g_free);
   g_clear_pointer (&self->app_name, g_free);
   g_clear_pointer (&self->app_dev_name, g_free);
@@ -168,7 +172,6 @@ on_acquire_transition_done (GObject *rd, GAsyncResult *res, gpointer data)
 
   self->state = acquired ?
       WP_RESERVE_DEVICE_STATE_ACQUIRED : WP_RESERVE_DEVICE_STATE_BUSY;
-  self->transition = NULL;
   g_object_notify (G_OBJECT (self), "state");
   update_owner_app_name (self);
 }
@@ -176,17 +179,19 @@ on_acquire_transition_done (GObject *rd, GAsyncResult *res, gpointer data)
 static void
 wp_reserve_device_acquire (WpReserveDevice * self)
 {
+  g_autoptr (WpTransition) t = g_weak_ref_get (&self->transition);
   if (self->state == WP_RESERVE_DEVICE_STATE_ACQUIRED ||
-      self->transition != NULL) {
+    (t && !wp_transition_get_completed (t))) {
     wp_debug_object (self, "%s: already acquired or operation in progress",
         self->name);
     return;
   }
 
   g_autoptr (WpReserveDevicePlugin) plugin = g_weak_ref_get (&self->plugin);
-  self->transition = wp_reserve_device_acquire_transition_new (self,
+  WpTransition *transition = wp_reserve_device_acquire_transition_new (self,
       plugin->cancellable, on_acquire_transition_done, self);
-  wp_transition_advance (self->transition);
+  g_weak_ref_set (&self->transition, transition);
+  wp_transition_advance (transition);
 }
 
 static void
@@ -453,12 +458,12 @@ on_name_acquired (GDBusConnection *connection, const gchar *name,
     gpointer user_data)
 {
   WpReserveDevice *self = WP_RESERVE_DEVICE (user_data);
+  g_autoptr (WpTransition) t = g_weak_ref_get (&self->transition);
 
   wp_debug_object (self, "%s acquired", name);
 
-  if (WP_IS_RESERVE_DEVICE_ACQUIRE_TRANSITION (self->transition)) {
-    wp_reserve_device_acquire_transition_name_acquired (self->transition);
-  }
+  if (t)
+    wp_reserve_device_acquire_transition_name_acquired (t);
 }
 
 static void
@@ -466,11 +471,12 @@ on_name_lost (GDBusConnection *connection, const gchar *name,
     gpointer user_data)
 {
   WpReserveDevice *self = WP_RESERVE_DEVICE (user_data);
+  g_autoptr (WpTransition) t = g_weak_ref_get (&self->transition);
 
   wp_debug_object (self, "%s lost", name);
 
-  if (WP_IS_RESERVE_DEVICE_ACQUIRE_TRANSITION (self->transition)) {
-    wp_reserve_device_acquire_transition_name_lost (self->transition);
+  if (t) {
+    wp_reserve_device_acquire_transition_name_lost (t);
     return;
   }
 

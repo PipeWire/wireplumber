@@ -37,7 +37,7 @@ struct _WpReserveDevice
   gchar *service_name;
   gchar *object_path;
 
-  WpTransition *transition;
+  GWeakRef transition;
   GDBusMethodInvocation *req_rel_invocation;
   WpReserveDeviceState state;
   guint watcher_id;
