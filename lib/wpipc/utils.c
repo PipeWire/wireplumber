@@ -201,8 +201,8 @@ again:
 bool
 wpipc_epoll_thread_init (struct epoll_thread *self,
                          int socket_fd,
-                         wpipc_epoll_thread_event_funct_t sock_func,
-                         wpipc_epoll_thread_event_funct_t other_func,
+                         wpipc_epoll_thread_event_func_t sock_func,
+                         wpipc_epoll_thread_event_func_t other_func,
                          void *data)
 {
   struct epoll_event event;

@@ -65,25 +65,25 @@ wpipc_socket_read (int fd, uint8_t **buffer, size_t *max_size);
 
 struct epoll_thread;
 
-typedef void (*wpipc_epoll_thread_event_funct_t) (struct epoll_thread *self,
-                                                  int fd,
-                                                  void *data);
+typedef void (*wpipc_epoll_thread_event_func_t) (struct epoll_thread *self,
+                                                 int fd,
+                                                 void *data);
 
 struct epoll_thread {
   int socket_fd;
   int epoll_fd;
   int event_fd;
   pthread_t thread;
-  wpipc_epoll_thread_event_funct_t socket_event_func;
-  wpipc_epoll_thread_event_funct_t other_event_func;
+  wpipc_epoll_thread_event_func_t socket_event_func;
+  wpipc_epoll_thread_event_func_t other_event_func;
   void *event_data;
 };
 
 bool
 wpipc_epoll_thread_init (struct epoll_thread *self,
                          int socket_fd,
-                         wpipc_epoll_thread_event_funct_t sock_func,
-                         wpipc_epoll_thread_event_funct_t other_func,
+                         wpipc_epoll_thread_event_func_t sock_func,
+                         wpipc_epoll_thread_event_func_t other_func,
                          void *data);
 
 bool
