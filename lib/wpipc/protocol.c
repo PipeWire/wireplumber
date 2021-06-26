@@ -60,6 +60,8 @@ wpipc_protocol_build_request (uint8_t *buffer,
   struct spa_pod_builder b;
   struct spa_pod_frame f;
 
+  memset (buffer, 0, size);
+
   if (args == NULL)
     args = &none;
 
@@ -126,6 +128,8 @@ wpipc_protocol_build_reply_ok (uint8_t *buffer,
   struct spa_pod_builder b;
   struct spa_pod_frame f;
 
+  memset (buffer, 0, size);
+
   if (value == NULL)
     value = &none;
 
@@ -143,6 +147,9 @@ wpipc_protocol_build_reply_error (uint8_t *buffer,
 {
   struct spa_pod_builder b;
   struct spa_pod_frame f;
+
+  memset (buffer, 0, size);
+
   spa_pod_builder_init (&b, buffer, size);
   spa_pod_builder_push_struct (&b, &f);
   spa_pod_builder_int (&b, REPLY_CODE_ERROR);
