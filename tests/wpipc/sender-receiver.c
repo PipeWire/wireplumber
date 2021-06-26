@@ -168,10 +168,22 @@ test_wpipc_sender_lost_connection ()
   wpipc_receiver_free (r);
   wait_for_event (&data, 1);
 
+  /* make sure the connection was lost */
+  g_assert_false (wpipc_sender_is_connected (s));
+
+  /* create a new receiver */
+  struct wpipc_receiver *r2 = wpipc_receiver_new (TEST_ADDRESS, 16, NULL, NULL, 0);
+  g_assert_nonnull (r2);
+
+  /* re-connect sender with new receiver */
+  g_assert_true (wpipc_sender_connect (s));
+  g_assert_true (wpipc_sender_is_connected (s));
+
   /* clean up */
   g_cond_clear (&data.cond);
   g_mutex_clear (&data.mutex);
   wpipc_sender_free (s);
+  wpipc_receiver_free (r2);
 }
 
 static void
