@@ -36,19 +36,16 @@ struct reply_data {
   const char *error;
   int n_replies;
   GMutex mutex;
+  GCond cond;
 };
 
 static void
 wait_for_reply (struct reply_data *data, int n_replies)
 {
-  while (true) {
-    g_mutex_lock (&data->mutex);
-    if (data->n_replies == n_replies) {
-      g_mutex_unlock (&data->mutex);
-      break;
-    }
-    g_mutex_unlock (&data->mutex);
-  }
+  g_mutex_lock (&data->mutex);
+  while (data->n_replies < n_replies)
+    g_cond_wait (&data->cond, &data->mutex);
+  g_mutex_unlock (&data->mutex);
 }
 
 static void
@@ -65,6 +62,7 @@ reply_handler (struct wpipc_sender *self, const uint8_t *buffer, size_t size, vo
     g_assert_true (spa_pod_get_int (pod, &data->incremented) == 0);
   }
   data->n_replies++;
+  g_cond_signal (&data->cond);
 
   g_mutex_unlock (&data->mutex);
 }
@@ -78,6 +76,7 @@ test_wpipc_server_client ()
   g_assert_nonnull (c);
   struct reply_data data;
   g_mutex_init (&data.mutex);
+  g_cond_init (&data.cond);
 
   /* add request handlers */
   g_assert_true (wpipc_server_set_request_handler (s, "INCREMENT", increment_request_handler, NULL));
@@ -108,6 +107,7 @@ test_wpipc_server_client ()
   g_assert_cmpstr (data.error, ==, "request handler not found");
 
   /* clean up */
+  g_cond_clear (&data.cond);
   g_mutex_clear (&data.mutex);
   wpipc_client_free (c);
   wpipc_server_free (s);
