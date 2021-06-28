@@ -75,12 +75,9 @@ other_event_received (struct epoll_thread *t, int fd, void *data)
 
   /* sender sends a message, read it and reply */
   ssize_t size = wpipc_socket_read (fd, &self->buffer_read, &self->buffer_size);
-  if (size < 0) {
-    wpipc_log_error ("receiver: could not read message: %s", strerror(errno));
-    return;
-  }
-
-  if (size == 0) {
+  if (size <= 0) {
+    if (size < 0)
+      wpipc_log_error ("receiver: could not read message: %s", strerror(errno));
     /* client disconnected */
     epoll_ctl (t->epoll_fd, EPOLL_CTL_DEL, fd, NULL);
     close (fd);
