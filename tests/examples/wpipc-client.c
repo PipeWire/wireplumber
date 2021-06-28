@@ -24,11 +24,16 @@ reply_handler (struct wpipc_sender *self, const uint8_t *buffer, size_t size, vo
 {
   struct client_data *data = p;
   const char *error = NULL;
-  const struct spa_pod *pod = wpipc_client_send_request_finish (self, buffer, size, &error);
-  if (!pod)
-    printf ("error: %s\n", error ? error : "unknown");
-  else
-    printf ("success!\n");
+
+  if (buffer) {
+    const struct spa_pod *pod = wpipc_client_send_request_finish (self, buffer, size, &error);
+    if (!pod)
+      printf ("error: %s\n", error ? error : "unknown");
+    else
+      printf ("success!\n");
+  } else {
+    printf ("error: lost connection with server\n");
+  }
 
   /* signal reply received */
   pthread_mutex_lock (&data->mutex);
