@@ -14,9 +14,9 @@ python_gir = pymod.find_installation(
 )
 
 if get_option('doc').enabled() or get_option('introspection').enabled()
-  doxygen_p = find_program('doxygen', version: '>= 1.9.0', required: true)
+  doxygen_p = find_program('doxygen', version: '>= 1.8.0', required: true)
 elif get_option('doc').auto() or get_option('introspection').auto()
-  doxygen_p = find_program('doxygen', version: '>= 1.9.0', required: false)
+  doxygen_p = find_program('doxygen', version: '>= 1.8.0', required: false)
 else
   doxygen_p = disabler()
 endif
