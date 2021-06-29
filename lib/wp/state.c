@@ -16,6 +16,100 @@
 #include "log.h"
 #include "state.h"
 
+#define ESCAPED_CHARACTER '\\'
+
+static char *
+escape_string (const gchar *str)
+{
+  char *res = NULL;
+  size_t str_size, i, j;
+
+  g_return_val_if_fail (str, NULL);
+  str_size = strlen (str);
+  g_return_val_if_fail (str_size > 0, NULL);
+
+  res = g_malloc_n ((str_size * 2) + 1, sizeof(gchar));
+
+  j = 0;
+  for (i = 0; i < str_size; i++) {
+    switch (str[i]) {
+      case ESCAPED_CHARACTER:
+        res[j++] = ESCAPED_CHARACTER;
+        res[j++] = ESCAPED_CHARACTER;
+        break;
+      case ' ':
+        res[j++] = ESCAPED_CHARACTER;
+        res[j++] = 's';
+        break;
+      case '=':
+        res[j++] = ESCAPED_CHARACTER;
+        res[j++] = 'e';
+        break;
+      case '[':
+        res[j++] = ESCAPED_CHARACTER;
+        res[j++] = 'o';
+        break;
+      case ']':
+        res[j++] = ESCAPED_CHARACTER;
+        res[j++] = 'c';
+        break;
+      default:
+        res[j++] = str[i];
+        break;
+    }
+  }
+  res[j++] = '\0';
+
+  return res;
+}
+
+static char *
+compress_string (const gchar *str)
+{
+  char *res = NULL;
+  size_t str_size, i, j;
+
+  g_return_val_if_fail (str, NULL);
+  str_size = strlen (str);
+  g_return_val_if_fail (str_size > 0, NULL);
+
+  res = g_malloc_n (str_size + 1, sizeof(gchar));
+
+  j = 0;
+  for (i = 0; i < str_size - 1; i++) {
+    if (str[i] == ESCAPED_CHARACTER) {
+      switch (str[i + 1]) {
+        case ESCAPED_CHARACTER:
+          res[j++] = ESCAPED_CHARACTER;
+          break;
+        case 's':
+          res[j++] = ' ';
+          break;
+        case 'e':
+          res[j++] = '=';
+          break;
+        case 'o':
+          res[j++] = '[';
+          break;
+        case 'c':
+          res[j++] = ']';
+          break;
+        default:
+          res[j++] = str[i];
+          break;
+      }
+      i++;
+    } else {
+      res[j++] = str[i];
+    }
+  }
+  if (i < str_size)
+    res[j++] = str[i];
+  res[j++] = '\0';
+
+  return res;
+}
+
 /*! \defgroup wpstate WpState */
 /*!
  * \struct WpState
@@ -219,7 +313,9 @@ wp_state_save (WpState *self, WpProperties *props, GError ** error)
       g_value_unset (&item)) {
     const gchar *key = wp_properties_iterator_item_get_key (&item);
     const gchar *val = wp_properties_iterator_item_get_value (&item);
-    g_key_file_set_string (keyfile, self->name, key, val);
+    g_autofree gchar *escaped_key = escape_string (key);
+    if (escaped_key)
+      g_key_file_set_string (keyfile, self->name, escaped_key, val);
   }
 
   if (!g_key_file_save_to_file (keyfile, self->location, &err)) {
@@ -262,12 +358,15 @@ wp_state_load (WpState *self)
     return g_steal_pointer (&props);
 
   for (guint i = 0; keys[i]; i++) {
+    g_autofree gchar *compressed_key = NULL;
     const gchar *key = keys[i];
     g_autofree gchar *val = NULL;
     val = g_key_file_get_string (keyfile, self->name, key, NULL);
     if (!val)
       continue;
-    wp_properties_set (props, key, val);
+    compressed_key = compress_string (key);
+    if (compressed_key)
+      wp_properties_set (props, compressed_key, val);
   }
 
   g_strfreev (keys);
