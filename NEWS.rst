@@ -1,5 +1,53 @@
-WirePlumber 0.4.0
+WirePlumber 0.4.1
 ~~~~~~~~~~~~~~~~~
+
+Bug fix release to go with PipeWire 0.3.31.
+Please update to this version if you are using PipeWire >= 0.3.31.
+
+Highlights:
+
+  - WirePlumber now supports Lua 5.4. You may compile it either with Lua 5.3
+    or 5.4, without any changes in behavior. The internal Lua subproject has
+    also been upgraded to Lua 5.4, so any builds with ``-Dsystem-lua=false``
+    will use Lua 5.4 by default
+
+Fixes:
+
+  - Fixed filtering of pw_metadata objects, which broke with PipeWire 0.3.31
+
+  - Fixed a potential livelock condition in si-audio-adapter/endpoint where
+    the code would wait forever for a node's ports to appear in the graph
+
+  - Fixed granting access to camera device nodes in flatpak clients connecting
+    through the camera portal
+
+  - Fixed a lot of issues found by the coverity static analyzer
+
+  - Fixed certain race conditions in the wpipc library
+
+  - Fixed compilation with GCC older than v8.1
+
+Scripts:
+
+  - Added a policy script that matches nodes to specific devices based on the
+    "media.role" of the nodes and the "device.intended-roles" of the devices
+
+Build system:
+
+  - Bumped GLib requirement to 2.62, as the code was already using 2.62 API
+
+  - Added support for building WirePlumber as a PipeWire subproject
+
+  - Doxygen version requirement has been relaxed to accept v1.8
+
+  - The CI now also verifies that the build works on Ubuntu 20.04 LTS
+    and tries multiple builds with different build options
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.4.0
+.................
 
 This is the first stable release of the 0.4.x series, which is expected to be
 an API & ABI stable release series to go along with PipeWire 0.3.x. It is
@@ -64,9 +112,6 @@ Misc:
   - Many memory leak and stability fixes
 
   - Updated more documentation pages
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.3.96
 ..................
