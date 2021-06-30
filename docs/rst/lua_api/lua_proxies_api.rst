@@ -30,7 +30,7 @@ contain the following methods:
    :param string param_name: the PipeWire param name to enumerate,
                              ex "Props", "Route"
    :returns: the available parameters
-   :rtype: Iterator; the iteration items are `Spa Pod <lua_spa_pod>`_ objects
+   :rtype: Iterator; the iteration items are :ref:`Spa Pod <lua_spa_pod>` objects
 
 .. function:: PipewireObject.set_param(self, param_name, pod)
 
@@ -57,13 +57,63 @@ PipeWire Node
 
 Lua objects that bind a :ref:`WpNode <node_api>` contain the following methods:
 
+.. function:: Node.get_state(self)
+
+   Binds :c:func:`wp_node_get_state`
+
+   :param self: the proxy
+   :returns: the current state of the node and an error message, if any
+   :rtype: string (:c:enum:`WpNodeState`), string (error message)
+
+.. function:: Node.get_n_input_ports(self)
+
+   Binds :c:func:`wp_node_get_n_input_ports`
+
+   :param self: the proxy
+   :returns: the current and max numbers of input ports on the node
+   :rtype: integer (current), integer (max)
+
+.. function:: Node.get_n_output_ports(self)
+
+   Binds :c:func:`wp_node_get_n_output_ports`
+
+   :param self: the proxy
+   :returns: the current and max numbers of output ports on the node
+   :rtype: integer (current), integer (max)
+
+.. function:: Node.get_n_ports(self)
+
+   Binds :c:func:`wp_node_get_n_ports`
+
+   :param self: the proxy
+   :returns: the number of ports on the node
+
+.. function:: Node.iterate_ports(self, interest)
+
+   Binds :c:func:`wp_node_iterate_ports`
+
+   :param self: the proxy
+   :param interest: an interest to filter objects
+   :type interest: :ref:`Interest <lua_object_interest_api>` or nil or none
+   :returns: all the ports of this node that that match the interest
+   :rtype: Iterator; the iteration items are of type :ref:`WpPort <port_api>`
+
+.. function:: Node.lookup_port(self, interest)
+
+   Binds :c:func:`wp_node_lookup_port`
+
+   :param self: the proxy
+   :param interest: the interest to use for the lookup
+   :type interest: :ref:`Interest <lua_object_interest_api>` or nil or none
+   :returns: the first port of this node that matches the interest
+   :rtype: :ref:`WpPort <port_api>`
+
 .. function:: Node.send_command(self, command)
 
    Binds :c:func:`wp_node_send_command`
 
    :param self: the proxy
    :param string command: the command to send to the node (ex "Suspend")
-
 
 PipeWire Client
 ...............
