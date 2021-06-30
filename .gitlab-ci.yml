@@ -116,7 +116,6 @@ include:
     - ninja -C "$PW_BUILD_DIR" install
     # misc environment only for wireplumber
     - export WP_BUILD_DIR="$PWD/build-wireplumber-$BUILD_ID"
-    - export XDG_RUNTIME_DIR="$(mktemp -p $PWD -d xdg-runtime-XXXXXX)"
     - export PKG_CONFIG_PATH="$(dirname $(find "$PREFIX" -name 'libpipewire-*.pc')):$PKG_CONFIG_PATH"
   script:
     # Build wireplumber

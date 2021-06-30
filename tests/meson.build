@@ -30,6 +30,9 @@ endif
 
 # The common test environment
 common_test_env = environment({
+  'HOME': '/invalid',
+  'XDG_RUNTIME_DIR': '/invalid',
+  'PIPEWIRE_RUNTIME_DIR': meson.current_build_dir(),
   'XDG_CONFIG_HOME': meson.current_build_dir() / '.config',
   'WIREPLUMBER_CONFIG_DIR': '/invalid',
   'WIREPLUMBER_DATA_DIR': '/invalid',
