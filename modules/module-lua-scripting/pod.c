@@ -787,6 +787,7 @@ spa_pod_sequence_new (lua_State *L)
     if (type_name && value) {
       wp_spa_pod_builder_add_control (builder, offset, type_name);
       wp_spa_pod_builder_add_pod (builder, value);
+      wp_spa_pod_unref (value);
     }
 
     lua_pop(L, 1);
