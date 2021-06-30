@@ -3,11 +3,14 @@
 Community Resources
 ===================
 
-Discussion chat channel
------------------------
+Discussion chat room
+--------------------
 
-WirePlumber does not have its own discussion channel, but you can ask questions
-in the generic **#pipewire** IRC channel on `irc.oftc.net <https://www.oftc.net/>`_
+WirePlumber does not have its own discussion room, but we hang out in the
+generic PipeWire IRC room, which is bridged to Matrix. Join us:
+
+  - via IRC: **#pipewire** on `irc.oftc.net <https://www.oftc.net/>`_
+  - via Matrix: `#pipewire:matrix.org <https://matrix.to/#/#pipewire:matrix.org>`_
 
 Mailing list
 ------------
