@@ -978,6 +978,22 @@ impl_node_new (lua_State *L)
   return 1;
 }
 
+/* Port */
+
+static int
+port_get_direction (lua_State *L)
+{
+  WpPort *port = wplua_checkobject (L, 1, WP_TYPE_PORT);
+  WpDirection direction = wp_port_get_direction (port);
+  wplua_enum_to_lua (L, direction, WP_TYPE_DIRECTION);
+  return 1;
+}
+
+static const luaL_Reg port_methods[] = {
+  { "get_direction", port_get_direction },
+  { NULL, NULL }
+};
+
 /* Link */
 
 static int
@@ -1287,6 +1303,8 @@ wp_lua_scripting_api_init (lua_State *L)
       node_new, node_methods);
   wplua_register_type_methods (L, WP_TYPE_IMPL_NODE,
       impl_node_new, NULL);
+  wplua_register_type_methods (L, WP_TYPE_PORT,
+      NULL, port_methods);
   wplua_register_type_methods (L, WP_TYPE_LINK,
       link_new, NULL);
   wplua_register_type_methods (L, WP_TYPE_CLIENT,

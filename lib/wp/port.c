@@ -136,6 +136,7 @@ wp_port_pw_object_mixin_priv_interface_init (
 
 /*!
  * \brief Gets the current direction of the port
+ * \remarks Requires WP_PIPEWIRE_OBJECT_FEATURE_INFO
  * \ingroup wpport
  * \param self the port
  * \returns the current direction of the port

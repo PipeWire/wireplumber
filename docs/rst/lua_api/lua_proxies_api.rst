@@ -115,6 +115,19 @@ Lua objects that bind a :ref:`WpNode <node_api>` contain the following methods:
    :param self: the proxy
    :param string command: the command to send to the node (ex "Suspend")
 
+PipeWire Port
+.............
+
+Lua objects that bind a :ref:`WpPort <port_api>` contain the following methods:
+
+.. function:: Port.get_direction(self)
+
+   Binds :c:func:`wp_port_get_direction`
+
+   :param self: the port
+   :returns: the direction of the Port
+   :rtype: string (:c:enum:`WpDirection`)
+
 PipeWire Client
 ...............
 
