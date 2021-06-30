@@ -869,6 +869,75 @@ node_new (lua_State *L)
 }
 
 static int
+node_get_state (lua_State *L)
+{
+  WpNode *node = wplua_checkobject (L, 1, WP_TYPE_NODE);
+  const gchar *error = NULL;
+  WpNodeState state = wp_node_get_state (node, &error);
+  wplua_enum_to_lua (L, state, WP_TYPE_NODE_STATE);
+  lua_pushstring (L, error ? error : "");
+  return 2;
+}
+
+static int
+node_get_n_input_ports (lua_State *L)
+{
+  WpNode *node = wplua_checkobject (L, 1, WP_TYPE_NODE);
+  guint max = 0;
+  guint ports = wp_node_get_n_input_ports (node, &max);
+  lua_pushinteger (L, ports);
+  lua_pushinteger (L, max);
+  return 2;
+}
+
+static int
+node_get_n_output_ports (lua_State *L)
+{
+  WpNode *node = wplua_checkobject (L, 1, WP_TYPE_NODE);
+  guint max = 0;
+  guint ports = wp_node_get_n_output_ports (node, &max);
+  lua_pushinteger (L, ports);
+  lua_pushinteger (L, max);
+  return 2;
+}
+
+static int
+node_get_n_ports (lua_State *L)
+{
+  WpNode *node = wplua_checkobject (L, 1, WP_TYPE_NODE);
+  guint ports = wp_node_get_n_ports (node);
+  lua_pushinteger (L, ports);
+  return 1;
+}
+
+static int
+node_iterate_ports (lua_State *L)
+{
+  WpNode *node = wplua_checkobject (L, 1, WP_TYPE_NODE);
+  WpObjectInterest *oi = get_optional_object_interest (L, 2, WP_TYPE_PORT);
+  WpIterator *it = oi ?
+      wp_node_new_ports_filtered_iterator_full (node,
+          wp_object_interest_ref (oi)) :
+      wp_node_new_ports_iterator (node);
+  return push_wpiterator (L, it);
+}
+
+static int
+node_lookup_port (lua_State *L)
+{
+  WpNode *node = wplua_checkobject (L, 1, WP_TYPE_NODE);
+  WpObjectInterest *oi = get_optional_object_interest (L, 2, WP_TYPE_PORT);
+  WpPort *port = oi ?
+      wp_node_lookup_port_full (node, wp_object_interest_ref (oi)) :
+      wp_node_lookup_port (node, G_TYPE_OBJECT, NULL);
+  if (port) {
+    wplua_pushobject (L, port);
+    return 1;
+  }
+  return 0;
+}
+
+static int
 node_send_command (lua_State *L)
 {
   WpNode *node = wplua_checkobject (L, 1, WP_TYPE_NODE);
@@ -878,6 +947,12 @@ node_send_command (lua_State *L)
 }
 
 static const luaL_Reg node_methods[] = {
+  { "get_state", node_get_state },
+  { "get_n_input_ports", node_get_n_input_ports },
+  { "get_n_output_ports", node_get_n_output_ports },
+  { "get_n_ports", node_get_n_ports },
+  { "iterate_ports", node_iterate_ports },
+  { "lookup_port", node_lookup_port },
   { "send_command", node_send_command },
   { NULL, NULL }
 };
