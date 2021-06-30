@@ -643,15 +643,17 @@ static const luaL_Reg object_interest_methods[] = {
 static WpObjectInterest *
 get_optional_object_interest (lua_State *L, int idx, GType def_type)
 {
-  if (lua_isnil (L, idx))
+  if (lua_isnoneornil (L, idx))
     return NULL;
   else if (lua_isuserdata (L, idx))
     return wplua_checkboxed (L, idx, WP_TYPE_OBJECT_INTEREST);
   else if (lua_istable (L, idx)) {
     object_interest_new_index (L, idx, def_type);
     return wplua_toboxed (L, -1);
-  } else
+  } else {
+    luaL_error (L, "expected Interest or none/nil");
     return NULL;
+  }
 }
 
 /* WpObjectManager */
