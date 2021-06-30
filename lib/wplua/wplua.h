@@ -73,6 +73,10 @@ gboolean wplua_isboxed (lua_State *L, int idx, GType type);
 /* transfer floating */
 GClosure * wplua_checkclosure (lua_State *L, int idx);
 GClosure * wplua_function_to_closure (lua_State *L, int idx);
+
+void wplua_enum_to_lua (lua_State *L, gint enum_val, GType enum_type);
+gint wplua_lua_to_enum (lua_State *L, int idx, GType enum_type);
+
 void wplua_lua_to_gvalue (lua_State *L, int idx, GValue *v);
 int wplua_gvalue_to_lua (lua_State *L, const GValue *v);
 

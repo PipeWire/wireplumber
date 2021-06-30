@@ -165,6 +165,31 @@ wplua_gvariant_to_lua (lua_State *L, GVariant  *variant)
   }
 }
 
+gint
+wplua_lua_to_enum (lua_State *L, int idx, GType enum_type)
+{
+  if (lua_type (L, idx) == LUA_TSTRING) {
+    g_autoptr (GEnumClass) klass = g_type_class_ref (enum_type);
+    GEnumValue *value = g_enum_get_value_by_nick (klass, lua_tostring (L, idx));
+    if (value)
+      return value->value;
+    else
+      luaL_error (L, "Invalid enum value '%s'", lua_tostring (L, idx));
+  }
+  return lua_tointeger (L, idx);
+}
+
+void
+wplua_enum_to_lua (lua_State *L, gint enum_val, GType enum_type)
+{
+  g_autoptr (GEnumClass) klass = g_type_class_ref (enum_type);
+  GEnumValue *value = g_enum_get_value (klass, enum_val);
+  if (value)
+    lua_pushstring (L, value->value_nick);
+  else
+    lua_pushinteger (L, enum_val);
+}
+
 void
 wplua_lua_to_gvalue (lua_State *L, int idx, GValue *v)
 {
@@ -225,14 +250,7 @@ wplua_lua_to_gvalue (lua_State *L, int idx, GValue *v)
       g_value_set_object (v, wplua_toobject (L, idx));
     break;
   case G_TYPE_ENUM:
-    if (lua_type (L, idx) == LUA_TSTRING) {
-      g_autoptr (GEnumClass) klass = g_type_class_ref (G_VALUE_TYPE (v));
-      GEnumValue *value = g_enum_get_value_by_nick (klass, lua_tostring (L, idx));
-      if (value)
-        g_value_set_enum (v, value->value);
-    } else {
-      g_value_set_enum (v, lua_tointeger (L, idx));
-    }
+    g_value_set_enum (v, wplua_lua_to_enum (L, idx, G_VALUE_TYPE (v)));
     break;
   case G_TYPE_FLAGS:
     g_value_set_flags (v, lua_tointeger (L, idx));
@@ -298,15 +316,9 @@ wplua_gvalue_to_lua (lua_State *L, const GValue *v)
   case G_TYPE_INTERFACE:
     wplua_pushobject (L, g_value_dup_object (v));
     break;
-  case G_TYPE_ENUM: {
-    g_autoptr (GEnumClass) klass = g_type_class_ref (G_VALUE_TYPE (v));
-    GEnumValue *value = g_enum_get_value (klass, g_value_get_enum (v));
-    if (value)
-      lua_pushstring (L, value->value_nick);
-    else
-      lua_pushinteger (L, g_value_get_enum (v));
+  case G_TYPE_ENUM:
+    wplua_enum_to_lua (L, g_value_get_enum (v), G_VALUE_TYPE (v));
     break;
-  }
   case G_TYPE_FLAGS:
     /* FIXME: push as userdata with methods */
     lua_pushinteger (L, g_value_get_flags (v));
