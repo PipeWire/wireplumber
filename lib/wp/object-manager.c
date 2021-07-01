@@ -1066,6 +1066,13 @@ expose_tmp_globals (WpCore *core, GAsyncResult *res, WpRegistry *self)
     if (g->flags == 0)
       continue;
 
+    /* if old global is owned by proxy, remove it */
+    if (self->globals->len > g->id) {
+      WpGlobal *old_g = g_ptr_array_index (self->globals, g->id);
+      if (old_g && (old_g->flags & WP_GLOBAL_FLAG_OWNED_BY_PROXY))
+        wp_global_rm_flag (old_g, WP_GLOBAL_FLAG_OWNED_BY_PROXY);
+    }
+
     g_return_if_fail (self->globals->len <= g->id ||
         g_ptr_array_index (self->globals, g->id) == NULL);
 
