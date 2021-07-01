@@ -205,7 +205,7 @@ wp_global_proxy_step_bind (WpObject * object,
     if (!wp_global_proxy_bind (self)) {
       wp_transition_return_error (WP_TRANSITION (transition), g_error_new (
           WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
-              "No global specified; cannot bind proxy"));
+              "global not specified or destroyed; cannot bind proxy"));
     }
   }
 }
@@ -379,13 +379,21 @@ wp_global_proxy_get_global_properties (WpGlobalProxy * self)
 gboolean
 wp_global_proxy_bind (WpGlobalProxy * self)
 {
+  WpGlobalProxyPrivate *priv;
+  struct pw_proxy *p;
+
   g_return_val_if_fail (WP_IS_GLOBAL_PROXY (self), FALSE);
   g_return_val_if_fail (wp_proxy_get_pw_proxy (WP_PROXY (self)) == NULL, FALSE);
 
-  WpGlobalProxyPrivate *priv =
-      wp_global_proxy_get_instance_private (self);
+  priv = wp_global_proxy_get_instance_private (self);
 
-  if (priv->global)
-    wp_proxy_set_pw_proxy (WP_PROXY (self), wp_global_bind (priv->global));
-  return !!priv->global;
+  if (!priv->global || !priv->global->proxy)
+    return FALSE;
+
+  p = wp_global_bind (priv->global);
+  if (!p)
+    return FALSE;
+
+  wp_proxy_set_pw_proxy (WP_PROXY (self), p);
+  return TRUE;
 }
