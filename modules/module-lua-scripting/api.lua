@@ -15,6 +15,7 @@ local function Constraint (spec)
   local verb = spec[2]
   local verbs = {
     ["="] = "equals",
+    ["!"] = "not-equals",
     ["c"] = "in-list",
     ["~"] = "in-range",
     ["#"] = "matches",
