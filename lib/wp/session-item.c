@@ -96,7 +96,7 @@ wp_session_item_get_gobject_property (GObject * object, guint property_id,
     g_value_set_uint (value, priv->id);
     break;
   case PROP_PROPERTIES:
-    g_value_set_boxed (value, wp_session_item_get_properties (self));
+    g_value_take_boxed (value, wp_session_item_get_properties (self));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
