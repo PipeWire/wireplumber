@@ -8,8 +8,7 @@
 
 #include <glib.h>
 #include <wpipc/wpipc.h>
-
-#define TEST_ADDRESS "wpipc-sender-receiver"
+#include <unistd.h>
 
 struct event_data {
   const uint8_t * expected_data;
@@ -70,7 +69,9 @@ reply_callback (struct wpipc_sender *self, const uint8_t *buffer, size_t size, v
 static void
 test_wpipc_receiver_basic ()
 {
-  struct wpipc_receiver *r = wpipc_receiver_new (TEST_ADDRESS, 16, NULL, NULL, 0);
+  g_autofree gchar *address = g_strdup_printf ("%s/wpipc-test-%d-%d",
+          g_get_tmp_dir(), getpid(), g_random_int ());
+  struct wpipc_receiver *r = wpipc_receiver_new (address, 16, NULL, NULL, 0);
   g_assert_nonnull (r);
 
   /* start and stop */
@@ -87,7 +88,9 @@ test_wpipc_receiver_basic ()
 static void
 test_wpipc_sender_basic ()
 {
-  struct wpipc_sender *s = wpipc_sender_new (TEST_ADDRESS, 16, NULL, NULL, 0);
+  g_autofree gchar *address = g_strdup_printf ("%s/wpipc-test-%d-%d",
+          g_get_tmp_dir(), getpid(), g_random_int ());
+  struct wpipc_sender *s = wpipc_sender_new (address, 16, NULL, NULL, 0);
   g_assert_nonnull (s);
 
   /* clean up */
@@ -106,9 +109,12 @@ test_wpipc_sender_connect ()
   g_cond_init (&data.cond);
   data.n_events = 0;
   data.connections = 0;
-  struct wpipc_receiver *r = wpipc_receiver_new (TEST_ADDRESS, 16, &events, &data, 0);
+
+  g_autofree gchar *address = g_strdup_printf ("%s/wpipc-test-%d-%d",
+          g_get_tmp_dir(), getpid(), g_random_int ());
+  struct wpipc_receiver *r = wpipc_receiver_new (address, 16, &events, &data, 0);
   g_assert_nonnull (r);
-  struct wpipc_sender *s = wpipc_sender_new (TEST_ADDRESS, 16, NULL, NULL, 0);
+  struct wpipc_sender *s = wpipc_sender_new (address, 16, NULL, NULL, 0);
   g_assert_nonnull (s);
 
   /* start receiver */
@@ -154,9 +160,12 @@ test_wpipc_sender_lost_connection ()
   struct event_data data;
   g_mutex_init (&data.mutex);
   g_cond_init (&data.cond);
-  struct wpipc_receiver *r = wpipc_receiver_new (TEST_ADDRESS, 16, NULL, NULL, 0);
+
+  g_autofree gchar *address = g_strdup_printf ("%s/wpipc-test-%d-%d",
+          g_get_tmp_dir(), getpid(), g_random_int ());
+  struct wpipc_receiver *r = wpipc_receiver_new (address, 16, NULL, NULL, 0);
   g_assert_nonnull (r);
-  struct wpipc_sender *s = wpipc_sender_new (TEST_ADDRESS, 16, lost_connection_handler, &data, 0);
+  struct wpipc_sender *s = wpipc_sender_new (address, 16, lost_connection_handler, &data, 0);
   g_assert_nonnull (s);
 
   /* connect sender */
@@ -172,7 +181,7 @@ test_wpipc_sender_lost_connection ()
   g_assert_false (wpipc_sender_is_connected (s));
 
   /* create a new receiver */
-  struct wpipc_receiver *r2 = wpipc_receiver_new (TEST_ADDRESS, 16, NULL, NULL, 0);
+  struct wpipc_receiver *r2 = wpipc_receiver_new (address, 16, NULL, NULL, 0);
   g_assert_nonnull (r2);
 
   /* re-connect sender with new receiver */
@@ -189,9 +198,11 @@ test_wpipc_sender_lost_connection ()
 static void
 test_wpipc_sender_send ()
 {
-  struct wpipc_receiver *r = wpipc_receiver_new (TEST_ADDRESS, 2, NULL, NULL, 0);
+  g_autofree gchar *address = g_strdup_printf ("%s/wpipc-test-%d-%d",
+          g_get_tmp_dir(), getpid(), g_random_int ());
+  struct wpipc_receiver *r = wpipc_receiver_new (address, 2, NULL, NULL, 0);
   g_assert_nonnull (r);
-  struct wpipc_sender *s = wpipc_sender_new (TEST_ADDRESS, 2, NULL, NULL, 0);
+  struct wpipc_sender *s = wpipc_sender_new (address, 2, NULL, NULL, 0);
   g_assert_nonnull (s);
   struct event_data data;
   g_mutex_init (&data.mutex);
@@ -250,7 +261,9 @@ test_wpipc_sender_send ()
 static void
 test_wpipc_multiple_senders_send ()
 {
-  struct wpipc_receiver *r = wpipc_receiver_new (TEST_ADDRESS, 16, NULL, NULL, 0);
+  g_autofree gchar *address = g_strdup_printf ("%s/wpipc-test-%d-%d",
+          g_get_tmp_dir(), getpid(), g_random_int ());
+  struct wpipc_receiver *r = wpipc_receiver_new (address, 16, NULL, NULL, 0);
   g_assert_nonnull (r);
   struct wpipc_sender *senders[50];
   struct event_data data;
@@ -263,7 +276,7 @@ test_wpipc_multiple_senders_send ()
 
   /* create and connect 50 senders */
   for (int i = 0; i < 50; i++) {
-    senders[i] = wpipc_sender_new (TEST_ADDRESS, 16, NULL, NULL, 0);
+    senders[i] = wpipc_sender_new (address, 16, NULL, NULL, 0);
     g_assert_nonnull (senders[i]);
     g_assert_true (wpipc_sender_connect (senders[i]));
     g_assert_true (wpipc_sender_is_connected (senders[i]));

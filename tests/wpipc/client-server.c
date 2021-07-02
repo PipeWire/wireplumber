@@ -10,8 +10,7 @@
 #include <spa/pod/builder.h>
 #include <spa/pod/parser.h>
 #include <wpipc/wpipc.h>
-
-#define TEST_ADDRESS "wpipc-client-server"
+#include <unistd.h>
 
 static bool
 increment_request_handler (struct wpipc_server *self, int client_fd,
@@ -70,9 +69,11 @@ reply_handler (struct wpipc_sender *self, const uint8_t *buffer, size_t size, vo
 static void
 test_wpipc_server_client ()
 {
-  struct wpipc_server *s = wpipc_server_new (TEST_ADDRESS, true);
+  g_autofree gchar *address = g_strdup_printf ("%s/wpipc-test-%d-%d",
+          g_get_tmp_dir(), getpid(), g_random_int ());
+  struct wpipc_server *s = wpipc_server_new (address, true);
   g_assert_nonnull (s);
-  struct wpipc_client *c = wpipc_client_new (TEST_ADDRESS, true);
+  struct wpipc_client *c = wpipc_client_new (address, true);
   g_assert_nonnull (c);
   struct reply_data data;
   g_mutex_init (&data.mutex);
