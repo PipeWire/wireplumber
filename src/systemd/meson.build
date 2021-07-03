@@ -1,4 +1,5 @@
 systemd = dependency('systemd', required: get_option('systemd'))
+summary({'systemd conf data': systemd.found()}, bool_yn: true)
 
 if systemd.found()
   systemd_config = configuration_data()

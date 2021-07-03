@@ -6,11 +6,19 @@ python_doc = pymod.find_installation(
   modules: ['sphinx', 'sphinx_rtd_theme', 'breathe', 'sphinx.ext.graphviz'],
   required: get_option('doc')
 )
+summary({'Python 3 Sphinx related modules': python_doc.found()},
+    bool_yn: true,
+    section: 'For documentation'
+)
 
 python_gir = pymod.find_installation(
   'python3',
   modules: ['lxml'],
   required: get_option('introspection')
+)
+summary({'Python 3 lxml module': python_gir.found()},
+    bool_yn: true,
+    section: 'For introspection'
 )
 
 if get_option('doc').enabled() or get_option('introspection').enabled()
@@ -20,10 +28,14 @@ elif get_option('doc').auto() or get_option('introspection').auto()
 else
   doxygen_p = disabler()
 endif
+summary({'Doxygen': doxygen_p.found()}, bool_yn: true, section: 'For introspection')
+summary({'Doxygen': doxygen_p.found()}, bool_yn: true, section: 'For documentation')
 
 sphinx_p = find_program('sphinx-build',
     version: '>= 2.1.0', required: get_option('doc'))
+summary({'sphinx-build': sphinx_p.found()}, bool_yn: true, section: 'For documentation')
 gir_p = find_program('g-ir-scanner', required: get_option('introspection'))
+summary({'g-ir-scanner': gir_p.found()}, bool_yn: true, section: 'For introspection')
 
 build_doc = python_doc.found() and doxygen_p.found() and sphinx_p.found()
 build_gir = python_gir.found() and doxygen_p.found() and gir_p.found()
