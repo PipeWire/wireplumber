@@ -13,29 +13,10 @@ wireplumber_so_version = '0'
 
 wireplumber_headers_dir = get_option('includedir') / 'wireplumber-' + wireplumber_api_version / 'wp'
 
-if get_option('bindir').startswith('/')
-  wireplumber_bin_dir = get_option('bindir')
-else
-  wireplumber_bin_dir = get_option('prefix') / get_option('bindir')
-endif
-
-if get_option('libdir').startswith('/')
-  wireplumber_module_dir = get_option('libdir') / 'wireplumber-' + wireplumber_api_version
-else
-  wireplumber_module_dir = get_option('prefix') / get_option('libdir') / 'wireplumber-' + wireplumber_api_version
-endif
-
-if get_option('sysconfdir').startswith('/')
-  wireplumber_config_dir = get_option('sysconfdir') / 'wireplumber'
-else
-  wireplumber_config_dir = get_option('prefix') / get_option('sysconfdir') / 'wireplumber'
-endif
-
-if get_option('datadir').startswith('/')
-  wireplumber_data_dir = get_option('datadir') / 'wireplumber'
-else
-  wireplumber_data_dir = get_option('prefix') / get_option('datadir') / 'wireplumber'
-endif
+wireplumber_bin_dir = get_option('prefix') / get_option('bindir')
+wireplumber_module_dir = get_option('prefix') / get_option('libdir') / 'wireplumber-' + wireplumber_api_version
+wireplumber_data_dir = get_option('prefix') / get_option('datadir') / 'wireplumber'
+wireplumber_config_dir = get_option('prefix') / get_option('sysconfdir') / 'wireplumber'
 
 cc = meson.get_compiler('c')
 
