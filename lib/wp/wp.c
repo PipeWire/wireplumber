@@ -98,6 +98,22 @@ wp_get_xdg_state_dir (void)
 }
 
 /*!
+ * \brief Gets the full path to the Wireplumber XDG_CONFIG_DIR subdirectory
+ * \returns The XDG_CONFIG_DIR subdirectory
+ */
+const gchar *
+wp_get_xdg_config_dir (void)
+{
+  static gchar xdg_dir[PATH_MAX] = {0};
+  if (xdg_dir[0] == '\0') {
+    g_autofree gchar *path = g_build_filename (g_get_user_config_dir (),
+                                               "wireplumber", NULL);
+    g_strlcpy (xdg_dir, path, sizeof (xdg_dir));
+  }
+  return xdg_dir;
+}
+
+/*!
  * \brief Gets the Wireplumber configuration directory
  * \returns The Wireplumber configuration directory
  */
