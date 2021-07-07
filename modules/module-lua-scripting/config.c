@@ -8,6 +8,7 @@
 
 #include <wp/wp.h>
 #include <wplua/wplua.h>
+#include <errno.h>
 
 static gboolean
 load_components (lua_State *L, WpCore * core, GError ** error)
@@ -78,9 +79,17 @@ done:
 }
 
 static gint
-sort_filelist (gconstpointer a, gconstpointer b)
+load_file (const gchar *path, gpointer data, GError **error)
 {
-  return g_strcmp0 (*(const gchar **) a, *(const gchar **) b);
+  lua_State *L = data;
+
+  if (g_file_test (path, G_FILE_TEST_IS_DIR))
+    return 0;
+
+  wp_info ("loading config file: %s", path);
+  if (!wplua_load_path (L, path, 0, 0, error))
+    return -EINVAL;
+  return 0;
 }
 
 gboolean
@@ -89,51 +98,24 @@ wp_lua_scripting_load_configuration (const gchar * conf_file,
 {
   g_autofree gchar * path = NULL;
   g_autoptr (lua_State) L = wplua_new ();
-  gboolean found = FALSE;
+  gint nfiles = 0;
 
   wplua_enable_sandbox (L, WP_LUA_SANDBOX_MINIMAL_STD);
 
   /* load conf_file itself */
-  path = g_build_filename (wp_get_config_dir (), conf_file, NULL);
-  if (g_file_test (path, G_FILE_TEST_IS_REGULAR)) {
+  path = wp_find_config_file (conf_file, NULL);
+  if (path) {
     wp_info ("loading config file: %s", path);
     if (!wplua_load_path (L, path, 0, 0, error))
       return FALSE;
-    found = TRUE;
+    nfiles = 1;
   }
   g_clear_pointer (&path, g_free);
 
-  /* aggregate split files from the ${conf_file}.d subdirectory */
-  path = g_strdup_printf ("%s" G_DIR_SEPARATOR_S "%s.d",
-      wp_get_config_dir (), conf_file);
-  if (g_file_test (path, G_FILE_TEST_EXISTS | G_FILE_TEST_IS_DIR)) {
-    g_autoptr (GDir) conf_dir = g_dir_open (path, 0, error);
-    if (!conf_dir)
-      return FALSE;
+  path = g_strdup_printf ("%s.d", conf_file);
+  nfiles += wp_iter_config_files (path, ".lua", load_file, L, error);
 
-    /* sort files before loading them */
-    g_autoptr (GPtrArray) filenames = g_ptr_array_new ();
-    const gchar *filename = NULL;
-    while ((filename = g_dir_read_name (conf_dir))) {
-      /* Only parse files that have the proper extension */
-      if (g_str_has_suffix (filename, ".lua")) {
-        g_ptr_array_add (filenames, (gpointer) filename);
-      }
-    }
-    g_ptr_array_sort (filenames, sort_filelist);
-
-    /* load */
-    for (guint i = 0; i < filenames->len; i++) {
-      g_autofree gchar * file = g_build_filename (path,
-          g_ptr_array_index (filenames, i), NULL);
-      wp_info ("loading config file: %s", file);
-      if (!wplua_load_path (L, file, 0, 0, error))
-        return FALSE;
-      found = TRUE;
-    }
-  }
-
-  if (!found) {
+  if (nfiles == 0) {
     g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
         "Could not locate configuration file '%s'", conf_file);
     return FALSE;

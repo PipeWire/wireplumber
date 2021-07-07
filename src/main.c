@@ -327,22 +327,6 @@ init_done (WpCore * core, GAsyncResult * res, WpDaemon * d)
   }
 }
 
-static gchar *
-find_config (const gchar *config_file_name)
-{
-  g_autofree gchar *path = NULL;
-
-  if (!config_file_name)
-    config_file_name = "wireplumber.conf";
-
-  if (g_path_is_absolute (config_file_name))
-    path = g_strdup (config_file_name);
-  else
-    path = g_build_filename (wp_get_config_dir (), config_file_name, NULL);
-
-  return g_canonicalize_filename (path, NULL);
-}
-
 gint
 main (gint argc, gchar **argv)
 {
@@ -361,7 +345,15 @@ main (gint argc, gchar **argv)
     return WP_EXIT_USAGE;
   }
 
-  config_file_path = find_config (config_file);
+  if (!config_file)
+    config_file = "wireplumber.conf";
+
+  config_file_path = wp_find_config_file (config_file, NULL);
+  if (config_file_path == NULL) {
+    fprintf (stderr, "Unable to find the required configuration file %s\n",
+             config_file);
+    return WP_EXIT_CONFIG;
+  }
 
   properties = wp_properties_new (
       PW_KEY_CONFIG_NAME, config_file_path,
