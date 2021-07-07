@@ -114,33 +114,41 @@ wp_get_xdg_config_dir (void)
 }
 
 /*!
- * \brief Gets the Wireplumber configuration directory
+ * \brief Gets the full path to the Wireplumber configuration directory
  * \returns The Wireplumber configuration directory
  */
 const gchar *
 wp_get_config_dir (void)
 {
-  static const gchar *config_dir = NULL;
-  if (!config_dir) {
-    config_dir = g_getenv ("WIREPLUMBER_CONFIG_DIR");
-    if (!config_dir)
-      config_dir = WIREPLUMBER_DEFAULT_CONFIG_DIR;
+  static gchar config_dir[PATH_MAX] = {0};
+  if (config_dir[0] == '\0') {
+    g_autofree gchar *abspath;
+    const gchar *path = g_getenv ("WIREPLUMBER_CONFIG_DIR");
+
+    if (!path)
+      path = WIREPLUMBER_DEFAULT_CONFIG_DIR;
+
+    abspath = g_canonicalize_filename (path, NULL);
+    g_strlcpy (config_dir, abspath, sizeof (config_dir));
   }
   return config_dir;
 }
 
 /*!
- * \brief Gets the Wireplumber data directory
+ * \brief Gets full path to the Wireplumber data directory
  * \returns The Wireplumber data directory
  */
 const gchar *
 wp_get_data_dir (void)
 {
-  static const gchar *data_dir = NULL;
-  if (!data_dir) {
-    data_dir = g_getenv ("WIREPLUMBER_DATA_DIR");
-    if (!data_dir)
-      data_dir = WIREPLUMBER_DEFAULT_DATA_DIR;
+  static gchar data_dir[PATH_MAX] = {0};
+  if (data_dir[0] == '\0') {
+    g_autofree gchar *abspath;
+    const char *path = g_getenv ("WIREPLUMBER_DATA_DIR");
+    if (!path)
+      path = WIREPLUMBER_DEFAULT_DATA_DIR;
+    abspath = g_canonicalize_filename (path, NULL);
+    g_strlcpy (data_dir, abspath, sizeof (data_dir));
   }
   return data_dir;
 }
