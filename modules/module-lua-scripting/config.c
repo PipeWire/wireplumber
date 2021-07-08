@@ -95,7 +95,7 @@ wp_lua_scripting_load_configuration (const gchar * conf_file,
 
   /* load conf_file itself */
   path = g_build_filename (wp_get_config_dir (), conf_file, NULL);
-  if (g_file_test (path, G_FILE_TEST_EXISTS | G_FILE_TEST_IS_REGULAR)) {
+  if (g_file_test (path, G_FILE_TEST_IS_REGULAR)) {
     wp_info ("loading config file: %s", path);
     if (!wplua_load_path (L, path, 0, 0, error))
       return FALSE;

@@ -128,7 +128,7 @@ static gchar *
 find_script (const gchar * script, gboolean daemon)
 {
   if ((!daemon || g_path_is_absolute (script)) &&
-      g_file_test (script, G_FILE_TEST_EXISTS | G_FILE_TEST_IS_REGULAR))
+      g_file_test (script, G_FILE_TEST_IS_REGULAR))
     return g_strdup (script);
 
   /* /etc/wireplumber/scripts */
@@ -138,7 +138,7 @@ find_script (const gchar * script, gboolean daemon)
 
     wp_trace ("trying %s", file);
 
-    if (g_file_test (file, G_FILE_TEST_EXISTS | G_FILE_TEST_IS_REGULAR))
+    if (g_file_test (file, G_FILE_TEST_IS_REGULAR))
       return g_steal_pointer (&file);
   }
 
@@ -148,7 +148,7 @@ find_script (const gchar * script, gboolean daemon)
 
     wp_trace ("trying %s", file);
 
-    if (g_file_test (file, G_FILE_TEST_EXISTS | G_FILE_TEST_IS_REGULAR))
+    if (g_file_test (file, G_FILE_TEST_IS_REGULAR))
       return g_steal_pointer (&file);
   }
 
@@ -160,7 +160,7 @@ find_script (const gchar * script, gboolean daemon)
 
     wp_trace ("trying %s", file);
 
-    if (g_file_test (file, G_FILE_TEST_EXISTS | G_FILE_TEST_IS_REGULAR))
+    if (g_file_test (file, G_FILE_TEST_IS_REGULAR))
       return g_steal_pointer (&file);
   }
   return NULL;
