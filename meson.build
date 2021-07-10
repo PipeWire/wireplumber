@@ -37,7 +37,8 @@ pipewire_dep = dependency('libpipewire-0.3', version: '>= 0.3.26')
 mathlib = cc.find_library('m')
 threads_dep = dependency('threads')
 
-if get_option('system-lua')
+system_lua = get_option('system-lua')
+if system_lua
   lua_dep = dependency('lua-5.4', required: false)
   if not lua_dep.found()
     lua_dep = dependency('lua5.4', required: false)
@@ -64,6 +65,7 @@ else
   lua_proj = subproject('lua', default_options: ['default_library=static'])
   lua_dep = lua_proj.get_variable('lua_dep')
 endif
+summary({'Lua version': lua_dep.version() + (system_lua ? ' (system)' : ' (built-in)')})
 
 gnome = import('gnome')
 pkgconfig = import('pkgconfig')
