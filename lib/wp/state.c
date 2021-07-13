@@ -8,13 +8,12 @@
 
 #define G_LOG_DOMAIN "wp-state"
 
-#define WP_STATE_DIR_NAME "wireplumber"
-
 #include <stdio.h>
 #include <errno.h>
 
 #include "log.h"
 #include "state.h"
+#include "wp.h"
 
 #define ESCAPED_CHARACTER '\\'
 
@@ -142,11 +141,7 @@ G_DEFINE_TYPE (WpState, wp_state, G_TYPE_OBJECT)
 static char *
 get_new_location (const char *name)
 {
-  g_autofree gchar *path = NULL;
-
-  /* Get the config path */
-  path = g_build_filename (g_get_user_config_dir (), WP_STATE_DIR_NAME, NULL);
-  g_return_val_if_fail (path, NULL);
+  const gchar *path = wp_get_xdg_state_dir ();
 
   /* Create the directory if it doesn't exist */
   if (g_mkdir_with_parents (path, 0700) < 0)
