@@ -66,6 +66,9 @@ WP_API
 const gchar * wp_get_module_dir (void);
 
 WP_API
+const gchar * wp_get_xdg_state_dir (void);
+
+WP_API
 const gchar * wp_get_config_dir (void);
 
 WP_API
