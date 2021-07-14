@@ -133,7 +133,10 @@ WirePlumber expects its `wireplumber.conf` to reside in that directory.
 It is possible to override that at runtime by setting the
 `WIREPLUMBER_CONFIG_FILE` environment variable::
 
-  WIREPLUMBER_CONFIG_FILE=src/config/wireplumber.conf wireplumber
+It is possible to override the lookup path at runtime by passing the
+`--config-file` or `-c` option::
+
+  wireplumber --config-file=src/config/wireplumber.conf
 
 It is also possible to override the whole configuration directory, so that
 all other configuration files are being read from a different location as well,
