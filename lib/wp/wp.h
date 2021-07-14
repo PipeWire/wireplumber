@@ -71,9 +71,11 @@ const gchar * wp_get_xdg_state_dir (void);
 WP_API
 const gchar * wp_get_xdg_config_dir (void);
 
+G_GNUC_DEPRECATED_FOR (wp_find_config_file)
 WP_API
 const gchar * wp_get_config_dir (void);
 
+G_GNUC_DEPRECATED_FOR (wp_find_sysconfig_file)
 WP_API
 const gchar * wp_get_data_dir (void);
 
