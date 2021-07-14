@@ -136,6 +136,35 @@ test_properties_to_pw_props (void)
   pw_properties_free (props);
 }
 
+static void
+test_properties_iterate (void)
+{
+  g_autoptr (WpProperties) p = NULL;
+
+  p = wp_properties_new_empty ();
+  g_assert_nonnull (p);
+  g_assert_cmpint (wp_properties_set (p, "key0", "value0"), ==, 1);
+  g_assert_cmpint (wp_properties_set (p, "key1", "value1"), ==, 1);
+  g_assert_cmpint (wp_properties_set (p, "key2", "value2"), ==, 1);
+  g_assert_cmpint (wp_properties_set (p, "key3", "value3"), ==, 1);
+  g_assert_cmpint (wp_properties_set (p, "key4", "value4"), ==, 1);
+
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) item = G_VALUE_INIT;
+  gint i = 0;
+  for (it = wp_properties_new_iterator (p);
+          wp_iterator_next (it, &item);
+          g_value_unset (&item)) {
+    WpPropertiesItem *pi = g_value_get_boxed (&item);
+    g_autofree gchar *expected_key = g_strdup_printf ("key%d", i);
+    g_autofree gchar *expected_value = g_strdup_printf ("value%d", i);
+    g_assert_cmpstr (expected_value, ==, wp_properties_item_get_value (pi));
+    g_assert_cmpstr (expected_key, ==, wp_properties_item_get_key (pi));
+    i++;
+  }
+  g_assert_cmpint (i, ==, 5);
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -148,6 +177,7 @@ main (int argc, char *argv[])
   g_test_add_func ("/wp/properties/wrap", test_properties_wrap);
   g_test_add_func ("/wp/properties/take", test_properties_take);
   g_test_add_func ("/wp/properties/to_pw_props", test_properties_to_pw_props);
+  g_test_add_func ("/wp/properties/iterate", test_properties_iterate);
 
   return g_test_run ();
 }

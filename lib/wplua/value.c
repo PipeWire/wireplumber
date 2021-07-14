@@ -42,8 +42,9 @@ wplua_properties_to_table (lua_State *L, WpProperties *p)
     const gchar *key, *value;
 
     while (wp_iterator_next (it, &v)) {
-      key = wp_properties_iterator_item_get_key (&v);
-      value = wp_properties_iterator_item_get_value (&v);
+      WpPropertiesItem *pi = g_value_get_boxed (&v);
+      key = wp_properties_item_get_key (pi);
+      value = wp_properties_item_get_value (pi);
       lua_pushstring (L, key);
       lua_pushstring (L, value);
       lua_settable (L, -3);

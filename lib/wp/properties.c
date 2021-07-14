@@ -722,6 +722,83 @@ wp_properties_setf_valist (WpProperties * self, const gchar * key,
   return pw_properties_setva (self->props, key, format, args);
 }
 
+struct _WpPropertiesItem
+{
+  WpProperties *props;
+  const struct spa_dict_item *item;
+};
+
+G_DEFINE_BOXED_TYPE (WpPropertiesItem, wp_properties_item,
+    wp_properties_item_ref, wp_properties_item_unref)
+
+static WpPropertiesItem *
+wp_properties_item_new (WpProperties *props, const struct spa_dict_item *item)
+{
+  WpPropertiesItem *self = g_rc_box_new0 (WpPropertiesItem);
+  self->props = wp_properties_ref (props);
+  self->item = item;
+  return self;
+}
+
+static void
+wp_properties_item_free (gpointer p)
+{
+  WpPropertiesItem *self = p;
+  wp_properties_unref (self->props);
+}
+
+/*!
+ * \brief Increases the reference count of a properties item object
+ * \ingroup wpproperties
+ * \param self a properties item object
+ * \returns (transfer full): \a self with an additional reference count on it
+ */
+WpPropertiesItem *
+wp_properties_item_ref (WpPropertiesItem *self)
+{
+  return g_rc_box_acquire (self);
+}
+
+/*!
+ * \brief Decreases the reference count on \a self and frees it when the ref
+ * count reaches zero.
+ * \ingroup wpproperties
+ * \param self (transfer full): a properties item object
+ */
+void
+wp_properties_item_unref (WpPropertiesItem *self)
+{
+  g_rc_box_release_full (self, wp_properties_item_free);
+}
+
+/*!
+ * \brief Gets the key from a properties item
+ *
+ * \ingroup wpproperties
+ * \param self the item held by the GValue that was returned from the WpIterator
+ *   of wp_properties_new_iterator()
+ * \returns (transfer none): the property key of the \a item
+ */
+const gchar *
+wp_properties_item_get_key (WpPropertiesItem * self)
+{
+  return self->item->key;
+}
+
+/*!
+ * \brief Gets the value from a properties item
+ *
+ * \ingroup wpproperties
+ * \param self the item held by the GValue that was returned from the WpIterator
+ *   of wp_properties_new_iterator()
+ * \returns (transfer none): the property value of the \a item
+ */
+const gchar *
+wp_properties_item_get_value (WpPropertiesItem * self)
+{
+  return self->item->value;
+}
+
 struct dict_iterator_data
 {
   WpProperties *properties;
@@ -742,8 +819,10 @@ dict_iterator_next (WpIterator *it, GValue *item)
   const struct spa_dict *dict = wp_properties_peek_dict (it_data->properties);
 
   if ((it_data->item - dict->items) < dict->n_items) {
-    g_value_init (item, G_TYPE_POINTER);
-    g_value_set_pointer (item, (gpointer) it_data->item);
+    g_value_init (item, WP_TYPE_PROPERTIES_ITEM);
+    g_autoptr (WpPropertiesItem) pi = wp_properties_item_new (
+        it_data->properties, it_data->item);
+    g_value_take_boxed (item, g_steal_pointer (&pi));
     it_data->item++;
     return TRUE;
   }
@@ -760,8 +839,10 @@ dict_iterator_fold (WpIterator *it, WpIteratorFoldFunc func, GValue *ret,
 
   spa_dict_for_each (i, dict) {
     g_auto (GValue) item = G_VALUE_INIT;
-    g_value_init (&item, G_TYPE_POINTER);
-    g_value_set_pointer (&item, (gpointer) i);
+    g_autoptr (WpPropertiesItem) pi = wp_properties_item_new (
+        it_data->properties, i);
+    g_value_init (&item, WP_TYPE_PROPERTIES_ITEM);
+    g_value_take_boxed (&item, g_steal_pointer (&pi));
     if (!func (&item, ret, data))
       return FALSE;
   }
@@ -820,9 +901,9 @@ wp_properties_new_iterator (WpProperties * self)
 const gchar *
 wp_properties_iterator_item_get_key (const GValue * item)
 {
-  const struct spa_dict_item *dict_item = g_value_get_pointer (item);
-  g_return_val_if_fail (dict_item != NULL, NULL);
-  return dict_item->key;
+  WpPropertiesItem *pi = g_value_get_boxed (item);
+  g_return_val_if_fail (pi != NULL, NULL);
+  return wp_properties_item_get_key (pi);
 }
 
 /*!
@@ -836,9 +917,9 @@ wp_properties_iterator_item_get_key (const GValue * item)
 const gchar *
 wp_properties_iterator_item_get_value (const GValue * item)
 {
-  const struct spa_dict_item *dict_item = g_value_get_pointer (item);
-  g_return_val_if_fail (dict_item != NULL, NULL);
-  return dict_item->value;
+  WpPropertiesItem *pi = g_value_get_boxed (item);
+  g_return_val_if_fail (pi != NULL, NULL);
+  return wp_properties_item_get_value (pi);
 }
 
 /*!

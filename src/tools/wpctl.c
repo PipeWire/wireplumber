@@ -473,9 +473,10 @@ inspect_print_object (WpCtl * self, WpProxy * proxy, guint nest_level)
     for (it = wp_properties_new_iterator (properties);
           wp_iterator_next (it, &item);
           g_value_unset (&item)) {
+      WpPropertiesItem *pi = g_value_get_boxed (&item);
       struct property_item prop_item = {
-        .key = wp_properties_iterator_item_get_key (&item),
-        .value = wp_properties_iterator_item_get_value (&item),
+        .key = wp_properties_item_get_key (pi),
+        .value = wp_properties_item_get_value (pi),
       };
       g_array_append_val (array, prop_item);
     }

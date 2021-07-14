@@ -306,8 +306,9 @@ wp_state_save (WpState *self, WpProperties *props, GError ** error)
   for (it = wp_properties_new_iterator (props);
       wp_iterator_next (it, &item);
       g_value_unset (&item)) {
-    const gchar *key = wp_properties_iterator_item_get_key (&item);
-    const gchar *val = wp_properties_iterator_item_get_value (&item);
+    WpPropertiesItem *pi = g_value_get_boxed (&item);
+    const gchar *key = wp_properties_item_get_key (pi);
+    const gchar *val = wp_properties_item_get_value (pi);
     g_autofree gchar *escaped_key = escape_string (key);
     if (escaped_key)
       g_key_file_set_string (keyfile, self->name, escaped_key, val);

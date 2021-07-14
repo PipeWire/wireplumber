@@ -134,13 +134,35 @@ gint wp_properties_setf_valist (WpProperties * self, const gchar * key,
 
 /* iterate */
 
+#define WP_TYPE_PROPERTIES_ITEM (wp_properties_item_get_type ())
+WP_API
+GType wp_properties_item_get_type (void);
+
+typedef struct _WpPropertiesItem WpPropertiesItem;
+
+WP_API
+WpPropertiesItem *wp_properties_item_ref (WpPropertiesItem *self);
+
+WP_API
+void wp_properties_item_unref (WpPropertiesItem *self);
+
+WP_API
+const gchar * wp_properties_item_get_key (WpPropertiesItem * self);
+
+WP_API
+const gchar * wp_properties_item_get_value (WpPropertiesItem * self);
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpPropertiesItem, wp_properties_item_unref)
+
 WP_API
 WpIterator * wp_properties_new_iterator (WpProperties * self);
 
 WP_API
+G_DEPRECATED_FOR(wp_properties_item_get_key)
 const gchar * wp_properties_iterator_item_get_key (const GValue * item);
 
 WP_API
+G_DEPRECATED_FOR(wp_properties_item_get_value)
 const gchar * wp_properties_iterator_item_get_value (const GValue * item);
 
 /* sort */
