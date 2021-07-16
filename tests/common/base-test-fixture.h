@@ -158,3 +158,15 @@ test_ensure_object_manager_is_installed (WpObjectManager * om, WpCore * core,
     g_main_loop_run (loop);
   g_signal_handler_disconnect (om, id);
 }
+
+static G_GNUC_UNUSED gboolean
+test_is_spa_lib_installed (WpBaseTestFixture *f, const gchar *factory_name) {
+  struct spa_handle *handle;
+
+  handle = pw_context_load_spa_handle (f->server.context, factory_name, NULL);
+  if (!handle)
+    return FALSE;
+
+  pw_unload_spa_handle (handle);
+  return TRUE;
+}
