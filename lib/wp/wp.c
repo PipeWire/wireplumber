@@ -62,8 +62,8 @@ wp_init (WpInitFlags flags)
 }
 
 /*!
- * \brief Gets the Wireplumber module directory
- * \returns The Wireplumber module directory
+ * \brief Gets the WirePlumber module directory
+ * \returns WirePlumber's module directory
  */
 const gchar *
 wp_get_module_dir (void)
@@ -79,7 +79,8 @@ wp_get_module_dir (void)
 
 /*!
  * \brief Gets the full path to the WirePlumber XDG_STATE_HOME subdirectory
- * \returns Wireplumber's XDG_STATE_HOME subdirectory
+ * \returns WirePlumber's XDG_STATE_HOME subdirectory
+ * \since 0.4.2
  */
 const gchar *
 wp_get_xdg_state_dir (void)
@@ -98,8 +99,9 @@ wp_get_xdg_state_dir (void)
 }
 
 /*!
- * \brief Gets the full path to the Wireplumber XDG_CONFIG_DIR subdirectory
- * \returns The XDG_CONFIG_DIR subdirectory
+ * \brief Gets the full path to the WirePlumber XDG_CONFIG_HOME subdirectory
+ * \returns WirePlumber's XDG_CONFIG_HOME subdirectory
+ * \since 0.4.2
  */
 const gchar *
 wp_get_xdg_config_dir (void)
@@ -114,8 +116,9 @@ wp_get_xdg_config_dir (void)
 }
 
 /*!
- * \brief Gets the full path to the Wireplumber configuration directory
- * \returns The Wireplumber configuration directory
+ * \brief Gets the full path to the WirePlumber configuration directory
+ * \returns The WirePlumber configuration directory
+ * \deprecated Use wp_find_config_file() instead
  */
 const gchar *
 wp_get_config_dir (void)
@@ -135,8 +138,9 @@ wp_get_config_dir (void)
 }
 
 /*!
- * \brief Gets full path to the Wireplumber data directory
- * \returns The Wireplumber data directory
+ * \brief Gets full path to the WirePlumber data directory
+ * \returns The WirePlumber data directory
+ * \deprecated Use wp_find_sysconfig_file() instead
  */
 const gchar *
 wp_get_data_dir (void)
@@ -153,6 +157,8 @@ wp_get_data_dir (void)
   return data_dir;
 }
 
+/*! \} */
+
 static gchar *
 check_path (const gchar *basedir, const gchar *subdir, const gchar *filename)
 {
@@ -167,8 +173,8 @@ check_path (const gchar *basedir, const gchar *subdir, const gchar *filename)
   return NULL;
 }
 
-/*!
- * \brief Flags to specify lookup directories
+/*
+ * Flags to specify lookup directories
  * Use one of the `WP_CDIR_SET` values instead of the values directly.
  */
 typedef enum {
@@ -225,10 +231,20 @@ lookup_dirs (guint flags)
 }
 
 /*!
+ * \addtogroup wp
+ * \{
+ */
+
+/*!
  * \brief Returns the full path of \a filename as found in
  * the hierarchy of configuration and data directories.
- * \returns An allocated string with the configuration file path or NULL if
- * the file was not found.
+ *
+ * \param filename the name of the file to search for
+ * \param subdir (nullable): the name of the subdirectory to search in,
+ *   inside the configuration directories
+ * \returns (transfer full): An allocated string with the configuration
+ *   file path or NULL if the file was not found.
+ * \since 0.4.2
  */
 gchar *
 wp_find_config_file (const gchar *filename, const char *subdir)
@@ -251,8 +267,13 @@ wp_find_config_file (const gchar *filename, const char *subdir)
 /*!
  * \brief Returns the full path of \a filename as found in
  * the hierarchy of system-only configuration and data directories.
- * \returns An allocated string with the configuration file path or NULL if
- * the file was not found.
+
+ * \param filename the name of the file to search for
+ * \param subdir (nullable): the name of the subdirectory to search in,
+ *   inside the configuration directories
+ * \returns (transfer full): An allocated string with the configuration
+ *   file path or NULL if the file was not found.
+ * \since 0.4.2
  */
 gchar *
 wp_find_sysconfig_file (const gchar *filename, const char *subdir)
@@ -272,7 +293,7 @@ wp_find_sysconfig_file (const gchar *filename, const char *subdir)
   return NULL;
 }
 
-/**
+/*!
  * \brief Iterates over configuration files in the \a subdir and calls the
  * \a func for each file.
  *
@@ -285,17 +306,17 @@ wp_find_sysconfig_file (const gchar *filename, const char *subdir)
  * errno is returned to the caller. The \a func should set \a error on
  * failure.
  *
- * Note that \a func is called for directories too, it is the responsibility
+ * \note \a func is called for directories too, it is the responsibility
  * of the caller to ignore or recurse into those.
  *
- * \param subdir The name of the subdirectory to search for in the
- * configuration directories
- * \param suffix The filename suffix, NULL matches all entries
- * \param func The callback to invoke for each file.
- * \param user_data Passed through to \a func
- * \param error Passed through to \a func
- *
- * \return the number of files on success or a negative errno on failure
+ * \param subdir (nullable): the name of the subdirectory to search in,
+ *   inside the configuration directories
+ * \param suffix (nullable): The filename suffix, NULL matches all entries
+ * \param func (scope call): The callback to invoke for each file.
+ * \param user_data (closure): Passed through to \a func
+ * \param error (out)(optional): Passed through to \a func
+ * \returns the number of files on success or a negative errno on failure
+ * \since 0.4.2
  */
 int
 wp_iter_config_files (const gchar *subdir, const gchar *suffix,
