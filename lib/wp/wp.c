@@ -293,40 +293,96 @@ wp_find_sysconfig_file (const gchar *filename, const char *subdir)
   return NULL;
 }
 
+/*! \} */
+
+struct conffile_iterator_data
+{
+  GList *sorted_keys;
+  GList *ptr;
+  GHashTable *ht;
+};
+
+static void
+conffile_iterator_reset (WpIterator *it)
+{
+  struct conffile_iterator_data *it_data = wp_iterator_get_user_data (it);
+  it_data->ptr = it_data->sorted_keys;
+}
+
+static gboolean
+conffile_iterator_next (WpIterator *it, GValue *item)
+{
+  struct conffile_iterator_data *it_data = wp_iterator_get_user_data (it);
+
+  if (it_data->ptr) {
+    const gchar *path = g_hash_table_lookup (it_data->ht, it_data->ptr->data);
+    it_data->ptr = g_list_next (it_data->ptr);
+    g_value_init (item, G_TYPE_STRING);
+    g_value_set_string (item, path);
+    return TRUE;
+  }
+  return FALSE;
+}
+
+static gboolean
+conffile_iterator_fold (WpIterator *it, WpIteratorFoldFunc func, GValue *ret,
+    gpointer data)
+{
+  struct conffile_iterator_data *it_data = wp_iterator_get_user_data (it);
+
+  for (GList *ptr = it_data->sorted_keys; ptr != NULL; ptr = g_list_next (ptr)) {
+    g_auto (GValue) item = G_VALUE_INIT;
+    const gchar *path = g_hash_table_lookup (it_data->ht, ptr->data);
+    g_value_init (&item, G_TYPE_STRING);
+    g_value_set_string (&item, path);
+    if (!func (&item, ret, data))
+      return FALSE;
+  }
+  return TRUE;
+}
+
+static void
+conffile_iterator_finalize (WpIterator *it)
+{
+  struct conffile_iterator_data *it_data = wp_iterator_get_user_data (it);
+  g_list_free (it_data->sorted_keys);
+  g_hash_table_unref (it_data->ht);
+}
+
+static const WpIteratorMethods conffile_iterator_methods = {
+  .version = WP_ITERATOR_METHODS_VERSION,
+  .reset = conffile_iterator_reset,
+  .next = conffile_iterator_next,
+  .fold = conffile_iterator_fold,
+  .finalize = conffile_iterator_finalize,
+};
+
 /*!
- * \brief Iterates over configuration files in the \a subdir and calls the
- * \a func for each file.
+ * \brief Creates an iterator to iterate over configuration files in the
+ * \a subdir of the configuration directories
  *
  * Files are sorted across the hierarchy of configuration and data
  * directories with files in higher-priority directories shadowing files in
  * lower-priority directories. Files are only checked for existence, a
  * caller must be able to handle read errors.
  *
- * If the \a func returns a negative errno the iteration stops and that
- * errno is returned to the caller. The \a func should set \a error on
- * failure.
- *
- * \note \a func is called for directories too, it is the responsibility
+ * \note the iterator may contain directories too; it is the responsibility
  * of the caller to ignore or recurse into those.
  *
+ * \ingroup wp
  * \param subdir (nullable): the name of the subdirectory to search in,
  *   inside the configuration directories
  * \param suffix (nullable): The filename suffix, NULL matches all entries
- * \param func (scope call): The callback to invoke for each file.
- * \param user_data (closure): Passed through to \a func
- * \param error (out)(optional): Passed through to \a func
- * \returns the number of files on success or a negative errno on failure
+ * \returns (transfer full): a new iterator iterating over strings which are
+ *   absolute paths to the configuration files found
  * \since 0.4.2
  */
-int
-wp_iter_config_files (const gchar *subdir, const gchar *suffix,
-                      wp_file_iter_func func, gpointer user_data,
-                      GError **error)
+WpIterator *
+wp_new_config_files_iterator (const gchar *subdir, const gchar *suffix)
 {
-  g_autoptr(GHashTable) ht = g_hash_table_new_full (g_str_hash, g_str_equal,
-                               g_free, g_free);
-  g_autoptr(GPtrArray) dirs = NULL;
-  gint count = 0;
+  g_autoptr (GHashTable) ht =
+      g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
+  g_autoptr (GPtrArray) dirs = NULL;
 
   if (subdir == NULL)
     subdir = ".";
@@ -337,8 +393,8 @@ wp_iter_config_files (const gchar *subdir, const gchar *suffix,
   /* Store all filenames with their full path in the hashtable, overriding
    * previous values. We need to run backwards through the list for that */
   for (guint i = dirs->len; i > 0; i--) {
-    g_autofree gchar *dirpath = g_build_filename (g_ptr_array_index (dirs, i - 1),
-                                  subdir, NULL);
+    g_autofree gchar *dirpath =
+        g_build_filename (g_ptr_array_index (dirs, i - 1), subdir, NULL);
     g_autoptr(GDir) dir = g_dir_open (dirpath, 0, NULL);
 
     wp_trace ("searching config dir: %s", dirpath);
@@ -350,30 +406,20 @@ wp_iter_config_files (const gchar *subdir, const gchar *suffix,
           continue;
 
         g_hash_table_replace (ht, g_strdup (filename),
-          g_build_filename (dirpath, filename, NULL));
+            g_build_filename (dirpath, filename, NULL));
       }
     }
   }
 
-  if (g_hash_table_size (ht) == 0)
-    return 0;
-
   /* Sort by filename */
-  g_autoptr(GList) keys = g_hash_table_get_keys (ht);
+  GList *keys = g_hash_table_get_keys (ht);
   keys = g_list_sort (keys, (GCompareFunc)g_strcmp0);
 
-  /* Now we have our filenames in a sorted order so we can call the callback */
-  for (GList *elem = g_list_first (keys); elem; elem = g_list_next (elem)) {
-    const gchar *path = g_hash_table_lookup (ht, elem->data);
-    gint rc = func (path, user_data, error);
-
-    if (rc < 0)
-      return rc;
-
-    count++;
-  }
-
-  return count;
+  /* Construct iterator */
+  WpIterator *it = wp_iterator_new (&conffile_iterator_methods,
+      sizeof (struct conffile_iterator_data));
+  struct conffile_iterator_data *it_data = wp_iterator_get_user_data (it);
+  it_data->sorted_keys = keys;
+  it_data->ht = g_hash_table_ref (ht);
+  return g_steal_pointer (&it);
 }
-
-/*! \} */

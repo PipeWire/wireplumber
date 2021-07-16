@@ -8,7 +8,6 @@
 
 #include <wp/wp.h>
 #include <wplua/wplua.h>
-#include <errno.h>
 
 static gboolean
 load_components (lua_State *L, WpCore * core, GError ** error)
@@ -78,26 +77,36 @@ done:
   return TRUE;
 }
 
-static gint
-load_file (const gchar *path, gpointer data, GError **error)
+static gboolean
+load_file (const GValue *item, GValue *ret, gpointer data)
 {
   lua_State *L = data;
+  const gchar *path = g_value_get_string (item);
+  g_autoptr (GError) error = NULL;
 
   if (g_file_test (path, G_FILE_TEST_IS_DIR))
-    return 0;
+    return TRUE;
 
   wp_info ("loading config file: %s", path);
-  if (!wplua_load_path (L, path, 0, 0, error))
-    return -EINVAL;
-  return 0;
+  if (!wplua_load_path (L, path, 0, 0, &error)) {
+    g_value_unset (ret);
+    g_value_init (ret, G_TYPE_ERROR);
+    g_value_take_boxed (ret, g_steal_pointer (&error));
+    return FALSE;
+  }
+
+  g_value_set_int (ret, g_value_get_int (ret) + 1);
+  return TRUE;
 }
 
 gboolean
 wp_lua_scripting_load_configuration (const gchar * conf_file,
     WpCore * core, GError ** error)
 {
-  g_autofree gchar * path = NULL;
   g_autoptr (lua_State) L = wplua_new ();
+  g_autofree gchar * path = NULL;
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) fold_ret = G_VALUE_INIT;
   gint nfiles = 0;
 
   wplua_enable_sandbox (L, WP_LUA_SANDBOX_MINIMAL_STD);
@@ -113,7 +122,16 @@ wp_lua_scripting_load_configuration (const gchar * conf_file,
   g_clear_pointer (&path, g_free);
 
   path = g_strdup_printf ("%s.d", conf_file);
-  nfiles += wp_iter_config_files (path, ".lua", load_file, L, error);
+  it = wp_new_config_files_iterator (path, ".lua");
+
+  g_value_init (&fold_ret, G_TYPE_INT);
+  g_value_set_int (&fold_ret, nfiles);
+  if (!wp_iterator_fold (it, load_file, &fold_ret, L)) {
+    if (error && G_VALUE_HOLDS (&fold_ret, G_TYPE_ERROR))
+      *error = g_value_dup_boxed (&fold_ret);
+    return FALSE;
+  }
+  nfiles = g_value_get_int (&fold_ret);
 
   if (nfiles == 0) {
     g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,

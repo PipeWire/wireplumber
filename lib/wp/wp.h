@@ -85,21 +85,9 @@ gchar * wp_find_config_file (const gchar *filename, const char *subdir);
 WP_API
 gchar * wp_find_sysconfig_file (const gchar *filename, const char *subdir);
 
-/*!
- * \brief A function to iterate over files
- * \ingroup wp
- * \param filename the absolute file path of the current file or directory
- * \param user_data user data passed from the caller
- * \param error (out)(optional): error to be set on failure
- * \returns 0 on success, a negative errno on failure
- */
-typedef gint (*wp_file_iter_func)(const gchar *filename, gpointer user_data,
-                                  GError **error);
-
 WP_API
-gint wp_iter_config_files (const gchar *subdir, const gchar *suffix,
-                           wp_file_iter_func func, gpointer user_data,
-                           GError **error);
+WpIterator * wp_new_config_files_iterator (const gchar *subdir,
+    const gchar *suffix);
 
 G_END_DECLS
 
