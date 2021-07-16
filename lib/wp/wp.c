@@ -92,7 +92,7 @@ wp_get_xdg_state_dir (void)
       base = g_build_filename (g_get_home_dir (), ".local", "state", NULL);
 
     path = g_build_filename (base, "wireplumber", NULL);
-    g_strlcpy (xdg_dir, path, sizeof (xdg_dir));
+    (void) g_strlcpy (xdg_dir, path, sizeof (xdg_dir));
   }
   return xdg_dir;
 }
@@ -108,7 +108,7 @@ wp_get_xdg_config_dir (void)
   if (xdg_dir[0] == '\0') {
     g_autofree gchar *path = g_build_filename (g_get_user_config_dir (),
                                                "wireplumber", NULL);
-    g_strlcpy (xdg_dir, path, sizeof (xdg_dir));
+    (void) g_strlcpy (xdg_dir, path, sizeof (xdg_dir));
   }
   return xdg_dir;
 }
@@ -129,7 +129,7 @@ wp_get_config_dir (void)
       path = WIREPLUMBER_DEFAULT_CONFIG_DIR;
 
     abspath = g_canonicalize_filename (path, NULL);
-    g_strlcpy (config_dir, abspath, sizeof (config_dir));
+    (void) g_strlcpy (config_dir, abspath, sizeof (config_dir));
   }
   return config_dir;
 }
@@ -148,7 +148,7 @@ wp_get_data_dir (void)
     if (!path)
       path = WIREPLUMBER_DEFAULT_DATA_DIR;
     abspath = g_canonicalize_filename (path, NULL);
-    g_strlcpy (data_dir, abspath, sizeof (data_dir));
+    (void) g_strlcpy (data_dir, abspath, sizeof (data_dir));
   }
   return data_dir;
 }
