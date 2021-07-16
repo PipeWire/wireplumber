@@ -23,8 +23,6 @@ test_si_audio_adapter_setup (TestFixture * f, gconstpointer user_data)
         wp_test_server_locker_new (&f->base.server);
 
     g_assert_cmpint (pw_context_add_spa_lib (f->base.server.context,
-            "fake*", "test/libspa-test"), ==, 0);
-    g_assert_cmpint (pw_context_add_spa_lib (f->base.server.context,
             "audiotestsrc", "audiotestsrc/libspa-audiotestsrc"), ==, 0);
     g_assert_nonnull (pw_context_load_module (f->base.server.context,
             "libpipewire-module-spa-node-factory", NULL, NULL));
@@ -51,6 +49,12 @@ test_si_audio_adapter_configure_activate (TestFixture * f,
 {
   g_autoptr (WpNode) node = NULL;
   g_autoptr (WpSessionItem) adapter = NULL;
+
+  /* skip test if audiotestsrc is not installed */
+  if (!test_is_spa_lib_installed (&f->base, "audiotestsrc")) {
+    g_test_skip ("The pipewire audiotestsrc factory was not found");
+    return;
+  }
 
   /* create audiotestsrc adapter node */
   node = wp_node_new_from_factory (f->base.core,

@@ -22,10 +22,6 @@ test_si_audio_endpoint_setup (TestFixture * f, gconstpointer user_data)
     g_autoptr (WpTestServerLocker) lock =
         wp_test_server_locker_new (&f->base.server);
 
-    g_assert_cmpint (pw_context_add_spa_lib (f->base.server.context,
-            "fake*", "test/libspa-test"), ==, 0);
-    g_assert_cmpint (pw_context_add_spa_lib (f->base.server.context,
-            "audiotestsrc", "audiotestsrc/libspa-audiotestsrc"), ==, 0);
     g_assert_nonnull (pw_context_load_module (f->base.server.context,
             "libpipewire-module-spa-node-factory", NULL, NULL));
     g_assert_nonnull (pw_context_load_module (f->base.server.context,
@@ -50,6 +46,12 @@ test_si_audio_endpoint_configure_activate (TestFixture * f,
     gconstpointer user_data)
 {
   g_autoptr (WpSessionItem) endpoint = NULL;
+
+  /* skip the test if null-audio-sink factory is not installed */
+  if (!test_is_spa_lib_installed (&f->base, "support.null-audio-sink")) {
+    g_test_skip ("The pipewire null-audio-sink factory was not found");
+    return;
+  }
 
   /* create endpoint */
 
@@ -101,6 +103,12 @@ test_si_audio_endpoint_export (TestFixture * f, gconstpointer user_data)
   g_autoptr (WpSessionItem) endpoint = NULL;
   g_autoptr (WpObjectManager) clients_om = NULL;
   g_autoptr (WpClient) self_client = NULL;
+
+  /* skip the test if null-audio-sink factory is not installed */
+  if (!test_is_spa_lib_installed (&f->base, "support.null-audio-sink")) {
+    g_test_skip ("The pipewire null-audio-sink factory was not found");
+    return;
+  }
 
   /* find self_client, to be used for verifying endpoint.client.id */
 

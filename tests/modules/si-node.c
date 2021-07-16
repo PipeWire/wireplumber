@@ -58,6 +58,15 @@ test_si_node_configure_activate (TestFixture * f, gconstpointer user_data)
   g_autoptr (WpNode) node = NULL;
   g_autoptr (WpSessionItem) item = NULL;
 
+  /* skip test if spa factory is not insalled */
+  if (!test_is_spa_lib_installed (&f->base, data->factory)) {
+    g_autofree gchar *msg = NULL;
+    msg = g_strdup_printf ("The pipewire %s factory was not found",
+        data->factory);
+    g_test_skip (msg);
+    return;
+  }
+
   /* create item */
 
   item = wp_session_item_make (f->base.core, "si-node");

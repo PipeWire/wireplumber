@@ -74,8 +74,6 @@ test_si_standard_link_setup (TestFixture * f, gconstpointer user_data)
         wp_test_server_locker_new (&f->base.server);
 
     g_assert_cmpint (pw_context_add_spa_lib (f->base.server.context,
-            "fake*", "test/libspa-test"), ==, 0);
-    g_assert_cmpint (pw_context_add_spa_lib (f->base.server.context,
             "audiotestsrc", "audiotestsrc/libspa-audiotestsrc"), ==, 0);
     g_assert_nonnull (pw_context_load_module (f->base.server.context,
             "libpipewire-module-adapter", NULL, NULL));
@@ -93,8 +91,10 @@ test_si_standard_link_setup (TestFixture * f, gconstpointer user_data)
     g_assert_no_error (error);
   }
 
-  f->src_item = load_node (f, "audiotestsrc", "Stream/Output/Audio");
-  f->sink_item = load_node (f, "support.null-audio-sink", "Audio/Sink");
+  if (test_is_spa_lib_installed (&f->base, "audiotestsrc"))
+    f->src_item = load_node (f, "audiotestsrc", "Stream/Output/Audio");
+  if (test_is_spa_lib_installed (&f->base, "support.null-audio-sink"))
+    f->sink_item = load_node (f, "support.null-audio-sink", "Audio/Sink");
 }
 
 static void
@@ -109,6 +109,18 @@ static void
 test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
 {
   g_autoptr (WpSessionItem) link = NULL;
+
+  /* skip the test if audiotestsrc endpoint could not be loaded */
+  if (!f->src_item) {
+    g_test_skip ("The pipewire audiotestsrc factory was not found");
+    return;
+  }
+
+  /* skip the test if null-audio-sink endpoint could not be loaded */
+  if (!f->sink_item) {
+    g_test_skip ("The pipewire null-audio-sink factory was not found");
+    return;
+  }
 
   /* create the link */
   link = wp_session_item_make (f->base.core, "si-standard-link");
