@@ -4,6 +4,9 @@ option('doc', type : 'feature', value : 'auto',
        description: 'Enable documentation.')
 option('system-lua', type : 'boolean', value : 'false',
        description : 'Use lua from the system instead of the bundled one')
+option('system-lua-version',
+       type: 'string', value : 'auto',
+       description: 'The system lua version to use or "auto" for auto-detection')
 option('systemd',
        type: 'feature', value: 'auto',
        description: 'Enable installing systemd units')

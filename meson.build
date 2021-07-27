@@ -39,27 +39,39 @@ threads_dep = dependency('threads')
 
 system_lua = get_option('system-lua')
 if system_lua
-  lua_dep = dependency('lua-5.4', required: false)
-  if not lua_dep.found()
-    lua_dep = dependency('lua5.4', required: false)
-  endif
-  if not lua_dep.found()
-    lua_dep = dependency('lua54', required: false)
-  endif
-  if not lua_dep.found()
-    lua_dep = dependency('lua-5.3', required: false)
-  endif
-  if not lua_dep.found()
-    lua_dep = dependency('lua5.3', required: false)
-  endif
-  if not lua_dep.found()
-    lua_dep = dependency('lua53', required: false)
-  endif
-  if not lua_dep.found()
-    lua_dep = dependency('lua', version: ['>=5.3.0'], required: false)
-  endif
-  if not lua_dep.found()
-    error ('Could not find lua. Lua version 5.4 or 5.3 required')
+  if get_option('system-lua-version') != 'auto'
+    lua_version_requested = get_option('system-lua-version')
+    lua_dep = dependency('lua-' + lua_version_requested, required: false)
+    if not lua_dep.found()
+      lua_dep = dependency('lua' + lua_version_requested, required: false)
+    endif
+
+    if not lua_dep.found()
+      error('Specified Lua version "' + lua_version_requested + '" not found')
+    endif
+  else
+    lua_dep = dependency('lua-5.4', required: false)
+    if not lua_dep.found()
+      lua_dep = dependency('lua5.4', required: false)
+    endif
+    if not lua_dep.found()
+      lua_dep = dependency('lua54', required: false)
+    endif
+    if not lua_dep.found()
+      lua_dep = dependency('lua-5.3', required: false)
+    endif
+    if not lua_dep.found()
+      lua_dep = dependency('lua5.3', required: false)
+    endif
+    if not lua_dep.found()
+      lua_dep = dependency('lua53', required: false)
+    endif
+    if not lua_dep.found()
+      lua_dep = dependency('lua', version: ['>=5.3.0'], required: false)
+    endif
+    if not lua_dep.found()
+      error ('Could not find lua. Lua version 5.4 or 5.3 required')
+    endif
   endif
 else
   lua_proj = subproject('lua', default_options: ['default_library=static'])
