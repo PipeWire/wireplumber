@@ -10,6 +10,9 @@ alsa_monitor.properties = {
   ["alsa.reserve"] = true,
   --["alsa.reserve.priority"] = -20,
   --["alsa.reserve.application-name"] = "WirePlumber",
+
+  -- Enables monitoring of alsa MIDI devices
+  ["alsa.midi.monitoring"] = true,
 }
 
 alsa_monitor.rules = {

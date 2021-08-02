@@ -25,6 +25,13 @@ test(
 )
 
 test(
+  'test-file-monitor',
+  executable('test-file-monitor', 'file-monitor.c',
+    dependencies: common_deps, c_args: common_args),
+  env: common_env,
+)
+
+test(
   'test-si-node',
   executable('test-si-node', 'si-node.c',
       dependencies: common_deps, c_args: common_args),
