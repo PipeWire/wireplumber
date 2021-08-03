@@ -6,6 +6,7 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <glib/gstdio.h>
 #include <wp/wp.h>
 #include <pipewire/pipewire.h>
 #include <wplua/wplua.h>
@@ -54,9 +55,44 @@ glib_get_real_time (lua_State *L)
   return 1;
 }
 
+static gboolean
+access_parse_mode (const gchar * mode_str, gint *mode)
+{
+  *mode = 0;
+
+  if (!mode_str)
+    return FALSE;
+  else {
+    for (guint i = 0; i < strlen (mode_str); i++) {
+      switch (mode_str[i]) {
+        case 'r': *mode |= R_OK; break;
+        case 'w': *mode |= W_OK; break;
+        case 'x': *mode |= X_OK; break;
+        case 'f': *mode |= F_OK; break;
+        case '-': break;
+        default:
+          return FALSE;
+      }
+    }
+  }
+  return TRUE;
+}
+
+static int
+glib_access (lua_State *L)
+{
+  const gchar *filename = luaL_checkstring (L, 1);
+  int mode = 0;
+  if (!access_parse_mode (luaL_checkstring (L, 2), &mode))
+      luaL_error (L, "invalid mode string: '%s'", lua_tostring (L, 2));
+  lua_pushboolean (L, g_access (filename, mode) >= 0);
+  return 1;
+}
+
 static const luaL_Reg glib_methods[] = {
   { "get_monotonic_time", glib_get_monotonic_time },
   { "get_real_time", glib_get_real_time },
+  { "access", glib_access },
   { NULL, NULL }
 };
 
