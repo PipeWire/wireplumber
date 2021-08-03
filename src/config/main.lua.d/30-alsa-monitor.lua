@@ -17,4 +17,8 @@ function alsa_monitor.enable()
     properties = alsa_monitor.properties,
     rules = alsa_monitor.rules,
   })
+
+  load_monitor("alsa-midi", {
+    properties = alsa_monitor.properties,
+  })
 end
