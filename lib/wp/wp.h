@@ -20,6 +20,7 @@
 #include "link.h"
 #include "log.h"
 #include "metadata.h"
+#include "module.h"
 #include "node.h"
 #include "object-interest.h"
 #include "object-manager.h"
