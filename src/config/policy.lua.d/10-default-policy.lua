@@ -16,6 +16,21 @@ default_policy.policy = {
   ["duck.level"] = 0.3,
 }
 
+bluetooth_policy = {}
+
+bluetooth_policy.policy = {
+  -- Whether to store state on the filesystem.
+  ["use-persistent-storage"] = false,
+
+  -- Whether to use headset profile in the presence of an input stream.
+  ["media-role.use-headset-profile"] = true,
+
+  -- Application names correspond to application.name in stream properties.
+  -- Applications which do not set media.role but which should be considered
+  -- for role based profile switching can be specified here.
+  ["media-role.applications"] = { "Chromium input", "Firefox", "Google Chrome input", "ZOOM VoiceEngine" },
+}
+
 function default_policy.enable()
   -- Session item factories, building blocks for the session management graph
   -- Do not disable these unless you really know what you are doing
@@ -48,4 +63,7 @@ function default_policy.enable()
 
   -- Link endpoints with device nodes to make media flow in the graph
   load_script("policy-endpoint-device.lua", default_policy.policy)
+
+  -- Switch bluetooth profile based on media.role
+  load_script("policy-bluetooth.lua", bluetooth_policy.policy)
 end
