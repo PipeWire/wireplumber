@@ -511,6 +511,7 @@ object_interest_new_add_constraint (lua_State *L, GType type,
 
   switch (verb) {
   case WP_CONSTRAINT_VERB_EQUALS:
+  case WP_CONSTRAINT_VERB_NOT_EQUALS:
   case WP_CONSTRAINT_VERB_MATCHES: {
     lua_geti (L, constraint_idx, 3);
     value = constraint_value_to_variant (L, -1);

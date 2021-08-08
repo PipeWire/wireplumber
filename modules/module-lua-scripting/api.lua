@@ -53,7 +53,7 @@ local function Constraint (spec)
   end
 
   -- check if we got the right amount of values
-  if verb == "=" or verb == "#" then
+  if verb == "=" or verb == "!" or verb == "#" then
     assert (spec[3] ~= nil,
       "Constraint: " .. verbs[verb] .. ": expected constraint value")
   elseif verb == "c" then
