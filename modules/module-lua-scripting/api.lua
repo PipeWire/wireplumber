@@ -77,7 +77,56 @@ local function dump_table(t, indent)
     indent_str = indent_str .. "\t"
   end
 
+  local kvpairs = {}
   for k, v in pairs(t) do
+    table.insert(kvpairs, { k, v })
+  end
+
+  table.sort(kvpairs, function (lhs, rhs)
+    local left_key, right_key = lhs[1], rhs[1]
+
+    -- If the types are different, we sort by the type
+    -- in alphabetical order. This means that numbers
+    -- come before before strings, etc
+    if type(left_key) ~= type(right_key) then
+      return type(left_key) < type(right_key)
+    end
+
+    local key_type = type(left_key)
+
+    -- Only numbers and strings have a well-defined order
+    -- that's guaranteed to fulfill the requirements of
+    -- table.sort (strict weak order)
+    if key_type == "number" or key_type == "string" then
+      return left_key < right_key
+    end
+
+    -- At this point, we have no good way to order the objects.
+    -- We can't just do `left_key < right_key`, because this may fail
+    -- if there's no `__lt` metamethod, and even if there is one,
+    -- it might not be a strict weak order. (The Lua reference does
+    -- not say what happens if the order is not strict weak, so it's
+    -- undefined behaviour)
+
+    -- That said, it's always mathematically "permitted" to return `false`,
+    -- in which case, since both x < y and y < x are false, the elements
+    -- are considered "equivalent" and may appear in any order in relation
+    -- to each other. The elements are still sorted in relation to the
+    -- *other* keys.
+    return false
+
+    -- To be a strict weak order, if x and y are equivalent, and y and z
+    -- are equivalent, then x and z must be equivalent too. Otherwise the
+    -- ordering is only a strict *partial* order.
+
+    -- Note that the Lua 5.3 reference states that the order merely has to
+    -- be a strict *partial* order, but since all weak orders are partial
+    -- orders, this is not a problem.
+  end)
+
+  for _, pair in ipairs(kvpairs) do
+    local k, v = table.unpack(pair)
+
     if (type(v) == "table") then
       print (indent_str .. tostring(k) .. ": ")
       dump_table(v, indent + 1)
