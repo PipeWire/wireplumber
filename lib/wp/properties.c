@@ -752,6 +752,7 @@ wp_properties_item_free (gpointer p)
  * \ingroup wpproperties
  * \param self a properties item object
  * \returns (transfer full): \a self with an additional reference count on it
+ * \since 0.4.2
  */
 WpPropertiesItem *
 wp_properties_item_ref (WpPropertiesItem *self)
@@ -764,6 +765,7 @@ wp_properties_item_ref (WpPropertiesItem *self)
  * count reaches zero.
  * \ingroup wpproperties
  * \param self (transfer full): a properties item object
+ * \since 0.4.2
  */
 void
 wp_properties_item_unref (WpPropertiesItem *self)
@@ -778,6 +780,7 @@ wp_properties_item_unref (WpPropertiesItem *self)
  * \param self the item held by the GValue that was returned from the WpIterator
  *   of wp_properties_new_iterator()
  * \returns (transfer none): the property key of the \a item
+ * \since 0.4.2
  */
 const gchar *
 wp_properties_item_get_key (WpPropertiesItem * self)
@@ -792,6 +795,7 @@ wp_properties_item_get_key (WpPropertiesItem * self)
  * \param self the item held by the GValue that was returned from the WpIterator
  *   of wp_properties_new_iterator()
  * \returns (transfer none): the property value of the \a item
+ * \since 0.4.2
  */
 const gchar *
 wp_properties_item_get_value (WpPropertiesItem * self)
@@ -870,9 +874,9 @@ static const WpIteratorMethods dict_iterator_methods = {
  * \ingroup wpproperties
  * \param self a properties object
  * \returns (transfer full): an iterator that iterates over the properties.
- *   Use wp_properties_iterator_item_get_key() and
- *   wp_properties_iterator_item_get_value() to parse the items returned by
- *   this iterator.
+ *   The items in the iterator are of type WpPropertiesItem.
+ *   Use wp_properties_item_get_key() and
+ *   wp_properties_item_get_value() to retrieve their contents.
  */
 WpIterator *
 wp_properties_new_iterator (WpProperties * self)
@@ -897,6 +901,7 @@ wp_properties_new_iterator (WpProperties * self)
  * \param item a GValue that was returned from the WpIterator of
  *   wp_properties_new_iterator()
  * \returns (transfer none): the property key of the \a item
+ * \deprecated Use wp_properties_item_get_key() instead
  */
 const gchar *
 wp_properties_iterator_item_get_key (const GValue * item)
@@ -913,6 +918,7 @@ wp_properties_iterator_item_get_key (const GValue * item)
  * \param item a GValue that was returned from the WpIterator of
  *   wp_properties_new_iterator()
  * \returns (transfer none): the property value of the \a item
+ * \deprecated Use wp_properties_item_get_value() instead
  */
 const gchar *
 wp_properties_iterator_item_get_value (const GValue * item)
