@@ -99,26 +99,9 @@ wp_get_xdg_state_dir (void)
 }
 
 /*!
- * \brief Gets the full path to the WirePlumber XDG_CONFIG_HOME subdirectory
- * \returns WirePlumber's XDG_CONFIG_HOME subdirectory
- * \since 0.4.2
- */
-const gchar *
-wp_get_xdg_config_dir (void)
-{
-  static gchar xdg_dir[PATH_MAX] = {0};
-  if (xdg_dir[0] == '\0') {
-    g_autofree gchar *path = g_build_filename (g_get_user_config_dir (),
-                                               "wireplumber", NULL);
-    (void) g_strlcpy (xdg_dir, path, sizeof (xdg_dir));
-  }
-  return xdg_dir;
-}
-
-/*!
  * \brief Gets the full path to the WirePlumber configuration directory
  * \returns The WirePlumber configuration directory
- * \deprecated Use wp_find_config_file() instead
+ * \deprecated Use wp_find_file() instead
  */
 const gchar *
 wp_get_config_dir (void)
@@ -140,7 +123,7 @@ wp_get_config_dir (void)
 /*!
  * \brief Gets full path to the WirePlumber data directory
  * \returns The WirePlumber data directory
- * \deprecated Use wp_find_sysconfig_file() instead
+ * \deprecated Use wp_find_file() instead
  */
 const gchar *
 wp_get_data_dir (void)
@@ -173,27 +156,6 @@ check_path (const gchar *basedir, const gchar *subdir, const gchar *filename)
   return NULL;
 }
 
-/*
- * Flags to specify lookup directories
- * Use one of the `WP_CDIR_SET` values instead of the values directly.
- */
-typedef enum {
-  /* config group */
-  WP_CDIR_ENV_CONFIG = (1 << 0),  /**< $WIREPLUMBER_CONFIG_DIR */
-  WP_CDIR_XDG_HOME = (1 << 1),    /**< XDG_CONFIG_HOME */
-  WP_CDIR_ETC = (1 << 2),         /**< /etc/wireplumber */
-
-  /* data group */
-  WP_CDIR_ENV_DATA = (1 << 10),   /**< $WIREPLUMBER_DATA_DIR */
-  WP_CDIR_USR = (1 << 11),        /**< /usr/share/wireplumber */
-
-  /** The set for system-only files */
-  WP_CDIR_SET_SYSTEM = WP_CDIR_ETC | WP_CDIR_USR | WP_CDIR_ENV_DATA,
-
-  /** The set for user + system files */
-  WP_CDIR_SET_USER = WP_CDIR_ENV_CONFIG | WP_CDIR_XDG_HOME | WP_CDIR_SET_SYSTEM,
-} WpConfigDir;
-
 static GPtrArray *
 lookup_dirs (guint flags)
 {
@@ -202,43 +164,42 @@ lookup_dirs (guint flags)
 
   /* Compile the list of lookup directories in priority order:
    * - environment variables
-   * - XDG directories
-   * - etc
+   * - XDG config directories
+   * - /etc/
    * - /usr/share/....
    *
-   * Note that environment variables *replace* the equivalent config directory
-   * group.
+   * Note that wireplumber environment variables *replace* other directories.
    */
-  if ((flags & WP_CDIR_ENV_CONFIG) &&
+  if ((flags & WP_LOOKUP_DIR_ENV_CONFIG) &&
       (dir = g_getenv ("WIREPLUMBER_CONFIG_DIR"))) {
     g_ptr_array_add (dirs, g_canonicalize_filename (dir, NULL));
-  } else {
-    if ((flags & WP_CDIR_XDG_HOME) && (dir = wp_get_xdg_config_dir ()))
-      g_ptr_array_add (dirs, (gpointer)g_strdup (dir));
-    if (flags & WP_CDIR_ETC)
-      g_ptr_array_add (dirs, (gpointer)g_strdup (WIREPLUMBER_DEFAULT_CONFIG_DIR));
   }
-
-  /* data dirs */
-  if ((flags & WP_CDIR_ENV_DATA) && (dir = g_getenv ("WIREPLUMBER_DATA_DIR"))) {
+  else if ((flags & WP_LOOKUP_DIR_ENV_DATA) &&
+      (dir = g_getenv ("WIREPLUMBER_DATA_DIR"))) {
     g_ptr_array_add (dirs, g_canonicalize_filename (dir, NULL));
-  } else if (flags & WP_CDIR_USR) {
-    g_ptr_array_add (dirs,
-      (gpointer)g_canonicalize_filename(WIREPLUMBER_DEFAULT_DATA_DIR, NULL));
+  }
+  else {
+    if (flags & WP_LOOKUP_DIR_XDG_CONFIG_HOME) {
+      dir = g_get_user_config_dir ();
+      g_ptr_array_add (dirs, g_build_filename (dir, "wireplumber", NULL));
+    }
+    if (flags & WP_LOOKUP_DIR_ETC)
+      g_ptr_array_add (dirs,
+          g_canonicalize_filename (WIREPLUMBER_DEFAULT_CONFIG_DIR, NULL));
+    if (flags & WP_LOOKUP_DIR_PREFIX_SHARE)
+      g_ptr_array_add (dirs,
+          g_canonicalize_filename(WIREPLUMBER_DEFAULT_DATA_DIR, NULL));
   }
 
   return g_steal_pointer (&dirs);
 }
 
 /*!
- * \addtogroup wp
- * \{
- */
-
-/*!
  * \brief Returns the full path of \a filename as found in
  * the hierarchy of configuration and data directories.
  *
+ * \ingroup wp
+ * \param dirs the directories to look into
  * \param filename the name of the file to search for
  * \param subdir (nullable): the name of the subdirectory to search in,
  *   inside the configuration directories
@@ -247,15 +208,15 @@ lookup_dirs (guint flags)
  * \since 0.4.2
  */
 gchar *
-wp_find_config_file (const gchar *filename, const char *subdir)
+wp_find_file (WpLookupDirs dirs, const gchar *filename, const char *subdir)
 {
-  g_autoptr(GPtrArray) dirs = lookup_dirs (WP_CDIR_SET_USER);
+  g_autoptr(GPtrArray) dir_paths = lookup_dirs (dirs);
 
   if (g_path_is_absolute (filename))
     return g_strdup (filename);
 
-  for (guint i = 0; i < dirs->len; i++) {
-    gchar *path = check_path (g_ptr_array_index (dirs, i),
+  for (guint i = 0; i < dir_paths->len; i++) {
+    gchar *path = check_path (g_ptr_array_index (dir_paths, i),
                               subdir, filename);
     if (path)
       return path;
@@ -263,37 +224,6 @@ wp_find_config_file (const gchar *filename, const char *subdir)
 
   return NULL;
 }
-
-/*!
- * \brief Returns the full path of \a filename as found in
- * the hierarchy of system-only configuration and data directories.
-
- * \param filename the name of the file to search for
- * \param subdir (nullable): the name of the subdirectory to search in,
- *   inside the configuration directories
- * \returns (transfer full): An allocated string with the configuration
- *   file path or NULL if the file was not found.
- * \since 0.4.2
- */
-gchar *
-wp_find_sysconfig_file (const gchar *filename, const char *subdir)
-{
-  g_autoptr(GPtrArray) dirs = lookup_dirs (WP_CDIR_SET_SYSTEM);
-
-  if (g_path_is_absolute (filename))
-    return g_strdup (filename);
-
-  for (guint i = 0; i < dirs->len; i++) {
-    gchar *path = check_path (g_ptr_array_index (dirs, i),
-                              subdir, filename);
-    if (path)
-      return path;
-  }
-
-  return NULL;
-}
-
-/*! \} */
 
 struct conffile_iterator_data
 {
@@ -370,6 +300,7 @@ static const WpIteratorMethods conffile_iterator_methods = {
  * of the caller to ignore or recurse into those.
  *
  * \ingroup wp
+ * \param dirs the directories to look into
  * \param subdir (nullable): the name of the subdirectory to search in,
  *   inside the configuration directories
  * \param suffix (nullable): The filename suffix, NULL matches all entries
@@ -378,23 +309,24 @@ static const WpIteratorMethods conffile_iterator_methods = {
  * \since 0.4.2
  */
 WpIterator *
-wp_new_config_files_iterator (const gchar *subdir, const gchar *suffix)
+wp_new_files_iterator (WpLookupDirs dirs, const gchar *subdir,
+    const gchar *suffix)
 {
   g_autoptr (GHashTable) ht =
       g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
-  g_autoptr (GPtrArray) dirs = NULL;
+  g_autoptr (GPtrArray) dir_paths = NULL;
 
   if (subdir == NULL)
     subdir = ".";
 
   /* Note: this list is highest-priority first */
-  dirs = lookup_dirs (WP_CDIR_SET_USER);
+  dir_paths = lookup_dirs (dirs);
 
   /* Store all filenames with their full path in the hashtable, overriding
    * previous values. We need to run backwards through the list for that */
-  for (guint i = dirs->len; i > 0; i--) {
+  for (guint i = dir_paths->len; i > 0; i--) {
     g_autofree gchar *dirpath =
-        g_build_filename (g_ptr_array_index (dirs, i - 1), subdir, NULL);
+        g_build_filename (g_ptr_array_index (dir_paths, i - 1), subdir, NULL);
     g_autoptr(GDir) dir = g_dir_open (dirpath, 0, NULL);
 
     wp_trace ("searching config dir: %s", dirpath);

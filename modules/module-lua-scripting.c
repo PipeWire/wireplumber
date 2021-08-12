@@ -131,7 +131,10 @@ find_script (const gchar * script, gboolean daemon)
       g_file_test (script, G_FILE_TEST_IS_REGULAR))
     return g_strdup (script);
 
-  return wp_find_sysconfig_file (script, "scripts");
+  return wp_find_file (WP_LOOKUP_DIR_ENV_DATA |
+                       WP_LOOKUP_DIR_ETC |
+                       WP_LOOKUP_DIR_PREFIX_SHARE,
+                       script, "scripts");
 }
 
 static gboolean

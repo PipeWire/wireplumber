@@ -99,6 +99,12 @@ load_file (const GValue *item, GValue *ret, gpointer data)
   return TRUE;
 }
 
+#define CONFIG_DIRS_LOOKUP_SET \
+    (WP_LOOKUP_DIR_ENV_CONFIG | \
+     WP_LOOKUP_DIR_XDG_CONFIG_HOME | \
+     WP_LOOKUP_DIR_ETC | \
+     WP_LOOKUP_DIR_PREFIX_SHARE)
+
 gboolean
 wp_lua_scripting_load_configuration (const gchar * conf_file,
     WpCore * core, GError ** error)
@@ -112,7 +118,7 @@ wp_lua_scripting_load_configuration (const gchar * conf_file,
   wplua_enable_sandbox (L, WP_LUA_SANDBOX_MINIMAL_STD);
 
   /* load conf_file itself */
-  path = wp_find_config_file (conf_file, NULL);
+  path = wp_find_file (CONFIG_DIRS_LOOKUP_SET, conf_file, NULL);
   if (path) {
     wp_info ("loading config file: %s", path);
     if (!wplua_load_path (L, path, 0, 0, error))
@@ -122,7 +128,7 @@ wp_lua_scripting_load_configuration (const gchar * conf_file,
   g_clear_pointer (&path, g_free);
 
   path = g_strdup_printf ("%s.d", conf_file);
-  it = wp_new_config_files_iterator (path, ".lua");
+  it = wp_new_files_iterator (CONFIG_DIRS_LOOKUP_SET, path, ".lua");
 
   g_value_init (&fold_ret, G_TYPE_INT);
   g_value_set_int (&fold_ret, nfiles);

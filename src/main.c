@@ -348,7 +348,12 @@ main (gint argc, gchar **argv)
   if (!config_file)
     config_file = "wireplumber.conf";
 
-  config_file_path = wp_find_config_file (config_file, NULL);
+  config_file_path = wp_find_file (
+      WP_LOOKUP_DIR_ENV_CONFIG |
+      WP_LOOKUP_DIR_XDG_CONFIG_HOME |
+      WP_LOOKUP_DIR_ETC |
+      WP_LOOKUP_DIR_PREFIX_SHARE,
+      config_file, NULL);
   if (config_file_path == NULL) {
     fprintf (stderr, "Unable to find the required configuration file %s\n",
              config_file);

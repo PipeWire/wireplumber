@@ -70,24 +70,32 @@ WP_API
 const gchar * wp_get_xdg_state_dir (void);
 
 WP_API
-const gchar * wp_get_xdg_config_dir (void);
-
-WP_API
-G_DEPRECATED_FOR (wp_find_config_file)
+G_DEPRECATED_FOR (wp_find_file)
 const gchar * wp_get_config_dir (void);
 
 WP_API
-G_DEPRECATED_FOR (wp_find_sysconfig_file)
+G_DEPRECATED_FOR (wp_find_file)
 const gchar * wp_get_data_dir (void);
 
-WP_API
-gchar * wp_find_config_file (const gchar *filename, const char *subdir);
+/*!
+ * \brief Flags to specify lookup directories
+ * \ingroup wp
+ */
+typedef enum { /*< flags >*/
+  WP_LOOKUP_DIR_ENV_CONFIG = (1 << 0),       /*!< $WIREPLUMBER_CONFIG_DIR */
+  WP_LOOKUP_DIR_ENV_DATA = (1 << 1),         /*!< $WIREPLUMBER_DATA_DIR */
+
+  WP_LOOKUP_DIR_XDG_CONFIG_HOME = (1 << 10), /*!< XDG_CONFIG_HOME/wireplumber */
+  WP_LOOKUP_DIR_ETC = (1 << 11),             /*!< ($prefix)/etc/wireplumber */
+  WP_LOOKUP_DIR_PREFIX_SHARE = (1 << 12),    /*!< $prefix/share/wireplumber */
+} WpLookupDirs;
 
 WP_API
-gchar * wp_find_sysconfig_file (const gchar *filename, const char *subdir);
+gchar * wp_find_file (WpLookupDirs dirs, const gchar *filename,
+    const char *subdir);
 
 WP_API
-WpIterator * wp_new_config_files_iterator (const gchar *subdir,
+WpIterator * wp_new_files_iterator (WpLookupDirs dirs, const gchar *subdir,
     const gchar *suffix);
 
 G_END_DECLS
