@@ -78,27 +78,6 @@ wp_get_module_dir (void)
 }
 
 /*!
- * \brief Gets the full path to the WirePlumber XDG_STATE_HOME subdirectory
- * \returns WirePlumber's XDG_STATE_HOME subdirectory
- * \since 0.4.2
- */
-const gchar *
-wp_get_xdg_state_dir (void)
-{
-  static gchar xdg_dir[PATH_MAX] = {0};
-  if (xdg_dir[0] == '\0') {
-    g_autofree gchar *path = NULL;
-    g_autofree gchar *base = g_strdup (g_getenv ("XDG_STATE_HOME"));
-    if (!base)
-      base = g_build_filename (g_get_home_dir (), ".local", "state", NULL);
-
-    path = g_build_filename (base, "wireplumber", NULL);
-    (void) g_strlcpy (xdg_dir, path, sizeof (xdg_dir));
-  }
-  return xdg_dir;
-}
-
-/*!
  * \brief Gets the full path to the WirePlumber configuration directory
  * \returns The WirePlumber configuration directory
  * \deprecated Use wp_find_file() instead
