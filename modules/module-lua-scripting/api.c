@@ -1297,6 +1297,35 @@ static const luaL_Reg state_methods[] = {
   { NULL, NULL }
 };
 
+/* ImplModule */
+
+static int
+impl_module_new (lua_State *L)
+{
+  const char *name, *args = NULL;
+  WpProperties *properties = NULL;
+
+  name = luaL_checkstring (L, 1);
+
+  if (lua_type (L, 2) != LUA_TNONE)
+    args = luaL_checkstring (L, 2);
+
+  if (lua_type (L, 3) != LUA_TNONE) {
+    luaL_checktype (L, 3, LUA_TTABLE);
+    properties = wplua_table_to_properties (L, 2);
+  }
+
+  WpImplModule *m = wp_impl_module_load (get_wp_export_core (L),
+     name, args, properties);
+
+  if (m) {
+    wplua_pushobject (L, m);
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
 void
 wp_lua_scripting_api_init (lua_State *L)
 {
@@ -1352,6 +1381,8 @@ wp_lua_scripting_api_init (lua_State *L)
       NULL, pipewire_object_methods);
   wplua_register_type_methods (L, WP_TYPE_STATE,
       state_new, state_methods);
+  wplua_register_type_methods (L, WP_TYPE_IMPL_MODULE,
+      impl_module_new, NULL);
 
   wplua_load_uri (L, URI_API, 0, 0, &error);
   if (G_UNLIKELY (error))

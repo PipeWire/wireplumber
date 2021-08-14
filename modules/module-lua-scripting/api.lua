@@ -206,4 +206,5 @@ SANDBOX_EXPORT = {
   Link = WpLink_new,
   Pod = WpSpaPod,
   State = WpState_new,
+  ImplModule = WpImplModule_new,
 }
