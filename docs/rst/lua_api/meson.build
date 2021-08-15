@@ -2,6 +2,7 @@
 sphinx_files += files(
   'lua_core_api.rst',
   'lua_gobject.rst',
+  'lua_local_module_api.rst',
   'lua_introduction.rst',
   'lua_log_api.rst',
   'lua_object_api.rst',

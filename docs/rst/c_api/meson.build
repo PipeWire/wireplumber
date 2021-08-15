@@ -6,6 +6,7 @@ sphinx_files += files(
   'device_api.rst',
   'endpoint_api.rst',
   'global_proxy_api.rst',
+  'impl_module_api.rst',
   'impl_node_api.rst',
   'iterator_api.rst',
   'link_api.rst',

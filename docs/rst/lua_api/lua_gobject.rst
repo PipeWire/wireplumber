@@ -130,6 +130,8 @@ other GObject, GInterface        userdata holding reference to the object
 other GBoxed                     userdata holding reference to the object
 ================================ ===============================================
 
+.. _lua_gobject_lua_to_c:
+
 Lua to C
 ^^^^^^^^
 

@@ -27,6 +27,7 @@ C API Documentation
    c_api/endpoint_api.rst
    c_api/spa_device_api.rst
    c_api/impl_node_api.rst
+   c_api/impl_module_api.rst
    c_api/properties_api.rst
    c_api/spa_type_api.rst
    c_api/spa_pod_api.rst
