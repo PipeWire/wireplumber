@@ -80,7 +80,7 @@ static const WpSpaIdTableInfo static_id_tables[] = {
 
 GType wp_spa_type_get_type (void)
 {
-  static volatile gsize id__volatile = 0;
+  static gsize id__volatile = 0;
   if (g_once_init_enter (&id__volatile)) {
     GType id = g_type_register_static_simple (
         G_TYPE_UINT, g_intern_static_string ("WpSpaType"),

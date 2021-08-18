@@ -74,7 +74,7 @@ enum {
 static GType
 wp_mixer_api_volume_scale_enum_get_type (void)
 {
-  static volatile gsize gtype_id = 0;
+  static gsize gtype_id = 0;
   static const GEnumValue values[] = {
     { (gint) SCALE_LINEAR, "SCALE_LINEAR", "linear" },
     { (gint) SCALE_CUBIC, "SCALE_CUBIC", "cubic" },
