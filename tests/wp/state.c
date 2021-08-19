@@ -198,6 +198,8 @@ test_state_escaped (void)
     g_assert_cmpstr (wp_properties_get (props, "\\\\"), ==, "v20");
     g_assert_cmpstr (wp_properties_get (props, "[]["), ==, "][]");
   }
+
+  wp_state_clear (state);
 }
 
 int
