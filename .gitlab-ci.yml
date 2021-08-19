@@ -176,16 +176,6 @@ build_on_fedora_no_docs:
   variables:
     BUILD_OPTIONS: -Dintrospection=enabled -Ddoc=disabled -Dsystem-lua=false
 
-build_on_fedora_wpipc:
-  extends:
-    - .fedora
-    - .not_coverity
-    - .fdo.distribution-image@fedora
-    - .build
-  stage: build
-  variables:
-    BUILD_OPTIONS: -Dintrospection=disabled -Ddoc=disabled -Dsystem-lua=false -Dwpipc=enabled
-
 build_on_ubuntu_with_gir:
   extends:
     - .ubuntu
@@ -216,7 +206,7 @@ build_with_coverity:
   script:
     - export PATH=/opt/coverity/bin:$PATH
     - meson "$WP_BUILD_DIR" . --prefix="$PREFIX"
-        -Dintrospection=disabled -Ddoc=disabled -Dwpipc=enabled
+        -Dintrospection=disabled -Ddoc=disabled
     - cov-configure --config coverity_conf.xml
         --comptype gcc --compiler cc --template
         --xml-option=append_arg@C:--ppp_translator

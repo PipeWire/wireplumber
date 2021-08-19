@@ -22,7 +22,5 @@ option('systemd-system-unit-dir',
 option('systemd-user-unit-dir',
        type : 'string',
        description : 'Directory for user systemd units')
-option('wpipc', type : 'feature', value : 'disabled',
-       description: 'Build the wpipc library and module-ipc')
 option('glib-supp', type : 'string', value : '',
        description: 'The glib.supp valgrind suppressions file to be used when running valgrind')

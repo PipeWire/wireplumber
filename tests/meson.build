@@ -61,6 +61,5 @@ endif
 
 subdir('wp')
 subdir('wplua')
-subdir('wpipc', if_found: wpipc_dep)
 subdir('modules')
 subdir('examples')

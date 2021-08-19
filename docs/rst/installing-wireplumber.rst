@@ -95,16 +95,6 @@ Additional options
 
    Directory for user systemd units.
 
-.. option:: -Dwpipc=[enabled|disabled|auto]
-
-   Build the wpipc library and module-ipc. The default is **disabled**
-
-   **enabled** and **auto** currently mean the same thing.
-
-   wpipc is small library to send commands directly to WirePlumber; it is
-   only useful in specific embedded systems and not recommended for generic use
-   (use the PipeWire protocol instead)
-
 Installation
 ------------
 
