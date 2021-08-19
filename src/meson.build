@@ -3,7 +3,7 @@ wp_sources = [
 ]
 
 install_subdir('config',
-  install_dir: wireplumber_config_dir,
+  install_dir: wireplumber_data_dir,
   strip_directory : true
 )
 install_subdir('scripts',
