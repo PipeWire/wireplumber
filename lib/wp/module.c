@@ -15,6 +15,7 @@
 /*! \defgroup wpimplmodule WpImplModule */
 /*!
  * \struct WpImplModule
+ * \since 0.4.2
  *
  * Used to load PipeWire modules within the WirePlumber process. This is
  * slightly different from other objects in that the module is not exported to
@@ -229,6 +230,7 @@ wp_impl_module_class_init (WpImplModuleClass * klass)
  * \brief Loads a PipeWire module into the WirePlumber process
  *
  * \ingroup wpimplmodule
+ * \since 0.4.2
  * \param core (transfer none): The WirePlumber core
  * \param name (transfer none): the name of the module to load
  * \param arguments (nullable) (transfer none): arguments to be passed to the module

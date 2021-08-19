@@ -14,12 +14,13 @@ Constructors
 .. function:: LocalModule(name, arguments, properties)
 
    Loads the named module with the provided arguments and properties (either of
-   which can be nil).
+   which can be ``nil``).
 
-   `name` is the module name, such as `"libpipewire-module-loopback"`.
-
-   `arguments` should be either `nil` or a string with the desired module
-   arguments.
-
-   `properties` can be nil or a table that can be :ref:`converted
-   <lua_gobject_lua_to_c>` to :c:struct:`WpProperties`.
+   :param string name: the module name, such as ``"libpipewire-module-loopback"``
+   :param string arguments: should be either ``nil`` or a string with the desired
+        module arguments
+   :param table properties: can be ``nil`` or a table that can be
+        :ref:`converted <lua_gobject_lua_to_c>` to :c:struct:`WpProperties`
+   :returns: a new LocalModule
+   :rtype: LocalModule (:c:struct:`WpImplModule`)
+   :since: 0.4.2

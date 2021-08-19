@@ -19,6 +19,7 @@ G_BEGIN_DECLS
 
 /*!
  * \brief The WpImplModule GType
+ * \since 0.4.2
  * \ingroup wpimplmodule
  */
 #define WP_TYPE_IMPL_MODULE (wp_impl_module_get_type())
