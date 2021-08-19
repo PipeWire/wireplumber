@@ -64,6 +64,7 @@ Lua objects that bind a :ref:`WpNode <node_api>` contain the following methods:
    :param self: the proxy
    :returns: the current state of the node and an error message, if any
    :rtype: string (:c:enum:`WpNodeState`), string (error message)
+   :since: 0.4.2
 
 .. function:: Node.get_n_input_ports(self)
 
@@ -72,6 +73,7 @@ Lua objects that bind a :ref:`WpNode <node_api>` contain the following methods:
    :param self: the proxy
    :returns: the current and max numbers of input ports on the node
    :rtype: integer (current), integer (max)
+   :since: 0.4.2
 
 .. function:: Node.get_n_output_ports(self)
 
@@ -80,6 +82,7 @@ Lua objects that bind a :ref:`WpNode <node_api>` contain the following methods:
    :param self: the proxy
    :returns: the current and max numbers of output ports on the node
    :rtype: integer (current), integer (max)
+   :since: 0.4.2
 
 .. function:: Node.get_n_ports(self)
 
@@ -87,6 +90,7 @@ Lua objects that bind a :ref:`WpNode <node_api>` contain the following methods:
 
    :param self: the proxy
    :returns: the number of ports on the node
+   :since: 0.4.2
 
 .. function:: Node.iterate_ports(self, interest)
 
@@ -97,6 +101,7 @@ Lua objects that bind a :ref:`WpNode <node_api>` contain the following methods:
    :type interest: :ref:`Interest <lua_object_interest_api>` or nil or none
    :returns: all the ports of this node that that match the interest
    :rtype: Iterator; the iteration items are of type :ref:`WpPort <port_api>`
+   :since: 0.4.2
 
 .. function:: Node.lookup_port(self, interest)
 
@@ -107,6 +112,7 @@ Lua objects that bind a :ref:`WpNode <node_api>` contain the following methods:
    :type interest: :ref:`Interest <lua_object_interest_api>` or nil or none
    :returns: the first port of this node that matches the interest
    :rtype: :ref:`WpPort <port_api>`
+   :since: 0.4.2
 
 .. function:: Node.send_command(self, command)
 
@@ -127,6 +133,7 @@ Lua objects that bind a :ref:`WpPort <port_api>` contain the following methods:
    :param self: the port
    :returns: the direction of the Port
    :rtype: string (:c:enum:`WpDirection`)
+   :since: 0.4.2
 
 PipeWire Client
 ...............
