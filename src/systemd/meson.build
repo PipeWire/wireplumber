@@ -4,7 +4,6 @@ summary({'systemd conf data': systemd.found()}, bool_yn: true)
 if systemd.found()
   systemd_config = configuration_data()
   systemd_config.set('WP_BINARY', wireplumber_bin_dir / 'wireplumber')
-  systemd_config.set('WP_CONFIG_DIR', wireplumber_config_dir)
 
   # system service
   if get_option('systemd-system-service')
