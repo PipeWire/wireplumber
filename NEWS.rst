@@ -1,5 +1,79 @@
-WirePlumber 0.4.1
+WirePlumber 0.4.2
 ~~~~~~~~~~~~~~~~~
+
+Highlights:
+
+  - Requires PipeWire 0.3.32 or later at runtime
+
+  - Configuration files are now installed in $PREFIX/share/wireplumber, along
+    with scripts, following the paradigm of PipeWire
+
+  - State files are now stored in $XDG_STATE_HOME instead of $XDG_CONFIG_HOME
+
+  - Added new ``file-monitor-api`` module, which allows Lua scripts to watch
+    the filesystem for changes, using inotify
+
+  - Added monitor for MIDI devices
+
+  - Added a ``system-lua-version`` meson option that allows distributors to
+    choose which Lua version to build against (``auto``, ``5.3`` or ``5.4``)
+
+  - wpipc has been removed and split out to a separate project,
+    https://git.automotivelinux.org/src/pipewire-ic-ipc/
+
+Library:
+
+  - A new ``WpImplModule`` class has been added; this allows loading a PipeWire
+    module in the WirePlumber process space, keeping a handle that can be
+    used to unload that module later. This is useful for loading filters,
+    network sources/sinks, etc...
+
+  - State files can now store keys that contain certain GKeyFile-reserved
+    characters, such as ``[``, ``]``, ``=`` and space; this fixes storing
+    stream volume state for streams using PipeWire's ALSA compatibility PCM
+    plugin
+
+  - ``WpProperties`` now uses a boxed ``WpPropertiesItem`` type in its iterators
+    so that these iterators can be used with g-i bindings
+
+  - Added API to lookup configuration and script files from multiple places
+    in the filesystem
+
+Lua:
+
+  - A ``LocalModule`` API has been added to reflect the functionality offered
+    by ``WpImplModule`` in C
+
+  - The ``Node`` API now has a complete set of methods to reflect the methods
+    of ``WpNode``
+
+  - Added ``Port.get_direction()``
+
+  - Added ``not-equals`` to the possible constraint verbs
+
+  - ``Debug.dump_table`` now sorts keys before printing the table
+
+Misc:
+
+  - Tests no longer accidentally create files in $HOME; all transient
+    files that are used for testing are now created in the build directory,
+    except for sockets which are created in ``/tmp`` due to the 108-character
+    limitation in socket paths
+
+  - Tests that require optional SPA plugins are now skipped if those SPA plugins
+    are not installed
+
+  - Added a nice summary output at the end of meson configuration
+
+  - Documented the Lua ObjectManager / Interest / Constraint APIs
+
+  - Fixed some memory leaks
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.4.1
+.................
 
 Bug fix release to go with PipeWire 0.3.31.
 Please update to this version if you are using PipeWire >= 0.3.31.
@@ -42,9 +116,6 @@ Build system:
 
   - The CI now also verifies that the build works on Ubuntu 20.04 LTS
     and tries multiple builds with different build options
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.4.0
 .................
@@ -295,7 +366,7 @@ WirePlumber 0.2.0
 
 As shipped in AGL Itchy Icefish 9.0.0 and Happy Halibut 8.0.5
 
-WirePlumber 0.1.1
+WirePlumber 0.1.2
 .................
 
 As shipped in AGL Happy Halibut 8.0.2
