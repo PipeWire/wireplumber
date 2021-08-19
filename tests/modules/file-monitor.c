@@ -79,7 +79,7 @@ test_file_monitor_basic (TestFixture * f, gconstpointer user_data)
 
   /* delete the 'foo' file if it exists in path */
   g_autofree gchar *filename = g_build_filename (f->path, "foo", NULL);
-  remove (filename);
+  (void) remove (filename);
 
   /* handle changed signal */
   f->file = NULL;
@@ -101,6 +101,9 @@ test_file_monitor_basic (TestFixture * f, gconstpointer user_data)
 
   /* removed watch */
   g_signal_emit_by_name (f->plugin, "remove-watch", f->path);
+
+  /* remove 'foo' */
+  (void) remove (filename);
 }
 
 gint
