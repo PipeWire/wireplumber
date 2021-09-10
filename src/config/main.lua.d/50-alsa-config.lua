@@ -94,6 +94,6 @@ alsa_monitor.rules = {
       --["api.alsa.headroom"]      = 0,
       --["api.alsa.disable-mmap"]  = false,
       --["api.alsa.disable-batch"] = false,
-    }
-  }
+    },
+  },
 }
