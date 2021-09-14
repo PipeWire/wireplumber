@@ -320,8 +320,8 @@ if config.move then
   end)
 end
 
-silinkables_om:connect("object-added", function (om, si)
-  handleSiLinkable (si)
+silinkables_om:connect("objects-changed", function (om, si)
+  reevaluateSiLinkables ()
 end)
 
 silinkables_om:connect("object-removed", function (om, si)
