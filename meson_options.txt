@@ -24,3 +24,5 @@ option('systemd-user-unit-dir',
        description : 'Directory for user systemd units')
 option('glib-supp', type : 'string', value : '',
        description: 'The glib.supp valgrind suppressions file to be used when running valgrind')
+option('tests', type : 'boolean', value : 'true',
+       description : 'Build the test suite')

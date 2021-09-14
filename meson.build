@@ -109,4 +109,7 @@ subdir('lib')
 subdir('docs')
 subdir('modules')
 subdir('src')
-subdir('tests')
+
+if get_option('tests')
+  subdir('tests')
+endif
