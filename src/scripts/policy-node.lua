@@ -12,6 +12,8 @@ local config = ...
 config.move = config.move or false
 config.follow = config.follow or false
 
+local pending_rescan = false
+
 function createLink (si, si_target)
   local node = si:get_associated_proxy ("node")
   local target_node = si_target:get_associated_proxy ("node")
@@ -62,7 +64,14 @@ function createLink (si, si_target)
   si_link:register ()
 
   -- activate
-  si_link:activate (Feature.SessionItem.ACTIVE)
+  si_link:activate (Feature.SessionItem.ACTIVE, function (l, e)
+    if e ~= nil then
+      Log.warning (l, "failed to activate si-standard-link")
+      si_link:remove ()
+    else
+      Log.info (l, "activated si-standard-link")
+    end
+  end)
 end
 
 function directionEqual (mc_a, mc_b)
@@ -338,8 +347,15 @@ function handleSiLinkable (si)
       return
     end
 
-    si_link:remove ()
-    Log.info (si, "moving to new target")
+    -- only remove old link if active, otherwise schedule pending rescan
+    if ((si_link:get_active_features() & Feature.SessionItem.ACTIVE) ~= 0) then
+      si_link:remove ()
+      Log.info (si, "moving to new target")
+    else
+      pending_rescan = true
+      Log.info (si, "scheduled pending rescan")
+      return
+    end
   end
 
   -- create new link
@@ -369,6 +385,14 @@ end
 function reevaluateSiLinkables ()
   for si in silinkables_om:iterate() do
     handleSiLinkable (si)
+  end
+
+  -- if pending_rescan, re-evaluate after sync
+  if pending_rescan then
+    pending_rescan = false
+    Core.sync (function (c)
+      reevaluateSiLinkables ()
+    end)
   end
 end
 
@@ -409,7 +433,7 @@ if config.move then
   end)
 end
 
-silinkables_om:connect("objects-changed", function (om, si)
+silinkables_om:connect("objects-changed", function (om)
   reevaluateSiLinkables ()
 end)
 
