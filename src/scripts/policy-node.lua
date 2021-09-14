@@ -65,6 +65,90 @@ function createLink (si, si_target)
   si_link:activate (Feature.SessionItem.ACTIVE)
 end
 
+function directionEqual (mc_a, mc_b)
+  return (string.find (mc_a, "Input") or string.find (mc_a, "Sink")) ==
+      (string.find (mc_b, "Input") or string.find (mc_b, "Sink"))
+end
+
+function canLinkCheck (node_link_group, si_target, hops)
+  local target_node = si_target:get_associated_proxy ("node")
+  local target_node_link_group = target_node.properties["node.link-group"]
+  local targer_media_class = target_node.properties["media.class"]
+
+  if hops == 8 then
+    return false
+  end
+
+  -- allow linking if target has not link-group property
+  if not target_node_link_group then
+    return true
+  end
+
+  -- do not allow linking if target has the same link-group
+  if node_link_group == target_node_link_group then
+    return false
+  end
+
+  -- make sure target is not linked with another node with same link group
+  for si_n in silinkables_om:iterate() do
+    if si_n.id ~= si_target.id then
+      local n = si_n:get_associated_proxy ("node")
+      local n_media_class = n.properties["media.class"]
+      if directionEqual (n_media_class, targer_media_class) then
+        local n_link_group = n.properties["node.link-group"]
+        if n_link_group ~= nil and n_link_group == target_node_link_group then
+
+          -- iterate peers and return false if one of them cannot link
+          for silink in silinks_om:iterate() do
+            local out_id = tonumber(silink.properties["out.item.id"])
+            local in_id = tonumber(silink.properties["in.item.id"])
+            if out_id == si_n.id or in_id == si_n.id then
+              local is_out = out_id == si_n.id and true or false
+              for peer in silinkables_om:iterate() do
+                if peer.id == (is_out and in_id or out_id) then
+                  if not canLinkCheck (node_link_group, si_peer, hops + 1) then
+                    return false
+                  end
+                end
+              end
+            end
+          end
+
+        end
+      end
+    end
+  end
+
+  return true
+end
+
+function isMonitorNode (node)
+  local stream_monitor = node.properties["stream.monitor"]
+  if stream_monitor then
+    return stream_monitor == "true" or stream_monitor == "1"
+  end
+  return false
+end
+
+function canLink (node, si_target)
+  local target_node = si_target:get_associated_proxy ("node")
+  local target_media_class = target_node.properties["media.class"]
+  local media_class = node.properties["media.class"]
+
+  -- Make sure node is a monitor if we want to link with same media class
+  if media_class == target_media_class and not isMonitorNode (node) then
+    return false
+  end
+
+  -- check link group
+  local node_link_group = node.properties["node.link-group"]
+  if node_link_group ~= nil then
+    return canLinkCheck (node_link_group, si_target, 0)
+  else
+    return true
+  end
+end
+
 function findTargetByTargetNodeMetadata (node)
   local node_id = node['bound-id']
   local metadata = metadata_om:lookup()
@@ -73,7 +157,8 @@ function findTargetByTargetNodeMetadata (node)
     if value then
       for si_target in silinkables_om:iterate() do
         local target_node = si_target:get_associated_proxy ("node")
-        if target_node["bound-id"] == tonumber(value) then
+        if target_node["bound-id"] == tonumber(value) and
+            canLink (node, si_target) then
           return si_target
         end
       end
@@ -88,9 +173,10 @@ function findTargetByNodeTargetProperty (node)
     for si_target in silinkables_om:iterate() do
       local target_node = si_target:get_associated_proxy ("node")
       local target_props = target_node.properties
-      if target_node["bound-id"] == tonumber(target_id_str) or
-         target_props["node.name"] == target_id_str or
-         target_props["object.path"] == target_id_str then
+      if (target_node["bound-id"] == tonumber(target_id_str) or
+          target_props["node.name"] == target_id_str or
+          target_props["object.path"] == target_id_str) and
+          canLink (node, si_target) then
         return si_target
       end
     end
@@ -98,12 +184,13 @@ function findTargetByNodeTargetProperty (node)
   return nil
 end
 
-function findTargetByDefaultNode (target_media_class)
+function findTargetByDefaultNode (node, target_media_class)
   local def_id = default_nodes:call("get-default-node", target_media_class)
   if def_id ~= Id.INVALID then
     for si_target in silinkables_om:iterate() do
       local target_node = si_target:get_associated_proxy ("node")
-      if target_node["bound-id"] == def_id then
+      if target_node["bound-id"] == def_id and
+          canLink (node, si_target) then
         return si_target
       end
     end
@@ -111,10 +198,11 @@ function findTargetByDefaultNode (target_media_class)
   return nil
 end
 
-function findTargetByFirstAvailable (target_media_class)
+function findTargetByFirstAvailable (node, target_media_class)
   for si_target in silinkables_om:iterate() do
     local target_node = si_target:get_associated_proxy ("node")
-    if target_node.properties["media.class"] == target_media_class then
+    if target_node.properties["media.class"] == target_media_class and
+        canLink (node, si_target) then
       return si_target
     end
   end
@@ -129,7 +217,7 @@ function findDefinedTarget (node)
   return si_target
 end
 
-function findUndefinedTarget (media_class)
+function findUndefinedTarget (node)
   local target_class_assoc = {
     ["Stream/Input/Audio"] = "Audio/Source",
     ["Stream/Output/Audio"] = "Audio/Sink",
@@ -137,11 +225,12 @@ function findUndefinedTarget (media_class)
   }
   local si_target = nil
 
+  local media_class = node.properties["media.class"]
   local target_media_class = target_class_assoc[media_class]
   if target_media_class then
-    si_target = findTargetByDefaultNode (target_media_class)
+    si_target = findTargetByDefaultNode (node, target_media_class)
     if not si_target then
-      si_target = findTargetByFirstAvailable (target_media_class)
+      si_target = findTargetByFirstAvailable (node, target_media_class)
     end
   end
   return si_target
@@ -232,7 +321,7 @@ function handleSiLinkable (si)
     node:request_destroy()
     return
   elseif not si_target and reconnect then
-    si_target = findUndefinedTarget (media_class)
+    si_target = findUndefinedTarget (node)
   end
   if not si_target then
     Log.info (si, "target not found")
