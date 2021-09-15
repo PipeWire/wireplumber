@@ -836,8 +836,9 @@ device_new (lua_State *L)
 
   WpDevice *d = wp_device_new_from_factory (get_wp_export_core (L),
       factory, properties);
-  wplua_pushobject (L, d);
-  return 1;
+  if (d)
+    wplua_pushobject (L, d);
+  return d ? 1 : 0;
 }
 
 /* WpSpaDevice */
@@ -855,8 +856,9 @@ spa_device_new (lua_State *L)
 
   WpSpaDevice *d = wp_spa_device_new_from_spa_factory (get_wp_export_core (L),
       factory, properties);
-  wplua_pushobject (L, d);
-  return 1;
+  if (d)
+    wplua_pushobject (L, d);
+  return d ? 1 : 0;
 }
 
 static int
@@ -903,8 +905,9 @@ node_new (lua_State *L)
 
   WpNode *d = wp_node_new_from_factory (get_wp_export_core (L),
       factory, properties);
-  wplua_pushobject (L, d);
-  return 1;
+  if (d)
+    wplua_pushobject (L, d);
+  return d ? 1 : 0;
 }
 
 static int
@@ -1011,8 +1014,9 @@ impl_node_new (lua_State *L)
 
   WpImplNode *d = wp_impl_node_new_from_pw_factory (get_wp_export_core (L),
      factory, properties);
-  wplua_pushobject (L, d);
-  return 1;
+  if (d)
+    wplua_pushobject (L, d);
+  return d ? 1 : 0;
 }
 
 /* Port */
@@ -1045,8 +1049,9 @@ link_new (lua_State *L)
   }
 
   WpLink *l = wp_link_new_from_factory (get_wp_core (L), factory, properties);
-  wplua_pushobject (L, l);
-  return 1;
+  if (l)
+    wplua_pushobject (L, l);
+  return l ? 1 : 0;
 }
 
 /* Client */
@@ -1124,8 +1129,9 @@ session_item_new (lua_State *L)
 {
   const char *type = luaL_checkstring (L, 1);
   WpSessionItem *si = wp_session_item_make (get_wp_core (L), type);
-  wplua_pushobject (L, si);
-  return 1;
+  if (si)
+    wplua_pushobject (L, si);
+  return si ? 1 : 0;
 }
 
 static int
@@ -1135,8 +1141,9 @@ session_item_get_associated_proxy (lua_State *L)
   const char *typestr = luaL_checkstring (L, 2);
   WpProxy *proxy = wp_session_item_get_associated_proxy (si,
       parse_gtype (typestr));
-  wplua_pushobject (L, proxy);
-  return 1;
+  if (proxy)
+    wplua_pushobject (L, proxy);
+  return proxy ? 1 : 0;
 }
 
 static int
