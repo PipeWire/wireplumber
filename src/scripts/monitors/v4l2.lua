@@ -131,5 +131,9 @@ function createDevice(parent, id, type, factory, properties)
 end
 
 monitor = SpaDevice("api.v4l2.enum.udev", config.properties or {})
-monitor:connect("create-object", createDevice)
-monitor:activate(Feature.SpaDevice.ENABLED)
+if monitor then
+  monitor:connect("create-object", createDevice)
+  monitor:activate(Feature.SpaDevice.ENABLED)
+else
+  Log.message("PipeWire's V4L SPA missing or broken. Video4Linux not supported.")
+end
