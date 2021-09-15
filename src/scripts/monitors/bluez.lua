@@ -129,5 +129,9 @@ local monitor_props = config.properties or {}
 monitor_props["api.bluez5.connection-info"] = true
 
 monitor = SpaDevice("api.bluez5.enum.dbus", monitor_props)
-monitor:connect("create-object", createDevice)
-monitor:activate(Feature.SpaDevice.ENABLED)
+if monitor then
+  monitor:connect("create-object", createDevice)
+  monitor:activate(Feature.SpaDevice.ENABLED)
+else
+  Log.message("PipeWire's BlueZ SPA missing or broken. Bluetooth not supported.")
+end
