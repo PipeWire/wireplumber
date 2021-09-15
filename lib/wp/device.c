@@ -617,7 +617,7 @@ wp_spa_device_new_from_spa_factory (WpCore * core,
   handle = pw_context_load_spa_handle (pw_context, factory_name,
       props ? wp_properties_peek_dict (props) : NULL);
   if (!handle) {
-    wp_warning ("SPA handle '%s' could not be loaded; is it installed?",
+    wp_message ("SPA handle '%s' could not be loaded; is it installed?",
         factory_name);
     return NULL;
   }
