@@ -14,6 +14,7 @@
 #include "error.h"
 #include "wpenums.h"
 
+#include <pipewire/impl.h>
 #include <pipewire/pipewire.h>
 #include <pipewire/extensions/metadata.h>
 
@@ -521,111 +522,112 @@ struct _WpImplMetadata
 {
   WpMetadata parent;
 
-  struct spa_interface iface;
-  struct spa_hook_list hooks;
+  gchar *name;
+  WpProperties *properties;
+
+  struct pw_impl_metadata *impl;
+  struct spa_hook listener;
+};
+
+enum {
+  PROP_0,
+  PROP_NAME,
+  PROP_PROPERTIES,
 };
 
 G_DEFINE_TYPE (WpImplMetadata, wp_impl_metadata, WP_TYPE_METADATA)
 
-#define pw_metadata_emit(hooks,method,version,...) \
-  spa_hook_list_call_simple(hooks, struct pw_metadata_events, \
-      method, version, ##__VA_ARGS__)
-
-#define pw_metadata_emit_property(hooks,...) \
-  pw_metadata_emit(hooks,property, 0, ##__VA_ARGS__)
-
-static void
-emit_properties (WpImplMetadata *self)
-{
-  struct item *item;
-  WpMetadataPrivate *priv =
-      wp_metadata_get_instance_private (WP_METADATA (self));
-
-  pw_array_for_each(item, &priv->metadata) {
-    wp_debug_object (self, "emit property: %d %s %s %s",
-        item->subject, item->key, item->type, item->value);
-    pw_metadata_emit_property (&self->hooks,
-        item->subject,
-        item->key,
-        item->type,
-        item->value);
-  }
-}
-
-static int
-impl_add_listener (void * object, struct spa_hook * listener,
-    const struct pw_metadata_events * events, void * data)
-{
-  WpImplMetadata *self = WP_IMPL_METADATA (object);
-  struct spa_hook_list save;
-
-  spa_hook_list_isolate (&self->hooks, &save, listener, events, data);
-  emit_properties (self);
-  spa_hook_list_join (&self->hooks, &save);
-  return 0;
-}
-
-static int
-impl_set_property (void * object, uint32_t subject, const char * key,
-    const char * type, const char * value)
-{
-  return metadata_event_property (object, subject, key, type, value);
-}
-
-static int
-impl_clear (void *object)
-{
-  WpImplMetadata *self = WP_IMPL_METADATA (object);
-  WpMetadataPrivate *priv =
-      wp_metadata_get_instance_private (WP_METADATA (self));
-
-  wp_debug_object (self, "clearing all metadata");
-  clear_items (&priv->metadata);
-  return 0;
-}
-
-static const struct pw_metadata_methods impl_metadata = {
-  PW_VERSION_METADATA_METHODS,
-  .add_listener = impl_add_listener,
-  .set_property = impl_set_property,
-  .clear = impl_clear,
-};
-
 static void
 wp_impl_metadata_init (WpImplMetadata * self)
 {
+}
+
+static const struct pw_impl_metadata_events impl_metadata_events = {
+  PW_VERSION_IMPL_METADATA_EVENTS,
+  .property = metadata_event_property,
+};
+
+static void
+wp_impl_metadata_constructed (GObject *object)
+{
+  WpImplMetadata *self = WP_IMPL_METADATA (object);
   WpMetadataPrivate *priv =
       wp_metadata_get_instance_private (WP_METADATA (self));
+  g_autoptr (WpCore) core = NULL;
+  struct pw_context *pw_context;
+  struct pw_properties *props = NULL;
 
-  self->iface = SPA_INTERFACE_INIT (
-      PW_TYPE_INTERFACE_Metadata,
-      PW_VERSION_METADATA,
-      &impl_metadata, self);
-  spa_hook_list_init (&self->hooks);
+  core = wp_object_get_core (WP_OBJECT (self));
+  g_return_if_fail (core);
+  pw_context = wp_core_get_pw_context (core);
+  g_return_if_fail (pw_context);
 
-  priv->iface = (struct pw_metadata *) &self->iface;
+  if (self->properties)
+    props = wp_properties_to_pw_properties (self->properties);
+
+  self->impl = pw_context_create_metadata (pw_context, self->name, props , 0);
+  g_return_if_fail (self->impl);
+  priv->iface = pw_impl_metadata_get_implementation (self->impl);
+  g_return_if_fail (priv->iface);
+
+  pw_impl_metadata_add_listener (self->impl, &self->listener,
+      &impl_metadata_events, self);
+
   wp_object_update_features (WP_OBJECT (self), WP_METADATA_FEATURE_DATA, 0);
+  G_OBJECT_CLASS (wp_impl_metadata_parent_class)->constructed (object);
 }
 
 static void
-wp_impl_metadata_dispose (GObject * object)
+wp_impl_metadata_finalize (GObject * object)
 {
-  WpMetadataPrivate *priv =
-      wp_metadata_get_instance_private (WP_METADATA (object));
+  WpImplMetadata *self = WP_IMPL_METADATA (object);
 
-  clear_items (&priv->metadata);
-  wp_object_update_features (WP_OBJECT (object), 0, WP_METADATA_FEATURE_DATA);
+  spa_hook_remove (&self->listener);
+  g_clear_pointer (&self->impl, pw_impl_metadata_destroy);
+  g_clear_pointer (&self->properties, wp_properties_unref);
+  g_clear_pointer (&self->name, g_free);
 
-  G_OBJECT_CLASS (wp_impl_metadata_parent_class)->dispose (object);
+  G_OBJECT_CLASS (wp_impl_metadata_parent_class)->finalize (object);
 }
 
 static void
-wp_impl_metadata_on_changed (WpImplMetadata * self, guint32 subject,
-    const gchar * key, const gchar * type, const gchar * value, gpointer data)
+wp_impl_metadata_set_property (GObject * object, guint property_id,
+    const GValue * value, GParamSpec * pspec)
 {
-  wp_debug_object (self, "emit property: %d %s %s %s",
-        subject, key, type, value);
-  pw_metadata_emit_property (&self->hooks, subject, key, type, value);
+  WpImplMetadata *self = WP_IMPL_METADATA (object);
+
+  switch (property_id) {
+  case PROP_NAME:
+    g_clear_pointer (&self->name, g_free);
+    self->name = g_value_dup_string (value);
+    break;
+  case PROP_PROPERTIES:
+    g_clear_pointer (&self->properties, wp_properties_unref);
+    self->properties = g_value_dup_boxed (value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
+}
+
+static void
+wp_impl_metadata_get_property (GObject * object, guint property_id,
+    GValue * value, GParamSpec * pspec)
+{
+  WpImplMetadata *self = WP_IMPL_METADATA (object);
+
+  switch (property_id) {
+  case PROP_NAME:
+    g_value_set_string (value, self->name);
+    break;
+  case PROP_PROPERTIES:
+    g_value_set_boxed (value, self->properties);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
 }
 
 static void
@@ -641,6 +643,8 @@ wp_impl_metadata_activate_execute_step (WpObject * object,
   case STEP_BIND: {
     g_autoptr (WpCore) core = wp_object_get_core (object);
     struct pw_core *pw_core = wp_core_get_pw_core (core);
+    struct spa_dict_item items[1];
+    const struct spa_dict *props = NULL;
 
     /* no pw_core -> we are not connected */
     if (!pw_core) {
@@ -651,12 +655,17 @@ wp_impl_metadata_activate_execute_step (WpObject * object,
       return;
     }
 
+    /* TODO: Ideally, we should use the properties from pw_impl_metadata here,
+     * but the pw_impl_metadata_get_properties is not implemented in pipewire
+     * yet, so we add the name property manually for now */
+    if (self->name) {
+      items[0] = SPA_DICT_ITEM_INIT(PW_KEY_METADATA_NAME, self->name);
+      props = &SPA_DICT_INIT_ARRAY(items);
+    }
     wp_proxy_watch_bind_error (WP_PROXY (self), WP_TRANSITION (transition));
     wp_proxy_set_pw_proxy (WP_PROXY (self), pw_core_export (pw_core,
-            PW_TYPE_INTERFACE_Metadata,
-            NULL, priv->iface, 0));
-    g_signal_connect (self, "changed",
-        (GCallback) wp_impl_metadata_on_changed, NULL);
+            PW_TYPE_INTERFACE_Metadata, props, priv->iface, 0)
+    );
     break;
   }
   case STEP_CACHE:
@@ -671,27 +680,31 @@ wp_impl_metadata_activate_execute_step (WpObject * object,
 }
 
 static void
-wp_impl_metadata_pw_proxy_destroyed (WpProxy * proxy)
-{
-  g_signal_handlers_disconnect_by_func (proxy,
-      (GCallback) wp_impl_metadata_on_changed, NULL);
-}
-
-static void
 wp_impl_metadata_class_init (WpImplMetadataClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
   WpObjectClass *wpobject_class = (WpObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
-  object_class->dispose = wp_impl_metadata_dispose;
+  object_class->constructed = wp_impl_metadata_constructed;
+  object_class->finalize = wp_impl_metadata_finalize;
+  object_class->set_property = wp_impl_metadata_set_property;
+  object_class->get_property = wp_impl_metadata_get_property;
 
   wpobject_class->activate_execute_step =
       wp_impl_metadata_activate_execute_step;
 
   /* disable adding a listener for events */
   proxy_class->pw_proxy_created = NULL;
-  proxy_class->pw_proxy_destroyed = wp_impl_metadata_pw_proxy_destroyed;
+
+  g_object_class_install_property (object_class, PROP_NAME,
+      g_param_spec_string ("name", "name", "The metadata name", "",
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (object_class, PROP_PROPERTIES,
+      g_param_spec_boxed ("properties", "properties",
+          "The metadata properties", WP_TYPE_PROPERTIES,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
 /*!
@@ -703,9 +716,29 @@ wp_impl_metadata_class_init (WpImplMetadataClass * klass)
 WpImplMetadata *
 wp_impl_metadata_new (WpCore * core)
 {
+  return wp_impl_metadata_new_full (core, NULL, NULL);
+}
+
+/*!
+ * \brief Creates a new metadata implementation with name and properties
+ * \ingroup wpmetadata
+ * \param core the core
+ * \param name (nullable): the metadata name
+ * \param properties (nullable) (transfer full): the metadata properties
+ * \returns (transfer full): a new WpImplMetadata
+ * \since 0.4.3
+ */
+WpImplMetadata *
+wp_impl_metadata_new_full (WpCore * core, const gchar *name,
+    WpProperties *properties)
+{
+  g_autoptr (WpProperties) props = properties;
+
   g_return_val_if_fail (WP_IS_CORE (core), NULL);
 
   return g_object_new (WP_TYPE_IMPL_METADATA,
       "core", core,
+      "name", name,
+      "properties", props,
       NULL);
 }

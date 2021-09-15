@@ -69,6 +69,10 @@ G_DECLARE_FINAL_TYPE (WpImplMetadata, wp_impl_metadata, WP, IMPL_METADATA, WpMet
 WP_API
 WpImplMetadata * wp_impl_metadata_new (WpCore * core);
 
+WP_API
+WpImplMetadata * wp_impl_metadata_new_full (WpCore * core, const gchar *name,
+    WpProperties *properties);
+
 G_END_DECLS
 
 #endif
