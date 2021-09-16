@@ -306,7 +306,15 @@ function prepareDevice(parent, id, type, factory, properties)
 end
 
 monitor = SpaDevice("api.alsa.enum.udev", config.properties)
-monitor:connect("create-object", prepareDevice)
+
+if monitor then
+  monitor:connect("create-object", prepareDevice)
+else
+  Log.message("PipeWire's SPA ALSA udev plugin(\"api.alsa.enum.udev\")"
+    .. "missing or broken. Sound Cards Cannot be enumerated")
+  return
+end
+
 
 -- create the JACK device (for PipeWire to act as client to a JACK server)
 if config.properties["alsa.jack-device"] then
