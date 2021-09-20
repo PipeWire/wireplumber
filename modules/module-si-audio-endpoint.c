@@ -385,46 +385,17 @@ si_audio_endpoint_get_ports_format (WpSiAdapter * item, const gchar **mode)
   return self->format ? wp_spa_pod_ref (self->format) : NULL;
 }
 
-static gboolean
-parse_adapter_format (WpSpaPod *format, gint *channels,
-   WpSpaPod **position)
-{
-  g_autoptr (WpSpaPodParser) parser = NULL;
-  guint32 t = 0, s = 0, f = 0;
-  gint r = 0, c = 0;
-  g_autoptr (WpSpaPod) p = NULL;
-
-  g_return_val_if_fail (format, FALSE);
-  parser = wp_spa_pod_parser_new_object (format, NULL);
-  g_return_val_if_fail (parser, FALSE);
-
-  if (!wp_spa_pod_parser_get (parser, "mediaType", "I", &t, NULL) ||
-      !wp_spa_pod_parser_get (parser, "mediaSubtype", "I", &s, NULL) ||
-      !wp_spa_pod_parser_get (parser, "format", "I", &f, NULL) ||
-      !wp_spa_pod_parser_get (parser, "rate", "i", &r, NULL) ||
-      !wp_spa_pod_parser_get (parser, "channels", "i", &c, NULL))
-    return FALSE;
-
-  /* position is optional */
-  wp_spa_pod_parser_get (parser, "position", "P", &p, NULL);
-
-  if (channels)
-    *channels = c;
-  if (position)
-    *position = p ? wp_spa_pod_ref (p) : NULL;
-
-  return TRUE;
-}
-
 static WpSpaPod *
-build_adapter_format (WpSiAudioEndpoint * self, WpSpaPod *format)
+build_endpoint_format (WpSiAudioEndpoint * self, guint32 format, gint channels,
+    WpSpaPod *pos)
 {
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
-  g_autoptr (WpSpaPodBuilder) b = NULL;
+  g_autoptr (WpSpaPod) position = pos;
   g_autoptr (WpProperties) props = NULL;
+  g_autoptr (WpSpaPodBuilder) b = NULL;
   const gchar *rate_str = NULL;
-  gint channels = 2;
-  g_autoptr (WpSpaPod) position = NULL;
+
+  g_return_val_if_fail (channels > 0, NULL);
 
   /* get the default clock rate */
   g_return_val_if_fail (core, NULL);
@@ -432,32 +403,56 @@ build_adapter_format (WpSiAudioEndpoint * self, WpSpaPod *format)
   g_return_val_if_fail (props, NULL);
   rate_str = wp_properties_get (props, "default.clock.rate");
 
-  /* get channels and position */
-  if (format && !parse_adapter_format (format, &channels, &position))
-    return NULL;
-  if (!format) {
-    g_autoptr (WpSpaPodBuilder) b = wp_spa_pod_builder_new_array ();
-    wp_spa_pod_builder_add_id (b, SPA_AUDIO_CHANNEL_FL);
-    wp_spa_pod_builder_add_id (b, SPA_AUDIO_CHANNEL_FR);
-    position = wp_spa_pod_builder_end (b);
+  /* build the position array if not given */
+  if (!position) {
+    switch (channels) {
+    case 1: {
+      g_autoptr (WpSpaPodBuilder) pos_b = wp_spa_pod_builder_new_array ();
+      wp_spa_pod_builder_add_id (pos_b, SPA_AUDIO_CHANNEL_MONO);
+      position = wp_spa_pod_builder_end (pos_b);
+      break;
+    }
+    case 2: {
+      g_autoptr (WpSpaPodBuilder) pos_b = wp_spa_pod_builder_new_array ();
+      wp_spa_pod_builder_add_id (pos_b, SPA_AUDIO_CHANNEL_FL);
+      wp_spa_pod_builder_add_id (pos_b, SPA_AUDIO_CHANNEL_FR);
+      position = wp_spa_pod_builder_end (pos_b);
+      break;
+    }
+    default:
+      break;
+    }
   }
 
+  /* build the format */
   b = wp_spa_pod_builder_new_object ("Spa:Pod:Object:Param:Format", "Format");
   wp_spa_pod_builder_add_property (b, "mediaType");
   wp_spa_pod_builder_add_id (b, SPA_MEDIA_TYPE_audio);
   wp_spa_pod_builder_add_property (b, "mediaSubtype");
   wp_spa_pod_builder_add_id (b, SPA_MEDIA_SUBTYPE_raw);
   wp_spa_pod_builder_add_property (b, "format");
-  wp_spa_pod_builder_add_id (b, SPA_AUDIO_FORMAT_F32P);
+  wp_spa_pod_builder_add_id (b, format);
   wp_spa_pod_builder_add_property (b, "rate");
   wp_spa_pod_builder_add_int (b, rate_str ? atoi (rate_str) : 48000);
   wp_spa_pod_builder_add_property (b, "channels");
   wp_spa_pod_builder_add_int (b, channels);
   if (position) {
     wp_spa_pod_builder_add_property (b, "position");
-    wp_spa_pod_builder_add_pod (b, position);
+    wp_spa_pod_builder_add_pod (b, pos);
   }
   return wp_spa_pod_builder_end (b);
+}
+
+static WpSpaPod *
+build_endpoint_default_format (WpSiAudioEndpoint * self, const gchar *mode)
+{
+  guint32 format = SPA_AUDIO_FORMAT_F32;
+
+  /* if dsp, use plannar format */
+  if (g_strcmp0 (mode, "dsp") == 0)
+    format = SPA_AUDIO_FORMAT_F32P;
+
+  return build_endpoint_format (self, format, 2, NULL);
 }
 
 static void
@@ -467,7 +462,6 @@ si_audio_endpoint_set_ports_format (WpSiAdapter * item, WpSpaPod *f,
   WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (item);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_autoptr (WpSpaPod) format = f;
-  g_autoptr (WpSpaPod) new_format = NULL;
   guint32 active = 0;
 
   g_return_if_fail (core);
@@ -479,18 +473,15 @@ si_audio_endpoint_set_ports_format (WpSiAdapter * item, WpSpaPod *f,
         "setting new format before previous done");
   }
 
+  /* build default format if NULL was given */
+  if (!format) {
+    format = build_endpoint_default_format (self, mode);
+    g_return_if_fail (format);
+  }
+
   /* create the new task */
   g_return_if_fail (!self->format_task);
   self->format_task = g_task_new (self, NULL, callback, data);
-
-  /* build new format */
-  new_format = build_adapter_format (self, format);
-  if (!new_format) {
-    g_autoptr (GTask) t = g_steal_pointer (&self->format_task);
-    g_task_return_new_error (t, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
-        "failed to parse format");
-    return;
-  }
 
   active = wp_object_get_active_features (WP_OBJECT (self->node));
   if (G_UNLIKELY (!(active & WP_NODE_FEATURE_PORTS))) {
@@ -503,7 +494,7 @@ si_audio_endpoint_set_ports_format (WpSiAdapter * item, WpSpaPod *f,
 
   /* set format and mode */
   g_clear_pointer (&self->format, wp_spa_pod_unref);
-  self->format = g_steal_pointer (&new_format);
+  self->format = g_steal_pointer (&format);
   strncpy (self->mode, mode ? mode : "dsp", sizeof (self->mode) - 1);
 
   /* configure DSP with chosen format */
