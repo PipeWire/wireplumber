@@ -16,6 +16,7 @@
 #include <spa/pod/parser.h>
 
 #define WP_SPA_POD_BUILDER_REALLOC_STEP_SIZE 64
+#define WP_SPA_POD_ID_PROPERTY_NAME_MAX 16
 
 /*! \defgroup wpspapod WpSpaPod */
 /*!
@@ -66,6 +67,7 @@ struct _WpSpaPod
       WpSpaIdTable table;
       guint32 key;
       guint32 flags;
+      gchar id_key_name[WP_SPA_POD_ID_PROPERTY_NAME_MAX];
     } data_property;         /* Only used for property pods */
     struct wp_control_data {
       guint32 offset;
@@ -1717,8 +1719,14 @@ wp_spa_pod_get_property (WpSpaPod *self, const char **key,
     WpSpaIdValue key_val = wp_spa_id_table_find_value (
         self->static_pod.data_property.table,
         self->static_pod.data_property.key);
-    g_return_val_if_fail (key_val != NULL, FALSE);
-    *key = wp_spa_id_value_short_name (key_val);
+    if (key_val) {
+      *key = wp_spa_id_value_short_name (key_val);
+    } else {
+      g_snprintf (self->static_pod.data_property.id_key_name,
+          WP_SPA_POD_ID_PROPERTY_NAME_MAX, "id-%08x",
+          self->static_pod.data_property.key);
+      *key = self->static_pod.data_property.id_key_name;
+    }
   }
   if (value)
     *value = wp_spa_pod_new_wrap (self->pod);
@@ -2128,10 +2136,16 @@ wp_spa_pod_builder_add_pod (WpSpaPodBuilder *self, WpSpaPod *pod)
 void
 wp_spa_pod_builder_add_property (WpSpaPodBuilder *self, const char *key)
 {
-  WpSpaIdTable table = wp_spa_type_get_values_table (self->type);
-  WpSpaIdValue id = wp_spa_id_table_find_value_from_short_name (table, key);
-  g_return_if_fail (id != NULL);
-  spa_pod_builder_prop (&self->builder, wp_spa_id_value_number (id), 0);
+  guint key_id;
+  if (g_str_has_prefix (key, "id-")) {
+    g_return_if_fail (sscanf (key, "id-%08x", &key_id) == 1);
+  } else {
+    WpSpaIdTable table = wp_spa_type_get_values_table (self->type);
+    WpSpaIdValue id = wp_spa_id_table_find_value_from_short_name (table, key);
+    g_return_if_fail (id != NULL);
+    key_id = wp_spa_id_value_number (id);
+  }
+  spa_pod_builder_prop (&self->builder, key_id, 0);
 }
 
 /*!
@@ -2201,13 +2215,18 @@ wp_spa_pod_builder_add_valist (WpSpaPodBuilder *self, va_list args)
     gboolean choice;
 
     if (wp_spa_type_is_object (self->type)) {
+      guint key_id;
       const char *key_name = va_arg(args, const char *);
       if (!key_name)
         return;
-      key = wp_spa_id_table_find_value_from_short_name (table, key_name);
-      g_return_if_fail (key != NULL);
-
-      spa_pod_builder_prop (&self->builder, wp_spa_id_value_number (key), 0);
+      if (g_str_has_prefix (key_name, "id-")) {
+        g_return_if_fail (sscanf (key_name, "id-%08x", &key_id) == 1);
+      } else {
+        key = wp_spa_id_table_find_value_from_short_name (table, key_name);
+        g_return_if_fail (key != NULL);
+        key_id = wp_spa_id_value_number (key);
+      }
+      spa_pod_builder_prop (&self->builder, key_id, 0);
     }
     else if (self->type == SPA_TYPE_Sequence) {
       guint32 offset = va_arg(args, uint32_t);
@@ -2643,16 +2662,23 @@ wp_spa_pod_parser_get_valist (WpSpaPodParser *self, va_list args)
     const char *format;
 
     if (wp_spa_type_is_object (self->type)) {
+      guint key_id;
+      const struct spa_pod_object *object;
       const char *key_name = va_arg(args, const char *);
       if (!key_name)
         break;
-      key = wp_spa_id_table_find_value_from_short_name (table, key_name);
-      g_return_val_if_fail (key != NULL, FALSE);
 
-      const struct spa_pod_object *object = (const struct spa_pod_object *)
-          spa_pod_parser_frame (&self->parser, &self->frame);
-      prop = spa_pod_object_find_prop (object, prop,
-          wp_spa_id_value_number (key));
+      if (g_str_has_prefix (key_name, "id-")) {
+        g_return_val_if_fail (sscanf (key_name, "id-%08x", &key_id) == 1, FALSE);
+      } else {
+        key = wp_spa_id_table_find_value_from_short_name (table, key_name);
+        g_return_val_if_fail (key != NULL, FALSE);
+        key_id = wp_spa_id_value_number (key);
+      }
+
+      object = (const struct spa_pod_object *)spa_pod_parser_frame
+            (&self->parser, &self->frame);
+      prop = spa_pod_object_find_prop (object, prop, key_id);
       pod = prop ? &prop->value : NULL;
     }
 

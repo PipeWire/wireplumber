@@ -93,6 +93,27 @@ assert (val.properties.direction == "Input")
 assert (val.properties.mode == "dsp")
 assert (val.properties.monitor)
 assert (pod:get_type_name() == "Spa:Pod:Object:Param:PortConfig")
+pod = Pod.Object {
+  "Spa:Pod:Object:Param:Props", "Props",
+  device = "hw:Generic",
+  deviceName = "",
+  cardName = "",
+  minLatency = 16,
+  maxLatency = 8192,
+  ["id-01000000"] = Pod.Boolean (true),
+  latencyOffsetNsec = 0
+}
+val = pod:parse()
+assert (val.pod_type == "Object")
+assert (val.object_id == "Props")
+assert (val.properties.device == "hw:Generic")
+assert (val.properties.deviceName == "")
+assert (val.properties.cardName == "")
+assert (val.properties.minLatency == 16)
+assert (val.properties.maxLatency == 8192)
+assert (val.properties["id-01000000"] == true)
+assert (val.properties.latencyOffsetNsec == 0)
+assert (pod:get_type_name() == "Spa:Pod:Object:Param:Props")
 
 -- Sequence
 pod = Pod.Sequence {
@@ -206,3 +227,25 @@ assert (val.properties.format.properties.position.value_type == "Spa:Id")
 assert (val.properties.format.properties.position[1] == "FL")
 assert (val.properties.format.properties.position[2] == "FR")
 assert (pod:get_type_name() == "Spa:Pod:Object:Param:PortConfig")
+
+-- Nested Object Id Properties
+pod = Pod.Object {
+  "Spa:Pod:Object:Param:Props", "Props",
+  device = "my-device",
+  ["id-01000000"] = Pod.Int (4),
+  ["id-02000000"] = Pod.Object {
+    "Spa:Pod:Object:Param:Props", "Props",
+    device = "my-sub-device",
+    ["id-03000000"] = Pod.Boolean (true),
+    ["id-04000000"] = Pod.String ("string")
+  }
+}
+val = pod:parse()
+assert (val.pod_type == "Object")
+assert (val.object_id == "Props")
+assert (val.properties.device == "my-device")
+assert (val.properties["id-01000000"] == 4)
+assert (val.properties["id-02000000"].properties.device == "my-sub-device")
+assert (val.properties["id-02000000"].properties["id-03000000"] == true)
+assert (val.properties["id-02000000"].properties["id-04000000"] == "string")
+assert (pod:get_type_name() == "Spa:Pod:Object:Param:Props")

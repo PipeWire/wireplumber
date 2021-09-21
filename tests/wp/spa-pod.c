@@ -420,6 +420,7 @@ test_spa_pod_object (void)
         "frequency", "i", 440,
         "device", "s", "device-name",
         "deviceFd", "h", 5,
+        "id-01000000", "b", TRUE,
         NULL);
     g_assert_nonnull (pod);
     g_assert_true (wp_spa_pod_is_object (pod));
@@ -432,6 +433,7 @@ test_spa_pod_object (void)
     gint32 frequency;
     const char *device;
     gint64 device_fd;
+    gboolean custom = FALSE;
     g_assert_true (wp_spa_pod_get_object (pod,
         &id_name,
         "mute", "b", &mute,
@@ -439,6 +441,7 @@ test_spa_pod_object (void)
         "frequency", "i", &frequency,
         "device", "s", &device,
         "deviceFd", "h", &device_fd,
+        "id-01000000", "b", &custom,
         NULL));
     g_assert_cmpstr (id_name, ==, "Props");
     g_assert_false (mute);
@@ -446,6 +449,7 @@ test_spa_pod_object (void)
     g_assert_cmpint (frequency, ==, 440);
     g_assert_cmpstr (device, ==, "device-name");
     g_assert_cmpint (device_fd, ==, 5);
+    g_assert_true (custom);
   }
 
   /* Dynamic */
@@ -462,6 +466,8 @@ test_spa_pod_object (void)
     wp_spa_pod_builder_add_string (b, "device-name");
     wp_spa_pod_builder_add_property (b, "deviceFd");
     wp_spa_pod_builder_add_fd (b, 5);
+    wp_spa_pod_builder_add_property (b, "id-01000000");
+    wp_spa_pod_builder_add_boolean (b, TRUE);
     g_autoptr (WpSpaPod) pod = wp_spa_pod_builder_end (b);
     g_assert_nonnull (pod);
     g_assert_true (wp_spa_pod_is_object (pod));
@@ -474,6 +480,7 @@ test_spa_pod_object (void)
     gint32 frequency;
     const char *device;
     gint64 device_fd;
+    gboolean custom = FALSE;
     g_autoptr (WpSpaPodParser) p = wp_spa_pod_parser_new_object (pod, &id_name);
     g_assert_nonnull (pod);
     g_assert_true (wp_spa_pod_parser_get (p, "mute", "b", &mute, NULL));
@@ -481,6 +488,7 @@ test_spa_pod_object (void)
     g_assert_true (wp_spa_pod_parser_get (p, "frequency", "i", &frequency, NULL));
     g_assert_true (wp_spa_pod_parser_get (p, "device", "s", &device, NULL));
     g_assert_true (wp_spa_pod_parser_get (p, "deviceFd", "h", &device_fd, NULL));
+    g_assert_true (wp_spa_pod_parser_get (p, "id-01000000", "b", &custom, NULL));
     wp_spa_pod_parser_end (p);
     g_assert_cmpstr (id_name, ==, "Props");
     g_assert_false (mute);
@@ -488,6 +496,7 @@ test_spa_pod_object (void)
     g_assert_cmpint (frequency, ==, 440);
     g_assert_cmpstr (device, ==, "device-name");
     g_assert_cmpint (device_fd, ==, 5);
+    g_assert_true (custom);
   }
 }
 
@@ -786,6 +795,8 @@ test_spa_pod_iterator (void)
     wp_spa_pod_builder_add_boolean (b, FALSE);
     wp_spa_pod_builder_add_property (b, "device");
     wp_spa_pod_builder_add_string (b, "device-name");
+    wp_spa_pod_builder_add_property (b, "id-01000000");
+    wp_spa_pod_builder_add_boolean (b, TRUE);
     g_autoptr (WpSpaPod) pod = wp_spa_pod_builder_end (b);
     g_assert_nonnull (pod);
 
@@ -825,12 +836,28 @@ test_spa_pod_iterator (void)
     }
 
     {
+      GValue next = G_VALUE_INIT;
+      g_assert_true (wp_iterator_next (it, &next));
+      WpSpaPod *p = g_value_get_boxed (&next);
+      g_assert_nonnull (p);
+      g_assert_true (wp_spa_pod_is_property (p));
+      const char *key = NULL;
+      g_autoptr (WpSpaPod) value = NULL;
+      g_assert_true (wp_spa_pod_get_property (p, &key, &value));
+      g_assert_cmpstr (key, ==, "id-01000000");
+      gboolean b = FALSE;
+      g_assert_true (wp_spa_pod_get_boolean (value, &b));
+      g_assert_true (b);
+      g_value_unset (&next);
+    }
+
+    {
       g_assert_false (wp_iterator_next (it, NULL));
     }
 
     guint32 total_props = 0;
     g_assert_true (wp_iterator_foreach (it, object_foreach, &total_props));
-    g_assert_cmpuint (total_props, ==, 2);
+    g_assert_cmpuint (total_props, ==, 3);
   }
 
   /* Struct */

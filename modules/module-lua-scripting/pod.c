@@ -276,8 +276,13 @@ builder_add_lua_userdata (WpSpaPodBuilder *b, WpSpaIdValue key_id,
 {
   WpSpaPod *pod = wplua_checkboxed (L, idx, WP_TYPE_SPA_POD);
   if (pod) {
-    WpSpaType prop_type = wp_spa_id_value_get_value_type (key_id, NULL);
-    if (is_pod_type_compatible (prop_type, pod)) {
+    if (key_id) {
+      WpSpaType prop_type = wp_spa_id_value_get_value_type (key_id, NULL);
+      if (is_pod_type_compatible (prop_type, pod)) {
+        wp_spa_pod_builder_add_pod (b, pod);
+        return TRUE;
+      }
+    } else {
       wp_spa_pod_builder_add_pod (b, pod);
       return TRUE;
     }
@@ -603,28 +608,25 @@ object_add_property (WpSpaPodBuilder *b, WpSpaIdTable table,
 {
   guint i;
   WpSpaIdValue prop_id = NULL;
-  WpSpaType prop_type = WP_SPA_TYPE_INVALID;
   int ltype = lua_type (L, idx);
 
   if (ltype < 0 || ltype >= MAX_LUA_TYPES)
     return FALSE;
 
-  /* Get the property type name */
-  prop_id = wp_spa_id_table_find_value_from_short_name (table, key);
-  if (!prop_id)
-    return FALSE;
-  prop_type = wp_spa_id_value_get_value_type (prop_id, NULL);
-  if (prop_type == WP_SPA_TYPE_INVALID)
-    return FALSE;
-
   /* Check if we can add primitive property directly from LUA type */
-  for (i = 0; primitive_lua_types[i].primitive_type; i++) {
-    const struct primitive_lua_type *t = primitive_lua_types + i;
-    if (t->primitive_type == prop_type) {
-      primitive_lua_add_func f = t->primitive_lua_add_funcs[ltype];
-      if (f) {
-        wp_spa_pod_builder_add_property (b, key);
-        return f (b, prop_id, L, idx);
+  prop_id = wp_spa_id_table_find_value_from_short_name (table, key);
+  if (prop_id) {
+    WpSpaType prop_type = wp_spa_id_value_get_value_type (prop_id, NULL);
+    if (prop_type != WP_SPA_TYPE_INVALID) {
+      for (i = 0; primitive_lua_types[i].primitive_type; i++) {
+        const struct primitive_lua_type *t = primitive_lua_types + i;
+        if (t->primitive_type == prop_type) {
+          primitive_lua_add_func f = t->primitive_lua_add_funcs[ltype];
+          if (f) {
+            wp_spa_pod_builder_add_property (b, key);
+            return f (b, prop_id, L, idx);
+          }
+        }
       }
     }
   }
