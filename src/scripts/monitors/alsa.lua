@@ -305,16 +305,33 @@ function prepareDevice(parent, id, type, factory, properties)
   end
 end
 
-monitor = SpaDevice("api.alsa.enum.udev", config.properties)
+function createMonitor ()
+  local m = SpaDevice("api.alsa.enum.udev", config.properties)
+  if m == nil then
+    Log.message("PipeWire's SPA ALSA udev plugin(\"api.alsa.enum.udev\")"
+      .. "missing or broken. Sound Cards Cannot be enumerated")
+    return nil
+  end
 
-if monitor then
-  monitor:connect("create-object", prepareDevice)
-else
-  Log.message("PipeWire's SPA ALSA udev plugin(\"api.alsa.enum.udev\")"
-    .. "missing or broken. Sound Cards Cannot be enumerated")
-  return
+  -- handle create-object to prepare device
+  m:connect("create-object", prepareDevice)
+
+  -- if dbus reservation, handle object-removed to destroy device reservations
+  if rd_plugin then
+    m:connect("object-removed", function (parent, id)
+      local device = parent:get_managed_object(id)
+      local rd_name = device.properties["api.dbus.ReserveDevice1"]
+      if rd_name then
+        rd_plugin:call("destroy-reservation", rd_name)
+      end
+    end)
+  end
+
+  -- activate monitor
+  Log.info("Activating ALSA monitor")
+  m:activate(Feature.SpaDevice.ENABLED)
+  return m
 end
-
 
 -- create the JACK device (for PipeWire to act as client to a JACK server)
 if config.properties["alsa.jack-device"] then
@@ -339,16 +356,21 @@ if rd_plugin and rd_plugin["state"] ~= "connected" then
   rd_plugin = nil
 end
 
--- destroy device reservations when the corresponding devices are removed
+-- handle rd_plugin state changes to destroy and re-create the ALSA monitor in
+-- case D-Bus service is restarted
 if rd_plugin then
-  monitor:connect("object-removed", function (parent, id)
-    local device = parent:get_managed_object(id)
-    local rd_name = device.properties["api.dbus.ReserveDevice1"]
-    if rd_name then
-      rd_plugin:call("destroy-reservation", rd_name)
+  rd_plugin:connect("notify::state", function (p, pspec)
+    local state = p["state"]
+    Log.info ("rd-plugin state changed to " .. state)
+    if state == "connected" then
+      Log.info ("Creating ALSA monitor")
+      monitor = createMonitor()
+    elseif state == "closed" then
+      Log.info ("Destroying ALSA monitor")
+      monitor = nil
     end
   end)
 end
 
-Log.info("Activating ALSA monitor")
-monitor:activate(Feature.SpaDevice.ENABLED)
+-- create the monitor
+monitor = createMonitor()
