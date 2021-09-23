@@ -301,13 +301,32 @@ on_disconnected (WpCore *core, WpDaemon * d)
 }
 
 static gboolean
-signal_handler (gpointer data)
+signal_handler (int signal, gpointer data)
 {
   WpDaemon *d = data;
-  wp_message ("stopped by signal");
+  wp_message ("stopped by signal: %s", strsignal (signal));
   daemon_exit (d, WP_EXIT_OK);
   return G_SOURCE_CONTINUE;
 }
+
+static gboolean
+signal_handler_int (gpointer data)
+{
+  return signal_handler (SIGINT, data);
+}
+
+static gboolean
+signal_handler_hup (gpointer data)
+{
+  return signal_handler (SIGHUP, data);
+}
+
+static gboolean
+signal_handler_term (gpointer data)
+{
+  return signal_handler (SIGTERM, data);
+}
+
 
 static gboolean
 init_start (WpTransition * transition)
@@ -373,9 +392,9 @@ main (gint argc, gchar **argv)
   g_signal_connect (d.core, "disconnected", G_CALLBACK (on_disconnected), &d);
 
   /* watch for exit signals */
-  g_unix_signal_add (SIGINT, signal_handler, &d);
-  g_unix_signal_add (SIGTERM, signal_handler, &d);
-  g_unix_signal_add (SIGHUP, signal_handler, &d);
+  g_unix_signal_add (SIGINT, signal_handler_int, &d);
+  g_unix_signal_add (SIGTERM, signal_handler_term, &d);
+  g_unix_signal_add (SIGHUP, signal_handler_hup, &d);
 
   /* initialization transition */
   g_idle_add ((GSourceFunc) init_start,
