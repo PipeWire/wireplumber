@@ -29,6 +29,7 @@ struct _WpSiAudioAdapter
   gboolean control_port;
   gboolean monitor;
   WpDirection direction;
+  WpDirection portconfig_direction;
   gboolean is_device;
   gboolean dont_remix;
   gboolean is_autoconnect;
@@ -66,7 +67,7 @@ si_audio_adapter_reset (WpSessionItem * item)
   self->media_class[0] = '\0';
   self->control_port = FALSE;
   self->monitor = FALSE;
-  self->direction = WP_DIRECTION_INPUT;
+  self->portconfig_direction = self->direction = WP_DIRECTION_INPUT;
   self->is_device = FALSE;
   self->dont_remix = FALSE;
   self->is_autoconnect = FALSE;
@@ -132,8 +133,11 @@ si_audio_adapter_configure (WpSessionItem * item, WpProperties *p)
   self->is_device = strstr (self->media_class, "Stream") == NULL;
 
   if (strstr (self->media_class, "Source") ||
-      strstr (self->media_class, "Output"))
+      strstr (self->media_class, "Output")) {
     self->direction = WP_DIRECTION_OUTPUT;
+    self->portconfig_direction = (strstr (self->media_class, "Virtual")) ?
+        WP_DIRECTION_INPUT : self->direction;
+  }
   wp_properties_setf (si_props, "direction", "%u", self->direction);
 
   str = wp_properties_get (si_props, "enable.control.port");
@@ -526,7 +530,7 @@ si_audio_adapter_set_ports_format (WpSiAdapter * item, WpSpaPod *f,
   wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (self->node),
       "PortConfig", 0, wp_spa_pod_new_object (
           "Spa:Pod:Object:Param:PortConfig", "PortConfig",
-          "direction",  "I", self->direction,
+          "direction",  "I", self->portconfig_direction,
           "mode",       "K", self->mode,
           "monitor",    "b", self->monitor,
           "control",    "b", self->control_port,
