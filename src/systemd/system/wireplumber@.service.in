@@ -16,6 +16,7 @@ ExecStart=@WP_BINARY@ -c %i.conf
 Restart=on-failure
 User=pipewire
 Environment=PIPEWIRE_RUNTIME_DIR=%t/pipewire
+Environment=GIO_USE_VFS=local
 
 [Install]
 WantedBy=pipewire.service

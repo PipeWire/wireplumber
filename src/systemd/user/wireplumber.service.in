@@ -15,6 +15,7 @@ Type=simple
 ExecStart=@WP_BINARY@
 Restart=on-failure
 Slice=session.slice
+Environment=GIO_USE_VFS=local
 
 [Install]
 WantedBy=pipewire.service
