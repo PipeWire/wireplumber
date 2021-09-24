@@ -12,6 +12,8 @@
 #define DBUS_INTERFACE_NAME "org.freedesktop.impl.portal.PermissionStore"
 #define DBUS_OBJECT_PATH "/org/freedesktop/impl/portal/PermissionStore"
 
+static void setup_connection (WpPortalPermissionStorePlugin *self);
+
 G_DEFINE_TYPE (WpPortalPermissionStorePlugin, wp_portal_permissionstore_plugin,
     WP_TYPE_PLUGIN)
 
@@ -115,8 +117,7 @@ wp_portal_permissionstore_plugin_finalize (GObject * object)
 }
 
 static void
-wp_portal_permissionstore_plugin_disable_internal (
-    WpPortalPermissionStorePlugin *self)
+clear_connection (WpPortalPermissionStorePlugin *self)
 {
   if (self->connection && self->signal_id > 0)
     g_dbus_connection_signal_unsubscribe (self->connection, self->signal_id);
@@ -126,38 +127,81 @@ wp_portal_permissionstore_plugin_disable_internal (
     self->state = WP_DBUS_CONNECTION_STATUS_CLOSED;
     g_object_notify (G_OBJECT (self), "state");
   }
+}
 
-  wp_object_update_features (WP_OBJECT (self), 0, WP_PLUGIN_FEATURE_ENABLED);
+static gboolean
+do_connect (WpPortalPermissionStorePlugin *self, GAsyncReadyCallback callback,
+    gpointer data, GError **error)
+{
+  g_autofree gchar *address = NULL;
+
+  address = g_dbus_address_get_for_bus_sync (G_BUS_TYPE_SESSION, NULL, error);
+  if (!address) {
+    g_prefix_error (error, "Error acquiring session bus address: ");
+    return FALSE;
+  }
+
+  wp_debug_object (self, "Connecting to bus: %s", address);
+
+  self->state = WP_DBUS_CONNECTION_STATUS_CONNECTING;
+  g_object_notify (G_OBJECT (self), "state");
+
+  g_dbus_connection_new_for_address (address,
+      G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT |
+      G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION,
+      NULL, self->cancellable, callback, data);
+  return TRUE;
+}
+
+static void
+on_reconnect_got_bus (GObject * obj, GAsyncResult * res, gpointer data)
+{
+  WpPortalPermissionStorePlugin *self = WP_PORTAL_PERMISSIONSTORE_PLUGIN (data);
+  g_autoptr (GError) error = NULL;
+
+  self->connection = g_dbus_connection_new_for_address_finish (res, &error);
+  if (!self->connection) {
+    clear_connection (self);
+    wp_info_object (self, "Could not reconnect to session bus: %s",
+        error->message);
+    return;
+  }
+
+  wp_debug_object (self, "Reconnected to bus");
+  setup_connection (self);
+}
+
+static gboolean
+idle_connect (WpPortalPermissionStorePlugin * self)
+{
+  g_autoptr (GError) error = NULL;
+
+  if (!do_connect (self, on_reconnect_got_bus, self, &error))
+    wp_info_object (self, "Cannot reconnect: %s", error->message);
+
+  return G_SOURCE_REMOVE;
 }
 
 static void
 on_connection_closed (GDBusConnection *connection,
     gboolean remote_peer_vanished, GError *error, gpointer data)
 {
-  WpPortalPermissionStorePlugin *self =
-      WP_PORTAL_PERMISSIONSTORE_PLUGIN (data);
+  WpPortalPermissionStorePlugin *self = WP_PORTAL_PERMISSIONSTORE_PLUGIN (data);
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
+
   wp_info_object (self, "D-Bus connection closed: %s", error->message);
-  wp_portal_permissionstore_plugin_disable_internal (self);
+
+  clear_connection (self);
+
+  /* try to reconnect on idle if connection was closed */
+  if (core)
+    wp_core_idle_add_closure (core, NULL, g_cclosure_new_object (
+        G_CALLBACK (idle_connect), G_OBJECT (self)));
 }
 
 static void
-got_bus (GObject * obj, GAsyncResult * res, gpointer data)
+setup_connection (WpPortalPermissionStorePlugin *self)
 {
-  WpTransition *transition = WP_TRANSITION (data);
-  WpPortalPermissionStorePlugin *self =
-      wp_transition_get_source_object (transition);
-  g_autoptr (GError) error = NULL;
-
-  self->connection = g_dbus_connection_new_for_address_finish (res, &error);
-  if (!self->connection) {
-    wp_portal_permissionstore_plugin_disable_internal (self);
-    g_prefix_error (&error, "Failed to connect to session bus: ");
-    wp_transition_return_error (transition, g_steal_pointer (&error));
-    return;
-  }
-
-  wp_debug_object (self, "Connected to bus");
-
   g_signal_connect_object (self->connection, "closed",
       G_CALLBACK (on_connection_closed), self, 0);
   g_dbus_connection_set_exit_on_close (self->connection, FALSE);
@@ -171,6 +215,27 @@ got_bus (GObject * obj, GAsyncResult * res, gpointer data)
       G_DBUS_SIGNAL_FLAGS_NONE, wp_portal_permissionstore_plugin_changed, self,
       NULL);
 
+}
+
+static void
+on_enable_got_bus (GObject * obj, GAsyncResult * res, gpointer data)
+{
+  WpTransition *transition = WP_TRANSITION (data);
+  WpPortalPermissionStorePlugin *self =
+      wp_transition_get_source_object (transition);
+  g_autoptr (GError) error = NULL;
+
+  self->connection = g_dbus_connection_new_for_address_finish (res, &error);
+  if (!self->connection) {
+    clear_connection (self);
+    g_prefix_error (&error, "Failed to connect to session bus: ");
+    wp_transition_return_error (transition, g_steal_pointer (&error));
+    return;
+  }
+
+  wp_debug_object (self, "Connected to bus");
+  setup_connection (self);
+
   wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
 }
 
@@ -181,26 +246,13 @@ wp_portal_permissionstore_plugin_enable (WpPlugin * plugin,
   WpPortalPermissionStorePlugin *self =
       WP_PORTAL_PERMISSIONSTORE_PLUGIN (plugin);
   g_autoptr (GError) error = NULL;
-  g_autofree gchar *address = NULL;
 
   g_return_if_fail (self->state == WP_DBUS_CONNECTION_STATUS_CLOSED);
 
-  address = g_dbus_address_get_for_bus_sync (G_BUS_TYPE_SESSION, NULL, &error);
-  if (!address) {
-    g_prefix_error (&error, "Error acquiring session bus address: ");
+  if (!do_connect (self, on_enable_got_bus, transition, &error)) {
     wp_transition_return_error (transition, g_steal_pointer (&error));
     return;
   }
-
-  wp_debug_object (self, "Connecting to bus: %s", address);
-
-  self->state = WP_DBUS_CONNECTION_STATUS_CONNECTING;
-  g_object_notify (G_OBJECT (self), "state");
-
-  g_dbus_connection_new_for_address (address,
-      G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT |
-      G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION,
-      NULL, self->cancellable, got_bus, transition);
 }
 
 static void
@@ -210,9 +262,11 @@ wp_portal_permissionstore_plugin_disable (WpPlugin * plugin)
       WP_PORTAL_PERMISSIONSTORE_PLUGIN (plugin);
 
   g_cancellable_cancel (self->cancellable);
-  wp_portal_permissionstore_plugin_disable_internal (self);
+  clear_connection (self);
   g_clear_object (&self->cancellable);
   self->cancellable = g_cancellable_new ();
+
+  wp_object_update_features (WP_OBJECT (self), 0, WP_PLUGIN_FEATURE_ENABLED);
 }
 
 static void
