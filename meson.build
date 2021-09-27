@@ -79,6 +79,11 @@ else
 endif
 summary({'Lua version': lua_dep.version() + (system_lua ? ' (system)' : ' (built-in)')})
 
+systemd = dependency('systemd', required: get_option('systemd'))
+libsystemd_dep = dependency('libsystemd',required: get_option('systemd'))
+summary({'systemd conf data': systemd.found(),
+         'libsystemd': libsystemd_dep.found()}, bool_yn: true)
+
 gnome = import('gnome')
 pkgconfig = import('pkgconfig')
 fs = import('fs')

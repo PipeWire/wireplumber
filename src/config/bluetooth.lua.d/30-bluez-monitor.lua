@@ -7,4 +7,6 @@ function bluez_monitor.enable()
     properties = bluez_monitor.properties,
     rules = bluez_monitor.rules,
   })
+
+  load_module("logind")
 end

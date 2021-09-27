@@ -125,13 +125,39 @@ function createDevice(parent, id, type, factory, properties)
   end
 end
 
-local monitor_props = config.properties or {}
-monitor_props["api.bluez5.connection-info"] = true
+function createMonitor()
+  local monitor_props = config.properties or {}
+  monitor_props["api.bluez5.connection-info"] = true
 
-monitor = SpaDevice("api.bluez5.enum.dbus", monitor_props)
-if monitor then
-  monitor:connect("create-object", createDevice)
+  local monitor = SpaDevice("api.bluez5.enum.dbus", monitor_props)
+  if monitor then
+    monitor:connect("create-object", createDevice)
+  else
+    Log.message("PipeWire's BlueZ SPA missing or broken. Bluetooth not supported.")
+    return nil
+  end
   monitor:activate(Feature.SpaDevice.ENABLED)
+
+  return monitor
+end
+
+logind_plugin = Plugin.find("logind")
+if logind_plugin then
+  -- if logind support is enabled, activate
+  -- the monitor only when the seat is active
+  function startStopMonitor(seat_state)
+    Log.info(logind_plugin, "Seat state changed: " .. seat_state)
+
+    if seat_state == "active" then
+      monitor = createMonitor()
+    elseif monitor then
+      monitor:deactivate(Feature.SpaDevice.ENABLED)
+      monitor = nil
+    end
+  end
+
+  logind_plugin:connect("state-changed", function(p, s) startStopMonitor(s) end)
+  startStopMonitor(logind_plugin:call("get-state"))
 else
-  Log.message("PipeWire's BlueZ SPA missing or broken. Bluetooth not supported.")
+  monitor = createMonitor()
 end

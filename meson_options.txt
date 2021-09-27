@@ -9,7 +9,7 @@ option('system-lua-version',
        description: 'The system lua version to use or "auto" for auto-detection')
 option('systemd',
        type: 'feature', value: 'auto',
-       description: 'Enable installing systemd units')
+       description: 'Enable installing systemd units & logind integration')
 option('systemd-system-service',
        type : 'boolean', value : false,
        description: 'Install systemd system service file')

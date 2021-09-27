@@ -176,3 +176,16 @@ shared_library(
   install_dir : wireplumber_module_dir,
   dependencies : [wp_dep, pipewire_dep],
 )
+
+if libsystemd_dep.found()
+  shared_library(
+    'wireplumber-module-logind',
+    [
+      'module-logind.c',
+    ],
+    c_args : [common_c_args, '-DG_LOG_DOMAIN="m-logind"'],
+    install : true,
+    install_dir : wireplumber_module_dir,
+    dependencies : [wp_dep, pipewire_dep, libsystemd_dep],
+  )
+endif
