@@ -687,8 +687,9 @@ wp_object_manager_maybe_objects_changed (WpObjectManager * self)
     if (!self->idle_source) {
       g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
       if (core) {
-        wp_core_idle_add (core, &self->idle_source,
-            (GSourceFunc) idle_emit_objects_changed, self, NULL);
+        wp_core_idle_add_closure (core, &self->idle_source,
+            g_cclosure_new_object (
+                G_CALLBACK (idle_emit_objects_changed), G_OBJECT (self)));
       }
     }
   }
