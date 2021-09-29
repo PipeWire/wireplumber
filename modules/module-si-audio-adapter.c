@@ -324,7 +324,7 @@ build_adapter_default_format (WpSiAudioAdapter * self, const gchar *mode)
   guint32 format = SPA_AUDIO_FORMAT_F32;
 
   /* if dsp, use plannar format */
-  if (g_strcmp0 (mode, "dsp") == 0)
+  if (!mode || g_strcmp0 (mode, "dsp") == 0)
     format = SPA_AUDIO_FORMAT_F32P;
 
   return build_adapter_format (self, format, 2, NULL);
