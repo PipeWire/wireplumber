@@ -29,6 +29,7 @@ struct _WpSiAudioAdapter
   gchar media_class[32];
   gboolean control_port;
   gboolean monitor;
+  gboolean disable_dsp;
   WpDirection direction;
   WpDirection portconfig_direction;
   gboolean is_device;
@@ -69,6 +70,7 @@ si_audio_adapter_reset (WpSessionItem * item)
   self->media_class[0] = '\0';
   self->control_port = FALSE;
   self->monitor = FALSE;
+  self->disable_dsp = FALSE;
   self->portconfig_direction = self->direction = WP_DIRECTION_INPUT;
   self->is_device = FALSE;
   self->dont_remix = FALSE;
@@ -154,6 +156,12 @@ si_audio_adapter_configure (WpSessionItem * item, WpProperties *p)
     return FALSE;
   if (!str)
     wp_properties_setf (si_props, "enable.monitor", "%u", self->monitor);
+
+  str = wp_properties_get (si_props, "disable.dsp");
+  if (str && sscanf(str, "%u", &self->disable_dsp) != 1)
+    return FALSE;
+  if (!str)
+    wp_properties_setf (si_props, "disable.dsp", "%u", self->disable_dsp);
 
   self->node = g_object_ref (node);
 
@@ -359,6 +367,7 @@ on_node_enum_format_done (WpPipewireObject * proxy, GAsyncResult * res,
   g_autoptr (WpSpaPod) format = NULL;
   g_autoptr (WpSpaPod) ports_format = NULL;
   struct spa_audio_info_raw spa_format;
+  const gchar *mode = NULL;
 
   formats = wp_pipewire_object_enum_params_finish (proxy, res, &error);
   if (error) {
@@ -380,17 +389,23 @@ on_node_enum_format_done (WpPipewireObject * proxy, GAsyncResult * res,
       wp_spa_pod_ref (format));
 
   /* build the ports format */
-  ports_format = build_adapter_dsp_format (self, format);
-  if (!ports_format) {
-      wp_transition_return_error (transition,
-        g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-            "failed to build ports format"));
-    return;
+  if (self->disable_dsp) {
+    mode = "passthrough";
+    ports_format = g_steal_pointer (&format);
+  } else {
+    mode = "dsp";
+    ports_format = build_adapter_dsp_format (self, format);
+    if (!ports_format) {
+        wp_transition_return_error (transition,
+          g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+              "failed to build ports format"));
+      return;
+    }
   }
 
   /* set chosen format in the ports */
   wp_si_adapter_set_ports_format (WP_SI_ADAPTER (self),
-      wp_spa_pod_ref (ports_format), "dsp", on_format_set, transition);
+      wp_spa_pod_ref (ports_format), mode, on_format_set, transition);
 }
 
 static void
@@ -450,7 +465,8 @@ on_feature_ports_ready (WpObject * node, GAsyncResult * res,
       (GCallback) on_node_ports_changed, self, 0);
 
   /* If device node, enum available formats and set one of them */
-  if (self->is_device || self->dont_remix || !self->is_autoconnect)
+  if (self->is_device || self->dont_remix || !self->is_autoconnect ||
+      self->disable_dsp)
     wp_pipewire_object_enum_params (WP_PIPEWIRE_OBJECT (self->node),
         "EnumFormat", NULL, NULL,
         (GAsyncReadyCallback) on_node_enum_format_done, transition);
