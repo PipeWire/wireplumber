@@ -39,6 +39,7 @@
 #include "transition.h"
 #include "wpenums.h"
 #include "wpversion.h"
+#include "factory.h"
 
 G_BEGIN_DECLS
 

@@ -5,6 +5,7 @@ wp_lib_sources = files(
   'device.c',
   'endpoint.c',
   'error.c',
+  'factory.c',
   'global-proxy.c',
   'iterator.c',
   'link.c',
@@ -65,6 +66,7 @@ wp_lib_headers = files(
   'state.h',
   'transition.h',
   'wp.h',
+  'factory.h',
 )
 
 install_headers(wp_lib_headers,

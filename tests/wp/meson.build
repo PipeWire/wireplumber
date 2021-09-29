@@ -89,3 +89,10 @@ test(
       dependencies: common_deps, c_args: common_args),
   env: common_env,
 )
+
+test(
+  'test-factory',
+  executable('test-factory', 'factory.c',
+      dependencies: common_deps, c_args: common_args),
+  env: common_env,
+)

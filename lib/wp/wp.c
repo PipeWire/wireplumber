@@ -60,6 +60,7 @@ wp_init (WpInitFlags flags)
   g_type_ensure (WP_TYPE_METADATA);
   g_type_ensure (WP_TYPE_NODE);
   g_type_ensure (WP_TYPE_PORT);
+  g_type_ensure (WP_TYPE_FACTORY);
 }
 
 /*!
