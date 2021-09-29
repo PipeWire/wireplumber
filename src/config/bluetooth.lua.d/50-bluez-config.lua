@@ -1,11 +1,13 @@
 bluez_monitor.properties = {
-  -- Enable mSBC support, disabled by default. Be aware that
-  -- mSBC is not expected to work on all headset + adapter combinations.
-  -- This can be overloaded for a specific device and native backend
-  -- in rules section.
-  --["bluez5.msbc-support"] = false,
+  -- These features do not work on all headsets, so they are enabled
+  -- by default based on the hardware database. They can also be
+  -- forced on/off for all devices by the following options:
 
-  --["bluez5.sbc-xq-support"] = true,
+  --["bluez5.enable-sbc-xq"] = true,
+  --["bluez5.enable-msbc"] = true,
+  --["bluez5.enable-hw-volume"] = true,
+
+  -- See bluez-hardware.conf for the hardware database.
 
   -- Enabled headset roles (default: [ hsp_hs hfp_ag ]), this
   -- property only applies to native backend. Currently some headsets
@@ -19,7 +21,11 @@ bluez_monitor.properties = {
   --["bluez5.headset-roles"] = "[ hsp_hs hsp_ag hfp_hf hfp_ag ]",
 
   -- Enabled A2DP codecs (default: all).
-  --["bluez5.codecs"] = "[ sbc aac ldac aptx aptx_hd ]",
+  --["bluez5.codecs"] = "[ sbc sbc_xq aac ldac aptx aptx_hd aptx_ll aptx_ll_duplex faststream faststream_duplex ]",
+
+  -- HFP/HSP backend (default: native).
+  -- Available values: any, none, hsphfpd, ofono, native
+  --["bluez5.hfphsp-backend"] = "native",
 
   -- Properties for the A2DP codec configuration
   --["bluez5.default.rate"] = 48000,
@@ -45,9 +51,6 @@ bluez_monitor.rules = {
       -- is not specified.
       --["bluez5.auto-connect"] = "[ hfp_hf hsp_hs a2dp_sink hfp_ag hsp_ag a2dp_source ]",
       ["bluez5.auto-connect"]  = "[ hfp_hf hsp_hs a2dp_sink ]",
-
-      -- Overload mSBC support for native backend and a specific device.
-      --["bluez5.msbc-support"] = false,
 
       -- Hardware volume control (default: [ hfp_ag hsp_ag a2dp_source ])
       --["bluez5.hw-volume"] = "[ hfp_hf hsp_hs a2dp_sink hfp_ag hsp_ag a2dp_source ]",
