@@ -321,13 +321,14 @@ on_adapters_ready (GObject *obj, GAsyncResult * res, gpointer p)
 }
 
 static void
-on_out_adapter_ready (GObject *obj, GAsyncResult * res, gpointer p)
+on_main_adapter_ready (GObject *obj, GAsyncResult * res, gpointer p)
 {
   WpTransition *transition = p;
   WpSiStandardLink *self = wp_transition_get_source_object (transition);
   g_autoptr (GError) error = NULL;
   g_autoptr (WpSiAdapter) si_out = NULL;
   g_autoptr (WpSiAdapter) si_in = NULL;
+  WpSiAdapter *other = NULL;
   g_autoptr (WpSpaPod) format = NULL;
   const gchar *mode = NULL;
 
@@ -343,17 +344,74 @@ on_out_adapter_ready (GObject *obj, GAsyncResult * res, gpointer p)
   g_return_if_fail (si_out);
   g_return_if_fail (si_in);
 
-  /* Get out-format and set in-format */
+  /* get format and mode */
+  other = si_out;
   format = wp_si_adapter_get_ports_format (si_out, &mode);
+  if (!format) {
+    other = si_in;
+    format = wp_si_adapter_get_ports_format (si_in, &mode);
+  }
+
   g_return_if_fail (mode);
   g_return_if_fail (format);
-  wp_si_adapter_set_ports_format (si_in, wp_spa_pod_ref (format), mode,
+  wp_si_adapter_set_ports_format (other, wp_spa_pod_ref (format),
+      g_strcmp0 (mode, "dsp") == 0 ? "dsp" : "convert",
       on_adapters_ready, transition);
 }
 
+static gboolean
+ports_format_compatible (WpSpaPod *out_format, WpSpaPod *in_format,
+    const gchar *out_mode, const gchar *in_mode)
+{
+  if (!out_format || !in_format || !out_mode || !in_mode)
+    return FALSE;
+  return wp_spa_pod_equal (out_format, in_format) &&
+      (g_strcmp0 (out_mode, "dsp") == 0) == (g_strcmp0 (in_mode, "dsp") == 0);
+}
+
 static void
-configure_and_link_adapters (WpSiStandardLink *self,
-    WpTransition *transition)
+configure_and_link (WpSiStandardLink *self, WpSiAdapter *main,
+    WpSiAdapter *other, gboolean dont_remix, WpTransition *transition)
+{
+  const gchar *main_mode = NULL;
+  const gchar *other_mode = NULL;
+  g_autoptr (WpSpaPod) main_fmt = NULL;
+  g_autoptr (WpSpaPod) other_fmt = NULL;
+
+  main_fmt = wp_si_adapter_get_ports_format (main, &main_mode);
+  other_fmt = wp_si_adapter_get_ports_format (other, &other_mode);
+
+  /* if dont_remix or ports are compatible, just create the links */
+  if (dont_remix ||
+      ports_format_compatible (main_fmt, other_fmt, main_mode, other_mode)) {
+    get_ports_and_create_links (self, transition);
+    return;
+  }
+
+  /* otherwise configure one or both adapters */
+  if (main_fmt) {
+    g_return_if_fail (main_mode);
+    wp_si_adapter_set_ports_format (other, wp_spa_pod_ref (main_fmt),
+        g_strcmp0 (main_mode, "dsp") == 0 ? "dsp" : "convert",
+        on_adapters_ready, transition);
+  } else if (other_fmt) {
+    g_return_if_fail (other_mode);
+    wp_si_adapter_set_ports_format (main, wp_spa_pod_ref (other_fmt),
+        g_strcmp0 (other_mode, "dsp") == 0 ? "dsp" : "convert",
+        on_adapters_ready, transition);
+  } else {
+    const gchar *str = NULL;
+    gboolean disable_dsp = FALSE;
+    str = wp_session_item_get_property (WP_SESSION_ITEM (main), "disable.dsp");
+    disable_dsp = str && pw_properties_parse_bool (str);
+    wp_si_adapter_set_ports_format (main, NULL,
+        disable_dsp ? "passthrough" : "dsp",
+        on_main_adapter_ready, transition);
+  }
+}
+
+static void
+configure_and_link_adapters (WpSiStandardLink *self, WpTransition *transition)
 {
   g_autoptr (WpSiAdapter) si_out = NULL;
   g_autoptr (WpSiAdapter) si_in = NULL;
@@ -391,76 +449,11 @@ configure_and_link_adapters (WpSiStandardLink *self,
       out_is_device, out_dont_remix,
       in_is_device, in_dont_remix);
 
-  /* Out is device node, In is not */
-  if (out_is_device && !in_is_device) {
-    const gchar *out_mode = NULL;
-    g_autoptr (WpSpaPod) out_format =
-        wp_si_adapter_get_ports_format (si_out, &out_mode);
-    g_autoptr (WpSpaPod) in_format =
-        wp_si_adapter_get_ports_format (si_in, NULL);
-    g_return_if_fail (out_mode);
-    g_return_if_fail (out_format);
-    if (in_dont_remix || (in_format && wp_spa_pod_equal (out_format, in_format)))
-      get_ports_and_create_links (self, transition);
-    else
-      wp_si_adapter_set_ports_format (si_in, wp_spa_pod_ref (out_format),
-          out_mode, on_adapters_ready, transition);
-  }
-
-  /* Out is not device node, In is */
-  else if (!out_is_device && in_is_device) {
-    const gchar *in_mode = NULL;
-    g_autoptr (WpSpaPod) in_format =
-        wp_si_adapter_get_ports_format (si_in, &in_mode);
-    g_autoptr (WpSpaPod) out_format =
-        wp_si_adapter_get_ports_format (si_out, NULL);
-    g_return_if_fail (in_format);
-    g_return_if_fail (in_mode);
-    if (out_dont_remix || (out_format && wp_spa_pod_equal (in_format, out_format)))
-      get_ports_and_create_links (self, transition);
-    else
-      wp_si_adapter_set_ports_format (si_out, wp_spa_pod_ref (in_format),
-          in_mode, on_adapters_ready, transition);
-  }
-
-  /* Both Out and In are device nodes */
-  else if (out_is_device && in_is_device) {
-    const gchar *out_mode = NULL;
-    g_autoptr (WpSpaPod) out_format =
-        wp_si_adapter_get_ports_format (si_out, &out_mode);
-    g_autoptr (WpSpaPod) in_format =
-        wp_si_adapter_get_ports_format (si_out, NULL);
-    g_return_if_fail (out_mode);
-    g_return_if_fail (out_format);
-    g_return_if_fail (in_format);
-    if (wp_spa_pod_equal (out_format, in_format))
-      get_ports_and_create_links (self, transition);
-    else
-      wp_si_adapter_set_ports_format (si_in, wp_spa_pod_ref (out_format),
-          out_mode, on_adapters_ready, transition);
-  }
-
-  /* Neither Out or In are device nodes */
-  else if (!out_is_device && !in_is_device) {
-    const gchar *mode = NULL;
-    g_autoptr (WpSpaPod) out_format = wp_si_adapter_get_ports_format (si_out,
-        &mode);
-    if (out_format) {
-      wp_si_adapter_set_ports_format (si_in, wp_spa_pod_ref (out_format), mode,
-          on_adapters_ready, transition);
-    } else {
-      g_autoptr (WpSpaPod) in_format = wp_si_adapter_get_ports_format (si_in,
-          &mode);
-      if (in_format) {
-        wp_si_adapter_set_ports_format (si_out, wp_spa_pod_ref (in_format),
-            mode, on_adapters_ready, transition);
-      } else {
-        /* Use default format */
-        wp_si_adapter_set_ports_format (si_out, NULL, NULL,
-            on_out_adapter_ready, transition);
-      }
-    }
-  }
+  /* we always use si_out format, unless si_in is device */
+  if (!out_is_device && in_is_device)
+    configure_and_link (self, si_in, si_out, out_dont_remix, transition);
+  else
+    configure_and_link (self, si_out, si_in, in_dont_remix, transition);
 }
 
 static void
