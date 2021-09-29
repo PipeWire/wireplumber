@@ -24,6 +24,7 @@ struct _WpSiAudioAdapter
 
   /* configuration */
   WpNode *node;
+  WpPort *port;  /* only used for passthrough or convert mode */
   gchar name[96];
   gchar media_class[32];
   gboolean control_port;
@@ -63,6 +64,7 @@ si_audio_adapter_reset (WpSessionItem * item)
 
   /* reset */
   g_clear_object (&self->node);
+  g_clear_object (&self->port);
   self->name[0] = '\0';
   self->media_class[0] = '\0';
   self->control_port = FALSE;
@@ -392,12 +394,43 @@ on_node_enum_format_done (WpPipewireObject * proxy, GAsyncResult * res,
 }
 
 static void
-on_node_ports_changed (WpObject * node, WpSiAudioAdapter *self)
+on_port_param_info (WpPipewireObject * port, GParamSpec * param,
+    WpSiAudioAdapter *self)
 {
   /* finish the task started by _set_ports_format() */
-  if (self->format_task && wp_node_get_n_ports (self->node) > 0) {
+  if (self->format_task) {
     g_autoptr (GTask) t = g_steal_pointer (&self->format_task);
     g_task_return_boolean (t, TRUE);
+  }
+}
+
+static void
+on_node_ports_changed (WpObject * node, WpSiAudioAdapter *self)
+{
+  /* clear port and handler */
+  if (self->port) {
+    g_signal_handlers_disconnect_by_func (self->port, on_port_param_info, self);
+    g_clear_object (&self->port);
+  }
+
+  if (wp_node_get_n_ports (self->node) > 0) {
+    /* if non DSP mode, listen for param-info on the single port in order to
+     * be notified of format changed events */
+    if (g_strcmp0 (self->mode, "dsp") != 0) {
+      self->port = wp_node_lookup_port (self->node,
+          WP_CONSTRAINT_TYPE_PW_PROPERTY, "port.direction", "=s",
+          self->portconfig_direction == WP_DIRECTION_INPUT ? "in" : "out",
+          NULL);
+      if (self->port)
+        g_signal_connect_object (self->port, "notify::param-info",
+            G_CALLBACK (on_port_param_info), self, 0);
+    }
+
+    /* finish the task started by _set_ports_format() */
+    if (self->format_task) {
+      g_autoptr (GTask) t = g_steal_pointer (&self->format_task);
+      g_task_return_boolean (t, TRUE);
+    }
   }
 }
 
