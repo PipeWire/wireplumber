@@ -33,6 +33,7 @@
 #include "session-item.h"
 #include "si-factory.h"
 #include "si-interfaces.h"
+#include "spa-json.h"
 #include "spa-pod.h"
 #include "spa-type.h"
 #include "state.h"
