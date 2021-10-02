@@ -41,6 +41,7 @@ wp_init (WpInitFlags flags)
       g_snprintf (lvl_str, 2, "%d", wp_spa_log_get_instance ()->level);
       g_warn_if_fail (g_setenv ("PIPEWIRE_DEBUG", lvl_str, TRUE));
     }
+    pw_log_set_level (wp_spa_log_get_instance ()->level);
     pw_log_set (wp_spa_log_get_instance ());
   }
 
