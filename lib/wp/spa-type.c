@@ -68,6 +68,7 @@ static const WpSpaIdTableInfo static_id_tables[] = {
   { SPA_TYPE_INFO_AudioFormat, spa_type_audio_format },
   { SPA_TYPE_INFO_AudioFlags, spa_type_audio_flags },
   { SPA_TYPE_INFO_AudioChannel, spa_type_audio_channel },
+  { SPA_TYPE_INFO_AudioIEC958Codec, spa_type_audio_iec958_codec },
   { SPA_TYPE_INFO_IO, spa_type_io },
   { SPA_TYPE_INFO_Control, spa_type_control },
   { SPA_TYPE_INFO_Data, spa_type_data_type },

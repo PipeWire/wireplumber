@@ -117,6 +117,8 @@ function saveRouteProps(dev_info, route)
     props.channelMap and serializeArray(props.channelMap) or nil
   state_table[key_base .. "latencyOffsetNsec"] =
     props.latencyOffsetNsec and tostring(props.latencyOffsetNsec) or nil
+  state_table[key_base .. "iec958Codecs"] =
+    props.iec958Codecs and serializeArray(props.iec958Codecs) or nil
 
   storeAfterTimeout()
 end
@@ -149,6 +151,9 @@ function restoreRoute(device, dev_info, device_id, route)
 
     local str = state_table[key_base .. "latencyOffsetNsec"]
     props.latencyOffsetNsec = str and math.tointeger(str) or props.latencyOffsetNsec
+
+    local str = state_table[key_base .. "iec958Codecs"]
+    props.iec958Codecs = str and parseArray(str) or props.iec958Codecs
   end
 
   -- convert arrays to Spa Pod
@@ -159,6 +164,10 @@ function restoreRoute(device, dev_info, device_id, route)
   if props.channelMap then
     table.insert(props.channelMap, 1, "Spa:Enum:AudioChannel")
     props.channelMap = Pod.Array(props.channelMap)
+  end
+  if props.iec958Codecs then
+    table.insert(props.iec958Codecs, 1, "Spa:Enum:AudioIEC958Codec")
+    props.iec958Codecs = Pod.Array(props.iec958Codecs)
   end
 
   -- construct Route param
