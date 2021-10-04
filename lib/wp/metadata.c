@@ -644,7 +644,7 @@ wp_impl_metadata_activate_execute_step (WpObject * object,
     g_autoptr (WpCore) core = wp_object_get_core (object);
     struct pw_core *pw_core = wp_core_get_pw_core (core);
     struct spa_dict_item items[1];
-    const struct spa_dict *props = NULL;
+    struct spa_dict *props = NULL, prop_impl;
 
     /* no pw_core -> we are not connected */
     if (!pw_core) {
@@ -660,7 +660,8 @@ wp_impl_metadata_activate_execute_step (WpObject * object,
      * yet, so we add the name property manually for now */
     if (self->name) {
       items[0] = SPA_DICT_ITEM_INIT(PW_KEY_METADATA_NAME, self->name);
-      props = &SPA_DICT_INIT_ARRAY(items);
+      prop_impl = SPA_DICT_INIT_ARRAY(items);
+      props = &prop_impl;
     }
     wp_proxy_watch_bind_error (WP_PROXY (self), WP_TRANSITION (transition));
     wp_proxy_set_pw_proxy (WP_PROXY (self), pw_core_export (pw_core,
