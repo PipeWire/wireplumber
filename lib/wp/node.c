@@ -30,6 +30,18 @@
  * wp_node_new_from_factory(), which creates a new node object
  * on the remote PipeWire server by calling into a factory.
  *
+ * \gproperties
+ *
+ * \gproperty{state, WpNodeState, G_PARAM_READABLE, The current state of the node}
+ *
+ * \gproperty{n-input-ports, uint, G_PARAM_READABLE, The number of input ports}
+ *
+ * \gproperty{n-output-ports, uint, G_PARAM_READABLE, The number of output ports}
+ *
+ * \gproperty{max-input-ports, uint, G_PARAM_READABLE, The max number of input ports}
+ *
+ * \gproperty{max-output-ports, uint, G_PARAM_READABLE, The max number of output ports}
+ *
  * \gsignals
  *
  * \par ports-changed
@@ -67,6 +79,15 @@
  * \endparblock
  */
 
+
+enum {
+  PROP_STATE = WP_PW_OBJECT_MIXIN_PROP_CUSTOM_START,
+  PROP_N_INPUT_PORTS,
+  PROP_N_OUTPUT_PORTS,
+  PROP_MAX_INPUT_PORTS,
+  PROP_MAX_OUTPUT_PORTS,
+};
+
 enum {
   SIGNAL_STATE_CHANGED,
   SIGNAL_PORTS_CHANGED,
@@ -93,6 +114,39 @@ G_DEFINE_TYPE_WITH_CODE (WpNode, wp_node, WP_TYPE_GLOBAL_PROXY,
 static void
 wp_node_init (WpNode * self)
 {
+}
+
+static void
+wp_node_get_property (GObject * object, guint property_id,
+    GValue * value, GParamSpec * pspec)
+{
+  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (object);
+
+  switch (property_id) {
+  case PROP_STATE:
+    g_value_set_enum (value, d->info ?
+        ((struct pw_node_info *) d->info)->state : 0);
+    break;
+  case PROP_N_INPUT_PORTS:
+    g_value_set_uint (value, d->info ?
+        ((struct pw_node_info *) d->info)->n_input_ports : 0);
+    break;
+  case PROP_N_OUTPUT_PORTS:
+    g_value_set_uint (value, d->info ?
+        ((struct pw_node_info *) d->info)->n_output_ports : 0);
+    break;
+  case PROP_MAX_INPUT_PORTS:
+    g_value_set_uint (value, d->info ?
+        ((struct pw_node_info *) d->info)->max_input_ports : 0);
+    break;
+  case PROP_MAX_OUTPUT_PORTS:
+    g_value_set_uint (value, d->info ?
+        ((struct pw_node_info *) d->info)->max_output_ports : 0);
+    break;
+  default:
+    wp_pw_object_mixin_get_property (object, property_id, value, pspec);
+    break;
+  }
 }
 
 static void
@@ -216,7 +270,7 @@ wp_node_class_init (WpNodeClass * klass)
   WpObjectClass *wpobject_class = (WpObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
-  object_class->get_property = wp_pw_object_mixin_get_property;
+  object_class->get_property = wp_node_get_property;
 
   wpobject_class->get_supported_features = wp_node_get_supported_features;
   wpobject_class->activate_get_next_step =
@@ -230,6 +284,26 @@ wp_node_class_init (WpNodeClass * klass)
   proxy_class->pw_proxy_destroyed = wp_node_pw_proxy_destroyed;
 
   wp_pw_object_mixin_class_override_properties (object_class);
+
+  g_object_class_install_property (object_class, PROP_STATE,
+      g_param_spec_enum ("state", "state", "state", WP_TYPE_NODE_STATE, 0,
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (object_class, PROP_N_INPUT_PORTS,
+      g_param_spec_uint ("n-input-ports", "n-input-ports", "n-input-ports",
+          0, G_MAXUINT, 0, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (object_class, PROP_N_OUTPUT_PORTS,
+      g_param_spec_uint ("n-output-ports", "n-output-ports", "n-output-ports",
+          0, G_MAXUINT, 0, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (object_class, PROP_MAX_INPUT_PORTS,
+      g_param_spec_uint ("max-input-ports", "max-input-ports", "max-input-ports",
+          0, G_MAXUINT, 0, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (object_class, PROP_MAX_OUTPUT_PORTS,
+      g_param_spec_uint ("max-output-ports", "max-output-ports", "max-output-ports",
+          0, G_MAXUINT, 0, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
   signals[SIGNAL_STATE_CHANGED] = g_signal_new (
       "state-changed", G_TYPE_FROM_CLASS (klass),
@@ -251,6 +325,14 @@ wp_node_process_info (gpointer instance, gpointer old_info, gpointer i)
         ((struct pw_node_info *) old_info)->state : PW_NODE_STATE_CREATING;
     g_signal_emit (instance, signals[SIGNAL_STATE_CHANGED], 0,
         old_state, info->state);
+  }
+  if (info->change_mask & PW_NODE_CHANGE_MASK_INPUT_PORTS) {
+    g_object_notify (G_OBJECT (instance), "n-input-ports");
+    g_object_notify (G_OBJECT (instance), "max-input-ports");
+  }
+  if (info->change_mask & PW_NODE_CHANGE_MASK_OUTPUT_PORTS) {
+    g_object_notify (G_OBJECT (instance), "n-output-ports");
+    g_object_notify (G_OBJECT (instance), "max-output-ports");
   }
 }
 
