@@ -75,7 +75,7 @@ function findSuitableKey(node)
   for _, k in ipairs(keys) do
     local p = node_props[k]
     if p then
-      key = string.format("%s:%s:%s:",
+      key = string.format("%s:%s:%s",
           node_props["media.class"]:gsub("^Stream/", ""), k, p)
       break
     end
@@ -120,7 +120,7 @@ function saveTarget(subject, key, type, value)
       target_name = target_node.properties["node.name"]
     end
   end
-  state_table[key_base .. "target"] = target_name
+  state_table[key_base .. ":target"] = target_name
 
   storeAfterTimeout()
 end
@@ -155,16 +155,16 @@ function saveStream(node)
     end
 
     if props.volume then
-      state_table[key_base .. "volume"] = tostring(props.volume)
+      state_table[key_base .. ":volume"] = tostring(props.volume)
     end
     if props.mute ~= nil then
-      state_table[key_base .. "mute"] = tostring(props.mute)
+      state_table[key_base .. ":mute"] = tostring(props.mute)
     end
     if props.channelVolumes then
-      state_table[key_base .. "channelVolumes"] = serializeArray(props.channelVolumes)
+      state_table[key_base .. ":channelVolumes"] = serializeArray(props.channelVolumes)
     end
     if props.channelMap then
-      state_table[key_base .. "channelMap"] = serializeArray(props.channelMap)
+      state_table[key_base .. ":channelMap"] = serializeArray(props.channelMap)
     end
 
     ::skip_prop::
@@ -182,23 +182,23 @@ function restoreStream(node)
   local needsRestore = false
   local props = { "Spa:Pod:Object:Param:Props", "Props" }
 
-  local str = state_table[key_base .. "volume"]
+  local str = state_table[key_base .. ":volume"]
   needsRestore = str and true or needsRestore
   props.volume = str and tonumber(str) or nil
 
-  local str = state_table[key_base .. "mute"]
+  local str = state_table[key_base .. ":mute"]
   needsRestore = str and true or needsRestore
   props.mute = str and (str == "true") or nil
 
-  local str = state_table[key_base .. "channelVolumes"]
+  local str = state_table[key_base .. ":channelVolumes"]
   needsRestore = str and true or needsRestore
   props.channelVolumes = str and parseArray(str, tonumber) or nil
 
-  local str = state_table[key_base .. "channelMap"]
+  local str = state_table[key_base .. ":channelMap"]
   needsRestore = str and true or needsRestore
   props.channelMap = str and parseArray(str) or nil
 
-  local str = state_table[key_base .. "target"]
+  local str = state_table[key_base .. ":target"]
   if str then
     restoreTarget(node, str)
   end
