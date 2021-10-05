@@ -66,9 +66,8 @@ load_state (WpDefaultNodes * self)
 }
 
 static gboolean
-timeout_save_state_callback (gpointer data)
+timeout_save_state_callback (WpDefaultNodes *self)
 {
-  WpDefaultNodes *self = data;
   g_autoptr (WpProperties) props = wp_properties_new_empty ();
   g_autoptr (GError) error = NULL;
 
@@ -88,15 +87,15 @@ timeout_save_state_callback (gpointer data)
 static void
 timer_start (WpDefaultNodes *self)
 {
-  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
-  g_return_if_fail (core);
+  if (!self->timeout_source && self->use_persistent_storage) {
+    g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
+    g_return_if_fail (core);
 
-  if (self->timeout_source || !self->use_persistent_storage)
-    return;
-
-  /* Add the timeout callback */
-  wp_core_timeout_add (core, &self->timeout_source, self->save_interval_ms,
-      timeout_save_state_callback, self, NULL);
+    /* Add the timeout callback */
+    wp_core_timeout_add_closure (core, &self->timeout_source,
+        self->save_interval_ms, g_cclosure_new_object (
+            G_CALLBACK (timeout_save_state_callback), G_OBJECT (self)));
+  }
 }
 
 static WpNode *
