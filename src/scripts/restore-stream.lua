@@ -12,6 +12,8 @@
 state = State("restore-stream")
 state_table = state:load()
 
+route_settings = Plugin.find("route-settings-api")
+
 -- simple serializer {"foo", "bar"} -> "foo;bar;"
 function serializeArray(a)
   local str = ""
@@ -22,7 +24,7 @@ function serializeArray(a)
 end
 
 -- simple deserializer "foo;bar;" -> {"foo", "bar"}
-function parseArray(str, convert_value)
+function parseArray(str, convert_value, with_type)
   local array = {}
   local pos = 1
   while true do
@@ -35,6 +37,9 @@ function parseArray(str, convert_value)
     else
       break
     end
+  end
+  if with_type then
+    array["pod_type"] = "Array"
   end
   return array
 end
@@ -139,6 +144,76 @@ function restoreTarget(node, target_name)
   end
 end
 
+function jsonTable(val, name)
+  local tmp = ""
+  local count = 0
+
+  if name then tmp = tmp .. string.format("%q", name) .. ": " end
+
+  if type(val) == "table" then
+    if val["pod_type"] == "Array" then
+      tmp = tmp .. "["
+      for _, v in ipairs(val) do
+	if count > 0 then tmp = tmp .. "," end
+        tmp = tmp .. jsonTable(v)
+	count = count + 1
+      end
+      tmp = tmp .. "]"
+    else
+      tmp = tmp .. "{"
+      for k, v in pairs(val) do
+	if count > 0 then tmp = tmp .. "," end
+        tmp = tmp .. jsonTable(v, k)
+	count = count + 1
+      end
+      tmp = tmp .. "}"
+    end
+  elseif type(val) == "number" then
+    tmp = tmp .. tostring(val)
+  elseif type(val) == "string" then
+    tmp = tmp .. string.format("%q", val)
+  elseif type(val) == "boolean" then
+    tmp = tmp .. (val and "true" or "false")
+  else
+    tmp = tmp .. "\"[type:" .. type(val) .. "]\""
+  end
+  return tmp
+end
+
+function moveToMetadata(key_base, metadata)
+  local route_table = { }
+  local count = 0
+
+  key = "restore.stream." .. key_base
+  key = string.gsub(key, ":", ".", 1);
+
+  local str = state_table[key_base .. ":volume"]
+  if str then
+    route_table["volume"] = tonumber(str)
+    count = count + 1;
+  end
+  local str = state_table[key_base .. ":mute"]
+  if str then
+    route_table["mute"] = str == "true"
+    count = count + 1;
+  end
+  local str = state_table[key_base .. ":channelVolumes"]
+  if str then
+    route_table["volumes"] = parseArray(str, tonumber, true)
+    count = count + 1;
+  end
+  local str = state_table[key_base .. ":channelMap"]
+  if str then
+    route_table["channels"] = parseArray(str, nil, true)
+    count = count + 1;
+  end
+
+  if count > 0 then
+    metadata:set(0, key, "Spa:String:JSON", jsonTable(route_table));
+  end
+end
+
+
 function saveStream(node)
   local key_base = findSuitableKey(node)
   if not key_base then
@@ -239,6 +314,55 @@ metadata_om:connect("object-added", function (om, metadata)
   end)
 end)
 metadata_om:activate()
+
+function handleRouteSettings(subject, key, type, value)
+  if type ~= "Spa:String:JSON" then
+    return
+  end
+  if string.find(key, "^restore.stream.") == nil then
+    return
+  end
+
+  local key_base = string.sub(key, string.len("restore.stream.") + 1)
+  local str;
+
+  key_base = string.gsub(key_base, "%.", ":", 1);
+
+  str = route_settings:call("convert", value, "volume");
+  if str then
+      state_table[key_base .. ":volume"] = str
+  end
+  str = route_settings:call("convert", value, "mute");
+  if str then
+      state_table[key_base .. ":mute"] = str
+  end
+  str = route_settings:call("convert", value, "channels");
+  if str then
+      state_table[key_base .. ":channelMap"] = str
+  end
+  str = route_settings:call("convert", value, "volumes");
+  if str then
+    state_table[key_base .. ":channelVolumes"] = str
+  end
+
+  storeAfterTimeout()
+end
+
+rs_metadata_om = ObjectManager {
+  Interest {
+    type = "metadata",
+    Constraint { "metadata.name", "=", "route-settings" },
+  }
+}
+rs_metadata_om:connect("object-added", function (om, metadata)
+  -- copy state into the metadata
+  moveToMetadata("Output/Audio:media.role:Notification", metadata)
+  -- watch for changes
+  metadata:connect("changed", function (m, subject, key, type, value)
+    handleRouteSettings(subject, key, type, value)
+  end)
+end)
+rs_metadata_om:activate()
 
 allnodes_om = ObjectManager { Interest { type = "node" } }
 allnodes_om:activate()

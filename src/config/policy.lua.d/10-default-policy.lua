@@ -22,6 +22,9 @@ function default_policy.enable()
   -- API to access default nodes from scripts
   load_module("default-nodes-api")
 
+  -- API to access volume of streams from scripts
+  load_module("route-settings-api")
+
   -- API to access mixer controls, needed for volume ducking
   load_module("mixer-api")
 
