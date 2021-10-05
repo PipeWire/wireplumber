@@ -77,6 +77,7 @@ function findSuitableKey(node)
     if p then
       key = string.format("%s:%s:%s:",
           node_props["media.class"]:gsub("^Stream/", ""), k, p)
+      break
     end
   end
   return key
