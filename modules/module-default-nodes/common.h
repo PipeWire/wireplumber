@@ -23,19 +23,33 @@ static const gchar * DEFAULT_KEY[N_DEFAULT_NODES] = {
   [VIDEO_SOURCE] = "default.video.source",
 };
 
-#if DEFAULT_CONFIG_KEYS
+static const gchar * NODE_TYPE_STR[N_DEFAULT_NODES] = {
+  [AUDIO_SINK] = "Audio/Sink",
+  [AUDIO_SOURCE] = "Audio/Source",
+  [VIDEO_SOURCE] = "Video/Source",
+};
+
+#if COMPILING_MODULE_DEFAULT_NODES
+
 static const gchar * DEFAULT_CONFIG_KEY[N_DEFAULT_NODES] = {
   [AUDIO_SINK] = "default.configured.audio.sink",
   [AUDIO_SOURCE] = "default.configured.audio.source",
   [VIDEO_SOURCE] = "default.configured.video.source",
 };
-#endif
 
-static const gchar * MEDIA_CLASS[N_DEFAULT_NODES] = {
-  [AUDIO_SINK] = "Audio/Sink",
-  [AUDIO_SOURCE] = "Audio/Source",
-  [VIDEO_SOURCE] = "Video/Source",
+static const gchar * MEDIA_CLASS_MATCH[N_DEFAULT_NODES] = {
+  [AUDIO_SINK] = "Audio/*",
+  [AUDIO_SOURCE] = "Audio/*",
+  [VIDEO_SOURCE] = "Video/*",
 };
+
+static const gchar * N_PORTS_KEY[N_DEFAULT_NODES] = {
+  [AUDIO_SINK] = "n-input-ports",
+  [AUDIO_SOURCE] = "n-output-ports",
+  [VIDEO_SOURCE] = "n-output-ports",
+};
+
+#endif
 
 static int
 json_object_find (const char *obj, const char *key, char *value, size_t len)

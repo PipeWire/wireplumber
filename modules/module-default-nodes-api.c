@@ -156,7 +156,7 @@ wp_default_nodes_api_get_default_node (WpDefaultNodesApi * self,
 {
   gint node_t = -1;
   for (gint i = 0; i < N_DEFAULT_NODES; i++) {
-    if (!g_strcmp0 (media_class, MEDIA_CLASS[i])) {
+    if (!g_strcmp0 (media_class, NODE_TYPE_STR[i])) {
       node_t = i;
       break;
     }
@@ -166,8 +166,6 @@ wp_default_nodes_api_get_default_node (WpDefaultNodesApi * self,
         WP_TYPE_NODE,
         WP_CONSTRAINT_TYPE_PW_PROPERTY,
         PW_KEY_NODE_NAME, "=s", self->defaults[node_t],
-        WP_CONSTRAINT_TYPE_PW_PROPERTY,
-        PW_KEY_MEDIA_CLASS, "=s", MEDIA_CLASS[node_t],
         NULL);
     if (node)
       return wp_proxy_get_bound_id (WP_PROXY (node));
