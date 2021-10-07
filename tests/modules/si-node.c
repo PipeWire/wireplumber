@@ -89,7 +89,7 @@ test_si_node_configure_activate (TestFixture * f, gconstpointer user_data)
 
   {
     WpProperties *props = wp_properties_new_empty ();
-    wp_properties_setf (props, "node", "%p", node);
+    wp_properties_setf (props, "item.node", "%p", node);
     wp_properties_set (props, "media.class", data->media_class);
     g_assert_true (wp_session_item_configure (item, props));
     g_assert_true (wp_session_item_is_configured (item));
@@ -99,16 +99,10 @@ test_si_node_configure_activate (TestFixture * f, gconstpointer user_data)
     const gchar *str = NULL;
     g_autoptr (WpProperties) props = wp_session_item_get_properties (item);
     g_assert_nonnull (props);
-    str = wp_properties_get (props, "name");
-    g_assert_nonnull (str);
-    g_assert_cmpstr (data->name, ==, str);
     str = wp_properties_get (props, "media.class");
     g_assert_nonnull (str);
     g_assert_cmpstr (data->expected_media_class, ==, str);
-    str = wp_properties_get (props, "direction");
-    g_assert_nonnull (str);
-    g_assert_cmpstr (data->expected_direction == 0 ? "0" : "1", ==, str);
-    str = wp_properties_get (props, "si.factory.name");
+    str = wp_properties_get (props, "item.factory.name");
     g_assert_nonnull (str);
     g_assert_cmpstr ("si-node", ==, str);
   }
@@ -132,7 +126,8 @@ test_si_node_configure_activate (TestFixture * f, gconstpointer user_data)
   {
     guint32 node_id, port_id, channel;
     g_autoptr (GVariant) v =
-        wp_si_linkable_get_ports (WP_SI_LINKABLE (item), NULL);
+        wp_si_linkable_get_ports (WP_SI_LINKABLE (item),
+        (data->expected_direction == WP_DIRECTION_INPUT) ? "input" : "output");
 
     g_assert_true (g_variant_is_of_type (v, G_VARIANT_TYPE ("a(uuu)")));
     g_assert_cmpint (g_variant_n_children (v), ==, 1);
@@ -165,16 +160,10 @@ test_si_node_configure_activate (TestFixture * f, gconstpointer user_data)
     const gchar *str = NULL;
     g_autoptr (WpProperties) props = wp_session_item_get_properties (item);
     g_assert_nonnull (props);
-    str = wp_properties_get (props, "name");
-    g_assert_nonnull (str);
-    g_assert_cmpstr (data->name, ==, str);
     str = wp_properties_get (props, "media.class");
     g_assert_nonnull (str);
     g_assert_cmpstr (data->expected_media_class, ==, str);
-    str = wp_properties_get (props, "direction");
-    g_assert_nonnull (str);
-    g_assert_cmpstr (data->expected_direction == 0 ? "0" : "1", ==, str);
-    str = wp_properties_get (props, "si.factory.name");
+    str = wp_properties_get (props, "item.factory.name");
     g_assert_nonnull (str);
     g_assert_cmpstr ("si-node", ==, str);
   }

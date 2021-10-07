@@ -5,7 +5,53 @@
 --
 -- SPDX-License-Identifier: MIT
 
+-- Receive script arguments from config.lua
+local config = ...
+
 items = {}
+
+function configProperties(node)
+  local np = node.properties
+  local properties = {
+    ["item.node"] = node,
+    ["item.plugged.usec"] = GLib.get_monotonic_time(),
+    ["item.features.no-dsp"] = config["audio.no-dsp"],
+    ["item.features.monitor"] = true,
+    ["item.features.control-port"] = false,
+    ["node.id"] = node["bound-id"],
+    ["client.id"] = np["client.id"],
+    ["object.path"] = np["object.path"],
+  }
+
+  for k, v in pairs(np) do
+    if k:find("^node") or k:find("^stream") or k:find("^media") then
+      properties[k] = v
+    end
+  end
+
+  local media_class = properties["media.class"] or ""
+
+  if not properties["media.type"] then
+    for _, i in ipairs({ "Audio", "Video", "Midi" }) do
+      if media_class:find(i) then
+        properties["media.type"] = i
+        break
+      end
+    end
+  end
+
+  properties["item.node.type"] =
+      media_class:find("^Stream/") and "stream" or "device"
+
+  if media_class:find("Sink") or
+      media_class:find("Input") or
+      media_class:find("Duplex") then
+    properties["item.node.direction"] = "input"
+  elseif media_class:find("Source") or media_class:find("Output") then
+    properties["item.node.direction"] = "output"
+  end
+  return properties
+end
 
 function addItem (node, item_type)
   local id = node["bound-id"]
@@ -14,12 +60,7 @@ function addItem (node, item_type)
   items[id] = SessionItem ( item_type )
 
   -- configure item
-  if not items[id]:configure {
-      ["node"] = node,
-      ["enable.monitor"] = true,
-      ["disable.dsp"] = false,
-      ["item.plugged.usec"] = GLib.get_monotonic_time(),
-  } then
+  if not items[id]:configure(configProperties(node)) then
     Log.warning(items[id], "failed to configure item for node " .. tostring(id))
     return
   end

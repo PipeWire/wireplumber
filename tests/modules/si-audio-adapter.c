@@ -76,7 +76,8 @@ test_si_audio_adapter_configure_activate (TestFixture * f,
   /* configure */
   {
     WpProperties *props = wp_properties_new_empty ();
-    wp_properties_setf (props, "node", "%p", node);
+    wp_properties_setf (props, "item.node", "%p", node);
+    wp_properties_set (props, "media.class", "Audio/Source");
     g_assert_true (wp_session_item_configure (adapter, props));
     g_assert_true (wp_session_item_is_configured (adapter));
   }
@@ -86,25 +87,7 @@ test_si_audio_adapter_configure_activate (TestFixture * f,
     const gchar *str = NULL;
     g_autoptr (WpProperties) props = wp_session_item_get_properties (adapter);
     g_assert_nonnull (props);
-    str = wp_properties_get (props, "name");
-    g_assert_nonnull (str);
-    g_assert_cmpstr ("audiotestsrc.adapter", ==, str);
-    str = wp_properties_get (props, "media.class");
-    g_assert_nonnull (str);
-    g_assert_cmpstr ("Audio/Source", ==, str);
-    str = wp_properties_get (props, "direction");
-    g_assert_nonnull (str);
-    g_assert_cmpstr ("1", ==, str);
-    str = wp_properties_get (props, "enable.control.port");
-    g_assert_nonnull (str);
-    g_assert_cmpstr ("0", ==, str);
-    str = wp_properties_get (props, "enable.monitor");
-    g_assert_nonnull (str);
-    g_assert_cmpstr ("0", ==, str);
-    str = wp_properties_get (props, "is.device");
-    g_assert_nonnull (str);
-    g_assert_cmpstr ("1", ==, str);
-    str = wp_properties_get (props, "si.factory.name");
+    str = wp_properties_get (props, "item.factory.name");
     g_assert_nonnull (str);
     g_assert_cmpstr ("si-audio-adapter", ==, str);
   }

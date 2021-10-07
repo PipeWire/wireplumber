@@ -17,7 +17,8 @@ typedef struct {
 } TestFixture;
 
 static WpSessionItem *
-load_node (TestFixture * f, const gchar * factory, const gchar * media_class)
+load_node (TestFixture * f, const gchar * factory, const gchar * media_class,
+    const gchar * type)
 {
   g_autoptr (WpNode) node = NULL;
   g_autoptr (WpSessionItem) adapter = NULL;
@@ -45,8 +46,9 @@ load_node (TestFixture * f, const gchar * factory, const gchar * media_class)
   /* configure */
   {
     WpProperties *props = wp_properties_new_empty ();
-    wp_properties_setf (props, "node", "%p", node);
+    wp_properties_setf (props, "item.node", "%p", node);
     wp_properties_set (props, "media.class", media_class);
+    wp_properties_set (props, "item.node.type", type);
     g_assert_true (wp_session_item_configure (adapter, props));
     g_assert_true (wp_session_item_is_configured (adapter));
   }
@@ -92,9 +94,9 @@ test_si_standard_link_setup (TestFixture * f, gconstpointer user_data)
   }
 
   if (test_is_spa_lib_installed (&f->base, "audiotestsrc"))
-    f->src_item = load_node (f, "audiotestsrc", "Stream/Output/Audio");
+    f->src_item = load_node (f, "audiotestsrc", "Stream/Output/Audio", "stream");
   if (test_is_spa_lib_installed (&f->base, "support.null-audio-sink"))
-    f->sink_item = load_node (f, "support.null-audio-sink", "Audio/Sink");
+    f->sink_item = load_node (f, "support.null-audio-sink", "Audio/Sink", "device");
 }
 
 static void
@@ -131,6 +133,8 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
     g_autoptr (WpProperties) props = wp_properties_new_empty ();
     wp_properties_setf (props, "out.item", "%p", f->src_item);
     wp_properties_setf (props, "in.item", "%p", f->sink_item);
+    wp_properties_set (props, "out.item.port.context", "output");
+    wp_properties_set (props, "in.item.port.context", "input");
     g_assert_true (wp_session_item_configure (link, g_steal_pointer (&props)));
   }
 

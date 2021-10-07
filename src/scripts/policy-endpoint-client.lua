@@ -67,27 +67,17 @@ function createLink (si, si_target_ep)
   local media_class = node.properties["media.class"]
   local target_media_class = si_target_ep.properties["media.class"]
   local out_item = nil
-  local out_context = nil
   local in_item = nil
-  local in_context = nil
 
   if string.find (media_class, "Input") or
       string.find (media_class, "Sink") then
     -- capture
     out_item = si_target_ep
     in_item = si
-    if string.find (target_media_class, "Input") or
-        string.find (target_media_class, "Sink") then
-      out_context = "reverse"
-    end
   else
     -- playback
     out_item = si
     in_item = si_target_ep
-    if string.find (target_media_class, "Output") or
-        string.find (target_media_class, "Source") then
-      in_context = "reverse"
-    end
   end
 
   Log.info (string.format("link %s <-> %s",
@@ -99,8 +89,8 @@ function createLink (si, si_target_ep)
   if not si_link:configure {
     ["out.item"] = out_item,
     ["in.item"] = in_item,
-    ["out.item.port.context"] = out_context,
-    ["in.item.port.context"] = in_context,
+    ["out.item.port.context"] = "output",
+    ["in.item.port.context"] = "input",
     ["is.policy.endpoint.client.link"] = true,
     ["media.role"] = si_target_ep.properties["role"],
     ["target.media.class"] = target_media_class,
@@ -216,7 +206,7 @@ siendpoints_om = ObjectManager { Interest { type = "SiEndpoint" }}
 silinkables_om = ObjectManager { Interest { type = "SiLinkable",
   -- only handle si-audio-adapter and si-node
   Constraint {
-    "si.factory.name", "c", "si-audio-adapter", "si-node", type = "pw-global" },
+    "item.factory.name", "c", "si-audio-adapter", "si-node", type = "pw-global" },
   }
 }
 silinks_om = ObjectManager { Interest { type = "SiLink",

@@ -117,7 +117,7 @@ si_standard_link_configure (WpSessionItem * item, WpProperties * p)
   g_weak_ref_set(&self->out_item, out_item);
   g_weak_ref_set(&self->in_item, in_item);
 
-  wp_properties_set (si_props, "si.factory.name", SI_FACTORY_NAME);
+  wp_properties_set (si_props, "item.factory.name", SI_FACTORY_NAME);
   wp_session_item_set_properties (WP_SESSION_ITEM (self),
       g_steal_pointer (&si_props));
   return TRUE;
@@ -402,7 +402,7 @@ configure_and_link (WpSiStandardLink *self, WpSiAdapter *main,
   } else {
     const gchar *str = NULL;
     gboolean disable_dsp = FALSE;
-    str = wp_session_item_get_property (WP_SESSION_ITEM (main), "disable.dsp");
+    str = wp_session_item_get_property (WP_SESSION_ITEM (main), "item.features.no-dsp");
     disable_dsp = str && pw_properties_parse_bool (str);
     wp_si_adapter_set_ports_format (main, NULL,
         disable_dsp ? "passthrough" : "dsp",
@@ -427,21 +427,21 @@ configure_and_link_adapters (WpSiStandardLink *self, WpTransition *transition)
   g_return_if_fail (si_out);
   g_return_if_fail (si_in);
 
-  str = wp_session_item_get_property (WP_SESSION_ITEM (si_out), "is.device");
-  out_is_device = str && pw_properties_parse_bool (str);
-  str = wp_session_item_get_property (WP_SESSION_ITEM (si_in), "is.device");
-  in_is_device = str && pw_properties_parse_bool (str);
+  str = wp_session_item_get_property (WP_SESSION_ITEM (si_out), "item.node.type");
+  out_is_device = !g_strcmp0 (str, "device");
+  str = wp_session_item_get_property (WP_SESSION_ITEM (si_in), "item.node.type");
+  in_is_device = !g_strcmp0 (str, "device");
 
-  str = wp_session_item_get_property (WP_SESSION_ITEM (si_out), "si.factory.name");
+  str = wp_session_item_get_property (WP_SESSION_ITEM (si_out), "item.factory.name");
   out_is_device = (str && !g_strcmp0 (str, "si-audio-endpoint") && !in_is_device)
       || out_is_device;
-  str = wp_session_item_get_property (WP_SESSION_ITEM (si_in), "si.factory.name");
+  str = wp_session_item_get_property (WP_SESSION_ITEM (si_in), "item.factory.name");
   in_is_device = (str && !g_strcmp0 (str, "si-audio-endpoint") && !out_is_device)
       || in_is_device;
 
-  str = wp_session_item_get_property (WP_SESSION_ITEM (si_out), "dont.remix");
+  str = wp_session_item_get_property (WP_SESSION_ITEM (si_out), "stream.dont-remix");
   out_dont_remix = str && pw_properties_parse_bool (str);
-  str = wp_session_item_get_property (WP_SESSION_ITEM (si_in), "dont.remix");
+  str = wp_session_item_get_property (WP_SESSION_ITEM (si_in), "stream.dont-remix");
   in_dont_remix = str && pw_properties_parse_bool (str);
 
   wp_debug_object (self, "out [device:%d, dont_remix %d], "

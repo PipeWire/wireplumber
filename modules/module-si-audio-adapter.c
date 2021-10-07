@@ -25,12 +25,9 @@ struct _WpSiAudioAdapter
   /* configuration */
   WpNode *node;
   WpPort *port;  /* only used for passthrough or convert mode */
-  gchar name[96];
-  gchar media_class[32];
   gboolean control_port;
   gboolean monitor;
   gboolean disable_dsp;
-  WpDirection direction;
   WpDirection portconfig_direction;
   gboolean is_device;
   gboolean dont_remix;
@@ -66,12 +63,10 @@ si_audio_adapter_reset (WpSessionItem * item)
   /* reset */
   g_clear_object (&self->node);
   g_clear_object (&self->port);
-  self->name[0] = '\0';
-  self->media_class[0] = '\0';
   self->control_port = FALSE;
   self->monitor = FALSE;
   self->disable_dsp = FALSE;
-  self->portconfig_direction = self->direction = WP_DIRECTION_INPUT;
+  self->portconfig_direction = WP_DIRECTION_INPUT;
   self->is_device = FALSE;
   self->dont_remix = FALSE;
   self->is_autoconnect = FALSE;
@@ -93,84 +88,45 @@ si_audio_adapter_configure (WpSessionItem * item, WpProperties *p)
   WpSiAudioAdapter *self = WP_SI_AUDIO_ADAPTER (item);
   g_autoptr (WpProperties) si_props = wp_properties_ensure_unique_owner (p);
   WpNode *node = NULL;
-  g_autoptr (WpProperties) node_props = NULL;
   const gchar *str;
 
   /* reset previous config */
   si_audio_adapter_reset (item);
 
-  str = wp_properties_get (si_props, "node");
+  str = wp_properties_get (si_props, "item.node");
   if (!str || sscanf(str, "%p", &node) != 1 || !WP_IS_NODE (node))
     return FALSE;
 
-  node_props = wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (node));
+  str = wp_properties_get (si_props, PW_KEY_MEDIA_CLASS);
+  if (!str)
+    return FALSE;
+  if ((strstr (str, "Source") || strstr (str, "Output"))
+        && !strstr (str, "Virtual")) {
+    self->portconfig_direction = WP_DIRECTION_OUTPUT;
+  }
 
-  str = wp_properties_get (node_props, PW_KEY_STREAM_DONT_REMIX);
+  str = wp_properties_get (si_props, "item.features.control-port");
+  self->control_port = str && pw_properties_parse_bool (str);
+
+  str = wp_properties_get (si_props, "item.features.monitor");
+  self->monitor = str && pw_properties_parse_bool (str);
+
+  str = wp_properties_get (si_props, "item.features.no-dsp");
+  self->disable_dsp = str && pw_properties_parse_bool (str);
+
+  str = wp_properties_get (si_props, "item.node.type");
+  self->is_device = !g_strcmp0 (str, "device");
+
+  str = wp_properties_get (si_props, PW_KEY_STREAM_DONT_REMIX);
   self->dont_remix = str && pw_properties_parse_bool (str);
 
-  str = wp_properties_get (node_props, PW_KEY_NODE_AUTOCONNECT);
+  str = wp_properties_get (si_props, PW_KEY_NODE_AUTOCONNECT);
   self->is_autoconnect = str && pw_properties_parse_bool (str);
-
-  str = wp_properties_get (si_props, "name");
-  if (str) {
-    strncpy (self->name, str, sizeof (self->name) - 1);
-  } else {
-    str = wp_properties_get (node_props, PW_KEY_NODE_NAME);
-    if (G_LIKELY (str))
-      strncpy (self->name, str, sizeof (self->name) - 1);
-    else
-      strncpy (self->name, "Unknown", sizeof (self->name) - 1);
-    wp_properties_set (si_props, "name", self->name);
-  }
-
-  str = wp_properties_get (si_props, "media.class");
-  if (str) {
-    strncpy (self->media_class, str, sizeof (self->media_class) - 1);
-  } else {
-    str = wp_properties_get (node_props, PW_KEY_MEDIA_CLASS);
-    if (G_LIKELY (str))
-      strncpy (self->media_class, str, sizeof (self->media_class) - 1);
-    else
-      strncpy (self->media_class, "Unknown", sizeof (self->media_class) - 1);
-    wp_properties_set (si_props, "media.class", self->media_class);
-  }
-  self->is_device = strstr (self->media_class, "Stream") == NULL;
-
-  if (strstr (self->media_class, "Source") ||
-      strstr (self->media_class, "Output")) {
-    self->direction = WP_DIRECTION_OUTPUT;
-    self->portconfig_direction = (strstr (self->media_class, "Virtual")) ?
-        WP_DIRECTION_INPUT : self->direction;
-  }
-  wp_properties_setf (si_props, "direction", "%u", self->direction);
-
-  str = wp_properties_get (si_props, "enable.control.port");
-  if (str && sscanf(str, "%u", &self->control_port) != 1)
-    return FALSE;
-  if (!str)
-    wp_properties_setf (si_props, "enable.control.port", "%u",
-        self->control_port);
-
-  str = wp_properties_get (si_props, "enable.monitor");
-  if (str && sscanf(str, "%u", &self->monitor) != 1)
-    return FALSE;
-  if (!str)
-    wp_properties_setf (si_props, "enable.monitor", "%u", self->monitor);
-
-  str = wp_properties_get (si_props, "disable.dsp");
-  if (str && sscanf(str, "%u", &self->disable_dsp) != 1)
-    return FALSE;
-  if (!str)
-    wp_properties_setf (si_props, "disable.dsp", "%u", self->disable_dsp);
 
   self->node = g_object_ref (node);
 
-  wp_properties_set (si_props, "si.factory.name", SI_FACTORY_NAME);
-  wp_properties_setf (si_props, "is.device", "%u", self->is_device);
-  wp_properties_setf (si_props, "dont.remix", "%u", self->dont_remix);
-  wp_properties_setf (si_props, "is.autoconnect", "%u", self->is_autoconnect);
-  wp_session_item_set_properties (WP_SESSION_ITEM (self),
-      g_steal_pointer (&si_props));
+  wp_properties_set (si_props, "item.factory.name", SI_FACTORY_NAME);
+  wp_session_item_set_properties (item, g_steal_pointer (&si_props));
   return TRUE;
 }
 
@@ -611,15 +567,16 @@ si_audio_adapter_get_ports (WpSiLinkable * item, const gchar * context)
   g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_ARRAY);
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
-  WpDirection direction = self->direction;
+  WpDirection direction;
   guint32 node_id;
 
-  /* context can only be NULL or "reverse" */
-  if (!g_strcmp0 (context, "reverse")) {
-    direction = (self->direction == WP_DIRECTION_INPUT) ?
-        WP_DIRECTION_OUTPUT : WP_DIRECTION_INPUT;
+  if (!g_strcmp0 (context, "output")) {
+    direction = WP_DIRECTION_OUTPUT;
   }
-  else if (context != NULL) {
+  else if (!g_strcmp0 (context, "input")) {
+    direction = WP_DIRECTION_INPUT;
+  }
+  else {
     /* on any other context, return an empty list of ports */
     return g_variant_new_array (G_VARIANT_TYPE ("(uuu)"), NULL, 0);
   }

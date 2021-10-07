@@ -79,7 +79,7 @@ test_si_audio_endpoint_configure_activate (TestFixture * f,
     str = wp_properties_get (props, "direction");
     g_assert_nonnull (str);
     g_assert_cmpstr ("1", ==, str);
-    str = wp_properties_get (props, "si.factory.name");
+    str = wp_properties_get (props, "item.factory.name");
     g_assert_nonnull (str);
     g_assert_cmpstr ("si-audio-endpoint", ==, str);
   }

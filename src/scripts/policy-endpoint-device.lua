@@ -59,21 +59,17 @@ function createLink (si_ep, si_target)
   local target_node = si_target:get_associated_proxy ("node")
   local target_media_class = target_node.properties["media.class"]
   local out_item = nil
-  local out_context = nil
   local in_item = nil
-  local in_context = nil
 
   if string.find (target_media_class, "Input") or
       string.find (target_media_class, "Sink") then
     -- capture
     in_item = si_target
     out_item = si_ep
-    out_context = "reverse"
   else
     -- playback
     in_item = si_ep
     out_item = si_target
-    in_context = "reverse"
   end
 
   Log.info (string.format("link %s <-> %s",
@@ -85,8 +81,8 @@ function createLink (si_ep, si_target)
   if not si_link:configure {
     ["out.item"] = out_item,
     ["in.item"] = in_item,
-    ["out.item.port.context"] = out_context,
-    ["in.item.port.context"] = in_context,
+    ["out.item.port.context"] = "output",
+    ["in.item.port.context"] = "input",
     ["passive"] = true,
     ["is.policy.endpoint.device.link"] = true,
   } then
@@ -196,16 +192,21 @@ end
 
 default_nodes = Plugin.find("default-nodes-api")
 siendpoints_om = ObjectManager { Interest { type = "SiEndpoint" }}
-silinkables_om = ObjectManager { Interest { type = "SiLinkable",
-  -- only handle device si-audio-adapter items
-  Constraint { "si.factory.name", "=", "si-audio-adapter", type = "pw-global" },
-  Constraint { "is.device", "=", true, type = "pw-global" },
+silinkables_om = ObjectManager {
+  Interest {
+    type = "SiLinkable",
+    -- only handle device si-audio-adapter items
+    Constraint { "item.factory.name", "=", "si-audio-adapter", type = "pw-global" },
+    Constraint { "item.node.type", "=", "device", type = "pw-global" },
   }
 }
-silinks_om = ObjectManager { Interest { type = "SiLink",
-  -- only handle links created by this policy
-  Constraint { "is.policy.endpoint.device.link", "=", true, type = "pw-global" },
-} }
+silinks_om = ObjectManager {
+  Interest {
+    type = "SiLink",
+    -- only handle links created by this policy
+    Constraint { "is.policy.endpoint.device.link", "=", true, type = "pw-global" },
+  }
+}
 
 -- listen for default node changes if config.follow is enabled
 if config.follow then

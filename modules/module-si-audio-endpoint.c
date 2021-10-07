@@ -119,8 +119,7 @@ si_audio_endpoint_configure (WpSessionItem * item, WpProperties *p)
   if (!str)
     wp_properties_setf (si_props, "priority", "%u", self->priority);
 
-  wp_properties_set (si_props, "si.factory.name", SI_FACTORY_NAME);
-  wp_properties_setf (si_props, "is.device", "%u", FALSE);
+  wp_properties_set (si_props, "item.factory.name", SI_FACTORY_NAME);
   wp_session_item_set_properties (WP_SESSION_ITEM (self),
       g_steal_pointer (&si_props));
   return TRUE;
@@ -356,15 +355,16 @@ si_audio_endpoint_get_ports (WpSiLinkable * item, const gchar * context)
   g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_ARRAY);
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
-  WpDirection direction = self->direction;
+  WpDirection direction;
   guint32 node_id;
 
-  /* context can only be either NULL or "reverse" */
-  if (!g_strcmp0 (context, "reverse")) {
-    direction = (self->direction == WP_DIRECTION_INPUT) ?
-        WP_DIRECTION_OUTPUT : WP_DIRECTION_INPUT;
+  if (!g_strcmp0 (context, "output")) {
+    direction = WP_DIRECTION_OUTPUT;
   }
-  else if (context != NULL) {
+  else if (!g_strcmp0 (context, "input")) {
+    direction = WP_DIRECTION_INPUT;
+  }
+  else {
     /* on any other context, return an empty list of ports */
     return g_variant_new_array (G_VARIANT_TYPE ("(uuu)"), NULL, 0);
   }

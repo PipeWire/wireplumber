@@ -19,9 +19,6 @@ struct _WpSiNode
 
   /* configuration */
   WpNode *node;
-  gchar name[96];
-  gchar media_class[32];
-  WpDirection direction;
 };
 
 static void si_node_linkable_init (WpSiLinkableInterface * iface);
@@ -45,9 +42,6 @@ si_node_reset (WpSessionItem * item)
 
   /* reset */
   g_clear_object (&self->node);
-  self->name[0] = '\0';
-  self->media_class[0] = '\0';
-  self->direction = WP_DIRECTION_INPUT;
 
   WP_SESSION_ITEM_CLASS (si_node_parent_class)->reset (item);
 }
@@ -58,50 +52,18 @@ si_node_configure (WpSessionItem * item, WpProperties *p)
   WpSiNode *self = WP_SI_NODE (item);
   g_autoptr (WpProperties) si_props = wp_properties_ensure_unique_owner (p);
   WpNode *node = NULL;
-  g_autoptr (WpProperties) node_props = NULL;
   const gchar *str;
 
   /* reset previous config */
   si_node_reset (item);
 
-  str = wp_properties_get (si_props, "node");
+  str = wp_properties_get (si_props, "item.node");
   if (!str || sscanf(str, "%p", &node) != 1 || !WP_IS_NODE (node))
     return FALSE;
 
-  node_props = wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (node));
-
-  str = wp_properties_get (si_props, "name");
-  if (str) {
-    strncpy (self->name, str, sizeof (self->name) - 1);
-  } else {
-    str = wp_properties_get (node_props, PW_KEY_NODE_NAME);
-    if (G_LIKELY (str))
-      strncpy (self->name, str, sizeof (self->name) - 1);
-    else
-      strncpy (self->name, "Unknown", sizeof (self->name) - 1);
-    wp_properties_set (si_props, "name", self->name);
-  }
-
-  str = wp_properties_get (si_props, "media.class");
-  if (str) {
-    strncpy (self->media_class, str, sizeof (self->media_class) - 1);
-  } else {
-    str = wp_properties_get (node_props, PW_KEY_MEDIA_CLASS);
-    if (G_LIKELY (str))
-      strncpy (self->media_class, str, sizeof (self->media_class) - 1);
-    else
-      strncpy (self->media_class, "Unknown", sizeof (self->media_class) - 1);
-    wp_properties_set (si_props, "media.class", self->media_class);
-  }
-
-  if (strstr (self->media_class, "Source") ||
-      strstr (self->media_class, "Output"))
-    self->direction = WP_DIRECTION_OUTPUT;
-  wp_properties_setf (si_props, "direction", "%u", self->direction);
-
   self->node = g_object_ref (node);
 
-  wp_properties_set (si_props, "si.factory.name", SI_FACTORY_NAME);
+  wp_properties_set (si_props, "item.factory.name", SI_FACTORY_NAME);
   wp_session_item_set_properties (WP_SESSION_ITEM (self),
       g_steal_pointer (&si_props));
   return TRUE;
@@ -188,15 +150,16 @@ si_node_get_ports (WpSiLinkable * item, const gchar * context)
   g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_ARRAY);
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
-  WpDirection direction = self->direction;
+  WpDirection direction;
   guint32 node_id;
 
-  /* context can only be NULL, "reverse" */
-  if (!g_strcmp0 (context, "reverse")) {
-    direction = (self->direction == WP_DIRECTION_INPUT) ?
-        WP_DIRECTION_OUTPUT : WP_DIRECTION_INPUT;
+  if (!g_strcmp0 (context, "output")) {
+    direction = WP_DIRECTION_OUTPUT;
   }
-  else if (context != NULL) {
+  else if (!g_strcmp0 (context, "input")) {
+    direction = WP_DIRECTION_INPUT;
+  }
+  else {
     /* on any other context, return an empty list of ports */
     return g_variant_new_array (G_VARIANT_TYPE ("(uuu)"), NULL, 0);
   }
