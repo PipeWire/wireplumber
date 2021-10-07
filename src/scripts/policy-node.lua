@@ -176,15 +176,31 @@ function findDefinedTarget (properties)
       or findTargetByNodeTargetProperty (properties)
 end
 
+function getTargetDirection(properties)
+  local target_direction = nil
+  if properties["item.node.direction"] == "output" or
+     (properties["item.node.direction"] == "input" and
+        parseBool(properties["stream.capture.sink"])) then
+    target_direction = "input"
+  else
+    target_direction = "output"
+  end
+  return target_direction
+end
+
+function getDefaultNode(properties, target_direction)
+  local target_media_class =
+        properties["media.type"] ..
+        (target_direction == "input" and "/Sink" or "/Source")
+  return default_nodes:call("get-default-node", target_media_class)
+end
+
 -- Try to locate a valid target node that was NOT explicitly defined by the user
 -- `properties` must be the properties dictionary of the session item
 -- that is currently being handled
 function findUndefinedTarget (properties)
   local function findTargetByDefaultNode (properties, target_direction)
-    local target_media_class =
-        properties["media.type"] ..
-        (target_direction == "input" and "/Sink" or "/Source")
-    local def_id = default_nodes:call("get-default-node", target_media_class)
+    local def_id = getDefaultNode(properties, target_direction)
     if def_id ~= Id.INVALID then
       local si_target = linkables_om:lookup {
         Constraint { "node.id", "=", def_id },
@@ -209,15 +225,7 @@ function findUndefinedTarget (properties)
     return nil
   end
 
-  local target_direction = nil
-  if properties["item.node.direction"] == "output" or
-     (properties["item.node.direction"] == "input" and
-        parseBool(properties["stream.capture.sink"])) then
-    target_direction = "input"
-  else
-    target_direction = "output"
-  end
-
+  local target_direction = getTargetDirection(properties)
   return findTargetByDefaultNode (properties, target_direction)
       or findTargetByFirstAvailable (properties, target_direction)
 end
@@ -370,9 +378,40 @@ links_om = ObjectManager {
   }
 }
 
+function cleanupTargetNodeMetadata()
+  local metadata = metadata_om:lookup()
+  if metadata then
+    local to_remove = {}
+    for s, k, t, v in metadata:iterate(Id.ANY) do
+      if k == "target.node" then
+        if v == "-1" then
+          -- target.node == -1 is useless, it means the default node
+          table.insert(to_remove, s)
+        else
+          -- if the target.node value is the same as the default node
+          -- that would be selected for this stream, remove it
+          local si = linkables_om:lookup { Constraint { "node.id", "=", s } }
+          local properties = si.properties
+          local def_id = getDefaultNode(properties, getTargetDirection(properties))
+          if tostring(def_id) == v then
+            table.insert(to_remove, s)
+          end
+        end
+      end
+    end
+
+    for _, s in ipairs(to_remove) do
+      metadata:set(s, "target.node", nil, nil)
+    end
+  end
+end
+
 -- listen for default node changes if config.follow is enabled
 if config.follow then
-  default_nodes:connect("changed", rescan)
+  default_nodes:connect("changed", function ()
+    cleanupTargetNodeMetadata()
+    rescan()
+  end)
 end
 
 -- listen for target.node metadata changes if config.move is enabled
