@@ -605,7 +605,7 @@ wp_spa_log_log (void *object,
 }
 
 static const struct spa_log_methods wp_spa_log_methods = {
-  0,
+  SPA_VERSION_LOG_METHODS,
   .log = wp_spa_log_log,
   .logv = wp_spa_log_logv,
 };
