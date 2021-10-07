@@ -134,7 +134,7 @@ function isSiLinkableValid (si)
   -- Determine if we can handle item by this policy
   local media_role = node.properties["media.role"]
   if siendpoints_om:get_n_objects () == 0 or media_role == nil then
-    Log.info (si, "item won't be handled by this policy")
+    Log.debug (si, "item won't be handled by this policy")
     return false
   end
 
