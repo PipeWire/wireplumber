@@ -19,3 +19,4 @@ Environment=GIO_USE_VFS=local
 
 [Install]
 WantedBy=pipewire.service
+Alias=pipewire-session-manager.service
