@@ -64,7 +64,7 @@ test_si_audio_adapter_configure_activate (TestFixture * f,
           "node.name", "audiotestsrc.adapter",
           NULL));
   g_assert_nonnull (node);
-  wp_object_activate (WP_OBJECT (node), WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
+  wp_object_activate (WP_OBJECT (node), WP_OBJECT_FEATURES_ALL,
       NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
   g_main_loop_run (f->base.loop);
 
@@ -98,8 +98,6 @@ test_si_audio_adapter_configure_activate (TestFixture * f,
   g_main_loop_run (f->base.loop);
   g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (adapter)), ==,
       WP_SESSION_ITEM_FEATURE_ACTIVE);
-  g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (node)), ==,
-      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL | WP_NODE_FEATURE_PORTS);
 
   /* deactivate - configuration should not be altered  */
   wp_object_deactivate (WP_OBJECT (adapter), WP_SESSION_ITEM_FEATURE_ACTIVE);

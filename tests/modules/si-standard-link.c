@@ -34,7 +34,7 @@ load_node (TestFixture * f, const gchar * factory, const gchar * media_class,
           "audio.position", "[ FL, FR ]",
           NULL));
   g_assert_nonnull (node);
-  wp_object_activate (WP_OBJECT (node), WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
+  wp_object_activate (WP_OBJECT (node), WP_OBJECT_FEATURES_ALL,
       NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
   g_main_loop_run (f->base.loop);
 
