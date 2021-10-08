@@ -1,5 +1,77 @@
-WirePlumber 0.4.2
+WirePlumber 0.4.3
 ~~~~~~~~~~~~~~~~~
+
+Fixes:
+
+  - Implemented logind integration to start the bluez monitor only on the
+    WirePlumber instance that is running on the active seat; this fixes a bunch
+    of startup warnings and the disappearance of HSP/HFP nodes after login (#54)
+
+  - WirePlumber is now launched with GIO_USE_VFS=local to avoid strange D-Bus
+    interference when the user session is restarted, which previously resulted
+    in WirePlumber being terminated with SIGTERM and never recovering (#48)
+
+  - WirePlumber now survives a restart of the D-Bus service, reconnecting to
+    the bus and reclaiming the bus services that it needs (#55)
+
+  - Implemented route-settings metadata, which fixes storing volume for
+    the "System Sounds" in GNOME (#51)
+
+  - Monitor sources can now be selected as the default source (#60)
+
+  - Refactored some policy logic to allow linking to monitors; the policy now
+    also respects "stream.capture.sink" property of streams which declares
+    that the stream wants to be linked to a monitor (#66)
+
+  - Policy now cleans up 'target.node' metadata so that streams get to follow
+    the default source/sink again after the default was changed to match the
+    stream's currently configured target (#65)
+
+  - Fixed configuring virtual sources (#57)
+
+  - Device monitors now do not crash if a SPA plugin is missing; instead, they
+    print a warning to help users identify what they need to install (!214)
+
+  - Fixed certain "proxy activation failed" warnings (#44)
+
+  - iec958 codec configuration is now saved and restored properly (!228)
+
+  - Fixed some logging issues with the latest version of pipewire (!227, !232)
+
+  - Policy now respects the "node.link-group" property, which fixes issues
+    with filter-chain and other virtual sources & sinks (#47)
+
+  - Access policy now grants full permissions to flatpak "Manager" apps (#59)
+
+Policy:
+
+  - Added support for 'no-dsp' mode, which allows streaming audio using the
+    format of the device instead of the standard float 32-bit planar format (!225)
+
+Library:
+
+  - WpImplMetadata is now implemented using pw_impl_metadata instead of
+    using its own implementation (#52)
+
+  - Added support for custom object property IDs in WpSpaPod (#53)
+
+Misc:
+
+  - Added a script to load the libcamera monitor (!231)
+
+  - Added option to disable building unit tests (!209)
+
+  - WirePlumber will now fail to start with a warning if pipewire-media-session
+    is also running in the system (#56)
+
+  - The bluez monitor configuration was updated to match the latest one in
+    pipewire-media-session (!224)
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.4.2
+.................
 
 Highlights:
 
@@ -68,9 +140,6 @@ Misc:
   - Documented the Lua ObjectManager / Interest / Constraint APIs
 
   - Fixed some memory leaks
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.4.1
 .................
