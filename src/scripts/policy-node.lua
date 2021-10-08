@@ -76,6 +76,7 @@ function canLink (properties, si_target)
   local function isMonitor(properties)
     return properties["item.node.direction"] == "input" and
           parseBool(properties["item.features.monitor"]) and
+          not parseBool(properties["item.features.no-dsp"]) and
           properties["item.factory.name"] == "si-audio-adapter"
   end
 
