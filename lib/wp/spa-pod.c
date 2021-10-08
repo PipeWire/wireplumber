@@ -1794,6 +1794,24 @@ wp_spa_pod_get_array_child (WpSpaPod *self)
 }
 
 /*!
+ * \brief Fixates choices in an object pod so that they only have one value
+ *
+ * \ingroup wpspapod
+ * \param self a spa pod
+ * \returns TRUE if the pod was an object and it went through the fixation
+ *   procedure, FALSE otherwise
+ */
+gboolean
+wp_spa_pod_fixate (WpSpaPod *self)
+{
+  g_return_val_if_fail (self, FALSE);
+
+  if (wp_spa_pod_is_object (self))
+    return spa_pod_object_fixate ((struct spa_pod_object *) self->pod) == 0;
+  return FALSE;
+}
+
+/*!
  * \brief Increases the reference count of a spa pod builder
  *
  * \ingroup wpspapod
