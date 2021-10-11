@@ -471,7 +471,7 @@ build_endpoint_format (WpSiAudioEndpoint * self, guint32 format, gint channels,
   wp_spa_pod_builder_add_int (b, channels);
   if (position) {
     wp_spa_pod_builder_add_property (b, "position");
-    wp_spa_pod_builder_add_pod (b, pos);
+    wp_spa_pod_builder_add_pod (b, position);
   }
   return wp_spa_pod_builder_end (b);
 }
