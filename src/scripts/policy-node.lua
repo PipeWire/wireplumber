@@ -32,15 +32,20 @@ function createLink (si, si_target)
     out_item = si_target
   end
 
-  Log.info (string.format("link %s <-> %s",
+  local passive = parseBool(si.properties["node.passive"]) or
+      parseBool(si_target.properties["node.passive"])
+
+  Log.info (string.format("link %s <-> %s passive:%s",
       tostring(si.properties["node.name"]),
-      tostring(si_target.properties["node.name"])))
+      tostring(si_target.properties["node.name"]),
+      tostring(passive)))
 
   -- create and configure link
   local si_link = SessionItem ( "si-standard-link" )
   if not si_link:configure {
     ["out.item"] = out_item,
     ["in.item"] = in_item,
+    ["passive"] = passive,
     ["out.item.port.context"] = "output",
     ["in.item.port.context"] = "input",
     ["is.policy.item.link"] = true,
