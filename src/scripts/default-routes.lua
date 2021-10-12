@@ -259,12 +259,17 @@ function findBestRoute(dev_info, device_id)
   local best_unk = nil
   for idx, ri in pairs(dev_info.route_infos) do
     if arrayContains(ri.devices, device_id) then
-      if ri.available == "yes" and
-        (best_avail == nil or ri.priority > best_avail.priority) then
+      if ri.available == "yes" or ri.available == "unknown" then
+        if ri.direction == "Output" and ri.available ~= ri.prev_available then
           best_avail = ri
-      elseif ri.available ~= "no" and
-        (best_unk == nil or ri.priority > best_unk.priority) then
-          best_unk = ri
+          ri.save = true
+        elseif ri.available == "yes" then
+          if (best_avail == nil or ri.priority > best_avail.priority) then
+            best_avail = ri
+          end
+        elseif best_unk == nil or ri.priority > best_unk.priority then
+            best_unk = ri
+        end
       end
     end
   end
