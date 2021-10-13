@@ -1117,8 +1117,20 @@ client_update_permissions (lua_State *L)
   return 0;
 }
 
+static int
+client_send_error (lua_State *L)
+{
+  WpClient *client = wplua_checkobject (L, 1, WP_TYPE_CLIENT);
+  guint id = luaL_checkinteger (L, 2);
+  int res = luaL_checkinteger (L, 3);
+  const char *message = luaL_checkstring (L, 4);
+  wp_client_send_error (client, id, res, message);
+  return 0;
+}
+
 static const luaL_Reg client_methods[] = {
   { "update_permissions", client_update_permissions },
+  { "send_error", client_send_error },
   { NULL, NULL }
 };
 
