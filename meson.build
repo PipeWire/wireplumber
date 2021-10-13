@@ -118,3 +118,21 @@ subdir('src')
 if get_option('tests')
   subdir('tests')
 endif
+
+conf_uninstalled = configuration_data()
+conf_uninstalled.set('MESON', '')
+conf_uninstalled.set('MESON_SOURCE_ROOT', meson.project_source_root())
+conf_uninstalled.set('MESON_BUILD_ROOT', meson.project_build_root())
+
+wp_uninstalled = configure_file(
+  input : 'wp-uninstalled.sh',
+  output : 'wp-uninstalled.sh.in',
+  configuration : conf_uninstalled,
+)
+
+wireplumber_uninstalled = custom_target('wp-uninstalled',
+  output : 'wp-uninstalled.sh',
+  input : wp_uninstalled,
+  build_by_default : true,
+  command : ['cp', '@INPUT@', '@OUTPUT@'],
+)

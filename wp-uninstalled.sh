@@ -2,8 +2,14 @@
 
 set -e
 
-SOURCEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-BUILDDIR=${SOURCEDIR}/build
+# This is unset by meson
+if [ -z "@MESON@" ]; then
+  SOURCEDIR="@MESON_SOURCE_ROOT@"
+  BUILDDIR="@MESON_BUILD_ROOT@"
+else
+  SOURCEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+  BUILDDIR=${SOURCEDIR}/build
+fi
 CONFIGDIR=config
 
 while getopts ":b:c:" opt; do
