@@ -18,11 +18,13 @@ function parseBool(var)
   return var and (var == "true" or var == "1")
 end
 
-function createLink (si, si_target)
+function createLink (si, si_target, passthrough, exclusive)
   local out_item = nil
   local in_item = nil
+  local si_props = si.properties
+  local target_props = si_target.properties
 
-  if si.properties["item.node.direction"] == "output" then
+  if si_props["item.node.direction"] == "output" then
     -- playback
     out_item = si
     in_item = si_target
@@ -32,13 +34,14 @@ function createLink (si, si_target)
     out_item = si_target
   end
 
-  local passive = parseBool(si.properties["node.passive"]) or
-      parseBool(si_target.properties["node.passive"])
+  local passive = parseBool(si_props["node.passive"]) or
+      parseBool(target_props["node.passive"])
 
-  Log.info (string.format("link %s <-> %s passive:%s",
-      tostring(si.properties["node.name"]),
-      tostring(si_target.properties["node.name"]),
-      tostring(passive)))
+  Log.info (
+    string.format("link %s <-> %s passive:%s, passthrough:%s, exclusive:%s",
+      tostring(si_props["node.name"]),
+      tostring(target_props["node.name"]),
+      tostring(passive), tostring(passthrough), tostring(exclusive)))
 
   -- create and configure link
   local si_link = SessionItem ( "si-standard-link" )
@@ -46,6 +49,8 @@ function createLink (si, si_target)
     ["out.item"] = out_item,
     ["in.item"] = in_item,
     ["passive"] = passive,
+    ["passthrough"] = passthrough,
+    ["exclusive"] = exclusive,
     ["out.item.port.context"] = "output",
     ["in.item.port.context"] = "input",
     ["is.policy.item.link"] = true,
@@ -66,6 +71,47 @@ function createLink (si, si_target)
       Log.info (l, "activated si-standard-link")
     end
   end)
+end
+
+function isLinked(si_target)
+  local target_id = si_target.id
+  local linked = false
+  local exclusive = false
+
+  for l in links_om:iterate() do
+    local p = l.properties
+    local out_id = tonumber(p["out.item.id"])
+    local in_id = tonumber(p["in.item.id"])
+    linked = (out_id == target_id) or (in_id == target_id)
+    if linked then
+      exclusive = parseBool(p["exclusive"]) or parseBool(p["passthrough"])
+      break
+    end
+  end
+  return linked, exclusive
+end
+
+function canPassthrough (si, si_target)
+  -- both nodes must support encoded formats
+  if not parseBool(si.properties["item.node.supports-encoded-fmts"])
+      or not parseBool(si_target.properties["item.node.supports-encoded-fmts"]) then
+    return false
+  end
+
+  -- make sure that the nodes have at least one common non-raw format
+  local n1 = si:get_associated_proxy ("node")
+  local n2 = si_target:get_associated_proxy ("node")
+  for p1 in n1:iterate_params("EnumFormat") do
+    local p1p = p1:parse()
+    if p1p.properties.mediaSubtype ~= "raw" then
+      for p2 in n2:iterate_params("EnumFormat") do
+        if p1:filter(p2) then
+          return true
+        end
+      end
+    end
+  end
+  return false
 end
 
 function canLink (properties, si_target)
@@ -268,6 +314,8 @@ function checkLinkable(si)
   return true, si_props
 end
 
+si_flags = {}
+
 function handleLinkable (si)
   local valid, si_props = checkLinkable(si)
   if not valid then
@@ -283,28 +331,36 @@ function handleLinkable (si)
 
   Log.info (si, "handling item: " .. tostring(si_props["node.name"]))
 
-  -- get reconnect
-  local reconnect = not parseBool(si_props["node.dont-reconnect"])
-
-  -- find target
-  local si_target = findDefinedTarget (si_props)
-  if not si_target and not reconnect then
-    Log.info (si, "... destroy node")
-    local node = si:get_associated_proxy ("node")
-    node:request_destroy()
-    return
-  elseif not si_target and reconnect then
-    si_target = findUndefinedTarget (si_props)
+  -- prepare flags table
+  if not si_flags[si.id] then
+    si_flags[si.id] = {}
   end
+
+  -- get other important node properties
+  local reconnect = not parseBool(si_props["node.dont-reconnect"])
+  local exclusive = parseBool(si_props["node.exclusive"])
+  local must_passthrough = parseBool(si_props["item.node.encoded-only"])
+
+  -- find defined target
+  local si_target = findDefinedTarget(si_props)
+  local can_passthrough = si_target and canPassthrough(si, si_target)
+  if si_target and must_passthrough and not can_passthrough then
+    si_target = nil
+  end
+
+  -- find fallback target
   if not si_target then
-    Log.info (si, "... target not found")
-    return
+    si_target = findUndefinedTarget(si_props)
+    can_passthrough = si_target and canPassthrough(si, si_target)
+    if si_target and must_passthrough and not can_passthrough then
+      si_target = nil
+    end
   end
 
   -- Check if item is linked to proper target, otherwise re-link
   local si_link, si_peer = getSiLinkAndSiPeer (si, si_props)
   if si_link then
-    if si_peer and si_peer.id == si_target.id then
+    if si_peer and si_target and si_peer.id == si_target.id then
       Log.debug (si, "... already linked to proper target")
       return
     end
@@ -320,8 +376,53 @@ function handleLinkable (si)
     end
   end
 
-  -- create new link
-  createLink (si, si_target)
+  -- if the stream has dont-reconnect and was already linked before,
+  -- don't link it to a new target
+  if not reconnect and si_flags[si.id].was_handled then
+    si_target = nil
+  end
+
+  -- check target's availability
+  if si_target then
+    local target_is_linked, target_is_exclusive = isLinked(si_target)
+    if target_is_exclusive then
+      Log.info(si, "... target is linked exclusively")
+      si_target = nil
+    end
+
+    if target_is_linked then
+      if exclusive or must_passthrough then
+        Log.info(si, "... target is already linked, cannot link exclusively")
+        si_target = nil
+      else
+        -- disable passthrough, we can live without it
+        can_passthrough = false
+      end
+    end
+  end
+
+  if not si_target then
+    Log.info (si, "... target not found, reconnect:" .. tostring(reconnect))
+
+    local node = si:get_associated_proxy ("node")
+    if not reconnect then
+      Log.info (si, "... destroy node")
+      node:request_destroy()
+    end
+
+    local client_id = node.properties["client.id"]
+    if client_id then
+      local client = clients_om:lookup {
+          Constraint { "bound-id", "=", client_id, type = "gobject" }
+      }
+      if client then
+        client:send_error(node["bound-id"], -2, "no node available")
+      end
+    end
+  else
+    createLink (si, si_target, can_passthrough, exclusive)
+    si_flags[si.id].was_handled = true
+  end
 end
 
 function unhandleLinkable (si)
@@ -341,6 +442,8 @@ function unhandleLinkable (si)
       Log.info (silink, "... link removed")
     end
   end
+
+  si_flags[si.id] = nil
 end
 
 function rescan()
@@ -367,6 +470,8 @@ metadata_om = ObjectManager {
 }
 
 endpoints_om = ObjectManager { Interest { type = "SiEndpoint" } }
+
+clients_om = ObjectManager { Interest { type = "client" } }
 
 linkables_om = ObjectManager {
   Interest {
@@ -441,5 +546,6 @@ end)
 
 metadata_om:activate()
 endpoints_om:activate()
+clients_om:activate()
 linkables_om:activate()
 links_om:activate()

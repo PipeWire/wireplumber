@@ -23,6 +23,7 @@ struct _WpSiStandardLink
   const gchar *out_item_port_context;
   const gchar *in_item_port_context;
   gboolean passive;
+  gboolean passthrough;
 
   /* activate */
   GPtrArray *node_links;
@@ -59,6 +60,7 @@ si_standard_link_reset (WpSessionItem * item)
   self->out_item_port_context = NULL;
   self->in_item_port_context = NULL;
   self->passive = FALSE;
+  self->passthrough = FALSE;
 
   WP_SESSION_ITEM_CLASS (si_standard_link_parent_class)->reset (item);
 }
@@ -108,11 +110,10 @@ si_standard_link_configure (WpSessionItem * item, WpProperties * p)
       "in.item.port.context");
 
   str = wp_properties_get (si_props, "passive");
-  if (str && sscanf(str, "%u", &self->passive) != 1)
-    return FALSE;
-  if (!str)
-    wp_properties_setf (si_props, "passive", "%u",
-        self->passive);
+  self->passive = str && pw_properties_parse_bool (str);
+
+  str = wp_properties_get (si_props, "passthrough");
+  self->passthrough = str && pw_properties_parse_bool (str);
 
   g_weak_ref_set(&self->out_item, out_item);
   g_weak_ref_set(&self->in_item, in_item);
@@ -340,23 +341,24 @@ on_main_adapter_ready (GObject *obj, GAsyncResult * res, gpointer p)
 
   si_out = WP_SI_ADAPTER (g_weak_ref_get (&self->out_item));
   si_in = WP_SI_ADAPTER (g_weak_ref_get (&self->in_item));
-
   g_return_if_fail (si_out);
   g_return_if_fail (si_in);
 
-  /* get format and mode */
-  other = si_out;
-  format = wp_si_adapter_get_ports_format (si_out, &mode);
-  if (!format) {
-    other = si_in;
-    format = wp_si_adapter_get_ports_format (si_in, &mode);
-  }
+  /* get the other adapter */
+  other = ((gpointer)obj == (gpointer)si_in) ? si_out : si_in;
 
-  g_return_if_fail (mode);
-  g_return_if_fail (format);
-  wp_si_adapter_set_ports_format (other, wp_spa_pod_ref (format),
-      g_strcmp0 (mode, "dsp") == 0 ? "dsp" : "convert",
-      on_adapters_ready, transition);
+  if (self->passthrough) {
+    wp_si_adapter_set_ports_format (other, NULL, "passthrough",
+        on_adapters_ready, transition);
+  } else {
+    format = wp_si_adapter_get_ports_format (WP_SI_ADAPTER (obj), &mode);
+    g_return_if_fail (mode);
+    g_return_if_fail (format);
+
+    wp_si_adapter_set_ports_format (other, wp_spa_pod_ref (format),
+        g_strcmp0 (mode, "dsp") == 0 ? "dsp" : "convert",
+        on_adapters_ready, transition);
+  }
 }
 
 static gboolean
@@ -366,7 +368,7 @@ ports_format_compatible (WpSpaPod *out_format, WpSpaPod *in_format,
   if (!out_format || !in_format || !out_mode || !in_mode)
     return FALSE;
   return wp_spa_pod_equal (out_format, in_format) &&
-      (g_strcmp0 (out_mode, "dsp") == 0) == (g_strcmp0 (in_mode, "dsp") == 0);
+      (g_strcmp0 (out_mode, "dsp") == 0) && (g_strcmp0 (in_mode, "dsp") == 0);
 }
 
 static void
@@ -377,6 +379,12 @@ configure_and_link (WpSiStandardLink *self, WpSiAdapter *main,
   const gchar *other_mode = NULL;
   g_autoptr (WpSpaPod) main_fmt = NULL;
   g_autoptr (WpSpaPod) other_fmt = NULL;
+
+  if (self->passthrough) {
+    wp_si_adapter_set_ports_format (main, NULL, "passthrough",
+        on_main_adapter_ready, transition);
+    return;
+  }
 
   main_fmt = wp_si_adapter_get_ports_format (main, &main_mode);
   other_fmt = wp_si_adapter_get_ports_format (other, &other_mode);

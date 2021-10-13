@@ -238,6 +238,12 @@ si_audio_adapter_configure (WpSessionItem * item, WpProperties *p)
 
   self->node = g_object_ref (node);
 
+  wp_properties_set (si_props, "item.node.supports-encoded-fmts",
+      self->have_encoded ? "true" : "false");
+
+  wp_properties_set (si_props, "item.node.encoded-only",
+      self->encoded_only ? "true" : "false");
+
   wp_properties_set (si_props, "item.factory.name", SI_FACTORY_NAME);
   wp_session_item_set_properties (item, g_steal_pointer (&si_props));
   return TRUE;
@@ -578,7 +584,7 @@ si_audio_adapter_set_ports_format (WpSiAdapter * item, WpSpaPod *f,
   }
 
   /* build default format if NULL was given */
-  if (!format) {
+  if (!format && !g_strcmp0 (mode, "dsp")) {
     format = build_adapter_default_format (self, mode);
     g_return_if_fail (format);
   }
