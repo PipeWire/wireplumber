@@ -607,6 +607,10 @@ si_audio_adapter_set_ports_format (WpSiAdapter * item, WpSpaPod *f,
   self->format = g_steal_pointer (&format);
   strncpy (self->mode, mode ? mode : "dsp", sizeof (self->mode) - 1);
 
+  /* ensure the node is suspended */
+  if (wp_node_get_state (self->node, NULL) >= WP_NODE_STATE_IDLE)
+    wp_node_send_command (self->node, "Suspend");
+
   /* configure DSP with chosen format */
   wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (self->node),
       "PortConfig", 0, wp_spa_pod_new_object (
