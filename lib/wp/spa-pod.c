@@ -2313,9 +2313,14 @@ wp_spa_pod_builder_add_valist (WpSpaPodBuilder *self, va_list args)
       case 'P':  /* Pod */
       case 'V':  /* Choice */
       case 'O':  /* Object */
-      case 'T':  /* Struct */
-        spa_pod_builder_primitive (&self->builder, va_arg(args, WpSpaPod *)->pod);
+      case 'T': { /* Struct */
+        WpSpaPod *arg = va_arg(args, WpSpaPod *);
+        if (arg == NULL)
+          spa_pod_builder_none (&self->builder);
+        else
+          spa_pod_builder_primitive (&self->builder, arg->pod);
         break;
+      }
       case 'K': { /* Id as string - WirePlumber extension */
         const char * id = va_arg(args, const char *);
         if (key) {
