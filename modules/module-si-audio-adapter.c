@@ -151,16 +151,28 @@ si_audio_adapter_find_format (WpSiAudioAdapter * self, WpNode * node)
     switch (msubtype) {
     case SPA_MEDIA_SUBTYPE_raw: {
       struct spa_audio_info_raw raw_format;
+      struct spa_pod *position = NULL;
       wp_spa_pod_fixate (pod);
 
       /* defaults */
+      spa_zero(raw_format);
       raw_format.format = SPA_AUDIO_FORMAT_F32;
       raw_format.rate = si_audio_adapter_get_default_clock_rate (self);
       raw_format.channels = 2;
       raw_format.position[0] = SPA_AUDIO_CHANNEL_FL;
       raw_format.position[1] = SPA_AUDIO_CHANNEL_FR;
 
-      spa_format_audio_raw_parse (wp_spa_pod_get_spa_pod (pod), &raw_format);
+      if (spa_pod_parse_object(wp_spa_pod_get_spa_pod (pod),
+                               SPA_TYPE_OBJECT_Format, NULL,
+                               SPA_FORMAT_AUDIO_format,   SPA_POD_Id(&raw_format.format),
+                               SPA_FORMAT_AUDIO_rate,     SPA_POD_OPT_Int(&raw_format.rate),
+                               SPA_FORMAT_AUDIO_channels, SPA_POD_Int(&raw_format.channels),
+                               SPA_FORMAT_AUDIO_position, SPA_POD_OPT_Pod(&position)) < 0)
+        continue;
+
+      if (position == NULL ||
+          !spa_pod_copy_array(position, SPA_TYPE_Id, raw_format.position, SPA_AUDIO_MAX_CHANNELS))
+        SPA_FLAG_SET(raw_format.flags, SPA_AUDIO_FLAG_UNPOSITIONED);
 
       if (self->raw_format.channels < raw_format.channels) {
         self->raw_format = raw_format;
