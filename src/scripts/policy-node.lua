@@ -15,7 +15,7 @@ config.follow = config.follow or false
 local pending_rescan = false
 
 function parseBool(var)
-  return var and (var == "true" or var == "1")
+  return var and (var:lower() == "true" or var == "1")
 end
 
 function createLink (si, si_target, passthrough, exclusive)
