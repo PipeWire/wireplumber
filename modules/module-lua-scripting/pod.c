@@ -1154,9 +1154,39 @@ spa_pod_parse (lua_State *L)
   return 1;
 }
 
+static int
+spa_pod_fixate (lua_State *L)
+{
+  WpSpaPod *pod = wplua_checkboxed (L, 1, WP_TYPE_SPA_POD);
+  gboolean res = wp_spa_pod_fixate (pod);
+  lua_pushboolean (L, res);
+  return 1;
+}
+
+static inline WpSpaPod *
+_checkpod (lua_State *L, int n)
+{
+  return wplua_checkboxed (L, n, WP_TYPE_SPA_POD);
+}
+
+static int
+spa_pod_filter (lua_State *L)
+{
+  WpSpaPod *pod = wplua_checkboxed (L, 1, WP_TYPE_SPA_POD);
+  WpSpaPod *filter = luaL_opt (L, _checkpod, 2, NULL);
+  WpSpaPod *result = wp_spa_pod_filter (pod, filter);
+  if (result) {
+    wplua_pushboxed (L, WP_TYPE_SPA_POD, result);
+    return 1;
+  }
+  return 0;
+}
+
 static const luaL_Reg spa_pod_methods[] = {
   { "get_type_name", spa_pod_get_type_name },
   { "parse", spa_pod_parse },
+  { "fixate", spa_pod_fixate },
+  { "filter", spa_pod_filter },
   { NULL, NULL }
 };
 
