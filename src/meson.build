@@ -14,7 +14,7 @@ install_subdir('scripts',
 subdir('systemd')
 subdir('tools')
 
-executable('wireplumber',
+wireplumber = executable('wireplumber',
   wp_sources,
   c_args : [
     '-D_GNU_SOURCE',
