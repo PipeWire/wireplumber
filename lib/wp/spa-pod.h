@@ -289,6 +289,9 @@ WpIterator *wp_spa_pod_new_iterator (WpSpaPod *pod);
 WP_API
 gboolean wp_spa_pod_fixate (WpSpaPod *self);
 
+WP_API
+WpSpaPod *wp_spa_pod_filter (WpSpaPod *self, WpSpaPod *filter);
+
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpSpaPod, wp_spa_pod_unref)
 
 
