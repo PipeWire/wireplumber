@@ -24,6 +24,10 @@ WP_API
 G_DECLARE_FINAL_TYPE (WpClient, wp_client, WP, CLIENT, WpGlobalProxy)
 
 WP_API
+void wp_client_send_error (WpClient * self, guint32 id, int res,
+    const gchar * message);
+
+WP_API
 void wp_client_update_permissions (WpClient * self, guint n_perm, ...);
 
 WP_API

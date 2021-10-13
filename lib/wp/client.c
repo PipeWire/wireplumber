@@ -111,6 +111,29 @@ wp_client_pw_object_mixin_priv_interface_init (
 }
 
 /*!
+ * \brief Send an error to the client
+ *
+ * \ingroup wpclient
+ * \param self the client
+ * \param id the global id to report the error on
+ * \param res an errno style error code
+ * \param message the error message string
+ */
+void
+wp_client_send_error (WpClient * self, guint32 id, int res,
+    const gchar * message)
+{
+  struct pw_client *pwp;
+
+  g_return_if_fail (WP_IS_CLIENT (self));
+
+  pwp = (struct pw_client *) wp_proxy_get_pw_proxy (WP_PROXY (self));
+  g_return_if_fail (pwp != NULL);
+
+  pw_client_error (pwp, id, res, message);
+}
+
+/*!
  * \brief Update client's permissions on a list of objects.
  *
  * An object id of `-1` can be used to set the default object permissions
