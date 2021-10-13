@@ -63,10 +63,23 @@ load_components (lua_State *L, WpCore * core, GError ** error)
       args = wplua_lua_to_gvariant (L, -1);
     }
 
-    wp_debug ("load component: %s (%s)", component, type);
+    gboolean optional = FALSE;
+    if (lua_getfield (L, table, "optional") == LUA_TBOOLEAN) {
+      optional = lua_toboolean (L, -1);
+    }
 
-    if (!wp_core_load_component (core, component, type, args, error))
-      return FALSE;
+    wp_debug ("load component: %s (%s) optional(%s)",
+     component, type, (optional ? "true" : "false"));
+
+    g_autoptr (GError) load_error = NULL;
+    if (!wp_core_load_component (core, component, type, args, &load_error)) {
+      if (!optional) {
+        g_propagate_error (error, g_steal_pointer (&load_error));
+        return FALSE;
+      } else {
+        wp_message ("%s", load_error->message);
+      }
+    }
 
     /* clear the stack up to the key */
     lua_settop (L, key);

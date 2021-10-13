@@ -8,5 +8,5 @@ function bluez_monitor.enable()
     rules = bluez_monitor.rules,
   })
 
-  load_module("logind")
+  load_optional_module("logind")
 end
