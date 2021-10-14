@@ -749,7 +749,7 @@ on_proxy_ready (GObject * proxy, GAsyncResult * res, gpointer data)
   self->pending_objects--;
 
   if (!wp_object_activate_finish (WP_OBJECT (proxy), res, &error)) {
-    wp_message_object (self, "proxy activation failed: %s", error->message);
+    wp_debug_object (self, "proxy activation failed: %s", error->message);
   } else {
     wp_object_manager_add_object (self, proxy);
   }
