@@ -282,6 +282,11 @@ create_links (WpSiStandardLink * self, WpTransition * transition,
         best_port = in_port;
       }
     }
+
+    /* not all output ports have to be linked ... */
+    if (!best_port || best_port->visited)
+      continue;
+
     best_port->visited = TRUE;
 
     /* Create the properties */
