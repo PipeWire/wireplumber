@@ -432,6 +432,27 @@ wp_log_set_level (const gchar * level_str)
     pw_free_strv (tokens);
 }
 
+static gboolean
+is_category_enabled(const gchar *log_domain)
+{
+  GPatternSpec **cat = enabled_categories;
+  guint len;
+  g_autofree gchar *reverse_domain = NULL;
+
+  if (!enabled_categories)
+    return true;
+
+  len = strlen (log_domain);
+  reverse_domain = g_strreverse (g_strndup (log_domain, len));
+
+  cat = enabled_categories;
+  while (*cat && !g_pattern_match (*cat, len, log_domain, reverse_domain))
+    cat++;
+
+  /* NULL if we reached the end without matching */
+  return (*cat != NULL);
+}
+
 /*!
  * \brief WirePlumber's GLogWriterFunc
  *
@@ -472,23 +493,8 @@ wp_log_writer_default (GLogLevelFlags log_level,
     cf.log_domain = "default";
 
   /* check if debug category is enabled */
-  if (enabled_categories) {
-    GPatternSpec **cat = enabled_categories;
-    guint len;
-    g_autofree gchar *reverse_domain = NULL;
-
-    len = strlen (cf.log_domain);
-    reverse_domain = g_strreverse (g_strndup (cf.log_domain, len));
-
-    cat = enabled_categories;
-    while (*cat && !g_pattern_match (*cat, len, cf.log_domain, reverse_domain))
-      cat++;
-
-    /* reached the end of the enabled categories,
-       therefore our category is not enabled */
-    if (*cat == NULL)
-      return G_LOG_WRITER_UNHANDLED;
-  }
+  if (!is_category_enabled(cf.log_domain))
+    return G_LOG_WRITER_UNHANDLED;
 
   /* format the message to include the object */
   if (cf.object_type && cf.message) {
@@ -560,9 +566,10 @@ wp_log_structured_standard (
   g_log_structured_array (log_level, fields, n_fields);
 }
 
-static G_GNUC_PRINTF (6, 0) void
-wp_spa_log_logv (void *object,
+static G_GNUC_PRINTF (7, 0) void
+wp_spa_log_logtv (void *object,
     enum spa_log_level level,
+    const struct spa_log_topic *topic,
     const char *file,
     int line,
     const char *func,
@@ -587,7 +594,37 @@ wp_spa_log_logv (void *object,
   sprintf (line_str, "%d", line);
   fields[4].value = message = g_strdup_vprintf (fmt, args);
 
+  if (topic)
+    fields[5].value = topic->topic;
+
   g_log_structured_array (log_level, fields, SPA_N_ELEMENTS (fields));
+}
+
+static G_GNUC_PRINTF (7, 8) void
+wp_spa_log_logt (void *object,
+    enum spa_log_level level,
+    const struct spa_log_topic *topic,
+    const char *file,
+    int line,
+    const char *func,
+    const char *fmt, ...)
+{
+  va_list args;
+  va_start (args, fmt);
+  wp_spa_log_logtv (object, level, topic, file, line, func, fmt, args);
+  va_end (args);
+}
+
+static G_GNUC_PRINTF (6, 0) void
+wp_spa_log_logv (void *object,
+    enum spa_log_level level,
+    const char *file,
+    int line,
+    const char *func,
+    const char *fmt,
+    va_list args)
+{
+  wp_spa_log_logtv (object, level, NULL, file, line, func, fmt, args);
 }
 
 static G_GNUC_PRINTF (6, 7) void
@@ -600,14 +637,28 @@ wp_spa_log_log (void *object,
 {
   va_list args;
   va_start (args, fmt);
-  wp_spa_log_logv (object, level, file, line, func, fmt, args);
+  wp_spa_log_logtv (object, level, NULL, file, line, func, fmt, args);
   va_end (args);
+}
+
+static void
+wp_spa_log_topic_init (void *object, struct spa_log_topic *topic)
+{
+  if (is_category_enabled(topic->topic)) {
+    topic->has_custom_level = false;
+  } else {
+    topic->has_custom_level = true;
+    topic->level = SPA_LOG_LEVEL_NONE;
+  }
 }
 
 static const struct spa_log_methods wp_spa_log_methods = {
   SPA_VERSION_LOG_METHODS,
   .log = wp_spa_log_log,
   .logv = wp_spa_log_logv,
+  .logt = wp_spa_log_logt,
+  .logtv = wp_spa_log_logtv,
+  .topic_init = wp_spa_log_topic_init,
 };
 
 static struct spa_log wp_spa_log = {
