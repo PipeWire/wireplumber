@@ -617,6 +617,15 @@ si_audio_adapter_set_ports_format (WpSiAdapter * item, WpSpaPod *f,
     return;
   }
 
+  /* skip reconfiguring if the same mode & format are requested */
+  if (!g_strcmp0 (mode, self->mode) &&
+      ((format == NULL && self->format == NULL) ||
+        wp_spa_pod_equal (format, self->format))) {
+    g_autoptr (GTask) t = g_steal_pointer (&self->format_task);
+    g_task_return_boolean (t, TRUE);
+    return;
+  }
+
   /* set format and mode */
   g_clear_pointer (&self->format, wp_spa_pod_unref);
   self->format = g_steal_pointer (&format);
