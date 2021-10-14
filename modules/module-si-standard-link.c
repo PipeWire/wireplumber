@@ -177,17 +177,59 @@ on_link_activated (WpObject * proxy, GAsyncResult * res,
         WP_SESSION_ITEM_FEATURE_ACTIVE, 0);
 }
 
+struct port
+{
+  guint32 node_id;
+  guint32 port_id;
+  guint32 channel;
+  gboolean visited;
+};
+
+static inline bool
+channel_is_aux(guint32 channel)
+{
+  return channel >= SPA_AUDIO_CHANNEL_START_Aux &&
+    channel <= SPA_AUDIO_CHANNEL_LAST_Aux;
+}
+
+static inline int
+score_ports(struct port *out, struct port *in)
+{
+  int score = 0;
+
+  if (out->channel == in->channel)
+    score += 100;
+  else if ((out->channel == SPA_AUDIO_CHANNEL_SL && in->channel == SPA_AUDIO_CHANNEL_RL) ||
+            (out->channel == SPA_AUDIO_CHANNEL_RL && in->channel == SPA_AUDIO_CHANNEL_SL) ||
+            (out->channel == SPA_AUDIO_CHANNEL_SR && in->channel == SPA_AUDIO_CHANNEL_RR) ||
+            (out->channel == SPA_AUDIO_CHANNEL_RR && in->channel == SPA_AUDIO_CHANNEL_SR))
+    score += 60;
+  else if ((out->channel == SPA_AUDIO_CHANNEL_FC && in->channel == SPA_AUDIO_CHANNEL_MONO) ||
+            (out->channel == SPA_AUDIO_CHANNEL_MONO && in->channel == SPA_AUDIO_CHANNEL_FC))
+    score += 50;
+  else if (in->channel == SPA_AUDIO_CHANNEL_UNKNOWN ||
+            channel_is_aux(in->channel) ||
+            in->channel == SPA_AUDIO_CHANNEL_MONO ||
+            out->channel == SPA_AUDIO_CHANNEL_UNKNOWN ||
+            channel_is_aux(out->channel) ||
+            out->channel == SPA_AUDIO_CHANNEL_MONO)
+    score += 10;
+  if (score > 0 && !in->visited)
+    score += 5;
+  if (score <= 10)
+    score = 0;
+  return score;
+}
+
 static gboolean
 create_links (WpSiStandardLink * self, WpTransition * transition,
-    GVariant * out_ports, GVariant * in_ports, gboolean link_all)
+    GVariant * out_ports, GVariant * in_ports)
 {
-  g_autoptr (GPtrArray) in_ports_arr = NULL;
+  g_autoptr (GArray) in_ports_arr = NULL;
   g_autoptr (WpCore) core = NULL;
+  struct port out_port = {0};
+  struct port *in_port;
   GVariantIter *iter = NULL;
-  GVariant *child;
-  guint32 out_node_id, in_node_id;
-  guint32 out_port_id, in_port_id;
-  guint32 out_channel, in_channel;
   guint i;
 
   /* tuple format:
@@ -206,76 +248,66 @@ create_links (WpSiStandardLink * self, WpTransition * transition,
   self->n_async_ops_wait = 0;
   self->node_links = g_ptr_array_new_with_free_func (g_object_unref);
 
-  /* transfer the in ports to an array so that we can
-     delete them when they are linked */
   i = g_variant_n_children (in_ports);
-  in_ports_arr = g_ptr_array_new_full (i, (GDestroyNotify) g_variant_unref);
-  g_ptr_array_set_size (in_ports_arr, i);
+  if (i == 0)
+    return FALSE;
 
+  /* transfer the in ports to an array so that we can
+     mark them when they are linked */
+  in_ports_arr = g_array_sized_new (FALSE, TRUE, sizeof (struct port), i + 1);
+  g_array_set_size (in_ports_arr, i + 1);
   g_variant_get (in_ports, "a(uuu)", &iter);
-  while ((child = g_variant_iter_next_value (iter))) {
-    g_ptr_array_index (in_ports_arr, --i) = child;
-  }
+  i = 0;
+  do {
+    in_port = &g_array_index (in_ports_arr, struct port, i++);
+  } while (g_variant_iter_loop (iter, "(uuu)", &in_port->node_id,
+              &in_port->port_id, &in_port->channel));
   g_variant_iter_free (iter);
 
   /* now loop over the out ports and figure out where they should be linked */
   g_variant_get (out_ports, "a(uuu)", &iter);
-
-  while (g_variant_iter_loop (iter, "(uuu)", &out_node_id, &out_port_id,
-              &out_channel))
+  while (g_variant_iter_loop (iter, "(uuu)", &out_port.node_id,
+              &out_port.port_id, &out_port.channel))
   {
-    for (i = in_ports_arr->len; i > 0; i--) {
-      child = g_ptr_array_index (in_ports_arr, i - 1);
-      g_variant_get (child, "(uuu)", &in_node_id, &in_port_id, &in_channel);
+    int best_score = 0;
+    struct port *best_port = NULL;
+    WpProperties *props = NULL;
+    WpLink *link;
 
-      /* the channel has to match, unless we don't have any information
-         on channel ordering on either side */
-      if (link_all ||
-          out_channel == in_channel ||
-          out_channel == SPA_AUDIO_CHANNEL_UNKNOWN ||
-          in_channel == SPA_AUDIO_CHANNEL_UNKNOWN ||
-          in_channel == SPA_AUDIO_CHANNEL_MONO)
-      {
-        g_autoptr (WpProperties) props = NULL;
-        WpLink *link;
-
-        /* Create the properties */
-        props = wp_properties_new_empty ();
-        wp_properties_setf (props, PW_KEY_LINK_OUTPUT_NODE, "%u", out_node_id);
-        wp_properties_setf (props, PW_KEY_LINK_OUTPUT_PORT, "%u", out_port_id);
-        wp_properties_setf (props, PW_KEY_LINK_INPUT_NODE, "%u", in_node_id);
-        wp_properties_setf (props, PW_KEY_LINK_INPUT_PORT, "%u", in_port_id);
-        if (self->passive)
-          wp_properties_set (props, PW_KEY_LINK_PASSIVE, "true");
-
-        wp_debug_object (self, "create pw link: %u:%u (%s) -> %u:%u (%s)",
-            out_node_id, out_port_id,
-            spa_debug_type_find_name (spa_type_audio_channel, out_channel),
-            in_node_id, in_port_id,
-            spa_debug_type_find_name (spa_type_audio_channel, in_channel));
-
-        /* create the link */
-        link = wp_link_new_from_factory (core, "link-factory",
-            g_steal_pointer (&props));
-        g_ptr_array_add (self->node_links, link);
-
-        /* activate to ensure it is created without errors */
-        self->n_async_ops_wait++;
-        wp_object_activate (WP_OBJECT (link),
-            WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL, NULL,
-            (GAsyncReadyCallback) on_link_activated, transition);
-
-        /* continue to link all input ports, if requested */
-        if (link_all)
-          continue;
-
-        /* remove the linked input port from the array */
-        g_ptr_array_remove_index (in_ports_arr, i - 1);
-
-        /* break out of the for loop; go for the next out port */
-        break;
+    for (i = 0; i < in_ports_arr->len - 1; i++) {
+      in_port = &g_array_index (in_ports_arr, struct port, i);
+      int score = score_ports (&out_port, in_port);
+      if (score > best_score) {
+        best_score = score;
+        best_port = in_port;
       }
     }
+    best_port->visited = TRUE;
+
+    /* Create the properties */
+    props = wp_properties_new_empty ();
+    wp_properties_setf (props, PW_KEY_LINK_OUTPUT_NODE, "%u", out_port.node_id);
+    wp_properties_setf (props, PW_KEY_LINK_OUTPUT_PORT, "%u", out_port.port_id);
+    wp_properties_setf (props, PW_KEY_LINK_INPUT_NODE, "%u", best_port->node_id);
+    wp_properties_setf (props, PW_KEY_LINK_INPUT_PORT, "%u", best_port->port_id);
+    if (self->passive)
+      wp_properties_set (props, PW_KEY_LINK_PASSIVE, "true");
+
+    wp_debug_object (self, "create pw link: %u:%u (%s) -> %u:%u (%s)",
+        out_port.node_id, out_port.port_id,
+        spa_debug_type_find_name (spa_type_audio_channel, out_port.channel),
+        best_port->node_id, best_port->port_id,
+        spa_debug_type_find_name (spa_type_audio_channel, best_port->channel));
+
+    /* create the link */
+    link = wp_link_new_from_factory (core, "link-factory", props);
+    g_ptr_array_add (self->node_links, link);
+
+    /* activate to ensure it is created without errors */
+    self->n_async_ops_wait++;
+    wp_object_activate (WP_OBJECT (link),
+        WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL, NULL,
+        (GAsyncReadyCallback) on_link_activated, transition);
   }
   g_variant_iter_free (iter);
   return self->node_links->len > 0;
@@ -298,7 +330,7 @@ get_ports_and_create_links (WpSiStandardLink *self, WpTransition *transition)
   out_ports = wp_si_linkable_get_ports (si_out, self->out_item_port_context);
   in_ports = wp_si_linkable_get_ports (si_in, self->in_item_port_context);
 
-  if (!create_links (self, transition, out_ports, in_ports, FALSE))
+  if (!create_links (self, transition, out_ports, in_ports))
       wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
           WP_LIBRARY_ERROR_INVARIANT,
           "Failed to create links because of wrong ports"));
@@ -321,17 +353,63 @@ on_adapters_ready (GObject *obj, GAsyncResult * res, gpointer p)
   get_ports_and_create_links (self, transition);
 }
 
+struct adapter
+{
+  WpSiAdapter *si;
+  gboolean is_device;
+  gboolean dont_remix;
+  gboolean unpositioned;
+  gboolean no_dsp;
+  WpSpaPod *fmt;
+  const gchar *mode;
+};
+
+static void
+adapter_free (struct adapter *a)
+{
+  g_clear_object (&a->si);
+  g_clear_pointer (&a->fmt, wp_spa_pod_unref);
+  g_slice_free (struct adapter, a);
+}
+
+static void
+configure_adapter (WpSiStandardLink *self, WpTransition *transition,
+    struct adapter *main, struct adapter *other)
+{
+  /* configure other to have the same format with main, if necessary */
+  if (!main->no_dsp && !other->dont_remix && !other->unpositioned && !main->unpositioned) {
+    /* if formats are the same, no need to reconfigure */
+    if (other->fmt && !g_strcmp0 (main->mode, other->mode)
+        && wp_spa_pod_equal (main->fmt, other->fmt))
+      get_ports_and_create_links (self, transition);
+    else
+      wp_si_adapter_set_ports_format (other->si, wp_spa_pod_ref (main->fmt),
+          "dsp", on_adapters_ready, transition);
+  } else if (main->no_dsp) {
+    /* if formats are the same, no need to reconfigure */
+    if (other->fmt && !g_strcmp0 (other->mode, "convert")
+        && wp_spa_pod_equal (main->fmt, other->fmt))
+      get_ports_and_create_links (self, transition);
+    else
+      wp_si_adapter_set_ports_format (other->si, wp_spa_pod_ref (main->fmt),
+          "convert", on_adapters_ready, transition);
+  } else {
+    /* dont_remix or unpositioned case */
+    if (other->fmt)
+      get_ports_and_create_links (self, transition);
+    else
+      wp_si_adapter_set_ports_format (other->si, NULL,
+          "dsp", on_adapters_ready, transition);
+  }
+}
+
 static void
 on_main_adapter_ready (GObject *obj, GAsyncResult * res, gpointer p)
 {
   WpTransition *transition = p;
   WpSiStandardLink *self = wp_transition_get_source_object (transition);
   g_autoptr (GError) error = NULL;
-  g_autoptr (WpSiAdapter) si_out = NULL;
-  g_autoptr (WpSiAdapter) si_in = NULL;
-  WpSiAdapter *other = NULL;
-  g_autoptr (WpSpaPod) format = NULL;
-  const gchar *mode = NULL;
+  struct adapter *main, *other;
 
   wp_si_adapter_set_ports_format_finish (WP_SI_ADAPTER (obj), res, &error);
   if (error) {
@@ -339,129 +417,112 @@ on_main_adapter_ready (GObject *obj, GAsyncResult * res, gpointer p)
     return;
   }
 
-  si_out = WP_SI_ADAPTER (g_weak_ref_get (&self->out_item));
-  si_in = WP_SI_ADAPTER (g_weak_ref_get (&self->in_item));
-  g_return_if_fail (si_out);
-  g_return_if_fail (si_in);
-
-  /* get the other adapter */
-  other = ((gpointer)obj == (gpointer)si_in) ? si_out : si_in;
+  main = g_object_get_data (G_OBJECT (transition), "adapter_main");
+  other = g_object_get_data (G_OBJECT (transition), "adapter_other");
 
   if (self->passthrough) {
-    wp_si_adapter_set_ports_format (other, NULL, "passthrough",
+    wp_si_adapter_set_ports_format (other->si, NULL, "passthrough",
         on_adapters_ready, transition);
   } else {
-    format = wp_si_adapter_get_ports_format (WP_SI_ADAPTER (obj), &mode);
-    g_return_if_fail (mode);
-    g_return_if_fail (format);
+    /* get the up-to-date formats */
+    g_clear_pointer (&main->fmt, wp_spa_pod_unref);
+    g_clear_pointer (&other->fmt, wp_spa_pod_unref);
+    main->fmt = wp_si_adapter_get_ports_format (main->si, &main->mode);
+    other->fmt = wp_si_adapter_get_ports_format (other->si, &other->mode);
 
-    wp_si_adapter_set_ports_format (other, wp_spa_pod_ref (format),
-        g_strcmp0 (mode, "dsp") == 0 ? "dsp" : "convert",
-        on_adapters_ready, transition);
-  }
-}
-
-static gboolean
-ports_format_compatible (WpSpaPod *out_format, WpSpaPod *in_format,
-    const gchar *out_mode, const gchar *in_mode)
-{
-  if (!out_format || !in_format || !out_mode || !in_mode)
-    return FALSE;
-  return wp_spa_pod_equal (out_format, in_format) &&
-      (g_strcmp0 (out_mode, "dsp") == 0) && (g_strcmp0 (in_mode, "dsp") == 0);
-}
-
-static void
-configure_and_link (WpSiStandardLink *self, WpSiAdapter *main,
-    WpSiAdapter *other, gboolean dont_remix, WpTransition *transition)
-{
-  const gchar *main_mode = NULL;
-  const gchar *other_mode = NULL;
-  g_autoptr (WpSpaPod) main_fmt = NULL;
-  g_autoptr (WpSpaPod) other_fmt = NULL;
-
-  if (self->passthrough) {
-    wp_si_adapter_set_ports_format (main, NULL, "passthrough",
-        on_main_adapter_ready, transition);
-    return;
-  }
-
-  main_fmt = wp_si_adapter_get_ports_format (main, &main_mode);
-  other_fmt = wp_si_adapter_get_ports_format (other, &other_mode);
-
-  /* if dont_remix or ports are compatible, just create the links */
-  if (dont_remix ||
-      ports_format_compatible (main_fmt, other_fmt, main_mode, other_mode)) {
-    get_ports_and_create_links (self, transition);
-    return;
-  }
-
-  /* otherwise configure one or both adapters */
-  if (main_fmt) {
-    g_return_if_fail (main_mode);
-    wp_si_adapter_set_ports_format (other, wp_spa_pod_ref (main_fmt),
-        g_strcmp0 (main_mode, "dsp") == 0 ? "dsp" : "convert",
-        on_adapters_ready, transition);
-  } else if (other_fmt) {
-    g_return_if_fail (other_mode);
-    wp_si_adapter_set_ports_format (main, wp_spa_pod_ref (other_fmt),
-        g_strcmp0 (other_mode, "dsp") == 0 ? "dsp" : "convert",
-        on_adapters_ready, transition);
-  } else {
-    const gchar *str = NULL;
-    gboolean disable_dsp = FALSE;
-    str = wp_session_item_get_property (WP_SESSION_ITEM (main), "item.features.no-dsp");
-    disable_dsp = str && pw_properties_parse_bool (str);
-    wp_si_adapter_set_ports_format (main, NULL,
-        disable_dsp ? "passthrough" : "dsp",
-        on_main_adapter_ready, transition);
+    /* now configure other based on main */
+    configure_adapter (self, transition, main, other);
   }
 }
 
 static void
 configure_and_link_adapters (WpSiStandardLink *self, WpTransition *transition)
 {
-  g_autoptr (WpSiAdapter) si_out = NULL;
-  g_autoptr (WpSiAdapter) si_in = NULL;
-  gboolean out_is_device = FALSE;
-  gboolean in_is_device = FALSE;
-  gboolean in_dont_remix = FALSE;
-  gboolean out_dont_remix = FALSE;
+  struct adapter *out, *in, *main, *other;
   const gchar *str = NULL;
 
-  si_out = WP_SI_ADAPTER (g_weak_ref_get (&self->out_item));
-  si_in = WP_SI_ADAPTER (g_weak_ref_get (&self->in_item));
+  out = g_slice_new0 (struct adapter);
+  in = g_slice_new0 (struct adapter);
+  out->si = WP_SI_ADAPTER (g_weak_ref_get (&self->out_item));
+  in->si = WP_SI_ADAPTER (g_weak_ref_get (&self->in_item));
+  g_return_if_fail (out->si);
+  g_return_if_fail (in->si);
 
-  g_return_if_fail (si_out);
-  g_return_if_fail (si_in);
+  str = wp_session_item_get_property (WP_SESSION_ITEM (out->si), "item.node.type");
+  out->is_device = !g_strcmp0 (str, "device");
+  str = wp_session_item_get_property (WP_SESSION_ITEM (in->si), "item.node.type");
+  in->is_device = !g_strcmp0 (str, "device");
 
-  str = wp_session_item_get_property (WP_SESSION_ITEM (si_out), "item.node.type");
-  out_is_device = !g_strcmp0 (str, "device");
-  str = wp_session_item_get_property (WP_SESSION_ITEM (si_in), "item.node.type");
-  in_is_device = !g_strcmp0 (str, "device");
+  str = wp_session_item_get_property (WP_SESSION_ITEM (out->si), "item.factory.name");
+  out->is_device = (str && !g_strcmp0 (str, "si-audio-endpoint") && !in->is_device)
+      || out->is_device;
+  str = wp_session_item_get_property (WP_SESSION_ITEM (in->si), "item.factory.name");
+  in->is_device = (str && !g_strcmp0 (str, "si-audio-endpoint") && !out->is_device)
+      || in->is_device;
 
-  str = wp_session_item_get_property (WP_SESSION_ITEM (si_out), "item.factory.name");
-  out_is_device = (str && !g_strcmp0 (str, "si-audio-endpoint") && !in_is_device)
-      || out_is_device;
-  str = wp_session_item_get_property (WP_SESSION_ITEM (si_in), "item.factory.name");
-  in_is_device = (str && !g_strcmp0 (str, "si-audio-endpoint") && !out_is_device)
-      || in_is_device;
+  str = wp_session_item_get_property (WP_SESSION_ITEM (out->si), "stream.dont-remix");
+  out->dont_remix = str && pw_properties_parse_bool (str);
+  str = wp_session_item_get_property (WP_SESSION_ITEM (in->si), "stream.dont-remix");
+  in->dont_remix = str && pw_properties_parse_bool (str);
 
-  str = wp_session_item_get_property (WP_SESSION_ITEM (si_out), "stream.dont-remix");
-  out_dont_remix = str && pw_properties_parse_bool (str);
-  str = wp_session_item_get_property (WP_SESSION_ITEM (si_in), "stream.dont-remix");
-  in_dont_remix = str && pw_properties_parse_bool (str);
+  str = wp_session_item_get_property (WP_SESSION_ITEM (out->si), "item.node.unpositioned");
+  out->unpositioned = str && pw_properties_parse_bool (str);
+  str = wp_session_item_get_property (WP_SESSION_ITEM (in->si), "item.node.unpositioned");
+  in->unpositioned = str && pw_properties_parse_bool (str);
 
-  wp_debug_object (self, "out [device:%d, dont_remix %d], "
-      "in: [device %d, dont_remix %d]",
-      out_is_device, out_dont_remix,
-      in_is_device, in_dont_remix);
+  str = wp_session_item_get_property (WP_SESSION_ITEM (out->si), "item.features.no-dsp");
+  out->no_dsp = str && pw_properties_parse_bool (str);
+  str = wp_session_item_get_property (WP_SESSION_ITEM (in->si), "item.features.no-dsp");
+  in->no_dsp = str && pw_properties_parse_bool (str);
 
-  /* we always use si_out format, unless si_in is device */
-  if (!out_is_device && in_is_device)
-    configure_and_link (self, si_in, si_out, out_dont_remix, transition);
-  else
-    configure_and_link (self, si_out, si_in, in_dont_remix, transition);
+  wp_debug_object (self, "out [device:%d, dont_remix %d, unpos %d], "
+      "in: [device %d, dont_remix %d, unpos %d]",
+      out->is_device, out->dont_remix, out->unpositioned,
+      in->is_device, in->dont_remix, in->unpositioned);
+
+  /* we always use out->si format, unless in->si is device */
+  if (!out->is_device && in->is_device) {
+    main = in;
+    other = out;
+  } else {
+    main = out;
+    other = in;
+  }
+
+  /* always configure both adapters in passthrough mode
+     if this is a passthrough link */
+  if (self->passthrough) {
+    g_object_set_data_full (G_OBJECT (transition), "adapter_main", main,
+        (GDestroyNotify) adapter_free);
+    g_object_set_data_full (G_OBJECT (transition), "adapter_other", other,
+        (GDestroyNotify) adapter_free);
+    wp_si_adapter_set_ports_format (main->si, NULL, "passthrough",
+        on_main_adapter_ready, transition);
+    return;
+  }
+
+  main->fmt = wp_si_adapter_get_ports_format (main->si, &main->mode);
+  other->fmt = wp_si_adapter_get_ports_format (other->si, &other->mode);
+
+  if (main->fmt)
+    /* ideally, configure other based on main */
+    configure_adapter (self, transition, main, other);
+  else if (other->fmt)
+    /* if main is not configured but other is, do it the other way around */
+    configure_adapter (self, transition, other, main);
+  else {
+    /* no adapter configured, let's configure main first */
+    g_object_set_data_full (G_OBJECT (transition), "adapter_main", main,
+        (GDestroyNotify) adapter_free);
+    g_object_set_data_full (G_OBJECT (transition), "adapter_other", other,
+        (GDestroyNotify) adapter_free);
+    wp_si_adapter_set_ports_format (main->si, NULL,
+        main->no_dsp ? "passthrough" : "dsp", on_main_adapter_ready, transition);
+    return;
+  }
+
+  adapter_free (main);
+  adapter_free (other);
 }
 
 static void

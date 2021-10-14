@@ -256,6 +256,9 @@ si_audio_adapter_configure (WpSessionItem * item, WpProperties *p)
   wp_properties_set (si_props, "item.node.encoded-only",
       self->encoded_only ? "true" : "false");
 
+  wp_properties_set (si_props, "item.node.unpositioned",
+      self->is_unpositioned ? "true" : "false");
+
   wp_properties_set (si_props, "item.factory.name", SI_FACTORY_NAME);
   wp_session_item_set_properties (item, g_steal_pointer (&si_props));
   return TRUE;
