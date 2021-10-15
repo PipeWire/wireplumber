@@ -359,21 +359,25 @@ function handleLinkable (si)
   end
 
   -- Check if item is linked to proper target, otherwise re-link
-  local si_link, si_peer = getSiLinkAndSiPeer (si, si_props)
-  if si_link then
-    if si_peer and si_target and si_peer.id == si_target.id then
-      Log.debug (si, "... already linked to proper target")
-      return
-    end
+  if si_target and si_flags[si.id].was_handled then
+    local si_link, si_peer = getSiLinkAndSiPeer (si, si_props)
+    if si_link then
+      if si_peer and si_peer.id == si_target.id then
+        Log.debug (si, "... already linked to proper target")
+        return
+      end
 
-    -- only remove old link if active, otherwise schedule rescan
-    if ((si_link:get_active_features() & Feature.SessionItem.ACTIVE) ~= 0) then
-      si_link:remove ()
-      Log.info (si, "... moving to new target")
-    else
-      pending_rescan = true
-      Log.info (si, "... scheduled rescan")
-      return
+      if reconnect then
+        -- remove old link if active, otherwise schedule rescan
+        if ((si_link:get_active_features() & Feature.SessionItem.ACTIVE) ~= 0) then
+          si_link:remove ()
+          Log.info (si, "... moving to new target")
+        else
+          pending_rescan = true
+          Log.info (si, "... scheduled rescan")
+          return
+        end
+      end
     end
   end
 
