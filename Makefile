@@ -14,7 +14,7 @@ clean:
 
 run: all
 	WIREPLUMBER_DEBUG=$(WIREPLUMBER_DEBUG) \
-	./wp-uninstalled.sh $(DBG) ./build/src/wireplumber
+	./wp-uninstalled.sh $(DBG) wireplumber
 
 test:
 	meson test -C build
