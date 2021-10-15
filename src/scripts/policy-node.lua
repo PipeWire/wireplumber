@@ -349,6 +349,25 @@ function handleLinkable (si)
     si_target = nil
   end
 
+  -- wait up to 2 seconds for the requested target to become available
+  -- this is because the client may have already "seen" a target that we haven't
+  -- yet prepared, which leads to a race condition
+  if si_props["node.target"]
+      and not si_target
+      and not si_flags[si.id].was_handled
+      and not si_flags[si.id].done_waiting then
+    if not si_flags[si.id].timeout_source then
+      si_flags[si.id].timeout_source = Core.timeout_add(2000, function()
+        si_flags[si.id].done_waiting = true
+        si_flags[si.id].timeout_source = nil
+        rescan()
+        return false
+      end)
+    end
+    Log.info (si, "... waiting for target")
+    return
+  end
+
   -- find fallback target
   if not si_target then
     si_target = findUndefinedTarget(si_props)
