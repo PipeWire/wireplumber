@@ -7,6 +7,9 @@ option('system-lua', type : 'boolean', value : 'false',
 option('system-lua-version',
        type: 'string', value : 'auto',
        description: 'The system lua version to use or "auto" for auto-detection')
+option('elogind',
+	type: 'feature', value : 'auto',
+	description: 'Enable elogind integration')
 option('systemd',
        type: 'feature', value: 'auto',
        description: 'Enable installing systemd units & logind integration')

@@ -81,8 +81,10 @@ summary({'Lua version': lua_dep.version() + (system_lua ? ' (system)' : ' (built
 
 systemd = dependency('systemd', required: get_option('systemd'))
 libsystemd_dep = dependency('libsystemd',required: get_option('systemd'))
+libelogind_dep = dependency('libelogind', required: get_option('elogind'))
 summary({'systemd conf data': systemd.found(),
-         'libsystemd': libsystemd_dep.found()}, bool_yn: true)
+         'libsystemd': libsystemd_dep.found(),
+         'libelogind': libelogind_dep.found()}, bool_yn: true)
 
 gnome = import('gnome')
 pkgconfig = import('pkgconfig')
