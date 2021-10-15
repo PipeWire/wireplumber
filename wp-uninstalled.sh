@@ -22,11 +22,11 @@ while getopts ":b:c:" opt; do
       ;;
     \?)
       echo "Invalid option: -${OPTARG}"
-      exit -1
+      exit 1
       ;;
     :)
       echo "Option -${OPTARG} requires an argument"
-      exit -1
+      exit 1
       ;;
   esac
 done
@@ -35,7 +35,7 @@ shift $((OPTIND-1))
 
 if [ ! -d ${BUILDDIR} ]; then
   echo "Invalid build directory: ${BUILDDIR}"
-  exit -1
+  exit 1
 fi
 
 export WIREPLUMBER_MODULE_DIR="${BUILDDIR}/modules"
