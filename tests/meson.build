@@ -3,7 +3,7 @@ if valgrind.found()
 
   glib_supp = get_option('glib-supp')
   if glib_supp == ''
-    glib_supp = glib_dep.get_pkgconfig_variable('prefix')
+    glib_supp = glib_dep.get_variable(pkgconfig: 'prefix')
     glib_supp = glib_supp / 'share' / 'glib-2.0' / 'valgrind' / 'glib.supp'
   endif
   if fs.is_file(glib_supp)

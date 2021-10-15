@@ -4,9 +4,9 @@ if systemd.found()
 
   # system service
   if get_option('systemd-system-service')
-    systemd_system_unit_dir = systemd.get_pkgconfig_variable(
-        'systemdsystemunitdir',
-        define_variable : ['prefix', get_option('prefix')])
+    systemd_system_unit_dir = systemd.get_variable(
+        pkgconfig: 'systemdsystemunitdir',
+        pkgconfig_define: ['prefix', get_option('prefix')])
 
     if get_option('systemd-system-unit-dir') != ''
       systemd_system_unit_dir = get_option('systemd-system-unit-dir')
@@ -17,9 +17,9 @@ if systemd.found()
 
   # user service
   if get_option('systemd-user-service')
-    systemd_user_unit_dir = systemd.get_pkgconfig_variable(
-        'systemduserunitdir',
-        define_variable : ['prefix', get_option('prefix')])
+    systemd_user_unit_dir = systemd.get_variable(
+        pkgconfig: 'systemduserunitdir',
+        pkgconfig_define: ['prefix', get_option('prefix')])
 
     if get_option('systemd-user-unit-dir') != ''
       systemd_user_unit_dir = get_option('systemd-user-unit-dir')
