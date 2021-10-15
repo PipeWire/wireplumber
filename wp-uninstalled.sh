@@ -33,6 +33,11 @@ done
 
 shift $((OPTIND-1))
 
+if [ $# -eq 0 ]; then
+  echo "Usage: $(basename ${BASH_SOURCE[0]}) [options] <wireplumber|wpctl|wpexec|...>"
+  exit 1
+fi
+
 if [ ! -d ${BUILDDIR} ]; then
   echo "Invalid build directory: ${BUILDDIR}"
   exit 1
