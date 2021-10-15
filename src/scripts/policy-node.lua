@@ -64,8 +64,8 @@ function createLink (si, si_target, passthrough, exclusive)
 
   -- activate
   si_link:activate (Feature.SessionItem.ACTIVE, function (l, e)
-    if e ~= nil then
-      Log.warning (l, "failed to activate si-standard-link")
+    if e then
+      Log.warning (l, "failed to activate si-standard-link: " .. tostring(e))
       si_link:remove ()
     else
       Log.info (l, "activated si-standard-link")
@@ -329,7 +329,8 @@ function handleLinkable (si)
     return
   end
 
-  Log.info (si, "handling item: " .. tostring(si_props["node.name"]))
+  Log.info (si, string.format("handling item: %s (%s)",
+      tostring(si_props["node.name"]), tostring(si_props["node.id"])))
 
   -- prepare flags table
   if not si_flags[si.id] then
@@ -413,7 +414,7 @@ function handleLinkable (si)
     local client_id = node.properties["client.id"]
     if client_id then
       local client = clients_om:lookup {
-          Constraint { "bound-id", "=", client_id, type = "gobject" }
+        Constraint { "bound-id", "=", client_id, type = "gobject" }
       }
       if client then
         client:send_error(node["bound-id"], -2, "no node available")
@@ -431,7 +432,8 @@ function unhandleLinkable (si)
     return
   end
 
-  Log.info (si, "unhandling item: " .. tostring(si_props["node.name"]))
+  Log.info (si, string.format("unhandling item: %s (%s)",
+      tostring(si_props["node.name"]), tostring(si_props["node.id"])))
 
   -- remove any links associated with this item
   for silink in links_om:iterate() do
