@@ -70,6 +70,7 @@ _wplua_closure_marshal (GClosure *closure, GValue *return_value,
     guint n_param_values, const GValue *param_values,
     gpointer invocation_hint, gpointer marshal_data)
 {
+  static int reentrant = 0;
   lua_State *L = closure->data;
   int func_ref = ((WpLuaClosure *) closure)->func_ref;
 
@@ -77,9 +78,9 @@ _wplua_closure_marshal (GClosure *closure, GValue *return_value,
   if (func_ref == LUA_NOREF || func_ref == LUA_REFNIL)
     return;
 
-  /* clear the stack and stop the garbage collector for now */
-  lua_settop (L, 0);
-  lua_gc (L, LUA_GCSTOP, 0);
+  /* stop the garbage collector */
+  if (reentrant == 0)
+    lua_gc (L, LUA_GCSTOP, 0);
 
   /* push the function */
   lua_rawgeti (L, LUA_REGISTRYINDEX, func_ref);
@@ -89,16 +90,20 @@ _wplua_closure_marshal (GClosure *closure, GValue *return_value,
     wplua_gvalue_to_lua (L, &param_values[i]);
 
   /* call in protected mode */
+  reentrant++;
   int res = _wplua_pcall (L, n_param_values, return_value ? 1 : 0);
+  reentrant--;
 
   /* handle the result */
-  if (res == LUA_OK && return_value && lua_gettop (L) >= 1)
-    wplua_lua_to_gvalue (L, 1, return_value);
+  if (res == LUA_OK && return_value) {
+    wplua_lua_to_gvalue (L, -1, return_value);
+    lua_pop (L, 1);
+  }
 
-  /* clear the stack and clean up */
-  lua_settop (L, 0);
+  /* clean up */
   lua_gc (L, LUA_GCCOLLECT, 0);
-  lua_gc (L, LUA_GCRESTART, 0);
+  if (reentrant == 0)
+    lua_gc (L, LUA_GCRESTART, 0);
 }
 
 static void
