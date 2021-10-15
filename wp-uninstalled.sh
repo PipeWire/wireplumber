@@ -43,6 +43,8 @@ if [ ! -d ${BUILDDIR} ]; then
   exit 1
 fi
 
+echo "Using build directory: ${BUILDDIR}"
+
 export WIREPLUMBER_MODULE_DIR="${BUILDDIR}/modules"
 export WIREPLUMBER_CONFIG_DIR="${SOURCEDIR}/src/${CONFIGDIR}"
 export WIREPLUMBER_DATA_DIR="${SOURCEDIR}/src"
