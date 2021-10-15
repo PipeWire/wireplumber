@@ -26,4 +26,5 @@ gdb:
 	$(MAKE) run DBG=gdb
 
 valgrind:
-	$(MAKE) run DBG=valgrind
+	G_SLICE=always-malloc \
+	$(MAKE) run DBG="valgrind --leak-check=full"
