@@ -1,7 +1,7 @@
 project('wireplumber', ['c'],
   version : '0.4.3',
   license : 'MIT',
-  meson_version : '>= 0.54.0',
+  meson_version : '>= 0.56.0',
   default_options : [
     'warning_level=1',
     'buildtype=debugoptimized',
