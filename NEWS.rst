@@ -1,5 +1,61 @@
-WirePlumber 0.4.3
+WirePlumber 0.4.4
 ~~~~~~~~~~~~~~~~~
+
+Highlights:
+
+  - Implemented linking nodes in passthrough mode, which enables encoded
+    iec958 / dsd audio passthrough
+
+  - Streams are now sent an error if it was not possible to link them to
+    a target (#63)
+
+  - When linking nodes where at least one of them has an unpositioned channel
+    layout, the other one is not reconfigured to match the channel layout;
+    it is instead linked with a best effort port matching logic
+
+  - Output route switches automatically to the latest one that has become
+    available (#69)
+
+  - Policy now respects the 'node.exclusive' and 'node.passive' properties
+
+  - Many other minor policy fixes for a smoother desktop usage experience
+
+API:
+
+  - Fixed an issue with the ``LocalModule()`` constructor not accepting ``nil``
+    as well as the properties table properly
+
+  - Added ``WpClient.send_error()``, ``WpSpaPod.fixate()`` and
+   ``WpSpaPod.filter()`` (both in C and Lua)
+
+Misc:
+
+  - Bumped meson version requirement to 0.56 to be able to use
+    ``meson.project_{source,build}_root()`` and ease integration with pipewire's
+    build system as a subproject
+
+  - wireplumber.service is now an alias to pipewire-session-manager.service
+
+  - Loading the logind module no longer fails if it was not found on the system;
+    there is only a message printed in the output
+
+  - The logind module can now be compiled with elogind (#71)
+
+  - Improvements in wp-uninstalled.sh, mostly to ease its integration with
+    pipewire's build system when wireplumber is build as a subproject
+
+  - The format of audio nodes is now selected using the same algorithm as in
+    media-session
+
+  - Fixed a nasty segfault that appeared in 0.4.3 due to a typo (#72)
+
+  - Fixed a re-entrancy issue in the wplua runtime (#73)
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.4.3
+.................
 
 Fixes:
 
@@ -66,9 +122,6 @@ Misc:
 
   - The bluez monitor configuration was updated to match the latest one in
     pipewire-media-session (!224)
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.4.2
 .................
