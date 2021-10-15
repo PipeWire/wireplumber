@@ -2,8 +2,8 @@
 
 set -e
 
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-BUILDDIR=${SCRIPT_DIR}/build
+SOURCEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+BUILDDIR=${SOURCEDIR}/build
 CONFIGDIR=config
 
 while getopts ":b:c:" opt; do
@@ -33,8 +33,8 @@ if [ ! -d ${BUILDDIR} ]; then
 fi
 
 export WIREPLUMBER_MODULE_DIR="${BUILDDIR}/modules"
-export WIREPLUMBER_CONFIG_DIR="${SCRIPT_DIR}/src/${CONFIGDIR}"
-export WIREPLUMBER_DATA_DIR="${SCRIPT_DIR}/src"
+export WIREPLUMBER_CONFIG_DIR="${SOURCEDIR}/src/${CONFIGDIR}"
+export WIREPLUMBER_DATA_DIR="${SOURCEDIR}/src"
 export PATH="${BUILDDIR}/src:${BUILDDIR}/src/tools:$PATH"
 export LD_LIBRARY_PATH="${BUILDDIR}/lib/wp:$LD_LIBRARY_PATH"
 
