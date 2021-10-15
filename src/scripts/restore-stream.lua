@@ -389,12 +389,4 @@ streams_om:connect("object-added", function (streams_om, node)
   node:connect("params-changed", saveStream)
   restoreStream(node)
 end)
-streams_om:connect("object-removed", function (streams_om, node)
-  -- clear 'target.node' in case it was set
-  -- this needs fixing, it (partly) works only if metadata is WpImplMetadata
-  local metadata = metadata_om:lookup()
-  if metadata then
-    metadata:set(node["bound-id"], "target.node", nil, nil)
-  end
-end)
 streams_om:activate()
