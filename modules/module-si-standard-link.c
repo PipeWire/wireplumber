@@ -310,9 +310,10 @@ create_links (WpSiStandardLink * self, WpTransition * transition,
 
     /* activate to ensure it is created without errors */
     self->n_async_ops_wait++;
-    wp_object_activate (WP_OBJECT (link),
+    wp_object_activate_closure (WP_OBJECT (link),
         WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL, NULL,
-        (GAsyncReadyCallback) on_link_activated, transition);
+        g_cclosure_new_object (
+            (GCallback) on_link_activated, G_OBJECT (transition)));
   }
   g_variant_iter_free (iter);
   return self->node_links->len > 0;
