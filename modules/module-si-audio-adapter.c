@@ -126,6 +126,8 @@ si_audio_adapter_find_format (WpSiAudioAdapter * self, WpNode * node)
 
   formats = wp_pipewire_object_enum_params_sync (WP_PIPEWIRE_OBJECT (node),
       "EnumFormat", NULL);
+  if (!formats)
+    return FALSE;
 
   for (; wp_iterator_next (formats, &value); g_value_unset (&value)) {
     WpSpaPod *pod = g_value_get_boxed (&value);
