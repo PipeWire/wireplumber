@@ -359,9 +359,11 @@ function handleLinkable (si)
       and not si_flags[si_id].done_waiting then
     if not si_flags[si_id].timeout_source then
       si_flags[si_id].timeout_source = Core.timeout_add(2000, function()
-        si_flags[si_id].done_waiting = true
-        si_flags[si_id].timeout_source = nil
-        rescan()
+        if si_flags[si_id] then
+          si_flags[si_id].done_waiting = true
+          si_flags[si_id].timeout_source = nil
+          rescan()
+        end
         return false
       end)
     end
