@@ -5,12 +5,6 @@
 --
 -- SPDX-License-Identifier: MIT
 
-target_class_assoc = {
-  ["Audio/Source"] = "Audio/Source",
-  ["Audio/Sink"] = "Audio/Sink",
-  ["Video/Source"] = "Video/Source",
-}
-
 -- Receive script arguments from config.lua
 local config = ...
 
@@ -18,16 +12,12 @@ local config = ...
 config.move = config.move or false
 config.follow = config.follow or false
 
-function getSessionItemById (si_id, om)
-  return om:lookup {
-    Constraint { "id", "=", tonumber(si_id), type = "gobject" }
-  }
-end
+local pending_rescan = false
 
-function findTargetByDefaultNode (target_media_class, om)
+function findTargetByDefaultNode (target_media_class)
   local def_id = default_nodes:call("get-default-node", target_media_class)
   if def_id ~= Id.INVALID then
-    for si_target in om:iterate() do
+    for si_target in linkables_om:iterate() do
       local target_node = si_target:get_associated_proxy ("node")
       if target_node["bound-id"] == def_id then
         return si_target
@@ -37,8 +27,8 @@ function findTargetByDefaultNode (target_media_class, om)
   return nil
 end
 
-function findTargetByFirstAvailable (target_media_class, om)
-  for si_target in om:iterate() do
+function findTargetByFirstAvailable (target_media_class)
+  for si_target in linkables_om:iterate() do
     local target_node = si_target:get_associated_proxy ("node")
     if target_node.properties["media.class"] == target_media_class then
       return si_target
@@ -47,34 +37,44 @@ function findTargetByFirstAvailable (target_media_class, om)
   return nil
 end
 
-function findUndefinedTarget (target_media_class, om)
-  local si_target = findTargetByDefaultNode (target_media_class, om)
+function findUndefinedTarget (si_ep)
+  local media_class = si_ep.properties["media.class"]
+  local target_class_assoc = {
+    ["Audio/Source"] = "Audio/Source",
+    ["Audio/Sink"] = "Audio/Sink",
+    ["Video/Source"] = "Video/Source",
+  }
+  local target_media_class = target_class_assoc[media_class]
+  if not target_media_class then
+    return nil
+  end
+
+  local si_target = findTargetByDefaultNode (target_media_class)
   if not si_target then
-    si_target = findTargetByFirstAvailable (target_media_class, om)
+    si_target = findTargetByFirstAvailable (target_media_class)
   end
   return si_target
 end
 
 function createLink (si_ep, si_target)
-  local target_node = si_target:get_associated_proxy ("node")
-  local target_media_class = target_node.properties["media.class"]
   local out_item = nil
   local in_item = nil
+  local ep_props = si_ep.properties
+  local target_props = si_target.properties
 
-  if string.find (target_media_class, "Input") or
-      string.find (target_media_class, "Sink") then
-    -- capture
-    in_item = si_target
-    out_item = si_ep
-  else
+  if target_props["item.node.direction"] == "input" then
     -- playback
+    out_item = si_ep
+    in_item = si_target
+  else
+    -- capture
     in_item = si_ep
     out_item = si_target
   end
 
   Log.info (string.format("link %s <-> %s",
-      si_ep.properties["name"],
-      target_node.properties["node.name"]))
+      ep_props["name"],
+      target_props["node.name"]))
 
   -- create and configure link
   local si_link = SessionItem ( "si-standard-link" )
@@ -94,105 +94,94 @@ function createLink (si_ep, si_target)
   si_link:register ()
 
   -- activate
-  si_link:activate (Feature.SessionItem.ACTIVE, pendingOperation())
-end
-
-function getSiLinkAndSiPeer (si_ep, target_media_class)
-  for silink in silinks_om:iterate() do
-    local out_id = tonumber(silink.properties["out.item.id"])
-    local in_id = tonumber(silink.properties["in.item.id"])
-    if out_id == si_ep.id or in_id == si_ep.id then
-      local is_out = out_id == si_ep.id and true or false
-      for peer in silinkables_om:iterate() do
-        if peer.id == (is_out and in_id or out_id) then
-          local peer_node = peer:get_associated_proxy ("node")
-          local peer_media_class = peer_node.properties["media.class"]
-          if peer_media_class == target_media_class then
-            return silink, peer
-          end
-        end
-      end
+  si_link:activate (Feature.SessionItem.ACTIVE, function (l, e)
+    if e then
+      Log.warning (l, "failed to activate si-standard-link: " .. tostring(e))
+      si_link:remove ()
+    else
+      Log.info (l, "activated si-standard-link")
     end
-  end
-  return nil, nil
+  end)
 end
 
-function handleSiEndpoint (si_ep)
-  -- only handle endpoints that have a valid target media class
-  local media_class = si_ep.properties["media.class"]
-  local target_media_class = target_class_assoc[media_class]
-  if not target_media_class then
-    return
-  end
-
+function handleEndpoint (si_ep)
   Log.info (si_ep, "handling endpoint " .. si_ep.properties["name"])
 
   -- find proper target item
-  local si_target = findUndefinedTarget (target_media_class, silinkables_om)
+  local si_target = findUndefinedTarget (si_ep)
   if not si_target then
-    Log.info (si_ep, "target item not found")
+    Log.info (si_ep, "... target item not found")
     return
   end
 
-  -- Check if item is linked to proper target endpoint, otherwise re-link
-  local si_link, si_peer = getSiLinkAndSiPeer (si_ep, target_media_class)
-  if si_link then
-    if si_peer and si_peer.id == si_target.id then
-      Log.info (si_ep, "already linked to proper target")
-      return
-    end
+  -- Check if item is linked to proper target, otherwise re-link
+  for link in links_om:iterate() do
+    local out_id = tonumber(link.properties["out.item.id"])
+    local in_id = tonumber(link.properties["in.item.id"])
+    if out_id == si_ep.id or in_id == si_ep.id then
+      local is_out = out_id == si_ep.id and true or false
+      for peer in linkables_om:iterate() do
+        if peer.id == (is_out and in_id or out_id) then
 
-    si_link:remove ()
-    Log.info (si_ep, "moving to new target")
+          if peer.id == si_target.id then
+            Log.info (si_ep, "... already linked to proper target")
+            return
+          end
+
+          -- remove old link if active, otherwise schedule rescan
+          if ((link:get_active_features() & Feature.SessionItem.ACTIVE) ~= 0) then
+            link:remove ()
+            Log.info (si_ep, "... moving to new target")
+          else
+            pending_rescan = true
+            Log.info (si_ep, "... scheduled rescan")
+            return
+          end
+
+        end
+      end
+    end
   end
 
   -- create new link
   createLink (si_ep, si_target)
 end
 
-function reevaluateLinks ()
-  -- check endpoints and register new links
-  for si_ep in siendpoints_om:iterate() do
-    handleSiEndpoint (si_ep)
-  end
+function unhandleLinkable (si)
+  si_props = si.properties
 
-  -- check link session items and unregister them if not used
-  for silink in silinks_om:iterate() do
+  Log.info (si, string.format("unhandling item: %s (%s)",
+      tostring(si_props["node.name"]), tostring(si_props["node.id"])))
+
+  -- remove any links associated with this item
+  for silink in links_om:iterate() do
     local out_id = tonumber (silink.properties["out.item.id"])
     local in_id = tonumber (silink.properties["in.item.id"])
-    if (getSessionItemById (out_id, siendpoints_om) and not getSessionItemById (in_id, silinkables_om)) or
-        (getSessionItemById (in_id, siendpoints_om) and not getSessionItemById (out_id, silinkables_om)) then
+    if out_id == si.id or in_id == si.id then
       silink:remove ()
-      Log.info (silink, "link removed")
+      Log.info (silink, "... link removed")
     end
   end
 end
 
-pending_ops = 0
-pending_rescan = false
-
-function pendingOperation()
-  pending_ops = pending_ops + 1
-  return function()
-    pending_ops = pending_ops - 1
-    if pending_ops == 0 and pending_rescan then
-      pending_rescan = false
-      reevaluateLinks ()
-    end
+function rescan ()
+  -- check endpoints and register new links
+  for si_ep in endpoints_om:iterate() do
+    handleEndpoint (si_ep)
   end
-end
 
-function maybeReevaluateLinks ()
-  if pending_ops == 0 then
-    reevaluateLinks ()
-  else
-    pending_rescan = true
+  -- if pending_rescan, re-evaluate after sync
+  if pending_rescan then
+    pending_rescan = false
+    Core.sync (function (c)
+      rescan()
+    end)
   end
 end
 
 default_nodes = Plugin.find("default-nodes-api")
-siendpoints_om = ObjectManager { Interest { type = "SiEndpoint" }}
-silinkables_om = ObjectManager {
+endpoints_om = ObjectManager { Interest { type = "SiEndpoint" }}
+linkables_om = ObjectManager {
   Interest {
     type = "SiLinkable",
     -- only handle device si-audio-adapter items
@@ -200,7 +189,7 @@ silinkables_om = ObjectManager {
     Constraint { "item.node.type", "=", "device", type = "pw-global" },
   }
 }
-silinks_om = ObjectManager {
+links_om = ObjectManager {
   Interest {
     type = "SiLink",
     -- only handle links created by this policy
@@ -211,14 +200,18 @@ silinks_om = ObjectManager {
 -- listen for default node changes if config.follow is enabled
 if config.follow then
   default_nodes:connect("changed", function (p)
-    maybeReevaluateLinks ()
+    rescan()
   end)
 end
 
-silinkables_om:connect("objects-changed", function (om)
-  maybeReevaluateLinks ()
+linkables_om:connect("objects-changed", function (om)
+  rescan()
 end)
 
-siendpoints_om:activate()
-silinkables_om:activate()
-silinks_om:activate()
+linkables_om:connect("object-removed", function (om, si)
+  unhandleLinkable (si)
+end)
+
+endpoints_om:activate()
+linkables_om:activate()
+links_om:activate()
