@@ -111,14 +111,14 @@ wp_file_monitor_api_add_watch (WpFileMonitorApi * self, const gchar *path,
   g_autoptr (GFile) f = NULL;
   GFileMonitorFlags flags = G_FILE_MONITOR_NONE;
 
-  /* don't do anything if the directory is already being watched */
+  /* don't do anything if the path is already being watched */
   if (g_hash_table_contains (self->monitors, path))
     return TRUE;
 
-  /* get directory */
+  /* get path */
   f = g_file_new_for_path (path);
   if (!f) {
-    wp_warning_object (self, "Invalid directory '%s'", path);
+    wp_warning_object (self, "Invalid path '%s'", path);
     return FALSE;
   }
 
@@ -134,10 +134,10 @@ wp_file_monitor_api_add_watch (WpFileMonitorApi * self, const gchar *path,
     }
   }
 
-  /* create the file monitor for that directory */
-  fm = g_file_monitor_directory (f, flags, NULL, &e);
+  /* create the file monitor for that path */
+  fm = g_file_monitor (f, flags, NULL, &e);
   if (e) {
-    wp_warning_object (self, "Failed to add watch for directory '%s': %s", path,
+    wp_warning_object (self, "Failed to add watch for path '%s': %s", path,
         e->message);
     return FALSE;
   }
