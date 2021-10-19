@@ -187,47 +187,6 @@ function canLink (properties, si_target)
   return true
 end
 
--- Try to locate a valid target node that was explicitly defined by the user
--- Use the target.node metadata, if config.move is enabled,
--- then use the node.target property that was set on the node
--- `properties` must be the properties dictionary of the session item
--- that is currently being handled
-function findDefinedTarget (properties)
-  local function findTargetByTargetNodeMetadata (properties)
-    local node_id = properties["node.id"]
-    local metadata = metadata_om:lookup()
-    local target_id = metadata and metadata:find(node_id, "target.node") or nil
-    if target_id and tonumber(target_id) > 0 then
-      local si_target = linkables_om:lookup {
-        Constraint { "node.id", "=", target_id },
-      }
-      if si_target and canLink (properties, si_target) then
-        return si_target
-      end
-    end
-    return nil
-  end
-
-  local function findTargetByNodeTargetProperty (properties)
-    local target_id = properties["node.target"]
-    if target_id then
-      for si_target in linkables_om:iterate() do
-        local target_props = si_target.properties
-        if (target_props["node.id"] == target_id or
-            target_props["node.name"] == target_id or
-            target_props["object.path"] == target_id) and
-            canLink (properties, si_target) then
-          return si_target
-        end
-      end
-    end
-    return nil
-  end
-
-  return (config.move and findTargetByTargetNodeMetadata (properties) or nil)
-      or findTargetByNodeTargetProperty (properties)
-end
-
 function getTargetDirection(properties)
   local target_direction = nil
   if properties["item.node.direction"] == "output" or
@@ -245,6 +204,41 @@ function getDefaultNode(properties, target_direction)
         properties["media.type"] ..
         (target_direction == "input" and "/Sink" or "/Source")
   return default_nodes:call("get-default-node", target_media_class)
+end
+
+-- Try to locate a valid target node that was explicitly defined by the user
+-- Use the target.node metadata, if config.move is enabled,
+-- then use the node.target property that was set on the node
+-- `properties` must be the properties dictionary of the session item
+-- that is currently being handled
+function findDefinedTarget (properties)
+  local metadata = config.move and metadata_om:lookup()
+  local target_id = metadata
+      and metadata:find(properties["node.id"], "target.node")
+      or properties["node.target"]
+  local target_direction = getTargetDirection(properties)
+
+  if target_id and tonumber(target_id) then
+    local si_target = linkables_om:lookup {
+      Constraint { "node.id", "=", target_id },
+    }
+    if si_target and canLink (properties, si_target) then
+      return si_target
+    end
+  end
+
+  if target_id then
+    for si_target in linkables_om:iterate() do
+      local target_props = si_target.properties
+      if (target_props["node.name"] == target_id or
+          target_props["object.path"] == target_id) and
+          target_props["item.node.direction"] == target_direction and
+          canLink (properties, si_target) then
+        return si_target
+      end
+    end
+  end
+  return nil
 end
 
 -- Try to locate a valid target node that was NOT explicitly defined by the user
