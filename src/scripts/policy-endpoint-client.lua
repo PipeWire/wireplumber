@@ -9,6 +9,8 @@
 local config = ...
 config.roles = config.roles or {}
 
+local pending_rescan = false
+
 function findRole(role)
   if role and not config.roles[role] then
     for r, p in pairs(config.roles) do
@@ -22,12 +24,6 @@ function findRole(role)
     end
   end
   return role
-end
-
-function getSessionItemById (si_id, om)
-  return om:lookup {
-    Constraint { "id", "=", tonumber(si_id), type = "gobject" }
-  }
 end
 
 function findTargetEndpoint (node, media_class)
@@ -48,7 +44,7 @@ function findTargetEndpoint (node, media_class)
 
   -- find highest priority endpoint by role
   media_role = findRole(node.properties["media.role"])
-  for si_target_ep in siendpoints_om:iterate {
+  for si_target_ep in endpoints_om:iterate {
     Constraint { "role", "=", media_role, type = "pw-global" },
     Constraint { "media.class", "=", target_media_class, type = "pw-global" },
   } do
@@ -63,26 +59,24 @@ function findTargetEndpoint (node, media_class)
 end
 
 function createLink (si, si_target_ep)
-  local node = si:get_associated_proxy ("node")
-  local media_class = node.properties["media.class"]
-  local target_media_class = si_target_ep.properties["media.class"]
   local out_item = nil
   local in_item = nil
+  local si_props = si.properties
+  local target_ep_props = si_target_ep.properties
 
-  if string.find (media_class, "Input") or
-      string.find (media_class, "Sink") then
-    -- capture
-    out_item = si_target_ep
-    in_item = si
-  else
+  if si_props["item.node.direction"] == "output" then
     -- playback
     out_item = si
     in_item = si_target_ep
+  else
+    -- capture
+    out_item = si_target_ep
+    in_item = si
   end
 
   Log.info (string.format("link %s <-> %s",
-      tostring(node.properties["node.name"]),
-      tostring(si_target_ep.properties["name"])))
+      tostring(si_props["node.name"]),
+      tostring(target_ep_props["name"])))
 
   -- create and configure link
   local si_link = SessionItem ( "si-standard-link" )
@@ -92,9 +86,9 @@ function createLink (si, si_target_ep)
     ["out.item.port.context"] = "output",
     ["in.item.port.context"] = "input",
     ["is.policy.endpoint.client.link"] = true,
-    ["media.role"] = si_target_ep.properties["role"],
-    ["target.media.class"] = target_media_class,
-    ["item.plugged.usec"] = si.properties["item.plugged.usec"],
+    ["media.role"] = target_ep_props["role"],
+    ["target.media.class"] = target_ep_props["media.class"],
+    ["item.plugged.usec"] = si_props["item.plugged.usec"],
   } then
     Log.warning (si_link, "failed to configure si-standard-link")
     return
@@ -104,21 +98,7 @@ function createLink (si, si_target_ep)
   si_link:register()
 end
 
-function getSiLinkAndSiPeerEndpoint (si)
-  for silink in silinks_om:iterate() do
-    local out_id = tonumber(silink.properties["out.item.id"])
-    local in_id = tonumber(silink.properties["in.item.id"])
-    if out_id == si.id then
-      return silink, getSessionItemById (in_id, siendpoints_om)
-    elseif in_id == si.id then
-      return silink, getSessionItemById (out_id, siendpoints_om)
-    end
-  end
-  return nil, nil
-end
-
-
-function isSiLinkableValid (si)
+function checkLinkable (si)
   -- only handle session items that has a node associated proxy
   local node = si:get_associated_proxy ("node")
   if not node or not node.properties then
@@ -133,7 +113,7 @@ function isSiLinkableValid (si)
 
   -- Determine if we can handle item by this policy
   local media_role = node.properties["media.role"]
-  if siendpoints_om:get_n_objects () == 0 or media_role == nil then
+  if endpoints_om:get_n_objects () == 0 or media_role == nil then
     Log.debug (si, "item won't be handled by this policy")
     return false
   end
@@ -141,9 +121,8 @@ function isSiLinkableValid (si)
   return true
 end
 
-function handleSiLinkable (si)
-  -- check if item is valid
-  if not isSiLinkableValid (si) then
+function handleLinkable (si)
+  if not checkLinkable (si) then
     return
   end
 
@@ -156,29 +135,45 @@ function handleSiLinkable (si)
   -- find proper target endpoint
   local si_target_ep = findTargetEndpoint (node, media_class)
   if not si_target_ep then
-    Log.info (si, "target endpoint not found")
+    Log.info (si, "... target endpoint not found")
     return
   end
 
-  -- Check if item is linked to proper target endpoint, otherwise re-link
-  local si_link, si_peer_ep = getSiLinkAndSiPeerEndpoint (si)
-  if si_link then
-    if si_peer_ep and si_peer_ep.id == si_target_ep.id then
-      Log.debug (si, "already linked to proper target endpoint")
-      return
-    end
+  -- Check if item is linked to proper target, otherwise re-link
+  for link in links_om:iterate() do
+    local out_id = tonumber(link.properties["out.item.id"])
+    local in_id = tonumber(link.properties["in.item.id"])
+    if out_id == si.id or in_id == si.id then
+      local is_out = out_id == si.id and true or false
+      for peer_ep in endpoints_om:iterate() do
+        if peer_ep.id == (is_out and in_id or out_id) then
 
-    si_link:remove ()
-    Log.info (si, "moving to new target endpoint")
+          if peer_ep.id == si_target_ep.id then
+            Log.info (si, "... already linked to proper target endpoint")
+            return
+          end
+
+          -- remove old link if active, otherwise schedule rescan
+          if ((link:get_active_features() & Feature.SessionItem.ACTIVE) ~= 0) then
+            link:remove ()
+            Log.info (si, "... moving to new target")
+          else
+            pending_rescan = true
+            Log.info (si, "... scheduled rescan")
+            return
+          end
+
+        end
+      end
+    end
   end
 
   -- create new link
   createLink (si, si_target_ep)
 end
 
-function unhandleSiLinkable (si)
-  -- check if item is valid
-  if not isSiLinkableValid (si) then
+function unhandleLinkable (si)
+  if not checkLinkable (si) then
     return
   end
 
@@ -186,43 +181,50 @@ function unhandleSiLinkable (si)
   Log.info (si, "unhandling item " .. tostring(node.properties["node.name"]))
 
   -- remove any links associated with this item
-  for silink in silinks_om:iterate() do
+  for silink in links_om:iterate() do
     local out_id = tonumber (silink.properties["out.item.id"])
     local in_id = tonumber (silink.properties["in.item.id"])
     if out_id == si.id or in_id == si.id then
       silink:remove ()
-      Log.info (silink, "link removed")
+      Log.info (silink, "... link removed")
     end
   end
 end
 
-function reevaluateSiLinkables ()
-  for si in silinkables_om:iterate() do
-    handleSiLinkable (si)
+function rescan ()
+  for si in linkables_om:iterate() do
+    handleLinkable (si)
+  end
+
+  -- if pending_rescan, re-evaluate after sync
+  if pending_rescan then
+    pending_rescan = false
+    Core.sync (function (c)
+      rescan()
+    end)
   end
 end
 
-siendpoints_om = ObjectManager { Interest { type = "SiEndpoint" }}
-silinkables_om = ObjectManager { Interest { type = "SiLinkable",
+endpoints_om = ObjectManager { Interest { type = "SiEndpoint" }}
+linkables_om = ObjectManager { Interest { type = "SiLinkable",
   -- only handle si-audio-adapter and si-node
   Constraint {
     "item.factory.name", "c", "si-audio-adapter", "si-node", type = "pw-global" },
   }
 }
-silinks_om = ObjectManager { Interest { type = "SiLink",
+links_om = ObjectManager { Interest { type = "SiLink",
   -- only handle links created by this policy
   Constraint { "is.policy.endpoint.client.link", "=", true, type = "pw-global" },
 } }
 
-silinkables_om:connect("object-added", function (om, si)
-  handleSiLinkable (si)
+linkables_om:connect("objects-changed", function (om)
+  rescan ()
 end)
 
-silinkables_om:connect("object-removed", function (om, si)
-  unhandleSiLinkable (si)
-  reevaluateSiLinkables ()
+linkables_om:connect("object-removed", function (om, si)
+  unhandleLinkable (si)
 end)
 
-siendpoints_om:activate()
-silinkables_om:activate()
-silinks_om:activate()
+endpoints_om:activate()
+linkables_om:activate()
+links_om:activate()
