@@ -104,7 +104,6 @@ shared_library(
   'wireplumber-module-si-audio-adapter',
   [
     'module-si-audio-adapter.c',
-    'module-si-audio-adapter/audio-utils.c',
   ],
   c_args : [common_c_args, '-DG_LOG_DOMAIN="m-si-audio-adapter"'],
   install : true,

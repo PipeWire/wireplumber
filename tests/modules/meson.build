@@ -7,17 +7,6 @@ common_args = [
 ]
 
 test(
-  'test-audio-utils',
-  executable('test-audio-utils',
-    [
-      'audio-utils.c',
-      '../../modules/module-si-audio-adapter/audio-utils.c'
-    ],
-    dependencies: common_deps, c_args: common_args),
-  env: common_env,
-)
-
-test(
   'test-reserve-device',
   executable('test-reserve-device', 'reserve-device.c',
     dependencies: common_deps, c_args: common_args),
