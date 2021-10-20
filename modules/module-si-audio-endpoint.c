@@ -227,7 +227,7 @@ si_audio_endpoint_enable_active (WpSessionItem *si, WpTransition *transition)
   g_autofree gchar *name = g_strdup_printf ("control.%s", self->name);
   g_autofree gchar *desc = g_strdup_printf ("%s %s Endpoint", self->role,
       (self->direction == WP_DIRECTION_OUTPUT) ? "Capture" : "Playback");
-  g_autofree gchar *media = g_strdup_printf ("Audio/%s/Virtual",
+  g_autofree gchar *media = g_strdup_printf ("Audio/%s",
       (self->direction == WP_DIRECTION_OUTPUT) ? "Source" : "Sink");
 
   if (!wp_session_item_is_configured (si)) {
