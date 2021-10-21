@@ -30,6 +30,12 @@ test_si_audio_endpoint_setup (TestFixture * f, gconstpointer user_data)
   {
     g_autoptr (GError) error = NULL;
     wp_core_load_component (f->base.core,
+        "libwireplumber-module-si-audio-adapter", "module", NULL, &error);
+    g_assert_no_error (error);
+  }
+  {
+    g_autoptr (GError) error = NULL;
+    wp_core_load_component (f->base.core,
         "libwireplumber-module-si-audio-endpoint", "module", NULL, &error);
     g_assert_no_error (error);
   }
