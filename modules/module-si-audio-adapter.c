@@ -24,6 +24,7 @@ struct _WpSiAudioAdapter
   /* configuration */
   WpNode *node;
   WpPort *port;  /* only used for passthrough or convert mode */
+  gboolean no_format;
   gboolean control_port;
   gboolean monitor;
   gboolean disable_dsp;
@@ -69,6 +70,7 @@ si_audio_adapter_reset (WpSessionItem * item)
   /* reset */
   g_clear_object (&self->node);
   g_clear_object (&self->port);
+  self->no_format = FALSE;
   self->control_port = FALSE;
   self->monitor = FALSE;
   self->disable_dsp = FALSE;
@@ -226,7 +228,9 @@ si_audio_adapter_configure (WpSessionItem * item, WpProperties *p)
     self->portconfig_direction = WP_DIRECTION_OUTPUT;
   }
 
-  if (!si_audio_adapter_find_format (self, node)) {
+  str = wp_properties_get (si_props, "item.features.no-format");
+  self->no_format = str && pw_properties_parse_bool (str);
+  if (!self->no_format && !si_audio_adapter_find_format (self, node)) {
     wp_message_object (item, "no usable format found for node %d",
         wp_proxy_get_bound_id (WP_PROXY (node)));
     return FALSE;
@@ -527,8 +531,8 @@ si_audio_adapter_enable_active (WpSessionItem *si, WpTransition *transition)
       "ports-changed", (GCallback) on_node_ports_changed, self, 0);
 
   /* If device node, enum available formats and set one of them */
-  if (self->is_device || self->dont_remix || !self->is_autoconnect ||
-      self->disable_dsp || self->is_unpositioned)
+  if (!self->no_format && (self->is_device || self->dont_remix ||
+      !self->is_autoconnect || self->disable_dsp || self->is_unpositioned))
     si_audio_adapter_configure_node (self, transition);
 
   /* Otherwise just finish activating */
