@@ -97,7 +97,7 @@ function createLink (si_ep, si_target)
   si_link:activate (Feature.SessionItem.ACTIVE, function (l, e)
     if e then
       Log.warning (l, "failed to activate si-standard-link: " .. tostring(e))
-      si_link:remove ()
+      l:remove ()
     else
       Log.info (l, "activated si-standard-link")
     end
