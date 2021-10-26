@@ -60,12 +60,14 @@ function createLink (si, si_target, passthrough, exclusive)
   end
 
   -- register
+  si_flags[si.id].peer_id = si_target.id
   si_link:register ()
 
   -- activate
   si_link:activate (Feature.SessionItem.ACTIVE, function (l, e)
     if e then
       Log.warning (l, "failed to activate si-standard-link: " .. tostring(e))
+      si_flags[si.id].peer_id = nil
       l:remove ()
     else
       Log.info (l, "activated si-standard-link")
@@ -276,20 +278,18 @@ function findUndefinedTarget (properties)
       or findTargetByFirstAvailable (properties, target_direction)
 end
 
-function getSiLinkAndSiPeer (si, si_props)
-  local self_id_key = (si_props["item.node.direction"] == "output") and
-                      "out.item.id" or "in.item.id"
-  local peer_id_key = (si_props["item.node.direction"] == "output") and
-                      "in.item.id" or "out.item.id"
-  local silink = links_om:lookup { Constraint { self_id_key, "=", si.id } }
-  if silink then
-    local peer_id = tonumber(silink.properties[peer_id_key])
-    local peer = linkables_om:lookup {
-      Constraint { "id", "=", peer_id, type = "gobject" },
+function lookupLink (si_id, si_target_id)
+  local link = links_om:lookup {
+    Constraint { "out.item.id", "=", si_id },
+    Constraint { "in.item.id", "=", si_target_id }
+  }
+  if not link then
+    link = links_om:lookup {
+      Constraint { "in.item.id", "=", si_id },
+      Constraint { "out.item.id", "=", si_target_id }
     }
-    return silink, peer
   end
-  return nil, nil
+  return link
 end
 
 function checkLinkable(si)
@@ -375,18 +375,18 @@ function handleLinkable (si)
   end
 
   -- Check if item is linked to proper target, otherwise re-link
-  if si_target and si_flags[si.id].was_handled then
-    local si_link, si_peer = getSiLinkAndSiPeer (si, si_props)
-    if si_link then
-      if si_peer and si_peer.id == si_target.id then
-        Log.debug (si, "... already linked to proper target")
-        return
-      end
-
-      if reconnect then
+  if si_flags[si_id].peer_id ~= nil then
+    if si_flags[si_id].peer_id == si_target.id then
+      Log.debug (si, "... already linked to proper target")
+      return
+    end
+    if reconnect then
+      local link = lookupLink (si_id, si_flags[si_id].peer_id)
+      if link ~= nil then
         -- remove old link if active, otherwise schedule rescan
-        if ((si_link:get_active_features() & Feature.SessionItem.ACTIVE) ~= 0) then
-          si_link:remove ()
+	if ((link:get_active_features() & Feature.SessionItem.ACTIVE) ~= 0) then
+	  si_flags[si_id].peer_id = nil
+          link:remove ()
           Log.info (si, "... moving to new target")
         else
           pending_rescan = true
@@ -460,6 +460,11 @@ function unhandleLinkable (si)
     local out_id = tonumber (silink.properties["out.item.id"])
     local in_id = tonumber (silink.properties["in.item.id"])
     if out_id == si.id or in_id == si.id then
+      if out_id == si.id and si_flags[in_id] ~= nil then
+        si_flags[in_id].peer_id = nil
+      elseif in_id == si.id and si_flags[out_id] ~= nil then
+        si_flags[out_id].peer_id = nil
+      end
       silink:remove ()
       Log.info (silink, "... link removed")
     end
