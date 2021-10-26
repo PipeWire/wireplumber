@@ -24,12 +24,13 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2021-05-25.1'
+    FDO_DISTRIBUTION_TAG: '2021-10-26.0'
     FDO_DISTRIBUTION_VERSION: '34'
     # findutils: used by the .build script below
     # dbus-devel: required by pipewire
     # dbus-daemon: required by GDBus unit tests
     # pip, doxygen: required for documentation
+    # ShellCheck: required by the CI
     FDO_DISTRIBUTION_PACKAGES: >-
       findutils
       gcc
@@ -42,6 +43,7 @@ include:
       dbus-daemon
       python3-pip
       doxygen
+      ShellCheck
     # install Sphinx and Breathe to generate documentation
     # also install glib2-doc (required to make documentation links to GLib work)
     # manually, to remove the 'tsflags=nodocs' flag that is enabled by default
@@ -223,6 +225,15 @@ build_with_coverity:
     paths:
       - build-*/meson-logs
       - cov-int/build-log.txt
+
+shellcheck:
+  extends:
+    - .fedora
+    - .not_coverity
+    - .fdo.distribution-image@fedora
+  stage: analysis
+  script:
+    - shellcheck $(git grep -l "#\!/.*bin/.*sh")
 
 pages:
   extends:
