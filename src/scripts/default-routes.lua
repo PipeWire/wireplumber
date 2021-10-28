@@ -24,7 +24,7 @@ state_table = state and state:load() or {}
 function serializeArray(a)
   local str = ""
   for _, v in ipairs(a) do
-    str = str .. tostring(v) .. ";"
+    str = str .. tostring(v):gsub(";", "\\;") .. ";"
   end
   return str
 end
@@ -32,16 +32,19 @@ end
 -- simple deserializer "foo;bar;" -> {"foo", "bar"}
 function parseArray(str, convert_value)
   local array = {}
-  local pos = 1
-  while true do
-    local next = str:find(";", pos, true)
-    if next then
-      local val = str:sub(pos, next-1)
+  local val = ""
+  local escaped = false
+  for i = 1, #str do
+    local c = str:sub(i,i)
+    if c == '\\' then
+      escaped = true
+    elseif c == ';' and not escaped then
       val = convert_value and convert_value(val) or val
       table.insert(array, val)
-      pos = next + 1
+      val = ""
     else
-      break
+      val = val .. tostring(c)
+      escaped = false
     end
   end
   return array
