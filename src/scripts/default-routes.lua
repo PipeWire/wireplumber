@@ -266,6 +266,7 @@ function findBestRoute(dev_info, device_id)
         if ri.direction == "Output" and ri.available ~= ri.prev_available then
           best_avail = ri
           ri.save = true
+          break
         elseif ri.available == "yes" then
           if (best_avail == nil or ri.priority > best_avail.priority) then
             best_avail = ri
