@@ -347,7 +347,7 @@ function handleLinkable (si)
   -- this is because the client may have already "seen" a target that we haven't
   -- yet prepared, which leads to a race condition
   local si_id = si.id
-  if si_props["node.target"]
+  if si_props["node.target"] and si_props["node.target"] ~= "-1"
       and not si_target
       and not si_flags[si_id].was_handled
       and not si_flags[si_id].done_waiting then
