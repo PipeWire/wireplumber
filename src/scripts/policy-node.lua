@@ -226,7 +226,8 @@ function getDefaultNode(properties, target_direction)
   return default_nodes:call("get-default-node", target_media_class)
 end
 
--- Try to locate a valid target node that was explicitly defined by the user
+-- Try to locate a valid target node that was explicitly requsted by the
+-- client(node.target) or by the user(target.node)
 -- Use the target.node metadata, if config.move is enabled,
 -- then use the node.target property that was set on the node
 -- `properties` must be the properties dictionary of the session item
@@ -261,39 +262,88 @@ function findDefinedTarget (properties)
   return nil
 end
 
--- Try to locate a valid target node that was NOT explicitly defined by the user
--- `properties` must be the properties dictionary of the session item
--- that is currently being handled
-function findUndefinedTarget (properties)
-  local function findTargetByDefaultNode (properties, target_direction)
-    local def_id = getDefaultNode(properties, target_direction)
-    if def_id ~= Id.INVALID then
-      local si_target = linkables_om:lookup {
-        Constraint { "node.id", "=", def_id },
-      }
-      if si_target and canLink (properties, si_target) then
-        return si_target
-      end
+-- User or client defined target is not available, Loop through all the valid
+-- linkables(nodes) and pick an appropriate one.
+function findUndefinedTarget (si)
+  local si_props = si.properties
+  local target_direction = getTargetDirection(si_props)
+  local target_picked = nil
+  local target_can_passthrough = false
+  local target_priority = nil
+  local target_plugged = nil
+
+  for si_target in linkables_om:iterate {
+    Constraint { "item.node.type", "=", "device" },
+    Constraint { "item.node.direction", "=", target_direction },
+    Constraint { "media.type", "=", si_props["media.type"] },
+  } do
+    local si_target_props = si_target.properties
+    local si_target_node_id = si_target_props["node.id"]
+
+    Log.debug(string.format("Looking at node (%s)%s",
+      tostring(si_target_node_id),
+      tostring(si_target_props["node.name"])))
+
+    if not canLink (si_props, si_target) then
+      Log.info("cannot link skip linkable")
+      goto skip_linkable
     end
-    return nil
+
+    local priority = tonumber(si_target_props["priority.session"])
+
+    -- Is this linkable(node) a default one?
+    local def_node_id = getDefaultNode(si_props, target_direction)
+    if tostring(def_node_id) == si_target_node_id then
+      Log.debug("this is the default node "..def_node_id)
+      priority = priority + 10000
+    end
+
+    -- todo:check if this linkable(node/device) have valid routes.
+
+    -- Is passthrough feasible between these linkables(nodes)?
+    local si_must_passthrough = parseBool(si_props["item.node.encoded-only"])
+    local si_target_must_passthrough = parseBool(si_target_props["item.node.encoded-only"])
+    local can_passthrough = canPassthrough(si, si_target)
+
+    if (si_must_passthrough or si_target_must_passthrough)
+        and not can_passthrough then
+      Log.debug(string.format("cannot pass through, skip linkable %s %s",
+        tostring(si_must_passthrough),
+        tostring(si_target_must_passthrough)))
+      goto skip_linkable
+    end
+
+    local plugged = tonumber(si_target_props["item.plugged.usec"])
+
+    Log.debug("priority "..priority.." plugged "..plugged)
+
+    -- (target_picked == NULL) --> make sure atleast one target is picked.
+    -- (priority > target_priority) --> pick the highest priority linkable(node)
+    -- target.
+    -- (priority == target_priority and plugged > target_plugged) --> pick the
+    -- latest connected/plugged(in time) linkable(node) target.
+    if (target_picked == nil or
+        priority > target_priority or
+        (priority == target_priority and plugged > target_plugged)) then
+          Log.debug("new pick:")
+          target_picked = si_target
+          target_can_passthrough = can_passthrough
+          target_priority = priority
+          target_plugged = plugged
+    end
+    ::skip_linkable::
   end
 
-  local function findTargetByFirstAvailable (properties, target_direction)
-    for si_target in linkables_om:iterate {
-      Constraint { "item.node.type", "=", "device" },
-      Constraint { "item.node.direction", "=", target_direction },
-      Constraint { "media.type", "=", properties["media.type"] },
-    } do
-      if canLink (properties, si_target) then
-        return si_target
-      end
-    end
-    return nil
+  if target_picked then
+    Log.info(string.format("final pick: node (%s)%s can passthrough(%s)",
+      tostring(target_picked.properties["node.id"]),
+      tostring(target_picked.properties["node.name"]),
+      tostring(target_can_passthrough)))
+    return target_picked, target_can_passthrough
+  else
+    return nil, nil
   end
 
-  local target_direction = getTargetDirection(properties)
-  return findTargetByDefaultNode (properties, target_direction)
-      or findTargetByFirstAvailable (properties, target_direction)
 end
 
 function lookupLink (si_id, si_target_id)
@@ -352,12 +402,13 @@ function handleLinkable (si)
   -- get other important node properties
   local reconnect = not parseBool(si_props["node.dont-reconnect"])
   local exclusive = parseBool(si_props["node.exclusive"])
-  local must_passthrough = parseBool(si_props["item.node.encoded-only"])
+  local si_must_passthrough = parseBool(si_props["item.node.encoded-only"])
 
   -- find defined target
   local si_target = findDefinedTarget(si_props)
   local can_passthrough = si_target and canPassthrough(si, si_target)
-  if si_target and must_passthrough and not can_passthrough then
+
+  if si_target and si_must_passthrough and not can_passthrough then
     si_target = nil
   end
 
@@ -385,11 +436,7 @@ function handleLinkable (si)
 
   -- find fallback target
   if not si_target then
-    si_target = findUndefinedTarget(si_props)
-    can_passthrough = si_target and canPassthrough(si, si_target)
-    if si_target and must_passthrough and not can_passthrough then
-      si_target = nil
-    end
+    si_target, can_passthrough = findUndefinedTarget(si)
   end
 
   -- Check if item is linked to proper target, otherwise re-link
@@ -430,7 +477,7 @@ function handleLinkable (si)
     end
 
     if target_is_linked then
-      if exclusive or must_passthrough then
+      if exclusive or si_must_passthrough then
         Log.info(si, "... target is already linked, cannot link exclusively")
         si_target = nil
       else
