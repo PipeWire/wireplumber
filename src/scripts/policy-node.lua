@@ -24,6 +24,15 @@ function createLink (si, si_target, passthrough, exclusive)
   local si_props = si.properties
   local target_props = si_target.properties
 
+  -- break rescan if tried more than 5 times with same target
+  if si_flags[si.id].failed_peer_id ~= nil and
+      si_flags[si.id].failed_peer_id == si_target.id and
+      si_flags[si.id].failed_count ~= nil and
+      si_flags[si.id].failed_count > 5 then
+    Log.warning (si, "tried to link on last rescan, not retrying")
+    return
+  end
+
   if si_props["item.node.direction"] == "output" then
     -- playback
     out_item = si
@@ -61,6 +70,12 @@ function createLink (si, si_target, passthrough, exclusive)
 
   -- register
   si_flags[si.id].peer_id = si_target.id
+  si_flags[si.id].failed_peer_id = si_target.id
+  if si_flags[si.id].failed_count ~= nil then
+    si_flags[si.id].failed_count = si_flags[si.id].failed_count + 1
+  else
+    si_flags[si.id].failed_count = 1
+  end
   si_link:register ()
 
   -- activate
@@ -70,6 +85,8 @@ function createLink (si, si_target, passthrough, exclusive)
       si_flags[si.id].peer_id = nil
       l:remove ()
     else
+      si_flags[si.id].failed_peer_id = nil
+      si_flags[si.id].failed_count = 0
       Log.info (l, "activated si-standard-link")
     end
   end)
