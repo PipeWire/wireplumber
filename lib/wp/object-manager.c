@@ -1064,7 +1064,7 @@ expose_tmp_globals (WpCore *core, GAsyncResult *res, WpRegistry *self)
     WpGlobal *g = g_ptr_array_index (tmp_globals, i);
 
     /* if global was already removed, drop it */
-    if (g->flags == 0)
+    if (g->flags == 0 || g->id == SPA_ID_INVALID)
       continue;
 
     /* if old global is owned by proxy, remove it */
@@ -1307,6 +1307,7 @@ void
 wp_global_rm_flag (WpGlobal *global, guint rm_flag)
 {
   WpRegistry *reg = global->registry;
+  guint32 id = global->id;
 
   /* no flag to remove */
   if (!(global->flags & rm_flag))
@@ -1314,7 +1315,7 @@ wp_global_rm_flag (WpGlobal *global, guint rm_flag)
 
   wp_trace_boxed (WP_TYPE_GLOBAL, global,
       "remove global %u flag 0x%x [flags:0x%x, reg:%p]",
-      global->id, rm_flag, global->flags, reg);
+      id, rm_flag, global->flags, reg);
 
   /* global was owned by the proxy; by removing the flag, we clear out
      also the proxy pointer, which is presumably no longer valid and we
@@ -1350,11 +1351,19 @@ wp_global_rm_flag (WpGlobal *global, guint rm_flag)
       if (global->flags == 0)
         g_object_unref (proxy);
     }
+
+    /* It's possible to receive consecutive {add, remove, add} events for the
+     * same id. Since the WpGlobal might not be destroyed immediately below,
+     * (e.g. it's in tmp_globals list), we must invalidate the id now, so that
+     * this WpGlobal is not used in reference to objects added later.
+     */
+    global->id = SPA_ID_INVALID;
+    wp_properties_setf (global->properties, PW_KEY_OBJECT_ID, NULL);
   }
 
   /* drop the registry's ref on global when it does not appear on the registry anymore */
   if (!(global->flags & WP_GLOBAL_FLAG_APPEARS_ON_REGISTRY) && reg) {
-    g_clear_pointer (&g_ptr_array_index (reg->globals, global->id), wp_global_unref);
+    g_clear_pointer (&g_ptr_array_index (reg->globals, id), wp_global_unref);
   }
 }
 
