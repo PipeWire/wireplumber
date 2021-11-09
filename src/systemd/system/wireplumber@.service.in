@@ -1,3 +1,8 @@
+# Service file to run WirePlumber in split mode, i.e. run multiple
+# WirePlumber instances with different module sets.
+# The template argument is used to load the configuration file, e.g.
+# wireplumber@main.service loads main.conf,
+# wireplumber@policy.service loads policy.conf, etc.
 [Unit]
 Description=Multimedia Service Session Manager (%i)
 After=pipewire.service
