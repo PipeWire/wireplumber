@@ -393,8 +393,8 @@ function handleLinkable (si)
   end
 
   -- Check if item is linked to proper target, otherwise re-link
-  if si_flags[si_id].peer_id ~= nil then
-    if si_flags[si_id].peer_id == si_target.id then
+  if si_flags[si_id].peer_id then
+    if si_target and si_flags[si_id].peer_id == si_target.id then
       Log.debug (si, "... already linked to proper target")
       return
     end
@@ -402,8 +402,8 @@ function handleLinkable (si)
       local link = lookupLink (si_id, si_flags[si_id].peer_id)
       if link ~= nil then
         -- remove old link if active, otherwise schedule rescan
-	if ((link:get_active_features() & Feature.SessionItem.ACTIVE) ~= 0) then
-	  si_flags[si_id].peer_id = nil
+        if ((link:get_active_features() & Feature.SessionItem.ACTIVE) ~= 0) then
+          si_flags[si_id].peer_id = nil
           link:remove ()
           Log.info (si, "... moving to new target")
         else
