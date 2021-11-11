@@ -33,7 +33,7 @@
  * possible, the WpTransition base class does not expect
  * _WpTransitionClass::execute_step() to call wp_transition_advance() directly.
  * Instead, it is expected that wp_transition_advance() will be called from
- * the callback that the step's asyncrhonous operation will call when it is
+ * the callback that the step's asynchronous operation will call when it is
  * completed.
  *
  * \gproperties
