@@ -10,7 +10,8 @@ Getting debug messages on the command line is a matter of setting the
 
    WIREPLUMBER_DEBUG=level:category1,category2,...
 
-``level`` can be a number from 1 to 5 and defines the minimum debug level to show:
+``level`` can be one of ``CEWMIDT`` or a numerical log level as listed below.
+In either case it defines the minimum debug level to show:
 
   0. critical warnings and fatal errors (``C`` & ``E`` in the log)
   1. warnings (``W``)
@@ -50,13 +51,13 @@ Show all messages:
 
 .. code::
 
-   WIREPLUMBER_DEBUG=5
+   WIREPLUMBER_DEBUG=D
 
 Show all messages up to the *debug* level (E, C, W, M, I & D), excluding *trace*:
 
 .. code::
 
-   WIREPLUMBER_DEBUG=4
+   WIREPLUMBER_DEBUG=M
 
 Show all messages up to the *message* level (E, C, W & M),
 excluding *info*, *debug* & *trace*
@@ -70,13 +71,13 @@ Show all messages from the wireplumber library:
 
 .. code::
 
-   WIREPLUMBER_DEBUG=5:wp-*
+   WIREPLUMBER_DEBUG=D:wp-*
 
 Show all messages from ``wp-registry``, libpipewire and all modules:
 
 .. code::
 
-   WIREPLUMBER_DEBUG=5:wp-registry,pw,m-*
+   WIREPLUMBER_DEBUG=D:wp-registry,pw,m-*
 
 Relationship with the GLib log handler & G_MESSAGES_DEBUG
 ---------------------------------------------------------

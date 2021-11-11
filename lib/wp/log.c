@@ -379,6 +379,19 @@ wp_log_level_is_enabled (GLogLevelFlags log_level)
   return log_level_index (log_level) <= enabled_level;
 }
 
+static gint
+level_index_from_string (const char *str)
+{
+  g_return_val_if_fail (str != NULL, 0);
+
+  for (guint i = 0; i < G_N_ELEMENTS (log_level_info); i++) {
+    if (g_str_equal (str, log_level_info[i].name))
+      return i;
+  }
+
+  return level_index_from_spa (atoi (str));
+}
+
 /*!
  * \brief Configures the log level and enabled categories
  * \ingroup wplog
@@ -406,7 +419,7 @@ wp_log_set_level (const gchar * level_str)
     tokens = pw_split_strv (level_str, ":", 2, &n_tokens);
 
     /* set the log level */
-    enabled_level = level_index_from_spa (atoi (tokens[0]));
+    enabled_level = level_index_from_string (tokens[0]);
 
     /* enable filtering of debug categories */
     if (n_tokens > 1) {
