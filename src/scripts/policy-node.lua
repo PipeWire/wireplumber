@@ -526,9 +526,11 @@ function unhandleLinkable (si)
     local out_id = tonumber (silink.properties["out.item.id"])
     local in_id = tonumber (silink.properties["in.item.id"])
     if out_id == si.id or in_id == si.id then
-      if out_id == si.id and si_flags[in_id] ~= nil then
+      if out_id == si.id and
+          si_flags[in_id] and si_flags[in_id].peer_id == out_id then
         si_flags[in_id].peer_id = nil
-      elseif in_id == si.id and si_flags[out_id] ~= nil then
+      elseif in_id == si.id and
+          si_flags[out_id] and si_flags[in_id].peer_id == in_id then
         si_flags[out_id].peer_id = nil
       end
       silink:remove ()
