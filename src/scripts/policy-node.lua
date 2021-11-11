@@ -269,8 +269,8 @@ function findUndefinedTarget (si)
   local target_direction = getTargetDirection(si_props)
   local target_picked = nil
   local target_can_passthrough = false
-  local target_priority = nil
-  local target_plugged = nil
+  local target_priority = 0
+  local target_plugged = 0
 
   for si_target in linkables_om:iterate {
     Constraint { "item.node.type", "=", "device" },
@@ -289,7 +289,7 @@ function findUndefinedTarget (si)
       goto skip_linkable
     end
 
-    local priority = tonumber(si_target_props["priority.session"])
+    local priority = tonumber(si_target_props["priority.session"]) or 0
 
     -- Is this linkable(node) a default one?
     local def_node_id = getDefaultNode(si_props, target_direction)
@@ -313,7 +313,7 @@ function findUndefinedTarget (si)
       goto skip_linkable
     end
 
-    local plugged = tonumber(si_target_props["item.plugged.usec"])
+    local plugged = tonumber(si_target_props["item.plugged.usec"]) or 0
 
     Log.debug("priority "..priority.." plugged "..plugged)
 
