@@ -280,12 +280,12 @@ function findUndefinedTarget (si)
     local si_target_props = si_target.properties
     local si_target_node_id = si_target_props["node.id"]
 
-    Log.debug(string.format("Looking at node (%s)%s",
-      tostring(si_target_node_id),
-      tostring(si_target_props["node.name"])))
+    Log.debug(string.format("Looking at: %s (%s)",
+        tostring(si_target_props["node.name"]),
+        tostring(si_target_node_id)))
 
     if not canLink (si_props, si_target) then
-      Log.info("cannot link skip linkable")
+      Log.debug("... cannot link, skip linkable")
       goto skip_linkable
     end
 
@@ -294,7 +294,8 @@ function findUndefinedTarget (si)
     -- Is this linkable(node) a default one?
     local def_node_id = getDefaultNode(si_props, target_direction)
     if tostring(def_node_id) == si_target_node_id then
-      Log.debug("this is the default node "..def_node_id)
+      Log.debug(string.format("... this (%s) is the default node for %s",
+          def_node_id, target_direction))
       priority = priority + 10000
     end
 
@@ -307,15 +308,15 @@ function findUndefinedTarget (si)
 
     if (si_must_passthrough or si_target_must_passthrough)
         and not can_passthrough then
-      Log.debug(string.format("cannot pass through, skip linkable %s %s",
-        tostring(si_must_passthrough),
-        tostring(si_target_must_passthrough)))
+      Log.debug(string.format("... cannot passthrough, skip; must:%s target_must:%s",
+          tostring(si_must_passthrough),
+          tostring(si_target_must_passthrough)))
       goto skip_linkable
     end
 
     local plugged = tonumber(si_target_props["item.plugged.usec"]) or 0
 
-    Log.debug("priority "..priority.." plugged "..plugged)
+    Log.debug("... priority:"..tostring(priority)..", plugged:"..tostring(plugged))
 
     -- (target_picked == NULL) --> make sure atleast one target is picked.
     -- (priority > target_priority) --> pick the highest priority linkable(node)
@@ -325,7 +326,7 @@ function findUndefinedTarget (si)
     if (target_picked == nil or
         priority > target_priority or
         (priority == target_priority and plugged > target_plugged)) then
-          Log.debug("new pick:")
+          Log.debug("... picked")
           target_picked = si_target
           target_can_passthrough = can_passthrough
           target_priority = priority
@@ -335,9 +336,9 @@ function findUndefinedTarget (si)
   end
 
   if target_picked then
-    Log.info(string.format("final pick: node (%s)%s can passthrough(%s)",
-      tostring(target_picked.properties["node.id"]),
+    Log.info(string.format("... target: %s (%s), can_passthrough:%s",
       tostring(target_picked.properties["node.name"]),
+      tostring(target_picked.properties["node.id"]),
       tostring(target_can_passthrough)))
     return target_picked, target_can_passthrough
   else
