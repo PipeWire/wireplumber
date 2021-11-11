@@ -1,5 +1,44 @@
-WirePlumber 0.4.4
+WirePlumber 0.4.5
 ~~~~~~~~~~~~~~~~~
+
+Fixes:
+
+  - Fixed a crash that could happen after a node linking error (#76)
+
+  - Fixed a bug that would cause capture streams to link to monitor ports
+    of loopback nodes instead of linking to their capture ports
+
+  - Fixed a needless wait that would happen on applications using the pipewire
+    ALSA plugin (#92)
+
+  - Fixed an issue that would cause endless rescan loops in policy-node and
+    could potentially also cause other strange behaviors in case pavucontrol
+    or another monitoring utility was open while the policy was rescanning (#77)
+
+  - Fixed the endpoints-based policy that broke in recent versions and improved
+    its codebase to share more code and be more in-line with policy-node
+
+  - The semicolon character is now escaped properly in state files (#82)
+
+  - When a player requests encoded audio passthrough, the policy now prefers
+    linking to a device that supports that instead of trying to link to the
+    default device and potentially failing (#75)
+
+  - Miscellaneous robustness fixes in policy-node
+
+API:
+
+  - Added WpFactory, a binding for pw_factory proxies. This allows object
+    managers to query factories that are loaded in the pipewire daemon
+
+  - The file-monitor-api plugin can now watch files for changes in addition
+    to directories
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.4.4
+.................
 
 Highlights:
 
@@ -26,7 +65,7 @@ API:
     as well as the properties table properly
 
   - Added ``WpClient.send_error()``, ``WpSpaPod.fixate()`` and
-   ``WpSpaPod.filter()`` (both in C and Lua)
+    ``WpSpaPod.filter()`` (both in C and Lua)
 
 Misc:
 
@@ -50,9 +89,6 @@ Misc:
   - Fixed a nasty segfault that appeared in 0.4.3 due to a typo (#72)
 
   - Fixed a re-entrancy issue in the wplua runtime (#73)
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.4.3
 .................
