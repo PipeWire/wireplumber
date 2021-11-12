@@ -221,7 +221,7 @@ wp_reserve_device_plugin_create_reservation (WpReserveDevicePlugin *self,
       NULL);
 
   /* use rd->name to avoid copying @em name again */
-  g_hash_table_insert (self->reserve_devices, rd->name, rd);
+  g_hash_table_replace (self->reserve_devices, rd->name, rd);
 
   return g_object_ref (rd);
 }
