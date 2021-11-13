@@ -390,6 +390,16 @@ wp_global_proxy_bind (WpGlobalProxy * self)
   if (!priv->global || !priv->global->proxy)
     return FALSE;
 
+  /*
+   * We can bind only if the WpGlobal will unbind this proxy on removal, so
+   * assert here that this is so. Why: pw_registry_bind can race with the global
+   * id being replaced with a different object on server side, so we must rely
+   * on the registry_global messages to know if the object was replaced.  If the
+   * race occurs, and a wrong object is going to be bound here, what will then
+   * happen is that WpGlobal will dispose this proxy and no problem arises.
+   */
+  g_return_val_if_fail (priv->global->proxy == self, FALSE);
+
   p = wp_global_bind (priv->global);
   if (!p)
     return FALSE;
