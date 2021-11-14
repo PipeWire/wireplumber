@@ -315,6 +315,9 @@ wp_new_files_iterator (WpLookupDirs dirs, const gchar *subdir,
     if (dir) {
       const gchar *filename;
       while ((filename = g_dir_read_name (dir))) {
+        if (filename[0] == '.')
+          continue;
+
         if (suffix && !g_str_has_suffix (filename, suffix))
           continue;
 
