@@ -103,6 +103,11 @@ include:
     - export BUILD_ID="$CI_JOB_ID"
     - export PREFIX="$PWD/prefix-$BUILD_ID"
     - export PW_BUILD_DIR="$PWD/build-pipewire-$BUILD_ID"
+    - |
+      if [ -n "$FDO_CI_CONCURRENT" ]; then
+         NINJA_ARGS="-j$FDO_CI_CONCURRENT $NINJA_ARGS"
+         export NINJA_ARGS
+      fi
     # Build pipewire
     # Fedora also ships that, but without the test plugins that we need...
     - git clone --depth=1 --branch="$PIPEWIRE_HEAD"
@@ -115,7 +120,7 @@ include:
         -Dsdl2=disabled -Dsndfile=disabled -Dlibpulse=disabled -Davahi=disabled
         -Decho-cancel-webrtc=disabled -Dsession-managers=[]
         -Dvideotestsrc=enabled -Daudiotestsrc=enabled -Dtest=enabled
-    - ninja -C "$PW_BUILD_DIR" install
+    - ninja $NINJA_ARGS -C "$PW_BUILD_DIR" install
     # misc environment only for wireplumber
     - export WP_BUILD_DIR="$PWD/build-wireplumber-$BUILD_ID"
     - export PKG_CONFIG_PATH="$(dirname $(find "$PREFIX" -name 'libpipewire-*.pc')):$PKG_CONFIG_PATH"
@@ -123,9 +128,9 @@ include:
     # Build wireplumber
     - meson "$WP_BUILD_DIR" . --prefix="$PREFIX" $BUILD_OPTIONS
     - cd "$WP_BUILD_DIR"
-    - ninja
-    - ninja test
-    - ninja install
+    - ninja $NINJA_ARGS
+    - ninja $NINJA_ARGS test
+    - ninja $NINJA_ARGS install
   artifacts:
     name: wireplumber-$CI_COMMIT_SHA
     when: always
@@ -213,7 +218,7 @@ build_with_coverity:
         --comptype gcc --compiler cc --template
         --xml-option=append_arg@C:--ppp_translator
         --xml-option=append_arg@C:"replace/GLIB_(DEPRECATED|AVAILABLE)_ENUMERATOR_IN_\d_\d\d(_FOR\(\w+\)|)\s+=/ ="
-    - cov-build --dir cov-int --config coverity_conf.xml ninja -C "$WP_BUILD_DIR"
+    - cov-build --dir cov-int --config coverity_conf.xml ninja $NINJA_ARGS -C "$WP_BUILD_DIR"
     - tar caf wireplumber.tar.gz cov-int
     - curl https://scan.coverity.com/builds?project=$COVERITY_SCAN_PROJECT_NAME
         --form token=$COVERITY_SCAN_TOKEN --form email=$GITLAB_USER_EMAIL
