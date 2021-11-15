@@ -130,7 +130,7 @@ function createDevice(parent, id, type, factory, properties)
   parent:store_managed_object(id, device)
 end
 
-monitor = SpaDevice("api.libcamera.enum.client", config.properties or {})
+monitor = SpaDevice("api.libcamera.enum.manager", config.properties or {})
 if monitor then
   monitor:connect("create-object", createDevice)
   monitor:activate(Feature.SpaDevice.ENABLED)
