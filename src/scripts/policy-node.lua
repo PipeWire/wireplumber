@@ -237,7 +237,6 @@ function findDefinedTarget (properties)
   local target_id = metadata
       and metadata:find(properties["node.id"], "target.node")
       or properties["node.target"]
-  local target_direction = getTargetDirection(properties)
 
   if target_id and tonumber(target_id) then
     local si_target = linkables_om:lookup {
@@ -253,7 +252,6 @@ function findDefinedTarget (properties)
       local target_props = si_target.properties
       if (target_props["node.name"] == target_id or
           target_props["object.path"] == target_id) and
-          target_props["item.node.direction"] == target_direction and
           canLink (properties, si_target) then
         return si_target
       end
