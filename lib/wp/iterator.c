@@ -174,7 +174,7 @@ wp_iterator_next (WpIterator *self, GValue *item)
 }
 
 /*!
- * \brief Iterates over all items of the iterator calling a function.
+ * \brief Fold a function over the items of the iterator.
  *
  * \ingroup wpiterator
  * \param self the iterator
@@ -196,7 +196,7 @@ wp_iterator_fold (WpIterator *self, WpIteratorFoldFunc func, GValue *ret,
 }
 
 /*!
- * \brief Fold a function over the items of the iterator.
+ * \brief Iterates over all items of the iterator calling a function.
  *
  * \ingroup wpiterator
  * \param self the iterator
