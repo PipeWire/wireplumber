@@ -106,11 +106,11 @@
  * Flags: G_SIGNAL_RUN_FIRST
  * \endparblock
  *
- * \par object-changed
+ * \par objects-changed
  * \parblock
  * \code
  * void
- * object_changed_callback (WpObjectManager * self,
+ * objects_changed_callback (WpObjectManager * self,
  *                          gpointer user_data)
  * \endcode
  *

@@ -35,7 +35,7 @@
  * \code
  * void
  * changed_callback (WpMetadata * self,
- *                   guint object,
+ *                   guint subject,
  *                   gchar * key,
  *                   gchar * type,
  *                   gchar * value,

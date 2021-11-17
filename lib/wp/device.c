@@ -507,7 +507,7 @@ wp_spa_device_deactivate (WpObject * object, WpObjectFeatures features)
  * Flags: G_SIGNAL_RUN_FIRST
  * \endparblock
  *
- * \par remove-object
+ * \par object-removed
  * \parblock
  * \code
  * void
