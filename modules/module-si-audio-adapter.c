@@ -591,11 +591,9 @@ si_audio_adapter_set_ports_format (WpSiAdapter * item, WpSpaPod *f,
     const gchar *mode, GAsyncReadyCallback callback, gpointer data)
 {
   WpSiAudioAdapter *self = WP_SI_AUDIO_ADAPTER (item);
-  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_autoptr (WpSpaPod) format = f;
   guint32 active = 0;
 
-  g_return_if_fail (core);
 
   /* cancel previous task if any */
   if (self->format_task) {
