@@ -592,8 +592,8 @@ si_audio_adapter_set_ports_format (WpSiAdapter * item, WpSpaPod *f,
 {
   WpSiAudioAdapter *self = WP_SI_AUDIO_ADAPTER (item);
   g_autoptr (WpSpaPod) format = f;
+  g_autoptr (GTask) task = g_task_new (self, NULL, callback, data);
   guint32 active = 0;
-
 
   /* cancel previous task if any */
   if (self->format_task) {
@@ -605,17 +605,18 @@ si_audio_adapter_set_ports_format (WpSiAdapter * item, WpSpaPod *f,
   /* build default format if NULL was given */
   if (!format && !g_strcmp0 (mode, "dsp")) {
     format = build_adapter_default_format (self, mode);
-    g_return_if_fail (format);
+    if (!format) {
+      g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
+          WP_LIBRARY_ERROR_OPERATION_FAILED,
+          "failed to build default format, aborting set format operation");
+      return;
+    }
   }
 
-  /* create the new task */
-  g_return_if_fail (!self->format_task);
-  self->format_task = g_task_new (self, NULL, callback, data);
-
+  /* make sure the node has WP_NODE_FEATURE_PORTS */
   active = wp_object_get_active_features (WP_OBJECT (self->node));
   if (G_UNLIKELY (!(active & WP_NODE_FEATURE_PORTS))) {
-    g_autoptr (GTask) t = g_steal_pointer (&self->format_task);
-    g_task_return_new_error (t, WP_DOMAIN_LIBRARY,
+    g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
         WP_LIBRARY_ERROR_OPERATION_FAILED,
         "node feature ports is not enabled, aborting set format operation");
     return;
@@ -625,19 +626,19 @@ si_audio_adapter_set_ports_format (WpSiAdapter * item, WpSpaPod *f,
   if (!g_strcmp0 (mode, self->mode) &&
       ((format == NULL && self->format == NULL) ||
         wp_spa_pod_equal (format, self->format))) {
-    g_autoptr (GTask) t = g_steal_pointer (&self->format_task);
-    g_task_return_boolean (t, TRUE);
+    g_task_return_boolean (task, TRUE);
     return;
   }
-
-  /* set format and mode */
-  g_clear_pointer (&self->format, wp_spa_pod_unref);
-  self->format = g_steal_pointer (&format);
-  strncpy (self->mode, mode ? mode : "dsp", sizeof (self->mode) - 1);
 
   /* ensure the node is suspended */
   if (wp_node_get_state (self->node, NULL) >= WP_NODE_STATE_IDLE)
     wp_node_send_command (self->node, "Suspend");
+
+  /* set task, format and mode */
+  self->format_task = g_steal_pointer (&task);
+  g_clear_pointer (&self->format, wp_spa_pod_unref);
+  self->format = g_steal_pointer (&format);
+  strncpy (self->mode, mode ? mode : "dsp", sizeof (self->mode) - 1);
 
   /* configure DSP with chosen format */
   wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (self->node),
