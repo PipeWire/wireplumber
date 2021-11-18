@@ -329,9 +329,12 @@ get_ports_and_create_links (WpSiStandardLink *self, WpTransition *transition)
 
   si_out = WP_SI_LINKABLE (g_weak_ref_get (&self->out_item));
   si_in = WP_SI_LINKABLE (g_weak_ref_get (&self->in_item));
-
-  g_return_if_fail (si_out);
-  g_return_if_fail (si_in);
+  if (!si_out || !si_in) {
+    wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
+          WP_LIBRARY_ERROR_INVARIANT,
+          "Failed to create links because one of the nodes was destroyed"));
+    return;
+  }
 
   out_ports = wp_si_linkable_get_ports (si_out, self->out_item_port_context);
   in_ports = wp_si_linkable_get_ports (si_in, self->in_item_port_context);
@@ -444,15 +447,24 @@ on_main_adapter_ready (GObject *obj, GAsyncResult * res, gpointer p)
 static void
 configure_and_link_adapters (WpSiStandardLink *self, WpTransition *transition)
 {
+  g_autoptr (WpSiAdapter) si_out =
+      WP_SI_ADAPTER (g_weak_ref_get (&self->out_item));
+  g_autoptr (WpSiAdapter) si_in =
+      WP_SI_ADAPTER (g_weak_ref_get (&self->in_item));
   struct adapter *out, *in, *main, *other;
   const gchar *str = NULL;
 
+  if (!si_out || !si_in) {
+    wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
+          WP_LIBRARY_ERROR_INVARIANT,
+          "Failed to create links because one of the adapters was destroyed"));
+    return;
+  }
+
   out = g_slice_new0 (struct adapter);
   in = g_slice_new0 (struct adapter);
-  out->si = WP_SI_ADAPTER (g_weak_ref_get (&self->out_item));
-  in->si = WP_SI_ADAPTER (g_weak_ref_get (&self->in_item));
-  g_return_if_fail (out->si);
-  g_return_if_fail (in->si);
+  out->si = g_steal_pointer (&si_out);
+  in->si = g_steal_pointer (&si_in);
 
   str = wp_session_item_get_property (WP_SESSION_ITEM (out->si), "item.node.type");
   out->is_device = !g_strcmp0 (str, "device");
