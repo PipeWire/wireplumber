@@ -493,6 +493,9 @@ function handleLinkable (si)
     if not reconnect then
       Log.info (si, "... destroy node")
       node:request_destroy()
+    elseif si_flags[si.id].was_handled then
+      Log.info (si, "... waiting reconnect")
+      return
     end
 
     local client_id = node.properties["client.id"]
