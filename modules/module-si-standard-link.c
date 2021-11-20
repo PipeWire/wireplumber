@@ -27,6 +27,8 @@ struct _WpSiStandardLink
 
   /* activate */
   GPtrArray *node_links;
+  guint n_active_links;
+  guint n_failed_links;
   guint n_async_ops_wait;
 };
 
@@ -153,6 +155,8 @@ si_standard_link_disable_active (WpSessionItem *si)
   }
 
   g_clear_pointer (&self->node_links, g_ptr_array_unref);
+  self->n_active_links = 0;
+  self->n_failed_links = 0;
   self->n_async_ops_wait = 0;
 
   wp_object_update_features (WP_OBJECT (self), 0,
@@ -164,17 +168,29 @@ on_link_activated (WpObject * proxy, GAsyncResult * res,
     WpTransition * transition)
 {
   WpSiStandardLink *self = wp_transition_get_source_object (transition);
-  g_autoptr (GError) error = NULL;
+  guint len = self->node_links->len;
 
-  if (!wp_object_activate_finish (proxy, res, &error)) {
-    wp_transition_return_error (transition, g_steal_pointer (&error));
+  /* Count the number of failed and active links */
+  if (wp_object_activate_finish (proxy, res, NULL))
+    self->n_active_links++;
+  else
+    self->n_failed_links++;
+
+  /* Wait for all links to finish activation */
+  if (self->n_failed_links + self->n_active_links != len)
     return;
-  }
 
-  self->n_async_ops_wait--;
-  if (self->n_async_ops_wait == 0)
+  /* We only active feature if all links activated successfully */
+  if (self->n_failed_links > 0) {
+    g_clear_pointer (&self->node_links, g_ptr_array_unref);
+    wp_transition_return_error (transition, g_error_new (
+        WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "%d of %d PipeWire links failed to activate",
+        self->n_failed_links, len));
+  } else {
     wp_object_update_features (WP_OBJECT (self),
         WP_SESSION_ITEM_FEATURE_ACTIVE, 0);
+  }
 }
 
 struct port
@@ -225,32 +241,33 @@ static gboolean
 create_links (WpSiStandardLink * self, WpTransition * transition,
     GVariant * out_ports, GVariant * in_ports)
 {
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_autoptr (GArray) in_ports_arr = NULL;
-  g_autoptr (WpCore) core = NULL;
   struct port out_port = {0};
   struct port *in_port;
   GVariantIter *iter = NULL;
   guint i;
+
+  /* Clear old links if any */
+  self->n_active_links = 0;
+  self->n_failed_links = 0;
+  g_clear_pointer (&self->node_links, g_ptr_array_unref);
 
   /* tuple format:
       uint32 node_id;
       uint32 port_id;
       uint32 channel;  // enum spa_audio_channel
    */
-  if (!out_ports || !g_variant_is_of_type (out_ports, G_VARIANT_TYPE("a(uuu)")))
+  if (!g_variant_is_of_type (out_ports, G_VARIANT_TYPE("a(uuu)")))
     return FALSE;
-  if (!in_ports || !g_variant_is_of_type (in_ports, G_VARIANT_TYPE("a(uuu)")))
+  if (!g_variant_is_of_type (in_ports, G_VARIANT_TYPE("a(uuu)")))
     return FALSE;
-
-  core = wp_object_get_core (WP_OBJECT (self));
-  g_return_val_if_fail (core, FALSE);
-
-  self->n_async_ops_wait = 0;
-  self->node_links = g_ptr_array_new_with_free_func (g_object_unref);
 
   i = g_variant_n_children (in_ports);
   if (i == 0)
     return FALSE;
+
+  self->node_links = g_ptr_array_new_with_free_func (g_object_unref);
 
   /* transfer the in ports to an array so that we can
      mark them when they are linked */
@@ -309,7 +326,6 @@ create_links (WpSiStandardLink * self, WpTransition * transition,
     g_ptr_array_add (self->node_links, link);
 
     /* activate to ensure it is created without errors */
-    self->n_async_ops_wait++;
     wp_object_activate_closure (WP_OBJECT (link),
         WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL, NULL,
         g_cclosure_new_object (
@@ -338,6 +354,12 @@ get_ports_and_create_links (WpSiStandardLink *self, WpTransition *transition)
 
   out_ports = wp_si_linkable_get_ports (si_out, self->out_item_port_context);
   in_ports = wp_si_linkable_get_ports (si_in, self->in_item_port_context);
+  if (!out_ports || !in_ports) {
+    wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
+          WP_LIBRARY_ERROR_INVARIANT,
+          "Failed to create links because one of the nodes has no ports"));
+    return;
+  }
 
   if (!create_links (self, transition, out_ports, in_ports))
       wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
