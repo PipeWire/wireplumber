@@ -287,6 +287,12 @@ function prepareDevice(parent, id, type, factory, properties)
       end
     end)
 
+    rd:connect("release-requested", function (rd)
+        Log.info("release requested")
+        parent:store_managed_object(id, nil)
+        rd:call("release")
+    end)
+
     if jack_device then
       rd:connect("notify::owner-name-changed", function (rd, pspec)
         if rd["state"] == "busy" and
