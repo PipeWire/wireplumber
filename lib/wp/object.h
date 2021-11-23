@@ -107,6 +107,9 @@ void wp_object_deactivate (WpObject * self, WpObjectFeatures features);
 /* for subclasses only */
 
 WP_API
+void wp_object_abort_activation (WpObject * self, const gchar *msg);
+
+WP_API
 void wp_object_update_features (WpObject * self, WpObjectFeatures activated,
     WpObjectFeatures deactivated);
 
