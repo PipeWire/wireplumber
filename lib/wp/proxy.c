@@ -133,6 +133,9 @@ proxy_event_destroy (void *data)
   spa_hook_remove (&priv->listener);
   priv->pw_proxy = NULL;
   wp_object_update_features (WP_OBJECT (self), 0, WP_PROXY_FEATURE_BOUND);
+
+  wp_object_abort_activation (WP_OBJECT (self), "PipeWire proxy destroyed");
+
   g_signal_emit (self, signals[SIGNAL_PW_PROXY_DESTROYED], 0);
 }
 
@@ -157,9 +160,18 @@ static void
 proxy_event_error (void *data, int seq, int res, const char *message)
 {
   WpProxy *self = WP_PROXY (data);
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
 
   wp_trace_object (self, "error seq:%d res:%d (%s) %s",
       seq, res, spa_strerror(res), message);
+
+  /* we destroy the proxy on error if feature bound is still not enabled */
+  if (priv->pw_proxy &&
+      !(wp_object_get_active_features (WP_OBJECT (self)) & WP_PROXY_FEATURE_BOUND))
+    pw_proxy_destroy (priv->pw_proxy);
+
+  wp_object_abort_activation (WP_OBJECT (self), message);
+
   g_signal_emit (self, signals[SIGNAL_ERROR], 0, seq, res, message);
 }
 
@@ -337,47 +349,4 @@ wp_proxy_set_pw_proxy (WpProxy * self, struct pw_proxy * proxy)
 
   /* inform subclasses and listeners */
   g_signal_emit (self, signals[SIGNAL_PW_PROXY_CREATED], 0, priv->pw_proxy);
-}
-
-static void
-bind_error (WpProxy * proxy, int seq, int res, const gchar *msg,
-    WpTransition * transition)
-{
-  WpProxyPrivate *priv = wp_proxy_get_instance_private (proxy);
-
-  if (priv->pw_proxy)
-    pw_proxy_destroy (priv->pw_proxy);
-
-  wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
-          WP_LIBRARY_ERROR_OPERATION_FAILED, "%s", msg));
-}
-
-static void
-bind_success (WpProxy * proxy, uint32_t global_id, WpTransition * transition)
-{
-  g_signal_handlers_disconnect_by_func (proxy, bind_error, transition);
-  g_signal_handlers_disconnect_by_func (proxy, bind_success, transition);
-}
-
-/*!
- * \brief Private method to be used by subclasses to watch for errors
- * during a \a transition that leads the proxy to become bound
- *
- * If an error is signaled on the proxy before the \c bound signal is emitted,
- * the transition will return an error.
- *
- * \param proxy the proxy
- * \param transition the transition that binds the proxy
- * \ingroup wpproxy
- */
-void
-wp_proxy_watch_bind_error (WpProxy * proxy, WpTransition * transition)
-{
-  g_return_if_fail (WP_IS_PROXY (proxy));
-  g_return_if_fail (WP_IS_TRANSITION (transition));
-
-  g_signal_connect_object (proxy, "error", G_CALLBACK (bind_error),
-      transition, 0);
-  g_signal_connect_object (proxy, "bound", G_CALLBACK (bind_success),
-      transition, 0);
 }

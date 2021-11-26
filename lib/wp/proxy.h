@@ -100,9 +100,6 @@ struct pw_proxy * wp_proxy_get_pw_proxy (WpProxy * self);
 WP_API
 void wp_proxy_set_pw_proxy (WpProxy * self, struct pw_proxy * proxy);
 
-WP_API
-void wp_proxy_watch_bind_error (WpProxy * proxy, WpTransition * transition);
-
 G_END_DECLS
 
 #endif

@@ -162,8 +162,6 @@ wp_global_proxy_step_bind (WpObject * object,
   WpGlobalProxy *self = WP_GLOBAL_PROXY (object);
   WpGlobalProxyPrivate *priv = wp_global_proxy_get_instance_private (self);
 
-  wp_proxy_watch_bind_error (WP_PROXY (self), WP_TRANSITION (transition));
-
   /* Create the pipewire object if global is NULL */
   if (priv->global == NULL && priv->factory_name[0] != '\0') {
     g_autoptr (WpCore) core = NULL;
