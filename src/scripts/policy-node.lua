@@ -262,6 +262,91 @@ function findDefinedTarget (properties)
   return nil
 end
 
+function parseParam(param, id)
+  local route = param:parse()
+  if route.pod_type == "Object" and route.object_id == id then
+    return route.properties
+  else
+    return nil
+  end
+end
+
+function arrayContains(a, value)
+  for _, v in ipairs(a) do
+    if v == value then
+      return true
+    end
+  end
+  return false
+end
+
+
+-- Does the target device have any active/available paths/routes to
+-- the physical device(spkr/mic/cam)?
+function haveAvailableRoutes (si_props)
+  local card_profile_device = si_props["card.profile.device"]
+  local device_id = si_props["device.id"]
+  local device = devices_om:lookup {
+    Constraint { "bound-id", "=", device_id, type = "gobject"},
+  }
+
+  if not card_profile_device or not device then
+    return true
+  end
+
+  local found = 0
+  local avail = 0
+
+  -- First check "SPA_PARAM_Route" if there are any active devices
+  -- in an active profile.
+  for p in device:iterate_params("Route") do
+    local route = parseParam(p, "Route")
+    if not route then
+      goto skip_route
+    end
+
+    if (route.device ~= tonumber(card_profile_device)) then
+      goto skip_route
+    end
+
+    if (route.available == "no") then
+      return false
+    end
+
+    do return true end
+
+    ::skip_route::
+  end
+
+  -- Second check "SPA_PARAM_EnumRoute" if there is any route that
+  -- is available if not active.
+  for p in device:iterate_params("EnumRoute") do
+    local route = parseParam(p, "EnumRoute")
+    if not route then
+      goto skip_enum_route
+    end
+
+    if not arrayContains(route.devices, tonumber(card_profile_device)) then
+      goto skip_enum_route
+    end
+    found = found + 1;
+    if (route.available ~= "no") then
+      avail = avail +1
+    end
+    ::skip_enum_route::
+  end
+
+  if found == 0 then
+    return true
+  end
+  if avail > 0 then
+    return true
+  end
+
+  return false
+
+end
+
 -- User or client defined target is not available, Loop through all the valid
 -- linkables(nodes) and pick an appropriate one.
 function findUndefinedTarget (si)
@@ -297,6 +382,9 @@ function findUndefinedTarget (si)
       Log.debug(string.format("... this (%s) is the default node for %s",
           def_node_id, target_direction))
       priority = priority + 10000
+    elseif not haveAvailableRoutes(si_target_props) then
+      Log.debug("... does not have routes, skip linkable")
+      goto skip_linkable
     end
 
     -- todo:check if this linkable(node/device) have valid routes.
@@ -336,7 +424,7 @@ function findUndefinedTarget (si)
   end
 
   if target_picked then
-    Log.info(string.format("... target: %s (%s), can_passthrough:%s",
+    Log.info(string.format("... target picked: %s (%s), can_passthrough:%s",
       tostring(target_picked.properties["node.name"]),
       tostring(target_picked.properties["node.id"]),
       tostring(target_can_passthrough)))
@@ -571,6 +659,9 @@ endpoints_om = ObjectManager { Interest { type = "SiEndpoint" } }
 
 clients_om = ObjectManager { Interest { type = "client" } }
 
+devices_om = ObjectManager { Interest { type = "device" } }
+
+
 linkables_om = ObjectManager {
   Interest {
     type = "SiLinkable",
@@ -647,3 +738,4 @@ endpoints_om:activate()
 clients_om:activate()
 linkables_om:activate()
 links_om:activate()
+devices_om:activate()
