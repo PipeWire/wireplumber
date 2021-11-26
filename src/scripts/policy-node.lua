@@ -286,7 +286,7 @@ end
 function haveAvailableRoutes (si_props)
   local card_profile_device = si_props["card.profile.device"]
   local device_id = si_props["device.id"]
-  local device = devices_om:lookup {
+  local device = device_id and devices_om:lookup {
     Constraint { "bound-id", "=", device_id, type = "gobject"},
   }
 
