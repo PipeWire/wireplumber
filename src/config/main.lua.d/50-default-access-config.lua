@@ -20,4 +20,12 @@ default_access.rules = {
     },
     default_permissions = "rx",
   },
+  {
+    matches = {
+      {
+        { "pipewire.access", "=", "restricted" },
+      },
+    },
+    default_permissions = "rx",
+  },
 }
