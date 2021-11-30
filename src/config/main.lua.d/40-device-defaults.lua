@@ -5,6 +5,9 @@ device_defaults.properties = {
   -- when set to false, default nodes and routes are selected based on
   -- their priorities and any runtime changes do not persist after restart
   ["use-persistent-storage"] = true,
+
+  -- the default volume to apply to ACP device nodes, in the linear scale
+  --["default-volume"] = 0.4,
 }
 
 function device_defaults.enable()

@@ -13,6 +13,9 @@ local config = ...
 -- whether to store state on the file system
 use_persistent_storage = config["use-persistent-storage"] or false
 
+-- the default volume to apply
+default_volume = tonumber(config["default-volume"] or 0.4)
+
 -- table of device info
 dev_infos = {}
 
@@ -130,7 +133,7 @@ function restoreRoute(device, dev_info, device_id, route)
   -- default props
   local props = {
     "Spa:Pod:Object:Param:Props", "Route",
-    channelVolumes = { 0.4 },
+    channelVolumes = { default_volume },
     mute = false,
   }
 
