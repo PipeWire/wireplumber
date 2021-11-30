@@ -132,6 +132,7 @@ find_script (const gchar * script, gboolean daemon)
     return g_strdup (script);
 
   return wp_find_file (WP_LOOKUP_DIR_ENV_DATA |
+                       WP_LOOKUP_DIR_XDG_CONFIG_HOME |
                        WP_LOOKUP_DIR_ETC |
                        WP_LOOKUP_DIR_PREFIX_SHARE,
                        script, "scripts");
