@@ -773,8 +773,6 @@ wp_pw_object_mixin_handle_event_info (gpointer instance, gconstpointer update)
 
   /* update our info struct */
   d->info = iface->update_info (d->info, update);
-  wp_object_update_features (WP_OBJECT (instance),
-      WP_PIPEWIRE_OBJECT_FEATURE_INFO, 0);
 
   /* update properties */
   if (change_mask & iface->CHANGE_MASK_PROPS) {
@@ -795,6 +793,9 @@ wp_pw_object_mixin_handle_event_info (gpointer instance, gconstpointer update)
     iface->process_info (instance, old_info, d->info);
     g_clear_pointer (&old_info, iface->free_info);
   }
+
+  wp_object_update_features (WP_OBJECT (instance),
+      WP_PIPEWIRE_OBJECT_FEATURE_INFO, 0);
 }
 
 static gint
