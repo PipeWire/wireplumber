@@ -82,8 +82,10 @@ function createLink (si, si_target, passthrough, exclusive)
   -- activate
   si_link:activate (Feature.SessionItem.ACTIVE, function (l, e)
     if e then
-      Log.warning (l, "failed to activate si-standard-link: " .. tostring(e))
-      si_flags[si_id].peer_id = nil
+      Log.info (l, "failed to activate si-standard-link: " .. tostring(e))
+      if si_flags[si_id] ~= nil then
+        si_flags[si_id].peer_id = nil
+      end
       l:remove ()
     else
       si_flags[si_id].failed_peer_id = nil
