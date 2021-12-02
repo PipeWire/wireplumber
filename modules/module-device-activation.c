@@ -46,57 +46,65 @@ handle_device_profiles (WpDeviceActivation *self, WpPipewireObject *proxy,
     WpIterator *profiles)
 {
   g_autoptr (WpPlugin) dp = g_weak_ref_get (&self->default_profile);
-  const gchar *name = NULL;
-  gint index = -1;
+  g_auto (GValue) item = G_VALUE_INIT;
+  const gchar *def_name = NULL;
+  gint best_idx = -1, unk_idx = -1, off_idx = -1;
+  gint best_prio = 0, unk_prio = 0;
 
   /* Get the default profile name if default-profile module is loaded */
   if (dp)
-    g_signal_emit_by_name (dp, "get-profile", WP_DEVICE (proxy), &name);
+    g_signal_emit_by_name (dp, "get-profile", WP_DEVICE (proxy), &def_name);
 
-  /* Find the profile index */
-  if (name) {
-    g_auto (GValue) item = G_VALUE_INIT;
-    for (; wp_iterator_next (profiles, &item); g_value_unset (&item)) {
-      WpSpaPod *pod = g_value_get_boxed (&item);
-      gint i = 0;
-      const gchar *n = NULL;
+  /* Find the best profile index */
+  for (; wp_iterator_next (profiles, &item); g_value_unset (&item)) {
+    WpSpaPod *pod = g_value_get_boxed (&item);
+    gint idx, prio = 0;
+    guint32 avail = SPA_PARAM_AVAILABILITY_unknown;
+    const gchar *name;
 
-      /* Parse */
-      if (!wp_spa_pod_get_object (pod, NULL,
-          "index", "i", &i,
-          "name", "s", &n,
-          NULL)) {
-        continue;
-      }
-
-      if (g_strcmp0 (name, n) == 0) {
-        index = i;
-        break;
-      }
-    }
-  }
-
-  /* If not profile was found, use index 1 for ALSA (no ACP) and Bluez5 */
-  if (index < 0) {
-    /* Alsa */
-    const gchar *api =
-        wp_pipewire_object_get_property (proxy, PW_KEY_DEVICE_API);
-    if (api && g_str_has_prefix (api, "alsa")) {
-      const gchar *acp =
-          wp_pipewire_object_get_property (proxy, "device.api.alsa.acp");
-      if (!acp || !atoi (acp))
-        index = 1;
+    /* Parse */
+    if (!wp_spa_pod_get_object (pod, NULL,
+        "index", "i", &idx,
+        "name", "s", &name,
+        "priority", "?i", &prio,
+        "available", "?I", &avail,
+        NULL)) {
+      continue;
     }
 
-    /* Bluez5 */
-    else if (api && g_str_has_prefix (api, "bluez5")) {
-      index = 1;
+    /* If default profile name is found and is available, select it. Otherwise
+     * find the best profile */
+    if (avail == SPA_PARAM_AVAILABILITY_yes &&
+        def_name && g_strcmp0 (def_name, name) == 0) {
+      best_idx = idx;
+      break;
+    }
+
+    if (g_strcmp0 (name, "pro-audio") == 0)
+      continue;
+
+    if (g_strcmp0 (name, "off") == 0) {
+      off_idx = idx;
+    } else if (avail == SPA_PARAM_AVAILABILITY_yes) {
+      if (best_idx == -1 || prio > best_prio) {
+        best_prio = prio;
+        best_idx = idx;
+      }
+    } else if (avail != SPA_PARAM_AVAILABILITY_no) {
+      if (unk_idx == -1 || prio > unk_prio) {
+        unk_prio = prio;
+        unk_idx = idx;
+      }
     }
   }
 
   /* Set the profile */
-  if (index >= 0)
-    set_device_profile (self, proxy, index);
+  if (best_idx != -1)
+    set_device_profile (self, proxy, best_idx);
+  else if (unk_idx != -1)
+    set_device_profile (self, proxy, unk_idx);
+  else if (off_idx != -1)
+    set_device_profile (self, proxy, off_idx);
 }
 
 static void
