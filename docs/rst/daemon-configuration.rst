@@ -16,106 +16,98 @@ making use of non-standard hardware.
 ------------------
 
 This is WirePlumber's main configuration file. It is read at startup, before
-connecting to the PipeWire daemon. Its purpose is to list all the modules
-that need to be loaded by WirePlumber.
+connecting to the PipeWire daemon, and its purpose is to define the different
+sections of the daemon's configuration. Since the format of this configuration
+file is in JSON, all sections are essentially JSON objects. Lines starting with
+*#* are treated as comments and ignored. The list of all possible section JSON
+objects are:
 
-The format of this file is custom and resembles a script with commands::
+* *context.properties*
 
-  *comment*
-  command parameter1 parameter2 ...
+  Used to define properties to configure the PipeWire context and some modules.
 
-Lines are executed in the order they appear and each of them executes an
-action defined by the command. Lines starting with *#* are treated as comments
-and ignored. Possible commands are
+  Example::
 
-* *add-spa-lib*
-
-  Associates SPA plugin names with the names of the SPA modules that they
-  can be loaded from. This takes 2 parameters - a name pattern and a library name.
-
-  This actually does not load the SPA plugin, it only calls *pw_core_add_spa_lib*
-  with the 2 paramteres given as arguments. As a consequence, it is safe to
-  call this even if the SPA module is not actually installed on the system.
-
-  Example:
-  ::
-
-    add-spa-lib api.alsa.* alsa/libspa-alsa
-
-  In this example, we let *libpipewire* know that any SPA plugin whose name
-  starts with *api.alsa.* can be loaded from the SPA module
-  *alsa/libspa-alsa.so* (relative to the standard SPA modules directory).
-
-* *load-pipewire-module*
-
-  Loads a *libpipewire* module. This is similar to the *load-module* commands
-  that would appear on *pipewire.conf*, the configuration file of the PipeWire
-  daemon.
-
-  This takes at least 1 parameter, the module name, and optionally any module
-  arguments, in the format that they would be given in *pipewire.conf*
-
-  Format:
-  ::
-  
-    load-pipewire-module module-name some-argument some-property=value
-  
-  Example:
-  ::
-
-    load-pipewire-module libpipewire-module-client-device
-
-  This command does not affect the PipeWire daemon by any means. It exists
-  simply to allow loading *libpipewire* modules in the pipewire core that
-  runs inside WirePlumber. This is usually useful to load pipewire protocol
-  extensions, so that you can export custom objects to PipeWire and other
-  clients.
-
-* *load-module*
-
-  Loads a WirePlumber module. This takes 2 arguments and an optional parameter
-  block.
-
-  Format:
-  ::
-
-    load-module ABI module-name {
-    "parameter" : <"value">
+    context.properties = {
+      application.name = WirePlumber
+      Log.level = 2
     }
 
-  The *ABI* parameter specifies the binary interface that WirePlumber shall use
-  to load this module. Currently, the only supported ABI is *C*. It exists to
-  allow future expansion, writing modules in other languages.
+  This sets the daemon's name to *WirePlumber* and the log level to *2*, which
+  only displays errors and warnings. See the Debug_ section for more details.
 
-  The *module-name* should be the name of the *.so* file without the *.so*
-  extension.
+  .. _Debug: https://pipewire.pages.freedesktop.org/wireplumber/daemon-logging.html
 
-  Optionally, if the `load-module` line ends with a `{`, the next lines up to
-  and including the next matching `}` are treated as a parameter block.
-  This block essentially is a
-  `GVariant <https://developer.gnome.org/glib/stable/glib-GVariant.html>`_
-  of type
-  `GVariant format strings <https://developer.gnome.org/glib/stable/gvariant-format-strings.html>`_
-  in the
-  `GVariant Text Format <https://developer.gnome.org/glib/stable/gvariant-text.html>`_.
-  As a rule of thumb, parameter names in this block must always be strings
-  enclosed in double quotes, the separation between names and values is done
-  with the `:` character and values, regardless of their inner type, must always
-  be enclosed in `<` `>`.
+* *context.spa-libs*
 
-  Note that starting the parameter block on the next line is an error. The
-  starting brace (`{`) must always be on the `load-module` line.
+  Used to find spa factory names. It maps a spa factory name regular expression
+  to a library name that should contain that factory. The object property names
+  are the regular expression, and the object property values are the actual
+  library name::
 
-  Example:
-  ::
+    <factory-name regex> = <library-name>
 
-    load-module C libwireplumber-module-monitor {
-      "alsa": <{"factory": <"api.alsa.enum.udev">, "flags": <["use-adapter"]>}>
+  Example::
+
+    context.spa-libs = {
+      api.alsa.*      = alsa/libspa-alsa
+      audio.convert.* = audioconvert/libspa-audioconvert
     }
 
-  Parameters are module-dependent. They are passed as a GVariant in the
-  module's initialization function and it is up to the module to interpret
-  their meaning. WirePlumber does not have any reserved parameters.
+  In this example, we instruct wireplumber to only any *api.alsa.** factory name
+  from the *libspa-alsa* library, and also any *audio.convert.** factory name
+  from the *libspa-audioconvert* library.
+
+* *context.modules*
+
+  Used to load PipeWire modules. This does not affect the PipeWire daemon by any
+  means. It exists simply to allow loading *libpipewire* modules in the PipeWire
+  core that runs inside WirePlumber. This is usually useful to load PipeWire
+  protocol extensions, so that you can export custom objects to PipeWire and
+  other clients.
+
+  Users can also pass key-value pairs if the specific module has arguments, and
+  a combination of 2 flags: `ifexists` flag is given, the module is ignored when
+  not found; if `nofail` is given, module initialization failures are ignored::
+
+    {
+      name = <module-name>
+      [ args = { <key> = <value> ... } ]
+      [ flags = [ [ ifexists ] [ nofail ] ]
+    }
+
+  Example::
+
+    context.modules = [
+      { name = libpipewire-module-adapter }
+      {
+        name = libpipewire-module-metadata,
+        flags = [ ifexists ]
+      }
+    ]
+
+  The above example loads both PipeWire adapter and metadata modules. The
+  metadata module will be ignored if not found because of its `ifexists` flag.
+
+* *context.components*
+
+  Used to load WirePlumber components. Components can be either a WirePlumber
+  module written in C that is loaded dynamically, or a directory with Lua
+  configuration files::
+
+    { name = <component-name>, type = <component-type> }
+
+  Example::
+
+    context.components = [
+      { name = libwireplumber-module-lua-scripting, type = module }
+      { name = main.lua, type = config/lua }
+    ]
+
+  This will load the WirePlumber Lua scripting module dynamically, and any Lua
+  file that is placed under the *main.lua.d* directory, which can load other
+  components from there (See Lua configuration directories below for more
+  details).
 
 Location of configuration files
 -------------------------------
@@ -184,257 +176,458 @@ It is also possible to override these locations by using environment variables:
 `SPA_PLUGIN_DIR` and `PIPEWIRE_MODULE_DIR`. For more details, refer to
 PipeWire's documentation.
 
-module-monitor
-""""""""""""""
 
-This module internally loads a SPA "device" object which enumerates all the
-devices of a certain subsystem. Then it listens for "node" objects that are
-being created by this device and exports them to PipeWire, after adjusting
-their properties to provide enough context.
+Lua Configuration Directories
+-----------------------------
 
-`module-monitor` does not read any configuration files, however, it supports
-configuration through parameters defined in the main `wireplumber.conf`.
+A Lua directory can contain a list of Lua configuration files. Those files are
+loaded alphabetically by filename so that user can control the order in which
+Lua configuration files are executed.
 
-At the top level, each parameter is creating a monitor instance. The paramter
-key is considered to be a friendly name for this instance and can be any string.
-The value of each such parameter is meant to be a dictionary with parameters
-for this instance. Possible instance parameters are
+The default WirePlumber configuration has the following Lua configuration
+directories (note that this can change in future releases):
 
-* `factory`
+* *main.lua.d*
 
-  A string that specifies the name of the SPA factory that loads the intial
-  "device" object.
+This directory contains the main WirePlumber Lua configuration files. Here you
+will find the configuration for ALSA, V4L2 and libcamera monitors configuration.
+In addition to this, there is also access configuration for the clients.
 
-  Well-known factories are
+* *bluetooth.lua.d*
 
-  * "api.alsa.enum.udev" - Discovers ALSA devices via udev
-  * "api.v4l2.enum.udev" - Discovers V4L2 devices via udev
-  * "api.bluez5.enum.dbus" - Discovers bluetooth devices by calling bluez5 API via D-Bus
+This directory is only used for Bluetooth configuration.
 
- * `flags`
 
-    An array of strings that enable specific functionality in the monitor.
-    Possible flags include
+* *policy.lua.d*
 
-    * "use-adapter"
+This directory is used for both the policy and endpoints configuration.
 
-      Instructs the monitor to wrap all the created nodes in an "adapter"
-      SPA node, which provides automatic port splitting/merging and format/rate
-      conversion. This should be always enabled for audio device nodes.
 
-    * "local-nodes"
 
-      Instructs the monitor to run all the created nodes locally in in the
-      WirePlumber process, instead of the default behavior which is to create
-      the nodes in the PipeWire process. This is useful for bluetooth nodes,
-      which should run outside of the main PipeWire process for performance
-      reasons.
+Lua Configuration Files
+-----------------------
 
-    * "activate-devices"
+Some of the most relevant Lua configuration files from the Lua configuration
+directories are:
 
-      Instructs the monitor to automatically set the device profile to "On",
-      so that the nodes are created. If not specified, the profile must be
-      set externally by the user before any nodes appear.
+main.lua.d/\*-alsa-config.lua
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-module-config-endpoint
-""""""""""""""""""""""
+This configuration file is charged to configure the ALSA nodes created by
+PipeWire. Users can configure how these ALSA nodes are created by defining a
+set of properties and rules:
 
-This module creates endpoints when WirePlumber detects new nodes in the
-pipewire graph. Nodes themselves can be created in two ways.
-Device modes are being created by "monitors" that watch a specific subsystem
-(udev, bluez, etc...) for devices. Client nodes are being created by client
-applications that try to stream to/from pipewire. As soon as a node is created,
-the `module-config-endpoint` iterates through all the `.endpoint` configuration
-files, in the order that is determined by the filename, and tries to match the
-node to the node description in the `[match-node]` table. Upon a successful
-match, a new endpoint that follows the description in the `[endpoint]` table is
-created.
+* *alsa_monitor.properties*
 
-`*.endpoint` configuration files
-""""""""""""""""""""""""""""""""
+  This is a simple Lua object that has key value pairs used as properties.
 
-These files are TOML v0.5 files. At the top-level, they must contain exactly
-2 tables: `[match-node]` and `[endpoint]`
+  Example::
 
-The `[match-node]` table contains properties that match a pipewire node that
-exists on the graph. Possible fields of this table are
+    alsa_monitor.properties = {
+      ["alsa.jack-device"] = false,
+      ["alsa.reserve"] = true,
+    }
 
-* `properties`
+  The above example will configure the ALSA monitor to not enable the JACK
+  device, and do ALSA device reservation using the mentioned DBus interface.
 
-  This is a TOML array of tables, where each table must contain two fields:
-  `name` and `value`, both being strings. Each table describes a match against
-  one of the pipewire properties of the node. For a successful node match, all
-  the described properties must match with the node.
+  A list of valid properties are::
 
-  The value of the `name` field must match exactly the name of the pipewire
-  property, while the value of the `value` field can contain '*' (wildcard)
-  and '?' (joker), adhering to the rules of the
-  [GLib g_pattern_match() function](https://developer.gnome.org/glib/stable/glib-Glob-style-pattern-matching.html).
+    ["alsa.jack-device"] = false
 
-  When writing `.endpoint` files, a useful utility that you can use to list
-  device node properties is::
+  Creates a JACK device if set to `true`. This is not enabled by default because it
+  requires that the PipeWire JACK replacement libraries are not used by the
+  session manager, in order to be able to connect to the real JACK server.::
 
-    $ wireplumber-cli device-node-props
+    ["alsa.reserve"] = true
 
-  Another way to figure out some of these properties *for ALSA nodes* is
-  by parsing the aplay/arecord output. For example, this line from `aplay -l`
-  is interpreted as follows::
+  Reserve ALSA devices via org.freedesktop.ReserveDevice1 on D-Bus.::
 
-    card 0: PCH [HDA Intel PCH], device 2: ALC3246 [ALC3246 Analog]
+    ["alsa.reserve.priority"] = -20
 
-    { name = "api.alsa.path", value = "hw:0,2" },
-    { name = "api.alsa.card", value = "0" },
-    { name = "api.alsa.card.id", value = "PCH" },
-    { name = "api.alsa.card.name", value = "HDA Intel PCH" },
-    { name = "api.alsa.pcm.device", value = "2" },
-    { name = "api.alsa.pcm.id", value = "ALC3246" },
-    { name = "api.alsa.pcm.name", value = "ALC3246 Analog" }
+  The used ALSA device reservation priority.::
 
-  The `[endpoint]` table contains a description of the endpoint to be created.
-  Possible fields of this table are
+    ["alsa.reserve.application-name"] = "WirePlumber"
 
-* `session`
+  The used ALSA device reservation application name.
 
-  Required. A String representing the session name to be used when exporting the
-  endpoint.
 
-* `type`
+* *alsa_monitor.rules*
 
-  Required. Specifies the factory to be used for construction.
-  The only well-known factories at the moment of writing is `si-adapter` and
-  `si-simple-node-edpoint`.
+  This is a Lua array that can contain objects with rules for a device or node.
+  Those objects have 2 properties. The first one is `matches`, which allow users
+  to define rules to match a device or node. It is an array of properties that
+  all need to match the regexp. If any of the matches work, the actions are
+  executed for the object. The second property is `apply_properties`, and it is
+  used to apply properties on the matched object.
 
-* `streams`
+  Example::
 
-  Optional. Specifies the name of a `.streams` file that contains the
-  descriptions of the streams to create for this endpoint. This currently
-  specific to the implementation of the `pw-audio-softdsp-endpoint` and might
-  change in the future.
+    alsa_monitor.rules = {
+        matches = {
+          {
+            { "device.name", "matches", "alsa_card.*" },
+          },
+        },
+        apply_properties = {
+          ["api.alsa.use-acp"] = true,
+        }
+    }
 
-* `config`
+  This sets the API ALSA use ACP property to all devices with a name that
+  matches the `alsa_card.*` pattern.
 
-  Optional. Specifies the configuration table used to configure the endpoint.
-  This table can have the following entries
+  A list of valid properties are::
 
-    * `name`
+    ["api.alsa.use-acp"] = true
 
-      Optional. The name of the newly created endpoint. If not specified, the
-      endpoint is named after the node (from the `node.name` property of the
-      node).
+  Use the ACP (alsa card profile) code to manage the device. This will probe the
+  device and configure the available profiles, ports and mixer settings. The
+  code to do this is taken directly from PulseAudio and provides devices that
+  look and feel exactly like the PulseAudio devices.::
 
-    * `media_class`
+    ["api.alsa.use-ucm"] = true
 
-      Optional. A string that specifies an override for the `media.class`
-      property of the node. It can be used in special circumstances to declare
-      that an endpoint is dealing with a different type of data. This is only
-      useful in combination with a policy implementation that is aware of this
-      media class.
+  By default, the UCM configuration is used when it is available for your device.
+  With this option you can disable this and use the ACP profiles instead.::
 
-    * `role`
+    ["api.alsa.soft-mixer"] = false
 
-      Optional. A string representing the role of the endpoint.
+  Setting this option to true will disable the hardware mixer for volume control
+  and mute. All volume handling will then use software volume and mute, leaving
+  the hardware mixer untouched. The hardware mixer will still be used to mute
+  unused audio paths in the device.::
 
-    * `priority`
+    ["api.alsa.ignore-dB"] = false
 
-      Optional. An unsigned integer that specifies the order in which endpoints
-      are chosen by the policy.
+  Setting this option to true will ignore the decibel setting configured by the
+  driver. Use this when the driver reports wrong settings.::
 
-      If not specified, the default priority of an endpoint is equal to zero
-      (i.e. the lowest priority).
+    ["device.profile-set"] = "profileset-name"
 
-    * `enable-control-port`
+  This option can be used to select a custom profile set name for the device.
+  Usually this is configured in Udev rules but it can also be specified here.::
 
-      Optional. A boolean representing whether the control port should be
-      enabled on the endpoint or not.
+    ["device.profile"] = "default profile name"
 
-    * `enable-monitor`
+  The default active profile name.::
 
-      Optional. A boolean representing whether the monitor ports should be
-      enabled on the endpoint or not.
+    ["api.acp.auto-profile"] = false
 
-    * `preferred-n-channels`
+  Automatically select the best profile for the device. Normally this option is
+  disabled because the session manager will manage the profile of the device.
+  The session manager can save and load previously selected profiles. Enable
+  this if your session manager does not handle this feature.::
 
-      Optional. An unsigned integer that specifies a preference in the number
-      of audio channels that an audio node should be configured with. Note that
-      if the node does not support this many channels, it will be configured
-      with the closest possible number of channels. This is only available
-      with the `si-adapter` factory.
+    ["api.acp.auto-port"] = false
 
-`*.streams` configuration file
-""""""""""""""""""""""""""""""
+  Automatically select the highest priority port that is available. This is by
+  default disabled because the session manager handles the task of selecting and
+  restoring ports. It can, for example, restore previously saved volumes. Enable
+  this here when the session manager does not handle port restore.
 
-These files contain lists of streams with their names and priorities.
-They are TOML v0.5 files.
+  Some of the other properties that might be configured on devices::
 
-Each `.streams` file must contain exactly one top-level array of tables,
-called `streams`. Every table must contain a mandatory `name` field, and 2
-optional fields: `priority` and `enable_control_port`.
+    ["device.nick"] = "My Device",
+    ["device.description"] = "My Device"
 
-The `name` of each stream is used to create the streams on new endpoints.
+  `device.description` will show up in most apps when a device name is shown.
 
-The `priority` of each stream is being interpreted by the policy module to
-apply restrictions on which app can use the stream at a given time.
+main.lua.d/\*-v4l2-config.lua
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The `enable_control_port` is used to enable the control port of the stream.
+Using the same format as the the ALSA monitor properties and rules from above.
+This configuration file is charged to configure the V4L2 nodes created by
+PipeWire.
 
-module-config-policy
-""""""""""""""""""""
+Example::
 
-This module implements demo-quality policy management that is partly driven
-by configuration files. The configuration files that this module reads are
-described below:
+  v4l2_monitor.rules = {
+    matches = {
+      {
+        { "device.name", "matches", "v4l2_device.*" },
+      },
+    },
+    apply_properties = {
+      ["node.pause-on-idle"] = false,
+    },
+  }
 
-`*.endpoint-link`
-"""""""""""""""""
+This will set the pause node on idle all V4L2 devices whose device name matches
+the `v4l2_device.*` pattern.
 
-These files contain rules to link endpoints with each other.
-They are TOML v0.5 files.
+main.lua.d/\*-default-access-config.lua
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Endpoints are normally created by another module, such
-as `module-config-endpoint` which is described above.
-As soon as an endpoint is created, the `module-config-policy` uses the
-information gathered from the `.endpoint-link` files in order to create a
-link to another endpoint.
+Using a similar format as the ALSA monitor, this configuration file is charged
+to configure the client objects created by PipeWire.
 
-`.endpoint-link` files can contain 3 top-level tables
-* `[match-endpoint]`, required
-* `[target-endpoint]`, optional
+* *default_access.properties*
 
-The `[match-endpoint]` table contains properties that match an endpoint that
-exists on the graph. Possible fields of this table are
+  A Lua object that contains generic client configuration properties in the
+  for of key pairs.
 
-* `name`
+  Example::
 
-  Optional. The name of the endpoint. It is possible to use wildcards here to
-  match only parts of the name.
+    default_access.properties = {
+      ["enable-flatpak-portal"] = true,
+    }
 
-* `media_class`
+  The above example sets to `true` the `enable-flatpak-portal` property.
 
-  Optional. A string that specifies the `media.class` that the endpoint
-  must have in order to match.
+  The list of valid properties are::
 
-* `properties`
+    ["enable-flatpak-portal"] = true,
 
-  This is a TOML array of tables, where each table must contain two fields:
-  `name` and `value`, both being strings. Each table describes a match against
-  one of the pipewire properties of the endpoint. For a successful endpoint
-  match, all the described properties must match with the endpoint.
+  Whether to enable the flatpak portal or not.
 
-The `[target-endpoint]` table contains properties that match an endpoint that
-exists on the graph. The purpose of this table is to match a second endpoint
-that the original matching endpoint from `[match-endpoint]` will be linked to.
-If not specified, `module-config-policy` will look for the session "default"
-endpoint for the type of media that the matching endpoint produces or consumes
-and will use that as a target. Possible fields of this table are
+* *default_access.rules*
 
-* `name`, `media_class`, `properties`
+  This is a Lua array that can contain objects with rules for a client object.
+  Those Lua objects have 2 properties. Similar to the ALSA configuration, the
+  first property is `matches`, which allow users to define rules to match a
+  client object. The second property is `default_permissions`, and it is
+  used to set permissions on the matched client object.
 
-  All these fields are permitted and behave exactly as described above for the
-  `[match-endpoint]` table.
+  Example::
 
-* `stream`
+    {
+      matches = {
+        {
+          { "pipewire.access", "=", "flatpak" },
+        },
+      },
+      default_permissions = "rx",
+    }
 
-  This field specifies a stream name that the link will use on the target
-  endpoint. If it is not specified, the stream name is acquired from the
-  `media.role` property of the matching endpoint. If specified, the value of
-  this field overrides the `media.role`.
+  This grants read and execute permissions to all clients that have the
+  `pipewire.access` property set to `flatpak`.
+
+  Possible permissions are any combination of `r`, `w` and `x` for read, write
+  and execute; or `all` for all kind of permissions.
+
+
+bluetooth.lua.d/\*-bluez-config.lua
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Using the same format as the ALSA monitor, this configuration file is charged
+to configure the Bluetooth device and nodes created by PipeWire.
+
+* *bluez_monitor.properties*
+
+  A Lua object that contains generic client configuration properties in the
+  for of key pairs.
+
+  Example::
+
+    bluez_monitor.properties = {
+      ["bluez5.enable-msbc"] = true,
+    }
+
+  This example will enable the MSBC codec in connected Bluetooth devices that
+  support it.
+
+  The list of valid properties are::
+
+    ["bluez5.enable-sbc-xq"] = true
+
+  Enables the SBC-XQ codec in connected Blueooth devices that support it::
+
+    ["bluez5.enable-msbc"] = true
+
+  Enables the MSBC codec in connected Blueooth devices that support it::
+
+    ["bluez5.enable-hw-volume"] = true
+
+  Enables hardware volume controls in Bluetooth devices that support it::
+
+    ["bluez5.headset-roles"] = "[ hsp_hs hsp_ag hfp_hf hfp_ag ]"
+
+  Enabled headset roles (default: [ hsp_hs hfp_ag ]), this property only applies
+  to native backend. Currently some headsets (Sony WH-1000XM3) are not working
+  with both hsp_ag and hfp_ag enabled, disable either hsp_ag or hfp_ag to work
+  around it.
+
+  Supported headset roles: `hsp_hs` (HSP Headset), `hsp_ag` (HSP Audio Gateway),
+  `hfp_hf` (HFP Hands-Free) and `hfp_ag` (HFP Audio Gateway)::
+
+    ["bluez5.codecs"] = "[ sbc sbc_xq aac ]"
+
+  Enables `sbc`, `sbc_zq` and `aac` A2DP codecs.
+
+  Supported codecs: `sbc`, `sbc_xq`, `aac`, `ldac`, `aptx`, `aptx_hd`, `aptx_ll`,
+  `aptx_ll_duplex`, `faststream`, `faststream_duplex`.
+
+  All codecs are supported by default::
+
+    ["bluez5.hfphsp-backend"] = "native"
+
+  HFP/HSP backend (default: native). Available values: `any`, `none`, `hsphfpd`,
+  `ofono` or `native`.::
+
+    ["bluez5.default.rate"] = 48000
+
+  The bluetooth default audio rate.::
+
+    ["bluez5.default.channels"] = 2
+
+  The bluetooth default number of channels.
+
+* *bluez_monitor.rules*
+
+  Like the ALSA configuration, this is a Lua array that can contain objects with
+  rules for a Bluetooth device or node. Those objects have 2 properties. The
+  first one is `matches`, which allow users to define rules to match a Bluetooth
+  device or node. The second property is `apply_properties`, and it is used to
+  apply properties on the matched Bluetooth device or node.
+
+  Example::
+
+    {
+      matches = {
+        {
+          { "device.name", "matches", "bluez_card.*" },
+        },
+      },
+      apply_properties = {
+         ["bluez5.auto-connect"]  = "[ hfp_hf hsp_hs a2dp_sink ]"
+      }
+    }
+
+  This will set the auto-connect property to `hfp_hf`, `hsp_hs` and `a2dp_sink`
+  on bluetooth devices whose name matches the `bluez_card.*` pattern.
+
+  A list of valid properties are::
+
+    ["bluez5.auto-connect"] = "[ hfp_hf hsp_hs a2dp_sink ]"
+
+  Auto-connect device profiles on start up or when only partial profiles have
+  connected. Disabled by default if the property is not specified.
+
+  Supported values are: `hfp_hf`, `hsp_hs`, `a2dp_sink`, `hfp_ag`, `hsp_ag` and
+  `a2dp_source`.::
+
+    ["bluez5.hw-volume"] = "[ hfp_ag hsp_ag a2dp_source ]"
+
+  Hardware volume controls (default: `hfp_ag`, `hsp_ag`, and `a2dp_source`)
+
+  Supported values are: `hfp_hf`, `hsp_hs`, `a2dp_sink`, `hfp_ag`, `hsp_ag` and
+  `a2dp_source`.::
+
+    ["bluez5.a2dp.ldac.quality"] = "auto"
+
+  LDAC encoding quality.
+
+  Available values: `auto` (Adaptive Bitrate, default),
+  `hq` (High Quality, 990/909kbps), `sq` (Standard Quality, 660/606kbps) and
+  `mq` (Mobile use Quality, 330/303kbps).::
+
+    ["bluez5.a2dp.aac.bitratemode"] = 0
+
+  AAC variable bitrate mode.
+
+  Available values: 0 (cbr, default), 1-5 (quality level).::
+
+    ["device.profile"] = "a2dp-sink"
+
+  Profile connected first.
+
+  Available values: `a2dp-sink` (default) or `headset-head-unit`.
+
+policy.lua.d/\*-default-policy.lua
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This file contains Generic default policy properties that can be configured.
+
+* *default_policy.policy*
+
+  This is a Lua object that contains several properties that change the
+  behavior of the default WirePlumber policy.
+
+  Example::
+
+    default_policy.policy = {
+      ["move"] = true,
+    }
+
+  The above example will set the `move` policy property to `true`.
+
+  The list of supported properties are::
+
+    ["move"] = true
+
+  Moves session items when metadata `target.node` changes.::
+
+    ["follow"] = true
+
+  Moves session items to the default device when it has changed.::
+
+    ["audio.no-dsp"] = false
+
+  Set to `true` to disable channel splitting & merging on nodes and enable
+  passthrough of audio in the same format as the format of the device. Note that
+  this breaks JACK support; it is generally not recommended.::
+
+    ["duck.level"] = 0.3
+
+  How much to lower the volume of lower priority streams when ducking. Note that
+  this is a linear volume modifier (not cubic as in PulseAudio).
+
+policy.lua.d/\*-endpoints-config.lua
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  Endpoints are nodes that can group multiple clients into different groups or
+  roles. This is useful if a user wants to apply specific actions when a client
+  is connected to a particular role/endpoint. This configuration file allows
+  users to configure those endpoints and their actions.
+
+* *default_policy.policy.roles*
+
+  This is a Lua array with objects defining the actions of each role.
+
+  Example::
+
+    default_policy.policy.roles = {
+      ["Multimedia"] = {
+        ["alias"] = { "Movie", "Music", "Game" },
+        ["priority"] = 10,
+        ["action.default"] = "mix",
+      }
+      ["Notification"] = {
+        ["priority"] = 20,
+        ["action.default"] = "duck",
+        ["action.Notification"] = "mix",
+      }
+    }
+
+  The above example defines actions for both `Multimedia` and `Notification`
+  roles. Since the Notification role has more priority than the Multimedia
+  role, when a client connects to the Notification endpoint, it will `duck`
+  the volume of all Multimedia clients. If Multiple Notification clients want
+  to play audio, only the Notifications audio will be mixed.
+
+  Possible values of actions are: `mix` (Mixes audio),
+  `duck` (Mixes and lowers the audio volume) or `cork` (Pauses audio).
+
+* *default_policy.policy.endpoints*
+
+  This is a Lua array with objects defining the endpoints that the user wants
+  to create.
+
+  Example::
+
+    default_policy.endpoints = {
+      ["endpoint.multimedia"] = {
+        ["media.class"] = "Audio/Sink",
+        ["role"] = "Multimedia",
+      }
+    },
+    ["endpoint.notifications"] = {
+      ["media.class"] = "Audio/Sink",
+      ["role"] = "Notification",
+    }
+
+  This example creates 2 endpoints, with names `endpoint.multimedia` and
+  `endpoint.notifications`; and assigned roles `Multimedia` and `Notification`
+  respectively. Both endpoints have `Audio/Sink` media class, and so are only
+  used for playback.
