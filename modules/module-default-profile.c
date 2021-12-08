@@ -66,12 +66,13 @@ find_device_profile (WpPipewireObject *device, const gchar *lookup_name)
     if (!wp_spa_pod_get_object (pod, NULL,
         "index", "i", &index,
         "name", "s", &name,
-        NULL)) {
+        NULL))
       continue;
-    }
 
-    if (g_strcmp0 (name, lookup_name) == 0)
+    if (g_strcmp0 (name, lookup_name) == 0) {
+      g_value_unset (&item);
       return index;
+    }
   }
 
   return -1;
@@ -169,50 +170,45 @@ update_profile (WpDefaultProfile *self, WpPipewireObject *device,
 }
 
 static void
-on_device_profile_notified (WpPipewireObject *device, GAsyncResult *res,
-    WpDefaultProfile *self)
+handle_profile (WpDefaultProfile *self, WpPipewireObject * device,
+    WpIterator *profiles)
 {
-  g_autoptr (WpIterator) profiles = NULL;
-  g_autoptr (GError) error = NULL;
   g_auto (GValue) item = G_VALUE_INIT;
-  const gchar *name = NULL;
-  gint index = 0;
 
-  /* Finish */
-  profiles = wp_pipewire_object_enum_params_finish (device, res, &error);
-  if (error) {
-    wp_warning_object (self, "failed to get current profile on device: %s",
-        error->message);
-    return;
+  for (; wp_iterator_next (profiles, &item); g_value_unset (&item)) {
+    WpSpaPod *pod = g_value_get_boxed (&item);
+    const gchar *name = NULL;
+    gint index = 0;
+    gboolean save = FALSE;
+
+    if (!wp_spa_pod_get_object (pod, NULL,
+        "index", "i", &index,
+        "name", "s", &name,
+        "save", "?b", &save,
+        NULL))
+      continue;
+
+    if (save)
+      update_profile (self, device, name);
   }
-
-  /* Ignore empty profile notifications */
-  if (!wp_iterator_next (profiles, &item))
-    return;
-
-  /* Parse the profile */
-  WpSpaPod *pod = g_value_get_boxed (&item);
-  if (!wp_spa_pod_get_object (pod, NULL,
-      "index", "i", &index,
-      "name", "s", &name,
-      NULL)) {
-    wp_warning_object (self, "failed to parse current profile");
-    return;
-  }
-
-  g_value_unset (&item);
-
-  /* Update the profile */
-  update_profile (self, device, name);
 }
 
 static void
-on_device_param_info_notified (WpPipewireObject * device, GParamSpec * param,
+on_device_params_changed (WpPipewireObject * proxy, const gchar *param_name,
     WpDefaultProfile *self)
 {
-  /* Check the profile every time the params have changed */
-  wp_pipewire_object_enum_params (device, "Profile", NULL, NULL,
-      (GAsyncReadyCallback) on_device_profile_notified, self);
+  g_autoptr (WpIterator) profiles = NULL;
+
+  if (g_strcmp0 (param_name, "Profile") == 0) {
+    profiles = wp_pipewire_object_enum_params_sync (proxy, "Profile", NULL);
+    if (profiles)
+      handle_profile (self, proxy, profiles);
+  } else if (g_strcmp0 (param_name, "EnumProfile") == 0) {
+    profiles = wp_pipewire_object_enum_params_sync (proxy, "EnumProfile", NULL);
+    if (profiles)
+      g_object_set_qdata_full (G_OBJECT (proxy), profiles_quark (),
+          g_steal_pointer (&profiles), (GDestroyNotify) wp_iterator_unref);
+  }
 }
 
 static void
@@ -221,21 +217,10 @@ on_device_added (WpObjectManager *om, WpPipewireObject *proxy, gpointer d)
   WpDefaultProfile *self = WP_DEFAULT_PROFILE (d);
   g_autoptr (WpIterator) profiles = NULL;
 
-  wp_debug_object (self, "device " WP_OBJECT_FORMAT " added",
-      WP_OBJECT_ARGS (proxy));
+  g_signal_connect_object (proxy, "params-changed",
+      G_CALLBACK (on_device_params_changed), self, 0);
 
-  /* Enum available profiles */
-  profiles = wp_pipewire_object_enum_params_sync (proxy, "EnumProfile", NULL);
-  if (!profiles)
-    return;
-
-  /* Keep a reference of the profiles in the device object */
-  g_object_set_qdata_full (G_OBJECT (proxy), profiles_quark (),
-        g_steal_pointer (&profiles), (GDestroyNotify) wp_iterator_unref);
-
-  /* Watch for param info changes */
-  g_signal_connect_object (proxy, "notify::param-info",
-      G_CALLBACK (on_device_param_info_notified), self, 0);
+  on_device_params_changed (proxy, "EnumProfile", self);
 }
 
 static void
