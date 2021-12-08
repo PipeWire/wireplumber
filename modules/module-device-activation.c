@@ -12,6 +12,9 @@
 #include <spa/utils/keys.h>
 #include <spa/utils/names.h>
 
+G_DEFINE_QUARK (wp-module-device-activation-best-profile, best_profile);
+G_DEFINE_QUARK (wp-module-device-activation-active-profile, active_profile);
+
 struct _WpDeviceActivation
 {
   WpPlugin parent;
@@ -28,7 +31,16 @@ G_DEFINE_TYPE (WpDeviceActivation, wp_device_activation, WP_TYPE_PLUGIN)
 static void
 set_device_profile (WpDeviceActivation *self, WpPipewireObject *device, gint index)
 {
+  gpointer active_ptr = NULL;
+
   g_return_if_fail (device);
+
+  /* Make sure the profile we want to set is not active */
+  active_ptr = g_object_get_qdata (G_OBJECT (device), active_profile_quark ());
+  if (active_ptr && GPOINTER_TO_INT (active_ptr) - 1 == index) {
+    wp_info_object (self, "profile %d is already active", index);
+    return;
+  }
 
   /* Set profile */
   wp_pipewire_object_set_param (device, "Profile", 0,
@@ -41,28 +53,53 @@ set_device_profile (WpDeviceActivation *self, WpPipewireObject *device, gint ind
       WP_OBJECT_ARGS (device));
 }
 
-static void
-handle_device_profiles (WpDeviceActivation *self, WpPipewireObject *proxy,
-    WpIterator *profiles)
+static gint
+find_active_profile (WpPipewireObject *proxy, gboolean *off)
 {
-  g_autoptr (WpPlugin) dp = g_weak_ref_get (&self->default_profile);
+  g_autoptr (WpIterator) profiles = NULL;
   g_auto (GValue) item = G_VALUE_INIT;
-  const gchar *def_name = NULL;
+  gint idx = -1, prio = 0;
+  guint32 avail = SPA_PARAM_AVAILABILITY_unknown;
+  const gchar *name;
+
+  /* Get current profile */
+  profiles = wp_pipewire_object_enum_params_sync (proxy, "Profile", NULL);
+  if (!profiles)
+    return idx;
+
+  for (; wp_iterator_next (profiles, &item); g_value_unset (&item)) {
+    WpSpaPod *pod = g_value_get_boxed (&item);
+    if (!wp_spa_pod_get_object (pod, NULL,
+        "index", "i", &idx,
+        "name", "s", &name,
+        "priority", "?i", &prio,
+        "available", "?I", &avail,
+        NULL))
+      continue;
+
+    g_value_unset (&item);
+    break;
+  }
+
+  if (off)
+    *off = idx >= 0 && g_strcmp0 (name, "off") == 0;
+
+  return idx;
+}
+
+static gint
+find_best_profile (WpIterator *profiles)
+{
+  g_auto (GValue) item = G_VALUE_INIT;
   gint best_idx = -1, unk_idx = -1, off_idx = -1;
   gint best_prio = 0, unk_prio = 0;
 
-  /* Get the default profile name if default-profile module is loaded */
-  if (dp)
-    g_signal_emit_by_name (dp, "get-profile", WP_DEVICE (proxy), &def_name);
-
-  /* Find the best profile index */
   for (; wp_iterator_next (profiles, &item); g_value_unset (&item)) {
     WpSpaPod *pod = g_value_get_boxed (&item);
     gint idx, prio = 0;
     guint32 avail = SPA_PARAM_AVAILABILITY_unknown;
     const gchar *name;
 
-    /* Parse */
     if (!wp_spa_pod_get_object (pod, NULL,
         "index", "i", &idx,
         "name", "s", &name,
@@ -70,14 +107,6 @@ handle_device_profiles (WpDeviceActivation *self, WpPipewireObject *proxy,
         "available", "?I", &avail,
         NULL)) {
       continue;
-    }
-
-    /* If default profile name is found and is available, select it. Otherwise
-     * find the best profile */
-    if (avail == SPA_PARAM_AVAILABILITY_yes &&
-        def_name && g_strcmp0 (def_name, name) == 0) {
-      best_idx = idx;
-      break;
     }
 
     if (g_strcmp0 (name, "pro-audio") == 0)
@@ -98,13 +127,164 @@ handle_device_profiles (WpDeviceActivation *self, WpPipewireObject *proxy,
     }
   }
 
-  /* Set the profile */
   if (best_idx != -1)
-    set_device_profile (self, proxy, best_idx);
+    return best_idx;
   else if (unk_idx != -1)
-    set_device_profile (self, proxy, unk_idx);
+    return unk_idx;
   else if (off_idx != -1)
-    set_device_profile (self, proxy, off_idx);
+    return off_idx;
+  return -1;
+}
+
+static gint
+find_default_profile (WpDeviceActivation *self, WpPipewireObject *proxy,
+    WpIterator *profiles, gboolean *available)
+{
+  g_autoptr (WpPlugin) dp = g_weak_ref_get (&self->default_profile);
+  g_auto (GValue) item = G_VALUE_INIT;
+  const gchar *def_name = NULL;
+
+  /* Get the default profile name if default-profile module is loaded */
+  if (dp)
+    g_signal_emit_by_name (dp, "get-profile", WP_DEVICE (proxy), &def_name);
+  if (!def_name)
+    return -1;
+
+  /* Find the best profile index */
+  for (; wp_iterator_next (profiles, &item); g_value_unset (&item)) {
+    WpSpaPod *pod = g_value_get_boxed (&item);
+    gint idx = -1, prio = 0;
+    guint32 avail = SPA_PARAM_AVAILABILITY_unknown;
+    const gchar *name = NULL;
+
+    /* Parse */
+    if (!wp_spa_pod_get_object (pod, NULL,
+        "index", "i", &idx,
+        "name", "s", &name,
+        "priority", "?i", &prio,
+        "available", "?I", &avail,
+        NULL))
+      continue;
+
+    /* Check if the profile name is the default one */
+    if (g_strcmp0 (def_name, name) == 0) {
+      if (available)
+        *available = avail;
+      g_value_unset (&item);
+      return idx;
+    }
+  }
+
+  return -1;
+}
+
+static gint
+handle_active_profile (WpDeviceActivation *self, WpPipewireObject *proxy,
+    WpIterator *profiles, gboolean *changed, gboolean *off)
+{
+  gpointer active_ptr = NULL;
+  gint new_active = -1;
+  gint local_changed = FALSE;
+
+  /* Find the new active profile */
+  new_active = find_active_profile (proxy, off);
+  if (new_active < 0) {
+    wp_info_object (self, "cannot find active profile");
+    return new_active;
+  }
+
+  /* Update active profile if changed */
+  active_ptr = g_object_get_qdata (G_OBJECT (proxy), active_profile_quark ());
+  local_changed = !active_ptr || GPOINTER_TO_INT (active_ptr) - 1 != new_active;
+  if (local_changed) {
+    wp_info_object (self, "active profile changed to: %d", new_active);
+    g_object_set_qdata (G_OBJECT (proxy), active_profile_quark (),
+        GINT_TO_POINTER (new_active + 1));
+  }
+
+  if (changed)
+    *changed = local_changed;
+
+  return new_active;
+}
+
+static gint
+handle_best_profile (WpDeviceActivation *self, WpPipewireObject *proxy,
+    WpIterator *profiles, gboolean *changed)
+{
+  gpointer best_ptr = NULL;
+  gint new_best = -1;
+  gboolean local_changed = FALSE;
+
+  /* Get the new best profile index */
+  new_best = find_best_profile (profiles);
+  if (new_best < 0) {
+    wp_info_object (self, "cannot find best profile");
+    return new_best;
+  }
+
+  /* Update best profile if changed */
+  best_ptr = g_object_get_qdata (G_OBJECT (proxy), best_profile_quark ());
+  local_changed = !best_ptr || GPOINTER_TO_INT (best_ptr) - 1 != new_best;
+  if (local_changed) {
+    wp_info_object (self, "found new best profile: %d", new_best);
+    g_object_set_qdata (G_OBJECT (proxy), best_profile_quark (),
+        GINT_TO_POINTER (new_best + 1));
+  }
+
+  if (changed)
+    *changed = local_changed;
+
+  return new_best;
+}
+
+static void
+handle_enum_profiles (WpDeviceActivation *self, WpPipewireObject *proxy,
+    WpIterator *profiles)
+{
+  gint active_idx = FALSE, best_idx = FALSE;
+  gboolean active_changed = FALSE, best_changed = FALSE, active_off = FALSE;
+
+  /* Set default device if active profile changed to off */
+  active_idx = handle_active_profile (self, proxy, profiles, &active_changed,
+      &active_off);
+  if (active_idx >= 0 && active_changed && active_off) {
+    gboolean default_avail = FALSE;
+    gint default_idx = -1;
+    default_idx = find_default_profile (self, proxy, profiles, &default_avail);
+    if (default_idx >= 0) {
+      if (default_avail == SPA_PARAM_AVAILABILITY_no) {
+        wp_info_object (self, "default profile %d unavailable", default_idx);
+      } else {
+        wp_info_object (self, "found default profile: %d", default_idx);
+        set_device_profile (self, proxy, default_idx);
+        return;
+      }
+    } else {
+      wp_info_object (self, "cannot find default profile");
+    }
+  }
+
+  /* Otherwise just set the best profile if changed */
+  best_idx = handle_best_profile (self, proxy, profiles, &best_changed);
+  if (best_idx >= 0 && best_changed)
+    set_device_profile (self, proxy, best_idx);
+  else if (best_idx >= 0)
+    wp_info_object (self, "best profile already set: %d", best_idx);
+  else
+    wp_info_object (self, "best profile not found");
+}
+
+static void
+on_device_params_changed (WpPipewireObject * proxy, const gchar *param_name,
+    WpDeviceActivation *self)
+{
+  if (g_strcmp0 (param_name, "EnumProfile") == 0) {
+    g_autoptr (WpIterator) profiles = NULL;
+    profiles = wp_pipewire_object_enum_params_sync (proxy, "EnumProfile", NULL);
+    if (profiles)
+      handle_enum_profiles (self, proxy, profiles);
+  }
 }
 
 static void
@@ -113,12 +293,10 @@ on_device_added (WpObjectManager *om, WpPipewireObject *proxy, gpointer d)
   WpDeviceActivation *self = WP_DEVICE_ACTIVATION (d);
   g_autoptr (WpIterator) profiles = NULL;
 
-  /* Enum available profiles */
-  profiles = wp_pipewire_object_enum_params_sync (proxy, "EnumProfile", NULL);
-  if (!profiles)
-    return;
+  g_signal_connect_object (proxy, "params-changed",
+      G_CALLBACK (on_device_params_changed), self, 0);
 
-  handle_device_profiles (self, proxy, profiles);
+  on_device_params_changed (proxy, "EnumProfile", self);
 }
 
 static void
