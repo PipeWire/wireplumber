@@ -12,7 +12,33 @@ local config = ...
 config.move = config.move or false
 config.follow = config.follow or false
 
-local pending_rescan = false
+local self = {}
+self.scanning = false
+self.pending_rescan = false
+
+function rescan()
+  for si in linkables_om:iterate() do
+    handleLinkable (si)
+  end
+end
+
+function scheduleRescan ()
+  if self.scanning then
+    self.pending_rescan = true
+    return
+  end
+
+  self.scanning = true
+  rescan ()
+  self.scanning = false
+
+  if self.pending_rescan then
+    self.pending_rescan = false
+    Core.sync(function ()
+      scheduleRescan ()
+    end)
+  end
+end
 
 function parseBool(var)
   return var and (var:lower() == "true" or var == "1")
@@ -516,7 +542,7 @@ function handleLinkable (si)
         if si_flags[si_id] then
           si_flags[si_id].done_waiting = true
           si_flags[si_id].timeout_source = nil
-          rescan()
+          scheduleRescan()
         end
         return false
       end)
@@ -545,7 +571,7 @@ function handleLinkable (si)
           link:remove ()
           Log.info (si, "... moving to new target")
         else
-          pending_rescan = true
+          scheduleRescan()
           Log.info (si, "... scheduled rescan")
           return
         end
@@ -634,20 +660,6 @@ function unhandleLinkable (si)
   si_flags[si.id] = nil
 end
 
-function rescan()
-  for si in linkables_om:iterate() do
-    handleLinkable (si)
-  end
-
-  -- if pending_rescan, re-evaluate after sync
-  if pending_rescan then
-    pending_rescan = false
-    Core.sync (function (c)
-      rescan()
-    end)
-  end
-end
-
 default_nodes = Plugin.find("default-nodes-api")
 
 metadata_om = ObjectManager {
@@ -712,7 +724,7 @@ end
 if config.follow then
   default_nodes:connect("changed", function ()
     cleanupTargetNodeMetadata()
-    rescan()
+    scheduleRescan ()
   end)
 end
 
@@ -721,18 +733,25 @@ if config.move then
   metadata_om:connect("object-added", function (om, metadata)
     metadata:connect("changed", function (m, subject, key, t, value)
       if key == "target.node" then
-        rescan()
+        scheduleRescan ()
       end
     end)
   end)
 end
 
-linkables_om:connect("objects-changed", function (om)
-  rescan()
+linkables_om:connect("object-added", function (om, si)
+  if si.properties["item.node.type"] ~= "stream" then
+    scheduleRescan ()
+  else
+    handleLinkable (si)
+  end
 end)
 
 linkables_om:connect("object-removed", function (om, si)
   unhandleLinkable (si)
+  if si.properties["item.node.type"] ~= "stream" then
+    scheduleRescan ()
+  end
 end)
 
 metadata_om:activate()

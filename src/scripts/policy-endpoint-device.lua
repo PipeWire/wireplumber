@@ -12,7 +12,34 @@ local config = ...
 config.move = config.move or false
 config.follow = config.follow or false
 
-local pending_rescan = false
+local self = {}
+self.scanning = false
+self.pending_rescan = false
+
+function rescan ()
+  -- check endpoints and register new links
+  for si_ep in endpoints_om:iterate() do
+    handleEndpoint (si_ep)
+  end
+end
+
+function scheduleRescan ()
+  if self.scanning then
+    self.pending_rescan = true
+    return
+  end
+
+  self.scanning = true
+  rescan ()
+  self.scanning = false
+
+  if self.pending_rescan then
+    self.pending_rescan = false
+    Core.sync(function ()
+      scheduleRescan ()
+    end)
+  end
+end
 
 function findTargetByDefaultNode (target_media_class)
   local def_id = default_nodes:call("get-default-node", target_media_class)
@@ -133,7 +160,7 @@ function handleEndpoint (si_ep)
             link:remove ()
             Log.info (si_ep, "... moving to new target")
           else
-            pending_rescan = true
+            scheduleRescan ()
             Log.info (si_ep, "... scheduled rescan")
             return
           end
@@ -164,21 +191,6 @@ function unhandleLinkable (si)
   end
 end
 
-function rescan ()
-  -- check endpoints and register new links
-  for si_ep in endpoints_om:iterate() do
-    handleEndpoint (si_ep)
-  end
-
-  -- if pending_rescan, re-evaluate after sync
-  if pending_rescan then
-    pending_rescan = false
-    Core.sync (function (c)
-      rescan()
-    end)
-  end
-end
-
 default_nodes = Plugin.find("default-nodes-api")
 endpoints_om = ObjectManager { Interest { type = "SiEndpoint" }}
 linkables_om = ObjectManager {
@@ -200,12 +212,12 @@ links_om = ObjectManager {
 -- listen for default node changes if config.follow is enabled
 if config.follow then
   default_nodes:connect("changed", function (p)
-    rescan()
+    scheduleRescan ()
   end)
 end
 
 linkables_om:connect("objects-changed", function (om)
-  rescan()
+  scheduleRescan ()
 end)
 
 linkables_om:connect("object-removed", function (om, si)

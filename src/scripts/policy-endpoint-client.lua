@@ -9,7 +9,33 @@
 local config = ...
 config.roles = config.roles or {}
 
-local pending_rescan = false
+local self = {}
+self.scanning = false
+self.pending_rescan = false
+
+function rescan ()
+  for si in linkables_om:iterate() do
+    handleLinkable (si)
+  end
+end
+
+function scheduleRescan ()
+  if self.scanning then
+    self.pending_rescan = true
+    return
+  end
+
+  self.scanning = true
+  rescan ()
+  self.scanning = false
+
+  if self.pending_rescan then
+    self.pending_rescan = false
+    Core.sync(function ()
+      scheduleRescan ()
+    end)
+  end
+end
 
 function findRole(role)
   if role and not config.roles[role] then
@@ -158,7 +184,7 @@ function handleLinkable (si)
             link:remove ()
             Log.info (si, "... moving to new target")
           else
-            pending_rescan = true
+            scheduleRescan ()
             Log.info (si, "... scheduled rescan")
             return
           end
@@ -191,20 +217,6 @@ function unhandleLinkable (si)
   end
 end
 
-function rescan ()
-  for si in linkables_om:iterate() do
-    handleLinkable (si)
-  end
-
-  -- if pending_rescan, re-evaluate after sync
-  if pending_rescan then
-    pending_rescan = false
-    Core.sync (function (c)
-      rescan()
-    end)
-  end
-end
-
 endpoints_om = ObjectManager { Interest { type = "SiEndpoint" }}
 linkables_om = ObjectManager { Interest { type = "SiLinkable",
   -- only handle si-audio-adapter and si-node
@@ -218,7 +230,7 @@ links_om = ObjectManager { Interest { type = "SiLink",
 } }
 
 linkables_om:connect("objects-changed", function (om)
-  rescan ()
+  scheduleRescan ()
 end)
 
 linkables_om:connect("object-removed", function (om, si)
