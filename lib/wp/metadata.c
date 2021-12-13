@@ -472,6 +472,7 @@ wp_metadata_find (WpMetadata * self, guint32 subject, const gchar * key,
     if (g_strcmp0 (k, key) == 0) {
       if (type)
         *type = t;
+      g_value_unset (&val);
       return v;
     }
   }
