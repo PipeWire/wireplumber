@@ -210,6 +210,7 @@ collect_node_info (WpMixerApi * self, struct node_info *info,
         info->route_index = r_index;
         info->route_device = r_device;
         have_volume = TRUE;
+        g_value_unset (&val);
         break;
       }
     }
@@ -222,8 +223,10 @@ collect_node_info (WpMixerApi * self, struct node_info *info,
     it = wp_pipewire_object_enum_params_sync (node, "Props", NULL);
     for (; it && wp_iterator_next (it, &val); g_value_unset (&val)) {
       WpSpaPod *param = g_value_get_boxed (&val);
-      if (node_info_fill (info, param))
+      if (node_info_fill (info, param)) {
+        g_value_unset (&val);
         break;
+      }
     }
   }
 }
