@@ -2332,6 +2332,10 @@ wp_spa_pod_builder_add_valist (WpSpaPodBuilder *self, va_list args)
         }
         break;
       }
+      case 'b':
+        spa_pod_builder_bool(&self->builder,
+            va_arg(args, gboolean) ? true : false);
+        break;
       default:
         SPA_POD_BUILDER_COLLECT(&self->builder, *format, args);
         break;
@@ -2778,6 +2782,10 @@ wp_spa_pod_parser_get_valist (WpSpaPodParser *self, va_list args)
         }
         break;
       }
+      case 'b':
+        *va_arg(args, gboolean*) =
+            SPA_POD_VALUE(struct spa_pod_bool, pod) ? TRUE : FALSE;
+        break;
       default:
         SPA_POD_PARSER_COLLECT (pod, *format, args);
         break;
