@@ -54,9 +54,9 @@ struct _WpPwObjectMixinPrivInterface
   gsize param_info_offset;
   gsize n_params_offset;
 
-  guint32 CHANGE_MASK_ALL;
-  guint32 CHANGE_MASK_PROPS;
-  guint32 CHANGE_MASK_PARAMS;
+  guint64 CHANGE_MASK_ALL;
+  guint64 CHANGE_MASK_PROPS;
+  guint64 CHANGE_MASK_PARAMS;
 
   gpointer (*update_info) (gpointer info, gconstpointer update);
   void (*free_info) (gpointer info);

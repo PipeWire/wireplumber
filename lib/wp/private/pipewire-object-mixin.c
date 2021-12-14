@@ -722,13 +722,14 @@ wp_pw_object_mixin_handle_event_info (gpointer instance, gconstpointer update)
   WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (instance);
   WpPwObjectMixinPrivInterface *iface =
       WP_PW_OBJECT_MIXIN_PRIV_GET_IFACE (instance);
-  guint32 change_mask =
-      G_STRUCT_MEMBER (guint32, update, iface->change_mask_offset);
-  guint32 process_info_change_mask =
+  guint64 change_mask =
+      G_STRUCT_MEMBER (guint64, update, iface->change_mask_offset);
+  guint64 process_info_change_mask =
       change_mask & ~(iface->CHANGE_MASK_PROPS | iface->CHANGE_MASK_PARAMS);
   gpointer old_info = NULL;
 
-  wp_debug_object (instance, "info, change_mask:0x%x [%s%s]", change_mask,
+  wp_debug_object (instance, "info, change_mask:0x%"G_GINT64_MODIFIER"x [%s%s]",
+      change_mask,
       (change_mask & iface->CHANGE_MASK_PROPS) ? "props," : "",
       (change_mask & iface->CHANGE_MASK_PARAMS) ? "params," : "");
 
@@ -736,7 +737,7 @@ wp_pw_object_mixin_handle_event_info (gpointer instance, gconstpointer update)
   if (iface->process_info && d->info && process_info_change_mask) {
     /* copy everything that changed except props and params, for efficiency;
        process_info() is only interested in variables that are not PROPS & PARAMS */
-    G_STRUCT_MEMBER (guint32, d->info, iface->change_mask_offset) =
+    G_STRUCT_MEMBER (guint64, d->info, iface->change_mask_offset) =
         process_info_change_mask;
     old_info = iface->update_info (NULL, d->info);
   }
@@ -844,9 +845,9 @@ wp_pw_object_mixin_impl_add_listener (gpointer instance,
 
   spa_hook_list_isolate (&d->hooks, &save, listener, events, data);
 
-  G_STRUCT_MEMBER (guint32, d->info, iface->change_mask_offset) = iface->CHANGE_MASK_ALL;
+  G_STRUCT_MEMBER (guint64, d->info, iface->change_mask_offset) = iface->CHANGE_MASK_ALL;
   iface->emit_info (&d->hooks, d->info);
-  G_STRUCT_MEMBER (guint32, d->info, iface->change_mask_offset) = 0;
+  G_STRUCT_MEMBER (guint64, d->info, iface->change_mask_offset) = 0;
 
   spa_hook_list_join (&d->hooks, &save);
   return 0;
@@ -947,10 +948,10 @@ wp_pw_object_mixin_notify_info (gpointer instance, guint32 change_mask)
       (change_mask & iface->CHANGE_MASK_PROPS) ? "props," : "",
       (change_mask & iface->CHANGE_MASK_PARAMS) ? "params," : "");
 
-  G_STRUCT_MEMBER (guint32, d->info, iface->change_mask_offset) =
+  G_STRUCT_MEMBER (guint64, d->info, iface->change_mask_offset) =
       (change_mask & iface->CHANGE_MASK_ALL);
   iface->emit_info (&d->hooks, d->info);
-  G_STRUCT_MEMBER (guint32, d->info, iface->change_mask_offset) = 0;
+  G_STRUCT_MEMBER (guint64, d->info, iface->change_mask_offset) = 0;
 
   if (change_mask & iface->CHANGE_MASK_PROPS)
     g_object_notify (G_OBJECT (instance), "properties");
@@ -988,10 +989,10 @@ wp_pw_object_mixin_notify_params_changed (gpointer instance, guint32 id)
   /* toggle the serial flag; this notifies that there is a data change */
   info->flags ^= SPA_PARAM_INFO_SERIAL;
 
-  G_STRUCT_MEMBER (guint32, d->info, iface->change_mask_offset) =
+  G_STRUCT_MEMBER (guint64, d->info, iface->change_mask_offset) =
       iface->CHANGE_MASK_PARAMS;
   iface->emit_info (&d->hooks, d->info);
-  G_STRUCT_MEMBER (guint32, d->info, iface->change_mask_offset) = 0;
+  G_STRUCT_MEMBER (guint64, d->info, iface->change_mask_offset) = 0;
 
   if (subscribed)
     wp_pw_object_mixin_impl_enum_params (instance, 1, id, 0, -1, NULL);
