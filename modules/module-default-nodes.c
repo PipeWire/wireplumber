@@ -37,9 +37,8 @@ struct _WpDefaultNodes
   WpState *state;
   WpDefaultNode defaults[N_DEFAULT_NODES];
   WpObjectManager *metadata_om;
-  WpObjectManager *nodes_om;
+  WpObjectManager *rescan_om;
   GSource *timeout_source;
-  GSource *idle_source;
 
   /* properties */
   guint save_interval_ms;
@@ -99,56 +98,115 @@ timer_start (WpDefaultNodes *self)
 }
 
 static WpNode *
-find_highest_priority_node (WpDefaultNodes * self, gint node_t)
+find_best_media_class_node (WpDefaultNodes * self, const gchar *media_class,
+    const gchar *node_name, WpDirection direction, gint *priority)
 {
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
   gint highest_prio = 0;
   WpNode *res = NULL;
 
-  it = wp_object_manager_new_filtered_iterator (self->nodes_om, WP_TYPE_NODE,
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", MEDIA_CLASS_MATCH[node_t],
-      WP_CONSTRAINT_TYPE_G_PROPERTY, N_PORTS_KEY[node_t], "!u", 0,
+  g_return_val_if_fail (media_class, NULL);
+
+  it = wp_object_manager_new_filtered_iterator (self->rescan_om, WP_TYPE_NODE,
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "=s", media_class,
       NULL);
 
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
     WpNode *node = g_value_get_object (&val);
-    const gchar *prio_str = wp_pipewire_object_get_property (
-        WP_PIPEWIRE_OBJECT (node), PW_KEY_PRIORITY_SESSION);
-    gint prio = prio_str ? atoi (prio_str) : -1;
+    gint n_ports = direction == WP_DIRECTION_INPUT ?
+        wp_node_get_n_input_ports (node, NULL) :
+        wp_node_get_n_output_ports (node, NULL);
+    if (n_ports > 0) {
+      const gchar *name = wp_pipewire_object_get_property (
+          WP_PIPEWIRE_OBJECT (node), PW_KEY_NODE_NAME);
+      const gchar *prio_str = wp_pipewire_object_get_property (
+          WP_PIPEWIRE_OBJECT (node), PW_KEY_PRIORITY_SESSION);
+      gint prio = prio_str ? atoi (prio_str) : -1;
 
-    if (prio > highest_prio || res == NULL) {
+      if (name && node_name && g_strcmp0 (name, node_name) == 0)
+        prio += 10000;
+
+      if (prio > highest_prio || res == NULL) {
+        highest_prio = prio;
+        res = node;
+      }
+    }
+  }
+
+  if (priority)
+    *priority = highest_prio;
+  return res;
+}
+
+static WpNode *
+find_best_media_classes_node (WpDefaultNodes * self,
+    const gchar **media_classes, const gchar *node_name, WpDirection direction)
+{
+  gint highest_prio = -1;
+  WpNode *res = NULL;
+  for (guint i = 0; media_classes[i]; i++) {
+    gint prio = -1;
+    WpNode *node = find_best_media_class_node (self, media_classes[i],
+        node_name, direction, &prio);
+    if (node && (!res || prio > highest_prio)) {
       highest_prio = prio;
       res = node;
     }
   }
-  return res ? g_object_ref (res) : NULL;
+  return res;
+}
+
+static WpNode *
+find_best_node (WpDefaultNodes * self, gint node_t)
+{
+  const gchar *name = self->defaults[node_t].config_value;
+
+  switch (node_t) {
+  case AUDIO_SINK: {
+    const gchar *media_classes[] = {
+        "Audio/Sink",
+        "Audio/Duplex",
+        NULL};
+    return find_best_media_classes_node (self, media_classes, name,
+        WP_DIRECTION_INPUT);
+  }
+  case AUDIO_SOURCE: {
+    const gchar *media_classes[] = {
+        "Audio/Source",
+        "Audio/Source/Virtual",
+        "Audio/Duplex",
+        "Audio/Sink",
+        NULL};
+    return find_best_media_classes_node (self, media_classes, name,
+        WP_DIRECTION_OUTPUT);
+  }
+  case VIDEO_SOURCE: {
+    const gchar *media_classes[] = {
+        "Video/Source",
+        "Video/Source/Virtual",
+        NULL};
+    return find_best_media_classes_node (self, media_classes, name,
+        WP_DIRECTION_OUTPUT);
+  }
+  default:
+    break;
+  }
+
+  return NULL;
 }
 
 static void
 reevaluate_default_node (WpDefaultNodes * self, WpMetadata *m, gint node_t)
 {
-  g_autoptr (WpNode) node = NULL;
+  WpNode *node = NULL;
   const gchar *node_name = NULL;
   gchar buf[1024];
 
-  /* Find the configured default node */
-  node_name = self->defaults[node_t].config_value;
-  if (node_name) {
-    node = wp_object_manager_lookup (self->nodes_om, WP_TYPE_NODE,
-        WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_NAME, "=s", node_name,
-        WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", MEDIA_CLASS_MATCH[node_t],
-        WP_CONSTRAINT_TYPE_G_PROPERTY, N_PORTS_KEY[node_t], "!u", 0,
-        NULL);
-  }
-
-  /* If not found, get the highest priority one */
-  if (!node) {
-    node = find_highest_priority_node (self, node_t);
-    if (node)
-      node_name = wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (node),
-          PW_KEY_NODE_NAME);
-  }
+  node = find_best_node (self, node_t);
+  if (node)
+    node_name = wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (node),
+        PW_KEY_NODE_NAME);
 
   /* store it in the metadata if it was changed */
   if (node && node_name &&
@@ -167,6 +225,153 @@ reevaluate_default_node (WpDefaultNodes * self, WpMetadata *m, gint node_t)
     wp_info_object (self, "unset default node for %s", NODE_TYPE_STR[node_t]);
     wp_metadata_set (m, 0, DEFAULT_KEY[node_t], NULL, NULL);
   }
+}
+
+static guint
+get_device_total_nodes (WpPipewireObject * proxy)
+{
+  g_autoptr (WpIterator) profiles = NULL;
+  g_auto (GValue) item = G_VALUE_INIT;
+
+  profiles = wp_pipewire_object_enum_params_sync (proxy, "Profile", NULL);
+  if (!profiles)
+    return 0;
+
+  for (; wp_iterator_next (profiles, &item); g_value_unset (&item)) {
+    WpSpaPod *pod = g_value_get_boxed (&item);
+    gint idx = -1;
+    const gchar *name = NULL;
+    g_autoptr (WpSpaPod) classes = NULL;
+
+    /* Parse */
+    if (!wp_spa_pod_get_object (pod, NULL,
+        "index", "i", &idx,
+        "name", "s", &name,
+        "classes", "?P", &classes,
+        NULL))
+      continue;
+    if (!classes)
+      continue;
+
+    /* Parse profile classes */
+    {
+      g_autoptr (WpIterator) it = wp_spa_pod_new_iterator (classes);
+      g_auto (GValue) v = G_VALUE_INIT;
+      gint total_nodes = 0;
+      for (; wp_iterator_next (it, &v); g_value_unset (&v)) {
+        WpSpaPod *entry = g_value_get_boxed (&v);
+        g_autoptr (WpSpaPodParser) pp = NULL;
+        const gchar *media_class = NULL;
+        gint n_nodes = 0;
+        g_return_val_if_fail (entry, 0);
+        if (!wp_spa_pod_is_struct (entry))
+          continue;
+        pp = wp_spa_pod_parser_new_struct (entry);
+        g_return_val_if_fail (pp, 0);
+        g_return_val_if_fail (wp_spa_pod_parser_get_string (pp, &media_class), 0);
+        g_return_val_if_fail (wp_spa_pod_parser_get_int (pp, &n_nodes), 0);
+        wp_spa_pod_parser_end (pp);
+
+        total_nodes += n_nodes;
+      }
+
+      if (total_nodes > 0)
+        return total_nodes;
+    }
+  }
+
+  return 0;
+}
+
+static gboolean
+nodes_ready (WpDefaultNodes * self)
+{
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) val = G_VALUE_INIT;
+
+  /* Get the total number of nodes for each device and make sure they exist
+   * and have at least 1 port */
+  it = wp_object_manager_new_filtered_iterator (self->rescan_om,
+      WP_TYPE_DEVICE, NULL);
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    WpPipewireObject *device = g_value_get_object (&val);
+    guint total_nodes = get_device_total_nodes (device);
+    if (total_nodes > 0) {
+      guint32 device_id = wp_proxy_get_bound_id (WP_PROXY (device));
+      g_autoptr (WpIterator) node_it = NULL;
+      g_auto (GValue) node_val = G_VALUE_INIT;
+      guint ready_nodes = 0;
+
+      node_it = wp_object_manager_new_filtered_iterator (self->rescan_om,
+          WP_TYPE_NODE, WP_CONSTRAINT_TYPE_PW_PROPERTY,
+          PW_KEY_DEVICE_ID, "=i", device_id, NULL);
+      for (; wp_iterator_next (node_it, &node_val); g_value_unset (&node_val)) {
+        WpPipewireObject *node = g_value_get_object (&node_val);
+        if (wp_node_get_n_ports (WP_NODE (node)) > 0)
+          ready_nodes++;
+      }
+
+      if (ready_nodes < total_nodes)
+        return FALSE;
+    }
+  }
+
+  /* Make sure Audio and Video virtual sources have ports */
+  {
+    g_autoptr (WpIterator) node_it = NULL;
+    g_auto (GValue) node_val = G_VALUE_INIT;
+    node_it = wp_object_manager_new_filtered_iterator (self->rescan_om,
+        WP_TYPE_NODE, WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_DEVICE_ID, "-",
+        NULL);
+    for (; wp_iterator_next (node_it, &node_val); g_value_unset (&node_val)) {
+      WpPipewireObject *node = g_value_get_object (&node_val);
+      const gchar *media_class = wp_pipewire_object_get_property (
+          WP_PIPEWIRE_OBJECT (node), PW_KEY_MEDIA_CLASS);
+      if (wp_node_get_n_ports (WP_NODE (node)) == 0 &&
+          (g_strcmp0 ("Audio/Source/Virtual", media_class) == 0 ||
+           g_strcmp0 ("Video/Source/Virtual", media_class) == 0))
+        return FALSE;
+    }
+  }
+
+  return TRUE;
+}
+
+static void
+sync_rescan (WpCore * core, GAsyncResult * res, WpDefaultNodes * self)
+{
+  g_autoptr (WpMetadata) metadata = NULL;
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_core_sync_finish (core, res, &error)) {
+    wp_warning_object (self, "core sync error: %s", error->message);
+    return;
+  }
+
+  /* Get the metadata */
+  metadata = wp_object_manager_lookup (self->metadata_om, WP_TYPE_METADATA,
+      NULL);
+  if (!metadata)
+    return;
+
+  /* Make sure nodes are ready for current profile */
+  if (!nodes_ready (self))
+    return;
+
+  wp_trace_object (self, "re-evaluating defaults");
+  reevaluate_default_node (self, metadata, AUDIO_SINK);
+  reevaluate_default_node (self, metadata, AUDIO_SOURCE);
+  reevaluate_default_node (self, metadata, VIDEO_SOURCE);
+}
+
+static void
+schedule_rescan (WpDefaultNodes * self)
+{
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
+  g_return_if_fail (core);
+
+  wp_core_sync_closure (core, NULL, g_cclosure_new_object (
+      G_CALLBACK (sync_rescan), G_OBJECT (self)));
 }
 
 static void
@@ -198,57 +403,12 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
     wp_debug_object (m, "changed '%s' -> '%s'", key,
         self->defaults[node_t].config_value);
 
-    /* re-evaluate the default, taking into account the new configured default;
-       block recursive calls to this handler as an optimization */
-    g_signal_handlers_block_by_func (m, on_metadata_changed, d);
-    reevaluate_default_node (self, m, node_t);
-    g_signal_handlers_unblock_by_func (m, on_metadata_changed, d);
+    /* schedule rescan */
+    schedule_rescan (self);
 
     /* Save state after specific interval */
     timer_start (self);
   }
-}
-
-static gboolean
-rescan (WpDefaultNodes * self)
-{
-  g_autoptr (WpMetadata) metadata = NULL;
-
-  g_clear_pointer (&self->idle_source, g_source_unref);
-
-  /* Get the metadata */
-  metadata = wp_object_manager_lookup (self->metadata_om, WP_TYPE_METADATA,
-      NULL);
-  if (!metadata)
-    return G_SOURCE_REMOVE;
-
-  wp_trace_object (self, "nodes changed, re-evaluating defaults");
-  reevaluate_default_node (self, metadata, AUDIO_SINK);
-  reevaluate_default_node (self, metadata, AUDIO_SOURCE);
-  reevaluate_default_node (self, metadata, VIDEO_SOURCE);
-
-  return G_SOURCE_REMOVE;
-}
-
-static void
-schedule_rescan (WpDefaultNodes * self)
-{
-  if (!self->idle_source) {
-    g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
-    g_return_if_fail (core);
-
-    wp_core_idle_add_closure (core, &self->idle_source,
-        g_cclosure_new_object (G_CALLBACK (rescan), G_OBJECT (self)));
-  }
-}
-
-static void
-on_node_added (WpObjectManager * om, WpNode * node, WpDefaultNodes * self)
-{
-  g_signal_connect_object (node, "notify::n-input-ports",
-      G_CALLBACK (schedule_rescan), self, G_CONNECT_SWAPPED);
-  g_signal_connect_object (node, "notify::n-output-ports",
-      G_CALLBACK (schedule_rescan), self, G_CONNECT_SWAPPED);
 }
 
 static void
@@ -272,18 +432,20 @@ on_metadata_added (WpObjectManager *om, WpMetadata *metadata, gpointer d)
   g_signal_connect_object (metadata, "changed",
       G_CALLBACK (on_metadata_changed), self, 0);
 
-  /* Create the nodes object manager */
-  self->nodes_om = wp_object_manager_new ();
-  wp_object_manager_add_interest (self->nodes_om, WP_TYPE_NODE, NULL);
-  wp_object_manager_request_object_features (self->nodes_om, WP_TYPE_NODE,
-      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
-  g_signal_connect_object (self->nodes_om, "object-added",
-      G_CALLBACK (on_node_added), self, 0);
-  g_signal_connect_object (self->nodes_om, "object-added",
+  /* Create the rescan object manager */
+  self->rescan_om = wp_object_manager_new ();
+  wp_object_manager_add_interest (self->rescan_om, WP_TYPE_DEVICE, NULL);
+  wp_object_manager_add_interest (self->rescan_om, WP_TYPE_NODE, NULL);
+  wp_object_manager_add_interest (self->rescan_om, WP_TYPE_PORT, NULL);
+  wp_object_manager_request_object_features (self->rescan_om, WP_TYPE_DEVICE,
+      WP_OBJECT_FEATURES_ALL);
+  wp_object_manager_request_object_features (self->rescan_om, WP_TYPE_NODE,
+      WP_OBJECT_FEATURES_ALL);
+  wp_object_manager_request_object_features (self->rescan_om, WP_TYPE_PORT,
+      WP_OBJECT_FEATURES_ALL);
+  g_signal_connect_object (self->rescan_om, "objects-changed",
       G_CALLBACK (schedule_rescan), self, G_CONNECT_SWAPPED);
-  g_signal_connect_object (self->nodes_om, "object-removed",
-      G_CALLBACK (schedule_rescan), self, G_CONNECT_SWAPPED);
-  wp_core_install_object_manager (core, self->nodes_om);
+  wp_core_install_object_manager (core, self->rescan_om);
 }
 
 static void
@@ -317,11 +479,6 @@ wp_default_nodes_disable (WpPlugin * plugin)
 {
   WpDefaultNodes * self = WP_DEFAULT_NODES (plugin);
 
-  /* Clear the current rescan callback */
-  if (self->idle_source)
-      g_source_destroy (self->idle_source);
-  g_clear_pointer (&self->idle_source, g_source_unref);
-
   /* Clear the current timeout callback */
   if (self->timeout_source)
       g_source_destroy (self->timeout_source);
@@ -333,7 +490,7 @@ wp_default_nodes_disable (WpPlugin * plugin)
   }
 
   g_clear_object (&self->metadata_om);
-  g_clear_object (&self->nodes_om);
+  g_clear_object (&self->rescan_om);
   g_clear_object (&self->state);
 }
 
