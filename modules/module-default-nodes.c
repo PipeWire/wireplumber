@@ -162,6 +162,10 @@ reevaluate_default_node (WpDefaultNodes * self, WpMetadata *m, gint node_t)
 
     g_snprintf (buf, sizeof(buf), "{ \"name\": \"%s\" }", node_name);
     wp_metadata_set (m, 0, DEFAULT_KEY[node_t], "Spa:String:JSON", buf);
+  } else if (!node && self->defaults[node_t].value) {
+    g_clear_pointer (&self->defaults[node_t].value, g_free);
+    wp_info_object (self, "unset default node for %s", NODE_TYPE_STR[node_t]);
+    wp_metadata_set (m, 0, DEFAULT_KEY[node_t], NULL, NULL);
   }
 }
 
