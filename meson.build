@@ -138,3 +138,16 @@ wireplumber_uninstalled = custom_target('wp-uninstalled',
   build_by_default : true,
   command : ['cp', '@INPUT@', '@OUTPUT@'],
 )
+
+if meson.version().version_compare('>= 0.58')
+  builddir = meson.project_build_root()
+  srcdir = meson.project_source_root()
+
+  devenv = environment({
+    'WIREPLUMBER_MODULE_DIR': builddir / 'modules',
+    'WIREPLUMBER_CONFIG_DIR': srcdir / 'src' / 'config',
+    'WIREPLUMBER_DATA_DIR': srcdir / 'src',
+  })
+
+  meson.add_devenv(devenv)
+endif
