@@ -509,8 +509,11 @@ wp_log_writer_default (GLogLevelFlags log_level,
   if (!is_category_enabled(cf.log_domain))
     return G_LOG_WRITER_UNHANDLED;
 
+  if (G_UNLIKELY (!cf.message))
+    cf.message_field->value = cf.message = "(null)";
+
   /* format the message to include the object */
-  if (cf.object_type && cf.message) {
+  if (cf.object_type) {
     cf.message_field->value = cf.message = full_message =
         format_message (&cf);
   }
