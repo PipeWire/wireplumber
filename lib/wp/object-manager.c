@@ -46,6 +46,11 @@
  * that match the interests of this WpObjectManager will immediately become
  * available to get through wp_object_manager_new_iterator() and the
  * WpObjectManager \c object-added signal will be emitted for all of them.
+ * However, note that if these objects need to be prepared (to activate some
+ * features on them), the emission of \c object-added will be delayed. To know
+ * when it is safe to access the initial set of objects, wait until the
+ * \c installed signal has been emitted. That signal is emitted asynchronously
+ * after all the initial objects have been prepared.
  *
  * \gproperties
  *
