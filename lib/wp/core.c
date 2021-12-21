@@ -882,12 +882,61 @@ gboolean
 wp_core_sync (WpCore * self, GCancellable * cancellable,
     GAsyncReadyCallback callback, gpointer user_data)
 {
+  return wp_core_sync_closure (self, cancellable,
+      g_cclosure_new (G_CALLBACK (callback), user_data, NULL));
+}
+
+static void
+invoke_closure (GObject * obj, GAsyncResult * res, gpointer data)
+{
+  GClosure *closure = data;
+  GValue values[2] = { G_VALUE_INIT, G_VALUE_INIT };
+  g_value_init (&values[0], G_TYPE_OBJECT);
+  g_value_init (&values[1], G_TYPE_OBJECT);
+  g_value_set_object (&values[0], obj);
+  g_value_set_object (&values[1], res);
+  g_closure_invoke (closure, NULL, 2, values, NULL);
+  g_value_unset (&values[0]);
+  g_value_unset (&values[1]);
+  g_closure_unref (closure);
+}
+
+/*!
+ * \brief Asks the PipeWire server to invoke the \a closure via an event.
+ *
+ * Since methods are handled in-order and events are delivered
+ * in-order, this can be used as a barrier to ensure all previous
+ * methods and the resulting events have been handled.
+ *
+ * In both success and error cases, \a closure is always invoked.
+ * Use wp_core_sync_finish() from within the \a closure to determine whether
+ * the operation completed successfully or if an error occurred.
+ *
+ * \ingroup wpcore
+ * \since 0.4.6
+ * \param self the core
+ * \param cancellable (nullable): a GCancellable to cancel the operation
+ * \param closure (transfer floating): a closure to invoke when the operation
+ *    is done
+ * \returns TRUE if the sync operation was started, FALSE if an error
+ *   occurred before returning from this function
+ */
+gboolean
+wp_core_sync_closure (WpCore * self, GCancellable * cancellable,
+    GClosure * closure)
+{
   g_autoptr (GTask) task = NULL;
   int seq;
 
   g_return_val_if_fail (WP_IS_CORE (self), FALSE);
+  g_return_val_if_fail (closure, FALSE);
 
-  task = g_task_new (self, cancellable, callback, user_data);
+  closure = g_closure_ref (closure);
+  g_closure_sink (closure);
+  if (G_CLOSURE_NEEDS_MARSHAL (closure))
+    g_closure_set_marshal (closure, g_cclosure_marshal_VOID__OBJECT);
+
+  task = g_task_new (self, cancellable, invoke_closure, closure);
 
   if (G_UNLIKELY (!self->pw_core)) {
     g_warn_if_reached ();

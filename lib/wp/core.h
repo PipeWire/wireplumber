@@ -108,6 +108,10 @@ gboolean wp_core_sync (WpCore * self, GCancellable * cancellable,
     GAsyncReadyCallback callback, gpointer user_data);
 
 WP_API
+gboolean wp_core_sync_closure (WpCore * self, GCancellable * cancellable,
+    GClosure * closure);
+
+WP_API
 gboolean wp_core_sync_finish (WpCore * self, GAsyncResult * res,
     GError ** error);
 
