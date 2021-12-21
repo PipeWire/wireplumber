@@ -647,8 +647,9 @@ wp_pw_object_mixin_cache_params (WpObject * object, WpObjectFeatures missing)
 
   g_object_set_qdata (G_OBJECT (object),
       activated_features_quark (), GUINT_TO_POINTER (activated));
-  wp_core_sync (core, NULL,
-      (GAsyncReadyCallback) param_cache_features_enabled, object);
+  wp_core_sync_closure (core, NULL, g_cclosure_new_object (
+          G_CALLBACK (param_cache_features_enabled),
+          G_OBJECT (object)));
 }
 
 void
