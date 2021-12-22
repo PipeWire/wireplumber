@@ -96,7 +96,6 @@ wp_iterator_new (const WpIteratorMethods *methods, size_t user_size)
  * \brief Gets the implementation-specific storage of an iterator
  * \note this only for use by implementations of WpIterator
  *
- * \protected
  * \ingroup wpiterator
  * \param self an iterator object
  * \returns a pointer to the implementation-specific storage area

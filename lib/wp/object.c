@@ -515,7 +515,6 @@ wp_object_abort_activation (WpObject * self, const gchar *msg)
  *
  * \remark Private method to be called by subclasses only.
  *
- * \protected
  * \ingroup wpobject
  * \param self the object
  * \param activated the features that were activated, or 0
