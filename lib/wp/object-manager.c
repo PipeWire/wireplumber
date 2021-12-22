@@ -1352,6 +1352,9 @@ wp_global_rm_flag (WpGlobal *global, guint rm_flag)
       /* remove FEATURE_BOUND to destroy the underlying pw_proxy */
       wp_object_deactivate (WP_OBJECT (proxy), WP_PROXY_FEATURE_BOUND);
 
+      /* stop all in-progress activations */
+      wp_object_abort_activation (WP_OBJECT (proxy), "PipeWire proxy removed");
+
       /* if the proxy is not owning the global, unref it */
       if (global->flags == 0)
         g_object_unref (proxy);

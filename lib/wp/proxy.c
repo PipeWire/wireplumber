@@ -189,6 +189,17 @@ wp_proxy_init (WpProxy * self)
 }
 
 static void
+wp_proxy_dispose (GObject * object)
+{
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (WP_PROXY (object));
+
+  if (priv->pw_proxy)
+    pw_proxy_destroy (priv->pw_proxy);
+
+  G_OBJECT_CLASS (wp_proxy_parent_class)->dispose (object);
+}
+
+static void
 wp_proxy_get_property (GObject * object, guint property_id, GValue * value,
     GParamSpec * pspec)
 {
@@ -225,6 +236,7 @@ wp_proxy_class_init (WpProxyClass * klass)
   WpObjectClass *wpobject_class = (WpObjectClass *) klass;
 
   object_class->get_property = wp_proxy_get_property;
+  object_class->dispose = wp_proxy_dispose;
 
   wpobject_class->deactivate = wp_proxy_deactivate;
 
