@@ -46,6 +46,15 @@ si_node_reset (WpSessionItem * item)
   WP_SESSION_ITEM_CLASS (si_node_parent_class)->reset (item);
 }
 
+static void
+on_proxy_destroyed (WpNode * proxy, WpSiNode * self)
+{
+  if (self->node == proxy) {
+    wp_object_abort_activation (WP_OBJECT (self), "proxy destroyed");
+    si_node_reset (WP_SESSION_ITEM (self));
+  }
+}
+
 static gboolean
 si_node_configure (WpSessionItem * item, WpProperties *p)
 {
@@ -62,6 +71,8 @@ si_node_configure (WpSessionItem * item, WpProperties *p)
     return FALSE;
 
   self->node = g_object_ref (node);
+  g_signal_connect_object (self->node, "pw-proxy-destroyed",
+      G_CALLBACK (on_proxy_destroyed), self, 0);
 
   wp_properties_set (si_props, "item.factory.name", SI_FACTORY_NAME);
   wp_session_item_set_properties (WP_SESSION_ITEM (self),

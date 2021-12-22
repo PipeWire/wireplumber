@@ -345,10 +345,13 @@ get_ports_and_create_links (WpSiStandardLink *self, WpTransition *transition)
 
   si_out = WP_SI_LINKABLE (g_weak_ref_get (&self->out_item));
   si_in = WP_SI_LINKABLE (g_weak_ref_get (&self->in_item));
-  if (!si_out || !si_in) {
-    wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
-          WP_LIBRARY_ERROR_INVARIANT,
-          "Failed to create links because one of the nodes was destroyed"));
+
+  if (!si_out || !si_in ||
+      !wp_session_item_is_configured (WP_SESSION_ITEM (si_out)) ||
+      !wp_session_item_is_configured (WP_SESSION_ITEM (si_in))) {
+    wp_transition_return_error (transition,
+        g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+            "si-standard-link: in/out items are not valid anymore"));
     return;
   }
 
@@ -451,6 +454,14 @@ on_main_adapter_ready (GObject *obj, GAsyncResult * res, gpointer p)
   main = g_object_get_data (G_OBJECT (transition), "adapter_main");
   other = g_object_get_data (G_OBJECT (transition), "adapter_other");
 
+  if (!wp_session_item_is_configured (WP_SESSION_ITEM (main->si)) ||
+      !wp_session_item_is_configured (WP_SESSION_ITEM (other->si))) {
+    wp_transition_return_error (transition,
+        g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+            "si-standard-link: in/out items are not valid anymore"));
+    return;
+  }
+
   if (self->passthrough) {
     wp_si_adapter_set_ports_format (other->si, NULL, "passthrough",
         on_adapters_ready, transition);
@@ -476,10 +487,12 @@ configure_and_link_adapters (WpSiStandardLink *self, WpTransition *transition)
   struct adapter *out, *in, *main, *other;
   const gchar *str = NULL;
 
-  if (!si_out || !si_in) {
-    wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
-          WP_LIBRARY_ERROR_INVARIANT,
-          "Failed to create links because one of the adapters was destroyed"));
+  if (!si_out || !si_in ||
+      !wp_session_item_is_configured (WP_SESSION_ITEM (si_out)) ||
+      !wp_session_item_is_configured (WP_SESSION_ITEM (si_in))) {
+    wp_transition_return_error (transition,
+        g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+            "si-standard-link: in/out items are not valid anymore"));
     return;
   }
 
@@ -571,6 +584,15 @@ si_standard_link_do_link (WpSiStandardLink *self, WpTransition *transition)
   g_autoptr (WpSessionItem) si_out = g_weak_ref_get (&self->out_item);
   g_autoptr (WpSessionItem) si_in = g_weak_ref_get (&self->in_item);
 
+  if (!si_out || !si_in ||
+      !wp_session_item_is_configured (si_out) ||
+      !wp_session_item_is_configured (si_in)) {
+    wp_transition_return_error (transition,
+        g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+            "si-standard-link: in/out items are not valid anymore"));
+    return;
+  }
+
   if (WP_IS_SI_ADAPTER (si_out) && WP_IS_SI_ADAPTER (si_in))
     configure_and_link_adapters (self, transition);
   else if (!WP_IS_SI_ADAPTER (si_out) && !WP_IS_SI_ADAPTER (si_in))
@@ -616,9 +638,11 @@ si_standard_link_enable_active (WpSessionItem *si, WpTransition *transition)
   /* make sure in/out items are valid */
   si_out = g_weak_ref_get (&self->out_item);
   si_in = g_weak_ref_get (&self->in_item);
-  if (!si_out || !si_in) {
+  if (!si_out || !si_in ||
+      !wp_session_item_is_configured (si_out) ||
+      !wp_session_item_is_configured (si_in)) {
     wp_transition_return_error (transition,
-        g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
+        g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
             "si-standard-link: in/out items are not valid anymore"));
     return;
   }
