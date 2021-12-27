@@ -377,9 +377,27 @@ function haveAvailableRoutes (si_props)
 
 end
 
--- User or client defined target is not available, Loop through all the valid
--- linkables(nodes) and pick an appropriate one.
-function findUndefinedTarget (si)
+function findDefaultlinkable (si)
+  local si_props = si.properties
+  local target_direction = getTargetDirection(si_props)
+  local def_node_id = getDefaultNode(si_props, target_direction)
+  local si_target = linkables_om:lookup {
+      Constraint { "node.id", "=", tostring(def_node_id) }
+  }
+
+  if si_target ~= nil then
+    local can_passthrough = canPassthrough(si, si_target)
+    Log.info(string.format("... default target picked: %s (%s), can_passthrough:%s",
+        tostring(si_target.properties["node.name"]),
+        tostring(si_target.properties["node.id"]),
+        tostring(can_passthrough)))
+    return si_target, can_passthrough
+  end
+
+  return nil, nil
+end
+
+function findBestLinkable (si)
   local si_props = si.properties
   local target_direction = getTargetDirection(si_props)
   local target_picked = nil
@@ -394,6 +412,7 @@ function findUndefinedTarget (si)
   } do
     local si_target_props = si_target.properties
     local si_target_node_id = si_target_props["node.id"]
+    local priority = tonumber(si_target_props["priority.session"]) or 0
 
     Log.debug(string.format("Looking at: %s (%s)",
         tostring(si_target_props["node.name"]),
@@ -404,15 +423,7 @@ function findUndefinedTarget (si)
       goto skip_linkable
     end
 
-    local priority = tonumber(si_target_props["priority.session"]) or 0
-
-    -- Is this linkable(node) a default one?
-    local def_node_id = getDefaultNode(si_props, target_direction)
-    if tostring(def_node_id) == si_target_node_id then
-      Log.debug(string.format("... this (%s) is the default node for %s",
-          def_node_id, target_direction))
-      priority = priority + 10000
-    elseif not haveAvailableRoutes(si_target_props) then
+    if not haveAvailableRoutes(si_target_props) then
       Log.debug("... does not have routes, skip linkable")
       goto skip_linkable
     end
@@ -454,7 +465,7 @@ function findUndefinedTarget (si)
   end
 
   if target_picked then
-    Log.info(string.format("... target picked: %s (%s), can_passthrough:%s",
+    Log.info(string.format("... best target picked: %s (%s), can_passthrough:%s",
       tostring(target_picked.properties["node.name"]),
       tostring(target_picked.properties["node.id"]),
       tostring(target_can_passthrough)))
@@ -463,6 +474,16 @@ function findUndefinedTarget (si)
     return nil, nil
   end
 
+end
+
+function findUndefinedTarget (si)
+  -- Find the default linkable if the default nodes module is loaded, otherwise
+  -- just find the best linkable based on priority and routes
+  if default_nodes ~= nil then
+    return findDefaultlinkable (si)
+  else
+    return findBestlinkable (si)
+  end
 end
 
 function lookupLink (si_id, si_target_id)
@@ -696,7 +717,7 @@ links_om = ObjectManager {
 
 function cleanupTargetNodeMetadata()
   local metadata = metadata_om:lookup()
-  if metadata then
+  if metadata and default_nodes ~= nil then
     local to_remove = {}
     for s, k, t, v in metadata:iterate(Id.ANY) do
       if k == "target.node" then
@@ -723,7 +744,7 @@ function cleanupTargetNodeMetadata()
 end
 
 -- listen for default node changes if config.follow is enabled
-if config.follow then
+if config.follow and default_nodes ~= nil then
   default_nodes:connect("changed", function ()
     cleanupTargetNodeMetadata()
     scheduleRescan ()
