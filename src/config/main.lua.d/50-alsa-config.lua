@@ -89,6 +89,7 @@ alsa_monitor.rules = {
       --["audio.channels"]         = 2,
       --["audio.format"]           = "S16LE",
       --["audio.rate"]             = 44100,
+      --["audio.allowed-rates"]    = "32000,96000"
       --["audio.position"]         = "FL,FR",
       --["api.alsa.period-size"]   = 1024,
       --["api.alsa.headroom"]      = 0,
