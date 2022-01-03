@@ -430,9 +430,12 @@ build_adapter_default_format (WpSiAudioAdapter * self, const gchar *mode)
 static void
 on_format_set (GObject *obj, GAsyncResult * res, gpointer p)
 {
-  WpTransition *transition = p;
+  g_autoptr(WpTransition) transition = p;
   WpSiAudioAdapter *self = wp_transition_get_source_object (transition);
   g_autoptr (GError) error = NULL;
+
+  if (wp_transition_get_completed (transition))
+    return;
 
   wp_si_adapter_set_ports_format_finish (WP_SI_ADAPTER (self), res, &error);
   if (error) {
@@ -474,7 +477,7 @@ si_audio_adapter_configure_node (WpSiAudioAdapter *self,
 
   /* set chosen format in the ports */
   wp_si_adapter_set_ports_format (WP_SI_ADAPTER (self),
-      wp_spa_pod_ref (ports_format), mode, on_format_set, transition);
+      g_steal_pointer (&ports_format), mode, on_format_set, g_object_ref (transition));
 }
 
 static void
