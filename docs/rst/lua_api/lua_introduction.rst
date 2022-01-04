@@ -14,7 +14,7 @@ and that will likely also affect WirePlumber's Lua API.
 There are currently two uses for Lua in WirePlumber:
 
   - To implement the scripting engine
-  - To implement lua-based :ref:`config files <daemon-configuration>`
+  - To implement lua-based :ref:`config files <config_lua>`
 
 This section is only documenting the API of the **scripting engine**
 

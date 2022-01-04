@@ -3,7 +3,7 @@ sphinx_files += files(
   'index.rst',
   'installing-wireplumber.rst',
   'running-wireplumber-daemon.rst',
-  'daemon-configuration.rst',
+  'configuration.rst',
   'daemon-logging.rst',
   'contributing.rst',
   'community.rst',
@@ -15,3 +15,4 @@ sphinx_files += files(
 
 subdir('c_api')
 subdir('lua_api')
+subdir('configuration')

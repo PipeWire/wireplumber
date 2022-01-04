@@ -9,7 +9,7 @@ Table of Contents
 
    installing-wireplumber.rst
    running-wireplumber-daemon.rst
-   daemon-configuration.rst
+   configuration.rst
    daemon-logging.rst
 
 .. toctree::
