@@ -80,7 +80,7 @@ wp_route_settings_api_convert (WpRouteSettingsApi * self,
   if (spa_json_enter_object(&it[0], &it[1]) <= 0)
     return NULL;
 
-  while (spa_json_get_string(&it[1], k, sizeof(k)-1) > 0) {
+  while (spa_json_get_string(&it[1], k, sizeof(k)) > 0) {
     int len;
     const char *value;
 
@@ -98,9 +98,8 @@ wp_route_settings_api_convert (WpRouteSettingsApi * self,
       str = g_string_new("");
       while ((len = spa_json_next(&it[2], &value)) > 0) {
         char v[1024];
-	if (len > 1023)
+        if (spa_json_parse_stringn(value, len, v, sizeof(v)) < 0)
           continue;
-        spa_json_parse_string(value, len, v);
         g_string_append_printf(str, "%s;", v);
       }
       return g_string_free(str, false);

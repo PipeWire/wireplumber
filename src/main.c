@@ -151,7 +151,7 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
     while (spa_json_enter_object(&it[1], &it[2]) > 0) {
       char *name = NULL, *type = NULL;
 
-      while (spa_json_get_string(&it[2], key, sizeof(key)-1) > 0) {
+      while (spa_json_get_string(&it[2], key, sizeof(key)) > 0) {
         const char *val;
         int len;
 
@@ -160,10 +160,10 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
 
         if (strcmp(key, "name") == 0) {
           name = (char*)val;
-          spa_json_parse_string(val, len, name);
+          spa_json_parse_stringn(val, len, name, len+1);
         } else if (strcmp(key, "type") == 0) {
           type = (char*)val;
-          spa_json_parse_string(val, len, type);
+          spa_json_parse_stringn(val, len, type, len+1);
         }
       }
       if (name == NULL || type == NULL) {
