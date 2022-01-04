@@ -6,10 +6,8 @@ Introduction
 `Lua <https://www.lua.org/>`_ is a powerful, efficient, lightweight,
 embeddable scripting language.
 
-WirePlumber uses `Lua version 5.3 <https://www.lua.org/versions.html>`_ to
-implement its engine. Another, more recent, version may be considered
-in the future, but do note that different Lua versions are not API-compatible
-and that will likely also affect WirePlumber's Lua API.
+WirePlumber uses `Lua version 5.4 <https://www.lua.org/versions.html>`_ to
+implement its engine. For older systems, Lua 5.3 is also supported.
 
 There are currently two uses for Lua in WirePlumber:
 
@@ -22,7 +20,7 @@ Lua Reference
 -------------
 
 If you are not familiar with the Lua language and its API, please refer to
-the `Lua 5.3 Reference Manual <https://www.lua.org/manual/5.3/manual.html>`_
+the `Lua 5.4 Reference Manual <https://www.lua.org/manual/5.4/manual.html>`_
 
 Sandbox
 -------
