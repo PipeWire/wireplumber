@@ -114,8 +114,10 @@ function createLink (si, si_target, passthrough, exclusive)
       end
       l:remove ()
     else
-      si_flags[si_id].failed_peer_id = nil
-      si_flags[si_id].failed_count = 0
+      if si_flags[si_id] ~= nil then
+        si_flags[si_id].failed_peer_id = nil
+        si_flags[si_id].failed_count = 0
+      end
       Log.info (l, "activated si-standard-link")
     end
   end)
