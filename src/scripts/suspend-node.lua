@@ -25,11 +25,11 @@ om:connect("object-added", function (om, node)
       sources[id] = nil
     end
 
-    -- Add a timeout source if idle for at least 3 seconds
+    -- Add a timeout source if idle for at least 5 seconds
     if cur_state == "idle" then
       -- honor "session.suspend-timeout-seconds" if specified
       local timeout =
-          tonumber(node.properties["session.suspend-timeout-seconds"]) or 3
+          tonumber(node.properties["session.suspend-timeout-seconds"]) or 5
 
       if timeout == 0 then
         return
@@ -45,7 +45,7 @@ om:connect("object-added", function (om, node)
         sources[id] = nil
 
         -- false (== G_SOURCE_REMOVE) destroys the source so that this
-        -- function does not get fired again after 3 seconds
+        -- function does not get fired again after 5 seconds
         return false
       end)
     end
