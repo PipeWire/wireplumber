@@ -71,7 +71,7 @@ function addItem (node, item_type)
   -- activate item
   items[id]:activate (Features.ALL, function (item, e)
     if e then
-      Log.warning(item, "failed to activate item: " .. tostring(e));
+      Log.message(item, "failed to activate item: " .. tostring(e));
     else
       Log.info(item, "activated item for node " .. tostring(id))
       item:register ()
