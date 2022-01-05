@@ -94,6 +94,7 @@ find_best_profile (WpIterator *profiles)
   gint best_idx = -1, unk_idx = -1, off_idx = -1;
   gint best_prio = 0, unk_prio = 0;
 
+  wp_iterator_reset (profiles);
   for (; wp_iterator_next (profiles, &item); g_value_unset (&item)) {
     WpSpaPod *pod = g_value_get_boxed (&item);
     gint idx, prio = 0;
@@ -151,6 +152,7 @@ find_default_profile (WpDeviceActivation *self, WpPipewireObject *proxy,
     return -1;
 
   /* Find the best profile index */
+  wp_iterator_reset (profiles);
   for (; wp_iterator_next (profiles, &item); g_value_unset (&item)) {
     WpSpaPod *pod = g_value_get_boxed (&item);
     gint idx = -1, prio = 0;
