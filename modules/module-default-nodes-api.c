@@ -162,13 +162,20 @@ wp_default_nodes_api_get_default_node (WpDefaultNodesApi * self,
   }
 
   if (node_t != -1 && self->defaults[node_t]) {
-    g_autoptr (WpNode) node = wp_object_manager_lookup (self->om,
+    g_autoptr (WpIterator) it = NULL;
+    g_auto (GValue) val = G_VALUE_INIT;
+    it = wp_object_manager_new_filtered_iterator (self->om,
         WP_TYPE_NODE,
         WP_CONSTRAINT_TYPE_PW_PROPERTY,
         PW_KEY_NODE_NAME, "=s", self->defaults[node_t],
         NULL);
-    if (node)
-      return wp_proxy_get_bound_id (WP_PROXY (node));
+    for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+      WpNode *node = g_value_get_object (&val);
+      const gchar *mc = wp_pipewire_object_get_property (
+          WP_PIPEWIRE_OBJECT (node), PW_KEY_MEDIA_CLASS);
+      if (!g_str_has_prefix (mc, "Stream/"))
+        return wp_proxy_get_bound_id (WP_PROXY (node));
+    }
   }
   return SPA_ID_INVALID;
 }
