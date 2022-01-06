@@ -1,5 +1,51 @@
-WirePlumber 0.4.5
+WirePlumber 0.4.6
 ~~~~~~~~~~~~~~~~~
+
+Changes:
+
+  - Fixed a lot of race condition bugs that would cause strange crashes or
+    many log messages being printed when streaming clients would connect and
+    disconnect very fast (#128, #78, ...)
+
+  - Improved the logic for selecting a default target device (#74)
+
+  - Fixed switching to headphones when the wired headphones are plugged in (#98)
+
+  - Fixed an issue where ``udevadm trigger`` would break wireplumber (#93)
+
+  - Fixed an issue where switching profiles of a device could kill client nodes
+
+  - Fixed briefly switching output to a secondary device when switching device
+    profiles (#85)
+
+  - Fixed ``wpctl status`` showing default device selections when dealing with
+    module-loopback virtual sinks and sources (#130)
+
+  - WirePlumber now ignores hidden files from the config directory (#104)
+
+  - Fixed an interoperability issue with jackdbus (pipewire#1846)
+
+  - Fixed an issue where pulseaudio tcp clients would not have permissions to
+    connect to PipeWire (pipewire#1863)
+
+  - Fixed a crash in the journald logger with NULL debug messages (#124)
+
+  - Enabled real-time priority for the bluetooth nodes to run in RT (#132)
+
+  - Made the default stream volume configurable
+
+  - Scripts are now also looked up in $XDG_CONFIG_HOME/wireplumber/scripts
+
+  - Updated documentation on configuring WirePlumber and fixed some more
+    documentation issues (#68)
+
+  - Added support for using strings as log level selectors in WIREPLUMBER_DEBUG
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.4.5
+.................
 
 Fixes:
 
@@ -33,9 +79,6 @@ API:
 
   - The file-monitor-api plugin can now watch files for changes in addition
     to directories
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.4.4
 .................
