@@ -482,7 +482,7 @@ function findUndefinedTarget (si)
   if default_nodes ~= nil then
     return findDefaultlinkable (si)
   else
-    return findBestlinkable (si)
+    return findBestLinkable (si)
   end
 end
 
