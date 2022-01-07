@@ -477,13 +477,22 @@ function findBestLinkable (si)
 end
 
 function findUndefinedTarget (si)
-  -- Find the default linkable if the default nodes module is loaded, otherwise
-  -- just find the best linkable based on priority and routes
-  if default_nodes ~= nil then
-    return findDefaultlinkable (si)
-  else
+  -- Just find the best linkable if default nodes module is not loaded
+  if default_nodes == nil then
     return findBestLinkable (si)
   end
+
+  -- Otherwise find the default linkable. If the default linkabke cannot link,
+  -- we find the best one instead. We return nil if default does not exist.
+  local si_target, can_passthrough = findDefaultlinkable (si)
+  if si_target then
+    if canLink (si.properties, si_target) then
+      return si_target, can_passthrough
+    else
+      return findBestLinkable (si)
+    end
+  end
+  return nil, nil
 end
 
 function lookupLink (si_id, si_target_id)
