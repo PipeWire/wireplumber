@@ -54,6 +54,10 @@ streams_om = ObjectManager {
   Interest {
     type = "node",
     Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
+    -- pavucontrol when opened also shows up with Stream/Input/Audio. We
+    -- do not want to consider that.
+    Constraint { "node.name", "not-equals", "PulseAudio Volume Control" },
+    Constraint { "application.name", "not-equals", "PulseAudio Volume Control" }
   }
 }
 
@@ -99,6 +103,22 @@ local function storeAfterTimeout()
     end
     timeout_source = nil
   end)
+end
+
+local function saveHeadsetProfile(device, profile_index)
+  local key = "saved-headset-profile:" .. device.properties["device.name"]
+  state_table[key] = profile_index
+  storeAfterTimeout()
+end
+
+local function getSavedHeadsetProfile(device)
+  local key = "saved-headset-profile:" .. device.properties["device.name"]
+  local profile_index = state_table[key]
+  if profile_index then
+    return profile_index
+  else
+    return INVALID
+  end
 end
 
 local function saveProfile(device, profile_index, profile_switched)
@@ -213,7 +233,13 @@ local function switchProfile()
       goto skip_device
     end
 
-    _, index, desc = highestPrioProfileWithInputRoute(device)
+    local saved_headset_profile_idx = getSavedHeadsetProfile(device)
+    if saved_headset_profile_idx ~= INVALID then
+      _, index, desc = findProfile(device, saved_headset_profile_idx)
+    else
+      _, index, desc = highestPrioProfileWithInputRoute(device)
+    end
+
     if index ~= INVALID then
       local _, cur_profile_index, cur_profile_desc = getCurrentProfile(device)
 
@@ -310,6 +336,37 @@ streams_om:connect("object-removed", function (_, stream)
       end
     end
   end
+end)
+
+metadata_om:connect("object-added", function (_, metadata)
+  metadata:connect("changed", function (_, _, key, _, _)
+    -- We only care if a Bluez5 device is default audio sink
+    if isBluez5DefaultAudioSink() then
+      if key == "default.audio.source" or key == "default.audio.sink" then
+        -- Check if the communication input stream is active
+        local node = streams_om:lookup {
+          Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
+          -- pavucontrol when opened also shows up with Stream/Input/Audio. We
+          -- do not want to consider that.
+          Constraint { "node.name", "not-equals", "PulseAudio Volume Control" },
+          Constraint { "application.name", "not-equals", "PulseAudio Volume Control" }
+        }
+        -- The "saved headset profile" is taken as the profile that was active
+        -- when the headset mode deactivates. So in case the user switches profile
+        -- during the time when the Communication input stream is active, the
+        -- selected profile is remembered next time.
+        if node then
+          for device in devices_om:iterate() do
+            local _, cur_profile_index, _ = getCurrentProfile(device)
+            if cur_profile_index ~= INVALID then
+              Log.info("Setting saved headset profile to: ", cur_profile_index)
+              saveHeadsetProfile(device, cur_profile_index)
+            end
+          end
+        end
+      end
+    end
+  end)
 end)
 
 metadata_om:activate()

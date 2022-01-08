@@ -20,7 +20,7 @@ bluetooth_policy = {}
 
 bluetooth_policy.policy = {
   -- Whether to store state on the filesystem.
-  ["use-persistent-storage"] = false,
+  ["use-persistent-storage"] = true,
 
   -- Whether to use headset profile in the presence of an input stream.
   ["media-role.use-headset-profile"] = true,
