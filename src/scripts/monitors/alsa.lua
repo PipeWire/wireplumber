@@ -177,9 +177,13 @@ end
 
 function createDevice(parent, id, factory, properties)
   local device = SpaDevice(factory, properties)
-  device:connect("create-object", createNode)
-  device:activate(Feature.SpaDevice.ENABLED | Feature.Proxy.BOUND)
-  parent:store_managed_object(id, device)
+  if device then
+    device:connect("create-object", createNode)
+    device:activate(Feature.SpaDevice.ENABLED | Feature.Proxy.BOUND)
+    parent:store_managed_object(id, device)
+  else
+    Log.warning ("Failed to create '" .. factory .. "' device")
+  end
 end
 
 function prepareDevice(parent, id, type, factory, properties)

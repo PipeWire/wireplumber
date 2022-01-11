@@ -109,8 +109,13 @@ function createDevice(parent, id, type, factory, properties)
 
     -- create the device
     device = SpaDevice(factory, properties)
-    device:connect("create-object", createNode)
-    parent:store_managed_object(id, device)
+    if device then
+      device:connect("create-object", createNode)
+      parent:store_managed_object(id, device)
+    else
+      Log.warning ("Failed to create '" .. factory .. "' device")
+      return
+    end
   end
 
   Log.info(parent, string.format("%d, %s (%s): %s",
