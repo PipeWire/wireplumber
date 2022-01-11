@@ -37,10 +37,12 @@ function scheduleRescan ()
   end
 end
 
-function findRole(role)
+function findRole(role, tmc)
   if role and not config.roles[role] then
     for r, p in pairs(config.roles) do
-      if type(p.alias) == "table" then
+      -- default media class can be overridden in the role config data
+      mc = p["media.class"] or "Audio/Sink"
+      if (type(p.alias) == "table" and tmc == mc) then
         for i = 1, #(p.alias), 1 do
           if role == p.alias[i] then
             return r
@@ -69,7 +71,7 @@ function findTargetEndpoint (node, media_class)
   end
 
   -- find highest priority endpoint by role
-  media_role = findRole(node.properties["media.role"])
+  media_role = findRole(node.properties["media.role"], target_media_class)
   for si_target_ep in endpoints_om:iterate {
     Constraint { "role", "=", media_role, type = "pw-global" },
     Constraint { "media.class", "=", target_media_class, type = "pw-global" },
