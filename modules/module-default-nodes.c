@@ -307,7 +307,12 @@ nodes_ready (WpDefaultNodes * self)
           PW_KEY_DEVICE_ID, "=i", device_id, NULL);
       for (; wp_iterator_next (node_it, &node_val); g_value_unset (&node_val)) {
         WpPipewireObject *node = g_value_get_object (&node_val);
-        if (wp_node_get_n_ports (WP_NODE (node)) > 0)
+        g_autoptr (WpPort) port =
+              wp_object_manager_lookup (self->rescan_om,
+              WP_TYPE_PORT, WP_CONSTRAINT_TYPE_PW_PROPERTY,
+              PW_KEY_NODE_ID, "=u", wp_proxy_get_bound_id (WP_PROXY (node)),
+              NULL);
+        if (port)
           ready_nodes++;
       }
 
@@ -327,7 +332,12 @@ nodes_ready (WpDefaultNodes * self)
       WpPipewireObject *node = g_value_get_object (&node_val);
       const gchar *media_class = wp_pipewire_object_get_property (
           WP_PIPEWIRE_OBJECT (node), PW_KEY_MEDIA_CLASS);
-      if (wp_node_get_n_ports (WP_NODE (node)) == 0 &&
+      g_autoptr (WpPort) port =
+          wp_object_manager_lookup (self->rescan_om,
+          WP_TYPE_PORT, WP_CONSTRAINT_TYPE_PW_PROPERTY,
+          PW_KEY_NODE_ID, "=u", wp_proxy_get_bound_id (WP_PROXY (node)),
+          NULL);
+      if (!port &&
           (g_strcmp0 ("Audio/Source/Virtual", media_class) == 0 ||
            g_strcmp0 ("Video/Source/Virtual", media_class) == 0))
         return FALSE;
