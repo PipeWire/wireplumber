@@ -8,6 +8,7 @@
 
 #include <wp/wp.h>
 #include <errno.h>
+#include <pipewire/pipewire.h>
 #include <pipewire/keys.h>
 
 #define COMPILING_MODULE_DEFAULT_NODES 1
@@ -97,6 +98,87 @@ timer_start (WpDefaultNodes *self)
   }
 }
 
+static gboolean
+node_has_available_routes (WpDefaultNodes * self, WpNode *node)
+{
+  const gchar *dev_id_str = wp_pipewire_object_get_property (
+          WP_PIPEWIRE_OBJECT (node), PW_KEY_DEVICE_ID);
+  const gchar *cpd_str = wp_pipewire_object_get_property (
+          WP_PIPEWIRE_OBJECT (node), "card.profile.device");
+  gint dev_id = dev_id_str ? atoi (dev_id_str) : -1;
+  gint cpd = cpd_str ? atoi (cpd_str) : -1;
+  g_autoptr (WpDevice) device = NULL;
+
+  if (dev_id == -1 || cpd == -1)
+    return TRUE;
+
+  /* Get the device */
+  device = wp_object_manager_lookup (self->rescan_om, WP_TYPE_DEVICE,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=i", dev_id, NULL);
+  if (!device)
+    return TRUE;
+
+  /* Check if the current device route supports the node card device profile */
+  {
+    g_autoptr (WpIterator) routes = NULL;
+    g_auto (GValue) val = G_VALUE_INIT;
+    routes = wp_pipewire_object_enum_params_sync (WP_PIPEWIRE_OBJECT (device),
+        "Route", NULL);
+    for (; wp_iterator_next (routes, &val); g_value_unset (&val)) {
+      WpSpaPod *route = g_value_get_boxed (&val);
+      gint route_device = -1;
+      guint32 route_avail = SPA_PARAM_AVAILABILITY_unknown;
+
+      if (!wp_spa_pod_get_object (route, NULL,
+          "device", "i", &route_device,
+          "available", "?I", &route_avail,
+          NULL))
+        continue;
+
+      if (route_device != cpd)
+        continue;
+
+      if (route_avail == SPA_PARAM_AVAILABILITY_no)
+        return FALSE;
+
+      return TRUE;
+    }
+  }
+
+  /* Check if available routes support the node card device profile */
+  {
+    g_autoptr (WpIterator) routes = NULL;
+    g_auto (GValue) val = G_VALUE_INIT;
+    routes = wp_pipewire_object_enum_params_sync (WP_PIPEWIRE_OBJECT (device),
+        "EnumRoute", NULL);
+    for (; wp_iterator_next (routes, &val); g_value_unset (&val)) {
+      WpSpaPod *route = g_value_get_boxed (&val);
+      guint32 route_avail = SPA_PARAM_AVAILABILITY_unknown;
+      g_autoptr (WpSpaPod) route_devices = NULL;
+
+      if (!wp_spa_pod_get_object (route, NULL,
+          "available", "?I", &route_avail,
+          "devices", "?P", &route_devices,
+          NULL))
+        continue;
+
+      {
+        g_autoptr (WpIterator) it = wp_spa_pod_new_iterator (route_devices);
+        g_auto (GValue) v = G_VALUE_INIT;
+        for (; wp_iterator_next (it, &v); g_value_unset (&v)) {
+          gint32 *d = (gint32 *)g_value_get_pointer (&v);
+          if (d && *d == cpd) {
+            if (route_avail != SPA_PARAM_AVAILABILITY_no)
+              return TRUE;
+          }
+        }
+      }
+    }
+  }
+
+  return FALSE;
+}
+
 static WpNode *
 find_best_media_class_node (WpDefaultNodes * self, const gchar *media_class,
     const gchar *node_name, WpDirection direction, gint *priority)
@@ -123,6 +205,9 @@ find_best_media_class_node (WpDefaultNodes * self, const gchar *media_class,
       const gchar *prio_str = wp_pipewire_object_get_property (
           WP_PIPEWIRE_OBJECT (node), PW_KEY_PRIORITY_SESSION);
       gint prio = prio_str ? atoi (prio_str) : -1;
+
+      if (!node_has_available_routes (self, node))
+        continue;
 
       if (name && node_name && g_strcmp0 (name, node_name) == 0)
         prio += 10000;
