@@ -401,8 +401,13 @@ nodes_ready (WpDefaultNodes * self)
           ready_nodes++;
       }
 
-      if (ready_nodes < total_nodes)
+      if (ready_nodes < total_nodes) {
+        const gchar *device_name = wp_pipewire_object_get_property (
+            WP_PIPEWIRE_OBJECT (device), PW_KEY_DEVICE_NAME);
+        wp_debug_object (self, "device '%s' is not ready (%d/%d)", device_name,
+            ready_nodes, total_nodes);
         return FALSE;
+      }
     }
   }
 
@@ -424,8 +429,12 @@ nodes_ready (WpDefaultNodes * self)
           NULL);
       if (!port &&
           (g_strcmp0 ("Audio/Source/Virtual", media_class) == 0 ||
-           g_strcmp0 ("Video/Source/Virtual", media_class) == 0))
+           g_strcmp0 ("Video/Source/Virtual", media_class) == 0)) {
+        const gchar *node_name = wp_pipewire_object_get_property (
+            WP_PIPEWIRE_OBJECT (node), PW_KEY_NODE_NAME);
+        wp_debug_object (self, "virtual node '%s' is not ready", node_name);
         return FALSE;
+      }
     }
   }
 
@@ -465,6 +474,7 @@ schedule_rescan (WpDefaultNodes * self)
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_return_if_fail (core);
 
+  wp_debug_object (self, "scheduling default nodes rescan");
   wp_core_sync_closure (core, NULL, g_cclosure_new_object (
       G_CALLBACK (sync_rescan), G_OBJECT (self)));
 }
