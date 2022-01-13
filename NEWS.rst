@@ -1,5 +1,30 @@
-WirePlumber 0.4.6
+WirePlumber 0.4.7
 ~~~~~~~~~~~~~~~~~
+
+Fixes:
+
+  - Fixed a regression in 0.4.6 that caused the selection of the default audio
+    sources and sinks to be delayed until some event, which effectively caused
+    losing audio output in many circumstances (#148, #150, #151, #153)
+
+  - Fixed a regression in 0.4.6 that caused the echo-cancellation pipewire
+    module (and possibly others) to not work
+
+  - A default sink or source is now not selected if there is no available route
+    for it (#145)
+
+  - Fixed an issue where some clients would wait for a bit while seeking (#146)
+
+  - Fixed audio capture in the endpoints-based policy
+
+  - Fixed an issue that would cause certain lua scripts to error out with older
+    configuration files (#158)
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.4.6
+.................
 
 Changes:
 
@@ -40,9 +65,6 @@ Changes:
     documentation issues (#68)
 
   - Added support for using strings as log level selectors in WIREPLUMBER_DEBUG
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.4.5
 .................
