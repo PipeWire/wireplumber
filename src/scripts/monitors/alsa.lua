@@ -6,7 +6,7 @@
 -- SPDX-License-Identifier: MIT
 
 -- Receive script arguments from config.lua
-local config = ...
+local config = ... or {}
 
 -- ensure config.properties is not nil
 config.properties = config.properties or {}

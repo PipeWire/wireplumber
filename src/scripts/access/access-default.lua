@@ -5,7 +5,7 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local config = ...
+local config = ... or {}
 
 -- preprocess rules and create Interest objects
 for _, r in ipairs(config.rules or {}) do

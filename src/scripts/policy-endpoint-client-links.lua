@@ -5,7 +5,7 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local config = ...
+local config = ... or {}
 config.roles = config.roles or {}
 config["duck.level"] = config["duck.level"] or 0.3
 

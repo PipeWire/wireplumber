@@ -8,7 +8,7 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local config = ...
+local config = ... or {}
 
 -- whether to store state on the file system
 use_persistent_storage = config["use-persistent-storage"] or false
