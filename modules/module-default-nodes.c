@@ -212,11 +212,11 @@ find_best_media_class_node (WpDefaultNodes * self, const gchar *media_class,
           WP_PIPEWIRE_OBJECT (node), PW_KEY_PRIORITY_SESSION);
       gint prio = prio_str ? atoi (prio_str) : -1;
 
-      if (node_has_available_routes (self, node))
-        prio += 10000;
+      if (!node_has_available_routes (self, node))
+        continue;
 
       if (name && node_name && g_strcmp0 (name, node_name) == 0)
-        prio += 20000;
+        prio += 10000;
 
       if (prio > highest_prio || res == NULL) {
         highest_prio = prio;
