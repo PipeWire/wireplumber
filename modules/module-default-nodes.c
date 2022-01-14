@@ -108,6 +108,7 @@ node_has_available_routes (WpDefaultNodes * self, WpNode *node)
   gint dev_id = dev_id_str ? atoi (dev_id_str) : -1;
   gint cpd = cpd_str ? atoi (cpd_str) : -1;
   g_autoptr (WpDevice) device = NULL;
+  gint found = 0;
 
   if (dev_id == -1 || cpd == -1)
     return TRUE;
@@ -168,6 +169,7 @@ node_has_available_routes (WpDefaultNodes * self, WpNode *node)
         for (; wp_iterator_next (it, &v); g_value_unset (&v)) {
           gint32 *d = (gint32 *)g_value_get_pointer (&v);
           if (d && *d == cpd) {
+            found++;
             if (route_avail != SPA_PARAM_AVAILABILITY_no)
               return TRUE;
           }
@@ -175,6 +177,10 @@ node_has_available_routes (WpDefaultNodes * self, WpNode *node)
       }
     }
   }
+  /* The node is part of a profile without routes so we assume it
+   * is available. This can happen for Pro Audio profiles */
+  if (found == 0)
+    return TRUE;
 
   return FALSE;
 }
