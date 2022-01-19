@@ -22,6 +22,13 @@ test(
 )
 
 test(
+  'test-events',
+  executable('test-events', 'events.c',
+      dependencies: common_deps, c_args: common_args),
+  env: common_env,
+)
+
+test(
   'test-metadata',
   executable('test-metadata', 'metadata.c',
       dependencies: common_deps, c_args: common_args),
