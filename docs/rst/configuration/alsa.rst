@@ -225,10 +225,17 @@ value is set based on some heuristics.
 
 .. code-block:: lua
 
-    ["priority.session"] = 100
+    ["priority.session"] = 1500
 
-This configures the priority of the device when selecting a default device.
-Higher priority devices will be more likely candidates as a default device.
+This configures the priority of the node when selecting a default node.
+Higher priority nodes will be more likely candidates as a default node.
+
+.. note::
+
+  By default, sources have a ``priority.session`` value around 2000 and sinks
+  have a value around 1000. If you are increasing the priority of a sink, it
+  is **not advised** to use a value higher than 1900, as it may cause a sink's
+  monitor to be selected as a default source.
 
 .. code-block:: lua
 
