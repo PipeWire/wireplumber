@@ -16,6 +16,8 @@
 #include "device.h"
 #include "endpoint.h"
 #include "error.h"
+#include "event-dispatcher.h"
+#include "event-hook.h"
 #include "global-proxy.h"
 #include "iterator.h"
 #include "link.h"
