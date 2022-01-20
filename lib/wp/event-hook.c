@@ -281,15 +281,34 @@ wp_interest_event_hook_runs_for_event (WpEventHook * hook, WpEvent * event)
   WpInterestEventHook *self = WP_INTEREST_EVENT_HOOK (hook);
   WpInterestEventHookPrivate *priv =
       wp_interest_event_hook_get_instance_private (self);
-
   g_autoptr (WpProperties) properties = wp_event_get_properties (event);
+  g_autoptr (GObject) subject = wp_event_get_subject (event);
+  GType gtype = subject ? G_OBJECT_TYPE (subject) : WP_TYPE_EVENT;
   guint i;
   WpObjectInterest *interest = NULL;
+  WpInterestMatch match;
+
+  const int MATCH_ALL_PROPS = (WP_INTEREST_MATCH_PW_GLOBAL_PROPERTIES |
+                               WP_INTEREST_MATCH_PW_PROPERTIES |
+                               WP_INTEREST_MATCH_G_PROPERTIES);
 
   for (i = 0; i < priv->interests->len; i++) {
     interest = g_ptr_array_index (priv->interests, i);
-    if (wp_object_interest_matches (interest, properties))
+    match = wp_object_interest_matches_full (interest,
+        WP_INTEREST_MATCH_FLAGS_CHECK_ALL,
+        gtype, subject, properties, properties);
+
+    /* the interest may have a GType that matches the GType of the subject
+       or it may have WP_TYPE_EVENT as its GType, in which case it will
+       match any type of subject */
+    if (match == WP_INTEREST_MATCH_ALL)
       return TRUE;
+    else if (subject && (match & MATCH_ALL_PROPS) == MATCH_ALL_PROPS) {
+      match = wp_object_interest_matches_full (interest, 0,
+          WP_TYPE_EVENT, NULL, NULL, NULL);
+      if (match & WP_INTEREST_MATCH_GTYPE)
+        return TRUE;
+    }
   }
   return FALSE;
 }
@@ -307,7 +326,7 @@ wp_interest_event_hook_class_init (WpInterestEventHookClass * klass)
 /*!
  * \brief Equivalent to:
  * \code
- * WpObjectInterest *i = wp_object_interest_new (WP_TYPE_PROPERTIES, ...);
+ * WpObjectInterest *i = wp_object_interest_new (WP_TYPE_EVENT, ...);
  * wp_interest_event_hook_add_interest_full (self, i);
  * \endcode
  *
@@ -327,18 +346,18 @@ wp_interest_event_hook_add_interest (WpInterestEventHook * self, ...)
   g_return_if_fail (WP_IS_INTEREST_EVENT_HOOK (self));
 
   va_start (args, self);
-  interest = wp_object_interest_new_valist (WP_TYPE_PROPERTIES, &args);
+  interest = wp_object_interest_new_valist (WP_TYPE_EVENT, &args);
   wp_interest_event_hook_add_interest_full (self, interest);
   va_end (args);
 }
 
 /*!
  * \brief Declares interest on events. The interest must be constructed to
- * match WP_TYPE_PROPERTIES objects and it is going to be matched against
+ * match WP_TYPE_EVENT objects and it is going to be matched against
  * the WpEvent's properties.
  *
  * \param self the event hook
- * \param interest the event interest
+ * \param interest (transfer full): the event interest
  */
 void
 wp_interest_event_hook_add_interest_full (WpInterestEventHook * self,
