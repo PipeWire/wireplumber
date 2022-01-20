@@ -1583,6 +1583,130 @@ static const luaL_Reg settings_methods[] = {
   { NULL, NULL }
 };
 
+/* WpEvent */
+
+static int
+event_get_properties (lua_State *L)
+{
+  WpEvent *event = wplua_checkboxed (L, 1, WP_TYPE_EVENT);
+  g_autoptr (WpProperties) props = wp_event_get_properties (event);
+  wplua_properties_to_table (L, props);
+  return 1;
+}
+
+static int
+event_get_source (lua_State *L)
+{
+  WpEvent *event = wplua_checkboxed (L, 1, WP_TYPE_EVENT);
+  wplua_pushobject (L, wp_event_get_source (event));
+  return 1;
+}
+
+static int
+event_get_subject (lua_State *L)
+{
+  WpEvent *event = wplua_checkboxed (L, 1, WP_TYPE_EVENT);
+  wplua_pushobject (L, wp_event_get_subject (event));
+  return 1;
+}
+
+static int
+event_stop_processing (lua_State *L)
+{
+  WpEvent *event = wplua_checkboxed (L, 1, WP_TYPE_EVENT);
+  wp_event_stop_processing (event);
+  return 0;
+}
+
+static const luaL_Reg event_methods[] = {
+  { "get_properties", event_get_properties },
+  { "get_source", event_get_source },
+  { "get_subject", event_get_subject },
+  { "stop_processing", event_stop_processing },
+  { NULL, NULL }
+};
+
+/* WpEventDispatcher */
+
+static int
+event_dispatcher_register_hook (lua_State *L)
+{
+  WpEventHook *hook = wplua_checkobject (L, 1, WP_TYPE_EVENT_HOOK);
+  g_autoptr (WpEventDispatcher) dispatcher =
+      wp_event_dispatcher_get_instance (get_wp_core (L));
+  wp_event_dispatcher_register_hook (dispatcher, hook);
+  return 0;
+}
+
+static int
+event_dispatcher_unregister_hook (lua_State *L)
+{
+  WpEventHook *hook = wplua_checkobject (L, 1, WP_TYPE_EVENT_HOOK);
+  g_autoptr (WpEventDispatcher) dispatcher =
+      wp_event_dispatcher_get_instance (get_wp_core (L));
+  wp_event_dispatcher_unregister_hook (dispatcher, hook);
+  return 0;
+}
+
+static const luaL_Reg event_dispatcher_methods[] = {
+  { "register_hook", event_dispatcher_register_hook },
+  { "unregister_hook", event_dispatcher_unregister_hook },
+  { NULL, NULL }
+};
+
+/* WpEventHook */
+
+static int
+simple_event_hook_new (lua_State *L)
+{
+  WpEventHook *hook = NULL;
+  gint priority = 0;
+  WpEventHookExecType type = 0;
+  GClosure *closure = NULL;
+
+  /* validate arguments */
+  luaL_checktype (L, 1, LUA_TTABLE);
+
+  lua_pushliteral (L, "priority");
+  if (lua_gettable (L, 1) == LUA_TNUMBER)
+    priority = lua_tointeger (L, -1);
+  else
+    luaL_error (L, "SimplEventHook: expected 'priority' as number");
+  lua_pop (L, 1);
+
+  lua_pushliteral (L, "type");
+  if (lua_gettable (L, 1) == LUA_TSTRING)
+    wplua_lua_to_enum (L, -1, WP_TYPE_EVENT_HOOK_EXEC_TYPE);
+  else
+    luaL_error (L, "SimplEventHook: expected 'type' as string");
+  lua_pop (L, 1);
+
+  lua_pushliteral (L, "closure");
+  if (lua_gettable (L, 1) == LUA_TFUNCTION)
+    closure = wplua_function_to_closure (L, -1);
+  else
+    luaL_error (L, "SimplEventHook: expected 'closure' as function");
+  lua_pop (L, 1);
+
+  hook = wp_simple_event_hook_new (priority, type, closure);
+  wplua_pushobject (L, hook);
+
+  lua_pushliteral (L, "interests");
+  if (lua_gettable (L, 1) == LUA_TTABLE) {
+    lua_pushnil (L);
+    while (lua_next (L, -2)) {
+      WpObjectInterest *interest =
+          wplua_checkboxed (L, -1, WP_TYPE_OBJECT_INTEREST);
+      wp_interest_event_hook_add_interest_full (WP_INTEREST_EVENT_HOOK (hook),
+          wp_object_interest_ref (interest));
+      lua_pop (L, 1);
+    }
+  }
+  lua_pop (L, 1);
+
+  return 1;
+}
+
 void
 wp_lua_scripting_api_init (lua_State *L)
 {
@@ -1605,6 +1729,9 @@ wp_lua_scripting_api_init (lua_State *L)
 
   luaL_newlib (L, settings_methods);
   lua_setglobal (L, "WpSettings");
+
+  luaL_newlib (L, event_dispatcher_methods);
+  lua_setglobal (L, "WpEventDispatcher");
 
   wp_lua_scripting_pod_init (L);
   wp_lua_scripting_json_init (L);
@@ -1651,6 +1778,10 @@ wp_lua_scripting_api_init (lua_State *L)
       state_new, state_methods);
   wplua_register_type_methods (L, WP_TYPE_IMPL_MODULE,
       impl_module_new, NULL);
+  wplua_register_type_methods (L, WP_TYPE_EVENT,
+      NULL, event_methods);
+  wplua_register_type_methods (L, WP_TYPE_SIMPLE_EVENT_HOOK,
+      simple_event_hook_new, NULL);
 
   if (!wplua_load_uri (L, URI_API, &error) ||
       !wplua_pcall (L, 0, 0, &error)) {
