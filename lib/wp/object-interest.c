@@ -12,6 +12,7 @@
 #include "global-proxy.h"
 #include "session-item.h"
 #include "proxy-interfaces.h"
+#include "event-dispatcher.h"
 #include "log.h"
 #include "error.h"
 
@@ -312,7 +313,8 @@ wp_object_interest_validate (WpObjectInterest * self, GError ** error)
     return TRUE;
 
   if (!G_TYPE_IS_OBJECT (self->gtype) && !G_TYPE_IS_INTERFACE (self->gtype) &&
-          !g_type_is_a (self->gtype, WP_TYPE_PROPERTIES)) {
+          !g_type_is_a (self->gtype, WP_TYPE_PROPERTIES) &&
+          !g_type_is_a (self->gtype, WP_TYPE_EVENT)) {
     g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
         "type '%s' is not a valid interest type", g_type_name (self->gtype));
     return FALSE;
