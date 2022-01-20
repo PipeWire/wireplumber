@@ -185,3 +185,14 @@ if libsystemd_dep.found() or libelogind_dep.found()
     dependencies : [wp_dep, pipewire_dep, libsystemd_dep, libelogind_dep],
   )
 endif
+
+shared_library(
+  'wireplumber-module-standard-event-source',
+  [
+    'module-standard-event-source.c',
+  ],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-standard-event-source"'],
+  install : true,
+  install_dir : wireplumber_module_dir,
+  dependencies : [wp_dep, pipewire_dep],
+)
