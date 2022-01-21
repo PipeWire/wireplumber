@@ -463,7 +463,8 @@ WP_API
 WpSpaPod *wp_spa_pod_parser_get_pod (WpSpaPodParser *self);
 
 WP_API
-gboolean wp_spa_pod_parser_get (WpSpaPodParser *self, ...);
+gboolean wp_spa_pod_parser_get (WpSpaPodParser *self, ...)
+    G_GNUC_NULL_TERMINATED;
 
 WP_API
 gboolean wp_spa_pod_parser_get_valist (WpSpaPodParser *self,
