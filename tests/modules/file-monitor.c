@@ -103,6 +103,7 @@ test_file_monitor_basic (TestFixture * f, gconstpointer user_data)
   g_signal_emit_by_name (f->plugin, "remove-watch", f->path);
 
   /* remove 'foo' */
+  close (fd);
   (void) remove (filename);
 }
 
