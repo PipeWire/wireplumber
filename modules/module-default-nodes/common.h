@@ -29,15 +29,11 @@ static const gchar * NODE_TYPE_STR[N_DEFAULT_NODES] = {
   [VIDEO_SOURCE] = "Video/Source",
 };
 
-#if COMPILING_MODULE_DEFAULT_NODES
-
 static const gchar * DEFAULT_CONFIG_KEY[N_DEFAULT_NODES] = {
   [AUDIO_SINK] = "default.configured.audio.sink",
   [AUDIO_SOURCE] = "default.configured.audio.source",
   [VIDEO_SOURCE] = "default.configured.video.source",
 };
-
-#endif
 
 static int
 json_object_find (const char *obj, const char *key, char *value, size_t len)

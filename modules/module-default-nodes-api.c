@@ -10,16 +10,25 @@
 #include <pipewire/keys.h>
 #include "module-default-nodes/common.h"
 
+typedef struct _WpDefaultNode WpDefaultNode;
+struct _WpDefaultNode
+{
+  gchar *value;
+  gchar *config_value;
+};
+
 struct _WpDefaultNodesApi
 {
   WpPlugin parent;
 
-  gchar *defaults[N_DEFAULT_NODES];
+  WpDefaultNode defaults[N_DEFAULT_NODES];
   WpObjectManager *om;
 };
 
 enum {
   ACTION_GET_DEFAULT_NODE,
+  ACTION_GET_DEFAULT_CONFIGURED_NODE_NAME,
+  ACTION_SET_DEFAULT_CONFIGURED_NODE_NAME,
   SIGNAL_CHANGED,
   N_SIGNALS
 };
@@ -63,30 +72,32 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
     const gchar *key, const gchar *type, const gchar *value, gpointer d)
 {
   WpDefaultNodesApi * self = WP_DEFAULT_NODES_API (d);
-  gint node_t = -1;
-  gchar name[1024];
 
-  if (subject == 0) {
-    for (gint i = 0; i < N_DEFAULT_NODES; i++) {
-      if (!g_strcmp0 (key, DEFAULT_KEY[i])) {
-        node_t = i;
-        break;
-      }
+  if (subject != 0)
+    return;
+
+  for (gint i = 0; i < N_DEFAULT_NODES; i++) {
+    gchar name[1024];
+    if (!g_strcmp0 (key, DEFAULT_KEY[i])) {
+      g_clear_pointer (&self->defaults[i].value, g_free);
+      if (value && !g_strcmp0 (type, "Spa:String:JSON") &&
+          json_object_find (value, "name", name, sizeof(name)) == 0)
+        self->defaults[i].value = g_strdup (name);
+
+      wp_debug_object (m, "changed '%s' -> '%s'", key,
+          self->defaults[i].value);
+
+      schedule_changed_notification (self);
+      break;
+    } else if (!g_strcmp0 (key, DEFAULT_CONFIG_KEY[i])) {
+      g_clear_pointer (&self->defaults[i].config_value, g_free);
+      if (value && !g_strcmp0 (type, "Spa:String:JSON") &&
+          json_object_find (value, "name", name, sizeof(name)) == 0)
+        self->defaults[i].config_value = g_strdup (name);
+
+      wp_debug_object (m, "changed '%s' -> '%s'", key,
+          self->defaults[i].config_value);
     }
-  }
-
-  if (node_t != -1) {
-    g_clear_pointer (&self->defaults[node_t], g_free);
-
-    if (value && !g_strcmp0 (type, "Spa:String:JSON") &&
-        json_object_find (value, "name", name, sizeof(name)) == 0)
-    {
-      self->defaults[node_t] = g_strdup (name);
-    }
-
-    wp_debug_object (m, "changed '%s' -> '%s'", key, self->defaults[node_t]);
-
-    schedule_changed_notification (self);
   }
 }
 
@@ -144,8 +155,10 @@ wp_default_nodes_api_disable (WpPlugin * plugin)
 {
   WpDefaultNodesApi * self = WP_DEFAULT_NODES_API (plugin);
 
-  for (guint i = 0; i < N_DEFAULT_NODES; i++)
-    g_clear_pointer (&self->defaults[i], g_free);
+  for (guint i = 0; i < N_DEFAULT_NODES; i++) {
+    g_clear_pointer (&self->defaults[i].value, g_free);
+    g_clear_pointer (&self->defaults[i].config_value, g_free);
+  }
   g_clear_object (&self->om);
 }
 
@@ -161,13 +174,13 @@ wp_default_nodes_api_get_default_node (WpDefaultNodesApi * self,
     }
   }
 
-  if (node_t != -1 && self->defaults[node_t]) {
+  if (node_t != -1 && self->defaults[node_t].value) {
     g_autoptr (WpIterator) it = NULL;
     g_auto (GValue) val = G_VALUE_INIT;
     it = wp_object_manager_new_filtered_iterator (self->om,
         WP_TYPE_NODE,
         WP_CONSTRAINT_TYPE_PW_PROPERTY,
-        PW_KEY_NODE_NAME, "=s", self->defaults[node_t],
+        PW_KEY_NODE_NAME, "=s", self->defaults[node_t].value,
         NULL);
     for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
       WpNode *node = g_value_get_object (&val);
@@ -178,6 +191,42 @@ wp_default_nodes_api_get_default_node (WpDefaultNodesApi * self,
     }
   }
   return SPA_ID_INVALID;
+}
+
+static gchar *
+wp_default_nodes_api_get_default_configured_node_name (WpDefaultNodesApi * self,
+    const gchar * media_class)
+{
+  for (gint i = 0; i < N_DEFAULT_NODES; i++)
+    if (!g_strcmp0 (media_class, NODE_TYPE_STR[i]) &&
+        self->defaults[i].config_value)
+      return g_strdup (self->defaults[i].config_value);
+
+  return NULL;
+}
+
+static gboolean
+wp_default_nodes_api_set_default_configured_node_name (WpDefaultNodesApi * self,
+    const gchar * media_class, const gchar * name)
+{
+  g_autoptr (WpMetadata) m = wp_object_manager_lookup (self->om,
+      WP_TYPE_METADATA, NULL);
+  if (!m)
+    return FALSE;
+
+  for (gint i = 0; i < N_DEFAULT_NODES; i++) {
+    if (!g_strcmp0 (media_class, NODE_TYPE_STR[i])) {
+      if (name) {
+        g_autofree gchar *v = g_strdup_printf ("{ \"name\": \"%s\" }", name);
+        wp_metadata_set (m, 0, DEFAULT_CONFIG_KEY[i], "Spa:String:JSON", v);
+      } else {
+        wp_metadata_set (m, 0, DEFAULT_CONFIG_KEY[i], NULL, NULL);
+      }
+      return TRUE;
+    }
+  }
+
+  return FALSE;
 }
 
 static void
@@ -194,6 +243,20 @@ wp_default_nodes_api_class_init (WpDefaultNodesApiClass * klass)
       (GCallback) wp_default_nodes_api_get_default_node,
       NULL, NULL, NULL,
       G_TYPE_UINT, 1, G_TYPE_STRING);
+
+  signals[ACTION_GET_DEFAULT_CONFIGURED_NODE_NAME] = g_signal_new_class_handler (
+      "get-default-configured-node-name", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+      (GCallback) wp_default_nodes_api_get_default_configured_node_name,
+      NULL, NULL, NULL,
+      G_TYPE_STRING, 1, G_TYPE_STRING);
+
+  signals[ACTION_SET_DEFAULT_CONFIGURED_NODE_NAME] = g_signal_new_class_handler (
+      "set-default-configured-node-name", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+      (GCallback) wp_default_nodes_api_set_default_configured_node_name,
+      NULL, NULL, NULL,
+      G_TYPE_BOOLEAN, 2, G_TYPE_STRING, G_TYPE_STRING);
 
   signals[SIGNAL_CHANGED] = g_signal_new (
       "changed", G_TYPE_FROM_CLASS (klass),

@@ -11,7 +11,6 @@
 #include <pipewire/pipewire.h>
 #include <pipewire/keys.h>
 
-#define COMPILING_MODULE_DEFAULT_NODES 1
 #include "module-default-nodes/common.h"
 
 #define NAME "default-nodes"
