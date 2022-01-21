@@ -8,8 +8,15 @@
 
 #include <wp/wp.h>
 #include <stdio.h>
+#include <spa/utils/defs.h>
 #include <pipewire/keys.h>
 #include <pipewire/extensions/session-manager/keys.h>
+
+static const gchar *DEFAULT_NODE_MEDIA_CLASSES[] = {
+  "Audio/Sink",
+  "Audio/Source",
+  "Video/Source",
+};
 
 typedef struct _WpCtl WpCtl;
 struct _WpCtl
@@ -47,6 +54,10 @@ static struct {
       guint32 id;
       gint index;
     } set_profile;
+
+    struct {
+      guint32 id;
+    } clear_default;
   };
 } cmdline;
 
@@ -343,6 +354,21 @@ status_run (WpCtl * self)
     printf ("\n");
   }
 
+  /* Settings */
+  printf ("Settings\n");
+
+  if (def_nodes_api) {
+    printf (TREE_INDENT_END "Default Configured Node Names:\n");
+    for (guint i = 0; i < G_N_ELEMENTS (DEFAULT_NODE_MEDIA_CLASSES); i++) {
+      const gchar *name = NULL;
+      g_signal_emit_by_name (def_nodes_api, "get-default-configured-node-name",
+          DEFAULT_NODE_MEDIA_CLASSES[i], &name);
+      if (name)
+        printf (TREE_INDENT_EMPTY "  %4u. %-12s  %s\n", i,
+            DEFAULT_NODE_MEDIA_CLASSES[i], name);
+    }
+  }
+
   g_clear_object (&context.mixer_api);
   g_main_loop_quit (self->loop);
 }
@@ -578,10 +604,6 @@ set_default_parse_positional (gint argc, gchar ** argv, GError **error)
 static gboolean
 set_default_prepare (WpCtl * self, GError ** error)
 {
-  wp_object_manager_add_interest (self->om, WP_TYPE_METADATA,
-      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
-      "metadata.name", "=s", "default",
-      NULL);
   wp_object_manager_add_interest (self->om, WP_TYPE_NODE,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
       "object.id", "=u", cmdline.set_default.id,
@@ -596,17 +618,14 @@ set_default_prepare (WpCtl * self, GError ** error)
 static void
 set_default_run (WpCtl * self)
 {
-  g_autoptr (WpMetadata) metadata = NULL;
+  g_autoptr (WpPlugin) def_nodes_api = NULL;
   g_autoptr (WpProxy) proxy = NULL;
   guint32 id = cmdline.set_default.id;
   const gchar *media_class;
-  const gchar *key;
-  const gchar *name;
-  gchar buf[1024];
 
-  metadata = wp_object_manager_lookup (self->om, WP_TYPE_METADATA, NULL);
-  if (!metadata) {
-    printf ("No metadata found\n");
+  def_nodes_api = wp_plugin_find (self->core, "default-nodes-api");
+  if (!def_nodes_api) {
+    printf ("Default nodes API not loaded\n");
     goto out;
   }
 
@@ -618,30 +637,30 @@ set_default_run (WpCtl * self)
 
   media_class = wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (proxy),
       PW_KEY_MEDIA_CLASS);
-  if (!g_strcmp0 (media_class, "Audio/Sink"))
-    key = "default.configured.audio.sink";
-  else if (!g_strcmp0 (media_class, "Audio/Source"))
-    key = "default.configured.audio.source";
-  else if (!g_strcmp0 (media_class, "Video/Source"))
-    key = "default.configured.video.source";
-  else {
-    printf ("%u is not a device node (media.class = %s)\n",
-        id, media_class);
-    goto out;
+  for (guint i = 0; i < G_N_ELEMENTS (DEFAULT_NODE_MEDIA_CLASSES); i++) {
+    if (!g_strcmp0 (media_class, DEFAULT_NODE_MEDIA_CLASSES[i])) {
+      gboolean res = FALSE;
+      const gchar *name = wp_pipewire_object_get_property (
+          WP_PIPEWIRE_OBJECT (proxy), PW_KEY_NODE_NAME);
+      if (!name) {
+        printf ("node %u does not have a valid node.name\n", id);
+        goto out;
+      }
+
+      g_signal_emit_by_name (def_nodes_api, "set-default-configured-node-name",
+          DEFAULT_NODE_MEDIA_CLASSES[i], name, &res);
+      if (!res) {
+        printf ("failed to set default node %u (media.class = %s)\n", id,
+            media_class);
+        goto out;
+      }
+
+      wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
+      return;
+    }
   }
 
-  name = wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (proxy),
-      PW_KEY_NODE_NAME);
-  if (!name) {
-    printf ("node %u does not have a valid node.name\n", id);
-    goto out;
-  }
-
-  g_snprintf (buf, sizeof(buf), "{ \"name\": \"%s\" }", name);
-  wp_metadata_set (metadata, 0, key, "Spa:String:JSON", buf);
-
-  wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
-  return;
+  printf ("%u is not a device node (media.class = %s)\n", id, media_class);
 
 out:
   self->exit_code = 3;
@@ -897,6 +916,80 @@ out:
   g_main_loop_quit (self->loop);
 }
 
+/* clear-default */
+
+static gboolean
+clear_default_parse_positional (gint argc, gchar ** argv, GError **error)
+{
+  cmdline.clear_default.id = SPA_ID_INVALID;
+
+  if (argc >= 3) {
+    long id = strtol (argv[2], NULL, 10);
+    if (id < 0) {
+      g_set_error (error, wpctl_error_domain_quark(), 0,
+          "'%s' is not a valid number", argv[2]);
+      return FALSE;
+    }
+
+    cmdline.clear_default.id = id;
+  }
+
+  return TRUE;
+}
+
+static gboolean
+clear_default_prepare (WpCtl * self, GError ** error)
+{
+  return TRUE;
+}
+
+static void
+clear_default_run (WpCtl * self)
+{
+  g_autoptr (WpPlugin) def_nodes_api = NULL;
+  guint32 id = cmdline.clear_default.id;
+  gboolean res = FALSE;
+
+  def_nodes_api = wp_plugin_find (self->core, "default-nodes-api");
+  if (!def_nodes_api) {
+    printf ("Default nodes API not loaded\n");
+    goto out;
+  }
+
+  /* clear all defaults if id was not given */
+  if (id == SPA_ID_INVALID) {
+    for (guint i = 0; i < G_N_ELEMENTS (DEFAULT_NODE_MEDIA_CLASSES); i++) {
+      g_signal_emit_by_name (def_nodes_api, "set-default-configured-node-name",
+          DEFAULT_NODE_MEDIA_CLASSES[i], NULL, &res);
+      if (!res) {
+        printf ("failed to clear default configured node (%s)\n",
+            DEFAULT_NODE_MEDIA_CLASSES[i]);
+        goto out;
+      }
+    }
+  } else {
+    if (id < G_N_ELEMENTS (DEFAULT_NODE_MEDIA_CLASSES)) {
+      g_signal_emit_by_name (def_nodes_api, "set-default-configured-node-name",
+          DEFAULT_NODE_MEDIA_CLASSES[id], NULL, &res);
+      if (!res) {
+        printf ("failed to clear default configured node (%s)\n",
+            DEFAULT_NODE_MEDIA_CLASSES[id]);
+        goto out;
+      }
+    } else {
+      printf ("Id %d is not a valid default node Id\n", id);
+      goto out;
+    }
+  }
+
+  wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
+  return;
+
+out:
+  self->exit_code = 3;
+  g_main_loop_quit (self->loop);
+}
+
 #define N_ENTRIES 3
 
 static const struct subcommand {
@@ -984,6 +1077,16 @@ static const struct subcommand {
     .parse_positional = set_profile_parse_positional,
     .prepare = set_profile_prepare,
     .run = set_profile_run,
+  },
+  {
+    .name = "clear-default",
+    .positional_args = "[ID]",
+    .summary = "Clears the default configured node (no ID means 'all')",
+    .description = NULL,
+    .entries = { { NULL } },
+    .parse_positional = clear_default_parse_positional,
+    .prepare = clear_default_prepare,
+    .run = clear_default_run,
   }
 };
 
