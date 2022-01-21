@@ -1542,6 +1542,9 @@ wp_spa_pod_set_pod (WpSpaPod *self, WpSpaPod *pod)
 gboolean
 wp_spa_pod_equal (WpSpaPod *self, WpSpaPod *pod)
 {
+  g_return_val_if_fail (self != NULL, FALSE);
+  g_return_val_if_fail (pod != NULL, FALSE);
+
   if (self->type != pod->type)
     return FALSE;
   if (SPA_POD_TYPE (self->pod) != SPA_POD_TYPE (pod->pod))
