@@ -8,17 +8,18 @@ function alsa_monitor.enable()
     load_module("reserve-device")
   end
 
-  -- The "file-monitor-api" module needs to be loaded for MIDI device monitoring
-  if alsa_monitor.properties["alsa.midi.monitoring"] then
-    load_module("file-monitor-api")
-  end
-
   load_monitor("alsa", {
     properties = alsa_monitor.properties,
     rules = alsa_monitor.rules,
   })
 
-  load_monitor("alsa-midi", {
-    properties = alsa_monitor.properties,
-  })
+  if alsa_monitor.properties["alsa.midi"] then
+    load_monitor("alsa-midi", {
+      properties = alsa_monitor.properties,
+    })
+    -- The "file-monitor-api" module needs to be loaded for MIDI device monitoring
+    if alsa_monitor.properties["alsa.midi.monitoring"] then
+      load_module("file-monitor-api")
+    end
+  end
 end
