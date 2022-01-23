@@ -6,10 +6,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <glib.h>
-#include <errno.h>
-#include <spa/utils/json.h>
-
 enum {
   AUDIO_SINK,
   AUDIO_SOURCE,
@@ -34,27 +30,3 @@ static const gchar * DEFAULT_CONFIG_KEY[N_DEFAULT_NODES] = {
   [AUDIO_SOURCE] = "default.configured.audio.source",
   [VIDEO_SOURCE] = "default.configured.video.source",
 };
-
-static int
-json_object_find (const char *obj, const char *key, char *value, size_t len)
-{
-  struct spa_json it[2];
-  const char *v;
-  char k[128];
-
-  spa_json_init(&it[0], obj, strlen(obj));
-  if (spa_json_enter_object(&it[0], &it[1]) <= 0)
-    return -EINVAL;
-
-  while (spa_json_get_string(&it[1], k, sizeof(k)) > 0) {
-    if (strcmp(k, key) == 0) {
-      if (spa_json_get_string(&it[1], value, len) <= 0)
-        continue;
-      return 0;
-    } else {
-      if (spa_json_next(&it[1], &v) <= 0)
-        break;
-    }
-  }
-  return -ENOENT;
-}

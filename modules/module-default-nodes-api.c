@@ -7,6 +7,7 @@
  */
 
 #include <wp/wp.h>
+#include <spa/utils/defs.h>
 #include <pipewire/keys.h>
 #include "module-default-nodes/common.h"
 
@@ -77,12 +78,15 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
     return;
 
   for (gint i = 0; i < N_DEFAULT_NODES; i++) {
-    gchar name[1024];
     if (!g_strcmp0 (key, DEFAULT_KEY[i])) {
       g_clear_pointer (&self->defaults[i].value, g_free);
-      if (value && !g_strcmp0 (type, "Spa:String:JSON") &&
-          json_object_find (value, "name", name, sizeof(name)) == 0)
-        self->defaults[i].value = g_strdup (name);
+
+      if (value && !g_strcmp0 (type, "Spa:String:JSON")) {
+        g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (value);
+        g_autofree gchar *name = NULL;
+        if (wp_spa_json_object_get (json, "name", "s", &name, NULL))
+          self->defaults[i].value = g_strdup (name);
+      }
 
       wp_debug_object (m, "changed '%s' -> '%s'", key,
           self->defaults[i].value);
@@ -91,12 +95,17 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
       break;
     } else if (!g_strcmp0 (key, DEFAULT_CONFIG_KEY[i])) {
       g_clear_pointer (&self->defaults[i].config_value, g_free);
-      if (value && !g_strcmp0 (type, "Spa:String:JSON") &&
-          json_object_find (value, "name", name, sizeof(name)) == 0)
-        self->defaults[i].config_value = g_strdup (name);
+
+      if (value && !g_strcmp0 (type, "Spa:String:JSON")) {
+        g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (value);
+        g_autofree gchar *name = NULL;
+        if (wp_spa_json_object_get (json, "name", "s", &name, NULL))
+          self->defaults[i].config_value = g_strdup (name);
+      }
 
       wp_debug_object (m, "changed '%s' -> '%s'", key,
           self->defaults[i].config_value);
+      break;
     }
   }
 }

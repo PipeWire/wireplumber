@@ -291,7 +291,6 @@ reevaluate_default_node (WpDefaultNodes * self, WpMetadata *m, gint node_t)
 {
   WpNode *node = NULL;
   const gchar *node_name = NULL;
-  gchar buf[1024];
 
   node = find_best_node (self, node_t);
   if (node)
@@ -302,14 +301,17 @@ reevaluate_default_node (WpDefaultNodes * self, WpMetadata *m, gint node_t)
   if (node && node_name &&
       g_strcmp0 (node_name, self->defaults[node_t].value) != 0)
   {
+    g_autoptr (WpSpaJson) json = NULL;
+
     g_free (self->defaults[node_t].value);
     self->defaults[node_t].value = g_strdup (node_name);
 
     wp_info_object (self, "set default node for %s: %s",
         NODE_TYPE_STR[node_t], node_name);
 
-    g_snprintf (buf, sizeof(buf), "{ \"name\": \"%s\" }", node_name);
-    wp_metadata_set (m, 0, DEFAULT_KEY[node_t], "Spa:String:JSON", buf);
+    json = wp_spa_json_new_object ("name", "s", node_name, NULL);
+    wp_metadata_set (m, 0, DEFAULT_KEY[node_t], "Spa:String:JSON",
+        wp_spa_json_get_data (json));
   } else if (!node && self->defaults[node_t].value) {
     g_clear_pointer (&self->defaults[node_t].value, g_free);
     wp_info_object (self, "unset default node for %s", NODE_TYPE_STR[node_t]);
@@ -490,7 +492,6 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
 {
   WpDefaultNodes * self = WP_DEFAULT_NODES (d);
   gint node_t = -1;
-  gchar name[1024];
 
   if (subject == 0) {
     for (gint i = 0; i < N_DEFAULT_NODES; i++) {
@@ -504,10 +505,11 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
   if (node_t != -1) {
     g_clear_pointer (&self->defaults[node_t].config_value, g_free);
 
-    if (value && !g_strcmp0 (type, "Spa:String:JSON") &&
-        json_object_find (value, "name", name, sizeof(name)) == 0)
-    {
-      self->defaults[node_t].config_value = g_strdup (name);
+    if (value && !g_strcmp0 (type, "Spa:String:JSON")) {
+      g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (value);
+      g_autofree gchar *name = NULL;
+      if (wp_spa_json_object_get (json, "name", "s", &name, NULL))
+        self->defaults[node_t].config_value = g_strdup (name);
     }
 
     wp_debug_object (m, "changed '%s' -> '%s'", key,
@@ -540,12 +542,11 @@ on_metadata_added (WpObjectManager *om, WpMetadata *metadata, gpointer d)
   g_return_if_fail (core);
 
   for (gint i = 0; i < N_DEFAULT_NODES; i++) {
-    gchar buf[1024];
     if (self->defaults[i].config_value) {
-      g_snprintf (buf, sizeof(buf), "{ \"name\": \"%s\" }",
-          self->defaults[i].config_value);
+      g_autoptr (WpSpaJson) json = wp_spa_json_new_object (
+          "name", "s", self->defaults[i].config_value, NULL);
       wp_metadata_set (metadata, 0, DEFAULT_CONFIG_KEY[i], "Spa:String:JSON",
-          buf);
+          wp_spa_json_get_data (json));
     }
   }
 
