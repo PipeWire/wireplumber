@@ -22,6 +22,12 @@ test(
   env: common_env,
 )
 test(
+  'test-lua-json',
+  script_tester,
+  args: ['json.lua'],
+  env: common_env,
+)
+test(
   'test-lua-monitor-rules',
   script_tester,
   args: ['monitor-rules.lua'],

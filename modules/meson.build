@@ -155,6 +155,7 @@ shared_library(
   [
     'module-lua-scripting.c',
     'module-lua-scripting/pod.c',
+    'module-lua-scripting/json.c',
     'module-lua-scripting/api.c',
     'module-lua-scripting/config.c',
      m_lua_scripting_resources,

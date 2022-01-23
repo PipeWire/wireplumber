@@ -205,6 +205,7 @@ SANDBOX_EXPORT = {
   LocalNode = WpImplNode_new,
   Link = WpLink_new,
   Pod = WpSpaPod,
+  Json = WpSpaJson,
   State = WpState_new,
   LocalModule = WpImplModule_new,
 }
