@@ -523,6 +523,17 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
 }
 
 static void
+on_object_added (WpObjectManager *om, WpPipewireObject *proxy, gpointer d)
+{
+  WpDefaultNodes * self = WP_DEFAULT_NODES (d);
+
+  if (WP_IS_DEVICE (proxy)) {
+    g_signal_connect_object (proxy, "params-changed",
+        G_CALLBACK (schedule_rescan), self, G_CONNECT_SWAPPED);
+  }
+}
+
+static void
 on_metadata_added (WpObjectManager *om, WpMetadata *metadata, gpointer d)
 {
   WpDefaultNodes * self = WP_DEFAULT_NODES (d);
@@ -556,6 +567,8 @@ on_metadata_added (WpObjectManager *om, WpMetadata *metadata, gpointer d)
       WP_OBJECT_FEATURES_ALL);
   g_signal_connect_object (self->rescan_om, "objects-changed",
       G_CALLBACK (schedule_rescan), self, G_CONNECT_SWAPPED);
+  g_signal_connect_object (self->rescan_om, "object-added",
+      G_CALLBACK (on_object_added), self, 0);
   wp_core_install_object_manager (core, self->rescan_om);
 }
 
