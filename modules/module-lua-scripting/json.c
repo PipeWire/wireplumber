@@ -162,6 +162,16 @@ spa_json_parse (lua_State *L)
   return 1;
 }
 
+/* Raw */
+
+static int
+spa_json_raw_new (lua_State *L)
+{
+  const gchar *value = lua_tostring (L, 1);
+  wplua_pushboxed (L, WP_TYPE_SPA_JSON, wp_spa_json_new_from_string (value));
+  return 1;
+}
+
 /* None */
 
 static int
@@ -314,6 +324,7 @@ static const luaL_Reg spa_json_methods[] = {
 };
 
 static const luaL_Reg spa_json_constructors[] = {
+  { "Raw", spa_json_raw_new },
   { "Null", spa_json_null_new },
   { "Boolean", spa_json_boolean_new },
   { "Int", spa_json_int_new },
