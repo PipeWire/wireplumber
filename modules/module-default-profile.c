@@ -30,8 +30,8 @@ struct _WpDefaultProfileClass
 {
   WpPluginClass parent_class;
 
-  void (*get_profile) (WpDefaultProfile *self, WpPipewireObject *device,
-      const char **curr_profile);
+  gchar *(*get_profile) (WpDefaultProfile *self,
+      WpPipewireObject *device);
 };
 
 typedef struct _WpDefaultProfilePrivate WpDefaultProfilePrivate;
@@ -112,24 +112,25 @@ timeout_save_profiles (WpDefaultProfile *self, guint ms)
       G_OBJECT (self)));
 }
 
-static void
+static gchar *
 wp_default_profile_get_profile (WpDefaultProfile *self,
-    WpPipewireObject *device, const gchar **curr_profile)
+    WpPipewireObject *device)
 {
   WpDefaultProfilePrivate *priv =
       wp_default_profile_get_instance_private (self);
   const gchar *dev_name = NULL;
+  const gchar *profile_name = NULL;
 
-  g_return_if_fail (device);
-  g_return_if_fail (curr_profile);
-  g_return_if_fail (priv->profiles);
+  g_return_val_if_fail (device, NULL);
+  g_return_val_if_fail (priv->profiles, NULL);
 
   /* Get the device name */
   dev_name = wp_pipewire_object_get_property (device, PW_KEY_DEVICE_NAME);
-  g_return_if_fail (dev_name);
+  g_return_val_if_fail (dev_name, NULL);
 
   /* Get the profile */
-  *curr_profile = wp_properties_get (priv->profiles, dev_name);
+  profile_name = wp_properties_get (priv->profiles, dev_name);
+  return profile_name ? g_strdup (profile_name) : NULL;
 }
 
 static void
@@ -300,7 +301,7 @@ wp_default_profile_class_init (WpDefaultProfileClass * klass)
       G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
       G_STRUCT_OFFSET (WpDefaultProfileClass, get_profile), NULL, NULL,
-      NULL, G_TYPE_NONE, 2, WP_TYPE_DEVICE, G_TYPE_POINTER);
+      NULL, G_TYPE_STRING, 1, WP_TYPE_DEVICE);
 }
 
 WP_PLUGIN_EXPORT gboolean

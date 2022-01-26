@@ -104,7 +104,7 @@ function createDevice(parent, id, type, factory, properties)
     end
     properties["device.name"] = name
 
-    -- initial profile is to be set by m-device-activation, not spa-bluez5
+    -- initial profile is to be set by policy-device-profile.lua, not spa-bluez5
     properties["bluez5.profile"] = "off"
 
     -- apply properties from config.rules

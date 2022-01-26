@@ -20,6 +20,3 @@ load_script("intended-roles.lua")
 
 -- Automatically suspends idle nodes after 3 seconds
 load_script("suspend-node.lua")
-
--- Automatically sets device profiles to 'On'
-load_module("device-activation")
