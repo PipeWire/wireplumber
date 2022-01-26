@@ -384,7 +384,7 @@ inspect_parse_positional (gint argc, gchar ** argv, GError **error)
   }
 
   long id = strtol (argv[2], NULL, 10);
-  if (id <= 0) {
+  if (id <= 0 || id >= G_MAXUINT32) {
     g_set_error (error, wpctl_error_domain_quark(), 0,
         "'%s' is not a valid number", argv[2]);
     return FALSE;
@@ -591,7 +591,7 @@ set_default_parse_positional (gint argc, gchar ** argv, GError **error)
   }
 
   long id = strtol (argv[2], NULL, 10);
-  if (id <= 0) {
+  if (id <= 0 || id >= G_MAXUINT32) {
     g_set_error (error, wpctl_error_domain_quark(), 0,
         "'%s' is not a valid number", argv[2]);
     return FALSE;
@@ -680,7 +680,7 @@ set_volume_parse_positional (gint argc, gchar ** argv, GError **error)
 
   long id = strtol (argv[2], NULL, 10);
   float volume = strtof (argv[3], NULL);
-  if (id <= 0) {
+  if (id <= 0 || id >= G_MAXUINT32) {
     g_set_error (error, wpctl_error_domain_quark(), 0,
         "'%s' is not a valid number", argv[2]);
     return FALSE;
@@ -764,7 +764,7 @@ set_mute_parse_positional (gint argc, gchar ** argv, GError **error)
   }
 
   long id = strtol (argv[2], NULL, 10);
-  if (id <= 0) {
+  if (id <= 0 || id >= G_MAXUINT32) {
     g_set_error (error, wpctl_error_domain_quark(), 0,
         "'%s' is not a valid number", argv[2]);
     return FALSE;
@@ -870,7 +870,7 @@ set_profile_parse_positional (gint argc, gchar ** argv, GError **error)
 
   long id = strtol (argv[2], NULL, 10);
   int index = atoi (argv[3]);
-  if (id < 0) {
+  if (id < 0 || id >= G_MAXUINT32) {
     g_set_error (error, wpctl_error_domain_quark(), 0,
         "'%s' is not a valid index", argv[2]);
     return FALSE;
@@ -925,7 +925,7 @@ clear_default_parse_positional (gint argc, gchar ** argv, GError **error)
 
   if (argc >= 3) {
     long id = strtol (argv[2], NULL, 10);
-    if (id < 0) {
+    if (id < 0 || id >= G_MAXUINT32) {
       g_set_error (error, wpctl_error_domain_quark(), 0,
           "'%s' is not a valid number", argv[2]);
       return FALSE;
