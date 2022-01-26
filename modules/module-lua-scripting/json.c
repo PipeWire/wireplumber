@@ -145,7 +145,8 @@ push_luajson (lua_State *L, WpSpaJson *json)
       key_str = wp_spa_json_parse_string (key);
       g_warn_if_fail (key_str);
       g_value_unset (&item);
-      wp_iterator_next (it, &item);
+      if (!wp_iterator_next (it, &item))
+        break;
       value = g_value_get_boxed (&item);
       push_luajson (L, value);
       lua_setfield (L, -2, key_str);

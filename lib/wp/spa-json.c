@@ -822,7 +822,8 @@ wp_spa_json_object_get_valist (WpSpaJson *self, va_list args)
     g_return_val_if_fail (key_str, FALSE);
 
     g_value_unset (&item);
-    wp_iterator_next (it, &item);
+    if (!wp_iterator_next (it, &item))
+      return FALSE;
     value = g_value_get_boxed (&item);
 
     if (g_strcmp0 (key_str, lookup_key) == 0) {
