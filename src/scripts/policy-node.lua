@@ -777,6 +777,12 @@ linkables_om:connect("object-removed", function (om, si)
   end
 end)
 
+devices_om:connect("object-added", function (om, device)
+  device:connect("params-changed", function (d, param_name)
+    scheduleRescan ()
+  end)
+end)
+
 metadata_om:activate()
 endpoints_om:activate()
 clients_om:activate()
