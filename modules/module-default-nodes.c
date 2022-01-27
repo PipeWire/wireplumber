@@ -16,11 +16,17 @@
 #define NAME "default-nodes"
 #define DEFAULT_SAVE_INTERVAL_MS 1000
 #define DEFAULT_USE_PERSISTENT_STORAGE TRUE
+#define DEFAULT_AUTO_ECHO_CANCEL TRUE
+#define DEFAULT_ECHO_CANCEL_SINK_NAME "echo-cancel-sink"
+#define DEFAULT_ECHO_CANCEL_SOURCE_NAME "echo-cancel-source"
 
 enum {
   PROP_0,
   PROP_SAVE_INTERVAL_MS,
   PROP_USE_PERSISTENT_STORAGE,
+  PROP_AUTO_ECHO_CANCEL,
+  PROP_ECHO_CANCEL_SINK_NAME,
+  PROP_ECHO_CANCEL_SOURCE_NAME,
 };
 
 typedef struct _WpDefaultNode WpDefaultNode;
@@ -43,6 +49,8 @@ struct _WpDefaultNodes
   /* properties */
   guint save_interval_ms;
   gboolean use_persistent_storage;
+  gboolean auto_echo_cancel;
+  gchar *echo_cancel_names[2];
 };
 
 G_DECLARE_FINAL_TYPE (WpDefaultNodes, wp_default_nodes,
@@ -184,6 +192,21 @@ node_has_available_routes (WpDefaultNodes * self, WpNode *node)
   return FALSE;
 }
 
+static gboolean
+is_echo_cancel_node (WpDefaultNodes * self, WpNode *node, WpDirection direction)
+{
+  const gchar *name = wp_pipewire_object_get_property (
+      WP_PIPEWIRE_OBJECT (node), PW_KEY_NODE_NAME);
+  const gchar *virtual_str = wp_pipewire_object_get_property (
+      WP_PIPEWIRE_OBJECT (node), PW_KEY_NODE_VIRTUAL);
+  gboolean virtual = virtual_str && pw_properties_parse_bool (virtual_str);
+
+  if (!name || !virtual)
+    return FALSE;
+
+  return g_strcmp0 (name, self->echo_cancel_names[direction]) == 0;
+}
+
 static WpNode *
 find_best_media_class_node (WpDefaultNodes * self, const gchar *media_class,
     const gchar *node_name, WpDirection direction, gint *priority)
@@ -214,8 +237,11 @@ find_best_media_class_node (WpDefaultNodes * self, const gchar *media_class,
       if (!node_has_available_routes (self, node))
         continue;
 
-      if (name && node_name && g_strcmp0 (name, node_name) == 0)
+      if (self->auto_echo_cancel && is_echo_cancel_node (self, node, direction))
         prio += 10000;
+
+      if (name && node_name && g_strcmp0 (name, node_name) == 0)
+        prio += 20000;
 
       if (prio > highest_prio || res == NULL) {
         highest_prio = prio;
@@ -631,10 +657,32 @@ wp_default_nodes_set_property (GObject * object, guint property_id,
   case PROP_USE_PERSISTENT_STORAGE:
     self->use_persistent_storage =  g_value_get_boolean (value);
     break;
+  case PROP_AUTO_ECHO_CANCEL:
+    self->auto_echo_cancel = g_value_get_boolean (value);
+    break;
+  case PROP_ECHO_CANCEL_SINK_NAME:
+    g_clear_pointer (&self->echo_cancel_names[WP_DIRECTION_INPUT], g_free);
+    self->echo_cancel_names[WP_DIRECTION_INPUT] = g_value_dup_string (value);
+    break;
+  case PROP_ECHO_CANCEL_SOURCE_NAME:
+    g_clear_pointer (&self->echo_cancel_names[WP_DIRECTION_OUTPUT], g_free);
+    self->echo_cancel_names[WP_DIRECTION_OUTPUT] = g_value_dup_string (value);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
   }
+}
+
+static void
+wp_default_nodes_finalize (GObject * object)
+{
+  WpDefaultNodes * self = WP_DEFAULT_NODES (object);
+
+  g_clear_pointer (&self->echo_cancel_names[WP_DIRECTION_INPUT], g_free);
+  g_clear_pointer (&self->echo_cancel_names[WP_DIRECTION_OUTPUT], g_free);
+
+  G_OBJECT_CLASS (wp_default_nodes_parent_class)->finalize (object);
 }
 
 static void
@@ -643,6 +691,7 @@ wp_default_nodes_class_init (WpDefaultNodesClass * klass)
   GObjectClass *object_class = (GObjectClass *) klass;
   WpPluginClass *plugin_class = (WpPluginClass *) klass;
 
+  object_class->finalize = wp_default_nodes_finalize;
   object_class->set_property = wp_default_nodes_set_property;
 
   plugin_class->enable = wp_default_nodes_enable;
@@ -657,6 +706,21 @@ wp_default_nodes_class_init (WpDefaultNodesClass * klass)
       g_param_spec_boolean ("use-persistent-storage", "use-persistent-storage",
           "use-persistent-storage", DEFAULT_USE_PERSISTENT_STORAGE,
           G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (object_class, PROP_AUTO_ECHO_CANCEL,
+      g_param_spec_boolean ("auto-echo-cancel", "auto-echo-cancel",
+          "auto-echo-cancel", DEFAULT_AUTO_ECHO_CANCEL,
+          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (object_class, PROP_ECHO_CANCEL_SINK_NAME,
+      g_param_spec_string ("echo-cancel-sink-name", "echo-cancel-sink-name",
+          "echo-cancel-sink-name", DEFAULT_ECHO_CANCEL_SINK_NAME,
+          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (object_class, PROP_ECHO_CANCEL_SOURCE_NAME,
+      g_param_spec_string ("echo-cancel-source-name", "echo-cancel-source-name",
+          "echo-cancel-source-name", DEFAULT_ECHO_CANCEL_SOURCE_NAME,
+          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
 WP_PLUGIN_EXPORT gboolean
@@ -664,11 +728,19 @@ wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
   guint save_interval_ms = DEFAULT_SAVE_INTERVAL_MS;
   gboolean use_persistent_storage = DEFAULT_USE_PERSISTENT_STORAGE;
+  gboolean auto_echo_cancel = DEFAULT_AUTO_ECHO_CANCEL;
+  const gchar *echo_cancel_sink_name = DEFAULT_ECHO_CANCEL_SINK_NAME;
+  const gchar *echo_cancel_source_name = DEFAULT_ECHO_CANCEL_SOURCE_NAME;
 
   if (args) {
     g_variant_lookup (args, "save-interval-ms", "u", &save_interval_ms);
     g_variant_lookup (args, "use-persistent-storage", "b",
         &use_persistent_storage);
+    g_variant_lookup (args, "auto-echo-cancel", "&s", &auto_echo_cancel);
+    g_variant_lookup (args, "echo-cancel-sink-name", "&s",
+        &echo_cancel_sink_name);
+    g_variant_lookup (args, "echo-cancel-source-name", "&s",
+        &echo_cancel_source_name);
   }
 
   wp_plugin_register (g_object_new (wp_default_nodes_get_type (),
@@ -676,6 +748,9 @@ wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
           "core", core,
           "save-interval-ms", save_interval_ms,
           "use-persistent-storage", use_persistent_storage,
+          "auto-echo-cancel", auto_echo_cancel,
+          "echo-cancel-sink-name", echo_cancel_sink_name,
+          "echo-cancel-source-name", echo_cancel_source_name,
           NULL));
   return TRUE;
 }
