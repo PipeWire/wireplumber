@@ -54,10 +54,8 @@ streams_om = ObjectManager {
   Interest {
     type = "node",
     Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
-    -- pavucontrol when opened also shows up with Stream/Input/Audio. We
-    -- do not want to consider that.
-    Constraint { "node.name", "not-equals", "PulseAudio Volume Control" },
-    Constraint { "application.name", "not-equals", "PulseAudio Volume Control" }
+    -- Do not consider monitor streams
+    Constraint { "stream.monitor", "!", "true" }
   }
 }
 
@@ -346,10 +344,8 @@ metadata_om:connect("object-added", function (_, metadata)
         -- Check if the communication input stream is active
         local node = streams_om:lookup {
           Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
-          -- pavucontrol when opened also shows up with Stream/Input/Audio. We
-          -- do not want to consider that.
-          Constraint { "node.name", "not-equals", "PulseAudio Volume Control" },
-          Constraint { "application.name", "not-equals", "PulseAudio Volume Control" }
+          -- Do not consider monitor streams
+          Constraint { "stream.monitor", "!", "true" }
         }
         -- The "saved headset profile" is taken as the profile that was active
         -- when the headset mode deactivates. So in case the user switches profile
