@@ -113,7 +113,7 @@ local function getSavedHeadsetProfile(device)
   local key = "saved-headset-profile:" .. device.properties["device.name"]
   local profile_index = state_table[key]
   if profile_index then
-    return profile_index
+    return tonumber(profile_index)
   else
     return INVALID
   end
@@ -130,7 +130,7 @@ end
 local function getSavedProfile(device)
   local key = "saved-profile:" .. device.properties["device.name"]
   local profile_index = state_table[key]
-  return profile_index
+  return tonumber(profile_index)
 end
 
 local function isProfileSwitched(device)
@@ -138,7 +138,8 @@ local function isProfileSwitched(device)
   if state_table[switched_key] == nil then
     return false
   else
-    return state_table[switched_key] == true
+    return (state_table[switched_key] == true or
+            state_table[switched_key] == "true")
   end
 end
 
