@@ -525,6 +525,9 @@ test_spa_json_nested (void)
   g_assert_cmpmem (wp_spa_json_get_data (json), wp_spa_json_get_size (json),
       "{\"key-array\":[5, 10, 15], \"key-object\":{\"key-boolean\":false, "
       "\"key-int\":8, \"key-array\":[2, 4]}}", 94);
+  g_assert_cmpstr (wp_spa_json_get_data (json), ==,
+      "{\"key-array\":[5, 10, 15], \"key-object\":{\"key-boolean\":false, "
+      "\"key-int\":8, \"key-array\":[2, 4]}}");
 
   g_autoptr (WpIterator) it = wp_spa_json_new_iterator (json);
   g_assert_nonnull (it);

@@ -1119,12 +1119,14 @@ wp_spa_json_builder_end (WpSpaJsonBuilder *self)
   /* close */
   switch (self->data[0]) {
     case '[':  /* array */
-      ensure_allocated_max_size (self, 1);
+      ensure_allocated_max_size (self, 2);
       self->data[self->size++] = ']';
+      self->data[self->size] = '\0';
       break;
     case '{':  /* object */
-      ensure_allocated_max_size (self, 1);
+      ensure_allocated_max_size (self, 2);
       self->data[self->size++] = '}';
+      self->data[self->size] = '\0';
       break;
     default:
       break;
