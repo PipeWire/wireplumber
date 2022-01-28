@@ -143,14 +143,18 @@ local function isProfileSwitched(device)
   end
 end
 
+local function isBluez5AudioSink(sink_name)
+  if string.find(sink_name, "bluez_output.") ~= nil then
+    return true
+  end
+  return false
+end
+
 local function isBluez5DefaultAudioSink()
   local metadata = metadata_om:lookup()
   local default_audio_sink = metadata:find(0, "default.audio.sink")
   Log.info("Default audio sink: " .. default_audio_sink)
-  if string.find(default_audio_sink, "bluez_output.") ~= nil then
-    return true
-  end
-  return false
+  return isBluez5AudioSink(default_audio_sink)
 end
 
 local function findProfile(device, index)
@@ -227,10 +231,16 @@ local function switchProfile()
   local index
   local desc
 
+  Log.debug("Switching profile, if needed")
+
   for device in devices_om:iterate() do
     if isProfileSwitched(device) then
+      Log.debug("Device already switched:" .. device.properties["device.name"])
       goto skip_device
     end
+
+    local _, cur_profile_index, cur_profile_desc = getCurrentProfile(device)
+    saveProfile(device, cur_profile_index, true)
 
     local saved_headset_profile_idx = getSavedHeadsetProfile(device)
     if saved_headset_profile_idx ~= INVALID then
@@ -240,8 +250,6 @@ local function switchProfile()
     end
 
     if index ~= INVALID then
-      local _, cur_profile_index, cur_profile_desc = getCurrentProfile(device)
-
       if index == cur_profile_index then
         Log.info("Current profile is saved profile, not switching")
         goto skip_device
@@ -257,8 +265,6 @@ local function switchProfile()
             .. "' from: " .. cur_profile_desc
             .. "' to: " .. desc)
       device:set_params("Profile", pod)
-
-      saveProfile(device, cur_profile_index, true)
     else
       Log.warning("Got invalid index when switching profile")
     end
@@ -270,12 +276,19 @@ local function restoreProfile()
   for device in devices_om:iterate() do
     if isProfileSwitched(device) then
       local profile_index = getSavedProfile(device)
+      local _, cur_profile_index, cur_profile_desc = getCurrentProfile(device)
+
+      saveProfile(device, INVALID, false)
+
+      if cur_profile_index ~= INVALID then
+        Log.info("Setting saved headset profile to: " .. cur_profile_desc)
+        saveHeadsetProfile(device, cur_profile_index)
+      end
+
       if profile_index ~= INVALID then
         local _, index, desc = findProfile(device, profile_index)
 
         if index ~= INVALID then
-          local _, cur_profile_index, cur_profile_desc = getCurrentProfile(device)
-
           if index == cur_profile_index then
             Log.info("Profile to be restored is current")
             saveProfile(device, INVALID, false)
@@ -292,11 +305,9 @@ local function restoreProfile()
                 .. "' from: " .. cur_profile_desc
                 .. "' to: " .. desc)
           device:set_params("Profile", pod)
-          saveProfile(device, INVALID, false)
         else
           Log.warning("Failed to restore profile")
         end
-        break
       end
     end
   end
@@ -338,28 +349,18 @@ streams_om:connect("object-removed", function (_, stream)
 end)
 
 metadata_om:connect("object-added", function (_, metadata)
-  metadata:connect("changed", function (_, _, key, _, _)
-    -- We only care if a Bluez5 device is default audio sink
-    if isBluez5DefaultAudioSink() then
-      if key == "default.audio.source" or key == "default.audio.sink" then
-        -- Check if the communication input stream is active
-        local node = streams_om:lookup {
-          Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
-          -- Do not consider monitor streams
-          Constraint { "stream.monitor", "!", "true" }
-        }
-        -- The "saved headset profile" is taken as the profile that was active
-        -- when the headset mode deactivates. So in case the user switches profile
-        -- during the time when the Communication input stream is active, the
-        -- selected profile is remembered next time.
-        if node then
-          for device in devices_om:iterate() do
-            local _, cur_profile_index, _ = getCurrentProfile(device)
-            if cur_profile_index ~= INVALID then
-              Log.info("Setting saved headset profile to: ", cur_profile_index)
-              saveHeadsetProfile(device, cur_profile_index)
-            end
-          end
+  metadata:connect("changed", function (m, subject, key, t, value)
+    if (use_headset_profile and subject == 0 and key == "default.audio.sink"
+        and isBluez5AudioSink(value)) then
+      -- If bluez sink is set as default, rescan for active input streams
+      for stream in streams_om:iterate {
+        Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
+        Constraint { "stream.monitor", "!", "true" }
+      } do
+        if isStreamRoleCommunication(stream) then
+          removeValue(app_node_ids, stream["bound-id"])
+          table.insert(app_node_ids, stream["bound-id"])
+          switchProfile()
         end
       end
     end
