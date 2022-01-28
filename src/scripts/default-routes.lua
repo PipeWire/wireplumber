@@ -185,7 +185,7 @@ function restoreRoute(device, dev_info, device_id, route)
     save = route.save,
   }
 
-  Log.debug(param, "setting route on " .. tostring(device))
+  Log.info(param, "setting route on device:" .. tostring(device) .."route:".. route.name)
   device:set_param("Route", param)
 
   route.prev_active = true
@@ -329,6 +329,10 @@ function restoreProfileRoutes(device, dev_info, profile, profile_changed)
   end
 end
 
+function printRouteInfo(arg, ri)
+  Log.info(arg .. " route name:".. ri.name .." active:".. tostring(ri.active) .." prev_active:".. tostring(ri.prev_active) .." index:".. ri.index .." availability:".. ri.available .." prev_availability:".. ri.prev_available .." save:".. tostring(ri.save))
+end
+
 function findRouteInfo(dev_info, route, return_new)
   local ri = dev_info.route_infos[route.index]
   if not ri and return_new then
@@ -348,17 +352,23 @@ function findRouteInfo(dev_info, route, return_new)
   return ri
 end
 
-function handleDevice(device)
+function handleDevice(device, param_name)
   local dev_info = dev_infos[device["bound-id"]]
   local new_route_infos = {}
   local avail_routes_changed = false
   local profile = nil
+  print("handleDevice start")
+
+  Log.info(device,"param_name is ".. param_name)
 
   -- get current profile
   for p in device:iterate_params("Profile") do
     profile = parseParam(p, "Profile")
   end
 
+  if (profile) then
+    Log.info(device,"profile is ".. profile.name)
+  end
   -- look at all the routes and update/reset cached information
   for p in device:iterate_params("EnumRoute") do
     -- parse pod
@@ -366,10 +376,10 @@ function handleDevice(device)
     if not route then
       goto skip_enum_route
     end
-
     -- find cached route information
     local route_info = findRouteInfo(dev_info, route, true)
-
+    print("\n")
+    printRouteInfo("cached route info",route_info)
     -- update properties
     route_info.prev_available = route_info.available
     if route_info.available ~= route.available then
@@ -386,7 +396,7 @@ function handleDevice(device)
 
     -- store
     new_route_infos[route.index] = route_info
-
+    printRouteInfo("calcluated route info",route_info)
     ::skip_enum_route::
   end
 
@@ -442,6 +452,7 @@ function handleDevice(device)
 
     saveProfile(dev_info, profile.name)
   end
+  print("handleDevice ends")
 end
 
 om = ObjectManager {
@@ -465,7 +476,7 @@ om:connect("objects-changed", function (om)
       dev_infos[device["bound-id"]] = dev_info
 
       device:connect("params-changed", handleDevice)
-      handleDevice(device)
+      handleDevice(device, "Route")
     end
 
     new_dev_infos[device["bound-id"]] = dev_info
