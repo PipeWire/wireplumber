@@ -26,15 +26,23 @@
 
 local config = ...
 local use_persistent_storage = config["use-persistent-storage"] or false
-local applications = config["media-role.applications"] or {}
+local applications = {}
 local use_headset_profile = config["media-role.use-headset-profile"] or false
+local profile_restore_timeout_msec = 2000
 
 local INVALID = -1
-local app_node_ids = {}
 local timeout_source = nil
+local restore_timeout_source = nil
 
 local state = use_persistent_storage and State("policy-bluetooth") or nil
 local state_table = state and state:load() or {}
+
+local active_streams = {}
+local previous_streams = {}
+
+for _, value in ipairs(config["media-role.applications"] or {}) do
+  applications[value] = true
+end
 
 metadata_om = ObjectManager {
   Interest {
@@ -58,24 +66,6 @@ streams_om = ObjectManager {
     Constraint { "stream.monitor", "!", "true" }
   }
 }
-
-local function hasValue(tab, val)
-  for _, value in ipairs(tab) do
-    if value == val then
-      return true
-    end
-  end
-
-  return false
-end
-
-local function removeValue(tab, val)
-  for index, value in ipairs(tab) do
-    if value == val then
-      table.remove(tab, index)
-    end
-  end
-end
 
 local function parseParam(param_to_parse, id)
   local param = param_to_parse:parse()
@@ -146,7 +136,6 @@ end
 local function isBluez5DefaultAudioSink()
   local metadata = metadata_om:lookup()
   local default_audio_sink = metadata:find(0, "default.audio.sink")
-  Log.info("Default audio sink: " .. default_audio_sink)
   return isBluez5AudioSink(default_audio_sink)
 end
 
@@ -223,7 +212,10 @@ local function switchProfile()
   local index
   local name
 
-  Log.debug("Switching profile, if needed")
+  if restore_timeout_source then
+    restore_timeout_source:destroy()
+    restore_timeout_source = nil
+  end
 
   for device in devices_om:iterate() do
     if isProfileSwitched(device) then
@@ -257,7 +249,7 @@ local function switchProfile()
       Log.info("Setting profile of '"
             .. device.properties["device.description"]
             .. "' from: " .. cur_profile_name
-            .. "' to: " .. name)
+            .. " to: " .. name)
       device:set_params("Profile", pod)
     else
       Log.warning("Got invalid index when switching profile")
@@ -291,7 +283,7 @@ local function restoreProfile()
           Log.info("Restoring profile of '"
                 .. device.properties["device.description"]
                 .. "' from: " .. cur_profile_name
-                .. "' to: " .. name)
+                .. " to: " .. name)
           device:set_params("Profile", pod)
         else
           Log.warning("Failed to restore profile")
@@ -301,39 +293,70 @@ local function restoreProfile()
   end
 end
 
+local function triggerRestoreProfile()
+  if restore_timeout_source then
+    return
+  end
+  restore_timeout_source = Core.timeout_add(profile_restore_timeout_msec, function ()
+    restore_timeout_source = nil
+    restoreProfile()
+  end)
+end
+
 -- We consider a Stream of interest to have role Communication if it has
 -- media.role set to Communication in props or it is in our list of
 -- applications as these applications do not set media.role correctly or at
 -- all.
-local function isStreamRoleCommunication(stream)
+local function checkStreamStatus(stream)
   local app_name = stream.properties["application.name"]
   local stream_role = stream.properties["media.role"]
 
-  if stream_role == "Communication" or hasValue(applications, app_name) then
-    return true
+  if not (stream_role == "Communication" or applications[app_name]) then
+    return false
+  end
+  if not isBluez5DefaultAudioSink() then
+    return false
   end
 
-  return false
+  -- If a stream we previously saw stops running, we consider it
+  -- inactive, because some applications (Teams) just cork input
+  -- streams, but don't close them.
+  if previous_streams[stream["bound-id"]] and stream.state ~= "running" then
+    return false
+  end
+
+  return true
+end
+
+local function handleStream(stream)
+  if not use_headset_profile then
+    return
+  end
+
+  if checkStreamStatus(stream) then
+    active_streams[stream["bound-id"]] = true
+    previous_streams[stream["bound-id"]] = true
+    switchProfile()
+  else
+    active_streams[stream["bound-id"]] = nil
+    if next(active_streams) == nil then
+      triggerRestoreProfile()
+    end
+  end
 end
 
 streams_om:connect("object-added", function (_, stream)
-  if use_headset_profile then
-    if isStreamRoleCommunication(stream) and isBluez5DefaultAudioSink() then
-      table.insert(app_node_ids, stream["bound-id"])
-      switchProfile()
-    end
-  end
+  stream:connect("state-changed", function (stream, old_state, cur_state)
+    handleStream(stream)
+  end)
+  stream:connect("params-changed", handleStream)
+  handleStream(stream)
 end)
 
 streams_om:connect("object-removed", function (_, stream)
-  if use_headset_profile then
-    if isStreamRoleCommunication(stream) then
-      removeValue(app_node_ids, stream["bound-id"])
-      if next(app_node_ids) == nil then
-        restoreProfile()
-      end
-    end
-  end
+  active_streams[stream["bound-id"]] = nil
+  previous_streams[stream["bound-id"]] = nil
+  triggerRestoreProfile()
 end)
 
 metadata_om:connect("object-added", function (_, metadata)
@@ -345,11 +368,7 @@ metadata_om:connect("object-added", function (_, metadata)
         Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
         Constraint { "stream.monitor", "!", "true" }
       } do
-        if isStreamRoleCommunication(stream) then
-          removeValue(app_node_ids, stream["bound-id"])
-          table.insert(app_node_ids, stream["bound-id"])
-          switchProfile()
-        end
+        handleStream(stream)
       end
     end
   end)
