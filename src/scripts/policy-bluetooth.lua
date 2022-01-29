@@ -35,7 +35,8 @@ local timeout_source = nil
 local restore_timeout_source = nil
 
 local state = use_persistent_storage and State("policy-bluetooth") or nil
-local state_table = state and state:load() or {}
+local headset_profiles = state and state:load() or {}
+local last_profiles = {}
 
 local active_streams = {}
 local previous_streams = {}
@@ -85,7 +86,7 @@ local function storeAfterTimeout()
     timeout_source:destroy()
   end
   timeout_source = Core.timeout_add(1000, function ()
-    local saved, err = state:save(state_table)
+    local saved, err = state:save(headset_profiles)
     if not saved then
       Log.warning(err)
     end
@@ -95,35 +96,25 @@ end
 
 local function saveHeadsetProfile(device, profile_name)
   local key = "saved-headset-profile:" .. device.properties["device.name"]
-  state_table[key] = profile_name
+  headset_profiles[key] = profile_name
   storeAfterTimeout()
 end
 
 local function getSavedHeadsetProfile(device)
   local key = "saved-headset-profile:" .. device.properties["device.name"]
-  return state_table[key]
+  return headset_profiles[key]
 end
 
-local function saveProfile(device, profile_name, profile_switched)
-  local profile_key = "saved-profile:" .. device.properties["device.name"]
-  local switched_key = "switched-profile:" .. device.properties["device.name"]
-  state_table[profile_key] = profile_name
-  if not profile_switched then
-    profile_switched = nil
-  end
-  state_table[switched_key] = profile_switched
-  storeAfterTimeout()
+local function saveLastProfile(device, profile_name)
+  last_profiles[device.properties["device.name"]] = profile_name
 end
 
-local function getSavedProfile(device)
-  local key = "saved-profile:" .. device.properties["device.name"]
-  return state_table[key]
+local function getSavedLastProfile(device)
+  return last_profiles[device.properties["device.name"]]
 end
 
-local function isProfileSwitched(device)
-  local switched_key = "switched-profile:" .. device.properties["device.name"]
-  return (state_table[switched_key] == true or
-          state_table[switched_key] == "true")
+local function isSwitched(device)
+  return getSavedLastProfile(device) ~= nil
 end
 
 local function isBluez5AudioSink(sink_name)
@@ -218,13 +209,12 @@ local function switchProfile()
   end
 
   for device in devices_om:iterate() do
-    if isProfileSwitched(device) then
-      Log.debug("Device already switched:" .. device.properties["device.name"])
+    if isSwitched(device) then
       goto skip_device
     end
 
     local cur_profile_name = getCurrentProfile(device)
-    saveProfile(device, cur_profile_name, true)
+    saveLastProfile(device, cur_profile_name)
 
     local saved_headset_profile = getSavedHeadsetProfile(device)
     index = INVALID
@@ -260,11 +250,11 @@ end
 
 local function restoreProfile()
   for device in devices_om:iterate() do
-    if isProfileSwitched(device) then
-      local profile_name = getSavedProfile(device)
+    if isSwitched(device) then
+      local profile_name = getSavedLastProfile(device)
       local cur_profile_name = getCurrentProfile(device)
 
-      saveProfile(device, nil, false)
+      saveLastProfile(device, nil)
 
       if cur_profile_name then
         Log.info("Setting saved headset profile to: " .. cur_profile_name)
@@ -295,6 +285,9 @@ end
 
 local function triggerRestoreProfile()
   if restore_timeout_source then
+    return
+  end
+  if next(active_streams) ~= nil then
     return
   end
   restore_timeout_source = Core.timeout_add(profile_restore_timeout_msec, function ()
@@ -339,9 +332,16 @@ local function handleStream(stream)
     switchProfile()
   else
     active_streams[stream["bound-id"]] = nil
-    if next(active_streams) == nil then
-      triggerRestoreProfile()
-    end
+    triggerRestoreProfile()
+  end
+end
+
+local function handleAllStreams()
+  for stream in streams_om:iterate {
+    Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
+    Constraint { "stream.monitor", "!", "true" }
+  } do
+    handleStream(stream)
   end
 end
 
@@ -359,17 +359,20 @@ streams_om:connect("object-removed", function (_, stream)
   triggerRestoreProfile()
 end)
 
+devices_om:connect("object-added", function (_, device)
+  -- Devices are unswitched initially
+  if isSwitched(device) then
+    saveLastProfile(device, nil)
+  end
+  handleAllStreams()
+end)
+
 metadata_om:connect("object-added", function (_, metadata)
   metadata:connect("changed", function (m, subject, key, t, value)
     if (use_headset_profile and subject == 0 and key == "default.audio.sink"
         and isBluez5AudioSink(value)) then
       -- If bluez sink is set as default, rescan for active input streams
-      for stream in streams_om:iterate {
-        Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
-        Constraint { "stream.monitor", "!", "true" }
-      } do
-        handleStream(stream)
-      end
+      handleAllStreams()
     end
   end)
 end)
