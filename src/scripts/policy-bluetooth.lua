@@ -199,6 +199,20 @@ local function highestPrioProfileWithInputRoute(device)
   return profile_priority, profile_index, profile_name
 end
 
+local function hasProfileInputRoute(device, profile_index)
+  for p in device:iterate_params("EnumRoute") do
+    local route = parseParam(p, "EnumRoute")
+    if route and route.direction == "Input" and route.profiles then
+      for _, v in pairs(route.profiles) do
+        if v == profile_index then
+          return true
+        end
+      end
+    end
+  end
+  return false
+end
+
 local function switchProfile()
   local index
   local name
@@ -216,6 +230,12 @@ local function switchProfile()
     local cur_profile_name = getCurrentProfile(device)
     saveLastProfile(device, cur_profile_name)
 
+    _, index, name = findProfile(device, nil, cur_profile_name)
+    if hasProfileInputRoute(device, index) then
+      Log.info("Current profile has input route, not switching")
+      goto skip_device
+    end
+
     local saved_headset_profile = getSavedHeadsetProfile(device)
     index = INVALID
     if saved_headset_profile then
@@ -226,11 +246,6 @@ local function switchProfile()
     end
 
     if index ~= INVALID then
-      if name == cur_profile_name then
-        Log.info("Current profile is saved profile, not switching")
-        goto skip_device
-      end
-
       local pod = Pod.Object {
         "Spa:Pod:Object:Param:Profile", "Profile",
         index = index
@@ -244,6 +259,7 @@ local function switchProfile()
     else
       Log.warning("Got invalid index when switching profile")
     end
+
     ::skip_device::
   end
 end
