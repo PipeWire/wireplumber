@@ -12,8 +12,6 @@
 state = State("restore-stream")
 state_table = state:load()
 
-route_settings = Plugin.find("route-settings-api")
-
 -- simple serializer {"foo", "bar"} -> "foo;bar;"
 function serializeArray(a)
   local str = ""
@@ -325,27 +323,31 @@ function handleRouteSettings(subject, key, type, value)
   if string.find(key, "^restore.stream.") == nil then
     return
   end
+  if value == nil then
+    return
+  end
+  local json = Json.Raw (value);
+  if json == nil or not json:is_object () then
+    return
+  end
 
+  local vparsed = json:parse()
   local key_base = string.sub(key, string.len("restore.stream.") + 1)
   local str;
 
   key_base = string.gsub(key_base, "%.", ":", 1);
 
-  str = route_settings:call("convert", value, "volume");
-  if str then
-      state_table[key_base .. ":volume"] = str
+  if vparsed.volume ~= nil then
+    state_table[key_base .. ":volume"] = tostring (vparsed.volume)
   end
-  str = route_settings:call("convert", value, "mute");
-  if str then
-      state_table[key_base .. ":mute"] = str
+  if vparsed.mute ~= nil then
+    state_table[key_base .. ":mute"] = tostring (vparsed.mute)
   end
-  str = route_settings:call("convert", value, "channels");
-  if str then
-      state_table[key_base .. ":channelMap"] = str
+  if vparsed.channels ~= nil then
+    state_table[key_base .. ":channelMap"] = serializeArray (vparsed.channels)
   end
-  str = route_settings:call("convert", value, "volumes");
-  if str then
-    state_table[key_base .. ":channelVolumes"] = str
+  if vparsed.volumes ~= nil then
+    state_table[key_base .. ":channelVolumes"] = serializeArray (vparsed.volumes)
   end
 
   storeAfterTimeout()
