@@ -269,10 +269,18 @@ function findDefinedTarget (properties)
       or properties["node.target"]
   local target_direction = getTargetDirection(properties)
 
+  Log.info(metadata,string.format("target_id is %s", tostring(target_id)))
+
   if target_id and tonumber(target_id) then
     local si_target = linkables_om:lookup {
       Constraint { "node.id", "=", target_id },
     }
+
+    if si_target then
+      Log.info (si_target, string.format(". a defined target found : %s(%d) (for %s)",
+        tostring(si_target.properties["node.name"]), tostring(si_target.properties["node.id"]), tostring(properties["node.name"])))
+    end
+
     if si_target and canLink (properties, si_target) then
       return si_target
     end
@@ -281,11 +289,17 @@ function findDefinedTarget (properties)
   if target_id then
     for si_target in linkables_om:iterate() do
       local target_props = si_target.properties
+      Log.info (si_target, string.format(".. considering   : %s(%d) (for %s)",
+        tostring(target_props["node.name"]), tostring(target_props["node.id"]), tostring(properties["node.name"])))
       if (target_props["node.name"] == target_id or
           target_props["object.path"] == target_id) and
-          target_props["item.node.direction"] == target_direction and
-          canLink (properties, si_target) then
-        return si_target
+          target_props["item.node.direction"] == target_direction then
+
+            Log.info (si_target, string.format("... a defined target found : %s(%d) (for %s)",
+              tostring(target_props["node.name"]), tostring(target_props["node.id"]), tostring(properties["node.name"])))
+            if canLink (properties, si_target) then
+              return si_target
+            end
       end
     end
   end
@@ -557,6 +571,10 @@ function handleLinkable (si)
   local si_target = findDefinedTarget(si_props)
   local can_passthrough = si_target and canPassthrough(si, si_target)
 
+  if si_target then
+    Log.info(si_target,string.format("Defined target found %s(%d) (for %s(%d))",
+      tostring(si_target.properties["node.name"]), tostring(si_target.properties["node.id"]),tostring(si_props["node.name"]), tostring(si_props["node.id"])))
+  end
   if si_target and si_must_passthrough and not can_passthrough then
     si_target = nil
   end
