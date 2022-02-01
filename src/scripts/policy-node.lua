@@ -517,8 +517,8 @@ function checkLinkable(si)
   end
 
   -- Determine if we can handle item by this policy
-  local media_role = si_props["media.role"]
-  if endpoints_om:get_n_objects () > 0 and media_role ~= nil then
+  if endpoints_om:get_n_objects () > 0 and
+      si_props["item.factory.name"] == "si-audio-adapter" then
     return false
   end
 
