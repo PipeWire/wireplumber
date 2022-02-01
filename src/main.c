@@ -117,6 +117,64 @@ check_media_session (WpObjectManager * om, WpInitTransition *self)
   wp_transition_advance (WP_TRANSITION (self));
 }
 
+struct data {
+  WpTransition *transition;
+  int count;
+};
+
+static int
+do_load_components(void *data, const char *location, const char *section,
+		const char *str, size_t len)
+{
+  struct data *d = data;
+  WpTransition *transition = d->transition;
+  WpCore *core = wp_transition_get_source_object (transition);
+  struct spa_json it[3];
+  char key[512];
+  GError *error = NULL;
+
+  spa_json_init(&it[0], str, len);
+
+  if (spa_json_enter_array(&it[0], &it[1]) < 0) {
+    wp_transition_return_error (transition, g_error_new (
+        WP_DOMAIN_DAEMON, WP_EXIT_CONFIG,
+        "wireplumber.components is not a JSON array"));
+    return -EINVAL;
+  }
+
+  while (spa_json_enter_object(&it[1], &it[2]) > 0) {
+    char *name = NULL, *type = NULL;
+
+    while (spa_json_get_string(&it[2], key, sizeof(key)) > 0) {
+      const char *val;
+      int len;
+
+      if ((len = spa_json_next(&it[2], &val)) <= 0)
+        break;
+
+      if (strcmp(key, "name") == 0) {
+        name = (char*)val;
+        spa_json_parse_stringn(val, len, name, len+1);
+      } else if (strcmp(key, "type") == 0) {
+        type = (char*)val;
+        spa_json_parse_stringn(val, len, type, len+1);
+      }
+    }
+    if (name == NULL || type == NULL) {
+      wp_transition_return_error (transition, g_error_new (
+          WP_DOMAIN_DAEMON, WP_EXIT_CONFIG,
+          "component must have both a 'name' and a 'type'"));
+      return -EINVAL;
+    }
+    if (!wp_core_load_component (core, name, type, NULL, &error)) {
+      wp_transition_return_error (transition, error);
+      return -EINVAL;
+    }
+    d->count++;
+  }
+  return 0;
+}
+
 static void
 wp_init_transition_execute_step (WpTransition * transition, guint step)
 {
@@ -124,60 +182,20 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
   WpCore *core = wp_transition_get_source_object (transition);
   struct pw_context *pw_ctx = wp_core_get_pw_context (core);
   const struct pw_properties *props = pw_context_get_properties (pw_ctx);
-  GError *error = NULL;
 
   switch (step) {
   case STEP_LOAD_COMPONENTS: {
-    struct spa_json it[3];
-    char key[512];
-    const char *str =
-        pw_context_get_conf_section (pw_ctx, "wireplumber.components");
-    if (!str) {
+    struct data data = { .transition = transition };
+
+    if (pw_context_conf_section_for_each(pw_ctx, "wireplumber.components",
+		    do_load_components, &data) < 0)
+	    return;
+    if (data.count == 0) {
       wp_transition_return_error (transition, g_error_new (
           WP_DOMAIN_DAEMON, WP_EXIT_CONFIG,
           "No components configured in the context conf file; nothing to do"));
       return;
     }
-
-    spa_json_init(&it[0], str, strlen(str));
-
-    if (spa_json_enter_array(&it[0], &it[1]) < 0) {
-      wp_transition_return_error (transition, g_error_new (
-          WP_DOMAIN_DAEMON, WP_EXIT_CONFIG,
-          "wireplumber.components is not a JSON array"));
-      return;
-    }
-
-    while (spa_json_enter_object(&it[1], &it[2]) > 0) {
-      char *name = NULL, *type = NULL;
-
-      while (spa_json_get_string(&it[2], key, sizeof(key)) > 0) {
-        const char *val;
-        int len;
-
-        if ((len = spa_json_next(&it[2], &val)) <= 0)
-          break;
-
-        if (strcmp(key, "name") == 0) {
-          name = (char*)val;
-          spa_json_parse_stringn(val, len, name, len+1);
-        } else if (strcmp(key, "type") == 0) {
-          type = (char*)val;
-          spa_json_parse_stringn(val, len, type, len+1);
-        }
-      }
-      if (name == NULL || type == NULL) {
-        wp_transition_return_error (transition, g_error_new (
-            WP_DOMAIN_DAEMON, WP_EXIT_CONFIG,
-            "component must have both a 'name' and a 'type'"));
-        return;
-      }
-      if (!wp_core_load_component (core, name, type, NULL, &error)) {
-        wp_transition_return_error (transition, error);
-        return;
-      }
-    }
-
     wp_transition_advance (transition);
     break;
   }
