@@ -8,6 +8,11 @@
 --
 -- SPDX-License-Identifier: MIT
 
+-- Receive script arguments from config.lua
+local config = ... or {}
+config_restore_props = config["restore-props"] or false
+config_restore_target = config["restore-target"] or false
+
 -- the state storage
 state = State("restore-stream")
 state_table = state:load()
@@ -221,32 +226,34 @@ function saveStream(node)
     return
   end
 
-  Log.info(node, "saving stream props for " ..
-      tostring(node.properties["node.name"]))
+  if config_restore_props then
+    Log.info(node, "saving stream props for " ..
+        tostring(node.properties["node.name"]))
 
-  for p in node:iterate_params("Props") do
-    local props = parseParam(p, "Props")
-    if not props then
-      goto skip_prop
+    for p in node:iterate_params("Props") do
+      local props = parseParam(p, "Props")
+      if not props then
+        goto skip_prop
+      end
+
+      if props.volume then
+        state_table[key_base .. ":volume"] = tostring(props.volume)
+      end
+      if props.mute ~= nil then
+        state_table[key_base .. ":mute"] = tostring(props.mute)
+      end
+      if props.channelVolumes then
+        state_table[key_base .. ":channelVolumes"] = serializeArray(props.channelVolumes)
+      end
+      if props.channelMap then
+        state_table[key_base .. ":channelMap"] = serializeArray(props.channelMap)
+      end
+
+      ::skip_prop::
     end
 
-    if props.volume then
-      state_table[key_base .. ":volume"] = tostring(props.volume)
-    end
-    if props.mute ~= nil then
-      state_table[key_base .. ":mute"] = tostring(props.mute)
-    end
-    if props.channelVolumes then
-      state_table[key_base .. ":channelVolumes"] = serializeArray(props.channelVolumes)
-    end
-    if props.channelMap then
-      state_table[key_base .. ":channelMap"] = serializeArray(props.channelMap)
-    end
-
-    ::skip_prop::
+    storeAfterTimeout()
   end
-
-  storeAfterTimeout()
 end
 
 function restoreStream(node)
@@ -255,66 +262,73 @@ function restoreStream(node)
     return
   end
 
-  local needsRestore = false
-  local props = { "Spa:Pod:Object:Param:Props", "Props" }
+  if config_restore_props then
+    local needsRestore = false
+    local props = { "Spa:Pod:Object:Param:Props", "Props" }
 
-  local str = state_table[key_base .. ":volume"]
-  needsRestore = str and true or needsRestore
-  props.volume = str and tonumber(str) or nil
+    local str = state_table[key_base .. ":volume"]
+    needsRestore = str and true or needsRestore
+    props.volume = str and tonumber(str) or nil
 
-  local str = state_table[key_base .. ":mute"]
-  needsRestore = str and true or needsRestore
-  props.mute = str and (str == "true") or nil
+    local str = state_table[key_base .. ":mute"]
+    needsRestore = str and true or needsRestore
+    props.mute = str and (str == "true") or nil
 
-  local str = state_table[key_base .. ":channelVolumes"]
-  needsRestore = str and true or needsRestore
-  props.channelVolumes = str and parseArray(str, tonumber) or nil
+    local str = state_table[key_base .. ":channelVolumes"]
+    needsRestore = str and true or needsRestore
+    props.channelVolumes = str and parseArray(str, tonumber) or nil
 
-  local str = state_table[key_base .. ":channelMap"]
-  needsRestore = str and true or needsRestore
-  props.channelMap = str and parseArray(str) or nil
+    local str = state_table[key_base .. ":channelMap"]
+    needsRestore = str and true or needsRestore
+    props.channelMap = str and parseArray(str) or nil
 
-  local str = state_table[key_base .. ":target"]
-  if str then
-    restoreTarget(node, str)
+    -- convert arrays to Spa Pod
+    if props.channelVolumes then
+      table.insert(props.channelVolumes, 1, "Spa:Float")
+      props.channelVolumes = Pod.Array(props.channelVolumes)
+    end
+    if props.channelMap then
+      table.insert(props.channelMap, 1, "Spa:Enum:AudioChannel")
+      props.channelMap = Pod.Array(props.channelMap)
+    end
+
+    if needsRestore then
+      Log.info(node, "restore values from " .. key_base)
+
+      local param = Pod.Object(props)
+      Log.debug(param, "setting props on " .. tostring(node))
+      node:set_param("Props", param)
+    end
   end
 
-  -- convert arrays to Spa Pod
-  if props.channelVolumes then
-    table.insert(props.channelVolumes, 1, "Spa:Float")
-    props.channelVolumes = Pod.Array(props.channelVolumes)
-  end
-  if props.channelMap then
-    table.insert(props.channelMap, 1, "Spa:Enum:AudioChannel")
-    props.channelMap = Pod.Array(props.channelMap)
-  end
-
-  if needsRestore then
-    Log.info(node, "restore values from " .. key_base)
-
-    local param = Pod.Object(props)
-    Log.debug(param, "setting props on " .. tostring(node))
-    node:set_param("Props", param)
+  if config_restore_target then
+    local str = state_table[key_base .. ":target"]
+    if str then
+      restoreTarget(node, str)
+    end
   end
 end
 
-metadata_om = ObjectManager {
-  Interest {
-    type = "metadata",
-    Constraint { "metadata.name", "=", "default" },
+if config_restore_target then
+  metadata_om = ObjectManager {
+    Interest {
+      type = "metadata",
+      Constraint { "metadata.name", "=", "default" },
+    }
   }
-}
-metadata_om:connect("object-added", function (om, metadata)
-  -- process existing metadata
-  for s, k, t, v in metadata:iterate(Id.ANY) do
-    saveTarget(s, k, t, v)
-  end
-  -- and watch for changes
-  metadata:connect("changed", function (m, subject, key, type, value)
-    saveTarget(subject, key, type, value)
+
+  metadata_om:connect("object-added", function (om, metadata)
+    -- process existing metadata
+    for s, k, t, v in metadata:iterate(Id.ANY) do
+      saveTarget(s, k, t, v)
+    end
+    -- and watch for changes
+    metadata:connect("changed", function (m, subject, key, type, value)
+      saveTarget(subject, key, type, value)
+    end)
   end)
-end)
-metadata_om:activate()
+  metadata_om:activate()
+end
 
 function handleRouteSettings(subject, key, type, value)
   if type ~= "Spa:String:JSON" then
