@@ -208,4 +208,5 @@ SANDBOX_EXPORT = {
   Json = WpSpaJson,
   State = WpState_new,
   LocalModule = WpImplModule_new,
+  ImplMetadata = WpImplMetadata_new,
 }

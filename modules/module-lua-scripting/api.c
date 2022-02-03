@@ -816,6 +816,26 @@ static const luaL_Reg metadata_methods[] = {
   { NULL, NULL }
 };
 
+/* WpImplMetadata */
+
+static int
+impl_metadata_new (lua_State *L)
+{
+  const char *name = luaL_checkstring (L, 1);
+  WpProperties *properties = NULL;
+
+  if (lua_type (L, 2) != LUA_TNONE) {
+    luaL_checktype (L, 2, LUA_TTABLE);
+    properties = wplua_table_to_properties (L, 2);
+  }
+
+  WpImplMetadata *m = wp_impl_metadata_new_full (get_wp_core (L),
+      name, properties);
+  if (m)
+    wplua_pushobject (L, m);
+  return m ? 1 : 0;
+}
+
 /* WpEndpoint */
 
 static const luaL_Reg endpoint_methods[] = {
@@ -1380,6 +1400,8 @@ wp_lua_scripting_api_init (lua_State *L)
       object_manager_new, object_manager_methods);
   wplua_register_type_methods (L, WP_TYPE_METADATA,
       NULL, metadata_methods);
+  wplua_register_type_methods (L, WP_TYPE_IMPL_METADATA,
+      impl_metadata_new, NULL);
   wplua_register_type_methods (L, WP_TYPE_ENDPOINT,
       NULL, endpoint_methods);
   wplua_register_type_methods (L, WP_TYPE_DEVICE,
