@@ -10,8 +10,38 @@
 
 -- Receive script arguments from config.lua
 local config = ... or {}
-config_restore_props = config["restore-props"] or false
-config_restore_target = config["restore-target"] or false
+config_restore_props = config.properties["restore-props"] or false
+config_restore_target = config.properties["restore-target"] or false
+
+-- preprocess rules and create Interest objects
+for _, r in ipairs(config.rules or {}) do
+  r.interests = {}
+  for _, i in ipairs(r.matches) do
+    local interest_desc = { type = "properties" }
+    for _, c in ipairs(i) do
+      c.type = "pw"
+      table.insert(interest_desc, Constraint(c))
+    end
+    local interest = Interest(interest_desc)
+    table.insert(r.interests, interest)
+  end
+  r.matches = nil
+end
+
+-- applies properties from config.rules when asked to
+function rulesApplyProperties(properties)
+  for _, r in ipairs(config.rules or {}) do
+    if r.apply_properties then
+      for _, interest in ipairs(r.interests) do
+        if interest:matches(properties) then
+          for k, v in pairs(r.apply_properties) do
+            properties[k] = v
+          end
+        end
+      end
+    end
+  end
+end
 
 -- the state storage
 state = State("restore-stream")
@@ -72,7 +102,7 @@ function storeAfterTimeout()
   end)
 end
 
-function findSuitableKey(node)
+function findSuitableKey(properties)
   local keys = {
     "media.role",
     "application.id",
@@ -81,13 +111,12 @@ function findSuitableKey(node)
     "node.name",
   }
   local key = nil
-  local node_props = node.properties
 
   for _, k in ipairs(keys) do
-    local p = node_props[k]
+    local p = properties[k]
     if p then
       key = string.format("%s:%s:%s",
-          node_props["media.class"]:gsub("^Stream/", ""), k, p)
+          properties["media.class"]:gsub("^Stream/", ""), k, p)
       break
     end
   end
@@ -106,13 +135,20 @@ function saveTarget(subject, key, type, value)
     return
   end
 
-  local key_base = findSuitableKey(node)
+  local stream_props = node.properties
+  rulesApplyProperties(stream_props)
+
+  if stream_props["state.restore-target"] == false then
+    return
+  end
+
+  local key_base = findSuitableKey(stream_props)
   if not key_base then
     return
   end
 
   Log.info(node, "saving stream target for " ..
-      tostring(node.properties["node.name"]))
+      tostring(stream_props["node.name"]))
 
   local target_id = value
   local target_name = nil
@@ -221,14 +257,17 @@ end
 
 
 function saveStream(node)
-  local key_base = findSuitableKey(node)
-  if not key_base then
-    return
-  end
+  local stream_props = node.properties
+  rulesApplyProperties(stream_props)
 
-  if config_restore_props then
+  if config_restore_props and stream_props["state.restore-props"] ~= false then
+    local key_base = findSuitableKey(stream_props)
+    if not key_base then
+      return
+    end
+
     Log.info(node, "saving stream props for " ..
-        tostring(node.properties["node.name"]))
+        tostring(stream_props["node.name"]))
 
     for p in node:iterate_params("Props") do
       local props = parseParam(p, "Props")
@@ -257,12 +296,15 @@ function saveStream(node)
 end
 
 function restoreStream(node)
-  local key_base = findSuitableKey(node)
+  local stream_props = node.properties
+  rulesApplyProperties(stream_props)
+
+  local key_base = findSuitableKey(stream_props)
   if not key_base then
     return
   end
 
-  if config_restore_props then
+  if config_restore_props and stream_props["state.restore-props"] ~= false then
     local needsRestore = false
     local props = { "Spa:Pod:Object:Param:Props", "Props" }
 
@@ -301,7 +343,7 @@ function restoreStream(node)
     end
   end
 
-  if config_restore_target then
+  if config_restore_target and stream_props["state.restore-target"] ~= false then
     local str = state_table[key_base .. ":target"]
     if str then
       restoreTarget(node, str)
