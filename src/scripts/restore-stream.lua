@@ -409,21 +409,21 @@ function handleRouteSettings(subject, key, type, value)
   storeAfterTimeout()
 end
 
-rs_metadata_om = ObjectManager {
-  Interest {
-    type = "metadata",
-    Constraint { "metadata.name", "=", "route-settings" },
-  }
-}
-rs_metadata_om:connect("object-added", function (om, metadata)
+
+rs_metadata = ImplMetadata("route-settings")
+rs_metadata:activate(Features.ALL, function (m, e)
+  if e then
+    Log.warning("failed to activate route-settings metadata: " .. tostring(e))
+    return
+  end
+
   -- copy state into the metadata
-  moveToMetadata("Output/Audio:media.role:Notification", metadata)
+  moveToMetadata("Output/Audio:media.role:Notification", m)
   -- watch for changes
-  metadata:connect("changed", function (m, subject, key, type, value)
+  m:connect("changed", function (m, subject, key, type, value)
     handleRouteSettings(subject, key, type, value)
   end)
 end)
-rs_metadata_om:activate()
 
 allnodes_om = ObjectManager { Interest { type = "node" } }
 allnodes_om:activate()
