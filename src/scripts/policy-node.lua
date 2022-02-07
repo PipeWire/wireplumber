@@ -377,24 +377,24 @@ function haveAvailableRoutes (si_props)
 
 end
 
-function findDefaultlinkable (si)
+function findDefaultLinkable (si)
   local si_props = si.properties
   local target_direction = getTargetDirection(si_props)
   local def_node_id = getDefaultNode(si_props, target_direction)
-  local si_target = linkables_om:lookup {
+  return linkables_om:lookup {
       Constraint { "node.id", "=", tostring(def_node_id) }
   }
+end
 
-  if si_target ~= nil then
-    local can_passthrough = canPassthrough(si, si_target)
-    Log.info(string.format("... default target picked: %s (%s), can_passthrough:%s",
-        tostring(si_target.properties["node.name"]),
-        tostring(si_target.properties["node.id"]),
-        tostring(can_passthrough)))
-    return si_target, can_passthrough
+function checkPassthroughCompatibility (si, si_target)
+  local si_must_passthrough = parseBool(si.properties["item.node.encoded-only"])
+  local si_target_must_passthrough = parseBool(si_target.properties["item.node.encoded-only"])
+  local can_passthrough = canPassthrough(si, si_target)
+  if (si_must_passthrough or si_target_must_passthrough)
+      and not can_passthrough then
+    return false, can_passthrough
   end
-
-  return nil, nil
+  return true, can_passthrough
 end
 
 function findBestLinkable (si)
@@ -428,18 +428,10 @@ function findBestLinkable (si)
       goto skip_linkable
     end
 
-    -- todo:check if this linkable(node/device) have valid routes.
-
-    -- Is passthrough feasible between these linkables(nodes)?
-    local si_must_passthrough = parseBool(si_props["item.node.encoded-only"])
-    local si_target_must_passthrough = parseBool(si_target_props["item.node.encoded-only"])
-    local can_passthrough = canPassthrough(si, si_target)
-
-    if (si_must_passthrough or si_target_must_passthrough)
-        and not can_passthrough then
-      Log.debug(string.format("... cannot passthrough, skip; must:%s target_must:%s",
-          tostring(si_must_passthrough),
-          tostring(si_target_must_passthrough)))
+    local passthrough_compatible, can_passthrough =
+        checkPassthroughCompatibility (si, si_target)
+    if not passthrough_compatible then
+      Log.debug("... passthrough is not compatible, skip linkable")
       goto skip_linkable
     end
 
@@ -482,11 +474,18 @@ function findUndefinedTarget (si)
     return findBestLinkable (si)
   end
 
-  -- Otherwise find the default linkable. If the default linkabke cannot link,
-  -- we find the best one instead. We return nil if default does not exist.
-  local si_target, can_passthrough = findDefaultlinkable (si)
+  -- Otherwise find the default linkable. If the default linkable is not
+  -- compatible, we find the best one instead. We return nil if the default
+  -- linkable does not exist.
+  local si_target = findDefaultLinkable (si)
   if si_target then
-    if canLink (si.properties, si_target) then
+    local passthrough_compatible, can_passthrough =
+        checkPassthroughCompatibility (si, si_target)
+    if canLink (si.properties, si_target) and passthrough_compatible then
+      Log.info(string.format("... default target picked: %s (%s), can_passthrough:%s",
+        tostring(si_target.properties["node.name"]),
+        tostring(si_target.properties["node.id"]),
+        tostring(can_passthrough)))
       return si_target, can_passthrough
     else
       return findBestLinkable (si)
