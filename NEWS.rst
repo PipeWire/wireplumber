@@ -1,5 +1,56 @@
-WirePlumber 0.4.7
+WirePlumber 0.4.8
 ~~~~~~~~~~~~~~~~~
+
+Highlights:
+
+  - Added bluetooth profile auto-switching support. Bluetooth headsets will now
+    automatically switch to the HSP/HFP profile when making a call and go back
+    to the A2DP profile after the call ends (#90)
+
+  - Added an option (enabled by default) to auto-switch to echo-cancel virtual
+    device nodes when the echo-cancel module is loaded in pipewire-pulse, if
+    there is no other configured default node
+
+Fixes:
+
+  - Fixed a regression that prevented nodes from being selected as default when
+    using the pro-audio profile (#163)
+
+  - Fixed a regression that caused encoded audio streams to stall (#178)
+
+  - Fixed restoring bluetooth device profiles
+
+Library:
+
+  - A new WpSpaJson API was added as a front-end to spa-json. This is also
+    exposed to Lua, so that Lua scripts can natively parse and write data in
+    the spa-json format
+
+Misc:
+
+  - wpctl can now list the configured default sources and sinks and has a new
+    command that allows clearing those configured defaults, so that wireplumber
+    goes back to choosing the default nodes based on node priorities
+
+  - The restore-stream script now has its own configuration file in
+    main.lua.d/40-stream-defaults.lua and has independent options for
+    restoring properties and target nodes
+
+  - The restore-stream script now supports rule-based configuration to disable
+    restoring volume properties and/or target nodes for specific streams,
+    useful for applications that misbehave when we restore those (see #169)
+
+  - policy-endpoint now assigns the "Default" role to any stream that does not
+    have a role, so that it can be linked to a pre-configured endpoint
+
+  - The route-settings-api module was dropped in favor of dealing with json
+    natively in Lua, now that the API exists
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.4.7
+.................
 
 Fixes:
 
@@ -19,9 +70,6 @@ Fixes:
 
   - Fixed an issue that would cause certain lua scripts to error out with older
     configuration files (#158)
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.4.6
 .................
