@@ -30,6 +30,7 @@ C API Documentation
    c_api/impl_module_api.rst
    c_api/properties_api.rst
    c_api/spa_type_api.rst
+   c_api/spa_json_api.rst
    c_api/spa_pod_api.rst
    c_api/plugin_api.rst
    c_api/component_loader_api.rst
