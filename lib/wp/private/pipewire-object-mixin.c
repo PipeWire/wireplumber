@@ -356,6 +356,7 @@ static void
 wp_pw_object_mixin_data_free (gpointer data)
 {
   WpPwObjectMixinData *d = data;
+  spa_hook_list_clean (&d->hooks);
   g_clear_pointer (&d->properties, wp_properties_unref);
   g_list_free_full (d->params, wp_pw_object_mixin_param_store_free);
   g_clear_pointer (&d->subscribed_ids, g_array_unref);
@@ -683,6 +684,7 @@ wp_pw_object_mixin_handle_pw_proxy_destroyed (WpProxy * proxy)
   WpPwObjectMixinPrivInterface *iface =
       WP_PW_OBJECT_MIXIN_PRIV_GET_IFACE (proxy);
 
+  spa_hook_remove (&d->listener);
   g_clear_pointer (&d->properties, wp_properties_unref);
   g_clear_pointer (&d->info, iface->free_info);
   d->iface = NULL;

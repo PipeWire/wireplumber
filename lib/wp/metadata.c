@@ -137,6 +137,7 @@ struct _WpMetadataPrivate
   struct pw_metadata *iface;
   struct spa_hook listener;
   struct pw_array metadata;
+  gboolean remove_listener;
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE (WpMetadata, wp_metadata, WP_TYPE_GLOBAL_PROXY)
@@ -274,6 +275,7 @@ wp_metadata_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
   priv->iface = (struct pw_metadata *) pw_proxy;
   pw_metadata_add_listener (priv->iface, &priv->listener,
       &metadata_events, self);
+  priv->remove_listener = TRUE;
   wp_core_sync (core, NULL, (GAsyncReadyCallback) initial_sync_done, self);
 }
 
@@ -283,6 +285,10 @@ wp_metadata_pw_proxy_destroyed (WpProxy * proxy)
   WpMetadata *self = WP_METADATA (proxy);
   WpMetadataPrivate *priv = wp_metadata_get_instance_private (self);
 
+  if (priv->remove_listener) {
+    spa_hook_remove (&priv->listener);
+    priv->remove_listener = FALSE;
+  }
   clear_items (&priv->metadata);
   wp_object_update_features (WP_OBJECT (self), 0, WP_METADATA_FEATURE_DATA);
 

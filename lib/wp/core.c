@@ -244,6 +244,8 @@ proxy_core_destroy (void *data)
   WpCore *self = WP_CORE (data);
   g_hash_table_foreach_remove (self->async_tasks, async_tasks_finish, NULL);
   g_clear_pointer (&self->info, pw_core_info_free);
+  spa_hook_remove(&self->core_listener);
+  spa_hook_remove(&self->proxy_core_listener);
   self->pw_core = NULL;
   wp_debug_object (self, "emit disconnected");
   g_signal_emit (self, signals[SIGNAL_DISCONNECTED], 0);
