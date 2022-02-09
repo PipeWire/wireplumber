@@ -10,6 +10,7 @@
 
 -- Receive script arguments from config.lua
 local config = ... or {}
+config.properties = config.properties or {}
 config_restore_props = config.properties["restore-props"] or false
 config_restore_target = config.properties["restore-target"] or false
 
