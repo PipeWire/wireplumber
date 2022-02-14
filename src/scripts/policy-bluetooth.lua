@@ -118,7 +118,7 @@ local function isSwitched(device)
 end
 
 local function isBluez5AudioSink(sink_name)
-  if string.find(sink_name, "bluez_output.") ~= nil then
+  if sink_name and string.find(sink_name, "bluez_output.") ~= nil then
     return true
   end
   return false
