@@ -45,10 +45,10 @@ function device_defaults.enable()
     persistent = device_defaults.persistent_profiles
   })
 
-  -- Selects appropriate default routes ("ports" in pulseaudio terminology)
+  -- Selects appropriate device routes ("ports" in pulseaudio terminology)
   -- and enables saving and restoring them together with
   -- their properties (per-route/port volume levels, channel maps, etc)
-  load_script("default-routes.lua", device_defaults.properties)
+  load_script("policy-device-routes.lua", device_defaults.properties)
 
   if device_defaults.properties["use-persistent-storage"] then
     -- Enables functionality to save and restore default device profiles
