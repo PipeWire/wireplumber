@@ -7,9 +7,44 @@
 
 local self = {}
 self.config = ... or {}
+self.config.persistent = self.config.persistent or {}
 self.active_profiles = {}
 self.best_profiles = {}
 self.default_profile_plugin = Plugin.find("default-profile")
+
+-- Preprocess persisten profiles and create Interest objects
+for _, p in ipairs(self.config.persistent or {}) do
+  p.interests = {}
+  for _, i in ipairs(p.matches) do
+    local interest_desc = { type = "properties" }
+    for _, c in ipairs(i) do
+      c.type = "pw"
+      table.insert(interest_desc, Constraint(c))
+    end
+    local interest = Interest(interest_desc)
+    table.insert(p.interests, interest)
+  end
+  p.matches = nil
+end
+
+-- Checks whether a device profile is persistent or not
+function isProfilePersistent(device_props, profile_name)
+  for _, p in ipairs(self.config.persistent or {}) do
+    if p.profile_names then
+      for _, interest in ipairs(p.interests) do
+        if interest:matches(device_props) then
+          for _, pn in ipairs(p.profile_names) do
+            if pn == profile_name then
+              return true
+            end
+          end
+        end
+      end
+    end
+  end
+  return false
+end
+
 
 function parseParam(param, id)
   local parsed = param:parse()
@@ -129,12 +164,21 @@ function handleBestProfile (device, dev_id, dev_name)
   return false
 end
 
-function handleProfiles (device)
+function handleProfiles (device, new_device)
   local dev_id = device["bound-id"]
   local dev_name = device.properties["device.name"]
 
-  -- Set default device if active profile changed to off
   local active_changed = handleActiveProfile (device, dev_id, dev_name)
+
+  -- Do not do anything if profiles changed and active profile is persistent
+  if not new_device and self.active_profiles[dev_id] ~= nil and
+      isProfilePersistent (device.properties, self.active_profiles[dev_id].name) then
+    local active_profile = self.active_profiles[dev_id].name
+    Log.info ("Device profile " .. active_profile .. " is persistent for " .. dev_name)
+    return
+  end
+
+  -- Set default device if active profile changed to off
   if active_changed and self.active_profiles[dev_id] ~= nil and
       self.active_profiles[dev_id].name == "off" then
     local def_profile = findDefaultProfile (device)
@@ -165,7 +209,7 @@ end
 
 function onDeviceParamsChanged (device, param_name)
   if param_name == "EnumProfile" then
-    handleProfiles (device)
+    handleProfiles (device, false)
   end
 end
 
@@ -178,7 +222,7 @@ self.om = ObjectManager {
 
 self.om:connect("object-added", function (_, device)
   device:connect ("params-changed", onDeviceParamsChanged)
-  handleProfiles (device)
+  handleProfiles (device, true)
 end)
 
 self.om:activate()
