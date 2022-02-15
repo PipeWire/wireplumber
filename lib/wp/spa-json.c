@@ -168,8 +168,8 @@ wp_spa_json_new (const gchar *data, size_t size)
  * \returns a new WpSpaJson that references the data in \a json_str. \a json_str
  *   is not copied, so it needs to stay alive.
  */
-WP_API
-WpSpaJson * wp_spa_json_new_from_string (const gchar *json_str)
+WpSpaJson *
+wp_spa_json_new_from_string (const gchar *json_str)
 {
   WpSpaJson *self = g_slice_new0 (WpSpaJson);
   g_ref_count_init (&self->ref);
@@ -251,7 +251,8 @@ wp_spa_json_get_size (const WpSpaJson *self)
  * \param other a spa json object
  * \returns (transfer full): The newly copied spa json
  */
-WpSpaJson *wp_spa_json_copy (WpSpaJson *other)
+WpSpaJson *
+wp_spa_json_copy (WpSpaJson *other)
 {
   g_return_val_if_fail (other, NULL);
   g_return_val_if_fail (other->json, NULL);
