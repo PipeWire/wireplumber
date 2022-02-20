@@ -237,6 +237,8 @@ linkables_om = ObjectManager { Interest { type = "SiLinkable",
   -- only handle si-audio-adapter and si-node
   Constraint {
     "item.factory.name", "=", "si-audio-adapter", type = "pw-global" },
+  Constraint {
+    "active-features", "!", 0, type = "gobject" },
   }
 }
 links_om = ObjectManager { Interest { type = "SiLink",

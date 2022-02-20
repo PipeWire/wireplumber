@@ -15,6 +15,8 @@ config.follow = config.follow or false
 local self = {}
 self.scanning = false
 self.pending_rescan = false
+self.events_skipped = false
+self.pending_error_timer = nil
 
 function rescan()
   for si in linkables_om:iterate() do
@@ -526,7 +528,51 @@ end
 
 si_flags = {}
 
+function checkPending ()
+  local pending_linkables = pending_linkables_om:get_n_objects ()
+
+  -- We cannot process linkables if some of them are pending activation,
+  -- because linkables do not appear in the same order as nodes,
+  -- and we cannot resolve target node references until all linkables
+  -- have appeared.
+
+  if self.pending_error_timer then
+    self.pending_error_timer:destroy ()
+    self.pending_error_timer = nil
+  end
+
+  if pending_linkables ~= 0 then
+    -- Wait for linkables to get it sync
+    Log.debug(string.format("pending %d linkable not ready",
+        pending_linkables))
+    self.events_skipped = true
+
+    -- To make bugs in activation easier to debug, emit an error message
+    -- if they occur. policy-node should never be suspended for 20sec.
+    self.pending_error_timer = Core.timeout_add(20000, function()
+        self.pending_error_timer = nil
+        if pending_linkables ~= 0 then
+          Log.message(string.format("%d pending linkable(s) not activated in 20sec. "
+              .. "This should never happen.", pending_linkables))
+        end
+    end)
+
+    return true
+  elseif self.events_skipped then
+    Log.debug("pending linkables ready")
+    self.events_skipped = false
+    scheduleRescan ()
+    return true
+  end
+
+  return false
+end
+
 function handleLinkable (si)
+  if checkPending () then
+    return
+  end
+
   local valid, si_props = checkLinkable(si)
   if not valid then
     return
@@ -697,12 +743,21 @@ clients_om = ObjectManager { Interest { type = "client" } }
 
 devices_om = ObjectManager { Interest { type = "device" } }
 
-
 linkables_om = ObjectManager {
   Interest {
     type = "SiLinkable",
     -- only handle si-audio-adapter and si-node
     Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
+    Constraint { "active-features", "!", 0, type = "gobject" },
+  }
+}
+
+pending_linkables_om = ObjectManager {
+  Interest {
+    type = "SiLinkable",
+    -- only handle si-audio-adapter and si-node
+    Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
+    Constraint { "active-features", "=", 0, type = "gobject" },
   }
 }
 
@@ -786,5 +841,6 @@ metadata_om:activate()
 endpoints_om:activate()
 clients_om:activate()
 linkables_om:activate()
+pending_linkables_om:activate()
 links_om:activate()
 devices_om:activate()
