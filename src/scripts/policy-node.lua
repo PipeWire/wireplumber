@@ -276,7 +276,7 @@ function findDefinedTarget (properties)
       Constraint { "node.id", "=", target_id },
     }
     if si_target and canLink (properties, si_target) then
-      return si_target
+      return si_target, true
     end
   end
 
@@ -287,11 +287,11 @@ function findDefinedTarget (properties)
           target_props["object.path"] == target_id) and
           target_props["item.node.direction"] == target_direction and
           canLink (properties, si_target) then
-        return si_target
+        return si_target, true
       end
     end
   end
-  return nil
+  return nil, (target_id and target_id ~= "-1")
 end
 
 function parseParam(param, id)
@@ -600,7 +600,7 @@ function handleLinkable (si)
   local si_must_passthrough = parseBool(si_props["item.node.encoded-only"])
 
   -- find defined target
-  local si_target = findDefinedTarget(si_props)
+  local si_target, has_defined_target = findDefinedTarget(si_props)
   local can_passthrough = si_target and canPassthrough(si, si_target)
 
   if si_target and si_must_passthrough and not can_passthrough then
@@ -610,7 +610,7 @@ function handleLinkable (si)
   -- if the client has seen a target that we haven't yet prepared, schedule
   -- a rescan one more time and hope for the best
   local si_id = si.id
-  if si_props["node.target"] and si_props["node.target"] ~= "-1"
+  if has_defined_target
       and not si_target
       and not si_flags[si_id].was_handled
       and not si_flags[si_id].done_waiting then
@@ -621,7 +621,7 @@ function handleLinkable (si)
   end
 
   -- find fallback target
-  if not si_target then
+  if not si_target and (reconnect or not has_defined_target) then
     si_target, can_passthrough = findUndefinedTarget(si)
   end
 
