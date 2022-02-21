@@ -10,6 +10,7 @@
 
 #include "event-hook.h"
 #include "event-dispatcher.h"
+#include "transition.h"
 #include "log.h"
 #include "wpenums.h"
 
@@ -500,4 +501,207 @@ wp_simple_event_hook_new (gint priority, WpEventHookExecType type,
       "exec-type", type,
       "closure", closure,
       NULL);
+}
+
+
+/* WpAsyncEventHookTransition */
+
+#define WP_TYPE_ASYNC_EVENT_HOOK_TRANSITION \
+    (wp_async_event_hook_transition_get_type ())
+G_DECLARE_FINAL_TYPE (WpAsyncEventHookTransition,
+                      wp_async_event_hook_transition,
+                      WP, ASYNC_EVENT_HOOK_TRANSITION, WpTransition)
+
+
+/*!
+ * \struct WpAsyncEventHook
+ *
+ * An event hook that runs a WpTransition, implemented with closures.
+ */
+
+struct _WpAsyncEventHook
+{
+  WpInterestEventHook parent;
+  GClosure *get_next_step;
+  GClosure *execute_step;
+};
+
+enum {
+  PROP_ASYNC_0,
+  PROP_ASYNC_GET_NEXT_STEP,
+  PROP_ASYNC_EXECUTE_STEP,
+};
+
+G_DEFINE_TYPE (WpAsyncEventHook, wp_async_event_hook,
+               WP_TYPE_INTEREST_EVENT_HOOK)
+
+static void
+wp_async_event_hook_init (WpAsyncEventHook * self)
+{
+}
+
+static void
+wp_async_event_hook_finalize (GObject * object)
+{
+  WpAsyncEventHook *self = WP_ASYNC_EVENT_HOOK (object);
+
+  g_clear_pointer (&self->get_next_step, g_closure_unref);
+  g_clear_pointer (&self->execute_step, g_closure_unref);
+
+  G_OBJECT_CLASS (wp_async_event_hook_parent_class)->finalize (object);
+}
+
+static void
+wp_async_event_hook_set_property (GObject * object, guint property_id,
+    const GValue * value, GParamSpec * pspec)
+{
+  WpAsyncEventHook *self = WP_ASYNC_EVENT_HOOK (object);
+
+  switch (property_id) {
+  case PROP_ASYNC_GET_NEXT_STEP:
+    self->get_next_step = g_value_dup_boxed (value);
+    g_closure_sink (self->get_next_step);
+    if (G_CLOSURE_NEEDS_MARSHAL (self->get_next_step))
+      g_closure_set_marshal (self->get_next_step, g_cclosure_marshal_generic);
+    break;
+  case PROP_ASYNC_EXECUTE_STEP:
+    self->execute_step = g_value_dup_boxed (value);
+    g_closure_sink (self->execute_step);
+    if (G_CLOSURE_NEEDS_MARSHAL (self->execute_step))
+      g_closure_set_marshal (self->execute_step, g_cclosure_marshal_VOID__UINT);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
+}
+
+static void
+wp_async_event_hook_run (WpEventHook * hook,
+    WpEvent * event, GCancellable * cancellable,
+    GAsyncReadyCallback callback, gpointer callback_data)
+{
+  WpTransition *transition = wp_transition_new (
+      WP_TYPE_ASYNC_EVENT_HOOK_TRANSITION,
+      hook, cancellable, callback, callback_data);
+  wp_transition_set_data (transition, wp_event_ref (event),
+      (GDestroyNotify) wp_event_unref);
+  wp_transition_set_source_tag (transition, wp_async_event_hook_run);
+  wp_transition_advance (transition);
+}
+
+static gboolean
+wp_async_event_hook_finish (WpEventHook * hook, GAsyncResult * res,
+    GError ** error)
+{
+  g_return_val_if_fail (g_async_result_is_tagged (res, wp_async_event_hook_run),
+      FALSE);
+  return wp_transition_finish (res, error);
+}
+
+static void
+wp_async_event_hook_class_init (WpAsyncEventHookClass * klass)
+{
+  GObjectClass *object_class = (GObjectClass *) klass;
+  WpEventHookClass *hook_class = (WpEventHookClass *) klass;
+
+  object_class->finalize = wp_async_event_hook_finalize;
+  object_class->set_property = wp_async_event_hook_set_property;
+  hook_class->run = wp_async_event_hook_run;
+  hook_class->finish = wp_async_event_hook_finish;
+
+  g_object_class_install_property (object_class, PROP_ASYNC_GET_NEXT_STEP,
+      g_param_spec_boxed ("get-next-step", "get-next-step",
+          "The get-next-step closure", G_TYPE_CLOSURE,
+          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (object_class, PROP_ASYNC_EXECUTE_STEP,
+      g_param_spec_boxed ("execute-step", "execute-step",
+          "The execute-step closure", G_TYPE_CLOSURE,
+          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+}
+
+WpEventHook *
+wp_async_event_hook_new (gint priority, WpEventHookExecType type,
+    GClosure * get_next_step, GClosure * execute_step)
+{
+  g_return_val_if_fail (get_next_step != NULL, NULL);
+  g_return_val_if_fail (execute_step != NULL, NULL);
+
+  return g_object_new (WP_TYPE_ASYNC_EVENT_HOOK,
+      "priority", priority,
+      "exec-type", type,
+      "get-next-step", get_next_step,
+      "execute-step", execute_step,
+      NULL);
+}
+
+
+/* WpAsyncEventHookTransition - implementation */
+
+struct _WpAsyncEventHookTransition
+{
+  WpTransition parent;
+};
+
+G_DEFINE_TYPE (WpAsyncEventHookTransition,
+               wp_async_event_hook_transition,
+               WP_TYPE_TRANSITION)
+
+static void
+wp_async_event_hook_transition_init (
+    WpAsyncEventHookTransition * transition)
+{
+}
+
+static guint
+wp_async_event_hook_transition_get_next_step (
+    WpTransition * transition, guint step)
+{
+  WpAsyncEventHook *hook =
+      WP_ASYNC_EVENT_HOOK (wp_transition_get_source_object (transition));
+  guint next_step = WP_TRANSITION_STEP_ERROR;
+  GValue ret = G_VALUE_INIT;
+  GValue values[2] = { G_VALUE_INIT, G_VALUE_INIT };
+
+  g_value_init (&ret, G_TYPE_UINT);
+  g_value_init (&values[0], G_TYPE_OBJECT);
+  g_value_init (&values[1], G_TYPE_UINT);
+  g_value_set_object (&values[0], transition);
+  g_value_set_uint (&values[1], step);
+  g_closure_invoke (hook->get_next_step, &ret, 2, values, NULL);
+  g_value_unset (&values[0]);
+  g_value_unset (&values[1]);
+  next_step = g_value_get_uint (&ret);
+  g_value_unset (&ret);
+  return next_step;
+}
+
+static void
+wp_async_event_hook_transition_execute_step (
+    WpTransition * transition, guint step)
+{
+  WpAsyncEventHook *hook =
+      WP_ASYNC_EVENT_HOOK (wp_transition_get_source_object (transition));
+  GValue values[2] = { G_VALUE_INIT, G_VALUE_INIT };
+
+  g_value_init (&values[0], G_TYPE_OBJECT);
+  g_value_init (&values[1], G_TYPE_UINT);
+  g_value_set_object (&values[0], transition);
+  g_value_set_uint (&values[1], step);
+  g_closure_invoke (hook->execute_step, NULL, 2, values, NULL);
+  g_value_unset (&values[0]);
+  g_value_unset (&values[1]);
+}
+
+static void
+wp_async_event_hook_transition_class_init (
+    WpAsyncEventHookTransitionClass * klass)
+{
+  WpTransitionClass *transition_class = (WpTransitionClass *) klass;
+
+  transition_class->get_next_step =
+      wp_async_event_hook_transition_get_next_step;
+  transition_class->execute_step =
+      wp_async_event_hook_transition_execute_step;
 }
