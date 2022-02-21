@@ -348,6 +348,12 @@ on_transition_completed (WpTransition * transition, GParamSpec * param,
 {
   WpObjectPrivate *priv = wp_object_get_instance_private (self);
 
+  /* abort activation if a transition failed */
+  if (wp_transition_had_error (transition)) {
+    wp_object_abort_activation (self, "a transition failed");
+    return;
+  }
+
   /* advance pending transitions */
   if (!g_queue_is_empty (priv->transitions) && !priv->idle_advnc_source) {
     g_autoptr (WpCore) core = g_weak_ref_get (&priv->core);
@@ -492,17 +498,18 @@ wp_object_abort_activation (WpObject * self, const gchar *msg)
 
   /* abort ongoing transition if any */
   t = g_weak_ref_get (&priv->ongoing_transition);
-  if (t)
+  if (t && !wp_transition_get_completed (t)) {
     wp_transition_return_error (t, g_error_new (WP_DOMAIN_LIBRARY,
             WP_LIBRARY_ERROR_OPERATION_FAILED,
             "Object activation aborted: %s", msg));
+    return;
+  }
 
-  /* abort queued transitions */
-  while (!g_queue_is_empty (priv->transitions)) {
+  /* recursively abort the queued transitions if any */
+  if (!g_queue_is_empty (priv->transitions)) {
     WpTransition *next = g_queue_pop_head (priv->transitions);
-    wp_transition_return_error (next, g_error_new (WP_DOMAIN_LIBRARY,
-            WP_LIBRARY_ERROR_OPERATION_FAILED,
-            "Object activation aborted: %s", msg));
+    g_weak_ref_set (&priv->ongoing_transition, next);
+    wp_object_abort_activation (self, msg);
   }
 }
 
