@@ -110,6 +110,21 @@ WP_API
 WpEventHook * wp_simple_event_hook_new (gint priority,
     WpEventHookExecType type, GClosure * closure);
 
+
+/*!
+ * \brief The WpAsyncEventHook GType
+ * \ingroup wpeventhook
+ */
+#define WP_TYPE_ASYNC_EVENT_HOOK (wp_async_event_hook_get_type ())
+WP_API
+G_DECLARE_FINAL_TYPE (WpAsyncEventHook, wp_async_event_hook,
+                      WP, ASYNC_EVENT_HOOK, WpInterestEventHook)
+
+WP_API
+WpEventHook * wp_async_event_hook_new (gint priority,
+    WpEventHookExecType type, GClosure * get_next_step,
+    GClosure * execute_step);
+
 G_END_DECLS
 
 #endif
