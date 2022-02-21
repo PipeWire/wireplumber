@@ -631,8 +631,8 @@ function handleLinkable (si)
       Log.debug (si, "... already linked to proper target")
       return
     end
+    local link = lookupLink (si_id, si_flags[si_id].peer_id)
     if reconnect then
-      local link = lookupLink (si_id, si_flags[si_id].peer_id)
       if link ~= nil then
         -- remove old link if active, otherwise schedule rescan
         if ((link:get_active_features() & Feature.SessionItem.ACTIVE) ~= 0) then
@@ -644,6 +644,11 @@ function handleLinkable (si)
           Log.info (si, "... scheduled rescan")
           return
         end
+      end
+    else
+      if link ~= nil then
+        Log.info (si, "... dont-reconnect, not moving")
+        return
       end
     end
   end
