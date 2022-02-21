@@ -22,12 +22,12 @@ wplua_lib = static_library('wplua-' + wireplumber_api_version,
     '-DG_LOG_DOMAIN="wplua"',
   ],
   install: false,
-  include_directories: wp_lib_include_dir,
+  include_directories: wplua_include_dir,
   dependencies : [wp_dep, lua_dep],
 )
 
 wplua_dep = declare_dependency(
   link_with: wplua_lib,
-  include_directories: wp_lib_include_dir,
+  include_directories: wplua_include_dir,
   dependencies: [wp_dep, lua_dep],
 )

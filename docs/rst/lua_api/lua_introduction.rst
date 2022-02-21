@@ -43,7 +43,7 @@ In this environment, the following rules apply:
 
     Here is a full list of Lua functions (and API tables) that are exposed:
 
-    .. literalinclude:: ../../../lib/wplua/sandbox.lua
+    .. literalinclude:: ../../../modules/module-lua-scripting/wplua/sandbox.lua
       :language: lua
       :lines: 40-55
 

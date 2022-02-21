@@ -1,2 +1,1 @@
 subdir('wp')
-subdir('wplua')
