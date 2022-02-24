@@ -510,10 +510,11 @@ function lookupLink (si_id, si_target_id)
   return link
 end
 
-function checkLinkable(si)
+function checkLinkable(si, handle_nonstreams)
   -- only handle stream session items
   local si_props = si.properties
-  if not si_props or si_props["item.node.type"] ~= "stream" then
+  if not si_props or (si_props["item.node.type"] ~= "stream"
+        and not handle_nonstreams)  then
     return false
   end
 
@@ -700,7 +701,7 @@ function handleLinkable (si)
 end
 
 function unhandleLinkable (si)
-  local valid, si_props = checkLinkable(si)
+  local valid, si_props = checkLinkable(si, true)
   if not valid then
     return
   end
@@ -717,7 +718,7 @@ function unhandleLinkable (si)
           si_flags[in_id] and si_flags[in_id].peer_id == out_id then
         si_flags[in_id].peer_id = nil
       elseif in_id == si.id and
-          si_flags[out_id] and si_flags[in_id].peer_id == in_id then
+          si_flags[out_id] and si_flags[out_id].peer_id == in_id then
         si_flags[out_id].peer_id = nil
       end
       silink:remove ()
