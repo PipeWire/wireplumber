@@ -266,32 +266,53 @@ end
 -- that is currently being handled
 function findDefinedTarget (properties)
   local metadata = config.move and metadata_om:lookup()
-  local target_id = metadata
-      and metadata:find(properties["node.id"], "target.node")
-      or properties["node.target"]
   local target_direction = getTargetDirection(properties)
+  local target_key
+  local target_value
 
-  if target_id and tonumber(target_id) then
+  if properties["target.object"] ~= nil then
+    target_value = properties["target.object"]
+    target_key = "object.serial"
+  elseif properties["node.target"] ~= nil then
+    target_value = properties["node.target"]
+    target_key = "node.id"
+  end
+
+  if metadata then
+    local id = metadata:find(properties["node.id"], "target.object")
+    if id ~= nil then
+      target_value = id
+      target_key = "object.serial"
+    else
+      id = metadata:find(properties["node.id"], "target.node")
+      if id ~= nil then
+        target_value = id
+        target_key = "node.id"
+      end
+    end
+  end
+
+  if target_value and tonumber(target_value) then
     local si_target = linkables_om:lookup {
-      Constraint { "node.id", "=", target_id },
+      Constraint { target_key, "=", target_value },
     }
     if si_target and canLink (properties, si_target) then
       return si_target, true
     end
   end
 
-  if target_id then
+  if target_value then
     for si_target in linkables_om:iterate() do
       local target_props = si_target.properties
-      if (target_props["node.name"] == target_id or
-          target_props["object.path"] == target_id) and
+      if (target_props["node.name"] == target_value or
+          target_props["object.path"] == target_value) and
           target_props["item.node.direction"] == target_direction and
           canLink (properties, si_target) then
         return si_target, true
       end
     end
   end
-  return nil, (target_id and target_id ~= "-1")
+  return nil, (target_value and target_value ~= "-1")
 end
 
 function parseParam(param, id)
@@ -815,7 +836,7 @@ end
 if config.move then
   metadata_om:connect("object-added", function (om, metadata)
     metadata:connect("changed", function (m, subject, key, t, value)
-      if key == "target.node" then
+      if key == "target.node" or key == "target.object" then
         scheduleRescan ()
       end
     end)

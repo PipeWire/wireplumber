@@ -21,6 +21,8 @@ function configProperties(node)
     ["node.id"] = node["bound-id"],
     ["client.id"] = np["client.id"],
     ["object.path"] = np["object.path"],
+    ["object.serial"] = np["object.serial"],
+    ["target.object"] = np["target.object"],
     ["priority.session"] = np["priority.session"],
     ["device.id"] = np["device.id"],
     ["card.profile.device"] = np["card.profile.device"],
