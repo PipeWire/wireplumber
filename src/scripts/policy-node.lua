@@ -269,13 +269,16 @@ function findDefinedTarget (properties)
   local target_direction = getTargetDirection(properties)
   local target_key
   local target_value
+  local node_defined = false
 
   if properties["target.object"] ~= nil then
     target_value = properties["target.object"]
     target_key = "object.serial"
+    node_defined = true
   elseif properties["node.target"] ~= nil then
     target_value = properties["node.target"]
     target_key = "node.id"
+    node_defined = true
   end
 
   if metadata then
@@ -283,13 +286,19 @@ function findDefinedTarget (properties)
     if id ~= nil then
       target_value = id
       target_key = "object.serial"
+      node_defined = false
     else
       id = metadata:find(properties["node.id"], "target.node")
       if id ~= nil then
         target_value = id
         target_key = "node.id"
+        node_defined = false
       end
     end
+  end
+
+  if target_value == "-1" then
+    return nil, false, node_defined
   end
 
   if target_value and tonumber(target_value) then
@@ -297,7 +306,7 @@ function findDefinedTarget (properties)
       Constraint { target_key, "=", target_value },
     }
     if si_target and canLink (properties, si_target) then
-      return si_target, true
+      return si_target, true, node_defined
     end
   end
 
@@ -308,11 +317,11 @@ function findDefinedTarget (properties)
           target_props["object.path"] == target_value) and
           target_props["item.node.direction"] == target_direction and
           canLink (properties, si_target) then
-        return si_target, true
+        return si_target, true, node_defined
       end
     end
   end
-  return nil, (target_value and target_value ~= "-1")
+  return nil, (target_value ~= nil), node_defined
 end
 
 function parseParam(param, id)
@@ -590,6 +599,30 @@ function checkPending ()
   return false
 end
 
+function checkFollowDefault (si, si_target, has_node_defined_target)
+  -- If it got linked to the default target that is defined by node
+  -- props but not metadata, start ignoring the node prop from now on.
+  -- This is what Pulseaudio does.
+  if not has_node_defined_target then
+    return
+  end
+
+  local si_props = si.properties
+  local target_props = si_target.properties
+  local reconnect = not parseBool(si_props["node.dont-reconnect"])
+
+  if config.follow and default_nodes ~= nil and reconnect then
+    local def_id = getDefaultNode(si_props, getTargetDirection(si_props))
+
+    if target_props["node.id"] == tostring(def_id) then
+      local metadata = metadata_om:lookup()
+      -- Set target.node, for backward compatibility
+      metadata:set(tonumber(si_props["node.id"]), "target.node", "Spa:Id", "-1")
+      Log.info (si, "... set metadata to follow default")
+    end
+  end
+end
+
 function handleLinkable (si)
   if checkPending () then
     return
@@ -621,7 +654,8 @@ function handleLinkable (si)
   local si_must_passthrough = parseBool(si_props["item.node.encoded-only"])
 
   -- find defined target
-  local si_target, has_defined_target = findDefinedTarget(si_props)
+  local si_target, has_defined_target, has_node_defined_target
+      = findDefinedTarget(si_props)
   local can_passthrough = si_target and canPassthrough(si, si_target)
 
   if si_target and si_must_passthrough and not can_passthrough then
@@ -650,6 +684,8 @@ function handleLinkable (si)
   if si_flags[si_id].peer_id then
     if si_target and si_flags[si_id].peer_id == si_target.id then
       Log.debug (si, "... already linked to proper target")
+      -- Check this also here, in case in default targets changed
+      checkFollowDefault (si, si_target, has_node_defined_target)
       return
     end
     local link = lookupLink (si_id, si_flags[si_id].peer_id)
@@ -723,6 +759,8 @@ function handleLinkable (si)
   else
     createLink (si, si_target, can_passthrough, exclusive)
     si_flags[si.id].was_handled = true
+
+    checkFollowDefault (si, si_target, has_node_defined_target)
   end
 end
 
@@ -796,38 +834,9 @@ links_om = ObjectManager {
   }
 }
 
-function cleanupTargetNodeMetadata()
-  local metadata = metadata_om:lookup()
-  if metadata and default_nodes ~= nil then
-    local to_remove = {}
-    for s, k, t, v in metadata:iterate(Id.ANY) do
-      if k == "target.node" then
-        if v == "-1" then
-          -- target.node == -1 is useless, it means the default node
-          table.insert(to_remove, s)
-        else
-          -- if the target.node value is the same as the default node
-          -- that would be selected for this stream, remove it
-          local si = linkables_om:lookup { Constraint { "node.id", "=", s } }
-          local properties = si.properties
-          local def_id = getDefaultNode(properties, getTargetDirection(properties))
-          if tostring(def_id) == v then
-            table.insert(to_remove, s)
-          end
-        end
-      end
-    end
-
-    for _, s in ipairs(to_remove) do
-      metadata:set(s, "target.node", nil, nil)
-    end
-  end
-end
-
 -- listen for default node changes if config.follow is enabled
 if config.follow and default_nodes ~= nil then
   default_nodes:connect("changed", function ()
-    cleanupTargetNodeMetadata()
     scheduleRescan ()
   end)
 end
