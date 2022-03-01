@@ -135,9 +135,9 @@ function createNode(parent, id, type, factory, properties)
 
   -- and a nick
   local nick = properties["node.nick"]
+      or properties["api.alsa.pcm.name"]
+      or properties["alsa.name"]
       or dev_props["device.nick"]
-      or dev_props["api.alsa.card.name"]
-      or dev_props["alsa.card_name"]
   -- also sanitize nick, replace ':' with ' '
   properties["node.nick"] = nick:gsub("(:)", " ")
 
@@ -230,7 +230,8 @@ function prepareDevice(parent, id, type, factory, properties)
   -- ensure the device has a nick
   properties["device.nick"] =
       properties["device.nick"] or
-      properties["api.alsa.card.name"]
+      properties["api.alsa.card.name"] or
+      properties["alsa.card_name"]
 
   -- set the icon name
   if not properties["device.icon-name"] then
