@@ -124,8 +124,8 @@ function findSuitableKey(properties)
   return key
 end
 
-function saveTarget(subject, key, type, value)
-  if key ~= "target.node" then
+function saveTarget(subject, target_key, type, value)
+  if target_key ~= "target.node" and target_key ~= "target.object" then
     return
   end
 
@@ -148,27 +148,35 @@ function saveTarget(subject, key, type, value)
     return
   end
 
-  Log.info(node, "saving stream target for " ..
-      tostring(stream_props["node.name"]))
-
-  local target_id = value
+  local target_value = value
   local target_name = nil
 
-  if not target_id then
+  if not target_value then
     local metadata = metadata_om:lookup()
     if metadata then
-      target_id = metadata:find(node["bound-id"], "target.node")
+      target_value = metadata:find(node["bound-id"], target_key)
     end
   end
-  if target_id then
-    local target_node = allnodes_om:lookup {
-      Constraint { "bound-id", "=", target_id, type = "gobject" }
-    }
+  if target_value and target_value ~= "-1" then
+    local target_node
+    if target_key == "target.object" then
+      target_node = allnodes_om:lookup {
+        Constraint { "object.serial", "=", target_value, type = "pw-global" }
+      }
+    else
+      target_node = allnodes_om:lookup {
+        Constraint { "bound-id", "=", target_value, type = "gobject" }
+      }
+    end
     if target_node then
       target_name = target_node.properties["node.name"]
     end
   end
   state_table[key_base .. ":target"] = target_name
+
+  Log.info(node, "saving stream target for " ..
+    tostring(stream_props["node.name"]) ..
+    " -> " .. tostring(target_name))
 
   storeAfterTimeout()
 end
