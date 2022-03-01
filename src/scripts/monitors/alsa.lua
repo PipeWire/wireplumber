@@ -134,9 +134,10 @@ function createNode(parent, id, type, factory, properties)
   end
 
   -- and a nick
-  local nick = properties["node.nick"]
-      or properties["api.alsa.pcm.name"]
-      or properties["alsa.name"]
+  local nick = nonempty(properties["node.nick"])
+      or nonempty(properties["api.alsa.pcm.name"])
+      or nonempty(properties["alsa.name"])
+      or nonempty(profile_desc)
       or dev_props["device.nick"]
   -- also sanitize nick, replace ':' with ' '
   properties["node.nick"] = nick:gsub("(:)", " ")
