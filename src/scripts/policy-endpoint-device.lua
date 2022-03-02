@@ -221,6 +221,10 @@ linkables_om:connect("objects-changed", function (om)
   scheduleRescan ()
 end)
 
+endpoints_om:connect("object-added", function (om)
+  scheduleRescan ()
+end)
+
 linkables_om:connect("object-removed", function (om, si)
   unhandleLinkable (si)
 end)
