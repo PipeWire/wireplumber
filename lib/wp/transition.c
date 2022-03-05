@@ -65,6 +65,7 @@ struct _WpTransitionPrivate
   GDestroyNotify data_destroy;
 
   /* state machine */
+  gboolean started;
   guint step;
   GError *error;
 };
@@ -347,7 +348,7 @@ wp_transition_get_completed (WpTransition * self)
   g_return_val_if_fail (WP_IS_TRANSITION (self), FALSE);
 
   WpTransitionPrivate *priv = wp_transition_get_instance_private (self);
-  return priv->step == WP_TRANSITION_STEP_NONE ||
+  return (priv->step == WP_TRANSITION_STEP_NONE && priv->started) ||
          priv->step == WP_TRANSITION_STEP_ERROR;
 }
 
@@ -425,6 +426,8 @@ wp_transition_advance (WpTransition * self)
   WpTransitionPrivate *priv = wp_transition_get_instance_private (self);
   guint next_step;
   GError *error = NULL;
+
+  priv->started = TRUE;
 
   if (g_cancellable_set_error_if_cancelled (priv->cancellable, &error)) {
     wp_transition_return_error (self, error);
@@ -525,6 +528,10 @@ wp_transition_finish (GAsyncResult * res, GError ** error)
   if (priv->error) {
     g_propagate_error (error, priv->error);
     priv->error = NULL;
+  } else if (!priv->started) {
+    priv->step = WP_TRANSITION_STEP_ERROR;
+    g_propagate_error (error, g_error_new (WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_INVARIANT, "finished before starting"));
   }
 
   wp_trace_object (priv->source_object, "transition: finished %s",
