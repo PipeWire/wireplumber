@@ -104,6 +104,28 @@ function createDevice(parent, id, type, factory, properties)
     end
     properties["device.name"] = name
 
+    -- set the icon name
+    if not properties["device.icon-name"] then
+      local icon = nil
+      local icon_map = {
+        -- form factor -> icon
+        ["microphone"] = "audio-input-microphone",
+        ["webcam"] = "camera-web",
+        ["handset"] = "phone",
+        ["portable"] = "multimedia-player",
+        ["tv"] = "video-display",
+        ["headset"] = "audio-headset",
+        ["headphone"] = "audio-headphones",
+        ["speaker"] = "audio-speakers",
+        ["hands-free"] = "audio-handsfree",
+      }
+      local f = properties["device.form-factor"]
+      local b = properties["device.bus"]
+
+      icon = icon_map[f] or "audio-card"
+      properties["device.icon-name"] = icon .. (b and ("-" .. b) or "")
+    end
+
     -- initial profile is to be set by policy-device-profile.lua, not spa-bluez5
     properties["bluez5.profile"] = "off"
 
