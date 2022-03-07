@@ -20,6 +20,9 @@ include:
   - project: 'freedesktop/ci-templates'
     ref: *templates_sha
     file: '/templates/ubuntu.yml'
+  - project: 'freedesktop/ci-templates'
+    ref: *templates_sha
+    file: '/templates/alpine.yml'
 
 .fedora:
   variables:
@@ -73,6 +76,27 @@ include:
       python3-lxml
     FDO_DISTRIBUTION_EXEC: >-
       pip3 install meson
+
+.alpine:
+  variables:
+    # Update this tag when you want to trigger a rebuild
+    FDO_DISTRIBUTION_TAG: '2022-03-08.1'
+    FDO_DISTRIBUTION_VERSION: '3.15'
+    FDO_DISTRIBUTION_PACKAGES: >-
+      dbus
+      dbus-dev
+      doxygen
+      elogind-dev
+      findutils
+      g++
+      gcc
+      git
+      glib-dev
+      gobject-introspection-dev
+      lua5.4-dev
+      meson
+      py3-lxml
+      samurai
 
 .coverity:
   variables:
@@ -154,6 +178,14 @@ container_ubuntu:
   variables:
     GIT_STRATEGY: none
 
+container_alpine:
+  extends:
+    - .alpine
+    - .fdo.container-build@alpine
+  stage: container
+  variables:
+    GIT_STRATEGY: none
+
 container_coverity:
   extends:
     - .fedora
@@ -202,6 +234,16 @@ build_on_ubuntu_no_gir:
   stage: build
   variables:
     BUILD_OPTIONS: -Dintrospection=disabled -Ddoc=disabled -Dsystem-lua=true
+
+build_on_alpine:
+  extends:
+    - .alpine
+    - .not_coverity
+    - .fdo.distribution-image@alpine
+    - .build
+  stage: build
+  variables:
+    BUILD_OPTIONS: -Dintrospection=enabled -Ddoc=disabled -Dsystem-lua=true -Delogind=disabled
 
 build_with_coverity:
   extends:
