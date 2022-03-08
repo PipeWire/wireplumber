@@ -139,6 +139,9 @@ function createNode(parent, id, type, factory, properties)
       or nonempty(properties["alsa.name"])
       or nonempty(profile_desc)
       or dev_props["device.nick"]
+  if nick == "USB Audio" then
+    nick = dev_props["device.nick"]
+  end
   -- also sanitize nick, replace ':' with ' '
   properties["node.nick"] = nick:gsub("(:)", " ")
 
