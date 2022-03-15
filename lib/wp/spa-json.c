@@ -627,12 +627,11 @@ wp_spa_json_parse_string_internal (const gchar *data, int len)
   size_t size = WP_SPA_JSON_STRING_INIT_SIZE;
   gchar *res = NULL;
 
-  if (spa_json_is_string (data, len)) {
-    res = g_new0 (gchar, size);
-    while (spa_json_parse_stringn (data, len, res, size) < 0) {
-      size *= 2;
-      res = g_realloc (res, size);
-    }
+  res = g_new0(gchar, size);
+  while (spa_json_parse_stringn(data, len, res, size) < 0)
+  {
+    size *= 2;
+    res = g_realloc(res, size);
   }
 
   return res;
