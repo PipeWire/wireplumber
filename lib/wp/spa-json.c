@@ -624,16 +624,9 @@ wp_spa_json_parse_float (WpSpaJson *self, float *value)
 static gchar *
 wp_spa_json_parse_string_internal (const gchar *data, int len)
 {
-  size_t size = WP_SPA_JSON_STRING_INIT_SIZE;
-  gchar *res = NULL;
-
-  res = g_new0(gchar, size);
-  while (spa_json_parse_stringn(data, len, res, size) < 0)
-  {
-    size *= 2;
-    res = g_realloc(res, size);
-  }
-
+  gchar *res = g_new0 (gchar, len+1);
+  if (res)
+    spa_json_parse_string (data, len, res);
   return res;
 }
 
