@@ -1007,6 +1007,90 @@ test_spa_json_ownership (void)
   }
 }
 
+static void
+test_spa_json_spa_format (void)
+{
+  g_autoptr (WpSpaJson) json = NULL;
+
+  const gchar json_str[] = "{ name = John age:30, \"car\" null }";
+  json = wp_spa_json_new_from_string (json_str);
+  g_assert_nonnull (json);
+
+  g_assert_true (wp_spa_json_is_object (json));
+
+  g_autoptr (WpIterator) it = wp_spa_json_new_iterator (json);
+  g_assert_nonnull (it);
+
+  {
+    GValue next = G_VALUE_INIT;
+    g_assert_true (wp_iterator_next (it, &next));
+    WpSpaJson *j = g_value_get_boxed (&next);
+    g_assert_nonnull (j);
+    g_assert_false (wp_spa_json_is_string (j));  // FALSE because no quotes
+    g_autofree gchar *v = wp_spa_json_parse_string (j);
+    g_assert_nonnull (v);
+    g_assert_cmpstr (v, ==, "name");
+    g_value_unset (&next);
+  }
+
+  {
+    GValue next = G_VALUE_INIT;
+    g_assert_true (wp_iterator_next (it, &next));
+    WpSpaJson *j = g_value_get_boxed (&next);
+    g_assert_nonnull (j);
+    g_assert_false (wp_spa_json_is_string (j));  // FALSE because no quotes
+    g_autofree gchar *v = wp_spa_json_parse_string (j);
+    g_assert_nonnull (v);
+    g_assert_cmpstr (v, ==, "John");
+    g_value_unset (&next);
+  }
+
+  {
+    GValue next = G_VALUE_INIT;
+    g_assert_true (wp_iterator_next (it, &next));
+    WpSpaJson *j = g_value_get_boxed (&next);
+    g_assert_nonnull (j);
+    g_assert_false (wp_spa_json_is_string (j));  // FALSE because no quotes
+    g_autofree gchar *v = wp_spa_json_parse_string (j);
+    g_assert_nonnull (v);
+    g_assert_cmpstr (v, ==, "age");
+    g_value_unset (&next);
+  }
+
+  {
+    GValue next = G_VALUE_INIT;
+    g_assert_true (wp_iterator_next (it, &next));
+    WpSpaJson *j = g_value_get_boxed (&next);
+    g_assert_nonnull (j);
+    g_assert_true (wp_spa_json_is_int (j));
+    gint32 v = 0;
+    g_assert_true (wp_spa_json_parse_int (j, &v));
+    g_assert_cmpint (v, ==, 30);
+    g_value_unset (&next);
+  }
+
+  {
+    GValue next = G_VALUE_INIT;
+    g_assert_true (wp_iterator_next (it, &next));
+    WpSpaJson *j = g_value_get_boxed (&next);
+    g_assert_nonnull (j);
+    g_assert_true (wp_spa_json_is_string (j));
+    g_autofree gchar *v = wp_spa_json_parse_string (j);
+    g_assert_nonnull (v);
+    g_assert_cmpstr (v, ==, "car");
+    g_value_unset (&next);
+  }
+
+  {
+    GValue next = G_VALUE_INIT;
+    g_assert_true (wp_iterator_next (it, &next));
+    WpSpaJson *j = g_value_get_boxed (&next);
+    g_assert_nonnull (j);
+    g_assert_true (wp_spa_json_is_null (j));
+    g_value_unset (&next);
+  }
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -1021,6 +1105,7 @@ main (int argc, char *argv[])
   g_test_add_func ("/wp/spa-json/nested", test_spa_json_nested);
   g_test_add_func ("/wp/spa-json/nested2", test_spa_json_nested2);
   g_test_add_func ("/wp/spa-json/ownership", test_spa_json_ownership);
+  g_test_add_func ("/wp/spa-json/spa-format", test_spa_json_spa_format);
 
   return g_test_run ();
 }
