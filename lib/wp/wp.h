@@ -42,6 +42,7 @@
 #include "wpenums.h"
 #include "wpversion.h"
 #include "factory.h"
+#include "settings.h"
 
 G_BEGIN_DECLS
 
