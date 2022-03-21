@@ -133,8 +133,8 @@ do_parse_settings (void *data, const char *location,
   struct data *d = data;
   WpTransition *transition = d->transition;
   WpSettingsPlugin *self = wp_transition_get_source_object (transition);
-  g_autoptr (WpSpaJson) *json = wp_spa_json_new_from_stringn (str, len);
-  g_autoptr (WpIterator) *iter = wp_spa_json_new_iterator (json);
+  g_autoptr (WpSpaJson) json = wp_spa_json_new_from_stringn (str, len);
+  g_autoptr (WpIterator) iter = wp_spa_json_new_iterator (json);
   g_auto (GValue) item = G_VALUE_INIT;
 
 
@@ -268,7 +268,7 @@ on_metadata_activated (WpMetadata * m, GAsyncResult * res, gpointer user_data)
     wp_debug_object (self, "%s(%lu) = %s", setting, strlen(value), value);
     wp_metadata_set (m, 0, setting, "Spa:String:JSON", value);
   }
-  wp_info_object(self, "loaded settings(%d) to \"sm-settings\" metadata",
+  wp_info_object (self, "loaded settings(%d) to \"sm-settings\" metadata",
       wp_properties_get_count (self->settings));
 
 
