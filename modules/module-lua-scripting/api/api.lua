@@ -209,4 +209,5 @@ SANDBOX_EXPORT = {
   State = WpState_new,
   LocalModule = WpImplModule_new,
   ImplMetadata = WpImplMetadata_new,
+  Settings = WpSettings,
 }
