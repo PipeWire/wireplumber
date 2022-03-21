@@ -1367,6 +1367,26 @@ impl_module_new (lua_State *L)
   }
 }
 
+static int
+get_setting (lua_State *L)
+{
+  const char *setting = luaL_checkstring (L, 1);
+  WpSettings *s = wp_settings_get_instance (get_wp_core (L));
+  if (s)
+  {
+    gboolean value = wp_settings_get_boolean (s, setting);
+    lua_pushboolean (L, value);
+  }
+  else
+    lua_pushnil (L);
+  return 1;
+}
+
+static const luaL_Reg settings_methods[] = {
+  { "get_setting", get_setting },
+  { NULL, NULL }
+};
+
 void
 wp_lua_scripting_api_init (lua_State *L)
 {
@@ -1383,6 +1403,9 @@ wp_lua_scripting_api_init (lua_State *L)
 
   luaL_newlib (L, plugin_funcs);
   lua_setglobal (L, "WpPlugin");
+
+  luaL_newlib (L, settings_methods);
+  lua_setglobal (L, "WpSettings");
 
   wp_lua_scripting_pod_init (L);
   wp_lua_scripting_json_init (L);
