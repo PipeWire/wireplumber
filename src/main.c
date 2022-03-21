@@ -49,6 +49,7 @@ enum {
   STEP_LOAD_COMPONENTS = WP_TRANSITION_STEP_CUSTOM_START,
   STEP_CONNECT,
   STEP_CHECK_MEDIA_SESSION,
+  STEP_ACTIVATE_SETTINGS,
   STEP_ACTIVATE_PLUGINS,
   STEP_ACTIVATE_SCRIPTS,
   STEP_CLEANUP,
@@ -70,7 +71,8 @@ wp_init_transition_get_next_step (WpTransition * transition, guint step)
   case WP_TRANSITION_STEP_NONE: return STEP_LOAD_COMPONENTS;
   case STEP_LOAD_COMPONENTS:    return STEP_CONNECT;
   case STEP_CONNECT:            return STEP_CHECK_MEDIA_SESSION;
-  case STEP_CHECK_MEDIA_SESSION:return STEP_ACTIVATE_PLUGINS;
+  case STEP_CHECK_MEDIA_SESSION:return STEP_ACTIVATE_SETTINGS;
+  case STEP_ACTIVATE_SETTINGS:  return STEP_ACTIVATE_PLUGINS;
   case STEP_CLEANUP:            return WP_TRANSITION_STEP_NONE;
 
   case STEP_ACTIVATE_PLUGINS: {
@@ -181,6 +183,44 @@ do_load_components(void *data, const char *location, const char *section,
 }
 
 static void
+on_settings_ready (WpSettings *s, GAsyncResult *res, gpointer data)
+{
+  WpCore *self = WP_CORE (data);
+  g_autoptr (GError) error = NULL;
+
+  wp_info_object(self, "wpsettings object ready");
+
+  if (!wp_object_activate_finish (WP_OBJECT (s), res, &error)) {
+    wp_debug_object (self, "wpsettings activation failed: %s", error->message);
+    return;
+  }
+
+  wp_transition_advance (WP_TRANSITION (self));
+}
+
+static void
+on_settings_plugin_ready (WpPlugin *s, GAsyncResult *res, gpointer data)
+{
+  WpInitTransition *self = WP_INIT_TRANSITION (data);
+  WpTransition *transition = WP_TRANSITION (data);
+  WpCore *core = wp_transition_get_source_object (transition);
+  g_autoptr (GError) error = NULL;
+  g_autoptr (WpSettings) settings = wp_settings_get_instance (core);
+
+  wp_info_object (self, "wpsettingsplugin object ready");
+
+  if (!wp_object_activate_finish (WP_OBJECT (s), res, &error)) {
+    wp_debug_object (self, "wpSettingsPlugin activation failed: %s",
+      error->message);
+    return;
+  }
+
+  wp_object_activate (WP_OBJECT (settings), WP_OBJECT_FEATURES_ALL, NULL,
+      (GAsyncReadyCallback) on_settings_ready, g_object_ref (self));
+
+}
+
+static void
 wp_init_transition_execute_step (WpTransition * transition, guint step)
 {
   WpInitTransition *self = WP_INIT_TRANSITION (transition);
@@ -252,6 +292,23 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
     g_signal_connect_object (self->om, "installed",
         G_CALLBACK (check_media_session), self, 0);
     wp_core_install_object_manager (core, self->om);
+    break;
+  }
+
+  case STEP_ACTIVATE_SETTINGS: {
+    /* find and activate settings plugin */
+    WpPlugin *p = wp_plugin_find (core, "settings");
+    if (!p) {
+      wp_transition_return_error (transition, g_error_new (
+          WP_DOMAIN_DAEMON, WP_EXIT_CONFIG,
+          "unable to find settings plugin"));
+      return;
+    }
+    wp_info_object (self, "Activating wpsettings plugin");
+
+    wp_object_activate (WP_OBJECT (p), WP_OBJECT_FEATURES_ALL, NULL,
+        (GAsyncReadyCallback) on_settings_plugin_ready, g_object_ref (self));
+
     break;
   }
 

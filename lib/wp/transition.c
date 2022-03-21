@@ -29,7 +29,7 @@
  * code must call wp_transition_return_error() instead, in which case the
  * transition completes immediately and wp_transition_had_error() returns TRUE.
  *
- * Typically, every step will start an asynchronous operation. Although is is
+ * Typically, every step will start an asynchronous operation. Although it is
  * possible, the WpTransition base class does not expect
  * _WpTransitionClass::execute_step() to call wp_transition_advance() directly.
  * Instead, it is expected that wp_transition_advance() will be called from
