@@ -1,5 +1,54 @@
-WirePlumber 0.4.8
+WirePlumber 0.4.9
 ~~~~~~~~~~~~~~~~~
+
+Fixes:
+
+  - restore-stream no longer crashes if properties for it are not present
+    in the config (#190)
+
+  - spa-json no longer crashes on non-x86 architectures
+
+  - Fixed a potential crash in the bluetooth auto-switch module (#193)
+
+  - Fixed a race condition that would cause Zoom desktop audio sharing to fail
+    (#197)
+
+  - Surround sound in some games is now exposed properly (pipewire#876)
+
+  - Fixed a race condition that would cause the default source & sink to not
+    be set at startup
+
+  - policy-node now supports the 'target.object' key on streams and metadata
+
+  - Multiple fixes in policy-node that make the logic in some cases behave
+    more like PulseAudio (regarding nodes with the dont-reconnect property
+    and regarding following the default source/sink)
+
+  - Fixed a bug with parsing unquoted strings in spa-json
+
+Misc:
+
+  - The policy now supports configuring "persistent" device profiles. If a
+    device is *manually* set to one of these profiles, then it will not be
+    auto-switched to another profile automatically under any circumstances
+    (#138, #204)
+
+  - The device-activation module was re-written in lua
+
+  - Brave, Edge, Vivaldi and Telegram were added in the bluetooth auto-switch
+    applications list
+
+  - ALSA nodes now use the PCM name to populate node.nick, which is useful
+    at least on HDA cards using UCM, where all outputs (analog, hdmi, etc)
+    are exposesd as nodes on a single profile
+
+  - An icon name is now set on the properties of bluetooth devices
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.4.8
+.................
 
 Highlights:
 
@@ -45,9 +94,6 @@ Misc:
 
   - The route-settings-api module was dropped in favor of dealing with json
     natively in Lua, now that the API exists
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.4.7
 .................
