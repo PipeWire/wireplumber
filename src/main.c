@@ -10,6 +10,7 @@
 #include <glib-unix.h>
 #include <pipewire/pipewire.h>
 #include <spa/utils/json.h>
+#include <locale.h>
 
 #define WP_DOMAIN_DAEMON (wp_domain_daemon_quark ())
 static G_DEFINE_QUARK (wireplumber-daemon, wp_domain_daemon);
@@ -402,6 +403,8 @@ main (gint argc, gchar **argv)
   g_autoptr (WpProperties) properties = NULL;
   g_autofree gchar *config_file_path = NULL;
 
+  setlocale (LC_ALL, "");
+  setlocale (LC_NUMERIC, "C");
   wp_init (WP_INIT_ALL);
 
   context = g_option_context_new ("- PipeWire Session/Policy Manager");

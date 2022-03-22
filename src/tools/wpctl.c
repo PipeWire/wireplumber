@@ -8,6 +8,7 @@
 
 #include <wp/wp.h>
 #include <stdio.h>
+#include <locale.h>
 #include <spa/utils/defs.h>
 #include <pipewire/keys.h>
 #include <pipewire/extensions/session-manager/keys.h>
@@ -1114,6 +1115,8 @@ main (gint argc, gchar **argv)
   g_autoptr (GError) error = NULL;
   g_autofree gchar *summary = NULL;
 
+  setlocale (LC_ALL, "");
+  setlocale (LC_NUMERIC, "C");
   wp_init (WP_INIT_ALL);
 
   ctl.context = g_option_context_new (
