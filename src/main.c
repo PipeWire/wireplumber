@@ -130,38 +130,33 @@ do_load_components(void *data, const char *location, const char *section,
   struct data *d = data;
   WpTransition *transition = d->transition;
   WpCore *core = wp_transition_get_source_object (transition);
-  struct spa_json it[3];
-  char key[512];
+  struct spa_json spa_json;
+  g_autoptr (WpSpaJson) json = NULL;
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) item = G_VALUE_INIT;
   GError *error = NULL;
 
-  spa_json_init(&it[0], str, len);
+  spa_json_init(&spa_json, str, len);
+  json = wp_spa_json_new_wrap (&spa_json);
 
-  if (spa_json_enter_array(&it[0], &it[1]) < 0) {
+  if (!wp_spa_json_is_array (json)) {
     wp_transition_return_error (transition, g_error_new (
         WP_DOMAIN_DAEMON, WP_EXIT_CONFIG,
         "wireplumber.components is not a JSON array"));
     return -EINVAL;
   }
 
-  while (spa_json_enter_object(&it[1], &it[2]) > 0) {
-    char *name = NULL, *type = NULL;
+  it = wp_spa_json_new_iterator (json);
+  for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
+    WpSpaJson *o = g_value_get_boxed (&item);
+    g_autofree gchar *name = NULL;
+    g_autofree gchar *type = NULL;
 
-    while (spa_json_get_string(&it[2], key, sizeof(key)) > 0) {
-      const char *val;
-      int len;
-
-      if ((len = spa_json_next(&it[2], &val)) <= 0)
-        break;
-
-      if (strcmp(key, "name") == 0) {
-        name = (char*)val;
-        spa_json_parse_stringn(val, len, name, len+1);
-      } else if (strcmp(key, "type") == 0) {
-        type = (char*)val;
-        spa_json_parse_stringn(val, len, type, len+1);
-      }
-    }
-    if (name == NULL || type == NULL) {
+    if (!wp_spa_json_is_object (o) ||
+        !wp_spa_json_object_get (o,
+            "name", "s", &name,
+            "type", "s", &type,
+            NULL)) {
       wp_transition_return_error (transition, g_error_new (
           WP_DOMAIN_DAEMON, WP_EXIT_CONFIG,
           "component must have both a 'name' and a 'type'"));
