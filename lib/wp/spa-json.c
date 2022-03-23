@@ -808,7 +808,6 @@ wp_spa_json_object_get_valist (WpSpaJson *self, va_list args)
     g_autofree gchar *key_str = NULL;
     WpSpaJson *value = NULL;
 
-    g_return_val_if_fail (wp_spa_json_is_string (key), FALSE);
     key_str = wp_spa_json_parse_string (key);
     g_return_val_if_fail (key_str, FALSE);
 
