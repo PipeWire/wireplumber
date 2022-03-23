@@ -44,6 +44,8 @@ test_properties_wrap_dict (void)
   p = wp_properties_new_wrap_dict (&dict);
   g_assert_nonnull (p);
 
+  g_assert_cmpint (wp_properties_get_count (p), ==,
+      SPA_N_ELEMENTS (dict_items));
   g_assert_cmpstr (wp_properties_get (p, "key1"), ==, "value1");
   g_assert_cmpstr (wp_properties_get (p, "key2"), ==, "value2");
   g_assert_cmpstr (wp_properties_get (p, "key3"), ==, NULL);

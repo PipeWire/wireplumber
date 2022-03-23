@@ -165,6 +165,12 @@ WP_API
 G_DEPRECATED_FOR(wp_properties_item_get_value)
 const gchar * wp_properties_iterator_item_get_value (const GValue * item);
 
+/* count */
+
+WP_API
+guint wp_properties_get_count (WpProperties * self);
+
+
 /* sort */
 
 WP_API
