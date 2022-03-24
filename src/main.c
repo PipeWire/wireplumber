@@ -9,7 +9,6 @@
 #include <wp/wp.h>
 #include <glib-unix.h>
 #include <pipewire/pipewire.h>
-#include <spa/utils/json.h>
 #include <locale.h>
 
 #define WP_DOMAIN_DAEMON (wp_domain_daemon_quark ())
@@ -130,14 +129,12 @@ do_load_components(void *data, const char *location, const char *section,
   struct data *d = data;
   WpTransition *transition = d->transition;
   WpCore *core = wp_transition_get_source_object (transition);
-  struct spa_json spa_json;
   g_autoptr (WpSpaJson) json = NULL;
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) item = G_VALUE_INIT;
   GError *error = NULL;
 
-  spa_json_init(&spa_json, str, len);
-  json = wp_spa_json_new_wrap (&spa_json);
+  json = wp_spa_json_new_from_stringn (str, len);
 
   if (!wp_spa_json_is_array (json)) {
     wp_transition_return_error (transition, g_error_new (
