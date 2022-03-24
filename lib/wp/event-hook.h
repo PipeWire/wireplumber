@@ -51,7 +51,7 @@ gint wp_event_hook_get_priority (WpEventHook * self);
 WP_API
 WpEventHookExecType wp_event_hook_get_exec_type (WpEventHook * self);
 
-WP_API
+WP_PRIVATE_API
 WpEventDispatcher * wp_event_hook_get_dispatcher (WpEventHook * self);
 
 WP_PRIVATE_API
