@@ -428,7 +428,7 @@ wp_simple_event_hook_set_property (GObject * object, guint property_id,
     self->closure = g_value_dup_boxed (value);
     g_closure_sink (self->closure);
     if (G_CLOSURE_NEEDS_MARSHAL (self->closure))
-      g_closure_set_marshal (self->closure, g_cclosure_marshal_VOID__BOXED);
+      g_closure_set_marshal (self->closure, g_cclosure_marshal_generic);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -442,17 +442,12 @@ wp_simple_event_hook_run (WpEventHook * hook,
     GAsyncReadyCallback callback, gpointer callback_data)
 {
   WpSimpleEventHook *self = WP_SIMPLE_EVENT_HOOK (hook);
-  g_autoptr (WpEventDispatcher) dispatcher =
-      wp_event_hook_get_dispatcher (hook);
 
-  GValue values[2] = { G_VALUE_INIT, G_VALUE_INIT };
-  g_value_init (&values[0], G_TYPE_OBJECT);
-  g_value_init (&values[1], WP_TYPE_EVENT);
-  g_value_set_object (&values[0], dispatcher);
-  g_value_set_boxed (&values[1], event);
-  g_closure_invoke (self->closure, NULL, 2, values, NULL);
+  GValue values[2] = { G_VALUE_INIT };
+  g_value_init (&values[0], WP_TYPE_EVENT);
+  g_value_set_boxed (&values[0], event);
+  g_closure_invoke (self->closure, NULL, 1, values, NULL);
   g_value_unset (&values[0]);
-  g_value_unset (&values[1]);
 
   callback ((GObject *) self, NULL, callback_data);
 }

@@ -31,7 +31,7 @@ test_events_teardown (TestFixture *self, gconstpointer user_data)
 
 #define HOOK_FUNC(x) \
   static void \
-  hook_##x (WpEventDispatcher * dispatcher, WpEvent * event, TestFixture * self) \
+  hook_##x (WpEvent * event, TestFixture * self) \
   { \
     g_debug ("in hook_" #x); \
     g_ptr_array_add (self->hooks_executed, hook_##x); \
@@ -43,7 +43,7 @@ HOOK_FUNC(c)
 HOOK_FUNC(d)
 
 static void
-hook_quit (WpEventDispatcher * dispatcher, WpEvent * event, TestFixture * self)
+hook_quit (WpEvent * event, TestFixture * self)
 {
   g_debug ("in hook_quit");
   g_ptr_array_add (self->hooks_executed, hook_quit);
