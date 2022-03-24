@@ -171,10 +171,25 @@ wp_spa_json_new (const gchar *data, size_t size)
 WpSpaJson *
 wp_spa_json_new_from_string (const gchar *json_str)
 {
+  return wp_spa_json_new_from_stringn(json_str, strlen (json_str));
+}
+
+/*!
+ * \brief Constructs a new WpSpaJson from a JSON string with specific length.
+ *
+ * \ingroup wpspajson
+ * \param json_str a JSON string
+ * \param len the specific length of the string
+ * \returns a new WpSpaJson that references the data in \a json_str. \a json_str
+ *   is not copied, so it needs to stay alive.
+ */
+WpSpaJson *
+wp_spa_json_new_from_stringn (const gchar *json_str, size_t len)
+{
   WpSpaJson *self = g_slice_new0 (WpSpaJson);
   g_ref_count_init (&self->ref);
   self->flags = FLAG_NO_OWNERSHIP;
-  spa_json_init (&self->json_data, json_str, strlen (json_str));
+  spa_json_init (&self->json_data, json_str, len);
   self->builder = NULL;
   self->data = (gchar *)self->json_data.cur;
   self->size = self->json_data.end - self->json_data.cur;
