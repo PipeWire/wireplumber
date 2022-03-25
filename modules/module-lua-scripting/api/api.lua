@@ -196,7 +196,6 @@ SANDBOX_EXPORT = {
   Log = WpLog,
   Core = WpCore,
   Plugin = WpPlugin,
-  EventDispatcher = WpEventDispatcher,
   ObjectManager = WpObjectManager_new,
   Interest = WpObjectInterest_new,
   SessionItem = WpSessionItem_new,
@@ -213,4 +212,5 @@ SANDBOX_EXPORT = {
   ImplMetadata = WpImplMetadata_new,
   Settings = WpSettings,
   SimpleEventHook = WpSimpleEventHook_new,
+  AsyncEventHook = WpAsyncEventHook_new,
 }
