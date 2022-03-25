@@ -1626,10 +1626,10 @@ static const luaL_Reg event_methods[] = {
   { NULL, NULL }
 };
 
-/* WpEventDispatcher */
+/* WpEventHook */
 
 static int
-event_dispatcher_register_hook (lua_State *L)
+event_hook_register (lua_State *L)
 {
   WpEventHook *hook = wplua_checkobject (L, 1, WP_TYPE_EVENT_HOOK);
   g_autoptr (WpEventDispatcher) dispatcher =
@@ -1639,7 +1639,7 @@ event_dispatcher_register_hook (lua_State *L)
 }
 
 static int
-event_dispatcher_unregister_hook (lua_State *L)
+event_hook_remove (lua_State *L)
 {
   WpEventHook *hook = wplua_checkobject (L, 1, WP_TYPE_EVENT_HOOK);
   g_autoptr (WpEventDispatcher) dispatcher =
@@ -1648,13 +1648,13 @@ event_dispatcher_unregister_hook (lua_State *L)
   return 0;
 }
 
-static const luaL_Reg event_dispatcher_methods[] = {
-  { "register_hook", event_dispatcher_register_hook },
-  { "unregister_hook", event_dispatcher_unregister_hook },
+static const luaL_Reg event_hook_methods[] = {
+  { "register", event_hook_register },
+  { "remove", event_hook_remove },
   { NULL, NULL }
 };
 
-/* WpEventHook */
+/* WpSimpleEventHook */
 
 static int
 simple_event_hook_new (lua_State *L)
@@ -1671,21 +1671,21 @@ simple_event_hook_new (lua_State *L)
   if (lua_gettable (L, 1) == LUA_TNUMBER)
     priority = lua_tointeger (L, -1);
   else
-    luaL_error (L, "SimplEventHook: expected 'priority' as number");
+    luaL_error (L, "SimpleEventHook: expected 'priority' as number");
   lua_pop (L, 1);
 
   lua_pushliteral (L, "type");
   if (lua_gettable (L, 1) == LUA_TSTRING)
-    wplua_lua_to_enum (L, -1, WP_TYPE_EVENT_HOOK_EXEC_TYPE);
+    type = wplua_lua_to_enum (L, -1, WP_TYPE_EVENT_HOOK_EXEC_TYPE);
   else
-    luaL_error (L, "SimplEventHook: expected 'type' as string");
+    luaL_error (L, "SimpleEventHook: expected 'type' as string");
   lua_pop (L, 1);
 
-  lua_pushliteral (L, "closure");
+  lua_pushliteral (L, "execute");
   if (lua_gettable (L, 1) == LUA_TFUNCTION)
     closure = wplua_function_to_closure (L, -1);
   else
-    luaL_error (L, "SimplEventHook: expected 'closure' as function");
+    luaL_error (L, "SimpleEventHook: expected 'execute' as function");
   lua_pop (L, 1);
 
   hook = wp_simple_event_hook_new (priority, type, closure);
@@ -1706,6 +1706,210 @@ simple_event_hook_new (lua_State *L)
 
   return 1;
 }
+
+/* WpAsyncEventHook */
+
+static int
+async_event_hook_get_next_step (lua_State *L)
+{
+  WpTransition *transition = wplua_checkobject (L, 1, WP_TYPE_TRANSITION);
+  guint step = luaL_checkinteger (L, 2);
+
+  wp_trace_object (transition, "prev step: %u", step);
+
+  if (step == WP_TRANSITION_STEP_NONE) {
+    lua_pushinteger (L, WP_TRANSITION_STEP_CUSTOM_START);
+    return 1;
+  }
+
+  /* step number is the value on the stack at this point */
+  if (G_UNLIKELY (lua_gettable (L, lua_upvalueindex (1)) != LUA_TSTRING)) {
+    wp_critical_object (transition, "unknown step number");
+    lua_pushinteger (L, WP_TRANSITION_STEP_ERROR);
+    return 1;
+  }
+  /* step string is now on the stack */
+  if (G_UNLIKELY (lua_gettable (L, lua_upvalueindex (1)) != LUA_TTABLE)) {
+    wp_critical_object (transition, "unknown step string");
+    lua_pushinteger (L, WP_TRANSITION_STEP_ERROR);
+    return 1;
+  }
+  lua_pushliteral (L, "next_idx");
+  if (G_UNLIKELY (lua_gettable (L, -2) != LUA_TNUMBER)) {
+    wp_critical_object (transition, "next_idx not found");
+    lua_pushinteger (L, WP_TRANSITION_STEP_ERROR);
+    return 1;
+  }
+  return 1;
+}
+
+static int
+async_event_hook_execute_step (lua_State *L)
+{
+  WpTransition *transition = wplua_checkobject (L, 1, WP_TYPE_TRANSITION);
+  WpEvent *event = wp_transition_get_data (transition);
+  guint step = luaL_checkinteger (L, 2);
+  const char *step_str = NULL;
+
+  wp_trace_object (transition, "execute step: %u", step);
+
+  /* step number is the value on the stack at this point */
+  if (G_UNLIKELY (lua_gettable (L, lua_upvalueindex (1)) != LUA_TSTRING)) {
+    wp_critical_object (transition, "unknown step number %u", step);
+    wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_INVARIANT, "unknown step number %u", step));
+    return 0;
+  }
+  step_str = lua_tostring (L, -1);
+
+  /* step string is now on the stack */
+  if (G_UNLIKELY (lua_gettable (L, lua_upvalueindex (1)) != LUA_TTABLE)) {
+    wp_critical_object (transition, "unknown step string '%s'", step_str);
+    wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_INVARIANT, "unknown step string '%s", step_str));
+    return 0;
+  }
+
+  lua_pushliteral (L, "execute");
+  if (G_UNLIKELY (lua_gettable (L, -2) != LUA_TFUNCTION)) {
+    wp_critical_object (transition, "no execute function defined for '%s'",
+        step_str);
+    wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_INVARIANT, "no execute function defined for '%s'",
+        step_str));
+    return 0;
+  }
+
+  wplua_pushboxed (L, WP_TYPE_EVENT, event);
+  wplua_pushobject (L, g_object_ref (transition));
+  lua_call (L, 2, 0);
+  return 0;
+}
+
+static void
+async_event_hook_prepare_steps_table (lua_State *L, int steps_tbl)
+{
+  const char *step_str = NULL;
+  int step_str_index = 0;
+  int step = WP_TRANSITION_STEP_CUSTOM_START;
+
+  steps_tbl = lua_absindex (L, steps_tbl);
+
+  lua_pushliteral (L, "start");
+  step_str_index = lua_absindex (L, -1);
+  step_str = lua_tostring (L, -1);
+
+  while (step != WP_TRANSITION_STEP_NONE) {
+    /* steps[step number] = step string */
+    lua_pushvalue (L, -1);
+    lua_seti (L, steps_tbl, step);
+
+    lua_pushvalue (L, -1);
+    if (lua_gettable (L, steps_tbl) != LUA_TTABLE)
+      luaL_error (L, "AsyncEventHook: expected '%s' in 'steps'", step_str);
+
+    lua_pushinteger (L, step++);
+    lua_setfield (L, -2, "idx");
+
+    lua_pushliteral (L, "next");
+    if (lua_gettable (L, -2) != LUA_TSTRING)
+      luaL_error (L, "AsyncEventHook: expected 'next' in step '%s'", step_str);
+    lua_replace (L, step_str_index);
+    step_str = lua_tostring (L, step_str_index);
+
+    if (!g_strcmp0 (step_str, "none"))
+      step = WP_TRANSITION_STEP_NONE;
+
+    lua_pushinteger (L, step);
+    lua_setfield (L, -2, "next_idx");
+
+    lua_settop (L, step_str_index);
+  }
+
+  lua_pop (L, 1);
+}
+
+static int
+async_event_hook_new (lua_State *L)
+{
+  WpEventHook *hook = NULL;
+  gint priority = 0;
+  WpEventHookExecType type = 0;
+  GClosure *get_next_step = NULL;
+  GClosure *execute_step = NULL;
+
+  /* validate arguments */
+  luaL_checktype (L, 1, LUA_TTABLE);
+
+  lua_pushliteral (L, "priority");
+  if (lua_gettable (L, 1) != LUA_TNUMBER)
+    luaL_error (L, "AsyncEventHook: expected 'priority' as number");
+  priority = lua_tointeger (L, -1);
+  lua_pop (L, 1);
+
+  lua_pushliteral (L, "type");
+  if (lua_gettable (L, 1) != LUA_TSTRING)
+    luaL_error (L, "AsyncEventHook: expected 'type' as string");
+  type = wplua_lua_to_enum (L, -1, WP_TYPE_EVENT_HOOK_EXEC_TYPE);
+  lua_pop (L, 1);
+
+  lua_pushliteral (L, "steps");
+  if (lua_gettable (L, 1) != LUA_TTABLE)
+    luaL_error (L, "AsyncEventHook: expected 'steps' as table");
+
+  async_event_hook_prepare_steps_table (L, -1);
+
+  lua_pushvalue (L, -1);
+  lua_pushcclosure (L, async_event_hook_get_next_step, 1);
+  get_next_step = wplua_function_to_closure (L, -1);
+  lua_pop (L, 1);
+
+  lua_pushcclosure (L, async_event_hook_execute_step, 1);
+  execute_step = wplua_function_to_closure (L, -1);
+  lua_pop (L, 1);
+
+  hook = wp_async_event_hook_new (priority, type, get_next_step, execute_step);
+  wplua_pushobject (L, hook);
+
+  lua_pushliteral (L, "interests");
+  if (lua_gettable (L, 1) == LUA_TTABLE) {
+    lua_pushnil (L);
+    while (lua_next (L, -2)) {
+      WpObjectInterest *interest =
+          wplua_checkboxed (L, -1, WP_TYPE_OBJECT_INTEREST);
+      wp_interest_event_hook_add_interest_full (WP_INTEREST_EVENT_HOOK (hook),
+          wp_object_interest_ref (interest));
+      lua_pop (L, 1);
+    }
+  }
+  lua_pop (L, 1);
+
+  return 1;
+}
+
+static int
+transition_advance (lua_State *L)
+{
+  WpTransition *t = wplua_checkobject (L, 1, WP_TYPE_TRANSITION);
+  wp_transition_advance (t);
+  return 0;
+}
+
+static int
+transition_return_error (lua_State *L)
+{
+  WpTransition *t = wplua_checkobject (L, 1, WP_TYPE_TRANSITION);
+  const char *err = luaL_checkstring (L, 2);
+  wp_transition_return_error (t, g_error_new (WP_DOMAIN_LIBRARY,
+          WP_LIBRARY_ERROR_OPERATION_FAILED, "%s", err));
+  return 0;
+}
+
+static const luaL_Reg transition_methods[] = {
+  { "advance", transition_advance },
+  { "return_error", transition_return_error },
+  { NULL, NULL }
+};
 
 void
 wp_lua_scripting_api_init (lua_State *L)
@@ -1729,9 +1933,6 @@ wp_lua_scripting_api_init (lua_State *L)
 
   luaL_newlib (L, settings_methods);
   lua_setglobal (L, "WpSettings");
-
-  luaL_newlib (L, event_dispatcher_methods);
-  lua_setglobal (L, "WpEventDispatcher");
 
   wp_lua_scripting_pod_init (L);
   wp_lua_scripting_json_init (L);
@@ -1780,8 +1981,14 @@ wp_lua_scripting_api_init (lua_State *L)
       impl_module_new, NULL);
   wplua_register_type_methods (L, WP_TYPE_EVENT,
       NULL, event_methods);
+  wplua_register_type_methods (L, WP_TYPE_EVENT_HOOK,
+      NULL, event_hook_methods);
   wplua_register_type_methods (L, WP_TYPE_SIMPLE_EVENT_HOOK,
       simple_event_hook_new, NULL);
+  wplua_register_type_methods (L, WP_TYPE_ASYNC_EVENT_HOOK,
+      async_event_hook_new, NULL);
+  wplua_register_type_methods (L, WP_TYPE_TRANSITION,
+      NULL, transition_methods);
 
   if (!wplua_load_uri (L, URI_API, &error) ||
       !wplua_pcall (L, 0, 0, &error)) {
