@@ -55,3 +55,9 @@ test(
   args: ['settings.lua'],
   env: common_env,
 )
+test(
+  'test-lua-event-hooks',
+  script_tester,
+  args: ['event-hooks.lua'],
+  env: common_env,
+)
