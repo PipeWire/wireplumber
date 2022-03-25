@@ -22,8 +22,7 @@ local function check_results()
 end
 
 local common_interests = {
-  Interest {
-    type = "event",
+  EventInterest {
     Constraint { "event.type", "=", "test-event" },
   },
 }
