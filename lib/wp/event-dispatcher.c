@@ -13,6 +13,9 @@
 #include "private/registry.h"
 #include "log.h"
 
+#include <spa/support/plugin.h>
+#include <spa/support/system.h>
+
 struct _WpEvent
 {
   grefcount ref;
@@ -144,6 +147,8 @@ struct _WpEventDispatcher
   GSource *source;  /* the event loop source */
   GList *events;    /* the events stack */
   WpEvent *rescan_event;
+  struct spa_system *system;
+  int eventfd;
 };
 
 G_DEFINE_TYPE (WpEventDispatcher, wp_event_dispatcher, G_TYPE_OBJECT)
@@ -162,13 +167,16 @@ static gboolean
 wp_event_source_check (GSource * s)
 {
   WpEventDispatcher *d = WP_EVENT_SOURCE_DISPATCHER (s);
-  return d && d->events;
+  return d && d->events &&
+      !((WpEvent *) g_list_first (d->events)->data)->current_hook_in_async;
 }
 
 static void
 on_event_hook_done (WpEventHook * hook, GAsyncResult * res, WpEvent * event)
 {
   g_autoptr (GError) error = NULL;
+  g_autoptr (WpEventDispatcher) dispatcher =
+      wp_event_hook_get_dispatcher (hook);
 
   g_assert (event->current_hook_in_async == hook);
 
@@ -177,12 +185,17 @@ on_event_hook_done (WpEventHook * hook, GAsyncResult * res, WpEvent * event)
     wp_message_object (hook, "failed: %s", error->message);
 
   g_clear_object (&event->current_hook_in_async);
+  spa_system_eventfd_write (dispatcher->system, dispatcher->eventfd, 1);
 }
 
 static gboolean
 wp_event_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
 {
   WpEventDispatcher *d = WP_EVENT_SOURCE_DISPATCHER (s);
+  uint64_t count;
+
+  /* clear the eventfd */
+  spa_system_eventfd_read (d->system, d->eventfd, &count);
 
   /* get the highest priority event */
   GList *levent = g_list_first (d->events);
@@ -266,6 +279,8 @@ wp_event_dispatcher_finalize (GObject * object)
   g_source_destroy (self->source);
   g_clear_pointer (&self->source, g_source_unref);
 
+  close (self->eventfd);
+
   g_clear_pointer (&self->hooks, g_ptr_array_unref);
   g_weak_ref_clear (&self->core);
 
@@ -300,6 +315,17 @@ wp_event_dispatcher_get_instance (WpCore * core)
   if (G_UNLIKELY (!dispatcher)) {
     dispatcher = g_object_new (WP_TYPE_EVENT_DISPATCHER, NULL);
     g_weak_ref_set (&dispatcher->core, core);
+
+    struct pw_context *context = wp_core_get_pw_context (core);
+    uint32_t n_support;
+    const struct spa_support *support =
+        pw_context_get_support (context, &n_support);
+    dispatcher->system =
+        spa_support_find (support, n_support, SPA_TYPE_INTERFACE_System);
+
+    dispatcher->eventfd = spa_system_eventfd_create (dispatcher->system, 0);
+    g_source_add_unix_fd (dispatcher->source, dispatcher->eventfd, G_IO_IN);
+
     g_source_attach (dispatcher->source, wp_core_get_g_main_context (core));
     wp_registry_register_object (registry, g_object_ref (dispatcher));
   }
@@ -360,6 +386,9 @@ wp_event_dispatcher_push_event (WpEventDispatcher * self, WpEvent * event)
       }
     }
   }
+
+  /* wakeup the GSource */
+  spa_system_eventfd_write (self->system, self->eventfd, 1);
 }
 
 /*!
