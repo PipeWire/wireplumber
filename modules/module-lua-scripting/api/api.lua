@@ -70,6 +70,11 @@ local function Constraint (spec)
   return debug.setmetatable(spec, { __name = "Constraint" })
 end
 
+local function EventInterest(spec)
+  spec.type = "event"
+  return WpObjectInterest_new(spec)
+end
+
 local function dump_table(t, indent)
   local indent_str = ""
   indent = indent or 1
@@ -201,6 +206,7 @@ SANDBOX_EXPORT = {
   Interest = WpObjectInterest_new,
   SessionItem = WpSessionItem_new,
   Constraint = Constraint,
+  EventInterest = EventInterest,
   Device = WpDevice_new,
   SpaDevice = WpSpaDevice_new,
   Node = WpNode_new,
