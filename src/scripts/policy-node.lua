@@ -603,6 +603,10 @@ function checkFollowDefault (si, si_target, has_node_defined_target)
   -- If it got linked to the default target that is defined by node
   -- props but not metadata, start ignoring the node prop from now on.
   -- This is what Pulseaudio does.
+  --
+  -- Pulseaudio skips here filter streams (i->origin_sink and
+  -- o->destination_source set in PA). Pipewire does not have a flag
+  -- explicitly for this, but we can use presence of node.link-group.
   if not has_node_defined_target then
     return
   end
@@ -610,8 +614,9 @@ function checkFollowDefault (si, si_target, has_node_defined_target)
   local si_props = si.properties
   local target_props = si_target.properties
   local reconnect = not parseBool(si_props["node.dont-reconnect"])
+  local is_filter = (si_props["node.link-group"] ~= nil)
 
-  if config.follow and default_nodes ~= nil and reconnect then
+  if config.follow and default_nodes ~= nil and reconnect and not is_filter then
     local def_id = getDefaultNode(si_props, getTargetDirection(si_props))
 
     if target_props["node.id"] == tostring(def_id) then
