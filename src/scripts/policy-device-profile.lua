@@ -229,4 +229,10 @@ self.om:connect("object-added", function (_, device)
   handleProfiles (device, true)
 end)
 
+self.om:connect("object-removed", function (_, device)
+  local dev_id = device["bound-id"]
+  self.active_profiles[dev_id] = nil
+  self.best_profiles[dev_id] = nil
+end)
+
 self.om:activate()
