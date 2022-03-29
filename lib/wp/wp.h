@@ -12,6 +12,7 @@
 #include "client.h"
 #include "component-loader.h"
 #include "core.h"
+#include "dbus.h"
 #include "device.h"
 #include "endpoint.h"
 #include "error.h"

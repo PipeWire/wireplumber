@@ -92,6 +92,14 @@ test(
 )
 
 test(
+  'test-dbus',
+  executable('test-dbus', 'dbus.c',
+      dependencies: common_deps, c_args: common_args),
+  env: common_env,
+)
+
+
+test(
   'test-transition',
   executable('test-transition', 'transition.c',
       dependencies: common_deps, c_args: common_args),
