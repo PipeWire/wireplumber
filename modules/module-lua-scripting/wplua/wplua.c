@@ -117,6 +117,11 @@ wplua_enable_sandbox (lua_State * L, WpLuaSandboxFlags flags)
   g_autoptr (GError) error = NULL;
   wp_debug ("enabling Lua sandbox");
 
+  if (!wplua_load_uri (L, URI_SANDBOX, &error)) {
+    wp_critical ("Failed to load sandbox: %s", error->message);
+    return;
+  }
+
   lua_newtable (L);
   lua_pushliteral (L, "minimal_std");
   lua_pushboolean (L, (flags & WP_LUA_SANDBOX_MINIMAL_STD));
@@ -125,9 +130,15 @@ wplua_enable_sandbox (lua_State * L, WpLuaSandboxFlags flags)
   lua_pushboolean (L, (flags & WP_LUA_SANDBOX_ISOLATE_ENV));
   lua_settable (L, -3);
 
-  if (!wplua_load_uri (L, URI_SANDBOX, 1, 0, &error)) {
+  if (!wplua_pcall (L, 1, 0, &error)) {
     wp_critical ("Failed to load sandbox: %s", error->message);
   }
+}
+
+int
+wplua_push_sandbox (lua_State * L)
+{
+  return (lua_getglobal (L, "sandbox") == LUA_TFUNCTION) ? 1 : 0;
 }
 
 void
@@ -177,17 +188,9 @@ wplua_register_type_methods (lua_State * L, GType type,
 
 static gboolean
 _wplua_load_buffer (lua_State * L, const gchar *buf, gsize size,
-    const gchar * name, int nargs, int nres, GError **error)
+    const gchar * name, GError **error)
 {
   int ret;
-  int sandbox = 0;
-  int args_top = lua_gettop (L);
-
-  /* wrap with sandbox() if it's loaded */
-  if (lua_getglobal (L, "sandbox") == LUA_TFUNCTION)
-    sandbox = 1;
-  else
-    lua_pop (L, 1);
 
   /* skip shebang, if present */
   if (g_str_has_prefix (buf, "#!/")) {
@@ -200,26 +203,14 @@ _wplua_load_buffer (lua_State * L, const gchar *buf, gsize size,
   if (ret != LUA_OK) {
     g_set_error (error, WP_DOMAIN_LUA, WP_LUA_ERROR_COMPILATION,
         "Failed to compile: %s", lua_tostring (L, -1));
-    lua_pop (L, nargs + sandbox + 1);
+    lua_pop (L, 1);
     return FALSE;
   }
-
-  /* push sandbox() and the chunk below the arguments */
-  lua_rotate (L, args_top, -nargs);
-
-  ret = _wplua_pcall (L, nargs + sandbox, nres);
-  if (ret != LUA_OK) {
-    g_set_error (error, WP_DOMAIN_LUA, WP_LUA_ERROR_RUNTIME,
-        "Runtime error while loading '%s'", name);
-    return FALSE;
-  }
-
   return TRUE;
 }
 
 gboolean
-wplua_load_buffer (lua_State * L, const gchar *buf, gsize size,
-    int nargs, int nres, GError **error)
+wplua_load_buffer (lua_State * L, const gchar *buf, gsize size, GError **error)
 {
   g_return_val_if_fail (L != NULL, FALSE);
   g_return_val_if_fail (buf != NULL, FALSE);
@@ -227,12 +218,11 @@ wplua_load_buffer (lua_State * L, const gchar *buf, gsize size,
 
   g_autofree gchar *name =
       g_strdup_printf ("buffer@%p;size=%" G_GSIZE_FORMAT, buf, size);
-  return _wplua_load_buffer (L, buf, size, name, nargs, nres, error);
+  return _wplua_load_buffer (L, buf, size, name, error);
 }
 
 gboolean
-wplua_load_uri (lua_State * L, const gchar *uri, int nargs, int nres,
-    GError **error)
+wplua_load_uri (lua_State * L, const gchar *uri, GError **error)
 {
   g_autoptr (GFile) file = NULL;
   g_autoptr (GBytes) bytes = NULL;
@@ -253,12 +243,11 @@ wplua_load_uri (lua_State * L, const gchar *uri, int nargs, int nres,
 
   name = g_path_get_basename (uri);
   data = g_bytes_get_data (bytes, &size);
-  return _wplua_load_buffer (L, data, size, name, nargs, nres, error);
+  return _wplua_load_buffer (L, data, size, name, error);
 }
 
 gboolean
-wplua_load_path (lua_State * L, const gchar *path, int nargs, int nres,
-    GError **error)
+wplua_load_path (lua_State * L, const gchar *path, GError **error)
 {
   g_autofree gchar *abs_path = NULL;
   g_autofree gchar *uri = NULL;
@@ -274,5 +263,17 @@ wplua_load_path (lua_State * L, const gchar *path, int nargs, int nres,
   if (!(uri = g_filename_to_uri (abs_path ? abs_path : path, NULL, error)))
     return FALSE;
 
-  return wplua_load_uri (L, uri, nargs, nres, error);
+  return wplua_load_uri (L, uri, error);
+}
+
+gboolean
+wplua_pcall (lua_State * L, int nargs, int nres, GError **error)
+{
+  int ret = _wplua_pcall (L, nargs, nres);
+  if (ret != LUA_OK) {
+    g_set_error (error, WP_DOMAIN_LUA, WP_LUA_ERROR_RUNTIME,
+        "Lua runtime error");
+    return FALSE;
+  }
+  return TRUE;
 }

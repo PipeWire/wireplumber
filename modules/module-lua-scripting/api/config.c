@@ -96,12 +96,17 @@ load_file (const GValue *item, GValue *ret, gpointer data)
   lua_State *L = data;
   const gchar *path = g_value_get_string (item);
   g_autoptr (GError) error = NULL;
+  int nargs;
 
   if (g_file_test (path, G_FILE_TEST_IS_DIR))
     return TRUE;
 
   wp_info ("loading config file: %s", path);
-  if (!wplua_load_path (L, path, 0, 0, &error)) {
+
+  nargs = wplua_push_sandbox (L);
+  if (!wplua_load_path (L, path, &error) ||
+      !wplua_pcall (L, nargs, 0, &error)) {
+    lua_settop (L, 0);
     g_value_unset (ret);
     g_value_init (ret, G_TYPE_ERROR);
     g_value_take_boxed (ret, g_steal_pointer (&error));
@@ -134,8 +139,12 @@ wp_lua_scripting_load_configuration (const gchar * conf_file,
   path = wp_find_file (CONFIG_DIRS_LOOKUP_SET, conf_file, NULL);
   if (path) {
     wp_info ("loading config file: %s", path);
-    if (!wplua_load_path (L, path, 0, 0, error))
+    int nargs = wplua_push_sandbox (L);
+    if (!wplua_load_path (L, path, error) ||
+        !wplua_pcall (L, nargs, 0, error)) {
+      lua_settop (L, 0);
       return FALSE;
+    }
     nfiles = 1;
   }
   g_clear_pointer (&path, g_free);

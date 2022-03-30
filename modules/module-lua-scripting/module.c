@@ -40,11 +40,17 @@ static gboolean
 execute_script (lua_State *L, struct ScriptData * s, GError ** error)
 {
   int nargs = 0;
+  nargs += wplua_push_sandbox (L);
+
+  if (!wplua_load_path (L, s->filename, error)) {
+    lua_pop (L, nargs);
+    return FALSE;
+  }
   if (s->args) {
     wplua_gvariant_to_lua (L, s->args);
     nargs++;
   }
-  return wplua_load_path (L, s->filename, nargs, 0, error);
+  return wplua_pcall (L, nargs, 0, error);
 }
 
 G_DECLARE_FINAL_TYPE (WpLuaScriptingPlugin, wp_lua_scripting_plugin,
