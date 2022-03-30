@@ -17,6 +17,7 @@ RestrictNamespaces=yes
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
 Type=simple
+AmbientCapabilities=CAP_SYS_NICE
 ExecStart=@WP_BINARY@ -c %i.conf
 Restart=on-failure
 User=pipewire
