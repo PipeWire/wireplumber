@@ -186,7 +186,7 @@ do_load_components(void *data, const char *location, const char *section,
 static void
 on_settings_ready (WpSettings *s, GAsyncResult *res, gpointer data)
 {
-  WpCore *self = WP_CORE (data);
+  WpInitTransition *self = WP_INIT_TRANSITION (data);
   g_autoptr (GError) error = NULL;
 
   wp_info_object(self, "wpsettings object ready");
@@ -206,7 +206,7 @@ on_settings_plugin_ready (WpPlugin *s, GAsyncResult *res, gpointer data)
   WpTransition *transition = WP_TRANSITION (data);
   WpCore *core = wp_transition_get_source_object (transition);
   g_autoptr (GError) error = NULL;
-  g_autoptr (WpSettings) settings = wp_settings_get_instance (core);
+  g_autoptr (WpSettings) settings = wp_settings_get_instance (core, NULL);
 
   wp_info_object (self, "wpsettingsplugin object ready");
 
@@ -217,7 +217,7 @@ on_settings_plugin_ready (WpPlugin *s, GAsyncResult *res, gpointer data)
   }
 
   wp_object_activate (WP_OBJECT (settings), WP_OBJECT_FEATURES_ALL, NULL,
-      (GAsyncReadyCallback) on_settings_ready, g_object_ref (self));
+      (GAsyncReadyCallback) on_settings_ready, self);
 
 }
 
@@ -308,7 +308,7 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
     wp_info_object (self, "Activating wpsettings plugin");
 
     wp_object_activate (WP_OBJECT (p), WP_OBJECT_FEATURES_ALL, NULL,
-        (GAsyncReadyCallback) on_settings_plugin_ready, g_object_ref (self));
+        (GAsyncReadyCallback) on_settings_plugin_ready, self);
 
     break;
   }
