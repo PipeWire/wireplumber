@@ -23,7 +23,7 @@ _wplua_openlibs (lua_State *L)
    * http://www.lua.org/source/5.3/linit.c.html */
   static const luaL_Reg loadedlibs[] = {
     {"_G", luaopen_base},
-    /* {LUA_LOADLIBNAME, luaopen_package}, */
+    {LUA_LOADLIBNAME, luaopen_package},
     /* {LUA_COLIBNAME, luaopen_coroutine}, */
     {LUA_TABLIBNAME, luaopen_table},
     /* {LUA_IOLIBNAME, luaopen_io}, */

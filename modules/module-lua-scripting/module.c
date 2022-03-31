@@ -53,6 +53,64 @@ execute_script (lua_State *L, struct ScriptData * s, GError ** error)
   return wplua_pcall (L, nargs, 0, error);
 }
 
+static int
+wp_lua_scripting_package_loader (lua_State *L)
+{
+  luaL_checktype (L, 2, LUA_TFUNCTION);
+  wplua_push_sandbox (L);
+  lua_pushvalue (L, 2);
+  lua_call (L, 1, 1);
+  return 1;
+}
+
+static int
+wp_lua_scripting_package_searcher (lua_State *L)
+{
+  const gchar *name = luaL_checkstring (L, 1);
+  g_autoptr (GError) error = NULL;
+  g_autofree gchar *filename = g_strdup_printf ("%s.lua", name);
+  g_autofree gchar *script = wp_find_file (
+      WP_LOOKUP_DIR_ENV_DATA |
+      WP_LOOKUP_DIR_XDG_CONFIG_HOME |
+      WP_LOOKUP_DIR_ETC |
+      WP_LOOKUP_DIR_PREFIX_SHARE,
+      filename, "scripts/lib");
+
+  if (!script)  {
+    lua_pushliteral (L, "script not found");
+    return 1;
+  }
+
+  /* 1. loader (function) */
+  lua_pushcfunction (L, wp_lua_scripting_package_loader);
+
+  /* 2. loader data (param to 1) */
+  if (!wplua_load_path (L, script, &error)) {
+    lua_pop (L, 1);
+    lua_pushstring (L, error->message);
+    return 1;
+  }
+
+  /* 3. script path */
+  lua_pushstring (L, script);
+  return 3;
+}
+
+static void
+wp_lua_scripting_enable_package_searcher (lua_State *L)
+{
+  /* table.insert(package.searchers, 2, wp_lua_scripting_package_searcher) */
+  lua_getglobal (L, "table");
+  lua_getfield (L, -1, "insert");
+  lua_remove (L, -2);
+  lua_getglobal (L, "package");
+  lua_getfield (L, -1, "searchers");
+  lua_remove (L, -2);
+  lua_pushinteger (L, 2);
+  lua_pushcfunction (L, wp_lua_scripting_package_searcher);
+  lua_call (L, 3, 0);
+}
+
 G_DECLARE_FINAL_TYPE (WpLuaScriptingPlugin, wp_lua_scripting_plugin,
                       WP, LUA_SCRIPTING_PLUGIN, WpComponentLoader)
 G_DEFINE_TYPE (WpLuaScriptingPlugin, wp_lua_scripting_plugin,
@@ -99,6 +157,7 @@ wp_lua_scripting_plugin_enable (WpPlugin * plugin, WpTransition * transition)
   lua_settable (self->L, LUA_REGISTRYINDEX);
 
   wp_lua_scripting_api_init (self->L);
+  wp_lua_scripting_enable_package_searcher (self->L);
   wplua_enable_sandbox (self->L, WP_LUA_SANDBOX_ISOLATE_ENV);
 
   /* execute scripts that were queued in for loading */

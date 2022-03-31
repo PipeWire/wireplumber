@@ -38,7 +38,7 @@ else
   -- full list, used for scripts
   ([[
     _VERSION assert error    ipairs   next pairs  print
-    pcall    select tonumber tostring type xpcall
+    pcall    select tonumber tostring type xpcall require
 
     table utf8
 
@@ -76,6 +76,8 @@ for k, v in pairs(SANDBOX_ENV) do
   end
 end
 
+populate_env("package")
+
 if SANDBOX_CONFIG["isolate_env"] then
   -- in isolate_env mode, use a separate enviornment for each loaded chunk and
   -- store all of them in a global table so that they are not garbage collected
@@ -92,7 +94,7 @@ if SANDBOX_CONFIG["isolate_env"] then
     -- set it as the chunk's 1st upvalue (__ENV)
     debug.setupvalue(chunk, 1, env)
     -- execute the chunk
-    chunk(...)
+    return chunk(...)
   end
 else
   -- in common_env mode, use the same environment for all loaded chunks
@@ -106,6 +108,6 @@ else
     -- set it as the chunk's 1st upvalue (__ENV)
     debug.setupvalue(chunk, 1, SANDBOX_COMMON_ENV)
     -- execute the chunk
-    chunk(...)
+    return chunk(...)
   end
 end

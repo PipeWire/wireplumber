@@ -37,3 +37,9 @@ test(
   args: ['monitor-rules.lua'],
   env: common_env,
 )
+test(
+  'test-lua-require',
+  script_tester,
+  args: ['require.lua'],
+  env: common_env,
+)
