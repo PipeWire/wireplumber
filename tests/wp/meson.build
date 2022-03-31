@@ -98,6 +98,12 @@ test(
   env: common_env,
 )
 
+test(
+  'test-settings',
+  executable('test-settings', 'settings.c',
+      dependencies: common_deps, c_args: common_args),
+  env: common_env,
+)
 
 test(
   'test-transition',
