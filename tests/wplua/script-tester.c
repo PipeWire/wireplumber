@@ -12,9 +12,14 @@ typedef struct {
   WpBaseTestFixture base;
 } ScriptRunnerFixture;
 
+#define METADATA_NAME "test-settings"
+
 static void
 script_runner_setup (ScriptRunnerFixture *f, gconstpointer data)
 {
+  f->base.conf_file =
+      g_strdup_printf ("%s/settings.conf", g_getenv ("G_TEST_SRCDIR"));
+
   wp_base_test_fixture_setup (&f->base, 0);
 }
 
@@ -44,6 +49,25 @@ script_run (ScriptRunnerFixture *f, gconstpointer data)
   g_main_loop_run (f->base.loop);
   g_clear_object (&plugin);
 
+  {
+    g_autoptr (WpSettings) settings = NULL;
+
+    wp_core_load_component (f->base.core,
+        "libwireplumber-module-settings", "module",
+         g_variant_new_string (METADATA_NAME), &error);
+    g_assert_no_error (error);
+
+    plugin = wp_plugin_find (f->base.core, "settings");
+    wp_object_activate (WP_OBJECT (plugin), WP_PLUGIN_FEATURE_ENABLED,
+        NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
+    g_main_loop_run (f->base.loop);
+
+    settings = wp_settings_get_instance (f->base.core, METADATA_NAME);
+
+    wp_object_activate (WP_OBJECT (settings), WP_PLUGIN_FEATURE_ENABLED,
+        NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
+    g_main_loop_run (f->base.loop);
+  }
   wp_core_load_component (f->base.core, (const gchar *) data, "script/lua",
       NULL, &error);
   g_assert_no_error (error);
