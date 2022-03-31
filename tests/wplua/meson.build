@@ -37,3 +37,9 @@ test(
   args: ['monitor-rules.lua'],
   env: common_env,
 )
+test(
+  'test-lua-settings',
+  script_tester,
+  args: ['settings.lua'],
+  env: common_env,
+)

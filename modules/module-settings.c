@@ -14,8 +14,8 @@
 /*
  * This module parses the "wireplumber.settings" section from the .conf file.
  *
- * Creates "sm-settings" metadata and pushes the settings to it. Looks out for
- * changes done in the metadata via the pw-metadata interface.
+ * Creates "sm-settings"(default) metadata and pushes the settings to it.
+ * Looks out for changes done in the metadata via the pw-metadata interface.
  *
  * If persistent settings is enabled stores the settings in a state file
  * and retains the settings from there on subsequent reboots ignoring the
@@ -26,6 +26,8 @@ struct _WpSettingsPlugin
 {
   WpPlugin parent;
 
+  gchar *metadata_name;
+
   WpImplMetadata *impl_metadata;
 
   WpProperties *settings;
@@ -35,6 +37,12 @@ struct _WpSettingsPlugin
   GSource *timeout_source;
   guint save_interval_ms;
   gboolean use_persistent_storage;
+};
+
+enum {
+  PROP_0,
+  PROP_METADATA_NAME,
+  PROP_PROPERTIES,
 };
 
 G_DECLARE_FINAL_TYPE (WpSettingsPlugin, wp_settings_plugin,
@@ -198,8 +206,8 @@ on_metadata_activated (WpMetadata * m, GAsyncResult * res, gpointer user_data)
 
   if (!wp_object_activate_finish (WP_OBJECT (m), res, &error)) {
     g_clear_object (&self->impl_metadata);
-    g_prefix_error (&error, "Failed to activate \"sm-settings\": \
-        Metadata object ");
+    g_prefix_error (&error, "Failed to activate \"%s\": "
+        "Metadata object ", self->metadata_name);
     wp_transition_return_error (transition, g_steal_pointer (&error));
     return;
   }
@@ -268,8 +276,8 @@ on_metadata_activated (WpMetadata * m, GAsyncResult * res, gpointer user_data)
     wp_debug_object (self, "%s(%lu) = %s", setting, strlen(value), value);
     wp_metadata_set (m, 0, setting, "Spa:String:JSON", value);
   }
-  wp_info_object (self, "loaded settings(%d) to \"sm-settings\" metadata",
-      wp_properties_get_count (self->settings));
+  wp_info_object (self, "loaded settings(%d) to \"%s\" metadata",
+      wp_properties_get_count (self->settings), self->metadata_name);
 
 
   /* monitor changes in metadata. */
@@ -287,7 +295,8 @@ wp_settings_plugin_enable (WpPlugin * plugin, WpTransition * transition)
   self->use_persistent_storage = false;
 
   /* create metadata object */
-  self->impl_metadata = wp_impl_metadata_new_full (core, "sm-settings", NULL);
+  self->impl_metadata = wp_impl_metadata_new_full (core, self->metadata_name,
+      NULL);
   wp_object_activate (WP_OBJECT (self->impl_metadata),
       WP_OBJECT_FEATURES_ALL,
       NULL,
@@ -311,20 +320,69 @@ wp_settings_plugin_disable (WpPlugin * plugin)
 }
 
 static void
+wp_settings_plugin_set_property (GObject * object, guint property_id,
+    const GValue * value, GParamSpec * pspec)
+{
+  WpSettingsPlugin *self = WP_SETTINGS_PLUGIN (object);
+
+  switch (property_id) {
+  case PROP_METADATA_NAME:
+    self->metadata_name = g_strdup (g_value_get_string (value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
+}
+
+static void
+wp_settings_plugin_get_property (GObject * object, guint property_id,
+    GValue * value, GParamSpec * pspec)
+{
+  WpSettingsPlugin *self = WP_SETTINGS_PLUGIN (object);
+
+  switch (property_id) {
+  case PROP_METADATA_NAME:
+    g_value_set_string (value, self->metadata_name);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
+}
+
+static void
 wp_settings_plugin_class_init (WpSettingsPluginClass * klass)
 {
   WpPluginClass *plugin_class = (WpPluginClass *) klass;
+  GObjectClass *object_class = (GObjectClass *) klass;
 
   plugin_class->enable = wp_settings_plugin_enable;
   plugin_class->disable = wp_settings_plugin_disable;
+
+  object_class->set_property = wp_settings_plugin_set_property;
+  object_class->get_property = wp_settings_plugin_get_property;
+
+  g_object_class_install_property (object_class, PROP_METADATA_NAME,
+      g_param_spec_string ("metadata-name", "metadata-name",
+          "The metadata object to look after", NULL,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
 }
 
 WP_PLUGIN_EXPORT gboolean
 wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
+  const gchar *metadata_name = "sm-settings";
+
+  if (args) {
+    metadata_name = g_variant_get_string(args, NULL);
+  }
+
   wp_plugin_register (g_object_new (wp_settings_plugin_get_type (),
       "name", "settings",
       "core", core,
+      "metadata_name", metadata_name,
       NULL));
   return TRUE;
 }

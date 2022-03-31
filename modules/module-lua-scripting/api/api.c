@@ -1366,11 +1366,11 @@ impl_module_new (lua_State *L)
   }
 }
 
-static int
-get_setting (lua_State *L)
+static gboolean
+get_setting_boolean (lua_State *L)
 {
   const char *setting = luaL_checkstring (L, 1);
-  WpSettings *s = wp_settings_get_instance (get_wp_core (L));
+  WpSettings *s = wp_settings_get_instance (get_wp_core (L), NULL);
   if (s)
   {
     gboolean value = wp_settings_get_boolean (s, setting);
@@ -1381,8 +1381,26 @@ get_setting (lua_State *L)
   return 1;
 }
 
+static gboolean
+get_setting_in_metadata_boolean (lua_State *L)
+{
+  const char *metadata_name = luaL_checkstring (L, 1);
+  const char *setting = luaL_checkstring (L, 2);
+  WpSettings *s = wp_settings_get_instance (get_wp_core (L), metadata_name);
+  if (s)
+  {
+    gboolean value = wp_settings_get_boolean (s, setting);
+    lua_pushboolean (L, value);
+  }
+  else
+    lua_pushnil (L);
+  return 1;
+}
+
+
 static const luaL_Reg settings_methods[] = {
-  { "get_setting", get_setting },
+  { "get_setting_boolean", get_setting_boolean },
+  { "get_setting_for_boolean", get_setting_in_metadata_boolean },
   { NULL, NULL }
 };
 

@@ -193,7 +193,7 @@ on_settings_plugin_ready (WpPlugin *s, GAsyncResult *res, gpointer data)
   WpTransition *transition = WP_TRANSITION (data);
   WpCore *core = wp_transition_get_source_object (transition);
   g_autoptr (GError) error = NULL;
-  g_autoptr (WpSettings) settings = wp_settings_get_instance (core);
+  g_autoptr (WpSettings) settings = wp_settings_get_instance (core, NULL);
 
   wp_info_object (self, "wpsettingsplugin object ready");
 
