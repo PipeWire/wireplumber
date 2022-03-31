@@ -32,6 +32,11 @@ typedef struct {
     (second client to our internal server) */
   WpCore *client_core;
 
+ /* Custom JSON config file if any,
+  * this overrides the default conf file that is picked
+  */
+  gchar *conf_file;
+
 } WpBaseTestFixture;
 
 static gboolean
@@ -74,7 +79,13 @@ wp_base_test_fixture_setup (WpBaseTestFixture * self, WpBaseTestFlags flags)
 
   /* init our core */
   props = wp_properties_new (PW_KEY_REMOTE_NAME, self->server.name, NULL);
+
+  if (self->conf_file)
+    wp_properties_set (props, PW_KEY_CONFIG_NAME, self->conf_file);
+
   self->core = wp_core_new (self->context, wp_properties_ref (props));
+  g_assert_true (self->core);
+
   g_signal_connect (self->core, "disconnected",
       (GCallback) disconnected_callback, self);
 
