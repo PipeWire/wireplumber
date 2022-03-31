@@ -101,6 +101,13 @@ if get_option('dbus-tests')
 endif
 
 test(
+  'test-settings',
+  executable('test-settings', 'settings.c',
+      dependencies: common_deps, c_args: common_args),
+  env: common_env,
+)
+
+test(
   'test-transition',
   executable('test-transition', 'transition.c',
       dependencies: common_deps, c_args: common_args),
