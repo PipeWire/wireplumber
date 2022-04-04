@@ -26,7 +26,7 @@ om:connect("object-added", function (om, node)
     end
 
     -- Add a timeout source if idle for at least 5 seconds
-    if cur_state == "idle" then
+    if cur_state == "idle" or cur_state == "error" then
       -- honor "session.suspend-timeout-seconds" if specified
       local timeout =
           tonumber(node.properties["session.suspend-timeout-seconds"]) or 5
