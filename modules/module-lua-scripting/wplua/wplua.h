@@ -49,7 +49,8 @@ typedef enum {
 } WpLuaSandboxFlags;
 
 lua_State * wplua_new (void);
-void wplua_free (lua_State * L);
+lua_State * wplua_ref (lua_State *L);
+void wplua_unref (lua_State * L);
 
 void wplua_enable_sandbox (lua_State * L, WpLuaSandboxFlags flags);
 int wplua_push_sandbox (lua_State * L);
@@ -94,7 +95,7 @@ gboolean wplua_load_path (lua_State * L, const gchar *path, GError **error);
 
 gboolean wplua_pcall (lua_State * L, int nargs, int nres, GError **error);
 
-G_DEFINE_AUTOPTR_CLEANUP_FUNC(lua_State, wplua_free)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(lua_State, wplua_unref)
 
 G_END_DECLS
 

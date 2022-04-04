@@ -178,7 +178,7 @@ wp_lua_scripting_plugin_disable (WpPlugin * plugin)
 {
   WpLuaScriptingPlugin * self = WP_LUA_SCRIPTING_PLUGIN (plugin);
 
-  g_clear_pointer (&self->L, wplua_free);
+  g_clear_pointer (&self->L, wplua_unref);
   g_clear_object (&self->export_core);
 }
 

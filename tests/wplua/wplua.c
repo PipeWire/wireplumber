@@ -262,7 +262,7 @@ static void
 test_wplua_basic ()
 {
   lua_State *L = wplua_new ();
-  wplua_free (L);
+  wplua_unref (L);
 }
 
 static void
@@ -288,7 +288,7 @@ test_wplua_construct ()
   g_object_ref (obj);
   g_assert_cmpint (obj->ref_count, ==, 2);
 
-  wplua_free (L);
+  wplua_unref (L);
   g_assert_cmpint (obj->ref_count, ==, 1);
 }
 
@@ -341,7 +341,7 @@ test_wplua_properties ()
   test_load_and_call (L, code2, sizeof (code2) - 1, 0, 0, &error);
   g_assert_no_error (error);
 
-  wplua_free (L);
+  wplua_unref (L);
 }
 
 static void
@@ -381,7 +381,7 @@ test_wplua_closure ()
   g_assert_true (lua_isboolean (L, -1));
   g_assert_true (lua_toboolean (L, -1));
 
-  wplua_free (L);
+  wplua_unref (L);
 
   g_assert_true (closure->is_invalid);
   g_closure_unref (closure);
@@ -420,7 +420,7 @@ test_wplua_signals ()
     "assert(o['test-boolean'] == false)\n";
   test_load_and_call (L, code, sizeof (code) - 1, 0, 0, &error);
   g_assert_no_error (error);
-  wplua_free (L);
+  wplua_unref (L);
 }
 
 static void
@@ -481,7 +481,7 @@ test_wplua_sandbox_script ()
   g_assert_error (error, WP_DOMAIN_LUA, WP_LUA_ERROR_RUNTIME);
   g_clear_error (&error);
 
-  wplua_free (L);
+  wplua_unref (L);
 }
 
 static void
@@ -519,7 +519,7 @@ test_wplua_sandbox_config ()
   test_load_and_call (L, code7, sizeof (code7) - 1, 0, 0, &error);
   g_assert_no_error (error);
 
-  wplua_free (L);
+  wplua_unref (L);
 }
 
 static void
@@ -575,7 +575,7 @@ test_wplua_convert_asv ()
   g_assert_true (g_variant_lookup (nested, "string", "&s", &test_str));
   g_assert_cmpstr (test_str, ==, "baz");
 
-  wplua_free (L);
+  wplua_unref (L);
 }
 
 static void
@@ -627,7 +627,7 @@ test_wplua_convert_gvariant_array ()
   g_assert_true (g_variant_lookup (nested, "string", "&s", &test_str));
   g_assert_cmpstr (test_str, ==, "baz");
 
-  wplua_free (L);
+  wplua_unref (L);
 }
 static void
 test_wplua_convert_wp_properties ()
@@ -665,7 +665,7 @@ test_wplua_convert_wp_properties ()
   test_load_and_call (L, code2, sizeof (code2) - 1, 0, 0, &error);
   g_assert_no_error (error);
 
-  wplua_free (L);
+  wplua_unref (L);
 }
 
 static void
@@ -699,7 +699,7 @@ test_wplua_script_arguments ()
   test_load_and_call (L, code2, sizeof (code2) - 1, 1, 0, &error);
   g_assert_no_error (error);
 
-  wplua_free (L);
+  wplua_unref (L);
 }
 
 gint

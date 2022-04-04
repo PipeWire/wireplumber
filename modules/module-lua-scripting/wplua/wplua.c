@@ -101,14 +101,39 @@ wplua_new (void)
     lua_settable (L, LUA_REGISTRYINDEX);
   }
 
+  /* refcount */
+  lua_pushinteger (L, 1);
+  lua_rawsetp (L, LUA_REGISTRYINDEX, L);
+
+  return L;
+}
+
+lua_State *
+wplua_ref (lua_State *L)
+{
+  lua_Integer refcount;
+  lua_rawgetp (L, LUA_REGISTRYINDEX, L);
+  refcount = lua_tointeger (L, -1);
+  lua_pushinteger (L, refcount + 1);
+  lua_rawsetp (L, LUA_REGISTRYINDEX, L);
+  lua_pop (L, 1);
   return L;
 }
 
 void
-wplua_free (lua_State * L)
+wplua_unref (lua_State * L)
 {
-  wp_debug ("closing lua_State %p", L);
-  lua_close (L);
+  lua_Integer refcount;
+  lua_rawgetp (L, LUA_REGISTRYINDEX, L);
+  refcount = lua_tointeger (L, -1);
+  if (refcount > 1) {
+    lua_pushinteger (L, refcount - 1);
+    lua_rawsetp (L, LUA_REGISTRYINDEX, L);
+    lua_pop (L, 1);
+  } else {
+    wp_debug ("closing lua_State %p", L);
+    lua_close (L);
+  }
 }
 
 void
