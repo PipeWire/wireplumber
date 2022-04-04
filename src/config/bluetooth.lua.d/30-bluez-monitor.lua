@@ -8,5 +8,7 @@ function bluez_monitor.enable()
     rules = bluez_monitor.rules,
   })
 
-  load_optional_module("logind")
+  if bluez_monitor.properties["with-logind"] then
+    load_optional_module("logind")
+  end
 end

@@ -34,6 +34,14 @@ bluez_monitor.properties = {
   -- Register dummy AVRCP player, required for AVRCP volume function.
   -- Disable if you are running mpris-proxy or equivalent.
   --["bluez5.dummy-avrcp-player"] = true,
+
+  -- Enable the logind module, which arbitrates which user will be allowed
+  -- to have bluetooth audio enabled at any given time (particularly useful
+  -- if you are using GDM as a display manager, as the gdm user also launches
+  -- pipewire and wireplumber).
+  -- This requires access to the D-Bus user session; disable if you are running
+  -- a system-wide instance of wireplumber.
+  ["with-logind"] = true,
 }
 
 bluez_monitor.rules = {
