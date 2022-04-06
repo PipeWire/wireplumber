@@ -37,15 +37,15 @@ In this environment, the following rules apply:
     ``string.format = rogue_format`` is valid outside the sandbox.
     WirePlumber does not allow that.
 
-  - The standard Lua API is limited only to safe functions. Functions that
-    interact with the file system, the lua modules system, the lua state,
-    the process's state, etc are **not** allowed.
+  - The standard Lua API is limited to a subset of safe functions. For instance,
+    functions that interact with the file system (io.*) and the process's state
+    (ex.: os.exit) are **not** allowed.
 
     Here is a full list of Lua functions (and API tables) that are exposed:
 
     .. literalinclude:: ../../../modules/module-lua-scripting/wplua/sandbox.lua
       :language: lua
-      :lines: 40-55
+      :lines: 27-30
 
   - Object methods are not exposed in public tables. To call an object method
     you must use the method call syntax of Lua, i.e. ``object:method(params)``
