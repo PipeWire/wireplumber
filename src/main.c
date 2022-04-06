@@ -48,6 +48,7 @@ enum {
   STEP_CHECK_MEDIA_SESSION,
   STEP_ACTIVATE_PLUGINS,
   STEP_ACTIVATE_SCRIPTS,
+  STEP_CLEANUP,
 };
 
 G_DECLARE_FINAL_TYPE (WpInitTransition, wp_init_transition,
@@ -67,7 +68,7 @@ wp_init_transition_get_next_step (WpTransition * transition, guint step)
   case STEP_LOAD_COMPONENTS:    return STEP_CONNECT;
   case STEP_CONNECT:            return STEP_CHECK_MEDIA_SESSION;
   case STEP_CHECK_MEDIA_SESSION:return STEP_ACTIVATE_PLUGINS;
-  case STEP_ACTIVATE_SCRIPTS:   return WP_TRANSITION_STEP_NONE;
+  case STEP_CLEANUP:            return WP_TRANSITION_STEP_NONE;
 
   case STEP_ACTIVATE_PLUGINS: {
     WpInitTransition *self = WP_INIT_TRANSITION (transition);
@@ -75,6 +76,14 @@ wp_init_transition_get_next_step (WpTransition * transition, guint step)
       return STEP_ACTIVATE_SCRIPTS;
     else
       return STEP_ACTIVATE_PLUGINS;
+  }
+
+  case STEP_ACTIVATE_SCRIPTS: {
+    WpInitTransition *self = WP_INIT_TRANSITION (transition);
+    if (self->pending_plugins == 0)
+      return STEP_CLEANUP;
+    else
+      return STEP_ACTIVATE_SCRIPTS;
   }
 
   default:
@@ -280,6 +289,17 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
             "script engine '%s' is not loaded", engine));
         return;
       }
+
+      self->pending_plugins = 1;
+
+      self->om = wp_object_manager_new ();
+      wp_object_manager_add_interest (self->om, WP_TYPE_PLUGIN,
+          WP_CONSTRAINT_TYPE_G_PROPERTY, "name", "#s", "script:*",
+          NULL);
+      g_signal_connect_object (self->om, "object-added",
+          G_CALLBACK (on_plugin_added), self, 0);
+      wp_core_install_object_manager (core, self->om);
+
       wp_object_activate (WP_OBJECT (plugin), WP_PLUGIN_FEATURE_ENABLED, NULL,
           (GAsyncReadyCallback) on_plugin_activated, self);
     } else {
@@ -288,6 +308,7 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
     break;
   }
 
+  case STEP_CLEANUP:
   case WP_TRANSITION_STEP_ERROR:
     g_clear_object (&self->om);
     break;

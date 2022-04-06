@@ -29,6 +29,7 @@ script_run (ScriptRunnerFixture *f, gconstpointer data)
 {
   g_autoptr (WpPlugin) plugin = NULL;
   g_autoptr (GError) error = NULL;
+  g_autofree gchar *pluginname = NULL;
 
   /* TODO: we could do some more stuff here to provide the test script with an
      API to deal with the main loop and test asynchronous stuff, if necessary */
@@ -41,10 +42,19 @@ script_run (ScriptRunnerFixture *f, gconstpointer data)
   wp_object_activate (WP_OBJECT (plugin), WP_PLUGIN_FEATURE_ENABLED,
       NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
   g_main_loop_run (f->base.loop);
+  g_clear_object (&plugin);
 
   wp_core_load_component (f->base.core, (const gchar *) data, "script/lua",
       NULL, &error);
   g_assert_no_error (error);
+
+  pluginname = g_strdup_printf ("script:%s", (const gchar *) data);
+
+  plugin = wp_plugin_find (f->base.core, pluginname);
+  g_assert_nonnull (plugin);
+  wp_object_activate (WP_OBJECT (plugin), WP_PLUGIN_FEATURE_ENABLED,
+      NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
+  g_main_loop_run (f->base.loop);
 }
 
 gint

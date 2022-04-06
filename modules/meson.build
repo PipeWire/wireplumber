@@ -127,6 +127,7 @@ shared_library(
   'wireplumber-module-lua-scripting',
   [
     'module-lua-scripting/module.c',
+    'module-lua-scripting/script.c',
     'module-lua-scripting/api/pod.c',
     'module-lua-scripting/api/json.c',
     'module-lua-scripting/api/api.c',
