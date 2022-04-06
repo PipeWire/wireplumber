@@ -143,7 +143,6 @@ script_finish_activation_with_error (lua_State * L)
   luaL_checktype (L, 1, LUA_TTABLE);
   msg = luaL_checkstring (L, 2);
 
-  lua_getglobal (L, "Script");
   lua_pushliteral (L, "__transition");
   lua_gettable (L, 1);
   if (lua_type (L, -1) == LUA_TLIGHTUSERDATA)

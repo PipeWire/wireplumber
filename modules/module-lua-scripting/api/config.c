@@ -133,7 +133,7 @@ wp_lua_scripting_load_configuration (const gchar * conf_file,
   g_auto (GValue) fold_ret = G_VALUE_INIT;
   gint nfiles = 0;
 
-  wplua_enable_sandbox (L, WP_LUA_SANDBOX_MINIMAL_STD);
+  wplua_enable_sandbox (L, 0);
 
   /* load conf_file itself */
   path = wp_find_file (CONFIG_DIRS_LOOKUP_SET, conf_file, NULL);

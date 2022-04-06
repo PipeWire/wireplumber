@@ -148,9 +148,6 @@ wplua_enable_sandbox (lua_State * L, WpLuaSandboxFlags flags)
   }
 
   lua_newtable (L);
-  lua_pushliteral (L, "minimal_std");
-  lua_pushboolean (L, (flags & WP_LUA_SANDBOX_MINIMAL_STD));
-  lua_settable (L, -3);
   lua_pushliteral (L, "isolate_env");
   lua_pushboolean (L, (flags & WP_LUA_SANDBOX_ISOLATE_ENV));
   lua_settable (L, -3);

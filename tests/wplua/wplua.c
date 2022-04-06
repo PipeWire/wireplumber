@@ -490,7 +490,7 @@ test_wplua_sandbox_config ()
   g_autoptr (GError) error = NULL;
   lua_State *L = wplua_new ();
 
-  wplua_enable_sandbox (L, WP_LUA_SANDBOX_MINIMAL_STD);
+  wplua_enable_sandbox (L, 0);
 
   const gchar code3[] =
     "o = { answer = 42 }\n";

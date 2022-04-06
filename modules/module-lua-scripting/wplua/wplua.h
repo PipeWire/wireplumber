@@ -44,8 +44,7 @@ typedef enum {
 } WpLuaError;
 
 typedef enum {
-  WP_LUA_SANDBOX_MINIMAL_STD,
-  WP_LUA_SANDBOX_ISOLATE_ENV,
+  WP_LUA_SANDBOX_ISOLATE_ENV = 1,
 } WpLuaSandboxFlags;
 
 lua_State * wplua_new (void);
