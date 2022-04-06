@@ -43,3 +43,9 @@ test(
   args: ['require.lua'],
   env: common_env,
 )
+test(
+  'test-lua-async-activation',
+  script_tester,
+  args: ['async-activation.lua'],
+  env: common_env,
+)
