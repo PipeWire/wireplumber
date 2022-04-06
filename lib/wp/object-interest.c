@@ -601,9 +601,13 @@ constraint_verb_matches (gchar subj_type, const GValue * subj_val,
     GVariant * check_val)
 {
   switch (subj_type) {
-    case 's':
-      return g_pattern_match_simple (g_variant_get_string (check_val, NULL),
-                                     g_value_get_string (subj_val));
+    case 's': {
+      const gchar *check_str = g_variant_get_string (check_val, NULL);
+      const gchar *subj_str = g_value_get_string (subj_val);
+      if (!check_str || !subj_str)
+        return FALSE;
+      return g_pattern_match_simple (check_str, subj_str);
+    }
     default:
       g_return_val_if_reached (FALSE);
   }
