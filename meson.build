@@ -17,6 +17,7 @@ wireplumber_bin_dir = get_option('prefix') / get_option('bindir')
 wireplumber_module_dir = get_option('prefix') / get_option('libdir') / 'wireplumber-' + wireplumber_api_version
 wireplumber_data_dir = get_option('prefix') / get_option('datadir') / 'wireplumber'
 wireplumber_config_dir = get_option('prefix') / get_option('sysconfdir') / 'wireplumber'
+wireplumber_locale_dir = get_option('prefix') / get_option('localedir')
 
 cc = meson.get_compiler('c')
 
@@ -86,6 +87,12 @@ summary({'systemd conf data': systemd.found(),
          'libsystemd': libsystemd_dep.found(),
          'libelogind': libelogind_dep.found()}, bool_yn: true)
 
+libintl_dep = dependency('intl', required: false)
+if not libintl_dep.found()
+  libintl_dep = cc.find_library('intl', required: false)
+endif
+summary({'libintl': libintl_dep.found()}, bool_yn: true)
+
 gnome = import('gnome')
 pkgconfig = import('pkgconfig')
 fs = import('fs')
@@ -116,6 +123,7 @@ subdir('lib')
 subdir('docs')
 subdir('modules')
 subdir('src')
+subdir('po')
 
 if get_option('tests')
   subdir('tests')
