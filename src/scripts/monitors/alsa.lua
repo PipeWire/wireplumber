@@ -219,9 +219,9 @@ function prepareDevice(parent, id, type, factory, properties)
     local c = properties["device.class"]
 
     if f == "internal" then
-      d = "Built-in Audio"
+      d = I18n.gettext("Built-in Audio")
     elseif c == "modem" then
-      d = "Modem"
+      d = I18n.gettext("Modem")
     end
 
     d = d or properties["device.product.name"]

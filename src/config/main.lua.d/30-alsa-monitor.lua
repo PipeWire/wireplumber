@@ -8,6 +8,8 @@ function alsa_monitor.enable()
     load_module("reserve-device")
   end
 
+  load_module("i18n")
+
   load_monitor("alsa", {
     properties = alsa_monitor.properties,
     rules = alsa_monitor.rules,
