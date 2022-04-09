@@ -1,0 +1,58 @@
+# Czech translation of pipewire.
+# Copyright (C) 2008, 2009 the author(s) of pipewire.
+# This file is distributed under the same license as the pipewire package.
+# Petr Kovar <pknbe@volny.cz>, 2008, 2009, 2012.
+# Daniel Rusek <mail@asciiwolf.com>, 2018.
+# Marek Černocký <marek@manet.cz>, 2018.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: pipewire.master-tx\n"
+"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/"
+"issues/new\n"
+"POT-Creation-Date: 2022-04-09 15:19+0300\n"
+"PO-Revision-Date: 2021-10-12 14:18+0200\n"
+"Last-Translator: Daniel Rusek <mail@asciiwolf.com>\n"
+"Language-Team: čeština <gnome-cs-list@gnome.org>\n"
+"Language: cs\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;\n"
+"X-Generator: Poedit 3.0\n"
+
+#. WirePlumber
+#.
+#. Copyright © 2021 Collabora Ltd.
+#. @author George Kiagiadakis <george.kiagiadakis@collabora.com>
+#.
+#. SPDX-License-Identifier: MIT
+#. Receive script arguments from config.lua
+#. ensure config.properties is not nil
+#. preprocess rules and create Interest objects
+#. applies properties from config.rules when asked to
+#. set the device id and spa factory name; REQUIRED, do not change
+#. set the default pause-on-idle setting
+#. try to negotiate the max ammount of channels
+#. set priority
+#. ensure the node has a media class
+#. ensure the node has a name
+#. sanitize name
+#. deduplicate nodes with the same name
+#. and a nick
+#. also sanitize nick, replace ':' with ' '
+#. ensure the node has a description
+#. also sanitize description, replace ':' with ' '
+#. add api.alsa.card.* properties for rule matching purposes
+#. apply properties from config.rules
+#. create the node
+#. ensure the device has an appropriate name
+#. deduplicate devices with the same name
+#. ensure the device has a description
+#: src/scripts/monitors/alsa.lua:222
+msgid "Built-in Audio"
+msgstr "Vnitřní zvukový systém"
+
+#: src/scripts/monitors/alsa.lua:224
+msgid "Modem"
+msgstr "Modem"

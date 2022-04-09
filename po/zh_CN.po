@@ -1,0 +1,61 @@
+# Simplified Chinese translation for PipeWire.
+# Copyright (C) 2008 PULSEAUDIO COPYRIGHT HOLDER
+# This file is distributed under the same license as the pipewire package.
+# 闫丰刚 <sainry@gmail.com>, 2008, 2009.
+# Leah Liu <lliu@redhat.com>, 2009, 2012.
+# Cheng-Chia Tseng <pswo10680@gmail.com>, 2010, 2012.
+# Frank Hill <hxf.prc@gmail.com>, 2015.
+# Mingye Wang (Arthur2e5) <arthur200126@gmail.com>, 2015.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: pipewire.master-tx\n"
+"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/"
+"issues/new\n"
+"POT-Creation-Date: 2022-04-09 15:19+0300\n"
+"PO-Revision-Date: 2021-04-18 10:56+0800\n"
+"Last-Translator: Huang-Huang Bao <i@eh5.me>\n"
+"Language-Team: Huang-Huang Bao <i@eh5.me>\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Launchpad-Export-Date: 2016-03-22 13:23+0000\n"
+"X-Generator: Poedit 2.4.1\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#. WirePlumber
+#.
+#. Copyright © 2021 Collabora Ltd.
+#. @author George Kiagiadakis <george.kiagiadakis@collabora.com>
+#.
+#. SPDX-License-Identifier: MIT
+#. Receive script arguments from config.lua
+#. ensure config.properties is not nil
+#. preprocess rules and create Interest objects
+#. applies properties from config.rules when asked to
+#. set the device id and spa factory name; REQUIRED, do not change
+#. set the default pause-on-idle setting
+#. try to negotiate the max ammount of channels
+#. set priority
+#. ensure the node has a media class
+#. ensure the node has a name
+#. sanitize name
+#. deduplicate nodes with the same name
+#. and a nick
+#. also sanitize nick, replace ':' with ' '
+#. ensure the node has a description
+#. also sanitize description, replace ':' with ' '
+#. add api.alsa.card.* properties for rule matching purposes
+#. apply properties from config.rules
+#. create the node
+#. ensure the device has an appropriate name
+#. deduplicate devices with the same name
+#. ensure the device has a description
+#: src/scripts/monitors/alsa.lua:222
+msgid "Built-in Audio"
+msgstr "内置音频"
+
+#: src/scripts/monitors/alsa.lua:224
+msgid "Modem"
+msgstr "调制解调器"

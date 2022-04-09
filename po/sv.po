@@ -1,0 +1,67 @@
+# Swedish translation for pipewire.
+# Copyright © 2008-2022 Free Software Foundation, Inc.
+# This file is distributed under the same license as the pipewire package.
+# Daniel Nylander <po@danielnylander.se>, 2008, 2012.
+# Josef Andersson <josef.andersson@fripost.org>, 2014, 2017.
+# Anders Jonsson <anders.jonsson@norsjovallen.se>, 2021, 2022.
+#
+# Termer:
+# input/output: ingång/utgång (det handlar om ljud)
+# latency: latens
+# delay: fördröjning
+# boost: öka
+# gain: förstärkning
+# channel map: kanalmappning
+# passthrough: genomströmning
+# och en hel del termer som inte översätts inom ljuddomänen, ex. surround.
+msgid ""
+msgstr ""
+"Project-Id-Version: pipewire\n"
+"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/"
+"issues/new\n"
+"POT-Creation-Date: 2022-04-09 15:19+0300\n"
+"PO-Revision-Date: 2022-02-14 22:57+0100\n"
+"Last-Translator: Anders Jonsson <anders.jonsson@norsjovallen.se>\n"
+"Language-Team: Swedish <tp-sv@listor.tp-sv.se>\n"
+"Language: sv\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Poedit 3.0.1\n"
+
+#. WirePlumber
+#.
+#. Copyright © 2021 Collabora Ltd.
+#. @author George Kiagiadakis <george.kiagiadakis@collabora.com>
+#.
+#. SPDX-License-Identifier: MIT
+#. Receive script arguments from config.lua
+#. ensure config.properties is not nil
+#. preprocess rules and create Interest objects
+#. applies properties from config.rules when asked to
+#. set the device id and spa factory name; REQUIRED, do not change
+#. set the default pause-on-idle setting
+#. try to negotiate the max ammount of channels
+#. set priority
+#. ensure the node has a media class
+#. ensure the node has a name
+#. sanitize name
+#. deduplicate nodes with the same name
+#. and a nick
+#. also sanitize nick, replace ':' with ' '
+#. ensure the node has a description
+#. also sanitize description, replace ':' with ' '
+#. add api.alsa.card.* properties for rule matching purposes
+#. apply properties from config.rules
+#. create the node
+#. ensure the device has an appropriate name
+#. deduplicate devices with the same name
+#. ensure the device has a description
+#: src/scripts/monitors/alsa.lua:222
+msgid "Built-in Audio"
+msgstr "Inbyggt ljud"
+
+#: src/scripts/monitors/alsa.lua:224
+msgid "Modem"
+msgstr "Modem"

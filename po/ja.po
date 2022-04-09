@@ -1,0 +1,61 @@
+# translation of ja.po to Japanese
+# PipeWire
+# Copyright (C) 2009.
+# This file is distributed under the same license as the PACKAGE package.
+#
+# Hyu_gabaru Ryu_ichi <hyu_gabaru@yahoo.co.jp>, 2009.
+# Kiyoto Hashida <khashida@redhat.com>, 2009, 2012.
+# Kenzo Moriguchi <kmoriguc@redhat.com>, 2016. #zanata
+# Ooyama Yosiyuki <qqke6wd9k@apricot.ocn.ne.jp>, 2016. #zanata
+# Wim Taymans <wim.taymans@gmail.com>, 2016. #zanata
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/"
+"issues/new\n"
+"POT-Creation-Date: 2022-04-09 15:19+0300\n"
+"PO-Revision-Date: 2016-03-15 08:25+0000\n"
+"Last-Translator: Kenzo Moriguchi <kmoriguc@redhat.com>\n"
+"Language-Team: Japanese <jp@li.org>\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Zanata 4.6.2\n"
+"Plural-Forms: Plural-Forms: nplurals=1; plural=0;\n"
+
+#. WirePlumber
+#.
+#. Copyright © 2021 Collabora Ltd.
+#. @author George Kiagiadakis <george.kiagiadakis@collabora.com>
+#.
+#. SPDX-License-Identifier: MIT
+#. Receive script arguments from config.lua
+#. ensure config.properties is not nil
+#. preprocess rules and create Interest objects
+#. applies properties from config.rules when asked to
+#. set the device id and spa factory name; REQUIRED, do not change
+#. set the default pause-on-idle setting
+#. try to negotiate the max ammount of channels
+#. set priority
+#. ensure the node has a media class
+#. ensure the node has a name
+#. sanitize name
+#. deduplicate nodes with the same name
+#. and a nick
+#. also sanitize nick, replace ':' with ' '
+#. ensure the node has a description
+#. also sanitize description, replace ':' with ' '
+#. add api.alsa.card.* properties for rule matching purposes
+#. apply properties from config.rules
+#. create the node
+#. ensure the device has an appropriate name
+#. deduplicate devices with the same name
+#. ensure the device has a description
+#: src/scripts/monitors/alsa.lua:222
+msgid "Built-in Audio"
+msgstr "内部オーディオ"
+
+#: src/scripts/monitors/alsa.lua:224
+msgid "Modem"
+msgstr "モデム"
