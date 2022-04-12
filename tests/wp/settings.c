@@ -112,7 +112,7 @@ test_parsing_setup (TestSettingsFixture *self, gconstpointer user_data)
     self->settings = g_steal_pointer (&settings);
 
     /* total no.of properties in the conf file */
-    g_assert_cmpint (data.count, ==, 3);
+    g_assert_cmpint (data.count, ==, 4);
   }
 
 }
@@ -129,7 +129,7 @@ static void
 test_parsing (TestSettingsFixture *self, gconstpointer data)
 {
   /* total no.of properties in the conf file */
-  g_assert_cmpint (wp_properties_get_count(self->settings), ==, 3);
+  g_assert_cmpint (wp_properties_get_count(self->settings), ==, 4);
 }
 
 static void
@@ -248,8 +248,8 @@ static void
 test_wpsettings (TestSettingsFixture *self, gconstpointer data)
 {
   WpSettings *s = self->s;
-  g_assert_false (wp_settings_get_boolean (s, "property1"));
-  g_assert_true (wp_settings_get_boolean (s, "property2"));
+  g_assert_false (wp_settings_get_boolean (s, "test-property1"));
+  g_assert_true (wp_settings_get_boolean (s, "test-property2"));
 
   /* test the wp_settings_get_instance() API */
   {
