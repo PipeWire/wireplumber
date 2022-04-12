@@ -32,12 +32,28 @@ struct _WpSettings
 {
   WpObject parent;
 
-  gchar *metadata_name;
-
   WpProperties *settings;
-  WpObjectManager *metadata_om;
 
+  /* element-type: Rule* */
+  GPtrArray *rules;
+
+  gchar *metadata_name;
+  WpObjectManager *metadata_om;
 };
+
+typedef struct
+{
+  gchar *rule;
+  /* element-type: Match* */
+  GPtrArray *matches;
+} Rule;
+
+typedef struct
+{
+  /* element-type: WpObjectInterest* */
+  GPtrArray *interests;
+  WpProperties *actions;
+} Match;
 
 enum {
   PROP_0,
@@ -171,6 +187,168 @@ wp_settings_get_instance (WpCore *core, const gchar *metadata_name)
   return settings;
 }
 
+void
+match_unref (Match * self)
+{
+  g_clear_pointer (&self->actions, wp_properties_unref);
+  g_clear_pointer (&self->interests, g_ptr_array_unref);
+}
+
+static WpProperties *
+parse_actions (const gchar *actions)
+{
+  g_autoptr (WpSpaJson) o = wp_spa_json_new_from_string (actions);
+  g_autofree gchar *update_props = NULL;
+  g_autoptr (WpProperties) a_props = wp_properties_new_empty ();
+
+  if (wp_spa_json_is_object (o) &&
+      wp_spa_json_object_get (o,
+          "update-props", "s", &update_props,
+          NULL)) {
+    g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (update_props);
+    g_autoptr (WpIterator) iter = wp_spa_json_new_iterator (json);
+    g_auto (GValue) item = G_VALUE_INIT;
+
+    wp_debug ("update-props=%s", update_props);
+
+    while (wp_iterator_next (iter, &item)) {
+      WpSpaJson *p = g_value_get_boxed (&item);
+      g_autofree gchar *prop = wp_spa_json_parse_string (p);
+      g_autofree gchar *value = NULL;
+
+      g_value_unset (&item);
+      wp_iterator_next (iter, &item);
+      p = g_value_get_boxed (&item);
+
+      value = wp_spa_json_parse_string (p);
+      g_value_unset (&item);
+
+      if (prop && value) {
+        wp_debug ("prop=%s value=%s", prop, value);
+        wp_properties_set (a_props, prop, value);
+      }
+    }
+
+
+  } else
+  {
+    wp_info ("\"update-props\" not defined properly, skip it");
+    return NULL;
+  }
+
+  return g_steal_pointer (&a_props);
+}
+
+static Match *
+parse_matches (const gchar *match)
+{
+  g_autoptr (WpSpaJson) a = wp_spa_json_new_from_string (match);
+  g_autoptr (WpIterator) a_iter = wp_spa_json_new_iterator (a);
+  g_auto (GValue) a_item = G_VALUE_INIT;
+  Match *m = g_slice_new0 (Match);
+
+  g_return_val_if_fail (m, NULL);
+
+  m->interests = g_ptr_array_new_with_free_func
+      ((GDestroyNotify) wp_object_interest_unref);
+
+  if (!wp_spa_json_is_array (a))
+  {
+   wp_info ("Match has to be an array JSON element, skip processing this one");
+   return NULL;
+  }
+
+  for (; wp_iterator_next (a_iter, &a_item); g_value_unset (&a_item)) {
+    g_autoptr (WpObjectInterest) i = wp_object_interest_new_type
+      (WP_TYPE_PROPERTIES);
+    WpSpaJson *o = g_value_get_boxed (&a_item);
+    WpIterator *o_iter = wp_spa_json_new_iterator (o);
+    g_auto (GValue) o_item = G_VALUE_INIT;
+    int count = 0;
+
+    while (wp_iterator_next (o_iter, &o_item)) {
+      WpSpaJson *p = g_value_get_boxed (&o_item);
+      g_autofree gchar *isubject = wp_spa_json_parse_string (p);
+      g_autofree gchar *ivalue = NULL;
+
+      g_value_unset (&o_item);
+      wp_iterator_next (o_iter, &o_item);
+      p = g_value_get_boxed (&o_item);
+
+      ivalue = wp_spa_json_parse_string (p);
+      g_value_unset (&o_item);
+
+      if (isubject && ivalue) {
+        wp_object_interest_add_constraint (i, WP_CONSTRAINT_TYPE_PW_PROPERTY,
+            isubject, WP_CONSTRAINT_VERB_EQUALS, g_variant_new_string(ivalue));
+        count++;
+        wp_info ("subject=%s value=%s of interest obj=%p",
+            isubject, ivalue, i);
+      }
+    }
+    wp_info ("loaded interest obj(%p) with (%d) constraints", i, count);
+    g_ptr_array_add (m->interests, g_steal_pointer(&i));
+  }
+  return m;
+}
+
+static Rule *
+parse_rule (const gchar *rule, const gchar *value)
+{
+  g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (value);
+  g_autoptr (WpIterator) iter = wp_spa_json_new_iterator (json);
+  g_auto (GValue) item = G_VALUE_INIT;
+  Rule *r = g_slice_new0 (Rule);
+
+  g_return_val_if_fail (r, NULL);
+
+  /* TBD: check for duplicate rule names and disallow them. */
+  r->rule = g_strdup (rule);
+
+  r->matches = g_ptr_array_new_with_free_func
+      ((GDestroyNotify) match_unref);
+
+  for (; wp_iterator_next (iter, &item); g_value_unset (&item)) {
+    WpSpaJson *o = g_value_get_boxed (&item);
+    g_autofree gchar *match = NULL;
+    g_autofree gchar *actions = NULL;
+    Match *m = NULL;
+
+    if (!wp_spa_json_is_object (o) ||
+        !wp_spa_json_object_get (o,
+            "matches", "s", &match,
+            "actions", "s", &actions,
+            NULL)) {
+    }
+
+    /* TBD: handle empty matches and actions */
+    m = parse_matches (match);
+    g_ptr_array_add (r->matches, m);
+    wp_info ("loaded (%d) interest objects for this match", m->interests->len);
+
+    m->actions = parse_actions (actions);
+    wp_info ("loaded (%d) actions for this match",
+        wp_properties_get_count (m->actions));
+  }
+
+  return r;
+}
+
+static void
+parse_setting (const gchar *setting, const gchar *value, WpSettings *self)
+{
+  g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (value);
+
+  if (!wp_spa_json_is_array (json))
+    wp_properties_set (self->settings, setting, value);
+  else {
+    Rule *r = parse_rule (setting, value);
+    g_ptr_array_add (self->rules, r);
+    wp_info_object (self, "loaded (%d) matches for rule (%s)",
+        r->matches->len, r->rule);
+  }
+}
+
 static void
 on_metadata_added (WpObjectManager *om, WpMetadata *m, gpointer d)
 {
@@ -179,17 +357,26 @@ on_metadata_added (WpObjectManager *om, WpMetadata *m, gpointer d)
   g_autoptr (WpIterator) it = wp_metadata_new_iterator (WP_METADATA (m), 0);
   g_auto (GValue) val = G_VALUE_INIT;
 
+  /* traverse through all settings and rules */
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
       const gchar *setting, *value;
       wp_metadata_iterator_item_extract (&val, NULL, &setting, NULL, &value);
-      wp_properties_set (self->settings, setting, value);
-      wp_debug_object (self, "%s(%lu) = %s", setting, strlen(value), value);
+      parse_setting (setting, value, self);
   }
 
-  wp_info_object (self, "loaded %d settings from metadata \"%s\"",
-      wp_properties_get_count (self->settings), self->metadata_name);
+  wp_info_object (self, "loaded %d settings and %d rules from metadata \"%s\"",
+      wp_properties_get_count (self->settings),
+      self->rules->len,
+      self->metadata_name);
 
   wp_object_update_features (WP_OBJECT (self), WP_SETTINGS_LOADED, 0);
+}
+
+void
+rule_unref (Rule * self)
+{
+  g_free (self->rule);
+  g_clear_pointer (&self->matches, g_ptr_array_unref);
 }
 
 static void
@@ -204,6 +391,9 @@ wp_settings_activate_execute_step (WpObject * object,
   case STEP_LOAD: {
 
     self->settings = wp_properties_new_empty ();
+
+    self->rules = g_ptr_array_new_with_free_func
+        ((GDestroyNotify) rule_unref);
 
     self->metadata_om = wp_object_manager_new ();
     wp_object_manager_add_interest (self->metadata_om, WP_TYPE_METADATA,
@@ -232,8 +422,9 @@ wp_settings_deactivate (WpObject * object, WpObjectFeatures features)
   WpSettings *self = WP_SETTINGS (object);
 
   g_free (self->metadata_name);
-  g_clear_pointer (&self->settings, wp_properties_unref);
   g_clear_object (&self->metadata_om);
+  g_clear_pointer (&self->rules, g_ptr_array_unref);
+  g_clear_pointer (&self->settings, wp_properties_unref);
 
   wp_object_update_features (WP_OBJECT (self), 0, WP_OBJECT_FEATURES_ALL);
 }
