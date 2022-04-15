@@ -74,7 +74,7 @@ function updateClientPermissions (client, permissions)
     return
   end
   media_roles = parseMediaRoles (str_prop)
-  if not (media_roles & MEDIA_ROLE_CAMERA) then
+  if (media_roles & MEDIA_ROLE_CAMERA) == 0 then
     Log.info (client, "Ignoring portal check for clients without camera role")
     return
   end
