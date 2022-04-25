@@ -1376,7 +1376,7 @@ get_boolean (lua_State *L)
   if (lua_type (L, 2) == LUA_TSTRING)
     metadata_name = luaL_checkstring (L, 2);
 
-  WpSettings *s = wp_settings_get_instance (get_wp_core (L), metadata_name);
+  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L), metadata_name);
 
   if (s)
   {
@@ -1388,8 +1388,34 @@ get_boolean (lua_State *L)
   return 1;
 }
 
+static gboolean
+apply_rule (lua_State *L)
+{
+  const char *r = luaL_checkstring (L, 1);
+  const char *metadata_name = NULL;
+  g_autoptr (WpProperties) cp = wplua_table_to_properties (L, 2);
+  g_autoptr (WpProperties) ap = wp_properties_new_empty ();
+
+  if (lua_type (L, -1) == LUA_TSTRING)
+    metadata_name = luaL_checkstring (L, -1);
+
+  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L), metadata_name);
+
+  if (s)
+  {
+    gboolean value = wp_settings_apply_rule (s, r, cp, ap);
+    lua_pushboolean (L, value);
+    wplua_properties_to_table (L, ap);
+  }
+  else
+    lua_pushnil (L);
+
+  return 2;
+}
+
 static const luaL_Reg settings_methods[] = {
   { "get_boolean", get_boolean },
+  { "apply_rule", apply_rule },
   { NULL, NULL }
 };
 
