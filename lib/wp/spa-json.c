@@ -576,7 +576,7 @@ wp_spa_json_is_string (WpSpaJson *self)
 }
 
 /*!
- * \brief Checks wether the spa json is of type array or not
+ * \brief Checks whether the spa json is of type array or not
  *
  * \ingroup wpspajson
  * \param self the spa json object
@@ -589,7 +589,20 @@ wp_spa_json_is_array (WpSpaJson *self)
 }
 
 /*!
- * \brief Checks wether the spa json is of type object or not
+ * \brief Checks whether the spa json is of type container or not
+ *
+ * \ingroup wpspajson
+ * \param self the spa json object
+ * \returns TRUE if it is of type container, FALSE otherwise
+ */
+gboolean
+wp_spa_json_is_container (WpSpaJson *self)
+{
+  return spa_json_is_container (self->data, self->size);
+}
+
+/*!
+ * \brief Checks whether the spa json is of type object or not
  *
  * \ingroup wpspajson
  * \param self the spa json object
