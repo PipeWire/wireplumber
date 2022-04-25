@@ -32,8 +32,8 @@ WP_API
 G_DECLARE_FINAL_TYPE (WpSettings, wp_settings, WP, SETTINGS, WpObject)
 
 WP_API
-WpSettings *
-wp_settings_get_instance (WpCore * core, const gchar *metadata_name);
+WpSettings * wp_settings_get_instance (WpCore * core,
+    const gchar *metadata_name);
 
 WP_API
 gboolean wp_settings_get_boolean (WpSettings *self, const gchar *setting);
