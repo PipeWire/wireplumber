@@ -110,6 +110,9 @@ WP_API
 gboolean wp_spa_json_is_array (WpSpaJson *self);
 
 WP_API
+gboolean wp_spa_json_is_container (WpSpaJson *self);
+
+WP_API
 gboolean wp_spa_json_is_object (WpSpaJson *self);
 
 WP_API
