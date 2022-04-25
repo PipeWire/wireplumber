@@ -8,8 +8,8 @@
 #include "../common/base-test-fixture.h"
 
 /*
- * tests the loading & parsing of JSON conf file(pls check the settings.conf),
- * metadata updates,  wpsetttings object creation and its API.
+ * tests the loading & parsing of JSON conf file(pls check the .conf that is
+ * loaded), metadata updates,  wpsetttings object creation and its API.
  */
 typedef struct {
   WpBaseTestFixture base;
@@ -112,7 +112,7 @@ test_parsing_setup (TestSettingsFixture *self, gconstpointer user_data)
     self->settings = g_steal_pointer (&settings);
 
     /* total no.of properties in the conf file */
-    g_assert_cmpint (data.count, ==, 4);
+    g_assert_cmpint (data.count, ==, 5);
   }
 
 }
@@ -129,7 +129,7 @@ static void
 test_parsing (TestSettingsFixture *self, gconstpointer data)
 {
   /* total no.of properties in the conf file */
-  g_assert_cmpint (wp_properties_get_count(self->settings), ==, 4);
+  g_assert_cmpint (wp_properties_get_count(self->settings), ==, 5);
 }
 
 static void
@@ -278,11 +278,177 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
   }
 }
 
+static void
+test_rules (TestSettingsFixture *self, gconstpointer data)
+{
+  WpSettings *s = self->s;
+
+  {
+    g_autoptr (WpProperties) props =  wp_properties_new (
+        "test-string2", "juggler",
+        NULL);
+
+    g_assert_true (wp_settings_apply_rule (s, "rule_one", props, NULL));
+  }
+
+  {
+    g_autoptr (WpProperties) props =  wp_properties_new (
+        "test-string2", "jugglr",
+        NULL);
+
+    g_assert_false (wp_settings_apply_rule (s, "rule_one", props, NULL));
+  }
+
+  {
+    g_autoptr (WpProperties) props =  wp_properties_new (
+        "test-string1", "copper",
+        "test-int1", "100",
+        NULL);
+
+    g_assert_true (wp_settings_apply_rule (s, "rule_one", props, NULL));
+  }
+
+  {
+    g_autoptr (WpProperties) props =  wp_properties_new (
+        "test-string1", "copper",
+        NULL);
+
+    g_assert_false (wp_settings_apply_rule (s, "rule_one", props, NULL));
+  }
+
+  {
+    g_autoptr (WpProperties) props =  wp_properties_new (
+        "test-string2", "juggler",
+        NULL);
+    gint before = wp_properties_get_count (props), after = 0;
+    guint prop_int1 = 0;
+    g_assert_true (wp_settings_apply_rule (s, "rule_one", props, NULL));
+    after = wp_properties_get_count (props);
+
+    g_assert_cmpint (after-before, ==, 2);
+    g_assert_cmpstr (wp_properties_get(props, "prop-string1"), ==, "metal");
+    g_assert_cmpstr (wp_properties_get(props, "prop-string2"), ==, NULL);
+    g_assert_cmpstr (wp_properties_get(props, "prop-int1"), ==, "123");
+    spa_atou32 (wp_properties_get(props, "prop-int1"), &prop_int1, 0);
+    g_assert_cmpint (prop_int1, ==, 123);
+  }
+
+  {
+    g_autoptr (WpProperties) props =  wp_properties_new (
+        "test-string4", "ferrous",
+        "test-int2", "100",
+        "test-string5", "blend",
+        NULL);
+    gint before = wp_properties_get_count (props), after = 0;
+    guint prop_int2 = 0;
+    g_assert_true (wp_settings_apply_rule (s, "rule_one", props, NULL));
+    after = wp_properties_get_count (props);
+
+    g_assert_cmpint (after-before, ==, 3);
+    g_assert_cmpstr (wp_properties_get(props, "prop-string1"), ==, NULL);
+    g_assert_cmpstr (wp_properties_get(props, "prop-string2"), ==, "standard");
+    g_assert_cmpstr (wp_properties_get(props, "prop-int2"), ==, "26");
+    spa_atou32 (wp_properties_get(props, "prop-int2"), &prop_int2, 0);
+    g_assert_cmpint (prop_int2, ==, 26);
+    g_assert_true (spa_atob(wp_properties_get(props, "prop-bool1")));
+  }
+
+  {
+    g_autoptr (WpProperties) props =  wp_properties_new (
+        "test-string6", "ethylene",
+        "test-int2", "625",
+        "test-string5", "blend",
+        NULL);
+    g_autoptr (WpProperties) applied_props = wp_properties_new_empty ();
+    guint prop_int2 = 0;
+    g_assert_false (wp_settings_apply_rule (s, "rule_one", props, NULL));
+    g_assert_true (wp_settings_apply_rule (s, "rule_two", props,
+        applied_props));
+
+    g_assert_cmpint (wp_properties_get_count (applied_props), ==, 2);
+    g_assert_cmpstr (wp_properties_get(applied_props, "prop-string1"),
+        ==, NULL);
+    g_assert_cmpstr (wp_properties_get(applied_props, "prop-string2"),
+        ==, "spray");
+    g_assert_cmpstr (wp_properties_get(applied_props, "prop-int2"), ==, "111");
+    spa_atou32 (wp_properties_get(applied_props, "prop-int2"), &prop_int2, 0);
+    g_assert_cmpint (prop_int2, ==, 111);
+    g_assert_false (spa_atob(wp_properties_get(applied_props, "prop-bool1")));
+  }
+
+  /* test the regular experession syntax */
+  {
+    g_autoptr (WpProperties) props =  wp_properties_new (
+        "test.string6", "metal.iron",
+        "test.table.entry", "true",
+        NULL);
+    g_autoptr (WpProperties) applied_props = wp_properties_new_empty ();
+    g_assert_false (wp_settings_apply_rule (s, "rule_one", props, NULL));
+    g_assert_false (wp_settings_apply_rule (s, "rule_two", props,
+        applied_props));
+    g_assert_true (wp_settings_apply_rule (s, "rule_three", props,
+        applied_props));
+
+    g_assert_cmpint (wp_properties_get_count (applied_props), ==, 3);
+    g_assert_cmpstr (wp_properties_get(applied_props, "prop.string1"),
+        ==, NULL);
+    g_assert_cmpstr (wp_properties_get(applied_props, "prop.state"),
+        ==, "solid");
+    g_assert_cmpstr (wp_properties_get(applied_props, "prop.example"),
+        ==, "ferrous");
+    g_assert_true (spa_atob(wp_properties_get(applied_props,
+        "prop.electrical.conductivity")));
+  }
+
+  {
+    g_autoptr (WpProperties) props =  wp_properties_new (
+        "test.string6", "metal.iron",
+        "test.table.entry", "false",
+        NULL);
+    g_assert_false (wp_settings_apply_rule (s, "rule_three", props,
+        NULL));
+  }
+
+  {
+    g_autoptr (WpProperties) props =  wp_properties_new (
+        "test.string6", "metl.iron",
+        "test.table.entry", "true",
+        NULL);
+    g_assert_false (wp_settings_apply_rule (s, "rule_three", props,
+        NULL));
+  }
+
+  {
+    g_autoptr (WpProperties) props =  wp_properties_new (
+        "test.string6", "gas.neon",
+        "test.table.entry", "maybe",
+        NULL);
+    g_autoptr (WpProperties) applied_props = wp_properties_new_empty ();
+    g_assert_false (wp_settings_apply_rule (s, "rule_one", props, NULL));
+    g_assert_false (wp_settings_apply_rule (s, "rule_two", props,
+        applied_props));
+    g_assert_true (wp_settings_apply_rule (s, "rule_three", props,
+        applied_props));
+
+    g_assert_cmpint (wp_properties_get_count (applied_props), ==, 3);
+    g_assert_cmpstr (wp_properties_get(applied_props, "prop.string1"),
+        ==, NULL);
+    g_assert_cmpstr (wp_properties_get(applied_props, "prop.state"),
+        ==, "gas");
+    g_assert_cmpstr (wp_properties_get(applied_props, "prop.example"),
+        ==, "neon");
+    g_assert_false (spa_atob(wp_properties_get(applied_props,
+        "prop.electrical.conductivity")));
+  }
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
   g_test_init (&argc, &argv, NULL);
   wp_init (WP_INIT_ALL);
+
+  /* take a close look at .conf file that is loaded, all the test work on it */
 
   g_test_add ("/wp/settings/conf-file-loading", TestSettingsFixture, NULL,
       test_conf_file_setup, test_conf_file, test_conf_file_teardown);
@@ -290,8 +456,10 @@ main (gint argc, gchar *argv[])
       test_parsing_setup, test_parsing, test_parsing_teardown);
   g_test_add ("/wp/settings/metadata-creation", TestSettingsFixture, NULL,
       test_metadata_setup, test_metadata, test_metadata_teardown);
-  g_test_add ("/wp/settings/wpsettings-creation", TestSettingsFixture, NULL,
+  g_test_add ("/wp/settings/wpsettings-creation-get", TestSettingsFixture, NULL,
       test_wpsettings_setup, test_wpsettings, test_wpsettings_teardown);
+  g_test_add ("/wp/settings/wpsettings-creation-rules", TestSettingsFixture, NULL,
+      test_wpsettings_setup, test_rules, test_wpsettings_teardown);
 
   return g_test_run ();
 }
