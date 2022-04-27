@@ -114,8 +114,7 @@ gboolean wp_settings_apply_rule (WpSettings *self, const gchar *rule,
   g_return_val_if_fail (rule, false);
   g_return_val_if_fail (client_props, false);
 
-  wp_debug_object (self, "applying rule(%s) for client props(%d)",
-    rule, wp_properties_get_count (client_props));
+  wp_debug_object (self, "applying rule(%s) for client props", rule);
 
   for (guint i = 0; i < self->rules->len; i++) {
     Rule *r = g_ptr_array_index (self->rules, i);
@@ -135,8 +134,8 @@ gboolean wp_settings_apply_rule (WpSettings *self, const gchar *rule,
             else
               wp_properties_add (client_props, m->actions);
 
-            wp_debug_object (self, ". match found with actions(%d)",
-                wp_properties_get_count(m->actions));
+            wp_debug_object (self, ". match found for rule(%s) with actions"
+                "(%d)", rule, wp_properties_get_count(m->actions));
 
             return TRUE;
           }
