@@ -5,32 +5,11 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local config = ... or {}
-
--- preprocess rules and create Interest objects
-for _, r in ipairs(config.rules or {}) do
-  r.interests = {}
-  for _, i in ipairs(r.matches) do
-    local interest_desc = { type = "properties" }
-    for _, c in ipairs(i) do
-      c.type = "pw"
-      table.insert(interest_desc, Constraint(c))
-    end
-    local interest = Interest(interest_desc)
-    table.insert(r.interests, interest)
-  end
-  r.matches = nil
-end
-
 function rulesGetDefaultPermissions(properties)
-  for _, r in ipairs(config.rules or {}) do
-    if r.default_permissions then
-      for _, interest in ipairs(r.interests) do
-        if interest:matches(properties) then
-          return r.default_permissions
-        end
-      end
-    end
+  local matched, mprops = Settings.apply_rule ("access", properties)
+
+  if (matched and mprops["default_permissions"]) then
+    return mprops["default_permissions"]
   end
 end
 
