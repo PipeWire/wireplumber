@@ -56,6 +56,7 @@ wp_lua_scripting_package_searcher (lua_State *L)
   lua_pushcfunction (L, wp_lua_scripting_package_loader);
 
   /* 2. loader data (param to 1) */
+  wp_debug ("Executing script %s", script);
   if (!wplua_load_path (L, script, &error)) {
     lua_pop (L, 1);
     lua_pushstring (L, error->message);
@@ -206,6 +207,7 @@ wp_lua_scripting_plugin_load (WpComponentLoader * cl, const gchar * component,
       wp_plugin_register (g_steal_pointer (&script));
     } else {
       /* keep in a list and delay registering until the plugin is enabled */
+      wp_debug ("queing script %s", filename);
       g_ptr_array_add (self->scripts, g_steal_pointer (&script));
     }
     return TRUE;
