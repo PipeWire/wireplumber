@@ -46,10 +46,10 @@ struct _WpInitTransition
 };
 
 enum {
-  STEP_LOAD_COMPONENTS = WP_TRANSITION_STEP_CUSTOM_START,
-  STEP_CONNECT,
-  STEP_CHECK_MEDIA_SESSION,
+  STEP_CONNECT = WP_TRANSITION_STEP_CUSTOM_START,
   STEP_ACTIVATE_SETTINGS,
+  STEP_LOAD_COMPONENTS,
+  STEP_CHECK_MEDIA_SESSION,
   STEP_ACTIVATE_PLUGINS,
   STEP_ACTIVATE_SCRIPTS,
   STEP_CLEANUP,
@@ -68,11 +68,11 @@ static guint
 wp_init_transition_get_next_step (WpTransition * transition, guint step)
 {
   switch (step) {
-  case WP_TRANSITION_STEP_NONE: return STEP_LOAD_COMPONENTS;
-  case STEP_LOAD_COMPONENTS:    return STEP_CONNECT;
-  case STEP_CONNECT:            return STEP_CHECK_MEDIA_SESSION;
-  case STEP_CHECK_MEDIA_SESSION:return STEP_ACTIVATE_SETTINGS;
-  case STEP_ACTIVATE_SETTINGS:  return STEP_ACTIVATE_PLUGINS;
+  case WP_TRANSITION_STEP_NONE: return STEP_CONNECT;
+  case STEP_CONNECT:            return STEP_ACTIVATE_SETTINGS;
+  case STEP_ACTIVATE_SETTINGS:  return STEP_LOAD_COMPONENTS;
+  case STEP_LOAD_COMPONENTS:    return STEP_CHECK_MEDIA_SESSION;
+  case STEP_CHECK_MEDIA_SESSION:return STEP_ACTIVATE_PLUGINS;
   case STEP_CLEANUP:            return WP_TRANSITION_STEP_NONE;
 
   case STEP_ACTIVATE_PLUGINS: {
@@ -146,6 +146,7 @@ do_load_components(void *data, const char *location, const char *section,
   g_autoptr (WpSpaJson) json = NULL;
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) item = G_VALUE_INIT;
+  g_autoptr (WpSettings) settings = wp_settings_get_instance (core, NULL);
   GError *error = NULL;
 
   json = wp_spa_json_new_from_stringn (str, len);
@@ -162,6 +163,7 @@ do_load_components(void *data, const char *location, const char *section,
     WpSpaJson *o = g_value_get_boxed (&item);
     g_autofree gchar *name = NULL;
     g_autofree gchar *type = NULL;
+    g_autofree gchar *deps = NULL;
 
     if (!wp_spa_json_is_object (o) ||
         !wp_spa_json_object_get (o,
@@ -173,6 +175,15 @@ do_load_components(void *data, const char *location, const char *section,
           "component must have both a 'name' and a 'type'"));
       return -EINVAL;
     }
+
+    if (wp_spa_json_object_get (o, "deps", "s", &deps, NULL) && deps) {
+      if (!wp_settings_get_boolean (settings, deps)) {;
+        wp_info ("deps(%s) not met for component(%s), skip loading it",
+            deps, name);
+        continue;
+      }
+    }
+
     if (!wp_core_load_component (core, name, type, NULL, &error)) {
       wp_transition_return_error (transition, error);
       return -EINVAL;
@@ -227,25 +238,13 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
   WpCore *core = wp_transition_get_source_object (transition);
   struct pw_context *pw_ctx = wp_core_get_pw_context (core);
   const struct pw_properties *props = pw_context_get_properties (pw_ctx);
+  GError *error = NULL;
 
   switch (step) {
-  case STEP_LOAD_COMPONENTS: {
-    struct data data = { .transition = transition };
-
-    if (pw_context_conf_section_for_each(pw_ctx, "wireplumber.components",
-		    do_load_components, &data) < 0)
-	    return;
-    if (data.count == 0) {
-      wp_transition_return_error (transition, g_error_new (
-          WP_DOMAIN_DAEMON, WP_EXIT_CONFIG,
-          "No components configured in the context conf file; nothing to do"));
-      return;
-    }
-    wp_transition_advance (transition);
-    break;
-  }
 
   case STEP_CONNECT: {
+    wp_info_object (self, "Core connect...");
+
     g_signal_connect_object (core, "connected",
         G_CALLBACK (wp_transition_advance), transition, G_CONNECT_SWAPPED);
 
@@ -282,6 +281,50 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
     break;
   }
 
+  case STEP_ACTIVATE_SETTINGS: {
+
+    wp_info_object (self, "Activating settings...");
+
+    /* load settings module */
+    if (!wp_core_load_component (core, "libwireplumber-module-settings",
+        "module", NULL, &error)) {
+      wp_transition_return_error (transition, error);
+      return;
+    }
+
+    /* get handle to module to settings module/plugin & activate it */
+    WpPlugin *p = wp_plugin_find (core, "settings");
+    if (!p) {
+      wp_transition_return_error (transition, g_error_new (
+          WP_DOMAIN_DAEMON, WP_EXIT_CONFIG,
+          "unable to find settings plugin"));
+      return;
+    }
+
+    wp_object_activate (WP_OBJECT (p), WP_OBJECT_FEATURES_ALL, NULL,
+        (GAsyncReadyCallback) on_settings_plugin_ready, self);
+
+    break;
+  }
+
+  case STEP_LOAD_COMPONENTS: {
+    struct data data = { .transition = transition };
+
+    wp_info_object (self, "Load Wireplumber Components...");
+
+    if (pw_context_conf_section_for_each(pw_ctx, "wireplumber.components",
+		    do_load_components, &data) < 0)
+	    return;
+    if (data.count == 0) {
+      wp_transition_return_error (transition, g_error_new (
+          WP_DOMAIN_DAEMON, WP_EXIT_CONFIG,
+          "No components configured in the context conf file; nothing to do"));
+      return;
+    }
+    wp_transition_advance (transition);
+    break;
+  }
+
   case STEP_CHECK_MEDIA_SESSION: {
     wp_info_object (self, "Checking for session manager conflicts...");
 
@@ -292,23 +335,6 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
     g_signal_connect_object (self->om, "installed",
         G_CALLBACK (check_media_session), self, 0);
     wp_core_install_object_manager (core, self->om);
-    break;
-  }
-
-  case STEP_ACTIVATE_SETTINGS: {
-    /* find and activate settings plugin */
-    WpPlugin *p = wp_plugin_find (core, "settings");
-    if (!p) {
-      wp_transition_return_error (transition, g_error_new (
-          WP_DOMAIN_DAEMON, WP_EXIT_CONFIG,
-          "unable to find settings plugin"));
-      return;
-    }
-    wp_info_object (self, "Activating wpsettings plugin");
-
-    wp_object_activate (WP_OBJECT (p), WP_OBJECT_FEATURES_ALL, NULL,
-        (GAsyncReadyCallback) on_settings_plugin_ready, self);
-
     break;
   }
 
