@@ -145,7 +145,6 @@ do_parse_settings (void *data, const char *location,
   g_autoptr (WpIterator) iter = wp_spa_json_new_iterator (json);
   g_auto (GValue) item = G_VALUE_INIT;
 
-
   if (!wp_spa_json_is_object (json)) {
     /* "wireplumber.settings" section has to be a JSON object element. */
     wp_transition_return_error (transition, g_error_new (
@@ -226,7 +225,7 @@ on_metadata_activated (WpMetadata * m, GAsyncResult * res, gpointer user_data)
      */
     wp_transition_return_error (transition, g_error_new (
       WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-      "No settings present in the context conf file: settings"
+      "No settings present in the context conf file: settings "
       "are not loaded"));
     return;
   }
