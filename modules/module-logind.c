@@ -71,7 +71,7 @@ wp_logind_enable (WpPlugin * plugin, WpTransition * transition)
   WpLogind *self = WP_LOGIND (plugin);
   int res = 0;
 
-  if ((res = sd_login_monitor_new (NULL, &self->monitor)) < 0) {
+  if ((res = sd_login_monitor_new ("uid", &self->monitor)) < 0) {
     wp_transition_return_error (transition, g_error_new (G_IO_ERROR,
             g_io_error_from_errno (-res),
             "failed to start systemd logind monitor: %d (%s)",
