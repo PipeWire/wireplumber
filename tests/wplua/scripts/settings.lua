@@ -2,11 +2,51 @@
 --  tests the lua API of WpSettings, this file tests the settings present in
 --  .conf file that is loaded.
 
--- test settings
-assert (Settings.get_boolean ("test-property1", "test-settings") == false)
-assert (Settings.get_boolean ("test-property2", "test-settings") == true)
+-- test settings _get_boolean ()
+local value = Settings.get_boolean ("test-property1", "test-settings")
+assert (value == false)
 
-assert (Settings.get_boolean ("test-property1") == false)
+value = Settings.get_boolean ("test-property2", "test-settings")
+assert (value == true)
+
+value = Settings.get_boolean ("test-property1")
+assert (value == nil)
+
+value = Settings.get_boolean ("test-property-undefined",
+    "test-settings")
+assert (value == nil)
+
+
+-- test settings _get_int ()
+value = Settings.get_int ("test-property-undefined", "test-settings")
+assert (value == nil)
+
+value = Settings.get_int ("test-property3-int", "test-settings")
+assert (value == -20)
+
+value = Settings.get_int ("test-property4-max-int", "test-settings")
+assert (value == 9223372036854775807)
+
+value = Settings.get_int ("test-property4-min-int", "test-settings")
+assert (value == -9223372036854775808)
+
+value = Settings.get_int ("test-property4-max-int-one-more",
+    "test-settings")
+assert (value == 0)
+
+value = Settings.get_int ("test-property4-min-int-one-less",
+    "test-settings")
+assert (value == 0)
+
+-- test settings _get_string ()
+value = Settings.get_string ("test-property-undefined", "test-settings")
+assert (value == nil)
+
+value = Settings.get_string ("test-property4-string", "test-settings")
+assert (value == "blahblah")
+
+value = Settings.get_string ("test-property3-int", "test-settings")
+assert (value == "-20")
 
 -- test rules
 -- test #1
