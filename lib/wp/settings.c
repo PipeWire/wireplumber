@@ -70,14 +70,16 @@ wp_settings_init (WpSettings * self)
 
 
 /*!
- * \brief gets the value of a setting.
+ * \brief gets the boolean value of a setting.
  *
  * \ingroup wpsetting
  * \param self the handle
  * \param setting name of the setting
- * \returns:  (transfer none) boolean value of the string.
+ * \param value(out): the boolean value of the setting
+ * \returns:  TRUE if the setting is defined, FALSE otherwise
  */
-gboolean wp_settings_get_boolean (WpSettings *self, const gchar *setting)
+gboolean wp_settings_get_boolean (WpSettings *self, const gchar *setting,
+  gboolean *value)
 {
   g_return_val_if_fail (self, false);
   g_return_val_if_fail (setting, false);
@@ -86,7 +88,66 @@ gboolean wp_settings_get_boolean (WpSettings *self, const gchar *setting)
           WP_OBJECT_FEATURES_ALL))
     return false;
 
-  return spa_atob (wp_properties_get (self->settings, setting));
+  if (!wp_properties_get (self->settings, setting))
+    return false;
+
+  *value = spa_atob (wp_properties_get (self->settings, setting));
+
+  return true;
+}
+
+/*!
+ * \brief gets the string value of a setting.
+ *
+ * \ingroup wpsetting
+ * \param self the handle
+ * \param setting name of the setting
+ * \param value(out): the string value of the setting
+ * \returns:  TRUE if the setting is defined, FALSE otherwise
+ */
+gboolean wp_settings_get_string (WpSettings *self, const gchar *setting,
+    const char **value)
+{
+  g_return_val_if_fail (self, false);
+  g_return_val_if_fail (setting, false);
+
+  if (!(wp_object_get_active_features (WP_OBJECT (self)) &
+          WP_OBJECT_FEATURES_ALL))
+    return false;
+
+  if (!wp_properties_get (self->settings, setting))
+    return false;
+
+  *value = wp_properties_get (self->settings, setting);
+
+  return true;
+}
+
+/*!
+ * \brief gets the integer(signed) value of a setting.
+ *
+ * \ingroup wpsetting
+ * \param self the handle
+* \param value(out): the integer value of the setting
+ * \returns:  TRUE if the setting is defined, FALSE otherwise
+  */
+gboolean wp_settings_get_int (WpSettings *self, const gchar *setting,
+    gint64 *val)
+{
+  g_return_val_if_fail (self, false);
+  g_return_val_if_fail (setting, false);
+
+  if (!(wp_object_get_active_features (WP_OBJECT (self)) &
+          WP_OBJECT_FEATURES_ALL))
+    return false;
+
+  if (!wp_properties_get (self->settings, setting))
+    return false;
+
+  *val = 0; /* ground the value */
+  spa_atoi64 (wp_properties_get (self->settings, setting), val, 0);
+
+  return true;
 }
 
 /*!
