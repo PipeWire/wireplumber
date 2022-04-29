@@ -54,6 +54,7 @@ load_module (WpCore * core, const gchar * module_name,
   GModule *gmodule;
   gpointer module_init;
 
+  wp_debug_object(core, "loading module(%s)", module_name);
   module_path = g_module_build_path (wp_get_module_dir (), module_name);
   gmodule = g_module_open (module_path, G_MODULE_BIND_LOCAL);
   if (!gmodule) {
