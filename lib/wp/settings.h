@@ -36,7 +36,15 @@ WpSettings * wp_settings_get_instance (WpCore * core,
     const gchar *metadata_name);
 
 WP_API
-gboolean wp_settings_get_boolean (WpSettings *self, const gchar *setting);
+gboolean wp_settings_get_boolean (WpSettings *self, const gchar *setting,
+    gboolean *value);
+
+WP_API
+gboolean wp_settings_get_string (WpSettings *self, const gchar *setting,
+    const char **value);
+WP_API
+gboolean wp_settings_get_int (WpSettings *self, const gchar *setting,
+    gint64 *val);
 
 WP_API
 gboolean wp_settings_apply_rule (WpSettings *self, const gchar *rule,
