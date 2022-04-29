@@ -6,14 +6,10 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "plugin.h"
-#include "portal-permissionstore-enums.h"
+#include <wp/wp.h>
 
 #define DBUS_INTERFACE_NAME "org.freedesktop.impl.portal.PermissionStore"
 #define DBUS_OBJECT_PATH "/org/freedesktop/impl/portal/PermissionStore"
-
-G_DEFINE_TYPE (WpPortalPermissionStorePlugin, wp_portal_permissionstore_plugin,
-    WP_TYPE_PLUGIN)
 
 enum
 {
@@ -25,6 +21,20 @@ enum
 };
 
 static guint signals[LAST_SIGNAL] = { 0 };
+
+struct _WpPortalPermissionStorePlugin
+{
+  WpPlugin parent;
+
+  WpDbus *dbus;
+  guint signal_id;
+};
+
+G_DECLARE_FINAL_TYPE (WpPortalPermissionStorePlugin,
+    wp_portal_permissionstore_plugin, WP, PORTAL_PERMISSIONSTORE_PLUGIN,
+    WpPlugin)
+G_DEFINE_TYPE (WpPortalPermissionStorePlugin, wp_portal_permissionstore_plugin,
+    WP_TYPE_PLUGIN)
 
 static gpointer
 wp_portal_permissionstore_plugin_get_dbus (WpPortalPermissionStorePlugin *self)
