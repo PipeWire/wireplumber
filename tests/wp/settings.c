@@ -111,8 +111,8 @@ test_parsing_setup (TestSettingsFixture *self, gconstpointer user_data)
 
     self->settings = g_steal_pointer (&settings);
 
-    /* total no.of properties in the conf file */
-    g_assert_cmpint (data.count, ==, 5);
+    /* total no.of settings in the conf file */
+    g_assert_cmpint (data.count, ==, 11);
   }
 
 }
@@ -128,8 +128,8 @@ test_parsing_teardown (TestSettingsFixture *self, gconstpointer user_data)
 static void
 test_parsing (TestSettingsFixture *self, gconstpointer data)
 {
-  /* total no.of properties in the conf file */
-  g_assert_cmpint (wp_properties_get_count(self->settings), ==, 5);
+  /* total no.of settings in the conf file */
+  g_assert_cmpint (wp_properties_get_count(self->settings), ==, 11);
 }
 
 static void
@@ -248,10 +248,64 @@ static void
 test_wpsettings (TestSettingsFixture *self, gconstpointer data)
 {
   WpSettings *s = self->s;
-  g_assert_false (wp_settings_get_boolean (s, "test-property1"));
-  g_assert_true (wp_settings_get_boolean (s, "test-property2"));
 
-  /* test the wp_settings_get_instance() API */
+  {
+    gboolean value = 0;
+
+    /* test settings _get_boolean */
+    g_assert_false (wp_settings_get_boolean (s, "test-property-undefined",
+        &value));
+    g_assert_true (wp_settings_get_boolean (s, "test-property1", &value));
+    g_assert_false (value);
+    g_assert_true (wp_settings_get_boolean (s, "test-property2", &value));
+    g_assert_true (value);
+  }
+
+  {
+    gint64 value = 0;
+
+    /* _get_int () */
+    g_assert_false (wp_settings_get_int (s, "test-property-undefined",
+        &value));
+
+    g_assert_true (wp_settings_get_int (s, "test-property3-int", &value));
+    g_assert_cmpint (value, ==, -20);
+
+    g_assert_true (wp_settings_get_int (s, "test-property4-max-int", &value));
+    g_assert_cmpint (value, ==, G_MAXINT64);
+
+    g_assert_true (wp_settings_get_int (s, "test-property4-min-int", &value));
+    g_assert_cmpint (value, ==, G_MININT64);
+
+    g_assert_true (wp_settings_get_int (s, "test-property4-max-int-one-more",
+        &value));
+    g_assert_cmpint (value, ==, 0);
+
+    g_assert_true (wp_settings_get_int (s, "test-property4-min-int-one-less",
+        &value));
+    g_assert_cmpint (value, ==, 0);
+  }
+
+  {
+    const gchar *value = NULL;
+    /* _get_string () */
+    g_assert_false (wp_settings_get_string (s, "test-property-undefined",
+        &value));
+
+    g_assert_true (wp_settings_get_string (s, "test-property4-string",
+        &value));
+    g_assert_cmpstr (value, ==, "blahblah");
+
+    g_assert_true (wp_settings_get_string (s, "test-property2",
+        &value));
+    g_assert_cmpstr (value, ==, "true");
+
+    g_assert_true (wp_settings_get_string (s, "test-property3-int",
+        &value));
+    g_assert_cmpstr (value, ==, "-20");
+  }
+
+  /* test the wp_settings_get_instance () API */
   {
     g_autoptr (WpSettings) s1 =
         wp_settings_get_instance (self->base.core, "test-settings");

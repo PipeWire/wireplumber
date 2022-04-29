@@ -177,13 +177,16 @@ do_load_components(void *data, const char *location, const char *section,
     }
 
     if (wp_spa_json_object_get (o, "deps", "s", &deps, NULL) && deps) {
-      if (!wp_settings_get_boolean (settings, deps)) {;
+      gboolean value = 0;
+      if (!wp_settings_get_boolean (settings, deps, &value) && value) {
         wp_info ("deps(%s) not met for component(%s), skip loading it",
             deps, name);
         continue;
       }
     }
 
+    wp_debug ("load component(%s) type(%s) deps(%s)", name, type,
+        (deps ? deps : "nill"));
     if (!wp_core_load_component (core, name, type, NULL, &error)) {
       wp_transition_return_error (transition, error);
       return -EINVAL;
