@@ -78,7 +78,8 @@ wp_settings_init (WpSettings * self)
  * \param value(out): the boolean value of the setting
  * \returns:  TRUE if the setting is defined, FALSE otherwise
  */
-gboolean wp_settings_get_boolean (WpSettings *self, const gchar *setting,
+gboolean
+wp_settings_get_boolean (WpSettings *self, const gchar *setting,
   gboolean *value)
 {
   g_return_val_if_fail (self, false);
@@ -105,7 +106,8 @@ gboolean wp_settings_get_boolean (WpSettings *self, const gchar *setting,
  * \param value(out): the string value of the setting
  * \returns:  TRUE if the setting is defined, FALSE otherwise
  */
-gboolean wp_settings_get_string (WpSettings *self, const gchar *setting,
+gboolean
+wp_settings_get_string (WpSettings *self, const gchar *setting,
     const char **value)
 {
   g_return_val_if_fail (self, false);
@@ -128,10 +130,11 @@ gboolean wp_settings_get_string (WpSettings *self, const gchar *setting,
  *
  * \ingroup wpsetting
  * \param self the handle
-* \param value(out): the integer value of the setting
+ * \param value(out): the integer value of the setting
  * \returns:  TRUE if the setting is defined, FALSE otherwise
-  */
-gboolean wp_settings_get_int (WpSettings *self, const gchar *setting,
+ */
+gboolean
+wp_settings_get_int (WpSettings *self, const gchar *setting,
     gint64 *val)
 {
   g_return_val_if_fail (self, false);
@@ -168,7 +171,8 @@ gboolean wp_settings_get_int (WpSettings *self, const gchar *setting,
  * \returns TRUE if there is a match for the client_props and returns the
  *  applied props for the match.
  */
-gboolean wp_settings_apply_rule (WpSettings *self, const gchar *rule,
+gboolean
+wp_settings_apply_rule (WpSettings *self, const gchar *rule,
     WpProperties *client_props, WpProperties *applied_props)
 {
   g_return_val_if_fail (self, false);
@@ -195,7 +199,7 @@ gboolean wp_settings_apply_rule (WpSettings *self, const gchar *rule,
             else
               wp_properties_add (client_props, m->actions);
 
-            wp_debug_object (self, ". match found for rule(%s) with actions"
+            wp_debug_object (self, "match found for rule(%s) with actions"
                 "(%d)", rule, wp_properties_get_count(m->actions));
 
             return TRUE;
@@ -229,9 +233,8 @@ wp_settings_activate_get_next_step (WpObject * object,
   return STEP_LOAD;
 }
 
-static
-gboolean check_metadata_name (gpointer  g_object,
-    gpointer  metadata_name)
+static gboolean
+check_metadata_name (gpointer  g_object, gpointer  metadata_name)
 {
   if (!WP_IS_SETTINGS(g_object))
     return false;
