@@ -5,44 +5,36 @@
 --
 -- SPDX-License-Identifier: MIT
 
--- Receive script arguments from config.lua
-local config = ... or {}
-
--- ensure config.properties is not nil
-config.properties = config.properties or {}
+local config_settings = {
+ ["alsa.jack-device"] =
+    Settings.get_boolean ("alsa_monitor.alsa.jack-device"),
+ ["alsa.reserve"] =
+    Settings.get_boolean ("alsa_monitor.alsa.reserve"),
+ ["alsa.reserve.priority"] =
+    Settings.get_int ("alsa_monitor.alsa.reserve.priority"),
+ ["alsa.reserve.application-name"] =
+    Settings.get_string ("alsa_monitor.alsa.reserve.application-name"),
+ ["alsa.midi"] =
+    Settings.get_boolean ("alsa_monitor.alsa.midi"),
+  ["alsa.midi.monitoring"] =
+  Settings.get_boolean ("alsa_monitor.alsa.midi.monitoring"),
+  ["vm.node.defaults"] =
+    Settings.get_string ("alsa_monitor.vm.node.defaults"),
+}
 
 -- unique device/node name tables
 device_names_table = nil
 node_names_table = nil
 
--- preprocess rules and create Interest objects
-for _, r in ipairs(config.rules or {}) do
-  r.interests = {}
-  for _, i in ipairs(r.matches) do
-    local interest_desc = { type = "properties" }
-    for _, c in ipairs(i) do
-      c.type = "pw"
-      table.insert(interest_desc, Constraint(c))
-    end
-    local interest = Interest(interest_desc)
-    table.insert(r.interests, interest)
-  end
-  r.matches = nil
-end
-
--- applies properties from config.rules when asked to
 function rulesApplyProperties(properties)
-  for _, r in ipairs(config.rules or {}) do
-    if r.apply_properties then
-      for _, interest in ipairs(r.interests) do
-        if interest:matches(properties) then
-          for k, v in pairs(r.apply_properties) do
-            properties[k] = v
-          end
-        end
-      end
+  local matched, mprops = Settings.apply_rule ("alsa_monitor", properties)
+
+  if (matched and mprops) then
+    for k, v in pairs(mprops) do
+      properties[k] = v
     end
   end
+
 end
 
 function nonempty(str)
@@ -165,14 +157,14 @@ function createNode(parent, id, obj_type, factory, properties)
   end
 
   -- apply VM overrides
-  local vm_overrides = config.properties["vm.node.defaults"]
+  local vm_overrides = config_settings["vm.node.defaults"]
   if nonempty(Core.get_vm_type()) and type(vm_overrides) == "table" then
     for k, v in pairs(vm_overrides) do
       properties[k] = v
     end
   end
 
-  -- apply properties from config.rules
+  -- apply properties from rules defined in JSON .conf file
   rulesApplyProperties(properties)
   if properties["node.disabled"] then
     node_names_table [properties ["node.name"]] = nil
@@ -274,7 +266,7 @@ function prepareDevice(parent, id, obj_type, factory, properties)
     properties["device.icon-name"] = icon .. "-analog" .. (b and ("-" .. b) or "")
   end
 
-  -- apply properties from config.rules
+  -- apply properties from rules defined in JSON .conf file
   rulesApplyProperties(properties)
   if properties["device.disabled"] then
     device_names_table [properties ["device.name"]] = nil
@@ -292,9 +284,9 @@ function prepareDevice(parent, id, obj_type, factory, properties)
     local rd_name = "Audio" .. properties["api.alsa.card"]
     local rd = rd_plugin:call("create-reservation",
         rd_name,
-        config.properties["alsa.reserve.application-name"] or "WirePlumber",
+        config_settings["alsa.reserve.application-name"] or "WirePlumber",
         properties["device.name"],
-        config.properties["alsa.reserve.priority"] or -20);
+        config_settings["alsa.reserve.priority"] or -20);
 
     properties["api.dbus.ReserveDevice1"] = rd_name
 
@@ -342,7 +334,7 @@ function prepareDevice(parent, id, obj_type, factory, properties)
 end
 
 function createMonitor ()
-  local m = SpaDevice("api.alsa.enum.udev", config.properties)
+  local m = SpaDevice("api.alsa.enum.udev", config_settings)
   if m == nil then
     Log.message("PipeWire's SPA ALSA udev plugin(\"api.alsa.enum.udev\")"
       .. "missing or broken. Sound Cards cannot be enumerated")
@@ -382,7 +374,7 @@ function createMonitor ()
 end
 
 -- create the JACK device (for PipeWire to act as client to a JACK server)
-if config.properties["alsa.jack-device"] then
+if config_settings["alsa.jack-device"] then
   jack_device = Device("spa-device-factory", {
     ["factory.name"] = "api.jack.device",
     ["node.name"] = "JACK-Device",
@@ -391,7 +383,7 @@ if config.properties["alsa.jack-device"] then
 end
 
 -- enable device reservation if requested
-if config.properties["alsa.reserve"] then
+if config_settings["alsa.reserve"] then
   rd_plugin = Plugin.find("reserve-device")
 end
 
