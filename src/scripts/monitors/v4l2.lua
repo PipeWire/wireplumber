@@ -5,34 +5,17 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local config = ... or {}
+local config_settings = {
 
--- preprocess rules and create Interest objects
-for _, r in ipairs(config.rules or {}) do
-  r.interests = {}
-  for _, i in ipairs(r.matches) do
-    local interest_desc = { type = "properties" }
-    for _, c in ipairs(i) do
-      c.type = "pw"
-      table.insert(interest_desc, Constraint(c))
-    end
-    local interest = Interest(interest_desc)
-    table.insert(r.interests, interest)
-  end
-  r.matches = nil
-end
+}
 
--- applies properties from config.rules when asked to
+-- apply properties from rules defined in JSON .conf file
 function rulesApplyProperties(properties)
-  for _, r in ipairs(config.rules or {}) do
-    if r.apply_properties then
-      for _, interest in ipairs(r.interests) do
-        if interest:matches(properties) then
-          for k, v in pairs(r.apply_properties) do
-            properties[k] = v
-          end
-        end
-      end
+  local matched, mprops = Settings.apply_rule ("v4l2_monitor", properties)
+
+  if (matched and mprops) then
+    for k, v in pairs(mprops) do
+      properties[k] = v
     end
   end
 end
@@ -102,7 +85,7 @@ function createNode(parent, id, type, factory, properties)
     properties["priority.session"] = 1000 - (tonumber(dev) * 10)
   end
 
-  -- apply properties from config.rules
+  -- apply properties from rules defined in JSON .conf file
   rulesApplyProperties(properties)
 
   -- create the node
@@ -136,7 +119,7 @@ function createDevice(parent, id, type, factory, properties)
       or properties["device.product.name"]
       or "Unknown device"
 
-  -- apply properties from config.rules
+  -- apply properties from rules defined in JSON .conf file
   rulesApplyProperties(properties)
 
   -- create the device
@@ -150,7 +133,7 @@ function createDevice(parent, id, type, factory, properties)
   end
 end
 
-monitor = SpaDevice("api.v4l2.enum.udev", config.properties or {})
+monitor = SpaDevice("api.v4l2.enum.udev", config_settings or {})
 if monitor then
   monitor:connect("create-object", createDevice)
   monitor:activate(Feature.SpaDevice.ENABLED)
