@@ -5,11 +5,8 @@
 --
 -- SPDX-License-Identifier: MIT
 
--- Receive script arguments from config.lua
-local config = ... or {}
-
--- ensure config.properties is not nil
-config.properties = config.properties or {}
+local config = {}
+config.node_properties = Settings.parse_object_safe ("monitor.alsa.midi.node-properties")
 
 SND_PATH = "/dev/snd"
 SEQ_NAME = "seq"
@@ -21,9 +18,10 @@ fm_plugin = nil
 function CreateMidiNode ()
   -- Midi properties
   local props = {}
-  if type(config.properties["alsa.midi.node-properties"]) == "table" then
-     props = config.properties["alsa.midi.node-properties"]
+  for k, v in pairs(config.node_properties) do
+    props[k] = v
   end
+
   props["factory.name"] = "api.alsa.seq.bridge"
   props["node.name"] = props["node.name"] or "Midi-Bridge"
 
