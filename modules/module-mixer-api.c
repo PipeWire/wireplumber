@@ -411,7 +411,7 @@ wp_mixer_api_set_volume (WpMixerApi * self, guint32 id, GVariant * vvolume)
       new_volume.values[i] = volume_to_linear (val, self->scale);
   }
   else if (g_variant_is_of_type (vvolume, G_VARIANT_TYPE_VARDICT)) {
-    GVariantIter iter;
+    GVariantIter *iter;
     const gchar *idx_str;
     GVariant *v;
     gdouble val;
@@ -435,7 +435,7 @@ wp_mixer_api_set_volume (WpMixerApi * self, guint32 id, GVariant * vvolume)
       new_volume = info->volume;
       new_monVolume = info->monitorVolume;
 
-      while (g_variant_iter_loop (&iter, "{&sv}", &idx_str, &v)) {
+      while (g_variant_iter_loop (iter, "{&sv}", &idx_str, &v)) {
         guint index = atoi (idx_str);
         const gchar *channel_str = NULL;
         WpSpaIdValue channel = NULL;
@@ -467,6 +467,7 @@ wp_mixer_api_set_volume (WpMixerApi * self, guint32 id, GVariant * vvolume)
           new_monVolume.values[index] = volume_to_linear (val, self->scale);
         }
       }
+      g_variant_iter_free (iter);
     }
   } else {
     return FALSE;
