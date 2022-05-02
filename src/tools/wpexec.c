@@ -66,9 +66,10 @@ struct _WpInitTransition
 };
 
 enum {
-  STEP_LOAD_MODULE = WP_TRANSITION_STEP_CUSTOM_START,
+  STEP_LOAD_ENGINE = WP_TRANSITION_STEP_CUSTOM_START,
   STEP_LOAD_SCRIPT,
   STEP_CONNECT,
+  STEP_ACTIVATE_ENGINE,
   STEP_ACTIVATE_SCRIPT,
 };
 
@@ -85,10 +86,11 @@ static guint
 wp_init_transition_get_next_step (WpTransition * transition, guint step)
 {
   switch (step) {
-  case WP_TRANSITION_STEP_NONE: return STEP_LOAD_MODULE;
-  case STEP_LOAD_MODULE:        return STEP_LOAD_SCRIPT;
+  case WP_TRANSITION_STEP_NONE: return STEP_LOAD_ENGINE;
+  case STEP_LOAD_ENGINE:        return STEP_LOAD_SCRIPT;
   case STEP_LOAD_SCRIPT:        return STEP_CONNECT;
-  case STEP_CONNECT:            return STEP_ACTIVATE_SCRIPT;
+  case STEP_CONNECT:            return STEP_ACTIVATE_ENGINE;
+  case STEP_ACTIVATE_ENGINE:    return STEP_ACTIVATE_SCRIPT;
   case STEP_ACTIVATE_SCRIPT:    return WP_TRANSITION_STEP_NONE;
   default:
     g_return_val_if_reached (WP_TRANSITION_STEP_ERROR);
@@ -114,7 +116,7 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
   GError *error = NULL;
 
   switch (step) {
-  case STEP_LOAD_MODULE:
+  case STEP_LOAD_ENGINE:
     if (!wp_core_load_component (core, "libwireplumber-module-lua-scripting",
             "module", NULL, &error)) {
       wp_transition_return_error (transition, error);
@@ -144,8 +146,16 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
     }
     break;
 
-  case STEP_ACTIVATE_SCRIPT: {
+  case STEP_ACTIVATE_ENGINE: {
     g_autoptr (WpPlugin) p = wp_plugin_find (core, "lua-scripting");
+    wp_object_activate (WP_OBJECT (p), WP_PLUGIN_FEATURE_ENABLED, NULL,
+        (GAsyncReadyCallback) on_plugin_activated, self);
+    break;
+  }
+
+  case STEP_ACTIVATE_SCRIPT: {
+    g_autofree gchar *name = g_strdup_printf ("script:%s", exec_script);
+    g_autoptr (WpPlugin) p = wp_plugin_find (core, name);
     wp_object_activate (WP_OBJECT (p), WP_PLUGIN_FEATURE_ENABLED, NULL,
         (GAsyncReadyCallback) on_plugin_activated, self);
     break;
