@@ -6,6 +6,11 @@ default_policy.policy = {
   ["move"] = true,   -- moves session items when metadata target.node changes
   ["follow"] = true, -- moves session items to the default device when it has changed
 
+  -- Whether to forward the ports format of filter stream nodes to their
+  -- associated filter device nodes. This is needed for application to stream
+  -- surround audio if echo-cancel is enabled.
+  ["filter.forward-format"] = false,
+
   -- Set to 'true' to disable channel splitting & merging on nodes and enable
   -- passthrough of audio in the same format as the format of the device.
   -- Note that this breaks JACK support; it is generally not recommended

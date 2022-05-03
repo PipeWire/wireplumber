@@ -11,6 +11,7 @@ local config = ... or {}
 -- ensure config.move and config.follow are not nil
 config.move = config.move or false
 config.follow = config.follow or false
+config.filter_forward_format = config["filter.forward-format"] or false
 
 local self = {}
 self.scanning = false
@@ -648,10 +649,7 @@ function handleLinkable (si)
   Log.info (si, string.format("handling item: %s (%s)",
       tostring(si_props["node.name"]), tostring(si_props["node.id"])))
 
-  -- prepare flags table
-  if not si_flags[si.id] then
-    si_flags[si.id] = {}
-  end
+  ensureSiFlags(si)
 
   -- get other important node properties
   local reconnect = not parseBool(si_props["node.dont-reconnect"])
@@ -857,8 +855,105 @@ if config.move then
   end)
 end
 
+function findAssociatedLinkGroupNode (si)
+  local si_props = si.properties
+  local node = si:get_associated_proxy ("node")
+  local link_group = node.properties["node.link-group"]
+  if link_group == nil then
+    return nil
+  end
+
+  -- get the associated media class
+  local assoc_direction = getTargetDirection(si_props)
+  local assoc_media_class =
+        si_props["media.type"] ..
+        (assoc_direction == "input" and "/Sink" or "/Source")
+
+  -- find the linkable with same link group and matching assoc media class
+  for assoc_si in linkables_om:iterate() do
+    local assoc_node = assoc_si:get_associated_proxy ("node")
+    local assoc_link_group = assoc_node.properties["node.link-group"]
+    if assoc_link_group == link_group and
+        assoc_media_class == assoc_node.properties["media.class"] then
+      return assoc_si
+    end
+  end
+
+  return nil
+end
+
+function onLinkGroupPortsStateChanged (si, old_state, new_state)
+  local new_str = tostring(new_state)
+  local si_props = si.properties
+
+  -- only handle items with configured ports state
+  if new_str ~= "configured" then
+    return
+  end
+
+  Log.info (si, "ports format changed on " .. si_props["node.name"])
+
+  -- find associated device
+  local si_device = findAssociatedLinkGroupNode (si)
+  if si_device ~= nil then
+    local device_node_name = si_device.properties["node.name"]
+
+    -- get the stream format
+    local f, m = si:get_ports_format()
+
+    -- unregister the device
+    Log.info (si_device, "unregistering " .. device_node_name)
+    si_device:remove()
+
+    -- set new format in the device
+    Log.info (si_device, "setting new format in " .. device_node_name)
+    si_device:set_ports_format(f, m, function (item, e)
+      if e ~= nil then
+        Log.warning (item, "failed to configure ports in " ..
+            device_node_name .. ": " .. e)
+      end
+
+      -- register back the device
+      Log.info (item, "registering " .. device_node_name)
+      item:register()
+    end)
+  end
+end
+
+function ensureSiFlags (si)
+  -- prepare flags table
+  if not si_flags[si.id] then
+    si_flags[si.id] = {}
+  end
+end
+
+function checkFiltersPortsState (si)
+  local si_props = si.properties
+  local node = si:get_associated_proxy ("node")
+  local link_group = node.properties["node.link-group"]
+
+  ensureSiFlags(si)
+
+  -- only listen for ports state changed on audio filter streams
+  if si_flags[si.id].ports_state_signal ~= true and
+      si_props["item.factory.name"] == "si-audio-adapter" and
+      si_props["item.node.type"] == "stream" and
+      link_group ~= nil then
+    si:connect("adapter-ports-state-changed", onLinkGroupPortsStateChanged)
+    si_flags[si.id].ports_state_signal = true
+    Log.info (si, "listening ports state changed on " .. si_props["node.name"])
+  end
+end
+
 linkables_om:connect("object-added", function (om, si)
-  if si.properties["item.node.type"] ~= "stream" then
+  local si_props = si.properties
+
+  -- Forward filters ports format to associated virtual devices if enabled
+  if config.filter_forward_format then
+    checkFiltersPortsState (si)
+  end
+
+  if si_props["item.node.type"] ~= "stream" then
     scheduleRescan ()
   else
     handleLinkable (si)
