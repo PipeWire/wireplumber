@@ -170,6 +170,15 @@ on_adapter_activate_done (WpObject * adapter, GAsyncResult * res,
 }
 
 static void
+on_adapter_port_state_changed (WpSiAdapter *item,
+    WpSiAdapterPortsState old_state, WpSiAdapterPortsState new_state,
+    WpSiAudioEndpoint *self)
+{
+  g_signal_emit_by_name (self, "adapter-ports-state-changed", old_state,
+      new_state);
+}
+
+static void
 on_node_activate_done (WpObject * node, GAsyncResult * res,
     WpTransition * transition)
 {
@@ -192,6 +201,10 @@ on_node_activate_done (WpObject * node, GAsyncResult * res,
         g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
             "si-audio-endpoint: could not create si-audio-adapter"));
   }
+
+  /* Forward adapter-ports-state-changed signal */
+  g_signal_connect_object (self->adapter, "adapter-ports-state-changed",
+      G_CALLBACK (on_adapter_port_state_changed), self, 0);
 
   /* configure adapter */
   props = wp_properties_new_empty ();
@@ -359,6 +372,13 @@ si_audio_endpoint_linkable_init (WpSiLinkableInterface * iface)
   iface->get_ports = si_audio_endpoint_get_ports;
 }
 
+static WpSiAdapterPortsState
+si_audio_endpoint_get_ports_state (WpSiAdapter * item)
+{
+  WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (item);
+  return wp_si_adapter_get_ports_state (self->adapter);
+}
+
 static WpSpaPod *
 si_audio_endpoint_get_ports_format (WpSiAdapter * item, const gchar **mode)
 {
@@ -385,6 +405,7 @@ si_audio_endpoint_set_ports_format_finish (WpSiAdapter * item,
 static void
 si_audio_endpoint_adapter_init (WpSiAdapterInterface * iface)
 {
+  iface->get_ports_state = si_audio_endpoint_get_ports_state;
   iface->get_ports_format = si_audio_endpoint_get_ports_format;
   iface->set_ports_format = si_audio_endpoint_set_ports_format;
   iface->set_ports_format_finish = si_audio_endpoint_set_ports_format_finish;

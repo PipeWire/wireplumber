@@ -99,6 +99,26 @@ G_DEFINE_INTERFACE (WpSiAdapter, wp_si_adapter, WP_TYPE_SESSION_ITEM)
 static void
 wp_si_adapter_default_init (WpSiAdapterInterface * iface)
 {
+  g_signal_new ("adapter-ports-state-changed", G_TYPE_FROM_INTERFACE (iface),
+      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE,
+      2, WP_TYPE_SI_ADAPTER_PORTS_STATE, WP_TYPE_SI_ADAPTER_PORTS_STATE);
+}
+
+/**
+ * \brief Gets the ports state
+ *
+ * \ingroup wpsiinterfaces
+ * \param self the session item
+ * \returns The state of the ports
+ */
+WpSiAdapterPortsState
+wp_si_adapter_get_ports_state (WpSiAdapter * self)
+{
+  g_return_val_if_fail (WP_IS_SI_ADAPTER (self), WP_SI_ADAPTER_PORTS_STATE_NONE);
+  g_return_val_if_fail (WP_SI_ADAPTER_GET_IFACE (self)->get_ports_state,
+      WP_SI_ADAPTER_PORTS_STATE_NONE);
+
+  return WP_SI_ADAPTER_GET_IFACE (self)->get_ports_state (self);
 }
 
 /**

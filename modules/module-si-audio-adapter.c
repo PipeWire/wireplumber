@@ -42,6 +42,7 @@ struct _WpSiAudioAdapter
   WpSpaPod *format;
   gchar mode[32];
   GTask *format_task;
+  WpSiAdapterPortsState ports_state;
 };
 
 static void si_audio_adapter_linkable_init (WpSiLinkableInterface * iface);
@@ -57,6 +58,18 @@ G_DEFINE_TYPE_WITH_CODE (WpSiAudioAdapter, si_audio_adapter,
 static void
 si_audio_adapter_init (WpSiAudioAdapter * self)
 {
+}
+
+static void
+si_audio_adapter_set_ports_state (WpSiAudioAdapter *self, WpSiAdapterPortsState
+    new_state)
+{
+  if (self->ports_state != new_state) {
+    WpSiAdapterPortsState old_state = self->ports_state;
+    self->ports_state = new_state;
+    g_signal_emit_by_name (self, "adapter-ports-state-changed", old_state,
+        new_state);
+  }
 }
 
 static void
@@ -89,6 +102,7 @@ si_audio_adapter_reset (WpSessionItem * item)
   }
   g_clear_pointer (&self->format, wp_spa_pod_unref);
   self->mode[0] = '\0';
+  si_audio_adapter_set_ports_state (self, WP_SI_ADAPTER_PORTS_STATE_NONE);
 
   WP_SESSION_ITEM_CLASS (si_audio_adapter_parent_class)->reset (item);
 }
@@ -480,6 +494,8 @@ on_port_param_info (WpPipewireObject * port, GParamSpec * param,
   /* finish the task started by _set_ports_format() */
   if (self->format_task) {
     g_autoptr (GTask) t = g_steal_pointer (&self->format_task);
+    si_audio_adapter_set_ports_state (self,
+        WP_SI_ADAPTER_PORTS_STATE_CONFIGURED);
     g_task_return_boolean (t, TRUE);
   }
 }
@@ -509,6 +525,8 @@ on_node_ports_changed (WpObject * node, WpSiAudioAdapter *self)
     /* finish the task started by _set_ports_format() */
     if (self->format_task) {
       g_autoptr (GTask) t = g_steal_pointer (&self->format_task);
+      si_audio_adapter_set_ports_state (self,
+          WP_SI_ADAPTER_PORTS_STATE_CONFIGURED);
       g_task_return_boolean (t, TRUE);
     }
   }
@@ -584,6 +602,13 @@ si_audio_adapter_class_init (WpSiAudioAdapterClass * klass)
   si_class->enable_active = si_audio_adapter_enable_active;
 }
 
+static WpSiAdapterPortsState
+si_audio_adapter_get_ports_state (WpSiAdapter * item)
+{
+  WpSiAudioAdapter *self = WP_SI_AUDIO_ADAPTER (item);
+  return self->ports_state;
+}
+
 static WpSpaPod *
 si_audio_adapter_get_ports_format (WpSiAdapter * item, const gchar **mode)
 {
@@ -647,6 +672,9 @@ si_audio_adapter_set_ports_format (WpSiAdapter * item, WpSpaPod *f,
   self->format = g_steal_pointer (&format);
   strncpy (self->mode, mode ? mode : "dsp", sizeof (self->mode) - 1);
 
+  si_audio_adapter_set_ports_state (self,
+      WP_SI_ADAPTER_PORTS_STATE_CONFIGURING);
+
   /* configure DSP with chosen format */
   wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (self->node),
       "PortConfig", 0, wp_spa_pod_new_object (
@@ -671,6 +699,7 @@ si_audio_adapter_set_ports_format_finish (WpSiAdapter * item,
 static void
 si_audio_adapter_adapter_init (WpSiAdapterInterface * iface)
 {
+  iface->get_ports_state = si_audio_adapter_get_ports_state;
   iface->get_ports_format = si_audio_adapter_get_ports_format;
   iface->set_ports_format = si_audio_adapter_set_ports_format;
   iface->set_ports_format_finish = si_audio_adapter_set_ports_format_finish;
