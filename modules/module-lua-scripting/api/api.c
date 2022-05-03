@@ -1262,6 +1262,65 @@ static const luaL_Reg session_item_methods[] = {
   { NULL, NULL }
 };
 
+/* WpSiAdapter */
+
+static int
+si_adapter_get_ports_format (lua_State *L)
+{
+  WpSiAdapter *adapter = wplua_checkobject (L, 1, WP_TYPE_SI_ADAPTER);
+  const gchar *mode = NULL;
+  WpSpaPod *format = wp_si_adapter_get_ports_format (adapter, &mode);
+  wplua_pushboxed (L, WP_TYPE_SPA_POD, format);
+  lua_pushstring (L, mode);
+  return 2;
+}
+
+static void
+si_adapter_set_ports_format_done (WpObject *o, GAsyncResult * res,
+    GClosure * closure)
+{
+  g_autoptr (GError) error = NULL;
+  GValue val[2] = { G_VALUE_INIT, G_VALUE_INIT };
+  int n_vals = 1;
+
+  if (!wp_si_adapter_set_ports_format_finish (WP_SI_ADAPTER (o), res, &error)) {
+    wp_message_object (o, "%s", error->message);
+    if (closure) {
+      g_value_init (&val[1], G_TYPE_STRING);
+      g_value_set_string (&val[1], error->message);
+      n_vals = 2;
+    }
+  }
+  if (closure) {
+    g_value_init_from_instance (&val[0], o);
+    g_closure_invoke (closure, NULL, n_vals, val, NULL);
+    g_value_unset (&val[0]);
+    g_value_unset (&val[1]);
+    g_closure_invalidate (closure);
+    g_closure_unref (closure);
+  }
+}
+
+static int
+si_adapter_set_ports_format (lua_State *L)
+{
+  WpSiAdapter *adapter = wplua_checkobject (L, 1, WP_TYPE_SI_ADAPTER);
+  WpSpaPod *format = wplua_checkboxed (L, 2, WP_TYPE_SPA_POD);
+  const gchar *mode = luaL_checkstring (L, 3);
+  GClosure * closure = luaL_opt (L, wplua_checkclosure, 4, NULL);
+  if (closure)
+    g_closure_sink (g_closure_ref (closure));
+  wp_si_adapter_set_ports_format (adapter, wp_spa_pod_ref (format), mode,
+      (GAsyncReadyCallback) si_adapter_set_ports_format_done, closure);
+  return 0;
+}
+
+static const luaL_Reg si_adapter_methods[] = {
+  { "get_ports_format", si_adapter_get_ports_format },
+  { "set_ports_format", si_adapter_set_ports_format },
+  { NULL, NULL }
+};
+
 /* WpPipewireObject */
 
 static int
@@ -1421,6 +1480,8 @@ wp_lua_scripting_api_init (lua_State *L)
       NULL, client_methods);
   wplua_register_type_methods (L, WP_TYPE_SESSION_ITEM,
       session_item_new, session_item_methods);
+  wplua_register_type_methods (L, WP_TYPE_SI_ADAPTER,
+      NULL, si_adapter_methods);
   wplua_register_type_methods (L, WP_TYPE_PIPEWIRE_OBJECT,
       NULL, pipewire_object_methods);
   wplua_register_type_methods (L, WP_TYPE_STATE,
