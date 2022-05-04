@@ -22,6 +22,7 @@ sphinx_files += files(
   'properties_api.rst',
   'proxy_api.rst',
   'session_item_api.rst',
+  'settings_api.rst',
   'si_factory_api.rst',
   'si_interfaces_api.rst',
   'spa_device_api.rst',
