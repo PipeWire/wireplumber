@@ -174,7 +174,7 @@ do_parse_settings (void *data, const char *location,
 
       if (g_str_equal (name, PERSISTENT_SETTING) && spa_atob (value)) {
         self->use_persistent_storage = true;
-        wp_info_object (self, "Persistent settings enabled");
+        wp_info_object (self, "persistent settings enabled");
       }
 
       d->count++;
