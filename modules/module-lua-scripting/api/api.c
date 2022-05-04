@@ -1562,11 +1562,11 @@ apply_rule (lua_State *L)
     gboolean value = wp_settings_apply_rule (s, r, cp, ap);
     lua_pushboolean (L, value);
     wplua_properties_to_table (L, ap);
+    return 2;
   }
-  else
-    lua_pushnil (L);
 
-  return 2;
+  lua_pushnil (L);
+  return 1;
 }
 
 static const luaL_Reg settings_methods[] = {
