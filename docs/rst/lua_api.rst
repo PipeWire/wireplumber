@@ -17,4 +17,5 @@ Lua API Documentation
    lua_api/lua_proxies_api.rst
    lua_api/lua_session_item_api.rst
    lua_api/lua_spa_device_api.rst
+   lua_api/lua_spa_pod.rst
    lua_api/lua_local_module_api.rst
