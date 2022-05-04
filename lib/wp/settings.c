@@ -15,17 +15,16 @@
 #include "log.h"
 #include "private/registry.h"
 
-/*! \defgroup wpsetttings WpSettings */
+/*! \defgroup wpsettings WpSettings */
 /*!
  * \struct WpSettings
  *
- * WpSettings loads and parses `sm-settings`(default value) metadata(contains
- * wireplumber settings and rules). It provides APIs to its clients(modules,
- * lua scripts etc) to access and change them.
+ * WpSettings loads and parses the "sm-settings" (default value) metadata, which
+ * contains wireplumber settings and rules. It provides APIs to its clients
+ * (modules, lua scripts etc) to access and change them.
  *
  * Being a WpObject subclass, the settings inherits WpObject's activation
  * system.
- *
  */
 
 struct _WpSettings
@@ -70,13 +69,13 @@ wp_settings_init (WpSettings * self)
 
 
 /*!
- * \brief gets the boolean value of a setting.
+ * \brief Gets the boolean value of a setting
  *
- * \ingroup wpsetting
- * \param self the handle
+ * \ingroup wpsettings
+ * \param self the settings object
  * \param setting name of the setting
- * \param value(out): the boolean value of the setting
- * \returns:  TRUE if the setting is defined, FALSE otherwise
+ * \param value (out): the boolean value of the setting
+ * \returns TRUE if the setting is defined, FALSE otherwise
  */
 gboolean
 wp_settings_get_boolean (WpSettings *self, const gchar *setting,
@@ -98,13 +97,12 @@ wp_settings_get_boolean (WpSettings *self, const gchar *setting,
 }
 
 /*!
- * \brief gets the string value of a setting.
- *
- * \ingroup wpsetting
- * \param self the handle
+ * \brief Gets the string value of a setting
+ * \ingroup wpsettings
+ * \param self the settings object
  * \param setting name of the setting
- * \param value(out): the string value of the setting
- * \returns:  TRUE if the setting is defined, FALSE otherwise
+ * \param value (out): the string value of the setting
+ * \returns TRUE if the setting is defined, FALSE otherwise
  */
 gboolean
 wp_settings_get_string (WpSettings *self, const gchar *setting,
@@ -126,12 +124,12 @@ wp_settings_get_string (WpSettings *self, const gchar *setting,
 }
 
 /*!
- * \brief gets the integer(signed) value of a setting.
- *
- * \ingroup wpsetting
- * \param self the handle
- * \param value(out): the integer value of the setting
- * \returns:  TRUE if the setting is defined, FALSE otherwise
+ * \brief Gets the integer (signed) value of a setting
+ * \ingroup wpsettings
+ * \param self the settings object
+ * \param setting name of the setting
+ * \param val (out): the integer value of the setting
+ * \returns TRUE if the setting is defined, FALSE otherwise
  */
 gboolean
 wp_settings_get_int (WpSettings *self, const gchar *setting,
@@ -154,22 +152,22 @@ wp_settings_get_int (WpSettings *self, const gchar *setting,
 }
 
 /*!
- * \brief applies the rules and returns the applied props.
+ * \brief Applies the rules and returns the applied properties.
  *
- * This funtion applies the rules on the client properties and if
- * there is a match, returns true and also copies the applied props.
+ * This function applies the rules on the client properties and if
+ * there is a match, it returns TRUE and also copies the applied properties.
  *
- * \ingroup wpsetting
- * \param self the handle
- * \param rule name of the rule, this will match with the section mentioned
+ * \ingroup wpsettings
+ * \param self the settings object
+ * \param rule name of the rule; this will match with the section mentioned
  *  in the conf file.
- * \param client_props client props array, these properties are inputs on which
- *  the rules are applied.
- * \param applied_props (nullable) the resultant actions/properties as a result
- *  of the application of rules are copied, if this is null props will be
- *  appended to client_props.
- * \returns TRUE if there is a match for the client_props and returns the
- *  applied props for the match.
+ * \param client_props (transfer none)(inout): client properties array; these
+ *  properties are inputs on which the rules are applied.
+ * \param applied_props (transfer none)(nullable)(out): the resultant
+ *  actions/properties as a result of the application of rules are copied;
+ *  if this is NULL, properties will be appended to \a client_props instead
+ * \returns TRUE if there is a match for the client_props and the
+ *  applied properties are returned, FALSE otherwise
  */
 gboolean
 wp_settings_apply_rule (WpSettings *self, const gchar *rule,
@@ -247,18 +245,18 @@ check_metadata_name (gpointer  g_object, gpointer  metadata_name)
 
 
 /*!
- * \brief Returns the wpsettings instance that is associated with the
+ * \brief Returns the WpSettings instance that is associated with the
  * given core.
  *
  * This method will also create the instance and register it with the core
  * if it had not been created before.
  *
- * \ingroup wpsetting
+ * \ingroup wpsettings
  * \param core the core
- * \param metadata_name (nullable) the name of the metadata with which this
- *    object should is associated. `sm-settings` is the default value picked if
- *    none is supplied.
- * \returns:  (transfer full) the wpsettings instance
+ * \param metadata_name (nullable): the name of the metadata with which this
+ *    object is associated. `sm-settings` is the default value picked if
+ *    NULL is supplied.
+ * \returns (transfer full): the WpSettings instance
  */
 WpSettings *
 wp_settings_get_instance (WpCore *core, const gchar *metadata_name)
