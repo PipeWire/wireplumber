@@ -17,8 +17,8 @@ G_BEGIN_DECLS
  * \brief Flags to be used as WpObjectFeatures on WpSettings subclasses.
  * \ingroup wpsettings
  */
-typedef enum {
-  /* loads the metadata */
+typedef enum { /*< flags >*/
+  /*! Loads the settings */
   WP_SETTINGS_LOADED = (1 << 0),
 } WpSettingsFeatures;
 
