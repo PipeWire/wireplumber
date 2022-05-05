@@ -1,4 +1,5 @@
 device_defaults = {}
+device_defaults.enabled = true
 
 device_defaults.properties = {
   -- store preferences to the file system and restore them at startup;
@@ -37,6 +38,10 @@ device_defaults.persistent_profiles = {
 }
 
 function device_defaults.enable()
+  if not device_defaults.enabled then
+    return
+  end
+
   -- Selects appropriate default nodes and enables saving and restoring them
   load_module("default-nodes", device_defaults.properties)
 

@@ -1,3 +1,5 @@
+bluez_monitor.enabled = true
+
 bluez_monitor.properties = {
   -- These features do not work on all headsets, so they are enabled
   -- by default based on the hardware database. They can also be

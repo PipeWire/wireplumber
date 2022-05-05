@@ -1,5 +1,6 @@
 default_policy = {}
-
+default_policy.enabled = true
+default_policy.properties = {}
 default_policy.endpoints = {}
 
 default_policy.policy = {
@@ -37,6 +38,10 @@ bluetooth_policy.policy = {
 }
 
 function default_policy.enable()
+  if not default_policy.enabled then
+    return
+  end
+
   -- Session item factories, building blocks for the session management graph
   -- Do not disable these unless you really know what you are doing
   load_module("si-node")

@@ -1,3 +1,4 @@
+v4l2_monitor.enabled = true
 
 v4l2_monitor.rules = {
   -- An array of matches/actions to evaluate.

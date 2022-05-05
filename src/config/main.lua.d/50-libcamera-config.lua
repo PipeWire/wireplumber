@@ -1,3 +1,4 @@
+libcamera_monitor.enabled = true
 
 libcamera_monitor.rules = {
   -- An array of matches/actions to evaluate.

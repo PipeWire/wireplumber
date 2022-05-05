@@ -1,3 +1,4 @@
+alsa_monitor.enabled = true
 
 alsa_monitor.properties = {
   -- Create a JACK device. This is not enabled by default because

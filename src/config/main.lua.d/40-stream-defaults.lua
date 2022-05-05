@@ -1,4 +1,5 @@
 stream_defaults = {}
+stream_defaults.enabled = true
 
 stream_defaults.properties = {
   -- whether to restore the last stream properties or not
@@ -24,6 +25,10 @@ stream_defaults.rules = {
 }
 
 function stream_defaults.enable()
+  if not stream_defaults.enabled then
+    return
+  end
+
   -- Save and restore stream-specific properties
   load_script("restore-stream.lua", {
     properties = stream_defaults.properties,

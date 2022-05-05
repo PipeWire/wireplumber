@@ -1,3 +1,5 @@
+default_access.enabled = true
+
 default_access.properties = {
   -- Enable the use of the flatpak portal integration.
   -- Disable if you are running a system-wide instance, which

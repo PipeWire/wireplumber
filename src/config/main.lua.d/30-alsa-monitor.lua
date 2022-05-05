@@ -3,6 +3,10 @@ alsa_monitor.properties = {}
 alsa_monitor.rules = {}
 
 function alsa_monitor.enable()
+  if not alsa_monitor.enabled then
+    return
+  end
+
   -- The "reserve-device" module needs to be loaded for reservation to work
   if alsa_monitor.properties["alsa.reserve"] then
     load_module("reserve-device")
