@@ -6,6 +6,8 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <wp/wp.h>
+
 #include "../common/base-test-fixture.h"
 
 typedef struct {
@@ -13,6 +15,8 @@ typedef struct {
   GTestDBus *test_dbus;
   WpPlugin *rd_plugin_1;
   WpPlugin *rd_plugin_2;
+  WpDbus *dbus_1;
+  WpDbus *dbus_2;
   gint expected_rd1_state;
   gint expected_rd2_state;
 } RdTestFixture;
@@ -44,11 +48,19 @@ test_rd_setup (RdTestFixture *f, gconstpointer data)
 
   f->rd_plugin_2 = wp_plugin_find (f->base.client_core, "reserve-device");
   g_assert_nonnull (f->rd_plugin_2);
+
+  g_signal_emit_by_name (f->rd_plugin_1, "get-dbus", &f->dbus_1);
+  g_assert_nonnull (f->dbus_1);
+
+  g_signal_emit_by_name (f->rd_plugin_2, "get-dbus", &f->dbus_2);
+  g_assert_nonnull (f->dbus_2);
 }
 
 static void
 test_rd_teardown (RdTestFixture *f, gconstpointer data)
 {
+  g_clear_object (&f->dbus_1);
+  g_clear_object (&f->dbus_2);
   g_clear_object (&f->rd_plugin_1);
   g_clear_object (&f->rd_plugin_2);
   g_test_dbus_down (f->test_dbus);
@@ -70,8 +82,8 @@ static void
 ensure_plugins_stable_state (GObject * obj, GParamSpec * spec, RdTestFixture *f)
 {
   gint state1 = 0, state2 = 0;
-  g_object_get (f->rd_plugin_1, "state", &state1, NULL);
-  g_object_get (f->rd_plugin_2, "state", &state2, NULL);
+  g_object_get (f->dbus_1, "state", &state1, NULL);
+  g_object_get (f->dbus_2, "state", &state2, NULL);
   if (state1 != 1 && state2 != 1 && state1 == state2)
     g_main_loop_quit (f->base.loop);
 }
@@ -83,9 +95,9 @@ test_rd_plugin (RdTestFixture *f, gconstpointer data)
   gint state = 0xffff;
   gchar *str;
 
-  g_object_get (f->rd_plugin_1, "state", &state, NULL);
+  g_object_get (f->dbus_1, "state", &state, NULL);
   g_assert_cmpint (state, ==, 0);
-  g_object_get (f->rd_plugin_2, "state", &state, NULL);
+  g_object_get (f->dbus_2, "state", &state, NULL);
   g_assert_cmpint (state, ==, 0);
 
   wp_object_activate (WP_OBJECT (f->rd_plugin_1), WP_PLUGIN_FEATURE_ENABLED,
@@ -93,15 +105,15 @@ test_rd_plugin (RdTestFixture *f, gconstpointer data)
   wp_object_activate (WP_OBJECT (f->rd_plugin_2), WP_PLUGIN_FEATURE_ENABLED,
       NULL, (GAsyncReadyCallback) on_plugin_activated, f);
 
-  g_signal_connect (f->rd_plugin_1, "notify::state",
+  g_signal_connect (f->dbus_1, "notify::state",
       G_CALLBACK (ensure_plugins_stable_state), f);
-  g_signal_connect (f->rd_plugin_2, "notify::state",
+  g_signal_connect (f->dbus_2, "notify::state",
       G_CALLBACK (ensure_plugins_stable_state), f);
   g_main_loop_run (f->base.loop);
 
-  g_object_get (f->rd_plugin_1, "state", &state, NULL);
+  g_object_get (f->dbus_1, "state", &state, NULL);
   g_assert_cmpint (state, ==, 2);
-  g_object_get (f->rd_plugin_2, "state", &state, NULL);
+  g_object_get (f->dbus_2, "state", &state, NULL);
   g_assert_cmpint (state, ==, 2);
 
   g_signal_emit_by_name (f->rd_plugin_1, "create-reservation",
@@ -158,9 +170,12 @@ test_rd_plugin (RdTestFixture *f, gconstpointer data)
   wp_object_deactivate (WP_OBJECT (f->rd_plugin_1), WP_PLUGIN_FEATURE_ENABLED);
   wp_object_deactivate (WP_OBJECT (f->rd_plugin_2), WP_PLUGIN_FEATURE_ENABLED);
 
-  g_object_get (f->rd_plugin_1, "state", &state, NULL);
+  wp_object_deactivate (WP_OBJECT (f->dbus_1), WP_DBUS_FEATURE_ENABLED);
+  wp_object_deactivate (WP_OBJECT (f->dbus_2), WP_DBUS_FEATURE_ENABLED);
+
+  g_object_get (f->dbus_1, "state", &state, NULL);
   g_assert_cmpint (state, ==, 0);
-  g_object_get (f->rd_plugin_2, "state", &state, NULL);
+  g_object_get (f->dbus_2, "state", &state, NULL);
   g_assert_cmpint (state, ==, 0);
 }
 
@@ -170,9 +185,9 @@ test_rd_conn_closed (RdTestFixture *f, gconstpointer data)
   GObject *rd1 = NULL;
   gint state = 0xffff;
 
-  g_object_get (f->rd_plugin_1, "state", &state, NULL);
+  g_object_get (f->dbus_1, "state", &state, NULL);
   g_assert_cmpint (state, ==, 0);
-  g_object_get (f->rd_plugin_2, "state", &state, NULL);
+  g_object_get (f->dbus_2, "state", &state, NULL);
   g_assert_cmpint (state, ==, 0);
 
   wp_object_activate (WP_OBJECT (f->rd_plugin_1), WP_PLUGIN_FEATURE_ENABLED,
@@ -180,15 +195,15 @@ test_rd_conn_closed (RdTestFixture *f, gconstpointer data)
   wp_object_activate (WP_OBJECT (f->rd_plugin_2), WP_PLUGIN_FEATURE_ENABLED,
       NULL, (GAsyncReadyCallback) on_plugin_activated, f);
 
-  g_signal_connect (f->rd_plugin_1, "notify::state",
+  g_signal_connect (f->dbus_1, "notify::state",
       G_CALLBACK (ensure_plugins_stable_state), f);
-  g_signal_connect (f->rd_plugin_2, "notify::state",
+  g_signal_connect (f->dbus_2, "notify::state",
       G_CALLBACK (ensure_plugins_stable_state), f);
   g_main_loop_run (f->base.loop);
 
-  g_object_get (f->rd_plugin_1, "state", &state, NULL);
+  g_object_get (f->dbus_1, "state", &state, NULL);
   g_assert_cmpint (state, ==, 2);
-  g_object_get (f->rd_plugin_2, "state", &state, NULL);
+  g_object_get (f->dbus_2, "state", &state, NULL);
   g_assert_cmpint (state, ==, 2);
 
   g_signal_emit_by_name (f->rd_plugin_1, "create-reservation",
@@ -201,13 +216,16 @@ test_rd_conn_closed (RdTestFixture *f, gconstpointer data)
   g_test_dbus_stop (f->test_dbus);
   g_main_loop_run (f->base.loop);
 
-  g_object_get (f->rd_plugin_1, "state", &state, NULL);
+  g_object_get (f->dbus_1, "state", &state, NULL);
   g_assert_cmpint (state, ==, 0);
-  g_object_get (f->rd_plugin_2, "state", &state, NULL);
+  g_object_get (f->dbus_2, "state", &state, NULL);
   g_assert_cmpint (state, ==, 0);
 
   g_signal_emit_by_name (f->rd_plugin_1, "get-reservation", "Audio0", &rd1);
   g_assert_null (rd1);
+
+  wp_object_deactivate (WP_OBJECT (f->dbus_1), WP_DBUS_FEATURE_ENABLED);
+  wp_object_deactivate (WP_OBJECT (f->dbus_2), WP_DBUS_FEATURE_ENABLED);
 }
 
 static void
@@ -245,9 +263,9 @@ test_rd_acquire_release (RdTestFixture *f, gconstpointer data)
   gint state = 0xffff;
   gchar *str = NULL;
 
-  g_object_get (f->rd_plugin_1, "state", &state, NULL);
+  g_object_get (f->dbus_1, "state", &state, NULL);
   g_assert_cmpint (state, ==, 0);
-  g_object_get (f->rd_plugin_2, "state", &state, NULL);
+  g_object_get (f->dbus_2, "state", &state, NULL);
   g_assert_cmpint (state, ==, 0);
 
   wp_object_activate (WP_OBJECT (f->rd_plugin_1), WP_PLUGIN_FEATURE_ENABLED,
@@ -255,15 +273,15 @@ test_rd_acquire_release (RdTestFixture *f, gconstpointer data)
   wp_object_activate (WP_OBJECT (f->rd_plugin_2), WP_PLUGIN_FEATURE_ENABLED,
       NULL, (GAsyncReadyCallback) on_plugin_activated, f);
 
-  g_signal_connect (f->rd_plugin_1, "notify::state",
+  g_signal_connect (f->dbus_1, "notify::state",
       G_CALLBACK (ensure_plugins_stable_state), f);
-  g_signal_connect (f->rd_plugin_2, "notify::state",
+  g_signal_connect (f->dbus_2, "notify::state",
       G_CALLBACK (ensure_plugins_stable_state), f);
   g_main_loop_run (f->base.loop);
 
-  g_object_get (f->rd_plugin_1, "state", &state, NULL);
+  g_object_get (f->dbus_1, "state", &state, NULL);
   g_assert_cmpint (state, ==, 2);
-  g_object_get (f->rd_plugin_2, "state", &state, NULL);
+  g_object_get (f->dbus_2, "state", &state, NULL);
   g_assert_cmpint (state, ==, 2);
 
   g_signal_emit_by_name (f->rd_plugin_1, "create-reservation",
@@ -351,6 +369,9 @@ test_rd_acquire_release (RdTestFixture *f, gconstpointer data)
 
   wp_object_deactivate (WP_OBJECT (f->rd_plugin_1), WP_PLUGIN_FEATURE_ENABLED);
   wp_object_deactivate (WP_OBJECT (f->rd_plugin_2), WP_PLUGIN_FEATURE_ENABLED);
+
+  wp_object_deactivate (WP_OBJECT (f->dbus_1), WP_DBUS_FEATURE_ENABLED);
+  wp_object_deactivate (WP_OBJECT (f->dbus_2), WP_DBUS_FEATURE_ENABLED);
 }
 
 gint

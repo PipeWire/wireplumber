@@ -29,11 +29,8 @@ struct _WpReserveDevicePlugin
 {
   WpPlugin parent;
 
-  WpDBusConnectionState state;
+  WpDbus *dbus;
   GHashTable *reserve_devices;
-
-  GCancellable *cancellable;
-  GDBusConnection *connection;
   GDBusObjectManagerServer *manager;
 };
 

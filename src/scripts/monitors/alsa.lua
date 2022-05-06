@@ -383,8 +383,9 @@ end
 -- handle rd_plugin state changes to destroy and re-create the ALSA monitor in
 -- case D-Bus service is restarted
 if rd_plugin then
-  rd_plugin:connect("notify::state", function (p, pspec)
-    local state = p["state"]
+  local dbus = rd_plugin:call("get-dbus")
+  dbus:connect("notify::state", function (b, pspec)
+    local state = b["state"]
     Log.info ("rd-plugin state changed to " .. state)
     if state == "connected" then
       Log.info ("Creating ALSA monitor")

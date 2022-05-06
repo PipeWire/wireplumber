@@ -173,14 +173,16 @@ wp_reserve_device_acquire_transition_execute_step (
     wp_reserve_device_own_name (rd, FALSE);
     break;
 
-  case STEP_GET_PROXY:
-    wp_org_freedesktop_reserve_device1_proxy_new (plugin->connection,
+  case STEP_GET_PROXY: {
+    g_autoptr (GDBusConnection) conn = wp_dbus_get_connection (plugin->dbus);
+    wp_org_freedesktop_reserve_device1_proxy_new (conn,
         G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES |
         G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS |
         G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START,
         rd->service_name, rd->object_path, NULL,
         (GAsyncReadyCallback) on_got_proxy, self);
     break;
+  }
 
   case STEP_REQUEST_RELEASE:
     self->owner_state = OWNER_STATE_NONE;

@@ -76,7 +76,8 @@ update_owner_app_name (WpReserveDevice *self)
   if (self->state == WP_RESERVE_DEVICE_STATE_BUSY && !self->owner_app_name) {
     /* create proxy */
     g_autoptr (WpReserveDevicePlugin) plugin = g_weak_ref_get (&self->plugin);
-    wp_org_freedesktop_reserve_device1_proxy_new (plugin->connection,
+    g_autoptr (GDBusConnection) conn = wp_dbus_get_connection (plugin->dbus);
+    wp_org_freedesktop_reserve_device1_proxy_new (conn,
         G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS |
         G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START,
         self->service_name, self->object_path, NULL,
@@ -123,6 +124,7 @@ wp_reserve_device_constructed (GObject * object)
 {
   WpReserveDevice *self = WP_RESERVE_DEVICE (object);
   g_autoptr (WpReserveDevicePlugin) plugin = g_weak_ref_get (&self->plugin);
+  g_autoptr (GDBusConnection) conn = wp_dbus_get_connection (plugin->dbus);
 
   self->service_name =
       g_strdup_printf (FDO_RESERVE_DEVICE1_SERVICE ".%s", self->name);
@@ -130,7 +132,7 @@ wp_reserve_device_constructed (GObject * object)
       g_strdup_printf (FDO_RESERVE_DEVICE1_PATH "/%s", self->name);
 
   /* Watch for the name */
-  self->watcher_id = g_bus_watch_name_on_connection (plugin->connection,
+  self->watcher_id = g_bus_watch_name_on_connection (conn,
       self->service_name, G_BUS_NAME_WATCHER_FLAGS_NONE,
       on_name_appeared, on_name_vanished, self, NULL);
 
@@ -189,7 +191,7 @@ wp_reserve_device_acquire (WpReserveDevice * self)
 
   g_autoptr (WpReserveDevicePlugin) plugin = g_weak_ref_get (&self->plugin);
   WpTransition *transition = wp_reserve_device_acquire_transition_new (self,
-      plugin->cancellable, on_acquire_transition_done, self);
+      NULL, on_acquire_transition_done, self);
   g_weak_ref_set (&self->transition, transition);
   wp_transition_advance (transition);
 }
@@ -496,6 +498,7 @@ wp_reserve_device_own_name (WpReserveDevice * self, gboolean force)
 
   g_autoptr (WpReserveDevicePlugin) plugin = g_weak_ref_get (&self->plugin);
   if (plugin) {
+    g_autoptr (GDBusConnection) conn = wp_dbus_get_connection (plugin->dbus);
     GBusNameOwnerFlags flags = G_BUS_NAME_OWNER_FLAGS_DO_NOT_QUEUE;
     if (self->priority != G_MAXINT32)
       flags |= G_BUS_NAME_OWNER_FLAGS_ALLOW_REPLACEMENT;
@@ -504,7 +507,7 @@ wp_reserve_device_own_name (WpReserveDevice * self, gboolean force)
 
     wp_debug_object (self, "request ownership of %s", self->service_name);
 
-    self->owner_id = g_bus_own_name_on_connection (plugin->connection,
+    self->owner_id = g_bus_own_name_on_connection (conn,
         self->service_name, flags, on_name_acquired, on_name_lost, self, NULL);
   }
 }

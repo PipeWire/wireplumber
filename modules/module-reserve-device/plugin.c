@@ -10,8 +10,6 @@
 #include "reserve-device.h"
 #include "reserve-device-enums.h"
 
-static void setup_connection (WpReserveDevicePlugin *self);
-
 G_DEFINE_TYPE (WpReserveDevicePlugin, wp_reserve_device_plugin, WP_TYPE_PLUGIN)
 
 enum
@@ -19,6 +17,7 @@ enum
   ACTION_CREATE_RESERVATION,
   ACTION_DESTROY_RESERVATION,
   ACTION_GET_RESERVATION,
+  ACTION_GET_DBUS,
   LAST_SIGNAL
 };
 
@@ -39,11 +38,59 @@ rd_unref (gpointer data)
 }
 
 static void
+clear_reservation (WpReserveDevicePlugin *self)
+{
+  g_hash_table_remove_all (self->reserve_devices);
+  g_clear_object (&self->manager);
+}
+
+static void
+on_dbus_state_changed (GObject * obj, GParamSpec * spec,
+    WpReserveDevicePlugin *self)
+{
+  WpDBusState state = wp_dbus_get_state (self->dbus);
+  switch (state) {
+    case WP_DBUS_STATE_CONNECTED: {
+      g_autoptr (GDBusConnection) conn = NULL;
+
+      conn = wp_dbus_get_connection (self->dbus);
+      g_return_if_fail (conn);
+
+      self->manager = g_dbus_object_manager_server_new (
+          FDO_RESERVE_DEVICE1_PATH);
+      g_dbus_object_manager_server_set_connection (self->manager, conn);
+      break;
+    }
+
+    case WP_DBUS_STATE_CONNECTING:
+    case WP_DBUS_STATE_CLOSED:
+      clear_reservation (self);
+      break;
+
+    default:
+      break;
+  }
+}
+
+static void
 wp_reserve_device_plugin_init (WpReserveDevicePlugin * self)
 {
-  self->cancellable = g_cancellable_new ();
+}
+
+static void
+wp_reserve_device_plugin_constructed (GObject *object)
+{
+  WpReserveDevicePlugin *self = WP_RESERVE_DEVICE_PLUGIN (object);
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
+
   self->reserve_devices = g_hash_table_new_full (g_str_hash, g_str_equal,
       NULL, rd_unref);
+
+  self->dbus = wp_dbus_get_instance (core, G_BUS_TYPE_SESSION);
+  g_signal_connect_object (self->dbus, "notify::state",
+       G_CALLBACK (on_dbus_state_changed), self, 0);
+
+  G_OBJECT_CLASS (wp_reserve_device_plugin_parent_class)->constructed (object);
 }
 
 static void
@@ -52,125 +99,22 @@ wp_reserve_device_plugin_finalize (GObject * object)
   WpReserveDevicePlugin *self = WP_RESERVE_DEVICE_PLUGIN (object);
 
   g_clear_pointer (&self->reserve_devices, g_hash_table_unref);
-  g_clear_object (&self->cancellable);
+  g_clear_object (&self->dbus);
 
   G_OBJECT_CLASS (wp_reserve_device_plugin_parent_class)->finalize (object);
 }
 
 static void
-clear_connection (WpReserveDevicePlugin *self)
+on_dbus_activated (GObject * obj, GAsyncResult * res, gpointer user_data)
 {
-  g_hash_table_remove_all (self->reserve_devices);
-  g_clear_object (&self->manager);
-  g_clear_object (&self->connection);
-
-  if (self->state != WP_DBUS_CONNECTION_STATE_CLOSED) {
-    self->state = WP_DBUS_CONNECTION_STATE_CLOSED;
-    g_object_notify (G_OBJECT (self), "state");
-  }
-}
-
-static gboolean
-do_connect (WpReserveDevicePlugin *self, GAsyncReadyCallback callback,
-    gpointer data, GError **error)
-{
-  g_autofree gchar *address = NULL;
-
-  address = g_dbus_address_get_for_bus_sync (G_BUS_TYPE_SESSION, NULL, error);
-  if (!address) {
-    g_prefix_error (error, "Error acquiring session bus address: ");
-    return FALSE;
-  }
-
-  wp_debug_object (self, "Connecting to bus: %s", address);
-
-  self->state = WP_DBUS_CONNECTION_STATE_CONNECTING;
-  g_object_notify (G_OBJECT (self), "state");
-
-  g_dbus_connection_new_for_address (address,
-      G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT |
-      G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION,
-      NULL, self->cancellable, callback, data);
-  return TRUE;
-}
-
-static void
-on_reconnect_got_bus (GObject * obj, GAsyncResult * res, gpointer data)
-{
-  WpReserveDevicePlugin *self = WP_RESERVE_DEVICE_PLUGIN (data);
+  WpTransition * transition = WP_TRANSITION (user_data);
+  WpReserveDevicePlugin * self = wp_transition_get_source_object (transition);
   g_autoptr (GError) error = NULL;
 
-  self->connection = g_dbus_connection_new_for_address_finish (res, &error);
-  if (!self->connection) {
-    clear_connection (self);
-    wp_info_object (self, "Could not reconnect to session bus: %s",
-        error->message);
-    return;
-  }
-
-  wp_debug_object (self, "Reconnected to bus");
-  setup_connection (self);
-}
-
-static gboolean
-idle_connect (WpReserveDevicePlugin * self)
-{
-  g_autoptr (GError) error = NULL;
-
-  if (!do_connect (self, on_reconnect_got_bus, self, &error))
-    wp_info_object (self, "Cannot reconnect: %s", error->message);
-
-  return G_SOURCE_REMOVE;
-}
-
-static void
-on_connection_closed (GDBusConnection *connection,
-    gboolean remote_peer_vanished, GError *error, gpointer data)
-{
-  WpReserveDevicePlugin *self = WP_RESERVE_DEVICE_PLUGIN (data);
-  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
-
-  wp_info_object (self, "D-Bus connection closed: %s", error->message);
-
-  clear_connection (self);
-
-  /* try to reconnect on idle if connection was closed */
-  if (core)
-    wp_core_idle_add_closure (core, NULL, g_cclosure_new_object (
-        G_CALLBACK (idle_connect), G_OBJECT (self)));
-}
-
-static void
-setup_connection (WpReserveDevicePlugin *self)
-{
-  g_signal_connect_object (self->connection, "closed",
-      G_CALLBACK (on_connection_closed), self, 0);
-  g_dbus_connection_set_exit_on_close (self->connection, FALSE);
-
-  self->manager = g_dbus_object_manager_server_new (FDO_RESERVE_DEVICE1_PATH);
-  g_dbus_object_manager_server_set_connection (self->manager, self->connection);
-
-  self->state = WP_DBUS_CONNECTION_STATE_CONNECTED;
-  g_object_notify (G_OBJECT (self), "state");
-}
-
-static void
-on_enable_got_bus (GObject * obj, GAsyncResult * res, gpointer data)
-{
-  WpTransition *transition = WP_TRANSITION (data);
-  WpReserveDevicePlugin *self = wp_transition_get_source_object (transition);
-  g_autoptr (GError) error = NULL;
-
-  self->connection = g_dbus_connection_new_for_address_finish (res, &error);
-  if (!self->connection) {
-    clear_connection (self);
-    g_prefix_error (&error, "Failed to connect to session bus: ");
+  if (!wp_object_activate_finish (WP_OBJECT (obj), res, &error)) {
     wp_transition_return_error (transition, g_steal_pointer (&error));
     return;
   }
-
-  wp_debug_object (self, "Connected to bus");
-  setup_connection (self);
 
   wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
 }
@@ -179,14 +123,11 @@ static void
 wp_reserve_device_plugin_enable (WpPlugin * plugin, WpTransition * transition)
 {
   WpReserveDevicePlugin *self = WP_RESERVE_DEVICE_PLUGIN (plugin);
-  g_autoptr (GError) error = NULL;
 
-  g_return_if_fail (self->state == WP_DBUS_CONNECTION_STATE_CLOSED);
-
-  if (!do_connect (self, on_enable_got_bus, transition, &error)) {
-    wp_transition_return_error (transition, g_steal_pointer (&error));
-    return;
-  }
+  /* make sure dbus always activated */
+  g_return_if_fail (self->dbus);
+  wp_object_activate (WP_OBJECT (self->dbus), WP_OBJECT_FEATURES_ALL, NULL,
+      (GAsyncReadyCallback) on_dbus_activated, transition);
 }
 
 static void
@@ -194,10 +135,7 @@ wp_reserve_device_plugin_disable (WpPlugin * plugin)
 {
   WpReserveDevicePlugin *self = WP_RESERVE_DEVICE_PLUGIN (plugin);
 
-  g_cancellable_cancel (self->cancellable);
-  clear_connection (self);
-  g_clear_object (&self->cancellable);
-  self->cancellable = g_cancellable_new ();
+  clear_reservation (self);
 
   wp_object_update_features (WP_OBJECT (self), 0, WP_PLUGIN_FEATURE_ENABLED);
 }
@@ -207,7 +145,8 @@ wp_reserve_device_plugin_create_reservation (WpReserveDevicePlugin *self,
     const gchar *name, const gchar *app_name, const gchar *app_dev_name,
     gint priority)
 {
-  if (self->state != WP_DBUS_CONNECTION_STATE_CONNECTED) {
+  WpDBusState state = wp_dbus_get_state (self->dbus);
+  if (state != WP_DBUS_STATE_CONNECTED) {
     wp_message_object (self, "not connected to D-Bus");
     return NULL;
   }
@@ -230,7 +169,8 @@ static void
 wp_reserve_device_plugin_destroy_reservation (WpReserveDevicePlugin *self,
     const gchar *name)
 {
-  if (self->state != WP_DBUS_CONNECTION_STATE_CONNECTED) {
+  WpDBusState state = wp_dbus_get_state (self->dbus);
+  if (state != WP_DBUS_STATE_CONNECTED) {
     wp_message_object (self, "not connected to D-Bus");
     return;
   }
@@ -241,7 +181,8 @@ static gpointer
 wp_reserve_device_plugin_get_reservation (WpReserveDevicePlugin *self,
     const gchar *name)
 {
-  if (self->state != WP_DBUS_CONNECTION_STATE_CONNECTED) {
+  WpDBusState state = wp_dbus_get_state (self->dbus);
+  if (state != WP_DBUS_STATE_CONNECTED) {
     wp_message_object (self, "not connected to D-Bus");
     return NULL;
   }
@@ -250,20 +191,10 @@ wp_reserve_device_plugin_get_reservation (WpReserveDevicePlugin *self,
   return rd ? g_object_ref (rd) : NULL;
 }
 
-static void
-wp_reserve_device_plugin_get_property (GObject * object, guint property_id,
-    GValue * value, GParamSpec * pspec)
+static gpointer
+wp_reserve_device_plugin_get_dbus (WpReserveDevicePlugin *self)
 {
-  WpReserveDevicePlugin *self = WP_RESERVE_DEVICE_PLUGIN (object);
-
-  switch (property_id) {
-  case PROP_STATE:
-    g_value_set_enum (value, self->state);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
-    break;
-  }
+  return self->dbus ? g_object_ref (self->dbus) : NULL;
 }
 
 static void
@@ -272,16 +203,11 @@ wp_reserve_device_plugin_class_init (WpReserveDevicePluginClass * klass)
   GObjectClass *object_class = (GObjectClass *) klass;
   WpPluginClass *plugin_class = (WpPluginClass *) klass;
 
+  object_class->constructed = wp_reserve_device_plugin_constructed;
   object_class->finalize = wp_reserve_device_plugin_finalize;
-  object_class->get_property = wp_reserve_device_plugin_get_property;
 
   plugin_class->enable = wp_reserve_device_plugin_enable;
   plugin_class->disable = wp_reserve_device_plugin_disable;
-
-  g_object_class_install_property (object_class, PROP_STATE,
-      g_param_spec_enum ("state", "state", "The state",
-          WP_TYPE_DBUS_CONNECTION_STATE, WP_DBUS_CONNECTION_STATE_CLOSED,
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
   /**
    * WpReserveDevicePlugin::create-reservation:
@@ -329,6 +255,18 @@ wp_reserve_device_plugin_class_init (WpReserveDevicePluginClass * klass)
       (GCallback) wp_reserve_device_plugin_get_reservation,
       NULL, NULL, NULL,
       G_TYPE_OBJECT, 1, G_TYPE_STRING);
+
+  /**
+   * WpReserveDevicePlugin::get-dbus:
+   *
+   * Returns: (transfer full): the dbus object
+   */
+  signals[ACTION_GET_DBUS] = g_signal_new_class_handler (
+      "get-dbus", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+      (GCallback) wp_reserve_device_plugin_get_dbus,
+      NULL, NULL, NULL,
+      G_TYPE_OBJECT, 0);
 
 }
 
