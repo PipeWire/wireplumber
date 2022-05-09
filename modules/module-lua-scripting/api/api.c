@@ -1545,6 +1545,30 @@ get_int (lua_State *L)
 }
 
 static gboolean
+get_float (lua_State *L)
+{
+  const char *setting = luaL_checkstring (L, 1);
+  const char *m = NULL;
+
+  if (lua_type (L, 2) == LUA_TSTRING)
+    m = luaL_checkstring (L, 2);
+
+  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L), m);
+
+  if (s)
+  {
+    gfloat value = 0;
+    if (wp_settings_get_float (s, setting, &value))
+      lua_pushnumber (L, value);
+    else
+      lua_pushnil (L);
+  }
+  else
+    lua_pushnil (L);
+  return 1;
+}
+
+static gboolean
 apply_rule (lua_State *L)
 {
   const char *r = luaL_checkstring (L, 1);
@@ -1574,6 +1598,7 @@ static const luaL_Reg settings_methods[] = {
   { "apply_rule", apply_rule },
   { "get_string", get_string },
   { "get_int", get_int },
+  { "get_float", get_float },
   { NULL, NULL }
 };
 
