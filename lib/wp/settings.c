@@ -152,6 +152,32 @@ wp_settings_get_int (WpSettings *self, const gchar *setting,
 }
 
 /*!
+ * \brief Gets the float value of a setting
+ * \ingroup wpsettings
+ * \param self the settings object
+ * \param setting name of the setting
+ * \param val (out): the float value of the setting
+ * \returns TRUE if the setting is defined, FALSE otherwise
+ */
+gboolean
+wp_settings_get_float (WpSettings *self, const gchar *setting,
+    gfloat *val)
+{
+  g_return_val_if_fail (self, false);
+  g_return_val_if_fail (setting, false);
+
+  if (!(wp_object_get_active_features (WP_OBJECT (self)) &
+          WP_OBJECT_FEATURES_ALL))
+    return false;
+
+  if (!wp_properties_get (self->settings, setting))
+    return false;
+
+  spa_atof (wp_properties_get (self->settings, setting), val);
+  return true;
+}
+
+/*!
  * \brief Applies the rules and returns the applied properties.
  *
  * This function applies the rules on the client properties and if
