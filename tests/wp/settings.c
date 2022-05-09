@@ -112,7 +112,7 @@ test_parsing_setup (TestSettingsFixture *self, gconstpointer user_data)
     self->settings = g_steal_pointer (&settings);
 
     /* total no.of settings in the conf file */
-    g_assert_cmpint (data.count, ==, 11);
+    g_assert_cmpint (data.count, ==, 13);
   }
 
 }
@@ -129,7 +129,7 @@ static void
 test_parsing (TestSettingsFixture *self, gconstpointer data)
 {
   /* total no.of settings in the conf file */
-  g_assert_cmpint (wp_properties_get_count(self->settings), ==, 11);
+  g_assert_cmpint (wp_properties_get_count(self->settings), ==, 13);
 }
 
 static void
@@ -277,6 +277,7 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
     g_assert_true (wp_settings_get_int (s, "test-property4-min-int", &value));
     g_assert_cmpint (value, ==, G_MININT64);
 
+    value = 0;
     g_assert_true (wp_settings_get_int (s, "test-property4-max-int-one-more",
         &value));
     g_assert_cmpint (value, ==, 0);
@@ -305,6 +306,21 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
     g_assert_cmpstr (value, ==, "-20");
   }
 
+  {
+    gfloat value = 0.0;
+    /* _get_float () */
+    g_assert_false (wp_settings_get_float (s, "test-property-undefined",
+        &value));
+
+    g_assert_true (wp_settings_get_float (s, "test-property-float1",
+        &value));
+
+    g_assert_cmpfloat_with_epsilon (value, 3.14, 0.001);
+
+    g_assert_true (wp_settings_get_float (s, "test-property-float2",
+        &value));
+    g_assert_cmpfloat_with_epsilon (value, 0.4, 0.001);
+  }
   /* test the wp_settings_get_instance () API */
   {
     g_autoptr (WpSettings) s1 =
