@@ -2,9 +2,6 @@
 -- dynamic properties of pipewire objects in RAM
 load_module("metadata")
 
--- Track/store/restore user choices about devices
-device_defaults.enable()
-
 -- Track/store/restore user choices about streams
 stream_defaults.enable()
 
