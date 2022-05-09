@@ -596,22 +596,23 @@ wp_default_nodes_class_init (WpDefaultNodesClass * klass)
 WP_PLUGIN_EXPORT gboolean
 wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
-  guint save_interval_ms = DEFAULT_SAVE_INTERVAL_MS;
+  gint64 save_interval_ms = DEFAULT_SAVE_INTERVAL_MS;
   gboolean use_persistent_storage = DEFAULT_USE_PERSISTENT_STORAGE;
   gboolean auto_echo_cancel = DEFAULT_AUTO_ECHO_CANCEL;
   const gchar *echo_cancel_sink_name = DEFAULT_ECHO_CANCEL_SINK_NAME;
   const gchar *echo_cancel_source_name = DEFAULT_ECHO_CANCEL_SOURCE_NAME;
 
-  if (args) {
-    g_variant_lookup (args, "save-interval-ms", "u", &save_interval_ms);
-    g_variant_lookup (args, "use-persistent-storage", "b",
-        &use_persistent_storage);
-    g_variant_lookup (args, "auto-echo-cancel", "&s", &auto_echo_cancel);
-    g_variant_lookup (args, "echo-cancel-sink-name", "&s",
-        &echo_cancel_sink_name);
-    g_variant_lookup (args, "echo-cancel-source-name", "&s",
-        &echo_cancel_source_name);
-  }
+  g_autoptr (WpSettings) settings = wp_settings_get_instance(core, NULL);
+  wp_settings_get_int (settings, "device.save-interval-ms",
+    &save_interval_ms);
+  wp_settings_get_boolean (settings, "device.use-persistent-storage",
+    &use_persistent_storage);
+  wp_settings_get_boolean (settings, "device.auto-echo-cancel",
+    &auto_echo_cancel);
+  wp_settings_get_string (settings, "device.echo-cancel-sink-name",
+    &echo_cancel_sink_name);
+  wp_settings_get_string (settings, "device.echo-cancel-source-name",
+    &echo_cancel_source_name);
 
   wp_plugin_register (g_object_new (wp_default_nodes_get_type (),
           "name", NAME,
@@ -624,3 +625,5 @@ wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
           NULL));
   return TRUE;
 }
+
+
