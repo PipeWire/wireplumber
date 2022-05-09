@@ -6,42 +6,20 @@
 -- SPDX-License-Identifier: MIT
 
 local self = {}
-self.config = ... or {}
-self.config.persistent = self.config.persistent or {}
 self.active_profiles = {}
 self.best_profiles = {}
 self.default_profile_plugin = Plugin.find("default-profile")
 
--- Preprocess persisten profiles and create Interest objects
-for _, p in ipairs(self.config.persistent or {}) do
-  p.interests = {}
-  for _, i in ipairs(p.matches) do
-    local interest_desc = { type = "properties" }
-    for _, c in ipairs(i) do
-      c.type = "pw"
-      table.insert(interest_desc, Constraint(c))
-    end
-    local interest = Interest(interest_desc)
-    table.insert(p.interests, interest)
-  end
-  p.matches = nil
-end
-
 -- Checks whether a device profile is persistent or not
 function isProfilePersistent(device_props, profile_name)
-  for _, p in ipairs(self.config.persistent or {}) do
-    if p.profile_names then
-      for _, interest in ipairs(p.interests) do
-        if interest:matches(device_props) then
-          for _, pn in ipairs(p.profile_names) do
-            if pn == profile_name then
-              return true
-            end
-          end
-        end
-      end
+  local matched, mprops = Settings.apply_rule ("device", device_props)
+
+  if (matched and mprops) then
+    if string.find (mprops["profile_names"], profile_name) then
+      return true
     end
   end
+
   return false
 end
 

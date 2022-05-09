@@ -8,13 +8,12 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local config = ... or {}
-
 -- whether to store state on the file system
-use_persistent_storage = config["use-persistent-storage"] or false
+use_persistent_storage =
+  Settings.get_boolean ("device.use-persistent-storage") or false
 
 -- the default volume to apply
-default_volume = tonumber(config["default-volume"] or 0.4)
+default_volume = tonumber(Settings.get_float("device.default-volume") or 0.4)
 
 -- table of device info
 dev_infos = {}
