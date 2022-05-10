@@ -10,6 +10,7 @@
 #include <wp/wp.h>
 #include <pipewire/pipewire.h>
 #include <wplua/wplua.h>
+#include <libintl.h>
 
 #define URI_API "resource:///org/freedesktop/pipewire/wireplumber/m-lua-scripting/api.lua"
 
@@ -110,6 +111,32 @@ source_destroy (lua_State *L)
 
 static const luaL_Reg source_methods[] = {
   { "destroy", source_destroy },
+  { NULL, NULL }
+};
+
+/* i18n */
+
+static int
+i18n_gettext (lua_State *L)
+{
+  const gchar * msgid = luaL_checkstring (L, 1);
+  lua_pushstring (L, dgettext (GETTEXT_PACKAGE, msgid));
+  return 1;
+}
+
+static int
+i18n_ngettext (lua_State *L)
+{
+  const gchar * msgid = luaL_checkstring (L, 1);
+  const gchar *msgid_plural = luaL_checkstring (L, 2);
+  gulong n = luaL_checkinteger (L, 3);
+  lua_pushstring (L, dngettext (GETTEXT_PACKAGE, msgid, msgid_plural, n));
+  return 1;
+}
+
+static const luaL_Reg i18n_funcs[] = {
+  { "gettext", i18n_gettext },
+  { "ngettext", i18n_ngettext },
   { NULL, NULL }
 };
 
@@ -1433,6 +1460,9 @@ wp_lua_scripting_api_init (lua_State *L)
 
   luaL_newlib (L, glib_methods);
   lua_setglobal (L, "GLib");
+
+  luaL_newlib (L, i18n_funcs);
+  lua_setglobal (L, "I18n");
 
   luaL_newlib (L, log_funcs);
   lua_setglobal (L, "WpLog");

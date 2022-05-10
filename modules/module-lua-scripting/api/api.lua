@@ -186,35 +186,13 @@ local Feature = {
   },
 }
 
-local I18n = {
-  gettext = function (msgid)
-    local i18n = WpPlugin.find("i18n")
-    if i18n then
-      return i18n:call("gettext", msgid)
-    else
-      return msgid
-    end
-  end,
-  ngettext = function (msgid, msgid_plural, n)
-    local i18n = WpPlugin.find("i18n")
-    if i18n then
-      return i18n:call("ngettext", msgid, msgid_plural, n)
-    else
-      if n == 1 then
-        return msgid
-      else
-        return msgid_plural
-      end
-    end
-  end
-}
-
 SANDBOX_EXPORT = {
   Debug = Debug,
   Id = Id,
   Features = Features,
   Feature = Feature,
   GLib = GLib,
+  I18n = I18n,
   Log = WpLog,
   Core = WpCore,
   Plugin = WpPlugin,
@@ -232,5 +210,4 @@ SANDBOX_EXPORT = {
   State = WpState_new,
   LocalModule = WpImplModule_new,
   ImplMetadata = WpImplMetadata_new,
-  I18n = I18n
 }
