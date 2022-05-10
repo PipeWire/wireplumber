@@ -92,6 +92,20 @@ wp_si_endpoint_get_properties (WpSiEndpoint * self)
 /*!
  * \struct WpSiAdapter
  * An interface for port adapters
+ *
+ * \gsignals
+ *
+ * \par adapter-ports-state-changed
+ * \parblock
+ * \code
+ * void
+ * adapter_ports_state_changed_callback (WpSiAdapter * self,
+ *                                       gpointer user_data)
+ * \endcode
+ * Emitted when the ports state changes
+ *
+ * Flags: G_SIGNAL_RUN_LAST
+ * \endparblock
  */
 
 G_DEFINE_INTERFACE (WpSiAdapter, wp_si_adapter, WP_TYPE_SESSION_ITEM)
@@ -110,6 +124,7 @@ wp_si_adapter_default_init (WpSiAdapterInterface * iface)
  * \ingroup wpsiinterfaces
  * \param self the session item
  * \returns The state of the ports
+ * \since 0.4.10
  */
 WpSiAdapterPortsState
 wp_si_adapter_get_ports_state (WpSiAdapter * self)

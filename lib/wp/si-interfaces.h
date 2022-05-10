@@ -52,6 +52,11 @@ WP_API
 G_DECLARE_INTERFACE (WpSiAdapter, wp_si_adapter,
                      WP, SI_ADAPTER, WpSessionItem)
 
+/*!
+ * \brief The ports configuration state of the adapter
+ * \ingroup wpsiinterfaces
+ * \since 0.4.10
+ */
 typedef enum {
   WP_SI_ADAPTER_PORTS_STATE_NONE = 0, /*!< the ports have never been configured */
   WP_SI_ADAPTER_PORTS_STATE_CONFIGURING, /*!< the ports are being configured */
