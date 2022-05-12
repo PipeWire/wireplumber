@@ -20,7 +20,7 @@ local config_settings = {
   Settings.get_boolean ("alsa_monitor.alsa.midi.monitoring"),
 }
 
--- applies properties from config.rules when asked to
+-- applies rules from alsa-settings.conf when asked to
 function rulesApplyProperties(properties)
   local matched, mprops = Settings.apply_rule ("alsa_monitor", properties)
 
