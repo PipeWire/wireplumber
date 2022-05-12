@@ -22,7 +22,7 @@ for _, r in ipairs(config.rules or {}) do
   r.matches = nil
 end
 
--- applies properties from config.rules when asked to
+-- applies rules from bluez-settings.conf when asked to
 function rulesApplyProperties(properties)
   for _, r in ipairs(config.rules or {}) do
     if r.apply_properties then
