@@ -3,7 +3,7 @@ v4l2_monitor.properties = {}
 v4l2_monitor.rules = {}
 
 function v4l2_monitor.enable()
-  if not v4l2_monitor.enabled then
+  if v4l2_monitor.enabled == false then
     return
   end
 

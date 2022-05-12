@@ -3,7 +3,7 @@ bluez_monitor.properties = {}
 bluez_monitor.rules = {}
 
 function bluez_monitor.enable()
-  if not bluez_monitor.enabled then
+  if bluez_monitor.enabled == false then
     return
   end
 

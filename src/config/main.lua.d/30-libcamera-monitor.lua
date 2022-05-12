@@ -3,7 +3,7 @@ libcamera_monitor.properties = {}
 libcamera_monitor.rules = {}
 
 function libcamera_monitor.enable()
-  if not libcamera_monitor.enabled then
+  if libcamera_monitor.enabled == false then
     return
   end
 

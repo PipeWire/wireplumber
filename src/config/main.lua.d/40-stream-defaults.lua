@@ -25,7 +25,7 @@ stream_defaults.rules = {
 }
 
 function stream_defaults.enable()
-  if not stream_defaults.enabled then
+  if stream_defaults.enabled == false then
     return
   end
 

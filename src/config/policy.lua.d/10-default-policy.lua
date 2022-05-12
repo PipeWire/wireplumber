@@ -38,7 +38,7 @@ bluetooth_policy.policy = {
 }
 
 function default_policy.enable()
-  if not default_policy.enabled then
+  if default_policy.enabled == false then
     return
   end
 

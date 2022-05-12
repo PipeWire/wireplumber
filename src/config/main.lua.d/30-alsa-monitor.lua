@@ -3,7 +3,7 @@ alsa_monitor.properties = {}
 alsa_monitor.rules = {}
 
 function alsa_monitor.enable()
-  if not alsa_monitor.enabled then
+  if alsa_monitor.enabled == false then
     return
   end
 

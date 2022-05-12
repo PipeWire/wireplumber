@@ -38,7 +38,7 @@ device_defaults.persistent_profiles = {
 }
 
 function device_defaults.enable()
-  if not device_defaults.enabled then
+  if device_defaults.enabled == false then
     return
   end
 
