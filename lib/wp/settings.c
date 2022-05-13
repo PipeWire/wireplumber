@@ -475,18 +475,37 @@ parse_rule (const gchar *rule, const gchar *value)
   return r;
 }
 
+static gboolean
+is_rule (WpSpaJson *json)
+{
+  /* rule is an array and starts with an object */
+  if (wp_spa_json_is_array (json)) {
+    g_autoptr (WpIterator) iter = wp_spa_json_new_iterator (json);
+    g_auto (GValue) item = G_VALUE_INIT;
+
+    wp_iterator_next (iter, &item);
+    WpSpaJson *o = g_value_get_boxed (&item);
+    if (wp_spa_json_is_object (o))
+      return TRUE;
+  }
+  return FALSE;
+}
 static void
 parse_setting (const gchar *setting, const gchar *value, WpSettings *self)
 {
   g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (value);
 
-  if (!wp_spa_json_is_array (json))
-    wp_properties_set (self->settings, setting, value);
-  else {
+  if (is_rule (json)) {
     Rule *r = parse_rule (setting, value);
-    g_ptr_array_add (self->rules, r);
-    wp_debug_object (self, "loaded (%d) matches for rule (%s)",
-        r->matches->len, r->rule);
+    if (r)
+    {
+      g_ptr_array_add (self->rules, r);
+      wp_debug_object (self, "loaded (%d) matches for rule (%s)",
+          r->matches->len, r->rule);
+    }
+  }
+  else {
+    wp_properties_set (self->settings, setting, value);
   }
 }
 
