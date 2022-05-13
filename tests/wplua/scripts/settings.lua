@@ -51,6 +51,9 @@ assert (value == "blahblah")
 value = Settings.get_string ("test-property3-int", "test-settings")
 assert (value == "-20")
 
+value = Settings.get_string ("test-prop1-json", "test-settings")
+assert (value == "[ a b c ]")
+
 -- test settings _get_float ()
 value = Settings.get_float ("test-property-undefined", "test-settings")
 assert (value == nil)

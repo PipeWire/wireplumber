@@ -5,36 +5,37 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local config = ... or {}
-
--- preprocess rules and create Interest objects
-for _, r in ipairs(config.rules or {}) do
-  r.interests = {}
-  for _, i in ipairs(r.matches) do
-    local interest_desc = { type = "properties" }
-    for _, c in ipairs(i) do
-      c.type = "pw"
-      table.insert(interest_desc, Constraint(c))
-    end
-    local interest = Interest(interest_desc)
-    table.insert(r.interests, interest)
-  end
-  r.matches = nil
-end
+local config_settings = {
+  ["bluez5.enable-sbc-xq"] =
+     Settings.get_boolean ("bluez5.enable-sbc-xq"),
+  ["bluez5.enable-msbc"] =
+     Settings.get_boolean ("bluez5.enable-msbc"),
+  ["bluez5.enable-hw-volume"] =
+     Settings.get_boolean ("bluez5.enable-hw-volume"),
+  ["bluez5.headset-roles"] =
+     Settings.get_string ("bluez5.headset-roles"),
+  ["bluez5.codecs"] =
+    Settings.get_string ("bluez5.codecs"),
+  ["bluez5.hfphsp-backend"] =
+    Settings.get_string ("bluez5.hfphsp-backend"),
+  ["bluez5.default.rate"] =
+    Settings.get_int ("bluez5.default.rate"),
+  ["bluez5.default.channels"] =
+    Settings.get_int ("bluez5.default.channels"),
+  ["bluez5.dummy-avrcp-player"] =
+    Settings.get_boolean ("bluez5.dummy-avrcp-player"),
+}
 
 -- applies rules from bluez-settings.conf when asked to
 function rulesApplyProperties(properties)
-  for _, r in ipairs(config.rules or {}) do
-    if r.apply_properties then
-      for _, interest in ipairs(r.interests) do
-        if interest:matches(properties) then
-          for k, v in pairs(r.apply_properties) do
-            properties[k] = v
-          end
-        end
-      end
+  local matched, mprops = Settings.apply_rule ("bluez_monitor", properties)
+
+  if (matched and mprops) then
+    for k, v in pairs(mprops) do
+      properties[k] = v
     end
   end
+
 end
 
 function createNode(parent, id, type, factory, properties)
@@ -79,7 +80,7 @@ function createNode(parent, id, type, factory, properties)
     properties["node.autoconnect"] = true
   end
 
-  -- apply properties from config.rules
+  -- apply properties from bluetooth-settings.conf
   rulesApplyProperties(properties)
 
   -- create the node; bluez requires "local" nodes, i.e. ones that run in
@@ -129,8 +130,8 @@ function createDevice(parent, id, type, factory, properties)
     -- initial profile is to be set by policy-device-profile.lua, not spa-bluez5
     properties["bluez5.profile"] = "off"
 
-    -- apply properties from config.rules
-    rulesApplyProperties(properties)
+  -- apply properties from bluetooth-settings.conf
+  rulesApplyProperties(properties)
 
     -- create the device
     device = SpaDevice(factory, properties)
@@ -156,7 +157,7 @@ function createDevice(parent, id, type, factory, properties)
 end
 
 function createMonitor()
-  local monitor_props = config.properties or {}
+  local monitor_props = config_settings or {}
   monitor_props["api.bluez5.connection-info"] = true
 
   local monitor = SpaDevice("api.bluez5.enum.dbus", monitor_props)
