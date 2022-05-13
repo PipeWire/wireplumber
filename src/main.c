@@ -165,6 +165,9 @@ do_load_components(void *data, const char *location, const char *section,
     g_autofree gchar *name = NULL;
     g_autofree gchar *type = NULL;
     g_autofree gchar *deps = NULL;
+    WpSpaJson *flags = NULL;
+    gboolean if_exists = FALSE;
+    gboolean no_fail = FALSE;
 
     if (!wp_spa_json_is_object (o) ||
         !wp_spa_json_object_get (o,
@@ -187,9 +190,37 @@ do_load_components(void *data, const char *location, const char *section,
       }
     }
 
-    wp_debug ("load component(%s) type(%s) deps(%s)", name, type,
-        (deps ? deps : "nill"));
+    if (wp_spa_json_object_get (o, "flags", "J", &flags, NULL) && flags) {
+      g_autofree gchar *s1 = NULL;
+      g_autofree gchar *s2 = NULL;
+
+      wp_spa_json_parse_array (flags, "s", &s1, "s", &s2, NULL);
+
+      if (!g_strcmp0 (s1, "ifexists") || !g_strcmp0 (s2, "ifexists"))
+        if_exists = TRUE;
+      if (!g_strcmp0 (s1, "nofail") || !g_strcmp0 (s2, "nofail"))
+        no_fail = TRUE;
+    }
+
+    wp_debug ("load component(%s) type(%s) deps(%s) ifexists(%d) nofail(%d)",
+        name, type, deps, if_exists, no_fail);
+
     if (!wp_core_load_component (core, name, type, NULL, &error)) {
+      wp_info ("%s", error->message);
+      if ((error->code == G_FILE_ERROR_NOENT) ||
+          (error->code == G_FILE_ERROR_ACCES)) {
+
+        if (if_exists) {
+          wp_info ("\"ifexists\" flag set, ignore the failure");
+          g_clear_error (&error);
+          continue;
+        }
+
+      } else if (no_fail) {
+        wp_info ("\"nofail\" flag set, ignore the failure");
+        g_clear_error (&error);
+        continue;
+      }
       wp_transition_return_error (transition, error);
       return -EINVAL;
     }
