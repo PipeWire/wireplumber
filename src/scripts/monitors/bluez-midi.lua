@@ -5,38 +5,29 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local config = ... or {}
+local config = {}
+config.properties = Settings.get_string ("monitor.bluetooth-midi.properties")
+if config.properties == nil then
+  config.properties = {}
+else
+  config.properties = Json.Raw (config.properties)
+end
+if config.servers == nil then
+  config.servers = Json.Raw (config.server)
+else
+  config.servers = Settings.get_string ("monitor.bluetooth-midi.servers")
+end
 
 -- unique device/node name tables
 node_names_table = nil
 id_to_name_table = nil
 
--- preprocess rules and create Interest objects
-for _, r in ipairs(config.rules or {}) do
-  r.interests = {}
-  for _, i in ipairs(r.matches) do
-    local interest_desc = { type = "properties" }
-    for _, c in ipairs(i) do
-      c.type = "pw"
-      table.insert(interest_desc, Constraint(c))
-    end
-    local interest = Interest(interest_desc)
-    table.insert(r.interests, interest)
-  end
-  r.matches = nil
-end
+function rulesApplyProperties (properties)
+  local matched, mprops = Settings.apply_rule ("monitor.bluetooth-midi", properties)
 
--- applies properties from config.rules when asked to
-function rulesApplyProperties(properties)
-  for _, r in ipairs(config.rules or {}) do
-    if r.apply_properties then
-      for _, interest in ipairs(r.interests) do
-        if interest:matches(properties) then
-          for k, v in pairs(r.apply_properties) do
-            properties[k] = v
-          end
-        end
-      end
+  if (matched and mprops) then
+    for k, v in pairs(mprops) do
+      properties[k] = v
     end
   end
 end
@@ -101,7 +92,6 @@ function createMonitor()
   for k, v in pairs(config.properties or {}) do
     monitor_props[k] = v
   end
-  monitor_props["server"] = nil
 
   monitor_props["api.glib.mainloop"] = "true"
 
@@ -126,16 +116,10 @@ function createMonitor()
 end
 
 function createServers()
-  local props = config.properties or {}
-
-  if not props["servers"] then
-    return nil
-  end
-
   local servers = {}
   local i = 1
 
-  for k, v in pairs(props["servers"]) do
+  for k, v in pairs(config.servers) do
     local node_props = {
       ["node.name"] = v,
       ["node.description"] = string.format(I18n.gettext("BLE MIDI %d"), i),
