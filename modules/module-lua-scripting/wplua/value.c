@@ -314,9 +314,14 @@ wplua_gvalue_to_lua (lua_State *L, const GValue *v)
       wplua_pushboxed (L, G_VALUE_TYPE (v), g_value_dup_boxed (v));
     break;
   case G_TYPE_OBJECT:
-  case G_TYPE_INTERFACE:
-    wplua_pushobject (L, g_value_dup_object (v));
+  case G_TYPE_INTERFACE: {
+    GObject *object = g_value_dup_object (v);
+    if (object)
+      wplua_pushobject (L, g_value_dup_object (v));
+    else
+      lua_pushnil (L);
     break;
+  }
   case G_TYPE_ENUM:
     wplua_enum_to_lua (L, g_value_get_enum (v), G_VALUE_TYPE (v));
     break;
