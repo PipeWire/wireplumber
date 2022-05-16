@@ -74,7 +74,9 @@ Example hierarchy with files only in the directory
   config.lua.d/10-policy.lua
   config.lua.d/99-misc.lua
 
-Example of a file using alsa_monitor.rules in a split-file configuration::
+Example of a file using alsa_monitor.rules in a split-file configuration:
+
+.. code-block:: lua
 
   table.insert (alsa_monitor.rules, {
     matches = {
