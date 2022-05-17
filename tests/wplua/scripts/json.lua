@@ -76,6 +76,7 @@ val = json:parse ()
 assert (val[1] == "lua")
 assert (val[2] == "spa")
 assert (val[3] == "json")
+assert (val[4] == nil)
 assert (json:get_data() == "[\"lua\", \"spa\", \"json\"]")
 assert (json:get_size() == 22)
 
