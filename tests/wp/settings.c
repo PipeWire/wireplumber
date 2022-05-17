@@ -112,7 +112,7 @@ test_parsing_setup (TestSettingsFixture *self, gconstpointer user_data)
     self->settings = g_steal_pointer (&settings);
 
     /* total no.of settings in the conf file */
-    g_assert_cmpint (data.count, ==, 14);
+    g_assert_cmpint (data.count, ==, 15);
   }
 
 }
@@ -129,7 +129,7 @@ static void
 test_parsing (TestSettingsFixture *self, gconstpointer data)
 {
   /* total no.of settings in the conf file */
-  g_assert_cmpint (wp_properties_get_count(self->settings), ==, 14);
+  g_assert_cmpint (wp_properties_get_count(self->settings), ==, 15);
 }
 
 static void
@@ -308,6 +308,45 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
     g_assert_true (wp_settings_get_string (s, "test-prop1-json",
         &value));
     g_assert_cmpstr (value, ==, "[ a b c ]");
+
+    g_assert_true (wp_settings_get_string (s, "test-prop-strings",
+        &value));
+    g_assert_cmpstr (value, ==, "[\"test1\", \"test 2\", \"test three\", \"test-four\"]");
+
+    {
+      g_autofree gchar *s1 = NULL;
+      g_autofree gchar *s2 = NULL;
+      g_autofree gchar *s3 = NULL;
+      g_autofree gchar *s4 = NULL;
+
+      g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (value);
+
+      wp_spa_json_parse_array
+          (json, "s", &s1, "s", &s2, "s", &s3, "s", &s4, NULL);
+      g_assert_cmpstr (s1, ==, "test1");
+      g_assert_cmpstr (s2, ==, "test 2");
+      g_assert_cmpstr (s3, ==, "test three");
+      g_assert_cmpstr (s4, ==, "test-four");
+    }
+    {
+      gchar *sample_str[] = {
+        "test1",
+        "test 2",
+        "test three",
+        "test-four"
+      };
+      g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (value);
+      g_autoptr (WpIterator) it = wp_spa_json_new_iterator (json);
+      g_auto (GValue) item = G_VALUE_INIT;
+
+      for (int i = 0; wp_iterator_next (it, &item);
+          g_value_unset (&item), i++) {
+        WpSpaJson *s = g_value_get_boxed (&item);
+        g_autofree gchar *str = wp_spa_json_parse_string (s);
+        g_assert_cmpstr (str, ==, sample_str[i]);
+      }
+    }
+
   }
 
   {
