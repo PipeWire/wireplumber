@@ -5,12 +5,8 @@
 --
 -- SPDX-License-Identifier: MIT
 
--- Receive script arguments from config.lua
-local config = ... or {}
-
--- ensure config.move and config.follow are not nil
-config.move = config.move or false
-config.follow = config.follow or false
+local move = Settings.get_boolean ("default-policy-move") or false
+local follow = Settings.get_boolean ("default-policy-follow") or false
 
 local self = {}
 self.scanning = false
@@ -210,8 +206,8 @@ links_om = ObjectManager {
   }
 }
 
--- listen for default node changes if config.follow is enabled
-if config.follow then
+-- listen for default node changes if "follow" setting is enabled
+if follow then
   default_nodes:connect("changed", function (p)
     scheduleRescan ()
   end)

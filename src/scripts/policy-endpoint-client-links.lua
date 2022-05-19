@@ -5,10 +5,9 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local config = ... or {}
 local roles = {}
+local duck_level = Settings.get_float ("default-policy-duck.level") or 0.3
 
-config["duck.level"] = config["duck.level"] or 0.3
 local endpoint_roles_setting = Settings.get_string ("endpoints-roles")
 if endpoint_roles_setting then
   json = Json.Raw (endpoint_roles_setting)
@@ -74,7 +73,7 @@ function duck(role, media_class)
   if ep and ep.properties["node.id"] then
     Log.debug(ep, "duck role " .. role)
     mixer_api:call("set-volume", ep.properties["node.id"], {
-      monitorVolume = config["duck.level"],
+      monitorVolume = duck_level,
     })
   end
 end

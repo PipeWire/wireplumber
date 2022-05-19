@@ -24,10 +24,12 @@
 -- When a stream goes away if the list with which we track the streams above
 -- is empty, then we revert back to the old profile.
 
-local config = ...
-local use_persistent_storage = config["use-persistent-storage"] or false
+local use_persistent_storage =
+    Settings.get_boolean ("bt-policy-use-persistent-storage") or false
+local use_headset_profile =
+    Settings.get_boolean ("bt-policy-media-role.use-headset-profile") or false
+
 local applications = {}
-local use_headset_profile = config["media-role.use-headset-profile"] or false
 local profile_restore_timeout_msec = 2000
 
 local INVALID = -1
@@ -41,8 +43,13 @@ local last_profiles = {}
 local active_streams = {}
 local previous_streams = {}
 
-for _, value in ipairs(config["media-role.applications"] or {}) do
-  applications[value] = true
+local apps_setting_str =
+    Settings.get_string ("bt-policy-media-role.applications")
+json = Json.Raw (apps_setting_str)
+apps_setting = json:parse ()
+
+for i = 1, #apps_setting do
+  applications[apps_setting[i]] = true
 end
 
 metadata_om = ObjectManager {
