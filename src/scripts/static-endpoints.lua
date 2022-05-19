@@ -6,7 +6,12 @@
 -- SPDX-License-Identifier: MIT
 
 -- Receive script arguments from config.lua
-local endpoints_config = ...
+local endpoints = {}
+local endpoint_setting = Settings.get_string ("endpoints")
+if endpoint_setting then
+  json = Json.Raw (endpoint_setting)
+  endpoints = json:parse ()
+end
 
 function createEndpoint (factory_name, properties)
   -- create endpoint
@@ -30,7 +35,7 @@ function createEndpoint (factory_name, properties)
 end
 
 
-for name, properties in pairs(endpoints_config) do
+for name, properties in pairs(endpoints) do
   properties["name"] = name
   createEndpoint ("si-audio-endpoint", properties)
 end
