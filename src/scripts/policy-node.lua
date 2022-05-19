@@ -5,13 +5,9 @@
 --
 -- SPDX-License-Identifier: MIT
 
--- Receive script arguments from config.lua
-local config = ... or {}
-
--- ensure config.move and config.follow are not nil
-config.move = config.move or false
-config.follow = config.follow or false
-config.filter_forward_format = config["filter.forward-format"] or false
+local move = Settings.get_boolean ("default-policy-move") or false
+local follow = Settings.get_boolean ("default-policy-follow") or false
+local filter_forward_format = Settings.get_boolean("filter.forward-format") or false
 
 local self = {}
 self.scanning = false
@@ -261,12 +257,12 @@ end
 
 -- Try to locate a valid target node that was explicitly requsted by the
 -- client(node.target) or by the user(target.node)
--- Use the target.node metadata, if config.move is enabled,
+-- Use the target.node metadata, if "move" setting is enabled,
 -- then use the node.target property that was set on the node
 -- `properties` must be the properties dictionary of the session item
 -- that is currently being handled
 function findDefinedTarget (properties)
-  local metadata = config.move and metadata_om:lookup()
+  local metadata = move and metadata_om:lookup()
   local target_direction = getTargetDirection(properties)
   local target_key
   local target_value
@@ -617,7 +613,7 @@ function checkFollowDefault (si, si_target, has_node_defined_target)
   local reconnect = not parseBool(si_props["node.dont-reconnect"])
   local is_filter = (si_props["node.link-group"] ~= nil)
 
-  if config.follow and default_nodes ~= nil and reconnect and not is_filter then
+  if follow and default_nodes ~= nil and reconnect and not is_filter then
     local def_id = getDefaultNode(si_props, getTargetDirection(si_props))
 
     if target_props["node.id"] == tostring(def_id) then
@@ -836,15 +832,15 @@ links_om = ObjectManager {
   }
 }
 
--- listen for default node changes if config.follow is enabled
-if config.follow and default_nodes ~= nil then
+-- listen for default node changes if "follow" setting is enabled
+if follow and default_nodes ~= nil then
   default_nodes:connect("changed", function ()
     scheduleRescan ()
   end)
 end
 
--- listen for target.node metadata changes if config.move is enabled
-if config.move then
+-- listen for target.node metadata changes if "move" setting is enabled
+if move then
   metadata_om:connect("object-added", function (om, metadata)
     metadata:connect("changed", function (m, subject, key, t, value)
       if key == "target.node" or key == "target.object" then
@@ -948,7 +944,7 @@ linkables_om:connect("object-added", function (om, si)
   local si_props = si.properties
 
   -- Forward filters ports format to associated virtual devices if enabled
-  if config.filter_forward_format then
+  if filter_forward_format then
     checkFiltersPortsState (si)
   end
 
