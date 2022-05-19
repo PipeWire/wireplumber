@@ -146,10 +146,10 @@ do_parse_settings (void *data, const char *location,
   g_auto (GValue) item = G_VALUE_INIT;
 
   if (!wp_spa_json_is_object (json)) {
-    /* "wireplumber.settings" section has to be a JSON object element. */
+    /* section has to be a JSON object element. */
     wp_transition_return_error (transition, g_error_new (
       WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-        "failed to parse \"wireplumber.settings\" settings cannot be loaded"));
+        "failed to parse the section"));
     return -EINVAL;
   }
 
@@ -186,6 +186,12 @@ do_parse_settings (void *data, const char *location,
  return 0;
 }
 
+static int
+do_parse_endpoints (void *data, const char *location,
+    const char *section, const char *str, size_t len)
+{
+  do_parse_settings (data, location, section, str, len);
+}
 
 static void
 on_metadata_activated (WpMetadata * m, GAsyncResult * res, gpointer user_data)
@@ -226,6 +232,22 @@ on_metadata_activated (WpMetadata * m, GAsyncResult * res, gpointer user_data)
     wp_transition_return_error (transition, g_error_new (
       WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
       "No settings present in the context conf file: settings "
+      "are not loaded"));
+    return;
+  }
+
+  if (pw_context_conf_section_for_each (pw_ctx, "wireplumber.endpoints",
+      do_parse_endpoints, &data) < 0)
+    return;
+
+  if (data.count == 0) {
+    /*
+     * either the "wireplumber.endpoints" is not found or not defined as a
+     * valid JSON object element.
+     */
+    wp_transition_return_error (transition, g_error_new (
+      WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+      "No endpoints present in the context conf file: endpoints "
       "are not loaded"));
     return;
   }
