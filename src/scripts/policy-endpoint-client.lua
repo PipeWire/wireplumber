@@ -6,8 +6,12 @@
 -- SPDX-License-Identifier: MIT
 
 -- Receive script arguments from config.lua
-local config = ... or {}
-config.roles = config.roles or {}
+local roles = {}
+local endpoint_roles_setting = Settings.get_string ("endpoints-roles")
+if endpoint_roles_setting then
+  json = Json.Raw (endpoint_roles_setting)
+  roles = json:parse ()
+end
 
 local self = {}
 self.scanning = false
@@ -38,9 +42,9 @@ function scheduleRescan ()
 end
 
 function findRole(role, tmc)
-  if role and not config.roles[role] then
+  if role and not roles[role] then
     -- find the role with matching alias
-    for r, p in pairs(config.roles) do
+    for r, p in pairs(roles) do
       -- default media class can be overridden in the role config data
       mc = p["media.class"] or "Audio/Sink"
       if (type(p.alias) == "table" and tmc == mc) then
@@ -55,7 +59,7 @@ function findRole(role, tmc)
     -- otherwise get the lowest priority role
     local lowest_priority_p = nil
     local lowest_priority_r = nil
-    for r, p in pairs(config.roles) do
+    for r, p in pairs(roles) do
       mc = p["media.class"] or "Audio/Sink"
       if tmc == mc and (lowest_priority_p == nil or
           p.priority < lowest_priority_p.priority) then
