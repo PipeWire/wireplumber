@@ -51,13 +51,13 @@ Show all messages:
 
 .. code::
 
-   WIREPLUMBER_DEBUG=D
+   WIREPLUMBER_DEBUG=T
 
 Show all messages up to the *debug* level (E, C, W, M, I & D), excluding *trace*:
 
 .. code::
 
-   WIREPLUMBER_DEBUG=M
+   WIREPLUMBER_DEBUG=D
 
 Show all messages up to the *message* level (E, C, W & M),
 excluding *info*, *debug* & *trace*
@@ -71,13 +71,13 @@ Show all messages from the wireplumber library:
 
 .. code::
 
-   WIREPLUMBER_DEBUG=D:wp-*
+   WIREPLUMBER_DEBUG=T:wp-*
 
 Show all messages from ``wp-registry``, libpipewire and all modules:
 
 .. code::
 
-   WIREPLUMBER_DEBUG=D:wp-registry,pw,m-*
+   WIREPLUMBER_DEBUG=T:wp-registry,pw,m-*
 
 Relationship with the GLib log handler & G_MESSAGES_DEBUG
 ---------------------------------------------------------
