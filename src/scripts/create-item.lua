@@ -5,9 +5,6 @@
 --
 -- SPDX-License-Identifier: MIT
 
--- Receive script arguments from config.lua
-local config = ... or {}
-
 items = {}
 
 function configProperties(node)
@@ -15,7 +12,8 @@ function configProperties(node)
   local properties = {
     ["item.node"] = node,
     ["item.plugged.usec"] = GLib.get_monotonic_time(),
-    ["item.features.no-dsp"] = config["audio.no-dsp"],
+    ["item.features.no-dsp"] =
+        Settings.get_boolean ("default-policy-audio.no-dsp"),
     ["item.features.monitor"] = true,
     ["item.features.control-port"] = false,
     ["node.id"] = node["bound-id"],
