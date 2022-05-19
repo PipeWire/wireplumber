@@ -6,12 +6,18 @@
 -- SPDX-License-Identifier: MIT
 
 local config = ... or {}
-config.roles = config.roles or {}
+local roles = {}
+
 config["duck.level"] = config["duck.level"] or 0.3
+local endpoint_roles_setting = Settings.get_string ("endpoints-roles")
+if endpoint_roles_setting then
+  json = Json.Raw (endpoint_roles_setting)
+  roles = json:parse ()
+end
 
 function findRole(role)
-  if role and not config.roles[role] then
-    for r, p in pairs(config.roles) do
+  if role and not roles[role] then
+    for r, p in pairs(roles) do
       if type(p.alias) == "table" then
         for i = 1, #(p.alias), 1 do
           if role == p.alias[i] then
@@ -25,17 +31,17 @@ function findRole(role)
 end
 
 function priorityForRole(role)
-  local r = role and config.roles[role] or nil
+  local r = role and roles[role] or nil
   return r and r.priority or 0
 end
 
 function getAction(dominant_role, other_role)
   -- default to "mix" if the role is not configured
-  if not dominant_role or not config.roles[dominant_role] then
+  if not dominant_role or not roles[dominant_role] then
     return "mix"
   end
 
-  local role_config = config.roles[dominant_role]
+  local role_config = roles[dominant_role]
   return role_config["action." .. other_role]
       or role_config["action.default"]
       or "mix"
