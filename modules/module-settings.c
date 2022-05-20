@@ -160,7 +160,8 @@ do_parse_settings (void *data, const char *location,
     int len = 0;
 
     g_value_unset (&item);
-    wp_iterator_next (iter, &item);
+    if (!wp_iterator_next (iter, &item))
+      break;
     j = g_value_get_boxed (&item);
 
     value = wp_spa_json_parse_string (j);
@@ -190,7 +191,7 @@ static int
 do_parse_endpoints (void *data, const char *location,
     const char *section, const char *str, size_t len)
 {
-  do_parse_settings (data, location, section, str, len);
+  return do_parse_settings (data, location, section, str, len);
 }
 
 static void
