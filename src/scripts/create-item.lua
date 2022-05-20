@@ -56,72 +56,105 @@ function configProperties(node)
   return properties
 end
 
-function addItem (node, item_type)
-  local id = node["bound-id"]
-  local item
+AsyncEventHook {
+  priority = 10,
+  type = "on-event",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "object-added" },
+      Constraint { "event.subject.type", "=", "node" },
+      Constraint { "media.class", "#", "Stream/*", type = "pw-global" },
+    },
+    EventInterest {
+      Constraint { "event.type", "=", "object-added" },
+      Constraint { "event.subject.type", "=", "node" },
+      Constraint { "media.class", "#", "Video/*", type = "pw-global" },
+    },
+    EventInterest {
+      Constraint { "event.type", "=", "object-added" },
+      Constraint { "event.subject.type", "=", "node" },
+      Constraint { "media.class", "#", "Audio/*", type = "pw-global" },
+      Constraint { "wireplumber.is-endpoint", "-", type = "pw" },
+    },
+  },
+  steps = {
+    start = {
+      next = "register",
+      execute = function (event, transition)
+        local node = event:get_subject()
+        local id = node["bound-id"]
+        local item
+        local item_type
 
-  -- create item
-  item = SessionItem ( item_type )
-  items[id] = item
+        local media_class = node.properties['media.class']
+        if string.find (media_class, "Audio") then
+          item_type = "si-audio-adapter"
+        else
+          item_type = "si-node"
+        end
 
-  -- configure item
-  if not item:configure(configProperties(node)) then
-    Log.warning(item, "failed to configure item for node " .. tostring(id))
-    return
-  end
+        -- create item
+        item = SessionItem (item_type)
+        items[id] = item
 
-  item:register ()
+        -- configure item
+        if not item:configure(configProperties(node)) then
+          transition:return_error("failed to configure item for node " .. tostring(id))
+          return
+        end
 
-  -- activate item
-  items[id]:activate (Features.ALL, function (item, e)
-    if e then
-      Log.message(item, "failed to activate item: " .. tostring(e));
-      if item then
-        item:remove ()
-      end
-    else
-      Log.info(item, "activated item for node " .. tostring(id))
+        -- activate item
+        item:activate (Features.ALL, function (_, e)
+          if e then
+            transition:return_error("failed to activate item: " .. tostring(e));
+          else
+            transition:advance()
+          end
+        end)
+      end,
+    },
+    register = {
+      next = "none",
+      execute = function (event, transition)
+        local node = event:get_subject()
+        local id = node["bound-id"]
+        local item = items[id]
 
-      -- Trigger object managers to update status
-      item:remove ()
-      if item["active-features"] ~= 0 then
+        Log.info(item, "activated item for node " .. tostring(id))
         item:register ()
-      end
+        transition:advance()
+      end,
+    },
+  },
+}:register()
+
+SimpleEventHook {
+  priority = 10,
+  type = "on-event",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "object-removed" },
+      Constraint { "event.subject.type", "=", "node" },
+      Constraint { "media.class", "#", "Stream/*", type = "pw-global" },
+    },
+    EventInterest {
+      Constraint { "event.type", "=", "object-removed" },
+      Constraint { "event.subject.type", "=", "node" },
+      Constraint { "media.class", "#", "Video/*", type = "pw-global" },
+    },
+    EventInterest {
+      Constraint { "event.type", "=", "object-removed" },
+      Constraint { "event.subject.type", "=", "node" },
+      Constraint { "media.class", "#", "Audio/*", type = "pw-global" },
+      Constraint { "wireplumber.is-endpoint", "-", type = "pw" },
+    },
+  },
+  execute = function (_, event)
+    local node = event:get_subject()
+    local id = node["bound-id"]
+    if items[id] then
+      items[id]:remove ()
+      items[id] = nil
     end
-  end)
-end
-
-nodes_om = ObjectManager {
-  Interest {
-    type = "node",
-    Constraint { "media.class", "#", "Stream/*", type = "pw-global" },
-  },
-  Interest {
-    type = "node",
-    Constraint { "media.class", "#", "Video/*", type = "pw-global" },
-  },
-  Interest {
-    type = "node",
-    Constraint { "media.class", "#", "Audio/*", type = "pw-global" },
-    Constraint { "wireplumber.is-endpoint", "-", type = "pw" },
-  },
-}
-
-nodes_om:connect("object-added", function (om, node)
-  local media_class = node.properties['media.class']
-  if string.find (media_class, "Audio") then
-    addItem (node, "si-audio-adapter")
-  else
-    addItem (node, "si-node")
   end
-end)
-
-nodes_om:connect("object-removed", function (om, node)
-  local id = node["bound-id"]
-  if items[id] then
-    items[id]:remove ()
-    items[id] = nil
-  end
-end)
-
-nodes_om:activate()
+}:register()
