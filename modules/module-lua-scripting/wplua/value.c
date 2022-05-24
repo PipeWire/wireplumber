@@ -317,7 +317,7 @@ wplua_gvalue_to_lua (lua_State *L, const GValue *v)
   case G_TYPE_INTERFACE: {
     GObject *object = g_value_dup_object (v);
     if (object)
-      wplua_pushobject (L, g_value_dup_object (v));
+      wplua_pushobject (L, object);
     else
       lua_pushnil (L);
     break;
