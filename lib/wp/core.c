@@ -16,6 +16,7 @@
 
 #include <spa/utils/result.h>
 #include <spa/debug/types.h>
+#include <spa/support/cpu.h>
 
 /*
  * Integration between the PipeWire main loop and GMainLoop
@@ -504,6 +505,77 @@ wp_core_get_pw_core (WpCore * self)
 {
   g_return_val_if_fail (WP_IS_CORE (self), NULL);
   return self->pw_core;
+}
+
+/*!
+ * \brief Gets the virtual machine type of the core
+ *
+ * \ingroup wpcore
+ * \param self the core
+ * \returns (transfer full) (nullable): a comma separated string with all the
+ *   virtual machine types that this core matches, or NULL if the core is not
+ *   running in a virtual machine.
+ */
+gchar *
+wp_core_get_vm_type (WpCore *self)
+{
+  const struct spa_support *support;
+  uint32_t n_support;
+  struct spa_cpu *spa_cpu;
+  uint32_t vm_type;
+  gchar *res;
+  gboolean first = TRUE;
+
+  struct vm_type_info {
+    uint32_t type;
+    const gchar *name;
+  };
+
+  static struct vm_type_info vm_types[] = {
+    {SPA_CPU_VM_OTHER, "other"},
+    {SPA_CPU_VM_KVM, "kvm"},
+    {SPA_CPU_VM_QEMU, "qemu"},
+    {SPA_CPU_VM_BOCHS, "bochs"},
+    {SPA_CPU_VM_XEN, "zen"},
+    {SPA_CPU_VM_UML, "uml"},
+    {SPA_CPU_VM_VMWARE, "vmware"},
+    {SPA_CPU_VM_ORACLE, "oracle"},
+    {SPA_CPU_VM_MICROSOFT, "microsoft"},
+    {SPA_CPU_VM_ZVM, "zvm"},
+    {SPA_CPU_VM_PARALLELS, "parallels"},
+    {SPA_CPU_VM_BHYVE, "bhyve"},
+    {SPA_CPU_VM_QNX, "qnx"},
+    {SPA_CPU_VM_ACRN, "acrn"},
+    {SPA_CPU_VM_POWERVM, "powervm"},
+    {0, NULL},
+  };
+
+  g_return_val_if_fail (WP_IS_CORE (self), NULL);
+  g_return_val_if_fail (self->pw_context, NULL);
+
+  /* Get spa_cpu */
+  support = pw_context_get_support (self->pw_context, &n_support);
+  spa_cpu = spa_support_find (support, n_support, SPA_TYPE_INTERFACE_CPU);
+  g_return_val_if_fail (spa_cpu, NULL);
+
+  /* Just return NULL if CPU is not a VM */
+  vm_type = spa_cpu_get_vm_type (spa_cpu);
+  if (vm_type == SPA_CPU_VM_NONE)
+    return NULL;
+
+  /* Otherwise return a string with all matching VM types */
+  res = g_strdup ("");
+  for (guint i = 0; vm_types[i].name; i++) {
+    if (vm_type & vm_types[i].type) {
+      gchar *tmp = g_strdup_printf ("%s%s%s", res, first ? "": ",",
+          vm_types[i].name);
+      g_free (res);
+      res = tmp;
+      first = FALSE;
+    }
+  }
+
+  return res;
 }
 
 /*!

@@ -45,6 +45,9 @@ WP_API
 struct pw_core * wp_core_get_pw_core (WpCore * self);
 
 WP_API
+gchar *wp_core_get_vm_type (WpCore *self);
+
+WP_API
 gboolean wp_core_load_component (WpCore * self, const gchar * component,
     const gchar * type, GVariant * args, GError ** error);
 
