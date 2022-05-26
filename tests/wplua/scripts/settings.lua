@@ -2,59 +2,62 @@
 --  tests the lua API of WpSettings, this file tests the settings present in
 --  .conf file that is loaded.
 
+Script.async_activation = true
+
 -- test settings _get_boolean ()
-local value = Settings.get_boolean ("test-property1", "test-settings")
+
+local value = Settings.get_boolean ("test-setting1", "test-settings")
 assert (value == false)
 
-value = Settings.get_boolean ("test-property2", "test-settings")
+value = Settings.get_boolean ("test-setting2", "test-settings")
 assert ("boolean" == type (value))
 assert (value == true)
 
-value = Settings.get_boolean ("test-property1")
+value = Settings.get_boolean ("test-setting1")
 assert (value == nil)
 
-value = Settings.get_boolean ("test-property-undefined",
+value = Settings.get_boolean ("test-setting-undefined",
     "test-settings")
 assert (value == nil)
 
 
 -- test settings _get_int ()
-value = Settings.get_int ("test-property-undefined", "test-settings")
+value = Settings.get_int ("test-setting-undefined", "test-settings")
 assert (value == nil)
 
-value = Settings.get_int ("test-property3-int", "test-settings")
+value = Settings.get_int ("test-setting3-int", "test-settings")
 assert ("number" == type (value))
 assert (value == -20)
 
-value = Settings.get_int ("test-property4-max-int", "test-settings")
+value = Settings.get_int ("test-setting4-max-int", "test-settings")
 assert (value == 9223372036854775807)
 
-value = Settings.get_int ("test-property4-min-int", "test-settings")
+value = Settings.get_int ("test-setting4-min-int", "test-settings")
 assert (value == -9223372036854775808)
 
-value = Settings.get_int ("test-property4-max-int-one-more",
+value = Settings.get_int ("test-setting4-max-int-one-more",
     "test-settings")
 assert (value == 0)
 
-value = Settings.get_int ("test-property4-min-int-one-less",
+value = Settings.get_int ("test-setting4-min-int-one-less",
     "test-settings")
 assert (value == 0)
 
 -- test settings _get_string ()
-value = Settings.get_string ("test-property-undefined", "test-settings")
+value = Settings.get_string ("test-setting-undefined", "test-settings")
 assert (value == nil)
 
-value = Settings.get_string ("test-property4-string", "test-settings")
+value = Settings.get_string ("test-setting4-string", "test-settings")
 assert ("string" == type (value))
 assert (value == "blahblah")
 
-value = Settings.get_string ("test-property3-int", "test-settings")
+value = Settings.get_string ("test-setting3-int", "test-settings")
 assert (value == "-20")
 
-value = Settings.get_string ("test-prop1-json", "test-settings")
+value = Settings.get_string ("test-setting-json", "test-settings")
 assert (value == "[ a b c ]")
 
-value = Settings.get_string ("test-prop-strings", "test-settings")
+value = Settings.get_string ("test-setting-strings", "test-settings")
 assert (value == "[\"test1\", \"test 2\", \"test three\", \"test-four\"]")
 json = Json.Raw (value)
 assert (json:is_array())
@@ -69,14 +72,14 @@ assert (json:get_data() ==
   "[\"test1\", \"test 2\", \"test three\", \"test-four\"]")
 
 -- test settings _get_float ()
-value = Settings.get_float ("test-property-undefined", "test-settings")
+value = Settings.get_float ("test-setting-undefined", "test-settings")
 assert (value == nil)
 
-value = Settings.get_float ("test-property-float1", "test-settings")
+value = Settings.get_float ("test-setting-float1", "test-settings")
 assert ("number" == type (value))
 assert ((value - 3.14) < 0.00001)
 
-value = Settings.get_float ("test-property-float2", "test-settings")
+value = Settings.get_float ("test-setting-float2", "test-settings")
 assert ((value - 0.4) < 0.00001)
 
 
@@ -190,3 +193,96 @@ assert (applied == true)
 assert (ap["prop.electrical.conductivity"] == "true")
 assert (ap["prop.state"] == "solid")
 assert (ap["prop.example"] == "ferrous")
+
+-- test callbacks
+
+metadata_om = ObjectManager {
+  Interest {
+    type = "metadata",
+    Constraint { "metadata.name", "=", "test-settings" },
+  }
+}
+
+metadata_om:activate()
+
+local setting
+local setting_value
+local callback
+local setting_type
+local finish_activation
+
+function callback (s, rawvalue)
+  if (setting_type == "boolean") then
+    assert (s == setting)
+    callback = true
+    assert (rawvalue == tostring(setting_value))
+    assert ((setting_value and true or false) ==
+        Settings.get_boolean (s, "test-settings"))
+
+  elseif (setting_type == "integer") then
+    assert (s == setting)
+    callback = true
+    assert (rawvalue == tostring(setting_value))
+    assert (setting_value ==
+        Settings.get_int (s, "test-settings"))
+
+  elseif (setting_type == "string") then
+    assert (s == setting)
+    callback = true
+    assert (rawvalue == setting_value)
+    assert (setting_value ==
+        Settings.get_string (s, "test-settings"))
+  end
+
+  if (finish_activation) then
+    Script:finish_activation()
+  end
+end
+
+Settings.register_callback ("test-setting", "test-settings", callback)
+
+metadata_om:connect("objects-changed", function (om)
+  local metadata = om:lookup()
+
+  if (not metadata) then
+    return
+  end
+
+  -- test #1
+  setting = "test-setting1"
+  setting_value = true
+  callback = false
+  setting_type = "boolean"
+
+  metadata:set(0, setting, "Spa:String:JSON", tostring(setting_value))
+  assert (callback)
+
+  -- test #2
+  setting = "test-setting1"
+  setting_value = true
+  callback = false
+  setting_type = "boolean"
+
+  metadata:set(0, setting, "Spa:String:JSON", tostring(setting_value))
+  assert (not callback)
+
+  -- test #3
+  setting = "test-setting3-int"
+  setting_value = 99
+  callback = false
+  setting_type = "integer"
+
+  metadata:set(0, setting, "Spa:String:JSON", setting_value)
+  assert (callback)
+
+  -- test #4
+  setting = "test-setting4-string"
+  setting_value = "lets not blabber"
+  callback = false
+  setting_type = "string"
+
+  finish_activation = true
+  metadata:set(0, setting, "Spa:String:JSON", setting_value)
+  assert (callback)
+
+end)

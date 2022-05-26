@@ -11,6 +11,13 @@
  * tests the loading & parsing of JSON conf file(pls check the .conf that is
  * loaded), metadata updates,  wpsetttings object creation and its API.
  */
+typedef enum {
+  BOOLEAN,
+  INTEGER,
+  STRING,
+  FLOAT
+} SettingType;
+
 typedef struct {
   WpBaseTestFixture base;
 
@@ -20,6 +27,12 @@ typedef struct {
   WpMetadata *metadata;
 
   WpSettings *s;
+
+  gchar *triggered_setting;
+  gchar *triggered_setting_value;
+  gboolean triggered_callback;
+  SettingType setting_type;
+  GCancellable *cancellable;
 } TestSettingsFixture;
 
 static void
@@ -253,11 +266,11 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
     gboolean value = 0;
 
     /* test settings _get_boolean */
-    g_assert_false (wp_settings_get_boolean (s, "test-property-undefined",
+    g_assert_false (wp_settings_get_boolean (s, "test-setting-undefined",
         &value));
-    g_assert_true (wp_settings_get_boolean (s, "test-property1", &value));
+    g_assert_true (wp_settings_get_boolean (s, "test-setting1", &value));
     g_assert_false (value);
-    g_assert_true (wp_settings_get_boolean (s, "test-property2", &value));
+    g_assert_true (wp_settings_get_boolean (s, "test-setting2", &value));
     g_assert_true (value);
   }
 
@@ -265,24 +278,24 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
     gint64 value = 0;
 
     /* _get_int () */
-    g_assert_false (wp_settings_get_int (s, "test-property-undefined",
+    g_assert_false (wp_settings_get_int (s, "test-setting-undefined",
         &value));
 
-    g_assert_true (wp_settings_get_int (s, "test-property3-int", &value));
+    g_assert_true (wp_settings_get_int (s, "test-setting3-int", &value));
     g_assert_cmpint (value, ==, -20);
 
-    g_assert_true (wp_settings_get_int (s, "test-property4-max-int", &value));
+    g_assert_true (wp_settings_get_int (s, "test-setting4-max-int", &value));
     g_assert_cmpint (value, ==, G_MAXINT64);
 
-    g_assert_true (wp_settings_get_int (s, "test-property4-min-int", &value));
+    g_assert_true (wp_settings_get_int (s, "test-setting4-min-int", &value));
     g_assert_cmpint (value, ==, G_MININT64);
 
     value = 0;
-    g_assert_true (wp_settings_get_int (s, "test-property4-max-int-one-more",
+    g_assert_true (wp_settings_get_int (s, "test-setting4-max-int-one-more",
         &value));
     g_assert_cmpint (value, ==, 0);
 
-    g_assert_true (wp_settings_get_int (s, "test-property4-min-int-one-less",
+    g_assert_true (wp_settings_get_int (s, "test-setting4-min-int-one-less",
         &value));
     g_assert_cmpint (value, ==, 0);
   }
@@ -290,26 +303,26 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
   {
     const gchar *value = NULL;
     /* _get_string () */
-    g_assert_false (wp_settings_get_string (s, "test-property-undefined",
+    g_assert_false (wp_settings_get_string (s, "test-setting-undefined",
         &value));
 
-    g_assert_true (wp_settings_get_string (s, "test-property4-string",
+    g_assert_true (wp_settings_get_string (s, "test-setting4-string",
         &value));
     g_assert_cmpstr (value, ==, "blahblah");
 
-    g_assert_true (wp_settings_get_string (s, "test-property2",
+    g_assert_true (wp_settings_get_string (s, "test-setting2",
         &value));
     g_assert_cmpstr (value, ==, "true");
 
-    g_assert_true (wp_settings_get_string (s, "test-property3-int",
+    g_assert_true (wp_settings_get_string (s, "test-setting3-int",
         &value));
     g_assert_cmpstr (value, ==, "-20");
 
-    g_assert_true (wp_settings_get_string (s, "test-prop1-json",
+    g_assert_true (wp_settings_get_string (s, "test-setting-json",
         &value));
     g_assert_cmpstr (value, ==, "[ a b c ]");
 
-    g_assert_true (wp_settings_get_string (s, "test-prop-strings",
+    g_assert_true (wp_settings_get_string (s, "test-setting-strings",
         &value));
     g_assert_cmpstr (value, ==, "[\"test1\", \"test 2\", \"test three\", \"test-four\"]");
 
@@ -352,15 +365,15 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
   {
     gfloat value = 0.0;
     /* _get_float () */
-    g_assert_false (wp_settings_get_float (s, "test-property-undefined",
+    g_assert_false (wp_settings_get_float (s, "test-setting-undefined",
         &value));
 
-    g_assert_true (wp_settings_get_float (s, "test-property-float1",
+    g_assert_true (wp_settings_get_float (s, "test-setting-float1",
         &value));
 
     g_assert_cmpfloat_with_epsilon (value, 3.14, 0.001);
 
-    g_assert_true (wp_settings_get_float (s, "test-property-float2",
+    g_assert_true (wp_settings_get_float (s, "test-setting-float2",
         &value));
     g_assert_cmpfloat_with_epsilon (value, 0.4, 0.001);
   }
@@ -555,6 +568,96 @@ test_rules (TestSettingsFixture *self, gconstpointer data)
   }
 }
 
+void wp_settings_changed_callback (const gchar *setting, const gchar *raw_value,
+    gpointer user_data) {
+  TestSettingsFixture *self = user_data;
+  g_assert_cmpstr (setting, ==, self->triggered_setting);
+  self->triggered_callback = true;
+
+  if (self->setting_type == BOOLEAN) {
+    gboolean value = false;
+    wp_settings_get_boolean (self->s, setting, &value);
+    g_assert_cmpint (value, ==, spa_atob (self->triggered_setting_value));
+    g_assert_cmpstr (raw_value, ==, self->triggered_setting_value);
+
+  }else if (self->setting_type == INTEGER) {
+    gint64 value = 0;
+    wp_settings_get_int (self->s, setting, &value);
+    gint64 svalue = 0;
+    spa_atoi64 (self->triggered_setting_value, &svalue, 0);
+    g_assert_cmpint (value, ==, svalue);
+    g_assert_cmpstr (raw_value, ==, self->triggered_setting_value);
+
+  } else if (self->setting_type == STRING) {
+    const gchar *value = NULL;
+    wp_settings_get_string (self->s, setting, &value);
+    g_assert_cmpstr (value, ==, self->triggered_setting_value);
+    g_assert_cmpstr (raw_value, ==, self->triggered_setting_value);
+  }
+}
+
+
+static void
+test_callbacks (TestSettingsFixture *self, gconstpointer data)
+{
+  WpSettings *s = self->s;
+  self->cancellable = g_cancellable_new ();
+
+  /* register callback */
+  wp_settings_register_callback (s, self->cancellable, "test",
+      wp_settings_changed_callback, (gpointer)self);
+
+  {
+    self->triggered_setting = "test-setting1";
+    self->triggered_setting_value = "true";
+    self->triggered_callback = false;
+    self->setting_type = BOOLEAN;
+    wp_metadata_set (self->metadata, 0, self->triggered_setting,
+        "Spa:String:JSON", self->triggered_setting_value);
+    g_assert_cmpint (self->triggered_callback, ==, true);
+  }
+
+  {
+    self->triggered_setting = "test-setting1";
+    self->triggered_setting_value = "true";
+    self->setting_type = BOOLEAN;
+    self->triggered_callback = false;
+    wp_metadata_set (self->metadata, 0, self->triggered_setting,
+        "Spa:String:JSON", self->triggered_setting_value);
+    g_assert_cmpint (self->triggered_callback, ==, false);
+  }
+
+  {
+    self->triggered_setting = "test-setting3-int";
+    self->setting_type = INTEGER;
+    self->triggered_setting_value = "99";
+    self->triggered_callback = true;
+    wp_metadata_set (self->metadata, 0, self->triggered_setting,
+        "Spa:String:JSON", self->triggered_setting_value);
+    g_assert_cmpint (self->triggered_callback, ==, true);
+  }
+
+  {
+    self->triggered_setting = "test-setting4-string";
+    self->setting_type = STRING;
+    self->triggered_setting_value = "lets not blabber";
+    self->triggered_callback = true;
+    wp_metadata_set (self->metadata, 0, self->triggered_setting,
+        "Spa:String:JSON", self->triggered_setting_value);
+    g_assert_cmpint (self->triggered_callback, ==, true);
+  }
+  {
+    self->triggered_setting = "test-setting4-string";
+    self->setting_type = STRING;
+    self->triggered_setting_value = "lets blabber";
+    self->triggered_callback = false;
+    g_cancellable_cancel (self->cancellable);
+    wp_metadata_set (self->metadata, 0, self->triggered_setting,
+        "Spa:String:JSON", self->triggered_setting_value);
+    g_assert_cmpint (self->triggered_callback, ==, false);
+  }
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -573,6 +676,8 @@ main (gint argc, gchar *argv[])
       test_wpsettings_setup, test_wpsettings, test_wpsettings_teardown);
   g_test_add ("/wp/settings/wpsettings-creation-rules", TestSettingsFixture, NULL,
       test_wpsettings_setup, test_rules, test_wpsettings_teardown);
+  g_test_add ("/wp/settings/wpsettings-callbacks", TestSettingsFixture, NULL,
+      test_wpsettings_setup, test_callbacks, test_wpsettings_teardown);
 
   return g_test_run ();
 }

@@ -1488,12 +1488,32 @@ apply_rule (lua_State *L)
   return 1;
 }
 
+static gboolean
+register_callback (lua_State *L)
+{
+  const gchar *token = luaL_checkstring (L, 1);
+  const gchar *m = NULL;
+
+  GClosure * closure = wplua_function_to_closure (L, -1);
+
+  if (lua_type (L, 2) == LUA_TSTRING)
+    m = luaL_checkstring (L, 2);
+
+  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L), m);
+  if (s)
+    wp_settings_register_closure (s, NULL, token, closure);
+
+  lua_pushnil (L);
+  return 1;
+}
+
 static const luaL_Reg settings_methods[] = {
   { "get_boolean", get_boolean },
-  { "apply_rule", apply_rule },
   { "get_string", get_string },
   { "get_int", get_int },
   { "get_float", get_float },
+  { "apply_rule", apply_rule },
+  { "register_callback", register_callback },
   { NULL, NULL }
 };
 
