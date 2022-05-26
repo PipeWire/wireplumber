@@ -160,8 +160,11 @@ do_parse_settings (void *data, const char *location,
     int len = 0;
 
     g_value_unset (&item);
-    if (!wp_iterator_next (iter, &item))
+    if (!wp_iterator_next (iter, &item)) {
+     wp_warning ("It is likely that the JSON syntax is incorrect,"
+        " check key value pair formatting");
       break;
+    }
     j = g_value_get_boxed (&item);
 
     value = wp_spa_json_parse_string (j);
