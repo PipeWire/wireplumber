@@ -36,6 +36,9 @@ struct _WpSettings
   /* element-type: Rule* */
   GPtrArray *rules;
 
+  /* element-type: Callback* */
+  GPtrArray *callbacks;
+
   gchar *metadata_name;
   WpObjectManager *metadata_om;
 };
@@ -54,6 +57,12 @@ typedef struct
   WpProperties *actions;
 } Match;
 
+typedef struct
+{
+  GClosure *closure;
+  gchar *pattern;
+} Callback;
+
 enum {
   PROP_0,
   PROP_METADATA_NAME,
@@ -67,6 +76,90 @@ wp_settings_init (WpSettings * self)
 {
 }
 
+/*!
+ * \brief Subscribes callback for a given setting pattern(a glob-style pattern
+ * matched using g_pattern_match_simple), this allows clients to look
+ * for any changes made in settings through metadata.
+ *
+ * \ingroup wpsettings
+ * \param self the settings object
+ * \param pattern name of the pattern to match the settings with
+ * \param callback (scope async): the callback triggered when the settings
+ *  change.
+ * \param user_data data to pass to \a callback
+ * \returns the subscription ID (always greater than 0 for successful
+ *  subscriptions)
+ */
+guintptr
+wp_settings_subscribe (WpSettings *self,
+    const gchar *pattern, WpSettingsChangedCallback callback,
+    gpointer user_data)
+{
+  return wp_settings_subscribe_closure (self, pattern,
+      g_cclosure_new (G_CALLBACK (callback), user_data, NULL));
+}
+
+/*!
+ * \brief Subscribes callback for a given setting pattern(a glob-style pattern
+ * matched using g_pattern_match_simple), this allows clients to look
+ * for any changes made in settings through metadata.
+ *
+ * \ingroup wpsettings
+ * \param self the settings object
+ * \param pattern name of the pattern to match the settings with
+ * \param closure (nullable): a GAsyncReadyCallback wrapped in a GClosure
+ * \returns the subscription ID (always greater than 0 for success)
+ */
+guintptr
+wp_settings_subscribe_closure (WpSettings *self, const gchar *pattern,
+    GClosure *closure)
+{
+  g_return_val_if_fail (self, false);
+  g_return_val_if_fail (pattern, false);
+  g_return_val_if_fail (closure, false);
+
+  Callback *cb = g_slice_new0 (Callback);
+  g_return_val_if_fail (cb, FALSE);
+
+  cb->closure = g_closure_ref (closure);
+  g_closure_sink (closure);
+  if (G_CLOSURE_NEEDS_MARSHAL (closure))
+    g_closure_set_marshal (closure, g_cclosure_marshal_generic);
+
+  cb->pattern = g_strdup (pattern);
+
+  g_ptr_array_add (self->callbacks, cb);
+
+  wp_debug_object (self, "callback(%p) subscribed for pattern(%s)",
+      (void *) cb, pattern);
+
+  return (guintptr) cb;
+}
+
+/*!
+ * \brief Unsubscribes callback for a given subscription_id.
+ *
+ * \ingroup wpsettings
+ * \param self the settings object
+ * \param subscription_id identifies the callback
+ * \returns TRUE if success, FALSE otherwise
+ */
+gboolean
+wp_settings_unsubscribe (WpSettings *self, guintptr subscription_id)
+{
+  gboolean ret = false;
+  g_return_val_if_fail (self, false);
+  g_return_val_if_fail (subscription_id, false);
+
+  Callback *cb = (Callback *) subscription_id;
+
+  ret = g_ptr_array_remove (self->callbacks, cb);
+
+  wp_debug_object (self, "callback(%p) unsubscription %s", (void *) cb,
+      (ret)? "succeeded": "failed");
+
+  return ret;
+}
 
 /*!
  * \brief Gets the boolean value of a setting
@@ -106,7 +199,7 @@ wp_settings_get_boolean (WpSettings *self, const gchar *setting,
  */
 gboolean
 wp_settings_get_string (WpSettings *self, const gchar *setting,
-    const char **value)
+    const gchar **value)
 {
   g_return_val_if_fail (self, false);
   g_return_val_if_fail (setting, false);
@@ -510,12 +603,58 @@ parse_setting (const gchar *setting, const gchar *value, WpSettings *self)
 }
 
 static void
+on_metadata_changed (WpMetadata *m, guint32 subject,
+   const gchar *setting, const gchar *type, const gchar *new_value, gpointer d)
+{
+  WpSettings *self = WP_SETTINGS(d);
+  const gchar *old_value = wp_properties_get (self->settings, setting);
+
+  if (!old_value) {
+    wp_info_object (self, "new setting defined \"%s\" = \"%s\"",
+        setting, new_value);
+  } else {
+    wp_info_object (self, "setting \"%s\" new_value changed from \"%s\" ->"
+        " \"%s\"", setting, old_value, new_value);
+  }
+
+  wp_properties_set (self->settings, setting, new_value);
+
+  for (guint i = 0; i < self->callbacks->len; i++) {
+    Callback *cb = g_ptr_array_index (self->callbacks, i);
+
+    if (g_pattern_match_simple (cb->pattern, setting)) {
+
+      GValue values[3] = { G_VALUE_INIT, G_VALUE_INIT, G_VALUE_INIT };
+      g_value_init (&values[0], G_TYPE_OBJECT);
+      g_value_init (&values[1], G_TYPE_STRING);
+      g_value_init (&values[2], G_TYPE_STRING);
+
+      g_value_set_object (&values[0], self);
+      g_value_set_string (&values[1], setting);
+      g_value_set_string (&values[2], new_value);
+
+      g_closure_invoke (cb->closure, NULL, 3, values, NULL);
+
+      g_value_unset (&values[0]);
+      g_value_unset (&values[1]);
+      g_value_unset (&values[2]);
+
+      wp_debug_object (self, "triggered callback(%p)", cb);
+    }
+  }
+}
+
+static void
 on_metadata_added (WpObjectManager *om, WpMetadata *m, gpointer d)
 {
   WpTransition * transition = WP_TRANSITION (d);
   WpSettings * self = wp_transition_get_source_object (transition);
   g_autoptr (WpIterator) it = wp_metadata_new_iterator (WP_METADATA (m), 0);
   g_auto (GValue) val = G_VALUE_INIT;
+
+  /* Handle the changed signal */
+  g_signal_connect_object (m, "changed", G_CALLBACK (on_metadata_changed),
+      self, 0);
 
   /* traverse through all settings and rules */
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
@@ -540,6 +679,13 @@ rule_unref (Rule * self)
 }
 
 static void
+callback_unref (Callback * self)
+{
+  g_free (self->pattern);
+  g_clear_pointer (&self->closure, g_closure_unref);
+}
+
+static void
 wp_settings_activate_execute_step (WpObject * object,
     WpFeatureActivationTransition * transition, guint step,
     WpObjectFeatures missing)
@@ -554,6 +700,9 @@ wp_settings_activate_execute_step (WpObject * object,
 
     self->rules = g_ptr_array_new_with_free_func
         ((GDestroyNotify) rule_unref);
+
+    self->callbacks = g_ptr_array_new_with_free_func
+        ((GDestroyNotify) callback_unref);
 
     self->metadata_om = wp_object_manager_new ();
     wp_object_manager_add_interest (self->metadata_om, WP_TYPE_METADATA,
@@ -581,9 +730,11 @@ wp_settings_deactivate (WpObject * object, WpObjectFeatures features)
 {
   WpSettings *self = WP_SETTINGS (object);
 
+  wp_debug_object (self, "%s", self->metadata_name);
   g_free (self->metadata_name);
   g_clear_object (&self->metadata_om);
   g_clear_pointer (&self->rules, g_ptr_array_unref);
+  g_clear_pointer (&self->callbacks, g_ptr_array_unref);
   g_clear_pointer (&self->settings, wp_properties_unref);
 
   wp_object_update_features (WP_OBJECT (self), 0, WP_OBJECT_FEATURES_ALL);
