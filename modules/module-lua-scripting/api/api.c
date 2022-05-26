@@ -1593,12 +1593,52 @@ apply_rule (lua_State *L)
   return 1;
 }
 
+static gboolean
+subscribe (lua_State *L)
+{
+  const gchar *pattern = luaL_checkstring (L, 1);
+  const gchar *m = NULL;
+  guintptr sub_id = 0;
+
+  GClosure * closure = wplua_function_to_closure (L, -1);
+
+  if (lua_type (L, 2) == LUA_TSTRING)
+    m = luaL_checkstring (L, 2);
+
+  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L), m);
+  if (s)
+    sub_id = wp_settings_subscribe_closure (s, pattern, closure);
+
+  lua_pushinteger (L, sub_id);
+  return 1;
+}
+
+
+static gboolean
+unsubscribe (lua_State *L)
+{
+  guintptr sub_id = luaL_checkinteger (L, 1);
+  const gchar *m = NULL;
+  gboolean ret = FALSE;
+  if (lua_type (L, 2) == LUA_TSTRING)
+    m = luaL_checkstring (L, 2);
+
+  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L), m);
+  if (s)
+    ret = wp_settings_unsubscribe (s, sub_id);
+
+  lua_pushboolean (L, ret);
+  return 1;
+}
+
 static const luaL_Reg settings_methods[] = {
   { "get_boolean", get_boolean },
-  { "apply_rule", apply_rule },
   { "get_string", get_string },
   { "get_int", get_int },
   { "get_float", get_float },
+  { "apply_rule", apply_rule },
+  { "subscribe", subscribe },
+  { "unsubscribe", unsubscribe },
   { NULL, NULL }
 };
 
