@@ -8,6 +8,7 @@ default_access.enable()
 -- Load devices
 alsa_monitor.enable()
 v4l2_monitor.enable()
+libcamera_monitor.enable()
 
 -- Track/store/restore user choices about devices
 device_defaults.enable()

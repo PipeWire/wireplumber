@@ -86,6 +86,20 @@ function createNode(parent, id, type, factory, properties)
   -- sanitize description, replace ':' with ' '
   properties["node.description"] = desc:gsub("(:)", " ")
 
+  -- set priority
+  if not properties["priority.session"] then
+    local location = properties["api.libcamera.location"]
+    local priority = 700
+    if location == "front" then
+      priority = priority + 150
+    elseif location == "external" then
+      priority = priority + 100
+    elseif location == "back" then
+      priority = priority + 50
+    end
+    properties["priority.session"] = priority
+  end
+
   -- apply properties from config.rules
   rulesApplyProperties(properties)
 
