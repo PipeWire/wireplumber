@@ -9,6 +9,7 @@
 #define G_LOG_DOMAIN "wp-link"
 
 #include "link.h"
+#include "wpenums.h"
 #include "private/pipewire-object-mixin.h"
 
 /*! \defgroup wplink WpLink */
@@ -23,7 +24,44 @@
  * Alternatively, a WpLink can also be constructed using
  * wp_link_new_from_factory(), which creates a new link object
  * on the remote PipeWire server by calling into a factory.
+ *
+ * \gproperties
+ *
+ * \gproperty{state, WpLinkState, G_PARAM_READABLE, The current state of the link}
+ *
+ * \gsignals
+ *
+ * \par state-changed
+ * \parblock
+ * \code
+ * void
+ * state_changed_callback (WpLink * self,
+ *                         WpLinkState * old_state,
+ *                         WpLinkState * new_state,
+ *                         gpointer user_data)
+ * \endcode
+ *
+ * Emitted when the link changes state. This is only emitted when
+ * WP_PIPEWIRE_OBJECT_FEATURE_INFO is enabled.
+ *
+ * Parameters:
+ * - `old_state` - the old state
+ * - `new_state` - the new state
+ *
+ * Flags: G_SIGNAL_RUN_LAST
+ * \endparblock
  */
+
+enum {
+  PROP_STATE = WP_PW_OBJECT_MIXIN_PROP_CUSTOM_START,
+};
+
+enum {
+  SIGNAL_STATE_CHANGED,
+  N_SIGNALS,
+};
+
+static guint32 signals[N_SIGNALS] = {0};
 
 struct _WpLink
 {
@@ -42,6 +80,23 @@ G_DEFINE_TYPE_WITH_CODE (WpLink, wp_link, WP_TYPE_GLOBAL_PROXY,
 static void
 wp_link_init (WpLink * self)
 {
+}
+
+static void
+wp_link_get_property (GObject * object, guint property_id,
+    GValue * value, GParamSpec * pspec)
+{
+  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (object);
+
+  switch (property_id) {
+  case PROP_STATE:
+    g_value_set_enum (value, d->info ?
+        ((struct pw_link_info *) d->info)->state : 0);
+    break;
+  default:
+    wp_pw_object_mixin_get_property (object, property_id, value, pspec);
+    break;
+  }
 }
 
 static void
@@ -91,7 +146,7 @@ wp_link_class_init (WpLinkClass * klass)
   WpObjectClass *wpobject_class = (WpObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
-  object_class->get_property = wp_pw_object_mixin_get_property;
+  object_class->get_property = wp_link_get_property;
 
   wpobject_class->get_supported_features =
       wp_pw_object_mixin_get_supported_features;
@@ -105,6 +160,29 @@ wp_link_class_init (WpLinkClass * klass)
   proxy_class->pw_proxy_destroyed = wp_link_pw_proxy_destroyed;
 
   wp_pw_object_mixin_class_override_properties (object_class);
+
+  g_object_class_install_property (object_class, PROP_STATE,
+      g_param_spec_enum ("state", "state", "state", WP_TYPE_LINK_STATE, 0,
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+
+  signals[SIGNAL_STATE_CHANGED] = g_signal_new (
+      "state-changed", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 2,
+      WP_TYPE_LINK_STATE, WP_TYPE_LINK_STATE);
+
+}
+
+static void
+wp_link_process_info (gpointer instance, gpointer old_info, gpointer i)
+{
+  const struct pw_link_info *info = i;
+
+  if (info->change_mask & PW_LINK_CHANGE_MASK_STATE) {
+    enum pw_link_state old_state = old_info ?
+        ((struct pw_link_info *) old_info)->state : PW_LINK_STATE_INIT;
+    g_signal_emit (instance, signals[SIGNAL_STATE_CHANGED], 0,
+        old_state, info->state);
+  }
 }
 
 static void
@@ -112,6 +190,7 @@ wp_link_pw_object_mixin_priv_interface_init (
     WpPwObjectMixinPrivInterface * iface)
 {
   wp_pw_object_mixin_priv_interface_info_init_no_params (iface, link, LINK);
+  iface->process_info = wp_link_process_info;
 }
 
 /*!
@@ -176,4 +255,27 @@ wp_link_get_linked_object_ids (WpLink * self,
     *input_node = info->input_node_id;
   if (input_port)
     *input_port = info->input_port_id;
+}
+
+/*!
+ * \brief Gets the current state of the link
+ * \ingroup wplink
+ * \param self the link
+ * \param error (out) (optional) (transfer none): the error
+ * \returns the current state of the link
+ * \since 0.4.11
+ */
+WpLinkState
+wp_link_get_state (WpLink * self, const gchar ** error)
+{
+  g_return_val_if_fail (WP_IS_LINK (self), WP_LINK_STATE_ERROR);
+  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
+          WP_PIPEWIRE_OBJECT_FEATURE_INFO, WP_LINK_STATE_ERROR);
+
+  WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (self);
+  const struct pw_link_info *info = d->info;
+
+  if (error)
+    *error = info->error;
+  return (WpLinkState) info->state;
 }
