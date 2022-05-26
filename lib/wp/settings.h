@@ -35,13 +35,33 @@ WP_API
 WpSettings * wp_settings_get_instance (WpCore * core,
     const gchar *metadata_name);
 
+/*!
+ * \brief callback conveying the changed setting and its string(raw) value
+ *
+ * \ingroup wpsettings
+ * \param setting the changed setting
+ * \param raw_value string value of the the changed setting
+ * \param user_data data passed in the \a wp_settings_register_callback
+ */
+typedef void (*WpSettingsChangedCallback) (const gchar *setting,
+    const gchar *raw_value, gpointer user_data);
+
+WP_API
+gboolean wp_settings_register_callback (WpSettings *self,
+    GCancellable * cancellable, const gchar *token,
+    WpSettingsChangedCallback callback, gpointer user_data);
+
+WP_API
+gboolean wp_settings_register_closure (WpSettings *self,
+    GCancellable * cancellable, const gchar *token,  GClosure * closure);
+
 WP_API
 gboolean wp_settings_get_boolean (WpSettings *self, const gchar *setting,
     gboolean *value);
 
 WP_API
 gboolean wp_settings_get_string (WpSettings *self, const gchar *setting,
-    const char **value);
+    const gchar **value);
 
 WP_API
 gboolean wp_settings_get_int (WpSettings *self, const gchar *setting,
