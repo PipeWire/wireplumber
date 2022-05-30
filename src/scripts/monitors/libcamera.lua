@@ -49,6 +49,7 @@ end
 
 function createNode(parent, id, type, factory, properties)
   local dev_props = parent.properties
+  local location = properties["api.libcamera.location"]
 
   -- set the device id and spa factory name; REQUIRED, do not change
   properties["device.id"] = parent["bound-id"]
@@ -83,12 +84,16 @@ function createNode(parent, id, type, factory, properties)
 
   -- set the node description
   local desc = dev_props["device.description"] or "libcamera-device"
+  if location == "front" then
+    desc = I18n.gettext("Internal front camera")
+  elseif location == "back" then
+    desc = I18n.gettext("Internal back camera")
+  end
   -- sanitize description, replace ':' with ' '
   properties["node.description"] = desc:gsub("(:)", " ")
 
   -- set priority
   if not properties["priority.session"] then
-    local location = properties["api.libcamera.location"]
     local priority = 700
     if location == "front" then
       priority = priority + 150
