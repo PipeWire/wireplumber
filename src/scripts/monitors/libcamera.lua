@@ -92,6 +92,13 @@ function createNode(parent, id, type, factory, properties)
   -- sanitize description, replace ':' with ' '
   properties["node.description"] = desc:gsub("(:)", " ")
 
+  -- set the node nick
+  local nick = properties["node.nick"] or
+               dev_props["device.product.name"] or
+               dev_props["device.description"] or
+               dev_props["device.nick"]
+  properties["node.nick"] = nick:gsub("(:)", " ")
+
   -- set priority
   if not properties["priority.session"] then
     local priority = 700
