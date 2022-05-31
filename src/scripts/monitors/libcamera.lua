@@ -102,9 +102,9 @@ function createNode(parent, id, type, factory, properties)
   -- set priority
   if not properties["priority.session"] then
     local priority = 700
-    if location == "front" then
+    if location == "external" then
       priority = priority + 150
-    elseif location == "external" then
+    elseif location == "front" then
       priority = priority + 100
     elseif location == "back" then
       priority = priority + 50
