@@ -85,9 +85,9 @@ function createNode(parent, id, type, factory, properties)
   -- set the node description
   local desc = dev_props["device.description"] or "libcamera-device"
   if location == "front" then
-    desc = I18n.gettext("Internal front camera")
+    desc = I18n.gettext("Built-in Front Camera")
   elseif location == "back" then
-    desc = I18n.gettext("Internal back camera")
+    desc = I18n.gettext("Built-in Back Camera")
   end
   -- sanitize description, replace ':' with ' '
   properties["node.description"] = desc:gsub("(:)", " ")
