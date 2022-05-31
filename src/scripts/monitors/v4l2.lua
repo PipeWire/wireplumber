@@ -83,6 +83,7 @@ function createNode(parent, id, type, factory, properties)
 
   -- set the node description
   local desc = dev_props["device.description"] or "v4l2-device"
+  desc = desc .. " (V4L2)"
   -- sanitize description, replace ':' with ' '
   properties["node.description"] = desc:gsub("(:)", " ")
 
