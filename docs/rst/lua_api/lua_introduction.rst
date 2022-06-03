@@ -9,13 +9,6 @@ embeddable scripting language.
 WirePlumber uses `Lua version 5.4 <https://www.lua.org/versions.html>`_ to
 implement its engine. For older systems, Lua 5.3 is also supported.
 
-There are currently two uses for Lua in WirePlumber:
-
-  - To implement the scripting engine
-  - To implement lua-based :ref:`config files <config_lua>`
-
-This section is only documenting the API of the **scripting engine**
-
 Lua Reference
 -------------
 
