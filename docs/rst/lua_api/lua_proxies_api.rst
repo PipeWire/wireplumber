@@ -30,7 +30,7 @@ contain the following methods:
    :param string param_name: the PipeWire param name to enumerate,
                              ex "Props", "Route"
    :returns: the available parameters
-   :rtype: Iterator; the iteration items are :ref:`Spa Pod <lua_spa_pod>` objects
+   :rtype: Iterator; the iteration items are Spa Pod objects
 
 .. function:: PipewireObject.set_param(self, param_name, pod)
 
