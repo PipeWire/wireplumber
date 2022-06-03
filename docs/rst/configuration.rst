@@ -26,7 +26,6 @@ which are documented later in this chapter.
 
    configuration/locations.rst
    configuration/main.rst
-   configuration/config_lua.rst
    configuration/multi_instance.rst
    configuration/alsa.rst
    configuration/bluetooth.rst
