@@ -52,6 +52,17 @@ WP_API
 G_DECLARE_INTERFACE (WpSiAdapter, wp_si_adapter,
                      WP, SI_ADAPTER, WpSessionItem)
 
+/*!
+ * \brief The ports configuration state of the adapter
+ * \ingroup wpsiinterfaces
+ * \since 0.4.10
+ */
+typedef enum {
+  WP_SI_ADAPTER_PORTS_STATE_NONE = 0, /*!< the ports have never been configured */
+  WP_SI_ADAPTER_PORTS_STATE_CONFIGURING, /*!< the ports are being configured */
+  WP_SI_ADAPTER_PORTS_STATE_CONFIGURED, /*!< the ports are configured */
+} WpSiAdapterPortsState;
+
 struct _WpSiAdapterInterface
 {
   GTypeInterface interface;
@@ -61,10 +72,14 @@ struct _WpSiAdapterInterface
       const gchar *mode, GAsyncReadyCallback callback, gpointer data);
   gboolean (*set_ports_format_finish) (WpSiAdapter * self, GAsyncResult * res,
       GError ** error);
+  WpSiAdapterPortsState (*get_ports_state) (WpSiAdapter * self);
 
   /*< private >*/
-  WP_PADDING(5)
+  WP_PADDING(4)
 };
+
+WP_API
+WpSiAdapterPortsState wp_si_adapter_get_ports_state (WpSiAdapter * self);
 
 WP_API
 WpSpaPod *wp_si_adapter_get_ports_format (WpSiAdapter * self,

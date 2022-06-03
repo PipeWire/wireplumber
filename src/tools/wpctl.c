@@ -316,7 +316,11 @@ print_stream_node (const GValue *item, gpointer data)
           NULL);
       name = wp_pipewire_object_get_property (peer, PW_KEY_PORT_ALIAS);
 
-      printf (" %c %s\n", (dir == WP_DIRECTION_OUTPUT) ? '>' : '<', name);
+      g_autoptr (GEnumClass) klass = g_type_class_ref (WP_TYPE_LINK_STATE);
+      GEnumValue *state = g_enum_get_value (klass, wp_link_get_state (link, NULL));
+
+      printf (" %c %s\t[%s]\n", (dir == WP_DIRECTION_OUTPUT) ? '>' : '<', name,
+          state->value_nick);
     } else {
       printf ("\n");
     }

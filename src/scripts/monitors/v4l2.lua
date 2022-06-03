@@ -66,8 +66,24 @@ function createNode(parent, id, type, factory, properties)
 
   -- set the node description
   local desc = dev_props["device.description"] or "v4l2-device"
+  desc = desc .. " (V4L2)"
   -- sanitize description, replace ':' with ' '
   properties["node.description"] = desc:gsub("(:)", " ")
+
+  -- set the node nick
+  local nick = properties["node.nick"] or
+               dev_props["device.product.name"] or
+               dev_props["api.v4l2.cap.card"] or
+               dev_props["device.description"] or
+               dev_props["device.nick"]
+  properties["node.nick"] = nick:gsub("(:)", " ")
+
+  -- set priority
+  if not properties["priority.session"] then
+    local path = properties["api.v4l2.path"] or "/dev/video100"
+    local dev = path:gsub("/dev/video(%d+)", "%1")
+    properties["priority.session"] = 1000 - (tonumber(dev) * 10)
+  end
 
   -- apply properties from rules defined in JSON .conf file
   rulesApplyProperties(properties)

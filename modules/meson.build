@@ -148,7 +148,7 @@ shared_library(
   c_args : [common_c_args, '-DG_LOG_DOMAIN="m-lua-scripting"'],
   install : true,
   install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep, pipewire_dep, wplua_dep],
+  dependencies : [wp_dep, pipewire_dep, wplua_dep, libintl_dep],
 )
 
 shared_library(
@@ -171,19 +171,6 @@ shared_library(
   install : true,
   install_dir : wireplumber_module_dir,
   dependencies : [wp_dep, pipewire_dep],
-)
-
-shared_library(
-  'wireplumber-module-i18n',
-  [
-    'module-i18n.c',
-  ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-i18n"',
-            '-DGETTEXT_PACKAGE="@0@"'.format(meson.project_name()),
-            '-DLOCALEDIR="@0@"'.format(wireplumber_locale_dir)],
-  install : true,
-  install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep, pipewire_dep, libintl_dep],
 )
 
 if libsystemd_dep.found() or libelogind_dep.found()

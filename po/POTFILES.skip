@@ -1,0 +1,4 @@
+src/systemd/system/wireplumber.service.in
+src/systemd/system/wireplumber@.service.in
+src/systemd/user/wireplumber.service.in
+src/systemd/user/wireplumber@.service.in

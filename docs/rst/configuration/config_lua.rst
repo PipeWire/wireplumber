@@ -1,10 +1,10 @@
 .. _config_lua:
 
-Lua configuration files
+LUA Configuration Files
 =======================
 
-Lua configuration files are similar to the main configuration file, but they
-leverage the lua language to enable advanced configuration of module arguments
+LUA configuration files are similar to the main configuration file, but they
+leverage the LUA language to enable advanced configuration of module arguments
 and allow split-file configuration.
 
 There is only one global section that WirePlumber reads from these files: the
@@ -22,38 +22,38 @@ information about the loaded component::
     optional = true/false,
   }
 
-* **"component-name"** should be the name of the component to load
-  (ex. *"libwireplumber-module-mixer-api"*)
+* **component-name**: Should be the name of the component to load
+  (ex. *"libwireplumber-module-mixer-api"*).
 
-* **"component-type"** should be the type of the component.
+* **component-type**: Should be the type of the component.
   Valid component types include:
 
-  * ``module``: A WirePlumber shared object module
-  * ``script/lua``: A WirePlumber Lua script
+  * ``module``: A WirePlumber shared object module.
+  * ``script/lua``: A WirePlumber LUA script.
   * ``pw_module``: A PipeWire shared object module (loaded on WirePlumber,
-    not on the PipeWire daemon)
+    not on the PipeWire daemon).
 
-* **args** is an optional table that can contain additional arguments to be
+* **args**: Is an optional table that can contain additional arguments to be
   passed down to the module or script. Scripts can retrieve these arguments
   by declaring a line that reads ``local config = ...`` at the top of the script.
   Modules receive these arguments as a GVariant ``a{sv}`` table.
 
-* **optional** is a boolean value that specifies whether loading of this
+* **optional**: Is a boolean value that specifies whether loading of this
   component is optional. The default value is ``false``. If set to ``true``,
   then WirePlumber will not fail loading if the component is not found.
 
-Split-file configuration
+Split-File Configuration
 ------------------------
 
-When a Lua configuration file is loaded, the engine also looks for additional
+When a LUA configuration file is loaded, the engine also looks for additional
 files in a directory that has the same name as the configuration file and a
 ``.d`` suffix.
 
-A Lua directory can contain a list of Lua configuration files. Those files are
+A LUA directory can contain a list of LUA configuration files. Those files are
 loaded alphabetically by filename so that user can control the order in which
-Lua configuration files are executed.
+LUA configuration files are executed.
 
-Lua files in the directory are always loaded *after* the configuration file
+LUA files in the directory are always loaded *after* the configuration file
 that is out of the directory. However, it is perfectly valid to not have any
 configuration file out of the directory.
 
@@ -74,7 +74,22 @@ Example hierarchy with files only in the directory
   config.lua.d/10-policy.lua
   config.lua.d/99-misc.lua
 
-Multi-path merging
+Example of a file using alsa_monitor.rules in a split-file configuration:
+
+.. code-block:: lua
+
+  table.insert (alsa_monitor.rules, {
+    matches = {
+      {
+        { "device.name", "matches", "alsa_card.*" },
+      },
+    },
+    apply_properties = {
+      ["api.alsa.use-acp"] = true,
+    }
+  })
+
+Multi-Path Merging
 ------------------
 
 WirePlumber looks for configuration files in 3 different places, as described

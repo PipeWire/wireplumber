@@ -11,4 +11,5 @@ sphinx_files += files(
   'lua_proxies_api.rst',
   'lua_session_item_api.rst',
   'lua_spa_device_api.rst',
+  'lua_spa_pod.rst',
 )

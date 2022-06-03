@@ -1,7 +1,7 @@
 project('wireplumber', ['c'],
-  version : '0.4.9',
+  version : '0.4.10',
   license : 'MIT',
-  meson_version : '>= 0.56.0',
+  meson_version : '>= 0.59.0',
   default_options : [
     'warning_level=1',
     'buildtype=debugoptimized',
@@ -28,6 +28,11 @@ add_project_arguments([
   ], language: 'c'
 )
 
+add_project_arguments([
+    '-DGETTEXT_PACKAGE="@0@"'.format(meson.project_name()),
+  ], language: 'c'
+)
+
 glib_dep = dependency('glib-2.0', version : glib_req_version)
 gobject_dep = dependency('gobject-2.0', version : glib_req_version)
 gmodule_dep = dependency('gmodule-2.0', version : glib_req_version)
@@ -37,6 +42,7 @@ spa_dep = dependency('libspa-0.2', version: '>= 0.2')
 pipewire_dep = dependency('libpipewire-0.3', version: '>= 0.3.48')
 mathlib = cc.find_library('m')
 threads_dep = dependency('threads')
+libintl_dep = dependency('intl')
 
 system_lua = get_option('system-lua')
 if system_lua
@@ -86,12 +92,6 @@ libelogind_dep = dependency('libelogind', required: get_option('elogind'))
 summary({'systemd conf data': systemd.found(),
          'libsystemd': libsystemd_dep.found(),
          'libelogind': libelogind_dep.found()}, bool_yn: true)
-
-libintl_dep = dependency('intl', required: false)
-if not libintl_dep.found()
-  libintl_dep = cc.find_library('intl', required: false)
-endif
-summary({'libintl': libintl_dep.found()}, bool_yn: true)
 
 gnome = import('gnome')
 pkgconfig = import('pkgconfig')
