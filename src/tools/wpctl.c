@@ -49,6 +49,10 @@ static struct {
 
     struct {
       guint64 id;
+    } get_volume;
+
+    struct {
+      guint64 id;
       guint mute;
       gboolean is_pid;
     } set_mute;
@@ -472,6 +476,78 @@ status_run (WpCtl * self)
   }
 
   g_clear_object (&context.mixer_api);
+  g_main_loop_quit (self->loop);
+}
+
+/* get-volume  */
+
+static gboolean
+get_volume_parse_positional (gint argc, gchar ** argv, GError **error)
+{
+  if (argc < 3) {
+    g_set_error (error, wpctl_error_domain_quark(), 0,
+        "ID is required");
+    return FALSE;
+  } else {
+    return parse_id (true, false, argv[2], &cmdline.get_volume.id, error);
+  }
+}
+
+static gboolean
+get_volume_prepare (WpCtl * self, GError ** error)
+{
+  wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL);
+  wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
+  return TRUE;
+}
+
+static void
+do_print_volume (WpCtl * self, WpPipewireObject *proxy)
+{
+  g_autoptr (WpPlugin) mixer_api = wp_plugin_find (self->core, "mixer-api");
+  GVariant *variant = NULL;
+  gboolean mute = FALSE;
+  gdouble volume = 1.0;
+  guint32 id = wp_proxy_get_bound_id (WP_PROXY (proxy));
+
+  g_signal_emit_by_name (mixer_api, "get-volume", id, &variant);
+  if (!variant) {
+    fprintf (stderr, "Node %d does not support volume\n", id);
+    return;
+  }
+  g_variant_lookup (variant, "volume", "d", &volume);
+  g_variant_lookup (variant, "mute", "b", &mute);
+  g_clear_pointer (&variant, g_variant_unref);
+
+  printf ("Volume: %.2f%s", volume, mute ? " [MUTED]\n" : "\n");
+}
+
+static void
+get_volume_run (WpCtl * self)
+{
+  g_autoptr (WpPlugin) def_nodes_api = NULL;
+  g_autoptr (GError) error = NULL;
+  g_autoptr (WpPipewireObject) proxy = NULL;
+  guint32 id;
+
+  def_nodes_api = wp_plugin_find (self->core, "default-nodes-api");
+
+  if (!translate_id (def_nodes_api, cmdline.get_volume.id, &id, &error)) {
+    fprintf(stderr, "Translate ID error: %s\n\n", error->message);
+    goto out;
+  }
+
+  proxy = wp_object_manager_lookup (self->om, WP_TYPE_GLOBAL_PROXY,
+    WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u", id, NULL);
+  if (!proxy) {
+    fprintf (stderr, "Node '%d' not found\n", id);
+    goto out;
+  }
+
+  do_print_volume (self, proxy);
+
+out:
   g_main_loop_quit (self->loop);
 }
 
@@ -1153,6 +1229,16 @@ static const struct subcommand {
     .parse_positional = NULL,
     .prepare = status_prepare,
     .run = status_run,
+  },
+  {
+    .name = "get-volume",
+    .positional_args = "ID",
+    .summary = "Displays volume information about the specified node in PipeWire",
+    .description = NULL,
+    .entries = { { NULL } },
+    .parse_positional = get_volume_parse_positional,
+    .prepare = get_volume_prepare,
+    .run = get_volume_run,
   },
   {
     .name = "inspect",
