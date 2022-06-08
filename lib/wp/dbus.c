@@ -302,7 +302,7 @@ wp_dbus_get_instance (WpCore *core, GBusType bus_type)
 
   g_return_val_if_fail (core, NULL);
   g_return_val_if_fail (
-      bus_type != G_BUS_TYPE_NONE || bus_type != G_BUS_TYPE_STARTER, NULL);
+      bus_type != G_BUS_TYPE_NONE && bus_type != G_BUS_TYPE_STARTER, NULL);
 
   registry = wp_core_get_registry (core);
   dbus = wp_registry_find_object (registry, (GEqualFunc) find_dbus_func,
