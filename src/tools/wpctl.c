@@ -45,6 +45,7 @@ static struct {
       guint64 id;
       gfloat volume;
       gboolean is_pid;
+      gchar type;
     } set_volume;
 
     struct {
@@ -850,11 +851,38 @@ set_volume_parse_positional (gint argc, gchar ** argv, GError **error)
 {
   if (argc < 4) {
     g_set_error (error, wpctl_error_domain_quark(), 0,
-        "ID and VOL are required");
+        "ID and VOL[%%][-/+] are required");
     return FALSE;
   }
 
-  cmdline.set_volume.volume = strtof (argv[3], NULL);
+  GRegex *regex = g_regex_new ("^(\\d*\\.?\\d*)(%?)([-+]?)$", 0, 0, NULL);
+  GMatchInfo *info = NULL;
+
+  if (g_regex_match(regex, argv[3], 0, &info)) {
+    cmdline.set_volume.volume = strtof(g_match_info_fetch(info, 1), NULL);
+    cmdline.set_volume.type = 'a';
+    
+    if (g_strcmp0(g_match_info_fetch(info, 2), "%") == 0) {
+      cmdline.set_volume.type = 'p';
+    }
+
+    if (g_strcmp0(g_match_info_fetch(info, 3), "-") == 0) {
+      cmdline.set_volume.volume = -(cmdline.set_volume.volume);
+      if (cmdline.set_volume.type != 'p') {
+        cmdline.set_volume.type = 's';
+      }
+    } else if (g_strcmp0(g_match_info_fetch(info, 3), "+") == 0 && cmdline.set_volume.type != 'p') {
+      cmdline.set_volume.type = 's';
+    }
+    g_match_info_free (info);
+    g_regex_unref (regex);
+  } else {
+    g_regex_unref (regex);
+    g_set_error (error, wpctl_error_domain_quark(), 0,
+        "Invalid volume argument. See wpctl set-volume --help");
+    return FALSE;
+  }
+
   return parse_id (!cmdline.set_volume.is_pid, false, argv[2],
       &cmdline.set_volume.id, error);
 }
@@ -878,6 +906,7 @@ do_set_volume (WpCtl * self, WpPipewireObject *proxy)
   g_autoptr (GError) error = NULL;
   GVariant *variant = NULL;
   gboolean res = FALSE;
+  gdouble curr_volume = 1.0;
   guint32 id = wp_proxy_get_bound_id (WP_PROXY (proxy));
 
   if (WP_IS_ENDPOINT (proxy)) {
@@ -887,6 +916,27 @@ do_set_volume (WpCtl * self, WpPipewireObject *proxy)
       return FALSE;
     }
     id = atoi (str);
+  }
+
+  g_signal_emit_by_name (mixer_api, "get-volume", id, &variant);
+    if (!variant) {
+    fprintf (stderr, "Node %d does not support volume\n", id);
+    g_clear_pointer (&variant, g_variant_unref);
+    return FALSE;
+  }
+  g_variant_lookup (variant, "volume", "d", &curr_volume);
+  g_clear_pointer (&variant, g_variant_unref);
+
+  if (cmdline.set_volume.type == 'a') {
+    cmdline.set_volume.volume = cmdline.set_volume.volume;
+  } else if (cmdline.set_volume.type == 's') {
+    cmdline.set_volume.volume = (cmdline.set_volume.volume + curr_volume);
+  } else if (cmdline.set_volume.type == 'p') {
+    gfloat delta = (cmdline.set_volume.volume) * (curr_volume);
+    cmdline.set_volume.volume = (curr_volume + delta);
+  }
+  if (cmdline.set_volume.volume < 0) {
+    cmdline.set_volume.volume = 0.0;
   }
 
   g_variant_builder_add (&b, "{sv}", "volume",
@@ -1270,8 +1320,13 @@ static const struct subcommand {
   },
   {
     .name = "set-volume",
-    .positional_args = "ID VOL",
-    .summary = "Sets the volume of ID to VOL (floating point, 1.0 is 100%%)",
+    .positional_args = "ID VOL[%%][-/+]",
+    .summary = "Sets the volume of ID from specified argument. "
+               "(floating point, 1.0 is 100%%)\n  VOL%%[-/+] - "
+               "Step up/down volume by specified percent (Example:"
+               " 0.5%%+)\n  VOL[-/+] - Step up/down volume by"
+               " specified value (Example: 0.5+)\n  VOL - Set "
+               "volume as the specified value (Example: 0.5)",
     .description = NULL,
     .entries = {
       { "pid", 'p', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE,
