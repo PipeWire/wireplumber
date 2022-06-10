@@ -1,1 +1,2 @@
 src/scripts/monitors/alsa.lua
+src/scripts/monitors/libcamera.lua
