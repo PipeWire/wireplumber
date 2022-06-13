@@ -16,12 +16,14 @@ self.events_skipped = false
 self.pending_error_timer = nil
 
 function rescan()
+  Log.info("rescanning..")
   for si in linkables_om:iterate() do
     handleLinkable (si)
   end
 end
 
 function scheduleRescan ()
+  Log.info("schedule rescanning..")
   if self.scanning then
     self.pending_rescan = true
     return
@@ -590,6 +592,7 @@ function checkPending ()
   elseif self.events_skipped then
     Log.debug("pending linkables ready")
     self.events_skipped = false
+    -- Event-Stack TBD: do we need to retain this call here?
     scheduleRescan ()
     return true
   end
@@ -671,6 +674,7 @@ function handleLinkable (si)
       and not si_flags[si_id].done_waiting then
     Log.info (si, "... waiting for target")
     si_flags[si_id].done_waiting = true
+    -- Event-Stack TBD: do we need to retain this call here?
     scheduleRescan()
     return
   end
@@ -943,33 +947,124 @@ function checkFiltersPortsState (si)
   end
 end
 
-linkables_om:connect("object-added", function (om, si)
-  local si_props = si.properties
+SimpleEventHook {
+  priority = 15,
+  type = "on-event",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "object-added" },
+      Constraint { "event.subject.type", "=", "linkable" },
+      Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
+      Constraint { "media.class", "#", "Stream/*", type = "pw-global" },
+      Constraint { "active-features", "!", 0, type = "gobject" },
+    },
+  },
+  execute = function (event, transition)
+    local si = event:get_subject()
+    local si_props = si.properties
 
-  -- Forward filters ports format to associated virtual devices if enabled
-  if filter_forward_format then
-    checkFiltersPortsState (si)
-  end
+    -- Forward filters ports format to associated virtual devices if enabled
+    if filter_forward_format then
+      checkFiltersPortsState (si)
+    end
 
-  if si_props["item.node.type"] ~= "stream" then
-    scheduleRescan ()
-  else
     handleLinkable (si)
   end
-end)
+}:register()
 
-linkables_om:connect("object-removed", function (om, si)
-  unhandleLinkable (si)
-  if si.properties["item.node.type"] ~= "stream" then
+-- linkables_om:connect("object-added", function (om, si)
+--   local si_props = si.properties
+
+--   -- Forward filters ports format to associated virtual devices if enabled
+--   if filter_forward_format then
+--     checkFiltersPortsState (si)
+--   end
+
+--   if si_props["item.node.type"] ~= "stream" then
+--     scheduleRescan ()
+--   else
+--     handleLinkable (si)
+--   end
+-- end)
+
+SimpleEventHook {
+  priority = 15,
+  type = "on-event",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "object-removed" },
+      Constraint { "event.subject.type", "=", "linkable" },
+      Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
+      Constraint { "media.class", "#", "Stream/*", type = "pw-global" },
+      Constraint { "active-features", "!", 0, type = "gobject" },
+    },
+  },
+  execute = function (event, transition)
+    local si = event:get_subject()
+    unhandleLinkable (si)
+  end
+}:register()
+
+-- linkables_om:connect("object-removed", function (om, si)
+--   unhandleLinkable (si)
+--   if si.properties["item.node.type"] ~= "stream" then
+--     scheduleRescan ()
+--   end
+-- end)
+
+SimpleEventHook {
+  priority = 1,
+  type = "after-events",
+  interests = {
+    -- on audio device node linkable addition
+    EventInterest {
+      Constraint { "event.type", "=", "object-added" },
+      Constraint { "event.subject.type", "=", "linkable" },
+      Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
+      Constraint { "media.class", "#", "Audio/*", type = "pw-global" },
+      Constraint { "active-features", "!", 0, type = "gobject" },
+    },
+    -- on video device node linkable addition
+    EventInterest {
+      Constraint { "event.type", "=", "object-added" },
+      Constraint { "event.subject.type", "=", "linkable" },
+      Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
+      Constraint { "media.class", "#", "Video/*", type = "pw-global" },
+      Constraint { "active-features", "!", 0, type = "gobject" },
+    },
+    -- on audio device node linkable removal
+    EventInterest {
+      Constraint { "event.type", "=", "object-removed" },
+      Constraint { "event.subject.type", "=", "linkable" },
+      Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
+      Constraint { "media.class", "#", "Audio/*", type = "pw-global" },
+      Constraint { "active-features", "!", 0, type = "gobject" },
+    },
+    -- on video device node linkable removal
+    EventInterest {
+      Constraint { "event.type", "=", "object-removed" },
+      Constraint { "event.subject.type", "=", "linkable" },
+      Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
+      Constraint { "media.class", "#", "Video/*", type = "pw-global" },
+      Constraint { "active-features", "!", 0, type = "gobject" },
+    },
+    -- on device addition
+    EventInterest {
+      Constraint { "event.type", "=", "object-added" },
+      Constraint { "event.subject.type", "=", "device" },
+    },
+
+  },
+  execute = function ()
     scheduleRescan ()
   end
-end)
+}:register()
 
-devices_om:connect("object-added", function (om, device)
-  device:connect("params-changed", function (d, param_name)
-    scheduleRescan ()
-  end)
-end)
+-- devices_om:connect("object-added", function (om, device)
+--   device:connect("params-changed", function (d, param_name)
+--     scheduleRescan ()
+--   end)
+-- end)
 
 metadata_om:activate()
 endpoints_om:activate()
