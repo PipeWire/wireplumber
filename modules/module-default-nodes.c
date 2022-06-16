@@ -224,10 +224,13 @@ find_best_media_class_node (WpDefaultNodes * self, const gchar *media_class,
 
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
     WpNode *node = g_value_get_object (&val);
-    gint n_ports = direction == WP_DIRECTION_INPUT ?
-        wp_node_get_n_input_ports (node, NULL) :
-        wp_node_get_n_output_ports (node, NULL);
-    if (n_ports > 0) {
+    g_autoptr (WpPort) port = wp_object_manager_lookup (self->rescan_om,
+          WP_TYPE_PORT, WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_ID,
+          "=u", wp_proxy_get_bound_id (WP_PROXY (node)),
+          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_PORT_DIRECTION,
+          "=s", direction == WP_DIRECTION_INPUT ? "in" : "out",
+          NULL);
+    if (port) {
       const gchar *name = wp_pipewire_object_get_property (
           WP_PIPEWIRE_OBJECT (node), PW_KEY_NODE_NAME);
       const gchar *prio_str = wp_pipewire_object_get_property (
@@ -451,9 +454,12 @@ on_metadata_added (WpObjectManager *om, WpMetadata *metadata, gpointer d)
   self->rescan_om = wp_object_manager_new ();
   wp_object_manager_add_interest (self->rescan_om, WP_TYPE_DEVICE, NULL);
   wp_object_manager_add_interest (self->rescan_om, WP_TYPE_NODE, NULL);
+  wp_object_manager_add_interest (self->rescan_om, WP_TYPE_PORT, NULL);
   wp_object_manager_request_object_features (self->rescan_om, WP_TYPE_DEVICE,
       WP_OBJECT_FEATURES_ALL);
   wp_object_manager_request_object_features (self->rescan_om, WP_TYPE_NODE,
+      WP_OBJECT_FEATURES_ALL);
+  wp_object_manager_request_object_features (self->rescan_om, WP_TYPE_PORT,
       WP_OBJECT_FEATURES_ALL);
   g_signal_connect_object (self->rescan_om, "objects-changed",
       G_CALLBACK (schedule_rescan), self, G_CONNECT_SWAPPED);
