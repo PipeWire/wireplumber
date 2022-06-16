@@ -911,6 +911,14 @@ spa_device_new (lua_State *L)
 }
 
 static int
+spa_device_iterate_managed_objects (lua_State *L)
+{
+  WpSpaDevice *device = wplua_checkobject (L, 1, WP_TYPE_SPA_DEVICE);
+  WpIterator *it = wp_spa_device_new_managed_object_iterator (device);
+  return push_wpiterator (L, it);
+}
+
+static int
 spa_device_get_managed_object (lua_State *L)
 {
   WpSpaDevice *device = wplua_checkobject (L, 1, WP_TYPE_SPA_DEVICE);
@@ -934,6 +942,7 @@ spa_device_store_managed_object (lua_State *L)
 }
 
 static const luaL_Reg spa_device_methods[] = {
+  { "iterate_managed_objects", spa_device_iterate_managed_objects },
   { "get_managed_object", spa_device_get_managed_object },
   { "store_managed_object", spa_device_store_managed_object },
   { NULL, NULL }

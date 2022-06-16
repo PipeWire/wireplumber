@@ -639,6 +639,23 @@ wp_spa_device_get_properties (WpSpaDevice * self)
 }
 
 /*!
+ * \brief Iterates through all the objects managed by this device.
+ *
+ * \ingroup wpspadevice
+ * \param self the spa device
+ * \returns (transfer full): a WpIterator that iterates over all the objects
+ *   managed by this device
+ * \since 0.4.11
+ */
+WpIterator *
+wp_spa_device_new_managed_object_iterator (WpSpaDevice * self)
+{
+  g_return_val_if_fail (WP_IS_SPA_DEVICE (self), NULL);
+  return wp_iterator_new_ptr_array (g_ptr_array_ref (self->managed_objs),
+      G_TYPE_OBJECT);
+}
+
+/*!
  * \brief Gets one of the objects managed by this device.
  *
  * \ingroup wpspadevice

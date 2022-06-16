@@ -58,6 +58,9 @@ WP_API
 WpProperties * wp_spa_device_get_properties (WpSpaDevice * self);
 
 WP_API
+WpIterator * wp_spa_device_new_managed_object_iterator (WpSpaDevice * self);
+
+WP_API
 GObject * wp_spa_device_get_managed_object (WpSpaDevice * self, guint id);
 
 WP_API
