@@ -372,8 +372,8 @@ wp_event_dispatcher_push_event (WpEventDispatcher * self, WpEvent * event)
   /* schedule rescan */
   if (!self->rescan_event) {
     self->rescan_event = wp_event_new ("rescan", G_MININT16, NULL, NULL, NULL);
-    self->events = g_list_insert_sorted(self->events, self->rescan_event,
-        (GCompareFunc)event_cmp_func);
+    self->events = g_list_insert_sorted (self->events, self->rescan_event,
+        (GCompareFunc) event_cmp_func);
   }
 
   /* push the event on the stack */
