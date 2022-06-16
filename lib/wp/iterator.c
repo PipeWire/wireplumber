@@ -235,8 +235,10 @@ ptr_array_iterator_next (WpIterator *it, GValue *item)
 {
   struct ptr_array_iterator_data *it_data = wp_iterator_get_user_data (it);
 
-  if (it_data->index < it_data->array->len) {
+  while (it_data->index < it_data->array->len) {
     gpointer ptr = g_ptr_array_index (it_data->array, it_data->index++);
+    if (!ptr)
+      continue;
     g_value_init (item, it_data->item_type);
     it_data->set_value (item, ptr);
     return TRUE;
@@ -256,11 +258,13 @@ ptr_array_iterator_fold (WpIterator *it, WpIteratorFoldFunc func, GValue *ret,
   len = it_data->array->len;
 
   while ((ptr - base) < len) {
-    g_auto (GValue) item = G_VALUE_INIT;
-    g_value_init (&item, it_data->item_type);
-    it_data->set_value (&item, *ptr);
-    if (!func (&item, ret, data))
-      return FALSE;
+    if (*ptr) {
+      g_auto (GValue) item = G_VALUE_INIT;
+      g_value_init (&item, it_data->item_type);
+      it_data->set_value (&item, *ptr);
+      if (!func (&item, ret, data))
+        return FALSE;
+    }
     ptr++;
   }
   return TRUE;
