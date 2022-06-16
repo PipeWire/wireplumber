@@ -1893,7 +1893,7 @@ async_event_hook_execute_step (lua_State *L)
     return 0;
   }
 
-  wplua_pushboxed (L, WP_TYPE_EVENT, event);
+  wplua_pushboxed (L, WP_TYPE_EVENT, wp_event_ref (event));
   wplua_pushobject (L, g_object_ref (transition));
   lua_call (L, 2, 0);
   return 0;
