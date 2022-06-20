@@ -5,6 +5,15 @@
 --
 -- SPDX-License-Identifier: MIT
 
+-- policy-node.lua is the main policy script, it watches for any changes that
+-- can affect the routing(stream to device links) and takes necessary actions.
+-- For example: It watches for stream nodes to show up and links them to
+-- appropriate target device. It watches for new device preferece of the
+-- user(via pavuctrl or gnome settins or metadata etc) and moves the existing
+-- sessions to that device(if the device is valid). It watches for new devices
+-- to show up(usb headset is plugged in or if BT is paired) and moves the
+-- existing streams to that device.
+
 local move = Settings.get_boolean ("default-policy-move") or false
 local follow = Settings.get_boolean ("default-policy-follow") or false
 local filter_forward_format = Settings.get_boolean("filter.forward-format") or false
