@@ -5,6 +5,9 @@
 --
 -- SPDX-License-Identifier: MIT
 
+-- create-item.lua script takes pipewire nodes and creates session items(a.k.a
+-- linkable) objects out of them.
+
 items = {}
 
 function configProperties(node)
