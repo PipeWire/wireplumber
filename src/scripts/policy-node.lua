@@ -972,23 +972,8 @@ SimpleEventHook {
   end
 }:register()
 
--- linkables_om:connect("object-added", function (om, si)
---   local si_props = si.properties
-
---   -- Forward filters ports format to associated virtual devices if enabled
---   if filter_forward_format then
---     checkFiltersPortsState (si)
---   end
-
---   if si_props["item.node.type"] ~= "stream" then
---     scheduleRescan ()
---   else
---     handleLinkable (si)
---   end
--- end)
-
 SimpleEventHook {
-  priority = 15,
+  priority = 5,
   type = "on-event",
   interests = {
     EventInterest {
@@ -1004,11 +989,6 @@ SimpleEventHook {
     unhandleLinkable (si)
   end
 }:register()
-
--- linkables_om:connect("object-removed", function (om, si)
---   unhandleLinkable (si)
---   scheduleRescan ()
--- end)
 
 SimpleEventHook {
   priority = 1,
@@ -1057,12 +1037,6 @@ SimpleEventHook {
     scheduleRescan ()
   end
 }:register()
-
--- devices_om:connect("object-added", function (om, device)
---   device:connect("params-changed", function (d, param_name)
---     scheduleRescan ()
---   end)
--- end)
 
 metadata_om:activate()
 endpoints_om:activate()
