@@ -4,6 +4,7 @@ assert (json:is_null())
 assert (json:parse() == nil)
 assert (json:get_data() == "null")
 assert (json:get_size() == 4)
+assert (json:get_data() == json:to_string())
 
 -- Boolean
 json = Json.Boolean (true)
@@ -11,11 +12,13 @@ assert (json:is_boolean())
 assert (json:parse())
 assert (json:get_data() == "true")
 assert (json:get_size() == 4)
+assert (json:get_data() == json:to_string())
 json = Json.Boolean (false)
 assert (json:is_boolean())
 assert (not json:parse())
 assert (json:get_data() == "false")
 assert (json:get_size() == 5)
+assert (json:get_data() == json:to_string())
 
 -- Int
 json = Json.Int (3)
@@ -23,6 +26,7 @@ assert (json:is_int())
 assert (json:parse() == 3)
 assert (json:get_data() == "3")
 assert (json:get_size() == 1)
+assert (json:get_data() == json:to_string())
 
 -- Float
 json = Json.Float(3.14)
@@ -36,6 +40,7 @@ assert (json:is_string())
 assert (json:parse() == "wireplumber")
 assert (json:get_data() == "\"wireplumber\"")
 assert (json:get_size() == 13)
+assert (json:get_data() == json:to_string())
 
 -- Array
 json = Json.Array { Json.Null (), Json.Null () }
@@ -45,6 +50,7 @@ assert (val[1] == nil)
 assert (val[2] == nil)
 assert (json:get_data() == "[null, null]")
 assert (json:get_size() == 12)
+assert (json:get_data() == json:to_string())
 
 json = Json.Array { true, false }
 assert (json:is_array())
@@ -53,6 +59,7 @@ assert (val[1])
 assert (not val[2])
 assert (json:get_data() == "[true, false]")
 assert (json:get_size() == 13)
+assert (json:get_data() == json:to_string())
 
 json = Json.Array {1, 2, 3}
 assert (json:is_array())
@@ -62,6 +69,7 @@ assert (val[2] == 2)
 assert (val[3] == 3)
 assert (json:get_data() == "[1, 2, 3]")
 assert (json:get_size() == 9)
+assert (json:get_data() == json:to_string())
 
 json = Json.Array {1.11, 2.22, 3.33}
 assert (json:is_array())
@@ -78,6 +86,7 @@ assert (val[2] == "spa")
 assert (val[3] == "json")
 assert (json:get_data() == "[\"lua\", \"spa\", \"json\"]")
 assert (json:get_size() == 22)
+assert (json:get_data() == json:to_string())
 
 json = Json.Array {
   Json.Array {
@@ -91,6 +100,7 @@ json = Json.Array {
 }
 assert (json:is_array())
 assert (json:get_data() == "[[{\"key1\":1}, {\"key2\":2}]]")
+assert (json:get_data() == json:to_string())
 
 -- Object
 json = Json.Object {
@@ -126,6 +136,7 @@ assert (not val.key7.key_nested3[3])
 json = Json.Raw ("[\"foo\", \"bar\"]")
 assert (json:is_array())
 assert (json:get_data() == "[\"foo\", \"bar\"]")
+assert (json:get_data() == json:to_string())
 val = json:parse ()
 assert (val[1] == "foo")
 assert (val[2] == "bar")
@@ -133,6 +144,7 @@ assert (val[2] == "bar")
 json = Json.Raw ("{\"name\": \"wireplumber\", \"version\": [0, 4, 7]}")
 assert (json:is_object())
 assert (json:get_data() == "{\"name\": \"wireplumber\", \"version\": [0, 4, 7]}")
+assert (json:get_data() == json:to_string())
 val = json:parse ()
 assert (val.name == "wireplumber")
 assert (val.version[1] == 0)

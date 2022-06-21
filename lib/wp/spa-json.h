@@ -53,6 +53,9 @@ WP_API
 size_t wp_spa_json_get_size (const WpSpaJson *self);
 
 WP_API
+gchar * wp_spa_json_to_string (const WpSpaJson *self);
+
+WP_API
 WpSpaJson *wp_spa_json_copy (WpSpaJson *other);
 
 WP_API

@@ -260,6 +260,19 @@ wp_spa_json_get_size (const WpSpaJson *self)
 }
 
 /*!
+ * \brief Returns a newly allocated json string with length matching the size
+ *
+ * \ingroup wpspajson
+ * \param self a spa json object
+ * \returns (transfer full): the json string with length matching the size
+ */
+gchar *
+wp_spa_json_to_string (const WpSpaJson *self)
+{
+  return g_strndup (self->data, self->size);
+}
+
+/*!
  * \brief Copies a spa json object
  *
  * \ingroup wpspajson

@@ -28,6 +28,17 @@ spa_json_get_size (lua_State *L)
 }
 
 static int
+spa_json_to_string (lua_State *L)
+{
+  WpSpaJson *json = wplua_checkboxed (L, 1, WP_TYPE_SPA_JSON);
+  /* Instead of using wp_spa_json_to_string() and lua_pushstring, we can avoid
+   * an extra allocation if we use lua_pushlstring with wp_spa_json_get_data()
+   * and wp_spa_json_get_size () */
+  lua_pushlstring (L, wp_spa_json_get_data (json), wp_spa_json_get_size (json));
+  return 1;
+}
+
+static int
 spa_json_is_null (lua_State *L)
 {
   WpSpaJson *json = wplua_checkboxed (L, 1, WP_TYPE_SPA_JSON);
@@ -312,6 +323,7 @@ spa_json_object_new (lua_State *L)
 static const luaL_Reg spa_json_methods[] = {
   { "get_data", spa_json_get_data },
   { "get_size", spa_json_get_size },
+  { "to_string", spa_json_to_string },
   { "is_null", spa_json_is_null },
   { "is_boolean", spa_json_is_boolean },
   { "is_int", spa_json_is_int },

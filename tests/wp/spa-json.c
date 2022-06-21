@@ -1091,6 +1091,63 @@ test_spa_json_spa_format (void)
   }
 }
 
+static void
+test_spa_json_to_string (void)
+{
+  const gchar json_str[] = "[{\"key0\":\"val0\"}, {\"key1\":\"val1\"}]";
+  g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (json_str);
+  g_assert_nonnull (json);
+
+  {
+    g_autofree gchar *str = wp_spa_json_to_string (json);
+    g_assert_cmpstr (str, ==, wp_spa_json_get_data (json));
+    g_assert_cmpstr (str, ==, json_str);
+  }
+
+  g_autoptr (WpIterator) it = wp_spa_json_new_iterator (json);
+  g_assert_nonnull (it);
+
+  {
+    GValue next = G_VALUE_INIT;
+    g_assert_true (wp_iterator_next (it, &next));
+    WpSpaJson *o = g_value_get_boxed (&next);
+    g_assert_nonnull (o);
+    g_assert_true (wp_spa_json_is_object (o));
+    g_autofree gchar *str = wp_spa_json_to_string (o);
+    g_assert_cmpstr (str, ==, "{\"key0\":\"val0\"}");
+    g_assert_cmpstr (str, !=, wp_spa_json_get_data (o));
+
+    g_autoptr (WpSpaJsonBuilder) b = wp_spa_json_builder_new_array ();
+    wp_spa_json_builder_add_json (b, o);
+    g_autoptr (WpSpaJson) json2 = wp_spa_json_builder_end (b);
+    g_autofree gchar *str2 = wp_spa_json_to_string (json2);
+    g_assert_cmpstr (str2, ==, wp_spa_json_get_data (json2));
+    g_assert_cmpstr (str2, ==, "[{\"key0\":\"val0\"}]");
+
+    g_value_unset (&next);
+  }
+
+  {
+    GValue next = G_VALUE_INIT;
+    g_assert_true (wp_iterator_next (it, &next));
+    WpSpaJson *o = g_value_get_boxed (&next);
+    g_assert_nonnull (o);
+    g_assert_true (wp_spa_json_is_object (o));
+    g_autofree gchar *str = wp_spa_json_to_string (o);
+    g_assert_cmpstr (str, ==, "{\"key1\":\"val1\"}");
+    g_assert_cmpstr (str, !=, wp_spa_json_get_data (o));
+
+    g_autoptr (WpSpaJsonBuilder) b = wp_spa_json_builder_new_array ();
+    wp_spa_json_builder_add_json (b, o);
+    g_autoptr (WpSpaJson) json2 = wp_spa_json_builder_end (b);
+    g_autofree gchar *str2 = wp_spa_json_to_string (json2);
+    g_assert_cmpstr (str2, ==, wp_spa_json_get_data (json2));
+    g_assert_cmpstr (str2, ==, "[{\"key1\":\"val1\"}]");
+
+    g_value_unset (&next);
+  }
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -1106,6 +1163,7 @@ main (int argc, char *argv[])
   g_test_add_func ("/wp/spa-json/nested2", test_spa_json_nested2);
   g_test_add_func ("/wp/spa-json/ownership", test_spa_json_ownership);
   g_test_add_func ("/wp/spa-json/spa-format", test_spa_json_spa_format);
+  g_test_add_func ("/wp/spa-json/to-string", test_spa_json_to_string);
 
   return g_test_run ();
 }
