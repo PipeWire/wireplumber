@@ -953,6 +953,14 @@ builder_add_formatted (WpSpaJsonBuilder *self, const gchar *fmt, ...)
   self->size += s;
 }
 
+static void
+builder_add_json (WpSpaJsonBuilder *self, WpSpaJson *json)
+{
+  g_return_if_fail (self->max_size - self->size >= json->size + 1);
+  snprintf (self->data + self->size, json->size + 1, "%s", json->data);
+  self->size += json->size;
+}
+
 /*!
  * \brief Adds a property into the builder
  *
@@ -1053,14 +1061,14 @@ wp_spa_json_builder_add_string (WpSpaJsonBuilder *self, const gchar *value)
  *
  * \ingroup wpspajson
  * \param self the spa json builder object
- * \param json the json value
+ * \param json (transfer none): the json value
  */
 void
 wp_spa_json_builder_add_json (WpSpaJsonBuilder *self, WpSpaJson *json)
 {
   ensure_separator (self, FALSE);
   ensure_allocated_max_size (self, json->size);
-  builder_add_formatted (self, "%s", json->data);
+  builder_add_json (self, json);
 }
 
 /*!
