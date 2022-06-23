@@ -388,8 +388,11 @@ wp_spa_json_new_float (float value)
 WpSpaJson *
 wp_spa_json_new_string (const gchar *value)
 {
+  size_t size = (strlen (value) * 4) + 2;
+  gchar dst[size];
+  spa_json_encode_string (dst, sizeof(dst), value);
   return wp_spa_json_new_from_builder (
-      wp_spa_json_builder_new_formatted ("\"%s\"", value));
+      wp_spa_json_builder_new_formatted ("%s", dst));
 }
 
 /* Args is not a pointer in some architectures, so this needs to be a macro to
