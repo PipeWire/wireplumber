@@ -62,11 +62,23 @@ wp_event_new (const gchar * type, gint priority, WpProperties * properties,
 
   if (self->subject) {
     /* merge properties from subject */
+    /* PW properties */
     GParamSpec *pspec = g_object_class_find_property (
         G_OBJECT_GET_CLASS (self->subject), "properties");
     if (pspec && G_PARAM_SPEC_VALUE_TYPE (pspec) == WP_TYPE_PROPERTIES) {
       g_autoptr (WpProperties) subj_props = NULL;
       g_object_get (self->subject, "properties", &subj_props, NULL);
+      if (subj_props) {
+        wp_properties_update (self->properties, subj_props);
+      }
+    }
+
+    /* global properties */
+    pspec = g_object_class_find_property ( G_OBJECT_GET_CLASS (self->subject),
+        "global-properties");
+    if (pspec && G_PARAM_SPEC_VALUE_TYPE (pspec) == WP_TYPE_PROPERTIES) {
+      g_autoptr (WpProperties) subj_props = NULL;
+      g_object_get (self->subject, "global-properties", &subj_props, NULL);
       if (subj_props) {
         wp_properties_update (self->properties, subj_props);
       }
@@ -206,11 +218,12 @@ wp_event_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
     if (event->current_hook_in_async)
       return G_SOURCE_CONTINUE;
 
-    wp_trace_object (d, "dispatching event %s(%p) of type(%s) priority(%d)",
-        wp_properties_get(event->properties, "event.type"),
-        event,
-        wp_properties_get(event->properties, "event.subject.type"),
-        event->priority);
+  wp_trace_object (d, "(%p)dispatching event %s(%p) of type(%s) priority(%d)",
+      event->subject,
+      wp_properties_get (event->properties, "event.type"),
+      event,
+      wp_properties_get (event->properties, "event.subject.type"),
+      event->priority);
 
     /* remove the remaining hooks if the event was cancelled */
     if (g_cancellable_is_cancelled (event->cancellable) && event->hooks)
@@ -363,10 +376,11 @@ wp_event_dispatcher_push_event (WpEventDispatcher * self, WpEvent * event)
   g_return_if_fail (WP_IS_EVENT_DISPATCHER (self));
   g_return_if_fail (event != NULL);
 
-  wp_trace_object (self, "pushing event %s(%p) of type(%s) priority(%d)",
-      wp_properties_get(event->properties, "event.type"),
+  wp_trace_object (self, "(%p)pushing event %s(%p) of type(%s) priority(%d)",
+      event->subject,
+      wp_properties_get (event->properties, "event.type"),
       event,
-      wp_properties_get(event->properties, "event.subject.type"),
+      wp_properties_get (event->properties, "event.subject.type"),
       event->priority);
 
   /* schedule rescan */
@@ -385,12 +399,14 @@ wp_event_dispatcher_push_event (WpEventDispatcher * self, WpEvent * event)
     WpEventHook *hook = g_ptr_array_index (self->hooks, i);
     if (wp_event_hook_runs_for_event (hook, event)) {
       /* ON_EVENT hooks run at the dispatching of the event */
+      wp_debug_object (self,"adding hook");
       if (wp_event_hook_get_exec_type (hook) == WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT) {
         event->hooks = g_list_insert_sorted (event->hooks, g_object_ref (hook),
             (GCompareFunc) hook_cmp_func);
       }
       /* AFTER_EVENTS hooks run after all other events have been dispatched */
       else if (!g_list_find (self->rescan_event->hooks, hook)) {
+        wp_debug_object (self,"adding rescan hook");
         self->rescan_event->hooks = g_list_insert_sorted (
             self->rescan_event->hooks, g_object_ref (hook),
             (GCompareFunc) hook_cmp_func);
