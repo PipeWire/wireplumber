@@ -8,6 +8,11 @@
 
 #include <wp/wp.h>
 
+/*
+ * Module subscribes for certain object manager events to and pushes them as
+ * events on to the Event Stack.
+ */
+
 struct _WpStandardEventSource
 {
   WpPlugin parent;
@@ -28,33 +33,45 @@ get_object_type_and_priority (gpointer obj, const gchar **type, gint *priority)
 {
   *type = NULL;
 
-  if (WP_IS_LINK (obj)) {
-    *type = "link";
-    *priority = 100;
+  if (WP_IS_FACTORY (obj))
+  {
+    *type = "factory";
+    *priority = 200;
   }
-  else if (WP_IS_PORT (obj)) {
-    *type = "port";
-    *priority = 90;
-  }
-  else if (WP_IS_NODE (obj)) {
-    *type = "node";
-    *priority = 70;
-  }
-  else if (WP_IS_DEVICE (obj)) {
-    *type = "device";
-    *priority = 80;
-  }
-  else if (WP_IS_CLIENT (obj)) {
+  else if (WP_IS_CLIENT (obj))
+  {
     *type = "client";
     *priority = 150;
   }
-  else if (WP_IS_ENDPOINT (obj)) {
+  else if (WP_IS_LINK (obj))
+  {
+    *type = "link";
+    *priority = 100;
+  }
+  else if (WP_IS_PORT (obj))
+  {
+    *type = "port";
+    *priority = 90;
+  }
+  else if (WP_IS_DEVICE (obj))
+  {
+    *type = "device";
+    *priority = 80;
+  }
+  else if (WP_IS_NODE (obj))
+  {
+    *type = "node";
+    *priority = 70;
+  }
+  else if (WP_IS_ENDPOINT (obj))
+  {
     *type = "endpoint";
     *priority = 60;
   }
-  else if (WP_IS_FACTORY (obj)) {
-    *type = "factory";
-    *priority = 200;
+  else if (WP_IS_METADATA (obj))
+  {
+    *type = "metadata";
+    *priority = 40;
   }
 
   return type != NULL;
@@ -62,23 +79,33 @@ get_object_type_and_priority (gpointer obj, const gchar **type, gint *priority)
 
 static void
 on_metadata_changed (WpMetadata *obj, guint32 subject,
-    const gchar *key, const gchar *type, const gchar *value,
+    const gchar *key, const gchar *spa_type, const gchar *value,
     WpStandardEventSource *self)
 {
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_return_if_fail (core);
   g_autoptr (WpEventDispatcher) dispatcher =
       wp_event_dispatcher_get_instance (core);
+  g_return_if_fail (dispatcher);
   WpProperties *p = wp_properties_new_empty ();
+  const gchar *type = NULL;
+  gint priority = 0;
 
+  if (G_UNLIKELY (!get_object_type_and_priority (obj, &type, &priority))) {
+    wp_critical_object (self, "unknown object type: " WP_OBJECT_FORMAT,
+        WP_OBJECT_ARGS (obj));
+    return;
+  }
+
+  wp_properties_set (p, "event.subject.type", type);
   wp_properties_setf (p, "event.subject.id", "%u", subject);
   wp_properties_set (p, "event.subject.key", key);
-  wp_properties_set (p, "event.subject.type", type);
+  wp_properties_set (p, "event.subject.spa_type", spa_type);
   wp_properties_set (p, "event.subject.value", value);
 
   wp_event_dispatcher_push_event (dispatcher, wp_event_new (
-          "metadata-changed", 50, g_steal_pointer (&p),
-          G_OBJECT (self->om), G_OBJECT (obj)));
+      "object-changed", priority, g_steal_pointer (&p),
+      G_OBJECT (self->om), G_OBJECT (obj)));
 }
 
 static void
