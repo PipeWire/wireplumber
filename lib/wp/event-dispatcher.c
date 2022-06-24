@@ -16,6 +16,14 @@
 #include <spa/support/plugin.h>
 #include <spa/support/system.h>
 
+/*! \defgroup wpevent WpEvent */
+/*!
+ * \struct WpEvent
+ *
+ * WpEvent describes an event, an event is an entity which can be pushed on to
+ * event stack and the event dispatcher is going to pick and dispatch it.
+ *
+ */
 struct _WpEvent
 {
   grefcount ref;
@@ -36,7 +44,7 @@ G_DEFINE_BOXED_TYPE (WpEvent, wp_event, wp_event_ref, wp_event_unref)
 
 /*!
  * \brief Creates a new event
- *
+ * \ingroup wpevent
  * \param type the type of the event
  * \param priority the priority of the event
  * \param properties (transfer full)(nullable): properties of the event
@@ -120,6 +128,12 @@ wp_event_unref (WpEvent * self)
     wp_event_free (self);
 }
 
+/*!
+ * \brief Gets the properties of the Event
+ * \ingroup wpevent
+ * \param self the handle
+ * \return (transfer full): the properties of the event
+ */
 WpProperties *
 wp_event_get_properties (WpEvent * self)
 {
@@ -127,6 +141,12 @@ wp_event_get_properties (WpEvent * self)
   return wp_properties_ref (self->properties);
 }
 
+/*!
+ * \brief Gets the Source Object of the Event
+ * \ingroup wpevent
+ * \param self the handle
+ * \return (transfer full): the source of the event
+ */
 GObject *
 wp_event_get_source (WpEvent * self)
 {
@@ -134,6 +154,12 @@ wp_event_get_source (WpEvent * self)
   return self->source ? g_object_ref (self->source) : NULL;
 }
 
+/*!
+ * \brief Gets the Subject Object of the Event
+ * \ingroup wpevent
+ * \param self the handle
+ * \return (transfer full): the subject of the event
+ */
 GObject *
 wp_event_get_subject (WpEvent * self)
 {
