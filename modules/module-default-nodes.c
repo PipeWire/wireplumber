@@ -29,6 +29,15 @@ enum {
   PROP_ECHO_CANCEL_SOURCE_NAME,
 };
 
+/*
+ * Module maintains the default devices to be used for a given media class. The
+ * module looks for changes in user preference and the changes in devices(when
+ * new devices like headsets, BT devices, HDMI etc are plugged in). User
+ * preference can be expressed via pavuctrl, gnome settings or metadata etc.
+ * These apps typically update the
+ * default.configured.*(default-configured-nodes) keys.
+ */
+
 typedef struct _WpDefaultNode WpDefaultNode;
 struct _WpDefaultNode
 {
@@ -92,8 +101,9 @@ timeout_save_state_callback (WpDefaultNodes *self)
 }
 
 static void
-timer_start (WpDefaultNodes *self)
+timer_start (WpEvent *event, gpointer d)
 {
+  WpDefaultNodes * self = WP_DEFAULT_NODES (d);
   if (!self->timeout_source && self->use_persistent_storage) {
     g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
     g_return_if_fail (core);
@@ -372,24 +382,34 @@ sync_rescan (WpCore * core, GAsyncResult * res, WpDefaultNodes * self)
 }
 
 static void
-schedule_rescan (WpDefaultNodes * self)
+schedule_rescan (WpEvent *event, gpointer d)
 {
+  WpDefaultNodes * self = WP_DEFAULT_NODES (d);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_return_if_fail (core);
 
   wp_debug_object (self, "scheduling default nodes rescan");
+  // Event-Stack TBD: do we need to retain this behavior? or push this as a
+  // event & hook pair on to event stack
   wp_core_sync_closure (core, NULL, g_cclosure_new_object (
       G_CALLBACK (sync_rescan), G_OBJECT (self)));
 }
 
 static void
-on_metadata_changed (WpMetadata *m, guint32 subject,
-    const gchar *key, const gchar *type, const gchar *value, gpointer d)
+on_metadata_changed (WpEvent *event, gpointer d)
 {
   WpDefaultNodes * self = WP_DEFAULT_NODES (d);
   gint node_t = -1;
+  g_autoptr (GObject) subject = wp_event_get_subject (event);
+  WpMetadata *m = WP_METADATA (subject);
 
-  if (subject == 0) {
+  g_autoptr (WpProperties) p = wp_event_get_properties (event);
+  guint32 subject_id = atoi (wp_properties_get (p, "event.subject.id"));
+  const gchar *key = wp_properties_get (p, "event.subject.key");
+  const gchar *type = wp_properties_get (p, "event.subject.spa_type");
+  const gchar *value = wp_properties_get (p, "event.subject.value");
+
+  if (subject_id == 0) {
     for (gint i = 0; i < N_DEFAULT_NODES; i++) {
       if (!g_strcmp0 (key, DEFAULT_CONFIG_KEY[i])) {
         node_t = i;
@@ -399,43 +419,30 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
   }
 
   if (node_t != -1) {
-    g_clear_pointer (&self->defaults[node_t].config_value, g_free);
 
     if (value && !g_strcmp0 (type, "Spa:String:JSON")) {
       g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (value);
       g_autofree gchar *name = NULL;
-      if (wp_spa_json_object_get (json, "name", "s", &name, NULL))
+      if (wp_spa_json_object_get (json, "name", "s", &name, NULL)) {
+        wp_debug_object (m, "'%s' changed from %s -> '%s'", key, name,
+          self->defaults[node_t].config_value);
+        g_clear_pointer (&self->defaults[node_t].config_value, g_free);
+
         self->defaults[node_t].config_value = g_strdup (name);
+      }
     }
 
-    wp_debug_object (m, "changed '%s' -> '%s'", key,
-        self->defaults[node_t].config_value);
-
-    /* schedule rescan */
-    schedule_rescan (self);
-
-    /* Save state after specific interval */
-    timer_start (self);
   }
 }
 
 static void
-on_object_added (WpObjectManager *om, WpPipewireObject *proxy, gpointer d)
-{
-  WpDefaultNodes * self = WP_DEFAULT_NODES (d);
-
-  if (WP_IS_DEVICE (proxy)) {
-    g_signal_connect_object (proxy, "params-changed",
-        G_CALLBACK (schedule_rescan), self, G_CONNECT_SWAPPED);
-  }
-}
-
-static void
-on_metadata_added (WpObjectManager *om, WpMetadata *metadata, gpointer d)
+on_metadata_added (WpEvent *event, gpointer d)
 {
   WpDefaultNodes * self = WP_DEFAULT_NODES (d);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_return_if_fail (core);
+  g_autoptr (GObject) subject = wp_event_get_subject (event);
+  WpMetadata *metadata = WP_METADATA (subject);
 
   for (gint i = 0; i < N_DEFAULT_NODES; i++) {
     if (self->defaults[i].config_value) {
@@ -445,10 +452,85 @@ on_metadata_added (WpObjectManager *om, WpMetadata *metadata, gpointer d)
           wp_spa_json_get_data (json));
     }
   }
+}
 
-  /* Handle the changed signal */
-  g_signal_connect_object (metadata, "changed",
-      G_CALLBACK (on_metadata_changed), self, 0);
+static void
+wp_default_nodes_enable (WpPlugin * plugin, WpTransition * transition)
+{
+  WpDefaultNodes * self = WP_DEFAULT_NODES (plugin);
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
+  g_return_if_fail (core);
+  g_autoptr (WpEventDispatcher) dispatcher =
+      wp_event_dispatcher_get_instance (core);
+  g_autoptr (WpEventHook) hook = NULL;
+  g_return_if_fail (dispatcher);
+
+  /* default metadata added */
+  hook = wp_simple_event_hook_new (10, WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
+      g_cclosure_new ((GCallback) on_metadata_added, self, NULL));
+  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-added",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
+      NULL);
+  wp_event_dispatcher_register_hook (dispatcher, hook);
+  g_clear_object(&hook);
+
+  /* default metadata changed */
+  hook = wp_simple_event_hook_new (10, WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
+      g_cclosure_new ((GCallback) on_metadata_changed, self, NULL));
+  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
+      NULL);
+  wp_event_dispatcher_register_hook (dispatcher, hook);
+  g_clear_object(&hook);
+
+  /* register rescan hook as an after event */
+  /* priority: before the policy rescan & state save */
+  hook = wp_simple_event_hook_new (90, WP_EVENT_HOOK_EXEC_TYPE_AFTER_EVENTS,
+      g_cclosure_new ((GCallback) schedule_rescan, self, NULL));
+  /* default metadata changed */
+  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
+      NULL);
+  /* device changed */
+  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "device",
+      NULL);
+  /* node changed */
+  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "node",
+      NULL);
+  /* device parms changed */
+  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "params-changed",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "device",
+      NULL);
+  /* node parms changed */
+  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "params-changed",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "node",
+      NULL);
+  wp_event_dispatcher_register_hook (dispatcher, hook);
+  g_clear_object (&hook);
+
+  /* register state save hook as an after event */
+  /* priority: after the default-nodes rescan */
+  hook = wp_simple_event_hook_new (80, WP_EVENT_HOOK_EXEC_TYPE_AFTER_EVENTS,
+      g_cclosure_new ((GCallback) timer_start, self, NULL));
+  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
+      NULL);
+  wp_event_dispatcher_register_hook (dispatcher, hook);
+  g_clear_object (&hook);
 
   /* Create the rescan object manager */
   self->rescan_om = wp_object_manager_new ();
@@ -461,19 +543,7 @@ on_metadata_added (WpObjectManager *om, WpMetadata *metadata, gpointer d)
       WP_OBJECT_FEATURES_ALL);
   wp_object_manager_request_object_features (self->rescan_om, WP_TYPE_PORT,
       WP_OBJECT_FEATURES_ALL);
-  g_signal_connect_object (self->rescan_om, "objects-changed",
-      G_CALLBACK (schedule_rescan), self, G_CONNECT_SWAPPED);
-  g_signal_connect_object (self->rescan_om, "object-added",
-      G_CALLBACK (on_object_added), self, 0);
   wp_core_install_object_manager (core, self->rescan_om);
-}
-
-static void
-wp_default_nodes_enable (WpPlugin * plugin, WpTransition * transition)
-{
-  WpDefaultNodes * self = WP_DEFAULT_NODES (plugin);
-  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
-  g_return_if_fail (core);
 
   if (self->use_persistent_storage) {
     self->state = wp_state_new (NAME);
@@ -487,8 +557,6 @@ wp_default_nodes_enable (WpPlugin * plugin, WpTransition * transition)
       NULL);
   wp_object_manager_request_object_features (self->metadata_om,
       WP_TYPE_METADATA, WP_OBJECT_FEATURES_ALL);
-  g_signal_connect_object (self->metadata_om, "object-added",
-      G_CALLBACK (on_metadata_added), self, 0);
   wp_core_install_object_manager (core, self->metadata_om);
 
   wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
