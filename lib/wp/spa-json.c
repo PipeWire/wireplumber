@@ -265,6 +265,7 @@ wp_spa_json_get_size (const WpSpaJson *self)
  * \ingroup wpspajson
  * \param self a spa json object
  * \returns (transfer full): the json string with length matching the size
+ * \since 0.4.11
  */
 gchar *
 wp_spa_json_to_string (const WpSpaJson *self)
