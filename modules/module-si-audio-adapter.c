@@ -744,6 +744,10 @@ si_audio_adapter_get_ports (WpSiLinkable * item, const gchar * context)
     port_id = wp_proxy_get_bound_id (WP_PROXY (port));
     props = wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (port));
 
+    /* skip control ports for now */
+    if (spa_atob (wp_properties_get (props, PW_KEY_PORT_CONTROL)))
+      continue;
+
     /* try to find the audio channel; if channel is NULL, this will silently
        leave the channel_id to its default value, 0 */
     channel = wp_properties_get (props, PW_KEY_AUDIO_CHANNEL);
