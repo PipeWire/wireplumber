@@ -164,6 +164,14 @@ function createNode(parent, id, type, factory, properties)
     end
   end
 
+  -- apply VM overrides
+  local vm_overrides = config.properties["vm.node.defaults"]
+  if nonempty(Core.get_vm_type()) and type(vm_overrides) == "table" then
+    for k, v in pairs(vm_overrides) do
+      properties[k] = v
+    end
+  end
+
   -- apply properties from config.rules
   rulesApplyProperties(properties)
   if properties["node.disabled"] then
