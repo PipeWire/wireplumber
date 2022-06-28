@@ -165,6 +165,15 @@ core_get_info (lua_State *L)
 }
 
 static int
+core_get_vm_type (lua_State *L)
+{
+  WpCore * core = get_wp_core (L);
+  g_autofree gchar *vm = wp_core_get_vm_type (core);
+  lua_pushstring (L, vm);
+  return 1;
+}
+
+static int
 core_idle_add (lua_State *L)
 {
   GSource *source = NULL;
@@ -259,6 +268,7 @@ core_require_api (lua_State *L)
 
 static const luaL_Reg core_funcs[] = {
   { "get_info", core_get_info },
+  { "get_vm_type", core_get_vm_type },
   { "idle_add", core_idle_add },
   { "timeout_add", core_timeout_add },
   { "sync", core_sync },
