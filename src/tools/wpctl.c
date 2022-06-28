@@ -645,7 +645,9 @@ static void
 inspect_print_object (WpCtl * self, WpProxy * proxy, guint nest_level)
 {
   g_autoptr (WpProperties) properties =
-      wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (proxy));
+      WP_IS_PIPEWIRE_OBJECT (proxy) ?
+      wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (proxy)) :
+      wp_properties_new_empty ();
   g_autoptr (WpProperties) global_p =
       wp_global_proxy_get_global_properties (WP_GLOBAL_PROXY (proxy));
   g_autoptr (GArray) array =
@@ -861,7 +863,7 @@ set_volume_parse_positional (gint argc, gchar ** argv, GError **error)
   if (g_regex_match(regex, argv[3], 0, &info)) {
     cmdline.set_volume.volume = strtof(g_match_info_fetch(info, 1), NULL);
     cmdline.set_volume.type = 'a';
-    
+
     if (g_strcmp0(g_match_info_fetch(info, 2), "%") == 0) {
       cmdline.set_volume.type = 'p';
     }
