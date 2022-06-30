@@ -28,6 +28,7 @@ local common_interests = {
 }
 
 AsyncEventHook {
+  name = "test-async-hook",
   priority = 10,
   type = "on-event",
   interests = common_interests,
@@ -54,6 +55,7 @@ AsyncEventHook {
 }:register()
 
 SimpleEventHook {
+  name = "test-simple-hook",
   priority = 15,
   type = "on-event",
   interests = common_interests,
@@ -63,6 +65,7 @@ SimpleEventHook {
 }:register()
 
 SimpleEventHook {
+  name = "test-afterevent-hook",
   priority = 1,
   type = "after-events",
   interests = common_interests,
