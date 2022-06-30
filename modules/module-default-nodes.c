@@ -463,7 +463,8 @@ wp_default_nodes_enable (WpPlugin * plugin, WpTransition * transition)
   g_return_if_fail (dispatcher);
 
   /* default metadata added */
-  hook = wp_simple_event_hook_new (10, WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
+  hook = wp_simple_event_hook_new ("default-nodes-on-metadata-added", 10,
+      WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
       g_cclosure_new ((GCallback) on_metadata_added, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-added",
@@ -474,7 +475,8 @@ wp_default_nodes_enable (WpPlugin * plugin, WpTransition * transition)
   g_clear_object(&hook);
 
   /* default metadata changed */
-  hook = wp_simple_event_hook_new (10, WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
+  hook = wp_simple_event_hook_new ("default-nodes-on-metadata-changed", 10,
+      WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
       g_cclosure_new ((GCallback) on_metadata_changed, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
@@ -486,7 +488,8 @@ wp_default_nodes_enable (WpPlugin * plugin, WpTransition * transition)
 
   /* register rescan hook as an after event */
   /* priority: before the policy rescan & state save */
-  hook = wp_simple_event_hook_new (90, WP_EVENT_HOOK_EXEC_TYPE_AFTER_EVENTS,
+  hook = wp_simple_event_hook_new ("default-nodes-rescanner", 90,
+      WP_EVENT_HOOK_EXEC_TYPE_AFTER_EVENTS,
       g_cclosure_new ((GCallback) schedule_rescan, self, NULL));
   /* default metadata changed */
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
@@ -519,7 +522,8 @@ wp_default_nodes_enable (WpPlugin * plugin, WpTransition * transition)
 
   /* register state save hook as an after event */
   /* priority: after the default-nodes rescan */
-  hook = wp_simple_event_hook_new (80, WP_EVENT_HOOK_EXEC_TYPE_AFTER_EVENTS,
+  hook = wp_simple_event_hook_new ("default-nodes-state-saver", 80,
+      WP_EVENT_HOOK_EXEC_TYPE_AFTER_EVENTS,
       g_cclosure_new ((GCallback) timer_start, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
