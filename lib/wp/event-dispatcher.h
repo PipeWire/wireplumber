@@ -15,9 +15,13 @@
 
 G_BEGIN_DECLS
 
+/*! \defgroup wpevent WpEvent */
 /*!
- * \brief The WpEvent GType
- * \ingroup wpeventdispatcher
+ * \struct WpEvent
+ *
+ * WpEvent describes an event, an event is an entity which can be pushed on to
+ * event stack and the event dispatcher is going to pick and dispatch it.
+ *
  */
 #define WP_TYPE_EVENT (wp_event_get_type ())
 WP_API
@@ -50,9 +54,11 @@ void wp_event_stop_processing (WpEvent * self);
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpEvent, wp_event_unref)
 
 
+/*! \defgroup wpeventdispatcher WpEventDispatcher */
 /*!
- * \brief The WpEventDispatcher GType
- * \ingroup wpeventdispatcher
+ * \struct WpEventDispatcher
+ *
+ * The event dispatcher holds all the events and hooks and dispatches them. It orchestras the show on event stack.
  */
 #define WP_TYPE_EVENT_DISPATCHER (wp_event_dispatcher_get_type ())
 WP_API

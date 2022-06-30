@@ -14,24 +14,18 @@
 #include "log.h"
 #include "wpenums.h"
 
-/*! \defgroup wpeventhook WpEventHook */
-/*!
- * \struct WpEventHook
- *
- * The event hook is a structure that describes some executable action
- * that an event dispatcher will run when a matching event has been received.
- */
-
 typedef struct _WpEventHookPrivate WpEventHookPrivate;
 struct _WpEventHookPrivate
 {
   gint priority;
   WpEventHookExecType exec_type;
   GWeakRef dispatcher;
+  gchar *name;
 };
 
 enum {
   PROP_0,
+  PROP_NAME,
   PROP_PRIORITY,
   PROP_EXEC_TYPE,
   PROP_DISPATCHER,
@@ -53,6 +47,7 @@ wp_event_hook_finalize (GObject * object)
   WpEventHookPrivate *priv = wp_event_hook_get_instance_private (self);
 
   g_weak_ref_clear (&priv->dispatcher);
+  g_free (priv->name);
 
   G_OBJECT_CLASS (wp_event_hook_parent_class)->finalize (object);
 }
@@ -65,6 +60,9 @@ wp_event_hook_set_property (GObject * object, guint property_id,
   WpEventHookPrivate *priv = wp_event_hook_get_instance_private (self);
 
   switch (property_id) {
+  case PROP_NAME:
+    priv->name = g_value_dup_string (value);
+    break;
   case PROP_PRIORITY:
     priv->priority = g_value_get_int (value);
     break;
@@ -85,6 +83,9 @@ wp_event_hook_get_property (GObject * object, guint property_id, GValue * value,
   WpEventHookPrivate *priv = wp_event_hook_get_instance_private (self);
 
   switch (property_id) {
+  case PROP_NAME:
+    g_value_set_string (value, priv->name);
+    break;
   case PROP_PRIORITY:
     g_value_set_int (value, priv->priority);
     break;
@@ -108,6 +109,10 @@ wp_event_hook_class_init (WpEventHookClass * klass)
   object_class->finalize = wp_event_hook_finalize;
   object_class->set_property = wp_event_hook_set_property;
   object_class->get_property = wp_event_hook_get_property;
+
+  g_object_class_install_property (object_class, PROP_NAME,
+      g_param_spec_string ("name", "name", "The hook name", "",
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (object_class, PROP_PRIORITY,
       g_param_spec_int ("priority", "priority",
@@ -138,6 +143,21 @@ wp_event_hook_get_priority (WpEventHook * self)
   g_return_val_if_fail (WP_IS_EVENT_HOOK (self), 0);
   WpEventHookPrivate *priv = wp_event_hook_get_instance_private (self);
   return priv->priority;
+}
+
+/*!
+ * \brief Returns the name of the hook
+ *
+ * \ingroup wpeventhook
+ * \param self the event hook
+ * \return the event hook name
+ */
+gchar *
+wp_event_hook_get_name (WpEventHook * self)
+{
+  g_return_val_if_fail (WP_IS_EVENT_HOOK (self), 0);
+  WpEventHookPrivate *priv = wp_event_hook_get_instance_private (self);
+  return priv->name;
 }
 
 /*!
@@ -478,6 +498,7 @@ wp_simple_event_hook_class_init (WpSimpleEventHookClass * klass)
 /*!
  * \brief Constructs a new simple event hook
  *
+ * \param name the name of the hook
  * \param priority the priority of the hook
  * \param type the execution type of the hook
  * \param closure the closure to invoke when the hook is executed; the closure
@@ -486,12 +507,13 @@ wp_simple_event_hook_class_init (WpSimpleEventHookClass * klass)
  * \return a new simple event hook
  */
 WpEventHook *
-wp_simple_event_hook_new (gint priority, WpEventHookExecType type,
-    GClosure * closure)
+wp_simple_event_hook_new (const gchar *name, gint priority,
+    WpEventHookExecType type, GClosure * closure)
 {
   g_return_val_if_fail (closure != NULL, NULL);
 
   return g_object_new (WP_TYPE_SIMPLE_EVENT_HOOK,
+      "name", name,
       "priority", priority,
       "exec-type", type,
       "closure", closure,
@@ -616,14 +638,26 @@ wp_async_event_hook_class_init (WpAsyncEventHookClass * klass)
           G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
+/*!
+ * \brief Constructs a new async event hook
+ *
+ * \param name the name of the hook
+ * \param priority the priority of the hook
+ * \param type the execution type of the hook
+ * \param get_next_step the closure to invoke to get the next step
+ * \param execute_step the closure to invoke to execute the step
+ * \return a new async event hook
+ */
 WpEventHook *
-wp_async_event_hook_new (gint priority, WpEventHookExecType type,
-    GClosure * get_next_step, GClosure * execute_step)
+wp_async_event_hook_new (const gchar *name, gint priority,
+    WpEventHookExecType type, GClosure * get_next_step,
+    GClosure * execute_step)
 {
   g_return_val_if_fail (get_next_step != NULL, NULL);
   g_return_val_if_fail (execute_step != NULL, NULL);
 
   return g_object_new (WP_TYPE_ASYNC_EVENT_HOOK,
+      "name", name,
       "priority", priority,
       "exec-type", type,
       "get-next-step", get_next_step,

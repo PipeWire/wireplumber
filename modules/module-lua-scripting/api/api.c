@@ -1774,11 +1774,18 @@ simple_event_hook_new (lua_State *L)
 {
   WpEventHook *hook = NULL;
   gint priority = 0;
+  const gchar *name;
   WpEventHookExecType type = 0;
   GClosure *closure = NULL;
 
   /* validate arguments */
   luaL_checktype (L, 1, LUA_TTABLE);
+
+  lua_pushliteral (L, "name");
+  if (lua_gettable (L, 1) != LUA_TSTRING)
+    luaL_error (L, "AsyncEventHook: expected 'name' as string");
+  name = lua_tostring (L, -1);
+  lua_pop (L, 1);
 
   lua_pushliteral (L, "priority");
   if (lua_gettable (L, 1) == LUA_TNUMBER)
@@ -1801,7 +1808,7 @@ simple_event_hook_new (lua_State *L)
     luaL_error (L, "SimpleEventHook: expected 'execute' as function");
   lua_pop (L, 1);
 
-  hook = wp_simple_event_hook_new (priority, type, closure);
+  hook = wp_simple_event_hook_new (name, priority, type, closure);
   wplua_pushobject (L, hook);
 
   lua_pushliteral (L, "interests");
@@ -1946,6 +1953,7 @@ static int
 async_event_hook_new (lua_State *L)
 {
   WpEventHook *hook = NULL;
+  const gchar *name;
   gint priority = 0;
   WpEventHookExecType type = 0;
   GClosure *get_next_step = NULL;
@@ -1953,6 +1961,12 @@ async_event_hook_new (lua_State *L)
 
   /* validate arguments */
   luaL_checktype (L, 1, LUA_TTABLE);
+
+  lua_pushliteral (L, "name");
+  if (lua_gettable (L, 1) != LUA_TSTRING)
+    luaL_error (L, "AsyncEventHook: expected 'name' as string");
+  name = lua_tostring (L, -1);
+  lua_pop (L, 1);
 
   lua_pushliteral (L, "priority");
   if (lua_gettable (L, 1) != LUA_TNUMBER)
@@ -1981,7 +1995,8 @@ async_event_hook_new (lua_State *L)
   execute_step = wplua_function_to_closure (L, -1);
   lua_pop (L, 1);
 
-  hook = wp_async_event_hook_new (priority, type, get_next_step, execute_step);
+  hook = wp_async_event_hook_new (name, priority, type, get_next_step,
+      execute_step);
   wplua_pushobject (L, hook);
 
   lua_pushliteral (L, "interests");
