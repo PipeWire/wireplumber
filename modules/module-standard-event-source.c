@@ -87,7 +87,7 @@ on_metadata_changed (WpMetadata *obj, guint32 subject,
   g_autoptr (WpEventDispatcher) dispatcher =
       wp_event_dispatcher_get_instance (core);
   g_return_if_fail (dispatcher);
-  WpProperties *p = wp_properties_new_empty ();
+  g_autoptr (WpProperties) props = wp_properties_new_empty ();
   const gchar *type = NULL;
   gint priority = 0;
 
@@ -97,14 +97,14 @@ on_metadata_changed (WpMetadata *obj, guint32 subject,
     return;
   }
 
-  wp_properties_set (p, "event.subject.type", type);
-  wp_properties_setf (p, "event.subject.id", "%u", subject);
-  wp_properties_set (p, "event.subject.key", key);
-  wp_properties_set (p, "event.subject.spa_type", spa_type);
-  wp_properties_set (p, "event.subject.value", value);
+  wp_properties_set (props, "event.subject.type", type);
+  wp_properties_setf (props, "event.subject.id", "%u", subject);
+  wp_properties_set (props, "event.subject.key", key);
+  wp_properties_set (props, "event.subject.spa_type", spa_type);
+  wp_properties_set (props, "event.subject.value", value);
 
   wp_event_dispatcher_push_event (dispatcher, wp_event_new (
-      "object-changed", priority, g_steal_pointer (&p),
+      "object-changed", priority, g_steal_pointer (&props),
       G_OBJECT (self->om), G_OBJECT (obj)));
 }
 
@@ -116,10 +116,22 @@ on_params_changed (WpPipewireObject *obj, const gchar *id,
   g_return_if_fail (core);
   g_autoptr (WpEventDispatcher) dispatcher =
       wp_event_dispatcher_get_instance (core);
+  g_return_if_fail (dispatcher);
+  g_autoptr (WpProperties) props = wp_properties_new_empty ();
+  const gchar *type = NULL;
+  gint priority = 0;
+
+  if (G_UNLIKELY (!get_object_type_and_priority (obj, &type, &priority))) {
+    wp_critical_object (self, "unknown object type: " WP_OBJECT_FORMAT,
+        WP_OBJECT_ARGS (obj));
+    return;
+  }
+
+  wp_properties_set (props, "event.subject.type", type);
+  wp_properties_set (props, "event.subject.param-id", id);
 
   wp_event_dispatcher_push_event (dispatcher, wp_event_new (
-          "params-changed", 50,
-          wp_properties_new ("event.subject.param-id", id, NULL),
+          "params-changed", priority, g_steal_pointer (&props),
           G_OBJECT (self->om), G_OBJECT (obj)));
 }
 
