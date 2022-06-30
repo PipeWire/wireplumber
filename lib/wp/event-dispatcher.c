@@ -16,14 +16,6 @@
 #include <spa/support/plugin.h>
 #include <spa/support/system.h>
 
-/*! \defgroup wpevent WpEvent */
-/*!
- * \struct WpEvent
- *
- * WpEvent describes an event, an event is an entity which can be pushed on to
- * event stack and the event dispatcher is going to pick and dispatch it.
- *
- */
 struct _WpEvent
 {
   grefcount ref;
@@ -37,10 +29,20 @@ struct _WpEvent
 
   /* managed by the dispatcher */
   GList *hooks;
+  gchar *hooks_chain;
+  gchar *name;
   WpEventHook *current_hook_in_async;
 };
 
 G_DEFINE_BOXED_TYPE (WpEvent, wp_event, wp_event_ref, wp_event_unref)
+
+static gchar *
+form_event_name (const gchar *type, const gchar *subject_type)
+{
+  return g_strdup_printf ("%s%s%s", (type ? type : ""),
+    ((type && subject_type) ? "@" : ""),
+    (subject_type ? subject_type : ""));
+}
 
 /*!
  * \brief Creates a new event
@@ -101,6 +103,8 @@ wp_event_new (const gchar * type, gint priority, WpProperties * properties,
   }
 
   wp_properties_set (self->properties, "event.type", type);
+  self->name = form_event_name ( type,
+      wp_properties_get (self->properties, "event.subject.type"));
 
   return self;
 }
@@ -112,6 +116,8 @@ wp_event_free (WpEvent * self)
   g_clear_object (&self->source);
   g_clear_object (&self->subject);
   g_clear_object (&self->cancellable);
+  g_free (self->hooks_chain);
+  g_free (self->name);
 }
 
 WpEvent *
@@ -174,8 +180,6 @@ wp_event_stop_processing (WpEvent * self)
   g_cancellable_cancel (self->cancellable);
 }
 
-
-
 struct _WpEventDispatcher
 {
   GObject parent;
@@ -184,6 +188,7 @@ struct _WpEventDispatcher
   GPtrArray *hooks; /* registered hooks */
   GSource *source;  /* the event loop source */
   GList *events;    /* the events stack */
+  gchar *events_chain; /* chain of events for an event run */
   WpEvent *rescan_event;
   struct spa_system *system;
   int eventfd;
@@ -226,6 +231,17 @@ on_event_hook_done (WpEventHook * hook, GAsyncResult * res, WpEvent * event)
   spa_system_eventfd_write (dispatcher->system, dispatcher->eventfd, 1);
 }
 
+static gchar *
+build_chain (gchar *link, gchar *chain)
+{
+  gchar *temp = g_strdup_printf ("%s%s%s", (chain ? chain : ""),
+    (chain ? " -> " : ""), link);
+  g_free (chain);
+  chain = temp;
+
+  return chain;
+}
+
 static gboolean
 wp_event_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
 {
@@ -239,17 +255,27 @@ wp_event_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
   GList *levent = g_list_first (d->events);
   while (levent) {
     WpEvent *event = (WpEvent *) (levent->data);
+    gboolean new_dispatchable_event = (g_list_length (event->hooks) > 0);
+
+    if (d->events_chain) {
+      new_dispatchable_event = new_dispatchable_event &&
+          (!strstr (d->events_chain, event->name));
+    }
+
+    if (new_dispatchable_event) {
+      wp_debug_object(d, "dispatching event (%s)" WP_OBJECT_FORMAT
+        " priority(%d)", event->name,
+        WP_OBJECT_ARGS (event->subject), event->priority);
+
+
+      d->events_chain = build_chain (event->name, d->events_chain);
+      wp_debug_object (d, "events chain (%s)", d->events_chain);
+    }
 
     /* event hook is still in progress, we will continue later */
     if (event->current_hook_in_async)
       return G_SOURCE_CONTINUE;
 
-  wp_trace_object (d, "(%p)dispatching event %s(%p) of type(%s) priority(%d)",
-      event->subject,
-      wp_properties_get (event->properties, "event.type"),
-      event,
-      wp_properties_get (event->properties, "event.subject.type"),
-      event->priority);
 
     /* remove the remaining hooks if the event was cancelled */
     if (g_cancellable_is_cancelled (event->cancellable) && event->hooks)
@@ -258,14 +284,19 @@ wp_event_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
     /* get the highest priority hook */
     GList *lhook = g_list_first (event->hooks);
     if (lhook) {
+      gchar *name = NULL;
       event->current_hook_in_async = WP_EVENT_HOOK (lhook->data);
       event->hooks = g_list_delete_link (event->hooks, g_steal_pointer (&lhook));
+      name = wp_event_hook_get_name (event->current_hook_in_async);
+
+      wp_debug_object (d, "running hook (%s)", name);
+      event->hooks_chain = build_chain (name, event->hooks_chain);
+      wp_debug_object (d, "hooks chain (%s)", event->hooks_chain);
 
       /* execute the hook, possibly async */
       wp_event_hook_run (event->current_hook_in_async, event,
           event->cancellable, (GAsyncReadyCallback) on_event_hook_done, event);
-    } else
-      wp_trace_object (d, "no hooks for this event");
+    }
 
     /* clear the event after all hooks are done */
     if (!event->hooks && !event->current_hook_in_async) {
@@ -278,6 +309,10 @@ wp_event_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
     /* get the next event */
     levent = g_list_first (d->events);
   }
+
+  /* an event run completed reset the events_chain */
+  g_free (d->events_chain);
+  d->events_chain = NULL;
 
   return G_SOURCE_CONTINUE;
 }
@@ -327,6 +362,7 @@ wp_event_dispatcher_finalize (GObject * object)
 
   g_clear_pointer (&self->hooks, g_ptr_array_unref);
   g_weak_ref_clear (&self->core);
+  g_free (self->events_chain);
 
   G_OBJECT_CLASS (wp_event_dispatcher_parent_class)->finalize (object);
 }
@@ -343,9 +379,10 @@ wp_event_dispatcher_class_init (WpEventDispatcherClass * klass)
  * \brief Returns the event dispatcher instance that is associated with the
  * given core.
  *
- * This method will also create the instance and register it with the core
+ * This method will also create the instance and register it with the core,
  * if it had not been created before.
  *
+ * \ingroup wpeventdispatcher
  * \param core the core
  * \return (transfer full): the event dispatcher instance
  */
@@ -391,7 +428,8 @@ hook_cmp_func (const WpEventHook *a, const WpEventHook *b)
 }
 
 /*!
- * \brief Pushes a new event for dispatching
+ * \brief Pushes a new event onto the event stack for dispatching
+ * \ingroup wpeventdispatcher
  *
  * \param self the dispatcher
  * \param event (transfer full): the new event
@@ -401,13 +439,7 @@ wp_event_dispatcher_push_event (WpEventDispatcher * self, WpEvent * event)
 {
   g_return_if_fail (WP_IS_EVENT_DISPATCHER (self));
   g_return_if_fail (event != NULL);
-
-  wp_trace_object (self, "(%p)pushing event %s(%p) of type(%s) priority(%d)",
-      event->subject,
-      wp_properties_get (event->properties, "event.type"),
-      event,
-      wp_properties_get (event->properties, "event.subject.type"),
-      event->priority);
+  gboolean new_event_with_hooks_added = false;
 
   /* schedule rescan */
   if (!self->rescan_event) {
@@ -425,17 +457,23 @@ wp_event_dispatcher_push_event (WpEventDispatcher * self, WpEvent * event)
     WpEventHook *hook = g_ptr_array_index (self->hooks, i);
     if (wp_event_hook_runs_for_event (hook, event)) {
       /* ON_EVENT hooks run at the dispatching of the event */
-      wp_debug_object (self,"adding hook");
+      if (!new_event_with_hooks_added) {
+        new_event_with_hooks_added = true;
+        wp_debug_object(self, "pushing event (%s)" WP_OBJECT_FORMAT
+            " priority(%d)", event->name,
+            WP_OBJECT_ARGS (event->subject), event->priority);
+      }
       if (wp_event_hook_get_exec_type (hook) == WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT) {
         event->hooks = g_list_insert_sorted (event->hooks, g_object_ref (hook),
             (GCompareFunc) hook_cmp_func);
+        wp_debug_object(self, "added hook (%s)", wp_event_hook_get_name(hook));
       }
       /* AFTER_EVENTS hooks run after all other events have been dispatched */
       else if (!g_list_find (self->rescan_event->hooks, hook)) {
-        wp_debug_object (self,"adding rescan hook");
         self->rescan_event->hooks = g_list_insert_sorted (
             self->rescan_event->hooks, g_object_ref (hook),
             (GCompareFunc) hook_cmp_func);
+        wp_debug_object(self, "added rescan hook (%s)", wp_event_hook_get_name(hook));
       }
     }
   }
@@ -446,6 +484,7 @@ wp_event_dispatcher_push_event (WpEventDispatcher * self, WpEvent * event)
 
 /*!
  * \brief Registers an event hook
+ * \ingroup wpeventdispatcher
  *
  * \param self the event dispatcher
  * \param hook (transfer none): the hook to register
@@ -467,6 +506,7 @@ wp_event_dispatcher_register_hook (WpEventDispatcher * self,
 
 /*!
  * \brief Unregisters an event hook
+ * \ingroup wpeventdispacher
  *
  * \param self the event dispatcher
  * \param hook (transfer none): the hook to unregister
