@@ -22,9 +22,12 @@ typedef enum {
   WP_EVENT_HOOK_EXEC_TYPE_AFTER_EVENTS,
 } WpEventHookExecType;
 
+/*! \defgroup wpeventhook WpEventHook */
 /*!
- * \brief The WpEventHook GType
- * \ingroup wpeventhook
+ * \struct WpEventHook
+ *
+ * The event hook is a structure that describes some executable action
+ * that an event dispatcher will run when a matching event has been received.
  */
 #define WP_TYPE_EVENT_HOOK (wp_event_hook_get_type ())
 WP_API
@@ -47,6 +50,9 @@ struct _WpEventHookClass
 
 WP_API
 gint wp_event_hook_get_priority (WpEventHook * self);
+
+WP_API
+gchar * wp_event_hook_get_name (WpEventHook * self);
 
 WP_API
 WpEventHookExecType wp_event_hook_get_exec_type (WpEventHook * self);
@@ -107,7 +113,7 @@ G_DECLARE_FINAL_TYPE (WpSimpleEventHook, wp_simple_event_hook,
                       WP, SIMPLE_EVENT_HOOK, WpInterestEventHook)
 
 WP_API
-WpEventHook * wp_simple_event_hook_new (gint priority,
+WpEventHook * wp_simple_event_hook_new (const gchar *name, gint priority,
     WpEventHookExecType type, GClosure * closure);
 
 
@@ -121,7 +127,7 @@ G_DECLARE_FINAL_TYPE (WpAsyncEventHook, wp_async_event_hook,
                       WP, ASYNC_EVENT_HOOK, WpInterestEventHook)
 
 WP_API
-WpEventHook * wp_async_event_hook_new (gint priority,
+WpEventHook * wp_async_event_hook_new (const gchar *name, gint priority,
     WpEventHookExecType type, GClosure * get_next_step,
     GClosure * execute_step);
 
