@@ -28,6 +28,15 @@ typedef enum {
 } WpLinkState;
 
 /*!
+ * \brief An extension of WpProxyFeatures
+ * \ingroup wplink
+ */
+typedef enum { /*< flags >*/
+  /*! waits until the state of the link is >= PAUSED */
+  WP_LINK_FEATURE_ESTABLISHED = (WP_PROXY_FEATURE_CUSTOM_START << 0),
+} WpLinkFeatures;
+
+/*!
  * \brief The WpLink GType
  * \ingroup wplink
  */

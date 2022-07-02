@@ -99,6 +99,17 @@ wp_link_get_property (GObject * object, guint property_id,
   }
 }
 
+static WpObjectFeatures
+wp_link_get_supported_features (WpObject * object)
+{
+  return wp_pw_object_mixin_get_supported_features (object)
+      | WP_LINK_FEATURE_ESTABLISHED;
+}
+
+enum {
+  STEP_WAIT_ESTABLISHED = WP_PW_OBJECT_MIXIN_STEP_CUSTOM_START,
+};
+
 static void
 wp_link_activate_execute_step (WpObject * object,
     WpFeatureActivationTransition * transition, guint step,
@@ -113,6 +124,9 @@ wp_link_activate_execute_step (WpObject * object,
     break;
   case WP_PW_OBJECT_MIXIN_STEP_WAIT_INFO:
     /* just wait, info will be emitted anyway after binding */
+    break;
+  case STEP_WAIT_ESTABLISHED:
+    /* just wait again, the state will be changed automatically */
     break;
   default:
     g_assert_not_reached ();
@@ -135,6 +149,7 @@ static void
 wp_link_pw_proxy_destroyed (WpProxy * proxy)
 {
   wp_pw_object_mixin_handle_pw_proxy_destroyed (proxy);
+  wp_object_update_features (WP_OBJECT (proxy), 0, WP_LINK_FEATURE_ESTABLISHED);
 
   WP_PROXY_CLASS (wp_link_parent_class)->pw_proxy_destroyed (proxy);
 }
@@ -148,8 +163,7 @@ wp_link_class_init (WpLinkClass * klass)
 
   object_class->get_property = wp_link_get_property;
 
-  wpobject_class->get_supported_features =
-      wp_pw_object_mixin_get_supported_features;
+  wpobject_class->get_supported_features = wp_link_get_supported_features;
   wpobject_class->activate_get_next_step =
       wp_pw_object_mixin_activate_get_next_step;
   wpobject_class->activate_execute_step = wp_link_activate_execute_step;
@@ -175,13 +189,20 @@ wp_link_class_init (WpLinkClass * klass)
 static void
 wp_link_process_info (gpointer instance, gpointer old_info, gpointer i)
 {
+  WpObject *object = instance;
   const struct pw_link_info *info = i;
 
   if (info->change_mask & PW_LINK_CHANGE_MASK_STATE) {
     enum pw_link_state old_state = old_info ?
         ((struct pw_link_info *) old_info)->state : PW_LINK_STATE_INIT;
+
     g_signal_emit (instance, signals[SIGNAL_STATE_CHANGED], 0,
         old_state, info->state);
+
+    if (info->state >= PW_LINK_STATE_PAUSED && old_state < PW_LINK_STATE_PAUSED)
+      wp_object_update_features (object, WP_LINK_FEATURE_ESTABLISHED, 0);
+    else if (info->state < PW_LINK_STATE_PAUSED && old_state >= PW_LINK_STATE_PAUSED)
+      wp_object_update_features (object, 0, WP_LINK_FEATURE_ESTABLISHED);
   }
 }
 

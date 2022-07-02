@@ -233,7 +233,7 @@ test_link_error (TestFixture *f, gconstpointer data)
           "link.input.node", "invalid",
           NULL)));
   g_assert_nonnull (proxy);
-  wp_object_activate (WP_OBJECT (proxy), WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
+  wp_object_activate (WP_OBJECT (proxy), WP_OBJECT_FEATURES_ALL,
       NULL, (GAsyncReadyCallback) activate_error_cb, f);
   g_main_loop_run (f->base.loop);
 }
