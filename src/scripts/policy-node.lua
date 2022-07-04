@@ -14,6 +14,8 @@
 -- to show up(usb headset is plugged in or if BT is paired) and moves the
 -- existing streams to that device.
 
+-- settings file: policy-settings.conf
+
 local move = Settings.get_boolean ("default-policy-move") or false
 local follow = Settings.get_boolean ("default-policy-follow") or false
 local filter_forward_format = Settings.get_boolean("filter.forward-format") or false
