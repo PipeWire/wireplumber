@@ -957,7 +957,7 @@ end
 
 SimpleEventHook {
   priority = 15,
-  name = "policy-handle-linkable",
+  name = "policy-node",
   type = "on-event",
   interests = {
     EventInterest {
@@ -983,7 +983,7 @@ SimpleEventHook {
 
 SimpleEventHook {
   priority = 5,
-  name = "policy-unhandle-linkable",
+  name = "policy-node",
   type = "on-event",
   interests = {
     EventInterest {
@@ -1002,7 +1002,7 @@ SimpleEventHook {
 
 SimpleEventHook {
   priority = 1,
-  name = "policy-rescanner",
+  name = "policy-node-rescanner",
   type = "after-events",
   interests = {
     -- on audio device node linkable addition

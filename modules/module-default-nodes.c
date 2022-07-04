@@ -38,6 +38,10 @@ enum {
  * default.configured.*(default-configured-nodes) keys.
  */
 
+/*
+ * settings file: device-settings.conf
+ */
+
 typedef struct _WpDefaultNode WpDefaultNode;
 struct _WpDefaultNode
 {
@@ -466,7 +470,7 @@ wp_default_nodes_enable (WpPlugin * plugin, WpTransition * transition)
   g_return_if_fail (dispatcher);
 
   /* default metadata added */
-  hook = wp_simple_event_hook_new ("default-nodes-on-metadata-added", 10,
+  hook = wp_simple_event_hook_new ("default-nodes", 10,
       WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
       g_cclosure_new ((GCallback) on_metadata_added, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
@@ -478,7 +482,7 @@ wp_default_nodes_enable (WpPlugin * plugin, WpTransition * transition)
   g_clear_object(&hook);
 
   /* default metadata changed */
-  hook = wp_simple_event_hook_new ("default-nodes-on-metadata-changed", 10,
+  hook = wp_simple_event_hook_new ("default-nodes", 10,
       WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
       g_cclosure_new ((GCallback) on_metadata_changed, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
