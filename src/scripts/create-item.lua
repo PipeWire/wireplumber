@@ -62,7 +62,7 @@ end
 AsyncEventHook {
   priority = 10,
   type = "on-event",
-  name = "create-item-node-added",
+  name = "create-item",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "object-added" },
@@ -140,7 +140,7 @@ AsyncEventHook {
 SimpleEventHook {
   priority = 10,
   type = "on-event",
-  name = "create-item-node-removed",
+  name = "create-item",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "object-removed" },
