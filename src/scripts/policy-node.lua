@@ -985,9 +985,9 @@ function checkFiltersPortsState (si)
 end
 
 SimpleEventHook {
-  priority = 15,
   name = "policy-node",
   type = "on-event",
+  priority = "linkable-added-create-item",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "object-added" },
@@ -1011,9 +1011,9 @@ SimpleEventHook {
 }:register()
 
 SimpleEventHook {
-  priority = 5,
   name = "policy-node",
   type = "on-event",
+  priority = "linkable-removed-create-item",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "object-removed" },
@@ -1030,8 +1030,8 @@ SimpleEventHook {
 }:register()
 
 SimpleEventHook {
-  priority = 1,
-  name = "policy-node-rescanner",
+  name = "rescan-policy",
+  priority = "rescan-policy",
   type = "after-events",
   interests = {
     -- on audio device node linkable addition
