@@ -393,10 +393,9 @@ end
 -- save "targe.node" if it is present in default metadata
 if config_restore_target then
   SimpleEventHook {
-    -- after default-nodes*-on-metadata-added.
-    priority = 5,
     name = "restore-stream-save-target",
     type = "on-event",
+    priority = "default-metadata-added-restore-stream",
     interests = {
       EventInterest {
         Constraint { "event.type", "=", "object-added" },
@@ -416,10 +415,9 @@ if config_restore_target then
 
 -- save "target.node" on metadata changes
   SimpleEventHook {
-    -- after default-nodes*-on-metadata-changed.
-    priority = 5,
     name = "restore-stream-save-target",
     type = "on-event",
+    priority = "default-metadata-changed-restore-stream",
     interests = {
       EventInterest {
         Constraint { "event.type", "=", "object-changed" },
@@ -518,9 +516,9 @@ allnodes_om:activate ()
 
 -- restore-stream properties
 SimpleEventHook {
-  priority = 30,
   name = "restore-stream",
   type = "on-event",
+  priority = "node-added-restore-stream",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "object-added" },
@@ -548,9 +546,9 @@ SimpleEventHook {
 
 -- save-stream if any of the stream parms changes
 SimpleEventHook {
-  priority = 30,
   name = "restore-stream-save-stream",
   type = "on-event",
+  priority = "node-changed-restore-stream",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "params-changed" },
