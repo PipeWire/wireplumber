@@ -470,7 +470,8 @@ wp_default_nodes_enable (WpPlugin * plugin, WpTransition * transition)
   g_return_if_fail (dispatcher);
 
   /* default metadata added */
-  hook = wp_simple_event_hook_new ("default-nodes", 10,
+  hook = wp_simple_event_hook_new ("default-nodes",
+      WP_EVENT_HOOK_DEFAULT_PRIORITY_DEFAULT_METADATA_ADDED_DEFAULT_NODES,
       WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
       g_cclosure_new ((GCallback) on_metadata_added, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
@@ -482,7 +483,8 @@ wp_default_nodes_enable (WpPlugin * plugin, WpTransition * transition)
   g_clear_object(&hook);
 
   /* default metadata changed */
-  hook = wp_simple_event_hook_new ("default-nodes", 10,
+  hook = wp_simple_event_hook_new ("default-nodes",
+      WP_EVENT_HOOK_DEFAULT_PRIORITY_DEFAULT_METADATA_CHANGED_DEFAULT_NODES,
       WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
       g_cclosure_new ((GCallback) on_metadata_changed, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
@@ -494,8 +496,8 @@ wp_default_nodes_enable (WpPlugin * plugin, WpTransition * transition)
   g_clear_object(&hook);
 
   /* register rescan hook as an after event */
-  /* priority: before the policy rescan & state save */
-  hook = wp_simple_event_hook_new ("default-nodes-rescanner", 90,
+  hook = wp_simple_event_hook_new("rescan-default-nodes",
+      WP_EVENT_HOOK_DEFAULT_PRIORITY_RESCAN_DEFAULT_NODES,
       WP_EVENT_HOOK_EXEC_TYPE_AFTER_EVENTS,
       g_cclosure_new ((GCallback) schedule_rescan, self, NULL));
   /* default metadata changed */
@@ -528,8 +530,8 @@ wp_default_nodes_enable (WpPlugin * plugin, WpTransition * transition)
   g_clear_object (&hook);
 
   /* register state save hook as an after event */
-  /* priority: after the default-nodes rescan */
-  hook = wp_simple_event_hook_new ("default-nodes-state-saver", 80,
+  hook = wp_simple_event_hook_new ("default-nodes-state-saver",
+      WP_EVENT_HOOK_DEFAULT_PRIORITY_AFTER_EVENTS_DEFAULT_NODES_STATE_SAVE,
       WP_EVENT_HOOK_EXEC_TYPE_AFTER_EVENTS,
       g_cclosure_new ((GCallback) timer_start, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
