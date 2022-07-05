@@ -171,7 +171,6 @@ run_nodes_by_pid (WpObjectManager *om, guint32 pid,
     WpPipewireObject *client = g_value_get_object (&client_val);
     guint32 client_id = wp_proxy_get_bound_id (WP_PROXY (client));
     g_autoptr (WpIterator) node_it = NULL;
-    g_auto (GValue) node_val = G_VALUE_INIT;
     node_it = wp_object_manager_new_filtered_iterator (om,
         WP_TYPE_NODE, WP_CONSTRAINT_TYPE_PW_PROPERTY,
         PW_KEY_CLIENT_ID, "=u", client_id, NULL);
@@ -905,7 +904,6 @@ do_set_volume (WpCtl * self, WpPipewireObject *proxy)
 {
   g_autoptr (WpPlugin) mixer_api = wp_plugin_find (self->core, "mixer-api");
   g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
-  g_autoptr (GError) error = NULL;
   GVariant *variant = NULL;
   gboolean res = FALSE;
   gdouble curr_volume = 1.0;
@@ -1042,7 +1040,6 @@ do_set_mute (WpCtl * self, WpPipewireObject *proxy)
 {
   g_autoptr (WpPlugin) mixer_api = wp_plugin_find (self->core, "mixer-api");
   g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
-  g_autoptr (GError) error = NULL;
   GVariant *variant = NULL;
   gboolean res = FALSE;
   gboolean mute = FALSE;
