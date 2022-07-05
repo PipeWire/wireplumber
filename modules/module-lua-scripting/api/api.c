@@ -1774,6 +1774,7 @@ simple_event_hook_new (lua_State *L)
 {
   WpEventHook *hook = NULL;
   gint priority = 0;
+  gint priority_type = 0;
   const gchar *name;
   WpEventHookExecType type = 0;
   GClosure *closure = NULL;
@@ -1783,15 +1784,19 @@ simple_event_hook_new (lua_State *L)
 
   lua_pushliteral (L, "name");
   if (lua_gettable (L, 1) != LUA_TSTRING)
-    luaL_error (L, "AsyncEventHook: expected 'name' as string");
+    luaL_error(L, "SimpleEventHook: expected 'name' as string");
   name = lua_tostring (L, -1);
   lua_pop (L, 1);
 
   lua_pushliteral (L, "priority");
-  if (lua_gettable (L, 1) == LUA_TNUMBER)
+  priority_type = lua_gettable (L, 1);
+  if (priority_type == LUA_TNUMBER)
     priority = lua_tointeger (L, -1);
+  else if (priority_type == LUA_TSTRING)
+    priority = wplua_lua_to_enum (L, -1,
+        WP_TYPE_EVENT_HOOK_DEFAULT_PRIORITY_TYPE);
   else
-    luaL_error (L, "SimpleEventHook: expected 'priority' as number");
+    luaL_error (L, "SimpleEventHook: expected 'priority' as number or string");
   lua_pop (L, 1);
 
   lua_pushliteral (L, "type");
@@ -1955,6 +1960,7 @@ async_event_hook_new (lua_State *L)
   WpEventHook *hook = NULL;
   const gchar *name;
   gint priority = 0;
+  gint priority_type = 0;
   WpEventHookExecType type = 0;
   GClosure *get_next_step = NULL;
   GClosure *execute_step = NULL;
@@ -1969,9 +1975,14 @@ async_event_hook_new (lua_State *L)
   lua_pop (L, 1);
 
   lua_pushliteral (L, "priority");
-  if (lua_gettable (L, 1) != LUA_TNUMBER)
-    luaL_error (L, "AsyncEventHook: expected 'priority' as number");
-  priority = lua_tointeger (L, -1);
+  priority_type = lua_gettable(L, 1);
+  if (priority_type == LUA_TNUMBER)
+    priority = lua_tointeger (L, -1);
+  else if (priority_type == LUA_TSTRING)
+    priority = wplua_lua_to_enum(L, -1,
+        WP_TYPE_EVENT_HOOK_DEFAULT_PRIORITY_TYPE);
+  else
+    luaL_error(L, "AsyncEventHook: expected 'priority' as number or string");
   lua_pop (L, 1);
 
   lua_pushliteral (L, "type");
