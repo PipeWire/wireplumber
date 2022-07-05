@@ -852,8 +852,8 @@ static gboolean
 set_volume_parse_positional (gint argc, gchar ** argv, GError **error)
 {
   if (argc < 4) {
-    g_set_error (error, wpctl_error_domain_quark(), 0,
-        "ID and VOL[%%][-/+] are required");
+    g_set_error_literal (error, wpctl_error_domain_quark(), 0,
+        "ID and VOL[%][-/+] are required");
     return FALSE;
   }
 
@@ -1322,13 +1322,12 @@ static const struct subcommand {
   },
   {
     .name = "set-volume",
-    .positional_args = "ID VOL[%%][-/+]",
-    .summary = "Sets the volume of ID from specified argument. "
-               "(floating point, 1.0 is 100%%)\n  VOL%%[-/+] - "
-               "Step up/down volume by specified percent (Example:"
-               " 0.5%%+)\n  VOL[-/+] - Step up/down volume by"
-               " specified value (Example: 0.5+)\n  VOL - Set "
-               "volume as the specified value (Example: 0.5)",
+    .positional_args = "ID VOL[%][-/+]",
+    .summary =
+        "Sets the volume of ID from specified argument. (floating point, 1.0 is 100%)\n"
+        "  VOL%[-/+] - Step up/down volume by specified percent (Example: 0.5%+)\n"
+        "  VOL[-/+] - Step up/down volume by specified value (Example: 0.5+)\n"
+        "  VOL - Set volume as the specified value (Example: 0.5)",
     .description = NULL,
     .entries = {
       { "pid", 'p', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE,
