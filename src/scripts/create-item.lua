@@ -60,9 +60,9 @@ function configProperties(node)
 end
 
 AsyncEventHook {
-  priority = 10,
-  type = "on-event",
   name = "create-item",
+  type = "on-event",
+  priority = "node-added-create-item",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "object-added" },
@@ -138,9 +138,9 @@ AsyncEventHook {
 }:register()
 
 SimpleEventHook {
-  priority = 10,
-  type = "on-event",
   name = "create-item",
+  type = "on-event",
+  priority = "node-removed-create-item",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "object-removed" },
