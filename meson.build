@@ -1,5 +1,5 @@
 project('wireplumber', ['c'],
-  version : '0.4.10',
+  version : '0.4.11',
   license : 'MIT',
   meson_version : '>= 0.59.0',
   default_options : [
@@ -39,7 +39,7 @@ gmodule_dep = dependency('gmodule-2.0', version : glib_req_version)
 gio_dep = dependency('gio-2.0', version : glib_req_version)
 giounix_dep = dependency('gio-unix-2.0', version : glib_req_version)
 spa_dep = dependency('libspa-0.2', version: '>= 0.2')
-pipewire_dep = dependency('libpipewire-0.3', version: '>= 0.3.48')
+pipewire_dep = dependency('libpipewire-0.3', version: '>= 0.3.52')
 mathlib = cc.find_library('m')
 threads_dep = dependency('threads')
 libintl_dep = dependency('intl')
