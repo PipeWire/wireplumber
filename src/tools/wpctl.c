@@ -850,35 +850,37 @@ out:
 static gboolean
 set_volume_parse_positional (gint argc, gchar ** argv, GError **error)
 {
+  g_autoptr (GRegex) regex = NULL;
+  g_autoptr (GMatchInfo) info = NULL;
+
   if (argc < 4) {
     g_set_error_literal (error, wpctl_error_domain_quark(), 0,
         "ID and VOL[%][-/+] are required");
     return FALSE;
   }
 
-  GRegex *regex = g_regex_new ("^(\\d*\\.?\\d*)(%?)([-+]?)$", 0, 0, NULL);
-  GMatchInfo *info = NULL;
+  regex = g_regex_new ("^(\\d*\\.?\\d*)(%?)([-+]?)$", 0, 0, NULL);
 
   if (g_regex_match(regex, argv[3], 0, &info)) {
-    cmdline.set_volume.volume = strtof(g_match_info_fetch(info, 1), NULL);
+    gchar *str = g_match_info_fetch (info, 1);
+    cmdline.set_volume.volume = strtof (str, NULL);
     cmdline.set_volume.type = 'a';
+    g_free (str);
 
-    if (g_strcmp0(g_match_info_fetch(info, 2), "%") == 0) {
-      cmdline.set_volume.type = 'p';
-    }
+    str = g_match_info_fetch (info, 2);
+    if (g_strcmp0 (str, "%") == 0)
+      cmdline.set_volume.volume /= 100;
+    g_free (str);
 
-    if (g_strcmp0(g_match_info_fetch(info, 3), "-") == 0) {
+    str = g_match_info_fetch (info, 3);
+    if (g_strcmp0 (str, "-") == 0) {
       cmdline.set_volume.volume = -(cmdline.set_volume.volume);
-      if (cmdline.set_volume.type != 'p') {
-        cmdline.set_volume.type = 's';
-      }
-    } else if (g_strcmp0(g_match_info_fetch(info, 3), "+") == 0 && cmdline.set_volume.type != 'p') {
+      cmdline.set_volume.type = 's';
+    } else if (g_strcmp0 (str, "+") == 0) {
       cmdline.set_volume.type = 's';
     }
-    g_match_info_free (info);
-    g_regex_unref (regex);
+    g_free (str);
   } else {
-    g_regex_unref (regex);
     g_set_error (error, wpctl_error_domain_quark(), 0,
         "Invalid volume argument. See wpctl set-volume --help");
     return FALSE;
@@ -918,22 +920,17 @@ do_set_volume (WpCtl * self, WpPipewireObject *proxy)
     id = atoi (str);
   }
 
-  g_signal_emit_by_name (mixer_api, "get-volume", id, &variant);
-    if (!variant) {
-    fprintf (stderr, "Node %d does not support volume\n", id);
+  if (cmdline.set_volume.type == 's') {
+    g_signal_emit_by_name (mixer_api, "get-volume", id, &variant);
+      if (!variant) {
+      fprintf (stderr, "Node %d does not support volume\n", id);
+      g_clear_pointer (&variant, g_variant_unref);
+      return FALSE;
+    }
+    g_variant_lookup (variant, "volume", "d", &curr_volume);
     g_clear_pointer (&variant, g_variant_unref);
-    return FALSE;
-  }
-  g_variant_lookup (variant, "volume", "d", &curr_volume);
-  g_clear_pointer (&variant, g_variant_unref);
 
-  if (cmdline.set_volume.type == 'a') {
-    cmdline.set_volume.volume = cmdline.set_volume.volume;
-  } else if (cmdline.set_volume.type == 's') {
     cmdline.set_volume.volume = (cmdline.set_volume.volume + curr_volume);
-  } else if (cmdline.set_volume.type == 'p') {
-    gfloat delta = (cmdline.set_volume.volume) * (curr_volume);
-    cmdline.set_volume.volume = (curr_volume + delta);
   }
   if (cmdline.set_volume.volume < 0) {
     cmdline.set_volume.volume = 0.0;
