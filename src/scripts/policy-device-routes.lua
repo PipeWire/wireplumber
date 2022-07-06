@@ -258,7 +258,9 @@ end
 -- spr needs to be the array returned from getStoredProfileRoutes()
 function findSavedRoute(dev_info, device_id, spr)
   for idx, ri in pairs(dev_info.route_infos) do
-    if arrayContains(ri.devices, device_id) and arrayContains(spr, ri.name) then
+    if arrayContains(ri.devices, device_id) and
+        (ri.profiles == nil or arrayContains(ri.profiles, dev_info.active_profile)) and
+        arrayContains(spr, ri.name) then
       return ri
     end
   end
@@ -270,7 +272,8 @@ function findBestRoute(dev_info, device_id)
   local best_avail = nil
   local best_unk = nil
   for idx, ri in pairs(dev_info.route_infos) do
-    if arrayContains(ri.devices, device_id) then
+    if arrayContains(ri.devices, device_id) and
+          (ri.profiles == nil or arrayContains(ri.profiles, dev_info.active_profile)) then
       if ri.available == "yes" or ri.available == "unknown" then
         if ri.direction == "Output" and ri.available ~= ri.prev_available then
           best_avail = ri
@@ -343,6 +346,7 @@ function findRouteInfo(dev_info, route, return_new)
       name = route.name,
       direction = route.direction,
       devices = route.devices or {},
+      profiles = route.profiles,
       priority = route.priority or 0,
       available = route.available or "unknown",
       prev_available = route.available or "unknown",
