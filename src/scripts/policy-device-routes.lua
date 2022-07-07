@@ -15,6 +15,7 @@ use_persistent_storage = config["use-persistent-storage"] or false
 
 -- the default volume to apply
 default_volume = tonumber(config["default-volume"] or 0.4^3)
+default_input_volume = tonumber(config["default-input-volume"] or 1.0)
 
 -- table of device info
 dev_infos = {}
@@ -133,9 +134,14 @@ function restoreRoute(device, dev_info, device_id, route)
   -- default props
   local props = {
     "Spa:Pod:Object:Param:Props", "Route",
-    channelVolumes = { default_volume },
     mute = false,
   }
+
+  if route.direction == "Input" then
+    props.channelVolumes = { default_input_volume }
+  else
+    props.channelVolumes = { default_volume }
+  end
 
   -- restore props from persistent storage
   if use_persistent_storage then
