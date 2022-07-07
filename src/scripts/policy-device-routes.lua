@@ -14,7 +14,7 @@ local config = ... or {}
 use_persistent_storage = config["use-persistent-storage"] or false
 
 -- the default volume to apply
-default_volume = tonumber(config["default-volume"] or 0.4)
+default_volume = tonumber(config["default-volume"] or 0.4^3)
 
 -- table of device info
 dev_infos = {}

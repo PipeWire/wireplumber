@@ -8,7 +8,7 @@ device_defaults.properties = {
   ["use-persistent-storage"] = true,
 
   -- the default volume to apply to ACP device nodes, in the linear scale
-  --["default-volume"] = 0.4,
+  --["default-volume"] = 0.064,
 
   -- Whether to auto-switch to echo cancel sink and source nodes or not
   ["auto-echo-cancel"] = true,
