@@ -8,7 +8,16 @@
 --
 -- SPDX-License-Identifier: MIT
 
--- whether to store state on the file system
+-- Script monitors changes in devices(new device addition, removal etc) and
+-- device profiles. It selects and enables the routes(Route here is a path on
+-- soundcard/Pipewire Device(PipeWire:Interface:Device), for example: speaker,
+-- mic, headset with in a soundcard) needed for a given profile. It also caches
+-- the route properties(Volume, Mute, channelVolumes, channelMap etc) and
+-- restores them when the route appears afresh. The cached properties are
+-- remembered across reboots if persistancy(use_persistent_storage) is enabled.
+
+-- settings file: device-settings.conf
+
 use_persistent_storage =
   Settings.get_boolean ("device.use-persistent-storage") or false
 
@@ -190,13 +199,18 @@ function restoreRoute (device, dev_info, device_id, route)
     save = route.save,
   }
 
-  Log.debug (param, "setting route on " .. tostring (device))
+  Log.debug (param,
+    string.format ("setting route(%s) on for device(%s)(%s)",
+      route.name, dev_info.nick, tostring (device)))
+
   device:set_param ("Route", param)
 
   route.prev_active = true
   route.active = true
 end
 
+-- These device ids are like routes(speaker, mic, headset etc) or sub-devices or
+-- paths with in the pipewire devices/soundcards.
 function findActiveDeviceIDs (profile)
   -- parses the classes from the profile and returns the device IDs
   ----- sample structure, should return { 0, 8 } -----
@@ -292,9 +306,12 @@ function findBestRoute (dev_info, device_id)
 end
 
 function restoreProfileRoutes (device, dev_info, profile, profile_changed)
-  Log.info (device, "restore routes for profile " .. profile.name)
+  Log.info (device,
+    string.format ("restore routes for profile(%s) of device(%s)",
+        profile.name, dev_info.nick))
 
   local active_ids = findActiveDeviceIDs (profile)
+  local found_active_route = false;
   local spr = getStoredProfileRoutes (dev_info.name, profile.name)
 
   for _, device_id in ipairs (active_ids) do
@@ -332,8 +349,17 @@ function restoreProfileRoutes (device, dev_info, profile, profile_changed)
 
     -- restore route
     if route then
+      if not found_active_route then
+        found_active_route = true;
+      end
       restoreRoute (device, dev_info, device_id, route)
     end
+  end
+
+  if not found_active_route then
+    Log.info (device,
+      string.format ("routes not available for profile(%s) of device (%s)",
+          profile.name, dev_info.nick))
   end
 end
 
@@ -425,11 +451,17 @@ function handleDevice (device)
     if not route_info.prev_active then
       -- a new route is now active, restore the volume and
       -- make sure we save this as a preferred route
-      Log.info (device, "new active route found " .. route.name)
+      Log.info (device,
+          string.format ("new active route(%s) found of device(%s)",
+              route.name, dev_info.nick))
+
       restoreRoute (device, dev_info, route.device, route_info)
     elseif route.save then
       -- just save route properties
-      Log.info (device, "storing route props for " .. route.name)
+      Log.info (device,
+          string.format ("storing route(%s) props of device(%s)",
+            route.name, dev_info.nick))
+
       saveRouteProps (dev_info, route)
     end
 
@@ -468,6 +500,7 @@ om:connect ("objects-changed", function (om)
     if not dev_info then
       dev_info = {
         name = device.properties ["device.name"],
+        nick = device.properties ["device.nick"],
         active_profile = -1,
         route_infos = {},
       }
