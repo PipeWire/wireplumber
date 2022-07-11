@@ -19,6 +19,7 @@
 #define DEFAULT_AUTO_ECHO_CANCEL TRUE
 #define DEFAULT_ECHO_CANCEL_SINK_NAME "echo-cancel-sink"
 #define DEFAULT_ECHO_CANCEL_SOURCE_NAME "echo-cancel-source"
+#define N_PREV_CONFIGS 16
 
 enum {
   PROP_0,
@@ -34,6 +35,7 @@ struct _WpDefaultNode
 {
   gchar *value;
   gchar *config_value;
+  gchar *prev_config_value[N_PREV_CONFIGS];
 };
 
 struct _WpDefaultNodes
@@ -63,12 +65,48 @@ wp_default_nodes_init (WpDefaultNodes * self)
 }
 
 static void
+update_prev_config_values (WpDefaultNode *def)
+{
+  gint pos = N_PREV_CONFIGS - 1;
+
+  if (!def->config_value)
+    return;
+
+  /* Find if the current configured value is already in the stack */
+  for (gint i = 0; i < N_PREV_CONFIGS; ++i) {
+    if (!g_strcmp0(def->config_value, def->prev_config_value[i])) {
+      pos = i;
+      break;
+    }
+  }
+
+  if (pos == 0)
+    return;
+
+  /* Insert on top position */
+  g_clear_pointer (&def->prev_config_value[pos], g_free);
+
+  for (gint i = pos; i > 0; --i)
+    def->prev_config_value[i] = def->prev_config_value[i-1];
+
+  def->prev_config_value[0] = g_strdup(def->config_value);
+}
+
+static void
 load_state (WpDefaultNodes * self)
 {
   g_autoptr (WpProperties) props = wp_state_load (self->state);
   for (gint i = 0; i < N_DEFAULT_NODES; i++) {
     const gchar *value = wp_properties_get (props, DEFAULT_CONFIG_KEY[i]);
+
     self->defaults[i].config_value = g_strdup (value);
+
+    for (gint j = 0; j < N_PREV_CONFIGS; ++j) {
+      g_autofree gchar *key = g_strdup_printf("%s.%d", DEFAULT_CONFIG_KEY[i], j);
+
+      value = wp_properties_get (props, key);
+      self->defaults[i].prev_config_value[j] = g_strdup(value);
+    }
   }
 }
 
@@ -82,6 +120,12 @@ timeout_save_state_callback (WpDefaultNodes *self)
     if (self->defaults[i].config_value)
       wp_properties_set (props, DEFAULT_CONFIG_KEY[i],
           self->defaults[i].config_value);
+
+    for (gint j = 0; j < N_PREV_CONFIGS; ++j) {
+      g_autofree gchar *key = g_strdup_printf("%s.%d", DEFAULT_CONFIG_KEY[i], j);
+
+      wp_properties_set (props, key, self->defaults[i].prev_config_value[j]);
+    }
   }
 
   if (!wp_state_save (self->state, props, &error))
@@ -209,7 +253,7 @@ is_echo_cancel_node (WpDefaultNodes * self, WpNode *node, WpDirection direction)
 
 static WpNode *
 find_best_media_class_node (WpDefaultNodes * self, const gchar *media_class,
-    const gchar *node_name, WpDirection direction, gint *priority)
+    const WpDefaultNode *def, WpDirection direction, gint *priority)
 {
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
@@ -243,8 +287,20 @@ find_best_media_class_node (WpDefaultNodes * self, const gchar *media_class,
       if (self->auto_echo_cancel && is_echo_cancel_node (self, node, direction))
         prio += 10000;
 
-      if (name && node_name && g_strcmp0 (name, node_name) == 0)
-        prio += 20000;
+      if (name && def->config_value && g_strcmp0 (name, def->config_value) == 0) {
+        prio += 20000 * (N_PREV_CONFIGS + 1);
+      } else if (name) {
+        for (gint i = 0; i < N_PREV_CONFIGS; ++i) {
+          if (!def->prev_config_value[i])
+            continue;
+
+          /* Match by name */
+          if (g_strcmp0 (name, def->prev_config_value[i]) == 0) {
+            prio += (N_PREV_CONFIGS - i) * 20000;
+            break;
+          }
+        }
+      }
 
       if (prio > highest_prio || res == NULL) {
         highest_prio = prio;
@@ -260,14 +316,14 @@ find_best_media_class_node (WpDefaultNodes * self, const gchar *media_class,
 
 static WpNode *
 find_best_media_classes_node (WpDefaultNodes * self,
-    const gchar **media_classes, const gchar *node_name, WpDirection direction)
+    const gchar **media_classes, const WpDefaultNode *def, WpDirection direction)
 {
   gint highest_prio = -1;
   WpNode *res = NULL;
   for (guint i = 0; media_classes[i]; i++) {
     gint prio = -1;
     WpNode *node = find_best_media_class_node (self, media_classes[i],
-        node_name, direction, &prio);
+        def, direction, &prio);
     if (node && (!res || prio > highest_prio)) {
       highest_prio = prio;
       res = node;
@@ -279,7 +335,7 @@ find_best_media_classes_node (WpDefaultNodes * self,
 static WpNode *
 find_best_node (WpDefaultNodes * self, gint node_t)
 {
-  const gchar *name = self->defaults[node_t].config_value;
+  const WpDefaultNode *def = &self->defaults[node_t];
 
   switch (node_t) {
   case AUDIO_SINK: {
@@ -287,7 +343,7 @@ find_best_node (WpDefaultNodes * self, gint node_t)
         "Audio/Sink",
         "Audio/Duplex",
         NULL};
-    return find_best_media_classes_node (self, media_classes, name,
+    return find_best_media_classes_node (self, media_classes, def,
         WP_DIRECTION_INPUT);
   }
   case AUDIO_SOURCE: {
@@ -297,7 +353,7 @@ find_best_node (WpDefaultNodes * self, gint node_t)
         "Audio/Duplex",
         "Audio/Sink",
         NULL};
-    return find_best_media_classes_node (self, media_classes, name,
+    return find_best_media_classes_node (self, media_classes, def,
         WP_DIRECTION_OUTPUT);
   }
   case VIDEO_SOURCE: {
@@ -305,7 +361,7 @@ find_best_node (WpDefaultNodes * self, gint node_t)
         "Video/Source",
         "Video/Source/Virtual",
         NULL};
-    return find_best_media_classes_node (self, media_classes, name,
+    return find_best_media_classes_node (self, media_classes, def,
         WP_DIRECTION_OUTPUT);
   }
   default:
@@ -408,6 +464,8 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
         self->defaults[node_t].config_value = g_strdup (name);
     }
 
+    update_prev_config_values (&self->defaults[node_t]);
+
     wp_debug_object (m, "changed '%s' -> '%s'", key,
         self->defaults[node_t].config_value);
 
@@ -507,6 +565,9 @@ wp_default_nodes_disable (WpPlugin * plugin)
   for (guint i = 0; i < N_DEFAULT_NODES; i++) {
     g_clear_pointer (&self->defaults[i].value, g_free);
     g_clear_pointer (&self->defaults[i].config_value, g_free);
+
+    for (guint j = 0; j < N_PREV_CONFIGS; j++)
+      g_clear_pointer (&self->defaults[i].prev_config_value[j], g_free);
   }
 
   g_clear_object (&self->metadata_om);
