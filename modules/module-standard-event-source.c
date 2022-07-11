@@ -17,6 +17,7 @@ struct _WpStandardEventSource
 {
   WpPlugin parent;
   WpObjectManager *om;
+  WpObjectManager *devices_om;
 };
 
 G_DECLARE_FINAL_TYPE (WpStandardEventSource, wp_standard_event_source,
@@ -154,6 +155,29 @@ on_node_state_changed (WpNode *obj, WpNodeState old_state,
 }
 
 static void
+on_objects_changed (WpObjectManager *om, WpStandardEventSource *self)
+{
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
+  g_return_if_fail (core);
+  g_autoptr (WpEventDispatcher) dispatcher =
+      wp_event_dispatcher_get_instance (core);
+  WpObject *obj = wp_object_manager_lookup (om, G_TYPE_OBJECT, NULL);
+  const gchar *type = NULL;
+  gint priority = 0;
+
+  if (G_UNLIKELY (!get_object_type_and_priority (obj, &type, &priority))) {
+    wp_critical_object (self, "unknown object type: " WP_OBJECT_FORMAT,
+        WP_OBJECT_ARGS (obj));
+    return;
+  }
+
+  wp_event_dispatcher_push_event (dispatcher, wp_event_new (
+          "objects-changed", priority,
+          wp_properties_new ("event.subject.type", type, NULL),
+          G_OBJECT (om), G_OBJECT (om)));
+}
+
+static void
 on_object_added (WpObjectManager *om, WpObject *obj, WpStandardEventSource *self)
 {
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
@@ -235,6 +259,17 @@ wp_standard_event_source_enable (WpPlugin * plugin, WpTransition * transition)
   g_signal_connect_object (self->om, "installed",
       G_CALLBACK (on_om_installed), self, 0);
   wp_core_install_object_manager (core, self->om);
+
+  self->devices_om = wp_object_manager_new ();
+  wp_object_manager_add_interest (self->devices_om, WP_TYPE_DEVICE, NULL);
+  wp_object_manager_request_object_features (self->devices_om,
+      WP_TYPE_GLOBAL_PROXY, WP_OBJECT_FEATURES_ALL);
+  g_signal_connect_object (self->devices_om, "objects-changed",
+      G_CALLBACK (on_objects_changed), self, 0);
+  g_signal_connect_object (self->devices_om, "installed",
+      G_CALLBACK (on_om_installed), self, 0);
+  wp_core_install_object_manager (core, self->devices_om);
+
 }
 
 static void
