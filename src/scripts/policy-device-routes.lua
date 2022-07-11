@@ -384,6 +384,10 @@ function findRouteInfo (dev_info, route, return_new)
 end
 
 function handleDevice (device)
+  if not dev_infos [device ["bound-id"]] then
+    return
+  end
+
   local dev_info = dev_infos [device ["bound-id"]]
   local new_route_infos = {}
   local avail_routes_changed = false
@@ -485,35 +489,59 @@ function handleDevice (device)
   end
 end
 
-om = ObjectManager {
-  Interest {
-    type = "device",
-    Constraint { "device.name", "is-present", type = "pw-global" },
-  }
-}
+SimpleEventHook {
+  name = "handle-device@device-routes",
+  type = "on-event",
+  priority = "device-added-policy-device-routes",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "objects-changed" },
+      Constraint { "event.subject.type", "=", "device" },
+    },
+  },
+  execute = function (event, transition)
+    local new_dev_infos = {}
+    local om = event:get_subject()
+    for device in om:iterate () do
+      -- skip devices with out name
+      if not device.properties ["device.name"] then
+        goto skip_device
+      end
 
-om:connect ("objects-changed", function (om)
-  local new_dev_infos = {}
-  for device in om:iterate () do
-    local dev_info = dev_infos [device ["bound-id"]]
-    -- new device appeared
-    if not dev_info then
-      dev_info = {
-        name = device.properties ["device.name"],
-        nick = device.properties ["device.nick"],
-        active_profile = -1,
-        route_infos = {},
-      }
-      dev_infos [device ["bound-id"]] = dev_info
+      local dev_info = dev_infos [device ["bound-id"]]
+      -- new device appeared
+      if not dev_info then
+        dev_info = {
+          name = device.properties ["device.name"],
+          nick = device.properties ["device.nick"],
+          active_profile = -1,
+          route_infos = {},
+        }
+        dev_infos [device ["bound-id"]] = dev_info
 
-      device:connect ("params-changed", handleDevice)
-      handleDevice (device)
+        handleDevice (device)
+      end
+
+      new_dev_infos [device ["bound-id"]] = dev_info
+
+      ::skip_device::
     end
-
-    new_dev_infos [device ["bound-id"]] = dev_info
+    -- replace list to get rid of dev_info for devices that no longer exist
+    dev_infos = new_dev_infos
   end
-  -- replace list to get rid of dev_info for devices that no longer exist
-  dev_infos = new_dev_infos
-end)
+}:register()
 
-om:activate ()
+SimpleEventHook {
+  name = "handle-device@device-routes",
+  type = "on-event",
+  priority = "device-params-changed-policy-device-routes",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "params-changed" },
+      Constraint { "event.subject.type", "=", "device" },
+    },
+  },
+  execute = function (event, transition)
+    handleDevice (event:get_subject())
+  end
+}:register()
