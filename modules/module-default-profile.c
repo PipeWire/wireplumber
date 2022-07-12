@@ -23,6 +23,16 @@ enum
 
 static guint signals[LAST_SIGNAL] = { 0 };
 
+/*
+ * Module caches the profile selected for a device and restores it when the
+ * device appears afresh. The cached properties are remembered across reboots.
+ * It provides an API for modules and scripts to query the default profile.
+ */
+
+/*
+ * settings file: device-settings.conf
+ */
+
 G_DECLARE_DERIVABLE_TYPE (WpDefaultProfile, wp_default_profile, WP,
     DEFAULT_PROFILE, WpPlugin)
 
