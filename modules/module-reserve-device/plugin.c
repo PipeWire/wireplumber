@@ -21,12 +21,6 @@ enum
   LAST_SIGNAL
 };
 
-enum
-{
-  PROP_0,
-  PROP_STATE,
-};
-
 static guint signals[LAST_SIGNAL] = { 0 };
 
 static void

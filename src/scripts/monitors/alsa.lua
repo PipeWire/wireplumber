@@ -385,7 +385,7 @@ end
 -- if the reserve-device plugin is enabled, at the point of script execution
 -- it is expected to be connected. if it is not, assume the d-bus connection
 -- has failed and continue without it
-if rd_plugin and rd_plugin["state"] ~= "connected" then
+if rd_plugin and rd_plugin:call("get-dbus")["state"] ~= "connected" then
   Log.message("reserve-device plugin is not connected to D-Bus, "
               .. "disabling device reservation")
   rd_plugin = nil
