@@ -7,14 +7,14 @@
 
 local self = {}
 self.active_profiles = {}
-self.default_profile_plugin = Plugin.find("default-profile")
+self.default_profile_plugin = Plugin.find ("default-profile")
 
 -- Checks whether a device profile is persistent or not
-function isProfilePersistent(device_props, profile_name)
+function isProfilePersistent (device_props, profile_name)
   local matched, mprops = Settings.apply_rule ("device", device_props)
 
   if (matched and mprops) then
-    if string.find (mprops["profile_names"], profile_name) then
+    if string.find (mprops ["profile_names"], profile_name) then
       return true
     end
   end
@@ -23,8 +23,8 @@ function isProfilePersistent(device_props, profile_name)
 end
 
 
-function parseParam(param, id)
-  local parsed = param:parse()
+function parseParam (param, id)
+  local parsed = param:parse ()
   if parsed.pod_type == "Object" and parsed.object_id == id then
     return parsed.properties
   else
@@ -33,8 +33,8 @@ function parseParam(param, id)
 end
 
 function setDeviceProfile (device, dev_id, dev_name, profile)
-  if self.active_profiles[dev_id] and
-      self.active_profiles[dev_id].index == profile.index then
+  if self.active_profiles [dev_id] and
+      self.active_profiles [dev_id].index == profile.index then
     Log.info ("Profile " .. profile.name .. " is already set in " .. dev_name)
     return
   end
@@ -44,7 +44,7 @@ function setDeviceProfile (device, dev_id, dev_name, profile)
     index = profile.index,
   }
   Log.info ("Setting profile " .. profile.name .. " on " .. dev_name)
-  device:set_param("Profile", param)
+  device:set_param ("Profile", param)
 end
 
 function findDefaultProfile (device)
@@ -57,8 +57,8 @@ function findDefaultProfile (device)
     return nil
   end
 
-  for p in device:iterate_params("EnumProfile") do
-    local profile = parseParam(p, "EnumProfile")
+  for p in device:iterate_params ("EnumProfile") do
+    local profile = parseParam (p, "EnumProfile")
     if profile.name == def_name then
       return profile
     end
@@ -72,8 +72,8 @@ function findBestProfile (device)
   local best_profile = nil
   local unk_profile = nil
 
-  for p in device:iterate_params("EnumProfile") do
-    profile = parseParam(p, "EnumProfile")
+  for p in device:iterate_params ("EnumProfile") do
+    profile = parseParam (p, "EnumProfile")
     if profile and profile.name ~= "pro-audio" then
       if profile.name == "off" then
         off_profile = profile
@@ -101,20 +101,22 @@ function findBestProfile (device)
 end
 
 function handleProfiles (device, new_device)
-  local dev_id = device["bound-id"]
-  local dev_name = device.properties["device.name"]
+  local dev_id = device ["bound-id"]
+  local dev_name = device.properties ["device.name"]
 
   local def_profile = findDefaultProfile (device)
 
   -- Do not do anything if active profile is both persistent and default
   if not new_device and
-      self.active_profiles[dev_id] ~= nil and
-      isProfilePersistent (device.properties, self.active_profiles[dev_id].name) and
+      self.active_profiles [dev_id] ~= nil and
+      isProfilePersistent (device.properties,
+          self.active_profiles [dev_id].name) and
       def_profile ~= nil and
-      self.active_profiles[dev_id].name == def_profile.name
+      self.active_profiles [dev_id].name == def_profile.name
       then
-    local active_profile = self.active_profiles[dev_id].name
-    Log.info ("Device profile " .. active_profile .. " is persistent for " .. dev_name)
+    local active_profile = self.active_profiles [dev_id].name
+    Log.info ("Device profile " .. active_profile .. " is persistent for "
+        .. dev_name)
     return
   end
 
@@ -152,14 +154,14 @@ self.om = ObjectManager {
   }
 }
 
-self.om:connect("object-added", function (_, device)
+self.om:connect ("object-added", function (_, device)
   device:connect ("params-changed", onDeviceParamsChanged)
   handleProfiles (device, true)
 end)
 
-self.om:connect("object-removed", function (_, device)
-  local dev_id = device["bound-id"]
-  self.active_profiles[dev_id] = nil
+self.om:connect ("object-removed", function (_, device)
+  local dev_id = device ["bound-id"]
+  self.active_profiles [dev_id] = nil
 end)
 
-self.om:activate()
+self.om:activate ()
