@@ -5,6 +5,11 @@
 --
 -- SPDX-License-Identifier: MIT
 
+-- Script selects and enables a profile for a device. It implements the
+-- persistant profiles funtionality.
+
+-- Settings file: device-settings.conf
+
 local self = {}
 self.active_profiles = {}
 self.best_profiles = {}
@@ -164,7 +169,7 @@ function handleProfiles (device, new_device)
     return
   end
 
-  -- Set default device if active profile changed to off
+  -- Set default device profile if active profile changed to off
   if active_changed and self.active_profiles [dev_id] ~= nil and
       self.active_profiles [dev_id].name == "off" then
     if def_profile ~= nil then
