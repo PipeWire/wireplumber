@@ -5,6 +5,11 @@
 --
 -- SPDX-License-Identifier: MIT
 
+-- Script selects and enables a profile for a device. It implements the
+-- persistant profiles funtionality.
+
+-- Settings file: device-settings.conf
+
 local self = {}
 self.active_profiles = {}
 self.default_profile_plugin = Plugin.find ("default-profile")
