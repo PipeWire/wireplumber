@@ -210,11 +210,11 @@ function jsonTable (val, name)
       end
       tmp = tmp .. "}"
     end
-  elseif type(val) == "number" then
+  elseif type (val) == "number" then
     tmp = tmp .. tostring (val)
-  elseif type(val) == "string" then
+  elseif type (val) == "string" then
     tmp = tmp .. string.format ("%q", val)
-  elseif type(val) == "boolean" then
+  elseif type (val) == "boolean" then
     tmp = tmp .. (val and "true" or "false")
   else
     tmp = tmp .. "\"[type:" .. type (val) .. "]\""
@@ -260,7 +260,9 @@ function saveStream (node)
   local stream_props = node.properties
   rulesApplyProperties (stream_props)
 
-  if config_restore_props and stream_props ["state.restore-props"] ~= "false" then
+  if config_restore_props and stream_props ["state.restore-props"] ~= "false"
+  then
+
     local key_base = formKeyBase (stream_props)
     if not key_base then
       return
@@ -282,10 +284,12 @@ function saveStream (node)
         state_table [key_base .. ":mute"] = tostring (props.mute)
       end
       if props.channelVolumes then
-        state_table [key_base .. ":channelVolumes"] = serializeArray (props.channelVolumes)
+        state_table [key_base .. ":channelVolumes"] =
+            serializeArray (props.channelVolumes)
       end
       if props.channelMap then
-        state_table [key_base .. ":channelMap"] = serializeArray (props.channelMap)
+        state_table [key_base .. ":channelMap"] =
+            serializeArray (props.channelMap)
       end
 
       ::skip_prop::
@@ -304,7 +308,8 @@ function restoreStream (node)
     return
   end
 
-  if config_restore_props and stream_props ["state.restore-props"] ~= "false" then
+  if config_restore_props and stream_props ["state.restore-props"] ~= "false"
+  then
     local needsRestore = false
     local props = { "Spa:Pod:Object:Param:Props", "Props" }
 
@@ -388,17 +393,17 @@ if config_restore_target then
       },
     },
     execute = function (event, transition)
-      local subject = event:get_subject()
-      local props = event:get_properties()
+      local subject = event:get_subject ()
+      local props = event:get_properties ()
 
-      local subject_id = props["event.subject.id"]
-      local key = props["event.subject.key"]
-      local type = props["event.subject.spa_type"]
-      local value = props["event.subject.value"]
+      local subject_id = props ["event.subject.id"]
+      local key = props ["event.subject.key"]
+      local type = props ["event.subject.spa_type"]
+      local value = props ["event.subject.value"]
 
       saveTarget (subject_id, key, type, value)
     end
-  }:register()
+  }:register ()
 
   metadata_om = ObjectManager {
     Interest {
@@ -417,10 +422,10 @@ if config_restore_target then
   --     saveTarget (subject, key, type, value)
   --   end)
   -- end)
-  metadata_om:activate()
+  metadata_om:activate ()
 end
 
-function handleRouteSettings(subject, key, type, value)
+function handleRouteSettings (subject, key, type, value)
   if type ~= "Spa:String:JSON" then
     return
   end
@@ -502,9 +507,9 @@ SimpleEventHook {
     },
   },
   execute = function (event, transition)
-    restoreStream (event:get_subject())
+    restoreStream (event:get_subject ())
   end
-}:register()
+}:register ()
 
 -- save-stream if any of the stream parms changes
 SimpleEventHook {
@@ -534,7 +539,7 @@ SimpleEventHook {
   execute = function (event, transition)
     saveStream (event:get_subject())
   end
-}:register()
+}:register ()
 
 streams_om = ObjectManager {
   -- match stream nodes
