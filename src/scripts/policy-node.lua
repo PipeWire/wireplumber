@@ -970,7 +970,7 @@ SimpleEventHook {
       Constraint { "active-features", "!", 0, type = "gobject" },
     },
   },
-  execute = function (event, transition)
+  execute = function (event)
     local si = event:get_subject()
     local si_props = si.properties
 
@@ -996,7 +996,7 @@ SimpleEventHook {
       Constraint { "active-features", "!", 0, type = "gobject" },
     },
   },
-  execute = function (event, transition)
+  execute = function (event)
     local si = event:get_subject()
     unhandleLinkable (si)
   end
