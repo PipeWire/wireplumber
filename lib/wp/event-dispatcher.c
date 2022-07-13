@@ -44,6 +44,20 @@ form_event_name (const gchar *type, const gchar *subject_type)
     (subject_type ? subject_type : ""));
 }
 
+static void
+on_proxy_destroyed (GObject* self, WpEvent* e)
+{
+  if (e->subject == self)
+  {
+    const gchar* type = wp_properties_get (e->properties, "event.type");
+    /* object removal needs to be processed by hooks */
+    if (g_str_equal (type, "object-removed"))
+      wp_properties_set (e->properties, "pw-proxy-destroyed", "true");
+    else
+      g_cancellable_cancel (e->cancellable);
+  }
+}
+
 /*!
  * \brief Creates a new event
  * \ingroup wpevent
@@ -96,9 +110,8 @@ wp_event_new (const gchar * type, gint priority, WpProperties * properties,
 
     /* watch for subject pw-proxy-destroyed and cancel event */
     if (g_type_is_a (G_OBJECT_TYPE (self->subject), WP_TYPE_PROXY)) {
-      g_signal_connect_object (self->subject, "pw-proxy-destroyed",
-          (GCallback) g_cancellable_cancel, self->cancellable,
-          G_CONNECT_SWAPPED);
+      g_signal_connect (self->subject, "pw-proxy-destroyed",
+        (GCallback) on_proxy_destroyed, self);
     }
   }
 
