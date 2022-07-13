@@ -5,56 +5,56 @@
 --
 -- SPDX-License-Identifier: MIT
 
--- create-item.lua script takes pipewire nodes and creates session items(a.k.a
+-- create-item.lua script takes pipewire nodes and creates session items (a.k.a
 -- linkable) objects out of them.
 
 items = {}
 
-function configProperties(node)
+function configProperties (node)
   local np = node.properties
   local properties = {
     ["item.node"] = node,
-    ["item.plugged.usec"] = GLib.get_monotonic_time(),
+    ["item.plugged.usec"] = GLib.get_monotonic_time (),
     ["item.features.no-dsp"] =
         Settings.get_boolean ("default-policy-audio.no-dsp"),
     ["item.features.monitor"] = true,
     ["item.features.control-port"] = false,
-    ["node.id"] = node["bound-id"],
-    ["client.id"] = np["client.id"],
-    ["object.path"] = np["object.path"],
-    ["object.serial"] = np["object.serial"],
-    ["target.object"] = np["target.object"],
-    ["priority.session"] = np["priority.session"],
-    ["device.id"] = np["device.id"],
-    ["card.profile.device"] = np["card.profile.device"],
+    ["node.id"] = node ["bound-id"],
+    ["client.id"] = np ["client.id"],
+    ["object.path"] = np ["object.path"],
+    ["object.serial"] = np ["object.serial"],
+    ["target.object"] = np ["target.object"],
+    ["priority.session"] = np ["priority.session"],
+    ["device.id"] = np ["device.id"],
+    ["card.profile.device"] = np ["card.profile.device"],
   }
 
-  for k, v in pairs(np) do
-    if k:find("^node") or k:find("^stream") or k:find("^media") then
-      properties[k] = v
+  for k, v in pairs (np) do
+    if k:find ("^node") or k:find ("^stream") or k:find ("^media") then
+      properties [k] = v
     end
   end
 
-  local media_class = properties["media.class"] or ""
+  local media_class = properties ["media.class"] or ""
 
-  if not properties["media.type"] then
-    for _, i in ipairs({ "Audio", "Video", "Midi" }) do
-      if media_class:find(i) then
-        properties["media.type"] = i
+  if not properties ["media.type"] then
+    for _, i in ipairs ({ "Audio", "Video", "Midi" }) do
+      if media_class:find (i) then
+        properties ["media.type"] = i
         break
       end
     end
   end
 
-  properties["item.node.type"] =
-      media_class:find("^Stream/") and "stream" or "device"
+  properties ["item.node.type"] =
+      media_class:find ("^Stream/") and "stream" or "device"
 
-  if media_class:find("Sink") or
-      media_class:find("Input") or
-      media_class:find("Duplex") then
-    properties["item.node.direction"] = "input"
-  elseif media_class:find("Source") or media_class:find("Output") then
-    properties["item.node.direction"] = "output"
+  if media_class:find ("Sink") or
+      media_class:find ("Input") or
+      media_class:find ("Duplex") then
+    properties ["item.node.direction"] = "input"
+  elseif media_class:find ("Source") or media_class:find ("Output") then
+    properties ["item.node.direction"] = "output"
   end
   return properties
 end
@@ -85,12 +85,12 @@ AsyncEventHook {
     start = {
       next = "register",
       execute = function (event, transition)
-        local node = event:get_subject()
-        local id = node["bound-id"]
+        local node = event:get_subject ()
+        local id = node ["bound-id"]
         local item
         local item_type
 
-        local media_class = node.properties['media.class']
+        local media_class = node.properties ['media.class']
         if string.find (media_class, "Audio") then
           item_type = "si-audio-adapter"
         else
@@ -99,20 +99,22 @@ AsyncEventHook {
 
         -- create item
         item = SessionItem (item_type)
-        items[id] = item
+        items [id] = item
 
         -- configure item
-        if not item:configure(configProperties(node)) then
-          transition:return_error("failed to configure item for node " .. tostring(id))
+        if not item:configure (configProperties (node)) then
+          transition:return_error ("failed to configure item for node "
+              .. tostring (id))
           return
         end
 
         -- activate item
         item:activate (Features.ALL, function (_, e)
           if e then
-            transition:return_error("failed to activate item: " .. tostring(e));
+            transition:return_error ("failed to activate item: "
+                .. tostring (e));
           else
-            transition:advance()
+            transition:advance ()
           end
         end)
       end,
@@ -120,22 +122,22 @@ AsyncEventHook {
     register = {
       next = "none",
       execute = function (event, transition)
-        local node = event:get_subject()
-        local id = node["bound-id"]
-        local item = items[id]
+        local node = event:get_subject ()
+        local id = node ["bound-id"]
+        local item = items [id]
 
-        Log.info(item, "activated item for node " .. tostring(id))
+        Log.info (item, "activated item for node " .. tostring (id))
         item:register ()
-        transition:advance()
+        transition:advance ()
 
         props = {}
-        props["event.subject.type"] = "linkable"
+        props ["event.subject.type"] = "linkable"
         EventDispatcher.push_event { type = "object-added",
             priority = 50, properties = props, subject = item}
       end,
     },
   },
-}:register()
+}:register ()
 
 SimpleEventHook {
   name = "create-item",
@@ -160,16 +162,16 @@ SimpleEventHook {
     },
   },
   execute = function (_, event)
-    local node = event:get_subject()
-    local id = node["bound-id"]
-    if items[id] then
-      items[id]:remove ()
-      items[id] = nil
+    local node = event:get_subject ()
+    local id = node ["bound-id"]
+    if items [id] then
+      items [id]:remove ()
+      items [id] = nil
     end
 
     props = {}
-    props["event.subject.type"] = "linkable"
+    props ["event.subject.type"] = "linkable"
     EventDispatcher.push_event { type = "object-removed",
-        priority = 50, properties = props, subject = item}
+        priority = 50, properties = props, subject = item }
   end
-}:register()
+}:register ()
