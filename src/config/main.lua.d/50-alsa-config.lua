@@ -124,6 +124,7 @@ alsa_monitor.rules = {
       --["channelmix.hilbert-taps"] = 0,
       --["channelmix.disable"]     = false,
       --["dither.noise"]           = 0,
+      --["dither.method"]          = "none",  -- "rectangular", "triangular" or "shaped5"
       --["audio.channels"]         = 2,
       --["audio.format"]           = "S16LE",
       --["audio.rate"]             = 44100,
