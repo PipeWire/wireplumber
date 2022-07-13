@@ -166,7 +166,7 @@ SimpleEventHook {
       Constraint { "event.subject.type", "=", "device" },
     },
   },
-  execute = function (event, transition)
+  execute = function (event)
     handleProfiles (event:get_subject (), true)
   end
 }:register ()
@@ -181,7 +181,7 @@ SimpleEventHook {
       Constraint { "event.subject.type", "=", "device" },
     },
   },
-  execute = function (event, transition)
+  execute = function (event)
     local device = event:get_subject ()
     local props = event:get_properties()
     local param_name = props ["event.subject.param-id"]
@@ -200,7 +200,7 @@ SimpleEventHook {
       Constraint { "event.subject.type", "=", "device" },
     },
   },
-  execute = function (event, transition)
+  execute = function (event)
     local device = event:get_subject ()
     local dev_id = device ["bound-id"]
     self.active_profiles [dev_id] = nil
