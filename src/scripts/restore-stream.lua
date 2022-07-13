@@ -408,7 +408,7 @@ if config_restore_target then
         Constraint { "metadata.name", "=", "default" },
       },
     },
-    execute = function (event, transition)
+    execute = function (event)
       local metadata = event:get_subject()
 
       -- process existing metadata
@@ -430,7 +430,7 @@ if config_restore_target then
         Constraint { "metadata.name", "=", "default" },
       },
     },
-    execute = function (event, transition)
+    execute = function (event)
       local subject = event:get_subject ()
       local props = event:get_properties ()
 
@@ -544,7 +544,7 @@ SimpleEventHook {
       Constraint { "device.routes", "equals", "0", type = "pw" },
     },
   },
-  execute = function (event, transition)
+  execute = function (event)
     restoreStream (event:get_subject ())
   end
 }:register ()
@@ -574,7 +574,7 @@ SimpleEventHook {
       Constraint { "device.routes", "equals", "0", type = "pw" },
     },
   },
-  execute = function (event, transition)
+  execute = function (event)
     saveStream (event:get_subject())
   end
 }:register ()

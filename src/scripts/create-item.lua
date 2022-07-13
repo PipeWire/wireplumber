@@ -161,7 +161,7 @@ SimpleEventHook {
       Constraint { "wireplumber.is-endpoint", "-", type = "pw" },
     },
   },
-  execute = function (_, event)
+  execute = function (event)
     local node = event:get_subject ()
     local id = node ["bound-id"]
     if items [id] then
