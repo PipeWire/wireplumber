@@ -489,7 +489,7 @@ SimpleEventHook {
       Constraint { "event.subject.type", "=", "device" },
     },
   },
-  execute = function (event, transition)
+  execute = function (event)
     local new_dev_infos = {}
     local om = event:get_subject()
     for device in om:iterate () do
@@ -531,7 +531,7 @@ SimpleEventHook {
       Constraint { "event.subject.type", "=", "device" },
     },
   },
-  execute = function (event, transition)
+  execute = function (event)
     handleDevice (event:get_subject())
   end
 }:register()
