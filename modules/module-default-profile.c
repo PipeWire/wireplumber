@@ -223,13 +223,24 @@ on_device_params_changed (WpPipewireObject * proxy, const gchar *param_name,
 }
 
 static void
-on_device_added (WpObjectManager *om, WpPipewireObject *proxy, gpointer d)
+on_device_params_changed_hook (WpEvent *event, gpointer d)
 {
   WpDefaultProfile *self = WP_DEFAULT_PROFILE (d);
-  g_autoptr (WpIterator) profiles = NULL;
+  g_autoptr (GObject) subject = wp_event_get_subject (event);
+  WpPipewireObject *proxy = WP_PIPEWIRE_OBJECT (subject);
 
-  g_signal_connect_object (proxy, "params-changed",
-      G_CALLBACK (on_device_params_changed), self, 0);
+  g_autoptr (WpProperties) p = wp_event_get_properties (event);
+  const gchar *param = wp_properties_get (p, "event.subject.param-id");
+
+  on_device_params_changed (proxy, param, self);
+}
+
+static void
+on_device_added (WpEvent *event, gpointer d)
+{
+  WpDefaultProfile *self = WP_DEFAULT_PROFILE (d);
+  g_autoptr (GObject) subject = wp_event_get_subject (event);
+  WpPipewireObject *proxy = WP_PIPEWIRE_OBJECT (subject);
 
   on_device_params_changed (proxy, "EnumProfile", self);
 }
@@ -238,20 +249,47 @@ static void
 wp_default_profile_enable (WpPlugin * plugin, WpTransition * transition)
 {
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
+  g_return_if_fail (core);
   WpDefaultProfile *self = WP_DEFAULT_PROFILE (plugin);
   WpDefaultProfilePrivate *priv =
       wp_default_profile_get_instance_private (self);
+  g_autoptr (WpEventDispatcher) dispatcher =
+      wp_event_dispatcher_get_instance (core);
+  g_return_if_fail (dispatcher);
+  g_autoptr (WpEventHook) hook = NULL;
 
   /* Create the devices object manager */
   priv->devices_om = wp_object_manager_new ();
   wp_object_manager_add_interest (priv->devices_om, WP_TYPE_DEVICE, NULL);
   wp_object_manager_request_object_features (priv->devices_om,
       WP_TYPE_DEVICE, WP_PIPEWIRE_OBJECT_FEATURES_ALL);
-  g_signal_connect_object (priv->devices_om, "object-added",
-      G_CALLBACK (on_device_added), self, 0);
   wp_core_install_object_manager (core, priv->devices_om);
 
   wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
+
+  /* device added */
+  hook = wp_simple_event_hook_new ("m-default-profile",
+      WP_EVENT_HOOK_DEFAULT_PRIORITY_DEVICE_ADDED_DEFAULT_PROFILE,
+      WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
+      g_cclosure_new ((GCallback) on_device_added, self, NULL));
+  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-added",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "device",
+      NULL);
+  wp_event_dispatcher_register_hook (dispatcher, hook);
+  g_clear_object(&hook);
+
+  /* device params changed */
+  hook = wp_simple_event_hook_new ("m-default-profile",
+      WP_EVENT_HOOK_DEFAULT_PRIORITY_DEVICE_PARAMS_CHANGED_DEFAULT_PROFILE,
+      WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
+      g_cclosure_new ((GCallback) on_device_params_changed_hook, self, NULL));
+  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "params-changed",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "device",
+      NULL);
+  wp_event_dispatcher_register_hook (dispatcher, hook);
+  g_clear_object(&hook);
 }
 
 static void

@@ -152,6 +152,10 @@ function handleProfiles (device, new_device)
   local dev_id = device ["bound-id"]
   local dev_name = device.properties ["device.name"]
 
+  if not dev_name then
+    return
+  end
+
   local active_changed = handleActiveProfile (device, dev_id, dev_name)
   local def_profile = findDefaultProfile (device)
 
@@ -206,22 +210,57 @@ function onDeviceParamsChanged (device, param_name)
   end
 end
 
-self.om = ObjectManager {
-  Interest {
-    type = "device",
-    Constraint { "device.name", "is-present", type = "pw-global" },
-  }
-}
+SimpleEventHook {
+  name = "policy-device-profile",
+  type = "on-event",
+  priority = "device-added-policy-device-profile",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "object-added" },
+      Constraint { "event.subject.type", "=", "device" },
+    },
+  },
+  execute = function (event, transition)
+    handleProfiles (event:get_subject (), true)
+  end
+}:register ()
 
-self.om:connect ("object-added", function (_, device)
-  device:connect ("params-changed", onDeviceParamsChanged)
-  handleProfiles (device, true)
-end)
+SimpleEventHook {
+  name = "policy-device-profile",
+  type = "on-event",
+  priority = "device-params-changed-policy-device-profile",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "params-changed" },
+      Constraint { "event.subject.type", "=", "device" },
+    },
+  },
+  execute = function (event, transition)
+    local device = event:get_subject ()
+    local props = event:get_properties()
 
-self.om:connect ("object-removed", function (_, device)
-  local dev_id = device ["bound-id"]
-  self.active_profiles [dev_id] = nil
-  self.best_profiles [dev_id] = nil
-end)
+    local props = event:get_properties()
+    local param_name = props ["event.subject.param-id"]
 
-self.om:activate ()
+    onDeviceParamsChanged (device, param_name)
+  end
+}:register()
+
+SimpleEventHook {
+  name = "policy-device-profile",
+  type = "on-event",
+  priority = "device-removed-policy-device-profile",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "object-removed" },
+      Constraint { "event.subject.type", "=", "device" },
+    },
+  },
+  execute = function (event, transition)
+    local device = event:get_subject ()
+    local dev_id = device ["bound-id"]
+    self.active_profiles [dev_id] = nil
+    self.best_profiles [dev_id] = nil
+  end
+}:register ()
+
