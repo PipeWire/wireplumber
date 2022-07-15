@@ -157,7 +157,7 @@ function onDeviceParamsChanged (device, param_name)
 end
 
 SimpleEventHook {
-  name = "policy-device-profile",
+  name = "device-added@policy-device-profile",
   type = "on-event",
   priority = "device-added-policy-device-profile",
   interests = {
@@ -172,7 +172,7 @@ SimpleEventHook {
 }:register ()
 
 SimpleEventHook {
-  name = "policy-device-profile",
+  name = "params-changed@policy-device-profile",
   type = "on-event",
   priority = "device-params-changed-policy-device-profile",
   interests = {
@@ -191,7 +191,7 @@ SimpleEventHook {
 }:register()
 
 SimpleEventHook {
-  name = "policy-device-profile",
+  name = "device-removed@policy-device-profile",
   type = "on-event",
   priority = "device-removed-policy-device-profile",
   interests = {
