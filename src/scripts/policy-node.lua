@@ -985,7 +985,7 @@ function checkFiltersPortsState (si)
 end
 
 SimpleEventHook {
-  name = "policy-node",
+  name = "handle-linkable@policy-node",
   type = "on-event",
   priority = "linkable-added-create-item",
   interests = {
@@ -1011,7 +1011,7 @@ SimpleEventHook {
 }:register()
 
 SimpleEventHook {
-  name = "policy-node",
+  name = "linkable-removed@policy-node",
   type = "on-event",
   priority = "linkable-removed-create-item",
   interests = {
