@@ -60,7 +60,7 @@ function configProperties (node)
 end
 
 AsyncEventHook {
-  name = "create-item",
+  name = "node-added@create-item",
   type = "on-event",
   priority = "node-added-create-item",
   interests = {
@@ -140,7 +140,7 @@ AsyncEventHook {
 }:register ()
 
 SimpleEventHook {
-  name = "create-item",
+  name = "node-removed@create-item",
   type = "on-event",
   priority = "node-removed-create-item",
   interests = {
