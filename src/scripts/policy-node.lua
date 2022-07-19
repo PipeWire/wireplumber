@@ -694,16 +694,15 @@ function handleLinkable (si)
     local link = lookupLink (si_id, si_flags[si_id].peer_id)
     if reconnect then
       if link ~= nil then
-        -- remove old link if active, otherwise schedule rescan
-        if ((link:get_active_features() & Feature.SessionItem.ACTIVE) ~= 0) then
-          si_flags[si_id].peer_id = nil
-          link:remove ()
-          Log.info (si, "... moving to new target")
-        else
-          scheduleRescan()
-          Log.info (si, "... scheduled rescan")
-          return
+        -- remove old link
+        if ((link:get_active_features() & Feature.SessionItem.ACTIVE) == 0) then
+          -- remove also not yet activated links: they might never become active,
+          -- and we should not loop waiting for them
+          Log.warning (link, "Link was not activated before removing")
         end
+        si_flags[si_id].peer_id = nil
+        link:remove ()
+        Log.info (si, "... moving to new target")
       end
     else
       if link ~= nil then
