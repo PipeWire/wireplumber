@@ -37,11 +37,22 @@ struct _WpEvent
 G_DEFINE_BOXED_TYPE (WpEvent, wp_event, wp_event_ref, wp_event_unref)
 
 static gchar *
-form_event_name (const gchar *type, const gchar *subject_type)
+form_event_name (WpEvent *e)
 {
-  return g_strdup_printf ("%s%s%s", (type ? type : ""),
+  WpProperties *props = e->properties;
+  const gchar *type = wp_properties_get (props, "event.type");
+  const gchar *subject_type = wp_properties_get (props, "event.subject.type");
+  const gchar *metadata_name = wp_properties_get (props, "metadata.name");
+  const gchar *param = wp_properties_get (props, "event.subject.param-id");
+
+  return g_strdup_printf ("<%p>%s%s%s%s%s%s%s", e, (type ? type : ""),
     ((type && subject_type) ? "@" : ""),
-    (subject_type ? subject_type : ""));
+    (subject_type ? subject_type : ""),
+    ((subject_type && metadata_name) ? "@" : ""),
+    (metadata_name ? metadata_name : ""),
+    ((param && subject_type) ? "@" : ""),
+    (param ? param : "")
+    );
 }
 
 static void
@@ -116,8 +127,7 @@ wp_event_new (const gchar * type, gint priority, WpProperties * properties,
   }
 
   wp_properties_set (self->properties, "event.type", type);
-  self->name = form_event_name ( type,
-      wp_properties_get (self->properties, "event.subject.type"));
+  self->name = form_event_name (self);
 
   return self;
 }
@@ -268,33 +278,23 @@ wp_event_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
   GList *levent = g_list_first (d->events);
   while (levent) {
     WpEvent *event = (WpEvent *) (levent->data);
-    gboolean new_dispatchable_event = (g_list_length (event->hooks) > 0);
-
-    if (d->events_chain) {
-      new_dispatchable_event = new_dispatchable_event &&
-          (!strstr (d->events_chain, event->name));
-    }
-
-    if (new_dispatchable_event) {
-      wp_debug_object(d, "dispatching event (%s)" WP_OBJECT_FORMAT
-        " priority(%d)", event->name,
-        WP_OBJECT_ARGS (event->subject), event->priority);
-
-
-      d->events_chain = build_chain (event->name, event->priority,
-          d->events_chain);
-      wp_debug_object (d, "events chain (%s)", d->events_chain);
-    }
 
     /* event hook is still in progress, we will continue later */
     if (event->current_hook_in_async)
       return G_SOURCE_CONTINUE;
 
-
     /* remove the remaining hooks if the event was cancelled */
     if (g_cancellable_is_cancelled (event->cancellable) && event->hooks)
       g_list_free_full (g_steal_pointer (&event->hooks), g_object_unref);
 
+    /* avoid duplicate entries in chain */
+    if (!d->events_chain || !strstr (d->events_chain, event->name)) {
+      d->events_chain = build_chain (event->name, event->priority,
+        d->events_chain);
+      wp_debug_object (d, "dispatching event (%s)" WP_OBJECT_FORMAT
+        " priority(%d)", event->name, WP_OBJECT_ARGS (event->subject),
+        event->priority);
+    }
     /* get the highest priority hook */
     GList *lhook = g_list_first (event->hooks);
     if (lhook) {
@@ -305,9 +305,9 @@ wp_event_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
       name = wp_event_hook_get_name (event->current_hook_in_async);
       priority = wp_event_hook_get_priority (event->current_hook_in_async);
 
-      wp_debug_object (d, "running hook (%s(%d))", name, priority);
       event->hooks_chain = build_chain (name, priority, event->hooks_chain);
-      wp_debug_object (d, "hooks chain (%s)", event->hooks_chain);
+      wp_debug_object (d, "running hook <%p>(%s) and hooks chain (%s)",
+        event->current_hook_in_async, name, event->hooks_chain);
 
       /* execute the hook, possibly async */
       wp_event_hook_run (event->current_hook_in_async, event,
@@ -444,7 +444,8 @@ hook_cmp_func (const WpEventHook *a, const WpEventHook *b)
 }
 
 /*!
- * \brief Pushes a new event onto the event stack for dispatching
+ * \brief Pushes a new event onto the event stack for dispatching only if there
+ * are any hooks are available for it.
  * \ingroup wpeventdispatcher
  *
  * \param self the dispatcher
@@ -455,49 +456,58 @@ wp_event_dispatcher_push_event (WpEventDispatcher * self, WpEvent * event)
 {
   g_return_if_fail (WP_IS_EVENT_DISPATCHER (self));
   g_return_if_fail (event != NULL);
-  gboolean new_event_with_hooks_added = false;
+  gboolean hooks_added = FALSE;
+  gboolean rescan_hooks_added = FALSE;
 
-  /* schedule rescan */
-  if (!self->rescan_event) {
+  if (!self->rescan_event)
     self->rescan_event = wp_event_new ("rescan", G_MININT16, NULL, NULL, NULL);
-    self->events = g_list_insert_sorted (self->events, self->rescan_event,
-        (GCompareFunc) event_cmp_func);
-  }
-
-  /* push the event on the stack */
-  self->events = g_list_insert_sorted (self->events, event,
-      (GCompareFunc) event_cmp_func);
 
   /* attach hooks that run for this event */
   for (guint i = 0; i < self->hooks->len; i++) {
     WpEventHook *hook = g_ptr_array_index (self->hooks, i);
     if (wp_event_hook_runs_for_event (hook, event)) {
       /* ON_EVENT hooks run at the dispatching of the event */
-      if (!new_event_with_hooks_added) {
-        new_event_with_hooks_added = true;
-        wp_debug_object(self, "pushing event (%s)" WP_OBJECT_FORMAT
-            " priority(%d)", event->name,
-            WP_OBJECT_ARGS (event->subject), event->priority);
-      }
       if (wp_event_hook_get_exec_type (hook) == WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT) {
         event->hooks = g_list_insert_sorted (event->hooks, g_object_ref (hook),
             (GCompareFunc) hook_cmp_func);
-        wp_debug_object(self, "added hook (%s(%d))",
-            wp_event_hook_get_name (hook), wp_event_hook_get_priority (hook));
+        wp_debug_object (self, "added hook <%p>(%s(%d))", hook,
+          wp_event_hook_get_name (hook), wp_event_hook_get_priority (hook));
+        hooks_added = true;
       }
       /* AFTER_EVENTS hooks run after all other events have been dispatched */
       else if (!g_list_find (self->rescan_event->hooks, hook)) {
         self->rescan_event->hooks = g_list_insert_sorted (
             self->rescan_event->hooks, g_object_ref (hook),
             (GCompareFunc) hook_cmp_func);
-        wp_debug_object(self, "added rescan hook (%s(%d))",
-            wp_event_hook_get_name (hook), wp_event_hook_get_priority (hook));
+        wp_debug_object (self, "added rescan hook <%p>(%s(%d))", hook,
+          wp_event_hook_get_name (hook), wp_event_hook_get_priority (hook));
+        rescan_hooks_added = true;
       }
     }
   }
 
-  /* wakeup the GSource */
-  spa_system_eventfd_write (self->system, self->eventfd, 1);
+  if (rescan_hooks_added)
+  {
+    wp_debug_object (self, "pushed rescan event %p", self->rescan_event);
+    if (!g_list_find (self->events, self->rescan_event))
+      self->events = g_list_insert_sorted (self->events, self->rescan_event,
+      (GCompareFunc) event_cmp_func);
+  }
+
+  if (hooks_added)
+  {
+    wp_debug_object (self, "pushed event (%s)" WP_OBJECT_FORMAT
+      " priority(%d)", event->name, WP_OBJECT_ARGS (event->subject),
+      event->priority);
+    self->events = g_list_insert_sorted (self->events, event,
+      (GCompareFunc) event_cmp_func);
+  }
+  else
+    g_clear_pointer (&event, wp_event_unref);
+
+  if (hooks_added || rescan_hooks_added)
+    /* wakeup the GSource */
+    spa_system_eventfd_write (self->system, self->eventfd, 1);
 }
 
 /*!
