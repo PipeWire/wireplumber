@@ -133,6 +133,27 @@ si_standard_link_get_associated_proxy (WpSessionItem * item, GType proxy_type)
 }
 
 static void
+request_destroy_link (gpointer data, gpointer user_data)
+{
+  WpLink *link = WP_LINK (data);
+
+  wp_global_proxy_request_destroy (WP_GLOBAL_PROXY (link));
+}
+
+static void
+clear_node_links (GPtrArray **node_links_p)
+{
+  /*
+   * Something else (eg. object managers) may be keeping the WpLink
+   * objects alive. Deactive the links now, to destroy the PW objects.
+   */
+  if (*node_links_p)
+    g_ptr_array_foreach (*node_links_p, request_destroy_link, NULL);
+
+  g_clear_pointer (node_links_p, g_ptr_array_unref);
+}
+
+static void
 si_standard_link_disable_active (WpSessionItem *si)
 {
   WpSiStandardLink *self = WP_SI_STANDARD_LINK (si);
@@ -154,7 +175,8 @@ si_standard_link_disable_active (WpSessionItem *si)
           WP_SI_LINKABLE (si_in));
   }
 
-  g_clear_pointer (&self->node_links, g_ptr_array_unref);
+  clear_node_links (&self->node_links);
+
   self->n_active_links = 0;
   self->n_failed_links = 0;
   self->n_async_ops_wait = 0;
@@ -168,7 +190,7 @@ on_link_activated (WpObject * proxy, GAsyncResult * res,
     WpTransition * transition)
 {
   WpSiStandardLink *self = wp_transition_get_source_object (transition);
-  guint len = self->node_links->len;
+  guint len = self->node_links ? self->node_links->len : 0;
 
   /* Count the number of failed and active links */
   if (wp_object_activate_finish (proxy, res, NULL))
@@ -182,7 +204,7 @@ on_link_activated (WpObject * proxy, GAsyncResult * res,
 
   /* We only active feature if all links activated successfully */
   if (self->n_failed_links > 0) {
-    g_clear_pointer (&self->node_links, g_ptr_array_unref);
+    clear_node_links (&self->node_links);
     wp_transition_return_error (transition, g_error_new (
         WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
         "%d of %d PipeWire links failed to activate",
@@ -251,7 +273,7 @@ create_links (WpSiStandardLink * self, WpTransition * transition,
   /* Clear old links if any */
   self->n_active_links = 0;
   self->n_failed_links = 0;
-  g_clear_pointer (&self->node_links, g_ptr_array_unref);
+  clear_node_links (&self->node_links);
 
   /* tuple format:
       uint32 node_id;
@@ -327,7 +349,7 @@ create_links (WpSiStandardLink * self, WpTransition * transition,
 
     /* activate to ensure it is created without errors */
     wp_object_activate_closure (WP_OBJECT (link),
-        WP_OBJECT_FEATURES_ALL, NULL,
+        WP_OBJECT_FEATURES_ALL & ~WP_LINK_FEATURE_ESTABLISHED, NULL,
         g_cclosure_new_object (
             (GCallback) on_link_activated, G_OBJECT (transition)));
   }
