@@ -11,8 +11,8 @@
 --
 -- SPDX-License-Identifier: MIT
 --
--- Checks for the existence of media.role and if present switches the bluetooth
--- profile accordingly. Also see bluez-autoswitch in media-session.
+-- Scriupt Checks for the existence of media.role and if present switches the
+-- bluetooth profile accordingly. Also see bluez-autoswitch in media-session.
 -- The intended logic of the script is as follows.
 --
 -- When a stream comes in, if it has a Communication or phone role in PulseAudio
@@ -23,6 +23,8 @@
 -- specified which do not set the media.role correctly perhaps.
 -- When a stream goes away if the list with which we track the streams above
 -- is empty, then we revert back to the old profile.
+
+-- settings file: policy-settings.conf
 
 local use_persistent_storage =
     Settings.get_boolean ("bt-policy-use-persistent-storage") or false
@@ -368,37 +370,92 @@ local function handleAllStreams ()
   end
 end
 
-streams_om:connect ("object-added", function (_, stream)
-  stream:connect ("state-changed", function (stream, old_state, cur_state)
-    handleStream (stream)
-  end)
-  stream:connect ("params-changed", handleStream)
-  handleStream (stream)
-end)
-
-streams_om:connect ("object-removed", function (_, stream)
-  active_streams [stream ["bound-id"]] = nil
-  previous_streams [stream ["bound-id"]] = nil
-  triggerRestoreProfile ()
-end)
-
-devices_om:connect ("object-added", function (_, device)
-  -- Devices are unswitched initially
-  if isSwitched (device) then
-    saveLastProfile (device, nil)
+SimpleEventHook {
+  name = "input-stream-removed@policy-bluetooth",
+  type = "on-event",
+  priority = "node-removed-policy-bluetooth",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "object-removed" },
+      Constraint { "event.subject.type", "=", "node" },
+      Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
+    },
+  },
+  execute = function (event)
+    stream = event:get_subject ()
+    active_streams[stream["bound-id"]] = nil
+    previous_streams[stream["bound-id"]] = nil
+    triggerRestoreProfile ()
   end
-  handleAllStreams ()
-end)
+}:register ()
 
-metadata_om:connect ("object-added", function (_, metadata)
-  metadata:connect ("changed", function (m, subject, key, t, value)
-    if (use_headset_profile and subject == 0 and key == "default.audio.sink"
-        and isBluez5AudioSink (value)) then
-      -- If bluez sink is set as default, rescan for active input streams
-      handleAllStreams ()
+SimpleEventHook {
+  name = "input-stream-changed@policy-bluetooth",
+  type = "on-event",
+  priority = "node-parms-changed-policy-bluetooth",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "state-changed" },
+      Constraint { "event.subject.type", "=", "node" },
+      Constraint { "media.class", "#", "Stream/Input/Audio", type = "pw-global" },
+      -- Do not consider monitor streams
+      Constraint { "stream.monitor", "!", "true" }
+    },
+    EventInterest {
+      Constraint { "event.type", "=", "params-changed" },
+      Constraint { "event.subject.type", "=", "node" },
+      Constraint { "media.class", "#", "Stream/Input/Audio", type = "pw-global" },
+      -- Do not consider monitor streams
+      Constraint { "stream.monitor", "!", "true" }
+    },
+  },
+  execute = function (event)
+    handleStream (event:get_subject ())
+  end
+}:register ()
+
+SimpleEventHook {
+  name = "bluez-device-added@policy-bluetooth",
+  type = "on-event",
+  priority = "device-added-policy-bluetooth",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "object-added" },
+      Constraint { "event.subject.type", "=", "device" },
+      Constraint { "device.api", "=", "bluez5" },
+    },
+  },
+  execute = function (event)
+    -- Devices are unswitched initially
+    device = event:get_subject ()
+    if isSwitched (device) then
+      saveLastProfile (device, nil)
     end
-  end)
-end)
+    handleAllStreams ()
+  end
+}:register ()
+
+SimpleEventHook {
+  name = "metadata-changed@policy-bluetooth",
+  type = "on-event",
+  priority = "default-metadata-changed-policy-bluetooth",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "object-changed" },
+      Constraint { "event.subject.type", "=", "metadata" },
+      Constraint { "metadata.name", "=", "default" },
+      Constraint { "event.subject.key", "=", "default.audio.sink" },
+      Constraint { "event.subject.id", "=", "0" },
+      Constraint { "event.subject.value", "#", "*bluez_output*" },
+    },
+  },
+  execute = function (event)
+    if (use_headset_profile) then
+    -- If bluez sink is set as default, rescan for active input streams
+    handleAllStreams ()
+    end
+  end
+}:register ()
 
 metadata_om:activate ()
 devices_om:activate ()
