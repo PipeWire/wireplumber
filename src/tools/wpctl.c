@@ -1180,11 +1180,19 @@ static gboolean
 clear_default_parse_positional (gint argc, gchar ** argv, GError **error)
 {
   if (argc >= 3) {
-    return parse_id (true, true, argv[2], &cmdline.clear_default.id, error);
+    long id = strtol (argv[2], NULL, 10);
+    if (id < 0 || id >= (long)G_N_ELEMENTS (DEFAULT_NODE_MEDIA_CLASSES)) {
+      g_set_error (error, wpctl_error_domain_quark(), 0,
+          "The setting ID value must be between 0 and %ld inclusive",
+              G_N_ELEMENTS (DEFAULT_NODE_MEDIA_CLASSES) - 1);
+      return FALSE;
+    }
+    cmdline.clear_default.id = id;
   } else {
     cmdline.clear_default.id = SPA_ID_INVALID;
-    return TRUE;
   }
+
+  return TRUE;
 }
 
 static gboolean
@@ -1198,7 +1206,6 @@ clear_default_run (WpCtl * self)
 {
   g_autoptr (WpPlugin) def_nodes_api = NULL;
   g_autoptr (GError) error = NULL;
-  guint32 id;
   gboolean res = FALSE;
 
   def_nodes_api = wp_plugin_find (self->core, "default-nodes-api");
@@ -1207,13 +1214,8 @@ clear_default_run (WpCtl * self)
     goto out;
   }
 
-  if (!translate_id (def_nodes_api, cmdline.clear_default.id, &id, &error)) {
-    fprintf(stderr, "Translate ID error: %s\n\n", error->message);
-    goto out;
-  }
-
   /* clear all defaults if id was not given */
-  if (id == SPA_ID_INVALID) {
+  if (cmdline.clear_default.id == SPA_ID_INVALID) {
     for (guint i = 0; i < G_N_ELEMENTS (DEFAULT_NODE_MEDIA_CLASSES); i++) {
       g_signal_emit_by_name (def_nodes_api, "set-default-configured-node-name",
           DEFAULT_NODE_MEDIA_CLASSES[i], NULL, &res);
@@ -1224,16 +1226,11 @@ clear_default_run (WpCtl * self)
       }
     }
   } else {
-    if (id < G_N_ELEMENTS (DEFAULT_NODE_MEDIA_CLASSES)) {
-      g_signal_emit_by_name (def_nodes_api, "set-default-configured-node-name",
-          DEFAULT_NODE_MEDIA_CLASSES[id], NULL, &res);
-      if (!res) {
-        fprintf (stderr, "failed to clear default configured node (%s)\n",
-            DEFAULT_NODE_MEDIA_CLASSES[id]);
-        goto out;
-      }
-    } else {
-      fprintf (stderr, "Id %d is not a valid default node Id\n", id);
+    g_signal_emit_by_name (def_nodes_api, "set-default-configured-node-name",
+        DEFAULT_NODE_MEDIA_CLASSES[cmdline.clear_default.id], NULL, &res);
+    if (!res) {
+      fprintf (stderr, "failed to clear default configured node (%s)\n",
+          DEFAULT_NODE_MEDIA_CLASSES[cmdline.clear_default.id]);
       goto out;
     }
   }
