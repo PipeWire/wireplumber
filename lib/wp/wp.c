@@ -68,6 +68,26 @@ wp_init (WpInitFlags flags)
 }
 
 /*!
+ * \brief Gets the WirePlumber library version
+ * \returns WirePlumber library version
+ */
+const char *
+wp_get_library_version (void)
+{
+  return WIREPLUMBER_VERSION;
+}
+
+/*!
+ * \brief Gets the WirePlumber library API version
+ * \returns WirePlumber library API version
+ */
+const char *
+wp_get_library_api_version (void)
+{
+  return WIREPLUMBER_API_VERSION;
+}
+
+/*!
  * \brief Gets the WirePlumber module directory
  * \returns WirePlumber's module directory
  */

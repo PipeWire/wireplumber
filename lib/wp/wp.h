@@ -67,6 +67,12 @@ WP_API
 void wp_init (WpInitFlags flags);
 
 WP_API
+const char * wp_get_library_version (void);
+
+WP_API
+const char * wp_get_library_api_version (void);
+
+WP_API
 const gchar * wp_get_module_dir (void);
 
 WP_API

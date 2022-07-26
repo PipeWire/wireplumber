@@ -24,10 +24,13 @@ enum WpExitCode
   WP_EXIT_CONFIG = 78,      /* configuration error */
 };
 
+static gboolean show_version = FALSE;
 static gchar * config_file = NULL;
 
 static GOptionEntry entries[] =
 {
+  { "version", 'v', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &show_version,
+    "Show version", NULL },
   { "config-file", 'c', G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING, &config_file,
     "The context configuration file", NULL },
   { NULL }
@@ -425,6 +428,16 @@ main (gint argc, gchar **argv)
   if (!g_option_context_parse (context, &argc, &argv, &error)) {
     fprintf (stderr, "%s\n", error->message);
     return WP_EXIT_USAGE;
+  }
+
+  if (show_version) {
+    g_print ("%s\n"
+        "Compiled with libwireplumber %s\n"
+        "Linked with libwireplumber %s\n",
+        argv[0],
+        WIREPLUMBER_VERSION,
+        wp_get_library_version());
+    return WP_EXIT_OK;
   }
 
   if (!config_file)
