@@ -2,6 +2,8 @@ option('introspection', type : 'feature', value : 'auto',
        description : 'Generate gobject-introspection bindings')
 option('doc', type : 'feature', value : 'auto',
        description: 'Enable documentation.')
+option('dbus', type : 'boolean', value : 'true',
+       description: 'Enable dbus support')
 option('system-lua', type : 'boolean', value : 'false',
        description : 'Use lua from the system instead of the bundled one')
 option('system-lua-version',
