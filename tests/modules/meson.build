@@ -7,12 +7,14 @@ common_args = [
   '-DG_LOG_USE_STRUCTURED',
 ]
 
-test(
-  'test-reserve-device',
-  executable('test-reserve-device', 'reserve-device.c',
-    dependencies: common_deps, c_args: common_args),
-  env: common_env,
-)
+if get_option('dbus')
+  test(
+    'test-reserve-device',
+    executable('test-reserve-device', 'reserve-device.c',
+      dependencies: common_deps, c_args: common_args),
+    env: common_env,
+  )
+endif
 
 test(
   'test-file-monitor',
