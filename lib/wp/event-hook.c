@@ -21,6 +21,8 @@ struct _WpEventHookPrivate
   WpEventHookExecType exec_type;
   GWeakRef dispatcher;
   gchar *name;
+  /* event triggering the hook, useful for after-events. */
+  WpEvent *event_trigger;
 };
 
 enum {
@@ -47,6 +49,7 @@ wp_event_hook_finalize (GObject * object)
   WpEventHookPrivate *priv = wp_event_hook_get_instance_private (self);
 
   g_weak_ref_clear (&priv->dispatcher);
+  g_clear_pointer (&priv->event_trigger, wp_event_unref);
   g_free (priv->name);
 
   G_OBJECT_CLASS (wp_event_hook_parent_class)->finalize (object);
@@ -131,6 +134,38 @@ wp_event_hook_class_init (WpEventHookClass * klass)
 }
 
 /*!
+ * \brief Returns the event triggering the hook, this data is useful for
+ * after-events.
+ *
+ * \ingroup wpeventhook
+ * \param self the event hook
+ * \returns (transfer none) (nullable): the event
+ */
+WpEvent *
+wp_event_hook_get_event (WpEventHook *self)
+{
+  g_return_val_if_fail (WP_IS_EVENT_HOOK (self), 0);
+  WpEventHookPrivate *priv = wp_event_hook_get_instance_private (self);
+  return priv->event_trigger;
+}
+
+/*!
+ * \brief Sets the event triggering the hook
+ *
+ * \ingroup wpeventhook
+ * \param self the event hook
+ * \param event (transfer none) (nullable):the event associated with the hook
+ */
+void
+wp_event_hook_set_event (WpEventHook *self, WpEvent *event)
+{
+  WpEventHookPrivate *priv = wp_event_hook_get_instance_private (self);
+  g_clear_pointer (&priv->event_trigger, wp_event_unref);
+  if (event)
+    priv->event_trigger = wp_event_ref (event);
+}
+
+/*!
  * \brief Returns the priority of the hook
  *
  * \ingroup wpeventhook
@@ -191,6 +226,14 @@ wp_event_hook_get_dispatcher (WpEventHook * self)
   return g_weak_ref_get (&priv->dispatcher);
 }
 
+/*!
+ * \brief Sets the dispatcher to the hook
+ *
+ * \ingroup wpeventhook
+ * \param self the event hook
+ * \param dispatcher (transfer none) (nullable) dispatcher to which the hook is
+ *  to be registered.
+ */
 void
 wp_event_hook_set_dispatcher (WpEventHook * self, WpEventDispatcher * dispatcher)
 {
