@@ -75,6 +75,7 @@ function createNode(parent, id, type, factory, properties)
 
   -- autoconnect if it's a stream
   if properties["api.bluez5.profile"] == "headset-audio-gateway" or
+     properties["api.bluez5.profile"] == "bap-sink" or
      factory:find("a2dp.source") or factory:find("media.source") then
     properties["node.autoconnect"] = true
   end
