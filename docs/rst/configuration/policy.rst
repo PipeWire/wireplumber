@@ -3,8 +3,8 @@
 Policy Configuration
 ====================
 
-wireplumber.conf.d/policy-settings.conf
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+wireplumber.conf.d/policy.conf
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This file contains generic default policy properties that can be configured.
 
