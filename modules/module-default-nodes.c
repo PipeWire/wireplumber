@@ -40,7 +40,7 @@ enum {
  */
 
 /*
- * settings file: device-settings.conf
+ * settings file: device.conf
  */
 
 typedef struct _WpDefaultNode WpDefaultNode;

@@ -26,7 +26,6 @@ local config_settings = {
 device_names_table = nil
 node_names_table = nil
 
--- applies rules from alsa-settings.conf when asked to
 function rulesApplyProperties(properties)
   local matched, mprops = Settings.apply_rule ("alsa_monitor", properties)
 
