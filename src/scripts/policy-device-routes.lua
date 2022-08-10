@@ -16,7 +16,7 @@
 -- restores them when the route appears afresh. The cached properties are
 -- remembered across reboots if persistancy(use_persistent_storage) is enabled.
 
--- settings file: device-settings.conf
+-- settings file: device.conf
 
 use_persistent_storage =
   Settings.get_boolean ("device.use-persistent-storage") or false

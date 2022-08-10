@@ -4,7 +4,7 @@ Bluetooth configuration
 =======================
 
 Using the same format as the :ref:`ALSA monitor <config_alsa>`, the
-configuration file ``wireplumber.conf.d/bluetooth-settings.conf`` is charged
+configuration file ``wireplumber.conf.d/bluetooth.conf`` is charged
 to configure the Bluetooth devices and nodes created by WirePlumber.
 
 * *Settings*
