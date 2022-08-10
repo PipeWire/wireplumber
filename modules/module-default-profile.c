@@ -25,7 +25,7 @@ static guint signals[LAST_SIGNAL] = { 0 };
 
 /*
  * Module caches the profile selected for a device and restores it when the
- * device appears afresh. The cached properties are remembered across reboots.
+ * device appears afresh. The cached profile is remembered across reboots.
  * It provides an API for modules and scripts to query the default profile.
  */
 
@@ -277,7 +277,7 @@ wp_default_profile_enable (WpPlugin * plugin, WpTransition * transition)
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "device",
       NULL);
   wp_event_dispatcher_register_hook (dispatcher, hook);
-  g_clear_object(&hook);
+  g_clear_object (&hook);
 
   /* device params changed */
   hook = wp_simple_event_hook_new ("device-parms-changed@m-default-profile",
@@ -289,7 +289,7 @@ wp_default_profile_enable (WpPlugin * plugin, WpTransition * transition)
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "device",
       NULL);
   wp_event_dispatcher_register_hook (dispatcher, hook);
-  g_clear_object(&hook);
+  g_clear_object (&hook);
 }
 
 static void
