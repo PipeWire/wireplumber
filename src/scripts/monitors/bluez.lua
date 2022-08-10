@@ -303,7 +303,7 @@ function createNode(parent, id, type, factory, properties)
     properties["node.autoconnect"] = true
   end
 
-  -- apply properties from bluetooth-settings.conf
+  -- apply properties from bluetooth.conf
   rulesApplyProperties(properties)
 
   -- create the node; bluez requires "local" nodes, i.e. ones that run in
@@ -365,7 +365,7 @@ function createDevice(parent, id, type, factory, properties)
     properties["bluez5.profile"] = "off"
     properties["api.bluez5.id"] = id
 
-    -- apply properties from bluetooth-settings.conf
+    -- apply properties from bluetooth.conf
     rulesApplyProperties(properties)
 
     -- create the device

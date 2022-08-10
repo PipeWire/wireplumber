@@ -8,7 +8,7 @@ Modifying the default configuration
 
 ALSA devices are created and managed by the session manager with the *alsa.lua*
 monitor script. In the default configuration, this script is loaded by
-``wireplumber.conf.d/alsa-settings.conf``, which also specifies its settings and
+``wireplumber.conf.d/alsa.conf``, which also specifies its settings and
 rules.
 
 * *Settings*
