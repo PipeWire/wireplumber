@@ -133,7 +133,7 @@ AsyncEventHook {
         props = {}
         props ["event.subject.type"] = "linkable"
         EventDispatcher.push_event { type = "object-added",
-            priority = 50, properties = props, subject = item}
+            priority = 50, properties = props, subject = item }
       end,
     },
   },
