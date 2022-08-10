@@ -24,7 +24,7 @@
 -- When a stream goes away if the list with which we track the streams above
 -- is empty, then we revert back to the old profile.
 
--- settings file: policy-settings.conf
+-- settings file: policy.conf
 
 local use_persistent_storage =
     Settings.get_boolean ("bt-policy-use-persistent-storage") or false

@@ -30,7 +30,7 @@ static guint signals[LAST_SIGNAL] = { 0 };
  */
 
 /*
- * settings file: device-settings.conf
+ * settings file: device.conf
  */
 
 G_DECLARE_DERIVABLE_TYPE (WpDefaultProfile, wp_default_profile, WP,
