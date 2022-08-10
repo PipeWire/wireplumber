@@ -3,8 +3,8 @@
 Access configuration
 ====================
 
-wireplumber.conf.d/access-settings.conf
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+wireplumber.conf.d/access.conf
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Using a similar format as the :ref:`ALSA monitor <config_alsa>`, this
 configuration file is charged to configure the client objects created by

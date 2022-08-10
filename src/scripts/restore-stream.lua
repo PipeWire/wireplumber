@@ -16,7 +16,7 @@
 -- properties are restored. These properties are by default remmembered
 -- across(presistancy) the reboots.
 
--- settings file: stream-settings.conf
+-- settings file: stream.conf
 
 config_restore_props = Settings.get_boolean ("stream_default.restore-props")
     or false
@@ -25,7 +25,6 @@ config_restore_target = Settings.get_boolean ("stream_default.restore-target")
 config_default_channel_volume = Settings.get_float ("stream.default-channel-volume")
     or 1.0
 
--- applies rules from stream-settings.conf when asked to
 function rulesApplyProperties (properties)
   local matched, mprops = Settings.apply_rule ("stream_default", properties)
 
