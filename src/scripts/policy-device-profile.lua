@@ -8,7 +8,7 @@
 -- Script selects and enables a profile for a device. It implements the
 -- persistant profiles funtionality.
 
--- Settings file: device-settings.conf
+-- Settings file: device.conf
 
 local self = {}
 self.active_profiles = {}
