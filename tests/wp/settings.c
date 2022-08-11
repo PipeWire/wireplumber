@@ -94,7 +94,7 @@ do_parse_settings (void *data, const char *location,
     wp_iterator_next (iter, &item);
     j = g_value_get_boxed (&item);
 
-    value = wp_spa_json_parse_string (j);
+    value = wp_spa_json_to_string (j);
     g_value_unset (&item);
 
     if (name && value) {
@@ -124,7 +124,7 @@ test_parsing_setup (TestSettingsFixture *self, gconstpointer user_data)
     self->settings = g_steal_pointer (&settings);
 
     /* total no.of settings in the conf file */
-    g_assert_cmpint (data.count, ==, 15);
+    g_assert_cmpint (data.count, ==, 12);
   }
 
 }
@@ -141,7 +141,7 @@ static void
 test_parsing (TestSettingsFixture *self, gconstpointer data)
 {
   /* total no.of settings in the conf file */
-  g_assert_cmpint (wp_properties_get_count(self->settings), ==, 15);
+  g_assert_cmpint (wp_properties_get_count(self->settings), ==, 12);
 }
 
 static void
@@ -274,7 +274,7 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
   }
 
   {
-    gint64 value = 0;
+    gint value = 0;
 
     /* _get_int () */
     g_assert_false (wp_settings_get_int (s, "test-setting-undefined",
@@ -282,83 +282,43 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
 
     g_assert_true (wp_settings_get_int (s, "test-setting3-int", &value));
     g_assert_cmpint (value, ==, -20);
-
-    g_assert_true (wp_settings_get_int (s, "test-setting4-max-int", &value));
-    g_assert_cmpint (value, ==, G_MAXINT64);
-
-    g_assert_true (wp_settings_get_int (s, "test-setting4-min-int", &value));
-    g_assert_cmpint (value, ==, G_MININT64);
-
-    value = 0;
-    g_assert_true (wp_settings_get_int (s, "test-setting4-max-int-one-more",
-        &value));
-    g_assert_cmpint (value, ==, 0);
-
-    g_assert_true (wp_settings_get_int (s, "test-setting4-min-int-one-less",
-        &value));
-    g_assert_cmpint (value, ==, 0);
   }
 
   {
-    const gchar *value = NULL;
     /* _get_string () */
-    g_assert_false (wp_settings_get_string (s, "test-setting-undefined",
-        &value));
-
-    g_assert_true (wp_settings_get_string (s, "test-setting4-string",
-        &value));
-    g_assert_cmpstr (value, ==, "blahblah");
-
-    g_assert_true (wp_settings_get_string (s, "test-setting2",
-        &value));
-    g_assert_cmpstr (value, ==, "true");
-
-    g_assert_true (wp_settings_get_string (s, "test-setting3-int",
-        &value));
-    g_assert_cmpstr (value, ==, "-20");
-
-    g_assert_true (wp_settings_get_string (s, "test-setting-json",
-        &value));
-    g_assert_cmpstr (value, ==, "[ a b c ]");
-
-    g_assert_true (wp_settings_get_string (s, "test-setting-strings",
-        &value));
-    g_assert_cmpstr (value, ==, "[\"test1\", \"test 2\", \"test three\", \"test-four\"]");
-
     {
-      g_autofree gchar *s1 = NULL;
-      g_autofree gchar *s2 = NULL;
-      g_autofree gchar *s3 = NULL;
-      g_autofree gchar *s4 = NULL;
-
-      g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (value);
-
-      wp_spa_json_parse_array
-          (json, "s", &s1, "s", &s2, "s", &s3, "s", &s4, NULL);
-      g_assert_cmpstr (s1, ==, "test1");
-      g_assert_cmpstr (s2, ==, "test 2");
-      g_assert_cmpstr (s3, ==, "test three");
-      g_assert_cmpstr (s4, ==, "test-four");
-    }
-    {
-      gchar *sample_str[] = {
-        "test1",
-        "test 2",
-        "test three",
-        "test-four"
-      };
-      g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (value);
-      g_autoptr (WpIterator) it = wp_spa_json_new_iterator (json);
-      g_auto (GValue) item = G_VALUE_INIT;
-
-      for (int i = 0; wp_iterator_next (it, &item);
-          g_value_unset (&item), i++) {
-        WpSpaJson *s = g_value_get_boxed (&item);
-        g_autofree gchar *str = wp_spa_json_parse_string (s);
-        g_assert_cmpstr (str, ==, sample_str[i]);
-      }
+      g_autofree gchar *value = NULL;
+      value = wp_settings_get_string (s, "test-setting-undefined");
+      g_assert_null (value);
     }
 
+    {
+      g_autofree gchar *value = NULL;
+      value = wp_settings_get_string (s, "test-setting4-string");
+      g_assert_nonnull (value);
+      g_assert_cmpstr (value, ==, "blahblah");
+    }
+
+    {
+      g_autofree gchar *value = NULL;
+      value = wp_settings_get_string (s, "test-setting2");
+      g_assert_nonnull (value);
+      g_assert_cmpstr (value, ==, "true");
+    }
+
+    {
+      g_autofree gchar *value = NULL;
+      value = wp_settings_get_string (s, "test-setting3-int");
+      g_assert_nonnull (value);
+      g_assert_cmpstr (value, ==, "-20");
+    }
+
+    {
+      g_autofree gchar *value = NULL;
+      value = wp_settings_get_string (s, "test-setting5-string-with-quotes");
+      g_assert_nonnull (value);
+      g_assert_cmpstr (value, ==, "a string with \"quotes\"");
+    }
   }
 
   {
@@ -389,6 +349,56 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
     g_assert_true (s1 == s2);
     g_assert_false (s1 == s3);
 
+  }
+
+  {
+    /* _get_json () */
+    {
+      g_autoptr (WpSpaJson) value = NULL;
+      value = wp_settings_get (s, "test-setting-json");
+      g_assert_nonnull (value);
+      g_assert_true (wp_spa_json_is_array (value));
+      g_assert_cmpstr (wp_spa_json_get_data (value), ==, "[1, 2, 3]");
+    }
+
+    {
+      g_autoptr (WpSpaJson) value = NULL;
+      value = wp_settings_get (s, "test-setting-json2");
+      g_assert_nonnull (value);
+      g_assert_true (wp_spa_json_is_array (value));
+
+      {
+        g_autofree gchar *s1 = NULL;
+        g_autofree gchar *s2 = NULL;
+        g_autofree gchar *s3 = NULL;
+        g_autofree gchar *s4 = NULL;
+
+        wp_spa_json_parse_array
+            (value, "s", &s1, "s", &s2, "s", &s3, "s", &s4, NULL);
+        g_assert_cmpstr (s1, ==, "test1");
+        g_assert_cmpstr (s2, ==, "test 2");
+        g_assert_cmpstr (s3, ==, "test three");
+        g_assert_cmpstr (s4, ==, "test-four");
+      }
+
+      {
+        gchar *sample_str[] = {
+          "test1",
+          "test 2",
+          "test three",
+          "test-four"
+        };
+        g_autoptr (WpIterator) it = wp_spa_json_new_iterator (value);
+        g_auto (GValue) item = G_VALUE_INIT;
+
+        for (int i = 0; wp_iterator_next (it, &item);
+            g_value_unset (&item), i++) {
+          WpSpaJson *s = g_value_get_boxed (&item);
+          g_autofree gchar *str = wp_spa_json_parse_string (s);
+          g_assert_cmpstr (str, ==, sample_str[i]);
+        }
+      }
+    }
   }
 
   {
@@ -579,18 +589,14 @@ void wp_settings_changed_callback (WpSettings *obj, const gchar *setting,
     wp_settings_get_boolean (self->s, setting, &value);
     g_assert_cmpint (value, ==, spa_atob (self->triggered_setting_value));
     g_assert_cmpstr (raw_value, ==, self->triggered_setting_value);
-
-  }else if (self->setting_type == INTEGER) {
-    gint64 value = 0;
+  } else if (self->setting_type == INTEGER) {
+    gint value = 0;
     wp_settings_get_int (self->s, setting, &value);
-    gint64 svalue = 0;
-    spa_atoi64 (self->triggered_setting_value, &svalue, 0);
-    g_assert_cmpint (value, ==, svalue);
+    g_assert_cmpint (value, ==, atoi (self->triggered_setting_value));
     g_assert_cmpstr (raw_value, ==, self->triggered_setting_value);
-
   } else if (self->setting_type == STRING) {
-    const gchar *value = NULL;
-    wp_settings_get_string (self->s, setting, &value);
+    g_autofree gchar *value = wp_settings_get_string (self->s, setting);
+    g_assert_nonnull (value);
     g_assert_cmpstr (value, ==, self->triggered_setting_value);
     g_assert_cmpstr (raw_value, ==, self->triggered_setting_value);
   }

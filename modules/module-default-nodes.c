@@ -674,11 +674,11 @@ wp_default_nodes_class_init (WpDefaultNodesClass * klass)
 WP_PLUGIN_EXPORT gboolean
 wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
-  gint64 save_interval_ms = DEFAULT_SAVE_INTERVAL_MS;
+  gint save_interval_ms = DEFAULT_SAVE_INTERVAL_MS;
   gboolean use_persistent_storage = DEFAULT_USE_PERSISTENT_STORAGE;
   gboolean auto_echo_cancel = DEFAULT_AUTO_ECHO_CANCEL;
-  const gchar *echo_cancel_sink_name = DEFAULT_ECHO_CANCEL_SINK_NAME;
-  const gchar *echo_cancel_source_name = DEFAULT_ECHO_CANCEL_SOURCE_NAME;
+  g_autofree gchar *echo_cancel_sink_name = NULL;
+  g_autofree gchar *echo_cancel_source_name = NULL;
 
   g_autoptr (WpSettings) settings = wp_settings_get_instance(core, NULL);
   wp_settings_get_int (settings, "device.save-interval-ms",
@@ -687,20 +687,23 @@ wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
     &use_persistent_storage);
   wp_settings_get_boolean (settings, "device.auto-echo-cancel",
     &auto_echo_cancel);
-  wp_settings_get_string (settings, "device.echo-cancel-sink-name",
-    &echo_cancel_sink_name);
-  wp_settings_get_string (settings, "device.echo-cancel-source-name",
-    &echo_cancel_source_name);
+  echo_cancel_sink_name = wp_settings_get_string (settings,
+      "device.echo-cancel-sink-name");
+  echo_cancel_source_name = wp_settings_get_string (settings,
+      "device.echo-cancel-source-name");
 
   wp_plugin_register (g_object_new (wp_default_nodes_get_type (),
-          "name", NAME,
-          "core", core,
-          "save-interval-ms", save_interval_ms,
-          "use-persistent-storage", use_persistent_storage,
-          "auto-echo-cancel", auto_echo_cancel,
-          "echo-cancel-sink-name", echo_cancel_sink_name,
-          "echo-cancel-source-name", echo_cancel_source_name,
-          NULL));
+      "name", NAME,
+      "core", core,
+      "save-interval-ms", save_interval_ms > 0 ?
+          (guint)save_interval_ms : DEFAULT_SAVE_INTERVAL_MS,
+      "use-persistent-storage", use_persistent_storage,
+      "auto-echo-cancel", auto_echo_cancel,
+      "echo-cancel-sink-name", echo_cancel_sink_name ?
+          echo_cancel_sink_name : DEFAULT_ECHO_CANCEL_SINK_NAME,
+      "echo-cancel-source-name", echo_cancel_source_name ?
+          echo_cancel_source_name : DEFAULT_ECHO_CANCEL_SOURCE_NAME,
+      NULL));
   return TRUE;
 }
 
