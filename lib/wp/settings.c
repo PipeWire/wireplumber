@@ -174,19 +174,8 @@ gboolean
 wp_settings_get_boolean (WpSettings *self, const gchar *setting,
   gboolean *value)
 {
-  g_return_val_if_fail (WP_IS_SETTINGS (self), FALSE);
-  g_return_val_if_fail (setting, FALSE);
-
-  if (!(wp_object_get_active_features (WP_OBJECT (self)) &
-      WP_OBJECT_FEATURES_ALL))
-    return false;
-
-  if (!wp_properties_get (self->settings, setting))
-    return false;
-
-  *value = spa_atob (wp_properties_get (self->settings, setting));
-
-  return true;
+  g_autoptr (WpSpaJson) json = wp_settings_get (self, setting);
+  return json && wp_spa_json_parse_boolean (json, value);
 }
 
 /*!
@@ -194,26 +183,14 @@ wp_settings_get_boolean (WpSettings *self, const gchar *setting,
  * \ingroup wpsettings
  * \param self the settings object
  * \param setting name of the setting
- * \param value (out): the string value of the setting
- * \returns TRUE if the setting is defined, FALSE otherwise
+ * \returns (transfer full) (nullable): the string value of the setting, or NULL
+ * if the string could not be parsed
  */
-gboolean
-wp_settings_get_string (WpSettings *self, const gchar *setting,
-    const gchar **value)
+gchar *
+wp_settings_get_string (WpSettings *self, const gchar *setting)
 {
-  g_return_val_if_fail (WP_IS_SETTINGS (self), FALSE);
-  g_return_val_if_fail (setting, FALSE);
-
-  if (!(wp_object_get_active_features (WP_OBJECT (self)) &
-      WP_OBJECT_FEATURES_ALL))
-    return FALSE;
-
-  if (!wp_properties_get (self->settings, setting))
-    return FALSE;
-
-  *value = wp_properties_get (self->settings, setting);
-
-  return TRUE;
+  g_autoptr (WpSpaJson) json = wp_settings_get (self, setting);
+  return json ? wp_spa_json_parse_string (json) : NULL;
 }
 
 /*!
@@ -221,27 +198,15 @@ wp_settings_get_string (WpSettings *self, const gchar *setting,
  * \ingroup wpsettings
  * \param self the settings object
  * \param setting name of the setting
- * \param val (out): the integer value of the setting
+ * \param value (out): the integer value of the setting
  * \returns TRUE if the setting is defined, FALSE otherwise
  */
 gboolean
 wp_settings_get_int (WpSettings *self, const gchar *setting,
-    gint64 *val)
+    gint *value)
 {
-  g_return_val_if_fail (WP_IS_SETTINGS (self), FALSE);
-  g_return_val_if_fail (setting, FALSE);
-
-  if (!(wp_object_get_active_features (WP_OBJECT (self)) &
-      WP_OBJECT_FEATURES_ALL))
-    return FALSE;
-
-  if (!wp_properties_get (self->settings, setting))
-    return FALSE;
-
-  *val = 0; /* ground the value */
-  spa_atoi64 (wp_properties_get (self->settings, setting), val, 0);
-
-  return TRUE;
+  g_autoptr (WpSpaJson) json = wp_settings_get (self, setting);
+  return json && wp_spa_json_parse_int (json, value);
 }
 
 /*!
@@ -249,25 +214,39 @@ wp_settings_get_int (WpSettings *self, const gchar *setting,
  * \ingroup wpsettings
  * \param self the settings object
  * \param setting name of the setting
- * \param val (out): the float value of the setting
+ * \param value (out): the float value of the setting
  * \returns TRUE if the setting is defined, FALSE otherwise
  */
 gboolean
 wp_settings_get_float (WpSettings *self, const gchar *setting,
-    gfloat *val)
+    gfloat *value)
 {
-  g_return_val_if_fail (WP_IS_SETTINGS (self), FALSE);
-  g_return_val_if_fail (setting, FALSE);
+  g_autoptr (WpSpaJson) json = wp_settings_get (self, setting);
+  return json && wp_spa_json_parse_float (json, value);
+}
+
+/*!
+ * \brief Gets the WpSpaJson of a setting
+ * \ingroup wpsettings
+ * \param self the settings object
+ * \param setting name of the setting
+ * \returns (transfer full) (nullable): The WpSpaJson of the setting, or NULL
+ * if the setting does not exist
+ */
+WpSpaJson *
+wp_settings_get (WpSettings *self, const gchar *setting)
+{
+  const gchar *value;
+
+  g_return_val_if_fail (WP_IS_SETTINGS (self), NULL);
+  g_return_val_if_fail (setting, NULL);
 
   if (!(wp_object_get_active_features (WP_OBJECT (self)) &
       WP_OBJECT_FEATURES_ALL))
-    return FALSE;
+    return NULL;
 
-  if (!wp_properties_get (self->settings, setting))
-    return FALSE;
-
-  spa_atof (wp_properties_get (self->settings, setting), val);
-  return TRUE;
+  value = wp_properties_get (self->settings, setting);
+  return value ? wp_spa_json_new_from_string (value) : NULL;
 }
 
 /*!

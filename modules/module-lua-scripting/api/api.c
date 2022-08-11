@@ -1472,8 +1472,8 @@ impl_module_new (lua_State *L)
   }
 }
 
-static gboolean
-get_boolean (lua_State *L)
+static int
+settings_get_boolean (lua_State *L)
 {
   const char *setting = luaL_checkstring (L, 1);
   const char *m = NULL;
@@ -1483,21 +1483,19 @@ get_boolean (lua_State *L)
 
   g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L), m);
 
-  if (s)
-  {
+  if (s) {
     gboolean value = 0;
     if (wp_settings_get_boolean (s, setting, &value))
       lua_pushboolean (L, value);
     else
       lua_pushnil (L);
-  }
-  else
+  } else
     lua_pushnil (L);
   return 1;
 }
 
-static gboolean
-get_string (lua_State *L)
+static int
+settings_get_string (lua_State *L)
 {
   const char *setting = luaL_checkstring (L, 1);
   const char *m = NULL;
@@ -1507,21 +1505,19 @@ get_string (lua_State *L)
 
   g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L), m);
 
-  if (s)
-  {
-    const gchar *value = NULL;
-    if (wp_settings_get_string (s, setting, &value))
+  if (s) {
+    g_autofree gchar *value = wp_settings_get_string (s, setting);
+    if (value)
       lua_pushstring (L, value);
     else
       lua_pushnil (L);
-  }
-  else
+  } else
     lua_pushnil (L);
   return 1;
 }
 
-static gboolean
-get_int (lua_State *L)
+static int
+settings_get_int (lua_State *L)
 {
   const char *setting = luaL_checkstring (L, 1);
   const char *m = NULL;
@@ -1531,21 +1527,19 @@ get_int (lua_State *L)
 
   g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L), m);
 
-  if (s)
-  {
-    gint64 value = 0;
+  if (s) {
+    gint value = 0;
     if (wp_settings_get_int (s, setting, &value))
       lua_pushinteger (L, value);
     else
       lua_pushnil (L);
-  }
-  else
+  } else
     lua_pushnil (L);
   return 1;
 }
 
-static gboolean
-get_float (lua_State *L)
+static int
+settings_get_float (lua_State *L)
 {
   const char *setting = luaL_checkstring (L, 1);
   const char *m = NULL;
@@ -1555,21 +1549,41 @@ get_float (lua_State *L)
 
   g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L), m);
 
-  if (s)
-  {
+  if (s) {
     gfloat value = 0;
     if (wp_settings_get_float (s, setting, &value))
       lua_pushnumber (L, value);
     else
       lua_pushnil (L);
-  }
-  else
+  } else
     lua_pushnil (L);
   return 1;
 }
 
-static gboolean
-apply_rule (lua_State *L)
+static int
+settings_get (lua_State *L)
+{
+  const char *setting = luaL_checkstring (L, 1);
+  const char *m = NULL;
+
+  if (lua_type (L, 2) == LUA_TSTRING)
+    m = luaL_checkstring (L, 2);
+
+  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L), m);
+
+  if (s) {
+    WpSpaJson *j = wp_settings_get (s, setting);
+    if (j)
+      wplua_pushboxed (L, WP_TYPE_SPA_JSON, j);
+    else
+      lua_pushnil (L);
+  } else
+    lua_pushnil (L);
+  return 1;
+}
+
+static int
+settings_apply_rule (lua_State *L)
 {
   const char *r = luaL_checkstring (L, 1);
   const char *m = NULL;
@@ -1581,8 +1595,7 @@ apply_rule (lua_State *L)
 
   g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L), m);
 
-  if (s)
-  {
+  if (s) {
     gboolean value = wp_settings_apply_rule (s, r, cp, ap);
     lua_pushboolean (L, value);
     wplua_properties_to_table (L, ap);
@@ -1593,8 +1606,8 @@ apply_rule (lua_State *L)
   return 1;
 }
 
-static gboolean
-subscribe (lua_State *L)
+static int
+settings_subscribe (lua_State *L)
 {
   const gchar *pattern = luaL_checkstring (L, 1);
   const gchar *m = NULL;
@@ -1614,8 +1627,8 @@ subscribe (lua_State *L)
 }
 
 
-static gboolean
-unsubscribe (lua_State *L)
+static int
+settings_unsubscribe (lua_State *L)
 {
   guintptr sub_id = luaL_checkinteger (L, 1);
   const gchar *m = NULL;
@@ -1632,13 +1645,14 @@ unsubscribe (lua_State *L)
 }
 
 static const luaL_Reg settings_methods[] = {
-  { "get_boolean", get_boolean },
-  { "get_string", get_string },
-  { "get_int", get_int },
-  { "get_float", get_float },
-  { "apply_rule", apply_rule },
-  { "subscribe", subscribe },
-  { "unsubscribe", unsubscribe },
+  { "get_boolean", settings_get_boolean },
+  { "get_string", settings_get_string },
+  { "get_int", settings_get_int },
+  { "get_float", settings_get_float },
+  { "get", settings_get },
+  { "apply_rule", settings_apply_rule },
+  { "subscribe", settings_subscribe },
+  { "unsubscribe", settings_unsubscribe },
   { NULL, NULL }
 };
 
