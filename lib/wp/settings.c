@@ -114,12 +114,12 @@ guintptr
 wp_settings_subscribe_closure (WpSettings *self, const gchar *pattern,
     GClosure *closure)
 {
-  g_return_val_if_fail (self, false);
-  g_return_val_if_fail (pattern, false);
-  g_return_val_if_fail (closure, false);
+  g_return_val_if_fail (WP_IS_SETTINGS (self), 0);
+  g_return_val_if_fail (pattern, 0);
+  g_return_val_if_fail (closure, 0);
 
   Callback *cb = g_slice_new0 (Callback);
-  g_return_val_if_fail (cb, FALSE);
+  g_return_val_if_fail (cb, 0);
 
   cb->closure = g_closure_ref (closure);
   g_closure_sink (closure);
@@ -147,9 +147,9 @@ wp_settings_subscribe_closure (WpSettings *self, const gchar *pattern,
 gboolean
 wp_settings_unsubscribe (WpSettings *self, guintptr subscription_id)
 {
-  gboolean ret = false;
-  g_return_val_if_fail (self, false);
-  g_return_val_if_fail (subscription_id, false);
+  gboolean ret = FALSE;
+  g_return_val_if_fail (WP_IS_SETTINGS (self), FALSE);
+  g_return_val_if_fail (subscription_id, FALSE);
 
   Callback *cb = (Callback *) subscription_id;
 
@@ -174,11 +174,11 @@ gboolean
 wp_settings_get_boolean (WpSettings *self, const gchar *setting,
   gboolean *value)
 {
-  g_return_val_if_fail (self, false);
-  g_return_val_if_fail (setting, false);
+  g_return_val_if_fail (WP_IS_SETTINGS (self), FALSE);
+  g_return_val_if_fail (setting, FALSE);
 
   if (!(wp_object_get_active_features (WP_OBJECT (self)) &
-          WP_OBJECT_FEATURES_ALL))
+      WP_OBJECT_FEATURES_ALL))
     return false;
 
   if (!wp_properties_get (self->settings, setting))
@@ -201,19 +201,19 @@ gboolean
 wp_settings_get_string (WpSettings *self, const gchar *setting,
     const gchar **value)
 {
-  g_return_val_if_fail (self, false);
-  g_return_val_if_fail (setting, false);
+  g_return_val_if_fail (WP_IS_SETTINGS (self), FALSE);
+  g_return_val_if_fail (setting, FALSE);
 
   if (!(wp_object_get_active_features (WP_OBJECT (self)) &
-          WP_OBJECT_FEATURES_ALL))
-    return false;
+      WP_OBJECT_FEATURES_ALL))
+    return FALSE;
 
   if (!wp_properties_get (self->settings, setting))
-    return false;
+    return FALSE;
 
   *value = wp_properties_get (self->settings, setting);
 
-  return true;
+  return TRUE;
 }
 
 /*!
@@ -228,20 +228,20 @@ gboolean
 wp_settings_get_int (WpSettings *self, const gchar *setting,
     gint64 *val)
 {
-  g_return_val_if_fail (self, false);
-  g_return_val_if_fail (setting, false);
+  g_return_val_if_fail (WP_IS_SETTINGS (self), FALSE);
+  g_return_val_if_fail (setting, FALSE);
 
   if (!(wp_object_get_active_features (WP_OBJECT (self)) &
-          WP_OBJECT_FEATURES_ALL))
-    return false;
+      WP_OBJECT_FEATURES_ALL))
+    return FALSE;
 
   if (!wp_properties_get (self->settings, setting))
-    return false;
+    return FALSE;
 
   *val = 0; /* ground the value */
   spa_atoi64 (wp_properties_get (self->settings, setting), val, 0);
 
-  return true;
+  return TRUE;
 }
 
 /*!
@@ -256,18 +256,18 @@ gboolean
 wp_settings_get_float (WpSettings *self, const gchar *setting,
     gfloat *val)
 {
-  g_return_val_if_fail (self, false);
-  g_return_val_if_fail (setting, false);
+  g_return_val_if_fail (WP_IS_SETTINGS (self), FALSE);
+  g_return_val_if_fail (setting, FALSE);
 
   if (!(wp_object_get_active_features (WP_OBJECT (self)) &
-          WP_OBJECT_FEATURES_ALL))
-    return false;
+      WP_OBJECT_FEATURES_ALL))
+    return FALSE;
 
   if (!wp_properties_get (self->settings, setting))
-    return false;
+    return FALSE;
 
   spa_atof (wp_properties_get (self->settings, setting), val);
-  return true;
+  return TRUE;
 }
 
 /*!
@@ -292,9 +292,9 @@ gboolean
 wp_settings_apply_rule (WpSettings *self, const gchar *rule,
     WpProperties *client_props, WpProperties *applied_props)
 {
-  g_return_val_if_fail (self, false);
-  g_return_val_if_fail (rule, false);
-  g_return_val_if_fail (client_props, false);
+  g_return_val_if_fail (WP_IS_SETTINGS (self), FALSE);
+  g_return_val_if_fail (rule, FALSE);
+  g_return_val_if_fail (client_props, FALSE);
 
   wp_debug_object (self, "applying rule(%s) for client props", rule);
 
@@ -354,7 +354,7 @@ static gboolean
 check_metadata_name (gpointer  g_object, gpointer  metadata_name)
 {
   if (!WP_IS_SETTINGS(g_object))
-    return false;
+    return FALSE;
 
   g_auto (GValue) value = G_VALUE_INIT;
   g_object_get_property (G_OBJECT(g_object), "metadata-name", &value);
@@ -658,9 +658,9 @@ on_metadata_added (WpObjectManager *om, WpMetadata *m, gpointer d)
 
   /* traverse through all settings and rules */
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
-      const gchar *setting, *value;
-      wp_metadata_iterator_item_extract (&val, NULL, &setting, NULL, &value);
-      parse_setting (setting, value, self);
+    const gchar *setting, *value;
+    wp_metadata_iterator_item_extract (&val, NULL, &setting, NULL, &value);
+    parse_setting (setting, value, self);
   }
 
   wp_info_object (self, "loaded %d settings and %d rules from metadata \"%s\"",
@@ -695,7 +695,6 @@ wp_settings_activate_execute_step (WpObject * object,
 
   switch (step) {
   case STEP_LOAD: {
-
     self->settings = wp_properties_new_empty ();
 
     self->rules = g_ptr_array_new_with_free_func
