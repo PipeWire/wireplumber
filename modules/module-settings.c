@@ -167,7 +167,7 @@ do_parse_settings (void *data, const char *location,
     }
     j = g_value_get_boxed (&item);
 
-    value = wp_spa_json_parse_string (j);
+    value = wp_spa_json_to_string (j);
     len = wp_spa_json_get_size (j);
     g_value_unset (&item);
 
