@@ -29,20 +29,6 @@ value = Settings.get_int ("test-setting3-int", "test-settings")
 assert ("number" == type (value))
 assert (value == -20)
 
-value = Settings.get_int ("test-setting4-max-int", "test-settings")
-assert (value == 9223372036854775807)
-
-value = Settings.get_int ("test-setting4-min-int", "test-settings")
-assert (value == -9223372036854775808)
-
-value = Settings.get_int ("test-setting4-max-int-one-more",
-    "test-settings")
-assert (value == 0)
-
-value = Settings.get_int ("test-setting4-min-int-one-less",
-    "test-settings")
-assert (value == 0)
-
 -- test settings _get_string ()
 value = Settings.get_string ("test-setting-undefined", "test-settings")
 assert (value == nil)
@@ -53,23 +39,6 @@ assert (value == "blahblah")
 
 value = Settings.get_string ("test-setting3-int", "test-settings")
 assert (value == "-20")
-
-value = Settings.get_string ("test-setting-json", "test-settings")
-assert (value == "[ a b c ]")
-
-value = Settings.get_string ("test-setting-strings", "test-settings")
-assert (value == "[\"test1\", \"test 2\", \"test three\", \"test-four\"]")
-json = Json.Raw (value)
-assert (json:is_array())
-val = json:parse ()
-assert (val[1] == "test1")
-assert (val[2] == "test 2")
-assert (val[3] == "test three")
-assert (val[4] == "test-four")
-assert (val[5] == nil)
-assert (#val == 4)
-assert (json:get_data() ==
-  "[\"test1\", \"test 2\", \"test three\", \"test-four\"]")
 
 -- test settings _get_float ()
 value = Settings.get_float ("test-setting-undefined", "test-settings")
@@ -82,6 +51,24 @@ assert ((value - 3.14) < 0.00001)
 value = Settings.get_float ("test-setting-float2", "test-settings")
 assert ((value - 0.4) < 0.00001)
 
+-- test settings _get ()
+value = Settings.get ("test-setting-json", "test-settings")
+assert (value ~= nil)
+assert (value:is_array())
+assert (value:get_data() == "[1, 2, 3]")
+
+value = Settings.get ("test-setting-json2", "test-settings")
+assert (value ~= nil)
+assert (value:is_array())
+assert (value:get_data() ==
+  "[\"test1\", \"test 2\", \"test three\", \"test-four\"]")
+val = value:parse ()
+assert (val[1] == "test1")
+assert (val[2] == "test 2")
+assert (val[3] == "test three")
+assert (val[4] == "test-four")
+assert (val[5] == nil)
+assert (#val == 4)
 
 -- test rules
 -- test #1
