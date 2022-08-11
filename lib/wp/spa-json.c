@@ -984,11 +984,11 @@ builder_add_formatted (WpSpaJsonBuilder *self, const gchar *fmt, ...)
 }
 
 static void
-builder_add_json (WpSpaJsonBuilder *self, WpSpaJson *json)
+builder_add (WpSpaJsonBuilder *self, const gchar *data, size_t size)
 {
-  g_return_if_fail (self->max_size - self->size >= json->size + 1);
-  snprintf (self->data + self->size, json->size + 1, "%s", json->data);
-  self->size += json->size;
+  g_return_if_fail (self->max_size - self->size >= size + 1);
+  snprintf (self->data + self->size, size + 1, "%s", data);
+  self->size += size;
 }
 
 /*!
@@ -1098,7 +1098,38 @@ wp_spa_json_builder_add_json (WpSpaJsonBuilder *self, WpSpaJson *json)
 {
   ensure_separator (self, FALSE);
   ensure_allocated_max_size (self, json->size);
-  builder_add_json (self, json);
+  builder_add (self, json->data, json->size);
+}
+
+/*!
+ * \brief Adds a json string into the builder
+ *
+ * \ingroup wpspajson
+ * \param self the spa json builder object
+ * \param json_str the json string
+ */
+void
+wp_spa_json_builder_add_from_string (WpSpaJsonBuilder *self,
+    const gchar *json_str)
+{
+  wp_spa_json_builder_add_from_stringn (self, json_str, strlen (json_str));
+}
+
+/*!
+ * \brief Adds a json string with specific length into the builder
+ *
+ * \ingroup wpspajson
+ * \param self the spa json builder object
+ * \param json_str the json string
+ * \param len the specific length of the json string
+ */
+void
+wp_spa_json_builder_add_from_stringn (WpSpaJsonBuilder *self,
+    const gchar *json_str, size_t len)
+{
+  ensure_separator (self, FALSE);
+  ensure_allocated_max_size (self, len);
+  builder_add (self, json_str, len);
 }
 
 /*!

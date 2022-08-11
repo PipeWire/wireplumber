@@ -197,6 +197,14 @@ WP_API
 void wp_spa_json_builder_add_json (WpSpaJsonBuilder *self, WpSpaJson *json);
 
 WP_API
+void wp_spa_json_builder_add_from_string (WpSpaJsonBuilder *self,
+    const gchar *json_str);
+
+WP_API
+void wp_spa_json_builder_add_from_stringn (WpSpaJsonBuilder *self,
+    const gchar *json_str, size_t len);
+
+WP_API
 void wp_spa_json_builder_add (WpSpaJsonBuilder *self, ...)
     G_GNUC_NULL_TERMINATED;
 
