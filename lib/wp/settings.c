@@ -250,6 +250,44 @@ wp_settings_get (WpSettings *self, const gchar *setting)
 }
 
 /*!
+ * \brief Gets all the settings with their name matching the given pattern.
+ * \ingroup wpsettings
+ * \param self the settings object
+ * \param pattern (nullable) the pattern to match all the settings. A NULL value
+ * has the same behavior as the "*" pattern.
+ * \returns (transfer full) (nullable): A JSON object with all the setting
+ * values matching the pattern, or NULL if the settings object is not activated.
+ */
+WpSpaJson *
+wp_settings_get_all (WpSettings *self, const gchar *pattern)
+{
+  g_autoptr (WpSpaJsonBuilder) b = NULL;
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) item = G_VALUE_INIT;
+
+  g_return_val_if_fail (WP_IS_SETTINGS (self), NULL);
+
+  if (!(wp_object_get_active_features (WP_OBJECT (self)) &
+      WP_OBJECT_FEATURES_ALL))
+    return NULL;
+
+  b = wp_spa_json_builder_new_object ();
+  for (it = wp_properties_new_iterator (self->settings);
+      wp_iterator_next (it, &item);
+      g_value_unset (&item)) {
+    WpPropertiesItem *pi = g_value_get_boxed (&item);
+    const gchar *key = wp_properties_item_get_key (pi);
+    const gchar *val = wp_properties_item_get_value (pi);
+    if (key && val && (!pattern || g_pattern_match_simple (pattern, key))) {
+      wp_spa_json_builder_add_property (b, key);
+      wp_spa_json_builder_add_from_string (b, val);
+    }
+  }
+
+  return wp_spa_json_builder_end (b);
+}
+
+/*!
  * \brief Applies the rules and returns the applied properties.
  *
  * This function applies the rules on the client properties and if

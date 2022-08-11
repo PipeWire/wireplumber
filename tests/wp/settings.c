@@ -402,6 +402,16 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
   }
 
   {
+    /* _get_all () */
+    g_autoptr (WpSpaJson) value = NULL;
+    value = wp_settings_get_all (s, "*string*");
+    g_assert_nonnull (value);
+    g_assert_true (wp_spa_json_is_object (value));
+    g_assert_cmpstr (wp_spa_json_get_data (value), ==,
+        "{\"test-setting4-string\":\"blahblah\", \"test-setting5-string-with-quotes\":\"a string with \\\"quotes\\\"\"}");
+  }
+
+  {
     g_autoptr (WpSettings) s4 =
         wp_settings_get_instance (self->base.core, NULL);
 

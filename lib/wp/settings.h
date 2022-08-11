@@ -80,6 +80,9 @@ WP_API
 WpSpaJson * wp_settings_get (WpSettings *self, const gchar *setting);
 
 WP_API
+WpSpaJson * wp_settings_get_all (WpSettings *self, const gchar *pattern);
+
+WP_API
 gboolean wp_settings_apply_rule (WpSettings *self, const gchar *rule,
     WpProperties *client_props, WpProperties *applied_props);
 
