@@ -200,7 +200,6 @@ void
 wp_event_stop_processing (WpEvent * self)
 {
   g_return_if_fail (self != NULL);
-  wp_debug ("stopping event(%s)", self->name);
   g_cancellable_cancel (self->cancellable);
 }
 
@@ -251,9 +250,6 @@ on_event_hook_done (WpEventHook * hook, GAsyncResult * res, WpEvent * event)
       error->domain != G_IO_ERROR && error->code != G_IO_ERROR_CANCELLED)
     wp_message_object (hook, "failed: %s", error->message);
 
-  if (dispatcher->rescan_event == event)
-    wp_event_hook_set_event (event->current_hook_in_async, NULL);
-
   g_clear_object (&event->current_hook_in_async);
   spa_system_eventfd_write (dispatcher->system, dispatcher->eventfd, 1);
 }
@@ -288,10 +284,8 @@ wp_event_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
       return G_SOURCE_CONTINUE;
 
     /* remove the remaining hooks if the event was cancelled */
-    if (g_cancellable_is_cancelled (event->cancellable) && event->hooks) {
-      wp_debug_object (d, "event(%s) cancelled remove it", event->name);
+    if (g_cancellable_is_cancelled (event->cancellable) && event->hooks)
       g_list_free_full (g_steal_pointer (&event->hooks), g_object_unref);
-    }
 
     /* avoid duplicate entries in chain */
     if (!d->events_chain || !strstr (d->events_chain, event->name)) {
@@ -306,7 +300,6 @@ wp_event_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
     if (lhook) {
       gchar *name = NULL;
       gint priority;
-
       event->current_hook_in_async = WP_EVENT_HOOK (lhook->data);
       event->hooks = g_list_delete_link (event->hooks, g_steal_pointer (&lhook));
       name = wp_event_hook_get_name (event->current_hook_in_async);
@@ -316,22 +309,8 @@ wp_event_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
       wp_debug_object (d, "running hook <%p>(%s) and hooks chain (%s)",
         event->current_hook_in_async, name, event->hooks_chain);
 
-      if (event == d->rescan_event) {
-        WpEvent *hook_event =
-          wp_event_hook_get_event (event->current_hook_in_async);
-
-        /* for after-events, check if the corresponding event is cancelled */
-        if (g_cancellable_is_cancelled (hook_event->cancellable))
-          wp_debug_object (d, "remove hook(%s) as its trigger event(%s)"
-            " is cancelled", name, hook_event->name);
-        else
-          wp_event_hook_run (event->current_hook_in_async, hook_event,
-            event->cancellable, (GAsyncReadyCallback) on_event_hook_done,
-            event);
-      }
-      else
-        /* execute the hook, possibly async */
-        wp_event_hook_run (event->current_hook_in_async, event,
+      /* execute the hook, possibly async */
+      wp_event_hook_run (event->current_hook_in_async, event,
           event->cancellable, (GAsyncReadyCallback) on_event_hook_done, event);
     }
 
@@ -501,9 +480,7 @@ wp_event_dispatcher_push_event (WpEventDispatcher * self, WpEvent * event)
             self->rescan_event->hooks, g_object_ref (hook),
             (GCompareFunc) hook_cmp_func);
         wp_debug_object (self, "added rescan hook <%p>(%s(%d))", hook,
-            wp_event_hook_get_name (hook), wp_event_hook_get_priority (hook));
-
-        wp_event_hook_set_event (hook, event);
+          wp_event_hook_get_name (hook), wp_event_hook_get_priority (hook));
         rescan_hooks_added = true;
       }
     }
