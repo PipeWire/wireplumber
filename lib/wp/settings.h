@@ -10,6 +10,7 @@
 #define __WIREPLUMBER_SETTINGS_H__
 
 #include "object.h"
+#include "spa-json.h"
 
 G_BEGIN_DECLS
 
@@ -65,16 +66,18 @@ gboolean wp_settings_get_boolean (WpSettings *self, const gchar *setting,
     gboolean *value);
 
 WP_API
-gboolean wp_settings_get_string (WpSettings *self, const gchar *setting,
-    const gchar **value);
+gchar * wp_settings_get_string (WpSettings *self, const gchar *setting);
 
 WP_API
 gboolean wp_settings_get_int (WpSettings *self, const gchar *setting,
-    gint64 *val);
+    gint *value);
 
 WP_API
 gboolean wp_settings_get_float (WpSettings *self, const gchar *setting,
-    gfloat *val);
+    gfloat *value);
+
+WP_API
+WpSpaJson * wp_settings_get (WpSettings *self, const gchar *setting);
 
 WP_API
 gboolean wp_settings_apply_rule (WpSettings *self, const gchar *rule,
