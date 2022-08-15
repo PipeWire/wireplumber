@@ -5,26 +5,7 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local config_settings = {
-  ["bluez5.enable-sbc-xq"] =
-     Settings.get_boolean ("bluez5.enable-sbc-xq"),
-  ["bluez5.enable-msbc"] =
-     Settings.get_boolean ("bluez5.enable-msbc"),
-  ["bluez5.enable-hw-volume"] =
-     Settings.get_boolean ("bluez5.enable-hw-volume"),
-  ["bluez5.headset-roles"] =
-     Settings.get_string ("bluez5.headset-roles"),
-  ["bluez5.codecs"] =
-    Settings.get_string ("bluez5.codecs"),
-  ["bluez5.hfphsp-backend"] =
-    Settings.get_string ("bluez5.hfphsp-backend"),
-  ["bluez5.default.rate"] =
-    Settings.get_int ("bluez5.default.rate"),
-  ["bluez5.default.channels"] =
-    Settings.get_int ("bluez5.default.channels"),
-  ["bluez5.dummy-avrcp-player"] =
-    Settings.get_boolean ("bluez5.dummy-avrcp-player"),
-}
+local config_settings = Settings.get_all ("bluez5.*"):parse ()
 
 -- applies rules from bluez-settings.conf when asked to
 function rulesApplyProperties(properties)
