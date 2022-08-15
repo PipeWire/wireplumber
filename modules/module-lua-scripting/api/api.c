@@ -1676,6 +1676,7 @@ event_dispatcher_push_event (lua_State *L)
       wp_event_dispatcher_get_instance (get_wp_core (L));
   WpEvent *event = wp_event_new (type, priority, properties, source, subject);
   wp_event_dispatcher_push_event (dispatcher, event);
+  wplua_pushboxed (L, WP_TYPE_EVENT, wp_event_ref (event));
   return 0;
 }
 
