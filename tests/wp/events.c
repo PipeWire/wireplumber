@@ -12,6 +12,7 @@ typedef struct {
   WpBaseTestFixture base;
   WpObjectManager *om;
   GPtrArray *hooks_executed;
+  GPtrArray *events;
   WpTransition *transition;
 } TestFixture;
 
@@ -20,6 +21,7 @@ test_events_setup (TestFixture *self, gconstpointer user_data)
 {
   wp_base_test_fixture_setup (&self->base, 0);
   self->hooks_executed = g_ptr_array_new ();
+  self->events = g_ptr_array_new ();
 }
 
 static void
@@ -35,6 +37,7 @@ test_events_teardown (TestFixture *self, gconstpointer user_data)
   { \
     g_debug ("in hook_" #x); \
     g_ptr_array_add (self->hooks_executed, hook_##x); \
+    g_ptr_array_add (self->events, event); \
   }
 
 HOOK_FUNC (a)
@@ -47,14 +50,26 @@ hook_quit (WpEvent *event, TestFixture *self)
 {
   g_debug ("in hook_quit");
   g_ptr_array_add (self->hooks_executed, hook_quit);
+  g_ptr_array_add (self->events, event);
   g_main_loop_quit (self->base.loop);
 }
+
+static void
+hook_after_events_with_event (WpEvent *event, TestFixture *self)
+{
+  g_debug ("in hook_after_events_with_event %p", event);
+  g_ptr_array_add (self->hooks_executed, hook_after_events_with_event);
+  g_ptr_array_add (self->events, event);
+  g_main_loop_quit (self->base.loop);
+}
+
 
 static void
 test_events_basic (TestFixture *self, gconstpointer user_data)
 {
   g_autoptr (WpEventDispatcher) dispatcher = NULL;
   g_autoptr (WpEventHook) hook = NULL;
+  WpEvent *event1 = NULL, *event2 = NULL;
 
   dispatcher = wp_event_dispatcher_get_instance (self->base.core);
   g_assert_nonnull (dispatcher);
@@ -91,9 +106,9 @@ test_events_basic (TestFixture *self, gconstpointer user_data)
   wp_event_dispatcher_register_hook (dispatcher, hook);
   g_clear_object (&hook);
 
-  hook = wp_simple_event_hook_new ("hook-quit-async", 1000,
-    WP_EVENT_HOOK_EXEC_TYPE_AFTER_EVENTS,
-      g_cclosure_new ((GCallback) hook_quit, self, NULL));
+  hook = wp_simple_event_hook_new ("hook_after_events_with_event", 2000,
+    WP_EVENT_HOOK_EXEC_TYPE_AFTER_EVENTS_WITH_EVENT,
+    g_cclosure_new ((GCallback) hook_after_events_with_event, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
     WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "type1", NULL);
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
@@ -101,37 +116,87 @@ test_events_basic (TestFixture *self, gconstpointer user_data)
   wp_event_dispatcher_register_hook (dispatcher, hook);
   g_clear_object (&hook);
 
-  /* first event */
-  wp_event_dispatcher_push_event (dispatcher,
-      wp_event_new ("type1", 10, NULL, NULL, NULL));
+  hook = wp_simple_event_hook_new ("hook-quit-async", 1000,
+    WP_EVENT_HOOK_EXEC_TYPE_AFTER_EVENTS,
+    g_cclosure_new ((GCallback) hook_quit, self, NULL));
+  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "type1", NULL);
+  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "type2", NULL);
+  wp_event_dispatcher_register_hook (dispatcher, hook);
+  g_clear_object (&hook);
 
-  g_assert_cmpint (self->hooks_executed->len, == , 0);
-  g_main_loop_run (self->base.loop);
-  g_assert_cmpint (self->hooks_executed->len, == , 4);
-  g_assert (hook_c == self->hooks_executed->pdata [0]);
-  g_assert (hook_a == self->hooks_executed->pdata [1]);
-  g_assert (hook_b == self->hooks_executed->pdata [2]);
-  g_assert (hook_quit == self->hooks_executed->pdata [3]);
-
-  g_ptr_array_remove_range (self->hooks_executed, 0, self->hooks_executed->len);
-  g_assert_cmpint (self->hooks_executed->len, == , 0);
-
-  /* second event */
-  wp_event_dispatcher_push_event (dispatcher,
-    wp_event_new ("type1", 10,
-      wp_properties_new ("test.prop", "some-val", NULL), NULL, NULL));
-  wp_event_dispatcher_push_event (dispatcher,
-    wp_event_new ("type2", 100,
-      wp_properties_new ("test.prop", "some-val", NULL), NULL, NULL));
+  /* first event run */
+  event1 = wp_event_new ("type1", 10, NULL, NULL, NULL);
+  wp_event_dispatcher_push_event (dispatcher, event1);
 
   g_assert_cmpint (self->hooks_executed->len, == , 0);
   g_main_loop_run (self->base.loop);
   g_assert_cmpint (self->hooks_executed->len, == , 5);
-  g_assert (hook_d == self->hooks_executed->pdata [0]);
-  g_assert (hook_c == self->hooks_executed->pdata [1]);
-  g_assert (hook_a == self->hooks_executed->pdata [2]);
-  g_assert (hook_b == self->hooks_executed->pdata [3]);
+  g_assert (hook_c == self->hooks_executed->pdata [0]);
+  g_assert (event1 == self->events->pdata [0]);
+  g_assert (hook_a == self->hooks_executed->pdata [1]);
+  g_assert (event1 == self->events->pdata [1]);
+  g_assert (hook_b == self->hooks_executed->pdata [2]);
+  g_assert (event1 == self->events->pdata [2]);
+  g_assert (hook_after_events_with_event == self->hooks_executed->pdata [3]);
+  g_assert (event1 == self->events->pdata [3]);
   g_assert (hook_quit == self->hooks_executed->pdata [4]);
+
+  g_ptr_array_remove_range (self->hooks_executed, 0, self->hooks_executed->len);
+  g_assert_cmpint (self->hooks_executed->len, == , 0);
+  g_ptr_array_remove_range (self->events, 0, self->events->len);
+  g_assert_cmpint (self->events->len, == , 0);
+
+  /* second event run */
+  event1 = wp_event_new ("type1", 10,
+    wp_properties_new ("test.prop", "some-val", NULL), NULL, NULL);
+  event2 = wp_event_new ("type2", 100,
+    wp_properties_new ("test.prop", "some-val", NULL), NULL, NULL);
+
+  wp_event_dispatcher_push_event (dispatcher, event1);
+  wp_event_dispatcher_push_event (dispatcher, event2);
+
+  g_assert_cmpint (self->hooks_executed->len, == , 0);
+  g_main_loop_run (self->base.loop);
+  g_assert_cmpint (self->hooks_executed->len, == , 7);
+  g_assert (hook_d == self->hooks_executed->pdata [0]);
+  g_assert (event2 == self->events->pdata [0]);
+  g_assert (hook_c == self->hooks_executed->pdata [1]);
+  g_assert (event1 == self->events->pdata [1]);
+  g_assert (hook_a == self->hooks_executed->pdata [2]);
+  g_assert (event1 == self->events->pdata [2]);
+  g_assert (hook_b == self->hooks_executed->pdata [3]);
+  g_assert (event1 == self->events->pdata [3]);
+  g_assert (hook_after_events_with_event == self->hooks_executed->pdata [4]);
+  g_assert (event2 == self->events->pdata [4]);
+  g_assert (hook_after_events_with_event == self->hooks_executed->pdata [5]);
+  g_assert (event1 == self->events->pdata [5]);
+  g_assert (hook_quit == self->hooks_executed->pdata [6]);
+
+  g_ptr_array_remove_range (self->hooks_executed, 0, self->hooks_executed->len);
+  g_assert_cmpint (self->hooks_executed->len, == , 0);
+  g_ptr_array_remove_range (self->events, 0, self->events->len);
+  g_assert_cmpint (self->events->len, == , 0);
+
+  /* third event run */
+  event1 = wp_event_new ("type1", 10,
+    wp_properties_new ("test.prop", "some-val", NULL), NULL, NULL);
+  event2 = wp_event_new ("type2", 100,
+    wp_properties_new ("test.prop", "some-val", NULL), NULL, NULL);
+
+  wp_event_dispatcher_push_event (dispatcher, event2);
+  wp_event_dispatcher_push_event (dispatcher, event1);
+  wp_event_stop_processing (event1);
+
+  g_assert_cmpint (self->hooks_executed->len, == , 0);
+  g_main_loop_run (self->base.loop);
+  g_assert_cmpint (self->hooks_executed->len, == , 3);
+  g_assert (hook_d == self->hooks_executed->pdata [0]);
+  g_assert (event2 == self->events->pdata [0]);
+  g_assert (hook_after_events_with_event == self->hooks_executed->pdata [1]);
+  g_assert (event2 == self->events->pdata [1]);
+  g_assert (hook_quit == self->hooks_executed->pdata [2]);
 }
 
 enum {
