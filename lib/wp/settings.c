@@ -424,6 +424,7 @@ match_unref (Match * self)
 {
   g_clear_pointer (&self->actions, wp_properties_unref);
   g_clear_pointer (&self->interests, g_ptr_array_unref);
+  g_slice_free (Match, self);
 }
 
 static WpProperties *
@@ -496,7 +497,7 @@ parse_matches (const gchar *match)
     g_autoptr (WpObjectInterest) i = wp_object_interest_new_type
       (WP_TYPE_PROPERTIES);
     WpSpaJson *o = g_value_get_boxed (&a_item);
-    WpIterator *o_iter = wp_spa_json_new_iterator (o);
+    g_autoptr (WpIterator) o_iter = wp_spa_json_new_iterator (o);
     g_auto (GValue) o_item = G_VALUE_INIT;
     int count = 0;
 
@@ -691,8 +692,9 @@ on_metadata_added (WpObjectManager *om, WpMetadata *m, gpointer d)
 static void
 rule_unref (Rule * self)
 {
-  g_free (self->rule);
+  g_clear_pointer (&self->rule, g_free);
   g_clear_pointer (&self->matches, g_ptr_array_unref);
+  g_slice_free (Rule, self);
 }
 
 static void
@@ -700,6 +702,7 @@ callback_unref (Callback * self)
 {
   g_free (self->pattern);
   g_clear_pointer (&self->closure, g_closure_unref);
+  g_slice_free (Callback, self);
 }
 
 static void
@@ -765,7 +768,7 @@ wp_settings_set_property (GObject * object, guint property_id,
 
   switch (property_id) {
   case PROP_METADATA_NAME:
-    self->metadata_name = g_strdup (g_value_get_string (value));
+    self->metadata_name = g_value_dup_string (value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
