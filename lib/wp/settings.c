@@ -486,8 +486,7 @@ parse_matches (const gchar *match)
   m->interests = g_ptr_array_new_with_free_func
       ((GDestroyNotify) wp_object_interest_unref);
 
-  if (!wp_spa_json_is_array (a))
-  {
+  if (!wp_spa_json_is_array (a)) {
     wp_warning ("malformated JSON: matches has to be an array JSON element"
         ", skip processing this one");
     return NULL;
@@ -503,8 +502,7 @@ parse_matches (const gchar *match)
 
     while (wp_iterator_next (o_iter, &o_item)) {
       WpSpaJson *p = g_value_get_boxed (&o_item);
-      if (wp_spa_json_is_container (p))
-      {
+      if (wp_spa_json_is_container (p)) {
         wp_warning ("malformated JSON: misplaced container object, pls check"
           " JSON formatting of .conf file, skipping this container");
         continue;
@@ -521,8 +519,7 @@ parse_matches (const gchar *match)
       ivalue = value = wp_spa_json_parse_string (p);
       g_value_unset (&o_item);
 
-      if (value[0] == '~')
-      {
+      if (value[0] == '~') {
         iverb = WP_CONSTRAINT_VERB_MATCHES;
         ivalue = value+1;
       }
@@ -608,14 +605,12 @@ parse_setting (const gchar *setting, const gchar *value, WpSettings *self)
 
   if (is_rule (json)) {
     Rule *r = parse_rule (setting, value);
-    if (r)
-    {
+    if (r) {
       g_ptr_array_add (self->rules, r);
       wp_debug_object (self, "loaded (%d) matches for rule (%s)",
           r->matches->len, r->rule);
     }
-  }
-  else {
+  } else {
     wp_properties_set (self->settings, setting, value);
   }
 }
@@ -717,8 +712,7 @@ wp_settings_activate_execute_step (WpObject * object,
   case STEP_LOAD: {
     self->settings = wp_properties_new_empty ();
 
-    self->rules = g_ptr_array_new_with_free_func
-        ((GDestroyNotify) rule_unref);
+    self->rules = g_ptr_array_new_with_free_func ((GDestroyNotify) rule_unref);
 
     self->callbacks = g_ptr_array_new_with_free_func
         ((GDestroyNotify) callback_unref);
