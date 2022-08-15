@@ -5,22 +5,7 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local config_settings = {
- ["alsa.jack-device"] =
-    Settings.get_boolean ("alsa_monitor.alsa.jack-device"),
- ["alsa.reserve"] =
-    Settings.get_boolean ("alsa_monitor.alsa.reserve"),
- ["alsa.reserve.priority"] =
-    Settings.get_int ("alsa_monitor.alsa.reserve.priority"),
- ["alsa.reserve.application-name"] =
-    Settings.get_string ("alsa_monitor.alsa.reserve.application-name"),
- ["alsa.midi"] =
-    Settings.get_boolean ("alsa_monitor.alsa.midi"),
-  ["alsa.midi.monitoring"] =
-  Settings.get_boolean ("alsa_monitor.alsa.midi.monitoring"),
-  ["vm.node.defaults"] =
-    Settings.get_string ("alsa_monitor.vm.node.defaults"),
-}
+local config_settings = Settings.get_all ("alsa_monitor.*"):parse ()
 
 -- unique device/node name tables
 device_names_table = nil
