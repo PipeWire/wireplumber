@@ -1675,8 +1675,8 @@ event_dispatcher_push_event (lua_State *L)
   g_autoptr (WpEventDispatcher) dispatcher =
       wp_event_dispatcher_get_instance (get_wp_core (L));
   WpEvent *event = wp_event_new (type, priority, properties, source, subject);
-  wp_event_dispatcher_push_event (dispatcher, event);
-  wplua_pushboxed (L, WP_TYPE_EVENT, wp_event_ref (event));
+  wp_event_dispatcher_push_event (dispatcher, wp_event_ref (event));
+  wplua_pushboxed (L, WP_TYPE_EVENT, event);
   return 0;
 }
 
