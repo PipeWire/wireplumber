@@ -42,6 +42,20 @@ bluetooth_policy.policy = {
   },
 }
 
+dsp_policy = {}
+
+dsp_policy.policy = {}
+
+dsp_policy.policy.properties = {}
+
+-- An array of matches/filters to apply.
+-- `matches` are rules for matching a sink node. It is an array of
+-- properties that all need to match the regexp. If any of the
+-- matches in an array work, the filters are executed for the sink.
+-- `filter_chain` is a JSON string of parameters to filter-chain module
+-- `properties` table only has `pro_audio` boolean, which enables Pro Audio mode on the sink when applying DSP
+dsp_policy.policy.rules = {}
+
 function default_policy.enable()
   if default_policy.enabled == false then
     return
@@ -78,4 +92,7 @@ function default_policy.enable()
 
   -- Switch bluetooth profile based on media.role
   load_script("policy-bluetooth.lua", bluetooth_policy.policy)
+
+  -- Load filter chains for hardware requiring DSP
+  load_script("policy-dsp.lua", dsp_policy.policy)
 end
