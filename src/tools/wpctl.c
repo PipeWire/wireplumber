@@ -44,6 +44,7 @@ static struct {
     struct {
       guint64 id;
       gfloat volume;
+      gdouble limit;
       gboolean is_pid;
       gchar type;
     } set_volume;
@@ -935,6 +936,11 @@ do_set_volume (WpCtl * self, WpPipewireObject *proxy)
   if (cmdline.set_volume.volume < 0) {
     cmdline.set_volume.volume = 0.0;
   }
+  if (cmdline.set_volume.limit > 0) {
+    if (cmdline.set_volume.volume > cmdline.set_volume.limit) {
+      cmdline.set_volume.volume = cmdline.set_volume.limit;
+    }
+  }
 
   g_variant_builder_add (&b, "{sv}", "volume",
       g_variant_new_double (cmdline.set_volume.volume));
@@ -1324,6 +1330,9 @@ static const struct subcommand {
       { "pid", 'p', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE,
         &cmdline.set_volume.is_pid,
         "Selects all nodes associated to the given PID number", NULL },
+      { "limit", 'l', G_OPTION_FLAG_NONE, G_OPTION_ARG_DOUBLE,
+        &cmdline.set_volume.limit,
+        "Limits the final volume percentage to below this value. (floating point, 1.0 is 100%)", NULL },
       { NULL }
     },
     .parse_positional = set_volume_parse_positional,
