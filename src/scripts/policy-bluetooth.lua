@@ -27,9 +27,9 @@
 -- settings file: policy.conf
 
 local use_persistent_storage =
-    Settings.get_boolean ("bt-policy-use-persistent-storage") or false
+    Settings.get ("bt-policy-use-persistent-storage"):parse() or false
 local use_headset_profile =
-    Settings.get_boolean ("bt-policy-media-role.use-headset-profile") or false
+    Settings.get ("bt-policy-media-role.use-headset-profile"):parse() or false
 
 local applications = {}
 local profile_restore_timeout_msec = 2000
@@ -45,10 +45,7 @@ local last_profiles = {}
 local active_streams = {}
 local previous_streams = {}
 
-local apps_setting_str =
-    Settings.get_string ("bt-policy-media-role.applications")
-json = Json.Raw (apps_setting_str)
-apps_setting = json:parse ()
+local apps_setting = Settings.get ("bt-policy-media-role.applications"):parse()
 
 for i = 1, #apps_setting do
   applications [apps_setting [i]] = true
