@@ -746,16 +746,47 @@ wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
   g_autofree gchar *echo_cancel_source_name = NULL;
 
   g_autoptr (WpSettings) settings = wp_settings_get_instance(core, NULL);
-  wp_settings_get_int (settings, "device.save-interval-ms",
-    &save_interval_ms);
-  wp_settings_get_boolean (settings, "device.use-persistent-storage",
-    &use_persistent_storage);
-  wp_settings_get_boolean (settings, "device.auto-echo-cancel",
-    &auto_echo_cancel);
-  echo_cancel_sink_name = wp_settings_get_string (settings,
-      "device.echo-cancel-sink-name");
-  echo_cancel_source_name = wp_settings_get_string (settings,
-      "device.echo-cancel-source-name");
+
+  {
+    g_autoptr (WpSpaJson) j = wp_settings_get (settings,
+        "device.save-interval-ms");
+    if (j && !wp_spa_json_parse_int (j, &save_interval_ms))
+      wp_warning ("Failed to parse integer in device.save-interval-ms");
+  }
+
+  {
+    g_autoptr (WpSpaJson) j = wp_settings_get (settings,
+        "device.use-persistent-storage");
+    if (j && !wp_spa_json_parse_boolean (j, &save_interval_ms))
+      wp_warning ("Failed to parse boolean in device.use-persistent-storage");
+  }
+
+  {
+    g_autoptr (WpSpaJson) j = wp_settings_get (settings,
+        "device.auto-echo-cancel");
+    if (j && !wp_spa_json_parse_boolean (j, &auto_echo_cancel))
+      wp_warning ("Failed to parse boolean in device.auto-echo-cancel");
+  }
+
+  {
+    g_autoptr (WpSpaJson) j = wp_settings_get (settings,
+        "device.echo-cancel-sink-name");
+    if (j) {
+      echo_cancel_sink_name = wp_spa_json_parse_string (j);
+      if (!echo_cancel_sink_name)
+        wp_warning ("Failed to parse string in device.echo-cancel-sink-name");
+    }
+  }
+
+  {
+    g_autoptr (WpSpaJson) j = wp_settings_get (settings,
+        "device.echo-cancel-source-name");
+    if (j) {
+      echo_cancel_sink_name = wp_spa_json_parse_string (j);
+      if (!echo_cancel_sink_name)
+        wp_warning ("Failed to parse string in device.echo-cancel-source-name");
+    }
+  }
 
   wp_plugin_register (g_object_new (wp_default_nodes_get_type (),
       "name", NAME,

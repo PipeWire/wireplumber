@@ -1473,94 +1473,6 @@ impl_module_new (lua_State *L)
 }
 
 static int
-settings_get_boolean (lua_State *L)
-{
-  const char *setting = luaL_checkstring (L, 1);
-  const char *m = NULL;
-
-  if (lua_type (L, 2) == LUA_TSTRING)
-    m = luaL_checkstring (L, 2);
-
-  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L), m);
-
-  if (s) {
-    gboolean value = 0;
-    if (wp_settings_get_boolean (s, setting, &value))
-      lua_pushboolean (L, value);
-    else
-      lua_pushnil (L);
-  } else
-    lua_pushnil (L);
-  return 1;
-}
-
-static int
-settings_get_string (lua_State *L)
-{
-  const char *setting = luaL_checkstring (L, 1);
-  const char *m = NULL;
-
-  if (lua_type (L, 2) == LUA_TSTRING)
-    m = luaL_checkstring (L, 2);
-
-  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L), m);
-
-  if (s) {
-    g_autofree gchar *value = wp_settings_get_string (s, setting);
-    if (value)
-      lua_pushstring (L, value);
-    else
-      lua_pushnil (L);
-  } else
-    lua_pushnil (L);
-  return 1;
-}
-
-static int
-settings_get_int (lua_State *L)
-{
-  const char *setting = luaL_checkstring (L, 1);
-  const char *m = NULL;
-
-  if (lua_type (L, 2) == LUA_TSTRING)
-    m = luaL_checkstring (L, 2);
-
-  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L), m);
-
-  if (s) {
-    gint value = 0;
-    if (wp_settings_get_int (s, setting, &value))
-      lua_pushinteger (L, value);
-    else
-      lua_pushnil (L);
-  } else
-    lua_pushnil (L);
-  return 1;
-}
-
-static int
-settings_get_float (lua_State *L)
-{
-  const char *setting = luaL_checkstring (L, 1);
-  const char *m = NULL;
-
-  if (lua_type (L, 2) == LUA_TSTRING)
-    m = luaL_checkstring (L, 2);
-
-  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L), m);
-
-  if (s) {
-    gfloat value = 0;
-    if (wp_settings_get_float (s, setting, &value))
-      lua_pushnumber (L, value);
-    else
-      lua_pushnil (L);
-  } else
-    lua_pushnil (L);
-  return 1;
-}
-
-static int
 settings_get (lua_State *L)
 {
   const char *setting = luaL_checkstring (L, 1);
@@ -1667,10 +1579,6 @@ settings_unsubscribe (lua_State *L)
 }
 
 static const luaL_Reg settings_methods[] = {
-  { "get_boolean", settings_get_boolean },
-  { "get_string", settings_get_string },
-  { "get_int", settings_get_int },
-  { "get_float", settings_get_float },
   { "get", settings_get },
   { "get_all", settings_get_all },
   { "apply_rule", settings_apply_rule },
