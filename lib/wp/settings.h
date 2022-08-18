@@ -62,21 +62,6 @@ gboolean wp_settings_unsubscribe (WpSettings *self,
     guintptr subscription_id);
 
 WP_API
-gboolean wp_settings_get_boolean (WpSettings *self, const gchar *setting,
-    gboolean *value);
-
-WP_API
-gchar * wp_settings_get_string (WpSettings *self, const gchar *setting);
-
-WP_API
-gboolean wp_settings_get_int (WpSettings *self, const gchar *setting,
-    gint *value);
-
-WP_API
-gboolean wp_settings_get_float (WpSettings *self, const gchar *setting,
-    gfloat *value);
-
-WP_API
 WpSpaJson * wp_settings_get (WpSettings *self, const gchar *setting);
 
 WP_API

@@ -7,10 +7,12 @@
 
 -- Receive script arguments from config.lua
 local endpoints = {}
-local endpoint_setting = Settings.get_string ("endpoints")
-if endpoint_setting then
-  json = Json.Raw (endpoint_setting)
-  endpoints = json:parse ()
+local endpoints_json = Settings.get ("endpoints")
+if endpoints_json ~= nil then
+  local val = endpoints_json:parse()
+  if val ~= nil then
+    endpoints = val
+  end
 end
 
 function createEndpoint (factory_name, properties)

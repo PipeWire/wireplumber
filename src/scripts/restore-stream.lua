@@ -18,9 +18,9 @@
 
 -- settings file: stream.conf
 
-config_restore_props = Settings.get_boolean ("stream_default.restore-props")
+config_restore_props = Settings.get ("stream_default.restore-props"):parse()
     or false
-config_restore_target = Settings.get_boolean ("stream_default.restore-target")
+config_restore_target = Settings.get ("stream_default.restore-target"):parse()
     or false
 
 function rulesApplyProperties (properties)
