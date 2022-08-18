@@ -7,10 +7,12 @@
 
 -- Receive script arguments from config.lua
 local roles = {}
-local endpoint_roles_setting = Settings.get_string ("endpoints-roles")
-if endpoint_roles_setting then
-  json = Json.Raw (endpoint_roles_setting)
-  roles = json:parse ()
+local roles_json = Settings.get ("endpoints-roles")
+if roles_json ~= nil then
+  local val = roles_json:parse()
+  if val ~= nil then
+    roles = val
+  end
 end
 
 local self = {}

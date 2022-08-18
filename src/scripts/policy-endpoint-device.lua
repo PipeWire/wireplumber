@@ -5,8 +5,8 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local move = Settings.get_boolean ("default-policy-move") or false
-local follow = Settings.get_boolean ("default-policy-follow") or false
+local move = Settings.get ("default-policy-move"):parse() or false
+local follow = Settings.get ("default-policy-follow"):parse() or false
 
 local self = {}
 self.scanning = false
