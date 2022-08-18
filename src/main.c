@@ -182,8 +182,8 @@ do_load_components(void *data, const char *location, const char *section,
 
     if (wp_spa_json_object_get (o, "deps", "s", &deps, NULL) && deps) {
       gboolean value = 0;
-      gboolean defined = wp_settings_get_boolean (settings, deps, &value);
-      if ((!defined) || (defined && !value)) {
+      g_autoptr (WpSpaJson) j = wp_settings_get (settings, deps);
+      if (!j || !wp_spa_json_parse_boolean (j, &value)) {
         wp_info ("deps(%s) not met for component(%s), skip loading it",
             deps, name);
         continue;
