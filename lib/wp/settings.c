@@ -372,10 +372,15 @@ parse_actions (const gchar *actions)
 
   wp_debug(".. parsing actions");
 
-  if (wp_spa_json_is_object (o) &&
-      wp_spa_json_object_get (o,
-          "update-props", "s", &update_props,
-          NULL)) {
+  if (!wp_spa_json_is_object (o)) {
+    wp_warning ("malformated JSON: actions has to be an object JSON element"
+        ", skip processing this one");
+    return NULL;
+  }
+
+  if (wp_spa_json_object_get (o,
+      "update-props", "s", &update_props,
+      NULL)) {
     g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (update_props);
     g_autoptr (WpIterator) iter = wp_spa_json_new_iterator (json);
     g_auto (GValue) item = G_VALUE_INIT;
@@ -400,8 +405,6 @@ parse_actions (const gchar *actions)
       }
     }
   } else {
-    wp_warning ("malformated JSON: \"update-props\" not defined properly"
-        ", skip it");
     return NULL;
   }
 
@@ -496,15 +499,17 @@ parse_rule (const gchar *rule, const gchar *value)
     g_autofree gchar *actions = NULL;
     Match *m = NULL;
 
-    if (!wp_spa_json_is_object (o) ||
-        !wp_spa_json_object_get (o,
-            "matches", "s", &match,
-            "actions", "s", &actions,
-            NULL)) {
-      wp_warning ("malformated JSON: either JSON object is not found or "
-          "an empty object with out matches or actions found, skipping it");
+    if (!wp_spa_json_is_object (o)) {
+      wp_warning ("malformated JSON: rule has to be an object JSON element"
+        ", skip processing this one");
       continue;
     }
+
+    if (!wp_spa_json_object_get (o,
+        "matches", "s", &match,
+        "actions", "s", &actions,
+        NULL))
+      continue;
 
     m = parse_matches (match);
     g_ptr_array_add (r->matches, m);
