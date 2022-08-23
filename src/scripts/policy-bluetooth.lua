@@ -336,7 +336,7 @@ local function checkStreamStatus (stream)
   -- If a stream we previously saw stops running, we consider it
   -- inactive, because some applications (Teams) just cork input
   -- streams, but don't close them.
-  if previous_streams [stream ["bound-id"]] and stream.state ~= "running" then
+  if previous_streams [stream.id] and stream.state ~= "running" then
     return false
   end
 
@@ -349,11 +349,11 @@ local function handleStream (stream)
   end
 
   if checkStreamStatus (stream) then
-    active_streams [stream ["bound-id"]] = true
-    previous_streams [stream ["bound-id"]] = true
+    active_streams [stream.id] = true
+    previous_streams [stream.id] = true
     switchProfile ()
   else
-    active_streams [stream ["bound-id"]] = nil
+    active_streams [stream.id] = nil
     triggerRestoreProfile ()
   end
 end
@@ -380,8 +380,8 @@ SimpleEventHook {
   },
   execute = function (event)
     stream = event:get_subject ()
-    active_streams[stream["bound-id"]] = nil
-    previous_streams[stream["bound-id"]] = nil
+    active_streams[stream.id] = nil
+    previous_streams[stream.id] = nil
     triggerRestoreProfile ()
   end
 }:register ()
