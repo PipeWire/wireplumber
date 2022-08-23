@@ -34,33 +34,22 @@ enum {
 typedef struct _WpSessionItemPrivate WpSessionItemPrivate;
 struct _WpSessionItemPrivate
 {
-  guint id;
   WpProperties *properties;
 };
 
 enum {
   PROP_0,
-  PROP_ID,
   PROP_PROPERTIES,
 };
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (WpSessionItem, wp_session_item,
     WP_TYPE_OBJECT)
 
-static guint
-get_next_id ()
-{
-  static guint next_id = 0;
-  g_atomic_int_inc (&next_id);
-  return next_id;
-}
-
 static void
 wp_session_item_init (WpSessionItem * self)
 {
   WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
 
-  priv->id = get_next_id ();
   priv->properties = NULL;
 }
 
@@ -89,12 +78,8 @@ wp_session_item_get_gobject_property (GObject * object, guint property_id,
     GValue * value, GParamSpec * pspec)
 {
   WpSessionItem *self = WP_SESSION_ITEM (object);
-  WpSessionItemPrivate *priv = wp_session_item_get_instance_private (self);
 
   switch (property_id) {
-  case PROP_ID:
-    g_value_set_uint (value, priv->id);
-    break;
   case PROP_PROPERTIES:
     g_value_take_boxed (value, wp_session_item_get_properties (self));
     break;
@@ -210,31 +195,10 @@ wp_session_item_class_init (WpSessionItemClass * klass)
 
   klass->reset = wp_session_item_default_reset;
 
-  g_object_class_install_property (object_class, PROP_ID,
-      g_param_spec_uint ("id", "id",
-          "The session item unique id", 0, G_MAXUINT, 0,
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
-
   g_object_class_install_property (object_class, PROP_PROPERTIES,
       g_param_spec_boxed ("properties", "properties",
           "The session item properties", WP_TYPE_PROPERTIES,
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
-}
-
-/*!
- * \brief Gets the unique Id of the session item
- * \ingroup wpsessionitem
- * \param self the session item
- */
-guint
-wp_session_item_get_id (WpSessionItem * self)
-{
-  WpSessionItemPrivate *priv = NULL;
-
-  g_return_val_if_fail (WP_IS_SESSION_ITEM (self), SPA_ID_INVALID);
-
-  priv = wp_session_item_get_instance_private (self);
-  return priv->id;
 }
 
 /*!
