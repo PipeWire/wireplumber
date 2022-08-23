@@ -86,7 +86,7 @@ AsyncEventHook {
       next = "register",
       execute = function (event, transition)
         local node = event:get_subject ()
-        local id = node ["bound-id"]
+        local id = node.id
         local item
         local item_type
 
@@ -123,10 +123,10 @@ AsyncEventHook {
       next = "none",
       execute = function (event, transition)
         local node = event:get_subject ()
-        local id = node ["bound-id"]
-        local item = items [id]
+        local bound_id = node ["bound-id"]
+        local item = items [node.id]
 
-        Log.info (item, "activated item for node " .. tostring (id))
+        Log.info (item, "activated item for node " .. tostring (bound_id))
         item:register ()
         transition:advance ()
 
@@ -163,7 +163,7 @@ SimpleEventHook {
   },
   execute = function (event)
     local node = event:get_subject ()
-    local id = node ["bound-id"]
+    local id = node.id
     if items [id] then
       items [id]:remove ()
       items [id] = nil
