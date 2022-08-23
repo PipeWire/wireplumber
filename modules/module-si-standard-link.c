@@ -97,13 +97,13 @@ si_standard_link_configure (WpSessionItem * item, WpProperties * p)
   if (!out_item)
     return FALSE;
   wp_properties_setf (si_props, "out.item.id", "%u",
-      wp_session_item_get_id (out_item));
+      wp_object_get_id (WP_OBJECT (out_item)));
 
   in_item = get_and_validate_item (si_props, "in.item");
   if (!in_item)
     return FALSE;
   wp_properties_setf (si_props, "in.item.id", "%u",
-      wp_session_item_get_id (in_item));
+      wp_object_get_id (WP_OBJECT (in_item)));
 
   self->out_item_port_context = wp_properties_get (si_props,
       "out.item.port.context");
