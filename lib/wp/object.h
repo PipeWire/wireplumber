@@ -80,6 +80,9 @@ struct _WpObjectClass
 };
 
 WP_API
+guint wp_object_get_id (WpObject * self);
+
+WP_API
 WpCore * wp_object_get_core (WpObject * self);
 
 WP_API
