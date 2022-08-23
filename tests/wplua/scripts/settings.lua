@@ -221,7 +221,7 @@ function callback (obj, s, rawvalue)
     assert (s == setting)
     callback = true
     assert (json:parse() == setting_value)
-    assert (setting_value == Settings.get (s, "test-settings")):parse()
+    assert (setting_value == Settings.get (s, "test-settings"):parse())
   end
 
   if (finish_activation) then
@@ -270,7 +270,7 @@ metadata_om:connect("objects-changed", function (om)
   callback = false
 
   finish_activation = true
-  metadata:set(0, setting, "Spa:String:JSON", setting_value)
+  metadata:set(0, setting, "Spa:String:JSON", "\"lets not blabber\"")
   assert (callback)
 
 end)
