@@ -16,9 +16,9 @@
 
 -- settings file: policy.conf
 
-local move = Settings.get ("default-policy-move"):parse() or false
-local follow = Settings.get ("default-policy-follow"):parse() or false
-local filter_forward_format = Settings.get ("filter.forward-format"):parse() or false
+local move = Settings.get ("default-policy-move"):parse () or false
+local follow = Settings.get ("default-policy-follow"):parse () or false
+local filter_forward_format = Settings.get ("filter.forward-format"):parse () or false
 
 local putils = require ("policy-utils")
 local cutils = require ("common-utils")
@@ -30,6 +30,7 @@ function parseBool (var)
 end
 
 function unhandleLinkable (si)
+  local si_id = si.id
   local si_flags = putils.get_flags (si_id)
   local valid, si_props = checkLinkable (si, true)
   if not valid then
@@ -37,7 +38,7 @@ function unhandleLinkable (si)
   end
 
   Log.info (si, string.format ("unhandling item: %s (%s)",
-    tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
+    tostring (si_flags.node_name), tostring (si_flags.node_id)))
 
   -- remove any links associated with this item
   for silink in links_om:iterate () do
@@ -86,7 +87,8 @@ function handleLinkable (si)
   end
 
   find_target_events [si_id] = EventDispatcher.push_event {
-    type = "find-target-si-and-link", priority = 10, subject = si }
+    type = "find-target-si-and-link", priority = 10, subject = si
+  }
 end
 
 function rescan ()
@@ -231,9 +233,6 @@ SimpleEventHook {
     EventInterest {
       Constraint { "event.type", "=", "object-removed" },
       Constraint { "event.subject.type", "=", "linkable" },
-      Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
-      Constraint { "media.class", "#", "Stream/*", type = "pw-global" },
-      Constraint { "active-features", "!", 0, type = "gobject" },
     },
   },
   execute = function (event)
@@ -369,6 +368,15 @@ pending_linkables_om = ObjectManager {
   }
 }
 
+links_om = ObjectManager {
+  Interest {
+    type = "SiLink",
+    -- only handle links created by this policy
+    Constraint { "is.policy.item.link", "=", true },
+  }
+}
+
 endpoints_om:activate ()
 linkables_om:activate ()
 pending_linkables_om:activate ()
+links_om:activate ()
