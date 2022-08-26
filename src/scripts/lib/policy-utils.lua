@@ -230,7 +230,7 @@ function putils.haveAvailableRoutes (si_props)
   -- First check "SPA_PARAM_Route" if there are any active devices
   -- in an active profile.
   for p in device:iterate_params ("Route") do
-    local route = parseParam (p, "Route")
+    local route = cutils.parseParam (p, "Route")
     if not route then
       goto skip_route
     end
@@ -251,7 +251,7 @@ function putils.haveAvailableRoutes (si_props)
   -- Second check "SPA_PARAM_EnumRoute" if there is any route that
   -- is available if not active.
   for p in device:iterate_params ("EnumRoute") do
-    local route = parseParam (p, "EnumRoute")
+    local route = cutils.parseParam (p, "EnumRoute")
     if not route then
       goto skip_enum_route
     end
@@ -275,6 +275,10 @@ function putils.haveAvailableRoutes (si_props)
 
   return false
 end
+
+devices_om = ObjectManager { Interest { type = "device" } }
+
+devices_om:activate ()
 
 linkables_om = ObjectManager {
   Interest {
