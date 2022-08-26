@@ -38,6 +38,9 @@ function findDefinedTarget (event)
   local node_defined = false
   local target_picked = nil
 
+  si_flags.node_name = si_props ["node.name"]
+  si_flags.node_id = si_props ["node.id"]
+
   if si_props ["target.object"] ~= nil then
     target_value = si_props ["target.object"]
     target_key = "object.serial"
@@ -186,7 +189,7 @@ function findBestTarget (event)
   end
 
   local si_props = si.properties
-  local target_direction = putils.getTargetDirection (si_props)
+  local target_direction = cutils.getTargetDirection (si_props)
   local target_picked = nil
   local target_can_passthrough = false
   local target_priority = 0
@@ -273,8 +276,8 @@ function prepareLink (event)
   local exclusive = parseBool (si_props ["node.exclusive"])
   local si_must_passthrough = parseBool (si_props ["item.node.encoded-only"])
 
-  Log.info(si, string.format("handling item: %s (%s)",
-    tostring(si_props["node.name"]), tostring(si_props["node.id"])))
+  Log.info (si, string.format ("handling item: %s (%s)",
+    tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
 
   -- Check if item is linked to proper target, otherwise re-link
   if si_flags.peer_id then
@@ -439,7 +442,7 @@ function createLink (event)
   -- activate
   si_link:activate (Feature.SessionItem.ACTIVE, function (l, e)
     if e then
-      Log.info(l, "failed to activate si-standard-link: "..tostring(si).." error:".. tostring(e))
+      Log.info (l, "failed to activate si-standard-link: " .. tostring (si) .. " error:" .. tostring (e))
       if si_flags ~= nil then
         si_flags.peer_id = nil
       end
@@ -447,15 +450,20 @@ function createLink (event)
     else
       if si_flags ~= nil then
         si_flags.failed_peer_id = nil
+        if si_flags.peer_id == nil then
+          si_flags.peer_id = si_target.id
+        end
         si_flags.failed_count = 0
       end
-      Log.info (l, "activated si-standard-link "..tostring(si))
+      Log.info (l, "activated si-standard-link " .. tostring (si))
     end
     putils.set_flags (si_id, si_flags)
   end)
 
   ::done::
+  si_flags.was_handled = true
   putils.set_flags (si_id, si_flags)
+  putils.checkFollowDefault (si, si_target, si_flags.has_node_defined_target)
 end
 
 linkables_om = ObjectManager {

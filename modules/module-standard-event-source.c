@@ -69,6 +69,11 @@ get_object_type_and_priority (gpointer obj, const gchar **type, gint *priority)
     *type = "endpoint";
     *priority = 60;
   }
+  else if (WP_IS_SI_LINKABLE (obj))
+  {
+    *type = "linkable";
+    *priority = 50;
+  }
   else if (WP_IS_METADATA (obj))
   {
     *type = "metadata";
@@ -250,6 +255,7 @@ wp_standard_event_source_enable (WpPlugin * plugin, WpTransition * transition)
 
   self->om = wp_object_manager_new ();
   wp_object_manager_add_interest (self->om, WP_TYPE_GLOBAL_PROXY, NULL);
+  wp_object_manager_add_interest (self->om, WP_TYPE_SI_LINKABLE, NULL);
   wp_object_manager_request_object_features (self->om,
       WP_TYPE_GLOBAL_PROXY, WP_OBJECT_FEATURES_ALL);
   g_signal_connect_object (self->om, "object-added",
