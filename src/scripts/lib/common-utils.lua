@@ -13,6 +13,15 @@ function cutils.parseBool (var)
   return var and (var:lower () == "true" or var == "1")
 end
 
+function cutils.parseParam (param, id)
+  local route = param:parse ()
+  if route.pod_type == "Object" and route.object_id == id then
+    return route.properties
+  else
+    return nil
+  end
+end
+
 function cutils.getTargetDirection (properties)
   local target_direction = nil
   if properties ["item.node.direction"] == "output" or
