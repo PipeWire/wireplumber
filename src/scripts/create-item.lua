@@ -129,11 +129,6 @@ AsyncEventHook {
         Log.info (item, "activated item for node " .. tostring (bound_id))
         item:register ()
         transition:advance ()
-
-        props = {}
-        props ["event.subject.type"] = "linkable"
-        EventDispatcher.push_event { type = "object-added",
-            priority = 50, properties = props, subject = item }
       end,
     },
   },
@@ -169,9 +164,5 @@ SimpleEventHook {
       items [id] = nil
     end
 
-    props = {}
-    props ["event.subject.type"] = "linkable"
-    EventDispatcher.push_event { type = "object-removed",
-        priority = 50, properties = props, subject = item }
   end
 }:register ()
