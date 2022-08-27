@@ -124,7 +124,7 @@ test_parsing_setup (TestSettingsFixture *self, gconstpointer user_data)
     self->settings = g_steal_pointer (&settings);
 
     /* total no.of settings in the conf file */
-    g_assert_cmpint (data.count, ==, 12);
+    g_assert_cmpint (data.count, ==, 13);
   }
 
 }
@@ -141,7 +141,7 @@ static void
 test_parsing (TestSettingsFixture *self, gconstpointer data)
 {
   /* total no.of settings in the conf file */
-  g_assert_cmpint (wp_properties_get_count(self->settings), ==, 12);
+  g_assert_cmpint (wp_properties_get_count(self->settings), ==, 13);
 }
 
 static void
@@ -280,6 +280,12 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
     g_assert_nonnull (j2);
     g_assert_true (wp_spa_json_parse_boolean (j2, &value));
     g_assert_true (value);
+
+    value = wp_settings_parse_boolean_safe (s, "test-setting2", FALSE);
+    g_assert_true (value);
+
+    value = wp_settings_parse_boolean_safe (s, "test-setting-undefined", TRUE);
+    g_assert_true (value);
   }
 
   {
@@ -290,6 +296,12 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
     g_assert_nonnull (j);
     g_assert_true (wp_spa_json_parse_int (j, &value));
     g_assert_cmpint (value, ==, -20);
+
+    value = wp_settings_parse_int_safe (s, "test-setting3-int", 3);
+    g_assert_cmpint (value, ==, -20);
+
+    value = wp_settings_parse_int_safe (s, "test-setting-undefined", 3);
+    g_assert_cmpint (value, ==, 3);
   }
 
   {
@@ -301,6 +313,20 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
       value = wp_spa_json_parse_string (j);
       g_assert_nonnull (value);
       g_assert_cmpstr (value, ==, "blahblah");
+    }
+
+    {
+      g_autofree gchar *value = NULL;
+      value = wp_settings_parse_string_safe (s, "test-setting4-string",
+          "fallback-string");
+      g_assert_cmpstr (value, ==, "blahblah");
+    }
+
+    {
+      g_autofree gchar *value = NULL;
+      value = wp_settings_parse_string_safe (s, "test-setting-undefined",
+          "fallback-string");
+      g_assert_cmpstr (value, ==, "fallback-string");
     }
 
     {
@@ -326,6 +352,12 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
     g_assert_nonnull (j2);
     g_assert_true (wp_spa_json_parse_float (j2, &value));
     g_assert_cmpfloat_with_epsilon (value, 0.4, 0.001);
+
+    value = wp_settings_parse_float_safe (s, "test-setting-float1", 4.14);
+    g_assert_cmpfloat_with_epsilon (value, 3.14, 0.001);
+
+    value = wp_settings_parse_float_safe (s, "test-setting-undefined", 4.14);
+    g_assert_cmpfloat_with_epsilon (value, 4.14, 0.001);
   }
 
   /* test the wp_settings_get_instance () API */
@@ -390,6 +422,28 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
           g_assert_cmpstr (str, ==, sample_str[i]);
         }
       }
+    }
+
+    {
+      g_autoptr (WpSpaJson) value = NULL;
+      value = wp_settings_get (s, "test-setting-json3");
+      g_assert_nonnull (value);
+      g_assert_true (wp_spa_json_is_object (value));
+      g_assert_cmpstr (wp_spa_json_get_data(value), ==,
+        "{ key1: \"value\", key2: 2, key3: true }");
+
+      g_autofree gchar *value1 = NULL;
+      gint value2 = 0;
+      gboolean value3 = FALSE;
+      g_assert_true (wp_spa_json_object_get (value,
+          "key1", "s", &value1,
+          "key2", "i", &value2,
+          "key3", "b", &value3,
+          NULL));
+
+      g_assert_cmpstr (value1, ==, "value");
+      g_assert_cmpint (value2, ==, 2);
+      g_assert_true (value3);
     }
   }
 
