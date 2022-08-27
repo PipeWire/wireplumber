@@ -20,11 +20,23 @@ value = Settings.get ("test-setting2", "test-settings"):parse()
 assert ("boolean" == type (value))
 assert (value == true)
 
+value = Settings.parse_boolean_safe ("test-setting2", false, "test-settings")
+assert (value == true)
+
+value = Settings.parse_boolean_safe ("test-setting-undefined", true, "test-settings")
+assert (value == true)
+
 -- test settings _get_int ()
 
 value = Settings.get ("test-setting3-int", "test-settings"):parse()
 assert ("number" == type (value))
 assert (value == -20)
+
+value = Settings.parse_int_safe ("test-setting3-int", 10, "test-settings")
+assert (value == -20)
+
+value = Settings.parse_int_safe ("test-setting-undefined", 10, "test-settings")
+assert (value == 10)
 
 -- test settings _get_string ()
 
@@ -36,6 +48,12 @@ value = Settings.get ("test-setting5-string-with-quotes", "test-settings"):parse
 assert ("string" == type (value))
 assert (value == "a string with \"quotes\"")
 
+value = Settings.parse_string_safe ("test-setting4-string", "fallback-string", "test-settings")
+assert (value == "blahblah")
+
+value = Settings.parse_string_safe ("test-setting-undefined", "fallback-string", "test-settings")
+assert (value == "fallback-string")
+
 -- test settings _get_float ()
 
 value = Settings.get ("test-setting-float1", "test-settings"):parse()
@@ -45,11 +63,27 @@ assert ((value - 3.14) < 0.00001)
 value = Settings.get ("test-setting-float2", "test-settings"):parse()
 assert ((value - 0.4) < 0.00001)
 
+value = Settings.parse_float_safe ("test-setting-float1", 4.14, "test-settings")
+assert ((value - 3.14) < 0.00001)
+
+value = Settings.parse_float_safe ("test-setting-undefined", 4.14, "test-settings")
+assert ((value - 4.14) < 0.00001)
+
 -- test settings _get ()
 value = Settings.get ("test-setting-json", "test-settings")
 assert (value ~= nil)
 assert (value:is_array())
 assert (value:get_data() == "[1, 2, 3]")
+
+value = Settings.parse_array_safe ("test-setting-json", "test-settings")
+assert (value ~= nil)
+assert (value[1] == 1)
+assert (value[2] == 2)
+assert (value[3] == 3)
+
+value = Settings.parse_array_safe ("test-setting-undefined", "test-settings")
+assert (value ~= nil)
+assert (#value == 0)
 
 value = Settings.get ("test-setting-json2", "test-settings")
 assert (value ~= nil)
@@ -63,6 +97,27 @@ assert (val[3] == "test three")
 assert (val[4] == "test-four")
 assert (val[5] == nil)
 assert (#val == 4)
+
+value = Settings.get ("test-setting-json3", "test-settings")
+assert (value ~= nil)
+assert (value:is_object())
+print (value:get_data())
+assert (value:get_data() ==
+  "{ key1: \"value\", key2: 2, key3: true }")
+val = value:parse ()
+assert (val.key1 == "value")
+assert (val.key2 == 2)
+assert (val.key3 == true)
+
+value = Settings.parse_object_safe ("test-setting-json3", "test-settings")
+assert (value ~= nil)
+assert (value.key1 == "value")
+assert (value.key2 == 2)
+assert (value.key3 == true)
+
+value = Settings.parse_object_safe ("test-setting-undefined", "test-settings")
+assert (value ~= nil)
+assert (#value == 0)
 
 -- test settings _get_all ()
 value = Settings.get_all ("*string*", "test-settings")
