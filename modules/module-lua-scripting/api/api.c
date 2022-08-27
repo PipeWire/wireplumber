@@ -16,6 +16,7 @@
 
 void wp_lua_scripting_pod_init (lua_State *L);
 void wp_lua_scripting_json_init (lua_State *L);
+void push_luajson (lua_State *L, WpSpaJson *json);
 
 /* helpers */
 
@@ -1517,6 +1518,137 @@ settings_get_all (lua_State *L)
 }
 
 static int
+settings_parse_boolean_safe (lua_State *L)
+{
+  const char *setting = luaL_checkstring (L, 1);
+  const gboolean v = lua_toboolean (L, 2) ? TRUE : FALSE;
+  const char *m = NULL;
+  g_autoptr (WpSettings) s = NULL;
+
+  if (lua_type (L, 3) == LUA_TSTRING)
+    m = luaL_checkstring (L, 3);
+
+  s = wp_settings_get_instance (get_wp_core (L), m);
+  if (s)
+    lua_pushboolean (L, wp_settings_parse_boolean_safe (s, setting, v));
+  else
+    lua_pushboolean (L, v);
+  return 1;
+}
+
+static int
+settings_parse_int_safe (lua_State *L)
+{
+  const char *setting = luaL_checkstring (L, 1);
+  const gint v = luaL_checkinteger (L, 2);
+  const char *m = NULL;
+  g_autoptr (WpSettings) s = NULL;
+
+  if (lua_type (L, 3) == LUA_TSTRING)
+    m = luaL_checkstring (L, 3);
+
+  s = wp_settings_get_instance (get_wp_core (L), m);
+  if (s)
+    lua_pushinteger (L, wp_settings_parse_int_safe (s, setting, v));
+  else
+    lua_pushinteger (L, v);
+  return 1;
+}
+
+static int
+settings_parse_float_safe (lua_State *L)
+{
+  const char *setting = luaL_checkstring (L, 1);
+  const float v = lua_tonumber (L, 2);
+  const char *m = NULL;
+  g_autoptr (WpSettings) s = NULL;
+
+  if (lua_type (L, 3) == LUA_TSTRING)
+    m = luaL_checkstring (L, 3);
+
+  s = wp_settings_get_instance (get_wp_core (L), m);
+  if (s)
+    lua_pushnumber (L, wp_settings_parse_float_safe (s, setting, v));
+  else
+    lua_pushnumber (L, v);
+  return 1;
+}
+
+static int
+settings_parse_string_safe (lua_State *L)
+{
+  const char *setting = luaL_checkstring (L, 1);
+  const char *v = luaL_checkstring (L, 2);
+  const char *m = NULL;
+  g_autoptr (WpSettings) s = NULL;
+  g_autofree gchar *res = NULL;
+
+  if (lua_type (L, 3) == LUA_TSTRING)
+    m = luaL_checkstring (L, 3);
+
+  s = wp_settings_get_instance (get_wp_core (L), m);
+  res = s ? wp_settings_parse_string_safe (s, setting, v) : g_strdup (v);
+  lua_pushstring (L, res);
+  return 1;
+}
+
+static int
+settings_parse_array_safe (lua_State *L)
+{
+  const char *setting = luaL_checkstring (L, 1);
+  const char *m = NULL;
+  g_autoptr (WpSettings) s = NULL;
+  g_autoptr (WpSpaJson) json_default = NULL;
+
+  if (lua_type (L, 2) == LUA_TSTRING)
+    m = luaL_checkstring (L, 2);
+
+  s = wp_settings_get_instance (get_wp_core (L), m);
+  if (s) {
+    g_autoptr (WpSpaJson) j = wp_settings_get (s, setting);
+    if (j) {
+      if (wp_spa_json_is_array (j)) {
+        push_luajson (L, j);
+        return 1;
+      } else {
+        wp_warning ("Ignoring setting '%s' as it isn't a JSON array", setting);
+      }
+    }
+  }
+  json_default = wp_spa_json_new_array (NULL, NULL);
+  push_luajson (L, json_default);
+  return 1;
+}
+
+static int
+settings_parse_object_safe (lua_State *L)
+{
+  const char *setting = luaL_checkstring (L, 1);
+  const char *m = NULL;
+  g_autoptr (WpSettings) s = NULL;
+  g_autoptr (WpSpaJson) json_default = NULL;
+
+  if (lua_type (L, 2) == LUA_TSTRING)
+    m = luaL_checkstring (L, 2);
+
+  s = wp_settings_get_instance (get_wp_core (L), m);
+  if (s) {
+    g_autoptr (WpSpaJson) j = wp_settings_get (s, setting);
+    if (j) {
+      if (wp_spa_json_is_object (j)) {
+        push_luajson (L, j);
+        return 1;
+      } else {
+        wp_warning ("Ignoring setting '%s' as it isn't a JSON object", setting);
+      }
+    }
+  }
+  json_default = wp_spa_json_new_object (NULL, NULL, NULL);
+  push_luajson (L, json_default);
+  return 1;
+}
+
+static int
 settings_apply_rule (lua_State *L)
 {
   const char *r = luaL_checkstring (L, 1);
@@ -1581,6 +1713,12 @@ settings_unsubscribe (lua_State *L)
 static const luaL_Reg settings_methods[] = {
   { "get", settings_get },
   { "get_all", settings_get_all },
+  { "parse_boolean_safe", settings_parse_boolean_safe },
+  { "parse_int_safe", settings_parse_int_safe },
+  { "parse_float_safe", settings_parse_float_safe },
+  { "parse_string_safe", settings_parse_string_safe },
+  { "parse_array_safe", settings_parse_array_safe },
+  { "parse_object_safe", settings_parse_object_safe },
   { "apply_rule", settings_apply_rule },
   { "subscribe", settings_subscribe },
   { "unsubscribe", settings_unsubscribe },
