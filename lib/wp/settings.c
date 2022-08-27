@@ -224,6 +224,100 @@ wp_settings_get_all (WpSettings *self, const gchar *pattern)
 }
 
 /*!
+ * \brief Safely parses a boolean setting, using the fallback value if the
+ * setting does not exist, or the setting cannot be parsed. A warning is also
+ * logged when the setting cannot be parsed.
+ *
+ * \ingroup wpsettings
+ * \param self the settings object
+ * \param setting name of the setting
+ * \param value fallback value to use in case of error
+ * \returns The value of the setting, or the fallback value in case of error
+ */
+gboolean
+wp_settings_parse_boolean_safe (WpSettings *self, const gchar *setting,
+    gboolean value)
+{
+  g_autoptr (WpSpaJson) json = wp_settings_get(self, setting);
+  gboolean res = value;
+  if (json && !wp_spa_json_parse_boolean (json, &res))
+    wp_warning_object (self, "Could not parse setting '%s' as boolean",
+        setting);
+  return res;
+}
+
+/*!
+ * \brief Safely parses an integer setting, using the fallback value if the
+ * setting does not exist, or the setting cannot be parsed. A warning is also
+ * logged when the setting cannot be parsed.
+ *
+ * \ingroup wpsettings
+ * \param self the settings object
+ * \param setting name of the setting
+ * \param value fallback value to use in case of error
+ * \returns The value of the setting, or the fallback value in case of error
+ */
+gint
+wp_settings_parse_int_safe (WpSettings *self, const gchar *setting, gint value)
+{
+  g_autoptr (WpSpaJson) json = wp_settings_get(self, setting);
+  gint res = value;
+  if (json && !wp_spa_json_parse_int (json, &res))
+    wp_warning_object (self, "Could not parse setting '%s' as int", setting);
+  return res;
+}
+
+/*!
+ * \brief Safely parses a float setting, using the fallback value if the
+ * setting does not exist, or the setting cannot be parsed. A warning is also
+ * logged when the setting cannot be parsed.
+ *
+ * \ingroup wpsettings
+ * \param self the settings object
+ * \param setting name of the setting
+ * \param value fallback value to use in case of error
+ * \returns The value of the setting, or the fallback value in case of error
+ */
+float
+wp_settings_parse_float_safe (WpSettings *self, const gchar *setting,
+    float value)
+{
+  g_autoptr (WpSpaJson) json = wp_settings_get(self, setting);
+  float res = value;
+  if (json && !wp_spa_json_parse_float (json, &res))
+    wp_warning_object (self, "Could not parse setting '%s' as float", setting);
+  return res;
+}
+
+/*!
+ * \brief Safely parses a string setting, using the fallback value if the
+ * setting does not exist, or the setting cannot be parsed. A warning is also
+ * logged when the setting cannot be parsed.
+ *
+ * \ingroup wpsettings
+ * \param self the settings object
+ * \param setting name of the setting
+ * \param value fallback value to use in case of error
+ * \returns (transfer full): The value of the setting, or the fallback value in
+ * case of error
+ */
+gchar *
+wp_settings_parse_string_safe (WpSettings *self, const gchar *setting,
+    const gchar *value)
+{
+  g_autoptr (WpSpaJson) json = wp_settings_get(self, setting);
+  if (json) {
+    gchar *res = wp_spa_json_parse_string (json);
+    if (res)
+      return res;
+    else
+      wp_warning_object (self, "Could not parse setting '%s' as string",
+          setting);
+  }
+  return g_strdup (value);
+}
+
+/*!
  * \brief Applies the rules and returns the applied properties.
  *
  * This function applies the rules on the client properties and if
