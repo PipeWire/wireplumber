@@ -19,27 +19,11 @@
 -- settings file: device.conf
 
 local use_persistent_storage =
-  Settings.get ("device.use-persistent-storage"):parse() or false
-
--- the default volume to apply (optional property)
-local default_volume = 0.4^3
-local default_volume_json = Settings.get ("device.default-volume")
-if default_input_volume_json ~= nil then
-  local val = default_volume_json:parse()
-  if val ~= nil then
-    default_volume = val
-  end
-end
-
--- the default input volume to apply (optional property)
-local default_input_volume = 1.0
-local default_input_volume_json = Settings.get ("default-input-volume")
-if default_input_volume_json ~= nil then
-  local val = default_input_volume_json:parse()
-  if val ~= nil then
-    default_input_volume = val
-  end
-end
+    Settings.parse_boolean_safe ("device.use-persistent-storage", true)
+local default_volume =
+    Settings.parse_float_safe ("device.default-volume", 0.4^3)
+local default_input_volume =
+    Settings.parse_float_safe ("default-input-volume", 1.0)
 
 -- table of device info
 dev_infos = {}
