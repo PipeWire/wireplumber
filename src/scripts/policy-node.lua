@@ -16,9 +16,10 @@
 
 -- settings file: policy.conf
 
-local move = Settings.get ("default-policy-move"):parse () or false
-local follow = Settings.get ("default-policy-follow"):parse () or false
-local filter_forward_format = Settings.get ("filter.forward-format"):parse () or false
+local move = Settings.parse_boolean_safe ("default-policy-move", false)
+local follow = Settings.parse_boolean_safe ("default-policy-follow", false)
+local filter_forward_format =
+    Settings.parse_boolean_safe ("filter.forward-format", false)
 
 local putils = require ("policy-utils")
 local cutils = require ("common-utils")
