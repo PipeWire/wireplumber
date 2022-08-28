@@ -7,7 +7,6 @@
 
 local config_settings = Settings.get_all ("bluez5.*"):parse ()
 
--- applies rules from bluez-settings.conf when asked to
 function rulesApplyProperties(properties)
   local matched, mprops = Settings.apply_rule ("bluez_monitor", properties)
 
