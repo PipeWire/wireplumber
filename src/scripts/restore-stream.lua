@@ -18,12 +18,12 @@
 
 -- settings file: stream.conf
 
-config_restore_props = Settings.get ("stream_default.restore-props"):parse()
-    or false
-config_restore_target = Settings.get ("stream_default.restore-target"):parse()
-    or false
-config_default_channel_volume = Settings.get_float ("stream.default-channel-volume")
-    or 1.0
+config_restore_props =
+    Settings.parse_boolean_safe ("stream_default.restore-props", false)
+config_restore_target =
+    Settings.parse_boolean_safe ("stream_default.restore-target", false)
+config_default_channel_volume =
+    Settings.parse_float_safe ("stream.default-channel-volume", 1.0)
 
 function rulesApplyProperties (properties)
   local matched, mprops = Settings.apply_rule ("stream_default", properties)

@@ -12,7 +12,7 @@
 local putils = require ("policy-utils")
 local cutils = require ("common-utils")
 
-local move = Settings.get ("default-policy-move"):parse () or false
+local move = Settings.parse_boolean_safe ("default-policy-move", false)
 
 function parseBool (var)
   return cutils.parseBool (var)

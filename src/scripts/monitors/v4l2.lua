@@ -5,9 +5,7 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local config_settings = {
-
-}
+local config_settings = {}
 
 -- apply properties from rules defined in JSON .conf file
 function rulesApplyProperties(properties)
