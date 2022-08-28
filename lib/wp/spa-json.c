@@ -1246,7 +1246,7 @@ static int
 check_nested_size (struct spa_json *parent, const gchar *data, int size)
 {
   const gchar *nested_data;
-  int nested_size, last_sub_size = 0;
+  int nested_size;
   struct spa_json nested[2];
 
   /* only arrays and objects are considered nested data */
@@ -1259,16 +1259,15 @@ check_nested_size (struct spa_json *parent, const gchar *data, int size)
 
   /* recursively advance */
   while ((nested_size = spa_json_next (&nested[1], &nested_data)) > 0) {
-    last_sub_size = check_nested_size (&nested[1], nested_data, nested_size);
-    if (last_sub_size < 0)
+    if (check_nested_size (&nested[1], nested_data, nested_size) < 0)
       return -1;
   }
   if (nested_size < 0)
     return -1;
 
-  /* if last sub size, advance one more time to reach end of nested data */
-  if (last_sub_size > 0 && spa_json_next (&nested[1], &nested_data) < 0)
-      return -1;
+  /* advance one more time to reach end of nested data */
+  if (spa_json_next (&nested[1], &nested_data) < 0)
+    return -1;
 
   return nested_data - data;
 }

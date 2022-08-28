@@ -910,6 +910,40 @@ test_spa_json_nested2 (void)
 }
 
 static void
+test_spa_json_nested3 (void)
+{
+  const gchar json_str[] =
+      "{ test-setting-json3: { key1: \"value\", key2: 2, key3: true } }";
+  g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (json_str);
+  g_assert_nonnull (json);
+  g_assert_true (wp_spa_json_is_object (json));
+
+  g_autoptr (WpIterator) it = wp_spa_json_new_iterator (json);
+  g_assert_nonnull (it);
+
+  {
+    GValue next = G_VALUE_INIT;
+    g_assert_true (wp_iterator_next (it, &next));
+    WpSpaJson *j = g_value_get_boxed (&next);
+    g_assert_nonnull (j);
+    g_autofree gchar *v = wp_spa_json_parse_string (j);
+    g_assert_cmpstr (v, ==, "test-setting-json3");
+    g_value_unset (&next);
+  }
+
+  {
+    GValue next = G_VALUE_INIT;
+    g_assert_true (wp_iterator_next (it, &next));
+    WpSpaJson *j = g_value_get_boxed (&next);
+    g_assert_nonnull (j);
+    g_assert_true (wp_spa_json_is_object (j));
+    g_autofree gchar *v = wp_spa_json_to_string (j);
+    g_assert_cmpstr (v, ==, "{ key1: \"value\", key2: 2, key3: true }");
+    g_value_unset (&next);
+  }
+}
+
+static void
 test_spa_json_ownership (void)
 {
   g_autoptr (WpSpaJson) json = NULL;
@@ -1161,6 +1195,7 @@ main (int argc, char *argv[])
       test_spa_json_object_builder_parser_iterator);
   g_test_add_func ("/wp/spa-json/nested", test_spa_json_nested);
   g_test_add_func ("/wp/spa-json/nested2", test_spa_json_nested2);
+  g_test_add_func ("/wp/spa-json/nested3", test_spa_json_nested3);
   g_test_add_func ("/wp/spa-json/ownership", test_spa_json_ownership);
   g_test_add_func ("/wp/spa-json/spa-format", test_spa_json_spa_format);
   g_test_add_func ("/wp/spa-json/to-string", test_spa_json_to_string);
