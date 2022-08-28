@@ -6,14 +6,8 @@
 -- SPDX-License-Identifier: MIT
 
 -- Receive script arguments from config.lua
-local roles = {}
-local roles_json = Settings.get ("endpoints-roles")
-if roles_json ~= nil then
-  local val = roles_json:parse()
-  if val ~= nil then
-    roles = val
-  end
-end
+
+local roles = Settings.parse_object_safe ("endpoints-roles")
 
 local self = {}
 self.scanning = false

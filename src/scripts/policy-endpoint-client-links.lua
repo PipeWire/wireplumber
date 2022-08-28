@@ -5,16 +5,8 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local duck_level = Settings.get ("default-policy-duck.level"):parse() or 0.3
-
-local roles = {}
-local roles_json = Settings.get ("endpoints-roles")
-if roles_json ~= nil then
-  local val = roles_json:parse()
-  if val ~= nil then
-    roles = val
-  end
-end
+local duck_level = Settings.parse_float_safe ("default-policy-duck.level", 0.3)
+local roles = Settings.parse_object_safe ("endpoints-roles")
 
 function findRole(role)
   if role and not roles[role] then

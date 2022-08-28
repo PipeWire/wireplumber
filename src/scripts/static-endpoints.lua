@@ -6,14 +6,7 @@
 -- SPDX-License-Identifier: MIT
 
 -- Receive script arguments from config.lua
-local endpoints = {}
-local endpoints_json = Settings.get ("endpoints")
-if endpoints_json ~= nil then
-  local val = endpoints_json:parse()
-  if val ~= nil then
-    endpoints = val
-  end
-end
+local endpoints = Settings.parse_object_safe ("endpoints")
 
 function createEndpoint (factory_name, properties)
   -- create endpoint
