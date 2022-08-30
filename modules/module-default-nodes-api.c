@@ -51,31 +51,6 @@ wp_default_nodes_api_init (WpDefaultNodesApi * self)
 }
 
 static void
-sync_changed_notification (WpCore * core, GAsyncResult * res,
-    WpDefaultNodesApi * self)
-{
-  g_autoptr (GError) error = NULL;
-  if (!wp_core_sync_finish (core, res, &error)) {
-    wp_warning_object (self, "core sync error: %s", error->message);
-    return;
-  }
-
-  g_signal_emit (self, signals[SIGNAL_CHANGED], 0);
-  return;
-}
-
-static void
-schedule_changed_notification (WpDefaultNodesApi *self)
-{
-  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
-  g_return_if_fail (core);
-  // Event-Stack TBD: do we need to retain this behavior? or push this as a
-  // event & hook pair on to event stack
-  wp_core_sync_closure (core, NULL, g_cclosure_new_object (
-      G_CALLBACK (sync_changed_notification), G_OBJECT (self)));
-}
-
-static void
 on_metadata_changed (WpMetadata *m, guint32 subject,
     const gchar *key, const gchar *type, const gchar *value, gpointer d)
 {
@@ -98,7 +73,7 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
         }
       }
 
-      schedule_changed_notification (self);
+      g_signal_emit (self, signals [SIGNAL_CHANGED], 0);
       break;
     } else if (!g_strcmp0 (key, DEFAULT_CONFIG_KEY[i])) {
 
@@ -149,8 +124,10 @@ on_metadata_added (WpEvent *event, gpointer d)
     for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
       guint32 subject_id;
       const gchar *key, *type, *value;
-      wp_metadata_iterator_item_extract (&val, &subject_id, &key, &type, &value);
-      on_metadata_changed (WP_METADATA (obj), subject_id, key, type, value, self);
+      wp_metadata_iterator_item_extract (&val, &subject_id, &key, &type,
+            &value);
+      on_metadata_changed (WP_METADATA (obj), subject_id, key, type, value,
+            self);
     }
   }
 }
@@ -190,11 +167,31 @@ wp_default_nodes_api_enable (WpPlugin * plugin, WpTransition * transition)
       WP_EVENT_HOOK_DEFAULT_PRIORITY_DEFAULT_METADATA_CHANGED_DEFAULT_NODES_API,
       WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
       g_cclosure_new ((GCallback) on_metadata_changed_hook, self, NULL));
+
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
-      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
-      NULL);
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.key", "=s",
+        "default.audio.sink",
+    WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
+    NULL);
+
+  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.key", "=s",
+        "default.video.sink",
+    WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
+    NULL);
+
+  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.key", "=s",
+        "default.audio.source",
+    WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
+    NULL);
+
   wp_event_dispatcher_register_hook (dispatcher, hook);
   g_clear_object(&hook);
 
