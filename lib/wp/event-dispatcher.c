@@ -326,8 +326,7 @@ wp_event_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
             g_steal_pointer (&lhook));
 
       event->hooks_chain = build_chain (name, priority, event->hooks_chain);
-      wp_trace_object (d, "running hook <%p>(%s) and hooks chain (%s)", hook, name,
-          event->hooks_chain);
+      wp_trace_object (d, "running hook <%p>(%s)", hook, name);
 
       if ((event == d->rescan_event) &&
           (type == WP_EVENT_HOOK_EXEC_TYPE_AFTER_EVENTS_WITH_EVENT)) {
