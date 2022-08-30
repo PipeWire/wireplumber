@@ -21,22 +21,13 @@
 #define DEFAULT_ECHO_CANCEL_SOURCE_NAME "echo-cancel-source"
 #define N_PREV_CONFIGS 16
 
-enum {
-  PROP_0,
-  PROP_SAVE_INTERVAL_MS,
-  PROP_USE_PERSISTENT_STORAGE,
-  PROP_AUTO_ECHO_CANCEL,
-  PROP_ECHO_CANCEL_SINK_NAME,
-  PROP_ECHO_CANCEL_SOURCE_NAME,
-};
-
 /*
- * Module maintains the default devices to be used for a given media class. The
- * module looks for changes in user preference and the changes in devices(when
- * new devices like headsets, BT devices, HDMI etc are plugged in). User
- * preference can be expressed via pavuctrl, gnome settings or metadata etc.
- * These apps typically update the
- * default.configured.*(default-configured-nodes) keys.
+ * Module comes up with the default audio and video devices. It looks for
+ * changes in user preference and the changes in devices(when new devices like
+ * headsets, BT devices, HDMI etc are plugged in or removed). User preference
+ * can be expressed via pavuctrl, gnome settings or metadata etc. These apps
+ * typically update the default.configured.*(default-configured-nodes) keys.
+ * Additionally the user preferences are remembered across reboots.
  */
 
 /*
@@ -62,10 +53,12 @@ struct _WpDefaultNodes
   GSource *timeout_source;
 
   /* properties */
-  guint save_interval_ms;
+  gint save_interval_ms;
   gboolean use_persistent_storage;
   gboolean auto_echo_cancel;
-  gchar *echo_cancel_names[2];
+  gchar *echo_cancel_names [2];
+  WpSettings *settings;
+  guintptr settings_sub_id;
 };
 
 G_DECLARE_FINAL_TYPE (WpDefaultNodes, wp_default_nodes,
@@ -73,8 +66,21 @@ G_DECLARE_FINAL_TYPE (WpDefaultNodes, wp_default_nodes,
 G_DEFINE_TYPE (WpDefaultNodes, wp_default_nodes, WP_TYPE_PLUGIN)
 
 static void
+init_settings (WpDefaultNodes *self)
+{
+  self->save_interval_ms = DEFAULT_SAVE_INTERVAL_MS;
+  self->use_persistent_storage = DEFAULT_USE_PERSISTENT_STORAGE;
+  self->auto_echo_cancel = DEFAULT_AUTO_ECHO_CANCEL;
+  self->echo_cancel_names [WP_DIRECTION_INPUT] =
+    g_strdup (DEFAULT_ECHO_CANCEL_SOURCE_NAME);
+  self->echo_cancel_names [WP_DIRECTION_OUTPUT] =
+    g_strdup (DEFAULT_ECHO_CANCEL_SINK_NAME);
+}
+
+static void
 wp_default_nodes_init (WpDefaultNodes * self)
 {
+  init_settings (self);
 }
 
 static void
@@ -149,9 +155,8 @@ timeout_save_state_callback (WpDefaultNodes *self)
 }
 
 static void
-timer_start (WpEvent *event, gpointer d)
+timer_start (WpDefaultNodes *self)
 {
-  WpDefaultNodes * self = WP_DEFAULT_NODES (d);
   if (!self->timeout_source && self->use_persistent_storage) {
     g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
     g_return_if_fail (core);
@@ -419,15 +424,10 @@ reevaluate_default_node (WpDefaultNodes * self, WpMetadata *m, gint node_t)
 }
 
 static void
-sync_rescan (WpCore * core, GAsyncResult * res, WpDefaultNodes * self)
+rescan (WpEvent *event, gpointer d)
 {
+  WpDefaultNodes *self = WP_DEFAULT_NODES (d);
   g_autoptr (WpMetadata) metadata = NULL;
-  g_autoptr (GError) error = NULL;
-
-  if (!wp_core_sync_finish (core, res, &error)) {
-    wp_warning_object (self, "core sync error: %s", error->message);
-    return;
-  }
 
   /* Get the metadata */
   metadata = wp_object_manager_lookup (self->metadata_om, WP_TYPE_METADATA,
@@ -439,20 +439,6 @@ sync_rescan (WpCore * core, GAsyncResult * res, WpDefaultNodes * self)
   reevaluate_default_node (self, metadata, AUDIO_SINK);
   reevaluate_default_node (self, metadata, AUDIO_SOURCE);
   reevaluate_default_node (self, metadata, VIDEO_SOURCE);
-}
-
-static void
-schedule_rescan (WpEvent *event, gpointer d)
-{
-  WpDefaultNodes * self = WP_DEFAULT_NODES (d);
-  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
-  g_return_if_fail (core);
-
-  wp_debug_object (self, "scheduling default nodes rescan");
-  // Event-Stack TBD: do we need to retain this behavior? or push this as a
-  // event & hook pair on to event stack
-  wp_core_sync_closure (core, NULL, g_cclosure_new_object (
-      G_CALLBACK (sync_rescan), G_OBJECT (self)));
 }
 
 static void
@@ -493,9 +479,6 @@ on_metadata_changed (WpEvent *event, gpointer d)
     wp_debug_object (m, "changed '%s' -> '%s'", key,
         self->defaults[node_t].config_value);
 
-    /* schedule rescan */
-    schedule_rescan (self);
-
     /* Save state after specific interval */
     timer_start (self);
   }
@@ -521,6 +504,75 @@ on_metadata_added (WpEvent *event, gpointer d)
 }
 
 static void
+get_settings (WpDefaultNodes *self, const gchar *setting)
+{
+  if (!setting || (g_str_equal ("device.save-interval-ms", setting)))
+  {
+    g_autoptr (WpSpaJson) j = wp_settings_get (self->settings,
+      "device.save-interval-ms");
+    if (j && !wp_spa_json_parse_int (j, &self->save_interval_ms))
+      wp_warning ("Failed to parse integer in device.save-interval-ms");
+  }
+
+  if (!setting || (g_str_equal ("device.use-persistent-storage", setting)))
+  {
+    g_autoptr (WpSpaJson) j = wp_settings_get (self->settings,
+      "device.use-persistent-storage");
+    if (j && !wp_spa_json_parse_boolean (j, &self->use_persistent_storage))
+      wp_warning ("Failed to parse boolean in device.use-persistent-storage");
+  }
+
+  if (!setting || (g_str_equal ("device.auto-echo-cancel", setting)))
+  {
+    g_autoptr (WpSpaJson) j = wp_settings_get (self->settings,
+      "device.auto-echo-cancel");
+    if (j && !wp_spa_json_parse_boolean (j, &self->auto_echo_cancel))
+      wp_warning ("Failed to parse boolean in device.auto-echo-cancel");
+  }
+
+  if (!setting || (g_str_equal ("device.echo-cancel-sink-name", setting)))
+  {
+    g_autoptr (WpSpaJson) j = wp_settings_get (self->settings,
+      "device.echo-cancel-sink-name");
+    if (j) {
+      gchar *value = wp_spa_json_parse_string (j);
+      if (!value)
+        wp_warning ("Failed to parse string in device.echo-cancel-sink-name");
+      else {
+        g_free (self->echo_cancel_names [WP_DIRECTION_OUTPUT]);
+        self->echo_cancel_names [WP_DIRECTION_OUTPUT] = value;
+      }
+    }
+  }
+
+  if (!setting || (g_str_equal ("device.echo-cancel-source-name", setting)))
+  {
+    g_autoptr (WpSpaJson) j = wp_settings_get (self->settings,
+      "device.echo-cancel-source-name");
+    if (j) {
+      gchar *value = wp_spa_json_parse_string (j);
+      if (!value)
+        wp_warning ("Failed to parse string in device.echo-cancel-source-name");
+      else {
+        g_free (self->echo_cancel_names [WP_DIRECTION_INPUT]);
+        self->echo_cancel_names [WP_DIRECTION_INPUT] = value;
+      }
+    }
+  }
+}
+
+void
+wp_settings_changed_callback (WpSettings *obj, const gchar *setting,
+  const gchar *raw_value, gpointer user_data)
+{
+  WpDefaultNodes *self = WP_DEFAULT_NODES (user_data);
+  g_return_if_fail (self);
+  g_return_if_fail (setting);
+
+  get_settings (self, setting);
+}
+
+static void
 wp_default_nodes_enable (WpPlugin * plugin, WpTransition * transition)
 {
   WpDefaultNodes * self = WP_DEFAULT_NODES (plugin);
@@ -530,6 +582,13 @@ wp_default_nodes_enable (WpPlugin * plugin, WpTransition * transition)
       wp_event_dispatcher_get_instance (core);
   g_autoptr (WpEventHook) hook = NULL;
   g_return_if_fail (dispatcher);
+
+  self->settings = wp_settings_get_instance (core, NULL);
+  g_return_if_fail (self->settings);
+  self->settings_sub_id = wp_settings_subscribe (self->settings, "device*",
+      wp_settings_changed_callback, (gpointer) self);
+
+  get_settings (self, NULL);
 
   /* default metadata added */
   hook = wp_simple_event_hook_new ("metadata-added@default-nodes",
@@ -549,58 +608,92 @@ wp_default_nodes_enable (WpPlugin * plugin, WpTransition * transition)
       WP_EVENT_HOOK_DEFAULT_PRIORITY_DEFAULT_METADATA_CHANGED_DEFAULT_NODES,
       WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
       g_cclosure_new ((GCallback) on_metadata_changed, self, NULL));
-  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
-      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
-      NULL);
-  wp_event_dispatcher_register_hook (dispatcher, hook);
-  g_clear_object(&hook);
 
-  /* register rescan hook as an after event */
-  hook = wp_simple_event_hook_new("rescan-default-nodes",
-      WP_EVENT_HOOK_DEFAULT_PRIORITY_RESCAN_DEFAULT_NODES,
-      WP_EVENT_HOOK_EXEC_TYPE_AFTER_EVENTS,
-      g_cclosure_new ((GCallback) schedule_rescan, self, NULL));
-  /* default metadata changed */
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
-      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
-      NULL);
-  /* device changed */
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.key", "=s",
+        "default.configured.audio.sink",
+    WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
+    NULL);
+
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "device",
-      NULL);
-  /* node changed */
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.key", "=s",
+        "default.configured.video.sink",
+    WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
+    NULL);
+
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "node",
-      NULL);
-  /* device parms changed */
-  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "params-changed",
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "device",
-      NULL);
-  /* node parms changed */
-  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "params-changed",
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "node",
-      NULL);
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.key", "=s",
+        "default.configured.audio.source",
+    WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
+    NULL);
+
   wp_event_dispatcher_register_hook (dispatcher, hook);
   g_clear_object (&hook);
 
-  /* register state save hook as an after event */
-  hook = wp_simple_event_hook_new ("default-nodes-state-saver",
-      WP_EVENT_HOOK_DEFAULT_PRIORITY_AFTER_EVENTS_DEFAULT_NODES_STATE_SAVE,
+  /* register rescan hook as an after event */
+  hook = wp_simple_event_hook_new("rescan@default-nodes",
+      WP_EVENT_HOOK_DEFAULT_PRIORITY_RESCAN_DEFAULT_NODES,
       WP_EVENT_HOOK_EXEC_TYPE_AFTER_EVENTS,
-      g_cclosure_new ((GCallback) timer_start, self, NULL));
+    g_cclosure_new ((GCallback) rescan, self, NULL));
+
+  /* default.configured.audio.sink changed */
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
-      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.key", "=s", "default.configured.audio.sink",
+    WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
+    NULL);
+
+  /* default.configured.video.sink changed */
+  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.key", "=s", "default.configured.video.sink",
+    WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
+    NULL);
+
+  /* default.configured.audio.source changed */
+  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.key", "=s", "default.configured.audio.source",
+    WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
+    NULL);
+
+  /* new video device node added */
+  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-added",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "node",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "media.class", "#s", "Video/*",
       NULL);
+
+  /* new audio device node added */
+  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-added",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "node",
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "media.class", "#s", "Audio/*",
+      NULL);
+
+  /* video device node removed */
+  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-removed",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "node",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "media.class", "#s", "Video/*",
+      NULL);
+
+  /* audio device node removed */
+  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-removed",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "node",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "media.class", "#s", "Audio/*",
+      NULL);
+
   wp_event_dispatcher_register_hook (dispatcher, hook);
   g_clear_object (&hook);
 
@@ -657,35 +750,6 @@ wp_default_nodes_disable (WpPlugin * plugin)
   g_clear_object (&self->state);
 }
 
-static void
-wp_default_nodes_set_property (GObject * object, guint property_id,
-    const GValue * value, GParamSpec * pspec)
-{
-  WpDefaultNodes * self = WP_DEFAULT_NODES (object);
-
-  switch (property_id) {
-  case PROP_SAVE_INTERVAL_MS:
-    self->save_interval_ms = g_value_get_uint (value);
-    break;
-  case PROP_USE_PERSISTENT_STORAGE:
-    self->use_persistent_storage =  g_value_get_boolean (value);
-    break;
-  case PROP_AUTO_ECHO_CANCEL:
-    self->auto_echo_cancel = g_value_get_boolean (value);
-    break;
-  case PROP_ECHO_CANCEL_SINK_NAME:
-    g_clear_pointer (&self->echo_cancel_names[WP_DIRECTION_INPUT], g_free);
-    self->echo_cancel_names[WP_DIRECTION_INPUT] = g_value_dup_string (value);
-    break;
-  case PROP_ECHO_CANCEL_SOURCE_NAME:
-    g_clear_pointer (&self->echo_cancel_names[WP_DIRECTION_OUTPUT], g_free);
-    self->echo_cancel_names[WP_DIRECTION_OUTPUT] = g_value_dup_string (value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
-    break;
-  }
-}
 
 static void
 wp_default_nodes_finalize (GObject * object)
@@ -694,6 +758,9 @@ wp_default_nodes_finalize (GObject * object)
 
   g_clear_pointer (&self->echo_cancel_names[WP_DIRECTION_INPUT], g_free);
   g_clear_pointer (&self->echo_cancel_names[WP_DIRECTION_OUTPUT], g_free);
+
+  if (self->settings_sub_id)
+    wp_settings_unsubscribe (self->settings, self->settings_sub_id);
 
   G_OBJECT_CLASS (wp_default_nodes_parent_class)->finalize (object);
 }
@@ -705,101 +772,20 @@ wp_default_nodes_class_init (WpDefaultNodesClass * klass)
   WpPluginClass *plugin_class = (WpPluginClass *) klass;
 
   object_class->finalize = wp_default_nodes_finalize;
-  object_class->set_property = wp_default_nodes_set_property;
 
   plugin_class->enable = wp_default_nodes_enable;
   plugin_class->disable = wp_default_nodes_disable;
-
-  g_object_class_install_property (object_class, PROP_SAVE_INTERVAL_MS,
-      g_param_spec_uint ("save-interval-ms", "save-interval-ms",
-          "save-interval-ms", 1, G_MAXUINT32, DEFAULT_SAVE_INTERVAL_MS,
-          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (object_class, PROP_USE_PERSISTENT_STORAGE,
-      g_param_spec_boolean ("use-persistent-storage", "use-persistent-storage",
-          "use-persistent-storage", DEFAULT_USE_PERSISTENT_STORAGE,
-          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (object_class, PROP_AUTO_ECHO_CANCEL,
-      g_param_spec_boolean ("auto-echo-cancel", "auto-echo-cancel",
-          "auto-echo-cancel", DEFAULT_AUTO_ECHO_CANCEL,
-          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (object_class, PROP_ECHO_CANCEL_SINK_NAME,
-      g_param_spec_string ("echo-cancel-sink-name", "echo-cancel-sink-name",
-          "echo-cancel-sink-name", DEFAULT_ECHO_CANCEL_SINK_NAME,
-          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (object_class, PROP_ECHO_CANCEL_SOURCE_NAME,
-      g_param_spec_string ("echo-cancel-source-name", "echo-cancel-source-name",
-          "echo-cancel-source-name", DEFAULT_ECHO_CANCEL_SOURCE_NAME,
-          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
 WP_PLUGIN_EXPORT gboolean
 wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
-  gint save_interval_ms = DEFAULT_SAVE_INTERVAL_MS;
-  gboolean use_persistent_storage = DEFAULT_USE_PERSISTENT_STORAGE;
-  gboolean auto_echo_cancel = DEFAULT_AUTO_ECHO_CANCEL;
-  g_autofree gchar *echo_cancel_sink_name = NULL;
-  g_autofree gchar *echo_cancel_source_name = NULL;
-
-  g_autoptr (WpSettings) settings = wp_settings_get_instance(core, NULL);
-
-  {
-    g_autoptr (WpSpaJson) j = wp_settings_get (settings,
-        "device.save-interval-ms");
-    if (j && !wp_spa_json_parse_int (j, &save_interval_ms))
-      wp_warning ("Failed to parse integer in device.save-interval-ms");
-  }
-
-  {
-    g_autoptr (WpSpaJson) j = wp_settings_get (settings,
-        "device.use-persistent-storage");
-    if (j && !wp_spa_json_parse_boolean (j, &save_interval_ms))
-      wp_warning ("Failed to parse boolean in device.use-persistent-storage");
-  }
-
-  {
-    g_autoptr (WpSpaJson) j = wp_settings_get (settings,
-        "device.auto-echo-cancel");
-    if (j && !wp_spa_json_parse_boolean (j, &auto_echo_cancel))
-      wp_warning ("Failed to parse boolean in device.auto-echo-cancel");
-  }
-
-  {
-    g_autoptr (WpSpaJson) j = wp_settings_get (settings,
-        "device.echo-cancel-sink-name");
-    if (j) {
-      echo_cancel_sink_name = wp_spa_json_parse_string (j);
-      if (!echo_cancel_sink_name)
-        wp_warning ("Failed to parse string in device.echo-cancel-sink-name");
-    }
-  }
-
-  {
-    g_autoptr (WpSpaJson) j = wp_settings_get (settings,
-        "device.echo-cancel-source-name");
-    if (j) {
-      echo_cancel_sink_name = wp_spa_json_parse_string (j);
-      if (!echo_cancel_sink_name)
-        wp_warning ("Failed to parse string in device.echo-cancel-source-name");
-    }
-  }
 
   wp_plugin_register (g_object_new (wp_default_nodes_get_type (),
       "name", NAME,
       "core", core,
-      "save-interval-ms", save_interval_ms > 0 ?
-          (guint)save_interval_ms : DEFAULT_SAVE_INTERVAL_MS,
-      "use-persistent-storage", use_persistent_storage,
-      "auto-echo-cancel", auto_echo_cancel,
-      "echo-cancel-sink-name", echo_cancel_sink_name ?
-          echo_cancel_sink_name : DEFAULT_ECHO_CANCEL_SINK_NAME,
-      "echo-cancel-source-name", echo_cancel_source_name ?
-          echo_cancel_source_name : DEFAULT_ECHO_CANCEL_SOURCE_NAME,
       NULL));
+
   return TRUE;
 }
 
