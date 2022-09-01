@@ -563,7 +563,7 @@ get_settings (WpDefaultNodes *self, const gchar *setting)
 
 void
 wp_settings_changed_callback (WpSettings *obj, const gchar *setting,
-  const gchar *raw_value, gpointer user_data)
+  WpSpaJson *value, gpointer user_data)
 {
   WpDefaultNodes *self = WP_DEFAULT_NODES (user_data);
   g_return_if_fail (self);
