@@ -655,8 +655,13 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
    const gchar *setting, const gchar *type, const gchar *new_value, gpointer d)
 {
   WpSettings *self = WP_SETTINGS(d);
-  const gchar *old_value = wp_properties_get (self->settings, setting);
+  const gchar *old_value = NULL;
 
+  /* Only handle JSON metadata values */
+  if (!g_str_equal (type, "Spa:String:JSON"))
+    return;
+
+  old_value = wp_properties_get (self->settings, setting);
   if (!old_value) {
     wp_info_object (self, "new setting defined \"%s\" = \"%s\"",
         setting, new_value);
@@ -671,15 +676,17 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
     Callback *cb = g_ptr_array_index (self->callbacks, i);
 
     if (g_pattern_match_simple (cb->pattern, setting)) {
-
+      g_autoptr (WpSpaJson) json = NULL;
       GValue values[3] = { G_VALUE_INIT, G_VALUE_INIT, G_VALUE_INIT };
+
       g_value_init (&values[0], G_TYPE_OBJECT);
       g_value_init (&values[1], G_TYPE_STRING);
-      g_value_init (&values[2], G_TYPE_STRING);
+      g_value_init (&values[2], WP_TYPE_SPA_JSON);
 
       g_value_set_object (&values[0], self);
       g_value_set_string (&values[1], setting);
-      g_value_set_string (&values[2], new_value);
+      json = new_value ? wp_spa_json_new_from_string (new_value) : NULL;
+      g_value_set_boxed (&values[2], json);
 
       g_closure_invoke (cb->closure, NULL, 3, values, NULL);
 
