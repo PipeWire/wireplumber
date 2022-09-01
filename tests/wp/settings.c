@@ -7,17 +7,6 @@
  */
 #include "../common/base-test-fixture.h"
 
-/*
- * tests the loading & parsing of JSON conf file(pls check the .conf that is
- * loaded), metadata updates,  wpsetttings object creation and its API.
- */
-typedef enum {
-  BOOLEAN,
-  INTEGER,
-  STRING,
-  FLOAT
-} SettingType;
-
 typedef struct {
   WpBaseTestFixture base;
 
@@ -29,9 +18,8 @@ typedef struct {
   WpSettings *s;
 
   gchar *triggered_setting;
-  gchar *triggered_setting_value;
+  WpSpaJson *triggered_setting_value;
   gboolean triggered_callback;
-  SettingType setting_type;
 } TestSettingsFixture;
 
 static void
@@ -634,29 +622,31 @@ test_rules (TestSettingsFixture *self, gconstpointer data)
 }
 
 void wp_settings_changed_callback (WpSettings *obj, const gchar *setting,
-    const gchar *raw_value, gpointer user_data)
+    WpSpaJson *json, gpointer user_data)
 {
   TestSettingsFixture *self = user_data;
   g_assert_cmpstr (setting, ==, self->triggered_setting);
   self->triggered_callback = true;
-  g_autoptr (WpSpaJson) j = wp_settings_get (self->s, setting);
-  g_assert_nonnull (j);
+  g_assert_nonnull (json);
 
-  if (self->setting_type == BOOLEAN) {
-    gboolean value = FALSE;
-    g_assert_true (wp_spa_json_parse_boolean (j, &value));
-    g_assert_cmpint (value, ==, spa_atob (self->triggered_setting_value));
-    g_assert_cmpstr (raw_value, ==, self->triggered_setting_value);
-  } else if (self->setting_type == INTEGER) {
-    gint value = 0;
-    g_assert_true (wp_spa_json_parse_int (j, &value));
-    g_assert_cmpint (value, ==, atoi (self->triggered_setting_value));
-    g_assert_cmpstr (raw_value, ==, self->triggered_setting_value);
-  } else if (self->setting_type == STRING) {
-    g_autofree gchar *value = wp_spa_json_parse_string (j);
+  if (wp_spa_json_is_boolean (json)) {
+    gboolean value = FALSE, expected = FALSE;
+    g_assert_true (wp_spa_json_parse_boolean (json, &value));
+    g_assert_true (wp_spa_json_parse_boolean (self->triggered_setting_value,
+        &expected));
+    g_assert_cmpint (value, ==, expected);
+  } else if (wp_spa_json_is_int (json)) {
+    gint value = 0, expected = 0;
+    g_assert_true (wp_spa_json_parse_int (json, &value));
+    g_assert_true (wp_spa_json_parse_int (self->triggered_setting_value,
+        &expected));
+    g_assert_cmpint (value, ==, expected);
+  } else if (wp_spa_json_is_string (json)) {
+    g_autofree gchar *value = wp_spa_json_parse_string (json);
+    g_autofree gchar *expected = wp_spa_json_parse_string (json);
     g_assert_nonnull (value);
-    g_assert_cmpstr (value, ==, self->triggered_setting_value);
-    g_assert_cmpstr (raw_value, ==, self->triggered_setting_value);
+    g_assert_nonnull (expected);
+    g_assert_cmpstr (value, ==, expected);
   }
 }
 
@@ -672,56 +662,57 @@ test_callbacks (TestSettingsFixture *self, gconstpointer data)
       wp_settings_changed_callback, (gpointer)self);
 
   {
+    g_autoptr (WpSpaJson) json = wp_spa_json_new_boolean (TRUE);
     self->triggered_setting = "test-setting1";
-    self->triggered_setting_value = "true";
-    self->triggered_callback = false;
-    self->setting_type = BOOLEAN;
+    self->triggered_setting_value = json;
+    self->triggered_callback = FALSE;
     wp_metadata_set (self->metadata, 0, self->triggered_setting,
-        "Spa:String:JSON", self->triggered_setting_value);
-    g_assert_cmpint (self->triggered_callback, ==, true);
+        "Spa:String:JSON", wp_spa_json_get_data (json));
+    g_assert_cmpint (self->triggered_callback, ==, TRUE);
   }
 
   {
+    g_autoptr (WpSpaJson) json = wp_spa_json_new_boolean (TRUE);
     self->triggered_setting = "test-setting1";
-    self->triggered_setting_value = "true";
-    self->setting_type = BOOLEAN;
-    self->triggered_callback = false;
+    self->triggered_setting_value = json;
+    self->triggered_callback = FALSE;
     wp_metadata_set (self->metadata, 0, self->triggered_setting,
-        "Spa:String:JSON", self->triggered_setting_value);
-    g_assert_cmpint (self->triggered_callback, ==, false);
+        "Spa:String:JSON", wp_spa_json_get_data (json));
+    g_assert_cmpint (self->triggered_callback, ==, FALSE);
   }
 
   {
+    g_autoptr (WpSpaJson) json = wp_spa_json_new_int (99);
     self->triggered_setting = "test-setting3-int";
-    self->setting_type = INTEGER;
-    self->triggered_setting_value = "99";
-    self->triggered_callback = true;
+    self->triggered_setting_value = json;
+    self->triggered_callback = TRUE;
     wp_metadata_set (self->metadata, 0, self->triggered_setting,
-        "Spa:String:JSON", self->triggered_setting_value);
-    g_assert_cmpint (self->triggered_callback, ==, true);
+        "Spa:String:JSON", wp_spa_json_get_data (json));
+    g_assert_cmpint (self->triggered_callback, ==, TRUE);
   }
 
   {
+    g_autoptr (WpSpaJson) json = wp_spa_json_new_string ("lets not blabber");
     self->triggered_setting = "test-setting4-string";
-    self->setting_type = STRING;
-    self->triggered_setting_value = "lets not blabber";
-    self->triggered_callback = true;
+    self->triggered_setting_value = json;
+    self->triggered_callback = TRUE;
     wp_metadata_set (self->metadata, 0, self->triggered_setting,
-        "Spa:String:JSON", self->triggered_setting_value);
-    g_assert_cmpint (self->triggered_callback, ==, true);
+        "Spa:String:JSON", wp_spa_json_get_data (json));
+    g_assert_cmpint (self->triggered_callback, ==, TRUE);
   }
+
   {
+    g_autoptr (WpSpaJson) json = wp_spa_json_new_string ("lets blabber");
     self->triggered_setting = "test-setting4-string";
-    self->setting_type = STRING;
-    self->triggered_setting_value = "lets blabber";
-    self->triggered_callback = false;
+    self->triggered_setting_value = json;
+    self->triggered_callback = FALSE;
     g_assert_cmpint (wp_settings_unsubscribe (s, sub_id), ==,
         true);
     g_assert_cmpint (wp_settings_unsubscribe (s, (sub_id-1)), ==,
         false);
     wp_metadata_set (self->metadata, 0, self->triggered_setting,
-        "Spa:String:JSON", self->triggered_setting_value);
-    g_assert_cmpint (self->triggered_callback, ==, false);
+        "Spa:String:JSON", wp_spa_json_get_data (json));
+    g_assert_cmpint (self->triggered_callback, ==, FALSE);
   }
 }
 
