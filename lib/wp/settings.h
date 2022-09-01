@@ -37,16 +37,16 @@ WpSettings * wp_settings_get_instance (WpCore * core,
     const gchar *metadata_name);
 
 /*!
- * \brief callback conveying the changed setting and its string(raw) value
+ * \brief callback conveying the changed setting and its json value
  *
  * \ingroup wpsettings
  * \param obj the wpsettings object
  * \param setting the changed setting
- * \param raw_value string value of the the changed setting
+ * \param value json value of the the changed setting
  * \param user_data data passed in the \a wp_settings_subscribe
  */
 typedef void (*WpSettingsChangedCallback) (WpSettings *obj,
-    const gchar *setting, const gchar *raw_value, gpointer user_data);
+    const gchar *setting, WpSpaJson *value, gpointer user_data);
 
 WP_API
 guintptr wp_settings_subscribe (WpSettings *self,
