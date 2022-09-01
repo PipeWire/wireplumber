@@ -256,27 +256,26 @@ local setting_value
 local callback
 local finish_activation
 
-function callback (obj, s, rawvalue)
-  local json = Json.Raw (rawvalue)
+function callback (obj, s, json)
   assert (json ~= nil)
 
   if (json:is_boolean()) then
     assert (s == setting)
     callback = true
-    assert (json:parse() == setting_value)
-    assert (setting_value == Settings.get (s, "test-settings"):parse())
+    assert (json:parse() == setting_value:parse())
+    assert (setting_value:parse() == Settings.get (s, "test-settings"):parse())
 
   elseif (json:is_int()) then
     assert (s == setting)
     callback = true
-    assert (json:parse() == setting_value)
-    assert (setting_value == Settings.get (s, "test-settings"):parse())
+    assert (json:parse() == setting_value:parse())
+    assert (setting_value:parse() == Settings.get (s, "test-settings"):parse())
 
   elseif (json:is_string()) then
     assert (s == setting)
     callback = true
-    assert (json:parse() == setting_value)
-    assert (setting_value == Settings.get (s, "test-settings"):parse())
+    assert (json:parse() == setting_value:parse())
+    assert (setting_value:parse() == Settings.get (s, "test-settings"):parse())
   end
 
   if (finish_activation) then
@@ -297,35 +296,35 @@ metadata_om:connect("objects-changed", function (om)
 
   -- test #1
   setting = "test-setting1"
-  setting_value = true
+  setting_value = Json.Boolean (true)
   callback = false
 
-  metadata:set(0, setting, "Spa:String:JSON", tostring(setting_value))
+  metadata:set(0, setting, "Spa:String:JSON", setting_value:get_data())
   assert (callback)
 
   -- test #2
   setting = "test-setting1"
-  setting_value = true
+  setting_value = Json.Boolean (true)
   callback = false
 
-  metadata:set(0, setting, "Spa:String:JSON", tostring(setting_value))
+  metadata:set(0, setting, "Spa:String:JSON", setting_value:get_data())
   assert (not callback)
 
   -- test #3
   setting = "test-setting3-int"
-  setting_value = 99
+  setting_value = Json.Int (99)
   callback = false
 
-  metadata:set(0, setting, "Spa:String:JSON", setting_value)
+  metadata:set(0, setting, "Spa:String:JSON", setting_value:get_data())
   assert (callback)
 
   -- test #4
   setting = "test-setting4-string"
-  setting_value = "lets not blabber"
+  setting_value = Json.String ("lets not blabber")
   callback = false
 
   finish_activation = true
-  metadata:set(0, setting, "Spa:String:JSON", "\"lets not blabber\"")
+  metadata:set(0, setting, "Spa:String:JSON", setting_value:get_data())
   assert (callback)
 
 end)
