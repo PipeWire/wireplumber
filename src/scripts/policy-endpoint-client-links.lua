@@ -5,7 +5,7 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local duck_level = Settings.parse_float_safe ("default-policy-duck.level", 0.3)
+local duck_level = Settings.parse_float_safe ("policy.default.duck-level", 0.3)
 local roles = Settings.parse_object_safe ("endpoints-roles")
 
 function findRole(role)
