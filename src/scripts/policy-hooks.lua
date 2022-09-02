@@ -14,6 +14,12 @@ local cutils = require ("common-utils")
 
 local move = Settings.parse_boolean_safe ("default-policy-move", false)
 
+function settingsChangedCallback (_, setting, _)
+  move = Settings.parse_boolean_safe ("policy.default.move", move)
+end
+
+Settings.subscribe ("policy.default.move", settingsChangedCallback)
+
 function parseBool (var)
   return cutils.parseBool (var)
 end

@@ -16,13 +16,31 @@
 
 -- settings file: policy.conf
 
-local move = Settings.parse_boolean_safe ("default-policy-move", false)
-local follow = Settings.parse_boolean_safe ("default-policy-follow", false)
-local filter_forward_format =
-    Settings.parse_boolean_safe ("filter.forward-format", false)
 
 local putils = require ("policy-utils")
 local cutils = require ("common-utils")
+
+local move = Settings.parse_boolean_safe ("policy.default.move", false)
+local follow = Settings.parse_boolean_safe ("policy.default.follow", false)
+local filter_forward_format = Settings.parse_boolean_safe
+    ("policy.default.filter-forward-format", false)
+
+local function settingsChangedCallback (_, setting, _)
+
+  if setting == "policy.default.move" then
+    move = Settings.parse_boolean_safe ("policy.default.move", move)
+    handleMoveSetting (move)
+  elseif setting == "policy.default.follow" then
+    follow = Settings.parse_boolean_safe ("policy.default.move", follow)
+    handleFollowSetting (follow)
+  elseif setting == "policy.default.filter-forward-format" then
+    filter_forward_format = Settings.parse_boolean_safe
+        ("policy.default.filter-forward-format", filter_forward_format)
+  end
+
+end
+
+Settings.subscribe ("policy.default*", settingsChangedCallback)
 
 find_target_events = {}
 
@@ -291,61 +309,80 @@ SimpleEventHook {
   end
 }:register ()
 
-if follow then
-  SimpleEventHook {
-    name = "follow@policy-node",
-    type = "after-events",
-    priority = "rescan-policy",
-    interests = {
-      EventInterest {
-        Constraint { "event.type", "=", "object-changed" },
-        Constraint { "event.subject.type", "=", "metadata" },
-        Constraint { "metadata.name", "=", "default" },
-        Constraint { "event.subject.key", "=", "default.audio.source" },
+local follow_hook_handle = nil
+
+local function handleFollowSetting (enable)
+  if (follow_hook_handle == nil) and (enable == true) then
+    follow_hook_handle = SimpleEventHook {
+      name = "follow@policy-node",
+      type = "after-events",
+      priority = "rescan-policy",
+      interests = {
+        EventInterest {
+          Constraint { "event.type", "=", "object-changed" },
+          Constraint { "event.subject.type", "=", "metadata" },
+          Constraint { "metadata.name", "=", "default" },
+          Constraint { "event.subject.key", "=", "default.audio.source" },
+        },
+        EventInterest {
+          Constraint { "event.type", "=", "object-changed" },
+          Constraint { "event.subject.type", "=", "metadata" },
+          Constraint { "metadata.name", "=", "default" },
+          Constraint { "event.subject.key", "=", "default.audio.sink" },
+        },
+        EventInterest {
+          Constraint { "event.type", "=", "object-changed" },
+          Constraint { "event.subject.type", "=", "metadata" },
+          Constraint { "metadata.name", "=", "default" },
+          Constraint { "event.subject.key", "=", "default.video.source" },
+        },
       },
-      EventInterest {
-        Constraint { "event.type", "=", "object-changed" },
-        Constraint { "event.subject.type", "=", "metadata" },
-        Constraint { "metadata.name", "=", "default" },
-        Constraint { "event.subject.key", "=", "default.audio.sink" },
-      },
-      EventInterest {
-        Constraint { "event.type", "=", "object-changed" },
-        Constraint { "event.subject.type", "=", "metadata" },
-        Constraint { "metadata.name", "=", "default" },
-        Constraint { "event.subject.key", "=", "default.video.source" },
-      },
-    },
-    execute = function ()
-      rescan ()
-    end
-  }:register ()
+      execute = function ()
+        rescan ()
+      end
+    }
+    follow_hook_handle:register ()
+  elseif (follow_hook_handle ~= nil) and (enable == false) then
+    follow_hook_handle:remove ()
+    follow_hook_handle = nil
+  end
 end
 
-if move then
-  SimpleEventHook {
-    name = "move@policy-node",
-    type = "after-events",
-    priority = "rescan-policy",
-    interests = {
-      EventInterest {
-        Constraint { "event.type", "=", "object-changed" },
-        Constraint { "event.subject.type", "=", "metadata" },
-        Constraint { "metadata.name", "=", "default" },
-        Constraint { "event.subject.key", "=", "target.node" },
+local move_hook_handle = nil
+
+function handleMoveSetting (enable)
+  if (move_hook_handle == nil) and (enable == true) then
+    move_hook_handle = SimpleEventHook {
+      name = "move@policy-node",
+      type = "after-events",
+      priority = "rescan-policy",
+      interests = {
+        EventInterest {
+          Constraint { "event.type", "=", "object-changed" },
+          Constraint { "event.subject.type", "=", "metadata" },
+          Constraint { "metadata.name", "=", "default" },
+          Constraint { "event.subject.key", "=", "target.node" },
+        },
+        EventInterest {
+          Constraint { "event.type", "=", "object-changed" },
+          Constraint { "event.subject.type", "=", "metadata" },
+          Constraint { "metadata.name", "=", "default" },
+          Constraint { "event.subject.key", "=", "target.object" },
+        },
       },
-      EventInterest {
-        Constraint { "event.type", "=", "object-changed" },
-        Constraint { "event.subject.type", "=", "metadata" },
-        Constraint { "metadata.name", "=", "default" },
-        Constraint { "event.subject.key", "=", "target.object" },
-      },
-    },
-    execute = function ()
-      rescan ()
-    end
-  }:register ()
+      execute = function ()
+        rescan ()
+      end
+    }
+    move_hook_handle:register()
+  elseif (move_hook_handle ~= nil) and (enable == false) then
+    move_hook_handle:remove ()
+    move_hook_handle = nil
+  end
 end
+
+handleMoveSetting (move)
+handleFollowSetting (follow)
 
 default_nodes = Plugin.find ("default-nodes-api")
 

@@ -16,7 +16,7 @@ function configProperties (node)
     ["item.node"] = node,
     ["item.plugged.usec"] = GLib.get_monotonic_time (),
     ["item.features.no-dsp"] =
-        Settings.parse_boolean_safe ("default-policy-audio.no-dsp", false),
+        Settings.parse_boolean_safe ("policy.default.audio-no-dsp", false),
     ["item.features.monitor"] = true,
     ["item.features.control-port"] = false,
     ["node.id"] = node ["bound-id"],
