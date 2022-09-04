@@ -18,69 +18,16 @@
 
 -- settings file: stream.conf
 
-config_restore_props =
-    Settings.parse_boolean_safe ("stream_default.restore-props", false)
-config_restore_target =
-    Settings.parse_boolean_safe ("stream_default.restore-target", false)
-config_default_channel_volume =
-    Settings.parse_float_safe ("stream.default-channel-volume", 1.0)
+local cutils = require ("common-utils")
 
-function rulesApplyProperties (properties)
-  local matched, mprops = Settings.apply_rule ("stream_default", properties)
-
-  if (matched and mprops) then
-    for k, v in pairs (mprops) do
-      properties [k] = v
-    end
-  end
-
-end
+restore_props = Settings.parse_boolean_safe ("stream.restore-props", false)
+restore_target = Settings.parse_boolean_safe ("stream.restore-target", false)
+default_channel_volume = Settings.parse_float_safe (
+    "stream.default-channel-volume", 1.0)
 
 -- the state storage
 state = State ("restore-stream")
 state_table = state:load ()
-
--- simple serializer {"foo", "bar"} -> "foo;bar;"
-function serializeArray (a)
-  local str = ""
-  for _, v in ipairs (a) do
-    str = str .. tostring (v):gsub (";", "\\;") .. ";"
-  end
-  return str
-end
-
--- simple deserializer "foo;bar;" -> {"foo", "bar"}
-function parseArray (str, convert_value, with_type)
-  local array = {}
-  local val = ""
-  local escaped = false
-  for i = 1, #str do
-    local c = str:sub (i,i)
-    if c == '\\' then
-      escaped = true
-    elseif c == ';' and not escaped then
-      val = convert_value and convert_value (val) or val
-      table.insert (array, val)
-      val = ""
-    else
-      val = val .. tostring (c)
-      escaped = false
-    end
-  end
-  if with_type then
-    array ["pod_type"] = "Array"
-  end
-  return array
-end
-
-function parseParam (param, id)
-  local route = param:parse ()
-  if route.pod_type == "Object" and route.object_id == id then
-    return route.properties
-  else
-    return nil
-  end
-end
 
 function storeAfterTimeout ()
   if timeout_source then
@@ -129,7 +76,7 @@ function saveTarget (subject, target_key, type, value)
   end
 
   local stream_props = node.properties
-  rulesApplyProperties (stream_props)
+  cutils.evaluateRulesApplyProperties (stream_props, "stream")
 
   if stream_props ["state.restore-target"] == "false" then
     return
@@ -144,7 +91,7 @@ function saveTarget (subject, target_key, type, value)
   local target_name = nil
 
   if not target_value then
-    local metadata = metadata_om:lookup ()
+    local metadata = cutils.default_metadata_om:lookup ()
     if metadata then
       target_value = metadata:find (node ["bound-id"], target_key)
     end
@@ -167,8 +114,7 @@ function saveTarget (subject, target_key, type, value)
   state_table [key_base .. ":target"] = target_name
 
   Log.info (node, "saving stream target for " ..
-    tostring (stream_props ["node.name"]) ..
-    " -> " .. tostring (target_name))
+    tostring (stream_props ["node.name"]) .. " -> " .. tostring (target_name))
 
   storeAfterTimeout ()
 end
@@ -197,7 +143,7 @@ function restoreTarget(node, target_name)
   }
 
   if target_node then
-    local metadata = metadata_om:lookup ()
+    local metadata = cutils.default_metadata_om:lookup ()
     if metadata then
       metadata:set (node ["bound-id"], "target.node", "Spa:Id",
           target_node ["bound-id"])
@@ -260,12 +206,12 @@ function moveToMetadata (key_base, metadata)
   end
   local str = state_table [key_base .. ":channelVolumes"]
   if str then
-    route_table ["volumes"] = parseArray (str, tonumber, true)
+    route_table ["volumes"] = cutils.parseArray (str, tonumber, true)
     count = count + 1;
   end
   local str = state_table [key_base .. ":channelMap"]
   if str then
-    route_table ["channels"] = parseArray (str, nil, true)
+    route_table ["channels"] = cutils.parseArray (str, nil, true)
     count = count + 1;
   end
 
@@ -277,9 +223,9 @@ end
 
 function saveStream (node)
   local stream_props = node.properties
-  rulesApplyProperties (stream_props)
+  cutils.evaluateRulesApplyProperties (stream_props, "stream")
 
-  if config_restore_props and stream_props ["state.restore-props"] ~= "false"
+  if restore_props and stream_props ["state.restore-props"] ~= "false"
   then
 
     local key_base = formKeyBase (stream_props)
@@ -291,7 +237,7 @@ function saveStream (node)
         tostring (stream_props["node.name"]))
 
     for p in node:iterate_params ("Props") do
-      local props = parseParam (p, "Props")
+      local props = cutils.parseParam (p, "Props")
       if not props then
         goto skip_prop
       end
@@ -304,11 +250,11 @@ function saveStream (node)
       end
       if props.channelVolumes then
         state_table [key_base .. ":channelVolumes"] =
-            serializeArray (props.channelVolumes)
+            cutils.serializeArray (props.channelVolumes)
       end
       if props.channelMap then
         state_table [key_base .. ":channelMap"] =
-            serializeArray (props.channelMap)
+            cutils.serializeArray (props.channelMap)
       end
 
       ::skip_prop::
@@ -319,7 +265,7 @@ function saveStream (node)
 end
 
 function build_default_channel_volumes (node)
-  local def_vol = config_default_channel_volume
+  local def_vol = default_channel_volume
   local channels = 2
   local res = {}
 
@@ -345,14 +291,14 @@ end
 
 function restoreStream (node)
   local stream_props = node.properties
-  rulesApplyProperties (stream_props)
+  cutils.evaluateRulesApplyProperties (stream_props, "stream")
 
   local key_base = formKeyBase (stream_props)
   if not key_base then
     return
   end
 
-  if config_restore_props and stream_props["state.restore-props"] ~= "false"
+  if restore_props and stream_props ["state.restore-props"] ~= "false"
   then
     local props = { "Spa:Pod:Object:Param:Props", "Props" }
 
@@ -363,11 +309,11 @@ function restoreStream (node)
     props.mute = str and (str == "true") or nil
 
     local str = state_table [key_base .. ":channelVolumes"]
-    props.channelVolumes = str and parseArray (str, tonumber) or
+    props.channelVolumes = str and cutils.parseArray (str, tonumber) or
         build_default_channel_volumes (node)
 
     local str = state_table [key_base .. ":channelMap"]
-    props.channelMap = str and parseArray (str) or nil
+    props.channelMap = str and cutils.parseArray (str) or nil
 
     -- convert arrays to Spa Pod
     if props.channelVolumes then
@@ -381,11 +327,11 @@ function restoreStream (node)
 
     Log.info (node, "restore values from " .. key_base)
     local param = Pod.Object (props)
-    Log.debug (param, "setting props on " .. tostring (node))
+    Log.debug (param, "setting props on " .. tostring (stream_props ["node.name"]))
     node:set_param ("Props", param)
   end
 
-  if config_restore_target and stream_props["state.restore-target"] ~= "false"
+  if restore_target and stream_props["state.restore-target"] ~= "false"
   then
     local str = state_table [key_base .. ":target"]
     if str then
@@ -394,73 +340,76 @@ function restoreStream (node)
   end
 end
 
--- save "targe.node" if it is present in default metadata
-if config_restore_target then
-  SimpleEventHook {
-    name = "metadata-added@restore-stream-save-target",
-    type = "on-event",
-    priority = "default-metadata-added-restore-stream",
-    interests = {
-      EventInterest {
-        Constraint { "event.type", "=", "object-added" },
-        Constraint { "event.subject.type", "=", "metadata" },
-        Constraint { "metadata.name", "=", "default" },
-      },
-    },
-    execute = function (event)
-      local metadata = event:get_subject()
+local restore_target_hook_handles = nil
 
-      -- process existing metadata
-      for s, k, t, v in metadata:iterate (Id.ANY) do
-        saveTarget (s, k, t, v)
+local function handleRestoreTargetSetting (enable)
+
+  if (restore_target_hook_handles == nil) and (enable == true) then
+    restore_target_hook_handles = {}
+
+    -- save "targe.node" if it is present in default metadata
+    restore_target_hook_handles [1] = SimpleEventHook {
+      name = "metadata-added@restore-stream-save-target",
+      type = "on-event",
+      priority = "default-metadata-added-restore-stream",
+      interests = {
+        EventInterest {
+          Constraint { "event.type", "=", "object-added" },
+          Constraint { "event.subject.type", "=", "metadata" },
+          Constraint { "metadata.name", "=", "default" },
+        },
+      },
+      execute = function (event)
+        local metadata = event:get_subject ()
+
+        -- process existing metadata
+        for s, k, t, v in metadata:iterate (Id.ANY) do
+          saveTarget (s, k, t, v)
+        end
       end
-    end
-  }:register()
-
--- save "target.node" on metadata changes
-  SimpleEventHook {
-    name = "metadata-changed@restore-stream-save-target",
-    type = "on-event",
-    priority = "default-metadata-changed-restore-stream",
-    interests = {
-      EventInterest {
-        Constraint { "event.type", "=", "object-changed" },
-        Constraint { "event.subject.type", "=", "metadata" },
-        Constraint { "metadata.name", "=", "default" },
-      },
-    },
-    execute = function (event)
-      local subject = event:get_subject ()
-      local props = event:get_properties ()
-
-      local subject_id = props ["event.subject.id"]
-      local key = props ["event.subject.key"]
-      local type = props ["event.subject.spa_type"]
-      local value = props ["event.subject.value"]
-
-      saveTarget (subject_id, key, type, value)
-    end
-  }:register ()
-
-  metadata_om = ObjectManager {
-    Interest {
-      type = "metadata",
-      Constraint { "metadata.name", "=", "default" },
     }
-  }
 
-  -- metadata_om:connect ("object-added", function  (om, metadata)
-  --   -- process existing metadata
-  --   for s, k, t, v in metadata:iterate (Id.ANY) do
-  --     saveTarget (s, k, t, v)
-  --   end
-  --   -- and watch for changes
-  --   metadata:connect ("changed", function (m, subject, key, type, value)
-  --     saveTarget (subject, key, type, value)
-  --   end)
-  -- end)
-  metadata_om:activate ()
+    -- save "target.node" on metadata changes
+    restore_target_hook_handles [2] = SimpleEventHook {
+      name = "metadata-changed@restore-stream-save-target",
+      type = "on-event",
+      priority = "default-metadata-changed-restore-stream",
+      interests = {
+          EventInterest {
+            Constraint { "event.type", "=", "object-changed" },
+            Constraint { "event.subject.type", "=", "metadata" },
+            Constraint { "metadata.name", "=", "default" },
+            Constraint { "event.subject.key", "=", "target.node" },
+          },
+          EventInterest {
+            Constraint { "event.type", "=", "object-changed" },
+            Constraint { "event.subject.type", "=", "metadata" },
+            Constraint { "metadata.name", "=", "default" },
+            Constraint { "event.subject.key", "=", "target.object" },
+          },
+      },
+      execute = function (event)
+        local subject = event:get_subject ()
+        local props = event:get_properties ()
+
+        local subject_id = props ["event.subject.id"]
+        local key = props ["event.subject.key"]
+        local type = props ["event.subject.spa_type"]
+        local value = props ["event.subject.value"]
+
+        saveTarget (subject_id, key, type, value)
+      end
+    }
+    restore_target_hook_handles[1]:register()
+    restore_target_hook_handles[2]:register()
+  elseif (restore_target_hook_handles ~= nil) and (enable == false) then
+    restore_target_hook_handles [1]:remove ()
+    restore_target_hook_handles [2]:remove ()
+    restore_target_hook_handles = nil
+  end
 end
+
+handleRestoreTargetSetting (restore_target)
 
 function handleRouteSettings (subject, key, type, value)
   if type ~= "Spa:String:JSON" then
@@ -490,10 +439,10 @@ function handleRouteSettings (subject, key, type, value)
     state_table [key_base .. ":mute"] = tostring (vparsed.mute)
   end
   if vparsed.channels ~= nil then
-    state_table [key_base .. ":channelMap"] = serializeArray (vparsed.channels)
+    state_table [key_base .. ":channelMap"] = cutils.serializeArray (vparsed.channels)
   end
   if vparsed.volumes ~= nil then
-    state_table [key_base .. ":channelVolumes"] = serializeArray (vparsed.volumes)
+    state_table [key_base .. ":channelVolumes"] = cutils.serializeArray (vparsed.volumes)
   end
 
   storeAfterTimeout ()
@@ -518,65 +467,101 @@ end)
 allnodes_om = ObjectManager { Interest { type = "node" } }
 allnodes_om:activate ()
 
--- restore-stream properties
-SimpleEventHook {
-  name = "node-added@restore-stream",
-  type = "on-event",
-  priority = "node-added-restore-stream",
-  interests = {
-    EventInterest {
-      Constraint { "event.type", "=", "object-added" },
-      Constraint { "event.subject.type", "=", "node" },
-      Constraint { "media.class", "matches", "Stream/*", type = "pw-global" },
-    },
-    -- and device nodes that are not associated with any routes
-    EventInterest {
-      Constraint { "event.type", "=", "object-added" },
-      Constraint { "event.subject.type", "=", "node" },
-      Constraint { "media.class", "matches", "Audio/*", type = "pw-global" },
-      Constraint { "device.routes", "is-absent", type = "pw" },
-    },
-    EventInterest {
-      Constraint { "event.type", "=", "object-added" },
-      Constraint { "event.subject.type", "=", "node" },
-      Constraint { "media.class", "matches", "Audio/*", type = "pw-global" },
-      Constraint { "device.routes", "equals", "0", type = "pw" },
-    },
-  },
-  execute = function (event)
-    restoreStream (event:get_subject ())
-  end
-}:register ()
+local restore_stream_hook_handles = nil
 
--- save-stream if any of the stream parms changes
-SimpleEventHook {
-  name = "node-parms-changed@restore-stream-save-stream",
-  type = "on-event",
-  priority = "node-changed-restore-stream",
-  interests = {
-    EventInterest {
-      Constraint { "event.type", "=", "params-changed" },
-      Constraint { "event.subject.type", "=", "node" },
-      Constraint { "media.class", "matches", "Stream/*", type = "pw-global" },
-    },
-    -- and device nodes that are not associated with any routes
-    EventInterest {
-      Constraint { "event.type", "=", "params-changed" },
-      Constraint { "event.subject.type", "=", "node" },
-      Constraint { "media.class", "matches", "Audio/*", type = "pw-global" },
-      Constraint { "device.routes", "is-absent", type = "pw" },
-    },
-    EventInterest {
-      Constraint { "event.type", "=", "params-changed" },
-      Constraint { "event.subject.type", "=", "node" },
-      Constraint { "media.class", "matches", "Audio/*", type = "pw-global" },
-      Constraint { "device.routes", "equals", "0", type = "pw" },
-    },
-  },
-  execute = function (event)
-    saveStream (event:get_subject())
+local function handleRestoreStreamSetting (enable)
+  if (restore_stream_hook_handles == nil) and (enable == true) then
+    restore_stream_hook_handles = {}
+
+    -- restore-stream properties
+    restore_stream_hook_handles [1] = SimpleEventHook {
+      name = "node-added@restore-stream",
+      type = "on-event",
+      priority = "node-added-restore-stream",
+      interests = {
+        EventInterest {
+          Constraint { "event.type", "=", "object-added" },
+          Constraint { "event.subject.type", "=", "node" },
+          Constraint { "media.class", "matches", "Stream/*", type = "pw-global" },
+        },
+        -- and device nodes that are not associated with any routes
+        EventInterest {
+          Constraint { "event.type", "=", "object-added" },
+          Constraint { "event.subject.type", "=", "node" },
+          Constraint { "media.class", "matches", "Audio/*", type = "pw-global" },
+          Constraint { "device.routes", "is-absent", type = "pw" },
+        },
+        EventInterest {
+          Constraint { "event.type", "=", "object-added" },
+          Constraint { "event.subject.type", "=", "node" },
+          Constraint { "media.class", "matches", "Audio/*", type = "pw-global" },
+          Constraint { "device.routes", "equals", "0", type = "pw" },
+        },
+      },
+      execute = function (event)
+        restoreStream (event:get_subject ())
+      end
+    }
+
+    -- save-stream if any of the stream parms changes
+    restore_stream_hook_handles [2] = SimpleEventHook {
+      name = "node-parms-changed@restore-stream-save-stream",
+      type = "on-event",
+      priority = "node-changed-restore-stream",
+      interests = {
+        EventInterest {
+          Constraint { "event.type", "=", "params-changed" },
+          Constraint { "event.subject.type", "=", "node" },
+          Constraint { "event.subject.param-id", "=", "Props" },
+          Constraint { "media.class", "matches", "Stream/*", type = "pw-global" },
+        },
+        -- and device nodes that are not associated with any routes
+        EventInterest {
+          Constraint { "event.type", "=", "params-changed" },
+          Constraint { "event.subject.type", "=", "node" },
+          Constraint { "event.subject.param-id", "=", "Props" },
+          Constraint { "media.class", "matches", "Audio/*", type = "pw-global" },
+          Constraint { "device.routes", "is-absent", type = "pw" },
+        },
+        EventInterest {
+          Constraint { "event.type", "=", "params-changed" },
+          Constraint { "event.subject.type", "=", "node" },
+          Constraint { "event.subject.param-id", "=", "Props" },
+          Constraint { "media.class", "matches", "Audio/*", type = "pw-global" },
+          Constraint { "device.routes", "equals", "0", type = "pw" },
+        },
+      },
+      execute = function (event)
+        saveStream (event:get_subject())
+      end
+    }
+    restore_stream_hook_handles[1]:register()
+    restore_stream_hook_handles[2]:register()
+
+
+  elseif (restore_stream_hook_handles ~= nil) and (enable == false) then
+    restore_stream_hook_handles [1]:remove ()
+    restore_stream_hook_handles [2]:remove ()
+    restore_stream_hook_handles = nil
   end
-}:register ()
+end
+
+handleRestoreStreamSetting (restore_props)
+
+local function settingsChangedCallback (_, setting, _)
+
+  if setting == "stream.restore-props" then
+    restore_props = Settings.parse_boolean_safe ("stream.restore-props",
+        restore_props)
+    handleRestoreStreamSetting (restore_props)
+  elseif setting == "stream.restore-target" then
+    restore_target = Settings.parse_boolean_safe ("stream.restore-target",
+        restore_target)
+    handleRestoreTargetSetting (restore_target)
+  end
+end
+
+local settings_sub_id = Settings.subscribe ("stream*", settingsChangedCallback)
 
 streams_om = ObjectManager {
   -- match stream nodes
@@ -596,8 +581,5 @@ streams_om = ObjectManager {
     Constraint { "device.routes", "equals", "0", type = "pw" },
   },
 }
--- streams_om:connect ("object-added", function (streams_om, node)
---   node:connect ("params-changed", saveStream)
---   restoreStream (node)
--- end)
+
 streams_om:activate ()
