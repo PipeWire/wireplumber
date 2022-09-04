@@ -291,15 +291,6 @@ linkables_om = ObjectManager {
 
 linkables_om:activate ()
 
-metadata_om = ObjectManager {
-  Interest {
-    type = "metadata",
-    Constraint { "metadata.name", "=", "default" },
-  }
-}
-
-metadata_om:activate ()
-
 links_om = ObjectManager {
   Interest {
     type = "SiLink",
@@ -311,7 +302,7 @@ links_om = ObjectManager {
 links_om:activate ()
 
 function putils.get_default_metadata_object ()
-  return metadata_om:lookup ()
+  return cutils.default_metadata_om:lookup ()
 end
 
 return putils
