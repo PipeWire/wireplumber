@@ -14,9 +14,9 @@ function cutils.parseBool (var)
 end
 
 function cutils.parseParam (param, id)
-  local route = param:parse ()
-  if route.pod_type == "Object" and route.object_id == id then
-    return route.properties
+  local props = param:parse ()
+  if props.pod_type == "Object" and props.object_id == id then
+    return props.properties
   else
     return nil
   end
@@ -42,5 +42,57 @@ function cutils.getDefaultNode (properties, target_direction)
 end
 
 default_nodes = Plugin.find ("default-nodes-api")
+
+cutils.default_metadata_om = ObjectManager {
+  Interest {
+    type = "metadata",
+    Constraint { "metadata.name", "=", "default" },
+  }
+}
+
+function cutils.evaluateRulesApplyProperties (properties, name)
+  local matched, mprops = Settings.apply_rule (name, properties)
+
+  if (matched and mprops) then
+    for k, v in pairs (mprops) do
+      properties [k] = v
+    end
+  end
+end
+
+-- simple serializer {"foo", "bar"} -> "foo;bar;"
+function cutils.serializeArray (a)
+  local str = ""
+  for _, v in ipairs (a) do
+    str = str .. tostring (v):gsub (";", "\\;") .. ";"
+  end
+  return str
+end
+
+-- simple deserializer "foo;bar;" -> {"foo", "bar"}
+function cutils.parseArray (str, convert_value, with_type)
+  local array = {}
+  local val = ""
+  local escaped = false
+  for i = 1, #str do
+    local c = str:sub (i, i)
+    if c == '\\' then
+      escaped = true
+    elseif c == ';' and not escaped then
+      val = convert_value and convert_value (val) or val
+      table.insert (array, val)
+      val = ""
+    else
+      val = val .. tostring (c)
+      escaped = false
+    end
+  end
+  if with_type then
+    array ["pod_type"] = "Array"
+  end
+  return array
+end
+
+cutils.default_metadata_om:activate ()
 
 return cutils
