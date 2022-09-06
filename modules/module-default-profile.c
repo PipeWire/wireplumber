@@ -287,7 +287,13 @@ wp_default_profile_enable (WpPlugin * plugin, WpTransition * transition)
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "params-changed",
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "device",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.param-id", "=s", "EnumProfile",
       NULL);
+  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "params-changed",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "device",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.param-id", "=s", "Profile",
+    NULL);
   wp_event_dispatcher_register_hook (dispatcher, hook);
   g_clear_object (&hook);
 }
