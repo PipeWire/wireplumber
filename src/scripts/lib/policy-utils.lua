@@ -256,7 +256,8 @@ function putils.haveAvailableRoutes (si_props)
       goto skip_enum_route
     end
 
-    if not arrayContains (route.devices, tonumber (card_profile_device)) then
+    if not cutils.arrayContains
+          (route.devices, tonumber (card_profile_device)) then
       goto skip_enum_route
     end
     found = found + 1;
