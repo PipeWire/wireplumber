@@ -93,6 +93,28 @@ function cutils.parseArray (str, convert_value, with_type)
   return array
 end
 
+function cutils.arrayContains (a, value)
+  for _, v in ipairs (a) do
+    if v == value then
+      return true
+    end
+  end
+  return false
+end
+
+function cutils.storeAfterTimeout (state, state_table)
+  if timeout_source then
+    timeout_source:destroy ()
+  end
+  local timeout_source = Core.timeout_add (1000, function ()
+    local saved, err = state:save (state_table)
+    if not saved then
+      Log.warning (err)
+    end
+    timeout_source = nil
+  end)
+end
+
 cutils.default_metadata_om:activate ()
 
 return cutils

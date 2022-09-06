@@ -26,10 +26,50 @@
 
 -- settings file: policy.conf
 
-local use_persistent_storage =
-    Settings.parse_boolean_safe ("bt-policy-use-persistent-storage", false)
-local use_headset_profile =
-    Settings.parse_boolean_safe ("bt-policy-media-role.use-headset-profile", true)
+local cutils = require ("common-utils")
+
+local use_persistent_storage = Settings.parse_boolean_safe
+    ("policy.bluetooth.use-persistent-storage", false)
+local use_headset_profile = Settings.parse_boolean_safe
+    ("policy.bluetooth.media-role.use-headset-profile", true)
+local apps_setting = Settings.parse_array_safe
+    ("policy.bluetooth.media-role.applications")
+
+state = nil
+headset_profiles = nil
+
+function handlePersistantSetting (enable)
+  if enable and state == nil then
+    -- the state storage
+    state = use_persistent_storage and State ("policy-bluetooth") or nil
+    headset_profiles = state and state:load () or {}
+  else
+    state = nil
+    headset_profiles = nil
+  end
+end
+
+local function settingsChangedCallback (_, setting, _)
+  if setting == "policy.bluetooth.use-persistent-storage" then
+    use_persistent_storage = Settings.parse_boolean_safe
+        ("policy.bluetooth.use-persistent-storage", use_persistent_storage)
+    handlePersistantSetting (use_persistent_storage)
+  elseif setting == "policy.bluetooth.media-role.use-headset-profile" then
+    use_headset_profile = Settings.parse_boolean_safe
+        ("policy.bluetooth.media-role.use-headset-profile", use_headset_profile)
+  elseif setting == "policy.bluetooth.media-role.applications" then
+    local new_apps_setting = Settings.parse_array_safe
+        ("policy.bluetooth.media-role.applications")
+    if #new_apps_setting > 0 then
+      apps_setting = new_apps_setting
+      loadAppNames (apps_setting)
+    end
+  end
+end
+
+Settings.subscribe ("policy.bluetooth*", settingsChangedCallback)
+
+handlePersistantSetting (use_persistent_storage)
 
 local applications = {}
 local profile_restore_timeout_msec = 2000
@@ -38,25 +78,18 @@ local INVALID = -1
 local timeout_source = nil
 local restore_timeout_source = nil
 
-local state = use_persistent_storage and State ("policy-bluetooth") or nil
-local headset_profiles = state and state:load () or {}
 local last_profiles = {}
 
 local active_streams = {}
 local previous_streams = {}
 
-local apps_setting =
-    Settings.parse_array_safe ("bt-policy-media-role.applications")
-for i = 1, #apps_setting do
-  applications [apps_setting [i]] = true
+function loadAppNames (appNames)
+  for i = 1, #appNames do
+    applications [appNames [i]] = true
+  end
 end
 
-metadata_om = ObjectManager {
-  Interest {
-    type = "metadata",
-    Constraint { "metadata.name", "=", "default" },
-  }
-}
+loadAppNames (apps_setting)
 
 devices_om = ObjectManager {
   Interest {
@@ -74,36 +107,10 @@ streams_om = ObjectManager {
   }
 }
 
-local function parseParam (param_to_parse, id)
-  local param = param_to_parse:parse ()
-  if param.pod_type == "Object" and param.object_id == id then
-    return param.properties
-  else
-    return nil
-  end
-end
-
-local function storeAfterTimeout ()
-  if not use_persistent_storage then
-    return
-  end
-
-  if timeout_source then
-    timeout_source:destroy ()
-  end
-  timeout_source = Core.timeout_add (1000, function ()
-    local saved, err = state:save (headset_profiles)
-    if not saved then
-      Log.warning (err)
-    end
-    timeout_source = nil
-  end)
-end
-
 local function saveHeadsetProfile (device, profile_name)
   local key = "saved-headset-profile:" .. device.properties ["device.name"]
   headset_profiles [key] = profile_name
-  storeAfterTimeout ()
+  cutils.storeAfterTimeout (state, headset_profiles)
 end
 
 local function getSavedHeadsetProfile (device)
@@ -131,14 +138,14 @@ local function isBluez5AudioSink (sink_name)
 end
 
 local function isBluez5DefaultAudioSink ()
-  local metadata = metadata_om:lookup ()
+  local metadata = cutils.default_metadata_om:lookup ()
   local default_audio_sink = metadata:find (0, "default.audio.sink")
   return isBluez5AudioSink (default_audio_sink)
 end
 
 local function findProfile (device, index, name)
   for p in device:iterate_params ("EnumProfile") do
-    local profile = parseParam (p, "EnumProfile")
+    local profile = cutils.parseParam (p, "EnumProfile")
     if not profile then
       goto skip_enum_profile
     end
@@ -158,7 +165,7 @@ end
 
 local function getCurrentProfile (device)
   for p in device:iterate_params ("Profile") do
-    local profile = parseParam (p, "Profile")
+    local profile = cutils.parseParam (p, "Profile")
     if profile then
       return profile.name
     end
@@ -173,7 +180,7 @@ local function highestPrioProfileWithInputRoute (device)
   local profile_name = nil
 
   for p in device:iterate_params ("EnumRoute") do
-    local route = parseParam (p, "EnumRoute")
+    local route = cutils.parseParam (p, "EnumRoute")
     -- Parse pod
     if not route then
       goto skip_enum_route
@@ -207,7 +214,7 @@ end
 
 local function hasProfileInputRoute (device, profile_index)
   for p in device:iterate_params ("EnumRoute") do
-    local route = parseParam (p, "EnumRoute")
+    local route = cutils.parseParam (p, "EnumRoute")
     if route and route.direction == "Input" and route.profiles then
       for _, v in pairs (route.profiles) do
         if v == profile_index then
@@ -448,12 +455,11 @@ SimpleEventHook {
   },
   execute = function (event)
     if (use_headset_profile) then
-    -- If bluez sink is set as default, rescan for active input streams
-    handleAllStreams ()
+      -- If bluez sink is set as default, rescan for active input streams
+      handleAllStreams ()
     end
   end
 }:register ()
 
-metadata_om:activate ()
 devices_om:activate ()
 streams_om:activate ()
