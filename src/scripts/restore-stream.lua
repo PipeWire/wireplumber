@@ -29,19 +29,6 @@ default_channel_volume = Settings.parse_float_safe (
 state = State ("restore-stream")
 state_table = state:load ()
 
-function storeAfterTimeout ()
-  if timeout_source then
-    timeout_source:destroy ()
-  end
-  timeout_source = Core.timeout_add (1000, function ()
-    local saved, err = state:save (state_table)
-    if not saved then
-      Log.warning (err)
-    end
-    timeout_source = nil
-  end)
-end
-
 function formKeyBase (properties)
   local keys = {
     "media.role",
@@ -116,7 +103,7 @@ function saveTarget (subject, target_key, type, value)
   Log.info (node, "saving stream target for " ..
     tostring (stream_props ["node.name"]) .. " -> " .. tostring (target_name))
 
-  storeAfterTimeout ()
+  cutils.storeAfterTimeout (state, state_table)
 end
 
 function restoreTarget(node, target_name)
@@ -260,7 +247,7 @@ function saveStream (node)
       ::skip_prop::
     end
 
-    storeAfterTimeout ()
+    cutils.storeAfterTimeout (state, state_table)
   end
 end
 
@@ -445,7 +432,7 @@ function handleRouteSettings (subject, key, type, value)
     state_table [key_base .. ":channelVolumes"] = cutils.serializeArray (vparsed.volumes)
   end
 
-  storeAfterTimeout ()
+  cutils.storeAfterTimeout (state, state_table)
 end
 
 
@@ -561,7 +548,7 @@ local function settingsChangedCallback (_, setting, _)
   end
 end
 
-local settings_sub_id = Settings.subscribe ("stream*", settingsChangedCallback)
+Settings.subscribe ("stream*", settingsChangedCallback)
 
 streams_om = ObjectManager {
   -- match stream nodes
