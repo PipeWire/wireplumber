@@ -65,8 +65,8 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
         g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (value);
         g_autofree gchar *name = NULL;
         if (wp_spa_json_object_get (json, "name", "s", &name, NULL)) {
-          wp_debug_object (m, "'%s' changed from %s -> '%s'", key, name,
-            self->defaults[i].value);
+          wp_debug_object (m, "'%s' changed from %s -> '%s'", key,
+              self->defaults [i].value, name);
           g_clear_pointer (&self->defaults[i].value, g_free);
 
           self->defaults[i].value = g_strdup (name);
