@@ -10,6 +10,8 @@
 
 -- Settings file: device.conf
 
+local cutils = require ("common-utils")
+
 local self = {}
 self.active_profiles = {}
 self.default_profile_plugin = Plugin.find ("default-profile")
@@ -25,16 +27,6 @@ function isProfilePersistent (device_props, profile_name)
   end
 
   return false
-end
-
-
-function parseParam (param, id)
-  local parsed = param:parse ()
-  if parsed.pod_type == "Object" and parsed.object_id == id then
-    return parsed.properties
-  else
-    return nil
-  end
 end
 
 function setDeviceProfile (device, dev_id, dev_name, profile)
@@ -63,7 +55,7 @@ function findDefaultProfile (device)
   end
 
   for p in device:iterate_params ("EnumProfile") do
-    local profile = parseParam (p, "EnumProfile")
+    local profile = cutils.parseParam (p, "EnumProfile")
     if profile.name == def_name then
       return profile
     end
@@ -78,7 +70,7 @@ function findBestProfile (device)
   local unk_profile = nil
 
   for p in device:iterate_params ("EnumProfile") do
-    profile = parseParam (p, "EnumProfile")
+    profile = cutils.parseParam (p, "EnumProfile")
     if profile and profile.name ~= "pro-audio" then
       if profile.name == "off" then
         off_profile = profile
@@ -150,10 +142,8 @@ function handleProfiles (device, new_device)
   end
 end
 
-function onDeviceParamsChanged (device, param_name)
-  if param_name == "EnumProfile" then
-    handleProfiles (device, false)
-  end
+function onDeviceParamsChanged (device)
+  handleProfiles (device, false)
 end
 
 SimpleEventHook {
@@ -179,14 +169,11 @@ SimpleEventHook {
     EventInterest {
       Constraint { "event.type", "=", "params-changed" },
       Constraint { "event.subject.type", "=", "device" },
+      Constraint { "event.subject.param-id", "=", "EnumProfile" },
     },
   },
   execute = function (event)
-    local device = event:get_subject ()
-    local props = event:get_properties()
-    local param_name = props ["event.subject.param-id"]
-
-    onDeviceParamsChanged (device, param_name)
+    onDeviceParamsChanged (event:get_subject ())
   end
 }:register()
 
