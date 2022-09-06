@@ -12,86 +12,57 @@
 -- device profiles. It selects and enables the routes(Route here is a path on
 -- soundcard/Pipewire Device(PipeWire:Interface:Device), for example: speaker,
 -- mic, headset with in a soundcard) needed for a given profile. It also caches
--- the route properties(Volume, Mute, channelVolumes, channelMap etc) and
--- restores them when the route appears afresh. The cached properties are
+-- the route specific properties(Volume, Mute, channelVolumes, channelMap etc)
+-- and restores them when the route appears afresh. The cached properties are
 -- remembered across reboots if persistancy(use_persistent_storage) is enabled.
 
 -- settings file: device.conf
+
+local cutils = require ("common-utils")
 
 local use_persistent_storage =
     Settings.parse_boolean_safe ("device.use-persistent-storage", true)
 local default_volume =
     Settings.parse_float_safe ("device.default-volume", 0.4^3)
 local default_input_volume =
-    Settings.parse_float_safe ("default-input-volume", 1.0)
+    Settings.parse_float_safe ("device.default-input-volume", 1.0)
 
 -- table of device info
 dev_infos = {}
 
--- the state storage
-state = use_persistent_storage and State ("default-routes") or nil
-state_table = state and state:load () or {}
+state = nil
+state_table = nil
 
--- simple serializer {"foo", "bar"} -> "foo;bar;"
-function serializeArray (a)
-  local str = ""
-  for _, v in ipairs (a) do
-    str = str .. tostring (v):gsub (";", "\\;") .. ";"
-  end
-  return str
-end
-
--- simple deserializer "foo;bar;" -> {"foo", "bar"}
-function parseArray (str, convert_value)
-  local array = {}
-  local val = ""
-  local escaped = false
-  for i = 1, #str do
-    local c = str:sub (i,i)
-    if c == '\\' then
-      escaped = true
-    elseif c == ';' and not escaped then
-      val = convert_value and convert_value (val) or val
-      table.insert (array, val)
-      val = ""
-    else
-      val = val .. tostring (c)
-      escaped = false
-    end
-  end
-  return array
-end
-
-function arrayContains (a, value)
-  for _, v in ipairs (a) do
-    if v == value then
-      return true
-    end
-  end
-  return false
-end
-
-function parseParam (param, id)
-  local route = param:parse ()
-  if route.pod_type == "Object" and route.object_id == id then
-    return route.properties
+function handlePersistantSetting (enable)
+  if enable and state == nil then
+    -- the state storage
+    state = use_persistent_storage and State ("default-routes") or nil
+    state_table = state and state:load () or {}
   else
-    return nil
+    state = nil
+    state_table = nil
   end
 end
 
-function storeAfterTimeout ()
-  if timeout_source then
-    timeout_source:destroy ()
+local function settingsChangedCallback (_, setting, _)
+  local value = Settings.get (setting):parse ()
+
+  if setting == "device.use-persistent-storage" then
+    use_persistent_storage = Settings.parse_boolean_safe
+        ("device.use-persistent-storage", use_persistent_storage)
+    handlePersistantSetting (use_persistent_storage)
+  elseif setting == "device.default-volume" then
+    default_volume = Settings.parse_float_safe ("device.default-volume",
+        default_volume)
+  elseif setting == "device.default-input-volume" then
+    default_input_volume = Settings.parse_float_safe
+        ("device.default-input-volume", default_input_volume)
   end
-  timeout_source = Core.timeout_add (1000, function ()
-    local saved, err = state:save (state_table)
-    if not saved then
-      Log.warning (err)
-    end
-    timeout_source = nil
-  end)
 end
+
+Settings.subscribe ("device*", settingsChangedCallback)
+
+handlePersistantSetting (use_persistent_storage)
 
 function saveProfile (dev_info, profile_name)
   if not use_persistent_storage then
@@ -107,8 +78,8 @@ function saveProfile (dev_info, profile_name)
 
   if #routes > 0 then
     local key = dev_info.name .. ":profile:" .. profile_name
-    state_table [key] = serializeArray (routes)
-    storeAfterTimeout ()
+    state_table [key] = cutils.serializeArray (routes)
+    cutils.storeAfterTimeout (state, state_table)
   end
 end
 
@@ -127,15 +98,15 @@ function saveRouteProps (dev_info, route)
   state_table [key_base .. "mute"] =
     props.mute and tostring (props.mute) or nil
   state_table [key_base .. "channelVolumes"] =
-    props.channelVolumes and serializeArray (props.channelVolumes) or nil
+    props.channelVolumes and cutils.serializeArray (props.channelVolumes) or nil
   state_table [key_base .. "channelMap"] =
-    props.channelMap and serializeArray (props.channelMap) or nil
+    props.channelMap and cutils.serializeArray (props.channelMap) or nil
   state_table [key_base .. "latencyOffsetNsec"] =
     props.latencyOffsetNsec and tostring (props.latencyOffsetNsec) or nil
   state_table [key_base .. "iec958Codecs"] =
-    props.iec958Codecs and serializeArray (props.iec958Codecs) or nil
+    props.iec958Codecs and cutils.serializeArray (props.iec958Codecs) or nil
 
-  storeAfterTimeout ()
+  cutils.storeAfterTimeout (state, state_table)
 end
 
 function restoreRoute (device, dev_info, device_id, route)
@@ -164,16 +135,17 @@ function restoreRoute (device, dev_info, device_id, route)
     props.mute = str and (str == "true") or false
 
     local str = state_table [key_base .. "channelVolumes"]
-    props.channelVolumes = str and parseArray (str, tonumber) or props.channelVolumes
+    props.channelVolumes =
+        str and cutils.parseArray (str, tonumber) or props.channelVolumes
 
     local str = state_table [key_base .. "channelMap"]
-    props.channelMap = str and parseArray (str) or props.channelMap
+    props.channelMap = str and cutils.parseArray (str) or props.channelMap
 
     local str = state_table [key_base .. "latencyOffsetNsec"]
     props.latencyOffsetNsec = str and math.tointeger (str) or props.latencyOffsetNsec
 
     local str = state_table [key_base .. "iec958Codecs"]
-    props.iec958Codecs = str and parseArray (str) or props.iec958Codecs
+    props.iec958Codecs = str and cutils.parseArray (str) or props.iec958Codecs
   end
 
   -- convert arrays to Spa Pod
@@ -264,16 +236,16 @@ end
 function getStoredProfileRoutes (dev_name, profile_name)
   local key = dev_name .. ":profile:" .. profile_name
   local str = state_table [key]
-  return str and parseArray (str) or {}
+  return str and cutils.parseArray (str) or {}
 end
 
 -- find a route that was previously stored for a device_id
 -- spr needs to be the array returned from getStoredProfileRoutes()
 function findSavedRoute(dev_info, device_id, spr)
   for idx, ri in pairs(dev_info.route_infos) do
-    if arrayContains(ri.devices, device_id) and
-        (ri.profiles == nil or arrayContains(ri.profiles, dev_info.active_profile)) and
-        arrayContains(spr, ri.name) then
+    if cutils.arrayContains (ri.devices, device_id) and
+        (ri.profiles == nil or cutils.arrayContains (ri.profiles, dev_info.active_profile)) and
+        cutils.arrayContains (spr, ri.name) then
       return ri
     end
   end
@@ -285,8 +257,8 @@ function findBestRoute (dev_info, device_id)
   local best_avail = nil
   local best_unk = nil
   for idx, ri in pairs(dev_info.route_infos) do
-    if arrayContains(ri.devices, device_id) and
-          (ri.profiles == nil or arrayContains(ri.profiles, dev_info.active_profile)) then
+    if cutils.arrayContains (ri.devices, device_id) and
+          (ri.profiles == nil or cutils.arrayContains (ri.profiles, dev_info.active_profile)) then
       if ri.available == "yes" or ri.available == "unknown" then
         if ri.direction == "Output" and ri.available ~= ri.prev_available then
           best_avail = ri
@@ -395,13 +367,13 @@ function handleDevice (device)
 
   -- get current profile
   for p in device:iterate_params ("Profile") do
-    profile = parseParam (p, "Profile")
+    profile = cutils.parseParam (p, "Profile")
   end
 
   -- look at all the routes and update/reset cached information
   for p in device:iterate_params ("EnumRoute") do
     -- parse pod
-    local route = parseParam (p, "EnumRoute")
+    local route = cutils.parseParam (p, "EnumRoute")
     if not route then
       goto skip_enum_route
     end
@@ -415,7 +387,7 @@ function handleDevice (device)
       Log.info (device, "route " .. route.name .. " available changed " ..
                        route_info.available .. " -> " .. route.available)
       route_info.available = route.available
-      if profile and arrayContains (route.profiles, profile.index) then
+      if profile and cutils.arrayContains  (route.profiles, profile.index) then
         avail_routes_changed = true
       end
     end
@@ -436,7 +408,7 @@ function handleDevice (device)
 
   -- check for changes in the active routes
   for p in device:iterate_params ("Route") do
-    local route = parseParam (p, "Route")
+    local route = cutils.parseParam (p, "Route")
     if not route then
       goto skip_route
     end
@@ -539,9 +511,16 @@ SimpleEventHook {
     EventInterest {
       Constraint { "event.type", "=", "params-changed" },
       Constraint { "event.subject.type", "=", "device" },
+      Constraint { "event.subject.param-id", "=", "Route" },
+    },
+    EventInterest {
+      Constraint { "event.type", "=", "params-changed" },
+      Constraint { "event.subject.type", "=", "device" },
+      Constraint { "event.subject.param-id", "=", "EnumRoute" },
     },
   },
   execute = function (event)
-    handleDevice (event:get_subject())
+    local props = event:get_properties ()
+    handleDevice (event:get_subject ())
   end
 }:register()
