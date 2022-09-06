@@ -5,18 +5,9 @@
 --
 -- SPDX-License-Identifier: MIT
 
+local cutils = require ("common-utils")
+
 local config_settings = {}
-
--- apply properties from rules defined in JSON .conf file
-function rulesApplyProperties(properties)
-  local matched, mprops = Settings.apply_rule ("v4l2_monitor", properties)
-
-  if (matched and mprops) then
-    for k, v in pairs(mprops) do
-      properties[k] = v
-    end
-  end
-end
 
 function findDuplicate(parent, id, property, value)
   for i = 0, id - 1, 1 do
@@ -84,7 +75,7 @@ function createNode(parent, id, type, factory, properties)
   end
 
   -- apply properties from rules defined in JSON .conf file
-  rulesApplyProperties(properties)
+  cutils.evaluateRulesApplyProperties (properties, "monitor.v4l2")
 
   -- create the node
   local node = Node("spa-node-factory", properties)
@@ -118,7 +109,7 @@ function createDevice(parent, id, type, factory, properties)
       or "Unknown device"
 
   -- apply properties from rules defined in JSON .conf file
-  rulesApplyProperties(properties)
+  cutils.evaluateRulesApplyProperties (properties, "monitor.v4l2")
 
   -- create the device
   local device = SpaDevice(factory, properties)
