@@ -5,18 +5,9 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local config_settings = Settings.get_all ("bluez5.*"):parse ()
+local cutils = require ("common-utils")
 
-function rulesApplyProperties(properties)
-  local matched, mprops = Settings.apply_rule ("bluez_monitor", properties)
-
-  if (matched and mprops) then
-    for k, v in pairs(mprops) do
-      properties[k] = v
-    end
-  end
-
-end
+local config_settings = Settings.get_all ("monitor.bluetooth.*"):parse ()
 
 function createNode(parent, id, type, factory, properties)
   local dev_props = parent.properties
@@ -61,7 +52,7 @@ function createNode(parent, id, type, factory, properties)
   end
 
   -- apply properties from bluetooth.conf
-  rulesApplyProperties(properties)
+  cutils.evaluateRulesApplyProperties (properties, "monitor.bluetooth")
 
   -- create the node; bluez requires "local" nodes, i.e. ones that run in
   -- the same process as the spa device, for several reasons
@@ -111,7 +102,7 @@ function createDevice(parent, id, type, factory, properties)
     properties["bluez5.profile"] = "off"
 
   -- apply properties from bluetooth.conf
-  rulesApplyProperties(properties)
+    cutils.evaluateRulesApplyProperties (properties, "monitor.bluetooth")
 
     -- create the device
     device = SpaDevice(factory, properties)

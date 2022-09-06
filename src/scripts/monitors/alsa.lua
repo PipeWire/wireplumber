@@ -5,22 +5,13 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local config_settings = Settings.get_all ("alsa_monitor.*"):parse ()
+local cutils = require ("common-utils")
+
+local config_settings = Settings.get_all ("monitor.alsa*"):parse ()
 
 -- unique device/node name tables
 device_names_table = nil
 node_names_table = nil
-
-function rulesApplyProperties(properties)
-  local matched, mprops = Settings.apply_rule ("alsa_monitor", properties)
-
-  if (matched and mprops) then
-    for k, v in pairs(mprops) do
-      properties[k] = v
-    end
-  end
-
-end
 
 function nonempty(str)
   return str ~= "" and str or nil
@@ -150,7 +141,7 @@ function createNode(parent, id, obj_type, factory, properties)
   end
 
   -- apply properties from rules defined in JSON .conf file
-  rulesApplyProperties(properties)
+  cutils.evaluateRulesApplyProperties (properties, "monitor.alsa")
   if properties["node.disabled"] then
     return
   end
@@ -244,8 +235,8 @@ function prepareDevice(parent, id, obj_type, factory, properties)
   end
 
   -- apply properties from rules defined in JSON .conf file
-  rulesApplyProperties(properties)
-  if properties["device.disabled"] then
+  cutils.evaluateRulesApplyProperties (properties, "monitor.alsa")
+  if properties ["device.disabled"] then
     return
   end
 
