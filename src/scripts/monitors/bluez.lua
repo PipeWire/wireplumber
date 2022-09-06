@@ -7,7 +7,9 @@
 
 local COMBINE_OFFSET = 64
 
-local config_settings = Settings.get_all ("bluez5.*"):parse ()
+local cutils = require ("common-utils")
+
+local config_settings = Settings.get_all ("monitor.bluetooth.*"):parse ()
 
 devices_om = ObjectManager {
   Interest {
@@ -22,18 +24,6 @@ nodes_om = ObjectManager {
     Constraint { "device.id", "+" },
   }
 }
-
--- applies rules from bluez-settings.conf when asked to
-function rulesApplyProperties(properties)
-  local matched, mprops = Settings.apply_rule ("bluez_monitor", properties)
-
-  if (matched and mprops) then
-    for k, v in pairs(mprops) do
-      properties[k] = v
-    end
-  end
-
-end
 
 function setOffloadActive(device, value)
   local pod = Pod.Object {
@@ -281,7 +271,7 @@ function createNode(parent, id, type, factory, properties)
   end
 
   -- apply properties from bluetooth.conf
-  rulesApplyProperties(properties)
+  cutils.evaluateRulesApplyProperties (properties, "monitor.bluetooth")
 
   -- create the node; bluez requires "local" nodes, i.e. ones that run in
   -- the same process as the spa device, for several reasons
@@ -343,7 +333,7 @@ function createDevice(parent, id, type, factory, properties)
     properties["api.bluez5.id"] = id
 
     -- apply properties from bluetooth.conf
-    rulesApplyProperties(properties)
+    cutils.evaluateRulesApplyProperties (properties, "monitor.bluetooth")
 
     -- create the device
     device = SpaDevice(factory, properties)
