@@ -133,7 +133,7 @@ function createNode(parent, id, obj_type, factory, properties)
   end
 
   -- apply VM overrides
-  local vm_overrides = config_settings["vm.node.defaults"]
+  local vm_overrides = config_settings ["monitor.alsa.vm.node.defaults"]
   if nonempty(Core.get_vm_type()) and type(vm_overrides) == "table" then
     for k, v in pairs(vm_overrides) do
       properties[k] = v
