@@ -5,12 +5,13 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local duck_level = Settings.parse_float_safe ("policy.default.duck-level", 0.3)
-local roles = Settings.parse_object_safe ("endpoints-roles")
+local config = {}
+config.duck_level = Settings.parse_float_safe ("policy.default.duck-level", 0.3)
+config.roles = Settings.parse_object_safe ("endpoints-roles")
 
 function findRole(role)
-  if role and not roles[role] then
-    for r, p in pairs(roles) do
+  if role and not config.roles[role] then
+    for r, p in pairs(config.roles) do
       if type(p.alias) == "table" then
         for i = 1, #(p.alias), 1 do
           if role == p.alias[i] then
@@ -24,17 +25,17 @@ function findRole(role)
 end
 
 function priorityForRole(role)
-  local r = role and roles[role] or nil
+  local r = role and config.roles[role] or nil
   return r and r.priority or 0
 end
 
 function getAction(dominant_role, other_role)
   -- default to "mix" if the role is not configured
-  if not dominant_role or not roles[dominant_role] then
+  if not dominant_role or not config.roles[dominant_role] then
     return "mix"
   end
 
-  local role_config = roles[dominant_role]
+  local role_config = config.roles[dominant_role]
   return role_config["action." .. other_role]
       or role_config["action.default"]
       or "mix"
@@ -67,7 +68,7 @@ function duck(role, media_class)
   if ep and ep.properties["node.id"] then
     Log.debug(ep, "duck role " .. role)
     mixer_api:call("set-volume", ep.properties["node.id"], {
-      monitorVolume = duck_level,
+      monitorVolume = config.duck_level,
     })
   end
 end

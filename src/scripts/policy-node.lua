@@ -20,22 +20,23 @@
 local putils = require ("policy-utils")
 local cutils = require ("common-utils")
 
-local move = Settings.parse_boolean_safe ("policy.default.move", false)
-local follow = Settings.parse_boolean_safe ("policy.default.follow", false)
-local filter_forward_format = Settings.parse_boolean_safe
+local config = {}
+config.move = Settings.parse_boolean_safe ("policy.default.move", true)
+config.follow = Settings.parse_boolean_safe ("policy.default.follow", true)
+config.filter_forward_format = Settings.parse_boolean_safe
     ("policy.default.filter-forward-format", false)
 
 local function settingsChangedCallback (_, setting, _)
 
   if setting == "policy.default.move" then
-    move = Settings.parse_boolean_safe ("policy.default.move", move)
-    handleMoveSetting (move)
+    config.move = Settings.parse_boolean_safe ("policy.default.move", config.move)
+    handleMoveSetting (config.move)
   elseif setting == "policy.default.follow" then
-    follow = Settings.parse_boolean_safe ("policy.default.move", follow)
-    handleFollowSetting (follow)
+    config.follow = Settings.parse_boolean_safe ("policy.default.follow", config.follow)
+    handleFollowSetting (config.follow)
   elseif setting == "policy.default.filter-forward-format" then
-    filter_forward_format = Settings.parse_boolean_safe
-        ("policy.default.filter-forward-format", filter_forward_format)
+    config.filter_forward_format = Settings.parse_boolean_safe
+        ("policy.default.filter-forward-format", config.filter_forward_format)
   end
 
 end
@@ -236,7 +237,7 @@ SimpleEventHook {
     local si_props = si.properties
 
     -- Forward filters ports format to associated virtual devices if enabled
-    if filter_forward_format then
+    if config.filter_forward_format then
       checkFiltersPortsState (si)
     end
 
@@ -381,8 +382,8 @@ function handleMoveSetting (enable)
   end
 end
 
-handleMoveSetting (move)
-handleFollowSetting (follow)
+handleMoveSetting (config.move)
+handleFollowSetting (config.follow)
 
 default_nodes = Plugin.find ("default-nodes-api")
 

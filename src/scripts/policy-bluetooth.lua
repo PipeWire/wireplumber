@@ -28,11 +28,12 @@
 
 local cutils = require ("common-utils")
 
-local use_persistent_storage = Settings.parse_boolean_safe
-    ("policy.bluetooth.use-persistent-storage", false)
-local use_headset_profile = Settings.parse_boolean_safe
+local config = {}
+config.use_persistent_storage = Settings.parse_boolean_safe
+    ("policy.bluetooth.use-persistent-storage", true)
+config.use_headset_profile = Settings.parse_boolean_safe
     ("policy.bluetooth.media-role.use-headset-profile", true)
-local apps_setting = Settings.parse_array_safe
+config.apps_setting = Settings.parse_array_safe
     ("policy.bluetooth.media-role.applications")
 
 state = nil
@@ -41,7 +42,7 @@ headset_profiles = nil
 function handlePersistantSetting (enable)
   if enable and state == nil then
     -- the state storage
-    state = use_persistent_storage and State ("policy-bluetooth") or nil
+    state = config.use_persistent_storage and State ("policy-bluetooth") or nil
     headset_profiles = state and state:load () or {}
   else
     state = nil
@@ -51,25 +52,25 @@ end
 
 local function settingsChangedCallback (_, setting, _)
   if setting == "policy.bluetooth.use-persistent-storage" then
-    use_persistent_storage = Settings.parse_boolean_safe
-        ("policy.bluetooth.use-persistent-storage", use_persistent_storage)
-    handlePersistantSetting (use_persistent_storage)
+    config.use_persistent_storage = Settings.parse_boolean_safe
+        ("policy.bluetooth.use-persistent-storage", config.use_persistent_storage)
+    handlePersistantSetting (config.use_persistent_storage)
   elseif setting == "policy.bluetooth.media-role.use-headset-profile" then
-    use_headset_profile = Settings.parse_boolean_safe
-        ("policy.bluetooth.media-role.use-headset-profile", use_headset_profile)
+    config.use_headset_profile = Settings.parse_boolean_safe
+        ("policy.bluetooth.media-role.use-headset-profile", config.use_headset_profile)
   elseif setting == "policy.bluetooth.media-role.applications" then
     local new_apps_setting = Settings.parse_array_safe
         ("policy.bluetooth.media-role.applications")
     if #new_apps_setting > 0 then
-      apps_setting = new_apps_setting
-      loadAppNames (apps_setting)
+      config.apps_setting = new_apps_setting
+      loadAppNames (config.apps_setting)
     end
   end
 end
 
 Settings.subscribe ("policy.bluetooth*", settingsChangedCallback)
 
-handlePersistantSetting (use_persistent_storage)
+handlePersistantSetting (config.use_persistent_storage)
 
 local applications = {}
 local profile_restore_timeout_msec = 2000
@@ -89,7 +90,7 @@ function loadAppNames (appNames)
   end
 end
 
-loadAppNames (apps_setting)
+loadAppNames (config.apps_setting)
 
 devices_om = ObjectManager {
   Interest {
@@ -351,7 +352,7 @@ local function checkStreamStatus (stream)
 end
 
 local function handleStream (stream)
-  if not use_headset_profile then
+  if not config.use_headset_profile then
     return
   end
 
@@ -454,7 +455,7 @@ SimpleEventHook {
     },
   },
   execute = function (event)
-    if (use_headset_profile) then
+    if (config.use_headset_profile) then
       -- If bluez sink is set as default, rescan for active input streams
       handleAllStreams ()
     end

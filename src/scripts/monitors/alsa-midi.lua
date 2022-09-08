@@ -5,12 +5,6 @@
 --
 -- SPDX-License-Identifier: MIT
 
--- Receive script arguments from config.lua
-local config = ... or {}
-
--- ensure config.properties is not nil
-config.properties = config.properties or {}
-
 SND_PATH = "/dev/snd"
 SEQ_NAME = "seq"
 SND_SEQ_PATH = SND_PATH .. "/" .. SEQ_NAME
@@ -35,7 +29,7 @@ end
 
 if GLib.access (SND_SEQ_PATH, "rw") then
   midi_node = CreateMidiNode ()
-elseif config.properties["alsa.midi.monitoring"] then
+else
   fm_plugin = Plugin.find("file-monitor-api")
 end
 
