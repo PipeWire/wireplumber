@@ -36,7 +36,7 @@ end
 
 if GLib.access (SND_SEQ_PATH, "rw") then
   midi_node = CreateMidiNode ()
-elseif config.properties["alsa.midi.monitoring"] then
+else
   fm_plugin = Plugin.find("file-monitor-api")
 end
 
