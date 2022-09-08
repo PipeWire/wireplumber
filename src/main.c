@@ -161,16 +161,17 @@ do_load_components(void *data, const char *location, const char *section,
 
   it = wp_spa_json_new_iterator (json);
   for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
-    WpSpaJson *o = g_value_get_boxed (&item);
+    WpSpaJson *cjson = g_value_get_boxed (&item);
     g_autofree gchar *name = NULL;
     g_autofree gchar *type = NULL;
     g_autofree gchar *deps = NULL;
-    WpSpaJson *flags = NULL;
+    WpSpaJson *djson = NULL;
+    WpSpaJson *fjson = NULL;
     gboolean if_exists = FALSE;
     gboolean no_fail = FALSE;
 
-    if (!wp_spa_json_is_object (o) ||
-        !wp_spa_json_object_get (o,
+    if (!wp_spa_json_is_object (cjson) ||
+        !wp_spa_json_object_get (cjson,
             "name", "s", &name,
             "type", "s", &type,
             NULL)) {
@@ -180,26 +181,68 @@ do_load_components(void *data, const char *location, const char *section,
       return -EINVAL;
     }
 
-    if (wp_spa_json_object_get (o, "deps", "s", &deps, NULL) && deps) {
-      gboolean value = 0;
-      g_autoptr (WpSpaJson) j = wp_settings_get (settings, deps);
-      if (!j || !wp_spa_json_parse_boolean (j, &value)) {
+    wp_spa_json_object_get (cjson, "deps", "J", &djson, NULL);
+
+    if (djson && wp_spa_json_is_array (djson)) {
+      g_autoptr (WpIterator) dit = wp_spa_json_new_iterator (djson);
+      g_auto (GValue) ditem = G_VALUE_INIT;
+      gboolean deps_met = TRUE;
+
+      for (; wp_iterator_next (dit, &ditem); g_value_unset (&ditem)) {
+        WpSpaJson *sjson = g_value_get_boxed (&ditem);
+        g_autofree gchar *setting = wp_spa_json_parse_string (sjson);
+        WpSpaJson *setting_value_json = wp_settings_get (settings, setting);
+        gboolean setting_value = FALSE;
+        gboolean parsing_status = FALSE;
+
+        if (setting_value_json)
+            parsing_status = wp_spa_json_parse_boolean (setting_value_json,
+                &setting_value);
+
+        if (!setting_value_json || !parsing_status || !setting_value) {
+          deps_met = FALSE;
+          wp_info ("deps(%s) not met for component(%s), skip loading it",
+            setting, name);
+          break;
+        }
+        if (setting_value_json)
+          wp_spa_json_unref (setting_value_json);
+      }
+      if (!deps_met)
+        continue;
+
+      wp_spa_json_unref (djson);
+    } else if (djson && wp_spa_json_object_get (cjson, "deps", "s", &deps, NULL)) {
+      WpSpaJson *setting_value_json = wp_settings_get (settings, deps);
+      gboolean setting_value = FALSE;
+      gboolean parsing_status = FALSE;
+
+      if (setting_value_json)
+        parsing_status = wp_spa_json_parse_boolean (setting_value_json,
+          &setting_value);
+
+      if (!setting_value_json || !parsing_status || !setting_value) {
         wp_info ("deps(%s) not met for component(%s), skip loading it",
             deps, name);
         continue;
       }
+      if (setting_value_json)
+        wp_spa_json_unref (setting_value_json);
+      wp_spa_json_unref (djson);
     }
 
-    if (wp_spa_json_object_get (o, "flags", "J", &flags, NULL) && flags) {
+    if (wp_spa_json_object_get (cjson, "flags", "J", &fjson, NULL) && fjson) {
       g_autofree gchar *s1 = NULL;
       g_autofree gchar *s2 = NULL;
 
-      wp_spa_json_parse_array (flags, "s", &s1, "s", &s2, NULL);
+      wp_spa_json_parse_array (fjson, "s", &s1, "s", &s2, NULL);
 
       if (!g_strcmp0 (s1, "ifexists") || !g_strcmp0 (s2, "ifexists"))
         if_exists = TRUE;
       if (!g_strcmp0 (s1, "nofail") || !g_strcmp0 (s2, "nofail"))
         no_fail = TRUE;
+
+      wp_spa_json_unref (fjson);
     }
 
     wp_debug ("load component(%s) type(%s) deps(%s) ifexists(%d) nofail(%d)",
