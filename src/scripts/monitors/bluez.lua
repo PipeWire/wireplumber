@@ -7,7 +7,8 @@
 
 local cutils = require ("common-utils")
 
-local config_settings = Settings.get_all ("monitor.bluetooth.*"):parse ()
+local config = {}
+config.properties = Settings.parse_object_safe ("monitor.bluetooth.properties")
 
 devices_om = ObjectManager {
   Interest {
@@ -117,7 +118,7 @@ end
 function createNode(parent, id, type, factory, properties)
   local dev_props = parent.properties
 
-  if config_settings["bluez5.hw-offload-sco"] and factory:find("sco") then
+  if config.properties["bluez5.hw-offload-sco"] and factory:find("sco") then
     createOffloadScoNode(parent, id, type, factory, properties)
     return
   end
@@ -239,10 +240,7 @@ function createDevice(parent, id, type, factory, properties)
 end
 
 function createMonitor()
-  local monitor_props = config_settings or {}
-  monitor_props["api.bluez5.connection-info"] = true
-
-  local monitor = SpaDevice("api.bluez5.enum.dbus", monitor_props)
+  local monitor = SpaDevice("api.bluez5.enum.dbus", config.properties)
   if monitor then
     monitor:connect("create-object", createDevice)
   else

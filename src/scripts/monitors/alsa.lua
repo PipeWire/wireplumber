@@ -7,7 +7,12 @@
 
 local cutils = require ("common-utils")
 
-local config_settings = Settings.get_all ("monitor.alsa*"):parse ()
+local config = {}
+config.reserve_priority = Settings.parse_int_safe ("monitor.alsa.reserve.priority", -20)
+config.reserve_application_name = Settings.parse_string_safe ("monitor.alsa.reserve.application-name", "WirePlumber")
+config.jack_device = Settings.parse_boolean_safe ("monitor.alsa.jack-device", false)
+config.properties = Settings.parse_object_safe ("monitor.alsa.properties")
+config.vm_node_defaults = Settings.parse_object_safe ("monitor.alsa.vm.node.defaults")
 
 -- unique device/node name tables
 device_names_table = nil
@@ -135,15 +140,15 @@ function createNode(parent, id, obj_type, factory, properties)
   end
 
   -- apply VM overrides
-  local vm_overrides = config_settings ["monitor.alsa.vm.node.defaults"]
-  if nonempty(Core.get_vm_type()) and type(vm_overrides) == "table" then
-    for k, v in pairs(vm_overrides) do
+  if nonempty(Core.get_vm_type()) and
+      type(config.vm_node_defaults) == "table" then
+    for k, v in pairs(config.vm_node_defaults) do
       properties[k] = v
     end
   end
 
   -- apply properties from rules defined in JSON .conf file
-  cutils.evaluateRulesApplyProperties (properties, "monitor.alsa")
+  cutils.evaluateRulesApplyProperties (properties, "monitor.alsa.rules")
   if properties["node.disabled"] then
     node_names_table [properties ["node.name"]] = nil
     return
@@ -245,7 +250,7 @@ function prepareDevice(parent, id, obj_type, factory, properties)
   end
 
   -- apply properties from rules defined in JSON .conf file
-  cutils.evaluateRulesApplyProperties (properties, "monitor.alsa")
+  cutils.evaluateRulesApplyProperties (properties, "monitor.alsa.rules")
   if properties ["device.disabled"] then
     device_names_table [properties ["device.name"]] = nil
     return
@@ -262,9 +267,9 @@ function prepareDevice(parent, id, obj_type, factory, properties)
     local rd_name = "Audio" .. properties["api.alsa.card"]
     local rd = rd_plugin:call("create-reservation",
         rd_name,
-        config_settings["alsa.reserve.application-name"] or "WirePlumber",
+        config.reserve_application_name,
         properties["device.name"],
-        config_settings["alsa.reserve.priority"] or -20);
+        config.reserve_priority);
 
     properties["api.dbus.ReserveDevice1"] = rd_name
 
@@ -312,7 +317,7 @@ function prepareDevice(parent, id, obj_type, factory, properties)
 end
 
 function createMonitor ()
-  local m = SpaDevice("api.alsa.enum.udev", config_settings)
+  local m = SpaDevice("api.alsa.enum.udev", config.properties)
   if m == nil then
     Log.message("PipeWire's SPA ALSA udev plugin(\"api.alsa.enum.udev\")"
       .. "missing or broken. Sound Cards cannot be enumerated")
@@ -352,7 +357,7 @@ function createMonitor ()
 end
 
 -- create the JACK device (for PipeWire to act as client to a JACK server)
-if config_settings["alsa.jack-device"] then
+if config.jack_device then
   jack_device = Device("spa-device-factory", {
     ["factory.name"] = "api.jack.device",
     ["node.name"] = "JACK-Device",
@@ -360,14 +365,10 @@ if config_settings["alsa.jack-device"] then
   jack_device:activate(Feature.Proxy.BOUND)
 end
 
--- enable device reservation if requested
-if config_settings["alsa.reserve"] then
-  rd_plugin = Plugin.find("reserve-device")
-end
-
 -- if the reserve-device plugin is enabled, at the point of script execution
 -- it is expected to be connected. if it is not, assume the d-bus connection
 -- has failed and continue without it
+rd_plugin = Plugin.find("reserve-device")
 if rd_plugin and rd_plugin:call("get-dbus")["state"] ~= "connected" then
   Log.message("reserve-device plugin is not connected to D-Bus, "
               .. "disabling device reservation")

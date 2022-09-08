@@ -6,7 +6,7 @@
 -- SPDX-License-Identifier: MIT
 
 function rulesGetDefaultPermissions(properties)
-  local matched, mprops = Settings.apply_rule ("access", properties)
+  local matched, mprops = Settings.apply_rule ("access.rules", properties)
 
   if (matched and mprops["default_permissions"]) then
     return mprops["default_permissions"]
