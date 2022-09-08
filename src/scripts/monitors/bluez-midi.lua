@@ -5,32 +5,15 @@
 --
 -- SPDX-License-Identifier: MIT
 
+local cutils = require ("common-utils")
+
 local config = {}
-config.properties = Settings.get_string ("monitor.bluetooth-midi.properties")
-if config.properties == nil then
-  config.properties = {}
-else
-  config.properties = Json.Raw (config.properties)
-end
-if config.servers == nil then
-  config.servers = Json.Raw (config.server)
-else
-  config.servers = Settings.get_string ("monitor.bluetooth-midi.servers")
-end
+config.properties = Settings.parse_object_safe ("monitor.bluetooth-midi.properties")
+config.servers = Settings.parse_array_safe ("monitor.bluetooth-midi.servers")
 
 -- unique device/node name tables
 node_names_table = nil
 id_to_name_table = nil
-
-function rulesApplyProperties (properties)
-  local matched, mprops = Settings.apply_rule ("monitor.bluetooth-midi", properties)
-
-  if (matched and mprops) then
-    for k, v in pairs(mprops) do
-      properties[k] = v
-    end
-  end
-end
 
 function setLatencyOffset(node, offset_msec)
   if not offset_msec then
@@ -70,8 +53,8 @@ function createNode(parent, id, type, factory, properties)
 
   properties["api.glib.mainloop"] = "true"
 
-  -- apply properties from config.rules
-  rulesApplyProperties(properties)
+  -- apply properties from bluetooth.conf
+  cutils.evaluateRulesApplyProperties (properties, "monitor.bluetooth-midi")
 
   local latency_offset = properties["node.latency-offset-msec"]
   properties["node.latency-offset-msec"] = nil
@@ -127,7 +110,7 @@ function createServers()
       ["factory.name"] = "api.bluez5.midi.node",
       ["api.glib.mainloop"] = "true",
     }
-    rulesApplyProperties(node_props)
+    cutils.evaluateRulesApplyProperties (node_props, "monitor.bluetooth-midi")
 
     local latency_offset = node_props["node.latency-offset-msec"]
     node_props["node.latency-offset-msec"] = nil

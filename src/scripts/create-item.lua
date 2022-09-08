@@ -8,6 +8,9 @@
 -- create-item.lua script takes pipewire nodes and creates session items (a.k.a
 -- linkable) objects out of them.
 
+local config = {}
+config.audio_no_dsp = Settings.parse_boolean_safe ("policy.default.audio-no-dsp", false)
+
 items = {}
 
 function configProperties (node)
@@ -15,8 +18,7 @@ function configProperties (node)
   local properties = {
     ["item.node"] = node,
     ["item.plugged.usec"] = GLib.get_monotonic_time (),
-    ["item.features.no-dsp"] =
-        Settings.parse_boolean_safe ("policy.default.audio-no-dsp", false),
+    ["item.features.no-dsp"] = config.audio_no_dsp,
     ["item.features.monitor"] = true,
     ["item.features.control-port"] = false,
     ["node.id"] = node ["bound-id"],
