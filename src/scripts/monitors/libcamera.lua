@@ -7,7 +7,8 @@
 
 local cutils = require ("common-utils")
 
-local config_settings = {}
+local config = {}
+config.properties = Settings.parse_object_safe ("monitor.libcamera.properties")
 
 function findDuplicate(parent, id, property, value)
   for i = 0, id - 1, 1 do
@@ -85,7 +86,7 @@ function createNode(parent, id, type, factory, properties)
   end
 
   -- apply properties from rules defined in JSON .conf file
-  cutils.evaluateRulesApplyProperties (properties, "monitor.libcamera")
+  cutils.evaluateRulesApplyProperties (properties, "monitor.libcamera.rules")
 
   -- create the node
   local node = Node("spa-node-factory", properties)
@@ -119,7 +120,7 @@ function createDevice(parent, id, type, factory, properties)
       or "Unknown device"
 
   -- apply properties from rules defined in JSON .conf file
-  cutils.evaluateRulesApplyProperties (properties, "monitor.libcamera")
+  cutils.evaluateRulesApplyProperties (properties, "monitor.libcamera.rules")
 
   -- create the device
   local device = SpaDevice(factory, properties)
@@ -132,7 +133,7 @@ function createDevice(parent, id, type, factory, properties)
   end
 end
 
-monitor = SpaDevice("api.libcamera.enum.manager", config_settings or {})
+monitor = SpaDevice("api.libcamera.enum.manager", config.properties)
 if monitor then
   monitor:connect("create-object", createDevice)
   monitor:activate(Feature.SpaDevice.ENABLED)

@@ -18,7 +18,7 @@ self.default_profile_plugin = Plugin.find ("default-profile")
 
 -- Checks whether a device profile is persistent or not
 function isProfilePersistent (device_props, profile_name)
-  local matched, mprops = Settings.apply_rule ("device", device_props)
+  local matched, mprops = Settings.apply_rule ("device.rules", device_props)
 
   if (matched and mprops) then
     if string.find (mprops ["profile_names"], profile_name) then
