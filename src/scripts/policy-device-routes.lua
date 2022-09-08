@@ -20,12 +20,10 @@
 
 local cutils = require ("common-utils")
 
-local use_persistent_storage =
-    Settings.parse_boolean_safe ("device.use-persistent-storage", true)
-local default_volume =
-    Settings.parse_float_safe ("device.default-volume", 0.4^3)
-local default_input_volume =
-    Settings.parse_float_safe ("device.default-input-volume", 1.0)
+local config = {}
+config.use_persistent_storage = Settings.parse_boolean_safe ("device.use-persistent-storage", true)
+config.default_volume = Settings.parse_float_safe ("device.default-volume", 0.4^3)
+config.default_input_volume = Settings.parse_float_safe ("device.default-input-volume", 1.0)
 
 -- table of device info
 dev_infos = {}
@@ -36,7 +34,7 @@ state_table = nil
 function handlePersistantSetting (enable)
   if enable and state == nil then
     -- the state storage
-    state = use_persistent_storage and State ("default-routes") or nil
+    state = config.use_persistent_storage and State ("default-routes") or nil
     state_table = state and state:load () or {}
   else
     state = nil
@@ -48,24 +46,24 @@ local function settingsChangedCallback (_, setting, _)
   local value = Settings.get (setting):parse ()
 
   if setting == "device.use-persistent-storage" then
-    use_persistent_storage = Settings.parse_boolean_safe
-        ("device.use-persistent-storage", use_persistent_storage)
-    handlePersistantSetting (use_persistent_storage)
+    config.use_persistent_storage = Settings.parse_boolean_safe
+        ("device.use-persistent-storage", config.use_persistent_storage)
+    handlePersistantSetting (config.use_persistent_storage)
   elseif setting == "device.default-volume" then
-    default_volume = Settings.parse_float_safe ("device.default-volume",
-        default_volume)
+    config.default_volume = Settings.parse_float_safe ("device.default-volume",
+        config.default_volume)
   elseif setting == "device.default-input-volume" then
-    default_input_volume = Settings.parse_float_safe
-        ("device.default-input-volume", default_input_volume)
+    config.default_input_volume = Settings.parse_float_safe
+        ("device.default-input-volume", config.default_input_volume)
   end
 end
 
 Settings.subscribe ("device*", settingsChangedCallback)
 
-handlePersistantSetting (use_persistent_storage)
+handlePersistantSetting (config.use_persistent_storage)
 
 function saveProfile (dev_info, profile_name)
-  if not use_persistent_storage then
+  if not config.use_persistent_storage then
     return
   end
 
@@ -84,7 +82,7 @@ function saveProfile (dev_info, profile_name)
 end
 
 function saveRouteProps (dev_info, route)
-  if not use_persistent_storage or not route.props then
+  if not config.use_persistent_storage or not route.props then
     return
   end
 
@@ -117,13 +115,13 @@ function restoreRoute (device, dev_info, device_id, route)
   }
 
   if route.direction == "Input" then
-    props.channelVolumes = { default_input_volume }
+    props.channelVolumes = { config.default_input_volume }
   else
-    props.channelVolumes = { default_volume }
+    props.channelVolumes = { config.default_volume }
   end
 
   -- restore props from persistent storage
-  if use_persistent_storage then
+  if config.use_persistent_storage then
     local key_base = dev_info.name .. ":" ..
                      route.direction:lower () .. ":" ..
                      route.name .. ":"

@@ -20,10 +20,10 @@
 
 local cutils = require ("common-utils")
 
-restore_props = Settings.parse_boolean_safe ("stream.restore-props", false)
-restore_target = Settings.parse_boolean_safe ("stream.restore-target", false)
-default_channel_volume = Settings.parse_float_safe (
-    "stream.default-channel-volume", 1.0)
+local config = {}
+config.restore_props = Settings.parse_boolean_safe ("stream.restore-props", true)
+config.restore_target = Settings.parse_boolean_safe ("stream.restore-target", true)
+config.default_channel_volume = Settings.parse_float_safe ("stream.default-channel-volume", 1.0)
 
 -- the state storage
 state = State ("restore-stream")
@@ -63,7 +63,7 @@ function saveTarget (subject, target_key, type, value)
   end
 
   local stream_props = node.properties
-  cutils.evaluateRulesApplyProperties (stream_props, "stream")
+  cutils.evaluateRulesApplyProperties (stream_props, "stream.rules")
 
   if stream_props ["state.restore-target"] == "false" then
     return
@@ -210,9 +210,9 @@ end
 
 function saveStream (node)
   local stream_props = node.properties
-  cutils.evaluateRulesApplyProperties (stream_props, "stream")
+  cutils.evaluateRulesApplyProperties (stream_props, "stream.rules")
 
-  if restore_props and stream_props ["state.restore-props"] ~= "false"
+  if config.restore_props and stream_props ["state.restore-props"] ~= "false"
   then
 
     local key_base = formKeyBase (stream_props)
@@ -252,7 +252,7 @@ function saveStream (node)
 end
 
 function build_default_channel_volumes (node)
-  local def_vol = default_channel_volume
+  local def_vol = config.default_channel_volume
   local channels = 2
   local res = {}
 
@@ -278,14 +278,14 @@ end
 
 function restoreStream (node)
   local stream_props = node.properties
-  cutils.evaluateRulesApplyProperties (stream_props, "stream")
+  cutils.evaluateRulesApplyProperties (stream_props, "stream.rules")
 
   local key_base = formKeyBase (stream_props)
   if not key_base then
     return
   end
 
-  if restore_props and stream_props ["state.restore-props"] ~= "false"
+  if config.restore_props and stream_props ["state.restore-props"] ~= "false"
   then
     local props = { "Spa:Pod:Object:Param:Props", "Props" }
 
@@ -318,7 +318,7 @@ function restoreStream (node)
     node:set_param ("Props", param)
   end
 
-  if restore_target and stream_props["state.restore-target"] ~= "false"
+  if config.restore_target and stream_props["state.restore-target"] ~= "false"
   then
     local str = state_table [key_base .. ":target"]
     if str then
@@ -396,7 +396,7 @@ local function handleRestoreTargetSetting (enable)
   end
 end
 
-handleRestoreTargetSetting (restore_target)
+handleRestoreTargetSetting (config.restore_target)
 
 function handleRouteSettings (subject, key, type, value)
   if type ~= "Spa:String:JSON" then
@@ -533,18 +533,18 @@ local function handleRestoreStreamSetting (enable)
   end
 end
 
-handleRestoreStreamSetting (restore_props)
+handleRestoreStreamSetting (config.restore_props)
 
 local function settingsChangedCallback (_, setting, _)
 
   if setting == "stream.restore-props" then
-    restore_props = Settings.parse_boolean_safe ("stream.restore-props",
-        restore_props)
-    handleRestoreStreamSetting (restore_props)
+    config.restore_props = Settings.parse_boolean_safe ("stream.restore-props",
+        config.restore_props)
+    handleRestoreStreamSetting (config.restore_props)
   elseif setting == "stream.restore-target" then
-    restore_target = Settings.parse_boolean_safe ("stream.restore-target",
-        restore_target)
-    handleRestoreTargetSetting (restore_target)
+    config.restore_target = Settings.parse_boolean_safe ("stream.restore-target",
+        config.restore_target)
+    handleRestoreTargetSetting (config.restore_target)
   end
 end
 
