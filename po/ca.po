@@ -22,15 +22,15 @@
 # Wim Taymans <wim.taymans@gmail.com>, 2016. #zanata
 # Robert Antoni Buj Gelonch <rbuj@fedoraproject.org>, 2017. #zanata
 # Robert Antoni Buj Gelonch <rbuj@fedoraproject.org>, 2019. #zanata
+# Jordi Mas i Hernàndez <jmas@softcatala.org>, 2022
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: pipewire\n"
-"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/"
-"issues/new\n"
-"POT-Creation-Date: 2022-04-09 15:19+0300\n"
-"PO-Revision-Date: 2012-01-30 09:52+0000\n"
-"Last-Translator: Josep Torné Llavall <josep.torne@gmail.com>\n"
+"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/-/issues\n"
+"POT-Creation-Date: 2022-07-08 03:32+0000\n"
+"PO-Revision-Date: 2022-09-12 09:52+0000\n"
+"Last-Translator: Jordi Mas i Hernàndez <jmas@softcatala.org>\n"
 "Language-Team: Catalan <fedora@softcatala.net>\n"
 "Language: ca\n"
 "MIME-Version: 1.0\n"
@@ -38,13 +38,12 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 
 #. WirePlumber
-#.
 #. Copyright © 2021 Collabora Ltd.
 #. @author George Kiagiadakis <george.kiagiadakis@collabora.com>
-#.
 #. SPDX-License-Identifier: MIT
 #. Receive script arguments from config.lua
 #. ensure config.properties is not nil
+#. unique device/node name tables
 #. preprocess rules and create Interest objects
 #. applies properties from config.rules when asked to
 #. set the device id and spa factory name; REQUIRED, do not change
@@ -60,15 +59,63 @@ msgstr ""
 #. ensure the node has a description
 #. also sanitize description, replace ':' with ' '
 #. add api.alsa.card.* properties for rule matching purposes
+#. apply VM overrides
 #. apply properties from config.rules
 #. create the node
 #. ensure the device has an appropriate name
 #. deduplicate devices with the same name
 #. ensure the device has a description
-#: src/scripts/monitors/alsa.lua:222
+#: src/scripts/monitors/alsa.lua:228
 msgid "Built-in Audio"
 msgstr "Àudio intern"
 
-#: src/scripts/monitors/alsa.lua:224
+#: src/scripts/monitors/alsa.lua:230
 msgid "Modem"
 msgstr "Mòdem"
+
+#. ensure the device has a nick
+#. set the icon name
+#. form factor -> icon
+#. apply properties from config.rules
+#. override the device factory to use ACP
+#. use device reservation, if available
+#. unlike pipewire-media-session, this logic here keeps the device
+#. acquired at all times and destroys it if someone else acquires
+#. create the device
+#. attempt to acquire again
+#. destroy the device
+#. TODO enable the jack device
+#. TODO disable the jack device
+#. create the device
+#. handle create-object to prepare device
+#. handle object-removed to destroy device reservations and recycle device
+#. name
+#. reset the name tables to make sure names are recycled
+#. activate monitor
+#. create the JACK device (for PipeWire to act as client to a JACK server)
+#. enable device reservation if requested
+#. if the reserve-device plugin is enabled, at the point of script execution
+#. it is expected to be connected. if it is not, assume the d-bus connection
+#. has failed and continue without it
+#. handle rd_plugin state changes to destroy and re-create the ALSA monitor in
+#. case D-Bus service is restarted
+#. create the monitor
+#. WirePlumber
+#. Copyright © 2021 Collabora Ltd.
+#. @author George Kiagiadakis <george.kiagiadakis@collabora.com>
+#. SPDX-License-Identifier: MIT
+#. preprocess rules and create Interest objects
+#. applies properties from config.rules when asked to
+#. set the device id and spa factory name; REQUIRED, do not change
+#. set the default pause-on-idle setting
+#. set the node name
+#. sanitize name
+#. deduplicate nodes with the same name
+#. set the node description
+#: src/scripts/monitors/libcamera.lua:88
+msgid "Built-in Front Camera"
+msgstr "Càmera frontal integrada"
+
+#: src/scripts/monitors/libcamera.lua:90
+msgid "Built-in Back Camera"
+msgstr "Càmera posterior integrada"
