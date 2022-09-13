@@ -164,8 +164,8 @@ do_load_components(void *data, const char *location, const char *section,
     g_autofree gchar *name = NULL;
     g_autofree gchar *type = NULL;
     g_autofree gchar *deps = NULL;
-    WpSpaJson *djson = NULL;
-    WpSpaJson *fjson = NULL;
+    g_autoptr (WpSpaJson) djson = NULL;
+    g_autoptr (WpSpaJson) fjson = NULL;
     gboolean if_exists = FALSE;
     gboolean no_fail = FALSE;
 
@@ -190,44 +190,28 @@ do_load_components(void *data, const char *location, const char *section,
       for (; wp_iterator_next (dit, &ditem); g_value_unset (&ditem)) {
         WpSpaJson *sjson = g_value_get_boxed (&ditem);
         g_autofree gchar *setting = wp_spa_json_parse_string (sjson);
-        WpSpaJson *setting_value_json = wp_settings_get (settings, setting);
-        gboolean setting_value = FALSE;
-        gboolean parsing_status = FALSE;
+        g_autoptr (WpSpaJson) json = wp_settings_get (settings, setting);
+        gboolean value = FALSE;
 
-        if (setting_value_json)
-            parsing_status = wp_spa_json_parse_boolean (setting_value_json,
-                &setting_value);
-
-        if (!setting_value_json || !parsing_status || !setting_value) {
+        if (!json || !wp_spa_json_parse_boolean (json, &value) || !value) {
           deps_met = FALSE;
           wp_info ("deps(%s) not met for component(%s), skip loading it",
             setting, name);
           break;
         }
-        if (setting_value_json)
-          wp_spa_json_unref (setting_value_json);
       }
       if (!deps_met)
         continue;
 
-      wp_spa_json_unref (djson);
     } else if (djson && wp_spa_json_object_get (cjson, "deps", "s", &deps, NULL)) {
-      WpSpaJson *setting_value_json = wp_settings_get (settings, deps);
-      gboolean setting_value = FALSE;
-      gboolean parsing_status = FALSE;
+      g_autoptr (WpSpaJson) json = wp_settings_get (settings, deps);
+      gboolean value = FALSE;
 
-      if (setting_value_json)
-        parsing_status = wp_spa_json_parse_boolean (setting_value_json,
-          &setting_value);
-
-      if (!setting_value_json || !parsing_status || !setting_value) {
+      if (!json || !wp_spa_json_parse_boolean (json, &value) || !value) {
         wp_info ("deps(%s) not met for component(%s), skip loading it",
             deps, name);
         continue;
       }
-      if (setting_value_json)
-        wp_spa_json_unref (setting_value_json);
-      wp_spa_json_unref (djson);
     }
 
     if (wp_spa_json_object_get (cjson, "flags", "J", &fjson, NULL) && fjson) {
@@ -240,8 +224,6 @@ do_load_components(void *data, const char *location, const char *section,
         if_exists = TRUE;
       if (!g_strcmp0 (s1, "nofail") || !g_strcmp0 (s2, "nofail"))
         no_fail = TRUE;
-
-      wp_spa_json_unref (fjson);
     }
 
     wp_debug ("load component(%s) type(%s) deps(%s) ifexists(%d) nofail(%d)",
