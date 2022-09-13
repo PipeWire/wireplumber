@@ -119,16 +119,6 @@ value = Settings.parse_object_safe ("test-setting-undefined", "test-settings")
 assert (value ~= nil)
 assert (#value == 0)
 
--- test settings _get_all ()
-value = Settings.get_all ("*string*", "test-settings")
-assert (value ~= nil)
-assert (value:is_object())
-assert (value:get_data() ==
-  "{\"test-setting4-string\":\"blahblah\", \"test-setting5-string-with-quotes\":\"a string with \\\"quotes\\\"\"}")
-val = value:parse ()
-assert (val["test-setting4-string"] == "blahblah")
-assert (val["test-setting5-string-with-quotes"] == "a string with \"quotes\"")
-
 -- test rules
 -- test #1
 local cp = {

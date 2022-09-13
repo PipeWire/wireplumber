@@ -65,9 +65,6 @@ WP_API
 WpSpaJson * wp_settings_get (WpSettings *self, const gchar *setting);
 
 WP_API
-WpSpaJson * wp_settings_get_all (WpSettings *self, const gchar *pattern);
-
-WP_API
 gboolean wp_settings_parse_boolean_safe (WpSettings *self, const gchar *setting,
     gboolean value);
 
