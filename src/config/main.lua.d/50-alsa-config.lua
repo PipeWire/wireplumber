@@ -20,6 +20,9 @@ alsa_monitor.properties = {
   -- Enables monitoring of alsa MIDI devices
   ["alsa.midi.monitoring"] = true,
 
+  -- Removes longname from MIDI port names
+  --["alsa.disable-longname"] = true,
+
   -- These properties override node defaults when running in a virtual machine.
   -- The rules below still override those.
   ["vm.node.defaults"] = {
