@@ -1496,28 +1496,6 @@ settings_get (lua_State *L)
 }
 
 static int
-settings_get_all (lua_State *L)
-{
-  const char *pattern = luaL_checkstring (L, 1);
-  const char *m = NULL;
-
-  if (lua_type (L, 2) == LUA_TSTRING)
-    m = luaL_checkstring (L, 2);
-
-  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L), m);
-
-  if (s) {
-    WpSpaJson *j = wp_settings_get_all (s, pattern);
-    if (j)
-      wplua_pushboxed (L, WP_TYPE_SPA_JSON, j);
-    else
-      lua_pushnil (L);
-  } else
-    lua_pushnil (L);
-  return 1;
-}
-
-static int
 settings_parse_boolean_safe (lua_State *L)
 {
   const char *setting = luaL_checkstring (L, 1);
@@ -1712,7 +1690,6 @@ settings_unsubscribe (lua_State *L)
 
 static const luaL_Reg settings_methods[] = {
   { "get", settings_get },
-  { "get_all", settings_get_all },
   { "parse_boolean_safe", settings_parse_boolean_safe },
   { "parse_int_safe", settings_parse_int_safe },
   { "parse_float_safe", settings_parse_float_safe },
