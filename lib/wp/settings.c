@@ -428,7 +428,7 @@ parse_actions (const gchar *actions)
 
   wp_debug(".. parsing actions");
 
-  if (!wp_spa_json_is_object (o)) {
+  if (!o || !wp_spa_json_is_object (o)) {
     wp_warning ("malformated JSON: actions has to be an object JSON element"
         ", skip processing this one");
     return NULL;
@@ -555,7 +555,7 @@ parse_rule (const gchar *rule, const gchar *value)
     g_autofree gchar *actions = NULL;
     Match *m = NULL;
 
-    if (!wp_spa_json_is_object (o)) {
+    if (!o || !wp_spa_json_is_object (o)) {
       wp_warning ("malformated JSON: rule has to be an object JSON element"
         ", skip processing this one");
       continue;
@@ -590,7 +590,7 @@ is_rule (WpSpaJson *json)
 
     wp_iterator_next (iter, &item);
     WpSpaJson *o = g_value_get_boxed (&item);
-    if (wp_spa_json_is_object (o))
+    if (o && wp_spa_json_is_object (o))
       return TRUE;
   }
   return FALSE;
