@@ -164,7 +164,7 @@ do_load_components(void *data, const char *location, const char *section,
     g_autofree gchar *name = NULL;
     g_autofree gchar *type = NULL;
     g_autoptr (WpSpaJson) deps = NULL;
-    g_autoptr (WpSpaJson) fjson = NULL;
+    g_autoptr (WpSpaJson) flags = NULL;
     gboolean if_exists = FALSE;
     gboolean no_fail = FALSE;
 
@@ -207,16 +207,27 @@ do_load_components(void *data, const char *location, const char *section,
       }
     }
 
-    if (wp_spa_json_object_get (cjson, "flags", "J", &fjson, NULL) && fjson) {
-      g_autofree gchar *s1 = NULL;
-      g_autofree gchar *s2 = NULL;
+    if (wp_spa_json_object_get (cjson, "flags", "J", &flags, NULL)) {
+      if (flags && wp_spa_json_is_array (flags)) {
+        g_autoptr (WpIterator) it = wp_spa_json_new_iterator (flags);
+        g_auto (GValue) item = G_VALUE_INIT;
 
-      wp_spa_json_parse_array (fjson, "s", &s1, "s", &s2, NULL);
-
-      if (!g_strcmp0 (s1, "ifexists") || !g_strcmp0 (s2, "ifexists"))
-        if_exists = TRUE;
-      if (!g_strcmp0 (s1, "nofail") || !g_strcmp0 (s2, "nofail"))
-        no_fail = TRUE;
+        for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
+          WpSpaJson *flag = g_value_get_boxed (&item);
+          g_autofree gchar *flag_str = wp_spa_json_parse_string (flag);
+          if (g_str_equal (flag_str, "ifexists"))
+            if_exists = TRUE;
+          else if (g_str_equal (flag_str, "nofail"))
+            no_fail = TRUE;
+          else
+            wp_warning ("flag(%s) is not valid for component(%s)", flag_str,
+                name);
+        }
+      } else {
+        wp_warning ("flags must be an array for component(%s), skip loading it",
+            name);
+        continue;
+      }
     }
 
     wp_debug ("load component(%s) type(%s) ifexists(%d) nofail(%d)",
