@@ -449,7 +449,8 @@ parse_actions (const gchar *actions)
       g_autofree gchar *value = NULL;
 
       g_value_unset (&item);
-      wp_iterator_next (iter, &item);
+      if (!wp_iterator_next (iter, &item))
+        break;
       p = g_value_get_boxed (&item);
 
       value = wp_spa_json_parse_string (p);
@@ -508,7 +509,8 @@ parse_matches (const gchar *match)
       WpConstraintVerb iverb = WP_CONSTRAINT_VERB_EQUALS;
 
       g_value_unset (&o_item);
-      wp_iterator_next (o_iter, &o_item);
+      if (!wp_iterator_next (o_iter, &o_item))
+        break;
       p = g_value_get_boxed (&o_item);
 
       ivalue = value = wp_spa_json_parse_string (p);
@@ -588,10 +590,11 @@ is_rule (WpSpaJson *json)
     g_autoptr (WpIterator) iter = wp_spa_json_new_iterator (json);
     g_auto (GValue) item = G_VALUE_INIT;
 
-    wp_iterator_next (iter, &item);
-    WpSpaJson *o = g_value_get_boxed (&item);
-    if (o && wp_spa_json_is_object (o))
-      return TRUE;
+    if (wp_iterator_next (iter, &item)) {
+      WpSpaJson *o = g_value_get_boxed (&item);
+      if (o && wp_spa_json_is_object (o))
+        return TRUE;
+    }
   }
   return FALSE;
 }
