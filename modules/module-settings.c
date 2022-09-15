@@ -26,17 +26,13 @@ struct _WpSettingsPlugin
 {
   WpPlugin parent;
 
+  /* Props */
   gchar *metadata_name;
 
   WpImplMetadata *impl_metadata;
-
-  WpProperties *settings;
-
   WpState *state;
-
+  WpProperties *settings;
   GSource *timeout_source;
-  guint save_interval_ms;
-  gboolean use_persistent_storage;
 };
 
 enum {
@@ -51,6 +47,7 @@ G_DEFINE_TYPE (WpSettingsPlugin, wp_settings_plugin, WP_TYPE_PLUGIN)
 
 #define NAME "sm-settings"
 #define PERSISTENT_SETTING "persistent.settings"
+#define SAVE_INTERVAL_MS 1000
 
 static void
 wp_settings_plugin_init (WpSettingsPlugin * self)
@@ -62,49 +59,27 @@ timeout_save_state_callback (WpSettingsPlugin *self)
 {
   g_autoptr (GError) error = NULL;
 
-  if (!self->state)
-    self->state = wp_state_new (NAME);
-
   if (!wp_state_save (self->state, self->settings, &error))
     wp_warning_object (self, "%s", error->message);
 
-  g_clear_pointer (&self->timeout_source, g_source_unref);
   return G_SOURCE_REMOVE;
 }
 
 static void
-timer_start (WpSettingsPlugin *self)
+timeout_save_settings (WpSettingsPlugin *self, guint ms)
 {
-  if (!self->timeout_source && self->use_persistent_storage) {
-    g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
-    g_return_if_fail (core);
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
+  g_return_if_fail (core);
 
-    /* Add the timeout callback */
-    wp_core_timeout_add_closure (core, &self->timeout_source,
-        self->save_interval_ms,
-        g_cclosure_new_object (
-            G_CALLBACK (timeout_save_state_callback), G_OBJECT (self)));
-  }
-}
+  /* Clear the current timeout callback */
+  if (self->timeout_source)
+    g_source_destroy (self->timeout_source);
+  g_clear_pointer (&self->timeout_source, g_source_unref);
 
-static gboolean
-settings_available_in_state_file (WpSettingsPlugin * self)
-{
-  g_autoptr (WpState) state = wp_state_new (NAME);
-  g_autoptr (WpProperties) settings = wp_state_load (state);
-  guint count = wp_properties_get_count(settings);
-
-  if (count > 0) {
-
-    wp_info_object (self, "%d settings are available in state file", count);
-    self->state = g_steal_pointer (&state);
-    self->use_persistent_storage = true;
-
-    return true;
-  } else
-    wp_info_object (self, "no settings are available in state file");
-
-  return false;
+  /* Add the timeout callback */
+  wp_core_timeout_add_closure (core, &self->timeout_source, ms,
+      g_cclosure_new_object (G_CALLBACK (timeout_save_state_callback),
+      G_OBJECT (self)));
 }
 
 static void
@@ -125,76 +100,65 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
   wp_properties_set (self->settings, setting, new_value);
 
   /* update the state */
-  timer_start (self);
+  timeout_save_settings (self, SAVE_INTERVAL_MS);
 }
-
-struct data {
-  WpTransition *transition;
-  int count;
-  WpProperties *settings;
-};
 
 static int
 do_parse_settings (void *data, const char *location,
     const char *section, const char *str, size_t len)
 {
-  struct data *d = data;
-  WpTransition *transition = d->transition;
-  WpSettingsPlugin *self = wp_transition_get_source_object (transition);
+  WpProperties *settings = data;
   g_autoptr (WpSpaJson) json = wp_spa_json_new_from_stringn (str, len);
   g_autoptr (WpIterator) iter = wp_spa_json_new_iterator (json);
   g_auto (GValue) item = G_VALUE_INIT;
 
-  if (!wp_spa_json_is_object (json)) {
-    /* section has to be a JSON object element. */
-    wp_transition_return_error (transition, g_error_new (
-      WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-        "failed to parse the section"));
+  if (!wp_spa_json_is_object (json))
     return -EINVAL;
-  }
 
   while (wp_iterator_next (iter, &item)) {
     WpSpaJson *j = g_value_get_boxed (&item);
     g_autofree gchar *name = wp_spa_json_parse_string (j);
     g_autofree gchar *value = NULL;
-    int len = 0;
 
     g_value_unset (&item);
     if (!wp_iterator_next (iter, &item)) {
-     wp_warning ("It is likely that the JSON syntax is incorrect,"
-        " check key value pair formatting");
-      break;
+      wp_warning ("section %s in %s has wrong JSON syntax", location, section);
+      return -EINVAL;
     }
     j = g_value_get_boxed (&item);
 
     value = wp_spa_json_to_string (j);
-    len = wp_spa_json_get_size (j);
     g_value_unset (&item);
 
-    if (name && value) {
-      wp_debug_object (self, "%s(%d) = %s", name, len, value);
-
-      wp_properties_set (d->settings, name, value);
-
-      if (g_str_equal (name, PERSISTENT_SETTING) && spa_atob (value)) {
-        self->use_persistent_storage = true;
-        wp_info_object (self, "persistent settings enabled");
-      }
-
-      d->count++;
-    }
+    if (name && value)
+      wp_properties_set (settings, name, value);
   }
 
-  wp_info_object (self, "parsed %d settings & rules from conf file", d->count);
-
- return 0;
+  return 0;
 }
 
 static int
-do_parse_endpoints (void *data, const char *location,
-    const char *section, const char *str, size_t len)
+do_parse_endpoints (void *data, const char *location, const char *section,
+    const char *str, size_t len)
 {
   return do_parse_settings (data, location, section, str, len);
+}
+
+static gboolean
+is_persistent_settings_enabled (WpProperties *settings) {
+  const gchar *val_str;
+  g_autoptr (WpSpaJson) val = NULL;
+  gboolean res = FALSE;
+
+  val_str = wp_properties_get (settings, PERSISTENT_SETTING);
+  if (!val_str)
+    return FALSE;
+
+  val = wp_spa_json_new_from_string (val_str);
+  if (val && !wp_spa_json_parse_boolean (val, &res))
+    wp_warning ("Could not parse " PERSISTENT_SETTING " in main configuration");
+
+  return res;
 }
 
 static void
@@ -202,97 +166,52 @@ on_metadata_activated (WpMetadata * m, GAsyncResult * res, gpointer user_data)
 {
   WpTransition *transition = WP_TRANSITION (user_data);
   WpSettingsPlugin *self = wp_transition_get_source_object (transition);
-  g_autoptr (GError) error = NULL;
-
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   struct pw_context *pw_ctx = wp_core_get_pw_context (core);
-  g_autoptr (WpProperties) settings = wp_properties_new_empty();
-  struct data data = { .transition = transition,
-                       .settings = settings };
+  g_autoptr (WpProperties) config_settings = wp_properties_new_empty ();
+  g_autoptr (GError) error = NULL;
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) item = G_VALUE_INIT;
 
-
   if (!wp_object_activate_finish (WP_OBJECT (m), res, &error)) {
-    g_clear_object (&self->impl_metadata);
     g_prefix_error (&error, "Failed to activate \"%s\": "
         "Metadata object ", self->metadata_name);
     wp_transition_return_error (transition, g_steal_pointer (&error));
     return;
   }
 
-  wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
-
-
   if (pw_context_conf_section_for_each (pw_ctx, "wireplumber.settings",
-      do_parse_settings, &data) < 0)
-    return;
-
-  if (data.count == 0) {
-    /*
-     * either the "wireplumber.settings" is not found or not defined as a
-     * valid JSON object element.
-     */
+      do_parse_settings, config_settings) < 0) {
     wp_transition_return_error (transition, g_error_new (
       WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-      "No settings present in the context conf file: settings "
-      "are not loaded"));
+        "failed to parse settings"));
     return;
   }
 
   if (pw_context_conf_section_for_each (pw_ctx, "wireplumber.endpoints",
-      do_parse_endpoints, &data) < 0)
-    return;
-
-  if (data.count == 0) {
-    /*
-     * either the "wireplumber.endpoints" is not found or not defined as a
-     * valid JSON object element.
-     */
+      do_parse_endpoints, config_settings) < 0) {
     wp_transition_return_error (transition, g_error_new (
       WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-      "No endpoints present in the context conf file: endpoints "
-      "are not loaded"));
+        "failed to parse endpoints"));
     return;
   }
 
-  if (!self->use_persistent_storage) {
+  /* Don't use configuration settings if persistent settings is enabled */
+  if (!is_persistent_settings_enabled (config_settings)) {
+    wp_info_object (self, PERSISTENT_SETTING
+       " is disabled, current configuration file settings will be used");
 
-    /* use parsed settings from .conf file */
-    self->settings = g_steal_pointer (&settings);
-    wp_info_object(self, "use settings from .conf file");
-
-    if (settings_available_in_state_file (self)) {
-      wp_info_object (self, "persistant storage is disabled clear the"
-          " settings in the state file");
-
-      wp_state_clear (self->state);
-      g_clear_object (&self->state);
-    }
-
-  } else if (self->use_persistent_storage) {
-
-    /* consider using settings from state file */
-    if (settings_available_in_state_file (self)) {
-      self->settings = wp_state_load (self->state);
-      wp_info_object (self, "persistant storage enabled and settings are found"
-          " in state file, use them");
-    }
-    else
-    {
-      wp_info_object (self, "persistant storage enabled but settings are"
-          " not found in state file so load from .conf file");
-      self->settings = g_steal_pointer (&settings);
-
-      /* save state after time out */
-      timer_start (self);
-    }
-
+    g_clear_pointer (&self->settings, wp_properties_unref);
+    self->settings = g_steal_pointer (&config_settings);
+    timeout_save_settings (self, SAVE_INTERVAL_MS);
+  } else {
+    wp_info_object (self, PERSISTENT_SETTING
+       " is enabled, current saved settings will be used");
   }
 
   for (it = wp_properties_new_iterator (self->settings);
-        wp_iterator_next (it, &item);
-        g_value_unset (&item)) {
+      wp_iterator_next (it, &item);
+      g_value_unset (&item)) {
     WpPropertiesItem *pi = g_value_get_boxed (&item);
 
     const gchar *setting = wp_properties_item_get_key (pi);
@@ -304,10 +223,11 @@ on_metadata_activated (WpMetadata * m, GAsyncResult * res, gpointer user_data)
   wp_info_object (self, "loaded settings(%d) to \"%s\" metadata",
       wp_properties_get_count (self->settings), self->metadata_name);
 
-
   /* monitor changes in metadata. */
   g_signal_connect_object (m, "changed", G_CALLBACK (on_metadata_changed),
       self, 0);
+
+  wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
 }
 
 static void
@@ -317,7 +237,8 @@ wp_settings_plugin_enable (WpPlugin * plugin, WpTransition * transition)
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
   g_return_if_fail (core);
 
-  self->use_persistent_storage = false;
+  self->state = wp_state_new (NAME);
+  self->settings = wp_state_load (self->state);
 
   /* create metadata object */
   self->impl_metadata = wp_impl_metadata_new_full (core, self->metadata_name,
@@ -335,14 +256,14 @@ wp_settings_plugin_disable (WpPlugin * plugin)
   WpSettingsPlugin * self = WP_SETTINGS_PLUGIN (plugin);
 
   if (self->timeout_source)
-      g_source_destroy (self->timeout_source);
+    g_source_destroy (self->timeout_source);
   g_clear_pointer (&self->timeout_source, g_source_unref);
 
-  g_clear_pointer (&self->settings, wp_properties_unref);
   g_clear_object (&self->impl_metadata);
-
+  g_clear_pointer (&self->settings, wp_properties_unref);
   g_clear_object (&self->state);
-  g_free (self->metadata_name);
+
+  g_clear_pointer (&self->metadata_name, g_free);
 }
 
 static void
@@ -393,7 +314,6 @@ wp_settings_plugin_class_init (WpSettingsPluginClass * klass)
       g_param_spec_string ("metadata-name", "metadata-name",
           "The metadata object to look after", NULL,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
-
 }
 
 WP_PLUGIN_EXPORT gboolean
@@ -401,9 +321,8 @@ wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
   const gchar *metadata_name = "sm-settings";
 
-  if (args) {
+  if (args)
     metadata_name = g_variant_get_string(args, NULL);
-  }
 
   wp_plugin_register (g_object_new (wp_settings_plugin_get_type (),
       "name", "settings",
