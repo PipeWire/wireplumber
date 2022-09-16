@@ -471,11 +471,22 @@ event_cmp_func (const WpEvent *a, const WpEvent *b)
 }
 
 static gint
-hook_cmp_func (const WpEventHookData *a, const WpEventHookData *b)
+hook_cmp_func (const WpEventHookData *new_hook, const WpEventHookData *listed_hook)
 {
-  return wp_event_hook_get_priority ((WpEventHook *) b->hook) -
-         wp_event_hook_get_priority ((WpEventHook *) a->hook);
+  return wp_event_hook_get_priority ((WpEventHook *) listed_hook->hook) -
+         wp_event_hook_get_priority ((WpEventHook *) new_hook->hook);
 }
+
+static gint
+after_events_hook_cmp_func (const WpEventHookData *new_hook,
+    const WpEventHookData *listed_hook)
+{
+  if (new_hook->event != listed_hook->event)
+    return G_MININT;
+  else
+    return hook_cmp_func (new_hook, listed_hook);
+}
+
 
 static gint
 is_hook_present (const WpEventHookData *hook_data, const WpEventHook *hook)
@@ -527,7 +538,8 @@ wp_event_dispatcher_push_event (WpEventDispatcher * self, WpEvent * event)
         hook_data->event = wp_event_ref (event);
 
         self->rescan_event->hooks = g_list_insert_sorted (
-          self->rescan_event->hooks, hook_data, (GCompareFunc) hook_cmp_func);
+          self->rescan_event->hooks, hook_data,
+          (GCompareFunc) after_events_hook_cmp_func);
         rescan_hooks_added = true;
 
         wp_debug_object (self, "added after-events-with-event rescan hook"
