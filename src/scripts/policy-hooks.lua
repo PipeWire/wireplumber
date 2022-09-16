@@ -12,7 +12,7 @@
 local putils = require ("policy-utils")
 local cutils = require ("common-utils")
 
-local move = Settings.parse_boolean_safe ("default-policy-move", false)
+local move = Settings.parse_boolean_safe("policy.default.move", false)
 
 function settingsChangedCallback (_, setting, _)
   move = Settings.parse_boolean_safe ("policy.default.move", move)
@@ -35,8 +35,8 @@ function findDefinedTarget (event)
   local si_flags = putils.get_flags (si_id)
   local si_target = nil
 
-  Log.info (si, string.format ("handling item: %s (%s)",
-    tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
+  Log.info (si, string.format ("handling item: %s (%s) si id(%s)",
+    tostring (si_props ["node.name"]), tostring (si_props ["node.id"]), si_id))
 
   local metadata = move and putils.get_default_metadata_object ()
   local target_key
@@ -84,14 +84,17 @@ function findDefinedTarget (event)
       target_picked = true
     end
   elseif target_value then
-    for si_target in linkables_om:iterate () do
-      local target_props = si_target.properties
+    for lnkbl in linkables_om:iterate () do
+      local target_props = lnkbl.properties
       if (target_props ["node.name"] == target_value or
           target_props ["object.path"] == target_value) and
           target_props ["item.node.direction"] == cutils.getTargetDirection (si_props) and
-          putils.canLink (si_props, si_target) then
+          putils.canLink (si_props, lnkbl) then
         target_picked = true
+        si_target = lnkbl
+        break
       end
+
     end
   end
 
@@ -113,9 +116,7 @@ function findDefinedTarget (event)
       and not si_target
       and not si_flags.was_handled
       and not si_flags.done_waiting then
-    Log.info (si, string.format ("... waiting for target %s (%s)",
-      tostring (si_target.properties ["node.name"]),
-      tostring (si_target.properties ["node.id"])))
+    Log.info(si, "... waiting for target")
     si_flags.done_waiting = true
     event:stop_processing ()
 
@@ -152,8 +153,8 @@ function findDefaultTarget (event)
   local si_props = si.properties
   local target_picked = false
 
-  Log.info (si, string.format ("handling item: %s (%s)",
-    tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
+  Log.info (si, string.format ("handling item: %s (%s) si id(%s)",
+    tostring (si_props ["node.name"]), tostring (si_props ["node.id"]), si_id))
 
   local si_target = putils.findDefaultLinkable (si)
 
@@ -200,6 +201,9 @@ function findBestTarget (event)
   local target_can_passthrough = false
   local target_priority = 0
   local target_plugged = 0
+
+  Log.info (si, string.format ("handling item: %s (%s) si id(%s)",
+    tostring (si_props ["node.name"]), tostring (si_props ["node.id"]), si_id))
 
   for si_target in linkables_om:iterate {
     Constraint { "item.node.type", "=", "device" },
@@ -282,8 +286,9 @@ function prepareLink (event)
   local exclusive = parseBool (si_props ["node.exclusive"])
   local si_must_passthrough = parseBool (si_props ["item.node.encoded-only"])
 
-  Log.info (si, string.format ("handling item: %s (%s)",
-    tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
+  Log.info (si, string.format ("handling item: %s (%s) si id(%s)",
+    tostring (si_props ["node.name"]), tostring (si_props ["node.id"]), si_id))
+
 
   -- Check if item is linked to proper target, otherwise re-link
   if si_flags.peer_id then
@@ -389,6 +394,9 @@ function createLink (event)
   local in_item = nil
   local si_link = nil
   local passthrough = si_flags.can_passthrough
+
+  Log.info (si, string.format ("handling item: %s (%s) si id(%s)",
+    tostring (si_props ["node.name"]), tostring (si_props ["node.id"]), si_id))
 
   local exclusive = parseBool (si_props ["node.exclusive"])
   local passive = parseBool (si_props ["node.passive"]) or
@@ -516,7 +524,7 @@ clients_om:activate ()
 default_nodes = Plugin.find ("default-nodes-api")
 
 SimpleEventHook {
-  name = "link-target-si@policy-node",
+  name = "link-target@policy-hooks",
   type = "after-events-with-event",
   priority = "link-target-si",
   interests = {
@@ -530,7 +538,7 @@ SimpleEventHook {
 }:register ()
 
 SimpleEventHook {
-  name = "prepare-link-si@policy-node",
+  name = "prepare-link@policy-hooks",
   type = "after-events-with-event",
   priority = "prepare-link-si",
   interests = {
@@ -544,7 +552,7 @@ SimpleEventHook {
 }:register ()
 
 SimpleEventHook {
-  name = "find-best-target-si@policy-node",
+  name = "find-best-target@policy-hooks",
   type = "after-events-with-event",
   priority = "find-best-target-si",
   interests = {
@@ -558,7 +566,7 @@ SimpleEventHook {
 }:register ()
 
 SimpleEventHook {
-  name = "find-default-target-si@policy-node",
+  name = "find-default-target@policy-hooks",
   type = "after-events-with-event",
   priority = "find-default-target-si",
   interests = {
@@ -572,7 +580,7 @@ SimpleEventHook {
 }:register ()
 
 SimpleEventHook {
-  name = "find-defined-target@policy-node",
+  name = "find-defined-target@policy-hooks",
   type = "after-events-with-event",
   priority = "find-defined-target-si",
   interests = {
