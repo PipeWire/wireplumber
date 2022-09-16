@@ -1792,7 +1792,7 @@ event_dispatcher_push_event (lua_State *L)
   WpEvent *event = wp_event_new (type, priority, properties, source, subject);
   wp_event_dispatcher_push_event (dispatcher, wp_event_ref (event));
   wplua_pushboxed (L, WP_TYPE_EVENT, event);
-  return 0;
+  return 1;
 }
 
 static const luaL_Reg event_dispatcher_funcs[] = {
