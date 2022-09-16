@@ -183,6 +183,29 @@ function findDefaultTarget (event)
   putils.set_flags (si_id, si_flags)
 end
 
+-- function sampleUserPolicyHook(event)
+--   local si = event:get_subject()
+--   local si_id = si.id
+--   -- pick up the flags
+--   local si_flags = putils.get_flags(si_id)
+--   local si_target = si_flags.si_target
+
+--   if si_target then
+--     -- one can choose to bypass the hook if the target is picked.
+--     return
+--   end
+
+--   local si_props = si.properties
+
+--   Log.info(si, string.format("handling item: %s (%s) si id(%s)",
+--     tostring(si_props["node.name"]), tostring(si_props["node.id"]), si_id))
+
+--   -- implement logic to pick target
+
+--   -- save back the flags.
+--   putils.set_flags(si_id, si_flags)
+-- end
+
 -- Traverse through all the possible targets to pick up target node.
 function findBestTarget (event)
   local si = event:get_subject ()
@@ -578,6 +601,20 @@ SimpleEventHook {
     findDefaultTarget (event)
   end
 }:register ()
+
+-- an example of an user injectible hook, uncomment to see it in action.
+-- SimpleEventHook { name = "sample-user-hook@policy-hooks", type =
+--   "after-events-with-event", priority = "sample-user-policy-hook",
+
+--   interests = {
+--     EventInterest {
+--       Constraint { "event.type", "=", "find-target-si-and-link" },
+--     },
+--   },
+--   execute = function(event)
+--     sampleUserPolicyHook (event)
+--   end
+-- }:register()
 
 SimpleEventHook {
   name = "find-defined-target@policy-hooks",
