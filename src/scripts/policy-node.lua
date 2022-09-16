@@ -103,6 +103,9 @@ function handleLinkable (si)
   if find_target_events [si_id] ~= nil then
     -- stop the processing of the old event, we are going to queue a new one any
     -- way
+    Log.info(si, string.format("stopping item: %s (%s) si id(%s)",
+      tostring(si_props["node.name"]), tostring(si_props["node.id"]), si_id))
+
     find_target_events [si_id]:stop_processing ()
   end
 
