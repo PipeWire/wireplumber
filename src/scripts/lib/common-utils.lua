@@ -102,16 +102,20 @@ function cutils.arrayContains (a, value)
   return false
 end
 
+state_save_sources = {}
+
 function cutils.storeAfterTimeout (state, state_table)
-  if timeout_source then
-    timeout_source:destroy ()
+  local state_name = state["name"]
+  if state_save_sources [state_name] ~= nil then
+    state_save_sources [state_name]:destroy ()
+    state_save_sources [state_name] = nil
   end
-  local timeout_source = Core.timeout_add (1000, function ()
+  state_save_sources [state_name] = Core.timeout_add (1000, function ()
     local saved, err = state:save (state_table)
     if not saved then
       Log.warning (err)
     end
-    timeout_source = nil
+    return false
   end)
 end
 
