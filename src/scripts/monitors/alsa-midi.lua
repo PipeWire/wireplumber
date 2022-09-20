@@ -22,9 +22,8 @@ function CreateMidiNode ()
   -- Midi properties
   local props = {}
   props["factory.name"] = "api.alsa.seq.bridge"
-  props["node.name"] = "Midi-Bridge"
-  if config.properties["alsa.disable-longname"] then
-    props["api.alsa.disable-longname"] = true
+  for k, v in pairs(config.properties["alsa.midi.node-properties"]) do
+    props[k] = v
   end
 
   -- create the midi node
