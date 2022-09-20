@@ -350,7 +350,7 @@ parse_adapter_format (WpSpaPod *format, gint *channels,
   /* position is optional */
   wp_spa_pod_parser_get (parser, "position", "P", &p, NULL);
 
-  if (channels)
+  if (channels && c != 0)
     *channels = c;
   if (position)
     *position = p ? wp_spa_pod_ref (p) : NULL;
