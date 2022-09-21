@@ -5,8 +5,8 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local move = Settings.parse_boolean_safe ("policy.default.move", false)
-local follow = Settings.parse_boolean_safe ("policy.default.follow", false)
+local config = {}
+config.follow = Settings.parse_boolean_safe ("policy.default.follow", true)
 
 local self = {}
 self.scanning = false
@@ -207,7 +207,7 @@ links_om = ObjectManager {
 }
 
 -- listen for default node changes if "follow" setting is enabled
-if follow then
+if config.follow then
   default_nodes:connect("changed", function (p)
     scheduleRescan ()
   end)
