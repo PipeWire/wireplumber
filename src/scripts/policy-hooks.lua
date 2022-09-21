@@ -12,10 +12,11 @@
 local putils = require ("policy-utils")
 local cutils = require ("common-utils")
 
-local move = Settings.parse_boolean_safe("policy.default.move", false)
+local config = {}
+config.move = Settings.parse_boolean_safe("policy.default.move", true)
 
 function settingsChangedCallback (_, setting, _)
-  move = Settings.parse_boolean_safe ("policy.default.move", move)
+  config.move = Settings.parse_boolean_safe ("policy.default.move", config.move)
 end
 
 Settings.subscribe ("policy.default.move", settingsChangedCallback)
@@ -38,7 +39,7 @@ function findDefinedTarget (event)
   Log.info (si, string.format ("handling item: %s (%s) si id(%s)",
     tostring (si_props ["node.name"]), tostring (si_props ["node.id"]), si_id))
 
-  local metadata = move and putils.get_default_metadata_object ()
+  local metadata = config.move and putils.get_default_metadata_object ()
   local target_key
   local target_value = nil
   local node_defined = false
