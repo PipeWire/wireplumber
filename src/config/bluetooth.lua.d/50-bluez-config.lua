@@ -123,10 +123,10 @@ bluez_monitor.rules = {
       --["session.suspend-timeout-seconds"] = 5,  -- 0 disables suspend
       --["monitor.channel-volumes"] = false,
 
-      -- A2DP source role, "input" or "playback"
+      -- Media source role, "input" or "playback"
       -- Defaults to "playback", playing stream to speakers
       -- Set to "input" to use as an input for apps
-      --["bluez5.a2dp-source-role"] = "input",
+      --["bluez5.media-source-role"] = "input",
     },
   },
 }
