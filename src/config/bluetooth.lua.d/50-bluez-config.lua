@@ -29,6 +29,11 @@ bluez_monitor.properties = {
   -- Available values: any, none, hsphfpd, ofono, native
   --["bluez5.hfphsp-backend"] = "native",
 
+  -- HFP/HSP native backend modem (default: none).
+  -- Available values: none, any or the modem device string as found in
+  --   'Device' property of org.freedesktop.ModemManager1.Modem interface
+  --["bluez5.hfphsp-backend-native-modem"] = "none",
+
   -- Properties for the A2DP codec configuration
   --["bluez5.default.rate"] = 48000,
   --["bluez5.default.channels"] = 2,
