@@ -186,7 +186,7 @@ lookup_dirs (guint flags)
   else {
     if (flags & WP_LOOKUP_DIR_XDG_CONFIG_HOME) {
       dir = g_get_user_config_dir ();
-      g_ptr_array_add (dirs, g_build_filename (dir, "wireplumber", NULL));
+      g_ptr_array_add (dirs, g_build_filename (dir, "pipewire", NULL));
     }
     if (flags & WP_LOOKUP_DIR_ETC)
       g_ptr_array_add (dirs,
