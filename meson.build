@@ -15,8 +15,8 @@ wireplumber_headers_dir = get_option('includedir') / 'wireplumber-' + wireplumbe
 
 wireplumber_bin_dir = get_option('prefix') / get_option('bindir')
 wireplumber_module_dir = get_option('prefix') / get_option('libdir') / 'wireplumber-' + wireplumber_api_version
-wireplumber_data_dir = get_option('prefix') / get_option('datadir') / 'wireplumber'
-wireplumber_config_dir = get_option('prefix') / get_option('sysconfdir') / 'wireplumber'
+wireplumber_data_dir = get_option('prefix') / get_option('datadir') / 'pipewire'
+wireplumber_config_dir = get_option('prefix') / get_option('sysconfdir') / 'pipewire'
 wireplumber_locale_dir = get_option('prefix') / get_option('localedir')
 
 cc = meson.get_compiler('c')
