@@ -185,13 +185,14 @@ do_load_components(void *data, const char *location, const char *section,
         g_auto (GValue) item = G_VALUE_INIT;
         gboolean deps_met = TRUE;
 
+        /* Note that we consider the dependency valid by default if it is not
+         * found in the settings */
         for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
           WpSpaJson *dep = g_value_get_boxed (&item);
           g_autofree gchar *setting = wp_spa_json_parse_string (dep);
-          g_autoptr (WpSpaJson) json = wp_settings_get (settings, setting);
-          gboolean value = FALSE;
-
-          if (!json || !wp_spa_json_parse_boolean (json, &value) || !value) {
+          gboolean value = wp_settings_parse_boolean_safe (settings, setting,
+              TRUE);
+          if (!value) {
             deps_met = FALSE;
             wp_info ("deps(%s) not met for component(%s), skip loading it",
               setting, name);
