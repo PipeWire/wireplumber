@@ -6,7 +6,7 @@
 -- SPDX-License-Identifier: MIT
 
 -- Receive script arguments from config.lua
-local endpoints = Settings.parse_object_safe ("endpoints")
+local endpoints = Settings.parse_object_safe ("endpoints", Json.Object {})
 
 function createEndpoint (factory_name, properties)
   -- create endpoint

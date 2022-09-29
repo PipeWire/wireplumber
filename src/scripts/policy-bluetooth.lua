@@ -34,7 +34,7 @@ config.use_persistent_storage = Settings.parse_boolean_safe
 config.use_headset_profile = Settings.parse_boolean_safe
     ("policy.bluetooth.media-role.use-headset-profile", true)
 config.apps_setting = Settings.parse_array_safe
-    ("policy.bluetooth.media-role.applications")
+    ("policy.bluetooth.media-role.applications", Json.Array {})
 
 state = nil
 headset_profiles = nil
@@ -60,7 +60,7 @@ local function settingsChangedCallback (_, setting, _)
         ("policy.bluetooth.media-role.use-headset-profile", config.use_headset_profile)
   elseif setting == "policy.bluetooth.media-role.applications" then
     local new_apps_setting = Settings.parse_array_safe
-        ("policy.bluetooth.media-role.applications")
+        ("policy.bluetooth.media-role.applications", Json.Array {})
     if #new_apps_setting > 0 then
       config.apps_setting = new_apps_setting
       loadAppNames (config.apps_setting)
