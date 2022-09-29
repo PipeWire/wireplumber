@@ -8,7 +8,7 @@
 local cutils = require ("common-utils")
 
 local config = {}
-config.properties = Settings.parse_object_safe ("monitor.libcamera.properties")
+config.properties = Settings.parse_object_safe ("monitor.libcamera.properties", Json.Object {})
 
 function findDuplicate(parent, id, property, value)
   for i = 0, id - 1, 1 do

@@ -1578,8 +1578,19 @@ settings_parse_array_safe (lua_State *L)
   g_autoptr (WpSettings) s = NULL;
   g_autoptr (WpSpaJson) json_default = NULL;
 
-  if (lua_type (L, 2) == LUA_TSTRING)
-    m = luaL_checkstring (L, 2);
+  if (lua_isuserdata (L, 2)) {
+    WpSpaJson *v = wplua_checkboxed (L, 2, WP_TYPE_SPA_JSON);
+    if (v && wp_spa_json_is_array (v))
+      json_default = wp_spa_json_ref (v);
+  }
+  if (!json_default) {
+    wp_warning ("Using empty array for setting '%s' as fallback value isn't "
+        "a JSON array", setting);
+    json_default = wp_spa_json_new_array (NULL, NULL);
+  }
+
+  if (lua_type (L, 3) == LUA_TSTRING)
+    m = luaL_checkstring (L, 3);
 
   s = wp_settings_get_instance (get_wp_core (L), m);
   if (s) {
@@ -1593,7 +1604,7 @@ settings_parse_array_safe (lua_State *L)
       }
     }
   }
-  json_default = wp_spa_json_new_array (NULL, NULL);
+
   push_luajson (L, json_default);
   return 1;
 }
@@ -1606,8 +1617,19 @@ settings_parse_object_safe (lua_State *L)
   g_autoptr (WpSettings) s = NULL;
   g_autoptr (WpSpaJson) json_default = NULL;
 
-  if (lua_type (L, 2) == LUA_TSTRING)
-    m = luaL_checkstring (L, 2);
+  if (lua_isuserdata (L, 2)) {
+    WpSpaJson *v = wplua_checkboxed (L, 2, WP_TYPE_SPA_JSON);
+    if (v && wp_spa_json_is_object (v))
+      json_default = wp_spa_json_ref (v);
+  }
+  if (!json_default) {
+    wp_warning ("Using empty object for setting '%s' as fallback value isn't "
+          "a JSON object", setting);
+    json_default = wp_spa_json_new_array (NULL, NULL);
+  }
+
+  if (lua_type (L, 3) == LUA_TSTRING)
+    m = luaL_checkstring (L, 3);
 
   s = wp_settings_get_instance (get_wp_core (L), m);
   if (s) {
@@ -1621,7 +1643,7 @@ settings_parse_object_safe (lua_State *L)
       }
     }
   }
-  json_default = wp_spa_json_new_object (NULL, NULL, NULL);
+
   push_luajson (L, json_default);
   return 1;
 }
