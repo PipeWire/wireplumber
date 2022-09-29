@@ -75,15 +75,20 @@ assert (value ~= nil)
 assert (value:is_array())
 assert (value:get_data() == "[1, 2, 3]")
 
-value = Settings.parse_array_safe ("test-setting-json", "test-settings")
+value = Settings.parse_array_safe ("test-setting-json", Json.Array {}, "test-settings")
 assert (value ~= nil)
 assert (value[1] == 1)
 assert (value[2] == 2)
 assert (value[3] == 3)
 
-value = Settings.parse_array_safe ("test-setting-undefined", "test-settings")
+value = Settings.parse_array_safe ("test-setting-undefined", nil, "test-settings")
 assert (value ~= nil)
 assert (#value == 0)
+
+value = Settings.parse_array_safe ("test-setting-undefined", Json.Array { 1, 2 }, "test-settings")
+assert (value ~= nil)
+assert (value[1] == 1)
+assert (value[2] == 2)
 
 value = Settings.get ("test-setting-json2", "test-settings")
 assert (value ~= nil)
@@ -109,15 +114,20 @@ assert (val.key1 == "value")
 assert (val.key2 == 2)
 assert (val.key3 == true)
 
-value = Settings.parse_object_safe ("test-setting-json3", "test-settings")
+value = Settings.parse_object_safe ("test-setting-json3", Json.Object {}, "test-settings")
 assert (value ~= nil)
 assert (value.key1 == "value")
 assert (value.key2 == 2)
 assert (value.key3 == true)
 
-value = Settings.parse_object_safe ("test-setting-undefined", "test-settings")
+value = Settings.parse_object_safe ("test-setting-undefined", nil, "test-settings")
 assert (value ~= nil)
 assert (#value == 0)
+
+value = Settings.parse_object_safe ("test-setting-undefined", Json.Object { key1 = "value", key2 = 2}, "test-settings")
+assert (value ~= nil)
+assert (value.key1 == "value")
+assert (value.key2 == 2)
 
 -- test rules
 -- test #1
