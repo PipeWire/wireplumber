@@ -7,7 +7,7 @@
 
 local config = {}
 config.duck_level = Settings.parse_float_safe ("policy.default.duck-level", 0.3)
-config.roles = Settings.parse_object_safe ("endpoints-roles")
+config.roles = Settings.parse_object_safe ("endpoints-roles", Json.Object {})
 
 function findRole(role)
   if role and not config.roles[role] then
