@@ -7,7 +7,7 @@
 
 -- Receive script arguments from config.lua
 
-local roles = Settings.parse_object_safe ("endpoints-roles")
+local roles = Settings.parse_object_safe ("endpoints-roles", Json.Object {})
 
 local self = {}
 self.scanning = false

@@ -6,7 +6,7 @@
 -- SPDX-License-Identifier: MIT
 
 local config = {}
-config.node_properties = Settings.parse_object_safe ("monitor.alsa.midi.node-properties")
+config.node_properties = Settings.parse_object_safe ("monitor.alsa.midi.node-properties", Json.Object {})
 
 SND_PATH = "/dev/snd"
 SEQ_NAME = "seq"

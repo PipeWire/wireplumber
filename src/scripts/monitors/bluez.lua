@@ -8,7 +8,7 @@
 local cutils = require ("common-utils")
 
 local config = {}
-config.properties = Settings.parse_object_safe ("monitor.bluetooth.properties")
+config.properties = Settings.parse_object_safe ("monitor.bluetooth.properties", Json.Object {})
 
 devices_om = ObjectManager {
   Interest {
