@@ -27,13 +27,13 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2022-02-16.0'
+    FDO_DISTRIBUTION_TAG: '2022-10-03.0'
     FDO_DISTRIBUTION_VERSION: '35'
     # findutils: used by the .build script below
     # dbus-devel: required by pipewire
     # dbus-daemon: required by GDBus unit tests
     # pip, doxygen: required for documentation
-    # ShellCheck: required by the CI
+    # ShellCheck, diffutils: required by the CI
     FDO_DISTRIBUTION_PACKAGES: >-
       findutils
       gcc
@@ -47,6 +47,7 @@ include:
       python3-pip
       doxygen
       ShellCheck
+      diffutils
     # install Sphinx and Breathe to generate documentation
     # also install glib2-doc (required to make documentation links to GLib work)
     # manually, to remove the 'tsflags=nodocs' flag that is enabled by default
@@ -281,6 +282,19 @@ shellcheck:
   stage: analysis
   script:
     - shellcheck $(git grep -l "#\!/.*bin/.*sh")
+
+linguas_check:
+  extends:
+    - .fedora
+    - .not_coverity
+    - .fdo.distribution-image@fedora
+  stage: analysis
+  script:
+    - cd po
+    - cat LINGUAS | sort > LINGUAS.sorted
+    - ls *.po | sed s/.po//g | sort > LINGUAS.new
+    - diff -u LINGUAS.sorted LINGUAS.new
+    - rm -f LINGUAS.*
 
 pages:
   extends:
