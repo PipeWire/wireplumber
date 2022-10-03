@@ -7,9 +7,15 @@
 
 local cutils = require ("common-utils")
 
+local defaults = {}
+defaults.properties = Json.Object {}
+defaults.servers = Json.Array { "bluez_midi.server" }
+
 local config = {}
-config.properties = Settings.parse_object_safe ("monitor.bluetooth-midi.properties")
-config.servers = Settings.parse_array_safe ("monitor.bluetooth-midi.servers")
+config.properties = Settings.parse_object_safe (
+    "monitor.bluetooth-midi.properties", defaults.properties)
+config.servers = Settings.parse_array_safe (
+    "monitor.bluetooth-midi.servers", defaults.servers)
 
 -- unique device/node name tables
 node_names_table = nil

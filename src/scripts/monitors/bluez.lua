@@ -9,8 +9,14 @@ local COMBINE_OFFSET = 64
 
 local cutils = require ("common-utils")
 
+local defaults = {}
+defaults.properties = Json.Object {
+  ["api.bluez5.connection-info"] = true
+}
+
 local config = {}
-config.properties = Settings.parse_object_safe ("monitor.bluetooth.properties", Json.Object {})
+config.properties = Settings.parse_object_safe (
+    "monitor.bluetooth.properties", defaults.properties)
 
 devices_om = ObjectManager {
   Interest {

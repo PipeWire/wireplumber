@@ -20,10 +20,18 @@
 
 local cutils = require ("common-utils")
 
+local defaults = {}
+defaults.restore_props = true
+defaults.restore_target = true
+defaults.default_channel_volume = 1.0
+
 local config = {}
-config.restore_props = Settings.parse_boolean_safe ("stream.restore-props", true)
-config.restore_target = Settings.parse_boolean_safe ("stream.restore-target", true)
-config.default_channel_volume = Settings.parse_float_safe ("stream.default-channel-volume", 1.0)
+config.restore_props = Settings.parse_boolean_safe (
+    "stream.restore-props", defaults.restore_props)
+config.restore_target = Settings.parse_boolean_safe (
+    "stream.restore-target", defaults.restore_target)
+config.default_channel_volume = Settings.parse_float_safe (
+    "stream.default-channel-volume", defaults.default_channel_volume)
 
 -- the state storage
 state = State ("restore-stream")
