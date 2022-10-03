@@ -7,12 +7,27 @@
 
 local cutils = require ("common-utils")
 
+local defaults = {}
+defaults.reserve_priority = -20
+defaults.reserve_application_name = "WirePlumber"
+defaults.jack_device = false
+defaults.properties = Json.Object {}
+defaults.vm_node_defaults = Json.Object {
+  ["api.alsa.period-size"] = 256,
+  ["api.alsa.headroom"] = 8192
+}
+
 local config = {}
-config.reserve_priority = Settings.parse_int_safe ("monitor.alsa.reserve.priority", -20)
-config.reserve_application_name = Settings.parse_string_safe ("monitor.alsa.reserve.application-name", "WirePlumber")
-config.jack_device = Settings.parse_boolean_safe ("monitor.alsa.jack-device", false)
-config.properties = Settings.parse_object_safe ("monitor.alsa.properties", Json.Object {})
-config.vm_node_defaults = Settings.parse_object_safe ("monitor.alsa.vm.node.defaults", Json.Object {})
+config.reserve_priority = Settings.parse_int_safe (
+    "monitor.alsa.reserve.priority", defaults.reserve_priority)
+config.reserve_application_name = Settings.parse_string_safe (
+    "monitor.alsa.reserve.application-name", defaults.reserve_application_name)
+config.jack_device = Settings.parse_boolean_safe (
+    "monitor.alsa.jack-device", defaults.jack_device)
+config.properties = Settings.parse_object_safe (
+    "monitor.alsa.properties", defaults.properties)
+config.vm_node_defaults = Settings.parse_object_safe (
+    "monitor.alsa.vm.node.defaults", defaults.vm_node_defaults)
 
 -- unique device/node name tables
 device_names_table = nil
