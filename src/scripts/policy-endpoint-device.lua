@@ -5,8 +5,12 @@
 --
 -- SPDX-License-Identifier: MIT
 
+local defaults = {}
+defaults.follow = true
+
 local config = {}
-config.follow = Settings.parse_boolean_safe ("policy.default.follow", true)
+config.follow = Settings.parse_boolean_safe (
+    "policy.default.follow", defaults.follow)
 
 local self = {}
 self.scanning = false
