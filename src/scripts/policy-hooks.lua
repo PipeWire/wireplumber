@@ -12,8 +12,12 @@
 local putils = require ("policy-utils")
 local cutils = require ("common-utils")
 
+local defaults = {}
+defaults.move = true
+
 local config = {}
-config.move = Settings.parse_boolean_safe("policy.default.move", true)
+config.move = Settings.parse_boolean_safe (
+    "policy.default.move", defaults.move)
 
 function settingsChangedCallback (_, setting, _)
   config.move = Settings.parse_boolean_safe ("policy.default.move", config.move)

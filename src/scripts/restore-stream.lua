@@ -20,10 +20,15 @@
 
 local cutils = require ("common-utils")
 
-local config = {}
-config.restore_props = Settings.parse_boolean_safe ("stream.restore-props", true)
-config.restore_target = Settings.parse_boolean_safe ("stream.restore-target", true)
+local defaults = {}
+defaults.restore_props = true
+defaults.restore_target = true
 
+local config = {}
+config.restore_props = Settings.parse_boolean_safe (
+    "stream.restore-props", defaults.restore_props)
+config.restore_target = Settings.parse_boolean_safe (
+    "stream.restore-target", defaults.restore_target)
 
 -- the state storage
 state = State ("restore-stream")
