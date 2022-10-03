@@ -20,11 +20,18 @@
 local putils = require ("policy-utils")
 local cutils = require ("common-utils")
 
+local defaults = {}
+defaults.move = true
+defaults.follow = true
+defaults.filter_forward_format = false
+
 local config = {}
-config.move = Settings.parse_boolean_safe ("policy.default.move", true)
-config.follow = Settings.parse_boolean_safe ("policy.default.follow", true)
-config.filter_forward_format = Settings.parse_boolean_safe
-    ("policy.default.filter-forward-format", false)
+config.move = Settings.parse_boolean_safe (
+    "policy.default.move", defaults.move)
+config.follow = Settings.parse_boolean_safe (
+    "policy.default.follow", defaults.follow)
+config.filter_forward_format = Settings.parse_boolean_safe (
+    "policy.default.filter-forward-format", defaults.filter_forward_format)
 
 local function settingsChangedCallback (_, setting, _)
 
