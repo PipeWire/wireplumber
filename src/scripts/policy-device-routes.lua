@@ -20,10 +20,18 @@
 
 local cutils = require ("common-utils")
 
+local defaults = {}
+defaults.use_persistent_storage = true
+defaults.default_volume = 0.4 ^ 3
+defaults.default_input_volume = 1.0
+
 local config = {}
-config.use_persistent_storage = Settings.parse_boolean_safe ("device.use-persistent-storage", true)
-config.default_volume = Settings.parse_float_safe ("device.default-volume", 0.4^3)
-config.default_input_volume = Settings.parse_float_safe ("device.default-input-volume", 1.0)
+config.use_persistent_storage = Settings.parse_boolean_safe (
+    "device.use-persistent-storage", defaults.use_persistent_storage)
+config.default_volume = Settings.parse_float_safe (
+    "device.default-volume", defaults.default_volume)
+config.default_input_volume = Settings.parse_float_safe (
+    "device.default-input-volume", defaults.default_input_volume)
 
 -- table of device info
 dev_infos = {}

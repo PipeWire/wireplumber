@@ -28,13 +28,23 @@
 
 local cutils = require ("common-utils")
 
+local defaults = {}
+defaults.use_persistent_storage = true
+defaults.use_headset_profile = true
+defaults.app_settings = Json.Array {
+  "Firefox", "Chromium input", "Google Chrome input", "Brave input",
+  "Microsoft Edge input", "Vivaldi input", "ZOOM VoiceEngine",
+  "Telegram Desktop", "telegram-desktop", "linphone", "Mumble",
+  "WEBRTC VoiceEngine", "Skype"
+}
+
 local config = {}
-config.use_persistent_storage = Settings.parse_boolean_safe
-    ("policy.bluetooth.use-persistent-storage", true)
-config.use_headset_profile = Settings.parse_boolean_safe
-    ("policy.bluetooth.media-role.use-headset-profile", true)
-config.apps_setting = Settings.parse_array_safe
-    ("policy.bluetooth.media-role.applications", Json.Array {})
+config.use_persistent_storage = Settings.parse_boolean_safe (
+    "policy.bluetooth.use-persistent-storage", defaults.use_persistent_storage)
+config.use_headset_profile = Settings.parse_boolean_safe (
+    "policy.bluetooth.media-role.use-headset-profile", defaults.use_headset_profile)
+config.apps_setting = Settings.parse_array_safe (
+    "policy.bluetooth.media-role.applications", defaults.app_settings)
 
 state = nil
 headset_profiles = nil

@@ -7,7 +7,12 @@
 
 -- Receive script arguments from config.lua
 
-local roles = Settings.parse_object_safe ("endpoints-roles", Json.Object {})
+local defaults = {}
+defaults.roles = Json.Object {}
+
+local config = {}
+config.roles = Settings.parse_object_safe (
+    "endpoints-roles", defaults.roles)
 
 local self = {}
 self.scanning = false
@@ -38,9 +43,9 @@ function scheduleRescan ()
 end
 
 function findRole(role, tmc)
-  if role and not roles[role] then
+  if role and not config.roles[role] then
     -- find the role with matching alias
-    for r, p in pairs(roles) do
+    for r, p in pairs(config.roles) do
       -- default media class can be overridden in the role config data
       mc = p["media.class"] or "Audio/Sink"
       if (type(p.alias) == "table" and tmc == mc) then
@@ -55,7 +60,7 @@ function findRole(role, tmc)
     -- otherwise get the lowest priority role
     local lowest_priority_p = nil
     local lowest_priority_r = nil
-    for r, p in pairs(roles) do
+    for r, p in pairs(config.roles) do
       mc = p["media.class"] or "Audio/Sink"
       if tmc == mc and (lowest_priority_p == nil or
           p.priority < lowest_priority_p.priority) then

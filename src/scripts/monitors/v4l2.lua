@@ -7,8 +7,12 @@
 
 local cutils = require ("common-utils")
 
+local defaults = {}
+defaults.properties = Json.Object {}
+
 local config = {}
-config.properties = Settings.parse_object_safe ("monitor.v4l2.properties", Json.Object {})
+config.properties = Settings.parse_object_safe (
+    "monitor.v4l2.properties", defaults.properties)
 
 function findDuplicate(parent, id, property, value)
   for i = 0, id - 1, 1 do

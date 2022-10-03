@@ -5,9 +5,15 @@
 --
 -- SPDX-License-Identifier: MIT
 
+local defaults = {}
+defaults.duck_level = 0.3
+defaults.roles = Json.Object {}
+
 local config = {}
-config.duck_level = Settings.parse_float_safe ("policy.default.duck-level", 0.3)
-config.roles = Settings.parse_object_safe ("endpoints-roles", Json.Object {})
+config.duck_level = Settings.parse_float_safe (
+    "policy.default.duck-level", defaults.duck_level)
+config.roles = Settings.parse_object_safe (
+    "endpoints-roles", defaults.roles)
 
 function findRole(role)
   if role and not config.roles[role] then
