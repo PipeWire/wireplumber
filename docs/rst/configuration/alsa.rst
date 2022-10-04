@@ -44,13 +44,13 @@ rules.
 
   .. code-block::
 
-    alsa_monitor.alsa.reserve.priority = -20
+    alsa_monitor.alsa.reserve-priority = -20
 
   The used ALSA device reservation priority.
 
   .. code-block::
 
-    alsa_monitor.alsa.reserve.application-name = WirePlumber
+    alsa_monitor.alsa.reserve-application-name = WirePlumber
 
   The used ALSA device reservation application name.
 
