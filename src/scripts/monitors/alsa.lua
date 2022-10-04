@@ -19,9 +19,9 @@ defaults.vm_node_defaults = Json.Object {
 
 local config = {}
 config.reserve_priority = Settings.parse_int_safe (
-    "monitor.alsa.reserve.priority", defaults.reserve_priority)
+    "monitor.alsa.reserve-priority", defaults.reserve_priority)
 config.reserve_application_name = Settings.parse_string_safe (
-    "monitor.alsa.reserve.application-name", defaults.reserve_application_name)
+    "monitor.alsa.reserve-application-name", defaults.reserve_application_name)
 config.jack_device = Settings.parse_boolean_safe (
     "monitor.alsa.jack-device", defaults.jack_device)
 config.properties = Settings.parse_object_safe (
