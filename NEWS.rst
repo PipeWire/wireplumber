@@ -1,5 +1,58 @@
-WirePlumber 0.4.11
+WirePlumber 0.4.12
 ~~~~~~~~~~~~~~~~~~
+
+Changes:
+
+  - WirePlumber now maintains a stack of previously configured default nodes and
+    prioritizes to one of those when the actively configured default node
+    becomes unavailable, before calculating the next default using priorities
+    (see !396)
+
+  - Updated bluetooth scripts to support the name changes that happened in
+    PipeWire 0.3.59 and also support the experimental Bluetooth LE functionality
+
+  - Changed the naming of bluetooth nodes to not include the profile in it;
+    this allows maintaining existing links when switching between a2dp and hfp
+
+  - The default volume for new outputs has changed to be 40% in cubic scale
+    (= -24 dB) instead of linear (= 74% cubic / -8 dB) that it was before
+
+  - The default volume for new inputs has changed to be 100% rather than
+    following the default for outputs
+
+  - Added ``--version`` flag on the wireplumber executable (#317)
+
+  - Added ``--limit`` flag on ``wpctl set-volume`` to limit the higher volume
+    that can be set (useful when incrementing volume with a keyboard shortcut
+    that calls into wpctl)
+
+  - The properties of the alsa midi node can now be set in the config files
+
+Fixes:
+
+  - Fixed a crash in lua code that would happen when running in a VM (#303)
+
+  - Fixed a crash that would happen when re-connecting to D-Bus (#305)
+
+  - Fixed a mistake in the code that would cause device reservation not to
+    work properly
+
+  - Fixed ``wpctl clear-default`` to accept 0 as a valid setting ID
+
+  - Fixed the logic of choosing the best profile after the active profile
+    of a device becomes unavailable (#329)
+
+  - Fixed a regression that would cause PulseAudio "corked" streams to not
+    properly link and cause busy loops
+
+  - Fixed an issue parsing spa-json objects that have a nested object as the
+    value of their last property
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.4.11
+..................
 
 Changes:
 
@@ -80,9 +133,6 @@ Library:
 Misc:
 
   - The Lua subproject was bumped to version 5.4.4
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.4.10
 ..................
