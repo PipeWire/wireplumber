@@ -37,6 +37,11 @@ function nonempty(str)
   return str ~= "" and str or nil
 end
 
+function applyDefaultDeviceProperties (properties)
+  properties["api.alsa.use-acp"] = true
+  properties["api.acp.auto-port"] = false
+end
+
 function createNode(parent, id, obj_type, factory, properties)
   local dev_props = parent.properties
 
@@ -263,7 +268,10 @@ function prepareDevice(parent, id, obj_type, factory, properties)
   end
 
   -- apply properties from rules defined in JSON .conf file
-  cutils.evaluateRulesApplyProperties (properties, "monitor.alsa.rules")
+  local applied = cutils.evaluateRulesApplyProperties (properties, "monitor.alsa.rules")
+  if not applied then
+    applyDefaultDeviceProperties (properties)
+  end
   if properties ["device.disabled"] then
     device_names_table [properties ["device.name"]] = nil
     return
