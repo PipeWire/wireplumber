@@ -58,6 +58,8 @@ function cutils.evaluateRulesApplyProperties (properties, name)
       properties [k] = v
     end
   end
+
+  return matched and mprops
 end
 
 -- simple serializer {"foo", "bar"} -> "foo;bar;"
