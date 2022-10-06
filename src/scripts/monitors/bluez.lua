@@ -16,6 +16,10 @@ local config = {}
 config.properties = Settings.parse_object_safe (
     "monitor.bluetooth.properties", defaults.properties)
 
+function applyDefaultDeviceProperties (properties)
+  properties["bluez5.auto-connect"] = "[ hfp_hf hsp_hs a2dp_sink ]"
+end
+
 function createNode(parent, id, type, factory, properties)
   local dev_props = parent.properties
 
@@ -109,8 +113,11 @@ function createDevice(parent, id, type, factory, properties)
     -- initial profile is to be set by policy-device-profile.lua, not spa-bluez5
     properties["bluez5.profile"] = "off"
 
-  -- apply properties from bluetooth.conf
-    cutils.evaluateRulesApplyProperties (properties, "monitor.bluetooth")
+    -- apply properties from bluetooth.conf
+    local applied = cutils.evaluateRulesApplyProperties (properties, "monitor.bluetooth")
+    if not applied then
+      applyDefaultDeviceProperties (properties)
+    end
 
     -- create the device
     device = SpaDevice(factory, properties)
