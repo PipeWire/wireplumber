@@ -21,7 +21,11 @@ function isProfilePersistent (device_props, profile_name)
   local matched, mprops = Settings.apply_rule ("device.rules", device_props)
 
   if (matched and mprops) then
-    if string.find (mprops ["profile_names"], profile_name) then
+    if string.find (mprops ["persistent_profile_names"], profile_name) then
+      return true
+    end
+  else
+    if profile_name == "off" or profile_name == "pro-audio" then
       return true
     end
   end
