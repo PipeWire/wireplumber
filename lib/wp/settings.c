@@ -544,7 +544,6 @@ parse_rule (const gchar *rule, const gchar *value)
 
   g_return_val_if_fail (r, NULL);
 
-  /* TBD: check for duplicate rule names and disallow them. */
   r->rule = g_strdup (rule);
 
   wp_debug (". parsing rule(%s)", r->rule);
@@ -598,18 +597,49 @@ is_rule (WpSpaJson *json)
   }
   return FALSE;
 }
+
+static Rule *
+find_rule (WpSettings *self, const gchar *name)
+{
+  for (guint i = 0; i < self->rules->len; i++) {
+    Rule *r = g_ptr_array_index (self->rules, i);
+    if (g_str_equal (r->rule, name))
+      return r;
+  }
+  return NULL;
+}
+
+static void
+rule_unref (Rule * self)
+{
+  g_clear_pointer (&self->rule, g_free);
+  g_clear_pointer (&self->matches, g_ptr_array_unref);
+  g_slice_free (Rule, self);
+}
+
 static void
 parse_setting (const gchar *setting, const gchar *value, WpSettings *self)
 {
   g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (value);
 
   if (is_rule (json)) {
-    Rule *r = parse_rule (setting, value);
+    Rule *r = find_rule (self, setting);
     if (r) {
+      /* append new matches to existing rule */
+      Rule *new_r = parse_rule (setting, value);
+      if (new_r) {
+        for (guint i = 0; i < new_r->matches->len; i++) {
+          Match *m = g_ptr_array_index (new_r->matches, i);
+          g_ptr_array_add (r->matches, m);
+        }
+        rule_unref (new_r);
+      }
+    } else {
+      r = parse_rule (setting, value);
       g_ptr_array_add (self->rules, r);
-      wp_debug_object (self, "loaded (%d) matches for rule (%s)",
-          r->matches->len, r->rule);
     }
+    wp_debug_object (self, "added (%d) matches for rule (%s)", r->matches->len,
+        r->rule);
   } else {
     wp_properties_set (self->settings, setting, value);
   }
@@ -689,14 +719,6 @@ on_metadata_added (WpObjectManager *om, WpMetadata *m, gpointer d)
       self->metadata_name);
 
   wp_object_update_features (WP_OBJECT (self), WP_SETTINGS_LOADED, 0);
-}
-
-static void
-rule_unref (Rule * self)
-{
-  g_clear_pointer (&self->rule, g_free);
-  g_clear_pointer (&self->matches, g_ptr_array_unref);
-  g_slice_free (Rule, self);
 }
 
 static void
