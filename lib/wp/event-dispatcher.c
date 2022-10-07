@@ -143,6 +143,7 @@ wp_event_new (const gchar * type, gint priority, WpProperties * properties,
   wp_properties_set (self->properties, "event.type", type);
   self->name = form_event_name (self);
 
+  wp_trace ("event(%s) created", self->name);
   return self;
 }
 
