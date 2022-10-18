@@ -23,7 +23,7 @@ struct _WpEventHookData
   WpEventHook *hook;
 };
 
-void
+static void
 wp_hook_data_unref (WpEventHookData *self)
 {
   g_clear_pointer (&self->event, wp_event_unref);
@@ -272,7 +272,7 @@ on_event_hook_done (WpEventHook * hook, GAsyncResult * res, WpEvent * event)
 }
 
 static gchar *
-build_chain (gchar *link, gint link_priority, gchar *chain)
+build_chain (const gchar *link, gint link_priority, gchar *chain)
 {
   gchar *temp = g_strdup_printf ("%s%s%s(%d)", (chain ? chain : ""),
     (chain ? " -> " : ""), link, link_priority);
@@ -318,7 +318,7 @@ wp_event_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
     if (lhook) {
       WpEventHookData *hook_data = (WpEventHookData *) (lhook->data);
       WpEventHook *hook = hook_data->hook;
-      gchar *name = wp_event_hook_get_name (hook);
+      const gchar *name = wp_event_hook_get_name (hook);
       gint priority = wp_event_hook_get_priority (hook);
       WpEventHookExecType type = wp_event_hook_get_exec_type (hook);
 
@@ -521,7 +521,7 @@ wp_event_dispatcher_push_event (WpEventDispatcher * self, WpEvent * event)
     if (wp_event_hook_runs_for_event (hook, event)) {
       WpEventHookData *hook_data = g_slice_new0 (WpEventHookData);
       WpEventHookExecType hook_type = wp_event_hook_get_exec_type (hook);
-      gchar *name = wp_event_hook_get_name (hook);
+      const gchar *name = wp_event_hook_get_name (hook);
       gint priority = wp_event_hook_get_priority (hook);
 
       hook_data->hook = g_object_ref (hook);
