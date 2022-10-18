@@ -7,7 +7,7 @@ common_args = [
   '-DG_LOG_USE_STRUCTURED',
 ]
 
-if get_option('dbus')
+if get_option('dbus-tests')
   test(
     'test-reserve-device',
     executable('test-reserve-device', 'reserve-device.c',

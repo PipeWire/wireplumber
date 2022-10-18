@@ -91,7 +91,7 @@ test(
   env: common_env,
 )
 
-if get_option('dbus')
+if get_option('dbus-tests')
   test(
     'test-dbus',
     executable('test-dbus', 'dbus.c',
