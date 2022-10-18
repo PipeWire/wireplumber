@@ -115,7 +115,7 @@ WP_API
 gint wp_event_hook_get_priority (WpEventHook * self);
 
 WP_API
-gchar * wp_event_hook_get_name (WpEventHook * self);
+const gchar * wp_event_hook_get_name (WpEventHook * self);
 
 WP_API
 WpEventHookExecType wp_event_hook_get_exec_type (WpEventHook * self);

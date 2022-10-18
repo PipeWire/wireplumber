@@ -152,7 +152,7 @@ wp_event_hook_get_priority (WpEventHook * self)
  * \param self the event hook
  * \return the event hook name
  */
-gchar *
+const gchar *
 wp_event_hook_get_name (WpEventHook * self)
 {
   g_return_val_if_fail (WP_IS_EVENT_HOOK (self), 0);
