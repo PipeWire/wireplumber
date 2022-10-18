@@ -137,13 +137,6 @@ do_parse_settings (void *data, const char *location,
   return 0;
 }
 
-static int
-do_parse_endpoints (void *data, const char *location, const char *section,
-    const char *str, size_t len)
-{
-  return do_parse_settings (data, location, section, str, len);
-}
-
 static gboolean
 is_persistent_settings_enabled (WpProperties *settings) {
   const gchar *val_str;
@@ -185,14 +178,6 @@ on_metadata_activated (WpMetadata * m, GAsyncResult * res, gpointer user_data)
     wp_transition_return_error (transition, g_error_new (
       WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
         "failed to parse settings"));
-    return;
-  }
-
-  if (pw_context_conf_section_for_each (pw_ctx, "wireplumber.endpoints",
-      do_parse_endpoints, config_settings) < 0) {
-    wp_transition_return_error (transition, g_error_new (
-      WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-        "failed to parse endpoints"));
     return;
   }
 
