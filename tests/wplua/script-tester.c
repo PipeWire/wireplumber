@@ -50,8 +50,6 @@ script_run (ScriptRunnerFixture *f, gconstpointer data)
   g_clear_object (&plugin);
 
   {
-    g_autoptr (WpSettings) settings = NULL;
-
     wp_core_load_component (f->base.core,
         "libwireplumber-module-settings", "module",
          g_variant_new_string (METADATA_NAME), &error);
@@ -59,12 +57,6 @@ script_run (ScriptRunnerFixture *f, gconstpointer data)
 
     plugin = wp_plugin_find (f->base.core, "settings");
     wp_object_activate (WP_OBJECT (plugin), WP_PLUGIN_FEATURE_ENABLED,
-        NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
-    g_main_loop_run (f->base.loop);
-
-    settings = wp_settings_get_instance (f->base.core, METADATA_NAME);
-
-    wp_object_activate (WP_OBJECT (settings), WP_PLUGIN_FEATURE_ENABLED,
         NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
     g_main_loop_run (f->base.loop);
   }
