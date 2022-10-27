@@ -182,32 +182,42 @@ wp_lua_scripting_plugin_load (WpComponentLoader * cl, const gchar * component,
 
   /* interpret component as a script */
   if (!g_strcmp0 (type, "script/lua")) {
-    g_autofree gchar *filename = NULL;
+    g_autofree gchar *filepath = NULL;
     g_autofree gchar *pluginname = NULL;
     g_autoptr (WpPlugin) script = NULL;
 
-    filename = find_script (component, core);
-    if (!filename) {
+    if (g_file_test (component, G_FILE_TEST_EXISTS)) {
+      /* dangling components come with full path */
+      g_autofree gchar *filename = g_path_get_basename (component);
+      filepath = g_strdup (component);
+      pluginname = g_strdup_printf ("script:%s", filename);
+    }
+    else {
+      filepath = find_script (component, core);
+      pluginname = g_strdup_printf ("script:%s", component);
+    }
+
+    if (!filepath) {
       g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
           "Could not locate script '%s'", component);
       return FALSE;
     }
 
-    pluginname = g_strdup_printf ("script:%s", component);
-
     script = g_object_new (WP_TYPE_LUA_SCRIPT,
         "core", core,
         "name", pluginname,
-        "filename", filename,
+        "filename", filepath,
         "arguments", args,
         NULL);
 
     if (self->L) {
+      wp_debug_object (core, "loading script(%s) plugin name(%s)",
+          filepath, pluginname);
       g_object_set (script, "lua-engine", self->L, NULL);
       wp_plugin_register (g_steal_pointer (&script));
     } else {
       /* keep in a list and delay registering until the plugin is enabled */
-      wp_debug ("queing script %s", filename);
+      wp_debug ("queuing script %s", filepath);
       g_ptr_array_add (self->scripts, g_steal_pointer (&script));
     }
     return TRUE;
