@@ -404,10 +404,8 @@ wp_settings_get_instance (WpCore *core, const gchar *metadata_name)
 
     wp_info_object (settings, "created wpsettings object for metadata"
       " name \"%s\"", name);
-  } else {
-    wp_info_object (settings, "found this wpsettings object for metadata name"
-        " \"%s\"", name);
   }
+
   return settings;
 }
 
