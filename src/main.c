@@ -42,16 +42,14 @@ struct _WpInitTransition
 {
   WpTransition parent;
   WpObjectManager *om;
-  guint pending_plugins;
+  GList *components;
 };
 
 enum {
   STEP_CONNECT = WP_TRANSITION_STEP_CUSTOM_START,
-  STEP_ACTIVATE_SETTINGS,
-  STEP_LOAD_COMPONENTS,
+  STEP_PARSE_COMPONENTS,
+  STEP_LOAD_ENABLE_COMPONENTS,
   STEP_CHECK_MEDIA_SESSION,
-  STEP_ACTIVATE_PLUGINS,
-  STEP_ACTIVATE_SCRIPTS,
   STEP_CLEANUP,
 };
 
@@ -68,54 +66,215 @@ static guint
 wp_init_transition_get_next_step (WpTransition * transition, guint step)
 {
   switch (step) {
-  case WP_TRANSITION_STEP_NONE: return STEP_CONNECT;
-  case STEP_CONNECT:            return STEP_ACTIVATE_SETTINGS;
-  case STEP_ACTIVATE_SETTINGS:  return STEP_LOAD_COMPONENTS;
-  case STEP_LOAD_COMPONENTS:    return STEP_CHECK_MEDIA_SESSION;
-  case STEP_CHECK_MEDIA_SESSION:return STEP_ACTIVATE_PLUGINS;
-  case STEP_CLEANUP:            return WP_TRANSITION_STEP_NONE;
-
-  case STEP_ACTIVATE_PLUGINS: {
-    WpInitTransition *self = WP_INIT_TRANSITION (transition);
-    if (self->pending_plugins == 0)
-      return STEP_ACTIVATE_SCRIPTS;
-    else
-      return STEP_ACTIVATE_PLUGINS;
-  }
-
-  case STEP_ACTIVATE_SCRIPTS: {
-    WpInitTransition *self = WP_INIT_TRANSITION (transition);
-    if (self->pending_plugins == 0)
-      return STEP_CLEANUP;
-    else
-      return STEP_ACTIVATE_SCRIPTS;
-  }
+  case WP_TRANSITION_STEP_NONE:     return STEP_CONNECT;
+  case STEP_CONNECT:                return STEP_PARSE_COMPONENTS;
+  case STEP_PARSE_COMPONENTS:       return STEP_LOAD_ENABLE_COMPONENTS;
+  case STEP_LOAD_ENABLE_COMPONENTS: return STEP_CHECK_MEDIA_SESSION;
+  case STEP_CHECK_MEDIA_SESSION:    return STEP_CLEANUP;
+  case STEP_CLEANUP:                return WP_TRANSITION_STEP_NONE;
 
   default:
     g_return_val_if_reached (WP_TRANSITION_STEP_ERROR);
   }
 }
 
-static void
-on_plugin_activated (WpObject * p, GAsyncResult * res, WpInitTransition *self)
+typedef struct _component_data component_data;
+
+struct _component_data
 {
-  GError *error = NULL;
+  gchar *name;
+  gchar *type;
+  gint priority;
+  gint flags;
+  WpSpaJson *deps;
+};
 
-  if (!wp_object_activate_finish (p, res, &error)) {
-    wp_transition_return_error (WP_TRANSITION (self), error);
-    return;
-  }
-
-  --self->pending_plugins;
-  wp_transition_advance (WP_TRANSITION (self));
+static gint
+component_cmp_func (const component_data *a, const component_data *b)
+{
+  return b->priority - a->priority;
 }
 
 static void
-on_plugin_added (WpObjectManager * om, WpObject * p, WpInitTransition *self)
+component_unref (component_data *self)
 {
-  self->pending_plugins++;
-  wp_object_activate (p, WP_PLUGIN_FEATURE_ENABLED, NULL,
-      (GAsyncReadyCallback) on_plugin_activated, self);
+  g_free (self->name);
+  g_free (self->type);
+  g_clear_object (&self->deps);
+  g_slice_free (component_data, self);
+}
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (component_data, component_unref)
+
+static gint
+is_component_present (const component_data *listed_cmpnt,
+    const gchar *new_cmpnt_name)
+{
+  return !g_str_equal (listed_cmpnt->name, new_cmpnt_name);
+}
+
+enum
+{
+  NO_FAIL = 0x1,
+  IF_EXISTS = 0x2
+};
+
+static gchar *
+extract_base_name (const gchar *filepath)
+{
+  gchar *basename = g_path_get_basename (filepath);
+
+  if (!basename)
+    return NULL;
+
+  if (g_str_has_prefix (basename, "libwireplumber-module-")) {
+    /* strip the file extension for modules */
+    basename [strlen (basename) - strlen (".so")] = '\0';
+    return basename;
+  } else if (g_str_has_suffix (basename, ".lua"))
+    return basename;
+  else
+    return NULL;
+}
+
+static gchar *
+extract_plugin_name (gchar *name)
+{
+  if (g_file_test (name, G_FILE_TEST_EXISTS)) {
+    /* dangling components */
+    name = extract_base_name (name);
+  }
+  if (g_str_has_prefix (name, "libwireplumber-module-"))
+    return g_strdup (name + strlen ("libwireplumber-module-"));
+  else
+    return g_strdup_printf ("script:%s", name);
+}
+
+static void
+on_plugin_activated (WpObject *p, GAsyncResult *res, WpInitTransition *self);
+
+static int
+load_enable_component (WpInitTransition *self, GError **error)
+{
+  WpCore *core = wp_transition_get_source_object (WP_TRANSITION (self));
+  GList *comps = self->components;
+  GList *lcomp = g_list_first (comps);
+
+  while (lcomp) {
+    component_data *comp = (component_data *) lcomp->data;
+    g_autofree gchar *plugin_name = NULL;
+    g_autoptr (WpPlugin) plugin = NULL;
+
+    if (comp->deps) {
+      g_autoptr (WpSettings) settings = wp_settings_get_instance (core, NULL);
+      g_autoptr (WpIterator) it = wp_spa_json_new_iterator (comp->deps);
+      g_auto (GValue) item = G_VALUE_INIT;
+      gboolean deps_met = TRUE;
+
+      /* Note that we consider the dependency valid by default if it is not
+       * found in the settings */
+      for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
+        WpSpaJson *dep = g_value_get_boxed (&item);
+        g_autofree gchar *setting = wp_spa_json_parse_string (dep);
+        gboolean value = wp_settings_parse_boolean_safe (settings, setting,
+            TRUE);
+        if (!value) {
+          deps_met = FALSE;
+          wp_info (".. deps(%s) not met for component(%s), skip loading it",
+              setting, comp->name);
+          break;
+        }
+      }
+      if (!deps_met) {
+          comps = g_list_delete_link (comps, g_steal_pointer (&lcomp));
+          self->components = comps;
+          lcomp = g_list_first (comps);
+          continue;
+        }
+      }
+
+    wp_debug (".. loading component(%s) type(%s) priority(%d) flags(%x)",
+        comp->name, comp->type, comp->priority, comp->flags);
+
+    g_autoptr (GError) load_error = NULL;
+    if (!wp_core_load_component (core, comp->name, comp->type, NULL,
+            &load_error)) {
+      wp_warning (".. error in loading component (%s)", load_error->message);
+      if ((load_error->code == G_FILE_ERROR_NOENT) ||
+        (load_error->code == G_FILE_ERROR_ACCES)) {
+
+        if (comp->flags & IF_EXISTS) {
+          wp_warning (".. \"ifexists\" flag set, ignore the failure");
+          comps = g_list_delete_link (comps, g_steal_pointer (&lcomp));
+          lcomp = g_list_first (comps);
+          self->components = comps;
+          continue;
+        } else if (comp->flags & NO_FAIL) {
+          wp_warning (".. \"nofail\" flag set, ignore the failure");
+          comps = g_list_delete_link (comps, g_steal_pointer (&lcomp));
+          lcomp = g_list_first (comps);
+          self->components = comps;
+          continue;
+        }
+      }
+      g_propagate_error (error, g_steal_pointer (&load_error));
+
+      return -EINVAL;
+    }
+    /* get handle to corresponding plugin & activate it */
+    plugin_name = extract_plugin_name (comp->name);
+    plugin = wp_plugin_find (core, plugin_name);
+
+    if (!plugin) {
+      g_autoptr (WpSiFactory) si = wp_si_factory_find (core, plugin_name);
+      if (si) {
+        /* si factory modules register factories they need not be activated */
+        comps = g_list_delete_link (comps, g_steal_pointer (&lcomp));
+        lcomp = g_list_first (comps);
+        self->components = comps;
+        wp_debug (".. enabled si module(%s)", comp->name);
+        continue;
+      } else {
+        wp_warning (".. unable to find (%s) plugin", plugin_name);
+        g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+            "unable to find %s plugin", plugin_name);
+        return -EINVAL;
+      }
+    }
+    wp_debug (".. enabling component(%s) plugin name(%s)", comp->name,
+        plugin_name);
+
+    comps = g_list_delete_link (comps, g_steal_pointer (&lcomp));
+    self->components = comps;
+    wp_object_activate (WP_OBJECT (plugin), WP_OBJECT_FEATURES_ALL, NULL,
+        (GAsyncReadyCallback) on_plugin_activated, self);
+    return 1;
+  }
+  return 0;
+}
+
+static void
+on_plugin_activated (WpObject *p, GAsyncResult *res, WpInitTransition *self)
+{
+  g_autoptr (GError) error = NULL;
+  int ret = 0;
+
+  if (!wp_object_activate_finish (p, res, &error)) {
+    wp_transition_return_error (WP_TRANSITION (self), g_steal_pointer (&error));
+    return;
+  }
+
+  wp_debug (".. enabled plugin %s", wp_plugin_get_name (WP_PLUGIN (p)));
+  ret = load_enable_component (self, &error);
+  if (ret < 0) {
+    wp_transition_return_error (WP_TRANSITION (self), g_steal_pointer (&error));
+  }
+  else if (ret == 0)
+  {
+    wp_debug (".. loading components successful");
+    wp_transition_advance (WP_TRANSITION (self));
+  }
+
 }
 
 static void
@@ -134,20 +293,42 @@ check_media_session (WpObjectManager * om, WpInitTransition *self)
 struct data {
   WpTransition *transition;
   int count;
+  GList *components;
 };
 
+static gint
+pick_default_component_priority (const char *name)
+{
+  if (g_str_has_suffix (name, ".so"))
+    /* regular module default priority */
+    return 110;
+  else if (g_str_has_suffix (name, ".lua"))
+    /* Lua Script default priority */
+    return 100;
+
+  return 100;
+}
+
+static char *
+pick_component_type (const char *name)
+{
+  if (g_str_has_suffix (name, ".so"))
+    return g_strdup ("module");
+  else if (g_str_has_suffix (name, ".lua"))
+    return g_strdup ("script/lua");
+
+  return NULL;
+}
+
 static int
-do_load_components(void *data, const char *location, const char *section,
-		const char *str, size_t len)
+do_parse_json_components (void *data, const char *location, const char *section,
+    const char *str, size_t len)
 {
   struct data *d = data;
   WpTransition *transition = d->transition;
-  WpCore *core = wp_transition_get_source_object (transition);
   g_autoptr (WpSpaJson) json = NULL;
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) item = G_VALUE_INIT;
-  g_autoptr (WpSettings) settings = wp_settings_get_instance (core, NULL);
-  GError *error = NULL;
 
   json = wp_spa_json_new_from_stringn (str, len);
 
@@ -161,17 +342,15 @@ do_load_components(void *data, const char *location, const char *section,
   it = wp_spa_json_new_iterator (json);
   for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
     WpSpaJson *cjson = g_value_get_boxed (&item);
-    g_autofree gchar *name = NULL;
-    g_autofree gchar *type = NULL;
+    g_autoptr (component_data) component = g_slice_new0 (component_data);
     g_autoptr (WpSpaJson) deps = NULL;
     g_autoptr (WpSpaJson) flags = NULL;
-    gboolean if_exists = FALSE;
-    gboolean no_fail = FALSE;
 
+    /* name and type are mandatory tags */
     if (!wp_spa_json_is_object (cjson) ||
         !wp_spa_json_object_get (cjson,
-            "name", "s", &name,
-            "type", "s", &type,
+            "name", "s", &component->name,
+            "type", "s", &component->type,
             NULL)) {
       wp_transition_return_error (transition, g_error_new (
           WP_DOMAIN_DAEMON, WP_EXIT_CONFIG,
@@ -179,31 +358,16 @@ do_load_components(void *data, const char *location, const char *section,
       return -EINVAL;
     }
 
+    if (!wp_spa_json_object_get (cjson, "priority", "i", &component->priority,
+        NULL))
+      component->priority = pick_default_component_priority (component->name);
+
     if (wp_spa_json_object_get (cjson, "deps", "J", &deps, NULL)) {
       if (deps && wp_spa_json_is_array (deps)) {
-        g_autoptr (WpIterator) it = wp_spa_json_new_iterator (deps);
-        g_auto (GValue) item = G_VALUE_INIT;
-        gboolean deps_met = TRUE;
-
-        /* Note that we consider the dependency valid by default if it is not
-         * found in the settings */
-        for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
-          WpSpaJson *dep = g_value_get_boxed (&item);
-          g_autofree gchar *setting = wp_spa_json_parse_string (dep);
-          gboolean value = wp_settings_parse_boolean_safe (settings, setting,
-              TRUE);
-          if (!value) {
-            deps_met = FALSE;
-            wp_info ("deps(%s) not met for component(%s), skip loading it",
-              setting, name);
-            break;
-          }
-        }
-        if (!deps_met)
-          continue;
+        component->deps = g_steal_pointer (&deps);
       } else {
         wp_warning ("deps must be an array for component(%s), skip loading it",
-            name);
+            component->name);
         continue;
       }
     }
@@ -216,84 +380,126 @@ do_load_components(void *data, const char *location, const char *section,
         for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
           WpSpaJson *flag = g_value_get_boxed (&item);
           g_autofree gchar *flag_str = wp_spa_json_parse_string (flag);
+
           if (g_str_equal (flag_str, "ifexists"))
-            if_exists = TRUE;
+            component->flags |= IF_EXISTS;
           else if (g_str_equal (flag_str, "nofail"))
-            no_fail = TRUE;
+            component->flags |= NO_FAIL;
           else
             wp_warning ("flag(%s) is not valid for component(%s)", flag_str,
-                name);
+                component->name);
         }
       } else {
         wp_warning ("flags must be an array for component(%s), skip loading it",
-            name);
+            component->name);
         continue;
       }
     }
 
-    wp_debug ("load component(%s) type(%s) ifexists(%d) nofail(%d)",
-        name, type, if_exists, no_fail);
+    if (!g_list_find_custom (d->components, component->name,
+            (GCompareFunc) is_component_present)) {
+      wp_trace (".. parsed component(%s) type(%s) priority(%d) flags(%x) "
+          "deps defined(%s)", component->name, component->type,
+          component->priority, component->flags,
+          (component->deps) ? "true" : "false");
 
-    if (!wp_core_load_component (core, name, type, NULL, &error)) {
-      wp_info ("%s", error->message);
-      if ((error->code == G_FILE_ERROR_NOENT) ||
-          (error->code == G_FILE_ERROR_ACCES)) {
+      d->components = g_list_insert_sorted (d->components,
+          g_steal_pointer (&component), (GCompareFunc) component_cmp_func);
+    } else
+      wp_info (".. component(%s) already present, ignore this entry",
+          component->name);
 
-        if (if_exists) {
-          wp_info ("\"ifexists\" flag set, ignore the failure");
-          g_clear_error (&error);
-          continue;
-        }
-
-      } else if (no_fail) {
-        wp_info ("\"nofail\" flag set, ignore the failure");
-        g_clear_error (&error);
-        continue;
-      }
-      wp_transition_return_error (transition, error);
-      return -EINVAL;
-    }
     d->count++;
   }
   return 0;
 }
 
-static void
-on_settings_ready (WpSettings *s, GAsyncResult *res, gpointer data)
+static gboolean
+do_parse_dangling_component (const GValue *item, GValue *ret, gpointer data)
 {
-  WpInitTransition *self = WP_INIT_TRANSITION (data);
-  g_autoptr (GError) error = NULL;
+  GList *comps = data;
+  const gchar *path = g_value_dup_string (item);
+  g_autofree gchar *basename = NULL;
+  g_autoptr (component_data) comp = g_slice_new0 (component_data);
 
-  wp_info_object(self, "wpsettings object ready");
+  comp->type = pick_component_type (path);
+  comp->name = (gchar *) path;
+  comp->priority = pick_default_component_priority (path);
 
-  if (!wp_object_activate_finish (WP_OBJECT (s), res, &error)) {
-    wp_debug_object (self, "wpsettings activation failed: %s", error->message);
-    return;
+  if (!(basename = extract_base_name (path))) {
+    wp_warning (".. ignore dangling shared object(%s), it is not a wireplumber"
+        " module", path);
+    return TRUE;
   }
 
-  wp_transition_advance (WP_TRANSITION (self));
+  if (!g_list_find_custom (comps, basename,
+        (GCompareFunc) is_component_present)) {
+    wp_debug (".. parsed dangling component(%s) type(%s)", comp->name,
+        comp->type);
+    comps = g_list_insert_sorted (comps, g_steal_pointer (&comp),
+        (GCompareFunc) component_cmp_func);
+  } else
+    wp_warning (".. dangling component(%s) already present, ignore this one",
+        comp->name);
+
+  g_value_set_int (ret, g_value_get_int (ret) + 1);
+  return TRUE;
 }
 
-static void
-on_settings_plugin_ready (WpPlugin *s, GAsyncResult *res, gpointer data)
+#define CONFIG_DIRS_LOOKUP_SET \
+    (WP_LOOKUP_DIR_ENV_CONFIG | \
+     WP_LOOKUP_DIR_XDG_CONFIG_HOME | \
+     WP_LOOKUP_DIR_ETC | \
+     WP_LOOKUP_DIR_PREFIX_SHARE)
+
+/*
+ * dangling components are those not present in the json config files but
+ * present in the wireplumber lookup folders.
+ */
+static gboolean
+do_parse_dangling_components (GList *components, GError **error)
 {
-  WpInitTransition *self = WP_INIT_TRANSITION (data);
-  WpTransition *transition = WP_TRANSITION (data);
-  WpCore *core = wp_transition_get_source_object (transition);
-  g_autoptr (GError) error = NULL;
-  g_autoptr (WpSettings) settings = wp_settings_get_instance (core, NULL);
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) fold_ret = G_VALUE_INIT;
+  gint nfiles = 0;
 
-  wp_info_object (self, "wpsettingsplugin object ready");
+  /* look for 'modules' folder in the look up folders*/
+  it = wp_new_files_iterator (CONFIG_DIRS_LOOKUP_SET, "modules", ".so");
 
-  if (!wp_object_activate_finish (WP_OBJECT (s), res, &error)) {
-    wp_debug_object (self, "wpSettingsPlugin activation failed: %s",
-      error->message);
-    return;
+  g_value_init (&fold_ret, G_TYPE_INT);
+  g_value_set_int (&fold_ret, nfiles);
+  if (!wp_iterator_fold (it, do_parse_dangling_component, &fold_ret,
+        components)) {
+    if (error && G_VALUE_HOLDS (&fold_ret, G_TYPE_ERROR))
+      *error = g_value_dup_boxed (&fold_ret);
+    return FALSE;
+  }
+  nfiles = g_value_get_int (&fold_ret);
+  if (nfiles > 0) {
+    wp_info (".. parsed %d dangling modules", nfiles);
   }
 
-  wp_object_activate (WP_OBJECT (settings), WP_OBJECT_FEATURES_ALL, NULL,
-      (GAsyncReadyCallback) on_settings_ready, self);
+  g_clear_pointer (&it, wp_iterator_unref);
+  g_value_unset (&fold_ret);
+  nfiles = 0;
 
+  /* look for 'scripts' folder in the look up folders*/
+  it = wp_new_files_iterator (CONFIG_DIRS_LOOKUP_SET, "scripts", ".lua");
+
+  g_value_init (&fold_ret, G_TYPE_INT);
+  g_value_set_int (&fold_ret, nfiles);
+  if (!wp_iterator_fold (it, do_parse_dangling_component, &fold_ret,
+        components)) {
+    if (error && G_VALUE_HOLDS (&fold_ret, G_TYPE_ERROR))
+      *error = g_value_dup_boxed (&fold_ret);
+    return FALSE;
+  }
+  nfiles = g_value_get_int (&fold_ret);
+  if (nfiles > 0) {
+    wp_info (".. parsed %d dangling scripts", nfiles);
+  }
+
+  return TRUE;
 }
 
 static void
@@ -303,12 +509,11 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
   WpCore *core = wp_transition_get_source_object (transition);
   struct pw_context *pw_ctx = wp_core_get_pw_context (core);
   const struct pw_properties *props = pw_context_get_properties (pw_ctx);
-  GError *error = NULL;
 
   switch (step) {
 
   case STEP_CONNECT: {
-    wp_info_object (self, "Core connect...");
+    wp_info_object (self, "core connect...");
 
     g_signal_connect_object (core, "connected",
         G_CALLBACK (wp_transition_advance), transition, G_CONNECT_SWAPPED);
@@ -346,47 +551,46 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
     break;
   }
 
-  case STEP_ACTIVATE_SETTINGS: {
+  case STEP_PARSE_COMPONENTS: {
+    struct data data = { .transition = transition, .components = NULL };
+    GError *error = NULL;
+    wp_info_object (self, "parse wireplumber components...");
 
-    wp_info_object (self, "Activating settings...");
-
-    /* load settings module */
-    if (!wp_core_load_component (core, "libwireplumber-module-settings",
-        "module", NULL, &error)) {
-      wp_transition_return_error (transition, error);
+    if (pw_context_conf_section_for_each (pw_ctx, "wireplumber.components",
+        do_parse_json_components, &data) < 0)
       return;
-    }
 
-    /* get handle to module to settings module/plugin & activate it */
-    WpPlugin *p = wp_plugin_find (core, "settings");
-    if (!p) {
-      wp_transition_return_error (transition, g_error_new (
-          WP_DOMAIN_DAEMON, WP_EXIT_CONFIG,
-          "unable to find settings plugin"));
-      return;
-    }
-
-    wp_object_activate (WP_OBJECT (p), WP_OBJECT_FEATURES_ALL, NULL,
-        (GAsyncReadyCallback) on_settings_plugin_ready, self);
-
-    break;
-  }
-
-  case STEP_LOAD_COMPONENTS: {
-    struct data data = { .transition = transition };
-
-    wp_info_object (self, "Load Wireplumber Components...");
-
-    if (pw_context_conf_section_for_each(pw_ctx, "wireplumber.components",
-		    do_load_components, &data) < 0)
-	    return;
     if (data.count == 0) {
       wp_transition_return_error (transition, g_error_new (
           WP_DOMAIN_DAEMON, WP_EXIT_CONFIG,
           "No components configured in the context conf file; nothing to do"));
       return;
     }
+
+    if (!do_parse_dangling_components (data.components, &error)) {
+      wp_warning ("..error in traversing dangling components (%s)",
+          error->message);
+      wp_transition_return_error (transition, error);
+    }
+
+    self->components = g_steal_pointer (&data.components);
     wp_transition_advance (transition);
+    break;
+  }
+
+  case STEP_LOAD_ENABLE_COMPONENTS: {
+    g_autoptr (GError) error = NULL;
+    int ret = 0;
+    wp_info ("load enable components..");
+
+    ret = load_enable_component (self, &error);
+    if (ret < 0) {
+      wp_transition_return_error (transition, g_steal_pointer (&error));
+    } else if (ret == 0) {
+      g_set_error (&error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+          "list of components not available to load");
+      wp_transition_return_error (transition, g_steal_pointer (&error));
+    }
     break;
   }
 
@@ -403,65 +607,15 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
     break;
   }
 
-  case STEP_ACTIVATE_PLUGINS: {
-    const char *engine = pw_properties_get (props, "wireplumber.script-engine");
-
-    g_clear_object (&self->om);
-    wp_info_object (self, "Activating plugins...");
-
-    self->om = wp_object_manager_new ();
-    if (engine) {
-      wp_object_manager_add_interest (self->om, WP_TYPE_PLUGIN,
-          WP_CONSTRAINT_TYPE_G_PROPERTY, "name", "!s", engine,
-          NULL);
-    } else {
-      wp_object_manager_add_interest (self->om, WP_TYPE_PLUGIN, NULL);
-    }
-    g_signal_connect_object (self->om, "object-added",
-        G_CALLBACK (on_plugin_added), self, 0);
-    g_signal_connect_object (self->om, "installed",
-        G_CALLBACK (wp_transition_advance), transition, G_CONNECT_SWAPPED);
-    wp_core_install_object_manager (core, self->om);
-    break;
-  }
-
-  case STEP_ACTIVATE_SCRIPTS: {
-    const char *engine = pw_properties_get (props, "wireplumber.script-engine");
-
-    g_clear_object (&self->om);
-
-    if (engine) {
-      wp_info_object (self, "Executing scripts...");
-
-      g_autoptr (WpPlugin) plugin = wp_plugin_find (core, engine);
-      if (!plugin) {
-        wp_transition_return_error (transition, g_error_new (
-            WP_DOMAIN_DAEMON, WP_EXIT_CONFIG,
-            "script engine '%s' is not loaded", engine));
-        return;
-      }
-
-      self->pending_plugins = 1;
-
-      self->om = wp_object_manager_new ();
-      wp_object_manager_add_interest (self->om, WP_TYPE_PLUGIN,
-          WP_CONSTRAINT_TYPE_G_PROPERTY, "name", "#s", "script:*",
-          NULL);
-      g_signal_connect_object (self->om, "object-added",
-          G_CALLBACK (on_plugin_added), self, 0);
-      wp_core_install_object_manager (core, self->om);
-
-      wp_object_activate (WP_OBJECT (plugin), WP_PLUGIN_FEATURE_ENABLED, NULL,
-          (GAsyncReadyCallback) on_plugin_activated, self);
-    } else {
-      wp_transition_advance (transition);
-    }
-    break;
-  }
-
   case STEP_CLEANUP:
+    wp_info ("wirePlumber initialized");
+    g_clear_object (&self->om);
+    g_list_free_full (self->components, (GDestroyNotify) component_unref);
+    break;
+
   case WP_TRANSITION_STEP_ERROR:
     g_clear_object (&self->om);
+    g_list_free_full (self->components, (GDestroyNotify) component_unref);
     break;
 
   default:
