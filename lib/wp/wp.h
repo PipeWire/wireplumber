@@ -78,14 +78,6 @@ const char * wp_get_library_api_version (void);
 WP_API
 const gchar * wp_get_module_dir (void);
 
-WP_API
-G_DEPRECATED_FOR (wp_find_file)
-const gchar * wp_get_config_dir (void);
-
-WP_API
-G_DEPRECATED_FOR (wp_find_file)
-const gchar * wp_get_data_dir (void);
-
 /*!
  * \brief Flags to specify lookup directories
  * \ingroup wp
