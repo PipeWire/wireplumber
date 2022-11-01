@@ -115,16 +115,9 @@ function createNode(parent, id, obj_type, factory, properties)
     -- sanitize name
     name = name:gsub("([^%w_%-%.])", "_")
 
-    properties["node.name"] = name
-
     -- deduplicate nodes with the same name
-    for counter = 2, 99, 1 do
-      if node_names_table[properties["node.name"]] ~= true then
-        node_names_table[properties["node.name"]] = true
-        break
-      end
-      properties["node.name"] = name .. "." .. counter
-    end
+    properties ["node.name"] = deduplicatorDeduplicate (node_names_table,
+        name)
   end
 
   -- and a nick
@@ -175,6 +168,7 @@ function createNode(parent, id, obj_type, factory, properties)
   -- apply properties from config.rules
   rulesApplyProperties(properties)
   if properties["node.disabled"] then
+    deduplicatorRemove (node_names_table, properties ["node.name"])
     return
   end
 
@@ -182,20 +176,77 @@ function createNode(parent, id, obj_type, factory, properties)
   local node = Node("adapter", properties)
   node:activate(Feature.Proxy.BOUND)
   parent:store_managed_object(id, node)
+  deduplicatorUpdateIndex (node_names_table, properties ["node.name"], node.id)
 end
 
 function createDevice(parent, id, factory, properties)
   local device = SpaDevice(factory, properties)
+
+  deduplicatorUpdateIndex (device_names_table, properties ["device.name"],
+      device.id)
+
   if device then
     device:connect("create-object", createNode)
     device:connect("object-removed", function (parent, id)
       local node = parent:get_managed_object(id)
-      node_names_table[node.properties["node.name"]] = nil
+      deduplicatorRemove (node_names_table, nil, node.id)
     end)
     device:activate(Feature.SpaDevice.ENABLED | Feature.Proxy.BOUND)
     parent:store_managed_object(id, device)
   else
     Log.warning ("Failed to create '" .. factory .. "' device")
+  end
+end
+
+function deduplicatorDeduplicate (names_table, name)
+  local new_name = name
+  for counter = 2, 99, 1 do
+    local duplicate_name_found = false
+    for k, v in pairs (names_table) do
+      Log.info("deduplicatorDeduplicate in loop".." k="..k.." v="..v)
+      if v == new_name then
+        duplicate_name_found = true
+        break;
+      end
+    end
+    if duplicate_name_found then
+      new_name = name .. "." .. counter
+      Log.info (" deduplicatorDeduplicate dup found new name=" .. new_name)
+      -- now run through the names_table to see if this name is also
+      -- used up.
+    else
+      Log.info (" deduplicatorDeduplicate update table with name=" .. new_name)
+      names_table [new_name] = new_name
+      break
+    end
+  end
+
+  return new_name
+end
+
+function deduplicatorUpdateIndex (names_table, name, index)
+
+  if name and names_table [name] then
+
+    names_table [index] = name
+    names_table [name] = nil
+    Log.info("deduplicatorUpdateIndex updated index from "..name.." to "..index)
+  else
+    Log.info("deduplicatorUpdateIndex: failed")
+  end
+end
+
+function deduplicatorRemove (names_table, name, index)
+  if name and names_table [name] then
+
+    names_table [name] = nil
+    Log.info("deduplicatorRemoved withName "..name)
+  elseif index and names_table [index] then
+
+    names_table [index] = nil
+    Log.info("deduplicatorRemovedwithIndex "..index)
+  else
+    Log.info ("deduplicatorRemove, wrong params")
   end
 end
 
@@ -207,16 +258,8 @@ function prepareDevice(parent, id, obj_type, factory, properties)
      properties["device.bus-path"] or
      tostring(id)):gsub("([^%w_%-%.])", "_")
 
-  properties["device.name"] = name
-
   -- deduplicate devices with the same name
-  for counter = 2, 99, 1 do
-    if device_names_table[properties["device.name"]] ~= true then
-      device_names_table[properties["device.name"]] = true
-      break
-    end
-    properties["device.name"] = name .. "." .. counter
-  end
+  properties ["device.name"] = deduplicatorDeduplicate (device_names_table, name)
 
   -- ensure the device has a description
   if not properties["device.description"] then
@@ -269,6 +312,7 @@ function prepareDevice(parent, id, obj_type, factory, properties)
   -- apply properties from config.rules
   rulesApplyProperties(properties)
   if properties["device.disabled"] then
+    deduplicatorRemove (device_names_table, properties ["device.name"])
     return
   end
 
@@ -346,15 +390,17 @@ function createMonitor ()
   -- handle object-removed to destroy device reservations and recycle device name
   m:connect("object-removed", function (parent, id)
     local device = parent:get_managed_object(id)
-    if rd_plugin then
+
+    -- some times the device objects are not available.
+    if rd_plugin and device then
       local rd_name = device.properties["api.dbus.ReserveDevice1"]
       if rd_name then
         rd_plugin:call("destroy-reservation", rd_name)
       end
     end
-    device_names_table[device.properties["device.name"]] = nil
+    deduplicatorRemove (device_names_table, nil, device.id)
     for managed_node in device:iterate_managed_objects() do
-      node_names_table[managed_node.properties["node.name"]] = nil
+      deduplicatorRemove (node_names_table, nil, managed_node.id)
     end
   end)
 
