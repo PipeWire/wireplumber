@@ -895,40 +895,6 @@ wp_properties_new_iterator (WpProperties * self)
 }
 
 /*!
- * \brief Gets the key from a properties iterator item
- *
- * \ingroup wpproperties
- * \param item a GValue that was returned from the WpIterator of
- *   wp_properties_new_iterator()
- * \returns (transfer none): the property key of the \a item
- * \deprecated Use wp_properties_item_get_key() instead
- */
-const gchar *
-wp_properties_iterator_item_get_key (const GValue * item)
-{
-  WpPropertiesItem *pi = g_value_get_boxed (item);
-  g_return_val_if_fail (pi != NULL, NULL);
-  return wp_properties_item_get_key (pi);
-}
-
-/*!
- * \brief Gets the value from a properties iterator item
- *
- * \ingroup wpproperties
- * \param item a GValue that was returned from the WpIterator of
- *   wp_properties_new_iterator()
- * \returns (transfer none): the property value of the \a item
- * \deprecated Use wp_properties_item_get_value() instead
- */
-const gchar *
-wp_properties_iterator_item_get_value (const GValue * item)
-{
-  WpPropertiesItem *pi = g_value_get_boxed (item);
-  g_return_val_if_fail (pi != NULL, NULL);
-  return wp_properties_item_get_value (pi);
-}
-
-/*!
  * \brief Gets the number of properties contained in this object
  * \ingroup wpproperties
  * \param self a properties object
