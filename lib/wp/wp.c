@@ -103,48 +103,6 @@ wp_get_module_dir (void)
   return module_dir;
 }
 
-/*!
- * \brief Gets the full path to the WirePlumber configuration directory
- * \returns The WirePlumber configuration directory
- * \deprecated Use wp_find_file() instead
- */
-const gchar *
-wp_get_config_dir (void)
-{
-  static gchar config_dir[PATH_MAX] = {0};
-  if (config_dir[0] == '\0') {
-    g_autofree gchar *abspath;
-    const gchar *path = g_getenv ("WIREPLUMBER_CONFIG_DIR");
-
-    if (!path)
-      path = WIREPLUMBER_DEFAULT_CONFIG_DIR;
-
-    abspath = g_canonicalize_filename (path, NULL);
-    (void) g_strlcpy (config_dir, abspath, sizeof (config_dir));
-  }
-  return config_dir;
-}
-
-/*!
- * \brief Gets full path to the WirePlumber data directory
- * \returns The WirePlumber data directory
- * \deprecated Use wp_find_file() instead
- */
-const gchar *
-wp_get_data_dir (void)
-{
-  static gchar data_dir[PATH_MAX] = {0};
-  if (data_dir[0] == '\0') {
-    g_autofree gchar *abspath;
-    const char *path = g_getenv ("WIREPLUMBER_DATA_DIR");
-    if (!path)
-      path = WIREPLUMBER_DEFAULT_DATA_DIR;
-    abspath = g_canonicalize_filename (path, NULL);
-    (void) g_strlcpy (data_dir, abspath, sizeof (data_dir));
-  }
-  return data_dir;
-}
-
 /*! \} */
 
 static gchar *
