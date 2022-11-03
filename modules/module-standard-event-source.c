@@ -78,6 +78,11 @@ get_object_type_and_priority (gpointer obj, const gchar **type, gint *priority)
     *type = "metadata";
     *priority = 40;
   }
+  else if (WP_IS_SI_LINK (obj))
+  {
+    *type = "SiLink";
+    *priority = 30;
+  }
 
   return type != NULL;
 }
