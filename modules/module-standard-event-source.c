@@ -13,6 +13,11 @@
  * events on to the Event Stack.
  */
 
+enum {
+  PROP_0,
+  PROP_OBJECT_MANAGER,
+};
+
 struct _WpStandardEventSource
 {
   WpPlugin parent;
@@ -26,6 +31,22 @@ G_DEFINE_TYPE (WpStandardEventSource, wp_standard_event_source, WP_TYPE_PLUGIN)
 static void
 wp_standard_event_source_init (WpStandardEventSource * self)
 {
+}
+
+static void
+wp_standard_event_source_get_property (GObject * object, guint property_id,
+    GValue * value, GParamSpec * pspec)
+{
+  WpStandardEventSource *self = WP_STANDARD_EVENT_SOURCE (object);
+
+  switch (property_id) {
+  case PROP_OBJECT_MANAGER:
+    g_value_set_object (value, self->om);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
 }
 
 static gboolean
@@ -258,10 +279,18 @@ wp_standard_event_source_disable (WpPlugin * plugin)
 static void
 wp_standard_event_source_class_init (WpStandardEventSourceClass * klass)
 {
+  GObjectClass *object_class = (GObjectClass *) klass;
   WpPluginClass *plugin_class = (WpPluginClass *) klass;
+
+  object_class->get_property = wp_standard_event_source_get_property;
 
   plugin_class->enable = wp_standard_event_source_enable;
   plugin_class->disable = wp_standard_event_source_disable;
+
+  g_object_class_install_property (object_class, PROP_OBJECT_MANAGER,
+      g_param_spec_string ("object-manager", "object-manager",
+          "The WpObjectManager instance that is used to generate events", NULL,
+          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 }
 
 WP_PLUGIN_EXPORT gboolean
