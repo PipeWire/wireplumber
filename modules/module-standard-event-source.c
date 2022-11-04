@@ -18,11 +18,18 @@ enum {
   PROP_OBJECT_MANAGER,
 };
 
+enum {
+  ACTION_PUSH_EVENT,
+  N_SIGNALS
+};
+
 struct _WpStandardEventSource
 {
   WpPlugin parent;
   WpObjectManager *om;
 };
+
+static guint signals[N_SIGNALS] = {0};
 
 G_DECLARE_FINAL_TYPE (WpStandardEventSource, wp_standard_event_source,
                       WP, STANDARD_EVENT_SOURCE, WpPlugin)
@@ -268,6 +275,13 @@ wp_standard_event_source_class_init (WpStandardEventSourceClass * klass)
       g_param_spec_string ("object-manager", "object-manager",
           "The WpObjectManager instance that is used to generate events", NULL,
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+
+  signals[ACTION_PUSH_EVENT] = g_signal_new_class_handler (
+      "push-event", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+      (GCallback) wp_standard_event_source_push_event,
+      NULL, NULL, NULL, G_TYPE_NONE, 4,
+      G_TYPE_STRING, G_TYPE_STRING, WP_TYPE_PROPERTIES, WP_TYPE_OBJECT);
 }
 
 WP_PLUGIN_EXPORT gboolean
