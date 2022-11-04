@@ -136,7 +136,7 @@ on_metadata_changed (WpMetadata *obj, guint32 subject,
 
   wp_event_dispatcher_push_event (dispatcher, wp_event_new (
       "object-changed", priority, g_steal_pointer (&props),
-      G_OBJECT (self->om), G_OBJECT (obj)));
+      G_OBJECT (self), G_OBJECT (obj)));
 }
 
 static void
@@ -163,7 +163,7 @@ on_params_changed (WpPipewireObject *obj, const gchar *id,
 
   wp_event_dispatcher_push_event (dispatcher, wp_event_new (
           "params-changed", priority, g_steal_pointer (&props),
-          G_OBJECT (self->om), G_OBJECT (obj)));
+          G_OBJECT (self), G_OBJECT (obj)));
 }
 
 static void
@@ -181,7 +181,7 @@ on_node_state_changed (WpNode *obj, WpNodeState old_state,
               "event.subject.old-state", g_enum_to_string (WP_TYPE_NODE_STATE, old_state),
               "event.subject.new-state", g_enum_to_string (WP_TYPE_NODE_STATE, new_state),
               NULL),
-          G_OBJECT (self->om), G_OBJECT (obj)));
+          G_OBJECT (self), G_OBJECT (obj)));
 }
 
 static void
@@ -203,7 +203,7 @@ on_object_added (WpObjectManager *om, WpObject *obj, WpStandardEventSource *self
   wp_event_dispatcher_push_event (dispatcher, wp_event_new (
           "object-added", priority,
           wp_properties_new ("event.subject.type", type, NULL),
-          G_OBJECT (om), G_OBJECT (obj)));
+          G_OBJECT (self), G_OBJECT (obj)));
 
   if (WP_IS_PIPEWIRE_OBJECT (obj)) {
     g_signal_connect_object (obj, "params-changed",
@@ -239,7 +239,7 @@ on_object_removed (WpObjectManager *om, WpObject *obj, WpStandardEventSource *se
   wp_event_dispatcher_push_event (dispatcher, wp_event_new (
           "object-removed", priority,
           wp_properties_new ("event.subject.type", type, NULL),
-          G_OBJECT (om), G_OBJECT (obj)));
+          G_OBJECT (self), G_OBJECT (obj)));
 }
 
 static void
