@@ -269,8 +269,7 @@ wp_default_profile_enable (WpPlugin * plugin, WpTransition * transition)
 
   /* device added */
   hook = wp_simple_event_hook_new ("device-added@m-default-profile",
-      WP_EVENT_HOOK_DEFAULT_PRIORITY_DEVICE_ADDED_DEFAULT_PROFILE,
-      WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
+      WP_EVENT_HOOK_PRIORITY_NORMAL, WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
       g_cclosure_new ((GCallback) on_device_added, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-added",
@@ -281,8 +280,7 @@ wp_default_profile_enable (WpPlugin * plugin, WpTransition * transition)
 
   /* device params changed */
   hook = wp_simple_event_hook_new ("device-parms-changed@m-default-profile",
-      WP_EVENT_HOOK_DEFAULT_PRIORITY_DEVICE_PARAMS_CHANGED_DEFAULT_PROFILE,
-      WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
+      WP_EVENT_HOOK_PRIORITY_NORMAL, WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
       g_cclosure_new ((GCallback) on_device_params_changed_hook, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "params-changed",
