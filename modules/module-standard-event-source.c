@@ -20,6 +20,7 @@ enum {
 
 enum {
   ACTION_PUSH_EVENT,
+  ACTION_SCHEDULE_RESCAN,
   N_SIGNALS
 };
 
@@ -27,6 +28,7 @@ struct _WpStandardEventSource
 {
   WpPlugin parent;
   WpObjectManager *om;
+  gboolean rescan_scheduled;
 };
 
 static guint signals[N_SIGNALS] = {0};
@@ -153,6 +155,16 @@ wp_standard_event_source_push_event (WpStandardEventSource *self,
 }
 
 static void
+wp_standard_event_source_schedule_rescan (WpStandardEventSource *self)
+{
+  if (!self->rescan_scheduled) {
+    wp_standard_event_source_push_event (self, "rescan-session", NULL, NULL,
+        NULL);
+    self->rescan_scheduled = TRUE;
+  }
+}
+
+static void
 on_metadata_changed (WpMetadata *obj, guint32 subject,
     const gchar *key, const gchar *spa_type, const gchar *value,
     WpStandardEventSource *self)
@@ -233,11 +245,21 @@ on_om_installed (WpObjectManager * om, WpStandardEventSource * self)
 }
 
 static void
+on_rescan_done (WpEvent * event, WpStandardEventSource * self)
+{
+  self->rescan_scheduled = FALSE;
+}
+
+static void
 wp_standard_event_source_enable (WpPlugin * plugin, WpTransition * transition)
 {
   WpStandardEventSource * self = WP_STANDARD_EVENT_SOURCE (plugin);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
   g_return_if_fail (core);
+  g_autoptr (WpEventDispatcher) dispatcher =
+      wp_event_dispatcher_get_instance (core);
+  g_return_if_fail (dispatcher);
+  g_autoptr (WpEventHook) hook = NULL;
 
   self->om = wp_object_manager_new ();
   wp_object_manager_add_interest (self->om, WP_TYPE_GLOBAL_PROXY, NULL);
@@ -251,6 +273,14 @@ wp_standard_event_source_enable (WpPlugin * plugin, WpTransition * transition)
   g_signal_connect_object (self->om, "installed",
       G_CALLBACK (on_om_installed), self, 0);
   wp_core_install_object_manager (core, self->om);
+
+  hook = wp_simple_event_hook_new ("rescan-done@std-event-source",
+      WP_EVENT_HOOK_PRIORITY_LOWEST, WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
+      g_cclosure_new_object ((GCallback) on_rescan_done, G_OBJECT (self)));
+  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "rescan-session",
+      NULL);
+  wp_event_dispatcher_register_hook (dispatcher, hook);
 }
 
 static void
@@ -282,6 +312,12 @@ wp_standard_event_source_class_init (WpStandardEventSourceClass * klass)
       (GCallback) wp_standard_event_source_push_event,
       NULL, NULL, NULL, G_TYPE_NONE, 4,
       G_TYPE_STRING, G_TYPE_STRING, WP_TYPE_PROPERTIES, WP_TYPE_OBJECT);
+
+  signals[ACTION_SCHEDULE_RESCAN] = g_signal_new_class_handler (
+      "schedule-rescan", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+      (GCallback) wp_standard_event_source_schedule_rescan,
+      NULL, NULL, NULL, G_TYPE_NONE, 0);
 }
 
 WP_PLUGIN_EXPORT gboolean
