@@ -1875,11 +1875,8 @@ simple_event_hook_new (lua_State *L)
   priority_type = lua_gettable (L, 1);
   if (priority_type == LUA_TNUMBER)
     priority = lua_tointeger (L, -1);
-  else if (priority_type == LUA_TSTRING)
-    priority = wplua_lua_to_enum (L, -1,
-        WP_TYPE_EVENT_HOOK_DEFAULT_PRIORITY_TYPE);
   else
-    luaL_error (L, "SimpleEventHook: expected 'priority' as number or string");
+    luaL_error (L, "SimpleEventHook: expected 'priority' as number");
   lua_pop (L, 1);
 
   lua_pushliteral (L, "type");
@@ -2061,11 +2058,8 @@ async_event_hook_new (lua_State *L)
   priority_type = lua_gettable(L, 1);
   if (priority_type == LUA_TNUMBER)
     priority = lua_tointeger (L, -1);
-  else if (priority_type == LUA_TSTRING)
-    priority = wplua_lua_to_enum(L, -1,
-        WP_TYPE_EVENT_HOOK_DEFAULT_PRIORITY_TYPE);
   else
-    luaL_error(L, "AsyncEventHook: expected 'priority' as number or string");
+    luaL_error(L, "AsyncEventHook: expected 'priority' as number");
   lua_pop (L, 1);
 
   lua_pushliteral (L, "type");

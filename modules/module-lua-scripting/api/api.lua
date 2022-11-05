@@ -191,11 +191,24 @@ local Feature = {
   },
 }
 
+local HookPriority = {
+  LOWEST = -500,
+  ULTRA_LOW = -300,
+  VERY_LOW = -200,
+  LOW = -100,
+  NORMAL = 0,
+  HIGH = 100,
+  VERY_HIGH = 200,
+  ULTRA_HIGH = 300,
+  HIGHEST = 500,
+}
+
 SANDBOX_EXPORT = {
   Debug = Debug,
   Id = Id,
   Features = Features,
   Feature = Feature,
+  HookPriority = HookPriority,
   GLib = GLib,
   I18n = I18n,
   Log = WpLog,
