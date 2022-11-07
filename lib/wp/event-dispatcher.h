@@ -51,6 +51,12 @@ GObject * wp_event_get_subject (WpEvent * self);
 WP_API
 void wp_event_stop_processing (WpEvent * self);
 
+WP_API
+void wp_event_set_data (WpEvent * self, const gchar * key, const GValue * data);
+
+WP_API
+const GValue * wp_event_get_data (WpEvent * self, const gchar * key);
+
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpEvent, wp_event_unref)
 
 
