@@ -34,6 +34,7 @@ wp_hook_data_unref (WpEventHookData *self)
 struct _WpEvent
 {
   grefcount ref;
+  GData *datalist;
 
   /* immutable fields */
   gint priority;
@@ -99,6 +100,7 @@ wp_event_new (const gchar * type, gint priority, WpProperties * properties,
 {
   WpEvent * self = g_slice_new0 (WpEvent);
   g_ref_count_init (&self->ref);
+  g_datalist_init (&self->datalist);
 
   self->priority = priority;
   self->properties = properties ?
@@ -150,6 +152,7 @@ wp_event_new (const gchar * type, gint priority, WpProperties * properties,
 static void
 wp_event_free (WpEvent * self)
 {
+  g_datalist_clear (&self->datalist);
   g_clear_pointer (&self->properties, wp_properties_unref);
   g_clear_object (&self->source);
   g_clear_object (&self->subject);
@@ -218,6 +221,58 @@ wp_event_stop_processing (WpEvent * self)
   g_return_if_fail (self != NULL);
   wp_debug ("stopping event(%s)", self->name);
   g_cancellable_cancel (self->cancellable);
+}
+
+static void
+destroy_event_data (gpointer data)
+{
+  g_value_unset ((GValue *) data);
+  g_free (data);
+}
+
+/*!
+ * \brief Stores \a data on the event, associated with the specified \a key
+ *
+ * This can be used to exchange arbitrary data between hooks that run for
+ * this event.
+ *
+ * \ingroup wpevent
+ * \param self the event
+ * \param key the key to associate \a data with
+ * \param data (transfer none)(nullable): the data element, or \c NULL to
+ *   remove any previous data associated with this \a key
+ */
+void
+wp_event_set_data (WpEvent * self, const gchar * key, const GValue * data)
+{
+  g_return_if_fail (self != NULL);
+  g_return_if_fail (key != NULL);
+  GValue *data_copy = NULL;
+
+  if (data && G_IS_VALUE (data)) {
+    data_copy = g_new0 (GValue, 1);
+    g_value_init (data_copy, G_VALUE_TYPE (data));
+    g_value_copy (data, data_copy);
+  }
+
+  g_datalist_set_data_full (&self->datalist, key, data_copy,
+      data_copy ? destroy_event_data : NULL);
+}
+
+/*!
+ * \brief Gets the data that was previously associated with \a key by
+ *    wp_event_set_data()
+ * \ingroup wpevent
+ * \param self the event
+ * \return (transfer none)(nullable): the data associated with \a key or \c NULL
+ */
+const GValue *
+wp_event_get_data (WpEvent * self, const gchar * key)
+{
+  g_return_val_if_fail (self != NULL, NULL);
+  g_return_val_if_fail (key != NULL, NULL);
+
+  return g_datalist_get_data (&self->datalist, key);
 }
 
 struct _WpEventDispatcher
