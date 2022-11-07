@@ -1759,11 +1759,71 @@ event_stop_processing (lua_State *L)
   return 0;
 }
 
+static int
+event_set_data (lua_State *L)
+{
+  WpEvent *event = wplua_checkboxed (L, 1, WP_TYPE_EVENT);
+  const gchar *key = luaL_checkstring (L, 2);
+  GType type = G_TYPE_INVALID;
+  g_auto (GValue) value = G_VALUE_INIT;
+  const GValue *data = NULL;
+
+  switch (lua_type (L, 3)) {
+  case LUA_TNONE:
+  case LUA_TNIL:
+    break;
+  case LUA_TUSERDATA:
+    type = wplua_gvalue_userdata_type (L, 3);
+    if (G_UNLIKELY (type == G_TYPE_INVALID))
+      wp_warning ("cannot set userdata on event data (not GValue userdata)");
+    break;
+  case LUA_TBOOLEAN:
+    type = G_TYPE_BOOLEAN;
+    break;
+  case LUA_TNUMBER:
+    type = lua_isinteger (L, 3) ? G_TYPE_INT64 : G_TYPE_DOUBLE;
+    break;
+  case LUA_TSTRING:
+    type = G_TYPE_STRING;
+    break;
+  case LUA_TTABLE:
+    type = WP_TYPE_PROPERTIES;
+    break;
+  default:
+    wp_warning ("cannot set value on event data (value type not supported)");
+    break;
+  }
+
+  if (type != G_TYPE_INVALID) {
+    g_value_init (&value, type);
+    wplua_lua_to_gvalue (L, 3, &value);
+    data = &value;
+  }
+
+  wp_event_set_data (event, key, data);
+  return 0;
+}
+
+static int
+event_get_data (lua_State *L)
+{
+  WpEvent *event = wplua_checkboxed (L, 1, WP_TYPE_EVENT);
+  const gchar *key = luaL_checkstring (L, 2);
+  const GValue *data = wp_event_get_data (event, key);
+  if (data)
+    wplua_gvalue_to_lua (L, data);
+  else
+    lua_pushnil (L);
+  return 1;
+}
+
 static const luaL_Reg event_methods[] = {
   { "get_properties", event_get_properties },
   { "get_source", event_get_source },
   { "get_subject", event_get_subject },
   { "stop_processing", event_stop_processing },
+  { "set_data", event_set_data },
+  { "get_data", event_get_data },
   { NULL, NULL }
 };
 
