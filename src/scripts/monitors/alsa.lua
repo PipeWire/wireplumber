@@ -175,6 +175,7 @@ function createNode(parent, id, obj_type, factory, properties)
   -- apply properties from config.rules
   rulesApplyProperties(properties)
   if properties["node.disabled"] then
+    node_names_table [properties ["node.name"]] = nil
     return
   end
 
@@ -190,6 +191,10 @@ function createDevice(parent, id, factory, properties)
     device:connect("create-object", createNode)
     device:connect("object-removed", function (parent, id)
       local node = parent:get_managed_object(id)
+      if not node then
+        return
+      end
+
       node_names_table[node.properties["node.name"]] = nil
     end)
     device:activate(Feature.SpaDevice.ENABLED | Feature.Proxy.BOUND)
@@ -269,6 +274,7 @@ function prepareDevice(parent, id, obj_type, factory, properties)
   -- apply properties from config.rules
   rulesApplyProperties(properties)
   if properties["device.disabled"] then
+    device_names_table [properties ["device.name"]] = nil
     return
   end
 
@@ -346,6 +352,10 @@ function createMonitor ()
   -- handle object-removed to destroy device reservations and recycle device name
   m:connect("object-removed", function (parent, id)
     local device = parent:get_managed_object(id)
+    if not device then
+      return
+    end
+
     if rd_plugin then
       local rd_name = device.properties["api.dbus.ReserveDevice1"]
       if rd_name then
