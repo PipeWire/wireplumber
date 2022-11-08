@@ -20,33 +20,30 @@ SimpleEventHook {
     },
   },
   execute = function (event)
-    local si = event:get_subject ()
-    local si_id = si.id
-    local si_flags = putils.get_flags (si_id)
-    local si_target = si_flags.si_target
+    local source, om, si, si_props, si_flags, target =
+        putils:unwrap_find_target_event (event)
 
-    if not si_target then
-      -- bypass the hook, nothing to link to.
+    -- bypass the hook, nothing to link to
+    if not target then
       return
     end
 
-    local si_props = si.properties
-    local target_props = si_target.properties
+    local target_props = target.properties
     local out_item = nil
     local in_item = nil
     local si_link = nil
     local passthrough = si_flags.can_passthrough
 
-    Log.info (si, string.format ("handling item: %s (%s) si id(%s)",
-      tostring (si_props ["node.name"]), tostring (si_props ["node.id"]), si_id))
+    Log.info (si, string.format ("handling item: %s (%s)",
+        tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
 
-    local exclusive = parseBool (si_props ["node.exclusive"])
-    local passive = parseBool (si_props ["node.passive"]) or
-        parseBool (target_props ["node.passive"])
+    local exclusive = cutils.parseBool (si_props ["node.exclusive"])
+    local passive = cutils.parseBool (si_props ["node.passive"]) or
+        cutils.parseBool (target_props ["node.passive"])
 
     -- break rescan if tried more than 5 times with same target
     if si_flags.failed_peer_id ~= nil and
-        si_flags.failed_peer_id == si_target.id and
+        si_flags.failed_peer_id == target.id and
         si_flags.failed_count ~= nil and
         si_flags.failed_count > 5 then
       Log.warning (si, "tried to link on last rescan, not retrying")
@@ -56,11 +53,11 @@ SimpleEventHook {
     if si_props ["item.node.direction"] == "output" then
       -- playback
       out_item = si
-      in_item = si_target
+      in_item = target
     else
       -- capture
       in_item = si
-      out_item = si_target
+      out_item = target
     end
 
     Log.info (si,
@@ -86,8 +83,8 @@ SimpleEventHook {
     end
 
     -- register
-    si_flags.peer_id = si_target.id
-    si_flags.failed_peer_id = si_target.id
+    si_flags.peer_id = target.id
+    si_flags.failed_peer_id = target.id
     if si_flags.failed_count ~= nil then
       si_flags.failed_count = si_flags.failed_count + 1
     else
@@ -107,18 +104,16 @@ SimpleEventHook {
         if si_flags ~= nil then
           si_flags.failed_peer_id = nil
           if si_flags.peer_id == nil then
-            si_flags.peer_id = si_target.id
+            si_flags.peer_id = target.id
           end
           si_flags.failed_count = 0
         end
         Log.info (l, "activated si-standard-link " .. tostring (si))
       end
-      putils.set_flags (si_id, si_flags)
     end)
 
     ::done::
     si_flags.was_handled = true
-    putils.set_flags (si_id, si_flags)
-    putils.checkFollowDefault (si, si_target, si_flags.has_node_defined_target)
+    putils.checkFollowDefault (si, target, si_flags.has_node_defined_target)
   end
 }:register ()
