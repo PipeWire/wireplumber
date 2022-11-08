@@ -82,6 +82,29 @@ SimpleEventHook {
       goto done
     end
 
+    si_link:connect("link-error", function (_, error_msg)
+      local ids = {si.id, si_flags.peer_id}
+
+      for _, id in ipairs (ids) do
+        local si = om:lookup {
+          Constraint { "id", "=", id, type = "gobject" },
+        }
+        if si then
+          local node = si:get_associated_proxy ("node")
+          local client_id = node.properties["client.id"]
+          if client_id then
+            local client = om:lookup {
+              Constraint { "bound-id", "=", client_id, type = "gobject" }
+            }
+            if client then
+              Log.info (node, "sending client error: " .. error_msg)
+              client:send_error (node["bound-id"], -32, error_msg)
+            end
+          end
+        end
+      end
+    end)
+
     -- register
     si_flags.peer_id = target.id
     si_flags.failed_peer_id = target.id
