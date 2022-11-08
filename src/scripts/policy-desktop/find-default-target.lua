@@ -18,29 +18,26 @@ SimpleEventHook {
     },
   },
   execute = function (event)
-    local si = event:get_subject ()
-    local si_id = si.id
-    local si_flags = putils.get_flags (si_id)
-    local si_target = si_flags.si_target
+    local source, om, si, si_props, si_flags, target =
+        putils:unwrap_find_target_event (event)
 
-    if si_target or (default_nodes == nil) then
-      -- bypass the hook as the target is already picked up.
+    -- bypass the hook if the target is already picked up
+    if target then
       return
     end
 
-    local si_props = si.properties
     local target_picked = false
 
-    Log.info (si, string.format ("handling item: %s (%s) si id(%s)",
-      tostring (si_props ["node.name"]), tostring (si_props ["node.id"]), si_id))
+    Log.info (si, string.format ("handling item: %s (%s)",
+        tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
 
-    local si_target = putils.findDefaultLinkable (si)
+    target = putils.findDefaultLinkable (si)
 
     local can_passthrough, passthrough_compatible
-    if si_target then
+    if target then
       passthrough_compatible, can_passthrough =
-      putils.checkPassthroughCompatibility (si, si_target)
-      if putils.canLink (si_props, si_target) and passthrough_compatible then
+      putils.checkPassthroughCompatibility (si, target)
+      if putils.canLink (si_props, target) and passthrough_compatible then
         target_picked = true;
       end
     end
@@ -48,16 +45,11 @@ SimpleEventHook {
     if target_picked then
       Log.info (si,
         string.format ("... default target picked: %s (%s), can_passthrough:%s",
-          tostring (si_target.properties ["node.name"]),
-          tostring (si_target.properties ["node.id"]),
+          tostring (target.properties ["node.name"]),
+          tostring (target.properties ["node.id"]),
           tostring (can_passthrough)))
-      si_flags.si_target = si_target
       si_flags.can_passthrough = can_passthrough
-    else
-      si_flags.si_target = nil
-      si_flags.can_passthrough = nil
+      event:set_data ("target", target)
     end
-
-    putils.set_flags (si_id, si_flags)
   end
 }:register ()
