@@ -19,36 +19,7 @@
 
 local putils = require ("policy-utils")
 local cutils = require ("common-utils")
-
-local defaults = {}
-defaults.move = true
-defaults.follow = true
-defaults.filter_forward_format = false
-
-local config = {}
-config.move = Settings.parse_boolean_safe (
-    "policy.default.move", defaults.move)
-config.follow = Settings.parse_boolean_safe (
-    "policy.default.follow", defaults.follow)
-config.filter_forward_format = Settings.parse_boolean_safe (
-    "policy.default.filter-forward-format", defaults.filter_forward_format)
-
-local function settingsChangedCallback (_, setting, _)
-
-  if setting == "policy.default.move" then
-    config.move = Settings.parse_boolean_safe ("policy.default.move", config.move)
-    handleMoveSetting (config.move)
-  elseif setting == "policy.default.follow" then
-    config.follow = Settings.parse_boolean_safe ("policy.default.follow", config.follow)
-    handleFollowSetting (config.follow)
-  elseif setting == "policy.default.filter-forward-format" then
-    config.filter_forward_format = Settings.parse_boolean_safe
-        ("policy.default.filter-forward-format", config.filter_forward_format)
-  end
-
-end
-
-Settings.subscribe ("policy.default*", settingsChangedCallback)
+local config = require ("policy-config")
 
 find_target_events = {}
 
