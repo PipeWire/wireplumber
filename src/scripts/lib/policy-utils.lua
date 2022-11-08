@@ -13,20 +13,26 @@ function parseBool (var)
   return cutils.parseBool (var)
 end
 
-local putils = {}
+local putils = {
+  si_flags = {},
+}
 
-putils.si_flags = {}
-
-function putils.get_flags (si_id)
-  if not putils.si_flags [si_id] then
-    putils.si_flags [si_id] = {}
+function putils.get_flags (self, si_id)
+  if not self.si_flags [si_id] then
+    self.si_flags [si_id] = {}
   end
 
-  return putils.si_flags [si_id]
+  return self.si_flags [si_id]
 end
 
-function putils.set_flags (si_id, si_flags)
-  putils.si_flags [si_id] = si_flags
+function putils.unwrap_find_target_event (self, event)
+  local source = event:get_source ()
+  local si = event:get_subject ()
+  local target = event:get_data ("target")
+  local si_id = si.id
+
+  return source, source ["object-manager"],
+      si, si.properties, self:get_flags (si_id), target
 end
 
 function putils.canPassthrough (si, si_target)
