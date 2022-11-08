@@ -19,57 +19,55 @@ SimpleEventHook {
     },
   },
   execute = function (event)
-    local si = event:get_subject ()
-    local si_id = si.id
-    local si_flags = putils.get_flags (si_id)
-    local si_target = si_flags.si_target
+    local source, om, si, si_props, si_flags, target =
+        putils:unwrap_find_target_event (event)
 
-    if si_target then
-      -- bypass the hook as the target is already picked up.
+    -- bypass the hook if the target is already picked up
+    if target then
       return
     end
 
-    local si_props = si.properties
     local target_direction = cutils.getTargetDirection (si_props)
     local target_picked = nil
     local target_can_passthrough = false
     local target_priority = 0
     local target_plugged = 0
 
-    Log.info (si, string.format ("handling item: %s (%s) si id(%s)",
-      tostring (si_props ["node.name"]), tostring (si_props ["node.id"]), si_id))
+    Log.info (si, string.format ("handling item: %s (%s)",
+        tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
 
-    for si_target in linkables_om:iterate {
+    for target in om:iterate {
+      type = "SiLinkable",
       Constraint { "item.node.type", "=", "device" },
       Constraint { "item.node.direction", "=", target_direction },
       Constraint { "media.type", "=", si_props ["media.type"] },
     } do
-      local si_target_props = si_target.properties
-      local si_target_node_id = si_target_props ["node.id"]
-      local priority = tonumber (si_target_props ["priority.session"]) or 0
+      local target_props = target.properties
+      local target_node_id = target_props ["node.id"]
+      local priority = tonumber (target_props ["priority.session"]) or 0
 
       Log.debug (string.format ("Looking at: %s (%s)",
-        tostring (si_target_props ["node.name"]),
-        tostring (si_target_node_id)))
+        tostring (target_props ["node.name"]),
+        tostring (target_node_id)))
 
-      if not putils.canLink (si_props, si_target) then
+      if not putils.canLink (si_props, target) then
         Log.debug ("... cannot link, skip linkable")
         goto skip_linkable
       end
 
-      if not putils.haveAvailableRoutes (si_target_props) then
+      if not putils.haveAvailableRoutes (target_props) then
         Log.debug ("... does not have routes, skip linkable")
         goto skip_linkable
       end
 
       local passthrough_compatible, can_passthrough =
-      putils.checkPassthroughCompatibility (si, si_target)
+      putils.checkPassthroughCompatibility (si, target)
       if not passthrough_compatible then
         Log.debug ("... passthrough is not compatible, skip linkable")
         goto skip_linkable
       end
 
-      local plugged = tonumber (si_target_props ["item.plugged.usec"]) or 0
+      local plugged = tonumber (target_props ["item.plugged.usec"]) or 0
 
       Log.debug ("... priority:" .. tostring (priority) .. ", plugged:" .. tostring (plugged))
 
@@ -82,7 +80,7 @@ SimpleEventHook {
           priority > target_priority or
           (priority == target_priority and plugged > target_plugged)) then
         Log.debug ("... picked")
-        target_picked = si_target
+        target_picked = target
         target_can_passthrough = can_passthrough
         target_priority = priority
         target_plugged = plugged
@@ -96,13 +94,8 @@ SimpleEventHook {
           tostring (target_picked.properties ["node.name"]),
           tostring (target_picked.properties ["node.id"]),
           tostring (target_can_passthrough)))
-      si_flags.si_target = target_picked
       si_flags.can_passthrough = target_can_passthrough
-    else
-      si_flags.si_target = nil
-      si_flags.can_passthrough = nil
+      event:set_data ("target", target_picked)
     end
-
-    putils.set_flags (si_id, si_flags)
   end
 }:register ()
