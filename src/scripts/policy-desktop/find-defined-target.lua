@@ -11,6 +11,7 @@
 
 local putils = require ("policy-utils")
 local cutils = require ("common-utils")
+local config = require ("policy-config")
 
 SimpleEventHook {
   name = "find-defined-target@policy-desktop",
@@ -22,23 +23,22 @@ SimpleEventHook {
     },
   },
   execute = function (event)
-    local si = event:get_subject ()
-    local si_props = si.properties
-    local si_id = si.id;
-    local si_flags = putils.get_flags (si_id)
-    local si_target = nil
+    local source, om, si, si_props, si_flags, target =
+        putils:unwrap_find_target_event (event)
 
-    Log.info (si, string.format ("handling item: %s (%s) si id(%s)",
-      tostring (si_props ["node.name"]), tostring (si_props ["node.id"]), si_id))
+    -- bypass the hook if the target is already picked up
+    if target then
+      return
+    end
+
+    Log.info (si, string.format ("handling item: %s (%s)",
+        tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
 
     local metadata = config.move and putils.get_default_metadata_object ()
     local target_key
     local target_value = nil
     local node_defined = false
     local target_picked = nil
-
-    si_flags.node_name = si_props ["node.name"]
-    si_flags.node_id = si_props ["node.id"]
 
     if si_props ["target.object"] ~= nil then
       target_value = si_props ["target.object"]
@@ -68,23 +68,24 @@ SimpleEventHook {
 
     if target_value == "-1" then
       target_picked = false
-      si_target = nil
+      target = nil
     elseif target_value and tonumber (target_value) then
-      si_target = linkables_om:lookup {
+      target = om:lookup {
+        type = "SiLinkable",
         Constraint { target_key, "=", target_value },
       }
-      if si_target and putils.canLink (si_props, si_target) then
+      if target and putils.canLink (si_props, target) then
         target_picked = true
       end
     elseif target_value then
-      for lnkbl in linkables_om:iterate () do
+      for lnkbl in om:iterate { type = "SiLinkable" } do
         local target_props = lnkbl.properties
         if (target_props ["node.name"] == target_value or
             target_props ["object.path"] == target_value) and
             target_props ["item.node.direction"] == cutils.getTargetDirection (si_props) and
             putils.canLink (si_props, lnkbl) then
           target_picked = true
-          si_target = lnkbl
+          target = lnkbl
           break
         end
 
@@ -92,12 +93,12 @@ SimpleEventHook {
     end
 
     local can_passthrough, passthrough_compatible
-    if si_target then
+    if target then
       passthrough_compatible, can_passthrough =
-      putils.checkPassthroughCompatibility (si, si_target)
+      putils.checkPassthroughCompatibility (si, target)
 
       if not passthrough_compatible then
-        si_target = nil
+        target = nil
       end
     end
 
@@ -106,7 +107,7 @@ SimpleEventHook {
     -- best.
 
     if target_picked
-        and not si_target
+        and not target
         and not si_flags.was_handled
         and not si_flags.done_waiting then
       Log.info(si, "... waiting for target")
@@ -116,18 +117,12 @@ SimpleEventHook {
     elseif target_picked then
       Log.info (si,
         string.format ("... defined target picked: %s (%s), can_passthrough:%s",
-          tostring (si_target.properties ["node.name"]),
-          tostring (si_target.properties ["node.id"]),
+          tostring (target.properties ["node.name"]),
+          tostring (target.properties ["node.id"]),
           tostring (can_passthrough)))
-      si_flags.si_target = si_target
       si_flags.has_node_defined_target = node_defined
       si_flags.can_passthrough = can_passthrough
-    else
-      si_flags.si_target = nil
-      si_flags.can_passthrough = nil
-      si_flags.has_node_defined_target = nil
+      event:set_data ("target", target)
     end
-
-    putils.set_flags (si_id, si_flags)
   end
 }:register ()

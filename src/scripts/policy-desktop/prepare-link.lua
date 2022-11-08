@@ -9,6 +9,7 @@
 -- down an error to the corresponding client.
 
 local putils = require ("policy-utils")
+local cutils = require ("common-utils")
 
 SimpleEventHook {
   name = "prepare-link@policy-desktop",
@@ -20,28 +21,24 @@ SimpleEventHook {
     },
   },
   execute = function (event)
-    local si = event:get_subject ()
-    local si_id = si.id
-    local si_flags = putils.get_flags (si_id)
-    local si_target = si_flags.si_target
-    local si_props = si.properties
+    local source, om, si, si_props, si_flags, target =
+        putils:unwrap_find_target_event (event)
 
-    local reconnect = not parseBool (si_props ["node.dont-reconnect"])
-    local exclusive = parseBool (si_props ["node.exclusive"])
-    local si_must_passthrough = parseBool (si_props ["item.node.encoded-only"])
+    local reconnect = not cutils.parseBool (si_props ["node.dont-reconnect"])
+    local exclusive = cutils.parseBool (si_props ["node.exclusive"])
+    local si_must_passthrough = cutils.parseBool (si_props ["item.node.encoded-only"])
 
-    Log.info (si, string.format ("handling item: %s (%s) si id(%s)",
-      tostring (si_props ["node.name"]), tostring (si_props ["node.id"]), si_id))
-
+    Log.info (si, string.format ("handling item: %s (%s)",
+        tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
 
     -- Check if item is linked to proper target, otherwise re-link
     if si_flags.peer_id then
-      if si_target and si_flags.peer_id == si_target.id then
+      if target and si_flags.peer_id == target.id then
         Log.debug (si, "... already linked to proper target")
         -- Check this also here, in case in default targets changed
-        putils.checkFollowDefault (si, si_target,
-          si_flags.has_node_defined_target)
-        si_target = nil
+        putils.checkFollowDefault (si, target,
+            si_flags.has_node_defined_target)
+        target = nil
         goto done
       end
 
@@ -70,22 +67,22 @@ SimpleEventHook {
     -- if the stream has dont-reconnect and was already linked before,
     -- don't link it to a new target
     if not reconnect and si_flags.was_handled then
-      si_target = nil
+      target = nil
       goto done
     end
 
     -- check target's availability
-    if si_target then
-      local target_is_linked, target_is_exclusive = putils.isLinked (si_target)
+    if target then
+      local target_is_linked, target_is_exclusive = putils.isLinked (target)
       if target_is_exclusive then
         Log.info (si, "... target is linked exclusively")
-        si_target = nil
+        target = nil
       end
 
       if target_is_linked then
         if exclusive or si_must_passthrough then
           Log.info (si, "... target is already linked, cannot link exclusively")
-          si_target = nil
+          target = nil
         else
           -- disable passthrough, we can live without it
           si_flags.can_passthrough = false
@@ -93,7 +90,7 @@ SimpleEventHook {
       end
     end
 
-    if not si_target then
+    if not target then
       Log.info (si, "... target not found, reconnect:" .. tostring (reconnect))
 
       local node = si:get_associated_proxy ("node")
@@ -107,7 +104,8 @@ SimpleEventHook {
 
       local client_id = node.properties ["client.id"]
       if client_id then
-        local client = clients_om:lookup {
+        local client = om:lookup {
+          type = "client",
           Constraint { "bound-id", "=", client_id, type = "gobject" }
         }
         if client then
@@ -117,7 +115,6 @@ SimpleEventHook {
     end
 
     ::done::
-    si_flags.si_target = si_target
-    putils.set_flags (si_id, si_flags)
+    event:set_data ("target", target)
   end
 }:register ()
