@@ -132,22 +132,27 @@ get_default_event_priority (const gchar *event_type, const gchar *subject_type)
 
 static void
 wp_standard_event_source_push_event (WpStandardEventSource *self,
-    const gchar *event_type, const gchar *subject_type,
-    WpProperties *misc_properties, gpointer subject)
+    const gchar *event_type, gpointer subject, WpProperties *misc_properties)
 {
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_return_if_fail (core);
   g_autoptr (WpEventDispatcher) dispatcher =
       wp_event_dispatcher_get_instance (core);
   g_return_if_fail (dispatcher);
-
-  gint priority = get_default_event_priority (event_type, subject_type);
   g_autoptr (WpProperties) properties = wp_properties_new_empty ();
+
+  const gchar *subject_type =
+      subject ? get_object_type (subject, &properties) : NULL;
+  gint priority = get_default_event_priority (event_type, subject_type);
 
   if (subject_type)
     wp_properties_set (properties, "event.subject.type", subject_type);
   if (misc_properties)
     wp_properties_add (properties, misc_properties);
+
+  wp_debug_object (self,
+      "pushing event '%s', prio %d, subject " WP_OBJECT_FORMAT " (%s)",
+      event_type, priority, WP_OBJECT_ARGS (subject), subject_type);
 
   wp_event_dispatcher_push_event (dispatcher, wp_event_new (
       event_type, priority, g_steal_pointer (&properties),
@@ -158,8 +163,7 @@ static void
 wp_standard_event_source_schedule_rescan (WpStandardEventSource *self)
 {
   if (!self->rescan_scheduled) {
-    wp_standard_event_source_push_event (self, "rescan-session", NULL, NULL,
-        NULL);
+    wp_standard_event_source_push_event (self, "rescan-session", NULL, NULL);
     self->rescan_scheduled = TRUE;
   }
 }
@@ -175,8 +179,8 @@ on_metadata_changed (WpMetadata *obj, guint32 subject,
   wp_properties_set (properties, "event.subject.spa_type", spa_type);
   wp_properties_set (properties, "event.subject.value", value);
 
-  wp_standard_event_source_push_event (self,
-      "metadata-changed", "metadata", properties, obj);
+  wp_standard_event_source_push_event (self, "metadata-changed", obj,
+      properties);
 }
 
 static void
@@ -184,12 +188,9 @@ on_params_changed (WpPipewireObject *obj, const gchar *id,
     WpStandardEventSource *self)
 {
   g_autoptr (WpProperties) properties = wp_properties_new_empty ();
-  const gchar *subject_type = get_object_type (obj, &properties);
-
   wp_properties_set (properties, "event.subject.param-id", id);
 
-  wp_standard_event_source_push_event (self,
-      "params-changed", subject_type, properties, obj);
+  wp_standard_event_source_push_event (self, "params-changed", obj, properties);
 }
 
 static void
@@ -200,18 +201,14 @@ on_node_state_changed (WpNode *obj, WpNodeState old_state,
       "event.subject.old-state", g_enum_to_string (WP_TYPE_NODE_STATE, old_state),
       "event.subject.new-state", g_enum_to_string (WP_TYPE_NODE_STATE, new_state),
       NULL);
-  wp_standard_event_source_push_event (self,
-      "node-state-changed", "node", properties, obj);
+  wp_standard_event_source_push_event (self, "node-state-changed", obj,
+      properties);
 }
 
 static void
 on_object_added (WpObjectManager *om, WpObject *obj, WpStandardEventSource *self)
 {
-  g_autoptr (WpProperties) properties = NULL;
-  const gchar *subject_type = get_object_type (obj, &properties);
-
-  wp_standard_event_source_push_event (self,
-      "object-added", subject_type, properties, obj);
+  wp_standard_event_source_push_event (self, "object-added", obj, NULL);
 
   if (WP_IS_PIPEWIRE_OBJECT (obj)) {
     g_signal_connect_object (obj, "params-changed",
@@ -231,11 +228,7 @@ on_object_added (WpObjectManager *om, WpObject *obj, WpStandardEventSource *self
 static void
 on_object_removed (WpObjectManager *om, WpObject *obj, WpStandardEventSource *self)
 {
-  g_autoptr (WpProperties) properties = NULL;
-  const gchar *subject_type = get_object_type (obj, &properties);
-
-  wp_standard_event_source_push_event (self,
-      "object-removed", subject_type, properties, obj);
+  wp_standard_event_source_push_event (self, "object-removed", obj, NULL);
 }
 
 static void
@@ -310,8 +303,8 @@ wp_standard_event_source_class_init (WpStandardEventSourceClass * klass)
       "push-event", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
       (GCallback) wp_standard_event_source_push_event,
-      NULL, NULL, NULL, G_TYPE_NONE, 4,
-      G_TYPE_STRING, G_TYPE_STRING, WP_TYPE_PROPERTIES, WP_TYPE_OBJECT);
+      NULL, NULL, NULL, G_TYPE_NONE, 3,
+      G_TYPE_STRING, WP_TYPE_OBJECT, WP_TYPE_PROPERTIES);
 
   signals[ACTION_SCHEDULE_RESCAN] = g_signal_new_class_handler (
       "schedule-rescan", G_TYPE_FROM_CLASS (klass),
