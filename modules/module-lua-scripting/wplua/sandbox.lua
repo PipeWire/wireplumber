@@ -28,6 +28,7 @@ function create_sandbox_env()
         pcall    select print tostring type xpcall require
         table    string math  package  utf8 debug  coroutine
         os.clock  os.difftime os.time  os.date     os.getenv
+        setmetatable getmetatable
     ]]):gsub('%S+', populate_env)
 
     -- Additionally export everything in SANDBOX_EXPORT
