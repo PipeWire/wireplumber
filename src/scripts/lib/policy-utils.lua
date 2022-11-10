@@ -25,6 +25,10 @@ function putils.get_flags (self, si_id)
   return self.si_flags [si_id]
 end
 
+function putils.clear_flags (self, si_id)
+  self.si_flags [si_id] = nil
+end
+
 function putils.unwrap_find_target_event (self, event)
   local source = event:get_source ()
   local si = event:get_subject ()
