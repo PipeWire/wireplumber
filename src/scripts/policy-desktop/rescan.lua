@@ -109,9 +109,7 @@ SimpleEventHook {
       end
 
       -- push event to find target and link
-      local props = { ["event.session-item.interface"] = "linkable" }
-      source:call ("push-event",
-          "find-target-si-and-link", "session-item", props, si)
+      source:call ("push-event", "find-target-si-and-link", si, nil)
 
     ::skip_linkable::
     end
