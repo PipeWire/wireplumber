@@ -111,6 +111,13 @@ if pps_plugin then
     updateClientPermissions (client, new_perms)
   end)
 
+  nodes_om:connect("object-added", function (om, node)
+    local new_perms = pps_plugin:call("lookup", "devices", "camera");
+    for client in clients_om:iterate() do
+      updateClientPermissions (client, new_perms)
+    end
+  end)
+
   pps_plugin:connect("changed", function (p, table, id, deleted, permissions)
     if table == "devices" or id == "camera" then
       for app_id, _ in pairs(permissions) do
