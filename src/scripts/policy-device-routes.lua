@@ -127,6 +127,9 @@ function saveRouteProps(dev_info, route)
   state_table[key_base .. "iec958Codecs"] =
     props.iec958Codecs and serializeArray(props.iec958Codecs) or nil
 
+  Log.info (" saveRouteProps iec958Codecs value " ..
+    " " .. (state_table [key_base .. "iec958Codecs"] and (state_table [key_base .. "iec958Codecs"]) or "nil"))
+
   storeAfterTimeout()
 end
 
@@ -166,6 +169,9 @@ function restoreRoute(device, dev_info, device_id, route)
 
     local str = state_table[key_base .. "iec958Codecs"]
     props.iec958Codecs = str and parseArray(str) or props.iec958Codecs
+
+    Log.info (" restoreRoute iec958Codecs value " ..
+      " " .. (state_table [key_base .. "iec958Codecs"] and (state_table [key_base .. "iec958Codecs"]) or "nil"))
   end
 
   -- convert arrays to Spa Pod
