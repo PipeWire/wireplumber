@@ -33,6 +33,16 @@ add_project_arguments([
   ], language: 'c'
 )
 
+build_modules = get_option('modules')
+build_daemon = get_option('daemon')
+if build_daemon and not build_modules
+  error('\'modules\' option is required to be true when the \'daemon\' option is true')
+endif
+build_tools = get_option('tools')
+if build_tools and not build_modules
+  error('\'modules\' option is required to be true when the \'tools\' option is enabled')
+endif
+
 glib_dep = dependency('glib-2.0', version : glib_req_version)
 gobject_dep = dependency('gobject-2.0', version : glib_req_version)
 gmodule_dep = dependency('gmodule-2.0', version : glib_req_version)
@@ -44,54 +54,58 @@ mathlib = cc.find_library('m')
 threads_dep = dependency('threads')
 libintl_dep = dependency('intl')
 
-system_lua = get_option('system-lua')
-if system_lua
-  if get_option('system-lua-version') != 'auto'
-    lua_version_requested = get_option('system-lua-version')
-    lua_dep = dependency('lua-' + lua_version_requested, required: false)
-    if not lua_dep.found()
-      lua_dep = dependency('lua' + lua_version_requested, required: false)
-    endif
+if build_modules
+  system_lua = get_option('system-lua')
+  if system_lua
+    if get_option('system-lua-version') != 'auto'
+      lua_version_requested = get_option('system-lua-version')
+      lua_dep = dependency('lua-' + lua_version_requested, required: false)
+      if not lua_dep.found()
+        lua_dep = dependency('lua' + lua_version_requested, required: false)
+      endif
 
-    if not lua_dep.found()
-      error('Specified Lua version "' + lua_version_requested + '" not found')
+      if not lua_dep.found()
+        error('Specified Lua version "' + lua_version_requested + '" not found')
+      endif
+    else
+      lua_dep = dependency('lua-5.4', required: false)
+      if not lua_dep.found()
+        lua_dep = dependency('lua5.4', required: false)
+      endif
+      if not lua_dep.found()
+        lua_dep = dependency('lua54', required: false)
+      endif
+      if not lua_dep.found()
+        lua_dep = dependency('lua-5.3', required: false)
+      endif
+      if not lua_dep.found()
+        lua_dep = dependency('lua5.3', required: false)
+      endif
+      if not lua_dep.found()
+        lua_dep = dependency('lua53', required: false)
+      endif
+      if not lua_dep.found()
+        lua_dep = dependency('lua', version: ['>=5.3.0'], required: false)
+      endif
+      if not lua_dep.found()
+        error ('Could not find lua. Lua version 5.4 or 5.3 required')
+      endif
     endif
   else
-    lua_dep = dependency('lua-5.4', required: false)
-    if not lua_dep.found()
-      lua_dep = dependency('lua5.4', required: false)
-    endif
-    if not lua_dep.found()
-      lua_dep = dependency('lua54', required: false)
-    endif
-    if not lua_dep.found()
-      lua_dep = dependency('lua-5.3', required: false)
-    endif
-    if not lua_dep.found()
-      lua_dep = dependency('lua5.3', required: false)
-    endif
-    if not lua_dep.found()
-      lua_dep = dependency('lua53', required: false)
-    endif
-    if not lua_dep.found()
-      lua_dep = dependency('lua', version: ['>=5.3.0'], required: false)
-    endif
-    if not lua_dep.found()
-      error ('Could not find lua. Lua version 5.4 or 5.3 required')
-    endif
+    lua_proj = subproject('lua', default_options: ['default_library=static'])
+    lua_dep = lua_proj.get_variable('lua_dep')
   endif
-else
-  lua_proj = subproject('lua', default_options: ['default_library=static'])
-  lua_dep = lua_proj.get_variable('lua_dep')
+  summary({'Lua version': lua_dep.version() + (system_lua ? ' (system)' : ' (built-in)')})
 endif
-summary({'Lua version': lua_dep.version() + (system_lua ? ' (system)' : ' (built-in)')})
 
-systemd = dependency('systemd', required: get_option('systemd'))
-libsystemd_dep = dependency('libsystemd',required: get_option('systemd'))
-libelogind_dep = dependency('libelogind', required: get_option('elogind'))
-summary({'systemd conf data': systemd.found(),
-         'libsystemd': libsystemd_dep.found(),
-         'libelogind': libelogind_dep.found()}, bool_yn: true)
+if build_modules
+  systemd = dependency('systemd', required: get_option('systemd'))
+  libsystemd_dep = dependency('libsystemd',required: get_option('systemd'))
+  libelogind_dep = dependency('libelogind', required: get_option('elogind'))
+  summary({'systemd conf data': systemd.found(),
+          'libsystemd': libsystemd_dep.found(),
+          'libelogind': libelogind_dep.found()}, bool_yn: true)
+endif
 
 gnome = import('gnome')
 pkgconfig = import('pkgconfig')
@@ -121,7 +135,9 @@ add_project_arguments(cc.get_supported_arguments(common_flags), language: 'c')
 
 subdir('lib')
 subdir('docs')
-subdir('modules')
+if build_modules
+  subdir('modules')
+endif
 subdir('src')
 subdir('po')
 

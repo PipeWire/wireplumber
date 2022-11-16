@@ -2,6 +2,12 @@ option('introspection', type : 'feature', value : 'auto',
        description : 'Generate gobject-introspection bindings')
 option('doc', type : 'feature', value : 'auto',
        description: 'Enable documentation.')
+option('modules', type : 'boolean', value: 'true',
+       description : 'Build modules')
+option('daemon', type : 'boolean', value: 'true',
+       description : 'Build session manager daemon')
+option('tools', type : 'boolean', value: 'true',
+       description : 'Build CLI tools')
 option('system-lua', type : 'boolean', value : 'false',
        description : 'Use lua from the system instead of the bundled one')
 option('system-lua-version',

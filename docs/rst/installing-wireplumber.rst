@@ -64,6 +64,28 @@ Additional options
   The default value is **auto**, which means that documentation will be built
   if **doxygen**, **sphinx** and **breathe** are found and skipped otherwise.
 
+.. option:: -Dmodules=[true|false]
+
+   Build the wireplumber modules.
+
+   The default value is **true**.
+
+.. option:: -Ddaemon=[true|false]
+
+   Build the session manager daemon.
+
+   The default value is **true**.
+
+   Requires **modules** option to be **true**.
+
+.. option:: -Dtools=[true|false]
+
+   Enable or disable building tools.
+
+   The default value is **true**.
+
+   Requires **modules** option to be **true**.
+
 .. option:: -Dsystem-lua=[enabled|disabled|auto]
 
    Force using lua from the system instead of the bundled one.

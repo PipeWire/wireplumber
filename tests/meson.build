@@ -60,6 +60,8 @@ if pipewire_confdatadir != ''
 endif
 
 subdir('wp')
-subdir('wplua')
-subdir('modules')
+if build_modules
+  subdir('wplua')
+  subdir('modules')
+endif
 subdir('examples')
