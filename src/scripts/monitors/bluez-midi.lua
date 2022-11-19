@@ -64,6 +64,8 @@ function createNode(parent, id, type, factory, properties)
     properties["node.name"] = name .. "." .. counter
   end
 
+  properties["api.glib.mainloop"] = "true"
+
   -- apply properties from config.rules
   rulesApplyProperties(properties)
 
@@ -83,6 +85,8 @@ function createMonitor()
     monitor_props[k] = v
   end
   monitor_props["server"] = nil
+
+  monitor_props["api.glib.mainloop"] = "true"
 
   local monitor = SpaDevice("api.bluez5.midi.enum", monitor_props)
   if monitor then
@@ -119,7 +123,8 @@ function createServers()
       ["node.name"] = v,
       ["node.description"] = string.format(I18n.gettext("BLE MIDI %d"), i),
       ["api.bluez5.role"] = "server",
-      ["factory.name"] = "api.bluez5.midi.node"
+      ["factory.name"] = "api.bluez5.midi.node",
+      ["api.glib.mainloop"] = "true",
     }
     rulesApplyProperties(node_props)
 
