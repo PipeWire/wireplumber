@@ -36,6 +36,7 @@ bluez_midi_monitor.rules = {
       --["node.pause-on-idle"] = false,
       --["session.suspend-timeout-seconds"] = 5,  -- 0 disables suspend
       --["monitor.channel-volumes"] = false,
+      --["node.latency-offset-msec"] = -10,  -- delay (<0) input to reduce jitter
     },
   },
 }

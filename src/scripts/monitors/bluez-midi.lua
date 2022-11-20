@@ -41,6 +41,19 @@ function rulesApplyProperties(properties)
   end
 end
 
+function setLatencyOffset(node, offset_msec)
+  if not offset_msec then
+    return
+  end
+
+  local props = { "Spa:Pod:Object:Param:Props", "Props" }
+  props.latencyOffsetNsec = tonumber(offset_msec) * 1000000
+
+  local param = Pod.Object(props)
+  Log.debug(param, "setting latency offset on " .. tostring(node))
+  node:set_param("Props", param)
+end
+
 function createNode(parent, id, type, factory, properties)
   properties["factory.name"] = factory
 
@@ -69,6 +82,9 @@ function createNode(parent, id, type, factory, properties)
   -- apply properties from config.rules
   rulesApplyProperties(properties)
 
+  local latency_offset = properties["node.latency-offset-msec"]
+  properties["node.latency-offset-msec"] = nil
+
   -- create the node
   -- it doesn't necessarily need to be a local node,
   -- the other Bluetooth parts run in the local process,
@@ -77,6 +93,7 @@ function createNode(parent, id, type, factory, properties)
   node:activate(Feature.Proxy.BOUND)
   parent:store_managed_object(id, node)
   id_to_name_table[id] = properties["node.name"]
+  setLatencyOffset(node, latency_offset)
 end
 
 function createMonitor()
@@ -128,10 +145,14 @@ function createServers()
     }
     rulesApplyProperties(node_props)
 
+    local latency_offset = node_props["node.latency-offset-msec"]
+    node_props["node.latency-offset-msec"] = nil
+
     local node = LocalNode("spa-node-factory", node_props)
     if node then
       node:activate(Feature.Proxy.BOUND)
       table.insert(servers, node)
+      setLatencyOffset(node, latency_offset)
     else
       Log.message("Failed to create BLE MIDI server.")
     end
