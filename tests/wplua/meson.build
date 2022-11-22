@@ -22,42 +22,42 @@ script_tester = executable('script-tester',
 test(
   'test-lua-pod',
   script_tester,
-  args: ['pod.lua'],
+  args: ['lua-api-tests', 'pod.lua'],
   env: common_env,
 )
 test(
   'test-lua-json',
   script_tester,
-  args: ['json.lua'],
+  args: ['lua-api-tests', 'json.lua'],
   env: common_env,
 )
 test(
   'test-lua-monitor-rules',
   script_tester,
-  args: ['monitor-rules.lua'],
+  args: ['lua-api-tests', 'monitor-rules.lua'],
   env: common_env,
 )
 test(
   'test-lua-require',
   script_tester,
-  args: ['require.lua'],
+  args: ['lua-api-tests', 'require.lua'],
   env: common_env,
 )
 test(
   'test-lua-async-activation',
   script_tester,
-  args: ['async-activation.lua'],
+  args: ['lua-api-tests', 'async-activation.lua'],
   env: common_env,
 )
 test(
   'test-lua-settings',
   script_tester,
-  args: ['settings.lua'],
+  args: ['lua-api-tests', 'settings.lua'],
   env: common_env,
 )
 test(
   'test-lua-event-hooks',
   script_tester,
-  args: ['event-hooks.lua'],
+  args: ['lua-api-tests', 'event-hooks.lua'],
   env: common_env,
 )
