@@ -30,11 +30,14 @@ script_runner_teardown (ScriptRunnerFixture *f, gconstpointer data)
 }
 
 static void
-script_run (ScriptRunnerFixture *f, gconstpointer data)
+script_run (ScriptRunnerFixture *f, gconstpointer argv)
 {
   g_autoptr (WpPlugin) plugin = NULL;
   g_autoptr (GError) error = NULL;
   g_autofree gchar *pluginname = NULL;
+  gchar **args = (gchar **) argv;
+  gchar *test_type = args [1];
+  gchar *test_script = args [2];
 
   /* TODO: we could do some more stuff here to provide the test script with an
      API to deal with the main loop and test asynchronous stuff, if necessary */
@@ -60,11 +63,11 @@ script_run (ScriptRunnerFixture *f, gconstpointer data)
         NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
     g_main_loop_run (f->base.loop);
   }
-  wp_core_load_component (f->base.core, (const gchar *) data, "script/lua",
+  wp_core_load_component (f->base.core, (const gchar *) test_script, "script/lua",
       NULL, &error);
   g_assert_no_error (error);
 
-  pluginname = g_strdup_printf ("script:%s", (const gchar *) data);
+  pluginname = g_strdup_printf ("script:%s", (const gchar *) test_script);
 
   plugin = wp_plugin_find (f->base.core, pluginname);
   g_assert_nonnull (plugin);
@@ -81,7 +84,7 @@ main (gint argc, gchar *argv[])
 
   g_assert_cmpint (argc, >=, 1);
 
-  g_test_add ("/lua/script/run", ScriptRunnerFixture, argv[1],
+  g_test_add ("/lua/script/run", ScriptRunnerFixture, argv,
       script_runner_setup, script_run, script_runner_teardown);
 
   return g_test_run ();
