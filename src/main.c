@@ -100,7 +100,7 @@ component_unref (component_data *self)
 {
   g_free (self->name);
   g_free (self->type);
-  g_clear_object (&self->deps);
+  g_clear_pointer (&self->deps, wp_spa_json_unref);
   g_slice_free (component_data, self);
 }
 
