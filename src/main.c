@@ -112,8 +112,9 @@ static void
 on_plugin_added (WpObjectManager * om, WpObject * p, WpInitTransition *self)
 {
   self->pending_plugins++;
-  wp_object_activate (p, WP_PLUGIN_FEATURE_ENABLED, NULL,
-      (GAsyncReadyCallback) on_plugin_activated, self);
+  wp_object_activate_closure (p, WP_PLUGIN_FEATURE_ENABLED, NULL,
+      g_cclosure_new_object (G_CALLBACK (on_plugin_activated),
+      G_OBJECT (self)));
 }
 
 static void
