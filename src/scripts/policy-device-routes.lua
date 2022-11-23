@@ -470,7 +470,7 @@ end
 SimpleEventHook {
   name = "handle-device@device-routes",
   type = "on-event",
-  priority = "device-added-policy-device-routes",
+  priority = HookPriority.ULTRA_LOW,
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "objects-changed" },
@@ -512,7 +512,7 @@ SimpleEventHook {
 SimpleEventHook {
   name = "handle-device@device-routes",
   type = "on-event",
-  priority = "device-params-changed-policy-device-routes",
+  priority = HookPriority.ULTRA_LOW,
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "params-changed" },

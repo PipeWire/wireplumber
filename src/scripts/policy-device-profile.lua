@@ -153,7 +153,7 @@ end
 SimpleEventHook {
   name = "device-added@policy-device-profile",
   type = "on-event",
-  priority = "device-added-policy-device-profile",
+  priority = HookPriority.LOW,
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "object-added" },
@@ -168,7 +168,7 @@ SimpleEventHook {
 SimpleEventHook {
   name = "params-changed@policy-device-profile",
   type = "on-event",
-  priority = "device-params-changed-policy-device-profile",
+  priority = HookPriority.VERY_LOW,
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "params-changed" },
@@ -184,7 +184,7 @@ SimpleEventHook {
 SimpleEventHook {
   name = "device-removed@policy-device-profile",
   type = "on-event",
-  priority = "device-removed-policy-device-profile",
+  priority = HookPriority.NORMAL,
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "object-removed" },

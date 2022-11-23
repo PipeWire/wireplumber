@@ -346,7 +346,7 @@ local function handleRestoreTargetSetting (enable)
     restore_target_hook_handles [1] = SimpleEventHook {
       name = "metadata-added@restore-stream-save-target",
       type = "on-event",
-      priority = "default-metadata-added-restore-stream",
+      priority = HookPriority.ULTRA_LOW,
       interests = {
         EventInterest {
           Constraint { "event.type", "=", "object-added" },
@@ -368,17 +368,15 @@ local function handleRestoreTargetSetting (enable)
     restore_target_hook_handles [2] = SimpleEventHook {
       name = "metadata-changed@restore-stream-save-target",
       type = "on-event",
-      priority = "default-metadata-changed-restore-stream",
+      priority = HookPriority.ULTRA_LOW,
       interests = {
           EventInterest {
-            Constraint { "event.type", "=", "object-changed" },
-            Constraint { "event.subject.type", "=", "metadata" },
+            Constraint { "event.type", "=", "metadata-changed" },
             Constraint { "metadata.name", "=", "default" },
             Constraint { "event.subject.key", "=", "target.node" },
           },
           EventInterest {
-            Constraint { "event.type", "=", "object-changed" },
-            Constraint { "event.subject.type", "=", "metadata" },
+            Constraint { "event.type", "=", "metadata-changed" },
             Constraint { "metadata.name", "=", "default" },
             Constraint { "event.subject.key", "=", "target.object" },
           },
@@ -472,7 +470,7 @@ local function handleRestoreStreamSetting (enable)
     restore_stream_hook_handles [1] = SimpleEventHook {
       name = "node-added@restore-stream",
       type = "on-event",
-      priority = "node-added-restore-stream",
+      priority = HookPriority.NORMAL,
       interests = {
         EventInterest {
           Constraint { "event.type", "=", "object-added" },
@@ -502,7 +500,7 @@ local function handleRestoreStreamSetting (enable)
     restore_stream_hook_handles [2] = SimpleEventHook {
       name = "node-parms-changed@restore-stream-save-stream",
       type = "on-event",
-      priority = "node-changed-restore-stream",
+      priority = HookPriority.NORMAL,
       interests = {
         EventInterest {
           Constraint { "event.type", "=", "params-changed" },
