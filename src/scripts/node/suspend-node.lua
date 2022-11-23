@@ -5,19 +5,26 @@
 --
 -- SPDX-License-Identifier: MIT
 
-om = ObjectManager {
-  Interest { type = "node",
-    Constraint { "media.class", "matches", "Audio/*" }
-  },
-  Interest { type = "node",
-    Constraint { "media.class", "matches", "Video/*" }
-  },
-}
-
 sources = {}
 
-om:connect("object-added", function (om, node)
-  node:connect("state-changed", function (node, old_state, cur_state)
+SimpleEventHook {
+  name = "suspend-node",
+  type = "on-event",
+  priority = HookPriority.NORMAL,
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "node-state-changed" },
+      Constraint { "media.class", "matches", "Audio/*" },
+    },
+    EventInterest {
+      Constraint { "event.type", "=", "node-state-changed" },
+      Constraint { "media.class", "matches", "Video/*" },
+    },
+  },
+  execute = function (event)
+    local node = event:get_subject ()
+    local new_state = event:get_properties ()["event.subject.new-state"]
+
     -- Always clear the current source if any
     local id = node["bound-id"]
     if sources[id] then
@@ -26,7 +33,7 @@ om:connect("object-added", function (om, node)
     end
 
     -- Add a timeout source if idle for at least 5 seconds
-    if cur_state == "idle" or cur_state == "error" then
+    if new_state == "idle" or new_state == "error" then
       -- honor "session.suspend-timeout-seconds" if specified
       local timeout =
           tonumber(node.properties["session.suspend-timeout-seconds"]) or 5
@@ -49,8 +56,5 @@ om:connect("object-added", function (om, node)
         return false
       end)
     end
-
-  end)
-end)
-
-om:activate()
+  end
+}:register ()
