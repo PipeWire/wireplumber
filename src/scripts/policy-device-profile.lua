@@ -101,57 +101,8 @@ function findBestProfile (device)
   return nil
 end
 
-function handleProfiles (device, new_device)
-  local dev_id = device ["bound-id"]
-  local dev_name = device.properties ["device.name"]
-
-  if not dev_name then
-    return
-  end
-
-  local def_profile = findDefaultProfile (device)
-
-  -- Do not do anything if active profile is both persistent and default
-  if not new_device and
-      self.active_profiles [dev_id] ~= nil and
-      isProfilePersistent (device.properties,
-          self.active_profiles [dev_id].name) and
-      def_profile ~= nil and
-      self.active_profiles [dev_id].name == def_profile.name
-      then
-    local active_profile = self.active_profiles [dev_id].name
-    Log.info ("Device profile " .. active_profile .. " is persistent for "
-        .. dev_name)
-    return
-  end
-
-  if def_profile ~= nil then
-    if def_profile.available == "no" then
-      Log.info ("Default profile " .. def_profile.name .. " unavailable for " .. dev_name)
-    else
-      Log.info ("Found default profile " .. def_profile.name .. " for " .. dev_name)
-      setDeviceProfile (device, dev_id, dev_name, def_profile)
-      return
-    end
-  else
-    Log.info ("Default profile not found for " .. dev_name)
-  end
-
-  local best_profile = findBestProfile (device)
-  if best_profile ~= nil then
-    Log.info ("Found best profile " .. best_profile.name .. " for " .. dev_name)
-    setDeviceProfile (device, dev_id, dev_name, best_profile)
-  else
-    Log.info ("Best profile not found on " .. dev_name)
-  end
-end
-
-function onDeviceParamsChanged (device)
-  handleProfiles (device, false)
-end
-
 SimpleEventHook {
-  name = "device-added@policy-device-profile",
+  name = "handle-profiles@policy-device-profile",
   type = "on-event",
   priority = HookPriority.LOW,
   interests = {
@@ -159,17 +110,6 @@ SimpleEventHook {
       Constraint { "event.type", "=", "object-added" },
       Constraint { "event.subject.type", "=", "device" },
     },
-  },
-  execute = function (event)
-    handleProfiles (event:get_subject (), true)
-  end
-}:register ()
-
-SimpleEventHook {
-  name = "params-changed@policy-device-profile",
-  type = "on-event",
-  priority = HookPriority.VERY_LOW,
-  interests = {
     EventInterest {
       Constraint { "event.type", "=", "params-changed" },
       Constraint { "event.subject.type", "=", "device" },
@@ -177,9 +117,54 @@ SimpleEventHook {
     },
   },
   execute = function (event)
-    onDeviceParamsChanged (event:get_subject ())
+    local device = event:get_subject ()
+    local event_properties = event:get_properties ()
+    local new_device = (event_properties ["event.type"] == "object-added")
+
+    local dev_id = device ["bound-id"]
+    local dev_name = device.properties ["device.name"]
+
+    if not dev_name then
+      return
+    end
+
+    local def_profile = findDefaultProfile (device)
+
+    -- Do not do anything if active profile is both persistent and default
+    if not new_device and
+        self.active_profiles [dev_id] ~= nil and
+        isProfilePersistent (device.properties,
+            self.active_profiles [dev_id].name) and
+        def_profile ~= nil and
+        self.active_profiles [dev_id].name == def_profile.name
+        then
+      local active_profile = self.active_profiles [dev_id].name
+      Log.info ("Device profile " .. active_profile .. " is persistent for "
+          .. dev_name)
+      return
+    end
+
+    if def_profile ~= nil then
+      if def_profile.available == "no" then
+        Log.info ("Default profile " .. def_profile.name .. " unavailable for " .. dev_name)
+      else
+        Log.info ("Found default profile " .. def_profile.name .. " for " .. dev_name)
+        setDeviceProfile (device, dev_id, dev_name, def_profile)
+        return
+      end
+    else
+      Log.info ("Default profile not found for " .. dev_name)
+    end
+
+    local best_profile = findBestProfile (device)
+    if best_profile ~= nil then
+      Log.info ("Found best profile " .. best_profile.name .. " for " .. dev_name)
+      setDeviceProfile (device, dev_id, dev_name, best_profile)
+    else
+      Log.info ("Best profile not found on " .. dev_name)
+    end
   end
-}:register()
+}:register ()
 
 SimpleEventHook {
   name = "device-removed@policy-device-profile",
