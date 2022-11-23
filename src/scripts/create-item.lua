@@ -68,7 +68,7 @@ end
 AsyncEventHook {
   name = "node-added@create-item",
   type = "on-event",
-  priority = "node-added-create-item",
+  priority = HookPriority.LOW,
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "object-added" },
@@ -143,7 +143,7 @@ AsyncEventHook {
 SimpleEventHook {
   name = "node-removed@create-item",
   type = "on-event",
-  priority = "node-removed-create-item",
+  priority = HookPriority.LOW,
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "object-removed" },
