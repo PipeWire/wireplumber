@@ -387,7 +387,6 @@ end
 
 SimpleEventHook {
   name = "input-stream-removed@policy-bluetooth",
-  type = "on-event",
   priority = HookPriority.NORMAL,
   interests = {
     EventInterest {
@@ -405,7 +404,6 @@ SimpleEventHook {
 
 SimpleEventHook {
   name = "input-stream-changed@policy-bluetooth",
-  type = "on-event",
   priority = HookPriority.NORMAL,
   interests = {
     EventInterest {
@@ -428,7 +426,6 @@ SimpleEventHook {
 
 SimpleEventHook {
   name = "bluez-device-added@policy-bluetooth",
-  type = "on-event",
   priority = HookPriority.VERY_LOW,
   interests = {
     EventInterest {
@@ -448,7 +445,6 @@ SimpleEventHook {
 
 SimpleEventHook {
   name = "metadata-changed@policy-bluetooth",
-  type = "on-event",
   priority = HookPriority.VERY_LOW,
   interests = {
     EventInterest {

@@ -322,8 +322,7 @@ wp_standard_event_source_enable (WpPlugin * plugin, WpTransition * transition)
 
   /* install hook to restore the rescan_scheduled state after rescanning */
   self->rescan_done_hook = wp_simple_event_hook_new (
-      "rescan-done@std-event-source",
-      WP_EVENT_HOOK_PRIORITY_LOWEST, WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
+      "rescan-done@std-event-source", WP_EVENT_HOOK_PRIORITY_LOWEST,
       g_cclosure_new_object ((GCallback) on_rescan_done, G_OBJECT (self)));
   wp_interest_event_hook_add_interest (
       WP_INTEREST_EVENT_HOOK (self->rescan_done_hook),

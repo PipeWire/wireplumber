@@ -10,7 +10,6 @@ local putils = require ("policy-utils")
 
 SimpleEventHook {
   name = "sample-find-user-target@policy-desktop",
-  type = "on-event",
   priority = HookPriority.VERY_HIGH,
   interests = {
     EventInterest {

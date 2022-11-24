@@ -103,7 +103,6 @@ end
 
 SimpleEventHook {
   name = "handle-profiles@policy-device-profile",
-  type = "on-event",
   priority = HookPriority.LOW,
   interests = {
     EventInterest {
@@ -166,7 +165,6 @@ SimpleEventHook {
 
 SimpleEventHook {
   name = "device-removed@policy-device-profile",
-  type = "on-event",
   priority = HookPriority.NORMAL,
   interests = {
     EventInterest {
