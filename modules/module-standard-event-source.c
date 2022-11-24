@@ -14,21 +14,32 @@
  */
 
 enum {
-  PROP_0,
-  PROP_OBJECT_MANAGER,
-};
-
-enum {
+  ACTION_GET_OBJECT_MANAGER,
   ACTION_PUSH_EVENT,
   ACTION_SCHEDULE_RESCAN,
   N_SIGNALS
 };
 
+typedef enum {
+  OBJECT_TYPE_PORT,
+  OBJECT_TYPE_LINK,
+  OBJECT_TYPE_NODE,
+  OBJECT_TYPE_SESSION_ITEM,
+  OBJECT_TYPE_ENDPOINT,
+  OBJECT_TYPE_CLIENT,
+  OBJECT_TYPE_DEVICE,
+  OBJECT_TYPE_METADATA,
+  N_OBJECT_TYPES,
+  OBJECT_TYPE_INVALID = N_OBJECT_TYPES
+} ObjectType;
+
 struct _WpStandardEventSource
 {
   WpPlugin parent;
-  WpObjectManager *om;
+  WpObjectManager *oms[N_OBJECT_TYPES];
+  WpEventHook *rescan_done_hook;
   gboolean rescan_scheduled;
+  gint n_oms_installed;
 };
 
 static guint signals[N_SIGNALS] = {0};
@@ -42,20 +53,44 @@ wp_standard_event_source_init (WpStandardEventSource * self)
 {
 }
 
-static void
-wp_standard_event_source_get_property (GObject * object, guint property_id,
-    GValue * value, GParamSpec * pspec)
+static GType
+object_type_to_gtype (ObjectType type)
 {
-  WpStandardEventSource *self = WP_STANDARD_EVENT_SOURCE (object);
-
-  switch (property_id) {
-  case PROP_OBJECT_MANAGER:
-    g_value_set_object (value, self->om);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
-    break;
+  switch (type) {
+    case OBJECT_TYPE_PORT: return WP_TYPE_PORT;
+    case OBJECT_TYPE_LINK: return WP_TYPE_LINK;
+    case OBJECT_TYPE_NODE: return WP_TYPE_NODE;
+    case OBJECT_TYPE_SESSION_ITEM: return WP_TYPE_SESSION_ITEM;
+    case OBJECT_TYPE_ENDPOINT: return WP_TYPE_ENDPOINT;
+    case OBJECT_TYPE_CLIENT: return WP_TYPE_CLIENT;
+    case OBJECT_TYPE_DEVICE: return WP_TYPE_DEVICE;
+    case OBJECT_TYPE_METADATA: return WP_TYPE_METADATA;
+    default:
+      g_assert_not_reached ();
   }
+}
+
+static ObjectType
+type_str_to_object_type (const gchar * type_str)
+{
+  if (!g_strcmp0 (type_str, "port"))
+    return OBJECT_TYPE_PORT;
+  else if (!g_strcmp0 (type_str, "link"))
+    return OBJECT_TYPE_LINK;
+  else if (!g_strcmp0 (type_str, "node"))
+    return OBJECT_TYPE_NODE;
+  else if (!g_strcmp0 (type_str, "session-item"))
+    return OBJECT_TYPE_SESSION_ITEM;
+  else if (!g_strcmp0 (type_str, "endpoint"))
+    return OBJECT_TYPE_ENDPOINT;
+  else if (!g_strcmp0 (type_str, "client"))
+    return OBJECT_TYPE_CLIENT;
+  else if (!g_strcmp0 (type_str, "device"))
+    return OBJECT_TYPE_DEVICE;
+  else if (!g_strcmp0 (type_str, "metadata"))
+    return OBJECT_TYPE_METADATA;
+  else
+    return OBJECT_TYPE_INVALID;
 }
 
 static const gchar *
@@ -89,45 +124,55 @@ get_object_type (gpointer obj, WpProperties **properties)
     return "device";
   else if (WP_IS_METADATA (obj))
     return "metadata";
-  else if (WP_IS_FACTORY (obj))
-    return "factory";
 
   wp_debug_object (obj, "Unknown global proxy type");
   return G_OBJECT_TYPE_NAME (obj);
 }
 
 static gint
-get_default_event_priority (const gchar *event_type, const gchar *subject_type)
+get_default_event_priority (const gchar *event_type)
 {
-  if (!g_strcmp0 (event_type, "object-added") ||
-      !g_strcmp0 (event_type, "object-removed"))
-  {
-    if (!g_strcmp0 (subject_type, "client"))
-      return 200;
-    else if (!g_strcmp0 (subject_type, "device"))
-      return 170;
-    else if (!g_strcmp0 (subject_type, "port"))
-      return 150;
-    else if (!g_strcmp0 (subject_type, "node"))
-      return 130;
-    else if (!g_strcmp0 (subject_type, "session-item"))
-      return 110;
-    else
-      return 20;
-  }
-  else if (!g_strcmp0 (event_type, "find-si-target-and-link"))
+  if (!g_strcmp0 (event_type, "find-target-si-and-link"))
     return 500;
   else if (!g_strcmp0 (event_type, "rescan-session"))
     return -500;
   else if (!g_strcmp0 (event_type, "node-state-changed"))
     return 50;
-  else if (!g_strcmp0 (event_type, "params-changed"))
-    return 50;
   else if (!g_strcmp0 (event_type, "metadata-changed"))
     return 50;
+  else if (g_str_has_suffix (event_type, "-params-changed"))
+    return 50;
+  else if (g_str_has_prefix (event_type, "client-"))
+    return 200;
+  else if (g_str_has_prefix (event_type, "device-"))
+    return 170;
+  else if (g_str_has_prefix (event_type, "port-"))
+    return 150;
+  else if (g_str_has_prefix (event_type, "node-"))
+    return 130;
+  else if (g_str_has_prefix (event_type, "session-item-"))
+    return 110;
+  else if (g_str_has_suffix (event_type, "-added") ||
+           g_str_has_suffix (event_type, "-removed"))
+    return 20;
 
   wp_debug ("Unknown event type: %s, using priority 0", event_type);
   return 0;
+}
+
+static WpObjectManager *
+wp_standard_event_get_object_manager (WpStandardEventSource *self,
+    const gchar * type_str)
+{
+  ObjectType type = type_str_to_object_type (type_str);
+
+  if (G_UNLIKELY (type == OBJECT_TYPE_INVALID)) {
+    wp_critical_object (self, "object type '%s' is not valid", type_str);
+    return NULL;
+  }
+
+  g_return_val_if_fail (self->oms[type], NULL);
+  return g_object_ref (self->oms[type]);
 }
 
 static void
@@ -140,15 +185,20 @@ wp_standard_event_source_push_event (WpStandardEventSource *self,
       wp_event_dispatcher_get_instance (core);
   g_return_if_fail (dispatcher);
   g_autoptr (WpProperties) properties = wp_properties_new_empty ();
+  g_autofree gchar *full_event_type = NULL;
 
   const gchar *subject_type =
       subject ? get_object_type (subject, &properties) : NULL;
-  gint priority = get_default_event_priority (event_type, subject_type);
 
-  if (subject_type)
+  if (subject_type) {
     wp_properties_set (properties, "event.subject.type", subject_type);
+    full_event_type = g_strdup_printf ("%s-%s", subject_type, event_type);
+    event_type = full_event_type;
+  }
   if (misc_properties)
     wp_properties_add (properties, misc_properties);
+
+  gint priority = get_default_event_priority (event_type);
 
   wp_debug_object (self,
       "pushing event '%s', prio %d, subject " WP_OBJECT_FORMAT " (%s)",
@@ -179,8 +229,7 @@ on_metadata_changed (WpMetadata *obj, guint32 subject,
   wp_properties_set (properties, "event.subject.spa_type", spa_type);
   wp_properties_set (properties, "event.subject.value", value);
 
-  wp_standard_event_source_push_event (self, "metadata-changed", obj,
-      properties);
+  wp_standard_event_source_push_event (self, "changed", obj, properties);
 }
 
 static void
@@ -201,14 +250,14 @@ on_node_state_changed (WpNode *obj, WpNodeState old_state,
       "event.subject.old-state", g_enum_to_string (WP_TYPE_NODE_STATE, old_state),
       "event.subject.new-state", g_enum_to_string (WP_TYPE_NODE_STATE, new_state),
       NULL);
-  wp_standard_event_source_push_event (self, "node-state-changed", obj,
+  wp_standard_event_source_push_event (self, "state-changed", obj,
       properties);
 }
 
 static void
 on_object_added (WpObjectManager *om, WpObject *obj, WpStandardEventSource *self)
 {
-  wp_standard_event_source_push_event (self, "object-added", obj, NULL);
+  wp_standard_event_source_push_event (self, "added", obj, NULL);
 
   if (WP_IS_PIPEWIRE_OBJECT (obj)) {
     g_signal_connect_object (obj, "params-changed",
@@ -228,13 +277,14 @@ on_object_added (WpObjectManager *om, WpObject *obj, WpStandardEventSource *self
 static void
 on_object_removed (WpObjectManager *om, WpObject *obj, WpStandardEventSource *self)
 {
-  wp_standard_event_source_push_event (self, "object-removed", obj, NULL);
+  wp_standard_event_source_push_event (self, "removed", obj, NULL);
 }
 
 static void
 on_om_installed (WpObjectManager * om, WpStandardEventSource * self)
 {
-  wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
+  if (++self->n_oms_installed == N_OBJECT_TYPES)
+    wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
 }
 
 static void
@@ -252,52 +302,66 @@ wp_standard_event_source_enable (WpPlugin * plugin, WpTransition * transition)
   g_autoptr (WpEventDispatcher) dispatcher =
       wp_event_dispatcher_get_instance (core);
   g_return_if_fail (dispatcher);
-  g_autoptr (WpEventHook) hook = NULL;
 
-  self->om = wp_object_manager_new ();
-  wp_object_manager_add_interest (self->om, WP_TYPE_GLOBAL_PROXY, NULL);
-  wp_object_manager_add_interest (self->om, WP_TYPE_SESSION_ITEM, NULL);
-  wp_object_manager_request_object_features (self->om,
-      WP_TYPE_GLOBAL_PROXY, WP_OBJECT_FEATURES_ALL);
-  g_signal_connect_object (self->om, "object-added",
-      G_CALLBACK (on_object_added), self, 0);
-  g_signal_connect_object (self->om, "object-removed",
-      G_CALLBACK (on_object_removed), self, 0);
-  g_signal_connect_object (self->om, "installed",
-      G_CALLBACK (on_om_installed), self, 0);
-  wp_core_install_object_manager (core, self->om);
+  /* install object managers */
+  self->n_oms_installed = 0;
+  for (gint i = 0; i < N_OBJECT_TYPES; i++) {
+    GType gtype = object_type_to_gtype (i);
+    self->oms[i] = wp_object_manager_new ();
+    wp_object_manager_add_interest (self->oms[i], gtype, NULL);
+    wp_object_manager_request_object_features (self->oms[i],
+        gtype, WP_OBJECT_FEATURES_ALL);
+    g_signal_connect_object (self->oms[i], "object-added",
+        G_CALLBACK (on_object_added), self, 0);
+    g_signal_connect_object (self->oms[i], "object-removed",
+        G_CALLBACK (on_object_removed), self, 0);
+    g_signal_connect_object (self->oms[i], "installed",
+        G_CALLBACK (on_om_installed), self, 0);
+    wp_core_install_object_manager (core, self->oms[i]);
+  }
 
-  hook = wp_simple_event_hook_new ("rescan-done@std-event-source",
+  /* install hook to restore the rescan_scheduled state after rescanning */
+  self->rescan_done_hook = wp_simple_event_hook_new (
+      "rescan-done@std-event-source",
       WP_EVENT_HOOK_PRIORITY_LOWEST, WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
       g_cclosure_new_object ((GCallback) on_rescan_done, G_OBJECT (self)));
-  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+  wp_interest_event_hook_add_interest (
+      WP_INTEREST_EVENT_HOOK (self->rescan_done_hook),
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "rescan-session",
       NULL);
-  wp_event_dispatcher_register_hook (dispatcher, hook);
+  wp_event_dispatcher_register_hook (dispatcher, self->rescan_done_hook);
 }
 
 static void
 wp_standard_event_source_disable (WpPlugin * plugin)
 {
   WpStandardEventSource * self = WP_STANDARD_EVENT_SOURCE (plugin);
-  g_clear_object (&self->om);
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
+  g_return_if_fail (core);
+  g_autoptr (WpEventDispatcher) dispatcher =
+      wp_event_dispatcher_get_instance (core);
+
+  for (gint i = 0; i < N_OBJECT_TYPES; i++)
+    g_clear_object (&self->oms[i]);
+
+  if (dispatcher)
+    wp_event_dispatcher_unregister_hook (dispatcher, self->rescan_done_hook);
+  g_clear_object (&self->rescan_done_hook);
 }
 
 static void
 wp_standard_event_source_class_init (WpStandardEventSourceClass * klass)
 {
-  GObjectClass *object_class = (GObjectClass *) klass;
   WpPluginClass *plugin_class = (WpPluginClass *) klass;
-
-  object_class->get_property = wp_standard_event_source_get_property;
 
   plugin_class->enable = wp_standard_event_source_enable;
   plugin_class->disable = wp_standard_event_source_disable;
 
-  g_object_class_install_property (object_class, PROP_OBJECT_MANAGER,
-      g_param_spec_string ("object-manager", "object-manager",
-          "The WpObjectManager instance that is used to generate events", NULL,
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+  signals[ACTION_GET_OBJECT_MANAGER] = g_signal_new_class_handler (
+      "get-object-manager", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+      (GCallback) wp_standard_event_get_object_manager,
+      NULL, NULL, NULL, WP_TYPE_OBJECT_MANAGER, 1, G_TYPE_STRING);
 
   signals[ACTION_PUSH_EVENT] = g_signal_new_class_handler (
       "push-event", G_TYPE_FROM_CLASS (klass),

@@ -391,8 +391,7 @@ SimpleEventHook {
   priority = HookPriority.NORMAL,
   interests = {
     EventInterest {
-      Constraint { "event.type", "=", "object-removed" },
-      Constraint { "event.subject.type", "=", "node" },
+      Constraint { "event.type", "=", "node-removed" },
       Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
     },
   },
@@ -410,15 +409,13 @@ SimpleEventHook {
   priority = HookPriority.NORMAL,
   interests = {
     EventInterest {
-      Constraint { "event.type", "=", "state-changed" },
-      Constraint { "event.subject.type", "=", "node" },
+      Constraint { "event.type", "=", "node-state-changed" },
       Constraint { "media.class", "#", "Stream/Input/Audio", type = "pw-global" },
       -- Do not consider monitor streams
       Constraint { "stream.monitor", "!", "true" }
     },
     EventInterest {
-      Constraint { "event.type", "=", "params-changed" },
-      Constraint { "event.subject.type", "=", "node" },
+      Constraint { "event.type", "=", "node-params-changed" },
       Constraint { "media.class", "#", "Stream/Input/Audio", type = "pw-global" },
       -- Do not consider monitor streams
       Constraint { "stream.monitor", "!", "true" }
@@ -435,8 +432,7 @@ SimpleEventHook {
   priority = HookPriority.VERY_LOW,
   interests = {
     EventInterest {
-      Constraint { "event.type", "=", "object-added" },
-      Constraint { "event.subject.type", "=", "device" },
+      Constraint { "event.type", "=", "device-added" },
       Constraint { "device.api", "=", "bluez5" },
     },
   },
@@ -456,8 +452,7 @@ SimpleEventHook {
   priority = HookPriority.VERY_LOW,
   interests = {
     EventInterest {
-      Constraint { "event.type", "=", "object-changed" },
-      Constraint { "event.subject.type", "=", "metadata" },
+      Constraint { "event.type", "=", "metadata-changed" },
       Constraint { "metadata.name", "=", "default" },
       Constraint { "event.subject.key", "=", "default.audio.sink" },
       Constraint { "event.subject.id", "=", "0" },

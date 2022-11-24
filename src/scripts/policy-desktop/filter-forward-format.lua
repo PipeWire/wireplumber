@@ -21,7 +21,7 @@ function findAssociatedLinkGroupNode (si)
   end
 
   local std_event_source = Plugin.find ("standard-event-source")
-  local om = std_event_source ["object-manager"]
+  local om = std_event_source:call ("get-object-manager", "session-item")
 
   -- get the associated media class
   local assoc_direction = cutils.getTargetDirection (si_props)
@@ -84,8 +84,8 @@ SimpleEventHook {
   priority = HookPriority.NORMAL,
   interests = {
     EventInterest {
-      Constraint { "event.type", "=", "object-added" },
-      Constraint { "event.subject.type", "=", "linkable" },
+      Constraint { "event.type", "=", "session-item-added" },
+      Constraint { "event.session-item.interface", "=", "linkable" },
       Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
       Constraint { "media.class", "#", "Stream/*", type = "pw-global" },
       Constraint { "active-features", "!", 0, type = "gobject" },
