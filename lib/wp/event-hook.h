@@ -18,12 +18,6 @@ typedef struct _WpEvent WpEvent;
 typedef struct _WpEventDispatcher WpEventDispatcher;
 
 typedef enum {
-  WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
-  WP_EVENT_HOOK_EXEC_TYPE_AFTER_EVENTS,
-  WP_EVENT_HOOK_EXEC_TYPE_AFTER_EVENTS_WITH_EVENT,
-} WpEventHookExecType;
-
-typedef enum {
   WP_EVENT_HOOK_PRIORITY_LOWEST = -500,
   WP_EVENT_HOOK_PRIORITY_ULTRA_LOW = -300,
   WP_EVENT_HOOK_PRIORITY_VERY_LOW = -200,
@@ -66,9 +60,6 @@ gint wp_event_hook_get_priority (WpEventHook * self);
 
 WP_API
 const gchar * wp_event_hook_get_name (WpEventHook * self);
-
-WP_API
-WpEventHookExecType wp_event_hook_get_exec_type (WpEventHook * self);
 
 WP_PRIVATE_API
 WpEventDispatcher * wp_event_hook_get_dispatcher (WpEventHook * self);
@@ -127,7 +118,7 @@ G_DECLARE_FINAL_TYPE (WpSimpleEventHook, wp_simple_event_hook,
 
 WP_API
 WpEventHook * wp_simple_event_hook_new (const gchar *name, gint priority,
-    WpEventHookExecType type, GClosure * closure);
+    GClosure * closure);
 
 
 /*!
@@ -141,8 +132,7 @@ G_DECLARE_FINAL_TYPE (WpAsyncEventHook, wp_async_event_hook,
 
 WP_API
 WpEventHook * wp_async_event_hook_new (const gchar *name, gint priority,
-    WpEventHookExecType type, GClosure * get_next_step,
-    GClosure * execute_step);
+    GClosure * get_next_step, GClosure * execute_step);
 
 G_END_DECLS
 

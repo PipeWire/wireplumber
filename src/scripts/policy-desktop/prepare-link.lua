@@ -13,7 +13,6 @@ local cutils = require ("common-utils")
 
 SimpleEventHook {
   name = "prepare-link@policy-desktop",
-  type = "on-event",
   priority = HookPriority.VERY_LOW,
   interests = {
     EventInterest {

@@ -151,7 +151,7 @@ wp_default_nodes_api_enable (WpPlugin * plugin, WpTransition * transition)
 
   /* default metadata added */
   hook = wp_simple_event_hook_new ("metadata-added@default-nodes-api",
-      WP_EVENT_HOOK_PRIORITY_NORMAL, WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
+      WP_EVENT_HOOK_PRIORITY_NORMAL,
       g_cclosure_new ((GCallback) on_metadata_added, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "metadata-added",
@@ -162,7 +162,7 @@ wp_default_nodes_api_enable (WpPlugin * plugin, WpTransition * transition)
 
   /* default metadata changed */
   hook = wp_simple_event_hook_new ("metadata-changed@default-nodes-api",
-      WP_EVENT_HOOK_PRIORITY_NORMAL, WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
+      WP_EVENT_HOOK_PRIORITY_NORMAL,
       g_cclosure_new ((GCallback) on_metadata_changed_hook, self, NULL));
 
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
