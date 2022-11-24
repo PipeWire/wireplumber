@@ -595,8 +595,7 @@ wp_default_nodes_enable (WpPlugin * plugin, WpTransition * transition)
       WP_EVENT_HOOK_PRIORITY_NORMAL, WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
       g_cclosure_new ((GCallback) on_metadata_added, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-added",
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "metadata-added",
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
       NULL);
   wp_event_dispatcher_register_hook (dispatcher, hook);
@@ -608,24 +607,21 @@ wp_default_nodes_enable (WpPlugin * plugin, WpTransition * transition)
       g_cclosure_new ((GCallback) on_metadata_changed, self, NULL));
 
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
-    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "metadata-changed",
     WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.key", "=s",
         "default.configured.audio.sink",
     WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
     NULL);
 
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
-    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "metadata-changed",
     WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.key", "=s",
         "default.configured.video.sink",
     WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
     NULL);
 
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
-    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "metadata-changed",
     WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.key", "=s",
         "default.configured.audio.source",
     WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
@@ -641,53 +637,46 @@ wp_default_nodes_enable (WpPlugin * plugin, WpTransition * transition)
 
   /* default.configured.audio.sink changed */
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
-    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "metadata-changed",
     WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.key", "=s", "default.configured.audio.sink",
     WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
     NULL);
 
   /* default.configured.video.sink changed */
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
-    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "metadata-changed",
     WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.key", "=s", "default.configured.video.sink",
     WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
     NULL);
 
   /* default.configured.audio.source changed */
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
-    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "metadata-changed",
     WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.key", "=s", "default.configured.audio.source",
     WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
     NULL);
 
   /* new video device node added */
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-added",
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "node",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "node-added",
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "media.class", "#s", "Video/*",
       NULL);
 
   /* new audio device node added */
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-added",
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "node",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "node-added",
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "media.class", "#s", "Audio/*",
       NULL);
 
   /* video device node removed */
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-removed",
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "node",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "node-removed",
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "media.class", "#s", "Video/*",
       NULL);
 
   /* audio device node removed */
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-removed",
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "node",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "node-removed",
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "media.class", "#s", "Audio/*",
       NULL);
 
