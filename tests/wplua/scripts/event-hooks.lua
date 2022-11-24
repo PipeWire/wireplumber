@@ -30,7 +30,6 @@ local common_interests = {
 AsyncEventHook {
   name = "test-async-hook",
   priority = 10,
-  type = "on-event",
   interests = common_interests,
   steps = {
     start = {
@@ -57,7 +56,6 @@ AsyncEventHook {
 SimpleEventHook {
   name = "test-simple-hook",
   priority = 15,
-  type = "on-event",
   interests = common_interests,
   execute = function (event)
     checkpoint("simple-1")
@@ -65,9 +63,8 @@ SimpleEventHook {
 }:register()
 
 SimpleEventHook {
-  name = "test-afterevent-hook",
-  priority = 1,
-  type = "after-events",
+  name = "test-last-hook",
+  priority = -1000,
   interests = common_interests,
   execute = function (event)
     checkpoint("simple-2")

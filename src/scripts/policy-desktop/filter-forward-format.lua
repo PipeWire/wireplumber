@@ -80,7 +80,6 @@ end
 
 SimpleEventHook {
   name = "filter-forward-format@policy-node",
-  type = "on-event",
   priority = HookPriority.NORMAL,
   interests = {
     EventInterest {

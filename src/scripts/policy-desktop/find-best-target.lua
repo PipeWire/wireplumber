@@ -11,7 +11,6 @@ local cutils = require ("common-utils")
 
 SimpleEventHook {
   name = "find-best-target@policy-desktop",
-  type = "on-event",
   priority = HookPriority.LOW,
   interests = {
     EventInterest {
