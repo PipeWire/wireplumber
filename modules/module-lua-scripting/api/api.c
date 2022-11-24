@@ -1919,7 +1919,6 @@ simple_event_hook_new (lua_State *L)
   gint priority = 0;
   gint priority_type = 0;
   const gchar *name;
-  WpEventHookExecType type = 0;
   GClosure *closure = NULL;
 
   /* validate arguments */
@@ -1939,13 +1938,6 @@ simple_event_hook_new (lua_State *L)
     luaL_error (L, "SimpleEventHook: expected 'priority' as number");
   lua_pop (L, 1);
 
-  lua_pushliteral (L, "type");
-  if (lua_gettable (L, 1) == LUA_TSTRING)
-    type = wplua_lua_to_enum (L, -1, WP_TYPE_EVENT_HOOK_EXEC_TYPE);
-  else
-    luaL_error (L, "SimpleEventHook: expected 'type' as string");
-  lua_pop (L, 1);
-
   lua_pushliteral (L, "execute");
   if (lua_gettable (L, 1) == LUA_TFUNCTION)
     closure = wplua_function_to_closure (L, -1);
@@ -1953,7 +1945,7 @@ simple_event_hook_new (lua_State *L)
     luaL_error (L, "SimpleEventHook: expected 'execute' as function");
   lua_pop (L, 1);
 
-  hook = wp_simple_event_hook_new (name, priority, type, closure);
+  hook = wp_simple_event_hook_new (name, priority, closure);
   wplua_pushobject (L, hook);
 
   lua_pushliteral (L, "interests");
@@ -2101,7 +2093,6 @@ async_event_hook_new (lua_State *L)
   const gchar *name;
   gint priority = 0;
   gint priority_type = 0;
-  WpEventHookExecType type = 0;
   GClosure *get_next_step = NULL;
   GClosure *execute_step = NULL;
 
@@ -2122,12 +2113,6 @@ async_event_hook_new (lua_State *L)
     luaL_error(L, "AsyncEventHook: expected 'priority' as number");
   lua_pop (L, 1);
 
-  lua_pushliteral (L, "type");
-  if (lua_gettable (L, 1) != LUA_TSTRING)
-    luaL_error (L, "AsyncEventHook: expected 'type' as string");
-  type = wplua_lua_to_enum (L, -1, WP_TYPE_EVENT_HOOK_EXEC_TYPE);
-  lua_pop (L, 1);
-
   lua_pushliteral (L, "steps");
   if (lua_gettable (L, 1) != LUA_TTABLE)
     luaL_error (L, "AsyncEventHook: expected 'steps' as table");
@@ -2143,8 +2128,7 @@ async_event_hook_new (lua_State *L)
   execute_step = wplua_function_to_closure (L, -1);
   lua_pop (L, 1);
 
-  hook = wp_async_event_hook_new (name, priority, type, get_next_step,
-      execute_step);
+  hook = wp_async_event_hook_new (name, priority, get_next_step, execute_step);
   wplua_pushobject (L, hook);
 
   lua_pushliteral (L, "interests");

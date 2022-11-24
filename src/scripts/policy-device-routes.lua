@@ -469,7 +469,6 @@ end
 
 SimpleEventHook {
   name = "handle-device@device-routes",
-  type = "on-event",
   priority = HookPriority.ULTRA_LOW,
   interests = {
     EventInterest {
@@ -511,7 +510,6 @@ SimpleEventHook {
 
 SimpleEventHook {
   name = "handle-device@device-routes",
-  type = "on-event",
   priority = HookPriority.ULTRA_LOW,
   interests = {
     EventInterest {

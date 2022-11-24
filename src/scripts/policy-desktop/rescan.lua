@@ -32,7 +32,6 @@ end
 
 SimpleEventHook {
   name = "linkable-removed@policy-node",
-  type = "on-event",
   priority = HookPriority.VERY_LOW,
   interests = {
     EventInterest {
@@ -80,7 +79,6 @@ SimpleEventHook {
 
 SimpleEventHook {
   name = "rescan-session@policy-desktop",
-  type = "on-event",
   -- let higher priority hooks deal with preparing the graph first
   -- (things like finding the default nodes, etc...)
   priority = HookPriority.VERY_LOW,
@@ -121,7 +119,6 @@ SimpleEventHook {
   -- go with a low priority to allow NORMAL handlers
   -- to stop the event and prevent the rescan
   priority = HookPriority.VERY_LOW,
-  type = "on-event",
   interests = {
     -- on linkable added or removed, where linkable is adapter or plain node
     EventInterest {

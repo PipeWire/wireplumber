@@ -9,7 +9,6 @@ sources = {}
 
 SimpleEventHook {
   name = "suspend-node",
-  type = "on-event",
   priority = HookPriority.NORMAL,
   interests = {
     EventInterest {

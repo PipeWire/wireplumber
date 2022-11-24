@@ -283,7 +283,6 @@ struct _WpEventDispatcher
   GSource *source;  /* the event loop source */
   GList *events;    /* the events stack */
   gchar *events_chain; /* chain of events for an event run */
-  WpEvent *rescan_event;
   struct spa_system *system;
   int eventfd;
 };
@@ -374,7 +373,6 @@ wp_event_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
       WpEventHook *hook = hook_data->hook;
       const gchar *name = wp_event_hook_get_name (hook);
       gint priority = wp_event_hook_get_priority (hook);
-      WpEventHookExecType type = wp_event_hook_get_exec_type (hook);
 
       event->current_hook_in_async = hook_data;
       event->hooks = g_list_delete_link (event->hooks,
@@ -383,31 +381,14 @@ wp_event_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
       event->hooks_chain = build_chain (name, priority, event->hooks_chain);
       wp_trace_object (d, "running hook <%p>(%s)", hook, name);
 
-      if ((event == d->rescan_event) &&
-          (type == WP_EVENT_HOOK_EXEC_TYPE_AFTER_EVENTS_WITH_EVENT)) {
-        WpEvent *hook_event = hook_data->event;
-        wp_trace_object (d, "after-events-with-event with event %s", hook_event->name);
-
-        if (g_cancellable_is_cancelled (hook_event->cancellable)) {
-          wp_debug_object (d, "skip running hook(%s) as its trigger event(%s)"
-            " is cancelled", name, hook_event->name);
-          event->current_hook_in_async = NULL;
-        }
-        else
-          wp_event_hook_run (hook, hook_event, event->cancellable,
-              (GAsyncReadyCallback) on_event_hook_done, event);
-      }
-      else
-        /* execute the hook, possibly async */
-        wp_event_hook_run (hook, event, event->cancellable,
-            (GAsyncReadyCallback) on_event_hook_done, event);
+      /* execute the hook, possibly async */
+      wp_event_hook_run (hook, event, event->cancellable,
+          (GAsyncReadyCallback) on_event_hook_done, event);
     }
 
     /* clear the event after all hooks are done */
     if (!event->hooks && !event->current_hook_in_async) {
       d->events = g_list_delete_link (d->events, g_steal_pointer (&levent));
-      if (event == d->rescan_event)
-        d->rescan_event = NULL;
       g_clear_pointer (&event, wp_event_unref);
     }
 
@@ -532,23 +513,6 @@ hook_cmp_func (const WpEventHookData *new_hook, const WpEventHookData *listed_ho
          wp_event_hook_get_priority ((WpEventHook *) new_hook->hook);
 }
 
-static gint
-after_events_hook_cmp_func (const WpEventHookData *new_hook,
-    const WpEventHookData *listed_hook)
-{
-  if (new_hook->event != listed_hook->event)
-    return G_MININT;
-  else
-    return hook_cmp_func (new_hook, listed_hook);
-}
-
-
-static gint
-is_hook_present (const WpEventHookData *hook_data, const WpEventHook *hook)
-{
-  return !(hook == hook_data->hook);
-}
-
 /*!
  * \brief Pushes a new event onto the event stack for dispatching only if there
  * are any hooks are available for it.
@@ -563,10 +527,6 @@ wp_event_dispatcher_push_event (WpEventDispatcher * self, WpEvent * event)
   g_return_if_fail (WP_IS_EVENT_DISPATCHER (self));
   g_return_if_fail (event != NULL);
   gboolean hooks_added = FALSE;
-  gboolean rescan_hooks_added = FALSE;
-
-  if (!self->rescan_event)
-    self->rescan_event = wp_event_new ("rescan", G_MININT16, NULL, NULL, NULL);
 
   /* attach hooks that run for this event */
   for (guint i = 0; i < self->hooks->len; i++) {
@@ -574,51 +534,16 @@ wp_event_dispatcher_push_event (WpEventDispatcher * self, WpEvent * event)
 
     if (wp_event_hook_runs_for_event (hook, event)) {
       WpEventHookData *hook_data = g_slice_new0 (WpEventHookData);
-      WpEventHookExecType hook_type = wp_event_hook_get_exec_type (hook);
       const gchar *name = wp_event_hook_get_name (hook);
       gint priority = wp_event_hook_get_priority (hook);
 
       hook_data->hook = g_object_ref (hook);
-      /* ON_EVENT hooks run at the dispatching of the event */
-      if (hook_type == WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT) {
-        event->hooks = g_list_insert_sorted (event->hooks, hook_data,
-            (GCompareFunc) hook_cmp_func);
-        hooks_added = true;
+      event->hooks = g_list_insert_sorted (event->hooks, hook_data,
+          (GCompareFunc) hook_cmp_func);
+      hooks_added = true;
 
-        wp_debug_object (self, "added hook <%p>(%s(%d))", hook, name, priority);
-      }
-      /* AFTER_EVENTS hooks run after all other events have been dispatched */
-      else if (hook_type == WP_EVENT_HOOK_EXEC_TYPE_AFTER_EVENTS_WITH_EVENT) {
-        /* this event will be sent to hook when it is being dispatched */
-        hook_data->event = wp_event_ref (event);
-
-        self->rescan_event->hooks = g_list_insert_sorted (
-          self->rescan_event->hooks, hook_data,
-          (GCompareFunc) after_events_hook_cmp_func);
-        rescan_hooks_added = true;
-
-        wp_debug_object (self, "added after-events-with-event rescan hook"
-          " <%p>(%s(%d)) for event %s", hook, name, priority, event->name);
-      }
-      /* for after-events retain only one instance per hook */
-      else if (!g_list_find_custom (self->rescan_event->hooks, hook,
-        (GCompareFunc) is_hook_present)) {
-        self->rescan_event->hooks = g_list_insert_sorted (
-            self->rescan_event->hooks, hook_data, (GCompareFunc) hook_cmp_func);
-        rescan_hooks_added = true;
-
-        wp_debug_object (self, "added rescan hook <%p>(%s(%d))", hook, name, priority);
-      }
+      wp_debug_object (self, "added hook <%p>(%s(%d))", hook, name, priority);
     }
-  }
-
-  if (rescan_hooks_added) {
-    if (!g_list_find (self->events, self->rescan_event))
-      self->events = g_list_insert_sorted (self->events, self->rescan_event,
-        (GCompareFunc) event_cmp_func);
-
-    wp_debug_object (self, "pushed rescan event %p for event(%s)",
-        self->rescan_event, event->name);
   }
 
   if (hooks_added) {
@@ -626,13 +551,12 @@ wp_event_dispatcher_push_event (WpEventDispatcher * self, WpEvent * event)
       (GCompareFunc) event_cmp_func);
     wp_debug_object (self, "pushed event (%s)" WP_OBJECT_FORMAT " priority(%d)",
       event->name, WP_OBJECT_ARGS (event->subject), event->priority);
+
+    /* wakeup the GSource */
+    spa_system_eventfd_write (self->system, self->eventfd, 1);
   }
   else
     g_clear_pointer (&event, wp_event_unref);
-
-  if (hooks_added || rescan_hooks_added)
-    /* wakeup the GSource */
-    spa_system_eventfd_write (self->system, self->eventfd, 1);
 }
 
 /*!
