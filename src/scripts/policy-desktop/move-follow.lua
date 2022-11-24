@@ -14,7 +14,6 @@ function handleFollowSetting (enable)
   if (not handles.follow_hook) and (enable == true) then
     handles.follow_hook = SimpleEventHook {
       name = "follow@policy-desktop",
-      type = "on-event",
       priority = HookPriority.NORMAL,
       interests = {
         EventInterest {
@@ -40,7 +39,6 @@ function handleMoveSetting (enable)
   if (not handles.move_hook) and (enable == true) then
     handles.move_hook = SimpleEventHook {
       name = "move@policy-desktop",
-      type = "on-event",
       priority = HookPriority.NORMAL,
       interests = {
         EventInterest {

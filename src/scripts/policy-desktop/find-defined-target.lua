@@ -15,7 +15,6 @@ local config = require ("policy-config")
 
 SimpleEventHook {
   name = "find-defined-target@policy-desktop",
-  type = "on-event",
   priority = HookPriority.HIGH,
   interests = {
     EventInterest {
