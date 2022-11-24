@@ -21,7 +21,7 @@ SimpleEventHook {
     },
   },
   execute = function (event)
-    local source, om, si, si_props, si_flags, target =
+    local source, _, si, si_props, si_flags, target =
         putils:unwrap_find_target_event (event)
 
     local reconnect = not cutils.parseBool (si_props ["node.dont-reconnect"])
@@ -104,8 +104,8 @@ SimpleEventHook {
 
       local client_id = node.properties ["client.id"]
       if client_id then
-        local client = om:lookup {
-          type = "client",
+        local clients_om = source:call ("get-object-manager", "client")
+        local client = clients_om:lookup {
           Constraint { "bound-id", "=", client_id, type = "gobject" }
         }
         if client then
