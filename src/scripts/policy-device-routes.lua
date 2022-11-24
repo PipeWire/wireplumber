@@ -515,13 +515,11 @@ SimpleEventHook {
   priority = HookPriority.ULTRA_LOW,
   interests = {
     EventInterest {
-      Constraint { "event.type", "=", "params-changed" },
-      Constraint { "event.subject.type", "=", "device" },
+      Constraint { "event.type", "=", "device-params-changed" },
       Constraint { "event.subject.param-id", "=", "Route" },
     },
     EventInterest {
-      Constraint { "event.type", "=", "params-changed" },
-      Constraint { "event.subject.type", "=", "device" },
+      Constraint { "event.type", "=", "device-params-changed" },
       Constraint { "event.subject.param-id", "=", "EnumRoute" },
     },
   },

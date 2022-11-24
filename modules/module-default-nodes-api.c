@@ -154,8 +154,7 @@ wp_default_nodes_api_enable (WpPlugin * plugin, WpTransition * transition)
       WP_EVENT_HOOK_PRIORITY_NORMAL, WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
       g_cclosure_new ((GCallback) on_metadata_added, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-added",
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "metadata-added",
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
       NULL);
   wp_event_dispatcher_register_hook (dispatcher, hook);
@@ -167,24 +166,21 @@ wp_default_nodes_api_enable (WpPlugin * plugin, WpTransition * transition)
       g_cclosure_new ((GCallback) on_metadata_changed_hook, self, NULL));
 
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
-    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "metadata-changed",
     WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.key", "=s",
         "default.audio.sink",
     WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
     NULL);
 
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
-    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "metadata-changed",
     WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.key", "=s",
         "default.video.sink",
     WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
     NULL);
 
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "object-changed",
-    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.type", "=s", "metadata",
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "metadata-changed",
     WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.key", "=s",
         "default.audio.source",
     WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",

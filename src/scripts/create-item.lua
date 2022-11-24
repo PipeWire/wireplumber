@@ -71,18 +71,15 @@ AsyncEventHook {
   priority = HookPriority.LOW,
   interests = {
     EventInterest {
-      Constraint { "event.type", "=", "object-added" },
-      Constraint { "event.subject.type", "=", "node" },
+      Constraint { "event.type", "=", "node-added" },
       Constraint { "media.class", "#", "Stream/*", type = "pw-global" },
     },
     EventInterest {
-      Constraint { "event.type", "=", "object-added" },
-      Constraint { "event.subject.type", "=", "node" },
+      Constraint { "event.type", "=", "node-added" },
       Constraint { "media.class", "#", "Video/*", type = "pw-global" },
     },
     EventInterest {
-      Constraint { "event.type", "=", "object-added" },
-      Constraint { "event.subject.type", "=", "node" },
+      Constraint { "event.type", "=", "node-added" },
       Constraint { "media.class", "#", "Audio/*", type = "pw-global" },
       Constraint { "wireplumber.is-endpoint", "-", type = "pw" },
     },
@@ -146,18 +143,15 @@ SimpleEventHook {
   priority = HookPriority.LOW,
   interests = {
     EventInterest {
-      Constraint { "event.type", "=", "object-removed" },
-      Constraint { "event.subject.type", "=", "node" },
+      Constraint { "event.type", "=", "node-removed" },
       Constraint { "media.class", "#", "Stream/*", type = "pw-global" },
     },
     EventInterest {
-      Constraint { "event.type", "=", "object-removed" },
-      Constraint { "event.subject.type", "=", "node" },
+      Constraint { "event.type", "=", "node-removed" },
       Constraint { "media.class", "#", "Video/*", type = "pw-global" },
     },
     EventInterest {
-      Constraint { "event.type", "=", "object-removed" },
-      Constraint { "event.subject.type", "=", "node" },
+      Constraint { "event.type", "=", "node-removed" },
       Constraint { "media.class", "#", "Audio/*", type = "pw-global" },
       Constraint { "wireplumber.is-endpoint", "-", type = "pw" },
     },

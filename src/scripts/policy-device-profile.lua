@@ -107,19 +107,17 @@ SimpleEventHook {
   priority = HookPriority.LOW,
   interests = {
     EventInterest {
-      Constraint { "event.type", "=", "object-added" },
-      Constraint { "event.subject.type", "=", "device" },
+      Constraint { "event.type", "=", "device-added" },
     },
     EventInterest {
-      Constraint { "event.type", "=", "params-changed" },
-      Constraint { "event.subject.type", "=", "device" },
+      Constraint { "event.type", "=", "device-params-changed" },
       Constraint { "event.subject.param-id", "=", "EnumProfile" },
     },
   },
   execute = function (event)
     local device = event:get_subject ()
     local event_properties = event:get_properties ()
-    local new_device = (event_properties ["event.type"] == "object-added")
+    local new_device = (event_properties ["event.type"] == "device-added")
 
     local dev_id = device ["bound-id"]
     local dev_name = device.properties ["device.name"]
@@ -172,8 +170,7 @@ SimpleEventHook {
   priority = HookPriority.NORMAL,
   interests = {
     EventInterest {
-      Constraint { "event.type", "=", "object-removed" },
-      Constraint { "event.subject.type", "=", "device" },
+      Constraint { "event.type", "=", "device-removed" },
     },
   },
   execute = function (event)

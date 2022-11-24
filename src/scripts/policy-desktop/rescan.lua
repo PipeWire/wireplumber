@@ -36,14 +36,14 @@ SimpleEventHook {
   priority = HookPriority.VERY_LOW,
   interests = {
     EventInterest {
-      Constraint { "event.type", "=", "object-removed" },
-      Constraint { "event.subject.type", "=", "linkable" },
+      Constraint { "event.type", "=", "session-item-removed" },
+      Constraint { "event.session-item.interface", "=", "linkable" },
     },
   },
   execute = function (event)
     local si = event:get_subject ()
     local source = event:get_source ()
-    local om = source ["object-manager"]
+    local om = source:call ("get-object-manager", "session-item")
     local si_id = si.id
     local valid, si_props = checkLinkable (si, om, true)
     if not valid then
@@ -91,7 +91,7 @@ SimpleEventHook {
   },
   execute = function (event)
     local source = event:get_source ()
-    local om = source ["object-manager"]
+    local om = source:call ("get-object-manager", "session-item")
 
     Log.info ("rescanning...")
 
@@ -125,14 +125,13 @@ SimpleEventHook {
   interests = {
     -- on linkable added or removed, where linkable is adapter or plain node
     EventInterest {
-      Constraint { "event.type", "c", "object-added", "object-removed" },
-      Constraint { "event.subject.type", "=", "linkable" },
+      Constraint { "event.type", "c", "session-item-added", "session-item-removed" },
+      Constraint { "event.session-item.interface", "=", "linkable" },
       Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
     },
     -- on device Routes changed
     EventInterest {
-      Constraint { "event.type", "=", "params-changed" },
-      Constraint { "event.subject.type", "=", "device" },
+      Constraint { "event.type", "=", "device-params-changed" },
       Constraint { "event.subject.param-id", "=", "Route" },
     },
   },

@@ -349,8 +349,7 @@ local function handleRestoreTargetSetting (enable)
       priority = HookPriority.ULTRA_LOW,
       interests = {
         EventInterest {
-          Constraint { "event.type", "=", "object-added" },
-          Constraint { "event.subject.type", "=", "metadata" },
+          Constraint { "event.type", "=", "metadata-added" },
           Constraint { "metadata.name", "=", "default" },
         },
       },
@@ -473,20 +472,17 @@ local function handleRestoreStreamSetting (enable)
       priority = HookPriority.NORMAL,
       interests = {
         EventInterest {
-          Constraint { "event.type", "=", "object-added" },
-          Constraint { "event.subject.type", "=", "node" },
+          Constraint { "event.type", "=", "node-added" },
           Constraint { "media.class", "matches", "Stream/*", type = "pw-global" },
         },
         -- and device nodes that are not associated with any routes
         EventInterest {
-          Constraint { "event.type", "=", "object-added" },
-          Constraint { "event.subject.type", "=", "node" },
+          Constraint { "event.type", "=", "node-added" },
           Constraint { "media.class", "matches", "Audio/*", type = "pw-global" },
           Constraint { "device.routes", "is-absent", type = "pw" },
         },
         EventInterest {
-          Constraint { "event.type", "=", "object-added" },
-          Constraint { "event.subject.type", "=", "node" },
+          Constraint { "event.type", "=", "node-added" },
           Constraint { "media.class", "matches", "Audio/*", type = "pw-global" },
           Constraint { "device.routes", "equals", "0", type = "pw" },
         },
@@ -503,22 +499,19 @@ local function handleRestoreStreamSetting (enable)
       priority = HookPriority.NORMAL,
       interests = {
         EventInterest {
-          Constraint { "event.type", "=", "params-changed" },
-          Constraint { "event.subject.type", "=", "node" },
+          Constraint { "event.type", "=", "node-params-changed" },
           Constraint { "event.subject.param-id", "=", "Props" },
           Constraint { "media.class", "matches", "Stream/*", type = "pw-global" },
         },
         -- and device nodes that are not associated with any routes
         EventInterest {
-          Constraint { "event.type", "=", "params-changed" },
-          Constraint { "event.subject.type", "=", "node" },
+          Constraint { "event.type", "=", "node-params-changed" },
           Constraint { "event.subject.param-id", "=", "Props" },
           Constraint { "media.class", "matches", "Audio/*", type = "pw-global" },
           Constraint { "device.routes", "is-absent", type = "pw" },
         },
         EventInterest {
-          Constraint { "event.type", "=", "params-changed" },
-          Constraint { "event.subject.type", "=", "node" },
+          Constraint { "event.type", "=", "node-params-changed" },
           Constraint { "event.subject.param-id", "=", "Props" },
           Constraint { "media.class", "matches", "Audio/*", type = "pw-global" },
           Constraint { "device.routes", "equals", "0", type = "pw" },
