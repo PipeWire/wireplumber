@@ -12,7 +12,6 @@ local cutils = require ("common-utils")
 
 SimpleEventHook {
   name = "link-target@policy-desktop",
-  type = "on-event",
   priority = HookPriority.ULTRA_LOW,
   interests = {
     EventInterest {

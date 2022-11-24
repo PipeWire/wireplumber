@@ -18,7 +18,6 @@ typedef struct _WpEventHookPrivate WpEventHookPrivate;
 struct _WpEventHookPrivate
 {
   gint priority;
-  WpEventHookExecType exec_type;
   GWeakRef dispatcher;
   gchar *name;
 };
@@ -27,7 +26,6 @@ enum {
   PROP_0,
   PROP_NAME,
   PROP_PRIORITY,
-  PROP_EXEC_TYPE,
   PROP_DISPATCHER,
 };
 
@@ -66,9 +64,6 @@ wp_event_hook_set_property (GObject * object, guint property_id,
   case PROP_PRIORITY:
     priv->priority = g_value_get_int (value);
     break;
-  case PROP_EXEC_TYPE:
-    priv->exec_type = g_value_get_enum (value);
-    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
@@ -88,9 +83,6 @@ wp_event_hook_get_property (GObject * object, guint property_id, GValue * value,
     break;
   case PROP_PRIORITY:
     g_value_set_int (value, priv->priority);
-    break;
-  case PROP_EXEC_TYPE:
-    g_value_set_enum (value, priv->exec_type);
     break;
   case PROP_DISPATCHER:
     g_value_take_object (value, wp_event_hook_get_dispatcher (self));
@@ -117,11 +109,6 @@ wp_event_hook_class_init (WpEventHookClass * klass)
   g_object_class_install_property (object_class, PROP_PRIORITY,
       g_param_spec_int ("priority", "priority",
           "The priority of the hook", -G_MAXINT, G_MAXINT, 0,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
-
-  g_object_class_install_property (object_class, PROP_EXEC_TYPE,
-      g_param_spec_enum ("exec-type", "exec-type", "The exec type of the hook",
-          WP_TYPE_EVENT_HOOK_EXEC_TYPE, WP_EVENT_HOOK_EXEC_TYPE_ON_EVENT,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (object_class, PROP_DISPATCHER,
@@ -158,21 +145,6 @@ wp_event_hook_get_name (WpEventHook * self)
   g_return_val_if_fail (WP_IS_EVENT_HOOK (self), 0);
   WpEventHookPrivate *priv = wp_event_hook_get_instance_private (self);
   return priv->name;
-}
-
-/*!
- * \brief Returns the execution type of the hook
- *
- * \ingroup wpeventhook
- * \param self the event hook
- * \return the event hook execution type
- */
-WpEventHookExecType
-wp_event_hook_get_exec_type (WpEventHook * self)
-{
-  g_return_val_if_fail (WP_IS_EVENT_HOOK (self), 0);
-  WpEventHookPrivate *priv = wp_event_hook_get_instance_private (self);
-  return priv->exec_type;
 }
 
 /*!
@@ -500,22 +472,19 @@ wp_simple_event_hook_class_init (WpSimpleEventHookClass * klass)
  *
  * \param name the name of the hook
  * \param priority the priority of the hook
- * \param type the execution type of the hook
  * \param closure the closure to invoke when the hook is executed; the closure
  *   should accept two parameters: the event dispatcher and the event, returning
  *   nothing
  * \return a new simple event hook
  */
 WpEventHook *
-wp_simple_event_hook_new (const gchar *name, gint priority,
-    WpEventHookExecType type, GClosure * closure)
+wp_simple_event_hook_new (const gchar *name, gint priority, GClosure * closure)
 {
   g_return_val_if_fail (closure != NULL, NULL);
 
   return g_object_new (WP_TYPE_SIMPLE_EVENT_HOOK,
       "name", name,
       "priority", priority,
-      "exec-type", type,
       "closure", closure,
       NULL);
 }
@@ -643,15 +612,13 @@ wp_async_event_hook_class_init (WpAsyncEventHookClass * klass)
  *
  * \param name the name of the hook
  * \param priority the priority of the hook
- * \param type the execution type of the hook
  * \param get_next_step the closure to invoke to get the next step
  * \param execute_step the closure to invoke to execute the step
  * \return a new async event hook
  */
 WpEventHook *
 wp_async_event_hook_new (const gchar *name, gint priority,
-    WpEventHookExecType type, GClosure * get_next_step,
-    GClosure * execute_step)
+    GClosure * get_next_step, GClosure * execute_step)
 {
   g_return_val_if_fail (get_next_step != NULL, NULL);
   g_return_val_if_fail (execute_step != NULL, NULL);
@@ -659,7 +626,6 @@ wp_async_event_hook_new (const gchar *name, gint priority,
   return g_object_new (WP_TYPE_ASYNC_EVENT_HOOK,
       "name", name,
       "priority", priority,
-      "exec-type", type,
       "get-next-step", get_next_step,
       "execute-step", execute_step,
       NULL);
