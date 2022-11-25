@@ -85,6 +85,9 @@ WP_API
 void wp_event_dispatcher_unregister_hook (WpEventDispatcher * self,
     WpEventHook * hook);
 
+WP_API
+WpIterator * wp_event_dispatcher_new_hooks_iterator (WpEventDispatcher * self);
+
 G_END_DECLS
 
 #endif
