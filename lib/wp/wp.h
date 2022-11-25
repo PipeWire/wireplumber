@@ -85,6 +85,7 @@ const gchar * wp_get_module_dir (void);
 typedef enum { /*< flags >*/
   WP_LOOKUP_DIR_ENV_CONFIG = (1 << 0),       /*!< $WIREPLUMBER_CONFIG_DIR */
   WP_LOOKUP_DIR_ENV_DATA = (1 << 1),         /*!< $WIREPLUMBER_DATA_DIR */
+  WP_LOOKUP_DIR_ENV_TEST_SRCDIR = (1 << 2),  /*!< $G_TEST_SRCDIR */
 
   WP_LOOKUP_DIR_XDG_CONFIG_HOME = (1 << 10), /*!< XDG_CONFIG_HOME/wireplumber */
   WP_LOOKUP_DIR_ETC = (1 << 11),             /*!< ($prefix)/etc/wireplumber */
