@@ -1,0 +1,4 @@
+-- create stream nodes
+-- create device nodes
+-- register the bottom hook
+-- push find-si-target-event
