@@ -602,3 +602,18 @@ wp_event_dispatcher_unregister_hook (WpEventDispatcher * self,
   wp_event_hook_set_dispatcher (hook, NULL);
   g_ptr_array_remove_fast (self->hooks, hook);
 }
+
+/*!
+ * \brief Returns an iterator to iterate over all the registered hooks
+ * \ingroup wpeventdispatcher
+ *
+ * \param self the event dispatcher
+ * \return (transfer full): a new iterator
+ */
+WpIterator *
+wp_event_dispatcher_new_hooks_iterator (WpEventDispatcher * self)
+{
+  GPtrArray *items =
+      g_ptr_array_copy (self->hooks, (GCopyFunc) g_object_ref, NULL);
+  return wp_iterator_new_ptr_array (items, WP_TYPE_EVENT_HOOK);
+}
