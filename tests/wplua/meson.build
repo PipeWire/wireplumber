@@ -61,3 +61,9 @@ test(
   args: ['lua-api-tests', 'event-hooks.lua'],
   env: common_env,
 )
+test(
+  'test-lua-event-policy-hooks',
+  script_tester,
+  args: ['policy-tests', 'policy-hooks.lua'],
+  env: common_env,
+)
