@@ -137,9 +137,14 @@ lookup_dirs (guint flags)
       (dir = g_getenv ("WIREPLUMBER_CONFIG_DIR"))) {
     g_ptr_array_add (dirs, g_canonicalize_filename (dir, NULL));
   }
-  else if ((flags & WP_LOOKUP_DIR_ENV_DATA) &&
-      (dir = g_getenv ("WIREPLUMBER_DATA_DIR"))) {
-    g_ptr_array_add (dirs, g_canonicalize_filename (dir, NULL));
+  else if (flags & (WP_LOOKUP_DIR_ENV_DATA | WP_LOOKUP_DIR_ENV_TEST_SRCDIR)) {
+    if ((flags & WP_LOOKUP_DIR_ENV_DATA) &&
+        (dir = g_getenv ("WIREPLUMBER_DATA_DIR")))
+      g_ptr_array_add (dirs, g_canonicalize_filename (dir, NULL));
+
+    if ((flags & WP_LOOKUP_DIR_ENV_TEST_SRCDIR) &&
+        (dir = g_getenv ("G_TEST_SRCDIR")))
+      g_ptr_array_add (dirs, g_canonicalize_filename (dir, NULL));
   }
   else {
     if (flags & WP_LOOKUP_DIR_XDG_CONFIG_HOME) {
