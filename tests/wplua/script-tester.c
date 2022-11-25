@@ -12,7 +12,8 @@ typedef struct {
   WpBaseTestFixture base;
 } ScriptRunnerFixture;
 
-#define METADATA_NAME "test-settings"
+#define TEST_METADATA_NAME "test-settings"
+#define DEFAULT_METADATA_NAME "sm-settings"
 
 static void
 script_runner_setup (ScriptRunnerFixture *f, gconstpointer data)
@@ -30,6 +31,38 @@ script_runner_teardown (ScriptRunnerFixture *f, gconstpointer data)
 }
 
 static void
+load_component (ScriptRunnerFixture *f, const gchar *name, const gchar *type,
+    GVariant *args)
+{
+  g_autofree gchar *component_name = NULL;
+  g_autofree gchar *plugin_name = NULL;
+  g_autoptr (WpPlugin) plugin = NULL;
+  g_autoptr (GError) error = NULL;
+  g_autoptr (WpSiFactory) si = NULL;
+
+  if (g_str_equal (type, "script/lua")) {
+    component_name = g_strdup (name);
+    plugin_name = g_strdup_printf ("script:%s", (const gchar *) name);
+  }
+  else {
+    component_name = g_strdup_printf ("libwireplumber-module-%s", name);
+    plugin_name = g_strdup (name);
+  }
+
+  wp_core_load_component (f->base.core, component_name, type, args, &error);
+  g_assert_no_error (error);
+
+  plugin = wp_plugin_find (f->base.core, plugin_name);
+
+  if (!g_str_has_prefix (name, "si")) {
+    wp_object_activate (WP_OBJECT (plugin), WP_PLUGIN_FEATURE_ENABLED,
+        NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
+
+    g_main_loop_run (f->base.loop);
+  }
+}
+
+static void
 script_run (ScriptRunnerFixture *f, gconstpointer argv)
 {
   g_autoptr (WpPlugin) plugin = NULL;
@@ -38,42 +71,29 @@ script_run (ScriptRunnerFixture *f, gconstpointer argv)
   gchar **args = (gchar **) argv;
   gchar *test_type = args [1];
   gchar *test_script = args [2];
-
+  GVariant *metadata_name = NULL;
   /* TODO: we could do some more stuff here to provide the test script with an
      API to deal with the main loop and test asynchronous stuff, if necessary */
 
-  wp_core_load_component (f->base.core,
-      "libwireplumber-module-lua-scripting", "module", NULL, &error);
-  g_assert_no_error (error);
+  load_component (f, "lua-scripting", "module", NULL);
 
-  plugin = wp_plugin_find (f->base.core, "lua-scripting");
-  wp_object_activate (WP_OBJECT (plugin), WP_PLUGIN_FEATURE_ENABLED,
-      NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
-  g_main_loop_run (f->base.loop);
-  g_clear_object (&plugin);
+  if (g_str_equal (test_type, "policy-tests")) {
+    metadata_name = g_variant_new_string (DEFAULT_METADATA_NAME);
+    load_component (f, "settings", "module", metadata_name);
 
-  {
-    wp_core_load_component (f->base.core,
-        "libwireplumber-module-settings", "module",
-         g_variant_new_string (METADATA_NAME), &error);
-    g_assert_no_error (error);
+    load_component (f, "si-node", "module", NULL);
 
-    plugin = wp_plugin_find (f->base.core, "settings");
-    wp_object_activate (WP_OBJECT (plugin), WP_PLUGIN_FEATURE_ENABLED,
-        NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
-    g_main_loop_run (f->base.loop);
+    load_component (f, "si-audio-adapter", "module", NULL);
+
+    load_component (f, "si-standard-link", "module", NULL);
+
+    load_component (f, "policy-hooks.lua", "script/lua", NULL);
+  } else {
+    metadata_name = g_variant_new_string (TEST_METADATA_NAME);
+    load_component (f, "settings", "module", metadata_name);
   }
-  wp_core_load_component (f->base.core, (const gchar *) test_script, "script/lua",
-      NULL, &error);
-  g_assert_no_error (error);
-
-  pluginname = g_strdup_printf ("script:%s", (const gchar *) test_script);
-
-  plugin = wp_plugin_find (f->base.core, pluginname);
-  g_assert_nonnull (plugin);
-  wp_object_activate (WP_OBJECT (plugin), WP_PLUGIN_FEATURE_ENABLED,
-      NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
-  g_main_loop_run (f->base.loop);
+  /* load the test script */
+  load_component (f, (const gchar *) test_script, "script/lua", NULL);
 }
 
 gint
