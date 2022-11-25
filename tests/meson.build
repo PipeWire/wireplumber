@@ -37,7 +37,7 @@ common_test_env = environment({
   'XDG_STATE_HOME': meson.current_build_dir() / '.local' / 'state',
   'FILE_MONITOR_DIR': meson.current_build_dir() / '.local' / 'file_monitor',
   'WIREPLUMBER_CONFIG_DIR': '/invalid',
-  'WIREPLUMBER_DATA_DIR': '/invalid',
+  'WIREPLUMBER_DATA_DIR': meson.current_source_dir() / '..' / 'src',
   'WIREPLUMBER_MODULE_DIR': meson.current_build_dir() / '..' / 'modules',
   'WIREPLUMBER_DEBUG': '7',
 })
