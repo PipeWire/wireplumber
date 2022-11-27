@@ -14,7 +14,7 @@ test(
 )
 
 script_tester = executable('script-tester',
-    'script-tester.c',
+    '..'/'script-tester.c',
     dependencies: common_deps, c_args: common_args
 )
 
@@ -58,11 +58,5 @@ test(
   'test-lua-event-hooks',
   script_tester,
   args: ['lua-api-tests', 'event-hooks.lua'],
-  env: common_env,
-)
-test(
-  'test-lua-event-policy-hooks',
-  script_tester,
-  args: ['policy-tests', 'policy-hooks.lua'],
   env: common_env,
 )
