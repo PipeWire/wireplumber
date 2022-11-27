@@ -62,6 +62,7 @@ endif
 subdir('wp')
 if build_modules
   subdir('wplua')
+  subdir('scripts')
   subdir('modules')
 endif
 subdir('examples')
