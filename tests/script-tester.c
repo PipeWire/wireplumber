@@ -12,7 +12,7 @@ typedef struct {
   WpBaseTestFixture base;
 } ScriptRunnerFixture;
 
-#define TEST_METADATA_NAME "test-settings"
+#define TEST_METADATA_NAME "sm-settings"
 #define DEFAULT_METADATA_NAME "sm-settings"
 
 static void
@@ -71,15 +71,14 @@ script_run (ScriptRunnerFixture *f, gconstpointer argv)
   gchar **args = (gchar **) argv;
   gchar *test_type = args [1];
   gchar *test_script = args [2];
-  GVariant *metadata_name = NULL;
   /* TODO: we could do some more stuff here to provide the test script with an
      API to deal with the main loop and test asynchronous stuff, if necessary */
 
   load_component (f, "lua-scripting", "module", NULL);
 
+  load_component (f, "settings", "module", NULL);
+
   if (g_str_equal (test_type, "policy-tests")) {
-    metadata_name = g_variant_new_string (DEFAULT_METADATA_NAME);
-    load_component (f, "settings", "module", metadata_name);
 
     load_component (f, "si-node", "module", NULL);
 
@@ -88,10 +87,8 @@ script_run (ScriptRunnerFixture *f, gconstpointer argv)
     load_component (f, "si-standard-link", "module", NULL);
 
     load_component (f, "policy-hooks.lua", "script/lua", NULL);
-  } else {
-    metadata_name = g_variant_new_string (TEST_METADATA_NAME);
-    load_component (f, "settings", "module", metadata_name);
   }
+
   /* load the test script */
   load_component (f, (const gchar *) test_script, "script/lua", NULL);
 }
