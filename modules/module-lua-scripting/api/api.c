@@ -1916,40 +1916,105 @@ static int
 simple_event_hook_new (lua_State *L)
 {
   WpEventHook *hook = NULL;
-  gint priority = 0;
-  gint priority_type = 0;
+  int before_size = 0, after_size = 0, i = 0;
+  const gchar **before, **after;
   const gchar *name;
   GClosure *closure = NULL;
+
+  /* discard any possible arguments after the first one to avoid
+     any surprises when working with absolute stack indices below */
+  lua_settop (L, 1);
 
   /* validate arguments */
   luaL_checktype (L, 1, LUA_TTABLE);
 
-  lua_pushliteral (L, "name");
-  if (lua_gettable (L, 1) != LUA_TSTRING)
+  if (lua_getfield (L, 1, "name") != LUA_TSTRING)
     luaL_error(L, "SimpleEventHook: expected 'name' as string");
-  name = lua_tostring (L, -1);
-  lua_pop (L, 1);
 
-  lua_pushliteral (L, "priority");
-  priority_type = lua_gettable (L, 1);
-  if (priority_type == LUA_TNUMBER)
-    priority = lua_tointeger (L, -1);
-  else
-    luaL_error (L, "SimpleEventHook: expected 'priority' as number");
-  lua_pop (L, 1);
-
-  lua_pushliteral (L, "execute");
-  if (lua_gettable (L, 1) == LUA_TFUNCTION)
-    closure = wplua_function_to_closure (L, -1);
-  else
+  if (lua_getfield (L, 1, "execute") != LUA_TFUNCTION)
     luaL_error (L, "SimpleEventHook: expected 'execute' as function");
-  lua_pop (L, 1);
 
-  hook = wp_simple_event_hook_new (name, priority, closure);
+  switch (lua_getfield (L, 1, "before")) {
+    case LUA_TTABLE:
+      lua_len (L, -1);
+      before_size = lua_tointeger (L, -1);
+      lua_pop (L, 1);
+      break;
+    case LUA_TSTRING:
+      before_size = 1;
+      break;
+    case LUA_TNIL:
+      before_size = 0;
+      break;
+    default:
+      luaL_error(L, "SimpleEventHook: unexpected value type for 'before'; "
+          "should be table or string");
+  }
+
+  switch (lua_getfield (L, 1, "after")) {
+    case LUA_TTABLE:
+      lua_len (L, -1);
+      after_size = lua_tointeger (L, -1);
+      lua_pop (L, 1);
+      break;
+    case LUA_TSTRING:
+      after_size = 1;
+      break;
+    case LUA_TNIL:
+      after_size = 0;
+      break;
+    default:
+      luaL_error(L, "SimpleEventHook: unexpected value type for 'after'; "
+          "should be table or string");
+  }
+
+  /* allocate C stack space for before & after arrays */
+  before = before_size > 0 ?
+      (const gchar **) g_newa (gpointer, before_size + 1) : NULL;
+  after = after_size > 0 ?
+      (const gchar **) g_newa (gpointer, after_size + 1) : NULL;
+
+  /* parse before */
+  if (lua_type (L, 4) == LUA_TTABLE && before_size > 0) {
+    i = 0;
+    lua_pushnil (L);
+    while (lua_next (L, 4) && i < before_size) {
+      before[i++] = luaL_checkstring (L, -1);
+      /* bring the key on top without popping the string value */
+      lua_rotate (L, lua_gettop (L) - 1, 1);
+    }
+    before[i] = NULL;
+  } else if (lua_type (L, 4) == LUA_TSTRING) {
+    before[0] = lua_tostring (L, 4);
+    before[1] = NULL;
+  }
+
+  /* parse after */
+  if (lua_type (L, 5) == LUA_TTABLE && after_size > 0) {
+    i = 0;
+    lua_pushnil (L);
+    while (lua_next (L, 5) && i < after_size - 1) {
+      after[i++] = luaL_checkstring (L, -1);
+      /* bring the key on top without popping the string value */
+      lua_rotate (L, lua_gettop (L) - 1, 1);
+    }
+    after[i] = NULL;
+  } else if (lua_type (L, 5) == LUA_TSTRING) {
+    after[0] = lua_tostring (L, 5);
+    after[1] = NULL;
+  }
+
+  name = lua_tostring (L, 2);
+  closure = wplua_function_to_closure (L, 3);
+
+  hook = wp_simple_event_hook_new (name, before, after, closure);
+
+  /* clear the lua stack now to make some space */
+  lua_settop (L, 1);
+
   wplua_pushobject (L, hook);
 
-  lua_pushliteral (L, "interests");
-  if (lua_gettable (L, 1) == LUA_TTABLE) {
+  if (lua_getfield (L, 1, "interests") == LUA_TTABLE) {
     lua_pushnil (L);
     while (lua_next (L, -2)) {
       WpObjectInterest *interest =
@@ -2090,49 +2155,117 @@ static int
 async_event_hook_new (lua_State *L)
 {
   WpEventHook *hook = NULL;
+  int before_size = 0, after_size = 0, i = 0;
+  const gchar **before, **after;
   const gchar *name;
-  gint priority = 0;
-  gint priority_type = 0;
   GClosure *get_next_step = NULL;
   GClosure *execute_step = NULL;
+
+  /* discard any possible arguments after the first one to avoid
+     any surprises when working with absolute stack indices below */
+  lua_settop (L, 1);
 
   /* validate arguments */
   luaL_checktype (L, 1, LUA_TTABLE);
 
-  lua_pushliteral (L, "name");
-  if (lua_gettable (L, 1) != LUA_TSTRING)
-    luaL_error (L, "AsyncEventHook: expected 'name' as string");
-  name = lua_tostring (L, -1);
-  lua_pop (L, 1);
+  if (lua_getfield (L, 1, "name") != LUA_TSTRING)
+    luaL_error(L, "AsyncEventHook: expected 'name' as string");
 
-  lua_pushliteral (L, "priority");
-  priority_type = lua_gettable(L, 1);
-  if (priority_type == LUA_TNUMBER)
-    priority = lua_tointeger (L, -1);
-  else
-    luaL_error(L, "AsyncEventHook: expected 'priority' as number");
-  lua_pop (L, 1);
-
-  lua_pushliteral (L, "steps");
-  if (lua_gettable (L, 1) != LUA_TTABLE)
+  if (lua_getfield (L, 1, "steps") != LUA_TTABLE)
     luaL_error (L, "AsyncEventHook: expected 'steps' as table");
 
-  async_event_hook_prepare_steps_table (L, -1);
+  switch (lua_getfield (L, 1, "before")) {
+    case LUA_TTABLE:
+      lua_len (L, -1);
+      before_size = lua_tointeger (L, -1);
+      lua_pop (L, 1);
+      break;
+    case LUA_TSTRING:
+      before_size = 1;
+      break;
+    case LUA_TNIL:
+      before_size = 0;
+      break;
+    default:
+      luaL_error(L, "AsyncEventHook: unexpected value type for 'before'; "
+          "should be table or string");
+  }
 
-  lua_pushvalue (L, -1);
+  switch (lua_getfield (L, 1, "after")) {
+    case LUA_TTABLE:
+      lua_len (L, -1);
+      after_size = lua_tointeger (L, -1);
+      lua_pop (L, 1);
+      break;
+    case LUA_TSTRING:
+      after_size = 1;
+      break;
+    case LUA_TNIL:
+      after_size = 0;
+      break;
+    default:
+      luaL_error(L, "AsyncEventHook: unexpected value type for 'after'; "
+          "should be table or string");
+  }
+
+  /* allocate C stack space for before & after arrays */
+  before = before_size > 0 ?
+      (const gchar **) g_newa (gpointer, before_size + 1) : NULL;
+  after = after_size > 0 ?
+      (const gchar **) g_newa (gpointer, after_size + 1) : NULL;
+
+  /* parse before */
+  if (lua_type (L, 4) == LUA_TTABLE && before_size > 0) {
+    i = 0;
+    lua_pushnil (L);
+    while (lua_next (L, 4) && i < before_size) {
+      before[i++] = luaL_checkstring (L, -1);
+      /* bring the key on top without popping the string value */
+      lua_rotate (L, lua_gettop (L) - 1, 1);
+    }
+    before[i] = NULL;
+  } else if (lua_type (L, 4) == LUA_TSTRING) {
+    before[0] = lua_tostring (L, 4);
+    before[1] = NULL;
+  }
+
+  /* parse after */
+  if (lua_type (L, 5) == LUA_TTABLE && after_size > 0) {
+    i = 0;
+    lua_pushnil (L);
+    while (lua_next (L, 5) && i < after_size - 1) {
+      after[i++] = luaL_checkstring (L, -1);
+      /* bring the key on top without popping the string value */
+      lua_rotate (L, lua_gettop (L) - 1, 1);
+    }
+    after[i] = NULL;
+  } else if (lua_type (L, 5) == LUA_TSTRING) {
+    after[0] = lua_tostring (L, 5);
+    after[1] = NULL;
+  }
+
+  name = lua_tostring (L, 2);
+  async_event_hook_prepare_steps_table (L, 3);
+
+  lua_pushvalue (L, 3); /* pass 'steps' table as upvalue */
   lua_pushcclosure (L, async_event_hook_get_next_step, 1);
   get_next_step = wplua_function_to_closure (L, -1);
   lua_pop (L, 1);
 
+  lua_pushvalue (L, 3); /* pass 'steps' table as upvalue */
   lua_pushcclosure (L, async_event_hook_execute_step, 1);
   execute_step = wplua_function_to_closure (L, -1);
   lua_pop (L, 1);
 
-  hook = wp_async_event_hook_new (name, priority, get_next_step, execute_step);
+  hook = wp_async_event_hook_new (name, before, after, get_next_step,
+      execute_step);
+
+  /* clear the lua stack now to make some space */
+  lua_settop (L, 1);
+
   wplua_pushobject (L, hook);
 
-  lua_pushliteral (L, "interests");
-  if (lua_gettable (L, 1) == LUA_TTABLE) {
+  if (lua_getfield (L, 1, "interests") == LUA_TTABLE) {
     lua_pushnil (L);
     while (lua_next (L, -2)) {
       WpObjectInterest *interest =

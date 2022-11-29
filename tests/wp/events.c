@@ -60,39 +60,51 @@ test_events_basic (TestFixture *self, gconstpointer user_data)
   g_autoptr (WpEventDispatcher) dispatcher = NULL;
   g_autoptr (WpEventHook) hook = NULL;
   WpEvent *event1 = NULL, *event2 = NULL, *event3 = NULL;
+  const gchar **before, **after;
 
   dispatcher = wp_event_dispatcher_get_instance (self->base.core);
   g_assert_nonnull (dispatcher);
 
-  hook = wp_simple_event_hook_new ("hook-a", 10,
+  before = (const gchar *[]) { "hook-d", "hook-b", NULL };
+  after = (const gchar *[]) { "hook-c", NULL };
+  hook = wp_simple_event_hook_new ("hook-a", before, after,
     g_cclosure_new ((GCallback) hook_a, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
     WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "type1", NULL);
   wp_event_dispatcher_register_hook (dispatcher, hook);
   g_clear_object (&hook);
 
-  hook = wp_simple_event_hook_new ("hook-b", -200,
+  before = NULL;
+  after = NULL;
+  hook = wp_simple_event_hook_new ("hook-b", before, after,
     g_cclosure_new ((GCallback) hook_b, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
     WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "type1", NULL);
   wp_event_dispatcher_register_hook (dispatcher, hook);
   g_clear_object (&hook);
 
-  hook = wp_simple_event_hook_new ("hook-c", 100,
+  before = NULL;
+  after = NULL;
+  hook = wp_simple_event_hook_new ("hook-c", before, after,
       g_cclosure_new ((GCallback) hook_c, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
     WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "type1", NULL);
   wp_event_dispatcher_register_hook (dispatcher, hook);
   g_clear_object (&hook);
 
-  hook = wp_simple_event_hook_new ("hook-d", 0,
+  /* wrong before/after dependencies shouldn't matter as this hook is not used */
+  before = (const gchar *[]) { "hook-c", "hook-a", NULL };
+  after = (const gchar *[]) { "hook-b", NULL };
+  hook = wp_simple_event_hook_new ("hook-d", before, after,
       g_cclosure_new ((GCallback) hook_d, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
     WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "type2", NULL);
   wp_event_dispatcher_register_hook (dispatcher, hook);
   g_clear_object (&hook);
 
-  hook = wp_simple_event_hook_new ("hook-quit", -1000,
+  before = NULL;
+  after = (const gchar *[]) { "hook-a", "hook-b", "hook-c", "hook-d", NULL };
+  hook = wp_simple_event_hook_new ("hook-quit", before, after,
     g_cclosure_new ((GCallback) hook_quit, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
     WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "type1", NULL);
@@ -219,32 +231,41 @@ test_events_async_hook (TestFixture *self, gconstpointer user_data)
 {
   g_autoptr (WpEventDispatcher) dispatcher = NULL;
   g_autoptr (WpEventHook) hook = NULL;
+  const gchar **before, **after;
 
   dispatcher = wp_event_dispatcher_get_instance (self->base.core);
   g_assert_nonnull (dispatcher);
 
-  hook = wp_simple_event_hook_new ("hook-a", 10,
+  before = NULL;
+  after = NULL;
+  hook = wp_simple_event_hook_new ("hook-a", before, after,
       g_cclosure_new ((GCallback) hook_a, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
     WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "type1", NULL);
   wp_event_dispatcher_register_hook (dispatcher, hook);
   g_clear_object (&hook);
 
-  hook = wp_simple_event_hook_new ("hook-b", -200,
+  before = (const gchar *[]) { "hook-quit", NULL };
+  after = (const gchar *[]) { "hook-a", NULL };
+  hook = wp_simple_event_hook_new ("hook-b", before, after,
       g_cclosure_new ((GCallback) hook_b, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
     WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "type1", NULL);
   wp_event_dispatcher_register_hook (dispatcher, hook);
   g_clear_object (&hook);
 
-  hook = wp_simple_event_hook_new ("hook-c", 100,
+  before = (const gchar *[]) { "hook-a", NULL };
+  after = NULL;
+  hook = wp_simple_event_hook_new ("hook-c", before, after,
       g_cclosure_new ((GCallback) hook_c, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
     WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "type1", NULL);
   wp_event_dispatcher_register_hook (dispatcher, hook);
   g_clear_object (&hook);
 
-  hook = wp_simple_event_hook_new ("hook-quit", -1000,
+  before = NULL;
+  after = NULL;
+  hook = wp_simple_event_hook_new ("hook-quit", before, after,
       g_cclosure_new ((GCallback) hook_quit, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
     WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "type1", NULL);
@@ -253,7 +274,9 @@ test_events_async_hook (TestFixture *self, gconstpointer user_data)
   wp_event_dispatcher_register_hook (dispatcher, hook);
   g_clear_object (&hook);
 
-  hook = wp_async_event_hook_new ("async-test-hook", 50,
+  before = (const gchar *[]) { "hook-a", NULL };
+  after = (const gchar *[]) { "hook-c", NULL };
+  hook = wp_async_event_hook_new ("async-test-hook", before, after,
       g_cclosure_new ((GCallback) async_hook_get_next_step, self, NULL),
       g_cclosure_new ((GCallback) async_hook_execute_step, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
