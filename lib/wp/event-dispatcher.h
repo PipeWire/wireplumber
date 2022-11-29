@@ -9,56 +9,11 @@
 #ifndef __WIREPLUMBER_EVENT_DISPATCHER_H__
 #define __WIREPLUMBER_EVENT_DISPATCHER_H__
 
-#include "properties.h"
-#include "event-hook.h"
 #include "core.h"
+#include "event.h"
+#include "event-hook.h"
 
 G_BEGIN_DECLS
-
-/*! \defgroup wpevent WpEvent */
-/*!
- * \struct WpEvent
- *
- * WpEvent describes an event, an event is an entity which can be pushed on to
- * event stack and the event dispatcher is going to pick and dispatch it.
- *
- */
-#define WP_TYPE_EVENT (wp_event_get_type ())
-WP_API
-GType wp_event_get_type (void) G_GNUC_CONST;
-
-typedef struct _WpEvent WpEvent;
-
-WP_API
-WpEvent * wp_event_new (const gchar * type, gint priority,
-    WpProperties * properties, GObject * source, GObject * subject);
-
-WP_API
-WpEvent * wp_event_ref (WpEvent * self);
-
-WP_API
-void wp_event_unref (WpEvent * self);
-
-WP_API
-WpProperties * wp_event_get_properties (WpEvent * self);
-
-WP_API
-GObject * wp_event_get_source (WpEvent * self);
-
-WP_API
-GObject * wp_event_get_subject (WpEvent * self);
-
-WP_API
-void wp_event_stop_processing (WpEvent * self);
-
-WP_API
-void wp_event_set_data (WpEvent * self, const gchar * key, const GValue * data);
-
-WP_API
-const GValue * wp_event_get_data (WpEvent * self, const gchar * key);
-
-G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpEvent, wp_event_unref)
-
 
 /*! \defgroup wpeventdispatcher WpEventDispatcher */
 /*!
