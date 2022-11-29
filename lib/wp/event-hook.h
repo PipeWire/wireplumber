@@ -17,18 +17,6 @@ G_BEGIN_DECLS
 typedef struct _WpEvent WpEvent;
 typedef struct _WpEventDispatcher WpEventDispatcher;
 
-typedef enum {
-  WP_EVENT_HOOK_PRIORITY_LOWEST = -500,
-  WP_EVENT_HOOK_PRIORITY_ULTRA_LOW = -300,
-  WP_EVENT_HOOK_PRIORITY_VERY_LOW = -200,
-  WP_EVENT_HOOK_PRIORITY_LOW = -100,
-  WP_EVENT_HOOK_PRIORITY_NORMAL = 0,
-  WP_EVENT_HOOK_PRIORITY_HIGH = 100,
-  WP_EVENT_HOOK_PRIORITY_VERY_HIGH = 200,
-  WP_EVENT_HOOK_PRIORITY_ULTRA_HIGH = 300,
-  WP_EVENT_HOOK_PRIORITY_HIGHEST = 500,
-} WpEventHookPriority;
-
 /*! \defgroup wpeventhook WpEventHook */
 /*!
  * \struct WpEventHook
@@ -56,10 +44,13 @@ struct _WpEventHookClass
 };
 
 WP_API
-gint wp_event_hook_get_priority (WpEventHook * self);
+const gchar * wp_event_hook_get_name (WpEventHook * self);
 
 WP_API
-const gchar * wp_event_hook_get_name (WpEventHook * self);
+const gchar * const * wp_event_hook_get_runs_before_hooks (WpEventHook * self);
+
+WP_API
+const gchar * const * wp_event_hook_get_runs_after_hooks (WpEventHook * self);
 
 WP_PRIVATE_API
 WpEventDispatcher * wp_event_hook_get_dispatcher (WpEventHook * self);
@@ -117,7 +108,8 @@ G_DECLARE_FINAL_TYPE (WpSimpleEventHook, wp_simple_event_hook,
                       WP, SIMPLE_EVENT_HOOK, WpInterestEventHook)
 
 WP_API
-WpEventHook * wp_simple_event_hook_new (const gchar *name, gint priority,
+WpEventHook * wp_simple_event_hook_new (const gchar *name,
+    const gchar * before[], const gchar * after[],
     GClosure * closure);
 
 
@@ -131,7 +123,8 @@ G_DECLARE_FINAL_TYPE (WpAsyncEventHook, wp_async_event_hook,
                       WP, ASYNC_EVENT_HOOK, WpInterestEventHook)
 
 WP_API
-WpEventHook * wp_async_event_hook_new (const gchar *name, gint priority,
+WpEventHook * wp_async_event_hook_new (const gchar *name,
+    const gchar * before[], const gchar * after[],
     GClosure * get_next_step, GClosure * execute_step);
 
 G_END_DECLS

@@ -17,15 +17,17 @@
 typedef struct _WpEventHookPrivate WpEventHookPrivate;
 struct _WpEventHookPrivate
 {
-  gint priority;
   GWeakRef dispatcher;
   gchar *name;
+  gchar **before;
+  gchar **after;
 };
 
 enum {
   PROP_0,
   PROP_NAME,
-  PROP_PRIORITY,
+  PROP_RUNS_BEFORE_HOOKS,
+  PROP_RUNS_AFTER_HOOKS,
   PROP_DISPATCHER,
 };
 
@@ -45,6 +47,8 @@ wp_event_hook_finalize (GObject * object)
   WpEventHookPrivate *priv = wp_event_hook_get_instance_private (self);
 
   g_weak_ref_clear (&priv->dispatcher);
+  g_strfreev (priv->before);
+  g_strfreev (priv->after);
   g_free (priv->name);
 
   G_OBJECT_CLASS (wp_event_hook_parent_class)->finalize (object);
@@ -61,8 +65,11 @@ wp_event_hook_set_property (GObject * object, guint property_id,
   case PROP_NAME:
     priv->name = g_value_dup_string (value);
     break;
-  case PROP_PRIORITY:
-    priv->priority = g_value_get_int (value);
+  case PROP_RUNS_BEFORE_HOOKS:
+    priv->before = g_value_dup_boxed (value);
+    break;
+  case PROP_RUNS_AFTER_HOOKS:
+    priv->after = g_value_dup_boxed (value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -81,8 +88,11 @@ wp_event_hook_get_property (GObject * object, guint property_id, GValue * value,
   case PROP_NAME:
     g_value_set_string (value, priv->name);
     break;
-  case PROP_PRIORITY:
-    g_value_set_int (value, priv->priority);
+  case PROP_RUNS_BEFORE_HOOKS:
+    g_value_set_boxed (value, priv->before);
+    break;
+  case PROP_RUNS_AFTER_HOOKS:
+    g_value_set_boxed (value, priv->after);
     break;
   case PROP_DISPATCHER:
     g_value_take_object (value, wp_event_hook_get_dispatcher (self));
@@ -106,30 +116,20 @@ wp_event_hook_class_init (WpEventHookClass * klass)
       g_param_spec_string ("name", "name", "The hook name", "",
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
-  g_object_class_install_property (object_class, PROP_PRIORITY,
-      g_param_spec_int ("priority", "priority",
-          "The priority of the hook", -G_MAXINT, G_MAXINT, 0,
+  g_object_class_install_property (object_class, PROP_RUNS_BEFORE_HOOKS,
+      g_param_spec_boxed ("runs-before-hooks", "runs-before-hooks",
+          "runs-before-hooks", G_TYPE_STRV,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (object_class, PROP_RUNS_AFTER_HOOKS,
+      g_param_spec_boxed ("runs-after-hooks", "runs-after-hooks",
+          "runs-after-hooks", G_TYPE_STRV,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (object_class, PROP_DISPATCHER,
       g_param_spec_object ("dispatcher", "dispatcher",
           "The associated event dispatcher", WP_TYPE_EVENT_DISPATCHER,
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
-}
-
-/*!
- * \brief Returns the priority of the hook
- *
- * \ingroup wpeventhook
- * \param self the event hook
- * \return the event hook priority
- */
-gint
-wp_event_hook_get_priority (WpEventHook * self)
-{
-  g_return_val_if_fail (WP_IS_EVENT_HOOK (self), 0);
-  WpEventHookPrivate *priv = wp_event_hook_get_instance_private (self);
-  return priv->priority;
 }
 
 /*!
@@ -145,6 +145,40 @@ wp_event_hook_get_name (WpEventHook * self)
   g_return_val_if_fail (WP_IS_EVENT_HOOK (self), 0);
   WpEventHookPrivate *priv = wp_event_hook_get_instance_private (self);
   return priv->name;
+}
+
+/*!
+ * \brief Returns the names of the hooks that should run after this hook,
+ *    or in other words, this hook should run before them
+ *
+ * \ingroup wpeventhook
+ * \param self the event hook
+ * \return (array zero-terminated=1)(element-type utf8)(transfer none):
+ *    a NULL-terminated array of hook names
+ */
+const gchar * const *
+wp_event_hook_get_runs_before_hooks (WpEventHook * self)
+{
+  g_return_val_if_fail (WP_IS_EVENT_HOOK (self), NULL);
+  WpEventHookPrivate *priv = wp_event_hook_get_instance_private (self);
+  return (const gchar * const *) priv->before;
+}
+
+/*!
+ * \brief Returns the names of the hooks that should run before this hook,
+ *    or in other words, this hook should run after them
+ *
+ * \ingroup wpeventhook
+ * \param self the event hook
+ * \return (array zero-terminated=1)(element-type utf8)(transfer none):
+ *    a NULL-terminated array of hook names
+ */
+const gchar * const *
+wp_event_hook_get_runs_after_hooks (WpEventHook * self)
+{
+  g_return_val_if_fail (WP_IS_EVENT_HOOK (self), NULL);
+  WpEventHookPrivate *priv = wp_event_hook_get_instance_private (self);
+  return (const gchar * const *) priv->after;
 }
 
 /*!
@@ -471,20 +505,25 @@ wp_simple_event_hook_class_init (WpSimpleEventHookClass * klass)
  * \brief Constructs a new simple event hook
  *
  * \param name the name of the hook
- * \param priority the priority of the hook
+ * \param before (array zero-terminated=1)(element-type utf8)(transfer none)(nullable):
+ *    an array of hook names that should run after this hook
+ * \param after (array zero-terminated=1)(element-type utf8)(transfer none)(nullable):
+ *    an array of hook names that should run before this hook
  * \param closure the closure to invoke when the hook is executed; the closure
  *   should accept two parameters: the event dispatcher and the event, returning
  *   nothing
  * \return a new simple event hook
  */
 WpEventHook *
-wp_simple_event_hook_new (const gchar *name, gint priority, GClosure * closure)
+wp_simple_event_hook_new (const gchar *name,
+    const gchar * before[], const gchar * after[], GClosure * closure)
 {
   g_return_val_if_fail (closure != NULL, NULL);
 
   return g_object_new (WP_TYPE_SIMPLE_EVENT_HOOK,
       "name", name,
-      "priority", priority,
+      "runs-before-hooks", before,
+      "runs-after-hooks", after,
       "closure", closure,
       NULL);
 }
@@ -611,13 +650,17 @@ wp_async_event_hook_class_init (WpAsyncEventHookClass * klass)
  * \brief Constructs a new async event hook
  *
  * \param name the name of the hook
- * \param priority the priority of the hook
+ * \param before (array zero-terminated=1)(element-type utf8)(transfer none)(nullable):
+ *    an array of hook names that should run after this hook
+ * \param after (array zero-terminated=1)(element-type utf8)(transfer none)(nullable):
+ *    an array of hook names that should run before this hook
  * \param get_next_step the closure to invoke to get the next step
  * \param execute_step the closure to invoke to execute the step
  * \return a new async event hook
  */
 WpEventHook *
-wp_async_event_hook_new (const gchar *name, gint priority,
+wp_async_event_hook_new (const gchar *name,
+    const gchar * before[], const gchar * after[],
     GClosure * get_next_step, GClosure * execute_step)
 {
   g_return_val_if_fail (get_next_step != NULL, NULL);
@@ -625,7 +668,8 @@ wp_async_event_hook_new (const gchar *name, gint priority,
 
   return g_object_new (WP_TYPE_ASYNC_EVENT_HOOK,
       "name", name,
-      "priority", priority,
+      "runs-before-hooks", before,
+      "runs-after-hooks", after,
       "get-next-step", get_next_step,
       "execute-step", execute_step,
       NULL);

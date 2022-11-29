@@ -592,7 +592,7 @@ wp_default_nodes_enable (WpPlugin * plugin, WpTransition * transition)
 
   /* default metadata added */
   hook = wp_simple_event_hook_new ("metadata-added@default-nodes",
-      WP_EVENT_HOOK_PRIORITY_NORMAL,
+      NULL, NULL,
       g_cclosure_new ((GCallback) on_metadata_added, self, NULL));
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "metadata-added",
@@ -603,7 +603,7 @@ wp_default_nodes_enable (WpPlugin * plugin, WpTransition * transition)
 
   /* default metadata changed */
   hook = wp_simple_event_hook_new ("metadata-changed@default-nodes",
-      WP_EVENT_HOOK_PRIORITY_NORMAL,
+      NULL, NULL,
       g_cclosure_new ((GCallback) on_metadata_changed, self, NULL));
 
   wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
@@ -632,7 +632,7 @@ wp_default_nodes_enable (WpPlugin * plugin, WpTransition * transition)
 
   /* register rescan hook as an after event */
   hook = wp_simple_event_hook_new("rescan@default-nodes",
-      WP_EVENT_HOOK_PRIORITY_NORMAL,
+      NULL, NULL,
       g_cclosure_new ((GCallback) rescan, self, NULL));
 
   /* default.configured.audio.sink changed */
