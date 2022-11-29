@@ -14,11 +14,12 @@ local function check_results()
     return i
   end
 
+  assert(tags[inc()] == "simple-first")
   assert(tags[inc()] == "simple-1")
   assert(tags[inc()] == "async-start")
   assert(tags[inc()] == "async-start-advance")
   assert(tags[inc()] == "async-step2")
-  assert(tags[inc()] == "simple-2")
+  assert(tags[inc()] == "simple-last")
 end
 
 local common_interests = {
@@ -29,7 +30,8 @@ local common_interests = {
 
 AsyncEventHook {
   name = "test-async-hook",
-  priority = 10,
+  before = "test-last-hook" ,
+  after = { "test-first-hook", "test-simple-hook" },
   interests = common_interests,
   steps = {
     start = {
@@ -54,8 +56,18 @@ AsyncEventHook {
 }:register()
 
 SimpleEventHook {
+  name = "test-first-hook",
+  before = { "test-simple-hook", "test-last-hook" },
+  interests = common_interests,
+  execute = function (event)
+    checkpoint("simple-first")
+  end
+}:register()
+
+SimpleEventHook {
   name = "test-simple-hook",
-  priority = 15,
+  after = { "test-first-hook" },
+  before = {},
   interests = common_interests,
   execute = function (event)
     checkpoint("simple-1")
@@ -64,10 +76,9 @@ SimpleEventHook {
 
 SimpleEventHook {
   name = "test-last-hook",
-  priority = -1000,
   interests = common_interests,
   execute = function (event)
-    checkpoint("simple-2")
+    checkpoint("simple-last")
     check_results()
     Script:finish_activation()
   end
