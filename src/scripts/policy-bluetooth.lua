@@ -387,7 +387,6 @@ end
 
 SimpleEventHook {
   name = "input-stream-removed@policy-bluetooth",
-  priority = HookPriority.NORMAL,
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "node-removed" },
@@ -404,7 +403,6 @@ SimpleEventHook {
 
 SimpleEventHook {
   name = "input-stream-changed@policy-bluetooth",
-  priority = HookPriority.NORMAL,
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "node-state-changed" },
@@ -426,7 +424,6 @@ SimpleEventHook {
 
 SimpleEventHook {
   name = "bluez-device-added@policy-bluetooth",
-  priority = HookPriority.VERY_LOW,
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "device-added" },
@@ -445,7 +442,6 @@ SimpleEventHook {
 
 SimpleEventHook {
   name = "metadata-changed@policy-bluetooth",
-  priority = HookPriority.VERY_LOW,
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "metadata-changed" },

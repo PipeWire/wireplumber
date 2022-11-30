@@ -13,7 +13,7 @@ local cutils = require ("common-utils")
 
 SimpleEventHook {
   name = "prepare-link@policy-desktop",
-  priority = HookPriority.VERY_LOW,
+  after = "find-best-target@policy-desktop",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "find-target-si-and-link" },
