@@ -31,8 +31,7 @@ function checkLinkable (si, om, handle_nonstreams)
 end
 
 SimpleEventHook {
-  name = "linkable-removed@policy-node",
-  priority = HookPriority.VERY_LOW,
+  name = "linkable-removed@policy-desktop",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "session-item-removed" },
@@ -79,9 +78,6 @@ SimpleEventHook {
 
 SimpleEventHook {
   name = "rescan-session@policy-desktop",
-  -- let higher priority hooks deal with preparing the graph first
-  -- (things like finding the default nodes, etc...)
-  priority = HookPriority.VERY_LOW,
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "rescan-session" },
@@ -116,9 +112,6 @@ SimpleEventHook {
 
 SimpleEventHook {
   name = "rescan-trigger@policy-desktop",
-  -- go with a low priority to allow NORMAL handlers
-  -- to stop the event and prevent the rescan
-  priority = HookPriority.VERY_LOW,
   interests = {
     -- on linkable added or removed, where linkable is adapter or plain node
     EventInterest {

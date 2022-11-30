@@ -9,7 +9,6 @@ sources = {}
 
 SimpleEventHook {
   name = "suspend-node",
-  priority = HookPriority.NORMAL,
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "node-state-changed" },
