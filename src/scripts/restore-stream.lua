@@ -345,7 +345,6 @@ local function handleRestoreTargetSetting (enable)
     -- save "targe.node" if it is present in default metadata
     restore_target_hook_handles [1] = SimpleEventHook {
       name = "metadata-added@restore-stream-save-target",
-      priority = HookPriority.ULTRA_LOW,
       interests = {
         EventInterest {
           Constraint { "event.type", "=", "metadata-added" },
@@ -365,7 +364,6 @@ local function handleRestoreTargetSetting (enable)
     -- save "target.node" on metadata changes
     restore_target_hook_handles [2] = SimpleEventHook {
       name = "metadata-changed@restore-stream-save-target",
-      priority = HookPriority.ULTRA_LOW,
       interests = {
           EventInterest {
             Constraint { "event.type", "=", "metadata-changed" },
@@ -466,7 +464,6 @@ local function handleRestoreStreamSetting (enable)
     -- restore-stream properties
     restore_stream_hook_handles [1] = SimpleEventHook {
       name = "node-added@restore-stream",
-      priority = HookPriority.NORMAL,
       interests = {
         EventInterest {
           Constraint { "event.type", "=", "node-added" },
@@ -492,7 +489,6 @@ local function handleRestoreStreamSetting (enable)
     -- save-stream if any of the stream parms changes
     restore_stream_hook_handles [2] = SimpleEventHook {
       name = "node-parms-changed@restore-stream-save-stream",
-      priority = HookPriority.NORMAL,
       interests = {
         EventInterest {
           Constraint { "event.type", "=", "node-params-changed" },

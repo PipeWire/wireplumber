@@ -103,7 +103,6 @@ end
 
 SimpleEventHook {
   name = "handle-profiles@policy-device-profile",
-  priority = HookPriority.LOW,
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "device-added" },
@@ -165,7 +164,6 @@ SimpleEventHook {
 
 SimpleEventHook {
   name = "device-removed@policy-device-profile",
-  priority = HookPriority.NORMAL,
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "device-removed" },

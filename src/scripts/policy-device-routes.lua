@@ -469,7 +469,6 @@ end
 
 SimpleEventHook {
   name = "handle-device@device-routes",
-  priority = HookPriority.ULTRA_LOW,
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "objects-changed" },
@@ -510,7 +509,6 @@ SimpleEventHook {
 
 SimpleEventHook {
   name = "handle-device@device-routes",
-  priority = HookPriority.ULTRA_LOW,
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "device-params-changed" },
