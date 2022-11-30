@@ -184,6 +184,7 @@ wp_standard_event_source_push_event (WpStandardEventSource *self,
   g_autoptr (WpEventDispatcher) dispatcher =
       wp_event_dispatcher_get_instance (core);
   g_return_if_fail (dispatcher);
+  g_autoptr (WpEvent) event = NULL;
   g_autoptr (WpProperties) properties = wp_properties_new_empty ();
   g_autofree gchar *full_event_type = NULL;
 
@@ -204,9 +205,20 @@ wp_standard_event_source_push_event (WpStandardEventSource *self,
       "pushing event '%s', prio %d, subject " WP_OBJECT_FORMAT " (%s)",
       event_type, priority, WP_OBJECT_ARGS (subject), subject_type);
 
-  wp_event_dispatcher_push_event (dispatcher, wp_event_new (
-      event_type, priority, g_steal_pointer (&properties),
-      G_OBJECT (self), G_OBJECT (subject)));
+  event = wp_event_new (event_type, priority, g_steal_pointer (&properties),
+      G_OBJECT (self), G_OBJECT (subject));
+
+  /* watch for subject pw-proxy-destroyed and cancel event,
+     unless this is a "removed" event, in which case we expect the proxy
+     to be destroyed and the event should still go through */
+  if (subject && !g_str_has_suffix (event_type, "-removed")
+        && g_type_is_a (G_OBJECT_TYPE (subject), WP_TYPE_PROXY)) {
+    g_signal_connect_object (subject, "pw-proxy-destroyed",
+        (GCallback) g_cancellable_cancel, wp_event_get_cancellable (event),
+        G_CONNECT_SWAPPED);
+  }
+
+  wp_event_dispatcher_push_event (dispatcher, g_steal_pointer (&event));
 }
 
 static void
