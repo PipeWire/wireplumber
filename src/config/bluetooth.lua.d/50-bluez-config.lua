@@ -34,6 +34,9 @@ bluez_monitor.properties = {
   --   'Device' property of org.freedesktop.ModemManager1.Modem interface
   --["bluez5.hfphsp-backend-native-modem"] = "none",
 
+  -- HFP/HSP hardware offload SCO support (default: false).
+  --["bluez5.hw-offload-sco"] = false,
+
   -- Properties for the A2DP codec configuration
   --["bluez5.default.rate"] = 48000,
   --["bluez5.default.channels"] = 2,

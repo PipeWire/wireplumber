@@ -7,6 +7,20 @@
 
 local config = ... or {}
 
+devices_om = ObjectManager {
+  Interest {
+    type = "device",
+  }
+}
+
+nodes_om = ObjectManager {
+  Interest {
+    type = "node",
+    Constraint { "node.name", "#", "*.bluez_*put*"},
+    Constraint { "device.id", "+" },
+  }
+}
+
 -- preprocess rules and create Interest objects
 for _, r in ipairs(config.rules or {}) do
   r.interests = {}
@@ -37,8 +51,104 @@ function rulesApplyProperties(properties)
   end
 end
 
+function setOffloadActive(device, value)
+  local pod = Pod.Object {
+    "Spa:Pod:Object:Param:Props", "Props", bluetoothOffloadActive = value
+  }
+  device:set_params("Props", pod)
+end
+
+nodes_om:connect("object-added", function(_, node)
+  node:connect("state-changed", function(node, old_state, cur_state)
+    local interest = Interest {
+      type = "device",
+      Constraint { "object.id", "=", node.properties["device.id"]}
+    }
+    for d in devices_om:iterate (interest) do
+      if cur_state == "running" then
+        setOffloadActive(d, true)
+      else
+        setOffloadActive(d, false)
+      end
+    end
+  end)
+end)
+
+function createOffloadScoNode(parent, id, type, factory, properties)
+  local dev_props = parent.properties
+
+  local args = {
+    ["audio.channels"] = 1,
+    ["audio.position"] = "[MONO]",
+  }
+
+  local desc =
+      dev_props["device.description"]
+      or dev_props["device.name"]
+      or dev_props["device.nick"]
+      or dev_props["device.alias"]
+      or "bluetooth-device"
+  -- sanitize description, replace ':' with ' '
+  args["node.description"] = desc:gsub("(:)", " ")
+
+  if factory:find("sink") then
+    local capture_args = {
+      ["device.id"] = parent["bound-id"],
+      ["media.class"] = "Audio/Sink",
+      ["node.pause-on-idle"] = false,
+    }
+    for k, v in pairs(properties) do
+      capture_args[k] = v
+    end
+
+    local name = "bluez_output" .. "." .. (properties["api.bluez5.address"] or dev_props["device.name"]) .. "." .. tostring(id)
+    args["node.name"] = name:gsub("([^%w_%-%.])", "_")
+    args["capture.props"] = Json.Object(capture_args)
+    args["playback.props"] = Json.Object {
+      ["node.passive"] = true,
+      ["node.pause-on-idle"] = false,
+    }
+  elseif factory:find("source") then
+    local playback_args = {
+      ["device.id"] = parent["bound-id"],
+      ["media.class"] = "Audio/Source",
+      ["node.pause-on-idle"] = false,
+    }
+    for k, v in pairs(properties) do
+      playback_args[k] = v
+    end
+
+    local name = "bluez_input" .. "." .. (properties["api.bluez5.address"] or dev_props["device.name"]) .. "." .. tostring(id)
+    args["node.name"] = name:gsub("([^%w_%-%.])", "_")
+    args["capture.props"] = Json.Object {
+      ["node.passive"] = true,
+      ["node.pause-on-idle"] = false,
+    }
+    args["playback.props"] = Json.Object(playback_args)
+  else
+    Log.warning(parent, "Unsupported factory: " .. factory)
+    return
+  end
+
+  -- Transform 'args' to a json object here
+  local args_json = Json.Object(args)
+
+  -- and get the final JSON as a string from the json object
+  local args_string = args_json:get_data()
+
+  local loopback_properties = {}
+
+  local loopback = LocalModule("libpipewire-module-loopback", args_string, loopback_properties)
+  parent:store_managed_object(id, loopback)
+end
+
 function createNode(parent, id, type, factory, properties)
   local dev_props = parent.properties
+
+  if config.properties["bluez5.hw-offload-sco"] and factory:find("sco") then
+    createOffloadScoNode(parent, id, type, factory, properties)
+    return
+  end
 
   -- set the device id and spa factory name; REQUIRED, do not change
   properties["device.id"] = parent["bound-id"]
@@ -192,3 +302,6 @@ if logind_plugin then
 else
   monitor = createMonitor()
 end
+
+nodes_om:activate()
+devices_om:activate()
