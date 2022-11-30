@@ -182,6 +182,24 @@ function saveTarget(subject, target_key, type, value)
 end
 
 function restoreTarget(node, target_name)
+
+  local stream_props = node.properties
+  local target_in_props = nil
+
+  if stream_props ["target.object"] ~= nil or
+      stream_props ["node.target"] ~= nil then
+    target_in_props = stream_props ["target.object"] or
+        stream_props ["node.target"]
+
+    Log.debug (string.format ("%s%s%s%s",
+      "Not restoring the target for ",
+      stream_props ["node.name"],
+      " because it is already set to ",
+      target_in_props))
+
+    return
+  end
+
   local target_node = allnodes_om:lookup {
     Constraint { "node.name", "=", target_name, type = "pw" }
   }
