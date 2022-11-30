@@ -276,7 +276,8 @@ wp_metadata_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
   pw_metadata_add_listener (priv->iface, &priv->listener,
       &metadata_events, self);
   priv->remove_listener = TRUE;
-  wp_core_sync (core, NULL, (GAsyncReadyCallback) initial_sync_done, self);
+  wp_core_sync_closure (core, NULL,
+      g_cclosure_new_object ((GCallback) initial_sync_done, G_OBJECT (self)));
 }
 
 static void
