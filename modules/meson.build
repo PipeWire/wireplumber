@@ -26,17 +26,6 @@ shared_library(
 )
 
 shared_library(
-  'wireplumber-module-default-profile',
-  [
-    'module-default-profile.c',
-  ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-default-profile"'],
-  install : true,
-  install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep, pipewire_dep],
-)
-
-shared_library(
   'wireplumber-module-default-nodes',
   [
     'module-default-nodes.c',
