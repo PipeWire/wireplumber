@@ -199,12 +199,19 @@ si_audio_adapter_find_format (WpSiAudioAdapter * self, WpNode * node)
           wp_proxy_get_bound_id (WP_PROXY (node)));
       self->have_encoded = TRUE;
       break;
-    default:
+    default: {
+      enum spa_audio_format audio_format;
+      if (spa_pod_parse_object(wp_spa_pod_get_spa_pod (pod),
+                               SPA_TYPE_OBJECT_Format, NULL,
+                               SPA_FORMAT_AUDIO_format,   SPA_POD_OPT_Id(&audio_format)) >= 0) {
+        self->have_encoded = (audio_format == SPA_AUDIO_FORMAT_ENCODED);
+      }
       break;
+    }
     }
   }
   if (!have_format && self->have_encoded) {
-    wp_info_object (self, ".. passthrough IEC958/DSD only");
+    wp_info_object (self, ".. passthrough IEC958/DSD/encoded only");
     self->encoded_only = TRUE;
     have_format = TRUE;
   }
