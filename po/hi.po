@@ -1,30 +1,23 @@
-# translation of pipewire.master-tx.po to Hindi
+# translation of Wireplumber.master to Hindi
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # Rajesh Ranjan <rajesh672@gmail.com>, 2009, 2012.
-#
+# Hemish <hemish04082005@gmail.com>, 2022
+
 msgid ""
 msgstr ""
 "Project-Id-Version: pipewire.master-tx\n"
-"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/"
-"issues/new\n"
-"POT-Creation-Date: 2022-04-09 15:19+0300\n"
-"PO-Revision-Date: 2012-01-30 09:54+0000\n"
-"Last-Translator: Rajesh Ranjan <rajesh672@gmail.com>\n"
-"Language-Team: Hindi <hindi.sf.net>\n"
+"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/-/"
+"issues\n"
+"POT-Creation-Date: 2022-07-08 03:32+0000\n"
+"PO-Revision-Date: 2022-12-04 12:27+0530\n"
+"Last-Translator: Hemish <hemish04082005@gmail.com>\n"
+"Language-Team: Hindi <indlinux-hindi@lists.sourceforge.net> https://indlinux.org/hindi\n"
 "Language: hi\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Generator: KBabel 1.11.4\n"
 "Plural-Forms: nplurals=2; plural=(n!=1);\n"
-"\n"
-"\n"
-"\n"
-"\n"
-"\n"
-"\n"
-"\n"
 
 #. WirePlumber
 #.
@@ -32,32 +25,19 @@ msgstr ""
 #. @author George Kiagiadakis <george.kiagiadakis@collabora.com>
 #.
 #. SPDX-License-Identifier: MIT
-#. Receive script arguments from config.lua
-#. ensure config.properties is not nil
-#. preprocess rules and create Interest objects
-#. applies properties from config.rules when asked to
-#. set the device id and spa factory name; REQUIRED, do not change
-#. set the default pause-on-idle setting
-#. try to negotiate the max ammount of channels
-#. set priority
-#. ensure the node has a media class
-#. ensure the node has a name
-#. sanitize name
-#. deduplicate nodes with the same name
-#. and a nick
-#. also sanitize nick, replace ':' with ' '
-#. ensure the node has a description
-#. also sanitize description, replace ':' with ' '
-#. add api.alsa.card.* properties for rule matching purposes
-#. apply properties from config.rules
-#. create the node
-#. ensure the device has an appropriate name
-#. deduplicate devices with the same name
-#. ensure the device has a description
-#: src/scripts/monitors/alsa.lua:222
+
+#: src/scripts/monitors/alsa.lua:228
 msgid "Built-in Audio"
 msgstr "आंतरिक ऑडियो"
 
-#: src/scripts/monitors/alsa.lua:224
+#: src/scripts/monitors/alsa.lua:230
 msgid "Modem"
 msgstr "मॉडेम"
+
+#: src/scripts/monitors/libcamera.lua:88
+msgid "Built-in Front Camera"
+msgstr "आंतरिक आगे का कैमरा"
+
+#: src/scripts/monitors/libcamera.lua:90
+msgid "Built-in Back Camera"
+msgstr "आंतरिक पीछे का कैमरा"
