@@ -113,7 +113,8 @@ json = Json.Object {
     key7 = Json.Object {
       key_nested1 = "nested",
       key_nested2 = 8,
-      key_nested3 = Json.Array {false, true, false}
+      key_nested3 = Json.Array {false, true, false},
+      ["Key with spaces and (special % characters)"] = 50.0,
     }
 }
 assert (json:is_object())
@@ -131,6 +132,7 @@ assert (val.key7.key_nested2 == 8)
 assert (not val.key7.key_nested3[1])
 assert (val.key7.key_nested3[2])
 assert (not val.key7.key_nested3[3])
+assert (val.key7["Key with spaces and (special % characters)"] == 50.0)
 
 -- Raw
 json = Json.Raw ("[\"foo\", \"bar\"]")
