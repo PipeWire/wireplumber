@@ -964,9 +964,7 @@ end)
 
 linkables_om:connect("object-removed", function (om, si)
   unhandleLinkable (si)
-  if si.properties["item.node.type"] ~= "stream" then
-    scheduleRescan ()
-  end
+  scheduleRescan ()
 end)
 
 devices_om:connect("object-added", function (om, device)
