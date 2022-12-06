@@ -381,6 +381,7 @@ wp_object_manager_get_n_objects (WpObjectManager * self)
 struct om_iterator_data
 {
   WpObjectManager *om;
+  GPtrArray *objects;
   WpObjectInterest *interest;
   guint index;
 };
@@ -396,10 +397,9 @@ static gboolean
 om_iterator_next (WpIterator *it, GValue *item)
 {
   struct om_iterator_data *it_data = wp_iterator_get_user_data (it);
-  GPtrArray *objects = it_data->om->objects;
 
-  while (it_data->index < objects->len) {
-    gpointer obj = g_ptr_array_index (objects, it_data->index++);
+  while (it_data->index < it_data->objects->len) {
+    gpointer obj = g_ptr_array_index (it_data->objects, it_data->index++);
 
     /* take the next object that matches the interest, if any */
     if (!it_data->interest ||
@@ -419,8 +419,8 @@ om_iterator_fold (WpIterator *it, WpIteratorFoldFunc func, GValue *ret,
   gpointer *obj, *base;
   guint len;
 
-  obj = base = it_data->om->objects->pdata;
-  len = it_data->om->objects->len;
+  obj = base = it_data->objects->pdata;
+  len = it_data->objects->len;
 
   while ((obj - base) < len) {
     /* only pass matching objects to the fold func if we have an interest */
@@ -440,6 +440,7 @@ static void
 om_iterator_finalize (WpIterator *it)
 {
   struct om_iterator_data *it_data = wp_iterator_get_user_data (it);
+  g_clear_pointer (&it_data->objects, g_ptr_array_unref);
   g_clear_pointer (&it_data->interest, wp_object_interest_unref);
   g_object_unref (it_data->om);
 }
@@ -470,6 +471,7 @@ wp_object_manager_new_iterator (WpObjectManager * self)
   it = wp_iterator_new (&om_iterator_methods, sizeof (struct om_iterator_data));
   it_data = wp_iterator_get_user_data (it);
   it_data->om = g_object_ref (self);
+  it_data->objects = g_ptr_array_copy (self->objects, NULL, NULL);
   it_data->index = 0;
   return it;
 }
@@ -537,6 +539,7 @@ wp_object_manager_new_filtered_iterator_full (WpObjectManager * self,
   it = wp_iterator_new (&om_iterator_methods, sizeof (struct om_iterator_data));
   it_data = wp_iterator_get_user_data (it);
   it_data->om = g_object_ref (self);
+  it_data->objects = g_ptr_array_copy (self->objects, NULL, NULL);
   it_data->interest = interest;
   it_data->index = 0;
   return it;
