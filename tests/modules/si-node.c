@@ -31,8 +31,6 @@ test_si_node_setup (TestFixture * f, gconstpointer user_data)
         wp_test_server_locker_new (&f->base.server);
 
     g_assert_cmpint (pw_context_add_spa_lib (f->base.server.context,
-            "fake*", "test/libspa-test"), ==, 0);
-    g_assert_cmpint (pw_context_add_spa_lib (f->base.server.context,
             "audiotestsrc", "audiotestsrc/libspa-audiotestsrc"), ==, 0);
     g_assert_nonnull (pw_context_load_module (f->base.server.context,
             "libpipewire-module-spa-node-factory", NULL, NULL));
@@ -188,11 +186,8 @@ main (gint argc, gchar *argv[])
 
   /* data */
 
-  const TestData fakesink_data = {
-    "fakesink", "fakesink0", "Fake/Sink", "Fake/Sink", WP_DIRECTION_INPUT
-  };
-  const TestData fakesrc_data = {
-    "fakesrc", "fakesrc0", "Fake/Source", "Fake/Source", WP_DIRECTION_OUTPUT
+  const TestData nullsink_data = {
+    "support.null-audio-sink", "nullsink0", "Fake/Sink", "Fake/Sink", WP_DIRECTION_INPUT
   };
   const TestData audiotestsrc_data = {
     "audiotestsrc", "audiotestsrc0", "Audio/Source", "Audio/Source", WP_DIRECTION_OUTPUT
@@ -200,14 +195,8 @@ main (gint argc, gchar *argv[])
 
   /* configure-activate */
 
-  g_test_add ("/modules/si-node/configure-activate/fakesink",
-      TestFixture, &fakesink_data,
-      test_si_node_setup,
-      test_si_node_configure_activate,
-      test_si_node_teardown);
-
-  g_test_add ("/modules/si-node/configure-activate/fakesrc",
-      TestFixture, &fakesrc_data,
+  g_test_add ("/modules/si-node/configure-activate/nullsink",
+      TestFixture, &nullsink_data,
       test_si_node_setup,
       test_si_node_configure_activate,
       test_si_node_teardown);

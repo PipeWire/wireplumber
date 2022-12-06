@@ -262,21 +262,16 @@ test_enum_params_error (TestFixture *f, gconstpointer data)
         wp_test_server_locker_new (&f->base.server);
 
     g_assert_cmpint (pw_context_add_spa_lib (f->base.server.context,
-            "fake*", "test/libspa-test"), ==, 0);
-    if (!test_is_spa_lib_installed (&f->base, "fakesink")) {
-      g_test_skip ("The pipewire fakesink factory was not found");
-      return;
-    }
-
+            "audiotestsrc", "audiotestsrc/libspa-audiotestsrc"), ==, 0);
     g_assert_nonnull (pw_context_load_module (f->base.server.context,
-            "libpipewire-module-spa-node-factory", NULL, NULL));
+            "libpipewire-module-adapter", NULL, NULL));
   }
 
   node = wp_node_new_from_factory (f->base.core,
-      "spa-node-factory",
+      "adapter",
       wp_properties_new (
-          "factory.name", "fakesink",
-          "node.name", "Fakesink",
+          "factory.name", "audiotestsrc",
+          "node.name", "audiotestsrc",
           NULL));
   g_assert_nonnull (node);
 
@@ -284,7 +279,7 @@ test_enum_params_error (TestFixture *f, gconstpointer data)
       NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
   g_main_loop_run (f->base.loop);
 
-  /* EnumRoute doesn't exist on fakesink, obviously */
+  /* EnumRoute doesn't exist on audiotestsrc, obviously */
   wp_pipewire_object_enum_params (WP_PIPEWIRE_OBJECT (node), "EnumRoute", NULL,
       NULL, (GAsyncReadyCallback) enum_params_error_cb, f);
   g_main_loop_run (f->base.loop);

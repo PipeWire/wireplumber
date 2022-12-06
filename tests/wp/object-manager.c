@@ -31,28 +31,23 @@ test_om_interest_on_pw_props (TestFixture *f, gconstpointer user_data)
   g_autoptr (WpNode) node = NULL;
   g_autoptr (WpObjectManager) om = NULL;
 
-  /* load audiotestsrc on the server side */
+  /* load modules on the server side */
   {
     g_autoptr (WpTestServerLocker) lock =
         wp_test_server_locker_new (&f->base.server);
 
     g_assert_cmpint (pw_context_add_spa_lib (f->base.server.context,
-            "fake*", "test/libspa-test"), ==, 0);
-    if (!test_is_spa_lib_installed (&f->base, "fakesink")) {
-      g_test_skip ("The pipewire fakesink factory was not found");
-      return;
-    }
-
+            "audiotestsrc", "audiotestsrc/libspa-audiotestsrc"), ==, 0);
     g_assert_nonnull (pw_context_load_module (f->base.server.context,
-            "libpipewire-module-spa-node-factory", NULL, NULL));
+            "libpipewire-module-adapter", NULL, NULL));
   }
 
   /* export node on the client core */
   node = wp_node_new_from_factory (f->base.client_core,
-      "spa-node-factory",
+      "adapter",
       wp_properties_new (
-          "factory.name", "fakesink",
-          "node.name", "Fakesink",
+          "factory.name", "audiotestsrc",
+          "node.name", "Test Source",
           "test.answer", "42",
           NULL));
   g_assert_nonnull (node);
@@ -68,7 +63,7 @@ test_om_interest_on_pw_props (TestFixture *f, gconstpointer user_data)
   /* request that node from the base core */
   om = wp_object_manager_new ();
   wp_object_manager_add_interest (om, WP_TYPE_NODE,
-      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "node.name", "=s", "Fakesink",
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "node.name", "=s", "Test Source",
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "test.answer", "=s", "42",
       NULL);
   test_ensure_object_manager_is_installed (om, f->base.core, f->base.loop);
@@ -79,7 +74,7 @@ test_om_interest_on_pw_props (TestFixture *f, gconstpointer user_data)
   /* request "test.answer" to be absent... this will not match */
   om = wp_object_manager_new ();
   wp_object_manager_add_interest (om, WP_TYPE_NODE,
-      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "node.name", "=s", "Fakesink",
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "node.name", "=s", "Test Source",
       WP_CONSTRAINT_TYPE_PW_PROPERTY, "test.answer", "-",
       NULL);
   test_ensure_object_manager_is_installed (om, f->base.core, f->base.loop);
