@@ -405,109 +405,6 @@ function prepareLink (event)
   putils.set_flags (si_id, si_flags)
 end
 
-function createLink (event)
-  local si = event:get_subject ()
-  local si_id = si.id
-  local si_flags = putils.get_flags (si_id)
-  local si_target = si_flags.si_target
-
-  if not si_target then
-    -- bypass the hook, nothing to link to.
-    return
-  end
-
-  local si_props = si.properties
-  local target_props = si_target.properties
-  local out_item = nil
-  local in_item = nil
-  local si_link = nil
-  local passthrough = si_flags.can_passthrough
-
-  Log.info (si, string.format ("handling item: %s (%s) si id(%s)",
-    tostring (si_props ["node.name"]), tostring (si_props ["node.id"]), si_id))
-
-  local exclusive = parseBool (si_props ["node.exclusive"])
-  local passive = parseBool (si_props ["node.passive"]) or
-      parseBool (target_props ["node.passive"])
-
-  -- break rescan if tried more than 5 times with same target
-  if si_flags.failed_peer_id ~= nil and
-      si_flags.failed_peer_id == si_target.id and
-      si_flags.failed_count ~= nil and
-      si_flags.failed_count > 5 then
-    Log.warning (si, "tried to link on last rescan, not retrying")
-    goto done
-  end
-
-  if si_props ["item.node.direction"] == "output" then
-    -- playback
-    out_item = si
-    in_item = si_target
-  else
-    -- capture
-    in_item = si
-    out_item = si_target
-  end
-
-  Log.info (si,
-    string.format ("link %s <-> %s passive:%s, passthrough:%s, exclusive:%s",
-      tostring (si_props ["node.name"]),
-      tostring (target_props ["node.name"]),
-      tostring (passive), tostring (passthrough), tostring (exclusive)))
-
-  -- create and configure link
-  si_link = SessionItem ("si-standard-link")
-  if not si_link:configure {
-    ["out.item"] = out_item,
-    ["in.item"] = in_item,
-    ["passive"] = passive,
-    ["passthrough"] = passthrough,
-    ["exclusive"] = exclusive,
-    ["out.item.port.context"] = "output",
-    ["in.item.port.context"] = "input",
-    ["is.policy.item.link"] = true,
-  } then
-    Log.warning (si_link, "failed to configure si-standard-link")
-    goto done
-  end
-
-  -- register
-  si_flags.peer_id = si_target.id
-  si_flags.failed_peer_id = si_target.id
-  if si_flags.failed_count ~= nil then
-    si_flags.failed_count = si_flags.failed_count + 1
-  else
-    si_flags.failed_count = 1
-  end
-  si_link:register ()
-
-  -- activate
-  si_link:activate (Feature.SessionItem.ACTIVE, function (l, e)
-    if e then
-      Log.info (l, "failed to activate si-standard-link: " .. tostring (si) .. " error:" .. tostring (e))
-      if si_flags ~= nil then
-        si_flags.peer_id = nil
-      end
-      l:remove ()
-    else
-      if si_flags ~= nil then
-        si_flags.failed_peer_id = nil
-        if si_flags.peer_id == nil then
-          si_flags.peer_id = si_target.id
-        end
-        si_flags.failed_count = 0
-      end
-      Log.info (l, "activated si-standard-link " .. tostring (si))
-    end
-    putils.set_flags (si_id, si_flags)
-  end)
-
-  ::done::
-  si_flags.was_handled = true
-  putils.set_flags (si_id, si_flags)
-  putils.checkFollowDefault (si, si_target, si_flags.has_node_defined_target)
-end
-
 linkables_om = ObjectManager {
   Interest {
     type = "SiLinkable",
@@ -525,7 +422,7 @@ clients_om:activate ()
 
 default_nodes = Plugin.find ("default-nodes-api")
 
-SimpleEventHook {
+AsyncEventHook {
   name = "link-target@policy-hooks",
   type = "after-events-with-event",
   priority = "link-target-si",
@@ -534,9 +431,138 @@ SimpleEventHook {
       Constraint { "event.type", "=", "find-target-si-and-link" },
     },
   },
-  execute = function (event)
-    createLink (event)
-  end
+  steps = {
+    start = {
+      next = "link_activated",
+      execute = function (event, transition)
+        local si = event:get_subject ()
+        local si_id = si.id
+        local si_flags = putils.get_flags (si_id)
+        local si_target = si_flags.si_target
+
+        if not si_target then
+          -- bypass the hook, nothing to link to.
+          transition:advance ()
+          return
+        end
+
+        local si_props = si.properties
+        local target_props = si_target.properties
+        local out_item = nil
+        local in_item = nil
+        local si_link = nil
+        local passthrough = si_flags.can_passthrough
+
+        Log.info (si,
+            string.format ("createLink() handling item: %s (%s) si id(%s)",
+                tostring (si_props ["node.name"]),
+                tostring (si_props ["node.id"]),
+                si_id))
+
+        local exclusive = parseBool (si_props ["node.exclusive"])
+        local passive = parseBool (si_props ["node.passive"]) or
+            parseBool (target_props ["node.passive"])
+
+        -- break rescan if tried more than 5 times with same target
+        if si_flags.failed_peer_id ~= nil and
+            si_flags.failed_peer_id == si_target.id and
+            si_flags.failed_count ~= nil and
+            si_flags.failed_count > 5 then
+
+          transition:return_error ("tried to link on last rescan, not retrying "
+              .. tostring (si_link))
+          return
+        end
+
+        if si_props ["item.node.direction"] == "output" then
+          -- playback
+          out_item = si
+          in_item = si_target
+        else
+          -- capture
+          in_item = si
+          out_item = si_target
+        end
+
+        Log.info (si,
+          string.format ("link %s <-> %s passive:%s, passthrough:%s, exclusive:%s",
+            tostring (si_props ["node.name"]),
+            tostring (target_props ["node.name"]),
+            tostring (passive), tostring (passthrough), tostring (exclusive)))
+
+        -- create and configure link
+        si_link = SessionItem ("si-standard-link")
+        if not si_link:configure {
+          ["out.item"] = out_item,
+          ["in.item"] = in_item,
+          ["passive"] = passive,
+          ["passthrough"] = passthrough,
+          ["exclusive"] = exclusive,
+          ["out.item.port.context"] = "output",
+          ["in.item.port.context"] = "input",
+          ["is.policy.item.link"] = true,
+        } then
+          transition:return_error ("failed to configure si-standard-link "
+              .. tostring (si_link))
+          return
+        end
+
+        -- register
+        si_flags.peer_id = si_target.id
+        si_flags.failed_peer_id = si_target.id
+        if si_flags.failed_count ~= nil then
+          si_flags.failed_count = si_flags.failed_count + 1
+        else
+          si_flags.failed_count = 1
+        end
+        si_link:register ()
+
+        -- activate
+        si_link:activate (Feature.SessionItem.ACTIVE, function (l, e)
+          if e then
+            transition:return_error ("failed to activate si-standard-link: "
+              .. tostring (si) .. " error:" .. tostring (e))
+            if si_flags ~= nil then
+              si_flags.peer_id = nil
+            end
+            l:remove ()
+
+            return
+          else
+            si_flags.si_link = si_link
+            transition:advance ()
+          end
+        end)
+      end,
+    },
+    link_activated = {
+      next = "none",
+      execute = function (event, transition)
+        local si = event:get_subject ()
+        local si_id = si.id
+        local si_flags = putils.get_flags (si_id)
+        local si_target = si_flags.si_target
+
+        if not si_target then
+          -- bypass the hook, nothing to link to.
+          transition:advance ()
+          return
+        end
+
+        if si_flags ~= nil then
+          si_flags.failed_peer_id = nil
+          if si_flags.peer_id == nil then
+            si_flags.peer_id = si_target.id
+          end
+          si_flags.failed_count = 0
+        end
+        Log.info (si_flags.si_link, "activated si-standard-link between "
+            .. tostring (si).." and "..tostring(si_target))
+
+        transition:advance ()
+      end,
+    },
+  },
 }:register ()
 
 SimpleEventHook {
