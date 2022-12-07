@@ -14,6 +14,6 @@ script_tester = executable('script-tester',
 test(
   'test-lua-event-policy-hooks',
   script_tester,
-  args: ['policy-tests', 'policy-hooks.lua'],
+  args: ['script-tests', 'policy-tests'],
   env: common_env,
 )
