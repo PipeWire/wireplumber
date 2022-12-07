@@ -1477,12 +1477,9 @@ static int
 settings_get (lua_State *L)
 {
   const char *setting = luaL_checkstring (L, 1);
-  const char *m = NULL;
 
-  if (lua_type (L, 2) == LUA_TSTRING)
-    m = luaL_checkstring (L, 2);
-
-  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L), m);
+  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L),
+      "sm-settings");
 
   if (s) {
     WpSpaJson *j = wp_settings_get (s, setting);
@@ -1500,13 +1497,9 @@ settings_parse_boolean_safe (lua_State *L)
 {
   const char *setting = luaL_checkstring (L, 1);
   const gboolean v = lua_toboolean (L, 2) ? TRUE : FALSE;
-  const char *m = NULL;
-  g_autoptr (WpSettings) s = NULL;
+  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L),
+      "sm-settings");
 
-  if (lua_type (L, 3) == LUA_TSTRING)
-    m = luaL_checkstring (L, 3);
-
-  s = wp_settings_get_instance (get_wp_core (L), m);
   if (s)
     lua_pushboolean (L, wp_settings_parse_boolean_safe (s, setting, v));
   else
@@ -1519,13 +1512,9 @@ settings_parse_int_safe (lua_State *L)
 {
   const char *setting = luaL_checkstring (L, 1);
   const gint v = luaL_checkinteger (L, 2);
-  const char *m = NULL;
-  g_autoptr (WpSettings) s = NULL;
+  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L),
+    "sm-settings");
 
-  if (lua_type (L, 3) == LUA_TSTRING)
-    m = luaL_checkstring (L, 3);
-
-  s = wp_settings_get_instance (get_wp_core (L), m);
   if (s)
     lua_pushinteger (L, wp_settings_parse_int_safe (s, setting, v));
   else
@@ -1538,13 +1527,9 @@ settings_parse_float_safe (lua_State *L)
 {
   const char *setting = luaL_checkstring (L, 1);
   const float v = lua_tonumber (L, 2);
-  const char *m = NULL;
-  g_autoptr (WpSettings) s = NULL;
+  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L),
+    "sm-settings");
 
-  if (lua_type (L, 3) == LUA_TSTRING)
-    m = luaL_checkstring (L, 3);
-
-  s = wp_settings_get_instance (get_wp_core (L), m);
   if (s)
     lua_pushnumber (L, wp_settings_parse_float_safe (s, setting, v));
   else
@@ -1557,14 +1542,10 @@ settings_parse_string_safe (lua_State *L)
 {
   const char *setting = luaL_checkstring (L, 1);
   const char *v = luaL_checkstring (L, 2);
-  const char *m = NULL;
-  g_autoptr (WpSettings) s = NULL;
   g_autofree gchar *res = NULL;
+  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L),
+    "sm-settings");
 
-  if (lua_type (L, 3) == LUA_TSTRING)
-    m = luaL_checkstring (L, 3);
-
-  s = wp_settings_get_instance (get_wp_core (L), m);
   res = s ? wp_settings_parse_string_safe (s, setting, v) : g_strdup (v);
   lua_pushstring (L, res);
   return 1;
@@ -1574,9 +1555,9 @@ static int
 settings_parse_array_safe (lua_State *L)
 {
   const char *setting = luaL_checkstring (L, 1);
-  const char *m = NULL;
-  g_autoptr (WpSettings) s = NULL;
   g_autoptr (WpSpaJson) json_default = NULL;
+  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L),
+    "sm-settings");
 
   if (lua_isuserdata (L, 2)) {
     WpSpaJson *v = wplua_checkboxed (L, 2, WP_TYPE_SPA_JSON);
@@ -1589,10 +1570,6 @@ settings_parse_array_safe (lua_State *L)
     json_default = wp_spa_json_new_array (NULL, NULL);
   }
 
-  if (lua_type (L, 3) == LUA_TSTRING)
-    m = luaL_checkstring (L, 3);
-
-  s = wp_settings_get_instance (get_wp_core (L), m);
   if (s) {
     g_autoptr (WpSpaJson) j = wp_settings_get (s, setting);
     if (j) {
@@ -1613,9 +1590,9 @@ static int
 settings_parse_object_safe (lua_State *L)
 {
   const char *setting = luaL_checkstring (L, 1);
-  const char *m = NULL;
-  g_autoptr (WpSettings) s = NULL;
   g_autoptr (WpSpaJson) json_default = NULL;
+  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L),
+    "sm-settings");
 
   if (lua_isuserdata (L, 2)) {
     WpSpaJson *v = wplua_checkboxed (L, 2, WP_TYPE_SPA_JSON);
@@ -1628,10 +1605,6 @@ settings_parse_object_safe (lua_State *L)
     json_default = wp_spa_json_new_array (NULL, NULL);
   }
 
-  if (lua_type (L, 3) == LUA_TSTRING)
-    m = luaL_checkstring (L, 3);
-
-  s = wp_settings_get_instance (get_wp_core (L), m);
   if (s) {
     g_autoptr (WpSpaJson) j = wp_settings_get (s, setting);
     if (j) {
@@ -1652,14 +1625,12 @@ static int
 settings_apply_rule (lua_State *L)
 {
   const char *r = luaL_checkstring (L, 1);
-  const char *m = NULL;
+  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L),
+    "sm-settings");
+
   g_autoptr (WpProperties) cp = wplua_table_to_properties (L, 2);
   g_autoptr (WpProperties) ap = wp_properties_new_empty ();
 
-  if (lua_type (L, -1) == LUA_TSTRING)
-    m = luaL_checkstring (L, -1);
-
-  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L), m);
 
   if (s) {
     gboolean value = wp_settings_apply_rule (s, r, cp, ap);
@@ -1676,15 +1647,13 @@ static int
 settings_subscribe (lua_State *L)
 {
   const gchar *pattern = luaL_checkstring (L, 1);
-  const gchar *m = NULL;
+  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L),
+    "sm-settings");
+
   guintptr sub_id = 0;
 
   GClosure * closure = wplua_function_to_closure (L, -1);
 
-  if (lua_type (L, 2) == LUA_TSTRING)
-    m = luaL_checkstring (L, 2);
-
-  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L), m);
   if (s)
     sub_id = wp_settings_subscribe_closure (s, pattern, closure);
 
@@ -1697,12 +1666,10 @@ static int
 settings_unsubscribe (lua_State *L)
 {
   guintptr sub_id = luaL_checkinteger (L, 1);
-  const gchar *m = NULL;
   gboolean ret = FALSE;
-  if (lua_type (L, 2) == LUA_TSTRING)
-    m = luaL_checkstring (L, 2);
+  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L),
+    "sm-settings");
 
-  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L), m);
   if (s)
     ret = wp_settings_unsubscribe (s, sub_id);
 
