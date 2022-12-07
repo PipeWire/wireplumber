@@ -152,7 +152,7 @@ on_metadata_activated (WpMetadata * m, GAsyncResult * res, gpointer user_data)
 
     wp_metadata_set (m, 0, setting, "Spa:String:JSON", value);
   }
-  g_debug ("loaded settings(%d) to \"test-settings\" metadata\n",
+  g_debug ("loaded settings(%d) to \"sm-settings\" metadata\n",
       wp_properties_get_count (self->settings));
 
   self->metadata = g_object_ref(m);
@@ -166,7 +166,7 @@ test_metadata_setup (TestSettingsFixture *self, gconstpointer user_data)
 
   {
     self->impl_metadata = wp_impl_metadata_new_full (self->base.core,
-        "test-settings", NULL);
+        "sm-settings", NULL);
 
     wp_object_activate (WP_OBJECT (self->impl_metadata),
         WP_OBJECT_FEATURES_ALL,
@@ -225,7 +225,7 @@ test_wpsettings_setup (TestSettingsFixture *self, gconstpointer user_data)
   test_metadata_setup (self, user_data);
 
   {
-    self->s = wp_settings_get_instance (self->base.core, "test-settings");
+    self->s = wp_settings_get_instance (self->base.core, "sm-settings");
 
     wp_object_activate (WP_OBJECT (self->s),
         WP_OBJECT_FEATURES_ALL,
@@ -357,7 +357,7 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
     g_autoptr (WpSettings) s3 =
         wp_settings_get_instance (self->base.core, "blah-blah");
 
-    g_assert_true (s == s1);
+    g_assert_false (s == s1);
     g_assert_true (s1 == s2);
     g_assert_false (s1 == s3);
 
