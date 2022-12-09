@@ -26,7 +26,6 @@ typedef enum {
   OBJECT_TYPE_LINK,
   OBJECT_TYPE_NODE,
   OBJECT_TYPE_SESSION_ITEM,
-  OBJECT_TYPE_ENDPOINT,
   OBJECT_TYPE_CLIENT,
   OBJECT_TYPE_DEVICE,
   OBJECT_TYPE_METADATA,
@@ -62,7 +61,6 @@ object_type_to_gtype (ObjectType type)
     case OBJECT_TYPE_LINK: return WP_TYPE_LINK;
     case OBJECT_TYPE_NODE: return WP_TYPE_NODE;
     case OBJECT_TYPE_SESSION_ITEM: return WP_TYPE_SESSION_ITEM;
-    case OBJECT_TYPE_ENDPOINT: return WP_TYPE_ENDPOINT;
     case OBJECT_TYPE_CLIENT: return WP_TYPE_CLIENT;
     case OBJECT_TYPE_DEVICE: return WP_TYPE_DEVICE;
     case OBJECT_TYPE_METADATA: return WP_TYPE_METADATA;
@@ -82,8 +80,6 @@ type_str_to_object_type (const gchar * type_str)
     return OBJECT_TYPE_NODE;
   else if (!g_strcmp0 (type_str, "session-item"))
     return OBJECT_TYPE_SESSION_ITEM;
-  else if (!g_strcmp0 (type_str, "endpoint"))
-    return OBJECT_TYPE_ENDPOINT;
   else if (!g_strcmp0 (type_str, "client"))
     return OBJECT_TYPE_CLIENT;
   else if (!g_strcmp0 (type_str, "device"))
@@ -117,8 +113,6 @@ get_object_type (gpointer obj, WpProperties **properties)
     }
     return "session-item";
   }
-  else if (WP_IS_ENDPOINT (obj))
-    return "endpoint";
   else if (WP_IS_CLIENT (obj))
     return "client";
   else if (WP_IS_DEVICE (obj))

@@ -15,13 +15,6 @@ test(
 )
 
 test(
-  'test-endpoint',
-  executable('test-endpoint', 'endpoint.c',
-      dependencies: common_deps, c_args: common_args),
-  env: common_env,
-)
-
-test(
   'test-events',
   executable('test-events', 'events.c',
       dependencies: common_deps, c_args: common_args),

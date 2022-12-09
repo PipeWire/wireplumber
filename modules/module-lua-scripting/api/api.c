@@ -875,12 +875,6 @@ impl_metadata_new (lua_State *L)
   return m ? 1 : 0;
 }
 
-/* WpEndpoint */
-
-static const luaL_Reg endpoint_methods[] = {
-  { NULL, NULL }
-};
-
 /* Device */
 
 static int
@@ -2349,8 +2343,6 @@ wp_lua_scripting_api_init (lua_State *L)
       NULL, metadata_methods);
   wplua_register_type_methods (L, WP_TYPE_IMPL_METADATA,
       impl_metadata_new, NULL);
-  wplua_register_type_methods (L, WP_TYPE_ENDPOINT,
-      NULL, endpoint_methods);
   wplua_register_type_methods (L, WP_TYPE_DEVICE,
       device_new, NULL);
   wplua_register_type_methods (L, WP_TYPE_SPA_DEVICE,

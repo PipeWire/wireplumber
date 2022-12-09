@@ -33,7 +33,7 @@
  *     instance that created them appears in the WpObjectManager (as soon as
  *     its WP_PROXY_FEATURE_BOUND is enabled)
  *   * local PipeWire objects that are being exported to PipeWire
- *     (WpImplMetadata, WpImplEndpoint, etc); these appear in the
+ *     (WpImplMetadata, WpImplNode, etc); these appear in the
  *     WpObjectManager as soon as they are exported (so, when their
  *     WP_PROXY_FEATURE_BOUND is enabled)
  *   * WirePlumber-specific objects, such as plugins, factories and session items

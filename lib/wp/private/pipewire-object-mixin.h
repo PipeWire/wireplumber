@@ -122,7 +122,7 @@ typedef struct _WpPwObjectMixinData WpPwObjectMixinData;
 struct _WpPwObjectMixinData
 {
   gpointer info;            /* pointer to the info struct */
-  gpointer iface;           /* pointer to the interface (ex. pw_endpoint) */
+  gpointer iface;           /* pointer to the interface */
   struct spa_hook listener;
   struct spa_hook_list hooks;
   WpProperties *properties;

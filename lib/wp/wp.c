@@ -59,7 +59,6 @@ wp_init (WpInitFlags flags)
     to autodetect the GType of proxies created through wp_proxy_new_global() */
   g_type_ensure (WP_TYPE_CLIENT);
   g_type_ensure (WP_TYPE_DEVICE);
-  g_type_ensure (WP_TYPE_ENDPOINT);
   g_type_ensure (WP_TYPE_LINK);
   g_type_ensure (WP_TYPE_METADATA);
   g_type_ensure (WP_TYPE_NODE);
