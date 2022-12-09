@@ -64,20 +64,15 @@ get_object_type_and_priority (gpointer obj, const gchar **type, gint *priority)
     *type = "node";
     *priority = 70;
   }
-  else if (WP_IS_ENDPOINT (obj))
-  {
-    *type = "endpoint";
-    *priority = 60;
-  }
   else if (WP_IS_SI_LINKABLE (obj))
   {
     *type = "linkable";
-    *priority = 50;
+    *priority = 60;
   }
   else if (WP_IS_METADATA (obj))
   {
     *type = "metadata";
-    *priority = 40;
+    *priority = 50;
   }
 
   return type != NULL;

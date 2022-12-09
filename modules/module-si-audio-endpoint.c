@@ -29,9 +29,6 @@ struct _WpSiAudioEndpoint
   /* activation */
   WpNode *node;
   WpSiAdapter *adapter;
-
-  /* export */
-  WpImplEndpoint *impl_endpoint;
 };
 
 static void si_audio_endpoint_endpoint_init (WpSiEndpointInterface * iface);
@@ -125,9 +122,6 @@ si_audio_endpoint_get_associated_proxy (WpSessionItem * item, GType proxy_type)
 {
   WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (item);
 
-  if (proxy_type == WP_TYPE_ENDPOINT)
-    return self->impl_endpoint ? g_object_ref (self->impl_endpoint) : NULL;
-
   return wp_session_item_get_associated_proxy (
       WP_SESSION_ITEM (self->adapter), proxy_type);
 }
@@ -148,7 +142,6 @@ si_audio_endpoint_disable_exported (WpSessionItem *si)
 {
   WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (si);
 
-  g_clear_object (&self->impl_endpoint);
   wp_object_update_features (WP_OBJECT (self), 0,
       WP_SESSION_ITEM_FEATURE_EXPORTED);
 }
@@ -269,35 +262,12 @@ si_audio_endpoint_enable_active (WpSessionItem *si, WpTransition *transition)
 }
 
 static void
-on_impl_endpoint_activated (WpObject * object, GAsyncResult * res,
-    WpTransition * transition)
-{
-  WpSiAudioEndpoint *self = wp_transition_get_source_object (transition);
-  g_autoptr (GError) error = NULL;
-
-  if (!wp_object_activate_finish (object, res, &error)) {
-    wp_transition_return_error (transition, g_steal_pointer (&error));
-    return;
-  }
-
-  wp_object_update_features (WP_OBJECT (self),
-      WP_SESSION_ITEM_FEATURE_EXPORTED, 0);
-}
-
-static void
 si_audio_endpoint_enable_exported (WpSessionItem *si, WpTransition *transition)
 {
   WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (si);
-  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
 
-  self->impl_endpoint = wp_impl_endpoint_new (core, WP_SI_ENDPOINT (self));
-
-  g_signal_connect_object (self->impl_endpoint, "pw-proxy-destroyed",
-      G_CALLBACK (wp_session_item_handle_proxy_destroyed), self, 0);
-
-  wp_object_activate (WP_OBJECT (self->impl_endpoint),
-      WP_OBJECT_FEATURES_ALL, NULL,
-      (GAsyncReadyCallback) on_impl_endpoint_activated, transition);
+  wp_object_update_features (WP_OBJECT (self),
+      WP_SESSION_ITEM_FEATURE_EXPORTED, 0);
 }
 
 static void
