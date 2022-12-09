@@ -256,12 +256,7 @@ wp_session_item_is_configured (WpSessionItem * self)
 
 /*!
  * \brief An associated proxy is a WpProxy subclass instance that
- * is somehow related to this item. For example:
- *  - An exported WpSiEndpoint should have at least:
- *      - an associated WpSiEndpoint
- *      - an associated WpSession
- *  - In cases where the item wraps a single PipeWire node, it should also
- *    have an associated WpNode
+ * is somehow related to this item.
  *
  * \ingroup wpsessionitem
  * \param self the session item

@@ -4,7 +4,6 @@ sphinx_files += files(
   'component_loader_api.rst',
   'core_api.rst',
   'device_api.rst',
-  'endpoint_api.rst',
   'global_proxy_api.rst',
   'impl_module_api.rst',
   'impl_node_api.rst',

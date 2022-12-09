@@ -7,16 +7,11 @@ Session Items Interfaces
 
    digraph inheritance {
       rankdir=LR;
-      GInterface -> WpSiEndpoint;
       GInterface -> WpSiAdapter;
       GInterface -> WpSiLinkable;
       GInterface -> WpSiLink;
       GInterface -> WpSiAcquisition;
    }
-
-.. doxygenstruct:: WpSiEndpoint
-
-.. doxygenstruct:: _WpSiEndpointInterface
 
 .. doxygenstruct:: WpSiAdapter
 
