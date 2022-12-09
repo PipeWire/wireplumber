@@ -18,32 +18,6 @@ G_BEGIN_DECLS
 typedef struct _WpSiAcquisition WpSiAcquisition;
 
 /*!
- * \brief The WpSiEndpoint GType
- * \ingroup wpsiinterfaces
- */
-#define WP_TYPE_SI_ENDPOINT (wp_si_endpoint_get_type ())
-WP_API
-G_DECLARE_INTERFACE (WpSiEndpoint, wp_si_endpoint,
-                     WP, SI_ENDPOINT, WpSessionItem)
-
-struct _WpSiEndpointInterface
-{
-  GTypeInterface interface;
-
-  GVariant * (*get_registration_info) (WpSiEndpoint * self);
-  WpProperties * (*get_properties) (WpSiEndpoint * self);
-
-  /*< private >*/
-  WP_PADDING(6)
-};
-
-WP_API
-GVariant * wp_si_endpoint_get_registration_info (WpSiEndpoint * self);
-
-WP_API
-WpProperties * wp_si_endpoint_get_properties (WpSiEndpoint * self);
-
-/*!
  * \brief The WpSiAdapter GType
  * \ingroup wpsiinterfaces
  */

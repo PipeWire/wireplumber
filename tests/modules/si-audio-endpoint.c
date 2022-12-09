@@ -63,7 +63,6 @@ test_si_audio_endpoint_configure_activate (TestFixture * f,
 
   endpoint = wp_session_item_make (f->base.core, "si-audio-endpoint");
   g_assert_nonnull (endpoint);
-  g_assert_true (WP_IS_SI_ENDPOINT (endpoint));
 
   /* configure endpoint */
 
@@ -155,20 +154,14 @@ test_si_audio_endpoint_export (TestFixture * f, gconstpointer user_data)
   }
 
   {
-    g_autoptr (WpEndpoint) ep = NULL;
+    g_autoptr (WpNode) n = NULL;
     g_autoptr (WpProperties) props = NULL;
 
-    ep = wp_session_item_get_associated_proxy (endpoint, WP_TYPE_ENDPOINT);
-    g_assert_nonnull (ep);
-    props = wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (ep));
+    n = wp_session_item_get_associated_proxy (endpoint, WP_TYPE_NODE);
+    g_assert_nonnull (n);
+    props = wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (n));
     g_assert_nonnull (props);
 
-    g_assert_cmpstr (wp_endpoint_get_name (ep), ==, "endpoint");
-    g_assert_cmpstr (wp_endpoint_get_media_class (ep), ==,
-        "Audio/Source");
-    g_assert_cmpint (wp_endpoint_get_direction (ep), ==, WP_DIRECTION_OUTPUT);
-    g_assert_cmpstr (wp_properties_get (props, "endpoint.name"), ==,
-        "endpoint");
     g_assert_cmpstr (wp_properties_get (props, "media.class"), ==,
         "Audio/Source");
   }
