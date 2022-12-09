@@ -134,7 +134,7 @@ static gint
 get_default_event_priority (const gchar *event_type)
 {
   if (!g_strcmp0 (event_type, "find-target-si-and-link") ||
-      !g_strcmp0 (event_type, "select-profile"))
+      g_str_has_prefix (event_type, "select-"))
     return 500;
   else if (!g_strcmp0 (event_type, "rescan-session"))
     return -500;
