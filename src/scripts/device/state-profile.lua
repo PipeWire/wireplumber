@@ -8,11 +8,13 @@
 -- to a state file and restoring them later on.
 
 cutils = require ("common-utils")
+config = require ("device-config")
 
-state = State ("default-profile")
-state_table = state:load ()
+-- the state storage
+state = nil
+state_table = nil
 
-SimpleEventHook {
+find_stored_profile_hook = SimpleEventHook {
   name = "find-stored-profile@device",
   interests = {
     EventInterest {
@@ -53,9 +55,9 @@ SimpleEventHook {
       event:set_data ("selected-profile", selected_profile)
     end
   end
-}:register()
+}
 
-SimpleEventHook {
+store_user_selected_profile_hook = SimpleEventHook {
   name = "store-user-selected-profile@device",
   interests = {
     EventInterest {
@@ -74,7 +76,7 @@ SimpleEventHook {
       end
     end
   end
-}:register()
+}
 
 function updateStoredProfile (device, profile)
   local dev_name = device.properties["device.name"]
@@ -118,3 +120,20 @@ function updateStoredProfile (device, profile)
       "stored profile '%s' (%d) for device '%s'",
       profile.name, index, dev_name))
 end
+
+function handlePersistentSetting (enable)
+  if enable and not state then
+    state = State ("default-profile")
+    state_table = state:load ()
+    find_stored_profile_hook:register ()
+    store_user_selected_profile_hook:register ()
+  elseif not enable and state then
+    state = nil
+    state_table = nil
+    find_stored_profile_hook:remove ()
+    store_user_selected_profile_hook:remove ()
+  end
+end
+
+config:subscribe ("use-persistent-storage", handlePersistentSetting)
+handlePersistentSetting (config.use_persistent_storage)
