@@ -15,6 +15,7 @@
 
 enum {
   ACTION_GET_OBJECT_MANAGER,
+  ACTION_CREATE_EVENT,
   ACTION_PUSH_EVENT,
   ACTION_SCHEDULE_RESCAN,
   N_SIGNALS
@@ -176,15 +177,10 @@ wp_standard_event_get_object_manager (WpStandardEventSource *self,
   return g_object_ref (self->oms[type]);
 }
 
-static void
-wp_standard_event_source_push_event (WpStandardEventSource *self,
+static WpEvent *
+wp_standard_event_source_create_event (WpStandardEventSource *self,
     const gchar *event_type, gpointer subject, WpProperties *misc_properties)
 {
-  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
-  g_return_if_fail (core);
-  g_autoptr (WpEventDispatcher) dispatcher =
-      wp_event_dispatcher_get_instance (core);
-  g_return_if_fail (dispatcher);
   g_autoptr (WpEvent) event = NULL;
   g_autoptr (WpProperties) properties = wp_properties_new_empty ();
   g_autofree gchar *full_event_type = NULL;
@@ -219,7 +215,23 @@ wp_standard_event_source_push_event (WpStandardEventSource *self,
         G_CONNECT_SWAPPED);
   }
 
-  wp_event_dispatcher_push_event (dispatcher, g_steal_pointer (&event));
+  return g_steal_pointer (&event);
+}
+
+static void
+wp_standard_event_source_push_event (WpStandardEventSource *self,
+    const gchar *event_type, gpointer subject, WpProperties *misc_properties)
+{
+
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
+  g_return_if_fail (core);
+  g_autoptr (WpEventDispatcher) dispatcher =
+      wp_event_dispatcher_get_instance (core);
+  g_return_if_fail (dispatcher);
+
+  wp_event_dispatcher_push_event (dispatcher,
+      wp_standard_event_source_create_event (
+      self, event_type, subject, misc_properties));
 }
 
 static void
@@ -374,6 +386,13 @@ wp_standard_event_source_class_init (WpStandardEventSourceClass * klass)
       G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
       (GCallback) wp_standard_event_get_object_manager,
       NULL, NULL, NULL, WP_TYPE_OBJECT_MANAGER, 1, G_TYPE_STRING);
+
+  signals[ACTION_CREATE_EVENT] = g_signal_new_class_handler (
+      "create-event", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+      (GCallback) wp_standard_event_source_create_event,
+      NULL, NULL, NULL, WP_TYPE_EVENT, 3,
+      G_TYPE_STRING, WP_TYPE_OBJECT, WP_TYPE_PROPERTIES);
 
   signals[ACTION_PUSH_EVENT] = g_signal_new_class_handler (
       "push-event", G_TYPE_FROM_CLASS (klass),
