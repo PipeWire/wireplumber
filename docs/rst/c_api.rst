@@ -24,7 +24,6 @@ C API Documentation
    c_api/device_api.rst
    c_api/client_api.rst
    c_api/metadata_api.rst
-   c_api/endpoint_api.rst
    c_api/spa_device_api.rst
    c_api/impl_node_api.rst
    c_api/impl_module_api.rst

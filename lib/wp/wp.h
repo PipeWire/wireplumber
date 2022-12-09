@@ -15,7 +15,6 @@
 #include "core.h"
 #include "dbus.h"
 #include "device.h"
-#include "endpoint.h"
 #include "error.h"
 #include "event-dispatcher.h"
 #include "event-hook.h"
