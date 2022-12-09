@@ -29,12 +29,8 @@ struct _WpSiAudioEndpoint
   /* activation */
   WpNode *node;
   WpSiAdapter *adapter;
-
-  /* export */
-  WpImplEndpoint *impl_endpoint;
 };
 
-static void si_audio_endpoint_endpoint_init (WpSiEndpointInterface * iface);
 static void si_audio_endpoint_linkable_init (WpSiLinkableInterface * iface);
 static void si_audio_endpoint_adapter_init (WpSiAdapterInterface * iface);
 
@@ -42,7 +38,6 @@ G_DECLARE_FINAL_TYPE(WpSiAudioEndpoint, si_audio_endpoint, WP,
     SI_AUDIO_ENDPOINT, WpSessionItem)
 G_DEFINE_TYPE_WITH_CODE (WpSiAudioEndpoint, si_audio_endpoint,
     WP_TYPE_SESSION_ITEM,
-    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_ENDPOINT, si_audio_endpoint_endpoint_init)
     G_IMPLEMENT_INTERFACE (WP_TYPE_SI_LINKABLE,
         si_audio_endpoint_linkable_init)
     G_IMPLEMENT_INTERFACE (WP_TYPE_SI_ADAPTER, si_audio_endpoint_adapter_init))
@@ -125,9 +120,6 @@ si_audio_endpoint_get_associated_proxy (WpSessionItem * item, GType proxy_type)
 {
   WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (item);
 
-  if (proxy_type == WP_TYPE_ENDPOINT)
-    return self->impl_endpoint ? g_object_ref (self->impl_endpoint) : NULL;
-
   return wp_session_item_get_associated_proxy (
       WP_SESSION_ITEM (self->adapter), proxy_type);
 }
@@ -148,7 +140,6 @@ si_audio_endpoint_disable_exported (WpSessionItem *si)
 {
   WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (si);
 
-  g_clear_object (&self->impl_endpoint);
   wp_object_update_features (WP_OBJECT (self), 0,
       WP_SESSION_ITEM_FEATURE_EXPORTED);
 }
@@ -269,35 +260,12 @@ si_audio_endpoint_enable_active (WpSessionItem *si, WpTransition *transition)
 }
 
 static void
-on_impl_endpoint_activated (WpObject * object, GAsyncResult * res,
-    WpTransition * transition)
-{
-  WpSiAudioEndpoint *self = wp_transition_get_source_object (transition);
-  g_autoptr (GError) error = NULL;
-
-  if (!wp_object_activate_finish (object, res, &error)) {
-    wp_transition_return_error (transition, g_steal_pointer (&error));
-    return;
-  }
-
-  wp_object_update_features (WP_OBJECT (self),
-      WP_SESSION_ITEM_FEATURE_EXPORTED, 0);
-}
-
-static void
 si_audio_endpoint_enable_exported (WpSessionItem *si, WpTransition *transition)
 {
   WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (si);
-  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
 
-  self->impl_endpoint = wp_impl_endpoint_new (core, WP_SI_ENDPOINT (self));
-
-  g_signal_connect_object (self->impl_endpoint, "pw-proxy-destroyed",
-      G_CALLBACK (wp_session_item_handle_proxy_destroyed), self, 0);
-
-  wp_object_activate (WP_OBJECT (self->impl_endpoint),
-      WP_OBJECT_FEATURES_ALL, NULL,
-      (GAsyncReadyCallback) on_impl_endpoint_activated, transition);
+  wp_object_update_features (WP_OBJECT (self),
+      WP_SESSION_ITEM_FEATURE_EXPORTED, 0);
 }
 
 static void
@@ -312,51 +280,6 @@ si_audio_endpoint_class_init (WpSiAudioEndpointClass * klass)
   si_class->disable_exported = si_audio_endpoint_disable_exported;
   si_class->enable_active = si_audio_endpoint_enable_active;
   si_class->enable_exported = si_audio_endpoint_enable_exported;
-}
-
-static GVariant *
-si_audio_endpoint_get_registration_info (WpSiEndpoint * item)
-{
-  WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (item);
-  GVariantBuilder b;
-
-  g_variant_builder_init (&b, G_VARIANT_TYPE ("(ssya{ss})"));
-  g_variant_builder_add (&b, "s", self->name);
-  g_variant_builder_add (&b, "s", self->media_class);
-  g_variant_builder_add (&b, "y", self->direction);
-  g_variant_builder_add (&b, "a{ss}", NULL);
-
-  return g_variant_builder_end (&b);
-}
-
-static WpProperties *
-si_audio_endpoint_get_properties (WpSiEndpoint * item)
-{
-  WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (item);
-  g_autoptr (WpNode) node = wp_session_item_get_associated_proxy (
-      WP_SESSION_ITEM (self->adapter), WP_TYPE_NODE);
-  WpProperties *result = wp_properties_new_empty ();
-
-  wp_properties_set (result, "endpoint.name", self->name);
-  wp_properties_setf (result, "endpoint.priority", "%u", self->priority);
-  wp_properties_setf (result, "endpoint.description", "%s: %s",
-      (self->direction == WP_DIRECTION_OUTPUT) ? "Capture" : "Playback",
-      self->role);
-  wp_properties_set (result, "media.role", self->role);
-
-  /* associate with the node */
-  g_return_val_if_fail (node, NULL);
-  wp_properties_setf (result, PW_KEY_NODE_ID, "%d",
-      wp_proxy_get_bound_id (WP_PROXY (node)));
-
-  return result;
-}
-
-static void
-si_audio_endpoint_endpoint_init (WpSiEndpointInterface * iface)
-{
-  iface->get_registration_info = si_audio_endpoint_get_registration_info;
-  iface->get_properties = si_audio_endpoint_get_properties;
 }
 
 static GVariant *

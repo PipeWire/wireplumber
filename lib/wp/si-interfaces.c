@@ -14,82 +14,6 @@
 /*! \defgroup wpsiinterfaces Session Item Interfaces */
 
 /*!
- * \struct WpSiEndpoint
- *
- * An interface for session items that implement a PipeWire endpoint.
- *
- * \gsignals
- *
- * \par endpoint-properties-changed
- * \parblock
- * \code
- * void
- * endpoint_properties_changed_callback (WpSiEndpoint * self,
- *                                       gpointer user_data)
- * \endcode
- * Emitted when the endpoint properties change
- *
- * Flags: G_SIGNAL_RUN_LAST
- * \endparblock
- */
-G_DEFINE_INTERFACE (WpSiEndpoint, wp_si_endpoint, WP_TYPE_SESSION_ITEM)
-
-static WpProperties *
-wp_si_endpoint_default_get_properties (WpSiEndpoint * self)
-{
-  return NULL;
-}
-
-static void
-wp_si_endpoint_default_init (WpSiEndpointInterface * iface)
-{
-  iface->get_properties = wp_si_endpoint_default_get_properties;
-
-  g_signal_new ("endpoint-properties-changed", G_TYPE_FROM_INTERFACE (iface),
-      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
-}
-
-/*!
- * \brief This should return information that is used for registering the
- * endpoint.
- *
- * The return value should be a GVariant tuple of type (ssya{ss}) that contains,
- * in order:
- *  - s: the endpoint's name
- *  - s: the media class
- *  - y: the direction
- *  - a{ss}: additional properties to be added to the list of global properties
- *
- * \ingroup wpsiinterfaces
- * \param self the session item
- * \returns (transfer full): registration info for the endpoint
- */
-GVariant *
-wp_si_endpoint_get_registration_info (WpSiEndpoint * self)
-{
-  g_return_val_if_fail (WP_IS_SI_ENDPOINT (self), NULL);
-  g_return_val_if_fail (WP_SI_ENDPOINT_GET_IFACE (self)->get_registration_info, NULL);
-
-  return WP_SI_ENDPOINT_GET_IFACE (self)->get_registration_info (self);
-}
-
-/*!
- * \brief Gets the properties of the endpoint
- *
- * \ingroup wpsiinterfaces
- * \param self the session item
- * \returns (transfer full) (nullable): the properties of the endpoint
- */
-WpProperties *
-wp_si_endpoint_get_properties (WpSiEndpoint * self)
-{
-  g_return_val_if_fail (WP_IS_SI_ENDPOINT (self), NULL);
-  g_return_val_if_fail (WP_SI_ENDPOINT_GET_IFACE (self)->get_properties, NULL);
-
-  return WP_SI_ENDPOINT_GET_IFACE (self)->get_properties (self);
-}
-
-/*!
  * \struct WpSiAdapter
  * An interface for port adapters
  *
@@ -210,10 +134,6 @@ wp_si_adapter_set_ports_format_finish (WpSiAdapter * self, GAsyncResult * res,
  *
  * An interface for retrieving PipeWire port information from a session item.
  * This information is used to create links in the nodes graph.
- *
- * This is normally implemented by the same session items that implement
- * WpSiEndpoint. The standard link implementation expects to be able to cast
- * a WpSiEndpoint into a WpSiLinkable.
  */
 
 G_DEFINE_INTERFACE (WpSiLinkable, wp_si_linkable, WP_TYPE_SESSION_ITEM)
@@ -303,7 +223,7 @@ wp_si_linkable_get_acquisition (WpSiLinkable * self)
 /*!
  * \struct WpSiLink
  *
- * An interface for session items that provide a PipeWire endpoint link.
+ * An interface for session items that provide a PipeWire link.
  *
  * \gsignals
  *
