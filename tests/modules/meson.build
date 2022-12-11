@@ -38,8 +38,8 @@ test(
 )
 
 test(
-  'test-si-audio-endpoint',
-  executable('test-si-audio-endpoint', 'si-audio-endpoint.c',
+  'test-si-audio-virtual',
+  executable('test-si-audio-virtual', 'si-audio-virtual.c',
       dependencies: common_deps, c_args: common_args),
   env: common_env,
 )

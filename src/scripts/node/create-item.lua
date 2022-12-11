@@ -74,7 +74,7 @@ AsyncEventHook {
     EventInterest {
       Constraint { "event.type", "=", "node-added" },
       Constraint { "media.class", "#", "Audio/*", type = "pw-global" },
-      Constraint { "wireplumber.is-endpoint", "-", type = "pw" },
+      Constraint { "wireplumber.is-virtual", "-", type = "pw" },
     },
   },
   steps = {
@@ -144,7 +144,7 @@ SimpleEventHook {
     EventInterest {
       Constraint { "event.type", "=", "node-removed" },
       Constraint { "media.class", "#", "Audio/*", type = "pw-global" },
-      Constraint { "wireplumber.is-endpoint", "-", type = "pw" },
+      Constraint { "wireplumber.is-virtual", "-", type = "pw" },
     },
   },
   execute = function (event)

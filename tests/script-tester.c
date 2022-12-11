@@ -209,7 +209,7 @@ load_components (ScriptRunnerFixture *f, gconstpointer argv)
 
     load_component (f, "si-audio-adapter", "module");
     load_component (f, "si-standard-link", "module");
-    load_component (f, "si-audio-endpoint", "module");
+    load_component (f, "si-audio-virtual", "module");
 
     load_component (f, "metadata", "module");
     load_component (f, "default-nodes-api", "module");

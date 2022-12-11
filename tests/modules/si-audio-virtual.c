@@ -13,7 +13,7 @@ typedef struct {
 } TestFixture;
 
 static void
-test_si_audio_endpoint_setup (TestFixture * f, gconstpointer user_data)
+test_si_audio_virtual_setup (TestFixture * f, gconstpointer user_data)
 {
   wp_base_test_fixture_setup (&f->base, 0);
 
@@ -36,22 +36,22 @@ test_si_audio_endpoint_setup (TestFixture * f, gconstpointer user_data)
   {
     g_autoptr (GError) error = NULL;
     wp_core_load_component (f->base.core,
-        "libwireplumber-module-si-audio-endpoint", "module", NULL, &error);
+        "libwireplumber-module-si-audio-virtual", "module", NULL, &error);
     g_assert_no_error (error);
   }
 }
 
 static void
-test_si_audio_endpoint_teardown (TestFixture * f, gconstpointer user_data)
+test_si_audio_virtual_teardown (TestFixture * f, gconstpointer user_data)
 {
   wp_base_test_fixture_teardown (&f->base);
 }
 
 static void
-test_si_audio_endpoint_configure_activate (TestFixture * f,
+test_si_audio_virtual_configure_activate (TestFixture * f,
     gconstpointer user_data)
 {
-  g_autoptr (WpSessionItem) endpoint = NULL;
+  g_autoptr (WpSessionItem) item = NULL;
 
   /* skip the test if null-audio-sink factory is not installed */
   if (!test_is_spa_lib_installed (&f->base, "support.null-audio-sink")) {
@@ -59,53 +59,53 @@ test_si_audio_endpoint_configure_activate (TestFixture * f,
     return;
   }
 
-  /* create endpoint */
+  /* create item */
 
-  endpoint = wp_session_item_make (f->base.core, "si-audio-endpoint");
-  g_assert_nonnull (endpoint);
+  item = wp_session_item_make (f->base.core, "si-audio-virtual");
+  g_assert_nonnull (item);
 
-  /* configure endpoint */
+  /* configure item */
 
   {
     WpProperties *props = wp_properties_new_empty ();
-    wp_properties_set (props, "name", "endpoint");
+    wp_properties_set (props, "name", "virtual");
     wp_properties_set (props, "media.class", "Audio/Source");
-    g_assert_true (wp_session_item_configure (endpoint, props));
-    g_assert_true (wp_session_item_is_configured (endpoint));
+    g_assert_true (wp_session_item_configure (item, props));
+    g_assert_true (wp_session_item_is_configured (item));
   }
 
   {
     const gchar *str = NULL;
-    g_autoptr (WpProperties) props = wp_session_item_get_properties (endpoint);
+    g_autoptr (WpProperties) props = wp_session_item_get_properties (item);
     g_assert_nonnull (props);
     str = wp_properties_get (props, "name");
     g_assert_nonnull (str);
-    g_assert_cmpstr ("endpoint", ==, str);
+    g_assert_cmpstr ("virtual", ==, str);
     str = wp_properties_get (props, "direction");
     g_assert_nonnull (str);
     g_assert_cmpstr ("1", ==, str);
     str = wp_properties_get (props, "item.factory.name");
     g_assert_nonnull (str);
-    g_assert_cmpstr ("si-audio-endpoint", ==, str);
+    g_assert_cmpstr ("si-audio-virtual", ==, str);
   }
 
-  /* activate endpoint */
+  /* activate item */
 
-  wp_object_activate (WP_OBJECT (endpoint), WP_SESSION_ITEM_FEATURE_ACTIVE,
+  wp_object_activate (WP_OBJECT (item), WP_SESSION_ITEM_FEATURE_ACTIVE,
       NULL,  (GAsyncReadyCallback) test_object_activate_finish_cb, f);
   g_main_loop_run (f->base.loop);
-  g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (endpoint)), ==,
+  g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (item)), ==,
       WP_SESSION_ITEM_FEATURE_ACTIVE);
 
   /* reset */
-  wp_session_item_reset (endpoint);
-  g_assert_false (wp_session_item_is_configured (endpoint));
+  wp_session_item_reset (item);
+  g_assert_false (wp_session_item_is_configured (item));
 }
 
 static void
-test_si_audio_endpoint_export (TestFixture * f, gconstpointer user_data)
+test_si_audio_virtual_export (TestFixture * f, gconstpointer user_data)
 {
-  g_autoptr (WpSessionItem) endpoint = NULL;
+  g_autoptr (WpSessionItem) item = NULL;
   g_autoptr (WpObjectManager) clients_om = NULL;
   g_autoptr (WpClient) self_client = NULL;
 
@@ -114,8 +114,6 @@ test_si_audio_endpoint_export (TestFixture * f, gconstpointer user_data)
     g_test_skip ("The pipewire null-audio-sink factory was not found");
     return;
   }
-
-  /* find self_client, to be used for verifying endpoint.client.id */
 
   clients_om = wp_object_manager_new ();
   wp_object_manager_add_interest (clients_om, WP_TYPE_CLIENT, NULL);
@@ -128,28 +126,28 @@ test_si_audio_endpoint_export (TestFixture * f, gconstpointer user_data)
   self_client = wp_object_manager_lookup (clients_om, WP_TYPE_CLIENT, NULL);
   g_assert_nonnull (self_client);
 
-  /* create endpoint */
+  /* create item */
 
-  endpoint = wp_session_item_make (f->base.core, "si-audio-endpoint");
-  g_assert_nonnull (endpoint);
+  item = wp_session_item_make (f->base.core, "si-audio-virtual");
+  g_assert_nonnull (item);
 
-  /* configure endpoint */
+  /* configure item */
   {
     WpProperties *props = wp_properties_new_empty ();
-    wp_properties_set (props, "name", "endpoint");
+    wp_properties_set (props, "name", "virtual");
     wp_properties_set (props, "media.class", "Audio/Source");
-    g_assert_true (wp_session_item_configure (endpoint, props));
-    g_assert_true (wp_session_item_is_configured (endpoint));
+    g_assert_true (wp_session_item_configure (item, props));
+    g_assert_true (wp_session_item_is_configured (item));
   }
 
-  /* activate endpoint */
+  /* activate item */
 
   {
-    wp_object_activate (WP_OBJECT (endpoint),
+    wp_object_activate (WP_OBJECT (item),
         WP_SESSION_ITEM_FEATURE_ACTIVE | WP_SESSION_ITEM_FEATURE_EXPORTED,
         NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
     g_main_loop_run (f->base.loop);
-    g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (endpoint)), ==,
+    g_assert_cmphex (wp_object_get_active_features (WP_OBJECT (item)), ==,
         WP_SESSION_ITEM_FEATURE_ACTIVE | WP_SESSION_ITEM_FEATURE_EXPORTED);
   }
 
@@ -157,7 +155,7 @@ test_si_audio_endpoint_export (TestFixture * f, gconstpointer user_data)
     g_autoptr (WpNode) n = NULL;
     g_autoptr (WpProperties) props = NULL;
 
-    n = wp_session_item_get_associated_proxy (endpoint, WP_TYPE_NODE);
+    n = wp_session_item_get_associated_proxy (item, WP_TYPE_NODE);
     g_assert_nonnull (n);
     props = wp_pipewire_object_get_properties (WP_PIPEWIRE_OBJECT (n));
     g_assert_nonnull (props);
@@ -167,8 +165,8 @@ test_si_audio_endpoint_export (TestFixture * f, gconstpointer user_data)
   }
 
   /* reset */
-  wp_session_item_reset (endpoint);
-  g_assert_false (wp_session_item_is_configured (endpoint));
+  wp_session_item_reset (item);
+  g_assert_false (wp_session_item_is_configured (item));
 }
 
 gint
@@ -178,18 +176,18 @@ main (gint argc, gchar *argv[])
   wp_init (WP_INIT_ALL);
 
   /* configure-activate */
-  g_test_add ("/modules/si-audio-endpoint/configure-activate",
+  g_test_add ("/modules/si-audio-virtual/configure-activate",
       TestFixture, NULL,
-      test_si_audio_endpoint_setup,
-      test_si_audio_endpoint_configure_activate,
-      test_si_audio_endpoint_teardown);
+      test_si_audio_virtual_setup,
+      test_si_audio_virtual_configure_activate,
+      test_si_audio_virtual_teardown);
 
  /* export */
- g_test_add ("/modules/si-audio-endpoint/export",
+ g_test_add ("/modules/si-audio-virtual/export",
       TestFixture, NULL,
-      test_si_audio_endpoint_setup,
-      test_si_audio_endpoint_export,
-      test_si_audio_endpoint_teardown);
+      test_si_audio_virtual_setup,
+      test_si_audio_virtual_export,
+      test_si_audio_virtual_teardown);
 
   return g_test_run ();
 }

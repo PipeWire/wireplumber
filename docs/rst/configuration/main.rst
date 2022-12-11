@@ -389,49 +389,51 @@ files and are placed under ``wireplumber.conf.d/``. More on this below.
     * wp_settings_apply_rule () is WpSettings API for rules.
 
 
-  * *wireplumber.endpoints*
+  * *wireplumber.virtuals*
 
-    Endpoints are a way of grouping different kinds of clients or
+    Virtual session items are a way of grouping different kinds of clients or
     applications(for example Music, Voice, Navigation, Gaming etc).
     The actual grouping is done based on the `media.role` of the client
     stream node.
 
-    Endpoints allows for that actions to be taken up at group level rather than
-    at individual stream level, which can be cumbersome.
+    Virtual session items allows for that actions to be taken up at group level
+    rather than at individual stream level, which can be cumbersome.
 
     For example imagine the following scenarios.
       * Incoming Navigation message needs to duck the volume of
         Audio playback(all the apps playing audio).
       * Incoming voice/voip call needs to stop(cork) the Audio playback.
 
-    Endpoints realize this functionality with ease.
+    Virtual session items realize this functionality with ease.
 
-    * *Defining Endpoints*
+    * *Defining Virtual session items*
 
       Example::
 
-        endpoints = {
-          endpoint.capture = {
+        virtual-items = {
+          virtual-item.capture = {
             media.class = "Audio/Source"
             role = "Capture"
           }
-          endpoint.multimedia = {
+          virtual-item.multimedia = {
             media.class = "Audio/Sink"
             role = "Multimedia"
           }
-          endpoint.navigation = {
+          virtual-item.navigation = {
             media.class = "Audio/Sink"
             role = "Navigation"
           }
 
-      This example creates 3 endpoints, with names ``endpoint.capture``,
-      ``endpoint.multimedia`` and ``endpoint.navigation`` and assigned roles
-      ``Capture``, ``Multimedia`` and ``Navigation`` respectively.
+      This example creates 3 virtual session items, with names
+      ``virtual-item.capture``, ``virtual-item.multimedia`` and
+      ``virtual-item.navigation`` and assigned roles ``Capture``, ``Multimedia``
+      and ``Navigation`` respectively.
 
-      First end point has a media class of ``Audio/Source`` used for capture and rest of the endpoints have ``Audio/Sink`` media class, and so are only
-      used for playback.
+      First virtual item has a media class of ``Audio/Source`` used for capture
+      and rest of the virtual items have ``Audio/Sink`` media class, and so are
+      only used for playback.
 
-    * *Endpoints config*
+    * *Virtual session items config*
 
       Example::
 
@@ -456,15 +458,15 @@ files and are placed under ``wireplumber.conf.d/``. More on this below.
 
       The above example defines actions for both ``Multimedia`` and ``Navigation``
       roles. Since the Navigation role has more priority than the Multimedia
-      role, when a client connects to the Navigation endpoint, it will ``duck``
-      the volume of all Multimedia clients. If Multiple Navigation clients want
-      to play audio, their audio will be mixed.
+      role, when a client connects to the Navigation virtual session item, it
+      will ``duck`` the volume of all Multimedia clients. If Multiple Navigation
+      clients want to play audio, their audio will be mixed.
 
       Possible values of actions are: ``mix`` (Mixes audio),
       ``duck`` (Mixes and lowers the audio volume) or ``cork`` (Pauses audio).
 
-    Endpoints are not used for desktop use cases, it is more suitable for
-    embedded use cases.
+    Virtual session items are not used for desktop use cases, it is more suitable
+    for embedded use cases.
 
 * *Split Configuration files*
 
