@@ -12,8 +12,8 @@ node_om = ObjectManager {
   Interest {
     type = "node",
     Constraint { "media.class", "matches", "Audio/Sink", type = "pw-global" },
-    -- Do not consider endpoints created by WirePlumber
-    Constraint { "wireplumber.is-endpoint", "!", true, type = "pw" },
+    -- Do not consider virtual items created by WirePlumber
+    Constraint { "wireplumber.is-virtual", "!", true, type = "pw" },
     -- or the fallback sink itself
     Constraint { "wireplumber.is-fallback", "!", true, type = "pw" },
   }

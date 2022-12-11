@@ -12,9 +12,9 @@
 #include <spa/param/audio/raw.h>
 #include <spa/param/param.h>
 
-#define SI_FACTORY_NAME "si-audio-endpoint"
+#define SI_FACTORY_NAME "si-audio-virtual"
 
-struct _WpSiAudioEndpoint
+struct _WpSiAudioVirtual
 {
   WpSessionItem parent;
 
@@ -31,26 +31,26 @@ struct _WpSiAudioEndpoint
   WpSiAdapter *adapter;
 };
 
-static void si_audio_endpoint_linkable_init (WpSiLinkableInterface * iface);
-static void si_audio_endpoint_adapter_init (WpSiAdapterInterface * iface);
+static void si_audio_virtual_linkable_init (WpSiLinkableInterface * iface);
+static void si_audio_virtual_adapter_init (WpSiAdapterInterface * iface);
 
-G_DECLARE_FINAL_TYPE(WpSiAudioEndpoint, si_audio_endpoint, WP,
-    SI_AUDIO_ENDPOINT, WpSessionItem)
-G_DEFINE_TYPE_WITH_CODE (WpSiAudioEndpoint, si_audio_endpoint,
+G_DECLARE_FINAL_TYPE(WpSiAudioVirtual, si_audio_virtual, WP,
+    SI_AUDIO_VIRTUAL, WpSessionItem)
+G_DEFINE_TYPE_WITH_CODE (WpSiAudioVirtual, si_audio_virtual,
     WP_TYPE_SESSION_ITEM,
     G_IMPLEMENT_INTERFACE (WP_TYPE_SI_LINKABLE,
-        si_audio_endpoint_linkable_init)
-    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_ADAPTER, si_audio_endpoint_adapter_init))
+        si_audio_virtual_linkable_init)
+    G_IMPLEMENT_INTERFACE (WP_TYPE_SI_ADAPTER, si_audio_virtual_adapter_init))
 
 static void
-si_audio_endpoint_init (WpSiAudioEndpoint * self)
+si_audio_virtual_init (WpSiAudioVirtual * self)
 {
 }
 
 static void
-si_audio_endpoint_reset (WpSessionItem * item)
+si_audio_virtual_reset (WpSessionItem * item)
 {
-  WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (item);
+  WpSiAudioVirtual *self = WP_SI_AUDIO_VIRTUAL (item);
 
   /* deactivate first */
   wp_object_deactivate (WP_OBJECT (self),
@@ -64,18 +64,18 @@ si_audio_endpoint_reset (WpSessionItem * item)
   self->priority = 0;
   self->disable_dsp = FALSE;
 
-  WP_SESSION_ITEM_CLASS (si_audio_endpoint_parent_class)->reset (item);
+  WP_SESSION_ITEM_CLASS (si_audio_virtual_parent_class)->reset (item);
 }
 
 static gboolean
-si_audio_endpoint_configure (WpSessionItem * item, WpProperties *p)
+si_audio_virtual_configure (WpSessionItem * item, WpProperties *p)
 {
-  WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (item);
+  WpSiAudioVirtual *self = WP_SI_AUDIO_VIRTUAL (item);
   g_autoptr (WpProperties) si_props = wp_properties_ensure_unique_owner (p);
   const gchar *str;
 
   /* reset previous config */
-  si_audio_endpoint_reset (item);
+  si_audio_virtual_reset (item);
 
   str = wp_properties_get (si_props, "name");
   if (!str)
@@ -116,18 +116,18 @@ si_audio_endpoint_configure (WpSessionItem * item, WpProperties *p)
 }
 
 static gpointer
-si_audio_endpoint_get_associated_proxy (WpSessionItem * item, GType proxy_type)
+si_audio_virtual_get_associated_proxy (WpSessionItem * item, GType proxy_type)
 {
-  WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (item);
+  WpSiAudioVirtual *self = WP_SI_AUDIO_VIRTUAL (item);
 
   return wp_session_item_get_associated_proxy (
       WP_SESSION_ITEM (self->adapter), proxy_type);
 }
 
 static void
-si_audio_endpoint_disable_active (WpSessionItem *si)
+si_audio_virtual_disable_active (WpSessionItem *si)
 {
-  WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (si);
+  WpSiAudioVirtual *self = WP_SI_AUDIO_VIRTUAL (si);
 
   g_clear_object (&self->adapter);
   g_clear_object (&self->node);
@@ -136,9 +136,9 @@ si_audio_endpoint_disable_active (WpSessionItem *si)
 }
 
 static void
-si_audio_endpoint_disable_exported (WpSessionItem *si)
+si_audio_virtual_disable_exported (WpSessionItem *si)
 {
-  WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (si);
+  WpSiAudioVirtual *self = WP_SI_AUDIO_VIRTUAL (si);
 
   wp_object_update_features (WP_OBJECT (self), 0,
       WP_SESSION_ITEM_FEATURE_EXPORTED);
@@ -148,7 +148,7 @@ static void
 on_adapter_activate_done (WpObject * adapter, GAsyncResult * res,
     WpTransition * transition)
 {
-  WpSiAudioEndpoint *self = wp_transition_get_source_object (transition);
+  WpSiAudioVirtual *self = wp_transition_get_source_object (transition);
   g_autoptr (GError) error = NULL;
 
   if (!wp_object_activate_finish (adapter, res, &error)) {
@@ -163,7 +163,7 @@ on_adapter_activate_done (WpObject * adapter, GAsyncResult * res,
 static void
 on_adapter_port_state_changed (WpSiAdapter *item,
     WpSiAdapterPortsState old_state, WpSiAdapterPortsState new_state,
-    WpSiAudioEndpoint *self)
+    WpSiAudioVirtual *self)
 {
   g_signal_emit_by_name (self, "adapter-ports-state-changed", old_state,
       new_state);
@@ -173,7 +173,7 @@ static void
 on_node_activate_done (WpObject * node, GAsyncResult * res,
     WpTransition * transition)
 {
-  WpSiAudioEndpoint *self = wp_transition_get_source_object (transition);
+  WpSiAudioVirtual *self = wp_transition_get_source_object (transition);
   g_autoptr (GError) error = NULL;
   g_autoptr (WpCore) core = NULL;
   g_autoptr (WpProperties) props = NULL;
@@ -190,7 +190,7 @@ on_node_activate_done (WpObject * node, GAsyncResult * res,
   if (!self->adapter) {
     wp_transition_return_error (transition,
         g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
-            "si-audio-endpoint: could not create si-audio-adapter"));
+            "si-audio-virtual: could not create si-audio-adapter"));
   }
 
   /* Forward adapter-ports-state-changed signal */
@@ -210,7 +210,7 @@ on_node_activate_done (WpObject * node, GAsyncResult * res,
       g_steal_pointer (&props))) {
     wp_transition_return_error (transition,
         g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
-            "si-audio-endpoint: could not configure si-audio-adapter"));
+            "si-audio-virtual: could not configure si-audio-adapter"));
   }
 
   /* activate adapter */
@@ -219,12 +219,12 @@ on_node_activate_done (WpObject * node, GAsyncResult * res,
 }
 
 static void
-si_audio_endpoint_enable_active (WpSessionItem *si, WpTransition *transition)
+si_audio_virtual_enable_active (WpSessionItem *si, WpTransition *transition)
 {
-  WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (si);
+  WpSiAudioVirtual *self = WP_SI_AUDIO_VIRTUAL (si);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   g_autofree gchar *name = g_strdup_printf ("control.%s", self->name);
-  g_autofree gchar *desc = g_strdup_printf ("%s %s Endpoint", self->role,
+  g_autofree gchar *desc = g_strdup_printf ("%s %s Virtual", self->role,
       (self->direction == WP_DIRECTION_OUTPUT) ? "Capture" : "Playback");
   g_autofree gchar *media = g_strdup_printf ("Audio/%s",
       (self->direction == WP_DIRECTION_OUTPUT) ? "Source" : "Sink");
@@ -232,7 +232,7 @@ si_audio_endpoint_enable_active (WpSessionItem *si, WpTransition *transition)
   if (!wp_session_item_is_configured (si)) {
     wp_transition_return_error (transition,
         g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
-            "si-audio-endpoint: item is not configured"));
+            "si-audio-virtual: item is not configured"));
     return;
   }
 
@@ -244,12 +244,12 @@ si_audio_endpoint_enable_active (WpSessionItem *si, WpTransition *transition)
           PW_KEY_FACTORY_NAME, "support.null-audio-sink",
           PW_KEY_NODE_DESCRIPTION, desc,
           "monitor.channel-volumes", "true",
-          "wireplumber.is-endpoint", "true",
+          "wireplumber.is-virtual", "true",
           NULL));
   if (!self->node) {
     wp_transition_return_error (transition,
         g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
-            "si-audio-endpoint: could not create null-audio-sink node"));
+            "si-audio-virtual: could not create null-audio-sink node"));
     return;
   }
 
@@ -260,84 +260,84 @@ si_audio_endpoint_enable_active (WpSessionItem *si, WpTransition *transition)
 }
 
 static void
-si_audio_endpoint_enable_exported (WpSessionItem *si, WpTransition *transition)
+si_audio_virtual_enable_exported (WpSessionItem *si, WpTransition *transition)
 {
-  WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (si);
+  WpSiAudioVirtual *self = WP_SI_AUDIO_VIRTUAL (si);
 
   wp_object_update_features (WP_OBJECT (self),
       WP_SESSION_ITEM_FEATURE_EXPORTED, 0);
 }
 
 static void
-si_audio_endpoint_class_init (WpSiAudioEndpointClass * klass)
+si_audio_virtual_class_init (WpSiAudioVirtualClass * klass)
 {
   WpSessionItemClass *si_class = (WpSessionItemClass *) klass;
 
-  si_class->reset = si_audio_endpoint_reset;
-  si_class->configure = si_audio_endpoint_configure;
-  si_class->get_associated_proxy = si_audio_endpoint_get_associated_proxy;
-  si_class->disable_active = si_audio_endpoint_disable_active;
-  si_class->disable_exported = si_audio_endpoint_disable_exported;
-  si_class->enable_active = si_audio_endpoint_enable_active;
-  si_class->enable_exported = si_audio_endpoint_enable_exported;
+  si_class->reset = si_audio_virtual_reset;
+  si_class->configure = si_audio_virtual_configure;
+  si_class->get_associated_proxy = si_audio_virtual_get_associated_proxy;
+  si_class->disable_active = si_audio_virtual_disable_active;
+  si_class->disable_exported = si_audio_virtual_disable_exported;
+  si_class->enable_active = si_audio_virtual_enable_active;
+  si_class->enable_exported = si_audio_virtual_enable_exported;
 }
 
 static GVariant *
-si_audio_endpoint_get_ports (WpSiLinkable * item, const gchar * context)
+si_audio_virtual_get_ports (WpSiLinkable * item, const gchar * context)
 {
-  WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (item);
+  WpSiAudioVirtual *self = WP_SI_AUDIO_VIRTUAL (item);
   return wp_si_linkable_get_ports (WP_SI_LINKABLE (self->adapter), context);
 }
 
 static void
-si_audio_endpoint_linkable_init (WpSiLinkableInterface * iface)
+si_audio_virtual_linkable_init (WpSiLinkableInterface * iface)
 {
-  iface->get_ports = si_audio_endpoint_get_ports;
+  iface->get_ports = si_audio_virtual_get_ports;
 }
 
 static WpSiAdapterPortsState
-si_audio_endpoint_get_ports_state (WpSiAdapter * item)
+si_audio_virtual_get_ports_state (WpSiAdapter * item)
 {
-  WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (item);
+  WpSiAudioVirtual *self = WP_SI_AUDIO_VIRTUAL (item);
   return wp_si_adapter_get_ports_state (self->adapter);
 }
 
 static WpSpaPod *
-si_audio_endpoint_get_ports_format (WpSiAdapter * item, const gchar **mode)
+si_audio_virtual_get_ports_format (WpSiAdapter * item, const gchar **mode)
 {
-  WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (item);
+  WpSiAudioVirtual *self = WP_SI_AUDIO_VIRTUAL (item);
   return wp_si_adapter_get_ports_format (self->adapter, mode);
 }
 
 static void
-si_audio_endpoint_set_ports_format (WpSiAdapter * item, WpSpaPod *f,
+si_audio_virtual_set_ports_format (WpSiAdapter * item, WpSpaPod *f,
     const gchar *mode, GAsyncReadyCallback callback, gpointer data)
 {
-  WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (item);
+  WpSiAudioVirtual *self = WP_SI_AUDIO_VIRTUAL (item);
   wp_si_adapter_set_ports_format (self->adapter, f, mode, callback, data);
 }
 
 static gboolean
-si_audio_endpoint_set_ports_format_finish (WpSiAdapter * item,
+si_audio_virtual_set_ports_format_finish (WpSiAdapter * item,
     GAsyncResult * res, GError ** error)
 {
-  WpSiAudioEndpoint *self = WP_SI_AUDIO_ENDPOINT (item);
+  WpSiAudioVirtual *self = WP_SI_AUDIO_VIRTUAL (item);
   return wp_si_adapter_set_ports_format_finish (self->adapter, res, error);
 }
 
 static void
-si_audio_endpoint_adapter_init (WpSiAdapterInterface * iface)
+si_audio_virtual_adapter_init (WpSiAdapterInterface * iface)
 {
-  iface->get_ports_state = si_audio_endpoint_get_ports_state;
-  iface->get_ports_format = si_audio_endpoint_get_ports_format;
-  iface->set_ports_format = si_audio_endpoint_set_ports_format;
-  iface->set_ports_format_finish = si_audio_endpoint_set_ports_format_finish;
+  iface->get_ports_state = si_audio_virtual_get_ports_state;
+  iface->get_ports_format = si_audio_virtual_get_ports_format;
+  iface->set_ports_format = si_audio_virtual_set_ports_format;
+  iface->set_ports_format_finish = si_audio_virtual_set_ports_format_finish;
 }
 
 WP_PLUGIN_EXPORT gboolean
 wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
   wp_si_factory_register (core, wp_si_factory_new_simple (SI_FACTORY_NAME,
-      si_audio_endpoint_get_type ()));
+      si_audio_virtual_get_type ()));
   return TRUE;
 }

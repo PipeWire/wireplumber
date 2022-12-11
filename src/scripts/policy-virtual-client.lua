@@ -12,7 +12,7 @@ defaults.roles = Json.Object {}
 
 local config = {}
 config.roles = Conf.get_section (
-    "endpoint-roles", defaults.roles):parse ()
+    "virtual-item-roles", defaults.roles):parse ()
 
 local self = {}
 self.scanning = false
@@ -73,7 +73,7 @@ function findRole(role, tmc)
   return role
 end
 
-function findTargetEndpoint (node, media_class, role)
+function findTargetVirtual (node, media_class, role)
   local target_class_assoc = {
     ["Stream/Input/Audio"] = "Audio/Source",
     ["Stream/Output/Audio"] = "Audio/Sink",
@@ -89,9 +89,9 @@ function findTargetEndpoint (node, media_class, role)
     return nil
   end
 
-  -- find highest priority endpoint by role
+  -- find highest priority virtual by role
   media_role = findRole(role, target_media_class)
-  for si_target_ep in endpoints_om:iterate {
+  for si_target_ep in virtuals_om:iterate {
     Constraint { "role", "=", media_role, type = "pw-global" },
     Constraint { "media.class", "=", target_media_class, type = "pw-global" },
   } do
@@ -132,7 +132,7 @@ function createLink (si, si_target_ep)
     ["in.item"] = in_item,
     ["out.item.port.context"] = "output",
     ["in.item.port.context"] = "input",
-    ["is.policy.endpoint.client.link"] = true,
+    ["is.policy.virtual.client.link"] = true,
     ["media.role"] = target_ep_props["role"],
     ["target.media.class"] = target_ep_props["media.class"],
     ["item.plugged.usec"] = si_props["item.plugged.usec"],
@@ -159,7 +159,7 @@ function checkLinkable (si)
   end
 
   -- Determine if we can handle item by this policy
-  if endpoints_om:get_n_objects () == 0 then
+  if virtuals_om:get_n_objects () == 0 then
     Log.debug (si, "item won't be handled by this policy")
     return false
   end
@@ -178,10 +178,10 @@ function handleLinkable (si)
   Log.info (si, "handling item " .. tostring(node.properties["node.name"]) ..
       " with role " .. media_role)
 
-  -- find proper target endpoint
-  local si_target_ep = findTargetEndpoint (node, media_class, media_role)
+  -- find proper target virtual
+  local si_target_ep = findTargetVirtual (node, media_class, media_role)
   if not si_target_ep then
-    Log.info (si, "... target endpoint not found")
+    Log.info (si, "... target virtual not found")
     return
   end
 
@@ -191,11 +191,11 @@ function handleLinkable (si)
     local in_id = tonumber(link.properties["in.item.id"])
     if out_id == si.id or in_id == si.id then
       local is_out = out_id == si.id and true or false
-      for peer_ep in endpoints_om:iterate() do
+      for peer_ep in virtuals_om:iterate() do
         if peer_ep.id == (is_out and in_id or out_id) then
 
           if peer_ep.id == si_target_ep.id then
-            Log.info (si, "... already linked to proper target endpoint")
+            Log.info (si, "... already linked to proper target virtual")
             return
           end
 
@@ -237,7 +237,11 @@ function unhandleLinkable (si)
   end
 end
 
-endpoints_om = ObjectManager { Interest { type = "SiEndpoint" }}
+virtuals_om = ObjectManager { Interest { type = "SiLinkable",
+  Constraint {
+    "item.factory.name", "=", "si-audio-virtual", type = "pw-global" },
+  }
+}
 linkables_om = ObjectManager { Interest { type = "SiLinkable",
   -- only handle si-audio-adapter and si-node
   Constraint {
@@ -248,7 +252,7 @@ linkables_om = ObjectManager { Interest { type = "SiLinkable",
 }
 links_om = ObjectManager { Interest { type = "SiLink",
   -- only handle links created by this policy
-  Constraint { "is.policy.endpoint.client.link", "=", true, type = "pw-global" },
+  Constraint { "is.policy.virtual.client.link", "=", true, type = "pw-global" },
 } }
 
 linkables_om:connect("objects-changed", function (om)
@@ -259,6 +263,6 @@ linkables_om:connect("object-removed", function (om, si)
   unhandleLinkable (si)
 end)
 
-endpoints_om:activate()
+virtuals_om:activate()
 linkables_om:activate()
 links_om:activate()
