@@ -87,11 +87,11 @@ shared_library(
 )
 
 shared_library(
-  'wireplumber-module-si-audio-endpoint',
+  'wireplumber-module-si-audio-virtual',
   [
-    'module-si-audio-endpoint.c',
+    'module-si-audio-virtual.c',
   ],
-  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-si-audio-endpoint"'],
+  c_args : [common_c_args, '-DG_LOG_DOMAIN="m-si-audio-virtual"'],
   install : true,
   install_dir : wireplumber_module_dir,
   dependencies : [wp_dep, pipewire_dep],

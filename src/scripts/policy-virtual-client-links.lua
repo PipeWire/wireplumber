@@ -13,7 +13,7 @@ local config = {}
 config.duck_level = Settings.parse_float_safe (
     "policy.default.duck-level", defaults.duck_level)
 config.roles = Settings.parse_object_safe (
-    "endpoints-roles", defaults.roles)
+    "virtual-item-roles", defaults.roles)
 
 function findRole(role)
   if role and not config.roles[role] then
@@ -50,32 +50,38 @@ end
 function restoreVolume(role, media_class)
   if not mixer_api then return end
 
-  local ep = endpoints_om:lookup {
+  local si_v = virtuals_om:lookup {
     Constraint { "media.role", "=", role, type = "pw" },
     Constraint { "media.class", "=", media_class, type = "pw" },
   }
 
-  if ep and ep.properties["node.id"] then
-    Log.debug(ep, "restore role " .. role)
-    mixer_api:call("set-volume", ep.properties["node.id"], {
-      monitorVolume = 1.0,
-    })
+  if si_v then
+    local n = si_v:get_associated_proxy ("node")
+    if n then
+      Log.debug(si_v, "restore role " .. role)
+      mixer_api:call("set-volume", n["bound-id"], {
+        monitorVolume = 1.0,
+      })
+    end
   end
 end
 
 function duck(role, media_class)
   if not mixer_api then return end
 
-  local ep = endpoints_om:lookup {
+  local si_v = virtuals_om:lookup {
     Constraint { "media.role", "=", role, type = "pw" },
     Constraint { "media.class", "=", media_class, type = "pw" },
   }
 
-  if ep and ep.properties["node.id"] then
-    Log.debug(ep, "duck role " .. role)
-    mixer_api:call("set-volume", ep.properties["node.id"], {
-      monitorVolume = config.duck_level,
-    })
+  if si_v then
+    local n = si_v:get_associated_proxy ("node")
+    if n then
+      Log.debug(si_v, "duck role " .. role)
+      mixer_api:call("set-volume", n["bound-id"], {
+        monitorVolume = config.duck_level,
+      })
+    end
   end
 end
 
@@ -98,7 +104,7 @@ function rescan()
     ["Video/Source"] = {},
   }
 
-  Log.info("Rescan endpoint links")
+  Log.info("Rescan virtual links")
 
   -- deactivate all links if suspend playback metadata is present
   local suspend = getSuspendPlaybackMetadata()
@@ -193,7 +199,7 @@ end
 silinks_om = ObjectManager {
   Interest {
     type = "SiLink",
-    Constraint { "is.policy.endpoint.client.link", "=", true },
+    Constraint { "is.policy.virtual.client.link", "=", true },
   },
 }
 silinks_om:connect("objects-changed", maybeRescan)
@@ -202,10 +208,12 @@ silinks_om:activate()
 -- enable ducking if mixer-api is loaded
 mixer_api = Plugin.find("mixer-api")
 if mixer_api then
-  endpoints_om = ObjectManager {
-    Interest { type = "endpoint" },
+  virtuals_om = ObjectManager { Interest { type = "SiLinkable",
+    Constraint {
+      "item.factory.name", "=", "si-audio-virtual", type = "pw-global" },
+    }
   }
-  endpoints_om:activate()
+  virtuals_om:activate()
 end
 
 metadata_om = ObjectManager {

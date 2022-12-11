@@ -112,13 +112,13 @@ test_si_standard_link_main (TestFixture * f, gconstpointer user_data)
 {
   g_autoptr (WpSessionItem) link = NULL;
 
-  /* skip the test if audiotestsrc endpoint could not be loaded */
+  /* skip the test if audiotestsrc could not be loaded */
   if (!f->src_item) {
     g_test_skip ("The pipewire audiotestsrc factory was not found");
     return;
   }
 
-  /* skip the test if null-audio-sink endpoint could not be loaded */
+  /* skip the test if null-audio-sink could not be loaded */
   if (!f->sink_item) {
     g_test_skip ("The pipewire null-audio-sink factory was not found");
     return;

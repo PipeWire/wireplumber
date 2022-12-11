@@ -62,16 +62,16 @@ Native API clients
 pw-cat
 ^^^^^^
 
-Using the default endpoint:
+Using the default device:
 
 .. code:: console
 
-   $ wpctl status  # verify the default endpoints
+   $ wpctl status  # verify the default device
    $ pw-record test.wav
    $ pw-play test.wav
 
 
-Using a non-default endpoint:
+Using a non-default device:
 
 .. code:: console
 
@@ -84,19 +84,18 @@ or
 
 .. code:: console
 
-   $ wpctl status  # find the capture & playback endpoint ids
-   $ pw-record --target <endpoint_id> test.wav
-   $ pw-play --target <endpoint_id> test.wav
+   $ wpctl status  # find the capture & playback node ids
+   $ pw-record --target <node_id> test.wav
+   $ pw-play --target <node_id> test.wav
 
 .. note::
 
-   node ids and endpoint ids can be used interchangeably when specifying
-   targets in all use cases
+   node ids can be used interchangeably when specifying targets in all use cases
 
 video-play
 ^^^^^^^^^^
 
-Using the default endpoint:
+Using the default device:
 
 .. code:: console
 
@@ -104,13 +103,13 @@ Using the default endpoint:
    $ ./build/src/examples/video-play
 
 
-Using a non-default endpoint:
+Using a non-default device:
 
 .. code:: console
 
-   $ wpctl status  # find the endpoint id from the list
+   $ wpctl status  # find the device node id from the list
    $ cd path/to/pipewire-source-dir
-   $ ./build/src/examples/video-play <endpoint_id>
+   $ ./build/src/examples/video-play <node_id>
 
 .. tip::
 
@@ -123,11 +122,11 @@ PulseAudio compat API clients
 pacat
 ^^^^^
 
-Using the default endpoint:
+Using the default device:
 
 .. code:: console
 
-   $ wpctl status  # verify the default endpoints
+   $ wpctl status  # verify the default device
    $ parecord test.wav
    $ paplay test.wav
 
@@ -158,29 +157,29 @@ aplay / arecord
    ``pipewire-alsa/conf/50-pipewire.conf`` in your ``~/.asoundrc``
    (or anywhere else, system-wide, where libasound can read it)
 
-Using the default endpoint:
+Using the default device:
 
 .. code:: console
 
-   $ wpctl status  # verify the default endpoints
+   $ wpctl status  # verify the default devices
    $ arecord -D pipewire -f S16_LE -r 48000 test.wav
    $ aplay -D pipewire test.wav
 
-Using a non-default endpoint:
+Using a non-default device:
 
 .. code:: console
 
-   $ wpctl status  # find the capture & playback endpoint ids
-   $ PIPEWIRE_NODE=<endpoint_id> arecord -D pipewire -f S16_LE -r 48000 test.wav
-   $ PIPEWIRE_NODE=<endpoint_id> aplay -D pipewire test.wav
+   $ wpctl status  # find the capture & playback node ids
+   $ PIPEWIRE_NODE=<node_id> arecord -D pipewire -f S16_LE -r 48000 test.wav
+   $ PIPEWIRE_NODE=<node_id> aplay -D pipewire test.wav
 
 or
 
 .. code:: console
 
-   $ wpctl status  # find the capture & playback endpoint ids
-   $ arecord -D pipewire:NODE=<endpoint_id> -f S16_LE -r 48000 test.wav
-   $ aplay -D pipewire:NODE=<endpoint_id> test.wav
+   $ wpctl status  # find the capture & playback device node ids
+   $ arecord -D pipewire:NODE=<node_id> -f S16_LE -r 48000 test.wav
+   $ aplay -D pipewire:NODE=<node_id> test.wav
 
 
 JACK compat API clients
@@ -201,15 +200,14 @@ jack_simple_client
 
 .. code:: console
 
-   $ wpctl status  # find the target endpoint id
-   $ wpctl inspect <endpoint_id>  # find the node.id
+   $ wpctl status  # find the target device node id
+   $ wpctl inspect <node_id>  # find the node.id
    $ PIPEWIRE_NODE=<node_id> pw-jack jack_simple_client
 
 .. note::
 
    The JACK layer is not controlled by the session manager, it creates its own
-   links; which is why it is required to specify a node id (endpoint id will not
-   work)
+   links; which is why it is required to specify a node id.
 
 Device Reservation
 ------------------
@@ -263,7 +261,7 @@ with JACK
 3. Wait a few seconds and run ``wpctl status`` to inspect
 
    - The devices taken by JACK should no longer be available
-   - There should be two *JACK System* endpoints (sink & source)
+   - There should be two *JACK System* nodes (sink & source)
 
 4. Run an audio client on PipeWire (ex ``pw-play test.wav``)
 
@@ -277,7 +275,7 @@ with JACK
 6. Wait a few seconds and run ``wpctl status`` to inspect
 
    - The devices that were release by JACK should again be available
-   - There should be no *JACK System* endpoint
+   - There should be no *JACK System* nodes
 
 .. note::
 

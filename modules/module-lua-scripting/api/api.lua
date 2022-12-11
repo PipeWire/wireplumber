@@ -175,13 +175,6 @@ local Feature = {
   Node = {
     PORTS             = (1 << 16),
   },
-  Session = {
-    ENDPOINTS         = (1 << 16),
-    LINKS             = (1 << 17),
-  },
-  Endpoint = {
-    STREAMS           = (1 << 16),
-  },
   Metadata = {
     DATA              = (1 << 16),
   },

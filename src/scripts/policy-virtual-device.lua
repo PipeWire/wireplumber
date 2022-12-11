@@ -17,9 +17,9 @@ self.scanning = false
 self.pending_rescan = false
 
 function rescan ()
-  -- check endpoints and register new links
-  for si_ep in endpoints_om:iterate() do
-    handleEndpoint (si_ep)
+  -- check virtuals and register new links
+  for si_v in virtuals_om:iterate() do
+    handleVirtual (si_v)
   end
 end
 
@@ -111,7 +111,7 @@ function createLink (si_ep, si_target)
     ["out.item.port.context"] = "output",
     ["in.item.port.context"] = "input",
     ["passive"] = true,
-    ["is.policy.endpoint.device.link"] = true,
+    ["is.policy.virtual.device.link"] = true,
   } then
     Log.warning (si_link, "failed to configure si-standard-link")
     return
@@ -131,8 +131,8 @@ function createLink (si_ep, si_target)
   end)
 end
 
-function handleEndpoint (si_ep)
-  Log.info (si_ep, "handling endpoint " .. si_ep.properties["name"])
+function handleVirtual (si_ep)
+  Log.info (si_ep, "handling virtual " .. si_ep.properties["name"])
 
   -- find proper target item
   local si_target = findUndefinedTarget (si_ep)
@@ -192,7 +192,11 @@ function unhandleLinkable (si)
 end
 
 default_nodes = Plugin.find("default-nodes-api")
-endpoints_om = ObjectManager { Interest { type = "SiEndpoint" }}
+virtuals_om = ObjectManager { Interest { type = "SiLinkable",
+  Constraint {
+    "item.factory.name", "=", "si-audio-virtual", type = "pw-global" },
+  }
+}
 linkables_om = ObjectManager {
   Interest {
     type = "SiLinkable",
@@ -206,7 +210,7 @@ links_om = ObjectManager {
   Interest {
     type = "SiLink",
     -- only handle links created by this policy
-    Constraint { "is.policy.endpoint.device.link", "=", true, type = "pw-global" },
+    Constraint { "is.policy.virtual.device.link", "=", true, type = "pw-global" },
   }
 }
 
@@ -221,7 +225,7 @@ linkables_om:connect("objects-changed", function (om)
   scheduleRescan ()
 end)
 
-endpoints_om:connect("object-added", function (om)
+virtuals_om:connect("object-added", function (om)
   scheduleRescan ()
 end)
 
@@ -229,6 +233,6 @@ linkables_om:connect("object-removed", function (om, si)
   unhandleLinkable (si)
 end)
 
-endpoints_om:activate()
+virtuals_om:activate()
 linkables_om:activate()
 links_om:activate()
