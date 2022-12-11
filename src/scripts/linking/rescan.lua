@@ -22,8 +22,7 @@ function checkLinkable (si, om, handle_nonstreams)
   end
 
   -- Determine if we can handle item by this policy
-  if om:lookup { type = "SiEndpoint" } and
-      si_props ["item.factory.name"] == "si-audio-adapter" then
+  if si_props ["item.factory.name"] == "si-audio-virtual" then
     return false
   end
 
