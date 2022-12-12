@@ -64,4 +64,3 @@ if build_modules
   subdir('wplua')
   subdir('modules')
 endif
-subdir('examples')
