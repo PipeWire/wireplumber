@@ -228,8 +228,11 @@ function prepareDevice(parent, id, obj_type, factory, properties)
     local d = nil
     local f = properties["device.form-factor"]
     local c = properties["device.class"]
+    local n = properties["api.alsa.card.name"]
 
-    if f == "internal" then
+    if n == "Loopback" then
+      d = I18n.gettext("Loopback")
+    elseif f == "internal" then
       d = I18n.gettext("Built-in Audio")
     elseif c == "modem" then
       d = I18n.gettext("Modem")
