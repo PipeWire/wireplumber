@@ -1,5 +1,57 @@
-WirePlumber 0.4.12
+WirePlumber 0.4.13
 ~~~~~~~~~~~~~~~~~~
+
+Additions:
+
+  - Added bluetooth SCO (HSP/HFP) hardware offload support, together with an
+    example script that enables this functionality on the PinePhone
+
+  - Encoded audio (mp3, aac, etc...) can now be passed through, if this mode is
+    supported by both the application and the device
+
+  - The v4l2 monitor now also respects the ``node.disabled`` and
+    ``device.disabled`` properties inside rules
+
+  - Added "Firefox Developer Edition" to the list of apps that are allowed to
+    trigger a bluetooth profile auto-switch (#381)
+
+  - Added support in the portal access script to allow newly plugged cameras
+    to be immediately visible to the portal apps
+
+Fixes:
+
+  - Worked around an issue that would prevent streams from properly linking
+    when using effects software like EasyEffects and JamesDSP (!450)
+
+  - Fixed destroying pavucontrol-qt monitor streams after the node that was
+    being monitored is destroyed (#388)
+
+  - Fixed a crash in the alsa.lua monitor that could happen when a disabled
+    device was removed and re-added (#361)
+
+  - Fixed a rare crash in the metadata object (#382)
+
+  - Fixed a bug where a restored node target would override the node target
+    set by the application on the node's properties (#335)
+
+Packaging:
+
+  - Added build options to compile wireplumber's library, daemon and tools
+    independently
+
+  - Added a build option to disable unit tests that require the dbus daemon
+
+  - Stopped using fakesink/fakesrc in the unit tests to be able to run them
+    on default pipewire installations. Compiling the spa ``test`` plugin is no
+    longer necessary
+
+  - Added pkg-config and header information in the gir file
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.4.12
+..................
 
 Changes:
 
@@ -47,9 +99,6 @@ Fixes:
 
   - Fixed an issue parsing spa-json objects that have a nested object as the
     value of their last property
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.4.11
 ..................
