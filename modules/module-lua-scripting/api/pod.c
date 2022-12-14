@@ -549,7 +549,7 @@ spa_pod_bytes_new (lua_State *L)
       return 1;
     }
     default:
-      luaL_error (L, "Only numner and strings are valid for bytes pod");
+      luaL_error (L, "Only number and strings are valid for bytes pod");
       break;
   }
   return 0;
