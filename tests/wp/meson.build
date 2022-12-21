@@ -127,3 +127,10 @@ test(
       dependencies: common_deps, c_args: common_args),
   env: common_env,
 )
+
+test(
+  'test-conf',
+  executable('test-conf', 'conf.c',
+      dependencies: common_deps, c_args: common_args),
+  env: common_env,
+)
