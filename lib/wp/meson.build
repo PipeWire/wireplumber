@@ -1,6 +1,7 @@
 wp_lib_sources = files(
   'client.c',
   'component-loader.c',
+  'conf.c',
   'core.c',
   'dbus.c',
   'device.c',
@@ -44,6 +45,7 @@ wp_lib_priv_sources = files(
 wp_lib_headers = files(
   'client.h',
   'component-loader.h',
+  'conf.h',
   'core.h',
   'dbus.h',
   'defs.h',
