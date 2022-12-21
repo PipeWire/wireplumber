@@ -9,12 +9,37 @@
 #include <wp/wp.h>
 #include <spa/utils/defs.h>
 #include <pipewire/keys.h>
-#include "module-default-nodes/common.h"
 
 /*
  * Module Provides the APIs to query the default device nodes. Module looks at
  * the default metadata to know the default devices.
  */
+
+enum {
+  AUDIO_SINK,
+  AUDIO_SOURCE,
+  VIDEO_SOURCE,
+  N_DEFAULT_NODES
+};
+
+static const gchar * DEFAULT_KEY[N_DEFAULT_NODES] = {
+  [AUDIO_SINK] = "default.audio.sink",
+  [AUDIO_SOURCE] = "default.audio.source",
+  [VIDEO_SOURCE] = "default.video.source",
+};
+
+static const gchar * NODE_TYPE_STR[N_DEFAULT_NODES] = {
+  [AUDIO_SINK] = "Audio/Sink",
+  [AUDIO_SOURCE] = "Audio/Source",
+  [VIDEO_SOURCE] = "Video/Source",
+};
+
+static const gchar * DEFAULT_CONFIG_KEY[N_DEFAULT_NODES] = {
+  [AUDIO_SINK] = "default.configured.audio.sink",
+  [AUDIO_SOURCE] = "default.configured.audio.source",
+  [VIDEO_SOURCE] = "default.configured.video.source",
+};
+
 
 typedef struct _WpDefaultNode WpDefaultNode;
 struct _WpDefaultNode
@@ -51,44 +76,66 @@ wp_default_nodes_api_init (WpDefaultNodesApi * self)
 }
 
 static void
+sync_changed_notification (WpCore * core, GAsyncResult * res,
+    WpDefaultNodesApi * self)
+{
+  g_autoptr (GError) error = NULL;
+  if (!wp_core_sync_finish (core, res, &error)) {
+    wp_warning_object (self, "core sync error: %s", error->message);
+    return;
+  }
+
+  g_signal_emit (self, signals[SIGNAL_CHANGED], 0);
+  return;
+}
+
+static void
+schedule_changed_notification (WpDefaultNodesApi *self)
+{
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
+  g_return_if_fail (core);
+  wp_core_sync_closure (core, NULL, g_cclosure_new_object (
+      G_CALLBACK (sync_changed_notification), G_OBJECT (self)));
+}
+
+static void
 on_metadata_changed (WpMetadata *m, guint32 subject,
     const gchar *key, const gchar *type, const gchar *value, gpointer d)
 {
   WpDefaultNodesApi * self = WP_DEFAULT_NODES_API (d);
+  gchar *new_value = NULL;
 
   if (subject != 0)
     return;
 
   for (gint i = 0; i < N_DEFAULT_NODES; i++) {
     if (!g_strcmp0 (key, DEFAULT_KEY[i])) {
+
       if (value && !g_strcmp0 (type, "Spa:String:JSON")) {
         g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (value);
-        g_autofree gchar *name = NULL;
-        if (wp_spa_json_object_get (json, "name", "s", &name, NULL)) {
-          wp_debug_object (m, "'%s' changed from %s -> '%s'", key,
-              self->defaults [i].value, name);
-          g_clear_pointer (&self->defaults[i].value, g_free);
-
-          self->defaults[i].value = g_strdup (name);
-        }
+        wp_spa_json_object_get (json, "name", "s", &new_value, NULL);
       }
 
-      g_signal_emit (self, signals [SIGNAL_CHANGED], 0);
+      wp_debug_object (m, "'%s' changed from '%s' -> '%s'", key,
+          self->defaults[i].value, new_value);
+
+      g_clear_pointer (&self->defaults[i].value, g_free);
+      self->defaults[i].value = new_value;
+
+      schedule_changed_notification (self);
       break;
     } else if (!g_strcmp0 (key, DEFAULT_CONFIG_KEY[i])) {
 
       if (value && !g_strcmp0 (type, "Spa:String:JSON")) {
         g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (value);
-        g_autofree gchar *name = NULL;
-        if (wp_spa_json_object_get (json, "name", "s", &name, NULL)){
-          wp_debug_object (m, "'%s' changed from %s -> '%s'", key, name,
-            self->defaults[i].config_value);
-          g_clear_pointer (&self->defaults[i].config_value, g_free);
-
-          self->defaults[i].config_value = g_strdup (name);
-        }
-
+        wp_spa_json_object_get (json, "name", "s", &new_value, NULL);
       }
+
+      wp_debug_object (m, "'%s' changed from '%s' -> '%s'", key,
+          self->defaults[i].config_value, new_value);
+
+      g_clear_pointer (&self->defaults[i].config_value, g_free);
+      self->defaults[i].config_value = new_value;
 
       break;
     }
@@ -96,39 +143,21 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
 }
 
 static void
-on_metadata_changed_hook (WpEvent *event, gpointer d)
+on_metadata_added (WpObjectManager *om, WpObject *obj, WpDefaultNodesApi * self)
 {
-  WpDefaultNodesApi * self = WP_DEFAULT_NODES_API (d);
-  g_autoptr (GObject) subject = wp_event_get_subject (event);
-  WpMetadata *m = WP_METADATA (subject);
-  g_autoptr (WpProperties) p = wp_event_get_properties (event);
-  guint32 subject_id = atoi (wp_properties_get (p, "event.subject.id"));
-  const gchar *key = wp_properties_get (p, "event.subject.key");
-  const gchar *type = wp_properties_get (p, "event.subject.spa_type");
-  const gchar *value = wp_properties_get (p, "event.subject.value");
-
-  on_metadata_changed (m, subject_id, key, type, value, self);
-}
-
-static void
-on_metadata_added (WpEvent *event, gpointer d)
-{
-  WpDefaultNodesApi * self = WP_DEFAULT_NODES_API (d);
-  g_autoptr (GObject) subject = wp_event_get_subject (event);
-  WpMetadata *obj = WP_METADATA (subject);
-
   if (WP_IS_METADATA (obj)) {
     g_autoptr (WpIterator) it = wp_metadata_new_iterator (WP_METADATA (obj), 0);
     g_auto (GValue) val = G_VALUE_INIT;
 
     for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
-      guint32 subject_id;
+      guint32 subject;
       const gchar *key, *type, *value;
-      wp_metadata_iterator_item_extract (&val, &subject_id, &key, &type,
-            &value);
-      on_metadata_changed (WP_METADATA (obj), subject_id, key, type, value,
-            self);
+      wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
+      on_metadata_changed (WP_METADATA (obj), subject, key, type, value, self);
     }
+
+    g_signal_connect_object (obj, "changed",
+        G_CALLBACK (on_metadata_changed), self, 0);
   }
 }
 
@@ -144,50 +173,6 @@ wp_default_nodes_api_enable (WpPlugin * plugin, WpTransition * transition)
   WpDefaultNodesApi * self = WP_DEFAULT_NODES_API (plugin);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
   g_return_if_fail (core);
-  g_autoptr (WpEventDispatcher) dispatcher =
-      wp_event_dispatcher_get_instance (core);
-  g_autoptr (WpEventHook) hook = NULL;
-  g_return_if_fail (dispatcher);
-
-  /* default metadata added */
-  hook = wp_simple_event_hook_new ("metadata-added@default-nodes-api",
-      NULL, NULL,
-      g_cclosure_new ((GCallback) on_metadata_added, self, NULL));
-  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "metadata-added",
-      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
-      NULL);
-  wp_event_dispatcher_register_hook (dispatcher, hook);
-  g_clear_object(&hook);
-
-  /* default metadata changed */
-  hook = wp_simple_event_hook_new ("metadata-changed@default-nodes-api",
-      NULL, NULL,
-      g_cclosure_new ((GCallback) on_metadata_changed_hook, self, NULL));
-
-  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "metadata-changed",
-    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.key", "=s",
-        "default.audio.sink",
-    WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
-    NULL);
-
-  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "metadata-changed",
-    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.key", "=s",
-        "default.video.sink",
-    WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
-    NULL);
-
-  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
-    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "metadata-changed",
-    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.subject.key", "=s",
-        "default.audio.source",
-    WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s", "default",
-    NULL);
-
-  wp_event_dispatcher_register_hook (dispatcher, hook);
-  g_clear_object(&hook);
 
   /* Create the metadata object manager */
   self->om = wp_object_manager_new ();
@@ -199,6 +184,8 @@ wp_default_nodes_api_enable (WpPlugin * plugin, WpTransition * transition)
       WP_TYPE_METADATA, WP_OBJECT_FEATURES_ALL);
   wp_object_manager_request_object_features (self->om,
       WP_TYPE_NODE, WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
+  g_signal_connect_object (self->om, "object-added",
+      G_CALLBACK (on_metadata_added), self, 0);
   g_signal_connect_object (self->om, "installed",
       G_CALLBACK (on_om_installed), self, 0);
   wp_core_install_object_manager (core, self->om);
