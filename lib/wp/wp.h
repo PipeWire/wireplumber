@@ -11,6 +11,7 @@
 
 #include "client.h"
 #include "component-loader.h"
+#include "conf.h"
 #include "core.h"
 #include "dbus.h"
 #include "device.h"
