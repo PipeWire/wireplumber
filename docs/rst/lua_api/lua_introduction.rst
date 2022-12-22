@@ -14,7 +14,9 @@ There are currently two uses for Lua in WirePlumber:
   - To implement the scripting engine
   - To implement lua-based :ref:`config files <config_lua>`
 
-This section is only documenting the API of the **scripting engine**
+This section is only documenting the API of the **scripting engine**. Scripts can be ran with the ``wpexec`` tool.
+
+Example scripts can be found in the `tests/examples` directory of the wireplumber source tree.
 
 Lua Reference
 -------------
