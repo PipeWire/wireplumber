@@ -218,6 +218,7 @@ SANDBOX_EXPORT = {
   LocalModule = WpImplModule_new,
   ImplMetadata = WpImplMetadata_new,
   Settings = WpSettings,
+  Conf = WpConf,
   SimpleEventHook = WpSimpleEventHook_new,
   AsyncEventHook = WpAsyncEventHook_new,
 }
