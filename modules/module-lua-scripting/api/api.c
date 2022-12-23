@@ -1837,41 +1837,45 @@ event_dispatcher_push_event (lua_State *L)
   WpProperties *properties = NULL;
   GObject *source = NULL;
   GObject *subject = NULL;
+  WpEvent *event = NULL;
 
-  luaL_checktype (L, 1, LUA_TTABLE);
+  if (lua_type (L, 1) == LUA_TTABLE) {
+    lua_pushliteral (L, "type");
+    if (lua_gettable (L, 1) != LUA_TSTRING)
+      luaL_error (L, "EventDispatcher.push_event: expected 'type' as string");
+    type = lua_tostring (L, -1);
+    // not popping to keep the string allocated
 
-  lua_pushliteral (L, "type");
-  if (lua_gettable (L, 1) != LUA_TSTRING)
-    luaL_error (L, "EventDispatcher.push_event: expected 'type' as string");
-  type = lua_tostring (L, -1);
-  // not popping to keep the string allocated
+    lua_pushliteral (L, "priority");
+    if (lua_gettable (L, 1) != LUA_TNUMBER)
+      luaL_error (L, "EventDispatcher.push_event: expected 'priority' as number");
+    priority = lua_tointeger (L, -1);
+    lua_pop (L, 1);
 
-  lua_pushliteral (L, "priority");
-  if (lua_gettable (L, 1) != LUA_TNUMBER)
-    luaL_error (L, "EventDispatcher.push_event: expected 'priority' as number");
-  priority = lua_tointeger (L, -1);
-  lua_pop (L, 1);
+    lua_pushliteral (L, "properties");
+    if (lua_gettable (L, 1) != LUA_TNIL) {
+      luaL_checktype (L, -1, LUA_TTABLE);
+      properties = wplua_table_to_properties (L, -1);
+    }
+    lua_pop (L, 1);
 
-  lua_pushliteral (L, "properties");
-  if (lua_gettable (L, 1) != LUA_TNIL) {
-    luaL_checktype (L, -1, LUA_TTABLE);
-    properties = wplua_table_to_properties (L, -1);
+    lua_pushliteral (L, "source");
+    if (lua_gettable (L, 1) != LUA_TNIL)
+      source = wplua_checkobject (L, -1, G_TYPE_OBJECT);
+    lua_pop (L, 1);
+
+    lua_pushliteral (L, "subject");
+    if (lua_gettable (L, 1) != LUA_TNIL)
+      subject = wplua_checkobject (L, -1, G_TYPE_OBJECT);
+    lua_pop (L, 1);
+
+    event = wp_event_new (type, priority, properties, source, subject);
+  } else {
+    event = wp_event_ref (wplua_checkboxed (L, 1, WP_TYPE_EVENT));
   }
-  lua_pop (L, 1);
-
-  lua_pushliteral (L, "source");
-  if (lua_gettable (L, 1) != LUA_TNIL)
-    source = wplua_checkobject (L, -1, G_TYPE_OBJECT);
-  lua_pop (L, 1);
-
-  lua_pushliteral (L, "subject");
-  if (lua_gettable (L, 1) != LUA_TNIL)
-    subject = wplua_checkobject (L, -1, G_TYPE_OBJECT);
-  lua_pop (L, 1);
 
   g_autoptr (WpEventDispatcher) dispatcher =
       wp_event_dispatcher_get_instance (get_wp_core (L));
-  WpEvent *event = wp_event_new (type, priority, properties, source, subject);
   wp_event_dispatcher_push_event (dispatcher, wp_event_ref (event));
   wplua_pushboxed (L, WP_TYPE_EVENT, event);
   return 1;
