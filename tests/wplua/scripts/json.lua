@@ -89,6 +89,12 @@ assert (json:get_data() == "[\"lua\", \"spa\", \"json\"]")
 assert (json:get_size() == 22)
 assert (json:get_data() == json:to_string())
 
+json = Json.Array {}
+assert (json:is_array())
+val = json:parse ()
+assert (#val == 0)
+assert (json:get_data() == "[]")
+
 json = Json.Array {
   Json.Array {
     Json.Object {
@@ -160,6 +166,13 @@ assert (val["1"] == 1)
 assert (val["2"] == 2)
 assert (val["3"] == 3)
 assert (val[4] == nil)
+
+json = Json.Object {}
+assert (json:is_object())
+val = json:parse ()
+assert (#val == 0)
+assert (val.key1 == nil)
+assert (json:get_data() == "{}")
 
 -- Raw
 json = Json.Raw ("[\"foo\", \"bar\"]")
