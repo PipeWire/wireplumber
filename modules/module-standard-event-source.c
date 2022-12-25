@@ -133,8 +133,7 @@ get_object_type (gpointer obj, WpProperties **properties)
 static gint
 get_default_event_priority (const gchar *event_type)
 {
-  if (!g_strcmp0 (event_type, "find-target-si-and-link") ||
-      g_str_has_prefix (event_type, "select-"))
+  if (g_str_has_prefix (event_type, "select-"))
     return 500;
   else if (!g_strcmp0 (event_type, "rescan-session"))
     return -500;
@@ -190,8 +189,12 @@ wp_standard_event_source_create_event (WpStandardEventSource *self,
 
   if (subject_type) {
     wp_properties_set (properties, "event.subject.type", subject_type);
-    full_event_type = g_strdup_printf ("%s-%s", subject_type, event_type);
-    event_type = full_event_type;
+
+    /* prefix the event with the subject type, unless it is a select-* event */
+    if (!g_str_has_prefix (event_type, "select-")) {
+      full_event_type = g_strdup_printf ("%s-%s", subject_type, event_type);
+      event_type = full_event_type;
+    }
   }
   if (misc_properties)
     wp_properties_add (properties, misc_properties);
