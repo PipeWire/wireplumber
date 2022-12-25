@@ -5,7 +5,7 @@
 -- SPDX-License-Identifier: MIT
 --
 -- Links a session item to the target that has been previously selected.
--- This is meant to be the last hook in the find-target-si-and-link chain.
+-- This is meant to be the last hook in the select-target chain.
 
 local putils = require ("policy-utils")
 local cutils = require ("common-utils")
@@ -15,7 +15,7 @@ SimpleEventHook {
   after = "prepare-link@policy-desktop",
   interests = {
     EventInterest {
-      Constraint { "event.type", "=", "find-target-si-and-link" },
+      Constraint { "event.type", "=", "select-target" },
     },
   },
   execute = function (event)

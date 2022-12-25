@@ -14,7 +14,7 @@ SimpleEventHook {
   after = "find-default-target@policy-desktop",
   interests = {
     EventInterest {
-      Constraint { "event.type", "=", "find-target-si-and-link" },
+      Constraint { "event.type", "=", "select-target" },
     },
   },
   execute = function (event)

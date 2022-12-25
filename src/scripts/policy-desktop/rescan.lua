@@ -5,7 +5,7 @@
 -- SPDX-License-Identifier: MIT
 --
 -- Handle new linkables and trigger rescanning of the graph.
--- Rescan the graph by pushing new find-target-si-and-link events for
+-- Rescan the graph by pushing new select-target events for
 -- all linkables that need to be linked
 -- Cleanup links when the linkables they are associated with are removed.
 -- Also, cleanup flags attached to linkables.
@@ -103,7 +103,7 @@ SimpleEventHook {
       end
 
       -- push event to find target and link
-      source:call ("push-event", "find-target-si-and-link", si, nil)
+      source:call ("push-event", "select-target", si, nil)
 
     ::skip_linkable::
     end
