@@ -89,6 +89,19 @@ wp_session_item_get_gobject_property (GObject * object, guint property_id,
   }
 }
 
+static void
+wp_session_item_set_gobject_property (GObject *object, guint property_id,
+  const GValue *value, GParamSpec *pspec)
+{
+  WpSessionItem *self = WP_SESSION_ITEM (object);
+
+  switch (property_id) {
+  case PROP_PROPERTIES:
+    wp_session_item_set_properties (self, g_value_dup_boxed (value));
+    break;
+ }
+}
+
 static WpObjectFeatures
 session_item_default_get_supported_features (WpObject * self)
 {
@@ -184,6 +197,7 @@ wp_session_item_class_init (WpSessionItemClass * klass)
 
   object_class->dispose = wp_session_item_dispose;
   object_class->get_property = wp_session_item_get_gobject_property;
+  object_class->set_property = wp_session_item_set_gobject_property;
 
   wpobject_class->get_supported_features =
       session_item_default_get_supported_features;
@@ -198,7 +212,7 @@ wp_session_item_class_init (WpSessionItemClass * klass)
   g_object_class_install_property (object_class, PROP_PROPERTIES,
       g_param_spec_boxed ("properties", "properties",
           "The session item properties", WP_TYPE_PROPERTIES,
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 }
 
 /*!
