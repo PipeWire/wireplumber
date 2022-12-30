@@ -166,7 +166,7 @@ load_enable_component (WpInitTransition *self, GError **error)
     g_autoptr (WpPlugin) plugin = NULL;
 
     if (comp->deps) {
-      g_autoptr (WpSettings) settings = wp_settings_get_instance (core, NULL);
+      g_autoptr (WpConf) conf = wp_conf_get_instance (core);
       g_autoptr (WpIterator) it = wp_spa_json_new_iterator (comp->deps);
       g_auto (GValue) item = G_VALUE_INIT;
       gboolean deps_met = TRUE;
@@ -175,13 +175,13 @@ load_enable_component (WpInitTransition *self, GError **error)
        * found in the settings */
       for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
         WpSpaJson *dep = g_value_get_boxed (&item);
-        g_autofree gchar *setting = wp_spa_json_parse_string (dep);
-        gboolean value = wp_settings_parse_boolean_safe (settings, setting,
-            TRUE);
+        g_autofree gchar *dep_str = wp_spa_json_parse_string (dep);
+        gboolean value = wp_conf_get_value_boolean (conf,
+            "wireplumber.settings", dep_str, TRUE);
         if (!value) {
           deps_met = FALSE;
           wp_info (".. deps(%s) not met for component(%s), skip loading it",
-              setting, comp->name);
+              dep_str, comp->name);
           break;
         }
       }
