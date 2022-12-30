@@ -103,38 +103,52 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
   timeout_save_settings (self, SAVE_INTERVAL_MS);
 }
 
-static int
-do_parse_settings (void *data, const char *location,
-    const char *section, const char *str, size_t len)
+WpProperties *
+load_configuration_settings (WpSettingsPlugin *self)
 {
-  WpProperties *settings = data;
-  g_autoptr (WpSpaJson) json = wp_spa_json_new_from_stringn (str, len);
-  g_autoptr (WpIterator) iter = wp_spa_json_new_iterator (json);
-  g_auto (GValue) item = G_VALUE_INIT;
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
+  g_autoptr (WpConf) conf = NULL;
+  g_autoptr (WpSpaJson) json = NULL;
+  g_autoptr (WpProperties) res = wp_properties_new_empty ();
 
-  if (!wp_spa_json_is_object (json))
-    return -EINVAL;
+  g_return_val_if_fail (core, NULL);
+  conf = wp_conf_get_instance (core);
+  g_return_val_if_fail (conf, NULL);
 
-  while (wp_iterator_next (iter, &item)) {
-    WpSpaJson *j = g_value_get_boxed (&item);
-    g_autofree gchar *name = wp_spa_json_parse_string (j);
-    g_autofree gchar *value = NULL;
+  json = wp_conf_get_section (conf, "wireplumber.settings", NULL);
+  if (!json)
+    return g_steal_pointer (&res);
 
-    g_value_unset (&item);
-    if (!wp_iterator_next (iter, &item)) {
-      wp_warning ("section %s in %s has wrong JSON syntax", location, section);
-      return -EINVAL;
-    }
-    j = g_value_get_boxed (&item);
-
-    value = wp_spa_json_to_string (j);
-    g_value_unset (&item);
-
-    if (name && value)
-      wp_properties_set (settings, name, value);
+  if (!wp_spa_json_is_object (json)) {
+    wp_warning_object (self,
+        "ignoring wireplumber.settings from conf as it isn't a JSON object");
+    return g_steal_pointer (&res);
   }
 
-  return 0;
+  {
+    g_autoptr (WpIterator) iter = wp_spa_json_new_iterator (json);
+    g_auto (GValue) item = G_VALUE_INIT;
+    while (wp_iterator_next (iter, &item)) {
+      WpSpaJson *j = g_value_get_boxed (&item);
+      g_autofree gchar *name = wp_spa_json_parse_string (j);
+      g_autofree gchar *value = NULL;
+
+      g_value_unset (&item);
+      if (!wp_iterator_next (iter, &item)) {
+        wp_warning_object (self, "malformed wireplumber.settings from conf");
+        return res;
+      }
+      j = g_value_get_boxed (&item);
+
+      value = wp_spa_json_to_string (j);
+      g_value_unset (&item);
+
+      if (name && value)
+        wp_properties_set (res, name, value);
+    }
+  }
+
+  return g_steal_pointer (&res);
 }
 
 static gboolean
@@ -176,8 +190,7 @@ on_metadata_activated (WpMetadata * m, GAsyncResult * res, gpointer user_data)
   WpTransition *transition = WP_TRANSITION (user_data);
   WpSettingsPlugin *self = wp_transition_get_source_object (transition);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
-  struct pw_context *pw_ctx = wp_core_get_pw_context (core);
-  g_autoptr (WpProperties) config_settings = wp_properties_new_empty ();
+  g_autoptr (WpProperties) config_settings = NULL;
   g_autoptr (GError) error = NULL;
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) item = G_VALUE_INIT;
@@ -189,10 +202,11 @@ on_metadata_activated (WpMetadata * m, GAsyncResult * res, gpointer user_data)
     return;
   }
 
-  if (pw_context_conf_section_for_each (pw_ctx, "wireplumber.settings",
-      do_parse_settings, config_settings) < 0) {
+  /* Load settings from configuration */
+  config_settings = load_configuration_settings (self);
+  if (!config_settings) {
     wp_transition_return_error (transition, g_error_new (
-      WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+        WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
         "failed to parse settings"));
     return;
   }
