@@ -108,6 +108,9 @@ json = Json.Array {
 assert (json:is_array())
 assert (json:get_data() == "[[{\"key1\":1}, {\"key2\":2}]]")
 assert (json:get_data() == json:to_string())
+val = json:parse ()
+assert (val[1][1].key1 == 1)
+assert (val[1][2].key2 == 2)
 
 table = {}
 table[1] = 1
