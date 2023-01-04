@@ -23,7 +23,7 @@ state_table = nil
 
 -- hook to restore routes selection for a newly selected profile
 find_stored_routes_hook = SimpleEventHook {
-  name = "find-stored-routes@device",
+  name = "device/find-stored-routes",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-routes" },
@@ -101,8 +101,8 @@ find_stored_routes_hook = SimpleEventHook {
 -- the route properties, as they were stored in the state file;
 -- this is the last step before applying the routes
 apply_route_props_hook = SimpleEventHook {
-  name = "apply-route-props@device",
-  after = { "find-stored-routes@device", "find-best-routes@device" },
+  name = "device/apply-route-props",
+  after = { "device/find-stored-routes", "device/find-best-routes" },
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-routes" },
@@ -152,7 +152,7 @@ apply_route_props_hook = SimpleEventHook {
 }
 
 store_or_restore_routes_hook = SimpleEventHook {
-  name = "store-or-restore-routes@device",
+  name = "device/store-or-restore-routes",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "device-params-changed" },

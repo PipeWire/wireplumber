@@ -12,7 +12,7 @@ state = nil
 state_table = nil
 
 find_stored_default_node_hook = SimpleEventHook {
-  name = "find-stored-default-node@node",
+  name = "default-nodes/find-stored-default-node",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-default-node" },
@@ -59,7 +59,7 @@ find_stored_default_node_hook = SimpleEventHook {
 }
 
 rescan_trigger_hook = SimpleEventHook {
-  name = "rescan-trigger-default-nodes@node",
+  name = "default-nodes/rescan-trigger",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "metadata-changed" },
@@ -76,7 +76,7 @@ rescan_trigger_hook = SimpleEventHook {
 }
 
 store_configured_default_nodes_hook = SimpleEventHook {
-  name = "store-configured-default-nodes@node",
+  name = "default-nodes/store-configured-default-nodes",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "metadata-changed" },
@@ -125,7 +125,7 @@ store_configured_default_nodes_hook = SimpleEventHook {
 
 -- set initial values
 metadata_added_hook = SimpleEventHook {
-  name = "metadata-added@node",
+  name = "default-nodes/metadata-added",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "metadata-added" },

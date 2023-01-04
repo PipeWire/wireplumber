@@ -14,7 +14,7 @@ local cutils = require ("common-utils")
 local config = require ("policy-config")
 
 SimpleEventHook {
-  name = "find-defined-target@policy-desktop",
+  name = "linking/find-defined-target",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-target" },

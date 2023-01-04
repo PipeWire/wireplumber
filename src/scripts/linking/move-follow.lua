@@ -13,7 +13,7 @@ local handles = {}
 function handleFollowSetting (enable)
   if (not handles.follow_hook) and (enable == true) then
     handles.follow_hook = SimpleEventHook {
-      name = "follow@policy-desktop",
+      name = "linking/follow",
       interests = {
         EventInterest {
           Constraint { "event.type", "=", "metadata-changed" },
@@ -37,7 +37,7 @@ end
 function handleMoveSetting (enable)
   if (not handles.move_hook) and (enable == true) then
     handles.move_hook = SimpleEventHook {
-      name = "move@policy-desktop",
+      name = "linking/move",
       interests = {
         EventInterest {
           Constraint { "event.type", "=", "metadata-changed" },
