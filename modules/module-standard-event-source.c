@@ -364,9 +364,8 @@ wp_standard_event_source_disable (WpPlugin * plugin)
 {
   WpStandardEventSource * self = WP_STANDARD_EVENT_SOURCE (plugin);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
-  g_return_if_fail (core);
-  g_autoptr (WpEventDispatcher) dispatcher =
-      wp_event_dispatcher_get_instance (core);
+  g_autoptr (WpEventDispatcher) dispatcher = core ?
+      wp_event_dispatcher_get_instance (core) : NULL;
 
   for (gint i = 0; i < N_OBJECT_TYPES; i++)
     g_clear_object (&self->oms[i]);
