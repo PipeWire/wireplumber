@@ -7,7 +7,7 @@
 cutils = require ("common-utils")
 
 SimpleEventHook {
-  name = "select-profile@device",
+  name = "device/select-profile",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "device-added" },

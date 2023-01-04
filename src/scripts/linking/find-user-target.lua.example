@@ -9,8 +9,8 @@
 local putils = require ("policy-utils")
 
 SimpleEventHook {
-  name = "sample-find-user-target@policy-desktop",
-  before = "find-defined-target@policy-desktop",
+  name = "linking/sample-find-user-target",
+  before = "linking/find-defined-target",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-target" },

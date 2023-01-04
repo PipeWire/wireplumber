@@ -10,8 +10,8 @@
 cutils = require ("common-utils")
 
 SimpleEventHook {
-  name = "find-best-profile@device",
-  after = "find-stored-profile@device",
+  name = "device/find-best-profile",
+  after = "device/find-stored-profile",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-profile" },

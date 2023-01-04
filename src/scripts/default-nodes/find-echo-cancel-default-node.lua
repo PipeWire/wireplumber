@@ -10,7 +10,7 @@ config = require ("device-config")
 enabled = false
 
 find_echo_cancel_default_node_hook = SimpleEventHook {
-  name = "find-echo-cancel-default-node@node",
+  name = "default-nodes/find-echo-cancel-default-node",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-default-node" },

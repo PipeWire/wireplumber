@@ -17,8 +17,8 @@ config = require ("device-config")
 devinfo = require ("device-info-cache")
 
 SimpleEventHook {
-  name = "select-route@device",
-  after = "select-profile@device",
+  name = "device/select-route",
+  after = "device/select-profile",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "device-added" },

@@ -14,8 +14,8 @@ cutils = require ("common-utils")
 devinfo = require ("device-info-cache")
 
 SimpleEventHook {
-  name = "find-best-routes@device",
-  after = "find-stored-routes@device",
+  name = "device/find-best-routes",
+  after = "device/find-stored-routes",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-routes" },

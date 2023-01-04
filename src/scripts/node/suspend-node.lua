@@ -8,7 +8,7 @@
 sources = {}
 
 SimpleEventHook {
-  name = "suspend-node",
+  name = "node/suspend-node",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "node-state-changed" },
