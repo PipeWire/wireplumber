@@ -7,8 +7,8 @@
 cutils = require ("common-utils")
 
 AsyncEventHook {
-  name = "apply-profile@device",
-  after = { "find-stored-profile@device", "find-best-profile@device" },
+  name = "device/apply-profile",
+  after = { "device/find-stored-profile", "device/find-best-profile" },
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-profile" },

@@ -5,9 +5,10 @@
 -- SPDX-License-Identifier: MIT
 
 SimpleEventHook {
-  name = "apply-default-node@node",
-  after = { "find-best-default-node@node", "find-stored-default-node@node",
-            "find-echo-cancel-default-node@node" },
+  name = "default-nodes/apply-default-node",
+  after = { "default-nodes/find-best-default-node",
+            "default-nodes/find-echo-cancel-default-node",
+            "default-nodes/find-stored-default-node" },
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-default-node" },

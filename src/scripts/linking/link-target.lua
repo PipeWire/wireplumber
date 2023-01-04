@@ -11,8 +11,8 @@ local putils = require ("policy-utils")
 local cutils = require ("common-utils")
 
 SimpleEventHook {
-  name = "link-target@policy-desktop",
-  after = "prepare-link@policy-desktop",
+  name = "linking/link-target",
+  after = "linking/prepare-link",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-target" },

@@ -14,8 +14,10 @@ config = require ("device-config")
 devinfo = require ("device-info-cache")
 
 AsyncEventHook {
-  name = "apply-routes@device",
-  after = { "find-stored-routes@device", "find-best-routes@device", "apply-route-props@device" },
+  name = "device/apply-routes",
+  after = { "device/find-stored-routes",
+            "device/find-best-routes",
+            "device/apply-route-props" },
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-routes" },
