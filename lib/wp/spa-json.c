@@ -391,9 +391,8 @@ wp_spa_json_new_string (const gchar *value)
 {
   size_t size = (strlen (value) * 4) + 2;
   gchar dst[size];
-  spa_json_encode_string (dst, sizeof(dst), value);
-  return wp_spa_json_new_from_builder (
-      wp_spa_json_builder_new_formatted ("%s", dst));
+  gint enc_size = spa_json_encode_string (dst, sizeof(dst), value);
+  return wp_spa_json_new_from_builder (wp_spa_json_builder_new (dst, enc_size));
 }
 
 /* Args is not a pointer in some architectures, so this needs to be a macro to
@@ -971,6 +970,14 @@ builder_add_formatted (WpSpaJsonBuilder *self, const gchar *fmt, ...)
 }
 
 static void
+builder_add (WpSpaJsonBuilder *self, const gchar *data, size_t size)
+{
+  g_return_if_fail (self->max_size - self->size >= size + 1);
+  snprintf (self->data + self->size, size + 1, "%s", data);
+  self->size += size;
+}
+
+static void
 builder_add_json (WpSpaJsonBuilder *self, WpSpaJson *json)
 {
   g_return_if_fail (self->max_size - self->size >= json->size + 1);
@@ -990,10 +997,12 @@ wp_spa_json_builder_add_property (WpSpaJsonBuilder *self, const gchar *key)
 {
   size_t size = (strlen (key) * 4) + 3;
   gchar dst[size];
+  gint enc_size;
   ensure_separator (self, TRUE);
   ensure_allocated_max_size (self, size);
-  spa_json_encode_string (dst, sizeof(dst), key);
-  builder_add_formatted (self, "%s:", dst);
+  enc_size = spa_json_encode_string (dst, sizeof(dst), key);
+  builder_add (self, dst, enc_size);
+  builder_add (self, ":", 1);
 }
 
 /*!
@@ -1067,10 +1076,11 @@ wp_spa_json_builder_add_string (WpSpaJsonBuilder *self, const gchar *value)
 {
   size_t size = (strlen (value) * 4) + 2;
   gchar dst[size];
+  gint enc_size;
   ensure_separator (self, FALSE);
   ensure_allocated_max_size (self, size);
-  spa_json_encode_string (dst, sizeof(dst), value);
-  builder_add_formatted (self, "%s", dst);
+  enc_size = spa_json_encode_string (dst, sizeof(dst), value);
+  builder_add (self, dst, enc_size);
 }
 
 /*!
