@@ -242,31 +242,33 @@ spa_json_array_new (lua_State *L)
   luaL_checktype (L, 1, LUA_TTABLE);
 
   lua_pushnil (L);
-  while (lua_next (L, 1)) {
-    switch (lua_type (L, -1)) {
-      case LUA_TBOOLEAN:
-        wp_spa_json_builder_add_boolean (builder, lua_toboolean (L, -1));
-        break;
-      case LUA_TNUMBER:
-        if (lua_isinteger (L, -1))
-          wp_spa_json_builder_add_int (builder, lua_tointeger (L, -1));
-        else
-          wp_spa_json_builder_add_float (builder, lua_tonumber (L, -1));
-        break;
-      case LUA_TSTRING:
-        wp_spa_json_builder_add_string (builder, lua_tostring (L, -1));
-        break;
-      case LUA_TUSERDATA: {
-        WpSpaJson *json = wplua_checkboxed (L, -1, WP_TYPE_SPA_JSON);
-        wp_spa_json_builder_add_json (builder, json);
-        break;
+  while (lua_next (L, -2)) {
+    /* We only add table values with integer keys */
+    if (lua_isinteger (L, -2)) {
+      switch (lua_type (L, -1)) {
+        case LUA_TBOOLEAN:
+          wp_spa_json_builder_add_boolean (builder, lua_toboolean (L, -1));
+          break;
+        case LUA_TNUMBER:
+          if (lua_isinteger (L, -1))
+            wp_spa_json_builder_add_int (builder, lua_tointeger (L, -1));
+          else
+            wp_spa_json_builder_add_float (builder, lua_tonumber (L, -1));
+          break;
+        case LUA_TSTRING:
+          wp_spa_json_builder_add_string (builder, lua_tostring (L, -1));
+          break;
+        case LUA_TUSERDATA: {
+          WpSpaJson *json = wplua_checkboxed (L, -1, WP_TYPE_SPA_JSON);
+          wp_spa_json_builder_add_json (builder, json);
+          break;
+        }
+        default:
+          luaL_error (L, "Json does not support lua type ",
+              lua_typename(L, lua_type(L, -1)));
+          break;
       }
-      default:
-        luaL_error (L, "Json does not support lua type ",
-            lua_typename(L, lua_type(L, -1)));
-        break;
     }
-
     lua_pop (L, 1);
   }
 
@@ -285,30 +287,33 @@ spa_json_object_new (lua_State *L)
 
   lua_pushnil (L);
   while (lua_next (L, -2)) {
-    wp_spa_json_builder_add_property (builder, lua_tostring (L, -2));
+    /* We only add table values with string keys */
+    if (lua_type (L, -2) == LUA_TSTRING) {
+      wp_spa_json_builder_add_property (builder, lua_tostring (L, -2));
 
-    switch (lua_type (L, -1)) {
-      case LUA_TBOOLEAN:
-        wp_spa_json_builder_add_boolean (builder, lua_toboolean (L, -1));
-        break;
-      case LUA_TNUMBER:
-        if (lua_isinteger (L, -1))
-          wp_spa_json_builder_add_int (builder, lua_tointeger (L, -1));
-        else
-          wp_spa_json_builder_add_float (builder, lua_tonumber (L, -1));
-        break;
-      case LUA_TSTRING:
-        wp_spa_json_builder_add_string (builder, lua_tostring (L, -1));
-        break;
-      case LUA_TUSERDATA: {
-        WpSpaJson *json = wplua_checkboxed (L, -1, WP_TYPE_SPA_JSON);
-        wp_spa_json_builder_add_json (builder, json);
-        break;
+      switch (lua_type (L, -1)) {
+        case LUA_TBOOLEAN:
+          wp_spa_json_builder_add_boolean (builder, lua_toboolean (L, -1));
+          break;
+        case LUA_TNUMBER:
+          if (lua_isinteger (L, -1))
+            wp_spa_json_builder_add_int (builder, lua_tointeger (L, -1));
+          else
+            wp_spa_json_builder_add_float (builder, lua_tonumber (L, -1));
+          break;
+        case LUA_TSTRING:
+          wp_spa_json_builder_add_string (builder, lua_tostring (L, -1));
+          break;
+        case LUA_TUSERDATA: {
+          WpSpaJson *json = wplua_checkboxed (L, -1, WP_TYPE_SPA_JSON);
+          wp_spa_json_builder_add_json (builder, json);
+          break;
+        }
+        default:
+          luaL_error (L, "Json does not support lua type ",
+              lua_typename(L, lua_type(L, -1)));
+          break;
       }
-      default:
-        luaL_error (L, "Json does not support lua type ",
-            lua_typename(L, lua_type(L, -1)));
-        break;
     }
 
     lua_pop (L, 1);

@@ -102,6 +102,19 @@ assert (json:is_array())
 assert (json:get_data() == "[[{\"key1\":1}, {\"key2\":2}]]")
 assert (json:get_data() == json:to_string())
 
+table = {}
+table[1] = 1
+table[2] = 2
+table[3] = 3
+table["4"] = 4
+json = Json.Array (table)
+assert (json:is_array())
+val = json:parse ()
+assert (val[1] == 1)
+assert (val[2] == 2)
+assert (val[3] == 3)
+assert (val["4"] == nil)
+
 -- Object
 json = Json.Object {
     key1 = Json.Null(),
@@ -133,6 +146,19 @@ assert (not val.key7.key_nested3[1])
 assert (val.key7.key_nested3[2])
 assert (not val.key7.key_nested3[3])
 assert (val.key7["Key with spaces and (special % characters)"] == 50.0)
+
+table = {}
+table["1"] = 1
+table["2"] = 2
+table["3"] = 3
+table[4] = 4
+json = Json.Object (table)
+assert (json:is_object())
+val = json:parse ()
+assert (val["1"] == 1)
+assert (val["2"] == 2)
+assert (val["3"] == 3)
+assert (val[4] == nil)
 
 -- Raw
 json = Json.Raw ("[\"foo\", \"bar\"]")
