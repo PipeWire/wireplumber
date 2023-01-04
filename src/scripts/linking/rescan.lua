@@ -31,7 +31,7 @@ function checkLinkable (si, om, handle_nonstreams)
 end
 
 SimpleEventHook {
-  name = "linkable-removed@policy-desktop",
+  name = "linking/linkable-removed",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "session-item-removed" },
@@ -77,7 +77,7 @@ SimpleEventHook {
 }:register ()
 
 SimpleEventHook {
-  name = "rescan-session@policy-desktop",
+  name = "linking/rescan-session",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "rescan-session" },
@@ -111,7 +111,7 @@ SimpleEventHook {
 }:register ()
 
 SimpleEventHook {
-  name = "rescan-trigger@policy-desktop",
+  name = "linking/rescan-trigger",
   interests = {
     -- on linkable added or removed, where linkable is adapter or plain node
     EventInterest {

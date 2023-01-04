@@ -79,7 +79,7 @@ function onLinkGroupPortsStateChanged (si, old_state, new_state)
 end
 
 SimpleEventHook {
-  name = "filter-forward-format@policy-desktop",
+  name = "linking/filter-forward-format",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "session-item-added" },
