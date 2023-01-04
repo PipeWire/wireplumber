@@ -8,12 +8,7 @@
 -- create-item.lua script takes pipewire nodes and creates session items (a.k.a
 -- linkable) objects out of them.
 
-local defaults = {}
-defaults.audio_no_dsp = false
-
-local config = {}
-config.audio_no_dsp = Settings.parse_boolean_safe (
-    "policy.default.audio-no-dsp", defaults.audio_no_dsp)
+config = require ("policy-config")
 
 items = {}
 
@@ -66,7 +61,7 @@ function configProperties (node)
 end
 
 AsyncEventHook {
-  name = "node-added@create-item",
+  name = "node/create-item",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "node-added" },
@@ -136,7 +131,7 @@ AsyncEventHook {
 }:register ()
 
 SimpleEventHook {
-  name = "node-removed@create-item",
+  name = "node/destroy-item",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "node-removed" },
