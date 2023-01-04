@@ -15,7 +15,7 @@ state = nil
 state_table = nil
 
 find_stored_profile_hook = SimpleEventHook {
-  name = "find-stored-profile@device",
+  name = "device/find-stored-profile",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-profile" },
@@ -58,7 +58,7 @@ find_stored_profile_hook = SimpleEventHook {
 }
 
 store_user_selected_profile_hook = SimpleEventHook {
-  name = "store-user-selected-profile@device",
+  name = "device/store-user-selected-profile",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "device-params-changed" },

@@ -20,7 +20,7 @@ rs_metadata = nil
 
 -- hook to restore stream properties & target
 restore_stream_hook = SimpleEventHook {
-  name = "restore-stream@node",
+  name = "node/restore-stream",
   interests = {
     -- match stream nodes
     EventInterest {
@@ -124,7 +124,7 @@ restore_stream_hook = SimpleEventHook {
 
 -- store stream properties on the state file
 store_stream_props_hook = SimpleEventHook {
-  name = "store-stream-props@node",
+  name = "node/store-stream-props",
   interests = {
     -- match stream nodes
     EventInterest {
@@ -199,7 +199,7 @@ store_stream_props_hook = SimpleEventHook {
 
 -- save "target.node"/"target.object" on metadata changes
 store_stream_target_hook = SimpleEventHook {
-  name = "store-stream-target-metadata-changed@node",
+  name = "node/store-stream-target-metadata-changed",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "metadata-changed" },
@@ -263,7 +263,7 @@ store_stream_target_hook = SimpleEventHook {
 
 -- track route-settings metadata changes
 route_settings_metadata_added_hook = SimpleEventHook {
-  name = "route-settings-metadata-added@node",
+  name = "node/route-settings-metadata-added",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "metadata-added" },
@@ -290,7 +290,7 @@ route_settings_metadata_added_hook = SimpleEventHook {
 
 -- track route-settings metadata changes
 route_settings_metadata_changed_hook = SimpleEventHook {
-  name = "route-settings-metadata-changed@node",
+  name = "node/route-settings-metadata-changed",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "metadata-changed" },
