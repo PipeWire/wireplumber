@@ -71,7 +71,7 @@ rescan_trigger_hook = SimpleEventHook {
   },
   execute = function (event)
     local source = event:get_source ()
-    source:call ("schedule-rescan")
+    source:call ("schedule-rescan", "default-nodes")
   end
 }
 
