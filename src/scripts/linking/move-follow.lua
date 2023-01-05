@@ -24,7 +24,7 @@ function handleFollowSetting (enable)
       },
       execute = function (event)
         local source = event:get_source ()
-        source:call ("schedule-rescan")
+        source:call ("schedule-rescan", "linking")
       end
     }
     handles.follow_hook:register ()
@@ -47,7 +47,7 @@ function handleMoveSetting (enable)
       },
       execute = function (event)
         local source = event:get_source ()
-        source:call ("schedule-rescan")
+        source:call ("schedule-rescan", "linking")
       end
     }
     handles.move_hook:register()

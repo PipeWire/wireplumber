@@ -5,10 +5,30 @@
 -- SPDX-License-Identifier: MIT
 
 SimpleEventHook {
-  name = "default-nodes/select-default-nodes",
+  name = "default-nodes/rescan-trigger",
   interests = {
     EventInterest {
-      Constraint { "event.type", "=", "rescan-session" },
+      Constraint { "event.type", "c", "session-item-added", "session-item-removed" },
+      Constraint { "event.session-item.interface", "=", "linkable" },
+      Constraint { "media.class", "#", "Audio/*" },
+    },
+    EventInterest {
+      Constraint { "event.type", "c", "session-item-added", "session-item-removed" },
+      Constraint { "event.session-item.interface", "=", "linkable" },
+      Constraint { "media.class", "#", "Video/*" },
+    },
+  },
+  execute = function (event)
+    local source = event:get_source ()
+    source:call ("schedule-rescan", "default-nodes")
+  end
+}:register ()
+
+SimpleEventHook {
+  name = "default-nodes/rescan",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "rescan-for-default-nodes" },
     },
   },
   execute = function (event)

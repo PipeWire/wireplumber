@@ -77,10 +77,10 @@ SimpleEventHook {
 }:register ()
 
 SimpleEventHook {
-  name = "linking/rescan-session",
+  name = "linking/rescan",
   interests = {
     EventInterest {
-      Constraint { "event.type", "=", "rescan-session" },
+      Constraint { "event.type", "=", "rescan-for-linking" },
     },
   },
   execute = function (event)
@@ -127,6 +127,6 @@ SimpleEventHook {
   },
   execute = function (event)
     local source = event:get_source ()
-    source:call ("schedule-rescan")
+    source:call ("schedule-rescan", "linking")
   end
 }:register ()
