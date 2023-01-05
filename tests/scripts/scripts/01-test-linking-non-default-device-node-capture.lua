@@ -26,7 +26,7 @@ SimpleEventHook {
       return
     end
 
-    Log.info (si, string.format ("testPolicy: handling item: %s (%s) si id(%s)",
+    Log.info (si, string.format ("handling item: %s (%s) si id(%s)",
       tostring (si_props ["node.name"]),
       tostring (si_props ["node.id"]), si.id))
 
