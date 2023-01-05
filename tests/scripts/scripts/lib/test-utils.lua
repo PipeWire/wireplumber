@@ -49,7 +49,7 @@ assert (u.metadata ~= nil)
 
 -- hook to keep track of the linkables created.
 SimpleEventHook {
-  name = "test-utils-linking",
+  name = "linkable-added@test-utils-linking",
   interests = {
     -- on linkable added or removed, where linkable is adapter or plain node
     EventInterest {
@@ -87,5 +87,42 @@ SimpleEventHook {
     end
   end
 }:register ()
+
+-- update the defined target in node props of stream session item.
+function u.set_target_in_stream (prop, lname, value)
+
+  -- Ideally the target.object originates from node properties, however the
+  -- stream node here is created in C before the target device is made in
+  -- the Lua code.
+  local si_props = u.lnkbls ["stream-node"].properties
+  if value then
+    si_props [prop] = value
+  else
+    si_props [prop] = u.lnkbls [lname].properties ["node.id"]
+  end
+
+  u.lnkbls ["stream-node"].properties = si_props
+end
+
+-- update the defined target for stream session item in metadata.
+function u. set_target_in_metadata (prop, lname)
+  u.metadata:set (u.lnkbls ["stream-node"].properties ["node.id"], prop,
+      "Spa:Id", u.lnkbls [lname].properties ["node.id"])
+end
+
+function u.linkables_ready ()
+  local count = 0
+  for k, v in pairs (u.lnkbls) do
+    if v then
+      count = count + 1
+    end
+  end
+
+  if count == u.lnkbl_count then
+    return true
+  end
+
+  return false
+end
 
 return u
