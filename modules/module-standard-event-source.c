@@ -34,12 +34,37 @@ typedef enum {
   OBJECT_TYPE_INVALID = N_OBJECT_TYPES
 } ObjectType;
 
+typedef enum {
+  RESCAN_CONTEXT_LINKING,
+  RESCAN_CONTEXT_DEFAULT_NODES,
+  N_RESCAN_CONTEXTS,
+} RescanContext;
+
+static GType
+rescan_context_get_type (void)
+{
+  static gsize gtype_id = 0;
+  static const GEnumValue values[] = {
+    { RESCAN_CONTEXT_LINKING, "RESCAN_CONTEXT_LINKING", "linking" },
+    { RESCAN_CONTEXT_DEFAULT_NODES, "RESCAN_CONTEXT_DEFAULT_NODES", "default-nodes" },
+    { 0, NULL, NULL }
+  };
+  if (g_once_init_enter (&gtype_id)) {
+      GType new_type = g_enum_register_static (
+          g_intern_static_string ("WpStandardEventSource_RescanContext"),
+          values);
+      g_once_init_leave (&gtype_id, new_type);
+  }
+  return (GType) gtype_id;
+}
+#define TYPE_RESCAN_CONTEXT (rescan_context_get_type ())
+
 struct _WpStandardEventSource
 {
   WpPlugin parent;
   WpObjectManager *oms[N_OBJECT_TYPES];
   WpEventHook *rescan_done_hook;
-  gboolean rescan_scheduled;
+  gboolean rescan_scheduled[N_RESCAN_CONTEXTS];
   gint n_oms_installed;
 };
 
@@ -135,7 +160,9 @@ get_default_event_priority (const gchar *event_type)
 {
   if (g_str_has_prefix (event_type, "select-"))
     return 500;
-  else if (!g_strcmp0 (event_type, "rescan-session"))
+  else if (!g_strcmp0 (event_type, "rescan-for-default-nodes"))
+    return -490;
+  else if (!g_strcmp0 (event_type, "rescan-for-linking"))
     return -500;
   else if (!g_strcmp0 (event_type, "node-state-changed"))
     return 50;
@@ -238,11 +265,16 @@ wp_standard_event_source_push_event (WpStandardEventSource *self,
 }
 
 static void
-wp_standard_event_source_schedule_rescan (WpStandardEventSource *self)
+wp_standard_event_source_schedule_rescan (WpStandardEventSource *self,
+    RescanContext context)
 {
-  if (!self->rescan_scheduled) {
-    wp_standard_event_source_push_event (self, "rescan-session", NULL, NULL);
-    self->rescan_scheduled = TRUE;
+  if (!self->rescan_scheduled[context]) {
+    g_autoptr (GEnumClass) klass = g_type_class_ref (TYPE_RESCAN_CONTEXT);
+    GEnumValue *value = g_enum_get_value (klass, context);
+    g_autofree gchar *event_type = g_strdup_printf ("rescan-for-%s",
+        value->value_nick);
+    wp_standard_event_source_push_event (self, event_type, NULL, NULL);
+    self->rescan_scheduled[context] = TRUE;
   }
 }
 
@@ -322,7 +354,16 @@ on_om_installed (WpObjectManager * om, WpStandardEventSource * self)
 static void
 on_rescan_done (WpEvent * event, WpStandardEventSource * self)
 {
-  self->rescan_scheduled = FALSE;
+  g_autoptr (WpProperties) properties = wp_event_get_properties (event);
+  const gchar *event_type = wp_properties_get (properties, "event.type");
+
+  /* the event type is "rescan-for-<context>" and the enum nickname is just
+     "<context>", so we get the substring from the 12th character onwards */
+  g_autoptr (GEnumClass) klass = g_type_class_ref (TYPE_RESCAN_CONTEXT);
+  GEnumValue *value = g_enum_get_value_by_nick (klass, &event_type[11]);
+
+  g_return_if_fail (value != NULL && value->value_nick != NULL);
+  self->rescan_scheduled[value->value] = FALSE;
 }
 
 static void
@@ -354,11 +395,11 @@ wp_standard_event_source_enable (WpPlugin * plugin, WpTransition * transition)
 
   /* install hook to restore the rescan_scheduled state after rescanning */
   self->rescan_done_hook = wp_simple_event_hook_new (
-      "rescan-done@std-event-source", NULL, NULL,
+      "m-standard-event-source/rescan-done", NULL, NULL,
       g_cclosure_new_object ((GCallback) on_rescan_done, G_OBJECT (self)));
   wp_interest_event_hook_add_interest (
       WP_INTEREST_EVENT_HOOK (self->rescan_done_hook),
-      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "rescan-session",
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "#s", "rescan-for-*",
       NULL);
   wp_event_dispatcher_register_hook (dispatcher, self->rescan_done_hook);
 }
@@ -411,7 +452,7 @@ wp_standard_event_source_class_init (WpStandardEventSourceClass * klass)
       "schedule-rescan", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
       (GCallback) wp_standard_event_source_schedule_rescan,
-      NULL, NULL, NULL, G_TYPE_NONE, 0);
+      NULL, NULL, NULL, G_TYPE_NONE, 1, TYPE_RESCAN_CONTEXT);
 }
 
 WP_PLUGIN_EXPORT gboolean
