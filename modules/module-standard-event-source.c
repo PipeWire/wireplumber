@@ -274,9 +274,13 @@ static void
 on_node_state_changed (WpNode *obj, WpNodeState old_state,
     WpNodeState new_state, WpStandardEventSource *self)
 {
+  g_autoptr (GEnumClass) klass = g_type_class_ref (WP_TYPE_NODE_STATE);
+  GEnumValue *old_value = g_enum_get_value (klass, old_state);
+  GEnumValue *new_value = g_enum_get_value (klass, new_state);
+
   g_autoptr (WpProperties) properties = wp_properties_new (
-      "event.subject.old-state", g_enum_to_string (WP_TYPE_NODE_STATE, old_state),
-      "event.subject.new-state", g_enum_to_string (WP_TYPE_NODE_STATE, new_state),
+      "event.subject.old-state", old_value ? old_value->value_nick : NULL,
+      "event.subject.new-state", new_value ? new_value->value_nick : NULL,
       NULL);
   wp_standard_event_source_push_event (self, "state-changed", obj,
       properties);

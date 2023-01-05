@@ -23,6 +23,8 @@ SimpleEventHook {
     local node = event:get_subject ()
     local new_state = event:get_properties ()["event.subject.new-state"]
 
+    Log.debug (node, "changed state to " .. new_state)
+
     -- Always clear the current source if any
     local id = node["bound-id"]
     if sources[id] then
