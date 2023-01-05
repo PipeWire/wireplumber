@@ -29,10 +29,10 @@ find_echo_cancel_default_node_hook = SimpleEventHook {
     end
 
     -- Get the part after "audio." (= 6 characters)
-    local srcsink = props ["default-node.type"]:sub (6)
+    local srcsink = props ["default-node.type"]:sub (7)
 
     for _, node_props in ipairs (available_nodes) do
-      if isEchoCancelNode (node_props) then
+      if isEchoCancelNode (node_props, srcsink) then
         local priority = node_props ["priority.session"]
         priority = math.tointeger (priority) or 0
         priority = priority + 10001 - i
