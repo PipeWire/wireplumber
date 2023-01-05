@@ -24,3 +24,17 @@ test(
   args: ['script-tests', '01-test-linking-non-default-device-node-capture.lua'],
   env: common_env,
 )
+
+test(
+  'test-linking-default-device-node',
+  script_tester,
+  args: ['script-tests', '02-test-linking-default-device-node.lua'],
+  env: common_env,
+)
+
+test(
+  'test-linking-default-device-node-capture',
+  script_tester,
+  args: ['script-tests', '03-test-linking-default-device-node-capture.lua'],
+  env: common_env,
+)
