@@ -38,3 +38,101 @@ test(
   args: ['script-tests', '03-test-linking-default-device-node-capture.lua'],
   env: common_env,
 )
+
+test(
+  'test-linking-defined-device-node-target-object-string',
+  script_tester,
+  args: ['script-tests', '04-test-linking-defined-device-node-target-object-string.lua'],
+  env: common_env,
+)
+
+test(
+  'test-linking-defined-device-node-target-object-int',
+  script_tester,
+  args: ['script-tests', '05-test-linking-defined-device-node-target-object-int.lua'],
+  env: common_env,
+)
+
+test(
+  'test-linking-defined-device-node-target-object-name',
+  script_tester,
+  args: ['script-tests', '06-test-linking-defined-device-node-target-object-name.lua'],
+  env: common_env,
+)
+
+test(
+  'test-linking-defined-device-node-target-object-string-capture',
+  script_tester,
+  args: ['script-tests', '07-test-linking-defined-device-node-target-object-string-capture.lua'],
+  env: common_env,
+)
+
+test(
+  'test-linking-defined-device-node-target-object-int-capture',
+  script_tester,
+  args: ['script-tests', '08-test-linking-defined-device-node-target-object-int-capture.lua'],
+  env: common_env,
+)
+
+test(
+  'test-linking-defined-device-node-target-object-name-capture',
+  script_tester,
+  args: ['script-tests', '09-test-linking-defined-device-node-target-object-name-capture.lua'],
+  env: common_env,
+)
+
+test(
+  'test-linking-defined-device-node-node-target',
+  script_tester,
+  args: ['script-tests', '10-test-linking-defined-device-node-node-target.lua'],
+  env: common_env,
+)
+
+test(
+  'test-linking-defined-device-node-node-target-capture',
+  script_tester,
+  args: ['script-tests', '11-test-linking-defined-device-node-node-target-capture.lua'],
+  env: common_env,
+)
+
+test(
+  'test-linking-defined-device-node-target-node-metadata',
+  script_tester,
+  args: ['script-tests', '12-test-linking-defined-device-node-target-node-metadata.lua'],
+  env: common_env,
+)
+
+test(
+  'test-linking-defined-device-node-target-node-metadata-capture',
+  script_tester,
+  args: ['script-tests', '13-test-linking-defined-device-node-target-node-metadata-capture.lua'],
+  env: common_env,
+)
+
+test(
+  'test-linking-defined-device-node-target-object-metadata',
+  script_tester,
+  args: ['script-tests', '14-test-linking-defined-device-node-target-object-metadata.lua'],
+  env: common_env,
+)
+
+test(
+  'test-linking-defined-device-node-target-object-metadata-capture',
+  script_tester,
+  args: ['script-tests', '15-test-linking-defined-device-node-target-object-metadata-capture.lua'],
+  env: common_env,
+)
+
+test(
+  'test-linking-defined-device-node-target-object-int-metadata',
+  script_tester,
+  args: ['script-tests', '16-test-linking-defined-device-node-target-object-int-metadata.lua'],
+  env: common_env,
+)
+
+test(
+  'test-linking-defined-device-node-target-object-int-metadata-capture',
+  script_tester,
+  args: ['script-tests', '17-test-linking-defined-device-node-target-object-int-metadata-capture.lua'],
+  env: common_env,
+)

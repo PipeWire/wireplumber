@@ -1,6 +1,7 @@
--- Tests linking of streams and default devices. Two device nodes are setup,
--- among which only one is selected as default device node.
+-- Tests linking of streams and defined devices. Three device nodes are created,
+-- among which only one is selected as the defined device("target.node").
 
+-- The "target.node" here is defined in default metadata.
 local pu = require ("policy-utils")
 local tu = require ("test-utils")
 
@@ -8,8 +9,28 @@ Script.async_activation = true
 
 tu.createDeviceNode ("nondefault-device-node", "Audio/Source")
 tu.createDeviceNode ("default-device-node", "Audio/Source")
+tu.createDeviceNode ("defined-device-node", "Audio/Source")
 
-tu.createStreamNode ("stream-node", "Stream/Input/Audio")
+tu.createStreamNode ("stream-node")
+
+-- hook to selet defined target
+SimpleEventHook {
+  name = "linkable-added@test-linking",
+  after = "linkable-added@test-utils-linking",
+  interests = {
+    -- on linkable added or removed, where linkable is adapter or plain node
+    EventInterest {
+      Constraint { "event.type", "=", "session-item-added" },
+      Constraint { "event.session-item.interface", "=", "linkable" },
+      Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
+    },
+  },
+  execute = function (event)
+    if tu.linkables_ready () then
+      tu.set_target_in_metadata ("target.node", "defined-device-node")
+    end
+  end
+}:register ()
 
 SimpleEventHook {
   name = "linking/test-linking",
@@ -34,10 +55,8 @@ SimpleEventHook {
     local link = pu.lookupLink (si.id, si_flags.peer_id)
     assert (link ~= nil)
     assert (si_props ["node.name"] == "stream-node")
-    assert (target.properties ["node.name"] == "default-device-node")
+    assert (target.properties ["node.name"] == "defined-device-node")
     assert ((link:get_active_features () & Feature.SessionItem.ACTIVE) ~= 0)
-
-    assert (target == pu.findDefaultLinkable (si))
 
     Script:finish_activation ()
   end
