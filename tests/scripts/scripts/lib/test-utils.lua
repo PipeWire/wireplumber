@@ -6,31 +6,43 @@
 -- SPDX-License-Identifier: MIT
 
 -- Script is a Lua Module of common Lua test utility functions
+local cu = require ("common-utils")
 
-local tutils = {}
+local u = {}
 
-function tutils.createNode(name, media_class, factory_name)
+u.nodes = {}
+u.lnkbls = {}
+u.lnkbl_count = 0
+
+function u.createDeviceNode (name, media_class)
   local properties = {}
   properties ["node.name"] = name
   properties ["media.class"] = media_class
-  properties ["factory.name"] = factory_name
+  if media_class == "Audio/Sink" then
+    properties ["factory.name"] = "support.null-audio-sink"
+  else
+    properties ["factory.name"] = "audiotestsrc"
+  end
 
   node = Node ("adapter", properties)
   node:activate (Feature.Proxy.BOUND, function (n)
-    Log.info(node, "created and activated node: "
-        .. n.properties ["node.name"])
+    local name = n.properties ["node.name"]
+    local mc = n.properties ["media.class"]
+    Log.info (n, "created and activated device node: " .. name)
+    u.nodes [name] = n
+
+    -- wait for linkables to be created.
+    u.lnkbls [name] = nil
+    u.lnkbl_count = u.lnkbl_count + 1
   end)
 
   return node
 end
 
-tutils.linkables_om = ObjectManager {
-  Interest {
-    type = "SiLinkable",
-    Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
-    Constraint { "active-features", "!", 0, type = "gobject" },
-  }
-}
-tutils.linkables_om:activate()
+function u.createStreamNode (name)
+  -- stream node not created in Lua but in C in the test launcher
+  u.lnkbls ["stream-node"] = nil
+  u.lnkbl_count = u.lnkbl_count + 1
+end
 
-return tutils
+return u
