@@ -20,15 +20,15 @@ SimpleEventHook {
   },
   execute = function (event)
     local source, om, si, si_props, si_flags, target =
-    pu:unwrap_find_target_event (event)
+        pu:unwrap_find_target_event (event)
 
     if not target then
       return
     end
 
     Log.info (si, string.format ("handling item: %s (%s) si id(%s)",
-      tostring (si_props ["node.name"]),
-      tostring (si_props ["node.id"]), si.id))
+        tostring (si_props ["node.name"]),
+        tostring (si_props ["node.id"]), si.id))
 
     local link = pu.lookupLink (si.id, si_flags.peer_id)
     assert (link ~= nil)
