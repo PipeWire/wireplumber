@@ -89,7 +89,7 @@ store_configured_default_nodes_hook = SimpleEventHook {
   execute = function (event)
     local props = event:get_properties ()
     -- get the part after "default.configured." (= 19 chars)
-    local def_node_type = props ["event.subject.key"]:sub (19)
+    local def_node_type = props ["event.subject.key"]:sub (20)
     local new_value = props ["event.subject.value"]
     local new_stored = {}
 
