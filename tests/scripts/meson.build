@@ -12,8 +12,15 @@ script_tester = executable('script-tester',
 )
 
 test(
-  'test-lua-event-policy-hooks',
+  'test-linking-non-default-device-node',
   script_tester,
-  args: ['policy-tests', 'policy-hooks.lua'],
+  args: ['script-tests', '00-test-linking-non-default-device-node.lua'],
+  env: common_env,
+)
+
+test(
+  'test-linking-non-default-device-node-capture',
+  script_tester,
+  args: ['script-tests', '01-test-linking-non-default-device-node-capture.lua'],
   env: common_env,
 )
