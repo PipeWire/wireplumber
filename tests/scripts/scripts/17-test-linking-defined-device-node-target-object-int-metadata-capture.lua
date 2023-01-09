@@ -12,9 +12,8 @@ tu.createDeviceNode ("default-device-node", "Audio/Source")
 tu.createDeviceNode ("defined-device-node-in-props", "Audio/Source")
 tu.createDeviceNode ("defined-device-node-in-metadata", "Audio/Source")
 
-tu.createStreamNode ("stream-node")
-
--- hook to selet defined target
+-- hook to create stream node, stream is created after the device nodes are
+-- ready
 SimpleEventHook {
   name = "linkable-added@test-linking",
   after = "linkable-added@test-utils-linking",
@@ -27,9 +26,18 @@ SimpleEventHook {
     },
   },
   execute = function (event)
-    if tu.linkables_ready () then
-      tu.set_target_in_stream ("target.object", "defined-device-node-in-props")
-      tu.set_target_in_metadata ("target.node", "defined-device-node-in-metadata")
+    local lnkbl = event:get_subject ()
+    local name = lnkbl.properties ["node.name"]
+
+    if tu.linkables_ready () and name ~= "stream-node" then
+      -- all linkables created execept stream-node
+      local props = {
+        ["target.object"] = tu.lnkbls ["defined-device-node-in-props"].properties ["node.id"]
+      }
+      tu.createStreamNode ("capture", props)
+    elseif tu.linkables_ready () and tu.lnkbls ["stream-node"] then
+      -- when "stream-node" linkable is ready
+      tu.set_target_in_metadata ("target.object", "defined-device-node-in-metadata")
     end
   end
 }:register ()

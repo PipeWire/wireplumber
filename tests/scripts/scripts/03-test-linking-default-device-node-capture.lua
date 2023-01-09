@@ -9,7 +9,28 @@ Script.async_activation = true
 tu.createDeviceNode ("nondefault-device-node", "Audio/Source")
 tu.createDeviceNode ("default-device-node", "Audio/Source")
 
-tu.createStreamNode ("stream-node", "Stream/Input/Audio")
+-- hook to create stream node, stream is created after the device nodes are
+-- ready
+SimpleEventHook {
+  name = "linkable-added@test-linking",
+  after = "linkable-added@test-utils-linking",
+  interests = {
+    -- on linkable added or removed, where linkable is adapter or plain node
+    EventInterest {
+      Constraint { "event.type", "=", "session-item-added" },
+      Constraint { "event.session-item.interface", "=", "linkable" },
+      Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
+    },
+  },
+  execute = function (event)
+    local lnkbl = event:get_subject ()
+    local name = lnkbl.properties ["node.name"]
+
+    if tu.linkables_ready () and name ~= "stream-node" then
+      tu.createStreamNode ("capture")
+    end
+  end
+}:register ()
 
 SimpleEventHook {
   name = "linking/test-linking",
