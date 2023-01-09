@@ -11,7 +11,32 @@ tu.createDeviceNode ("nondefault-device-node", "Audio/Sink")
 tu.createDeviceNode ("default-device-node", "Audio/Sink")
 tu.createDeviceNode ("defined-device-node", "Audio/Sink")
 
-tu.createStreamNode ("stream-node")
+-- hook to create stream node, stream is created after the device nodes are
+-- ready
+SimpleEventHook {
+  name = "linkable-added@test-linking",
+  after = "linkable-added@test-utils-linking",
+  interests = {
+    -- on linkable added or removed, where linkable is adapter or plain node
+    EventInterest {
+      Constraint { "event.type", "=", "session-item-added" },
+      Constraint { "event.session-item.interface", "=", "linkable" },
+      Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
+    },
+  },
+  execute = function (event)
+    local lnkbl = event:get_subject ()
+    local name = lnkbl.properties ["node.name"]
+
+    if tu.linkables_ready () and name ~= "stream-node" then
+      -- all linkables created execept stream-node
+      tu.createStreamNode ("playback")
+    elseif tu.linkables_ready () and tu.lnkbls ["stream-node"] then
+      -- when "stream-node" linkable is ready
+      tu.set_target_in_metadata ("target.node", "defined-device-node")
+    end
+  end
+}:register ()
 
 -- hook to selet defined target
 SimpleEventHook {
@@ -55,9 +80,9 @@ SimpleEventHook {
     local link = pu.lookupLink (si.id, si_flags.peer_id)
     assert (link ~= nil)
     assert (si_props ["node.name"] == "stream-node")
-    assert (target.properties ["node.name"] == "defined-device-node")
     assert ((link:get_active_features () & Feature.SessionItem.ACTIVE) ~= 0)
-
-    Script:finish_activation ()
+    if (target.properties ["node.name"] == "defined-device-node") then
+      Script:finish_activation ()
+    end
   end
 }:register ()
