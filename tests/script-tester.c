@@ -12,10 +12,136 @@
 #define DEFAULT_RATE		44100
 #define DEFAULT_CHANNELS	2
 
+struct _WpScriptTester
+{
+  WpPlugin parent;
+  struct pw_stream *stream;
+  GWeakRef client_core;
+};
+
+enum {
+  ACTION_CREATE_STREAM_NODE,
+  N_SIGNALS
+};
+
+enum {
+  PROP_0,
+  PROP_EXPORT_CORE,
+  PROP_SUPPORTED_FEATURES,
+};
+
+static guint signals [N_SIGNALS] = { 0 };
+
+/* plugin for lua test scripts to trigger stream node creation, after all the
+ * device nodes are created and ready.
+ */
+G_DECLARE_FINAL_TYPE (WpScriptTester, wp_script_tester,
+    WP, SCRIPT_TESTER, WpPlugin)
+G_DEFINE_TYPE (WpScriptTester, wp_script_tester, WP_TYPE_PLUGIN)
+
 typedef struct {
   WpBaseTestFixture base;
-  struct pw_stream *stream;
+  WpScriptTester *plugin;
 } ScriptRunnerFixture;
+
+static void
+wp_script_tester_init (WpScriptTester *self)
+{
+}
+
+static void
+wp_script_tester_create_stream (WpScriptTester *self, const gchar *stream_type,
+    WpProperties *stream_props)
+{
+  g_autoptr (WpCore) core = g_weak_ref_get (&self->client_core);
+  WpProperties *props = NULL;
+  const struct spa_pod *params [1];
+  uint8_t buffer [1024];
+  struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
+  int direction;
+
+  wp_info ("create stream_type(%s) with props(%p)", stream_type, stream_props);
+
+  if (g_str_equal (stream_type, "playback"))
+    direction = PW_DIRECTION_OUTPUT;
+  else
+    direction = PW_DIRECTION_INPUT;
+
+  props = wp_properties_new (
+      PW_KEY_MEDIA_TYPE, "Audio",
+      PW_KEY_NODE_NAME, "stream-node",
+      NULL);
+
+  if (stream_props)
+    wp_properties_add (props, stream_props);
+
+  self->stream = pw_stream_new (
+      wp_core_get_pw_core (core),
+      "stream-node", wp_properties_to_pw_properties (props));
+
+  params [0] = spa_format_audio_raw_build (&b, SPA_PARAM_EnumFormat,
+      &SPA_AUDIO_INFO_RAW_INIT (
+          .format = SPA_AUDIO_FORMAT_F32,
+          .channels = DEFAULT_CHANNELS,
+          .rate = DEFAULT_RATE));
+
+  pw_stream_connect (self->stream,
+      direction,
+      PW_ID_ANY,
+      PW_STREAM_FLAG_AUTOCONNECT |
+      PW_STREAM_FLAG_MAP_BUFFERS,
+      params, 1);
+}
+
+static void
+wp_script_tester_set_property (GObject *object, guint property_id,
+  const GValue *value, GParamSpec *pspec)
+{
+  WpScriptTester *self = WP_SCRIPT_TESTER (object);
+
+  switch (property_id) {
+  case PROP_EXPORT_CORE:
+    g_weak_ref_set (&self->client_core, g_value_get_object (value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
+}
+
+static void
+wp_script_tester_get_property (GObject *object, guint property_id, GValue *value,
+  GParamSpec *pspec)
+{
+  WpScriptTester *self = WP_SCRIPT_TESTER (object);
+
+  switch (property_id) {
+  case PROP_EXPORT_CORE:
+    g_value_take_object (value, g_weak_ref_get (&self->client_core));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
+}
+
+static void
+wp_script_tester_class_init (WpScriptTesterClass *klass)
+{
+  GObjectClass *object_class = (GObjectClass *) klass;
+  object_class->get_property = wp_script_tester_get_property;
+  object_class->set_property = wp_script_tester_set_property;
+
+  g_object_class_install_property (object_class, PROP_EXPORT_CORE,
+      g_param_spec_object ("export-core", "export-core", "The Export WpCore", WP_TYPE_CORE,
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
+  signals [ACTION_CREATE_STREAM_NODE] = g_signal_new_class_handler (
+      "create-stream", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+      (GCallback) wp_script_tester_create_stream,
+      NULL, NULL, NULL, G_TYPE_NONE, 2, G_TYPE_STRING, WP_TYPE_PROPERTIES);
+}
 
 static void
 load_component (ScriptRunnerFixture *f, const gchar *name, const gchar *type)
@@ -126,47 +252,16 @@ base_tests_setup (ScriptRunnerFixture *f, gconstpointer data)
 }
 
 static void
-create_stream_node (ScriptRunnerFixture *f, gconstpointer argv)
-{
-  gchar **args = (gchar **) argv;
-  gchar *test_case = args [2];
-
-  struct pw_properties *props;
-  const struct spa_pod *params [1];
-  uint8_t buffer [1024];
-  struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
-  int direction = PW_DIRECTION_OUTPUT;
-
-  if (g_str_has_suffix (test_case, "capture.lua"))
-      direction = PW_DIRECTION_INPUT;
-
-  props = pw_properties_new (
-      PW_KEY_MEDIA_TYPE, "Audio",
-      PW_KEY_NODE_NAME, "stream-node",
-      NULL);
-
-  f->stream = pw_stream_new (
-      wp_core_get_pw_core (f->base.client_core),
-      "stream-node", props);
-
-  params [0] = spa_format_audio_raw_build (&b, SPA_PARAM_EnumFormat,
-      &SPA_AUDIO_INFO_RAW_INIT (
-          .format = SPA_AUDIO_FORMAT_F32,
-          .channels = DEFAULT_CHANNELS,
-          .rate = DEFAULT_RATE));
-
-  pw_stream_connect (f->stream,
-      direction,
-      PW_ID_ANY,
-      PW_STREAM_FLAG_AUTOCONNECT |
-      PW_STREAM_FLAG_MAP_BUFFERS,
-      params, 1);
-}
-static void
 script_tests_setup (ScriptRunnerFixture *f, gconstpointer data)
 {
   base_tests_setup (f, data);
-  create_stream_node (f, data);
+  f->plugin = g_object_new (wp_script_tester_get_type (),
+      "name", "script-tester",
+      "core", f->base.core, /*to register plugin*/
+      "export-core", f->base.client_core, /*to export the created node*/
+      NULL);
+
+  wp_plugin_register ((WpPlugin *)f->plugin);
 }
 
 static void
