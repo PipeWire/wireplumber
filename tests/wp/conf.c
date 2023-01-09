@@ -389,6 +389,51 @@ test_conf_merge_nested (TestConfFixture *f, gconstpointer data)
 }
 
 static void
+test_conf_override (TestConfFixture *f, gconstpointer data)
+{
+  g_assert_nonnull (f->conf);
+
+  g_autoptr (WpSpaJson) s = wp_conf_get_section (f->conf,
+      "wireplumber.section-override", NULL);
+  g_assert_nonnull (s);
+  g_assert_true (wp_spa_json_is_object (s));
+
+  /* Make sure key1 does not exist because it was overridden */
+  gboolean v1 = FALSE;
+  g_assert_false (wp_spa_json_object_get (s, "key1", "b", &v1, NULL));
+
+  /* Make sure key2 exists */
+  gint v2 = 0;
+  g_assert_true (wp_spa_json_object_get (s, "key2", "i", &v2, NULL));
+  g_assert_cmpint (v2, ==, 5);
+}
+
+static void
+test_conf_override_nested (TestConfFixture *f, gconstpointer data)
+{
+  g_assert_nonnull (f->conf);
+
+  g_autoptr (WpSpaJson) s = wp_conf_get_section (f->conf,
+      "wireplumber.section-nested-override", NULL);
+  g_assert_nonnull (s);
+  g_assert_true (wp_spa_json_is_object (s));
+
+  g_autoptr (WpSpaJson) v1 = NULL;
+  g_assert_true (wp_spa_json_object_get (s, "nested-object", "J", &v1, NULL));
+  g_assert_nonnull (v1);
+  g_assert_true (wp_spa_json_is_object (v1));
+
+  /* Make sure key1 does not exist because it was overridden */
+  gboolean v2 = FALSE;
+  g_assert_false (wp_spa_json_object_get (v1, "key1", "b", &v2, NULL));
+
+  /* Make sure key2 exists */
+  gint v3 = 0;
+  g_assert_true (wp_spa_json_object_get (v1, "key2", "i", &v3, NULL));
+  g_assert_cmpint (v3, ==, 3);
+}
+
+static void
 test_conf_get_value (TestConfFixture *f, gconstpointer data)
 {
   g_assert_nonnull (f->conf);
@@ -744,6 +789,10 @@ main (gint argc, gchar *argv[])
       test_conf_setup, test_conf_merge, test_conf_teardown);
   g_test_add ("/wp/conf/merge_nested", TestConfFixture, NULL,
       test_conf_setup, test_conf_merge_nested, test_conf_teardown);
+  g_test_add ("/wp/conf/override", TestConfFixture, NULL,
+      test_conf_setup, test_conf_override, test_conf_teardown);
+  g_test_add ("/wp/conf/override_nested", TestConfFixture, NULL,
+      test_conf_setup, test_conf_override_nested, test_conf_teardown);
   g_test_add ("/wp/conf/get_value", TestConfFixture, NULL,
       test_conf_setup, test_conf_get_value, test_conf_teardown);
   g_test_add ("/wp/conf/apply_rules", TestConfFixture, NULL,
