@@ -27,7 +27,6 @@ function u.createDeviceNode (name, media_class)
   node = Node ("adapter", properties)
   node:activate (Features.ALL, function (n)
     local name = n.properties ["node.name"]
-    local mc = n.properties ["media.class"]
     Log.info (n, "created and activated device node: " .. name)
     u.nodes [name] = n
 
@@ -37,15 +36,6 @@ function u.createDeviceNode (name, media_class)
   end)
   return node
 end
-
-function u.createStreamNode (name)
-  -- stream node not created in Lua but in C in the test launcher
-  u.lnkbls ["stream-node"] = nil
-  u.lnkbl_count = u.lnkbl_count + 1
-end
-
-u.metadata = cu.default_metadata_om:lookup ()
-assert (u.metadata ~= nil)
 
 -- hook to keep track of the linkables created.
 SimpleEventHook {
@@ -60,55 +50,45 @@ SimpleEventHook {
   },
   execute = function (event)
     local lnkbl = event:get_subject ()
-    local lp = lnkbl.properties
-    local name = lp ["node.name"]
+    local name = lnkbl.properties ["node.name"]
+    local mc = lnkbl.properties ["media.class"]
 
-    Log.info (lnkbl, "activated linkable: " .. name ..
-        " with media_class: " .. lp ["media.class"])
-    if not u.lnkbls [name] then
-      u.lnkbls [name] = lnkbl
-    else
-      Log.info ("unknown linkable " .. name)
-    end
+    Log.info (lnkbl, "activated linkable: " .. name .. " with " .. mc)
 
+    u.lnkbls [name] = lnkbl
+
+    -- select "default-device-node" as default device.
     if name == "default-device-node" then
-      local args = { ["name"] = name }
-      local args_json = Json.Object (args)
       local key = nil
 
-      if lp ["media.class"] == "Audio/Sink" then
+      if mc == "Audio/Sink" then
         key = "default.configured.audio.sink"
-      elseif lp ["media.class"] == "Audio/Source" then
+      elseif mc == "Audio/Source" then
         key = "default.configured.audio.source"
       end
 
       -- configure default device.
-      u.metadata:set (0, key, "Spa:String:JSON", args_json:get_data ())
+      u.metadata:set (0, key, "Spa:String:JSON", Json.Object { ["name"] = name }:get_data ())
     end
-
   end
 }:register ()
 
--- update the defined target in node props of stream session item.
-function u.set_target_in_stream (prop, lname, value)
+u.script_tester_plugin = Plugin.find ("script-tester")
 
-  -- Ideally the target.object originates from node properties, however the
-  -- stream node here is created in C before the target device is made in
-  -- the Lua code.
-  local si_props = u.lnkbls ["stream-node"].properties
-  if value then
-    si_props [prop] = value
-  else
-    si_props [prop] = u.lnkbls [lname].properties ["node.id"]
-  end
+function u.createStreamNode (stream_type, props)
+  u.script_tester_plugin:call ("create-stream", stream_type, props)
 
-  u.lnkbls ["stream-node"].properties = si_props
+  u.lnkbls ["stream-node"] = nil
+  u.lnkbl_count = u.lnkbl_count + 1
 end
 
+u.metadata = cu.default_metadata_om:lookup ()
+assert (u.metadata ~= nil)
+
 -- update the defined target for stream session item in metadata.
-function u. set_target_in_metadata (prop, lname)
+function u.set_target_in_metadata (prop, target_node_name)
   u.metadata:set (u.lnkbls ["stream-node"].properties ["node.id"], prop,
-      "Spa:Id", u.lnkbls [lname].properties ["node.id"])
+      "Spa:Id", u.lnkbls [target_node_name].properties ["node.id"])
 end
 
 function u.linkables_ready ()
@@ -118,7 +98,6 @@ function u.linkables_ready ()
       count = count + 1
     end
   end
-
   if count == u.lnkbl_count then
     return true
   end
