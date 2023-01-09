@@ -11,9 +11,8 @@ tu.createDeviceNode ("nondefault-device-node", "Audio/Sink")
 tu.createDeviceNode ("default-device-node", "Audio/Sink")
 tu.createDeviceNode ("defined-device-node", "Audio/Sink")
 
-tu.createStreamNode ("stream-node")
-
--- hook to selet defined target
+-- hook to create stream node, stream is created after the device nodes are
+-- ready
 SimpleEventHook {
   name = "linkable-added@test-linking",
   after = "linkable-added@test-utils-linking",
@@ -26,9 +25,13 @@ SimpleEventHook {
     },
   },
   execute = function (event)
-    if tu.linkables_ready () then
-      tu.set_target_in_stream ("target.object", "defined-device-node",
-          tu.lnkbls ["defined-device-node"].properties ["node.name"])
+    local lnkbl = event:get_subject ()
+    local name = lnkbl.properties ["node.name"]
+    if tu.linkables_ready () and name ~= "stream-node" then
+      local props = {
+        ["target.object"] = tu.lnkbls ["defined-device-node"].properties ["node.name"]
+      }
+      tu.createStreamNode ("playback", props)
     end
   end
 }:register ()
