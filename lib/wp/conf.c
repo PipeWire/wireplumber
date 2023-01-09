@@ -7,6 +7,7 @@
  */
 
 #define G_LOG_DOMAIN "wp-conf"
+#define OVERRIDE_SECTION_PREFIX "override."
 
 #include "core.h"
 #include "conf.h"
@@ -136,7 +137,7 @@ wp_conf_get_instance (WpCore *core)
   return conf;
 }
 
-static WpSpaJson * merge_json_arrays (WpSpaJson *old, WpSpaJson *new);
+static WpSpaJson * merge_json (WpSpaJson *old, WpSpaJson *new);
 
 static WpSpaJson *
 merge_json_objects (WpSpaJson *old, WpSpaJson *new)
@@ -148,8 +149,7 @@ merge_json_objects (WpSpaJson *old, WpSpaJson *new)
 
   b = wp_spa_json_builder_new_object ();
 
-  /* Add properties from 'old' that do not exist in 'new'. If a property
-   * exists in 'new', recursively merge it before adding it */
+  /* Add all properties from 'old' that don't exist in 'new' */
   {
     g_autoptr (WpIterator) it = wp_spa_json_new_iterator (old);
     g_auto (GValue) item = G_VALUE_INIT;
@@ -158,36 +158,33 @@ merge_json_objects (WpSpaJson *old, WpSpaJson *new)
       g_autoptr (WpSpaJson) val = NULL;
       g_autoptr (WpSpaJson) j = NULL;
       g_autofree gchar *str = NULL;
+      const gchar *key_str;
+      g_autofree gchar *override_key_str = NULL;
+      gboolean override;
 
       key = g_value_dup_boxed (&item);
-      str = wp_spa_json_parse_string (key);
-      g_return_val_if_fail (str, NULL);
+      key_str = str = wp_spa_json_parse_string (key);
+      g_return_val_if_fail (key_str, NULL);
+      override = g_str_has_prefix (str, OVERRIDE_SECTION_PREFIX);
+      if (override)
+        key_str += strlen (OVERRIDE_SECTION_PREFIX);
+      override_key_str = g_strdup_printf (OVERRIDE_SECTION_PREFIX "%s", key_str);
 
       g_value_unset (&item);
       g_return_val_if_fail (wp_iterator_next (it, &item), NULL);
       val = g_value_dup_boxed (&item);
 
-      if (wp_spa_json_object_get (new, str, "J", &j, NULL)) {
-        g_autoptr (WpSpaJson) merged = NULL;
-        if (wp_spa_json_is_array (val) && wp_spa_json_is_array (j)) {
-          merged = merge_json_arrays (val, j);
-        } else if (wp_spa_json_is_object (val) && wp_spa_json_is_object (j)) {
-          merged = merge_json_objects (val, j);
-        } else {
-          wp_warning (
-              "skipping merge of propety %s as JSON type does not match", str);
-          continue;
-        }
-        wp_spa_json_builder_add_property (b, str);
-        wp_spa_json_builder_add_json (b, merged);
-      } else {
-        wp_spa_json_builder_add_property (b, str);
+      if (!wp_spa_json_object_get (new, key_str, "J", &j, NULL) &&
+          !wp_spa_json_object_get (new, override_key_str, "J", &j, NULL)) {
+        wp_spa_json_builder_add_property (b, key_str);
         wp_spa_json_builder_add_json (b, val);
       }
     }
   }
 
-  /* Add all properties from 'new' that do not exist in 'old' */
+  /* Add properties from 'new' that don't exist in 'old'. If a property
+   * exists in 'old' and does not have the 'override.' prefix, recursively
+   * merge it before adding it. Otherwise override it. */
   {
     g_autoptr (WpIterator) it = wp_spa_json_new_iterator (new);
     g_auto (GValue) item = G_VALUE_INIT;
@@ -196,17 +193,35 @@ merge_json_objects (WpSpaJson *old, WpSpaJson *new)
       g_autoptr (WpSpaJson) val = NULL;
       g_autoptr (WpSpaJson) j = NULL;
       g_autofree gchar *str = NULL;
+      const gchar *key_str;
+      g_autofree gchar *override_key_str = NULL;
+      gboolean override;
 
       key = g_value_dup_boxed (&item);
-      str = wp_spa_json_parse_string (key);
-      g_return_val_if_fail (str, NULL);
+      key_str = str = wp_spa_json_parse_string (key);
+      g_return_val_if_fail (key_str, NULL);
+      override = g_str_has_prefix (str, OVERRIDE_SECTION_PREFIX);
+      if (override)
+        key_str += strlen (OVERRIDE_SECTION_PREFIX);
+      override_key_str = g_strdup_printf (OVERRIDE_SECTION_PREFIX "%s", key_str);
 
       g_value_unset (&item);
       g_return_val_if_fail (wp_iterator_next (it, &item), NULL);
       val = g_value_dup_boxed (&item);
 
-      if (!wp_spa_json_object_get (old, str, "J", &j, NULL)) {
-        wp_spa_json_builder_add_property (b, str);
+      if (!override &&
+          (wp_spa_json_object_get (old, key_str, "J", &j, NULL) ||
+           wp_spa_json_object_get (old, override_key_str, "J", &j, NULL))) {
+        g_autoptr (WpSpaJson) merged = merge_json (j, val);
+        if (!merged) {
+          wp_warning ("skipping merge of %s as JSON values are not compatible",
+              key_str);
+          continue;
+        }
+        wp_spa_json_builder_add_property (b, key_str);
+        wp_spa_json_builder_add_json (b, merged);
+      } else {
+        wp_spa_json_builder_add_property (b, key_str);
         wp_spa_json_builder_add_json (b, val);
       }
     }
@@ -248,68 +263,64 @@ merge_json_arrays (WpSpaJson *old, WpSpaJson *new)
   return wp_spa_json_builder_end (b);
 }
 
+static WpSpaJson *
+merge_json (WpSpaJson *old, WpSpaJson *new)
+{
+  if (wp_spa_json_is_array (old) && wp_spa_json_is_array (new))
+    return merge_json_arrays (old, new);
+  else if (wp_spa_json_is_object (old) && wp_spa_json_is_object (new))
+    return merge_json_objects (old, new);
+  return NULL;
+}
+
 static gint
 merge_section_cb (void *data, const char *location, const char *section,
     const char *str, size_t len)
 {
   WpSpaJson **res_section = (WpSpaJson **)data;
   g_autoptr (WpSpaJson) json = NULL;
+  gboolean override;
 
   g_return_val_if_fail (res_section, -EINVAL);
 
-  wp_debug ("loading section %s from %s\n", location, section);
+  override = g_str_has_prefix (section, OVERRIDE_SECTION_PREFIX);
+  if (override)
+    section += strlen (OVERRIDE_SECTION_PREFIX);
+
+  wp_debug ("loading section %s (override=%d) from %s", section, override,
+      location);
 
   /* Only allow sections to be objects or arrays */
   json = wp_spa_json_new_from_stringn (str, len);
-  if (!wp_spa_json_is_array (json) && !wp_spa_json_is_object (json)) {
+  if (!wp_spa_json_is_container (json)) {
     wp_warning (
         "skipping section %s from %s as it is not JSON object or array",
         section, location);
     return 0;
   }
 
-  /* Merge objects if same section is defined in multiple locations */
-  if (*res_section && wp_spa_json_is_object (*res_section)) {
-    g_autoptr (WpSpaJson) merged = NULL;
-
-    if (!wp_spa_json_is_object (json)) {
+  /* Merge section if it was defined previously and the 'override.' prefix is
+   * not used */
+  if (!override && *res_section) {
+    g_autoptr (WpSpaJson) merged = merge_json (*res_section, json);
+    if (!merged) {
       wp_warning (
-          "skipping section %s from %s as it can't be merged with JSON object",
+          "skipping merge of %s from %s as JSON values are not compatible",
           section, location);
       return 0;
     }
 
-    merged = merge_json_objects (*res_section, json);
-
     g_clear_pointer (res_section, wp_spa_json_unref);
     *res_section = g_steal_pointer (&merged);
-    wp_debug ("section %s from %s loaded\n", location, section);
-    return 0;
-  }
-
-  /* Merge arrays if same section is defined in multiple locations */
-  if (*res_section && wp_spa_json_is_array (*res_section)) {
-    g_autoptr (WpSpaJson) merged = NULL;
-
-    if (!wp_spa_json_is_array (json)) {
-      wp_warning (
-          "skipping section %s from %s as it can't be merged with JSON array",
-          section, location);
-      return 0;
-    }
-
-    merged = merge_json_arrays (*res_section, json);
-
-    g_clear_pointer (res_section, wp_spa_json_unref);
-    *res_section = g_steal_pointer (&merged);
-    wp_debug ("section %s from %s loaded\n", location, section);
-    return 0;
+    wp_debug ("section %s from %s loaded", location, section);
   }
 
   /* Otherwise always replace */
-  g_clear_pointer (res_section, wp_spa_json_unref);
-  *res_section = g_steal_pointer (&json);
-  wp_debug ("section %s from %s loaded\n", location, section);
+  else {
+    g_clear_pointer (res_section, wp_spa_json_unref);
+    *res_section = g_steal_pointer (&json);
+    wp_debug ("section %s from %s loaded", location, section);
+  }
 
   return 0;
 }
@@ -320,6 +331,7 @@ ensure_section_loaded (WpConf *self, const gchar *section)
   g_autoptr (WpCore) core = NULL;
   struct pw_context *pw_ctx = NULL;
   g_autoptr (WpSpaJson) json_section = NULL;
+  g_autofree gchar *override_section = NULL;
 
   if (g_hash_table_contains (self->sections, section))
     return;
@@ -330,6 +342,9 @@ ensure_section_loaded (WpConf *self, const gchar *section)
   g_return_if_fail (pw_ctx);
 
   pw_context_conf_section_for_each (pw_ctx, section, merge_section_cb,
+      &json_section);
+  override_section = g_strdup_printf (OVERRIDE_SECTION_PREFIX "%s", section);
+  pw_context_conf_section_for_each (pw_ctx, override_section, merge_section_cb,
       &json_section);
 
   if (json_section)
