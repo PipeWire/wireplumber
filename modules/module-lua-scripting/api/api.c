@@ -2046,20 +2046,29 @@ async_event_hook_execute_step (lua_State *L)
 
   wp_trace_object (transition, "execute step: %u", step);
 
-  /* step number is the value on the stack at this point */
-  if (G_UNLIKELY (lua_gettable (L, lua_upvalueindex (1)) != LUA_TSTRING)) {
-    wp_critical_object (transition, "unknown step number %u", step);
-    wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
-        WP_LIBRARY_ERROR_INVARIANT, "unknown step number %u", step));
-    return 0;
+  if (G_LIKELY (step != WP_TRANSITION_STEP_ERROR)) {
+    /* step_str = steps_table[step_number] */
+    /* step number is the value on the stack at this point */
+    if (G_UNLIKELY (lua_gettable (L, lua_upvalueindex (1)) != LUA_TSTRING)) {
+      wp_critical_object (transition, "unknown step number %u", step);
+      wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
+          WP_LIBRARY_ERROR_INVARIANT, "unknown step number %u", step));
+      return 0;
+    }
+  } else {
+    /* try to execute a step called "error", if it exists */
+    lua_pushliteral (L, "error");
   }
   step_str = lua_tostring (L, -1);
 
   /* step string is now on the stack */
   if (G_UNLIKELY (lua_gettable (L, lua_upvalueindex (1)) != LUA_TTABLE)) {
-    wp_critical_object (transition, "unknown step string '%s'", step_str);
-    wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
-        WP_LIBRARY_ERROR_INVARIANT, "unknown step string '%s", step_str));
+    /* it's ok if the "error" step is missing */
+    if (step != WP_TRANSITION_STEP_ERROR) {
+      wp_critical_object (transition, "unknown step string '%s'", step_str);
+      wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
+          WP_LIBRARY_ERROR_INVARIANT, "unknown step string '%s", step_str));
+    }
     return 0;
   }
 
