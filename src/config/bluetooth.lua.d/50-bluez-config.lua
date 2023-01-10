@@ -11,7 +11,7 @@ bluez_monitor.properties = {
 
   -- See bluez-hardware.conf for the hardware database.
 
-  -- Enabled headset roles (default: [ hsp_hs hfp_ag ]), this
+  -- Enabled headset roles (default: [ hfp_hf hfp_ag ]), this
   -- property only applies to native backend. Currently some headsets
   -- (Sony WH-1000XM3) are not working with both hsp_ag and hfp_ag
   -- enabled, disable either hsp_ag or hfp_ag to work around it.
