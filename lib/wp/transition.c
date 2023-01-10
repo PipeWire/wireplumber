@@ -488,10 +488,12 @@ wp_transition_return_error (WpTransition * self, GError * error)
 
   WpTransitionPrivate *priv = wp_transition_get_instance_private (self);
 
+  /* don't allow _return_error() to be called multiple times,
+     as it is dangerous to recurse in execute_step() */
   if (G_UNLIKELY (priv->error)) {
     wp_warning_object (self, "transition bailing out multiple times; "
-        "old error was: %s", priv->error->message);
-    g_clear_error (&priv->error);
+        "new error is: %s", error->message);
+    return;
   }
 
   priv->step = WP_TRANSITION_STEP_ERROR;
