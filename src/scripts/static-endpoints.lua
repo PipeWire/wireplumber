@@ -11,8 +11,8 @@ local defaults = {}
 defaults.endpoints = Json.Object {}
 
 local config = {}
-config.endpoints = Settings.parse_object_safe (
-    "endpoints", defaults.endpoints)
+config.endpoints = Conf.get_section (
+    "endpoints", defaults.endpoints):parse ()
 
 function createEndpoint (factory_name, properties)
   -- create endpoint

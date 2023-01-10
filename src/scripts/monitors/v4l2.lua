@@ -11,8 +11,8 @@ local defaults = {}
 defaults.properties = Json.Object {}
 
 local config = {}
-config.properties = Settings.parse_object_safe (
-    "monitor.v4l2.properties", defaults.properties)
+config.properties = Conf.get_section (
+    "monitor.v4l2.properties", defaults.properties): parse ()
 
 function findDuplicate(parent, id, property, value)
   for i = 0, id - 1, 1 do

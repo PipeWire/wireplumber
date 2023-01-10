@@ -10,10 +10,10 @@ defaults.duck_level = 0.3
 defaults.roles = Json.Object {}
 
 local config = {}
-config.duck_level = Settings.parse_float_safe (
+config.duck_level = Conf.get_value_float ("wireplumber.settings",
     "policy.default.duck-level", defaults.duck_level)
-config.roles = Settings.parse_object_safe (
-    "endpoints-roles", defaults.roles)
+config.roles = Conf.get_section (
+    "endpoint-roles", defaults.roles):parse ()
 
 function findRole(role)
   if role and not config.roles[role] then

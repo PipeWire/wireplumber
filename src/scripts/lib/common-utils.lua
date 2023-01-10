@@ -51,7 +51,7 @@ cutils.default_metadata_om = ObjectManager {
 }
 
 function cutils.evaluateRulesApplyProperties (properties, name)
-  local matched, mprops = Settings.apply_rule (name, properties)
+  local matched, mprops = Conf.apply_rules (name, properties)
 
   if (matched and mprops) then
     for k, v in pairs (mprops) do

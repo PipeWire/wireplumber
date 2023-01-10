@@ -31,20 +31,15 @@ local cutils = require ("common-utils")
 local defaults = {}
 defaults.use_persistent_storage = true
 defaults.use_headset_profile = true
-defaults.app_settings = Json.Array {
-  "Firefox", "Chromium input", "Google Chrome input", "Brave input",
-  "Microsoft Edge input", "Vivaldi input", "ZOOM VoiceEngine",
-  "Telegram Desktop", "telegram-desktop", "linphone", "Mumble",
-  "WEBRTC VoiceEngine", "Skype"
-}
+defaults.app_settings = Json.Array {}
 
 local config = {}
-config.use_persistent_storage = Settings.parse_boolean_safe (
+config.use_persistent_storage = Conf.get_value_boolean ("wireplumber.settings",
     "policy.bluetooth.use-persistent-storage", defaults.use_persistent_storage)
-config.use_headset_profile = Settings.parse_boolean_safe (
+config.use_headset_profile = Conf.get_value_boolean ("wireplumber.settings",
     "policy.bluetooth.media-role.use-headset-profile", defaults.use_headset_profile)
-config.apps_setting = Settings.parse_array_safe (
-    "policy.bluetooth.media-role.applications", defaults.app_settings)
+config.apps_setting = Conf.get_value ("wireplumber.settings",
+    "policy.bluetooth.media-role.applications", defaults.app_settings): parse ()
 
 state = nil
 headset_profiles = nil
@@ -60,17 +55,17 @@ function handlePersistantSetting (enable)
   end
 end
 
-local function settingsChangedCallback (_, setting, _)
-  if setting == "policy.bluetooth.use-persistent-storage" then
-    config.use_persistent_storage = Settings.parse_boolean_safe
-        ("policy.bluetooth.use-persistent-storage", config.use_persistent_storage)
+local function settingsChangedCallback (_, setting, json)
+  if setting == "policy.bluetooth.use-persistent-storage" and
+      json:is_boolean () then
+    config.use_persistent_storage = json:parse ()
     handlePersistantSetting (config.use_persistent_storage)
-  elseif setting == "policy.bluetooth.media-role.use-headset-profile" then
-    config.use_headset_profile = Settings.parse_boolean_safe
-        ("policy.bluetooth.media-role.use-headset-profile", config.use_headset_profile)
-  elseif setting == "policy.bluetooth.media-role.applications" then
-    local new_apps_setting = Settings.parse_array_safe
-        ("policy.bluetooth.media-role.applications", Json.Array {})
+  elseif setting == "policy.bluetooth.media-role.use-headset-profile" and
+      json:is_boolean () then
+    config.use_headset_profile = json:parse ()
+  elseif setting == "policy.bluetooth.media-role.applications"
+      and json:is_array () then
+    local new_apps_setting = json:parse ()
     if #new_apps_setting > 0 then
       config.apps_setting = new_apps_setting
       loadAppNames (config.apps_setting)
