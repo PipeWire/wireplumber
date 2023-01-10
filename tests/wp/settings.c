@@ -25,8 +25,8 @@ typedef struct {
 static void
 test_conf_file_setup (TestSettingsFixture *self, gconstpointer user_data)
 {
-  self->base.conf_file =
-      g_strdup_printf ("%s/settings.conf", g_getenv ("G_TEST_SRCDIR"));
+  self->base.conf_file = g_strdup_printf ("%s/settings/wireplumber.conf",
+      g_getenv ("G_TEST_SRCDIR"));
 
   wp_base_test_fixture_setup (&self->base, WP_BASE_TEST_FLAG_CLIENT_CORE);
 }
@@ -38,40 +38,20 @@ test_conf_file_teardown (TestSettingsFixture *self, gconstpointer user_data)
   wp_base_test_fixture_teardown (&self->base);
 }
 
-static int
-dummy(void *data, const char *location, const char *section,
-		const char *str, size_t len)
-{
-  return 1;
-}
-
-static void
-test_conf_file (TestSettingsFixture *self, gconstpointer data)
-{
-  struct pw_context *pw_ctx = wp_core_get_pw_context (self->base.core);
-
-  /* test if the "settings" section is present in the JSON config file */
-  g_assert_true (pw_context_conf_section_for_each(pw_ctx,
-      "wireplumber.settings", dummy, NULL));
-}
-
 struct data {
   int count;
   WpProperties *settings;
 };
 
-static int
-do_parse_settings (void *data, const char *location,
-    const char *section, const char *str, size_t len)
+static WpProperties *
+do_parse_settings (WpSpaJson *json)
 {
-  struct data *d = data;
-  g_autoptr (WpSpaJson) json = wp_spa_json_new_from_stringn (str, len);
+  g_autoptr (WpProperties) settings = wp_properties_new_empty ();
   g_autoptr (WpIterator) iter = wp_spa_json_new_iterator (json);
   g_auto (GValue) item = G_VALUE_INIT;
 
-  if (!wp_spa_json_is_object (json)) {
-    return -EINVAL;
-  }
+  if (!wp_spa_json_is_object (json))
+    return NULL;
 
   while (wp_iterator_next (iter, &item)) {
     WpSpaJson *j = g_value_get_boxed (&item);
@@ -85,15 +65,11 @@ do_parse_settings (void *data, const char *location,
     value = wp_spa_json_to_string (j);
     g_value_unset (&item);
 
-    if (name && value) {
-      wp_properties_set (d->settings, name, value);
-      d->count++;
-    }
+    if (name && value)
+      wp_properties_set (settings, name, value);
   }
 
-  g_debug ("parsed %d settings & rules from conf file\n", d->count);
-
- return 0;
+  return g_steal_pointer (&settings);
 }
 
 static void
@@ -102,17 +78,14 @@ test_parsing_setup (TestSettingsFixture *self, gconstpointer user_data)
   test_conf_file_setup (self, user_data);
 
   {
-    struct pw_context *pw_ctx = wp_core_get_pw_context (self->base.core);
-    g_autoptr (WpProperties) settings = wp_properties_new_empty();
-    struct data data = { .settings = settings };
+    g_autoptr (WpConf) conf = wp_conf_get_instance (self->base.core);
+    g_assert_nonnull (conf);
+    g_autoptr (WpSpaJson) json = wp_conf_get_section (conf,
+        "wireplumber.settings", NULL);
+    g_assert_nonnull (json);
 
-    g_assert_false (pw_context_conf_section_for_each(pw_ctx,
-        "wireplumber.settings", do_parse_settings, &data));
-
-    self->settings = g_steal_pointer (&settings);
-
-    /* total no.of settings in the conf file */
-    g_assert_cmpint (data.count, ==, 13);
+    self->settings = do_parse_settings (json);
+    g_assert_nonnull (self->settings);
   }
 
 }
@@ -129,7 +102,7 @@ static void
 test_parsing (TestSettingsFixture *self, gconstpointer data)
 {
   /* total no.of settings in the conf file */
-  g_assert_cmpint (wp_properties_get_count(self->settings), ==, 13);
+  g_assert_cmpint (wp_properties_get_count(self->settings), ==, 10);
 }
 
 static void
@@ -516,9 +489,6 @@ main (gint argc, gchar *argv[])
   wp_init (WP_INIT_ALL);
 
   /* take a close look at .conf file that is loaded, all the test work on it */
-
-  g_test_add ("/wp/settings/conf-file-loading", TestSettingsFixture, NULL,
-      test_conf_file_setup, test_conf_file, test_conf_file_teardown);
   g_test_add ("/wp/settings/parsing", TestSettingsFixture, NULL,
       test_parsing_setup, test_parsing, test_parsing_teardown);
   g_test_add ("/wp/settings/metadata-creation", TestSettingsFixture, NULL,
