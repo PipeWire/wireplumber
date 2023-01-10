@@ -55,15 +55,17 @@ SimpleEventHook {
                 best_avail = ri
               end
             elseif best_unk == nil or ri.priority > best_unk.priority then
-                best_unk = ri
+              best_unk = ri
             end
           end
         end
       end
 
       local route = best_avail or best_unk
-      selected_routes [tostring (device_id)] =
-          Json.Object { index = route.index }:to_string ()
+      if route then
+        selected_routes [tostring (device_id)] =
+            Json.Object { index = route.index }:to_string ()
+      end
 
       ::next_device_id::
     end
@@ -71,4 +73,4 @@ SimpleEventHook {
     -- save the selected routes for the apply-routes hook
     event:set_data ("selected-routes", selected_routes)
   end
-}:register()
+}:register ()
