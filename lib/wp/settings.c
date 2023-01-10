@@ -8,11 +8,11 @@
 
 #define G_LOG_DOMAIN "wp-settings"
 
-#include <wp/wp.h>
-
+#include "core.h"
 #include "settings.h"
 #include "metadata.h"
 #include "log.h"
+#include "object-manager.h"
 #include "private/registry.h"
 
 /*! \defgroup wpsettings WpSettings */
@@ -20,8 +20,8 @@
  * \struct WpSettings
  *
  * WpSettings loads and parses the "sm-settings" (default value) metadata, which
- * contains wireplumber settings and rules. It provides APIs to its clients
- * (modules, lua scripts etc) to access and change them.
+ * contains wireplumber settings. It provides APIs to its clients (modules, lua
+ * scripts etc) to access and change them.
  *
  * Being a WpObject subclass, the settings inherits WpObject's activation
  * system.
@@ -33,29 +33,12 @@ struct _WpSettings
 
   WpProperties *settings;
 
-  /* element-type: Rule* */
-  GPtrArray *rules;
-
   /* element-type: Callback* */
   GPtrArray *callbacks;
 
   gchar *metadata_name;
   WpObjectManager *metadata_om;
 };
-
-typedef struct
-{
-  gchar *rule;
-  /* element-type: Match* */
-  GPtrArray *matches;
-} Rule;
-
-typedef struct
-{
-  /* element-type: WpObjectInterest* */
-  GPtrArray *interests;
-  WpProperties *actions;
-} Match;
 
 typedef struct
 {
@@ -185,159 +168,6 @@ wp_settings_get (WpSettings *self, const gchar *setting)
   return value ? wp_spa_json_new_from_string (value) : NULL;
 }
 
-/*!
- * \brief Safely parses a boolean setting, using the fallback value if the
- * setting does not exist, or the setting cannot be parsed. A warning is also
- * logged when the setting cannot be parsed.
- *
- * \ingroup wpsettings
- * \param self the settings object
- * \param setting name of the setting
- * \param value fallback value to use in case of error
- * \returns The value of the setting, or the fallback value in case of error
- */
-gboolean
-wp_settings_parse_boolean_safe (WpSettings *self, const gchar *setting,
-    gboolean value)
-{
-  g_autoptr (WpSpaJson) json = wp_settings_get(self, setting);
-  gboolean res = value;
-  if (json && !wp_spa_json_parse_boolean (json, &res))
-    wp_warning_object (self, "Could not parse setting '%s' as boolean",
-        setting);
-  return res;
-}
-
-/*!
- * \brief Safely parses an integer setting, using the fallback value if the
- * setting does not exist, or the setting cannot be parsed. A warning is also
- * logged when the setting cannot be parsed.
- *
- * \ingroup wpsettings
- * \param self the settings object
- * \param setting name of the setting
- * \param value fallback value to use in case of error
- * \returns The value of the setting, or the fallback value in case of error
- */
-gint
-wp_settings_parse_int_safe (WpSettings *self, const gchar *setting, gint value)
-{
-  g_autoptr (WpSpaJson) json = wp_settings_get(self, setting);
-  gint res = value;
-  if (json && !wp_spa_json_parse_int (json, &res))
-    wp_warning_object (self, "Could not parse setting '%s' as int", setting);
-  return res;
-}
-
-/*!
- * \brief Safely parses a float setting, using the fallback value if the
- * setting does not exist, or the setting cannot be parsed. A warning is also
- * logged when the setting cannot be parsed.
- *
- * \ingroup wpsettings
- * \param self the settings object
- * \param setting name of the setting
- * \param value fallback value to use in case of error
- * \returns The value of the setting, or the fallback value in case of error
- */
-float
-wp_settings_parse_float_safe (WpSettings *self, const gchar *setting,
-    float value)
-{
-  g_autoptr (WpSpaJson) json = wp_settings_get(self, setting);
-  float res = value;
-  if (json && !wp_spa_json_parse_float (json, &res))
-    wp_warning_object (self, "Could not parse setting '%s' as float", setting);
-  return res;
-}
-
-/*!
- * \brief Safely parses a string setting, using the fallback value if the
- * setting does not exist, or the setting cannot be parsed. A warning is also
- * logged when the setting cannot be parsed.
- *
- * \ingroup wpsettings
- * \param self the settings object
- * \param setting name of the setting
- * \param value fallback value to use in case of error
- * \returns (transfer full): The value of the setting, or the fallback value in
- * case of error
- */
-gchar *
-wp_settings_parse_string_safe (WpSettings *self, const gchar *setting,
-    const gchar *value)
-{
-  g_autoptr (WpSpaJson) json = wp_settings_get(self, setting);
-  if (json) {
-    gchar *res = wp_spa_json_parse_string (json);
-    if (res)
-      return res;
-    else
-      wp_warning_object (self, "Could not parse setting '%s' as string",
-          setting);
-  }
-  return g_strdup (value);
-}
-
-/*!
- * \brief Applies the rules and returns the applied properties.
- *
- * This function applies the rules on the client properties and if
- * there is a match, it returns TRUE and also copies the applied properties.
- *
- * \ingroup wpsettings
- * \param self the settings object
- * \param rule name of the rule; this will match with the section mentioned
- *  in the conf file.
- * \param client_props (transfer none)(inout): client properties array; these
- *  properties are inputs on which the rules are applied.
- * \param applied_props (transfer none)(nullable)(out): the resultant
- *  actions/properties as a result of the application of rules are copied;
- *  if this is NULL, properties will be appended to \a client_props instead
- * \returns TRUE if there is a match for the client_props and the
- *  applied properties are returned, FALSE otherwise
- */
-gboolean
-wp_settings_apply_rule (WpSettings *self, const gchar *rule,
-    WpProperties *client_props, WpProperties *applied_props)
-{
-  g_return_val_if_fail (WP_IS_SETTINGS (self), FALSE);
-  g_return_val_if_fail (rule, FALSE);
-  g_return_val_if_fail (client_props, FALSE);
-
-  wp_debug_object (self, "applying rule(%s) for client props", rule);
-
-  for (guint i = 0; i < self->rules->len; i++) {
-    Rule *r = g_ptr_array_index (self->rules, i);
-
-    if (g_str_equal (rule, r->rule)) {
-      for (guint j = 0; j < r->matches->len; j++) {
-        Match *m = g_ptr_array_index (r->matches, j);
-
-        for (guint k = 0; k < m->interests->len; k++) {
-          WpObjectInterest *interest = g_ptr_array_index (m->interests, k);
-
-          wp_debug_object (self, ". working on interest obj(%p)", interest);
-
-          if (wp_object_interest_matches (interest, client_props)) {
-            if (applied_props)
-              wp_properties_add (applied_props, m->actions);
-            else
-              wp_properties_add (client_props, m->actions);
-
-            wp_debug_object (self, "match found for rule(%s) with actions"
-                "(%d)", rule, wp_properties_get_count(m->actions));
-
-            return TRUE;
-          }
-        }
-      }
-    }
-  }
-
-  return FALSE;
-}
-
 enum {
   STEP_LOAD = WP_TRANSITION_STEP_CUSTOM_START,
 };
@@ -410,240 +240,6 @@ wp_settings_get_instance (WpCore *core, const gchar *metadata_name)
 }
 
 static void
-match_unref (Match * self)
-{
-  g_clear_pointer (&self->actions, wp_properties_unref);
-  g_clear_pointer (&self->interests, g_ptr_array_unref);
-  g_slice_free (Match, self);
-}
-
-static WpProperties *
-parse_actions (const gchar *actions)
-{
-  g_autoptr (WpSpaJson) o = wp_spa_json_new_from_string (actions);
-  g_autofree gchar *update_props = NULL;
-  g_autoptr (WpProperties) a_props = wp_properties_new_empty ();
-
-  wp_debug(".. parsing actions");
-
-  if (!o || !wp_spa_json_is_object (o)) {
-    wp_warning ("malformated JSON: actions has to be an object JSON element"
-        ", skip processing this one");
-    return NULL;
-  }
-
-  if (wp_spa_json_object_get (o,
-      "update-props", "s", &update_props,
-      NULL)) {
-    g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (update_props);
-    g_autoptr (WpIterator) iter = wp_spa_json_new_iterator (json);
-    g_auto (GValue) item = G_VALUE_INIT;
-
-    wp_debug (".. update-props=%s", update_props);
-
-    while (wp_iterator_next (iter, &item)) {
-      WpSpaJson *p = g_value_get_boxed (&item);
-      g_autofree gchar *prop = wp_spa_json_parse_string (p);
-      g_autofree gchar *value = NULL;
-
-      g_value_unset (&item);
-      if (!wp_iterator_next (iter, &item))
-        break;
-      p = g_value_get_boxed (&item);
-
-      value = wp_spa_json_parse_string (p);
-      g_value_unset (&item);
-
-      if (prop && value) {
-        wp_debug (".. prop=%s value=%s", prop, value);
-        wp_properties_set (a_props, prop, value);
-      }
-    }
-  } else {
-    return NULL;
-  }
-
-  return g_steal_pointer (&a_props);
-}
-
-static Match *
-parse_matches (const gchar *match)
-{
-  g_autoptr (WpSpaJson) a = wp_spa_json_new_from_string (match);
-  g_autoptr (WpIterator) a_iter = wp_spa_json_new_iterator (a);
-  g_auto (GValue) a_item = G_VALUE_INIT;
-  Match *m = g_slice_new0 (Match);
-
-  g_return_val_if_fail (m, NULL);
-
-  wp_debug(".. parsing match");
-  m->interests = g_ptr_array_new_with_free_func
-      ((GDestroyNotify) wp_object_interest_unref);
-
-  if (!wp_spa_json_is_array (a)) {
-    wp_warning ("malformated JSON: matches has to be an array JSON element"
-        ", skip processing this one");
-    return NULL;
-  }
-
-  for (; wp_iterator_next (a_iter, &a_item); g_value_unset (&a_item)) {
-    g_autoptr (WpObjectInterest) i = wp_object_interest_new_type
-      (WP_TYPE_PROPERTIES);
-    WpSpaJson *o = g_value_get_boxed (&a_item);
-    g_autoptr (WpIterator) o_iter = wp_spa_json_new_iterator (o);
-    g_auto (GValue) o_item = G_VALUE_INIT;
-    int count = 0;
-
-    while (wp_iterator_next (o_iter, &o_item)) {
-      WpSpaJson *p = g_value_get_boxed (&o_item);
-      if (wp_spa_json_is_container (p)) {
-        wp_warning ("malformated JSON: misplaced container object, pls check"
-          " JSON formatting of .conf file, skipping this container");
-        continue;
-      }
-      g_autofree gchar *isubject = wp_spa_json_parse_string (p);
-      g_autofree gchar *value = NULL;
-      gchar *ivalue = NULL;
-      WpConstraintVerb iverb = WP_CONSTRAINT_VERB_EQUALS;
-
-      g_value_unset (&o_item);
-      if (!wp_iterator_next (o_iter, &o_item))
-        break;
-      p = g_value_get_boxed (&o_item);
-
-      ivalue = value = wp_spa_json_parse_string (p);
-      g_value_unset (&o_item);
-
-      if (value[0] == '~') {
-        iverb = WP_CONSTRAINT_VERB_MATCHES;
-        ivalue = value+1;
-      }
-      if (isubject && ivalue) {
-        wp_object_interest_add_constraint (i, WP_CONSTRAINT_TYPE_PW_PROPERTY,
-            isubject, iverb, g_variant_new_string(ivalue));
-        count++;
-        wp_debug (".. subject=%s verb=%d value=%s of interest obj=%p",
-            isubject, iverb, ivalue, i);
-      }
-    }
-    wp_debug (".. loaded interest obj(%p) with (%d) constraints", i, count);
-    g_ptr_array_add (m->interests, g_steal_pointer(&i));
-  }
-  return m;
-}
-
-static Rule *
-parse_rule (const gchar *rule, const gchar *value)
-{
-  g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (value);
-  g_autoptr (WpIterator) iter = wp_spa_json_new_iterator (json);
-  g_auto (GValue) item = G_VALUE_INIT;
-  Rule *r = g_slice_new0 (Rule);
-
-  g_return_val_if_fail (r, NULL);
-
-  r->rule = g_strdup (rule);
-
-  wp_debug (". parsing rule(%s)", r->rule);
-  r->matches = g_ptr_array_new_with_free_func
-      ((GDestroyNotify) match_unref);
-
-  for (; wp_iterator_next (iter, &item); g_value_unset (&item)) {
-    WpSpaJson *o = g_value_get_boxed (&item);
-    g_autofree gchar *match = NULL;
-    g_autofree gchar *actions = NULL;
-    Match *m = NULL;
-
-    if (!o || !wp_spa_json_is_object (o)) {
-      wp_warning ("malformated JSON: rule has to be an object JSON element"
-        ", skip processing this one");
-      continue;
-    }
-
-    if (!wp_spa_json_object_get (o,
-        "matches", "s", &match,
-        "actions", "s", &actions,
-        NULL))
-      continue;
-
-    m = parse_matches (match);
-    g_ptr_array_add (r->matches, m);
-    wp_debug (". loaded (%d) interest objects for this match for rule(%s)",
-        m->interests->len, r->rule);
-
-    m->actions = parse_actions (actions);
-    wp_debug (". loaded (%d) actions for this match for rule(%s)",
-        wp_properties_get_count (m->actions), r->rule);
-  }
-
-  return r;
-}
-
-static gboolean
-is_rule (WpSpaJson *json)
-{
-  /* rule is an array and starts with an object */
-  if (wp_spa_json_is_array (json)) {
-    g_autoptr (WpIterator) iter = wp_spa_json_new_iterator (json);
-    g_auto (GValue) item = G_VALUE_INIT;
-
-    if (wp_iterator_next (iter, &item)) {
-      WpSpaJson *o = g_value_get_boxed (&item);
-      if (o && wp_spa_json_is_object (o))
-        return TRUE;
-    }
-  }
-  return FALSE;
-}
-
-static Rule *
-find_rule (WpSettings *self, const gchar *name)
-{
-  for (guint i = 0; i < self->rules->len; i++) {
-    Rule *r = g_ptr_array_index (self->rules, i);
-    if (g_str_equal (r->rule, name))
-      return r;
-  }
-  return NULL;
-}
-
-static void
-rule_unref (Rule * self)
-{
-  g_clear_pointer (&self->rule, g_free);
-  g_clear_pointer (&self->matches, g_ptr_array_unref);
-  g_slice_free (Rule, self);
-}
-
-static void
-parse_setting (const gchar *setting, const gchar *value, WpSettings *self)
-{
-  g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (value);
-
-  if (is_rule (json)) {
-    Rule *r = find_rule (self, setting);
-    if (r) {
-      /* append new matches to existing rule */
-      Rule *new_r = parse_rule (setting, value);
-      if (new_r) {
-        for (guint i = 0; i < new_r->matches->len; i++) {
-          Match *m = g_ptr_array_index (new_r->matches, i);
-          g_ptr_array_add (r->matches, m);
-        }
-        rule_unref (new_r);
-      }
-    } else {
-      r = parse_rule (setting, value);
-      g_ptr_array_add (self->rules, r);
-    }
-    wp_debug_object (self, "added (%d) matches for rule (%s)", r->matches->len,
-        r->rule);
-  } else {
-    wp_properties_set (self->settings, setting, value);
-  }
-}
-
-static void
 on_metadata_changed (WpMetadata *m, guint32 subject,
    const gchar *setting, const gchar *type, const gchar *new_value, gpointer d)
 {
@@ -704,16 +300,15 @@ on_metadata_added (WpObjectManager *om, WpMetadata *m, gpointer d)
   g_signal_connect_object (m, "changed", G_CALLBACK (on_metadata_changed),
       self, 0);
 
-  /* traverse through all settings and rules */
+  /* traverse through all settings */
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
     const gchar *setting, *value;
     wp_metadata_iterator_item_extract (&val, NULL, &setting, NULL, &value);
-    parse_setting (setting, value, self);
+    wp_properties_set (self->settings, setting, value);
   }
 
-  wp_info_object (self, "loaded %d settings and %d rules from metadata \"%s\"",
+  wp_info_object (self, "loaded %d settings and from metadata \"%s\"",
       wp_properties_get_count (self->settings),
-      self->rules->len,
       self->metadata_name);
 
   wp_object_update_features (WP_OBJECT (self), WP_SETTINGS_LOADED, 0);
@@ -738,8 +333,6 @@ wp_settings_activate_execute_step (WpObject * object,
   switch (step) {
   case STEP_LOAD: {
     self->settings = wp_properties_new_empty ();
-
-    self->rules = g_ptr_array_new_with_free_func ((GDestroyNotify) rule_unref);
 
     self->callbacks = g_ptr_array_new_with_free_func
         ((GDestroyNotify) callback_unref);
@@ -773,7 +366,6 @@ wp_settings_deactivate (WpObject * object, WpObjectFeatures features)
   wp_debug_object (self, "%s", self->metadata_name);
   g_free (self->metadata_name);
   g_clear_object (&self->metadata_om);
-  g_clear_pointer (&self->rules, g_ptr_array_unref);
   g_clear_pointer (&self->callbacks, g_ptr_array_unref);
   g_clear_pointer (&self->settings, wp_properties_unref);
 

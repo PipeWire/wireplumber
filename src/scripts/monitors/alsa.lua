@@ -12,22 +12,19 @@ defaults.reserve_priority = -20
 defaults.reserve_application_name = "WirePlumber"
 defaults.jack_device = false
 defaults.properties = Json.Object {}
-defaults.vm_node_defaults = Json.Object {
-  ["api.alsa.period-size"] = 256,
-  ["api.alsa.headroom"] = 8192
-}
+defaults.vm_node_defaults = Json.Object {}
 
 local config = {}
-config.reserve_priority = Settings.parse_int_safe (
+config.reserve_priority = Conf.get_value_int ("wireplumber.settings",
     "monitor.alsa.reserve-priority", defaults.reserve_priority)
-config.reserve_application_name = Settings.parse_string_safe (
+config.reserve_application_name = Conf.get_value_string ("wireplumber.settings",
     "monitor.alsa.reserve-application-name", defaults.reserve_application_name)
-config.jack_device = Settings.parse_boolean_safe (
+config.jack_device = Conf.get_value_boolean ("wireplumber.settings",
     "monitor.alsa.jack-device", defaults.jack_device)
-config.properties = Settings.parse_object_safe (
-    "monitor.alsa.properties", defaults.properties)
-config.vm_node_defaults = Settings.parse_object_safe (
-    "monitor.alsa.vm.node.defaults", defaults.vm_node_defaults)
+config.properties = Conf.get_section (
+    "monitor.alsa.properties", defaults.properties):parse ()
+config.vm_node_defaults = Conf.get_section (
+    "monitor.alsa.vm.node.defaults", defaults.vm_node_defaults):parse ()
 
 -- unique device/node name tables
 device_names_table = nil
@@ -270,7 +267,8 @@ function prepareDevice(parent, id, obj_type, factory, properties)
   end
 
   -- apply properties from rules defined in JSON .conf file
-  local applied = cutils.evaluateRulesApplyProperties (properties, "monitor.alsa.rules")
+  local applied = cutils.evaluateRulesApplyProperties (properties,
+      "monitor.alsa.rules")
   if not applied then
     applyDefaultDeviceProperties (properties)
   end

@@ -19,7 +19,8 @@ function getDefaultPermissions (properties)
 end
 
 function getPermissions (properties)
-  local matched, mprops = Settings.apply_rule ("access.rules", properties)
+  local matched, mprops = Conf.apply_rules ("access.rules",
+      properties)
 
   if (matched and mprops["default_permissions"]) then
     return mprops["default_permissions"]
