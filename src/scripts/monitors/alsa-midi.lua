@@ -6,14 +6,11 @@
 -- SPDX-License-Identifier: MIT
 
 local defaults = {}
-defaults.node_properties = Json.Object {
-  ["node.name"] = "Midi-Bridge",
-  ["api.alsa.disable-longname"] = true
-}
+defaults.node_properties = Json.Object {}
 
 local config = {}
-config.node_properties = Settings.parse_object_safe (
-    "monitor.alsa.midi.node-properties", defaults.node_properties)
+config.node_properties = Conf.get_section (
+    "monitor.alsa.midi.node-properties", defaults.node_properties):parse ()
 
 SND_PATH = "/dev/snd"
 SEQ_NAME = "seq"

@@ -1660,157 +1660,6 @@ settings_get (lua_State *L)
 }
 
 static int
-settings_parse_boolean_safe (lua_State *L)
-{
-  const char *setting = luaL_checkstring (L, 1);
-  const gboolean v = lua_toboolean (L, 2) ? TRUE : FALSE;
-  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L),
-      "sm-settings");
-
-  if (s)
-    lua_pushboolean (L, wp_settings_parse_boolean_safe (s, setting, v));
-  else
-    lua_pushboolean (L, v);
-  return 1;
-}
-
-static int
-settings_parse_int_safe (lua_State *L)
-{
-  const char *setting = luaL_checkstring (L, 1);
-  const gint v = luaL_checkinteger (L, 2);
-  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L),
-    "sm-settings");
-
-  if (s)
-    lua_pushinteger (L, wp_settings_parse_int_safe (s, setting, v));
-  else
-    lua_pushinteger (L, v);
-  return 1;
-}
-
-static int
-settings_parse_float_safe (lua_State *L)
-{
-  const char *setting = luaL_checkstring (L, 1);
-  const float v = lua_tonumber (L, 2);
-  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L),
-    "sm-settings");
-
-  if (s)
-    lua_pushnumber (L, wp_settings_parse_float_safe (s, setting, v));
-  else
-    lua_pushnumber (L, v);
-  return 1;
-}
-
-static int
-settings_parse_string_safe (lua_State *L)
-{
-  const char *setting = luaL_checkstring (L, 1);
-  const char *v = luaL_checkstring (L, 2);
-  g_autofree gchar *res = NULL;
-  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L),
-    "sm-settings");
-
-  res = s ? wp_settings_parse_string_safe (s, setting, v) : g_strdup (v);
-  lua_pushstring (L, res);
-  return 1;
-}
-
-static int
-settings_parse_array_safe (lua_State *L)
-{
-  const char *setting = luaL_checkstring (L, 1);
-  g_autoptr (WpSpaJson) json_default = NULL;
-  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L),
-    "sm-settings");
-
-  if (lua_isuserdata (L, 2)) {
-    WpSpaJson *v = wplua_checkboxed (L, 2, WP_TYPE_SPA_JSON);
-    if (v && wp_spa_json_is_array (v))
-      json_default = wp_spa_json_ref (v);
-  }
-  if (!json_default) {
-    wp_warning ("Using empty array for setting '%s' as fallback value isn't "
-        "a JSON array", setting);
-    json_default = wp_spa_json_new_array (NULL, NULL);
-  }
-
-  if (s) {
-    g_autoptr (WpSpaJson) j = wp_settings_get (s, setting);
-    if (j) {
-      if (wp_spa_json_is_array (j)) {
-        push_luajson (L, j);
-        return 1;
-      } else {
-        wp_warning ("Ignoring setting '%s' as it isn't a JSON array", setting);
-      }
-    }
-  }
-
-  push_luajson (L, json_default);
-  return 1;
-}
-
-static int
-settings_parse_object_safe (lua_State *L)
-{
-  const char *setting = luaL_checkstring (L, 1);
-  g_autoptr (WpSpaJson) json_default = NULL;
-  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L),
-    "sm-settings");
-
-  if (lua_isuserdata (L, 2)) {
-    WpSpaJson *v = wplua_checkboxed (L, 2, WP_TYPE_SPA_JSON);
-    if (v && wp_spa_json_is_object (v))
-      json_default = wp_spa_json_ref (v);
-  }
-  if (!json_default) {
-    wp_warning ("Using empty object for setting '%s' as fallback value isn't "
-          "a JSON object", setting);
-    json_default = wp_spa_json_new_array (NULL, NULL);
-  }
-
-  if (s) {
-    g_autoptr (WpSpaJson) j = wp_settings_get (s, setting);
-    if (j) {
-      if (wp_spa_json_is_object (j)) {
-        push_luajson (L, j);
-        return 1;
-      } else {
-        wp_warning ("Ignoring setting '%s' as it isn't a JSON object", setting);
-      }
-    }
-  }
-
-  push_luajson (L, json_default);
-  return 1;
-}
-
-static int
-settings_apply_rule (lua_State *L)
-{
-  const char *r = luaL_checkstring (L, 1);
-  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L),
-    "sm-settings");
-
-  g_autoptr (WpProperties) cp = wplua_table_to_properties (L, 2);
-  g_autoptr (WpProperties) ap = wp_properties_new_empty ();
-
-
-  if (s) {
-    gboolean value = wp_settings_apply_rule (s, r, cp, ap);
-    lua_pushboolean (L, value);
-    wplua_properties_to_table (L, ap);
-    return 2;
-  }
-
-  lua_pushnil (L);
-  return 1;
-}
-
-static int
 settings_subscribe (lua_State *L)
 {
   const gchar *pattern = luaL_checkstring (L, 1);
@@ -1827,7 +1676,6 @@ settings_subscribe (lua_State *L)
   lua_pushinteger (L, sub_id);
   return 1;
 }
-
 
 static int
 settings_unsubscribe (lua_State *L)
@@ -1846,13 +1694,6 @@ settings_unsubscribe (lua_State *L)
 
 static const luaL_Reg settings_methods[] = {
   { "get", settings_get },
-  { "parse_boolean_safe", settings_parse_boolean_safe },
-  { "parse_int_safe", settings_parse_int_safe },
-  { "parse_float_safe", settings_parse_float_safe },
-  { "parse_string_safe", settings_parse_string_safe },
-  { "parse_array_safe", settings_parse_array_safe },
-  { "parse_object_safe", settings_parse_object_safe },
-  { "apply_rule", settings_apply_rule },
   { "subscribe", settings_subscribe },
   { "unsubscribe", settings_unsubscribe },
   { NULL, NULL }

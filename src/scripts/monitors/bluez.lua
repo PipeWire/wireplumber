@@ -8,13 +8,11 @@
 local cutils = require ("common-utils")
 
 local defaults = {}
-defaults.properties = Json.Object {
-  ["api.bluez5.connection-info"] = true
-}
+defaults.properties = Json.Object {}
 
 local config = {}
-config.properties = Settings.parse_object_safe (
-    "monitor.bluetooth.properties", defaults.properties)
+config.properties = Conf.get_section (
+    "monitor.bluetooth.properties", defaults.properties): parse ()
 
 devices_om = ObjectManager {
   Interest {
@@ -174,7 +172,7 @@ function createNode(parent, id, type, factory, properties)
   end
 
   -- apply properties from bluetooth.conf
-  cutils.evaluateRulesApplyProperties (properties, "monitor.bluetooth")
+  cutils.evaluateRulesApplyProperties (properties, "monitor.bluetooth.rules")
 
   -- create the node; bluez requires "local" nodes, i.e. ones that run in
   -- the same process as the spa device, for several reasons
@@ -224,7 +222,8 @@ function createDevice(parent, id, type, factory, properties)
     properties["bluez5.profile"] = "off"
 
     -- apply properties from bluetooth.conf
-    local applied = cutils.evaluateRulesApplyProperties (properties, "monitor.bluetooth")
+    local applied = cutils.evaluateRulesApplyProperties (properties,
+        "monitor.bluetooth.rules")
     if not applied then
       applyDefaultDeviceProperties (properties)
     end

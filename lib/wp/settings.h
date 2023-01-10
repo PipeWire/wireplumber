@@ -64,26 +64,6 @@ gboolean wp_settings_unsubscribe (WpSettings *self,
 WP_API
 WpSpaJson * wp_settings_get (WpSettings *self, const gchar *setting);
 
-WP_API
-gboolean wp_settings_parse_boolean_safe (WpSettings *self, const gchar *setting,
-    gboolean value);
-
-WP_API
-gint wp_settings_parse_int_safe (WpSettings *self, const gchar *setting,
-    gint value);
-
-WP_API
-float wp_settings_parse_float_safe (WpSettings *self, const gchar *setting,
-    float value);
-
-WP_API
-gchar * wp_settings_parse_string_safe (WpSettings *self, const gchar *setting,
-    const gchar *value);
-
-WP_API
-gboolean wp_settings_apply_rule (WpSettings *self, const gchar *rule,
-    WpProperties *client_props, WpProperties *applied_props);
-
 G_END_DECLS
 
 #endif
