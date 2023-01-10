@@ -17,23 +17,11 @@ value = Settings.get ("test-setting2"):parse()
 assert ("boolean" == type (value))
 assert (value == true)
 
-value = Settings.parse_boolean_safe ("test-setting2", false)
-assert (value == true)
-
-value = Settings.parse_boolean_safe ("test-setting-undefined", true)
-assert (value == true)
-
 -- test settings _get_int ()
 
 value = Settings.get ("test-setting3-int"):parse()
 assert ("number" == type (value))
 assert (value == -20)
-
-value = Settings.parse_int_safe ("test-setting3-int", 10)
-assert (value == -20)
-
-value = Settings.parse_int_safe ("test-setting-undefined", 10)
-assert (value == 10)
 
 -- test settings _get_string ()
 
@@ -45,12 +33,6 @@ value = Settings.get ("test-setting5-string-with-quotes"):parse()
 assert ("string" == type (value))
 assert (value == "a string with \"quotes\"")
 
-value = Settings.parse_string_safe ("test-setting4-string", "fallback-string")
-assert (value == "blahblah")
-
-value = Settings.parse_string_safe ("test-setting-undefined", "fallback-string")
-assert (value == "fallback-string")
-
 -- test settings _get_float ()
 
 value = Settings.get ("test-setting-float1"):parse()
@@ -60,34 +42,13 @@ assert ((value - 3.14) < 0.00001)
 value = Settings.get ("test-setting-float2"):parse()
 assert ((value - 0.4) < 0.00001)
 
-value = Settings.parse_float_safe ("test-setting-float1", 4.14)
-assert ((value - 3.14) < 0.00001)
-
-value = Settings.parse_float_safe ("test-setting-undefined", 4.14)
-assert ((value - 4.14) < 0.00001)
-
 -- test settings _get ()
 value = Settings.get ("test-setting-json")
 assert (value ~= nil)
 assert (value:is_array())
 assert (value:get_data() == "[1, 2, 3]")
 
-value = Settings.parse_array_safe ("test-setting-json", Json.Array {})
-assert (value ~= nil)
-assert (value[1] == 1)
-assert (value[2] == 2)
-assert (value[3] == 3)
-
-value = Settings.parse_array_safe ("test-setting-undefined", nil)
-assert (value ~= nil)
-assert (#value == 0)
-
-value = Settings.parse_array_safe ("test-setting-undefined", Json.Array { 1, 2 })
-assert (value ~= nil)
-assert (value[1] == 1)
-assert (value[2] == 2)
-
-value = Settings.get ("test-setting-json2")
+value = Settings.get ("test-setting-json2", "test-settings")
 assert (value ~= nil)
 assert (value:is_array())
 assert (value:get_data() ==
@@ -110,132 +71,6 @@ val = value:parse ()
 assert (val.key1 == "value")
 assert (val.key2 == 2)
 assert (val.key3 == true)
-
-value = Settings.parse_object_safe ("test-setting-json3", Json.Object {})
-assert (value ~= nil)
-assert (value.key1 == "value")
-assert (value.key2 == 2)
-assert (value.key3 == true)
-
-value = Settings.parse_object_safe ("test-setting-undefined", nil)
-assert (value ~= nil)
-assert (#value == 0)
-
-value = Settings.parse_object_safe ("test-setting-undefined", Json.Object { key1 = "value", key2 = 2})
-assert (value ~= nil)
-assert (value.key1 == "value")
-assert (value.key2 == 2)
-
--- test rules
--- test #1
-local cp = {
-  ["test-string2"]="juggler"
-}
-local ap = {}
-
-local applied, ap = Settings.apply_rule( "rule_one", cp)
-
-assert (applied == true)
-assert (ap["prop-string1"] == "metal")
-assert (ap["prop-int1"] == "123")
-assert (ap["blah blah"] == nil)
-
--- test #2
-local cp = {
-  ["test-string2"]="jugler"
-}
-local ap = {}
-
-local applied, ap = Settings.apply_rule ("rule_one", cp)
-
-assert (applied == false)
-
--- test #3
-local cp = {
-  ["test-string4"] = "ferrous",
-  ["test-int2"] = "100",
-  ["test-string5"] = "blend"
-}
-
-local applied, ap = Settings.apply_rule ("rule_one", cp)
-
-assert (applied == true)
-assert (ap["prop-string1"] == nil)
-assert (ap["prop-string2"] == "standard")
-assert (ap["prop-int2"] == "26")
-assert (ap["prop-bool1"] == "true")
-
--- test #4
-local cp = {
-  ["test-string6"] = "alum",
-}
-
-local applied, ap = Settings.apply_rule ("rule_one", cp)
-
-assert (applied == false)
-
--- test #5
-local cp = {
-  ["test-string6"] = "alum",
-  ["test-int3"] = "24",
-}
-
-local applied, ap = Settings.apply_rule ("rule_one", cp)
-
-assert (applied == true)
-assert (ap["prop-string1"] == nil)
-assert (ap["prop-string2"] == "standard")
-assert (ap["prop-int2"] == "26")
-assert (ap["prop-bool1"] == "true")
-
--- test #6
--- test regular expression syntax
-local cp = {
-  ["test.string6"] = "metal.ferrous",
-  ["test.table.entry"] = "yes",
-}
-
-local applied, ap = Settings.apply_rule ("rule_three", cp)
-
-assert (applied == false)
-
--- test #7
-local cp = {
-  ["test.string6"] = "metal.ferrous",
-  ["test.table.entry"] = "true",
-}
-
-local applied, ap = Settings.apply_rule ("rule_three", cp)
-
-assert (applied == true)
-assert (ap["prop.electrical.conductivity"] == "true")
-assert (ap["prop.state"] == "solid")
-assert (ap["prop.example"] == "ferrous")
-
--- test #8
-local cp = {
-  ["test.string6"] = "gas.xenon",
-  ["test.table.entry"] = "maybe",
-}
-
-local applied, ap = Settings.apply_rule ("rule_three", cp)
-
-assert (applied == true)
-assert (ap["prop.electrical.conductivity"] == "false")
-assert (ap["prop.state"] == "gas")
-assert (ap["prop.example"] == "neon")
-
--- test #9
-local cp = {
-  ["test-string6-wildcard"] = "wild_cat",
-}
-
-local applied, ap = Settings.apply_rule ("rule_three", cp)
-
-assert (applied == true)
-assert (ap["prop.electrical.conductivity"] == "true")
-assert (ap["prop.state"] == "solid")
-assert (ap["prop.example"] == "ferrous")
 
 -- test callbacks
 

@@ -9,7 +9,7 @@ local defaults = {}
 defaults.follow = true
 
 local config = {}
-config.follow = Settings.parse_boolean_safe (
+config.follow = Conf.get_value_boolean ("wireplumber.settings",
     "policy.default.follow", defaults.follow)
 
 local self = {}

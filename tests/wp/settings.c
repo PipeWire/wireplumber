@@ -268,12 +268,6 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
     g_assert_nonnull (j2);
     g_assert_true (wp_spa_json_parse_boolean (j2, &value));
     g_assert_true (value);
-
-    value = wp_settings_parse_boolean_safe (s, "test-setting2", FALSE);
-    g_assert_true (value);
-
-    value = wp_settings_parse_boolean_safe (s, "test-setting-undefined", TRUE);
-    g_assert_true (value);
   }
 
   {
@@ -284,12 +278,6 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
     g_assert_nonnull (j);
     g_assert_true (wp_spa_json_parse_int (j, &value));
     g_assert_cmpint (value, ==, -20);
-
-    value = wp_settings_parse_int_safe (s, "test-setting3-int", 3);
-    g_assert_cmpint (value, ==, -20);
-
-    value = wp_settings_parse_int_safe (s, "test-setting-undefined", 3);
-    g_assert_cmpint (value, ==, 3);
   }
 
   {
@@ -301,20 +289,6 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
       value = wp_spa_json_parse_string (j);
       g_assert_nonnull (value);
       g_assert_cmpstr (value, ==, "blahblah");
-    }
-
-    {
-      g_autofree gchar *value = NULL;
-      value = wp_settings_parse_string_safe (s, "test-setting4-string",
-          "fallback-string");
-      g_assert_cmpstr (value, ==, "blahblah");
-    }
-
-    {
-      g_autofree gchar *value = NULL;
-      value = wp_settings_parse_string_safe (s, "test-setting-undefined",
-          "fallback-string");
-      g_assert_cmpstr (value, ==, "fallback-string");
     }
 
     {
@@ -340,12 +314,6 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
     g_assert_nonnull (j2);
     g_assert_true (wp_spa_json_parse_float (j2, &value));
     g_assert_cmpfloat_with_epsilon (value, 0.4, 0.001);
-
-    value = wp_settings_parse_float_safe (s, "test-setting-float1", 4.14);
-    g_assert_cmpfloat_with_epsilon (value, 3.14, 0.001);
-
-    value = wp_settings_parse_float_safe (s, "test-setting-undefined", 4.14);
-    g_assert_cmpfloat_with_epsilon (value, 4.14, 0.001);
   }
 
   /* test the wp_settings_get_instance () API */
@@ -447,170 +415,6 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
   }
 }
 
-static void
-test_rules (TestSettingsFixture *self, gconstpointer data)
-{
-  WpSettings *s = self->s;
-
-  {
-    g_autoptr (WpProperties) props =  wp_properties_new (
-        "test-string2", "juggler",
-        NULL);
-
-    g_assert_true (wp_settings_apply_rule (s, "rule_one", props, NULL));
-  }
-
-  {
-    g_autoptr (WpProperties) props =  wp_properties_new (
-        "test-string2", "jugglr",
-        NULL);
-
-    g_assert_false (wp_settings_apply_rule (s, "rule_one", props, NULL));
-  }
-
-  {
-    g_autoptr (WpProperties) props =  wp_properties_new (
-        "test-string1", "copper",
-        "test-int1", "100",
-        NULL);
-
-    g_assert_true (wp_settings_apply_rule (s, "rule_one", props, NULL));
-  }
-
-  {
-    g_autoptr (WpProperties) props =  wp_properties_new (
-        "test-string1", "copper",
-        NULL);
-
-    g_assert_false (wp_settings_apply_rule (s, "rule_one", props, NULL));
-  }
-
-  {
-    g_autoptr (WpProperties) props =  wp_properties_new (
-        "test-string2", "juggler",
-        NULL);
-    gint before = wp_properties_get_count (props), after = 0;
-    guint prop_int1 = 0;
-    g_assert_true (wp_settings_apply_rule (s, "rule_one", props, NULL));
-    after = wp_properties_get_count (props);
-
-    g_assert_cmpint (after-before, ==, 2);
-    g_assert_cmpstr (wp_properties_get(props, "prop-string1"), ==, "metal");
-    g_assert_cmpstr (wp_properties_get(props, "prop-string2"), ==, NULL);
-    g_assert_cmpstr (wp_properties_get(props, "prop-int1"), ==, "123");
-    spa_atou32 (wp_properties_get(props, "prop-int1"), &prop_int1, 0);
-    g_assert_cmpint (prop_int1, ==, 123);
-  }
-
-  {
-    g_autoptr (WpProperties) props =  wp_properties_new (
-        "test-string4", "ferrous",
-        "test-int2", "100",
-        "test-string5", "blend",
-        NULL);
-    gint before = wp_properties_get_count (props), after = 0;
-    guint prop_int2 = 0;
-    g_assert_true (wp_settings_apply_rule (s, "rule_one", props, NULL));
-    after = wp_properties_get_count (props);
-
-    g_assert_cmpint (after-before, ==, 3);
-    g_assert_cmpstr (wp_properties_get(props, "prop-string1"), ==, NULL);
-    g_assert_cmpstr (wp_properties_get(props, "prop-string2"), ==, "standard");
-    g_assert_cmpstr (wp_properties_get(props, "prop-int2"), ==, "26");
-    spa_atou32 (wp_properties_get(props, "prop-int2"), &prop_int2, 0);
-    g_assert_cmpint (prop_int2, ==, 26);
-    g_assert_true (spa_atob(wp_properties_get(props, "prop-bool1")));
-  }
-
-  {
-    g_autoptr (WpProperties) props =  wp_properties_new (
-        "test-string6", "ethylene",
-        "test-int2", "625",
-        "test-string5", "blend",
-        NULL);
-    g_autoptr (WpProperties) applied_props = wp_properties_new_empty ();
-    guint prop_int2 = 0;
-    g_assert_false (wp_settings_apply_rule (s, "rule_one", props, NULL));
-    g_assert_true (wp_settings_apply_rule (s, "rule_two", props,
-        applied_props));
-
-    g_assert_cmpint (wp_properties_get_count (applied_props), ==, 2);
-    g_assert_cmpstr (wp_properties_get(applied_props, "prop-string1"),
-        ==, NULL);
-    g_assert_cmpstr (wp_properties_get(applied_props, "prop-string2"),
-        ==, "spray");
-    g_assert_cmpstr (wp_properties_get(applied_props, "prop-int2"), ==, "111");
-    spa_atou32 (wp_properties_get(applied_props, "prop-int2"), &prop_int2, 0);
-    g_assert_cmpint (prop_int2, ==, 111);
-    g_assert_false (spa_atob(wp_properties_get(applied_props, "prop-bool1")));
-  }
-
-  /* test the regular experession syntax */
-  {
-    g_autoptr (WpProperties) props =  wp_properties_new (
-        "test.string6", "metal.iron",
-        "test.table.entry", "true",
-        NULL);
-    g_autoptr (WpProperties) applied_props = wp_properties_new_empty ();
-    g_assert_false (wp_settings_apply_rule (s, "rule_one", props, NULL));
-    g_assert_false (wp_settings_apply_rule (s, "rule_two", props,
-        applied_props));
-    g_assert_true (wp_settings_apply_rule (s, "rule_three", props,
-        applied_props));
-
-    g_assert_cmpint (wp_properties_get_count (applied_props), ==, 3);
-    g_assert_cmpstr (wp_properties_get(applied_props, "prop.string1"),
-        ==, NULL);
-    g_assert_cmpstr (wp_properties_get(applied_props, "prop.state"),
-        ==, "solid");
-    g_assert_cmpstr (wp_properties_get(applied_props, "prop.example"),
-        ==, "ferrous");
-    g_assert_true (spa_atob(wp_properties_get(applied_props,
-        "prop.electrical.conductivity")));
-  }
-
-  {
-    g_autoptr (WpProperties) props =  wp_properties_new (
-        "test.string6", "metal.iron",
-        "test.table.entry", "false",
-        NULL);
-    g_assert_false (wp_settings_apply_rule (s, "rule_three", props,
-        NULL));
-  }
-
-  {
-    g_autoptr (WpProperties) props =  wp_properties_new (
-        "test.string6", "metl.iron",
-        "test.table.entry", "true",
-        NULL);
-    g_assert_false (wp_settings_apply_rule (s, "rule_three", props,
-        NULL));
-  }
-
-  {
-    g_autoptr (WpProperties) props =  wp_properties_new (
-        "test.string6", "gas.neon",
-        "test.table.entry", "maybe",
-        NULL);
-    g_autoptr (WpProperties) applied_props = wp_properties_new_empty ();
-    g_assert_false (wp_settings_apply_rule (s, "rule_one", props, NULL));
-    g_assert_false (wp_settings_apply_rule (s, "rule_two", props,
-        applied_props));
-    g_assert_true (wp_settings_apply_rule (s, "rule_three", props,
-        applied_props));
-
-    g_assert_cmpint (wp_properties_get_count (applied_props), ==, 3);
-    g_assert_cmpstr (wp_properties_get(applied_props, "prop.string1"),
-        ==, NULL);
-    g_assert_cmpstr (wp_properties_get(applied_props, "prop.state"),
-        ==, "gas");
-    g_assert_cmpstr (wp_properties_get(applied_props, "prop.example"),
-        ==, "neon");
-    g_assert_false (spa_atob(wp_properties_get(applied_props,
-        "prop.electrical.conductivity")));
-  }
-}
-
 void wp_settings_changed_callback (WpSettings *obj, const gchar *setting,
     WpSpaJson *json, gpointer user_data)
 {
@@ -639,7 +443,6 @@ void wp_settings_changed_callback (WpSettings *obj, const gchar *setting,
     g_assert_cmpstr (value, ==, expected);
   }
 }
-
 
 static void
 test_callbacks (TestSettingsFixture *self, gconstpointer data)
@@ -722,8 +525,6 @@ main (gint argc, gchar *argv[])
       test_metadata_setup, test_metadata, test_metadata_teardown);
   g_test_add ("/wp/settings/wpsettings-creation-get", TestSettingsFixture, NULL,
       test_wpsettings_setup, test_wpsettings, test_wpsettings_teardown);
-  g_test_add ("/wp/settings/wpsettings-creation-rules", TestSettingsFixture, NULL,
-      test_wpsettings_setup, test_rules, test_wpsettings_teardown);
   g_test_add ("/wp/settings/wpsettings-callbacks", TestSettingsFixture, NULL,
       test_wpsettings_setup, test_callbacks, test_wpsettings_teardown);
 

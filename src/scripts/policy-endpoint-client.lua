@@ -11,8 +11,8 @@ local defaults = {}
 defaults.roles = Json.Object {}
 
 local config = {}
-config.roles = Settings.parse_object_safe (
-    "endpoints-roles", defaults.roles)
+config.roles = Conf.get_section (
+    "endpoint-roles", defaults.roles):parse ()
 
 local self = {}
 self.scanning = false
