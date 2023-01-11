@@ -161,6 +161,7 @@ store_or_restore_routes_hook = SimpleEventHook {
   },
   execute = function (event)
     local device = event:get_subject ()
+    local source = event:get_source ()
     local selected_routes = {}
     local push_select_routes = false
 
