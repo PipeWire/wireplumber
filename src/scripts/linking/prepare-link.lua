@@ -23,6 +23,7 @@ SimpleEventHook {
     local source, _, si, si_props, si_flags, target =
         putils:unwrap_find_target_event (event)
 
+    local si_id = si.id
     local reconnect = not cutils.parseBool (si_props ["node.dont-reconnect"])
     local exclusive = cutils.parseBool (si_props ["node.exclusive"])
     local si_must_passthrough = cutils.parseBool (si_props ["item.node.encoded-only"])
