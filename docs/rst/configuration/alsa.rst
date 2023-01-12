@@ -198,6 +198,13 @@ default disabled because the session manager handles the task of selecting and
 restoring ports. It can, for example, restore previously saved volumes. Enable
 this here when the session manager does not handle port restore.
 
+.. code-block:: lua
+
+  ["api.acp.probe-rate"] = 48000
+
+Sets the samplerate used for probing the ALSA devices and collecting the profiles
+and ports.
+
 Some of the other properties that might be configured on devices:
 
 .. code-block:: lua
