@@ -24,8 +24,12 @@ SimpleEventHook {
     local metadata = om:lookup { Constraint { "metadata.name", "=", "default" } }
 
     if selected_node then
-      metadata:set (0, "default." .. def_node_type, "Spa:String:JSON",
-                    Json.Object { ["name"] = selected_node }:to_string ())
+      local key = "default." .. def_node_type
+
+      Log.info ("set default node for " .. key .. " " .. selected_node)
+
+      metadata:set (0, key, "Spa:String:JSON",
+          Json.Object { ["name"] = selected_node }:to_string ())
     else
       metadata:set (0, "default." .. def_node_type, nil, nil)
     end
