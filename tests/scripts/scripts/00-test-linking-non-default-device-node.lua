@@ -25,7 +25,7 @@ SimpleEventHook {
     local lnkbl = event:get_subject ()
     local name = lnkbl.properties ["node.name"]
 
-    if tu.linkables_ready () and name ~= "stream-node" then
+    if tu.linkablesReady () and name ~= "stream-node" then
       tu.createStreamNode ("playback")
     end
   end

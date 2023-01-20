@@ -29,15 +29,15 @@ SimpleEventHook {
     local lnkbl = event:get_subject ()
     local name = lnkbl.properties ["node.name"]
 
-    if tu.linkables_ready () and name ~= "stream-node" then
+    if tu.linkablesReady () and name ~= "stream-node" then
       -- all linkables created execept stream-node
       local props = {
         ["target.object"] = tu.lnkbls ["defined-device-node-in-props"].properties ["node.id"]
       }
       tu.createStreamNode ("capture", props)
-    elseif tu.linkables_ready () and tu.lnkbls ["stream-node"] then
+    elseif tu.linkablesReady () and tu.lnkbls ["stream-node"] then
       -- when "stream-node" linkable is ready
-      tu.set_target_in_metadata ("target.object", "defined-device-node-in-metadata")
+      tu.setTargetInMetadata ("target.object", "defined-device-node-in-metadata")
     end
   end
 }:register ()
