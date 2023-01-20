@@ -16,7 +16,7 @@ struct _WpScriptTester
 {
   WpPlugin parent;
   struct pw_stream *stream;
-  GWeakRef client_core;
+  ScriptRunnerFixture *test_fixture;
 };
 
 enum {
@@ -26,7 +26,7 @@ enum {
 
 enum {
   PROP_0,
-  PROP_EXPORT_CORE,
+  PROP_TEST_FIXTURE,
   PROP_SUPPORTED_FEATURES,
 };
 
@@ -53,7 +53,7 @@ static void
 wp_script_tester_create_stream (WpScriptTester *self, const gchar *stream_type,
     WpProperties *stream_props)
 {
-  g_autoptr (WpCore) core = g_weak_ref_get (&self->client_core);
+  ScriptRunnerFixture *f = self->test_fixture;
   WpProperties *props = NULL;
   const struct spa_pod *params [1];
   uint8_t buffer [1024];
@@ -76,7 +76,7 @@ wp_script_tester_create_stream (WpScriptTester *self, const gchar *stream_type,
     wp_properties_add (props, stream_props);
 
   self->stream = pw_stream_new (
-      wp_core_get_pw_core (core),
+      wp_core_get_pw_core (f->base.client_core),
       "stream-node", wp_properties_to_pw_properties (props));
 
   params [0] = spa_format_audio_raw_build (&b, SPA_PARAM_EnumFormat,
@@ -100,8 +100,8 @@ wp_script_tester_set_property (GObject *object, guint property_id,
   WpScriptTester *self = WP_SCRIPT_TESTER (object);
 
   switch (property_id) {
-  case PROP_EXPORT_CORE:
-    g_weak_ref_set (&self->client_core, g_value_get_object (value));
+  case PROP_TEST_FIXTURE:
+    self->test_fixture = g_value_get_pointer (value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -116,8 +116,8 @@ wp_script_tester_get_property (GObject *object, guint property_id, GValue *value
   WpScriptTester *self = WP_SCRIPT_TESTER (object);
 
   switch (property_id) {
-  case PROP_EXPORT_CORE:
-    g_value_take_object (value, g_weak_ref_get (&self->client_core));
+  case PROP_TEST_FIXTURE:
+    g_value_set_pointer (value, self->test_fixture);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -132,9 +132,9 @@ wp_script_tester_class_init (WpScriptTesterClass *klass)
   object_class->get_property = wp_script_tester_get_property;
   object_class->set_property = wp_script_tester_set_property;
 
-  g_object_class_install_property (object_class, PROP_EXPORT_CORE,
-      g_param_spec_object ("export-core", "export-core", "The Export WpCore", WP_TYPE_CORE,
-      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (object_class, PROP_TEST_FIXTURE,
+      g_param_spec_pointer ("test-fixture", "test-fixture", "The Test Fixture",
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   signals [ACTION_CREATE_STREAM_NODE] = g_signal_new_class_handler (
       "create-stream", G_TYPE_FROM_CLASS (klass),
@@ -237,7 +237,6 @@ load_components (ScriptRunnerFixture *f, gconstpointer argv)
 
     g_assert_cmpint (pw_context_add_spa_lib (f->base.server.context,
       "audiotestsrc", "audiotestsrc/libspa-audiotestsrc"), == , 0);
-
   }
 }
 
@@ -256,10 +255,11 @@ static void
 script_tests_setup (ScriptRunnerFixture *f, gconstpointer data)
 {
   base_tests_setup (f, data);
+
   f->plugin = g_object_new (wp_script_tester_get_type (),
       "name", "script-tester",
       "core", f->base.core, /*to register plugin*/
-      "export-core", f->base.client_core, /*to export the created node*/
+      "test-fixture", f,
       NULL);
 
   wp_plugin_register ((WpPlugin *)f->plugin);
