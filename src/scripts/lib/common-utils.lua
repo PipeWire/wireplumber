@@ -40,14 +40,20 @@ function cutils.getTargetDirection (properties)
   return target_direction
 end
 
+local default_nodes = Plugin.find ("default-nodes-api")
+
 function cutils.getDefaultNode (properties, target_direction)
   local target_media_class =
   properties ["media.type"] ..
       (target_direction == "input" and "/Sink" or "/Source")
+
+  if not default_nodes then
+    default_nodes = Plugin.find ("default-nodes-api")
+  end
+
   return default_nodes:call ("get-default-node", target_media_class)
 end
 
-default_nodes = Plugin.find ("default-nodes-api")
 
 cutils.default_metadata_om = ObjectManager {
   Interest {
