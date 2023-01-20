@@ -211,15 +211,16 @@ load_components (ScriptRunnerFixture *f, gconstpointer argv)
     load_component (f, "si-standard-link", "module");
     load_component (f, "si-audio-virtual", "module");
 
+    load_component (f, "default-nodes/apply-default-node.lua", "script/lua");
+    load_component (f, "default-nodes/find-echo-cancel-default-node.lua", "script/lua");
+    load_component (f, "default-nodes/state-default-nodes.lua", "script/lua");
+    load_component (f, "default-nodes/find-best-default-node.lua", "script/lua");
+    load_component (f, "default-nodes/select-default-nodes.lua", "script/lua");
+
     load_component (f, "metadata", "module");
     load_component (f, "default-nodes-api", "module");
 
     load_component (f, "node/create-item.lua", "script/lua");
-
-    load_component (f, "default-nodes/apply-default-node.lua", "script/lua");
-    load_component (f, "default-nodes/state-default-nodes.lua", "script/lua");
-    load_component (f, "default-nodes/find-best-default-node.lua", "script/lua");
-    load_component (f, "default-nodes/select-default-nodes.lua", "script/lua");
 
     load_component (f, "linking/find-best-target.lua", "script/lua");
     load_component (f, "linking/find-default-target.lua", "script/lua");
