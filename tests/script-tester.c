@@ -12,6 +12,10 @@
 #define DEFAULT_RATE		44100
 #define DEFAULT_CHANNELS	2
 
+typedef struct _ScriptRunnerFixture ScriptRunnerFixture;
+static void load_component (ScriptRunnerFixture *f, const gchar *name,
+    const gchar *type);
+
 struct _WpScriptTester
 {
   WpPlugin parent;
@@ -39,17 +43,32 @@ G_DECLARE_FINAL_TYPE (WpScriptTester, wp_script_tester,
     WP, SCRIPT_TESTER, WpPlugin)
 G_DEFINE_TYPE (WpScriptTester, wp_script_tester, WP_TYPE_PLUGIN)
 
-typedef struct {
+struct _ScriptRunnerFixture {
   WpBaseTestFixture base;
   WpScriptTester *plugin;
-} ScriptRunnerFixture;
+};
 
 static void
 wp_script_tester_init (WpScriptTester *self)
 {
 }
 
+static G_GNUC_UNUSED void
+dummy_cb (WpObject *object, GAsyncResult *res, WpBaseTestFixture *f)
+{
+}
+
 static void
+wp_script_tester_restart_plugin (WpScriptTester *self, const gchar *name)
+{
+  ScriptRunnerFixture *f = self->test_fixture;
+  g_autoptr (WpPlugin) plugin = wp_plugin_find (f->base.core, name);
+
+  wp_object_deactivate (WP_OBJECT (plugin), WP_PLUGIN_FEATURE_ENABLED);
+  wp_object_activate (WP_OBJECT (plugin), WP_PLUGIN_FEATURE_ENABLED,
+    NULL, (GAsyncReadyCallback) dummy_cb, f);
+}
+  static void
 wp_script_tester_create_stream (WpScriptTester *self, const gchar *stream_type,
     WpProperties *stream_props)
 {
@@ -141,6 +160,13 @@ wp_script_tester_class_init (WpScriptTesterClass *klass)
       G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
       (GCallback) wp_script_tester_create_stream,
       NULL, NULL, NULL, G_TYPE_NONE, 2, G_TYPE_STRING, WP_TYPE_PROPERTIES);
+
+  signals [ACTION_CREATE_STREAM_NODE] = g_signal_new_class_handler (
+      "restart-plugin", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+      (GCallback) wp_script_tester_restart_plugin,
+      NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_STRING);
+
 }
 
 static void
