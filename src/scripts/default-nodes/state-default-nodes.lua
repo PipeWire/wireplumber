@@ -94,7 +94,7 @@ store_configured_default_nodes_hook = SimpleEventHook {
     local new_stored = {}
 
     if new_value then
-      new_value = Json.Raw (new_value):parse ()["name"]
+      new_value = Json.Raw (new_value):parse () ["name"]
     end
 
     if new_value then
@@ -134,6 +134,10 @@ metadata_added_hook = SimpleEventHook {
   },
   execute = function (event)
     local types = { "audio.sink", "audio.source", "video.source" }
+    local source = event:get_source ()
+    local om = source:call ("get-object-manager", "metadata")
+    local metadata = om:lookup { Constraint { "metadata.name", "=", "default" } }
+
     for _, t in ipairs (types) do
       local v = state_table ["default.configured." .. t]
       if v then
