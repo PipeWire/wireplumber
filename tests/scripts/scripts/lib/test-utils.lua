@@ -82,6 +82,10 @@ function u.createStreamNode (stream_type, props)
   u.lnkbl_count = u.lnkbl_count + 1
 end
 
+function u.restartPlugin (name)
+  u.script_tester_plugin:call ("restart-plugin", name)
+end
+
 u.metadata = cu.default_metadata_om:lookup ()
 assert (u.metadata ~= nil)
 
