@@ -28,12 +28,12 @@ SimpleEventHook {
     local lnkbl = event:get_subject ()
     local name = lnkbl.properties ["node.name"]
 
-    if tu.linkables_ready () and name ~= "stream-node" then
+    if tu.linkablesReady () and name ~= "stream-node" then
       -- all linkables created execept stream-node
       tu.createStreamNode ("playback")
-    elseif tu.linkables_ready () and tu.lnkbls ["stream-node"] then
+    elseif tu.linkablesReady () and tu.lnkbls ["stream-node"] then
       -- when "stream-node" linkable is ready
-      tu.set_target_in_metadata ("target.node", "defined-device-node")
+      tu.setTargetInMetadata ("target.node", "defined-device-node")
     end
   end
 }:register ()
@@ -51,8 +51,8 @@ SimpleEventHook {
     },
   },
   execute = function (event)
-    if tu.linkables_ready () then
-      tu.set_target_in_metadata ("target.node", "defined-device-node")
+    if tu.linkablesReady () then
+      tu.setTargetInMetadata ("target.node", "defined-device-node")
     end
   end
 }:register ()

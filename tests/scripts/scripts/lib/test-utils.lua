@@ -90,12 +90,12 @@ u.metadata = cu.default_metadata_om:lookup ()
 assert (u.metadata ~= nil)
 
 -- update the defined target for stream session item in metadata.
-function u.set_target_in_metadata (prop, target_node_name)
+function u.setTargetInMetadata (prop, target_node_name)
   u.metadata:set (u.lnkbls ["stream-node"].properties ["node.id"], prop,
       "Spa:Id", u.lnkbls [target_node_name].properties ["node.id"])
 end
 
-function u.linkables_ready ()
+function u.linkablesReady ()
   local count = 0
   for k, v in pairs (u.lnkbls) do
     if v then
