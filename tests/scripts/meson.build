@@ -136,3 +136,11 @@ test(
   args: ['script-tests', '17-test-linking-defined-device-node-target-object-int-metadata-capture.lua'],
   env: common_env,
 )
+
+
+test(
+  '00-test-default-nodes-initial-metadata-update',
+  script_tester,
+  args: ['script-tests', '00-test-default-nodes-initial-metadata-update.lua'],
+  env: common_env,
+)
