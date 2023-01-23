@@ -14,6 +14,14 @@ Table of Contents
 
 .. toctree::
    :maxdepth: 2
+   :caption: WirePlumber's Design
+
+   design/understanding_session_management.rst
+   design/understanding_wireplumber.rst
+   design/events_and_hooks.rst
+
+.. toctree::
+   :maxdepth: 2
    :caption: The WirePlumber Library
 
    c_api.rst
