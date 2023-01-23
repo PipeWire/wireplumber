@@ -16,3 +16,4 @@ sphinx_files += files(
 subdir('c_api')
 subdir('lua_api')
 subdir('configuration')
+subdir('design')
