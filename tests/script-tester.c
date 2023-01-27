@@ -241,7 +241,7 @@ load_components (ScriptRunnerFixture *f, gconstpointer argv)
     load_component (f, "default-nodes/find-echo-cancel-default-node.lua", "script/lua");
     load_component (f, "default-nodes/state-default-nodes.lua", "script/lua");
     load_component (f, "default-nodes/find-best-default-node.lua", "script/lua");
-    load_component (f, "default-nodes/select-default-nodes.lua", "script/lua");
+    load_component (f, "default-nodes/rescan.lua", "script/lua");
 
     load_component (f, "metadata", "module");
     load_component (f, "default-nodes-api", "module");
