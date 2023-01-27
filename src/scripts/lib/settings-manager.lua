@@ -38,15 +38,15 @@ local settings_manager = {}
 local private_api = {}
 
 function private_api.subscribe (self, key, closure)
-  if not self.subscribers[key] then
-    self.subscribers[key] = {}
+  if not self.subscribers [key] then
+    self.subscribers [key] = {}
   end
   table.insert (self.subscribers, closure)
 end
 
 function private_api.call_subscribers (self, key, new_value)
-  if self.subscribers[key] then
-    for i, closure in ipairs (self.subscribers[key]) do
+  if self.subscribers [key] then
+    for i, closure in ipairs (self.subscribers [key]) do
       closure (new_value)
     end
   end
@@ -61,7 +61,7 @@ function private_api.update_value (self, key, json_value, default)
   end
 
   -- store only if the new value is not equal to the default
-  self.values[key] = (new_value ~= default) and new_value or nil
+  self.values [key] = (new_value ~= default) and new_value or nil
 
   return new_value
 end
@@ -86,7 +86,7 @@ function settings_manager.new (_prefix, _defaults)
   -- subscribe for changes in Settings
   Settings.subscribe (private.prefix .. "*", function (_, setting, json_value)
     local key = string.sub (setting, private.prefix_len, -1)
-    local default = private.defaults[key]
+    local default = private.defaults [key]
 
     -- unknown key, ignore it
     if default == nil then
@@ -111,11 +111,11 @@ function settings_manager.new (_prefix, _defaults)
       else
         local private = getmetatable (self) ["__private"]
         key = string.gsub (key, "_", "-") -- foo_bar_baz -> foo-bar-baz
-        local value = private.values[key]
-        return (value ~= nil) and value or private.defaults[key]
+        local value = private.values [key]
+        return (value ~= nil) and value or private.defaults [key]
       end
     end,
-    __newindex = function(_, key, _)
+    __newindex = function (_, key, _)
       error ('Not allowed to modify configuration value')
     end
   })
