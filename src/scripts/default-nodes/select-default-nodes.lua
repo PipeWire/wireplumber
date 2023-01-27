@@ -17,6 +17,13 @@ SimpleEventHook {
       Constraint { "event.session-item.interface", "=", "linkable" },
       Constraint { "media.class", "#", "Video/*" },
     },
+    EventInterest {
+      Constraint { "event.type", "=", "metadata-changed" },
+      Constraint { "metadata.name", "=", "default" },
+      Constraint { "event.subject.key", "c", "default.configured.audio.sink",
+          "default.configured.audio.source", "default.configured.video.source"
+      },
+    },
   },
   execute = function (event)
     local source = event:get_source ()

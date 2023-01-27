@@ -58,23 +58,6 @@ find_stored_default_node_hook = SimpleEventHook {
   end
 }
 
-rescan_trigger_hook = SimpleEventHook {
-  name = "default-nodes/rescan-trigger",
-  interests = {
-    EventInterest {
-      Constraint { "event.type", "=", "metadata-changed" },
-      Constraint { "metadata.name", "=", "default" },
-      Constraint { "event.subject.key", "c", "default.configured.audio.sink",
-          "default.configured.audio.source", "default.configured.video.source"
-      },
-    },
-  },
-  execute = function (event)
-    local source = event:get_source ()
-    source:call ("schedule-rescan", "default-nodes")
-  end
-}
-
 store_configured_default_nodes_hook = SimpleEventHook {
   name = "default-nodes/store-configured-default-nodes",
   interests = {
@@ -193,14 +176,12 @@ function handlePersistentSetting (enable)
     state = State ("default-nodes")
     state_table = state:load ()
     find_stored_default_node_hook:register ()
-    rescan_trigger_hook:register ()
     store_configured_default_nodes_hook:register ()
     metadata_added_hook:register ()
   elseif not enable and state then
     state = nil
     state_table = nil
     find_stored_default_node_hook:remove ()
-    rescan_trigger_hook:remove ()
     store_configured_default_nodes_hook:remove ()
     metadata_added_hook:remove ()
   end
