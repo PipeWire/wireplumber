@@ -8,6 +8,7 @@ SimpleEventHook {
   name = "default-nodes/apply-default-node",
   after = { "default-nodes/find-best-default-node",
             "default-nodes/find-echo-cancel-default-node",
+            "default-nodes/find-selected-default-node",
             "default-nodes/find-stored-default-node" },
   interests = {
     EventInterest {
