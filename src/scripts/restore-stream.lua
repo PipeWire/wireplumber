@@ -13,6 +13,7 @@ local config = ... or {}
 config.properties = config.properties or {}
 config_restore_props = config.properties["restore-props"] or false
 config_restore_target = config.properties["restore-target"] or false
+config_default_channel_volume = config.properties["default-channel-volume"] or 1.0
 
 -- preprocess rules and create Interest objects
 for _, r in ipairs(config.rules or {}) do
@@ -322,6 +323,31 @@ function saveStream(node)
   end
 end
 
+function build_default_channel_volumes (node)
+  local def_vol = config_default_channel_volume
+  local channels = 2
+  local res = {}
+
+  local str = node.properties["state.default-channel-volume"]
+  if str ~= nil then
+    def_vol = tonumber (str)
+  end
+
+  for pod in node:iterate_params("Format") do
+    local pod_parsed = pod:parse()
+    if pod_parsed ~= nil then
+      channels = pod_parsed.properties.channels
+      break
+    end
+  end
+
+  while (#res < channels) do
+    table.insert(res, def_vol)
+  end
+
+  return res;
+end
+
 function restoreStream(node)
   local stream_props = node.properties
   rulesApplyProperties(stream_props)
@@ -332,23 +358,19 @@ function restoreStream(node)
   end
 
   if config_restore_props and stream_props["state.restore-props"] ~= false then
-    local needsRestore = false
     local props = { "Spa:Pod:Object:Param:Props", "Props" }
 
     local str = state_table[key_base .. ":volume"]
-    needsRestore = str and true or needsRestore
     props.volume = str and tonumber(str) or nil
 
     local str = state_table[key_base .. ":mute"]
-    needsRestore = str and true or needsRestore
     props.mute = str and (str == "true") or nil
 
     local str = state_table[key_base .. ":channelVolumes"]
-    needsRestore = str and true or needsRestore
-    props.channelVolumes = str and parseArray(str, tonumber) or nil
+    props.channelVolumes = str and parseArray(str, tonumber) or
+        build_default_channel_volumes (node)
 
     local str = state_table[key_base .. ":channelMap"]
-    needsRestore = str and true or needsRestore
     props.channelMap = str and parseArray(str) or nil
 
     -- convert arrays to Spa Pod
@@ -361,13 +383,10 @@ function restoreStream(node)
       props.channelMap = Pod.Array(props.channelMap)
     end
 
-    if needsRestore then
-      Log.info(node, "restore values from " .. key_base)
-
-      local param = Pod.Object(props)
-      Log.debug(param, "setting props on " .. tostring(node))
-      node:set_param("Props", param)
-    end
+    Log.info(node, "restore values from " .. key_base)
+    local param = Pod.Object(props)
+    Log.debug(param, "setting props on " .. tostring(node))
+    node:set_param("Props", param)
   end
 
   if config_restore_target and stream_props["state.restore-target"] ~= false then
