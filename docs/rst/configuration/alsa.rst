@@ -205,6 +205,14 @@ this here when the session manager does not handle port restore.
 Sets the samplerate used for probing the ALSA devices and collecting the profiles
 and ports.
 
+.. code-block:: lua
+
+  ["api.acp.pro-channels"] = 64
+
+Sets the number of channels to use when probing the Pro Audio profile. Normally,
+the maximum amount of channels will be used but with this setting this can be
+reduced, which can make it possible to use other samplerates on some devices.
+
 Some of the other properties that might be configured on devices:
 
 .. code-block:: lua
