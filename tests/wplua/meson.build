@@ -55,6 +55,12 @@ test(
   env: common_env,
 )
 test(
+  'test-lua-settings-manager',
+  script_tester,
+  args: ['lua-api-tests', 'settings-manager.lua'],
+  env: common_env,
+)
+test(
   'test-lua-event-hooks',
   script_tester,
   args: ['lua-api-tests', 'event-hooks.lua'],
