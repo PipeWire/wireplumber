@@ -41,7 +41,7 @@ function private_api.subscribe (self, key, closure)
   if not self.subscribers [key] then
     self.subscribers [key] = {}
   end
-  table.insert (self.subscribers, closure)
+  table.insert (self.subscribers [key], closure)
 end
 
 function private_api.call_subscribers (self, key, new_value)
