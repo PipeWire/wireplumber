@@ -53,7 +53,13 @@ function private_api.call_subscribers (self, key, new_value)
 end
 
 function private_api.update_value (self, key, json_value, default)
-  local new_value = json_value and json_value:parse () or default
+  local new_value = nil
+
+  if json_value then
+    new_value = json_value:parse ()
+  else
+    new_value = default
+  end
 
   -- only accept values that have the same type as the default value
   if type (new_value) ~= type (default) then
@@ -61,7 +67,11 @@ function private_api.update_value (self, key, json_value, default)
   end
 
   -- store only if the new value is not equal to the default
-  self.values [key] = (new_value ~= default) and new_value or nil
+  if new_value ~= default then
+    self.values [key] = new_value
+  else
+    self.values [key] = nil
+  end
 
   return new_value
 end
@@ -112,7 +122,12 @@ function settings_manager.new (_prefix, _defaults)
         local private = getmetatable (self) ["__private"]
         key = string.gsub (key, "_", "-") -- foo_bar_baz -> foo-bar-baz
         local value = private.values [key]
-        return (value ~= nil) and value or private.defaults [key]
+
+        if (value ~= nil) then
+          return value
+        else
+          return private.defaults [key]
+        end
       end
     end,
     __newindex = function (_, key, _)
