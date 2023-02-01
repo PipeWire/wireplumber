@@ -85,7 +85,7 @@ function settings_manager.new (_prefix, _defaults)
 
   -- subscribe for changes in Settings
   Settings.subscribe (private.prefix .. "*", function (_, setting, json_value)
-    local key = string.sub (setting, private.prefix_len, -1)
+    local key = string.sub (setting, private.prefix_len + 1, -1)
     local default = private.defaults [key]
 
     -- unknown key, ignore it
