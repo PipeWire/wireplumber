@@ -81,9 +81,9 @@ test_si_audio_virtual_configure_activate (TestFixture * f,
     str = wp_properties_get (props, "name");
     g_assert_nonnull (str);
     g_assert_cmpstr ("virtual", ==, str);
-    str = wp_properties_get (props, "direction");
+    str = wp_properties_get (props, "item.node.direction");
     g_assert_nonnull (str);
-    g_assert_cmpstr ("1", ==, str);
+    g_assert_cmpstr ("output", ==, str);
     str = wp_properties_get (props, "item.factory.name");
     g_assert_nonnull (str);
     g_assert_cmpstr ("si-audio-virtual", ==, str);
