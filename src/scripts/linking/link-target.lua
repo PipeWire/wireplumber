@@ -20,7 +20,7 @@ AsyncEventHook {
   },
   steps = {
     start = {
-      next = "link_activated",
+      next = "none",
       execute = function (event, transition)
         local source, om, si, si_props, si_flags, target =
             putils:unwrap_find_target_event (event)
@@ -53,21 +53,38 @@ AsyncEventHook {
               .. tostring (si_link))
         end
 
-        if si_props ["item.node.direction"] == "output" then
-          -- playback
-          out_item = si
-          in_item = target
+        if si_props ["item.factory.name"] == "si-audio-virtual" then
+          if si_props ["item.node.direction"] == "output" then
+            -- playback
+            out_item = target
+            in_item = si
+          else
+            -- capture
+            in_item = target
+            out_item = si
+          end
         else
-          -- capture
-          in_item = si
-          out_item = target
+          if si_props ["item.node.direction"] == "output" then
+            -- playback
+            out_item = si
+            in_item = target
+          else
+            -- capture
+            in_item = si
+            out_item = target
+          end
         end
 
+        local is_virtual_client_link = target_props ["item.factory.name"] == "si-audio-virtual"
+
         Log.info (si,
-          string.format ("link %s <-> %s passive:%s, passthrough:%s, exclusive:%s",
+          string.format ("link %s <-> %s passive:%s, passthrough:%s, exclusive:%s, virtual-client:%s",
             tostring (si_props ["node.name"]),
             tostring (target_props ["node.name"]),
-            tostring (passive), tostring (passthrough), tostring (exclusive)))
+            tostring (passive),
+            tostring (passthrough),
+            tostring (exclusive),
+            tostring (is_virtual_client_link)))
 
         -- create and configure link
         si_link = SessionItem ("si-standard-link")
@@ -79,7 +96,11 @@ AsyncEventHook {
           ["exclusive"] = exclusive,
           ["out.item.port.context"] = "output",
           ["in.item.port.context"] = "input",
-          ["is.policy.item.link"] = true,
+          ["media.role"] = target_props["role"],
+          ["target.media.class"] = target_props["media.class"],
+          ["is.virtual.client.link"] = is_virtual_client_link,
+          ["main.item.id"] = si.id,
+          ["target.item.id"] = target.id,
         } then
           transition:return_error ("failed to configure si-standard-link "
             .. tostring (si_link))
@@ -119,44 +140,37 @@ AsyncEventHook {
         end
         si_link:register ()
 
-        -- activate
-        si_link:activate (Feature.SessionItem.ACTIVE, function (l, e)
-          if e then
-            transition:return_error ("failed to activate si-standard-link: "
-                .. tostring (si) .. " error:" .. tostring (e))
-            if si_flags ~= nil then
-              si_flags.peer_id = nil
+        Log.info (si_link, "registered virtual si-standard-link between "
+                .. tostring (si).." and ".. tostring(target))
+
+        -- only activate non virtual links because virtual links activation is
+        -- handled by rescan-virtual-links.lua
+        if not is_virtual_client_link then
+          si_link:activate (Feature.SessionItem.ACTIVE, function (l, e)
+            if e then
+              transition:return_error ("failed to activate si-standard-link: "
+                  .. tostring (si) .. " error:" .. tostring (e))
+              if si_flags ~= nil then
+                si_flags.peer_id = nil
+              end
+              l:remove ()
+            else
+              si_flags.si_link = si_link
+              si_flags.failed_peer_id = nil
+              if si_flags.peer_id == nil then
+                si_flags.peer_id = target.id
+              end
+              si_flags.failed_count = 0
+
+              Log.info (si_link, "activated si-standard-link between "
+                .. tostring (si).." and ".. tostring(target))
+
+              transition:advance ()
             end
-            l:remove ()
-          else
-            si_flags.si_link = si_link
-            transition:advance ()
-          end
-        end)
-      end,
-    },
-    link_activated = {
-      next = "none",
-      execute = function (event, transition)
-        local source, om, si, si_props, si_flags, target =
-            putils:unwrap_find_target_event (event)
-        if not target then
-          -- bypass the hook, nothing to link to.
+          end)
+        else
           transition:advance ()
-          return
         end
-
-        if si_flags ~= nil then
-          si_flags.failed_peer_id = nil
-          if si_flags.peer_id == nil then
-            si_flags.peer_id = si_target.id
-          end
-          si_flags.failed_count = 0
-        end
-        Log.info (si_flags.si_link, "activated si-standard-link between "
-            .. tostring (si).." and "..tostring(si_target))
-
-        transition:advance ()
       end,
     },
   },

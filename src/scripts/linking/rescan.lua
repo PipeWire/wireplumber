@@ -14,16 +14,17 @@ local putils = require ("policy-utils")
 local cutils = require ("common-utils")
 
 function checkLinkable (si, om, handle_nonstreams)
-  -- only handle stream session items
   local si_props = si.properties
-  if not si_props or (si_props ["item.node.type"] ~= "stream"
-      and not handle_nonstreams) then
-    return false
+
+  -- Always handle si-audio-virtual session items
+  if si_props ["item.factory.name"] == "si-audio-virtual" then
+    return true, si_props
   end
 
-  -- Determine if we can handle item by this policy
-  if si_props ["item.factory.name"] == "si-audio-virtual" then
-    return false
+  -- For the rest of them, only handle stream session items
+  if not si_props or (si_props ["item.node.type"] ~= "stream"
+      and not handle_nonstreams) then
+    return false, si_props
   end
 
   return true, si_props
@@ -116,7 +117,7 @@ SimpleEventHook {
     EventInterest {
       Constraint { "event.type", "c", "session-item-added", "session-item-removed" },
       Constraint { "event.session-item.interface", "=", "linkable" },
-      Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
+      Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node", "si-audio-virtual" },
     },
     -- on device Routes changed
     EventInterest {

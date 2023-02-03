@@ -134,8 +134,6 @@ function putils.canLink (properties, si_target)
     return false
   end
 
-  -- nodes must have opposite direction, or otherwise they must be both input
-  -- and the target must have a monitor (so the target will be used as a source)
   local function isMonitor(properties)
     return properties ["item.node.direction"] == "input" and
         parseBool (properties ["item.features.monitor"]) and
@@ -143,9 +141,19 @@ function putils.canLink (properties, si_target)
         properties ["item.factory.name"] == "si-audio-adapter"
   end
 
-  if properties ["item.node.direction"] == target_props ["item.node.direction"]
-      and not isMonitor (target_props) then
-    return false
+  if properties ["item.factory.name"] == "si-audio-virtual" then
+    -- virtual nodes must have the same direction, unless the target is monitor
+    if properties ["item.node.direction"] ~= target_props ["item.node.direction"]
+        and not isMonitor (target_props) then
+      return false
+    end
+  else
+    -- nodes must have opposite direction, or otherwise they must be both input
+    -- and the target must have a monitor (so the target will be used as a source)
+    if properties ["item.node.direction"] == target_props ["item.node.direction"]
+        and not isMonitor (target_props) then
+      return false
+    end
   end
 
   -- check link group
@@ -305,8 +313,6 @@ linkables_om:activate ()
 links_om = ObjectManager {
   Interest {
     type = "SiLink",
-    -- only handle links created by this policy
-    Constraint { "is.policy.item.link", "=", true },
   }
 }
 
