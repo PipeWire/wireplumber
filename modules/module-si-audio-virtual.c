@@ -90,7 +90,8 @@ si_audio_virtual_configure (WpSessionItem * item, WpProperties *p)
   if (strstr (self->media_class, "Source") ||
       strstr (self->media_class, "Output"))
     self->direction = WP_DIRECTION_OUTPUT;
-  wp_properties_setf (si_props, "direction", "%u", self->direction);
+  wp_properties_set (si_props, "item.node.direction",
+      self->direction == WP_DIRECTION_OUTPUT ? "output" : "input");
 
   str = wp_properties_get (si_props, "role");
   if (str) {
@@ -108,6 +109,10 @@ si_audio_virtual_configure (WpSessionItem * item, WpProperties *p)
 
   str = wp_properties_get (si_props, "item.features.no-dsp");
   self->disable_dsp = str && pw_properties_parse_bool (str);
+
+  /* We always want virtual sources to autoconnect */
+  wp_properties_set (si_props, PW_KEY_NODE_AUTOCONNECT, "true");
+  wp_properties_set (si_props, "media.type", "Audio");
 
   wp_properties_set (si_props, "item.factory.name", SI_FACTORY_NAME);
   wp_session_item_set_properties (WP_SESSION_ITEM (self),
@@ -193,6 +198,21 @@ on_node_activate_done (WpObject * node, GAsyncResult * res,
             "si-audio-virtual: could not create si-audio-adapter"));
   }
 
+  /* Set node.id and node.name properties in this session item */
+  {
+    g_autoptr (WpProperties) si_props = wp_session_item_get_properties (
+        WP_SESSION_ITEM (self));
+    g_autoptr (WpProperties) new_props = wp_properties_new_empty ();
+    guint32 node_id = wp_proxy_get_bound_id (WP_PROXY (node));
+    wp_properties_setf (new_props, "node.id", "%u", node_id);
+    wp_properties_set (new_props, "node.name",
+        wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (node),
+        PW_KEY_NODE_NAME));
+    wp_properties_update (si_props, new_props);
+    wp_session_item_set_properties (WP_SESSION_ITEM (self),
+        g_steal_pointer (&si_props));
+  }
+
   /* Forward adapter-ports-state-changed signal */
   g_signal_connect_object (self->adapter, "adapter-ports-state-changed",
       G_CALLBACK (on_adapter_port_state_changed), self, 0);
@@ -243,6 +263,7 @@ si_audio_virtual_enable_active (WpSessionItem *si, WpTransition *transition)
           PW_KEY_MEDIA_CLASS, media,
           PW_KEY_FACTORY_NAME, "support.null-audio-sink",
           PW_KEY_NODE_DESCRIPTION, desc,
+          PW_KEY_NODE_AUTOCONNECT, "true",
           "monitor.channel-volumes", "true",
           "wireplumber.is-virtual", "true",
           NULL));
