@@ -614,12 +614,11 @@ wp_mixer_api_class_init (WpMixerApiClass * klass)
       G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_UINT);
 }
 
-WP_PLUGIN_EXPORT gboolean
+WP_PLUGIN_EXPORT GObject *
 wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
-  wp_plugin_register (g_object_new (wp_mixer_api_get_type (),
-          "name", "mixer-api",
-          "core", core,
-          NULL));
-  return TRUE;
+  return G_OBJECT (g_object_new (wp_mixer_api_get_type (),
+      "name", "mixer-api",
+      "core", core,
+      NULL));
 }

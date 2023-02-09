@@ -17,8 +17,7 @@ struct _WpRequireApiTransition
 };
 
 enum {
-  STEP_LOAD_MODULES = WP_TRANSITION_STEP_CUSTOM_START,
-  STEP_ACTIVATE_PLUGINS,
+  STEP_LOAD_PLUGINS = WP_TRANSITION_STEP_CUSTOM_START,
 };
 
 G_DECLARE_FINAL_TYPE (WpRequireApiTransition, wp_require_api_transition,
@@ -47,23 +46,24 @@ wp_require_api_transition_get_next_step (WpTransition * transition, guint step)
   WpRequireApiTransition *self = WP_REQUIRE_API_TRANSITION (transition);
 
   switch (step) {
-  case WP_TRANSITION_STEP_NONE: return STEP_LOAD_MODULES;
-  case STEP_LOAD_MODULES:       return STEP_ACTIVATE_PLUGINS;
-  case STEP_ACTIVATE_PLUGINS:
+  case WP_TRANSITION_STEP_NONE: return STEP_LOAD_PLUGINS;
+  case STEP_LOAD_PLUGINS:
     return (self->pending_plugins > 0) ?
-        STEP_ACTIVATE_PLUGINS : WP_TRANSITION_STEP_NONE;
+        STEP_LOAD_PLUGINS : WP_TRANSITION_STEP_NONE;
   default:
     g_return_val_if_reached (WP_TRANSITION_STEP_ERROR);
   }
 }
 
 static void
-on_plugin_activated (WpObject * p, GAsyncResult * res,
+on_plugin_loaded (WpCore * core, GAsyncResult * res,
     WpRequireApiTransition *self)
 {
+  g_autoptr (GObject) o = NULL;
   GError *error = NULL;
 
-  if (!wp_object_activate_finish (p, res, &error)) {
+  o = wp_core_load_component_finish (core, res, &error);
+  if (!o) {
     wp_transition_return_error (WP_TRANSITION (self), error);
     return;
   }
@@ -79,46 +79,21 @@ wp_require_api_transition_execute_step (WpTransition * transition, guint step)
   WpCore *core = wp_transition_get_source_object (transition);
 
   switch (step) {
-  case STEP_LOAD_MODULES:
-  {
+  case STEP_LOAD_PLUGINS:
+    wp_debug_object (self, "Loading plugins...");
+
     for (guint i = 0; i < self->apis->len; i++) {
       const gchar *api_name = g_ptr_array_index (self->apis, i);
       g_autoptr (WpPlugin) plugin = wp_plugin_find (core, api_name);
       if (!plugin) {
-        GError *error = NULL;
         gchar module_name[50];
-
         g_snprintf (module_name, sizeof (module_name),
             "libwireplumber-module-%s", api_name);
 
-        if (!wp_core_load_component (core, module_name, "module", NULL, &error)) {
-          wp_transition_return_error (transition, error);
-          return;
-        }
-
-        plugin = wp_plugin_find (core, api_name);
-        if (!plugin) {
-          wp_transition_return_error (transition, g_error_new (
-              WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
-              "API '%s' was not found in module '%s'", api_name, module_name));
-          return;
-        }
+        self->pending_plugins++;
+        wp_core_load_component (core, module_name, "module", NULL,
+            (GAsyncReadyCallback) on_plugin_loaded, self);
       }
-    }
-    wp_transition_advance (transition);
-    break;
-  }
-
-  case STEP_ACTIVATE_PLUGINS:
-    wp_debug_object (self, "Activating plugins...");
-
-    for (guint i = 0; i < self->apis->len; i++) {
-      const gchar *api_name = g_ptr_array_index (self->apis, i);
-      g_autoptr (WpPlugin) plugin = wp_plugin_find (core, api_name);
-
-      self->pending_plugins++;
-      wp_object_activate (WP_OBJECT (plugin), WP_PLUGIN_FEATURE_ENABLED, NULL,
-          (GAsyncReadyCallback) on_plugin_activated, self);
     }
     wp_transition_advance (transition);
     break;

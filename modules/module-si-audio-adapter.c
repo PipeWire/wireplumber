@@ -777,10 +777,9 @@ si_audio_adapter_linkable_init (WpSiLinkableInterface * iface)
   iface->get_ports = si_audio_adapter_get_ports;
 }
 
-WP_PLUGIN_EXPORT gboolean
+WP_PLUGIN_EXPORT GObject *
 wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
-  wp_si_factory_register (core, wp_si_factory_new_simple (SI_FACTORY_NAME,
+  return G_OBJECT (wp_si_factory_new_simple (SI_FACTORY_NAME,
       si_audio_adapter_get_type ()));
-  return TRUE;
 }

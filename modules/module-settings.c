@@ -336,18 +336,16 @@ wp_settings_plugin_class_init (WpSettingsPluginClass * klass)
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
-WP_PLUGIN_EXPORT gboolean
+WP_PLUGIN_EXPORT GObject *
 wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
   const gchar *metadata_name = "sm-settings";
-
   if (args)
-    metadata_name = g_variant_get_string(args, NULL);
+    metadata_name = g_variant_get_string (args, NULL);
 
-  wp_plugin_register (g_object_new (wp_settings_plugin_get_type (),
+  return G_OBJECT (g_object_new (wp_settings_plugin_get_type (),
       "name", "settings",
       "core", core,
       "metadata-name", metadata_name,
       NULL));
-  return TRUE;
 }

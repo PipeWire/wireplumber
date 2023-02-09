@@ -48,8 +48,13 @@ WP_API
 gchar *wp_core_get_vm_type (WpCore *self);
 
 WP_API
-gboolean wp_core_load_component (WpCore * self, const gchar * component,
-    const gchar * type, GVariant * args, GError ** error);
+void wp_core_load_component (WpCore * self, const gchar * component,
+    const gchar * type, GVariant * args, GAsyncReadyCallback callback,
+    gpointer data);
+
+WP_API
+GObject * wp_core_load_component_finish (WpCore * self, GAsyncResult * res,
+    GError ** error);
 
 /* Connection */
 

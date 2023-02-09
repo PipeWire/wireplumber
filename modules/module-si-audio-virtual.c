@@ -355,10 +355,9 @@ si_audio_virtual_adapter_init (WpSiAdapterInterface * iface)
   iface->set_ports_format_finish = si_audio_virtual_set_ports_format_finish;
 }
 
-WP_PLUGIN_EXPORT gboolean
+WP_PLUGIN_EXPORT GObject *
 wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
-  wp_si_factory_register (core, wp_si_factory_new_simple (SI_FACTORY_NAME,
+  return G_OBJECT (wp_si_factory_new_simple (SI_FACTORY_NAME,
       si_audio_virtual_get_type ()));
-  return TRUE;
 }

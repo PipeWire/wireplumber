@@ -272,7 +272,7 @@ wp_lua_script_class_init (WpLuaScriptClass * klass)
 
   g_object_class_install_property (object_class, PROP_LUA_ENGINE,
       g_param_spec_pointer ("lua-engine", "lua-engine", "lua-engine",
-          G_PARAM_WRITABLE | G_PARAM_STATIC_STRINGS));
+          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (object_class, PROP_FILENAME,
       g_param_spec_string ("filename", "filename", "filename", NULL,
