@@ -22,6 +22,19 @@ typedef struct {
 } RdTestFixture;
 
 static void
+on_plugin_loaded (WpCore * core, GAsyncResult * res, RdTestFixture *f)
+{
+  g_autoptr (GObject) o = NULL;
+  GError *error = NULL;
+
+  o = wp_core_load_component_finish (core, res, &error);
+  g_assert_nonnull (o);
+  g_assert_no_error (error);
+
+  g_main_loop_quit (f->base.loop);
+}
+
+static void
 test_rd_setup (RdTestFixture *f, gconstpointer data)
 {
   wp_base_test_fixture_setup (&f->base,
@@ -31,16 +44,16 @@ test_rd_setup (RdTestFixture *f, gconstpointer data)
   g_test_dbus_up (f->test_dbus);
 
   {
-    g_autoptr (GError) error = NULL;
     wp_core_load_component (f->base.core,
-        "libwireplumber-module-reserve-device", "module", NULL, &error);
-    g_assert_no_error (error);
+        "libwireplumber-module-reserve-device", "module", NULL,
+        (GAsyncReadyCallback) on_plugin_loaded, f);
+    g_main_loop_run (f->base.loop);
   }
   {
-    g_autoptr (GError) error = NULL;
     wp_core_load_component (f->base.client_core,
-        "libwireplumber-module-reserve-device", "module", NULL, &error);
-    g_assert_no_error (error);
+        "libwireplumber-module-reserve-device", "module", NULL,
+        (GAsyncReadyCallback) on_plugin_loaded, f);
+    g_main_loop_run (f->base.loop);
   }
 
   f->rd_plugin_1 = wp_plugin_find (f->base.core, "reserve-device");
@@ -69,16 +82,6 @@ test_rd_teardown (RdTestFixture *f, gconstpointer data)
 }
 
 static void
-on_plugin_activated (WpObject * plugin, GAsyncResult * res, RdTestFixture * f)
-{
-  g_autoptr (GError) error = NULL;
-  if (!wp_object_activate_finish (plugin, res, &error)) {
-    wp_critical_object (plugin, "%s", error->message);
-    g_main_loop_quit (f->base.loop);
-  }
-}
-
-static void
 ensure_plugins_stable_state (GObject * obj, GParamSpec * spec, RdTestFixture *f)
 {
   gint state1 = 0, state2 = 0;
@@ -92,24 +95,13 @@ static void
 test_rd_plugin (RdTestFixture *f, gconstpointer data)
 {
   GObject *rd1 = NULL, *rd2 = NULL, *rd_video = NULL, *tmp = NULL;
-  gint state = 0xffff;
+  gint state = 0;
   gchar *str;
-
-  g_object_get (f->dbus_1, "state", &state, NULL);
-  g_assert_cmpint (state, ==, 0);
-  g_object_get (f->dbus_2, "state", &state, NULL);
-  g_assert_cmpint (state, ==, 0);
-
-  wp_object_activate (WP_OBJECT (f->rd_plugin_1), WP_PLUGIN_FEATURE_ENABLED,
-      NULL, (GAsyncReadyCallback) on_plugin_activated, f);
-  wp_object_activate (WP_OBJECT (f->rd_plugin_2), WP_PLUGIN_FEATURE_ENABLED,
-      NULL, (GAsyncReadyCallback) on_plugin_activated, f);
 
   g_signal_connect (f->dbus_1, "notify::state",
       G_CALLBACK (ensure_plugins_stable_state), f);
   g_signal_connect (f->dbus_2, "notify::state",
       G_CALLBACK (ensure_plugins_stable_state), f);
-  g_main_loop_run (f->base.loop);
 
   g_object_get (f->dbus_1, "state", &state, NULL);
   g_assert_cmpint (state, ==, 2);
@@ -183,23 +175,12 @@ static void
 test_rd_conn_closed (RdTestFixture *f, gconstpointer data)
 {
   GObject *rd1 = NULL;
-  gint state = 0xffff;
-
-  g_object_get (f->dbus_1, "state", &state, NULL);
-  g_assert_cmpint (state, ==, 0);
-  g_object_get (f->dbus_2, "state", &state, NULL);
-  g_assert_cmpint (state, ==, 0);
-
-  wp_object_activate (WP_OBJECT (f->rd_plugin_1), WP_PLUGIN_FEATURE_ENABLED,
-      NULL, (GAsyncReadyCallback) on_plugin_activated, f);
-  wp_object_activate (WP_OBJECT (f->rd_plugin_2), WP_PLUGIN_FEATURE_ENABLED,
-      NULL, (GAsyncReadyCallback) on_plugin_activated, f);
+  gint state = 0;
 
   g_signal_connect (f->dbus_1, "notify::state",
       G_CALLBACK (ensure_plugins_stable_state), f);
   g_signal_connect (f->dbus_2, "notify::state",
       G_CALLBACK (ensure_plugins_stable_state), f);
-  g_main_loop_run (f->base.loop);
 
   g_object_get (f->dbus_1, "state", &state, NULL);
   g_assert_cmpint (state, ==, 2);
@@ -260,24 +241,13 @@ static void
 test_rd_acquire_release (RdTestFixture *f, gconstpointer data)
 {
   GObject *rd1 = NULL, *rd2 = NULL;
-  gint state = 0xffff;
+  gint state = 0;
   gchar *str = NULL;
-
-  g_object_get (f->dbus_1, "state", &state, NULL);
-  g_assert_cmpint (state, ==, 0);
-  g_object_get (f->dbus_2, "state", &state, NULL);
-  g_assert_cmpint (state, ==, 0);
-
-  wp_object_activate (WP_OBJECT (f->rd_plugin_1), WP_PLUGIN_FEATURE_ENABLED,
-      NULL, (GAsyncReadyCallback) on_plugin_activated, f);
-  wp_object_activate (WP_OBJECT (f->rd_plugin_2), WP_PLUGIN_FEATURE_ENABLED,
-      NULL, (GAsyncReadyCallback) on_plugin_activated, f);
 
   g_signal_connect (f->dbus_1, "notify::state",
       G_CALLBACK (ensure_plugins_stable_state), f);
   g_signal_connect (f->dbus_2, "notify::state",
       G_CALLBACK (ensure_plugins_stable_state), f);
-  g_main_loop_run (f->base.loop);
 
   g_object_get (f->dbus_1, "state", &state, NULL);
   g_assert_cmpint (state, ==, 2);

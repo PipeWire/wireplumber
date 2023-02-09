@@ -25,7 +25,6 @@ struct _WpCtl
   GOptionContext *context;
   GMainLoop *loop;
   WpCore *core;
-  GPtrArray *apis;
   WpObjectManager *om;
   guint pending_plugins;
   gint exit_code;
@@ -75,7 +74,6 @@ G_DEFINE_QUARK (wpctl-error, wpctl_error_domain)
 static void
 wp_ctl_clear (WpCtl * self)
 {
-  g_clear_pointer (&self->apis, g_ptr_array_unref);
   g_clear_object (&self->om);
   g_clear_object (&self->core);
   g_clear_pointer (&self->loop, g_main_loop_unref);
@@ -1305,15 +1303,23 @@ static const struct subcommand {
 };
 
 static void
-on_plugin_activated (WpObject * p, GAsyncResult * res, WpCtl * ctl)
+on_plugin_loaded (WpCore * core, GAsyncResult * res, WpCtl *ctl)
 {
-  g_autoptr (GError) error = NULL;
+  g_autoptr (GObject) o = NULL;
+  GError *error = NULL;
 
-  if (!wp_object_activate_finish (p, res, &error)) {
-    fprintf (stderr, "%s", error->message);
+  o = wp_core_load_component_finish (core, res, &error);
+  if (!o) {
+    fprintf (stderr, "%s\n", error->message);
     ctl->exit_code = 1;
     g_main_loop_quit (ctl->loop);
     return;
+  }
+
+  if (WP_IS_PLUGIN (o)) {
+    const gchar *name = wp_plugin_get_name (WP_PLUGIN (o));
+    if (g_str_equal (name, "mixer-api"))
+      g_object_set (o, "scale", 1 /* cubic */, NULL);
   }
 
   if (--ctl->pending_plugins == 0)
@@ -1336,7 +1342,6 @@ main (gint argc, gchar **argv)
       "COMMAND [COMMAND_OPTIONS] - WirePlumber Control CLI");
   ctl.loop = g_main_loop_new (NULL, FALSE);
   ctl.core = wp_core_new (NULL, NULL);
-  ctl.apis = g_ptr_array_new_with_free_func (g_object_unref);
   ctl.om = wp_object_manager_new ();
 
   /* find the subcommand */
@@ -1403,22 +1408,12 @@ main (gint argc, gchar **argv)
   }
 
   /* load required API modules */
-  if (!wp_core_load_component (ctl.core,
-      "libwireplumber-module-default-nodes-api", "module", NULL, &error)) {
-    fprintf (stderr, "%s\n", error->message);
-    return 1;
-  }
-  if (!wp_core_load_component (ctl.core,
-      "libwireplumber-module-mixer-api", "module", NULL, &error)) {
-    fprintf (stderr, "%s\n", error->message);
-    return 1;
-  }
-  g_ptr_array_add (ctl.apis, wp_plugin_find (ctl.core, "default-nodes-api"));
-  g_ptr_array_add (ctl.apis, ({
-    WpPlugin *p = wp_plugin_find (ctl.core, "mixer-api");
-    g_object_set (G_OBJECT (p), "scale", 1 /* cubic */, NULL);
-    p;
-  }));
+  ctl.pending_plugins++;
+  wp_core_load_component (ctl.core, "libwireplumber-module-default-nodes-api",
+      "module", NULL, (GAsyncReadyCallback) on_plugin_loaded, &ctl);
+  ctl.pending_plugins++;
+  wp_core_load_component (ctl.core, "libwireplumber-module-mixer-api",
+      "module", NULL, (GAsyncReadyCallback) on_plugin_loaded, &ctl);
 
   /* connect */
   if (!wp_core_connect (ctl.core)) {
@@ -1431,13 +1426,6 @@ main (gint argc, gchar **argv)
       (GCallback) g_main_loop_quit, ctl.loop);
   g_signal_connect_swapped (ctl.om, "installed",
       (GCallback) cmd->run, &ctl);
-
-  for (guint i = 0; i < ctl.apis->len; i++) {
-    WpPlugin *plugin = g_ptr_array_index (ctl.apis, i);
-    ctl.pending_plugins++;
-    wp_object_activate (WP_OBJECT (plugin), WP_PLUGIN_FEATURE_ENABLED, NULL,
-        (GAsyncReadyCallback) on_plugin_activated, &ctl);
-  }
 
   g_main_loop_run (ctl.loop);
 

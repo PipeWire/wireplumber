@@ -775,10 +775,9 @@ si_standard_link_link_init (WpSiLinkInterface * iface)
   iface->get_in_item = si_standard_link_get_in_item;
 }
 
-WP_PLUGIN_EXPORT gboolean
+WP_PLUGIN_EXPORT GObject *
 wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
-  wp_si_factory_register (core, wp_si_factory_new_simple (SI_FACTORY_NAME,
+  return G_OBJECT (wp_si_factory_new_simple (SI_FACTORY_NAME,
       si_standard_link_get_type ()));
-  return TRUE;
 }

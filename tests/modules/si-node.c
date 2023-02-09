@@ -21,6 +21,17 @@ typedef struct {
 } TestData;
 
 static void
+on_plugin_loaded (WpCore * core, GAsyncResult * res, TestFixture *f)
+{
+  g_autoptr (GObject) o = NULL;
+  GError *error = NULL;
+
+  o = wp_core_load_component_finish (core, res, &error);
+  g_assert_nonnull (o);
+  g_assert_no_error (error);
+}
+
+static void
 test_si_node_setup (TestFixture * f, gconstpointer user_data)
 {
   wp_base_test_fixture_setup (&f->base, 0);
@@ -36,10 +47,9 @@ test_si_node_setup (TestFixture * f, gconstpointer user_data)
             "libpipewire-module-spa-node-factory", NULL, NULL));
   }
   {
-    g_autoptr (GError) error = NULL;
     wp_core_load_component (f->base.core,
-        "libwireplumber-module-si-node", "module", NULL, &error);
-    g_assert_no_error (error);
+        "libwireplumber-module-si-node", "module", NULL,
+        (GAsyncReadyCallback) on_plugin_loaded, f);
   }
 }
 

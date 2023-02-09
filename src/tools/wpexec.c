@@ -103,10 +103,13 @@ wp_init_transition_get_next_step (WpTransition * transition, guint step)
 }
 
 static void
-on_plugin_activated (WpObject * p, GAsyncResult * res, WpInitTransition *self)
+on_plugin_loaded (WpCore * core, GAsyncResult * res, WpInitTransition *self)
 {
+  g_autoptr (GObject) o = NULL;
   GError *error = NULL;
-  if (!wp_object_activate_finish (p, res, &error)) {
+
+  o = wp_core_load_component_finish (core, res, &error);
+  if (!o) {
     wp_transition_return_error (WP_TRANSITION (self), error);
     return;
   }
@@ -119,7 +122,6 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
 {
   WpInitTransition *self = WP_INIT_TRANSITION (transition);
   WpCore *core = wp_transition_get_source_object (transition);
-  GError *error = NULL;
 
   switch (step) {
   case STEP_CONNECT:
@@ -134,42 +136,17 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
     break;
 
   case STEP_ACTIVATE_PLUGINS: {
-    if (!wp_core_load_component (core, "libwireplumber-module-lua-scripting",
-          "module", NULL, &error)) {
-      wp_transition_return_error (transition, error);
-      return;
-    }
-    if (!wp_core_load_component (core,
-          "libwireplumber-module-standard-event-source", "module", NULL,
-          &error)) {
-      wp_transition_return_error (transition, error);
-      return;
-    }
-    g_autoptr (WpPlugin) p = wp_plugin_find (core, "lua-scripting");
-    wp_object_activate (WP_OBJECT (p), WP_PLUGIN_FEATURE_ENABLED, NULL,
-        (GAsyncReadyCallback) on_plugin_activated, self);
-
-    g_clear_object (&p);
-    p = wp_plugin_find (core, "standard-event-source");
-    wp_object_activate (WP_OBJECT (p), WP_PLUGIN_FEATURE_ENABLED, NULL,
-        (GAsyncReadyCallback) on_plugin_activated, self);
+    wp_core_load_component (core, "libwireplumber-module-lua-scripting",
+        "module", NULL, (GAsyncReadyCallback) on_plugin_loaded, self);
+    wp_core_load_component (core, "libwireplumber-module-standard-event-source",
+        "module", NULL, (GAsyncReadyCallback) on_plugin_loaded, self);
     break;
   }
 
   case STEP_ACTIVATE_SCRIPT: {
-
     GVariant *args = g_variant_builder_end (&exec_args_b);
-    if (!wp_core_load_component (core, exec_script, "script/lua", args,
-          &error)) {
-      wp_transition_return_error (transition, error);
-      return;
-    }
-
-    g_autofree gchar *name = g_strdup_printf ("script:%s", exec_script);
-    g_autoptr (WpPlugin) p = wp_plugin_find (core, name);
-
-    wp_object_activate (WP_OBJECT (p), WP_PLUGIN_FEATURE_ENABLED, NULL,
-        (GAsyncReadyCallback) on_plugin_activated, self);
+    wp_core_load_component (core, exec_script, "script/lua", args,
+          (GAsyncReadyCallback) on_plugin_loaded, self);
     break;
   }
 

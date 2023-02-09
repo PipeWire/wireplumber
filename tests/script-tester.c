@@ -170,6 +170,20 @@ wp_script_tester_class_init (WpScriptTesterClass *klass)
 }
 
 static void
+on_plugin_loaded (WpCore * core, GAsyncResult * res, ScriptRunnerFixture *f)
+{
+  g_autoptr (GObject) o = NULL;
+  GError *error = NULL;
+
+  o = wp_core_load_component_finish (core, res, &error);
+  g_assert_nonnull (o);
+  g_assert_no_error (error);
+
+  if (WP_IS_PLUGIN (o))
+    g_main_loop_quit (f->base.loop);
+}
+
+static void
 load_component (ScriptRunnerFixture *f, const gchar *name, const gchar *type)
 {
   g_autofree gchar *component_name = NULL;
@@ -191,17 +205,11 @@ load_component (ScriptRunnerFixture *f, const gchar *name, const gchar *type)
     plugin_name = g_strdup (name);
   }
 
-  wp_core_load_component (f->base.core, component_name, type, NULL, &error);
-  g_assert_no_error (error);
+  wp_core_load_component (f->base.core, component_name, type, NULL,
+      (GAsyncReadyCallback) on_plugin_loaded, f);
 
-  if (!g_str_has_prefix (name, "si")) {
-    g_autoptr (WpPlugin) plugin = wp_plugin_find (f->base.core, plugin_name);
-
-    wp_object_activate (WP_OBJECT (plugin), WP_PLUGIN_FEATURE_ENABLED,
-        NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
-
+  if (!g_str_has_prefix (name, "si"))
     g_main_loop_run (f->base.loop);
-  }
 }
 
 static void
