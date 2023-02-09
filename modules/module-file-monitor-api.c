@@ -201,12 +201,11 @@ wp_file_monitor_api_class_init (WpFileMonitorApiClass * klass)
       G_TYPE_NONE, 3, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
 }
 
-WP_PLUGIN_EXPORT gboolean
+WP_PLUGIN_EXPORT GObject *
 wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
-  wp_plugin_register (g_object_new (wp_file_monitor_api_get_type (),
-          "name", "file-monitor-api",
-          "core", core,
-          NULL));
-  return TRUE;
+  return G_OBJECT (g_object_new (wp_file_monitor_api_get_type (),
+      "name", "file-monitor-api",
+      "core", core,
+      NULL));
 }

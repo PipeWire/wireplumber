@@ -20,14 +20,27 @@ typedef struct {
 } TestFixture;
 
 static void
+on_plugin_loaded (WpCore * core, GAsyncResult * res, TestFixture *f)
+{
+  g_autoptr (GObject) o = NULL;
+  GError *error = NULL;
+
+  o = wp_core_load_component_finish (core, res, &error);
+  g_assert_nonnull (o);
+  g_assert_no_error (error);
+
+  g_main_loop_quit (f->base.loop);
+}
+
+static void
 test_file_monitor_setup (TestFixture * f, gconstpointer user_data)
 {
   wp_base_test_fixture_setup (&f->base, WP_BASE_TEST_FLAG_DONT_CONNECT);
-  g_autoptr (GError) error = NULL;
 
   wp_core_load_component (f->base.core,
-      "libwireplumber-module-file-monitor-api", "module", NULL, &error);
-  g_assert_no_error (error);
+      "libwireplumber-module-file-monitor-api", "module", NULL,
+      (GAsyncReadyCallback) on_plugin_loaded, f);
+  g_main_loop_run (f->base.loop);
 
   f->plugin = wp_plugin_find (f->base.core, "file-monitor-api");
   g_assert_nonnull (f->plugin);
@@ -47,16 +60,6 @@ test_file_monitor_teardown (TestFixture * f, gconstpointer user_data)
 }
 
 static void
-on_plugin_activated (WpObject * plugin, GAsyncResult * res, TestFixture * f)
-{
-  g_autoptr (GError) error = NULL;
-  if (!wp_object_activate_finish (plugin, res, &error)) {
-    wp_critical_object (plugin, "%s", error->message);
-    g_main_loop_quit (f->base.loop);
-  }
-}
-
-static void
 on_changed (WpPlugin *plugin, const gchar *file, const gchar *old,
     const char *evtype, TestFixture * f)
 {
@@ -71,11 +74,6 @@ static void
 test_file_monitor_basic (TestFixture * f, gconstpointer user_data)
 {
   gboolean res = FALSE;
-
-  /* activate plugin */
-  g_assert_nonnull (f->plugin);
-  wp_object_activate (WP_OBJECT (f->plugin), WP_PLUGIN_FEATURE_ENABLED,
-      NULL, (GAsyncReadyCallback) on_plugin_activated, f);
 
   /* delete the 'foo' file if it exists in path */
   g_autofree gchar *filename = g_build_filename (f->path, "foo", NULL);

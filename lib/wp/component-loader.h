@@ -28,8 +28,9 @@ struct _WpComponentLoaderClass
 
   gboolean (*supports_type) (WpComponentLoader * self, const gchar * type);
 
-  gboolean (*load) (WpComponentLoader * self, const gchar * component,
-      const gchar * type, GVariant * args, GError ** error);
+  void (*load) (WpComponentLoader * self, const gchar * component,
+      const gchar * type, GVariant * args, GAsyncReadyCallback callback,
+      gpointer data);
 
   /*< private >*/
   WP_PADDING(6)

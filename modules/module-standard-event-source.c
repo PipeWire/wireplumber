@@ -449,12 +449,11 @@ wp_standard_event_source_class_init (WpStandardEventSourceClass * klass)
       NULL, NULL, NULL, G_TYPE_NONE, 1, TYPE_RESCAN_CONTEXT);
 }
 
-WP_PLUGIN_EXPORT gboolean
+WP_PLUGIN_EXPORT GObject *
 wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
-  wp_plugin_register (g_object_new (wp_standard_event_source_get_type (),
-          "name", "standard-event-source",
-          "core", core,
-          NULL));
-  return TRUE;
+  return G_OBJECT (g_object_new (wp_standard_event_source_get_type (),
+      "name", "standard-event-source",
+      "core", core,
+      NULL));
 }

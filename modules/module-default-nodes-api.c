@@ -304,12 +304,11 @@ wp_default_nodes_api_class_init (WpDefaultNodesApiClass * klass)
       G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 0);
 }
 
-WP_PLUGIN_EXPORT gboolean
+WP_PLUGIN_EXPORT GObject *
 wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
 {
-  wp_plugin_register (g_object_new (wp_default_nodes_api_get_type (),
-          "name", "default-nodes-api",
-          "core", core,
-          NULL));
-  return TRUE;
+  return G_OBJECT (g_object_new (wp_default_nodes_api_get_type (),
+      "name", "default-nodes-api",
+      "core", core,
+      NULL));
 }
