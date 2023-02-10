@@ -121,7 +121,7 @@ wp_lua_scripting_plugin_enable (WpPlugin * plugin, WpTransition * transition)
   export_core = g_object_get_data (G_OBJECT (core), "wireplumber.export-core");
   if (export_core) {
     lua_pushliteral (self->L, "wireplumber_export_core");
-    wplua_pushobject (self->L, export_core);
+    wplua_pushobject (self->L, g_object_ref (export_core));
     lua_settable (self->L, LUA_REGISTRYINDEX);
   }
 
