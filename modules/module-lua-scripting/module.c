@@ -13,8 +13,6 @@
 #include "script.h"
 
 void wp_lua_scripting_api_init (lua_State *L);
-gboolean wp_lua_scripting_load_configuration (const gchar * conf_file,
-    WpCore * core, GError ** error);
 
 struct _WpLuaScriptingPlugin
 {
@@ -153,7 +151,7 @@ static gboolean
 wp_lua_scripting_plugin_supports_type (WpComponentLoader * cl,
     const gchar * type)
 {
-  return (!g_strcmp0 (type, "script/lua") || !g_strcmp0 (type, "config/lua"));
+  return g_str_equal (type, "script/lua");
 }
 
 static gchar *
@@ -181,56 +179,55 @@ wp_lua_scripting_plugin_load (WpComponentLoader * cl, const gchar * component,
     const gchar * type, GVariant * args, GError ** error)
 {
   WpLuaScriptingPlugin * self = WP_LUA_SCRIPTING_PLUGIN (cl);
-  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (cl));
+  g_autoptr (WpCore) core = NULL;
+  g_autofree gchar *filepath = NULL;
+  g_autofree gchar *pluginname = NULL;
+  g_autoptr (WpPlugin) script = NULL;
 
-  /* interpret component as a script */
-  if (!g_strcmp0 (type, "script/lua")) {
-    g_autofree gchar *filepath = NULL;
-    g_autofree gchar *pluginname = NULL;
-    g_autoptr (WpPlugin) script = NULL;
-
-    if (g_file_test (component, G_FILE_TEST_EXISTS)) {
-      /* dangling components come with full path */
-      g_autofree gchar *filename = g_path_get_basename (component);
-      filepath = g_strdup (component);
-      pluginname = g_strdup_printf ("script:%s", filename);
-    }
-    else {
-      filepath = find_script (component, core);
-      pluginname = g_strdup_printf ("script:%s", component);
-    }
-
-    if (!filepath) {
-      g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
-          "Could not locate script '%s'", component);
-      return FALSE;
-    }
-
-    script = g_object_new (WP_TYPE_LUA_SCRIPT,
-        "core", core,
-        "name", pluginname,
-        "filename", filepath,
-        "arguments", args,
-        NULL);
-
-    if (self->L) {
-      wp_debug_object (core, "loading script(%s) plugin name(%s)",
-          filepath, pluginname);
-      g_object_set (script, "lua-engine", self->L, NULL);
-      wp_plugin_register (g_steal_pointer (&script));
-    } else {
-      /* keep in a list and delay registering until the plugin is enabled */
-      wp_debug ("queuing script %s", filepath);
-      g_ptr_array_add (self->scripts, g_steal_pointer (&script));
-    }
-    return TRUE;
-  }
-  /* interpret component as a configuration file */
-  else if (!g_strcmp0 (type, "config/lua")) {
-    return wp_lua_scripting_load_configuration (component, core, error);
+  if (!g_str_equal (type, "script/lua")) {
+    g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
+        "Could not load script '%s' as its type is not 'script/lua'",
+        component);
+    return FALSE;
   }
 
-  g_return_val_if_reached (FALSE);
+  core = wp_object_get_core (WP_OBJECT (cl));
+
+  if (g_file_test (component, G_FILE_TEST_EXISTS)) {
+    /* dangling components come with full path */
+    g_autofree gchar *filename = g_path_get_basename (component);
+    filepath = g_strdup (component);
+    pluginname = g_strdup_printf ("script:%s", filename);
+  } else {
+    filepath = find_script (component, core);
+    pluginname = g_strdup_printf ("script:%s", component);
+  }
+
+  if (!filepath) {
+    g_set_error (error, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
+        "Could not locate script '%s'", component);
+    return FALSE;
+  }
+
+  script = g_object_new (WP_TYPE_LUA_SCRIPT,
+      "core", core,
+      "name", pluginname,
+      "filename", filepath,
+      "arguments", args,
+      NULL);
+
+  if (self->L) {
+    wp_debug_object (core, "loading script(%s) plugin name(%s)",
+        filepath, pluginname);
+    g_object_set (script, "lua-engine", self->L, NULL);
+    wp_plugin_register (g_steal_pointer (&script));
+  } else {
+    /* keep in a list and delay registering until the plugin is enabled */
+    wp_debug ("queuing script %s", filepath);
+    g_ptr_array_add (self->scripts, g_steal_pointer (&script));
+  }
+
+  return TRUE;
 }
 
 static void

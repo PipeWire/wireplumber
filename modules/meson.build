@@ -106,7 +106,6 @@ shared_library(
     'module-lua-scripting/api/pod.c',
     'module-lua-scripting/api/json.c',
     'module-lua-scripting/api/api.c',
-    'module-lua-scripting/api/config.c',
      m_lua_scripting_resources,
   ],
   c_args : [common_c_args, '-DG_LOG_DOMAIN="m-lua-scripting"'],
