@@ -32,6 +32,13 @@ struct _WpSiStandardLink
   guint n_async_ops_wait;
 };
 
+enum {
+  SIGNAL_LINK_ERROR,
+  LAST_SIGNAL,
+};
+
+static guint signals[LAST_SIGNAL] = { 0 };
+
 static void si_standard_link_link_init (WpSiLinkInterface * iface);
 
 G_DECLARE_FINAL_TYPE (WpSiStandardLink, si_standard_link, WP, SI_STANDARD_LINK,
@@ -215,6 +222,17 @@ on_link_activated (WpObject * proxy, GAsyncResult * res,
   }
 }
 
+static void
+on_link_state_changed (WpLink *link, WpLinkState old_state,
+  WpLinkState new_state, WpSiStandardLink * self)
+{
+  if (new_state == WP_LINK_STATE_ERROR) {
+    const gchar *error_msg;
+    wp_link_get_state (link, &error_msg);
+    g_signal_emit_by_name (self, "link-error", error_msg);
+  }
+}
+
 struct port
 {
   guint32 node_id;
@@ -352,6 +370,9 @@ create_links (WpSiStandardLink * self, WpTransition * transition,
         WP_OBJECT_FEATURES_ALL & ~WP_LINK_FEATURE_ESTABLISHED, NULL,
         g_cclosure_new_object (
             (GCallback) on_link_activated, G_OBJECT (transition)));
+
+    g_signal_connect_object (link, "state-changed",
+      G_CALLBACK (on_link_state_changed), self, 0);
   }
   g_variant_iter_free (iter);
   return self->node_links->len > 0;
@@ -718,6 +739,10 @@ si_standard_link_class_init (WpSiStandardLinkClass * klass)
   si_class->get_associated_proxy = si_standard_link_get_associated_proxy;
   si_class->disable_active = si_standard_link_disable_active;
   si_class->enable_active = si_standard_link_enable_active;
+
+  signals[SIGNAL_LINK_ERROR] = g_signal_new (
+      "link-error", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
+      0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_STRING);
 }
 
 static GVariant *
