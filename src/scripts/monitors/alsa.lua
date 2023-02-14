@@ -82,7 +82,9 @@ function createNode(parent, id, obj_type, factory, properties)
 
     priority = priority - (tonumber(dev) * 16) - tonumber(subdev)
 
-    if profile:find("^analog%-") then
+    if profile:find("^pro%-") then
+      priority = priority + 500
+    elseif profile:find("^analog%-") then
       priority = priority + 9
     elseif profile:find("^iec958%-") then
       priority = priority + 8
