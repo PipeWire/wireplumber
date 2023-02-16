@@ -79,30 +79,6 @@ load_module (WpCore * core, const gchar * module_name,
 }
 
 static gboolean
-load_pw_module (WpCore * core, const gchar * module_name,
-    GVariant * args, GError ** error)
-{
-  const gchar *args_str = NULL;
-  if (args) {
-    if (g_variant_is_of_type (args, G_VARIANT_TYPE_STRING))
-      args_str = g_variant_get_string (args, NULL);
-
-    //TODO if it proves to be useful
-    //else if (g_variant_is_of_type (args, G_VARIANT_TYPE_DICTIONARY))
-  }
-
-  struct pw_impl_module *module = pw_context_load_module (
-      wp_core_get_pw_context (core), module_name, args_str, NULL);
-  if (!module) {
-    int res = errno;
-    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-        "Failed to load pipewire module: %s", g_strerror (res));
-    return FALSE;
-  }
-  return TRUE;
-}
-
-static gboolean
 find_component_loader_func (gpointer cl, gpointer type)
 {
   if (WP_IS_COMPONENT_LOADER (cl) &&
@@ -156,8 +132,6 @@ wp_core_load_component (WpCore * self, const gchar * component,
 
   if (!g_strcmp0 (type, "module"))
     return load_module (self, component, args_ref, error);
-  else if (!g_strcmp0 (type, "pw_module"))
-    return load_pw_module (self, component, args_ref, error);
   else {
     g_autoptr (WpComponentLoader) c = wp_component_loader_find (self, type);
     if (c)
