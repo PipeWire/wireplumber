@@ -1,14 +1,14 @@
 # Copyright (C) 2009 Free Software Foundation, Inc.
 # This file is distributed under the same license as the pipewire package.
 #
-# Yuri Chornoivan <yurchor@ukr.net>, 2009-2021, 2022.
+# Yuri Chornoivan <yurchor@ukr.net>, 2009-2021, 2022, 2023.
 msgid ""
 msgstr ""
 "Project-Id-Version: pipewire\n"
-"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/-/is"
-"sues\n"
-"POT-Creation-Date: 2022-06-15 15:30+0000\n"
-"PO-Revision-Date: 2022-06-18 12:57+0300\n"
+"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/-/i"
+"ssues\n"
+"POT-Creation-Date: 2022-12-13 15:30+0000\n"
+"PO-Revision-Date: 2023-02-15 22:44+0200\n"
 "Last-Translator: Yuri Chornoivan <yurchor@ukr.net>\n"
 "Language-Team: Ukrainian <trans-uk@lists.fedoraproject.org>\n"
 "Language: uk\n"
@@ -43,16 +43,21 @@ msgstr ""
 #. ensure the node has a description
 #. also sanitize description, replace ':' with ' '
 #. add api.alsa.card.* properties for rule matching purposes
+#. apply VM overrides
 #. apply properties from config.rules
 #. create the node
 #. ensure the device has an appropriate name
 #. deduplicate devices with the same name
 #. ensure the device has a description
-#: src/scripts/monitors/alsa.lua:220
+#: src/scripts/monitors/alsa.lua:234
+msgid "Loopback"
+msgstr "Петля"
+
+#: src/scripts/monitors/alsa.lua:236
 msgid "Built-in Audio"
 msgstr "Вбудоване аудіо"
 
-#: src/scripts/monitors/alsa.lua:222
+#: src/scripts/monitors/alsa.lua:238
 msgid "Modem"
 msgstr "Модем"
 
