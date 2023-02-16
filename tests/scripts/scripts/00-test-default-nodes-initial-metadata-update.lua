@@ -51,7 +51,7 @@ SimpleEventHook {
         Json.Object { ["name"] = name }:to_string ())
 
     if device_match_count == 3 then
-      tu.restartPlugin ("metadata")
+      tu.restartPlugin ("script:metadata.lua")
       device_match_count = 0
     end
   end
