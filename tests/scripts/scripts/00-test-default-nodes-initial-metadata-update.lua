@@ -2,10 +2,9 @@
 -- bootup.
 
 -- First we create a bunch of devices and update the default.configured.* keys
--- in other words select the default device.
--- then reload the metadata plugin which recreates the default metadata.
--- default-node/* scripts are supposed to restore the previously selected
--- default device.
+-- in other words select the default device. then reload the metadata plugin
+-- which recreates the default metadata. default-node/* scripts are supposed to
+-- restore the previously selected default device.
 
 local tu = require ("test-utils")
 
@@ -47,7 +46,7 @@ SimpleEventHook {
 
     device_match_count = device_match_count + 1
 
-    tu.metadata:set (0, key, "Spa:String:JSON",
+    tu.default_metadata:set (0, key, "Spa:String:JSON",
         Json.Object { ["name"] = name }:to_string ())
 
     if device_match_count == 3 then
@@ -57,7 +56,7 @@ SimpleEventHook {
   end
 }:register ()
 
-metadata_added_hook = SimpleEventHook {
+SimpleEventHook {
   name = "test-default-nodes/metadata-added",
   after = "default-nodes/metadata-added",
   interests = {
@@ -72,16 +71,18 @@ metadata_added_hook = SimpleEventHook {
     local metadata = om:lookup { Constraint { "metadata.name", "=", "default" } }
 
     for k, v in pairs (expected_values_table) do
-      local obj = metadata:find (0, k)
-      if obj then
-        local json = Json.Raw (obj)
-        if json:parse ().name == v then
+      local node_name_string = metadata:find (0, k)
+
+      if node_name_string then
+        local node_name_json = Json.Raw (node_name_string)
+        if node_name_json:parse ().name == v then
           device_match_count = device_match_count + 1
         end
       end
     end
 
     if device_match_count == 3 then
+      tu.clearDefaultNodeState ()
       Script:finish_activation ()
     end
 

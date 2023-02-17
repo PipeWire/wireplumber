@@ -115,7 +115,7 @@ SimpleEventHook {
         u.nodes [node.id] = name
         u.nodes [name] = node
     if u.nodes_to_be_destoryed [name] then
-        pushNodeRemoved(u.nodes [name])
+        pushNodeRemoved (u.nodes [name])
         u.nodes_to_be_destoryed [name] = nil
     end
       elseif event_type == "node-removed" then

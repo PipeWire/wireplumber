@@ -137,10 +137,51 @@ test(
   env: common_env,
 )
 
-
 test(
-  '00-test-default-nodes-initial-metadata-update',
+  'test-default-nodes-initial-metadata-update',
   script_tester,
   args: ['script-tests', '00-test-default-nodes-initial-metadata-update.lua'],
+  env: common_env,
+)
+
+test(
+  'test-default-nodes-with-two-regular-nodes',
+  script_tester,
+  args: ['script-tests', '01-test-default-nodes-with-two-regular-nodes.lua'],
+  env: common_env,
+)
+
+test(
+  'test-default-nodes-with-defined-configured-node',
+  script_tester,
+  args: ['script-tests', '02-test-default-nodes-with-defined-configured-node.lua'],
+  env: common_env,
+)
+
+test(
+  'test-default-nodes-with-defined-configured-node-multiple',
+  script_tester,
+  args: ['script-tests', '03-test-default-nodes-with-defined-configured-node-multiple.lua'],
+  env: common_env,
+)
+
+test(
+  'test-default-nodes-with-defined-configured-node-multiple-with-out-persistancy',
+  script_tester,
+  args: ['script-tests', '04-test-default-nodes-with-defined-configured-node-multiple-with-out-persistancy.lua'],
+  env: common_env,
+)
+
+test(
+  'test-default-nodes-with-random-defined-configured-node',
+  script_tester,
+  args: ['script-tests', '05-test-default-nodes-with-random-defined-configured-node.lua'],
+  env: common_env,
+)
+
+test(
+  'test-default-nodes-with-random-defined-configured-node-with-out-persistancy',
+  script_tester,
+  args: ['script-tests', '06-test-default-nodes-with-random-defined-configured-node-with-out-persistancy.lua'],
   env: common_env,
 )
