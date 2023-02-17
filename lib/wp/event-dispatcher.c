@@ -258,8 +258,6 @@ wp_event_dispatcher_push_event (WpEventDispatcher * self, WpEvent * event)
 
     self->events = g_list_insert_sorted (self->events, event_data,
         (GCompareFunc) event_cmp_func);
-    // wp_debug_object (self, "pushed event (%s)" WP_OBJECT_FORMAT " priority(%d)",
-    //     event->name, WP_OBJECT_ARGS (event->subject), event->priority);
 
     /* wakeup the GSource */
     spa_system_eventfd_write (self->system, self->eventfd, 1);
