@@ -55,12 +55,17 @@ function cutils.getDefaultNode (properties, target_direction)
 end
 
 
-cutils.default_metadata_om = ObjectManager {
+cutils.metadata_om = ObjectManager {
   Interest {
     type = "metadata",
-    Constraint { "metadata.name", "=", "default" },
   }
 }
+
+function cutils.get_default_metadata_object ()
+  return cutils.metadata_om:lookup {
+    Constraint { "metadata.name", "=", "default" },
+  }
+end
 
 function cutils.evaluateRulesApplyProperties (properties, name)
   local matched, mprops = Conf.apply_rules (name, properties)
@@ -133,6 +138,6 @@ function cutils.storeAfterTimeout (state, state_table)
   end)
 end
 
-cutils.default_metadata_om:activate ()
+cutils.metadata_om:activate ()
 
 return cutils

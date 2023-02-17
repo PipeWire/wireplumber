@@ -86,8 +86,15 @@ function u.restartPlugin (name)
   u.script_tester_plugin:call ("restart-plugin", name)
 end
 
-u.metadata = cu.default_metadata_om:lookup ()
-assert (u.metadata ~= nil)
+u.default_metadata = cu.metadata_om:lookup {
+  Constraint { "metadata.name", "=", "default" },
+}
+assert (u.default_metadata ~= nil)
+
+  u.default_metadata:set (u.lnkbls ["stream-node"].properties ["node.id"], prop,
+  Constraint { "metadata.name", "=", "sm-settings" },
+}
+assert (u.settings_metadata ~= nil)
 
 -- update the defined target for stream session item in metadata.
 function u.setTargetInMetadata (prop, target_node_name)

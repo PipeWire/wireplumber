@@ -144,7 +144,7 @@ local function isBluez5AudioSink (sink_name)
 end
 
 local function isBluez5DefaultAudioSink ()
-  local metadata = cutils.default_metadata_om:lookup ()
+  local metadata = cutils.get_default_metadata_object()
   local default_audio_sink = metadata:find (0, "default.audio.sink")
   return isBluez5AudioSink (default_audio_sink)
 end

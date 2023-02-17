@@ -319,7 +319,7 @@ links_om = ObjectManager {
 links_om:activate ()
 
 function putils.get_default_metadata_object ()
-  return cutils.default_metadata_om:lookup ()
+  return cutils.get_default_metadata_object()
 end
 
 return putils
