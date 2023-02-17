@@ -14,11 +14,14 @@ u.nodes = {}
 u.lnkbls = {}
 u.lnkbl_count = 0
 u.device_count = 0
+priority_value = 1000
 
-function u.createDeviceNode (name, media_class)
+function u.createDeviceNode (name, media_class, priority)
   local properties = {}
   properties ["node.name"] = name
   properties ["media.class"] = media_class
+  properties ["priority.session"] = priority or priority_value
+  priority_value = priority_value + 1
   if media_class == "Audio/Sink" then
     properties ["factory.name"] = "support.null-audio-sink"
   elseif media_class == "Audio/Source" then
@@ -48,8 +51,11 @@ SimpleEventHook {
     local lnkbl = event:get_subject ()
     local name = lnkbl.properties ["node.name"]
     local mc = lnkbl.properties ["media.class"]
+    local prio = lnkbl.properties ["priority.session"]
 
-    Log.info (lnkbl, "activated linkable: " .. name .. " with " .. mc)
+    Log.info (lnkbl,
+      string.format ("activated linkable:(%s) media class(%s) priority(%s)",
+              name, mc, (prio and prio or nil)))
 
     u.lnkbls [name] = lnkbl
     u.lnkbl_count = u.lnkbl_count + 1
