@@ -11,9 +11,28 @@ local cu = require ("common-utils")
 local u = {}
 
 u.nodes = {}
+u.nodes_to_be_destoryed = {}
 u.lnkbls = {}
 u.lnkbl_count = 0
 u.device_count = 0
+u.event_source = nil
+function pushNodeRemoved (node)
+  if u.event_source then
+    local e = u.event_source:call ("create-event", "removed", node, nil)
+    EventDispatcher.push_event (e)
+  else
+    Log.info ("Source not available to push event")
+  end
+end
+
+function u.destroyDeviceNode (name)
+  if u.nodes [name] then
+    pushNodeRemoved (u.nodes [name])
+  else
+    u.nodes_to_be_destoryed [name] = true
+  end
+end
+
 priority_value = 1000
 
 function u.createDeviceNode (name, media_class, priority)
@@ -74,6 +93,36 @@ SimpleEventHook {
     end
   end
 }:register ()
+
+-- hook to keep track of the nodes.
+  SimpleEventHook {
+    name = "node-added-removed@test-utils",
+    interests = {
+        -- on linkable added or removed, where linkable is adapter or plain node
+        EventInterest {
+            Constraint { "event.type", "c", "node-added", "node-removed" },
+        },
+    },
+    execute = function(event)
+      local node = event:get_subject()
+      local name = node.properties ["node.name"]
+      local props = event:get_properties()
+      local event_type = props ["event.type"]
+
+      u.event_source = u.event_source or event:get_source()
+
+      if event_type == "node-added" then
+        u.nodes [node.id] = name
+        u.nodes [name] = node
+    if u.nodes_to_be_destoryed [name] then
+        pushNodeRemoved(u.nodes [name])
+        u.nodes_to_be_destoryed [name] = nil
+    end
+      elseif event_type == "node-removed" then
+        u.nodes [u.nodes [node.id]] = nil
+      end
+    end
+}:register()
 
 u.script_tester_plugin = Plugin.find ("script-tester")
 
