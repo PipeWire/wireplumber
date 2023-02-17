@@ -66,7 +66,7 @@ wp_script_tester_restart_plugin (WpScriptTester *self, const gchar *name)
 
   wp_object_deactivate (WP_OBJECT (plugin), WP_PLUGIN_FEATURE_ENABLED);
   wp_object_activate (WP_OBJECT (plugin), WP_PLUGIN_FEATURE_ENABLED,
-    NULL, (GAsyncReadyCallback) dummy_cb, f);
+      NULL, (GAsyncReadyCallback) dummy_cb, f);
 }
   static void
 wp_script_tester_create_stream (WpScriptTester *self, const gchar *stream_type,
@@ -250,6 +250,7 @@ load_components (ScriptRunnerFixture *f, gconstpointer argv)
     load_component (f, "default-nodes/find-echo-cancel-default-node.lua", "script/lua");
     load_component (f, "default-nodes/state-default-nodes.lua", "script/lua");
     load_component (f, "default-nodes/find-best-default-node.lua", "script/lua");
+    load_component (f, "default-nodes/find-selected-default-node.lua", "script/lua");
     load_component (f, "default-nodes/rescan.lua", "script/lua");
 
     load_component (f, "metadata.lua", "script/lua");
