@@ -13,6 +13,7 @@ local u = {}
 u.nodes = {}
 u.lnkbls = {}
 u.lnkbl_count = 0
+u.device_count = 0
 
 function u.createDeviceNode (name, media_class)
   local properties = {}
@@ -27,15 +28,8 @@ function u.createDeviceNode (name, media_class)
   end
 
   node = Node ("adapter", properties)
-  node:activate (Features.ALL, function (n)
-    local name = n.properties ["node.name"]
-    Log.info (n, "created and activated device node: " .. name)
-    u.nodes [name] = n
-
-    -- wait for linkables to be created.
-    u.lnkbls [name] = nil
-    u.lnkbl_count = u.lnkbl_count + 1
-  end)
+  node:activate(Features.ALL)
+  u.device_count = u.device_count + 1
   return node
 end
 
@@ -58,7 +52,7 @@ SimpleEventHook {
     Log.info (lnkbl, "activated linkable: " .. name .. " with " .. mc)
 
     u.lnkbls [name] = lnkbl
-
+    u.lnkbl_count = u.lnkbl_count + 1
     -- select "default-device-node" as default device.
     if name == "default-device-node" then
       local key = nil
@@ -81,7 +75,7 @@ function u.createStreamNode (stream_type, props)
   u.script_tester_plugin:call ("create-stream", stream_type, props)
 
   u.lnkbls ["stream-node"] = nil
-  u.lnkbl_count = u.lnkbl_count + 1
+  u.device_count = u.device_count + 1
 end
 
 function u.restartPlugin (name)
@@ -105,15 +99,9 @@ function u.setTargetInMetadata (prop, target_node_name)
 end
 
 function u.linkablesReady ()
-  local count = 0
-  for k, v in pairs (u.lnkbls) do
-    if v then
-      count = count + 1
-    end
-  end
-  if count == u.lnkbl_count then
-    return true
-  end
+  return u.device_count == u.lnkbl_count
+end
+
 
   return false
 end
