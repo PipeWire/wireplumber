@@ -89,7 +89,7 @@ SimpleEventHook {
       end
 
       -- configure default device.
-      u.metadata:set (0, key, "Spa:String:JSON", Json.Object { ["name"] = name }:get_data ())
+      u.default_metadata:set (0, key, "Spa:String:JSON", Json.Object { ["name"] = name }:get_data ())
     end
   end
 }:register ()
@@ -142,14 +142,14 @@ u.default_metadata = cu.metadata_om:lookup {
 }
 assert (u.default_metadata ~= nil)
 
-  u.default_metadata:set (u.lnkbls ["stream-node"].properties ["node.id"], prop,
+u.settings_metadata = cu.metadata_om:lookup {
   Constraint { "metadata.name", "=", "sm-settings" },
 }
 assert (u.settings_metadata ~= nil)
 
 -- update the defined target for stream session item in metadata.
 function u.setTargetInMetadata (prop, target_node_name)
-  u.metadata:set (u.lnkbls ["stream-node"].properties ["node.id"], prop,
+  u.default_metadata:set (u.lnkbls ["stream-node"].properties ["node.id"], prop,
       "Spa:Id", u.lnkbls [target_node_name].properties ["node.id"])
 end
 
@@ -157,8 +157,24 @@ function u.linkablesReady ()
   return u.device_count == u.lnkbl_count
 end
 
-
-  return false
+function u.updateSetting (setting, value)
+  u.settings_metadata:set (0, setting, "Spa:String:JSON", value)
 end
 
+function u.clearDefaultNodeState ()
+  -- clear the default-nodes state table so that it doesn't interfere with
+  -- the logic of rest of the test cases, every test script builds its own
+  -- table if it needs one.
+  state = State ("default-nodes")
+  state_table = state:load ()
+  if state_table then
+    state:clear (state_table)
+  end
+end
+
+u.dcn_keys = {
+  ["Audio/Sink"] = "default.configured.audio.sink",
+  ["Audio/Source"] = "default.configured.audio.source",
+  ["Video/Source"] = "default.configured.video.source",
+}
 return u
