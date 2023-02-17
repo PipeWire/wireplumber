@@ -242,6 +242,7 @@ load_components (ScriptRunnerFixture *f, gconstpointer argv)
     load_component (f, "standard-event-source", "module");
 
     load_component (f, "si-audio-adapter", "module");
+    load_component (f, "si-node", "module");
     load_component (f, "si-standard-link", "module");
     load_component (f, "si-audio-virtual", "module");
 
@@ -271,6 +272,9 @@ load_components (ScriptRunnerFixture *f, gconstpointer argv)
 
     g_assert_cmpint (pw_context_add_spa_lib (f->base.server.context,
       "audiotestsrc", "audiotestsrc/libspa-audiotestsrc"), == , 0);
+
+    g_assert_cmpint (pw_context_add_spa_lib (f->base.server.context,
+      "videotestsrc", "videotestsrc/libspa-videotestsrc"), == , 0);
   }
 }
 

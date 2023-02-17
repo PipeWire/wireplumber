@@ -20,8 +20,10 @@ function u.createDeviceNode (name, media_class)
   properties ["media.class"] = media_class
   if media_class == "Audio/Sink" then
     properties ["factory.name"] = "support.null-audio-sink"
-  else
+  elseif media_class == "Audio/Source" then
     properties ["factory.name"] = "audiotestsrc"
+  elseif media_class == "Video/Source" then
+    properties ["factory.name"] = "videotestsrc"
   end
 
   node = Node ("adapter", properties)
