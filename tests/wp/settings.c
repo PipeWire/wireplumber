@@ -102,7 +102,7 @@ static void
 test_parsing (TestSettingsFixture *self, gconstpointer data)
 {
   /* total no.of settings in the conf file */
-  g_assert_cmpint (wp_properties_get_count(self->settings), ==, 10);
+  g_assert_cmpint (wp_properties_get_count(self->settings), ==, 15);
 }
 
 static void
