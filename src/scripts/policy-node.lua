@@ -99,20 +99,26 @@ function createLink (si, si_target, passthrough, exclusive)
   end
 
   si_link:connect("link-error", function (_, error_msg)
-    Log.info (si_link, "got link-error signal: " .. error_msg)
+    local ids = {si_id}
+    if si_flags[si_id] ~= nil then
+      table.insert (ids, si_flags[si_id].peer_id)
+    end
 
-    local n1 = si:get_associated_proxy ("node")
-    local n2 = si_target:get_associated_proxy ("node")
-
-    for _, node in ipairs ({n1, n2}) do
-      local client_id = node.properties["client.id"]
-      if client_id then
-        local client = clients_om:lookup {
-          Constraint { "bound-id", "=", client_id, type = "gobject" }
-        }
-        if client then
-          Log.info (node, "sending client error")
-          client:send_error(node["bound-id"], -32, error_msg)
+    for _, id in ipairs (ids) do
+      local si = linkables_om:lookup {
+        Constraint { "id", "=", id, type = "gobject" },
+      }
+      if si then
+        local node = si:get_associated_proxy ("node")
+        local client_id = node.properties["client.id"]
+        if client_id then
+          local client = clients_om:lookup {
+            Constraint { "bound-id", "=", client_id, type = "gobject" }
+          }
+          if client then
+            Log.info (node, "sending client error: " .. error_msg)
+            client:send_error (node["bound-id"], -32, error_msg)
+          end
         end
       end
     end
