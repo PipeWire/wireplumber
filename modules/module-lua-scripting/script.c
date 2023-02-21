@@ -123,7 +123,6 @@ script_finish_activation (lua_State * L)
   WpLuaScript *self;
 
   luaL_checktype (L, 1, LUA_TTABLE);
-
   lua_pushliteral (L, "__self");
   lua_gettable (L, 1);
   luaL_checktype (L, -1, LUA_TLIGHTUSERDATA);
