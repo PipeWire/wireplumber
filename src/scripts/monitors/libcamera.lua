@@ -114,6 +114,9 @@ function createNode(parent, id, type, factory, properties)
 
   -- apply properties from config.rules
   rulesApplyProperties(properties)
+  if properties ["node.disabled"] then
+    return
+  end
 
   -- create the node
   local node = Node("spa-node-factory", properties)
@@ -148,7 +151,9 @@ function createDevice(parent, id, type, factory, properties)
 
   -- apply properties from config.rules
   rulesApplyProperties(properties)
-
+  if properties ["device.disabled"] then
+    return
+  end
   -- create the device
   local device = SpaDevice(factory, properties)
   if device then
