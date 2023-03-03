@@ -68,7 +68,7 @@ SimpleEventHook {
       end
 
       -- configure default device.
-      u.metadata:set (0, key, "Spa:String:JSON", Json.Object { ["name"] = name }:get_data ())
+      u.default_metadata:set(0, key, "Spa:String:JSON", Json.Object { ["name"] = name }:get_data())
     end
   end
 }:register ()
@@ -86,12 +86,19 @@ function u.restartPlugin (name)
   u.script_tester_plugin:call ("restart-plugin", name)
 end
 
-u.metadata = cu.default_metadata_om:lookup ()
-assert (u.metadata ~= nil)
+u.default_metadata = cu.get_object_manager ("metadata"):lookup {
+  Constraint { "metadata.name", "=", "default" },
+}
+assert (u.default_metadata ~= nil)
+
+u.settings_metadata = cu.get_object_manager ("metadata"):lookup {
+  Constraint { "metadata.name", "=", "sm-settings" },
+}
+assert (u.settings_metadata ~= nil)
 
 -- update the defined target for stream session item in metadata.
 function u.setTargetInMetadata (prop, target_node_name)
-  u.metadata:set (u.lnkbls ["stream-node"].properties ["node.id"], prop,
+  u.default_metadata:set (u.lnkbls ["stream-node"].properties ["node.id"], prop,
       "Spa:Id", u.lnkbls [target_node_name].properties ["node.id"])
 end
 

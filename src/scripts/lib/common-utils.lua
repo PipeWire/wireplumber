@@ -54,13 +54,22 @@ function cutils.getDefaultNode (properties, target_direction)
   return default_nodes:call ("get-default-node", target_media_class)
 end
 
+cutils.source_plugin = nil
+cutils.object_managers = {}
 
-cutils.default_metadata_om = ObjectManager {
-  Interest {
-    type = "metadata",
+function cutils.get_object_manager (name)
+  cutils.source_plugin = cutils.source_plugin or
+      Plugin.find ("standard-event-source")
+  cutils.object_managers [name] = cutils.object_managers [name] or
+      cutils.source_plugin:call ("get-object-manager", name)
+  return cutils.object_managers [name]
+end
+
+function cutils.get_default_metadata_object ()
+  return cutils.get_object_manager ("metadata"):lookup {
     Constraint { "metadata.name", "=", "default" },
   }
-}
+end
 
 function cutils.evaluateRulesApplyProperties (properties, name)
   local matched, mprops = Conf.apply_rules (name, properties)
@@ -133,6 +142,5 @@ function cutils.storeAfterTimeout (state, state_table)
   end)
 end
 
-cutils.default_metadata_om:activate ()
 
 return cutils
