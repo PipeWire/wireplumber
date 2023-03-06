@@ -95,12 +95,14 @@ function putils.checkFollowDefault (si, si_target, has_node_defined_target)
 end
 
 function putils.lookupLink (si_id, si_target_id)
-  local link = links_om:lookup {
+  local link = cutils.get_object_manager ("session-item"):lookup {
+    type = "SiLink",
     Constraint { "out.item.id", "=", si_id },
     Constraint { "in.item.id", "=", si_target_id }
   }
   if not link then
-    link = links_om:lookup {
+    link = cutils.get_object_manager ("session-item"):lookup {
+      type = "SiLink",
       Constraint { "in.item.id", "=", si_id },
       Constraint { "out.item.id", "=", si_target_id }
     }
@@ -113,7 +115,9 @@ function putils.isLinked (si_target)
   local linked = false
   local exclusive = false
 
-  for l in links_om:iterate () do
+  for l in cutils.get_object_manager ("session-item"):iterate {
+    type = "SiLink",
+  } do
     local p = l.properties
     local out_id = tonumber (p ["out.item.id"])
     local in_id = tonumber (p ["in.item.id"])
@@ -177,18 +181,26 @@ function putils.canLink (properties, si_target)
 
     -- make sure target is not linked with another node with same link group
     -- start by locating other nodes in the target's link-group, in opposite direction
-    for n in linkables_om:iterate {
+    for n in cutils.get_object_manager ("session-item"):iterate {
+      type = "SiLinkable",
+      Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
+      Constraint { "active-features", "!", 0, type = "gobject" },
       Constraint { "id", "!", si_target.id, type = "gobject" },
       Constraint { "item.node.direction", "!", target_props ["item.node.direction"] },
       Constraint { "node.link-group", "=", target_link_group },
     } do
       -- iterate their peers and return false if one of them cannot link
-      for silink in links_om:iterate () do
+      for silink in cutils.get_object_manager ("session-item"):iterate {
+        type = "SiLink",
+      } do
         local out_id = tonumber (silink.properties ["out.item.id"])
         local in_id = tonumber (silink.properties ["in.item.id"])
         if out_id == n.id or in_id == n.id then
           local peer_id = (out_id == n.id) and in_id or out_id
-          local peer = linkables_om:lookup {
+          local peer = cutils.get_object_manager ("session-item"):lookup {
+            type = "SiLinkable",
+            Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
+            Constraint { "active-features", "!", 0, type = "gobject" },
             Constraint { "id", "=", peer_id, type = "gobject" },
           }
           if peer and not canLinkGroupCheck (link_group, peer, hops + 1) then
@@ -211,7 +223,10 @@ function putils.findDefaultLinkable (si)
   local si_props = si.properties
   local target_direction = cutils.getTargetDirection (si_props)
   local def_node_id = cutils.getDefaultNode (si_props, target_direction)
-  return linkables_om:lookup {
+  return cutils.get_object_manager ("session-item"):lookup {
+    type = "SiLinkable",
+    Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
+    Constraint { "active-features", "!", 0, type = "gobject" },
     Constraint { "node.id", "=", tostring (def_node_id) }
   }
 end
@@ -234,7 +249,7 @@ end
 function putils.haveAvailableRoutes (si_props)
   local card_profile_device = si_props ["card.profile.device"]
   local device_id = si_props ["device.id"]
-  local device = device_id and devices_om:lookup {
+  local device = device_id and cutils.get_object_manager ("device"):lookup {
     Constraint { "bound-id", "=", device_id, type = "gobject" },
   }
 
@@ -295,31 +310,8 @@ function putils.haveAvailableRoutes (si_props)
   return false
 end
 
-devices_om = ObjectManager { Interest { type = "device" } }
-
-devices_om:activate ()
-
-linkables_om = ObjectManager {
-  Interest {
-    type = "SiLinkable",
-    -- only handle si-audio-adapter and si-node
-    Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
-    Constraint { "active-features", "!", 0, type = "gobject" },
-  }
-}
-
-linkables_om:activate ()
-
-links_om = ObjectManager {
-  Interest {
-    type = "SiLink",
-  }
-}
-
-links_om:activate ()
-
 function putils.get_default_metadata_object ()
-  return cutils.default_metadata_om:lookup ()
+  return cutils.get_default_metadata_object ()
 end
 
 return putils
