@@ -47,7 +47,7 @@ SimpleEventHook {
 
     device_match_count = device_match_count + 1
 
-    tu.metadata:set (0, key, "Spa:String:JSON",
+    tu.default_metadata:set (0, key, "Spa:String:JSON",
         Json.Object { ["name"] = name }:to_string ())
 
     if device_match_count == 3 then
