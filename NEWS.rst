@@ -1,5 +1,34 @@
-WirePlumber 0.4.13
+WirePlumber 0.4.14
 ~~~~~~~~~~~~~~~~~~
+
+Additions:
+
+  - Added support for managing Bluetooth-MIDI, complimenting the parts that
+    were merged in PipeWire recently (!453)
+
+  - Added a default volume configuration option for streams whose volume
+    has never been saved before; that allows starting new streams at a lower
+    volume than 100% by default, if desired (!480)
+
+  - Added support for managing link errors and propagating them to the
+    client(s) involved. This allows better error handling on the application
+    side in case a format cannot be negotiated - useful in video streams
+    (see !484, pipewire#2935)
+
+  - snd_aloop devices are now described as being "Loopback" devices
+    (pipewire#2214)
+
+  - ALSA nodes in the pro audio profile now get increased graph priority, so
+    that they are more likely to become the driver in the graph
+
+  - Added support for disabling libcamera nodes & devices with ``node.disabled``
+    and ``device.disabled``, like it works for ALSA and V4L2 (#418)
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.4.13
+..................
 
 Additions:
 
