@@ -6,6 +6,7 @@
 -- SPDX-License-Identifier: MIT
 
 local config = ... or {}
+local COMBINE_OFFSET = 64
 
 devices_om = ObjectManager {
   Interest {
@@ -142,6 +143,112 @@ function createOffloadScoNode(parent, id, type, factory, properties)
   parent:store_managed_object(id, loopback)
 end
 
+device_set_nodes_om = ObjectManager {
+  Interest {
+    type = "node",
+    Constraint { "api.bluez5.set.leader", "+", type = "pw" },
+  }
+}
+
+device_set_nodes_om:connect ("object-added", function(_, node)
+    -- Connect ObjectConfig events to the right node
+    if not monitor then
+      return
+    end
+
+    local interest = Interest {
+      type = "device",
+      Constraint { "object.id", "=", node.properties["device.id"] }
+    }
+    Log.info("Device set node found: " .. tostring (node["bound-id"]))
+    for device in devices_om:iterate (interest) do
+      local device_id = device.properties["api.bluez5.id"]
+      if not device_id then
+        goto next_device
+      end
+
+      local spa_device = monitor:get_managed_object (tonumber (device_id))
+      if not spa_device then
+        goto next_device
+      end
+
+      local id = node.properties["card.profile.device"]
+      if id ~= nil then
+        Log.info(".. assign to device: " .. tostring (device["bound-id"]) .. " node " .. tostring (id))
+        spa_device:store_managed_object (id, node)
+
+        -- set routes again to update volumes etc.
+        for route in device:iterate_params ("Route") do
+          device:set_param ("Route", route)
+        end
+      end
+
+      ::next_device::
+    end
+end)
+
+function createSetNode(parent, id, type, factory, properties)
+  local args = {}
+  local name
+  local target_class
+  local stream_class
+  local rules = {}
+  local members_json = Json.Raw (properties["api.bluez5.set.members"])
+  local channels_json = Json.Raw (properties["api.bluez5.set.channels"])
+  local members = members_json:parse ()
+  local channels = channels_json:parse ()
+
+  if properties["media.class"] == "Audio/Sink" then
+    name = "bluez_output"
+    args["combine.mode"] = "sink"
+    target_class = "Audio/Sink/Internal"
+    stream_class = "Stream/Output/Audio/Internal"
+  else
+    name = "bluez_input"
+    args["combine.mode"] = "source"
+    target_class = "Audio/Source/Internal"
+    stream_class = "Stream/Input/Audio/Internal"
+  end
+
+  Log.info("Device set: " .. properties["node.name"])
+
+  for _, member in pairs(members) do
+    Log.info("Device set member:" .. member["object.path"])
+    table.insert(rules,
+      Json.Object {
+        ["matches"] = Json.Array {
+          Json.Object {
+            ["object.path"] = member["object.path"],
+            ["media.class"] = target_class,
+          },
+        },
+        ["actions"] = Json.Object {
+          ["create-stream"] = Json.Object {
+            ["media.class"] = stream_class,
+            ["audio.position"] = Json.Array (member["channels"]),
+          }
+        },
+      }
+    )
+  end
+
+  properties["node.virtual"] = false
+  properties["device.api"] = "bluez5"
+  properties["api.bluez5.set.members"] = nil
+  properties["api.bluez5.set.channels"] = nil
+  properties["api.bluez5.set.leader"] = true
+  properties["audio.position"] = Json.Array (channels)
+  args["combine.props"] = Json.Object (properties)
+  args["stream.props"] = Json.Object {}
+  args["stream.rules"] = Json.Array (rules)
+
+  local args_json = Json.Object(args)
+  local args_string = args_json:get_data()
+  local combine_properties = {}
+  Log.info("Device set node: " .. args_string)
+  return LocalModule("libpipewire-module-combine-stream", args_string, combine_properties)
+end
+
 function createNode(parent, id, type, factory, properties)
   local dev_props = parent.properties
 
@@ -195,9 +302,20 @@ function createNode(parent, id, type, factory, properties)
 
   -- create the node; bluez requires "local" nodes, i.e. ones that run in
   -- the same process as the spa device, for several reasons
-  local node = LocalNode("adapter", properties)
-  node:activate(Feature.Proxy.BOUND)
-  parent:store_managed_object(id, node)
+
+  if properties["api.bluez5.set.leader"] then
+    local combine = createSetNode(parent, id, type, factory, properties)
+    parent:store_managed_object(id + COMBINE_OFFSET, combine)
+  else
+    local node = LocalNode("adapter", properties)
+    node:activate(Feature.Proxy.BOUND)
+    parent:store_managed_object(id, node)
+  end
+end
+
+function removeNode(parent, id)
+  -- Clear also the device set module, if any
+  parent:store_managed_object(id + COMBINE_OFFSET, nil)
 end
 
 function createDevice(parent, id, type, factory, properties)
@@ -239,6 +357,7 @@ function createDevice(parent, id, type, factory, properties)
 
     -- initial profile is to be set by policy-device-profile.lua, not spa-bluez5
     properties["bluez5.profile"] = "off"
+    properties["api.bluez5.id"] = id
 
     -- apply properties from config.rules
     rulesApplyProperties(properties)
@@ -247,6 +366,7 @@ function createDevice(parent, id, type, factory, properties)
     device = SpaDevice(factory, properties)
     if device then
       device:connect("create-object", createNode)
+      device:connect("object-removed", removeNode)
       parent:store_managed_object(id, device)
     else
       Log.warning ("Failed to create '" .. factory .. "' device")
@@ -305,3 +425,4 @@ end
 
 nodes_om:activate()
 devices_om:activate()
+device_set_nodes_om:activate()
