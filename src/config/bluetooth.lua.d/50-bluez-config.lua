@@ -1,26 +1,20 @@
 bluez_monitor.enabled = true
 
 bluez_monitor.properties = {
-  -- These features do not work on all headsets, so they are enabled
-  -- by default based on the hardware database. They can also be
-  -- forced on/off for all devices by the following options:
-
-  --["bluez5.enable-sbc-xq"] = true,
-  --["bluez5.enable-msbc"] = true,
-  --["bluez5.enable-hw-volume"] = true,
-
-  -- See bluez-hardware.conf for the hardware database.
-
-  -- Enabled headset roles (default: [ hfp_hf hfp_ag ]), this
-  -- property only applies to native backend. Currently some headsets
-  -- (Sony WH-1000XM3) are not working with both hsp_ag and hfp_ag
-  -- enabled, disable either hsp_ag or hfp_ag to work around it.
+  -- Enabled roles (default: [ a2dp_sink a2dp_source bap_sink bap_source hfp_hf hfp_ag ])
   --
-  -- Supported headset roles: hsp_hs (HSP Headset),
-  --                          hsp_ag (HSP Audio Gateway),
-  --                          hfp_hf (HFP Hands-Free),
-  --                          hfp_ag (HFP Audio Gateway)
-  --["bluez5.headset-roles"] = "[ hsp_hs hsp_ag hfp_hf hfp_ag ]",
+  -- Currently some headsets (Sony WH-1000XM3) are not working with
+  -- both hsp_ag and hfp_ag enabled, so by default we enable only HFP.
+  --
+  -- Supported roles: hsp_hs (HSP Headset),
+  --                  hsp_ag (HSP Audio Gateway),
+  --                  hfp_hf (HFP Hands-Free),
+  --                  hfp_ag (HFP Audio Gateway)
+  --                  a2dp_sink (A2DP Audio Sink)
+  --                  a2dp_source (A2DP Audio Source)
+  --                  bap_sink (LE Audio Basic Audio Profile Sink)
+  --                  bap_source (LE Audio Basic Audio Profile Source)
+  --["bluez5.roles"] = "[ a2dp_sink a2dp_source bap_sink bap_source hsp_hs hsp_ag hfp_hf hfp_ag ]",
 
   -- Enabled A2DP codecs (default: all).
   --["bluez5.codecs"] = "[ sbc sbc_xq aac ldac aptx aptx_hd aptx_ll aptx_ll_duplex faststream faststream_duplex ]",
@@ -64,6 +58,13 @@ bluez_monitor.properties = {
   -- This requires access to the D-Bus user session; disable if you are running
   -- a system-wide instance of wireplumber.
   ["with-logind"] = true,
+
+  -- The settings below can be used to override feature enabled status. By default
+  -- all of them are enabled. They may also be disabled via the hardware quirk
+  -- database, see bluez-hardware.conf
+  --["bluez5.enable-sbc-xq"] = true,
+  --["bluez5.enable-msbc"] = true,
+  --["bluez5.enable-hw-volume"] = true,
 }
 
 bluez_monitor.rules = {
