@@ -10,8 +10,8 @@ variables:
   # change to build against a different tag or branch of pipewire
   PIPEWIRE_HEAD: 'master'
 
-# ci-templates as of Jan 27th 2022
-.templates_sha: &templates_sha 0c312d9c7255f46e741d43bcd1930f09cd12efe7
+# ci-templates as of Mar 24th 2023
+.templates_sha: &templates_sha dd90ac0d7a03b574eb4f18d7358083f0c97825f3
 
 include:
   - project: 'freedesktop/ci-templates'
@@ -27,8 +27,8 @@ include:
 .fedora:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2022-10-03.0'
-    FDO_DISTRIBUTION_VERSION: '35'
+    FDO_DISTRIBUTION_TAG: '2023-03-24.1'
+    FDO_DISTRIBUTION_VERSION: '37'
     # findutils: used by the .build script below
     # dbus-devel: required by pipewire
     # dbus-daemon: required by GDBus unit tests
@@ -59,7 +59,7 @@ include:
 .ubuntu:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2021-10-08.1'
+    FDO_DISTRIBUTION_TAG: '2023-03-24.1'
     FDO_DISTRIBUTION_VERSION: '20.04'
     FDO_DISTRIBUTION_PACKAGES: >-
       debhelper-compat
@@ -81,7 +81,7 @@ include:
 .alpine:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2022-03-08.1'
+    FDO_DISTRIBUTION_TAG: '2023-03-24.1'
     FDO_DISTRIBUTION_VERSION: '3.15'
     FDO_DISTRIBUTION_PACKAGES: >-
       dbus
