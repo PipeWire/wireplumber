@@ -529,7 +529,7 @@ main (gint argc, gchar **argv)
   g_autoptr (GOptionContext) context = NULL;
   g_autoptr (GError) error = NULL;
   g_autoptr (WpProperties) properties = NULL;
-  g_autofree gchar *config_file_path = NULL;
+  const gchar *conf_env;
 
   setlocale (LC_ALL, "");
   setlocale (LC_NUMERIC, "C");
@@ -555,20 +555,13 @@ main (gint argc, gchar **argv)
   if (!config_file)
     config_file = "wireplumber.conf";
 
-  config_file_path = wp_find_file (
-      WP_LOOKUP_DIR_ENV_CONFIG |
-      WP_LOOKUP_DIR_XDG_CONFIG_HOME |
-      WP_LOOKUP_DIR_ETC |
-      WP_LOOKUP_DIR_PREFIX_SHARE,
-      config_file, NULL);
-  if (config_file_path == NULL) {
-    fprintf (stderr, "Unable to find the required configuration file %s\n",
-             config_file);
-    return WP_EXIT_CONFIG;
-  }
+  /* Forward WIREPLUMBER_CONFIG_DIR to PIPEWIRE_CONFIG_DIR */
+  conf_env = g_getenv ("WIREPLUMBER_CONFIG_DIR");
+  if (conf_env)
+    g_setenv ("PIPEWIRE_CONFIG_DIR", conf_env, TRUE);
 
   properties = wp_properties_new (
-      PW_KEY_CONFIG_NAME, config_file_path,
+      PW_KEY_CONFIG_NAME, config_file,
       PW_KEY_APP_NAME, "WirePlumber",
       "wireplumber.daemon", "true",
       "wireplumber.export-core", "true",

@@ -6,16 +6,10 @@ Locations of files
 Location of configuration files
 -------------------------------
 
-WirePlumber's default locations of its configuration files are determined at
-compile time by the build system. Typically, those end up being
-``$XDG_CONFIG_DIR/wireplumber``, ``/etc/wireplumber``, and
-``/usr/share/wireplumber``, in that order of priority.
-
-In more detail, the latter two are controlled by the ``--sysconfdir`` and ``--datadir``
-meson options. When those are set to an absolute path, such as ``/etc``, the
-location of the configuration files is set to be ``$sysconfdir/wireplumber``.
-When set to a relative path, such as ``etc``, then the installation prefix (``--prefix``)
-is prepended to the path: ``$prefix/$sysconfdir/wireplumber``
+WirePlumber's default locations of its configuration files are the same as
+pipewire. Typically, those end up being
+``$XDG_CONFIG_DIR/pipewire``, ``/etc/pipewire``, and
+``/usr/share/pipewire``, in that order of priority.
 
 The three locations are intended for custom user configuration,
 host-specific configuration and distribution-provided configuration,
@@ -30,6 +24,8 @@ It is also possible to override the configuration directory by setting the
 
   WIREPLUMBER_CONFIG_DIR=src/config wireplumber
 
+For convenience, the behaviour of the ``WIREPLUMBER_CONFIG_DIR`` environment
+variable is the same as the ``PIPEWIRE_CONFIG_DIR`` environment variable.
 If ``WIREPLUMBER_CONFIG_DIR`` is set, the default locations are ignored and
 configuration files are *only* looked up in this directory.
 

@@ -129,14 +129,7 @@ lookup_dirs (guint flags)
    * - XDG config directories
    * - /etc/
    * - /usr/share/....
-   *
-   * Note that wireplumber environment variables *replace* other directories.
    */
-  if ((flags & WP_LOOKUP_DIR_ENV_CONFIG) &&
-      (dir = g_getenv ("WIREPLUMBER_CONFIG_DIR"))) {
-    g_ptr_array_add (dirs, g_canonicalize_filename (dir, NULL));
-    goto done;
-  }
   if (flags & (WP_LOOKUP_DIR_ENV_DATA | WP_LOOKUP_DIR_ENV_TEST_SRCDIR)) {
     if ((flags & WP_LOOKUP_DIR_ENV_DATA) &&
         (dir = g_getenv ("WIREPLUMBER_DATA_DIR")))
@@ -151,7 +144,7 @@ lookup_dirs (guint flags)
   }
   if (flags & WP_LOOKUP_DIR_XDG_CONFIG_HOME) {
     dir = g_get_user_config_dir ();
-    g_ptr_array_add (dirs, g_build_filename (dir, "pipewire", NULL));
+    g_ptr_array_add (dirs, g_build_filename (dir, "wireplumber", NULL));
   }
   if (flags & WP_LOOKUP_DIR_ETC)
     g_ptr_array_add (dirs,

@@ -6,7 +6,7 @@ if build_daemon
   subdir('systemd')
 
   install_subdir('config',
-    install_dir: wireplumber_data_dir,
+    install_dir: pipewire_data_dir,
     strip_directory : true
   )
   install_subdir('scripts',
