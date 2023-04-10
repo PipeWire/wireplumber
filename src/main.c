@@ -270,7 +270,6 @@ append_json_components (GList **list, WpSpaJson *json)
             "type", "s", &comp->type,
             NULL)) {
       wp_warning ("component must have both a 'name' and a 'type'");
-      component_data_free (comp);
       continue;
     }
 
@@ -286,7 +285,6 @@ append_json_components (GList **list, WpSpaJson *json)
       } else {
         wp_warning ("skipping component %s as its 'deps' is not a JSON array",
             comp->name);
-        component_data_free (comp);
         continue;
       }
     }
@@ -312,7 +310,6 @@ append_json_components (GList **list, WpSpaJson *json)
       } else {
         wp_warning ("skipping component %s as its 'flags' is not a JSON array",
             comp->name);
-        component_data_free (comp);
         continue;
       }
     }
@@ -327,7 +324,6 @@ append_json_components (GList **list, WpSpaJson *json)
     } else {
       wp_debug ("ignoring component '%s' as it is already defined previously",
           comp->name);
-      component_data_free (comp);
     }
   }
 }
