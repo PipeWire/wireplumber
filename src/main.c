@@ -155,7 +155,6 @@ load_enable_components (WpInitTransition *self)
 
   while (self->components) {
     self->curr_component = (ComponentData *) self->components->data;
-    g_autoptr (GError) error = NULL;
 
     /* Advance */
     self->components = g_list_next (self->components);
