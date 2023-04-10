@@ -192,7 +192,8 @@ on_plugin_loaded (WpCore *core, GAsyncResult *res, gpointer data)
   o = wp_core_load_component_finish (core, res, &error);
   if (!o) {
     if (self->curr_component->flags & IF_EXISTS &&
-        error->code == G_FILE_ERROR_ISDIR) {
+        error->domain == G_IO_ERROR &&
+        error->code == G_IO_ERROR_NOT_FOUND) {
       wp_info ("skipping component '%s' with 'ifexists' flag because its "
           "file does not exist", self->curr_component->name);
       goto next;
