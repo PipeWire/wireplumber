@@ -413,10 +413,7 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
 
   case STEP_CLEANUP:
     wp_info ("wirePlumber initialized");
-    g_clear_object (&self->om);
-    g_list_free_full (self->components, (GDestroyNotify) component_data_free);
-    self->components = NULL;
-    break;
+    G_GNUC_FALLTHROUGH;
 
   case WP_TRANSITION_STEP_ERROR:
     g_clear_object (&self->om);
