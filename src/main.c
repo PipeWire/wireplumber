@@ -91,9 +91,9 @@ struct _WpInitTransition
 
 enum {
   STEP_CONNECT = WP_TRANSITION_STEP_CUSTOM_START,
+  STEP_CHECK_MEDIA_SESSION,
   STEP_PARSE_COMPONENTS,
   STEP_LOAD_ENABLE_COMPONENTS,
-  STEP_CHECK_MEDIA_SESSION,
   STEP_CLEANUP,
 };
 
@@ -111,10 +111,10 @@ wp_init_transition_get_next_step (WpTransition * transition, guint step)
 {
   switch (step) {
   case WP_TRANSITION_STEP_NONE:     return STEP_CONNECT;
-  case STEP_CONNECT:                return STEP_PARSE_COMPONENTS;
+  case STEP_CONNECT:                return STEP_CHECK_MEDIA_SESSION;
+  case STEP_CHECK_MEDIA_SESSION:    return STEP_PARSE_COMPONENTS;
   case STEP_PARSE_COMPONENTS:       return STEP_LOAD_ENABLE_COMPONENTS;
-  case STEP_LOAD_ENABLE_COMPONENTS: return STEP_CHECK_MEDIA_SESSION;
-  case STEP_CHECK_MEDIA_SESSION:    return STEP_CLEANUP;
+  case STEP_LOAD_ENABLE_COMPONENTS: return STEP_CLEANUP;
   case STEP_CLEANUP:                return WP_TRANSITION_STEP_NONE;
 
   default:
@@ -377,6 +377,19 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
     break;
   }
 
+  case STEP_CHECK_MEDIA_SESSION: {
+    wp_info_object (self, "Checking for session manager conflicts...");
+
+    self->om = wp_object_manager_new ();
+    wp_object_manager_add_interest (self->om, WP_TYPE_CLIENT,
+        WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
+        "application.name", "=s", "pipewire-media-session", NULL);
+    g_signal_connect_object (self->om, "installed",
+        G_CALLBACK (check_media_session), self, 0);
+    wp_core_install_object_manager (core, self->om);
+    break;
+  }
+
   case STEP_PARSE_COMPONENTS: {
     g_autoptr (WpConf) conf = wp_conf_get_instance (core);
     g_autoptr (WpSpaJson) json_comps = NULL;
@@ -397,19 +410,6 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
     if (load_enable_components (self))
       wp_transition_advance (WP_TRANSITION (self));
     break;
-
-  case STEP_CHECK_MEDIA_SESSION: {
-    wp_info_object (self, "Checking for session manager conflicts...");
-
-    self->om = wp_object_manager_new ();
-    wp_object_manager_add_interest (self->om, WP_TYPE_CLIENT,
-        WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
-        "application.name", "=s", "pipewire-media-session", NULL);
-    g_signal_connect_object (self->om, "installed",
-        G_CALLBACK (check_media_session), self, 0);
-    wp_core_install_object_manager (core, self->om);
-    break;
-  }
 
   case STEP_CLEANUP:
     wp_info ("wirePlumber initialized");
