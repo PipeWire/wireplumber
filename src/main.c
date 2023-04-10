@@ -204,7 +204,7 @@ on_plugin_loaded (WpCore *core, GAsyncResult *res, gpointer data)
     }
 
     wp_transition_return_error (WP_TRANSITION (self), g_error_new (
-        WP_DOMAIN_DAEMON, WP_EXIT_SOFTWARE,
+        WP_DOMAIN_DAEMON, WP_EXIT_CONFIG,
         "failed to activate component '%s': %s", self->curr_component->name,
         error->message));
     return;
