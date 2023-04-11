@@ -86,6 +86,7 @@ struct _WpInitTransition
   WpTransition parent;
   WpObjectManager *om;
   GList *components;
+  GList *components_iter;
   ComponentData *curr_component;
 };
 
@@ -164,11 +165,11 @@ load_enable_components (WpInitTransition *self)
 {
   WpCore *core = wp_transition_get_source_object (WP_TRANSITION (self));
 
-  while (self->components) {
-    self->curr_component = (ComponentData *) self->components->data;
+  while (self->components_iter) {
+    self->curr_component = (ComponentData *) self->components_iter->data;
 
     /* Advance */
-    self->components = g_list_next (self->components);
+    self->components_iter = g_list_next (self->components_iter);
 
     /* Skip component if its dependencies are not met */
     if (!component_meets_dependencies (core, self->curr_component)) {
@@ -415,6 +416,7 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
     if (json_comps)
       append_json_components (&self->components, json_comps);
 
+    self->components_iter = g_list_first (self->components);
     wp_transition_advance (transition);
     break;
   }
