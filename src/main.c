@@ -173,13 +173,14 @@ load_enable_components (WpInitTransition *self)
 
     /* Skip component if its dependencies are not met */
     if (!component_meets_dependencies (core, self->curr_component)) {
-      wp_info ("... skipping comp '%s' as its dependencies are not met",
-          self->curr_component->name);
+      wp_info_object (self, "... skipping component '%s' as its dependencies "
+          "are not met", self->curr_component->name);
       continue;
     }
 
     /* Load the component */
-    wp_debug ("... loading comp '%s' ('%s') with priority '%d' and flags '%x'",
+    wp_debug_object (self,
+        "... loading component '%s' ('%s') with priority '%d' and flags '%x'",
         self->curr_component->name, self->curr_component->type,
         self->curr_component->priority, self->curr_component->flags);
     wp_core_load_component (core, self->curr_component->name,
@@ -206,12 +207,12 @@ on_plugin_loaded (WpCore *core, GAsyncResult *res, gpointer data)
     if (self->curr_component->flags & IF_EXISTS &&
         error->domain == G_IO_ERROR &&
         error->code == G_IO_ERROR_NOT_FOUND) {
-      wp_info ("skipping component '%s' with 'ifexists' flag because its "
-          "file does not exist", self->curr_component->name);
+      wp_info_object (self, "skipping component '%s' with 'ifexists' flag "
+          "because the file does not exist", self->curr_component->name);
       goto next;
     } else if (self->curr_component->flags & NO_FAIL) {
-      wp_info ("skipping component '%s' with 'nofail' flag because of "
-          "loading error: %s", self->curr_component->name, error->message);
+      wp_info_object (self, "skipping component '%s' with 'nofail' flag "
+          "due to error: %s", self->curr_component->name, error->message);
       goto next;
     }
 
@@ -221,9 +222,6 @@ on_plugin_loaded (WpCore *core, GAsyncResult *res, gpointer data)
         error->message));
     return;
   }
-
-  wp_debug ("successfully enabled plugin %s",
-      wp_plugin_get_name (WP_PLUGIN (o)));
 
 next:
   /* load and enable the rest of components */
@@ -393,7 +391,7 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
   }
 
   case STEP_CHECK_MEDIA_SESSION: {
-    wp_info_object (self, "Checking for session manager conflicts...");
+    wp_info_object (self, "checking for session manager conflicts...");
 
     self->om = wp_object_manager_new ();
     wp_object_manager_add_interest (self->om, WP_TYPE_CLIENT,
@@ -422,13 +420,13 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
   }
 
   case STEP_LOAD_ENABLE_COMPONENTS:
-    wp_info ("loading and enabling components...");
+    wp_info_object (self, "loading and enabling components...");
     if (load_enable_components (self))
       wp_transition_advance (WP_TRANSITION (self));
     break;
 
   case STEP_CLEANUP:
-    wp_info ("wirePlumber initialized");
+    wp_info_object (self, "WirePlumber initialized");
     G_GNUC_FALLTHROUGH;
 
   case WP_TRANSITION_STEP_ERROR:
