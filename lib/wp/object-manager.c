@@ -663,8 +663,8 @@ idle_emit_objects_changed (WpObjectManager * self)
 
   if (G_UNLIKELY (!self->installed)) {
     wp_trace_object (self, "installed");
-    g_signal_emit (self, signals[SIGNAL_INSTALLED], 0);
     self->installed = TRUE;
+    g_signal_emit (self, signals[SIGNAL_INSTALLED], 0);
   }
   wp_trace_object (self, "emit objects-changed");
   g_signal_emit (self, signals[SIGNAL_OBJECTS_CHANGED], 0);
@@ -717,8 +717,8 @@ wp_object_manager_maybe_objects_changed (WpObjectManager * self)
       WpRegistry *reg = wp_core_get_registry (core);
       if (reg->tmp_globals->len == 0 && reg->globals->len != 0) {
         wp_trace_object (self, "installed");
-        g_signal_emit (self, signals[SIGNAL_INSTALLED], 0);
         self->installed = TRUE;
+        g_signal_emit (self, signals[SIGNAL_INSTALLED], 0);
       }
     }
   }
