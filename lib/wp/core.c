@@ -648,7 +648,7 @@ gboolean
 wp_core_is_connected (WpCore * self)
 {
   g_return_val_if_fail (WP_IS_CORE (self), FALSE);
-  return self->pw_core != NULL;
+  return self->pw_core && self->info;
 }
 
 /*!
@@ -664,7 +664,6 @@ guint32
 wp_core_get_remote_cookie (WpCore * self)
 {
   g_return_val_if_fail (wp_core_is_connected (self), 0);
-  g_return_val_if_fail (self->info, 0);
 
   return self->info->cookie;
 }
@@ -679,7 +678,6 @@ const gchar *
 wp_core_get_remote_name (WpCore * self)
 {
   g_return_val_if_fail (wp_core_is_connected (self), NULL);
-  g_return_val_if_fail (self->info, NULL);
 
   return self->info->name;
 }
@@ -695,7 +693,6 @@ const gchar *
 wp_core_get_remote_user_name (WpCore * self)
 {
   g_return_val_if_fail (wp_core_is_connected (self), NULL);
-  g_return_val_if_fail (self->info, NULL);
 
   return self->info->user_name;
 }
@@ -711,7 +708,6 @@ const gchar *
 wp_core_get_remote_host_name (WpCore * self)
 {
   g_return_val_if_fail (wp_core_is_connected (self), NULL);
-  g_return_val_if_fail (self->info, NULL);
 
   return self->info->host_name;
 }
@@ -726,7 +722,6 @@ const gchar *
 wp_core_get_remote_version (WpCore * self)
 {
   g_return_val_if_fail (wp_core_is_connected (self), NULL);
-  g_return_val_if_fail (self->info, NULL);
 
   return self->info->version;
 }
@@ -742,7 +737,6 @@ WpProperties *
 wp_core_get_remote_properties (WpCore * self)
 {
   g_return_val_if_fail (wp_core_is_connected (self), NULL);
-  g_return_val_if_fail (self->info, NULL);
 
   return wp_properties_new_wrap_dict (self->info->props);
 }

@@ -33,6 +33,12 @@ test_core_teardown (TestFixture *self, gconstpointer user_data)
 }
 
 static void
+expect_connected (WpCore * core, TestFixture * f)
+{
+  g_main_loop_quit (f->base.loop);
+}
+
+static void
 expect_disconnected (WpCore * core, TestFixture * f)
 {
   f->disconnected = TRUE;
@@ -49,6 +55,8 @@ expect_object_added (WpObjectManager *om, WpProxy *proxy, TestFixture *f)
 static void
 test_core_server_disconnected (TestFixture *f, gconstpointer data)
 {
+  g_signal_connect (f->base.core, "connected",
+      G_CALLBACK (expect_connected), f);
   g_signal_connect (f->base.core, "disconnected",
       G_CALLBACK (expect_disconnected), f);
   g_signal_connect (f->om, "object-added",
@@ -59,6 +67,7 @@ test_core_server_disconnected (TestFixture *f, gconstpointer data)
 
   /* connect */
   g_assert_true (wp_core_connect (f->base.core));
+  g_main_loop_run (f->base.loop);
   g_assert_true (wp_core_is_connected (f->base.core));
 
   /* wait for the object manager to collect the client proxy */
@@ -77,6 +86,8 @@ test_core_server_disconnected (TestFixture *f, gconstpointer data)
 static void
 test_core_client_disconnected (TestFixture *f, gconstpointer data)
 {
+  g_signal_connect (f->base.core, "connected",
+      G_CALLBACK (expect_connected), f);
   g_signal_connect (f->base.core, "disconnected",
       G_CALLBACK (expect_disconnected), f);
   g_signal_connect (f->om, "object-added",
@@ -87,6 +98,7 @@ test_core_client_disconnected (TestFixture *f, gconstpointer data)
 
   /* connect */
   g_assert_true (wp_core_connect (f->base.core));
+  g_main_loop_run (f->base.loop);
   g_assert_true (wp_core_is_connected (f->base.core));
 
   /* wait for the object manager to collect the client proxy */
@@ -111,13 +123,20 @@ test_core_clone (TestFixture *f, gconstpointer data)
   g_assert_nonnull (clone);
   g_assert_false (wp_core_is_connected (clone));
 
+  g_signal_connect (f->base.core, "connected",
+      G_CALLBACK (expect_connected), f);
+  g_signal_connect (clone, "connected",
+      G_CALLBACK (expect_connected), f);
+
   /* connect clone */
   g_assert_true (wp_core_connect (clone));
+  g_main_loop_run (f->base.loop);
   g_assert_true (wp_core_is_connected (clone));
   g_assert_false (wp_core_is_connected (f->base.core));
 
   /* connect core */
   g_assert_true (wp_core_connect (f->base.core));
+  g_main_loop_run (f->base.loop);
   g_assert_true (wp_core_is_connected (clone));
   g_assert_true (wp_core_is_connected (f->base.core));
 
@@ -142,7 +161,7 @@ main (gint argc, gchar *argv[])
       test_core_setup, test_core_server_disconnected, test_core_teardown);
   g_test_add ("/wp/core/client-disconnected", TestFixture, NULL,
       test_core_setup, test_core_client_disconnected, test_core_teardown);
-  g_test_add ("/wp/core/cline", TestFixture, NULL,
+  g_test_add ("/wp/core/clone", TestFixture, NULL,
       test_core_setup, test_core_clone, test_core_teardown);
 
   return g_test_run ();
