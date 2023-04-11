@@ -111,7 +111,18 @@ wp_init_transition_get_next_step (WpTransition * transition, guint step)
 {
   switch (step) {
   case WP_TRANSITION_STEP_NONE:     return STEP_CONNECT;
-  case STEP_CONNECT:                return STEP_CHECK_MEDIA_SESSION;
+  case STEP_CONNECT: {
+    WpCore *core = wp_transition_get_source_object (transition);
+    WpCore *export_core =
+        g_object_get_data (G_OBJECT (core), "wireplumber.export-core");
+
+    if (wp_core_is_connected (core) &&
+        (!export_core || wp_core_is_connected (export_core))) {
+      return STEP_CHECK_MEDIA_SESSION;
+    } else {
+      return STEP_CONNECT;
+    }
+  }
   case STEP_CHECK_MEDIA_SESSION:    return STEP_PARSE_COMPONENTS;
   case STEP_PARSE_COMPONENTS:       return STEP_LOAD_ENABLE_COMPONENTS;
   case STEP_LOAD_ENABLE_COMPONENTS: return STEP_CLEANUP;
@@ -363,6 +374,9 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
       wp_core_update_properties (export_core, wp_properties_new (
             PW_KEY_APP_NAME, export_core_name,
             NULL));
+
+      g_signal_connect_object (export_core, "connected",
+          G_CALLBACK (wp_transition_advance), transition, G_CONNECT_SWAPPED);
 
       if (!wp_core_connect (export_core)) {
         wp_transition_return_error (transition, g_error_new (
