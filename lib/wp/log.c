@@ -178,8 +178,15 @@ static GString *spa_dbg_str = NULL;
 static gsize initialized = 0;
 static gboolean use_color = FALSE;
 static gboolean output_is_journal = FALSE;
-static GPatternSpec **enabled_categories = NULL;
-static gint enabled_level = 4; /* MESSAGE */
+
+struct log_topic_pattern
+{
+  GPatternSpec *spec;
+  gint log_level;
+};
+
+static struct log_topic_pattern *patterns = NULL;
+static gint global_log_level = 4; /* MESSAGE */
 
 struct common_fields
 {
@@ -387,7 +394,7 @@ extract_common_fields (struct common_fields *cf, const GLogField *fields,
 gboolean
 wp_log_level_is_enabled (GLogLevelFlags log_level)
 {
-  return log_level_index (log_level) <= enabled_level;
+  return TRUE;
 }
 
 static gint
@@ -404,77 +411,94 @@ level_index_from_string (const char *str)
 }
 
 /*!
- * \brief Configures the log level and enabled categories
+ * \brief Configures the log level and enabled topics
  * \ingroup wplog
  * \param level_str a log level description string as it would appear in the
- *   WIREPLUMBER_DEBUG environment variable "level:category1,category2"
+ *   WIREPLUMBER_DEBUG environment variable "[<glob>:]<level>,...,"
  */
 void
 wp_log_set_level (const gchar * level_str)
 {
-  gint n_tokens = 0;
-  gchar **tokens = NULL;
-  gchar **categories = NULL;
+  struct log_topic_pattern *pttrn;
 
   /* reset to defaults */
-  enabled_level = 4; /* MESSAGE */
-  if (enabled_categories) {
-    GPatternSpec **pspec = enabled_categories;
-    for (; *pspec != NULL; pspec++)
-      g_pattern_spec_free (*pspec);
-    g_clear_pointer (&enabled_categories, g_free);
+  global_log_level = 4; /* MESSAGE */
+  if (patterns) {
+    pttrn = patterns;
+    for (; pttrn != NULL; pttrn++)
+      g_pattern_spec_free (pttrn->spec);
+    g_clear_pointer (&patterns, g_free);
   }
 
   if (level_str && level_str[0] != '\0') {
-    /* level:category1,category2 */
-    tokens = pw_split_strv (level_str, ":", 2, &n_tokens);
+    gint n_tokens = 0;
+    gchar **tokens = NULL;
 
-    /* set the log level */
-    enabled_level = level_index_from_string (tokens[0]);
-
-    /* enable filtering of debug categories */
-    if (n_tokens > 1) {
-      categories = pw_split_strv (tokens[1], ",", INT_MAX, &n_tokens);
-
-      /* alloc space to hold the GPatternSpec pointers */
-      enabled_categories = g_malloc_n ((n_tokens + 1), sizeof (gpointer));
-      if (!enabled_categories)
+    /* [<glob>:]<level>,..., */
+    tokens = pw_split_strv (level_str, ",", INT_MAX, &n_tokens);
+    if (n_tokens > 0) {
+      /* allocate enough space to hold all pattern specs */
+      patterns = g_malloc_n ((n_tokens + 1), sizeof (struct log_topic_pattern));
+      pttrn = patterns;
+      if (!patterns)
         g_error ("out of memory");
 
-      for (gint i = 0; i < n_tokens; i++)
-        enabled_categories[i] = g_pattern_spec_new (categories[i]);
-      enabled_categories[n_tokens] = NULL;
+      for (gint i = 0; i < n_tokens; i++) {
+        gint n_tok;
+        gchar **tok;
+        gint lvl;
+
+        tok = pw_split_strv (tokens[i], ":", 2, &n_tok);
+        if (n_tok == 2 && (lvl = level_index_from_string (tok[1]))) {
+          pttrn->spec = g_pattern_spec_new (tok[0]);
+          pttrn->log_level = lvl;
+          pttrn++;
+        } else if (n_tok == 1 && (lvl = level_index_from_string (tok[0]))) {
+          global_log_level = lvl;
+        } else {
+          pw_log_warn("Ignoring invalid format in WIREPLUMBER_DEBUG: '%s'",
+              tokens[i]);
+        }
+
+        pw_free_strv (tok);
+      }
+
+      /* terminate with NULL */
+      pttrn->spec = NULL;
+      pttrn->log_level = 0;
     }
+    pw_free_strv (tokens);
   }
 
   /* set the log level also on the spa_log */
-  wp_spa_log_get_instance()->level = level_index_to_spa (enabled_level);
-
-  if (categories)
-    pw_free_strv (categories);
-  if (tokens)
-    pw_free_strv (tokens);
+  wp_spa_log_get_instance()->level = level_index_to_spa (global_log_level);
 }
 
-static gboolean
-is_category_enabled(const gchar *log_domain)
+static gint
+find_topic_log_level (const gchar *log_topic, bool *has_custom_level)
 {
-  GPatternSpec **cat = enabled_categories;
+  struct log_topic_pattern *pttrn = patterns;
   guint len;
-  g_autofree gchar *reverse_domain = NULL;
+  g_autofree gchar *reverse_topic = NULL;
+  gint log_level = global_log_level;
 
-  if (!enabled_categories)
-    return true;
+  /* reverse string and length required for pattern match */
+  len = strlen (log_topic);
+  reverse_topic = g_strreverse (g_strndup (log_topic, len));
 
-  len = strlen (log_domain);
-  reverse_domain = g_strreverse (g_strndup (log_domain, len));
+  while (pttrn && pttrn->spec &&
+        !g_pattern_match (pttrn->spec, len, log_topic, reverse_topic))
+    pttrn++;
 
-  cat = enabled_categories;
-  while (*cat && !g_pattern_match (*cat, len, log_domain, reverse_domain))
-    cat++;
+  if (pttrn && pttrn->spec) {
+    if (has_custom_level)
+      *has_custom_level = true;
+    log_level = pttrn->log_level;
+  } else if (has_custom_level) {
+    *has_custom_level = false;
+  }
 
-  /* NULL if we reached the end without matching */
-  return (*cat != NULL);
+  return log_level;
 }
 
 /*!
@@ -507,17 +531,13 @@ wp_log_writer_default (GLogLevelFlags log_level,
 
   cf.log_level = log_level_index (log_level);
 
-  /* check if debug level is enabled */
-  if (cf.log_level > enabled_level)
-    return G_LOG_WRITER_UNHANDLED;
-
   extract_common_fields (&cf, fields, n_fields);
 
   if (!cf.log_domain)
     cf.log_domain = "default";
 
-  /* check if debug category is enabled */
-  if (!is_category_enabled(cf.log_domain))
+  /* check if debug level & topic is enabled */
+  if (cf.log_level > find_topic_log_level (cf.log_domain, NULL))
     return G_LOG_WRITER_UNHANDLED;
 
   if (G_UNLIKELY (!cf.message))
@@ -671,12 +691,8 @@ wp_spa_log_log (void *object,
 static void
 wp_spa_log_topic_init (void *object, struct spa_log_topic *topic)
 {
-  if (is_category_enabled(topic->topic)) {
-    topic->has_custom_level = false;
-  } else {
-    topic->has_custom_level = true;
-    topic->level = SPA_LOG_LEVEL_NONE;
-  }
+  gint log_level = find_topic_log_level (topic->topic, &topic->has_custom_level);
+  topic->level = level_index_to_spa (log_level);
 }
 
 static const struct spa_log_methods wp_spa_log_methods = {
