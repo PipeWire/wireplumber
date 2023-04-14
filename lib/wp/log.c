@@ -232,10 +232,10 @@ static const struct {
   gchar priority[2];
   gchar color[8];
 } log_level_info[] = {
-  { 0,                   0,                  "U", "5", COLOR_BRIGHT_RED },
-  { G_LOG_LEVEL_ERROR,   0,                  "E", "3", COLOR_RED },
-  { G_LOG_LEVEL_CRITICAL,0,                  "C", "4", COLOR_BRIGHT_MAGENTA },
-  { G_LOG_LEVEL_WARNING, SPA_LOG_LEVEL_ERROR,"W", "4", COLOR_BRIGHT_YELLOW },
+  { 0,                   0,                  "U", "5", COLOR_BRIGHT_MAGENTA },
+  { G_LOG_LEVEL_ERROR,   0,                  "E", "3", COLOR_BRIGHT_RED },
+  { G_LOG_LEVEL_CRITICAL,SPA_LOG_LEVEL_ERROR,"C", "4", COLOR_RED },
+  { G_LOG_LEVEL_WARNING, SPA_LOG_LEVEL_WARN, "W", "4", COLOR_BRIGHT_YELLOW },
   { G_LOG_LEVEL_MESSAGE, SPA_LOG_LEVEL_WARN, "M", "5", COLOR_BRIGHT_GREEN },
   { G_LOG_LEVEL_INFO,    SPA_LOG_LEVEL_INFO, "I", "6", COLOR_GREEN },
   { G_LOG_LEVEL_DEBUG,   SPA_LOG_LEVEL_DEBUG,"D", "7", COLOR_BRIGHT_CYAN },
@@ -254,16 +254,27 @@ log_level_index (GLogLevelFlags log_level)
   return (logarithm >= 2 && logarithm <= 8) ? (logarithm - 1) : 0;
 }
 
+/* map a SPA_LOG_LEVEL_* to an index in the log_level_info table;
+   index 4 (G_LOG_LEVEL_MESSAGE) can never be returned */
 static G_GNUC_CONST inline gint
 level_index_from_spa (gint spa_lvl)
 {
-  return CLAMP (spa_lvl + 2, 0, (gint) G_N_ELEMENTS (log_level_info) - 1);
+  if (G_UNLIKELY (spa_lvl <= SPA_LOG_LEVEL_NONE))
+    return 0;
+  else if (spa_lvl < SPA_LOG_LEVEL_INFO)
+    return spa_lvl + 1;
+  else if (G_UNLIKELY (spa_lvl > SPA_LOG_LEVEL_TRACE))
+    return (gint) G_N_ELEMENTS (log_level_info) - 1;
+  else
+    return spa_lvl + 2;
 }
 
+/* map an index in the log_level_info table to a SPA_LOG_LEVEL_*
+   here, G_LOG_LEVEL_MESSAGE maps to SPA_LOG_LEVEL_WARN */
 static G_GNUC_CONST inline gint
 level_index_to_spa (gint lvl_index)
 {
-  return CLAMP (lvl_index - 2, 0, 5);
+  return log_level_info [lvl_index].spa_level;
 }
 
 static inline void
