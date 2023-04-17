@@ -373,7 +373,9 @@ function createDevice(parent, id, type, factory, properties)
 end
 
 function createMonitor()
-  local monitor = SpaDevice("api.bluez5.enum.dbus", config.properties)
+  local properties = config.properties
+  properties["api.bluez5.connection-info"] = true
+  local monitor = SpaDevice("api.bluez5.enum.dbus", properties)
   if monitor then
     monitor:connect("create-object", createDevice)
   else
