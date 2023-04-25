@@ -21,14 +21,13 @@
  *
  * Components can be:
  *  - WirePlumber modules (libraries that provide WpPlugin and WpSiFactory objects)
- *  - PipeWire modules (libraries that extend libpipewire)
  *  - Scripts (ex. lua scripts)
- *  - Configuration files
  *
  * The WirePlumber library provides built-in support for loading WirePlumber
- * and PipeWire modules, without a component loader. For other kinds of
- * components, like the lua scripts and config files, a component loader is
- * provided in by external WirePlumber module.
+ * modules, without a component loader. For other kinds of components,
+ * a component loader is meant to be provided in by some WirePlumber module.
+ * For Lua scripts specifically, a component loader is provided by the lua
+ * scripting module.
  */
 
 #define WP_MODULE_INIT_SYMBOL "wireplumber__module_init"
@@ -128,7 +127,6 @@ on_object_loaded (WpObject *object, GAsyncResult *res, gpointer data)
  * The \a type will determine which component loader to use. The following types
  * are built-in and will always work without a component loader:
  *  - "module" - Loads a WirePlumber module
- *  - "pw_module" - Loads a PipeWire module
  *
  * \ingroup wpcomponentloader
  * \param self the core
@@ -197,7 +195,6 @@ wp_core_load_component (WpCore * self, const gchar * component,
 /*!
  * \brief Finishes the operation started by wp_core_load_component().
  * This is meant to be called in the callback that was passed to that method.
- *
  *
  * \ingroup wpcomponentloader
  * \param self the component loader object
