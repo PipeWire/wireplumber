@@ -283,6 +283,27 @@ static const luaL_Reg core_funcs[] = {
 
 /* WpLog */
 
+typedef struct _WpLogTopic WpLuaLogTopic;
+
+static WpLuaLogTopic *
+wp_lua_log_topic_copy (WpLuaLogTopic *topic)
+{
+  WpLuaLogTopic *copy = g_new0 (WpLuaLogTopic, 1);
+  *copy = *topic;
+  g_ref_string_acquire ((char *) copy->topic_name);
+  return copy;
+}
+
+static void
+wp_lua_log_topic_free (WpLuaLogTopic *topic)
+{
+  g_ref_string_release ((char *) topic->topic_name);
+  g_free (topic);
+}
+
+G_DEFINE_BOXED_TYPE (WpLuaLogTopic, wp_lua_log_topic, wp_lua_log_topic_copy,
+    wp_lua_log_topic_free)
+
 static int
 log_log (lua_State *L, GLogLevelFlags lvl)
 {
@@ -292,21 +313,34 @@ log_log (lua_State *L, GLogLevelFlags lvl)
   gconstpointer instance = NULL;
   GType type = G_TYPE_INVALID;
   int index = 1;
+  WpLogTopic *topic = log_topic_lua_scripting;
 
-  if (!wp_log_topic_is_enabled (log_topic_lua_scripting, lvl))
+  /* if called with log topic object */
+  if (lua_istable (L, index)) {
+    if (lua_getmetatable (L, index)) {
+      lua_getfield (L, -1, "__topic");
+      if (wplua_isboxed (L, -1, wp_lua_log_topic_get_type ())) {
+        topic = wplua_toboxed (L, -1);
+      }
+      lua_pop (L, 2);
+    }
+    index++;
+  }
+
+  if (!wp_log_topic_is_enabled (topic, lvl))
     return 0;
 
   g_warn_if_fail (lua_getstack (L, 1, &ar) == 1);
   g_warn_if_fail (lua_getinfo (L, "nSl", &ar) == 1);
 
-  if (wplua_isobject (L, 1, G_TYPE_OBJECT)) {
-    instance = wplua_toobject (L, 1);
+  if (wplua_isobject (L, index, G_TYPE_OBJECT)) {
+    instance = wplua_toobject (L, index);
     type = G_TYPE_FROM_INSTANCE (instance);
     index++;
   }
-  else if (wplua_isboxed (L, 1, G_TYPE_BOXED)) {
-    instance = wplua_toboxed (L, 1);
-    type = wplua_gvalue_userdata_type (L, 1);
+  else if (wplua_isboxed (L, index, G_TYPE_BOXED)) {
+    instance = wplua_toboxed (L, index);
+    type = wplua_gvalue_userdata_type (L, index);
     index++;
   }
 
@@ -314,7 +348,7 @@ log_log (lua_State *L, GLogLevelFlags lvl)
   snprintf (line_str, 11, "%d", ar.currentline);
   ar.name = ar.name ? ar.name : "chunk";
 
-  wp_log_checked (log_topic_lua_scripting->topic_name, lvl,
+  wp_log_checked (topic->topic_name, lvl,
       ar.source, line_str, ar.name, type, instance, "%s", message);
   return 0;
 }
@@ -334,7 +368,36 @@ log_debug (lua_State *L) { return log_log (L, G_LOG_LEVEL_DEBUG); }
 static int
 log_trace (lua_State *L) { return log_log (L, WP_LOG_LEVEL_TRACE); }
 
+static const luaL_Reg log_obj_funcs[] = {
+  { "warning", log_warning },
+  { "message", log_message },
+  { "info", log_info },
+  { "debug", log_debug },
+  { "trace", log_trace },
+  { NULL, NULL }
+};
+
+static int
+log_open_topic (lua_State *L)
+{
+  const char *name = luaL_checkstring (L, 1);
+
+  WpLuaLogTopic *topic = g_new0 (WpLuaLogTopic, 1);
+  topic->topic_name = g_ref_string_new (name);
+  wp_log_topic_init (topic);
+
+  lua_newtable (L); // empty table
+  lua_newtable (L); // metatable
+  luaL_newlib (L, log_obj_funcs);
+  lua_setfield (L, -2, "__index");
+  wplua_pushboxed (L, wp_lua_log_topic_get_type (), topic);
+  lua_setfield (L, -2, "__topic");
+  lua_setmetatable (L, -2);
+  return 1;
+}
+
 static const luaL_Reg log_funcs[] = {
+  { "open_topic", log_open_topic },
   { "warning", log_warning },
   { "message", log_message },
   { "info", log_info },
