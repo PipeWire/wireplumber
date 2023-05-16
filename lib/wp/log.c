@@ -239,14 +239,14 @@ static const struct {
   gchar priority[2];
   gchar color[8];
 } log_level_info[] = {
-  { 0,                   0,                  "U", "5", COLOR_BRIGHT_MAGENTA },
-  { G_LOG_LEVEL_ERROR,   0,                  "E", "3", COLOR_BRIGHT_RED },
-  { G_LOG_LEVEL_CRITICAL,SPA_LOG_LEVEL_ERROR,"C", "4", COLOR_RED },
-  { G_LOG_LEVEL_WARNING, SPA_LOG_LEVEL_WARN, "W", "4", COLOR_BRIGHT_YELLOW },
-  { G_LOG_LEVEL_MESSAGE, SPA_LOG_LEVEL_WARN, "M", "5", COLOR_BRIGHT_GREEN },
-  { G_LOG_LEVEL_INFO,    SPA_LOG_LEVEL_INFO, "I", "6", COLOR_GREEN },
-  { G_LOG_LEVEL_DEBUG,   SPA_LOG_LEVEL_DEBUG,"D", "7", COLOR_BRIGHT_CYAN },
-  { WP_LOG_LEVEL_TRACE,  SPA_LOG_LEVEL_TRACE,"T", "7", COLOR_CYAN },
+  { 0,                   0,                  "U", "0", COLOR_BRIGHT_MAGENTA },
+  { G_LOG_LEVEL_ERROR,   0,                  "E", "3" /* LOG_ERR */, COLOR_BRIGHT_RED },
+  { G_LOG_LEVEL_CRITICAL,SPA_LOG_LEVEL_ERROR,"C", "4" /* LOG_WARNING */, COLOR_RED },
+  { G_LOG_LEVEL_WARNING, SPA_LOG_LEVEL_WARN, "W", "4" /* LOG_WARNING */, COLOR_BRIGHT_YELLOW },
+  { G_LOG_LEVEL_MESSAGE, SPA_LOG_LEVEL_WARN, "M", "5" /* LOG_NOTICE */, COLOR_BRIGHT_GREEN },
+  { G_LOG_LEVEL_INFO,    SPA_LOG_LEVEL_INFO, "I", "6" /* LOG_INFO */, COLOR_GREEN },
+  { G_LOG_LEVEL_DEBUG,   SPA_LOG_LEVEL_DEBUG,"D", "7" /* LOG_DEBUG */, COLOR_BRIGHT_CYAN },
+  { WP_LOG_LEVEL_TRACE,  SPA_LOG_LEVEL_TRACE,"T", "7" /* LOG_DEBUG */, COLOR_CYAN },
 };
 
 /* map glib's log levels, which are flags in the range (1<<2) to (1<<8),
