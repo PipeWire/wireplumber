@@ -6,9 +6,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "lua.h"
+#include "../common/test-log.h"
 #include <wplua/wplua.h>
-#include <wp/wp.h>
 
 enum {
   PROP_0,

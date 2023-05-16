@@ -6,7 +6,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <wp/wp.h>
+#include "../common/test-log.h"
 #include <spa/utils/type-info.h>
 
 static void

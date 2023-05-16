@@ -8,6 +8,8 @@
 
 #include <wp/wp.h>
 
+WP_DEFINE_LOCAL_LOG_TOPIC ("m-portal-permissionstore")
+
 #define DBUS_INTERFACE_NAME "org.freedesktop.impl.portal.PermissionStore"
 #define DBUS_OBJECT_PATH "/org/freedesktop/impl/portal/PermissionStore"
 

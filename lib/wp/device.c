@@ -6,8 +6,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-device"
-
 #include "device.h"
 #include "node.h"
 #include "core.h"
@@ -19,6 +17,8 @@
 #include <spa/debug/types.h>
 #include <spa/monitor/device.h>
 #include <spa/utils/result.h>
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-device")
 
 /*! \defgroup wpdevice WpDevice */
 /*!

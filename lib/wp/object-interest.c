@@ -6,8 +6,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-object-interest"
-
 #include "object-interest.h"
 #include "global-proxy.h"
 #include "session-item.h"
@@ -17,6 +15,8 @@
 #include "error.h"
 
 #include <pipewire/pipewire.h>
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-object-interest")
 
 /*! \defgroup wpobjectinterest WpObjectInterest */
 /*!

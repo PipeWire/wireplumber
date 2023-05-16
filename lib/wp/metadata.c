@@ -6,8 +6,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-metadata"
-
 #include "metadata.h"
 #include "core.h"
 #include "log.h"
@@ -17,6 +15,8 @@
 #include <pipewire/impl.h>
 #include <pipewire/pipewire.h>
 #include <pipewire/extensions/metadata.h>
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-metadata")
 
 /*! \defgroup wpmetadata WpMetadata */
 /*!

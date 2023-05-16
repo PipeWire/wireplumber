@@ -6,11 +6,12 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-link"
-
 #include "link.h"
+#include "log.h"
 #include "wpenums.h"
 #include "private/pipewire-object-mixin.h"
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-link")
 
 /*! \defgroup wplink WpLink */
 /*!

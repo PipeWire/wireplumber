@@ -6,8 +6,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-node"
-
 #include "node.h"
 #include "core.h"
 #include "object-manager.h"
@@ -16,6 +14,8 @@
 #include "private/pipewire-object-mixin.h"
 
 #include <pipewire/impl.h>
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-node")
 
 /*! \defgroup wpnode WpNode */
 /*!

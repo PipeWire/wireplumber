@@ -12,6 +12,8 @@
 #include <stdio.h>
 #include <locale.h>
 
+WP_DEFINE_LOCAL_LOG_TOPIC ("wpexec")
+
 #define WP_DOMAIN_DAEMON (wp_domain_daemon_quark ())
 static G_DEFINE_QUARK (wireplumber-daemon, wp_domain_daemon);
 
@@ -237,12 +239,6 @@ main (gint argc, gchar **argv)
           NULL));
   g_signal_connect_swapped (d.core, "disconnected",
       G_CALLBACK (g_main_loop_quit), d.loop);
-
-  /* at the very least, enable warnings...
-     this is required to spot lua runtime errors, otherwise
-     there is silence and nothing is happening */
-  if (!wp_log_level_is_enabled (G_LOG_LEVEL_WARNING))
-    wp_log_set_level ("1");
 
   /* watch for exit signals */
   g_unix_signal_add (SIGINT, signal_handler, &d);

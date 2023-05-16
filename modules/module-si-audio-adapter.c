@@ -15,6 +15,8 @@
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/param.h>
 
+WP_DEFINE_LOCAL_LOG_TOPIC ("m-si-audio-adapter")
+
 #define SI_FACTORY_NAME "si-audio-adapter"
 
 struct _WpSiAudioAdapter

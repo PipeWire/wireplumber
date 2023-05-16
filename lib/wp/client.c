@@ -6,10 +6,11 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-client"
-
 #include "client.h"
+#include "log.h"
 #include "private/pipewire-object-mixin.h"
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-client")
 
 /*! \defgroup wpclient WpClient */
 /*!

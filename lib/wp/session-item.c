@@ -6,12 +6,12 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-si"
-
 #include "session-item.h"
 #include "log.h"
 #include "error.h"
 #include "private/registry.h"
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-si")
 
 /*! \defgroup wpsessionitem WpSessionItem */
 /*!

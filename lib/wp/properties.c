@@ -6,12 +6,13 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-properties"
-
 #include "properties.h"
+#include "log.h"
 
 #include <errno.h>
 #include <pipewire/properties.h>
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-properties")
 
 /*! \defgroup wpproperties WpProperties */
 /*!

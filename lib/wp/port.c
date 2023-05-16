@@ -6,10 +6,11 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-port"
-
 #include "port.h"
+#include "log.h"
 #include "private/pipewire-object-mixin.h"
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-port")
 
 /*! \defgroup wpport WpPort */
 /*!

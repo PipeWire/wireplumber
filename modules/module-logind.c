@@ -14,6 +14,8 @@
 #include <spa/utils/result.h>
 #include <spa/utils/string.h>
 
+WP_DEFINE_LOCAL_LOG_TOPIC ("m-logind")
+
 #define NAME "logind"
 
 struct _WpLogind

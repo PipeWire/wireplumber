@@ -6,12 +6,13 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-spa-json"
+#include "spa-json.h"
+#include "log.h"
 
 #include <spa/utils/defs.h>
 #include <spa/utils/json.h>
 
-#include "spa-json.h"
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-spa-json")
 
 #define WP_SPA_JSON_STRING_INIT_SIZE 64
 #define WP_SPA_JSON_BUILDER_INIT_SIZE 64

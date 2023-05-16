@@ -6,10 +6,11 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-proxy-ifaces"
-
 #include "proxy-interfaces.h"
 #include "properties.h"
+#include "log.h"
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-proxy-ifaces")
 
 /*! \defgroup wppipewireobject WpPipewireObject */
 /*!

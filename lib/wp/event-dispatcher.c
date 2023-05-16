@@ -6,14 +6,14 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-event-dispatcher"
-
 #include "event-dispatcher.h"
 #include "private/registry.h"
 #include "log.h"
 
 #include <spa/support/plugin.h>
 #include <spa/support/system.h>
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-event-dispatcher")
 
 typedef struct _EventData EventData;
 struct _EventData

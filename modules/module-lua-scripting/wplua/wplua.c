@@ -10,6 +10,8 @@
 #include "private.h"
 #include <wp/wp.h>
 
+WP_LOG_TOPIC (log_topic_wplua, "wplua")
+
 #define URI_SANDBOX "resource:///org/freedesktop/pipewire/wireplumber/wplua/sandbox.lua"
 
 extern void _wplua_register_resource (void);

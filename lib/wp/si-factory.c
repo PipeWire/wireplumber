@@ -6,10 +6,11 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-si-factory"
-
 #include "si-factory.h"
 #include "private/registry.h"
+#include "log.h"
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-si-factory")
 
 /*! \defgroup wpsifactory WpSiFactory */
 /*!

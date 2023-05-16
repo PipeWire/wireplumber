@@ -6,14 +6,14 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-settings"
-
 #include "core.h"
 #include "settings.h"
 #include "metadata.h"
 #include "log.h"
 #include "object-manager.h"
 #include "private/registry.h"
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-settings")
 
 /*! \defgroup wpsettings WpSettings */
 /*!

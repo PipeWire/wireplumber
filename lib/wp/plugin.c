@@ -6,11 +6,11 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-plugin"
-
 #include "plugin.h"
 #include "log.h"
 #include "private/registry.h"
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-plugin")
 
 /*! \defgroup wpplugin WpPlugin */
 /*!

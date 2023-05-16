@@ -8,6 +8,8 @@
 
 #include <wp/wp.h>
 
+WP_DEFINE_LOCAL_LOG_TOPIC ("m-standard-event-source")
+
 /*
  * Module subscribes for certain object manager events to and pushes them as
  * events on to the Event Stack.

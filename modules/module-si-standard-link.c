@@ -11,6 +11,8 @@
 #include <spa/debug/types.h>
 #include <spa/param/audio/type-info.h>
 
+WP_DEFINE_LOCAL_LOG_TOPIC ("m-si-standard-link")
+
 #define SI_FACTORY_NAME "si-standard-link"
 
 struct _WpSiStandardLink

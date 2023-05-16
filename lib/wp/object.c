@@ -6,14 +6,14 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-object"
-
 #include <spa/utils/defs.h>
 
 #include "object.h"
 #include "log.h"
 #include "core.h"
 #include "error.h"
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-object")
 
 /*! \defgroup wpfeatureactivationtransition WpFeatureActivationTransition */
 /*!

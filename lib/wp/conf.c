@@ -6,14 +6,15 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-conf"
-#define OVERRIDE_SECTION_PREFIX "override."
-
 #include "core.h"
 #include "conf.h"
 #include "log.h"
 #include "object-interest.h"
 #include "private/registry.h"
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-conf")
+
+#define OVERRIDE_SECTION_PREFIX "override."
 
 /*! \defgroup wpconf WpConf */
 /*!

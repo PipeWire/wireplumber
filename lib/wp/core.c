@@ -6,8 +6,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-core"
-
 #include "core.h"
 #include "wp.h"
 #include "private/registry.h"
@@ -17,6 +15,8 @@
 #include <spa/utils/result.h>
 #include <spa/debug/types.h>
 #include <spa/support/cpu.h>
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-core")
 
 /*
  * Integration between the PipeWire main loop and GMainLoop

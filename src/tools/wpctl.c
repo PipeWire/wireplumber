@@ -13,6 +13,8 @@
 #include <pipewire/keys.h>
 #include <pipewire/extensions/session-manager/keys.h>
 
+WP_DEFINE_LOCAL_LOG_TOPIC ("wpctl")
+
 static const gchar *DEFAULT_NODE_MEDIA_CLASSES[] = {
   "Audio/Sink",
   "Audio/Source",

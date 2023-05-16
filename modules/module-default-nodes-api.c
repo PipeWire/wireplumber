@@ -10,6 +10,8 @@
 #include <spa/utils/defs.h>
 #include <pipewire/keys.h>
 
+WP_DEFINE_LOCAL_LOG_TOPIC ("m-default-nodes-api")
+
 /*
  * Module Provides the APIs to query the default device nodes. Module looks at
  * the default metadata to know the default devices.

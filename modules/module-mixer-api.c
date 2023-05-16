@@ -12,6 +12,8 @@
 #include <spa/pod/iter.h>
 #include <spa/param/audio/raw.h>
 
+WP_DEFINE_LOCAL_LOG_TOPIC ("m-mixer-api")
+
 struct volume {
   uint8_t channels;
   float values[SPA_AUDIO_MAX_CHANNELS];

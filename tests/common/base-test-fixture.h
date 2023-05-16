@@ -7,6 +7,7 @@
  */
 
 #include "test-server.h"
+#include "test-log.h"
 #include <wp/wp.h>
 
 typedef enum {

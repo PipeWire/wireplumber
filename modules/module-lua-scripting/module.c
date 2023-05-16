@@ -12,6 +12,9 @@
 
 #include "script.h"
 
+#define WP_LOCAL_LOG_TOPIC log_topic_lua_scripting
+WP_LOG_TOPIC (log_topic_lua_scripting, "m-lua-scripting")
+
 void wp_lua_scripting_api_init (lua_State *L);
 
 struct _WpLuaScriptingPlugin

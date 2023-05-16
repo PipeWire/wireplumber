@@ -6,12 +6,12 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-comp-loader"
-
 #include "component-loader.h"
 #include "wp.h"
 #include "private/registry.h"
 #include <pipewire/impl.h>
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-comp-loader")
 
 /*! \defgroup wpcomponentloader WpComponentLoader */
 /*!

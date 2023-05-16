@@ -10,6 +10,8 @@
 #include "reserve-device.h"
 #include "reserve-device-enums.h"
 
+WP_LOG_TOPIC (log_topic_rd, "m-reserve-device")
+
 G_DEFINE_TYPE (WpReserveDevicePlugin, wp_reserve_device_plugin, WP_TYPE_PLUGIN)
 
 enum

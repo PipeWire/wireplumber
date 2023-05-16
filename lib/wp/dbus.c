@@ -6,12 +6,12 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-dbus"
-
 #include "private/registry.h"
 #include "log.h"
 #include "wpenums.h"
 #include "dbus.h"
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-dbus")
 
 enum {
   STEP_DBUS_ENABLE = WP_TRANSITION_STEP_CUSTOM_START,

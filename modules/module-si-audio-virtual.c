@@ -12,6 +12,8 @@
 #include <spa/param/audio/raw.h>
 #include <spa/param/param.h>
 
+WP_DEFINE_LOCAL_LOG_TOPIC ("m-si-audio-virtual")
+
 #define SI_FACTORY_NAME "si-audio-virtual"
 
 struct _WpSiAudioVirtual

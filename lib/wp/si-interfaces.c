@@ -6,10 +6,11 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-si-interfaces"
-
 #include "si-interfaces.h"
 #include "wpenums.h"
+#include "log.h"
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-si-interfaces")
 
 /*! \defgroup wpsiinterfaces Session Item Interfaces */
 

@@ -9,6 +9,9 @@
 #include <wp/wp.h>
 #include <wplua/wplua.h>
 
+#define WP_LOCAL_LOG_TOPIC log_topic_lua_scripting
+WP_LOG_TOPIC_EXTERN (log_topic_lua_scripting)
+
 struct _WpRequireApiTransition
 {
   WpTransition parent;

@@ -13,6 +13,9 @@
 
 G_BEGIN_DECLS
 
+#define WP_LOCAL_LOG_TOPIC log_topic_rd
+WP_LOG_TOPIC_EXTERN (log_topic_rd)
+
 #define FDO_RESERVE_DEVICE1_SERVICE "org.freedesktop.ReserveDevice1"
 #define FDO_RESERVE_DEVICE1_PATH "/org/freedesktop/ReserveDevice1"
 

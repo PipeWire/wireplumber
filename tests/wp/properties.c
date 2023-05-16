@@ -6,7 +6,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <wp/wp.h>
+#include "../common/test-log.h"
 #include <pipewire/pipewire.h>
 
 static void

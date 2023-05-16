@@ -6,13 +6,13 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-event-hook"
-
 #include "event-hook.h"
 #include "event-dispatcher.h"
 #include "transition.h"
 #include "log.h"
 #include "wpenums.h"
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-event-hook")
 
 typedef struct _WpEventHookPrivate WpEventHookPrivate;
 struct _WpEventHookPrivate

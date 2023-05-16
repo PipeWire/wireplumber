@@ -11,6 +11,8 @@
 #include <pipewire/pipewire.h>
 #include <locale.h>
 
+WP_DEFINE_LOCAL_LOG_TOPIC ("wireplumber")
+
 #define WP_DOMAIN_DAEMON (wp_domain_daemon_quark ())
 static G_DEFINE_QUARK (wireplumber-daemon, wp_domain_daemon);
 

@@ -12,6 +12,9 @@
 #include <wplua/wplua.h>
 #include <libintl.h>
 
+#define WP_LOCAL_LOG_TOPIC log_topic_lua_scripting
+WP_LOG_TOPIC_EXTERN (log_topic_lua_scripting)
+
 #define URI_API "resource:///org/freedesktop/pipewire/wireplumber/m-lua-scripting/api.lua"
 
 void wp_lua_scripting_pod_init (lua_State *L);
@@ -284,14 +287,13 @@ static int
 log_log (lua_State *L, GLogLevelFlags lvl)
 {
   lua_Debug ar = {0};
-  const gchar *message, *tmp;
-  gchar domain[25];
+  const gchar *message;
   gchar line_str[11];
   gconstpointer instance = NULL;
   GType type = G_TYPE_INVALID;
   int index = 1;
 
-  if (!wp_log_level_is_enabled (lvl))
+  if (!wp_log_topic_is_enabled (log_topic_lua_scripting, lvl))
     return 0;
 
   g_warn_if_fail (lua_getstack (L, 1, &ar) == 1);
@@ -309,14 +311,10 @@ log_log (lua_State *L, GLogLevelFlags lvl)
   }
 
   message = luaL_checkstring (L, index);
-  tmp = ar.source ? g_strrstr (ar.source, ".lua") : NULL;
-  snprintf (domain, 25, "script/%.*s",
-      tmp ? MIN((gint)(tmp - ar.source), 17) : 17,
-      ar.source);
   snprintf (line_str, 11, "%d", ar.currentline);
   ar.name = ar.name ? ar.name : "chunk";
 
-  wp_log_structured_standard (domain, lvl,
+  wp_log_checked (log_topic_lua_scripting->topic_name, lvl,
       ar.source, line_str, ar.name, type, instance, "%s", message);
   return 0;
 }

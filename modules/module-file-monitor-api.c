@@ -10,6 +10,8 @@
 
 #include <wp/wp.h>
 
+WP_DEFINE_LOCAL_LOG_TOPIC ("m-file-monitor-api")
+
 struct _WpFileMonitorApi
 {
   WpPlugin parent;

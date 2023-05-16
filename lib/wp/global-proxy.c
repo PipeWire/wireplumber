@@ -6,12 +6,13 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-global-proxy"
-
 #include "global-proxy.h"
 #include "private/registry.h"
 #include "core.h"
 #include "error.h"
+#include "log.h"
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-global-proxy")
 
 /*! \defgroup wpglobalproxy WpGlobalProxy */
 /*!

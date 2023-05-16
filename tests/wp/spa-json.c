@@ -6,7 +6,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <wp/wp.h>
+#include "../common/test-log.h"
 
 static void
 test_spa_json_basic (void)

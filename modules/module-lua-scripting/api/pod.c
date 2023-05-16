@@ -11,6 +11,9 @@
 
 #include <spa/utils/type.h>
 
+#define WP_LOCAL_LOG_TOPIC log_topic_lua_scripting
+WP_LOG_TOPIC_EXTERN (log_topic_lua_scripting)
+
 #define MAX_LUA_TYPES 9
 
 /* Builder */

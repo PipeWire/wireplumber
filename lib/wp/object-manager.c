@@ -6,14 +6,14 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-object-manager"
-
 #include "object-manager.h"
 #include "log.h"
 #include "proxy-interfaces.h"
 #include "private/registry.h"
 
 #include <pipewire/pipewire.h>
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-object-manager")
 
 /*! \defgroup wpobjectmanager WpObjectManager */
 /*!

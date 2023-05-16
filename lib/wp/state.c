@@ -6,14 +6,14 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-state"
-
 #include <stdio.h>
 #include <errno.h>
 
 #include "log.h"
 #include "state.h"
 #include "wp.h"
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-state")
 
 #define ESCAPED_CHARACTER '\\'
 

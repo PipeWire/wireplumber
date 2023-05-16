@@ -6,7 +6,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <wp/wp.h>
+#include "../common/test-log.h"
 
 enum {
   STEP_FIRST = WP_TRANSITION_STEP_CUSTOM_START,

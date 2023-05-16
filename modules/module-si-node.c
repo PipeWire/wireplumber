@@ -11,6 +11,8 @@
 #include <pipewire/properties.h>
 #include <pipewire/extensions/session-manager/keys.h>
 
+WP_DEFINE_LOCAL_LOG_TOPIC ("m-si-node")
+
 #define SI_FACTORY_NAME "si-node"
 
 struct _WpSiNode

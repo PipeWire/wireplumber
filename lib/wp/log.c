@@ -12,6 +12,8 @@
 #include <pipewire/pipewire.h>
 #include <spa/support/log.h>
 
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-log")
+
 /*!
  * \defgroup wplog Debug Logging
  * \{
@@ -188,19 +190,6 @@ struct log_topic_pattern
 static struct log_topic_pattern *patterns = NULL;
 static gint global_log_level = 4; /* MESSAGE */
 
-struct common_fields
-{
-  const gchar *log_domain;
-  const gchar *file;
-  const gchar *line;
-  const gchar *func;
-  const gchar *message;
-  GLogField *message_field;
-  gint log_level;
-  GType object_type;
-  gconstpointer object;
-};
-
 /* reference: https://en.wikipedia.org/wiki/ANSI_escape_code#3/4_bit */
 #define COLOR_RED            "\033[1;31m"
 #define COLOR_GREEN          "\033[1;32m"
@@ -233,7 +222,7 @@ static const gchar *object_colors[] = {
  * reference: http://man7.org/linux/man-pages/man3/syslog.3.html#DESCRIPTION
  */
 static const struct {
-  GLogLevelFlags log_level;
+  GLogLevelFlags log_level_flags;
   enum spa_log_level spa_level;
   gchar name[6];
   gchar priority[2];
@@ -282,119 +271,6 @@ static G_GNUC_CONST inline gint
 level_index_to_spa (gint lvl_index)
 {
   return log_level_info [lvl_index].spa_level;
-}
-
-static inline void
-write_debug_message (FILE *s, struct common_fields *cf)
-{
-  gint64 now;
-  time_t now_secs;
-  struct tm now_tm;
-  gchar time_buf[128];
-
-  now = g_get_real_time ();
-  now_secs = (time_t) (now / G_USEC_PER_SEC);
-  localtime_r (&now_secs, &now_tm);
-  strftime (time_buf, sizeof (time_buf), "%H:%M:%S", &now_tm);
-
-  fprintf (s, "%s%s %s.%06d %s%18.18s %s%s:%s:%s:%s %s\n",
-      /* level */
-      use_color ? log_level_info[cf->log_level].color : "",
-      log_level_info[cf->log_level].name,
-      /* timestamp */
-      time_buf,
-      (gint) (now % G_USEC_PER_SEC),
-      /* domain */
-      use_color ? DOMAIN_COLOR : "",
-      cf->log_domain,
-      /* file, line, function */
-      use_color ? LOCATION_COLOR : "",
-      cf->file,
-      cf->line,
-      cf->func,
-      use_color ? RESET_COLOR : "",
-      /* message */
-      cf->message);
-  fflush (s);
-}
-
-static inline gchar *
-format_message (struct common_fields *cf)
-{
-  g_autofree gchar *extra_message = NULL;
-  g_autofree gchar *extra_object = NULL;
-  const gchar *object_color = "";
-
-  if (use_color) {
-    guint h = g_direct_hash (cf->object) % G_N_ELEMENTS (object_colors);
-    object_color = object_colors[h];
-  }
-
-  if (cf->object_type == WP_TYPE_SPA_POD && cf->object && !spa_dbg_str) {
-    spa_dbg_str = g_string_new (cf->message);
-    g_string_append (spa_dbg_str, ":\n");
-    spa_debug_pod (2, NULL, wp_spa_pod_get_spa_pod (cf->object));
-    extra_message = g_string_free (spa_dbg_str, FALSE);
-    spa_dbg_str = NULL;
-  }
-  else if (cf->object && g_type_is_a (cf->object_type, WP_TYPE_PROXY) &&
-      (wp_object_get_active_features ((WpObject *) cf->object) & WP_PROXY_FEATURE_BOUND)) {
-    extra_object = g_strdup_printf (":%u:",
-        wp_proxy_get_bound_id ((WpProxy *) cf->object));
-  }
-
-  return g_strdup_printf ("%s<%s%s%p>%s %s",
-      object_color,
-      cf->object_type != 0 ? g_type_name (cf->object_type) : "",
-      extra_object ? extra_object : ":",
-      cf->object,
-      use_color ? RESET_COLOR : "",
-      extra_message ? extra_message : cf->message);
-}
-
-static inline void
-extract_common_fields (struct common_fields *cf, const GLogField *fields,
-    gsize n_fields)
-{
-  for (guint i = 0; i < n_fields; i++) {
-    if (g_strcmp0 (fields[i].key, "GLIB_DOMAIN") == 0) {
-      cf->log_domain = fields[i].value;
-    }
-    else if (g_strcmp0 (fields[i].key, "MESSAGE") == 0) {
-      cf->message = fields[i].value;
-      cf->message_field = (GLogField *) &fields[i];
-    }
-    else if (g_strcmp0 (fields[i].key, "CODE_FILE") == 0) {
-      cf->file = fields[i].value;
-    }
-    else if (g_strcmp0 (fields[i].key, "CODE_LINE") == 0) {
-      cf->line = fields[i].value;
-    }
-    else if (g_strcmp0 (fields[i].key, "CODE_FUNC") == 0) {
-      cf->func = fields[i].value;
-    }
-    else if (g_strcmp0 (fields[i].key, "WP_OBJECT_TYPE") == 0 &&
-        fields[i].length == sizeof (GType)) {
-      cf->object_type = *((GType *) fields[i].value);
-    }
-    else if (g_strcmp0 (fields[i].key, "WP_OBJECT") == 0 &&
-        fields[i].length == sizeof (gconstpointer)) {
-      cf->object = *((gconstpointer *) fields[i].value);
-    }
-  }
-}
-
-/*!
- * \brief Use this to figure out if a debug message is going to be printed or not,
- * so that you can avoid allocating resources just for debug logging purposes
- * \ingroup wplog
- * \param log_level a log level
- * \returns whether the log level is currently enabled
- */
-gboolean
-wp_log_level_is_enabled (GLogLevelFlags log_level)
-{
-  return TRUE;
 }
 
 static gint
@@ -502,21 +378,174 @@ find_topic_log_level (const gchar *log_topic, bool *has_custom_level)
 }
 
 /*!
- * \brief WirePlumber's GLogWriterFunc
- *
- * This is installed automatically when you call wp_init() with
- * WP_INIT_SET_GLIB_LOG set in the flags
+ * \brief Initializes a log topic. Internal function, don't use it directly
  * \ingroup wplog
  */
-GLogWriterOutput
-wp_log_writer_default (GLogLevelFlags log_level,
-    const GLogField *fields, gsize n_fields, gpointer user_data)
+void
+wp_log_topic_init (WpLogTopic *topic)
 {
-  struct common_fields cf = {0};
-  g_autofree gchar *full_message = NULL;
+  g_bit_lock (&topic->flags, 30);
+  if ((topic->flags & (1u << 31)) == 0) {
+    gint log_level = find_topic_log_level (topic->topic_name, NULL);
 
-  g_return_val_if_fail (fields != NULL, G_LOG_WRITER_UNHANDLED);
-  g_return_val_if_fail (n_fields > 0, G_LOG_WRITER_UNHANDLED);
+    /* write all the enabled log level flags on the flags variable */
+    for (gint i = 1; i <= log_level; i++) {
+      topic->flags |= log_level_info[i].log_level_flags;
+    }
+    topic->flags |= (1u << 31);
+  }
+  g_bit_unlock (&topic->flags, 30);
+}
+
+typedef struct _WpLogFields WpLogFields;
+struct _WpLogFields
+{
+  const gchar *log_topic;
+  const gchar *file;
+  const gchar *line;
+  const gchar *func;
+  const gchar *message;
+  gint log_level;
+  GType object_type;
+  gconstpointer object;
+};
+
+static void
+wp_log_fields_init (WpLogFields *lf,
+    const gchar *log_topic,
+    gint log_level,
+    const gchar *file,
+    const gchar *line,
+    const gchar *func,
+    GType object_type,
+    gconstpointer object,
+    const gchar *message)
+{
+  lf->log_topic = log_topic ? log_topic : "default";
+  lf->log_level = log_level;
+  lf->file = file;
+  lf->line = line;
+  lf->func = func;
+  lf->object_type = object_type;
+  lf->object = object;
+  lf->message = message ? message : "(null)";
+}
+
+static void
+wp_log_fields_init_from_glib (WpLogFields *lf, GLogLevelFlags log_level_flags,
+    const GLogField *fields, gsize n_fields)
+{
+  wp_log_fields_init (lf, NULL, log_level_index (log_level_flags),
+      NULL, NULL, NULL, 0, NULL, NULL);
+
+  for (guint i = 0; i < n_fields; i++) {
+    if (g_strcmp0 (fields[i].key, "GLIB_DOMAIN") == 0 && fields[i].value) {
+      lf->log_topic = fields[i].value;
+    }
+    else if (g_strcmp0 (fields[i].key, "MESSAGE") == 0 && fields[i].value) {
+      lf->message = fields[i].value;
+    }
+    else if (g_strcmp0 (fields[i].key, "CODE_FILE") == 0) {
+      lf->file = fields[i].value;
+    }
+    else if (g_strcmp0 (fields[i].key, "CODE_LINE") == 0) {
+      lf->line = fields[i].value;
+    }
+    else if (g_strcmp0 (fields[i].key, "CODE_FUNC") == 0) {
+      lf->func = fields[i].value;
+    }
+  }
+}
+
+static void
+wp_log_fields_write_to_stream (WpLogFields *lf, FILE *s)
+{
+  gint64 now;
+  time_t now_secs;
+  struct tm now_tm;
+  gchar time_buf[128];
+
+  now = g_get_real_time ();
+  now_secs = (time_t) (now / G_USEC_PER_SEC);
+  localtime_r (&now_secs, &now_tm);
+  strftime (time_buf, sizeof (time_buf), "%H:%M:%S", &now_tm);
+
+  fprintf (s, "%s%s %s.%06d %s%18.18s %s%s:%s:%s:%s %s\n",
+      /* level */
+      use_color ? log_level_info[lf->log_level].color : "",
+      log_level_info[lf->log_level].name,
+      /* timestamp */
+      time_buf,
+      (gint) (now % G_USEC_PER_SEC),
+      /* domain */
+      use_color ? DOMAIN_COLOR : "",
+      lf->log_topic,
+      /* file, line, function */
+      use_color ? LOCATION_COLOR : "",
+      lf->file,
+      lf->line,
+      lf->func,
+      use_color ? RESET_COLOR : "",
+      /* message */
+      lf->message);
+  fflush (s);
+}
+
+static gboolean
+wp_log_fields_write_to_journal (WpLogFields *lf)
+{
+  gsize n_fields = 6;
+  GLogField fields[6] = {
+    { "PRIORITY", log_level_info[lf->log_level].priority, -1 },
+    { "CODE_FILE", lf->file, -1 },
+    { "CODE_LINE", lf->line, -1 },
+    { "CODE_FUNC", lf->func, -1 },
+    { "TOPIC", lf->log_topic, -1 },
+    { "MESSAGE", lf->message, -1 },
+  };
+
+  /* the log level flags are not used in this function, so we can pass 0 */
+  return (g_log_writer_journald (0, fields, n_fields, NULL) == G_LOG_WRITER_HANDLED);
+}
+
+static inline gchar *
+wp_log_fields_format_message (WpLogFields *lf)
+{
+  g_autofree gchar *extra_message = NULL;
+  g_autofree gchar *extra_object = NULL;
+  const gchar *object_color = "";
+
+  if (use_color) {
+    guint h = g_direct_hash (lf->object) % G_N_ELEMENTS (object_colors);
+    object_color = object_colors[h];
+  }
+
+  if (lf->object_type == WP_TYPE_SPA_POD && lf->object && !spa_dbg_str) {
+    spa_dbg_str = g_string_new (lf->message);
+    g_string_append (spa_dbg_str, ":\n");
+    spa_debug_pod (2, NULL, wp_spa_pod_get_spa_pod (lf->object));
+    extra_message = g_string_free (spa_dbg_str, FALSE);
+    spa_dbg_str = NULL;
+  }
+  else if (lf->object && g_type_is_a (lf->object_type, WP_TYPE_PROXY) &&
+      (wp_object_get_active_features ((WpObject *) lf->object) & WP_PROXY_FEATURE_BOUND)) {
+    extra_object = g_strdup_printf (":%u:",
+        wp_proxy_get_bound_id ((WpProxy *) lf->object));
+  }
+
+  return g_strdup_printf ("%s<%s%s%p>%s %s",
+      object_color,
+      lf->object_type != 0 ? g_type_name (lf->object_type) : "",
+      extra_object ? extra_object : ":",
+      lf->object,
+      use_color ? RESET_COLOR : "",
+      extra_message ? extra_message : lf->message);
+}
+
+static GLogWriterOutput
+wp_log_fields_log (WpLogFields *lf)
+{
+  g_autofree gchar *full_message = NULL;
 
   /* in the unlikely event that someone messed with stderr... */
   if (G_UNLIKELY (!stderr || fileno (stderr) < 0))
@@ -529,43 +558,55 @@ wp_log_writer_default (GLogLevelFlags log_level,
     g_once_init_leave (&initialized, TRUE);
   }
 
-  cf.log_level = log_level_index (log_level);
-
-  extract_common_fields (&cf, fields, n_fields);
-
-  if (!cf.log_domain)
-    cf.log_domain = "default";
-
-  /* check if debug level & topic is enabled */
-  if (cf.log_level > find_topic_log_level (cf.log_domain, NULL))
-    return G_LOG_WRITER_UNHANDLED;
-
-  if (G_UNLIKELY (!cf.message))
-    cf.message_field->value = cf.message = "(null)";
-
   /* format the message to include the object */
-  if (cf.object_type) {
-    cf.message_field->value = cf.message = full_message =
-        format_message (&cf);
+  if (lf->object_type) {
+    lf->message = full_message = wp_log_fields_format_message (lf);
   }
 
   /* write complete field information to the journal if we are logging to it */
-  if (output_is_journal &&
-      g_log_writer_journald (log_level, fields, n_fields, user_data) == G_LOG_WRITER_HANDLED)
+  if (output_is_journal && wp_log_fields_write_to_journal (lf))
     return G_LOG_WRITER_HANDLED;
 
-  write_debug_message (stderr, &cf);
+  wp_log_fields_write_to_stream (lf, stderr);
   return G_LOG_WRITER_HANDLED;
 }
 
 /*!
+ * \brief WirePlumber's GLogWriterFunc
+ *
+ * This is installed automatically when you call wp_init() with
+ * WP_INIT_SET_GLIB_LOG set in the flags
+ * \ingroup wplog
+ */
+GLogWriterOutput
+wp_log_writer_default (GLogLevelFlags log_level_flags,
+    const GLogField *fields, gsize n_fields, gpointer user_data)
+{
+  WpLogFields lf = {0};
+
+  g_return_val_if_fail (fields != NULL, G_LOG_WRITER_UNHANDLED);
+  g_return_val_if_fail (n_fields > 0, G_LOG_WRITER_UNHANDLED);
+
+  wp_log_fields_init_from_glib (&lf, log_level_flags, fields, n_fields);
+
+  /* check if debug level & topic is enabled */
+  if (lf.log_level > find_topic_log_level (lf.log_topic, NULL))
+    return G_LOG_WRITER_HANDLED;
+
+  return wp_log_fields_log (&lf);
+}
+
+/*!
  * \brief Used internally by the debug logging macros. Avoid using it directly.
+ *
+ * This assumes that the arguments are correct and that the log_topic is
+ * enabled for the given log_level. No additional checks are performed.
  * \ingroup wplog
  */
 void
-wp_log_structured_standard (
-    const gchar *log_domain,
-    GLogLevelFlags log_level,
+wp_log_checked (
+    const gchar *log_topic,
+    GLogLevelFlags log_level_flags,
     const gchar *file,
     const gchar *line,
     const gchar *func,
@@ -574,43 +615,17 @@ wp_log_structured_standard (
     const gchar *message_format,
     ...)
 {
+  WpLogFields lf = {0};
   g_autofree gchar *message = NULL;
-  GLogField fields[8] = {
-    { "PRIORITY", log_level_info[log_level_index (log_level)].priority, -1 },
-    { "CODE_FILE", file, -1 },
-    { "CODE_LINE", line, -1 },
-    { "CODE_FUNC", func, -1 },
-    { "MESSAGE", NULL, -1 },
-  };
-  gsize n_fields = 5;
   va_list args;
 
-  if (log_domain != NULL) {
-    fields[n_fields].key = "GLIB_DOMAIN";
-    fields[n_fields].value = log_domain;
-    fields[n_fields].length = -1;
-    n_fields++;
-  }
-
-  if (object_type != 0) {
-    fields[n_fields].key = "WP_OBJECT_TYPE";
-    fields[n_fields].value = &object_type;
-    fields[n_fields].length = sizeof (GType);
-    n_fields++;
-  }
-
-  if (object != NULL) {
-    fields[n_fields].key = "WP_OBJECT";
-    fields[n_fields].value = &object;
-    fields[n_fields].length = sizeof (gconstpointer);
-    n_fields++;
-  }
-
   va_start (args, message_format);
-  fields[4].value = message = g_strdup_vprintf (message_format, args);
+  message = g_strdup_vprintf (message_format, args);
   va_end (args);
 
-  g_log_structured_array (log_level, fields, n_fields);
+  wp_log_fields_init (&lf, log_topic, log_level_index (log_level_flags),
+      file, line, func, object_type, object, message);
+  wp_log_fields_log (&lf);
 }
 
 static G_GNUC_PRINTF (7, 0) void
@@ -623,28 +638,17 @@ wp_spa_log_logtv (void *object,
     const char *fmt,
     va_list args)
 {
+  WpLogFields lf = {0};
+  gint log_level = level_index_from_spa (level);
   g_autofree gchar *message = NULL;
   gchar line_str[11];
-  GLogField fields[] = {
-    { "PRIORITY", NULL, -1 },
-    { "CODE_FILE", file, -1 },
-    { "CODE_LINE", line_str, -1 },
-    { "CODE_FUNC", func, -1 },
-    { "MESSAGE", NULL, -1 },
-    { "GLIB_DOMAIN", "pw", -1 },
-  };
-
-  gint log_level_idx = level_index_from_spa (level);
-  GLogLevelFlags log_level = log_level_info[log_level_idx].log_level;
-  fields[0].value = log_level_info[log_level_idx].priority;
 
   sprintf (line_str, "%d", line);
-  fields[4].value = message = g_strdup_vprintf (fmt, args);
+  message = g_strdup_vprintf (fmt, args);
 
-  if (topic)
-    fields[5].value = topic->topic;
-
-  g_log_structured_array (log_level, fields, SPA_N_ELEMENTS (fields));
+  wp_log_fields_init (&lf, topic ? topic->topic : NULL, log_level,
+      file, line_str, func, 0, NULL, message);
+  wp_log_fields_log (&lf);
 }
 
 static G_GNUC_PRINTF (7, 8) void

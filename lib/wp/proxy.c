@@ -6,8 +6,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-proxy"
-
 #include "proxy.h"
 #include "log.h"
 #include "error.h"
@@ -15,6 +13,8 @@
 #include <pipewire/pipewire.h>
 #include <spa/utils/hook.h>
 #include <spa/utils/result.h>
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-proxy")
 
 /*! \defgroup wpproxy WpProxy */
 /*!

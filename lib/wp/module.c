@@ -6,11 +6,12 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-module"
+#include "module.h"
+#include "log.h"
 
 #include <pipewire/impl.h>
 
-#include "module.h"
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-module")
 
 /*! \defgroup wpimplmodule WpImplModule */
 /*!

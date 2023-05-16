@@ -6,13 +6,14 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-spa-type"
-
 #include "spa-type.h"
+#include "log.h"
 
 #include <spa/utils/type-info.h>
 #include <spa/debug/types.h>
 #include <pipewire/pipewire.h>
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-spa-type")
 
 /*! \defgroup wpspatype WpSpaType
  *

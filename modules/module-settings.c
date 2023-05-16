@@ -11,6 +11,8 @@
 #include <spa/utils/json.h>
 #include <spa/utils/defs.h>
 
+WP_DEFINE_LOCAL_LOG_TOPIC ("m-settings")
+
 /*
  * This module parses the "wireplumber.settings" section from the .conf file.
  *

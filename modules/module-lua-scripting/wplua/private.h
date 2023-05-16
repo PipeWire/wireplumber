@@ -13,6 +13,9 @@
 
 G_BEGIN_DECLS
 
+#define WP_LOCAL_LOG_TOPIC log_topic_wplua
+WP_LOG_TOPIC_EXTERN (log_topic_wplua)
+
 /* boxed.c */
 void _wplua_init_gboxed (lua_State *L);
 

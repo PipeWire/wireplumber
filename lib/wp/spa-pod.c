@@ -6,15 +6,16 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-spa-pod"
-
 #include "spa-pod.h"
 #include "spa-type.h"
+#include "log.h"
 
 #include <spa/utils/type-info.h>
 #include <spa/pod/builder.h>
 #include <spa/pod/parser.h>
 #include <spa/pod/filter.h>
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-spa-pod")
 
 #define WP_SPA_POD_BUILDER_REALLOC_STEP_SIZE 64
 #define WP_SPA_POD_ID_PROPERTY_NAME_MAX 16

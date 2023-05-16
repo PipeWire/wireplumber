@@ -9,6 +9,9 @@
 #include "script.h"
 #include <pipewire/keys.h>
 
+#define WP_LOCAL_LOG_TOPIC log_topic_lua_scripting
+WP_LOG_TOPIC_EXTERN (log_topic_lua_scripting)
+
 /*
  * This is a WpPlugin subclass that wraps a single lua script and acts like
  * a handle for that script. When enabled, through the WpObject activation

@@ -6,11 +6,11 @@
  * SPDX-License-Identifier: MIT
  */
 
-#define G_LOG_DOMAIN "wp-transition"
-
 #include "transition.h"
 #include "log.h"
 #include "error.h"
+
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-transition")
 
 /*! \defgroup wptransition Transitions */
 /*!
