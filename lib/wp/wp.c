@@ -28,23 +28,10 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp")
 void
 wp_init (WpInitFlags flags)
 {
-  if (flags & WP_INIT_SET_GLIB_LOG)
-    g_log_set_writer_func (wp_log_writer_default, NULL, NULL);
-
   /* Initialize the logging system */
-  wp_log_set_level (g_getenv ("WIREPLUMBER_DEBUG"));
-  wp_info ("WirePlumber " WIREPLUMBER_VERSION " initializing");
+  wp_log_init (flags);
 
-  /* set PIPEWIRE_DEBUG and the spa_log interface that pipewire will use */
-  if (flags & WP_INIT_SET_PW_LOG && !g_getenv ("WIREPLUMBER_NO_PW_LOG")) {
-    if (g_getenv ("WIREPLUMBER_DEBUG")) {
-      gchar lvl_str[2];
-      g_snprintf (lvl_str, 2, "%d", wp_spa_log_get_instance ()->level);
-      g_warn_if_fail (g_setenv ("PIPEWIRE_DEBUG", lvl_str, TRUE));
-    }
-    pw_log_set_level (wp_spa_log_get_instance ()->level);
-    pw_log_set (wp_spa_log_get_instance ());
-  }
+  wp_info ("WirePlumber " WIREPLUMBER_VERSION " initializing");
 
   if (flags & WP_INIT_PIPEWIRE)
     pw_init (NULL, NULL);

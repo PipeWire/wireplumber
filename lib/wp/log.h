@@ -20,6 +20,12 @@ G_BEGIN_DECLS
 #define WP_OBJECT_ARGS(object) \
     (object ? G_OBJECT_TYPE_NAME(object) : "invalid"), object
 
+WP_PRIVATE_API
+void wp_log_init (gint flags);
+
+WP_PRIVATE_API
+void wp_log_set_global_level (const gchar *log_level);
+
 typedef struct _WpLogTopic WpLogTopic;
 struct _WpLogTopic {
   const char *topic_name;
@@ -27,10 +33,12 @@ struct _WpLogTopic {
   /*< private >*/
   /*
    * lower 16 bits: GLogLevelFlags
+   * bit 29: has_custom_level
    * bit 30: a g_bit_lock
    * bit 31: 1 - initialized, 0 - not initialized
    */
   gint flags;
+  gint *global_flags;
   WP_PADDING(2)
 };
 
@@ -58,20 +66,32 @@ WP_API
 void wp_log_topic_init (WpLogTopic *topic);
 
 static inline gboolean
+wp_log_topic_is_initialized (WpLogTopic *topic)
+{
+  return (topic->flags & (1u << 31)) != 0;
+}
+
+static inline gboolean
+wp_log_topic_has_custom_level (WpLogTopic *topic)
+{
+  return (topic->flags & (1u << 29)) != 0;
+}
+
+static inline gboolean
 wp_log_topic_is_enabled (WpLogTopic *topic, GLogLevelFlags log_level)
 {
   /* first time initialization */
-  if (G_UNLIKELY ((topic->flags & (1u << 31)) == 0)) {
+  if (G_UNLIKELY (!wp_log_topic_is_initialized (topic)))
     wp_log_topic_init (topic);
-  }
-  return (topic->flags & (log_level & 0xFF)) != 0;
+
+  if (wp_log_topic_has_custom_level (topic))
+    return (topic->flags & (log_level & 0xFF)) != 0;
+  else
+    return (*topic->global_flags & (log_level & 0xFF)) != 0;
 }
 
 #define wp_local_log_topic_is_enabled(log_level) \
   (wp_log_topic_is_enabled (WP_LOCAL_LOG_TOPIC, log_level))
-
-WP_API
-void wp_log_set_level (const gchar * level_str);
 
 WP_API
 GLogWriterOutput wp_log_writer_default (GLogLevelFlags log_level,

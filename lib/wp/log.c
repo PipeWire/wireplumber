@@ -7,8 +7,7 @@
  */
 
 #include "log.h"
-#include "spa-pod.h"
-#include "proxy.h"
+#include "wp.h"
 #include <pipewire/pipewire.h>
 #include <spa/support/log.h>
 
@@ -177,18 +176,25 @@ static GString *spa_dbg_str = NULL;
 
 #include <spa/debug/pod.h>
 
-static gsize initialized = 0;
-static gboolean use_color = FALSE;
-static gboolean output_is_journal = FALSE;
-
 struct log_topic_pattern
 {
   GPatternSpec *spec;
   gint log_level;
 };
 
-static struct log_topic_pattern *patterns = NULL;
-static gint global_log_level = 4; /* MESSAGE */
+static struct {
+  gboolean use_color;
+  gboolean output_is_journal;
+  gint global_log_level;
+  GLogLevelFlags global_log_level_flags;
+  struct log_topic_pattern *patterns;
+} log_state = {
+  .use_color = FALSE,
+  .output_is_journal = FALSE,
+  .global_log_level = 4 /* MESSAGE */,
+  .global_log_level_flags = G_LOG_LEVEL_MESSAGE | G_LOG_LEVEL_WARNING | G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_ERROR,
+  .patterns = NULL,
+};
 
 /* reference: https://en.wikipedia.org/wiki/ANSI_escape_code#3/4_bit */
 #define COLOR_RED            "\033[1;31m"
@@ -250,6 +256,25 @@ log_level_index (GLogLevelFlags log_level)
   return (logarithm >= 2 && logarithm <= 8) ? (logarithm - 1) : 0;
 }
 
+/* map an index in the log_level_info table to a single GLogLevelFlags flag */
+static G_GNUC_CONST inline GLogLevelFlags
+level_index_to_flag (gint lvl_index)
+{
+  return log_level_info [lvl_index].log_level_flags;
+}
+
+/* map an index in the log_level_info table to an OR combination of all the
+   GLogLevelFlags that are enabled at this level */
+static G_GNUC_CONST inline GLogLevelFlags
+level_index_to_full_flags (gint lvl_index)
+{
+  GLogLevelFlags flags = 0;
+  for (gint i = 1; i <= lvl_index; i++) {
+    flags |= level_index_to_flag (i);
+  }
+  return flags;
+}
+
 /* map a SPA_LOG_LEVEL_* to an index in the log_level_info table;
    index 4 (G_LOG_LEVEL_MESSAGE) can never be returned */
 static G_GNUC_CONST inline gint
@@ -286,25 +311,18 @@ level_index_from_string (const char *str)
   return level_index_from_spa (atoi (str));
 }
 
-/*!
- * \brief Configures the log level and enabled topics
- * \ingroup wplog
- * \param level_str a log level description string as it would appear in the
- *   WIREPLUMBER_DEBUG environment variable "[<glob>:]<level>,...,"
- */
+/* private, called from wp_init() */
 void
-wp_log_set_level (const gchar * level_str)
+wp_log_init (gint flags)
 {
-  struct log_topic_pattern *pttrn;
+  const gchar *level_str;
+  gint global_log_level = log_state.global_log_level;
+  struct log_topic_pattern *patterns = NULL, *pttrn;
 
-  /* reset to defaults */
-  global_log_level = 4; /* MESSAGE */
-  if (patterns) {
-    pttrn = patterns;
-    for (; pttrn != NULL; pttrn++)
-      g_pattern_spec_free (pttrn->spec);
-    g_clear_pointer (&patterns, g_free);
-  }
+  level_str = g_getenv ("WIREPLUMBER_DEBUG");
+
+  log_state.use_color = g_log_writer_supports_color (fileno (stderr));
+  log_state.output_is_journal = g_log_writer_is_journald (fileno (stderr));
 
   if (level_str && level_str[0] != '\0') {
     gint n_tokens = 0;
@@ -317,7 +335,7 @@ wp_log_set_level (const gchar * level_str)
       patterns = g_malloc_n ((n_tokens + 1), sizeof (struct log_topic_pattern));
       pttrn = patterns;
       if (!patterns)
-        g_error ("out of memory");
+        g_error ("unable to allocate space for %d log patterns", n_tokens + 1);
 
       for (gint i = 0; i < n_tokens; i++) {
         gint n_tok;
@@ -332,7 +350,8 @@ wp_log_set_level (const gchar * level_str)
         } else if (n_tok == 1 && (lvl = level_index_from_string (tok[0]))) {
           global_log_level = lvl;
         } else {
-          pw_log_warn("Ignoring invalid format in WIREPLUMBER_DEBUG: '%s'",
+          /* note that this is going to initialize the wp-log topic here */
+          wp_warning ("Ignoring invalid format in WIREPLUMBER_DEBUG: '%s'",
               tokens[i]);
         }
 
@@ -346,17 +365,47 @@ wp_log_set_level (const gchar * level_str)
     pw_free_strv (tokens);
   }
 
+  log_state.patterns = patterns;
+  log_state.global_log_level = global_log_level;
+  log_state.global_log_level_flags =
+      level_index_to_full_flags (global_log_level);
+
   /* set the log level also on the spa_log */
   wp_spa_log_get_instance()->level = level_index_to_spa (global_log_level);
+
+  if (flags & WP_INIT_SET_GLIB_LOG)
+    g_log_set_writer_func (wp_log_writer_default, NULL, NULL);
+
+  /* set PIPEWIRE_DEBUG and the spa_log interface that pipewire will use */
+  if (flags & WP_INIT_SET_PW_LOG && !g_getenv ("WIREPLUMBER_NO_PW_LOG")) {
+    if (level_str && level_str[0] != '\0') {
+      gchar lvl_str[2];
+      g_snprintf (lvl_str, 2, "%d", wp_spa_log_get_instance ()->level);
+      g_warn_if_fail (g_setenv ("PIPEWIRE_DEBUG", lvl_str, TRUE));
+    }
+    pw_log_set_level (wp_spa_log_get_instance ()->level);
+    pw_log_set (wp_spa_log_get_instance ());
+  }
+}
+
+/* private, called from core.c when reading the config file */
+void
+wp_log_set_global_level (const gchar *log_level)
+{
+  gint level = level_index_from_string (log_level);
+  log_state.global_log_level = level;
+  log_state.global_log_level_flags = level_index_to_full_flags (level);
+  wp_spa_log_get_instance()->level = level_index_to_spa (level);
+  pw_log_set_level (level_index_to_spa (level));
 }
 
 static gint
 find_topic_log_level (const gchar *log_topic, bool *has_custom_level)
 {
-  struct log_topic_pattern *pttrn = patterns;
+  struct log_topic_pattern *pttrn = log_state.patterns;
   guint len;
   g_autofree gchar *reverse_topic = NULL;
-  gint log_level = global_log_level;
+  gint log_level = log_state.global_log_level;
 
   /* reverse string and length required for pattern match */
   len = strlen (log_topic);
@@ -386,13 +435,17 @@ wp_log_topic_init (WpLogTopic *topic)
 {
   g_bit_lock (&topic->flags, 30);
   if ((topic->flags & (1u << 31)) == 0) {
-    gint log_level = find_topic_log_level (topic->topic_name, NULL);
+    bool has_custom_level;
+    gint log_level = find_topic_log_level (topic->topic_name, &has_custom_level);
 
-    /* write all the enabled log level flags on the flags variable */
-    for (gint i = 1; i <= log_level; i++) {
-      topic->flags |= log_level_info[i].log_level_flags;
-    }
-    topic->flags |= (1u << 31);
+    gint flags = topic->flags;
+    flags |= level_index_to_full_flags (log_level);
+    flags |= (1u << 31); /* initialized = true */
+    if (has_custom_level)
+      flags |= (1u << 29); /* has_custom_level = true */
+
+    topic->global_flags = &log_state.global_log_level_flags;
+    topic->flags = flags;
   }
   g_bit_unlock (&topic->flags, 30);
 }
@@ -472,20 +525,20 @@ wp_log_fields_write_to_stream (WpLogFields *lf, FILE *s)
 
   fprintf (s, "%s%s %s.%06d %s%18.18s %s%s:%s:%s:%s %s\n",
       /* level */
-      use_color ? log_level_info[lf->log_level].color : "",
+      log_state.use_color ? log_level_info[lf->log_level].color : "",
       log_level_info[lf->log_level].name,
       /* timestamp */
       time_buf,
       (gint) (now % G_USEC_PER_SEC),
       /* domain */
-      use_color ? DOMAIN_COLOR : "",
+      log_state.use_color ? DOMAIN_COLOR : "",
       lf->log_topic,
       /* file, line, function */
-      use_color ? LOCATION_COLOR : "",
+      log_state.use_color ? LOCATION_COLOR : "",
       lf->file,
       lf->line,
       lf->func,
-      use_color ? RESET_COLOR : "",
+      log_state.use_color ? RESET_COLOR : "",
       /* message */
       lf->message);
   fflush (s);
@@ -515,7 +568,7 @@ wp_log_fields_format_message (WpLogFields *lf)
   g_autofree gchar *extra_object = NULL;
   const gchar *object_color = "";
 
-  if (use_color) {
+  if (log_state.use_color) {
     guint h = g_direct_hash (lf->object) % G_N_ELEMENTS (object_colors);
     object_color = object_colors[h];
   }
@@ -538,7 +591,7 @@ wp_log_fields_format_message (WpLogFields *lf)
       lf->object_type != 0 ? g_type_name (lf->object_type) : "",
       extra_object ? extra_object : ":",
       lf->object,
-      use_color ? RESET_COLOR : "",
+      log_state.use_color ? RESET_COLOR : "",
       extra_message ? extra_message : lf->message);
 }
 
@@ -551,20 +604,13 @@ wp_log_fields_log (WpLogFields *lf)
   if (G_UNLIKELY (!stderr || fileno (stderr) < 0))
     return G_LOG_WRITER_UNHANDLED;
 
-  /* one-time initialization */
-  if (g_once_init_enter (&initialized)) {
-    use_color = g_log_writer_supports_color (fileno (stderr));
-    output_is_journal = g_log_writer_is_journald (fileno (stderr));
-    g_once_init_leave (&initialized, TRUE);
-  }
-
   /* format the message to include the object */
   if (lf->object_type) {
     lf->message = full_message = wp_log_fields_format_message (lf);
   }
 
   /* write complete field information to the journal if we are logging to it */
-  if (output_is_journal && wp_log_fields_write_to_journal (lf))
+  if (log_state.output_is_journal && wp_log_fields_write_to_journal (lf))
     return G_LOG_WRITER_HANDLED;
 
   wp_log_fields_write_to_stream (lf, stderr);
