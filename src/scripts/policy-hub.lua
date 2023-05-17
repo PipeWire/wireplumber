@@ -1,0 +1,6 @@
+-- WirePlumber
+--
+-- Copyright © 2023 Collabora Ltd.
+--    @author Ashok Sidipotu <ashok.sidipotu@collabora.com>
+--
+-- SPDX-License-Identifier: MIT
