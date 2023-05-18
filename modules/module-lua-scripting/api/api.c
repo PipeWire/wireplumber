@@ -357,7 +357,7 @@ static int
 log_warning (lua_State *L) { return log_log (L, G_LOG_LEVEL_WARNING); }
 
 static int
-log_message (lua_State *L) { return log_log (L, G_LOG_LEVEL_MESSAGE); }
+log_notice (lua_State *L) { return log_log (L, G_LOG_LEVEL_MESSAGE); }
 
 static int
 log_info (lua_State *L) { return log_log (L, G_LOG_LEVEL_INFO); }
@@ -370,7 +370,7 @@ log_trace (lua_State *L) { return log_log (L, WP_LOG_LEVEL_TRACE); }
 
 static const luaL_Reg log_obj_funcs[] = {
   { "warning", log_warning },
-  { "message", log_message },
+  { "notice", log_notice },
   { "info", log_info },
   { "debug", log_debug },
   { "trace", log_trace },
@@ -399,7 +399,7 @@ log_open_topic (lua_State *L)
 static const luaL_Reg log_funcs[] = {
   { "open_topic", log_open_topic },
   { "warning", log_warning },
-  { "message", log_message },
+  { "notice", log_notice },
   { "info", log_info },
   { "debug", log_debug },
   { "trace", log_trace },
@@ -435,7 +435,7 @@ object_activate_done (WpObject *o, GAsyncResult * res, GClosure * closure)
   int n_vals = 1;
 
   if (!wp_object_activate_finish (o, res, &error)) {
-    wp_message_object (o, "%s", error->message);
+    wp_notice_object (o, "%s", error->message);
     if (closure) {
       g_value_init (&val[1], G_TYPE_STRING);
       g_value_set_string (&val[1], error->message);
@@ -1386,7 +1386,7 @@ si_adapter_set_ports_format_done (WpObject *o, GAsyncResult * res,
   int n_vals = 1;
 
   if (!wp_si_adapter_set_ports_format_finish (WP_SI_ADAPTER (o), res, &error)) {
-    wp_message_object (o, "%s", error->message);
+    wp_notice_object (o, "%s", error->message);
     if (closure) {
       g_value_init (&val[1], G_TYPE_STRING);
       g_value_set_string (&val[1], error->message);

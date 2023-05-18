@@ -92,7 +92,7 @@ function createMonitor()
         id_to_name_table[id] = nil
     end)
   else
-    Log.message("PipeWire's BlueZ MIDI SPA missing or broken. Bluetooth not supported.")
+    Log.notice("PipeWire's BlueZ MIDI SPA missing or broken. Bluetooth not supported.")
     return nil
   end
 
@@ -127,7 +127,7 @@ function createServers()
       table.insert(servers, node)
       setLatencyOffset(node, latency_offset)
     else
-      Log.message("Failed to create BLE MIDI server.")
+      Log.notice("Failed to create BLE MIDI server.")
     end
     i = i + 1
   end

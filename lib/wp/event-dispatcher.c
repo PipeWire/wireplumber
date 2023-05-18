@@ -84,7 +84,7 @@ on_event_hook_done (WpEventHook * hook, GAsyncResult * res, EventData * data)
 
   if (!wp_event_hook_finish (hook, res, &error) && error &&
       error->domain != G_IO_ERROR && error->code != G_IO_ERROR_CANCELLED)
-    wp_message_object (hook, "failed: %s", error->message);
+    wp_notice_object (hook, "failed: %s", error->message);
 
   g_clear_object (&data->current_hook_in_async);
   spa_system_eventfd_write (dispatcher->system, dispatcher->eventfd, 1);

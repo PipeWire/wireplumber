@@ -148,5 +148,5 @@ if monitor then
   monitor:connect("create-object", createDevice)
   monitor:activate(Feature.SpaDevice.ENABLED)
 else
-  Log.message("PipeWire's libcamera SPA missing or broken. libcamera not supported.")
+  Log.notice("PipeWire's libcamera SPA missing or broken. libcamera not supported.")
 end

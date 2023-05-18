@@ -481,7 +481,7 @@ daemon_exit (WpDaemon * d, gint code)
 static void
 on_disconnected (WpCore *core, WpDaemon * d)
 {
-  wp_message ("disconnected from pipewire");
+  wp_notice ("disconnected from pipewire");
   daemon_exit (d, WP_EXIT_OK);
 }
 
@@ -489,7 +489,7 @@ static gboolean
 signal_handler (int signal, gpointer data)
 {
   WpDaemon *d = data;
-  wp_message ("stopped by signal: %s", strsignal (signal));
+  wp_notice ("stopped by signal: %s", strsignal (signal));
   daemon_exit (d, WP_EXIT_OK);
   return G_SOURCE_CONTINUE;
 }

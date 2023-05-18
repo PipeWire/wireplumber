@@ -12,9 +12,9 @@ Debug Logging
    :type object: GObject or GBoxed
    :param string message: the warning message to log
 
-.. function:: Log.message(object, message)
+.. function:: Log.notice(object, message)
 
-   Logs a normal message, like :c:macro:`wp_message_object`
+   Logs a notice message, like :c:macro:`wp_notice_object`
 
    :param object: optional object to associate the message with; you
       may skip this and just start with the *message* as the first parameter

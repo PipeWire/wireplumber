@@ -114,7 +114,7 @@ void wp_log_checked (const gchar *log_topic, GLogLevelFlags log_level,
     wp_log (WP_LOCAL_LOG_TOPIC, G_LOG_LEVEL_CRITICAL, 0, NULL, __VA_ARGS__)
 #define wp_warning(...) \
     wp_log (WP_LOCAL_LOG_TOPIC, G_LOG_LEVEL_WARNING, 0, NULL, __VA_ARGS__)
-#define wp_message(...) \
+#define wp_notice(...) \
     wp_log (WP_LOCAL_LOG_TOPIC, G_LOG_LEVEL_MESSAGE, 0, NULL, __VA_ARGS__)
 #define wp_info(...) \
     wp_log (WP_LOCAL_LOG_TOPIC, G_LOG_LEVEL_INFO, 0, NULL, __VA_ARGS__)
@@ -127,7 +127,7 @@ void wp_log_checked (const gchar *log_topic, GLogLevelFlags log_level,
     wp_log (WP_LOCAL_LOG_TOPIC, G_LOG_LEVEL_CRITICAL, (object) ? G_TYPE_FROM_INSTANCE (object) : G_TYPE_NONE, object, __VA_ARGS__)
 #define wp_warning_object(object, ...)  \
     wp_log (WP_LOCAL_LOG_TOPIC, G_LOG_LEVEL_WARNING, (object) ? G_TYPE_FROM_INSTANCE (object) : G_TYPE_NONE, object, __VA_ARGS__)
-#define wp_message_object(object, ...)  \
+#define wp_notice_object(object, ...)  \
     wp_log (WP_LOCAL_LOG_TOPIC, G_LOG_LEVEL_MESSAGE, (object) ? G_TYPE_FROM_INSTANCE (object) : G_TYPE_NONE, object, __VA_ARGS__)
 #define wp_info_object(object, ...)  \
     wp_log (WP_LOCAL_LOG_TOPIC, G_LOG_LEVEL_INFO, (object) ? G_TYPE_FROM_INSTANCE (object) : G_TYPE_NONE, object, __VA_ARGS__)
@@ -140,7 +140,7 @@ void wp_log_checked (const gchar *log_topic, GLogLevelFlags log_level,
     wp_log (WP_LOCAL_LOG_TOPIC, G_LOG_LEVEL_CRITICAL, type, object, __VA_ARGS__)
 #define wp_warning_boxed(type, object, ...) \
     wp_log (WP_LOCAL_LOG_TOPIC, G_LOG_LEVEL_WARNING, type, object, __VA_ARGS__)
-#define wp_message_boxed(type, object, ...) \
+#define wp_notice_boxed(type, object, ...) \
     wp_log (WP_LOCAL_LOG_TOPIC, G_LOG_LEVEL_MESSAGE, type, object, __VA_ARGS__)
 #define wp_info_boxed(type, object, ...) \
     wp_log (WP_LOCAL_LOG_TOPIC, G_LOG_LEVEL_INFO, type, object, __VA_ARGS__)

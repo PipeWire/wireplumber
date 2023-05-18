@@ -143,7 +143,7 @@ wp_reserve_device_plugin_create_reservation (WpReserveDevicePlugin *self,
 {
   WpDBusState state = wp_dbus_get_state (self->dbus);
   if (state != WP_DBUS_STATE_CONNECTED) {
-    wp_message_object (self, "not connected to D-Bus");
+    wp_notice_object (self, "not connected to D-Bus");
     return NULL;
   }
 
@@ -167,7 +167,7 @@ wp_reserve_device_plugin_destroy_reservation (WpReserveDevicePlugin *self,
 {
   WpDBusState state = wp_dbus_get_state (self->dbus);
   if (state != WP_DBUS_STATE_CONNECTED) {
-    wp_message_object (self, "not connected to D-Bus");
+    wp_notice_object (self, "not connected to D-Bus");
     return;
   }
   g_hash_table_remove (self->reserve_devices, name);
@@ -179,7 +179,7 @@ wp_reserve_device_plugin_get_reservation (WpReserveDevicePlugin *self,
 {
   WpDBusState state = wp_dbus_get_state (self->dbus);
   if (state != WP_DBUS_STATE_CONNECTED) {
-    wp_message_object (self, "not connected to D-Bus");
+    wp_notice_object (self, "not connected to D-Bus");
     return NULL;
   }
 

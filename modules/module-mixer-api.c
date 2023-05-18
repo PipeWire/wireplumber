@@ -446,7 +446,7 @@ wp_mixer_api_set_volume (WpMixerApi * self, guint32 id, GVariant * vvolume)
           channel = wp_spa_id_table_find_value_from_short_name (
               t_audioChannel, channel_str);
           if (!channel)
-            wp_message_object (self, "invalid channel: %s", channel_str);
+            wp_notice_object (self, "invalid channel: %s", channel_str);
         }
 
         if (channel) {
@@ -458,7 +458,7 @@ wp_mixer_api_set_volume (WpMixerApi * self, guint32 id, GVariant * vvolume)
         }
 
         if (index >= MIN(new_volume.channels, SPA_AUDIO_MAX_CHANNELS)) {
-          wp_message_object (self, "invalid channel index: %u", index);
+          wp_notice_object (self, "invalid channel index: %u", index);
           continue;
         }
 

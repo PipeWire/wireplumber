@@ -340,7 +340,7 @@ end
 function createMonitor ()
   local m = SpaDevice("api.alsa.enum.udev", config.properties)
   if m == nil then
-    Log.message("PipeWire's SPA ALSA udev plugin(\"api.alsa.enum.udev\")"
+    Log.notice("PipeWire's SPA ALSA udev plugin(\"api.alsa.enum.udev\")"
       .. "missing or broken. Sound Cards cannot be enumerated")
     return nil
   end
@@ -391,7 +391,7 @@ end
 -- has failed and continue without it
 rd_plugin = Plugin.find("reserve-device")
 if rd_plugin and rd_plugin:call("get-dbus")["state"] ~= "connected" then
-  Log.message("reserve-device plugin is not connected to D-Bus, "
+  Log.notice("reserve-device plugin is not connected to D-Bus, "
               .. "disabling device reservation")
   rd_plugin = nil
 end

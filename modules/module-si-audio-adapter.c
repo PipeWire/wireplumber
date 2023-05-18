@@ -256,7 +256,7 @@ si_audio_adapter_configure (WpSessionItem * item, WpProperties *p)
   str = wp_properties_get (si_props, "item.features.no-format");
   self->no_format = str && pw_properties_parse_bool (str);
   if (!self->no_format && !si_audio_adapter_find_format (self, node)) {
-    wp_message_object (item, "no usable format found for node %d",
+    wp_notice_object (item, "no usable format found for node %d",
         wp_proxy_get_bound_id (WP_PROXY (node)));
     return FALSE;
   }

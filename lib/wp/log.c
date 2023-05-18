@@ -77,20 +77,20 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-log")
  * \param ... A format string, followed by format arguments in printf() style
  */
 /*!
- * \def wp_message(...)
- * \brief Logs a standard message to the standard log via GLib's logging system.
+ * \def wp_notice(...)
+ * \brief Logs a notice message to the standard log via GLib's logging system.
  * \param ... A format string, followed by format arguments in printf() style
  */
 /*!
- * \def wp_message_object(object, ...)
- * \brief Logs a standard message to the standard log via GLib's logging system.
+ * \def wp_notice_object(object, ...)
+ * \brief Logs a notice message to the standard log via GLib's logging system.
  * \param object A GObject associated with the log; this is printed in a special
  *   way to make it easier to track messages from a specific object
  * \param ... A format string, followed by format arguments in printf() style
  */
 /*!
- * \def wp_message_boxed(type, object, ...)
- * \brief Logs a standard message to the standard log via GLib's logging system.
+ * \def wp_notice_boxed(type, object, ...)
+ * \brief Logs a notice message to the standard log via GLib's logging system.
  * \param type The type of \a object
  * \param object A boxed object associated with the log; this is printed in a
  *   special way to make it easier to track messages from a specific object.
@@ -235,10 +235,10 @@ static const struct {
   gchar color[8];
 } log_level_info[] = {
   { 0,                   0,                  "U", "0", COLOR_BRIGHT_MAGENTA },
-  { G_LOG_LEVEL_ERROR,   0,                  "E", "3" /* LOG_ERR */, COLOR_BRIGHT_RED },
-  { G_LOG_LEVEL_CRITICAL,SPA_LOG_LEVEL_ERROR,"C", "4" /* LOG_WARNING */, COLOR_RED },
+  { G_LOG_LEVEL_ERROR,   0,                  "F", "3" /* LOG_ERR */, COLOR_BRIGHT_RED },
+  { G_LOG_LEVEL_CRITICAL,SPA_LOG_LEVEL_ERROR,"E", "4" /* LOG_WARNING */, COLOR_RED },
   { G_LOG_LEVEL_WARNING, SPA_LOG_LEVEL_WARN, "W", "4" /* LOG_WARNING */, COLOR_BRIGHT_YELLOW },
-  { G_LOG_LEVEL_MESSAGE, SPA_LOG_LEVEL_WARN, "M", "5" /* LOG_NOTICE */, COLOR_BRIGHT_GREEN },
+  { G_LOG_LEVEL_MESSAGE, SPA_LOG_LEVEL_WARN, "N", "5" /* LOG_NOTICE */, COLOR_BRIGHT_GREEN },
   { G_LOG_LEVEL_INFO,    SPA_LOG_LEVEL_INFO, "I", "6" /* LOG_INFO */, COLOR_GREEN },
   { G_LOG_LEVEL_DEBUG,   SPA_LOG_LEVEL_DEBUG,"D", "7" /* LOG_DEBUG */, COLOR_BRIGHT_CYAN },
   { WP_LOG_LEVEL_TRACE,  SPA_LOG_LEVEL_TRACE,"T", "7" /* LOG_DEBUG */, COLOR_CYAN },
@@ -276,13 +276,14 @@ level_index_to_full_flags (gint lvl_index)
 }
 
 /* map a SPA_LOG_LEVEL_* to an index in the log_level_info table;
-   index 4 (G_LOG_LEVEL_MESSAGE) can never be returned */
+   note that SPA_LOG_LEVEL_WARN maps to 4 (G_LOG_LEVEL_MESSAGE) and
+   index 3 (G_LOG_LEVEL_WARNING) can never be returned */
 static G_GNUC_CONST inline gint
 level_index_from_spa (gint spa_lvl)
 {
   if (G_UNLIKELY (spa_lvl <= SPA_LOG_LEVEL_NONE))
     return 0;
-  else if (spa_lvl < SPA_LOG_LEVEL_INFO)
+  else if (spa_lvl < SPA_LOG_LEVEL_WARN)
     return spa_lvl + 1;
   else if (G_UNLIKELY (spa_lvl > SPA_LOG_LEVEL_TRACE))
     return (gint) G_N_ELEMENTS (log_level_info) - 1;

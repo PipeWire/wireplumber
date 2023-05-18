@@ -168,7 +168,7 @@ on_acquire_transition_done (GObject *rd, GAsyncResult *res, gpointer data)
 
   gboolean acquired = wp_reserve_device_acquire_transition_finish (res, &error);
   if (error) {
-    wp_message_object (self, "%s: Acquire error: %s", self->name,
+    wp_notice_object (self, "%s: Acquire error: %s", self->name,
         error->message);
   }
 
