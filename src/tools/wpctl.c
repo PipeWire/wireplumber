@@ -207,6 +207,8 @@ status_prepare (WpCtl * self, GError ** error)
 #define TREE_INDENT_END  " └─ "
 #define TREE_INDENT_EMPTY "    "
 
+static bool hubs_heading_printed;
+
 struct print_context
 {
   WpCtl *self;
@@ -270,6 +272,16 @@ print_dev_node (const GValue *item, gpointer data)
 
   printf (TREE_INDENT_LINE "%c %4u. %-35s", is_default ? '*' : ' ', id, name);
   print_controls (id, context);
+}
+
+static void
+print_hubs (const GValue *item, gpointer data)
+{
+  if (!hubs_heading_printed) {
+    hubs_heading_printed = true;
+    printf (TREE_INDENT_NODE "Hubs:\n");
+  }
+  print_dev_node (item, data);
 }
 
 static void
@@ -460,6 +472,33 @@ status_run (WpCtl * self)
       g_clear_pointer (&child_it, wp_iterator_unref);
 
       printf (TREE_INDENT_LINE "\n");
+
+      hubs_heading_printed = false;
+
+      child_it = wp_object_manager_new_filtered_iterator (self->om,
+        WP_TYPE_NODE,
+        WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_GROUP, "#s", "*loopback*",
+        WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_NAME, "#s", "*-hub*",
+        WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_VIRTUAL, "#s", "true",
+        WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
+        WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "*/Source*",
+        NULL);
+      wp_iterator_foreach (child_it, print_hubs, (gpointer) &context);
+      g_clear_pointer (&child_it, wp_iterator_unref);
+
+      child_it = wp_object_manager_new_filtered_iterator (self->om,
+        WP_TYPE_NODE,
+        WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_GROUP, "#s", "*loopback*",
+        WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_NAME, "#s", "*-hub*",
+        WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_VIRTUAL, "#s", "true",
+        WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
+        WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "*/Sink*",
+        NULL);
+      wp_iterator_foreach (child_it, print_hubs, (gpointer) &context);
+      g_clear_pointer (&child_it, wp_iterator_unref);
+
+      if (hubs_heading_printed)
+        printf (TREE_INDENT_LINE "\n");
 
       printf (TREE_INDENT_END "Streams:\n");
       child_it = wp_object_manager_new_filtered_iterator (self->om,
