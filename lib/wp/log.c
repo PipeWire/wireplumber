@@ -318,6 +318,8 @@ wp_log_init (gint flags)
   const gchar *level_str;
   gint global_log_level = log_state.global_log_level;
   struct log_topic_pattern *patterns = NULL, *pttrn;
+  gint n_tokens = 0;
+  gchar **tokens = NULL;
 
   level_str = g_getenv ("WIREPLUMBER_DEBUG");
 
@@ -325,45 +327,47 @@ wp_log_init (gint flags)
   log_state.output_is_journal = g_log_writer_is_journald (fileno (stderr));
 
   if (level_str && level_str[0] != '\0') {
-    gint n_tokens = 0;
-    gchar **tokens = NULL;
-
     /* [<glob>:]<level>,..., */
     tokens = pw_split_strv (level_str, ",", INT_MAX, &n_tokens);
-    if (n_tokens > 0) {
-      /* allocate enough space to hold all pattern specs */
-      patterns = g_malloc_n ((n_tokens + 1), sizeof (struct log_topic_pattern));
-      pttrn = patterns;
-      if (!patterns)
-        g_error ("unable to allocate space for %d log patterns", n_tokens + 1);
-
-      for (gint i = 0; i < n_tokens; i++) {
-        gint n_tok;
-        gchar **tok;
-        gint lvl;
-
-        tok = pw_split_strv (tokens[i], ":", 2, &n_tok);
-        if (n_tok == 2 && (lvl = level_index_from_string (tok[1]))) {
-          pttrn->spec = g_pattern_spec_new (tok[0]);
-          pttrn->log_level = lvl;
-          pttrn++;
-        } else if (n_tok == 1 && (lvl = level_index_from_string (tok[0]))) {
-          global_log_level = lvl;
-        } else {
-          /* note that this is going to initialize the wp-log topic here */
-          wp_warning ("Ignoring invalid format in WIREPLUMBER_DEBUG: '%s'",
-              tokens[i]);
-        }
-
-        pw_free_strv (tok);
-      }
-
-      /* terminate with NULL */
-      pttrn->spec = NULL;
-      pttrn->log_level = 0;
-    }
-    pw_free_strv (tokens);
   }
+
+  /* allocate enough space to hold all pattern specs */
+  patterns = g_malloc_n ((n_tokens + 2), sizeof (struct log_topic_pattern));
+  pttrn = patterns;
+  if (!patterns)
+    g_error ("unable to allocate space for %d log patterns", n_tokens + 2);
+
+  for (gint i = 0; i < n_tokens; i++) {
+    gint n_tok;
+    gchar **tok;
+    gint lvl;
+
+    tok = pw_split_strv (tokens[i], ":", 2, &n_tok);
+    if (n_tok == 2 && (lvl = level_index_from_string (tok[1]))) {
+      pttrn->spec = g_pattern_spec_new (tok[0]);
+      pttrn->log_level = lvl;
+      pttrn++;
+    } else if (n_tok == 1 && (lvl = level_index_from_string (tok[0]))) {
+      global_log_level = lvl;
+    } else {
+      /* note that this is going to initialize the wp-log topic here */
+      wp_warning ("Ignoring invalid format in WIREPLUMBER_DEBUG: '%s'",
+          tokens[i]);
+    }
+
+    pw_free_strv (tok);
+  }
+
+  /* disable pipewire connection trace by default */
+  pttrn->spec = g_pattern_spec_new ("conn.*");
+  pttrn->log_level = 0;
+  pttrn++;
+
+  /* terminate with NULL */
+  pttrn->spec = NULL;
+  pttrn->log_level = 0;
+
+  pw_free_strv (tokens);
 
   log_state.patterns = patterns;
   log_state.global_log_level = global_log_level;
