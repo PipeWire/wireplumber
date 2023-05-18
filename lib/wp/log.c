@@ -248,7 +248,7 @@ static const struct {
   to the 1-7 range; first calculate the integer part of log2(log_level)
   to bring it down to 2-8 and substract 1 */
 static G_GNUC_CONST inline gint
-log_level_index (GLogLevelFlags log_level)
+level_index_from_flags (GLogLevelFlags log_level)
 {
   gint logarithm = 0;
   while ((log_level >>= 1) != 0)
@@ -488,7 +488,7 @@ static void
 wp_log_fields_init_from_glib (WpLogFields *lf, GLogLevelFlags log_level_flags,
     const GLogField *fields, gsize n_fields)
 {
-  wp_log_fields_init (lf, NULL, log_level_index (log_level_flags),
+  wp_log_fields_init (lf, NULL, level_index_from_flags (log_level_flags),
       NULL, NULL, NULL, 0, NULL, NULL);
 
   for (guint i = 0; i < n_fields; i++) {
@@ -669,7 +669,7 @@ wp_log_checked (
   message = g_strdup_vprintf (message_format, args);
   va_end (args);
 
-  wp_log_fields_init (&lf, log_topic, log_level_index (log_level_flags),
+  wp_log_fields_init (&lf, log_topic, level_index_from_flags (log_level_flags),
       file, line, func, object_type, object, message);
   wp_log_fields_log (&lf);
 }
