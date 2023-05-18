@@ -378,11 +378,15 @@ wp_log_init (gint flags)
 
   /* set PIPEWIRE_DEBUG and the spa_log interface that pipewire will use */
   if (flags & WP_INIT_SET_PW_LOG && !g_getenv ("WIREPLUMBER_NO_PW_LOG")) {
-    if (level_str && level_str[0] != '\0') {
-      gchar lvl_str[2];
-      g_snprintf (lvl_str, 2, "%d", wp_spa_log_get_instance ()->level);
-      g_warn_if_fail (g_setenv ("PIPEWIRE_DEBUG", lvl_str, TRUE));
-    }
+    /* always set PIPEWIRE_DEBUG for 2 reasons:
+     * 1. to overwrite it from the environment, in case the user has set it
+     * 2. to prevent pw_context from parsing "log.level" from the config file;
+     *    we do this ourselves here and allows us to have more control over
+     *    the whole process.
+     */
+    gchar lvl_str[2];
+    g_snprintf (lvl_str, 2, "%d", wp_spa_log_get_instance ()->level);
+    g_warn_if_fail (g_setenv ("PIPEWIRE_DEBUG", lvl_str, TRUE));
     pw_log_set_level (wp_spa_log_get_instance ()->level);
     pw_log_set (wp_spa_log_get_instance ());
   }
