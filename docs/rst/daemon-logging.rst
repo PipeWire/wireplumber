@@ -3,63 +3,119 @@
 Debug Logging
 =============
 
-Getting debug messages on the command line is a matter of setting the
-``WIREPLUMBER_DEBUG`` environment variable. The generic syntax is:
+WirePlumber is instrumented with log messages in its entire codebase. These
+messages are categorized based on two heuristics: the log topic and the log
+level.
+
+The log topic is a string that identifies which component of the code this
+message is coming from. Well-known topics include:
+
+  - **wireplumber**: messages from the wireplumber daemon
+  - **wp-***: messages from libwireplumber
+
+   - **wp-core**: messages from *WpCore*
+   - **wp-proxy**: messages from *WpProxy*
+   - ... and so on ...
+
+  - **m-***: messages from wireplumber modules
+
+   - **m-default-profile**: messages from *libwireplumber-module-default-profile*
+   - **m-default-routes**: messages from *libwireplumber-module-default-routes*
+   - ... and so on ...
+
+  - **s-***: messages from scripts
+
+   - **s-linking**: messages from the *linking/\*.lua* scripts
+   - **s-default-nodes**: messages from the *default-nodes/\*.lua* scripts
+   - ... and so on ...
+
+  - **pw.***: messages from libpipewire
+  - **spa.***: messages from spa plugins
+  - **mod.***: messages from libpipewire modules
+  - **conn.***: messages to debug the pipewire socket connection
+
+The log level is a value that designates the importance of the message.
+The levels that exist in WirePlumber are the following:
+
+  - ``F``: *Fatal errors*. These messages represent situations where execution
+    of the program cannot continue. In the extremely unlikely case that
+    they appear, these messages also cause the process to be terminated.
+  - ``E``: *Critical warnings* (or "errors" in the PipeWire terminology).
+    These messages represent situations where something unexpected has happened
+    and someone with understanding of the code should probably take a look at it.
+    These situations are usually programming mistakes or omissions.
+    This does not necessarily mean that the program is not functioning correctly.
+    It may mean, though, that the specific part of the program that logged the
+    message (the plugin, subsystem, ...) may not work optimally.
+  - ``W``: *Warnings*. These messages represent situations where something has
+    gone unintentionally wrong, but it was not totally unexpected. The situation
+    is recovered and the program can continue. In many cases, this warning may
+    mean that there is something wrong with the configuration or the environment
+    and may need attention from the user.
+  - ``N``: *Notices*. These are important messages that the user should notice,
+    like warnings, but they do not necessarily mean a bad situation.
+  - ``I``: *Informational messages*. These messages provide information about
+    the internal operations of the program.
+  - ``D``: *Debug messages*. These messages provide details about the
+    internal operations of the program, which can be useful for debugging.
+  - ``T``: *Traces*. These messages provide very verbose printouts of internal
+    operations and data that affects these operations. These can be useful for
+    debugging as well, but it may be best to be enabled only for the topic(s)
+    that are intended to be debugged, as they can be very big in volume.
+
+By default, WirePlumber logs only messages from levels ``F``, ``E``, ``W``
+and ``N``. These messages are printed on the standard error (``stderr``) stream,
+or they are logged to the systemd journal, if WirePlumber was started as a
+systemd service.
+
+The ``WIREPLUMBER_DEBUG`` environment variable can be used to change which
+topics and levels are enabled. The generic syntax is:
 
 .. code::
 
-   WIREPLUMBER_DEBUG=level:category1,category2,...
+   WIREPLUMBER_DEBUG=[<topic pattern>:]<level>,...,
 
-``level`` can be one of ``CEWMIDT`` or a numerical log level as listed below.
-In either case it defines the minimum debug level to show:
+This is a comma-separated list of topics to enable, paired with a level for
+each topic.
 
-  0. critical warnings and fatal errors (``C`` & ``E`` in the log)
-  1. warnings (``W``)
-  2. normal messages (``M``)
+``<level>`` can be one of ``FEWNIDT`` or a numerical log level as listed below.
+
+  0. fatal errors (``F``)
+  1. critical warnings (``E``)
+  2. warnings and notices (``W`` & ``N``)
   3. informational messages (``I``)
   4. debug messages (``D``)
   5. trace messages (``T``)
 
-``category1,category2,...`` is an *optional* comma-separated list of debug
-categories to show. Any categories not listed here will *not* appear in the log.
-If no categories are specified, then all messages are printed.
+Each level always includes messages from the previous levels, so for instance
+enabling level ``3`` (or ``I``) will also enable messages from levels ``2``
+and ``1`` (``N``, ``W``, ``E`` and ``F``)
 
-Categories support
-`glob style patterns <https://developer.gnome.org/glib/stable/glib-Glob-style-pattern-matching.html>`_
-containing ``*`` and ``?``, for convenience.
+``<topic pattern>`` is an *optional* description of one or more topics.
+This supports
+`glob style patterns <https://developer-old.gnome.org/glib/stable/glib-Glob-style-pattern-matching.html>`_
+containing ``*`` and ``?``.
 
-Well known categories include:
-
-  - **wireplumber**: messages from the wireplumber daemon
-  - **pw**: messages from libpipewire & spa plugins
-  - **wp-***: messages from libwireplumber
-  - **wp-core**: messages from *WpCore*
-  - **wp-proxy**: messages from *WpProxy*
-  - ... and so on ...
-  - **m-***: messages from wireplumber modules
-  - **m-default-profile**: messages from *libwireplumber-module-default-profile*
-  - **m-default-routes**: messages from *libwireplumber-module-default-routes*
-  - ... and so on ...
-  - **script/***: messages from scripts
-  - **script/policy-node**: messages from the *policy-node.lua* script
-  - ... and so on ...
+If a ``<topic pattern>`` is not specified, then the given ``<level>`` is
+considered to be the global log level, which applies to all topics that have
+no explicit level specified.
 
 Examples
 --------
 
-Show all messages:
+Show *all* messages:
 
 .. code::
 
    WIREPLUMBER_DEBUG=T
 
-Show all messages up to the *debug* level (E, C, W, M, I & D), excluding *trace*:
+Show all messages up to the *debug* level (F, E, W, N, I & D), excluding *trace*:
 
 .. code::
 
    WIREPLUMBER_DEBUG=D
 
-Show all messages up to the *message* level (E, C, W & M),
+Show all messages up to the *notice* level (F, E, W & N),
 excluding *info*, *debug* & *trace*
 (this is also the default when ``WIREPLUMBER_DEBUG`` is omitted):
 
@@ -67,17 +123,19 @@ excluding *info*, *debug* & *trace*
 
    WIREPLUMBER_DEBUG=2
 
-Show all messages from the wireplumber library:
+Show all messages from the wireplumber library (including traces), but only
+up to informational messages from other topics:
 
 .. code::
 
-   WIREPLUMBER_DEBUG=T:wp-*
+   WIREPLUMBER_DEBUG=I,wp-*:T
 
-Show all messages from ``wp-registry``, libpipewire and all modules:
+Show debug messages from ``wp-registry``, libpipewire and all modules, keeping
+all other topics up to the *notice* level.
 
 .. code::
 
-   WIREPLUMBER_DEBUG=T:wp-registry,pw,m-*
+   WIREPLUMBER_DEBUG=2,wp-registry:4,pw.*:4,m-*:4
 
 Relationship with the GLib log handler & G_MESSAGES_DEBUG
 ---------------------------------------------------------
@@ -98,8 +156,9 @@ Relationship with the PipeWire log handler & PIPEWIRE_DEBUG
 
 libpipewire uses the ``PIPEWIRE_DEBUG`` environment variable, with a similar syntax.
 WirePlumber replaces the log handler of libpipewire with its own, rendering
-``PIPEWIRE_DEBUG`` useless. Instead, you should use ``WIREPLUMBER_DEBUG`` and the
-``pw`` category to control log messages from libpipewire & its plugins.
+``PIPEWIRE_DEBUG`` useless. Instead, you should use ``WIREPLUMBER_DEBUG``.
+All the log topics that apply to libpipewire and its modules / plugins work
+the same in ``WIREPLUMBER_DEBUG``.
 
 If you are writing your own application based on libwireplumber, you can choose
 if you want to replace this log handler using the flags passed to
@@ -108,32 +167,19 @@ if you want to replace this log handler using the flags passed to
 Mapping of PipeWire debug levels to WirePlumber
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Both WirePlumber and PipeWire support 6 levels of debug logging, from 0 to 5
+PipeWire supports 5 levels of debug logging. WirePlumber, on the other hand,
+supports 7 levels. Some levels seem common, but the terminology and the
+semantics are slightly different. The following table shows how the various
+levels are mapped:
 
-PipeWire uses a slightly different semantic for the first 3 levels:
-
-=====  ========  ===========
-Level  PipeWire  WirePlumber
-=====  ========  ===========
-0      no log    Critical / fatal Errors
-1      Errors    Warnings
-2      Warnings  Messages
-=====  ========  ===========
-
-When PipeWire log messages are printed by the WirePlumber log handler, the
-level number stays the same and the semantic changes. PipeWire's errors are
-printed in the ``W`` category and PipeWire's warnings are printed in the
-``M`` category.
-
-In WirePlumber's (actually GLib's) semantics, this feels more appropriate
-because:
-
-  - GLib's errors are fatal (``abort()`` is called)
-  - GLib's critical warnings are assertion failures (i.e. programming mistakes,
-    not runtime errors)
-  - PipeWire's errors are neither fatal, nor programming mistakes; they are
-    just bad situations that are not meant to happen
-  - GLib's warnings are exactly that: bad runtime situations that are not meant
-    to happen, so mapping PipeWire errors to GLib warnings makes sense
-  - The **Messages** log level does not exist in PipeWire, so it can be used to
-    fill the gap for PipeWire warnings
+=============  ===============  ========================
+Numeric Level  PipeWire         WirePlumber
+=============  ===============  ========================
+0              no log           ``F`` - Fatal Error
+1              ``E`` - Error    ``E`` - Critical Warning
+2              ``W`` - Warning  ``W`` - Warning,
+                                ``N`` - Notice
+3              ``I`` - Info     ``I`` - Info
+4              ``D`` - Debug    ``D`` - Debug
+5              ``T`` - Trace    ``T`` - Trace
+=============  ===============  ========================
