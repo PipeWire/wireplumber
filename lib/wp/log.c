@@ -282,7 +282,7 @@ static G_GNUC_CONST inline gint
 level_index_from_spa (gint spa_lvl)
 {
   if (G_UNLIKELY (spa_lvl <= SPA_LOG_LEVEL_NONE))
-    return 0;
+    return 1;
   else if (spa_lvl < SPA_LOG_LEVEL_WARN)
     return spa_lvl + 1;
   else if (G_UNLIKELY (spa_lvl > SPA_LOG_LEVEL_TRACE))
