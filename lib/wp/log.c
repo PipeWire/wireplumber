@@ -230,18 +230,18 @@ static const gchar *object_colors[] = {
 static const struct {
   GLogLevelFlags log_level_flags;
   enum spa_log_level spa_level;
-  gchar name[6];
+  gchar name;
   gchar priority[2];
   gchar color[8];
 } log_level_info[] = {
-  { 0,                   0,                  "U", "0", COLOR_BRIGHT_MAGENTA },
-  { G_LOG_LEVEL_ERROR,   0,                  "F", "3" /* LOG_ERR */, COLOR_BRIGHT_RED },
-  { G_LOG_LEVEL_CRITICAL,SPA_LOG_LEVEL_ERROR,"E", "4" /* LOG_WARNING */, COLOR_RED },
-  { G_LOG_LEVEL_WARNING, SPA_LOG_LEVEL_WARN, "W", "4" /* LOG_WARNING */, COLOR_BRIGHT_YELLOW },
-  { G_LOG_LEVEL_MESSAGE, SPA_LOG_LEVEL_WARN, "N", "5" /* LOG_NOTICE */, COLOR_BRIGHT_GREEN },
-  { G_LOG_LEVEL_INFO,    SPA_LOG_LEVEL_INFO, "I", "6" /* LOG_INFO */, COLOR_GREEN },
-  { G_LOG_LEVEL_DEBUG,   SPA_LOG_LEVEL_DEBUG,"D", "7" /* LOG_DEBUG */, COLOR_BRIGHT_CYAN },
-  { WP_LOG_LEVEL_TRACE,  SPA_LOG_LEVEL_TRACE,"T", "7" /* LOG_DEBUG */, COLOR_CYAN },
+  { 0,                   0,                  'U', "0", COLOR_BRIGHT_MAGENTA },
+  { G_LOG_LEVEL_ERROR,   SPA_LOG_LEVEL_NONE, 'F', "3" /* LOG_ERR */, COLOR_BRIGHT_RED },
+  { G_LOG_LEVEL_CRITICAL,SPA_LOG_LEVEL_ERROR,'E', "4" /* LOG_WARNING */, COLOR_RED },
+  { G_LOG_LEVEL_WARNING, SPA_LOG_LEVEL_WARN, 'W', "4" /* LOG_WARNING */, COLOR_BRIGHT_YELLOW },
+  { G_LOG_LEVEL_MESSAGE, SPA_LOG_LEVEL_WARN, 'N', "5" /* LOG_NOTICE */, COLOR_BRIGHT_GREEN },
+  { G_LOG_LEVEL_INFO,    SPA_LOG_LEVEL_INFO, 'I', "6" /* LOG_INFO */, COLOR_GREEN },
+  { G_LOG_LEVEL_DEBUG,   SPA_LOG_LEVEL_DEBUG,'D', "7" /* LOG_DEBUG */, COLOR_BRIGHT_CYAN },
+  { WP_LOG_LEVEL_TRACE,  SPA_LOG_LEVEL_TRACE,'T', "7" /* LOG_DEBUG */, COLOR_CYAN },
 };
 
 /* map glib's log levels, which are flags in the range (1<<2) to (1<<8),
@@ -307,7 +307,7 @@ level_index_from_string (const char *str, gint *lvl)
   /* level is always 1 character */
   if (str[0] != '\0' && str[1] == '\0') {
     for (guint i = 1; i < G_N_ELEMENTS (log_level_info); i++) {
-      if (str[0] == log_level_info[i].name[0]) {
+      if (str[0] == log_level_info[i].name) {
         *lvl = i;
         return TRUE;
       }
@@ -545,7 +545,7 @@ wp_log_fields_write_to_stream (WpLogFields *lf, FILE *s)
   localtime_r (&now_secs, &now_tm);
   strftime (time_buf, sizeof (time_buf), "%H:%M:%S", &now_tm);
 
-  fprintf (s, "%s%s %s.%06d %s%18.18s %s%s:%s:%s:%s %s\n",
+  fprintf (s, "%s%c %s.%06d %s%18.18s %s%s:%s:%s:%s %s\n",
       /* level */
       log_state.use_color ? log_level_info[lf->log_level].color : "",
       log_level_info[lf->log_level].name,
