@@ -299,17 +299,26 @@ level_index_to_spa (gint lvl_index)
   return log_level_info [lvl_index].spa_level;
 }
 
-static gint
-level_index_from_string (const char *str)
+static gboolean
+level_index_from_string (const char *str, gint *lvl)
 {
-  g_return_val_if_fail (str != NULL, 0);
+  g_return_val_if_fail (str != NULL, FALSE);
 
-  for (guint i = 0; i < G_N_ELEMENTS (log_level_info); i++) {
-    if (g_str_equal (str, log_level_info[i].name))
-      return i;
+  /* level is always 1 character */
+  if (str[0] != '\0' && str[1] == '\0') {
+    for (guint i = 1; i < G_N_ELEMENTS (log_level_info); i++) {
+      if (str[0] == log_level_info[i].name[0]) {
+        *lvl = i;
+        return TRUE;
+      }
+    }
+
+    if (str[0] >= '0' && str[0] <= '5') {
+      *lvl = level_index_from_spa (str[0] - '0');
+      return TRUE;
+    }
   }
-
-  return level_index_from_spa (atoi (str));
+  return FALSE;
 }
 
 /* private, called from wp_init() */
@@ -344,11 +353,11 @@ wp_log_init (gint flags)
     gint lvl;
 
     tok = pw_split_strv (tokens[i], ":", 2, &n_tok);
-    if (n_tok == 2 && (lvl = level_index_from_string (tok[1]))) {
+    if (n_tok == 2 && level_index_from_string (tok[1], &lvl)) {
       pttrn->spec = g_pattern_spec_new (tok[0]);
       pttrn->log_level = lvl;
       pttrn++;
-    } else if (n_tok == 1 && (lvl = level_index_from_string (tok[0]))) {
+    } else if (n_tok == 1 && level_index_from_string (tok[0], &lvl)) {
       global_log_level = lvl;
     } else {
       /* note that this is going to initialize the wp-log topic here */
@@ -401,11 +410,15 @@ wp_log_init (gint flags)
 void
 wp_log_set_global_level (const gchar *log_level)
 {
-  gint level = level_index_from_string (log_level);
-  log_state.global_log_level = level;
-  log_state.global_log_level_flags = level_index_to_full_flags (level);
-  wp_spa_log_get_instance()->level = level_index_to_spa (level);
-  pw_log_set_level (level_index_to_spa (level));
+  gint level;
+  if (level_index_from_string (log_level, &level)) {
+    log_state.global_log_level = level;
+    log_state.global_log_level_flags = level_index_to_full_flags (level);
+    wp_spa_log_get_instance()->level = level_index_to_spa (level);
+    pw_log_set_level (level_index_to_spa (level));
+  } else {
+    wp_warning ("ignoring invalid log.level in config file: %s", log_level);
+  }
 }
 
 static gint
