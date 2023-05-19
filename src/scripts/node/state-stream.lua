@@ -10,6 +10,7 @@
 
 cutils = require ("common-utils")
 config = require ("stream-config")
+log = Log.open_topic ("s-node")
 
 -- the state storage
 state = nil
@@ -77,10 +78,10 @@ restore_stream_hook = SimpleEventHook {
 
       if props.volume or (props.mute ~= nil) or props.channelVolumes or props.channelMap
       then
-        Log.info (node, "restore values from " .. key)
+        log:info (node, "restore values from " .. key)
 
         local param = Pod.Object (props)
-        Log.debug (param, "setting props on " .. tostring (stream_props ["node.name"]))
+        log:debug (param, "setting props on " .. tostring (stream_props ["node.name"]))
         node:set_param ("Props", param)
       end
     end
@@ -111,7 +112,7 @@ restore_stream_hook = SimpleEventHook {
                   target_node.properties ["object.serial"])
           end
         else
-          Log.debug (node,
+          log:debug (node,
               "Not restoring the target for " ..
               tostring (stream_props ["node.name"]) ..
               " because it is already set to " .. target_in_props)
@@ -161,7 +162,7 @@ store_stream_props_hook = SimpleEventHook {
       local stored_values = getStoredStreamProps (key) or {}
       local hasChanges = false
 
-      Log.info (node, "saving stream props for " ..
+      log:info (node, "saving stream props for " ..
           tostring (stream_props ["node.name"]))
 
       for p in node:iterate_params ("Props") do
@@ -252,7 +253,7 @@ store_stream_target_hook = SimpleEventHook {
       end
     end
 
-    Log.info (node, "saving stream target for " ..
+    log:info (node, "saving stream target for " ..
       tostring (stream_props ["node.name"]) .. " -> " .. tostring (target_name))
 
     local stored_values = getStoredStreamProps (key) or {}
@@ -417,7 +418,7 @@ function toggleState (enable)
     rs_metadata = ImplMetadata ("route-settings")
     rs_metadata:activate (Features.ALL, function (m, e)
       if e then
-        Log.warning ("failed to activate route-settings metadata: " .. tostring (e))
+        log:warning ("failed to activate route-settings metadata: " .. tostring (e))
       end
     end)
 

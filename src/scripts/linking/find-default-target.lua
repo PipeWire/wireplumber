@@ -7,6 +7,7 @@
 -- Check if default nodes can be picked up as target node.
 
 local putils = require ("policy-utils")
+log = Log.open_topic ("s-linking")
 
 SimpleEventHook {
   name = "linking/find-default-target",
@@ -27,7 +28,7 @@ SimpleEventHook {
 
     local target_picked = false
 
-    Log.info (si, string.format ("handling item: %s (%s)",
+    log:info (si, string.format ("handling item: %s (%s)",
         tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
 
     target = putils.findDefaultLinkable (si)
@@ -42,7 +43,7 @@ SimpleEventHook {
     end
 
     if target_picked then
-      Log.info (si,
+      log:info (si,
         string.format ("... default target picked: %s (%s), can_passthrough:%s",
           tostring (target.properties ["node.name"]),
           tostring (target.properties ["node.id"]),

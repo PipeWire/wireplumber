@@ -9,6 +9,7 @@
 -- linkable) objects out of them.
 
 config = require ("policy-config")
+log = Log.open_topic ("s-node")
 
 items = {}
 
@@ -122,7 +123,7 @@ AsyncEventHook {
         local bound_id = node ["bound-id"]
         local item = items [node.id]
 
-        Log.info (item, "activated item for node " .. tostring (bound_id))
+        log:info (item, "activated item for node " .. tostring (bound_id))
         item:register ()
         transition:advance ()
       end,

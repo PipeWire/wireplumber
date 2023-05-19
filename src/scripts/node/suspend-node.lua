@@ -5,6 +5,8 @@
 --
 -- SPDX-License-Identifier: MIT
 
+log = Log.open_topic ("s-node")
+
 sources = {}
 
 SimpleEventHook {
@@ -23,7 +25,7 @@ SimpleEventHook {
     local node = event:get_subject ()
     local new_state = event:get_properties ()["event.subject.new-state"]
 
-    Log.debug (node, "changed state to " .. new_state)
+    log:debug (node, "changed state to " .. new_state)
 
     -- Always clear the current source if any
     local id = node["bound-id"]
@@ -45,7 +47,7 @@ SimpleEventHook {
       -- add idle timeout; multiply by 1000, timeout_add() expects ms
       sources[id] = Core.timeout_add(timeout * 1000, function()
         -- Suspend the node
-        Log.info(node, "was idle for a while; suspending ...")
+        log:info(node, "was idle for a while; suspending ...")
         node:send_command("Suspend")
 
         -- Unref the source

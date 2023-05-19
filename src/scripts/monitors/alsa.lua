@@ -6,6 +6,7 @@
 -- SPDX-License-Identifier: MIT
 
 local cutils = require ("common-utils")
+log = Log.open_topic ("s-monitors")
 
 local defaults = {}
 defaults.reserve_priority = -20
@@ -192,7 +193,7 @@ function createDevice(parent, id, factory, properties)
     device:activate(Feature.SpaDevice.ENABLED | Feature.Proxy.BOUND)
     parent:store_managed_object(id, device)
   else
-    Log.warning ("Failed to create '" .. factory .. "' device")
+    log:warning ("Failed to create '" .. factory .. "' device")
   end
 end
 
@@ -279,7 +280,7 @@ function prepareDevice(parent, id, obj_type, factory, properties)
 
   -- override the device factory to use ACP
   if properties["api.alsa.use-acp"] then
-    Log.info("Enabling the use of ACP on " .. properties["device.name"])
+    log:info("Enabling the use of ACP on " .. properties["device.name"])
     factory = "api.alsa.acp.device"
   end
 
@@ -314,7 +315,7 @@ function prepareDevice(parent, id, obj_type, factory, properties)
     end)
 
     rd:connect("release-requested", function (rd)
-        Log.info("release requested")
+        log:info("release requested")
         parent:store_managed_object(id, nil)
         rd:call("release")
     end)
@@ -340,7 +341,7 @@ end
 function createMonitor ()
   local m = SpaDevice("api.alsa.enum.udev", config.properties)
   if m == nil then
-    Log.notice("PipeWire's SPA ALSA udev plugin(\"api.alsa.enum.udev\")"
+    log:notice("PipeWire's SPA ALSA udev plugin(\"api.alsa.enum.udev\")"
       .. "missing or broken. Sound Cards cannot be enumerated")
     return nil
   end
@@ -372,7 +373,7 @@ function createMonitor ()
   node_names_table = {}
 
   -- activate monitor
-  Log.info("Activating ALSA monitor")
+  log:info("Activating ALSA monitor")
   m:activate(Feature.SpaDevice.ENABLED)
   return m
 end
@@ -391,7 +392,7 @@ end
 -- has failed and continue without it
 rd_plugin = Plugin.find("reserve-device")
 if rd_plugin and rd_plugin:call("get-dbus")["state"] ~= "connected" then
-  Log.notice("reserve-device plugin is not connected to D-Bus, "
+  log:notice("reserve-device plugin is not connected to D-Bus, "
               .. "disabling device reservation")
   rd_plugin = nil
 end
@@ -402,12 +403,12 @@ if rd_plugin then
   local dbus = rd_plugin:call("get-dbus")
   dbus:connect("notify::state", function (b, pspec)
     local state = b["state"]
-    Log.info ("rd-plugin state changed to " .. state)
+    log:info ("rd-plugin state changed to " .. state)
     if state == "connected" then
-      Log.info ("Creating ALSA monitor")
+      log:info ("Creating ALSA monitor")
       monitor = createMonitor()
     elseif state == "closed" then
-      Log.info ("Destroying ALSA monitor")
+      log:info ("Destroying ALSA monitor")
       monitor = nil
     end
   end)

@@ -12,6 +12,7 @@
 
 config = require ("device-config")
 devinfo = require ("device-info-cache")
+log = Log.open_topic ("s-device")
 
 AsyncEventHook {
   name = "device/apply-routes",
@@ -34,7 +35,7 @@ AsyncEventHook {
         assert (dev_info)
 
         if not selected_routes then
-          Log.info (device, "No routes selected to set on " .. dev_info.name)
+          log:info (device, "No routes selected to set on " .. dev_info.name)
           transition:advance ()
           return
         end
@@ -85,7 +86,7 @@ AsyncEventHook {
             save = route.save,
           }
 
-          Log.debug (param,
+          log:debug (param,
             string.format ("setting route(%s) on for device(%s)(%s)",
               route.name, dev_info.name, tostring (device)))
 

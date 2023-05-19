@@ -7,6 +7,8 @@
 -- hook to make sure the user prefered device(default.configured.*) is higher
 -- priority.
 
+log = Log.open_topic ("s-default-nodes")
+
 SimpleEventHook {
   name = "default-nodes/find-selected-default-node",
   interests = {

@@ -8,6 +8,7 @@
 local COMBINE_OFFSET = 64
 
 local cutils = require ("common-utils")
+log = Log.open_topic ("s-monitors")
 
 local defaults = {}
 defaults.properties = Json.Object {}
@@ -109,7 +110,7 @@ function createOffloadScoNode(parent, id, type, factory, properties)
     }
     args["playback.props"] = Json.Object(playback_args)
   else
-    Log.warning(parent, "Unsupported factory: " .. factory)
+    log:warning(parent, "Unsupported factory: " .. factory)
     return
   end
 
@@ -142,7 +143,7 @@ device_set_nodes_om:connect ("object-added", function(_, node)
       type = "device",
       Constraint { "object.id", "=", node.properties["device.id"] }
     }
-    Log.info("Device set node found: " .. tostring (node["bound-id"]))
+    log:info("Device set node found: " .. tostring (node["bound-id"]))
     for device in devices_om:iterate (interest) do
       local device_id = device.properties["api.bluez5.id"]
       if not device_id then
@@ -156,7 +157,7 @@ device_set_nodes_om:connect ("object-added", function(_, node)
 
       local id = node.properties["card.profile.device"]
       if id ~= nil then
-        Log.info(".. assign to device: " .. tostring (device["bound-id"]) .. " node " .. tostring (id))
+        log:info(".. assign to device: " .. tostring (device["bound-id"]) .. " node " .. tostring (id))
         spa_device:store_managed_object (id, node)
 
         -- set routes again to update volumes etc.
@@ -192,10 +193,10 @@ function createSetNode(parent, id, type, factory, properties)
     stream_class = "Stream/Input/Audio/Internal"
   end
 
-  Log.info("Device set: " .. properties["node.name"])
+  log:info("Device set: " .. properties["node.name"])
 
   for _, member in pairs(members) do
-    Log.info("Device set member:" .. member["object.path"])
+    log:info("Device set member:" .. member["object.path"])
     table.insert(rules,
       Json.Object {
         ["matches"] = Json.Array {
@@ -227,7 +228,7 @@ function createSetNode(parent, id, type, factory, properties)
   local args_json = Json.Object(args)
   local args_string = args_json:get_data()
   local combine_properties = {}
-  Log.info("Device set node: " .. args_string)
+  log:info("Device set node: " .. args_string)
   return LocalModule("libpipewire-module-combine-stream", args_string, combine_properties)
 end
 
@@ -355,12 +356,12 @@ function createDevice(parent, id, type, factory, properties)
       device:connect("object-removed", removeNode)
       parent:store_managed_object(id, device)
     else
-      Log.warning ("Failed to create '" .. factory .. "' device")
+      log:warning ("Failed to create '" .. factory .. "' device")
       return
     end
   end
 
-  Log.info(parent, string.format("%d, %s (%s): %s",
+  log:info(parent, string.format("%d, %s (%s): %s",
         id, properties["device.description"],
         properties["api.bluez5.address"], properties["api.bluez5.connection"]))
 
@@ -379,7 +380,7 @@ function createMonitor()
   if monitor then
     monitor:connect("create-object", createDevice)
   else
-    Log.notice("PipeWire's BlueZ SPA missing or broken. Bluetooth not supported.")
+    log:notice("PipeWire's BlueZ SPA missing or broken. Bluetooth not supported.")
     return nil
   end
   monitor:activate(Feature.SpaDevice.ENABLED)
@@ -392,7 +393,7 @@ if logind_plugin then
   -- if logind support is enabled, activate
   -- the monitor only when the seat is active
   function startStopMonitor(seat_state)
-    Log.info(logind_plugin, "Seat state changed: " .. seat_state)
+    log:info(logind_plugin, "Seat state changed: " .. seat_state)
 
     if seat_state == "active" then
       monitor = createMonitor()

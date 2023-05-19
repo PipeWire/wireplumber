@@ -7,6 +7,8 @@
 
 -- Receive script arguments from config.lua
 
+log = Log.open_topic ("s-node")
+
 local defaults = {}
 defaults.virtual_items = Json.Object {}
 
@@ -18,20 +20,20 @@ function createVirtualItem (factory_name, properties)
   -- create virtual item
   local si_v = SessionItem ( factory_name )
   if not si_v then
-    Log.warning (si_v, "could not create virtual item of type " .. factory_name)
+    log:warning (si_v, "could not create virtual item of type " .. factory_name)
     return
   end
 
   -- configure virtual item
   if not si_v:configure(properties) then
-    Log.warning(si_v, "failed to configure virtual item " .. properties.name)
+    log:warning(si_v, "failed to configure virtual item " .. properties.name)
     return
   end
 
   -- activate and register virtual item
   si_v:activate (Features.ALL, function (item)
     item:register ()
-    Log.info(item, "registered virtual item " .. properties.name)
+    log:info(item, "registered virtual item " .. properties.name)
   end)
 end
 

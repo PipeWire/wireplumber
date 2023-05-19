@@ -6,6 +6,7 @@
 -- SPDX-License-Identifier: MIT
 
 local putils = require ("policy-utils")
+log = Log.open_topic ("s-linking")
 
 local defaults = {}
 defaults.duck_level = 0.3
@@ -65,7 +66,7 @@ function restoreVolume (om, role, media_class)
   if si_v then
     local n = si_v:get_associated_proxy ("node")
     if n then
-      Log.debug(si_v, "restore role " .. role)
+      log:debug(si_v, "restore role " .. role)
       mixer_api:call("set-volume", n["bound-id"], {
         monitorVolume = 1.0,
       })
@@ -86,7 +87,7 @@ function duckVolume (om, role, media_class)
   if si_v then
     local n = si_v:get_associated_proxy ("node")
     if n then
-      Log.debug(si_v, "duck role " .. role)
+      log:debug(si_v, "duck role " .. role)
       mixer_api:call("set-volume", n["bound-id"], {
         monitorVolume = config.duck_level,
       })
@@ -141,7 +142,7 @@ AsyncEventHook {
         }
 
         -- gather info about links
-        Log.info ("Rescanning virtual si-standard-link links...")
+        log:info ("Rescanning virtual si-standard-link links...")
         for silink in om:iterate {
             type = "SiLink",
             Constraint { "is.virtual.client.link", "=", true },
@@ -174,13 +175,13 @@ AsyncEventHook {
           local si_flags = putils:get_flags (si_id)
 
           if e then
-            Log.warning (l, "failed to activate virtual si-standard-link: " .. e)
+            log:warning (l, "failed to activate virtual si-standard-link: " .. e)
             if si_flags ~= nil then
               si_flags.peer_id = nil
             end
             l:remove ()
           else
-            Log.info (l, "virtual si-standard-link activated successfully")
+            log:info (l, "virtual si-standard-link activated successfully")
             si_flags.si_link = l
             si_flags.failed_peer_id = nil
             if si_flags.peer_id == nil then
@@ -192,7 +193,7 @@ AsyncEventHook {
           -- advance only when all pending activations are completed
           pending_activations = pending_activations - 1
           if pending_activations <= 0 then
-            Log.info ("All virtual si-standard-links activated")
+            log:info ("All virtual si-standard-links activated")
             transition:advance ()
           end
         end
@@ -230,7 +231,7 @@ AsyncEventHook {
                 end
                 duckVolume (om, v[i].role, media_class)
               else
-                Log.warning("Unknown action: " .. action)
+                log:warning("Unknown action: " .. action)
               end
             end
 
@@ -245,7 +246,7 @@ AsyncEventHook {
 
         -- just advance transition if no pending activations are needed
         if pending_activations <= 0 then
-          Log.info ("All virtual si-standard-links rescanned")
+          log:info ("All virtual si-standard-links rescanned")
           transition:advance ()
         end
       end,

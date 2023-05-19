@@ -5,6 +5,8 @@
 --
 -- SPDX-License-Identifier: MIT
 
+log = Log.open_topic ("s-client")
+
 function getDefaultPermissions (properties)
   local pw_access = properties["pipewire.access"]
   local media_category = properties["media.category"]
@@ -43,7 +45,7 @@ clients_om:connect("object-added", function (om, client)
   end
 
   if perms ~= nil then
-    Log.info(client, "Granting permissions to client " .. id .. ": " .. perms)
+    log:info(client, "Granting permissions to client " .. id .. ": " .. perms)
     client:update_permissions { ["any"] = perms }
   end
 end)

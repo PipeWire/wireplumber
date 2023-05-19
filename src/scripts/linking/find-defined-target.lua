@@ -12,6 +12,7 @@
 local putils = require ("policy-utils")
 local cutils = require ("common-utils")
 local config = require ("policy-config")
+log = Log.open_topic ("s-linking")
 
 SimpleEventHook {
   name = "linking/find-defined-target",
@@ -30,7 +31,7 @@ SimpleEventHook {
       return
     end
 
-    Log.info (si, string.format ("handling item: %s (%s)",
+    log:info (si, string.format ("handling item: %s (%s)",
         tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
 
     local metadata = config.move and putils.get_default_metadata_object ()
@@ -109,12 +110,12 @@ SimpleEventHook {
         and not target
         and not si_flags.was_handled
         and not si_flags.done_waiting then
-      Log.info(si, "... waiting for target")
+      log:info(si, "... waiting for target")
       si_flags.done_waiting = true
       event:stop_processing ()
 
     elseif target_picked then
-      Log.info (si,
+      log:info (si,
         string.format ("... defined target picked: %s (%s), can_passthrough:%s",
           tostring (target.properties ["node.name"]),
           tostring (target.properties ["node.id"]),

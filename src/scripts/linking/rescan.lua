@@ -12,6 +12,7 @@
 
 local putils = require ("policy-utils")
 local cutils = require ("common-utils")
+log = Log.open_topic ("s-linking")
 
 function checkLinkable (si, om, handle_nonstreams)
   local si_props = si.properties
@@ -48,7 +49,7 @@ SimpleEventHook {
       return
     end
 
-    Log.info (si, string.format ("unhandling item: %s (%s)",
+    log:info (si, string.format ("unhandling item: %s (%s)",
         tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
 
     -- iterate over all the links in the graph and
@@ -68,7 +69,7 @@ SimpleEventHook {
         end
 
         silink:remove ()
-        Log.info (silink, "... link removed")
+        log:info (silink, "... link removed")
       end
     end
 
@@ -87,7 +88,7 @@ SimpleEventHook {
     local source = event:get_source ()
     local om = source:call ("get-object-manager", "session-item")
 
-    Log.info ("rescanning...")
+    log:info ("rescanning...")
 
     for si in om:iterate { type = "SiLinkable" } do
       local valid, si_props = checkLinkable (si, om)
@@ -98,7 +99,7 @@ SimpleEventHook {
       -- check if we need to link this node at all
       local autoconnect = cutils.parseBool (si_props ["node.autoconnect"])
       if not autoconnect then
-        Log.debug (si, tostring (si_props ["node.name"]) .. " does not need to be autoconnected")
+        log:debug (si, tostring (si_props ["node.name"]) .. " does not need to be autoconnected")
         goto skip_linkable
       end
 

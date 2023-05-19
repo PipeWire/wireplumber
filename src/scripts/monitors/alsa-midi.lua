@@ -5,6 +5,8 @@
 --
 -- SPDX-License-Identifier: MIT
 
+log = Log.open_topic ("s-monitors")
+
 local defaults = {}
 defaults.node_properties = Json.Object {}
 
@@ -32,7 +34,7 @@ function CreateMidiNode ()
   -- create the midi node
   local node = Node("spa-node-factory", props)
   node:activate(Feature.Proxy.BOUND, function (n)
-    Log.info ("activated Midi bridge")
+    log:info ("activated Midi bridge")
   end)
 
   return node;

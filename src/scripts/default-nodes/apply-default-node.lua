@@ -4,6 +4,8 @@
 --
 -- SPDX-License-Identifier: MIT
 
+log = Log.open_topic ("s-default-nodes")
+
 SimpleEventHook {
   name = "default-nodes/apply-default-node",
   after = { "default-nodes/find-best-default-node",
@@ -27,7 +29,7 @@ SimpleEventHook {
     if selected_node then
       local key = "default." .. def_node_type
 
-      Log.info ("set default node for " .. key .. " " .. selected_node)
+      log:info ("set default node for " .. key .. " " .. selected_node)
 
       metadata:set (0, key, "Spa:String:JSON",
           Json.Object { ["name"] = selected_node }:to_string ())

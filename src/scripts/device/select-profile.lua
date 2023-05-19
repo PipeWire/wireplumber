@@ -5,6 +5,7 @@
 -- SPDX-License-Identifier: MIT
 
 cutils = require ("common-utils")
+log = Log.open_topic ("s-device")
 
 SimpleEventHook {
   name = "device/select-profile",

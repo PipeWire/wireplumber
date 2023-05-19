@@ -7,6 +7,7 @@
 -- Move & follow settings handlers. If the relevant settings are enabled,
 -- install hooks that will schedule a rescan of the graph when needed
 
+log = Log.open_topic ("s-linking")
 local config = require ("policy-config")
 local handles = {}
 

@@ -12,6 +12,7 @@
 
 cutils = require ("common-utils")
 devinfo = require ("device-info-cache")
+log = Log.open_topic ("s-device")
 
 SimpleEventHook {
   name = "device/find-best-routes",

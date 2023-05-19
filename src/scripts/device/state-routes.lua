@@ -16,6 +16,7 @@
 cutils = require ("common-utils")
 config = require ("device-config")
 devinfo = require ("device-info-cache")
+log = Log.open_topic ("s-device")
 
 -- the state storage
 state = nil
@@ -57,7 +58,7 @@ find_stored_routes_hook = SimpleEventHook {
         goto next_device_id
       end
 
-      Log.info (device, "restoring route for device ID " .. tostring (device_id));
+      log:info (device, "restoring route for device ID " .. tostring (device_id));
 
       local route_info = nil
 
@@ -74,11 +75,11 @@ find_stored_routes_hook = SimpleEventHook {
       if route_info then
         -- we found a stored route
         if route_info.available == "no" then
-          Log.info (device, "stored route '" .. route_info.name .. "' not available")
+          log:info (device, "stored route '" .. route_info.name .. "' not available")
           -- not available, try to find next best
           route_info = nil
         else
-          Log.info (device, "found stored route: " .. route_info.name)
+          log:info (device, "found stored route: " .. route_info.name)
           -- make sure we save it again
           route_info.save = true
         end
@@ -117,7 +118,7 @@ apply_route_props_hook = SimpleEventHook {
     assert (dev_info)
 
     if not selected_routes then
-      Log.info (device, "No routes selected to set on " .. dev_info.name)
+      log:info (device, "No routes selected to set on " .. dev_info.name)
       return
     end
 
@@ -191,7 +192,7 @@ store_or_restore_routes_hook = SimpleEventHook {
       if not route_info.prev_active then
         -- a new route is now active, restore the volume and
         -- make sure we save this as a preferred route
-        Log.info (device,
+        log:info (device,
             string.format ("new active route(%s) found of device(%s)",
                 route.name, dev_info.name))
 
@@ -201,7 +202,7 @@ store_or_restore_routes_hook = SimpleEventHook {
 
       elseif route.save and route.props then
         -- just save route properties
-        Log.info (device,
+        log:info (device,
             string.format ("storing route(%s) props of device(%s)",
               route.name, dev_info.name))
 

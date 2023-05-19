@@ -7,6 +7,7 @@
 -- example of a user injectible hook to link a node to a custom target
 
 local putils = require ("policy-utils")
+log = Log.open_topic ("s-linking")
 
 SimpleEventHook {
   name = "linking/sample-find-user-target",
@@ -25,7 +26,7 @@ SimpleEventHook {
       return
     end
 
-    Log.info (si, "in find-user-target")
+    log:info (si, "in find-user-target")
 
     -- implement logic here to find a suitable target
 

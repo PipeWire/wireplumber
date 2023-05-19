@@ -1,6 +1,8 @@
 MEDIA_ROLE_NONE = 0
 MEDIA_ROLE_CAMERA = 1 << 0
 
+log = Log.open_topic ("s-client")
+
 function hasPermission (permissions, app_id, lookup)
   if permissions then
     for key, values in pairs(permissions) do
@@ -28,7 +30,7 @@ end
 
 function setPermissions (client, allow_client, allow_nodes)
   local client_id = client["bound-id"]
-  Log.info(client, "Granting ALL access to client " .. client_id)
+  log:info(client, "Granting ALL access to client " .. client_id)
 
   -- Update permissions on client
   client:update_permissions { [client_id] = allow_client and "all" or "-" }
@@ -50,18 +52,18 @@ function updateClientPermissions (client, permissions)
   -- Make sure the client is not the portal itself
   str_prop = client.properties["pipewire.access.portal.is_portal"]
   if str_prop == "yes" then
-    Log.info (client, "client is the portal itself")
+    log:info (client, "client is the portal itself")
     return
   end
 
   -- Make sure the client has a portal app Id
   str_prop = client.properties["pipewire.access.portal.app_id"]
   if str_prop == nil then
-    Log.info (client, "Portal managed client did not set app_id")
+    log:info (client, "Portal managed client did not set app_id")
     return
   end
   if str_prop == "" then
-    Log.info (client, "Ignoring portal check for non-sandboxed client")
+    log:info (client, "Ignoring portal check for non-sandboxed client")
     setPermissions (client, true, true)
     return
   end
@@ -70,19 +72,19 @@ function updateClientPermissions (client, permissions)
   -- Make sure the client has portal media roles
   str_prop = client.properties["pipewire.access.portal.media_roles"]
   if str_prop == nil then
-  Log.info (client, "Portal managed client did not set media_roles")
+  log:info (client, "Portal managed client did not set media_roles")
     return
   end
   media_roles = parseMediaRoles (str_prop)
   if (media_roles & MEDIA_ROLE_CAMERA) == 0 then
-    Log.info (client, "Ignoring portal check for clients without camera role")
+    log:info (client, "Ignoring portal check for clients without camera role")
     return
   end
 
   -- Update permissions
   allowed = hasPermission (permissions, app_id, "yes")
 
-  Log.info (client, "setting permissions: " .. tostring(allowed))
+  log:info (client, "setting permissions: " .. tostring(allowed))
   setPermissions (client, allowed, allowed)
 end
 
@@ -133,7 +135,7 @@ else
   -- Otherwise, just set all permissions to all portal clients
   clients_om:connect("object-added", function (om, client)
     local id = client["bound-id"]
-    Log.info(client, "Granting ALL access to client " .. id)
+    log:info(client, "Granting ALL access to client " .. id)
     client:update_permissions { ["any"] = "all" }
   end)
 end

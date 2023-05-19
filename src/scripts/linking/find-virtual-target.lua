@@ -7,6 +7,7 @@
 -- Select the virtual target based on roles
 
 local putils = require ("policy-utils")
+log = Log.open_topic ("s-linking")
 
 local defaults = {}
 defaults.roles = Json.Object {}
@@ -76,20 +77,20 @@ SimpleEventHook {
       return
     end
 
-    Log.info (si, string.format ("handling item: %s (%s)",
+    log:info (si, string.format ("handling item: %s (%s)",
         tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
 
     -- get target media class
     local target_media_class = target_class_assoc[si_props ["media.class"]]
     if not target_media_class then
-      Log.info (si, "target media class not found")
+      log:info (si, "target media class not found")
       return
     end
 
     -- find highest priority virtual by role
     local media_role = findRole (role, target_media_class)
     if media_role == nil then
-      Log.info (si, "media role not found")
+      log:info (si, "media role not found")
       return
     end
 

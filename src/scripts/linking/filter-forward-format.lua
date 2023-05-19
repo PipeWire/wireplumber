@@ -12,6 +12,7 @@
 
 local putils = require ("policy-utils")
 local config = require ("policy-config")
+log = Log.open_topic ("s-linking")
 
 function findAssociatedLinkGroupNode (si)
   local si_props = si.properties
@@ -49,7 +50,7 @@ function onLinkGroupPortsStateChanged (si, old_state, new_state)
     return
   end
 
-  Log.info (si, "ports format changed on " .. si_props ["node.name"])
+  log:info (si, "ports format changed on " .. si_props ["node.name"])
 
   -- find associated device
   local si_device = findAssociatedLinkGroupNode (si)
@@ -60,19 +61,19 @@ function onLinkGroupPortsStateChanged (si, old_state, new_state)
     local f, m = si:get_ports_format ()
 
     -- unregister the device
-    Log.info (si_device, "unregistering " .. device_node_name)
+    log:info (si_device, "unregistering " .. device_node_name)
     si_device:remove ()
 
     -- set new format in the device
-    Log.info (si_device, "setting new format in " .. device_node_name)
+    log:info (si_device, "setting new format in " .. device_node_name)
     si_device:set_ports_format (f, m, function (item, e)
       if e ~= nil then
-        Log.warning (item, "failed to configure ports in " ..
+        log:warning (item, "failed to configure ports in " ..
           device_node_name .. ": " .. e)
       end
 
       -- register back the device
-      Log.info (item, "registering " .. device_node_name)
+      log:info (item, "registering " .. device_node_name)
       item:register ()
     end)
   end
@@ -105,7 +106,7 @@ SimpleEventHook {
           link_group ~= nil then
         si:connect ("adapter-ports-state-changed", onLinkGroupPortsStateChanged)
         si_flags.ports_state_signal = true
-        Log.info (si, "listening ports state changed on " .. si_props ["node.name"])
+        log:info (si, "listening ports state changed on " .. si_props ["node.name"])
       end
     end
   end

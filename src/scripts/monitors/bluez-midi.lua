@@ -6,6 +6,7 @@
 -- SPDX-License-Identifier: MIT
 
 local cutils = require ("common-utils")
+log = Log.open_topic ("s-monitors")
 
 local defaults = {}
 defaults.properties = Json.Object {}
@@ -30,7 +31,7 @@ function setLatencyOffset(node, offset_msec)
   props.latencyOffsetNsec = tonumber(offset_msec) * 1000000
 
   local param = Pod.Object(props)
-  Log.debug(param, "setting latency offset on " .. tostring(node))
+  log:debug(param, "setting latency offset on " .. tostring(node))
   node:set_param("Props", param)
 end
 
@@ -92,7 +93,7 @@ function createMonitor()
         id_to_name_table[id] = nil
     end)
   else
-    Log.notice("PipeWire's BlueZ MIDI SPA missing or broken. Bluetooth not supported.")
+    log:notice("PipeWire's BlueZ MIDI SPA missing or broken. Bluetooth not supported.")
     return nil
   end
 
@@ -127,7 +128,7 @@ function createServers()
       table.insert(servers, node)
       setLatencyOffset(node, latency_offset)
     else
-      Log.notice("Failed to create BLE MIDI server.")
+      log:notice("Failed to create BLE MIDI server.")
     end
     i = i + 1
   end
@@ -140,7 +141,7 @@ if logind_plugin then
   -- if logind support is enabled, activate
   -- the monitor only when the seat is active
   function startStopMonitor(seat_state)
-    Log.info(logind_plugin, "Seat state changed: " .. seat_state)
+    log:info(logind_plugin, "Seat state changed: " .. seat_state)
 
     if seat_state == "active" then
       monitor = createMonitor()

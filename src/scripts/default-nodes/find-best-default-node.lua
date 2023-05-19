@@ -4,6 +4,8 @@
 --
 -- SPDX-License-Identifier: MIT
 
+log = Log.open_topic ("s-default-nodes")
+
 SimpleEventHook {
   name = "default-nodes/find-best-default-node",
   interests = {

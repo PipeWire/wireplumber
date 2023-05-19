@@ -15,6 +15,7 @@
 cutils = require ("common-utils")
 config = require ("device-config")
 devinfo = require ("device-info-cache")
+log = Log.open_topic ("s-device")
 
 SimpleEventHook {
   name = "device/select-route",
@@ -60,7 +61,7 @@ SimpleEventHook {
       -- update properties
       route_info.prev_available = route_info.available
       if route_info.available ~= route.available then
-        Log.info (device, "route " .. route.name .. " available changed " ..
+        log:info (device, "route " .. route.name .. " available changed " ..
                          route_info.available .. " -> " .. route.available)
         route_info.available = route.available
         if profile and cutils.arrayContains (route.profiles, profile.index) then
@@ -92,7 +93,7 @@ SimpleEventHook {
       -- then try to select a new "best" route for each device and ignore
       -- what was stored
       if profile_changed or avail_routes_changed then
-        Log.info (device,
+        log:info (device,
             string.format ("restore routes for profile(%s) of device(%s)",
             profile.name, dev_info.name))
 

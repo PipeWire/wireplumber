@@ -8,6 +8,7 @@
 -- availability
 
 cutils = require ("common-utils")
+log = Log.open_topic ("s-device")
 
 SimpleEventHook {
   name = "device/find-best-profile",
@@ -56,7 +57,7 @@ SimpleEventHook {
     end
 
     if selected_profile then
-      Log.info (device, string.format (
+      log:info (device, string.format (
           "Found best profile '%s' (%d) for device '%s'",
           selected_profile.name, selected_profile.index, dev_name))
       event:set_data ("selected-profile", selected_profile)

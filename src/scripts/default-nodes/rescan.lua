@@ -4,6 +4,8 @@
 --
 -- SPDX-License-Identifier: MIT
 
+log = Log.open_topic ("s-default-nodes")
+
 SimpleEventHook {
   name = "default-nodes/rescan-trigger",
   interests = {
@@ -43,7 +45,7 @@ SimpleEventHook {
     local si_om = source:call ("get-object-manager", "session-item")
     local devices_om = source:call ("get-object-manager", "device")
 
-    Log.trace ("re-evaluating default nodes")
+    log:trace ("re-evaluating default nodes")
 
     -- Audio Sink
     pushSelectDefaultNodeEvent (source, si_om, devices_om, "audio.sink", "in", {

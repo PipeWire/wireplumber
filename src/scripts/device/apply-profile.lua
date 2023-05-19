@@ -5,6 +5,7 @@
 -- SPDX-License-Identifier: MIT
 
 cutils = require ("common-utils")
+log = Log.open_topic ("s-device")
 
 AsyncEventHook {
   name = "device/apply-profile",
@@ -23,7 +24,7 @@ AsyncEventHook {
         local dev_name = device.properties ["device.name"]
 
         if not profile then
-          Log.info (device, "No profile found to set on " .. dev_name)
+          log:info (device, "No profile found to set on " .. dev_name)
           transition:advance ()
           return
         end
@@ -31,7 +32,7 @@ AsyncEventHook {
         for p in device:iterate_params ("Profile") do
           local active_profile = cutils.parseParam (p, "Profile")
           if active_profile.index == profile.index then
-            Log.info (device, "Profile " .. profile.name .. " is already set on " .. dev_name)
+            log:info (device, "Profile " .. profile.name .. " is already set on " .. dev_name)
             transition:advance ()
             return
           end
@@ -41,7 +42,7 @@ AsyncEventHook {
           "Spa:Pod:Object:Param:Profile", "Profile",
           index = profile.index,
         }
-        Log.info (device, "Setting profile " .. profile.name .. " on " .. dev_name)
+        log:info (device, "Setting profile " .. profile.name .. " on " .. dev_name)
         device:set_param ("Profile", param)
 
         -- FIXME: add cancellability

@@ -9,6 +9,7 @@
 
 cutils = require ("common-utils")
 config = require ("device-config")
+log = Log.open_topic ("s-device")
 
 -- the state storage
 state = nil
@@ -32,7 +33,7 @@ find_stored_profile_hook = SimpleEventHook {
     end
 
     if not dev_name then
-      Log.critical (device, "invalid device.name")
+      log:critical (device, "invalid device.name")
       return
     end
 
@@ -49,7 +50,7 @@ find_stored_profile_hook = SimpleEventHook {
     end
 
     if selected_profile then
-      Log.info (device, string.format (
+      log:info (device, string.format (
           "Found stored profile '%s' (%d) for device '%s'",
           selected_profile.name, selected_profile.index, dev_name))
       event:set_data ("selected-profile", selected_profile)
@@ -83,17 +84,17 @@ function updateStoredProfile (device, profile)
   local index = nil
 
   if not dev_name then
-    Log.critical (device, "invalid device.name")
+    log:critical (device, "invalid device.name")
     return
   end
 
-  Log.debug (device, string.format (
+  log:debug (device, string.format (
       "update stored profile to '%s' (%d) for device '%s'",
       profile.name, profile.index, dev_name))
 
   -- check if the new profile is the same as the current one
   if state_table[dev_name] == profile.name then
-    Log.debug (device, " ... profile is already stored")
+    log:debug (device, " ... profile is already stored")
     return
   end
 
@@ -107,7 +108,7 @@ function updateStoredProfile (device, profile)
   end
 
   if not index then
-    Log.info (device, string.format (
+    log:info (device, string.format (
         "profile '%s' (%d) is not valid on device '%s'",
         profile.name, profile.index, dev_name))
     return
@@ -116,7 +117,7 @@ function updateStoredProfile (device, profile)
   state_table[dev_name] = profile.name
   cutils.storeAfterTimeout (state, state_table)
 
-  Log.info (device, string.format (
+  log:info (device, string.format (
       "stored profile '%s' (%d) for device '%s'",
       profile.name, index, dev_name))
 end

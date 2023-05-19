@@ -10,6 +10,7 @@
 
 local putils = require ("policy-utils")
 local cutils = require ("common-utils")
+log = Log.open_topic ("s-linking")
 
 SimpleEventHook {
   name = "linking/prepare-link",
@@ -28,13 +29,13 @@ SimpleEventHook {
     local exclusive = cutils.parseBool (si_props ["node.exclusive"])
     local si_must_passthrough = cutils.parseBool (si_props ["item.node.encoded-only"])
 
-    Log.info (si, string.format ("handling item: %s (%s)",
+    log:info (si, string.format ("handling item: %s (%s)",
         tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
 
     -- Check if item is linked to proper target, otherwise re-link
     if si_flags.peer_id then
       if target and si_flags.peer_id == target.id then
-        Log.debug (si, "... already linked to proper target")
+        log:debug (si, "... already linked to proper target")
         -- Check this also here, in case in default targets changed
         putils.checkFollowDefault (si, target,
             si_flags.has_node_defined_target)
@@ -50,15 +51,15 @@ SimpleEventHook {
           then
             -- remove also not yet activated links: they might never become
             -- active, and we need not wait for it to become active
-            Log.warning (link, "Link was not activated before removing")
+            log:warning (link, "Link was not activated before removing")
           end
           si_flags.peer_id = nil
           link:remove ()
-          Log.info (si, "... moving to new target")
+          log:info (si, "... moving to new target")
         end
       else
         if link ~= nil then
-          Log.info (si, "... dont-reconnect, not moving")
+          log:info (si, "... dont-reconnect, not moving")
           goto done
         end
       end
@@ -75,13 +76,13 @@ SimpleEventHook {
     if target then
       local target_is_linked, target_is_exclusive = putils.isLinked (target)
       if target_is_exclusive then
-        Log.info (si, "... target is linked exclusively")
+        log:info (si, "... target is linked exclusively")
         target = nil
       end
 
       if target_is_linked then
         if exclusive or si_must_passthrough then
-          Log.info (si, "... target is already linked, cannot link exclusively")
+          log:info (si, "... target is already linked, cannot link exclusively")
           target = nil
         else
           -- disable passthrough, we can live without it
@@ -91,14 +92,14 @@ SimpleEventHook {
     end
 
     if not target then
-      Log.info (si, "... target not found, reconnect:" .. tostring (reconnect))
+      log:info (si, "... target not found, reconnect:" .. tostring (reconnect))
 
       local node = si:get_associated_proxy ("node")
       if not reconnect then
-        Log.info (si, "... destroy node")
+        log:info (si, "... destroy node")
         node:request_destroy ()
       elseif si_flags.was_handled then
-        Log.info (si, "... waiting reconnect")
+        log:info (si, "... waiting reconnect")
         return
       end
 

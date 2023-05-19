@@ -9,6 +9,7 @@
 
 local putils = require ("policy-utils")
 local cutils = require ("common-utils")
+log = Log.open_topic ("s-linking")
 
 AsyncEventHook {
   name = "linking/link-target",
@@ -37,7 +38,7 @@ AsyncEventHook {
         local si_link = nil
         local passthrough = si_flags.can_passthrough
 
-        Log.info (si, string.format ("handling item: %s (%s)",
+        log:info (si, string.format ("handling item: %s (%s)",
             tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
 
         local exclusive = cutils.parseBool (si_props ["node.exclusive"])
@@ -77,7 +78,7 @@ AsyncEventHook {
 
         local is_virtual_client_link = target_props ["item.factory.name"] == "si-audio-virtual"
 
-        Log.info (si,
+        log:info (si,
           string.format ("link %s <-> %s passive:%s, passthrough:%s, exclusive:%s, virtual-client:%s",
             tostring (si_props ["node.name"]),
             tostring (target_props ["node.name"]),
@@ -122,7 +123,7 @@ AsyncEventHook {
                   Constraint { "bound-id", "=", client_id, type = "gobject" }
                 }
                 if client then
-                  Log.info (node, "sending client error: " .. error_msg)
+                  log:info (node, "sending client error: " .. error_msg)
                   client:send_error (node["bound-id"], -32, error_msg)
                 end
               end
@@ -140,7 +141,7 @@ AsyncEventHook {
         end
         si_link:register ()
 
-        Log.info (si_link, "registered virtual si-standard-link between "
+        log:info (si_link, "registered virtual si-standard-link between "
                 .. tostring (si).." and ".. tostring(target))
 
         -- only activate non virtual links because virtual links activation is
@@ -162,7 +163,7 @@ AsyncEventHook {
               end
               si_flags.failed_count = 0
 
-              Log.info (si_link, "activated si-standard-link between "
+              log:info (si_link, "activated si-standard-link between "
                 .. tostring (si).." and ".. tostring(target))
 
               transition:advance ()

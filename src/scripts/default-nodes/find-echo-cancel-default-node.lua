@@ -6,6 +6,7 @@
 
 cutils = require ("common-utils")
 config = require ("device-config")
+log = Log.open_topic ("s-default-nodes")
 
 enabled = false
 
