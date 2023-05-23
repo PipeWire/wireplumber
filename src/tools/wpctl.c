@@ -29,6 +29,7 @@ struct _WpCtl
   WpObjectManager *om;
   guint pending_plugins;
   gint exit_code;
+	WpMetadata *policy_hub_m;
 };
 
 static struct {
@@ -67,6 +68,11 @@ static struct {
     struct {
       guint64 id;
     } clear_default;
+
+    struct {
+      gchar *source_id;
+      gchar* target_id;
+    } link;
   };
 } cmdline;
 
@@ -80,6 +86,7 @@ wp_ctl_clear (WpCtl * self)
   g_clear_object (&self->core);
   g_clear_pointer (&self->loop, g_main_loop_unref);
   g_clear_pointer (&self->context, g_option_context_free);
+  g_clear_object (&self->policy_hub_m);
 }
 
 static void
@@ -1288,6 +1295,95 @@ out:
   g_main_loop_quit (self->loop);
 }
 
+/* link */
+static gboolean
+link_parse_positional (gint argc, gchar **argv, GError **error)
+{
+  if (argc == 4) {
+    cmdline.link.source_id = argv [2];
+    cmdline.link.target_id = argv [3];
+  } else {
+    g_set_error (error, wpctl_error_domain_quark(), 0,
+        "source and destination nodes are needed");
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+static gboolean
+link_prepare (WpCtl *self, GError **error)
+{
+  wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL);
+  wp_object_manager_add_interest (self->om, WP_TYPE_METADATA, NULL);
+  wp_object_manager_request_object_features (self->om, WP_TYPE_NODE,
+    WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
+  wp_object_manager_request_object_features (self->om, WP_TYPE_METADATA,
+    WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
+
+  return TRUE;
+}
+
+static void
+on_metadata_changed (WpMetadata *m, guint32 subject,
+    const gchar *source_node_id, const gchar *type,
+    const gchar *target_node_id, WpCtl *self)
+{
+
+  if (g_str_equal (source_node_id, cmdline.link.source_id) &&
+      g_str_equal (target_node_id, cmdline.link.target_id))
+    fprintf(stderr, "metadata updated successfully\n");
+
+  g_main_loop_quit (self->loop);
+  return;
+}
+
+static void
+link_run (WpCtl *self)
+{
+  g_autoptr (WpNode) source_node = NULL, target_node = NULL;
+
+  /* verify node ids */
+  source_node = wp_object_manager_lookup (self->om, WP_TYPE_NODE,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u",
+      atoi(cmdline.link.source_id), NULL);
+  if (!source_node) {
+    fprintf (stderr, "invalid source node '%s'\n", cmdline.link.source_id);
+    goto out;
+  }
+
+  target_node = wp_object_manager_lookup (self->om, WP_TYPE_NODE,
+      WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u",
+      atoi(cmdline.link.target_id), NULL);
+  if (!target_node) {
+    fprintf (stderr, "invalid target node '%s'\n", cmdline.link.target_id);
+    goto out;
+  }
+
+  /* find metadata */
+  self->policy_hub_m = wp_object_manager_lookup (self->om, WP_TYPE_METADATA,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s",
+      "policy-hub", NULL);
+  if (!self->policy_hub_m) {
+    fprintf (stderr, "policy-hub metadata not found\n");
+    goto out;
+  }
+
+  /* update metadata */
+  wp_metadata_set (self->policy_hub_m, 0, cmdline.link.source_id,
+      "Spa:String:JSON", cmdline.link.target_id);
+
+  /* wait till the metadata is updated. */
+  g_signal_connect (self->policy_hub_m, "changed",
+        G_CALLBACK (on_metadata_changed), self);
+
+  return;
+
+out:
+  self->exit_code = 3;
+  g_main_loop_quit (self->loop);
+}
+
 #define N_ENTRIES 3
 
 static const struct subcommand {
@@ -1412,6 +1508,16 @@ static const struct subcommand {
     .parse_positional = clear_default_parse_positional,
     .prepare = clear_default_prepare,
     .run = clear_default_run,
+  },
+  {
+    .name = "link",
+      .positional_args = "NodeID HubID|NodeID",
+      .summary = "links nodes with other nodes/hubs",
+      .description = "Nodes are are to be linked explicitly in \"hub policy\"",
+      .entries = { { NULL } },
+      .parse_positional = link_parse_positional,
+      .prepare = link_prepare,
+      .run = link_run,
   }
 };
 
