@@ -288,7 +288,9 @@ base_tests_setup (ScriptRunnerFixture *f, gconstpointer data)
 static void
 script_tests_setup (ScriptRunnerFixture *f, gconstpointer data)
 {
-  base_tests_setup (f, data);
+  wp_base_test_fixture_setup (&f->base, WP_BASE_TEST_FLAG_CLIENT_CORE);
+
+  load_components (f, data);
 
   f->plugin = g_object_new (wp_script_tester_get_type (),
       "name", "script-tester",
@@ -308,7 +310,7 @@ base_tests_teardown (ScriptRunnerFixture *f, gconstpointer data)
 static void
 script_tests_teardown (ScriptRunnerFixture *f, gconstpointer data)
 {
-  base_tests_teardown (f, data);
+  wp_base_test_fixture_teardown (&f->base);
 }
 
 gint
