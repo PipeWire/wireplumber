@@ -276,15 +276,19 @@ level_index_to_full_flags (gint lvl_index)
 }
 
 /* map a SPA_LOG_LEVEL_* to an index in the log_level_info table;
-   note that SPA_LOG_LEVEL_WARN maps to 4 (G_LOG_LEVEL_MESSAGE) and
-   index 3 (G_LOG_LEVEL_WARNING) can never be returned */
+   if warn_to_notice == TRUE, SPA_LOG_LEVEL_WARN maps to 4 (G_LOG_LEVEL_MESSAGE)
+   and index 3 (G_LOG_LEVEL_WARNING) can not be returned
+   if warn_to_notice == FALSE, SPA_LOG_LEVEL_WARN maps to 3 (G_LOG_LEVEL_WARNING)
+   and index 4 (G_LOG_LEVEL_MESSAGE) can not be returned */
 static G_GNUC_CONST inline gint
-level_index_from_spa (gint spa_lvl)
+level_index_from_spa (gint spa_lvl, gboolean warn_to_notice)
 {
   if (G_UNLIKELY (spa_lvl <= SPA_LOG_LEVEL_NONE))
     return 1;
-  else if (spa_lvl < SPA_LOG_LEVEL_WARN)
-    return spa_lvl + 1;
+  else if (spa_lvl == SPA_LOG_LEVEL_ERROR)
+    return 2;
+  else if (spa_lvl == SPA_LOG_LEVEL_WARN)
+    return warn_to_notice ? 4 : 3;
   else if (G_UNLIKELY (spa_lvl > SPA_LOG_LEVEL_TRACE))
     return (gint) G_N_ELEMENTS (log_level_info) - 1;
   else
@@ -314,7 +318,7 @@ level_index_from_string (const char *str, gint *lvl)
     }
 
     if (str[0] >= '0' && str[0] <= '5') {
-      *lvl = level_index_from_spa (str[0] - '0');
+      *lvl = level_index_from_spa (str[0] - '0', TRUE);
       return TRUE;
     }
   }
@@ -707,7 +711,7 @@ wp_spa_log_logtv (void *object,
     va_list args)
 {
   WpLogFields lf = {0};
-  gint log_level = level_index_from_spa (level);
+  gint log_level = level_index_from_spa (level, FALSE);
   g_autofree gchar *message = NULL;
   gchar line_str[11];
 
