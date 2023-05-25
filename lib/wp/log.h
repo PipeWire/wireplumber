@@ -85,9 +85,9 @@ wp_log_topic_is_enabled (WpLogTopic *topic, GLogLevelFlags log_level)
     wp_log_topic_init (topic);
 
   if (wp_log_topic_has_custom_level (topic))
-    return (topic->flags & (log_level & 0xFF)) != 0;
+    return (topic->flags & (log_level & 0xFFFF)) != 0;
   else
-    return (*topic->global_flags & (log_level & 0xFF)) != 0;
+    return (*topic->global_flags & (log_level & 0xFFFF)) != 0;
 }
 
 #define wp_local_log_topic_is_enabled(log_level) \
