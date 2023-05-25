@@ -165,6 +165,13 @@ push_luajson (lua_State *L, WpSpaJson *json)
       lua_setfield (L, -2, key_str);
     }
   }
+
+  /* syntax error */
+  else {
+    g_autofree gchar *value = wp_spa_json_parse_string (json);
+    wp_warning ("unknown SPA JSON token type at '%s'", value);
+    lua_pushnil (L);
+  }
 }
 
 static int
