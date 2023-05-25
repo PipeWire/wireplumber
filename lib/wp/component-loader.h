@@ -20,12 +20,12 @@ G_BEGIN_DECLS
  */
 #define WP_TYPE_COMPONENT_LOADER (wp_component_loader_get_type ())
 WP_API
-G_DECLARE_DERIVABLE_TYPE (WpComponentLoader, wp_component_loader,
-                          WP, COMPONENT_LOADER, WpPlugin)
+G_DECLARE_INTERFACE (WpComponentLoader, wp_component_loader,
+                     WP, COMPONENT_LOADER, GObject)
 
-struct _WpComponentLoaderClass
+struct _WpComponentLoaderInterface
 {
-  WpPluginClass parent_class;
+  GTypeInterface interface;
 
   gboolean (*supports_type) (WpComponentLoader * self, const gchar * type);
 

@@ -19,8 +19,7 @@ void wp_lua_scripting_api_init (lua_State *L);
 
 struct _WpLuaScriptingPlugin
 {
-  WpComponentLoader parent;
-
+  WpPlugin parent;
   lua_State *L;
 };
 
@@ -84,10 +83,14 @@ wp_lua_scripting_enable_package_searcher (lua_State *L)
   lua_call (L, 3, 0);
 }
 
+static void wp_lua_scripting_component_loader_init (WpComponentLoaderInterface * iface);
+
 G_DECLARE_FINAL_TYPE (WpLuaScriptingPlugin, wp_lua_scripting_plugin,
-                      WP, LUA_SCRIPTING_PLUGIN, WpComponentLoader)
-G_DEFINE_TYPE (WpLuaScriptingPlugin, wp_lua_scripting_plugin,
-               WP_TYPE_COMPONENT_LOADER)
+                      WP, LUA_SCRIPTING_PLUGIN, WpPlugin)
+G_DEFINE_TYPE_WITH_CODE (WpLuaScriptingPlugin, wp_lua_scripting_plugin,
+                         WP_TYPE_PLUGIN, G_IMPLEMENT_INTERFACE (
+                            WP_TYPE_COMPONENT_LOADER,
+                            wp_lua_scripting_component_loader_init))
 
 static void
 wp_lua_scripting_plugin_init (WpLuaScriptingPlugin * self)
@@ -228,13 +231,16 @@ static void
 wp_lua_scripting_plugin_class_init (WpLuaScriptingPluginClass * klass)
 {
   WpPluginClass *plugin_class = (WpPluginClass *) klass;
-  WpComponentLoaderClass *cl_class = (WpComponentLoaderClass *) klass;
 
   plugin_class->enable = wp_lua_scripting_plugin_enable;
   plugin_class->disable = wp_lua_scripting_plugin_disable;
+}
 
-  cl_class->supports_type = wp_lua_scripting_plugin_supports_type;
-  cl_class->load = wp_lua_scripting_plugin_load;
+static void
+wp_lua_scripting_component_loader_init (WpComponentLoaderInterface * iface)
+{
+  iface->supports_type = wp_lua_scripting_plugin_supports_type;
+  iface->load = wp_lua_scripting_plugin_load;
 }
 
 WP_PLUGIN_EXPORT GObject *

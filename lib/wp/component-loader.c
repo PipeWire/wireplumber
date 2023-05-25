@@ -17,7 +17,7 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-comp-loader")
 /*!
  * \struct WpComponentLoader
  *
- * The component loader is a plugin that provides the ability to load components.
+ * An interface that provides the ability to load components.
  *
  * Components can be:
  *  - WirePlumber modules (libraries that provide WpPlugin and WpSiFactory objects)
@@ -33,15 +33,10 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-comp-loader")
 #define WP_MODULE_INIT_SYMBOL "wireplumber__module_init"
 typedef GObject *(*WpModuleInitFunc) (WpCore *, WpSpaJson *, GError **);
 
-G_DEFINE_ABSTRACT_TYPE (WpComponentLoader, wp_component_loader, WP_TYPE_PLUGIN)
+G_DEFINE_INTERFACE (WpComponentLoader, wp_component_loader, G_TYPE_OBJECT)
 
 static void
-wp_component_loader_init (WpComponentLoader * self)
-{
-}
-
-static void
-wp_component_loader_class_init (WpComponentLoaderClass * klass)
+wp_component_loader_default_init (WpComponentLoaderInterface * iface)
 {
 }
 
@@ -81,7 +76,7 @@ static gboolean
 find_component_loader_func (gpointer cl, gpointer type)
 {
   if (WP_IS_COMPONENT_LOADER (cl) &&
-      (WP_COMPONENT_LOADER_GET_CLASS (cl)->supports_type (
+      (WP_COMPONENT_LOADER_GET_IFACE (cl)->supports_type (
             WP_COMPONENT_LOADER (cl), (const gchar *) type)))
     return TRUE;
 
@@ -103,7 +98,7 @@ wp_component_loader_load (WpComponentLoader * self, const gchar * component,
     gpointer data)
 {
   g_return_if_fail (WP_IS_COMPONENT_LOADER (self));
-  WP_COMPONENT_LOADER_GET_CLASS (self)->load (self, component, type,
+  WP_COMPONENT_LOADER_GET_IFACE (self)->load (self, component, type,
       args, callback, data);
 }
 
