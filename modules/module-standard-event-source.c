@@ -452,7 +452,7 @@ wp_standard_event_source_class_init (WpStandardEventSourceClass * klass)
 }
 
 WP_PLUGIN_EXPORT GObject *
-wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
+wireplumber__module_init (WpCore * core, WpSpaJson * args, GError ** error)
 {
   return G_OBJECT (g_object_new (wp_standard_event_source_get_type (),
       "name", "standard-event-source",

@@ -27,8 +27,8 @@ enum WpExitCode
 };
 
 static gchar * exec_script = NULL;
-static GVariantBuilder exec_args_b =
-    G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_VARDICT);
+static gchar *exec_args_s = NULL;
+static WpSpaJson *exec_args = NULL;
 
 static gboolean
 parse_exec_script_arg (const gchar *option_name, const gchar *value,
@@ -40,16 +40,17 @@ parse_exec_script_arg (const gchar *option_name, const gchar *value,
     return TRUE;
   }
 
-  g_auto(GStrv) tokens = g_strsplit (value, "=", 2);
-  if (!tokens[0] || *g_strstrip (tokens[0]) == '\0') {
-    g_set_error (error, WP_DOMAIN_DAEMON, WP_EXIT_USAGE,
-        "invalid script argument '%s'; must be in key=value format", value);
-    return FALSE;
+  /* the second argument is a json object with script arguments */
+  if (!exec_args) {
+    exec_args_s = g_strdup (value);
+    exec_args = wp_spa_json_new_from_string (exec_args_s);
+    if (!exec_args || !wp_spa_json_is_object (exec_args)) {
+      g_set_error (error, WP_DOMAIN_DAEMON, WP_EXIT_USAGE,
+          "script argument must be a JSON object");
+      return FALSE;
+    }
   }
 
-  g_variant_builder_add (&exec_args_b, "{sv}", tokens[0], tokens[1] ?
-          g_variant_new_string (g_strstrip (tokens[1])) :
-          g_variant_new_boolean (TRUE));
   return TRUE;
 }
 
@@ -146,8 +147,7 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
   }
 
   case STEP_ACTIVATE_SCRIPT: {
-    GVariant *args = g_variant_builder_end (&exec_args_b);
-    wp_core_load_component (core, exec_script, "script/lua", args,
+    wp_core_load_component (core, exec_script, "script/lua", exec_args,
           (GAsyncReadyCallback) on_plugin_loaded, self);
     break;
   }

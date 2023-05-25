@@ -305,7 +305,7 @@ wp_portal_permissionstore_plugin_class_init (
 }
 
 WP_PLUGIN_EXPORT GObject *
-wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
+wireplumber__module_init (WpCore * core, WpSpaJson * args, GError ** error)
 {
   return G_OBJECT (g_object_new (
       wp_portal_permissionstore_plugin_get_type(),

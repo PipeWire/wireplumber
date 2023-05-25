@@ -204,7 +204,7 @@ wp_file_monitor_api_class_init (WpFileMonitorApiClass * klass)
 }
 
 WP_PLUGIN_EXPORT GObject *
-wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
+wireplumber__module_init (WpCore * core, WpSpaJson * args, GError ** error)
 {
   return G_OBJECT (g_object_new (wp_file_monitor_api_get_type (),
       "name", "file-monitor-api",

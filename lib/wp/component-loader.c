@@ -31,7 +31,7 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-comp-loader")
  */
 
 #define WP_MODULE_INIT_SYMBOL "wireplumber__module_init"
-typedef GObject *(*WpModuleInitFunc) (WpCore *, GVariant *, GError **);
+typedef GObject *(*WpModuleInitFunc) (WpCore *, WpSpaJson *, GError **);
 
 G_DEFINE_ABSTRACT_TYPE (WpComponentLoader, wp_component_loader, WP_TYPE_PLUGIN)
 
@@ -47,7 +47,7 @@ wp_component_loader_class_init (WpComponentLoaderClass * klass)
 
 static GObject *
 load_module (WpCore * core, const gchar * module_name,
-    GVariant * args, GError ** error)
+    WpSpaJson * args, GError ** error)
 {
   g_autofree gchar *module_path = NULL;
   GModule *gmodule;
@@ -99,7 +99,7 @@ wp_component_loader_find (WpCore * core, const gchar * type)
 
 static void
 wp_component_loader_load (WpComponentLoader * self, const gchar * component,
-    const gchar * type, GVariant * args, GAsyncReadyCallback callback,
+    const gchar * type, WpSpaJson * args, GAsyncReadyCallback callback,
     gpointer data)
 {
   g_return_if_fail (WP_IS_COMPONENT_LOADER (self));
@@ -132,17 +132,16 @@ on_object_loaded (WpObject *object, GAsyncResult *res, gpointer data)
  * \param self the core
  * \param component the module name or file name
  * \param type the type of the component
- * \param args (transfer floating)(nullable): additional arguments for the component,
- *   usually a dict or a string
+ * \param args (transfer none)(nullable): additional arguments for the component,
+ *   expected to be a JSON object
  * \param callback (scope async): the callback to call when the operation is done
  * \param data (closure): data to pass to \a callback
  */
 void
 wp_core_load_component (WpCore * self, const gchar * component,
-    const gchar * type, GVariant * args, GAsyncReadyCallback callback,
+    const gchar * type, WpSpaJson * args, GAsyncReadyCallback callback,
     gpointer data)
 {
-  g_autoptr (GVariant) args_ref = args ? g_variant_ref_sink (args) : NULL;
   g_autoptr (GTask) task = NULL;
   g_autoptr (WpComponentLoader) c = NULL;
 
@@ -153,7 +152,7 @@ wp_core_load_component (WpCore * self, const gchar * component,
     g_autoptr (GObject) o = NULL;
 
     /* load Module */
-    o = load_module (self, component, args_ref, &error);
+    o = load_module (self, component, args, &error);
     if (!o) {
       g_task_return_error (task, g_steal_pointer (&error));
       return;

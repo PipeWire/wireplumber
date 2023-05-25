@@ -30,6 +30,7 @@ _wplua_gboxed___index (lua_State *L)
       "expected userdata storing GValue<GBoxed>");
   GValue *obj_v = lua_touserdata (L, 1);
   const gchar *key = luaL_checkstring (L, 2);
+  GType type = G_VALUE_TYPE (obj_v);
   lua_CFunction func = NULL;
   GHashTable *vtables;
 
@@ -39,14 +40,14 @@ _wplua_gboxed___index (lua_State *L)
   lua_pop (L, 1);
 
   /* search in registered vtables */
-  if (!func) {
-    GType type = G_VALUE_TYPE (obj_v);
-    while (!func && type) {
-      luaL_Reg *reg = g_hash_table_lookup (vtables, GUINT_TO_POINTER (type));
-      func = find_method_in_luaL_Reg (reg, key);
-      type = g_type_parent (type);
-    }
+  while (!func && type) {
+    luaL_Reg *reg = g_hash_table_lookup (vtables, GUINT_TO_POINTER (type));
+    func = find_method_in_luaL_Reg (reg, key);
+    type = g_type_parent (type);
   }
+
+  wp_trace_boxed (type, g_value_get_boxed (obj_v),
+      "indexing GBoxed, looking for '%s', found: %p", key, func);
 
   if (func) {
     lua_pushcfunction (L, func);

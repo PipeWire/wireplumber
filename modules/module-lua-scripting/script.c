@@ -29,7 +29,7 @@ struct _WpLuaScript
 
   lua_State *L;
   gchar *filename;
-  GVariant *args;
+  WpSpaJson *args;
 };
 
 enum {
@@ -64,7 +64,7 @@ wp_lua_script_finalize (GObject * object)
   wp_lua_script_cleanup (self);
   g_clear_pointer (&self->L, wplua_unref);
   g_clear_pointer (&self->filename, g_free);
-  g_clear_pointer (&self->args, g_variant_unref);
+  g_clear_pointer (&self->args, wp_spa_json_unref);
 
   G_OBJECT_CLASS (wp_lua_script_parent_class)->finalize (object);
 }
@@ -86,7 +86,7 @@ wp_lua_script_set_property (GObject * object, guint property_id,
     self->filename = g_value_dup_string (value);
     break;
   case PROP_ARGUMENTS:
-    self->args = g_value_dup_variant (value);
+    self->args = g_value_dup_boxed (value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -231,7 +231,7 @@ wp_lua_script_enable (WpPlugin * plugin, WpTransition * transition)
 
   /* push script arguments */
   if (self->args) {
-    wplua_gvariant_to_lua (self->L, self->args);
+    wplua_pushboxed (self->L, WP_TYPE_SPA_JSON, wp_spa_json_ref (self->args));
     nargs++;
   }
 
@@ -282,7 +282,7 @@ wp_lua_script_class_init (WpLuaScriptClass * klass)
           G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
   g_object_class_install_property (object_class, PROP_ARGUMENTS,
-      g_param_spec_variant ("arguments", "arguments", "arguments",
-          G_VARIANT_TYPE_VARDICT, NULL,
+      g_param_spec_boxed ("arguments", "arguments", "arguments",
+          WP_TYPE_SPA_JSON,
           G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }

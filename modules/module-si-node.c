@@ -222,7 +222,7 @@ si_node_linkable_init (WpSiLinkableInterface * iface)
 }
 
 WP_PLUGIN_EXPORT GObject *
-wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
+wireplumber__module_init (WpCore * core, WpSpaJson * args, GError ** error)
 {
   return G_OBJECT (wp_si_factory_new_simple (SI_FACTORY_NAME,
       si_node_get_type ()));

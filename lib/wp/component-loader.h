@@ -10,6 +10,7 @@
 #define __WIREPLUMBER_COMPONENT_LOADER_H__
 
 #include "plugin.h"
+#include "spa-json.h"
 
 G_BEGIN_DECLS
 
@@ -29,7 +30,7 @@ struct _WpComponentLoaderClass
   gboolean (*supports_type) (WpComponentLoader * self, const gchar * type);
 
   void (*load) (WpComponentLoader * self, const gchar * component,
-      const gchar * type, GVariant * args, GAsyncReadyCallback callback,
+      const gchar * type, WpSpaJson * args, GAsyncReadyCallback callback,
       gpointer data);
 
   /*< private >*/

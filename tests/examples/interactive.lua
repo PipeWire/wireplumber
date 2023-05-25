@@ -10,21 +10,23 @@
 -- This is an example of an interactive script
 --
 -- Execute with:
---   wpexec ./interactive.lua option1=value1 option2=value2 ...
+--   wpexec ./interactive.lua '{ option1 = "value1" , option2 = "value2" }' ...
 -- or:
---   ./interactive.lua option1=value1 option2=value2
+--   ./interactive.lua '{ option1 = "value1" , option2 = "value2" }'
 -----------------------------------------------------------------------------
 
 --
 -- Collects arguments passed in from the command line
--- Assuming option1=value1 option2=value2 were passed, this will be a table
--- like this: { ["option1"] = "value1", ["option2"] = "value2" }
+-- Assuming '{ option1 = "value1" , option2 = "value2" }' were passed,
+-- this will be a table like this:
+-- { ["option1"] = "value1", ["option2"] = "value2" }
 --
 local argv = ...
+if argv then
+  argv = argv:parse()
 
-print ("Command-line arguments:")
-for k, v in pairs(argv) do
-  print ("\t" .. k .. ": " .. v)
+  print ("Command-line arguments:")
+  Debug.dump_table (argv)
 end
 
 --

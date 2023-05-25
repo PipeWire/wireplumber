@@ -617,7 +617,7 @@ wp_mixer_api_class_init (WpMixerApiClass * klass)
 }
 
 WP_PLUGIN_EXPORT GObject *
-wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
+wireplumber__module_init (WpCore * core, WpSpaJson * args, GError ** error)
 {
   return G_OBJECT (g_object_new (wp_mixer_api_get_type (),
       "name", "mixer-api",

@@ -173,7 +173,7 @@ on_script_loaded (WpObject *object, GAsyncResult *res, gpointer data)
 
 static void
 wp_lua_scripting_plugin_load (WpComponentLoader * cl, const gchar * component,
-    const gchar * type, GVariant * args, GAsyncReadyCallback callback,
+    const gchar * type, WpSpaJson * args, GAsyncReadyCallback callback,
     gpointer data)
 {
   WpLuaScriptingPlugin * self = WP_LUA_SCRIPTING_PLUGIN (cl);
@@ -238,7 +238,7 @@ wp_lua_scripting_plugin_class_init (WpLuaScriptingPluginClass * klass)
 }
 
 WP_PLUGIN_EXPORT GObject *
-wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
+wireplumber__module_init (WpCore * core, WpSpaJson * args, GError ** error)
 {
   return G_OBJECT (g_object_new (wp_lua_scripting_plugin_get_type (),
       "name", "lua-scripting",

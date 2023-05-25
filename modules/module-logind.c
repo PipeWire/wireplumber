@@ -134,7 +134,7 @@ wp_logind_class_init (WpLogindClass * klass)
 }
 
 WP_PLUGIN_EXPORT GObject *
-wireplumber__module_init (WpCore * core, GVariant * args, GError ** error)
+wireplumber__module_init (WpCore * core, WpSpaJson * args, GError ** error)
 {
   return G_OBJECT (g_object_new (wp_logind_get_type (),
       "name", NAME,

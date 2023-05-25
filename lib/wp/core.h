@@ -12,6 +12,7 @@
 #include <gio/gio.h>
 #include "defs.h"
 #include "properties.h"
+#include "spa-json.h"
 
 G_BEGIN_DECLS
 
@@ -49,7 +50,7 @@ gchar *wp_core_get_vm_type (WpCore *self);
 
 WP_API
 void wp_core_load_component (WpCore * self, const gchar * component,
-    const gchar * type, GVariant * args, GAsyncReadyCallback callback,
+    const gchar * type, WpSpaJson * args, GAsyncReadyCallback callback,
     gpointer data);
 
 WP_API
