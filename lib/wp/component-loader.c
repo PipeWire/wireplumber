@@ -62,9 +62,15 @@ wp_component_loader_load (WpComponentLoader * self, WpCore * core,
     const gchar * component, const gchar * type, WpSpaJson * args,
     GCancellable * cancellable, GAsyncReadyCallback callback, gpointer data)
 {
-  g_return_if_fail (WP_IS_COMPONENT_LOADER (self));
   WP_COMPONENT_LOADER_GET_IFACE (self)->load (self, core, component, type,
       args, cancellable, callback, data);
+}
+
+static GObject *
+wp_component_loader_load_finish (WpComponentLoader * self, GAsyncResult * res,
+    GError ** error)
+{
+  return WP_COMPONENT_LOADER_GET_IFACE (self)->load_finish (self, res, error);
 }
 
 /*!
@@ -121,6 +127,10 @@ GObject *
 wp_core_load_component_finish (WpCore * self, GAsyncResult * res,
     GError ** error)
 {
-  gpointer o = g_task_propagate_pointer (G_TASK (res), error);
-  return o ? g_object_ref (G_OBJECT (o)) : NULL;
+  g_autoptr (GObject) source = g_async_result_get_source_object (res);
+
+  if (WP_IS_COMPONENT_LOADER (source))
+    return wp_component_loader_load_finish (WP_COMPONENT_LOADER (source), res, error);
+  else
+    return g_task_propagate_pointer (G_TASK (res), error);
 }

@@ -99,6 +99,8 @@ wp_internal_comp_loader_load (WpComponentLoader * self, WpCore * core,
   g_autoptr (GError) error = NULL;
   g_autoptr (GObject) o = NULL;
 
+  g_task_set_source_tag (task, wp_internal_comp_loader_load);
+
   /* load Module */
   o = load_module (core, component, args, &error);
   if (!o) {
@@ -116,9 +118,20 @@ wp_internal_comp_loader_load (WpComponentLoader * self, WpCore * core,
   }
 }
 
+static GObject *
+wp_internal_comp_loader_load_finish (WpComponentLoader * self,
+    GAsyncResult * res, GError ** error)
+{
+  g_return_val_if_fail (
+    g_async_result_is_tagged (res, wp_internal_comp_loader_load), NULL);
+
+  return g_task_propagate_pointer (G_TASK (res), error);
+}
+
 static void
 wp_internal_comp_loader_iface_init (WpComponentLoaderInterface * iface)
 {
   iface->supports_type = wp_internal_comp_loader_supports_type;
   iface->load = wp_internal_comp_loader_load;
+  iface->load_finish = wp_internal_comp_loader_load_finish;
 }

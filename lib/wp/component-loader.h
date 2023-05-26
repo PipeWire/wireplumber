@@ -33,8 +33,11 @@ struct _WpComponentLoaderInterface
       const gchar * component, const gchar * type, WpSpaJson * args,
       GCancellable * cancellable, GAsyncReadyCallback callback, gpointer data);
 
+  GObject * (*load_finish) (WpComponentLoader * self, GAsyncResult * res,
+      GError ** error);
+
   /*< private >*/
-  WP_PADDING(6)
+  WP_PADDING(5)
 };
 
 WP_API

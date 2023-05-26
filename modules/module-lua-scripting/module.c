@@ -180,10 +180,12 @@ wp_lua_scripting_plugin_load (WpComponentLoader * cl, WpCore * core,
     GCancellable * cancellable, GAsyncReadyCallback callback, gpointer data)
 {
   WpLuaScriptingPlugin * self = WP_LUA_SCRIPTING_PLUGIN (cl);
-  g_autoptr (GTask) task = task = g_task_new (core, cancellable, callback, data);
+  g_autoptr (GTask) task = task = g_task_new (self, cancellable, callback, data);
   g_autofree gchar *filepath = NULL;
   g_autofree gchar *pluginname = NULL;
   g_autoptr (WpPlugin) script = NULL;
+
+  g_task_set_source_tag (task, wp_lua_scripting_plugin_load);
 
   /* make sure the component loader is activated */
   if (!self->L) {
@@ -226,6 +228,16 @@ wp_lua_scripting_plugin_load (WpComponentLoader * cl, WpCore * core,
       (GAsyncReadyCallback) on_script_loaded, g_object_ref (task));
 }
 
+static GObject *
+wp_lua_scripting_plugin_load_finish (WpComponentLoader * self,
+    GAsyncResult * res, GError ** error)
+{
+  g_return_val_if_fail (
+    g_async_result_is_tagged (res, wp_lua_scripting_plugin_load), NULL);
+
+  return g_task_propagate_pointer (G_TASK (res), error);
+}
+
 static void
 wp_lua_scripting_plugin_class_init (WpLuaScriptingPluginClass * klass)
 {
@@ -240,6 +252,7 @@ wp_lua_scripting_component_loader_init (WpComponentLoaderInterface * iface)
 {
   iface->supports_type = wp_lua_scripting_plugin_supports_type;
   iface->load = wp_lua_scripting_plugin_load;
+  iface->load_finish = wp_lua_scripting_plugin_load_finish;
 }
 
 WP_PLUGIN_EXPORT GObject *
