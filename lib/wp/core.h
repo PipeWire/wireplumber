@@ -48,15 +48,6 @@ struct pw_core * wp_core_get_pw_core (WpCore * self);
 WP_API
 gchar *wp_core_get_vm_type (WpCore *self);
 
-WP_API
-void wp_core_load_component (WpCore * self, const gchar * component,
-    const gchar * type, WpSpaJson * args, GCancellable * cancellable,
-    GAsyncReadyCallback callback, gpointer data);
-
-WP_API
-GObject * wp_core_load_component_finish (WpCore * self, GAsyncResult * res,
-    GError ** error);
-
 /* Connection */
 
 WP_API
