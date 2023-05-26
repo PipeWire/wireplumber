@@ -9,6 +9,7 @@
 #include "core.h"
 #include "wp.h"
 #include "private/registry.h"
+#include "private/internal-comp-loader.h"
 
 #include <pipewire/pipewire.h>
 
@@ -263,6 +264,9 @@ wp_core_init (WpCore * self)
   wp_registry_init (&self->registry);
   self->async_tasks = g_hash_table_new_full (g_direct_hash, g_direct_equal,
       NULL, g_object_unref);
+
+  wp_registry_register_object (&self->registry,
+      g_object_new (WP_TYPE_INTERNAL_COMP_LOADER, NULL));
 }
 
 static void
