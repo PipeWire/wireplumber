@@ -205,7 +205,7 @@ load_component (ScriptRunnerFixture *f, const gchar *name, const gchar *type)
     plugin_name = g_strdup (name);
   }
 
-  wp_core_load_component (f->base.core, component_name, type, NULL,
+  wp_core_load_component (f->base.core, component_name, type, NULL, NULL,
       (GAsyncReadyCallback) on_plugin_loaded, f);
 
   if (!g_str_has_prefix (name, "si"))

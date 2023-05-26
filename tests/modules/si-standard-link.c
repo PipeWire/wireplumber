@@ -95,11 +95,11 @@ test_si_standard_link_setup (TestFixture * f, gconstpointer user_data)
   }
   {
     wp_core_load_component (f->base.core,
-        "libwireplumber-module-si-audio-adapter", "module", NULL,
+        "libwireplumber-module-si-audio-adapter", "module", NULL, NULL,
         (GAsyncReadyCallback) on_plugin_loaded, f);
 
     wp_core_load_component (f->base.core,
-        "libwireplumber-module-si-standard-link", "module", NULL,
+        "libwireplumber-module-si-standard-link", "module", NULL, NULL,
         (GAsyncReadyCallback) on_plugin_loaded, f);
   }
 

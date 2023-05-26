@@ -94,7 +94,7 @@ wp_require_api_transition_execute_step (WpTransition * transition, guint step)
             "libwireplumber-module-%s", api_name);
 
         self->pending_plugins++;
-        wp_core_load_component (core, module_name, "module", NULL,
+        wp_core_load_component (core, module_name, "module", NULL, NULL,
             (GAsyncReadyCallback) on_plugin_loaded, self);
       }
     }

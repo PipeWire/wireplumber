@@ -93,13 +93,13 @@ wp_component_loader_find (WpCore * core, const gchar * type)
 }
 
 static void
-wp_component_loader_load (WpComponentLoader * self, const gchar * component,
-    const gchar * type, WpSpaJson * args, GAsyncReadyCallback callback,
-    gpointer data)
+wp_component_loader_load (WpComponentLoader * self, WpCore * core,
+    const gchar * component, const gchar * type, WpSpaJson * args,
+    GCancellable * cancellable, GAsyncReadyCallback callback, gpointer data)
 {
   g_return_if_fail (WP_IS_COMPONENT_LOADER (self));
-  WP_COMPONENT_LOADER_GET_IFACE (self)->load (self, component, type,
-      args, callback, data);
+  WP_COMPONENT_LOADER_GET_IFACE (self)->load (self, core, component, type,
+      args, cancellable, callback, data);
 }
 
 static void
@@ -129,20 +129,21 @@ on_object_loaded (WpObject *object, GAsyncResult *res, gpointer data)
  * \param type the type of the component
  * \param args (transfer none)(nullable): additional arguments for the component,
  *   expected to be a JSON object
+ * \param cancellable (nullable): optional GCancellable
  * \param callback (scope async): the callback to call when the operation is done
  * \param data (closure): data to pass to \a callback
  */
 void
 wp_core_load_component (WpCore * self, const gchar * component,
-    const gchar * type, WpSpaJson * args, GAsyncReadyCallback callback,
-    gpointer data)
+    const gchar * type, WpSpaJson * args, GCancellable * cancellable,
+    GAsyncReadyCallback callback, gpointer data)
 {
   g_autoptr (GTask) task = NULL;
-  g_autoptr (WpComponentLoader) c = NULL;
+  g_autoptr (WpComponentLoader) cl = NULL;
 
   /* Special case for "module" component type */
   if (g_str_equal (type, "module")) {
-    task = g_task_new (self, NULL, callback, data);
+    task = g_task_new (self, cancellable, callback, data);
     g_autoptr (GError) error = NULL;
     g_autoptr (GObject) o = NULL;
 
@@ -174,16 +175,17 @@ wp_core_load_component (WpCore * self, const gchar * component,
   }
 
   /* Otherwise find a component loader for that type and load the component */
-  c = wp_component_loader_find (self, type);
-  if (!c) {
-    task = g_task_new (self, NULL, callback, data);
+  cl = wp_component_loader_find (self, type);
+  if (!cl) {
+    task = g_task_new (self, cancellable, callback, data);
     g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
         WP_LIBRARY_ERROR_INVALID_ARGUMENT,
         "No component loader was found for components of type '%s'", type);
     return;
   }
 
-  wp_component_loader_load (c, component, type, args, callback, data);
+  wp_component_loader_load (cl, self, component, type, args, cancellable,
+      callback, data);
 }
 
 /*!

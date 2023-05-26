@@ -50,8 +50,8 @@ gchar *wp_core_get_vm_type (WpCore *self);
 
 WP_API
 void wp_core_load_component (WpCore * self, const gchar * component,
-    const gchar * type, WpSpaJson * args, GAsyncReadyCallback callback,
-    gpointer data);
+    const gchar * type, WpSpaJson * args, GCancellable * cancellable,
+    GAsyncReadyCallback callback, gpointer data);
 
 WP_API
 GObject * wp_core_load_component_finish (WpCore * self, GAsyncResult * res,

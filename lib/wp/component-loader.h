@@ -29,9 +29,9 @@ struct _WpComponentLoaderInterface
 
   gboolean (*supports_type) (WpComponentLoader * self, const gchar * type);
 
-  void (*load) (WpComponentLoader * self, const gchar * component,
-      const gchar * type, WpSpaJson * args, GAsyncReadyCallback callback,
-      gpointer data);
+  void (*load) (WpComponentLoader * self, WpCore * core,
+      const gchar * component, const gchar * type, WpSpaJson * args,
+      GCancellable * cancellable, GAsyncReadyCallback callback, gpointer data);
 
   /*< private >*/
   WP_PADDING(6)

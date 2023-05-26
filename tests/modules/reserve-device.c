@@ -45,13 +45,13 @@ test_rd_setup (RdTestFixture *f, gconstpointer data)
 
   {
     wp_core_load_component (f->base.core,
-        "libwireplumber-module-reserve-device", "module", NULL,
+        "libwireplumber-module-reserve-device", "module", NULL, NULL,
         (GAsyncReadyCallback) on_plugin_loaded, f);
     g_main_loop_run (f->base.loop);
   }
   {
     wp_core_load_component (f->base.client_core,
-        "libwireplumber-module-reserve-device", "module", NULL,
+        "libwireplumber-module-reserve-device", "module", NULL, NULL,
         (GAsyncReadyCallback) on_plugin_loaded, f);
     g_main_loop_run (f->base.loop);
   }

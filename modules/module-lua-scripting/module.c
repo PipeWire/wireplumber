@@ -175,13 +175,12 @@ on_script_loaded (WpObject *object, GAsyncResult *res, gpointer data)
 }
 
 static void
-wp_lua_scripting_plugin_load (WpComponentLoader * cl, const gchar * component,
-    const gchar * type, WpSpaJson * args, GAsyncReadyCallback callback,
-    gpointer data)
+wp_lua_scripting_plugin_load (WpComponentLoader * cl, WpCore * core,
+    const gchar * component, const gchar * type, WpSpaJson * args,
+    GCancellable * cancellable, GAsyncReadyCallback callback, gpointer data)
 {
   WpLuaScriptingPlugin * self = WP_LUA_SCRIPTING_PLUGIN (cl);
-  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (cl));
-  g_autoptr (GTask) task = task = g_task_new (core, NULL, callback, data);
+  g_autoptr (GTask) task = task = g_task_new (core, cancellable, callback, data);
   g_autofree gchar *filepath = NULL;
   g_autofree gchar *pluginname = NULL;
   g_autoptr (WpPlugin) script = NULL;

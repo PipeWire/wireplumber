@@ -186,7 +186,7 @@ load_enable_components (WpInitTransition *self)
         self->curr_component->name, self->curr_component->type,
         self->curr_component->priority, self->curr_component->flags);
     wp_core_load_component (core, self->curr_component->name,
-        self->curr_component->type, NULL,
+        self->curr_component->type, NULL, NULL,
         (GAsyncReadyCallback) on_plugin_loaded, self);
     return FALSE;
   }
