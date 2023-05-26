@@ -49,7 +49,7 @@ load_module (WpCore * core, const gchar * module_name, WpSpaJson * args,
   else
     module_path = g_strdup (module_name);
 
-  wp_debug_object (core, "loading %s from %s", module_name, module_path);
+  wp_trace_object (core, "loading %s from %s", module_name, module_path);
 
   gmodule = g_module_open (module_path, G_MODULE_BIND_LOCAL);
   if (!gmodule) {
@@ -67,20 +67,6 @@ load_module (WpCore * core, const gchar * module_name, WpSpaJson * args,
   }
 
   return ((WpModuleInitFunc) module_init) (core, args, error);
-}
-
-static void
-on_object_activated (WpObject *object, GAsyncResult *res, gpointer data)
-{
-  g_autoptr (GTask) task = G_TASK (data);
-  g_autoptr (GError) error = NULL;
-
-  if (!wp_object_activate_finish (object, res, &error)) {
-    g_task_return_error (task, g_steal_pointer (&error));
-    return;
-  }
-
-  g_task_return_pointer (task, g_object_ref (object), g_object_unref);
 }
 
 static gboolean
@@ -103,19 +89,10 @@ wp_internal_comp_loader_load (WpComponentLoader * self, WpCore * core,
 
   /* load Module */
   o = load_module (core, component, args, &error);
-  if (!o) {
+  if (o)
+    g_task_return_pointer (task, g_steal_pointer (&o), g_object_unref);
+  else
     g_task_return_error (task, g_steal_pointer (&error));
-    return;
-  }
-
-  /* store object in the registry */
-  wp_registry_register_object (wp_core_get_registry (core), g_object_ref (o));
-
-  if (WP_IS_OBJECT (o)) {
-    /* WpObject needs to be activated */
-    wp_object_activate (WP_OBJECT (o), WP_OBJECT_FEATURES_ALL, NULL,
-        (GAsyncReadyCallback) on_object_activated, g_object_ref (task));
-  }
 }
 
 static GObject *

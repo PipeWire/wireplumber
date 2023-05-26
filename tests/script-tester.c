@@ -179,8 +179,7 @@ on_plugin_loaded (WpCore * core, GAsyncResult * res, ScriptRunnerFixture *f)
   g_assert_nonnull (o);
   g_assert_no_error (error);
 
-  if (WP_IS_PLUGIN (o))
-    g_main_loop_quit (f->base.loop);
+  g_main_loop_quit (f->base.loop);
 }
 
 static void
@@ -207,9 +206,7 @@ load_component (ScriptRunnerFixture *f, const gchar *name, const gchar *type)
 
   wp_core_load_component (f->base.core, component_name, type, NULL, NULL,
       (GAsyncReadyCallback) on_plugin_loaded, f);
-
-  if (!g_str_has_prefix (name, "si"))
-    g_main_loop_run (f->base.loop);
+  g_main_loop_run (f->base.loop);
 }
 
 static void

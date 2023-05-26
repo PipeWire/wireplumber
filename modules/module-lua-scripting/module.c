@@ -161,20 +161,6 @@ find_script (const gchar * script, WpCore *core)
 }
 
 static void
-on_script_loaded (WpObject *object, GAsyncResult *res, gpointer data)
-{
-  g_autoptr (GTask) task = G_TASK (data);
-  g_autoptr (GError) error = NULL;
-
-  if (!wp_object_activate_finish (object, res, &error)) {
-    g_task_return_error (task, g_steal_pointer (&error));
-    return;
-  }
-
-  g_task_return_pointer (task, g_object_ref (object), g_object_unref);
-}
-
-static void
 wp_lua_scripting_plugin_load (WpComponentLoader * cl, WpCore * core,
     const gchar * component, const gchar * type, WpSpaJson * args,
     GCancellable * cancellable, GAsyncReadyCallback callback, gpointer data)
@@ -220,12 +206,7 @@ wp_lua_scripting_plugin_load (WpComponentLoader * cl, WpCore * core,
       "arguments", args,
       NULL);
 
-  /* register the script */
-  wp_plugin_register (g_object_ref (script));
-
-  /* enable script */
-  wp_object_activate (WP_OBJECT (script), WP_OBJECT_FEATURES_ALL, NULL,
-      (GAsyncReadyCallback) on_script_loaded, g_object_ref (task));
+  g_task_return_pointer (task, g_steal_pointer (&script), g_object_unref);
 }
 
 static GObject *

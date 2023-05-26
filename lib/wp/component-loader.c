@@ -73,6 +73,49 @@ wp_component_loader_load_finish (WpComponentLoader * self, GAsyncResult * res,
   return WP_COMPONENT_LOADER_GET_IFACE (self)->load_finish (self, res, error);
 }
 
+static void
+on_object_activated (WpObject * object, GAsyncResult * res, gpointer data)
+{
+  g_autoptr (GTask) task = G_TASK (data);
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_object_activate_finish (object, res, &error)) {
+    g_task_return_error (task, g_steal_pointer (&error));
+    return;
+  }
+
+  g_task_return_pointer (task, g_object_ref (object), g_object_unref);
+}
+
+static void
+on_component_loader_load_done (WpComponentLoader * cl, GAsyncResult * res,
+    gpointer data)
+{
+  g_autoptr (GTask) task = G_TASK (data);
+  g_autoptr (GError) error = NULL;
+  g_autoptr (GObject) o = NULL;
+  WpCore *core = g_task_get_source_object (task);
+
+  o = wp_component_loader_load_finish (cl, res, &error);
+  if (!o) {
+    g_task_return_error (task, g_steal_pointer (&error));
+    return;
+  }
+
+  wp_trace_object (cl, "loaded object " WP_OBJECT_FORMAT, WP_OBJECT_ARGS (o));
+
+  /* store object in the registry */
+  wp_registry_register_object (wp_core_get_registry (core), g_object_ref (o));
+
+  if (WP_IS_OBJECT (o)) {
+    /* WpObject needs to be activated */
+    wp_object_activate (WP_OBJECT (o), WP_OBJECT_FEATURES_ALL, NULL,
+        (GAsyncReadyCallback) on_object_activated, g_steal_pointer (&task));
+  } else {
+    g_task_return_pointer (task, g_steal_pointer (&o), g_object_unref);
+  }
+}
+
 /*!
  * \brief Loads the specified \a component on \a self
  *
@@ -98,18 +141,23 @@ wp_core_load_component (WpCore * self, const gchar * component,
   g_autoptr (GTask) task = NULL;
   g_autoptr (WpComponentLoader) cl = NULL;
 
+  task = g_task_new (self, cancellable, callback, data);
+  g_task_set_source_tag (task, wp_core_load_component);
+
   /* find a component loader for that type and load the component */
   cl = wp_component_loader_find (self, type);
   if (!cl) {
-    task = g_task_new (self, cancellable, callback, data);
     g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
         WP_LIBRARY_ERROR_INVALID_ARGUMENT,
         "No component loader was found for components of type '%s'", type);
     return;
   }
 
+  wp_debug_object (self, "load '%s', type '%s', loader " WP_OBJECT_FORMAT,
+      component, type, WP_OBJECT_ARGS (cl));
+
   wp_component_loader_load (cl, self, component, type, args, cancellable,
-      callback, data);
+      (GAsyncReadyCallback) on_component_loader_load_done, g_object_ref (task));
 }
 
 /*!
@@ -127,10 +175,8 @@ GObject *
 wp_core_load_component_finish (WpCore * self, GAsyncResult * res,
     GError ** error)
 {
-  g_autoptr (GObject) source = g_async_result_get_source_object (res);
+  g_return_val_if_fail (
+    g_async_result_is_tagged (res, wp_core_load_component), NULL);
 
-  if (WP_IS_COMPONENT_LOADER (source))
-    return wp_component_loader_load_finish (WP_COMPONENT_LOADER (source), res, error);
-  else
-    return g_task_propagate_pointer (G_TASK (res), error);
+  return g_task_propagate_pointer (G_TASK (res), error);
 }

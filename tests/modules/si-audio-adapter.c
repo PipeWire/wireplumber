@@ -21,6 +21,8 @@ on_plugin_loaded (WpCore * core, GAsyncResult * res, TestFixture *f)
   o = wp_core_load_component_finish (core, res, &error);
   g_assert_nonnull (o);
   g_assert_no_error (error);
+
+  g_main_loop_quit (f->base.loop);
 }
 
 static void
@@ -44,6 +46,7 @@ test_si_audio_adapter_setup (TestFixture * f, gconstpointer user_data)
     wp_core_load_component (f->base.core,
         "libwireplumber-module-si-audio-adapter", "module", NULL, NULL,
         (GAsyncReadyCallback) on_plugin_loaded, f);
+    g_main_loop_run (f->base.loop);
   }
 }
 
