@@ -46,7 +46,7 @@ void wp_core_load_component (WpCore * self, const gchar * component,
     GAsyncReadyCallback callback, gpointer data);
 
 WP_API
-GObject * wp_core_load_component_finish (WpCore * self, GAsyncResult * res,
+gboolean wp_core_load_component_finish (WpCore * self, GAsyncResult * res,
     GError ** error);
 
 G_END_DECLS

@@ -172,12 +172,12 @@ wp_script_tester_class_init (WpScriptTesterClass *klass)
 static void
 on_plugin_loaded (WpCore * core, GAsyncResult * res, ScriptRunnerFixture *f)
 {
-  g_autoptr (GObject) o = NULL;
+  gboolean loaded;
   GError *error = NULL;
 
-  o = wp_core_load_component_finish (core, res, &error);
-  g_assert_nonnull (o);
+  loaded = wp_core_load_component_finish (core, res, &error);
   g_assert_no_error (error);
+  g_assert_true (loaded);
 
   g_main_loop_quit (f->base.loop);
 }

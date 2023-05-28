@@ -62,11 +62,9 @@ static void
 on_plugin_loaded (WpCore * core, GAsyncResult * res,
     WpRequireApiTransition *self)
 {
-  g_autoptr (GObject) o = NULL;
   GError *error = NULL;
 
-  o = wp_core_load_component_finish (core, res, &error);
-  if (!o) {
+  if (!wp_core_load_component_finish (core, res, &error)) {
     wp_transition_return_error (WP_TRANSITION (self), error);
     return;
   }

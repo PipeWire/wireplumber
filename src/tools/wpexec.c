@@ -108,11 +108,9 @@ wp_init_transition_get_next_step (WpTransition * transition, guint step)
 static void
 on_plugin_loaded (WpCore * core, GAsyncResult * res, WpInitTransition *self)
 {
-  g_autoptr (GObject) o = NULL;
   GError *error = NULL;
 
-  o = wp_core_load_component_finish (core, res, &error);
-  if (!o) {
+  if (!wp_core_load_component_finish (core, res, &error)) {
     wp_transition_return_error (WP_TRANSITION (self), error);
     return;
   }

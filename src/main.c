@@ -199,13 +199,11 @@ static void
 on_plugin_loaded (WpCore *core, GAsyncResult *res, gpointer data)
 {
   WpInitTransition *self = data;
-  g_autoptr (GObject) o = NULL;
   g_autoptr (GError) error = NULL;
 
   g_return_if_fail (self->curr_component);
 
-  o = wp_core_load_component_finish (core, res, &error);
-  if (!o) {
+  if (!wp_core_load_component_finish (core, res, &error)) {
     if (self->curr_component->flags & IF_EXISTS &&
         error->domain == G_IO_ERROR &&
         error->code == G_IO_ERROR_NOT_FOUND) {

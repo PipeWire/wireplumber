@@ -1307,25 +1307,20 @@ static const struct subcommand {
 static void
 on_plugin_loaded (WpCore * core, GAsyncResult * res, WpCtl *ctl)
 {
-  g_autoptr (GObject) o = NULL;
   GError *error = NULL;
 
-  o = wp_core_load_component_finish (core, res, &error);
-  if (!o) {
+  if (!wp_core_load_component_finish (core, res, &error)) {
     fprintf (stderr, "%s\n", error->message);
     ctl->exit_code = 1;
     g_main_loop_quit (ctl->loop);
     return;
   }
 
-  if (WP_IS_PLUGIN (o)) {
-    const gchar *name = wp_plugin_get_name (WP_PLUGIN (o));
-    if (g_str_equal (name, "mixer-api"))
-      g_object_set (o, "scale", 1 /* cubic */, NULL);
-  }
-
-  if (--ctl->pending_plugins == 0)
+  if (--ctl->pending_plugins == 0) {
+    g_autoptr (WpPlugin) mixer_api = wp_plugin_find (core, "mixer-api");
+    g_object_set (mixer_api, "scale", 1 /* cubic */, NULL);
     wp_core_install_object_manager (ctl->core, ctl->om);
+  }
 }
 
 gint

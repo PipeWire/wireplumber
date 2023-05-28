@@ -84,7 +84,7 @@ on_object_activated (WpObject * object, GAsyncResult * res, gpointer data)
     return;
   }
 
-  g_task_return_pointer (task, g_object_ref (object), g_object_unref);
+  g_task_return_boolean (task, TRUE);
 }
 
 static void
@@ -112,7 +112,7 @@ on_component_loader_load_done (WpComponentLoader * cl, GAsyncResult * res,
     wp_object_activate (WP_OBJECT (o), WP_OBJECT_FEATURES_ALL, NULL,
         (GAsyncReadyCallback) on_object_activated, g_steal_pointer (&task));
   } else {
-    g_task_return_pointer (task, g_steal_pointer (&o), g_object_unref);
+    g_task_return_boolean (task, TRUE);
   }
 }
 
@@ -168,15 +168,14 @@ wp_core_load_component (WpCore * self, const gchar * component,
  * \param self the component loader object
  * \param res the async result
  * \param error (out) (optional): the operation's error, if it occurred
- * \returns (transfer full): The loaded component object, or NULL if an
- *    error happened.
+ * \returns TRUE if the requested component was loaded, FALSE otherwise
  */
-GObject *
+gboolean
 wp_core_load_component_finish (WpCore * self, GAsyncResult * res,
     GError ** error)
 {
   g_return_val_if_fail (
-    g_async_result_is_tagged (res, wp_core_load_component), NULL);
+    g_async_result_is_tagged (res, wp_core_load_component), FALSE);
 
-  return g_task_propagate_pointer (G_TASK (res), error);
+  return g_task_propagate_boolean (G_TASK (res), error);
 }
