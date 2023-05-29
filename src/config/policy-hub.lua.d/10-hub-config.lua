@@ -10,28 +10,15 @@ hub_policy.policy = {
 hub_policy.hubs = {
   ["playback-hub"] = {
     -- this will be the node.name for both the nodes that will be created.
-    ["hub.name"] = "playback-hub",
+    ["hub.name"] = "main-hub",
     ["channel.map"] = "FL FR",
     ["capture-props"] = {
       ["media.class"] = "Audio/Sink",
-      ["node.name"] = "playback-hub",
+      ["node.name"] = "main-hub",
     },
     ["playback-props"] = {
       ["media.class"] = "Stream/Output/Audio",
-      ["node.name"] = "playback-hub-stream",
-    },
-  },
-  ["record-hub"] = {
-    -- this will be the node.name for both the nodes that will be created.
-    ["hub.name"] = "record-hub",
-    ["channel.map"] = "FL FR",
-    ["capture-props"] = {
-      ["media.class"] = "Stream/input/Audio",
-      ["node.name"] = "record-hub-stream",
-    },
-    ["playback-props"] = {
-      ["media.class"] = "Audio/Source",
-      ["node.name"] = "record-hub",
+      ["node.name"] = "main-hub-output",
     },
   },
 }
