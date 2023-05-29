@@ -97,23 +97,26 @@ on_component_loader_load_done (WpComponentLoader * cl, GAsyncResult * res,
   WpCore *core = g_task_get_source_object (task);
 
   o = wp_component_loader_load_finish (cl, res, &error);
-  if (!o) {
+  if (error) {
     g_task_return_error (task, g_steal_pointer (&error));
     return;
   }
 
-  wp_trace_object (cl, "loaded object " WP_OBJECT_FORMAT, WP_OBJECT_ARGS (o));
+  if (o) {
+    wp_trace_object (cl, "loaded object " WP_OBJECT_FORMAT, WP_OBJECT_ARGS (o));
 
-  /* store object in the registry */
-  wp_registry_register_object (wp_core_get_registry (core), g_object_ref (o));
+    /* store object in the registry */
+    wp_registry_register_object (wp_core_get_registry (core), g_object_ref (o));
 
-  if (WP_IS_OBJECT (o)) {
-    /* WpObject needs to be activated */
-    wp_object_activate (WP_OBJECT (o), WP_OBJECT_FEATURES_ALL, NULL,
-        (GAsyncReadyCallback) on_object_activated, g_steal_pointer (&task));
-  } else {
-    g_task_return_boolean (task, TRUE);
+    if (WP_IS_OBJECT (o)) {
+      /* WpObject needs to be activated */
+      wp_object_activate (WP_OBJECT (o), WP_OBJECT_FEATURES_ALL, NULL,
+          (GAsyncReadyCallback) on_object_activated, g_steal_pointer (&task));
+      return;
+    }
   }
+
+  g_task_return_boolean (task, TRUE);
 }
 
 /*!
@@ -122,6 +125,10 @@ on_component_loader_load_done (WpComponentLoader * cl, GAsyncResult * res,
  * The \a type will determine which component loader to use. The following types
  * are built-in and will always work without a component loader:
  *  - "module" - Loads a WirePlumber module
+ *  - "array" - Loads multiple components interpreting the \a args as a JSON
+ *    array with component definitions, as they would appear in the
+ *    configuration file. When this type is used, \a component is ignored and
+ *    can be NULL
  *
  * \ingroup wpcomponentloader
  * \param self the core
