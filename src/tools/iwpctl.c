@@ -104,14 +104,13 @@ on_node_added (WpObjectManager *om, WpPipewireObject *node, WpCtl *self)
 {
   guint32 id = wp_proxy_get_bound_id (WP_PROXY (node));
   const gchar *name =
-    wp_pipewire_object_get_property (node, PW_KEY_NODE_DESCRIPTION);
+    wp_pipewire_object_get_property (node, PW_KEY_NODE_NAME);
   if (!name)
-    name = wp_pipewire_object_get_property (node, PW_KEY_APP_NAME);
-  if (!name)
-    name = wp_pipewire_object_get_property (node, PW_KEY_NODE_NAME);
+    name = wp_pipewire_object_get_property (node, PW_KEY_NODE_DESCRIPTION);
 
   printf ("\n%4u. %-35s\n", id, name);
 }
+
 static void
 scan_nodes (gchar *item, WpCtl *self)
 {
@@ -126,7 +125,7 @@ print_prompt ()
 }
 
 static void
-unlink_nodes (gchar *args, WpCtl *self)
+link_unlink_nodes (gchar *cmd, gchar *args, WpCtl *self)
 {
   g_autoptr (WpNode) source_node = NULL, target_node = NULL;
   gchar *source = NULL, *target = NULL;
@@ -157,77 +156,6 @@ unlink_nodes (gchar *args, WpCtl *self)
         fprintf (stderr, "invalid source node '%s'\n", source);
         return;
       }
-
-    }
-  }
-
-  if (target) {
-    target_node = wp_object_manager_lookup (self->om, WP_TYPE_NODE,
-      WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u",
-      atoi(target), NULL);
-    if (!target_node) {
-      target_node = wp_object_manager_lookup (self->om, WP_TYPE_NODE,
-        WP_CONSTRAINT_TYPE_PW_PROPERTY, "node.name", "=s", target, NULL);
-      if (!target_node) {
-        fprintf (stderr, "invalid target node '%s'\n", target);
-        return;
-      }
-    }
-  }
-  /* find metadata */
-  if (!self->policy_hub_m) {
-    self->policy_hub_m = wp_object_manager_lookup (self->om, WP_TYPE_METADATA,
-      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "metadata.name", "=s",
-      "policy-hub", NULL);
-    if (!self->policy_hub_m) {
-      fprintf (stderr, "policy-hub metadata not found\n");
-      return;
-    }
-  }
-
-  /* update metadata */
-  wp_metadata_set (self->policy_hub_m, 0, source, "Spa:String:JSON", "-1");
-
-  if (target)
-    wp_metadata_set (self->policy_hub_m, 0, target, "Spa:String:JSON", "-1");
-
-  return;
-}
-
-
-static void
-link_nodes (gchar *args, WpCtl *self)
-{
-  g_autoptr (WpNode) source_node = NULL, target_node = NULL;
-  gchar *source = NULL, *target = NULL;
-  char *a[2];
-  int n;
-
-  n = pw_split_ip (args, WHITESPACE, 2, a);
-  if (n < 1) {
-    return;
-  }
-
-  if (n == 1)
-    source = a[0];
-  else if (n == 2) {
-    source = a[0];
-    target = a[1];
-  }
-
-  /* verify nodes */
-  if (source) {
-    source_node = wp_object_manager_lookup (self->om, WP_TYPE_NODE,
-      WP_CONSTRAINT_TYPE_G_PROPERTY, "bound-id", "=u",
-      atoi(source), NULL);
-    if (!source_node) {
-      source_node = wp_object_manager_lookup (self->om, WP_TYPE_NODE,
-        WP_CONSTRAINT_TYPE_PW_PROPERTY, "node.name", "=s", source, NULL);
-      if (!source_node) {
-        fprintf (stderr, "invalid source node '%s'\n", source);
-        return;
-      }
-
     }
   }
 
@@ -244,6 +172,7 @@ link_nodes (gchar *args, WpCtl *self)
       }
     }
   } else
+    // here we are assuming one single hub that is defined in hub-config
     target = "main-hub";
 
   /* find metadata */
@@ -258,7 +187,16 @@ link_nodes (gchar *args, WpCtl *self)
   }
 
   /* update metadata */
-  wp_metadata_set (self->policy_hub_m, 0, source, "Spa:String:JSON", target);
+  g_autoptr (WpSpaJson) key_json = wp_spa_json_new_object (
+    "source.node", "s", source, NULL);
+
+  g_autoptr (WpSpaJson) value_json = wp_spa_json_new_object (
+    "target.node", "s", target,
+    "cmd", "s", cmd, NULL);
+
+  /* update metadata */
+  wp_metadata_set (self->policy_hub_m, 0, wp_spa_json_get_data (key_json),
+    "Spa:String:JSON", wp_spa_json_get_data (value_json));
 
   return;
 }
@@ -274,9 +212,9 @@ show_help ()
   printf ("hub                     -- displays hub\n");
   printf ("scan                    -- scans and displays new items added\n");
   printf ("link <node1> <node2>    -- links the node to each other. node id or name will do\n");
-  printf ("link <node1>            -- when invoked with single node connects it to the main-hub\n");
+  printf ("link <node1>            -- when invoked with single node links it to the main-hub\n");
   printf ("unlink <node1> <node2>  -- unlinks the connected nodes node id or name will do\n");
-  printf ("unlink <node1>          -- when invoked with single node, not is unlinked from all the links in which it is part of\n");
+	printf ("unlink <node1>          -- when invoked with single node unlinks it from the main-hub \n");
   printf ("quit or q\n");
 }
 
@@ -294,10 +232,8 @@ process_cmds (gchar *cmd, gchar *args, WpCtl *self)
     print_hub (cmd, self);
   else if (g_str_equal (cmd, "scan"))
     scan_nodes (cmd, self);
-  else if (g_str_equal (cmd, "link"))
-    link_nodes (args, self);
-  else if (g_str_equal (cmd, "unlink"))
-    unlink_nodes (args, self);
+	else if (g_str_equal (cmd, "link") || g_str_equal (cmd, "unlink"))
+    link_unlink_nodes (cmd, args, self);
   else
     printf ("Invalid command. say \"help\" for info\n");
 }
