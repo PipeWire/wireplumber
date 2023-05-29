@@ -52,6 +52,7 @@ function createLink (si, si_target)
         ["in.item"] = in_item,
         ["out.item.port.context"] = "output",
         ["in.item.port.context"] = "input",
+        ["is.policy.item.link"] = true,
       } then
     Log.info ("linking failure: unable to configure si-standard-link")
     return false
@@ -73,38 +74,37 @@ function createLink (si, si_target)
   return true
 end
 
-function unlink_node (source)
-  si = linkables_om:lookup {
-    Constraint { "node.id", "=", source },
-  }
+function unlink (si, si_target)
+  local si_props = si.properties
+  local si_target_props = si_target.properties
+  local link_found = nil
 
-  if not si then
-    si = linkables_om:lookup {
-      Constraint { "node.name", "=", source },
-    }
-    if not si then
-      Log.info ("unlinking failure: not a valid source node id/name " .. source)
-      return
-    end
-  end
-
-  si_props = si.properties
-
-  Log.info (si, string.format ("unlinking node: %s (%s)",
-    tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
+  Log.info (si, string.format ("unlinking nodes: %s (%s) from %s (%s)",
+    tostring (si_props ["node.name"]), tostring (si_props ["node.id"]),
+    tostring (si_target_props ["node.name"]), tostring (si_target_props ["node.id"])))
 
   -- remove any links associated with this item
   for silink in links_om:iterate () do
     local out_id = tonumber (silink.properties ["out.item.id"])
     local in_id = tonumber (silink.properties ["in.item.id"])
-    if out_id == si.id or in_id == si.id then
-      silink:remove ()
-      Log.info (silink, "... link removed")
+
+    if out_id == si.id or in_id == si_target.id then
+      link_found = silink
+    elseif out_id == si_target.id or in_id == si.id then
+      link_found = silink
     end
+
+  end
+
+  if link_found then
+    link_found:remove ()
+    Log.info (link_found, "... link removed")
+  else
+    Log.info ("link not found")
   end
 end
 
-function link_nodes (source, target)
+function link_unlink_nodes (cmd, source, target)
   local si = nil
   local si_target = nil
 
@@ -112,8 +112,6 @@ function link_nodes (source, target)
     -- here we are assuming one single hub by this name.
     target = "main-hub"
   end
-
-  Log.info ("linking node " .. source .. " with " .. target)
 
   local result = nil
 
@@ -127,7 +125,7 @@ function link_nodes (source, target)
       Constraint { "node.name", "=", source },
     }
     if not si then
-      Log.info ("linking failure: not a valid source node id/name " .. source)
+      Log.info ("link/unlink failure: not a valid source node id/name " .. source)
       return
     end
   end
@@ -141,18 +139,23 @@ function link_nodes (source, target)
       Constraint { "node.name", "=", target },
     }
     if not si_target then
-      Log.info ("linking failure: not a valid target node id " .. target)
+      Log.info ("link/unlink failure: not a valid target node id " .. target)
       return
     end
   end
 
-  if not canLink (si, si_target) then
-    return
+  if cmd == "link" then
+    if not canLink (si, si_target) then
+      return
+    end
+
+    if not createLink (si, si_target) then
+      return
+    end
+  elseif cmd == "unlink" then
+    unlink (si, si_target)
   end
 
-  if not createLink (si, si_target) then
-    return
-  end
 end
 
 -- create metadata
@@ -168,11 +171,17 @@ policy_hub_metadata:activate (Features.ALL, function(m, e)
 
   -- watch for changes
   m:connect ("changed", function(m, subject, key, type, value)
-    if value == "-1" then
-      unlink_node (key)
-    else
-      link_nodes (key, value)
+    k_json = Json.Raw (key)
+    k_val = k_json:parse ()
+
+    v_json = Json.Raw (value)
+    v_val = v_json:parse ()
+
+    if not v_val.cmd == "link" and not v_val.cmd == "unlink" then
+      Log.info ("cmd " .. cmd .. " not supported ")
     end
+
+    link_unlink_nodes (v_val.cmd, k_val ["source.node"], v_val ["target.node"])
   end)
 end)
 
