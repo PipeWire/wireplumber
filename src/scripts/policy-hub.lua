@@ -11,14 +11,6 @@
 -- policy(policy-node.lua) which doesnt depend on external entity like this.
 
 
-linkables_om = ObjectManager {
-  Interest {
-    type = "SiLinkable",
-    Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
-    Constraint { "active-features", "!", 0, type = "gobject" },
-  }
-}
-
 function canLink (si, si_target)
   local si_props = si.properties
   local si_target_props = si_target.properties
@@ -42,7 +34,7 @@ function createLink (si, si_target)
   local out_item = nil
   local in_item = nil
 
-  Log.info ("linking session items" .. si_props ["node.name"] .. " with " .. si_target_props ["node.name"])
+  Log.info ("linking session items: " .. si_props ["node.name"] .. " with " .. si_target_props ["node.name"])
 
   if si_props ["item.node.direction"] == "output" then
     -- playback
@@ -81,9 +73,45 @@ function createLink (si, si_target)
   return true
 end
 
+function unlink_node (source)
+  si = linkables_om:lookup {
+    Constraint { "node.id", "=", source },
+  }
+
+  if not si then
+    si = linkables_om:lookup {
+      Constraint { "node.name", "=", source },
+    }
+    if not si then
+      Log.info ("unlinking failure: not a valid source node id/name " .. source)
+      return
+    end
+  end
+
+  si_props = si.properties
+
+  Log.info (si, string.format ("unlinking node: %s (%s)",
+    tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
+
+  -- remove any links associated with this item
+  for silink in links_om:iterate () do
+    local out_id = tonumber (silink.properties ["out.item.id"])
+    local in_id = tonumber (silink.properties ["in.item.id"])
+    if out_id == si.id or in_id == si.id then
+      silink:remove ()
+      Log.info (silink, "... link removed")
+    end
+  end
+end
+
 function link_nodes (source, target)
   local si = nil
   local si_target = nil
+
+  if not target then
+    -- here we are assuming one single hub by this name.
+    target = "main-hub"
+  end
 
   Log.info ("linking node " .. source .. " with " .. target)
 
@@ -95,8 +123,13 @@ function link_nodes (source, target)
   }
 
   if not si then
-    Log.info ("linking failure: not a valid source node id " .. source)
-    return
+    si = linkables_om:lookup {
+      Constraint { "node.name", "=", source },
+    }
+    if not si then
+      Log.info ("linking failure: not a valid source node id/name " .. source)
+      return
+    end
   end
 
   si_target = linkables_om:lookup {
@@ -104,8 +137,13 @@ function link_nodes (source, target)
   }
 
   if not si_target then
-    Log.info ("lilinking failure: not a valid target node id " .. target)
-    return
+    si_target = linkables_om:lookup {
+      Constraint { "node.name", "=", target },
+    }
+    if not si_target then
+      Log.info ("linking failure: not a valid target node id " .. target)
+      return
+    end
   end
 
   if not canLink (si, si_target) then
@@ -115,7 +153,6 @@ function link_nodes (source, target)
   if not createLink (si, si_target) then
     return
   end
-
 end
 
 -- create metadata
@@ -131,8 +168,29 @@ policy_hub_metadata:activate (Features.ALL, function(m, e)
 
   -- watch for changes
   m:connect ("changed", function(m, subject, key, type, value)
-    link_nodes (key, value)
+    if value == "-1" then
+      unlink_node (key)
+    else
+      link_nodes (key, value)
+    end
   end)
 end)
 
+linkables_om = ObjectManager {
+  Interest {
+    type = "SiLinkable",
+    Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
+    Constraint { "active-features", "!", 0, type = "gobject" },
+  }
+}
+
+links_om = ObjectManager {
+  Interest {
+    type = "SiLink",
+    -- only handle links created by this policy
+    Constraint { "is.policy.item.link", "=", true },
+  }
+}
+
 linkables_om:activate ()
+links_om:activate ()
