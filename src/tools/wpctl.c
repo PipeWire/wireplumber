@@ -261,7 +261,7 @@ print_device (const GValue *item, gpointer data)
 }
 
 static void
-print_dev_node (const GValue *item, gpointer data)
+print_node (const GValue *item, gpointer data)
 {
   WpPipewireObject *obj = g_value_get_object (item);
   struct print_context *context = data;
@@ -288,7 +288,7 @@ print_hubs (const GValue *item, gpointer data)
     hubs_heading_printed = true;
     printf (TREE_INDENT_NODE "Hubs:\n");
   }
-  print_dev_node (item, data);
+  print_node (item, data);
 }
 
 static void
@@ -437,7 +437,7 @@ status_run (WpCtl * self)
           WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "*/Sink*",
           WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
           NULL);
-      wp_iterator_foreach (child_it, print_dev_node, (gpointer) &context);
+      wp_iterator_foreach (child_it, print_node, (gpointer) &context);
       g_clear_pointer (&child_it, wp_iterator_unref);
 
       printf (TREE_INDENT_LINE "\n");
@@ -464,7 +464,7 @@ status_run (WpCtl * self)
           WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "*/Source*",
           WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
           NULL);
-      wp_iterator_foreach (child_it, print_dev_node, (gpointer) &context);
+      wp_iterator_foreach (child_it, print_node, (gpointer) &context);
       g_clear_pointer (&child_it, wp_iterator_unref);
 
       printf (TREE_INDENT_LINE "\n");
@@ -487,7 +487,6 @@ status_run (WpCtl * self)
         WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_GROUP, "#s", "*loopback*",
         WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_NAME, "#s", "*-hub*",
         WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_VIRTUAL, "#s", "true",
-        WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
         WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "*/Source*",
         NULL);
       wp_iterator_foreach (child_it, print_hubs, (gpointer) &context);
@@ -498,7 +497,6 @@ status_run (WpCtl * self)
         WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_GROUP, "#s", "*loopback*",
         WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_NAME, "#s", "*-hub*",
         WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_VIRTUAL, "#s", "true",
-        WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
         WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "*/Sink*",
         NULL);
       wp_iterator_foreach (child_it, print_hubs, (gpointer) &context);
