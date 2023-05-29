@@ -16,9 +16,11 @@ function createHubs ()
     hub_args ["channel.map"] = config ["channel.map"]
     hub_args ["capture.props"] = Json.Object {
       ["media.class"] = config ["capture-props"] ["media.class"],
+      ["node.name"] = config ["capture-props"] ["node.name"],
     }
     hub_args ["playback.props"] = Json.Object {
       ["media.class"] = config ["playback-props"] ["media.class"],
+      ["node.name"] = config ["playback-props"] ["node.name"],
     }
 
     -- Transform 'args' to a json object here
