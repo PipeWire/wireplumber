@@ -174,7 +174,8 @@ wp_reserve_device_acquire_transition_execute_step (
     break;
 
   case STEP_GET_PROXY: {
-    g_autoptr (GDBusConnection) conn = wp_dbus_get_connection (plugin->dbus);
+    g_autoptr (GDBusConnection) conn = NULL;
+    g_object_get (plugin->dbus, "connection", &conn, NULL);
     wp_org_freedesktop_reserve_device1_proxy_new (conn,
         G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES |
         G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS |

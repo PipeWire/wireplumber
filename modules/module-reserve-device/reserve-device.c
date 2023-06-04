@@ -76,7 +76,8 @@ update_owner_app_name (WpReserveDevice *self)
   if (self->state == WP_RESERVE_DEVICE_STATE_BUSY && !self->owner_app_name) {
     /* create proxy */
     g_autoptr (WpReserveDevicePlugin) plugin = g_weak_ref_get (&self->plugin);
-    g_autoptr (GDBusConnection) conn = wp_dbus_get_connection (plugin->dbus);
+    g_autoptr (GDBusConnection) conn = NULL;
+    g_object_get (plugin->dbus, "connection", &conn, NULL);
     wp_org_freedesktop_reserve_device1_proxy_new (conn,
         G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS |
         G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START,
@@ -124,7 +125,9 @@ wp_reserve_device_constructed (GObject * object)
 {
   WpReserveDevice *self = WP_RESERVE_DEVICE (object);
   g_autoptr (WpReserveDevicePlugin) plugin = g_weak_ref_get (&self->plugin);
-  g_autoptr (GDBusConnection) conn = wp_dbus_get_connection (plugin->dbus);
+  g_autoptr (GDBusConnection) conn = NULL;
+
+  g_object_get (plugin->dbus, "connection", &conn, NULL);
 
   self->service_name =
       g_strdup_printf (FDO_RESERVE_DEVICE1_SERVICE ".%s", self->name);
@@ -498,7 +501,9 @@ wp_reserve_device_own_name (WpReserveDevice * self, gboolean force)
 
   g_autoptr (WpReserveDevicePlugin) plugin = g_weak_ref_get (&self->plugin);
   if (plugin) {
-    g_autoptr (GDBusConnection) conn = wp_dbus_get_connection (plugin->dbus);
+    g_autoptr (GDBusConnection) conn = NULL;
+    g_object_get (plugin->dbus, "connection", &conn, NULL);
+
     GBusNameOwnerFlags flags = G_BUS_NAME_OWNER_FLAGS_DO_NOT_QUEUE;
     if (self->priority != G_MAXINT32)
       flags |= G_BUS_NAME_OWNER_FLAGS_ALLOW_REPLACEMENT;

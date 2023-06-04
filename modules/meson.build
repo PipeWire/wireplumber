@@ -14,6 +14,21 @@ shared_library(
   dependencies : [wp_dep, pipewire_dep],
 )
 
+dbus_connection_enums = gnome.mkenums_simple('dbus-connection-enums',
+  sources: [ 'dbus-connection-state.h' ],
+)
+shared_library(
+  'wireplumber-module-dbus-connection',
+  [
+    'module-dbus-connection.c',
+    dbus_connection_enums,
+  ],
+  c_args : [common_c_args],
+  install : true,
+  install_dir : wireplumber_module_dir,
+  dependencies : [wp_dep],
+)
+
 shared_library(
   'wireplumber-module-default-nodes-api',
   [

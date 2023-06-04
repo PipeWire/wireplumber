@@ -13,7 +13,6 @@
 #include "component-loader.h"
 #include "conf.h"
 #include "core.h"
-#include "dbus.h"
 #include "device.h"
 #include "error.h"
 #include "event-dispatcher.h"

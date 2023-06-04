@@ -9,6 +9,13 @@ common_args = [
 
 if get_option('dbus-tests')
   test(
+    'test-dbus-connection',
+    executable('test-dbus-connection', 'dbus-connection.c',
+        dependencies: common_deps, c_args: common_args),
+    env: common_env,
+  )
+
+  test(
     'test-reserve-device',
     executable('test-reserve-device', 'reserve-device.c',
       dependencies: common_deps, c_args: common_args),

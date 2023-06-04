@@ -7,16 +7,16 @@
  */
 
 #include <wp/wp.h>
-
+#include "../../modules/dbus-connection-state.h"
 #include "../common/base-test-fixture.h"
 
 typedef struct {
   WpBaseTestFixture base;
   GTestDBus *test_dbus;
+  WpPlugin *dbus_1;
+  WpPlugin *dbus_2;
   WpPlugin *rd_plugin_1;
   WpPlugin *rd_plugin_2;
-  WpDbus *dbus_1;
-  WpDbus *dbus_2;
   gint expected_rd1_state;
   gint expected_rd2_state;
 } RdTestFixture;
@@ -37,12 +37,26 @@ on_plugin_loaded (WpCore * core, GAsyncResult * res, RdTestFixture *f)
 static void
 test_rd_setup (RdTestFixture *f, gconstpointer data)
 {
+  WpDBusConnectionState state = -1;
+
   wp_base_test_fixture_setup (&f->base,
       WP_BASE_TEST_FLAG_CLIENT_CORE | WP_BASE_TEST_FLAG_DONT_CONNECT);
 
   f->test_dbus = g_test_dbus_new (G_TEST_DBUS_NONE);
   g_test_dbus_up (f->test_dbus);
 
+  {
+    wp_core_load_component (f->base.core,
+        "libwireplumber-module-dbus-connection", "module", NULL, NULL,
+        (GAsyncReadyCallback) on_plugin_loaded, f);
+    g_main_loop_run (f->base.loop);
+  }
+  {
+    wp_core_load_component (f->base.client_core,
+        "libwireplumber-module-dbus-connection", "module", NULL, NULL,
+        (GAsyncReadyCallback) on_plugin_loaded, f);
+    g_main_loop_run (f->base.loop);
+  }
   {
     wp_core_load_component (f->base.core,
         "libwireplumber-module-reserve-device", "module", NULL, NULL,
@@ -56,17 +70,23 @@ test_rd_setup (RdTestFixture *f, gconstpointer data)
     g_main_loop_run (f->base.loop);
   }
 
+  f->dbus_1 = wp_plugin_find (f->base.core, "dbus-connection");
+  g_assert_nonnull (f->dbus_1);
+
+  f->dbus_2 = wp_plugin_find (f->base.client_core, "dbus-connection");
+  g_assert_nonnull (f->dbus_2);
+
   f->rd_plugin_1 = wp_plugin_find (f->base.core, "reserve-device");
   g_assert_nonnull (f->rd_plugin_1);
 
   f->rd_plugin_2 = wp_plugin_find (f->base.client_core, "reserve-device");
   g_assert_nonnull (f->rd_plugin_2);
 
-  g_signal_emit_by_name (f->rd_plugin_1, "get-dbus", &f->dbus_1);
-  g_assert_nonnull (f->dbus_1);
+  g_object_get (f->dbus_1, "state", &state, NULL);
+  g_assert_cmpint (state, ==, WP_DBUS_CONNECTION_STATE_CONNECTED);
 
-  g_signal_emit_by_name (f->rd_plugin_2, "get-dbus", &f->dbus_2);
-  g_assert_nonnull (f->dbus_2);
+  g_object_get (f->dbus_2, "state", &state, NULL);
+  g_assert_cmpint (state, ==, WP_DBUS_CONNECTION_STATE_CONNECTED);
 }
 
 static void
@@ -84,10 +104,13 @@ test_rd_teardown (RdTestFixture *f, gconstpointer data)
 static void
 ensure_plugins_stable_state (GObject * obj, GParamSpec * spec, RdTestFixture *f)
 {
-  gint state1 = 0, state2 = 0;
+  WpDBusConnectionState state1 = -1, state2 = -1;
   g_object_get (f->dbus_1, "state", &state1, NULL);
   g_object_get (f->dbus_2, "state", &state2, NULL);
-  if (state1 != 1 && state2 != 1 && state1 == state2)
+
+  if (state1 != WP_DBUS_CONNECTION_STATE_CONNECTING &&
+      state2 != WP_DBUS_CONNECTION_STATE_CONNECTING &&
+      state1 == state2)
     g_main_loop_quit (f->base.loop);
 }
 
@@ -95,18 +118,8 @@ static void
 test_rd_plugin (RdTestFixture *f, gconstpointer data)
 {
   GObject *rd1 = NULL, *rd2 = NULL, *rd_video = NULL, *tmp = NULL;
-  gint state = 0;
+  gint priority = 0;
   gchar *str;
-
-  g_signal_connect (f->dbus_1, "notify::state",
-      G_CALLBACK (ensure_plugins_stable_state), f);
-  g_signal_connect (f->dbus_2, "notify::state",
-      G_CALLBACK (ensure_plugins_stable_state), f);
-
-  g_object_get (f->dbus_1, "state", &state, NULL);
-  g_assert_cmpint (state, ==, 2);
-  g_object_get (f->dbus_2, "state", &state, NULL);
-  g_assert_cmpint (state, ==, 2);
 
   g_signal_emit_by_name (f->rd_plugin_1, "create-reservation",
       "Audio0", "WirePlumber", "hw:0,0", 10, &rd1);
@@ -143,10 +156,10 @@ test_rd_plugin (RdTestFixture *f, gconstpointer data)
   g_object_get (rd1, "application-device-name", &str, NULL);
   g_assert_cmpstr (str, ==, "hw:0,0");
   g_free (str);
-  g_object_get (rd1, "priority", &state, NULL);
-  g_assert_cmpint (state, ==, 10);
-  g_object_get (rd2, "priority", &state, NULL);
-  g_assert_cmpint (state, ==, 15);
+  g_object_get (rd1, "priority", &priority, NULL);
+  g_assert_cmpint (priority, ==, 10);
+  g_object_get (rd2, "priority", &priority, NULL);
+  g_assert_cmpint (priority, ==, 15);
 
   g_signal_emit_by_name (f->rd_plugin_1, "destroy-reservation", "Audio0");
   g_signal_emit_by_name (f->rd_plugin_1, "get-reservation", "Audio0", &tmp);
@@ -158,34 +171,18 @@ test_rd_plugin (RdTestFixture *f, gconstpointer data)
   g_clear_object (&rd2);
   g_clear_object (&rd1);
   g_clear_object (&rd_video);
-
-  wp_object_deactivate (WP_OBJECT (f->rd_plugin_1), WP_PLUGIN_FEATURE_ENABLED);
-  wp_object_deactivate (WP_OBJECT (f->rd_plugin_2), WP_PLUGIN_FEATURE_ENABLED);
-
-  wp_object_deactivate (WP_OBJECT (f->dbus_1), WP_DBUS_FEATURE_ENABLED);
-  wp_object_deactivate (WP_OBJECT (f->dbus_2), WP_DBUS_FEATURE_ENABLED);
-
-  g_object_get (f->dbus_1, "state", &state, NULL);
-  g_assert_cmpint (state, ==, 0);
-  g_object_get (f->dbus_2, "state", &state, NULL);
-  g_assert_cmpint (state, ==, 0);
 }
 
 static void
 test_rd_conn_closed (RdTestFixture *f, gconstpointer data)
 {
   GObject *rd1 = NULL;
-  gint state = 0;
+  WpDBusConnectionState state = -1;
 
   g_signal_connect (f->dbus_1, "notify::state",
       G_CALLBACK (ensure_plugins_stable_state), f);
   g_signal_connect (f->dbus_2, "notify::state",
       G_CALLBACK (ensure_plugins_stable_state), f);
-
-  g_object_get (f->dbus_1, "state", &state, NULL);
-  g_assert_cmpint (state, ==, 2);
-  g_object_get (f->dbus_2, "state", &state, NULL);
-  g_assert_cmpint (state, ==, 2);
 
   g_signal_emit_by_name (f->rd_plugin_1, "create-reservation",
       "Audio0", "WirePlumber", "hw:0,0", 10, &rd1);
@@ -198,15 +195,12 @@ test_rd_conn_closed (RdTestFixture *f, gconstpointer data)
   g_main_loop_run (f->base.loop);
 
   g_object_get (f->dbus_1, "state", &state, NULL);
-  g_assert_cmpint (state, ==, 0);
+  g_assert_cmpint (state, ==, WP_DBUS_CONNECTION_STATE_CLOSED);
   g_object_get (f->dbus_2, "state", &state, NULL);
-  g_assert_cmpint (state, ==, 0);
+  g_assert_cmpint (state, ==, WP_DBUS_CONNECTION_STATE_CLOSED);
 
   g_signal_emit_by_name (f->rd_plugin_1, "get-reservation", "Audio0", &rd1);
   g_assert_null (rd1);
-
-  wp_object_deactivate (WP_OBJECT (f->dbus_1), WP_DBUS_FEATURE_ENABLED);
-  wp_object_deactivate (WP_OBJECT (f->dbus_2), WP_DBUS_FEATURE_ENABLED);
 }
 
 static void
@@ -243,16 +237,6 @@ test_rd_acquire_release (RdTestFixture *f, gconstpointer data)
   GObject *rd1 = NULL, *rd2 = NULL;
   gint state = 0;
   gchar *str = NULL;
-
-  g_signal_connect (f->dbus_1, "notify::state",
-      G_CALLBACK (ensure_plugins_stable_state), f);
-  g_signal_connect (f->dbus_2, "notify::state",
-      G_CALLBACK (ensure_plugins_stable_state), f);
-
-  g_object_get (f->dbus_1, "state", &state, NULL);
-  g_assert_cmpint (state, ==, 2);
-  g_object_get (f->dbus_2, "state", &state, NULL);
-  g_assert_cmpint (state, ==, 2);
 
   g_signal_emit_by_name (f->rd_plugin_1, "create-reservation",
       "Audio0", "WirePlumber", "hw:0,0", 10, &rd1);
@@ -336,12 +320,6 @@ test_rd_acquire_release (RdTestFixture *f, gconstpointer data)
 
   g_clear_object (&rd1);
   g_clear_object (&rd2);
-
-  wp_object_deactivate (WP_OBJECT (f->rd_plugin_1), WP_PLUGIN_FEATURE_ENABLED);
-  wp_object_deactivate (WP_OBJECT (f->rd_plugin_2), WP_PLUGIN_FEATURE_ENABLED);
-
-  wp_object_deactivate (WP_OBJECT (f->dbus_1), WP_DBUS_FEATURE_ENABLED);
-  wp_object_deactivate (WP_OBJECT (f->dbus_2), WP_DBUS_FEATURE_ENABLED);
 }
 
 gint

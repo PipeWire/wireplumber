@@ -91,15 +91,6 @@ test(
   env: common_env,
 )
 
-if get_option('dbus-tests')
-  test(
-    'test-dbus',
-    executable('test-dbus', 'dbus.c',
-        dependencies: common_deps, c_args: common_args),
-    env: common_env,
-  )
-endif
-
 test(
   'test-settings',
   executable('test-settings', 'settings.c',
