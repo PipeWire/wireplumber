@@ -12,9 +12,6 @@ local defaults = {
   ["use-persistent-storage"] = true,
   ["default-volume"] = 0.4 ^ 3,
   ["default-input-volume"] = 1.0,
-  ["auto-echo-cancel"] = true,
-  ["echo-cancel-sink-name"] = "echo-cancel-sink",
-  ["echo-cancel-source-name"] = "echo-cancel-source",
   ["camera-discovery-timeout"] = 100,
 }
 
