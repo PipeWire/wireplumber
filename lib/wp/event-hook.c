@@ -315,7 +315,7 @@ wp_interest_event_hook_runs_for_event (WpEventHook * hook, WpEvent * event)
   WpObjectInterest *interest = NULL;
   WpInterestMatch match;
 
-  const int MATCH_ALL_PROPS = (WP_INTEREST_MATCH_PW_GLOBAL_PROPERTIES |
+  const unsigned int MATCH_ALL_PROPS = (WP_INTEREST_MATCH_PW_GLOBAL_PROPERTIES |
                                WP_INTEREST_MATCH_PW_PROPERTIES |
                                WP_INTEREST_MATCH_G_PROPERTIES);
 
