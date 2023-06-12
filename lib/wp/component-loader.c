@@ -95,6 +95,8 @@ on_component_loader_load_done (WpComponentLoader * cl, GAsyncResult * res,
   g_autoptr (GError) error = NULL;
   g_autoptr (GObject) o = NULL;
   WpCore *core = g_task_get_source_object (task);
+  WpRegistry *reg = wp_core_get_registry (core);
+  gchar *provides = g_task_get_task_data (task);
 
   o = wp_component_loader_load_finish (cl, res, &error);
   if (error) {
@@ -102,11 +104,14 @@ on_component_loader_load_done (WpComponentLoader * cl, GAsyncResult * res,
     return;
   }
 
+  if (provides)
+    wp_registry_mark_feature_provided (reg, provides);
+
   if (o) {
     wp_trace_object (cl, "loaded object " WP_OBJECT_FORMAT, WP_OBJECT_ARGS (o));
 
     /* store object in the registry */
-    wp_registry_register_object (wp_core_get_registry (core), g_object_ref (o));
+    wp_registry_register_object (reg, g_object_ref (o));
 
     if (WP_IS_OBJECT (o)) {
       /* WpObject needs to be activated */
@@ -132,24 +137,30 @@ on_component_loader_load_done (WpComponentLoader * cl, GAsyncResult * res,
  *
  * \ingroup wpcomponentloader
  * \param self the core
- * \param component the module name or file name
+ * \param component (nullable): the module name or file name
  * \param type the type of the component
  * \param args (transfer none)(nullable): additional arguments for the component,
  *   expected to be a JSON object
+ * \param provides (nullable): the name of the feature that this component will
+ *   provide if it loads successfully; this can be queried later with
+ *   wp_core_test_feature()
  * \param cancellable (nullable): optional GCancellable
  * \param callback (scope async): the callback to call when the operation is done
  * \param data (closure): data to pass to \a callback
  */
 void
 wp_core_load_component (WpCore * self, const gchar * component,
-    const gchar * type, WpSpaJson * args, GCancellable * cancellable,
-    GAsyncReadyCallback callback, gpointer data)
+    const gchar * type, WpSpaJson * args, const gchar * provides,
+    GCancellable * cancellable, GAsyncReadyCallback callback, gpointer data)
 {
   g_autoptr (GTask) task = NULL;
   g_autoptr (WpComponentLoader) cl = NULL;
 
   task = g_task_new (self, cancellable, callback, data);
   g_task_set_source_tag (task, wp_core_load_component);
+
+  if (provides)
+    g_task_set_task_data (task, g_strdup (provides), g_free);
 
   /* find a component loader for that type and load the component */
   cl = wp_component_loader_find (self, type);

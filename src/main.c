@@ -190,7 +190,7 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
 
     /* Load components that are defined in the configuration section */
     json_comps = wp_conf_get_section (conf, "wireplumber.components", NULL);
-    wp_core_load_component (core, NULL, "array", json_comps, NULL,
+    wp_core_load_component (core, NULL, "array", json_comps, NULL, NULL,
         (GAsyncReadyCallback) on_components_loaded, self);
     break;
   }

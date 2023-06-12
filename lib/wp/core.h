@@ -120,6 +120,11 @@ gboolean wp_core_sync_finish (WpCore * self, GAsyncResult * res,
 WP_API
 void wp_core_install_object_manager (WpCore * self, WpObjectManager * om);
 
+/* Global Features */
+
+WP_API
+gboolean wp_core_test_feature (WpCore * self, const gchar * feature);
+
 G_END_DECLS
 
 #endif

@@ -30,6 +30,7 @@ struct _WpRegistry
   GPtrArray *tmp_globals; // elementy-type: WpGlobal*
   GPtrArray *objects; // element-type: GObject*
   GPtrArray *object_managers; // element-type: WpObjectManager*
+  GPtrArray *features; // element-type: gchar*
 };
 
 void wp_registry_init (WpRegistry *self);
@@ -46,6 +47,12 @@ gpointer wp_registry_find_object (WpRegistry *reg, GEqualFunc func,
     gconstpointer data);
 void wp_registry_register_object (WpRegistry *reg, gpointer obj);
 void wp_registry_remove_object (WpRegistry *reg, gpointer obj);
+
+static inline void
+wp_registry_mark_feature_provided (WpRegistry * reg, const gchar * feature)
+{
+  g_ptr_array_add (reg->features, g_strdup (feature));
+}
 
 WpCore * wp_registry_get_core (WpRegistry * self) G_GNUC_CONST;
 

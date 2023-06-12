@@ -42,8 +42,8 @@ struct _WpComponentLoaderInterface
 
 WP_API
 void wp_core_load_component (WpCore * self, const gchar * component,
-    const gchar * type, WpSpaJson * args, GCancellable * cancellable,
-    GAsyncReadyCallback callback, gpointer data);
+    const gchar * type, WpSpaJson * args, const gchar * provides,
+    GCancellable * cancellable, GAsyncReadyCallback callback, gpointer data);
 
 WP_API
 gboolean wp_core_load_component_finish (WpCore * self, GAsyncResult * res,

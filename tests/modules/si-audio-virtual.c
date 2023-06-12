@@ -42,13 +42,13 @@ test_si_audio_virtual_setup (TestFixture * f, gconstpointer user_data)
   }
   {
     wp_core_load_component (f->base.core,
-        "libwireplumber-module-si-audio-adapter", "module", NULL, NULL,
+        "libwireplumber-module-si-audio-adapter", "module", NULL, NULL, NULL,
         (GAsyncReadyCallback) on_plugin_loaded, f);
     g_main_loop_run (f->base.loop);
   }
   {
     wp_core_load_component (f->base.core,
-        "libwireplumber-module-si-audio-virtual", "module", NULL, NULL,
+        "libwireplumber-module-si-audio-virtual", "module", NULL, NULL, NULL,
         (GAsyncReadyCallback) on_plugin_loaded, f);
     g_main_loop_run (f->base.loop);
   }

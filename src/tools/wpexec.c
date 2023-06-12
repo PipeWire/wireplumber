@@ -138,14 +138,14 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
 
   case STEP_ACTIVATE_PLUGINS: {
     wp_core_load_component (core, "libwireplumber-module-lua-scripting",
-        "module", NULL, NULL, (GAsyncReadyCallback) on_plugin_loaded, self);
+        "module", NULL, NULL, NULL, (GAsyncReadyCallback) on_plugin_loaded, self);
     wp_core_load_component (core, "libwireplumber-module-standard-event-source",
-        "module", NULL, NULL, (GAsyncReadyCallback) on_plugin_loaded, self);
+        "module", NULL, NULL, NULL, (GAsyncReadyCallback) on_plugin_loaded, self);
     break;
   }
 
   case STEP_ACTIVATE_SCRIPT: {
-    wp_core_load_component (core, exec_script, "script/lua", exec_args, NULL,
+    wp_core_load_component (core, exec_script, "script/lua", exec_args, NULL, NULL,
           (GAsyncReadyCallback) on_plugin_loaded, self);
     break;
   }

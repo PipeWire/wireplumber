@@ -204,7 +204,7 @@ load_component (ScriptRunnerFixture *f, const gchar *name, const gchar *type)
     plugin_name = g_strdup (name);
   }
 
-  wp_core_load_component (f->base.core, component_name, type, NULL, NULL,
+  wp_core_load_component (f->base.core, component_name, type, NULL, NULL, NULL,
       (GAsyncReadyCallback) on_plugin_loaded, f);
   g_main_loop_run (f->base.loop);
 }

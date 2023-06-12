@@ -62,7 +62,7 @@ test_dbus_connection (TestFixture *f, gconstpointer user_data)
   WpDBusConnectionState state = -1;
 
   wp_core_load_component (f->base.core,
-      "libwireplumber-module-dbus-connection", "module", NULL, NULL,
+      "libwireplumber-module-dbus-connection", "module", NULL, NULL, NULL,
       (GAsyncReadyCallback) on_plugin_loaded, f);
   g_main_loop_run (f->base.loop);
 

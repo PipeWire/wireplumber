@@ -50,7 +50,7 @@ test_si_node_setup (TestFixture * f, gconstpointer user_data)
   }
   {
     wp_core_load_component (f->base.core,
-        "libwireplumber-module-si-node", "module", NULL, NULL,
+        "libwireplumber-module-si-node", "module", NULL, NULL, NULL,
         (GAsyncReadyCallback) on_plugin_loaded, f);
     g_main_loop_run (f->base.loop);
   }

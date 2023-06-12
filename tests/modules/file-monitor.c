@@ -38,7 +38,7 @@ test_file_monitor_setup (TestFixture * f, gconstpointer user_data)
   wp_base_test_fixture_setup (&f->base, WP_BASE_TEST_FLAG_DONT_CONNECT);
 
   wp_core_load_component (f->base.core,
-      "libwireplumber-module-file-monitor-api", "module", NULL, NULL,
+      "libwireplumber-module-file-monitor-api", "module", NULL, NULL, NULL,
       (GAsyncReadyCallback) on_plugin_loaded, f);
   g_main_loop_run (f->base.loop);
 

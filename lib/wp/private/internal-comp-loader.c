@@ -292,7 +292,7 @@ wp_component_array_load_task_execute_step (WpTransition * transition, guint step
         self->curr_component->name, self->curr_component->type,
         self->curr_component->priority, self->curr_component->flags);
     wp_core_load_component (core, self->curr_component->name,
-        self->curr_component->type, NULL, NULL,
+        self->curr_component->type, NULL, NULL, NULL,
         (GAsyncReadyCallback) on_component_loaded, self);
     break;
 

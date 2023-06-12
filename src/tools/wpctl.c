@@ -1407,10 +1407,10 @@ main (gint argc, gchar **argv)
   /* load required API modules */
   ctl.pending_plugins++;
   wp_core_load_component (ctl.core, "libwireplumber-module-default-nodes-api",
-      "module", NULL, NULL, (GAsyncReadyCallback) on_plugin_loaded, &ctl);
+      "module", NULL, NULL, NULL, (GAsyncReadyCallback) on_plugin_loaded, &ctl);
   ctl.pending_plugins++;
   wp_core_load_component (ctl.core, "libwireplumber-module-mixer-api",
-      "module", NULL, NULL, (GAsyncReadyCallback) on_plugin_loaded, &ctl);
+      "module", NULL, NULL, NULL, (GAsyncReadyCallback) on_plugin_loaded, &ctl);
 
   /* connect */
   if (!wp_core_connect (ctl.core)) {

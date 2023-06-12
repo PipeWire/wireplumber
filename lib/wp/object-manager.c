@@ -961,6 +961,7 @@ wp_registry_init (WpRegistry *self)
       g_ptr_array_new_with_free_func ((GDestroyNotify) wp_global_unref);
   self->objects = g_ptr_array_new_with_free_func (g_object_unref);
   self->object_managers = g_ptr_array_new ();
+  self->features = g_ptr_array_new_with_free_func (g_free);
 }
 
 void
@@ -969,6 +970,7 @@ wp_registry_clear (WpRegistry *self)
   wp_registry_detach (self);
   g_clear_pointer (&self->globals, g_ptr_array_unref);
   g_clear_pointer (&self->tmp_globals, g_ptr_array_unref);
+  g_clear_pointer (&self->features, g_ptr_array_unref);
 
   /* remove all the registered objects
      this will normally also destroy the object managers, eventually, since

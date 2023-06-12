@@ -1052,6 +1052,21 @@ wp_core_sync_finish (WpCore * self, GAsyncResult * res, GError ** error)
   return g_task_propagate_boolean (G_TASK (res), error);
 }
 
+/*!
+ * \brief Test if a global feature is provided
+ *
+ * \ingroup wpcore
+ * \param self the core
+ * \param feature the feature name
+ * \returns TRUE if the feature is provided, FALSE otherwise
+ */
+gboolean
+wp_core_test_feature (WpCore * self, const gchar * feature)
+{
+  return g_ptr_array_find_with_equal_func (self->registry.features, feature,
+      g_str_equal, NULL);
+}
+
 WpRegistry *
 wp_core_get_registry (WpCore * self)
 {
