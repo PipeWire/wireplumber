@@ -12,6 +12,7 @@
 #include <glib-object.h>
 #include "defs.h"
 #include "iterator.h"
+#include "spa-json.h"
 
 G_BEGIN_DECLS
 
@@ -39,6 +40,9 @@ WpProperties * wp_properties_new_valist (const gchar * key, va_list args);
 
 WP_API
 WpProperties * wp_properties_new_string (const gchar * str);
+
+WP_API
+WpProperties * wp_properties_new_json (const WpSpaJson * json);
 
 WP_API
 WpProperties * wp_properties_new_wrap (const struct pw_properties * props);
@@ -77,6 +81,9 @@ gint wp_properties_update (WpProperties * self, WpProperties * props);
 WP_API
 gint wp_properties_update_from_dict (WpProperties * self,
     const struct spa_dict * dict);
+
+WP_API
+gint wp_properties_update_from_json (WpProperties * self, const WpSpaJson * json);
 
 /* add */
 

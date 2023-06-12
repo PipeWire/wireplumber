@@ -147,6 +147,26 @@ wp_properties_new_string (const gchar * str)
 }
 
 /*!
+ * \brief Constructs a new properties set that contains the properties that can
+ * be parsed from the given JSON object
+ *
+ * \ingroup wpproperties
+ * \param json a JSON object
+ * \returns (transfer full): the newly constructed properties set
+ */
+WpProperties *
+wp_properties_new_json (const WpSpaJson * json)
+{
+  WpProperties * self;
+
+  g_return_val_if_fail (json != NULL, NULL);
+
+  self = wp_properties_new_empty ();
+  wp_properties_update_from_json (self, json);
+  return self;
+}
+
+/*!
  * \brief Constructs a new WpProperties that wraps the given \a props structure,
  * allowing reading properties on that \a props structure through
  * the WpProperties API.
@@ -396,6 +416,28 @@ wp_properties_update_from_dict (WpProperties * self,
   g_return_val_if_fail (!(self->flags & FLAG_NO_OWNERSHIP), -EINVAL);
 
   return pw_properties_update (self->props, dict);
+}
+
+/*!
+ * \brief Updates (adds new or modifies existing) properties in \a self,
+ * using the given \a json as a source.
+ *
+ * Any properties that are not contained in \a json are left untouched.
+ *
+ * \ingroup wpproperties
+ * \param self a properties object
+ * \param json a JSON object that contains properties to update
+ * \returns the number of properties that were changed
+ */
+gint
+wp_properties_update_from_json (WpProperties * self, const WpSpaJson * json)
+{
+  g_return_val_if_fail (self != NULL, -EINVAL);
+  g_return_val_if_fail (!(self->flags & FLAG_IS_DICT), -EINVAL);
+  g_return_val_if_fail (!(self->flags & FLAG_NO_OWNERSHIP), -EINVAL);
+
+  return pw_properties_update_string (self->props, wp_spa_json_get_data (json),
+      wp_spa_json_get_size (json));
 }
 
 /*!
