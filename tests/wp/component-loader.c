@@ -1,0 +1,155 @@
+/* WirePlumber
+ *
+ * Copyright © 2023 Collabora Ltd.
+ *    @author George Kiagiadakis <george.kiagiadakis@collabora.com>
+ *
+ * SPDX-License-Identifier: MIT
+ */
+#include "../common/base-test-fixture.h"
+
+struct _WpTestPlugin
+{
+  WpPlugin parent;
+  gboolean enabled;
+};
+
+#define WP_TYPE_TEST_PLUGIN (wp_test_plugin_get_type ())
+G_DECLARE_FINAL_TYPE (WpTestPlugin, wp_test_plugin, WP, TEST_PLUGIN, WpPlugin)
+G_DEFINE_TYPE (WpTestPlugin, wp_test_plugin, WP_TYPE_PLUGIN)
+
+static void
+wp_test_plugin_init (WpTestPlugin * self)
+{
+}
+
+static void
+wp_test_plugin_enable (WpPlugin * self, WpTransition * transition)
+{
+  WP_TEST_PLUGIN (self)->enabled = TRUE;
+  wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
+}
+
+static void
+wp_test_plugin_class_init (WpTestPluginClass * klass)
+{
+  WpPluginClass *pclass = (WpPluginClass *) klass;
+  pclass->enable = wp_test_plugin_enable;
+}
+
+
+struct _WpTestCompLoader
+{
+  GObject parent;
+};
+
+static void wp_test_comp_loader_iface_init (WpComponentLoaderInterface * iface);
+
+#define WP_TYPE_TEST_COMP_LOADER (wp_test_comp_loader_get_type ())
+G_DECLARE_FINAL_TYPE (WpTestCompLoader, wp_test_comp_loader,
+                      WP, TEST_COMP_LOADER, GObject)
+G_DEFINE_TYPE_WITH_CODE (WpTestCompLoader, wp_test_comp_loader,
+                         G_TYPE_OBJECT, G_IMPLEMENT_INTERFACE (
+                         WP_TYPE_COMPONENT_LOADER,
+                         wp_test_comp_loader_iface_init))
+
+static void
+wp_test_comp_loader_init (WpTestCompLoader * self)
+{
+}
+
+static void
+wp_test_comp_loader_class_init (WpTestCompLoaderClass * klass)
+{
+}
+
+static gboolean
+wp_test_comp_loader_supports_type (WpComponentLoader * cl, const gchar * type)
+{
+  return g_str_equal (type, "test");
+}
+
+static void
+wp_test_comp_loader_load (WpComponentLoader * self, WpCore * core,
+    const gchar * component, const gchar * type, WpSpaJson * args,
+    GCancellable * cancellable, GAsyncReadyCallback callback, gpointer data)
+{
+  g_autoptr (GTask) task = g_task_new (self, cancellable, callback, data);
+  GObject *plugin = g_object_new (WP_TYPE_TEST_PLUGIN,
+      "name", component,
+      "core", core,
+      NULL);
+  g_task_return_pointer (task, plugin, g_object_unref);
+}
+
+static GObject *
+wp_test_comp_loader_load_finish (WpComponentLoader * self,
+    GAsyncResult * res, GError ** error)
+{
+  return g_task_propagate_pointer (G_TASK (res), error);
+}
+
+static void
+wp_test_comp_loader_iface_init (WpComponentLoaderInterface * iface)
+{
+  iface->supports_type = wp_test_comp_loader_supports_type;
+  iface->load = wp_test_comp_loader_load;
+  iface->load_finish = wp_test_comp_loader_load_finish;
+}
+
+
+typedef struct {
+  WpBaseTestFixture base;
+} TestFixture;
+
+static void
+test_setup (TestFixture *self, gconstpointer user_data)
+{
+  wp_base_test_fixture_setup (&self->base, 0);
+  wp_core_register_object (self->base.core,
+      g_object_new (WP_TYPE_TEST_COMP_LOADER, NULL));
+}
+
+static void
+test_teardown (TestFixture *self, gconstpointer user_data)
+{
+  wp_base_test_fixture_teardown (&self->base);
+}
+
+static void
+on_component_loaded (WpCore * core, GAsyncResult * res, TestFixture *f)
+{
+  gboolean loaded;
+  GError *error = NULL;
+
+  loaded = wp_core_load_component_finish (core, res, &error);
+  g_assert_no_error (error);
+  g_assert_true (loaded);
+
+  g_main_loop_quit (f->base.loop);
+}
+
+static void
+test_load (TestFixture *f, gconstpointer data)
+{
+  wp_core_load_component (f->base.core, "name123", "test", NULL,
+      "feature.name123", NULL, (GAsyncReadyCallback) on_component_loaded, f);
+  g_main_loop_run (f->base.loop);
+
+  g_autoptr (WpPlugin) plugin = wp_plugin_find (f->base.core, "name123");
+  g_assert_nonnull (plugin);
+  g_assert_true (WP_IS_TEST_PLUGIN (plugin));
+  g_assert_true (WP_TEST_PLUGIN (plugin)->enabled);
+  g_assert_true (wp_core_test_feature (f->base.core, "feature.name123"));
+}
+
+gint
+main (gint argc, gchar *argv[])
+{
+  g_test_init (&argc, &argv, NULL);
+  wp_init (WP_INIT_ALL);
+
+  g_test_add ("/wp/comploader/load", TestFixture, NULL,
+      test_setup, test_load, test_teardown);
+
+  return g_test_run ();
+}

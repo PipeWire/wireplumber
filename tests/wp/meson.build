@@ -8,6 +8,13 @@ common_args = [
 ]
 
 test(
+  'test-component-loader',
+  executable('test-component-loader', 'component-loader.c',
+      dependencies: common_deps, c_args: common_args),
+  env: common_env,
+)
+
+test(
   'test-core',
   executable('test-core', 'core.c',
       dependencies: common_deps, c_args: common_args),
