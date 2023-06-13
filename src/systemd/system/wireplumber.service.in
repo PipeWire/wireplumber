@@ -8,7 +8,6 @@ Conflicts=pipewire-media-session.service
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
-RestrictNamespaces=yes
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
 Type=simple
