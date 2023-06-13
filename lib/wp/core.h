@@ -115,6 +115,18 @@ WP_API
 gboolean wp_core_sync_finish (WpCore * self, GAsyncResult * res,
     GError ** error);
 
+/* Object Registry */
+
+WP_API
+gpointer wp_core_find_object (WpCore * self, GEqualFunc func,
+    gconstpointer data);
+
+WP_API
+void wp_core_register_object (WpCore * self, gpointer obj);
+
+WP_API
+void wp_core_remove_object (WpCore * self, gpointer obj);
+
 /* Object Manager */
 
 WP_API

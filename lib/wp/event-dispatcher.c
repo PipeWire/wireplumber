@@ -7,11 +7,11 @@
  */
 
 #include "event-dispatcher.h"
-#include "private/registry.h"
 #include "log.h"
 
 #include <spa/support/plugin.h>
 #include <spa/support/system.h>
+#include <pipewire/pipewire.h>
 
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp-event-dispatcher")
 
@@ -208,8 +208,7 @@ wp_event_dispatcher_class_init (WpEventDispatcherClass * klass)
 WpEventDispatcher *
 wp_event_dispatcher_get_instance (WpCore * core)
 {
-  WpRegistry *registry = wp_core_get_registry (core);
-  WpEventDispatcher *dispatcher = wp_registry_find_object (registry,
+  WpEventDispatcher *dispatcher = wp_core_find_object (core,
       (GEqualFunc) WP_IS_EVENT_DISPATCHER, NULL);
 
   if (G_UNLIKELY (!dispatcher)) {
@@ -227,7 +226,7 @@ wp_event_dispatcher_get_instance (WpCore * core)
     g_source_add_unix_fd (dispatcher->source, dispatcher->eventfd, G_IO_IN);
 
     g_source_attach (dispatcher->source, wp_core_get_g_main_context (core));
-    wp_registry_register_object (registry, g_object_ref (dispatcher));
+    wp_core_register_object (core, g_object_ref (dispatcher));
   }
 
   return dispatcher;

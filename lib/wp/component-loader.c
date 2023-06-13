@@ -52,7 +52,7 @@ static WpComponentLoader *
 wp_component_loader_find (WpCore * core, const gchar * type)
 {
   g_return_val_if_fail (WP_IS_CORE (core), NULL);
-  GObject *c = wp_registry_find_object (wp_core_get_registry (core),
+  GObject *c = wp_core_find_object (core,
       (GEqualFunc) find_component_loader_func, type);
   return c ? WP_COMPONENT_LOADER (c) : NULL;
 }
@@ -111,7 +111,7 @@ on_component_loader_load_done (WpComponentLoader * cl, GAsyncResult * res,
     wp_trace_object (cl, "loaded object " WP_OBJECT_FORMAT, WP_OBJECT_ARGS (o));
 
     /* store object in the registry */
-    wp_registry_register_object (reg, g_object_ref (o));
+    wp_core_register_object (core, g_object_ref (o));
 
     if (WP_IS_OBJECT (o)) {
       /* WpObject needs to be activated */

@@ -43,9 +43,6 @@ WP_API
 WpSessionItem * wp_si_factory_construct (WpSiFactory * self, WpCore * core);
 
 WP_API
-void wp_si_factory_register (WpCore * core, WpSiFactory * factory);
-
-WP_API
 WpSiFactory * wp_si_factory_find (WpCore * core, const gchar * factory_name);
 
 WP_API

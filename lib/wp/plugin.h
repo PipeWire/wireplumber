@@ -42,9 +42,6 @@ struct _WpPluginClass
 };
 
 WP_API
-void wp_plugin_register (WpPlugin * plugin);
-
-WP_API
 WpPlugin * wp_plugin_find (WpCore * core, const gchar * plugin_name);
 
 WP_API

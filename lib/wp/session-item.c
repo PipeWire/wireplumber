@@ -9,7 +9,7 @@
 #include "session-item.h"
 #include "log.h"
 #include "error.h"
-#include "private/registry.h"
+#include <spa/utils/defs.h>
 
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp-si")
 
@@ -310,11 +310,11 @@ wp_session_item_register (WpSessionItem * self)
   g_return_if_fail (WP_IS_SESSION_ITEM (self));
 
   core = wp_object_get_core (WP_OBJECT (self));
-  wp_registry_register_object (wp_core_get_registry (core), self);
+  wp_core_register_object (core, self);
 }
 
 /*!
- * \brief Removes the session item from the registry
+ * \brief Removes the session item from its associated core
  *
  * \ingroup wpsessionitem
  * \param self (transfer none): the session item
@@ -327,7 +327,7 @@ wp_session_item_remove (WpSessionItem * self)
   g_return_if_fail (WP_IS_SESSION_ITEM (self));
 
   core = wp_object_get_core (WP_OBJECT (self));
-  wp_registry_remove_object (wp_core_get_registry (core), self);
+  wp_core_remove_object (core, self);
 }
 
 /*!

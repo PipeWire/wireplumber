@@ -265,7 +265,7 @@ wp_core_init (WpCore * self)
   self->async_tasks = g_hash_table_new_full (g_direct_hash, g_direct_equal,
       NULL, g_object_unref);
 
-  wp_registry_register_object (&self->registry,
+  wp_core_register_object (self,
       g_object_new (WP_TYPE_INTERNAL_COMP_LOADER, NULL));
 }
 
@@ -1050,6 +1050,97 @@ wp_core_sync_finish (WpCore * self, GAsyncResult * res, GError ** error)
   g_return_val_if_fail (g_task_is_valid (res, self), FALSE);
 
   return g_task_propagate_boolean (G_TASK (res), error);
+}
+
+
+/*!
+ * \brief Finds a registered object
+ *
+ * \param self the core
+ * \param func (scope call): a function that takes the object being searched
+ *   as the first argument and \a data as the second. it should return TRUE if
+ *   the object is found or FALSE otherwise
+ * \param data the second argument to \a func
+ * \returns (transfer full) (type GObject*) (nullable): the registered object
+ *   or NULL if not found
+ */
+gpointer
+wp_core_find_object (WpCore * self, GEqualFunc func, gconstpointer data)
+{
+  GObject *object;
+  guint i;
+
+  g_return_val_if_fail (WP_IS_CORE (self), NULL);
+
+  /* prevent bad things when called from within wp_registry_clear() */
+  if (G_UNLIKELY (!self->registry.objects))
+    return NULL;
+
+  for (i = 0; i < self->registry.objects->len; i++) {
+    object = g_ptr_array_index (self->registry.objects, i);
+    if (func (object, data))
+      return g_object_ref (object);
+  }
+
+  return NULL;
+}
+
+/*!
+ * \brief Registers \a obj with the core, making it appear on WpObjectManager
+ * instances as well.
+ *
+ * The core will also maintain a ref to that object until it
+ * is removed.
+ *
+ * \ingroup wpcore
+ * \param self the core
+ * \param obj (transfer full) (type GObject*): the object to register
+ */
+void
+wp_core_register_object (WpCore * self, gpointer obj)
+{
+  g_return_if_fail (WP_IS_CORE (self));
+  g_return_if_fail (G_IS_OBJECT (obj));
+
+  /* prevent bad things when called from within wp_registry_clear() */
+  if (G_UNLIKELY (!self->registry.objects)) {
+    g_object_unref (obj);
+    return;
+  }
+
+  /* ensure the registered object is associated with this core */
+  if (WP_IS_OBJECT (obj)) {
+    g_autoptr (WpCore) obj_core = wp_object_get_core (WP_OBJECT (obj));
+    g_return_if_fail (obj_core == self);
+  }
+
+  g_ptr_array_add (self->registry.objects, obj);
+
+  /* notify object managers */
+  wp_registry_notify_add_object (&self->registry, obj);
+}
+
+/*!
+ * \brief Detaches and unrefs the specified object from this core.
+ *
+ * \ingroup wpcore
+ * \param self the core
+ * \param obj (transfer none) (type GObject*): a pointer to the object to remove
+ */
+void
+wp_core_remove_object (WpCore * self, gpointer obj)
+{
+  g_return_if_fail (WP_IS_CORE (self));
+  g_return_if_fail (G_IS_OBJECT (obj));
+
+  /* prevent bad things when called from within wp_registry_clear() */
+  if (G_UNLIKELY (!self->registry.objects))
+    return;
+
+  /* notify object managers */
+  wp_registry_notify_rm_object (&self->registry, obj);
+
+  g_ptr_array_remove_fast (self->registry.objects, obj);
 }
 
 /*!

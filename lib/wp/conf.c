@@ -10,7 +10,8 @@
 #include "conf.h"
 #include "log.h"
 #include "object-interest.h"
-#include "private/registry.h"
+
+#include <pipewire/pipewire.h>
 
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp-conf")
 
@@ -121,8 +122,7 @@ wp_conf_class_init (WpConfClass * klass)
 WpConf *
 wp_conf_get_instance (WpCore *core)
 {
-  WpRegistry *registry = wp_core_get_registry (core);
-  WpConf *conf = wp_registry_find_object (registry,
+  WpConf *conf = wp_core_find_object (core,
       (GEqualFunc) WP_IS_CONF, NULL);
 
   if (G_UNLIKELY (!conf)) {
@@ -130,7 +130,7 @@ wp_conf_get_instance (WpCore *core)
         "core", core,
         NULL);
 
-    wp_registry_register_object (registry, g_object_ref (conf));
+    wp_core_register_object (core, g_object_ref (conf));
 
     wp_info_object (conf, "created wpconf object");
   }

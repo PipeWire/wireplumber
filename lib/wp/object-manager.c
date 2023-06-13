@@ -849,7 +849,7 @@ wp_object_manager_add_global (WpObjectManager * self, WpGlobal * global)
 #undef G_LOG_DOMAIN
 #define G_LOG_DOMAIN "wp-registry"
 
-static void
+void
 wp_registry_notify_add_object (WpRegistry *self, gpointer object)
 {
   for (guint i = 0; i < self->object_managers->len; i++) {
@@ -859,7 +859,7 @@ wp_registry_notify_add_object (WpRegistry *self, gpointer object)
   }
 }
 
-static void
+void
 wp_registry_notify_rm_object (WpRegistry *self, gpointer object)
 {
   for (guint i = 0; i < self->object_managers->len; i++) {
@@ -1187,84 +1187,6 @@ wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
 
   if (new_global)
     *new_global = g_steal_pointer (&global);
-}
-
-/*
- * \brief Finds a registered object
- *
- * \param reg the registry
- * \param func (scope call): a function that takes the object being searched
- *   as the first argument and \a data as the second. it should return TRUE if
- *   the object is found or FALSE otherwise
- * \param data the second argument to \a func
- * \returns (transfer full) (type GObject *) (nullable): the registered object
- *   or NULL if not found
- */
-gpointer
-wp_registry_find_object (WpRegistry *reg, GEqualFunc func, gconstpointer data)
-{
-  GObject *object;
-  guint i;
-
-  /* prevent bad things when called from within wp_registry_clear() */
-  if (G_UNLIKELY (!reg->objects))
-    return NULL;
-
-  for (i = 0; i < reg->objects->len; i++) {
-    object = g_ptr_array_index (reg->objects, i);
-    if (func (object, data))
-      return g_object_ref (object);
-  }
-
-  return NULL;
-}
-
-/*
- * \brief Registers \a obj with the core, making it appear on WpObjectManager
- * instances as well.
- *
- * The core will also maintain a ref to that object until it
- * is removed.
- *
- * \param reg the registry
- * \param obj (transfer full) (type GObject*): the object to register
- */
-void
-wp_registry_register_object (WpRegistry *reg, gpointer obj)
-{
-  g_return_if_fail (G_IS_OBJECT (obj));
-
-  /* prevent bad things when called from within wp_registry_clear() */
-  if (G_UNLIKELY (!reg->objects)) {
-    g_object_unref (obj);
-    return;
-  }
-
-  g_ptr_array_add (reg->objects, obj);
-
-  /* notify object managers */
-  wp_registry_notify_add_object (reg, obj);
-}
-
-/*
- * \brief Detaches and unrefs the specified object from this core.
- *
- * \param reg the registry
- * \param obj (transfer none) (type GObject*): a pointer to the object to remove
- */
-void
-wp_registry_remove_object (WpRegistry *reg, gpointer obj)
-{
-  g_return_if_fail (G_IS_OBJECT (obj));
-
-  /* prevent bad things when called from within wp_registry_clear() */
-  if (G_UNLIKELY (!reg->objects))
-    return;
-
-  /* notify object managers */
-  wp_registry_notify_rm_object (reg, obj);
-
-  g_ptr_array_remove_fast (reg->objects, obj);
 }
 
 /*!

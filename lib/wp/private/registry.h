@@ -43,10 +43,8 @@ void wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
     WpGlobalProxy *proxy, const struct spa_dict *props,
     WpGlobal ** new_global);
 
-gpointer wp_registry_find_object (WpRegistry *reg, GEqualFunc func,
-    gconstpointer data);
-void wp_registry_register_object (WpRegistry *reg, gpointer obj);
-void wp_registry_remove_object (WpRegistry *reg, gpointer obj);
+void wp_registry_notify_add_object (WpRegistry * self, gpointer object);
+void wp_registry_notify_rm_object (WpRegistry * self, gpointer object);
 
 static inline void
 wp_registry_mark_feature_provided (WpRegistry * reg, const gchar * feature)

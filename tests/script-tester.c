@@ -291,11 +291,11 @@ script_tests_setup (ScriptRunnerFixture *f, gconstpointer data)
 
   f->plugin = g_object_new (wp_script_tester_get_type (),
       "name", "script-tester",
-      "core", f->base.core, /*to register plugin*/
+      "core", f->base.core,
       "test-fixture", f,
       NULL);
 
-  wp_plugin_register ((WpPlugin *)f->plugin);
+  wp_core_register_object (f->base.core, (WpPlugin *)f->plugin);
 }
 
 static void

@@ -7,7 +7,6 @@
  */
 
 #include "si-factory.h"
-#include "private/registry.h"
 #include "log.h"
 
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp-si-factory")
@@ -133,22 +132,6 @@ wp_si_factory_construct (WpSiFactory * self, WpCore * core)
   return WP_SI_FACTORY_GET_CLASS (self)->construct (self, core);
 }
 
-/*!
- * \brief Registers the \a factory on the \a core.
- *
- * \ingroup wpsifactory
- * \param core the core
- * \param factory (transfer full): the factory to register
- */
-void
-wp_si_factory_register (WpCore * core, WpSiFactory * factory)
-{
-  g_return_if_fail (WP_IS_CORE (core));
-  g_return_if_fail (WP_IS_SI_FACTORY (factory));
-
-  wp_registry_register_object (wp_core_get_registry (core), factory);
-}
-
 static gboolean
 find_factory_func (gpointer factory, gpointer name_quark)
 {
@@ -176,7 +159,7 @@ wp_si_factory_find (WpCore * core, const gchar * factory_name)
   GQuark q = g_quark_try_string (factory_name);
   if (q == 0)
     return NULL;
-  GObject *f = wp_registry_find_object (wp_core_get_registry (core),
+  GObject *f = wp_core_find_object (core,
       (GEqualFunc) find_factory_func, GUINT_TO_POINTER (q));
   return f ? WP_SI_FACTORY (f) : NULL;
 }

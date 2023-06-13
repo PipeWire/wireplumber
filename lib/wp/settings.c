@@ -11,7 +11,6 @@
 #include "metadata.h"
 #include "log.h"
 #include "object-manager.h"
-#include "private/registry.h"
 
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp-settings")
 
@@ -219,9 +218,8 @@ check_metadata_name (gpointer  g_object, gpointer  metadata_name)
 WpSettings *
 wp_settings_get_instance (WpCore *core, const gchar *metadata_name)
 {
-  WpRegistry *registry = wp_core_get_registry (core);
   const gchar *name = (metadata_name ? metadata_name : "sm-settings") ;
-  WpSettings *settings = wp_registry_find_object (registry,
+  WpSettings *settings = wp_core_find_object (core,
       (GEqualFunc) check_metadata_name, name);
 
   if (G_UNLIKELY (!settings)) {
@@ -230,7 +228,7 @@ wp_settings_get_instance (WpCore *core, const gchar *metadata_name)
         "metadata-name", name,
         NULL);
 
-    wp_registry_register_object (registry, g_object_ref (settings));
+    wp_core_register_object (core, g_object_ref (settings));
 
     wp_info_object (settings, "created wpsettings object for metadata"
       " name \"%s\"", name);
