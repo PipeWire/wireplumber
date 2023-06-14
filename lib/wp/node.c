@@ -626,6 +626,8 @@ wp_node_send_command (WpNode * self, const gchar * command)
 
   g_return_if_fail (WP_IS_NODE (self));
   g_return_if_fail (command_value != NULL);
+  g_return_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
+      WP_PROXY_FEATURE_BOUND);
 
   struct spa_command cmd =
       SPA_NODE_COMMAND_INIT(wp_spa_id_value_number (command_value));
