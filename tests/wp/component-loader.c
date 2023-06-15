@@ -40,6 +40,7 @@ wp_test_plugin_class_init (WpTestPluginClass * klass)
 struct _WpTestCompLoader
 {
   GObject parent;
+  GPtrArray *history;
 };
 
 static void wp_test_comp_loader_iface_init (WpComponentLoaderInterface * iface);
@@ -55,11 +56,21 @@ G_DEFINE_TYPE_WITH_CODE (WpTestCompLoader, wp_test_comp_loader,
 static void
 wp_test_comp_loader_init (WpTestCompLoader * self)
 {
+  self->history = g_ptr_array_new_with_free_func (g_free);
+}
+
+static void
+wp_test_comp_loader_finalize (GObject * self)
+{
+  g_clear_pointer (&WP_TEST_COMP_LOADER (self)->history, g_ptr_array_unref);
+  G_OBJECT_CLASS (wp_test_comp_loader_parent_class)->finalize (self);
 }
 
 static void
 wp_test_comp_loader_class_init (WpTestCompLoaderClass * klass)
 {
+  GObjectClass *oclass = (GObjectClass *) klass;
+  oclass->finalize = wp_test_comp_loader_finalize;
 }
 
 static gboolean
@@ -78,6 +89,7 @@ wp_test_comp_loader_load (WpComponentLoader * self, WpCore * core,
       "name", component,
       "core", core,
       NULL);
+  g_ptr_array_add (WP_TEST_COMP_LOADER (self)->history, g_strdup (component));
   g_task_return_pointer (task, plugin, g_object_unref);
 }
 
@@ -99,14 +111,15 @@ wp_test_comp_loader_iface_init (WpComponentLoaderInterface * iface)
 
 typedef struct {
   WpBaseTestFixture base;
+  WpTestCompLoader *loader;
 } TestFixture;
 
 static void
 test_setup (TestFixture *self, gconstpointer user_data)
 {
   wp_base_test_fixture_setup (&self->base, 0);
-  wp_core_register_object (self->base.core,
-      g_object_new (WP_TYPE_TEST_COMP_LOADER, NULL));
+  self->loader = g_object_new (WP_TYPE_TEST_COMP_LOADER, NULL);
+  wp_core_register_object (self->base.core, self->loader);
 }
 
 static void
@@ -142,6 +155,47 @@ test_load (TestFixture *f, gconstpointer data)
   g_assert_true (wp_core_test_feature (f->base.core, "feature.name123"));
 }
 
+static void
+test_dependencies_setup (TestFixture *f, gconstpointer data)
+{
+  f->base.conf_file =
+    g_strdup_printf ("%s/component-loader.conf", g_getenv ("G_TEST_SRCDIR"));
+  test_setup (f, data);
+}
+
+static void
+test_dependencies (TestFixture *f, gconstpointer data)
+{
+  g_autoptr (WpConf) conf = wp_conf_get_instance (f->base.core);
+  g_assert_nonnull (conf);
+
+  g_autoptr (WpSpaJson) components = wp_conf_get_section (conf,
+      "wireplumber.components", NULL);
+  g_assert_nonnull (components);
+
+  wp_core_load_component (f->base.core, NULL, "array", components,
+      NULL, NULL, (GAsyncReadyCallback) on_component_loaded, f);
+  g_main_loop_run (f->base.loop);
+
+  // NULL-terminate the array
+  g_ptr_array_add (f->loader->history, NULL);
+
+  /* verify the order of loading the plugins was as expected */
+  const gchar *expected[] = {
+    "five", "one", "six", "two", "three", "four", "seven", NULL };
+  g_assert_cmpstrv (f->loader->history->pdata, expected);
+
+  g_assert_true (wp_core_test_feature (f->base.core, "support.one"));
+  g_assert_true (wp_core_test_feature (f->base.core, "support.two"));
+  g_assert_true (wp_core_test_feature (f->base.core, "support.three"));
+  g_assert_true (wp_core_test_feature (f->base.core, "support.four"));
+  g_assert_true (wp_core_test_feature (f->base.core, "virtual.four"));
+  g_assert_true (wp_core_test_feature (f->base.core, "support.five"));
+  g_assert_true (wp_core_test_feature (f->base.core, "support.six"));
+  g_assert_false (wp_core_test_feature (f->base.core, "support.seven"));
+  g_assert_false (wp_core_test_feature (f->base.core, "support.eight"));
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -150,6 +204,8 @@ main (gint argc, gchar *argv[])
 
   g_test_add ("/wp/comploader/load", TestFixture, NULL,
       test_setup, test_load, test_teardown);
+  g_test_add ("/wp/comploader/dependencies", TestFixture, NULL,
+      test_dependencies_setup, test_dependencies, test_teardown);
 
   return g_test_run ();
 }

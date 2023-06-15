@@ -139,6 +139,7 @@ wp_base_test_fixture_teardown (WpBaseTestFixture * self)
     g_main_context_iteration (self->context, TRUE);
 
   g_main_context_pop_thread_default (self->context);
+  g_clear_pointer (&self->conf_file, g_free);
   g_clear_object (&self->client_core);
   g_clear_object (&self->core);
   g_clear_pointer (&self->timeout_source, g_source_unref);

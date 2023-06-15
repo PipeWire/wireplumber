@@ -22,10 +22,10 @@ pipewire_data_dir = get_option('prefix') / get_option('datadir') / 'pipewire'
 
 cc = meson.get_compiler('c')
 
-glib_req_version = '>= 2.62'
+glib_req_version = '>= 2.68'
 add_project_arguments([
-    '-DGLIB_VERSION_MIN_REQUIRED=GLIB_VERSION_2_62',
-    '-DGLIB_VERSION_MAX_ALLOWED=GLIB_VERSION_2_62',
+    '-DGLIB_VERSION_MIN_REQUIRED=GLIB_VERSION_2_68',
+    '-DGLIB_VERSION_MAX_ALLOWED=GLIB_VERSION_2_68',
   ], language: 'c'
 )
 

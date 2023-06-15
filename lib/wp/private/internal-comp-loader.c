@@ -14,137 +14,152 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-internal-comp-loader")
 
 /*** ComponentData ***/
 
-enum
-{
-  NO_FAIL = 0x1,
-  IF_EXISTS = 0x2
-};
+typedef enum {
+  FEATURE_STATE_DISABLED,
+  FEATURE_STATE_OPTIONAL,
+  FEATURE_STATE_REQUIRED
+} FeatureState;
 
+typedef struct _ComponentData ComponentData;
 struct _ComponentData
 {
+  grefcount ref;
+  /* an identifier for this component that is understandable by the end user */
+  gchar *printable_id;
+  /* the provided feature name (points to same storage as the id) or NULL */
+  gchar *provides;
+  /* the original state of the feature (required / optional / disabled) */
+  FeatureState state;
+
+  /* other fields extracted as-is from the json description */
   gchar *name;
   gchar *type;
-  gint priority;
-  gint flags;
-  WpSpaJson *deps;
+  WpSpaJson *arguments;
+  GPtrArray *requires;  /* value-type: string (owned) */
+  GPtrArray *wants;     /* value-type: string (owned) */
+
+  /* TRUE when the component is in the final sorted list */
+  gboolean visited;
+  /* one of the components that requires this one with a strong
+    dependency chain (i.e. there is a required component that requires
+    this one, directly or indirectly) */
+  ComponentData *required_by;
 };
-typedef struct _ComponentData ComponentData;
 
-static gint
-component_cmp_func (const ComponentData *a, const ComponentData *b)
-{
-  return b->priority - a->priority;
-}
+static void component_data_free (ComponentData * self);
 
-static gint
-component_equal_func (const ComponentData *a, ComponentData * b)
+static ComponentData *
+component_data_ref (ComponentData *self)
 {
-  return
-      g_str_equal (a->name, b->name) && g_str_equal (a->type, b->type) ? 0 : 1;
+  g_ref_count_inc (&self->ref);
+  return self;
 }
 
 static void
-component_data_free (ComponentData *self)
+component_data_unref (ComponentData *self)
 {
-  g_clear_pointer (&self->name, g_free);
-  g_clear_pointer (&self->type, g_free);
-  g_clear_pointer (&self->deps, wp_spa_json_unref);
-  g_slice_free (ComponentData, self);
+  if (self && g_ref_count_dec (&self->ref))
+    component_data_free (self);
 }
 
-G_DEFINE_AUTOPTR_CLEANUP_FUNC (ComponentData, component_data_free)
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (ComponentData, component_data_unref)
 
-/*** components parser ***/
-
-static gint
-pick_default_component_priority (const char *type)
+static FeatureState
+get_feature_state (WpProperties * dict, const gchar * feature)
 {
-  if (g_str_equal (type, "module"))
-    /* regular module default priority */
-    return 110;
-  else if (g_str_equal (type, "script/lua"))
-    /* Lua Script default priority */
-    return 100;
+  const gchar *value = wp_properties_get (dict, feature);
 
-  return 100;
+  if (!value || g_str_equal (value, "optional"))
+    return FEATURE_STATE_OPTIONAL;
+  else if (g_str_equal (value, "required"))
+    return FEATURE_STATE_REQUIRED;
+  else if (g_str_equal (value, "disabled"))
+    return FEATURE_STATE_DISABLED;
+  else {
+    wp_warning ("invalid feature state '%s' specified in configuration for '%s'",
+        value, feature);
+    wp_warning ("considering '%s' to be optional", feature);
+    return FEATURE_STATE_OPTIONAL;
+  }
 }
 
-static void
-json_to_components_list (GList **list, WpSpaJson *json)
+static ComponentData *
+component_data_new_from_json (WpSpaJson * json, WpProperties * features,
+    GError ** error)
 {
-  g_autoptr (WpIterator) it = NULL;
-  g_auto (GValue) item = G_VALUE_INIT;
+  g_autoptr (ComponentData) comp = NULL;
+  g_autoptr (WpSpaJson) deps = NULL;
 
-  it = wp_spa_json_new_iterator (json);
-  for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
-    WpSpaJson *cjson = g_value_get_boxed (&item);
-    g_autoptr (ComponentData) comp = g_slice_new0 (ComponentData);
-    g_autoptr (WpSpaJson) deps = NULL;
-    g_autoptr (WpSpaJson) flags = NULL;
+  if (!wp_spa_json_is_object (json)) {
+    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
+        "expected JSON object instead of: %.*s", (int) wp_spa_json_get_size (json),
+        wp_spa_json_get_data (json));
+    return NULL;
+  }
 
-    /* Parse name and type (mandatory) */
-    if (!wp_spa_json_is_object (cjson) ||
-        !wp_spa_json_object_get (cjson,
-            "name", "s", &comp->name,
-            "type", "s", &comp->type,
-            NULL)) {
-      wp_warning ("component must have both a 'name' and a 'type'");
-      continue;
-    }
+  comp = g_new0 (ComponentData, 1);
+  g_ref_count_init (&comp->ref);
+  comp->requires = g_ptr_array_new_with_free_func (g_free);
+  comp->wants = g_ptr_array_new_with_free_func (g_free);
 
-    /* Parse priority (optional) */
-    if (!wp_spa_json_object_get (cjson, "priority", "i", &comp->priority,
-        NULL))
-      comp->priority = pick_default_component_priority (comp->type);
+  if (!wp_spa_json_object_get (json, "type", "s", &comp->type, NULL)) {
+    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
+        "component 'type' is required at: %.*s", (int) wp_spa_json_get_size (json),
+        wp_spa_json_get_data (json));
+    return NULL;
+  }
 
-    /* Parse deps (optional) */
-    if (wp_spa_json_object_get (cjson, "deps", "J", &deps, NULL)) {
-      if (wp_spa_json_is_array (deps)) {
-        comp->deps = g_steal_pointer (&deps);
-      } else {
-        wp_warning ("skipping component %s as its 'deps' is not a JSON array",
-            comp->name);
-        continue;
-      }
-    }
+  wp_spa_json_object_get (json, "name", "s", &comp->name, NULL);
+  wp_spa_json_object_get (json, "arguments", "J", &comp->arguments, NULL);
 
-    /* Parse flags (optional) */
-    if (wp_spa_json_object_get (cjson, "flags", "J", &flags, NULL)) {
-      if (flags && wp_spa_json_is_array (flags)) {
-        g_autoptr (WpIterator) it = wp_spa_json_new_iterator (flags);
-        g_auto (GValue) item = G_VALUE_INIT;
-
-        for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
-          WpSpaJson *flag = g_value_get_boxed (&item);
-          g_autofree gchar *flag_str = wp_spa_json_parse_string (flag);
-
-          if (g_str_equal (flag_str, "ifexists"))
-            comp->flags |= IF_EXISTS;
-          else if (g_str_equal (flag_str, "nofail"))
-            comp->flags |= NO_FAIL;
-          else
-            wp_warning ("flag '%s' is not valid for component '%s'", flag_str,
-                comp->name);
-        }
-      } else {
-        wp_warning ("skipping component %s as its 'flags' is not a JSON array",
-            comp->name);
-        continue;
-      }
-    }
-
-    /* Insert component into the list if it does not exist */
-    if (!g_list_find_custom (*list, comp,
-        (GCompareFunc) component_equal_func)) {
-      wp_trace ("appended component '%s' of type '%s' with priority '%d'",
-          comp->name, comp->type, comp->priority);
-      *list = g_list_insert_sorted (*list, g_steal_pointer (&comp),
-          (GCompareFunc) component_cmp_func);
+  if (wp_spa_json_object_get (json, "provides", "s", &comp->provides, NULL)) {
+    comp->state = get_feature_state (features, comp->provides);
+    if (comp->name) {
+      comp->printable_id =
+          g_strdup_printf ("%s [%s: %s]", comp->provides, comp->type, comp->name);
     } else {
-      wp_debug ("ignoring component '%s' as it is already defined previously",
-          comp->name);
+      comp->printable_id = g_strdup_printf ("%s [%s]", comp->provides, comp->type);
+    }
+  } else {
+    comp->provides = NULL;
+    comp->state = FEATURE_STATE_REQUIRED;
+    comp->printable_id = g_strdup_printf ("[%s: %s]", comp->type, comp->name);
+  }
+
+  if (wp_spa_json_object_get (json, "requires", "J", &deps, NULL)) {
+    g_autoptr (WpIterator) it = wp_spa_json_new_iterator (deps);
+    g_auto (GValue) item = G_VALUE_INIT;
+
+    for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
+      WpSpaJson *dep = g_value_get_boxed (&item);
+      g_ptr_array_add (comp->requires, wp_spa_json_to_string (dep));
     }
   }
+
+  if (wp_spa_json_object_get (json, "wants", "J", &deps, NULL)) {
+    g_autoptr (WpIterator) it = wp_spa_json_new_iterator (deps);
+    g_auto (GValue) item = G_VALUE_INIT;
+
+    for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
+      WpSpaJson *dep = g_value_get_boxed (&item);
+      g_ptr_array_add (comp->wants, wp_spa_json_to_string (dep));
+    }
+  }
+
+  return g_steal_pointer (&comp);
+}
+
+static void
+component_data_free (ComponentData * self)
+{
+  g_clear_pointer (&self->provides, g_free);
+  g_clear_pointer (&self->printable_id, g_free);
+  g_clear_pointer (&self->name, g_free);
+  g_clear_pointer (&self->type, g_free);
+  g_clear_pointer (&self->arguments, wp_spa_json_unref);
+  g_clear_pointer (&self->requires, g_ptr_array_unref);
+  g_clear_pointer (&self->wants, g_ptr_array_unref);
+  g_free (self);
 }
 
 /*** WpComponentArrayLoadTask ***/
@@ -152,17 +167,22 @@ json_to_components_list (GList **list, WpSpaJson *json)
 struct _WpComponentArrayLoadTask
 {
   WpTransition parent;
+  /* the input json object */
   WpSpaJson *json;
-  GList *components;
-  GList *components_iter;
+  /* all components that provide a feature; key: comp->provides, value: comp */
+  GHashTable *feat_components;
+  /* the final sorted list of components to load */
+  GPtrArray *components;
+  /* iterator in the components array above */
+  ComponentData **components_iter;
+  /* the current component being loaded */
   ComponentData *curr_component;
 };
 
 enum {
   STEP_PARSE = WP_TRANSITION_STEP_CUSTOM_START,
-  STEP_LOAD_NEXT_1,
-  STEP_LOAD_NEXT_2,
-  STEP_CLEANUP,
+  STEP_GET_NEXT,
+  STEP_LOAD_NEXT,
 };
 
 G_DECLARE_FINAL_TYPE (WpComponentArrayLoadTask, wp_component_array_load_task,
@@ -175,32 +195,6 @@ wp_component_array_load_task_init (WpComponentArrayLoadTask * self)
 {
 }
 
-static gboolean
-component_meets_dependencies (WpCore *core, ComponentData *comp)
-{
-  g_autoptr (WpConf) conf = NULL;
-  g_autoptr (WpIterator) it = NULL;
-  g_auto (GValue) item = G_VALUE_INIT;
-
-  if (!comp->deps)
-    return TRUE;
-
-  /* Note that we consider the dependency valid by default if it is not
-   * found in the settings configuration section */
-  conf = wp_conf_get_instance (core);
-  it = wp_spa_json_new_iterator (comp->deps);
-  for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
-    WpSpaJson *dep = g_value_get_boxed (&item);
-    g_autofree gchar *dep_str = wp_spa_json_parse_string (dep);
-    gboolean value = wp_conf_get_value_boolean (conf,
-        "wireplumber.settings", dep_str, TRUE);
-    if (!value)
-      return FALSE;
-  }
-
-  return TRUE;
-}
-
 static guint
 wp_component_array_load_task_get_next_step (WpTransition * transition, guint step)
 {
@@ -208,15 +202,162 @@ wp_component_array_load_task_get_next_step (WpTransition * transition, guint ste
 
   switch (step) {
   case WP_TRANSITION_STEP_NONE:     return STEP_PARSE;
-  case STEP_PARSE:                  return STEP_LOAD_NEXT_1;
-  case STEP_LOAD_NEXT_1:
-    return (self->components_iter) ? STEP_LOAD_NEXT_2 : STEP_CLEANUP;
-  case STEP_LOAD_NEXT_2:
-    return (self->components_iter) ? STEP_LOAD_NEXT_1 : STEP_CLEANUP;
-  case STEP_CLEANUP:                return WP_TRANSITION_STEP_NONE;
+  case STEP_PARSE:                  return STEP_GET_NEXT;
+  case STEP_GET_NEXT:
+    return (self->curr_component) ? STEP_LOAD_NEXT : WP_TRANSITION_STEP_NONE;
+  case STEP_LOAD_NEXT:              return STEP_GET_NEXT;
   default:
     g_return_val_if_reached (WP_TRANSITION_STEP_ERROR);
   }
+}
+
+static gchar *
+print_dep_chain (ComponentData *comp)
+{
+  GString *str = g_string_new (NULL);
+
+  while (comp->required_by) {
+    comp = comp->required_by;
+    g_string_prepend (str, comp->printable_id);
+    if (comp->required_by)
+      g_string_prepend (str, " -> ");
+  }
+  return g_string_free (str, FALSE);
+}
+
+static gboolean
+add_component (ComponentData * comp, gboolean strongly_required,
+    WpComponentArrayLoadTask * self, GError ** error)
+{
+  if (comp->visited || comp->state == FEATURE_STATE_DISABLED)
+    return TRUE;
+
+  comp->visited = TRUE;
+
+  /* recursively visit all the required features */
+  for (guint i = 0; i < comp->requires->len; i++) {
+    const gchar *dependency = g_ptr_array_index (comp->requires, i);
+    ComponentData *req_comp =
+        g_hash_table_lookup (self->feat_components, dependency);
+    if (!req_comp) {
+      g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
+          "no component provides '%s', required by '%s'", dependency,
+          comp->printable_id);
+      return FALSE;
+    }
+
+    /* make a note if there is a strong dependency chain */
+    if (strongly_required && !req_comp->required_by) {
+      if (req_comp->state == FEATURE_STATE_OPTIONAL) {
+        req_comp->required_by = comp;
+      }
+      else if (req_comp->state == FEATURE_STATE_DISABLED) {
+        g_autofree gchar *dep_chain = print_dep_chain (comp);
+        g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
+            "component '%s' is disabled, required by %s",
+            req_comp->printable_id, dep_chain);
+        return FALSE;
+      }
+    }
+
+    if (!add_component (req_comp, strongly_required, self, error))
+      return FALSE;
+  }
+
+  /* recursively visit all the optionally wanted features */
+  for (guint i = 0; i < comp->wants->len; i++) {
+    const gchar *dependency = g_ptr_array_index (comp->wants, i);
+    ComponentData *wanted_comp =
+        g_hash_table_lookup (self->feat_components, dependency);
+    if (!wanted_comp) {
+      /* in theory we could ignore this, but it's most likely a typo,
+         so let's be strict about it and let the user correct it */
+      g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
+          "no component provides '%s', wanted by '%s'", dependency,
+          comp->printable_id);
+      return FALSE;
+    }
+    if (!add_component (wanted_comp, FALSE, self, error))
+      return FALSE;
+  }
+
+  /* append component to the sorted list after all its dependencies */
+  g_ptr_array_add (self->components, component_data_ref (comp));
+  return TRUE;
+}
+
+static WpProperties *
+conf_get_features_section (WpComponentArrayLoadTask * self)
+{
+  WpProperties *props = wp_properties_new_empty ();
+  WpCore *core = wp_transition_get_data (WP_TRANSITION (self));
+  g_autoptr (WpConf) conf = wp_conf_get_instance (core);
+  g_autoptr (WpSpaJson) json =
+      wp_conf_get_section (conf, "wireplumber.features", NULL);
+  if (json)
+    wp_properties_update_from_json (props, json);
+  return props;
+}
+
+static gboolean
+parse_components (WpComponentArrayLoadTask * self, GError ** error)
+{
+  /* all the parsed components that are explicitly required */
+  g_autoptr (GPtrArray) required_components = NULL;
+  g_autoptr (WpProperties) conf = conf_get_features_section (self);
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) item = G_VALUE_INIT;
+
+  if (!wp_spa_json_is_array (self->json)) {
+    g_set_error (error,
+        WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
+        "components section is not a JSON array");
+    return FALSE;
+  }
+
+  self->feat_components = g_hash_table_new_full (g_str_hash, g_str_equal,
+      NULL, (GDestroyNotify) component_data_unref);
+  self->components = g_ptr_array_new_with_free_func (
+      (GDestroyNotify) component_data_unref);
+  required_components = g_ptr_array_new_with_free_func (
+      (GDestroyNotify) component_data_unref);
+
+  /* first parse each component from its json description */
+  it = wp_spa_json_new_iterator (self->json);
+  for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
+    WpSpaJson *cjson = g_value_get_boxed (&item);
+    GError *e = NULL;
+    g_autoptr (ComponentData) comp = NULL;
+
+    if (!(comp = component_data_new_from_json (cjson, conf, &e))) {
+      g_propagate_error (error, e);
+      return FALSE;
+    }
+
+    if (comp->state == FEATURE_STATE_REQUIRED)
+      g_ptr_array_add (required_components, component_data_ref (comp));
+
+    if (comp->provides)
+      g_hash_table_insert (self->feat_components, comp->provides,
+          component_data_ref (comp));
+  }
+
+  /* topological sorting based on depth-first search */
+  for (guint i = 0; i < required_components->len; i++) {
+    ComponentData *comp = g_ptr_array_index (required_components, i);
+    GError *e = NULL;
+    if (!add_component (comp, TRUE, self, &e)) {
+      g_propagate_error (error, e);
+      return FALSE;
+    }
+  }
+
+  /* terminate the array with NULL */
+  g_ptr_array_add (self->components, NULL);
+
+  /* clear feat_components, they are no longer needed */
+  g_clear_pointer (&self->feat_components, g_hash_table_unref);
+  return TRUE;
 }
 
 static void
@@ -228,26 +369,30 @@ on_component_loaded (WpCore *core, GAsyncResult *res, gpointer data)
   g_return_if_fail (self->curr_component);
 
   if (!wp_core_load_component_finish (core, res, &error)) {
-    if (self->curr_component->flags & IF_EXISTS &&
-        error->domain == G_IO_ERROR &&
-        error->code == G_IO_ERROR_NOT_FOUND) {
-      wp_info_object (self, "skipping component '%s' with 'ifexists' flag "
-          "because the file does not exist", self->curr_component->name);
-      goto next;
-    } else if (self->curr_component->flags & NO_FAIL) {
-      wp_info_object (self, "skipping component '%s' with 'nofail' flag "
-          "due to error: %s", self->curr_component->name, error->message);
-      goto next;
+    // if it was required, fail
+    if (self->curr_component->state == FEATURE_STATE_REQUIRED) {
+      wp_transition_return_error (WP_TRANSITION (self), g_error_new (
+          WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+          "failed to load required component '%s': %s",
+          self->curr_component->printable_id, error->message));
+      return;
     }
-
-    wp_transition_return_error (WP_TRANSITION (self), g_error_new (
-        WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-        "failed to activate component '%s': %s", self->curr_component->name,
-        error->message));
-    return;
+    // if it was optional, check if strongly_required
+    else if (self->curr_component->state == FEATURE_STATE_OPTIONAL &&
+             self->curr_component->required_by) {
+      g_autofree gchar *dep_chain = print_dep_chain (self->curr_component);
+      wp_transition_return_error (WP_TRANSITION (self), g_error_new (
+          WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+          "failed to load component '%s' (required by %s): %s",
+          self->curr_component->printable_id, dep_chain, error->message));
+      return;
+    }
+    else {
+      wp_notice_object (core, "optional component '%s' failed to load: %s",
+          self->curr_component->printable_id, error->message);
+    }
   }
 
-next:
   wp_transition_advance (WP_TRANSITION (self));
 }
 
@@ -255,52 +400,62 @@ static void
 wp_component_array_load_task_execute_step (WpTransition * transition, guint step)
 {
   WpComponentArrayLoadTask *self = WP_COMPONENT_ARRAY_LOAD_TASK (transition);
-  WpCore *core = wp_transition_get_source_object (transition);
+  WpCore *core = wp_transition_get_data(transition);
 
   switch (step) {
-  case STEP_PARSE:
-    if (!wp_spa_json_is_array (self->json)) {
-      wp_transition_return_error (transition, g_error_new (
-          WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
-          "components section is not a JSON array"));
-      return;
+  case STEP_PARSE: {
+    g_autoptr (GError) error = NULL;
+    if (parse_components (self, &error)) {
+      self->components_iter =
+          (ComponentData **) &g_ptr_array_index (self->components, 0);
+      wp_transition_advance (transition);
+    } else {
+      wp_transition_return_error (transition, error);
     }
-
-    json_to_components_list (&self->components, self->json);
-    self->components_iter = g_list_first (self->components);
+    break;
+  }
+  case STEP_GET_NEXT:
+    /* get the next enabled component */
+    do {
+      self->curr_component = (ComponentData *) *self->components_iter;
+      self->components_iter++;
+    } while (self->curr_component &&
+             self->curr_component->state == FEATURE_STATE_DISABLED);
     wp_transition_advance (transition);
     break;
 
-  case STEP_LOAD_NEXT_1:
-  case STEP_LOAD_NEXT_2:
-    self->curr_component = (ComponentData *) self->components_iter->data;
+  case STEP_LOAD_NEXT: {
+    /* verify that dependencies have been loaded */
+    gboolean dependencies_ok = TRUE;
+    for (guint i = 0; i < self->curr_component->requires->len; i++) {
+      const gchar *dependency =
+          g_ptr_array_index (self->curr_component->requires, i);
+      if (!wp_core_test_feature (core, dependency)) {
+        dependencies_ok = FALSE;
+        break;
+      }
+    }
 
-    /* Advance iterator */
-    self->components_iter = g_list_next (self->components_iter);
-
-    /* Skip component if its dependencies are not met */
-    if (!component_meets_dependencies (core, self->curr_component)) {
-      wp_info_object (self, "... skipping component '%s' as its dependencies "
-          "are not met", self->curr_component->name);
+    if (!dependencies_ok) {
+      /* this component must be optional, because if it wasn't, the dependency
+         failing to load would have caused an error earlier */
+      g_assert (self->curr_component->state == FEATURE_STATE_OPTIONAL);
+      wp_notice_object (core, "skipping component '%s' because some of its "
+          "dependencies were not loaded", self->curr_component->printable_id);
       wp_transition_advance (transition);
       return;
     }
 
     /* Load the component */
-    wp_debug_object (self,
-        "... loading component '%s' ('%s') with priority '%d' and flags '%x'",
-        self->curr_component->name, self->curr_component->type,
-        self->curr_component->priority, self->curr_component->flags);
+    wp_debug_object (self, "loading component '%s'",
+        self->curr_component->printable_id);
     wp_core_load_component (core, self->curr_component->name,
-        self->curr_component->type, NULL, NULL, NULL,
+        self->curr_component->type, self->curr_component->arguments,
+        self->curr_component->provides, NULL,
         (GAsyncReadyCallback) on_component_loaded, self);
     break;
-
-  case STEP_CLEANUP:
+  }
   case WP_TRANSITION_STEP_ERROR:
-    g_list_free_full (g_steal_pointer (&self->components),
-        (GDestroyNotify) component_data_free);
-    g_clear_pointer (&self->json, wp_spa_json_unref);
     break;
 
   default:
@@ -309,9 +464,25 @@ wp_component_array_load_task_execute_step (WpTransition * transition, guint step
 }
 
 static void
+wp_component_array_load_task_finalize (GObject * object)
+{
+  WpComponentArrayLoadTask *self = WP_COMPONENT_ARRAY_LOAD_TASK (object);
+
+  g_clear_pointer (&self->feat_components, g_hash_table_unref);
+  g_clear_pointer (&self->components, g_ptr_array_unref);
+  g_clear_pointer (&self->json, wp_spa_json_unref);
+
+  G_OBJECT_CLASS (wp_component_array_load_task_parent_class)->finalize (object);
+}
+
+static void
 wp_component_array_load_task_class_init (WpComponentArrayLoadTaskClass * klass)
 {
+  GObjectClass * object_class = (GObjectClass *) klass;
   WpTransitionClass * transition_class = (WpTransitionClass *) klass;
+
+  object_class->finalize = wp_component_array_load_task_finalize;
+
   transition_class->get_next_step = wp_component_array_load_task_get_next_step;
   transition_class->execute_step = wp_component_array_load_task_execute_step;
 }
@@ -391,7 +562,9 @@ static gboolean
 wp_internal_comp_loader_supports_type (WpComponentLoader * cl,
     const gchar * type)
 {
-  return g_str_equal (type, "module") || g_str_equal (type, "array");
+  return g_str_equal (type, "module") ||
+         g_str_equal (type, "array") ||
+         g_str_equal (type, "virtual");
 }
 
 static void
@@ -414,10 +587,17 @@ wp_internal_comp_loader_load (WpComponentLoader * self, WpCore * core,
       g_task_return_error (task, g_steal_pointer (&error));
   }
   else if (g_str_equal (type, "array")) {
-    WpTransition *task = wp_component_array_load_task_new (args, core,
+    WpTransition *task = wp_component_array_load_task_new (args, self,
         cancellable, callback, data);
+    wp_transition_set_data (task, g_object_ref (core), g_object_unref);
     wp_transition_set_source_tag (task, wp_internal_comp_loader_load);
     wp_transition_advance (task);
+  }
+  else if (g_str_equal (type, "virtual")) {
+    /* dummy task, return immediately */
+    g_autoptr (GTask) task = g_task_new (self, cancellable, callback, data);
+    g_task_set_source_tag (task, wp_internal_comp_loader_load);
+    g_task_return_pointer (task, NULL, NULL);
   }
   else {
     g_assert_not_reached ();
