@@ -26,7 +26,6 @@ test_conf_teardown (TestConfFixture *self, gconstpointer user_data)
 {
   g_clear_object (&self->conf);
   wp_base_test_fixture_teardown (&self->base);
-  g_clear_pointer (&self->base.conf_file, g_free);
 }
 
 static void

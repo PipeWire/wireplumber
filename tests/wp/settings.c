@@ -34,7 +34,6 @@ test_conf_file_setup (TestSettingsFixture *self, gconstpointer user_data)
 static void
 test_conf_file_teardown (TestSettingsFixture *self, gconstpointer user_data)
 {
-  g_free (self->base.conf_file);
   wp_base_test_fixture_teardown (&self->base);
 }
 
