@@ -59,12 +59,13 @@ include:
 .ubuntu:
   variables:
     # Update this tag when you want to trigger a rebuild
-    FDO_DISTRIBUTION_TAG: '2023-03-24.1'
-    FDO_DISTRIBUTION_VERSION: '20.04'
+    FDO_DISTRIBUTION_TAG: '2023-06-16.1'
+    FDO_DISTRIBUTION_VERSION: '22.04'
     FDO_DISTRIBUTION_PACKAGES: >-
       debhelper-compat
       findutils
       git
+      meson
       ninja-build
       pkg-config
       python3-pip
@@ -75,8 +76,6 @@ include:
       libgirepository1.0-dev
       doxygen
       python3-lxml
-    FDO_DISTRIBUTION_EXEC: >-
-      pip3 install meson
 
 .alpine:
   variables:
