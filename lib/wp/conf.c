@@ -607,6 +607,7 @@ matches_properties (WpSpaJson *match, WpProperties *props)
         WpSpaJson *p;
         g_autofree gchar *key = NULL;
         g_autofree gchar *val = NULL;
+        const gchar *value = NULL;
         WpConstraintVerb verb = WP_CONSTRAINT_VERB_EQUALS;
 
         p = g_value_get_boxed (&item_match);
@@ -615,14 +616,16 @@ matches_properties (WpSpaJson *match, WpProperties *props)
         g_value_unset (&item_match);
         g_return_val_if_fail (wp_iterator_next (it_match, &item_match), FALSE);
         p = g_value_get_boxed (&item_match);
-        val = wp_spa_json_parse_string (p);
+        value = val = wp_spa_json_parse_string (p);
 
-        if (val[0] == '~')
+        if (value[0] == '~') {
           verb = WP_CONSTRAINT_VERB_MATCHES;
+          value++;
+        }
 
         wp_object_interest_add_constraint (interest,
             WP_CONSTRAINT_TYPE_PW_PROPERTY, key, verb,
-            g_variant_new_string (val + 1));
+            g_variant_new_string (value));
       }
 
       if (wp_object_interest_matches (interest, props))
