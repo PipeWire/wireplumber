@@ -85,7 +85,6 @@ bluez_monitor.rules = {
       -- profiles have connected. Disabled by default if the property
       -- is not specified.
       --["bluez5.auto-connect"] = "[ hfp_hf hsp_hs a2dp_sink hfp_ag hsp_ag a2dp_source ]",
-      ["bluez5.auto-connect"]  = "[ hfp_hf hsp_hs a2dp_sink ]",
 
       -- Hardware volume control (default: [ hfp_ag hsp_ag a2dp_source ])
       --["bluez5.hw-volume"] = "[ hfp_hf hsp_hs a2dp_sink hfp_ag hsp_ag a2dp_source ]",
