@@ -542,6 +542,18 @@ test_conf_apply_rules (TestConfFixture *f, gconstpointer data)
         match_props, NULL, NULL));
   }
 
+  /* Match equal */
+  {
+    g_autoptr (WpProperties) match_props = NULL;
+
+    match_props = wp_properties_new (
+        "node.name", "alsa_output.0.my-alsa-device",
+        NULL);
+
+    g_assert_true (wp_conf_apply_rules (f->conf, "wireplumber.section.rules",
+        match_props, NULL, NULL));
+  }
+
   /* Without applied_props */
   {
     g_autoptr (WpProperties) match_props = NULL;
