@@ -1074,7 +1074,7 @@ wp_spa_json_builder_add_float (WpSpaJsonBuilder *self, float value)
 void
 wp_spa_json_builder_add_string (WpSpaJsonBuilder *self, const gchar *value)
 {
-  size_t size = (strlen (value) * 4) + 2;
+  size_t size = (strlen (value) * 4) + 3;
   gchar dst[size];
   gint enc_size;
   ensure_separator (self, FALSE);
