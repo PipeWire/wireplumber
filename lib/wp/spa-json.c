@@ -127,6 +127,18 @@ wp_spa_json_builder_new (const gchar *data, size_t size)
 }
 
 static WpSpaJsonBuilder *
+wp_spa_json_builder_new_empty (size_t size)
+{
+  WpSpaJsonBuilder *self = g_rc_box_new0 (WpSpaJsonBuilder);
+  self->add_separator = FALSE;
+  self->data = g_new0 (gchar, size + 1);
+  self->max_size = size;
+  self->data[0] = '\0';
+  self->size = 0;
+  return self;
+}
+
+static WpSpaJsonBuilder *
 wp_spa_json_builder_new_formatted (const gchar *fmt, ...)
 {
   va_list args;
@@ -379,6 +391,17 @@ wp_spa_json_new_float (float value)
       wp_spa_json_builder_new_formatted ("%.6f", value));
 }
 
+static void
+ensure_allocated_max_size (WpSpaJsonBuilder *self, size_t size)
+{
+  size_t new_size = self->size + size + 1;  /* '\0' because of vsnprintf */
+  if (new_size > self->max_size) {
+    size_t next_size = new_size * 2;
+    self->data = g_realloc (self->data, next_size);
+    self->max_size = next_size;
+  }
+}
+
 /*!
  * \brief Creates a spa json of type string
  *
@@ -389,10 +412,17 @@ wp_spa_json_new_float (float value)
 WpSpaJson *
 wp_spa_json_new_string (const gchar *value)
 {
-  size_t size = (strlen (value) * 4) + 2;
-  gchar dst[size];
-  gint enc_size = spa_json_encode_string (dst, sizeof(dst), value);
-  return wp_spa_json_new_from_builder (wp_spa_json_builder_new (dst, enc_size));
+  WpSpaJsonBuilder *b = wp_spa_json_builder_new_empty (strlen (value));
+  size_t enc_size = spa_json_encode_string (b->data + b->size,
+      b->max_size - b->size, value);
+  if (enc_size + 1 > b->max_size - b->size) {
+    ensure_allocated_max_size (b, enc_size);
+    enc_size = spa_json_encode_string (b->data + b->size,
+        b->max_size - b->size, value);
+    g_assert (enc_size < b->max_size - b->size);
+  }
+  b->size += enc_size;
+  return wp_spa_json_new_from_builder (b);
 }
 
 /* Args is not a pointer in some architectures, so this needs to be a macro to
@@ -931,17 +961,6 @@ wp_spa_json_builder_new_object (void)
 }
 
 static void
-ensure_allocated_max_size (WpSpaJsonBuilder *self, size_t size)
-{
-  size_t new_size = self->size + size + 1;  /* '\0' because of vsnprintf */
-  if (new_size > self->max_size) {
-    size_t next_size = new_size * 2;
-    self->data = g_realloc (self->data, next_size);
-    self->max_size = next_size;
-  }
-}
-
-static void
 ensure_separator (WpSpaJsonBuilder *self, gboolean for_property)
 {
   gboolean insert = (self->data[0] == '{' && for_property) ||
@@ -970,14 +989,6 @@ builder_add_formatted (WpSpaJsonBuilder *self, const gchar *fmt, ...)
 }
 
 static void
-builder_add (WpSpaJsonBuilder *self, const gchar *data, size_t size)
-{
-  g_return_if_fail (self->max_size - self->size >= size + 1);
-  snprintf (self->data + self->size, size + 1, "%s", data);
-  self->size += size;
-}
-
-static void
 builder_add_json (WpSpaJsonBuilder *self, WpSpaJson *json)
 {
   g_return_if_fail (self->max_size - self->size >= json->size + 1);
@@ -995,14 +1006,18 @@ builder_add_json (WpSpaJsonBuilder *self, WpSpaJson *json)
 void
 wp_spa_json_builder_add_property (WpSpaJsonBuilder *self, const gchar *key)
 {
-  size_t size = (strlen (key) * 4) + 3;
-  gchar dst[size];
-  gint enc_size;
+  size_t enc_size;
   ensure_separator (self, TRUE);
-  ensure_allocated_max_size (self, size);
-  enc_size = spa_json_encode_string (dst, sizeof(dst), key);
-  builder_add (self, dst, enc_size);
-  builder_add (self, ":", 1);
+  enc_size = spa_json_encode_string (self->data + self->size,
+      self->max_size - self->size, key);
+  if (enc_size + 2 > self->max_size - self->size) {
+    ensure_allocated_max_size (self, enc_size + 1);
+    enc_size = spa_json_encode_string (self->data + self->size,
+        self->max_size - self->size, key);
+    g_assert (enc_size + 1 < self->max_size - self->size);
+  }
+  self->data[self->size + enc_size] = ':';
+  self->size += enc_size + 1;
 }
 
 /*!
@@ -1074,13 +1089,17 @@ wp_spa_json_builder_add_float (WpSpaJsonBuilder *self, float value)
 void
 wp_spa_json_builder_add_string (WpSpaJsonBuilder *self, const gchar *value)
 {
-  size_t size = (strlen (value) * 4) + 3;
-  gchar dst[size];
-  gint enc_size;
+  size_t enc_size;
   ensure_separator (self, FALSE);
-  ensure_allocated_max_size (self, size);
-  enc_size = spa_json_encode_string (dst, sizeof(dst), value);
-  builder_add (self, dst, enc_size);
+  enc_size = spa_json_encode_string (self->data + self->size,
+      self->max_size - self->size, value);
+  if (enc_size + 1 > self->max_size - self->size) {
+    ensure_allocated_max_size (self, enc_size);
+    enc_size = spa_json_encode_string (self->data + self->size,
+        self->max_size - self->size, value);
+    g_assert (enc_size < self->max_size - self->size);
+  }
+  self->size += enc_size;
 }
 
 /*!
