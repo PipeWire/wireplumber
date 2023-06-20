@@ -410,7 +410,7 @@ wp_component_array_load_task_execute_step (WpTransition * transition, guint step
           (ComponentData **) &g_ptr_array_index (self->components, 0);
       wp_transition_advance (transition);
     } else {
-      wp_transition_return_error (transition, error);
+      wp_transition_return_error (transition, g_steal_pointer (&error));
     }
     break;
   }
