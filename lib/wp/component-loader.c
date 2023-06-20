@@ -74,6 +74,23 @@ wp_component_loader_load_finish (WpComponentLoader * self, GAsyncResult * res,
 }
 
 static void
+wp_component_loader_load_task_return (GTask * task, gpointer object)
+{
+  WpCore *core = g_task_get_source_object (task);
+  WpRegistry *reg = wp_core_get_registry (core);
+  gchar *provides = g_task_get_task_data (task);
+
+  /* store object in the registry */
+  if (object)
+    wp_core_register_object (core, g_object_ref (object));
+
+  if (provides)
+    wp_registry_mark_feature_provided (reg, provides);
+
+  g_task_return_boolean (task, TRUE);
+}
+
+static void
 on_object_activated (WpObject * object, GAsyncResult * res, gpointer data)
 {
   g_autoptr (GTask) task = G_TASK (data);
@@ -84,7 +101,7 @@ on_object_activated (WpObject * object, GAsyncResult * res, gpointer data)
     return;
   }
 
-  g_task_return_boolean (task, TRUE);
+  wp_component_loader_load_task_return (task, object);
 }
 
 static void
@@ -93,35 +110,26 @@ on_component_loader_load_done (WpComponentLoader * cl, GAsyncResult * res,
 {
   g_autoptr (GTask) task = G_TASK (data);
   g_autoptr (GError) error = NULL;
-  g_autoptr (GObject) o = NULL;
-  WpCore *core = g_task_get_source_object (task);
-  WpRegistry *reg = wp_core_get_registry (core);
-  gchar *provides = g_task_get_task_data (task);
+  g_autoptr (GObject) object = NULL;
 
-  o = wp_component_loader_load_finish (cl, res, &error);
+  object = wp_component_loader_load_finish (cl, res, &error);
   if (error) {
     g_task_return_error (task, g_steal_pointer (&error));
     return;
   }
 
-  if (provides)
-    wp_registry_mark_feature_provided (reg, provides);
+  if (object) {
+    wp_trace_object (cl, "loaded object " WP_OBJECT_FORMAT, WP_OBJECT_ARGS (object));
 
-  if (o) {
-    wp_trace_object (cl, "loaded object " WP_OBJECT_FORMAT, WP_OBJECT_ARGS (o));
-
-    /* store object in the registry */
-    wp_core_register_object (core, g_object_ref (o));
-
-    if (WP_IS_OBJECT (o)) {
+    if (WP_IS_OBJECT (object)) {
       /* WpObject needs to be activated */
-      wp_object_activate (WP_OBJECT (o), WP_OBJECT_FEATURES_ALL, NULL,
+      wp_object_activate (WP_OBJECT (object), WP_OBJECT_FEATURES_ALL, NULL,
           (GAsyncReadyCallback) on_object_activated, g_steal_pointer (&task));
       return;
     }
   }
 
-  g_task_return_boolean (task, TRUE);
+  wp_component_loader_load_task_return (task, object);
 }
 
 /*!

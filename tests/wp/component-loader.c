@@ -26,7 +26,13 @@ static void
 wp_test_plugin_enable (WpPlugin * self, WpTransition * transition)
 {
   WP_TEST_PLUGIN (self)->enabled = TRUE;
-  wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
+
+  if (g_str_equal (wp_plugin_get_name (self), "fail")) {
+    wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_INVALID_ARGUMENT, "fail"));
+  } else {
+    wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
+  }
 }
 
 static void
@@ -156,6 +162,34 @@ test_load (TestFixture *f, gconstpointer data)
 }
 
 static void
+on_component_failed (WpCore * core, GAsyncResult * res, TestFixture *f)
+{
+  gboolean loaded;
+  GError *error = NULL;
+
+  loaded = wp_core_load_component_finish (core, res, &error);
+  g_assert_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT);
+  g_assert_false (loaded);
+
+  g_main_loop_quit (f->base.loop);
+}
+
+static void
+test_load_failure (TestFixture *f, gconstpointer data)
+{
+  wp_core_load_component (f->base.core, "fail", "test", NULL,
+      "feature.fail", NULL, (GAsyncReadyCallback) on_component_failed, f);
+  g_main_loop_run (f->base.loop);
+
+  g_assert_cmpuint (f->loader->history->len, ==, 1);
+  g_assert_cmpstr (f->loader->history->pdata[0], ==, "fail");
+
+  g_autoptr (WpPlugin) plugin = wp_plugin_find (f->base.core, "fail");
+  g_assert_null (plugin);
+  g_assert_false (wp_core_test_feature (f->base.core, "feature.fail"));
+}
+
+static void
 test_dependencies_setup (TestFixture *f, gconstpointer data)
 {
   f->base.conf_file =
@@ -204,6 +238,8 @@ main (gint argc, gchar *argv[])
 
   g_test_add ("/wp/comploader/load", TestFixture, NULL,
       test_setup, test_load, test_teardown);
+  g_test_add ("/wp/comploader/load_failure", TestFixture, NULL,
+      test_setup, test_load_failure, test_teardown);
   g_test_add ("/wp/comploader/dependencies", TestFixture, NULL,
       test_dependencies_setup, test_dependencies, test_teardown);
 
