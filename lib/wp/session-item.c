@@ -7,6 +7,7 @@
  */
 
 #include "session-item.h"
+#include "core.h"
 #include "log.h"
 #include "error.h"
 #include <spa/utils/defs.h>

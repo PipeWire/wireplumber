@@ -7,6 +7,7 @@
  */
 
 #include "plugin.h"
+#include "core.h"
 #include "log.h"
 
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp-plugin")

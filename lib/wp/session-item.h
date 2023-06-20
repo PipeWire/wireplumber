@@ -11,6 +11,7 @@
 
 #include "object.h"
 #include "proxy.h"
+#include "properties.h"
 
 G_BEGIN_DECLS
 
