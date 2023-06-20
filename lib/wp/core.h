@@ -9,8 +9,7 @@
 #ifndef __WIREPLUMBER_CORE_H__
 #define __WIREPLUMBER_CORE_H__
 
-#include <gio/gio.h>
-#include "defs.h"
+#include "object.h"
 #include "properties.h"
 #include "spa-json.h"
 
@@ -21,12 +20,21 @@ struct pw_core;
 typedef struct _WpObjectManager WpObjectManager;
 
 /*!
+ * \brief Flags to be used as WpObjectFeatures on WpCore
+ * \ingroup wpcore
+ */
+typedef enum { /*< flags >*/
+  /*! connects to pipewire */
+  WP_CORE_FEATURE_CONNECTED = (1 << 0),
+} WpCoreFeatures;
+
+/*!
  * \brief The WpCore GType
  * \ingroup wpcore
  */
 #define WP_TYPE_CORE (wp_core_get_type ())
 WP_API
-G_DECLARE_FINAL_TYPE (WpCore, wp_core, WP, CORE, GObject)
+G_DECLARE_FINAL_TYPE (WpCore, wp_core, WP, CORE, WpObject)
 
 /* Basic */
 

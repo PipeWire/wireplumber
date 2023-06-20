@@ -134,7 +134,7 @@ wp_loop_source_new (void)
  */
 struct _WpCore
 {
-  GObject parent;
+  WpObject parent;
 
   /* main loop integration */
   GMainContext *g_main_context;
@@ -171,7 +171,7 @@ enum {
 
 static guint32 signals[NUM_SIGNALS];
 
-G_DEFINE_TYPE (WpCore, wp_core, G_TYPE_OBJECT)
+G_DEFINE_TYPE (WpCore, wp_core, WP_TYPE_OBJECT)
 
 static void
 core_info (void *data, const struct pw_core_info * info)
@@ -184,8 +184,10 @@ core_info (void *data, const struct pw_core_info * info)
   wp_info_object (self, "connected to server: %s, cookie: %u",
       self->info->name, self->info->cookie);
 
-  if (new_connection)
+  if (new_connection) {
     g_signal_emit (self, signals[SIGNAL_CONNECTED], 0);
+    wp_object_update_features (WP_OBJECT (self), WP_CORE_FEATURE_CONNECTED, 0);
+  }
 }
 
 static void
@@ -251,6 +253,7 @@ proxy_core_destroy (void *data)
   self->pw_core = NULL;
   wp_debug_object (self, "emit disconnected");
   g_signal_emit (self, signals[SIGNAL_DISCONNECTED], 0);
+  wp_object_update_features (WP_OBJECT (self), 0, WP_CORE_FEATURE_CONNECTED);
 }
 
 static const struct pw_proxy_events proxy_core_events = {
@@ -392,16 +395,70 @@ wp_core_set_property (GObject * object, guint property_id,
   }
 }
 
+static WpObjectFeatures
+wp_core_get_supported_features (WpObject * self)
+{
+  return WP_CORE_FEATURE_CONNECTED;
+}
+
+enum {
+  STEP_CONNECT = WP_TRANSITION_STEP_CUSTOM_START,
+};
+
+static guint
+wp_core_activate_get_next_step (WpObject * self,
+    WpFeatureActivationTransition * transition, guint step,
+    WpObjectFeatures missing)
+{
+  /* we only support CONNECTED, so this is the only
+     feature that can be in @em missing */
+  g_return_val_if_fail (missing == WP_CORE_FEATURE_CONNECTED,
+      WP_TRANSITION_STEP_ERROR);
+
+  return STEP_CONNECT;
+}
+
+static void
+wp_core_activate_execute_step (WpObject * self,
+    WpFeatureActivationTransition * transition, guint step,
+    WpObjectFeatures missing)
+{
+  switch (step) {
+  case STEP_CONNECT: {
+    wp_core_connect (WP_CORE (self));
+    break;
+  }
+  case WP_TRANSITION_STEP_ERROR:
+    break;
+  default:
+    g_assert_not_reached ();
+  }
+}
+
+static void
+wp_core_deactivate (WpObject * self, WpObjectFeatures features)
+{
+  if (features & WP_CORE_FEATURE_CONNECTED) {
+    wp_core_disconnect (WP_CORE (self));
+  }
+}
+
 static void
 wp_core_class_init (WpCoreClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
+  WpObjectClass *wpobject_class = (WpObjectClass *) klass;
 
   object_class->constructed = wp_core_constructed;
   object_class->dispose = wp_core_dispose;
   object_class->finalize = wp_core_finalize;
   object_class->get_property = wp_core_get_property;
   object_class->set_property = wp_core_set_property;
+
+  wpobject_class->get_supported_features = wp_core_get_supported_features;
+  wpobject_class->activate_get_next_step = wp_core_activate_get_next_step;
+  wpobject_class->activate_execute_step = wp_core_activate_execute_step;
+  wpobject_class->deactivate = wp_core_deactivate;
 
   g_object_class_install_property (object_class, PROP_G_MAIN_CONTEXT,
       g_param_spec_boxed ("g-main-context", "g-main-context",

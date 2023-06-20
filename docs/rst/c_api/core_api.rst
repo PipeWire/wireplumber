@@ -7,7 +7,8 @@ Core
 
    digraph inheritance {
       rankdir=LR;
-      GObject -> WpCore;
+      GObject -> WpObject;
+      WpObject -> WpCore;
    }
 
 .. doxygenstruct:: WpCore
