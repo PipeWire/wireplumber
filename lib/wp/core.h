@@ -26,6 +26,8 @@ typedef struct _WpObjectManager WpObjectManager;
 typedef enum { /*< flags >*/
   /*! connects to pipewire */
   WP_CORE_FEATURE_CONNECTED = (1 << 0),
+  /*! loads components defined in the configuration */
+  WP_CORE_FEATURE_COMPONENTS = (1 << 1),
 } WpCoreFeatures;
 
 /*!
@@ -43,6 +45,9 @@ WpCore * wp_core_new (GMainContext *context, WpProperties * properties);
 
 WP_API
 WpCore * wp_core_clone (WpCore * self);
+
+WP_API
+WpCore * wp_core_get_export_core (WpCore * self);
 
 WP_API
 GMainContext * wp_core_get_g_main_context (WpCore * self);

@@ -102,7 +102,6 @@ wp_lua_scripting_plugin_enable (WpPlugin * plugin, WpTransition * transition)
 {
   WpLuaScriptingPlugin * self = WP_LUA_SCRIPTING_PLUGIN (plugin);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
-  WpCore *export_core;
 
   /* init lua engine */
   self->L = wplua_new ();
@@ -110,14 +109,6 @@ wp_lua_scripting_plugin_enable (WpPlugin * plugin, WpTransition * transition)
   lua_pushliteral (self->L, "wireplumber_core");
   lua_pushlightuserdata (self->L, core);
   lua_settable (self->L, LUA_REGISTRYINDEX);
-
-  /* initialize secondary connection to pipewire */
-  export_core = g_object_get_data (G_OBJECT (core), "wireplumber.export-core");
-  if (export_core) {
-    lua_pushliteral (self->L, "wireplumber_export_core");
-    wplua_pushobject (self->L, g_object_ref (export_core));
-    lua_settable (self->L, LUA_REGISTRYINDEX);
-  }
 
   wp_lua_scripting_api_init (self->L);
   wp_lua_scripting_enable_package_searcher (self->L);

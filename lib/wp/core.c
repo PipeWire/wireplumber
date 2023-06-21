@@ -322,6 +322,7 @@ wp_core_dispose (GObject * obj)
   WpCore *self = WP_CORE (obj);
 
   wp_registry_clear (&self->registry);
+  wp_object_update_features (WP_OBJECT (self), 0, WP_CORE_FEATURE_COMPONENTS);
 
   G_OBJECT_CLASS (wp_core_parent_class)->dispose (obj);
 }
@@ -398,11 +399,13 @@ wp_core_set_property (GObject * object, guint property_id,
 static WpObjectFeatures
 wp_core_get_supported_features (WpObject * self)
 {
-  return WP_CORE_FEATURE_CONNECTED;
+  return WP_CORE_FEATURE_CONNECTED |
+      WP_CORE_FEATURE_COMPONENTS;
 }
 
 enum {
   STEP_CONNECT = WP_TRANSITION_STEP_CUSTOM_START,
+  STEP_LOAD_COMPONENTS,
 };
 
 static guint
@@ -410,37 +413,96 @@ wp_core_activate_get_next_step (WpObject * self,
     WpFeatureActivationTransition * transition, guint step,
     WpObjectFeatures missing)
 {
-  /* we only support CONNECTED, so this is the only
-     feature that can be in @em missing */
-  g_return_val_if_fail (missing == WP_CORE_FEATURE_CONNECTED,
-      WP_TRANSITION_STEP_ERROR);
+  switch (step) {
+    case WP_TRANSITION_STEP_NONE:
+      if (missing & WP_CORE_FEATURE_CONNECTED)
+        return STEP_CONNECT;
+      G_GNUC_FALLTHROUGH;
 
-  return STEP_CONNECT;
+    case STEP_CONNECT:
+      if (missing & WP_CORE_FEATURE_COMPONENTS)
+        return STEP_LOAD_COMPONENTS;
+      G_GNUC_FALLTHROUGH;
+
+    case STEP_LOAD_COMPONENTS:
+      return WP_TRANSITION_STEP_NONE;
+
+    default:
+      return WP_TRANSITION_STEP_ERROR;
+  }
 }
 
 static void
-wp_core_activate_execute_step (WpObject * self,
+on_components_loaded (WpCore * self, GAsyncResult *res,
+    WpTransition * transition)
+{
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_core_load_component_finish (self, res, &error)) {
+    wp_transition_return_error (transition, g_error_new (
+        WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
+        "failed to load components: %s", error->message));
+    return;
+  }
+
+  wp_object_update_features (WP_OBJECT (self), WP_CORE_FEATURE_COMPONENTS, 0);
+}
+
+static void
+wp_core_activate_execute_step (WpObject * object,
     WpFeatureActivationTransition * transition, guint step,
     WpObjectFeatures missing)
 {
+  WpCore *self = WP_CORE (object);
+
   switch (step) {
-  case STEP_CONNECT: {
-    wp_core_connect (WP_CORE (self));
-    break;
-  }
-  case WP_TRANSITION_STEP_ERROR:
-    break;
-  default:
-    g_assert_not_reached ();
+    case STEP_CONNECT: {
+      wp_info_object (self, "connecting to pipewire...");
+
+      if (!wp_core_connect (self)) {
+        wp_transition_return_error (WP_TRANSITION (transition), g_error_new (
+            WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_SERVICE_UNAVAILABLE,
+            "Failed to connect to PipeWire"));
+      }
+      break;
+    }
+
+    case STEP_LOAD_COMPONENTS: {
+      g_autoptr (WpProperties) props = wp_core_get_properties (self);
+
+      if (spa_atob (wp_properties_get (props, "wireplumber.export-core"))) {
+        /* do not load any components on the export core */
+        wp_object_update_features (WP_OBJECT (self), WP_CORE_FEATURE_COMPONENTS, 0);
+        return;
+      }
+      else {
+        g_autoptr (WpConf) conf = wp_conf_get_instance (self);
+        g_autoptr (WpSpaJson) json_comps = NULL;
+
+        wp_info_object (self, "parsing & loading components...");
+
+        /* Load components that are defined in the configuration section */
+        json_comps = wp_conf_get_section (conf, "wireplumber.components", NULL);
+        wp_core_load_component (self, NULL, "array", json_comps, NULL, NULL,
+            (GAsyncReadyCallback) on_components_loaded, transition);
+      }
+      break;
+    }
+
+    case WP_TRANSITION_STEP_ERROR:
+      break;
+    default:
+      g_assert_not_reached ();
   }
 }
 
 static void
 wp_core_deactivate (WpObject * self, WpObjectFeatures features)
 {
-  if (features & WP_CORE_FEATURE_CONNECTED) {
+  if (features & WP_CORE_FEATURE_CONNECTED)
     wp_core_disconnect (WP_CORE (self));
-  }
+
+  /* WP_CORE_FEATURE_COMPONENTS cannot be manually deactivated */
 }
 
 static void
@@ -518,10 +580,41 @@ WpCore *
 wp_core_clone (WpCore * self)
 {
   return g_object_new (WP_TYPE_CORE,
+      "core", self,
       "g-main-context", self->g_main_context,
       "properties", self->properties,
       "pw-context", self->pw_context,
       NULL);
+}
+
+static gboolean
+find_export_core (gconstpointer a, gconstpointer b)
+{
+  gpointer obj = (gpointer) a;
+  if (WP_IS_CORE ((gpointer) obj)) {
+    g_autoptr (WpProperties) props = wp_core_get_properties (WP_CORE (obj));
+    if (spa_atob (wp_properties_get (props, "wireplumber.export-core")))
+      return TRUE;
+  }
+  return FALSE;
+}
+
+/*!
+ * \brief Returns the special WpCore that is used to maintain a secondary
+ * connection to PipeWire, for exporting objects
+ *
+ * The export core is enabled by loading the built-in "export-core" component.
+ *
+ * \ingroup wpcore
+ * \param self the core
+ * \returns (transfer full): the export WpCore
+ */
+WpCore *
+wp_core_get_export_core (WpCore * self)
+{
+  g_return_val_if_fail (WP_IS_CORE (self), NULL);
+
+  return wp_core_find_object (self, find_export_core, NULL);
 }
 
 /*!

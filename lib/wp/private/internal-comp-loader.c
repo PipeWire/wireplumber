@@ -499,6 +499,80 @@ wp_component_array_load_task_new (WpSpaJson *json,
   return t;
 }
 
+/*** built-in components ***/
+
+static void
+ensure_no_media_session_om_installed (WpObjectManager * om, GTask * task)
+{
+  if (wp_object_manager_get_n_objects (om) > 0) {
+    g_task_return_new_error (task,
+        WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "pipewire-media-session appears to be running; "
+        "please stop it before starting wireplumber");
+    return;
+  }
+  g_task_return_pointer (task, NULL, NULL);
+}
+
+static gboolean
+ensure_no_media_session_task_idle (GTask * task)
+{
+  /* removing this idle source will cause the task to be destroyed */
+  return g_task_get_completed (task) ? G_SOURCE_REMOVE : G_SOURCE_CONTINUE;
+}
+
+static void
+ensure_no_media_session (GTask * task, WpCore * core)
+{
+  WpObjectManager *om = wp_object_manager_new ();
+
+  wp_info_object (core, "checking if pipewire-media-session is running...");
+
+  /* make the object manager owned by the task and the task owned by the core;
+     use an idle callback to test when it is ok to unref the task */
+  g_task_set_task_data (task, om, g_object_unref);
+  wp_core_idle_add (core, NULL, (GSourceFunc) ensure_no_media_session_task_idle,
+      g_object_ref (task), g_object_unref);
+
+  wp_object_manager_add_interest (om, WP_TYPE_CLIENT,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
+      "application.name", "=s", "pipewire-media-session", NULL);
+  g_signal_connect_object (om, "installed",
+      G_CALLBACK (ensure_no_media_session_om_installed), task, 0);
+  wp_core_install_object_manager (core, om);
+}
+
+static void
+load_export_core (GTask * task, WpCore * core)
+{
+  g_autofree gchar *export_core_name = NULL;
+  g_autoptr (WpCore) export_core = NULL;
+  g_autoptr (WpProperties) props = wp_core_get_properties (core);
+  const gchar *str = NULL;
+
+  wp_info_object (core, "connecting export core to pipewire...");
+
+  str = wp_properties_get (props, PW_KEY_APP_NAME);
+  export_core_name =
+      g_strdup_printf ("%s [export]", str ? str : "WirePlumber");
+
+  export_core = wp_core_clone (core);
+  wp_core_update_properties (export_core, wp_properties_new (
+        PW_KEY_APP_NAME, export_core_name,
+        "wireplumber.export-core", "true",
+        NULL));
+
+  g_task_return_pointer (task, g_steal_pointer (&export_core), g_object_unref);
+}
+
+static const struct {
+  const gchar * name;
+  void (*load) (GTask *, WpCore *);
+} builtin_components[] = {
+  { "ensure-no-media-session", ensure_no_media_session },
+  { "export-core", load_export_core },
+};
+
 /*** WpInternalCompLoader ***/
 
 struct _WpInternalCompLoader
@@ -564,7 +638,8 @@ wp_internal_comp_loader_supports_type (WpComponentLoader * cl,
 {
   return g_str_equal (type, "module") ||
          g_str_equal (type, "array") ||
-         g_str_equal (type, "virtual");
+         g_str_equal (type, "virtual") ||
+         g_str_equal (type, "built-in");
 }
 
 static void
@@ -572,35 +647,44 @@ wp_internal_comp_loader_load (WpComponentLoader * self, WpCore * core,
     const gchar * component, const gchar * type, WpSpaJson * args,
     GCancellable * cancellable, GAsyncReadyCallback callback, gpointer data)
 {
-  if (g_str_equal (type, "module")) {
-    g_autoptr (GTask) task = g_task_new (self, cancellable, callback, data);
-    g_autoptr (GError) error = NULL;
-    g_autoptr (GObject) o = NULL;
-
-    g_task_set_source_tag (task, wp_internal_comp_loader_load);
-
-    /* load module */
-    o = load_module (core, component, args, &error);
-    if (o)
-      g_task_return_pointer (task, g_steal_pointer (&o), g_object_unref);
-    else
-      g_task_return_error (task, g_steal_pointer (&error));
-  }
-  else if (g_str_equal (type, "array")) {
+  if (g_str_equal (type, "array")) {
     WpTransition *task = wp_component_array_load_task_new (args, self,
         cancellable, callback, data);
     wp_transition_set_data (task, g_object_ref (core), g_object_unref);
     wp_transition_set_source_tag (task, wp_internal_comp_loader_load);
     wp_transition_advance (task);
   }
-  else if (g_str_equal (type, "virtual")) {
-    /* dummy task, return immediately */
+  else {
     g_autoptr (GTask) task = g_task_new (self, cancellable, callback, data);
     g_task_set_source_tag (task, wp_internal_comp_loader_load);
-    g_task_return_pointer (task, NULL, NULL);
-  }
-  else {
-    g_assert_not_reached ();
+
+    if (g_str_equal (type, "module")) {
+      g_autoptr (GError) error = NULL;
+      g_autoptr (GObject) o = NULL;
+
+      o = load_module (core, component, args, &error);
+      if (o)
+        g_task_return_pointer (task, g_steal_pointer (&o), g_object_unref);
+      else
+        g_task_return_error (task, g_steal_pointer (&error));
+    }
+    else if (g_str_equal (type, "virtual")) {
+      g_task_return_pointer (task, NULL, NULL);
+    }
+    else if (g_str_equal (type, "built-in")) {
+      for (guint i = 0; i < G_N_ELEMENTS (builtin_components); i++) {
+        if (g_str_equal (component, builtin_components[i].name)) {
+          builtin_components[i].load (task, core);
+          return;
+        }
+      }
+      g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
+          WP_LIBRARY_ERROR_INVALID_ARGUMENT,
+          "invalid 'built-in' component: %s", component);
+    }
+    else {
+      g_assert_not_reached ();
+    }
   }
 }
 

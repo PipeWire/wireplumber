@@ -36,6 +36,8 @@ typedef enum {
   WP_LIBRARY_ERROR_INVALID_ARGUMENT,
   /*! an operation failed */
   WP_LIBRARY_ERROR_OPERATION_FAILED,
+  /*! a required external service was unavailable */
+  WP_LIBRARY_ERROR_SERVICE_UNAVAILABLE,
 } WpLibraryErrorEnum;
 
 G_END_DECLS

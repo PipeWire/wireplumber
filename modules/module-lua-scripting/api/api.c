@@ -37,13 +37,9 @@ get_wp_core (lua_State *L)
 static WpCore *
 get_wp_export_core (lua_State *L)
 {
-  WpCore *core = NULL;
-  lua_pushliteral (L, "wireplumber_export_core");
-  lua_gettable (L, LUA_REGISTRYINDEX);
-  if (wplua_isobject (L, -1, WP_TYPE_CORE))
-    core = wplua_toobject (L, -1);
-  lua_pop (L, 1);
-  return core ? core : get_wp_core(L);
+  WpCore *core = get_wp_core (L);
+  g_autoptr (WpCore) export_core = wp_core_get_export_core (core);
+  return export_core ? export_core : core;
 }
 
 /* GLib */

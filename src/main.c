@@ -13,9 +13,6 @@
 
 WP_DEFINE_LOCAL_LOG_TOPIC ("wireplumber")
 
-#define WP_DOMAIN_DAEMON (wp_domain_daemon_quark ())
-static G_DEFINE_QUARK (wireplumber-daemon, wp_domain_daemon);
-
 enum WpExitCode
 {
   /* based on sysexits.h */
@@ -37,184 +34,6 @@ static GOptionEntry entries[] =
     "The context configuration file", NULL },
   { NULL }
 };
-
-/*** WpInitTransition ***/
-
-struct _WpInitTransition
-{
-  WpTransition parent;
-  WpObjectManager *om;
-};
-
-enum {
-  STEP_CONNECT = WP_TRANSITION_STEP_CUSTOM_START,
-  STEP_CHECK_MEDIA_SESSION,
-  STEP_LOAD_COMPONENTS,
-  STEP_CLEANUP,
-};
-
-G_DECLARE_FINAL_TYPE (WpInitTransition, wp_init_transition,
-                      WP, INIT_TRANSITION, WpTransition)
-G_DEFINE_TYPE (WpInitTransition, wp_init_transition, WP_TYPE_TRANSITION)
-
-static void
-wp_init_transition_init (WpInitTransition * self)
-{
-}
-
-static guint
-wp_init_transition_get_next_step (WpTransition * transition, guint step)
-{
-  switch (step) {
-  case WP_TRANSITION_STEP_NONE:     return STEP_CONNECT;
-  case STEP_CONNECT: {
-    WpCore *core = wp_transition_get_source_object (transition);
-    WpCore *export_core =
-        g_object_get_data (G_OBJECT (core), "wireplumber.export-core");
-
-    if (wp_core_is_connected (core) &&
-        (!export_core || wp_core_is_connected (export_core))) {
-      return STEP_CHECK_MEDIA_SESSION;
-    } else {
-      return STEP_CONNECT;
-    }
-  }
-  case STEP_CHECK_MEDIA_SESSION:    return STEP_LOAD_COMPONENTS;
-  case STEP_LOAD_COMPONENTS:        return STEP_CLEANUP;
-  case STEP_CLEANUP:                return WP_TRANSITION_STEP_NONE;
-
-  default:
-    g_return_val_if_reached (WP_TRANSITION_STEP_ERROR);
-  }
-}
-
-static void
-check_media_session (WpObjectManager * om, WpInitTransition *self)
-{
-  if (wp_object_manager_get_n_objects (om) > 0) {
-    wp_transition_return_error (WP_TRANSITION (self), g_error_new (
-        WP_DOMAIN_DAEMON, WP_EXIT_SOFTWARE,
-        "pipewire-media-session appears to be running; "
-        "please stop it before starting wireplumber"));
-    return;
-  }
-  wp_transition_advance (WP_TRANSITION (self));
-}
-
-static void
-on_components_loaded (WpCore *core, GAsyncResult *res, gpointer data)
-{
-  WpTransition *self = data;
-  g_autoptr (GError) error = NULL;
-
-  if (!wp_core_load_component_finish (core, res, &error)) {
-    wp_transition_return_error (self, g_error_new (
-        WP_DOMAIN_DAEMON, WP_EXIT_CONFIG,
-        "failed to load components: %s", error->message));
-    return;
-  }
-
-  wp_transition_advance (self);
-}
-
-static void
-wp_init_transition_execute_step (WpTransition * transition, guint step)
-{
-  WpInitTransition *self = WP_INIT_TRANSITION (transition);
-  WpCore *core = wp_transition_get_source_object (transition);
-  struct pw_context *pw_ctx = wp_core_get_pw_context (core);
-  const struct pw_properties *props = pw_context_get_properties (pw_ctx);
-
-  switch (step) {
-
-  case STEP_CONNECT: {
-    wp_info_object (self, "core connect...");
-
-    g_signal_connect_object (core, "connected",
-        G_CALLBACK (wp_transition_advance), transition, G_CONNECT_SWAPPED);
-
-    if (!wp_core_connect (core)) {
-      wp_transition_return_error (transition, g_error_new (WP_DOMAIN_DAEMON,
-          WP_EXIT_UNAVAILABLE, "Failed to connect to PipeWire"));
-      return;
-    }
-
-    /* initialize secondary connection to pipewire */
-    const char *str = pw_properties_get (props, "wireplumber.export-core");
-    if (str && pw_properties_parse_bool (str)) {
-      g_autofree gchar *export_core_name = NULL;
-      g_autoptr (WpCore) export_core = NULL;
-
-      str = pw_properties_get (props, PW_KEY_APP_NAME);
-      export_core_name = g_strdup_printf ("%s [export]", str);
-
-      export_core = wp_core_clone (core);
-      wp_core_update_properties (export_core, wp_properties_new (
-            PW_KEY_APP_NAME, export_core_name,
-            NULL));
-
-      g_signal_connect_object (export_core, "connected",
-          G_CALLBACK (wp_transition_advance), transition, G_CONNECT_SWAPPED);
-
-      if (!wp_core_connect (export_core)) {
-        wp_transition_return_error (transition, g_error_new (
-            WP_DOMAIN_DAEMON, WP_EXIT_UNAVAILABLE,
-            "Failed to connect export core to PipeWire"));
-        return;
-      }
-
-      g_object_set_data_full (G_OBJECT (core), "wireplumber.export-core",
-          g_steal_pointer (&export_core), g_object_unref);
-    }
-    break;
-  }
-
-  case STEP_CHECK_MEDIA_SESSION: {
-    wp_info_object (self, "checking for session manager conflicts...");
-
-    self->om = wp_object_manager_new ();
-    wp_object_manager_add_interest (self->om, WP_TYPE_CLIENT,
-        WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
-        "application.name", "=s", "pipewire-media-session", NULL);
-    g_signal_connect_object (self->om, "installed",
-        G_CALLBACK (check_media_session), self, 0);
-    wp_core_install_object_manager (core, self->om);
-    break;
-  }
-
-  case STEP_LOAD_COMPONENTS: {
-    g_autoptr (WpConf) conf = wp_conf_get_instance (core);
-    g_autoptr (WpSpaJson) json_comps = NULL;
-
-    wp_info_object (self, "parsing & loading components...");
-
-    /* Load components that are defined in the configuration section */
-    json_comps = wp_conf_get_section (conf, "wireplumber.components", NULL);
-    wp_core_load_component (core, NULL, "array", json_comps, NULL, NULL,
-        (GAsyncReadyCallback) on_components_loaded, self);
-    break;
-  }
-  case STEP_CLEANUP:
-    wp_info_object (self, "WirePlumber initialized");
-    G_GNUC_FALLTHROUGH;
-
-  case WP_TRANSITION_STEP_ERROR:
-    g_clear_object (&self->om);
-    break;
-
-  default:
-    g_assert_not_reached ();
-  }
-}
-
-static void
-wp_init_transition_class_init (WpInitTransitionClass * klass)
-{
-  WpTransitionClass * transition_class = (WpTransitionClass *) klass;
-
-  transition_class->get_next_step = wp_init_transition_get_next_step;
-  transition_class->execute_step = wp_init_transition_execute_step;
-}
 
 /*** WpDaemon ***/
 
@@ -277,22 +96,26 @@ signal_handler_term (gpointer data)
   return signal_handler (SIGTERM, data);
 }
 
-
-static gboolean
-init_start (WpTransition * transition)
-{
-  wp_transition_advance (transition);
-  return G_SOURCE_REMOVE;
-}
-
 static void
-init_done (WpCore * core, GAsyncResult * res, WpDaemon * d)
+on_core_activated (WpObject * core, GAsyncResult * res, WpDaemon * d)
 {
   g_autoptr (GError) error = NULL;
-  if (!wp_transition_finish (res, &error)) {
+
+  if (!wp_object_activate_finish (core, res, &error)) {
     fprintf (stderr, "%s\n", error->message);
-    daemon_exit (d, (error->domain == WP_DOMAIN_DAEMON) ?
-        error->code : WP_EXIT_SOFTWARE);
+
+    switch (error->code) {
+      case WP_LIBRARY_ERROR_SERVICE_UNAVAILABLE:
+        daemon_exit (d, WP_EXIT_UNAVAILABLE);
+        break;
+
+      case WP_LIBRARY_ERROR_INVALID_ARGUMENT:
+        daemon_exit (d, WP_EXIT_CONFIG);
+        break;
+
+      default:
+        daemon_exit (d, WP_EXIT_SOFTWARE);
+    }
   }
 }
 
@@ -338,7 +161,6 @@ main (gint argc, gchar **argv)
       PW_KEY_CONFIG_NAME, config_file,
       PW_KEY_APP_NAME, "WirePlumber",
       "wireplumber.daemon", "true",
-      "wireplumber.export-core", "true",
       NULL);
 
   /* init wireplumber daemon */
@@ -351,10 +173,8 @@ main (gint argc, gchar **argv)
   g_unix_signal_add (SIGTERM, signal_handler_term, &d);
   g_unix_signal_add (SIGHUP, signal_handler_hup, &d);
 
-  /* initialization transition */
-  g_idle_add ((GSourceFunc) init_start,
-      wp_transition_new (wp_init_transition_get_type (), d.core,
-          NULL, (GAsyncReadyCallback) init_done, &d));
+  wp_object_activate (WP_OBJECT (d.core), WP_OBJECT_FEATURES_ALL, NULL,
+      (GAsyncReadyCallback) on_core_activated, &d);
 
   /* run */
   g_main_loop_run (d.loop);
