@@ -35,6 +35,10 @@ struct _WpCtl
 static struct {
   union {
     struct {
+      gboolean display_nicknames;
+      gboolean display_names;
+    } status;
+    struct {
       guint64 id;
       gboolean show_referenced;
       gboolean show_associated;
@@ -233,9 +237,15 @@ print_device (const GValue *item, gpointer data)
   WpPipewireObject *obj = g_value_get_object (item);
   guint32 id = wp_proxy_get_bound_id (WP_PROXY (obj));
   const gchar *api = wp_pipewire_object_get_property (obj, PW_KEY_DEVICE_API);
-  const gchar *name = wp_pipewire_object_get_property (obj, PW_KEY_DEVICE_DESCRIPTION);
-  if (!name)
+  const gchar *name = NULL;
+
+  if (cmdline.status.display_nicknames)
+    name = wp_pipewire_object_get_property (obj, PW_KEY_DEVICE_NICK);
+  else if (cmdline.status.display_names)
     name = wp_pipewire_object_get_property (obj, PW_KEY_DEVICE_NAME);
+
+  if (!name)
+    name = wp_pipewire_object_get_property (obj, PW_KEY_DEVICE_DESCRIPTION);
 
   printf (TREE_INDENT_LINE "  %4u. %-35s [%s]\n", id, name, api);
 }
@@ -247,12 +257,15 @@ print_dev_node (const GValue *item, gpointer data)
   struct print_context *context = data;
   guint32 id = wp_proxy_get_bound_id (WP_PROXY (obj));
   gboolean is_default = (context->default_node == id);
-  const gchar *name =
-      wp_pipewire_object_get_property (obj, PW_KEY_NODE_DESCRIPTION);
-  if (!name)
-    name = wp_pipewire_object_get_property (obj, PW_KEY_APP_NAME);
-  if (!name)
+  const gchar *name = NULL;
+
+  if (cmdline.status.display_nicknames)
+    name = wp_pipewire_object_get_property (obj, PW_KEY_NODE_NICK);
+  else if (cmdline.status.display_names)
     name = wp_pipewire_object_get_property (obj, PW_KEY_NODE_NAME);
+
+  if (!name)
+    name = wp_pipewire_object_get_property (obj, PW_KEY_NODE_DESCRIPTION);
 
   printf (TREE_INDENT_LINE "%c %4u. %-35s", is_default ? '*' : ' ', id, name);
   print_controls (id, context);
@@ -1202,7 +1215,15 @@ static const struct subcommand {
     .positional_args = "",
     .summary = "Displays the current state of objects in PipeWire",
     .description = NULL,
-    .entries = { { NULL } },
+    .entries = {
+      { "nick", 'k', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE,
+        &cmdline.status.display_nicknames,
+        "Display device and node nicknames instead of descriptions", NULL },
+      { "name", 'n', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE,
+        &cmdline.status.display_names,
+        "Display device and node names instead of descriptions", NULL },
+      { NULL }
+    },
     .parse_positional = NULL,
     .prepare = status_prepare,
     .run = status_run,

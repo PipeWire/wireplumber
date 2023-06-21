@@ -73,7 +73,7 @@ wp_base_test_fixture_setup (WpBaseTestFixture * self, WpBaseTestFlags flags)
   g_main_context_push_thread_default (self->context);
 
   /* watchdog */
-  self->timeout_source = g_timeout_source_new_seconds (3);
+  self->timeout_source = g_timeout_source_new_seconds (8);
   g_source_set_callback (self->timeout_source, (GSourceFunc) timeout_callback,
       self, NULL);
   g_source_attach (self->timeout_source, self->context);

@@ -78,6 +78,13 @@ test_spa_json_basic (void)
     g_assert_nonnull (v3);
     g_assert_cmpstr (v3, ==,
         "looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong");
+
+    g_autoptr (WpSpaJson) jsons = wp_spa_json_new_string ("\v\v\v\v");
+    g_assert_nonnull (jsons);
+    g_assert_true (wp_spa_json_is_string (jsons));
+    g_autofree gchar *v4 = wp_spa_json_parse_string (jsons);
+    g_assert_nonnull (v4);
+    g_assert_cmpstr (v4, ==, "\v\v\v\v");
   }
 
   /* Array */
@@ -280,6 +287,10 @@ test_spa_json_object_builder_parser_iterator (void)
     wp_spa_json_builder_add_float (b, 0.12f);
     wp_spa_json_builder_add_property (b, "key-string");
     wp_spa_json_builder_add_string (b, "str");
+    wp_spa_json_builder_add_property (b, "key-empty-string");
+    wp_spa_json_builder_add_string (b, "");
+    wp_spa_json_builder_add_property (b, "key-special-char-string");
+    wp_spa_json_builder_add_string (b, "\v\v\v\v");
     json = wp_spa_json_builder_end (b);
   }
 
@@ -321,6 +332,20 @@ test_spa_json_object_builder_parser_iterator (void)
     g_autofree gchar *v_string = wp_spa_json_parser_get_string (p);
     g_assert_nonnull (v_string);
     g_assert_cmpstr (v_string, ==, "str");
+
+    g_autofree gchar *key_empty_string = wp_spa_json_parser_get_string (p);
+    g_assert_nonnull (key_empty_string);
+    g_assert_cmpstr (key_empty_string, ==, "key-empty-string");
+    g_autofree gchar *v_empty_string = wp_spa_json_parser_get_string (p);
+    g_assert_nonnull (v_empty_string);
+    g_assert_cmpstr (v_empty_string, ==, "");
+
+    g_autofree gchar *key_special_char_string = wp_spa_json_parser_get_string (p);
+    g_assert_nonnull (key_special_char_string);
+    g_assert_cmpstr (key_special_char_string, ==, "key-special-char-string");
+    g_autofree gchar *v_special_char_string = wp_spa_json_parser_get_string (p);
+    g_assert_nonnull (v_special_char_string);
+    g_assert_cmpstr (v_special_char_string, ==, "\v\v\v\v");
 
     wp_spa_json_parser_end (p);
     g_assert_false (wp_spa_json_parser_get_null (p));
@@ -443,6 +468,54 @@ test_spa_json_object_builder_parser_iterator (void)
     g_autofree gchar *v = wp_spa_json_parse_string (j);
     g_assert_nonnull (v);
     g_assert_cmpstr (v, ==, "str");
+    g_value_unset (&next);
+  }
+
+  {
+    GValue next = G_VALUE_INIT;
+    g_assert_true (wp_iterator_next (it, &next));
+    WpSpaJson *j = g_value_get_boxed (&next);
+    g_assert_nonnull (j);
+    g_assert_true (wp_spa_json_is_string (j));
+    g_autofree gchar *v = wp_spa_json_parse_string (j);
+    g_assert_nonnull (v);
+    g_assert_cmpstr (v, ==, "key-empty-string");
+    g_value_unset (&next);
+  }
+
+  {
+    GValue next = G_VALUE_INIT;
+    g_assert_true (wp_iterator_next (it, &next));
+    WpSpaJson *j = g_value_get_boxed (&next);
+    g_assert_nonnull (j);
+    g_assert_true (wp_spa_json_is_string (j));
+    g_autofree gchar *v = wp_spa_json_parse_string (j);
+    g_assert_nonnull (v);
+    g_assert_cmpstr (v, ==, "");
+    g_value_unset (&next);
+  }
+
+  {
+    GValue next = G_VALUE_INIT;
+    g_assert_true (wp_iterator_next (it, &next));
+    WpSpaJson *j = g_value_get_boxed (&next);
+    g_assert_nonnull (j);
+    g_assert_true (wp_spa_json_is_string (j));
+    g_autofree gchar *v = wp_spa_json_parse_string (j);
+    g_assert_nonnull (v);
+    g_assert_cmpstr (v, ==, "key-special-char-string");
+    g_value_unset (&next);
+  }
+
+  {
+    GValue next = G_VALUE_INIT;
+    g_assert_true (wp_iterator_next (it, &next));
+    WpSpaJson *j = g_value_get_boxed (&next);
+    g_assert_nonnull (j);
+    g_assert_true (wp_spa_json_is_string (j));
+    g_autofree gchar *v = wp_spa_json_parse_string (j);
+    g_assert_nonnull (v);
+    g_assert_cmpstr (v, ==, "\v\v\v\v");
     g_value_unset (&next);
   }
 

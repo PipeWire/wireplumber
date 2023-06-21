@@ -31,10 +31,6 @@ nodes_om = ObjectManager {
   }
 }
 
-function applyDefaultDeviceProperties (properties)
-  properties["bluez5.auto-connect"] = "[ hfp_hf hsp_hs a2dp_sink ]"
-end
-
 function setOffloadActive(device, value)
   local pod = Pod.Object {
     "Spa:Pod:Object:Param:Props", "Props", bluetoothOffloadActive = value
@@ -343,11 +339,7 @@ function createDevice(parent, id, type, factory, properties)
     properties["api.bluez5.id"] = id
 
     -- apply properties from bluetooth.conf
-    local applied = cutils.evaluateRulesApplyProperties (properties,
-        "monitor.bluetooth.rules")
-    if not applied then
-      applyDefaultDeviceProperties (properties)
-    end
+    cutils.evaluateRulesApplyProperties (properties, "monitor.bluetooth.rules")
 
     -- create the device
     device = SpaDevice(factory, properties)

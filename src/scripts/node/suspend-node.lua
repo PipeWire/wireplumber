@@ -47,8 +47,11 @@ SimpleEventHook {
       -- add idle timeout; multiply by 1000, timeout_add() expects ms
       sources[id] = Core.timeout_add(timeout * 1000, function()
         -- Suspend the node
-        log:info(node, "was idle for a while; suspending ...")
-        node:send_command("Suspend")
+        -- but check first if the node still exists
+        if (node:get_active_features() & Feature.Proxy.BOUND) ~= 0 then
+          log:info(node, "was idle for a while; suspending ...")
+          node:send_command("Suspend")
+        end
 
         -- Unref the source
         sources[id] = nil
