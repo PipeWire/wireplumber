@@ -7,6 +7,8 @@
 
 -- Receive script arguments from config.lua
 
+-- creates the virtual items defined in the JSON(virtual.conf)
+
 log = Log.open_topic ("s-node")
 
 local defaults = {}

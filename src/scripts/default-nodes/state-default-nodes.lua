@@ -4,6 +4,12 @@
 --
 -- SPDX-License-Identifier: MIT
 
+-- the script states the default nodes from the user preferences, it has hooks
+-- which stores the user preferences(it stores not just the current preference
+-- but all the previous preferences) in to the state file, retrives them from
+-- state file during the bootup, finally it has a hook which finds a default
+-- node out of the user preferences
+
 cutils = require ("common-utils")
 config = require ("device-config")
 log = Log.open_topic ("s-default-nodes")

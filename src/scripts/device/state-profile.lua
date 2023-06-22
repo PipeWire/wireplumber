@@ -7,6 +7,10 @@
 -- This file contains all the logic related to saving device profiles
 -- to a state file and restoring them later on.
 
+-- A devices profile needs to be selected for any new device. the script selects
+-- the device profile from the user preferences, as well as store the user
+-- selected device profile to state file
+
 cutils = require ("common-utils")
 config = require ("device-config")
 log = Log.open_topic ("s-device")

@@ -8,9 +8,9 @@
 --
 -- SPDX-License-Identifier: MIT
 --
--- Update the device info cache with the latest information from EnumRoute
--- and trigger a "select-routes" event to select new routes for the
--- given device configuration, if it has changed
+-- Update the device info cache with the latest information from EnumRoute(all
+-- the device routes) and trigger a "select-routes" event to select new routes
+-- for the given device configuration, if it has changed
 
 cutils = require ("common-utils")
 config = require ("device-config")

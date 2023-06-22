@@ -4,6 +4,8 @@
 --
 -- SPDX-License-Identifier: MIT
 
+-- apply the selected profile to the device
+
 cutils = require ("common-utils")
 log = Log.open_topic ("s-device")
 

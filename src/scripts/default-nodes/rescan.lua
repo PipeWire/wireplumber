@@ -4,8 +4,13 @@
 --
 -- SPDX-License-Identifier: MIT
 
+-- looks for changes in user-preferences and devices added/removed and schedules
+-- rescan and pushes "select-default-node" event for each of the media_classes
+
 log = Log.open_topic ("s-default-nodes")
 
+-- looks for changes in user-preferences and devices added/removed and schedules
+-- rescan
 SimpleEventHook {
   name = "default-nodes/rescan-trigger",
   interests = {
@@ -33,6 +38,7 @@ SimpleEventHook {
   end
 }:register ()
 
+-- pushes "select-default-node" event for each of the media_classes
 SimpleEventHook {
   name = "default-nodes/rescan",
   interests = {
