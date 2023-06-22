@@ -38,7 +38,7 @@ common_test_env = environment({
   'FILE_MONITOR_DIR': meson.current_build_dir() / '.local' / 'file_monitor',
   'WIREPLUMBER_DATA_DIR': meson.current_source_dir() / '..' / 'src',
   'WIREPLUMBER_MODULE_DIR': meson.current_build_dir() / '..' / 'modules',
-  'WIREPLUMBER_DEBUG': 'T',
+  'WIREPLUMBER_DEBUG': 'T,pw.*:I,spa.*:I,mod.*:I',
 })
 
 spa_plugindir = spa_dep.get_variable(
