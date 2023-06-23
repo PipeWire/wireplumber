@@ -250,7 +250,12 @@ wp_standard_event_source_push_event (WpStandardEventSource *self,
 {
 
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
-  g_return_if_fail (core);
+
+  /* this can happen during the core dispose sequence; the weak ref to the
+     core is invalidated before the registered objects are destroyed */
+  if (!core)
+    return;
+
   g_autoptr (WpEventDispatcher) dispatcher =
       wp_event_dispatcher_get_instance (core);
   g_return_if_fail (dispatcher);
