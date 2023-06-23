@@ -200,14 +200,7 @@ test_dependencies_setup (TestFixture *f, gconstpointer data)
 static void
 test_dependencies (TestFixture *f, gconstpointer data)
 {
-  g_autoptr (WpConf) conf = wp_conf_get_instance (f->base.core);
-  g_assert_nonnull (conf);
-
-  g_autoptr (WpSpaJson) components = wp_conf_get_section (conf,
-      "wireplumber.components", NULL);
-  g_assert_nonnull (components);
-
-  wp_core_load_component (f->base.core, NULL, "array", components,
+  wp_core_load_component (f->base.core, "test", "profile", NULL,
       NULL, NULL, (GAsyncReadyCallback) on_component_loaded, f);
   g_main_loop_run (f->base.loop);
 

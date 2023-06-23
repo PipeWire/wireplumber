@@ -169,6 +169,8 @@ struct _WpComponentArrayLoadTask
   WpTransition parent;
   /* the input json object */
   WpSpaJson *json;
+  /* the features profile */
+  WpProperties *profile;
   /* all components that provide a feature; key: comp->provides, value: comp */
   GHashTable *feat_components;
   /* the final sorted list of components to load */
@@ -286,25 +288,11 @@ add_component (ComponentData * comp, gboolean strongly_required,
   return TRUE;
 }
 
-static WpProperties *
-conf_get_features_section (WpComponentArrayLoadTask * self)
-{
-  WpProperties *props = wp_properties_new_empty ();
-  WpCore *core = wp_transition_get_data (WP_TRANSITION (self));
-  g_autoptr (WpConf) conf = wp_conf_get_instance (core);
-  g_autoptr (WpSpaJson) json =
-      wp_conf_get_section (conf, "wireplumber.features", NULL);
-  if (json)
-    wp_properties_update_from_json (props, json);
-  return props;
-}
-
 static gboolean
 parse_components (WpComponentArrayLoadTask * self, GError ** error)
 {
   /* all the parsed components that are explicitly required */
   g_autoptr (GPtrArray) required_components = NULL;
-  g_autoptr (WpProperties) conf = conf_get_features_section (self);
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) item = G_VALUE_INIT;
 
@@ -329,7 +317,7 @@ parse_components (WpComponentArrayLoadTask * self, GError ** error)
     GError *e = NULL;
     g_autoptr (ComponentData) comp = NULL;
 
-    if (!(comp = component_data_new_from_json (cjson, conf, &e))) {
+    if (!(comp = component_data_new_from_json (cjson, self->profile, &e))) {
       g_propagate_error (error, e);
       return FALSE;
     }
@@ -470,6 +458,7 @@ wp_component_array_load_task_finalize (GObject * object)
 
   g_clear_pointer (&self->feat_components, g_hash_table_unref);
   g_clear_pointer (&self->components, g_ptr_array_unref);
+  g_clear_pointer (&self->profile, wp_properties_unref);
   g_clear_pointer (&self->json, wp_spa_json_unref);
 
   G_OBJECT_CLASS (wp_component_array_load_task_parent_class)->finalize (object);
@@ -488,7 +477,7 @@ wp_component_array_load_task_class_init (WpComponentArrayLoadTaskClass * klass)
 }
 
 static WpTransition *
-wp_component_array_load_task_new (WpSpaJson *json,
+wp_component_array_load_task_new (WpSpaJson * json, WpProperties * profile,
     gpointer source_object, GCancellable * cancellable,
     GAsyncReadyCallback callback, gpointer callback_data)
 {
@@ -496,6 +485,7 @@ wp_component_array_load_task_new (WpSpaJson *json,
       source_object, cancellable, callback, callback_data);
   WpComponentArrayLoadTask *task = WP_COMPONENT_ARRAY_LOAD_TASK (t);
   task->json = wp_spa_json_ref (json);
+  task->profile = wp_properties_ref (profile);
   return t;
 }
 
@@ -637,9 +627,10 @@ wp_internal_comp_loader_supports_type (WpComponentLoader * cl,
     const gchar * type)
 {
   return g_str_equal (type, "module") ||
-         g_str_equal (type, "array") ||
          g_str_equal (type, "virtual") ||
-         g_str_equal (type, "built-in");
+         g_str_equal (type, "built-in") ||
+         g_str_equal (type, "profile") ||
+         g_str_equal (type, "array");
 }
 
 static void
@@ -647,8 +638,26 @@ wp_internal_comp_loader_load (WpComponentLoader * self, WpCore * core,
     const gchar * component, const gchar * type, WpSpaJson * args,
     GCancellable * cancellable, GAsyncReadyCallback callback, gpointer data)
 {
-  if (g_str_equal (type, "array")) {
-    WpTransition *task = wp_component_array_load_task_new (args, self,
+  if (g_str_equal (type, "profile") || g_str_equal (type, "array")) {
+    WpTransition *task = NULL;
+    g_autoptr (WpSpaJson) components = NULL;
+    g_autoptr (WpProperties) profile = wp_properties_new_empty ();
+
+    if (g_str_equal (type, "profile")) {
+      /* component name is the profile name;
+         component list and profile features are loaded from config */
+      g_autoptr (WpConf) conf = wp_conf_get_instance (core);
+      g_autoptr (WpSpaJson) profile_json =
+          wp_conf_get_value (conf, "wireplumber.profiles", component, NULL);
+      if (profile_json)
+        wp_properties_update_from_json (profile, profile_json);
+      components = wp_conf_get_section (conf, "wireplumber.components", NULL);
+    } else {
+      /* component list is retrieved from args; profile features are empty */
+      components = wp_spa_json_ref (args);
+    }
+
+    task = wp_component_array_load_task_new (components, profile, self,
         cancellable, callback, data);
     wp_transition_set_data (task, g_object_ref (core), g_object_unref);
     wp_transition_set_source_tag (task, wp_internal_comp_loader_load);

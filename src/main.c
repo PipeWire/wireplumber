@@ -161,6 +161,7 @@ main (gint argc, gchar **argv)
       PW_KEY_CONFIG_NAME, config_file,
       PW_KEY_APP_NAME, "WirePlumber",
       "wireplumber.daemon", "true",
+      "wireplumber.profile", "main",
       NULL);
 
   /* init wireplumber daemon */

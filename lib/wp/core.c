@@ -476,14 +476,13 @@ wp_core_activate_execute_step (WpObject * object,
         return;
       }
       else {
-        g_autoptr (WpConf) conf = wp_conf_get_instance (self);
-        g_autoptr (WpSpaJson) json_comps = NULL;
+        const gchar *profile = wp_properties_get (props, "wireplumber.profile");
 
-        wp_info_object (self, "parsing & loading components...");
+        wp_info_object (self,
+            "parsing & loading components for profile [%s]...", profile);
 
         /* Load components that are defined in the configuration section */
-        json_comps = wp_conf_get_section (conf, "wireplumber.components", NULL);
-        wp_core_load_component (self, NULL, "array", json_comps, NULL, NULL,
+        wp_core_load_component (self, profile, "profile", NULL, NULL, NULL,
             (GAsyncReadyCallback) on_components_loaded, transition);
       }
       break;
