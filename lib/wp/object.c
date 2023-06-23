@@ -244,7 +244,7 @@ wp_object_get_property (GObject * object, guint property_id, GValue * value,
     g_value_set_uint (value, priv->id);
     break;
   case PROP_CORE:
-    g_value_take_object (value, g_weak_ref_get (&priv->core));
+    g_value_take_object (value, wp_object_get_core (self));
     break;
   case PROP_ACTIVE_FEATURES:
     g_value_set_uint (value, priv->ft_active);
@@ -315,7 +315,10 @@ wp_object_get_core (WpObject * self)
   g_return_val_if_fail (WP_IS_OBJECT (self), NULL);
 
   WpObjectPrivate *priv = wp_object_get_instance_private (self);
-  return g_weak_ref_get (&priv->core);
+  WpCore *core = g_weak_ref_get (&priv->core);
+  if (!core && WP_IS_CORE (self))
+    core = WP_CORE (g_object_ref (self));
+  return core;
 }
 
 /*!
@@ -391,7 +394,7 @@ on_transition_completed (WpTransition * transition, GParamSpec * param,
 
   /* advance pending transitions */
   if (!g_queue_is_empty (priv->transitions) && !priv->idle_advnc_source) {
-    g_autoptr (WpCore) core = g_weak_ref_get (&priv->core);
+    g_autoptr (WpCore) core = wp_object_get_core (self);
     g_return_if_fail (core != NULL);
 
     wp_core_idle_add (core, &priv->idle_advnc_source,
@@ -448,7 +451,7 @@ wp_object_activate_closure (WpObject * self,
   g_return_if_fail (WP_IS_OBJECT (self));
 
   WpObjectPrivate *priv = wp_object_get_instance_private (self);
-  g_autoptr (WpCore) core = g_weak_ref_get (&priv->core);
+  g_autoptr (WpCore) core = wp_object_get_core (self);
 
   g_return_if_fail (core != NULL);
 
@@ -583,7 +586,7 @@ wp_object_update_features (WpObject * self, WpObjectFeatures activated,
 
   t = g_weak_ref_get (&priv->ongoing_transition);
   if ((t || !g_queue_is_empty (priv->transitions)) && !priv->idle_advnc_source) {
-    g_autoptr (WpCore) core = g_weak_ref_get (&priv->core);
+    g_autoptr (WpCore) core = wp_object_get_core (self);
     g_return_if_fail (core != NULL);
 
     wp_core_idle_add (core, &priv->idle_advnc_source,
