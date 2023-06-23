@@ -117,7 +117,7 @@ apply_route_props_hook = SimpleEventHook {
     local dev_info = devinfo:get_device_info (device)
     assert (dev_info)
 
-    if not selected_routes then
+    if next (selected_routes) == nil then
       log:info (device, "No routes selected to set on " .. dev_info.name)
       return
     end
