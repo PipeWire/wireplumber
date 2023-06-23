@@ -67,7 +67,7 @@ find_stored_routes_hook = SimpleEventHook {
         if cutils.arrayContains (ri.devices, tonumber (device_id)) and
             (ri.profiles == nil or cutils.arrayContains (ri.profiles, dev_info.active_profile)) and
             cutils.arrayContains (spr, ri.name) then
-          route = ri
+          route_info = ri
           break
         end
       end
