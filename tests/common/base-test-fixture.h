@@ -60,6 +60,15 @@ disconnected_callback (WpCore *core, WpBaseTestFixture * self)
 }
 
 static void
+on_core_connected (WpObject * core, GAsyncResult * res, WpBaseTestFixture * self)
+{
+  g_autoptr (GError) error = NULL;
+  wp_object_activate_finish (core, res, &error);
+  g_assert_no_error (error);
+  g_main_loop_quit (self->loop);
+}
+
+static void
 wp_base_test_fixture_setup (WpBaseTestFixture * self, WpBaseTestFlags flags)
 {
   g_autoptr (WpProperties) props = NULL;
@@ -90,8 +99,12 @@ wp_base_test_fixture_setup (WpBaseTestFixture * self, WpBaseTestFlags flags)
   g_signal_connect (self->core, "disconnected",
       (GCallback) disconnected_callback, self);
 
-  if (!(flags & WP_BASE_TEST_FLAG_DONT_CONNECT))
-    g_assert_true (wp_core_connect (self->core));
+  if (!(flags & WP_BASE_TEST_FLAG_DONT_CONNECT)) {
+    wp_object_activate (WP_OBJECT (self->core), WP_CORE_FEATURE_CONNECTED, NULL,
+        (GAsyncReadyCallback) on_core_connected, self);
+    g_main_loop_run (self->loop);
+    g_assert_true (wp_core_is_connected (self->core));
+  }
 
   /* init the second client's core */
   if (flags & WP_BASE_TEST_FLAG_CLIENT_CORE) {
@@ -99,8 +112,12 @@ wp_base_test_fixture_setup (WpBaseTestFixture * self, WpBaseTestFlags flags)
     g_signal_connect (self->client_core, "disconnected",
         (GCallback) disconnected_callback, self);
 
-    if (!(flags & WP_BASE_TEST_FLAG_DONT_CONNECT))
-      g_assert_true (wp_core_connect (self->client_core));
+    if (!(flags & WP_BASE_TEST_FLAG_DONT_CONNECT)) {
+      wp_object_activate (WP_OBJECT (self->client_core), WP_CORE_FEATURE_CONNECTED,
+          NULL, (GAsyncReadyCallback) on_core_connected, self);
+      g_main_loop_run (self->loop);
+      g_assert_true (wp_core_is_connected (self->client_core));
+    }
   }
 }
 
