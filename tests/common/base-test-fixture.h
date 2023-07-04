@@ -43,7 +43,7 @@ typedef struct {
 static gboolean
 timeout_callback (WpBaseTestFixture * self)
 {
-  wp_notice ("test timed out");
+  wp_critical ("test timed out");
   g_test_fail ();
   g_main_loop_quit (self->loop);
 
@@ -53,7 +53,7 @@ timeout_callback (WpBaseTestFixture * self)
 static void
 disconnected_callback (WpCore *core, WpBaseTestFixture * self)
 {
-  wp_notice_object (core, "%s core disconnected",
+  wp_critical_object (core, "%s core disconnected",
       (core == self->client_core) ? "client" : "sm");
   g_test_fail ();
   g_main_loop_quit (self->loop);
