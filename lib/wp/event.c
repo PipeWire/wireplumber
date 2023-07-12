@@ -139,6 +139,19 @@ wp_event_new (const gchar * type, gint priority, WpProperties * properties,
   return self;
 }
 
+/*!
+ * \brief Gets the name of the event
+ * \ingroup wpevent
+ * \param self the event
+ * \return the event name
+ */
+const gchar *
+wp_event_get_name(WpEvent *self)
+{
+  g_return_val_if_fail(self != NULL, NULL);
+  return self->name;
+}
+
 static void
 wp_event_free (WpEvent * self)
 {

@@ -201,6 +201,7 @@ void
 wp_event_hook_set_dispatcher (WpEventHook * self, WpEventDispatcher * dispatcher)
 {
   WpEventHookPrivate *priv = wp_event_hook_get_instance_private (self);
+  wp_trace_object (dispatcher, "hook (%s) registered", priv->name);
   g_weak_ref_set (&priv->dispatcher, dispatcher);
 }
 

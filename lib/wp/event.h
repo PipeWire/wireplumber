@@ -50,6 +50,9 @@ WP_API
 GObject * wp_event_get_source (WpEvent * self);
 
 WP_API
+const gchar *wp_event_get_name(WpEvent *self);
+
+WP_API
 GObject * wp_event_get_subject (WpEvent * self);
 
 WP_API

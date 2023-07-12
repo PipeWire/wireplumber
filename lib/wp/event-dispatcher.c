@@ -127,7 +127,8 @@ wp_event_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
 
       event_data->current_hook_in_async = g_object_ref (hook);
 
-      wp_trace_object (d, "running hook <%p>(%s)", hook, name);
+      wp_trace_object(d, "dispatching event (%s) running hook <%p>(%s)",
+          wp_event_get_name(event), hook, name);
 
       /* execute the hook, possibly async */
       wp_event_hook_run (hook, event, cancellable,
@@ -227,6 +228,8 @@ wp_event_dispatcher_get_instance (WpCore * core)
 
     g_source_attach (dispatcher->source, wp_core_get_g_main_context (core));
     wp_core_register_object (core, g_object_ref (dispatcher));
+
+    wp_info_object (dispatcher, "event-dispatcher inited");
   }
 
   return dispatcher;
@@ -257,8 +260,7 @@ wp_event_dispatcher_push_event (WpEventDispatcher * self, WpEvent * event)
 
     self->events = g_list_insert_sorted (self->events, event_data,
         (GCompareFunc) event_cmp_func);
-    // wp_debug_object (self, "pushed event (%s)" WP_OBJECT_FORMAT " priority(%d)",
-    //     event->name, WP_OBJECT_ARGS (event->subject), event->priority);
+    wp_trace_object (self, "pushed event (%s)", wp_event_get_name (event));
 
     /* wakeup the GSource */
     spa_system_eventfd_write (self->system, self->eventfd, 1);
