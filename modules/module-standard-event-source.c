@@ -154,7 +154,8 @@ get_object_type (gpointer obj, WpProperties **properties)
 static gint
 get_default_event_priority (const gchar *event_type)
 {
-  if (g_str_has_prefix (event_type, "select-"))
+  if (g_str_has_prefix(event_type, "select-") ||
+        g_str_has_prefix(event_type, "create-"))
     return 500;
   else if (!g_strcmp0 (event_type, "rescan-for-default-nodes"))
     return -490;
@@ -199,6 +200,17 @@ wp_standard_event_get_object_manager (WpStandardEventSource *self,
   return g_object_ref (self->oms[type]);
 }
 
+/* Local Events are events created by WirePlumber. */
+static gboolean
+is_it_local_event (const gchar *event_type)
+{
+  if (g_str_has_prefix(event_type, "select-") ||
+    g_str_has_prefix(event_type, "create-"))
+    return TRUE;
+
+  return FALSE;
+}
+
 static WpEvent *
 wp_standard_event_source_create_event (WpStandardEventSource *self,
     const gchar *event_type, gpointer subject, WpProperties *misc_properties)
@@ -213,8 +225,8 @@ wp_standard_event_source_create_event (WpStandardEventSource *self,
   if (subject_type) {
     wp_properties_set (properties, "event.subject.type", subject_type);
 
-    /* prefix the event with the subject type, unless it is a select-* event */
-    if (!g_str_has_prefix (event_type, "select-")) {
+    /* prefix the event with the subject type, unless it is a local event */
+    if (!is_it_local_event (event_type)) {
       full_event_type = g_strdup_printf ("%s-%s", subject_type, event_type);
       event_type = full_event_type;
     }
