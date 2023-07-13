@@ -266,6 +266,15 @@ core_require_api (lua_State *L)
   return wp_require_api_transition_new_from_lua (L, core);
 }
 
+static int
+core_test_feature (lua_State *L)
+{
+  WpCore *core = get_wp_core(L);
+  const char *f = luaL_checkstring (L, 1);
+  lua_pushboolean (L, wp_core_test_feature (core, f));
+  return 1;
+}
+
 static const luaL_Reg core_funcs[] = {
   { "get_info", core_get_info },
   { "get_vm_type", core_get_vm_type },
@@ -274,6 +283,7 @@ static const luaL_Reg core_funcs[] = {
   { "sync", core_sync },
   { "quit", core_quit },
   { "require_api", core_require_api },
+  { "test_feature", core_test_feature },
   { NULL, NULL }
 };
 
