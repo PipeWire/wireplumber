@@ -29,6 +29,9 @@ G_DECLARE_FINAL_TYPE (WpImplModule, wp_impl_module, WP, IMPL_MODULE, GObject);
 WP_API
 WpImplModule * wp_impl_module_load (WpCore * core, const gchar * name,
     const gchar * arguments, WpProperties * properties);
+WP_API
+WpImplModule * wp_impl_module_load_file (WpCore * core, const gchar * name,
+    const gchar * filename, WpProperties * properties);
 
 G_END_DECLS
 
