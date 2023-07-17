@@ -13,6 +13,7 @@ log = Log.open_topic ("s-device")
 SimpleEventHook {
   name = "device/find-best-profile",
   after = "device/find-stored-profile",
+  before = "device/apply-profile",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-profile" },
