@@ -5,18 +5,22 @@
 --
 -- SPDX-License-Identifier: MIT
 local cutils = require ("common-utils")
+local mutils = require ("monitor-utils")
 
 log = Log.open_topic ("s-monitors-v4l2")
 
 function createV4l2camNode (parent, id, type, factory, properties)
-  source = source or Plugin.find ("standard-event-source")
+  local registered = mutils:register_cam_node (parent, id, factory, properties)
+  if not registered then
+    source = source or Plugin.find ("standard-event-source")
+    local e = source:call ("create-event", "create-v4l2-device-node",
+      parent, nil)
+    e:set_data ("factory", factory)
+    e:set_data ("node-properties", properties)
+    e:set_data ("node-sub-id", id)
 
-  local e = source:call ("create-event", "create-v4l2-device-node",
-    parent, properties)
-  e:set_data ("factory", factory)
-  e:set_data ("node-sub-id", id)
-
-  EventDispatcher.push_event (e)
+    EventDispatcher.push_event (e)
+  end
 end
 
 SimpleEventHook {

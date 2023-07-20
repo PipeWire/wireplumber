@@ -15,7 +15,7 @@ SimpleEventHook {
   after = "monitor/libcam/name-node",
   interests = {
     EventInterest {
-      Constraint { "event.type", "=", "create-libcam-device-node" },
+      Constraint { "event.type", "=", "create-libcamera-device-node" },
     },
   },
   execute = function(event)

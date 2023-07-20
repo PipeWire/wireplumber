@@ -6,18 +6,22 @@
 -- SPDX-License-Identifier: MIT
 
 local cutils = require ("common-utils")
+local mutils = require ("monitor-utils")
 
 log = Log.open_topic ("s-monitors-libcam")
 
 function createLibcamNode (parent, id, type, factory, properties)
-  source = source or Plugin.find ("standard-event-source")
+  local registered = mutils:register_cam_node (parent, id, factory, properties)
+  if not registered then
+    source = source or Plugin.find ("standard-event-source")
+    local e = source:call ("create-event", "create-libcamera-device-node",
+      parent, nil)
+    e:set_data ("factory", factory)
+    e:set_data ("node-properties", properties)
+    e:set_data ("node-sub-id", id)
 
-  local e = source:call ("create-event", "create-libcam-device-node",
-    parent, properties)
-  e:set_data ("factory", factory)
-  e:set_data ("node-sub-id", id)
-
-  EventDispatcher.push_event (e)
+    EventDispatcher.push_event (e)
+  end
 end
 
 SimpleEventHook {
@@ -36,8 +40,8 @@ SimpleEventHook {
 
     -- apply properties from rules defined in JSON .conf file
     cutils.evaluateRulesApplyProperties (properties, "monitor.libcamera.rules")
-    if properties ["device.disabled"] then
-      log:warning ("lib cam device " .. properties ["device.name"] .. " disabled")
+    if properties["device.disabled"] then
+      log:notice ("lib cam device " .. properties["device.name"] .. " disabled")
       return
     end
     local device = SpaDevice (factory, properties)
