@@ -46,7 +46,7 @@ SimpleEventHook {
 
     -- deduplicate nodes with the same name
     for counter = 2, 99, 1 do
-      if mutils.findDuplicate (parent, id, "node.name", properties["node.name"]) then
+      if mutils.find_duplicate (parent, id, "node.name", properties["node.name"]) then
         properties["node.name"] = name .. "." .. counter
       else
         break

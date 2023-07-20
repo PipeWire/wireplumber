@@ -30,7 +30,7 @@ SimpleEventHook {
 
     -- deduplicate devices with the same name
     for counter = 2, 99, 1 do
-      if mutils.findDuplicate (parent, id, "device.name", properties["node.name"]) then
+      if mutils.find_duplicate (parent, id, "device.name", properties["node.name"]) then
         properties["device.name"] = name .. "." .. counter
       else
         break
