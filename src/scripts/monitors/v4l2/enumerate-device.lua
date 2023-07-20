@@ -17,7 +17,8 @@ config.properties = Conf.get_section (
 function createCamDevice (parent, id, type, factory, properties)
   source = source or Plugin.find ("standard-event-source")
 
-  local e = source:call ("create-event", "create-v4l2-device", parent, properties)
+  local e = source:call ("create-event", "create-v4l2-device", parent, nil)
+  e:set_data ("device-properties", properties)
   e:set_data ("factory", factory)
   e:set_data ("device-sub-id", id)
 

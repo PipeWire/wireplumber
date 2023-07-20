@@ -17,8 +17,8 @@ SimpleEventHook {
     },
   },
   execute = function(event)
-    local properties = event:get_properties ()
     local parent = event:get_subject ()
+    local properties = event:get_data ("device-properties")
     local id = event:get_data ("device-sub-id")
 
     local name = "libcamera_device." ..

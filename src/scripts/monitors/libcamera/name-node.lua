@@ -16,7 +16,7 @@ SimpleEventHook {
     },
   },
   execute = function(event)
-    local properties = event:get_properties ()
+    local properties = event:get_data ("node-properties")
     local parent = event:get_subject ()
     local dev_props = parent.properties
     local factory = event:get_data ("factory")
