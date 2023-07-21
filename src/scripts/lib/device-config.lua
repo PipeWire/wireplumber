@@ -15,6 +15,7 @@ local defaults = {
   ["auto-echo-cancel"] = true,
   ["echo-cancel-sink-name"] = "echo-cancel-sink",
   ["echo-cancel-source-name"] = "echo-cancel-source",
+  ["camera-discovery-timeout"] = 100,
 }
 
 return settings_manager.new ("device.", defaults)
