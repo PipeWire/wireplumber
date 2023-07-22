@@ -576,11 +576,11 @@ wp_log_fields_write_to_journal (WpLogFields *lf)
   gsize n_fields = 6;
   GLogField fields[6] = {
     { "PRIORITY", log_level_info[lf->log_level].priority, -1 },
-    { "CODE_FILE", lf->file, -1 },
-    { "CODE_LINE", lf->line, -1 },
-    { "CODE_FUNC", lf->func, -1 },
-    { "TOPIC", lf->log_topic, -1 },
-    { "MESSAGE", lf->message, -1 },
+    { "CODE_FILE", lf->file ? lf->file : "", -1 },
+    { "CODE_LINE", lf->line ? lf->line : "", -1 },
+    { "CODE_FUNC", lf->func ? lf->func : "", -1 },
+    { "TOPIC", lf->log_topic ? lf->log_topic : "", -1 },
+    { "MESSAGE", lf->message ? lf->message : "", -1 },
   };
 
   /* the log level flags are not used in this function, so we can pass 0 */
