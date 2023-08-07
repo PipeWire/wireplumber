@@ -44,11 +44,18 @@ SimpleEventHook {
     } do
       local target_props = target.properties
       local target_node_id = target_props ["node.id"]
+      local si_target_node = si:get_associated_proxy ("node")
+      local si_target_link_group = si_target_node.properties ["node.link-group"]
       local priority = tonumber (target_props ["priority.session"]) or 0
 
       log:debug (string.format ("Looking at: %s (%s)",
         tostring (target_props ["node.name"]),
         tostring (target_node_id)))
+
+      if si_target_link_group ~= nil then
+        Log.debug ("... ignoring filter as best target")
+        goto skip_linkable
+      end
 
       if not putils.canLink (si_props, target) then
         log:debug ("... cannot link, skip linkable")

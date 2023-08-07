@@ -12,7 +12,25 @@
 
 local putils = require ("policy-utils")
 local cutils = require ("common-utils")
+local futils = require ("filter-utils")
 log = Log.open_topic ("s-linking")
+
+function checkFilter (si, om, handle_nonstreams)
+  -- always handle filters if handle_nonstreams is true, even if it is disabled
+  if handle_nonstreams then
+    return true
+  end
+
+  -- always return true if this is not a filter
+  local node = si:get_associated_proxy ("node")
+  local link_group = node.properties["node.link-group"]
+  if link_group == nil then
+    return true
+  end
+
+  local direction = cutils.getTargetDirection (si.properties)
+  return futils.is_filter_enabled (direction, link_group)
+end
 
 function checkLinkable (si, om, handle_nonstreams)
   local si_props = si.properties
@@ -28,7 +46,46 @@ function checkLinkable (si, om, handle_nonstreams)
     return false, si_props
   end
 
+  -- check filters
+  if not checkFilter (si, om, handle_nonstreams) then
+    return false, si_props
+  end
+
   return true, si_props
+end
+
+function unhandleLinkable (si, om)
+  local si_id = si.id
+  local valid, si_props = checkLinkable (si, om, true)
+  if not valid then
+    return
+  end
+
+  log.info (si, string.format ("unhandling item: %s (%s)",
+      tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
+
+  -- iterate over all the links in the graph and
+  -- remove any links associated with this item
+  for silink in om:iterate { type = "SiLink" } do
+    local out_id = tonumber (silink.properties ["out.item.id"])
+    local in_id = tonumber (silink.properties ["in.item.id"])
+
+    if out_id == si_id or in_id == si_id then
+      local in_flags = putils:get_flags (in_id)
+      local out_flags = putils:get_flags (out_id)
+
+      if out_id == si_id and in_flags.peer_id == out_id then
+        in_flags.peer_id = nil
+      elseif in_id == si_id and out_flags.peer_id == in_id then
+        out_flags.peer_id = nil
+      end
+
+      silink:remove ()
+      log.info (silink, "... link removed")
+    end
+  end
+
+  putils:clear_flags (si_id)
 end
 
 SimpleEventHook {
@@ -43,39 +100,33 @@ SimpleEventHook {
     local si = event:get_subject ()
     local source = event:get_source ()
     local om = source:call ("get-object-manager", "session-item")
-    local si_id = si.id
-    local valid, si_props = checkLinkable (si, om, true)
-    if not valid then
-      return
-    end
 
-    log:info (si, string.format ("unhandling item: %s (%s)",
-        tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
-
-    -- iterate over all the links in the graph and
-    -- remove any links associated with this item
-    for silink in om:iterate { type = "SiLink" } do
-      local out_id = tonumber (silink.properties ["out.item.id"])
-      local in_id = tonumber (silink.properties ["in.item.id"])
-
-      if out_id == si_id or in_id == si_id then
-        local in_flags = putils:get_flags (in_id)
-        local out_flags = putils:get_flags (out_id)
-
-        if out_id == si_id and in_flags.peer_id == out_id then
-          in_flags.peer_id = nil
-        elseif in_id == si_id and out_flags.peer_id == in_id then
-          out_flags.peer_id = nil
-        end
-
-        silink:remove ()
-        log:info (silink, "... link removed")
-      end
-    end
-
-    putils:clear_flags (si_id)
+    unhandleLinkable (si, om)
   end
 }:register ()
+
+function handleLinkables (source)
+  local om = source:call ("get-object-manager", "session-item")
+
+  for si in om:iterate { type = "SiLinkable" } do
+    local valid, si_props = checkLinkable (si, om)
+    if not valid then
+      goto skip_linkable
+    end
+
+    -- check if we need to link this node at all
+    local autoconnect = cutils.parseBool (si_props ["node.autoconnect"])
+    if not autoconnect then
+      log.debug (si, tostring (si_props ["node.name"]) .. " does not need to be autoconnected")
+      goto skip_linkable
+    end
+
+    -- push event to find target and link
+    source:call ("push-event", "select-target", si, nil)
+
+    ::skip_linkable::
+  end
+end
 
 SimpleEventHook {
   name = "linking/rescan",
@@ -86,28 +137,10 @@ SimpleEventHook {
   },
   execute = function (event)
     local source = event:get_source ()
-    local om = source:call ("get-object-manager", "session-item")
 
     log:info ("rescanning...")
 
-    for si in om:iterate { type = "SiLinkable" } do
-      local valid, si_props = checkLinkable (si, om)
-      if not valid then
-        goto skip_linkable
-      end
-
-      -- check if we need to link this node at all
-      local autoconnect = cutils.parseBool (si_props ["node.autoconnect"])
-      if not autoconnect then
-        log:debug (si, tostring (si_props ["node.name"]) .. " does not need to be autoconnected")
-        goto skip_linkable
-      end
-
-      -- push event to find target and link
-      source:call ("push-event", "select-target", si, nil)
-
-    ::skip_linkable::
-    end
+    handleLinkables (source)
   end
 }:register ()
 
@@ -128,6 +161,47 @@ SimpleEventHook {
   },
   execute = function (event)
     local source = event:get_source ()
+    source:call ("schedule-rescan", "linking")
+  end
+}:register ()
+
+SimpleEventHook {
+  name = "linking/rescan-trigger-before-filters-metadata-changed",
+  before = "lib/filter-utils/rescan-metadata-changed",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "metadata-changed" },
+      Constraint { "metadata.name", "=", "filters" },
+    },
+  },
+  execute = function (event)
+    local source = event:get_source ()
+    local om = source:call ("get-object-manager", "session-item")
+
+    -- unlink all filters
+    for si in om:iterate {
+        type = "SiLinkable",
+        Constraint { "node.link-group", "+" },
+    } do
+      unhandleLinkable (si, om)
+    end
+
+  end
+}:register ()
+
+SimpleEventHook {
+  name = "linking/rescan-trigger-after-filters-metadata-changed",
+  after = "lib/filter-utils/rescan-metadata-changed",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "metadata-changed" },
+      Constraint { "metadata.name", "=", "filters" },
+    },
+  },
+  execute = function (event)
+    local source = event:get_source ()
+    local om = source:call ("get-object-manager", "session-item")
+
     source:call ("schedule-rescan", "linking")
   end
 }:register ()
