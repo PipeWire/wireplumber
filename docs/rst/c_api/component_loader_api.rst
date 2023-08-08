@@ -7,14 +7,12 @@ Component Loader
 
    digraph inheritance {
       rankdir=LR;
-      GObject -> WpObject;
-      WpObject -> WpPlugin;
-      WpPlugin -> WpComponentLoader;
+      GInterface -> WpComponentLoader;
    }
 
 .. doxygenstruct:: WpComponentLoader
 
-.. doxygenstruct:: _WpComponentLoaderClass
+.. doxygenstruct:: _WpComponentLoaderInterface
 
 .. doxygengroup:: wpcomponentloader
    :content-only:
