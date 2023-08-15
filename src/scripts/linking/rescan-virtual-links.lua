@@ -182,7 +182,6 @@ AsyncEventHook {
             l:remove ()
           else
             log:info (l, "virtual si-standard-link activated successfully")
-            si_flags.si_link = l
             si_flags.failed_peer_id = nil
             if si_flags.peer_id == nil then
               si_flags.peer_id = target_id

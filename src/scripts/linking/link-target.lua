@@ -156,14 +156,13 @@ AsyncEventHook {
               end
               l:remove ()
             else
-              si_flags.si_link = si_link
               si_flags.failed_peer_id = nil
               if si_flags.peer_id == nil then
                 si_flags.peer_id = target.id
               end
               si_flags.failed_count = 0
 
-              log:info (si_link, "activated si-standard-link between "
+              log:info (l, "activated si-standard-link between "
                 .. tostring (si).." and ".. tostring(target))
 
               transition:advance ()
