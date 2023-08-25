@@ -271,6 +271,7 @@ class DoxyEnum(DoxyElement):
 
         e = DoxyEnum(name, d)
         e.add_brief(xml.find("briefdescription"))
+        e.add_detail(xml.find("detaileddescription"))
         for p in xml.findall("enumvalue"):
             e.add_member(p)
         return e
