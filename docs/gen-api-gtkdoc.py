@@ -195,9 +195,9 @@ class DoxyElement(object):
         self.retval     = kwargs.get('retval', None)
 
     def is_documented(self):
-        if (normalize_text(self.brief)) != "":
-            return True
-        return False
+        return (normalize_text(self.brief) != "" or
+                normalize_text(self.detail) != "" or
+                normalize_text(self.since) != "")
 
     def add_brief(self, xml):
         proc = DoxygenProcess()
@@ -302,6 +302,7 @@ class DoxyStruct(DoxyElement):
         d += "};\n"
         e = DoxyStruct(name, d)
         e.add_brief(xml.find("briefdescription"))
+        e.add_detail(xml.find("detaileddescription"))
         for p in memberdefs:
             e.add_member(p)
         return e
