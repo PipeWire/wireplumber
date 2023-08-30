@@ -18,6 +18,8 @@ G_BEGIN_DECLS
 /*!
  * \brief Flags to be used as WpObjectFeatures for WpDbus.
  * \ingroup wpdbus
+ *
+ * \since 0.4.11
  */
 typedef enum { /*< flags >*/
   /* main features */
@@ -27,6 +29,8 @@ typedef enum { /*< flags >*/
 /*!
  * \brief The state of the dbus connection
  * \ingroup wpdbus
+ *
+ * \since 0.4.11
  */
 typedef enum {
   WP_DBUS_STATE_CLOSED = 0,

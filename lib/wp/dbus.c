@@ -24,6 +24,9 @@ enum
   PROP_DBUS_STATE,
 };
 
+/**
+ * \since 0.4.11
+ */
 struct _WpDbus
 {
   WpObject parent;

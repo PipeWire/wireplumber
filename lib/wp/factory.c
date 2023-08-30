@@ -24,6 +24,8 @@
  * constructed factory objects are reported in by PipeWire registry 
  * and it is made available for wireplumber clients through the 
  * WpObjectManager API.
+ *
+ * \since 0.4.5
  */
 
 struct _WpFactory

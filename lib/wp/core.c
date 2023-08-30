@@ -515,6 +515,8 @@ wp_core_get_pw_core (WpCore * self)
  * \returns (transfer full) (nullable): a comma separated string with all the
  *   virtual machine types that this core matches, or NULL if the core is not
  *   running in a virtual machine.
+ *
+ * \since 0.4.11
  */
 gchar *
 wp_core_get_vm_type (WpCore *self)

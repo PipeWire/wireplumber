@@ -70,6 +70,8 @@ wp_init (WpInitFlags flags)
 /*!
  * \brief Gets the WirePlumber library version
  * \returns WirePlumber library version
+ *
+ * \since 0.4.12
  */
 const char *
 wp_get_library_version (void)
@@ -80,6 +82,8 @@ wp_get_library_version (void)
 /*!
  * \brief Gets the WirePlumber library API version
  * \returns WirePlumber library API version
+ *
+ * \since 0.4.12
  */
 const char *
 wp_get_library_api_version (void)
