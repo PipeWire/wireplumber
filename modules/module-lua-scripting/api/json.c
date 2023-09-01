@@ -126,13 +126,6 @@ push_luajson (lua_State *L, WpSpaJson *json)
     lua_pushnumber (L, value);
   }
 
-  /* String */
-  else if (wp_spa_json_is_string (json)) {
-    g_autofree gchar *value = wp_spa_json_parse_string (json);
-    g_warn_if_fail (value);
-    lua_pushstring (L, value);
-  }
-
   /* Array */
   else if (wp_spa_json_is_array (json)) {
     g_auto (GValue) item = G_VALUE_INIT;
@@ -166,11 +159,11 @@ push_luajson (lua_State *L, WpSpaJson *json)
     }
   }
 
-  /* syntax error */
+  /* Otherwise alwyas parse as String to allow parsing strings without quotes */
   else {
     g_autofree gchar *value = wp_spa_json_parse_string (json);
-    wp_warning ("unknown SPA JSON token type at '%s'", value);
-    lua_pushnil (L);
+    g_warn_if_fail (value);
+    lua_pushstring (L, value);
   }
 }
 

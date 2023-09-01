@@ -20,12 +20,18 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-spa-json")
 /*! \defgroup wpspajson WpSpaJson */
 /*!
  * \struct WpSpaJson
+ *
+ * \since 0.4.8
  */
 /*!
  * \struct WpSpaJsonBuilder
+ *
+ * \since 0.4.8
  */
 /*!
  * \struct WpSpaJsonParser
+ *
+ * \since 0.4.8
  */
 
 static void
@@ -195,6 +201,8 @@ wp_spa_json_new_from_string (const gchar *json_str)
  * \param len the specific length of the string
  * \returns a new WpSpaJson that references the data in \a json_str. \a json_str
  *   is not copied, so it needs to stay alive.
+ *
+ * \since 0.4.10
  */
 WpSpaJson *
 wp_spa_json_new_from_stringn (const gchar *json_str, size_t len)

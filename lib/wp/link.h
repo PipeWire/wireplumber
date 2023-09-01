@@ -16,6 +16,8 @@ G_BEGIN_DECLS
 /*!
  * \brief The state of the link
  * \ingroup wplink
+ *
+ * \since 0.4.11
  */
 typedef enum {
   WP_LINK_STATE_ERROR = -2,     /*!< the link is in error */
@@ -30,6 +32,8 @@ typedef enum {
 /*!
  * \brief An extension of WpProxyFeatures
  * \ingroup wplink
+ *
+ * \since 0.4.11
  */
 typedef enum { /*< flags >*/
   /*! waits until the state of the link is >= PAUSED */

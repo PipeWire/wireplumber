@@ -95,10 +95,7 @@ SimpleEventHook {
       log:info (si, "... target not found, reconnect:" .. tostring (reconnect))
 
       local node = si:get_associated_proxy ("node")
-      if not reconnect then
-        log:info (si, "... destroy node")
-        node:request_destroy ()
-      elseif si_flags.was_handled then
+      if reconnect and si_flags.was_handled then
         log:info (si, "... waiting reconnect")
         return
       end
@@ -109,9 +106,20 @@ SimpleEventHook {
         local client = clients_om:lookup {
           Constraint { "bound-id", "=", client_id, type = "gobject" }
         }
-        if client then
-          client:send_error (node ["bound-id"], -2, "no node available")
+        local message
+        if reconnect then
+          message = "no target node available"
+        else
+          message = "target not found"
         end
+        if client then
+          client:send_error (node ["bound-id"], -2, message)
+        end
+      end
+
+      if not reconnect then
+        log:info (si, "... destroy node")
+        node:request_destroy ()
       end
     end
 
