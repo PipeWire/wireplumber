@@ -770,10 +770,7 @@ function handleLinkable (si)
     Log.info (si, "... target not found, reconnect:" .. tostring(reconnect))
 
     local node = si:get_associated_proxy ("node")
-    if not reconnect then
-      Log.info (si, "... destroy node")
-      node:request_destroy()
-    elseif si_flags[si.id].was_handled then
+    if reconnect and si_flags[si.id].was_handled then
       Log.info (si, "... waiting reconnect")
       return
     end
@@ -783,9 +780,20 @@ function handleLinkable (si)
       local client = clients_om:lookup {
         Constraint { "bound-id", "=", client_id, type = "gobject" }
       }
-      if client then
-        client:send_error(node["bound-id"], -2, "no node available")
+      local message
+      if reconnect then
+        message = "no target node available"
+      else
+        message = "target not found"
       end
+      if client then
+        client:send_error(node["bound-id"], -2, message)
+      end
+    end
+
+    if not reconnect then
+      Log.info (si, "... destroy node")
+      node:request_destroy()
     end
   else
     createLink (si, si_target, can_passthrough, exclusive)
