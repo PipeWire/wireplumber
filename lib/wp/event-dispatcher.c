@@ -21,14 +21,17 @@ struct _EventData
   WpEvent *event;
   WpIterator *hooks_iter;
   WpEventHook *current_hook_in_async;
+  gint64 seq;
 };
 
 static inline EventData *
 event_data_new (WpEvent * event)
 {
+  static gint64 seqn = 0;
   EventData *event_data = g_new0 (EventData, 1);
   event_data->event = wp_event_ref (event);
   event_data->hooks_iter = wp_event_new_hooks_iterator (event);
+  event_data->seq = seqn++;
   return event_data;
 }
 
@@ -238,7 +241,8 @@ wp_event_dispatcher_get_instance (WpCore * core)
 static gint
 event_cmp_func (const EventData *a, const EventData *b)
 {
-  return wp_event_get_priority (b->event) - wp_event_get_priority (a->event);
+  gint c = wp_event_get_priority (b->event) - wp_event_get_priority (a->event);
+  return (c != 0) ? c : (gint)(a->seq - b->seq);
 }
 
 /*!
