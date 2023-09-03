@@ -55,6 +55,53 @@ hook_quit (WpEvent *event, TestFixture *self)
 }
 
 static void
+test_events_order (TestFixture *self, gconstpointer user_data)
+{
+  g_autoptr (WpEventDispatcher) dispatcher = NULL;
+  g_autoptr (WpEventHook) hook = NULL;
+  WpEvent *event1 = NULL, *event2 = NULL, *event3 = NULL, *event4;
+
+  dispatcher = wp_event_dispatcher_get_instance (self->base.core);
+  g_assert_nonnull (dispatcher);
+
+  hook = wp_simple_event_hook_new ("hook-a", NULL, NULL,
+    g_cclosure_new ((GCallback) hook_a, self, NULL));
+  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "type1", NULL);
+  wp_event_dispatcher_register_hook (dispatcher, hook);
+  g_clear_object (&hook);
+
+  hook = wp_simple_event_hook_new ("hook-quit", NULL, NULL,
+    g_cclosure_new ((GCallback) hook_quit, self, NULL));
+  wp_interest_event_hook_add_interest (WP_INTEREST_EVENT_HOOK (hook),
+    WP_CONSTRAINT_TYPE_PW_PROPERTY, "event.type", "=s", "quit", NULL);
+  wp_event_dispatcher_register_hook (dispatcher, hook);
+  g_clear_object (&hook);
+
+  event1 = wp_event_new ("type1", 20, NULL, NULL, NULL);
+  event2 = wp_event_new ("type1", 20, NULL, NULL, NULL);
+  event3 = wp_event_new ("type1", 30, NULL, NULL, NULL);
+  event4 = wp_event_new ("quit",  10, NULL, NULL, NULL);
+  wp_event_dispatcher_push_event (dispatcher, event1);
+  wp_event_dispatcher_push_event (dispatcher, event2);
+  wp_event_dispatcher_push_event (dispatcher, event3);
+  wp_event_dispatcher_push_event (dispatcher, event4);
+
+  g_main_loop_run (self->base.loop);
+  g_assert_cmpint (self->hooks_executed->len, == , 4);
+  g_assert_cmpint (self->events->len, == , 4);
+
+  g_assert (hook_a == self->hooks_executed->pdata [0]);
+  g_assert (event3 == self->events->pdata [0]);
+  g_assert (hook_a == self->hooks_executed->pdata [1]);
+  g_assert (event1 == self->events->pdata [1]);
+  g_assert (hook_a == self->hooks_executed->pdata [2]);
+  g_assert (event2 == self->events->pdata [2]);
+  g_assert (hook_quit == self->hooks_executed->pdata [3]);
+  g_assert (event4 == self->events->pdata [3]);
+}
+
+static void
 test_events_basic (TestFixture *self, gconstpointer user_data)
 {
   g_autoptr (WpEventDispatcher) dispatcher = NULL;
@@ -313,6 +360,8 @@ main (gint argc, gchar *argv[])
   g_test_init (&argc, &argv, NULL);
   wp_init (WP_INIT_ALL);
 
+  g_test_add ("/wp/events/order", TestFixture, NULL,
+    test_events_setup, test_events_order, test_events_teardown);
   g_test_add ("/wp/events/basic", TestFixture, NULL,
     test_events_setup, test_events_basic, test_events_teardown);
   g_test_add ("/wp/events/async_hook", TestFixture, NULL,
