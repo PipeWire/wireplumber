@@ -1,24 +1,23 @@
 .. _config_access:
 
-Access configuration
+Access Configuration
 ====================
 
-wireplumber.conf.d/access.conf
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The configuration file ``wireplumber.conf.d/access.conf`` is charged to
+configure the permissions on client objects created by PipeWire.
 
-Using a similar format as the :ref:`ALSA monitor <config_alsa>`, this
-configuration file is charged to configure the client objects created by
-PipeWire.
+Simple Configs
+--------------
 
-* *Settings*
-
-  Example:
+  All the :ref:`simple configs<configs_types>` can be
+  :ref:`overridden<manipulate_config>` or can be changed
+  :ref:`live<live_configs>`. They are commented in the default location as they
+  are built into WirePlumber. Below is the explanation of each of these simple
+  configs.
 
   .. code-block::
 
-    wireplumber.settings = {
       access-enable-flatpak-portal = true
-    }
 
   The above example sets to ``true`` the ``access-enable-flatpak-portal``
   property.
@@ -31,28 +30,63 @@ PipeWire.
 
   Whether to enable the flatpak portal or not.
 
-* *rules*
+Complex Configs
+---------------
 
-  Example::
+  The :ref:`complex configs<configs_types>`  can be either
+  :ref:`overridden<manipulate_config>`  or :ref:`extended<manipulate_config>` but they
+  cannot be changed :ref:`live<live_configs>`
 
-      access = [
-        {
-          matches = [
-            {
-              pipewire.access = "flatpak"
-            }
-          ]
-          actions = {
-            update-props = {
-              default_permissions = "rx"
-            }
-          }
-        }
-      ]
+  .. code-block::
 
-  This grants read and execute permissions to all clients that have the
-  ``pipewire.access`` property set to ``flatpak``.
+   access.rules = [
+     # The following are the default rules applied if none overrides them.
+     {
+       matches = [
+         {
+           pipewire.access = "flatpak"
+           media.category = "Manager"
+         }
+       ]
+       update-props = {
+         default_permissions = "all",
+       }
+     }
+     {
+       matches = [
+         {
+           pipewire.access = "flatpak"
+         }
+       ]
+       update-props = {
+         default_permissions = "rx"
+       }
+     }
+     {
+       matches = [
+         {
+           pipewire.access = "restricted"
+         }
+       ]
+       update-props = {
+         default_permissions = "rx"
+       }
+     }
+   ]
 
-  Possible permissions are any combination of ``r``, ``w`` and ``x`` for read,
-  write and execute; or ``all`` for all kind of permissions.
+  These rules grants read and execute permissions to clients based on the value
+  of the ``pipewire.access`` property.
+
+.. note::
+
+    Possible permissions are any combination of ``r``, ``w`` and ``x`` for read,
+    write and execute; or ``all`` for all kind of permissions.
+
+.. note::
+
+    The properties set in the update-props section, can be PipeWire properties
+    which trigger some action or they can be new properties that the devices or
+    nodes will be created with. These new properties can be read or written from
+    scripts or modules. After the creation of the devices and nodes new
+    properties cannot be created on them.
 

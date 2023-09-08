@@ -1,35 +1,36 @@
 .. _config_alsa:
 
-ALSA configuration
+ALSA Configuration
 ==================
 
-Modifying the default configuration
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
 ALSA devices are created and managed by the session manager with the *alsa.lua*
-monitor script. In the default configuration, this script is loaded by
-``wireplumber.conf.d/alsa.conf``, which also specifies its settings and
-rules.
+monitor script. ``wireplumber.conf.d/alsa.conf`` contains :ref:`default
+configs<manipulate_config>`  which control the alsa monitor.
 
-* *Settings*
+Simple Configs
+--------------
 
-  Example:
-
-  .. code-block::
-
-    wireplumber.settings = {
-      alsa_monitor.alsa.jack-device = true
-      alsa_monitor.alsa.reserve = true
-    }
-
-  The above example will configure the ALSA monitor to not enable the JACK
-  device, and do ALSA device reservation using the mentioned DBus interface.
-
-  A list of valid settings are:
+  All the :ref:`simple configs<configs_types>` can be
+  :ref:`overridden<manipulate_config>` or can be changed
+  :ref:`live<live_configs>`. They are commented in the default location, as they
+  are built into WirePlumber. Below is the explanation of each of these simple
+  configs.
 
   .. code-block::
 
-    alsa_monitor.alsa.jack-device = true
+    monitor.alsa.midi = true
+
+  Enables MIDI functionality
+
+  .. code-block::
+
+    monitor.alsa.midi.monitoring = true
+
+  Enables monitoring of alsa MIDI devices
+
+  .. code-block::
+
+    monitor.alsa.jack-device = true
 
   Creates a JACK device if set to ``true``. This is not enabled by default
   because it requires that the PipeWire JACK replacement libraries are not used
@@ -38,72 +39,53 @@ rules.
 
   .. code-block::
 
-    alsa_monitor.alsa.reserve = true
+    monitor.alsa.reserve = true
 
   Reserve ALSA devices via *org.freedesktop.ReserveDevice1* on D-Bus.
 
   .. code-block::
 
-    alsa_monitor.alsa.reserve-priority = -20
+    monitor.alsa.reserve-priority = -20
 
-  The used ALSA device reservation priority.
+  The used ALSA device reservation priority. constructing the the MIDI bridge
+  node properties can go here.
 
   .. code-block::
 
-    alsa_monitor.alsa.reserve-application-name = WirePlumber
+    monitor.alsa.reserve-application-name = WirePlumber
 
   The used ALSA device reservation application name.
 
 
-* *rules*
+Complex Configs
+---------------
 
-  Example:
+  The :ref:`complex configs<configs_types>`  can be either
+  :ref:`overridden<manipulate_config>`  or :ref:`extended<manipulate_config>`
+  but they cannot be changed :ref:`live<live_configs>`
 
   .. code-block::
 
-      wireplumber.settings = {
-        alsa_monitor = [
-          {
-            matches = [
-              {
-                # This matches the needed sound card.
-                device.name = "<sound_card_name>"
-              }
-            ]
-            actions = {
-              update-props = {
-                # Apply all the desired device settings here.
-                api.alsa.use-acp = true
-              }
-            }
-          }
-          {
-            matches = [
-              # This matches the needed node.
-              {
-                node.name = "<node_name>"
-              }
-            ]
-            actions = {
-              # Apply all the desired node specific settings here.
-              update-props = {
-                node.nick              = "My Node"
-                priority.driver        = 100
-                session.suspend-timeout-seconds = 5
-              }
-            }
-          }
-        ]
-      }
+    monitor.alsa.properties = {
+    }
+
+  The properties used when constructing the 'api.alsa.enum.udev' plugin can go
+  into this section.
+
+  .. code-block::
+
+    monitor.alsa.midi.node-properties = {
+      node.name = "Midi-Bridge"
+      api.alsa.disable-longname = true
+    }
+
+  The properties used when constructing the the MIDI bridge node properties can
+  go into this section, the two properties set above are self explanatory.
 
 Device settings
-^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^
 
-All the possible settings that you can apply to devices and nodes of the
-ALSA monitor are described here.
-
-PipeWire devices correspond to the ALSA cards.
-The following settings can be configured on devices created by the monitor:
+PipeWire devices are ALSA sound cards.
 
 .. code-block::
 
@@ -193,11 +175,10 @@ Some of the other settings that might be configured on devices:
 ``device.description`` will show up in most apps when a device name is shown.
 
 Node Settings
-^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^
 
-Nodes are sinks or sources in the PipeWire graph. They correspond to the ALSA
-devices. In addition to the generic stream node configuration options, there are
-some alsa specific options as well:
+Nodes are sinks or sources on a ALSA sound card. In addition to the generic
+stream node configuration options, there are some alsa specific options as well:
 
 .. code-block::
 
@@ -365,7 +346,7 @@ It is possible to disable the batch device tweaks with:
 
 .. code-block::
 
-    api.alsa.disable-batch"] = true
+    api.alsa.disable-batch = true
 
 It removes the extra delay added of period-size/2 if the device can support this.
 For batch devices it is also a good idea to lower the period-size
@@ -379,8 +360,8 @@ set with the ``latency.internal.*`` properties:
 
 .. code-block::
 
-    latency.internal.rate"] = 256
-    latency.internal.ns"] = 0
+    latency.internal.rate = 256
+    latency.internal.ns = 0
 
 You can configure a latency in samples (relative to rate with
 ``latency.internal.rate``) or in nanoseconds (``latency.internal.ns``).
@@ -427,7 +408,7 @@ compensate for this startup delay:
 
 .. code-block::
 
-    ["api.alsa.start-delay"] = 0
+    api.alsa.start-delay = 0
 
 It is unsure when this tunable should be used.
 
@@ -460,3 +441,101 @@ This can be done in 3 different ways:
 
   3. Use ``pw-cli s <node-id> Props '{ iec958Codecs : [ PCM ] }'`` to modify
      the codecs at runtime.
+
+Examples
+^^^^^^^^
+
+The below examples contain rules configuring properties on both devices and
+device nodes.
+
+  .. code-block::
+
+    monitor.alsa.rules = [
+      {
+        matches = [
+          {
+            # This matches the needed sound card.
+            device.name = "<sound_card_name>"
+          }
+        ]
+        actions = {
+          update-props = {
+            # Apply all the desired device settings here.
+            api.alsa.use-acp = true
+          }
+        }
+      }
+      {
+        matches = [
+          {
+            # "~" triggers wild card evaluation, only "*" is supported.
+            device.name = "~my-sound-card*"
+            device.product.name = "~Tiger*"
+          }
+        ]
+        actions = {
+          update-props = {
+            # Apply all the desired device settings here.
+            device.nick = "my-card"
+          }
+        }
+      }
+      {
+        matches = [
+          {
+            # This matches all the input device nodes.
+            # "~" triggers wild card evaluation, only "*" is supported.
+            node.name = "~alsa_input.*"
+          }
+          {
+            # This matches all the output device nodes.
+            node.name = "~alsa_output.*"
+          }
+          # either input or output nodes
+        ]
+        actions = {
+          update-props = {
+            # Apply all the desired node settings here.
+            node.nick              = "My Node"
+            node.description       = "My Node Description"
+            api.alsa.period-size   = 1024
+            api.alsa.period-num    = 2
+            api.alsa.headroom      = 0
+
+          }
+        }
+      }
+      {
+        matches = [
+          {
+            # "~" triggers wild card evaluation, only "*" is supported.
+            node.name = "~libcamera*"
+            device.api = "libcamera"
+          }
+          # all the conditions should be met with in the curly braces for the
+          # match to evaluate to true
+        ]
+        actions = {
+          update-props = {
+            # Apply all the desired node settings here.
+            node.nick = "my-libcam"
+          }
+        }
+      }
+    ]
+
+.. note::
+
+    Device and Node settings both go into monitor.alsa.rules JSON section and
+    they are also called rule based configs in that the device or node will have
+    to be filtered first using the match rules. Settings can be set either on
+    all the devices/nodes or on specific devices/nodes, depending on how the
+    match rules are setup.
+
+.. note::
+
+    The properties set in the update-props section, can be PipeWire properties
+    which trigger some action or they can be new properties that the devices or
+    nodes will be created with. These new properties can be read or written from
+    scripts or modules. After the creation of the devices and nodes new
+    properties cannot be created on them.
