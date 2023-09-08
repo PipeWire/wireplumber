@@ -1,7 +1,7 @@
 .. _conf_api:
 
-Static Configuration
-====================
+Conf
+====
 .. graphviz::
   :align: center
 
