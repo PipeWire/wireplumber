@@ -29,6 +29,10 @@ variable is the same as the ``PIPEWIRE_CONFIG_DIR`` environment variable.
 If ``WIREPLUMBER_CONFIG_DIR`` is set, the default locations are ignored and
 configuration files are *only* looked up in this directory.
 
+.. note::
+
+    With 0.5 release, the wireplumber config files are moved under pipewire directory.
+    Earlier they were in `wireplumber` directory.
 
 Location of scripts
 -------------------
