@@ -3,7 +3,7 @@
 Main configuration file
 =======================
 
-The main configuration file is by default called ``wireplumber.conf``. This can
+The main configuration file is by default ``wireplumber.conf``. This can
 be changed on the command line by passing the ``--config-file`` or ``-c`` option::
 
   wireplumber --config-file=bluetooth.conf
@@ -22,6 +22,12 @@ as comments and ignored. The list of all possible section JSON objects are:
 Common configs are present in the main configuration file(wireplumber.conf),
 rest of the configs that can be grouped logically are grouped into separate
 files and are placed under ``wireplumber.conf.d/``. More on this below.
+
+.. note::
+
+  The config search folder depends on the main config file. If the config file
+  is bluetooth.conf then WirePlumber will search for ``bluetooth.conf.d`` not in
+  the ``wireplumber.conf.d/`` folder.
 
 * *context.properties*
 
@@ -147,247 +153,10 @@ files and are placed under ``wireplumber.conf.d/``. More on this below.
 
 * *wireplumber.settings*
 
-  All the Wireplumber configuration settings are now grouped under this
-  section. They are moved away from Lua.
-
-  All the default settings are distributed into different
-  files(\*settings.conf) under ``wireplumber.conf.d\``
-
-  All the settings are loaded into ``sm-settings`` metadata. Apart from the
-  settings JSON files, Metadata interface can be used to change them.
-
-  :ref:`WpSettings <settings_api>` provides APIs to its clients
-  (modules, lua scripts etc) to access and track them.
-
-  Settings can be persistent, more on this below.
-
-  There can be two types of settings namely plain settings(called just settings
-  for reasons of simplicity) and rules.
-
-  * `Settings`
-
-    Syntax::
-
-      wireplumber.settings = {
-        <setting1> = <value>
-        <setting2> = <value>
-        ..
-      }
-
-    Examples::
-
-      wireplumber.settings = {
-        alsa_monitor.alsa.reserve = true
-        alsa_monitor.alsa.midi = "true"
-        default-policy-duck.level = 0.3
-        bt-policy-media-role.applications = ["Firefox", "Chromium input"]
-      }
-
-    Value can be string, int, float, boolean and can even be a JSON array.
-
-    WpSettings exposes the `wp_settings_get_{string|int|float|boolean}()` APIs
-    to access the values.
-
-    Lua scripts, modules use these APIs to access settings.
-    The client accessing the setting should know which API to use to access
-    the setting accurately.
-
-    If the Setting is a JSON array like `bt-policy-media-role.applications`
-    _get_string() API need to be used and the obtained JSON element will have
-    to be parsed using the :ref:`JSON APIs. <spa_json_api>`
-
-    Persistent Behavior::
-
-      wireplumber.settings = {
-        persistent.settings = true
-      }
-
-    Persistent behavior can be enabled with the above syntax.
-
-    When enabled, the settings will be read from conf file only once and for
-    subsequent reboots they will be read from the state(cache) files, till the
-    time the setting is set back to false in the .conf file.
-
-    Settings can be changed through metadata, so when they are updated through
-    metadata and if the user desires those settings to be persistent between
-    reboots this persistent option can be used.
-
-    wp_settings_register_{callback|closure} () API can be used by clients to
-    keep track of the changes to settings.
-
-    The persistent behavior is disabled by default.
-
-  * `Rules`
-
-    Rules are dynamic logic based settings.
-
-    Syntax
-
-    Simple Syntax::
-
-      wireplumber.settings = {
-        <rule-name> = [
-          {
-            matches = [
-              {
-                <pipewire property1> = <value>
-                <pipewire property2> = <value>
-              }
-            ]
-            actions = {
-              update-props = {
-                <pipewire property> = <value>,
-                <wireplumber setting> = <value>,
-              }
-            }
-          }
-        ]
-      }
-
-    Simple Example::
-
-      wireplumber.settings = {
-        stream_default = [
-          {
-            matches = [
-                # Matches all devices
-                { application.name = "pw-play" }
-            ]
-            actions = {
-              update-props = {
-                state.restore-props = false
-                state.restore-target = false
-              }
-            }
-          }
-        ]
-      }
-
-    Stream_default rule scans for pw-play app and if found it applies the two
-    properties listed above.
-
-    Advanced Syntax::
-
-      # Nested behavior
-      wireplumber.settings = {
-        <rule-name> = [
-          {
-            matches = [
-              {
-                # Logical AND behavior with the JSON object
-                <pipewire property1> = <value>
-                <pipewire property2> = <value>
-              }
-
-              # Logical OR behavior across the JSON objects.
-              {
-                <pipewire property3> = <value>
-              }
-            ]
-            actions = {
-              update-props = {
-                <pipewire property> = <value>,
-                <wireplumber setting> = <value>,
-              }
-            }
-          }
-        ]
-      }
-
-      # Use of regular expressions
-      wireplumber.settings = {
-        <rule-name> = [
-          {
-            matches = [
-              {
-                # if a value starts with ``~`` it triggers regular expression evaluation
-                <pipewire property1> = <~value*>
-              }
-            ]
-            actions = {
-              update-props = {
-                <pipewire property> = <value>,
-                <wireplumber setting> = <value>,
-              }
-            }
-          }
-        ]
-      }
-
-      # Multiple Matches with in a single rule is possible.
-      wireplumber.settings = {
-        <rule-name> = [
-          {
-            # Match 1
-            matches = [
-              {
-                <pipewire property1> = <~value*>
-              }
-            ]
-            actions = {
-              update-props = {
-                <pipewire property1> = <value>,
-              }
-            }
-
-
-            # Match 2
-            matches = [
-              {
-                <pipewire property2> = <~value*>
-              }
-            ]
-            actions = {
-              update-props = {
-                <pipewire property2> = <value>,
-              }
-            }
-          }
-        ]
-      }
-
-    Advanced Example::
-
-      wireplumber.settings = {
-
-        alsa_monitor = [
-          {
-            matches = [
-              {
-                # This matches all sound cards.
-                device.name = "~alsa_card.*"
-              }
-            ]
-            actions = {
-              update-props = {
-                # and applies these properties.
-                api.alsa.use-acp = true
-              }
-            }
-          }
-          {
-            matches = [
-              # Matches either input nodes or output nodes
-              {
-                node.name = "~alsa_input.*"
-              }
-              {
-                node.name = "~alsa_output.*"
-              }
-            ]
-            actions = {
-              update-props = {
-                node.nick              = "My Node"
-                priority.driver        = 100
-                session.suspend-timeout-seconds = 5
-              }
-            }
-          }
-        ]
-      }
-
-    * wp_settings_apply_rule () is WpSettings API for rules.
-
+  All the Wireplumber configurations are now grouped under this section. They
+  are moved away from Lua. All the default settings are distributed into
+  different files under ``wireplumber.conf.d\``. There are two :ref:`different
+  types<configs_types>` of config.
 
   * *wireplumber.virtuals*
 
