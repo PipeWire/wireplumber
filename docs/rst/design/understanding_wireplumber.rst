@@ -9,10 +9,12 @@ is structured.
 The Library
 -----------
 
-WirePlumber is built on top of a library that provides some fundamental building
-blocks for expressing all the session management logic. This library can also
-be used outside the scope of the WirePlumber daemon in order to build external
-tools and GUIs that interact with PipeWire.
+libwireplumber wraps PipeWire API and provides higher level and more convenient
+API. It provides fundamental building blocks for expressing all the session
+management logic. WirePlumber daemon implements the session
+management  logic. However this library can also be used outside the
+scope of the WirePlumber daemon in order to build external tools and GUIs that
+interact with PipeWire. It is written in C and is GObject based.
 
 The Object Model
 ^^^^^^^^^^^^^^^^
@@ -41,10 +43,23 @@ Session management utilities
 
 The Daemon
 ----------
+WirePlumber Daemon runs on top of the API and does the session management. By
+itself, it doesn't do anything except load the components. The actual logic is
+implemented inside those components. Modules and Lua scripts are two types of
+components.
 
 Modules
 ^^^^^^^
+Modules extent the libwireplumber API for specific purposes, they either expose
+their own APIs or implement some specific functionality. They are written is C.
 
-Scripts
-^^^^^^^
 
+Lua Scripts
+^^^^^^^^^^^
+Lua Scripts implement most of the session management. The libwireplumber API is
+available in Lua and so it is very easy to write session management logic in
+Lua,as it is a very light scripting language.
+
+.. note::
+
+    WirePlumber can be extended to support scripting system other than Lua.
