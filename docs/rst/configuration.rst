@@ -47,7 +47,7 @@ maintained in different files. You can find all of them under
    configuration/multi_instance.rst
    configuration/alsa.rst
    configuration/bluetooth.rst
-   configuration/policy.rst
+   configuration/linking.rst
    configuration/access.rst
    configuration/device.rst
    configuration/stream.rst
@@ -55,3 +55,4 @@ maintained in different files. You can find all of them under
    configuration/manipulate_configs.rst
    configuration/access_configs.rst
    configuration/live_configs.rst
+   configuration/filters.rst
