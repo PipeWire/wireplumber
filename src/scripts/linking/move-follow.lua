@@ -8,7 +8,7 @@
 -- install hooks that will schedule a rescan of the graph when needed
 
 log = Log.open_topic ("s-linking")
-local config = require ("policy-config")
+local config = require ("linking-config")
 local handles = {}
 
 function handleFollowSetting (enable)

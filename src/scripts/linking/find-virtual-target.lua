@@ -6,7 +6,7 @@
 --
 -- Select the virtual target based on roles
 
-local putils = require ("policy-utils")
+local putils = require ("linking-utils")
 log = Log.open_topic ("s-linking")
 
 local defaults = {}

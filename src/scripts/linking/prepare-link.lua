@@ -8,7 +8,7 @@
 -- indicate it is not available for linking. If no target is available, send
 -- down an error to the corresponding client.
 
-local putils = require ("policy-utils")
+local putils = require ("linking-utils")
 local cutils = require ("common-utils")
 log = Log.open_topic ("s-linking")
 

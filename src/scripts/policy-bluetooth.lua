@@ -24,7 +24,7 @@
 -- When a stream goes away if the list with which we track the streams above
 -- is empty, then we revert back to the old profile.
 
--- settings file: policy.conf
+-- settings file: linking.conf
 
 local cutils = require ("common-utils")
 
@@ -35,11 +35,11 @@ defaults.app_settings = Json.Array {}
 
 local config = {}
 config.use_persistent_storage = Conf.get_value_boolean ("wireplumber.settings",
-    "policy.bluetooth.use-persistent-storage", defaults.use_persistent_storage)
+    "linking.bluetooth.use-persistent-storage", defaults.use_persistent_storage)
 config.use_headset_profile = Conf.get_value_boolean ("wireplumber.settings",
-    "policy.bluetooth.media-role.use-headset-profile", defaults.use_headset_profile)
+    "linking.bluetooth.media-role.use-headset-profile", defaults.use_headset_profile)
 config.apps_setting = Conf.get_value ("wireplumber.settings",
-    "policy.bluetooth.media-role.applications", defaults.app_settings): parse ()
+    "linking.bluetooth.media-role.applications", defaults.app_settings): parse ()
 
 state = nil
 headset_profiles = nil
@@ -47,7 +47,7 @@ headset_profiles = nil
 function handlePersistantSetting (enable)
   if enable and state == nil then
     -- the state storage
-    state = config.use_persistent_storage and State ("policy-bluetooth") or nil
+    state = config.use_persistent_storage and State ("linking-bluetooth") or nil
     headset_profiles = state and state:load () or {}
   else
     state = nil
@@ -56,14 +56,14 @@ function handlePersistantSetting (enable)
 end
 
 local function settingsChangedCallback (_, setting, json)
-  if setting == "policy.bluetooth.use-persistent-storage" and
+  if setting == "linking.bluetooth.use-persistent-storage" and
       json:is_boolean () then
     config.use_persistent_storage = json:parse ()
     handlePersistantSetting (config.use_persistent_storage)
-  elseif setting == "policy.bluetooth.media-role.use-headset-profile" and
+  elseif setting == "linking.bluetooth.media-role.use-headset-profile" and
       json:is_boolean () then
     config.use_headset_profile = json:parse ()
-  elseif setting == "policy.bluetooth.media-role.applications"
+  elseif setting == "linking.bluetooth.media-role.applications"
       and json:is_array () then
     local new_apps_setting = json:parse ()
     if #new_apps_setting > 0 then
@@ -73,7 +73,7 @@ local function settingsChangedCallback (_, setting, json)
   end
 end
 
-Settings.subscribe ("policy.bluetooth*", settingsChangedCallback)
+Settings.subscribe ("linking.bluetooth*", settingsChangedCallback)
 
 handlePersistantSetting (config.use_persistent_storage)
 
@@ -381,7 +381,7 @@ local function handleAllStreams ()
 end
 
 SimpleEventHook {
-  name = "input-stream-removed@policy-bluetooth",
+  name = "input-stream-removed@linking-bluetooth",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "node-removed" },
@@ -397,7 +397,7 @@ SimpleEventHook {
 }:register ()
 
 SimpleEventHook {
-  name = "input-stream-changed@policy-bluetooth",
+  name = "input-stream-changed@linking-bluetooth",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "node-state-changed" },
@@ -418,7 +418,7 @@ SimpleEventHook {
 }:register ()
 
 SimpleEventHook {
-  name = "bluez-device-added@policy-bluetooth",
+  name = "bluez-device-added@linking-bluetooth",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "device-added" },
@@ -436,7 +436,7 @@ SimpleEventHook {
 }:register ()
 
 SimpleEventHook {
-  name = "metadata-changed@policy-bluetooth",
+  name = "metadata-changed@linking-bluetooth",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "metadata-changed" },

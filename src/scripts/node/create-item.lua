@@ -8,7 +8,7 @@
 -- create-item.lua script takes pipewire nodes and creates session items (a.k.a
 -- linkable) objects out of them.
 
-config = require ("policy-config")
+config = require ("linking-config")
 log = Log.open_topic ("s-node")
 
 items = {}

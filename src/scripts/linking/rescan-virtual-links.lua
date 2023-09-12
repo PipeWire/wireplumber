@@ -5,7 +5,7 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local putils = require ("policy-utils")
+local putils = require ("linking-utils")
 log = Log.open_topic ("s-linking")
 
 local defaults = {}
@@ -14,7 +14,7 @@ defaults.roles = Json.Object {}
 
 local config = {}
 config.duck_level = Conf.get_value_float ("wireplumber.settings",
-    "policy.default.duck-level", defaults.duck_level)
+    "linking.default.duck-level", defaults.duck_level)
 config.roles = Conf.get_section (
     "virtual-item-roles", defaults.roles):parse ()
 

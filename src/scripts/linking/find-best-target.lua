@@ -6,7 +6,7 @@
 --
 -- Traverse through all the possible targets to pick up target node.
 
-local putils = require ("policy-utils")
+local putils = require ("linking-utils")
 local cutils = require ("common-utils")
 log = Log.open_topic ("s-linking")
 
