@@ -2,7 +2,7 @@
 -- among which only one is selected as the defined device("target.node").
 
 -- The "target.node" here is defined in default metadata.
-local pu = require ("policy-utils")
+local pu = require ("linking-utils")
 local tu = require ("test-utils")
 
 Script.async_activation = true

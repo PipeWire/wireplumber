@@ -2,7 +2,7 @@
 -- among which only one is selected as the defined device(target.object).
 
 -- The target.object here is a int
-local pu = require ("policy-utils")
+local pu = require ("linking-utils")
 local tu = require ("test-utils")
 
 Script.async_activation = true

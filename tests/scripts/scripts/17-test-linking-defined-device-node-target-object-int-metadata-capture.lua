@@ -2,7 +2,7 @@
 -- update defined device in both the node properties and in metadata.
 
 -- The device in metadata takes priority over the one in node properties.
-local pu = require ("policy-utils")
+local pu = require ("linking-utils")
 local tu = require ("test-utils")
 
 Script.async_activation = true

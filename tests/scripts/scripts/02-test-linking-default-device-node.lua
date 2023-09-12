@@ -1,7 +1,7 @@
 -- Tests linking of streams and default devices. Two device nodes are setup,
 -- among which only one is selected as default device node.
 
-local pu = require ("policy-utils")
+local pu = require ("linking-utils")
 local tu = require ("test-utils")
 
 Script.async_activation = true
