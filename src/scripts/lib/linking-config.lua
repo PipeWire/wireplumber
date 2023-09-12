@@ -4,7 +4,7 @@
 --
 -- SPDX-License-Identifier: MIT
 
--- Policy settings manager
+-- linking settings manager
 
 local settings_manager = require ("settings-manager")
 
@@ -16,4 +16,5 @@ local defaults = {
   ["duck-level"] = 0.3,
 }
 
-return settings_manager.new ("policy.default.", defaults)
+return settings_manager.new ("linking.default.", defaults)
+

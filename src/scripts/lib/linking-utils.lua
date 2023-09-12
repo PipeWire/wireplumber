@@ -5,7 +5,7 @@
 
 -- SPDX-License-Identifier: MIT
 
--- Script is a Lua Module of policy Lua utility functions
+-- Script is a Lua Module of linking Lua utility functions
 
 local cutils = require ("common-utils")
 
