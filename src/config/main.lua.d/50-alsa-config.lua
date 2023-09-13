@@ -31,7 +31,7 @@ alsa_monitor.properties = {
   -- These properties override node defaults when running in a virtual machine.
   -- The rules below still override those.
   ["vm.node.defaults"] = {
-    ["api.alsa.period-size"] = 256,
+    ["api.alsa.period-size"] = 1024,
     ["api.alsa.headroom"] = 8192,
   },
 }
