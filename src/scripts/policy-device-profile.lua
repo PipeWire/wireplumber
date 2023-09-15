@@ -152,6 +152,11 @@ function handleProfiles (device, new_device)
     Log.info ("Default profile not found for " .. dev_name)
   end
 
+  -- Do not set best profile if device.profile has been set
+  if device.properties["device.profile"] ~= nil then
+    return
+  end
+
   local best_profile = findBestProfile (device)
   if best_profile ~= nil then
     Log.info ("Found best profile " .. best_profile.name .. " for " .. dev_name)
