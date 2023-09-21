@@ -95,7 +95,7 @@ local function getFilterTarget (metadata, node, om)
     end
 
     -- Make sure the target node properties match all rules
-    for key, val in ipairs(match_rules) do
+    for key, val in pairs(match_rules) do
       if n_target.properties[key] ~= val then
         goto skip_target
       end
@@ -381,7 +381,7 @@ function module.get_filter_from_target (direction, si_target)
     if v.direction == direction and
         v.enabled and
         v.target ~= nil and
-        v.target.id == target.id then
+        v.target.id == si_target.id then
       return v.main_si
     end
   end

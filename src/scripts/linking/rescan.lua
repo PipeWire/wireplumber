@@ -151,7 +151,6 @@ SimpleEventHook {
     EventInterest {
       Constraint { "event.type", "c", "session-item-added", "session-item-removed" },
       Constraint { "event.session-item.interface", "=", "linkable" },
-      Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node", "si-audio-virtual" },
     },
     -- on device Routes changed
     EventInterest {

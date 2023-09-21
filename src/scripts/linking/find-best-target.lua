@@ -44,7 +44,7 @@ SimpleEventHook {
     } do
       local target_props = target.properties
       local target_node_id = target_props ["node.id"]
-      local si_target_node = si:get_associated_proxy ("node")
+      local si_target_node = target:get_associated_proxy ("node")
       local si_target_link_group = si_target_node.properties ["node.link-group"]
       local priority = tonumber (target_props ["priority.session"]) or 0
 
