@@ -90,13 +90,17 @@ function findDefaultProfile (device)
 end
 
 function findBestProfile (device)
+  -- Takes absolute priority if available or unknown
+  local profile_prop = device.properties["device.profile"]
   local off_profile = nil
   local best_profile = nil
   local unk_profile = nil
 
   for p in device:iterate_params("EnumProfile") do
     profile = parseParam(p, "EnumProfile")
-    if profile and profile.name ~= "pro-audio" then
+    if profile and profile.name == profile_prop and profile.available ~= "no" then
+      return profile
+    elseif profile and profile.name ~= "pro-audio" then
       if profile.name == "off" then
         off_profile = profile
       elseif profile.available == "yes" then
@@ -150,11 +154,6 @@ function handleProfiles (device, new_device)
     end
   else
     Log.info ("Default profile not found for " .. dev_name)
-  end
-
-  -- Do not set best profile if device.profile has been set
-  if device.properties["device.profile"] ~= nil then
-    return
   end
 
   local best_profile = findBestProfile (device)
