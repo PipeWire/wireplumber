@@ -97,7 +97,7 @@ nodes_om:connect("object-added", function (om, node)
           if filter_chains[id] then
             Log.warning("Sink " .. id .. " has been plugged now, but has a filter chain loaded. Skipping")
           else
-            filter_chains[id] = LocalModule("libpipewire-module-filter-chain", r.filter_chain, {})
+            filter_chains[id] = LocalModule("libpipewire-module-filter-chain", r.filter_chain, {}, true)
           end
         end
       end
