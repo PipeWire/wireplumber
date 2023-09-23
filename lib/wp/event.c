@@ -321,7 +321,7 @@ record_dependency (struct spa_list *list, const gchar *target,
 {
   HookData *hook_data;
   spa_list_for_each (hook_data, list, link) {
-    if (!g_strcmp0 (wp_event_hook_get_name (hook_data->hook), target)) {
+    if (g_pattern_match_simple (target, wp_event_hook_get_name (hook_data->hook))) {
       g_ptr_array_insert (hook_data->dependencies, -1, (gchar *) dependency);
       break;
     }
@@ -334,7 +334,7 @@ hook_exists_in (const gchar *hook_name, struct spa_list *list)
   HookData *hook_data;
   if (!spa_list_is_empty (list)) {
     spa_list_for_each (hook_data, list, link) {
-      if (!g_strcmp0 (wp_event_hook_get_name (hook_data->hook), hook_name)) {
+      if (g_pattern_match_simple (hook_name, wp_event_hook_get_name (hook_data->hook))) {
         return TRUE;
       }
     }
