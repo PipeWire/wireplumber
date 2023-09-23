@@ -406,9 +406,9 @@ wp_standard_event_source_enable (WpPlugin * plugin, WpTransition * transition)
     wp_core_install_object_manager (core, self->oms[i]);
   }
 
-  /* install hook to restore the rescan_scheduled state after rescanning */
+  /* install hook to restore the rescan_scheduled state just before rescanning */
   self->rescan_done_hook = wp_simple_event_hook_new (
-      "m-standard-event-source/rescan-done", NULL, NULL,
+      "m-standard-event-source/rescan-done", (const gchar *[]) { "*", NULL }, NULL,
       g_cclosure_new_object ((GCallback) on_rescan_done, G_OBJECT (self)));
   wp_interest_event_hook_add_interest (
       WP_INTEREST_EVENT_HOOK (self->rescan_done_hook),
