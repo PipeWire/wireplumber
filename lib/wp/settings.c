@@ -19,8 +19,8 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-settings")
  * \struct WpSettings
  *
  * WpSettings loads and parses the "sm-settings" (default value) metadata, which
- * contains wireplumber settings. It provides APIs to its clients (modules, lua
- * scripts etc) to access and change them.
+ * contains wireplumber settings, and provides APIs to its clients (modules, lua
+ * scripts etc) to access them.
  *
  * Being a WpObject subclass, the settings inherits WpObject's activation
  * system.
