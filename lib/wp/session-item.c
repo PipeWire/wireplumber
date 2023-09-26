@@ -18,6 +18,14 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-si")
 /*!
  * \struct WpSessionItem
  *
+ * Session items are high level objects that wrap underlying PipeWire objects
+ * and manage them. For example, a session item may be managing a node, taking
+ * responsibility for configuring the PortConfig and Format parameters of the
+ * node. Or another may be managing links between two nodes.
+ *
+ * All the implementations are provided by modules and instantiated via the
+ * WpSiFactory class.
+ *
  * \gproperties
  *
  * \gproperty{id, guint, G_PARAM_READABLE,
