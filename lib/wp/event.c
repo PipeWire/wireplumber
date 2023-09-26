@@ -304,6 +304,7 @@ wp_event_set_data (WpEvent * self, const gchar * key, const GValue * data)
  *    wp_event_set_data()
  * \ingroup wpevent
  * \param self the event
+ * \param key the key
  * \return (transfer none)(nullable): the data associated with \a key or \c NULL
  */
 const GValue *
