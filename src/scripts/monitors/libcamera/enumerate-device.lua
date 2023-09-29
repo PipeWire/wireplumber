@@ -4,12 +4,13 @@
 --    @author Ashok Sidipotu <ashok.sidipotu@collabora.com>
 --
 -- SPDX-License-Identifier: MIT
+
 log = Log.open_topic ("s-monitors-libcam")
 
-local defaults = {}
+defaults = {}
 defaults.properties = Json.Object {}
 
-local config = {}
+config = {}
 config.properties = Conf.get_section (
   "monitor.libcamera.properties", defaults.properties):parse ()
 

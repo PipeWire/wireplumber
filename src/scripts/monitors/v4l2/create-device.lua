@@ -4,8 +4,9 @@
 --    @author Ashok Sidipotu <ashok.sidipotu@collabora.com>
 --
 -- SPDX-License-Identifier: MIT
-local cutils = require ("common-utils")
-local mutils = require ("monitor-utils")
+
+cutils = require ("common-utils")
+mutils = require ("monitor-utils")
 
 log = Log.open_topic ("s-monitors-v4l2")
 

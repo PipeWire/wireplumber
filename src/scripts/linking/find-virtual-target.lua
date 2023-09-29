@@ -6,13 +6,13 @@
 --
 -- Select the virtual target based on roles
 
-local putils = require ("linking-utils")
+putils = require ("linking-utils")
 log = Log.open_topic ("s-linking")
 
-local defaults = {}
+defaults = {}
 defaults.roles = Json.Object {}
 
-local config = {}
+config = {}
 config.roles = Conf.get_section (
     "virtual-item-roles", defaults.roles):parse ()
 

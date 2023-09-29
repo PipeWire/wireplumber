@@ -7,8 +7,8 @@
 -- Links a session item to the target that has been previously selected.
 -- This is meant to be the last hook in the select-target chain.
 
-local putils = require ("linking-utils")
-local cutils = require ("common-utils")
+putils = require ("linking-utils")
+cutils = require ("common-utils")
 log = Log.open_topic ("s-linking")
 
 AsyncEventHook {

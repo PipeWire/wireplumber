@@ -4,12 +4,13 @@
 --    @author Ashok Sidipotu <ashok.sidipotu@collabora.com>
 --
 -- SPDX-License-Identifier: MIT
+
 log = Log.open_topic ("s-monitors-v4l2")
 
-local defaults = {}
+defaults = {}
 defaults.properties = Json.Object {}
 
-local config = {}
+config = {}
 config.properties = Conf.get_section (
   "monitor.v4l2.properties", defaults.properties):parse ()
 

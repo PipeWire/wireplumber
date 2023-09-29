@@ -4,7 +4,8 @@
 --    @author Ashok Sidipotu <ashok.sidipotu@collabora.com>
 --
 -- SPDX-License-Identifier: MIT
-local mutils = require ("monitor-utils")
+
+mutils = require ("monitor-utils")
 
 log = Log.open_topic ("s-monitors-libcam")
 

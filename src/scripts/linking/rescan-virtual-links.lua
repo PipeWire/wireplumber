@@ -5,14 +5,14 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local putils = require ("linking-utils")
+putils = require ("linking-utils")
 log = Log.open_topic ("s-linking")
 
-local defaults = {}
+defaults = {}
 defaults.duck_level = 0.3
 defaults.roles = Json.Object {}
 
-local config = {}
+config = {}
 config.duck_level = Conf.get_value_float ("wireplumber.settings",
     "linking.default.duck-level", defaults.duck_level)
 config.roles = Conf.get_section (

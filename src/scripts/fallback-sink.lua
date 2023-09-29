@@ -5,8 +5,8 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local sink_ids = {}
-local fallback_node = nil
+sink_ids = {}
+fallback_node = nil
 
 node_om = ObjectManager {
   Interest {

@@ -6,8 +6,8 @@
 --
 -- Traverse through all the possible targets to pick up target node.
 
-local putils = require ("linking-utils")
-local cutils = require ("common-utils")
+putils = require ("linking-utils")
+cutils = require ("common-utils")
 log = Log.open_topic ("s-linking")
 
 SimpleEventHook {

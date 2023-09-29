@@ -5,17 +5,17 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local cutils = require ("common-utils")
+cutils = require ("common-utils")
 log = Log.open_topic ("s-monitors")
 
-local defaults = {}
+defaults = {}
 defaults.reserve_priority = -20
 defaults.reserve_application_name = "WirePlumber"
 defaults.jack_device = false
 defaults.properties = Json.Object {}
 defaults.vm_node_defaults = Json.Object {}
 
-local config = {}
+config = {}
 config.reserve_priority = Conf.get_value_int ("wireplumber.settings",
     "monitor.alsa.reserve-priority", defaults.reserve_priority)
 config.reserve_application_name = Conf.get_value_string ("wireplumber.settings",

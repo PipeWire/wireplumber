@@ -7,10 +7,10 @@
 
 log = Log.open_topic ("s-monitors")
 
-local defaults = {}
+defaults = {}
 defaults.node_properties = Json.Object {}
 
-local config = {}
+config = {}
 config.node_properties = Conf.get_section (
     "monitor.alsa.midi.node-properties", defaults.node_properties):parse ()
 

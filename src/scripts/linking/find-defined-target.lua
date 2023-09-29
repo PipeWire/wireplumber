@@ -9,9 +9,9 @@
 -- 1. "node.target"/"target.object" in the node properties
 -- 2. "target.node"/"target.object" in the default metadata
 
-local putils = require ("linking-utils")
-local cutils = require ("common-utils")
-local config = require ("linking-config")
+putils = require ("linking-utils")
+cutils = require ("common-utils")
+config = require ("linking-config")
 log = Log.open_topic ("s-linking")
 
 SimpleEventHook {

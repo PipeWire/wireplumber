@@ -6,7 +6,7 @@
 --
 -- Check if default nodes can be picked up as target node.
 
-local putils = require ("linking-utils")
+putils = require ("linking-utils")
 log = Log.open_topic ("s-linking")
 
 SimpleEventHook {

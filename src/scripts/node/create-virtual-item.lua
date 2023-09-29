@@ -11,10 +11,10 @@
 
 log = Log.open_topic ("s-node")
 
-local defaults = {}
+defaults = {}
 defaults.virtual_items = Json.Object {}
 
-local config = {}
+config = {}
 config.virtual_items = Conf.get_section (
     "virtual-items", defaults.virtual_items):parse ()
 

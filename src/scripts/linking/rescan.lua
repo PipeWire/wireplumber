@@ -10,9 +10,9 @@
 -- Cleanup links when the linkables they are associated with are removed.
 -- Also, cleanup flags attached to linkables.
 
-local putils = require ("linking-utils")
-local cutils = require ("common-utils")
-local futils = require ("filter-utils")
+putils = require ("linking-utils")
+cutils = require ("common-utils")
+futils = require ("filter-utils")
 log = Log.open_topic ("s-linking")
 
 function checkFilter (si, om, handle_nonstreams)

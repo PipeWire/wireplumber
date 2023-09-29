@@ -31,7 +31,7 @@ streams_om = ObjectManager {
   }
 }
 
-local function routeUsingIntendedRole(stream, dev)
+function routeUsingIntendedRole(stream, dev)
   local stream_role = stream.properties["media.role"]
   local is_input = stream.properties["media.class"]:find("Input") ~= nil
 

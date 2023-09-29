@@ -10,8 +10,8 @@
 --
 -- FIXME: this script can be further improved
 
-local putils = require ("linking-utils")
-local config = require ("linking-config")
+putils = require ("linking-utils")
+config = require ("linking-config")
 log = Log.open_topic ("s-linking")
 
 function findAssociatedLinkGroupNode (si)

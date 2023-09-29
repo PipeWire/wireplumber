@@ -6,9 +6,9 @@
 --
 -- Check if the target node is a filter target.
 
-local putils = require ("linking-utils")
-local cutils = require ("common-utils")
-local futils = require ("filter-utils")
+putils = require ("linking-utils")
+cutils = require ("common-utils")
+futils = require ("filter-utils")
 log = Log.open_topic ("s-linking")
 
 function findFilterTarget (si, om)

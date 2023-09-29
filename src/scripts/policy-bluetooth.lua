@@ -26,14 +26,14 @@
 
 -- settings file: linking.conf
 
-local cutils = require ("common-utils")
+cutils = require ("common-utils")
 
-local defaults = {}
+defaults = {}
 defaults.use_persistent_storage = true
 defaults.use_headset_profile = true
 defaults.app_settings = Json.Array {}
 
-local config = {}
+config = {}
 config.use_persistent_storage = Conf.get_value_boolean ("wireplumber.settings",
     "linking.bluetooth.use-persistent-storage", defaults.use_persistent_storage)
 config.use_headset_profile = Conf.get_value_boolean ("wireplumber.settings",

@@ -5,15 +5,15 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local COMBINE_OFFSET = 64
+COMBINE_OFFSET = 64
 
-local cutils = require ("common-utils")
+cutils = require ("common-utils")
 log = Log.open_topic ("s-monitors")
 
-local defaults = {}
+defaults = {}
 defaults.properties = Json.Object {}
 
-local config = {}
+config = {}
 config.properties = Conf.get_section (
     "monitor.bluetooth.properties", defaults.properties): parse ()
 
