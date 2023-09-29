@@ -29,6 +29,12 @@ Table of Contents
 
 .. toctree::
    :maxdepth: 2
+   :caption: Scripting
+
+   scripts/existing_scripts.rst
+
+.. toctree::
+   :maxdepth: 2
    :caption: Resources
 
    contributing.rst
