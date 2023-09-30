@@ -22,7 +22,7 @@ SimpleEventHook {
   },
   execute = function (event)
     local source, _, si, si_props, si_flags, target =
-        putils:unwrap_find_target_event (event)
+        putils:unwrap_select_target_event (event)
 
     local si_id = si.id
     local reconnect = not cutils.parseBool (si_props ["node.dont-reconnect"])

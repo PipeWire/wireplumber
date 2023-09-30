@@ -42,7 +42,7 @@ SimpleEventHook {
   },
   execute = function (event)
     local source, om, si, si_props, si_flags, target =
-        pu:unwrap_find_target_event (event)
+        pu:unwrap_select_target_event (event)
 
     if not target then
       return

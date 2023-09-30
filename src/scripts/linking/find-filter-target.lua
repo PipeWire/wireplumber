@@ -36,7 +36,7 @@ SimpleEventHook {
   },
   execute = function (event)
     local source, om, si, si_props, si_flags, target =
-        putils:unwrap_find_target_event (event)
+        putils:unwrap_select_target_event (event)
 
     -- bypass the hook if the target is already picked up
     if target then

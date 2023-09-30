@@ -56,7 +56,7 @@ SimpleEventHook {
   },
   execute = function (event)
     local source, om, si, si_props, si_flags, target =
-        putils:unwrap_find_target_event (event)
+        putils:unwrap_select_target_event (event)
     local target_class_assoc = {
       ["Stream/Input/Audio"] = "Audio/Source",
       ["Stream/Output/Audio"] = "Audio/Sink",
