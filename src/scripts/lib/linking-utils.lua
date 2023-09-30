@@ -9,10 +9,6 @@
 
 local cutils = require ("common-utils")
 
-function parseBool (var)
-  return cutils.parseBool (var)
-end
-
 local putils = {
   si_flags = {},
 }
@@ -43,8 +39,8 @@ function putils.canPassthrough (si, si_target)
   local props = si.properties
   local tprops = si_target.properties
   -- both nodes must support encoded formats
-  if not parseBool (props ["item.node.supports-encoded-fmts"])
-      or not parseBool (tprops ["item.node.supports-encoded-fmts"]) then
+  if not cutils.parseBool (props ["item.node.supports-encoded-fmts"])
+      or not cutils.parseBool (tprops ["item.node.supports-encoded-fmts"]) then
     return false
   end
 
@@ -77,15 +73,15 @@ function putils.checkFollowDefault (si, si_target, has_node_defined_target)
   end
   local si_props = si.properties
   local target_props = si_target.properties
-  local reconnect = not parseBool (si_props ["node.dont-reconnect"])
+  local reconnect = not cutils.parseBool (si_props ["node.dont-reconnect"])
   local is_filter = (si_props ["node.link-group"] ~= nil)
 
   if follow and default_nodes ~= nil and reconnect and not is_filter then
-    local def_id = getDefaultNode (si_props,
+    local def_id = cutils.getDefaultNode (si_props,
       cutils.getTargetDirection (si_props))
 
     if target_props ["node.id"] == tostring (def_id) then
-      local metadata = putils.get_default_metadata_object ()
+      local metadata = cutils.get_default_metadata_object ()
       -- Set target.node, for backward compatibility
       metadata:set (tonumber
         (si_props ["node.id"]), "target.node", "Spa:Id", "-1")
@@ -123,7 +119,7 @@ function putils.isLinked (si_target)
     local in_id = tonumber (p ["in.item.id"])
     linked = (out_id == target_id) or (in_id == target_id)
     if linked then
-      exclusive = parseBool (p ["exclusive"]) or parseBool (p ["passthrough"])
+      exclusive = cutils.parseBool (p ["exclusive"]) or cutils.parseBool (p ["passthrough"])
       break
     end
   end
@@ -140,8 +136,8 @@ function putils.canLink (properties, si_target)
 
   local function isMonitor(properties)
     return properties ["item.node.direction"] == "input" and
-        parseBool (properties ["item.features.monitor"]) and
-        not parseBool (properties ["item.features.no-dsp"]) and
+        cutils.parseBool (properties ["item.features.monitor"]) and
+        not cutils.parseBool (properties ["item.features.no-dsp"]) and
         properties ["item.factory.name"] == "si-audio-adapter"
   end
 
@@ -233,9 +229,9 @@ end
 
 function putils.checkPassthroughCompatibility (si, si_target)
   local si_must_passthrough =
-  parseBool (si.properties ["item.node.encoded-only"])
+      cutils.parseBool (si.properties ["item.node.encoded-only"])
   local si_target_must_passthrough =
-  parseBool (si_target.properties ["item.node.encoded-only"])
+      cutils.parseBool (si_target.properties ["item.node.encoded-only"])
   local can_passthrough = putils.canPassthrough (si, si_target)
   if (si_must_passthrough or si_target_must_passthrough)
       and not can_passthrough then
@@ -308,10 +304,6 @@ function putils.haveAvailableRoutes (si_props)
   end
 
   return false
-end
-
-function putils.get_default_metadata_object ()
-  return cutils.get_default_metadata_object ()
 end
 
 return putils

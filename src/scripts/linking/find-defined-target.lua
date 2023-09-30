@@ -34,7 +34,7 @@ SimpleEventHook {
     log:info (si, string.format ("handling item: %s (%s)",
         tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
 
-    local metadata = config.move and putils.get_default_metadata_object ()
+    local metadata = config.move and cutils.get_default_metadata_object ()
     local target_key
     local target_value = nil
     local node_defined = false
