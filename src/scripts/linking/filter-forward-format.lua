@@ -87,7 +87,6 @@ SimpleEventHook {
       Constraint { "event.session-item.interface", "=", "linkable" },
       Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
       Constraint { "media.class", "#", "Stream/*", type = "pw-global" },
-      Constraint { "active-features", "!", 0, type = "gobject" },
     },
   },
   execute = function (event)

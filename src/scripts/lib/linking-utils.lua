@@ -180,7 +180,6 @@ function putils.canLink (properties, si_target)
     for n in cutils.get_object_manager ("session-item"):iterate {
       type = "SiLinkable",
       Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
-      Constraint { "active-features", "!", 0, type = "gobject" },
       Constraint { "id", "!", si_target.id, type = "gobject" },
       Constraint { "item.node.direction", "!", target_props ["item.node.direction"] },
       Constraint { "node.link-group", "=", target_link_group },
@@ -196,7 +195,6 @@ function putils.canLink (properties, si_target)
           local peer = cutils.get_object_manager ("session-item"):lookup {
             type = "SiLinkable",
             Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
-            Constraint { "active-features", "!", 0, type = "gobject" },
             Constraint { "id", "=", peer_id, type = "gobject" },
           }
           if peer and not canLinkGroupCheck (link_group, peer, hops + 1) then
@@ -222,7 +220,6 @@ function putils.findDefaultLinkable (si)
   return cutils.get_object_manager ("session-item"):lookup {
     type = "SiLinkable",
     Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
-    Constraint { "active-features", "!", 0, type = "gobject" },
     Constraint { "node.id", "=", tostring (def_node_id) }
   }
 end
