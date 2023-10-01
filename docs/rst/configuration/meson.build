@@ -9,9 +9,9 @@ sphinx_files += files(
   'access.rst',
   'device.rst',
   'stream.rst',
-  'config_types.rst',
-  'manipulate_configs.rst',
-  'access_configs.rst',
-  'live_configs.rst',
+  'configuration_option_types.rst',
+  'manipulate_configuration_options.rst',
+  'access_configuration_options.rst',
+  'live_configuration_options.rst',
   'filters.rst',
 )

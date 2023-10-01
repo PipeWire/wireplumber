@@ -61,21 +61,54 @@ Filter properties
 Currently, if a filter node is created, wireplumber will check the following
 optional node properties on the main node:
 
- - filter.name: the unique name of the filter. WirePlumber will use the
-   "node.link-group" property as filter name if this property is not set.
- - filter.enabled: Boolean indicating whether the filter should be used at all
-   or not. If it is not set, wireplumber will consider the filter enabled by
-   default.
- - filter.target: a JSON object that defines the matching properties of the
-   filter's target node. A filter target can never be another filter node
-   (wireplumber will ignore it), and must always be a device node. If this
-   property is not set, WirePlumber will use the default node as target.
- - filter.before: a JSON array with the filters names that are supposed to be
-   used before this filter. If not set, wireplumber will link the filters by
-   order of creation.
- - filter.after: a JSON array with the filters names that are supposed to be
-   used after this filter. If not set, wireplumber will link the filters by
-   order of creation.
+.. code-block::
+
+  filter.smart
+
+  Boolean indicating whether smart policy will be used in the filter nodes or
+  not. This is disabled by default, therefore filter nodes will be treated as
+  regular nodes, without applying any kid of extra logic. On the other hand, if
+  this property is set to true, automatic (smart) filter policy will be used
+  when linking filters. The properties below will instruct the smart policy how
+  to link the filters automatically.
+
+.. code-block::
+
+  filter.smart.name:
+
+  The unique name of the filter. WirePlumber will use the "node.link-group"
+  property as filter name if this property is not set.
+
+.. code-block::
+
+  filter.smart.disabled:
+
+  Boolean indicating whether the filter should be disabled at all or not. A
+  disabled filter will never be used in any circumstances. If the property is
+  not set, wireplumber will consider the filter not disabled by default.
+
+.. code-block::
+
+  filter.smart.target:
+
+  A JSON object that defines the matching properties of the filter's target node.
+  A filter target can never be another filter node (wireplumber will ignore it),
+  and must always be a device node. If this property is not set, WirePlumber will
+  use the default node as target.
+
+.. code-block::
+
+  filter.smart.before:
+
+  A JSON array with the filters names that are supposed to be used before this
+  filter. If not set, wireplumber will link the filters by order of creation.
+
+.. code-block::
+
+  filter.smart.after:
+
+  A JSON array with the filters names that are supposed to be used after this
+  filter. If not set, wireplumber will link the filters by order of creation.
 
 Note that these properties must be set in the filter's main node, not the
 filter's stream node.

@@ -6,16 +6,16 @@ Device Configuration
 ``wireplumber.conf.d/device.conf`` deals with the configuration, that is common
 to all the devices. Interface specific configuration like
 :ref:`ALSA<config_alsa>` , :ref:`Bluetooth<config_bluetooth>` etc is dealt in
-separate config files.
+separate configuration files.
 
-Simple Configs
---------------
+Simple Configuration Options
+----------------------------
 
-All the :ref:`simple configs<config_types>` can be
-:ref:`overridden<manipulate_config>` or can be changed
-:ref:`live<live_configs>`. They are commented in the default location, as they
+All the :ref:`simple configuration options<configuration_option_types>` can be
+:ref:`overridden<manipulate_configuration_options>` or can be changed
+:ref:`live<live_configuration_options>`. They are commented in the default location, as they
 are built into WirePlumber. Below is the explanation of each of these simple
-configs.
+configuration options.
 
 .. code-block::
 
@@ -40,4 +40,4 @@ Sets the device default volume level.
   device.save-interval-ms = 1000
 
 The persistent save interval in milliseconds when any change happens in a
-device config.
+device configuration.

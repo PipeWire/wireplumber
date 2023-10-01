@@ -19,15 +19,15 @@ in the future.
 All sections are essentially JSON objects. Lines starting with *#* are treated
 as comments and ignored. The list of all possible section JSON objects are:
 
-Common configs are present in the main configuration file(wireplumber.conf),
-rest of the configs that can be grouped logically are grouped into separate
+Common configuration options are present in the main configuration file(wireplumber.conf),
+rest of the configuration options that can be grouped logically are grouped into separate
 files and are placed under ``wireplumber.conf.d/``. More on this below.
 
 .. note::
 
-  The config search folder depends on the main config file. If the config file
-  is bluetooth.conf then WirePlumber will search for ``bluetooth.conf.d`` not in
-  the ``wireplumber.conf.d/`` folder.
+  The configuration search folder depends on the main configuration file. If the
+  file is bluetooth.conf then WirePlumber will search for ``bluetooth.conf.d``
+  not in the ``wireplumber.conf.d/`` folder.
 
 * *context.properties*
 
@@ -119,7 +119,7 @@ files and are placed under ``wireplumber.conf.d/``. More on this below.
       { name = monitors/alsa.lua, type = script/lua }
     ]
 
-  * deps: components can be loaded with a dependency on a wireplumber setting.
+  * deps: components can be loaded with a dependency on a wireplumber configuration option.
   * flags: ifexists & nofail flags are supported in this section as well.
 
 
@@ -132,16 +132,16 @@ files and are placed under ``wireplumber.conf.d/``. More on this below.
       # Load `libwireplumber-module-si-node` which is of type `module`.
       { name = libwireplumber-module-si-node , type = module }
 
-      # Load `libwireplumber-module-reserve-device` module, only if the setting `alsa_monitor.alsa.reserve` is defined as true.
+      # Load `libwireplumber-module-reserve-device` module, only if the configuration option `alsa_monitor.alsa.reserve` is defined as true.
       { name = libwireplumber-module-reserve-device , type = module, deps = alsa_monitor.alsa.reserve }
 
       # Load `alsa.lua` which is of type `script/lua`.
       { name = monitors/alsa.lua, type = script/lua }
 
-      # Load `alsa-midi.lua` Lua Script only if `alsa_monitor.alsa.midi` setting is defined as true.
+      # Load `alsa-midi.lua` Lua Script only if `alsa_monitor.alsa.midi` configuration option is defined as true.
       { name = monitors/alsa-midi.lua, type = script/lua, deps = alsa_monitor.alsa.midi }
 
-      # Load `libwireplumber-module-logind` module if the setting `bluez-enable-logind` is true.
+      # Load `libwireplumber-module-logind` module if the configuration option `bluez-enable-logind` is true.
       { name = libwireplumber-module-logind , type = module, deps = bluez-enable-logind, flags = [ ifexists ] }
     ]
 
@@ -156,7 +156,7 @@ files and are placed under ``wireplumber.conf.d/``. More on this below.
   All the Wireplumber configurations are now grouped under this section. They
   are moved away from Lua. All the default settings are distributed into
   different files under ``wireplumber.conf.d\``. There are two :ref:`different
-  types<config_types>` of config.
+  types<configuration_option_types>` of configuration option.
 
   * *wireplumber.virtuals*
 

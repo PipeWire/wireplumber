@@ -5,14 +5,14 @@ Linking Configuration
 
 ``wireplumber.conf.d/link.conf`` deals with the linking configuration.
 
-Simple Configs
---------------
+Simple Configuration Options
+----------------------------
 
-All the :ref:`simple configs<config_types>` can be
-:ref:`overridden<manipulate_config>` or can be changed
-:ref:`live<live_configs>`. They are commented in the default location, as they
+All the :ref:`simple configuration options<configuration_option_types>` can be
+:ref:`overridden<manipulate_configuration_options>` or can be changed
+:ref:`live<live_configuration_options>`. They are commented in the default location, as they
 are built into WirePlumber. Below is the explanation of each of these simple
-configs.
+configuration options.
 
 .. code-block::
 
@@ -62,12 +62,13 @@ Whether to store state on the filesystem.
 
 Whether to use headset profile in the presence of an input stream.
 
-Complex Configs
----------------
+Complex Configuration Options
+-----------------------------
 
-The :ref:`complex configs<config_types>`  can be either
-:ref:`overridden<manipulate_config>`  or :ref:`extended<manipulate_config>`
-but they cannot be changed :ref:`live<live_configs>`
+The :ref:`complex configuration options<configuration_option_types>`  can be either
+:ref:`overridden<manipulate_configuration_options>`  or :ref:`extended<manipulate_configuration_options>`
+but they cannot be changed :ref:`live<live_configuration_options>`. Below is the explanation of each
+of these complex configuration options.
 
 .. code-block::
 

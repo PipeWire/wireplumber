@@ -6,14 +6,14 @@ Access Configuration
 The configuration file ``wireplumber.conf.d/access.conf`` is charged to
 configure the permissions on client objects created by PipeWire.
 
-Simple Configs
---------------
+Simple Configuration Options
+----------------------------
 
-All the :ref:`simple configs<config_types>` can be
-:ref:`overridden<manipulate_config>` or can be changed
-:ref:`live<live_configs>`. They are commented in the default location as they
+All the :ref:`simple configuration options<configuration_option_types>` can be
+:ref:`overridden<manipulate_configuration_options>` or can be changed
+:ref:`live<live_configuration_options>`. They are commented in the default location as they
 are built into WirePlumber. Below is the explanation of each of these simple
-configs.
+configuration options.
 
 .. code-block::
 
@@ -30,12 +30,13 @@ The list of valid properties are:
 
 Whether to enable the flatpak portal or not.
 
-Complex Configs
----------------
+Complex Configuration Options
+-----------------------------
 
-The :ref:`complex configs<config_types>`  can be either
-:ref:`overridden<manipulate_config>`  or :ref:`extended<manipulate_config>` but they
-cannot be changed :ref:`live<live_configs>`
+The :ref:`complex configuration options<configuration_option_types>`  can be either
+:ref:`overridden<manipulate_configuration_options>`  or :ref:`extended<manipulate_configuration_options>` but they
+cannot be changed :ref:`live<live_configuration_options>`. Below is the explanation of each
+of these complex configuration options.
 
 .. code-block::
 

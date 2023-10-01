@@ -26,13 +26,13 @@ PipeWire SPA-JSON, the new configuration system
 -----------------------------------------------
 
 With 0.5 release, the configuration system is moved from Lua to PipeWire SPA-JSON.
-The earlier Lua config files are not supported anymore. The new mechanism
-aligns WirePlumber config system with that of PipeWire. PipeWire JSON is not
+The earlier Lua configuration files are not supported anymore. The new mechanism
+aligns WirePlumber configuration system with that of PipeWire. PipeWire JSON is not
 strict JSON, its a customized form of it.
 
-The config settings are logically grouped(alsa.conf, device.conf etc) and
+The configuration options are logically grouped(alsa.conf, device.conf etc) and
 maintained in different files. You can find all of them under
-`wireplumber.conf.d`. These groups of config settings are explained below.
+`wireplumber.conf.d`. These groups of configuration options are explained below.
 
 .. note::
 
@@ -51,8 +51,8 @@ maintained in different files. You can find all of them under
    configuration/access.rst
    configuration/device.rst
    configuration/stream.rst
-   configuration/config_types.rst
-   configuration/manipulate_configs.rst
-   configuration/access_configs.rst
-   configuration/live_configs.rst
+   configuration/configuration_option_types.rst
+   configuration/manipulate_configuration_options.rst
+   configuration/access_configuration_options.rst
+   configuration/live_configuration_options.rst
    configuration/filters.rst

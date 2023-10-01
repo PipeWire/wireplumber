@@ -3,50 +3,52 @@
 Bluetooth Configuration
 =======================
 
-Bluetooth devices are created and managed by the session manager with the *bluez.lua*
-monitor script. ``wireplumber.conf.d/bluetooth.conf`` contains :ref:`default
-configs<manipulate_config>`  which control the bluez monitor.
+Bluetooth devices are created and managed by the session manager with the
+*bluez.lua* monitor script. ``wireplumber.conf.d/bluetooth.conf`` contains
+:ref:`default configuration options<manipulate_configuration_options>`  which
+control the bluez monitor.
 
 
-Simple Configs
---------------
+Simple Configuration Options
+----------------------------
 
-All the :ref:`simple configs<config_types>` can be
-:ref:`overridden<manipulate_config>` or can be changed
-:ref:`live<live_configs>`. They are commented in the default location as they
-are built into WirePlumber. Below is the explanation of each of these simple
-configs.
+All the :ref:`simple configuration options<configuration_option_types>` can be
+:ref:`overridden<manipulate_configuration_options>` or can be changed
+:ref:`live<live_configuration_options>`. They are commented in the default
+location as they are built into WirePlumber. Below is the explanation of each of
+these simple configuration options.
 
 .. code-block::
 
   monitor.bluetooth.enable-logind = true
 
 Enables the logind module, which arbitrates which user will be allowed to have
-bluetooth audio enabled at any given time (particularly useful if you are
-using GDM as a display manager, as the gdm user also launches pipewire and
-wireplumber). This requires access to the D-Bus user session; disable if you
-are running a system-wide instance of wireplumber.
+bluetooth audio enabled at any given time (particularly useful if you are using
+GDM as a display manager, as the gdm user also launches pipewire and
+wireplumber). This requires access to the D-Bus user session; disable if you are
+running a system-wide instance of wireplumber.
 
-Complex Configs
----------------
+Complex Configuration Options
+-----------------------------
 
-The :ref:`complex configs<config_types>`  can be either
-:ref:`overridden<manipulate_config>`  or :ref:`extended<manipulate_config>` but they
-cannot be changed :ref:`live<live_configs>`
+The :ref:`complex configuration options<configuration_option_types>`  can be either
+:ref:`overridden<manipulate_configuration_options>`  or
+:ref:`extended<manipulate_configuration_options>` but they cannot be changed
+:ref:`live<live_configuration_options>`. Below is the explanation of each
+of these complex configuration options.
 
 .. code-block::
 
-  monitor.bluetooth.properties = {
-  }
+  monitor.bluetooth.properties = { }
 
 The properties used when constructing the 'api.bluez5.enum.dbus' plugin can go
 into this section.
 
 The list of all the valid properties are below
 
-The below three features do not work on all headsets, so they are enabled
-by default based on the hardware database. They can also be
-forced on/off for all devices by the following options:
+The below three features do not work on all headsets, so they are enabled by
+default based on the hardware database. They can also be forced on/off for all
+devices by the following options:
 
 .. code-block::
 
@@ -68,12 +70,14 @@ Enables hardware volume controls in Bluetooth devices that support it
 
 .. code-block::
 
-  bluez5.roles = "[ a2dp_sink a2dp_source bap_sink bap_source hsp_hs hsp_ag hfp_hf hfp_ag ]"
+  bluez5.roles = "[ a2dp_sink a2dp_source bap_sink bap_source hsp_hs hsp_ag
+  hfp_hf hfp_ag ]"
 
-Enabled roles (default: [ a2dp_sink a2dp_source bap_sink bap_source hfp_hf hfp_ag ])
+Enabled roles (default: [ a2dp_sink a2dp_source bap_sink bap_source hfp_hf
+hfp_ag ])
 
-Currently some headsets (Sony WH-1000XM3) are not working
-with both hsp_ag and hfp_ag enabled, so by default we enable only HFP.
+Currently some headsets (Sony WH-1000XM3) are not working with both hsp_ag and
+hfp_ag enabled, so by default we enable only HFP.
 
 Supported headset roles: ``hsp_hs`` (HSP Headset), ``hsp_ag`` (HSP Audio
 Gateway), ``hfp_hf`` (HFP Hands-Free), ``hfp_ag`` (HFP Audio Gateway),
@@ -83,15 +87,15 @@ Basic Audio Profile Source)
 
 .. code-block::
 
-  bluez5.codecs = "[ sbc sbc_xq aac ldac aptx aptx_hd aptx_ll aptx_ll_duplex faststream faststream_duplex ]"
+  bluez5.codecs = "[ sbc sbc_xq aac ldac aptx aptx_hd aptx_ll aptx_ll_duplex
+  faststream faststream_duplex ]"
 
 Enables ``sbc``, ``sbc_xq``, ``aac``, ``ldac``, ``aptx``, ``aptx_hd``,
 ``aptx_ll``, ``aptx_ll_duplex``, ``faststream``, and  ``faststream_duplex`` A2DP
 codecs.
 
-Supported codecs: ``sbc``, ``sbc_xq``, ``aac``, ``ldac``, ``aptx``,
-``aptx_hd``, ``aptx_ll``, ``aptx_ll_duplex``, ``faststream``,
-``faststream_duplex``.
+Supported codecs: ``sbc``, ``sbc_xq``, ``aac``, ``ldac``, ``aptx``, ``aptx_hd``,
+``aptx_ll``, ``aptx_ll_duplex``, ``faststream``, ``faststream_duplex``.
 
 All codecs are supported by default.
 
@@ -132,18 +136,16 @@ The bluetooth default number of channels.
 
   bluez5.dummy-avrcp-player = true
 
-Register dummy AVRCP player, required for AVRCP volume function. Disable if
-you are running mpris-proxy or equivalent.
+Register dummy AVRCP player, required for AVRCP volume function. Disable if you
+are running mpris-proxy or equivalent.
 
 
 
 .. code-block::
 
-  bluez5.a2dp.opus.pro.channels = 3
-  bluez5.a2dp.opus.pro.coupled-streams = 1
-  bluez5.a2dp.opus.pro.locations = "FL,FR,LFE"
-  bluez5.a2dp.opus.pro.max-bitrate = 600000
-  bluez5.a2dp.opus.pro.frame-dms = 50
+  bluez5.a2dp.opus.pro.channels = 3 bluez5.a2dp.opus.pro.coupled-streams = 1
+  bluez5.a2dp.opus.pro.locations = "FL,FR,LFE" bluez5.a2dp.opus.pro.max-bitrate
+  = 600000 bluez5.a2dp.opus.pro.frame-dms = 50
   bluez5.a2dp.opus.pro.bidi.channels = 1
   bluez5.a2dp.opus.pro.bidi.coupled-streams = 0
   bluez5.a2dp.opus.pro.bidi.locations = "FC"
@@ -154,7 +156,8 @@ Opus Pro Audio mode settings
 
 Device settings
 ^^^^^^^^^^^^^^^
-The following settings can be configured on devices created by the Blueooth monitor.
+The following settings can be configured on devices created by the Blueooth
+monitor.
 
 
 A list of valid properties are:
@@ -184,9 +187,9 @@ Supported values are: ``hfp_hf``, ``hsp_hs``, ``a2dp_sink``, ``hfp_ag``,
 
 LDAC encoding quality.
 
-Available values: ``auto`` (Adaptive Bitrate, default),
-``hq`` (High Quality, 990/909kbps), ``sq`` (Standard Quality, 660/606kbps) and
-``mq`` (Mobile use Quality, 330/303kbps).
+Available values: ``auto`` (Adaptive Bitrate, default), ``hq`` (High Quality,
+990/909kbps), ``sq`` (Standard Quality, 660/606kbps) and ``mq`` (Mobile use
+Quality, 330/303kbps).
 
 .. code-block::
 
@@ -209,8 +212,8 @@ Available values: ``a2dp-sink`` (default) or ``headset-head-unit``.
   bluez5.a2dp.opus.pro.application = "audio"
   bluez5.a2dp.opus.pro.bidi.application = "audio"
 
-Opus Pro Audio encoding mode:
-Available values: ``audio``, ``voip`` and ``lowdelay``
+Opus Pro Audio encoding mode: Available values: ``audio``, ``voip`` and
+``lowdelay``
 
 
 .. code-block::
@@ -219,16 +222,11 @@ Available values: ``audio``, ``voip`` and ``lowdelay``
       {
         matches = [
           {
-            # Matches all bluez midi nodes.
-            node.name = "~bluez_midi*"
+            # Matches all bluez midi nodes. node.name = "~bluez_midi*"
           }
-        ]
-        update-props = {
-          node.nick = "My Node"
-          priority.driver = 100
-          priority.session = 100
-          node.pause-on-idle = false
-          session.suspend-timeout-seconds = 5
+        ] update-props = {
+          node.nick = "My Node" priority.driver = 100 priority.session = 100
+          node.pause-on-idle = false session.suspend-timeout-seconds = 5
           monitor.channel-volumes = false
         }
       }
@@ -249,61 +247,46 @@ device nodes.
     {
       matches = [
         {
-          # This matches the needed sound card.
-          device.name = "<bluez_sound_card_name>"
+          # This matches the needed sound card. device.name =
+          "<bluez_sound_card_name>"
         }
-      ]
-      actions = {
+      ] actions = {
         update-props = {
-          # Apply all the desired device settings here.
-          # This will set the auto-connect property to ``hfp_hf``, ``hsp_hs`` and
-          # ``a2dp_sink`` on bluetooth devices whose name matches the ``bluez_card.*``
-          # pattern.
+          # Apply all the desired device settings here. # This will set the
+          auto-connect property to ``hfp_hf``, ``hsp_hs`` and # ``a2dp_sink`` on
+          bluetooth devices whose name matches the ``bluez_card.*`` # pattern.
           bluez5.auto-connect  = "[ hfp_hf hsp_hs a2dp_sink ]"
         }
       }
     }
     {
       matches = [
-        # This matches the needed node.
-        {
+        # This matches the needed node. {
           node.name = "<node_name>"
         }
-      ]
-      actions = {
-        # Apply all the desired node specific settings here.
-        update-props = {
-          node.nick              = "My Node"
-          priority.driver        = 100
-          session.suspend-timeout-seconds = 5
-          }
+      ] actions = {
+        # Apply all the desired node specific settings here. update-props = {
+          node.nick              = "My Node" priority.driver        = 100
+          session.suspend-timeout-seconds = 5 }
       }
     }
     {
       matches = [
         {
-          ## Matches all sources.
-          node.name = "~bluez_input.*"
+          ## Matches all sources. node.name = "~bluez_input.*"
         }
         {
-          ## Matches all sinks.
-          node.name = "~bluez_output.*"
+          ## Matches all sinks. node.name = "~bluez_output.*"
         }
-      ]
-      update-props = {
-        node.nick              = "My Node"
-        priority.driver        = 100
-        priority.session       = 100
-        node.pause-on-idle     = false
-        resample.quality       = 4
-        channelmix.normalize   = false
-        channelmix.mix-lfe     = false
-        session.suspend-timeout-seconds = 5
-        monitor.channel-volumes = false
-        ## Media source role, "input" or "playback"
-        ## Defaults to "playback", playing stream to speakers
-        ## Set to "input" to use as an input for apps
-        bluez5.media-source-role = "input"
+      ] update-props = {
+        node.nick              = "My Node" priority.driver        = 100
+        priority.session       = 100 node.pause-on-idle     = false
+        resample.quality       = 4 channelmix.normalize   = false
+        channelmix.mix-lfe     = false session.suspend-timeout-seconds = 5
+        monitor.channel-volumes = false ## Media source role, "input" or
+        "playback" ## Defaults to "playback", playing stream to speakers ## Set
+        to "input" to use as an input for apps bluez5.media-source-role =
+        "input"
       }
     }
   ]
@@ -312,15 +295,16 @@ device nodes.
 
   Bluetooth Device and Node settings go into monitor.bluetooth-midi.rules.
   monitor.bluetooth.rules JSON sections and they are also called rule based
-  configs in that the device or node will have to be filtered first using the
-  match rules. Settings can be set either on all the devices/nodes or on
-  specific devices/nodes, depending on how the match rules are setup.
+  configuration options in that the device or node will have to be filtered
+  first using the match rules. Settings can be set either on all the
+  devices/nodes or on specific devices/nodes, depending on how the match rules
+  are setup.
 
 .. note::
 
   The properties set in the update-props section, can be PipeWire properties
   which trigger some action or they can be new properties that the devices or
   nodes will be created with. These new properties can be read or written from
-  scripts or modules. After the creation of the devices and nodes new
-  properties cannot be created on them.
+  scripts or modules. After the creation of the devices and nodes new properties
+  cannot be created on them.
 

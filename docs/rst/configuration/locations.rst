@@ -31,8 +31,9 @@ configuration files are *only* looked up in this directory.
 
 .. note::
 
-    With 0.5 release, the wireplumber config files are moved under pipewire directory.
-    Earlier they were in `wireplumber` directory.
+    With 0.5 release, the WirePlumber's configuration files are now located in
+    the ``pipewire`` directory. In previous versions they used to be in the
+    ``wireplumber`` directory.
 
 Location of scripts
 -------------------
