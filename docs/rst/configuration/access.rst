@@ -1,4 +1,4 @@
-.. _config_access:
+.. _access:
 
 Access Configuration
 ====================
