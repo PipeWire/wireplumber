@@ -156,7 +156,7 @@ files and are placed under ``wireplumber.conf.d/``. More on this below.
   All the Wireplumber configurations are now grouped under this section. They
   are moved away from Lua. All the default settings are distributed into
   different files under ``wireplumber.conf.d\``. There are two :ref:`different
-  types<configs_types>` of config.
+  types<config_types>` of config.
 
   * *wireplumber.virtuals*
 

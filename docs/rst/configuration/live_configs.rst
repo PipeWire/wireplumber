@@ -14,9 +14,9 @@ On boot up(or restart of WirePlumber) Simple settings are copied to
 and `pw-metadata` API can be used to manipulate them. For example, with the below command
 all the new devices will be brought up at this new volume with the below command::
 
-  $pw-metadata -n sm-settings 0 device.default-input-volume 0.5 Spa:String:JSON
+  $ pw-metadata -n sm-settings 0 device.default-input-volume 0.5 Spa:String:JSON
 
-persistent configs
+Persistent Configs
 ==================
 When the persistent option is enabled all the changes done via live configs
 will be remembered across reboots or WirePlumber restarts.
@@ -24,9 +24,11 @@ will be remembered across reboots or WirePlumber restarts.
 `persistent.settings` is the config that controls the persistency. The default
 value of this setting is `false`. Override this config and set it to true to
 enable persistency. For example, below  :ref:`override<manipulate_config>`  will
-switch it on::
+switch it on
 
-  cat /etc/pipewire/wireplumber.conf.d/persistent.conf
+.. code-block::
+
+  $ cat /etc/pipewire/wireplumber.conf.d/persistent.conf
 
   wireplumber.settings = {
     persistent.settings = true

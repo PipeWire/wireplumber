@@ -11,33 +11,33 @@ separate config files.
 Simple Configs
 --------------
 
-  All the :ref:`simple configs<configs_types>` can be
-  :ref:`overridden<manipulate_config>` or can be changed
-  :ref:`live<live_configs>`. They are commented in the default location, as they
-  are built into WirePlumber. Below is the explanation of each of these simple
-  configs.
+All the :ref:`simple configs<config_types>` can be
+:ref:`overridden<manipulate_config>` or can be changed
+:ref:`live<live_configs>`. They are commented in the default location, as they
+are built into WirePlumber. Below is the explanation of each of these simple
+configs.
 
-  .. code-block::
+.. code-block::
 
-    device.use-persistent-storage = true
+  device.use-persistent-storage = true
 
-  Enables storing/restoring device selection preferences(devices selected for
-  audio/video playback, audio record etc), device
-  profile preferences and device route preferences to the file system.
+Enables storing/restoring device selection preferences(devices selected for
+audio/video playback, audio record etc), device
+profile preferences and device route preferences to the file system.
 
-  When set to `false`, all the device selections are selected based on
-  the inbuilt priorities and any runtime changes do not persist after restart.
+When set to `false`, all the device selections are selected based on
+the inbuilt priorities and any runtime changes do not persist after restart.
 
 
-  .. code-block::
+.. code-block::
 
-    device.default-volume = 0.064
+  device.default-volume = 0.064
 
-  Sets the device default volume level.
+Sets the device default volume level.
 
-  .. code-block::
+.. code-block::
 
-    device.save-interval-ms = 1000
+  device.save-interval-ms = 1000
 
-  The persistent save interval in milliseconds when any change happens in a
-  device config.
+The persistent save interval in milliseconds when any change happens in a
+device config.

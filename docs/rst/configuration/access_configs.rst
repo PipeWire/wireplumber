@@ -7,12 +7,12 @@ WirePlumber programmers interested in writing :ref:`modules
 <understanding_wireplumber>` and :ref:`scripts <understanding_wireplumber>` can
 access existing configs and also define new configs at will.
 
-wpsettings API helps access :ref:`simple configs<configs_types>`. wpsettings
+wpsettings API helps access :ref:`simple configs<config_types>`. wpsettings
 object offers two APIs mainly one for accessing the configs and another for
 registering callbacks to know the changes to the configs. Check wpsettings
 :ref:`API here <settings_api>`
 
-wpconf API helps access :ref:`complex configs<configs_types>` Check wpconf :ref:`API
+wpconf API helps access :ref:`complex configs<config_types>` Check wpconf :ref:`API
 <conf_api>` for full details.
 
 
@@ -27,7 +27,9 @@ Simple Configs
 --------------
 simple configs take boolean, integer or floating point values.
 
-for example, below file creates a new boolean `custom.simple-property` config::
+for example, below file creates a new boolean `custom.simple-property` config
+
+.. code-block::
 
   $ cat /etc/pipewire/wireplumber.conf.d/custom.conf
 
@@ -42,7 +44,9 @@ Complex Configs
 ---------------
 Complex configs take JSON array or JSON object values.
 
-for example, below file creates a new `custom.simple-property-list` config::
+for example, below file creates a new `custom.simple-property-list` config
+
+.. code-block::
 
   $ cat /etc/pipewire/wireplumber.conf.d/custom.conf
     custom.simple-property-list = {

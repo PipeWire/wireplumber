@@ -7,7 +7,7 @@ The default config files are generally installed by distribution in
 ``/usr/share/pipewire``. It can change in specific cases. Check :ref:`locations
 <config_locations>` for more info.
 
-The default :ref:`simple configs<configs_types>`  are commented, this is because
+The default :ref:`simple configs<config_types>`  are commented, this is because
 all these default settings are already built in to WirePlumber. WirePlumber can
 work with out settings. Uncommenting the default settings and assigning the
 desired values will also help Override the default configs, however these
@@ -15,7 +15,7 @@ customizations will be lost when WirePlumber is upgraded to the newer version
 and so it is recommended to override/extend in host-specific or user-specific
 locations.
 
-The default :ref:`complex configs<configs_types>` are not commented and
+The default :ref:`complex configs<config_types>` are not commented and
 WirePlumber loads them from these config files. These configs can also be
 edited(overridden or extended) in default locations,however these customizations
 will be lost when WirePlumber is upgraded to the newer version and so it is
@@ -41,7 +41,9 @@ Over Riding :ref:`Simple Configs<configs_types>`
 
 Assuming the Distribution/Upstream config files are present in
 `/usr/share/pipewire`. Let's see how to override `device default volume` config
-setting, this is how the default config looks like::
+setting, this is how the default config looks like
+
+.. code-block::
 
   $ cat /usr/share/pipewire/wireplumber.conf.d/device.conf
   ## The WirePlumber device configuration
@@ -58,7 +60,10 @@ setting, this is how the default config looks like::
   section and assign the new value.
 - Restart wireplumber
 
-This is how a overridden config looks like::
+This is how a overridden config looks like
+
+.. code-block::
+
 
   $ cat /etc/pipewire/wireplumber.conf.d/device.conf
   ## The WirePlumber device configuration
@@ -72,12 +77,14 @@ This is how a overridden config looks like::
 
     Unlike the default configs overridden config should be uncommented.
 
-Overriding :ref:`Complex Configs<configs_types>`
+Overriding :ref:`Complex Configs<config_types>`
 ------------------------------------------------
 `monitor.alsa.midi.node-properties` is a an example of complex configs. Below is
 how to override it.
 
-It looks like below in the distribution installed location ::
+It looks like below in the distribution installed location
+
+.. code-block::
 
  $ cat /usr/share/pipewire/wireplumber.conf.d/alsa.conf
    monitor.alsa.midi.node-properties = {
@@ -92,7 +99,9 @@ It looks like below in the distribution installed location ::
   assign the new values to it.
 - Restart wireplumber
 
-The below file will override the default `monitor.alsa.midi.node-properties`::
+The below file will override the default `monitor.alsa.midi.node-properties`
+
+.. code-block::
 
  $ cat /etc/pipewire/wireplumber.conf.d/alsa.conf
  override.monitor.alsa.midi.node-properties = {
@@ -100,7 +109,9 @@ The below file will override the default `monitor.alsa.midi.node-properties`::
    api.alsa.disable-longname = false
  }
 
-Eventually the value of the config will be overridden one::
+Eventually the value of the config will be overridden one
+
+.. code-block::
 
  monitor.alsa.midi.node-properties = {
     node.name = "new-name"
@@ -116,7 +127,7 @@ In the case of nested config properties. Individual arrays or objects can also
 be overridden by prefixing the Individual objects/arrays with `override` key word.
 
 
-Extending :ref:`Complex Configs<configs_types>`
+Extending :ref:`Complex Configs<config_types>`
 -----------------------------------------------
 `monitor.alsa.midi.node-properties` is a an example of complex configs. Below is
 how to extend it.
@@ -137,7 +148,9 @@ It looks like below in the distribution installed location ::
 - Restart wireplumber
 
 The below file will Extend/Append the default value of
-`monitor.alsa.midi.node-properties` with one more property(node.nick)::
+`monitor.alsa.midi.node-properties` with one more property(node.nick)
+
+.. code-block::
 
  $ cat /etc/pipewire/wireplumber.conf.d/alsa.conf
    monitor.alsa.midi.node-properties = {
@@ -145,7 +158,9 @@ The below file will Extend/Append the default value of
    }
 
 Eventually the extended value of this config will be union of both the default
-as well as the extended values::
+as well as the extended values
+
+.. code-block::
 
    monitor.alsa.midi.node-properties = {
      node.name = "Midi-Bridge"
@@ -161,9 +176,11 @@ extend the configs. Below is how the values can be verified to check if they are
 overridden or extended properly.
 
 Simple configs are always loaded into `sm-settings` metadata. so the values can
-be checked with pw-metadata API, for example::
+be checked with pw-metadata API, for example
 
-  pw-metadata -n sm-settings
+.. code-block::
+
+  $ pw-metadata -n sm-settings
 
 Complex configs will have to be checked from the logs. Capture wireplumber logs
 from the beginning and search in the logs with the config name to know the final

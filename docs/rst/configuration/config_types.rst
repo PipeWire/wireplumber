@@ -1,4 +1,4 @@
-.. _configs_types:
+.. _config_types:
 
 Simple Configs
 --------------
@@ -37,9 +37,8 @@ properties or rules. Below are a few examples.
     monitor.alsa.properties = {
     }
 
-  This is a complex config from :ref:`alsa config<config_alsa>`. Here this JSON
-  object takes a list of properties.
-
+This is a complex config from :ref:`alsa config<config_alsa>`. Here this JSON
+object takes a list of properties.
 
   .. code-block::
 
@@ -60,13 +59,13 @@ properties or rules. Below are a few examples.
        }
     ]
 
-  This is a complex config from :ref:`stream config<config_stream>`. This is an
-  example of rule type of complex config. The properties are applied only if the
-  `application.name` property of the node is ``pw-play``
+This is a complex config from :ref:`stream config<config_stream>`. This is an
+example of rule type of complex config. The properties are applied only if the
+`application.name` property of the node is ``pw-play``
 
-  Below complex config is an example of advanced syntax for defining rule based
-  configs. Read through the comments(lines starting with `#`). They are taken
-  from :ref:`alsa<config_alsa>` config.
+Below complex config is an example of advanced syntax for defining rule based
+configs. Read through the comments(lines starting with `#`). They are taken
+from :ref:`alsa<config_alsa>` config.
 
   .. code-block::
 

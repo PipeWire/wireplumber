@@ -10,77 +10,77 @@ configs<manipulate_config>`  which control the alsa monitor.
 Simple Configs
 --------------
 
-  All the :ref:`simple configs<configs_types>` can be
-  :ref:`overridden<manipulate_config>` or can be changed
-  :ref:`live<live_configs>`. They are commented in the default location, as they
-  are built into WirePlumber. Below is the explanation of each of these simple
-  configs.
+All the :ref:`simple configs<config_types>` can be
+:ref:`overridden<manipulate_config>` or can be changed
+:ref:`live<live_configs>`. They are commented in the default location, as they
+are built into WirePlumber. Below is the explanation of each of these simple
+configs.
 
-  .. code-block::
+.. code-block::
 
-    monitor.alsa.midi = true
+  monitor.alsa.midi = true
 
-  Enables MIDI functionality
+Enables MIDI functionality
 
-  .. code-block::
+.. code-block::
 
-    monitor.alsa.midi.monitoring = true
+  monitor.alsa.midi.monitoring = true
 
-  Enables monitoring of alsa MIDI devices
+Enables monitoring of alsa MIDI devices
 
-  .. code-block::
+.. code-block::
 
-    monitor.alsa.jack-device = true
+  monitor.alsa.jack-device = true
 
-  Creates a JACK device if set to ``true``. This is not enabled by default
-  because it requires that the PipeWire JACK replacement libraries are not used
-  by the session manager, in order to be able to connect to the real JACK
-  server.
+Creates a JACK device if set to ``true``. This is not enabled by default
+because it requires that the PipeWire JACK replacement libraries are not used
+by the session manager, in order to be able to connect to the real JACK
+server.
 
-  .. code-block::
+.. code-block::
 
-    monitor.alsa.reserve = true
+  monitor.alsa.reserve = true
 
-  Reserve ALSA devices via *org.freedesktop.ReserveDevice1* on D-Bus.
+Reserve ALSA devices via *org.freedesktop.ReserveDevice1* on D-Bus.
 
-  .. code-block::
+.. code-block::
 
-    monitor.alsa.reserve-priority = -20
+  monitor.alsa.reserve-priority = -20
 
-  The used ALSA device reservation priority. constructing the the MIDI bridge
-  node properties can go here.
+The used ALSA device reservation priority. constructing the the MIDI bridge
+node properties can go here.
 
-  .. code-block::
+.. code-block::
 
-    monitor.alsa.reserve-application-name = WirePlumber
+  monitor.alsa.reserve-application-name = WirePlumber
 
-  The used ALSA device reservation application name.
+The used ALSA device reservation application name.
 
 
 Complex Configs
 ---------------
 
-  The :ref:`complex configs<configs_types>`  can be either
-  :ref:`overridden<manipulate_config>`  or :ref:`extended<manipulate_config>`
-  but they cannot be changed :ref:`live<live_configs>`
+The :ref:`complex configs<config_types>`  can be either
+:ref:`overridden<manipulate_config>`  or :ref:`extended<manipulate_config>`
+but they cannot be changed :ref:`live<live_configs>`
 
-  .. code-block::
+.. code-block::
 
-    monitor.alsa.properties = {
-    }
+  monitor.alsa.properties = {
+  }
 
-  The properties used when constructing the 'api.alsa.enum.udev' plugin can go
-  into this section.
+The properties used when constructing the 'api.alsa.enum.udev' plugin can go
+into this section.
 
-  .. code-block::
+.. code-block::
 
-    monitor.alsa.midi.node-properties = {
-      node.name = "Midi-Bridge"
-      api.alsa.disable-longname = true
-    }
+  monitor.alsa.midi.node-properties = {
+    node.name = "Midi-Bridge"
+    api.alsa.disable-longname = true
+  }
 
-  The properties used when constructing the the MIDI bridge node properties can
-  go into this section, the two properties set above are self explanatory.
+The properties used when constructing the the MIDI bridge node properties can
+go into this section, the two properties set above are self explanatory.
 
 Device settings
 ^^^^^^^^^^^^^^^
