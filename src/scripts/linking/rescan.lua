@@ -29,7 +29,7 @@ function checkFilter (si, om, handle_nonstreams)
   end
 
   local direction = cutils.getTargetDirection (si.properties)
-  return futils.is_filter_enabled (direction, link_group)
+  return not futils.is_filter_disabled (direction, link_group)
 end
 
 function checkLinkable (si, om, handle_nonstreams)

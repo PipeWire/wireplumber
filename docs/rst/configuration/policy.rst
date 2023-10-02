@@ -121,9 +121,10 @@ optional node properties on the main node:
   The unique name of the filter. WirePlumber will use the "node.link-group"
   property as filter name if this property is not set.
 
-- filter.enabled:
-  Boolean indicating whether the filter should be used at all or not. If it is
-  not set, wireplumber will consider the filter enabled by default.
+- filter.disabled:
+  Boolean indicating whether the filter should be disabled at all or not. A
+  disabled filter will never be used in any circumstances. If the property is
+  not set, wireplumber will consider the filter not disabled by default.
 
 - filter.target:
   A JSON object that defines the matching properties of the filter's target node.
@@ -162,7 +163,7 @@ The PipeWire configuration files for the 2 filters should be like this:
                     audio.position = [ FL FR ]
                     media.class = Audio/Sink
                     filter.name = loopback-1
-                    filter.enabled = true
+                    filter.disabled = false
                     filter.before = [ loopback-2 ]
                 }
                 playback.props = {
@@ -187,7 +188,7 @@ The PipeWire configuration files for the 2 filters should be like this:
                     audio.position = [ FL FR ]
                     media.class = Audio/Sink
                     filter.name = loopback-2
-                    filter.enabled = true
+                    filter.disabled = false
                 }
                 playback.props = {
                     audio.position = [ FL FR ]
@@ -255,7 +256,7 @@ define the filters like this:
                     audio.position = [ FL FR ]
                     media.class = Audio/Sink
                     filter.name = loopback-1
-                    filter.enabled = true
+                    filter.disabled = false
                     filter.before = [ loopback-2 ]
                     filter.target = { node.name = "not-default-audio-device-name" }
                 }
@@ -281,7 +282,7 @@ define the filters like this:
                     audio.position = [ FL FR ]
                     media.class = Audio/Sink
                     filter.name = loopback-2
-                    filter.enabled = true
+                    filter.disabled = false
                 }
                 playback.props = {
                     audio.position = [ FL FR ]
@@ -321,11 +322,11 @@ properties by using the "filters" metadata. This allow users to change the filte
 policy at runtime.
 
 For example, if loopback-1 main node Id is `40`, we can disable the filter by
-setting its "filter.enabled" metadata key to false using the `pw-metadata` tool:
+setting its "filter.disabled" metadata key to true using the `pw-metadata` tool:
 
   .. code-block::
 
-    $ pw-metadata -n filters 40 "filter.enabled" false Spa:String:JSON
+    $ pw-metadata -n filters 40 "filter.disabled" true Spa:String:JSON
 
 We can also change the target of a filter at runtime:
 
