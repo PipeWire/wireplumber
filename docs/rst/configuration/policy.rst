@@ -117,26 +117,26 @@ are automatically linked by the wirepluber policy in any way we want.
 Currently, if a filter node is created, wireplumber will check the following
 optional node properties on the main node:
 
-- filter.name:
+- filter.smart.name:
   The unique name of the filter. WirePlumber will use the "node.link-group"
   property as filter name if this property is not set.
 
-- filter.disabled:
+- filter.smart.disabled:
   Boolean indicating whether the filter should be disabled at all or not. A
   disabled filter will never be used in any circumstances. If the property is
   not set, wireplumber will consider the filter not disabled by default.
 
-- filter.target:
+- filter.smart.target:
   A JSON object that defines the matching properties of the filter's target node.
   A filter target can never be another filter node (wireplumber will ignore it),
   and must always be a device node. If this property is not set, WirePlumber will
   use the default node as target.
 
-- filter.before:
+- filter.smart.before:
   A JSON array with the filters names that are supposed to be used before this
   filter. If not set, wireplumber will link the filters by order of creation.
 
-- filter.after:
+- filter.smart.after:
   A JSON array with the filters names that are supposed to be used after this
   filter. If not set, wireplumber will link the filters by order of creation.
 
@@ -162,9 +162,9 @@ The PipeWire configuration files for the 2 filters should be like this:
                 capture.props = {
                     audio.position = [ FL FR ]
                     media.class = Audio/Sink
-                    filter.name = loopback-1
-                    filter.disabled = false
-                    filter.before = [ loopback-2 ]
+                    filter.smart.name = loopback-1
+                    filter.smart.disabled = false
+                    filter.smart.before = [ loopback-2 ]
                 }
                 playback.props = {
                     audio.position = [ FL FR ]
@@ -187,8 +187,8 @@ The PipeWire configuration files for the 2 filters should be like this:
                 capture.props = {
                     audio.position = [ FL FR ]
                     media.class = Audio/Sink
-                    filter.name = loopback-2
-                    filter.disabled = false
+                    filter.smart.name = loopback-2
+                    filter.smart.disabled = false
                 }
                 playback.props = {
                     audio.position = [ FL FR ]
@@ -219,10 +219,10 @@ the filter nodes properly, the graph should look like this:
     (Stream/Output/Audio)       (Audio/Sink)
 
 
-If we remove `filter.before = [ loopback-2 ]` property from the loopback-1 filter,
-and add a `filter.before = [ loopback-1 ]` property in the loopback-2 filter
-configuration file. WirePlumber should link the loopback-1 filter as the last filter
-in the chain, like this:
+If we remove `filter.smart.before = [ loopback-2 ]` property from the loopback-1
+filter, and add a `filter.smart.before = [ loopback-1 ]` property in the loopback-2
+filter configuration file. WirePlumber should link the loopback-1 filter as the last
+filter in the chain, like this:
 
   .. code-block::
 
@@ -255,10 +255,10 @@ define the filters like this:
                 capture.props = {
                     audio.position = [ FL FR ]
                     media.class = Audio/Sink
-                    filter.name = loopback-1
-                    filter.disabled = false
-                    filter.before = [ loopback-2 ]
-                    filter.target = { node.name = "not-default-audio-device-name" }
+                    filter.smart.name = loopback-1
+                    filter.smart.disabled = false
+                    filter.smart.before = [ loopback-2 ]
+                    filter.smart.target = { node.name = "not-default-audio-device-name" }
                 }
                 playback.props = {
                     audio.position = [ FL FR ]
@@ -281,8 +281,8 @@ define the filters like this:
                 capture.props = {
                     audio.position = [ FL FR ]
                     media.class = Audio/Sink
-                    filter.name = loopback-2
-                    filter.disabled = false
+                    filter.smart.name = loopback-2
+                    filter.smart.disabled = false
                 }
                 playback.props = {
                     audio.position = [ FL FR ]
@@ -322,17 +322,18 @@ properties by using the "filters" metadata. This allow users to change the filte
 policy at runtime.
 
 For example, if loopback-1 main node Id is `40`, we can disable the filter by
-setting its "filter.disabled" metadata key to true using the `pw-metadata` tool:
+setting its "filter.smart.disabled" metadata key to true using the `pw-metadata`
+tool:
 
   .. code-block::
 
-    $ pw-metadata -n filters 40 "filter.disabled" true Spa:String:JSON
+    $ pw-metadata -n filters 40 "filter.smart.disabled" true Spa:String:JSON
 
 We can also change the target of a filter at runtime:
 
   .. code-block::
 
-    $ pw-metadata -n filters 40 "filter.target" { node.name = "new-target-node-name" } Spa:String:JSON
+    $ pw-metadata -n filters 40 "filter.smart.target" { node.name = "new-target-node-name" } Spa:String:JSON
 
 Every time a key in the filters metadata changes, all filters are unlinked and
 re-linked properly by the policy.

@@ -14,11 +14,11 @@ local module = {
   filters = {},
 }
 
-local function getFilterName (metadata, node)
+local function getFilterSmartName (metadata, node)
   -- Check metadata
   if metadata ~= nil then
     local id = node["bound-id"]
-    local value_str = metadata:find (id, "filter.name")
+    local value_str = metadata:find (id, "filter.smart.name")
     if value_str ~= nil then
       local json = Json.Raw (value_str)
       if json:is_string() then
@@ -28,7 +28,7 @@ local function getFilterName (metadata, node)
   end
 
   -- Check node properties
-  local prop_str = node.properties ["filter.name"]
+  local prop_str = node.properties ["filter.smart.name"]
   if prop_str ~= nil then
     return prop_str
   end
@@ -37,11 +37,11 @@ local function getFilterName (metadata, node)
   return node.properties ["node.link-group"]
 end
 
-local function getFilterDisabled (metadata, node)
+local function getFilterSmartDisabled (metadata, node)
   -- Check metadata
   if metadata ~= nil then
     local id = node["bound-id"]
-    local value_str = metadata:find (id, "filter.disabled")
+    local value_str = metadata:find (id, "filter.smart.disabled")
     if value_str ~= nil then
       local json = Json.Raw (value_str)
       if json:is_boolean() then
@@ -51,7 +51,7 @@ local function getFilterDisabled (metadata, node)
   end
 
   -- Check node properties
-  local prop_str = node.properties ["filter.disabled"]
+  local prop_str = node.properties ["filter.smart.disabled"]
   if prop_str ~= nil then
     return cutils.parseBool (prop_str)
   end
@@ -60,15 +60,15 @@ local function getFilterDisabled (metadata, node)
   return false
 end
 
-local function getFilterTarget (metadata, node, om)
+local function getFilterSmartTarget (metadata, node, om)
   -- Check metadata and fallback to properties
   local id = node["bound-id"]
   local value_str = nil
   if metadata ~= nil then
-    value_str = metadata:find (id, "filter.target")
+    value_str = metadata:find (id, "filter.smart.target")
   end
   if value_str == nil then
-    value_str = node.properties ["filter.target"]
+    value_str = node.properties ["filter.smart.target"]
     if value_str == nil then
       return nil
     end
@@ -111,15 +111,15 @@ local function getFilterTarget (metadata, node, om)
   return target;
 end
 
-local function getFilterBefore (metadata, node)
+local function getFilterSmartBefore (metadata, node)
   -- Check metadata and fallback to properties
   local id = node["bound-id"]
   local value_str = nil
   if metadata ~= nil then
-    value_str = metadata:find (id, "filter.before")
+    value_str = metadata:find (id, "filter.smart.before")
   end
   if value_str == nil then
-    value_str = node.properties ["filter.before"]
+    value_str = node.properties ["filter.smart.before"]
     if value_str == nil then
       return nil
     end
@@ -133,15 +133,15 @@ local function getFilterBefore (metadata, node)
   return before_json:parse ()
 end
 
-local function getFilterAfter (metadata, node)
+local function getFilterSmartAfter (metadata, node)
   -- Check metadata and fallback to properties
   local id = node["bound-id"]
   local value_str = nil
   if metadata ~= nil then
-    value_str = metadata:find (id, "filter.after")
+    value_str = metadata:find (id, "filter.smart.after")
   end
   if value_str == nil then
-    value_str = node.properties ["filter.after"]
+    value_str = node.properties ["filter.smart.after"]
     if value_str == nil then
       return nil
     end
@@ -261,11 +261,11 @@ local function rescanFilters (om, metadata_om)
     end
 
     -- Get filter properties
-    filter.name = getFilterName (metadata, n)
-    filter.disabled = getFilterDisabled (metadata, n)
-    filter.target = getFilterTarget (metadata, n, om)
-    filter.before = getFilterBefore (metadata, n)
-    filter.after = getFilterAfter (metadata, n)
+    filter.name = getFilterSmartName (metadata, n)
+    filter.disabled = getFilterSmartDisabled (metadata, n)
+    filter.target = getFilterSmartTarget (metadata, n, om)
+    filter.before = getFilterSmartBefore (metadata, n)
+    filter.after = getFilterSmartAfter (metadata, n)
 
     -- Add the main and stream session items
     filter.main_si = si
