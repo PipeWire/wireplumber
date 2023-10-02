@@ -17,8 +17,13 @@ function findFilterTarget (si, om)
   local link_group = node.properties ["node.link-group"]
   local target_id = -1
 
-  -- return nil if si is not a filter node
+  -- return nil if session item is not a filter node
   if link_group == nil then
+    return nil
+  end
+
+  -- return nil if filter is not smart
+  if not futils.is_filter_smart (direction, link_group) then
     return nil
   end
 

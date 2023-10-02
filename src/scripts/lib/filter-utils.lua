@@ -14,6 +14,29 @@ local module = {
   filters = {},
 }
 
+local function getFilterSmart (metadata, node)
+  -- Check metadata
+  if metadata ~= nil then
+    local id = node["bound-id"]
+    local value_str = metadata:find (id, "filter.smart")
+    if value_str ~= nil then
+      local json = Json.Raw (value_str)
+      if json:is_boolean() then
+        return json:parse()
+      end
+    end
+  end
+
+  -- Check node properties
+  local prop_str = node.properties ["filter.smart"]
+  if prop_str ~= nil then
+    return cutils.parseBool (prop_str)
+  end
+
+  -- Otherwise consider the filter not smart by default
+  return false
+end
+
 local function getFilterSmartName (metadata, node)
   -- Check metadata
   if metadata ~= nil then
@@ -261,6 +284,7 @@ local function rescanFilters (om, metadata_om)
     end
 
     -- Get filter properties
+    filter.smart = getFilterSmart (metadata, n)
     filter.name = getFilterSmartName (metadata, n)
     filter.disabled = getFilterSmartDisabled (metadata, n)
     filter.target = getFilterSmartTarget (metadata, n, om)
@@ -316,6 +340,21 @@ SimpleEventHook {
   end
 }:register ()
 
+function module.is_filter_smart (direction, link_group)
+  -- Make sure direction and link_group is valid
+  if direction == nil or link_group == nil then
+    return false
+  end
+
+  for i, v in ipairs(module.filters) do
+    if v.direction == direction and v.link_group == link_group then
+      return v.smart
+    end
+  end
+
+  return false
+end
+
 function module.is_filter_disabled (direction, link_group)
   -- Make sure direction and link_group is valid
   if direction == nil or link_group == nil then
@@ -343,7 +382,8 @@ function module.get_filter_target (direction, link_group)
   for i, v in ipairs(module.filters) do
     if v.direction == direction and
         v.link_group == link_group and
-        not v.disabled then
+        not v.disabled and
+        v.smart then
       filter = v
       index = i
       break
@@ -359,6 +399,7 @@ function module.get_filter_target (direction, link_group)
         v.name ~= filter.name and
         v.link_group ~= link_group and
         not v.disabled and
+        v.smart and
         ((v.target == nil and v.target == filter.target) or
             (v.target.id == filter.target.id)) and
         i > index then
@@ -380,6 +421,7 @@ function module.get_filter_from_target (direction, si_target)
   for i, v in ipairs(module.filters) do
     if v.direction == direction and
         not v.disabled and
+        v.smart and
         v.target ~= nil and
         v.target.id == si_target.id then
       return v.main_si
@@ -390,6 +432,7 @@ function module.get_filter_from_target (direction, si_target)
   for i, v in ipairs(module.filters) do
     if v.direction == direction and
         not v.disabled and
+        v.smart and
         v.target == nil then
       return v.main_si
     end

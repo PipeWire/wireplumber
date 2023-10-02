@@ -117,6 +117,14 @@ are automatically linked by the wirepluber policy in any way we want.
 Currently, if a filter node is created, wireplumber will check the following
 optional node properties on the main node:
 
+- filter.smart:
+  Boolean indicating whether smart policy will be used in the filter nodes or
+  not. This is disabled by default, therefore filter nodes will be treated as
+  regular nodes, without applying any kid of extra logic. On the other hand, if
+  this property is set to true, automatic (smart) filter policy will be used
+  when linking filters. The properties below will instruct the smart policy how
+  to link the filters automatically.
+
 - filter.smart.name:
   The unique name of the filter. WirePlumber will use the "node.link-group"
   property as filter name if this property is not set.

@@ -29,6 +29,13 @@ function checkFilter (si, om, handle_nonstreams)
   end
 
   local direction = cutils.getTargetDirection (si.properties)
+
+  -- always handle filters that are not smart
+  if not futils.is_filter_smart (direction, link_group) then
+    return true
+  end
+
+  -- dont handle smart filters that are disabled
   return not futils.is_filter_disabled (direction, link_group)
 end
 
