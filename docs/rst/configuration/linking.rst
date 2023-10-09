@@ -3,7 +3,7 @@
 Linking Configuration
 =====================
 
-``wireplumber.conf.d/link.conf`` deals with the linking configuration.
+``wireplumber.conf.d/link.conf`` configuration file deals with the linking configuration.
 
 Simple Configuration Options
 ----------------------------

@@ -35,3 +35,17 @@ and set it to true to enable persistency. For example, below
   wireplumber.settings = {
     persistent.settings = true
   }
+
+.. note::
+
+    The live configuration of all the simple configurations are tested to the
+    extent possible, there can be cases where the configuration value is changed
+    but they are not applied live.
+
+
+.. note::
+
+    All the simple configuration options are not by default live, they are
+    applied live in the Lua Scripts and Modules. So if a new simple
+    configuration option is added by a user, then he/she also have to take care to
+    apply it live.

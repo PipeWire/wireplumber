@@ -45,14 +45,14 @@ maintained in different files. You can find all of them under
    configuration/locations.rst
    configuration/main.rst
    configuration/multi_instance.rst
+   configuration/configuration_option_types.rst
+   configuration/manipulate_configuration_options.rst
+   configuration/access_configuration_options.rst
+   configuration/live_configuration_options.rst
    configuration/alsa.rst
    configuration/bluetooth.rst
    configuration/linking.rst
    configuration/access.rst
    configuration/device.rst
    configuration/stream.rst
-   configuration/configuration_option_types.rst
-   configuration/manipulate_configuration_options.rst
-   configuration/access_configuration_options.rst
-   configuration/live_configuration_options.rst
    configuration/filters.rst

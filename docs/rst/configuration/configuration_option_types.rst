@@ -1,5 +1,8 @@
 .. _configuration_option_types:
 
+WirePlumber has different types of configuration options, based on the type of
+the value they take.
+
 Simple Configuration Options
 ----------------------------
 Simple configuration options take boolean, integer or floating point values.

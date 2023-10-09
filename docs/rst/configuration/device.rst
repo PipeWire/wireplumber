@@ -3,10 +3,10 @@
 Device Configuration
 ====================
 
-``wireplumber.conf.d/device.conf`` deals with the configuration, that is common
-to all the devices. Interface specific configuration like
-:ref:`ALSA<config_alsa>` , :ref:`Bluetooth<config_bluetooth>` etc is dealt in
-separate configuration files.
+``wireplumber.conf.d/device.conf`` configuration file deals with the device
+configuration, that is common to all the devices. Interface specific
+configuration like :ref:`ALSA<config_alsa>` , :ref:`Bluetooth<config_bluetooth>`
+etc is dealt in separate configuration files.
 
 Simple Configuration Options
 ----------------------------

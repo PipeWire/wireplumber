@@ -3,8 +3,9 @@
 Stream Configuration
 ====================
 
-``wireplumber.conf.d/stream.conf`` deals with the stream configuration, streams
-are the playback or capture streams coming from/going to PipeWire clients or apps.
+``wireplumber.conf.d/stream.conf`` configuration file deals with the stream
+configuration, streams are the playback or capture streams coming from/going to
+PipeWire clients or apps.
 
 Simple Configuration Options
 ----------------------------
