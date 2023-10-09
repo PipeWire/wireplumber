@@ -8,12 +8,12 @@ WirePlumber programmers interested in writing :ref:`modules
 access existing configuration options and also define new configuration options
 at will.
 
-wpsettings API helps access :ref:`simple configuration options<configuration_option_types>`.
-wpsettings object offers two APIs mainly one for accessing the configuration
+Wpettings API helps access :ref:`simple configuration options<configuration_option_types>`.
+Wpettings object offers two APIs mainly one for accessing the configuration
 options and another for registering callbacks to know the changes to the
-configuration options. Check wpsettings :ref:`API here <settings_api>`
+configuration options. Check Wpettings :ref:`API here <settings_api>`
 
-wpconf API helps access :ref:`complex configuration options<configuration_option_types>` Check wpconf :ref:`API
+WpConf API helps access :ref:`complex configuration options<configuration_option_types>` Check WpConf :ref:`API
 <conf_api>` for full details.
 
 
