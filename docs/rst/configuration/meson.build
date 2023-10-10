@@ -5,7 +5,6 @@ sphinx_files += files(
   'config_lua.rst',
   'multi_instance.rst',
   'alsa.rst',
-  'dsp.rst',
   'bluetooth.rst',
   'policy.rst',
   'access.rst',

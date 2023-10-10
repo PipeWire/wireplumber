@@ -272,7 +272,7 @@ wp_impl_module_load (WpCore * core, const gchar * name,
  * \since 0.4.15
  * \param core (transfer none): The WirePlumber core
  * \param name (transfer none): the name of the module to load
- * \param file (transfer none): filename to be used as arguments
+ * \param filename (transfer none): filename to be used as arguments
  * \param properties (nullable) (transfer none): additional properties to be
  *    provided to the module
  * \returns (nullable) (transfer full): the WpImplModule for the module that
