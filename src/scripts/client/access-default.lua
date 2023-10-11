@@ -15,6 +15,8 @@ function getDefaultPermissions (properties)
     return "all"
   elseif pw_access == "flatpak" or pw_access == "restricted" then
     return "rx"
+  elseif pw_access == "default" then
+    return "all"
   end
 
   return nil
