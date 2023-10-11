@@ -24,58 +24,13 @@
 -- When a stream goes away if the list with which we track the streams above
 -- is empty, then we revert back to the old profile.
 
--- settings file: linking.conf
+-- settings file: bluetooth.conf
 
 cutils = require ("common-utils")
-
-defaults = {}
-defaults.use_persistent_storage = true
-defaults.use_headset_profile = true
-defaults.app_settings = Json.Array {}
-
-config = {}
-config.use_persistent_storage = Conf.get_value_boolean ("wireplumber.settings",
-    "linking.bluetooth.use-persistent-storage", defaults.use_persistent_storage)
-config.use_headset_profile = Conf.get_value_boolean ("wireplumber.settings",
-    "linking.bluetooth.media-role.use-headset-profile", defaults.use_headset_profile)
-config.apps_setting = Conf.get_value ("wireplumber.settings",
-    "linking.bluetooth.media-role.applications", defaults.app_settings): parse ()
+config = require ("bluetooth-config")
 
 state = nil
 headset_profiles = nil
-
-function handlePersistantSetting (enable)
-  if enable and state == nil then
-    -- the state storage
-    state = config.use_persistent_storage and State ("linking-bluetooth") or nil
-    headset_profiles = state and state:load () or {}
-  else
-    state = nil
-    headset_profiles = nil
-  end
-end
-
-local function settingsChangedCallback (_, setting, json)
-  if setting == "linking.bluetooth.use-persistent-storage" and
-      json:is_boolean () then
-    config.use_persistent_storage = json:parse ()
-    handlePersistantSetting (config.use_persistent_storage)
-  elseif setting == "linking.bluetooth.media-role.use-headset-profile" and
-      json:is_boolean () then
-    config.use_headset_profile = json:parse ()
-  elseif setting == "linking.bluetooth.media-role.applications"
-      and json:is_array () then
-    local new_apps_setting = json:parse ()
-    if #new_apps_setting > 0 then
-      config.apps_setting = new_apps_setting
-      loadAppNames (config.apps_setting)
-    end
-  end
-end
-
-Settings.subscribe ("linking.bluetooth*", settingsChangedCallback)
-
-handlePersistantSetting (config.use_persistent_storage)
 
 local applications = {}
 local profile_restore_timeout_msec = 2000
@@ -89,13 +44,29 @@ local last_profiles = {}
 local active_streams = {}
 local previous_streams = {}
 
+function handlePersistantSetting (enable)
+  if enable and state == nil then
+    -- the state storage
+    state = config.autoswitch_to_headset_profile and State ("bluetooth-autoswitch") or nil
+    headset_profiles = state and state:load () or {}
+  else
+    state = nil
+    headset_profiles = nil
+  end
+end
+
 function loadAppNames (appNames)
+  applications = {}
   for i = 1, #appNames do
     applications [appNames [i]] = true
   end
 end
 
-loadAppNames (config.apps_setting)
+handlePersistantSetting (config.use_persistent_storage)
+loadAppNames (config.autoswitch_applications)
+
+config:subscribe ("use-persistent-storage", handlePersistentSetting)
+config:subscribe ("autoswitch-applications", loadAppNames)
 
 devices_om = ObjectManager {
   Interest {
@@ -132,7 +103,7 @@ local function getSavedLastProfile (device)
   return last_profiles [device.properties ["device.name"]]
 end
 
-local function isSwitched (device)
+local function isSwitchedToHeadsetProfile (device)
   return getSavedLastProfile (device) ~= nil
 end
 
@@ -144,7 +115,7 @@ local function isBluez5AudioSink (sink_name)
 end
 
 local function isBluez5DefaultAudioSink ()
-  local metadata = cutils.default_metadata_om:lookup ()
+  local metadata = cutils.get_default_metadata_object ()
   local default_audio_sink = metadata:find (0, "default.audio.sink")
   return isBluez5AudioSink (default_audio_sink)
 end
@@ -232,22 +203,22 @@ local function hasProfileInputRoute (device, profile_index)
   return false
 end
 
-local function switchProfile ()
+local function switchDevicesToHeadsetProfile ()
   local index
   local name
 
+  -- clear restore callback, if any
   if restore_timeout_source then
     restore_timeout_source:destroy ()
     restore_timeout_source = nil
   end
 
   for device in devices_om:iterate () do
-    if isSwitched (device) then
+    if isSwitchedToHeadsetProfile (device) then
       goto skip_device
     end
 
     local cur_profile_name = getCurrentProfile (device)
-    saveLastProfile (device, cur_profile_name)
 
     _, index, name = findProfile (device, nil, cur_profile_name)
     if hasProfileInputRoute (device, index) then
@@ -270,6 +241,10 @@ local function switchProfile ()
         index = index
       }
 
+      -- store the current profile (needed when restoring)
+      saveLastProfile (device, cur_profile_name)
+
+      -- switch to headset profile
       Log.info ("Setting profile of '"
             .. device.properties ["device.description"]
             .. "' from: " .. cur_profile_name
@@ -285,11 +260,9 @@ end
 
 local function restoreProfile ()
   for device in devices_om:iterate () do
-    if isSwitched (device) then
+    if isSwitchedToHeadsetProfile (device) then
       local profile_name = getSavedLastProfile (device)
       local cur_profile_name = getCurrentProfile (device)
-
-      saveLastProfile (device, nil)
 
       if cur_profile_name then
         Log.info ("Setting saved headset profile to: " .. cur_profile_name)
@@ -305,6 +278,10 @@ local function restoreProfile ()
             index = index
           }
 
+          -- clear last profile as we will restore it now
+          saveLastProfile (device, nil)
+
+          -- restore previous profile
           Log.info ("Restoring profile of '"
                 .. device.properties ["device.description"]
                 .. "' from: " .. cur_profile_name
@@ -322,9 +299,12 @@ local function triggerRestoreProfile ()
   if restore_timeout_source then
     return
   end
+
+  -- we never restore the device profiles if there are active streams
   if next (active_streams) ~= nil then
     return
   end
+
   restore_timeout_source = Core.timeout_add (profile_restore_timeout_msec, function ()
     restore_timeout_source = nil
     restoreProfile ()
@@ -357,14 +337,14 @@ local function checkStreamStatus (stream)
 end
 
 local function handleStream (stream)
-  if not config.use_headset_profile then
+  if not config.autoswitch_to_headset_profile then
     return
   end
 
   if checkStreamStatus (stream) then
     active_streams [stream.id] = true
     previous_streams [stream.id] = true
-    switchProfile ()
+    switchDevicesToHeadsetProfile ()
   else
     active_streams [stream.id] = nil
     triggerRestoreProfile ()
@@ -381,7 +361,7 @@ local function handleAllStreams ()
 end
 
 SimpleEventHook {
-  name = "input-stream-removed@linking-bluetooth",
+  name = "input-stream-removed@autoswitch-bluetooth-profile",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "node-removed" },
@@ -397,7 +377,7 @@ SimpleEventHook {
 }:register ()
 
 SimpleEventHook {
-  name = "input-stream-changed@linking-bluetooth",
+  name = "input-stream-changed@autoswitch-bluetooth-profile",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "node-state-changed" },
@@ -418,7 +398,7 @@ SimpleEventHook {
 }:register ()
 
 SimpleEventHook {
-  name = "bluez-device-added@linking-bluetooth",
+  name = "bluez-device-added@autoswitch-bluetooth-profile",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "device-added" },
@@ -428,15 +408,14 @@ SimpleEventHook {
   execute = function (event)
     -- Devices are unswitched initially
     device = event:get_subject ()
-    if isSwitched (device) then
-      saveLastProfile (device, nil)
-    end
+    saveLastProfile (device, nil)
+
     handleAllStreams ()
   end
 }:register ()
 
 SimpleEventHook {
-  name = "metadata-changed@linking-bluetooth",
+  name = "metadata-changed@autoswitch-bluetooth-profile",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "metadata-changed" },
@@ -447,7 +426,7 @@ SimpleEventHook {
     },
   },
   execute = function (event)
-    if (config.use_headset_profile) then
+    if (config.autoswitch_to_headset_profile) then
       -- If bluez sink is set as default, rescan for active input streams
       handleAllStreams ()
     end
