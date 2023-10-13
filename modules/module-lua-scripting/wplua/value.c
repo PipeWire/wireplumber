@@ -17,6 +17,11 @@ wplua_table_to_properties (lua_State *L, int idx)
   const gchar *key, *value;
   int table = lua_absindex (L, idx);
 
+  if (lua_type (L, table) != LUA_TTABLE) {
+    wp_critical ("skipping non-table value");
+    return p;
+  }
+
   lua_pushnil(L);
   while (lua_next (L, table) != 0) {
     /* copy key & value to convert them to string */

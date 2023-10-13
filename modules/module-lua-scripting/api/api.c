@@ -1675,6 +1675,7 @@ conf_apply_rules (lua_State *L)
 
   ap = wp_properties_new_empty ();
   section = luaL_checkstring (L, 1);
+  luaL_checktype (L, 2, LUA_TTABLE);
   mp = wplua_table_to_properties (L, 2);
   if (lua_isuserdata (L, 3)) {
     WpSpaJson *v = wplua_checkboxed (L, 3, WP_TYPE_SPA_JSON);
