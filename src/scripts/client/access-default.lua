@@ -7,15 +7,35 @@
 
 log = Log.open_topic ("s-client")
 
+function getAccess (properties)
+  local access = properties["pipewire.access"]
+  local client_access = properties["pipewire.client.access"]
+  local is_flatpak = properties["pipewire.sec.flatpak"]
+
+  if is_flatpak then
+    client_access = "flatpak"
+  end
+
+  if client_access == nil then
+    return access
+  elseif access == "unrestricted" or access == "default" then
+    if client_access ~= "unrestricted" then
+      return client_access
+    end
+  end
+
+  return access
+end
+
 function getDefaultPermissions (properties)
-  local pw_access = properties["pipewire.access"]
+  local access = properties["access"]
   local media_category = properties["media.category"]
 
-  if pw_access == "flatpak" and media_category == "Manager" then
+  if access == "flatpak" and media_category == "Manager" then
     return "all"
-  elseif pw_access == "flatpak" or pw_access == "restricted" then
+  elseif access == "flatpak" or access == "restricted" then
     return "rx"
-  elseif pw_access == "default" then
+  elseif access == "default" then
     return "all"
   end
 
@@ -23,9 +43,7 @@ function getDefaultPermissions (properties)
 end
 
 function getPermissions (properties)
-  local matched, mprops = Conf.apply_rules ("access.rules",
-      properties)
-
+  local matched, mprops = Conf.apply_rules ("access.rules", properties)
   if (matched and mprops["default_permissions"]) then
     return mprops["default_permissions"]
   end
@@ -40,6 +58,9 @@ clients_om = ObjectManager {
 clients_om:connect("object-added", function (om, client)
   local id = client["bound-id"]
   local properties = client["properties"]
+  local access = getAccess (properties)
+
+  properties["access"] = access
 
   local perms = getPermissions (properties)
   if perms == nil then
@@ -47,8 +68,11 @@ clients_om:connect("object-added", function (om, client)
   end
 
   if perms ~= nil then
-    log:info(client, "Granting permissions to client " .. id .. ": " .. perms)
+    log:info(client, "Granting permissions to client " .. id .. " (access " ..
+      access .. "): " .. perms)
     client:update_permissions { ["any"] = perms }
+  else
+    log:debug(client, "No rule for client " .. id .. " (access " .. access .. ")")
   end
 end)
 
