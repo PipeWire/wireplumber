@@ -45,10 +45,10 @@ end
 function getPermissions (properties)
   local matched, mprops = Conf.apply_rules ("access.rules", properties)
   if (matched and mprops["default_permissions"]) then
-    return mprops["default_permissions"]
+    return mprops["default_permissions"], mprops["access"]
   end
 
-  return nil
+  return nil, nil
 end
 
 clients_om = ObjectManager {
@@ -62,15 +62,19 @@ clients_om:connect("object-added", function (om, client)
 
   properties["access"] = access
 
-  local perms = getPermissions (properties)
+  local perms, effective_access = getPermissions (properties)
   if perms == nil then
     perms = getDefaultPermissions (properties)
+  end
+  if effective_access == nil then
+    effective_access = access
   end
 
   if perms ~= nil then
     log:info(client, "Granting permissions to client " .. id .. " (access " ..
-      access .. "): " .. perms)
+      effective_access .. "): " .. perms)
     client:update_permissions { ["any"] = perms }
+    client:update_properties { ["pipewire.access.effective"] = effective_access }
   else
     log:debug(client, "No rule for client " .. id .. " (access " .. access .. ")")
   end
