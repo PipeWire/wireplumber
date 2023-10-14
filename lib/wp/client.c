@@ -192,3 +192,32 @@ wp_client_update_permissions_array (WpClient * self,
       pwp, n_perm, permissions);
   g_warn_if_fail (client_update_permissions_result >= 0);
 }
+
+/*!
+ * \brief Updates the properties of \a self
+ *
+ * This requires W and X permissions on the client.
+ *
+ * \ingroup wpclient
+ * \param self the client
+ * \param updates (transfer full): updates to apply to the properties of
+ *    \a self; this does not need to include properties that have not changed
+ */
+void
+wp_client_update_properties (WpClient * self, WpProperties * updates)
+{
+  g_autoptr (WpProperties) upd = updates;
+  struct pw_client *pwp;
+  int client_update_properties_result;
+
+  g_return_if_fail (WP_IS_CLIENT (self));
+  g_return_if_fail (updates != NULL);
+
+  pwp = (struct pw_client *) wp_proxy_get_pw_proxy (WP_PROXY (self));
+  g_return_if_fail (pwp != NULL);
+
+  client_update_properties_result = pw_client_update_properties (
+      pwp, wp_properties_peek_dict (upd));
+
+  g_warn_if_fail (client_update_properties_result >= 0);
+}

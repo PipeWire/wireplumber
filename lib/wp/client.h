@@ -34,6 +34,9 @@ WP_API
 void wp_client_update_permissions_array (WpClient * self,
     guint n_perm, const struct pw_permission *permissions);
 
+WP_API
+void wp_client_update_properties (WpClient * self, WpProperties * updates);
+
 G_END_DECLS
 
 #endif
