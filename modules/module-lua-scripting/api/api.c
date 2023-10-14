@@ -1248,6 +1248,18 @@ client_update_permissions (lua_State *L)
 }
 
 static int
+client_update_properties (lua_State *L)
+{
+  WpClient *client = wplua_checkobject (L, 1, WP_TYPE_CLIENT);
+
+  luaL_checktype (L, 2, LUA_TTABLE);
+  WpProperties *properties = wplua_table_to_properties (L, 2);
+
+  wp_client_update_properties (client, properties);
+  return 0;
+}
+
+static int
 client_send_error (lua_State *L)
 {
   WpClient *client = wplua_checkobject (L, 1, WP_TYPE_CLIENT);
@@ -1260,6 +1272,7 @@ client_send_error (lua_State *L)
 
 static const luaL_Reg client_methods[] = {
   { "update_permissions", client_update_permissions },
+  { "update_properties", client_update_properties },
   { "send_error", client_send_error },
   { NULL, NULL }
 };
