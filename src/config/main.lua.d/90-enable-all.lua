@@ -21,3 +21,6 @@ load_script("intended-roles.lua")
 
 -- Automatically suspends idle nodes after 3 seconds
 load_script("suspend-node.lua")
+
+-- Allows loading objects on demand via metadata
+load_script("sm-objects.lua")
