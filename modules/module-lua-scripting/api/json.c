@@ -145,7 +145,6 @@ push_luajson (lua_State *L, WpSpaJson *json)
       WpSpaJson *key = g_value_get_boxed (&item);
       g_autofree gchar *key_str = NULL;
       WpSpaJson *value = NULL;
-      g_warn_if_fail (wp_spa_json_is_string (key));
       key_str = wp_spa_json_parse_string (key);
       g_warn_if_fail (key_str);
       g_value_unset (&item);
