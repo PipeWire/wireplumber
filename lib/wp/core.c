@@ -654,6 +654,26 @@ wp_core_is_connected (WpCore * self)
 }
 
 /*!
+ * \brief Gets the bound id of the client object that is created as a result
+ * of this core being connected to the PipeWire daemon
+ *
+ * \ingroup wpcore
+ * \since 0.4.16
+ * \param self the core
+ * \returns the bound id of this client
+ */
+guint32
+wp_core_get_own_bound_id (WpCore * self)
+{
+  struct pw_client *client;
+
+  g_return_val_if_fail (wp_core_is_connected (self), SPA_ID_INVALID);
+
+  client = pw_core_get_client (self->pw_core);
+  return pw_proxy_get_bound_id ((struct pw_proxy *) client);
+}
+
+/*!
  * \brief Gets the cookie of the core's connected PipeWire instance
  *
  * \ingroup wpcore

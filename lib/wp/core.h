@@ -65,6 +65,9 @@ gboolean wp_core_is_connected (WpCore * self);
 /* Properties */
 
 WP_API
+guint32 wp_core_get_own_bound_id (WpCore * self);
+
+WP_API
 guint32 wp_core_get_remote_cookie (WpCore * self);
 
 WP_API
