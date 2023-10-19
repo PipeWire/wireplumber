@@ -164,6 +164,11 @@ main (gint argc, gchar **argv)
       "wireplumber.profile", "main",
       NULL);
 
+  /* prefer manager socket */
+  if (pw_check_library_version(0, 3, 84))
+    wp_properties_set (properties, PW_KEY_REMOTE_NAME,
+        ("[" PW_DEFAULT_REMOTE "-manager," PW_DEFAULT_REMOTE "]"));
+
   /* init wireplumber daemon */
   d.loop = g_main_loop_new (NULL, FALSE);
   d.core = wp_core_new (NULL, g_steal_pointer (&properties));
