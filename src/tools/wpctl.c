@@ -86,6 +86,8 @@ wp_ctl_clear (WpCtl * self)
   g_clear_pointer (&self->context, g_option_context_free);
 }
 
+G_DEFINE_AUTO_CLEANUP_CLEAR_FUNC (WpCtl, wp_ctl_clear)
+
 static void
 async_quit (WpCore *core, GAsyncResult *res, WpCtl * self)
 {
@@ -1347,7 +1349,7 @@ on_plugin_loaded (WpCore * core, GAsyncResult * res, WpCtl *ctl)
 gint
 main (gint argc, gchar **argv)
 {
-  WpCtl ctl = {0};
+  g_auto (WpCtl) ctl = {0};
   const struct subcommand *cmd = NULL;
   g_autoptr (GError) error = NULL;
   g_autofree gchar *summary = NULL;
@@ -1447,6 +1449,5 @@ main (gint argc, gchar **argv)
 
   g_main_loop_run (ctl.loop);
 
-  wp_ctl_clear (&ctl);
   return ctl.exit_code;
 }
