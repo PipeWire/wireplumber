@@ -44,7 +44,7 @@ local last_profiles = {}
 local active_streams = {}
 local previous_streams = {}
 
-function handlePersistantSetting (enable)
+function handlePersistentSetting (enable)
   if enable and state == nil then
     -- the state storage
     state = config.autoswitch_to_headset_profile and State ("bluetooth-autoswitch") or nil
@@ -62,7 +62,7 @@ function loadAppNames (appNames)
   end
 end
 
-handlePersistantSetting (config.use_persistent_storage)
+handlePersistentSetting (config.use_persistent_storage)
 loadAppNames (config.autoswitch_applications)
 
 config:subscribe ("use-persistent-storage", handlePersistentSetting)
