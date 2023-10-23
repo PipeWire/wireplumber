@@ -638,8 +638,8 @@ wp_object_manager_is_interested_in_global (WpObjectManager * self,
     /* and consider the manager interested if the type and the globals match...
        if pw_properties / g_properties fail, that's ok because they are not
        known yet (the proxy is likely NULL and properties not yet retrieved) */
-    if (match & (WP_INTEREST_MATCH_GTYPE |
-                 WP_INTEREST_MATCH_PW_GLOBAL_PROPERTIES)) {
+    if (SPA_FLAG_IS_SET (match, (WP_INTEREST_MATCH_GTYPE |
+                                 WP_INTEREST_MATCH_PW_GLOBAL_PROPERTIES))) {
       gpointer ft = g_hash_table_lookup (self->features,
           GSIZE_TO_POINTER (global->type));
       *wanted_features = (WpObjectFeatures) GPOINTER_TO_UINT (ft);
