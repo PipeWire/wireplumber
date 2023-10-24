@@ -369,7 +369,7 @@ create_links (WpSiStandardLink * self, WpTransition * transition,
 
     /* activate to ensure it is created without errors */
     wp_object_activate_closure (WP_OBJECT (link),
-        WP_OBJECT_FEATURES_ALL & ~WP_LINK_FEATURE_ESTABLISHED, NULL,
+        WP_OBJECT_FEATURES_ALL, NULL,
         g_cclosure_new_object (
             (GCallback) on_link_activated, G_OBJECT (transition)));
 
