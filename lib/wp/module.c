@@ -10,6 +10,10 @@
 #include "log.h"
 
 #include <pipewire/impl.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <sys/mman.h>
 
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp-module")
 
@@ -252,6 +256,66 @@ wp_impl_module_load (WpCore * core, const gchar * name,
         "properties", properties,
         NULL)
       );
+
+  if (!module->pw_impl_module) {
+    /* Module loading failed, free and return */
+    g_object_unref (module);
+    return NULL;
+  }
+
+  return module;
+}
+
+/*!
+ * \brief Loads a PipeWire module with arguments from file into the WirePlumber process
+ *
+ * \ingroup wpimplmodule
+ * \since 0.4.15
+ * \param core (transfer none): The WirePlumber core
+ * \param name (transfer none): the name of the module to load
+ * \param filename (transfer none): filename to be used as arguments
+ * \param properties (nullable) (transfer none): additional properties to be
+ *    provided to the module
+ * \returns (nullable) (transfer full): the WpImplModule for the module that
+ *    was loaded on success, %NULL on failure.
+ */
+WpImplModule *
+wp_impl_module_load_file (WpCore * core, const gchar * name,
+    const gchar * filename, WpProperties * properties)
+{
+  char *config = "";
+  int fd = open(filename, O_RDONLY);
+  if (fd < 0) {
+    g_warning("Failed to open config file %s: %m", filename);
+    return NULL;
+  }
+
+  struct stat stats;
+  int err = fstat(fd, &stats);
+  if (err < 0) {
+    g_warning("Failed to stat config file %s: %m", filename);
+    close(fd);
+    return NULL;
+  }
+
+  config = mmap(NULL, stats.st_size, PROT_READ, MAP_SHARED, fd, 0);
+  if (config == MAP_FAILED){
+    g_warning("Failed to mmap config file %s: %m", filename);
+    close(fd);
+    return NULL;
+  }
+  close(fd);
+
+  WpImplModule *module = WP_IMPL_MODULE (
+      g_object_new (WP_TYPE_IMPL_MODULE,
+        "core", core,
+        "name", name,
+        "arguments", config,
+        "properties", properties,
+        NULL)
+      );
+
+  munmap(config, stats.st_size);
 
   if (!module->pw_impl_module) {
     /* Module loading failed, free and return */

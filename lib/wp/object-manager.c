@@ -638,8 +638,8 @@ wp_object_manager_is_interested_in_global (WpObjectManager * self,
     /* and consider the manager interested if the type and the globals match...
        if pw_properties / g_properties fail, that's ok because they are not
        known yet (the proxy is likely NULL and properties not yet retrieved) */
-    if (match & (WP_INTEREST_MATCH_GTYPE |
-                 WP_INTEREST_MATCH_PW_GLOBAL_PROPERTIES)) {
+    if (SPA_FLAG_IS_SET (match, (WP_INTEREST_MATCH_GTYPE |
+                                 WP_INTEREST_MATCH_PW_GLOBAL_PROPERTIES))) {
       gpointer ft = g_hash_table_lookup (self->features,
           GSIZE_TO_POINTER (global->type));
       *wanted_features = (WpObjectFeatures) GPOINTER_TO_UINT (ft);
@@ -1049,18 +1049,15 @@ wp_registry_detach (WpRegistry *self)
   }
 }
 
-static void
-expose_tmp_globals (WpCore *core, GAsyncResult *res, WpRegistry *self)
+static gboolean
+expose_tmp_globals (WpCore *core)
 {
-  g_autoptr (GError) error = NULL;
+  WpRegistry *self = wp_core_get_registry (core);
   g_autoptr (GPtrArray) tmp_globals = NULL;
-
-  if (!wp_core_sync_finish (core, res, &error))
-    wp_warning_object (core, "core sync error: %s", error->message);
 
   /* in case the registry was cleared in the meantime... */
   if (G_UNLIKELY (!self->tmp_globals))
-    return;
+    return G_SOURCE_REMOVE;
 
   /* steal the tmp_globals list and replace it with an empty one */
   tmp_globals = self->tmp_globals;
@@ -1084,8 +1081,8 @@ expose_tmp_globals (WpCore *core, GAsyncResult *res, WpRegistry *self)
         wp_global_rm_flag (old_g, WP_GLOBAL_FLAG_OWNED_BY_PROXY);
     }
 
-    g_return_if_fail (self->globals->len <= g->id ||
-        g_ptr_array_index (self->globals, g->id) == NULL);
+    g_return_val_if_fail (self->globals->len <= g->id ||
+        g_ptr_array_index (self->globals, g->id) == NULL, G_SOURCE_REMOVE);
 
     /* set the registry, so that wp_global_rm_flag() can work full-scale */
     g->registry = self;
@@ -1111,6 +1108,8 @@ expose_tmp_globals (WpCore *core, GAsyncResult *res, WpRegistry *self)
     }
     wp_object_manager_maybe_objects_changed (om);
   }
+
+  return G_SOURCE_REMOVE;
 }
 
 /*
@@ -1161,7 +1160,8 @@ wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
 
     /* schedule exposing when adding the first global */
     if (self->tmp_globals->len == 1) {
-      wp_core_sync (core, NULL, (GAsyncReadyCallback) expose_tmp_globals, self);
+      wp_core_idle_add_closure (core, NULL,
+          g_cclosure_new_object (G_CALLBACK (expose_tmp_globals), G_OBJECT (core)));
     }
   } else {
     /* store the most permissive permissions */

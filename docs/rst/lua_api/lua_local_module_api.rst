@@ -11,7 +11,7 @@ dropped, the module is unloaded.
 Constructors
 ~~~~~~~~~~~~
 
-.. function:: LocalModule(name, arguments, properties)
+.. function:: LocalModule(name, arguments, properties, [load_args_from_file])
 
    Loads the named module with the provided arguments and properties (either of
    which can be ``nil``).
@@ -21,6 +21,7 @@ Constructors
         module arguments
    :param table properties: can be ``nil`` or a table that can be
         :ref:`converted <lua_gobject_lua_to_c>` to :c:struct:`WpProperties`
+   :param load_args_from_file: (since 0.4.15) optional. if true, arguments param is treated as a file path to load args from
    :returns: a new LocalModule
    :rtype: LocalModule (:c:struct:`WpImplModule`)
    :since: 0.4.2

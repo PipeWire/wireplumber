@@ -439,10 +439,24 @@ on the ALSA device.
 
 This can be done in 3 different ways:
 
-  1. Use pavucontrol and toggle the codecs in the output advanced section
+  1. Use pavucontrol and toggle the codecs in the output advanced section.
 
-  2. Modify the ``["iec958.codecs"] = "[ PCM DTS AC3 MPEG MPEG2-AAC EAC3 TrueHD DTS-HD ]"``
-     node property to something.
+  2. Modify the ``["iec958.codecs"]`` node property to contain suported codecs.
+
+     Example ``~/.config/wireplumber/main.lua.d/51-alsa-spdif.lua``:
+
+     .. code-block:: lua
+
+       table.insert (alsa_monitor.rules, {
+         matches = {
+           {
+             { "node.name", "matches", "alsa_output.*" },
+           },
+         },
+         apply_properties = {
+           ["iec958.codecs"] = "[ PCM DTS AC3 EAC3 TrueHD DTS-HD ]",
+         }
+       })
 
   3. Use ``pw-cli s <node-id> Props '{ iec958Codecs : [ PCM ] }'`` to modify
      the codecs at runtime.

@@ -1,5 +1,61 @@
-WirePlumber 0.4.14
+WirePlumber 0.4.15
 ~~~~~~~~~~~~~~~~~~
+
+Additions:
+
+  - A new "DSP policy" module has been added; its purpose is to automatically
+    load a filter-chain when a certain hardware device is present, so that
+    audio always goes through this software DSP before reaching the device.
+    This is mainly to support Apple M1/M2 devices, which require a software
+    DSP to be always present
+
+  - WpImplModule now supports loading module arguments directly from a SPA-JSON
+    config file; this is mainly to support DSP configuration for Apple M1/M2
+    and will likely be reworked for 0.5
+
+  - Added support for automatically combining Bluetooth LE Audio device sets
+    (e.g. pairs of earbuds) (!500)
+
+  - Added command line options in ``wpctl`` to display device/node names and
+    nicknames instead of descriptions
+
+  - Added zsh completions file for ``wpctl``
+
+  - The device profile selection policy now respects the ``device.profile``
+    property if it is set on the device; this is useful to hand-pick a profile
+    based on static configuration rules (alsa_monitor.rules)
+
+Changes/Fixes:
+
+  - Linking policy now sends an error to the client before destroying the node,
+    if it determines that the node cannot be linked to any target; this fixes
+    error reporting on the client side
+
+  - Fixed a crash in suspend-node that could happen when destroying virtual
+    sinks that were loaded from another process such as pw-loopback (#467)
+
+  - Virtual machine default period size has been bumped to 1024 (#507)
+
+  - Updated bluez5 default configuration, using ``bluez5.roles`` instead of
+    ``bluez5.headset-roles`` now (!498)
+
+  - Disabled Bluetooth autoconnect by default (!514)
+
+  - Removed ``RestrictNamespaces`` option from the systemd services in order to
+    allow libcamera to load sandboxed IPA modules (#466)
+
+  - Fixed a JSON encoding bug with empty strings (#471)
+
+  - Lua code can now parse strings without quotes from SPA-JSON
+
+  - Added some missing `\since` annotations and made them show up in the
+    generated gobject-introspection file, to help bindings generators
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.4.14
+..................
 
 Additions:
 
@@ -23,9 +79,6 @@ Additions:
 
   - Added support for disabling libcamera nodes & devices with ``node.disabled``
     and ``device.disabled``, like it works for ALSA and V4L2 (#418)
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.4.13
 ..................
@@ -75,9 +128,6 @@ Packaging:
     longer necessary
 
   - Added pkg-config and header information in the gir file
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.4.12
 ..................

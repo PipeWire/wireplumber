@@ -26,6 +26,8 @@ SimpleEventHook {
     local off_profile = nil
     local best_profile = nil
     local unk_profile = nil
+    -- Takes absolute priority if available or unknown
+    local profile_prop = device.properties["device.profile"]
 
     -- skip hook if profile is already selected
     if selected_profile then
@@ -34,7 +36,9 @@ SimpleEventHook {
 
     for p in device:iterate_params ("EnumProfile") do
       profile = cutils.parseParam (p, "EnumProfile")
-      if profile and profile.name ~= "pro-audio" then
+      if profile and profile.name == profile_prop and profile.available ~= "no" then
+        selected_profile = profile
+      elseif profile and profile.name ~= "pro-audio" then
         if profile.name == "off" then
           off_profile = profile
         elseif profile.available == "yes" then
