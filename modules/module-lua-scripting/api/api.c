@@ -6,7 +6,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "lua.h"
 #include <glib/gstdio.h>
 #include <wp/wp.h>
 #include <pipewire/pipewire.h>
@@ -1537,20 +1536,8 @@ impl_module_new (lua_State *L)
     properties = wplua_table_to_properties (L, 3);
   }
 
-  bool load_file = false; // Load args as file path
-  if (lua_type (L, 4) != LUA_TNONE && lua_type (L, 4) != LUA_TNIL) {
-    luaL_checktype (L, 4, LUA_TBOOLEAN);
-    load_file = lua_toboolean(L, 4);
-  }
-
-  WpImplModule *m = NULL;
-  if (load_file) {
-    m = wp_impl_module_load_file (get_wp_export_core (L),
-      name, args, properties);
-  } else {
-    m = wp_impl_module_load (get_wp_export_core (L),
-      name, args, properties);
-  }
+  WpImplModule *m = wp_impl_module_load (get_wp_export_core (L),
+     name, args, properties);
 
   if (m) {
     wplua_pushobject (L, m);
