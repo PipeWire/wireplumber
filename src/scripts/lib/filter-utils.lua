@@ -309,6 +309,7 @@ end
 
 SimpleEventHook {
   name = "lib/filter-utils/rescan",
+  before = "linking/rescan",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "rescan-for-linking" },
