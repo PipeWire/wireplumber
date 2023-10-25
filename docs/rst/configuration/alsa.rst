@@ -471,7 +471,7 @@ This can be done in 3 different ways:
 
   1. Use pavucontrol and toggle the codecs in the output advanced section.
 
-  2. Modify the ``["iec958.codecs"]`` node property to contain suported codecs.
+  2. Modify the ``["iec958.codecs"]`` node property to contain supported codecs.
 
      Example ``~/.config/wireplumber/main.lua.d/51-alsa-spdif.lua``:
 
