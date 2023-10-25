@@ -144,8 +144,23 @@ SimpleEventHook {
   },
   execute = function (event)
     local source = event:get_source ()
+    local om = source:call ("get-object-manager", "session-item")
 
     log:info ("rescanning...")
+
+    -- always unlink all filters that are smart and disabled
+    for si in om:iterate {
+        type = "SiLinkable",
+        Constraint { "node.link-group", "+" },
+    } do
+      local node = si:get_associated_proxy ("node")
+      local link_group = node.properties["node.link-group"]
+      local direction = cutils.getTargetDirection (si.properties)
+      if futils.is_filter_smart (direction, link_group) and
+          futils.is_filter_disabled (direction, link_group) then
+        unhandleLinkable (si, om)
+      end
+    end
 
     handleLinkables (source)
   end
@@ -172,8 +187,7 @@ SimpleEventHook {
 }:register ()
 
 SimpleEventHook {
-  name = "linking/rescan-trigger-before-filters-metadata-changed",
-  before = "lib/filter-utils/rescan-metadata-changed",
+  name = "linking/rescan-trigger-on-filters-metadata-changed",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "metadata-changed" },
@@ -182,32 +196,6 @@ SimpleEventHook {
   },
   execute = function (event)
     local source = event:get_source ()
-    local om = source:call ("get-object-manager", "session-item")
-
-    -- unlink all filters
-    for si in om:iterate {
-        type = "SiLinkable",
-        Constraint { "node.link-group", "+" },
-    } do
-      unhandleLinkable (si, om)
-    end
-
-  end
-}:register ()
-
-SimpleEventHook {
-  name = "linking/rescan-trigger-after-filters-metadata-changed",
-  after = "lib/filter-utils/rescan-metadata-changed",
-  interests = {
-    EventInterest {
-      Constraint { "event.type", "=", "metadata-changed" },
-      Constraint { "metadata.name", "=", "filters" },
-    },
-  },
-  execute = function (event)
-    local source = event:get_source ()
-    local om = source:call ("get-object-manager", "session-item")
-
     source:call ("schedule-rescan", "linking")
   end
 }:register ()
