@@ -65,6 +65,13 @@ wp_default_nodes_init (WpDefaultNodes * self)
 }
 
 static void
+clear_prev_config_values (WpDefaultNode *def)
+{
+  for (gint i = 0; i < N_PREV_CONFIGS; i++)
+    g_clear_pointer (&def->prev_config_value[i], g_free);
+}
+
+static void
 update_prev_config_values (WpDefaultNode *def)
 {
   gint pos = N_PREV_CONFIGS - 1;
@@ -460,11 +467,13 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
     if (value && !g_strcmp0 (type, "Spa:String:JSON")) {
       g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (value);
       g_autofree gchar *name = NULL;
-      if (wp_spa_json_object_get (json, "name", "s", &name, NULL))
+      if (wp_spa_json_object_get (json, "name", "s", &name, NULL)) {
         self->defaults[node_t].config_value = g_strdup (name);
+        update_prev_config_values (&self->defaults[node_t]);
+      }
+    } else if (!value) {
+      clear_prev_config_values (&self->defaults[node_t]);
     }
-
-    update_prev_config_values (&self->defaults[node_t]);
 
     wp_debug_object (m, "changed '%s' -> '%s'", key,
         self->defaults[node_t].config_value);
