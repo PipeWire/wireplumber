@@ -88,7 +88,7 @@ component_data_new_from_json (WpSpaJson * json, WpProperties * features,
     GError ** error)
 {
   g_autoptr (ComponentData) comp = NULL;
-  g_autoptr (WpSpaJson) deps = NULL;
+  g_autoptr (WpSpaJson) comp_reqs = NULL, comp_wants = NULL;
 
   if (!wp_spa_json_is_object (json)) {
     g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
@@ -126,8 +126,8 @@ component_data_new_from_json (WpSpaJson * json, WpProperties * features,
     comp->printable_id = g_strdup_printf ("[%s: %s]", comp->type, comp->name);
   }
 
-  if (wp_spa_json_object_get (json, "requires", "J", &deps, NULL)) {
-    g_autoptr (WpIterator) it = wp_spa_json_new_iterator (deps);
+  if (wp_spa_json_object_get (json, "requires", "J", &comp_reqs, NULL)) {
+    g_autoptr (WpIterator) it = wp_spa_json_new_iterator (comp_reqs);
     g_auto (GValue) item = G_VALUE_INIT;
 
     for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
@@ -136,8 +136,8 @@ component_data_new_from_json (WpSpaJson * json, WpProperties * features,
     }
   }
 
-  if (wp_spa_json_object_get (json, "wants", "J", &deps, NULL)) {
-    g_autoptr (WpIterator) it = wp_spa_json_new_iterator (deps);
+  if (wp_spa_json_object_get (json, "wants", "J", &comp_wants, NULL)) {
+    g_autoptr (WpIterator) it = wp_spa_json_new_iterator (comp_wants);
     g_auto (GValue) item = G_VALUE_INIT;
 
     for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
