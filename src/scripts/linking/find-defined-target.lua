@@ -35,6 +35,9 @@ SimpleEventHook {
         tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
 
     local metadata = config.move and cutils.get_default_metadata_object ()
+    local node = si:get_associated_proxy ("node")
+    local dont_fallback = cutils.parseBool (node.properties ["target.dont-fallback"])
+    local dont_move = cutils.parseBool (node.properties ["target.dont-move"])
     local target_key
     local target_value = nil
     local node_defined = false
@@ -50,7 +53,7 @@ SimpleEventHook {
       node_defined = true
     end
 
-    if metadata then
+    if metadata and not dont_move then
       local id = metadata:find (si_props ["node.id"], "target.object")
       if id ~= nil then
         target_value = id
@@ -88,7 +91,6 @@ SimpleEventHook {
           target = lnkbl
           break
         end
-
       end
     end
 
@@ -96,7 +98,6 @@ SimpleEventHook {
     if target then
       passthrough_compatible, can_passthrough =
       putils.checkPassthroughCompatibility (si, target)
-
       if not passthrough_compatible then
         target = nil
       end
@@ -111,6 +112,10 @@ SimpleEventHook {
       si_flags.has_node_defined_target = node_defined
       si_flags.can_passthrough = can_passthrough
       event:set_data ("target", target)
+    elseif target_value and dont_fallback then
+      log:info(si, "... waiting for defined target as dont-fallback is set")
+      event:stop_processing ()
     end
+
   end
 }:register ()

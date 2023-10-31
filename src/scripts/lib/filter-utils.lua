@@ -83,11 +83,11 @@ local function getFilterSmartDisabled (metadata, node)
   return false
 end
 
-local function getFilterSmartTarget (metadata, node, om)
+local function getFilterSmartTarget (metadata, node, om, dont_move)
   -- Check metadata and fallback to properties
   local id = node["bound-id"]
   local value_str = nil
-  if metadata ~= nil then
+  if metadata ~= nil and not dont_move then
     value_str = metadata:find (id, "filter.smart.target")
   end
   if value_str == nil then
@@ -131,7 +131,7 @@ local function getFilterSmartTarget (metadata, node, om)
     ::skip_target::
   end
 
-  return target;
+  return target
 end
 
 local function getFilterSmartBefore (metadata, node)
