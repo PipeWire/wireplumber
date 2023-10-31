@@ -132,6 +132,7 @@ AsyncEventHook {
         end)
 
         -- register
+        si_flags.was_handled = true
         si_flags.peer_id = target.id
         si_flags.failed_peer_id = target.id
         if si_flags.failed_count ~= nil then
