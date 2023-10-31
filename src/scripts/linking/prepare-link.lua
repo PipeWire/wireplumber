@@ -100,22 +100,8 @@ SimpleEventHook {
         return
       end
 
-      local client_id = node.properties ["client.id"]
-      if client_id then
-        local clients_om = source:call ("get-object-manager", "client")
-        local client = clients_om:lookup {
-          Constraint { "bound-id", "=", client_id, type = "gobject" }
-        }
-        local message
-        if reconnect then
-          message = "no target node available"
-        else
-          message = "target not found"
-        end
-        if client then
-          client:send_error (node ["bound-id"], -2, message)
-        end
-      end
+      putils.sendClientError (event, node,
+          reconnect and "no target node available" or "target not found")
 
       if not reconnect then
         log:info (si, "... destroy node")

@@ -303,4 +303,18 @@ function putils.haveAvailableRoutes (si_props)
   return false
 end
 
+function putils.sendClientError (event, node, message)
+  local source = event:get_source ()
+  local client_id = node.properties ["client.id"]
+  if client_id then
+    local clients_om = source:call ("get-object-manager", "client")
+    local client = clients_om:lookup {
+        Constraint { "bound-id", "=", client_id, type = "gobject" }
+    }
+    if client then
+      client:send_error (node ["bound-id"], -2, message)
+    end
+  end
+end
+
 return putils

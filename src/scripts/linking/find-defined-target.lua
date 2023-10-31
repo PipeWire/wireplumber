@@ -38,6 +38,7 @@ SimpleEventHook {
     local node = si:get_associated_proxy ("node")
     local dont_fallback = cutils.parseBool (node.properties ["target.dont-fallback"])
     local dont_move = cutils.parseBool (node.properties ["target.dont-move"])
+    local linger = cutils.parseBool (node.properties ["target.linger"])
     local target_key
     local target_value = nil
     local node_defined = false
@@ -113,7 +114,14 @@ SimpleEventHook {
       si_flags.can_passthrough = can_passthrough
       event:set_data ("target", target)
     elseif target_value and dont_fallback then
-      log:info(si, "... waiting for defined target as dont-fallback is set")
+      -- send error to client and destroy node if linger is not set
+      if not linger then
+        putils.sendClientError (event, node, "defined target not found")
+        node:request_destroy ()
+        log:info(si, "... destroyed node as defined target was not found")
+      else
+        log:info(si, "... waiting for defined target as dont-fallback is set")
+      end
       event:stop_processing ()
     end
 
