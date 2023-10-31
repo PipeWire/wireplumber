@@ -102,19 +102,7 @@ SimpleEventHook {
       end
     end
 
-    -- if the client has seen a target that we haven't yet prepared, stop the
-    -- event and wait(for one time) for next rescan to happen and hope for the
-    -- best.
-
-    if target_picked
-        and not target
-        and not si_flags.was_handled
-        and not si_flags.done_waiting then
-      log:info(si, "... waiting for target")
-      si_flags.done_waiting = true
-      event:stop_processing ()
-
-    elseif target_picked then
+    if target_picked and target then
       log:info (si,
         string.format ("... defined target picked: %s (%s), can_passthrough:%s",
           tostring (target.properties ["node.name"]),
