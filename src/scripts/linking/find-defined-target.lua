@@ -35,10 +35,8 @@ SimpleEventHook {
         tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
 
     local metadata = config.move and cutils.get_default_metadata_object ()
-    local node = si:get_associated_proxy ("node")
-    local dont_fallback = cutils.parseBool (node.properties ["target.dont-fallback"])
-    local dont_move = cutils.parseBool (node.properties ["target.dont-move"])
-    local linger = cutils.parseBool (node.properties ["target.linger"])
+    local dont_fallback = cutils.parseBool (si_props ["target.dont-fallback"])
+    local dont_move = cutils.parseBool (si_props ["target.dont-move"])
     local target_key
     local target_value = nil
     local node_defined = false
@@ -115,7 +113,9 @@ SimpleEventHook {
       event:set_data ("target", target)
     elseif target_value and dont_fallback then
       -- send error to client and destroy node if linger is not set
+      local linger = cutils.parseBool (si_props ["target.linger"])
       if not linger then
+        local node = si:get_associated_proxy ("node")
         putils.sendClientError (event, node, "defined target not found")
         node:request_destroy ()
         log:info(si, "... destroyed node as defined target was not found")

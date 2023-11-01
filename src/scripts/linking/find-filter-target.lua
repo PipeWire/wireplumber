@@ -11,7 +11,7 @@ cutils = require ("common-utils")
 futils = require ("filter-utils")
 log = Log.open_topic ("s-linking")
 
-function findFilterTarget (si, om)
+function findFilterTarget (si, om, dont_move)
   local node = si:get_associated_proxy ("node")
   local link_group = node.properties ["node.link-group"]
   local target_id = -1
@@ -28,7 +28,6 @@ function findFilterTarget (si, om)
   end
 
   -- get the filter target
-  local dont_move = cutils.parseBool (node.properties ["target.dont-move"])
   return futils.get_filter_target (direction, link_group, dont_move), true
 end
 
@@ -49,16 +48,15 @@ SimpleEventHook {
       return
     end
 
-    local node = si:get_associated_proxy ("node")
-    local dont_fallback = cutils.parseBool (node.properties ["target.dont-fallback"])
-    local linger = cutils.parseBool (node.properties ["target.linger"])
+    local dont_fallback = cutils.parseBool (si_props ["target.dont-fallback"])
+    local dont_move = cutils.parseBool (si_props ["target.dont-move"])
     local target_picked = false
     local allow_fallback
 
     log:info (si, string.format ("handling item: %s (%s)",
         tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
 
-    target, is_smart_filter = findFilterTarget (si, om)
+    target, is_smart_filter = findFilterTarget (si, om, dont_move)
 
     local can_passthrough, passthrough_compatible
     if target then
@@ -79,7 +77,9 @@ SimpleEventHook {
       event:set_data ("target", target)
     elseif is_smart_filter and dont_fallback then
       -- send error to client and destroy node if linger is not set
+      local linger = cutils.parseBool (si_props ["target.linger"])
       if not linger then
+        local node = si:get_associated_proxy ("node")
         putils.sendClientError (event, node, "smart filter defined target not found")
         node:request_destroy ()
         log:info(si, "... destroyed node as smart filter defined target was not found")
