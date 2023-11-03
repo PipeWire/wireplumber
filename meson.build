@@ -169,7 +169,7 @@ wireplumber_uninstalled = custom_target('wp-uninstalled',
 
 devenv = environment({
   'WIREPLUMBER_MODULE_DIR': builddir / 'modules',
-  'PIPEWIRE_CONFIG_DIR': srcdir / 'src' / 'config',
+  'WIREPLUMBER_CONFIG_DIR': srcdir / 'src' / 'config',
   'WIREPLUMBER_DATA_DIR': srcdir / 'src',
 })
 
