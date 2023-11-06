@@ -125,3 +125,10 @@ test(
       dependencies: common_deps, c_args: common_args),
   env: common_env,
 )
+
+test(
+  'test-json-utils',
+  executable('test-json-utils', 'json-utils.c',
+      dependencies: common_deps, c_args: common_args),
+  env: common_env,
+)

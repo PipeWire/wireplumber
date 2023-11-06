@@ -19,6 +19,7 @@
 #include "event-hook.h"
 #include "global-proxy.h"
 #include "iterator.h"
+#include "json-utils.h"
 #include "link.h"
 #include "log.h"
 #include "metadata.h"
