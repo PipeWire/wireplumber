@@ -14,10 +14,10 @@ function load_optional_module(m, a)
   end
 end
 
-function load_pw_module(m)
+function load_pw_module(m, a)
   assert(type(m) == "string", "module name is mandatory, bail out");
   if not components[m] then
-    components[m] = { "libpipewire-module-" .. m, type = "pw_module" }
+    components[m] = { "libpipewire-module-" .. m, type = "pw_module", args = a }
   end
 end
 
