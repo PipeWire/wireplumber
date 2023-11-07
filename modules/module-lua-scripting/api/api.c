@@ -1713,6 +1713,86 @@ static const luaL_Reg conf_methods[] = {
   { NULL, NULL }
 };
 
+/* JsonUtils */
+
+static gboolean
+json_utils_match_rules_cb (gpointer data, const gchar * action,
+    WpSpaJson * value, GError ** error)
+{
+  lua_State *L = data;
+  g_autoptr (GError) pcall_err = NULL;
+  gboolean ret = TRUE;
+  int top = lua_gettop (L);
+
+  /* this callback is called within the context of json_utils_match_rules()
+   * and the Lua callback function is at the top of the stack at this point */
+
+  /* re-push the function because lua_call pops it; then, push arguments */
+  lua_pushvalue (L, -1);
+  lua_pushstring (L, action);
+  wplua_pushboxed (L, WP_TYPE_SPA_JSON, wp_spa_json_ref (value));
+
+  lua_call (L, 2, 2);
+
+  ret = lua_toboolean (L, -2);
+  if (!ret) {
+    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "%s", lua_tostring (L, -1));
+  }
+
+  lua_settop (L, top);
+  return ret;
+}
+
+static int
+json_utils_match_rules (lua_State *L)
+{
+  g_autoptr (WpProperties) properties = NULL;
+  g_autoptr (GError) error = NULL;
+  WpSpaJson *json;
+  gboolean res;
+
+  json = wplua_checkboxed (L, 1, WP_TYPE_SPA_JSON);
+  luaL_checktype (L, 2, LUA_TTABLE);
+  luaL_checktype (L, 3, LUA_TFUNCTION);
+
+  properties = wplua_table_to_properties (L, 2);
+
+  res = wp_json_utils_match_rules (json, properties, json_utils_match_rules_cb,
+      L, &error);
+
+  lua_pushboolean (L, res);
+  if (error)
+    lua_pushstring (L, error->message);
+  else
+    lua_pushnil (L);
+  return 2;
+}
+
+static int
+json_utils_match_rules_update_properties (lua_State *L)
+{
+  g_autoptr (WpProperties) properties = NULL;
+  WpSpaJson *json;
+  int count;
+
+  json = wplua_checkboxed (L, 1, WP_TYPE_SPA_JSON);
+  luaL_checktype (L, 2, LUA_TTABLE);
+  properties = wplua_table_to_properties (L, 2);
+
+  count = wp_json_utils_match_rules_update_properties (json, properties);
+
+  lua_pushinteger (L, count);
+  wplua_properties_to_table (L, properties);
+  return 2;
+}
+
+static const luaL_Reg json_utils_funcs[] = {
+  { "match_rules", json_utils_match_rules },
+  { "match_rules_update_properties", json_utils_match_rules_update_properties },
+  { NULL, NULL }
+};
+
 /* WpSettings */
 
 static int
@@ -2389,6 +2469,9 @@ wp_lua_scripting_api_init (lua_State *L)
 
   luaL_newlib (L, conf_methods);
   lua_setglobal (L, "WpConf");
+
+  luaL_newlib (L, json_utils_funcs);
+  lua_setglobal (L, "JsonUtils");
 
   luaL_newlib (L, settings_methods);
   lua_setglobal (L, "WpSettings");
