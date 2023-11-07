@@ -97,6 +97,8 @@ AsyncEventHook {
           item_type = "si-node"
         end
 
+        log:info (node, "creating item for node -> " .. item_type)
+
         -- create item
         item = SessionItem (item_type)
         items [id] = item
