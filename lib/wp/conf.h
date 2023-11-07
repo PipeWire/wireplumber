@@ -50,11 +50,6 @@ WP_API
 gchar *wp_conf_get_value_string (WpConf *self,
     const gchar *section, const gchar *key, const gchar *fallback);
 
-WP_API
-gboolean wp_conf_apply_rules (WpConf *self, const gchar *section,
-    WpProperties *match_props, WpProperties *applied_props,
-    WpSpaJson *fallback);
-
 G_END_DECLS
 
 #endif

@@ -1675,33 +1675,6 @@ conf_get_value_string (lua_State *L)
   return 1;
 }
 
-static int
-conf_apply_rules (lua_State *L)
-{
-  g_autoptr (WpConf) conf = wp_conf_get_instance (get_wp_core (L));
-  g_autoptr (WpProperties) ap = NULL;
-  const char *section;
-  g_autoptr (WpProperties) mp = NULL;
-  g_autoptr (WpSpaJson) fb = NULL;
-
-  g_return_val_if_fail (conf, 0);
-
-  ap = wp_properties_new_empty ();
-  section = luaL_checkstring (L, 1);
-  luaL_checktype (L, 2, LUA_TTABLE);
-  mp = wplua_table_to_properties (L, 2);
-  if (lua_isuserdata (L, 3)) {
-    WpSpaJson *v = wplua_checkboxed (L, 3, WP_TYPE_SPA_JSON);
-    if (v)
-      fb = wp_spa_json_ref (v);
-  }
-
-  lua_pushboolean (L, wp_conf_apply_rules (conf, section, mp, ap,
-      g_steal_pointer (&fb)));
-  wplua_properties_to_table (L, ap);
-  return 2;
-}
-
 static const luaL_Reg conf_methods[] = {
   { "get_section", conf_get_section },
   { "get_value", conf_get_value },
@@ -1709,7 +1682,6 @@ static const luaL_Reg conf_methods[] = {
   { "get_value_int", conf_get_value_int },
   { "get_value_float", conf_get_value_float },
   { "get_value_string", conf_get_value_string },
-  { "apply_rules", conf_apply_rules },
   { NULL, NULL }
 };
 
