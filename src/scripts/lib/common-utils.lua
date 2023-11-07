@@ -72,15 +72,15 @@ function cutils.get_default_metadata_object ()
 end
 
 function cutils.evaluateRulesApplyProperties (properties, name)
-  local matched, mprops = Conf.apply_rules (name, properties)
+  local section = Conf.get_section (name)
+  local matched, mprops = JsonUtils.match_rules_update_properties (
+      section, properties)
 
-  if (matched and mprops) then
+  if (matched > 0 and mprops) then
     for k, v in pairs (mprops) do
       properties [k] = v
     end
   end
-
-  return matched and mprops
 end
 
 -- simple serializer {"foo", "bar"} -> "foo;bar;"
