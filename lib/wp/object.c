@@ -337,6 +337,23 @@ wp_object_get_active_features (WpObject * self)
 }
 
 /*!
+ * \brief Checks if the given features are active on this object.
+ * \param self the object
+ * \param features the features to check
+ * \returns TRUE if all the given features are active on this object
+ * \ingroup wpobject
+ * \since 0.5.0
+ */
+gboolean
+wp_object_test_active_features (WpObject * self, WpObjectFeatures features)
+{
+  g_return_val_if_fail (WP_IS_OBJECT (self), FALSE);
+
+  WpObjectPrivate *priv = wp_object_get_instance_private (self);
+  return (priv->ft_active & features) == features;
+}
+
+/*!
  * \brief Gets the supported features of this object.
  * \ingroup wpobject
  * \param self the object
@@ -350,6 +367,20 @@ wp_object_get_supported_features (WpObject * self)
   g_return_val_if_fail (WP_OBJECT_GET_CLASS (self)->get_supported_features, 0);
 
   return WP_OBJECT_GET_CLASS (self)->get_supported_features (self);
+}
+
+/*!
+ * \brief Checks if the given features are supported on this object.
+ * \param self the object
+ * \param features the features to check
+ * \returns TRUE if all the given features are supported on this object
+ * \ingroup wpobject
+ * \since 0.5.0
+ */
+gboolean
+wp_object_test_supported_features (WpObject * self, WpObjectFeatures features)
+{
+  return (wp_object_get_supported_features (self) & features) == features;
 }
 
 static gboolean

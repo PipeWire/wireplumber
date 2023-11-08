@@ -90,7 +90,13 @@ WP_API
 WpObjectFeatures wp_object_get_active_features (WpObject * self);
 
 WP_API
+gboolean wp_object_test_active_features (WpObject * self, WpObjectFeatures features);
+
+WP_API
 WpObjectFeatures wp_object_get_supported_features (WpObject * self);
+
+WP_API
+gboolean wp_object_test_supported_features (WpObject * self, WpObjectFeatures features);
 
 WP_API
 void wp_object_activate (WpObject * self,
