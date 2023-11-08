@@ -188,6 +188,7 @@ load_component (ScriptRunnerFixture *f, const gchar *name, const gchar *type)
   g_autofree gchar *component_name = NULL;
   g_autofree gchar *plugin_name = NULL;
   g_autoptr (GError) error = NULL;
+  g_autoptr (WpSpaJson) arguments = NULL;
 
   if ((g_str_equal (type, "script/lua")) &&
       (g_file_test (name, G_FILE_TEST_EXISTS))) {
@@ -204,7 +205,12 @@ load_component (ScriptRunnerFixture *f, const gchar *name, const gchar *type)
     plugin_name = g_strdup (name);
   }
 
-  wp_core_load_component (f->base.core, component_name, type, NULL, NULL, NULL,
+  if (g_str_equal (name, "metadata.lua")) {
+    arguments = wp_spa_json_new_object ("metadata.name", "s", "default",
+        NULL);
+  }
+
+  wp_core_load_component (f->base.core, component_name, type, arguments, NULL, NULL,
       (GAsyncReadyCallback) on_plugin_loaded, f);
   g_main_loop_run (f->base.loop);
 }
