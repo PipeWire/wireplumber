@@ -2708,6 +2708,13 @@ wp_spa_pod_parser_get (WpSpaPodParser *self, ...)
   return res;
 }
 
+static inline gboolean
+wp_spa_pod_parser_can_collect (const struct spa_pod *pod, char format)
+{
+  format = (format == 'K') ? 'I' : format;
+  return spa_pod_parser_can_collect (pod, format);
+}
+
 /*!
  * \brief This is the `va_list` version of wp_spa_pod_parser_get()
  *
@@ -2758,7 +2765,7 @@ wp_spa_pod_parser_get_valist (WpSpaPodParser *self, va_list args)
     if ((optional = (*format == '?')))
       format++;
 
-    if (!pod || !spa_pod_parser_can_collect (pod, *format)) {
+    if (!pod || !wp_spa_pod_parser_can_collect (pod, *format)) {
       if (!optional)
         return FALSE;
 
