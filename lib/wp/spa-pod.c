@@ -2743,7 +2743,8 @@ wp_spa_pod_parser_get_valist (WpSpaPodParser *self, va_list args)
         break;
 
       if (g_str_has_prefix (key_name, "id-")) {
-        g_return_val_if_fail (sscanf (key_name, "id-%08x", &key_id) == 1, FALSE);
+        if (sscanf (key_name, "id-%08x", &key_id) != 1)
+          return FALSE;
       } else {
         key = wp_spa_id_table_find_value_from_short_name (table, key_name);
         g_return_val_if_fail (key != NULL, FALSE);
