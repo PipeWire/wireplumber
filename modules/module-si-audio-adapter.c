@@ -553,8 +553,8 @@ si_audio_adapter_enable_active (WpSessionItem *si, WpTransition *transition)
     return;
   }
 
-  if (!(wp_object_get_active_features (WP_OBJECT (self->node))
-    & WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL)) {
+  if (!(wp_object_test_active_features (WP_OBJECT (self->node),
+        WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL))) {
     wp_transition_return_error (transition,
         g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
         "si-audio-adapter: node minimal feature not enabled"));
@@ -634,7 +634,6 @@ si_audio_adapter_set_ports_format (WpSiAdapter * item, WpSpaPod *f,
   WpSiAudioAdapter *self = WP_SI_AUDIO_ADAPTER (item);
   g_autoptr (WpSpaPod) format = f;
   g_autoptr (GTask) task = g_task_new (self, NULL, callback, data);
-  guint32 active = 0;
 
   /* cancel previous task if any */
   if (self->format_task) {
@@ -655,8 +654,8 @@ si_audio_adapter_set_ports_format (WpSiAdapter * item, WpSpaPod *f,
   }
 
   /* make sure the node has WP_NODE_FEATURE_PORTS */
-  active = wp_object_get_active_features (WP_OBJECT (self->node));
-  if (G_UNLIKELY (!(active & WP_NODE_FEATURE_PORTS))) {
+  if (G_UNLIKELY (!(wp_object_test_active_features (WP_OBJECT (self->node),
+        WP_NODE_FEATURE_PORTS)))) {
     g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
         WP_LIBRARY_ERROR_OPERATION_FAILED,
         "node feature ports is not enabled, aborting set format operation");

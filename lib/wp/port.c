@@ -146,8 +146,8 @@ WpDirection
 wp_port_get_direction (WpPort * self)
 {
   g_return_val_if_fail (WP_IS_PORT (self), 0);
-  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
-          WP_PIPEWIRE_OBJECT_FEATURE_INFO, 0);
+  g_return_val_if_fail (wp_object_test_active_features (WP_OBJECT (self),
+          WP_PIPEWIRE_OBJECT_FEATURE_INFO), 0);
 
   WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (self);
   const struct pw_port_info *info = d->info;

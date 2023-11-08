@@ -84,8 +84,8 @@ get_and_validate_item (WpProperties * props, const gchar *key)
 
   str = wp_properties_get (props, key);
   if (!str || sscanf(str, "%p", &res) != 1 || !WP_IS_SI_LINKABLE (res) ||
-      !(wp_object_get_active_features (WP_OBJECT (res)) &
-          WP_SESSION_ITEM_FEATURE_ACTIVE))
+      !(wp_object_test_active_features (WP_OBJECT (res),
+          WP_SESSION_ITEM_FEATURE_ACTIVE)))
     return NULL;
 
   return res;

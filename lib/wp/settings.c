@@ -159,8 +159,7 @@ wp_settings_get (WpSettings *self, const gchar *setting)
   g_return_val_if_fail (WP_IS_SETTINGS (self), NULL);
   g_return_val_if_fail (setting, NULL);
 
-  if (!(wp_object_get_active_features (WP_OBJECT (self)) &
-      WP_OBJECT_FEATURES_ALL))
+  if (!(wp_object_test_active_features (WP_OBJECT (self), WP_SETTINGS_LOADED)))
     return NULL;
 
   value = wp_properties_get (self->settings, setting);

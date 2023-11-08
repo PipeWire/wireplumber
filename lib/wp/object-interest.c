@@ -763,7 +763,7 @@ wp_object_interest_matches_full (WpObjectInterest * self,
       WpObject *oo = (WpObject *) object;
       WpPipewireObject *pwo = (WpPipewireObject *) object;
 
-      if (wp_object_get_active_features (oo) & WP_PIPEWIRE_OBJECT_FEATURE_INFO)
+      if (wp_object_test_active_features (oo, WP_PIPEWIRE_OBJECT_FEATURE_INFO))
         pw_props = props = wp_pipewire_object_get_properties (pwo);
     }
 

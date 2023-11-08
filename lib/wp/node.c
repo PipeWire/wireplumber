@@ -407,8 +407,8 @@ WpNodeState
 wp_node_get_state (WpNode * self, const gchar ** error)
 {
   g_return_val_if_fail (WP_IS_NODE (self), WP_NODE_STATE_ERROR);
-  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
-          WP_PIPEWIRE_OBJECT_FEATURE_INFO, WP_NODE_STATE_ERROR);
+  g_return_val_if_fail (wp_object_test_active_features (WP_OBJECT (self),
+          WP_PIPEWIRE_OBJECT_FEATURE_INFO), WP_NODE_STATE_ERROR);
 
   WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (self);
   const struct pw_node_info *info = d->info;
@@ -432,8 +432,8 @@ guint
 wp_node_get_n_input_ports (WpNode * self, guint * max)
 {
   g_return_val_if_fail (WP_IS_NODE (self), 0);
-  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
-          WP_PIPEWIRE_OBJECT_FEATURE_INFO, 0);
+  g_return_val_if_fail (wp_object_test_active_features (WP_OBJECT (self),
+          WP_PIPEWIRE_OBJECT_FEATURE_INFO), 0);
 
   WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (self);
   const struct pw_node_info *info = d->info;
@@ -457,8 +457,8 @@ guint
 wp_node_get_n_output_ports (WpNode * self, guint * max)
 {
   g_return_val_if_fail (WP_IS_NODE (self), 0);
-  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
-          WP_PIPEWIRE_OBJECT_FEATURE_INFO, 0);
+  g_return_val_if_fail (wp_object_test_active_features (WP_OBJECT (self),
+          WP_PIPEWIRE_OBJECT_FEATURE_INFO), 0);
 
   WpPwObjectMixinData *d = wp_pw_object_mixin_get_data (self);
   const struct pw_node_info *info = d->info;
@@ -487,8 +487,8 @@ guint
 wp_node_get_n_ports (WpNode * self)
 {
   g_return_val_if_fail (WP_IS_NODE (self), 0);
-  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
-          WP_NODE_FEATURE_PORTS, 0);
+  g_return_val_if_fail (wp_object_test_active_features (WP_OBJECT (self),
+          WP_NODE_FEATURE_PORTS), 0);
 
   return wp_object_manager_get_n_objects (self->ports_om);
 }
@@ -507,8 +507,8 @@ WpIterator *
 wp_node_new_ports_iterator (WpNode * self)
 {
   g_return_val_if_fail (WP_IS_NODE (self), NULL);
-  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
-          WP_NODE_FEATURE_PORTS, NULL);
+  g_return_val_if_fail (wp_object_test_active_features (WP_OBJECT (self),
+          WP_NODE_FEATURE_PORTS), NULL);
 
   return wp_object_manager_new_iterator (self->ports_om);
 }
@@ -554,8 +554,8 @@ wp_node_new_ports_filtered_iterator_full (WpNode * self,
     WpObjectInterest * interest)
 {
   g_return_val_if_fail (WP_IS_NODE (self), NULL);
-  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
-          WP_NODE_FEATURE_PORTS, NULL);
+  g_return_val_if_fail (wp_object_test_active_features (WP_OBJECT (self),
+          WP_NODE_FEATURE_PORTS), NULL);
 
   return wp_object_manager_new_filtered_iterator_full (self->ports_om,
       interest);
@@ -601,8 +601,8 @@ WpPort *
 wp_node_lookup_port_full (WpNode * self, WpObjectInterest * interest)
 {
   g_return_val_if_fail (WP_IS_NODE (self), NULL);
-  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
-          WP_NODE_FEATURE_PORTS, NULL);
+  g_return_val_if_fail (wp_object_test_active_features (WP_OBJECT (self),
+          WP_NODE_FEATURE_PORTS), NULL);
 
   return (WpPort *)
       wp_object_manager_lookup_full (self->ports_om, interest);
@@ -626,8 +626,8 @@ wp_node_send_command (WpNode * self, const gchar * command)
 
   g_return_if_fail (WP_IS_NODE (self));
   g_return_if_fail (command_value != NULL);
-  g_return_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
-      WP_PROXY_FEATURE_BOUND);
+  g_return_if_fail (wp_object_test_active_features (WP_OBJECT (self),
+      WP_PROXY_FEATURE_BOUND));
 
   struct spa_command cmd =
       SPA_NODE_COMMAND_INIT(wp_spa_id_value_number (command_value));
