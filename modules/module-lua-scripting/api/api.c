@@ -1202,6 +1202,7 @@ client_parse_permissions (const gchar * perms_str, guint32 *perms)
         case 'w': *perms |= PW_PERM_W; break;
         case 'x': *perms |= PW_PERM_X; break;
         case 'm': *perms |= PW_PERM_M; break;
+        case 'l': *perms |= PW_PERM_L; break;
         case '-': break;
         default:
           return FALSE;
