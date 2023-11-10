@@ -651,8 +651,7 @@ wp_impl_metadata_activate_execute_step (WpObject * object,
   case STEP_BIND: {
     g_autoptr (WpCore) core = wp_object_get_core (object);
     struct pw_core *pw_core = wp_core_get_pw_core (core);
-    struct spa_dict_item items[1];
-    struct spa_dict *props = NULL, prop_impl;
+    const struct pw_properties *props = NULL;
 
     /* no pw_core -> we are not connected */
     if (!pw_core) {
@@ -663,16 +662,9 @@ wp_impl_metadata_activate_execute_step (WpObject * object,
       return;
     }
 
-    /* TODO: Ideally, we should use the properties from pw_impl_metadata here,
-     * but the pw_impl_metadata_get_properties is not implemented in pipewire
-     * yet, so we add the name property manually for now */
-    if (self->name) {
-      items[0] = SPA_DICT_ITEM_INIT(PW_KEY_METADATA_NAME, self->name);
-      prop_impl = SPA_DICT_INIT_ARRAY(items);
-      props = &prop_impl;
-    }
+    props = pw_impl_metadata_get_properties (self->impl);
     wp_proxy_set_pw_proxy (WP_PROXY (self), pw_core_export (pw_core,
-            PW_TYPE_INTERFACE_Metadata, props, priv->iface, 0)
+            PW_TYPE_INTERFACE_Metadata, &props->dict, priv->iface, 0)
     );
     break;
   }
