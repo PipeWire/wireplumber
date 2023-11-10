@@ -873,7 +873,7 @@ impl_metadata_new (lua_State *L)
   const char *name = luaL_checkstring (L, 1);
   WpProperties *properties = NULL;
 
-  if (lua_type (L, 2) != LUA_TNONE) {
+  if (lua_type (L, 2) != LUA_TNONE && lua_type (L, 2) != LUA_TNIL) {
     luaL_checktype (L, 2, LUA_TTABLE);
     properties = wplua_table_to_properties (L, 2);
   }
@@ -899,7 +899,7 @@ device_new (lua_State *L)
   const char *factory = luaL_checkstring (L, 1);
   WpProperties *properties = NULL;
 
-  if (lua_type (L, 2) != LUA_TNONE) {
+  if (lua_type (L, 2) != LUA_TNONE && lua_type (L, 2) != LUA_TNIL) {
     luaL_checktype (L, 2, LUA_TTABLE);
     properties = wplua_table_to_properties (L, 2);
   }
@@ -919,7 +919,7 @@ spa_device_new (lua_State *L)
   const char *factory = luaL_checkstring (L, 1);
   WpProperties *properties = NULL;
 
-  if (lua_type (L, 2) != LUA_TNONE) {
+  if (lua_type (L, 2) != LUA_TNONE && lua_type (L, 2) != LUA_TNIL) {
     luaL_checktype (L, 2, LUA_TTABLE);
     properties = wplua_table_to_properties (L, 2);
   }
@@ -977,7 +977,7 @@ node_new (lua_State *L)
   const char *factory = luaL_checkstring (L, 1);
   WpProperties *properties = NULL;
 
-  if (lua_type (L, 2) != LUA_TNONE) {
+  if (lua_type (L, 2) != LUA_TNONE && lua_type (L, 2) != LUA_TNIL) {
     luaL_checktype (L, 2, LUA_TTABLE);
     properties = wplua_table_to_properties (L, 2);
   }
@@ -1086,7 +1086,7 @@ impl_node_new (lua_State *L)
   const char *factory = luaL_checkstring (L, 1);
   WpProperties *properties = NULL;
 
-  if (lua_type (L, 2) != LUA_TNONE) {
+  if (lua_type (L, 2) != LUA_TNONE && lua_type (L, 2) != LUA_TNIL) {
     luaL_checktype (L, 2, LUA_TTABLE);
     properties = wplua_table_to_properties (L, 2);
   }
@@ -1122,7 +1122,7 @@ link_new (lua_State *L)
   const char *factory = luaL_checkstring (L, 1);
   WpProperties *properties = NULL;
 
-  if (lua_type (L, 2) != LUA_TNONE) {
+  if (lua_type (L, 2) != LUA_TNONE && lua_type (L, 2) != LUA_TNIL) {
     luaL_checktype (L, 2, LUA_TTABLE);
     properties = wplua_table_to_properties (L, 2);
   }
