@@ -38,6 +38,7 @@ SimpleEventHook {
       profile = cutils.parseParam (p, "EnumProfile")
       if profile and profile.name == profile_prop and profile.available ~= "no" then
         selected_profile = profile
+        goto profile_set
       elseif profile and profile.name ~= "pro-audio" then
         if profile.name == "off" then
           off_profile = profile
@@ -61,6 +62,7 @@ SimpleEventHook {
       selected_profile = off_profile
     end
 
+::profile_set::
     if selected_profile then
       log:info (device, string.format (
           "Found best profile '%s' (%d) for device '%s'",
