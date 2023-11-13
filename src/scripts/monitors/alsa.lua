@@ -11,7 +11,6 @@ log = Log.open_topic ("s-monitors")
 defaults = {}
 defaults.reserve_priority = -20
 defaults.reserve_application_name = "WirePlumber"
-defaults.jack_device = false
 defaults.properties = Json.Object {}
 defaults.vm_node_defaults = Json.Object {}
 
@@ -20,8 +19,6 @@ config.reserve_priority = Conf.get_value_int ("wireplumber.settings",
     "monitor.alsa.reserve-priority", defaults.reserve_priority)
 config.reserve_application_name = Conf.get_value_string ("wireplumber.settings",
     "monitor.alsa.reserve-application-name", defaults.reserve_application_name)
-config.jack_device = Conf.get_value_boolean ("wireplumber.settings",
-    "monitor.alsa.jack-device", defaults.jack_device)
 config.properties = Conf.get_section (
     "monitor.alsa.properties", defaults.properties):parse ()
 config.vm_node_defaults = Conf.get_section (
@@ -318,17 +315,6 @@ function prepareDevice(parent, id, obj_type, factory, properties)
         rd:call("release")
     end)
 
-    if jack_device then
-      rd:connect("notify::owner-name-changed", function (rd, pspec)
-        if rd["state"] == "busy" and
-           rd["owner-application-name"] == "Jack audio server" then
-            -- TODO enable the jack device
-        else
-            -- TODO disable the jack device
-        end
-      end)
-    end
-
     rd:call("acquire")
   else
     -- create the device
@@ -374,15 +360,6 @@ function createMonitor ()
   log:info("Activating ALSA monitor")
   m:activate(Feature.SpaDevice.ENABLED)
   return m
-end
-
--- create the JACK device (for PipeWire to act as client to a JACK server)
-if config.jack_device then
-  jack_device = Device("spa-device-factory", {
-    ["factory.name"] = "api.jack.device",
-    ["node.name"] = "JACK-Device",
-  })
-  jack_device:activate(Feature.Proxy.BOUND)
 end
 
 -- if the reserve-device plugin is enabled, at the point of script execution
