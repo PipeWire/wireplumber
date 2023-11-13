@@ -13,6 +13,7 @@ defaults.properties = Json.Object {}
 defaults.servers = Json.Array { "bluez_midi.server" }
 
 config = {}
+config.seat_monitoring = Core.test_feature ("monitor.bluetooth.seat-monitoring")
 config.properties = Conf.get_section (
     "monitor.bluetooth-midi.properties", defaults.properties): parse ()
 config.servers = Conf.get_section (
@@ -136,7 +137,9 @@ function createServers()
   return servers
 end
 
-logind_plugin = Plugin.find("logind")
+if config.seat_monitoring then
+  logind_plugin = Plugin.find("logind")
+end
 if logind_plugin then
   -- if logind support is enabled, activate
   -- the monitor only when the seat is active

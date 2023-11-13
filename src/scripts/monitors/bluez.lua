@@ -14,6 +14,7 @@ defaults = {}
 defaults.properties = Json.Object {}
 
 config = {}
+config.seat_monitoring = Core.test_feature ("monitor.bluetooth.seat-monitoring")
 config.properties = Conf.get_section (
     "monitor.bluetooth.properties", defaults.properties): parse ()
 
@@ -380,7 +381,9 @@ function createMonitor()
   return monitor
 end
 
-logind_plugin = Plugin.find("logind")
+if config.seat_monitoring then
+  logind_plugin = Plugin.find("logind")
+end
 if logind_plugin then
   -- if logind support is enabled, activate
   -- the monitor only when the seat is active
