@@ -11,6 +11,7 @@ defaults = {}
 defaults.node_properties = Json.Object {}
 
 config = {}
+config.monitoring = Core.test_feature ("monitor.alsa-midi.monitoring")
 config.node_properties = Conf.get_section (
     "monitor.alsa.midi.node-properties", defaults.node_properties):parse ()
 
@@ -42,7 +43,7 @@ end
 
 if GLib.access (SND_SEQ_PATH, "rw") then
   midi_node = CreateMidiNode ()
-else
+elseif config.monitoring then
   fm_plugin = Plugin.find("file-monitor-api")
 end
 

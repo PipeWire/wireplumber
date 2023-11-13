@@ -15,6 +15,7 @@ defaults.properties = Json.Object {}
 defaults.vm_node_defaults = Json.Object {}
 
 config = {}
+config.reserve_device = Core.test_feature ("monitor.alsa.reserve-device")
 config.reserve_priority = Conf.get_value_int ("wireplumber.settings",
     "monitor.alsa.reserve-priority", defaults.reserve_priority)
 config.reserve_application_name = Conf.get_value_string ("wireplumber.settings",
@@ -365,7 +366,9 @@ end
 -- if the reserve-device plugin is enabled, at the point of script execution
 -- it is expected to be connected. if it is not, assume the d-bus connection
 -- has failed and continue without it
-rd_plugin = Plugin.find("reserve-device")
+if config.reserve_device then
+  rd_plugin = Plugin.find("reserve-device")
+end
 if rd_plugin and rd_plugin:call("get-dbus")["state"] ~= "connected" then
   log:notice("reserve-device plugin is not connected to D-Bus, "
               .. "disabling device reservation")
