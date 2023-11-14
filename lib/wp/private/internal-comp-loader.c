@@ -10,6 +10,8 @@
 #include "wp.h"
 #include "registry.h"
 
+#include <pipewire/impl.h>
+
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp-internal-comp-loader")
 
 /*** ComponentData ***/
@@ -711,6 +713,7 @@ wp_internal_comp_loader_supports_type (WpComponentLoader * cl,
     const gchar * type)
 {
   return g_str_equal (type, "module") ||
+         g_str_equal (type, "pw-module") ||
          g_str_equal (type, "virtual") ||
          g_str_equal (type, "built-in") ||
          g_str_equal (type, "profile") ||
@@ -767,6 +770,17 @@ wp_internal_comp_loader_load (WpComponentLoader * self, WpCore * core,
         g_task_return_pointer (task, g_steal_pointer (&o), g_object_unref);
       else
         g_task_return_error (task, g_steal_pointer (&error));
+    }
+    else if (g_str_equal (type, "pw-module")) {
+      if (!pw_context_load_module (wp_core_get_pw_context (core), component,
+              args ? wp_spa_json_get_data (args) : NULL, NULL)) {
+        g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
+            WP_LIBRARY_ERROR_OPERATION_FAILED,
+            "Failed to load pipewire module %s: %s", component, strerror (errno));
+      }
+      else {
+        g_task_return_pointer (task, NULL, NULL);
+      }
     }
     else if (g_str_equal (type, "virtual")) {
       g_task_return_pointer (task, NULL, NULL);
