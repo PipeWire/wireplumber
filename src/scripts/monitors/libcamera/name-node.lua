@@ -7,10 +7,10 @@
 
 mutils = require ("monitor-utils")
 
-log = Log.open_topic ("s-monitors-libcam")
+log = Log.open_topic ("s-monitors-libcamera")
 
 SimpleEventHook {
-  name = "monitor/libcam/name-node",
+  name = "monitor/libcamera/name-node",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "create-libcamera-device-node" },

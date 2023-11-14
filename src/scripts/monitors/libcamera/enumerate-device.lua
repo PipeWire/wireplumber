@@ -5,7 +5,7 @@
 --
 -- SPDX-License-Identifier: MIT
 
-log = Log.open_topic ("s-monitors-libcam")
+log = Log.open_topic ("s-monitors-libcamera")
 
 defaults = {}
 defaults.properties = Json.Object {}
@@ -17,7 +17,7 @@ config.properties = Conf.get_section (
 function createCamDevice (parent, id, type, factory, properties)
   source = source or Plugin.find ("standard-event-source")
 
-  local e = source:call ("create-event", "create-libcam-device", parent, nil)
+  local e = source:call ("create-event", "create-libcamera-device", parent, nil)
   e:set_data ("device-properties", properties)
   e:set_data ("factory", factory)
   e:set_data ("device-sub-id", id)
