@@ -24,13 +24,19 @@ fm_plugin = nil
 
 function CreateMidiNode ()
   -- Midi properties
-  local props = {}
+  local props = {
+    ["factory.name"] = "api.alsa.seq.bridge",
+
+    -- Name set for the node with ALSA MIDI ports
+    ["node.name"] = "Midi-Bridge",
+
+    -- Set priorities so that it can be used as a fallback driver (see pipewire#3562)
+    ["priority.session"] = "100",
+    ["priority.driver"] = "1",
+  }
   for k, v in pairs(config.node_properties) do
     props[k] = v
   end
-
-  props["factory.name"] = "api.alsa.seq.bridge"
-  props["node.name"] = props["node.name"] or "Midi-Bridge"
 
   -- create the midi node
   local node = Node("spa-node-factory", props)
