@@ -12,7 +12,6 @@ defaults = {}
 defaults.reserve_priority = -20
 defaults.reserve_application_name = "WirePlumber"
 defaults.properties = Json.Object {}
-defaults.vm_node_defaults = Json.Object {}
 
 config = {}
 config.reserve_device = Core.test_feature ("monitor.alsa.reserve-device")
@@ -22,8 +21,6 @@ config.reserve_application_name = Conf.get_value_string ("wireplumber.settings",
     "monitor.alsa.reserve-application-name", defaults.reserve_application_name)
 config.properties = Conf.get_section (
     "monitor.alsa.properties", defaults.properties):parse ()
-config.vm_node_defaults = Conf.get_section (
-    "monitor.alsa.vm.node.defaults", defaults.vm_node_defaults):parse ()
 
 -- unique device/node name tables
 device_names_table = nil
@@ -155,12 +152,10 @@ function createNode(parent, id, obj_type, factory, properties)
     end
   end
 
-  -- apply VM overrides
-  if nonempty(Core.get_vm_type()) and
-      type(config.vm_node_defaults) == "table" then
-    for k, v in pairs(config.vm_node_defaults) do
-      properties[k] = v
-    end
+  -- add vm.type for rule matching purposes
+  local vm_type = Core.get_vm_type()
+  if nonempty(vm_type) then
+    properties["vm.type"] = vm_type
   end
 
   -- apply properties from rules defined in JSON .conf file
