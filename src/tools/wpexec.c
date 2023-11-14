@@ -43,7 +43,7 @@ parse_exec_script_arg (const gchar *option_name, const gchar *value,
   /* the second argument is a json object with script arguments */
   if (!exec_args) {
     exec_args_s = g_strdup (value);
-    exec_args = wp_spa_json_new_from_string (exec_args_s);
+    exec_args = wp_spa_json_new_wrap_string (exec_args_s);
     if (!exec_args || !wp_spa_json_is_object (exec_args)) {
       g_set_error (error, WP_DOMAIN_DAEMON, WP_EXIT_USAGE,
           "script argument must be a JSON object");

@@ -163,7 +163,7 @@ wp_settings_get (WpSettings *self, const gchar *setting)
     return NULL;
 
   value = wp_properties_get (self->settings, setting);
-  return value ? wp_spa_json_new_from_string (value) : NULL;
+  return value ? wp_spa_json_new_wrap_string (value) : NULL;
 }
 
 enum {
@@ -271,7 +271,7 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
 
       g_value_set_object (&values[0], self);
       g_value_set_string (&values[1], setting);
-      json = new_value ? wp_spa_json_new_from_string (new_value) : NULL;
+      json = new_value ? wp_spa_json_new_wrap_string (new_value) : NULL;
       g_value_set_boxed (&values[2], json);
 
       g_closure_invoke (cb->closure, NULL, 3, values, NULL);

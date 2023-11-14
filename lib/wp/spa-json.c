@@ -184,13 +184,14 @@ wp_spa_json_new (const gchar *data, size_t size)
  *
  * \ingroup wpspajson
  * \param json_str a JSON string
- * \returns a new WpSpaJson that references the data in \a json_str. \a json_str
- *   is not copied, so it needs to stay alive.
+ * \returns a new WpSpaJson; unlike the "wrap" variants, this function copies
+ *    the data in \a json_str, so it does not need to stay alive.
+ * \since 0.5.0
  */
-WpSpaJson *
-wp_spa_json_new_from_string (const gchar *json_str)
+WP_API
+WpSpaJson * wp_spa_json_new_from_string (const gchar *json_str)
 {
-  return wp_spa_json_new_from_stringn(json_str, strlen (json_str));
+  return wp_spa_json_new (json_str, strlen (json_str));
 }
 
 /*!
@@ -199,13 +200,43 @@ wp_spa_json_new_from_string (const gchar *json_str)
  * \ingroup wpspajson
  * \param json_str a JSON string
  * \param len the specific length of the string
+ * \returns a new WpSpaJson; unlike the "wrap" variants, this function copies
+ *    the data in \a json_str, so it does not need to stay alive.
+ * \since 0.5.0
+ */
+WP_API
+WpSpaJson * wp_spa_json_new_from_stringn (const gchar *json_str, size_t len)
+{
+  return wp_spa_json_new (json_str, len);
+}
+
+/*!
+ * \brief Constructs a new WpSpaJson that wraps a JSON string.
+ *
+ * \ingroup wpspajson
+ * \param json_str a JSON string
  * \returns a new WpSpaJson that references the data in \a json_str. \a json_str
  *   is not copied, so it needs to stay alive.
- *
- * \since 0.4.10
+ * \since 0.5.0
  */
 WpSpaJson *
-wp_spa_json_new_from_stringn (const gchar *json_str, size_t len)
+wp_spa_json_new_wrap_string (const gchar *json_str)
+{
+  return wp_spa_json_new_wrap_stringn(json_str, strlen (json_str));
+}
+
+/*!
+ * \brief Constructs a new WpSpaJson that wraps a JSON string with specific length.
+ *
+ * \ingroup wpspajson
+ * \param json_str a JSON string
+ * \param len the specific length of the string
+ * \returns a new WpSpaJson that references the data in \a json_str. \a json_str
+ *   is not copied, so it needs to stay alive.
+ * \since 0.5.0
+ */
+WpSpaJson *
+wp_spa_json_new_wrap_stringn (const gchar *json_str, size_t len)
 {
   WpSpaJson *self = g_slice_new0 (WpSpaJson);
   g_ref_count_init (&self->ref);

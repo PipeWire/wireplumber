@@ -114,7 +114,7 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
     if (!g_strcmp0 (key, DEFAULT_KEY[i])) {
 
       if (value && !g_strcmp0 (type, "Spa:String:JSON")) {
-        g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (value);
+        g_autoptr (WpSpaJson) json = wp_spa_json_new_wrap_string (value);
         wp_spa_json_object_get (json, "name", "s", &new_value, NULL);
       }
 
@@ -129,7 +129,7 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
     } else if (!g_strcmp0 (key, DEFAULT_CONFIG_KEY[i])) {
 
       if (value && !g_strcmp0 (type, "Spa:String:JSON")) {
-        g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (value);
+        g_autoptr (WpSpaJson) json = wp_spa_json_new_wrap_string (value);
         wp_spa_json_object_get (json, "name", "s", &new_value, NULL);
       }
 

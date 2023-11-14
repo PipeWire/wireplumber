@@ -163,7 +163,7 @@ is_persistent_settings_enabled (WpProperties *settings) {
   if (!val_str)
     return FALSE;
 
-  val = wp_spa_json_new_from_string (val_str);
+  val = wp_spa_json_new_wrap_string (val_str);
   if (val && !wp_spa_json_parse_boolean (val, &res))
     wp_warning ("Could not parse " PERSISTENT_SETTING " in main configuration");
 

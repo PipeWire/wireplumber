@@ -157,7 +157,7 @@ merge_section_cb (void *data, const char *location, const char *section,
       location);
 
   /* Only allow sections to be objects or arrays */
-  json = wp_spa_json_new_from_stringn (str, len);
+  json = wp_spa_json_new_wrap_stringn (str, len);
   if (!wp_spa_json_is_container (json)) {
     wp_warning (
         "skipping section %s from %s as it is not JSON object or array",

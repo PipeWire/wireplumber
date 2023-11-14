@@ -817,7 +817,7 @@ static void
 test_spa_json_nested2 (void)
 {
   const gchar json_str[] = "[[[[1], [2]], [3]], [4]]";
-  g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (json_str);
+  g_autoptr (WpSpaJson) json = wp_spa_json_new_wrap_string (json_str);
 
   g_assert_true (wp_spa_json_is_array (json));
   g_assert_cmpmem (wp_spa_json_get_data (json), wp_spa_json_get_size (json),
@@ -987,7 +987,7 @@ test_spa_json_nested3 (void)
 {
   const gchar json_str[] =
       "{ test-setting-json3: { key1: \"value\", key2: 2, key3: true } }";
-  g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (json_str);
+  g_autoptr (WpSpaJson) json = wp_spa_json_new_wrap_string (json_str);
   g_assert_nonnull (json);
   g_assert_true (wp_spa_json_is_object (json));
 
@@ -1023,7 +1023,7 @@ test_spa_json_ownership (void)
 
   {
     const gchar json_str[] = "{\"name\":\"John\", \"age\":30, \"car\":null}";
-    json = wp_spa_json_new_from_string (json_str);
+    json = wp_spa_json_new_wrap_string (json_str);
     g_assert_nonnull (json);
 
     g_assert_false (wp_spa_json_is_unique_owner (json));
@@ -1120,7 +1120,7 @@ test_spa_json_spa_format (void)
   g_autoptr (WpSpaJson) json = NULL;
 
   const gchar json_str[] = "{ name = John age:30, \"car\" null }";
-  json = wp_spa_json_new_from_string (json_str);
+  json = wp_spa_json_new_wrap_string (json_str);
   g_assert_nonnull (json);
 
   g_assert_true (wp_spa_json_is_object (json));
@@ -1202,7 +1202,7 @@ static void
 test_spa_json_to_string (void)
 {
   const gchar json_str[] = "[{\"key0\":\"val0\"}, {\"key1\":\"val1\"}]";
-  g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (json_str);
+  g_autoptr (WpSpaJson) json = wp_spa_json_new_wrap_string (json_str);
   g_assert_nonnull (json);
 
   {

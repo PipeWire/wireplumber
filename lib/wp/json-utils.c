@@ -29,7 +29,7 @@ match_rules_cb (void *data, const char *location, const char *action,
     const char *str, size_t len)
 {
   struct match_rules_cb_data *cb_data = data;
-  g_autoptr (WpSpaJson) json = wp_spa_json_new_from_stringn (str, len);
+  g_autoptr (WpSpaJson) json = wp_spa_json_new_wrap_stringn (str, len);
   return cb_data->callback (cb_data->data, action, json, cb_data->error) ? 0 : -EPIPE;
 }
 

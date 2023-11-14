@@ -42,7 +42,7 @@ test_match_rules_update_properties (void)
       "  }"
       "]";
 
-  g_autoptr (WpSpaJson) rules = wp_spa_json_new_from_stringn (rules_json_string,
+  g_autoptr (WpSpaJson) rules = wp_spa_json_new_wrap_stringn (rules_json_string,
       strlen (rules_json_string));
   g_assert_nonnull (rules);
 
@@ -251,7 +251,7 @@ test_match_rules (void)
       "  }"
       "]";
 
-  g_autoptr (WpSpaJson) rules = wp_spa_json_new_from_stringn (rules_json_string,
+  g_autoptr (WpSpaJson) rules = wp_spa_json_new_wrap_stringn (rules_json_string,
       strlen (rules_json_string));
   g_assert_nonnull (rules);
 

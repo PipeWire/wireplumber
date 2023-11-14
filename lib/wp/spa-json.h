@@ -41,6 +41,12 @@ WP_API
 WpSpaJson * wp_spa_json_new_from_stringn (const gchar *json_str, size_t len);
 
 WP_API
+WpSpaJson * wp_spa_json_new_wrap_string (const gchar *json_str);
+
+WP_API
+WpSpaJson * wp_spa_json_new_wrap_stringn (const gchar *json_str, size_t len);
+
+WP_API
 WpSpaJson * wp_spa_json_new_wrap (struct spa_json *json);
 
 WP_API

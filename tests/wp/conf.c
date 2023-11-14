@@ -167,7 +167,7 @@ test_conf_basic (TestConfFixture *f, gconstpointer data)
 
   /* Fallback */
   {
-    g_autoptr (WpSpaJson) fallback = wp_spa_json_new_from_string ("{key1 = 3");
+    g_autoptr (WpSpaJson) fallback = wp_spa_json_new_wrap_string ("{key1 = 3");
     g_assert_nonnull (fallback);
 
     g_autoptr (WpSpaJson) s = wp_conf_get_section (f->conf,
