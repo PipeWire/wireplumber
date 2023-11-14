@@ -83,12 +83,83 @@ get_feature_state (WpProperties * dict, const gchar * feature)
   }
 }
 
-static ComponentData *
-component_data_new_from_json (WpSpaJson * json, WpProperties * features,
+static gboolean
+component_rule_match_cb (gpointer data, const gchar * action, WpSpaJson * value,
     GError ** error)
 {
+  WpProperties *props = data;
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) item = G_VALUE_INIT;
+  gboolean merge;
+
+  if (!wp_spa_json_is_object (value)) {
+    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
+        "expected JSON object instead of: %.*s", (int) wp_spa_json_get_size (value),
+        wp_spa_json_get_data (value));
+    return FALSE;
+  }
+
+  if (g_str_equal (action, "merge")) {
+    merge = TRUE;
+  } else if (g_str_equal (action, "override")) {
+    merge = FALSE;
+  } else {
+    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
+        "invalid action '%s' in component rules", action);
+    return FALSE;
+  }
+
+  it = wp_spa_json_new_iterator (value);
+
+  do {
+    g_autofree gchar *key = NULL;
+    g_autofree gchar *val = NULL;
+    const gchar *old_val = NULL;
+
+    /* extract key */
+    if (!wp_iterator_next (it, &item))
+      break;
+    key = wp_spa_json_to_string (g_value_get_boxed (&item));
+    g_value_unset (&item);
+
+    /* extract value */
+    if (!wp_iterator_next (it, &item)) {
+      g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
+          "expected value for key '%s' in component rules", key);
+      return FALSE;
+    }
+    val = wp_spa_json_to_string (g_value_get_boxed (&item));
+    g_value_unset (&item);
+
+    old_val = wp_properties_get (props, key);
+
+    /* override if not merging or if the value is not a container */
+    if (!merge || !old_val || (*old_val != '[' && *old_val != '{')) {
+      wp_properties_set (props, key, val);
+    }
+    else {
+      g_autoptr (WpSpaJson) old_json = NULL;
+      g_autoptr (WpSpaJson) new_json = NULL;
+      g_autoptr (WpSpaJson) merged_json = NULL;
+
+      old_json = wp_spa_json_new_wrap_string (old_val);
+      new_json = wp_spa_json_new_wrap_string (val);
+      merged_json = wp_json_utils_merge_containers (old_json, new_json);
+      wp_properties_set (props, key,
+          merged_json ? wp_spa_json_get_data (merged_json) : val);
+    }
+  } while (TRUE);
+
+  return TRUE;
+}
+
+static ComponentData *
+component_data_new_from_json (WpSpaJson * json, WpProperties * features,
+    WpSpaJson * rules, GError ** error)
+{
   g_autoptr (ComponentData) comp = NULL;
-  g_autoptr (WpSpaJson) comp_reqs = NULL, comp_wants = NULL;
+  g_autoptr (WpProperties) props = NULL;
+  const gchar *str;
 
   if (!wp_spa_json_is_object (json)) {
     g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
@@ -102,17 +173,24 @@ component_data_new_from_json (WpSpaJson * json, WpProperties * features,
   comp->requires = g_ptr_array_new_with_free_func (g_free);
   comp->wants = g_ptr_array_new_with_free_func (g_free);
 
-  if (!wp_spa_json_object_get (json, "type", "s", &comp->type, NULL)) {
+  props = wp_properties_new_json (json);
+  if (rules && !wp_json_utils_match_rules (rules, props, component_rule_match_cb,
+          props, error))
+    return NULL;
+
+  if (!(comp->type = g_strdup (wp_properties_get (props, "type")))) {
     g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
         "component 'type' is required at: %.*s", (int) wp_spa_json_get_size (json),
         wp_spa_json_get_data (json));
     return NULL;
   }
 
-  wp_spa_json_object_get (json, "name", "s", &comp->name, NULL);
-  wp_spa_json_object_get (json, "arguments", "J", &comp->arguments, NULL);
+  comp->name = g_strdup (wp_properties_get (props, "name"));
+  str = wp_properties_get (props, "arguments");
+  comp->arguments = str ? wp_spa_json_new_from_string (str) : NULL;
 
-  if (wp_spa_json_object_get (json, "provides", "s", &comp->provides, NULL)) {
+  if ((str = wp_properties_get (props, "provides"))) {
+    comp->provides = g_strdup (str);
     comp->state = get_feature_state (features, comp->provides);
     if (comp->name) {
       comp->printable_id =
@@ -126,7 +204,8 @@ component_data_new_from_json (WpSpaJson * json, WpProperties * features,
     comp->printable_id = g_strdup_printf ("[%s: %s]", comp->type, comp->name);
   }
 
-  if (wp_spa_json_object_get (json, "requires", "J", &comp_reqs, NULL)) {
+  if ((str = wp_properties_get (props, "requires"))) {
+    g_autoptr (WpSpaJson) comp_reqs = wp_spa_json_new_wrap_string (str);
     g_autoptr (WpIterator) it = wp_spa_json_new_iterator (comp_reqs);
     g_auto (GValue) item = G_VALUE_INIT;
 
@@ -136,7 +215,8 @@ component_data_new_from_json (WpSpaJson * json, WpProperties * features,
     }
   }
 
-  if (wp_spa_json_object_get (json, "wants", "J", &comp_wants, NULL)) {
+  if ((str = wp_properties_get (props, "wants"))) {
+    g_autoptr (WpSpaJson) comp_wants = wp_spa_json_new_wrap_string (str);
     g_autoptr (WpIterator) it = wp_spa_json_new_iterator (comp_wants);
     g_auto (GValue) item = G_VALUE_INIT;
 
@@ -171,6 +251,8 @@ struct _WpComponentArrayLoadTask
   WpSpaJson *json;
   /* the features profile */
   WpProperties *profile;
+  /* the rules to apply on each component description */
+  WpSpaJson *rules;
   /* all components that provide a feature; key: comp->provides, value: comp */
   GHashTable *feat_components;
   /* the final sorted list of components to load */
@@ -317,7 +399,7 @@ parse_components (WpComponentArrayLoadTask * self, GError ** error)
     GError *e = NULL;
     g_autoptr (ComponentData) comp = NULL;
 
-    if (!(comp = component_data_new_from_json (cjson, self->profile, &e))) {
+    if (!(comp = component_data_new_from_json (cjson, self->profile, self->rules, &e))) {
       g_propagate_error (error, e);
       return FALSE;
     }
@@ -459,6 +541,7 @@ wp_component_array_load_task_finalize (GObject * object)
   g_clear_pointer (&self->feat_components, g_hash_table_unref);
   g_clear_pointer (&self->components, g_ptr_array_unref);
   g_clear_pointer (&self->profile, wp_properties_unref);
+  g_clear_pointer (&self->rules, wp_spa_json_unref);
   g_clear_pointer (&self->json, wp_spa_json_unref);
 
   G_OBJECT_CLASS (wp_component_array_load_task_parent_class)->finalize (object);
@@ -478,7 +561,7 @@ wp_component_array_load_task_class_init (WpComponentArrayLoadTaskClass * klass)
 
 static WpTransition *
 wp_component_array_load_task_new (WpSpaJson * json, WpProperties * profile,
-    gpointer source_object, GCancellable * cancellable,
+    WpSpaJson * rules, gpointer source_object, GCancellable * cancellable,
     GAsyncReadyCallback callback, gpointer callback_data)
 {
   WpTransition *t = wp_transition_new (wp_component_array_load_task_get_type (),
@@ -486,6 +569,7 @@ wp_component_array_load_task_new (WpSpaJson * json, WpProperties * profile,
   WpComponentArrayLoadTask *task = WP_COMPONENT_ARRAY_LOAD_TASK (t);
   task->json = wp_spa_json_ref (json);
   task->profile = wp_properties_ref (profile);
+  task->rules = rules ? wp_spa_json_ref (rules) : NULL;
   return t;
 }
 
@@ -641,23 +725,30 @@ wp_internal_comp_loader_load (WpComponentLoader * self, WpCore * core,
   if (g_str_equal (type, "profile") || g_str_equal (type, "array")) {
     WpTransition *task = NULL;
     g_autoptr (WpSpaJson) components = NULL;
+    g_autoptr (WpSpaJson) rules = NULL;
     g_autoptr (WpProperties) profile = wp_properties_new_empty ();
 
     if (g_str_equal (type, "profile")) {
       /* component name is the profile name;
          component list and profile features are loaded from config */
       g_autoptr (WpConf) conf = wp_conf_get_instance (core);
-      g_autoptr (WpSpaJson) profile_json =
+      g_autoptr (WpSpaJson) profile_json = NULL;
+
+      profile_json =
           wp_conf_get_value (conf, "wireplumber.profiles", component, NULL);
       if (profile_json)
         wp_properties_update_from_json (profile, profile_json);
+
       components = wp_conf_get_section (conf, "wireplumber.components", NULL);
-    } else {
+
+      rules = wp_conf_get_section (conf, "wireplumber.components.rules", NULL);
+    }
+    else {
       /* component list is retrieved from args; profile features are empty */
       components = wp_spa_json_ref (args);
     }
 
-    task = wp_component_array_load_task_new (components, profile, self,
+    task = wp_component_array_load_task_new (components, profile, rules, self,
         cancellable, callback, data);
     wp_transition_set_data (task, g_object_ref (core), g_object_unref);
     wp_transition_set_source_tag (task, wp_internal_comp_loader_load);
