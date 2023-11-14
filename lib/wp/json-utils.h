@@ -33,6 +33,9 @@ gboolean wp_json_utils_match_rules (WpSpaJson * json, WpProperties * match_props
 WP_API
 gint wp_json_utils_match_rules_update_properties (WpSpaJson *json, WpProperties *props);
 
+WP_API
+WpSpaJson * wp_json_utils_merge_containers (WpSpaJson * a, WpSpaJson * b);
+
 G_END_DECLS
 
 #endif
