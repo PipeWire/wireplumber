@@ -22,6 +22,18 @@ function cutils.parseParam (param, id)
   end
 end
 
+function cutils.mediaClassToDirection (media_class)
+  if media_class:find ("Sink") or
+      media_class:find ("Input") or
+      media_class:find ("Duplex") then
+    return "input"
+  elseif media_class:find ("Source") or media_class:find ("Output") then
+    return "output"
+  else
+    return nil
+  end
+end
+
 function cutils.getTargetDirection (properties)
   local target_direction = nil
 

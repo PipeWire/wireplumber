@@ -8,7 +8,8 @@
 -- create-item.lua script takes pipewire nodes and creates session items (a.k.a
 -- linkable) objects out of them.
 
-settings = require ("settings-linking")
+cutils = require ("common-utils")
+settings = require ("settings-node")
 log = Log.open_topic ("s-node")
 
 items = {}
@@ -18,9 +19,9 @@ function configProperties (node)
   local properties = {
     ["item.node"] = node,
     ["item.plugged.usec"] = GLib.get_monotonic_time (),
-    ["item.features.no-dsp"] = settings.audio_no_dsp,
-    ["item.features.monitor"] = true,
-    ["item.features.control-port"] = false,
+    ["item.features.no-dsp"] = settings ["features.audio.no-dsp"],
+    ["item.features.monitor"] = settings ["features.audio.monitor-ports"],
+    ["item.features.control-port"] = settings ["features.audio.control-port"],
     ["node.id"] = node ["bound-id"],
     ["client.id"] = np ["client.id"],
     ["object.path"] = np ["object.path"],
@@ -54,13 +55,7 @@ function configProperties (node)
   properties ["item.node.type"] =
       media_class:find ("^Stream/") and "stream" or "device"
 
-  if media_class:find ("Sink") or
-      media_class:find ("Input") or
-      media_class:find ("Duplex") then
-    properties ["item.node.direction"] = "input"
-  elseif media_class:find ("Source") or media_class:find ("Output") then
-    properties ["item.node.direction"] = "output"
-  end
+  properties ["item.node.direction"] = cutils.mediaClassToDirection (media_class)
   return properties
 end
 

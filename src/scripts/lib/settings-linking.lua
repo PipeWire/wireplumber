@@ -12,7 +12,6 @@ local defaults = {
   ["move"] = true,
   ["follow"] = true,
   ["filter-forward-format"] = false,
-  ["audio-no-dsp"] = false,
   ["duck-level"] = 0.3,
 }
 

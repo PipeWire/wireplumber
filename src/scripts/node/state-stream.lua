@@ -9,7 +9,7 @@
 -- SPDX-License-Identifier: MIT
 
 cutils = require ("common-utils")
-settings = require ("settings-stream")
+settings = require ("settings-node")
 log = Log.open_topic ("s-node")
 
 -- the state storage
@@ -56,7 +56,7 @@ restore_stream_hook = SimpleEventHook {
     end
 
     -- restore node Props (volumes, channelMap, etc...)
-    if settings.restore_props and stream_props ["state.restore-props"] ~= "false"
+    if settings ["stream.restore-props"] and stream_props ["state.restore-props"] ~= "false"
     then
       local props = {
         "Spa:Pod:Object:Param:Props", "Props",
@@ -87,7 +87,7 @@ restore_stream_hook = SimpleEventHook {
     end
 
     -- restore the node's link target on metadata
-    if settings.restore_target and stream_props["state.restore-target"] ~= "false"
+    if settings ["stream.restore-target"] and stream_props ["state.restore-target"] ~= "false"
     then
       if stored_values.target then
         -- check first if there is a defined target in the node's properties
@@ -152,7 +152,7 @@ store_stream_props_hook = SimpleEventHook {
     local stream_props = node.properties
     cutils.evaluateRulesApplyProperties (stream_props, "stream.rules")
 
-    if settings.restore_props and stream_props ["state.restore-props"] ~= "false"
+    if settings ["stream.restore-props"] and stream_props ["state.restore-props"] ~= "false"
     then
       local key = formKey (stream_props)
       if not key then
@@ -336,13 +336,19 @@ route_settings_metadata_changed_hook = SimpleEventHook {
 }
 
 function buildDefaultChannelVolumes (node)
-  local def_vol = settings.default_channel_volume
+  local node_props = node.properties
+  local direction = cutils.mediaClassToDirection (node_props ["media.class"] or "")
+  local def_vol = 1.0
   local channels = 2
   local res = {}
 
-  local str = node.properties["state.default-channel-volume"]
+  local str = node.properties["state.default-volume"]
   if str ~= nil then
     def_vol = tonumber (str)
+  elseif direction == "input" then
+    def_vol = settings ["stream.default-capture-volume"]
+  elseif direction == "output" then
+    def_vol = settings ["stream.default-playback-volume"]
   end
 
   for pod in node:iterate_params("Format") do
@@ -434,11 +440,11 @@ function toggleState (enable)
 end
 
 settings:subscribe ("restore-props", function (enable)
-  toggleState (enable or settings.restore_target)
+  toggleState (enable or settings["stream.restore-target"])
 end)
 
 settings:subscribe ("restore-target", function (enable)
-  toggleState (enable or settings.restore_props)
+  toggleState (enable or settings["stream.restore-props"])
 end)
 
-toggleState (settings.restore_props or settings.restore_target)
+toggleState (settings["stream.restore-props"] or settings["stream.restore-target"])
