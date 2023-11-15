@@ -38,6 +38,27 @@ device_defaults.persistent_profiles = {
   },
 }
 
+device_defaults.profile_priorities = {
+  {
+    matches = {
+      {
+        -- Matches all bluez devices
+        { "device.name", "matches", "bluez_card.*" },
+      },
+    },
+    -- lower the index higher the priority
+    priorities = {
+      -- "a2dp-sink-sbc",
+      -- "a2dp-sink-aptx_ll",
+      -- "a2dp-sink-aptx",
+      -- "a2dp-sink-aptx_hd",
+      -- "a2dp-sink-ldac",
+      -- "a2dp-sink-aac",
+      -- "a2dp-sink-sbc_xq",
+    }
+  },
+}
+
 function device_defaults.enable()
   if device_defaults.enabled == false then
     return
@@ -48,7 +69,8 @@ function device_defaults.enable()
 
   -- Selects appropriate profile for devices
   load_script("policy-device-profile.lua", {
-    persistent = device_defaults.persistent_profiles
+    persistent = device_defaults.persistent_profiles,
+    priorities = device_defaults.profile_priorities
   })
 
   -- Selects appropriate device routes ("ports" in pulseaudio terminology)

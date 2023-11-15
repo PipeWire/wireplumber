@@ -8,23 +8,30 @@
 local self = {}
 self.config = ... or {}
 self.config.persistent = self.config.persistent or {}
+self.config.priorities = self.config.priorities or {}
 self.active_profiles = {}
 self.default_profile_plugin = Plugin.find("default-profile")
 
--- Preprocess persisten profiles and create Interest objects
-for _, p in ipairs(self.config.persistent or {}) do
-  p.interests = {}
-  for _, i in ipairs(p.matches) do
-    local interest_desc = { type = "properties" }
-    for _, c in ipairs(i) do
-      c.type = "pw"
-      table.insert(interest_desc, Constraint(c))
+function createIntrestObjects(t)
+  for _, p in ipairs(t or {}) do
+    p.interests = {}
+    for _, i in ipairs(p.matches) do
+      local interest_desc = { type = "properties" }
+      for _, c in ipairs(i) do
+        c.type = "pw"
+        table.insert(interest_desc, Constraint(c))
+      end
+      local interest = Interest(interest_desc)
+      table.insert(p.interests, interest)
     end
-    local interest = Interest(interest_desc)
-    table.insert(p.interests, interest)
+    p.matches = nil
   end
-  p.matches = nil
 end
+
+-- Preprocess persistent profiles and create Interest objects
+createIntrestObjects(self.config.persistent)
+-- Preprocess profile priorities and create Interest objects
+createIntrestObjects(self.config.priorities)
 
 -- Checks whether a device profile is persistent or not
 function isProfilePersistent(device_props, profile_name)
@@ -43,7 +50,6 @@ function isProfilePersistent(device_props, profile_name)
   end
   return false
 end
-
 
 function parseParam(param, id)
   local parsed = param:parse()
@@ -89,12 +95,52 @@ function findDefaultProfile (device)
   return nil
 end
 
-function findBestProfile (device)
+-- returns the priorities, if defined
+function getDevicePriorities(device_props, profile_name)
+  for _, p in ipairs(self.config.priorities or {}) do
+    for _, interest in ipairs(p.interests) do
+      if interest:matches(device_props) then
+        return p.priorities
+      end
+    end
+  end
+
+  return nil
+end
+
+-- find profiles based on user preferences.
+function findPreferredProfile(device)
+  local priority_table = getDevicePriorities(device.properties)
+
+  if not priority_table or #priority_table == 0 then
+    return nil
+  else
+    Log.info("priority table found for device " ..
+      device.properties["device.name"])
+  end
+
+  for _, priority_profile in ipairs(priority_table) do
+    for p in device:iterate_params("EnumProfile") do
+      device_profile = parseParam(p, "EnumProfile")
+      if device_profile.name == priority_profile then
+        Log.info("Selected user preferred profile " ..
+          device_profile.name .. " for " .. device.properties["device.name"])
+        return device_profile
+      end
+    end
+  end
+
+  return nil
+end
+
+-- find profiles based on inbuilt priorities.
+function findBestProfile(device)
   -- Takes absolute priority if available or unknown
   local profile_prop = device.properties["device.profile"]
   local off_profile = nil
   local best_profile = nil
   local unk_profile = nil
+  local profile = nil
 
   for p in device:iterate_params("EnumProfile") do
     profile = parseParam(p, "EnumProfile")
@@ -116,14 +162,19 @@ function findBestProfile (device)
   end
 
   if best_profile ~= nil then
-    return best_profile
+    profile = best_profile
   elseif unk_profile ~= nil then
-    return unk_profile
+    profile = unk_profile
   elseif off_profile ~= nil then
-    return off_profile
+    profile = off_profile
   end
 
-  return nil
+  if profile ~= nil then
+    Log.info("Found best profile " .. profile.name .. " for " .. device.properties["device.name"])
+    return profile
+  else
+    return nil
+  end
 end
 
 function handleProfiles (device, new_device)
@@ -156,9 +207,13 @@ function handleProfiles (device, new_device)
     Log.info ("Default profile not found for " .. dev_name)
   end
 
-  local best_profile = findBestProfile (device)
+  local best_profile = findPreferredProfile(device)
+
+  if not best_profile then
+    best_profile = findBestProfile(device)
+  end
+
   if best_profile ~= nil then
-    Log.info ("Found best profile " .. best_profile.name .. " for " .. dev_name)
     setDeviceProfile (device, dev_id, dev_name, best_profile)
   else
     Log.info ("Best profile not found on " .. dev_name)
