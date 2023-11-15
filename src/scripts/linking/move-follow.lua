@@ -8,7 +8,7 @@
 -- install hooks that will schedule a rescan of the graph when needed
 
 log = Log.open_topic ("s-linking")
-config = require ("linking-config")
+settings = require ("settings-linking")
 handles = {}
 
 function handleFollowSetting (enable)
@@ -58,8 +58,8 @@ function handleMoveSetting (enable)
   end
 end
 
-config:subscribe ("follow", handleFollowSetting)
-handleFollowSetting (config.follow)
+settings:subscribe ("follow", handleFollowSetting)
+handleFollowSetting (settings.follow)
 
-config:subscribe ("move", handleMoveSetting)
-handleMoveSetting (config.move)
+settings:subscribe ("move", handleMoveSetting)
+handleMoveSetting (settings.move)

@@ -10,7 +10,7 @@
 --
 -- Set the Route param as part of the "select-routes" event run
 
-config = require ("device-config")
+settings = require ("settings-device")
 devinfo = require ("device-info-cache")
 log = Log.open_topic ("s-device")
 
@@ -57,7 +57,7 @@ AsyncEventHook {
           local is_input = (route.direction == "Input")
           props.mute = props.mute or false
           props.channelVolumes = props.channelVolumes or
-              { is_input and config.default_input_volume or config.default_volume }
+              { is_input and settings.default_input_volume or settings.default_volume }
 
           -- prefix the props with correct IDs to create a Pod.Object
           table.insert (props, 1, "Spa:Pod:Object:Param:Props")

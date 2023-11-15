@@ -4,7 +4,7 @@
 --
 -- SPDX-License-Identifier: MIT
 
--- Device settings manager
+-- Stream settings manager
 
 local settings_manager = require ("settings-manager")
 

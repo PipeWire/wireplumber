@@ -11,7 +11,7 @@
 
 putils = require ("linking-utils")
 cutils = require ("common-utils")
-config = require ("linking-config")
+settings = require ("settings-linking")
 log = Log.open_topic ("s-linking")
 
 SimpleEventHook {
@@ -34,7 +34,7 @@ SimpleEventHook {
     log:info (si, string.format ("handling item: %s (%s)",
         tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
 
-    local metadata = config.move and cutils.get_default_metadata_object ()
+    local metadata = settings.move and cutils.get_default_metadata_object ()
     local dont_fallback = cutils.parseBool (si_props ["target.dont-fallback"])
     local dont_move = cutils.parseBool (si_props ["target.dont-move"])
     local target_key

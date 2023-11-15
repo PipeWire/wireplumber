@@ -11,7 +11,7 @@
 -- FIXME: this script can be further improved
 
 putils = require ("linking-utils")
-config = require ("linking-config")
+settings = require ("settings-linking")
 log = Log.open_topic ("s-linking")
 
 function findAssociatedLinkGroupNode (si)
@@ -93,7 +93,7 @@ SimpleEventHook {
     local si = event:get_subject ()
 
     -- Forward filters ports format to associated virtual devices if enabled
-    if config.filter_forward_format then
+    if settings.filter_forward_format then
       local si_props = si.properties
       local link_group = si_props ["node.link-group"]
       local si_flags = putils:get_flags (si.id)

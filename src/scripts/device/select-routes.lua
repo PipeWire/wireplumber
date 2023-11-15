@@ -13,7 +13,6 @@
 -- for the given device configuration, if it has changed
 
 cutils = require ("common-utils")
-config = require ("device-config")
 devinfo = require ("device-info-cache")
 log = Log.open_topic ("s-device")
 

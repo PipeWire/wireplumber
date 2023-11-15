@@ -9,7 +9,7 @@
 -- SPDX-License-Identifier: MIT
 
 cutils = require ("common-utils")
-config = require ("stream-config")
+settings = require ("settings-stream")
 log = Log.open_topic ("s-node")
 
 -- the state storage
@@ -56,7 +56,7 @@ restore_stream_hook = SimpleEventHook {
     end
 
     -- restore node Props (volumes, channelMap, etc...)
-    if config.restore_props and stream_props ["state.restore-props"] ~= "false"
+    if settings.restore_props and stream_props ["state.restore-props"] ~= "false"
     then
       local props = {
         "Spa:Pod:Object:Param:Props", "Props",
@@ -87,7 +87,7 @@ restore_stream_hook = SimpleEventHook {
     end
 
     -- restore the node's link target on metadata
-    if config.restore_target and stream_props["state.restore-target"] ~= "false"
+    if settings.restore_target and stream_props["state.restore-target"] ~= "false"
     then
       if stored_values.target then
         -- check first if there is a defined target in the node's properties
@@ -152,7 +152,7 @@ store_stream_props_hook = SimpleEventHook {
     local stream_props = node.properties
     cutils.evaluateRulesApplyProperties (stream_props, "stream.rules")
 
-    if config.restore_props and stream_props ["state.restore-props"] ~= "false"
+    if settings.restore_props and stream_props ["state.restore-props"] ~= "false"
     then
       local key = formKey (stream_props)
       if not key then
@@ -336,7 +336,7 @@ route_settings_metadata_changed_hook = SimpleEventHook {
 }
 
 function buildDefaultChannelVolumes (node)
-  local def_vol = config.default_channel_volume
+  local def_vol = settings.default_channel_volume
   local channels = 2
   local res = {}
 
@@ -433,12 +433,12 @@ function toggleState (enable)
   end
 end
 
-config:subscribe ("restore-props", function (enable)
-  toggleState (enable or config.restore_target)
+settings:subscribe ("restore-props", function (enable)
+  toggleState (enable or settings.restore_target)
 end)
 
-config:subscribe ("restore-target", function (enable)
-  toggleState (enable or config.restore_props)
+settings:subscribe ("restore-target", function (enable)
+  toggleState (enable or settings.restore_props)
 end)
 
-toggleState (config.restore_props or config.restore_target)
+toggleState (settings.restore_props or settings.restore_target)

@@ -7,9 +7,9 @@
 
 -- Script is a Lua Module of monitor Lua utility functions
 
-config = require ("device-config")
+settings = require ("settings-device")
 log = Log.open_topic ("s-monitors-utils")
-d_timeout = config["camera-discovery-timeout"]
+d_timeout = settings["camera-discovery-timeout"]
 
 local mutils = {
   cam_data = {}

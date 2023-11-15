@@ -27,7 +27,7 @@
 -- settings file: bluetooth.conf
 
 cutils = require ("common-utils")
-config = require ("bluetooth-config")
+settings = require ("settings-bluetooth")
 
 state = nil
 headset_profiles = nil
@@ -47,7 +47,7 @@ local previous_streams = {}
 function handlePersistentSetting (enable)
   if enable and state == nil then
     -- the state storage
-    state = config.autoswitch_to_headset_profile and State ("bluetooth-autoswitch") or nil
+    state = settings.autoswitch_to_headset_profile and State ("bluetooth-autoswitch") or nil
     headset_profiles = state and state:load () or {}
   else
     state = nil
@@ -62,11 +62,11 @@ function loadAppNames (appNames)
   end
 end
 
-handlePersistentSetting (config.use_persistent_storage)
-loadAppNames (config.autoswitch_applications)
+handlePersistentSetting (settings.use_persistent_storage)
+loadAppNames (settings.autoswitch_applications)
 
-config:subscribe ("use-persistent-storage", handlePersistentSetting)
-config:subscribe ("autoswitch-applications", loadAppNames)
+settings:subscribe ("use-persistent-storage", handlePersistentSetting)
+settings:subscribe ("autoswitch-applications", loadAppNames)
 
 devices_om = ObjectManager {
   Interest {
@@ -337,7 +337,7 @@ local function checkStreamStatus (stream)
 end
 
 local function handleStream (stream)
-  if not config.autoswitch_to_headset_profile then
+  if not settings.autoswitch_to_headset_profile then
     return
   end
 
@@ -426,7 +426,7 @@ SimpleEventHook {
     },
   },
   execute = function (event)
-    if (config.autoswitch_to_headset_profile) then
+    if (settings.autoswitch_to_headset_profile) then
       -- If bluez sink is set as default, rescan for active input streams
       handleAllStreams ()
     end

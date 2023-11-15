@@ -12,7 +12,7 @@
 -- selected device profile to state file
 
 cutils = require ("common-utils")
-config = require ("device-config")
+settings = require ("settings-device")
 log = Log.open_topic ("s-device")
 
 -- the state storage
@@ -140,5 +140,5 @@ function handlePersistentSetting (enable)
   end
 end
 
-config:subscribe ("use-persistent-storage", handlePersistentSetting)
-handlePersistentSetting (config.use_persistent_storage)
+settings:subscribe ("use-persistent-storage", handlePersistentSetting)
+handlePersistentSetting (settings.use_persistent_storage)
