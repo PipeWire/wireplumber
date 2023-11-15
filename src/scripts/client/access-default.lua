@@ -32,14 +32,14 @@ function getDefaultPermissions (properties)
   local media_category = properties["media.category"]
 
   if access == "flatpak" and media_category == "Manager" then
-    return "all"
+    return "all", "flatpak-manager"
   elseif access == "flatpak" or access == "restricted" then
-    return "rx"
+    return "rx", access
   elseif access == "default" then
-    return "all"
+    return "all", access
   end
 
-  return nil
+  return nil, nil
 end
 
 function getPermissions (properties)
@@ -66,7 +66,7 @@ clients_om:connect("object-added", function (om, client)
 
   local perms, effective_access = getPermissions (properties)
   if perms == nil then
-    perms = getDefaultPermissions (properties)
+    perms, effective_access = getDefaultPermissions (properties)
   end
   if effective_access == nil then
     effective_access = access
