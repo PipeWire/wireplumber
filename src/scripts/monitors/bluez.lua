@@ -6,6 +6,8 @@
 -- SPDX-License-Identifier: MIT
 
 COMBINE_OFFSET = 64
+LOOPBACK_SOURCE_ID = 128
+DEVICE_SOURCE_ID = 0
 
 cutils = require ("common-utils")
 log = Log.open_topic ("s-monitors")
@@ -230,6 +232,7 @@ end
 
 function createNode(parent, id, type, factory, properties)
   local dev_props = parent.properties
+  local parent_id = parent["bound-id"]
 
   if config.properties["bluez5.hw-offload-sco"] and factory:find("sco") then
     createOffloadScoNode(parent, id, type, factory, properties)
@@ -237,7 +240,7 @@ function createNode(parent, id, type, factory, properties)
   end
 
   -- set the device id and spa factory name; REQUIRED, do not change
-  properties["device.id"] = parent["bound-id"]
+  properties["device.id"] = parent_id
   properties["factory.name"] = factory
 
   -- set the default pause-on-idle setting
@@ -286,6 +289,7 @@ function createNode(parent, id, type, factory, properties)
     local combine = createSetNode(parent, id, type, factory, properties)
     parent:store_managed_object(id + COMBINE_OFFSET, combine)
   else
+    properties["bluez5.loopback"] = false
     local node = LocalNode("adapter", properties)
     node:activate(Feature.Proxy.BOUND)
     parent:store_managed_object(id, node)
@@ -377,6 +381,99 @@ function createMonitor()
 
   return monitor
 end
+
+function CreateDeviceLoopbackSource (dev_name, dec_desc, dev_id)
+  local args = Json.Object {
+    ["capture.props"] = Json.Object {
+      ["node.name"] = string.format ("bluez_capture.%s", dev_name),
+      ["node.description"] =
+          string.format ("Bluetooth capture for %s", dec_desc),
+      ["audio.channels"] = 1,
+      ["audio.position"] = "[MONO]",
+      ["bluez5.loopback"] = true,
+      ["stream.dont-remix"] = true,
+      ["node.passive"] = true,
+      ["target.dont-fallback"] = true,
+      ["target.linger"] = true
+    },
+    ["playback.props"] = Json.Object {
+      ["node.name"] = string.format ("bluez_source.%s", dev_name),
+      ["node.description"] =
+          string.format ("Bluetooth source for %s", dec_desc),
+      ["audio.position"] = "[MONO]",
+      ["media.class"] = "Audio/Source",
+      ["device.id"] = dev_id,
+      ["card.profile.device"] = DEVICE_SOURCE_ID,
+      ["priority.driver"] = 2010,
+      ["priority.session"] = 2010,
+      ["bluez5.loopback"] = true,
+      ["filter.smart"] = true,
+      ["filter.smart.target"] = Json.Object {
+        ["media.class"] = "Audio/Source",
+        ["device.api"] = "bluez5",
+        ["bluez5.loopback"] = false,
+        ["device.id"] = dev_id
+      }
+    }
+  }
+  return LocalModule("libpipewire-module-loopback", args:get_data(), {})
+end
+
+function checkProfiles (dev)
+  local device_id = dev["bound-id"]
+  local props = dev.properties
+
+  -- Get the associated BT SpaDevice
+  local internal_id = tostring (props["api.bluez5.id"])
+  local spa_device = monitor:get_managed_object (internal_id)
+  if spa_device == nil then
+    return
+  end
+
+  -- Ignore devices that don't support both A2DP sink and HSP/HFP profiles
+  local has_a2dpsink_profile = false
+  local has_headset_profile = false
+  for p in dev:iterate_params("EnumProfile") do
+    local profile = cutils.parseParam (p, "EnumProfile")
+    if profile.name:find ("a2dp") and profile.name:find ("sink") then
+      has_a2dpsink_profile = true
+    elseif profile.name:find ("headset") then
+      has_headset_profile = true
+    end
+  end
+  if not has_a2dpsink_profile or not has_headset_profile then
+    return
+  end
+
+  -- Create the loopback device if never created before
+  local loopback = spa_device:get_managed_object (LOOPBACK_SOURCE_ID)
+  if loopback == nil then
+    local dev_name = props["api.bluez5.address"] or props["device.name"]
+    local dec_desc = props["device.description"] or props["device.name"]
+      or props["device.nick"] or props["device.alias"] or "bluetooth-device"
+    -- sanitize description, replace ':' with ' '
+    dec_desc = dec_desc:gsub("(:)", " ")
+    loopback = CreateDeviceLoopbackSource (dev_name, dec_desc, device_id)
+    spa_device:store_managed_object(LOOPBACK_SOURCE_ID, loopback)
+  end
+end
+
+function onDeviceParamsChanged (dev, param_name)
+  if param_name == "EnumProfile" then
+    checkProfiles (dev)
+  end
+end
+
+devices_om:connect("object-added", function(_, dev)
+  -- Ignore all devices that are not BT devices
+  if dev.properties["device.api"] ~= "bluez5" then
+    return
+  end
+
+  -- check available profiles
+  dev:connect ("params-changed", onDeviceParamsChanged)
+  checkProfiles (dev)
+end)
 
 if config.seat_monitoring then
   logind_plugin = Plugin.find("logind")

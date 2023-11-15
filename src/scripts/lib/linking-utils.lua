@@ -123,6 +123,20 @@ function lutils.isLinked (si_target)
   return linked, exclusive
 end
 
+function lutils.getNodePeerId (node_id)
+  for l in cutils.get_object_manager ("link"):iterate() do
+    local p = l.properties
+    local in_id = tonumber(p["link.input.node"])
+    local out_id = tonumber(p["link.output.node"])
+    if in_id == node_id then
+      return out_id
+    elseif out_id == node_id then
+      return in_id
+    end
+  end
+  return nil
+end
+
 function lutils.canLink (properties, si_target)
   local target_props = si_target.properties
 

@@ -180,7 +180,6 @@ files and are placed under ``wireplumber.conf.d/``. More on this below.
         alsa_monitor.alsa.reserve = true
         alsa_monitor.alsa.midi = "true"
         default-policy-duck.level = 0.3
-        bt-policy-media-role.applications = ["Firefox", "Chromium input"]
       }
 
     Value can be string, int, float, boolean and can even be a JSON array.

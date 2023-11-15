@@ -11,33 +11,33 @@
 --
 -- SPDX-License-Identifier: MIT
 --
--- Scriupt Checks for the existence of media.role and if present switches the
--- bluetooth profile accordingly. Also see bluez-autoswitch in media-session.
--- The intended logic of the script is as follows.
+-- This script is charged to automatically change BT profiles on a device. If a
+-- client is linked to the device's loopback source node, the associated BT
+-- device profile is automatically switched to HSP/HFP. If there is no clients
+-- linked to the device's loopback source node, the BT device profile is
+-- switched back to A2DP profile.
 --
--- When a stream comes in, if it has a Communication or phone role in PulseAudio
--- speak in props, we switch to the highest priority profile that has an Input
--- route available. The reason for this is that we may have microphone enabled
--- non-HFP codecs eg. Faststream.
--- We track the incoming streams with Communication role or the applications
--- specified which do not set the media.role correctly perhaps.
+-- We switch to the highest priority profile that has an Input route available.
+-- The reason for this is that we may have microphone enabled with non-HFP
+-- codecs eg. Faststream.
 -- When a stream goes away if the list with which we track the streams above
 -- is empty, then we revert back to the old profile.
 
 -- settings file: bluetooth.conf
 
+lutils = require ("linking-utils")
 cutils = require ("common-utils")
 settings = require ("settings-bluetooth")
 
 state = nil
 headset_profiles = nil
+device_loopback_sources = {}
 
-local applications = {}
 local profile_restore_timeout_msec = 2000
 
 local INVALID = -1
-local timeout_source = nil
-local restore_timeout_source = nil
+local timeout_source = {}
+local restore_timeout_source = {}
 
 local last_profiles = {}
 
@@ -55,18 +55,9 @@ function handlePersistentSetting (enable)
   end
 end
 
-function loadAppNames (appNames)
-  applications = {}
-  for i = 1, #appNames do
-    applications [appNames [i]] = true
-  end
-end
-
 handlePersistentSetting (settings.use_persistent_storage)
-loadAppNames (settings.autoswitch_applications)
 
 settings:subscribe ("use-persistent-storage", handlePersistentSetting)
-settings:subscribe ("autoswitch-applications", loadAppNames)
 
 devices_om = ObjectManager {
   Interest {
@@ -79,8 +70,16 @@ streams_om = ObjectManager {
   Interest {
     type = "node",
     Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
-    -- Do not consider monitor streams
-    Constraint { "stream.monitor", "!", "true" }
+    Constraint { "stream.monitor", "!", "true", type = "pw" },
+    Constraint { "bluez5.loopback", "!", "true", type = "pw" }
+  }
+}
+
+loopback_nodes_om = ObjectManager {
+  Interest {
+    type = "node",
+    Constraint { "media.class", "matches", "Audio/Source", type = "pw-global" },
+    Constraint { "bluez5.loopback", "=", "true", type = "pw" },
   }
 }
 
@@ -105,19 +104,6 @@ end
 
 local function isSwitchedToHeadsetProfile (device)
   return getSavedLastProfile (device) ~= nil
-end
-
-local function isBluez5AudioSink (sink_name)
-  if sink_name and string.find (sink_name, "bluez_output.") ~= nil then
-    return true
-  end
-  return false
-end
-
-local function isBluez5DefaultAudioSink ()
-  local metadata = cutils.get_default_metadata_object ()
-  local default_audio_sink = metadata:find (0, "default.audio.sink")
-  return isBluez5AudioSink (default_audio_sink)
 end
 
 local function findProfile (device, index, name)
@@ -203,37 +189,91 @@ local function hasProfileInputRoute (device, profile_index)
   return false
 end
 
-local function switchDevicesToHeadsetProfile ()
+local function switchDeviceToHeadsetProfile (dev_id)
   local index
   local name
 
-  -- clear restore callback, if any
-  if restore_timeout_source then
-    restore_timeout_source:destroy ()
-    restore_timeout_source = nil
+  -- Find the actual device
+  local device = devices_om:lookup {
+      Constraint { "bound-id", "=", dev_id, type = "gobject" }
+  }
+  if device == nil then
+    Log.info ("Device with id " .. tostring(dev_id).. " not found")
+    return
   end
 
-  for device in devices_om:iterate () do
-    if isSwitchedToHeadsetProfile (device) then
-      goto skip_device
-    end
+  if isSwitchedToHeadsetProfile (device) then
+    Log.info ("Device with id " .. tostring(dev_id).. " is already switched to HSP/HFP")
+    return
+  end
 
-    local cur_profile_name = getCurrentProfile (device)
+  local cur_profile_name = getCurrentProfile (device)
+  _, index, name = findProfile (device, nil, cur_profile_name)
+  if hasProfileInputRoute (device, index) then
+    Log.info ("Current profile has input route, not switching")
+    return
+  end
 
-    _, index, name = findProfile (device, nil, cur_profile_name)
-    if hasProfileInputRoute (device, index) then
-      Log.info ("Current profile has input route, not switching")
-      goto skip_device
-    end
+  -- clear restore callback, if any
+  if restore_timeout_source[dev_id] ~= nil then
+    restore_timeout_source[dev_id]:destroy ()
+    restore_timeout_source[dev_id] = nil
+  end
 
-    local saved_headset_profile = getSavedHeadsetProfile (device)
-    index = INVALID
-    if saved_headset_profile then
-      _, index, name = findProfile (device, nil, saved_headset_profile)
-    end
-    if index == INVALID then
-      _, index, name = highestPrioProfileWithInputRoute (device)
-    end
+  local saved_headset_profile = getSavedHeadsetProfile (device)
+  index = INVALID
+  if saved_headset_profile then
+    _, index, name = findProfile (device, nil, saved_headset_profile)
+  end
+  if index == INVALID then
+    _, index, name = highestPrioProfileWithInputRoute (device)
+  end
+
+  if index ~= INVALID then
+    local pod = Pod.Object {
+      "Spa:Pod:Object:Param:Profile", "Profile",
+      index = index
+    }
+
+    -- store the current profile (needed when restoring)
+    saveLastProfile (device, cur_profile_name)
+
+    -- switch to headset profile
+    Log.info ("Setting profile of '"
+          .. device.properties ["device.description"]
+          .. "' from: " .. cur_profile_name
+          .. " to: " .. name)
+    device:set_params ("Profile", pod)
+  else
+    Log.warning ("Got invalid index when switching profile")
+  end
+end
+
+local function restoreProfile (dev_id)
+  -- Find the actual device
+  local device = devices_om:lookup {
+      Constraint { "bound-id", "=", dev_id, type = "gobject" }
+  }
+  if device == nil then
+    Log.info ("Device with id " .. tostring(dev_id).. " not found")
+    return
+  end
+
+  if not isSwitchedToHeadsetProfile (device) then
+    Log.info ("Device with id " .. tostring(dev_id).. " is already not switched to HSP/HFP")
+    return
+  end
+
+  local profile_name = getSavedLastProfile (device)
+  local cur_profile_name = getCurrentProfile (device)
+
+  if cur_profile_name then
+    Log.info ("Setting saved headset profile to: " .. cur_profile_name)
+    saveHeadsetProfile (device, cur_profile_name)
+  end
+
+  if profile_name then
+    local _, index, name = findProfile (device, nil, profile_name)
 
     if index ~= INVALID then
       local pod = Pod.Object {
@@ -241,99 +281,63 @@ local function switchDevicesToHeadsetProfile ()
         index = index
       }
 
-      -- store the current profile (needed when restoring)
-      saveLastProfile (device, cur_profile_name)
+      -- clear last profile as we will restore it now
+      saveLastProfile (device, nil)
 
-      -- switch to headset profile
-      Log.info ("Setting profile of '"
+      -- restore previous profile
+      Log.info ("Restoring profile of '"
             .. device.properties ["device.description"]
             .. "' from: " .. cur_profile_name
             .. " to: " .. name)
       device:set_params ("Profile", pod)
     else
-      Log.warning ("Got invalid index when switching profile")
-    end
-
-    ::skip_device::
-  end
-end
-
-local function restoreProfile ()
-  for device in devices_om:iterate () do
-    if isSwitchedToHeadsetProfile (device) then
-      local profile_name = getSavedLastProfile (device)
-      local cur_profile_name = getCurrentProfile (device)
-
-      if cur_profile_name then
-        Log.info ("Setting saved headset profile to: " .. cur_profile_name)
-        saveHeadsetProfile (device, cur_profile_name)
-      end
-
-      if profile_name then
-        local _, index, name = findProfile (device, nil, profile_name)
-
-        if index ~= INVALID then
-          local pod = Pod.Object {
-            "Spa:Pod:Object:Param:Profile", "Profile",
-            index = index
-          }
-
-          -- clear last profile as we will restore it now
-          saveLastProfile (device, nil)
-
-          -- restore previous profile
-          Log.info ("Restoring profile of '"
-                .. device.properties ["device.description"]
-                .. "' from: " .. cur_profile_name
-                .. " to: " .. name)
-          device:set_params ("Profile", pod)
-        else
-          Log.warning ("Failed to restore profile")
-        end
-      end
+      Log.warning ("Failed to restore profile")
     end
   end
 end
 
-local function triggerRestoreProfile ()
-  if restore_timeout_source then
-    return
-  end
-
+local function triggerRestoreProfile (dev_id)
   -- we never restore the device profiles if there are active streams
-  if next (active_streams) ~= nil then
-    return
+  for _, v in pairs (active_streams) do
+    if v == dev_id then
+      return
+    end
   end
 
-  restore_timeout_source = Core.timeout_add (profile_restore_timeout_msec, function ()
-    restore_timeout_source = nil
-    restoreProfile ()
+  restore_timeout_source[dev_id] = nil
+  restore_timeout_source[dev_id] = Core.timeout_add (profile_restore_timeout_msec, function ()
+    restore_timeout_source[dev_id] = nil
+    restoreProfile (dev_id)
   end)
 end
 
--- We consider a Stream of interest to have role Communication if it has
--- media.role set to Communication in props or it is in our list of
--- applications as these applications do not set media.role correctly or at
--- all.
+-- We consider a Stream of interest if it is linked to a bluetooth loopback
+-- source filter
 local function checkStreamStatus (stream)
-  local app_name = stream.properties ["application.name"]
-  local stream_role = stream.properties ["media.role"]
+  -- check if the stream is linked to a bluetooth loopback source
+  local stream_id = tonumber(stream["bound-id"])
+  local peer_id = lutils.getNodePeerId (stream_id)
+  if peer_id ~= nil then
+    local bt_node = loopback_nodes_om:lookup {
+        Constraint { "bound-id", "=", peer_id, type = "gobject" }
+    }
+    if bt_node ~= nil then
+      local dev_id = bt_node.properties["device.id"]
+      if dev_id ~= nil then
+        -- If a stream we previously saw stops running, we consider it
+        -- inactive, because some applications (Teams) just cork input
+        -- streams, but don't close them.
+        if previous_streams [stream.id] == dev_id and
+            stream.state ~= "running" then
+          return nil
+        end
 
-  if not (stream_role == "Communication" or applications [app_name]) then
-    return false
-  end
-  if not isBluez5DefaultAudioSink () then
-    return false
+        return dev_id
+      end
+    end
   end
 
-  -- If a stream we previously saw stops running, we consider it
-  -- inactive, because some applications (Teams) just cork input
-  -- streams, but don't close them.
-  if previous_streams [stream.id] and stream.state ~= "running" then
-    return false
-  end
-
-  return true
+  return nil
 end
 
 local function handleStream (stream)
@@ -341,59 +345,67 @@ local function handleStream (stream)
     return
   end
 
-  if checkStreamStatus (stream) then
-    active_streams [stream.id] = true
-    previous_streams [stream.id] = true
-    switchDevicesToHeadsetProfile ()
+  local dev_id = checkStreamStatus (stream)
+  if dev_id ~= nil then
+    active_streams [stream.id] = dev_id
+    previous_streams [stream.id] = dev_id
+    switchDeviceToHeadsetProfile (dev_id)
   else
+    dev_id = active_streams [stream.id]
     active_streams [stream.id] = nil
-    triggerRestoreProfile ()
+    if dev_id ~= nil then
+      triggerRestoreProfile (dev_id)
+    end
   end
 end
 
 local function handleAllStreams ()
-  for stream in streams_om:iterate {
-    Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
-    Constraint { "stream.monitor", "!", "true" }
-  } do
+  for stream in streams_om:iterate() do
     handleStream (stream)
   end
 end
 
 SimpleEventHook {
-  name = "input-stream-removed@autoswitch-bluetooth-profile",
+  name = "node-removed@autoswitch-bluetooth-profile",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "node-removed" },
       Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
+      Constraint { "bluez5.loopback", "!", "true", type = "pw" },
     },
   },
   execute = function (event)
-    stream = event:get_subject ()
+    local stream = event:get_subject ()
+    local dev_id = active_streams[stream.id]
     active_streams[stream.id] = nil
     previous_streams[stream.id] = nil
-    triggerRestoreProfile ()
+    if dev_id ~= nil then
+      triggerRestoreProfile (dev_id)
+    end
   end
 }:register ()
 
 SimpleEventHook {
-  name = "input-stream-changed@autoswitch-bluetooth-profile",
+  name = "link-added@autoswitch-bluetooth-profile",
   interests = {
     EventInterest {
-      Constraint { "event.type", "=", "node-state-changed" },
-      Constraint { "media.class", "#", "Stream/Input/Audio", type = "pw-global" },
-      -- Do not consider monitor streams
-      Constraint { "stream.monitor", "!", "true" }
-    },
-    EventInterest {
-      Constraint { "event.type", "=", "node-params-changed" },
-      Constraint { "media.class", "#", "Stream/Input/Audio", type = "pw-global" },
-      -- Do not consider monitor streams
-      Constraint { "stream.monitor", "!", "true" }
+      Constraint { "event.type", "=", "link-added" },
     },
   },
   execute = function (event)
-    handleStream (event:get_subject ())
+    local link = event:get_subject ()
+    local p = link.properties
+    for stream in streams_om:iterate () do
+      local in_id = tonumber(p["link.input.node"])
+      local out_id = tonumber(p["link.output.node"])
+      local stream_id = tonumber(stream["bound-id"])
+      local bt_node = loopback_nodes_om:lookup {
+          Constraint { "bound-id", "=", out_id, type = "gobject" }
+      }
+      if in_id == stream_id and bt_node ~= nil then
+        handleStream (stream)
+      end
+    end
   end
 }:register ()
 
@@ -406,32 +418,14 @@ SimpleEventHook {
     },
   },
   execute = function (event)
+    local device = event:get_subject ()
     -- Devices are unswitched initially
-    device = event:get_subject ()
     saveLastProfile (device, nil)
-
     handleAllStreams ()
-  end
-}:register ()
-
-SimpleEventHook {
-  name = "metadata-changed@autoswitch-bluetooth-profile",
-  interests = {
-    EventInterest {
-      Constraint { "event.type", "=", "metadata-changed" },
-      Constraint { "metadata.name", "=", "default" },
-      Constraint { "event.subject.key", "=", "default.audio.sink" },
-      Constraint { "event.subject.id", "=", "0" },
-      Constraint { "event.subject.value", "#", "*bluez_output*" },
-    },
-  },
-  execute = function (event)
-    if (settings.autoswitch_to_headset_profile) then
-      -- If bluez sink is set as default, rescan for active input streams
-      handleAllStreams ()
-    end
   end
 }:register ()
 
 devices_om:activate ()
 streams_om:activate ()
+loopback_nodes_om:activate()
+
