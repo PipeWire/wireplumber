@@ -73,6 +73,10 @@ end
 
 function cutils.evaluateRulesApplyProperties (properties, name)
   local section = Conf.get_section (name)
+  if not section then
+    return
+  end
+
   local matched, mprops = JsonUtils.match_rules_update_properties (
       section, properties)
 
