@@ -142,7 +142,7 @@ local function getFilterSmartTarget (metadata, node, om)
 
     -- Make sure the target node properties match all rules
     for key, val in pairs(match_rules) do
-      if n_target.properties[key] ~= val then
+      if n_target.properties[key] ~= tostring (val) then
         goto skip_target
       end
     end
