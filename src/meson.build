@@ -3,12 +3,9 @@ if build_tools
 endif
 
 if build_daemon
+  subdir('config')
   subdir('systemd')
 
-  install_subdir('config',
-    install_dir: pipewire_data_dir,
-    strip_directory : true
-  )
   install_subdir('scripts',
     install_dir: wireplumber_data_dir,
     strip_directory : false

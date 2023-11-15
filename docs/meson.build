@@ -98,7 +98,7 @@ if build_doc
     depends: [doxyxml_wp],
     output: 'html',
     install: true,
-    install_dir: get_option('datadir') / 'doc' / 'wireplumber',
+    install_dir: wireplumber_doc_dir,
     build_by_default: true,
   )
 endif
