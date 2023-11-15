@@ -44,10 +44,12 @@ end
 
 function getPermissions (properties)
   local section = Conf.get_section ("access.rules")
-  local matched, mprops = JsonUtils.match_rules_update_properties (
-      section, properties)
-  if (matched > 0 and mprops["default_permissions"]) then
-    return mprops["default_permissions"], mprops["access"]
+  if section then
+    local matched, mprops = JsonUtils.match_rules_update_properties (
+        section, properties)
+    if (matched > 0 and mprops["default_permissions"]) then
+      return mprops["default_permissions"], mprops["access"]
+    end
   end
 
   return nil, nil
