@@ -179,6 +179,13 @@ SimpleEventHook {
       Constraint { "event.type", "=", "device-params-changed" },
       Constraint { "event.subject.param-id", "=", "Route" },
     },
+    -- on any "default" target changed
+    EventInterest {
+      Constraint { "event.type", "=", "metadata-changed" },
+      Constraint { "metadata.name", "=", "default" },
+      Constraint { "event.subject.key", "c", "default.audio.source",
+          "default.audio.sink", "default.video.source" },
+    },
   },
   execute = function (event)
     local source = event:get_source ()
