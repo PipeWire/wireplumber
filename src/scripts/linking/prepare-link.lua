@@ -10,6 +10,7 @@
 
 putils = require ("linking-utils")
 cutils = require ("common-utils")
+settings = require ("settings-linking")
 log = Log.open_topic ("s-linking")
 
 SimpleEventHook {
@@ -36,9 +37,12 @@ SimpleEventHook {
     if si_flags.peer_id then
       if target and si_flags.peer_id == target.id then
         log:debug (si, "... already linked to proper target")
+
         -- Check this also here, in case in default targets changed
-        putils.checkFollowDefault (si, target,
-            si_flags.has_node_defined_target)
+        if settings.follow_default_target and si_flags.has_node_defined_target then
+          putils.checkFollowDefault (si, target)
+        end
+
         target = nil
         goto done
       end

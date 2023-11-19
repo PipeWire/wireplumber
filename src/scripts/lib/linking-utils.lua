@@ -60,7 +60,7 @@ function putils.canPassthrough (si, si_target)
   return false
 end
 
-function putils.checkFollowDefault (si, si_target, has_node_defined_target)
+function putils.checkFollowDefault (si, si_target)
   -- If it got linked to the default target that is defined by node
   -- props but not metadata, start ignoring the node prop from now on.
   -- This is what Pulseaudio does.
@@ -68,15 +68,12 @@ function putils.checkFollowDefault (si, si_target, has_node_defined_target)
   -- Pulseaudio skips here filter streams (i->origin_sink and
   -- o->destination_source set in PA). Pipewire does not have a flag
   -- explicitly for this, but we can use presence of node.link-group.
-  if not has_node_defined_target then
-    return
-  end
   local si_props = si.properties
   local target_props = si_target.properties
   local reconnect = not cutils.parseBool (si_props ["node.dont-reconnect"])
   local is_filter = (si_props ["node.link-group"] ~= nil)
 
-  if follow and default_nodes ~= nil and reconnect and not is_filter then
+  if reconnect and not is_filter then
     local def_id = cutils.getDefaultNode (si_props,
       cutils.getTargetDirection (si_props))
 

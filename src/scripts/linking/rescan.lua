@@ -13,7 +13,9 @@
 putils = require ("linking-utils")
 cutils = require ("common-utils")
 futils = require ("filter-utils")
+settings = require ("settings-linking")
 log = Log.open_topic ("s-linking")
+handles = {}
 
 function checkFilter (si, om, handle_nonstreams)
   -- always handle filters if handle_nonstreams is true, even if it is disabled
@@ -206,3 +208,29 @@ SimpleEventHook {
     source:call ("schedule-rescan", "linking")
   end
 }:register ()
+
+function handleMoveSetting (enable)
+  if (not handles.move_hook) and (enable == true) then
+    handles.move_hook = SimpleEventHook {
+      name = "linking/rescan-trigger-on-target-metadata-changed",
+      interests = {
+        EventInterest {
+          Constraint { "event.type", "=", "metadata-changed" },
+          Constraint { "metadata.name", "=", "default" },
+          Constraint { "event.subject.key", "c", "target.object", "target.node" },
+        },
+      },
+      execute = function (event)
+        local source = event:get_source ()
+        source:call ("schedule-rescan", "linking")
+      end
+    }
+    handles.move_hook:register()
+  elseif (handles.move_hook) and (enable == false) then
+    handles.move_hook:remove ()
+    handles.move_hook = nil
+  end
+end
+
+settings:subscribe ("allow-moving-streams", handleMoveSetting)
+handleMoveSetting (settings.allow_moving_streams)
