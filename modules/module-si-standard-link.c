@@ -22,7 +22,6 @@ struct _WpSiStandardLink
   GWeakRef in_item;
   const gchar *out_item_port_context;
   const gchar *in_item_port_context;
-  gboolean passive;
   gboolean passthrough;
 
   /* activate */
@@ -68,7 +67,6 @@ si_standard_link_reset (WpSessionItem * item)
   g_weak_ref_set (&self->in_item, NULL);
   self->out_item_port_context = NULL;
   self->in_item_port_context = NULL;
-  self->passive = FALSE;
   self->passthrough = FALSE;
 
   WP_SESSION_ITEM_CLASS (si_standard_link_parent_class)->reset (item);
@@ -117,9 +115,6 @@ si_standard_link_configure (WpSessionItem * item, WpProperties * p)
 
   self->in_item_port_context = wp_properties_get (si_props,
       "in.item.port.context");
-
-  str = wp_properties_get (si_props, "passive");
-  self->passive = str && pw_properties_parse_bool (str);
 
   str = wp_properties_get (si_props, "passthrough");
   self->passthrough = str && pw_properties_parse_bool (str);
@@ -352,8 +347,6 @@ create_links (WpSiStandardLink * self, WpTransition * transition,
     wp_properties_setf (props, PW_KEY_LINK_OUTPUT_PORT, "%u", out_port.port_id);
     wp_properties_setf (props, PW_KEY_LINK_INPUT_NODE, "%u", best_port->node_id);
     wp_properties_setf (props, PW_KEY_LINK_INPUT_PORT, "%u", best_port->port_id);
-    if (self->passive)
-      wp_properties_set (props, PW_KEY_LINK_PASSIVE, "true");
 
     wp_debug_object (self, "create pw link: %u:%u (%s) -> %u:%u (%s)",
         out_port.node_id, out_port.port_id,

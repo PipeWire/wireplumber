@@ -73,21 +73,17 @@ function createLink (si, si_target, passthrough, exclusive)
     out_item = si_target
   end
 
-  local passive = parseBool(si_props["node.passive"]) or
-      parseBool(target_props["node.passive"])
-
   Log.info (
-    string.format("link %s <-> %s passive:%s, passthrough:%s, exclusive:%s",
+    string.format("link %s <-> %s passthrough:%s, exclusive:%s",
       tostring(si_props["node.name"]),
       tostring(target_props["node.name"]),
-      tostring(passive), tostring(passthrough), tostring(exclusive)))
+      tostring(passthrough), tostring(exclusive)))
 
   -- create and configure link
   local si_link = SessionItem ( "si-standard-link" )
   if not si_link:configure {
     ["out.item"] = out_item,
     ["in.item"] = in_item,
-    ["passive"] = passive,
     ["passthrough"] = passthrough,
     ["exclusive"] = exclusive,
     ["out.item.port.context"] = "output",
