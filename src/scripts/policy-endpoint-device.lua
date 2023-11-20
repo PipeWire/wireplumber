@@ -110,7 +110,6 @@ function createLink (si_ep, si_target)
     ["in.item"] = in_item,
     ["out.item.port.context"] = "output",
     ["in.item.port.context"] = "input",
-    ["passive"] = true,
     ["is.policy.endpoint.device.link"] = true,
   } then
     Log.warning (si_link, "failed to configure si-standard-link")
