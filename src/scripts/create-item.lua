@@ -26,6 +26,7 @@ function configProperties(node)
     ["priority.session"] = np["priority.session"],
     ["device.id"] = np["device.id"],
     ["card.profile.device"] = np["card.profile.device"],
+    ["target.endpoint"] = np["target.endpoint"],
   }
 
   for k, v in pairs(np) do

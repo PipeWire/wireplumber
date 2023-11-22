@@ -41,10 +41,26 @@ function scheduleRescan ()
   end
 end
 
+function findFilterTarget (props)
+
+  for si_target in linkables_om:iterate {
+    -- exclude filter targets
+    Constraint { "node.link-group", "+" },
+  } do
+    local si_props = si_target.properties
+    if si_props["target.endpoint"] and si_props["target.endpoint"] == props["name"] then
+      return si_target
+    end
+  end
+end
+
 function findTargetByDefaultNode (target_media_class)
   local def_id = default_nodes:call("get-default-node", target_media_class)
   if def_id ~= Id.INVALID then
-    for si_target in linkables_om:iterate() do
+    for si_target in linkables_om:iterate {
+      -- exclude filter targets
+      Constraint { "node.link-group", "-" },
+    } do
       local target_node = si_target:get_associated_proxy ("node")
       if target_node["bound-id"] == def_id then
         return si_target
@@ -55,7 +71,10 @@ function findTargetByDefaultNode (target_media_class)
 end
 
 function findTargetByFirstAvailable (target_media_class)
-  for si_target in linkables_om:iterate() do
+  for si_target in linkables_om:iterate {
+    -- exclude filter targets
+    Constraint { "node.link-group", "-" },
+  } do
     local target_node = si_target:get_associated_proxy ("node")
     if target_node.properties["media.class"] == target_media_class then
       return si_target
@@ -76,7 +95,10 @@ function findUndefinedTarget (si_ep)
     return nil
   end
 
-  local si_target = findTargetByDefaultNode (target_media_class)
+  local si_target = findFilterTarget (si_ep.properties)
+  if not si_target then
+    si_target = findTargetByDefaultNode (target_media_class)
+  end
   if not si_target then
     si_target = findTargetByFirstAvailable (target_media_class)
   end
