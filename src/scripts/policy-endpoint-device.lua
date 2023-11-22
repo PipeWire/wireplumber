@@ -99,9 +99,11 @@ function createLink (si_ep, si_target)
     out_item = si_target
   end
 
-  Log.info (string.format("link %s <-> %s",
-      ep_props["name"],
-      target_props["node.name"]))
+  local link_string = string.format("link %s <-> %s ",
+    (is_filter and ep_props["node.name"] or ep_props["name"]),
+    target_props["node.name"])
+
+  Log.info(si_link, link_string)
 
   -- create and configure link
   local si_link = SessionItem ( "si-standard-link" )
@@ -119,13 +121,15 @@ function createLink (si_ep, si_target)
   -- register
   si_link:register ()
 
+  Log.info (si_link, " activating link " .. link_string)
+
   -- activate
   si_link:activate (Feature.SessionItem.ACTIVE, function (l, e)
     if e then
-      Log.warning (l, "failed to activate si-standard-link: " .. tostring(e))
+      Log.warning (l, "failed to activate link: " .. link_string .. tostring(e))
       l:remove ()
     else
-      Log.info (l, "activated si-standard-link")
+      Log.info (l, "activated link " .. link_string)
     end
   end)
 end
