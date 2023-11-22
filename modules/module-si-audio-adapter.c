@@ -40,6 +40,7 @@ struct _WpSiAudioAdapter
   struct spa_audio_info_raw raw_format;
 
   gulong ports_changed_sigid;
+  gulong params_changed_sigid;
 
   WpSpaPod *format;
   gchar mode[32];
@@ -542,6 +543,20 @@ on_node_ports_changed (WpObject * node, WpSiAudioAdapter *self)
 }
 
 static void
+on_node_params_changed (WpPipewireObject * proxy, const gchar *param_name,
+    WpSiAudioAdapter *self)
+{
+  /* Only handle Props param that has been emitted when setting ports format */
+  if (!g_str_equal (param_name, "Props") || !self->format_task)
+    return;
+
+  /* If ports are already configured, finish task. This is the case for already
+   * loaded nodes such as virtual filters */
+  if (wp_node_get_n_ports (self->node) > 0)
+    on_node_ports_changed (WP_OBJECT (self->node), self);
+}
+
+static void
 si_audio_adapter_enable_active (WpSessionItem *si, WpTransition *transition)
 {
   WpSiAudioAdapter *self = WP_SI_AUDIO_ADAPTER (si);
@@ -563,6 +578,8 @@ si_audio_adapter_enable_active (WpSessionItem *si, WpTransition *transition)
 
   self->ports_changed_sigid = g_signal_connect_object (self->node,
       "ports-changed", (GCallback) on_node_ports_changed, self, 0);
+  self->params_changed_sigid = g_signal_connect_object (self->node,
+      "params-changed", (GCallback) on_node_params_changed, self, 0);
 
   /* If device node, enum available formats and set one of them */
   if (!self->no_format && (self->is_device || self->dont_remix ||
@@ -583,6 +600,10 @@ si_audio_adapter_disable_active (WpSessionItem *si)
   if (self->ports_changed_sigid) {
     g_signal_handler_disconnect (self->node, self->ports_changed_sigid);
     self->ports_changed_sigid = 0;
+  }
+  if (self->params_changed_sigid) {
+    g_signal_handler_disconnect (self->node, self->params_changed_sigid);
+    self->params_changed_sigid = 0;
   }
 
   wp_object_update_features (WP_OBJECT (self), 0,
