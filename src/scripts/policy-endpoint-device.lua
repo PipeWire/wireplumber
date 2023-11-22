@@ -19,7 +19,13 @@ self.pending_rescan = false
 function rescan ()
   -- check endpoints and register new links
   for si_ep in endpoints_om:iterate() do
-    handleEndpoint (si_ep)
+    handleLinkable(si_ep)
+  end
+
+  for filter in streams_om:iterate {
+    Constraint { "node.link-group", "+" },
+  } do
+    handleFilter(filter)
   end
 end
 
@@ -42,7 +48,6 @@ function scheduleRescan ()
 end
 
 function findFilterTarget (props)
-
   for si_target in linkables_om:iterate {
     -- exclude filter targets
     Constraint { "node.link-group", "+" },
@@ -87,6 +92,7 @@ function findUndefinedTarget (si_ep)
   local media_class = si_ep.properties["media.class"]
   local target_class_assoc = {
     ["Audio/Source"] = "Audio/Source",
+    ["Stream/Output/Audio"] = "Audio/Sink",
     ["Audio/Sink"] = "Audio/Sink",
     ["Video/Source"] = "Video/Source",
   }
@@ -156,13 +162,23 @@ function createLink (si_ep, si_target)
   end)
 end
 
-function handleEndpoint (si_ep)
-  Log.info (si_ep, "handling endpoint " .. si_ep.properties["name"])
+function handleFilter(filter)
+  handleLinkable(filter)
+end
+
+function handleLinkable (si)
+  local si_props = si.properties
+  local is_filter = (si_props["node.link-group"] ~= nil)
+  if is_filter then
+    Log.info (si, "handling filter " .. si_props["node.name"])
+  else
+    Log.info (si, "handling endpoint " .. si_props["name"])
+  end
 
   -- find proper target item
-  local si_target = findUndefinedTarget (si_ep)
+  local si_target = findUndefinedTarget (si)
   if not si_target then
-    Log.info (si_ep, "... target item not found")
+    Log.info (si, "... target item not found")
     return
   end
 
@@ -170,23 +186,23 @@ function handleEndpoint (si_ep)
   for link in links_om:iterate() do
     local out_id = tonumber(link.properties["out.item.id"])
     local in_id = tonumber(link.properties["in.item.id"])
-    if out_id == si_ep.id or in_id == si_ep.id then
-      local is_out = out_id == si_ep.id and true or false
+    if out_id == si.id or in_id == si.id then
+      local is_out = out_id == si.id and true or false
       for peer in linkables_om:iterate() do
         if peer.id == (is_out and in_id or out_id) then
 
           if peer.id == si_target.id then
-            Log.info (si_ep, "... already linked to proper target")
+            Log.info (si, "... already linked to proper target")
             return
           end
 
           -- remove old link if active, otherwise schedule rescan
           if ((link:get_active_features() & Feature.SessionItem.ACTIVE) ~= 0) then
             link:remove ()
-            Log.info (si_ep, "... moving to new target")
+            Log.info (si, "... moving to new target")
           else
             scheduleRescan ()
-            Log.info (si_ep, "... scheduled rescan")
+            Log.info (si, "... scheduled rescan")
             return
           end
 
@@ -196,7 +212,7 @@ function handleEndpoint (si_ep)
   end
 
   -- create new link
-  createLink (si_ep, si_target)
+  createLink (si, si_target)
 end
 
 function unhandleLinkable (si)
@@ -225,6 +241,15 @@ linkables_om = ObjectManager {
     Constraint { "item.factory.name", "=", "si-audio-adapter", type = "pw-global" },
     Constraint { "item.node.type", "=", "device", type = "pw-global" },
     Constraint { "active-features", "!", 0, type = "gobject" },
+  }
+}
+streams_om = ObjectManager {
+  Interest {
+    type = "SiLinkable",
+    -- only handle stream si-audio-adapter items
+    Constraint { "item.factory.name", "=", "si-audio-adapter", type = "pw-global" },
+    Constraint { "active-features", "!", 0, type = "gobject" },
+    Constraint { "media.class", "=", "Stream/Output/Audio" },
   }
 }
 links_om = ObjectManager {
@@ -257,3 +282,4 @@ end)
 endpoints_om:activate()
 linkables_om:activate()
 links_om:activate()
+streams_om:activate()
