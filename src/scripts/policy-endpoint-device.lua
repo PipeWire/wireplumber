@@ -116,7 +116,7 @@ function createLink (si_ep, si_target)
   local in_item = nil
   local ep_props = si_ep.properties
   local target_props = si_target.properties
-
+  local is_filter = (ep_props["node.link-group"] ~= nil)
   if target_props["item.node.direction"] == "input" then
     -- playback
     out_item = si_ep
@@ -131,10 +131,10 @@ function createLink (si_ep, si_target)
     (is_filter and ep_props["node.name"] or ep_props["name"]),
     target_props["node.name"])
 
-  Log.info(si_link, link_string)
-
   -- create and configure link
   local si_link = SessionItem ( "si-standard-link" )
+
+  Log.info(si_link, "creating link " .. link_string)
   if not si_link:configure {
     ["out.item"] = out_item,
     ["in.item"] = in_item,
