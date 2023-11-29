@@ -131,10 +131,11 @@ function createLink (si_ep, si_target)
     (is_filter and ep_props["node.name"] or ep_props["name"]),
     target_props["node.name"])
 
-  Log.info(si_link, link_string)
-
   -- create and configure link
   local si_link = SessionItem ( "si-standard-link" )
+
+  Log.info(si_link, link_string)
+
   if not si_link:configure {
     ["out.item"] = out_item,
     ["in.item"] = in_item,
