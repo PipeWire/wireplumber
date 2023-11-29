@@ -111,7 +111,7 @@ function findUndefinedTarget (si_ep)
   return si_target
 end
 
-function createLink (si_ep, si_target)
+function createLink (si_ep, si_target, is_filter)
   local out_item = nil
   local in_item = nil
   local ep_props = si_ep.properties
@@ -213,7 +213,7 @@ function handleLinkable (si)
   end
 
   -- create new link
-  createLink (si, si_target)
+  createLink (si, si_target, is_filter)
 end
 
 function unhandleLinkable (si)
