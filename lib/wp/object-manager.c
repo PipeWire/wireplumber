@@ -1052,6 +1052,7 @@ expose_tmp_globals (WpCore *core)
 {
   WpRegistry *self = wp_core_get_registry (core);
   g_autoptr (GPtrArray) tmp_globals = NULL;
+  g_autoptr (GPtrArray) object_managers = NULL;
 
   /* in case the registry was cleared in the meantime... */
   if (G_UNLIKELY (!self->tmp_globals))
@@ -1091,9 +1092,13 @@ expose_tmp_globals (WpCore *core)
     g_ptr_array_index (self->globals, g->id) = wp_global_ref (g);
   }
 
+  object_managers = g_ptr_array_copy (self->object_managers,
+      (GCopyFunc) g_object_ref, NULL);
+  g_ptr_array_set_free_func (object_managers, g_object_unref);
+
   /* notify object managers */
-  for (guint i = 0; i < self->object_managers->len; i++) {
-    WpObjectManager *om = g_ptr_array_index (self->object_managers, i);
+  for (guint i = 0; i < object_managers->len; i++) {
+    WpObjectManager *om = g_ptr_array_index (object_managers, i);
 
     for (guint i = 0; i < tmp_globals->len; i++) {
       WpGlobal *g = g_ptr_array_index (tmp_globals, i);
