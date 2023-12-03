@@ -22,10 +22,13 @@ function rescan ()
     handleLinkable(si_ep)
   end
 
-  for filter in streams_om:iterate {
-    Constraint { "node.link-group", "+" },
-  } do
-    handleFilter(filter)
+  -- handle filters only if we have endpoints
+  if endpoints_om:get_n_objects () > 0 then
+    for filter in streams_om:iterate {
+      Constraint { "node.link-group", "+" },
+    } do
+      handleFilter(filter)
+    end
   end
 end
 
