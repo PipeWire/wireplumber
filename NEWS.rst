@@ -1,5 +1,22 @@
-WirePlumber 0.4.16
+WirePlumber 0.4.17
 ~~~~~~~~~~~~~~~~~~
+
+Fixes:
+
+  - Fixed a reference counting issue in the object managers that could cause
+    crashes due to memory corruption (#534)
+
+  - Fixed an issue with filters linking to wrong targets, often with two sets
+    of links (#536)
+
+  - Fixed a crash in the endpoints policy that would show up when log messages
+    were enabled at level 3 or higher
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.4.16
+..................
 
 Additions:
 
@@ -50,9 +67,6 @@ Fixes:
 
   - Used an idle callback instead of pw_core_sync() in the object manager to
     expose tmp globals
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.4.15
 ..................
