@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <locale.h>
 #include <spa/utils/defs.h>
+#include <spa/utils/string.h>
 #include <pipewire/keys.h>
 #include <pipewire/extensions/session-manager/keys.h>
 
@@ -72,6 +73,11 @@ static struct {
     struct {
       guint64 id;
     } clear_default;
+
+    struct {
+      guint64 id;
+      const char *level;
+    } set_log_level;
   };
 } cmdline;
 
@@ -1192,6 +1198,90 @@ out:
   g_main_loop_quit (self->loop);
 }
 
+/* set-log-level */
+
+static gboolean
+set_log_level_parse_positional (gint argc, gchar ** argv, GError **error)
+{
+  if (argc == 4) {
+    if (!spa_atou64 (argv[2], &cmdline.set_log_level.id, 10)) {
+      g_set_error (error, wpctl_error_domain_quark(), 0,
+                   "failed to parse client id");
+      return FALSE;
+    }
+    cmdline.set_log_level.level = argv[3];
+  } else if (argc == 3) {
+    cmdline.set_log_level.id = SPA_ID_INVALID;
+    cmdline.set_log_level.level = argv[2];
+  } else {
+    g_set_error (error, wpctl_error_domain_quark(), 0,
+                 "wrong number of arguments for set-log-level");
+    return FALSE;
+  }
+
+  if (spa_streq(cmdline.set_log_level.level, "-"))
+    cmdline.set_log_level.level = NULL;
+
+  return TRUE;
+}
+
+static gboolean
+set_log_level_prepare (WpCtl * self, GError ** error)
+{
+  wp_object_manager_add_interest (self->om, WP_TYPE_METADATA,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
+      "metadata.name", "=s", "settings",
+      NULL);
+  wp_object_manager_add_interest (self->om, WP_TYPE_CLIENT,
+      WP_CONSTRAINT_TYPE_PW_PROPERTY,
+      "wireplumber.daemon", "+",
+      NULL);
+  wp_object_manager_request_object_features (self->om, WP_TYPE_METADATA,
+      WP_OBJECT_FEATURES_ALL);
+  wp_object_manager_request_object_features (self->om, WP_TYPE_CLIENT,
+      WP_OBJECT_FEATURES_ALL);
+  return TRUE;
+}
+
+static void
+set_log_level_run (WpCtl * self)
+{
+  g_autoptr (WpPlugin) def_nodes_api = NULL;
+  g_autoptr (GError) error = NULL;
+  g_autoptr (WpIterator) client_it = NULL;
+  g_auto (GValue) client_val = G_VALUE_INIT;
+
+  g_autoptr (WpMetadata) settings = wp_object_manager_lookup (self->om, WP_TYPE_METADATA, NULL);
+  if (!settings) {
+    fprintf (stderr, "No settings metadata found\n");
+    goto out;
+  }
+
+  if (cmdline.set_log_level.id == SPA_ID_INVALID)
+    client_it = wp_object_manager_new_filtered_iterator (self->om, WP_TYPE_CLIENT, NULL);
+
+  if (client_it) {
+      for (; wp_iterator_next (client_it, &client_val); g_value_unset (&client_val)) {
+        WpPipewireObject *client = g_value_get_object (&client_val);
+        guint32 client_id = wp_proxy_get_bound_id (WP_PROXY (client));
+
+        if (client_id == SPA_ID_INVALID)
+          continue;
+
+        wp_metadata_set (settings, client_id, "log.level", "", cmdline.set_log_level.level);
+      }
+  } else {
+    wp_metadata_set (settings, cmdline.set_log_level.id, "log.level", "", cmdline.set_log_level.level);
+  }
+
+  wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
+  return;
+
+out:
+  self->exit_code = 3;
+  g_main_loop_quit (self->loop);
+}
+
 #define N_ENTRIES 3
 
 static const struct subcommand {
@@ -1324,6 +1414,16 @@ static const struct subcommand {
     .parse_positional = clear_default_parse_positional,
     .prepare = clear_default_prepare,
     .run = clear_default_run,
+  },
+  {
+    .name = "set-log-level",
+    .positional_args = "[ID] LEVEL",
+    .summary = "Sets the log level of a client (no ID means Wireplumber, 0 means Pipewire server)",
+    .description = NULL,
+    .entries = { { NULL } },
+    .parse_positional = set_log_level_parse_positional,
+    .prepare = set_log_level_prepare,
+    .run = set_log_level_run,
   }
 };
 
