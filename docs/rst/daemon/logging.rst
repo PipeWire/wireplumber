@@ -100,6 +100,33 @@ If a ``<topic pattern>`` is not specified, then the given ``<level>`` is
 considered to be the global log level, which applies to all topics that have
 no explicit level specified.
 
+Changing log level at runtime
+-----------------------------
+
+The debug log level can be changed at runtime using ``wpctl``:
+
+.. code::
+
+   wpctl set-log-level D     # enable debug logging for Wireplumber
+   wpctl set-log-level -     # restore default logging for Wireplumber
+
+   wpctl set-log-level 0 4   # enable debug logging for Pipewire daemon
+   wpctl set-log-level 0 -   # restore default logging for Pipewire daemon
+
+Equivalently, it is also possible to adjust the logging by setting
+``log.level`` in the ``settings`` metadata:
+
+.. code::
+
+   pw-metadata -n settings <ID> log.level "D"   # WirePlumber logging
+
+   pw-metadata -n settings 0 log.level 4        # PipeWire daemon logging
+
+Above, ``<ID>`` should be replaced by the WirePlumber daemon client ID.
+
+Note that PipeWire daemon log levels must be specified by numbers, not
+letter codes.
+
 Examples
 --------
 
