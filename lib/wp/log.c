@@ -410,8 +410,7 @@ wp_log_init (gint flags)
   }
 }
 
-/* private, called from core.c when reading the config file */
-void
+gboolean
 wp_log_set_global_level (const gchar *log_level)
 {
   gint level;
@@ -420,8 +419,9 @@ wp_log_set_global_level (const gchar *log_level)
     log_state.global_log_level_flags = level_index_to_full_flags (level);
     wp_spa_log_get_instance()->level = level_index_to_spa (level);
     pw_log_set_level (level_index_to_spa (level));
+    return TRUE;
   } else {
-    wp_warning ("ignoring invalid log.level in config file: %s", log_level);
+    return FALSE;
   }
 }
 

@@ -299,8 +299,10 @@ wp_core_constructed (GObject *object)
     /* use the same config option as pipewire to set the log level */
     p = (struct pw_properties *) pw_context_get_properties (self->pw_context);
     if (!g_getenv("WIREPLUMBER_DEBUG") &&
-        (str = pw_properties_get(p, "log.level")) != NULL)
-      wp_log_set_global_level (str);
+        (str = pw_properties_get(p, "log.level")) != NULL) {
+      if (!wp_log_set_global_level (str))
+        wp_warning ("ignoring invalid log.level in config file: %s", str);
+    }
 
     /* Init refcount */
     grefcount *rc = pw_context_get_user_data (self->pw_context);
