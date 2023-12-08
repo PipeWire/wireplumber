@@ -17,6 +17,8 @@ local defaults = {
   ["stream.restore-target"] = true,
   ["stream.default-playback-volume"] = 1.0,
   ["stream.default-capture-volume"] = 1.0,
+
+  ["restore-default-targets"] = true,
 }
 
 return settings_manager.new ("node.", defaults)

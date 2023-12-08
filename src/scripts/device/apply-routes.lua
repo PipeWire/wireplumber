@@ -57,7 +57,8 @@ AsyncEventHook {
           local is_input = (route.direction == "Input")
           props.mute = props.mute or false
           props.channelVolumes = props.channelVolumes or
-              { is_input and settings.default_input_volume or settings.default_volume }
+              { is_input and settings ["routes.default-source-volume"]
+                          or settings ["routes.default-sink-volume"] }
 
           -- prefix the props with correct IDs to create a Pod.Object
           table.insert (props, 1, "Spa:Pod:Object:Param:Props")

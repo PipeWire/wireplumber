@@ -126,7 +126,7 @@ function updateStoredProfile (device, profile)
       profile.name, index, dev_name))
 end
 
-function handlePersistentSetting (enable)
+function toggleState (enable)
   if enable and not state then
     state = State ("default-profile")
     state_table = state:load ()
@@ -140,5 +140,5 @@ function handlePersistentSetting (enable)
   end
 end
 
-settings:subscribe ("use-persistent-storage", handlePersistentSetting)
-handlePersistentSetting (settings.use_persistent_storage)
+settings:subscribe ("restore-profile", toggleState)
+toggleState (settings.restore_profile)

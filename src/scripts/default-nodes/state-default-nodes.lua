@@ -11,7 +11,7 @@
 -- node out of the user preferences
 
 cutils = require ("common-utils")
-settings = require ("settings-device")
+settings = require ("settings-node")
 log = Log.open_topic ("s-default-nodes")
 
 -- the state storage
@@ -178,7 +178,7 @@ function updateStored (def_node_type, stored)
   cutils.storeAfterTimeout (state, state_table)
 end
 
-function handlePersistentSetting (enable)
+function toggleState (enable)
   if enable and not state then
     state = State ("default-nodes")
     state_table = state:load ()
@@ -194,5 +194,5 @@ function handlePersistentSetting (enable)
   end
 end
 
-settings:subscribe ("use-persistent-storage", handlePersistentSetting)
-handlePersistentSetting (settings.use_persistent_storage)
+settings:subscribe ("restore-default-targets", toggleState)
+toggleState (settings ["restore-default-targets"])

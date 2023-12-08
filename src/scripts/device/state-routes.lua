@@ -303,7 +303,7 @@ function getStoredProfileRoutes (dev_info, profile_name)
   return str and cutils.parseArray (str) or {}
 end
 
-function handlePersistentSetting (enable)
+function toggleState (enable)
   if enable and not state then
     state = State ("default-routes")
     state_table = state:load ()
@@ -319,5 +319,5 @@ function handlePersistentSetting (enable)
   end
 end
 
-settings:subscribe ("use-persistent-storage", handlePersistentSetting)
-handlePersistentSetting (settings.use_persistent_storage)
+settings:subscribe ("restore-routes", toggleState)
+toggleState (settings.restore_routes)
