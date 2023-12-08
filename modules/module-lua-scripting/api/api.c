@@ -143,6 +143,15 @@ static const luaL_Reg i18n_funcs[] = {
 /* WpCore */
 
 static int
+core_get_properties (lua_State *L)
+{
+  WpCore * core = get_wp_core (L);
+  g_autoptr (WpProperties) p = wp_core_get_properties (core);
+  wplua_properties_to_table (L, p);
+  return 1;
+}
+
+static int
 core_get_info (lua_State *L)
 {
   WpCore * core = get_wp_core (L);
@@ -276,6 +285,7 @@ core_test_feature (lua_State *L)
 }
 
 static const luaL_Reg core_funcs[] = {
+  { "get_properties", core_get_properties },
   { "get_info", core_get_info },
   { "get_vm_type", core_get_vm_type },
   { "idle_add", core_idle_add },
