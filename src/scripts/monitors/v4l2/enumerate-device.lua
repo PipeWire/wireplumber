@@ -5,15 +5,11 @@
 --
 -- SPDX-License-Identifier: MIT
 
+cutils = require ("common-utils")
 log = Log.open_topic ("s-monitors-v4l2")
 
-defaults = {}
-defaults.properties = Json.Object {}
-
 config = {}
-config.properties = Conf.get_section (
-  "monitor.v4l2.properties", defaults.properties):parse ()
-
+config.properties = cutils.get_config_section ("monitor.v4l2.properties")
 
 function createCamDevice (parent, id, type, factory, properties)
   source = source or Plugin.find ("standard-event-source")

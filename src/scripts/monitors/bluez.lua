@@ -10,13 +10,12 @@ COMBINE_OFFSET = 64
 cutils = require ("common-utils")
 log = Log.open_topic ("s-monitors")
 
-defaults = {}
-defaults.properties = Json.Object {}
-
 config = {}
-config.seat_monitoring = Core.test_feature ("monitor.bluetooth.seat-monitoring")
-config.properties = Conf.get_section (
-    "monitor.bluetooth.properties", defaults.properties): parse ()
+config.seat_monitoring = Core.test_feature ("monitor.bluez.seat-monitoring")
+config.properties = cutils.get_config_section ("monitor.bluez.properties")
+
+-- This is not a setting, it must always be enabled
+config.properties["api.bluez5.connection-info"] = true
 
 devices_om = ObjectManager {
   Interest {
@@ -278,7 +277,7 @@ function createNode(parent, id, type, factory, properties)
   end
 
   -- apply properties from bluetooth.conf
-  cutils.evaluateRulesApplyProperties (properties, "monitor.bluetooth.rules")
+  cutils.evaluateRulesApplyProperties (properties, "monitor.bluez.rules")
 
   -- create the node; bluez requires "local" nodes, i.e. ones that run in
   -- the same process as the spa device, for several reasons
@@ -340,7 +339,7 @@ function createDevice(parent, id, type, factory, properties)
     properties["api.bluez5.id"] = id
 
     -- apply properties from bluetooth.conf
-    cutils.evaluateRulesApplyProperties (properties, "monitor.bluetooth.rules")
+    cutils.evaluateRulesApplyProperties (properties, "monitor.bluez.rules")
 
     -- create the device
     device = SpaDevice(factory, properties)
@@ -367,9 +366,7 @@ function createDevice(parent, id, type, factory, properties)
 end
 
 function createMonitor()
-  local properties = config.properties
-  properties["api.bluez5.connection-info"] = true
-  local monitor = SpaDevice("api.bluez5.enum.dbus", properties)
+  local monitor = SpaDevice("api.bluez5.enum.dbus", config.properties)
   if monitor then
     monitor:connect("create-object", createDevice)
   else

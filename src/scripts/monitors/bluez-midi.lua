@@ -9,15 +9,12 @@ cutils = require ("common-utils")
 log = Log.open_topic ("s-monitors")
 
 defaults = {}
-defaults.properties = Json.Object {}
-defaults.servers = Json.Array { "bluez_midi.server" }
+defaults.servers = { "bluez_midi.server" }
 
 config = {}
-config.seat_monitoring = Core.test_feature ("monitor.bluetooth.seat-monitoring")
-config.properties = Conf.get_section (
-    "monitor.bluetooth-midi.properties", defaults.properties): parse ()
-config.servers = Conf.get_section (
-    "monitor.bluetooth-midi.servers", defaults.servers): parse ()
+config.seat_monitoring = Core.test_feature ("monitor.bluez.seat-monitoring")
+config.properties = cutils.get_config_section ("monitor.bluez-midi.properties")
+config.servers = cutils.get_config_section ("monitor.bluez-midi.servers", defaults.servers)
 
 -- unique device/node name tables
 node_names_table = nil
@@ -62,7 +59,7 @@ function createNode(parent, id, type, factory, properties)
   properties["api.glib.mainloop"] = "true"
 
   -- apply properties from bluetooth.conf
-  cutils.evaluateRulesApplyProperties (properties, "monitor.bluetooth-midi.rules")
+  cutils.evaluateRulesApplyProperties (properties, "monitor.bluez-midi.rules")
 
   local latency_offset = properties["node.latency-offset-msec"]
   properties["node.latency-offset-msec"] = nil
@@ -118,7 +115,7 @@ function createServers()
       ["factory.name"] = "api.bluez5.midi.node",
       ["api.glib.mainloop"] = "true",
     }
-    cutils.evaluateRulesApplyProperties (node_props, "monitor.bluetooth-midi.rules")
+    cutils.evaluateRulesApplyProperties (node_props, "monitor.bluez-midi.rules")
 
     local latency_offset = node_props["node.latency-offset-msec"]
     node_props["node.latency-offset-msec"] = nil

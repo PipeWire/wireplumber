@@ -158,5 +158,28 @@ function cutils.storeAfterTimeout (state, state_table)
   end)
 end
 
+function cutils.get_application_name ()
+  return Core.get_properties()["application.name"] or "WirePlumber"
+end
+
+function cutils.get_config_section (name, defaults)
+  local section = Conf.get_section (name)
+  if not section then
+    section = defaults or {}
+  else
+    section = section:parse ()
+    for k, v in pairs (defaults) do
+      if section [k] == nil then
+        section [k] = v
+      end
+    end
+    for k, v in ipairs (defaults) do
+      if section [k] == nil then
+        section [k] = v
+      end
+    end
+  end
+  return section
+end
 
 return cutils

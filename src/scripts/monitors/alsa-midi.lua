@@ -5,15 +5,12 @@
 --
 -- SPDX-License-Identifier: MIT
 
+cutils = require ("common-utils")
 log = Log.open_topic ("s-monitors")
-
-defaults = {}
-defaults.node_properties = Json.Object {}
 
 config = {}
 config.monitoring = Core.test_feature ("monitor.alsa-midi.monitoring")
-config.node_properties = Conf.get_section (
-    "monitor.alsa.midi.node-properties", defaults.node_properties):parse ()
+config.node_properties = cutils.get_config_section ("monitor.alsa-midi.properties")
 
 SND_PATH = "/dev/snd"
 SEQ_NAME = "seq"

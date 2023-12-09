@@ -8,19 +8,9 @@
 cutils = require ("common-utils")
 log = Log.open_topic ("s-monitors")
 
-defaults = {}
-defaults.reserve_priority = -20
-defaults.reserve_application_name = "WirePlumber"
-defaults.properties = Json.Object {}
-
 config = {}
 config.reserve_device = Core.test_feature ("monitor.alsa.reserve-device")
-config.reserve_priority = Conf.get_value_int ("wireplumber.settings",
-    "monitor.alsa.reserve-priority", defaults.reserve_priority)
-config.reserve_application_name = Conf.get_value_string ("wireplumber.settings",
-    "monitor.alsa.reserve-application-name", defaults.reserve_application_name)
-config.properties = Conf.get_section (
-    "monitor.alsa.properties", defaults.properties):parse ()
+config.properties = cutils.get_config_section ("monitor.alsa.properties")
 
 -- unique device/node name tables
 device_names_table = nil
@@ -33,6 +23,7 @@ end
 function applyDefaultDeviceProperties (properties)
   properties["api.alsa.use-acp"] = true
   properties["api.acp.auto-port"] = false
+  properties["api.dbus.ReserveDevice1.Priority"] = -20
 end
 
 function createNode(parent, id, obj_type, factory, properties)
@@ -280,9 +271,9 @@ function prepareDevice(parent, id, obj_type, factory, properties)
     local rd_name = "Audio" .. properties["api.alsa.card"]
     local rd = rd_plugin:call("create-reservation",
         rd_name,
-        config.reserve_application_name,
+        cutils.get_application_name (),
         properties["device.name"],
-        config.reserve_priority);
+        properties["api.dbus.ReserveDevice1.Priority"]);
 
     properties["api.dbus.ReserveDevice1"] = rd_name
 
