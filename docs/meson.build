@@ -140,7 +140,7 @@ if build_gir
     dependencies: [wp_dep, dummy_dep],
     namespace: 'Wp',
     nsversion: wireplumber_api_version,
-    export_packages: 'wireplumber-0.4',
+    export_packages: 'wireplumber-' + wireplumber_api_version,
     header: 'wp/wp.h',
     sources: [wpenums_h, wp_gtkdoc_h, wp_lib_headers],
     include_directories: [wpenums_include_dir],
