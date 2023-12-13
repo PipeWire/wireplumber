@@ -136,12 +136,12 @@ common_flags = [
 add_project_arguments(cc.get_supported_arguments(common_flags), language: 'c')
 
 subdir('lib')
-subdir('docs')
 if build_modules
   subdir('modules')
 endif
 subdir('src')
 subdir('po')
+subdir('docs')
 
 if get_option('tests')
   subdir('tests')

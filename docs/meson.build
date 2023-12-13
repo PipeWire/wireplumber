@@ -69,6 +69,7 @@ if build_doc
     meson.current_source_dir()/'..'/'README.rst',
     meson.current_source_dir()/'..'/'NEWS.rst',
   )
+  sphinx_files += scripts_doc_files
   subdir('rst')
 
   sphinx_conf_data = configuration_data()
