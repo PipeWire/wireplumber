@@ -1,7 +1,7 @@
 # -- Project information -----------------------------------------------------
 
 project = 'WirePlumber'
-copyright = '2021, Collabora'
+copyright = '2021-2024, Collabora'
 author = 'Collabora'
 release = '@VERSION@'
 version = '@VERSION@'
