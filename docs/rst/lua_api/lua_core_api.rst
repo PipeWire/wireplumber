@@ -8,6 +8,17 @@ object is not exposed to the scripts.
 
 For some functionality, though, the following static functions are exposed.
 
+.. function:: Core.get_properties()
+
+   Binds :c:func:`wp_core_get_properties`
+
+   Returns a table with the properties of the core. These are the same
+   properties that appear on WirePlumber's *client* object in the PipeWire
+   global registry.
+
+   :returns: the properties of the core
+   :rtype: table
+
 .. function:: Core.get_info()
 
    Returns a table with information about the core. The table contains
@@ -120,3 +131,14 @@ For some functionality, though, the following static functions are exposed.
       the api plugins to load, if they are not already loaded
    :param callback: the function to call after the plugins have been loaded;
       this function takes references to the plugins as parameters
+
+.. function:: Core.test_feature()
+
+   Binds :c:func:`wp_core_test_feature`
+
+   Tests if the specified feature is provided in the current WirePlumber
+   configuration.
+
+   :param string feature: the name of the feature to test
+   :returns: true if the feature is provided, false otherwise
+   :rtype: boolean
