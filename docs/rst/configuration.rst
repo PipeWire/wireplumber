@@ -4,22 +4,21 @@ Configuration
 =============
 
 WirePlumber is a heavily modular daemon. By itself, it doesn't do anything
-except load the configured modules. All the rest of the logic is implemented
-inside those modules.
+except load its configured components. The actual management logic is
+implemented inside those components.
 
 Modular design ensures that it is possible to swap the implementation of
 specific functionality without having to re-implement the rest of it, allowing
 flexibility on target-sensitive parts, such as policy management and
 making use of non-standard hardware.
 
-At startup, WirePlumber first reads its **main** configuration file.
-This file configures the operation context (properties of the daemon,
-modules to be loaded, etc). This file may also specify additional, secondary
-configuration files which will be loaded as well at the time of parsing the
-main file.
+At startup, WirePlumber reads its configuration file (combined with all the
+fragments it may have) and loads the components specified in the selected
+profile. This configures the operation context. Then, the components take over
+and drive the entirety of the daemon's operation.
 
-All files and modules are specified relative to their standard search locations,
-which are documented later in this chapter.
+The sections below describe in more detail the configuration file format and
+the various options available.
 
 .. toctree::
    :maxdepth: 1
