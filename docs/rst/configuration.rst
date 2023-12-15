@@ -24,6 +24,7 @@ which are documented later in this chapter.
 .. toctree::
    :maxdepth: 1
 
+   configuration/conf_file.rst
    configuration/components_and_profiles.rst
    configuration/features.rst
    configuration/settings.rst

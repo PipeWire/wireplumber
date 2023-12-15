@@ -61,6 +61,14 @@ The main types of components are:
     dynamically. Modules usually provide some bundled logic to be consumed by
     scripts or some integration between WirePlumber and an external service.
 
+  * **pw-module**
+
+    A PipeWire module, which is also a shared library that can be loaded
+    dynamically, but extends the functionality of the underlying *libpipewire*
+    library. Loading PipeWire modules in the WirePlumber context can be useful
+    to load custom protocol extensions or to offload some funcitonality from
+    the PipeWire daemon.
+
   * **virtual**
 
     Virtual components are just load targets that can be used to pull in

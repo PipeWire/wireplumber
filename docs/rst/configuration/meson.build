@@ -1,5 +1,6 @@
 # you need to add here any files you add to the toc directory as well
 sphinx_files += files(
+  'conf_file.rst',
   'components_and_profiles.rst',
   'features.rst',
   'settings.rst',
