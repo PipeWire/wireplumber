@@ -168,14 +168,16 @@ function cutils.get_config_section (name, defaults)
     section = defaults or {}
   else
     section = section:parse ()
-    for k, v in pairs (defaults) do
-      if section [k] == nil then
-        section [k] = v
+    if defaults then
+      for k, v in pairs (defaults) do
+        if section [k] == nil then
+          section [k] = v
+        end
       end
-    end
-    for k, v in ipairs (defaults) do
-      if section [k] == nil then
-        section [k] = v
+      for k, v in ipairs (defaults) do
+        if section [k] == nil then
+          section [k] = v
+        end
       end
     end
   end
