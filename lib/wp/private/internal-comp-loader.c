@@ -739,8 +739,16 @@ wp_internal_comp_loader_load (WpComponentLoader * self, WpCore * core,
 
       profile_json =
           wp_conf_get_value (conf, "wireplumber.profiles", component, NULL);
-      if (profile_json)
-        wp_properties_update_from_json (profile, profile_json);
+      if (!profile_json) {
+        g_autoptr (GTask) task = g_task_new (self, cancellable, callback, data);
+        g_task_set_source_tag (task, wp_internal_comp_loader_load);
+        g_task_return_new_error (G_TASK (task), WP_DOMAIN_LIBRARY,
+            WP_LIBRARY_ERROR_INVALID_ARGUMENT,
+            "profile '%s' not found in configuration", component);
+        return;
+      }
+
+      wp_properties_update_from_json (profile, profile_json);
 
       components = wp_conf_get_section (conf, "wireplumber.components", NULL);
 

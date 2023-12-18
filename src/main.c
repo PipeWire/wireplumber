@@ -25,6 +25,7 @@ enum WpExitCode
 
 static gboolean show_version = FALSE;
 static gchar * config_file = NULL;
+static gchar * profile = NULL;
 
 static GOptionEntry entries[] =
 {
@@ -32,6 +33,8 @@ static GOptionEntry entries[] =
     "Show version", NULL },
   { "config-file", 'c', G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING, &config_file,
     "The context configuration file", NULL },
+  { "profile", 'p', G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING, &profile,
+    "The profile to load", NULL },
   { NULL }
 };
 
@@ -151,6 +154,8 @@ main (gint argc, gchar **argv)
 
   if (!config_file)
     config_file = "wireplumber.conf";
+  if (!profile)
+    profile = "main";
 
   /* Forward WIREPLUMBER_CONFIG_DIR to PIPEWIRE_CONFIG_DIR */
   conf_env = g_getenv ("WIREPLUMBER_CONFIG_DIR");
@@ -161,7 +166,7 @@ main (gint argc, gchar **argv)
       PW_KEY_CONFIG_NAME, config_file,
       PW_KEY_APP_NAME, "WirePlumber",
       "wireplumber.daemon", "true",
-      "wireplumber.profile", "main",
+      "wireplumber.profile", profile,
       NULL);
 
   /* prefer manager socket */
