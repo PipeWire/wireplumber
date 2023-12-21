@@ -7,11 +7,6 @@ WirePlumber is a heavily modular daemon. By itself, it doesn't do anything
 except load its configured components. The actual management logic is
 implemented inside those components.
 
-Modular design ensures that it is possible to swap the implementation of
-specific functionality without having to re-implement the rest of it, allowing
-flexibility on target-sensitive parts, such as policy management and
-making use of non-standard hardware.
-
 At startup, WirePlumber reads its configuration file (combined with all the
 fragments it may have) and loads the components specified in the selected
 profile. This configures the operation context. Then, the components take over
