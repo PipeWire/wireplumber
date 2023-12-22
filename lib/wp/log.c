@@ -176,6 +176,9 @@ static GString *spa_dbg_str = NULL;
 
 #include <spa/debug/pod.h>
 
+#define DEFAULT_LOG_LEVEL 4  /* MESSAGE */
+#define DEFAULT_LOG_LEVEL_FLAGS (G_LOG_LEVEL_MESSAGE | G_LOG_LEVEL_WARNING | G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_ERROR)
+
 struct log_topic_pattern
 {
   GPatternSpec *spec;
@@ -185,6 +188,7 @@ struct log_topic_pattern
 static struct {
   gboolean use_color;
   gboolean output_is_journal;
+  gboolean set_pw_log;
   gint global_log_level;
   GLogLevelFlags global_log_level_flags;
   struct log_topic_pattern *patterns;
@@ -193,8 +197,9 @@ static struct {
 } log_state = {
   .use_color = FALSE,
   .output_is_journal = FALSE,
-  .global_log_level = 4 /* MESSAGE */,
-  .global_log_level_flags = G_LOG_LEVEL_MESSAGE | G_LOG_LEVEL_WARNING | G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_ERROR,
+  .set_pw_log = FALSE,
+  .global_log_level = DEFAULT_LOG_LEVEL,
+  .global_log_level_flags = DEFAULT_LOG_LEVEL_FLAGS,
   .patterns = NULL,
   .log_topics = NULL,
 };
@@ -384,36 +389,30 @@ update_log_topic_levels (void)
   g_mutex_unlock (&log_state.log_topics_lock);
 }
 
-gboolean
-wp_log_set_global_level (const gchar *log_level)
+static void
+free_patterns (struct log_topic_pattern *patterns)
 {
-  gint level;
-  if (level_index_from_string (log_level, &level)) {
-    log_state.global_log_level = level;
-    log_state.global_log_level_flags = level_index_to_full_flags (level);
-    wp_spa_log_get_instance()->level = level_index_to_spa (level);
-    pw_log_set_level (level_index_to_spa (level));
-    update_log_topic_levels ();
-    return TRUE;
-  } else {
-    return FALSE;
+  struct log_topic_pattern *p = patterns;
+
+  while (p && p->spec) {
+    g_clear_pointer (&p->spec, g_pattern_spec_free);
+    ++p;
   }
+
+  g_free (patterns);
 }
 
-/* private, called from wp_init() */
-void
-wp_log_init (gint flags)
+/* Parse value to log level and patterns. If no global level in string,
+   global_log_level is not modified. */
+static gboolean
+parse_log_level (const gchar *level_str, struct log_topic_pattern **global_patterns, gint *global_log_level)
 {
-  const gchar *level_str;
-  gint global_log_level = log_state.global_log_level;
   struct log_topic_pattern *patterns = NULL, *pttrn;
   gint n_tokens = 0;
   gchar **tokens = NULL;
+  int level = *global_log_level;
 
-  level_str = g_getenv ("WIREPLUMBER_DEBUG");
-
-  log_state.use_color = g_log_writer_supports_color (fileno (stderr));
-  log_state.output_is_journal = g_log_writer_is_journald (fileno (stderr));
+  *global_patterns = NULL;
 
   if (level_str && level_str[0] != '\0') {
     /* [<glob>:]<level>,..., */
@@ -437,11 +436,12 @@ wp_log_init (gint flags)
       pttrn->log_level = lvl;
       pttrn++;
     } else if (n_tok == 1 && level_index_from_string (tok[0], &lvl)) {
-      global_log_level = lvl;
+      level = lvl;
     } else {
-      /* note that this is going to initialize the wp-log topic here */
-      wp_warning ("Ignoring invalid format in WIREPLUMBER_DEBUG: '%s'",
-          tokens[i]);
+      pttrn->spec = NULL;
+      pw_free_strv (tok);
+      free_patterns (patterns);
+      return FALSE;
     }
 
     pw_free_strv (tok);
@@ -458,21 +458,63 @@ wp_log_init (gint flags)
 
   pw_free_strv (tokens);
 
+  *global_patterns = patterns;
+  *global_log_level = level;
+  return TRUE;
+}
+
+gboolean
+wp_log_set_global_level (const gchar *level_str)
+{
+  gint level;
+  GLogLevelFlags flags;
+  struct log_topic_pattern *patterns;
+
+  level = DEFAULT_LOG_LEVEL;
+  if (!parse_log_level (level_str, &patterns, &level))
+    return FALSE;
+
+  flags = level_index_to_full_flags (level);
+
   g_mutex_lock (&log_state.log_topics_lock);
-  log_state.patterns = patterns;
-  log_state.global_log_level = global_log_level;
-  log_state.global_log_level_flags =
-      level_index_to_full_flags (global_log_level);
+  log_state.global_log_level = level;
+  log_state.global_log_level_flags = flags;
+  SPA_SWAP (log_state.patterns, patterns);
   g_mutex_unlock (&log_state.log_topics_lock);
 
-  /* set the log level also on the spa_log */
-  wp_spa_log_get_instance()->level = level_index_to_spa (global_log_level);
+  free_patterns (patterns);
+
+  update_log_topic_levels ();
+
+  wp_spa_log_get_instance()->level = level_index_to_spa (level);
+
+  if (log_state.set_pw_log)
+    pw_log_set_level (level_index_to_spa (level));
+
+  return TRUE;
+}
+
+/* private, called from wp_init() */
+void
+wp_log_init (gint flags)
+{
+  log_state.use_color = g_log_writer_supports_color (fileno (stderr));
+  log_state.output_is_journal = g_log_writer_is_journald (fileno (stderr));
+  log_state.set_pw_log = flags & WP_INIT_SET_PW_LOG && !g_getenv ("WIREPLUMBER_NO_PW_LOG");
 
   if (flags & WP_INIT_SET_GLIB_LOG)
     g_log_set_writer_func (wp_log_writer_default, NULL, NULL);
 
-  /* set PIPEWIRE_DEBUG and the spa_log interface that pipewire will use */
-  if (flags & WP_INIT_SET_PW_LOG && !g_getenv ("WIREPLUMBER_NO_PW_LOG")) {
+  /* set the spa_log interface that pipewire will use */
+  if (log_state.set_pw_log)
+    pw_log_set (wp_spa_log_get_instance ());
+
+  if (!wp_log_set_global_level (g_getenv ("WIREPLUMBER_DEBUG"))) {
+    wp_warning ("Ignoring invalid value in WIREPLUMBER_DEBUG");
+    wp_log_set_global_level (NULL);
+  }
+
+  if (log_state.set_pw_log) {
     /* always set PIPEWIRE_DEBUG for 2 reasons:
      * 1. to overwrite it from the environment, in case the user has set it
      * 2. to prevent pw_context from parsing "log.level" from the config file;
@@ -482,8 +524,6 @@ wp_log_init (gint flags)
     gchar lvl_str[2];
     g_snprintf (lvl_str, 2, "%d", wp_spa_log_get_instance ()->level);
     g_warn_if_fail (g_setenv ("PIPEWIRE_DEBUG", lvl_str, TRUE));
-    pw_log_set_level (wp_spa_log_get_instance ()->level);
-    pw_log_set (wp_spa_log_get_instance ());
   }
 }
 
