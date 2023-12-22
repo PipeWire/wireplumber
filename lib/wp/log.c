@@ -188,12 +188,15 @@ static struct {
   gint global_log_level;
   GLogLevelFlags global_log_level_flags;
   struct log_topic_pattern *patterns;
+  GPtrArray *log_topics;
+  GMutex log_topics_lock;
 } log_state = {
   .use_color = FALSE,
   .output_is_journal = FALSE,
   .global_log_level = 4 /* MESSAGE */,
   .global_log_level_flags = G_LOG_LEVEL_MESSAGE | G_LOG_LEVEL_WARNING | G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_ERROR,
   .patterns = NULL,
+  .log_topics = NULL,
 };
 
 /* reference: https://en.wikipedia.org/wiki/ANSI_escape_code#3/4_bit */
@@ -260,6 +263,8 @@ level_index_from_flags (GLogLevelFlags log_level)
 static G_GNUC_CONST inline GLogLevelFlags
 level_index_to_flag (gint lvl_index)
 {
+  if (lvl_index < 0 || lvl_index >= (gint) G_N_ELEMENTS (log_level_info))
+    return 0;
   return log_level_info [lvl_index].log_level_flags;
 }
 
@@ -300,6 +305,8 @@ level_index_from_spa (gint spa_lvl, gboolean warn_to_notice)
 static G_GNUC_CONST inline gint
 level_index_to_spa (gint lvl_index)
 {
+  if (lvl_index < 0 || lvl_index >= (gint) G_N_ELEMENTS (log_level_info))
+    return 0;
   return log_level_info [lvl_index].spa_level;
 }
 
@@ -323,6 +330,74 @@ level_index_from_string (const char *str, gint *lvl)
     }
   }
   return FALSE;
+}
+
+static gint
+find_topic_log_level (const gchar *log_topic, bool *has_custom_level)
+{
+  struct log_topic_pattern *pttrn = log_state.patterns;
+  guint len;
+  g_autofree gchar *reverse_topic = NULL;
+  gint log_level = log_state.global_log_level;
+
+  /* reverse string and length required for pattern match */
+  len = strlen (log_topic);
+  reverse_topic = g_strreverse (g_strndup (log_topic, len));
+
+  while (pttrn && pttrn->spec &&
+        !g_pattern_match (pttrn->spec, len, log_topic, reverse_topic))
+    pttrn++;
+
+  if (pttrn && pttrn->spec) {
+    if (has_custom_level)
+      *has_custom_level = true;
+    log_level = pttrn->log_level;
+  } else if (has_custom_level) {
+    *has_custom_level = false;
+  }
+
+  return log_level;
+}
+
+static void
+log_topic_update_level (WpLogTopic *topic)
+{
+  gint log_level = find_topic_log_level (topic->topic_name, NULL);
+  gint flags = topic->flags & ~WP_LOG_TOPIC_LEVEL_MASK;
+
+  flags |= level_index_to_full_flags (log_level);
+
+  topic->flags = flags;
+}
+
+static void
+update_log_topic_levels (void)
+{
+  guint i;
+
+  g_mutex_lock (&log_state.log_topics_lock);
+
+  if (log_state.log_topics)
+    for (i = 0; i < log_state.log_topics->len; ++i)
+      log_topic_update_level (g_ptr_array_index (log_state.log_topics, i));
+
+  g_mutex_unlock (&log_state.log_topics_lock);
+}
+
+gboolean
+wp_log_set_global_level (const gchar *log_level)
+{
+  gint level;
+  if (level_index_from_string (log_level, &level)) {
+    log_state.global_log_level = level;
+    log_state.global_log_level_flags = level_index_to_full_flags (level);
+    wp_spa_log_get_instance()->level = level_index_to_spa (level);
+    pw_log_set_level (level_index_to_spa (level));
+    update_log_topic_levels ();
+    return TRUE;
+  } else {
+    return FALSE;
+  }
 }
 
 /* private, called from wp_init() */
@@ -383,10 +458,12 @@ wp_log_init (gint flags)
 
   pw_free_strv (tokens);
 
+  g_mutex_lock (&log_state.log_topics_lock);
   log_state.patterns = patterns;
   log_state.global_log_level = global_log_level;
   log_state.global_log_level_flags =
       level_index_to_full_flags (global_log_level);
+  g_mutex_unlock (&log_state.log_topics_lock);
 
   /* set the log level also on the spa_log */
   wp_spa_log_get_instance()->level = level_index_to_spa (global_log_level);
@@ -410,46 +487,63 @@ wp_log_init (gint flags)
   }
 }
 
-gboolean
-wp_log_set_global_level (const gchar *log_level)
+static void
+log_topic_register (WpLogTopic *topic)
 {
-  gint level;
-  if (level_index_from_string (log_level, &level)) {
-    log_state.global_log_level = level;
-    log_state.global_log_level_flags = level_index_to_full_flags (level);
-    wp_spa_log_get_instance()->level = level_index_to_spa (level);
-    pw_log_set_level (level_index_to_spa (level));
-    return TRUE;
-  } else {
-    return FALSE;
+  if (!log_state.log_topics)
+    log_state.log_topics = g_ptr_array_new ();
+
+  g_ptr_array_add (log_state.log_topics, topic);
+
+  log_topic_update_level (topic);
+  topic->flags |= WP_LOG_TOPIC_FLAG_INITIALIZED;
+}
+
+static void
+log_topic_unregister (WpLogTopic *topic)
+{
+  if (!log_state.log_topics)
+    return;
+
+  g_ptr_array_remove_fast (log_state.log_topics, topic);
+
+  if (log_state.log_topics->len == 0) {
+    g_ptr_array_free (log_state.log_topics, TRUE);
+    log_state.log_topics = NULL;
   }
 }
 
-static gint
-find_topic_log_level (const gchar *log_topic, bool *has_custom_level)
+/*!
+ * \brief Registers a log topic.
+ *
+ * The log topic must be unregistered using \ref wp_log_topic_unregister
+ * before its lifetime ends.
+ *
+ * This function is threadsafe.
+ *
+ * \ingroup wplog
+ */
+void
+wp_log_topic_register (WpLogTopic *topic)
 {
-  struct log_topic_pattern *pttrn = log_state.patterns;
-  guint len;
-  g_autofree gchar *reverse_topic = NULL;
-  gint log_level = log_state.global_log_level;
+  g_mutex_lock (&log_state.log_topics_lock);
+  log_topic_register (topic);
+  g_mutex_unlock (&log_state.log_topics_lock);
+}
 
-  /* reverse string and length required for pattern match */
-  len = strlen (log_topic);
-  reverse_topic = g_strreverse (g_strndup (log_topic, len));
-
-  while (pttrn && pttrn->spec &&
-        !g_pattern_match (pttrn->spec, len, log_topic, reverse_topic))
-    pttrn++;
-
-  if (pttrn && pttrn->spec) {
-    if (has_custom_level)
-      *has_custom_level = true;
-    log_level = pttrn->log_level;
-  } else if (has_custom_level) {
-    *has_custom_level = false;
-  }
-
-  return log_level;
+/*!
+ * \brief Unregisters a log topic.
+ *
+ * This function is threadsafe.
+ *
+ * \ingroup wplog
+ */
+void
+wp_log_topic_unregister (WpLogTopic *topic)
+{
+  g_mutex_lock (&log_state.log_topics_lock);
+  log_topic_unregister (topic);
+  g_mutex_unlock (&log_state.log_topics_lock);
 }
 
 /*!
@@ -459,21 +553,17 @@ find_topic_log_level (const gchar *log_topic, bool *has_custom_level)
 void
 wp_log_topic_init (WpLogTopic *topic)
 {
-  g_bit_lock (&topic->flags, 30);
-  if ((topic->flags & (1u << 31)) == 0) {
-    bool has_custom_level;
-    gint log_level = find_topic_log_level (topic->topic_name, &has_custom_level);
-
-    gint flags = topic->flags;
-    flags |= level_index_to_full_flags (log_level);
-    flags |= (1u << 31); /* initialized = true */
-    if (has_custom_level)
-      flags |= (1u << 29); /* has_custom_level = true */
-
-    topic->global_flags = &log_state.global_log_level_flags;
-    topic->flags = flags;
+  g_mutex_lock (&log_state.log_topics_lock);
+  if ((topic->flags & WP_LOG_TOPIC_FLAG_INITIALIZED) == 0) {
+    if (topic->flags & WP_LOG_TOPIC_FLAG_STATIC) {
+      /* Auto-register log topics that have infinite lifetime */
+      log_topic_register (topic);
+    } else {
+      log_topic_update_level (topic);
+      topic->flags |= WP_LOG_TOPIC_FLAG_INITIALIZED;
+    }
   }
-  g_bit_unlock (&topic->flags, 30);
+  g_mutex_unlock (&log_state.log_topics_lock);
 }
 
 typedef struct _WpLogFields WpLogFields;

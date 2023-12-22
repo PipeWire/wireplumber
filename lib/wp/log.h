@@ -33,24 +33,26 @@ struct _WpLogTopic {
   /*< private >*/
   /*
    * lower 16 bits: GLogLevelFlags
-   * bit 29: has_custom_level
-   * bit 30: a g_bit_lock
+   * bit 30: static log topic (infinite lifetime)
    * bit 31: 1 - initialized, 0 - not initialized
    */
   gint flags;
-  gint *global_flags;
-  WP_PADDING(2)
+  WP_PADDING(3)
 };
+
+#define WP_LOG_TOPIC_FLAG_STATIC		(1u << 30)
+#define WP_LOG_TOPIC_FLAG_INITIALIZED		(1u << 31)
+#define WP_LOG_TOPIC_LEVEL_MASK			(0xFFFF)
 
 #define WP_LOG_TOPIC_EXTERN(var) \
   extern WpLogTopic * var;
 
 #define WP_LOG_TOPIC(var, t) \
-  WpLogTopic var##_struct = { .topic_name = t, .flags = 0 }; \
+  WpLogTopic var##_struct = { .topic_name = t, .flags = WP_LOG_TOPIC_FLAG_STATIC };  \
   WpLogTopic * var = &(var##_struct);
 
 #define WP_LOG_TOPIC_STATIC(var, t) \
-  static WpLogTopic var##_struct = { .topic_name = t, .flags = 0 }; \
+  static WpLogTopic var##_struct = { .topic_name = t, .flags = WP_LOG_TOPIC_FLAG_STATIC }; \
   static G_GNUC_UNUSED WpLogTopic * var = &(var##_struct);
 
 #define WP_DEFINE_LOCAL_LOG_TOPIC(t) \
@@ -65,16 +67,16 @@ struct _WpLogTopic {
 WP_API
 void wp_log_topic_init (WpLogTopic *topic);
 
+WP_API
+void wp_log_topic_register (WpLogTopic *topic);
+
+WP_API
+void wp_log_topic_unregister (WpLogTopic *topic);
+
 static inline gboolean
 wp_log_topic_is_initialized (WpLogTopic *topic)
 {
-  return (topic->flags & (1u << 31)) != 0;
-}
-
-static inline gboolean
-wp_log_topic_has_custom_level (WpLogTopic *topic)
-{
-  return (topic->flags & (1u << 29)) != 0;
+  return (topic->flags & WP_LOG_TOPIC_FLAG_INITIALIZED) != 0;
 }
 
 static inline gboolean
@@ -84,10 +86,7 @@ wp_log_topic_is_enabled (WpLogTopic *topic, GLogLevelFlags log_level)
   if (G_UNLIKELY (!wp_log_topic_is_initialized (topic)))
     wp_log_topic_init (topic);
 
-  if (wp_log_topic_has_custom_level (topic))
-    return (topic->flags & (log_level & 0xFFFF)) != 0;
-  else
-    return (*topic->global_flags & (log_level & 0xFFFF)) != 0;
+  return (topic->flags & log_level & WP_LOG_TOPIC_LEVEL_MASK) != 0;
 }
 
 #define wp_local_log_topic_is_enabled(log_level) \
