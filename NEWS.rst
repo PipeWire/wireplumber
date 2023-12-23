@@ -1,5 +1,75 @@
-WirePlumber 0.4.15
+WirePlumber 0.4.17
 ~~~~~~~~~~~~~~~~~~
+
+Fixes:
+
+  - Fixed a reference counting issue in the object managers that could cause
+    crashes due to memory corruption (#534)
+
+  - Fixed an issue with filters linking to wrong targets, often with two sets
+    of links (#536)
+
+  - Fixed a crash in the endpoints policy that would show up when log messages
+    were enabled at level 3 or higher
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.4.16
+..................
+
+Additions:
+
+  - Added a new "sm-objects" script that allows loading objects on demand
+    via metadata entries that describe the object to load; this can be used to
+    load pipewire modules, such as filters or network sources/sinks, on demand
+
+  - Added a mechanism to override device profile priorities in the configuration,
+    mainly as a way to re-prioritize Bluetooth codecs, but this also can be used
+    for other devices
+
+  - Added a mechanism in the endpoints policy to allow connecting filters
+    between a certain endpoint's virtual sink and the device sink; this is
+    specifically intended to allow plugging a filter-chain to act as equalizer
+    on the Multimedia endpoint
+
+  - Added wp_core_get_own_bound_id() method in WpCore
+
+Changes:
+
+  - PipeWire 0.3.68 is now required
+
+  - policy-dsp now has the ability to hide hardware nodes behind the DSP sink
+    to prevent hardware misuse or damage
+
+  - JSON parsing in Lua now allows keys inside objects to be without quotes
+
+  - Added optional argument in the Lua JSON parse() method to limit recursions,
+    making it possible to partially parse a JSON object
+
+  - It is now possible to pass ``nil`` in Lua object constructors that expect an
+    optional properties object; previously, omitting the argument was the only
+    way to skip the properties
+
+  - The endpoints policy now marks the endpoint nodes as "passive" instead of
+    marking their links, adjusting for the behavior change in PipeWire 0.3.68
+
+  - Removed the "passive" property from si-standard-link, since only nodes are
+    marked as passive now
+
+Fixes:
+
+  - Fixed the ``wpctl clear-default`` command to completely clear all the
+    default nodes state instead of only the last set default
+
+  - Reduced the amount of globals that initially match the interest in the
+    object manager
+
+  - Used an idle callback instead of pw_core_sync() in the object manager to
+    expose tmp globals
+
+WirePlumber 0.4.15
+..................
 
 Additions:
 
@@ -50,9 +120,6 @@ Changes/Fixes:
 
   - Added some missing `\since` annotations and made them show up in the
     generated gobject-introspection file, to help bindings generators
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.4.14
 ..................

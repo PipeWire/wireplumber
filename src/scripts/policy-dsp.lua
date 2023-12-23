@@ -28,7 +28,12 @@ nodes_om = ObjectManager {
   Interest { type = "node" },
 }
 
+clients_om = ObjectManager {
+  Interest { type = "client" }
+}
+
 filter_chains = {}
+hidden_nodes = {}
 
 nodes_om:connect("object-added", function (om, node)
   for _, r in ipairs(config.rules or {}) do
@@ -43,6 +48,17 @@ nodes_om:connect("object-added", function (om, node)
             filter_chains[id] = LocalModule("libpipewire-module-filter-chain", r.filter_chain, {}, true)
           end
         end
+
+        if r.hide_parent then
+          Log.debug("Hiding node " .. node["bound-id"] .. " from clients")
+          for client in clients_om:iterate { type = "client" } do
+            if not client["properties"]["wireplumber.daemon"] then
+              client:update_permissions { [node["bound-id"]] = "-" }
+            end
+          end
+          hidden_nodes[node["bound-id"]] = id
+        end
+
       end
     end
   end
@@ -58,4 +74,13 @@ nodes_om:connect("object-removed", function (om, node)
   end
 end)
 
+clients_om:connect("object-added", function (om, client)
+  for id, _ in pairs(hidden_nodes) do
+    if not client["properties"]["wireplumber.daemon"] then
+      client:update_permissions { [id] = "-" }
+    end
+  end
+end)
+
 nodes_om:activate()
+clients_om:activate()

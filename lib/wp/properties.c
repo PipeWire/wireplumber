@@ -128,8 +128,8 @@ wp_properties_new_valist (const gchar * key, va_list args)
  * be parsed from the given string
  *
  * \ingroup wpproperties
- * \param str a string containing a whitespace separated list of key=value pairs
- *    (ex. "key1=value1 key2=value2")
+ * \param str a string containing either a whitespace separated list of key=value
+ *    pairs (ex. "key1=value1 key2=value2") or a JSON object (ex. '{"key1":"value1"}')
  * \returns (transfer full): the newly constructed properties set
  */
 WpProperties *

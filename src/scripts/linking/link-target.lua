@@ -42,8 +42,6 @@ AsyncEventHook {
             tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
 
         local exclusive = cutils.parseBool (si_props ["node.exclusive"])
-        local passive = cutils.parseBool (si_props ["node.passive"]) or
-            cutils.parseBool (target_props ["node.passive"])
 
         -- break rescan if tried more than 5 times with same target
         if si_flags.failed_peer_id ~= nil and
@@ -79,10 +77,9 @@ AsyncEventHook {
         local is_virtual_client_link = target_props ["item.factory.name"] == "si-audio-virtual"
 
         log:info (si,
-          string.format ("link %s <-> %s passive:%s, passthrough:%s, exclusive:%s, virtual-client:%s",
+          string.format ("link %s <-> %s passthrough:%s, exclusive:%s, virtual-client:%s",
             tostring (si_props ["node.name"]),
             tostring (target_props ["node.name"]),
-            tostring (passive),
             tostring (passthrough),
             tostring (exclusive),
             tostring (is_virtual_client_link)))
@@ -92,7 +89,6 @@ AsyncEventHook {
         if not si_link:configure {
           ["out.item"] = out_item,
           ["in.item"] = in_item,
-          ["passive"] = passive,
           ["passthrough"] = passthrough,
           ["exclusive"] = exclusive,
           ["out.item.port.context"] = "output",

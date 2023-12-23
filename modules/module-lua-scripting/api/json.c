@@ -97,8 +97,8 @@ spa_json_is_object (lua_State *L)
   return 1;
 }
 
-void
-push_luajson (lua_State *L, WpSpaJson *json)
+static void
+push_luajson (lua_State *L, WpSpaJson *json, gint n_recursions)
 {
   /* Null */
   if (wp_spa_json_is_null (json)) {
@@ -127,20 +127,20 @@ push_luajson (lua_State *L, WpSpaJson *json)
   }
 
   /* Array */
-  else if (wp_spa_json_is_array (json)) {
+  else if (wp_spa_json_is_array (json) && n_recursions > 0) {
     g_auto (GValue) item = G_VALUE_INIT;
     g_autoptr (WpIterator) it = wp_spa_json_new_iterator (json);
     guint i = 1;
     lua_newtable (L);
     for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
       WpSpaJson *j = g_value_get_boxed (&item);
-      push_luajson (L, j);
+      push_luajson (L, j, n_recursions - 1);
       lua_rawseti (L, -2, i++);
     }
   }
 
   /* Object */
-  else if (wp_spa_json_is_object (json)) {
+  else if (wp_spa_json_is_object (json) && n_recursions > 0) {
     g_auto (GValue) item = G_VALUE_INIT;
     g_autoptr (WpIterator) it = wp_spa_json_new_iterator (json);
     lua_newtable (L);
@@ -154,7 +154,7 @@ push_luajson (lua_State *L, WpSpaJson *json)
       if (!wp_iterator_next (it, &item))
         break;
       value = g_value_get_boxed (&item);
-      push_luajson (L, value);
+      push_luajson (L, value, n_recursions - 1);
       lua_setfield (L, -2, key_str);
     }
   }
@@ -171,7 +171,8 @@ static int
 spa_json_parse (lua_State *L)
 {
   WpSpaJson *json = wplua_checkboxed (L, 1, WP_TYPE_SPA_JSON);
-  push_luajson (L, json);
+  gint n_recursions = luaL_opt (L, luaL_checkinteger, 2, INT_MAX);
+  push_luajson (L, json, n_recursions);
   return 1;
 }
 

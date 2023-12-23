@@ -19,7 +19,6 @@ WP_LOG_TOPIC_EXTERN (log_topic_lua_scripting)
 
 void wp_lua_scripting_pod_init (lua_State *L);
 void wp_lua_scripting_json_init (lua_State *L);
-void push_luajson (lua_State *L, WpSpaJson *json);
 
 /* helpers */
 
@@ -183,6 +182,15 @@ core_get_vm_type (lua_State *L)
 }
 
 static int
+core_get_own_bound_id (lua_State *L)
+{
+  WpCore * core = get_wp_core (L);
+  guint32 id = wp_core_get_own_bound_id (core);
+  lua_pushinteger (L, id);
+  return 1;
+}
+
+static int
 core_idle_add (lua_State *L)
 {
   GSource *source = NULL;
@@ -288,6 +296,7 @@ static const luaL_Reg core_funcs[] = {
   { "get_properties", core_get_properties },
   { "get_info", core_get_info },
   { "get_vm_type", core_get_vm_type },
+  { "get_own_bound_id", core_get_own_bound_id },
   { "idle_add", core_idle_add },
   { "timeout_add", core_timeout_add },
   { "sync", core_sync },
@@ -940,7 +949,7 @@ impl_metadata_new (lua_State *L)
   const char *name = luaL_checkstring (L, 1);
   WpProperties *properties = NULL;
 
-  if (lua_type (L, 2) != LUA_TNONE) {
+  if (lua_type (L, 2) != LUA_TNONE && lua_type (L, 2) != LUA_TNIL) {
     luaL_checktype (L, 2, LUA_TTABLE);
     properties = wplua_table_to_properties (L, 2);
   }
@@ -960,7 +969,7 @@ device_new (lua_State *L)
   const char *factory = luaL_checkstring (L, 1);
   WpProperties *properties = NULL;
 
-  if (lua_type (L, 2) != LUA_TNONE) {
+  if (lua_type (L, 2) != LUA_TNONE && lua_type (L, 2) != LUA_TNIL) {
     luaL_checktype (L, 2, LUA_TTABLE);
     properties = wplua_table_to_properties (L, 2);
   }
@@ -980,7 +989,7 @@ spa_device_new (lua_State *L)
   const char *factory = luaL_checkstring (L, 1);
   WpProperties *properties = NULL;
 
-  if (lua_type (L, 2) != LUA_TNONE) {
+  if (lua_type (L, 2) != LUA_TNONE && lua_type (L, 2) != LUA_TNIL) {
     luaL_checktype (L, 2, LUA_TTABLE);
     properties = wplua_table_to_properties (L, 2);
   }
@@ -1038,7 +1047,7 @@ node_new (lua_State *L)
   const char *factory = luaL_checkstring (L, 1);
   WpProperties *properties = NULL;
 
-  if (lua_type (L, 2) != LUA_TNONE) {
+  if (lua_type (L, 2) != LUA_TNONE && lua_type (L, 2) != LUA_TNIL) {
     luaL_checktype (L, 2, LUA_TTABLE);
     properties = wplua_table_to_properties (L, 2);
   }
@@ -1147,7 +1156,7 @@ impl_node_new (lua_State *L)
   const char *factory = luaL_checkstring (L, 1);
   WpProperties *properties = NULL;
 
-  if (lua_type (L, 2) != LUA_TNONE) {
+  if (lua_type (L, 2) != LUA_TNONE && lua_type (L, 2) != LUA_TNIL) {
     luaL_checktype (L, 2, LUA_TTABLE);
     properties = wplua_table_to_properties (L, 2);
   }
@@ -1183,7 +1192,7 @@ link_new (lua_State *L)
   const char *factory = luaL_checkstring (L, 1);
   WpProperties *properties = NULL;
 
-  if (lua_type (L, 2) != LUA_TNONE) {
+  if (lua_type (L, 2) != LUA_TNONE && lua_type (L, 2) != LUA_TNIL) {
     luaL_checktype (L, 2, LUA_TTABLE);
     properties = wplua_table_to_properties (L, 2);
   }

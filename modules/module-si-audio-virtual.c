@@ -250,6 +250,8 @@ si_audio_virtual_enable_active (WpSessionItem *si, WpTransition *transition)
       (self->direction == WP_DIRECTION_OUTPUT) ? "Capture" : "Playback");
   g_autofree gchar *media = g_strdup_printf ("Audio/%s",
       (self->direction == WP_DIRECTION_OUTPUT) ? "Source" : "Sink");
+  const gchar *passive =
+      (self->direction == WP_DIRECTION_OUTPUT) ? "in" : "out";
 
   if (!wp_session_item_is_configured (si)) {
     wp_transition_return_error (transition,
@@ -266,6 +268,7 @@ si_audio_virtual_enable_active (WpSessionItem *si, WpTransition *transition)
           PW_KEY_FACTORY_NAME, "support.null-audio-sink",
           PW_KEY_NODE_DESCRIPTION, desc,
           PW_KEY_NODE_AUTOCONNECT, "true",
+          PW_KEY_NODE_PASSIVE, passive,
           "monitor.channel-volumes", "true",
           "wireplumber.is-virtual", "true",
           NULL));
