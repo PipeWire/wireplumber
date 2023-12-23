@@ -1,4 +1,4 @@
- .. _testing:
+.. _resources_testing:
 
 Testing
 =======

@@ -1,4 +1,4 @@
- .. _events_and_hooks:
+.. _design_events_and_hooks:
 
 Events and Hooks
 ================

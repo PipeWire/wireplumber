@@ -1,4 +1,4 @@
- .. _installing-wireplumber:
+.. _daemon_installing:
 
 Installing WirePlumber
 ======================

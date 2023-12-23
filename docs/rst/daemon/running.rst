@@ -1,4 +1,4 @@
- .. _running-wireplumber-daemon:
+.. _daemon_running:
 
 Running the WirePlumber daemon
 ==============================

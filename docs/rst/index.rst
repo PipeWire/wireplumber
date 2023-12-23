@@ -7,10 +7,10 @@ Table of Contents
    :maxdepth: 2
    :caption: The WirePlumber Daemon
 
-   installing-wireplumber.rst
-   running-wireplumber-daemon.rst
-   configuration.rst
-   daemon-logging.rst
+   daemon/installing.rst
+   daemon/running.rst
+   daemon/configuration.rst
+   daemon/logging.rst
 
 .. toctree::
    :maxdepth: 2
@@ -24,20 +24,20 @@ Table of Contents
    :maxdepth: 2
    :caption: The WirePlumber Library
 
-   c_api.rst
-   lua_api.rst
+   library/c_api.rst
 
 .. toctree::
    :maxdepth: 2
    :caption: Scripting
 
-   scripts/existing_scripts.rst
+   scripting/lua_api.rst
+   scripting/existing_scripts.rst
 
 .. toctree::
    :maxdepth: 2
    :caption: Resources
 
-   contributing.rst
-   testing.rst
-   community.rst
-   releases.rst
+   resources/contributing.rst
+   resources/testing.rst
+   resources/community.rst
+   resources/releases.rst

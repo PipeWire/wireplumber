@@ -1,4 +1,4 @@
- .. _existing_scripts:
+.. _scripting_existing_scripts:
 
 Existing Scripts
 ================
@@ -10,6 +10,6 @@ information on how to extend the logic with additional custom scripts & hooks.
 .. toctree::
    :maxdepth: 1
 
-   default_nodes.rst
-   device.rst
-   linking.rst
+   existing_scripts/default_nodes.rst
+   existing_scripts/device.rst
+   existing_scripts/linking.rst

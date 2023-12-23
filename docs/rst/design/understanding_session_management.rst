@@ -1,4 +1,4 @@
- .. _understanding_session_management:
+.. _design_understanding_session_management:
 
 Understanding Session Management
 ================================

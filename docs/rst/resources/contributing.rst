@@ -1,4 +1,4 @@
- .. _contributing:
+.. _resources_contributing:
 
 Contributing to WirePlumber
 ===========================
@@ -25,7 +25,7 @@ the indentation settings.
 Tests
 -----
 
-See :ref:`testing`
+See :ref:`resources_testing`
 
 Running in gdb / valgrind / etc...
 ----------------------------------

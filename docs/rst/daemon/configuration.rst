@@ -1,4 +1,4 @@
- .. _configuration:
+.. _daemon_configuration:
 
 Configuration
 =============

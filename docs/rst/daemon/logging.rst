@@ -1,4 +1,4 @@
- .. _logging:
+.. _daemon_logging:
 
 Debug Logging
 =============

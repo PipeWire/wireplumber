@@ -36,7 +36,7 @@ files and are placed under ``wireplumber.conf.d/``. More on this below.
 
   This sets the daemon's name to *WirePlumber* and the log level to *2*, which
   only displays errors and warnings. See the
-  :ref:`Debug Logging <logging>` section for more details.
+  :ref:`Debug Logging <daemon_logging>` section for more details.
 
 * *context.spa-libs*
 

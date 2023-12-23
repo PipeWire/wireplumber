@@ -1,4 +1,4 @@
- .. _lua_api:
+.. _scripting_lua_api:
 
 Lua API Documentation
 =====================

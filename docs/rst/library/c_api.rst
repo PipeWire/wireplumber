@@ -1,4 +1,4 @@
- .. _library_root:
+.. _library_c_api:
 
 C API Documentation
 ===================

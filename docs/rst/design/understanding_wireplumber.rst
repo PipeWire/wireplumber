@@ -1,4 +1,4 @@
-.. _understanding_wireplumber:
+.. _design_understanding_wireplumber:
 
 Understanding WirePlumber
 =========================
@@ -49,8 +49,8 @@ Session management utilities
 The library also provides a set of utilities that are useful for session
 management. For example, it provides the :ref:`WpSessionItem <session_item_api>`
 class that can be used to abstract a part of the graph with some logic attached
-to it. It also provides the :ref:`Events & Hooks API <events_and_hooks>`, which
-is a way to express event handling logic in a declarative way.
+to it. It also provides the :ref:`Events & Hooks API <design_events_and_hooks>`,
+which is a way to express event handling logic in a declarative way.
 
 Misc utilities
 ^^^^^^^^^^^^^^

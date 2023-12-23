@@ -1,4 +1,4 @@
- .. _community:
+.. _resources_community:
 
 Community Resources
 ===================
