@@ -22,26 +22,72 @@ is required:
  - Audio source
  - Video source
 
-.. csv-table:: Hooks triggered by changes in the graph
-   :header: "Hook name", "File", "Triggered by", "Action"
+.. list-table:: Hooks triggered by changes in the graph
+   :header-rows: 1
+   :width: 100%
+   :widths: 25 15 30 30
 
-   "default-nodes/rescan-trigger", "rescan.lua", "linkables added/removed or default.configured.* metadata changed", "schedule rescan-for-default-nodes"
-   "default-nodes/store-configured-default-nodes", "state-default-nodes.lua", "default.configured.* metadata changed", "stores user selections in the state file"
-   "default-nodes/metadata-added", "state-default-nodes.lua", "metadata object created", "restores default.configured.* values from the state file"
+   * - Hook name
+     - File
+     - Triggered by
+     - Action
 
-.. csv-table:: Hooks for the rescan-for-default-nodes event, in order of execution
-   :header: "Hook name", "File", "Description"
+   * - default-nodes/rescan-trigger
+     - rescan.lua
+     - linkables added/removed or default.configured.* metadata changed
+     - schedule rescan-for-default-nodes
 
-   "m-standard-event-source/rescan-done", "module-standard-event-source.c", "clears the rescan_scheduled flag"
-   "default-nodes/rescan", "rescan.lua", "schedules select-default-node for each category"
+   * - default-nodes/store-configured-default-nodes
+     - state-default-nodes.lua
+     - default.configured.* metadata changed
+     - stores user selections in the state file
 
-.. csv-table:: Hooks for the select-default-node event, in order of execution
-   :header: "Hook name", "File", "Description"
+   * - default-nodes/metadata-added
+     - state-default-nodes.lua
+     - metadata object created
+     - restores default.configured.* values from the state file
 
-   "default-nodes/find-best-default-node", "find-best-default-node.lua", "prioritizes nodes based on their 'priority.session' property"
-   "default-nodes/find-selected-default-node", "find-selected-default-node.lua", "prioritizes the current 'default.configured.*' node, i.e. the current user selection"
-   "default-nodes/find-stored-default-node", "state-default-nodes.lua", "prioritizes past user selections from the state file"
-   "default-nodes/apply-default-node", "apply-default-node.lua", "sets the highest priority selected node as the default in the metadata"
+.. list-table:: Hooks for the rescan-for-default-nodes event, in order of execution
+   :header-rows: 1
+   :width: 100%
+   :widths: 25 25 50
+
+   * - Hook name
+     - File
+     - Description
+
+   * - m-standard-event-source/rescan-done
+     - module-standard-event-source.c
+     - clears the rescan_scheduled flag
+
+   * - default-nodes/rescan
+     - rescan.lua
+     - schedules select-default-node for each category
+
+.. list-table:: Hooks for the select-default-node event, in order of execution
+   :header-rows: 1
+   :width: 100%
+   :widths: 25 25 50
+
+   * - Hook name
+     - File
+     - Description
+
+   * - default-nodes/find-best-default-node
+     - find-best-default-node.lua
+     - prioritizes nodes based on their priority.session property
+
+   * - default-nodes/find-selected-default-node
+     - find-selected-default-node.lua
+     - prioritizes the current default.configured.* node, i.e. the current user selection
+
+   * - default-nodes/find-stored-default-node
+     - state-default-nodes.lua
+     - prioritizes past user selections from the state file
+
+   * - default-nodes/apply-default-node
+     - apply-default-node.lua
+     - sets the highest priority selected node as the default in the metadata
 
 .. note::
 
@@ -63,14 +109,26 @@ event data together with its priority number in "selected-node-priority".
 The next hook, then, may override the "selected-node" and "selected-node-priority"
 with something else, but only if the new priority is higher than the old one.
 
-.. csv-table:: Event properties
-   :header: "Property name", "Description"
+.. list-table:: Event properties
+   :header-rows: 1
 
-   "default-node.type", "the suffix of the metadata keys related to this default node ('audio.sink', 'audio.source' or 'video.source')"
+   * - Property name
+     - Description
 
-.. csv-table:: Exchanged event data
-   :header: "Name", "Description"
+   * - default-node.type
+     - the suffix of the metadata keys related to this default node (audio.sink, audio.source or video.source)
 
-   "available-nodes", "JSON array of all selectable nodes, with each element containing all node properties"
-   "selected-node", "the selected node's 'node.name' (string)"
-   "selected-node-priority", "the priority (integer)"
+.. list-table:: Exchanged event data
+   :header-rows: 1
+
+   * - Name
+     - Description
+
+   * - available-nodes
+     - JSON array of all selectable nodes, with each element containing all node properties
+
+   * - selected-node
+     - the selected node's node.name (string)
+
+   * - selected-node-priority
+     - the priority (integer)

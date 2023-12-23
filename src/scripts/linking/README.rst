@@ -21,30 +21,98 @@ set of hooks by pushing a "select-target" event for each linkable. This event
 is the highest priority event and therefore no other changes in the graph are
 processed while targets are being selected.
 
-.. csv-table:: Hooks triggered by changes in the graph
-   :header: "Hook name", "File", "Triggered by", "Action"
+.. list-table:: Hooks triggered by changes in the graph
+   :header-rows: 1
 
-   "linking/rescan-trigger",   "rescan.lua", "linkable SI added|removed", "schedules rescan-for-linking event"
-   "linking/linkable-removed", "rescan.lua", "linkable SI removed",  "destroys links related to the removed linkable"
-   "linking/follow",      "move-follow.lua", "metadata-changed", "schedules rescan-for-linking when the configured default sources/sinks are changed by the user"
-   "linking/move",        "move-follow.lua", "metadata-changed", "schedules rescan-for-linking when node target metadata properties are changed"
-   "linking/filter-forward-format", "filter-forward-format.lua", "filter stream SI added", "configures filter nodes to have the same port format on both ends"
-   "linking/rescan-virtual-links",  "rescan-virtual-links.lua", "link SI added, removed or metadata-changed", ""
+   * - Hook name
+     - File
+     - Triggered by
+     - Action
 
-.. csv-table:: rescan-for-linking hooks, in order of execution
-   :header: "Hook name", "File", "Description"
+   * - linking/rescan-trigger
+     - rescan.lua
+     - linkable SI added|removed or metadata-changed
+     - schedules rescan-for-linking event
 
-   "m-standard-event-source/rescan-done", "module-standard-event-source.c", "clears the rescan_scheduled flag"
-   "linking/rescan", "rescan.lua", "schedules select-target for each linkable session item"
+   * - linking/linkable-removed
+     - rescan.lua
+     - linkable SI removed
+     - destroys links related to the removed linkable
 
-.. csv-table:: select-target hooks, in order of execution
-   :header: "Hook name", "File", "Description"
+   * - linking/follow
+     - move-follow.lua
+     - metadata-changed
+     - schedules rescan-for-linking when the configured default sources/sinks are changed by the user
 
-   "linking/find-virtual-target", "find-virtual-target.lua", ""
-   "linking/find-defined-target", "find-defined-target.lua", "Select the target that has been defined explicitly by the 'target.object' property or metadata"
-   "linking/find-filter-target",  "find-filter-target.lua",  "Select the target of a filter node, if the subject is a filter node"
-   "linking/find-default-target", "find-default-target.lua", "Select the default source/sink as target"
-   "linking/find-best-target",    "find-best-target.lua",    "Select target based on priority.session"
-   "linking/get-filter-from-target", "get-filter-from-target.lua",  "Translate the found target to a filter target that should be linked instead"
-   "linking/prepare-link",        "prepare-link.lua", "Break existing link if needed, check if the target is available for linking; send error to the client if needed"
-   "linking/link-target",         "link-target.lua",  "Create si-standard-link session item to create links between the subject linkable and the selected target"
+   * - linking/move
+     - move-follow.lua
+     - metadata-changed
+     - schedules rescan-for-linking when node target metadata properties are changed
+
+   * - linking/filter-forward-format
+     - filter-forward-format.lua
+     - filter stream SI added
+     - configures filter nodes to have the same port format on both ends
+
+   * - linking/rescan-virtual-links
+     - rescan-virtual-links.lua
+     - link SI added, removed or metadata-changed
+     -
+
+.. list-table:: rescan-for-linking hooks, in order of execution
+   :header-rows: 1
+   :width: 100%
+   :widths: 20 20 60
+
+   * - Hook name
+     - File
+     - Description
+
+   * - m-standard-event-source/rescan-done
+     - module-standard-event-source.c
+     - clears the rescan_scheduled flag
+
+   * - linking/rescan
+     - rescan.lua
+     - schedules select-target for each linkable session item
+
+.. list-table:: select-target hooks, in order of execution
+   :header-rows: 1
+   :width: 100%
+   :widths: 20 20 60
+
+   * - Hook name
+     - File
+     - Description
+
+   * - linking/find-virtual-target
+     - find-virtual-target.lua
+     -
+
+   * - linking/find-defined-target
+     - find-defined-target.lua
+     - Select the target that has been defined explicitly by the 'target.object' property or metadata
+
+   * - linking/find-filter-target
+     - find-filter-target.lua
+     - Select the target of a filter node, if the subject is a filter node
+
+   * - linking/find-default-target
+     - find-default-target.lua
+     - Select the default source/sink as target
+
+   * - linking/find-best-target
+     - find-best-target.lua
+     - Select target based on priority.session
+
+   * - linking/get-filter-from-target
+     - get-filter-from-target.lua
+     - Translate the found target to a filter target that should be linked instead
+
+   * - linking/prepare-link
+     - prepare-link.lua
+     - Break existing link if needed, check if the target is available for linking; send error to the client if needed
+
+   * - linking/link-target
+     - link-target.lua
+     - Create si-standard-link session item to create links between the subject linkable and the selected target
