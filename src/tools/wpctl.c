@@ -71,7 +71,6 @@ static struct {
     struct {
       guint64 id;
       gint index;
-      gint device;
     } set_route;
 
     struct {
@@ -1204,14 +1203,13 @@ out:
 static gboolean
 set_route_parse_positional (gint argc, gchar ** argv, GError **error)
 {
-  if (argc < 5) {
+  if (argc < 4) {
     g_set_error (error, wpctl_error_domain_quark(), 0,
-        "ID, INDEX and DEVICE are required");
+        "ID and INDEX required");
     return FALSE;
   }
 
   cmdline.set_route.index = atoi (argv[3]);
-  cmdline.set_route.device = atoi (argv[4]);
   return parse_id (true, true, argv[2], &cmdline.set_route.id, error);
 }
 
@@ -1229,6 +1227,7 @@ set_route_run (WpCtl * self)
 {
   g_autoptr (WpPlugin) def_nodes_api = wp_plugin_find (self->core, "default-nodes-api");
   g_autoptr (WpPipewireObject) proxy = NULL;
+  g_autoptr (WpPipewireObject) device_proxy = NULL;
   g_autoptr (GError) error = NULL;
   guint32 node_id;
 
@@ -1243,11 +1242,33 @@ set_route_run (WpCtl * self)
     fprintf (stderr, "Object '%d' not found\n", node_id);
     goto out;
   }
-  wp_pipewire_object_set_param (proxy, "Route", 0,
+
+  const char * route_device_str = wp_pipewire_object_get_property(proxy, "card.profile.device");
+  if (!route_device_str) {
+    fprintf (stderr, "Property 'card.profile.device' not found\n");
+    goto out;
+  }
+  guint32 route_device = atoi (route_device_str);
+
+  const char * device_id_str = wp_pipewire_object_get_property (proxy, "device.id");
+  if (!device_id_str) {
+    fprintf (stderr, "Property 'device.id' not found\n");
+    goto out;
+  }
+  guint32 device_id = atoi (device_id_str);
+
+  device_proxy = wp_object_manager_lookup (self->om, WP_TYPE_GLOBAL_PROXY,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "object.id", "=u", device_id, NULL);
+  if (!device_proxy) {
+    fprintf (stderr, "Object '%d' not found\n", device_id);
+    goto out;
+  }
+
+  wp_pipewire_object_set_param (device_proxy, "Route", 0,
       wp_spa_pod_new_object (
         "Spa:Pod:Object:Param:Route", "Route",
         "index", "i", cmdline.set_route.index,
-        "device", "i", cmdline.set_route.device,
+        "device", "i", route_device,
         NULL));
   wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
   return;
@@ -1451,8 +1472,8 @@ static const struct subcommand {
   },
   {
     .name = "set-route",
-    .positional_args = "ID INDEX DEVICE",
-    .summary = "Sets the route of ID to INDEX (integer, 0 is 'off'), DEVICE (integer, card.profile.device)",
+    .positional_args = "ID INDEX",
+    .summary = "Sets the route of ID to INDEX (integer, 0 is 'off')",
     .description = NULL,
     .entries = { { NULL } },
     .parse_positional = set_route_parse_positional,
