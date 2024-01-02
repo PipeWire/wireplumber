@@ -182,6 +182,7 @@ static GString *spa_dbg_str = NULL;
 struct log_topic_pattern
 {
   GPatternSpec *spec;
+  gchar *spec_str;
   gint log_level;
 };
 
@@ -396,6 +397,7 @@ free_patterns (struct log_topic_pattern *patterns)
 
   while (p && p->spec) {
     g_clear_pointer (&p->spec, g_pattern_spec_free);
+    g_clear_pointer (&p->spec_str, g_free);
     ++p;
   }
 
@@ -433,6 +435,7 @@ parse_log_level (const gchar *level_str, struct log_topic_pattern **global_patte
     tok = pw_split_strv (tokens[i], ":", 2, &n_tok);
     if (n_tok == 2 && level_index_from_string (tok[1], &lvl)) {
       pttrn->spec = g_pattern_spec_new (tok[0]);
+      pttrn->spec_str = g_strdup (tok[0]);
       pttrn->log_level = lvl;
       pttrn++;
     } else if (n_tok == 1 && level_index_from_string (tok[0], &lvl)) {
@@ -449,11 +452,13 @@ parse_log_level (const gchar *level_str, struct log_topic_pattern **global_patte
 
   /* disable pipewire connection trace by default */
   pttrn->spec = g_pattern_spec_new ("conn.*");
+  pttrn->spec_str = g_strdup ("conn.*");
   pttrn->log_level = 0;
   pttrn++;
 
   /* terminate with NULL */
   pttrn->spec = NULL;
+  pttrn->spec_str = NULL;
   pttrn->log_level = 0;
 
   pw_free_strv (tokens);
@@ -461,6 +466,20 @@ parse_log_level (const gchar *level_str, struct log_topic_pattern **global_patte
   *global_patterns = patterns;
   *global_log_level = level;
   return TRUE;
+}
+
+static gchar *
+format_pw_log_level_string (gint level, const struct log_topic_pattern *patterns)
+{
+  GString *str = g_string_new (NULL);
+  const struct log_topic_pattern *p;
+
+  g_string_printf (str, "%d", level_index_to_spa (level));
+
+  for (p = patterns; p && p->spec; ++p)
+    g_string_append_printf (str, ",%s:%d", p->spec_str, level_index_to_spa (p->log_level));
+
+  return g_string_free (str, FALSE);
 }
 
 gboolean
@@ -488,8 +507,14 @@ wp_log_set_global_level (const gchar *level_str)
 
   wp_spa_log_get_instance()->level = level_index_to_spa (level);
 
-  if (log_state.set_pw_log)
+  if (log_state.set_pw_log) {
+#if PW_CHECK_VERSION(1,1,0)
+    g_autofree gchar *pw_pattern = format_pw_log_level_string (log_state.global_log_level, log_state.patterns);
+    pw_log_set_level_string (pw_pattern);
+#else
     pw_log_set_level (level_index_to_spa (level));
+#endif
+  }
 
   return TRUE;
 }
@@ -521,8 +546,7 @@ wp_log_init (gint flags)
      *    we do this ourselves here and allows us to have more control over
      *    the whole process.
      */
-    gchar lvl_str[2];
-    g_snprintf (lvl_str, 2, "%d", wp_spa_log_get_instance ()->level);
+    g_autofree gchar *lvl_str = format_pw_log_level_string (log_state.global_log_level, log_state.patterns);
     g_warn_if_fail (g_setenv ("PIPEWIRE_DEBUG", lvl_str, TRUE));
   }
 }
