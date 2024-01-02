@@ -483,7 +483,7 @@ format_pw_log_level_string (gint level, const struct log_topic_pattern *patterns
 }
 
 gboolean
-wp_log_set_global_level (const gchar *level_str)
+wp_log_set_level (const gchar *level_str)
 {
   gint level;
   GLogLevelFlags flags;
@@ -534,9 +534,9 @@ wp_log_init (gint flags)
   if (log_state.set_pw_log)
     pw_log_set (wp_spa_log_get_instance ());
 
-  if (!wp_log_set_global_level (g_getenv ("WIREPLUMBER_DEBUG"))) {
+  if (!wp_log_set_level (g_getenv ("WIREPLUMBER_DEBUG"))) {
     wp_warning ("Ignoring invalid value in WIREPLUMBER_DEBUG");
-    wp_log_set_global_level (NULL);
+    wp_log_set_level (NULL);
   }
 
   if (log_state.set_pw_log) {

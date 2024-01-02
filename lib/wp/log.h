@@ -24,7 +24,7 @@ WP_PRIVATE_API
 void wp_log_init (gint flags);
 
 WP_API
-gboolean wp_log_set_global_level (const gchar *log_level);
+gboolean wp_log_set_level (const gchar *log_level);
 
 typedef struct _WpLogTopic WpLogTopic;
 struct _WpLogTopic {

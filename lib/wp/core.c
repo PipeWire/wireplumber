@@ -300,7 +300,7 @@ wp_core_constructed (GObject *object)
     p = (struct pw_properties *) pw_context_get_properties (self->pw_context);
     if (!g_getenv("WIREPLUMBER_DEBUG") &&
         (str = pw_properties_get(p, "log.level")) != NULL) {
-      if (!wp_log_set_global_level (str))
+      if (!wp_log_set_level (str))
         wp_warning ("ignoring invalid log.level in config file: %s", str);
     }
 

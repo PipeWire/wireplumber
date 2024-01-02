@@ -40,7 +40,7 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
     return;
 
   if (spa_streq(key, "log.level"))
-    wp_log_set_global_level (value ? value : "2");
+    wp_log_set_level (value ? value : "2");
 }
 
 static void
