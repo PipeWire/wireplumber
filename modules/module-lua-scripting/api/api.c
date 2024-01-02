@@ -311,17 +311,27 @@ static const luaL_Reg core_funcs[] = {
 typedef struct _WpLogTopic WpLuaLogTopic;
 
 static WpLuaLogTopic *
+wp_lua_log_topic_new (const char *name)
+{
+  WpLuaLogTopic *topic = g_new0 (WpLuaLogTopic, 1);
+  topic->topic_name = g_ref_string_new (name);
+  wp_log_topic_register (topic);
+  return topic;
+}
+
+static WpLuaLogTopic *
 wp_lua_log_topic_copy (WpLuaLogTopic *topic)
 {
   WpLuaLogTopic *copy = g_new0 (WpLuaLogTopic, 1);
-  *copy = *topic;
-  g_ref_string_acquire ((char *) copy->topic_name);
+  copy->topic_name = g_ref_string_acquire ((char *) copy->topic_name);
+  wp_log_topic_register (copy);
   return copy;
 }
 
 static void
 wp_lua_log_topic_free (WpLuaLogTopic *topic)
 {
+  wp_log_topic_unregister (topic);
   g_ref_string_release ((char *) topic->topic_name);
   g_free (topic);
 }
@@ -406,10 +416,7 @@ static int
 log_open_topic (lua_State *L)
 {
   const char *name = luaL_checkstring (L, 1);
-
-  WpLuaLogTopic *topic = g_new0 (WpLuaLogTopic, 1);
-  topic->topic_name = g_ref_string_new (name);
-  wp_log_topic_init (topic);
+  WpLuaLogTopic *topic = wp_lua_log_topic_new (name);
 
   lua_newtable (L); // empty table
   lua_newtable (L); // metatable
