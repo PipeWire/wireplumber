@@ -5,7 +5,7 @@
 --
 -- SPDX-License-Identifier: MIT
 
-putils = require ("linking-utils")
+lutils = require ("linking-utils")
 log = Log.open_topic ("s-linking")
 
 defaults = {}
@@ -172,7 +172,7 @@ AsyncEventHook {
         local function onVirtualLinkActivated (l, e)
           local si_id = tonumber (l.properties ["main.item.id"])
           local target_id = tonumber (l.properties ["target.item.id"])
-          local si_flags = putils:get_flags (si_id)
+          local si_flags = lutils:get_flags (si_id)
 
           if e then
             log:warning (l, "failed to activate virtual si-standard-link: " .. e)

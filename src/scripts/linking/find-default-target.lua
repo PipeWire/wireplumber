@@ -6,7 +6,7 @@
 --
 -- Check if default nodes can be picked up as target node.
 
-putils = require ("linking-utils")
+lutils = require ("linking-utils")
 log = Log.open_topic ("s-linking")
 
 SimpleEventHook {
@@ -19,7 +19,7 @@ SimpleEventHook {
   },
   execute = function (event)
     local source, om, si, si_props, si_flags, target =
-        putils:unwrap_select_target_event (event)
+        lutils:unwrap_select_target_event (event)
 
     -- bypass the hook if the target is already picked up
     if target then
@@ -31,13 +31,13 @@ SimpleEventHook {
     log:info (si, string.format ("handling item: %s (%s)",
         tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
 
-    target = putils.findDefaultLinkable (si)
+    target = lutils.findDefaultLinkable (si)
 
     local can_passthrough, passthrough_compatible
     if target then
       passthrough_compatible, can_passthrough =
-      putils.checkPassthroughCompatibility (si, target)
-      if putils.canLink (si_props, target) and passthrough_compatible then
+      lutils.checkPassthroughCompatibility (si, target)
+      if lutils.canLink (si_props, target) and passthrough_compatible then
         target_picked = true;
       end
     end

@@ -10,7 +10,7 @@
 --
 -- FIXME: this script can be further improved
 
-putils = require ("linking-utils")
+lutils = require ("linking-utils")
 settings = require ("settings-linking")
 log = Log.open_topic ("s-linking")
 
@@ -96,7 +96,7 @@ SimpleEventHook {
     if settings.filter_forward_format then
       local si_props = si.properties
       local link_group = si_props ["node.link-group"]
-      local si_flags = putils:get_flags (si.id)
+      local si_flags = lutils:get_flags (si.id)
 
       -- only listen for ports state changed on audio filter streams
       if si_flags.ports_state_signal ~= true and

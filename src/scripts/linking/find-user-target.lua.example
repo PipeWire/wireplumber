@@ -6,7 +6,7 @@
 --
 -- example of a user injectible hook to link a node to a custom target
 
-putils = require ("linking-utils")
+lutils = require ("linking-utils")
 log = Log.open_topic ("s-linking")
 
 SimpleEventHook {
@@ -19,7 +19,7 @@ SimpleEventHook {
   },
   execute = function (event)
     local source, om, si, si_props, si_flags, target =
-        putils:unwrap_select_target_event (event)
+        lutils:unwrap_select_target_event (event)
 
     -- bypass the hook if the target is already picked up
     if target then

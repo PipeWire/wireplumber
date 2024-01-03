@@ -10,7 +10,7 @@
 -- Cleanup links when the linkables they are associated with are removed.
 -- Also, cleanup flags attached to linkables.
 
-putils = require ("linking-utils")
+lutils = require ("linking-utils")
 cutils = require ("common-utils")
 futils = require ("filter-utils")
 settings = require ("settings-linking")
@@ -80,8 +80,8 @@ function unhandleLinkable (si, om)
     local in_id = tonumber (silink.properties ["in.item.id"])
 
     if out_id == si_id or in_id == si_id then
-      local in_flags = putils:get_flags (in_id)
-      local out_flags = putils:get_flags (out_id)
+      local in_flags = lutils:get_flags (in_id)
+      local out_flags = lutils:get_flags (out_id)
 
       if out_id == si_id and in_flags.peer_id == out_id then
         in_flags.peer_id = nil
@@ -94,7 +94,7 @@ function unhandleLinkable (si, om)
     end
   end
 
-  putils:clear_flags (si_id)
+  lutils:clear_flags (si_id)
 end
 
 SimpleEventHook {

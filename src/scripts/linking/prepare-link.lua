@@ -8,7 +8,7 @@
 -- indicate it is not available for linking. If no target is available, send
 -- down an error to the corresponding client.
 
-putils = require ("linking-utils")
+lutils = require ("linking-utils")
 cutils = require ("common-utils")
 settings = require ("settings-linking")
 log = Log.open_topic ("s-linking")
@@ -23,7 +23,7 @@ SimpleEventHook {
   },
   execute = function (event)
     local source, _, si, si_props, si_flags, target =
-        putils:unwrap_select_target_event (event)
+        lutils:unwrap_select_target_event (event)
 
     local si_id = si.id
     local reconnect = not cutils.parseBool (si_props ["node.dont-reconnect"])
@@ -40,14 +40,14 @@ SimpleEventHook {
 
         -- Check this also here, in case in default targets changed
         if settings.follow_default_target and si_flags.has_node_defined_target then
-          putils.checkFollowDefault (si, target)
+          lutils.checkFollowDefault (si, target)
         end
 
         target = nil
         goto done
       end
 
-      local link = putils.lookupLink (si_id, si_flags.peer_id)
+      local link = lutils.lookupLink (si_id, si_flags.peer_id)
       if reconnect then
         if link ~= nil then
           -- remove old link
@@ -78,7 +78,7 @@ SimpleEventHook {
 
     -- check target's availability
     if target then
-      local target_is_linked, target_is_exclusive = putils.isLinked (target)
+      local target_is_linked, target_is_exclusive = lutils.isLinked (target)
       if target_is_exclusive then
         log:info (si, "... target is linked exclusively")
         target = nil
@@ -104,7 +104,7 @@ SimpleEventHook {
         return
       end
 
-      putils.sendClientError (event, node,
+      lutils.sendClientError (event, node,
           reconnect and "no target node available" or "target not found")
 
       if not reconnect then

@@ -6,7 +6,7 @@
 --
 -- Select the virtual target based on roles
 
-putils = require ("linking-utils")
+lutils = require ("linking-utils")
 log = Log.open_topic ("s-linking")
 
 defaults = {}
@@ -56,7 +56,7 @@ SimpleEventHook {
   },
   execute = function (event)
     local source, om, si, si_props, si_flags, target =
-        putils:unwrap_select_target_event (event)
+        lutils:unwrap_select_target_event (event)
     local target_class_assoc = {
       ["Stream/Input/Audio"] = "Audio/Source",
       ["Stream/Output/Audio"] = "Audio/Sink",
@@ -109,7 +109,7 @@ SimpleEventHook {
     local can_passthrough, passthrough_compatible
     if target then
       passthrough_compatible, can_passthrough =
-      putils.checkPassthroughCompatibility (si, target)
+      lutils.checkPassthroughCompatibility (si, target)
 
       if not passthrough_compatible then
         target = nil

@@ -9,11 +9,11 @@
 
 local cutils = require ("common-utils")
 
-local putils = {
+local lutils = {
   si_flags = {},
 }
 
-function putils.get_flags (self, si_id)
+function lutils.get_flags (self, si_id)
   if not self.si_flags [si_id] then
     self.si_flags [si_id] = {}
   end
@@ -21,11 +21,11 @@ function putils.get_flags (self, si_id)
   return self.si_flags [si_id]
 end
 
-function putils.clear_flags (self, si_id)
+function lutils.clear_flags (self, si_id)
   self.si_flags [si_id] = nil
 end
 
-function putils.unwrap_select_target_event (self, event)
+function lutils.unwrap_select_target_event (self, event)
   local source = event:get_source ()
   local si = event:get_subject ()
   local target = event:get_data ("target")
@@ -35,7 +35,7 @@ function putils.unwrap_select_target_event (self, event)
   return source, om, si, si.properties, self:get_flags (si_id), target
 end
 
-function putils.canPassthrough (si, si_target)
+function lutils.canPassthrough (si, si_target)
   local props = si.properties
   local tprops = si_target.properties
   -- both nodes must support encoded formats
@@ -60,7 +60,7 @@ function putils.canPassthrough (si, si_target)
   return false
 end
 
-function putils.checkFollowDefault (si, si_target)
+function lutils.checkFollowDefault (si, si_target)
   -- If it got linked to the default target that is defined by node
   -- props but not metadata, start ignoring the node prop from now on.
   -- This is what Pulseaudio does.
@@ -87,7 +87,7 @@ function putils.checkFollowDefault (si, si_target)
   end
 end
 
-function putils.lookupLink (si_id, si_target_id)
+function lutils.lookupLink (si_id, si_target_id)
   local link = cutils.get_object_manager ("session-item"):lookup {
     type = "SiLink",
     Constraint { "out.item.id", "=", si_id },
@@ -103,7 +103,7 @@ function putils.lookupLink (si_id, si_target_id)
   return link
 end
 
-function putils.isLinked (si_target)
+function lutils.isLinked (si_target)
   local target_id = si_target.id
   local linked = false
   local exclusive = false
@@ -123,7 +123,7 @@ function putils.isLinked (si_target)
   return linked, exclusive
 end
 
-function putils.canLink (properties, si_target)
+function lutils.canLink (properties, si_target)
   local target_props = si_target.properties
 
   -- nodes must have the same media type
@@ -210,7 +210,7 @@ function putils.canLink (properties, si_target)
   return true
 end
 
-function putils.findDefaultLinkable (si)
+function lutils.findDefaultLinkable (si)
   local si_props = si.properties
   local target_direction = cutils.getTargetDirection (si_props)
   local def_node_id = cutils.getDefaultNode (si_props, target_direction)
@@ -221,12 +221,12 @@ function putils.findDefaultLinkable (si)
   }
 end
 
-function putils.checkPassthroughCompatibility (si, si_target)
+function lutils.checkPassthroughCompatibility (si, si_target)
   local si_must_passthrough =
       cutils.parseBool (si.properties ["item.node.encoded-only"])
   local si_target_must_passthrough =
       cutils.parseBool (si_target.properties ["item.node.encoded-only"])
-  local can_passthrough = putils.canPassthrough (si, si_target)
+  local can_passthrough = lutils.canPassthrough (si, si_target)
   if (si_must_passthrough or si_target_must_passthrough)
       and not can_passthrough then
     return false, can_passthrough
@@ -236,7 +236,7 @@ end
 
 -- Does the target device have any active/available paths/routes to
 -- the physical device(spkr/mic/cam)?
-function putils.haveAvailableRoutes (si_props)
+function lutils.haveAvailableRoutes (si_props)
   local card_profile_device = si_props ["card.profile.device"]
   local device_id = si_props ["device.id"]
   local device = device_id and cutils.get_object_manager ("device"):lookup {
@@ -300,7 +300,7 @@ function putils.haveAvailableRoutes (si_props)
   return false
 end
 
-function putils.sendClientError (event, node, message)
+function lutils.sendClientError (event, node, message)
   local source = event:get_source ()
   local client_id = node.properties ["client.id"]
   if client_id then
@@ -314,4 +314,4 @@ function putils.sendClientError (event, node, message)
   end
 end
 
-return putils
+return lutils

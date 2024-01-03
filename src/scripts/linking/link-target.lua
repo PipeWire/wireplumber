@@ -7,7 +7,7 @@
 -- Links a session item to the target that has been previously selected.
 -- This is meant to be the last hook in the select-target chain.
 
-putils = require ("linking-utils")
+lutils = require ("linking-utils")
 cutils = require ("common-utils")
 log = Log.open_topic ("s-linking")
 
@@ -24,7 +24,7 @@ AsyncEventHook {
       next = "none",
       execute = function (event, transition)
         local source, om, si, si_props, si_flags, target =
-            putils:unwrap_select_target_event (event)
+            lutils:unwrap_select_target_event (event)
 
         if not target then
           -- bypass the hook, nothing to link to.

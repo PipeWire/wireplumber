@@ -6,7 +6,7 @@
 --
 -- Check if the target node is a filter target.
 
-putils = require ("linking-utils")
+lutils = require ("linking-utils")
 cutils = require ("common-utils")
 futils = require ("filter-utils")
 log = Log.open_topic ("s-linking")
@@ -21,7 +21,7 @@ SimpleEventHook {
   },
   execute = function (event)
     local source, om, si, si_props, si_flags, target =
-        putils:unwrap_select_target_event (event)
+        lutils:unwrap_select_target_event (event)
 
     -- bypass the hook if the target was not found
     if target == nil then
@@ -45,8 +45,8 @@ SimpleEventHook {
     local can_passthrough, passthrough_compatible
     if target ~= nil then
       passthrough_compatible, can_passthrough =
-      putils.checkPassthroughCompatibility (si, target)
-      if putils.canLink (si_props, target) and passthrough_compatible then
+      lutils.checkPassthroughCompatibility (si, target)
+      if lutils.canLink (si_props, target) and passthrough_compatible then
         target_picked = true;
       end
     end

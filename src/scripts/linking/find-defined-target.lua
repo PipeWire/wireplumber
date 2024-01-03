@@ -9,7 +9,7 @@
 -- 1. "node.target"/"target.object" in the node properties
 -- 2. "target.node"/"target.object" in the default metadata
 
-putils = require ("linking-utils")
+lutils = require ("linking-utils")
 cutils = require ("common-utils")
 settings = require ("settings-linking")
 log = Log.open_topic ("s-linking")
@@ -24,7 +24,7 @@ SimpleEventHook {
   },
   execute = function (event)
     local source, om, si, si_props, si_flags, target =
-        putils:unwrap_select_target_event (event)
+        lutils:unwrap_select_target_event (event)
 
     -- bypass the hook if the target is already picked up
     if target then
@@ -76,7 +76,7 @@ SimpleEventHook {
         type = "SiLinkable",
         Constraint { target_key, "=", target_value },
       }
-      if target and putils.canLink (si_props, target) then
+      if target and lutils.canLink (si_props, target) then
         target_picked = true
       end
     elseif target_value then
@@ -85,7 +85,7 @@ SimpleEventHook {
         if (target_props ["node.name"] == target_value or
             target_props ["object.path"] == target_value) and
             target_props ["item.node.direction"] == cutils.getTargetDirection (si_props) and
-            putils.canLink (si_props, lnkbl) then
+            lutils.canLink (si_props, lnkbl) then
           target_picked = true
           target = lnkbl
           break
@@ -96,7 +96,7 @@ SimpleEventHook {
     local can_passthrough, passthrough_compatible
     if target then
       passthrough_compatible, can_passthrough =
-      putils.checkPassthroughCompatibility (si, target)
+      lutils.checkPassthroughCompatibility (si, target)
       if not passthrough_compatible then
         target = nil
       end
@@ -116,7 +116,7 @@ SimpleEventHook {
       local linger = cutils.parseBool (si_props ["target.linger"])
       if not linger then
         local node = si:get_associated_proxy ("node")
-        putils.sendClientError (event, node, "defined target not found")
+        lutils.sendClientError (event, node, "defined target not found")
         node:request_destroy ()
         log:info(si, "... destroyed node as defined target was not found")
       else

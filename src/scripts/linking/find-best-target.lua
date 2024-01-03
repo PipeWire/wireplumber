@@ -6,7 +6,7 @@
 --
 -- Traverse through all the possible targets to pick up target node.
 
-putils = require ("linking-utils")
+lutils = require ("linking-utils")
 cutils = require ("common-utils")
 log = Log.open_topic ("s-linking")
 
@@ -20,7 +20,7 @@ SimpleEventHook {
   },
   execute = function (event)
     local source, om, si, si_props, si_flags, target =
-        putils:unwrap_select_target_event (event)
+        lutils:unwrap_select_target_event (event)
 
     -- bypass the hook if the target is already picked up
     if target then
@@ -57,18 +57,18 @@ SimpleEventHook {
         goto skip_linkable
       end
 
-      if not putils.canLink (si_props, target) then
+      if not lutils.canLink (si_props, target) then
         log:debug ("... cannot link, skip linkable")
         goto skip_linkable
       end
 
-      if not putils.haveAvailableRoutes (target_props) then
+      if not lutils.haveAvailableRoutes (target_props) then
         log:debug ("... does not have routes, skip linkable")
         goto skip_linkable
       end
 
       local passthrough_compatible, can_passthrough =
-      putils.checkPassthroughCompatibility (si, target)
+      lutils.checkPassthroughCompatibility (si, target)
       if not passthrough_compatible then
         log:debug ("... passthrough is not compatible, skip linkable")
         goto skip_linkable
