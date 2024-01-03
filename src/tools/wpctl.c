@@ -72,6 +72,11 @@ static struct {
 
     struct {
       guint64 id;
+      gint index;
+    } set_route;
+
+    struct {
+      guint64 id;
     } clear_default;
 
     struct {
@@ -1129,6 +1134,86 @@ out:
   g_main_loop_quit (self->loop);
 }
 
+/* set-route */
+
+static gboolean
+set_route_parse_positional (gint argc, gchar ** argv, GError **error)
+{
+  if (argc < 4) {
+    g_set_error (error, wpctl_error_domain_quark(), 0,
+        "ID and INDEX required");
+    return FALSE;
+  }
+
+  cmdline.set_route.index = atoi (argv[3]);
+  return parse_id (true, true, argv[2], &cmdline.set_route.id, error);
+}
+
+static gboolean
+set_route_prepare (WpCtl * self, GError ** error)
+{
+  wp_object_manager_add_interest (self->om, WP_TYPE_GLOBAL_PROXY, NULL);
+  wp_object_manager_request_object_features (self->om, WP_TYPE_GLOBAL_PROXY,
+      WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
+  return TRUE;
+}
+
+static void
+set_route_run (WpCtl * self)
+{
+  g_autoptr (WpPlugin) def_nodes_api = wp_plugin_find (self->core, "default-nodes-api");
+  g_autoptr (WpPipewireObject) proxy = NULL;
+  g_autoptr (WpPipewireObject) device_proxy = NULL;
+  g_autoptr (GError) error = NULL;
+  guint32 node_id;
+
+  if (!translate_id (def_nodes_api, cmdline.set_route.id, &node_id, &error)) {
+    fprintf(stderr, "Translate ID error: %s\n\n", error->message);
+    goto out;
+  }
+
+  proxy = wp_object_manager_lookup (self->om, WP_TYPE_GLOBAL_PROXY,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "object.id", "=u", node_id, NULL);
+  if (!proxy) {
+    fprintf (stderr, "Object '%d' not found\n", node_id);
+    goto out;
+  }
+
+  const char * route_device_str = wp_pipewire_object_get_property(proxy, "card.profile.device");
+  if (!route_device_str) {
+    fprintf (stderr, "Property 'card.profile.device' not found\n");
+    goto out;
+  }
+  guint32 route_device = atoi (route_device_str);
+
+  const char * device_id_str = wp_pipewire_object_get_property (proxy, "device.id");
+  if (!device_id_str) {
+    fprintf (stderr, "Property 'device.id' not found\n");
+    goto out;
+  }
+  guint32 device_id = atoi (device_id_str);
+
+  device_proxy = wp_object_manager_lookup (self->om, WP_TYPE_GLOBAL_PROXY,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "object.id", "=u", device_id, NULL);
+  if (!device_proxy) {
+    fprintf (stderr, "Object '%d' not found\n", device_id);
+    goto out;
+  }
+
+  wp_pipewire_object_set_param (device_proxy, "Route", 0,
+      wp_spa_pod_new_object (
+        "Spa:Pod:Object:Param:Route", "Route",
+        "index", "i", cmdline.set_route.index,
+        "device", "i", route_device,
+        NULL));
+  wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
+  return;
+
+out:
+  self->exit_code = 3;
+  g_main_loop_quit (self->loop);
+}
+
 /* clear-default */
 
 static gboolean
@@ -1404,6 +1489,16 @@ static const struct subcommand {
     .parse_positional = set_profile_parse_positional,
     .prepare = set_profile_prepare,
     .run = set_profile_run,
+  },
+  {
+    .name = "set-route",
+    .positional_args = "ID INDEX",
+    .summary = "Sets the route of ID to INDEX (integer, 0 is 'off')",
+    .description = NULL,
+    .entries = { { NULL } },
+    .parse_positional = set_route_parse_positional,
+    .prepare = set_route_prepare,
+    .run = set_route_run,
   },
   {
     .name = "clear-default",
