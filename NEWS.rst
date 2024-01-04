@@ -1,5 +1,65 @@
+WirePlumber 0.4.81
+~~~~~~~~~~~~~~~~~~~
+
+This is a preliminary release of WirePlumber 0.5.0, which is made available
+for testing purposes. Please test it and report feedback (merge requests are
+also welcome ;) ). This is not API/ABI stable yet and there is still pending
+work to do before the final 0.5.0 release, both in the codebase and the
+documentation.
+
+Highlights:
+
+  - Lua scripts have been refactored to use the new event dispatcher API, which
+    allows them to be split into multiple small fragments that react to
+    events in a specified order. This allows scripts to be more modular and
+    easier to maintain, as well as more predictable in terms of execution
+    order.
+
+  - The configuration system has been refactored to use a single SPA-JSON file,
+    like PipeWire does, with support for fragments that can override options.
+    This file is also now loaded using PipeWire's configuration API, which
+    effectively means that the file is now loaded from the PipeWire configuration
+    directories, such as ``/etc/pipewire`` and ``$XDG_CONFIG_HOME/pipewire``.
+
+  - The configuration system now has the concept of profiles, which are groups
+    of components that can be loaded together, with the ability to mark certain
+    components as optional. This allows having multiple configurations that
+    can be loaded using the same configuration file. Optional components also
+    allow loading the same profile gracefully on different setups, where some
+    components may not be available (ex, loading of the session D-Bus plugin on
+    a system-wide PipeWire setup now does not fail).
+
+  - Many configuration options are now exposed in the ``sm-settings`` metadata,
+    which allows changing them at runtime. This can be leveraged in the future
+    to implement configuration tools that can modify WirePlumber's behaviour
+    dynamically, without restarting.
+
+  - A new "filters" system has been implemented, which allows specifying chains
+    of "filter" nodes to be dynamically linked in-between streams and devices.
+    This is achieved with certain properties and metadata that can be set on
+    the filter nodes themselves.
+
+  - The default linking policy now reads some more ``target.*`` properties from
+    nodes, which allows fine-tuning some aspects of their linking behaviour,
+    such as whether they are allowed to be re-linked or whether an error should
+    be sent to the client if they cannot be linked.
+
+  - Some state files have been renamed and some have changed format to use JSON
+    for storing complex values, such as arrays. This may cause some of the old
+    state to be lost on upgrade, as there is no transition path implemented.
+
+  - The libcamera and V4L2 monitors have a "device deduplication" logic built-in,
+    which means that for each physical camera device, only one node will be
+    created, either from libcamera or V4L2, depending on which one is considered
+    better for the device. This is mainly to avoid having multiple nodes for
+    the same camera device, which can cause confusion when looking at the list
+    of available cameras in applications.
+
+Past releases
+~~~~~~~~~~~~~
+
 WirePlumber 0.4.17
-~~~~~~~~~~~~~~~~~~
+..................
 
 Fixes:
 
@@ -11,9 +71,6 @@ Fixes:
 
   - Fixed a crash in the endpoints policy that would show up when log messages
     were enabled at level 3 or higher
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.4.16
 ..................
