@@ -99,39 +99,6 @@ function cutils.evaluateRulesApplyProperties (properties, name)
   end
 end
 
--- simple serializer {"foo", "bar"} -> "foo;bar;"
-function cutils.serializeArray (a)
-  local str = ""
-  for _, v in ipairs (a) do
-    str = str .. tostring (v):gsub (";", "\\;") .. ";"
-  end
-  return str
-end
-
--- simple deserializer "foo;bar;" -> {"foo", "bar"}
-function cutils.parseArray (str, convert_value, with_type)
-  local array = {}
-  local val = ""
-  local escaped = false
-  for i = 1, #str do
-    local c = str:sub (i, i)
-    if c == '\\' then
-      escaped = true
-    elseif c == ';' and not escaped then
-      val = convert_value and convert_value (val) or val
-      table.insert (array, val)
-      val = ""
-    else
-      val = val .. tostring (c)
-      escaped = false
-    end
-  end
-  if with_type then
-    array ["pod_type"] = "Array"
-  end
-  return array
-end
-
 function cutils.arrayContains (a, value)
   for _, v in ipairs (a) do
     if v == value then
