@@ -242,7 +242,7 @@ function saveRouteProps (dev_info, route)
     iec958Codecs = props.iec958Codecs and Json.Array (props.iec958Codecs),
   }:to_string ()
 
-  cutils.storeAfterTimeout (state, state_table)
+  state:save_after_timeout (state_table)
 end
 
 function getStoredRouteProps (dev_info, route)
@@ -273,7 +273,7 @@ function saveProfileRoutes (dev_info, profile_name)
   if #routes > 0 then
     local key = dev_info.name .. ":profile:" .. profile_name
     state_table [key] = Json.Array (routes):to_string()
-    cutils.storeAfterTimeout (state, state_table)
+    state:save_after_timeout (state_table)
   end
 end
 

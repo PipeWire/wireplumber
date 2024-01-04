@@ -1523,6 +1523,16 @@ state_save (lua_State *L)
 }
 
 static int
+state_save_after_timeout (lua_State *L)
+{
+  WpState *state = wplua_checkobject (L, 1, WP_TYPE_STATE);
+  luaL_checktype (L, 2, LUA_TTABLE);
+  g_autoptr (WpProperties) props = wplua_table_to_properties (L, 2);
+  wp_state_save_after_timeout (state, get_wp_core (L), props);
+  return 0;
+}
+
+static int
 state_load (lua_State *L)
 {
   WpState *state = wplua_checkobject (L, 1, WP_TYPE_STATE);
@@ -1534,6 +1544,7 @@ state_load (lua_State *L)
 static const luaL_Reg state_methods[] = {
   { "clear", state_clear },
   { "save" , state_save },
+  { "save_after_timeout", state_save_after_timeout },
   { "load" , state_load },
   { NULL, NULL }
 };

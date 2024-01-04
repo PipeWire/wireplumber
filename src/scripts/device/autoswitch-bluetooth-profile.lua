@@ -87,7 +87,7 @@ streams_om = ObjectManager {
 local function saveHeadsetProfile (device, profile_name)
   local key = "saved-headset-profile:" .. device.properties ["device.name"]
   headset_profiles [key] = profile_name
-  cutils.storeAfterTimeout (state, headset_profiles)
+  state:save_after_timeout (headset_profiles)
 end
 
 local function getSavedHeadsetProfile (device)

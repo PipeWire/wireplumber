@@ -15,6 +15,7 @@
 
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp-state")
 
+#define DEFAULT_TIMEOUT_MS 1000
 #define ESCAPED_CHARACTER '\\'
 
 static char *
@@ -123,6 +124,7 @@ compress_string (const gchar *str)
 enum {
   PROP_0,
   PROP_NAME,
+  PROP_TIMEOUT,
 };
 
 struct _WpState
@@ -131,9 +133,11 @@ struct _WpState
 
   /* Props */
   gchar *name;
+  guint timeout;
 
   gchar *location;
-  GKeyFile *keyfile;
+  GSource *timeout_source;
+  WpProperties *timeout_props;
 };
 
 G_DEFINE_TYPE (WpState, wp_state, G_TYPE_OBJECT)
@@ -186,6 +190,9 @@ wp_state_set_property (GObject * object, guint property_id,
     g_clear_pointer (&self->name, g_free);
     self->name = g_value_dup_string (value);
     break;
+  case PROP_TIMEOUT:
+    self->timeout = g_value_get_uint (value);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
@@ -202,6 +209,9 @@ wp_state_get_property (GObject * object, guint property_id, GValue * value,
   case PROP_NAME:
     g_value_set_string (value, self->name);
     break;
+  case PROP_TIMEOUT:
+    g_value_set_uint (value, self->timeout);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
@@ -215,6 +225,8 @@ wp_state_finalize (GObject * object)
 
   g_clear_pointer (&self->name, g_free);
   g_clear_pointer (&self->location, g_free);
+  g_clear_pointer (&self->timeout_source, g_source_unref);
+  g_clear_pointer (&self->timeout_props, wp_properties_unref);
 
   G_OBJECT_CLASS (wp_state_parent_class)->finalize (object);
 }
@@ -222,6 +234,7 @@ wp_state_finalize (GObject * object)
 static void
 wp_state_init (WpState * self)
 {
+  self->timeout = DEFAULT_TIMEOUT_MS;
 }
 
 static void
@@ -237,6 +250,11 @@ wp_state_class_init (WpStateClass * klass)
       g_param_spec_string ("name", "name",
           "The file name where the state will be stored", NULL,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (object_class, PROP_TIMEOUT,
+      g_param_spec_uint ("timeout", "timeout",
+          "The timeout in milliseconds to save the state", 0, G_MAXUINT,
+          DEFAULT_TIMEOUT_MS, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 }
 
 /*!
@@ -337,6 +355,57 @@ wp_state_save (WpState *self, WpProperties *props, GError ** error)
   }
 
   return TRUE;
+}
+
+static gboolean
+timeout_save_state_callback (WpState *self)
+{
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_state_save (self, self->timeout_props, &error))
+    wp_warning_object (self, "%s", error->message);
+
+  g_clear_pointer (&self->timeout_source, g_source_unref);
+  g_clear_pointer (&self->timeout_props, wp_properties_unref);
+
+  return G_SOURCE_REMOVE;
+}
+
+/*!
+ * \brief Saves new properties in the state, overwriting all previous data,
+ *   after a timeout
+ *
+ * This is similar to wp_state_save() but it will save the state after a timeout
+ * has elapsed. If the state is saved again before the timeout elapses, the
+ * timeout is reset.
+ *
+ * This function is useful to avoid saving the state too often. When called
+ * consecutively, it will save the state only once. Every time it is called,
+ * it will cancel the previous timer and start a new one, resulting in timing
+ * out only after the last call.
+ *
+ * \ingroup wpstate
+ * \param self the state
+ * \param core the core, used to add the timeout callback to the main loop
+ * \param props (transfer none): the properties to save. This object will be
+ *   referenced and kept alive until the timeout elapses, but not deep copied.
+ * \since 0.5.0
+ */
+void
+wp_state_save_after_timeout (WpState *self, WpCore *core, WpProperties *props)
+{
+  /* Clear the current timeout callback */
+  if (self->timeout_source)
+    g_source_destroy (self->timeout_source);
+  g_clear_pointer (&self->timeout_source, g_source_unref);
+  g_clear_pointer (&self->timeout_props, wp_properties_unref);
+
+  self->timeout_props = wp_properties_ref (props);
+
+  /* Add the timeout callback */
+  wp_core_timeout_add_closure (core, &self->timeout_source, self->timeout,
+      g_cclosure_new_object (G_CALLBACK (timeout_save_state_callback),
+          G_OBJECT (self)));
 }
 
 /*!

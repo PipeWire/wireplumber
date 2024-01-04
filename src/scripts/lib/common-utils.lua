@@ -108,23 +108,6 @@ function cutils.arrayContains (a, value)
   return false
 end
 
-state_save_sources = {}
-
-function cutils.storeAfterTimeout (state, state_table)
-  local state_name = state["name"]
-  if state_save_sources [state_name] ~= nil then
-    state_save_sources [state_name]:destroy ()
-    state_save_sources [state_name] = nil
-  end
-  state_save_sources [state_name] = Core.timeout_add (1000, function ()
-    local saved, err = state:save (state_table)
-    if not saved then
-      Log.warning (err)
-    end
-    return false
-  end)
-end
-
 function cutils.get_application_name ()
   return Core.get_properties()["application.name"] or "WirePlumber"
 end

@@ -119,7 +119,7 @@ function updateStoredProfile (device, profile)
   end
 
   state_table[dev_name] = profile.name
-  cutils.storeAfterTimeout (state, state_table)
+  state:save_after_timeout (state_table)
 
   log:info (device, string.format (
       "stored profile '%s' (%d) for device '%s'",

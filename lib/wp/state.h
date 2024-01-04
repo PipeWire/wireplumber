@@ -10,6 +10,7 @@
 #define __WIREPLUMBER_STATE_H__
 
 #include "properties.h"
+#include "core.h"
 
 G_BEGIN_DECLS
 
@@ -37,6 +38,10 @@ void wp_state_clear (WpState *self);
 
 WP_API
 gboolean wp_state_save (WpState *self, WpProperties *props, GError ** error);
+
+WP_API
+void wp_state_save_after_timeout (WpState *self, WpCore *core,
+    WpProperties *props);
 
 WP_API
 WpProperties * wp_state_load (WpState *self);

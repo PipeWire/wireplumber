@@ -10,7 +10,6 @@
 -- state file during the bootup, finally it has a hook which finds a default
 -- node out of the user preferences
 
-cutils = require ("common-utils")
 settings = require ("settings-node")
 log = Log.open_topic ("s-default-nodes")
 
@@ -175,7 +174,7 @@ function updateStored (def_node_type, stored)
     index = index + 1
   until v == nil
 
-  cutils.storeAfterTimeout (state, state_table)
+  state:save_after_timeout (state_table)
 end
 
 function toggleState (enable)

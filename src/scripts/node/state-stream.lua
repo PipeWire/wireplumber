@@ -387,7 +387,7 @@ function saveStreamProps (key, p)
   p.channelVolumes = p.channelVolumes and Json.Array (p.channelVolumes)
 
   state_table [key] = Json.Object (p):to_string ()
-  cutils.storeAfterTimeout (state, state_table)
+  state:save_after_timeout (state_table)
 end
 
 function formKey (properties)

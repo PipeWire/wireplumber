@@ -34,7 +34,6 @@ struct _WpSettingsPlugin
   WpImplMetadata *impl_metadata;
   WpState *state;
   WpProperties *settings;
-  GSource *timeout_source;
 };
 
 enum {
@@ -49,39 +48,10 @@ G_DEFINE_TYPE (WpSettingsPlugin, wp_settings_plugin, WP_TYPE_PLUGIN)
 
 #define NAME "sm-settings"
 #define PERSISTENT_SETTING "persistent.settings"
-#define SAVE_INTERVAL_MS 1000
 
 static void
 wp_settings_plugin_init (WpSettingsPlugin * self)
 {
-}
-
-static gboolean
-timeout_save_state_callback (WpSettingsPlugin *self)
-{
-  g_autoptr (GError) error = NULL;
-
-  if (!wp_state_save (self->state, self->settings, &error))
-    wp_warning_object (self, "%s", error->message);
-
-  return G_SOURCE_REMOVE;
-}
-
-static void
-timeout_save_settings (WpSettingsPlugin *self, guint ms)
-{
-  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
-  g_return_if_fail (core);
-
-  /* Clear the current timeout callback */
-  if (self->timeout_source)
-    g_source_destroy (self->timeout_source);
-  g_clear_pointer (&self->timeout_source, g_source_unref);
-
-  /* Add the timeout callback */
-  wp_core_timeout_add_closure (core, &self->timeout_source, ms,
-      g_cclosure_new_object (G_CALLBACK (timeout_save_state_callback),
-      G_OBJECT (self)));
 }
 
 static void
@@ -89,6 +59,7 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
    const gchar *setting, const gchar *type, const gchar *new_value, gpointer d)
 {
   WpSettingsPlugin *self = WP_SETTINGS_PLUGIN(d);
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
   const gchar *old_value = wp_properties_get (self->settings, setting);
 
   if (!old_value) {
@@ -102,7 +73,7 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
   wp_properties_set (self->settings, setting, new_value);
 
   /* update the state */
-  timeout_save_settings (self, SAVE_INTERVAL_MS);
+  wp_state_save_after_timeout (self->state, core, self->settings);
 }
 
 WpProperties *
@@ -220,7 +191,7 @@ on_metadata_activated (WpMetadata * m, GAsyncResult * res, gpointer user_data)
 
     g_clear_pointer (&self->settings, wp_properties_unref);
     self->settings = g_steal_pointer (&config_settings);
-    timeout_save_settings (self, SAVE_INTERVAL_MS);
+    wp_state_save_after_timeout (self->state, core, self->settings);
   } else {
     wp_info_object (self, PERSISTENT_SETTING
        " is enabled, current saved settings will be used");
@@ -276,10 +247,6 @@ static void
 wp_settings_plugin_disable (WpPlugin * plugin)
 {
   WpSettingsPlugin * self = WP_SETTINGS_PLUGIN (plugin);
-
-  if (self->timeout_source)
-    g_source_destroy (self->timeout_source);
-  g_clear_pointer (&self->timeout_source, g_source_unref);
 
   g_clear_object (&self->impl_metadata);
   g_clear_pointer (&self->settings, wp_properties_unref);
