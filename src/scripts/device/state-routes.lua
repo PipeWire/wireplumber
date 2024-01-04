@@ -229,52 +229,34 @@ store_or_restore_routes_hook = SimpleEventHook {
 
 function saveRouteProps (dev_info, route)
   local props = route.props.properties
-  local key_base = dev_info.name .. ":" ..
+  local key = dev_info.name .. ":" ..
                    route.direction:lower () .. ":" ..
-                   route.name .. ":"
+                   route.name
 
-  state_table [key_base .. "volume"] =
-    props.volume and tostring (props.volume) or nil
-  state_table [key_base .. "mute"] =
-    props.mute and tostring (props.mute) or nil
-  state_table [key_base .. "channelVolumes"] =
-    props.channelVolumes and cutils.serializeArray (props.channelVolumes) or nil
-  state_table [key_base .. "channelMap"] =
-    props.channelMap and cutils.serializeArray (props.channelMap) or nil
-  state_table [key_base .. "latencyOffsetNsec"] =
-    props.latencyOffsetNsec and tostring (props.latencyOffsetNsec) or nil
-  state_table [key_base .. "iec958Codecs"] =
-    props.iec958Codecs and cutils.serializeArray (props.iec958Codecs) or nil
+  state_table [key] = Json.Object {
+    volume = props.volume,
+    mute = props.mute,
+    channelVolumes = props.channelVolumes and Json.Array (props.channelVolumes),
+    channelMap = props.channelMap and Json.Array (props.channelMap),
+    latencyOffsetNsec = props.latencyOffsetNsec,
+    iec958Codecs = props.iec958Codecs and Json.Array (props.iec958Codecs),
+  }:to_string ()
 
   cutils.storeAfterTimeout (state, state_table)
 end
 
 function getStoredRouteProps (dev_info, route)
-  local props = {}
-  local key_base = dev_info.name .. ":" ..
+  local key = dev_info.name .. ":" ..
                    route.direction:lower () .. ":" ..
-                   route.name .. ":"
-
-  local str = state_table [key_base .. "volume"]
-  props.volume = str and tonumber (str) or nil
-
-  local str = state_table [key_base .. "mute"]
-  props.mute = str and (str == "true") or nil
-
-  local str = state_table [key_base .. "channelVolumes"]
-  props.channelVolumes =
-      str and cutils.parseArray (str, tonumber) or nil
-
-  local str = state_table [key_base .. "channelMap"]
-  props.channelMap = str and cutils.parseArray (str) or nil
-
-  local str = state_table [key_base .. "latencyOffsetNsec"]
-  props.latencyOffsetNsec = str and math.tointeger (str) or nil
-
-  local str = state_table [key_base .. "iec958Codecs"]
-  props.iec958Codecs = str and cutils.parseArray (str) or nil
-
-  return props
+                   route.name
+  local value = state_table [key]
+  if value then
+    local json = Json.Raw (value)
+    if json and json:is_object () then
+      return json:parse ()
+    end
+  end
+  return {}
 end
 
 -- stores an array with the route names that are selected
@@ -290,7 +272,7 @@ function saveProfileRoutes (dev_info, profile_name)
 
   if #routes > 0 then
     local key = dev_info.name .. ":profile:" .. profile_name
-    state_table [key] = cutils.serializeArray (routes)
+    state_table [key] = Json.Array (routes):to_string()
     cutils.storeAfterTimeout (state, state_table)
   end
 end
@@ -299,8 +281,14 @@ end
 -- for the given device and profile
 function getStoredProfileRoutes (dev_info, profile_name)
   local key = dev_info.name .. ":profile:" .. profile_name
-  local str = state_table [key]
-  return str and cutils.parseArray (str) or {}
+  local value = state_table [key]
+  if value then
+    local json = Json.Raw (value)
+    if json and json:is_array () then
+      return json:parse ()
+    end
+  end
+  return {}
 end
 
 function toggleState (enable)
