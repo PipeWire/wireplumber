@@ -91,9 +91,6 @@ function setPlatformRoute (route_name, direction)
 
   Log.info(param, "setting route on " .. tostring(platform_sound))
   platform_sound:set_param("Route", param)
-
-  route.prev_active = true
-  route.active = true
 end
 
 nodes_om:connect("object-added", function(_, node)
