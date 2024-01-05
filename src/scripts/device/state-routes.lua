@@ -171,6 +171,28 @@ store_or_restore_routes_hook = SimpleEventHook {
       return
     end
 
+    -- look at all the routes and update/reset cached information
+    for p in device:iterate_params ("EnumRoute") do
+      -- parse pod
+      local route = cutils.parseParam (p, "EnumRoute")
+      if not route then
+        goto skip_enum_route
+      end
+
+      -- find cached route information
+      local route_info = devinfo.find_route_info (dev_info, route, false)
+      if not route_info then
+        goto skip_enum_route
+      end
+
+      -- update properties
+      route_info.prev_active = route_info.active
+      route_info.active = false
+      route_info.save = false
+
+      ::skip_enum_route::
+    end
+
     -- check for changes in the active routes
     for p in device:iterate_params ("Route") do
       local route = cutils.parseParam (p, "Route")
@@ -185,7 +207,7 @@ store_or_restore_routes_hook = SimpleEventHook {
         goto skip_route
       end
 
-      -- update state
+      -- update route_info state
       route_info.active = true
       route_info.save = route.save
 
