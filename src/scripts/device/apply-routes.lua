@@ -48,13 +48,13 @@ AsyncEventHook {
           local props = route.props or {}
 
           -- replace with the full route info
-          route = devinfo.find_route_info (dev_info, route)
-          if not route then
+          local route_info = devinfo.find_route_info (dev_info, route)
+          if not route_info then
             goto skip_route
           end
 
           -- ensure default values
-          local is_input = (route.direction == "Input")
+          local is_input = (route_info.direction == "Input")
           props.mute = props.mute or false
           props.channelVolumes = props.channelVolumes or
               { is_input and settings ["routes.default-source-volume"]
@@ -81,20 +81,20 @@ AsyncEventHook {
           -- construct Route param
           local param = Pod.Object {
             "Spa:Pod:Object:Param:Route", "Route",
-            index = route.index,
+            index = route_info.index,
             device = device_id,
             props = Pod.Object (props),
-            save = route.save,
+            save = route_info.save,
           }
 
           log:debug (param,
             string.format ("setting route(%s) on for device(%s)(%s)",
-              route.name, dev_info.name, tostring (device)))
+              route_info.name, dev_info.name, tostring (device)))
 
           device:set_param ("Route", param)
 
-          route.prev_active = true
-          route.active = true
+          route_info.prev_active = true
+          route_info.active = true
 
           ::skip_route::
         end
