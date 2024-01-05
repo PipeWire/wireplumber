@@ -297,7 +297,7 @@ wp_event_dispatcher_register_hook (WpEventDispatcher * self,
 
 /*!
  * \brief Unregisters an event hook
- * \ingroup wpeventdispacher
+ * \ingroup wpeventdispatcher
  *
  * \param self the event dispatcher
  * \param hook (transfer none): the hook to unregister
