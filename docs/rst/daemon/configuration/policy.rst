@@ -170,6 +170,7 @@ The PipeWire configuration files for the 2 filters should be like this:
                 capture.props = {
                     audio.position = [ FL FR ]
                     media.class = Audio/Sink
+                    filter.smart = true
                     filter.smart.name = loopback-1
                     filter.smart.disabled = false
                     filter.smart.before = [ loopback-2 ]
@@ -195,6 +196,7 @@ The PipeWire configuration files for the 2 filters should be like this:
                 capture.props = {
                     audio.position = [ FL FR ]
                     media.class = Audio/Sink
+                    filter.smart = true
                     filter.smart.name = loopback-2
                     filter.smart.disabled = false
                 }
@@ -263,6 +265,7 @@ define the filters like this:
                 capture.props = {
                     audio.position = [ FL FR ]
                     media.class = Audio/Sink
+                    filter.smart = true
                     filter.smart.name = loopback-1
                     filter.smart.disabled = false
                     filter.smart.before = [ loopback-2 ]
@@ -289,6 +292,7 @@ define the filters like this:
                 capture.props = {
                     audio.position = [ FL FR ]
                     media.class = Audio/Sink
+                    filter.smart = true
                     filter.smart.name = loopback-2
                     filter.smart.disabled = false
                 }
