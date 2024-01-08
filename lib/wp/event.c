@@ -388,7 +388,7 @@ wp_event_collect_hooks (WpEvent * event, WpEventDispatcher * dispatcher)
 
       spa_list_append (&collected, &hook_data->link);
 
-      wp_trace_boxed (WP_TYPE_EVENT, event, "added "WP_OBJECT_FORMAT"(%s)",
+      wp_debug_boxed (WP_TYPE_EVENT, event, "added "WP_OBJECT_FORMAT"(%s)",
           WP_OBJECT_ARGS (hook), wp_event_hook_get_name (hook));
     }
 
@@ -421,6 +421,9 @@ wp_event_collect_hooks (WpEvent * event, WpEventDispatcher * dispatcher)
 
         spa_list_remove (&hook_data->link);
 
+        wp_trace_boxed (WP_TYPE_EVENT, event,
+              "examining: %s", wp_event_hook_get_name (hook_data->hook));
+
         for (guint i = 0; i < hook_data->dependencies->len; i++) {
           const gchar *dep = g_ptr_array_index (hook_data->dependencies, i);
           /* if the dependency is already in the sorted result list or if
@@ -430,9 +433,17 @@ wp_event_collect_hooks (WpEvent * event, WpEventDispatcher * dispatcher)
                 hook_exists_in (dep, &remaining))) {
             deps_satisfied++;
           }
+
+          wp_trace_boxed (WP_TYPE_EVENT, event, "depends: %s, satisfied: %u/%u",
+              dep, deps_satisfied, hook_data->dependencies->len);
         }
 
         if (deps_satisfied == hook_data->dependencies->len) {
+          wp_trace_boxed (WP_TYPE_EVENT, event,
+              "sorted: "WP_OBJECT_FORMAT"(%s)",
+              WP_OBJECT_ARGS (hook_data->hook),
+              wp_event_hook_get_name (hook_data->hook));
+
           spa_list_append (&result, &hook_data->link);
           made_progress = TRUE;
         } else {
