@@ -218,7 +218,7 @@ store_or_restore_routes_hook = SimpleEventHook {
             string.format ("new active route(%s) found of device(%s)",
                 route.name, dev_info.name))
 
-        selected_routes [tostring (device_id)] =
+        selected_routes [tostring (route.device)] =
             Json.Object { index = route_info.index }:to_string ()
         push_select_routes = true
 
