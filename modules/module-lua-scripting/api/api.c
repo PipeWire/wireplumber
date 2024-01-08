@@ -2130,7 +2130,7 @@ simple_event_hook_new (lua_State *L)
   if (lua_type (L, 5) == LUA_TTABLE && after_size > 0) {
     i = 0;
     lua_pushnil (L);
-    while (lua_next (L, 5) && i < after_size - 1) {
+    while (lua_next (L, 5) && i < after_size) {
       after[i++] = luaL_checkstring (L, -1);
       /* bring the key on top without popping the string value */
       lua_rotate (L, lua_gettop (L) - 1, 1);
@@ -2379,7 +2379,7 @@ async_event_hook_new (lua_State *L)
   if (lua_type (L, 5) == LUA_TTABLE && after_size > 0) {
     i = 0;
     lua_pushnil (L);
-    while (lua_next (L, 5) && i < after_size - 1) {
+    while (lua_next (L, 5) && i < after_size) {
       after[i++] = luaL_checkstring (L, -1);
       /* bring the key on top without popping the string value */
       lua_rotate (L, lua_gettop (L) - 1, 1);
