@@ -83,6 +83,29 @@ local function getFilterSmartDisabled (metadata, node)
   return false
 end
 
+local function getFilterSmartTargetable (metadata, node)
+  -- Check metadata
+  if metadata ~= nil then
+    local id = node["bound-id"]
+    local value_str = metadata:find (id, "filter.smart.targetable")
+    if value_str ~= nil then
+      local json = Json.Raw (value_str)
+      if json:is_boolean() then
+        return json:parse()
+      end
+    end
+  end
+
+  -- Check node properties
+  local prop_str = node.properties ["filter.smart.targetable"]
+  if prop_str ~= nil then
+    return cutils.parseBool (prop_str)
+  end
+
+  -- Otherwise consider the filter not targetable by default
+  return false
+end
+
 local function getFilterSmartTarget (metadata, node, om, dont_move)
   -- Check metadata and fallback to properties
   local id = node["bound-id"]
@@ -287,6 +310,7 @@ local function rescanFilters (om, metadata_om)
     filter.smart = getFilterSmart (metadata, n)
     filter.name = getFilterSmartName (metadata, n)
     filter.disabled = getFilterSmartDisabled (metadata, n)
+    filter.targetable = getFilterSmartTargetable (metadata, n)
     filter.target = getFilterSmartTarget (metadata, n, om)
     filter.before = getFilterSmartBefore (metadata, n)
     filter.after = getFilterSmartAfter (metadata, n)
@@ -348,6 +372,21 @@ function module.is_filter_disabled (direction, link_group)
   for i, v in ipairs(module.filters) do
     if v.direction == direction and v.link_group == link_group then
       return v.disabled
+    end
+  end
+
+  return false
+end
+
+function module.is_filter_targetable (direction, link_group)
+  -- Make sure direction and link_group is valid
+  if direction == nil or link_group == nil then
+    return false
+  end
+
+  for i, v in ipairs(module.filters) do
+    if v.direction == direction and v.link_group == link_group then
+      return v.targetable
     end
   end
 

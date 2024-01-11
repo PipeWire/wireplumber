@@ -134,6 +134,15 @@ optional node properties on the main node:
   disabled filter will never be used in any circumstances. If the property is
   not set, wireplumber will consider the filter not disabled by default.
 
+- filter.smart.targetable:
+  Boolean indicating whether the filter can be directly linked with clients that
+  have a defined target (Eg: pw-play --target <filter-name>) or not. This can be
+  useful when a client wants to be linked with a filter that is in the middle of
+  the chain in order to bypass the filters that are placed before the selected
+  one. If the property is not set, wireplumber will consider the filter not
+  targetable by default, meaning filters will never by bypassed by clients, and
+  clients will always be linked with the first filter in the chain.
+
 - filter.smart.target:
   A JSON object that defines the matching properties of the filter's target node.
   A filter target can never be another filter node (wireplumber will ignore it),
@@ -173,6 +182,7 @@ The PipeWire configuration files for the 2 filters should be like this:
                     filter.smart = true
                     filter.smart.name = loopback-1
                     filter.smart.disabled = false
+                    filter.smart.targetable = false
                     filter.smart.before = [ loopback-2 ]
                 }
                 playback.props = {
@@ -199,6 +209,7 @@ The PipeWire configuration files for the 2 filters should be like this:
                     filter.smart = true
                     filter.smart.name = loopback-2
                     filter.smart.disabled = false
+                    filter.smart.targetable = false
                 }
                 playback.props = {
                     audio.position = [ FL FR ]
@@ -268,6 +279,7 @@ define the filters like this:
                     filter.smart = true
                     filter.smart.name = loopback-1
                     filter.smart.disabled = false
+                    filter.smart.targetable = false
                     filter.smart.before = [ loopback-2 ]
                     filter.smart.target = { node.name = "not-default-audio-device-name" }
                 }
@@ -295,6 +307,7 @@ define the filters like this:
                     filter.smart = true
                     filter.smart.name = loopback-2
                     filter.smart.disabled = false
+                    filter.smart.targetable = false
                 }
                 playback.props = {
                     audio.position = [ FL FR ]
