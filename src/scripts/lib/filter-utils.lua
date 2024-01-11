@@ -384,7 +384,7 @@ function module.get_filter_target (direction, link_group)
         v.link_group ~= link_group and
         not v.disabled and
         v.smart and
-        ((v.target == nil and v.target == filter.target) or
+        ((v.target == nil and filter.target == nil) or
             (v.target.id == filter.target.id)) and
         i > index then
       return v.main_si
@@ -396,28 +396,43 @@ function module.get_filter_target (direction, link_group)
 end
 
 function module.get_filter_from_target (direction, si_target)
-  -- Make sure direction and si_target are valid
-  if direction == nil or si_target == nil then
+  local target = si_target
+
+  -- Make sure direction is valid
+  if direction == nil then
     return nil
   end
+
+  -- If si_target is a filter, find it and use its target
+  if si_target then
+    local target_node = si_target:get_associated_proxy ("node")
+    local target_link_group = target_node.properties ["node.link-group"]
+    if target_link_group ~= nil then
+      local filter = nil
+      for i, v in ipairs(module.filters) do
+        if v.direction == direction and
+            v.link_group == target_link_group and
+            not v.disabled and
+            v.smart then
+          filter = v
+          break
+        end
+      end
+      if filter == nil then
+        return nil
+      end
+      target = filter.target
+    end
+  end
+
 
   -- Find the first filter matching target
   for i, v in ipairs(module.filters) do
     if v.direction == direction and
         not v.disabled and
         v.smart and
-        v.target ~= nil and
-        v.target.id == si_target.id then
-      return v.main_si
-    end
-  end
-
-  -- If not found, just return the first filter with nil target
-  for i, v in ipairs(module.filters) do
-    if v.direction == direction and
-        not v.disabled and
-        v.smart and
-        v.target == nil then
+        ((v.target ~= nil and v.target.id == target.id) or
+            (target == nil and v.target == nil)) then
       return v.main_si
     end
   end
