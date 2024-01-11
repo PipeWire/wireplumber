@@ -102,6 +102,7 @@ SimpleEventHook {
       end
     end
 
+    si_flags.has_defined_target = false
     if target_picked and target then
       log:info (si,
         string.format ("... defined target picked: %s (%s), can_passthrough:%s",
@@ -110,6 +111,7 @@ SimpleEventHook {
           tostring (can_passthrough)))
       si_flags.has_node_defined_target = node_defined
       si_flags.can_passthrough = can_passthrough
+      si_flags.has_defined_target = true
       event:set_data ("target", target)
     elseif target_value and dont_fallback then
       -- send error to client and destroy node if linger is not set
