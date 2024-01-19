@@ -11,7 +11,7 @@ cutils = require ("common-utils")
 futils = require ("filter-utils")
 log = Log.open_topic ("s-linking")
 
-function findFilterTarget (si, om, dont_move)
+function findFilterTarget (si, om)
   local node = si:get_associated_proxy ("node")
   local link_group = node.properties ["node.link-group"]
   local target_id = -1
@@ -28,7 +28,7 @@ function findFilterTarget (si, om, dont_move)
   end
 
   -- get the filter target
-  return futils.get_filter_target (direction, link_group, dont_move), true
+  return futils.get_filter_target (direction, link_group), true
 end
 
 SimpleEventHook {
@@ -49,14 +49,13 @@ SimpleEventHook {
     end
 
     local dont_fallback = cutils.parseBool (si_props ["target.dont-fallback"])
-    local dont_move = cutils.parseBool (si_props ["target.dont-move"])
     local target_picked = false
     local allow_fallback
 
     log:info (si, string.format ("handling item: %s (%s)",
         tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
 
-    target, is_smart_filter = findFilterTarget (si, om, dont_move)
+    target, is_smart_filter = findFilterTarget (si, om)
 
     local can_passthrough, passthrough_compatible
     if target then

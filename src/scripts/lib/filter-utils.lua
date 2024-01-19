@@ -106,11 +106,11 @@ local function getFilterSmartTargetable (metadata, node)
   return false
 end
 
-local function getFilterSmartTarget (metadata, node, om, dont_move)
+local function getFilterSmartTarget (metadata, node, om)
   -- Check metadata and fallback to properties
   local id = node["bound-id"]
   local value_str = nil
-  if metadata ~= nil and not dont_move then
+  if metadata ~= nil then
     value_str = metadata:find (id, "filter.smart.target")
   end
   if value_str == nil then
