@@ -37,8 +37,8 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-link")
  * \code
  * void
  * state_changed_callback (WpLink * self,
- *                         WpLinkState * old_state,
- *                         WpLinkState * new_state,
+ *                         WpLinkState old_state,
+ *                         WpLinkState new_state,
  *                         gpointer user_data)
  * \endcode
  *

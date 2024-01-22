@@ -63,8 +63,8 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-node")
  * \code
  * void
  * state_changed_callback (WpNode * self,
- *                         WpNodeState * old_state,
- *                         WpNodeState * new_state,
+ *                         WpNodeState old_state,
+ *                         WpNodeState new_state,
  *                         gpointer user_data)
  * \endcode
  *
