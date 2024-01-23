@@ -386,6 +386,7 @@ function CreateDeviceLoopbackSource (dev_name, dec_desc, dev_id)
   local args = Json.Object {
     ["capture.props"] = Json.Object {
       ["node.name"] = string.format ("bluez_capture.%s", dev_name),
+      ["media.class"] = "Stream/Input/Audio/Internal",
       ["node.description"] =
           string.format ("Bluetooth capture for %s", dec_desc),
       ["audio.channels"] = 1,
