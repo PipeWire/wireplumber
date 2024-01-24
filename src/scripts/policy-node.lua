@@ -292,14 +292,14 @@ function findDefinedTarget (properties)
   local metadata = config.move and metadata_om:lookup()
   local target_direction = getTargetDirection(properties)
   local target_key
-  local target_value
+  local target_value = "-1"
   local node_defined = false
 
   if properties["target.object"] ~= nil then
     target_value = properties["target.object"]
     target_key = "object.serial"
     node_defined = true
-  elseif properties["node.target"] ~= nil then
+  elseif properties["node.target"] ~= nil and properties["node.target"] ~= "-1" then
     target_value = properties["node.target"]
     target_key = "node.id"
     node_defined = true
@@ -313,7 +313,7 @@ function findDefinedTarget (properties)
       node_defined = false
     else
       id = metadata:find(properties["node.id"], "target.node")
-      if id ~= nil then
+      if id ~= nil and id ~= "-1" then
         target_value = id
         target_key = "node.id"
         node_defined = false
