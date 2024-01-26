@@ -142,22 +142,6 @@ is_persistent_settings_enabled (WpProperties *settings) {
 }
 
 static void
-on_settings_ready (WpSettings *s, GAsyncResult *res, gpointer data)
-{
-  WpSettingsPlugin *self = WP_SETTINGS_PLUGIN (data);
-  g_autoptr (GError) error = NULL;
-
-  wp_info_object (self, "wpsettings object ready");
-
-  if (!wp_object_activate_finish (WP_OBJECT (s), res, &error)) {
-    wp_debug_object (self, "wpsettings activation failed: %s", error->message);
-    return;
-  }
-
-  wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
-}
-
-static void
 on_metadata_activated (WpMetadata * m, GAsyncResult * res, gpointer user_data)
 {
   WpTransition *transition = WP_TRANSITION (user_data);
@@ -215,12 +199,7 @@ on_metadata_activated (WpMetadata * m, GAsyncResult * res, gpointer user_data)
   g_signal_connect_object (m, "changed", G_CALLBACK (on_metadata_changed),
       self, 0);
 
-  g_autoptr (WpSettings) settings = wp_settings_get_instance (core,
-      self->metadata_name);
-
-  wp_object_activate (WP_OBJECT (settings), WP_OBJECT_FEATURES_ALL, NULL,
-    (GAsyncReadyCallback) on_settings_ready, self);
-
+  wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
 }
 
 static void
@@ -310,7 +289,7 @@ wireplumber__module_init (WpCore * core, WpSpaJson * args, GError ** error)
 {
   g_autofree gchar *metadata_name = NULL;
   if (args)
-    wp_spa_json_object_get (args, "metadata-name", "s", &metadata_name, NULL);
+    wp_spa_json_object_get (args, "metadata.name", "s", &metadata_name, NULL);
 
   return G_OBJECT (g_object_new (wp_settings_plugin_get_type (),
       "name", "settings",

@@ -598,7 +598,7 @@ ensure_no_media_session_task_idle (GTask * task)
 }
 
 static void
-ensure_no_media_session (GTask * task, WpCore * core)
+ensure_no_media_session (GTask * task, WpCore * core, WpSpaJson * args)
 {
   WpObjectManager *om = wp_object_manager_new ();
 
@@ -619,7 +619,7 @@ ensure_no_media_session (GTask * task, WpCore * core)
 }
 
 static void
-load_export_core (GTask * task, WpCore * core)
+load_export_core (GTask * task, WpCore * core, WpSpaJson * args)
 {
   g_autofree gchar *export_core_name = NULL;
   g_autoptr (WpCore) export_core = NULL;
@@ -641,12 +641,48 @@ load_export_core (GTask * task, WpCore * core)
   g_task_return_pointer (task, g_steal_pointer (&export_core), g_object_unref);
 }
 
+static void
+on_settings_ready (WpSettings *s, GAsyncResult *res, gpointer data)
+{
+  GTask *task = G_TASK (data);
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_object_activate_finish (WP_OBJECT (s), res, &error)) {
+    g_task_return_new_error (task,
+        WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "failed to activate settings instance: %s", error->message);
+    return;
+  }
+
+  g_task_return_pointer (task, NULL, NULL);
+}
+
+static void
+load_settings_instance (GTask * task, WpCore * core, WpSpaJson * args)
+{
+  g_autofree gchar *metadata_name = NULL;
+  if (args)
+    wp_spa_json_object_get (args, "metadata.name", "s", &metadata_name, NULL);
+  if (!metadata_name)
+    metadata_name = g_strdup ("sm-settings");
+
+  wp_info_object (core, "loading settings instance '%s'...", metadata_name);
+
+  g_autoptr (WpSettings) settings = wp_settings_get_instance (core,
+      metadata_name);
+
+  wp_object_activate_closure (WP_OBJECT (settings), WP_OBJECT_FEATURES_ALL, NULL,
+      g_cclosure_new (G_CALLBACK (on_settings_ready), g_object_ref (task),
+          (GClosureNotify) g_object_unref));
+}
+
 static const struct {
   const gchar * name;
-  void (*load) (GTask *, WpCore *);
+  void (*load) (GTask *, WpCore *, WpSpaJson *);
 } builtin_components[] = {
   { "ensure-no-media-session", ensure_no_media_session },
   { "export-core", load_export_core },
+  { "settings-instance", load_settings_instance },
 };
 
 /*** WpInternalCompLoader ***/
@@ -796,7 +832,7 @@ wp_internal_comp_loader_load (WpComponentLoader * self, WpCore * core,
     else if (g_str_equal (type, "built-in")) {
       for (guint i = 0; i < G_N_ELEMENTS (builtin_components); i++) {
         if (g_str_equal (component, builtin_components[i].name)) {
-          builtin_components[i].load (task, core);
+          builtin_components[i].load (task, core, args);
           return;
         }
       }
