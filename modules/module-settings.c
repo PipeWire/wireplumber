@@ -47,7 +47,7 @@ G_DECLARE_FINAL_TYPE (WpSettingsPlugin, wp_settings_plugin,
 G_DEFINE_TYPE (WpSettingsPlugin, wp_settings_plugin, WP_TYPE_PLUGIN)
 
 #define NAME "sm-settings"
-#define PERSISTENT_SETTING "persistent.settings"
+#define PERSISTENT_SETTING "settings.persistent"
 
 static void
 wp_settings_plugin_init (WpSettingsPlugin * self)
