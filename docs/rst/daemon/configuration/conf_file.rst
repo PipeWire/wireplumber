@@ -89,6 +89,8 @@ Examples of valid SPA-JSON files:
      "val1", "val2", "val3"
    ]
 
+.. _config_conf_file_fragments:
+
 Fragments
 ---------
 

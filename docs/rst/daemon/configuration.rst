@@ -21,6 +21,7 @@ the various options available.
    configuration/conf_file.rst
    configuration/components_and_profiles.rst
    configuration/features.rst
+   configuration/configuration_option_types.rst
    configuration/settings.rst
    configuration/locations.rst
    configuration/main.rst
