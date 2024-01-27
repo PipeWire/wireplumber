@@ -11,6 +11,9 @@ can be confusing to go through them. This list here is meant to be a quick
 reference for the most common ones that actually make sense to be toggled in
 a configuration file in order to customize WirePlumber's behavior.
 
+For more information on what features are and how they work, refer to the
+previous section: :ref:`config_components_and_profiles`.
+
 Hardware monitors
 -----------------
 
