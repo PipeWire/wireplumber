@@ -221,6 +221,7 @@ load_components (ScriptRunnerFixture *f, gconstpointer argv)
   load_component (f, "libwireplumber-module-lua-scripting", "module");
 
   load_component (f, "libwireplumber-module-settings", "module");
+  load_component (f, "settings-instance", "built-in");
 
   if (g_str_equal (test_suite, "script-tests")) {
 
