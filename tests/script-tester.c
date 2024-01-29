@@ -185,32 +185,14 @@ on_plugin_loaded (WpCore * core, GAsyncResult * res, ScriptRunnerFixture *f)
 static void
 load_component (ScriptRunnerFixture *f, const gchar *name, const gchar *type)
 {
-  g_autofree gchar *component_name = NULL;
-  g_autofree gchar *plugin_name = NULL;
-  g_autoptr (GError) error = NULL;
   g_autoptr (WpSpaJson) arguments = NULL;
-
-  if ((g_str_equal (type, "script/lua")) &&
-      (g_file_test (name, G_FILE_TEST_EXISTS))) {
-    g_autofree gchar *filename = g_path_get_basename (name);
-    plugin_name = g_strdup_printf ("script:%s", (const gchar *) filename);
-    component_name = g_strdup (name);
-
-  } else if (g_str_equal (type, "script/lua")) {
-    component_name = g_strdup (name);
-    plugin_name = g_strdup_printf ("script:%s", (const gchar *) name);
-
-  } else {
-    component_name = g_strdup_printf ("libwireplumber-module-%s", name);
-    plugin_name = g_strdup (name);
-  }
 
   if (g_str_equal (name, "metadata.lua")) {
     arguments = wp_spa_json_new_object ("metadata.name", "s", "default",
         NULL);
   }
 
-  wp_core_load_component (f->base.core, component_name, type, arguments, NULL, NULL,
+  wp_core_load_component (f->base.core, name, type, arguments, NULL, NULL,
       (GAsyncReadyCallback) on_plugin_loaded, f);
   g_main_loop_run (f->base.loop);
 }
@@ -236,17 +218,17 @@ load_components (ScriptRunnerFixture *f, gconstpointer argv)
   /* TODO: we could do some more stuff here to provide the test script with an
      API to deal with the main loop and test asynchronous stuff, if necessary */
 
-  load_component (f, "lua-scripting", "module");
+  load_component (f, "libwireplumber-module-lua-scripting", "module");
 
-  load_component (f, "settings", "module");
+  load_component (f, "libwireplumber-module-settings", "module");
 
   if (g_str_equal (test_suite, "script-tests")) {
 
-    load_component (f, "standard-event-source", "module");
+    load_component (f, "libwireplumber-module-standard-event-source", "module");
 
-    load_component (f, "si-audio-adapter", "module");
-    load_component (f, "si-standard-link", "module");
-    load_component (f, "si-audio-virtual", "module");
+    load_component (f, "libwireplumber-module-si-audio-adapter", "module");
+    load_component (f, "libwireplumber-module-si-standard-link", "module");
+    load_component (f, "libwireplumber-module-si-audio-virtual", "module");
 
     load_component (f, "default-nodes/apply-default-node.lua", "script/lua");
     load_component (f, "default-nodes/state-default-nodes.lua", "script/lua");
@@ -254,7 +236,7 @@ load_components (ScriptRunnerFixture *f, gconstpointer argv)
     load_component (f, "default-nodes/rescan.lua", "script/lua");
 
     load_component (f, "metadata.lua", "script/lua");
-    load_component (f, "default-nodes-api", "module");
+    load_component (f, "libwireplumber-module-default-nodes-api", "module");
 
     load_component (f, "node/create-item.lua", "script/lua");
 
