@@ -470,7 +470,7 @@ function module.get_filter_from_target (direction, si_target)
     if v.direction == direction and
         not v.disabled and
         v.smart and
-        ((v.target ~= nil and v.target.id == target.id) or
+        ((v.target ~= nil and target ~= nil and v.target.id == target.id) or
             (target == nil and v.target == nil)) then
       return v.main_si
     end
