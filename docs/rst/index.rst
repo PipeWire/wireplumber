@@ -22,6 +22,13 @@ Table of Contents
 
 .. toctree::
    :maxdepth: 2
+   :caption: WirePlumber's Policies
+
+   policies/linking.rst
+   policies/smart_filters.rst
+
+.. toctree::
+   :maxdepth: 2
    :caption: The WirePlumber Library
 
    library/c_api.rst

@@ -5,6 +5,7 @@ sphinx_files += files(
 
 subdir('daemon')
 subdir('design')
+subdir('policies')
 subdir('library')
 subdir('scripting')
 subdir('resources')
