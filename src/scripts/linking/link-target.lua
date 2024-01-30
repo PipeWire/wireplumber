@@ -38,7 +38,7 @@ AsyncEventHook {
         local si_link = nil
         local passthrough = si_flags.can_passthrough
 
-        log:info (si, string.format ("handling item: %s (%s)",
+        log:info (si, string.format ("handling item %d: %s (%s)", si.id,
             tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
 
         local exclusive = cutils.parseBool (si_props ["node.exclusive"])

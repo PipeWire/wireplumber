@@ -31,7 +31,7 @@ SimpleEventHook {
       return
     end
 
-    log:info (si, string.format ("handling item: %s (%s)",
+    log:info (si, string.format ("handling item %d: %s (%s)", si.id,
         tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
 
     local metadata = settings.allow_moving_streams and cutils.get_default_metadata_object ()

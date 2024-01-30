@@ -77,7 +77,7 @@ SimpleEventHook {
       return
     end
 
-    log:info (si, string.format ("handling item: %s (%s)",
+    log:info (si, string.format ("handling item %d: %s (%s)", si.id,
         tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
 
     -- get target media class

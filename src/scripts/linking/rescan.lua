@@ -70,8 +70,7 @@ function unhandleLinkable (si, om)
     return
   end
 
-  log.info (si, string.format ("unhandling item: %s (%s)",
-      tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
+  log.info (si, string.format ("unhandling item %d", si_id))
 
   -- iterate over all the links in the graph and
   -- remove any links associated with this item
