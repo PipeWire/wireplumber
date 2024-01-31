@@ -70,7 +70,7 @@ function unhandleLinkable (si, om)
     return
   end
 
-  log.info (si, string.format ("unhandling item %d", si_id))
+  log:info (si, string.format ("unhandling item %d", si_id))
 
   -- iterate over all the links in the graph and
   -- remove any links associated with this item
@@ -89,7 +89,7 @@ function unhandleLinkable (si, om)
       end
 
       silink:remove ()
-      log.info (silink, "... link removed")
+      log:info (silink, "... link removed")
     end
   end
 
@@ -125,7 +125,7 @@ function handleLinkables (source)
     -- check if we need to link this node at all
     local autoconnect = cutils.parseBool (si_props ["node.autoconnect"])
     if not autoconnect then
-      log.debug (si, tostring (si_props ["node.name"]) .. " does not need to be autoconnected")
+      log:debug (si, tostring (si_props ["node.name"]) .. " does not need to be autoconnected")
       goto skip_linkable
     end
 
