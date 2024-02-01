@@ -11,7 +11,6 @@ local settings_manager = require ("settings-manager")
 local defaults = {
   ["allow-moving-streams"] = true,
   ["follow-default-target"] = true,
-  ["filter-forward-format"] = false,
 }
 
 return settings_manager.new ("linking.", defaults)

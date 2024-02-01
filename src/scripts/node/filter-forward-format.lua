@@ -11,8 +11,8 @@
 -- FIXME: this script can be further improved
 
 lutils = require ("linking-utils")
-settings = require ("settings-linking")
-log = Log.open_topic ("s-linking")
+settings = require ("settings-node")
+log = Log.open_topic ("s-node")
 
 function findAssociatedLinkGroupNode (si)
   local si_props = si.properties
@@ -80,7 +80,7 @@ function onLinkGroupPortsStateChanged (si, old_state, new_state)
 end
 
 SimpleEventHook {
-  name = "linking/filter-forward-format",
+  name = "node/filter-forward-format",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "session-item-added" },
@@ -93,7 +93,7 @@ SimpleEventHook {
     local si = event:get_subject ()
 
     -- Forward filters ports format to associated virtual devices if enabled
-    if settings.filter_forward_format then
+    if settings["filter.forward-format"] then
       local si_props = si.properties
       local link_group = si_props ["node.link-group"]
       local si_flags = lutils:get_flags (si.id)

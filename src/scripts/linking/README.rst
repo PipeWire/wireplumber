@@ -49,11 +49,6 @@ processed while targets are being selected.
      - metadata-changed
      - schedules rescan-for-linking when node target metadata properties are changed
 
-   * - linking/filter-forward-format
-     - filter-forward-format.lua
-     - filter stream SI added
-     - configures filter nodes to have the same port format on both ends
-
    * - linking/rescan-virtual-links
      - rescan-virtual-links.lua
      - link SI added, removed or metadata-changed

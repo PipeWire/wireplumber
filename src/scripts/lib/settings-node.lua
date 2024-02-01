@@ -18,6 +18,8 @@ local defaults = {
   ["stream.default-playback-volume"] = 1.0,
   ["stream.default-capture-volume"] = 1.0,
 
+  ["filter.forward-format"] = false,
+
   ["restore-default-targets"] = true,
 }
 
