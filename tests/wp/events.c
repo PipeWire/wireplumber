@@ -91,14 +91,14 @@ test_events_order (TestFixture *self, gconstpointer user_data)
   g_assert_cmpint (self->hooks_executed->len, == , 4);
   g_assert_cmpint (self->events->len, == , 4);
 
-  g_assert (hook_a == self->hooks_executed->pdata [0]);
-  g_assert (event3 == self->events->pdata [0]);
-  g_assert (hook_a == self->hooks_executed->pdata [1]);
-  g_assert (event1 == self->events->pdata [1]);
-  g_assert (hook_a == self->hooks_executed->pdata [2]);
-  g_assert (event2 == self->events->pdata [2]);
-  g_assert (hook_quit == self->hooks_executed->pdata [3]);
-  g_assert (event4 == self->events->pdata [3]);
+  g_assert_true (hook_a == self->hooks_executed->pdata [0]);
+  g_assert_true (event3 == self->events->pdata [0]);
+  g_assert_true (hook_a == self->hooks_executed->pdata [1]);
+  g_assert_true (event1 == self->events->pdata [1]);
+  g_assert_true (hook_a == self->hooks_executed->pdata [2]);
+  g_assert_true (event2 == self->events->pdata [2]);
+  g_assert_true (hook_quit == self->hooks_executed->pdata [3]);
+  g_assert_true (event4 == self->events->pdata [3]);
 }
 
 static void
@@ -169,14 +169,14 @@ test_events_basic (TestFixture *self, gconstpointer user_data)
   g_main_loop_run (self->base.loop);
   g_assert_cmpint (self->hooks_executed->len, == , 4);
   g_assert_cmpint (self->events->len, == , 4);
-  g_assert (hook_c == self->hooks_executed->pdata [0]);
-  g_assert (event1 == self->events->pdata [0]);
-  g_assert (hook_a == self->hooks_executed->pdata [1]);
-  g_assert (event1 == self->events->pdata [1]);
-  g_assert (hook_b == self->hooks_executed->pdata [2]);
-  g_assert (event1 == self->events->pdata [2]);
-  g_assert (hook_quit == self->hooks_executed->pdata [3]);
-  g_assert (event1 == self->events->pdata [3]);
+  g_assert_true (hook_c == self->hooks_executed->pdata [0]);
+  g_assert_true (event1 == self->events->pdata [0]);
+  g_assert_true (hook_a == self->hooks_executed->pdata [1]);
+  g_assert_true (event1 == self->events->pdata [1]);
+  g_assert_true (hook_b == self->hooks_executed->pdata [2]);
+  g_assert_true (event1 == self->events->pdata [2]);
+  g_assert_true (hook_quit == self->hooks_executed->pdata [3]);
+  g_assert_true (event1 == self->events->pdata [3]);
 
   g_ptr_array_remove_range (self->hooks_executed, 0, self->hooks_executed->len);
   g_assert_cmpint (self->hooks_executed->len, == , 0);
@@ -197,16 +197,16 @@ test_events_basic (TestFixture *self, gconstpointer user_data)
   g_main_loop_run (self->base.loop);
   g_assert_cmpint (self->hooks_executed->len, == , 5);
   g_assert_cmpint (self->events->len, == , 5);
-  g_assert (hook_d == self->hooks_executed->pdata [0]);
-  g_assert (event2 == self->events->pdata [0]);
-  g_assert (hook_c == self->hooks_executed->pdata [1]);
-  g_assert (event1 == self->events->pdata [1]);
-  g_assert (hook_a == self->hooks_executed->pdata [2]);
-  g_assert (event1 == self->events->pdata [2]);
-  g_assert (hook_b == self->hooks_executed->pdata [3]);
-  g_assert (event1 == self->events->pdata [3]);
-  g_assert (hook_quit == self->hooks_executed->pdata [4]);
-  g_assert (event1 == self->events->pdata [4]);
+  g_assert_true (hook_d == self->hooks_executed->pdata [0]);
+  g_assert_true (event2 == self->events->pdata [0]);
+  g_assert_true (hook_c == self->hooks_executed->pdata [1]);
+  g_assert_true (event1 == self->events->pdata [1]);
+  g_assert_true (hook_a == self->hooks_executed->pdata [2]);
+  g_assert_true (event1 == self->events->pdata [2]);
+  g_assert_true (hook_b == self->hooks_executed->pdata [3]);
+  g_assert_true (event1 == self->events->pdata [3]);
+  g_assert_true (hook_quit == self->hooks_executed->pdata [4]);
+  g_assert_true (event1 == self->events->pdata [4]);
 
   g_ptr_array_remove_range (self->hooks_executed, 0, self->hooks_executed->len);
   g_assert_cmpint (self->hooks_executed->len, == , 0);
@@ -231,10 +231,10 @@ test_events_basic (TestFixture *self, gconstpointer user_data)
   g_main_loop_run (self->base.loop);
   g_assert_cmpint (self->hooks_executed->len, == , 2);
   g_assert_cmpint (self->events->len, == , 2);
-  g_assert (hook_d == self->hooks_executed->pdata [0]);
-  g_assert (event2 == self->events->pdata [0]);
-  g_assert (hook_quit == self->hooks_executed->pdata [1]);
-  g_assert (event3 == self->events->pdata [1]);
+  g_assert_true (hook_d == self->hooks_executed->pdata [0]);
+  g_assert_true (event2 == self->events->pdata [0]);
+  g_assert_true (hook_quit == self->hooks_executed->pdata [1]);
+  g_assert_true (event3 == self->events->pdata [1]);
 }
 
 enum {
@@ -337,8 +337,8 @@ test_events_async_hook (TestFixture *self, gconstpointer user_data)
   g_assert_cmpint (self->hooks_executed->len, == , 0);
   g_main_loop_run (self->base.loop);
   g_assert_cmpint (self->hooks_executed->len, == , 2);
-  g_assert (hook_c == self->hooks_executed->pdata [0]);
-  g_assert (async_hook_execute_step == self->hooks_executed->pdata [1]);
+  g_assert_true (hook_c == self->hooks_executed->pdata [0]);
+  g_assert_true (async_hook_execute_step == self->hooks_executed->pdata [1]);
 
   g_assert_nonnull (self->transition);
   wp_transition_advance (self->transition);
@@ -347,11 +347,11 @@ test_events_async_hook (TestFixture *self, gconstpointer user_data)
   g_assert_cmpint (self->hooks_executed->len, == , 2);
   g_main_loop_run (self->base.loop);
   g_assert_cmpint (self->hooks_executed->len, == , 5);
-  g_assert (hook_c == self->hooks_executed->pdata [0]);
-  g_assert (async_hook_execute_step == self->hooks_executed->pdata [1]);
-  g_assert (hook_a == self->hooks_executed->pdata [2]);
-  g_assert (hook_b == self->hooks_executed->pdata [3]);
-  g_assert (hook_quit == self->hooks_executed->pdata [4]);
+  g_assert_true (hook_c == self->hooks_executed->pdata [0]);
+  g_assert_true (async_hook_execute_step == self->hooks_executed->pdata [1]);
+  g_assert_true (hook_a == self->hooks_executed->pdata [2]);
+  g_assert_true (hook_b == self->hooks_executed->pdata [3]);
+  g_assert_true (hook_quit == self->hooks_executed->pdata [4]);
 }
 
 static void
@@ -417,11 +417,11 @@ test_events_glob_deps (TestFixture *self, gconstpointer user_data)
   g_assert_cmpint (self->hooks_executed->len, == , 0);
   g_main_loop_run (self->base.loop);
   g_assert_cmpint (self->hooks_executed->len, == , 5);
-  g_assert (hook_c == self->hooks_executed->pdata [0]);
-  g_assert (hook_a == self->hooks_executed->pdata [1]);
-  g_assert (hook_b == self->hooks_executed->pdata [2]);
-  g_assert (hook_d == self->hooks_executed->pdata [3]);
-  g_assert (hook_quit == self->hooks_executed->pdata [4]);
+  g_assert_true (hook_c == self->hooks_executed->pdata [0]);
+  g_assert_true (hook_a == self->hooks_executed->pdata [1]);
+  g_assert_true (hook_b == self->hooks_executed->pdata [2]);
+  g_assert_true (hook_d == self->hooks_executed->pdata [3]);
+  g_assert_true (hook_quit == self->hooks_executed->pdata [4]);
 }
 
 gint
