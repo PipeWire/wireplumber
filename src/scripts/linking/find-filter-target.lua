@@ -48,7 +48,7 @@ SimpleEventHook {
       return
     end
 
-    local dont_fallback = cutils.parseBool (si_props ["target.dont-fallback"])
+    local dont_fallback = cutils.parseBool (si_props ["node.dont-fallback"])
     local target_picked = false
     local allow_fallback
 
@@ -76,7 +76,7 @@ SimpleEventHook {
       event:set_data ("target", target)
     elseif is_smart_filter and dont_fallback then
       -- send error to client and destroy node if linger is not set
-      local linger = cutils.parseBool (si_props ["target.linger"])
+      local linger = cutils.parseBool (si_props ["node.linger"])
       if not linger then
         local node = si:get_associated_proxy ("node")
         lutils.sendClientError (event, node, "smart filter defined target not found")

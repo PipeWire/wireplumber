@@ -99,7 +99,7 @@ properties on the nodes.
   an error to the client. The logic is implemented in the ``linking/prepare-link.lua``
   Lua script.
 
-- **target.dont-move**:
+- **node.dont-move**:
 
   Boolean indicating whether the stream node should not be movable or not at runtime
   using the metadata. If a stream node is not movable, it means that users cannot
@@ -109,7 +109,7 @@ properties on the nodes.
   always move, and therefore link the stream node to a new target if it is defined and
   updated in the ``target.object`` metadata key.
 
-- **target.dont-fallback**:
+- **node.dont-fallback**:
 
   Boolean indicating whether the stream node should not fallback to a different
   target if its defined target does not exist (the one defined with the ``target.object``
@@ -119,17 +119,17 @@ properties on the nodes.
   stream node, WirePlumber will always fallback to the default or best target if
   the defined target was not found.
 
-- **target.linger**:
+- **node.linger**:
 
   Boolean indicating whether the stream node should linger or not if its defined
-  target was not found and the ``target.dont-fallback`` is set to true. Therefore, if
+  target was not found and the ``node.dont-fallback`` is set to true. Therefore, if
   this property is set to ``true``, the defined target was not found, and the
-  ``target.dont-fallback`` is set to true, WirePlumber won't send a "defined target not found"
+  ``node.dont-fallback`` is set to true, WirePlumber won't send a "defined target not found"
   error to the client, and won't destroy the stream node. This is useful if we want
   the stream to wait (without processing any data) until its defined target becomes
   available. By default it is set to ``false``, so if the property is not present in the
   stream node, WirePlumber will always destroy the node and send an error to the client
-  if its target was not found and ``target.dont-fallback`` was set to true.
+  if its target was not found and ``node.dont-fallback`` was set to true.
 
 
 Linking settings

@@ -30,9 +30,9 @@ function configProperties (node)
     ["priority.session"] = np ["priority.session"],
     ["device.id"] = np ["device.id"],
     ["card.profile.device"] = np ["card.profile.device"],
-    ["target.dont-fallback"] = np ["target.dont-fallback"],
-    ["target.dont-move"] = np ["target.dont-move"],
-    ["target.linger"] = np ["target.linger"],
+    ["node.dont-fallback"] = np ["node.dont-fallback"],
+    ["node.dont-move"] = np ["node.dont-move"],
+    ["node.linger"] = np ["node.linger"],
   }
 
   for k, v in pairs (np) do

@@ -399,8 +399,8 @@ function CreateDeviceLoopbackSource (dev_name, dec_desc, dev_id)
       ["bluez5.loopback"] = true,
       ["stream.dont-remix"] = true,
       ["node.passive"] = true,
-      ["target.dont-fallback"] = true,
-      ["target.linger"] = true
+      ["node.dont-fallback"] = true,
+      ["node.linger"] = true
     },
     ["playback.props"] = Json.Object {
       ["node.name"] = string.format ("bluez_source.%s", dev_name),
