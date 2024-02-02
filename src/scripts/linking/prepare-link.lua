@@ -104,6 +104,13 @@ SimpleEventHook {
         return
       end
 
+      local linger = cutils.parseBool (si_props ["node.linger"])
+
+      if linger then
+        log:info (si, "... node linger")
+        return
+      end
+
       lutils.sendClientError (event, node,
           reconnect and "no target node available" or "target not found")
 
