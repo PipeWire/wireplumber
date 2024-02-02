@@ -11,6 +11,7 @@
 #include <locale.h>
 #include <spa/utils/defs.h>
 #include <spa/utils/string.h>
+#include <pipewire/pipewire.h>
 #include <pipewire/keys.h>
 #include <pipewire/extensions/session-manager/keys.h>
 
@@ -224,6 +225,7 @@ struct print_context
   WpCtl *self;
   guint32 default_node;
   WpPlugin *mixer_api;
+  GHashTable *printed_filters;
 };
 
 static void
@@ -282,6 +284,50 @@ print_dev_node (const GValue *item, gpointer data)
 
   printf (TREE_INDENT_LINE "%c %4u. %-35s", is_default ? '*' : ' ', id, name);
   print_controls (id, context);
+}
+
+static void
+print_filter_node (const GValue *item, gpointer data)
+{
+  struct print_context *context = data;
+  WpPipewireObject *obj = g_value_get_object (item);
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) val = G_VALUE_INIT;
+  const gchar *link_group;
+
+  /* Skip already printed filters */
+  link_group = wp_pipewire_object_get_property (obj, PW_KEY_NODE_LINK_GROUP);
+  if (g_hash_table_contains (context->printed_filters, link_group))
+    return;
+
+  /* Print all nodes for this link_group */
+  printf (TREE_INDENT_LINE "      - %-60s\n", link_group);
+  it = wp_object_manager_new_filtered_iterator (context->self->om,
+      WP_TYPE_NODE,
+      WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_LINK_GROUP, "=s", link_group,
+      NULL);
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    WpPipewireObject *node = g_value_get_object (&val);
+    guint32 id = wp_proxy_get_bound_id (WP_PROXY (node));
+    const gchar *name, *media_class;
+
+    name = wp_pipewire_object_get_property (node, PW_KEY_NODE_NAME);
+    if (cmdline.status.display_nicknames)
+      name = wp_pipewire_object_get_property (node, PW_KEY_NODE_NICK);
+    else if (cmdline.status.display_names)
+      name = wp_pipewire_object_get_property (node, PW_KEY_NODE_NAME);
+    if (!name)
+      name = wp_pipewire_object_get_property (node, PW_KEY_NODE_DESCRIPTION);
+    media_class = wp_pipewire_object_get_property (node, PW_KEY_MEDIA_CLASS);
+
+    printf (TREE_INDENT_LINE "%c      %4u. %-60s [%s]\n",
+        context->default_node == id ? '*' : ' ', id, name, media_class);
+  }
+  g_clear_pointer (&it, wp_iterator_unref);
+
+  /* Insert link-group in table to not print them again */
+  g_hash_table_insert (context->printed_filters, g_strdup (link_group),
+      NULL);
 }
 
 static void
@@ -408,6 +454,7 @@ status_run (WpCtl * self)
           WP_TYPE_NODE,
           WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "*/Sink*",
           WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
+          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_LINK_GROUP, "-",
           NULL);
       wp_iterator_foreach (child_it, print_dev_node, (gpointer) &context);
       g_clear_pointer (&child_it, wp_iterator_unref);
@@ -424,9 +471,24 @@ status_run (WpCtl * self)
           WP_TYPE_NODE,
           WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "*/Source*",
           WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
+          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_LINK_GROUP, "-",
           NULL);
       wp_iterator_foreach (child_it, print_dev_node, (gpointer) &context);
       g_clear_pointer (&child_it, wp_iterator_unref);
+
+      printf (TREE_INDENT_LINE "\n");
+
+      printf (TREE_INDENT_NODE "Filters:\n");
+      context.printed_filters = g_hash_table_new_full (g_str_hash,
+          g_str_equal, g_free, NULL);
+      child_it = wp_object_manager_new_filtered_iterator (self->om,
+          WP_TYPE_NODE,
+          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
+          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_LINK_GROUP, "+",
+          NULL);
+      wp_iterator_foreach (child_it, print_filter_node, (gpointer) &context);
+      g_clear_pointer (&child_it, wp_iterator_unref);
+      g_clear_pointer (&context.printed_filters, g_hash_table_unref);
 
       printf (TREE_INDENT_LINE "\n");
 
@@ -435,6 +497,7 @@ status_run (WpCtl * self)
           WP_TYPE_NODE,
           WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "Stream/*",
           WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
+          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_LINK_GROUP, "-",
           NULL);
       wp_iterator_foreach (child_it, print_stream_node, self);
       g_clear_pointer (&child_it, wp_iterator_unref);
