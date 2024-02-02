@@ -30,10 +30,12 @@ struct _WpSettingsPlugin
 
   /* Props */
   gchar *metadata_name;
+  gchar *persistent_metadata_name;
 
   WpImplMetadata *impl_metadata;
+  WpImplMetadata *persistent_impl_metadata;
   WpState *state;
-  WpProperties *settings;
+  WpProperties *persistent_settings;
 };
 
 enum {
@@ -47,7 +49,6 @@ G_DECLARE_FINAL_TYPE (WpSettingsPlugin, wp_settings_plugin,
 G_DEFINE_TYPE (WpSettingsPlugin, wp_settings_plugin, WP_TYPE_PLUGIN)
 
 #define NAME "sm-settings"
-#define PERSISTENT_SETTING "settings.persistent"
 
 static void
 wp_settings_plugin_init (WpSettingsPlugin * self)
@@ -55,25 +56,19 @@ wp_settings_plugin_init (WpSettingsPlugin * self)
 }
 
 static void
-on_metadata_changed (WpMetadata *m, guint32 subject,
-   const gchar *setting, const gchar *type, const gchar *new_value, gpointer d)
+on_persistent_metadata_changed (WpMetadata *m, guint32 subject,
+   const gchar *key, const gchar *type, const gchar *value, gpointer d)
 {
-  WpSettingsPlugin *self = WP_SETTINGS_PLUGIN(d);
+  WpSettingsPlugin *self = WP_SETTINGS_PLUGIN (d);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
-  const gchar *old_value = wp_properties_get (self->settings, setting);
 
-  if (!old_value) {
-    wp_info_object (self, "new setting defined \"%s\" = \"%s\"",
-        setting, new_value);
-  } else {
-    wp_info_object (self, "setting \"%s\" new_value changed from \"%s\" ->"
-        " \"%s\"", setting, old_value, new_value);
-  }
+  /* Update persistent settings with new value and timeout save it */
+  wp_properties_set (self->persistent_settings, key, value);
+  wp_info_object (self, "new persistent setting updated: %s = %s", key, value);
+  wp_state_save_after_timeout (self->state, core, self->persistent_settings);
 
-  wp_properties_set (self->settings, setting, new_value);
-
-  /* update the state */
-  wp_state_save_after_timeout (self->state, core, self->settings);
+  /* Also update current settings with new value */
+  wp_metadata_set (WP_METADATA (self->impl_metadata), 0, key, type, value);
 }
 
 WpProperties *
@@ -124,25 +119,9 @@ load_configuration_settings (WpSettingsPlugin *self)
   return g_steal_pointer (&res);
 }
 
-static gboolean
-is_persistent_settings_enabled (WpProperties *settings) {
-  const gchar *val_str;
-  g_autoptr (WpSpaJson) val = NULL;
-  gboolean res = FALSE;
-
-  val_str = wp_properties_get (settings, PERSISTENT_SETTING);
-  if (!val_str)
-    return FALSE;
-
-  val = wp_spa_json_new_wrap_string (val_str);
-  if (val && !wp_spa_json_parse_boolean (val, &res))
-    wp_warning ("Could not parse " PERSISTENT_SETTING " in main configuration");
-
-  return res;
-}
-
 static void
-on_metadata_activated (WpMetadata * m, GAsyncResult * res, gpointer user_data)
+on_metadata_activated (WpMetadata * m, GAsyncResult * res,
+    gpointer user_data)
 {
   WpTransition *transition = WP_TRANSITION (user_data);
   WpSettingsPlugin *self = wp_transition_get_source_object (transition);
@@ -168,49 +147,63 @@ on_metadata_activated (WpMetadata * m, GAsyncResult * res, gpointer user_data)
     return;
   }
 
-  /* Don't use configuration settings if persistent settings is enabled */
-  if (!is_persistent_settings_enabled (config_settings)) {
-    wp_info_object (self, PERSISTENT_SETTING
-       " is disabled, current configuration file settings will be used");
+  /* Update the configuration properties with persistent settings */
+  wp_properties_update (config_settings, self->persistent_settings);
 
-    g_clear_pointer (&self->settings, wp_properties_unref);
-    self->settings = g_steal_pointer (&config_settings);
-    wp_state_save_after_timeout (self->state, core, self->settings);
-  } else {
-    wp_info_object (self, PERSISTENT_SETTING
-       " is enabled, current saved settings will be used");
-  }
-
-  for (it = wp_properties_new_iterator (self->settings);
+  /* Populate settings metadata */
+  for (it = wp_properties_new_iterator (config_settings);
       wp_iterator_next (it, &item);
       g_value_unset (&item)) {
     WpPropertiesItem *pi = g_value_get_boxed (&item);
-
-    const gchar *setting = wp_properties_item_get_key (pi);
+    const gchar *key = wp_properties_item_get_key (pi);
     const gchar *value = wp_properties_item_get_value (pi);
 
-    wp_debug_object (self, "%s(%lu) = %s", setting, strlen(value), value);
-    wp_metadata_set (m, 0, setting, "Spa:String:JSON", value);
+    wp_debug_object (self, "adding setting to %s metadata: %s = %s",
+        self->metadata_name, key, value);
+    wp_metadata_set (m, 0, key, "Spa:String:JSON", value);
   }
-  wp_info_object (self, "loaded settings(%d) to \"%s\" metadata",
-      wp_properties_get_count (self->settings), self->metadata_name);
-
-  /* monitor changes in metadata. */
-  g_signal_connect_object (m, "changed", G_CALLBACK (on_metadata_changed),
-      self, 0);
 
   wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
 }
 
 static void
-wp_settings_plugin_enable (WpPlugin * plugin, WpTransition * transition)
+on_persistent_metadata_activated (WpMetadata * m, GAsyncResult * res,
+    gpointer user_data)
 {
-  WpSettingsPlugin * self = WP_SETTINGS_PLUGIN (plugin);
-  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
-  g_return_if_fail (core);
+  WpTransition *transition = WP_TRANSITION (user_data);
+  WpSettingsPlugin *self = wp_transition_get_source_object (transition);
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
+  g_autoptr (GError) error = NULL;
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) item = G_VALUE_INIT;
 
+  if (!wp_object_activate_finish (WP_OBJECT (m), res, &error)) {
+    g_prefix_error (&error, "Failed to activate \"%s\": "
+        "Metadata object ", self->metadata_name);
+    wp_transition_return_error (transition, g_steal_pointer (&error));
+    return;
+  }
+
+  /* Load the persistent settings */
   self->state = wp_state_new (NAME);
-  self->settings = wp_state_load (self->state);
+  self->persistent_settings = wp_state_load (self->state);
+
+  /* Set persistent settings in persistent metadata */
+  for (it = wp_properties_new_iterator (self->persistent_settings);
+      wp_iterator_next (it, &item);
+      g_value_unset (&item)) {
+    WpPropertiesItem *pi = g_value_get_boxed (&item);
+    const gchar *key = wp_properties_item_get_key (pi);
+    const gchar *value = wp_properties_item_get_value (pi);
+
+    wp_debug_object (self, "adding persistent setting to %s metadata: %s = %s",
+        self->persistent_metadata_name, key, value);
+    wp_metadata_set (m, 0, key, "Spa:String:JSON", value);
+  }
+
+  /* monitor changes in persistent metadata */
+  g_signal_connect_object (m, "changed",
+      G_CALLBACK (on_persistent_metadata_changed), self, 0);
 
   /* create metadata object */
   self->impl_metadata = wp_impl_metadata_new_full (core, self->metadata_name,
@@ -223,15 +216,33 @@ wp_settings_plugin_enable (WpPlugin * plugin, WpTransition * transition)
 }
 
 static void
+wp_settings_plugin_enable (WpPlugin * plugin, WpTransition * transition)
+{
+  WpSettingsPlugin * self = WP_SETTINGS_PLUGIN (plugin);
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
+
+  /* create persistent metadata object */
+  self->persistent_impl_metadata = wp_impl_metadata_new_full (core,
+      self->persistent_metadata_name, NULL);
+  wp_object_activate (WP_OBJECT (self->persistent_impl_metadata),
+      WP_OBJECT_FEATURES_ALL,
+      NULL,
+      (GAsyncReadyCallback)on_persistent_metadata_activated,
+      transition);
+}
+
+static void
 wp_settings_plugin_disable (WpPlugin * plugin)
 {
   WpSettingsPlugin * self = WP_SETTINGS_PLUGIN (plugin);
 
   g_clear_object (&self->impl_metadata);
-  g_clear_pointer (&self->settings, wp_properties_unref);
+  g_clear_object (&self->persistent_impl_metadata);
+  g_clear_pointer (&self->persistent_settings, wp_properties_unref);
   g_clear_object (&self->state);
 
   g_clear_pointer (&self->metadata_name, g_free);
+  g_clear_pointer (&self->persistent_metadata_name, g_free);
 }
 
 static void
@@ -242,7 +253,9 @@ wp_settings_plugin_set_property (GObject * object, guint property_id,
 
   switch (property_id) {
   case PROP_METADATA_NAME:
-    self->metadata_name = g_strdup (g_value_get_string (value));
+    self->metadata_name = g_value_dup_string (value);
+    self->persistent_metadata_name = g_strdup_printf ("persistent-%s",
+        self->metadata_name);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);

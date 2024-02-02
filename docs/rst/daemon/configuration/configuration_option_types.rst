@@ -41,37 +41,24 @@ affect created objects in a way that cannot be changed after the object has been
 created, so when the option is changed it applies only to new objects and not
 existing ones.
 
+Note that the above command will only change the option at runtime, so the
+setting won't be restored if wireplumber is restarted. However, you can make the
+change persistent by setting the option in the ``persistent-sm-settings`` metadata
+object, like this:
+
+.. code-block:: bash
+
+   $ pw-metadata -n persistent-sm-settings 0 device.routes.default-sink-volume 0.5
+
+When using the ``persistent-sm-settings`` metadata object, the change will always
+be saved in the persistent settings state file. When WirePlumber starts, such
+saved setting will have preference over the ones from the configuration file
+when populating the ``sm-settings`` metadata object. Also, any changes done in
+the ``persistent-sm-settings`` metadata will be reflected in the ``sm-settings``
+metadata object as well.
+
 A list of all the available settings can be found in the :ref:`config_settings`
 section.
-
-Persistent behavior
-~~~~~~~~~~~~~~~~~~~
-
-When changing options at runtime, the changes are not persistent and will be
-lost when WirePlumber exits. To make the changes persistent, you can
-either edit the configuration file and directly change the values there, or
-enable the ``settings.persistent`` setting in the configuration file. This
-setting will make the ``metadata.sm-settings`` component write the current
-settings from the metadata object to a state file when WirePlumber exits and
-restore them again from the state file when WirePlumber starts, overriding the
-values of the configuration file.
-
-This effectively means that when the ``settings.persistent`` setting is enabled,
-you can change the settings at runtime using tools like ``pw-metadata`` and
-the changes will be remembered, even though they are not written to the
-configuration file.
-
-Note that this setting effectively makes the ``wireplumber.settings`` section
-from the configuration file be ignored. Even if you change options there, they
-will be overriden with the values stored in the state file on the next startup.
-In order to turn this feature off and let the configuration file be used again,
-you should explitly disable the ``settings.persistent`` setting **in the
-configuration file**.
-
-Note that the ``settings.persistent`` setting itself cannot be changed
-dynamically from the metadata object and is not overriden by the state file.
-This is the only setting that will not be ignored from the configuration file
-when persistency is enabled.
 
 Static options
 --------------
