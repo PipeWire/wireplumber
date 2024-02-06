@@ -64,11 +64,15 @@ on_persistent_metadata_changed (WpMetadata *m, guint32 subject,
 
   /* Update persistent settings with new value and timeout save it */
   wp_properties_set (self->persistent_settings, key, value);
-  wp_info_object (self, "new persistent setting updated: %s = %s", key, value);
+  if (value)
+    wp_info_object (self, "persistent setting updated: %s = %s", key, value);
+  else
+    wp_info_object (self, "persistent setting removed: %s", key);
   wp_state_save_after_timeout (self->state, core, self->persistent_settings);
 
   /* Also update current settings with new value */
-  wp_metadata_set (WP_METADATA (self->impl_metadata), 0, key, type, value);
+  if (value)
+    wp_metadata_set (WP_METADATA (self->impl_metadata), 0, key, type, value);
 }
 
 WpProperties *
