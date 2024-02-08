@@ -11,7 +11,7 @@ log = Log.open_topic ("s-device")
 
 AsyncEventHook {
   name = "device/apply-profile",
-  after = { "device/find-stored-profile", "device/find-best-profile" },
+  after = { "device/find-stored-profile", "device/find-preferred-profile", "device/find-best-profile" },
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-profile" },
