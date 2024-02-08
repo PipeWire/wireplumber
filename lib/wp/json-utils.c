@@ -34,7 +34,7 @@ match_rules_cb (void *data, const char *location, const char *action,
 }
 
 /*!
- * \brief Matches the given properties against a set of rules descriped in JSON
+ * \brief Matches the given properties against a set of rules described in JSON
  * and calls the given callback to perform actions on a successful match.
  *
  * The given JSON should be an array of objects, where each object has a
@@ -117,7 +117,7 @@ update_props_cb (gpointer data, const gchar * action, WpSpaJson * value,
 }
 
 /*!
- * \brief Matches the given properties against a set of rules descriped in JSON
+ * \brief Matches the given properties against a set of rules described in JSON
  * and updates the properties if the rule actions include the "update-props"
  * action.
  *
