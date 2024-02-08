@@ -28,14 +28,14 @@ find_stored_profile_hook = SimpleEventHook {
   },
   execute = function (event)
     local selected_profile = event:get_data ("selected-profile")
-    local device = event:get_subject ()
-    local dev_name = device.properties["device.name"]
 
     -- skip hook if profile is already selected
     if selected_profile then
       return
     end
 
+    local device = event:get_subject ()
+    local dev_name = device.properties["device.name"]
     if not dev_name then
       log:critical (device, "invalid device.name")
       return

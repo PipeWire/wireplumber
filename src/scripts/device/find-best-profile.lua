@@ -21,6 +21,12 @@ SimpleEventHook {
   },
   execute = function (event)
     local selected_profile = event:get_data ("selected-profile")
+
+    -- skip hook if profile is already selected
+    if selected_profile then
+      return
+    end
+
     local device = event:get_subject ()
     local dev_name = device.properties["device.name"]
     local off_profile = nil
@@ -29,10 +35,6 @@ SimpleEventHook {
     -- Takes absolute priority if available or unknown
     local profile_prop = device.properties["device.profile"]
 
-    -- skip hook if profile is already selected
-    if selected_profile then
-      return
-    end
 
     for p in device:iterate_params ("EnumProfile") do
       profile = cutils.parseParam (p, "EnumProfile")
