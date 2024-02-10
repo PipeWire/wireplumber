@@ -312,8 +312,8 @@ end
 function createMonitor ()
   local m = SpaDevice("api.alsa.enum.udev", config.properties)
   if m == nil then
-    log:notice("PipeWire's SPA ALSA udev plugin(\"api.alsa.enum.udev\")"
-      .. "missing or broken. Sound Cards cannot be enumerated")
+    log:notice("PipeWire's ALSA SPA plugin is missing or broken. " ..
+        "Sound cards will not be supported")
     return nil
   end
 

@@ -27,5 +27,6 @@ if monitor then
   monitor:connect ("create-object", createCamDevice)
   monitor:activate (Feature.SpaDevice.ENABLED)
 else
-  log:notice ("PipeWire's V4L SPA missing or broken. Video4Linux not supported.")
+  log:notice ("PipeWire's V4L2 SPA plugin is missing or broken. " ..
+      "Some camera types may not be supported.")
 end

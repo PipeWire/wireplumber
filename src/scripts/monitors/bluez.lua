@@ -379,7 +379,8 @@ function createMonitor()
   if monitor then
     monitor:connect("create-object", createDevice)
   else
-    log:notice("PipeWire's BlueZ SPA missing or broken. Bluetooth not supported.")
+    log:notice("PipeWire's BlueZ SPA plugin is missing or broken. " ..
+        "Bluetooth devices will not be supported.")
     return nil
   end
   monitor:activate(Feature.SpaDevice.ENABLED)
