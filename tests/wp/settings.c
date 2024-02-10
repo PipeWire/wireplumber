@@ -188,6 +188,8 @@ on_settings_ready (WpSettings *s, GAsyncResult *res, gpointer data)
 
   g_assert_true(wp_object_activate_finish (WP_OBJECT (s), res, NULL));
 
+  wp_core_register_object (self->base.core, g_object_ref (s));
+
   g_main_loop_quit(self->base.loop);
 }
 
@@ -197,7 +199,7 @@ test_wpsettings_setup (TestSettingsFixture *self, gconstpointer user_data)
   test_metadata_setup (self, user_data);
 
   {
-    self->s = wp_settings_get_instance (self->base.core, "sm-settings");
+    self->s = wp_settings_new (self->base.core, "sm-settings");
 
     wp_object_activate (WP_OBJECT (self->s),
         WP_OBJECT_FEATURES_ALL,
@@ -288,19 +290,19 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
     g_assert_cmpfloat_with_epsilon (value, 0.4, 0.001);
   }
 
-  /* test the wp_settings_get_instance () API */
+  /* test the wp_settings_find () API */
   {
     g_autoptr (WpSettings) s1 =
-        wp_settings_get_instance (self->base.core, "test-settings");
+        wp_settings_find (self->base.core, NULL);
     g_autoptr (WpSettings) s2 =
-        wp_settings_get_instance (self->base.core, "test-settings");
+        wp_settings_find (self->base.core, "sm-settings");
     g_autoptr (WpSettings) s3 =
-        wp_settings_get_instance (self->base.core, "blah-blah");
+        wp_settings_find (self->base.core, "blah-blah");
 
-    g_assert_false (s == s1);
+    g_assert_true (s == s1);
     g_assert_true (s1 == s2);
     g_assert_false (s1 == s3);
-
+    g_assert_null (s3);
   }
 
   {
@@ -376,14 +378,12 @@ test_wpsettings (TestSettingsFixture *self, gconstpointer data)
   }
 
   {
-    g_autoptr (WpSettings) s4 =
-        wp_settings_get_instance (self->base.core, NULL);
+    g_autoptr (WpSettings) s4 = wp_settings_find (self->base.core, NULL);
 
     g_auto (GValue) value = G_VALUE_INIT;
     g_object_get_property (G_OBJECT(s4), "metadata-name", &value);
 
     g_assert_cmpstr (g_value_get_string (&value), ==, "sm-settings");
-
   }
 }
 

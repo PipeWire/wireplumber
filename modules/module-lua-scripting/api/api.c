@@ -1810,8 +1810,7 @@ settings_get (lua_State *L)
 {
   const char *setting = luaL_checkstring (L, 1);
 
-  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L),
-      "sm-settings");
+  g_autoptr (WpSettings) s = wp_settings_find (get_wp_core (L), NULL);
 
   if (s) {
     WpSpaJson *j = wp_settings_get (s, setting);
@@ -1828,8 +1827,7 @@ static int
 settings_subscribe (lua_State *L)
 {
   const gchar *pattern = luaL_checkstring (L, 1);
-  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L),
-    "sm-settings");
+  g_autoptr (WpSettings) s = wp_settings_find (get_wp_core (L), NULL);
 
   guintptr sub_id = 0;
 
@@ -1847,8 +1845,7 @@ settings_unsubscribe (lua_State *L)
 {
   guintptr sub_id = luaL_checkinteger (L, 1);
   gboolean ret = FALSE;
-  g_autoptr (WpSettings) s = wp_settings_get_instance (get_wp_core (L),
-    "sm-settings");
+  g_autoptr (WpSettings) s = wp_settings_find (get_wp_core (L), NULL);
 
   if (s)
     ret = wp_settings_unsubscribe (s, sub_id);

@@ -642,38 +642,17 @@ load_export_core (GTask * task, WpCore * core, WpSpaJson * args)
 }
 
 static void
-on_settings_ready (WpSettings *s, GAsyncResult *res, gpointer data)
-{
-  GTask *task = G_TASK (data);
-  g_autoptr (GError) error = NULL;
-
-  if (!wp_object_activate_finish (WP_OBJECT (s), res, &error)) {
-    g_task_return_new_error (task,
-        WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-        "failed to activate settings instance: %s", error->message);
-    return;
-  }
-
-  g_task_return_pointer (task, NULL, NULL);
-}
-
-static void
 load_settings_instance (GTask * task, WpCore * core, WpSpaJson * args)
 {
   g_autofree gchar *metadata_name = NULL;
   if (args)
     wp_spa_json_object_get (args, "metadata.name", "s", &metadata_name, NULL);
-  if (!metadata_name)
-    metadata_name = g_strdup ("sm-settings");
 
-  wp_info_object (core, "loading settings instance '%s'...", metadata_name);
+  wp_info_object (core, "loading settings instance '%s'...",
+      metadata_name ? metadata_name : "(default: sm-settings)");
 
-  g_autoptr (WpSettings) settings = wp_settings_get_instance (core,
-      metadata_name);
-
-  wp_object_activate_closure (WP_OBJECT (settings), WP_OBJECT_FEATURES_ALL, NULL,
-      g_cclosure_new (G_CALLBACK (on_settings_ready), g_object_ref (task),
-          (GClosureNotify) g_object_unref));
+  WpSettings *settings = wp_settings_new (core, metadata_name);
+  g_task_return_pointer (task, settings, g_object_unref);
 }
 
 static const struct {

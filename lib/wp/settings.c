@@ -264,52 +264,52 @@ wp_settings_class_init (WpSettingsClass * klass)
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
-static gboolean
-check_metadata_name (gpointer  g_object, gpointer  metadata_name)
+/*!
+ * \brief Creates a new WpSettings object
+ *
+ * \ingroup wpsettings
+ * \param core the WpCore
+ * \param metadata_name (nullable): the name of the metadata object to
+ *    associate with the settings object; NULL means the default "sm-settings"
+ * \returns (transfer full): a new WpSettings object
+ */
+WpSettings *
+wp_settings_new (WpCore * core, const gchar * metadata_name)
 {
-  if (!WP_IS_SETTINGS(g_object))
+  return g_object_new (WP_TYPE_SETTINGS,
+      "core", core,
+      "metadata-name", metadata_name ? metadata_name : "sm-settings",
+      NULL);
+}
+
+static gboolean
+find_settings_func (gpointer g_object, gpointer metadata_name)
+{
+  if (!WP_IS_SETTINGS (g_object))
     return FALSE;
 
-  g_auto (GValue) value = G_VALUE_INIT;
-  g_object_get_property (G_OBJECT(g_object), "metadata-name", &value);
-
-  return g_str_equal (g_value_get_string (&value), (gchar *)metadata_name);
+  return g_str_equal (((WpSettings *) g_object)->metadata_name,
+      (gchar *) metadata_name);
 }
 
 /*!
- * \brief Returns the WpSettings instance that is associated with the
- * given core.
- *
- * This method will also create the instance and register it with the core
- * if it had not been created before.
+ * \brief Finds a registered WpSettings object by its metadata name
  *
  * \ingroup wpsettings
- * \param core the core
- * \param metadata_name (nullable): the name of the metadata with which this
- *    object is associated. `sm-settings` is the default value picked if
- *    NULL is supplied.
- * \returns (transfer full): the WpSettings instance
+ * \param core the WpCore
+ * \param metadata_name (nullable): the name of the metadata object that the
+ *    settings object is associated with; NULL means the default "sm-settings"
+ * \returns (transfer full) (nullable): the WpSettings object, or NULL if not
+ *    found
  */
 WpSettings *
-wp_settings_get_instance (WpCore *core, const gchar *metadata_name)
+wp_settings_find (WpCore * core, const gchar * metadata_name)
 {
-  const gchar *name = (metadata_name ? metadata_name : "sm-settings") ;
-  WpSettings *settings = wp_core_find_object (core,
-      (GEqualFunc) check_metadata_name, name);
+  g_return_val_if_fail (WP_IS_CORE (core), NULL);
 
-  if (G_UNLIKELY (!settings)) {
-    settings = g_object_new (WP_TYPE_SETTINGS,
-        "core", core,
-        "metadata-name", name,
-        NULL);
-
-    wp_core_register_object (core, g_object_ref (settings));
-
-    wp_info_object (settings, "created wpsettings object for metadata"
-      " name \"%s\"", name);
-  }
-
-  return settings;
+  GObject *s = wp_core_find_object (core, (GEqualFunc) find_settings_func,
+      metadata_name ? metadata_name : "sm-settings");
+  return s ? WP_SETTINGS (s) : NULL;
 }
 
 /*!

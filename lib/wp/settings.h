@@ -33,8 +33,10 @@ WP_API
 G_DECLARE_FINAL_TYPE (WpSettings, wp_settings, WP, SETTINGS, WpObject)
 
 WP_API
-WpSettings * wp_settings_get_instance (WpCore * core,
-    const gchar *metadata_name);
+WpSettings * wp_settings_new (WpCore * core, const gchar * metadata_name);
+
+WP_API
+WpSettings * wp_settings_find (WpCore * core, const gchar * metadata_name);
 
 /*!
  * \brief callback conveying the changed setting and its json value
