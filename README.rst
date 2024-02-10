@@ -7,9 +7,6 @@ WirePlumber
 .. image:: https://scan.coverity.com/projects/21488/badge.svg
    :alt: Coverity Scan Build Status
 
-.. image:: https://img.shields.io/tokei/lines/gitlab.freedesktop.org/pipewire/wireplumber
-   :alt: Lines of code
-
 .. image:: https://img.shields.io/badge/license-MIT-green
    :alt: License
 
