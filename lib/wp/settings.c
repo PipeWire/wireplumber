@@ -58,112 +58,36 @@ wp_settings_init (WpSettings * self)
 {
 }
 
-/*!
- * \brief Subscribes callback for a given setting pattern(a glob-style pattern
- * matched using g_pattern_match_simple), this allows clients to look
- * for any changes made in settings through metadata.
- *
- * \ingroup wpsettings
- * \param self the settings object
- * \param pattern name of the pattern to match the settings with
- * \param callback (scope async): the callback triggered when the settings
- *  change.
- * \param user_data data to pass to \a callback
- * \returns the subscription ID (always greater than 0 for successful
- *  subscriptions)
- */
-guintptr
-wp_settings_subscribe (WpSettings *self,
-    const gchar *pattern, WpSettingsChangedCallback callback,
-    gpointer user_data)
+static void
+wp_settings_set_property (GObject * object, guint property_id,
+    const GValue * value, GParamSpec * pspec)
 {
-  return wp_settings_subscribe_closure (self, pattern,
-      g_cclosure_new (G_CALLBACK (callback), user_data, NULL));
+  WpSettings *self = WP_SETTINGS (object);
+
+  switch (property_id) {
+  case PROP_METADATA_NAME:
+    self->metadata_name = g_value_dup_string (value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
 }
 
-/*!
- * \brief Subscribes callback for a given setting pattern(a glob-style pattern
- * matched using g_pattern_match_simple), this allows clients to look
- * for any changes made in settings through metadata.
- *
- * \ingroup wpsettings
- * \param self the settings object
- * \param pattern name of the pattern to match the settings with
- * \param closure (nullable): a GAsyncReadyCallback wrapped in a GClosure
- * \returns the subscription ID (always greater than 0 for success)
- */
-guintptr
-wp_settings_subscribe_closure (WpSettings *self, const gchar *pattern,
-    GClosure *closure)
+static void
+wp_settings_get_property (GObject * object, guint property_id,
+    GValue * value, GParamSpec * pspec)
 {
-  g_return_val_if_fail (WP_IS_SETTINGS (self), 0);
-  g_return_val_if_fail (pattern, 0);
-  g_return_val_if_fail (closure, 0);
+  WpSettings *self = WP_SETTINGS (object);
 
-  Callback *cb = g_slice_new0 (Callback);
-  g_return_val_if_fail (cb, 0);
-
-  cb->closure = g_closure_ref (closure);
-  g_closure_sink (closure);
-  if (G_CLOSURE_NEEDS_MARSHAL (closure))
-    g_closure_set_marshal (closure, g_cclosure_marshal_generic);
-
-  cb->pattern = g_strdup (pattern);
-
-  g_ptr_array_add (self->callbacks, cb);
-
-  wp_debug_object (self, "callback(%p) subscribed for pattern(%s)",
-      (void *) cb, pattern);
-
-  return (guintptr) cb;
-}
-
-/*!
- * \brief Unsubscribes callback for a given subscription_id.
- *
- * \ingroup wpsettings
- * \param self the settings object
- * \param subscription_id identifies the callback
- * \returns TRUE if success, FALSE otherwise
- */
-gboolean
-wp_settings_unsubscribe (WpSettings *self, guintptr subscription_id)
-{
-  gboolean ret = FALSE;
-  g_return_val_if_fail (WP_IS_SETTINGS (self), FALSE);
-  g_return_val_if_fail (subscription_id, FALSE);
-
-  Callback *cb = (Callback *) subscription_id;
-
-  ret = g_ptr_array_remove (self->callbacks, cb);
-
-  wp_debug_object (self, "callback(%p) unsubscription %s", (void *) cb,
-      (ret)? "succeeded": "failed");
-
-  return ret;
-}
-
-/*!
- * \brief Gets the WpSpaJson of a setting
- * \ingroup wpsettings
- * \param self the settings object
- * \param setting name of the setting
- * \returns (transfer full) (nullable): The WpSpaJson of the setting, or NULL
- * if the setting does not exist
- */
-WpSpaJson *
-wp_settings_get (WpSettings *self, const gchar *setting)
-{
-  const gchar *value;
-
-  g_return_val_if_fail (WP_IS_SETTINGS (self), NULL);
-  g_return_val_if_fail (setting, NULL);
-
-  if (!(wp_object_test_active_features (WP_OBJECT (self), WP_SETTINGS_LOADED)))
-    return NULL;
-
-  value = wp_properties_get (self->settings, setting);
-  return value ? wp_spa_json_new_wrap_string (value) : NULL;
+  switch (property_id) {
+  case PROP_METADATA_NAME:
+    g_value_set_string (value, self->metadata_name);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+    break;
+  }
 }
 
 enum {
@@ -185,55 +109,6 @@ wp_settings_activate_get_next_step (WpObject * object,
       WP_TRANSITION_STEP_ERROR);
 
   return STEP_LOAD;
-}
-
-static gboolean
-check_metadata_name (gpointer  g_object, gpointer  metadata_name)
-{
-  if (!WP_IS_SETTINGS(g_object))
-    return FALSE;
-
-  g_auto (GValue) value = G_VALUE_INIT;
-  g_object_get_property (G_OBJECT(g_object), "metadata-name", &value);
-
-  return g_str_equal (g_value_get_string (&value), (gchar *)metadata_name);
-}
-
-
-/*!
- * \brief Returns the WpSettings instance that is associated with the
- * given core.
- *
- * This method will also create the instance and register it with the core
- * if it had not been created before.
- *
- * \ingroup wpsettings
- * \param core the core
- * \param metadata_name (nullable): the name of the metadata with which this
- *    object is associated. `sm-settings` is the default value picked if
- *    NULL is supplied.
- * \returns (transfer full): the WpSettings instance
- */
-WpSettings *
-wp_settings_get_instance (WpCore *core, const gchar *metadata_name)
-{
-  const gchar *name = (metadata_name ? metadata_name : "sm-settings") ;
-  WpSettings *settings = wp_core_find_object (core,
-      (GEqualFunc) check_metadata_name, name);
-
-  if (G_UNLIKELY (!settings)) {
-    settings = g_object_new (WP_TYPE_SETTINGS,
-        "core", core,
-        "metadata-name", name,
-        NULL);
-
-    wp_core_register_object (core, g_object_ref (settings));
-
-    wp_info_object (settings, "created wpsettings object for metadata"
-      " name \"%s\"", name);
-  }
-
-  return settings;
 }
 
 static void
@@ -369,39 +244,6 @@ wp_settings_deactivate (WpObject * object, WpObjectFeatures features)
   wp_object_update_features (WP_OBJECT (self), 0, WP_OBJECT_FEATURES_ALL);
 }
 
-
-static void
-wp_settings_set_property (GObject * object, guint property_id,
-    const GValue * value, GParamSpec * pspec)
-{
-  WpSettings *self = WP_SETTINGS (object);
-
-  switch (property_id) {
-  case PROP_METADATA_NAME:
-    self->metadata_name = g_value_dup_string (value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
-    break;
-  }
-}
-
-static void
-wp_settings_get_property (GObject * object, guint property_id,
-    GValue * value, GParamSpec * pspec)
-{
-  WpSettings *self = WP_SETTINGS (object);
-
-  switch (property_id) {
-  case PROP_METADATA_NAME:
-    g_value_set_string (value, self->metadata_name);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
-    break;
-  }
-}
-
 static void
 wp_settings_class_init (WpSettingsClass * klass)
 {
@@ -411,13 +253,169 @@ wp_settings_class_init (WpSettingsClass * klass)
   object_class->set_property = wp_settings_set_property;
   object_class->get_property = wp_settings_get_property;
 
+  wpobject_class->get_supported_features = wp_settings_get_supported_features;
   wpobject_class->activate_get_next_step = wp_settings_activate_get_next_step;
   wpobject_class->activate_execute_step = wp_settings_activate_execute_step;
   wpobject_class->deactivate = wp_settings_deactivate;
-  wpobject_class->get_supported_features = wp_settings_get_supported_features;
 
   g_object_class_install_property (object_class, PROP_METADATA_NAME,
       g_param_spec_string ("metadata-name", "metadata-name",
           "The metadata object to look after", NULL,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+}
+
+static gboolean
+check_metadata_name (gpointer  g_object, gpointer  metadata_name)
+{
+  if (!WP_IS_SETTINGS(g_object))
+    return FALSE;
+
+  g_auto (GValue) value = G_VALUE_INIT;
+  g_object_get_property (G_OBJECT(g_object), "metadata-name", &value);
+
+  return g_str_equal (g_value_get_string (&value), (gchar *)metadata_name);
+}
+
+/*!
+ * \brief Returns the WpSettings instance that is associated with the
+ * given core.
+ *
+ * This method will also create the instance and register it with the core
+ * if it had not been created before.
+ *
+ * \ingroup wpsettings
+ * \param core the core
+ * \param metadata_name (nullable): the name of the metadata with which this
+ *    object is associated. `sm-settings` is the default value picked if
+ *    NULL is supplied.
+ * \returns (transfer full): the WpSettings instance
+ */
+WpSettings *
+wp_settings_get_instance (WpCore *core, const gchar *metadata_name)
+{
+  const gchar *name = (metadata_name ? metadata_name : "sm-settings") ;
+  WpSettings *settings = wp_core_find_object (core,
+      (GEqualFunc) check_metadata_name, name);
+
+  if (G_UNLIKELY (!settings)) {
+    settings = g_object_new (WP_TYPE_SETTINGS,
+        "core", core,
+        "metadata-name", name,
+        NULL);
+
+    wp_core_register_object (core, g_object_ref (settings));
+
+    wp_info_object (settings, "created wpsettings object for metadata"
+      " name \"%s\"", name);
+  }
+
+  return settings;
+}
+
+/*!
+ * \brief Subscribes callback for a given setting pattern(a glob-style pattern
+ * matched using g_pattern_match_simple), this allows clients to look
+ * for any changes made in settings through metadata.
+ *
+ * \ingroup wpsettings
+ * \param self the settings object
+ * \param pattern name of the pattern to match the settings with
+ * \param callback (scope async): the callback triggered when the settings
+ *  change.
+ * \param user_data data to pass to \a callback
+ * \returns the subscription ID (always greater than 0 for successful
+ *  subscriptions)
+ */
+guintptr
+wp_settings_subscribe (WpSettings *self,
+    const gchar *pattern, WpSettingsChangedCallback callback,
+    gpointer user_data)
+{
+  return wp_settings_subscribe_closure (self, pattern,
+      g_cclosure_new (G_CALLBACK (callback), user_data, NULL));
+}
+
+/*!
+ * \brief Subscribes callback for a given setting pattern(a glob-style pattern
+ * matched using g_pattern_match_simple), this allows clients to look
+ * for any changes made in settings through metadata.
+ *
+ * \ingroup wpsettings
+ * \param self the settings object
+ * \param pattern name of the pattern to match the settings with
+ * \param closure (nullable): a GAsyncReadyCallback wrapped in a GClosure
+ * \returns the subscription ID (always greater than 0 for success)
+ */
+guintptr
+wp_settings_subscribe_closure (WpSettings *self, const gchar *pattern,
+    GClosure *closure)
+{
+  g_return_val_if_fail (WP_IS_SETTINGS (self), 0);
+  g_return_val_if_fail (pattern, 0);
+  g_return_val_if_fail (closure, 0);
+
+  Callback *cb = g_slice_new0 (Callback);
+  g_return_val_if_fail (cb, 0);
+
+  cb->closure = g_closure_ref (closure);
+  g_closure_sink (closure);
+  if (G_CLOSURE_NEEDS_MARSHAL (closure))
+    g_closure_set_marshal (closure, g_cclosure_marshal_generic);
+
+  cb->pattern = g_strdup (pattern);
+
+  g_ptr_array_add (self->callbacks, cb);
+
+  wp_debug_object (self, "callback(%p) subscribed for pattern(%s)",
+      (void *) cb, pattern);
+
+  return (guintptr) cb;
+}
+
+/*!
+ * \brief Unsubscribes callback for a given subscription_id.
+ *
+ * \ingroup wpsettings
+ * \param self the settings object
+ * \param subscription_id identifies the callback
+ * \returns TRUE if success, FALSE otherwise
+ */
+gboolean
+wp_settings_unsubscribe (WpSettings *self, guintptr subscription_id)
+{
+  gboolean ret = FALSE;
+  g_return_val_if_fail (WP_IS_SETTINGS (self), FALSE);
+  g_return_val_if_fail (subscription_id, FALSE);
+
+  Callback *cb = (Callback *) subscription_id;
+
+  ret = g_ptr_array_remove (self->callbacks, cb);
+
+  wp_debug_object (self, "callback(%p) unsubscription %s", (void *) cb,
+      (ret)? "succeeded": "failed");
+
+  return ret;
+}
+
+/*!
+ * \brief Gets the WpSpaJson of a setting
+ * \ingroup wpsettings
+ * \param self the settings object
+ * \param setting name of the setting
+ * \returns (transfer full) (nullable): The WpSpaJson of the setting, or NULL
+ * if the setting does not exist
+ */
+WpSpaJson *
+wp_settings_get (WpSettings *self, const gchar *setting)
+{
+  const gchar *value;
+
+  g_return_val_if_fail (WP_IS_SETTINGS (self), NULL);
+  g_return_val_if_fail (setting, NULL);
+
+  if (!(wp_object_test_active_features (WP_OBJECT (self), WP_SETTINGS_LOADED)))
+    return NULL;
+
+  value = wp_properties_get (self->settings, setting);
+  return value ? wp_spa_json_new_wrap_string (value) : NULL;
 }
