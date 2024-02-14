@@ -82,7 +82,10 @@ static struct {
 
     struct {
       const gchar *key;
-    } clear_persistent;
+      const gchar *val;
+      gboolean remove;
+      gboolean save;
+    } settings;
 
     struct {
       guint64 id;
@@ -393,7 +396,6 @@ status_run (WpCtl * self)
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
   g_autoptr (WpPlugin) def_nodes_api = NULL;
-  g_autoptr (WpMetadata) persistent_settings = NULL;
   struct print_context context = { .self = self };
 
   def_nodes_api = wp_plugin_find (self->core, "default-nodes-api");
@@ -514,23 +516,6 @@ status_run (WpCtl * self)
 
   /* Settings */
   printf ("Settings\n");
-
-  persistent_settings = wp_object_manager_lookup (self->om, WP_TYPE_METADATA,
-      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
-      "metadata.name", "=s", "persistent-sm-settings",
-      NULL);
-  printf (TREE_INDENT_NODE "Persistent:\n");
-  if (persistent_settings) {
-    it = wp_metadata_new_iterator (persistent_settings, 0);
-    for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
-      const gchar *key, *value;
-      wp_metadata_iterator_item_extract (&val, NULL, &key, NULL, &value);
-      printf (TREE_INDENT_LINE "  - %s: %s\n", key, value);
-    }
-    g_clear_pointer (&it, wp_iterator_unref);
-  }
-
-  printf (TREE_INDENT_LINE "\n");
 
   printf (TREE_INDENT_END "Default Configured Devices:\n");
   if (def_nodes_api) {
@@ -1368,21 +1353,30 @@ out:
   g_main_loop_quit (self->loop);
 }
 
-/* clear-persistent */
+/* settings */
 
 static gboolean
-clear_persistent_parse_positional (gint argc, gchar ** argv, GError **error)
+settings_parse_positional (gint argc, gchar ** argv, GError **error)
 {
-  if (argc >= 3)
-    cmdline.clear_persistent.key = argv[2];
-  else
-    cmdline.clear_persistent.key = NULL;
+  cmdline.settings.key = NULL;
+  cmdline.settings.val = NULL;
+  if (argc >= 3) {
+    cmdline.settings.key = argv[2];
+    if (argc >= 4)
+      cmdline.settings.val = argv[3];
+  }
+
+  if (cmdline.settings.remove && cmdline.settings.save) {
+    g_set_error (error, wpctl_error_domain_quark(), 0,
+                   "Cannot use --delete and --save flags at the same time");
+    return FALSE;
+  }
 
   return TRUE;
 }
 
 static gboolean
-clear_persistent_prepare (WpCtl * self, GError ** error)
+settings_prepare (WpCtl * self, GError ** error)
 {
   wp_object_manager_add_interest (self->om, WP_TYPE_METADATA, NULL);
   wp_object_manager_request_object_features (self->om, WP_TYPE_METADATA,
@@ -1391,10 +1385,21 @@ clear_persistent_prepare (WpCtl * self, GError ** error)
 }
 
 static void
-clear_persistent_run (WpCtl * self)
+settings_run (WpCtl * self)
 {
+  g_autoptr (WpMetadata) settings = NULL;
   g_autoptr (WpMetadata) persistent_settings = NULL;
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) val = G_VALUE_INIT;
 
+  settings = wp_object_manager_lookup (self->om, WP_TYPE_METADATA,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
+      "metadata.name", "=s", "sm-settings",
+      NULL);
+  if (!settings) {
+    fprintf (stderr, "Settings metadata not found\n");
+    goto out;
+  }
   persistent_settings = wp_object_manager_lookup (self->om, WP_TYPE_METADATA,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
       "metadata.name", "=s", "persistent-sm-settings",
@@ -1404,12 +1409,115 @@ clear_persistent_run (WpCtl * self)
     goto out;
   }
 
-  if (cmdline.clear_persistent.key)
-    wp_metadata_set (persistent_settings, 0, cmdline.clear_persistent.key, NULL,
-        NULL);
-  else
-    wp_metadata_clear (persistent_settings);
-
+  if (!cmdline.settings.key && !cmdline.settings.val) {
+    /* No key or value */
+    if (!cmdline.settings.remove && !cmdline.settings.save) {
+      /* Print all settings */
+      printf ("Settings:\n");
+      it = wp_metadata_new_iterator (settings, 0);
+      for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+        const gchar *key, *value, *saved_value;
+        wp_metadata_iterator_item_extract (&val, 0, &key, NULL, &value);
+        saved_value = wp_metadata_find (persistent_settings, 0, key, NULL);
+        if (saved_value)
+          printf (" - %s: %s (saved: %s)\n", key, value, saved_value);
+        else
+          printf (" - %s: %s\n", key, value);
+      }
+      g_clear_pointer (&it, wp_iterator_unref);
+    } else if (!cmdline.settings.remove && cmdline.settings.save) {
+      /* Save all current settings */
+      it = wp_metadata_new_iterator (settings, 0);
+      for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+        const gchar *key, *type, *value;
+        wp_metadata_iterator_item_extract (&val, 0, &key, &type, &value);
+        wp_metadata_set (persistent_settings, 0, key, type, value);
+        fprintf (stderr, "Saved setting %s with value %s\n", key, value);
+      }
+    } else if (cmdline.settings.remove && !cmdline.settings.save) {
+      /* Delete all saved settings */
+      wp_metadata_clear (persistent_settings);
+      fprintf (stderr, "Deleted all saved settings\n");
+    } else {
+      g_assert_not_reached ();
+    }
+  } else if (cmdline.settings.key && !cmdline.settings.val) {
+    /* only key */
+    if (!cmdline.settings.remove && !cmdline.settings.save) {
+      /* Print setting value */
+      const gchar *value, *saved_value;
+      value = wp_metadata_find (settings, 0, cmdline.settings.key, NULL);
+      if (value) {
+        saved_value = wp_metadata_find (persistent_settings, 0,
+            cmdline.settings.key, NULL);
+        if (saved_value)
+          printf ("%s (saved: %s)\n", value, saved_value);
+        else
+          printf ("%s\n", value);
+      } else  {
+        printf ("Setting %s not found\n", cmdline.settings.key);
+      }
+    } else if (!cmdline.settings.remove && cmdline.settings.save) {
+      /* Save setting */
+      const gchar *value, *type;
+      value = wp_metadata_find (settings, 0, cmdline.settings.key, &type);
+      if (value) {
+        wp_metadata_set (persistent_settings, 0, cmdline.settings.key, type,
+            value);
+        printf ("Updated and saved setting %s with current value %s\n",
+            cmdline.settings.key, value);
+      } else {
+        printf ("Setting %s not found\n", cmdline.settings.key);
+      }
+    } else if (cmdline.settings.remove && !cmdline.settings.save) {
+      /* Delete saved setting */
+      const gchar *value;
+      value = wp_metadata_find (persistent_settings, 0, cmdline.settings.key,
+          NULL);
+      if (value) {
+        wp_metadata_set (persistent_settings, 0, cmdline.settings.key, NULL,
+            NULL);
+        printf ("Deleted setting %s with value %s\n", cmdline.settings.key,
+            value);
+      } else {
+        printf ("Setting %s is not saved\n", cmdline.settings.key);
+      }
+    } else {
+      g_assert_not_reached ();
+    }
+  } else if (cmdline.settings.key && cmdline.settings.val) {
+    /* key and value */
+    if (!cmdline.settings.remove && !cmdline.settings.save) {
+      /* Set setting value */
+      wp_metadata_set (settings, 0, cmdline.settings.key, NULL,
+          cmdline.settings.val);
+      printf ("Updated setting %s with value %s\n", cmdline.settings.key,
+          cmdline.settings.val);
+    } else if (!cmdline.settings.remove && cmdline.settings.save) {
+      /* Save setting value */
+      wp_metadata_set (persistent_settings, 0, cmdline.settings.key, NULL,
+          cmdline.settings.val);
+      printf ("Updated and saved setting %s with current value %s\n",
+            cmdline.settings.key, cmdline.settings.val);
+    } else if (cmdline.settings.remove && !cmdline.settings.save) {
+      /* Remove saved setting */
+      const gchar *value;
+      value = wp_metadata_find (persistent_settings, 0, cmdline.settings.key,
+          NULL);
+      if (value) {
+        wp_metadata_set (persistent_settings, 0, cmdline.settings.key, NULL,
+            NULL);
+        printf ("Deleted setting %s with value %s\n", cmdline.settings.key,
+            value);
+      } else {
+        printf ("Setting %s is not saved\n", cmdline.settings.key);
+      }
+    } else {
+      g_assert_not_reached ();
+    }
+  } else {
+    g_assert_not_reached ();
+  }
 
   wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
   return;
@@ -1647,14 +1755,22 @@ static const struct subcommand {
     .run = clear_default_run,
   },
   {
-    .name = "clear-persistent",
-    .positional_args = "[KEY]",
-    .summary = "Clears the persistent setting (no KEY means 'all')",
+    .name = "settings",
+    .positional_args = "[KEY] [VAL]",
+    .summary = "Shows, changes or removes settings",
     .description = NULL,
-    .entries = { { NULL } },
-    .parse_positional = clear_persistent_parse_positional,
-    .prepare = clear_persistent_prepare,
-    .run = clear_persistent_run,
+    .entries = {
+      { "delete", 'd', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE,
+        &cmdline.settings.remove,
+        "Deletes the saved setting value (no KEY means 'all')", NULL },
+      { "save", 's', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE,
+        &cmdline.settings.save,
+        "Saves the setting value (no KEY means 'all', no VAL means current value)", NULL },
+      { NULL }
+    },
+    .parse_positional = settings_parse_positional,
+    .prepare = settings_prepare,
+    .run = settings_run,
   },
   {
     .name = "set-log-level",
