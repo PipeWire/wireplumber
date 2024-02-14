@@ -1,5 +1,56 @@
-WirePlumber 0.4.81
+WirePlumber 0.4.82
 ~~~~~~~~~~~~~~~~~~~
+
+This is a second pre-release of WirePlumber 0.5.0, made available for testing
+purposes. This is not API/ABI stable yet and there is still pending work to do
+before the final 0.5.0 release, both in the codebase and the documentation.
+
+Highlights:
+
+  - Bluetooth auto-switching is now implemented with a virtual source node. When
+    an application links to it, the actual device switches to the HSP/HFP
+    profile to provide the real audio stream. This is a more robust solution
+    that works with more applications and is more user-friendly than the
+    previous application whitelist approach
+
+  - Added support for dynamic log level changes via the PipeWire ``settings``
+    metadata. Also added support for log level patterns in the configuration
+    file
+
+  - The "persistent" (i.e. stored) settings approach has changed to use two
+    different metadata objects: ``sm-settings`` and ``persistent-sm-settings``.
+    Changes in the former are applied in the current session but not stored,
+    while changes in the latter are stored and restored at startup. Some work
+    was also done to expose a ``wpctl`` interface to read and change these
+    settings, but more is underway
+
+  - Several WirePlumber-specific node properties that used to be called
+    ``target.*`` have been renamed to ``node.*`` to match the PipeWire
+    convention of ``node.dont-reconnect``. These are also now fully documented
+
+Other changes:
+
+  - Many documentation updates
+
+  - Added support for SNAP container permissions
+
+  - Fixed multiple issues related to restoring the Route parameter of devices,
+    which includes volume state (#551)
+
+  - Smart filters can now be targetted by specific streams directly when
+    the ``filter.smart.targetable`` property is set (#554)
+
+  - Ported the mechanism to override device profile priorities in the
+    configuration, which is used to re-prioritize Bluetooth codecs
+
+  - WpSettings is no longer a singleton class and there is a built-in component
+    to preload an instance of it
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.4.81
+..................
 
 This is a preliminary release of WirePlumber 0.5.0, which is made available
 for testing purposes. Please test it and report feedback (merge requests are
@@ -54,9 +105,6 @@ Highlights:
     better for the device. This is mainly to avoid having multiple nodes for
     the same camera device, which can cause confusion when looking at the list
     of available cameras in applications.
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.4.17
 ..................
