@@ -156,14 +156,40 @@ on_metadata_activated (WpMetadata * m, GAsyncResult * res,
   /* Update the configuration properties with persistent settings */
   wp_properties_update (config_settings, self->persistent_settings);
 
-  /* Populate settings metadata */
-  for (it = wp_properties_new_iterator (config_settings);
-      wp_iterator_next (it, &item);
-      g_value_unset (&item)) {
-    WpPropertiesItem *pi = g_value_get_boxed (&item);
-    const gchar *key = wp_properties_item_get_key (pi);
-    const gchar *value = wp_properties_item_get_value (pi);
+  /* Populate settings metadata from schema using values from configuration if
+   * they are present, otherwise use default values */
+  it = wp_metadata_new_iterator (WP_METADATA (self->schema_impl_metadata), 0);
+  for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
+    WpMetadataItem *mi = g_value_get_boxed (&item);
+    const gchar *key = wp_metadata_item_get_key (mi);
+    const gchar *spec_str = wp_metadata_item_get_value (mi);
+    const gchar *value;
+    g_autoptr (WpSpaJson) spec_json = NULL;
+    g_autoptr (WpSpaJson) def_value = NULL;
 
+    /* Use configuration value if found, otherwise use default value */
+    value = wp_properties_get (config_settings, key);
+    if (!value) {
+      spec_json = wp_spa_json_new_from_string (spec_str);
+
+      if (!wp_spa_json_is_object (spec_json)) {
+        wp_warning_object (self,
+            "settings schema spec for %s is not an object: %s", key, spec_str);
+        continue;
+      }
+
+      if (!wp_spa_json_object_get (spec_json, "default", "J", &def_value,
+          NULL)) {
+        wp_warning_object (self,
+            "settings schema spec for %s does not have default value: %s", key,
+            spec_str);
+        continue;
+      }
+
+      value = wp_spa_json_get_data (def_value);
+    }
+
+    /* Add setting in the metadata */
     wp_debug_object (self, "adding setting to %s metadata: %s = %s",
         self->metadata_name, key, value);
     wp_metadata_set (m, 0, key, "Spa:String:JSON", value);
