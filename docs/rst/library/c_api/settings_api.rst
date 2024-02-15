@@ -7,9 +7,15 @@ Settings
 
    digraph inheritance {
       rankdir=LR;
+      GBoxed -> WpSettingsSpec;
+      GBoxed -> WpSettingsItem;
       GObject -> WpObject;
       WpObject -> WpSettings;
    }
+
+.. doxygenstruct:: WpSettingsSpec
+
+.. doxygenstruct:: WpSettingsItem
 
 .. doxygenstruct:: WpSettings
 

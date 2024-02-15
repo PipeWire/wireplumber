@@ -4,51 +4,39 @@
 
 Script.async_activation = true
 
--- test settings undefined
+-- Undefined
 value = Settings.get ("test-setting-undefined")
 assert (value == nil)
 
--- test settings _get_boolean ()
-
-local value = Settings.get ("test-setting1"):parse()
-assert (value == false)
-
-value = Settings.get ("test-setting2"):parse()
+-- Bool
+value = Settings.get ("test-setting-bool"):parse()
 assert ("boolean" == type (value))
 assert (value == true)
 
--- test settings _get_int ()
-
-value = Settings.get ("test-setting3-int"):parse()
+-- Int
+value = Settings.get ("test-setting-int"):parse()
 assert ("number" == type (value))
 assert (value == -20)
 
--- test settings _get_string ()
-
-value = Settings.get ("test-setting4-string"):parse()
-assert ("string" == type (value))
-assert (value == "blahblah")
-
-value = Settings.get ("test-setting5-string-with-quotes"):parse()
-assert ("string" == type (value))
-assert (value == "a string with \"quotes\"")
-
--- test settings _get_float ()
-
-value = Settings.get ("test-setting-float1"):parse()
+-- Float
+value = Settings.get ("test-setting-float"):parse()
 assert ("number" == type (value))
 assert ((value - 3.14) < 0.00001)
 
-value = Settings.get ("test-setting-float2"):parse()
-assert ((value - 0.4) < 0.00001)
+-- String
+value = Settings.get ("test-setting-string"):parse()
+assert ("string" == type (value))
+assert (value == "blahblah")
+value = Settings.get ("test-setting-string2"):parse()
+assert ("string" == type (value))
+assert (value == "a string with \"quotes\"")
 
--- test settings _get ()
-value = Settings.get ("test-setting-json")
+-- Array
+value = Settings.get ("test-setting-array")
 assert (value ~= nil)
 assert (value:is_array())
 assert (value:get_data() == "[1, 2, 3]")
-
-value = Settings.get ("test-setting-json2", "test-settings")
+value = Settings.get ("test-setting-array2")
 assert (value ~= nil)
 assert (value:is_array())
 assert (value:get_data() ==
@@ -61,7 +49,8 @@ assert (val[4] == "test-four")
 assert (val[5] == nil)
 assert (#val == 4)
 
-value = Settings.get ("test-setting-json3")
+-- Object
+value = Settings.get ("test-setting-object")
 assert (value ~= nil)
 assert (value:is_object())
 print (value:get_data())
@@ -72,8 +61,7 @@ assert (val.key1 == "value")
 assert (val.key2 == 2)
 assert (val.key3 == true)
 
--- test callbacks
-
+-- Callbacks
 metadata_om = ObjectManager {
   Interest {
     type = "metadata",
@@ -126,16 +114,8 @@ metadata_om:connect("objects-changed", function (om)
     return
   end
 
-  -- test #1
-  setting = "test-setting1"
-  setting_value = Json.Boolean (true)
-  callback = false
-
-  metadata:set(0, setting, "Spa:String:JSON", setting_value:get_data())
-  assert (callback)
-
   -- test #2
-  setting = "test-setting1"
+  setting = "test-setting-bool"
   setting_value = Json.Boolean (true)
   callback = false
 
@@ -143,7 +123,7 @@ metadata_om:connect("objects-changed", function (om)
   assert (not callback)
 
   -- test #3
-  setting = "test-setting3-int"
+  setting = "test-setting-int"
   setting_value = Json.Int (99)
   callback = false
 
@@ -151,7 +131,7 @@ metadata_om:connect("objects-changed", function (om)
   assert (callback)
 
   -- test #4
-  setting = "test-setting4-string"
+  setting = "test-setting-string"
   setting_value = Json.String ("lets not blabber")
   callback = false
 
