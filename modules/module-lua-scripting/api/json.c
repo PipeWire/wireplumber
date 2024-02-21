@@ -97,7 +97,7 @@ spa_json_is_object (lua_State *L)
   return 1;
 }
 
-static void
+void
 push_luajson (lua_State *L, WpSpaJson *json, gint n_recursions)
 {
   /* Null */
