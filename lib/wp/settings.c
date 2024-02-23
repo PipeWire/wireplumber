@@ -174,9 +174,10 @@ on_metadata_added (WpObjectManager *om, WpMetadata *m, gpointer d)
 
   /* traverse through all settings */
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
-    const gchar *setting, *value;
-    wp_metadata_iterator_item_extract (&val, NULL, &setting, NULL, &value);
-    wp_properties_set (self->settings, setting, value);
+    WpMetadataItem *mi = g_value_get_boxed (&val);
+    const gchar *key = wp_metadata_item_get_key (mi);
+    const gchar *value = wp_metadata_item_get_value (mi);
+    wp_properties_set (self->settings, key, value);
   }
 
   wp_info_object (self, "loaded %d settings and from metadata \"%s\"",

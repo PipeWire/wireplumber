@@ -168,20 +168,30 @@ test_metadata_basic (TestFixture *fixture, gconstpointer data)
     g_auto (GValue) val = G_VALUE_INIT;
     guint subject = -1;
     const gchar *key = NULL, *type = NULL, *value = NULL;
+    WpMetadataItem *mi;
 
     g_assert_true (wp_iterator_next (iter, &val));
-    wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
+    mi = g_value_get_boxed (&val);
+    subject = wp_metadata_item_get_subject (mi);
     g_assert_cmpint (subject, ==, 0);
+    key = wp_metadata_item_get_key (mi);
     g_assert_cmpstr (key, ==, "test-key");
+    type = wp_metadata_item_get_value_type (mi);
     g_assert_cmpstr (type, ==, "string");
+    value = wp_metadata_item_get_value (mi);
     g_assert_cmpstr (value, ==, "test-value");
     g_value_unset (&val);
 
     g_assert_true (wp_iterator_next (iter, &val));
-    wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
+
+    mi = g_value_get_boxed (&val);
+    subject = wp_metadata_item_get_subject (mi);
     g_assert_cmpint (subject, ==, 15);
+    key = wp_metadata_item_get_key (mi);
     g_assert_cmpstr (key, ==, "toast");
+    type = wp_metadata_item_get_value_type (mi);
     g_assert_cmpstr (type, ==, "Spa:Int");
+    value = wp_metadata_item_get_value (mi);
     g_assert_cmpstr (value, ==, "15");
     g_value_unset (&val);
 
@@ -207,20 +217,29 @@ test_metadata_basic (TestFixture *fixture, gconstpointer data)
     g_auto (GValue) val = G_VALUE_INIT;
     guint subject = -1;
     const gchar *key = NULL, *type = NULL, *value = NULL;
+    WpMetadataItem *mi;
 
     g_assert_true (wp_iterator_next (iter, &val));
-    wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
+    mi = g_value_get_boxed (&val);
+    subject = wp_metadata_item_get_subject (mi);
     g_assert_cmpint (subject, ==, 0);
+    key = wp_metadata_item_get_key (mi);
     g_assert_cmpstr (key, ==, "test-key");
+    type = wp_metadata_item_get_value_type (mi);
     g_assert_cmpstr (type, ==, "string");
+    value = wp_metadata_item_get_value (mi);
     g_assert_cmpstr (value, ==, "test-value");
     g_value_unset (&val);
 
     g_assert_true (wp_iterator_next (iter, &val));
-    wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
+    mi = g_value_get_boxed (&val);
+    subject = wp_metadata_item_get_subject (mi);
     g_assert_cmpint (subject, ==, 15);
+    key = wp_metadata_item_get_key (mi);
     g_assert_cmpstr (key, ==, "toast");
+    type = wp_metadata_item_get_value_type (mi);
     g_assert_cmpstr (type, ==, "Spa:Int");
+    value = wp_metadata_item_get_value (mi);
     g_assert_cmpstr (value, ==, "15");
     g_value_unset (&val);
 
@@ -249,28 +268,41 @@ test_metadata_basic (TestFixture *fixture, gconstpointer data)
     g_auto (GValue) val = G_VALUE_INIT;
     guint subject = -1;
     const gchar *key = NULL, *type = NULL, *value = NULL;
+    WpMetadataItem *mi;
 
     g_assert_true (wp_iterator_next (iter, &val));
-    wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
+    mi = g_value_get_boxed (&val);
+    subject = wp_metadata_item_get_subject (mi);
     g_assert_cmpint (subject, ==, 0);
+    key = wp_metadata_item_get_key (mi);
     g_assert_cmpstr (key, ==, "test-key");
+    type = wp_metadata_item_get_value_type (mi);
     g_assert_cmpstr (type, ==, "string");
+    value = wp_metadata_item_get_value (mi);
     g_assert_cmpstr (value, ==, "test-value");
     g_value_unset (&val);
 
     g_assert_true (wp_iterator_next (iter, &val));
-    wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
+    mi = g_value_get_boxed (&val);
+    subject = wp_metadata_item_get_subject (mi);
     g_assert_cmpint (subject, ==, 15);
+    key = wp_metadata_item_get_key (mi);
     g_assert_cmpstr (key, ==, "toast");
+    type = wp_metadata_item_get_value_type (mi);
     g_assert_cmpstr (type, ==, "Spa:Int");
+    value = wp_metadata_item_get_value (mi);
     g_assert_cmpstr (value, ==, "20");
     g_value_unset (&val);
 
     g_assert_true (wp_iterator_next (iter, &val));
-    wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
+    mi = g_value_get_boxed (&val);
+    subject = wp_metadata_item_get_subject (mi);
     g_assert_cmpint (subject, ==, 0);
+    key = wp_metadata_item_get_key (mi);
     g_assert_cmpstr (key, ==, "3rd.key");
+    type = wp_metadata_item_get_value_type (mi);
     g_assert_cmpstr (type, ==, "string");
+    value = wp_metadata_item_get_value (mi);
     g_assert_cmpstr (value, ==, "3rd.value");
     g_value_unset (&val);
 
@@ -282,28 +314,41 @@ test_metadata_basic (TestFixture *fixture, gconstpointer data)
     g_auto (GValue) val = G_VALUE_INIT;
     guint subject = -1;
     const gchar *key = NULL, *type = NULL, *value = NULL;
+    WpMetadataItem *mi;
 
     g_assert_true (wp_iterator_next (iter, &val));
-    wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
+    mi = g_value_get_boxed (&val);
+    subject = wp_metadata_item_get_subject (mi);
     g_assert_cmpint (subject, ==, 0);
+    key = wp_metadata_item_get_key (mi);
     g_assert_cmpstr (key, ==, "test-key");
+    type = wp_metadata_item_get_value_type (mi);
     g_assert_cmpstr (type, ==, "string");
+    value = wp_metadata_item_get_value (mi);
     g_assert_cmpstr (value, ==, "test-value");
     g_value_unset (&val);
 
     g_assert_true (wp_iterator_next (iter, &val));
-    wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
+    mi = g_value_get_boxed (&val);
+    subject = wp_metadata_item_get_subject (mi);
     g_assert_cmpint (subject, ==, 15);
+    key = wp_metadata_item_get_key (mi);
     g_assert_cmpstr (key, ==, "toast");
+    type = wp_metadata_item_get_value_type (mi);
     g_assert_cmpstr (type, ==, "Spa:Int");
+    value = wp_metadata_item_get_value (mi);
     g_assert_cmpstr (value, ==, "20");
     g_value_unset (&val);
 
     g_assert_true (wp_iterator_next (iter, &val));
-    wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
+    mi = g_value_get_boxed (&val);
+    subject = wp_metadata_item_get_subject (mi);
     g_assert_cmpint (subject, ==, 0);
+    key = wp_metadata_item_get_key (mi);
     g_assert_cmpstr (key, ==, "3rd.key");
+    type = wp_metadata_item_get_value_type (mi);
     g_assert_cmpstr (type, ==, "string");
+    value = wp_metadata_item_get_value (mi);
     g_assert_cmpstr (value, ==, "3rd.value");
     g_value_unset (&val);
 
@@ -326,36 +371,53 @@ test_metadata_basic (TestFixture *fixture, gconstpointer data)
     g_auto (GValue) val = G_VALUE_INIT;
     guint subject = -1;
     const gchar *key = NULL, *type = NULL, *value = NULL;
+    WpMetadataItem *mi;
 
     g_assert_true (wp_iterator_next (iter, &val));
-    wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
+    mi = g_value_get_boxed (&val);
+    subject = wp_metadata_item_get_subject (mi);
     g_assert_cmpint (subject, ==, 0);
+    key = wp_metadata_item_get_key (mi);
     g_assert_cmpstr (key, ==, "test-key");
+    type = wp_metadata_item_get_value_type (mi);
     g_assert_cmpstr (type, ==, "string");
+    value = wp_metadata_item_get_value (mi);
     g_assert_cmpstr (value, ==, "new.value");
     g_value_unset (&val);
 
     g_assert_true (wp_iterator_next (iter, &val));
-    wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
+    mi = g_value_get_boxed (&val);
+    subject = wp_metadata_item_get_subject (mi);
     g_assert_cmpint (subject, ==, 15);
+    key = wp_metadata_item_get_key (mi);
     g_assert_cmpstr (key, ==, "toast");
+    type = wp_metadata_item_get_value_type (mi);
     g_assert_cmpstr (type, ==, "Spa:Int");
+    value = wp_metadata_item_get_value (mi);
     g_assert_cmpstr (value, ==, "20");
     g_value_unset (&val);
 
     g_assert_true (wp_iterator_next (iter, &val));
-    wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
+    mi = g_value_get_boxed (&val);
+    subject = wp_metadata_item_get_subject (mi);
     g_assert_cmpint (subject, ==, 0);
+    key = wp_metadata_item_get_key (mi);
     g_assert_cmpstr (key, ==, "3rd.key");
+    type = wp_metadata_item_get_value_type (mi);
     g_assert_cmpstr (type, ==, "string");
+    value = wp_metadata_item_get_value (mi);
     g_assert_cmpstr (value, ==, "3rd.value");
     g_value_unset (&val);
 
     g_assert_true (wp_iterator_next (iter, &val));
-    wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
+    mi = g_value_get_boxed (&val);
+    subject = wp_metadata_item_get_subject (mi);
     g_assert_cmpint (subject, ==, 0);
+    key = wp_metadata_item_get_key (mi);
     g_assert_cmpstr (key, ==, "4th.key");
+    type = wp_metadata_item_get_value_type (mi);
     g_assert_cmpstr (type, ==, "string");
+    value = wp_metadata_item_get_value (mi);
     g_assert_cmpstr (value, ==, "4th.value");
     g_value_unset (&val);
 
@@ -367,36 +429,53 @@ test_metadata_basic (TestFixture *fixture, gconstpointer data)
     g_auto (GValue) val = G_VALUE_INIT;
     guint subject = -1;
     const gchar *key = NULL, *type = NULL, *value = NULL;
+    WpMetadataItem *mi;
 
     g_assert_true (wp_iterator_next (iter, &val));
-    wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
+    mi = g_value_get_boxed (&val);
+    subject = wp_metadata_item_get_subject (mi);
     g_assert_cmpint (subject, ==, 0);
+    key = wp_metadata_item_get_key (mi);
     g_assert_cmpstr (key, ==, "test-key");
+    type = wp_metadata_item_get_value_type (mi);
     g_assert_cmpstr (type, ==, "string");
+    value = wp_metadata_item_get_value (mi);
     g_assert_cmpstr (value, ==, "new.value");
     g_value_unset (&val);
 
     g_assert_true (wp_iterator_next (iter, &val));
-    wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
+    mi = g_value_get_boxed (&val);
+    subject = wp_metadata_item_get_subject (mi);
     g_assert_cmpint (subject, ==, 15);
+    key = wp_metadata_item_get_key (mi);
     g_assert_cmpstr (key, ==, "toast");
+    type = wp_metadata_item_get_value_type (mi);
     g_assert_cmpstr (type, ==, "Spa:Int");
+    value = wp_metadata_item_get_value (mi);
     g_assert_cmpstr (value, ==, "20");
     g_value_unset (&val);
 
     g_assert_true (wp_iterator_next (iter, &val));
-    wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
+    mi = g_value_get_boxed (&val);
+    subject = wp_metadata_item_get_subject (mi);
     g_assert_cmpint (subject, ==, 0);
+    key = wp_metadata_item_get_key (mi);
     g_assert_cmpstr (key, ==, "3rd.key");
+    type = wp_metadata_item_get_value_type (mi);
     g_assert_cmpstr (type, ==, "string");
+    value = wp_metadata_item_get_value (mi);
     g_assert_cmpstr (value, ==, "3rd.value");
     g_value_unset (&val);
 
     g_assert_true (wp_iterator_next (iter, &val));
-    wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
+    mi = g_value_get_boxed (&val);
+    subject = wp_metadata_item_get_subject (mi);
     g_assert_cmpint (subject, ==, 0);
+    key = wp_metadata_item_get_key (mi);
     g_assert_cmpstr (key, ==, "4th.key");
+    type = wp_metadata_item_get_value_type (mi);
     g_assert_cmpstr (type, ==, "string");
+    value = wp_metadata_item_get_value (mi);
     g_assert_cmpstr (value, ==, "4th.value");
     g_value_unset (&val);
 
@@ -409,28 +488,41 @@ test_metadata_basic (TestFixture *fixture, gconstpointer data)
     g_auto (GValue) val = G_VALUE_INIT;
     guint subject = -1;
     const gchar *key = NULL, *type = NULL, *value = NULL;
+    WpMetadataItem *mi;
 
     g_assert_true (wp_iterator_next (iter, &val));
-    wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
+    mi = g_value_get_boxed (&val);
+    subject = wp_metadata_item_get_subject (mi);
     g_assert_cmpint (subject, ==, 0);
+    key = wp_metadata_item_get_key (mi);
     g_assert_cmpstr (key, ==, "test-key");
+    type = wp_metadata_item_get_value_type (mi);
     g_assert_cmpstr (type, ==, "string");
+    value = wp_metadata_item_get_value (mi);
     g_assert_cmpstr (value, ==, "new.value");
     g_value_unset (&val);
 
     g_assert_true (wp_iterator_next (iter, &val));
-    wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
+    mi = g_value_get_boxed (&val);
+    subject = wp_metadata_item_get_subject (mi);
     g_assert_cmpint (subject, ==, 0);
+    key = wp_metadata_item_get_key (mi);
     g_assert_cmpstr (key, ==, "3rd.key");
+    type = wp_metadata_item_get_value_type (mi);
     g_assert_cmpstr (type, ==, "string");
+    value = wp_metadata_item_get_value (mi);
     g_assert_cmpstr (value, ==, "3rd.value");
     g_value_unset (&val);
 
     g_assert_true (wp_iterator_next (iter, &val));
-    wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
+    mi = g_value_get_boxed (&val);
+    subject = wp_metadata_item_get_subject (mi);
     g_assert_cmpint (subject, ==, 0);
+    key = wp_metadata_item_get_key (mi);
     g_assert_cmpstr (key, ==, "4th.key");
+    type = wp_metadata_item_get_value_type (mi);
     g_assert_cmpstr (type, ==, "string");
+    value = wp_metadata_item_get_value (mi);
     g_assert_cmpstr (value, ==, "4th.value");
     g_value_unset (&val);
 

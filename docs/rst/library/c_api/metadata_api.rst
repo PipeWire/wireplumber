@@ -14,6 +14,8 @@ PipeWire Metadata
       WpMetadata-> WpImplMetadata;
    }
 
+.. doxygenstruct:: WpMetadataItem
+
 .. doxygenstruct:: WpMetadata
 
 .. doxygenstruct:: WpImplMetadata

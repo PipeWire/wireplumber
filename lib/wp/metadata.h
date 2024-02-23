@@ -14,6 +14,36 @@
 G_BEGIN_DECLS
 
 /*!
+ * \brief The WpMetadataItem GType
+ * \ingroup wpmetadata
+ */
+#define WP_TYPE_METADATA_ITEM (wp_metadata_item_get_type ())
+WP_API
+GType wp_metadata_item_get_type (void);
+
+typedef struct _WpMetadataItem WpMetadataItem;
+
+WP_API
+WpMetadataItem *wp_metadata_item_ref (WpMetadataItem *self);
+
+WP_API
+void wp_metadata_item_unref (WpMetadataItem *self);
+
+WP_API
+guint32 wp_metadata_item_get_subject (WpMetadataItem * self);
+
+WP_API
+const gchar * wp_metadata_item_get_key (WpMetadataItem * self);
+
+WP_API
+const gchar * wp_metadata_item_get_value_type (WpMetadataItem * self);
+
+WP_API
+const gchar * wp_metadata_item_get_value (WpMetadataItem * self);
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpMetadataItem, wp_metadata_item_unref)
+
+/*!
  * \brief An extension of WpProxyFeatures for WpMetadata objects
  * \ingroup wpmetadata
  */
@@ -41,10 +71,6 @@ struct _WpMetadataClass
 
 WP_API
 WpIterator * wp_metadata_new_iterator (WpMetadata * self, guint32 subject);
-
-WP_API
-void wp_metadata_iterator_item_extract (const GValue * item, guint32 * subject,
-    const gchar ** key, const gchar ** type, const gchar ** value);
 
 WP_API
 const gchar * wp_metadata_find (WpMetadata * self, guint32 subject,

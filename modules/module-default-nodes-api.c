@@ -152,9 +152,11 @@ on_metadata_added (WpObjectManager *om, WpObject *obj, WpDefaultNodesApi * self)
     g_auto (GValue) val = G_VALUE_INIT;
 
     for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
-      guint32 subject;
-      const gchar *key, *type, *value;
-      wp_metadata_iterator_item_extract (&val, &subject, &key, &type, &value);
+      WpMetadataItem *mi = g_value_get_boxed (&val);
+      guint32 subject = wp_metadata_item_get_subject (mi);
+      const gchar *key = wp_metadata_item_get_key (mi);
+      const gchar *type = wp_metadata_item_get_value_type (mi);
+      const gchar *value = wp_metadata_item_get_value (mi);
       on_metadata_changed (WP_METADATA (obj), subject, key, type, value, self);
     }
 

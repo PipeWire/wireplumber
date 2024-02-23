@@ -170,10 +170,11 @@ test_metadata (TestSettingsFixture *self, gconstpointer data)
   g_auto (GValue) val = G_VALUE_INIT;
 
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
-      const gchar *setting, *value;
-      wp_metadata_iterator_item_extract (&val, NULL, &setting, NULL, &value);
-      wp_properties_set (settings, setting, value);
-      g_debug ("%s(%lu) = %s\n", setting, strlen(value), value);
+    WpMetadataItem *mi = g_value_get_boxed (&val);
+    const gchar *key = wp_metadata_item_get_key (mi);
+    const gchar *value = wp_metadata_item_get_value (mi);
+    wp_properties_set (settings, key, value);
+    g_debug ("%s(%lu) = %s\n", key, strlen(value), value);
   }
 
   /* match the settings loaded from conf file and metadata */

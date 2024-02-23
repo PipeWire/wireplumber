@@ -319,6 +319,124 @@ wp_metadata_class_init (WpMetadataClass * klass)
       G_TYPE_UINT, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
 }
 
+struct _WpMetadataItem
+{
+  WpMetadata *metadata;
+  guint32 subject;
+  const gchar *key;
+  const gchar *type;
+  const gchar *value;
+};
+
+G_DEFINE_BOXED_TYPE (WpMetadataItem, wp_metadata_item,
+    wp_metadata_item_ref, wp_metadata_item_unref)
+
+static WpMetadataItem *
+wp_metadata_item_new (WpMetadata *metadata, guint32 subject, const gchar *key,
+    const gchar *type, const gchar *value)
+{
+  WpMetadataItem *self = g_rc_box_new0 (WpMetadataItem);
+  self->metadata = g_object_ref (metadata);
+  self->subject = subject;
+  self->key = key;
+  self->type = type;
+  self->value = value;
+  return self;
+}
+
+static void
+wp_metadata_item_free (gpointer p)
+{
+  WpMetadataItem *self = p;
+  g_clear_object (&self->metadata);
+}
+
+/*!
+ * \brief Increases the reference count of a metadata item object
+ * \ingroup wpmetadata
+ * \param self a metadata item object
+ * \returns (transfer full): \a self with an additional reference count on it
+ * \since 0.5.0
+ */
+WpMetadataItem *
+wp_metadata_item_ref (WpMetadataItem *self)
+{
+  return g_rc_box_acquire (self);
+}
+
+/*!
+ * \brief Decreases the reference count on \a self and frees it when the ref
+ * count reaches zero.
+ * \ingroup wpmetadata
+ * \param self (transfer full): a metadata item object
+ * \since 0.5.0
+ */
+void
+wp_metadata_item_unref (WpMetadataItem *self)
+{
+  g_rc_box_release_full (self, wp_metadata_item_free);
+}
+
+/*!
+ * \brief Gets the subject from a metadata item
+ *
+ * \ingroup wpmetadata
+ * \param self the item held by the GValue that was returned from the WpIterator
+ *   of wp_metadata_new_iterator()
+ * \returns (transfer none): the metadata subject of the \a item
+ * \since 0.5.0
+ */
+guint32
+wp_metadata_item_get_subject (WpMetadataItem * self)
+{
+  return self->subject;
+}
+
+/*!
+ * \brief Gets the key from a metadata item
+ *
+ * \ingroup wpmetadata
+ * \param self the item held by the GValue that was returned from the WpIterator
+ *   of wp_metadata_new_iterator()
+ * \returns (transfer none): the metadata key of the \a item
+ * \since 0.5.0
+ */
+const gchar *
+wp_metadata_item_get_key (WpMetadataItem * self)
+{
+  return self->key;
+}
+
+/*!
+ * \brief Gets the value type from a metadata item
+ *
+ * \ingroup wpmetadata
+ * \param self the item held by the GValue that was returned from the WpIterator
+ *   of wp_metadata_new_iterator()
+ * \returns (transfer none): the metadata value type of the \a item
+ * \since 0.5.0
+ */
+const gchar *
+wp_metadata_item_get_value_type (WpMetadataItem * self)
+{
+  return self->type;
+}
+
+/*!
+ * \brief Gets the value from a metadata item
+ *
+ * \ingroup wpmetadata
+ * \param self the item held by the GValue that was returned from the WpIterator
+ *   of wp_metadata_new_iterator()
+ * \returns (transfer none): the metadata value of the \a item
+ * \since 0.5.0
+ */
+const gchar *
+wp_metadata_item_get_value (WpMetadataItem * self)
+{
+  return self->value;
+}
+
 struct metadata_iterator_data
 {
   WpMetadata *metadata;
@@ -346,8 +464,11 @@ metadata_iterator_next (WpIterator *it, GValue *item)
   while (pw_array_check (&priv->metadata, it_data->item)) {
     if ((it_data->subject == PW_ID_ANY ||
             it_data->subject == it_data->item->subject)) {
-      g_value_init (item, G_TYPE_POINTER);
-      g_value_set_pointer (item, (gpointer) it_data->item);
+      g_autoptr (WpMetadataItem) mi = wp_metadata_item_new (it_data->metadata,
+          it_data->item->subject, it_data->item->key, it_data->item->type,
+          it_data->item->value);
+      g_value_init (item, WP_TYPE_METADATA_ITEM);
+      g_value_take_boxed (item, g_steal_pointer (&mi));
       it_data->item++;
       return TRUE;
     }
@@ -369,8 +490,11 @@ metadata_iterator_fold (WpIterator *it, WpIteratorFoldFunc func, GValue *ret,
     if ((it_data->subject == PW_ID_ANY ||
             it_data->subject == it_data->item->subject)) {
       g_auto (GValue) item = G_VALUE_INIT;
-      g_value_init (&item, G_TYPE_POINTER);
-      g_value_set_pointer (&item, (gpointer) i);
+      g_autoptr (WpMetadataItem) mi = wp_metadata_item_new (it_data->metadata,
+          it_data->item->subject, it_data->item->key, it_data->item->type,
+          it_data->item->value);
+      g_value_init (&item, WP_TYPE_METADATA_ITEM);
+      g_value_take_boxed (&item, g_steal_pointer (&mi));
       if (!func (&item, ret, data))
         return FALSE;
     }
@@ -407,8 +531,7 @@ static const WpIteratorMethods metadata_iterator_methods = {
  * \param self a metadata object
  * \param subject the metadata subject id, or -1 (PW_ID_ANY)
  * \returns (transfer full): an iterator that iterates over the found metadata.
- *   Use wp_metadata_iterator_item_extract() to parse the items returned by
- *   this iterator.
+ *   The type of the iterator item is WpMetadataItem.
  */
 WpIterator *
 wp_metadata_new_iterator (WpMetadata * self, guint32 subject)
@@ -430,33 +553,6 @@ wp_metadata_new_iterator (WpMetadata * self, guint32 subject)
 }
 
 /*!
- * \brief Extracts the metadata subject, key, type and value out of a
- * GValue that was returned from the WpIterator of wp_metadata_find()
- *
- * \ingroup wpmetadata
- * \param item a GValue that was returned from the WpIterator of wp_metadata_find()
- * \param subject (out)(optional): the subject id of the current item
- * \param key (out)(optional)(transfer none): the key of the current item
- * \param type (out)(optional)(transfer none): the type of the current item
- * \param value (out)(optional)(transfer none): the value of the current item
- */
-void
-wp_metadata_iterator_item_extract (const GValue * item, guint32 * subject,
-    const gchar ** key, const gchar ** type, const gchar ** value)
-{
-  const struct item *i = g_value_get_pointer (item);
-  g_return_if_fail (i != NULL);
-  if (subject)
-    *subject = i->subject;
-  if (key)
-    *key = i->key;
-  if (type)
-    *type = i->type;
-  if (value)
-    *value = i->value;
-}
-
-/*!
  * \brief Finds the metadata value given its \a subject and \a key.
  *
  * \ingroup wpmetadata
@@ -474,8 +570,10 @@ wp_metadata_find (WpMetadata * self, guint32 subject, const gchar * key,
   g_auto (GValue) val = G_VALUE_INIT;
   it = wp_metadata_new_iterator (self, subject);
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
-    const gchar *k = NULL, *t = NULL, *v = NULL;
-    wp_metadata_iterator_item_extract (&val, NULL, &k, &t, &v);
+    WpMetadataItem *mi = g_value_get_boxed (&val);
+    const gchar *k = wp_metadata_item_get_key (mi);
+    const gchar *t = wp_metadata_item_get_value_type (mi);
+    const gchar *v = wp_metadata_item_get_value (mi);
     if (g_strcmp0 (k, key) == 0) {
       if (type)
         *type = t;

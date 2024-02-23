@@ -596,9 +596,11 @@ metadata_iterator_next (lua_State *L)
   WpIterator *it = wplua_checkboxed (L, 1, WP_TYPE_ITERATOR);
   g_auto (GValue) item = G_VALUE_INIT;
   if (wp_iterator_next (it, &item)) {
-    guint32 s = 0;
-    const gchar *k = NULL, *t = NULL, *v = NULL;
-    wp_metadata_iterator_item_extract (&item, &s, &k, &t, &v);
+    WpMetadataItem *mi = g_value_get_boxed (&item);
+    guint32 s = wp_metadata_item_get_subject (mi);
+    const gchar *k = wp_metadata_item_get_key (mi);
+    const gchar *t = wp_metadata_item_get_value_type (mi);
+    const gchar *v = wp_metadata_item_get_value (mi);
     lua_pushinteger (L, s);
     lua_pushstring (L, k);
     lua_pushstring (L, t);

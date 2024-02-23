@@ -1402,7 +1402,8 @@ settings_run (WpCtl * self)
   }
   persistent_settings = wp_object_manager_lookup (self->om, WP_TYPE_METADATA,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY,
-      "metadata.name", "=s", "persistent-sm-settings",
+      "metadata.name", "=s",
+          WP_SETTINGS_PERSISTENT_METADATA_NAME_PREFIX "sm-settings",
       NULL);
   if (!persistent_settings) {
     fprintf (stderr, "Persistent settings metadata not found\n");
@@ -1416,9 +1417,11 @@ settings_run (WpCtl * self)
       printf ("Settings:\n");
       it = wp_metadata_new_iterator (settings, 0);
       for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
-        const gchar *key, *value, *saved_value;
-        wp_metadata_iterator_item_extract (&val, 0, &key, NULL, &value);
-        saved_value = wp_metadata_find (persistent_settings, 0, key, NULL);
+        WpMetadataItem *mi = g_value_get_boxed (&val);
+        const gchar *key = wp_metadata_item_get_key (mi);
+        const gchar *value = wp_metadata_item_get_value (mi);
+        const gchar *saved_value = wp_metadata_find (persistent_settings, 0,
+            key, NULL);
         if (saved_value)
           printf (" - %s: %s (saved: %s)\n", key, value, saved_value);
         else
@@ -1429,8 +1432,10 @@ settings_run (WpCtl * self)
       /* Save all current settings */
       it = wp_metadata_new_iterator (settings, 0);
       for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
-        const gchar *key, *type, *value;
-        wp_metadata_iterator_item_extract (&val, 0, &key, &type, &value);
+        WpMetadataItem *mi = g_value_get_boxed (&val);
+        const gchar *key = wp_metadata_item_get_key (mi);
+        const gchar *type = wp_metadata_item_get_value_type (mi);
+        const gchar *value = wp_metadata_item_get_value (mi);
         wp_metadata_set (persistent_settings, 0, key, type, value);
         fprintf (stderr, "Saved setting %s with value %s\n", key, value);
       }
