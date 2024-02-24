@@ -93,7 +93,7 @@ typedef enum { /*< flags >*/
 
 WP_API
 gchar * wp_find_file (WpLookupDirs dirs, const gchar *filename,
-    const char *subdir);
+    const gchar *subdir);
 
 WP_API
 WpIterator * wp_new_files_iterator (WpLookupDirs dirs, const gchar *subdir,

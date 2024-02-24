@@ -162,7 +162,7 @@ done:
  * \since 0.4.2
  */
 gchar *
-wp_find_file (WpLookupDirs dirs, const gchar *filename, const char *subdir)
+wp_find_file (WpLookupDirs dirs, const gchar *filename, const gchar *subdir)
 {
   g_autoptr(GPtrArray) dir_paths = lookup_dirs (dirs);
 
