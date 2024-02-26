@@ -179,18 +179,30 @@ wp_find_file (WpLookupDirs dirs, const gchar *filename, const gchar *subdir)
   return NULL;
 }
 
+struct conffile_iterator_item
+{
+  gchar *filename;
+  gchar *path;
+};
+
+static void
+conffile_iterator_item_clear (struct conffile_iterator_item *item)
+{
+  g_free (item->filename);
+  g_free (item->path);
+}
+
 struct conffile_iterator_data
 {
-  GList *sorted_keys;
-  GList *ptr;
-  GHashTable *ht;
+  GArray *items;
+  guint idx;
 };
 
 static void
 conffile_iterator_reset (WpIterator *it)
 {
   struct conffile_iterator_data *it_data = wp_iterator_get_user_data (it);
-  it_data->ptr = it_data->sorted_keys;
+  it_data->idx = 0;
 }
 
 static gboolean
@@ -198,9 +210,10 @@ conffile_iterator_next (WpIterator *it, GValue *item)
 {
   struct conffile_iterator_data *it_data = wp_iterator_get_user_data (it);
 
-  if (it_data->ptr) {
-    const gchar *path = g_hash_table_lookup (it_data->ht, it_data->ptr->data);
-    it_data->ptr = g_list_next (it_data->ptr);
+  if (it_data->idx < it_data->items->len) {
+    const gchar *path = g_array_index (it_data->items,
+        struct conffile_iterator_item, it_data->idx).path;
+    it_data->idx++;
     g_value_init (item, G_TYPE_STRING);
     g_value_set_string (item, path);
     return TRUE;
@@ -214,9 +227,10 @@ conffile_iterator_fold (WpIterator *it, WpIteratorFoldFunc func, GValue *ret,
 {
   struct conffile_iterator_data *it_data = wp_iterator_get_user_data (it);
 
-  for (GList *ptr = it_data->sorted_keys; ptr != NULL; ptr = g_list_next (ptr)) {
+  for (guint i = 0; i < it_data->items->len; i++) {
     g_auto (GValue) item = G_VALUE_INIT;
-    const gchar *path = g_hash_table_lookup (it_data->ht, ptr->data);
+    const gchar *path = g_array_index (it_data->items,
+        struct conffile_iterator_item, i).path;
     g_value_init (&item, G_TYPE_STRING);
     g_value_set_string (&item, path);
     if (!func (&item, ret, data))
@@ -229,8 +243,7 @@ static void
 conffile_iterator_finalize (WpIterator *it)
 {
   struct conffile_iterator_data *it_data = wp_iterator_get_user_data (it);
-  g_list_free (it_data->sorted_keys);
-  g_hash_table_unref (it_data->ht);
+  g_clear_pointer (&it_data->items, g_array_unref);
 }
 
 static const WpIteratorMethods conffile_iterator_methods = {
@@ -241,17 +254,31 @@ static const WpIteratorMethods conffile_iterator_methods = {
   .finalize = conffile_iterator_finalize,
 };
 
+static gint
+conffile_iterator_item_compare (const struct conffile_iterator_item *a,
+    const struct conffile_iterator_item *b)
+{
+  return g_strcmp0 (a->filename, b->filename);
+}
+
 /*!
  * \brief Creates an iterator to iterate over configuration files in the
  * \a subdir of the configuration directories
  *
- * Files are sorted across the hierarchy of configuration and data
- * directories with files in higher-priority directories shadowing files in
- * lower-priority directories. Files are only checked for existence, a
- * caller must be able to handle read errors.
+ * The configuration directories are determined by the \a dirs parameter.
+ * The \a subdir parameter is the name of the subdirectory to search in,
+ * inside the configuration directories. If \a subdir is NULL, the base path
+ * of each configuration directory is used.
  *
- * \note the iterator may contain directories too; it is the responsibility
- * of the caller to ignore or recurse into those.
+ * The \a suffix parameter is the filename suffix to match. If \a suffix is
+ * NULL, all files are matched.
+ *
+ * The iterator will iterate over the absolute paths of the configuration
+ * files found, in the order of priority of the directories, starting from
+ * the lowest priority directory (e.g. /usr/share/wireplumber) and ending
+ * with the highest priority directory (e.g. $XDG_CONFIG_HOME/wireplumber).
+ *
+ * Files within each directory are also sorted by filename.
  *
  * \ingroup wp
  * \param dirs the directories to look into
@@ -259,16 +286,18 @@ static const WpIteratorMethods conffile_iterator_methods = {
  *   inside the configuration directories
  * \param suffix (nullable): The filename suffix, NULL matches all entries
  * \returns (transfer full): a new iterator iterating over strings which are
- *   absolute paths to the configuration files found
+ *   absolute paths to the files found
  * \since 0.4.2
  */
 WpIterator *
 wp_new_files_iterator (WpLookupDirs dirs, const gchar *subdir,
     const gchar *suffix)
 {
-  g_autoptr (GHashTable) ht =
-      g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
+  g_autoptr (GArray) items =
+      g_array_new (FALSE, FALSE, sizeof (struct conffile_iterator_item));
   g_autoptr (GPtrArray) dir_paths = NULL;
+
+  g_array_set_clear_func (items, (GDestroyNotify) conffile_iterator_item_clear);
 
   if (subdir == NULL)
     subdir = ".";
@@ -276,16 +305,19 @@ wp_new_files_iterator (WpLookupDirs dirs, const gchar *subdir,
   /* Note: this list is highest-priority first */
   dir_paths = lookup_dirs (dirs);
 
-  /* Store all filenames with their full path in the hashtable, overriding
-   * previous values. We need to run backwards through the list for that */
+  /* Run backwards through the list to get files in lowest-priority-first order */
   for (guint i = dir_paths->len; i > 0; i--) {
     g_autofree gchar *dirpath =
         g_build_filename (g_ptr_array_index (dir_paths, i - 1), subdir, NULL);
-    g_autoptr(GDir) dir = g_dir_open (dirpath, 0, NULL);
-
-    wp_trace ("searching config dir: %s", dirpath);
+    g_autoptr (GDir) dir = g_dir_open (dirpath, 0, NULL);
 
     if (dir) {
+      g_autoptr (GArray) dir_items = g_array_new (FALSE, FALSE,
+          sizeof (struct conffile_iterator_item));
+
+      wp_trace ("searching dir: %s", dirpath);
+
+      /* Store all filenames with their full path in the local array */
       const gchar *filename;
       while ((filename = g_dir_read_name (dir))) {
         if (filename[0] == '.')
@@ -294,21 +326,42 @@ wp_new_files_iterator (WpLookupDirs dirs, const gchar *subdir,
         if (suffix && !g_str_has_suffix (filename, suffix))
           continue;
 
-        g_hash_table_replace (ht, g_strdup (filename),
-            g_build_filename (dirpath, filename, NULL));
+        /* verify the file is regular and canonicalize the path */
+        g_autofree gchar *path = check_path (dirpath, NULL, filename);
+        if (!path)
+          continue;
+
+        /* remove item with the same filename from the global items array,
+           so that lower priority files can be shadowed */
+        for (guint j = 0; j < items->len; j++) {
+          struct conffile_iterator_item *item = &g_array_index (items,
+              struct conffile_iterator_item, j);
+          if (g_strcmp0 (item->filename, filename) == 0) {
+            g_array_remove_index (items, j);
+            break;
+          }
+        }
+
+        /* append in the local array */
+        g_array_append_val (dir_items, ((struct conffile_iterator_item) {
+          .filename = g_strdup (filename),
+          .path = g_steal_pointer (&path),
+        }));
       }
+
+      /* Sort files of the current dir by filename */
+      g_array_sort (dir_items, (GCompareFunc) conffile_iterator_item_compare);
+
+      /* Append the sorted files to the global array */
+      g_array_append_vals (items, dir_items->data, dir_items->len);
     }
   }
-
-  /* Sort by filename */
-  GList *keys = g_hash_table_get_keys (ht);
-  keys = g_list_sort (keys, (GCompareFunc)g_strcmp0);
 
   /* Construct iterator */
   WpIterator *it = wp_iterator_new (&conffile_iterator_methods,
       sizeof (struct conffile_iterator_data));
   struct conffile_iterator_data *it_data = wp_iterator_get_user_data (it);
-  it_data->sorted_keys = keys;
-  it_data->ht = g_hash_table_ref (ht);
+  it_data->items = g_steal_pointer (&items);
+  it_data->idx = 0;
   return g_steal_pointer (&it);
 }
