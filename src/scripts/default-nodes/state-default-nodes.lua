@@ -10,7 +10,6 @@
 -- state file during the bootup, finally it has a hook which finds a default
 -- node out of the user preferences
 
-settings = require ("settings-node")
 log = Log.open_topic ("s-default-nodes")
 
 -- the state storage
@@ -193,5 +192,7 @@ function toggleState (enable)
   end
 end
 
-settings:subscribe ("restore-default-targets", toggleState)
-toggleState (settings ["restore-default-targets"])
+Settings.subscribe ("node.restore-default-targets", function ()
+  toggleState (Settings.get_boolean ("node.restore-default-targets"))
+end)
+toggleState (Settings.get_boolean ("node.restore-default-targets"))

@@ -7,7 +7,6 @@
 
 -- Script is a Lua Module of monitor Lua utility functions
 
-settings = require ("settings-monitor")
 log = Log.open_topic ("s-monitors-utils")
 
 local mutils = {
@@ -103,7 +102,8 @@ function mutils.register_cam_node (self, parent, id, factory, properties)
   local other_api = api == "v4l2" and "libcamera" or "v4l2"
   if cam_api_data.enum_status and not cam_data[other_api].enum_status then
     log:trace (string.format ("\"%s\" armed a timer for %d", api, dev_num))
-    cam_data.source = Core.timeout_add (settings["camera-discovery-timeout"], function()
+    cam_data.source = Core.timeout_add (
+        Settings.get_int ("monitor.camera-discovery-timeout"), function()
       log:trace (string.format ("\"%s\" armed timer expired for %d", api, dev_num))
       self:create_cam_node (dev_num)
       cam_data.source = nil

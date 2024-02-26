@@ -14,7 +14,6 @@
 --
 
 cutils = require ("common-utils")
-settings = require ("settings-device")
 devinfo = require ("device-info-cache")
 log = Log.open_topic ("s-device")
 
@@ -329,5 +328,7 @@ function toggleState (enable)
   end
 end
 
-settings:subscribe ("restore-routes", toggleState)
-toggleState (settings.restore_routes)
+Settings.subscribe ("device.restore-routes", function ()
+  toggleState (Settings.get_boolean ("device.restore-routes"))
+end)
+toggleState (Settings.get_boolean ("device.restore-routes"))

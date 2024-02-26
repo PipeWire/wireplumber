@@ -11,7 +11,6 @@
 
 lutils = require ("linking-utils")
 cutils = require ("common-utils")
-settings = require ("settings-linking")
 log = Log.open_topic ("s-linking")
 
 SimpleEventHook {
@@ -34,7 +33,8 @@ SimpleEventHook {
     log:info (si, string.format ("handling item %d: %s (%s)", si.id,
         tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
 
-    local metadata = settings.allow_moving_streams and cutils.get_default_metadata_object ()
+    local metadata = Settings.get_boolean ("linking.allow-moving-streams") and
+        cutils.get_default_metadata_object ()
     local dont_fallback = cutils.parseBool (si_props ["node.dont-fallback"])
     local dont_move = cutils.parseBool (si_props ["node.dont-move"])
     local target_key

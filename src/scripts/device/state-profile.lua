@@ -12,7 +12,6 @@
 -- selected device profile to state file
 
 cutils = require ("common-utils")
-settings = require ("settings-device")
 log = Log.open_topic ("s-device")
 
 -- the state storage
@@ -140,5 +139,7 @@ function toggleState (enable)
   end
 end
 
-settings:subscribe ("restore-profile", toggleState)
-toggleState (settings.restore_profile)
+Settings.subscribe ("device.restore-profile", function ()
+  toggleState (Settings.get_boolean ("device.restore-profile"))
+end)
+toggleState (Settings.get_boolean ("device.restore-profile"))

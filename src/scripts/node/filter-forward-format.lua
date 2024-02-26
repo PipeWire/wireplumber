@@ -11,7 +11,6 @@
 -- FIXME: this script can be further improved
 
 lutils = require ("linking-utils")
-settings = require ("settings-node")
 log = Log.open_topic ("s-node")
 
 function findAssociatedLinkGroupNode (si)
@@ -93,7 +92,7 @@ SimpleEventHook {
     local si = event:get_subject ()
 
     -- Forward filters ports format to associated virtual devices if enabled
-    if settings["filter.forward-format"] then
+    if Settings.get_boolean ("node.filter.forward-format") then
       local si_props = si.properties
       local link_group = si_props ["node.link-group"]
       local si_flags = lutils:get_flags (si.id)

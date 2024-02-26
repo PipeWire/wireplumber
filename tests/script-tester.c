@@ -280,6 +280,9 @@ base_tests_setup (ScriptRunnerFixture *f, gconstpointer data)
 static void
 script_tests_setup (ScriptRunnerFixture *f, gconstpointer data)
 {
+  f->base.conf_file =
+      g_strdup_printf ("%s/config/wireplumber.conf", g_getenv ("G_TEST_SRCDIR"));
+
   wp_base_test_fixture_setup (&f->base, WP_BASE_TEST_FLAG_CLIENT_CORE);
 
   load_components (f, data);

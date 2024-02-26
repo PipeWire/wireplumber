@@ -9,7 +9,6 @@
 -- linkable) objects out of them.
 
 cutils = require ("common-utils")
-settings = require ("settings-node")
 log = Log.open_topic ("s-node")
 
 items = {}
@@ -19,9 +18,9 @@ function configProperties (node)
   local properties = {
     ["item.node"] = node,
     ["item.plugged.usec"] = GLib.get_monotonic_time (),
-    ["item.features.no-dsp"] = settings ["features.audio.no-dsp"],
-    ["item.features.monitor"] = settings ["features.audio.monitor-ports"],
-    ["item.features.control-port"] = settings ["features.audio.control-port"],
+    ["item.features.no-dsp"] = Settings.get_boolean ("node.features.audio.no-dsp"),
+    ["item.features.monitor"] = Settings.get_boolean ("node.features.audio.monitor-ports"),
+    ["item.features.control-port"] = Settings.get_boolean ("node.features.audio.control-port"),
     ["node.id"] = node ["bound-id"],
     ["client.id"] = np ["client.id"],
     ["object.path"] = np ["object.path"],

@@ -10,7 +10,6 @@
 
 lutils = require ("linking-utils")
 cutils = require ("common-utils")
-settings = require ("settings-linking")
 log = Log.open_topic ("s-linking")
 
 SimpleEventHook {
@@ -39,7 +38,8 @@ SimpleEventHook {
         log:debug (si, "... already linked to proper target")
 
         -- Check this also here, in case in default targets changed
-        if settings.follow_default_target and si_flags.has_node_defined_target then
+        if Settings.get_boolean ("linking.follow-default-target") and
+            si_flags.has_node_defined_target then
           lutils.checkFollowDefault (si, target)
         end
 

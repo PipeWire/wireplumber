@@ -27,7 +27,6 @@
 
 lutils = require ("linking-utils")
 cutils = require ("common-utils")
-settings = require ("settings-bluetooth")
 
 state = nil
 headset_profiles = nil
@@ -47,7 +46,8 @@ local previous_streams = {}
 function handlePersistentSetting (enable)
   if enable and state == nil then
     -- the state storage
-    state = settings.autoswitch_to_headset_profile and State ("bluetooth-autoswitch") or nil
+    state = Settings.get_boolean ("bluetooth.autoswitch-to-headset-profile")
+        and State ("bluetooth-autoswitch") or nil
     headset_profiles = state and state:load () or {}
   else
     state = nil
@@ -55,9 +55,10 @@ function handlePersistentSetting (enable)
   end
 end
 
-handlePersistentSetting (settings.use_persistent_storage)
-
-settings:subscribe ("use-persistent-storage", handlePersistentSetting)
+handlePersistentSetting (Settings.get_boolean ("bluetooth.use-persistent-storage"))
+Settings.subscribe ("bluetooth.use-persistent-storage", function ()
+  handlePersistentSetting (Settings.get_boolean ("bluetooth.use-persistent-storage"))
+end)
 
 devices_om = ObjectManager {
   Interest {
@@ -341,7 +342,7 @@ local function checkStreamStatus (stream)
 end
 
 local function handleStream (stream)
-  if not settings.autoswitch_to_headset_profile then
+  if not Settings.get_boolean ("bluetooth.autoswitch-to-headset-profile") then
     return
   end
 

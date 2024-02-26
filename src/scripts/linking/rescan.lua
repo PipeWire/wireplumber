@@ -13,7 +13,6 @@
 lutils = require ("linking-utils")
 cutils = require ("common-utils")
 futils = require ("filter-utils")
-settings = require ("settings-linking")
 log = Log.open_topic ("s-linking")
 handles = {}
 
@@ -231,5 +230,7 @@ function handleMoveSetting (enable)
   end
 end
 
-settings:subscribe ("allow-moving-streams", handleMoveSetting)
-handleMoveSetting (settings.allow_moving_streams)
+Settings.subscribe ("linking.allow-moving-streams", function ()
+  handleMoveSetting (Settings.get_boolean ("linking.allow-moving-streams"))
+end)
+handleMoveSetting (Settings.get_boolean ("linking.allow-moving-streams"))
