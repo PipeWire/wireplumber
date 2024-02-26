@@ -12,6 +12,9 @@
 #include "object.h"
 #include "spa-json.h"
 
+#define WP_SETTINGS_SCHEMA_METADATA_NAME_PREFIX "schema-"
+#define WP_SETTINGS_PERSISTENT_METADATA_NAME_PREFIX "persistent-"
+
 G_BEGIN_DECLS
 
 /*!

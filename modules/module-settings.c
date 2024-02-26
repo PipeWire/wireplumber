@@ -30,9 +30,11 @@ struct _WpSettingsPlugin
 
   /* Props */
   gchar *metadata_name;
-  gchar *persistent_metadata_name;
+  gchar *metadata_schema_name;
+  gchar *metadata_persistent_name;
 
   WpImplMetadata *impl_metadata;
+  WpImplMetadata *schema_impl_metadata;
   WpImplMetadata *persistent_impl_metadata;
   WpState *state;
   WpProperties *persistent_settings;
@@ -183,7 +185,7 @@ on_persistent_metadata_activated (WpMetadata * m, GAsyncResult * res,
 
   if (!wp_object_activate_finish (WP_OBJECT (m), res, &error)) {
     g_prefix_error (&error, "Failed to activate \"%s\": "
-        "Metadata object ", self->metadata_name);
+        "Metadata object ", self->metadata_persistent_name);
     wp_transition_return_error (transition, g_steal_pointer (&error));
     return;
   }
@@ -201,7 +203,7 @@ on_persistent_metadata_activated (WpMetadata * m, GAsyncResult * res,
     const gchar *value = wp_properties_item_get_value (pi);
 
     wp_debug_object (self, "adding persistent setting to %s metadata: %s = %s",
-        self->persistent_metadata_name, key, value);
+        self->metadata_persistent_name, key, value);
     wp_metadata_set (m, 0, key, "Spa:String:JSON", value);
   }
 
@@ -220,18 +222,84 @@ on_persistent_metadata_activated (WpMetadata * m, GAsyncResult * res,
 }
 
 static void
+on_schema_metadata_activated (WpMetadata * m, GAsyncResult * res,
+    gpointer user_data)
+{
+  WpTransition *transition = WP_TRANSITION (user_data);
+  WpSettingsPlugin *self = wp_transition_get_source_object (transition);
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
+  g_autoptr (WpConf) conf = wp_conf_get_instance (core);
+  g_autoptr (GError) error = NULL;
+  g_autoptr (WpSpaJson) schema_json = NULL;
+
+  if (!wp_object_activate_finish (WP_OBJECT (m), res, &error)) {
+    wp_transition_return_error (transition, g_error_new (
+        WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "Failed to activate metadata object %s", self->metadata_schema_name));
+    return;
+  }
+
+  /* Load the schema into metadata if any */
+  schema_json = wp_conf_get_section (conf, "wireplumber.settings.schema", NULL);
+  if (schema_json) {
+    g_autoptr (WpIterator) it = NULL;
+    g_auto (GValue) item = G_VALUE_INIT;
+
+    if (!wp_spa_json_is_object (schema_json)) {
+      wp_transition_return_error (transition, g_error_new (
+          WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+          "Settings schema is not a JSON object: %s",
+          wp_spa_json_get_data (schema_json)));
+      return;
+    }
+
+    it = wp_spa_json_new_iterator (schema_json);
+    while (wp_iterator_next (it, &item)) {
+      WpSpaJson *j = g_value_get_boxed (&item);
+      g_autofree gchar *key = wp_spa_json_parse_string (j);
+      g_autofree gchar *value = NULL;
+
+      g_value_unset (&item);
+      if (!wp_iterator_next (it, &item)) {
+        wp_transition_return_error (transition, g_error_new (WP_DOMAIN_LIBRARY,
+            WP_LIBRARY_ERROR_INVARIANT, "Malformed settings schema"));
+        return;
+      }
+      j = g_value_get_boxed (&item);
+      value = wp_spa_json_to_string (j);
+      g_value_unset (&item);
+
+      wp_debug_object (self, "adding schema setting to %s metadata: %s = %s",
+          self->metadata_schema_name, key, value);
+      wp_metadata_set (m, 0, key, "Spa:String:JSON", value);
+    }
+  } else {
+    wp_warning_object (self, "settings schema not found in configuration");
+  }
+
+  /* create persistent metadata object */
+  self->persistent_impl_metadata = wp_impl_metadata_new_full (core,
+      self->metadata_persistent_name, NULL);
+  wp_object_activate (WP_OBJECT (self->persistent_impl_metadata),
+      WP_OBJECT_FEATURES_ALL,
+      NULL,
+      (GAsyncReadyCallback)on_persistent_metadata_activated,
+      transition);
+}
+
+static void
 wp_settings_plugin_enable (WpPlugin * plugin, WpTransition * transition)
 {
   WpSettingsPlugin * self = WP_SETTINGS_PLUGIN (plugin);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
 
-  /* create persistent metadata object */
-  self->persistent_impl_metadata = wp_impl_metadata_new_full (core,
-      self->persistent_metadata_name, NULL);
-  wp_object_activate (WP_OBJECT (self->persistent_impl_metadata),
+  /* create schema metadata object */
+  self->schema_impl_metadata = wp_impl_metadata_new_full (core,
+      self->metadata_schema_name, NULL);
+  wp_object_activate (WP_OBJECT (self->schema_impl_metadata),
       WP_OBJECT_FEATURES_ALL,
       NULL,
-      (GAsyncReadyCallback)on_persistent_metadata_activated,
+      (GAsyncReadyCallback)on_schema_metadata_activated,
       transition);
 }
 
@@ -246,7 +314,8 @@ wp_settings_plugin_disable (WpPlugin * plugin)
   g_clear_object (&self->state);
 
   g_clear_pointer (&self->metadata_name, g_free);
-  g_clear_pointer (&self->persistent_metadata_name, g_free);
+  g_clear_pointer (&self->metadata_schema_name, g_free);
+  g_clear_pointer (&self->metadata_persistent_name, g_free);
 }
 
 static void
@@ -258,8 +327,10 @@ wp_settings_plugin_set_property (GObject * object, guint property_id,
   switch (property_id) {
   case PROP_METADATA_NAME:
     self->metadata_name = g_value_dup_string (value);
-    self->persistent_metadata_name = g_strdup_printf ("persistent-%s",
-        self->metadata_name);
+    self->metadata_schema_name = g_strdup_printf (
+        WP_SETTINGS_SCHEMA_METADATA_NAME_PREFIX "%s", self->metadata_name);
+    self->metadata_persistent_name = g_strdup_printf (
+        WP_SETTINGS_PERSISTENT_METADATA_NAME_PREFIX "%s", self->metadata_name);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
