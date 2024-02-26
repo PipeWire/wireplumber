@@ -40,7 +40,6 @@ wp_lua_scripting_package_searcher (lua_State *L)
   g_autoptr (GError) error = NULL;
   g_autofree gchar *filename = g_strdup_printf ("%s.lua", name);
   g_autofree gchar *script = wp_find_file (
-      WP_LOOKUP_DIR_ENV_TEST_SRCDIR |
       WP_LOOKUP_DIR_ENV_DATA |
       WP_LOOKUP_DIR_XDG_CONFIG_HOME |
       WP_LOOKUP_DIR_ETC |
@@ -144,7 +143,6 @@ find_script (const gchar * script, WpCore *core)
     return g_strdup (script);
 
   return wp_find_file (WP_LOOKUP_DIR_ENV_DATA |
-                       WP_LOOKUP_DIR_ENV_TEST_SRCDIR |
                        WP_LOOKUP_DIR_XDG_CONFIG_HOME |
                        WP_LOOKUP_DIR_ETC |
                        WP_LOOKUP_DIR_PREFIX_SHARE,

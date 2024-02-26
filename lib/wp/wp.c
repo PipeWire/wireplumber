@@ -120,31 +120,36 @@ lookup_dirs (guint flags)
    * - XDG config directories
    * - /etc/
    * - /usr/share/....
+   *
+   * Note that wireplumber environment variables *replace* other directories.
    */
-  if (flags & (WP_LOOKUP_DIR_ENV_DATA | WP_LOOKUP_DIR_ENV_TEST_SRCDIR)) {
-    if ((flags & WP_LOOKUP_DIR_ENV_DATA) &&
-        (dir = g_getenv ("WIREPLUMBER_DATA_DIR")))
-      g_ptr_array_add (dirs, g_canonicalize_filename (dir, NULL));
-
-    if ((flags & WP_LOOKUP_DIR_ENV_TEST_SRCDIR) &&
-        (dir = g_getenv ("G_TEST_SRCDIR")))
-      g_ptr_array_add (dirs, g_canonicalize_filename (dir, NULL));
-
-    if (dirs->len)
-      goto done;
+  if ((flags & WP_LOOKUP_DIR_ENV_CONFIG) &&
+      (dir = g_getenv ("WIREPLUMBER_CONFIG_DIR"))) {
+    g_auto (GStrv) env_dirs = g_strsplit (dir, G_SEARCHPATH_SEPARATOR_S, 0);
+    for (guint i = 0; env_dirs[i]; i++) {
+      g_ptr_array_add (dirs, g_canonicalize_filename (env_dirs[i], NULL));
+    }
   }
-  if (flags & WP_LOOKUP_DIR_XDG_CONFIG_HOME) {
-    dir = g_get_user_config_dir ();
-    g_ptr_array_add (dirs, g_build_filename (dir, "wireplumber", NULL));
+  else if ((flags & WP_LOOKUP_DIR_ENV_DATA) &&
+      (dir = g_getenv ("WIREPLUMBER_DATA_DIR"))) {
+    g_auto (GStrv) env_dirs = g_strsplit (dir, G_SEARCHPATH_SEPARATOR_S, 0);
+    for (guint i = 0; env_dirs[i]; i++) {
+      g_ptr_array_add (dirs, g_canonicalize_filename (env_dirs[i], NULL));
+    }
   }
-  if (flags & WP_LOOKUP_DIR_ETC)
-    g_ptr_array_add (dirs,
-        g_canonicalize_filename (WIREPLUMBER_DEFAULT_CONFIG_DIR, NULL));
-  if (flags & WP_LOOKUP_DIR_PREFIX_SHARE)
-    g_ptr_array_add (dirs,
-        g_canonicalize_filename(WIREPLUMBER_DEFAULT_DATA_DIR, NULL));
+  else {
+    if (flags & WP_LOOKUP_DIR_XDG_CONFIG_HOME) {
+      dir = g_get_user_config_dir ();
+      g_ptr_array_add (dirs, g_build_filename (dir, "wireplumber", NULL));
+    }
+    if (flags & WP_LOOKUP_DIR_ETC)
+      g_ptr_array_add (dirs,
+          g_canonicalize_filename (WIREPLUMBER_DEFAULT_CONFIG_DIR, NULL));
+    if (flags & WP_LOOKUP_DIR_PREFIX_SHARE)
+      g_ptr_array_add (dirs,
+          g_canonicalize_filename(WIREPLUMBER_DEFAULT_DATA_DIR, NULL));
+  }
 
-done:
   return g_steal_pointer (&dirs);
 }
 
