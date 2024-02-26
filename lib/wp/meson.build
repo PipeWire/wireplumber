@@ -1,4 +1,5 @@
 wp_lib_sources = files(
+  'base-dirs.c',
   'client.c',
   'component-loader.c',
   'conf.c',
@@ -43,6 +44,7 @@ wp_lib_priv_sources = files(
 )
 
 wp_lib_headers = files(
+  'base-dirs.h',
   'client.h',
   'component-loader.h',
   'conf.h',
