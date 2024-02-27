@@ -698,10 +698,12 @@ load_module (WpCore * core, const gchar * module_name, WpSpaJson * args,
   GModule *gmodule;
   gpointer module_init;
 
-  if (!g_file_test (module_name, G_FILE_TEST_EXISTS))
-    module_path = g_module_build_path (wp_get_module_dir (), module_name);
-  else
-    module_path = g_strdup (module_name);
+  module_path = wp_base_dirs_find_file (WP_BASE_DIRS_MODULE, NULL, module_name);
+  if (!module_path) {
+    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "Failed to locate module %s", module_name);
+    return NULL;
+  }
 
   wp_trace_object (core, "loading %s from %s", module_name, module_path);
 

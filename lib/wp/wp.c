@@ -77,20 +77,4 @@ wp_get_library_api_version (void)
   return WIREPLUMBER_API_VERSION;
 }
 
-/*!
- * \brief Gets the WirePlumber module directory
- * \returns WirePlumber's module directory
- */
-const gchar *
-wp_get_module_dir (void)
-{
-  static const gchar *module_dir = NULL;
-  if (!module_dir) {
-    module_dir = g_getenv ("WIREPLUMBER_MODULE_DIR");
-    if (!module_dir)
-      module_dir = WIREPLUMBER_DEFAULT_MODULE_DIR;
-  }
-  return module_dir;
-}
-
 /*! \} */

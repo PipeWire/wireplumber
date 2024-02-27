@@ -15,18 +15,39 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-base-dirs")
  * \defgroup wpbasedirs Base Directories File Lookup
  */
 
+/* Returns /basedir/subdir/filename, with filename treated as a module
+ * if WP_BASE_DIRS_FLAG_MODULE is set.
+ * The basedir is assumed to be either an absolute path or NULL.
+ * The subdir is assumed to be a path relative to basedir or NULL.
+ */
 static gchar *
-check_path (const gchar *basedir, const gchar *subdir, const gchar *filename)
+make_path (guint flags, const gchar *basedir, const gchar *subdir,
+    const gchar *filename)
 {
-  g_autofree gchar *path = g_build_filename (basedir,
-                                             subdir ? subdir : filename,
-                                             subdir ? filename : NULL,
-                                             NULL);
-  g_autofree gchar *abspath = g_canonicalize_filename (path, NULL);
-  wp_trace ("checking %s", abspath);
-  if (g_file_test (abspath, G_FILE_TEST_IS_REGULAR))
-    return g_steal_pointer (&abspath);
-  return NULL;
+  g_autofree gchar *full_basedir = NULL;
+  g_autofree gchar *full_filename = NULL;
+
+  /* merge subdir into basedir, if necessary */
+  if (subdir) {
+    full_basedir = g_canonicalize_filename (subdir, basedir);
+    basedir = full_basedir;
+  }
+
+  if (flags & WP_BASE_DIRS_FLAG_MODULE) {
+    g_autofree gchar *basename = g_path_get_basename (filename);
+    g_autofree gchar *dirname = g_path_get_dirname (filename);
+    const gchar *prefix = "";
+    const gchar *suffix = "";
+    if (!g_str_has_prefix (basename, "lib"))
+      prefix = "lib";
+    if (!g_str_has_suffix (basename, ".so"))
+      suffix = ".so";
+    full_filename = g_strconcat (dirname, G_DIR_SEPARATOR_S,
+                                 prefix, basename, suffix, NULL);
+    filename = full_filename;
+  }
+
+  return g_canonicalize_filename (filename, basedir);
 }
 
 static GPtrArray *
@@ -52,6 +73,13 @@ lookup_dirs (guint flags)
   }
   else if ((flags & WP_BASE_DIRS_ENV_DATA) &&
       (dir = g_getenv ("WIREPLUMBER_DATA_DIR"))) {
+    g_auto (GStrv) env_dirs = g_strsplit (dir, G_SEARCHPATH_SEPARATOR_S, 0);
+    for (guint i = 0; env_dirs[i]; i++) {
+      g_ptr_array_add (dirs, g_canonicalize_filename (env_dirs[i], NULL));
+    }
+  }
+  else if ((flags & WP_BASE_DIRS_ENV_MODULE) &&
+      (dir = g_getenv ("WIREPLUMBER_MODULE_DIR"))) {
     g_auto (GStrv) env_dirs = g_strsplit (dir, G_SEARCHPATH_SEPARATOR_S, 0);
     for (guint i = 0; env_dirs[i]; i++) {
       g_ptr_array_add (dirs, g_canonicalize_filename (env_dirs[i], NULL));
@@ -87,6 +115,10 @@ lookup_dirs (guint flags)
     if (flags & WP_BASE_DIRS_PREFIX_SHARE) {
       g_ptr_array_add (dirs,
           g_canonicalize_filename(WIREPLUMBER_DEFAULT_DATA_DIR, NULL));
+    }
+    if (flags & WP_BASE_DIRS_PREFIX_LIB) {
+      g_ptr_array_add (dirs,
+          g_canonicalize_filename (WIREPLUMBER_DEFAULT_MODULE_DIR, NULL));
     }
   }
 
@@ -124,16 +156,23 @@ gchar *
 wp_base_dirs_find_file (WpBaseDirsFlags flags, const gchar * subdir,
     const gchar * filename)
 {
-  g_autoptr(GPtrArray) dir_paths = lookup_dirs (flags);
+  g_autoptr (GPtrArray) dir_paths = NULL;
 
-  if (g_path_is_absolute (filename))
-    return g_strdup (filename);
+  if (g_path_is_absolute (filename)) {
+    g_autofree gchar *path = make_path (flags, NULL, NULL, filename);
+    wp_trace ("test file: %s", path);
+    if (g_file_test (path, G_FILE_TEST_IS_REGULAR))
+      return g_steal_pointer (&path);
+  }
+
+  dir_paths = lookup_dirs (flags);
 
   for (guint i = 0; i < dir_paths->len; i++) {
-    gchar *path = check_path (g_ptr_array_index (dir_paths, i),
-                              subdir, filename);
-    if (path)
-      return path;
+    g_autofree gchar *path = make_path (flags, g_ptr_array_index (dir_paths, i),
+                                        subdir, filename);
+    wp_trace ("test file: %s", path);
+    if (g_file_test (path, G_FILE_TEST_IS_REGULAR))
+      return g_steal_pointer (&path);
   }
 
   return NULL;
@@ -288,8 +327,8 @@ wp_base_dirs_new_files_iterator (WpBaseDirsFlags flags,
           continue;
 
         /* verify the file is regular and canonicalize the path */
-        g_autofree gchar *path = check_path (dirpath, NULL, filename);
-        if (!path)
+        g_autofree gchar *path = make_path (flags, dirpath, NULL, filename);
+        if (!g_file_test (path, G_FILE_TEST_IS_REGULAR))
           continue;
 
         /* remove item with the same filename from the global items array,

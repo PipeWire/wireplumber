@@ -21,6 +21,7 @@ G_BEGIN_DECLS
 typedef enum { /*< flags >*/
   WP_BASE_DIRS_ENV_CONFIG = (1 << 0),       /*!< $WIREPLUMBER_CONFIG_DIR */
   WP_BASE_DIRS_ENV_DATA = (1 << 1),         /*!< $WIREPLUMBER_DATA_DIR */
+  WP_BASE_DIRS_ENV_MODULE = (1 << 2),       /*!< $WIREPLUMBER_MODULE_DIR */
 
   WP_BASE_DIRS_XDG_CONFIG_HOME = (1 << 8),  /*!< XDG_CONFIG_HOME/wireplumber */
   WP_BASE_DIRS_XDG_DATA_HOME = (1 << 9),    /*!< XDG_DATA_HOME/wireplumber */
@@ -30,6 +31,9 @@ typedef enum { /*< flags >*/
 
   WP_BASE_DIRS_ETC = (1 << 16),             /*!< ($prefix)/etc/wireplumber */
   WP_BASE_DIRS_PREFIX_SHARE = (1 << 17),    /*!< $prefix/share/wireplumber */
+  WP_BASE_DIRS_PREFIX_LIB = (1 << 18),      /*!< $prefix/$libdir/wireplumber-$ABI_version */
+
+  WP_BASE_DIRS_FLAG_MODULE = (1 << 24),     /*!< the file is a loadable module */
 
   WP_BASE_DIRS_CONFIGURATION =
       WP_BASE_DIRS_ENV_CONFIG |
@@ -44,6 +48,11 @@ typedef enum { /*< flags >*/
       WP_BASE_DIRS_XDG_DATA_HOME |
       WP_BASE_DIRS_XDG_DATA_DIRS |
       WP_BASE_DIRS_PREFIX_SHARE,
+
+  WP_BASE_DIRS_MODULE =
+      WP_BASE_DIRS_ENV_MODULE |
+      WP_BASE_DIRS_PREFIX_LIB |
+      WP_BASE_DIRS_FLAG_MODULE,
 } WpBaseDirsFlags;
 
 WP_API
