@@ -51,7 +51,7 @@ make_path (guint flags, const gchar *basedir, const gchar *subdir,
 }
 
 static GPtrArray *
-lookup_dirs (guint flags)
+lookup_dirs (guint flags, gboolean is_absolute)
 {
   g_autoptr(GPtrArray) dirs = g_ptr_array_new_with_free_func (g_free);
   const gchar *dir;
@@ -64,7 +64,10 @@ lookup_dirs (guint flags)
    *
    * Note that wireplumber environment variables *replace* other directories.
    */
-  if ((flags & WP_BASE_DIRS_ENV_CONFIG) &&
+  if (is_absolute) {
+    g_ptr_array_add (dirs, NULL);
+  }
+  else if ((flags & WP_BASE_DIRS_ENV_CONFIG) &&
       (dir = g_getenv ("WIREPLUMBER_CONFIG_DIR"))) {
     g_auto (GStrv) env_dirs = g_strsplit (dir, G_SEARCHPATH_SEPARATOR_S, 0);
     for (guint i = 0; env_dirs[i]; i++) {
@@ -156,26 +159,26 @@ gchar *
 wp_base_dirs_find_file (WpBaseDirsFlags flags, const gchar * subdir,
     const gchar * filename)
 {
-  g_autoptr (GPtrArray) dir_paths = NULL;
+  gboolean is_absolute = g_path_is_absolute (filename);
+  g_autoptr (GPtrArray) dir_paths = lookup_dirs (flags, is_absolute);
+  gchar *ret = NULL;
 
-  if (g_path_is_absolute (filename)) {
-    g_autofree gchar *path = make_path (flags, NULL, NULL, filename);
-    wp_trace ("test file: %s", path);
-    if (g_file_test (path, G_FILE_TEST_IS_REGULAR))
-      return g_steal_pointer (&path);
-  }
-
-  dir_paths = lookup_dirs (flags);
+  /* ignore the subdir if filename is absolute */
+  if (is_absolute)
+    subdir = NULL;
 
   for (guint i = 0; i < dir_paths->len; i++) {
     g_autofree gchar *path = make_path (flags, g_ptr_array_index (dir_paths, i),
                                         subdir, filename);
     wp_trace ("test file: %s", path);
-    if (g_file_test (path, G_FILE_TEST_IS_REGULAR))
-      return g_steal_pointer (&path);
+    if (g_file_test (path, G_FILE_TEST_IS_REGULAR)) {
+      ret = g_steal_pointer (&path);
+      break;
+    }
   }
 
-  return NULL;
+  wp_debug ("lookup '%s', return: %s", filename, ret);
+  return ret;
 }
 
 struct conffile_iterator_item
@@ -303,12 +306,12 @@ wp_base_dirs_new_files_iterator (WpBaseDirsFlags flags,
     subdir = ".";
 
   /* Note: this list is highest-priority first */
-  dir_paths = lookup_dirs (flags);
+  dir_paths = lookup_dirs (flags, g_path_is_absolute (subdir));
 
   /* Run backwards through the list to get files in lowest-priority-first order */
   for (guint i = dir_paths->len; i > 0; i--) {
     g_autofree gchar *dirpath =
-        g_build_filename (g_ptr_array_index (dir_paths, i - 1), subdir, NULL);
+        g_canonicalize_filename (subdir, g_ptr_array_index (dir_paths, i - 1));
     g_autoptr (GDir) dir = g_dir_open (dirpath, 0, NULL);
 
     if (dir) {
