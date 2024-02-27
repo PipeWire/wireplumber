@@ -245,6 +245,9 @@ WP_API
 WpSpaJsonParser *wp_spa_json_parser_new_object (WpSpaJson *json);
 
 WP_API
+WpSpaJsonParser *wp_spa_json_parser_new_undefined (WpSpaJson *json);
+
+WP_API
 gboolean wp_spa_json_parser_get_null (WpSpaJsonParser *self);
 
 WP_API

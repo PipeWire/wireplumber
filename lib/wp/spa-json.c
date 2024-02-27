@@ -1355,6 +1355,39 @@ wp_spa_json_parser_new_object (WpSpaJson *json)
   return self;
 }
 
+/*!
+ * \brief Creates a new spa json parser for undefined type of data. The \a json
+ * object must be valid for the entire life-cycle of the returned parser.
+ *
+ * This function allows creating a parser object for any type of spa json and is
+ * mostly useful to parse non-standard JSON data that should be treated as if it
+ * were an object or array, but does not start with a '{' or '[' character. Such
+ * data can be for instance a comma-separated list of single values (array) or
+ * key-value pairs (object). Such data is also the main configuration file,
+ * which is an object but doesn't start with a '{' character.
+ *
+ * \note If the data is an array or object, the parser will not enter it and the
+ * only token it will be able to parse is the same \a json object that is passed
+ * in as an argument. Use wp_spa_json_parser_new_array() or
+ * wp_spa_json_parser_new_object() to parse arrays or objects.
+ *
+ * \ingroup wpspajson
+ * \param json the spa json to parse
+ * \returns (transfer full): The new spa json parser
+ * \since 0.5.0
+ */
+WpSpaJsonParser *
+wp_spa_json_parser_new_undefined (WpSpaJson *json)
+{
+  WpSpaJsonParser *self;
+
+  self = g_rc_box_new0 (WpSpaJsonParser);
+  self->json = json;
+  self->data[0] = *json->json;
+  self->pos = &self->data[0];
+  return self;
+}
+
 static int
 check_nested_size (struct spa_json *parent, const gchar *data, int size)
 {
