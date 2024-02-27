@@ -43,14 +43,14 @@ lookup_dirs (guint flags)
    *
    * Note that wireplumber environment variables *replace* other directories.
    */
-  if ((flags & WP_LOOKUP_DIR_ENV_CONFIG) &&
+  if ((flags & WP_BASE_DIRS_ENV_CONFIG) &&
       (dir = g_getenv ("WIREPLUMBER_CONFIG_DIR"))) {
     g_auto (GStrv) env_dirs = g_strsplit (dir, G_SEARCHPATH_SEPARATOR_S, 0);
     for (guint i = 0; env_dirs[i]; i++) {
       g_ptr_array_add (dirs, g_canonicalize_filename (env_dirs[i], NULL));
     }
   }
-  else if ((flags & WP_LOOKUP_DIR_ENV_DATA) &&
+  else if ((flags & WP_BASE_DIRS_ENV_DATA) &&
       (dir = g_getenv ("WIREPLUMBER_DATA_DIR"))) {
     g_auto (GStrv) env_dirs = g_strsplit (dir, G_SEARCHPATH_SEPARATOR_S, 0);
     for (guint i = 0; env_dirs[i]; i++) {
@@ -58,14 +58,14 @@ lookup_dirs (guint flags)
     }
   }
   else {
-    if (flags & WP_LOOKUP_DIR_XDG_CONFIG_HOME) {
+    if (flags & WP_BASE_DIRS_XDG_CONFIG_HOME) {
       dir = g_get_user_config_dir ();
       g_ptr_array_add (dirs, g_build_filename (dir, "wireplumber", NULL));
     }
-    if (flags & WP_LOOKUP_DIR_ETC)
+    if (flags & WP_BASE_DIRS_ETC)
       g_ptr_array_add (dirs,
           g_canonicalize_filename (WIREPLUMBER_DEFAULT_CONFIG_DIR, NULL));
-    if (flags & WP_LOOKUP_DIR_PREFIX_SHARE)
+    if (flags & WP_BASE_DIRS_PREFIX_SHARE)
       g_ptr_array_add (dirs,
           g_canonicalize_filename(WIREPLUMBER_DEFAULT_DATA_DIR, NULL));
   }
@@ -74,22 +74,37 @@ lookup_dirs (guint flags)
 }
 
 /*!
- * \brief Returns the full path of \a filename as found in
- * the hierarchy of configuration and data directories.
+ * \brief Searches for \a filename in the hierarchy of directories specified
+ * by the \a flags parameter
+ *
+ * Returns the highest priority file found in the hierarchy of directories
+ * specified by the \a flags parameter. The \a subdir parameter is the name
+ * of the subdirectory to search in, inside the specified directories. If
+ * \a subdir is NULL, the base path of each directory is used.
+ *
+ * The \a filename parameter is the name of the file to search for. If the
+ * file is found, its full path is returned. If the file is not found, NULL
+ * is returned. The file is considered found if it is a regular file.
+ *
+ * If the \a filename is an absolute path, it is tested for existence and
+ * returned as is, ignoring the lookup directories in \a flags as well as
+ * the \a subdir parameter.
  *
  * \ingroup wpbasedirs
- * \param dirs the directories to look into
- * \param filename the name of the file to search for
+ * \param flags flags to specify the directories to look into and other
+ *   options specific to the kind of file being looked up
  * \param subdir (nullable): the name of the subdirectory to search in,
- *   inside the configuration directories
- * \returns (transfer full): An allocated string with the configuration
- *   file path or NULL if the file was not found.
- * \since 0.4.2
+ *   inside the specified directories
+ * \param filename the name of the file to search for
+ * \returns (transfer full): A newly allocated string with the absolute,
+ *   canonicalized file path, or NULL if the file was not found.
+ * \since 0.5.0
  */
 gchar *
-wp_find_file (WpLookupDirs dirs, const gchar *filename, const gchar *subdir)
+wp_base_dirs_find_file (WpBaseDirsFlags flags, const gchar * subdir,
+    const gchar * filename)
 {
-  g_autoptr(GPtrArray) dir_paths = lookup_dirs (dirs);
+  g_autoptr(GPtrArray) dir_paths = lookup_dirs (flags);
 
   if (g_path_is_absolute (filename))
     return g_strdup (filename);
@@ -187,36 +202,37 @@ conffile_iterator_item_compare (const struct conffile_iterator_item *a,
 }
 
 /*!
- * \brief Creates an iterator to iterate over configuration files in the
- * \a subdir of the configuration directories
+ * \brief Creates an iterator to iterate over all files that match \a suffix
+ * within the \a subdir of the directories specified in \a flags
  *
- * The configuration directories are determined by the \a dirs parameter.
  * The \a subdir parameter is the name of the subdirectory to search in,
- * inside the configuration directories. If \a subdir is NULL, the base path
- * of each configuration directory is used.
+ * inside the directories specified by \a flags. If \a subdir is NULL,
+ * the base path of each directory is used. If \a subdir is an absolute path,
+ * files are only looked up in that directory and the directories in \a flags
+ * are ignored.
  *
  * The \a suffix parameter is the filename suffix to match. If \a suffix is
  * NULL, all files are matched.
  *
- * The iterator will iterate over the absolute paths of the configuration
+ * The iterator will iterate over the absolute paths of all the files
  * files found, in the order of priority of the directories, starting from
  * the lowest priority directory (e.g. /usr/share/wireplumber) and ending
  * with the highest priority directory (e.g. $XDG_CONFIG_HOME/wireplumber).
- *
  * Files within each directory are also sorted by filename.
  *
  * \ingroup wpbasedirs
- * \param dirs the directories to look into
+ * \param flags flags to specify the directories to look into and other
+ *   options specific to the kind of file being looked up
  * \param subdir (nullable): the name of the subdirectory to search in,
  *   inside the configuration directories
  * \param suffix (nullable): The filename suffix, NULL matches all entries
  * \returns (transfer full): a new iterator iterating over strings which are
- *   absolute paths to the files found
- * \since 0.4.2
+ *   absolute & canonicalized paths to the files found
+ * \since 0.5.0
  */
 WpIterator *
-wp_new_files_iterator (WpLookupDirs dirs, const gchar *subdir,
-    const gchar *suffix)
+wp_base_dirs_new_files_iterator (WpBaseDirsFlags flags,
+    const gchar * subdir, const gchar * suffix)
 {
   g_autoptr (GArray) items =
       g_array_new (FALSE, FALSE, sizeof (struct conffile_iterator_item));
@@ -228,7 +244,7 @@ wp_new_files_iterator (WpLookupDirs dirs, const gchar *subdir,
     subdir = ".";
 
   /* Note: this list is highest-priority first */
-  dir_paths = lookup_dirs (dirs);
+  dir_paths = lookup_dirs (flags);
 
   /* Run backwards through the list to get files in lowest-priority-first order */
   for (guint i = dir_paths->len; i > 0; i--) {

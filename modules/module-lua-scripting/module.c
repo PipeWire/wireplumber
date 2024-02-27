@@ -39,12 +39,12 @@ wp_lua_scripting_package_searcher (lua_State *L)
   const gchar *name = luaL_checkstring (L, 1);
   g_autoptr (GError) error = NULL;
   g_autofree gchar *filename = g_strdup_printf ("%s.lua", name);
-  g_autofree gchar *script = wp_find_file (
-      WP_LOOKUP_DIR_ENV_DATA |
-      WP_LOOKUP_DIR_XDG_CONFIG_HOME |
-      WP_LOOKUP_DIR_ETC |
-      WP_LOOKUP_DIR_PREFIX_SHARE,
-      filename, "scripts/lib");
+  g_autofree gchar *script = wp_base_dirs_find_file (
+      WP_BASE_DIRS_ENV_DATA |
+      WP_BASE_DIRS_XDG_CONFIG_HOME |
+      WP_BASE_DIRS_ETC |
+      WP_BASE_DIRS_PREFIX_SHARE,
+      "scripts/lib", filename);
 
   if (!script)  {
     lua_pushliteral (L, "script not found");
@@ -142,11 +142,11 @@ find_script (const gchar * script, WpCore *core)
       g_file_test (script, G_FILE_TEST_IS_REGULAR))
     return g_strdup (script);
 
-  return wp_find_file (WP_LOOKUP_DIR_ENV_DATA |
-                       WP_LOOKUP_DIR_XDG_CONFIG_HOME |
-                       WP_LOOKUP_DIR_ETC |
-                       WP_LOOKUP_DIR_PREFIX_SHARE,
-                       script, "scripts");
+  return wp_base_dirs_find_file (WP_BASE_DIRS_ENV_DATA |
+                                 WP_BASE_DIRS_XDG_CONFIG_HOME |
+                                 WP_BASE_DIRS_ETC |
+                                 WP_BASE_DIRS_PREFIX_SHARE,
+                                 "scripts", script);
 }
 
 static void
