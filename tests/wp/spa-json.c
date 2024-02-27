@@ -1255,6 +1255,57 @@ test_spa_json_to_string (void)
   }
 }
 
+static void
+test_spa_json_undefined_parser (void)
+{
+  const gchar json_str[] = "key0 = val0, key.array = [ val1 val2 ], "
+      "key.object = { key-boolean = false, key-int = 8, key-array = [ 2 4 ] }";
+  g_autoptr (WpSpaJson) json = wp_spa_json_new_wrap_string (json_str);
+  g_assert_nonnull (json);
+
+  g_assert_false (wp_spa_json_is_container (json));
+
+  g_autoptr (WpSpaJsonParser) p = wp_spa_json_parser_new_undefined (json);
+  g_assert_nonnull (p);
+
+  {
+    g_autofree gchar *k = wp_spa_json_parser_get_string (p);
+    g_assert_cmpstr (k, ==, "key0");
+  }
+  {
+    g_autofree gchar *v = wp_spa_json_parser_get_string (p);
+    g_assert_cmpstr (v, ==, "val0");
+  }
+  {
+    g_autofree gchar *k = wp_spa_json_parser_get_string (p);
+    g_assert_cmpstr (k, ==, "key.array");
+  }
+  {
+    g_autoptr (WpSpaJson) v = wp_spa_json_parser_get_json (p);
+    g_autofree gchar *str = wp_spa_json_to_string (v);
+    g_assert_cmpstr (str, ==, "[ val1 val2 ]");
+    g_assert_true (wp_spa_json_is_array (v));
+  }
+  {
+    g_autofree gchar *k = wp_spa_json_parser_get_string (p);
+    g_assert_cmpstr (k, ==, "key.object");
+  }
+  {
+    g_autoptr (WpSpaJson) v = wp_spa_json_parser_get_json (p);
+    g_autofree gchar *str = wp_spa_json_to_string (v);
+    g_assert_cmpstr (str, ==, "{ key-boolean = false, key-int = 8, key-array = [ 2 4 ] }");
+    g_assert_true (wp_spa_json_is_object (v));
+  }
+  {
+    g_autofree gchar *k = wp_spa_json_parser_get_string (p);
+    g_assert_null (k);
+  }
+  {
+    g_autofree gchar *k = wp_spa_json_parser_get_string (p);
+    g_assert_null (k);
+  }
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -1272,6 +1323,8 @@ main (int argc, char *argv[])
   g_test_add_func ("/wp/spa-json/ownership", test_spa_json_ownership);
   g_test_add_func ("/wp/spa-json/spa-format", test_spa_json_spa_format);
   g_test_add_func ("/wp/spa-json/to-string", test_spa_json_to_string);
+  g_test_add_func ("/wp/spa-json/undefined-parser",
+      test_spa_json_undefined_parser);
 
   return g_test_run ();
 }
