@@ -62,12 +62,32 @@ lookup_dirs (guint flags)
       dir = g_get_user_config_dir ();
       g_ptr_array_add (dirs, g_build_filename (dir, "wireplumber", NULL));
     }
-    if (flags & WP_BASE_DIRS_ETC)
+    if (flags & WP_BASE_DIRS_XDG_DATA_HOME) {
+      dir = g_get_user_data_dir ();
+      g_ptr_array_add (dirs, g_build_filename (dir, "wireplumber", NULL));
+    }
+    if (flags & WP_BASE_DIRS_XDG_CONFIG_DIRS) {
+      const gchar * const *xdg_dirs = g_get_system_config_dirs ();
+      for (guint i = 0; xdg_dirs[i]; i++) {
+        g_ptr_array_add (dirs, g_build_filename (xdg_dirs[i], "wireplumber",
+            NULL));
+      }
+    }
+    if (flags & WP_BASE_DIRS_ETC) {
       g_ptr_array_add (dirs,
           g_canonicalize_filename (WIREPLUMBER_DEFAULT_CONFIG_DIR, NULL));
-    if (flags & WP_BASE_DIRS_PREFIX_SHARE)
+    }
+    if (flags & WP_BASE_DIRS_XDG_DATA_DIRS) {
+      const gchar * const *xdg_dirs = g_get_system_data_dirs ();
+      for (guint i = 0; xdg_dirs[i]; i++) {
+        g_ptr_array_add (dirs, g_build_filename (xdg_dirs[i], "wireplumber",
+            NULL));
+      }
+    }
+    if (flags & WP_BASE_DIRS_PREFIX_SHARE) {
       g_ptr_array_add (dirs,
           g_canonicalize_filename(WIREPLUMBER_DEFAULT_DATA_DIR, NULL));
+    }
   }
 
   return g_steal_pointer (&dirs);
