@@ -1524,6 +1524,10 @@ wp_spa_json_parser_get_string (WpSpaJsonParser *self)
 /*!
  * \brief Gets the spa json value from a spa json parser object
  *
+ * \note the returned spa json object references the original data instead
+ * of copying it, therefore the original data must be valid for the entire
+ * life-cycle of the returned object
+ *
  * \ingroup wpspajson
  * \param self the spa json parser object
  * \returns (transfer full): The spa json value or NULL if it could not be
@@ -1533,7 +1537,8 @@ WpSpaJson *
 wp_spa_json_parser_get_json (WpSpaJsonParser *self)
 {
   return wp_spa_json_parser_advance (self) ?
-      wp_spa_json_new_wrap (&self->curr) : NULL;
+      wp_spa_json_new_wrap_stringn (self->curr.cur,
+          self->curr.end - self->curr.cur) : NULL;
 }
 
 gboolean
