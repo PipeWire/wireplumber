@@ -45,28 +45,7 @@ WP_API
 const gchar * wp_conf_get_name (WpConf * self);
 
 WP_API
-WpSpaJson * wp_conf_get_section (WpConf *self, const gchar *section,
-    WpSpaJson *fallback);
-
-WP_API
-WpSpaJson *wp_conf_get_value (WpConf *self,
-    const gchar *section, const gchar *key, WpSpaJson *fallback);
-
-WP_API
-gboolean wp_conf_get_value_boolean (WpConf *self,
-    const gchar *section, const gchar *key, gboolean fallback);
-
-WP_API
-gint wp_conf_get_value_int (WpConf *self,
-    const gchar *section, const gchar *key, gint fallback);
-
-WP_API
-float wp_conf_get_value_float (WpConf *self,
-    const gchar *section, const gchar *key, float fallback);
-
-WP_API
-gchar *wp_conf_get_value_string (WpConf *self,
-    const gchar *section, const gchar *key, const gchar *fallback);
+WpSpaJson * wp_conf_get_section (WpConf *self, const gchar *section);
 
 WP_API
 gint wp_conf_section_update_props (WpConf * self, const gchar * section,

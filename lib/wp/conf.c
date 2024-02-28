@@ -425,227 +425,21 @@ ensure_merged_section (WpConf * self, const gchar *section)
  * This method will get the JSON value of a specific section from the
  * configuration. If the same section is defined in multiple locations, the
  * sections with the same name will be either merged in case of arrays and
- * objects, or overridden in case of boolean, int, double and strings. The
- * passed fallback value will be returned if the section does not exist.
+ * objects, or overridden in case of boolean, int, double and strings.
  *
  * \ingroup wpconf
  * \param self the configuration
  * \param section the section name
- * \param fallback (transfer full)(nullable): the fallback value
- * \returns (transfer full): the JSON value of the section
+ * \returns (transfer full) (nullable): the JSON value of the section or NULL
+ *   if the section does not exist
  */
 WpSpaJson *
-wp_conf_get_section (WpConf *self, const gchar *section, WpSpaJson *fallback)
+wp_conf_get_section (WpConf *self, const gchar *section)
 {
-  g_autoptr (WpSpaJson) s = NULL;
-  g_autoptr (WpSpaJson) fb = fallback;
-
-  g_return_val_if_fail (WP_IS_CONF (self), NULL);
-
-  s = ensure_merged_section (self, section);
-  if (!s)
-    return fb ? g_steal_pointer (&fb) : NULL;
-
-  return g_steal_pointer (&s);
-}
-
-/*!
- * This is a convenient function to access a JSON value from an object
- * section in the configuration. If the section is an array, or the key does
- * not exist in the object section, it will return the passed fallback value.
- *
- * \ingroup wpconf
- * \param self the configuration
- * \param section the section name
- * \param key the key name
- * \param fallback (transfer full)(nullable): the fallback value
- * \returns (transfer full): the JSON value of the section's key if it exists,
- * or the passed fallback value otherwise
- */
-WpSpaJson *
-wp_conf_get_value (WpConf *self, const gchar *section, const gchar *key,
-    WpSpaJson *fallback)
-{
-  g_autoptr (WpSpaJson) s = NULL;
-  g_autoptr (WpSpaJson) fb = fallback;
-  WpSpaJson *v;
-
   g_return_val_if_fail (WP_IS_CONF (self), NULL);
   g_return_val_if_fail (section, NULL);
-  g_return_val_if_fail (key, NULL);
 
-  s = wp_conf_get_section (self, section, NULL);
-  if (!s)
-    goto return_fallback;
-
-  if (!wp_spa_json_is_object (s)) {
-    wp_warning_object (self,
-        "Cannot get JSON key %s from %s as section is not an JSON object",
-        key, section);
-    goto return_fallback;
-  }
-
-  if (wp_spa_json_object_get (s, key, "J", &v, NULL))
-    return v;
-
-return_fallback:
-  return fb ? g_steal_pointer (&fb) : NULL;
-}
-
-/*!
- * This is a convenient function to access a boolean value from an object
- * section in the configuration. If the section is an array, or the key does
- * not exist in the object section, it will return the passed fallback value.
- *
- * \ingroup wpconf
- * \param self the configuration
- * \param section the section name
- * \param key the key name
- * \param fallback the fallback value
- * \returns the boolean value of the section's key if it exists and could be
- * parsed, or the passed fallback value otherwise
- */
-gboolean
-wp_conf_get_value_boolean (WpConf *self, const gchar *section,
-    const gchar *key, gboolean fallback)
-{
-  g_autoptr (WpSpaJson) s = NULL;
-  gboolean v;
-
-  g_return_val_if_fail (WP_IS_CONF (self), FALSE);
-  g_return_val_if_fail (section, FALSE);
-  g_return_val_if_fail (key, FALSE);
-
-  s = wp_conf_get_section (self, section, NULL);
-  if (!s)
-    return fallback;
-
-  if (!wp_spa_json_is_object (s)) {
-    wp_warning_object (self,
-        "Cannot get boolean key %s from %s as section is not an JSON object",
-        key, section);
-    return fallback;
-  }
-
-  return wp_spa_json_object_get (s, key, "b", &v, NULL) ? v : fallback;
-}
-
-/*!
- * This is a convenient function to access a int value from an object
- * section in the configuration. If the section is an array, or the key does
- * not exist in the object section, it will return the passed fallback value.
- *
- * \ingroup wpconf
- * \param self the configuration
- * \param section the section name
- * \param key the key name
- * \param fallback the fallback value
- * \returns the int value of the section's key if it exists and could be
- * parsed, or the passed fallback value otherwise
- */
-gint
-wp_conf_get_value_int (WpConf *self, const gchar *section,
-    const gchar *key, gint fallback)
-{
-  g_autoptr (WpSpaJson) s = NULL;
-  gint v;
-
-  g_return_val_if_fail (WP_IS_CONF (self), 0);
-  g_return_val_if_fail (section, 0);
-  g_return_val_if_fail (key, 0);
-
-  s = wp_conf_get_section (self, section, NULL);
-  if (!s)
-    return fallback;
-
-  if (!wp_spa_json_is_object (s)) {
-    wp_warning_object (self,
-        "Cannot get int key %s from %s as section is not an JSON object",
-        key, section);
-    return fallback;
-  }
-
-  return wp_spa_json_object_get (s, key, "i", &v, NULL) ? v : fallback;
-}
-
-/*!
- * This is a convenient function to access a float value from an object
- * section in the configuration. If the section is an array, or the key does
- * not exist in the object section, it will return the passed fallback value.
- *
- * \ingroup wpconf
- * \param self the configuration
- * \param section the section name
- * \param key the key name
- * \param fallback the fallback value
- * \returns the float value of the section's key if it exists and could be
- * parsed, or the passed fallback value otherwise
- */
-float
-wp_conf_get_value_float (WpConf *self, const gchar *section,
-    const gchar *key, float fallback)
-{
-  g_autoptr (WpSpaJson) s = NULL;
-  float v;
-
-  g_return_val_if_fail (WP_IS_CONF (self), 0);
-  g_return_val_if_fail (section, 0);
-  g_return_val_if_fail (key, 0);
-
-  s = wp_conf_get_section (self, section, NULL);
-  if (!s)
-    return fallback;
-
-  if (!wp_spa_json_is_object (s)) {
-    wp_warning_object (self,
-        "Cannot get float key %s from %s as section is not an JSON object",
-        key, section);
-    return fallback;
-  }
-
-  return wp_spa_json_object_get (s, key, "f", &v, NULL) ? v : fallback;
-}
-
-/*!
- * This is a convenient function to access a string value from an object
- * section in the configuration. If the section is an array, or the key does
- * not exist in the object section, it will return the passed fallback value.
- *
- * \ingroup wpconf
- * \param self the configuration
- * \param section the section name
- * \param key the key name
- * \param fallback (nullable): the fallback value
- * \returns (transfer full): the string value of the section's key if it exists
- * and could be parsed, or the passed fallback value otherwise
- */
-gchar *
-wp_conf_get_value_string (WpConf *self, const gchar *section,
-    const gchar *key, const gchar *fallback)
-{
-  g_autoptr (WpSpaJson) s = NULL;
-  gchar *v;
-
-  g_return_val_if_fail (WP_IS_CONF (self), NULL);
-  g_return_val_if_fail (section, NULL);
-  g_return_val_if_fail (key, NULL);
-
-  s = wp_conf_get_section (self, section, NULL);
-  if (!s)
-    goto return_fallback;
-
-  if (!wp_spa_json_is_object (s)) {
-    wp_warning_object (self,
-        "Cannot get string key %s from %s as section is not an JSON object",
-        key, section);
-    goto return_fallback;
-  }
-
-  if (wp_spa_json_object_get (s, key, "s", &v, NULL))
-    return v;
-
-return_fallback:
-  return fallback ? g_strdup (fallback) : NULL;
+  return ensure_merged_section (self, section);
 }
 
 /*!
@@ -668,7 +462,7 @@ wp_conf_section_update_props (WpConf *self, const gchar *section,
   g_return_val_if_fail (section, -1);
   g_return_val_if_fail (props, -1);
 
-  json = wp_conf_get_section (self, section, NULL);
+  json = wp_conf_get_section (self, section);
   if (!json)
     return 0;
   return wp_properties_update_from_json (props, json);
@@ -696,14 +490,14 @@ wp_conf_parse_pw_context_sections (WpConf * self, struct pw_context * context)
   /* convert needed sections into a pipewire-style conf dictionary */
   conf_wp = wp_properties_new ("config.path", "wpconf", NULL);
   {
-    g_autoptr (WpSpaJson) j = wp_conf_get_section (self, "context.spa-libs", NULL);
+    g_autoptr (WpSpaJson) j = wp_conf_get_section (self, "context.spa-libs");
     if (j) {
       g_autofree gchar *js = wp_spa_json_parse_string (j);
       wp_properties_set (conf_wp, "context.spa-libs", js);
     }
   }
   {
-    g_autoptr (WpSpaJson) j = wp_conf_get_section (self, "context.modules", NULL);
+    g_autoptr (WpSpaJson) j = wp_conf_get_section (self, "context.modules");
     if (j) {
       g_autofree gchar *js = wp_spa_json_parse_string (j);
       wp_properties_set (conf_wp, "context.modules", js);

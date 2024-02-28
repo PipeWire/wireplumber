@@ -37,7 +37,7 @@ test_conf_basic (TestConfFixture *f, gconstpointer data)
   /* Boolean Array */
   {
     g_autoptr (WpSpaJson) s = wp_conf_get_section (f->conf,
-        "wireplumber.section.array.boolean", NULL);
+        "wireplumber.section.array.boolean");
     g_assert_nonnull (s);
     g_assert_true (wp_spa_json_is_array (s));
     gboolean v1 = FALSE, v2 = TRUE;
@@ -49,7 +49,7 @@ test_conf_basic (TestConfFixture *f, gconstpointer data)
   /* Int Array */
   {
     g_autoptr (WpSpaJson) s = wp_conf_get_section (f->conf,
-        "wireplumber.section.array.int", NULL);
+        "wireplumber.section.array.int");
     g_assert_nonnull (s);
     g_assert_true (wp_spa_json_is_array (s));
     gint v1 = 0, v2 = 0, v3 = 0;
@@ -63,7 +63,7 @@ test_conf_basic (TestConfFixture *f, gconstpointer data)
   /* Float Array */
   {
     g_autoptr (WpSpaJson) s = wp_conf_get_section (f->conf,
-        "wireplumber.section.array.float", NULL);
+        "wireplumber.section.array.float");
     g_assert_nonnull (s);
     g_assert_true (wp_spa_json_is_array (s));
     float v1 = 0.0, v2 = 0.0, v3 = 0.0;
@@ -77,7 +77,7 @@ test_conf_basic (TestConfFixture *f, gconstpointer data)
   /* String Array */
   {
     g_autoptr (WpSpaJson) s = wp_conf_get_section (f->conf,
-        "wireplumber.section.array.string", NULL);
+        "wireplumber.section.array.string");
     g_assert_nonnull (s);
     g_assert_true (wp_spa_json_is_array (s));
     g_autofree gchar *v1 = NULL, *v2 = NULL;
@@ -91,7 +91,7 @@ test_conf_basic (TestConfFixture *f, gconstpointer data)
   /* Array Array */
   {
     g_autoptr (WpSpaJson) s = wp_conf_get_section (f->conf,
-        "wireplumber.section.array.array", NULL);
+        "wireplumber.section.array.array");
     g_assert_nonnull (s);
     g_assert_true (wp_spa_json_is_array (s));
     g_autoptr (WpSpaJson) v1 = NULL;
@@ -111,7 +111,7 @@ test_conf_basic (TestConfFixture *f, gconstpointer data)
   /* Object Array */
   {
     g_autoptr (WpSpaJson) s = wp_conf_get_section (f->conf,
-        "wireplumber.section.array.object", NULL);
+        "wireplumber.section.array.object");
     g_assert_nonnull (s);
     g_assert_true (wp_spa_json_is_array (s));
     g_autoptr (WpSpaJson) v1 = NULL;
@@ -132,7 +132,7 @@ test_conf_basic (TestConfFixture *f, gconstpointer data)
   /* Object */
   {
     g_autoptr (WpSpaJson) s = wp_conf_get_section (f->conf,
-        "wireplumber.section.object", NULL);
+        "wireplumber.section.object");
     g_assert_nonnull (s);
     g_assert_true (wp_spa_json_is_object (s));
     gboolean v1 = FALSE;
@@ -164,54 +164,6 @@ test_conf_basic (TestConfFixture *f, gconstpointer data)
         "key.nested.boolean", "b", &v9,
         NULL));
     g_assert_false (v9);
-  }
-
-  /* Fallback */
-  {
-    g_autoptr (WpSpaJson) fallback = wp_spa_json_new_wrap_string ("{key1 = 3");
-    g_assert_nonnull (fallback);
-
-    g_autoptr (WpSpaJson) s = wp_conf_get_section (f->conf,
-        "wireplumber.section.object", wp_spa_json_ref (fallback));
-    g_assert_nonnull (s);
-    g_assert_true (wp_spa_json_is_object (s));
-    gboolean v1 = FALSE;
-    gint v2 = 0;
-    float v3 = 0.0;
-    g_autofree gchar *v4 = NULL;
-    g_autoptr (WpSpaJson) v5 = NULL;
-    g_autoptr (WpSpaJson) v6 = NULL;
-    g_assert_true (wp_spa_json_object_get (s,
-        "key.boolean", "b", &v1,
-        "key.int", "i", &v2,
-        "key.float", "f", &v3,
-        "key.string", "s", &v4,
-        "key.array", "J", &v5,
-        "key.object", "J", &v6,
-        NULL));
-    g_assert_true (v1);
-    g_assert_cmpint (v2, ==, -1);
-    g_assert_cmpfloat_with_epsilon (v3, 3.14, 0.001);
-    g_assert_cmpstr (v4, ==, "wireplumber");
-    g_assert_true (wp_spa_json_is_array (v5));
-    g_autofree gchar *v7 = NULL, *v8 = NULL;
-    g_assert_true (wp_spa_json_parse_array (v5, "s", &v7, "s", &v8, NULL));
-    g_assert_cmpstr (v7, ==, "an");
-    g_assert_cmpstr (v8, ==, "array");
-    g_assert_true (wp_spa_json_is_object (v6));
-    gboolean v9 = TRUE;
-    g_assert_true (wp_spa_json_object_get (v6,
-        "key.nested.boolean", "b", &v9,
-        NULL));
-    g_assert_false (v9);
-
-    g_autoptr (WpSpaJson) s2 = wp_conf_get_section (f->conf,
-        "invalid-section", wp_spa_json_ref (fallback));
-    g_assert_nonnull (s2);
-    g_assert_true (wp_spa_json_is_object (s2));
-    gint v = 0;
-    g_assert_true (wp_spa_json_object_get (s2, "key1", "i", &v, NULL));
-    g_assert_cmpint (v, ==, 3);
   }
 }
 
@@ -223,7 +175,7 @@ test_conf_merge (TestConfFixture *f, gconstpointer data)
   /* Boolean Array */
   {
     g_autoptr (WpSpaJson) s = wp_conf_get_section (f->conf,
-        "wireplumber.section-merged.array.boolean", NULL);
+        "wireplumber.section-merged.array.boolean");
     g_assert_nonnull (s);
     g_assert_true (wp_spa_json_is_array (s));
     gboolean v1 = TRUE, v2 = FALSE;
@@ -235,7 +187,7 @@ test_conf_merge (TestConfFixture *f, gconstpointer data)
   /* Int Array */
   {
     g_autoptr (WpSpaJson) s = wp_conf_get_section (f->conf,
-        "wireplumber.section-merged.array.int", NULL);
+        "wireplumber.section-merged.array.int");
     g_assert_nonnull (s);
     g_assert_true (wp_spa_json_is_array (s));
     gint v1 = 0, v2 = 0;
@@ -247,7 +199,7 @@ test_conf_merge (TestConfFixture *f, gconstpointer data)
   /* Float Array */
   {
     g_autoptr (WpSpaJson) s = wp_conf_get_section (f->conf,
-        "wireplumber.section-merged.array.float", NULL);
+        "wireplumber.section-merged.array.float");
     g_assert_nonnull (s);
     g_assert_true (wp_spa_json_is_array (s));
     float v1 = 0.0, v2 = 0.0;
@@ -259,7 +211,7 @@ test_conf_merge (TestConfFixture *f, gconstpointer data)
   /* String Array */
   {
     g_autoptr (WpSpaJson) s = wp_conf_get_section (f->conf,
-        "wireplumber.section-merged.array.string", NULL);
+        "wireplumber.section-merged.array.string");
     g_assert_nonnull (s);
     g_assert_true (wp_spa_json_is_array (s));
     g_autofree gchar *v1 = NULL, *v2 = NULL;
@@ -273,7 +225,7 @@ test_conf_merge (TestConfFixture *f, gconstpointer data)
   /* Array Array */
   {
     g_autoptr (WpSpaJson) s = wp_conf_get_section (f->conf,
-        "wireplumber.section-merged.array.array", NULL);
+        "wireplumber.section-merged.array.array");
     g_assert_nonnull (s);
     g_assert_true (wp_spa_json_is_array (s));
     g_autoptr (WpSpaJson) v1 = NULL;
@@ -293,7 +245,7 @@ test_conf_merge (TestConfFixture *f, gconstpointer data)
   /* Object Array */
   {
     g_autoptr (WpSpaJson) s = wp_conf_get_section (f->conf,
-        "wireplumber.section-merged.array.object", NULL);
+        "wireplumber.section-merged.array.object");
     g_assert_nonnull (s);
     g_assert_true (wp_spa_json_is_array (s));
     g_autoptr (WpSpaJson) v1 = NULL;
@@ -314,7 +266,7 @@ test_conf_merge (TestConfFixture *f, gconstpointer data)
   /* Object */
   {
     g_autoptr (WpSpaJson) s = wp_conf_get_section (f->conf,
-        "wireplumber.section-merged.object", NULL);
+        "wireplumber.section-merged.object");
     g_assert_nonnull (s);
     g_assert_true (wp_spa_json_is_object (s));
     gboolean v1 = FALSE;
@@ -355,7 +307,7 @@ test_conf_merge_nested (TestConfFixture *f, gconstpointer data)
   g_assert_nonnull (f->conf);
 
   g_autoptr (WpSpaJson) s = wp_conf_get_section (f->conf,
-      "wireplumber.section-nested-merged", NULL);
+      "wireplumber.section-nested-merged");
   g_assert_nonnull (s);
   g_assert_true (wp_spa_json_is_object (s));
 
@@ -394,7 +346,7 @@ test_conf_override (TestConfFixture *f, gconstpointer data)
   g_assert_nonnull (f->conf);
 
   g_autoptr (WpSpaJson) s = wp_conf_get_section (f->conf,
-      "wireplumber.section-override", NULL);
+      "wireplumber.section-override");
   g_assert_nonnull (s);
   g_assert_true (wp_spa_json_is_object (s));
 
@@ -414,7 +366,7 @@ test_conf_override_nested (TestConfFixture *f, gconstpointer data)
   g_assert_nonnull (f->conf);
 
   g_autoptr (WpSpaJson) s = wp_conf_get_section (f->conf,
-      "wireplumber.section-nested-override", NULL);
+      "wireplumber.section-nested-override");
   g_assert_nonnull (s);
   g_assert_true (wp_spa_json_is_object (s));
 
@@ -433,95 +385,6 @@ test_conf_override_nested (TestConfFixture *f, gconstpointer data)
   g_assert_cmpint (v3, ==, 3);
 }
 
-static void
-test_conf_get_value (TestConfFixture *f, gconstpointer data)
-{
-  g_assert_nonnull (f->conf);
-
-  /* Value */
-  {
-    g_autoptr (WpSpaJson) fallback = wp_spa_json_new_int (8);
-    g_assert_nonnull (fallback);
-
-    g_autoptr (WpSpaJson) v1 = wp_conf_get_value (f->conf,
-        "wireplumber.section.object", "key.int", wp_spa_json_ref (fallback));
-    g_assert_nonnull (v1);
-    gint v1_int = 0;
-    g_assert_true (wp_spa_json_parse_int (v1, &v1_int));
-    g_assert_cmpint (v1_int, ==, -1);
-
-    g_autoptr (WpSpaJson) v2 = wp_conf_get_value (f->conf,
-        "wireplumber.section.object", "unavailable", wp_spa_json_ref (fallback));
-    g_assert_nonnull (v2);
-    gint v2_int = 0;
-    g_assert_true (wp_spa_json_parse_int (v2, &v2_int));
-    g_assert_cmpint (v2_int, ==, 8);
-
-    g_autoptr (WpSpaJson) v3 = wp_conf_get_value (f->conf,
-        "wireplumber.section.object", "key.int", NULL);
-    g_assert_nonnull (v3);
-    gint v3_int = 0;
-    g_assert_true (wp_spa_json_parse_int (v3, &v3_int));
-    g_assert_cmpint (v3_int, ==, -1);
-
-    g_autoptr (WpSpaJson) v4 = wp_conf_get_value (f->conf,
-        "wireplumber.section.object", "unavailable", NULL);
-    g_assert_null (v4);
-  }
-
-  /* Boolean */
-  {
-    gboolean v1 = wp_conf_get_value_boolean (f->conf,
-        "wireplumber.section.object", "key.boolean", FALSE);
-    g_assert_true (v1);
-
-    gboolean v2 = wp_conf_get_value_boolean (f->conf,
-        "wireplumber.section.object", "unavailable", TRUE);
-    g_assert_true (v2);
-  }
-
-  /* Int */
-  {
-    gint v1 = wp_conf_get_value_int (f->conf,
-        "wireplumber.section.object", "key.int", 4);
-    g_assert_cmpint (v1, ==, -1);
-
-    gint v2 = wp_conf_get_value_int (f->conf,
-        "wireplumber.section.object", "unavailable", 4);
-    g_assert_cmpint (v2, ==, 4);
-  }
-
-  /* Float */
-  {
-    float v1 = wp_conf_get_value_float (f->conf,
-        "wireplumber.section.object", "key.float", 9.99);
-    g_assert_cmpfloat_with_epsilon (v1, 3.14, 0.001);
-
-    float v2 = wp_conf_get_value_float (f->conf,
-        "wireplumber.section.object", "unavailable", 9.99);
-    g_assert_cmpfloat_with_epsilon (v2, 9.99, 0.001);
-  }
-
-  /* String */
-  {
-    g_autofree gchar *v1 = wp_conf_get_value_string (f->conf,
-        "wireplumber.section.object", "key.string", "fallback");
-    g_assert_cmpstr (v1, ==, "wireplumber");
-
-    g_autofree gchar *v2 = wp_conf_get_value_string (f->conf,
-        "wireplumber.section.object", "unavailable", "fallback");
-    g_assert_cmpstr (v2, ==, "fallback");
-
-    g_autofree gchar *v3 = wp_conf_get_value_string (f->conf,
-        "wireplumber.section.object", "key.string", NULL);
-    g_assert_cmpstr (v3, ==, "wireplumber");
-
-    g_autofree gchar *v4 = wp_conf_get_value_string (f->conf,
-        "wireplumber.section.object", "unavailable", NULL);
-    g_assert_null (v4);
-  }
-}
-
 gint
 main (gint argc, gchar *argv[])
 {
@@ -538,8 +401,6 @@ main (gint argc, gchar *argv[])
       test_conf_setup, test_conf_override, test_conf_teardown);
   g_test_add ("/wp/conf/override_nested", TestConfFixture, NULL,
       test_conf_setup, test_conf_override_nested, test_conf_teardown);
-  g_test_add ("/wp/conf/get_value", TestConfFixture, NULL,
-      test_conf_setup, test_conf_get_value, test_conf_teardown);
 
   return g_test_run ();
 }

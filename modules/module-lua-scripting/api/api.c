@@ -1638,137 +1638,18 @@ conf_get_section (lua_State *L)
       fb = wp_spa_json_ref (v);
   }
 
-  s = wp_conf_get_section (conf, section, g_steal_pointer (&fb));
+  s = wp_conf_get_section (conf, section);
   if (s)
     wplua_pushboxed (L, WP_TYPE_SPA_JSON, g_steal_pointer (&s));
+  else if (fb)
+    wplua_pushboxed (L, WP_TYPE_SPA_JSON, g_steal_pointer (&fb));
   else
     lua_pushnil (L);
-  return 1;
-}
-
-static int
-conf_get_value (lua_State *L)
-{
-  g_autoptr (WpConf) conf = wp_core_get_conf (get_wp_core (L));
-  const char *section;
-  const char *key;
-  g_autoptr (WpSpaJson) fb = NULL;
-  g_autoptr (WpSpaJson) v = NULL;
-
-  if (!conf) {
-    lua_pushnil (L);
-    return 1;
-  }
-
-  section = luaL_checkstring (L, 1);
-  key = luaL_checkstring (L, 2);
-  if (lua_isuserdata (L, 3)) {
-    WpSpaJson *v = wplua_checkboxed (L, 3, WP_TYPE_SPA_JSON);
-    if (v)
-      fb = wp_spa_json_ref (v);
-  }
-
-  v = wp_conf_get_value (conf, section, key, g_steal_pointer (&fb));
-  if (v)
-    wplua_pushboxed (L, WP_TYPE_SPA_JSON, g_steal_pointer (&v));
-  else
-    lua_pushnil (L);
-  return 1;
-}
-
-static int
-conf_get_value_boolean (lua_State *L)
-{
-  g_autoptr (WpConf) conf = wp_core_get_conf (get_wp_core (L));
-  const char *section;
-  const char *key;
-  gboolean fb;
-
-  if (!conf) {
-    lua_pushnil (L);
-    return 1;
-  }
-
-  section = luaL_checkstring (L, 1);
-  key = luaL_checkstring (L, 2);
-  fb = lua_toboolean (L, 3) ? TRUE : FALSE;
-
-  lua_pushboolean (L, wp_conf_get_value_boolean (conf, section, key, fb));
-  return 1;
-}
-
-static int
-conf_get_value_int (lua_State *L)
-{
-  g_autoptr (WpConf) conf = wp_core_get_conf (get_wp_core (L));
-  const char *section;
-  const char *key;
-  gint fb;
-
-  if (!conf) {
-    lua_pushnil (L);
-    return 1;
-  }
-
-  section = luaL_checkstring (L, 1);
-  key = luaL_checkstring (L, 2);
-  fb = luaL_checkinteger (L, 3);
-
-  lua_pushinteger (L, wp_conf_get_value_int (conf, section, key, fb));
-  return 1;
-}
-
-static int
-conf_get_value_float (lua_State *L)
-{
-  g_autoptr (WpConf) conf = wp_core_get_conf (get_wp_core (L));
-  const char *section;
-  const char *key;
-  float fb;
-
-  if (!conf) {
-    lua_pushnil (L);
-    return 1;
-  }
-
-  section = luaL_checkstring (L, 1);
-  key = luaL_checkstring (L, 2);
-  fb = lua_tonumber (L, 3);
-
-  lua_pushnumber (L, wp_conf_get_value_float (conf, section, key, fb));
-  return 1;
-}
-
-static int
-conf_get_value_string (lua_State *L)
-{
-  g_autoptr (WpConf) conf = wp_core_get_conf (get_wp_core (L));
-  const char *section;
-  const char *key;
-  const char *fb;
-  g_autofree gchar *str = NULL;
-
-  if (!conf) {
-    lua_pushnil (L);
-    return 1;
-  }
-
-  section = luaL_checkstring (L, 1);
-  key = luaL_checkstring (L, 2);
-  fb = luaL_checkstring (L, 3);
-
-  str = wp_conf_get_value_string (conf, section, key, fb);
-  lua_pushstring (L, str);
   return 1;
 }
 
 static const luaL_Reg conf_methods[] = {
   { "get_section", conf_get_section },
-  { "get_value", conf_get_value },
-  { "get_value_boolean", conf_get_value_boolean },
-  { "get_value_int", conf_get_value_int },
-  { "get_value_float", conf_get_value_float },
-  { "get_value_string", conf_get_value_string },
   { NULL, NULL }
 };
 

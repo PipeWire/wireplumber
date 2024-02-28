@@ -78,7 +78,7 @@ test_parsing_setup (TestSettingsFixture *self, gconstpointer user_data)
 
   {
     g_autoptr (WpSpaJson) json = wp_conf_get_section (conf,
-        "wireplumber.settings", NULL);
+        "wireplumber.settings");
     g_assert_nonnull (json);
     self->loaded_settings = do_parse_section (json);
     g_assert_nonnull (self->loaded_settings);
@@ -86,7 +86,7 @@ test_parsing_setup (TestSettingsFixture *self, gconstpointer user_data)
 
   {
     g_autoptr (WpSpaJson) json = wp_conf_get_section (conf,
-        "wireplumber.settings.schema", NULL);
+        "wireplumber.settings.schema");
     self->loaded_schema = do_parse_section (json);
     g_assert_nonnull (self->loaded_schema);
   }

@@ -89,7 +89,7 @@ load_configuration_settings (WpSettingsPlugin *self)
   conf = wp_core_get_conf (core);
   g_return_val_if_fail (conf, NULL);
 
-  json = wp_conf_get_section (conf, "wireplumber.settings", NULL);
+  json = wp_conf_get_section (conf, "wireplumber.settings");
   if (!json)
     return g_steal_pointer (&res);
 
@@ -266,7 +266,7 @@ on_schema_metadata_activated (WpMetadata * m, GAsyncResult * res,
   }
 
   /* Load the schema into metadata if any */
-  schema_json = wp_conf_get_section (conf, "wireplumber.settings.schema", NULL);
+  schema_json = wp_conf_get_section (conf, "wireplumber.settings.schema");
   if (schema_json) {
     g_autoptr (WpIterator) it = NULL;
     g_auto (GValue) item = G_VALUE_INIT;
