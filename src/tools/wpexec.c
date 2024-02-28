@@ -232,7 +232,7 @@ main (gint argc, gchar **argv)
 
   /* init wireplumber core */
   d.loop = g_main_loop_new (NULL, FALSE);
-  d.core = wp_core_new (NULL, wp_properties_new (
+  d.core = wp_core_new (NULL, NULL, wp_properties_new (
           PW_KEY_APP_NAME, "wpexec",
           NULL));
   g_signal_connect_swapped (d.core, "disconnected",

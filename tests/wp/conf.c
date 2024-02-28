@@ -5,27 +5,28 @@
  *
  * SPDX-License-Identifier: MIT
  */
-#include "../common/base-test-fixture.h"
+
+#include "../common/test-log.h"
 
 typedef struct {
-  WpBaseTestFixture base;
   WpConf *conf;
 } TestConfFixture;
 
 static void
 test_conf_setup (TestConfFixture *self, gconstpointer user_data)
 {
-  self->base.conf_file =
+  g_autoptr (GError) error = NULL;
+  g_autofree gchar *file =
       g_strdup_printf ("%s/conf/wireplumber.conf", g_getenv ("G_TEST_SRCDIR"));
-  wp_base_test_fixture_setup (&self->base, WP_BASE_TEST_FLAG_CLIENT_CORE);
-  self->conf = wp_conf_get_instance (self->base.core);
+  self->conf = wp_conf_new_open (file, NULL, &error);
+  g_assert_no_error (error);
+  g_assert_nonnull (self->conf);
 }
 
 static void
 test_conf_teardown (TestConfFixture *self, gconstpointer user_data)
 {
   g_clear_object (&self->conf);
-  wp_base_test_fixture_teardown (&self->base);
 }
 
 static void

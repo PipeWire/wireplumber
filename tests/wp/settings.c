@@ -73,7 +73,7 @@ test_parsing_setup (TestSettingsFixture *self, gconstpointer user_data)
 {
   test_conf_file_setup (self, user_data);
 
-  g_autoptr (WpConf) conf = wp_conf_get_instance (self->base.core);
+  g_autoptr (WpConf) conf = wp_core_get_conf (self->base.core);
   g_assert_nonnull (conf);
 
   {

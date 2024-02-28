@@ -12,6 +12,7 @@
 #include "object.h"
 #include "properties.h"
 #include "spa-json.h"
+#include "conf.h"
 
 G_BEGIN_DECLS
 
@@ -41,13 +42,17 @@ G_DECLARE_FINAL_TYPE (WpCore, wp_core, WP, CORE, WpObject)
 /* Basic */
 
 WP_API
-WpCore * wp_core_new (GMainContext *context, WpProperties * properties);
+WpCore * wp_core_new (GMainContext * context, WpConf * conf,
+    WpProperties * properties);
 
 WP_API
 WpCore * wp_core_clone (WpCore * self);
 
 WP_API
 WpCore * wp_core_get_export_core (WpCore * self);
+
+WP_API
+WpConf * wp_core_get_conf (WpCore * self);
 
 WP_API
 GMainContext * wp_core_get_g_main_context (WpCore * self);

@@ -96,6 +96,25 @@ wp_loop_source_new (void)
  *    objects that appear in the registry, making them accessible through
  *    the WpObjectManager API.
  *
+ * The core is also responsible for loading components, which are defined in
+ * the main configuration file. Components are loaded when
+ * WP_CORE_FEATURE_COMPONENTS is activated.
+ *
+ * \b Configuration
+ *
+ * The main configuration file needs to be created and opened before the core
+ * is created, using the WpConf API. It is then passed to the core as an
+ * argument in the constructor.
+ *
+ * If a configuration file is not provided, the core will let the underlying
+ * `pw_context` load its own configuration, based on the rules that apply to
+ * all pipewire clients (e.g. it respects the `PIPEWIRE_CONFIG_NAME` environment
+ * variable and loads "client.conf" as a last resort).
+ *
+ * If a configuration file is provided, the core does not let the underlying
+ * `pw_context` load any configuration and instead uses the provided WpConf
+ * object.
+ *
  * \gproperties
  *
  * \gproperty{g-main-context, GMainContext *, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY,
@@ -109,6 +128,9 @@ wp_loop_source_new (void)
  *
  * \gproperty{pw-core, gpointer (struct pw_core *), G_PARAM_READABLE,
  *   The pipewire core}
+ *
+ * \gproperty{conf, WpConf *, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY,
+ *   The main configuration file}
  *
  * \gsignals
  *
@@ -151,6 +173,9 @@ struct _WpCore
   struct spa_hook core_listener;
   struct spa_hook proxy_core_listener;
 
+  /* the main configuration file */
+  WpConf *conf;
+
   WpRegistry registry;
   GHashTable *async_tasks; // <int seq, GTask*>
 };
@@ -161,6 +186,7 @@ enum {
   PROP_PROPERTIES,
   PROP_PW_CONTEXT,
   PROP_PW_CORE,
+  PROP_CONF,
 };
 
 enum {
@@ -287,6 +313,25 @@ wp_core_constructed (GObject *object)
     struct pw_properties *p = NULL;
     const gchar *str = NULL;
 
+    /* use our own configuration file, if specified */
+    if (self->conf) {
+      wp_info_object (self, "using configuration file: %s",
+          wp_conf_get_name (self->conf));
+
+      /* ensure we have our very own properties set,
+         since we are going to modify it */
+      self->properties = self->properties ?
+          wp_properties_ensure_unique_owner (self->properties) :
+          wp_properties_new_empty ();
+
+      /* load context.properties */
+      wp_conf_section_update_props (self->conf, "context.properties",
+          self->properties);
+
+      /* disable loading of a configuration file in pw_context */
+      wp_properties_set (self->properties, PW_KEY_CONFIG_NAME, "null");
+    }
+
     /* properties are fully stored in the pw_context, no need to keep a copy */
     p = self->properties ?
         wp_properties_unref_and_take_pw_properties (self->properties) : NULL;
@@ -303,6 +348,10 @@ wp_core_constructed (GObject *object)
       if (!wp_log_set_level (str))
         wp_warning ("ignoring invalid log.level in config file: %s", str);
     }
+
+    /* parse pw_context specific configuration sections */
+    if (self->conf)
+      wp_conf_parse_pw_context_sections (self->conf, self->pw_context);
 
     /* Init refcount */
     grefcount *rc = pw_context_get_user_data (self->pw_context);
@@ -345,6 +394,7 @@ wp_core_finalize (GObject * obj)
   g_clear_pointer (&self->properties, wp_properties_unref);
   g_clear_pointer (&self->g_main_context, g_main_context_unref);
   g_clear_pointer (&self->async_tasks, g_hash_table_unref);
+  g_clear_object (&self->conf);
 
   wp_debug_object (self, "WpCore destroyed");
 
@@ -370,6 +420,9 @@ wp_core_get_property (GObject * object, guint property_id,
   case PROP_PW_CORE:
     g_value_set_pointer (value, self->pw_core);
     break;
+  case PROP_CONF:
+    g_value_set_object (value, self->conf);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
@@ -391,6 +444,9 @@ wp_core_set_property (GObject * object, guint property_id,
     break;
   case PROP_PW_CONTEXT:
     self->pw_context = g_value_get_pointer (value);
+    break;
+  case PROP_CONF:
+    self->conf = g_value_dup_object (value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -541,6 +597,11 @@ wp_core_class_init (WpCoreClass * klass)
       g_param_spec_pointer ("pw-core", "pw-core", "The pipewire core",
           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
 
+  g_object_class_install_property (object_class, PROP_CONF,
+      g_param_spec_object ("conf", "conf", "The main configuration file",
+          WP_TYPE_CONF,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
   signals[SIGNAL_CONNECTED] = g_signal_new ("connected",
       G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
       G_TYPE_NONE, 0);
@@ -555,16 +616,20 @@ wp_core_class_init (WpCoreClass * klass)
  *
  * \ingroup wpcore
  * \param context (transfer none) (nullable): the GMainContext to use for events
- * \param properties (transfer full) (nullable): additional properties, which are
- *   passed to pw_context_new() and pw_context_connect()
+ * \param conf (transfer full) (nullable): the main configuration file
+ * \param properties (transfer full) (nullable): additional properties, which
+ *   are also passed to pw_context_new() and pw_context_connect()
  * \returns (transfer full): a new WpCore
  */
 WpCore *
-wp_core_new (GMainContext *context, WpProperties * properties)
+wp_core_new (GMainContext * context, WpConf * conf, WpProperties * properties)
 {
+  g_autoptr (WpConf) c = conf;
   g_autoptr (WpProperties) props = properties;
+
   return g_object_new (WP_TYPE_CORE,
       "g-main-context", context,
+      "conf", conf,
       "properties", properties,
       "pw-context", NULL,
       NULL);
@@ -583,6 +648,7 @@ wp_core_clone (WpCore * self)
   return g_object_new (WP_TYPE_CORE,
       "core", self,
       "g-main-context", self->g_main_context,
+      "conf", self->conf,
       "properties", self->properties,
       "pw-context", self->pw_context,
       NULL);
@@ -616,6 +682,20 @@ wp_core_get_export_core (WpCore * self)
   g_return_val_if_fail (WP_IS_CORE (self), NULL);
 
   return wp_core_find_object (self, find_export_core, NULL);
+}
+
+/*!
+ * \brief Gets the main configuration file of the core
+ *
+ * \ingroup wpcore
+ * \param self the core
+ * \returns (transfer full) (nullable): the main configuration file
+ */
+WpConf *
+wp_core_get_conf (WpCore * self)
+{
+  g_return_val_if_fail (WP_IS_CORE (self), NULL);
+  return self->conf ? g_object_ref (self->conf) : NULL;
 }
 
 /*!

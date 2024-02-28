@@ -1621,12 +1621,15 @@ impl_module_new (lua_State *L)
 static int
 conf_get_section (lua_State *L)
 {
-  g_autoptr (WpConf) conf = wp_conf_get_instance (get_wp_core (L));
+  g_autoptr (WpConf) conf = wp_core_get_conf (get_wp_core (L));
   const char *section;
   g_autoptr (WpSpaJson) fb = NULL;
   g_autoptr (WpSpaJson) s = NULL;
 
-  g_return_val_if_fail (conf, 0);
+  if (!conf) {
+    lua_pushnil (L);
+    return 1;
+  }
 
   section = luaL_checkstring (L, 1);
   if (lua_isuserdata (L, 2)) {
@@ -1646,13 +1649,16 @@ conf_get_section (lua_State *L)
 static int
 conf_get_value (lua_State *L)
 {
-  g_autoptr (WpConf) conf = wp_conf_get_instance (get_wp_core (L));
+  g_autoptr (WpConf) conf = wp_core_get_conf (get_wp_core (L));
   const char *section;
   const char *key;
   g_autoptr (WpSpaJson) fb = NULL;
   g_autoptr (WpSpaJson) v = NULL;
 
-  g_return_val_if_fail (conf, 0);
+  if (!conf) {
+    lua_pushnil (L);
+    return 1;
+  }
 
   section = luaL_checkstring (L, 1);
   key = luaL_checkstring (L, 2);
@@ -1673,12 +1679,15 @@ conf_get_value (lua_State *L)
 static int
 conf_get_value_boolean (lua_State *L)
 {
-  g_autoptr (WpConf) conf = wp_conf_get_instance (get_wp_core (L));
+  g_autoptr (WpConf) conf = wp_core_get_conf (get_wp_core (L));
   const char *section;
   const char *key;
   gboolean fb;
 
-  g_return_val_if_fail (conf, 0);
+  if (!conf) {
+    lua_pushnil (L);
+    return 1;
+  }
 
   section = luaL_checkstring (L, 1);
   key = luaL_checkstring (L, 2);
@@ -1691,12 +1700,15 @@ conf_get_value_boolean (lua_State *L)
 static int
 conf_get_value_int (lua_State *L)
 {
-  g_autoptr (WpConf) conf = wp_conf_get_instance (get_wp_core (L));
+  g_autoptr (WpConf) conf = wp_core_get_conf (get_wp_core (L));
   const char *section;
   const char *key;
   gint fb;
 
-  g_return_val_if_fail (conf, 0);
+  if (!conf) {
+    lua_pushnil (L);
+    return 1;
+  }
 
   section = luaL_checkstring (L, 1);
   key = luaL_checkstring (L, 2);
@@ -1709,12 +1721,15 @@ conf_get_value_int (lua_State *L)
 static int
 conf_get_value_float (lua_State *L)
 {
-  g_autoptr (WpConf) conf = wp_conf_get_instance (get_wp_core (L));
+  g_autoptr (WpConf) conf = wp_core_get_conf (get_wp_core (L));
   const char *section;
   const char *key;
   float fb;
 
-  g_return_val_if_fail (conf, 0);
+  if (!conf) {
+    lua_pushnil (L);
+    return 1;
+  }
 
   section = luaL_checkstring (L, 1);
   key = luaL_checkstring (L, 2);
@@ -1727,13 +1742,16 @@ conf_get_value_float (lua_State *L)
 static int
 conf_get_value_string (lua_State *L)
 {
-  g_autoptr (WpConf) conf = wp_conf_get_instance (get_wp_core (L));
+  g_autoptr (WpConf) conf = wp_core_get_conf (get_wp_core (L));
   const char *section;
   const char *key;
   const char *fb;
   g_autofree gchar *str = NULL;
 
-  g_return_val_if_fail (conf, 0);
+  if (!conf) {
+    lua_pushnil (L);
+    return 1;
+  }
 
   section = luaL_checkstring (L, 1);
   key = luaL_checkstring (L, 2);

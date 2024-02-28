@@ -32,7 +32,7 @@ static GOptionEntry entries[] =
   { "version", 'v', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &show_version,
     "Show version", NULL },
   { "config-file", 'c', G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING, &config_file,
-    "The context configuration file", NULL },
+    "The configuration file to use", NULL },
   { "profile", 'p', G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING, &profile,
     "The profile to load", NULL },
   { NULL }
@@ -129,7 +129,7 @@ main (gint argc, gchar **argv)
   g_autoptr (GOptionContext) context = NULL;
   g_autoptr (GError) error = NULL;
   g_autoptr (WpProperties) properties = NULL;
-  const gchar *conf_env;
+  g_autoptr (WpConf) conf = NULL;
 
   setlocale (LC_ALL, "");
   setlocale (LC_NUMERIC, "C");
@@ -157,13 +157,15 @@ main (gint argc, gchar **argv)
   if (!profile)
     profile = "main";
 
-  /* Forward WIREPLUMBER_CONFIG_DIR to PIPEWIRE_CONFIG_DIR */
-  conf_env = g_getenv ("WIREPLUMBER_CONFIG_DIR");
-  if (conf_env)
-    g_setenv ("PIPEWIRE_CONFIG_DIR", conf_env, TRUE);
+  /* load configuration */
+  conf = wp_conf_new_open (config_file, NULL, &error);
+  if (!conf) {
+    fprintf (stderr, "Failed to load configuration: %s\n", error->message);
+    return WP_EXIT_CONFIG;
+  }
 
+  /* prepare core properties */
   properties = wp_properties_new (
-      PW_KEY_CONFIG_NAME, config_file,
       PW_KEY_APP_NAME, "WirePlumber",
       "wireplumber.daemon", "true",
       "wireplumber.profile", profile,
@@ -176,7 +178,8 @@ main (gint argc, gchar **argv)
 
   /* init wireplumber daemon */
   d.loop = g_main_loop_new (NULL, FALSE);
-  d.core = wp_core_new (NULL, g_steal_pointer (&properties));
+  d.core = wp_core_new (NULL, g_steal_pointer (&conf),
+      g_steal_pointer (&properties));
   g_signal_connect (d.core, "disconnected", G_CALLBACK (on_disconnected), &d);
 
   /* watch for exit signals */

@@ -751,7 +751,7 @@ wp_internal_comp_loader_load (WpComponentLoader * self, WpCore * core,
     if (g_str_equal (type, "profile")) {
       /* component name is the profile name;
          component list and profile features are loaded from config */
-      g_autoptr (WpConf) conf = wp_conf_get_instance (core);
+      g_autoptr (WpConf) conf = wp_core_get_conf (core);
       g_autoptr (WpSpaJson) profile_json = NULL;
 
       profile_json =

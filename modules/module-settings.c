@@ -86,7 +86,7 @@ load_configuration_settings (WpSettingsPlugin *self)
   g_autoptr (WpProperties) res = wp_properties_new_empty ();
 
   g_return_val_if_fail (core, NULL);
-  conf = wp_conf_get_instance (core);
+  conf = wp_core_get_conf (core);
   g_return_val_if_fail (conf, NULL);
 
   json = wp_conf_get_section (conf, "wireplumber.settings", NULL);
@@ -254,7 +254,7 @@ on_schema_metadata_activated (WpMetadata * m, GAsyncResult * res,
   WpTransition *transition = WP_TRANSITION (user_data);
   WpSettingsPlugin *self = wp_transition_get_source_object (transition);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
-  g_autoptr (WpConf) conf = wp_conf_get_instance (core);
+  g_autoptr (WpConf) conf = wp_core_get_conf (core);
   g_autoptr (GError) error = NULL;
   g_autoptr (WpSpaJson) schema_json = NULL;
 

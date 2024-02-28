@@ -1888,7 +1888,7 @@ main (gint argc, gchar **argv)
   ctl.context = g_option_context_new (
       "COMMAND [COMMAND_OPTIONS] - WirePlumber Control CLI");
   ctl.loop = g_main_loop_new (NULL, FALSE);
-  ctl.core = wp_core_new (NULL, NULL);
+  ctl.core = wp_core_new (NULL, NULL, NULL);
   ctl.om = wp_object_manager_new ();
 
   /* find the subcommand */
