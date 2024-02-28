@@ -172,11 +172,29 @@ wp_conf_new_open (const gchar * name, WpProperties * properties, GError ** error
 }
 
 static gboolean
+detect_old_conf_format (WpConf * self, GMappedFile *file)
+{
+  const gchar *data = g_mapped_file_get_contents (file);
+  gsize size = g_mapped_file_get_length (file);
+
+  /* wireplumber 0.4 used to have components of type = config/lua */
+  return g_strrstr_len (data, size, "config/lua") ? TRUE : FALSE;
+}
+
+static gboolean
 open_and_load_sections (WpConf * self, const gchar *path, GError ** error)
 {
   g_autoptr (GMappedFile) file = g_mapped_file_new (path, FALSE, error);
   if (!file)
     return FALSE;
+
+  /* test if the file is a relic from 0.4 */
+  if (detect_old_conf_format (self, file)) {
+    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
+        "The configuration file at '%s' is likely an old WirePlumber 0.4 config "
+        "and is not supported anymore. Try removing it.", path);
+    return FALSE;
+  }
 
   g_autoptr (WpSpaJson) json = wp_spa_json_new_wrap_stringn (
       g_mapped_file_get_contents (file), g_mapped_file_get_length (file));
