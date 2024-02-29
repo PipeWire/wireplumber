@@ -55,7 +55,7 @@ do_parse_section (WpSpaJson *json)
     g_autofree gchar *value = NULL;
 
     g_value_unset (&item);
-    wp_iterator_next (iter, &item);
+    g_assert_true (wp_iterator_next (iter, &item));
     j = g_value_get_boxed (&item);
 
     value = wp_spa_json_to_string (j);

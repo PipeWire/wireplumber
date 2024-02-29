@@ -93,12 +93,6 @@ wp_settings_spec_new (WpSpaJson * spec_json)
       NULL))
     return NULL;
 
-  /* Parse optional fields */
-  wp_spa_json_object_get (spec_json,
-      "min", "J", &min_value,
-      "max", "J", &max_value,
-      NULL);
-
   /* Parse type and check if values are correct */
   if (g_str_equal (type_str, "bool")) {
     type = WP_SETTINGS_SPEC_TYPE_BOOL;
@@ -106,12 +100,22 @@ wp_settings_spec_new (WpSpaJson * spec_json)
       return NULL;
   } else if (g_str_equal (type_str, "int")) {
     type = WP_SETTINGS_SPEC_TYPE_INT;
+    if (!wp_spa_json_object_get (spec_json,
+        "min", "J", &min_value,
+        "max", "J", &max_value,
+        NULL))
+      return NULL;
     if (!wp_spa_json_is_int (def_value) ||
         !min_value || !wp_spa_json_is_int (min_value) ||
         !max_value || !wp_spa_json_is_int (max_value))
       return NULL;
   } else if (g_str_equal (type_str, "float")) {
     type = WP_SETTINGS_SPEC_TYPE_FLOAT;
+    if (!wp_spa_json_object_get (spec_json,
+        "min", "J", &min_value,
+        "max", "J", &max_value,
+        NULL))
+      return NULL;
     if (!wp_spa_json_is_float (def_value) ||
         !min_value || !wp_spa_json_is_float (min_value) ||
         !max_value || !wp_spa_json_is_float (max_value))
@@ -230,8 +234,9 @@ wp_settings_spec_check_value (WpSettingsSpec * self, WpSpaJson *value)
       gint val = 0, min = 0, max = 0;
       if (!wp_spa_json_is_int (value) || !wp_spa_json_parse_int (value, &val))
         return FALSE;
-      wp_spa_json_parse_int (self->min_value, &min);
-      wp_spa_json_parse_int (self->max_value, &max);
+      if (!wp_spa_json_parse_int (self->min_value, &min) ||
+          !wp_spa_json_parse_int (self->max_value, &max))
+        return FALSE;
       return val >= min && val <= max;
     }
     case WP_SETTINGS_SPEC_TYPE_FLOAT: {
@@ -239,8 +244,9 @@ wp_settings_spec_check_value (WpSettingsSpec * self, WpSpaJson *value)
       if (wp_spa_json_is_int (value) || !wp_spa_json_is_float (value) ||
           !wp_spa_json_parse_float (value, &val))
         return FALSE;
-      wp_spa_json_parse_float (self->min_value, &min);
-      wp_spa_json_parse_float (self->max_value, &max);
+      if (!wp_spa_json_parse_float (self->min_value, &min) ||
+          !wp_spa_json_parse_float (self->max_value, &max))
+        return FALSE;
       return val >= min && val <= max;
     }
     case WP_SETTINGS_SPEC_TYPE_STRING:
@@ -1010,7 +1016,8 @@ void wp_settings_reset_all (WpSettings *self)
   for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
     WpPropertiesItem *pi = g_value_get_boxed (&item);
     const gchar *key = wp_properties_item_get_key (pi);
-    wp_settings_reset (self, key);
+    if (!wp_settings_reset (self, key))
+      wp_warning_object (self, "Failed to reset setting %s", key);
   }
 }
 
@@ -1037,7 +1044,8 @@ void wp_settings_save_all (WpSettings *self)
   for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
     WpMetadataItem *mi = g_value_get_boxed (&item);
     const gchar *key = wp_metadata_item_get_key (mi);
-    wp_settings_save (self, key);
+    if (!wp_settings_save (self, key))
+      wp_warning_object (self, "Failed to save setting %s", key);
   }
 }
 
