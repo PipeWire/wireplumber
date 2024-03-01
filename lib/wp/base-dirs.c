@@ -88,16 +88,19 @@ lookup_dirs (guint flags, gboolean is_absolute)
   else {
     if (flags & WP_BASE_DIRS_XDG_CONFIG_HOME) {
       dir = g_get_user_config_dir ();
-      g_ptr_array_add (dirs, g_canonicalize_filename (subdir, dir));
+      if (G_LIKELY (g_path_is_absolute (dir)))
+        g_ptr_array_add (dirs, g_canonicalize_filename (subdir, dir));
     }
     if (flags & WP_BASE_DIRS_XDG_DATA_HOME) {
       dir = g_get_user_data_dir ();
-      g_ptr_array_add (dirs, g_canonicalize_filename (subdir, dir));
+      if (G_LIKELY (g_path_is_absolute (dir)))
+        g_ptr_array_add (dirs, g_canonicalize_filename (subdir, dir));
     }
     if (flags & WP_BASE_DIRS_XDG_CONFIG_DIRS) {
       const gchar * const *xdg_dirs = g_get_system_config_dirs ();
       for (guint i = 0; xdg_dirs[i]; i++) {
-        g_ptr_array_add (dirs, g_canonicalize_filename (subdir, xdg_dirs[i]));
+        if (G_LIKELY (g_path_is_absolute (xdg_dirs[i])))
+          g_ptr_array_add (dirs, g_canonicalize_filename (subdir, xdg_dirs[i]));
       }
     }
     if (flags & WP_BASE_DIRS_BUILD_SYSCONFDIR) {
@@ -106,7 +109,8 @@ lookup_dirs (guint flags, gboolean is_absolute)
     if (flags & WP_BASE_DIRS_XDG_DATA_DIRS) {
       const gchar * const *xdg_dirs = g_get_system_data_dirs ();
       for (guint i = 0; xdg_dirs[i]; i++) {
-        g_ptr_array_add (dirs, g_canonicalize_filename (subdir, xdg_dirs[i]));
+        if (G_LIKELY (g_path_is_absolute (xdg_dirs[i])))
+          g_ptr_array_add (dirs, g_canonicalize_filename (subdir, xdg_dirs[i]));
       }
     }
     if (flags & WP_BASE_DIRS_BUILD_DATADIR) {
