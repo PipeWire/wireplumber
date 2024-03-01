@@ -56,14 +56,7 @@ lookup_dirs (guint flags, gboolean is_absolute)
   g_autoptr(GPtrArray) dirs = g_ptr_array_new_with_free_func (g_free);
   const gchar *dir;
 
-  /* Compile the list of lookup directories in priority order:
-   * - environment variables
-   * - XDG config directories
-   * - /etc/
-   * - /usr/share/....
-   *
-   * Note that wireplumber environment variables *replace* other directories.
-   */
+  /* Compile the list of lookup directories in priority order */
   if (is_absolute) {
     g_ptr_array_add (dirs, NULL);
   }
@@ -104,7 +97,7 @@ lookup_dirs (guint flags, gboolean is_absolute)
             NULL));
       }
     }
-    if (flags & WP_BASE_DIRS_ETC) {
+    if (flags & WP_BASE_DIRS_BUILD_SYSCONFDIR) {
       g_ptr_array_add (dirs,
           g_canonicalize_filename (WIREPLUMBER_DEFAULT_CONFIG_DIR, NULL));
     }
@@ -115,11 +108,11 @@ lookup_dirs (guint flags, gboolean is_absolute)
             NULL));
       }
     }
-    if (flags & WP_BASE_DIRS_PREFIX_SHARE) {
+    if (flags & WP_BASE_DIRS_BUILD_DATADIR) {
       g_ptr_array_add (dirs,
           g_canonicalize_filename(WIREPLUMBER_DEFAULT_DATA_DIR, NULL));
     }
-    if (flags & WP_BASE_DIRS_PREFIX_LIB) {
+    if (flags & WP_BASE_DIRS_BUILD_LIBDIR) {
       g_ptr_array_add (dirs,
           g_canonicalize_filename (WIREPLUMBER_DEFAULT_MODULE_DIR, NULL));
     }
