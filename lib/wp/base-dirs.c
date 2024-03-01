@@ -8,6 +8,8 @@
 
 #include "base-dirs.h"
 #include "log.h"
+#include "wpversion.h"
+#include "wpbuildbasedirs.h"
 
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp-base-dirs")
 
@@ -99,8 +101,7 @@ lookup_dirs (guint flags, gboolean is_absolute)
       }
     }
     if (flags & WP_BASE_DIRS_BUILD_SYSCONFDIR) {
-      g_ptr_array_add (dirs,
-          g_canonicalize_filename (WIREPLUMBER_DEFAULT_CONFIG_DIR, NULL));
+      g_ptr_array_add (dirs, g_canonicalize_filename (subdir, BUILD_SYSCONFDIR));
     }
     if (flags & WP_BASE_DIRS_XDG_DATA_DIRS) {
       const gchar * const *xdg_dirs = g_get_system_data_dirs ();
@@ -109,12 +110,12 @@ lookup_dirs (guint flags, gboolean is_absolute)
       }
     }
     if (flags & WP_BASE_DIRS_BUILD_DATADIR) {
-      g_ptr_array_add (dirs,
-          g_canonicalize_filename(WIREPLUMBER_DEFAULT_DATA_DIR, NULL));
+      g_ptr_array_add (dirs, g_canonicalize_filename (subdir, BUILD_DATADIR));
     }
     if (flags & WP_BASE_DIRS_BUILD_LIBDIR) {
-      g_ptr_array_add (dirs,
-          g_canonicalize_filename (WIREPLUMBER_DEFAULT_MODULE_DIR, NULL));
+      subdir = (flags & WP_BASE_DIRS_FLAG_SUBDIR_WIREPLUMBER) ?
+          "wireplumber-" WIREPLUMBER_API_VERSION : ".";
+      g_ptr_array_add (dirs, g_canonicalize_filename (subdir, BUILD_LIBDIR));
     }
   }
 

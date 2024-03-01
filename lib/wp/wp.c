@@ -9,6 +9,7 @@
 #include "wp.h"
 #include <pipewire/pipewire.h>
 #include <libintl.h>
+#include "wpbuildbasedirs.h"
 
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp")
 
@@ -39,7 +40,7 @@ wp_init (WpInitFlags flags)
   if (flags & WP_INIT_SPA_TYPES)
     wp_spa_dynamic_type_init ();
 
-  bindtextdomain (GETTEXT_PACKAGE, LOCALE_DIR);
+  bindtextdomain (GETTEXT_PACKAGE, BUILD_LOCALEDIR);
   bind_textdomain_codeset (GETTEXT_PACKAGE, "UTF-8");
 
   /* ensure WpProxy subclasses are loaded, which is needed to be able

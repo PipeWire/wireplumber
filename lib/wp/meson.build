@@ -111,15 +111,21 @@ wpversion = configure_file(
 )
 wp_gen_sources += [wpversion]
 
+wpbuildbasedirs_data = configuration_data()
+wpbuildbasedirs_data.set('BUILD_SYSCONFDIR', '"@0"'.format(get_option('prefix') / get_option('sysconfdir')))
+wpbuildbasedirs_data.set('BUILD_DATADIR', '"@0"'.format(get_option('prefix') / get_option('datadir')))
+wpbuildbasedirs_data.set('BUILD_LIBDIR', '"@0"'.format(get_option('prefix') / get_option('libdir')))
+wpbuildbasedirs_data.set('BUILD_LOCALEDIR', '"@0"'.format(get_option('prefix') / get_option('localedir')))
+wpbuildbasedirs = configure_file (
+  output : 'wpbuildbasedirs.h',
+  configuration : wpbuildbasedirs_data,
+)
+
 wp_lib = library('wireplumber-' + wireplumber_api_version,
-  wp_lib_sources, wp_lib_priv_sources, wpenums_c, wpenums_h, wpversion,
+  wp_lib_sources, wp_lib_priv_sources, wpenums_c, wpenums_h, wpversion, wpbuildbasedirs,
   c_args : [
     '-D_GNU_SOURCE',
     '-DG_LOG_USE_STRUCTURED',
-    '-DWIREPLUMBER_DEFAULT_MODULE_DIR="@0@"'.format(wireplumber_module_dir),
-    '-DWIREPLUMBER_DEFAULT_CONFIG_DIR="@0@"'.format(wireplumber_config_dir),
-    '-DWIREPLUMBER_DEFAULT_DATA_DIR="@0@"'.format(wireplumber_data_dir),
-    '-DLOCALE_DIR="@0@"'.format(wireplumber_locale_dir),
     '-DBUILDING_WP',
   ],
   install: true,
