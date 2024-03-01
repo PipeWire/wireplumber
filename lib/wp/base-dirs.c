@@ -55,6 +55,8 @@ lookup_dirs (guint flags, gboolean is_absolute)
 {
   g_autoptr(GPtrArray) dirs = g_ptr_array_new_with_free_func (g_free);
   const gchar *dir;
+  const gchar *subdir =
+      (flags & WP_BASE_DIRS_FLAG_SUBDIR_WIREPLUMBER) ? "wireplumber" : ".";
 
   /* Compile the list of lookup directories in priority order */
   if (is_absolute) {
@@ -84,17 +86,16 @@ lookup_dirs (guint flags, gboolean is_absolute)
   else {
     if (flags & WP_BASE_DIRS_XDG_CONFIG_HOME) {
       dir = g_get_user_config_dir ();
-      g_ptr_array_add (dirs, g_build_filename (dir, "wireplumber", NULL));
+      g_ptr_array_add (dirs, g_canonicalize_filename (subdir, dir));
     }
     if (flags & WP_BASE_DIRS_XDG_DATA_HOME) {
       dir = g_get_user_data_dir ();
-      g_ptr_array_add (dirs, g_build_filename (dir, "wireplumber", NULL));
+      g_ptr_array_add (dirs, g_canonicalize_filename (subdir, dir));
     }
     if (flags & WP_BASE_DIRS_XDG_CONFIG_DIRS) {
       const gchar * const *xdg_dirs = g_get_system_config_dirs ();
       for (guint i = 0; xdg_dirs[i]; i++) {
-        g_ptr_array_add (dirs, g_build_filename (xdg_dirs[i], "wireplumber",
-            NULL));
+        g_ptr_array_add (dirs, g_canonicalize_filename (subdir, xdg_dirs[i]));
       }
     }
     if (flags & WP_BASE_DIRS_BUILD_SYSCONFDIR) {
@@ -104,8 +105,7 @@ lookup_dirs (guint flags, gboolean is_absolute)
     if (flags & WP_BASE_DIRS_XDG_DATA_DIRS) {
       const gchar * const *xdg_dirs = g_get_system_data_dirs ();
       for (guint i = 0; xdg_dirs[i]; i++) {
-        g_ptr_array_add (dirs, g_build_filename (xdg_dirs[i], "wireplumber",
-            NULL));
+        g_ptr_array_add (dirs, g_canonicalize_filename (subdir, xdg_dirs[i]));
       }
     }
     if (flags & WP_BASE_DIRS_BUILD_DATADIR) {

@@ -48,24 +48,32 @@ typedef enum { /*< flags >*/
   /*! the file is a loadable module; prepend "lib" and append ".so" if needed */
   WP_BASE_DIRS_FLAG_MODULE = (1 << 24),
 
+  /*! append "/wireplumber" to the location, except in the case of locations
+      that are specified via WirePlumber-specific environment variables;
+      in LIBDIR, append "/wireplumber-$API_version" instead */
+  WP_BASE_DIRS_FLAG_SUBDIR_WIREPLUMBER = (1 << 25),
+
   WP_BASE_DIRS_CONFIGURATION =
       WP_BASE_DIRS_ENV_CONFIG |
       WP_BASE_DIRS_XDG_CONFIG_HOME |
       WP_BASE_DIRS_XDG_CONFIG_DIRS |
       WP_BASE_DIRS_BUILD_SYSCONFDIR |
       WP_BASE_DIRS_XDG_DATA_DIRS |
-      WP_BASE_DIRS_BUILD_DATADIR,
+      WP_BASE_DIRS_BUILD_DATADIR |
+      WP_BASE_DIRS_FLAG_SUBDIR_WIREPLUMBER,
 
   WP_BASE_DIRS_DATA =
       WP_BASE_DIRS_ENV_DATA |
       WP_BASE_DIRS_XDG_DATA_HOME |
       WP_BASE_DIRS_XDG_DATA_DIRS |
-      WP_BASE_DIRS_BUILD_DATADIR,
+      WP_BASE_DIRS_BUILD_DATADIR |
+      WP_BASE_DIRS_FLAG_SUBDIR_WIREPLUMBER,
 
   WP_BASE_DIRS_MODULE =
       WP_BASE_DIRS_ENV_MODULE |
       WP_BASE_DIRS_BUILD_LIBDIR |
-      WP_BASE_DIRS_FLAG_MODULE,
+      WP_BASE_DIRS_FLAG_MODULE |
+      WP_BASE_DIRS_FLAG_SUBDIR_WIREPLUMBER,
 } WpBaseDirsFlags;
 
 WP_API
