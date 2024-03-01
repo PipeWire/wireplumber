@@ -149,8 +149,8 @@ lookup_dirs (guint flags, gboolean is_absolute)
  * \param subdir (nullable): the name of the subdirectory to search in,
  *   inside the specified directories
  * \param filename the name of the file to search for
- * \returns (transfer full): A newly allocated string with the absolute,
- *   canonicalized file path, or NULL if the file was not found.
+ * \returns (transfer full) (nullable): A newly allocated string with the
+ *   absolute, canonicalized file path, or NULL if the file was not found.
  * \since 0.5.0
  */
 gchar *
