@@ -39,3 +39,4 @@ C API Documentation
    c_api/si_interfaces_api.rst
    c_api/si_factory_api.rst
    c_api/state_api.rst
+   c_api/base_dirs_api.rst
