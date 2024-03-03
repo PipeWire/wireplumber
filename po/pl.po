@@ -1,15 +1,15 @@
 # Polish translation for wireplumber.
-# Copyright © 2008-2023 the wireplumber authors.
+# Copyright © 2008-2024 the wireplumber authors.
 # This file is distributed under the same license as the wireplumber package.
-# Piotr Drąg <piotrdrag@gmail.com>, 2008, 2012-2023.
+# Piotr Drąg <piotrdrag@gmail.com>, 2008, 2012-2024.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: wireplumber\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/-/"
 "issues\n"
-"POT-Creation-Date: 2023-03-04 13:34+0000\n"
-"PO-Revision-Date: 2023-03-04 14:35+0100\n"
+"POT-Creation-Date: 2024-01-08 15:36+0000\n"
+"PO-Revision-Date: 2024-03-03 14:45+0100\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
 "Language-Team: Polish <community-poland@mozilla.org>\n"
 "Language: pl\n"
@@ -25,11 +25,7 @@ msgstr ""
 #. @author George Kiagiadakis <george.kiagiadakis@collabora.com>
 #.
 #. SPDX-License-Identifier: MIT
-#. Receive script arguments from config.lua
-#. ensure config.properties is not nil
 #. unique device/node name tables
-#. preprocess rules and create Interest objects
-#. applies properties from config.rules when asked to
 #. set the device id and spa factory name; REQUIRED, do not change
 #. set the default pause-on-idle setting
 #. try to negotiate the max ammount of channels
@@ -43,28 +39,28 @@ msgstr ""
 #. ensure the node has a description
 #. also sanitize description, replace ':' with ' '
 #. add api.alsa.card.* properties for rule matching purposes
-#. apply VM overrides
-#. apply properties from config.rules
+#. add vm.type for rule matching purposes
+#. apply properties from rules defined in JSON .conf file
 #. create the node
 #. ensure the device has an appropriate name
 #. deduplicate devices with the same name
 #. ensure the device has a description
-#: src/scripts/monitors/alsa.lua:236
+#: src/scripts/monitors/alsa.lua:211
 msgid "Loopback"
 msgstr "Urządzenie zwrotne"
 
-#: src/scripts/monitors/alsa.lua:238
+#: src/scripts/monitors/alsa.lua:213
 msgid "Built-in Audio"
 msgstr "Wbudowany dźwięk"
 
-#: src/scripts/monitors/alsa.lua:240
+#: src/scripts/monitors/alsa.lua:215
 msgid "Modem"
 msgstr "Modem"
 
 #. ensure the device has a nick
 #. set the icon name
 #. form factor -> icon
-#. apply properties from config.rules
+#. apply properties from rules defined in JSON .conf file
 #. override the device factory to use ACP
 #. use device reservation, if available
 #. unlike pipewire-media-session, this logic here keeps the device
@@ -72,15 +68,11 @@ msgstr "Modem"
 #. create the device
 #. attempt to acquire again
 #. destroy the device
-#. TODO enable the jack device
-#. TODO disable the jack device
 #. create the device
 #. handle create-object to prepare device
 #. handle object-removed to destroy device reservations and recycle device name
 #. reset the name tables to make sure names are recycled
 #. activate monitor
-#. create the JACK device (for PipeWire to act as client to a JACK server)
-#. enable device reservation if requested
 #. if the reserve-device plugin is enabled, at the point of script execution
 #. it is expected to be connected. if it is not, assume the d-bus connection
 #. has failed and continue without it
@@ -89,22 +81,45 @@ msgstr "Modem"
 #. create the monitor
 #. WirePlumber
 #.
-#. Copyright © 2021 Collabora Ltd.
-#. @author George Kiagiadakis <george.kiagiadakis@collabora.com>
+#. Copyright © 2022 Pauli Virtanen
+#. @author Pauli Virtanen
 #.
 #. SPDX-License-Identifier: MIT
-#. preprocess rules and create Interest objects
-#. applies properties from config.rules when asked to
+#. unique device/node name tables
+#. set the node description
+#. sanitize description, replace ':' with ' '
+#. set the node name
+#. sanitize name
+#. deduplicate nodes with the same name
+#. apply properties from bluetooth.conf
+#. create the node
+#. it doesn't necessarily need to be a local node,
+#. the other Bluetooth parts run in the local process,
+#. so it's consistent to have also this here
+#. reset the name tables to make sure names are recycled
+#: src/scripts/monitors/bluez-midi.lua:113
+#, lua-format
+msgid "BLE MIDI %d"
+msgstr "MIDI BLE %d"
+
+#. if logind support is enabled, activate
+#. the monitor only when the seat is active
+#. WirePlumber
+#.
+#. Copyright © 2023 Collabora Ltd.
+#. @author Ashok Sidipotu <ashok.sidipotu@collabora.com>
+#.
+#. SPDX-License-Identifier: MIT
 #. set the device id and spa factory name; REQUIRED, do not change
 #. set the default pause-on-idle setting
 #. set the node name
 #. sanitize name
 #. deduplicate nodes with the same name
 #. set the node description
-#: src/scripts/monitors/libcamera.lua:88
+#: src/scripts/monitors/libcamera/name-node.lua:61
 msgid "Built-in Front Camera"
 msgstr "Wbudowana przednia kamera"
 
-#: src/scripts/monitors/libcamera.lua:90
+#: src/scripts/monitors/libcamera/name-node.lua:63
 msgid "Built-in Back Camera"
 msgstr "Wbudowana tylna kamera"
