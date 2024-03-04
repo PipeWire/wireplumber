@@ -7,6 +7,9 @@
 
 log = Log.open_topic ("s-client")
 
+config = {}
+config.rules = Conf.get_section_as_json ("access.rules")
+
 function getAccess (properties)
   local access = properties["pipewire.access"]
   local client_access = properties["pipewire.client.access"]
@@ -43,10 +46,9 @@ function getDefaultPermissions (properties)
 end
 
 function getPermissions (properties)
-  local section = Conf.get_section_as_json ("access.rules")
-  if section then
+  if config.rules then
     local mprops, matched = JsonUtils.match_rules_update_properties (
-        section, properties)
+        config.rules, properties)
     if (matched > 0 and mprops["default_permissions"]) then
       return mprops["default_permissions"], mprops["access"]
     end
