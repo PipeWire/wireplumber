@@ -11,6 +11,7 @@ log = Log.open_topic ("s-monitors")
 config = {}
 config.reserve_device = Core.test_feature ("monitor.alsa.reserve-device")
 config.properties = Conf.get_section_as_properties ("monitor.alsa.properties")
+config.rules = Conf.get_section_as_json ("monitor.alsa.rules", Json.Array {})
 
 -- unique device/node name tables
 device_names_table = nil
@@ -150,7 +151,8 @@ function createNode(parent, id, obj_type, factory, properties)
   end
 
   -- apply properties from rules defined in JSON .conf file
-  cutils.evaluateRulesApplyProperties (properties, "monitor.alsa.rules")
+  properties = JsonUtils.match_rules_update_properties (config.rules, properties)
+
   if properties["node.disabled"] then
     node_names_table [properties ["node.name"]] = nil
     return
@@ -253,7 +255,7 @@ function prepareDevice(parent, id, obj_type, factory, properties)
 
   -- apply properties from rules defined in JSON .conf file
   applyDefaultDeviceProperties (properties)
-  cutils.evaluateRulesApplyProperties (properties, "monitor.alsa.rules")
+  properties = JsonUtils.match_rules_update_properties (config.rules, properties)
 
   if properties ["device.disabled"] then
     device_names_table [properties ["device.name"]] = nil

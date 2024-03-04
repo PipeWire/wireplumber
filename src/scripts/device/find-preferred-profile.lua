@@ -10,6 +10,9 @@
 cutils = require ("common-utils")
 log = Log.open_topic ("s-device")
 
+config = {}
+config.rules = Conf.get_section_as_json ("device.profile.priority.rules", Json.Array {})
+
 SimpleEventHook {
   name = "device/find-preferred-profile",
   after = "device/find-stored-profile",
@@ -28,11 +31,8 @@ SimpleEventHook {
     end
 
     local device = event:get_subject ()
-    local device_name = device.properties["device.name"]
-    local props = {
-      ["device.name"] = device_name,
-    }
-    cutils.evaluateRulesApplyProperties(props, "device.profile.priority.rules")
+    local props = JsonUtils.match_rules_update_properties (
+        config.rules, device.properties)
     local p_array = props["priorities"]
 
     -- skip hook if the profile priorities are NOT defined for this device.

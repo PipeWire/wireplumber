@@ -10,6 +10,9 @@ mutils = require ("monitor-utils")
 
 log = Log.open_topic ("s-monitors-libcamera")
 
+config = {}
+config.rules = Conf.get_section_as_json ("monitor.libcamera.rules", Json.Array {})
+
 function createLibcamNode (parent, id, type, factory, properties)
   local registered = mutils:register_cam_node (parent, id, factory, properties)
   if not registered then
@@ -39,7 +42,8 @@ SimpleEventHook {
     local id = event:get_data ("device-sub-id")
 
     -- apply properties from rules defined in JSON .conf file
-    cutils.evaluateRulesApplyProperties (properties, "monitor.libcamera.rules")
+    properties = JsonUtils.match_rules_update_properties (config.rules, properties)
+
     if properties["device.disabled"] then
       log:notice ("lib cam device " .. properties["device.name"] .. " disabled")
       return

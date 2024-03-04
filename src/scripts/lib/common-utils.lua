@@ -83,22 +83,6 @@ function cutils.get_default_metadata_object ()
   }
 end
 
-function cutils.evaluateRulesApplyProperties (properties, name)
-  local section = Conf.get_section_as_json (name)
-  if not section then
-    return
-  end
-
-  local matched, mprops = JsonUtils.match_rules_update_properties (
-      section, properties)
-
-  if (matched > 0 and mprops) then
-    for k, v in pairs (mprops) do
-      properties [k] = v
-    end
-  end
-end
-
 function cutils.arrayContains (a, value)
   for _, v in ipairs (a) do
     if v == value then

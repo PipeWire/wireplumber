@@ -10,6 +10,9 @@ mutils = require ("monitor-utils")
 
 log = Log.open_topic ("s-monitors-v4l2")
 
+config = {}
+config.rules = Conf.get_section_as_json ("monitor.v4l2.rules", Json.Array {})
+
 SimpleEventHook {
   name = "monitor/v4l2/create-node",
   after = "monitor/v4l2/name-node",
@@ -25,7 +28,8 @@ SimpleEventHook {
     local factory = event:get_data ("factory")
 
     -- apply properties from rules defined in JSON .conf file
-    cutils.evaluateRulesApplyProperties (properties, "monitor.v4l2.rules")
+    properties = JsonUtils.match_rules_update_properties (config.rules, properties)
+
     if properties["node.disabled"] then
       log:warning ("v4l2 device node" .. properties["device.name"] .. " disabled")
       return

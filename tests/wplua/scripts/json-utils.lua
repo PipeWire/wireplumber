@@ -31,19 +31,19 @@ rules_json_str = [[
 ]]
 
 match_props = { ["device.name"] = "unmatched-device-name" }
-ret, ret_props = JsonUtils.match_rules_update_properties (Json.Raw (rules_json_str), match_props)
+ret_props, ret = JsonUtils.match_rules_update_properties (Json.Raw (rules_json_str), match_props)
 assert (ret == 0)
 assert (ret_props["device.name"] == match_props["device.name"])
 
 match_props = { ["device.name"] = "alsa_card_0.my-alsa-device" }
-ret, ret_props = JsonUtils.match_rules_update_properties (Json.Raw (rules_json_str), match_props)
+ret_props, ret = JsonUtils.match_rules_update_properties (Json.Raw (rules_json_str), match_props)
 assert (ret == 2)
 assert (ret_props["device.name"] == "alsa_card_0.my-alsa-device")
 assert (ret_props["api.alsa.use-acp"] == "true")
 assert (ret_props["api.acp.auto-port"] == "false")
 
 match_props = { ["node.name"] = "alsa_output.0.my-alsa-device" }
-ret, ret_props = JsonUtils.match_rules_update_properties (Json.Raw (rules_json_str), match_props)
+ret_props, ret = JsonUtils.match_rules_update_properties (Json.Raw (rules_json_str), match_props)
 assert (ret == 2)
 assert (ret_props["node.name"] == "alsa_output.0.my-alsa-device")
 assert (ret_props["audio.rate"] == "96000")
@@ -56,7 +56,7 @@ match_props = {
   ["audio.rate"] = "48000",
   ["node.description"] = "Test",
 }
-ret, ret_props = JsonUtils.match_rules_update_properties (Json.Raw (rules_json_str), match_props)
+ret_props, ret = JsonUtils.match_rules_update_properties (Json.Raw (rules_json_str), match_props)
 assert (ret == 3)
 assert (ret_props["node.name"] == "alsa_output.0.my-alsa-device")
 assert (ret_props["audio.rate"] == "96000")

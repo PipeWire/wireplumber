@@ -10,6 +10,9 @@ mutils = require ("monitor-utils")
 
 log = Log.open_topic ("s-monitors-v4l2")
 
+config = {}
+config.rules = Conf.get_section_as_json ("monitor.v4l2.rules", Json.Array {})
+
 function createV4l2camNode (parent, id, type, factory, properties)
   local registered = mutils:register_cam_node (parent, id, factory, properties)
   if not registered then
@@ -39,7 +42,8 @@ SimpleEventHook {
     local id = event:get_data ("device-sub-id")
 
     -- apply properties from rules defined in JSON .conf file
-    cutils.evaluateRulesApplyProperties (properties, "monitor.v4l2.rules")
+    properties = JsonUtils.match_rules_update_properties (config.rules, properties)
+
     if properties["device.disabled"] then
       log:warning ("v4l2 device " .. properties["device.name"] .. " disabled")
       return

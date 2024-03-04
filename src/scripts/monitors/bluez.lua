@@ -15,6 +15,7 @@ log = Log.open_topic ("s-monitors")
 config = {}
 config.seat_monitoring = Core.test_feature ("monitor.bluez.seat-monitoring")
 config.properties = Conf.get_section_as_properties ("monitor.bluez.properties")
+config.rules = Conf.get_section_as_json ("monitor.bluez.rules", Json.Array {})
 
 -- This is not a setting, it must always be enabled
 config.properties["api.bluez5.connection-info"] = true
@@ -284,8 +285,8 @@ function createNode(parent, id, type, factory, properties)
     properties["api.bluez5.internal"] = true
   end
 
-  -- apply properties from bluetooth.conf
-  cutils.evaluateRulesApplyProperties (properties, "monitor.bluez.rules")
+  -- apply properties from the rules in the configuration file
+  properties = JsonUtils.match_rules_update_properties (config.rules, properties)
 
   -- create the node; bluez requires "local" nodes, i.e. ones that run in
   -- the same process as the spa device, for several reasons
@@ -347,8 +348,8 @@ function createDevice(parent, id, type, factory, properties)
     properties["bluez5.profile"] = "off"
     properties["api.bluez5.id"] = id
 
-    -- apply properties from bluetooth.conf
-    cutils.evaluateRulesApplyProperties (properties, "monitor.bluez.rules")
+    -- apply properties from the rules in the configuration file
+    properties = JsonUtils.match_rules_update_properties (config.rules, properties)
 
     -- create the device
     device = SpaDevice(factory, properties)

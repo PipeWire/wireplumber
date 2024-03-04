@@ -11,6 +11,9 @@
 cutils = require ("common-utils")
 log = Log.open_topic ("s-node")
 
+config = {}
+config.rules = Conf.get_section_as_json ("stream.rules", Json.Array {})
+
 -- the state storage
 state = nil
 state_table = nil
@@ -42,7 +45,7 @@ restore_stream_hook = SimpleEventHook {
   execute = function (event)
     local node = event:get_subject ()
     local stream_props = node.properties
-    cutils.evaluateRulesApplyProperties (stream_props, "stream.rules")
+    stream_props = JsonUtils.match_rules_update_properties (config.rules, stream_props)
 
     local key = formKey (stream_props)
     if not key then
@@ -149,7 +152,7 @@ store_stream_props_hook = SimpleEventHook {
   execute = function (event)
     local node = event:get_subject ()
     local stream_props = node.properties
-    cutils.evaluateRulesApplyProperties (stream_props, "stream.rules")
+    stream_props = JsonUtils.match_rules_update_properties (config.rules, stream_props)
 
     if Settings.get_boolean ("node.stream.restore-props") and stream_props ["state.restore-props"] ~= "false"
     then
@@ -223,7 +226,7 @@ store_stream_target_hook = SimpleEventHook {
     end
 
     local stream_props = node.properties
-    cutils.evaluateRulesApplyProperties (stream_props, "stream.rules")
+    stream_props = JsonUtils.match_rules_update_properties (config.rules, stream_props)
 
     if stream_props ["state.restore-target"] == "false" then
       return

@@ -1788,8 +1788,8 @@ json_utils_match_rules_update_properties (lua_State *L)
 
   count = wp_json_utils_match_rules_update_properties (json, properties);
 
-  lua_pushinteger (L, count);
   wplua_properties_to_table (L, properties);
+  lua_pushinteger (L, count);
   return 2;
 }
 
