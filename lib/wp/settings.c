@@ -812,8 +812,10 @@ wp_settings_get (WpSettings *self, const gchar *name)
   g_return_val_if_fail (name, NULL);
 
   spec = wp_settings_get_spec (self, name);
-  if (!spec)
+  if (!spec) {
+    wp_warning ("Setting '%s' does not exist in the settings schema", name);
     return NULL;
+  }
 
   m = g_weak_ref_get (&self->metadata);
   if (!m)
@@ -836,10 +838,17 @@ WpSpaJson *
 wp_settings_get_saved (WpSettings *self, const gchar *name)
 {
   const gchar *value;
+  g_autoptr (WpSettingsSpec) spec = NULL;
   g_autoptr (WpMetadata) mp = NULL;
 
   g_return_val_if_fail (WP_IS_SETTINGS (self), NULL);
   g_return_val_if_fail (name, NULL);
+
+  spec = wp_settings_get_spec (self, name);
+  if (!spec) {
+    wp_warning ("Setting '%s' does not exist in the settings schema", name);
+    return NULL;
+  }
 
   mp = g_weak_ref_get (&self->metadata_persistent);
   if (!mp)
@@ -892,13 +901,17 @@ wp_settings_set (WpSettings *self, const gchar *name, WpSpaJson *value)
     return FALSE;
 
   spec = wp_settings_get_spec (self, name);
-  if (!spec)
+  if (!spec) {
+    wp_warning ("Setting '%s' does not exist in the settings schema", name);
     return FALSE;
-
-  if (!wp_settings_spec_check_value (spec, value))
-    return FALSE;
+  }
 
   value_str = wp_spa_json_to_string (value);
+  if (!wp_settings_spec_check_value (spec, value)) {
+    wp_warning ("Cannot set setting '%s' with value: %s", name, value_str);
+    return FALSE;
+  }
+
   wp_metadata_set (m, 0, name, "Spa:String:JSON", value_str);
   return TRUE;
 }
@@ -920,8 +933,10 @@ wp_settings_reset (WpSettings *self, const char *name)
   g_return_val_if_fail (name, FALSE);
 
   spec = wp_settings_get_spec (self, name);
-  if (!spec)
+  if (!spec) {
+    wp_warning ("Setting '%s' does not exist in the settings schema", name);
     return FALSE;
+  }
 
   def_value = wp_settings_spec_get_default_value (spec);
   return wp_settings_set (self, name, def_value);
@@ -968,9 +983,16 @@ gboolean
 wp_settings_delete (WpSettings *self, const char *name)
 {
   g_autoptr (WpMetadata) mp = NULL;
+  g_autoptr (WpSettingsSpec) spec = NULL;
 
   g_return_val_if_fail (WP_IS_SETTINGS (self), FALSE);
   g_return_val_if_fail (name, FALSE);
+
+  spec = wp_settings_get_spec (self, name);
+  if (!spec) {
+    wp_warning ("Setting '%s' does not exist in the settings schema", name);
+    return FALSE;
+  }
 
   mp = g_weak_ref_get (&self->metadata_persistent);
   if (!mp)
