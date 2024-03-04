@@ -10,13 +10,10 @@ log = Log.open_topic ("s-linking")
 
 defaults = {}
 defaults.duck_level = 0.3
-defaults.roles = Json.Object {}
 
 config = {}
-config.duck_level = Conf.get_value_float ("wireplumber.settings",
-    "linking.default.duck-level", defaults.duck_level)
-config.roles = Conf.get_section (
-    "virtual-item-roles", defaults.roles):parse ()
+config.duck_level = default.duck_level -- FIXME
+config.roles = Conf.get_section_as_object ("virtual-item-roles")
 
 -- enable ducking if mixer-api is loaded
 mixer_api = Plugin.find("mixer-api")

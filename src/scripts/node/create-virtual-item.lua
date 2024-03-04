@@ -11,12 +11,8 @@
 
 log = Log.open_topic ("s-node")
 
-defaults = {}
-defaults.virtual_items = Json.Object {}
-
 config = {}
-config.virtual_items = Conf.get_section (
-    "virtual-items", defaults.virtual_items):parse ()
+config.virtual_items = Conf.get_section_as_object ("virtual-items")
 
 function createVirtualItem (factory_name, properties)
   -- create virtual item

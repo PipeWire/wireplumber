@@ -13,8 +13,8 @@ defaults.servers = { "bluez_midi.server" }
 
 config = {}
 config.seat_monitoring = Core.test_feature ("monitor.bluez.seat-monitoring")
-config.properties = cutils.get_config_section ("monitor.bluez-midi.properties")
-config.servers = cutils.get_config_section ("monitor.bluez-midi.servers", defaults.servers)
+config.properties = Conf.get_section_as_properties ("monitor.bluez-midi.properties")
+config.servers = Conf.get_section_as_array ("monitor.bluez-midi.servers", defaults.servers)
 
 -- unique device/node name tables
 node_names_table = nil

@@ -8,9 +8,22 @@
 cutils = require ("common-utils")
 log = Log.open_topic ("s-monitors")
 
+defaults = {}
+defaults.node_properties = {  -- Midi bridge node properties
+  ["factory.name"] = "api.alsa.seq.bridge",
+
+  -- Name set for the node with ALSA MIDI ports
+  ["node.name"] = "Midi-Bridge",
+
+  -- Set priorities so that it can be used as a fallback driver (see pipewire#3562)
+  ["priority.session"] = "100",
+  ["priority.driver"] = "1",
+}
+
 config = {}
 config.monitoring = Core.test_feature ("monitor.alsa-midi.monitoring")
-config.node_properties = cutils.get_config_section ("monitor.alsa-midi.properties")
+config.node_properties = Conf.get_section_as_properties (
+    "monitor.alsa-midi.properties", defaults.node_properties)
 
 SND_PATH = "/dev/snd"
 SEQ_NAME = "seq"
@@ -20,23 +33,8 @@ midi_node = nil
 fm_plugin = nil
 
 function CreateMidiNode ()
-  -- Midi properties
-  local props = {
-    ["factory.name"] = "api.alsa.seq.bridge",
-
-    -- Name set for the node with ALSA MIDI ports
-    ["node.name"] = "Midi-Bridge",
-
-    -- Set priorities so that it can be used as a fallback driver (see pipewire#3562)
-    ["priority.session"] = "100",
-    ["priority.driver"] = "1",
-  }
-  for k, v in pairs(config.node_properties) do
-    props[k] = v
-  end
-
   -- create the midi node
-  local node = Node("spa-node-factory", props)
+  local node = Node("spa-node-factory", config.node_properties)
   node:activate(Feature.Proxy.BOUND, function (n)
     log:info ("activated Midi bridge")
   end)

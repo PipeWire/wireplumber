@@ -84,7 +84,7 @@ function cutils.get_default_metadata_object ()
 end
 
 function cutils.evaluateRulesApplyProperties (properties, name)
-  local section = Conf.get_section (name)
+  local section = Conf.get_section_as_json (name)
   if not section then
     return
   end
@@ -110,28 +110,6 @@ end
 
 function cutils.get_application_name ()
   return Core.get_properties()["application.name"] or "WirePlumber"
-end
-
-function cutils.get_config_section (name, defaults)
-  local section = Conf.get_section (name)
-  if not section then
-    section = defaults or {}
-  else
-    section = section:parse ()
-    if defaults then
-      for k, v in pairs (defaults) do
-        if section [k] == nil then
-          section [k] = v
-        end
-      end
-      for k, v in ipairs (defaults) do
-        if section [k] == nil then
-          section [k] = v
-        end
-      end
-    end
-  end
-  return section
 end
 
 return cutils

@@ -9,7 +9,7 @@ cutils = require ("common-utils")
 log = Log.open_topic ("s-monitors-v4l2")
 
 config = {}
-config.properties = cutils.get_config_section ("monitor.v4l2.properties")
+config.properties = Conf.get_section_as_properties ("monitor.v4l2.properties")
 
 function createCamDevice (parent, id, type, factory, properties)
   source = source or Plugin.find ("standard-event-source")

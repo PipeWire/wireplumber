@@ -14,7 +14,7 @@ log = Log.open_topic ("s-monitors")
 
 config = {}
 config.seat_monitoring = Core.test_feature ("monitor.bluez.seat-monitoring")
-config.properties = cutils.get_config_section ("monitor.bluez.properties")
+config.properties = Conf.get_section_as_properties ("monitor.bluez.properties")
 
 -- This is not a setting, it must always be enabled
 config.properties["api.bluez5.connection-info"] = true

@@ -43,7 +43,7 @@ function getDefaultPermissions (properties)
 end
 
 function getPermissions (properties)
-  local section = Conf.get_section ("access.rules")
+  local section = Conf.get_section_as_json ("access.rules")
   if section then
     local matched, mprops = JsonUtils.match_rules_update_properties (
         section, properties)

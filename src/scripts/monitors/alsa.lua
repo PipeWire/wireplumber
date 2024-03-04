@@ -10,7 +10,7 @@ log = Log.open_topic ("s-monitors")
 
 config = {}
 config.reserve_device = Core.test_feature ("monitor.alsa.reserve-device")
-config.properties = cutils.get_config_section ("monitor.alsa.properties")
+config.properties = Conf.get_section_as_properties ("monitor.alsa.properties")
 
 -- unique device/node name tables
 device_names_table = nil

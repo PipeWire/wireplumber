@@ -9,12 +9,8 @@
 lutils = require ("linking-utils")
 log = Log.open_topic ("s-linking")
 
-defaults = {}
-defaults.roles = Json.Object {}
-
 config = {}
-config.roles = Conf.get_section (
-    "virtual-item-roles", defaults.roles):parse ()
+config.roles = Conf.get_section_as_object ("virtual-item-roles")
 
 function findRole(role, tmc)
   if role and not config.roles[role] then
