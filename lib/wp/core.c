@@ -503,6 +503,11 @@ on_components_loaded (WpCore * self, GAsyncResult *res,
     return;
   }
 
+  if (self->conf) {
+    wp_info_object (self, "done loading components, closing conf file...");
+    wp_conf_close (self->conf);
+  }
+
   wp_object_update_features (WP_OBJECT (self), WP_CORE_FEATURE_COMPONENTS, 0);
 }
 
