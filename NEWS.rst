@@ -1,5 +1,44 @@
+WirePlumber 0.4.90
+~~~~~~~~~~~~~~~~~~
+
+This is the first release candidate (RC1) of WirePlumber 0.5.0.
+
+Highlights:
+
+  - The configuration system has been changed back to load files from the
+    WirePlumber configuration directories, such as ``/etc/wireplumber`` and
+    ``$XDG_CONFIG_HOME/wireplumber``, unlike in the pre-releases. This was done
+    because issues were observed with installations that use a different prefix
+    for pipewire and wireplumber. If you had a ``wireplumber.conf`` file in
+    ``/etc/pipewire`` or ``$XDG_CONFIG_HOME/pipewire``, you should move it to
+    ``/etc/wireplumber`` or ``$XDG_CONFIG_HOME/wireplumber`` respectively (!601)
+
+  - The internal base directories lookup system now also respects the
+    ``XDG_CONFIG_DIRS`` and ``XDG_DATA_DIRS`` environment variables, and their
+    default values as per the XDG spec, so it is possible to install
+    configuration files also in places like ``/etc/xdg/wireplumber`` and
+    override system-wide data paths (!601)
+
+  - ``wpctl`` now has a ``settings`` subcommand to show, change and delete
+    settings at runtime. This comes with changes in the ``WpSettings`` system to
+    validate settings using a schema that is defined in the configuration file.
+    The schema is also exported on a metadata object, so it is available to any
+    client that wants to expose WirePlumber settings (!599, !600)
+
+  - The ``WpConf`` API has changed to not be a singleton and support opening
+    arbitrary config files. The main config file now needs to be opened prior to
+    creating a ``WpCore`` and passed to the core using a property. The core uses
+    that without letting the underlying ``pw_context`` open and read the default
+    ``client.conf``. The core also closes the ``WpConf`` after all components
+    are loaded, which means all the config loading is done early at startup.
+    Finally, ``WpConf`` loads all sections lazily, keeping the underlying files
+    memory mapped until it is closed and merging them on demand (!601, !606)
+
+Past releases
+~~~~~~~~~~~~~
+
 WirePlumber 0.4.82
-~~~~~~~~~~~~~~~~~~~
+..................
 
 This is a second pre-release of WirePlumber 0.5.0, made available for testing
 purposes. This is not API/ABI stable yet and there is still pending work to do
@@ -45,9 +84,6 @@ Other changes:
 
   - WpSettings is no longer a singleton class and there is a built-in component
     to preload an instance of it
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.4.81
 ..................
