@@ -34,8 +34,8 @@ struct node_info {
   struct volume volume;
   struct volume monitorVolume;
   struct channel_map map;
-  bool mute;
-  bool monitorMute;
+  gboolean mute;
+  gboolean monitorMute;
   float svolume;
   float base;
   float step;
