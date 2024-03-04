@@ -319,6 +319,11 @@ wp_metadata_class_init (WpMetadataClass * klass)
       G_TYPE_UINT, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
 }
 
+/*!
+ * \struct WpMetadataItem
+ *
+ * WpMetadataItem holds the subject, key, type and value of a metadata entry.
+ */
 struct _WpMetadataItem
 {
   WpMetadata *metadata;

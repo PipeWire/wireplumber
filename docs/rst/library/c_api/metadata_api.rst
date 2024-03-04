@@ -7,6 +7,7 @@ PipeWire Metadata
 
    digraph inheritance {
       rankdir=LR;
+      GBoxed -> WpMetadataItem
       GObject -> WpObject;
       WpObject -> WpProxy;
       WpProxy -> WpGlobalProxy;
