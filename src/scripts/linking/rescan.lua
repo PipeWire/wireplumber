@@ -177,7 +177,7 @@ SimpleEventHook {
     -- on device Routes changed
     EventInterest {
       Constraint { "event.type", "=", "device-params-changed" },
-      Constraint { "event.subject.param-id", "=", "Route" },
+      Constraint { "event.subject.param-id", "c", "Route", "EnumRoute" },
     },
     -- on any "default" target changed
     EventInterest {
