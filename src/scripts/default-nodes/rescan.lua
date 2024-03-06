@@ -31,6 +31,10 @@ SimpleEventHook {
           "default.configured.audio.source", "default.configured.video.source"
       },
     },
+    EventInterest {
+      Constraint { "event.type", "=", "device-params-changed"},
+      Constraint { "event.subject.param-id", "c", "Route", "EnumRoute"},
+    },
   },
   execute = function (event)
     local source = event:get_source ()
@@ -138,8 +142,9 @@ function nodeHasAvailableRoutes (node, devices_om)
   --  Check if the current device route supports the node card device profile
   for r in device:iterate_params ("Route") do
     local route = r:parse ()
-    if route.device == cpd then
-      if route.available == "no" then
+    local route_props = route.properties
+    if route_props.device == tonumber (cpd) then
+      if route_props.available == "no" then
         return false
       else
         return true
@@ -151,11 +156,12 @@ function nodeHasAvailableRoutes (node, devices_om)
   local found = 0
   for r in device:iterate_params ("EnumRoute") do
     local route = r:parse ()
-    if type (route.devices) == "table" then
-      for _, i in ipairs (route.devices) do
-        if i == cpd then
+    local route_props = route.properties
+    if type (route_props.devices) == "table" then
+      for _, i in ipairs (route_props.devices) do
+        if i == tonumber (cpd) then
           found = found + 1
-          if route.available ~= "no" then
+          if route_props.available ~= "no" then
             return true
           end
         end
