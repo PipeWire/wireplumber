@@ -4,8 +4,8 @@ Configuration file
 ==================
 
 WirePlumber's configuration file is by default ``wireplumber.conf`` and resides
-in the ``pipewire`` configuration directory (see :ref:`config_locations` for
-more details on that).
+in one of the WirePlumber specific
+:ref:`configuration file search locations <config_locations>`.
 
 The default configuration file can be changed on the command line by passing
 the ``--config-file`` or ``-c`` option:
@@ -25,8 +25,8 @@ the ``--config-file`` or ``-c`` option:
    Note that Lua is still the scripting language for WirePlumber, but it is only
    used for actual scripting and not for configuration.
 
-Format
-------
+The SPA-JSON Format
+-------------------
 
 The format of this configuration file is a variant of JSON that is also
 used in PipeWire configuration files (also known as SPA-JSON). The file consists
@@ -103,17 +103,18 @@ When loading the configuration file, WirePlumber will also look for
 additional files in the directory that has the same name as the configuration
 file suffixed with ``.d`` and will load all of them as well. For example,
 loading ``wireplumber.conf`` will also load any ``.conf`` files under
-``wireplumber.conf.d/``. This directory is searched in all the search paths
-for configuration files (see :ref:`config_locations`) and the fragments are
-loaded from *all* of them.
+``wireplumber.conf.d/``. This directory is searched in all the configuration
+search locations and the fragments are loaded from *all* of them, starting
+from the most system-wide locations and moving towards the most user-specific
+locations, in alphanumerical order within each location (see also
+:ref:`config_locations_fragments`).
 
-The fragments are loaded in alphabetical order, after the main configuration
-file. When a JSON object appears in multiple files, the properties of the
-objects are merged together. When a JSON array appears in multiple files, the
-arrays are concatenated together. When merging objects, if specific properties
-appear in many of those objects, the last one to be parsed always overwrites
-previous ones, unless the value is also an object or array; if it is, then the
-value is recursively merged using the same rules.
+When a JSON object appears in multiple files, the properties of the objects are
+merged together. When a JSON array appears in multiple files, the arrays are
+concatenated together. When merging objects, if specific properties appear in
+many of those objects, the last one to be parsed always overwrites previous
+ones, unless the value is also an object or array; if it is, then the value is
+recursively merged using the same rules.
 
 Sections
 --------
