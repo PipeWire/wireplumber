@@ -53,10 +53,12 @@ SimpleEventHook {
     local filter_target = futils.get_filter_from_target (target_direction, target)
     if filter_target ~= nil then
       target = filter_target
+      log:info (si, "... got filter for given target")
     elseif filter_target == nil and not si_flags.has_defined_target then
       filter_target = futils.get_filter_from_target (target_direction, nil)
       if filter_target ~= nil then
         target = filter_target
+        log:info (si, "... got default filter for given target")
       end
     end
 
@@ -71,7 +73,7 @@ SimpleEventHook {
 
     if target_picked then
       log:info (si,
-        string.format ("... filter target picked: %s (%s), can_passthrough:%s",
+        string.format ("... target picked: %s (%s), can_passthrough:%s",
           tostring (target.properties ["node.name"]),
           tostring (target.properties ["node.id"]),
           tostring (can_passthrough)))

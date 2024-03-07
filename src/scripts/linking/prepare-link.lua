@@ -35,7 +35,7 @@ SimpleEventHook {
     -- Check if item is linked to proper target, otherwise re-link
     if si_flags.peer_id then
       if target and si_flags.peer_id == target.id then
-        log:debug (si, "... already linked to proper target")
+        log:info (si, "... already linked to proper target")
 
         -- Check this also here, in case in default targets changed
         if Settings.get_boolean ("linking.follow-default-target") and
