@@ -170,6 +170,8 @@ store_or_restore_routes_hook = SimpleEventHook {
       return
     end
 
+    local new_route_infos = {}
+
     -- look at all the routes and update/reset cached information
     for p in device:iterate_params ("EnumRoute") do
       -- parse pod
@@ -179,7 +181,7 @@ store_or_restore_routes_hook = SimpleEventHook {
       end
 
       -- find cached route information
-      local route_info = devinfo.find_route_info (dev_info, route, false)
+      local route_info = devinfo.find_route_info (dev_info, route, true)
       if not route_info then
         goto skip_enum_route
       end
@@ -189,8 +191,15 @@ store_or_restore_routes_hook = SimpleEventHook {
       route_info.active = false
       route_info.save = false
 
+      -- store
+      new_route_infos [route.index] = route_info
+
       ::skip_enum_route::
     end
+
+    -- update route_infos with new prev_active, active and save changes
+    dev_info.route_infos = new_route_infos
+    new_route_infos = nil
 
     -- check for changes in the active routes
     for p in device:iterate_params ("Route") do
@@ -216,6 +225,8 @@ store_or_restore_routes_hook = SimpleEventHook {
         log:info (device,
             string.format ("new active route(%s) found of device(%s)",
                 route.name, dev_info.name))
+        route_info.prev_active = true
+        route_info.active = true
 
         selected_routes [tostring (route.device)] =
             Json.Object { index = route_info.index }:to_string ()

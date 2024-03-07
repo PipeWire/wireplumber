@@ -92,9 +92,6 @@ AsyncEventHook {
 
           device:set_param ("Route", param)
 
-          route_info.prev_active = true
-          route_info.active = true
-
           ::skip_route::
         end
 

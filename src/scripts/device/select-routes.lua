@@ -67,9 +67,6 @@ SimpleEventHook {
           avail_routes_changed = true
         end
       end
-      route_info.prev_active = route_info.active
-      route_info.active = false
-      route_info.save = false
 
       -- store
       new_route_infos [route.index] = route_info
