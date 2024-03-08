@@ -424,7 +424,7 @@ function module.get_filter_target (direction, link_group)
         not v.disabled and
         v.smart and
         ((v.target == nil and filter.target == nil) or
-            (v.target.id == filter.target.id)) and
+            (v.target ~= nil and filter.target ~= nil and v.target.id == filter.target.id)) and
         i > index then
       return v.main_si
     end
