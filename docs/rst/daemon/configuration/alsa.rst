@@ -198,6 +198,13 @@ Some of the other properties that can be configured on devices:
    A longer, user-friendly name of the device. This will show up in most
    user interfaces as the device's name.
 
+.. describe:: device.disable
+
+   Disables the device. PipeWire will remove it from the list of cards or
+   devices.
+
+   :Type: boolean
+
 Node properties
 ^^^^^^^^^^^^^^^
 
@@ -317,6 +324,12 @@ The following properties can be configured on nodes created by the monitor:
    the monitor ports. Set this option to true to change this. PulseAudio has
    inconsistent behaviour regarding this option, it applies channel-volumes only
    when the sink/source is using software volumes.
+
+   :Type: boolean
+
+.. describe:: node.disable
+
+   Disables the node. Pipewire will remove it from the list of the nodes.
 
    :Type: boolean
 
