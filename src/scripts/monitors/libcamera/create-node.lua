@@ -29,8 +29,8 @@ SimpleEventHook {
     -- apply properties from rules defined in JSON .conf file
     properties = JsonUtils.match_rules_update_properties (config.rules, properties)
 
-    if properties["node.disabled"] then
-      log:warning ("lib cam device node" .. properties["device.name"] .. " disabled")
+    if cutils.parseBool (properties["node.disabled"]) then
+      log:notice ("libcam node" .. properties ["node.name"] .. " disabled")
       return
     end
     -- create the node

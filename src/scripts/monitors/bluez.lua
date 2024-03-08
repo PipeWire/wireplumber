@@ -235,7 +235,7 @@ function createNode(parent, id, type, factory, properties)
   local dev_props = parent.properties
   local parent_id = parent["bound-id"]
 
-  if config.properties["bluez5.hw-offload-sco"] and factory:find("sco") then
+  if cutils.parseBool (config.properties ["bluez5.hw-offload-sco"]) and factory:find("sco") then
     createOffloadScoNode(parent, id, type, factory, properties)
     return
   end

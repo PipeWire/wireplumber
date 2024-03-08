@@ -153,7 +153,8 @@ function createNode(parent, id, obj_type, factory, properties)
   -- apply properties from rules defined in JSON .conf file
   properties = JsonUtils.match_rules_update_properties (config.rules, properties)
 
-  if properties["node.disabled"] then
+  if cutils.parseBool (properties ["node.disabled"]) then
+    log:notice ("ALSA node " .. properties["node.name"] .. " disabled")
     node_names_table [properties ["node.name"]] = nil
     return
   end
@@ -257,13 +258,14 @@ function prepareDevice(parent, id, obj_type, factory, properties)
   applyDefaultDeviceProperties (properties)
   properties = JsonUtils.match_rules_update_properties (config.rules, properties)
 
-  if properties ["device.disabled"] then
+  if cutils.parseBool (properties ["device.disabled"]) then
+    log:notice ("ALSA card/device " .. properties ["device.name"] .. " disabled")
     device_names_table [properties ["device.name"]] = nil
     return
   end
 
   -- override the device factory to use ACP
-  if properties["api.alsa.use-acp"] then
+  if cutils.parseBool (properties ["api.alsa.use-acp"]) then
     log:info("Enabling the use of ACP on " .. properties["device.name"])
     factory = "api.alsa.acp.device"
   end

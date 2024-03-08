@@ -44,8 +44,8 @@ SimpleEventHook {
     -- apply properties from rules defined in JSON .conf file
     properties = JsonUtils.match_rules_update_properties (config.rules, properties)
 
-    if properties["device.disabled"] then
-      log:notice ("lib cam device " .. properties["device.name"] .. " disabled")
+    if cutils.parseBool (properties ["device.disabled"]) then
+      log:notice ("libcam device " .. properties["device.name"] .. " disabled")
       return
     end
     local device = SpaDevice (factory, properties)

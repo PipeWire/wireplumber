@@ -30,8 +30,8 @@ SimpleEventHook {
     -- apply properties from rules defined in JSON .conf file
     properties = JsonUtils.match_rules_update_properties (config.rules, properties)
 
-    if properties["node.disabled"] then
-      log:warning ("v4l2 device node" .. properties["device.name"] .. " disabled")
+    if cutils.parseBool (properties ["node.disabled"]) then
+      log:notice ("V4L2 node" .. properties ["node.name"] .. " disabled")
       return
     end
     -- create the node
