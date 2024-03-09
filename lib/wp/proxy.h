@@ -31,29 +31,27 @@ typedef enum { /*< flags >*/
   WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PORT_CONFIG = (1 << 8),
   WP_PIPEWIRE_OBJECT_FEATURE_PARAM_ROUTE       = (1 << 9),
 
+  /*!
+   * The minimal feature set for proxies implementing WpPipewireObject.
+   * This is a subset of \em WP_PIPEWIRE_OBJECT_FEATURES_ALL
+   */
+  WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL =
+      (WP_PROXY_FEATURE_BOUND | WP_PIPEWIRE_OBJECT_FEATURE_INFO),
+
+  /*!
+   * The complete common feature set for proxies implementing
+   * WpPipewireObject. This is a subset of \em WP_OBJECT_FEATURES_ALL
+   */
+  WP_PIPEWIRE_OBJECT_FEATURES_ALL =
+      (WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL |
+       WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PROPS |
+       WP_PIPEWIRE_OBJECT_FEATURE_PARAM_FORMAT |
+       WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PROFILE |
+       WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PORT_CONFIG |
+       WP_PIPEWIRE_OBJECT_FEATURE_PARAM_ROUTE),
+
   WP_PROXY_FEATURE_CUSTOM_START                = (1 << 16), /*< skip >*/
 } WpProxyFeatures;
-
-/*!
- * \brief The minimal feature set for proxies implementing WpPipewireObject.
- * This is a subset of \em WP_PIPEWIRE_OBJECT_FEATURES_ALL
- * \ingroup wpproxy
- */
-#define WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL \
-    (WP_PROXY_FEATURE_BOUND | WP_PIPEWIRE_OBJECT_FEATURE_INFO)
-
-/*!
- * \brief The complete common feature set for proxies implementing
- * WpPipewireObject. This is a subset of \em WP_OBJECT_FEATURES_ALL
- * \ingroup wpproxy
- */
-#define WP_PIPEWIRE_OBJECT_FEATURES_ALL \
-    (WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL | \
-     WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PROPS | \
-     WP_PIPEWIRE_OBJECT_FEATURE_PARAM_FORMAT | \
-     WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PROFILE | \
-     WP_PIPEWIRE_OBJECT_FEATURE_PARAM_PORT_CONFIG | \
-     WP_PIPEWIRE_OBJECT_FEATURE_PARAM_ROUTE)
 
 /*!
  * \brief The WpProxy GType
