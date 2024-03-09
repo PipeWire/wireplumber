@@ -59,10 +59,12 @@ struct _WpLogTopic {
   WP_LOG_TOPIC_STATIC(WP_LOCAL_LOG_TOPIC, t)
 
 /* make glib log functions also use the local log topic */
-#ifdef G_LOG_DOMAIN
-# undef G_LOG_DOMAIN
+#ifdef WP_USE_LOCAL_LOG_TOPIC_IN_G_LOG
+# ifdef G_LOG_DOMAIN
+#  undef G_LOG_DOMAIN
+# endif
+# define G_LOG_DOMAIN (WP_LOCAL_LOG_TOPIC->topic_name)
 #endif
-#define G_LOG_DOMAIN (WP_LOCAL_LOG_TOPIC->topic_name)
 
 WP_API
 void wp_log_topic_init (WpLogTopic *topic);

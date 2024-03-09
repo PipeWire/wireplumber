@@ -137,6 +137,7 @@ add_project_arguments(cc.get_supported_arguments(common_flags), language: 'c')
 common_args = [
   '-D_GNU_SOURCE',
   '-DG_LOG_USE_STRUCTURED',
+  '-DWP_USE_LOCAL_LOG_TOPIC_IN_G_LOG',
 ]
 add_project_arguments(common_args, language: 'c')
 
