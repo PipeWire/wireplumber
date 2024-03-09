@@ -2,13 +2,13 @@ option('introspection', type : 'feature', value : 'auto',
        description : 'Generate gobject-introspection bindings')
 option('doc', type : 'feature', value : 'auto',
        description: 'Enable documentation.')
-option('modules', type : 'boolean', value: 'true',
+option('modules', type : 'boolean', value: true,
        description : 'Build modules')
-option('daemon', type : 'boolean', value: 'true',
+option('daemon', type : 'boolean', value: true,
        description : 'Build session manager daemon')
-option('tools', type : 'boolean', value: 'true',
+option('tools', type : 'boolean', value: true,
        description : 'Build CLI tools')
-option('system-lua', type : 'boolean', value : 'false',
+option('system-lua', type : 'boolean', value : false,
        description : 'Use lua from the system instead of the bundled one')
 option('system-lua-version',
        type: 'string', value : 'auto',
@@ -33,7 +33,7 @@ option('systemd-user-unit-dir',
        description : 'Directory for user systemd units')
 option('glib-supp', type : 'string', value : '',
        description: 'The glib.supp valgrind suppressions file to be used when running valgrind')
-option('tests', type : 'boolean', value : 'true',
+option('tests', type : 'boolean', value : true,
        description : 'Build the test suite')
-option('dbus-tests', type : 'boolean', value : 'true',
+option('dbus-tests', type : 'boolean', value : true,
        description: 'Enable running tests that need a dbus-daemon')
