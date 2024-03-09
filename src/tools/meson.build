@@ -1,9 +1,5 @@
 executable('wpctl',
   'wpctl.c',
-  c_args : [
-    '-D_GNU_SOURCE',
-    '-DG_LOG_USE_STRUCTURED',
-  ],
   install: true,
   dependencies : [gobject_dep, gio_dep, wp_dep, pipewire_dep],
 )
@@ -15,10 +11,6 @@ install_data('shell-completion/wpctl.zsh',
 
 executable('wpexec',
   'wpexec.c',
-  c_args : [
-    '-D_GNU_SOURCE',
-    '-DG_LOG_USE_STRUCTURED',
-  ],
   install: true,
   dependencies : [gobject_dep, gio_dep, wp_dep, pipewire_dep],
 )

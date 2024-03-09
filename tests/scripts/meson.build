@@ -3,13 +3,10 @@ common_env = common_test_env
 common_env.prepend('WIREPLUMBER_DATA_DIR', meson.current_source_dir())
 common_env.set('G_TEST_SRCDIR', meson.current_source_dir())
 common_env.set('G_TEST_BUILDDIR', meson.current_build_dir())
-common_args = [
-  '-D_GNU_SOURCE',
-]
 
 script_tester = executable('script-tester',
     '..'/'script-tester.c',
-    dependencies: common_deps, c_args: common_args
+    dependencies: common_deps
 )
 
 test(

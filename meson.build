@@ -134,6 +134,12 @@ common_flags = [
 ]
 add_project_arguments(cc.get_supported_arguments(common_flags), language: 'c')
 
+common_args = [
+  '-D_GNU_SOURCE',
+  '-DG_LOG_USE_STRUCTURED',
+]
+add_project_arguments(common_args, language: 'c')
+
 subdir('lib')
 if build_modules
   subdir('modules')
