@@ -18,10 +18,6 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-log")
  * \{
  */
 /*!
- * \def WP_LOG_LEVEL_TRACE
- * \brief A custom GLib log level for trace messages (see GLogLevelFlags)
- */
-/*!
  * \def WP_OBJECT_FORMAT
  * \brief A format string to print GObjects with WP_OBJECT_ARGS()
  * For example:

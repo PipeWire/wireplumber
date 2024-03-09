@@ -14,7 +14,21 @@
 
 G_BEGIN_DECLS
 
-#define WP_LOG_LEVEL_TRACE (1 << G_LOG_LEVEL_USER_SHIFT)
+/*!
+ * \brief A custom GLib log level for trace messages (extension of GLogLevelFlags)
+ * \ingroup wplog
+ */
+static const guint WP_LOG_LEVEL_TRACE = (1 << 8);
+
+/*
+  The above WP_LOG_LEVEL_TRACE constant is intended to be defined as
+  (1 << G_LOG_LEVEL_USER_SHIFT), but due to a gobject-introspection bug
+  we define it with the value of G_LOG_LEVEL_USER_SHIFT, which is 8, so
+  that it ends up correctly in the bindings. To avoid value mismatches,
+  we statically verify here that G_LOG_LEVEL_USER_SHIFT is indeed 8.
+  See https://gitlab.freedesktop.org/pipewire/wireplumber/-/issues/540
+*/
+G_STATIC_ASSERT (G_LOG_LEVEL_USER_SHIFT == 8);
 
 #define WP_OBJECT_FORMAT "<%s:%p>"
 #define WP_OBJECT_ARGS(object) \
