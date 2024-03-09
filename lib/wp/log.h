@@ -61,16 +61,16 @@ struct _WpLogTopic {
 #define WP_LOG_TOPIC_EXTERN(var) \
   extern WpLogTopic * var;
 
-#define WP_LOG_TOPIC(var, t) \
-  WpLogTopic var##_struct = { .topic_name = t, .flags = WP_LOG_TOPIC_FLAG_STATIC };  \
+#define WP_LOG_TOPIC(var, name) \
+  WpLogTopic var##_struct = { .topic_name = name, .flags = WP_LOG_TOPIC_FLAG_STATIC };  \
   WpLogTopic * var = &(var##_struct);
 
-#define WP_LOG_TOPIC_STATIC(var, t) \
-  static WpLogTopic var##_struct = { .topic_name = t, .flags = WP_LOG_TOPIC_FLAG_STATIC }; \
+#define WP_LOG_TOPIC_STATIC(var, name) \
+  static WpLogTopic var##_struct = { .topic_name = name, .flags = WP_LOG_TOPIC_FLAG_STATIC }; \
   static G_GNUC_UNUSED WpLogTopic * var = &(var##_struct);
 
-#define WP_DEFINE_LOCAL_LOG_TOPIC(t) \
-  WP_LOG_TOPIC_STATIC(WP_LOCAL_LOG_TOPIC, t)
+#define WP_DEFINE_LOCAL_LOG_TOPIC(name) \
+  WP_LOG_TOPIC_STATIC(WP_LOCAL_LOG_TOPIC, name)
 
 /* make glib log functions also use the local log topic */
 #ifdef WP_USE_LOCAL_LOG_TOPIC_IN_G_LOG

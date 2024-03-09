@@ -18,6 +18,41 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-log")
  * \{
  */
 /*!
+ * \def WP_DEFINE_LOCAL_LOG_TOPIC(name)
+ * \brief Defines a static \em WpLogTopic* variable called \em WP_LOCAL_LOG_TOPIC
+ *
+ * The log topic is automatically intialized to the given topic \a name when
+ * it is first used. The default logging macros expect this variable to be
+ * defined, so it is a good coding practice in the WirePlumber codebase to
+ * start all files at the top with:
+ * \code
+ * WP_DEFINE_LOCAL_LOG_TOPIC ("some-topic")
+ * \endcode
+ *
+ * \param name The name of the log topic
+ */
+/*!
+ * \def WP_LOG_TOPIC_STATIC(var, name)
+ * \brief Defines a static \em WpLogTopic* variable called \a var with the given
+ * topic \a name
+ * \param var The name of the variable to define
+ * \param name The name of the log topic
+ */
+/*!
+ * \def WP_LOG_TOPIC(var, name)
+ * \brief Defines a \em WpLogTopic* variable called \a var with the given
+ * topic \a name. Unlike WP_LOG_TOPIC_STATIC(), the variable defined here is
+ * not static, so it can be linked to by other object files.
+ * \param var The name of the variable to define
+ * \param name The name of the log topic
+ */
+/*!
+ * \def WP_LOG_TOPIC_EXTERN(var)
+ * \brief Declares an extern \em WpLogTopic* variable called \a var.
+ * This variable is meant to be defined in a .c file with WP_LOG_TOPIC()
+ * \param var The name of the variable to declare
+ */
+/*!
  * \def WP_OBJECT_FORMAT
  * \brief A format string to print GObjects with WP_OBJECT_ARGS()
  * For example:
