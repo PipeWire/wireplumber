@@ -67,18 +67,17 @@ typedef enum { /*< flags >*/
   WP_INTEREST_MATCH_PW_GLOBAL_PROPERTIES = (1 << 1),
   WP_INTEREST_MATCH_PW_PROPERTIES = (1 << 2),
   WP_INTEREST_MATCH_G_PROPERTIES = (1 << 3),
-} WpInterestMatch;
 
-/*!
- * \brief Special WpInterestMatch value that indicates that all constraints
- * have been matched
- * \ingroup wpobjectinterest
- */
-#define WP_INTEREST_MATCH_ALL \
-    (WP_INTEREST_MATCH_GTYPE | \
-     WP_INTEREST_MATCH_PW_GLOBAL_PROPERTIES | \
-     WP_INTEREST_MATCH_PW_PROPERTIES | \
-     WP_INTEREST_MATCH_G_PROPERTIES)
+  /*!
+   * Special WpInterestMatch value that indicates that all constraints
+   * have been matched
+   */
+  WP_INTEREST_MATCH_ALL =
+    (WP_INTEREST_MATCH_GTYPE |
+     WP_INTEREST_MATCH_PW_GLOBAL_PROPERTIES |
+     WP_INTEREST_MATCH_PW_PROPERTIES |
+     WP_INTEREST_MATCH_G_PROPERTIES),
+} WpInterestMatch;
 
 /*!
  * \brief Flags to alter the behaviour of wp_object_interest_matches_full()
