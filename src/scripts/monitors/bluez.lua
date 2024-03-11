@@ -214,6 +214,7 @@ function createSetNode(parent, id, type, factory, properties)
     )
   end
 
+  properties["node.name"] = name
   properties["node.virtual"] = false
   properties["device.api"] = "bluez5"
   properties["api.bluez5.set.members"] = nil
