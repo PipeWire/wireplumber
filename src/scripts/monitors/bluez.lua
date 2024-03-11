@@ -181,12 +181,12 @@ function createSetNode(parent, id, type, factory, properties)
   local channels = channels_json:parse ()
 
   if properties["media.class"] == "Audio/Sink" then
-    name = "bluez_output"
+    name = "bluez_output_internal"
     args["combine.mode"] = "sink"
     target_class = "Audio/Sink/Internal"
     stream_class = "Stream/Output/Audio/Internal"
   else
-    name = "bluez_input"
+    name = "bluez_input_internal"
     args["combine.mode"] = "source"
     target_class = "Audio/Source/Internal"
     stream_class = "Stream/Input/Audio/Internal"
@@ -258,10 +258,18 @@ function createNode(parent, id, type, factory, properties)
   -- sanitize description, replace ':' with ' '
   properties["node.description"] = desc:gsub("(:)", " ")
 
+  local name_prefix = ((factory:find("sink") and "bluez_output") or
+       (factory:find("source") and "bluez_input" or factory))
+
+  -- hide the sco-source node because we use the loopback source instead
+  if factory == "api.bluez5.sco.source" then
+    properties["api.bluez5.internal"] = true
+    -- add 'internal' to name prefix to not be confused with loopback node
+    name_prefix = name_prefix .. "_internal"
+  end
+
   -- set the node name
-  local name =
-      ((factory:find("sink") and "bluez_output") or
-       (factory:find("source") and "bluez_input" or factory)) .. "." ..
+  local name = name_prefix .. "." ..
       (properties["api.bluez5.address"] or dev_props["device.name"]) .. "." ..
       tostring(id)
   -- sanitize name
@@ -279,11 +287,6 @@ function createNode(parent, id, type, factory, properties)
      properties["api.bluez5.profile"] == "bap-sink" or
      factory:find("a2dp.source") or factory:find("media.source") then
     properties["node.autoconnect"] = true
-  end
-
-  -- hide the sco-source node because we use the loopback source instead
-  if factory == "api.bluez5.sco.source" then
-    properties["api.bluez5.internal"] = true
   end
 
   -- apply properties from the rules in the configuration file
@@ -393,10 +396,10 @@ end
 function CreateDeviceLoopbackSource (dev_name, dec_desc, dev_id)
   local args = Json.Object {
     ["capture.props"] = Json.Object {
-      ["node.name"] = string.format ("bluez_capture.%s", dev_name),
+      ["node.name"] = string.format ("bluez_capture_internal.%s", dev_name),
       ["media.class"] = "Stream/Input/Audio/Internal",
       ["node.description"] =
-          string.format ("Bluetooth capture for %s", dec_desc),
+          string.format ("Bluetooth internal capture stream for %s", dec_desc),
       ["audio.channels"] = 1,
       ["audio.position"] = "[MONO]",
       ["bluez5.loopback"] = true,
@@ -406,9 +409,8 @@ function CreateDeviceLoopbackSource (dev_name, dec_desc, dev_id)
       ["node.linger"] = true
     },
     ["playback.props"] = Json.Object {
-      ["node.name"] = string.format ("bluez_source.%s", dev_name),
-      ["node.description"] =
-          string.format ("Bluetooth source for %s", dec_desc),
+      ["node.name"] = string.format ("bluez_input.%s", dev_name),
+      ["node.description"] = string.format ("%s", dec_desc),
       ["audio.position"] = "[MONO]",
       ["media.class"] = "Audio/Source",
       ["device.id"] = dev_id,
