@@ -46,6 +46,9 @@ void wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
 void wp_registry_notify_add_object (WpRegistry * self, gpointer object);
 void wp_registry_notify_rm_object (WpRegistry * self, gpointer object);
 
+void wp_registry_install_object_manager (WpRegistry * self,
+    WpObjectManager * om);
+
 static inline void
 wp_registry_mark_feature_provided (WpRegistry * reg, const gchar * feature)
 {

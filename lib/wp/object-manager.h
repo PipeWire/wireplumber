@@ -72,6 +72,22 @@ WP_API
 gpointer wp_object_manager_lookup_full (WpObjectManager * self,
     WpObjectInterest * interest);
 
+/* private */
+
+typedef struct _WpGlobal WpGlobal;
+
+WP_PRIVATE_API
+void wp_object_manager_maybe_objects_changed (WpObjectManager * self);
+
+WP_PRIVATE_API
+void wp_object_manager_add_object (WpObjectManager * self, gpointer object);
+
+WP_PRIVATE_API
+void wp_object_manager_rm_object (WpObjectManager * self, gpointer object);
+
+WP_PRIVATE_API
+void wp_object_manager_add_global (WpObjectManager * self, WpGlobal * global);
+
 G_END_DECLS
 
 #endif
