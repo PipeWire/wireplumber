@@ -1,7 +1,7 @@
 .. _config_conf_file:
 
-Configuration file
-==================
+The configuration file
+======================
 
 WirePlumber's configuration file is by default ``wireplumber.conf`` and resides
 in one of the WirePlumber specific
@@ -127,6 +127,12 @@ file:
   This section is an array that lists components that can be loaded by
   WirePlumber. For more information, see :ref:`config_components_and_profiles`.
 
+* *wireplumber.components.rules*
+
+  This section is an array containing rules that can be used to modify entries
+  of the *wireplumber.components* array. This is useful to inject changes
+  to the components list without having to modify the main configuration file.
+
 * *wireplumber.profiles*
 
   This section is an object that defines profiles that can be loaded by
@@ -136,6 +142,13 @@ file:
 
   This section is an object that defines settings that can be used to
   alter WirePlumber's behavior. For more information, see :ref:`config_settings`.
+
+* *wireplumber.settings.schema*
+
+  This section is an object that defines the schema for the settings that
+  can be listed in *wireplumber.settings*. This is used to validate the
+  settings when they are modified at runtime. For more information, see
+  :ref:`config_configuration_option_types`.
 
 In addition, there are many sections that are specific to certain components,
 mostly hardware monitors, such as *monitor.alsa.properties*,
@@ -192,6 +205,15 @@ by libpipewire to configure the PipeWire context:
      PipeWire modules can also be loaded as :ref:`components <config_components_and_profiles>`,
      which may be preferrable since it allows you to load them conditionally
      based on the profile and component dependencies.
+
+  .. admonition:: Remember
+
+     Modules listed in *context.modules* are always loaded before attempting a
+     connection to the PipeWire daemon, while modules listed in
+     *wireplumber.components* are always loaded after the connection is
+     established. It is important to load the PipeWire protocol-native module
+     and any extensions (such as module-metadata) in the *context.modules*
+     section, so that the connection can be done properly.
 
   Each module is described by a JSON object containing the module's *name*,
   its arguments (*args*) and a combination of *flags*, which can be ``ifexists``
