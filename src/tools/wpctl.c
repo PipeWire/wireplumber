@@ -1663,7 +1663,7 @@ out:
   g_main_loop_quit (self->loop);
 }
 
-#define N_ENTRIES 3
+#define N_ENTRIES 4
 
 static const struct subcommand {
   /* the name to match on the command line */
@@ -1820,7 +1820,8 @@ static const struct subcommand {
         "Saves the setting value (no KEY means 'all', no VAL means current value)", NULL },
       { "reset", 'r', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE,
         &cmdline.settings.reset,
-        "Resets the saved setting to its default value", NULL }
+        "Resets the saved setting to its default value", NULL },
+      { NULL }
     },
     .parse_positional = settings_parse_positional,
     .prepare = settings_prepare,
