@@ -35,12 +35,17 @@ si_node_init (WpSiNode * self)
 }
 
 static void
+si_node_soft_reset (WpSiNode * self)
+{
+  wp_object_deactivate (WP_OBJECT (self), WP_SESSION_ITEM_FEATURE_ACTIVE);
+}
+
+static void
 si_node_reset (WpSessionItem * item)
 {
   WpSiNode *self = WP_SI_NODE (item);
 
-  /* deactivate first */
-  wp_object_deactivate (WP_OBJECT (self), WP_SESSION_ITEM_FEATURE_ACTIVE);
+  si_node_soft_reset (self);
 
   /* reset */
   g_clear_object (&self->node);
@@ -53,7 +58,7 @@ on_proxy_destroyed (WpNode * proxy, WpSiNode * self)
 {
   if (self->node == proxy) {
     wp_object_abort_activation (WP_OBJECT (self), "proxy destroyed");
-    si_node_reset (WP_SESSION_ITEM (self));
+    si_node_soft_reset (self);
   }
 }
 

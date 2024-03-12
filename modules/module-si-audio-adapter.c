@@ -76,12 +76,29 @@ si_audio_adapter_set_ports_state (WpSiAudioAdapter *self, WpSiAdapterPortsState
 }
 
 static void
+si_audio_adapter_soft_reset (WpSiAudioAdapter *self)
+{
+  /* deactivate first */
+  wp_object_deactivate (WP_OBJECT (self), WP_SESSION_ITEM_FEATURE_ACTIVE);
+
+  /* reset back to the initial "configured" state */
+  if (self->format_task) {
+    g_task_return_new_error (self->format_task, WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "item deactivated before format was set");
+    g_clear_object (&self->format_task);
+  }
+  g_clear_pointer (&self->format, wp_spa_pod_unref);
+  self->mode[0] = '\0';
+  si_audio_adapter_set_ports_state (self, WP_SI_ADAPTER_PORTS_STATE_NONE);
+}
+
+static void
 si_audio_adapter_reset (WpSessionItem * item)
 {
   WpSiAudioAdapter *self = WP_SI_AUDIO_ADAPTER (item);
 
-  /* deactivate first */
-  wp_object_deactivate (WP_OBJECT (self), WP_SESSION_ITEM_FEATURE_ACTIVE);
+  si_audio_adapter_soft_reset (self);
 
   /* reset */
   g_clear_object (&self->node);
@@ -97,15 +114,6 @@ si_audio_adapter_reset (WpSessionItem * item)
   self->have_encoded = FALSE;
   self->encoded_only = FALSE;
   spa_memzero (&self->raw_format, sizeof(struct spa_audio_info_raw));
-  if (self->format_task) {
-    g_task_return_new_error (self->format_task, WP_DOMAIN_LIBRARY,
-        WP_LIBRARY_ERROR_OPERATION_FAILED,
-        "item deactivated before format set");
-    g_clear_object (&self->format_task);
-  }
-  g_clear_pointer (&self->format, wp_spa_pod_unref);
-  self->mode[0] = '\0';
-  si_audio_adapter_set_ports_state (self, WP_SI_ADAPTER_PORTS_STATE_NONE);
 
   WP_SESSION_ITEM_CLASS (si_audio_adapter_parent_class)->reset (item);
 }
@@ -227,7 +235,7 @@ on_proxy_destroyed (WpNode * proxy, WpSiAudioAdapter * self)
 {
   if (self->node == proxy) {
     wp_object_abort_activation (WP_OBJECT (self), "proxy destroyed");
-    si_audio_adapter_reset (WP_SESSION_ITEM (self));
+    si_audio_adapter_soft_reset (self);
   }
 }
 
