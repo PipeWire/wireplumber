@@ -18,20 +18,23 @@ booleans, integers, strings, etc. and are all located under the
 ``wireplumber.settings`` section in the configuration file. Their purpose is to
 allow the user to change simple behavioral aspects of WirePlumber.
 
-When WirePlumber starts, the ``metadata.sm-settings`` component (provided by
-``module-settings``) reads this section from the configuration file and
-populates the ``sm-settings`` metadata object, which is exported to PipeWire.
-Then the rest of the components read their configuration options from this
-metadata object.
-
-This use of a metadata object allows users to dynamically change the
-configuration options at runtime using the ``pw-metadata`` command line tool.
-For example, setting the ``device.routes.default-sink-volume`` setting to
-``0.5`` can be done like this:
+As the name suggests, these options are dynamic and can be changed at runtime
+using ``wpctl`` or the :ref:`settings_api` API. For example, setting the
+``device.routes.default-sink-volume`` setting to ``0.5`` can be done like this:
 
 .. code-block:: bash
 
-   $ pw-metadata -n sm-settings 0 device.routes.default-sink-volume 0.5
+   $ wpctl settings device.routes.default-sink-volume 0.5
+
+Under the hood, when WirePlumber starts, the ``metadata.sm-settings`` component
+(provided by ``libwireplumber-module-settings``) reads this section from the
+configuration file and populates the ``sm-settings`` metadata object, which is
+exported to PipeWire. In addition, it reads the ``wireplumber.settings.schema``
+section and populates the ``schema-sm-settings`` metadata object, which is used
+by the API to validate the settings. Any options that are missing from
+``wireplumber.settings`` are also populated in ``sm-settings`` from their
+default values in the schema. Then the rest of the components read their
+configuration options from this metadata object via the :ref:`settings_api` API.
 
 Most of the components that use such dynamic options make sure to listen
 to changes in the metadata object so that they can immediately adapt their
@@ -41,21 +44,43 @@ affect created objects in a way that cannot be changed after the object has been
 created, so when the option is changed it applies only to new objects and not
 existing ones.
 
-Note that the above command will only change the option at runtime, so the
-setting won't be restored if wireplumber is restarted. However, you can make the
-change persistent by setting the option in the ``persistent-sm-settings`` metadata
-object, like this:
+Changing the settings at runtime in the ``sm-settings`` metadata object is
+a non-persistent change. The changes will be lost when WirePlumber is
+restarted. However, the :ref:`settings_api` API also supports saving settings
+to a state file, which will be loaded again when WirePlumber starts and
+override the settings from the configuration file. This is done by using yet
+another metadata object called ``persistent-sm-settings``. When a setting is
+changed in the ``persistent-sm-settings`` metadata object, WirePlumber
+automatically saves the change to the state file and also changes the value in
+the ``sm-settings`` metadata object immediately.
+
+To make such a persistent change using ``wpctl``, the ``--save`` option can be
+used. For example, to set the ``device.routes.default-sink-volume`` setting to
+``0.5`` and save it to the state file:
 
 .. code-block:: bash
 
-   $ pw-metadata -n persistent-sm-settings 0 device.routes.default-sink-volume 0.5
+   $ wpctl settings --save device.routes.default-sink-volume 0.5
 
-When using the ``persistent-sm-settings`` metadata object, the change will always
-be saved in the persistent settings state file. When WirePlumber starts, such
-saved setting will have preference over the ones from the configuration file
-when populating the ``sm-settings`` metadata object. Also, any changes done in
-the ``persistent-sm-settings`` metadata will be reflected in the ``sm-settings``
-metadata object as well.
+With ``wpctl``, it is also possible to restore a setting to its default value
+(taken from the schema), by using the ``--reset`` option. For example, to reset
+the ``device.routes.default-sink-volume`` setting, the following command can be
+used:
+
+.. code-block:: bash
+
+   $ wpctl settings --reset device.routes.default-sink-volume
+
+In addition, the ``--delete`` option can be used to delete a setting from the
+``persistent-sm-settings`` metadata object, which will also remove it from the
+state file. After deleting, the value from the ``wireplumber.settings`` section
+of the configuration file will be used again. For example, to delete the
+``device.routes.default-sink-volume`` setting, the following command can be
+used:
+
+.. code-block:: bash
+
+   $ wpctl settings --delete device.routes.default-sink-volume
 
 A list of all the available settings can be found in the :ref:`config_settings`
 section.
