@@ -1,9 +1,9 @@
 # Swedish translation for pipewire.
-# Copyright © 2008-2022 Free Software Foundation, Inc.
+# Copyright © 2008-2024 Free Software Foundation, Inc.
 # This file is distributed under the same license as the pipewire package.
 # Daniel Nylander <po@danielnylander.se>, 2008, 2012.
 # Josef Andersson <josef.andersson@fripost.org>, 2014, 2017.
-# Anders Jonsson <anders.jonsson@norsjovallen.se>, 2021, 2022.
+# Anders Jonsson <anders.jonsson@norsjovallen.se>, 2021, 2022, 2024.
 #
 # Termer:
 # input/output: ingång/utgång (det handlar om ljud)
@@ -19,8 +19,8 @@ msgstr ""
 "Project-Id-Version: pipewire\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/-/"
 "issues\n"
-"POT-Creation-Date: 2022-06-15 15:30+0000\n"
-"PO-Revision-Date: 2022-06-15 21:11+0200\n"
+"POT-Creation-Date: 2024-03-11 15:33+0000\n"
+"PO-Revision-Date: 2024-01-11 01:08+0100\n"
 "Last-Translator: Anders Jonsson <anders.jonsson@norsjovallen.se>\n"
 "Language-Team: Swedish <tp-sv@listor.tp-sv.se>\n"
 "Language: sv\n"
@@ -28,7 +28,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Poedit 3.0.1\n"
+"X-Generator: Poedit 3.4.2\n"
 
 #. WirePlumber
 #.
@@ -36,11 +36,7 @@ msgstr ""
 #. @author George Kiagiadakis <george.kiagiadakis@collabora.com>
 #.
 #. SPDX-License-Identifier: MIT
-#. Receive script arguments from config.lua
-#. ensure config.properties is not nil
 #. unique device/node name tables
-#. preprocess rules and create Interest objects
-#. applies properties from config.rules when asked to
 #. set the device id and spa factory name; REQUIRED, do not change
 #. set the default pause-on-idle setting
 #. try to negotiate the max ammount of channels
@@ -54,23 +50,28 @@ msgstr ""
 #. ensure the node has a description
 #. also sanitize description, replace ':' with ' '
 #. add api.alsa.card.* properties for rule matching purposes
-#. apply properties from config.rules
+#. add vm.type for rule matching purposes
+#. apply properties from rules defined in JSON .conf file
 #. create the node
 #. ensure the device has an appropriate name
 #. deduplicate devices with the same name
 #. ensure the device has a description
-#: src/scripts/monitors/alsa.lua:220
+#: src/scripts/monitors/alsa.lua:214
+msgid "Loopback"
+msgstr "Loopback"
+
+#: src/scripts/monitors/alsa.lua:216
 msgid "Built-in Audio"
 msgstr "Inbyggt ljud"
 
-#: src/scripts/monitors/alsa.lua:222
+#: src/scripts/monitors/alsa.lua:218
 msgid "Modem"
 msgstr "Modem"
 
 #. ensure the device has a nick
 #. set the icon name
 #. form factor -> icon
-#. apply properties from config.rules
+#. apply properties from rules defined in JSON .conf file
 #. override the device factory to use ACP
 #. use device reservation, if available
 #. unlike pipewire-media-session, this logic here keeps the device
@@ -78,15 +79,11 @@ msgstr "Modem"
 #. create the device
 #. attempt to acquire again
 #. destroy the device
-#. TODO enable the jack device
-#. TODO disable the jack device
 #. create the device
 #. handle create-object to prepare device
 #. handle object-removed to destroy device reservations and recycle device name
 #. reset the name tables to make sure names are recycled
 #. activate monitor
-#. create the JACK device (for PipeWire to act as client to a JACK server)
-#. enable device reservation if requested
 #. if the reserve-device plugin is enabled, at the point of script execution
 #. it is expected to be connected. if it is not, assume the d-bus connection
 #. has failed and continue without it
@@ -95,22 +92,45 @@ msgstr "Modem"
 #. create the monitor
 #. WirePlumber
 #.
-#. Copyright © 2021 Collabora Ltd.
-#. @author George Kiagiadakis <george.kiagiadakis@collabora.com>
+#. Copyright © 2022 Pauli Virtanen
+#. @author Pauli Virtanen
 #.
 #. SPDX-License-Identifier: MIT
-#. preprocess rules and create Interest objects
-#. applies properties from config.rules when asked to
+#. unique device/node name tables
+#. set the node description
+#. sanitize description, replace ':' with ' '
+#. set the node name
+#. sanitize name
+#. deduplicate nodes with the same name
+#. apply properties from the rules in the configuration file
+#. create the node
+#. it doesn't necessarily need to be a local node,
+#. the other Bluetooth parts run in the local process,
+#. so it's consistent to have also this here
+#. reset the name tables to make sure names are recycled
+#: src/scripts/monitors/bluez-midi.lua:114
+#, lua-format
+msgid "BLE MIDI %d"
+msgstr "BLE MIDI %d"
+
+#. if logind support is enabled, activate
+#. the monitor only when the seat is active
+#. WirePlumber
+#.
+#. Copyright © 2023 Collabora Ltd.
+#. @author Ashok Sidipotu <ashok.sidipotu@collabora.com>
+#.
+#. SPDX-License-Identifier: MIT
 #. set the device id and spa factory name; REQUIRED, do not change
 #. set the default pause-on-idle setting
 #. set the node name
 #. sanitize name
 #. deduplicate nodes with the same name
 #. set the node description
-#: src/scripts/monitors/libcamera.lua:88
+#: src/scripts/monitors/libcamera/name-node.lua:61
 msgid "Built-in Front Camera"
 msgstr "Inbyggd främre kamera"
 
-#: src/scripts/monitors/libcamera.lua:90
+#: src/scripts/monitors/libcamera/name-node.lua:63
 msgid "Built-in Back Camera"
 msgstr "Inbyggd bakre kamera"
