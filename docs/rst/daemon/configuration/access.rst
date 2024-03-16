@@ -3,56 +3,58 @@
 Access configuration
 ====================
 
-wireplumber.conf.d/access.conf
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+WirePlumber includes a "client access" policy which defines access control
+rules for PipeWire clients.
 
-Using a similar format as the :ref:`ALSA monitor <config_alsa>`, this
-configuration file is charged to configure the client objects created by
-PipeWire.
+Rules
+-----
 
-* *Settings*
+This policy can be configured with rules that can be used to match clients and
+apply default permissions to them.
 
-  Example:
+Example:
 
-  .. code-block::
+.. code-block::
 
-    wireplumber.settings = {
-      access-enable-flatpak-portal = true
-    }
+   access.rules = [
+     {
+       matches = [
+         {
+           access = "flatpak"
+           media.category = "Manager"
+         }
+       ]
+       actions = {
+         update-props = {
+           access = "flatpak-manager"
+           default_permissions = "all",
+         }
+       }
+     }
+     {
+       matches = [
+         {
+           access = "flatpak"
+         }
+       ]
+       actions = {
+         update-props = {
+           default_permissions = "rx"
+         }
+       }
+     }
+   ]
 
-  The above example sets to ``true`` the ``access-enable-flatpak-portal``
-  property.
+Possible permissions are any combination of:
 
-  The list of valid properties are:
+ * ``r``: client is allowed to **read** objects, i.e. "see" them on the registry
+   and list their properties
+ * ``w``: client is allowed to **write** objects, i.e. call methods that modify
+   their state
+ * ``x``: client is allowed to **execute** methods on objects; the ``w`` flag
+   must also be present to call methods that modify the object
+ * ``m``: client is allowed to set **metadata** on objects
+ * ``l``: nodes of this client are allowed to **link** to other nodes that the
+   client can't "see" (i.e. the client doesn't have ``r`` permission on them)
 
-  .. code-block::
-
-    access-enable-flatpak-portal = true,
-
-  Whether to enable the flatpak portal or not.
-
-* *rules*
-
-  Example::
-
-      access = [
-        {
-          matches = [
-            {
-              pipewire.access = "flatpak"
-            }
-          ]
-          actions = {
-            update-props = {
-              default_permissions = "rx"
-            }
-          }
-        }
-      ]
-
-  This grants read and execute permissions to all clients that have the
-  ``pipewire.access`` property set to ``flatpak``.
-
-  Possible permissions are any combination of ``r``, ``w`` and ``x`` for read,
-  write and execute; or ``all`` for all kind of permissions.
-
+The special value ``all`` is also supported and it is synonym for ``rwxm``
