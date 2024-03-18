@@ -40,23 +40,30 @@ void wp_log_init (gint flags);
 WP_API
 gboolean wp_log_set_level (const gchar *log_level);
 
-typedef struct _WpLogTopic WpLogTopic;
-struct _WpLogTopic {
+/*!
+ * \brief WpLogTopic flags
+ * \ingroup wplog
+ */
+typedef enum { /*< flags >*/
+  /*! the lower 16 bits of the flags are GLogLevelFlags */
+  WP_LOG_TOPIC_LEVEL_MASK = 0xFFFF,
+  /*! the log topic has infinite lifetime (lives on static storage) */
+  WP_LOG_TOPIC_FLAG_STATIC = 1u << 30,
+  /*! the log topic has been initialized */
+  WP_LOG_TOPIC_FLAG_INITIALIZED = 1u << 31,
+} WpLogTopicFlags;
+
+/*!
+ * \brief A structure representing a log topic
+ * \ingroup wplog
+ */
+typedef struct {
   const char *topic_name;
+  WpLogTopicFlags flags;
 
   /*< private >*/
-  /*
-   * lower 16 bits: GLogLevelFlags
-   * bit 30: static log topic (infinite lifetime)
-   * bit 31: 1 - initialized, 0 - not initialized
-   */
-  gint flags;
   WP_PADDING(3)
-};
-
-#define WP_LOG_TOPIC_FLAG_STATIC		(1u << 30)
-#define WP_LOG_TOPIC_FLAG_INITIALIZED		(1u << 31)
-#define WP_LOG_TOPIC_LEVEL_MASK			(0xFFFF)
+} WpLogTopic;
 
 #define WP_LOG_TOPIC_EXTERN(var) \
   extern WpLogTopic * var;

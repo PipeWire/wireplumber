@@ -309,7 +309,7 @@ static const luaL_Reg core_funcs[] = {
 
 /* WpLog */
 
-typedef struct _WpLogTopic WpLuaLogTopic;
+typedef WpLogTopic WpLuaLogTopic;
 
 static WpLuaLogTopic *
 wp_lua_log_topic_new (const char *name)
