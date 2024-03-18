@@ -167,6 +167,7 @@ main (gint argc, gchar **argv)
   /* prepare core properties */
   properties = wp_properties_new (
       PW_KEY_APP_NAME, "WirePlumber",
+      PW_KEY_APP_VERSION, WIREPLUMBER_VERSION,
       "wireplumber.daemon", "true",
       "wireplumber.profile", profile,
       NULL);
