@@ -1,5 +1,47 @@
+WirePlumber 0.5.0
+~~~~~~~~~~~~~~~~~
+
+Changes:
+
+  - Bumped the minimum required version of PipeWire to 1.0.2, because we
+    make use of the 'api.bluez5.internal' property of the BlueZ monitor (!613)
+
+  - Improved the naming of Bluetooth nodes when the auto-switching loopback
+    node is present (!614)
+
+  - Updated the documentation on "settings", the Bluetooth monitor, the Access
+    configuration, the file search locations and added a document on how to
+    modify the configuration file (#595, !616)
+
+Fixes:
+
+  - Fixed checking for available routes when selecting the default node (!609)
+
+  - Fixed an issue that was causing an infinite loop storing routes in the
+    state file (!610)
+
+  - Fixed the interpretation of boolean values in the alsa monitor rules (#586, !611)
+
+  - Fixes a Lua crash when we have 2 smart filters, one with a target and one
+    without (!612)
+
+  - Fixed an issue where the default nodes would not be updated when the
+    currently selected default node became unavailable (#588, !615)
+
+  - Fixed an issue that would cause the Props (volume, mute, etc) of loopbacks
+    and other filter nodes to not be restored at startup (#577, !617)
+
+  - Fixed how some constants were represented in the gobject-introspection file,
+    mostly by converting them from defines to enums (#540, #591)
+
+  - Fixed an issue using WirePlumber headers in other projects due to
+    redefinition of G_LOG_DOMAIN (#571)
+
+Past releases
+~~~~~~~~~~~~~
+
 WirePlumber 0.4.90
-~~~~~~~~~~~~~~~~~~
+..................
 
 This is the first release candidate (RC1) of WirePlumber 0.5.0.
 
@@ -33,9 +75,6 @@ Highlights:
     are loaded, which means all the config loading is done early at startup.
     Finally, ``WpConf`` loads all sections lazily, keeping the underlying files
     memory mapped until it is closed and merging them on demand (!601, !606)
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.4.82
 ..................
