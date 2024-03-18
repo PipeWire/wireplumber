@@ -144,10 +144,10 @@ function createNode(parent, id, obj_type, factory, properties)
     end
   end
 
-  -- add vm.type for rule matching purposes
+  -- add cpu.vm.name for rule matching purposes
   local vm_type = Core.get_vm_type()
   if nonempty(vm_type) then
-    properties["vm.type"] = vm_type
+    properties["cpu.vm.name"] = vm_type
   end
 
   -- apply properties from rules defined in JSON .conf file
