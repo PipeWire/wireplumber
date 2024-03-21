@@ -157,6 +157,19 @@ local function getFilterSmartTarget (metadata, node, om)
   return target
 end
 
+local function getFilterSmartTargetless (metadata, node)
+  local id = node["bound-id"]
+  local value_str = nil
+  if metadata ~= nil then
+    value_str = metadata:find (id, "filter.smart.target")
+  end
+  if value_str == nil then
+    value_str = node.properties ["filter.smart.target"]
+  end
+
+  return value_str == nil
+end
+
 local function getFilterSmartBefore (metadata, node)
   -- Check metadata and fallback to properties
   local id = node["bound-id"]
@@ -312,6 +325,7 @@ local function rescanFilters (om, metadata_om)
     filter.disabled = getFilterSmartDisabled (metadata, n)
     filter.targetable = getFilterSmartTargetable (metadata, n)
     filter.target = getFilterSmartTarget (metadata, n, om)
+    filter.targetless = getFilterSmartTargetless (metadata, n)
     filter.before = getFilterSmartBefore (metadata, n)
     filter.after = getFilterSmartAfter (metadata, n)
 
@@ -471,7 +485,7 @@ function module.get_filter_from_target (direction, si_target)
         not v.disabled and
         v.smart and
         ((v.target ~= nil and target ~= nil and v.target.id == target.id) or
-            (target == nil and v.target == nil)) then
+            (target == nil and v.targetless)) then
       return v.main_si
     end
   end
