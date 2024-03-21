@@ -261,8 +261,11 @@ function createNode(parent, id, type, factory, properties)
   local name_prefix = ((factory:find("sink") and "bluez_output") or
        (factory:find("source") and "bluez_input" or factory))
 
-  -- hide the sco-source node because we use the loopback source instead
-  if factory == "api.bluez5.sco.source" then
+  -- hide the source node because we use the loopback source instead
+  if parent:get_managed_object (LOOPBACK_SOURCE_ID) ~= nil and
+       (factory == "api.bluez5.sco.source" or
+         (factory == "api.bluez5.a2dp.source" and cutils.parseBool (properties["api.bluez5.a2dp-duplex"]))) then
+    properties["bluez5.loopback-target"] = true
     properties["api.bluez5.internal"] = true
     -- add 'internal' to name prefix to not be confused with loopback node
     name_prefix = name_prefix .. "_internal"
@@ -420,8 +423,7 @@ function CreateDeviceLoopbackSource (dev_name, dec_desc, dev_id)
       ["bluez5.loopback"] = true,
       ["filter.smart"] = true,
       ["filter.smart.target"] = Json.Object {
-        ["factory.name"] = "api.bluez5.sco.source",
-        ["device.api"] = "bluez5",
+        ["bluez5.loopback-target"] = true,
         ["bluez5.loopback"] = false,
         ["device.id"] = dev_id
       }
