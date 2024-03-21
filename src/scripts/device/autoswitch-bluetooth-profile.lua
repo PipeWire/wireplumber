@@ -191,9 +191,6 @@ local function hasProfileInputRoute (device, profile_index)
 end
 
 local function switchDeviceToHeadsetProfile (dev_id)
-  local index
-  local name
-
   -- Find the actual device
   local device = devices_om:lookup {
       Constraint { "bound-id", "=", dev_id, type = "gobject" }
@@ -209,7 +206,7 @@ local function switchDeviceToHeadsetProfile (dev_id)
   end
 
   local cur_profile_name = getCurrentProfile (device)
-  _, index, name = findProfile (device, nil, cur_profile_name)
+  local priority, index, name = findProfile (device, nil, cur_profile_name)
   if hasProfileInputRoute (device, index) then
     Log.info ("Current profile has input route, not switching")
     return
@@ -222,12 +219,17 @@ local function switchDeviceToHeadsetProfile (dev_id)
   end
 
   local saved_headset_profile = getSavedHeadsetProfile (device)
+
   index = INVALID
   if saved_headset_profile then
-    _, index, name = findProfile (device, nil, saved_headset_profile)
+    priority, index, name = findProfile (device, nil, saved_headset_profile)
+    if index ~= INVALID and not hasProfileInputRoute (device, index) then
+      index = INVALID
+      saveHeadsetProfile (device, nil)
+    end
   end
   if index == INVALID then
-    _, index, name = highestPrioProfileWithInputRoute (device)
+    priority, index, name = highestPrioProfileWithInputRoute (device)
   end
 
   if index ~= INVALID then
@@ -267,14 +269,19 @@ local function restoreProfile (dev_id)
 
   local profile_name = getSavedLastProfile (device)
   local cur_profile_name = getCurrentProfile (device)
+  local priority, index, name
 
   if cur_profile_name then
-    Log.info ("Setting saved headset profile to: " .. cur_profile_name)
-    saveHeadsetProfile (device, cur_profile_name)
+    priority, index, name = findProfile (device, nil, cur_profile_name)
+
+    if index ~= INVALID and hasProfileInputRoute (device, index) then
+      Log.info ("Setting saved headset profile to: " .. cur_profile_name)
+      saveHeadsetProfile (device, cur_profile_name)
+    end
   end
 
   if profile_name then
-    local _, index, name = findProfile (device, nil, profile_name)
+    priority, index, name = findProfile (device, nil, profile_name)
 
     if index ~= INVALID then
       local pod = Pod.Object {
