@@ -246,11 +246,23 @@ wp_standard_event_source_create_event (WpStandardEventSource *self,
   /* watch for subject pw-proxy-destroyed and cancel event,
      unless this is a "removed" event, in which case we expect the proxy
      to be destroyed and the event should still go through */
-  if (subject && !g_str_has_suffix (event_type, "-removed")
-        && g_type_is_a (G_OBJECT_TYPE (subject), WP_TYPE_PROXY)) {
-    g_signal_connect_object (subject, "pw-proxy-destroyed",
-        (GCallback) g_cancellable_cancel, wp_event_get_cancellable (event),
-        G_CONNECT_SWAPPED);
+  if (subject && !g_str_has_suffix (event_type, "-removed")) {
+    g_autoptr (WpProxy) proxy = NULL;
+
+    if (WP_IS_PROXY (subject)) {
+      proxy = g_object_ref (WP_PROXY (subject));
+    }
+    else if (WP_IS_SESSION_ITEM (subject)) {
+      /* watch the node associated with the session-item */
+      proxy = wp_session_item_get_associated_proxy (WP_SESSION_ITEM (subject),
+          WP_TYPE_NODE);
+    }
+
+    if (proxy) {
+      g_signal_connect_object (proxy, "pw-proxy-destroyed",
+          (GCallback) g_cancellable_cancel, wp_event_get_cancellable (event),
+          G_CONNECT_SWAPPED);
+    }
   }
 
   return g_steal_pointer (&event);
