@@ -335,6 +335,7 @@ wp_settings_plugin_disable (WpPlugin * plugin)
   WpSettingsPlugin * self = WP_SETTINGS_PLUGIN (plugin);
 
   g_clear_object (&self->impl_metadata);
+  g_clear_object (&self->schema_impl_metadata);
   g_clear_object (&self->persistent_impl_metadata);
   g_clear_pointer (&self->persistent_settings, wp_properties_unref);
   g_clear_object (&self->state);
