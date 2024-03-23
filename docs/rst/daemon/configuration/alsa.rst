@@ -198,7 +198,7 @@ Some of the other properties that can be configured on devices:
    A longer, user-friendly name of the device. This will show up in most
    user interfaces as the device's name.
 
-.. describe:: device.disable
+.. describe:: device.disabled
 
    Disables the device. PipeWire will remove it from the list of cards or
    devices.
@@ -327,7 +327,7 @@ The following properties can be configured on nodes created by the monitor:
 
    :Type: boolean
 
-.. describe:: node.disable
+.. describe:: node.disabled
 
    Disables the node. Pipewire will remove it from the list of the nodes.
 
