@@ -10,6 +10,4 @@ sphinx_files += files(
   'alsa.rst',
   'bluetooth.rst',
   'access.rst',
-  'locations.rst',
-  'multi_instance.rst',
 )

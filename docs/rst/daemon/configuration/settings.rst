@@ -1,6 +1,6 @@
 .. _config_settings:
 
-Well-known Settings
+Well-known settings
 ===================
 
 This section describes the settings that can be configured on WirePlumber.

@@ -302,4 +302,4 @@ and also make sure to require it in the profile:
    the XDG base directory specification for data files is honored, so the new
    location for custom scripts is ``~/.local/share/wireplumber/scripts/`` and
    anything else specified in ``$XDG_DATA_HOME`` and ``$XDG_DATA_DIRS``. See
-   :ref:`config_locations` for more information.
+   :ref:`daemon_file_locations` for more information.

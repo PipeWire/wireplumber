@@ -10,7 +10,9 @@ Table of Contents
    daemon/installing.rst
    daemon/running.rst
    daemon/configuration.rst
+   daemon/locations.rst
    daemon/logging.rst
+   daemon/multi_instance.rst
 
 .. toctree::
    :maxdepth: 2

@@ -1,7 +1,9 @@
-.. _config_locations:
+.. _daemon_file_locations:
 
-Locations of files
-==================
+Locations of WirePlumber's files
+================================
+
+.. _config_locations:
 
 Location of configuration files
 -------------------------------

@@ -20,13 +20,11 @@ the various options available.
 
    configuration/conf_file.rst
    configuration/components_and_profiles.rst
-   configuration/features.rst
    configuration/configuration_option_types.rst
-   configuration/settings.rst
    configuration/modifying_configuration.rst
    configuration/migration.rst
+   configuration/features.rst
+   configuration/settings.rst
    configuration/alsa.rst
    configuration/bluetooth.rst
    configuration/access.rst
-   configuration/locations.rst
-   configuration/multi_instance.rst

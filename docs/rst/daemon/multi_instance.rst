@@ -1,4 +1,4 @@
-.. _config_multi_instance:
+.. _daemon_multi_instance:
 
 Running multiple instances
 ==========================

@@ -3,7 +3,9 @@ sphinx_files += files(
    'installing.rst',
    'running.rst',
    'configuration.rst',
+   'locations.rst',
    'logging.rst',
+   'multi_instance.rst',
 )
 
 subdir('configuration')
