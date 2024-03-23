@@ -14,13 +14,14 @@ the ``--config-file`` or ``-c`` option:
 
    $ wireplumber --config-file=custom.conf
 
-.. note::
+.. important::
 
    Starting with WirePlumber 0.5, this is the only file that WirePlumber reads
    to load configuration (together with its fragments - see below). In the past,
    WirePlumber also used to read Lua configuration files that were referenced
    from ``wireplumber.conf`` and all the heavy lifting was done in Lua. This is
-   no longer the case, and the Lua configuration files are no longer supported.
+   no longer the case, and the **Lua configuration files are no longer supported.**
+   See :ref:`config_migration`.
 
    Note that Lua is still the scripting language for WirePlumber, but it is only
    used for actual scripting and not for configuration.
