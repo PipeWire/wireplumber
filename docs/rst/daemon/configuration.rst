@@ -24,6 +24,7 @@ the various options available.
    configuration/configuration_option_types.rst
    configuration/settings.rst
    configuration/modifying_configuration.rst
+   configuration/migration.rst
    configuration/alsa.rst
    configuration/bluetooth.rst
    configuration/access.rst

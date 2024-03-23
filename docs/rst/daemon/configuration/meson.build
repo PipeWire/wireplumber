@@ -4,6 +4,7 @@ sphinx_files += files(
   'components_and_profiles.rst',
   'configuration_option_types.rst',
   'modifying_configuration.rst',
+  'migration.rst',
   'features.rst',
   'settings.rst',
   'alsa.rst',

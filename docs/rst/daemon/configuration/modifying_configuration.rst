@@ -32,6 +32,8 @@ recommended to use a numeric prefix for the file names, e.g.
 ``10-my-fragment.conf``, ``20-my-other-fragment.conf``, etc., so that you can
 easily control the order in which they are loaded.
 
+.. _config_modifying_configuration_features:
+
 Customizing the loaded features
 -------------------------------
 
@@ -55,6 +57,8 @@ like this:
 
 Remember that features can be ``required``, ``optional`` or ``disabled``. See
 the :ref:`Components & Profiles <config_components_and_profiles>` for details.
+
+.. _config_modifying_configuration_settings:
 
 Modifying dynamic options ("settings")
 --------------------------------------
@@ -140,6 +144,8 @@ to remove the saved value, you can use the ``--delete`` option:
 
 A list of all the available settings can be found in the :ref:`config_settings`
 section.
+
+.. _config_modifying_configuration_static:
 
 Modifying static options
 ------------------------
@@ -255,6 +261,8 @@ and does not require the ``override.`` prefix.
    Even though WirePlumber uses PipeWire's syntax for configuration files, the
    ``override.`` prefix is a WirePlumber extension and does not work in
    PipeWire.
+
+.. _config_modifying_configuration_rules:
 
 Working with rules
 ------------------
