@@ -64,12 +64,21 @@ on_persistent_metadata_changed (WpMetadata *m, guint32 subject,
   WpSettingsPlugin *self = WP_SETTINGS_PLUGIN (d);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
 
-  /* Update persistent settings with new value and timeout save it */
-  wp_properties_set (self->persistent_settings, key, value);
-  if (value)
-    wp_info_object (self, "persistent setting updated: %s = %s", key, value);
-  else
-    wp_info_object (self, "persistent setting removed: %s", key);
+  /* Update persistent settings with new value. If key is null it means all
+   * settings need to be removed */
+  if (key) {
+    wp_properties_set (self->persistent_settings, key, value);
+    if (value)
+      wp_info_object (self, "persistent setting updated: %s = %s", key, value);
+    else
+      wp_info_object (self, "persistent setting removed: %s", key);
+  } else {
+    g_clear_pointer (&self->persistent_settings, wp_properties_unref);
+    self->persistent_settings = wp_properties_new_empty ();
+    wp_info_object (self, "all persistent settings removed");
+  }
+
+  /* Save changes */
   wp_state_save_after_timeout (self->state, core, self->persistent_settings);
 
   /* Also update current settings with new value */
