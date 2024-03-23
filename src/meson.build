@@ -1,7 +1,6 @@
 scripts_doc_files_relative = [
   'default-nodes'/'README.rst',
   'device'/'README.rst',
-  'lib'/'SETTINGS.rst',
   'linking'/'README.rst',
 ]
 
