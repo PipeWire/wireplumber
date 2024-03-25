@@ -468,7 +468,7 @@ object_activate_done (WpObject *o, GAsyncResult * res, GClosure * closure)
   int n_vals = 1;
 
   if (!wp_object_activate_finish (o, res, &error)) {
-    wp_notice_object (o, "%s", error->message);
+    wp_debug_object (o, "%s", error->message);
     if (closure) {
       g_value_init (&val[1], G_TYPE_STRING);
       g_value_set_string (&val[1], error->message);
@@ -1463,7 +1463,7 @@ si_adapter_set_ports_format_done (WpObject *o, GAsyncResult * res,
   int n_vals = 1;
 
   if (!wp_si_adapter_set_ports_format_finish (WP_SI_ADAPTER (o), res, &error)) {
-    wp_notice_object (o, "%s", error->message);
+    wp_debug_object (o, "%s", error->message);
     if (closure) {
       g_value_init (&val[1], G_TYPE_STRING);
       g_value_set_string (&val[1], error->message);
