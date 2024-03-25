@@ -79,7 +79,7 @@ SimpleEventHook {
       local linger = cutils.parseBool (si_props ["node.linger"])
       if not linger then
         local node = si:get_associated_proxy ("node")
-        lutils.sendClientError (event, node, "smart filter defined target not found")
+        lutils.sendClientError (event, node, -2, "smart filter defined target not found")
         node:request_destroy ()
         log:info(si, "... destroyed node as smart filter defined target was not found")
       else

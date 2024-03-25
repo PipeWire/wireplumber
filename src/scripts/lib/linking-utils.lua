@@ -314,7 +314,7 @@ function lutils.haveAvailableRoutes (si_props)
   return false
 end
 
-function lutils.sendClientError (event, node, message)
+function lutils.sendClientError (event, node, code, message)
   local source = event:get_source ()
   local client_id = node.properties ["client.id"]
   if client_id then
@@ -323,7 +323,7 @@ function lutils.sendClientError (event, node, message)
         Constraint { "bound-id", "=", client_id, type = "gobject" }
     }
     if client then
-      client:send_error (node ["bound-id"], -2, message)
+      client:send_error (node ["bound-id"], code, message)
     end
   end
 end

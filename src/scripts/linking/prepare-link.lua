@@ -111,7 +111,7 @@ SimpleEventHook {
         return
       end
 
-      lutils.sendClientError (event, node,
+      lutils.sendClientError (event, node, -2,
           reconnect and "no target node available" or "target not found")
 
       if not reconnect then
