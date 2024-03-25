@@ -113,16 +113,7 @@ AsyncEventHook {
             }
             if si then
               local node = si:get_associated_proxy ("node")
-              local client_id = node.properties["client.id"]
-              if client_id then
-                local client = om:lookup {
-                  Constraint { "bound-id", "=", client_id, type = "gobject" }
-                }
-                if client then
-                  log:info (node, "sending client error: " .. error_msg)
-                  client:send_error (node["bound-id"], -32, error_msg)
-                end
-              end
+              lutils.sendClientError(event, node, -32, error_msg)
             end
           end
         end)
