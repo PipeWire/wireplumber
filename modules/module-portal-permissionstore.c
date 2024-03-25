@@ -63,7 +63,16 @@ wp_portal_permissionstore_plugin_lookup (WpPortalPermissionStorePlugin *self,
       g_variant_new ("(ss)", table, id), NULL, G_DBUS_CALL_FLAGS_NONE, -1, NULL,
       &error);
   if (error) {
-    wp_warning_object (self, "Failed to call Lookup: %s", error->message);
+    g_autofree gchar *remote_error = g_dbus_error_get_remote_error (error);
+    g_dbus_error_strip_remote_error (error);
+
+    /* NotFound is neither unexpected nor important, so log it as INFO */
+    if (!g_strcmp0 (remote_error, "org.freedesktop.portal.Error.NotFound")) {
+      wp_info_object (self, "Lookup: %s (%s)", error->message, remote_error);
+      return NULL;
+    }
+
+    wp_warning_object (self, "Lookup: %s (%s)", error->message, remote_error);
     return NULL;
   }
 
@@ -90,8 +99,11 @@ wp_portal_permissionstore_plugin_set (WpPortalPermissionStorePlugin *self,
       DBUS_OBJECT_PATH, DBUS_INTERFACE_NAME, "Set",
       g_variant_new ("(sbs@a{sas}@v)", table, id, permissions, data), NULL,
       G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
-  if (error)
-    wp_warning_object (self, "Failed to call Set: %s", error->message);
+  if (error) {
+    g_autofree gchar *remote_error = g_dbus_error_get_remote_error (error);
+    g_dbus_error_strip_remote_error (error);
+    wp_warning_object (self, "Set: %s (%s)", error->message, remote_error);
+  }
 }
 
 static void
