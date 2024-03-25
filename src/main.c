@@ -122,6 +122,55 @@ on_core_activated (WpObject * core, GAsyncResult * res, WpDaemon * d)
   }
 }
 
+static void
+warn_about_deprecated_config (void)
+{
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) val = G_VALUE_INIT;
+  gboolean detected = FALSE;
+
+  /* test only in directories that were used in 0.4 */
+  const WpBaseDirsFlags flags = WP_BASE_DIRS_ENV_CONFIG |
+      WP_BASE_DIRS_XDG_CONFIG_HOME |
+      WP_BASE_DIRS_BUILD_SYSCONFDIR |
+      WP_BASE_DIRS_BUILD_DATADIR |
+      WP_BASE_DIRS_FLAG_SUBDIR_WIREPLUMBER;
+
+  it = wp_base_dirs_new_files_iterator (
+      flags, "main.lua.d", ".lua");
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    const gchar *file = g_value_get_string (&val);
+    wp_notice ("Old configuration file detected: %s", file);
+    detected = TRUE;
+  }
+  g_clear_pointer (&it, wp_iterator_unref);
+
+  it = wp_base_dirs_new_files_iterator (
+      flags, "policy.lua.d", ".lua");
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    const gchar *file = g_value_get_string (&val);
+    wp_notice ("Old configuration file detected: %s", file);
+    detected = TRUE;
+  }
+  g_clear_pointer (&it, wp_iterator_unref);
+
+  it = wp_base_dirs_new_files_iterator (
+      flags, "bluetooth.lua.d", ".lua");
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    const gchar *file = g_value_get_string (&val);
+    wp_notice ("Old configuration file detected: %s", file);
+    detected = TRUE;
+  }
+  g_clear_pointer (&it, wp_iterator_unref);
+
+  if (detected) {
+    wp_warning (
+       "Lua configuration files are NOT supported in WirePlumber 0.5. "
+       "You need to port them to the new format if you want to use them.\n"
+       "-> See https://pipewire.pages.freedesktop.org/wireplumber/daemon/configuration/migration.html");
+  }
+}
+
 gint
 main (gint argc, gchar **argv)
 {
@@ -163,6 +212,8 @@ main (gint argc, gchar **argv)
     fprintf (stderr, "Failed to load configuration: %s\n", error->message);
     return WP_EXIT_CONFIG;
   }
+
+  warn_about_deprecated_config ();
 
   /* prepare core properties */
   properties = wp_properties_new (
