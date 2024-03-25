@@ -389,7 +389,7 @@ get_ports_and_create_links (WpSiStandardLink *self, WpTransition *transition)
       !wp_object_test_active_features (WP_OBJECT (si_in), WP_SESSION_ITEM_FEATURE_ACTIVE)) {
     wp_transition_return_error (transition,
         g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-            "si-standard-link: in/out items are not valid anymore"));
+            "some node was destroyed before the link was created"));
     return;
   }
 
@@ -496,7 +496,7 @@ on_main_adapter_ready (GObject *obj, GAsyncResult * res, gpointer p)
       !wp_object_test_active_features (WP_OBJECT (other->si), WP_SESSION_ITEM_FEATURE_ACTIVE)) {
     wp_transition_return_error (transition,
         g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-            "si-standard-link: in/out items are not valid anymore"));
+            "some node was destroyed before the link was created"));
     return;
   }
 
@@ -530,7 +530,7 @@ configure_and_link_adapters (WpSiStandardLink *self, WpTransition *transition)
       !wp_object_test_active_features (WP_OBJECT (si_in), WP_SESSION_ITEM_FEATURE_ACTIVE)) {
     wp_transition_return_error (transition,
         g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-            "si-standard-link: in/out items are not valid anymore"));
+            "some node was destroyed before the link was created"));
     return;
   }
 
@@ -627,7 +627,7 @@ si_standard_link_do_link (WpSiStandardLink *self, WpTransition *transition)
       !wp_object_test_active_features ((WP_OBJECT (si_in)), WP_SESSION_ITEM_FEATURE_ACTIVE)) {
     wp_transition_return_error (transition,
         g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-            "si-standard-link: in/out items are not valid anymore"));
+            "some node was destroyed before the link was created"));
     return;
   }
 
@@ -681,7 +681,7 @@ si_standard_link_enable_active (WpSessionItem *si, WpTransition *transition)
       !wp_object_test_active_features ((WP_OBJECT (si_in)), WP_SESSION_ITEM_FEATURE_ACTIVE)) {
     wp_transition_return_error (transition,
         g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-            "si-standard-link: in/out items are not valid anymore"));
+            "some node was destroyed before the link was created"));
     return;
   }
 

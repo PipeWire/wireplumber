@@ -138,16 +138,16 @@ AsyncEventHook {
         end
         si_link:register ()
 
-        log:info (si_link, "registered virtual si-standard-link between "
-                .. tostring (si).." and ".. tostring(target))
+        log:debug (si_link, "registered link between "
+            .. tostring (si) .. " and " .. tostring (target))
 
         -- only activate non virtual links because virtual links activation is
         -- handled by rescan-virtual-links.lua
         if not is_virtual_client_link then
           si_link:activate (Feature.SessionItem.ACTIVE, function (l, e)
             if e then
-              transition:return_error ("failed to activate si-standard-link: "
-                  .. tostring (si) .. " error:" .. tostring (e))
+              transition:return_error (tostring (l) .. " link failed: "
+                  .. tostring (e))
               if si_flags ~= nil then
                 si_flags.peer_id = nil
               end
@@ -159,8 +159,8 @@ AsyncEventHook {
               end
               si_flags.failed_count = 0
 
-              log:info (l, "activated si-standard-link between "
-                .. tostring (si).." and ".. tostring(target))
+              log:debug (l, "activated link between "
+                  .. tostring (si) .. " and " .. tostring (target))
 
               transition:advance ()
             end
