@@ -14,34 +14,10 @@ log = Log.open_topic ("s-node")
 items = {}
 
 function configProperties (node)
-  local np = node.properties
-  local properties = {
-    ["item.node"] = node,
-    ["item.plugged.usec"] = GLib.get_monotonic_time (),
-    ["item.features.no-dsp"] = Settings.get_boolean ("node.features.audio.no-dsp"),
-    ["item.features.monitor"] = Settings.get_boolean ("node.features.audio.monitor-ports"),
-    ["item.features.control-port"] = Settings.get_boolean ("node.features.audio.control-port"),
-    ["node.id"] = node ["bound-id"],
-    ["client.id"] = np ["client.id"],
-    ["object.path"] = np ["object.path"],
-    ["object.serial"] = np ["object.serial"],
-    ["target.object"] = np ["target.object"],
-    ["priority.session"] = np ["priority.session"],
-    ["device.id"] = np ["device.id"],
-    ["card.profile.device"] = np ["card.profile.device"],
-    ["node.dont-fallback"] = np ["node.dont-fallback"],
-    ["node.dont-move"] = np ["node.dont-move"],
-    ["node.linger"] = np ["node.linger"],
-  }
-
-  for k, v in pairs (np) do
-    if k:find ("^node") or k:find ("^stream") or k:find ("^media") then
-      properties [k] = v
-    end
-  end
-
+  local properties = node.properties
   local media_class = properties ["media.class"] or ""
 
+  -- ensure a media.type is set
   if not properties ["media.type"] then
     for _, i in ipairs ({ "Audio", "Video", "Midi" }) do
       if media_class:find (i) then
@@ -51,10 +27,20 @@ function configProperties (node)
     end
   end
 
+  properties ["item.node"] = node
+  properties ["item.node.direction"] =
+      cutils.mediaClassToDirection (media_class)
   properties ["item.node.type"] =
       media_class:find ("^Stream/") and "stream" or "device"
+  properties ["item.plugged.usec"] = GLib.get_monotonic_time ()
+  properties ["item.features.no-dsp"] =
+      Settings.get_boolean ("node.features.audio.no-dsp")
+  properties ["item.features.monitor"] =
+      Settings.get_boolean ("node.features.audio.monitor-ports")
+  properties ["item.features.control-port"] =
+      Settings.get_boolean ("node.features.audio.control-port")
+  properties ["node.id"] = node ["bound-id"]
 
-  properties ["item.node.direction"] = cutils.mediaClassToDirection (media_class)
   return properties
 end
 
