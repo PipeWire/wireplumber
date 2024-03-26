@@ -38,8 +38,8 @@ hidden_nodes = {}
 nodes_om:connect("object-added", function (om, node)
   for _, r in ipairs(config.rules or {}) do
     for _, interest in ipairs(r.interests) do
-      if interest:matches(node["global-properties"]) then
-        local id = node["global-properties"]["object.id"]
+      if interest:matches(node.properties) then
+        local id = node.properties["object.id"]
 
         if r.filter_chain then
           if filter_chains[id] then
@@ -65,7 +65,7 @@ nodes_om:connect("object-added", function (om, node)
 end)
 
 nodes_om:connect("object-removed", function (om, node)
-  local id = node["global-properties"]["object.id"]
+  local id = node.properties["object.id"]
   if filter_chains[id] then
     Log.debug("Unloading filter chain associated with sink " .. id)
     filter_chains[id] = nil
