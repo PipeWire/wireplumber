@@ -5,25 +5,12 @@
 --
 -- SPDX-License-Identifier: MIT
 
-local config = ... or {}
-config.rules = config.rules or {}
+log = Log.open_topic("s-node")
 
-for _, r in ipairs(config.rules) do
-  r.interests = {}
-  for _, i in ipairs(r.matches) do
-    local interest_desc = { type = "properties" }
+config = {}
+config.rules = Conf.get_section_as_json("node.software-dsp.rules", Json.Array{})
 
-    for _, c in ipairs(i) do
-      c.type = "pw"
-      table.insert(interest_desc, Constraint(c))
-    end
-
-    local interest = Interest(interest_desc)
-    table.insert(r.interests, interest)
-  end
-end
-
--- TODO: only check for hotplug of nodes with known DSP rules
+-- TODO: port from Obj Manager to Hooks
 nodes_om = ObjectManager {
   Interest { type = "node" },
 }
@@ -32,45 +19,37 @@ clients_om = ObjectManager {
   Interest { type = "client" }
 }
 
-filter_chains = {}
+filter_nodes = {}
 hidden_nodes = {}
 
 nodes_om:connect("object-added", function (om, node)
-  for _, r in ipairs(config.rules or {}) do
-    for _, interest in ipairs(r.interests) do
-      if interest:matches(node.properties) then
-        local id = node.properties["object.id"]
+  JsonUtils.match_rules (config.rules, node.properties, function (action, value)
+    if action == "create-filter" then
+      log:debug("DSP rule found for " .. node.properties["node.name"])
+      local props = value:parse (1)
 
-        if r.filter_chain then
-          if filter_chains[id] then
-            Log.warning("Sink " .. id .. " has been plugged now, but has a filter chain loaded. Skipping")
-          else
-            filter_chains[id] = LocalModule("libpipewire-module-filter-chain", r.filter_chain, {}, true)
+      if props["filter-graph"] then
+        log:debug("Loading filter graph for " .. node.properties["node.name"])
+        filter_nodes[node.properties["object.id"]] = LocalModule("libpipewire-module-filter-chain", props["filter-graph"], {})
+      end
+
+      if props["hide-parent"] then
+        log:debug("Setting permissions to '-' on " .. node.properties["node.name"] .. " for open clients")
+        for client in clients_om:iterate{ type = "client" } do
+          if not client["properties"]["wireplumber.daemon"] then
+            client:update_permissions{ [node["bound-id"]] = "-" }
           end
         end
-
-        if r.hide_parent then
-          Log.debug("Hiding node " .. node["bound-id"] .. " from clients")
-          for client in clients_om:iterate { type = "client" } do
-            if not client["properties"]["wireplumber.daemon"] then
-              client:update_permissions { [node["bound-id"]] = "-" }
-            end
-          end
-          hidden_nodes[node["bound-id"]] = id
-        end
-
+        hidden_nodes[node["bound-id"]] = node.properties["object.id"]
       end
     end
-  end
+  end)
 end)
 
 nodes_om:connect("object-removed", function (om, node)
-  local id = node.properties["object.id"]
-  if filter_chains[id] then
-    Log.debug("Unloading filter chain associated with sink " .. id)
-    filter_chains[id] = nil
-  else
-    Log.debug("Disconnected sink " .. id .. " does not have any filters to be removed")
+  if filter_nodes[node.properties["object.id"]] then
+    log:debug("Freeing filter graph on disconnected node " .. node.properties["node.name"])
+    filter_nodes[node.properties["object.id"]] = nil
   end
 end)
 
