@@ -11,10 +11,6 @@ config = {}
 config.rules = Conf.get_section_as_json("node.software-dsp.rules", Json.Array{})
 
 -- TODO: port from Obj Manager to Hooks
-nodes_om = ObjectManager {
-  Interest { type = "node" },
-}
-
 clients_om = ObjectManager {
   Interest { type = "client" }
 }
@@ -22,36 +18,54 @@ clients_om = ObjectManager {
 filter_nodes = {}
 hidden_nodes = {}
 
-nodes_om:connect("object-added", function (om, node)
-  JsonUtils.match_rules (config.rules, node.properties, function (action, value)
-    if action == "create-filter" then
-      log:debug("DSP rule found for " .. node.properties["node.name"])
-      local props = value:parse (1)
+SimpleEventHook {
+  name = "node/dsp/create-dsp-node",
+  interests = {
+    EventInterest {
+      Constraint  { "event.type", "=", "node-added" },
+    },
+  },
+  execute = function(event)
+    local node = event:get_subject()
+    JsonUtils.match_rules (config.rules, node.properties, function (action, value)
+      if action == "create-filter" then
+        local props = value:parse (1)
+        log:debug("DSP rule found for " .. node.properties["node.name"])
 
-      if props["filter-graph"] then
-        log:debug("Loading filter graph for " .. node.properties["node.name"])
-        filter_nodes[node.properties["object.id"]] = LocalModule("libpipewire-module-filter-chain", props["filter-graph"], {})
-      end
-
-      if props["hide-parent"] then
-        log:debug("Setting permissions to '-' on " .. node.properties["node.name"] .. " for open clients")
-        for client in clients_om:iterate{ type = "client" } do
-          if not client["properties"]["wireplumber.daemon"] then
-            client:update_permissions{ [node["bound-id"]] = "-" }
-          end
+        if props["filter-graph"] then
+          log:debug("Loading filter graph for " .. node.properties["node.name"])
+          filter_nodes[node.properties["object.id"]] = LocalModule("libpipewire-module-filter-chain", props["filter-graph"], {})
         end
-        hidden_nodes[node["bound-id"]] = node.properties["object.id"]
-      end
-    end
-  end)
-end)
 
-nodes_om:connect("object-removed", function (om, node)
-  if filter_nodes[node.properties["object.id"]] then
-    log:debug("Freeing filter graph on disconnected node " .. node.properties["node.name"])
-    filter_nodes[node.properties["object.id"]] = nil
+        if props["hide-parent"] then
+          log:debug("Setting permissions to '-' on " .. node.properties["node.name"] .. " for open clients")
+          for client in clients_om:iterate{ type = "client" } do
+            if not client["properties"]["wireplumber.daemon"] then
+              client:update_permissions{ [node["bound-id"]] = "-" }
+            end
+          end
+          hidden_nodes[node["bound-id"]] = node.properties["object.id"]
+        end
+      end
+    end)
   end
-end)
+}:register()
+
+SimpleEventHook {
+  name = "node/dsp/free-dsp-node",
+  interests = {
+    EventInterest {
+      Constraint  { "event.type", "=", "node-removed" },
+    },
+  },
+  execute = function(event)
+    local node = event:get_subject()
+    if filter_nodes[node.properties["object.id"]] then
+      log:debug("Freeing filter graph on disconnected node " .. node.properties["node.name"])
+      filter_nodes[node.properties["object.id"]] = nil
+    end
+  end
+}:register()
 
 clients_om:connect("object-added", function (om, client)
   for id, _ in pairs(hidden_nodes) do
@@ -61,5 +75,4 @@ clients_om:connect("object-added", function (om, client)
   end
 end)
 
-nodes_om:activate()
 clients_om:activate()
