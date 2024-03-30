@@ -1,5 +1,47 @@
-WirePlumber 0.5.0
+WirePlumber 0.5.1
 ~~~~~~~~~~~~~~~~~
+
+Highlights:
+
+  - Added a guide documenting how to migrate configuration from 0.4 to 0.5,
+    also available online at:
+    https://pipewire.pages.freedesktop.org/wireplumber/daemon/configuration/migration.html
+    If you are packaging WirePlumber for a distribution, please consider
+    informing users about this.
+
+Fixes:
+
+  - Fixed an odd issue where microphones would stop being usable when a
+    Bluetooth headset was connected in the HSP/HFP profile (#598, !620)
+
+  - Fixed an issue where it was not possible to store the volume/mute state of
+    system notifications (#604)
+
+  - Fixed a rare crash that could occur when a node was destroyed while the
+    'select-target' event was still being processed (!621)
+
+  - Fixed deleting all the persistent settings via ``wpctl --delete`` (!622)
+
+  - Fixed using Bluetooth autoswitch with A2DP profiles that have an input route
+    (!624)
+
+  - Fixed sending an error to clients when linking fails due to a format
+    mismatch (!625)
+
+Additions:
+
+  - Added a check that prints a verbose warning when old-style 0.4.x Lua
+    configuration files are found in the system. (#611)
+
+  - The "policy-dsp" script, used in Asahi Linux to provide a software DSP
+    for Apple Sillicon devices, has now been ported to 0.5 properly and
+    documented (#619, !627)
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.5.0
+.................
 
 Changes:
 
@@ -36,9 +78,6 @@ Fixes:
 
   - Fixed an issue using WirePlumber headers in other projects due to
     redefinition of G_LOG_DOMAIN (#571)
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.4.90
 ..................
