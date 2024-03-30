@@ -50,6 +50,7 @@ struct _WpConf
 
   /* Props */
   gchar *name;
+  WpProperties *properties;
 
   /* Private */
   GArray *conf_sections; /* element-type: WpConfSection */
@@ -59,6 +60,7 @@ struct _WpConf
 enum {
   PROP_0,
   PROP_NAME,
+  PROP_PROPERTIES,
 };
 
 G_DEFINE_TYPE (WpConf, wp_conf, G_TYPE_OBJECT)
@@ -81,6 +83,9 @@ wp_conf_set_property (GObject * object, guint property_id,
   case PROP_NAME:
     self->name = g_value_dup_string (value);
     break;
+  case PROP_PROPERTIES:
+    self->properties = g_value_dup_boxed (value);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
@@ -97,6 +102,9 @@ wp_conf_get_property (GObject * object, guint property_id,
   case PROP_NAME:
     g_value_set_string (value, self->name);
     break;
+  case PROP_PROPERTIES:
+    g_value_take_boxed (value, wp_properties_copy (self->properties));
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
@@ -109,6 +117,7 @@ wp_conf_finalize (GObject * object)
   WpConf *self = WP_CONF (object);
 
   wp_conf_close (self);
+  g_clear_pointer (&self->properties, wp_properties_unref);
   g_clear_pointer (&self->conf_sections, g_array_unref);
   g_clear_pointer (&self->files, g_ptr_array_unref);
   g_clear_pointer (&self->name, g_free);
@@ -125,9 +134,13 @@ wp_conf_class_init (WpConfClass * klass)
   object_class->set_property = wp_conf_set_property;
   object_class->get_property = wp_conf_get_property;
 
-  g_object_class_install_property (object_class, PROP_NAME,
-      g_param_spec_string ("name", "name", "The name of the configuration file",
+  g_object_class_install_property(object_class, PROP_NAME,
+        g_param_spec_string ("name", "name", "The name of the configuration file",
           NULL, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property(object_class, PROP_PROPERTIES,
+        g_param_spec_boxed ("properties", "properties", "WpProperties",
+          WP_TYPE_PROPERTIES, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 }
 
 /*!
@@ -145,8 +158,10 @@ WpConf *
 wp_conf_new (const gchar * name, WpProperties * properties)
 {
   g_return_val_if_fail (name, NULL);
-  g_clear_pointer (&properties, wp_properties_unref);
-  return g_object_new (WP_TYPE_CONF, "name", name, NULL);
+  g_autoptr (WpProperties) props = properties;
+  return g_object_new (WP_TYPE_CONF, "name", name,
+                       "properties", props,
+                       NULL);
 }
 
 /*!
