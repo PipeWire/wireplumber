@@ -264,32 +264,25 @@ store_stream_target_hook = SimpleEventHook {
   end
 }
 
--- track route-settings metadata changes
-route_settings_metadata_added_hook = SimpleEventHook {
-  name = "node/route-settings-metadata-added",
-  interests = {
-    EventInterest {
-      Constraint { "event.type", "=", "metadata-added" },
-      Constraint { "metadata.name", "=", "route-settings" },
-    },
-  },
-  execute = function (event)
-    local metadata = event:get_subject ()
+-- populate route-settings metadata
+function populateMetadata (metadata)
+  -- copy state into the metadata
+  local key = "Output/Audio:media.role:Notification"
+  local p = getStoredStreamProps (key)
+  if p then
+    p.channels = p.channelMap and Json.Array (p.channelMap)
+    p.volumes = p.channelVolumes and Json.Array (p.channelVolumes)
+    p.channelMap = nil
+    p.channelVolumes = nil
+    p.target = nil
 
-    -- copy state into the metadata
-    local key = "Output/Audio:media.role:Notification"
-    local p = getStoredStreamProps (key)
-    if p then
-      p.channels = p.channelMap and Json.Array (p.channelMap)
-      p.volumes = p.channelVolumes and Json.Array (p.channelVolumes)
-      p.channelMap = nil
-      p.channelVolumes = nil
-      p.target = nil
-      metadata:set (0, "restore.stream." .. key, "Spa:String:JSON",
-          Json.Object (p):to_string ())
-    end
+    -- pipewire-pulse expects the key to be
+    -- "restore.stream.Output/Audio.media.role:Notification"
+    key = string.gsub (key, ":", ".", 1);
+    metadata:set (0, "restore.stream." .. key, "Spa:String:JSON",
+        Json.Object (p):to_string ())
   end
-}
+end
 
 -- track route-settings metadata changes
 route_settings_metadata_changed_hook = SimpleEventHook {
@@ -299,7 +292,7 @@ route_settings_metadata_changed_hook = SimpleEventHook {
       Constraint { "event.type", "=", "metadata-changed" },
       Constraint { "metadata.name", "=", "route-settings" },
       Constraint { "event.subject.key", "=",
-          "restore.stream.Output/Audio:media.role:Notification" },
+          "restore.stream.Output/Audio.media.role:Notification" },
       Constraint { "event.subject.spa_type", "=", "Spa:String:JSON" },
       Constraint { "event.subject.value", "is-present" },
     },
@@ -316,6 +309,8 @@ route_settings_metadata_changed_hook = SimpleEventHook {
     end
 
     local vparsed = json:parse ()
+
+    -- we store the key as "Output/Audio:media.role:Notification"
     local key = string.sub (key, string.len ("restore.stream.") + 1)
     key = string.gsub (key, "%.", ":", 1);
 
@@ -427,6 +422,8 @@ function toggleState (enable)
     rs_metadata:activate (Features.ALL, function (m, e)
       if e then
         log:warning ("failed to activate route-settings metadata: " .. tostring (e))
+      else
+        populateMetadata (m)
       end
     end)
 
