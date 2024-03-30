@@ -269,10 +269,13 @@ wp_conf_open (WpConf * self, GError ** error)
   g_autoptr (WpIterator) iterator = NULL;
   g_auto (GValue) value = G_VALUE_INIT;
 
-  /* open the main file */
+  /*
+   * open the config file - if the path supplied is absolute,
+   * wp_base_dirs_find_file will ignore WP_BASE_DIRS_CONFIGURATION
+   */
   path = wp_base_dirs_find_file (WP_BASE_DIRS_CONFIGURATION, NULL, self->name);
   if (path) {
-    wp_info_object (self, "opening main file: %s", path);
+    wp_info_object (self, "opening config file: %s", path);
     if (!open_and_load_sections (self, path, error))
       return FALSE;
   }
