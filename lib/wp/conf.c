@@ -201,6 +201,13 @@ detect_old_conf_format (WpConf * self, GMappedFile *file)
 static gboolean
 open_and_load_sections (WpConf * self, const gchar *path, GError ** error)
 {
+  const gchar *as_section = NULL;
+
+  if (self->properties) {
+    as_section = wp_properties_get (self->properties, "as-section");
+    wp_info_object (self, "Opening as section %s", as_section);
+  }
+
   g_autoptr (GMappedFile) file = g_mapped_file_new (path, FALSE, error);
   if (!file)
     return FALSE;
@@ -229,7 +236,7 @@ open_and_load_sections (WpConf * self, const gchar *path, GError ** error)
     if (!tmp)
       break;
 
-    if (wp_spa_json_is_container (tmp) ||
+    if ((wp_spa_json_is_container (tmp) && !as_section) ||
         wp_spa_json_is_int (tmp) ||
         wp_spa_json_is_float (tmp) ||
         wp_spa_json_is_boolean (tmp) ||
@@ -241,15 +248,19 @@ open_and_load_sections (WpConf * self, const gchar *path, GError ** error)
       return FALSE;
     }
 
-    section.name = wp_spa_json_parse_string (tmp);
-    g_clear_pointer (&tmp, wp_spa_json_unref);
-
-    /* parse the section contents */
-    tmp = wp_spa_json_parser_get_json (parser);
-    if (!tmp) {
-      g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
-          "section '%s' has no value", section.name);
-      return FALSE;
+    if (as_section) {
+      wp_info_object (self, "Parsing object file as section %s", as_section);
+      section.name = g_strdup (as_section);
+    } else {
+      section.name = wp_spa_json_parse_string (tmp);
+      g_clear_pointer (&tmp, wp_spa_json_unref);
+      /* parse the section contents */
+      tmp = wp_spa_json_parser_get_json (parser);
+      if (!tmp) {
+        g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
+            "section '%s' has no value", section.name);
+        return FALSE;
+      }
     }
 
     section.value = g_steal_pointer (&tmp);
