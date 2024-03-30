@@ -151,7 +151,8 @@ wp_conf_class_init (WpConfClass * klass)
  *
  * \ingroup wpconf
  * \param name the name of the configuration file
- * \param properties (transfer full) (nullable): unused, reserved for future use
+ * \param properties (transfer full) (nullable): a WpProperties with keys
+ *    specifying how to load the WpConf object
  * \returns (transfer full): a new WpConf object
  */
 WpConf *
@@ -170,7 +171,8 @@ wp_conf_new (const gchar * name, WpProperties * properties)
  *
  * \ingroup wpconf
  * \param name the name of the configuration file
- * \param properties (transfer full) (nullable): unused, reserved for future use
+ * \param properties (transfer full) (nullable): a WpProperties with keys
+ *    specifying how to load the WpConf object
  * \param error (out) (nullable): return location for a GError, or NULL
  * \returns (transfer full) (nullable): a new WpConf object, or NULL
  *   if an error occurred
@@ -278,11 +280,17 @@ open_and_load_sections (WpConf * self, const gchar *path, GError ** error)
 gboolean
 wp_conf_open (WpConf * self, GError ** error)
 {
+  const gchar *no_frags = NULL;
+
   g_return_val_if_fail (WP_IS_CONF (self), FALSE);
 
   g_autofree gchar *path = NULL;
   g_autoptr (WpIterator) iterator = NULL;
   g_auto (GValue) value = G_VALUE_INIT;
+
+  if (self->properties) {
+    no_frags = wp_properties_get (self->properties, "no-fragments");
+  }
 
   /*
    * open the config file - if the path supplied is absolute,
@@ -297,19 +305,21 @@ wp_conf_open (WpConf * self, GError ** error)
   g_clear_pointer (&path, g_free);
 
   /* open the .conf.d/ fragments */
-  path = g_strdup_printf ("%s.d", self->name);
-  iterator = wp_base_dirs_new_files_iterator (WP_BASE_DIRS_CONFIGURATION, path,
-      ".conf");
+  if (!no_frags) {
+    path = g_strdup_printf ("%s.d", self->name);
+    iterator = wp_base_dirs_new_files_iterator (WP_BASE_DIRS_CONFIGURATION, path,
+        ".conf");
 
-  for (; wp_iterator_next (iterator, &value); g_value_unset (&value)) {
-    const gchar *filename = g_value_get_string (&value);
+    for (; wp_iterator_next (iterator, &value); g_value_unset (&value)) {
+      const gchar *filename = g_value_get_string (&value);
 
-    wp_info_object (self, "opening fragment file: %s", filename);
+      wp_info_object (self, "opening fragment file: %s", filename);
 
-    g_autoptr (GError) e = NULL;
-    if (!open_and_load_sections (self, filename, &e)) {
-      wp_warning_object (self, "failed to open '%s': %s", filename, e->message);
-      continue;
+      g_autoptr (GError) e = NULL;
+      if (!open_and_load_sections (self, filename, &e)) {
+        wp_warning_object (self, "failed to open '%s': %s", filename, e->message);
+        continue;
+      }
     }
   }
 
