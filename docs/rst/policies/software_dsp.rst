@@ -16,8 +16,8 @@ especially with Android handsets, these samples are preprocessed or pre-routed
 by the vendor's proprietary userspace.
 
 WirePlumber's automatic software DSP mechanism aims to replicate this functionality in
-a standardised and configurable way. The target sink/source is hidden from
-clients of the WirePlumber daemon, and a virtual node is linked to it. This virtual
+a standardised and configurable way. The target device sink/source is hidden from
+other PipeWire clients, and a virtual node is linked to it. This virtual
 node is then presented to clients as *the* node, allowing implementors to specify
 any custom processing or routing in a way that is transparent to users, the kernel,
 and the hardware.
@@ -27,11 +27,11 @@ Activating
 ----------
 
 In addition to the ``node.software-dsp.rules`` section, the ``node.software-dsp``
-component must be activated in the desired profile(s).
+:ref:`feature <config_features>` must be enabled in the desired profile(s).
 
 
-Matching a Node
---------------
+Matching a node
+---------------
 
 Matching rules are specified in ``node.software-dsp.rules``. The ``create-filter``
 action specifies behaviour at node insertion. All node properties can be matched
@@ -41,50 +41,53 @@ on, including any type-specific properties such as ``alsa.id``.
 Configurable properties
 -----------------------
 
-- **filter-graph**
+.. describe:: filter-graph
 
-  SPA-JSON representing a virtual node. This is passed into
-  ``libpipewire-module-filter-chain`` by ``node/software-dsp.lua``. This property is
-  not recursed over - it is returned as a string. In a future
-  release, ``filter-graph`` will instead specify the path to a file containing the
-  SPA-JSON. The ``node.target`` property of the virtual node should point to
-  the node matched by the rule.
+   SPA-JSON object describing the software DSP node. This is passed as-is as
+   an argument to ``libpipewire-module-filter-chain``. See the
+   `filter-chain documentation <https://docs.pipewire.org/page_module_filter_chain.html>`_
+   for details on what options can be set in this object.
 
-- **hide-parent**
+   .. note::
 
-  Boolean indicating whether or not the matched node should be hidden from
-  clients. ``node/software-dsp.lua`` will set the permissions for all clients other
-  than WirePlumber itself to ``'-'``. This prevents use of the node by any
-  userspace software except for WirePlumber itself.
+      The ``target.object`` property of the virtual node should be configured
+      statically to point to the node matched by the rule.
+
+.. describe:: hide-parent
+
+   Boolean indicating whether or not the matched node should be hidden from
+   clients. ``node/software-dsp.lua`` will set the permissions for all clients other
+   than WirePlumber itself to ``'-'``. This prevents use of the node by any
+   userspace software except for WirePlumber itself.
 
 
 Examples
 --------
 
-``wireplumber.conf.d/99-my-dsp.conf``
 .. code-block::
+   :caption: wireplumber.conf.d/99-my-dsp.conf
 
-  node.software-dsp.rules = [
-    {
-      matches = [
-        { "node.name" = "alsa_output.platform-sound.HiFi__Speaker__sink" }
-        { "alsa.id" = "~WeirdHardware*" } # Wildcard match
-      ]
+   node.software-dsp.rules = [
+     {
+       matches = [
+         { "node.name" = "alsa_output.platform-sound.HiFi__Speaker__sink" }
+         { "alsa.id" = "~WeirdHardware*" } # Wildcard match
+       ]
 
-      actions = {
-        create-filter = {
-          filter-graph = {} # Virtual node goes here
-          hide-parent = true
-        }
-      }
-    }
-  ]
+       actions = {
+         create-filter = {
+           filter-graph = {} # Virtual node goes here
+           hide-parent = true
+         }
+       }
+     }
+   ]
 
-  wireplumber.profiles = [
-    main = {
-      node.software-dsp = required
-    }
-  ]
+   wireplumber.profiles = [
+     main = {
+       node.software-dsp = required
+     }
+   ]
 
 
 This will match any sinks with the UCM HiFi Speaker profile set that are associated

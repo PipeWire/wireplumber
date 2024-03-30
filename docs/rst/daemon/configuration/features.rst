@@ -42,6 +42,12 @@ Audio
 
    Enables the ALSA MIDI device monitor.
 
+.. describe:: node.software-dsp
+
+   Enables software DSP based on pre-configured hardware rules.
+
+   See :ref:`policies_software_dsp` for more information.
+
 Bluetooth
 ~~~~~~~~~
 
