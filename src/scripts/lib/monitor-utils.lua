@@ -40,6 +40,15 @@ function mutils.get_cam_data (self, dev_string)
   return self.cam_data[dev_num], dev_num
 end
 
+function mutils.clear_cam_data (self, dev_string)
+  local dev_num = tonumber (dev_string)
+  if not dev_num then
+    return
+  end
+
+  self.cam_data[dev_num] = nil
+end
+
 function mutils.create_cam_node (self, dev_num)
   local api = nil
   local cam_data = self:get_cam_data (dev_num)
@@ -65,6 +74,8 @@ function mutils.create_cam_node (self, dev_num)
   e:set_data ("node-sub-id", cam_data[api].id)
 
   EventDispatcher.push_event (e)
+
+  self:clear_cam_data (dev_num)
 end
 
 -- arbitrates between v4l2 and libcamera on who gets to create the device node
