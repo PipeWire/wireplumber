@@ -184,6 +184,9 @@ local Feature = {
   },
 }
 
+-- Allow calling Conf() to instantiate a new WpConf
+WpConf["__new"] = WpConf_new
+
 SANDBOX_EXPORT = {
   Debug = Debug,
   Id = Id,

@@ -1618,6 +1618,48 @@ impl_module_new (lua_State *L)
 
 /* WpConf */
 
+
+static int
+conf_new (lua_State *L)
+{
+  const char *path = luaL_checkstring (L, 1);
+  WpProperties *p = NULL;
+  WpConf *conf = NULL;
+
+  if (lua_istable (L, 2)) {
+    p = wplua_table_to_properties (L, 2);
+  }
+
+  conf = wp_conf_new (path, p);
+  if (conf) {
+    wplua_pushobject (L, conf);
+  } else
+    lua_pushnil (L);
+  return 1;
+}
+
+static int
+conf_open (lua_State *L)
+{
+  WpConf *conf = wplua_checkobject (L, 1, WP_TYPE_CONF);
+  g_autoptr (GError) err = NULL;
+
+  if (wp_conf_open (conf, &err)) {
+    lua_pushnil (L);
+  } else
+    lua_pushstring (L, err->message);
+  return 1;
+}
+
+static int
+conf_close (lua_State *L)
+{
+  WpConf *conf = wplua_checkobject (L, 1, WP_TYPE_CONF);
+
+  wp_conf_close (conf);
+  return 0;
+}
+
 static int
 conf_get_section_as_properties (lua_State *L)
 {
@@ -1712,6 +1754,8 @@ conf_get_section_as_json (lua_State *L)
 }
 
 static const luaL_Reg conf_methods[] = {
+  { "open", conf_open },
+  { "close", conf_close },
   { "get_section_as_properties", conf_get_section_as_properties },
   { "get_section_as_object", conf_get_section_as_object },
   { "get_section_as_array", conf_get_section_as_array },
@@ -2764,6 +2808,8 @@ wp_lua_scripting_api_init (lua_State *L)
       async_event_hook_new, NULL);
   wplua_register_type_methods (L, WP_TYPE_TRANSITION,
       NULL, transition_methods);
+  wplua_register_type_methods (L, WP_TYPE_CONF,
+      conf_new, conf_methods);
 
   if (!wplua_load_uri (L, URI_API, &error) ||
       !wplua_pcall (L, 0, 0, &error)) {
