@@ -330,6 +330,7 @@ wp_core_constructed (GObject *object)
 
       /* disable loading of a configuration file in pw_context */
       wp_properties_set (self->properties, PW_KEY_CONFIG_NAME, "null");
+      wp_properties_set (self->properties, "context.modules.allow-empty", "true");
     }
 
     /* properties are fully stored in the pw_context, no need to keep a copy */
