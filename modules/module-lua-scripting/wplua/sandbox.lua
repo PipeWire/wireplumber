@@ -43,6 +43,9 @@ function create_sandbox_env()
       if type(v) == "table" then
         SANDBOX_ENV[k] = setmetatable({}, {
           __index = v,
+          __call = function(t, ...)
+            return t["__new"](...)
+          end,
           __newindex = function(_, attr_name, _)
             error('Can not modify ' .. k .. '.' .. attr_name .. '. Protected by the sandbox.')
           end
