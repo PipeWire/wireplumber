@@ -53,6 +53,17 @@ Configurable properties
       The ``target.object`` property of the virtual node should be configured
       statically to point to the node matched by the rule.
 
+.. describe:: filter-path
+
+   Absolute path to a file on disk storing a SPA-JSON object as plain text. This will be
+   parsed by WirePlumber into a WpConf object with a single section called
+   ``node.software-dsp.graph``, then passed as-is into ``libpipewire-module-filter-chain``.
+
+   .. note::
+
+    ``filter-graph`` and ``filter-path`` are mutually exclusive, with the former taking
+    precedence if both are present in the matched rule.
+
 .. describe:: hide-parent
 
    Boolean indicating whether or not the matched node should be hidden from
@@ -77,6 +88,7 @@ Examples
        actions = {
          create-filter = {
            filter-graph = {} # Virtual node goes here
+           filter-path = "/path/to/spa.json"
            hide-parent = true
          }
        }
