@@ -1663,13 +1663,24 @@ conf_close (lua_State *L)
 static int
 conf_get_section_as_properties (lua_State *L)
 {
-  const char *section = luaL_checkstring (L, 1);
-  g_autoptr (WpConf) conf = wp_core_get_conf (get_wp_core (L));
+  const char *section = NULL;
+  g_autoptr (WpConf) conf = NULL;
   g_autoptr (WpSpaJson) s = NULL;
   g_autoptr (WpProperties) props = NULL;
+  int argi = 1;
 
-  if (lua_istable (L, 2))
-    props = wplua_table_to_properties (L, 2);
+  /* check if called as method on object */
+  if (lua_isuserdata (L, argi)) {
+    conf = g_object_ref (wplua_checkobject (L, argi, WP_TYPE_CONF));
+    argi++;
+  } else
+    conf = wp_core_get_conf (get_wp_core (L));
+
+  section = luaL_checkstring (L, argi);
+  argi++;
+
+  if (lua_istable (L, argi))
+    props = wplua_table_to_properties (L, argi);
   else
     props = wp_properties_new_empty ();
 
@@ -1685,9 +1696,20 @@ conf_get_section_as_properties (lua_State *L)
 static int
 conf_get_section_as_object (lua_State *L)
 {
-  const char *section = luaL_checkstring (L, 1);
-  g_autoptr (WpConf) conf = wp_core_get_conf (get_wp_core (L));
+  const char *section = NULL;
+  g_autoptr (WpConf) conf = NULL;
   g_autoptr (WpSpaJson) s = NULL;
+  int argi = 1;
+
+  /* check if called as method on object */
+  if (lua_isuserdata (L, argi)) {
+    conf = g_object_ref (wplua_checkobject (L, argi, WP_TYPE_CONF));
+    argi++;
+  } else
+    conf = wp_core_get_conf (get_wp_core (L));
+
+  section = luaL_checkstring (L, argi);
+  argi++;
 
   if (conf) {
     s = wp_conf_get_section (conf, section);
@@ -1697,8 +1719,8 @@ conf_get_section_as_object (lua_State *L)
     }
   }
 
-  if (lua_istable (L, 2))
-    lua_pushvalue (L, 2);
+  if (lua_istable (L, argi))
+    lua_pushvalue (L, argi);
   else
     lua_newtable (L);
   return 1;
@@ -1707,9 +1729,20 @@ conf_get_section_as_object (lua_State *L)
 static int
 conf_get_section_as_array (lua_State *L)
 {
-  const char *section = luaL_checkstring (L, 1);
-  g_autoptr (WpConf) conf = wp_core_get_conf (get_wp_core (L));
+  const char *section = NULL;
+  g_autoptr (WpConf) conf = NULL;
   g_autoptr (WpSpaJson) s = NULL;
+  int argi = 1;
+
+  /* check if called as method on object */
+  if (lua_isuserdata (L, argi)) {
+    conf = g_object_ref (wplua_checkobject (L, argi, WP_TYPE_CONF));
+    argi++;
+  } else
+    conf = wp_core_get_conf (get_wp_core (L));
+
+  section = luaL_checkstring (L, argi);
+  argi++;
 
   if (conf) {
     s = wp_conf_get_section (conf, section);
@@ -1719,8 +1752,8 @@ conf_get_section_as_array (lua_State *L)
     }
   }
 
-  if (lua_istable (L, 2))
-    lua_pushvalue (L, 2);
+  if (lua_istable (L, argi))
+    lua_pushvalue (L, argi);
   else
     lua_newtable (L);
   return 1;
@@ -1729,15 +1762,25 @@ conf_get_section_as_array (lua_State *L)
 static int
 conf_get_section_as_json (lua_State *L)
 {
-  const char *section = luaL_checkstring (L, 1);
+  const char *section = NULL;
   g_autoptr (WpConf) conf = NULL;
   g_autoptr (WpSpaJson) s = NULL;
   WpSpaJson *fb = NULL;
+  int argi = 1;
 
-  if (lua_isuserdata (L, 2))
-    fb = wplua_checkboxed (L, 2, WP_TYPE_SPA_JSON);
+  /* check if called as method on object */
+  if (lua_isuserdata (L, argi)) {
+    conf = g_object_ref (wplua_checkobject (L, argi, WP_TYPE_CONF));
+    argi++;
+  } else
+    conf = wp_core_get_conf (get_wp_core (L));
 
-  conf = wp_core_get_conf (get_wp_core (L));
+  section = luaL_checkstring (L, argi);
+  argi++;
+
+  if (lua_isuserdata (L, argi))
+    fb = wplua_checkboxed (L, argi, WP_TYPE_SPA_JSON);
+
   if (conf) {
     s = wp_conf_get_section (conf, section);
     if (!s && fb)
