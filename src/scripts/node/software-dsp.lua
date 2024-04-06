@@ -6,7 +6,6 @@
 -- SPDX-License-Identifier: MIT
 
 log = Log.open_topic("s-node")
-cutils = require ("common-utils")
 
 config = {}
 config.rules = Conf.get_section_as_json("node.software-dsp.rules", Json.Array{})
@@ -51,7 +50,7 @@ SimpleEventHook {
           end
         end
 
-        if cutils.parseBool (props["hide-parent"]) then
+        if props["hide-parent"] then
           log:debug("Setting permissions to '-' on " .. node.properties["node.name"] .. " for open clients")
           for client in clients_om:iterate{ type = "client" } do
             if not client["properties"]["wireplumber.daemon"] then
