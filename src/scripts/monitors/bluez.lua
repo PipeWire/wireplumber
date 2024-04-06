@@ -171,7 +171,6 @@ end)
 
 function createSetNode(parent, id, type, factory, properties)
   local args = {}
-  local name
   local target_class
   local stream_class
   local rules = {}
@@ -181,12 +180,10 @@ function createSetNode(parent, id, type, factory, properties)
   local channels = channels_json:parse ()
 
   if properties["media.class"] == "Audio/Sink" then
-    name = "bluez_output_internal"
     args["combine.mode"] = "sink"
     target_class = "Audio/Sink/Internal"
     stream_class = "Stream/Output/Audio/Internal"
   else
-    name = "bluez_input_internal"
     args["combine.mode"] = "source"
     target_class = "Audio/Source/Internal"
     stream_class = "Stream/Input/Audio/Internal"
@@ -214,7 +211,6 @@ function createSetNode(parent, id, type, factory, properties)
     )
   end
 
-  properties["node.name"] = name
   properties["node.virtual"] = false
   properties["device.api"] = "bluez5"
   properties["api.bluez5.set.members"] = nil
