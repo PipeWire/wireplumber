@@ -8,8 +8,16 @@ project('wireplumber', ['c'],
   ]
 )
 
+wireplumber_version = meson.project_version()
+version_arr = wireplumber_version.split('.')
+wireplumber_version_major = version_arr[0]
+wireplumber_version_minor = version_arr[1]
+wireplumber_version_micro = version_arr[2]
+
 wireplumber_api_version = '0.5'
 wireplumber_so_version = '0'
+wireplumber_libversion_minor = wireplumber_version_major.to_int() * 1000 + wireplumber_version_minor.to_int() * 100 + wireplumber_version_micro.to_int()
+wireplumber_libversion = '@0@.@1@.0'.format(wireplumber_so_version, wireplumber_libversion_minor)
 
 wireplumber_headers_dir = get_option('includedir') / 'wireplumber-' + wireplumber_api_version / 'wp'
 

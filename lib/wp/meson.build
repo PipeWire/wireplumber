@@ -131,7 +131,7 @@ wp_lib = library('wireplumber-' + wireplumber_api_version,
   include_directories: wp_lib_include_dir,
   dependencies : [gobject_dep, gmodule_dep, gio_dep, pipewire_dep, libintl_dep],
   soversion: wireplumber_so_version,
-  version: meson.project_version(),
+  version: wireplumber_libversion,
 )
 
 wp_dep = declare_dependency(
