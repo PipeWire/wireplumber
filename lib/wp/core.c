@@ -30,20 +30,23 @@ struct _WpLoopSource
 {
   GSource parent;
   struct pw_loop *loop;
+  gboolean entered;
 };
 
 static gboolean
 wp_loop_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
 {
+  WpLoopSource *ls = WP_LOOP_SOURCE (s);
   int result;
 
-  wp_trace_boxed (G_TYPE_SOURCE, s, "entering pw main loop");
+  if (!ls->entered) {
+    wp_trace_boxed (G_TYPE_SOURCE, s, "entering pw main loop");
+    pw_loop_enter (ls->loop);
+    ls->entered = TRUE;
+    g_source_set_ready_time (s, -1);
+  }
 
-  pw_loop_enter (WP_LOOP_SOURCE(s)->loop);
-  result = pw_loop_iterate (WP_LOOP_SOURCE(s)->loop, 0);
-  pw_loop_leave (WP_LOOP_SOURCE(s)->loop);
-
-  wp_trace_boxed (G_TYPE_SOURCE, s, "leaving pw main loop");
+  result = pw_loop_iterate (ls->loop, 0);
 
   if (G_UNLIKELY (result < 0))
     wp_warning_boxed (G_TYPE_SOURCE, s,
@@ -55,7 +58,21 @@ wp_loop_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
 static void
 wp_loop_source_finalize (GSource * s)
 {
-  pw_loop_destroy (WP_LOOP_SOURCE(s)->loop);
+  WpLoopSource *ls = WP_LOOP_SOURCE (s);
+
+  wp_trace_boxed (G_TYPE_SOURCE, s, "finalize loop source");
+
+  /* Source should be left from the thread it was entered from.
+   *
+   * This puts additional restrictions to upper layers on how WpLoopSource (and
+   * WpCore) can be used: they must be finalized from the GMainContext thread.
+   */
+  if (ls->entered) {
+    wp_trace_boxed (G_TYPE_SOURCE, s, "leaving pw main loop");
+    pw_loop_leave (ls->loop);
+  }
+
+  pw_loop_destroy (ls->loop);
 }
 
 static GSourceFuncs source_funcs = {
@@ -74,6 +91,9 @@ wp_loop_source_new (void)
   g_source_add_unix_fd (s,
       pw_loop_get_fd (WP_LOOP_SOURCE(s)->loop),
       G_IO_IN | G_IO_ERR | G_IO_HUP);
+
+  /* dispatch immediately to enter the loop */
+  g_source_set_ready_time (s, 0);
 
   return (GSource *) s;
 }
