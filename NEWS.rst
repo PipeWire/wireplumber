@@ -1,5 +1,43 @@
-WirePlumber 0.5.1
+WirePlumber 0.5.2
 ~~~~~~~~~~~~~~~~~
+
+Highlights:
+
+  - Added support for loading configuration files other than the default
+    wireplumber.conf within Lua scripts (!629)
+
+  - Added support for loading single-section configuration files, without
+    fragments (!629)
+
+  - Updated the node.software-dsp script to be able to load filter-chain graphs
+    from external configuration files, which is needed for Asahi Linux audio
+    DSP configuration (!629)
+
+Fixes:
+
+  - Fixed destroying camera nodes when the camera device is removed (#627, !631)
+
+  - Fixed an issue with Bluetooth BAP device set naming (!632)
+
+  - Fixed an issue caused by the pipewire event loop not being "entered" as
+    expected (!634, #638)
+
+  - A false positive warning about no modules being loaded is now suppressed
+    when using libpipewire >= 1.0.5 (#620)
+
+  - Default nodes can now be selected using priority.driver when
+    priority.session is not set (#642)
+
+Changes:
+
+  - The library version is now generated following pipewire's versioning scheme:
+    libwireplumber-0.5.so.0.5.2 becomes libwireplumber-0.5.so.0.0502.0 (!633)
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.5.1
+.................
 
 Highlights:
 
@@ -36,9 +74,6 @@ Additions:
   - The "policy-dsp" script, used in Asahi Linux to provide a software DSP
     for Apple Sillicon devices, has now been ported to 0.5 properly and
     documented (#619, !627)
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.5.0
 .................
