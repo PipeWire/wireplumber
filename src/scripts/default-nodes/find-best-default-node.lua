@@ -6,6 +6,8 @@
 
 log = Log.open_topic ("s-default-nodes")
 
+nutils = require ("node-utils")
+
 SimpleEventHook {
   name = "default-nodes/find-best-default-node",
   interests = {
@@ -25,8 +27,7 @@ SimpleEventHook {
 
     for _, node_props in ipairs (available_nodes) do
       -- Highest priority node wins
-      local priority = node_props ["priority.session"]
-      priority = math.tointeger (priority) or 0
+      local priority = nutils.get_session_priority (node_props)
 
       if priority > selected_prio or selected_node == nil then
         selected_prio = priority

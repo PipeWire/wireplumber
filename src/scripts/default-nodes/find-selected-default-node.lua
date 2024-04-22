@@ -13,6 +13,8 @@
 
 log = Log.open_topic ("s-default-nodes")
 
+nutils = require ("node-utils")
+
 SimpleEventHook {
   name = "default-nodes/find-selected-default-node",
   interests = {
@@ -47,8 +49,7 @@ SimpleEventHook {
 
     for _, node_props in ipairs (available_nodes) do
       local name = node_props ["node.name"]
-      local priority = node_props ["priority.session"]
-      priority = math.tointeger (priority) or 0
+      local priority = nutils.get_session_priority (node_props)
 
       if current_configured_node == name then
         priority = 30000 + priority

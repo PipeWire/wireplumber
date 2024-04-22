@@ -12,6 +12,8 @@
 
 log = Log.open_topic ("s-default-nodes")
 
+nutils = require ("node-utils")
+
 -- the state storage
 state = nil
 state_table = nil
@@ -42,8 +44,7 @@ find_stored_default_node_hook = SimpleEventHook {
 
       for i, v in ipairs (stored) do
         if name == v then
-          local priority = node_props ["priority.session"]
-          priority = math.tointeger (priority) or 0
+          local priority = nutils.get_session_priority (node_props)
           priority = priority + 20001 - i
 
           if priority > selected_prio then
