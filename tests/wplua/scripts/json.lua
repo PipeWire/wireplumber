@@ -240,3 +240,26 @@ assert (type (val.args) == "table")
 assert (type (val.args.test) == "table")
 assert (val.args.test[1] == 0)
 assert (val.args.test[2] == 1)
+
+json = Json.Array { "foo" }
+json2 = Json.Array { "bar" }
+json = json:merge(json2)
+assert (json:is_array())
+val = json:parse ()
+assert (val[1] == "foo")
+assert (val[2] == "bar")
+
+table = {}
+table["1"] = 1
+table["2"] = 2
+json = Json.Object (table)
+table = {}
+table["3"] = 3
+table["4"] = 4
+json2 = Json.Object (table)
+json = json:merge(json2)
+val = json:parse ()
+assert (val["1"] == 1)
+assert (val["2"] == 2)
+assert (val["3"] == 3)
+assert (val["4"] == 4)

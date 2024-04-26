@@ -168,6 +168,20 @@ push_luajson (lua_State *L, WpSpaJson *json, gint n_recursions)
 }
 
 static int
+spa_json_merge (lua_State *L)
+{
+  WpSpaJson *a = wplua_checkboxed (L, 1, WP_TYPE_SPA_JSON);
+  WpSpaJson *b = wplua_checkboxed (L, 2, WP_TYPE_SPA_JSON);
+
+  WpSpaJson *merge =  wp_json_utils_merge_containers(a, b);
+  if(!merge)
+    luaL_error (L, "only Json container merge supported");
+
+  wplua_pushboxed (L, WP_TYPE_SPA_JSON, merge);
+  return 1;
+}
+
+static int
 spa_json_parse (lua_State *L)
 {
   WpSpaJson *json = wplua_checkboxed (L, 1, WP_TYPE_SPA_JSON);
@@ -340,6 +354,7 @@ static const luaL_Reg spa_json_methods[] = {
   { "is_array", spa_json_is_array },
   { "is_object", spa_json_is_object },
   { "parse", spa_json_parse },
+  { "merge", spa_json_merge },
   { NULL, NULL }
 };
 
