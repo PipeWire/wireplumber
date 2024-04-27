@@ -33,7 +33,7 @@ AsyncEventHook {
 
         for p in device:iterate_params ("Profile") do
           local active_profile = cutils.parseParam (p, "Profile")
-          if active_profile.index == profile.index then
+          if active_profile.index == tonumber(profile.index) then
             log:info (device, "Profile " .. profile.name .. " is already set on " .. dev_name)
             transition:advance ()
             return
@@ -42,7 +42,7 @@ AsyncEventHook {
 
         local param = Pod.Object {
           "Spa:Pod:Object:Param:Profile", "Profile",
-          index = profile.index,
+          index = tonumber(profile.index),
         }
         log:info (device, "Setting profile " .. profile.name .. " on " .. dev_name)
         device:set_param ("Profile", param)
