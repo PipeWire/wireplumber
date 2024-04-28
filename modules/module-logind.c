@@ -48,6 +48,20 @@ wp_logind_get_state (WpLogind *self)
   return g_strdup (self->state);
 }
 
+static int
+wp_logind_get_user_state (uid_t uid, char **state)
+{
+  int res;
+  if ((res = sd_uid_get_state (uid, state)) >= 0) {
+    if (g_strcmp0 (*state, "active") == 0 &&
+        sd_uid_get_seats (uid, 1, NULL) == 0) {
+        free (*state);
+        *state = strdup ("online");
+    }
+  }
+  return res;
+}
+
 static gboolean
 wp_logind_source_ready (gint fd, GIOCondition condition, gpointer user_data)
 {
@@ -55,14 +69,15 @@ wp_logind_source_ready (gint fd, GIOCondition condition, gpointer user_data)
   sd_login_monitor_flush (self->monitor);
   {
     char *state = NULL;
-    sd_uid_get_state (getuid(), &state);
-    if (g_strcmp0 (state, self->state) != 0) {
-      char *tmp = state;
-      state = self->state;
-      self->state = tmp;
-      g_signal_emit (self, signals[SIGNAL_STATE_CHANGED], 0, self->state);
+    if (wp_logind_get_user_state (getuid(), &state) >= 0) {
+      if (g_strcmp0 (state, self->state) != 0) {
+        char *tmp = state;
+        state = self->state;
+        self->state = tmp;
+        g_signal_emit (self, signals[SIGNAL_STATE_CHANGED], 0, self->state);
+      }
+      free (state);
     }
-    free (state);
   }
   return G_SOURCE_CONTINUE;
 }
@@ -81,7 +96,7 @@ wp_logind_enable (WpPlugin * plugin, WpTransition * transition)
     return;
   }
 
-  if ((res = sd_uid_get_state (getuid(), &self->state)) < 0) {
+  if ((res = wp_logind_get_user_state (getuid(), &self->state)) < 0) {
     wp_transition_return_error (transition, g_error_new (G_IO_ERROR,
             g_io_error_from_errno (-res),
             "failed to get systemd login state: %d (%s)",
