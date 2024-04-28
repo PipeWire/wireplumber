@@ -123,12 +123,18 @@ WP_API
 void wp_log_checked (const gchar *log_topic, GLogLevelFlags log_level,
     const gchar *file, const gchar *line, const gchar *func,
     GType object_type, gconstpointer object,
+    const gchar *message_format, ...) G_GNUC_PRINTF (8, 9) __attribute__ ((deprecated));
+
+WP_API
+void wp_logt_checked (const WpLogTopic *topic, GLogLevelFlags log_level,
+    const gchar *file, const gchar *line, const gchar *func,
+    GType object_type, gconstpointer object,
     const gchar *message_format, ...) G_GNUC_PRINTF (8, 9);
 
 #define wp_log(topic, level, type, object, ...) \
 ({ \
   if (G_UNLIKELY (wp_log_topic_is_enabled (topic, level))) \
-    wp_log_checked (topic->topic_name, level, __FILE__, G_STRINGIFY (__LINE__), \
+    wp_logt_checked (topic, level, __FILE__, G_STRINGIFY (__LINE__), \
         G_STRFUNC, type, object, __VA_ARGS__); \
 })
 

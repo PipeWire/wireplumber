@@ -384,7 +384,7 @@ log_log (lua_State *L, GLogLevelFlags lvl)
   snprintf (line_str, 11, "%d", ar.currentline);
   ar.name = ar.name ? ar.name : "chunk";
 
-  wp_log_checked (topic->topic_name, lvl,
+  wp_logt_checked (topic, lvl,
       ar.source, line_str, ar.name, type, instance, "%s", message);
   return 0;
 }
