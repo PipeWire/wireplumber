@@ -306,14 +306,13 @@ local function rescanFilters (om, metadata_om)
 
     -- Only handle the main filter nodes
     filter.media_class = n.properties ["media.class"]
-    if filter.media_class ~= "Audio/Sink" and
-        filter.media_class ~= "Audio/Source" and
-        filter.media_class ~= "Video/Source" then
+    if string.find (filter.media_class, "Stream") then
       goto skip_linkable
     end
 
     -- Filter direction
-    if filter.media_class == "Audio/Sink" then
+    if string.find (filter.media_class, "Audio/Sink") or
+       string.find (filter.media_class, "Video/Sink") then
       filter.direction = "input"
     else
       filter.direction = "output"
