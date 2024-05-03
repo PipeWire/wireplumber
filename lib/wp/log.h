@@ -123,7 +123,7 @@ WP_API
 void wp_log_checked (const gchar *log_topic, GLogLevelFlags log_level,
     const gchar *file, const gchar *line, const gchar *func,
     GType object_type, gconstpointer object,
-    const gchar *message_format, ...) G_GNUC_PRINTF (8, 9) __attribute__ ((deprecated));
+    const gchar *message_format, ...) G_GNUC_PRINTF (8, 9) G_GNUC_DEPRECATED_FOR (wp_logt_checked);
 
 WP_API
 void wp_logt_checked (const WpLogTopic *topic, GLogLevelFlags log_level,
