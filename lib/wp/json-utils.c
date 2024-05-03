@@ -211,12 +211,12 @@ merge_json_objects (WpSpaJson *a, WpSpaJson *b)
       g_return_val_if_fail (wp_iterator_next (it, &item), NULL);
       val = g_value_dup_boxed (&item);
 
-      if (!override &&
+      if (!override && wp_spa_json_is_container (val) &&
           (wp_spa_json_object_get (a, key_str, "J", &j, NULL) ||
            wp_spa_json_object_get (a, override_key_str, "J", &j, NULL))) {
         g_autoptr (WpSpaJson) merged = wp_json_utils_merge_containers (j, val);
         if (!merged) {
-          wp_warning ("skipping merge of %s as JSON values are not compatible",
+          wp_warning ("skipping merge of %s as JSON values are not compatible containers",
               key_str);
           continue;
         }

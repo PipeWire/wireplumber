@@ -241,6 +241,7 @@ assert (type (val.args.test) == "table")
 assert (val.args.test[1] == 0)
 assert (val.args.test[2] == 1)
 
+-- merge
 json = Json.Array { "foo" }
 json2 = Json.Array { "bar" }
 json = json:merge(json2)
@@ -263,3 +264,9 @@ assert (val["1"] == 1)
 assert (val["2"] == 2)
 assert (val["3"] == 3)
 assert (val["4"] == 4)
+
+json = Json.Object { ["a"] = "foo" }
+json2 = Json.Object { ["a"] = "bar" }
+json = json:merge(json2)
+val = json:parse ()
+assert (val["a"] == "bar")
