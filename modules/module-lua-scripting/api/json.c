@@ -159,7 +159,7 @@ push_luajson (lua_State *L, WpSpaJson *json, gint n_recursions)
     }
   }
 
-  /* Otherwise alwyas parse as String to allow parsing strings without quotes */
+  /* Otherwise always parse as String to allow parsing strings without quotes */
   else {
     g_autofree gchar *value = wp_spa_json_parse_string (json);
     g_warn_if_fail (value);
