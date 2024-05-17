@@ -135,8 +135,9 @@ local function getFilterSmartTarget (metadata, node, om)
       goto skip_target
     end
 
-    -- Target nodes are only meant to be device nodes, without link-group
-    if n_target.properties ["node.link-group"] ~= nil then
+    -- Target nodes cannot be smart filters
+    if n_target.properties ["node.link-group"] ~= nil and
+        getFilterSmart (metadata, n_target) then
       goto skip_target
     end
 
