@@ -50,6 +50,7 @@ AsyncEventHook {
             si_flags.failed_count > 5 then
           transition:return_error ("tried to link on last rescan, not retrying "
               .. tostring (si_link))
+          return
         end
 
         if si_props ["item.factory.name"] == "si-audio-virtual" then
