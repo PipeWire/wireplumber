@@ -493,6 +493,7 @@ wp_transition_return_error (WpTransition * self, GError * error)
   if (G_UNLIKELY (priv->error)) {
     wp_warning_object (self, "transition bailing out multiple times; "
         "new error is: %s", error->message);
+    g_error_free (error);
     return;
   }
 
