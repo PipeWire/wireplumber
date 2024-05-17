@@ -66,6 +66,8 @@ struct _WpTransitionPrivate
 
   /* state machine */
   gboolean started;
+  gboolean completed;
+  gboolean finished;
   guint step;
   GError *error;
 };
@@ -348,8 +350,7 @@ wp_transition_get_completed (WpTransition * self)
   g_return_val_if_fail (WP_IS_TRANSITION (self), FALSE);
 
   WpTransitionPrivate *priv = wp_transition_get_instance_private (self);
-  return (priv->step == WP_TRANSITION_STEP_NONE && priv->started) ||
-         priv->step == WP_TRANSITION_STEP_ERROR;
+  return priv->completed;
 }
 
 /*!
@@ -370,6 +371,8 @@ wp_transition_had_error (WpTransition * self)
 static void
 wp_transition_return (WpTransition * self, WpTransitionPrivate *priv)
 {
+  g_assert (priv->completed);
+
   if (priv->closure) {
     GValue values[2] = { G_VALUE_INIT, G_VALUE_INIT };
     g_value_init (&values[0], G_TYPE_OBJECT);
@@ -427,6 +430,11 @@ wp_transition_advance (WpTransition * self)
   guint next_step;
   GError *error = NULL;
 
+  if (priv->completed) {
+    wp_warning_object (priv->source_object, "tried to advance completed transition");
+    return;
+  }
+
   priv->started = TRUE;
 
   if (g_cancellable_set_error_if_cancelled (priv->cancellable, &error)) {
@@ -442,17 +450,20 @@ wp_transition_advance (WpTransition * self)
 
   if (next_step == WP_TRANSITION_STEP_ERROR) {
     /* return error if the callback didn't do it already */
-    if (G_UNLIKELY (!priv->error)) {
+    if (G_UNLIKELY (!priv->completed)) {
         wp_transition_return_error (self, g_error_new (WP_DOMAIN_LIBRARY,
                 WP_LIBRARY_ERROR_INVARIANT, "state machine error"));
     }
     return;
   }
 
+  g_assert (!priv->completed);
+
   /* if we reached STEP_NONE again, that means we reached the next state */
   if (next_step == WP_TRANSITION_STEP_NONE) {
     /* complete the transition */
     priv->step = next_step;
+    priv->completed = TRUE;
     wp_transition_return (self, priv);
     return;
   }
@@ -490,15 +501,16 @@ wp_transition_return_error (WpTransition * self, GError * error)
 
   /* don't allow _return_error() to be called multiple times,
      as it is dangerous to recurse in execute_step() */
-  if (G_UNLIKELY (priv->error)) {
-    wp_warning_object (self, "transition bailing out multiple times; "
-        "new error is: %s", error->message);
+  if (G_UNLIKELY (priv->completed)) {
+    wp_warning_object (priv->source_object,
+      "tried to set error on completed transition: %s", error->message);
     g_error_free (error);
     return;
   }
 
   priv->step = WP_TRANSITION_STEP_ERROR;
   priv->error = error;
+  priv->completed = TRUE;
 
   /* allow the implementation to rollback changes */
   if (WP_TRANSITION_GET_CLASS (self)->execute_step)
@@ -535,7 +547,17 @@ wp_transition_finish (GAsyncResult * res, GError ** error)
     priv->step = WP_TRANSITION_STEP_ERROR;
     g_propagate_error (error, g_error_new (WP_DOMAIN_LIBRARY,
         WP_LIBRARY_ERROR_INVARIANT, "finished before starting"));
+  } else if (!priv->completed) {
+    priv->step = WP_TRANSITION_STEP_ERROR;
+    g_propagate_error (error, g_error_new (WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_INVARIANT, "finished before completion"));
+  } else if (priv->finished) {
+    priv->step = WP_TRANSITION_STEP_ERROR;
+    g_propagate_error (error, g_error_new (WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_INVARIANT, "finished multiple times"));
   }
+
+  priv->finished = TRUE;
 
   wp_trace_object (priv->source_object, "transition: finished %s",
       (priv->step == WP_TRANSITION_STEP_NONE) ? "ok" : "with error");
