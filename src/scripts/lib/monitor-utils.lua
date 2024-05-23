@@ -83,7 +83,7 @@ end
 
 function mutils.clear_cam_data (self, dev_num)
   local dev_cam_data = self.cam_data[dev_num]
-  if not dev_num then
+  if not dev_cam_data then
     return
   end
 
