@@ -30,14 +30,16 @@ SimpleEventHook {
 
     -- bypass the hook if the session item is a filter
     local node = si:get_associated_proxy ("node")
-    local link_group = node.properties ["node.link-group"]
+    local node_props = node.properties
+    local link_group = node_props ["node.link-group"]
     if link_group ~= nil then
       return
     end
 
     -- bypass the hook if target is defined, is a filter and is targetable
     local target_node = target:get_associated_proxy ("node")
-    local target_link_group = target_node.properties ["node.link-group"]
+    local target_node_props = target_node.properties
+    local target_link_group = target_node_props ["node.link-group"]
     local target_direction = cutils.getTargetDirection (si.properties)
     if target_link_group ~= nil and si_flags.has_defined_target then
       if futils.is_filter_smart (target_direction, target_link_group) and
@@ -50,12 +52,13 @@ SimpleEventHook {
     -- Get the filter from the given target if it exists, otherwise get the
     -- default filter, but only if target was not defined
     local target_direction = cutils.getTargetDirection (si.properties)
-    local filter_target = futils.get_filter_from_target (target_direction, target)
+    local media_type = si_props["media.type"]
+    local filter_target = futils.get_filter_from_target (target_direction, media_type, target)
     if filter_target ~= nil then
       target = filter_target
       log:info (si, "... got filter for given target")
     elseif filter_target == nil and not si_flags.has_defined_target then
-      filter_target = futils.get_filter_from_target (target_direction, nil)
+      filter_target = futils.get_filter_from_target (target_direction, media_type, nil)
       if filter_target ~= nil then
         target = filter_target
         log:info (si, "... got default filter for given target")
