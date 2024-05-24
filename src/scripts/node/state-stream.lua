@@ -52,10 +52,7 @@ restore_stream_hook = SimpleEventHook {
       return
     end
 
-    local stored_values = getStoredStreamProps (key)
-    if not stored_values then
-      return
-    end
+    local stored_values = getStoredStreamProps (key) or {}
 
     -- restore node Props (volumes, channelMap, etc...)
     if Settings.get_boolean ("node.stream.restore-props") and stream_props ["state.restore-props"] ~= "false"
@@ -356,11 +353,14 @@ function buildDefaultChannelVolumes (node)
     end
   end
 
+  log:info (node, "using default volume: " .. tostring(def_vol) ..
+      ", channels: " .. tostring(channels))
+
   while (#res < channels) do
     table.insert(res, def_vol)
   end
 
-  return res;
+  return res
 end
 
 function getStoredStreamProps (key)
