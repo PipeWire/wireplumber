@@ -11,6 +11,7 @@ local cutils = require ("common-utils")
 
 local lutils = {
   si_flags = {},
+  priority_media_role_link = {},
 }
 
 function lutils.get_flags (self, si_id)
@@ -23,6 +24,102 @@ end
 
 function lutils.clear_flags (self, si_id)
   self.si_flags [si_id] = nil
+end
+
+function getprio (link)
+  return tonumber (link.properties ["policy.role-based.priority"])
+end
+
+function getplugged (link)
+  return tonumber (link.properties ["item.plugged.usec"]) or 0
+end
+
+function lutils.getAction (pmrl, link)
+  local props = pmrl.properties
+
+  if getprio (pmrl) == getprio (link) then
+    return props ["policy.role-based.action.same-priority"] or "mix"
+  else
+    return props ["policy.role-based.action.lower-priority"] or "mix"
+  end
+end
+
+-- if the link happens to be priority one, clear it and find the next
+-- priority.
+function lutils.clearPriorityMediaRoleLink (link)
+  local lprops = link.properties
+  local lmc = lprops ["target.media.class"]
+
+  pmrl = lutils.getPriorityMediaRoleLink (lmc)
+
+  -- only proceed if the link happens to be priority one.
+  if pmrl ~= link then
+    return
+  end
+
+  local prio_link = nil
+  local prio = 0
+  local plugged = 0
+  for l in cutils.get_object_manager ("session-item"):iterate {
+    type = "SiLink",
+    Constraint { "item.factory.name", "=", "si-standard-link", type = "pw-global" },
+    Constraint { "is.media.role.link", "=", true },
+    Constraint { "target.media.class", "=", lmc },
+  } do
+    local props = l.properties
+
+    -- dont consider this link as it is about to be removed.
+    if pmrl == l then
+      goto continue
+    end
+
+    if getprio (link) > prio or
+        (getprio (link) == prio and getplugged (link) > plugged) then
+      prio = getprio (l)
+      plugged = getplugged (l)
+      prio_link = l
+    end
+    ::continue::
+  end
+
+  if prio_link then
+    setPriorityMediaRoleLink (lmc, prio_link)
+  else
+    setPriorityMediaRoleLink (lmc, nil)
+  end
+end
+
+-- record priority media role link
+function lutils.updatePriorityMediaRoleLink (link)
+  local lprops = link.properties
+  local mc = lprops ["target.media.class"]
+
+  if not lutils.priority_media_role_link [mc] then
+    setPriorityMediaRoleLink (mc, link)
+    return
+  end
+
+  pmrl = lutils.getPriorityMediaRoleLink (mc)
+
+  if getprio (link) > getprio (pmrl) or
+      (getprio (link) == getprio (pmrl) and getplugged (link) >= getplugged (pmrl)) then
+    setPriorityMediaRoleLink (mc, link)
+  end
+end
+
+function lutils.getPriorityMediaRoleLink (lmc)
+  return lutils.priority_media_role_link [lmc]
+end
+
+function setPriorityMediaRoleLink (lmc, link)
+  lutils.priority_media_role_link [lmc] = link
+  if link then
+    Log.debug (
+      string.format ("update priority link(%d) media role(\"%s\") priority(%d)",
+        link.id, link.properties ["media.role"], getprio (link)))
+  else
+    Log.debug ("clear priority media role")
+  end
 end
 
 function lutils.unwrap_select_target_event (self, event)

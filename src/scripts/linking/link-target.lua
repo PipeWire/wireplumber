@@ -158,6 +158,7 @@ AsyncEventHook {
             end
           end)
         else
+          lutils.updatePriorityMediaRoleLink(si_link)
           transition:advance ()
         end
       end,
