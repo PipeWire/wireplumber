@@ -97,6 +97,8 @@ function createNode(parent, id, obj_type, factory, properties)
 
     properties["node.name"] = name
 
+    log:info ("Creating node " .. name)
+
     -- deduplicate nodes with the same name
     for counter = 2, 99, 1 do
       if node_names_table[properties["node.name"]] ~= true then
@@ -104,6 +106,7 @@ function createNode(parent, id, obj_type, factory, properties)
         break
       end
       properties["node.name"] = name .. "." .. counter
+      log:info ("deduplicating node name -> " .. properties["node.name"])
     end
   end
 
@@ -175,7 +178,9 @@ function createDevice(parent, id, factory, properties)
         return
       end
 
-      node_names_table[node.properties["node.name"]] = nil
+      local node_name = node.properties["node.name"]
+      log:info ("Removing node " .. node_name)
+      node_names_table[node_name] = nil
     end)
     device:activate(Feature.SpaDevice.ENABLED | Feature.Proxy.BOUND)
     parent:store_managed_object(id, device)
