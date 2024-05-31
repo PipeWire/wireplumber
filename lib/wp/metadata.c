@@ -388,7 +388,7 @@ wp_metadata_item_unref (WpMetadataItem *self)
  * \ingroup wpmetadata
  * \param self the item held by the GValue that was returned from the WpIterator
  *   of wp_metadata_new_iterator()
- * \returns (transfer none): the metadata subject of the \a item
+ * \returns the metadata subject of the \a item
  * \since 0.5.0
  */
 guint32
