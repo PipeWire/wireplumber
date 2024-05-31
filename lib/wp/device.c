@@ -361,10 +361,21 @@ spa_device_event_object_info (void *data, uint32_t id,
     type = spa_debug_type_short_name (info->type);
     props = wp_properties_new_wrap_dict (info->props);
 
+    wp_debug_object (self, "object info: id:%u type:%s factory:%s",
+        id, type, info->factory_name);
+
+    if (id < self->managed_objs->len &&
+        g_ptr_array_index (self->managed_objs, id) != NULL) {
+      wp_debug_object (self, "object already exists, removing");
+      g_signal_emit (self, spa_device_signals[SIGNAL_OBJECT_REMOVED], 0, id);
+      wp_spa_device_store_managed_object (self, id, NULL);
+    }
+
     g_signal_emit (self, spa_device_signals[SIGNAL_CREATE_OBJECT], 0,
         id, type, info->factory_name, props);
   }
   else {
+    wp_debug_object (self, "object removed: id:%u", id);
     g_signal_emit (self, spa_device_signals[SIGNAL_OBJECT_REMOVED], 0, id);
     wp_spa_device_store_managed_object (self, id, NULL);
   }
