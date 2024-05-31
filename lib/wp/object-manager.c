@@ -672,6 +672,12 @@ idle_emit_objects_changed (WpObjectManager * self)
   return G_SOURCE_REMOVE;
 }
 
+/*!
+ * \brief Checks if the object manager should emit the 'objects-changed' signal
+ * \private
+ * \ingroup wpobjectmanager
+ * \param self the object manager
+ */
 void
 wp_object_manager_maybe_objects_changed (WpObjectManager * self)
 {
@@ -724,7 +730,14 @@ wp_object_manager_maybe_objects_changed (WpObjectManager * self)
   }
 }
 
-/* caller must also call wp_object_manager_maybe_objects_changed() after */
+/*!
+ * \brief Adds an object to the object manager.
+ * \private
+ * \ingroup wpobjectmanager
+ * \param self the object manager
+ * \param object (transfer none): the object to add
+ * \note caller must also call wp_object_manager_maybe_objects_changed() after
+ */
 void
 wp_object_manager_add_object (WpObjectManager * self, gpointer object)
 {
@@ -736,7 +749,14 @@ wp_object_manager_add_object (WpObjectManager * self, gpointer object)
   }
 }
 
-/* caller must also call wp_object_manager_maybe_objects_changed() after */
+/*!
+ * \brief Removes an object from the object manager.
+ * \private
+ * \ingroup wpobjectmanager
+ * \param self the object manager
+ * \param object the object to remove
+ * \note caller must also call wp_object_manager_maybe_objects_changed() after
+ */
 void
 wp_object_manager_rm_object (WpObjectManager * self, gpointer object)
 {
@@ -765,7 +785,14 @@ on_proxy_ready (GObject * proxy, GAsyncResult * res, gpointer data)
   wp_object_manager_maybe_objects_changed (self);
 }
 
-/* caller must also call wp_object_manager_maybe_objects_changed() after */
+/*!
+ * \brief Adds a global object to the object manager.
+ * \private
+ * \ingroup wpobjectmanager
+ * \param self the object manager
+ * \param global the global object to add
+ * \note caller must also call wp_object_manager_maybe_objects_changed() after
+ */
 void
 wp_object_manager_add_global (WpObjectManager * self, WpGlobal * global)
 {

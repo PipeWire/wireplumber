@@ -319,6 +319,8 @@ class DoxyFunction(DoxyElement):
             d = normalize_text(d)
 
         e = DoxyFunction(name, d)
+        if (xml.get("prot") == "private"):
+            e.extra = "(skip)"
         e.add_brief(xml.find("briefdescription"))
         e.add_detail(xml.find("detaileddescription"))
         for p in xml.xpath(".//detaileddescription/*/parameterlist[@kind='param']/parameteritem"):

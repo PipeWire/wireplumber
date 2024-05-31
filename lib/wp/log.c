@@ -550,7 +550,11 @@ wp_log_set_level (const gchar *level_str)
   return TRUE;
 }
 
-/* private, called from wp_init() */
+/*!
+ * \brief private, called from wp_init()
+ * \ingroup wplog
+ * \private
+ */
 void
 wp_log_init (gint flags)
 {

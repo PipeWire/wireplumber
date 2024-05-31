@@ -184,6 +184,7 @@ wp_event_hook_get_runs_after_hooks (WpEventHook * self)
 /*!
  * \brief Returns the associated event dispatcher
  *
+ * \private
  * \ingroup wpeventhook
  * \param self the event hook
  * \return (transfer full)(nullable): the event dispatcher on which this hook
@@ -197,6 +198,15 @@ wp_event_hook_get_dispatcher (WpEventHook * self)
   return g_weak_ref_get (&priv->dispatcher);
 }
 
+/*!
+ * \brief Sets the associated event dispatcher
+ *
+ * \private
+ * \ingroup wpeventhook
+ * \param self the event hook
+ * \param dispatcher (transfer none): the event dispatcher on which
+ *  this hook is registered
+ */
 void
 wp_event_hook_set_dispatcher (WpEventHook * self, WpEventDispatcher * dispatcher)
 {
