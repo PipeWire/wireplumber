@@ -23,8 +23,8 @@ SimpleEventHook {
     local source, om, si, si_props, si_flags, target =
         lutils:unwrap_select_target_event (event)
 
-    -- bypass the hook if the target was not found
-    if target == nil then
+    -- bypass the hook if the target was not found or if the target is media role node
+    if target == nil or target.properties["device.intended-roles"] then
       return
     end
 
