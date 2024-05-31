@@ -385,6 +385,31 @@ test_conf_override_nested (TestConfFixture *f, gconstpointer data)
   g_assert_cmpint (v3, ==, 3);
 }
 
+static void
+test_conf_as_section (TestConfFixture *f, gconstpointer data)
+{
+  g_autoptr (GError) error = NULL;
+  g_autofree gchar *file =
+      g_strdup_printf ("%s/conf/section.conf", g_getenv ("G_TEST_SRCDIR"));
+  g_autoptr (WpProperties) props =
+      wp_properties_new ("as-section", "test", NULL);
+  f->conf = wp_conf_new_open (file, g_steal_pointer (&props), &error);
+  g_assert_no_error (error);
+  g_assert_nonnull (f->conf);
+
+  g_autoptr (WpSpaJson) s = wp_conf_get_section (f->conf, "test");
+  g_assert_nonnull (s);
+  g_assert_true (wp_spa_json_is_object (s));
+
+  g_autofree gchar *v = NULL;
+  g_assert_true (wp_spa_json_object_get (s,
+      "some", "s", &v,
+      NULL));
+  g_assert_cmpstr (v, ==, "json");
+
+  g_clear_object (&f->conf);
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -401,6 +426,8 @@ main (gint argc, gchar *argv[])
       test_conf_setup, test_conf_override, test_conf_teardown);
   g_test_add ("/wp/conf/override_nested", TestConfFixture, NULL,
       test_conf_setup, test_conf_override_nested, test_conf_teardown);
+  g_test_add ("/wp/conf/as_section", TestConfFixture, NULL,
+      NULL, test_conf_as_section, NULL);
 
   return g_test_run ();
 }
