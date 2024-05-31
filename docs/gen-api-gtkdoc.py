@@ -130,7 +130,7 @@ class DoxygenProcess(object):
     def __process_element(self, xml):
         s = ""
 
-        if xml.text and re.search('\S', xml.text):
+        if xml.text and re.search(r'\S', xml.text):
             s += xml.text
         for n in xml.getchildren():
             if n.tag == "emphasis":
@@ -143,7 +143,7 @@ class DoxygenProcess(object):
                 s += " - " + self.__process_element(n)
             if n.tag == "para":
                 p = self.__process_element(n)
-                if re.search('\S', p):
+                if re.search(r'\S', p):
                     s += p + "\n"
             if n.tag == "ref":
                 s += n.text if n.text else ""
@@ -168,7 +168,7 @@ class DoxygenProcess(object):
             if n.tag == "htmlonly":
                 s += ""
             if n.tail:
-                if re.search('\S', n.tail):
+                if re.search(r'\S', n.tail):
                   s += n.tail
             if n.tag.startswith("param"):
                 pass  # parameters are handled separately in DoxyFunction::from_memberdef()
