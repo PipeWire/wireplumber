@@ -45,7 +45,7 @@ find_stored_profile_hook = SimpleEventHook {
     if profile_name then
       for p in device:iterate_params ("EnumProfile") do
         local profile = cutils.parseParam (p, "EnumProfile")
-        if profile.name == profile_name then
+        if profile.name == profile_name and profile.available ~= "no" then
           selected_profile = profile
           break
         end
