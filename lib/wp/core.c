@@ -1345,6 +1345,7 @@ wp_core_sync_finish (WpCore * self, GAsyncResult * res, GError ** error)
 /*!
  * \brief Finds a registered object
  *
+ * \ingroup wpcore
  * \param self the core
  * \param func (scope call): a function that takes the object being searched
  *   as the first argument and \a data as the second. it should return TRUE if
