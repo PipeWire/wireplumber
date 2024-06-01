@@ -1,5 +1,67 @@
-WirePlumber 0.5.2
+WirePlumber 0.5.3
 ~~~~~~~~~~~~~~~~~
+
+Fixes:
+
+  - Fixed a long standing issue that would cause many device nodes to have
+    inconsistent naming, with a '.N' suffix (where N is a number >= 2) being
+    appended at seemingly random times (#500)
+
+  - Fixed an issue that would cause unavailable device profiles to be selected
+    if they were previously stored in the state file, sometimes requiring users
+    to manually remove the state file to get things working again (#613)
+
+  - Fixed an occasional crash that could sometimes be triggered by hovering
+    the volume icon on the KDE taskbar, and possibly other similar actions
+    (#628, !644)
+
+  - Fixed camera device deduplication logic when the same device is available
+    through both V4L2 and libcamera, and the libcamera one groups multiple V4L2
+    devices together (#623, !636)
+
+  - Fixed applying the default volume on streams that have no volume previously
+    stored in the state file (#655)
+
+  - Fixed an issue that would prevent some camera nodes - in some cases -
+    from being destroyed when the camera device is removed (#640)
+
+  - Fixed an issue that would cause video stream nodes to be linked with audio
+    smart filters, if smart audio filters were configured (!647)
+
+  - Fixed an issue that would cause WP to re-activate device profiles even
+    though they were already active (!639)
+
+  - Configuration files in standard JSON format (starting with a '{', among
+    other things) are now correctly parsed (#633)
+
+  - Fixed overriding non-container values when merging JSON objects (#653)
+
+  - Functions marked with WP_PRIVATE_API are now also marked as
+    non-introspectable in the gobject-introspection metadata (#599)
+
+Improvements:
+
+  - Logging on the systemd journal now includes the log topic and also the log
+    level and location directly on the message string when the log level is
+    high enough, which is useful for gathering additional context in logs
+    submitted by users (!640)
+
+  - Added a video-only profile in wireplumber.conf, for systems where only
+    camera & screensharing are to be used (#652)
+
+  - Improved seat state monitoring so that Bluetooth devices are only enabled
+    when the user is active on a local seat, instead of allowing remote users
+    as well (!641)
+
+  - Improved how main filter nodes are detected for the smart filters (!642)
+
+  - Added Lua method to merge JSON containers (!637)
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.5.2
+.................
 
 Highlights:
 
@@ -32,9 +94,6 @@ Changes:
 
   - The library version is now generated following pipewire's versioning scheme:
     libwireplumber-0.5.so.0.5.2 becomes libwireplumber-0.5.so.0.0502.0 (!633)
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.5.1
 .................
