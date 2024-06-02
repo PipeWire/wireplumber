@@ -216,6 +216,11 @@ open_and_load_sections (WpConf * self, const gchar *path, GError ** error)
   if (!file)
     return FALSE;
 
+  if (!g_mapped_file_get_contents (file) || g_mapped_file_get_length (file) == 0) {
+    wp_notice_object (self, "Ignoring empty configuration file at '%s'", path);
+    return TRUE;
+  }
+
   /* test if the file is a relic from 0.4 */
   if (detect_old_conf_format (self, file)) {
     g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
