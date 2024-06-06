@@ -432,6 +432,11 @@ function checkProfiles (dev)
   local device_id = dev["bound-id"]
   local props = dev.properties
 
+  -- Don't create loopback source device if autoswitch is disabled
+  if not Settings.get_boolean ("bluetooth.autoswitch-to-headset-profile") then
+    return
+  end
+
   -- Get the associated BT SpaDevice
   local internal_id = tostring (props["api.bluez5.id"])
   local spa_device = monitor:get_managed_object (internal_id)
