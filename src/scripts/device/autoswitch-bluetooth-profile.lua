@@ -71,8 +71,18 @@ streams_om = ObjectManager {
   Interest {
     type = "node",
     Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
+    Constraint { "node.link-group", "-", type = "pw" },
     Constraint { "stream.monitor", "!", "true", type = "pw" },
     Constraint { "bluez5.loopback", "!", "true", type = "pw" }
+  }
+}
+
+filter_nodes_om = ObjectManager {
+  Interest {
+    type = "node",
+    Constraint { "node.link-group", "+", type = "pw" },
+    Constraint { "stream.monitor", "!", "true", type = "pw" },
+    Constraint { "bluez5.loopback", "!", "true", type = "pw" },
   }
 }
 
@@ -80,6 +90,8 @@ loopback_nodes_om = ObjectManager {
   Interest {
     type = "node",
     Constraint { "media.class", "matches", "Audio/Source", type = "pw-global" },
+    Constraint { "node.link-group", "+", type = "pw" },
+    Constraint { "stream.monitor", "!", "true", type = "pw" },
     Constraint { "bluez5.loopback", "=", "true", type = "pw" },
   }
 }
@@ -342,6 +354,24 @@ local function checkStreamStatus (stream)
 
         return dev_id
       end
+    else
+      -- Check if it is linked to a filter main node, and recursively advance if so
+      local filter_main_node = filter_nodes_om:lookup {
+        Constraint { "bound-id", "=", peer_id, type = "gobject" }
+      }
+      if filter_main_node ~= nil then
+        -- Now check the all stream nodes for this filter
+        local filter_link_group = filter_main_node.properties ["node.link-group"]
+        for filter_stream_node in filter_nodes_om:iterate {
+            Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
+            Constraint { "node.link-group", "=", filter_link_group, type = "pw" }
+          } do
+          local dev_id = checkStreamStatus (filter_stream_node)
+          if dev_id ~= nil then
+            return dev_id
+          end
+        end
+      end
     end
   end
 
@@ -407,10 +437,7 @@ SimpleEventHook {
       local in_id = tonumber(p["link.input.node"])
       local out_id = tonumber(p["link.output.node"])
       local stream_id = tonumber(stream["bound-id"])
-      local bt_node = loopback_nodes_om:lookup {
-          Constraint { "bound-id", "=", out_id, type = "gobject" }
-      }
-      if in_id == stream_id and bt_node ~= nil then
+      if in_id == stream_id then
         handleStream (stream)
       end
     end
@@ -435,5 +462,6 @@ SimpleEventHook {
 
 devices_om:activate ()
 streams_om:activate ()
+filter_nodes_om:activate ()
 loopback_nodes_om:activate()
 
