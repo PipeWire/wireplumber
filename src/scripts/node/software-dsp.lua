@@ -34,7 +34,7 @@ SimpleEventHook {
 
         if props["filter-graph"] then
           log:debug("Loading filter graph for " .. node.properties["node.name"])
-          filter_nodes[node.properties["object.id"]] = LocalModule("libpipewire-module-filter-chain", props["filter-graph"], {})
+          filter_nodes[node.id] = LocalModule("libpipewire-module-filter-chain", props["filter-graph"], {})
         elseif props["filter-path"] then
           log:debug("Loading filter graph for " .. node.properties["node.name"] .. " from disk")
           local conf = Conf(props["filter-path"], {
@@ -44,7 +44,7 @@ SimpleEventHook {
           local err = conf:open()
           if not err then
             local args = conf:get_section_as_json("node.software-dsp.graph"):to_string()
-            filter_nodes[node.properties["object.id"]] = LocalModule("libpipewire-module-filter-chain", args, {})
+            filter_nodes[node.id] = LocalModule("libpipewire-module-filter-chain", args, {})
           else
             log:warning("Unable to load filter graph for " .. node.properties["node.name"])
           end
@@ -57,7 +57,7 @@ SimpleEventHook {
               client:update_permissions{ [node["bound-id"]] = "-" }
             end
           end
-          hidden_nodes[node["bound-id"]] = node.properties["object.id"]
+          hidden_nodes[node["bound-id"]] = node.id
         end
       end
     end)
@@ -73,9 +73,10 @@ SimpleEventHook {
   },
   execute = function(event)
     local node = event:get_subject()
-    if filter_nodes[node.properties["object.id"]] then
-      log:debug("Freeing filter graph on disconnected node " .. node.properties["node.name"])
-      filter_nodes[node.properties["object.id"]] = nil
+    if filter_nodes[node.id] then
+      log:debug("Freeing filter on node " .. node.id)
+      filter_nodes[node.id] = nil
+      hidden_nodes[node["bound-id"]] = nil
     end
   end
 }:register()
