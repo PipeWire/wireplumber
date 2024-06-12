@@ -212,9 +212,10 @@ local function switchDeviceToHeadsetProfile (dev_id)
     return
   end
 
-  if isSwitchedToHeadsetProfile (device) then
-    Log.info ("Device with id " .. tostring(dev_id).. " is already switched to HSP/HFP")
-    return
+  -- clear restore callback, if any
+  if restore_timeout_source[dev_id] ~= nil then
+    restore_timeout_source[dev_id]:destroy ()
+    restore_timeout_source[dev_id] = nil
   end
 
   local cur_profile_name = getCurrentProfile (device)
@@ -224,10 +225,9 @@ local function switchDeviceToHeadsetProfile (dev_id)
     return
   end
 
-  -- clear restore callback, if any
-  if restore_timeout_source[dev_id] ~= nil then
-    restore_timeout_source[dev_id]:destroy ()
-    restore_timeout_source[dev_id] = nil
+  if isSwitchedToHeadsetProfile (device) then
+    Log.info ("Device with id " .. tostring(dev_id).. " is already switched to HSP/HFP")
+    return
   end
 
   local saved_headset_profile = getSavedHeadsetProfile (device)
@@ -324,7 +324,13 @@ local function triggerRestoreProfile (dev_id)
     end
   end
 
-  restore_timeout_source[dev_id] = nil
+  -- clear restore callback, if any
+  if restore_timeout_source[dev_id] ~= nil then
+    restore_timeout_source[dev_id]:destroy ()
+    restore_timeout_source[dev_id] = nil
+  end
+
+  -- create new restore callback
   restore_timeout_source[dev_id] = Core.timeout_add (profile_restore_timeout_msec, function ()
     restore_timeout_source[dev_id] = nil
     restoreProfile (dev_id)
@@ -435,7 +441,6 @@ SimpleEventHook {
     local p = link.properties
     for stream in streams_om:iterate () do
       local in_id = tonumber(p["link.input.node"])
-      local out_id = tonumber(p["link.output.node"])
       local stream_id = tonumber(stream["bound-id"])
       if in_id == stream_id then
         handleStream (stream)
