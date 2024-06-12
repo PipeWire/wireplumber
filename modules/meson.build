@@ -69,16 +69,6 @@ shared_library(
 )
 
 shared_library(
-  'wireplumber-module-si-audio-virtual',
-  [
-    'module-si-audio-virtual.c',
-  ],
-  install : true,
-  install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep, pipewire_dep],
-)
-
-shared_library(
   'wireplumber-module-si-node',
   [
     'module-si-node.c',

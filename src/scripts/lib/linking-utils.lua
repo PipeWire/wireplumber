@@ -249,19 +249,11 @@ function lutils.canLink (properties, si_target)
         properties ["item.factory.name"] == "si-audio-adapter"
   end
 
-  if properties ["item.factory.name"] == "si-audio-virtual" then
-    -- virtual nodes must have the same direction, unless the target is monitor
-    if properties ["item.node.direction"] ~= target_props ["item.node.direction"]
-        and not isMonitor (target_props) then
-      return false
-    end
-  else
-    -- nodes must have opposite direction, or otherwise they must be both input
-    -- and the target must have a monitor (so the target will be used as a source)
-    if properties ["item.node.direction"] == target_props ["item.node.direction"]
-        and not isMonitor (target_props) then
-      return false
-    end
+  -- nodes must have opposite direction, or otherwise they must be both input
+  -- and the target must have a monitor (so the target will be used as a source)
+  if properties ["item.node.direction"] == target_props ["item.node.direction"]
+      and not isMonitor (target_props) then
+    return false
   end
 
   -- check link group

@@ -229,7 +229,6 @@ load_components (ScriptRunnerFixture *f, gconstpointer argv)
 
     load_component (f, "libwireplumber-module-si-audio-adapter", "module");
     load_component (f, "libwireplumber-module-si-standard-link", "module");
-    load_component (f, "libwireplumber-module-si-audio-virtual", "module");
 
     load_component (f, "default-nodes/apply-default-node.lua", "script/lua");
     load_component (f, "default-nodes/state-default-nodes.lua", "script/lua");

@@ -37,11 +37,6 @@ end
 function cutils.getTargetDirection (properties)
   local target_direction = nil
 
-  -- retrun same direction for si-audio-virtual session items
-  if properties ["item.factory.name"] == "si-audio-virtual" then
-    return properties ["item.node.direction"]
-  end
-
   if properties ["item.node.direction"] == "output" or
       (properties ["item.node.direction"] == "input" and
           cutils.parseBool (properties ["stream.capture.sink"])) then

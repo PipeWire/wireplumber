@@ -41,13 +41,6 @@ test(
 )
 
 test(
-  'test-si-audio-virtual',
-  executable('test-si-audio-virtual', 'si-audio-virtual.c',
-      dependencies: common_deps),
-  env: common_env,
-)
-
-test(
   'test-si-standard-link',
   executable('test-si-standard-link', 'si-standard-link.c',
       dependencies: common_deps),

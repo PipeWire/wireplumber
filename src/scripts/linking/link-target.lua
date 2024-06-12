@@ -124,8 +124,8 @@ AsyncEventHook {
         log:debug (si_link, "registered link between "
             .. tostring (si) .. " and " .. tostring (target))
 
-        -- only activate non virtual links because virtual links activation is
-        -- handled by rescan-virtual-links.lua
+        -- only activate non media role links because their activation is
+        -- handled by rescan-media-role-links.lua
         if not is_media_role_link then
           si_link:activate (Feature.SessionItem.ACTIVE, function (l, e)
             if e then

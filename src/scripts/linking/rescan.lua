@@ -43,11 +43,6 @@ end
 function checkLinkable (si, om, handle_nonstreams)
   local si_props = si.properties
 
-  -- Always handle si-audio-virtual session items
-  if si_props ["item.factory.name"] == "si-audio-virtual" then
-    return true, si_props
-  end
-
   -- For the rest of them, only handle stream session items
   if not si_props or (si_props ["item.node.type"] ~= "stream"
       and not handle_nonstreams) then

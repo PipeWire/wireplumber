@@ -544,13 +544,6 @@ configure_and_link_adapters (WpSiStandardLink *self, WpTransition *transition)
   str = wp_session_item_get_property (WP_SESSION_ITEM (in->si), "item.node.type");
   in->is_device = !g_strcmp0 (str, "device");
 
-  str = wp_session_item_get_property (WP_SESSION_ITEM (out->si), "item.factory.name");
-  out->is_device = (str && !g_strcmp0 (str, "si-audio-virtual") && !in->is_device)
-      || out->is_device;
-  str = wp_session_item_get_property (WP_SESSION_ITEM (in->si), "item.factory.name");
-  in->is_device = (str && !g_strcmp0 (str, "si-audio-virtual") && !out->is_device)
-      || in->is_device;
-
   str = wp_session_item_get_property (WP_SESSION_ITEM (out->si), "stream.dont-remix");
   out->dont_remix = str && pw_properties_parse_bool (str);
   str = wp_session_item_get_property (WP_SESSION_ITEM (in->si), "stream.dont-remix");
