@@ -185,16 +185,7 @@ SimpleEventHook {
       Constraint { "event.subject.key", "c", "default.audio.source",
           "default.audio.sink", "default.video.source" },
     },
-  },
-  execute = function (event)
-    local source = event:get_source ()
-    source:call ("schedule-rescan", "linking")
-  end
-}:register ()
-
-SimpleEventHook {
-  name = "linking/rescan-trigger-on-filters-metadata-changed",
-  interests = {
+    -- on any "filters" metadata changed
     EventInterest {
       Constraint { "event.type", "=", "metadata-changed" },
       Constraint { "metadata.name", "=", "filters" },
