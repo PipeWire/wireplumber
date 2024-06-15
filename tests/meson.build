@@ -64,3 +64,4 @@ if build_modules
   subdir('scripts')
   subdir('modules')
 endif
+subdir('examples')
