@@ -28,7 +28,7 @@ SimpleEventHook {
     end
 
     local device = event:get_subject ()
-    local dev_name = device.properties["device.name"]
+    local dev_name = device.properties["device.name"] or ""
     local off_profile = nil
     local best_profile = nil
     local unk_profile = nil

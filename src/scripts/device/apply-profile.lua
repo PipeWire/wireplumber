@@ -23,7 +23,7 @@ AsyncEventHook {
       execute = function (event, transition)
         local device = event:get_subject ()
         local profile = event:get_data ("selected-profile")
-        local dev_name = device.properties ["device.name"]
+        local dev_name = device.properties ["device.name"] or ""
 
         if not profile then
           log:info (device, "No profile found to set on " .. dev_name)
