@@ -263,6 +263,10 @@ test_enum_params_error (TestFixture *f, gconstpointer data)
 
     g_assert_cmpint (pw_context_add_spa_lib (f->base.server.context,
             "audiotestsrc", "audiotestsrc/libspa-audiotestsrc"), ==, 0);
+    if (!test_is_spa_lib_installed (&f->base, "audiotestsrc")) {
+      g_test_skip ("The pipewire audiotestsrc factory was not found");
+      return;
+    }
     g_assert_nonnull (pw_context_load_module (f->base.server.context,
             "libpipewire-module-adapter", NULL, NULL));
   }
