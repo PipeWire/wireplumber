@@ -15,6 +15,8 @@ cutils = require ("common-utils")
 futils = require ("filter-utils")
 log = Log.open_topic ("s-linking")
 handles = {}
+handles.rescan_enabled = true
+handles.timeout_source = nil
 
 function checkFilter (si, om, handle_nonstreams)
   -- always handle filters if handle_nonstreams is true, even if it is disabled
@@ -192,8 +194,65 @@ SimpleEventHook {
     },
   },
   execute = function (event)
+    if handles.rescan_enabled then
+      local source = event:get_source ()
+      source:call ("schedule-rescan", "linking")
+    end
+  end
+}:register ()
+
+SimpleEventHook {
+  name = "linking/session-item-added",
+  before = "linking/rescan-trigger",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "session-item-added" },
+    },
+  },
+  execute = function (event)
+    -- clear timeout source, if any
+    if handles.timeout_source ~= nil then
+      handles.timeout_source:destroy ()
+      handles.timeout_source = nil
+    end
+
+    -- Always enable rescan when any node is added
+    handles.rescan_enabled = true
+  end
+}:register ()
+
+-- Stop rescan for 2 seconds if BT item was removed. This avoids audio
+-- being played on internal nodes for a few seconds while the BT device is
+-- switching profiles.
+SimpleEventHook {
+  name = "linking/bluez-session-item-removed",
+  before = "linking/rescan-trigger",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "session-item-removed" },
+      Constraint { "device.api", "=", "bluez5" },
+    },
+  },
+  execute = function (event)
+    local si = event:get_subject ()
+    local si_props = si.properties
     local source = event:get_source ()
-    source:call ("schedule-rescan", "linking")
+
+    -- clear timeout source, if any
+    if handles.timeout_source ~= nil then
+      handles.timeout_source:destroy ()
+      handles.timeout_source = nil
+    end
+
+    -- disable rescan
+    handles.rescan_enabled = false
+
+    -- re-enable rescan after 2 seconds
+    handles.timeout_source = Core.timeout_add (2000, function()
+      handles.timeout_source = nil
+      handles.rescan_enabled = true
+      source:call ("schedule-rescan", "linking")
+    end)
   end
 }:register ()
 
