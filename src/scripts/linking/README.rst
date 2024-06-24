@@ -92,6 +92,10 @@ processed while targets are being selected.
      - find-filter-target.lua
      - Select the target of a filter node, if the subject is a filter node
 
+   * - linking/find-media-role-target
+     - find-media-role-target.lua
+     - Select the target based on the stream's media.role and the target's device.intended-roles
+
    * - linking/find-default-target
      - find-default-target.lua
      - Select the default source/sink as target

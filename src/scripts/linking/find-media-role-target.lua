@@ -12,6 +12,7 @@ log = Log.open_topic("s-linking")
 
 SimpleEventHook {
   name = "linking/find-media-role-target",
+  after = "linking/find-filter-target",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-target" },
