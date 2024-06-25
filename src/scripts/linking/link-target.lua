@@ -96,9 +96,8 @@ AsyncEventHook {
           return
         end
 
+        local ids = {si.id, target.id}
         si_link:connect("link-error", function (_, error_msg)
-          local ids = {si.id, si_flags.peer_id}
-
           for _, id in ipairs (ids) do
             local si = om:lookup {
               Constraint { "id", "=", id, type = "gobject" },
