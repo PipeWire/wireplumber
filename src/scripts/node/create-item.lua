@@ -41,6 +41,15 @@ function configProperties (node)
       Settings.get_boolean ("node.features.audio.control-port")
   properties ["node.id"] = node ["bound-id"]
 
+  -- set the default media.role, if configured
+  -- avoid Settings.get_string(), as it will parse the default "null" value
+  -- as a string instead of returning nil
+  local default_role = Settings.get ("node.stream.default-media-role")
+  if default_role then
+    default_role = default_role:parse()
+    properties ["media.role"] = properties ["media.role"] or default_role
+  end
+
   return properties
 end
 
