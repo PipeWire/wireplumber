@@ -1,5 +1,44 @@
-WirePlumber 0.5.3
+WirePlumber 0.5.4
 ~~~~~~~~~~~~~~~~~
+
+Highlights:
+
+  - Refactored the role-based linking policy (previously known also as
+    "endpoints" or "virtual items" policy) to blend in with the standard desktop
+    policy. It is now possible use role-based sinks alongside standard desktop
+    audio operations and they will only be used for streams that have a
+    "media.role" defined. It is also possible to force streams to have a
+    media.role, using a setting. Other features include: blending with smart
+    filters in the graph and allowing hardware DSP nodes to be also used easily
+    instead of requiring software loopbacks for all roles. (#610, !649)
+
+Improvements:
+
+  - Filters that are not declared as smart will now behave again as normal
+    application streams, instead of being treated sometimes differently (!657)
+
+Fixes:
+
+  - Fixed an issue that would cause WirePlumber to crash at startup if an
+    empty configuration file was present in one of the search paths (#671)
+
+  - Fixed Bluetooth profile auto-switching when a filter is permanently linked
+    to the Bluetooth source (!650)
+
+  - Fixed an issue in the software-dsp script that would cause DSP filters to
+    stay around and cause issues after their device node was destroyed (!651)
+
+  - Fixed an issue in the autoswitch-bluetooth-profile script that could cause
+    an infinite loop of switching between profiles (!652, #617)
+
+  - Fixed a rare issue that could cause WirePlumber to crash when dealing with
+    a device object that didn't have the "device.name" property set (#674)
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.5.3
+.................
 
 Fixes:
 
@@ -56,9 +95,6 @@ Improvements:
   - Improved how main filter nodes are detected for the smart filters (!642)
 
   - Added Lua method to merge JSON containers (!637)
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.5.2
 .................
