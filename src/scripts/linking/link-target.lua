@@ -66,7 +66,8 @@ AsyncEventHook {
         -- role links are those that link to targets with intended-roles
         -- unless the stream is a monitor (usually pavucontrol) or the stream
         -- is linking to the monitor ports of a sink (both are "input")
-        local is_media_role_link = target_props["device.intended-roles"] ~= nil
+        local is_media_role_link = Core.test_feature ("hooks.linking.role-based.rescan")
+            and target_props["device.intended-roles"] ~= nil
             and not cutils.parseBool (si_props ["stream.monitor"])
             and si_props["item.node.direction"] ~= target_props["item.node.direction"]
 
