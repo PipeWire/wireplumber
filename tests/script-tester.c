@@ -244,6 +244,7 @@ load_components (ScriptRunnerFixture *f, gconstpointer argv)
     load_component (f, "linking/find-default-target.lua", "script/lua");
     load_component (f, "linking/find-defined-target.lua", "script/lua");
     load_component (f, "linking/find-filter-target.lua", "script/lua");
+    load_component (f, "linking/find-media-role-target.lua", "script/lua");
     load_component (f, "linking/get-filter-from-target.lua", "script/lua");
     load_component (f, "linking/link-target.lua", "script/lua");
     load_component (f, "linking/prepare-link.lua", "script/lua");
