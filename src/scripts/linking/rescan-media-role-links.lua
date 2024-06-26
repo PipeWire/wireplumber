@@ -9,15 +9,12 @@ lutils = require("linking-utils")
 cutils = require("common-utils")
 log = Log.open_topic("s-linking")
 
-config = {}
-config.duck_level = Settings.get_float("linking.duck-level")
-
 function restoreVolume (om, link)
   setVolume(om, link, 1.0)
 end
 
 function duckVolume (om, link)
-  setVolume(om, link, config.duck_level)
+  setVolume(om, link, Settings.get_float("linking.role-based.duck-level"))
 end
 
 function setVolume (om, link, level)
