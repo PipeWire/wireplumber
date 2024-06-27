@@ -14,7 +14,6 @@ log = Log.open_topic ("s-linking")
 
 SimpleEventHook {
   name = "linking/prepare-link",
-  after = "linking/get-filter-from-target",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-target" },

@@ -34,6 +34,7 @@ end
 SimpleEventHook {
   name = "linking/find-filter-target",
   after = "linking/find-defined-target",
+  before = "linking/prepare-link",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-target" },
