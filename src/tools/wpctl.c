@@ -299,6 +299,7 @@ static void
 print_filter_node (const GValue *item, gpointer data)
 {
   struct print_context *context = data;
+  g_autoptr (WpPlugin) def_nodes_api = NULL;
   WpPipewireObject *obj = g_value_get_object (item);
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
@@ -308,6 +309,8 @@ print_filter_node (const GValue *item, gpointer data)
   link_group = wp_pipewire_object_get_property (obj, PW_KEY_NODE_LINK_GROUP);
   if (g_hash_table_contains (context->printed_filters, link_group))
     return;
+
+  def_nodes_api = wp_plugin_find (context->self->core, "default-nodes-api");
 
   /* Print all nodes for this link_group */
   printf (TREE_INDENT_LINE "  - %-60s\n", link_group);
@@ -328,6 +331,11 @@ print_filter_node (const GValue *item, gpointer data)
     if (!name)
       name = wp_pipewire_object_get_property (node, PW_KEY_NODE_DESCRIPTION);
     media_class = wp_pipewire_object_get_property (node, PW_KEY_MEDIA_CLASS);
+
+    context->default_node = -1;
+    if (def_nodes_api)
+      g_signal_emit_by_name (def_nodes_api, "get-default-node", media_class,
+          &context->default_node);
 
     printf (TREE_INDENT_LINE "%c %4u. %-60s [%s]\n",
         context->default_node == id ? '*' : ' ', id, name, media_class);
