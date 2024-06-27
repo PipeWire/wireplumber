@@ -27,7 +27,7 @@ function lutils.clear_flags (self, si_id)
 end
 
 function getprio (link)
-  return tonumber (link.properties ["policy.role-based.priority"])
+  return tonumber (link.properties ["policy.role-based.priority"]) or 0
 end
 
 function getplugged (link)
