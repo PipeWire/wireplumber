@@ -1,5 +1,22 @@
-WirePlumber 0.5.4
+WirePlumber 0.5.5
 ~~~~~~~~~~~~~~~~~
+
+Highlights:
+
+  - Hotfix release to address crashes in the Bluetooth HSP/HFP autoswitch
+    functionality that were side-effects of some changes that were part
+    of the role-based linking policy (#682)
+
+Improvements:
+
+  - wpctl will now properly show a '*' in front of sink filters when they are
+    selected as the default sink (!660)
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.5.4
+.................
 
 Highlights:
 
@@ -33,9 +50,6 @@ Fixes:
 
   - Fixed a rare issue that could cause WirePlumber to crash when dealing with
     a device object that didn't have the "device.name" property set (#674)
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.5.3
 .................
