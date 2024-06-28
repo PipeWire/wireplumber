@@ -63,7 +63,7 @@ function lutils.clearPriorityMediaRoleLink (link)
   for l in cutils.get_object_manager ("session-item"):iterate {
     type = "SiLink",
     Constraint { "item.factory.name", "=", "si-standard-link", type = "pw-global" },
-    Constraint { "is.media.role.link", "=", true },
+    Constraint { "is.role.policy.link", "=", true },
     Constraint { "target.media.class", "=", lmc },
   } do
     local props = l.properties
@@ -120,6 +120,17 @@ function setPriorityMediaRoleLink (lmc, link)
   else
     Log.debug ("clear priority media role")
   end
+end
+
+function lutils.is_role_policy_target (si_props, target_props)
+  -- role-based policy links are those that link to targets with
+  -- policy.role-based.target = true, unless the stream is a monitor
+  -- (usually pavucontrol) or the stream is linking to the monitor ports
+  -- of a sink (both are "input")
+  return Core.test_feature ("hooks.linking.role-based.rescan")
+      and cutils.parseBool (target_props["policy.role-based.target"])
+      and not cutils.parseBool (si_props ["stream.monitor"])
+      and si_props["item.node.direction"] ~= target_props["item.node.direction"]
 end
 
 function lutils.unwrap_select_target_event (self, event)

@@ -82,7 +82,7 @@ function unhandleLinkable (si, om)
         out_flags.peer_id = nil
       end
 
-      if cutils.parseBool (silink.properties["is.media.role.link"]) then
+      if cutils.parseBool (silink.properties["is.role.policy.link"]) then
         lutils.clearPriorityMediaRoleLink(silink)
       end
 

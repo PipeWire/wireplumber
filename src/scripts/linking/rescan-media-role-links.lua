@@ -85,7 +85,7 @@ AsyncEventHook {
       -- on media client link added and removed
       Constraint { "event.type", "c", "session-item-added", "session-item-removed" },
       Constraint { "event.session-item.interface", "=", "link" },
-      Constraint { "is.media.role.link", "=", true },
+      Constraint { "is.role.policy.link", "=", true },
     },
     EventInterest {
       -- on default metadata suspend.playback changed
@@ -140,7 +140,7 @@ AsyncEventHook {
 
         for link in om:iterate {
           type = "SiLink",
-          Constraint { "is.media.role.link", "=", true },
+          Constraint { "is.role.policy.link", "=", true },
           Constraint { "target.media.class", "=", mc },
         } do
           -- deactivate all links if suspend playback metadata is present

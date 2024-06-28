@@ -63,13 +63,7 @@ AsyncEventHook {
           out_item = target
         end
 
-        -- role links are those that link to targets with intended-roles
-        -- unless the stream is a monitor (usually pavucontrol) or the stream
-        -- is linking to the monitor ports of a sink (both are "input")
-        local is_media_role_link = Core.test_feature ("hooks.linking.role-based.rescan")
-            and target_props["device.intended-roles"] ~= nil
-            and not cutils.parseBool (si_props ["stream.monitor"])
-            and si_props["item.node.direction"] ~= target_props["item.node.direction"]
+        local is_role_policy_link = lutils.is_role_policy_target (si_props, target_props)
 
         log:info (si,
           string.format ("link %s <-> %s passthrough:%s, exclusive:%s, media role link:%s",
@@ -77,7 +71,7 @@ AsyncEventHook {
             tostring (target_props ["node.name"]),
             tostring (passthrough),
             tostring (exclusive),
-            tostring (is_media_role_link)))
+            tostring (is_role_policy_link)))
 
         -- create and configure link
         si_link = SessionItem ("si-standard-link")
@@ -93,7 +87,7 @@ AsyncEventHook {
           ["policy.role-based.priority"] = target_props["policy.role-based.priority"],
           ["policy.role-based.action.same-priority"] = target_props["policy.role-based.action.same-priority"],
           ["policy.role-based.action.lower-priority"] = target_props["policy.role-based.action.lower-priority"],
-          ["is.media.role.link"] = is_media_role_link,
+          ["is.role.policy.link"] = is_role_policy_link,
           ["main.item.id"] = si.id,
           ["target.item.id"] = target.id,
         } then
@@ -129,9 +123,9 @@ AsyncEventHook {
         log:debug (si_link, "registered link between "
             .. tostring (si) .. " and " .. tostring (target))
 
-        -- only activate non media role links because their activation is
+        -- only activate non role-based policy links because their activation is
         -- handled by rescan-media-role-links.lua
-        if not is_media_role_link then
+        if not is_role_policy_link then
           si_link:activate (Feature.SessionItem.ACTIVE, function (l, e)
             if e then
               transition:return_error (tostring (l) .. " link failed: "
