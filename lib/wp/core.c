@@ -886,13 +886,6 @@ wp_core_connect (WpCore *self)
   /* Add the registry listener */
   wp_registry_attach (&self->registry, self->pw_core);
 
-  /* Set the export core to be the one shared between pipewire modules */
-  if (pw_properties_get_bool (pw_core_get_properties (self->pw_core),
-          "wireplumber.export-core", false)) {
-    wp_debug_object (self, "set export core to be shared in pipewire modules");
-    pw_context_set_object (self->pw_context, PW_TYPE_INTERFACE_Core, self->pw_core);
-  }
-
   return TRUE;
 }
 
