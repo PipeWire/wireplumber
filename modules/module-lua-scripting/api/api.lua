@@ -216,6 +216,7 @@ SANDBOX_EXPORT = {
   Settings = WpSettings,
   Conf = WpConf,
   JsonUtils = JsonUtils,
+  ProcUtils = ProcUtils,
   SimpleEventHook = WpSimpleEventHook_new,
   AsyncEventHook = WpAsyncEventHook_new,
 }

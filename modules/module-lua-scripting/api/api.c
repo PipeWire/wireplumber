@@ -1906,6 +1906,77 @@ static const luaL_Reg json_utils_funcs[] = {
   { NULL, NULL }
 };
 
+/* ProcInfo */
+
+static int
+proc_info_get_pid (lua_State *L)
+{
+  WpProcInfo *pi = wplua_checkboxed (L, 1, WP_TYPE_PROC_INFO);
+  lua_pushinteger (L, wp_proc_info_get_pid (pi));
+  return 1;
+}
+
+static int
+proc_info_get_parent_pid (lua_State *L)
+{
+  WpProcInfo *pi = wplua_checkboxed (L, 1, WP_TYPE_PROC_INFO);
+  lua_pushinteger (L, wp_proc_info_get_parent_pid (pi));
+  return 1;
+}
+
+static int
+proc_info_get_n_args (lua_State *L)
+{
+  WpProcInfo *pi = wplua_checkboxed (L, 1, WP_TYPE_PROC_INFO);
+  lua_pushinteger (L, wp_proc_info_get_n_args (pi));
+  return 1;
+}
+
+static int
+proc_info_get_arg (lua_State *L)
+{
+  WpProcInfo *pi = wplua_checkboxed (L, 1, WP_TYPE_PROC_INFO);
+  guint index = luaL_checkinteger (L, 2);
+  lua_pushstring (L, wp_proc_info_get_arg (pi, index));
+  return 1;
+}
+
+static int
+proc_info_get_cgroup (lua_State *L)
+{
+  WpProcInfo *pi = wplua_checkboxed (L, 1, WP_TYPE_PROC_INFO);
+  lua_pushstring (L, wp_proc_info_get_cgroup (pi));
+  return 1;
+}
+
+static const luaL_Reg proc_info_funcs[] = {
+  { "get_pid", proc_info_get_pid },
+  { "get_parent_pid", proc_info_get_parent_pid },
+  { "get_cgroup", proc_info_get_cgroup },
+  { "get_n_args", proc_info_get_n_args },
+  { "get_arg", proc_info_get_arg },
+  { NULL, NULL }
+};
+
+/* ProcUtils */
+
+static int
+proc_utils_get_proc_info (lua_State *L)
+{
+  guint pid = luaL_checkinteger (L, 1);
+  WpProcInfo *pi = wp_proc_utils_get_proc_info (pid);
+  if (pi)
+    wplua_pushboxed (L, WP_TYPE_PROC_INFO, pi);
+  else
+    lua_pushnil (L);
+  return 1;
+}
+
+static const luaL_Reg proc_utils_funcs[] = {
+  { "get_proc_info", proc_utils_get_proc_info },
+  { NULL, NULL }
+};
+
 /* WpSettings */
 
 static int
@@ -2812,6 +2883,9 @@ wp_lua_scripting_api_init (lua_State *L)
   luaL_newlib (L, json_utils_funcs);
   lua_setglobal (L, "JsonUtils");
 
+  luaL_newlib (L, proc_utils_funcs);
+  lua_setglobal (L, "ProcUtils");
+
   luaL_newlib (L, settings_methods);
   lua_setglobal (L, "WpSettings");
 
@@ -2873,6 +2947,8 @@ wp_lua_scripting_api_init (lua_State *L)
       NULL, transition_methods);
   wplua_register_type_methods (L, WP_TYPE_CONF,
       conf_new, conf_methods);
+  wplua_register_type_methods (L, WP_TYPE_PROC_INFO,
+      NULL, proc_info_funcs);
 
   if (!wplua_load_uri (L, URI_API, &error) ||
       !wplua_pcall (L, 0, 0, &error)) {
