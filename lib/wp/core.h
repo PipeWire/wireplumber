@@ -72,6 +72,9 @@ WP_API
 gboolean wp_core_connect (WpCore *self);
 
 WP_API
+gboolean wp_core_connect_fd (WpCore *self, int fd);
+
+WP_API
 void wp_core_disconnect (WpCore *self);
 
 WP_API

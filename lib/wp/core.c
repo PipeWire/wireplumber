@@ -890,6 +890,47 @@ wp_core_connect (WpCore *self)
 }
 
 /*!
+ * \brief Connects this core to the PipeWire server on the given socket.
+ *
+ * When connection succeeds, the WpCore \c "connected" signal is emitted.
+ *
+ * \ingroup wpcore
+ * \param self the core
+ * \param fd the connected socket to use, the socket will be closed
+ *   automatically on disconnect or error
+ * \returns TRUE if the core is effectively connected or FALSE if
+ *   connection failed
+ */
+gboolean
+wp_core_connect_fd (WpCore *self, int fd)
+{
+  struct pw_properties *p = NULL;
+
+  g_return_val_if_fail (WP_IS_CORE (self), FALSE);
+  g_return_val_if_fail (fd > -1, FALSE);
+
+  /* Don't do anything if core is already connected */
+  if (self->pw_core)
+    return TRUE;
+
+  /* Connect */
+  p = self->properties ? wp_properties_to_pw_properties (self->properties) : NULL;
+  self->pw_core = pw_context_connect_fd (self->pw_context, fd, p, 0);
+  if (!self->pw_core)
+    return FALSE;
+
+  /* Add the core listeners */
+  pw_core_add_listener (self->pw_core, &self->core_listener, &core_events, self);
+  pw_proxy_add_listener((struct pw_proxy*)self->pw_core,
+      &self->proxy_core_listener, &proxy_core_events, self);
+
+  /* Add the registry listener */
+  wp_registry_attach (&self->registry, self->pw_core);
+
+  return TRUE;
+}
+
+/*!
  * \brief Disconnects this core from the PipeWire server.
  *
  * This also effectively destroys all WpCore objects that were created through
