@@ -127,6 +127,42 @@ Above, ``<ID>`` should be replaced by the WirePlumber daemon client ID.
 Note that PipeWire daemon log levels must be specified by numbers, not
 letter codes.
 
+Changing log level via static configuration
+-------------------------------------------
+
+If you need to capture logs from WirePlumber at startup or in other circumstances
+where changing the level at runtime or setting an environment variable is not
+feasible, then you may also set the log level in the configuration file.
+
+The log level changes via the ``log.level`` key in the ``context.properties``
+section:
+
+.. code::
+
+   context.properties = {
+     log.level = "D"
+   }
+
+You may use the same syntax as in ``WIREPLUMBER_DEBUG`` to describe the exact
+logging you want to achieve. For instance, to log debug messages from all
+scripts and informational messages from everywhere else:
+
+.. code::
+
+   context.properties = {
+     log.level = "I,s-*:D"
+   }
+
+The easiest way to configure this is to drop a
+:ref:`fragment file <config_conf_file_fragments>` that contains just this.
+
+.. code-block:: bash
+
+   $ mkdir -p ~/.config/wireplumber/wireplumber.conf.d
+   $ echo 'context.properties = { log.level = "D" }' > ~/.config/wireplumber/wireplumber.conf.d/log.conf
+
+See also :ref:`config_modifying_configuration`
+
 Examples
 --------
 
