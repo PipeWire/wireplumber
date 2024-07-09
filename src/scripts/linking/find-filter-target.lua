@@ -33,7 +33,7 @@ end
 
 SimpleEventHook {
   name = "linking/find-filter-target",
-  after = "linking/find-defined-target",
+  after = "linking/find-audio-group-target",
   before = "linking/prepare-link",
   interests = {
     EventInterest {

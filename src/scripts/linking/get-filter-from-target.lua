@@ -43,9 +43,15 @@ SimpleEventHook {
       return
     end
 
-    -- bypass the hook if target is defined, is a filter and is targetable
+    -- bypass the hook if the target is an audio group
     local target_node = target:get_associated_proxy ("node")
     local target_node_props = target_node.properties
+    local target_audio_group = target_node_props ["session.audio-group"]
+    if target_audio_group ~= nil then
+      return
+    end
+
+    -- bypass the hook if target is defined, is a filter and is targetable
     local target_link_group = target_node_props ["node.link-group"]
     if target_link_group ~= nil and si_flags.has_defined_target then
       if futils.is_filter_smart (target_direction, target_link_group) and
