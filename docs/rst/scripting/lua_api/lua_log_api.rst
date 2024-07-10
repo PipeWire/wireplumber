@@ -3,6 +3,33 @@
 Debug Logging
 =============
 
+Constructors
+~~~~~~~~~~~~
+
+.. function:: Log.open_topic(topic)
+
+   Opens a LogTopic with the given topic name. Well known script topics are
+   described in :ref:`daemon_logging`, and messages from scripts shall use
+   **s-***.
+
+   Example:
+
+   .. code-block:: lua
+
+     local obj
+     log = Log.open_topic ("s-linking")
+     log:info (obj, "an info message on obj")
+     log:debug ("a debug message")
+
+   Above example shows how to output debug logs.
+
+   :param string topic: The log topic to open
+   :returns: the log topic object
+   :rtype: Log (:c:struct:`WpLogTopic`)
+
+Methods
+~~~~~~~
+
 .. function:: Log.warning(object, message)
 
    Logs a warning message, like :c:macro:`wp_warning_object`
