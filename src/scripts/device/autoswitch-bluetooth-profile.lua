@@ -30,12 +30,10 @@ cutils = require ("common-utils")
 
 state = nil
 headset_profiles = nil
-device_loopback_sources = {}
 
 local profile_restore_timeout_msec = 2000
 
 local INVALID = -1
-local timeout_source = {}
 local restore_timeout_source = {}
 
 local last_profiles = {}
@@ -59,42 +57,6 @@ handlePersistentSetting (Settings.get_boolean ("bluetooth.use-persistent-storage
 Settings.subscribe ("bluetooth.use-persistent-storage", function ()
   handlePersistentSetting (Settings.get_boolean ("bluetooth.use-persistent-storage"))
 end)
-
-devices_om = ObjectManager {
-  Interest {
-    type = "device",
-    Constraint { "device.api", "=", "bluez5" },
-  }
-}
-
-streams_om = ObjectManager {
-  Interest {
-    type = "node",
-    Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
-    Constraint { "node.link-group", "-", type = "pw" },
-    Constraint { "stream.monitor", "!", "true", type = "pw" },
-    Constraint { "bluez5.loopback", "!", "true", type = "pw" }
-  }
-}
-
-filter_nodes_om = ObjectManager {
-  Interest {
-    type = "node",
-    Constraint { "node.link-group", "+", type = "pw" },
-    Constraint { "stream.monitor", "!", "true", type = "pw" },
-    Constraint { "bluez5.loopback", "!", "true", type = "pw" },
-  }
-}
-
-loopback_nodes_om = ObjectManager {
-  Interest {
-    type = "node",
-    Constraint { "media.class", "matches", "Audio/Source", type = "pw-global" },
-    Constraint { "node.link-group", "+", type = "pw" },
-    Constraint { "stream.monitor", "!", "true", type = "pw" },
-    Constraint { "bluez5.loopback", "=", "true", type = "pw" },
-  }
-}
 
 local function saveHeadsetProfile (device, profile_name)
   local key = "saved-headset-profile:" .. device.properties ["device.name"]
@@ -202,9 +164,9 @@ local function hasProfileInputRoute (device, profile_index)
   return false
 end
 
-local function switchDeviceToHeadsetProfile (dev_id)
+local function switchDeviceToHeadsetProfile (dev_id, device_om)
   -- Find the actual device
-  local device = devices_om:lookup {
+  local device = device_om:lookup {
       Constraint { "bound-id", "=", dev_id, type = "gobject" }
   }
   if device == nil then
@@ -264,9 +226,9 @@ local function switchDeviceToHeadsetProfile (dev_id)
   end
 end
 
-local function restoreProfile (dev_id)
+local function restoreProfile (dev_id, device_om)
   -- Find the actual device
-  local device = devices_om:lookup {
+  local device = device_om:lookup {
       Constraint { "bound-id", "=", dev_id, type = "gobject" }
   }
   if device == nil then
@@ -316,7 +278,7 @@ local function restoreProfile (dev_id)
   end
 end
 
-local function triggerRestoreProfile (dev_id)
+local function triggerRestoreProfile (dev_id, device_om)
   -- we never restore the device profiles if there are active streams
   for _, v in pairs (active_streams) do
     if v == dev_id then
@@ -333,18 +295,18 @@ local function triggerRestoreProfile (dev_id)
   -- create new restore callback
   restore_timeout_source[dev_id] = Core.timeout_add (profile_restore_timeout_msec, function ()
     restore_timeout_source[dev_id] = nil
-    restoreProfile (dev_id)
+    restoreProfile (dev_id, device_om)
   end)
 end
 
 -- We consider a Stream of interest if it is linked to a bluetooth loopback
 -- source filter
-local function checkStreamStatus (stream)
+local function checkStreamStatus (stream, node_om)
   -- check if the stream is linked to a bluetooth loopback source
   local stream_id = tonumber(stream["bound-id"])
   local peer_id = lutils.getNodePeerId (stream_id)
   if peer_id ~= nil then
-    local bt_node = loopback_nodes_om:lookup {
+    local bt_node = node_om:lookup {
         Constraint { "bound-id", "=", peer_id, type = "gobject" }
     }
     if bt_node ~= nil then
@@ -362,17 +324,19 @@ local function checkStreamStatus (stream)
       end
     else
       -- Check if it is linked to a filter main node, and recursively advance if so
-      local filter_main_node = filter_nodes_om:lookup {
+      local filter_main_node = node_om:lookup {
         Constraint { "bound-id", "=", peer_id, type = "gobject" }
       }
       if filter_main_node ~= nil then
-        -- Now check the all stream nodes for this filter
+        -- Now check all stream nodes for this filter
         local filter_link_group = filter_main_node.properties ["node.link-group"]
-        for filter_stream_node in filter_nodes_om:iterate {
+        for filter_stream_node in node_om:iterate {
             Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
+            Constraint { "stream.monitor", "!", "true", type = "pw" },
+            Constraint { "bluez5.loopback", "!", "true", type = "pw" },
             Constraint { "node.link-group", "=", filter_link_group, type = "pw" }
           } do
-          local dev_id = checkStreamStatus (filter_stream_node)
+          local dev_id = checkStreamStatus (filter_stream_node, node_om)
           if dev_id ~= nil then
             return dev_id
           end
@@ -384,28 +348,33 @@ local function checkStreamStatus (stream)
   return nil
 end
 
-local function handleStream (stream)
+local function handleStream (stream, node_om, device_om)
   if not Settings.get_boolean ("bluetooth.autoswitch-to-headset-profile") then
     return
   end
 
-  local dev_id = checkStreamStatus (stream)
+  local dev_id = checkStreamStatus (stream, node_om)
   if dev_id ~= nil then
     active_streams [stream.id] = dev_id
     previous_streams [stream.id] = dev_id
-    switchDeviceToHeadsetProfile (dev_id)
+    switchDeviceToHeadsetProfile (dev_id, device_om)
   else
     dev_id = active_streams [stream.id]
     active_streams [stream.id] = nil
     if dev_id ~= nil then
-      triggerRestoreProfile (dev_id)
+      triggerRestoreProfile (dev_id, device_om)
     end
   end
 end
 
-local function handleAllStreams ()
-  for stream in streams_om:iterate() do
-    handleStream (stream)
+local function handleAllStreams (node_om, device_om)
+  for stream in node_om:iterate {
+    Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
+    Constraint { "node.link-group", "-", type = "pw" },
+    Constraint { "stream.monitor", "!", "true", type = "pw" },
+    Constraint { "bluez5.loopback", "!", "true", type = "pw" }
+  } do
+    handleStream (stream, node_om, device_om)
   end
 end
 
@@ -420,11 +389,14 @@ SimpleEventHook {
   },
   execute = function (event)
     local stream = event:get_subject ()
+    local source = event:get_source ()
+    local device_om = source:call ("get-object-manager", "device")
+
     local dev_id = active_streams[stream.id]
     active_streams[stream.id] = nil
     previous_streams[stream.id] = nil
     if dev_id ~= nil then
-      triggerRestoreProfile (dev_id)
+      triggerRestoreProfile (dev_id, device_om)
     end
   end
 }:register ()
@@ -438,12 +410,21 @@ SimpleEventHook {
   },
   execute = function (event)
     local link = event:get_subject ()
-    local p = link.properties
-    for stream in streams_om:iterate () do
-      local in_id = tonumber(p["link.input.node"])
+    local source = event:get_source ()
+    local node_om = source:call ("get-object-manager", "node")
+    local device_om = source:call ("get-object-manager", "device")
+    local link_props = link.properties
+
+    for stream in node_om:iterate {
+      Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
+      Constraint { "node.link-group", "-", type = "pw" },
+      Constraint { "stream.monitor", "!", "true", type = "pw" },
+      Constraint { "bluez5.loopback", "!", "true", type = "pw" }
+    } do
+      local in_id = tonumber(link_props["link.input.node"])
       local stream_id = tonumber(stream["bound-id"])
       if in_id == stream_id then
-        handleStream (stream)
+        handleStream (stream, node_om, device_om)
       end
     end
   end
@@ -459,14 +440,15 @@ SimpleEventHook {
   },
   execute = function (event)
     local device = event:get_subject ()
+    local source = event:get_source ()
+    local node_om = source:call ("get-object-manager", "node")
+    local device_om = source:call ("get-object-manager", "device")
+
     -- Devices are unswitched initially
     saveLastProfile (device, nil)
-    handleAllStreams ()
+
+    -- Handle all streams when BT device is added
+    handleAllStreams (node_om, device_om)
   end
 }:register ()
-
-devices_om:activate ()
-streams_om:activate ()
-filter_nodes_om:activate ()
-loopback_nodes_om:activate()
 
