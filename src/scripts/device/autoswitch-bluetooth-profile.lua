@@ -32,9 +32,11 @@ state = nil
 headset_profiles = nil
 
 local profile_restore_timeout_msec = 2000
+local profile_switch_timeout_msec = 500
 
 local INVALID = -1
 local restore_timeout_source = {}
+local switch_timeout_source = {}
 
 local last_profiles = {}
 
@@ -174,12 +176,6 @@ local function switchDeviceToHeadsetProfile (dev_id, device_om)
     return
   end
 
-  -- clear restore callback, if any
-  if restore_timeout_source[dev_id] ~= nil then
-    restore_timeout_source[dev_id]:destroy ()
-    restore_timeout_source[dev_id] = nil
-  end
-
   local cur_profile_name = getCurrentProfile (device)
   local priority, index, name = findProfile (device, nil, cur_profile_name)
   if hasProfileInputRoute (device, index) then
@@ -278,6 +274,24 @@ local function restoreProfile (dev_id, device_om)
   end
 end
 
+local function triggerSwitchDeviceToHeadsetProfile (dev_id, device_om)
+  -- Always clear any pending restore/switch callbacks when triggering a new switch
+  if restore_timeout_source[dev_id] ~= nil then
+    restore_timeout_source[dev_id]:destroy ()
+    restore_timeout_source[dev_id] = nil
+  end
+  if switch_timeout_source[dev_id] ~= nil then
+    switch_timeout_source[dev_id]:destroy ()
+    switch_timeout_source[dev_id] = nil
+  end
+
+  -- create new switch callback
+  switch_timeout_source[dev_id] = Core.timeout_add (profile_switch_timeout_msec, function ()
+    switch_timeout_source[dev_id] = nil
+    switchDeviceToHeadsetProfile (dev_id, device_om)
+  end)
+end
+
 local function triggerRestoreProfile (dev_id, device_om)
   -- we never restore the device profiles if there are active streams
   for _, v in pairs (active_streams) do
@@ -286,7 +300,11 @@ local function triggerRestoreProfile (dev_id, device_om)
     end
   end
 
-  -- clear restore callback, if any
+  -- Always clear any pending restore/switch callbacks when triggering a new restore
+  if switch_timeout_source[dev_id] ~= nil then
+    switch_timeout_source[dev_id]:destroy ()
+    switch_timeout_source[dev_id] = nil
+  end
   if restore_timeout_source[dev_id] ~= nil then
     restore_timeout_source[dev_id]:destroy ()
     restore_timeout_source[dev_id] = nil
@@ -367,7 +385,7 @@ local function handleStream (stream, node_om, device_om)
   if dev_id ~= nil then
     active_streams [stream.id] = dev_id
     previous_streams [stream.id] = dev_id
-    switchDeviceToHeadsetProfile (dev_id, device_om)
+    triggerSwitchDeviceToHeadsetProfile (dev_id, device_om)
   else
     dev_id = active_streams [stream.id]
     active_streams [stream.id] = nil
