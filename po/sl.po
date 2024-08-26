@@ -1,0 +1,126 @@
+# Slovenian translation for WirePlumber.
+# Copyright (C) 2024 WirePlumber's COPYRIGHT HOLDER
+# This file is distributed under the same license as the WirePlumber package.
+# Martin <miles@filmsi.net>,  2024.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: WirePlumber master\n"
+"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/-/"
+"issues\n"
+"POT-Creation-Date: 2024-07-27 03:32+0000\n"
+"PO-Revision-Date: 2024-07-27 14:58+0200\n"
+"Language-Team: Slovenian <Slovenian>\n"
+"Language: sl\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=4; plural=(n%100==1 ? 1 : n%100==2 ? 2 : n%100==3 || n"
+"%100==4 ? 3 : 0);\n"
+"Last-Translator: Martin Srebotnjak <miles@filmsi.net>\n"
+"X-Generator: Poedit 2.2.1\n"
+
+#. WirePlumber
+#.
+#. Copyright © 2021 Collabora Ltd.
+#. @author George Kiagiadakis <george.kiagiadakis@collabora.com>
+#.
+#. SPDX-License-Identifier: MIT
+#. unique device/node name tables
+#. set the device id and spa factory name; REQUIRED, do not change
+#. set the default pause-on-idle setting
+#. try to negotiate the max ammount of channels
+#. set priority
+#. ensure the node has a media class
+#. ensure the node has a name
+#. sanitize name
+#. deduplicate nodes with the same name
+#. and a nick
+#. also sanitize nick, replace ':' with ' '
+#. ensure the node has a description
+#. also sanitize description, replace ':' with ' '
+#. add api.alsa.card.* properties for rule matching purposes
+#. add cpu.vm.name for rule matching purposes
+#. apply properties from rules defined in JSON .conf file
+#. create the node
+#. ensure the device has an appropriate name
+#. deduplicate devices with the same name
+#. ensure the device has a description
+#: src/scripts/monitors/alsa.lua:219
+msgid "Loopback"
+msgstr "Povratna zanka"
+
+#: src/scripts/monitors/alsa.lua:221
+msgid "Built-in Audio"
+msgstr "Vgrajen zvok"
+
+#: src/scripts/monitors/alsa.lua:223
+msgid "Modem"
+msgstr "Modem"
+
+#. ensure the device has a nick
+#. set the icon name
+#. form factor -> icon
+#. apply properties from rules defined in JSON .conf file
+#. override the device factory to use ACP
+#. use device reservation, if available
+#. unlike pipewire-media-session, this logic here keeps the device
+#. acquired at all times and destroys it if someone else acquires
+#. create the device
+#. attempt to acquire again
+#. destroy the device
+#. create the device
+#. handle create-object to prepare device
+#. handle object-removed to destroy device reservations and recycle device name
+#. reset the name tables to make sure names are recycled
+#. activate monitor
+#. if the reserve-device plugin is enabled, at the point of script execution
+#. it is expected to be connected. if it is not, assume the d-bus connection
+#. has failed and continue without it
+#. handle rd_plugin state changes to destroy and re-create the ALSA monitor in
+#. case D-Bus service is restarted
+#. create the monitor
+#. WirePlumber
+#.
+#. Copyright © 2022 Pauli Virtanen
+#. @author Pauli Virtanen
+#.
+#. SPDX-License-Identifier: MIT
+#. unique device/node name tables
+#. set the node description
+#. sanitize description, replace ':' with ' '
+#. set the node name
+#. sanitize name
+#. deduplicate nodes with the same name
+#. apply properties from the rules in the configuration file
+#. create the node
+#. it doesn't necessarily need to be a local node,
+#. the other Bluetooth parts run in the local process,
+#. so it's consistent to have also this here
+#. reset the name tables to make sure names are recycled
+#: src/scripts/monitors/bluez-midi.lua:114
+#, lua-format
+msgid "BLE MIDI %d"
+msgstr "BLE MIDI %d"
+
+#. if logind support is enabled, activate
+#. the monitor only when the seat is active
+#. WirePlumber
+#.
+#. Copyright © 2023 Collabora Ltd.
+#. @author Ashok Sidipotu <ashok.sidipotu@collabora.com>
+#.
+#. SPDX-License-Identifier: MIT
+#. set the device id and spa factory name; REQUIRED, do not change
+#. set the default pause-on-idle setting
+#. set the node name
+#. sanitize name
+#. deduplicate nodes with the same name
+#. set the node description
+#: src/scripts/monitors/libcamera/name-node.lua:61
+msgid "Built-in Front Camera"
+msgstr "Vgrajena sprednja kamera"
+
+#: src/scripts/monitors/libcamera/name-node.lua:63
+msgid "Built-in Back Camera"
+msgstr "Vgrajena hrbtna kamera"
