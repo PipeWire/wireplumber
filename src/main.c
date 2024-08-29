@@ -217,11 +217,17 @@ main (gint argc, gchar **argv)
 
   /* prepare core properties */
   properties = wp_properties_new (
-      PW_KEY_APP_NAME, "WirePlumber",
       PW_KEY_APP_VERSION, WIREPLUMBER_VERSION,
       "wireplumber.daemon", "true",
       "wireplumber.profile", profile,
       NULL);
+
+  if (g_str_equal (profile, "main")) {
+    wp_properties_set (properties, PW_KEY_APP_NAME, "WirePlumber");
+  } else {
+    g_autofree gchar *app_name = g_strdup_printf ("WirePlumber (%s)", profile);
+    wp_properties_set (properties, PW_KEY_APP_NAME, app_name);
+  }
 
   /* prefer manager socket */
   if (pw_check_library_version(0, 3, 84))
