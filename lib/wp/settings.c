@@ -683,8 +683,11 @@ find_settings_func (gpointer g_object, gpointer metadata_name)
   if (!WP_IS_SETTINGS (g_object))
     return FALSE;
 
-  return g_str_equal (((WpSettings *) g_object)->metadata_name,
-      (gchar *) metadata_name);
+  if (metadata_name)
+    return g_str_equal (((WpSettings *) g_object)->metadata_name,
+        (gchar *) metadata_name);
+  else
+    return TRUE;
 }
 
 /*!
@@ -693,7 +696,8 @@ find_settings_func (gpointer g_object, gpointer metadata_name)
  * \ingroup wpsettings
  * \param core the WpCore
  * \param metadata_name (nullable): the name of the metadata object that the
- *    settings object is associated with; NULL means the default "sm-settings"
+ *    settings object is associated with; NULL returns the first settings object
+ *    that is found
  * \returns (transfer full) (nullable): the WpSettings object, or NULL if not
  *    found
  */
@@ -703,7 +707,7 @@ wp_settings_find (WpCore * core, const gchar * metadata_name)
   g_return_val_if_fail (WP_IS_CORE (core), NULL);
 
   GObject *s = wp_core_find_object (core, (GEqualFunc) find_settings_func,
-      metadata_name ? metadata_name : "sm-settings");
+      metadata_name);
   return s ? WP_SETTINGS (s) : NULL;
 }
 
