@@ -28,7 +28,7 @@ struct _ComponentData
   grefcount ref;
   /* an identifier for this component that is understandable by the end user */
   gchar *printable_id;
-  /* the provided feature name (points to same storage as the id) or NULL */
+  /* the provided feature name or NULL */
   gchar *provides;
   /* the original state of the feature (required / optional / disabled) */
   FeatureState state;
@@ -39,6 +39,8 @@ struct _ComponentData
   WpSpaJson *arguments;
   GPtrArray *requires;  /* value-type: string (owned) */
   GPtrArray *wants;     /* value-type: string (owned) */
+  GPtrArray *before;    /* value-type: string (owned) */
+  GPtrArray *after;     /* value-type: string (owned) */
 
   /* TRUE when the component is in the final sorted list */
   gboolean visited;
@@ -174,6 +176,8 @@ component_data_new_from_json (WpSpaJson * json, WpProperties * features,
   g_ref_count_init (&comp->ref);
   comp->requires = g_ptr_array_new_with_free_func (g_free);
   comp->wants = g_ptr_array_new_with_free_func (g_free);
+  comp->before = g_ptr_array_new_with_free_func (g_free);
+  comp->after = g_ptr_array_new_with_free_func (g_free);
 
   props = wp_properties_new_json (json);
   if (rules && !wp_json_utils_match_rules (rules, props, component_rule_match_cb,
@@ -228,6 +232,28 @@ component_data_new_from_json (WpSpaJson * json, WpProperties * features,
     }
   }
 
+  if ((str = wp_properties_get (props, "before"))) {
+    g_autoptr (WpSpaJson) comp_before = wp_spa_json_new_wrap_string (str);
+    g_autoptr (WpIterator) it = wp_spa_json_new_iterator (comp_before);
+    g_auto (GValue) item = G_VALUE_INIT;
+
+    for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
+      WpSpaJson *dep = g_value_get_boxed (&item);
+      g_ptr_array_add (comp->before, wp_spa_json_to_string (dep));
+    }
+  }
+
+  if ((str = wp_properties_get (props, "after"))) {
+    g_autoptr (WpSpaJson) comp_after = wp_spa_json_new_wrap_string (str);
+    g_autoptr (WpIterator) it = wp_spa_json_new_iterator (comp_after);
+    g_auto (GValue) item = G_VALUE_INIT;
+
+    for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
+      WpSpaJson *dep = g_value_get_boxed (&item);
+      g_ptr_array_add (comp->after, wp_spa_json_to_string (dep));
+    }
+  }
+
   return g_steal_pointer (&comp);
 }
 
@@ -241,6 +267,8 @@ component_data_free (ComponentData * self)
   g_clear_pointer (&self->arguments, wp_spa_json_unref);
   g_clear_pointer (&self->requires, g_ptr_array_unref);
   g_clear_pointer (&self->wants, g_ptr_array_unref);
+  g_clear_pointer (&self->before, g_ptr_array_unref);
+  g_clear_pointer (&self->after, g_ptr_array_unref);
   g_free (self);
 }
 
@@ -295,6 +323,100 @@ wp_component_array_load_task_get_next_step (WpTransition * transition, guint ste
   default:
     g_return_val_if_reached (WP_TRANSITION_STEP_ERROR);
   }
+}
+
+static gboolean
+component_equals (const ComponentData * comp, const gchar * provides)
+{
+  return (comp->provides && g_str_equal (provides, comp->provides));
+}
+
+static inline gboolean
+component_exists_in (const gchar *comp_provides, GPtrArray *list)
+{
+  return g_ptr_array_find_with_equal_func (list, comp_provides,
+      (GEqualFunc) component_equals, NULL);
+}
+
+static gboolean
+sort_components_before_after (WpComponentArrayLoadTask * self, GError ** error)
+{
+  g_autoptr (GPtrArray) remaining = g_ptr_array_new_with_free_func (
+      (GDestroyNotify) component_data_unref);
+  g_autoptr (GPtrArray) result = g_ptr_array_new_with_free_func (
+      (GDestroyNotify) component_data_unref);
+
+  for (guint i = 0; i < self->components->len; i++) {
+    ComponentData *comp = g_ptr_array_index (self->components, i);
+
+    /* implicitly add all "requires" and "wants" as "after" dependencies */
+    g_ptr_array_extend (comp->after, comp->requires, (GCopyFunc) g_strdup, NULL);
+    g_ptr_array_extend (comp->after, comp->wants, (GCopyFunc) g_strdup, NULL);
+
+    /* convert "before" dependencies into "after" dependencies */
+    for (guint j = 0; j < comp->before->len; j++) {
+      gchar *target_provides = g_ptr_array_index (comp->before, j);
+      for (guint k = 0; k < self->components->len; k++) {
+        ComponentData *target = g_ptr_array_index (self->components, k);
+        if (target->provides && g_str_equal (target_provides, target->provides)) {
+          g_ptr_array_insert (target->after, -1, g_strdup (comp->provides));
+        }
+      }
+    }
+  }
+
+  /* sort */
+  while (self->components->len > 0) {
+    gboolean made_progress = FALSE;
+
+    /* examine each component to see if its dependencies are satisfied in the
+       result list; if yes, then append it to the result too */
+    while (self->components->len > 0) {
+      ComponentData *comp = g_ptr_array_steal_index (self->components, 0);
+      guint deps_satisfied = 0;
+
+      wp_trace_object (self, "examining: %s", comp->printable_id);
+
+      for (guint i = 0; i < comp->after->len; i++) {
+        const gchar *dep = g_ptr_array_index (comp->after, i);
+        /* if the dependency is already in the sorted result list or if
+           it doesn't exist at all, we consider it satisfied */
+        if (component_exists_in (dep, result) ||
+            !(component_exists_in (dep, self->components) ||
+              component_exists_in (dep, remaining))) {
+          deps_satisfied++;
+        }
+
+        wp_trace_object (self, "depends: %s, satisfied: %u/%u",
+            dep, deps_satisfied, comp->after->len);
+      }
+
+      if (deps_satisfied == comp->after->len) {
+        wp_trace_object (self, "sorted: %s", comp->printable_id);
+
+        g_ptr_array_add (result, comp);
+        made_progress = TRUE;
+      } else {
+        g_ptr_array_add (remaining, comp);
+      }
+    }
+
+    if (made_progress) {
+      /* run again with the remaining components */
+      g_ptr_array_extend_and_steal (self->components, g_ptr_array_ref (remaining));
+    }
+    else if (remaining->len > 0) {
+      /* if we did not make any progress towards growing the result list,
+         it means the dependencies cannot be satisfied because of circles */
+      g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
+          "detected circular before/after dependencies in the components!");
+      return FALSE;
+    }
+  }
+
+  /* transfer the result array back to self->components */
+  g_ptr_array_extend_and_steal (self->components, g_steal_pointer (&result));
+  return TRUE;
 }
 
 static gchar *
@@ -423,6 +545,10 @@ parse_components (WpComponentArrayLoadTask * self, GError ** error)
       return FALSE;
     }
   }
+
+  /* sort again, taking into account before/after dependencies */
+  if (!sort_components_before_after (self, error))
+    return FALSE;
 
   /* terminate the array with NULL */
   g_ptr_array_add (self->components, NULL);
