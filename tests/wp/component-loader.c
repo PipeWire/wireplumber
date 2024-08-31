@@ -165,7 +165,7 @@ static void
 on_component_failed (WpCore * core, GAsyncResult * res, TestFixture *f)
 {
   gboolean loaded;
-  GError *error = NULL;
+  g_autoptr (GError) error = NULL;
 
   loaded = wp_core_load_component_finish (core, res, &error);
   g_assert_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT);
