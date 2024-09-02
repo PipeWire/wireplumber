@@ -852,6 +852,65 @@ load_module (WpCore * core, const gchar * module_name, WpSpaJson * args,
 }
 
 static gboolean
+parse_profile_description (WpProperties * profile, WpSpaJson * all_profiles_j,
+    const gchar * profile_name, GPtrArray * inherited_set, GError ** error)
+{
+  g_autoptr (WpSpaJson) profile_j = NULL;
+  g_autoptr (WpSpaJson) inherits_j = NULL;
+
+  if (!all_profiles_j) {
+    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
+        "wireplumber.profiles section does not exist in the configuration");
+    return FALSE;
+  }
+
+  if (!wp_spa_json_is_object (all_profiles_j)) {
+    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
+        "wireplumber.profiles section is not an object");
+    return FALSE;
+  }
+
+  if (!wp_spa_json_object_get (all_profiles_j, profile_name, "J", &profile_j, NULL)) {
+    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
+        "profile '%s' not found in the configuration", profile_name);
+    return FALSE;
+  }
+
+  if (!wp_spa_json_is_object (profile_j)) {
+    g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
+        "profile description of '%s' is not an object", profile_name);
+    return FALSE;
+  }
+
+  /* mark as inherited */
+  g_ptr_array_add (inherited_set, g_strdup (profile_name));
+
+  if (wp_spa_json_object_get (profile_j, "inherits", "J", &inherits_j, NULL) &&
+      wp_spa_json_is_array (inherits_j)) {
+    g_autoptr (WpIterator) it = wp_spa_json_new_iterator (inherits_j);
+    g_auto (GValue) item = G_VALUE_INIT;
+
+    for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
+      WpSpaJson *inherited_j = g_value_get_boxed (&item);
+      g_autofree gchar *inherited_profile = wp_spa_json_to_string (inherited_j);
+
+      /* skip if already inherited - avoid loops */
+      if (g_ptr_array_find_with_equal_func (inherited_set, inherited_profile,
+              g_str_equal, NULL))
+        continue;
+
+      if (!parse_profile_description (profile, all_profiles_j, inherited_profile,
+              inherited_set, error))
+        return FALSE;
+    }
+  }
+
+  wp_properties_update_from_json (profile, profile_j);
+  wp_properties_set (profile, "inherits", NULL);
+  return TRUE;
+}
+
+static gboolean
 wp_internal_comp_loader_supports_type (WpComponentLoader * cl,
     const gchar * type)
 {
@@ -878,24 +937,20 @@ wp_internal_comp_loader_load (WpComponentLoader * self, WpCore * core,
       /* component name is the profile name;
          component list and profile features are loaded from config */
       g_autoptr (WpConf) conf = wp_core_get_conf (core);
+      g_autoptr (GPtrArray) inherited_set = g_ptr_array_new_with_free_func (g_free);
       g_autoptr (WpSpaJson) all_profiles_j = NULL;
-      g_autoptr (WpSpaJson) profile_j = NULL;
+      g_autoptr (GError) error = NULL;
       const gchar *profile_name = component;
 
       all_profiles_j = wp_conf_get_section (conf, "wireplumber.profiles");
-      if (all_profiles_j)
-        wp_spa_json_object_get (all_profiles_j, profile_name, "J", &profile_j, NULL);
 
-      if (!profile_j) {
+      if (!parse_profile_description (profile, all_profiles_j, profile_name,
+              inherited_set, &error)) {
         g_autoptr (GTask) task = g_task_new (self, cancellable, callback, data);
         g_task_set_source_tag (task, wp_internal_comp_loader_load);
-        g_task_return_new_error (G_TASK (task), WP_DOMAIN_LIBRARY,
-            WP_LIBRARY_ERROR_INVALID_ARGUMENT,
-            "profile '%s' not found in configuration", profile_name);
+        g_task_return_error (G_TASK (task), g_steal_pointer (&error));
         return;
       }
-
-      wp_properties_update_from_json (profile, profile_j);
 
       components = wp_conf_get_section (conf, "wireplumber.components");
       rules = wp_conf_get_section (conf, "wireplumber.components.rules");
