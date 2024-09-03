@@ -12,7 +12,7 @@ SystemCallArchitectures=native
 SystemCallFilter=@system-service
 Type=simple
 AmbientCapabilities=CAP_SYS_NICE
-ExecStart=@WP_BINARY@
+ExecStart=@WP_BINARY@ -p main-systemwide
 Restart=on-failure
 User=pipewire
 Environment=PIPEWIRE_RUNTIME_DIR=%t/pipewire
