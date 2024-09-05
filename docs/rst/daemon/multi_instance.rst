@@ -3,12 +3,6 @@
 Running multiple instances
 ==========================
 
-.. warning::
-
-   Multi-instance mode has not been extensively tested in 0.5.0, so it is
-   possible that some features are not working as expected. An update on this is
-   planned for a subsequent 0.5.x release.
-
 WirePlumber has the ability to run either as a single instance daemon or as
 multiple instances, meaning that there can be multiple processes, each one
 doing a different task.
@@ -30,6 +24,46 @@ select the profile to load:
 
 When no particular profile is specified, the ``main`` profile is loaded.
 
+For multi-instance configuration, the default ``wireplumber.conf`` specifies 4
+profiles:
+
+.. describe:: policy
+
+  This profile runs all the policy scripts, i.e. ones that monitor changes
+  in the graph and execute actions to link nodes, select default devices,
+  create new nodes or configure existing ones differently.
+
+.. describe:: audio
+
+  The audio profile runs the ALSA and ALSA MIDI monitors, which make audio &
+  MIDI devices available to PipeWire.
+
+.. describe:: bluetooth
+
+  The bluetooth profile runs the BlueZ and BlueZ MIDI monitors, which enable
+  Bluetooth audio & MIDI devices and other Bluetooth functionality tied to the
+  A2DP, HSP, HFP and BAP profiles, using BlueZ.
+
+.. describe:: video-capture
+
+  The video-capture profile runs the V4L2 and libcamera monitors, which make
+  video capture devices, such as cameras and HDMI capture cards, available
+  to PipeWire.
+
+.. note::
+
+  The ``main`` profile includes all the functionality of the ``policy``,
+  ``audio``, ``video-capture`` and ``bluetooth`` profiles combined (i.e. it is
+  the default for a standard single instance configuration). You should never
+  load the ``main`` profile alongside these other 4 profiles, as their
+  functionality will conflict.
+
+.. warning::
+
+  Always ensure that the instances you load serve a different purpose and they
+  do not conflict with each other. Conflicting components executed in parallel
+  will have undefined behavior.
+
 Systemd integration
 -------------------
 
@@ -38,11 +72,10 @@ meant to be started with the name of the profile as a template argument:
 
 .. code-block:: console
 
-  $ systemctl --user disable wireplumber # disable the "main" instance
-
+  $ systemctl --user disable wireplumber # disable the "main" profile instance
   $ systemctl --user enable wireplumber@policy
   $ systemctl --user enable wireplumber@audio
-  $ systemctl --user enable wireplumber@camera
+  $ systemctl --user enable wireplumber@video-capture
   $ systemctl --user enable wireplumber@bluetooth
 
 .. note::
@@ -53,7 +86,3 @@ meant to be started with the name of the profile as a template argument:
    ``wireplumber.conf``. To change the name of the configuration file you need
    to craft custom systemd unit files and use the ``--config-file`` command line
    option as needed.
-
-It is obviously possible to start as many instances as desired, with manually
-crafted profiles, as long as it is ensured that these instances
-serve a different purpose and they do not conflict with each other.
