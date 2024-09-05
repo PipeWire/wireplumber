@@ -1,5 +1,37 @@
-WirePlumber 0.5.5
+WirePlumber 0.5.6
 ~~~~~~~~~~~~~~~~~
+
+Additions:
+
+  - Implemented before/after dependencies for components, to ensure correct
+    load order in custom configurations (#600)
+
+  - Implemented profile inheritance in the configuration file. This allows
+    profiles to inherit all the feature specifications of other profiles, which
+    is useful to avoid copying long lists of features just to make small changes
+
+  - Added multi-instance configuration profiles, tested and documented them
+
+  - Added a ``main-systemwide`` profile, which is now the default for instances
+    started via the system-wide systemd service and disables features that
+    depend on the user session (#608)
+
+  - Added a ``wp_core_connect_fd`` method, which allows making a connection to
+    PipeWire via an existing open socket (useful for portal-based connections)
+
+Fixes:
+
+  - The Bluetooth auto-switch script now uses the common event source object
+    managers, which should improve its stability (!663)
+
+  - Fix an issue where switching between Bluetooth profiles would temporarily
+    link active audio streams to the internal speakers (!655)
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.5.5
+.................
 
 Highlights:
 
@@ -11,9 +43,6 @@ Improvements:
 
   - wpctl will now properly show a '*' in front of sink filters when they are
     selected as the default sink (!660)
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.5.4
 .................
