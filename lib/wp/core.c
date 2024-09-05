@@ -911,6 +911,7 @@ wp_core_connect (WpCore *self)
  *   automatically on disconnect or error
  * \returns TRUE if the core is effectively connected or FALSE if
  *   connection failed
+ * \since 0.5.6
  */
 gboolean
 wp_core_connect_fd (WpCore *self, int fd)
