@@ -301,13 +301,14 @@ end
 
 -- We consider a Stream of interest if it is linked to a bluetooth loopback
 -- source filter
-local function checkStreamStatus (stream, node_om)
+local function checkStreamStatus (stream, node_om, visited_link_groups)
   -- check if the stream is linked to a bluetooth loopback source
   local stream_id = tonumber(stream["bound-id"])
   local peer_id = lutils.getNodePeerId (stream_id)
   if peer_id ~= nil then
     local bt_node = node_om:lookup {
-        Constraint { "bound-id", "=", peer_id, type = "gobject" }
+        Constraint { "bound-id", "=", peer_id, type = "gobject" },
+        Constraint { "bluez5.loopback", "=", "true", type = "pw" }
     }
     if bt_node ~= nil then
       local dev_id = bt_node.properties["device.id"]
@@ -325,18 +326,27 @@ local function checkStreamStatus (stream, node_om)
     else
       -- Check if it is linked to a filter main node, and recursively advance if so
       local filter_main_node = node_om:lookup {
-        Constraint { "bound-id", "=", peer_id, type = "gobject" }
+        Constraint { "bound-id", "=", peer_id, type = "gobject" },
+        Constraint { "node.link-group", "+", type = "pw" }
       }
       if filter_main_node ~= nil then
         -- Now check all stream nodes for this filter
         local filter_link_group = filter_main_node.properties ["node.link-group"]
+        if visited_link_groups == nil then
+          visited_link_groups = {}
+        end
+        if visited_link_groups [filter_link_group] then
+          return nil
+        else
+          visited_link_groups [filter_link_group] = true
+        end
         for filter_stream_node in node_om:iterate {
             Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
             Constraint { "stream.monitor", "!", "true", type = "pw" },
             Constraint { "bluez5.loopback", "!", "true", type = "pw" },
             Constraint { "node.link-group", "=", filter_link_group, type = "pw" }
           } do
-          local dev_id = checkStreamStatus (filter_stream_node, node_om)
+          local dev_id = checkStreamStatus (filter_stream_node, node_om, visited_link_groups)
           if dev_id ~= nil then
             return dev_id
           end
