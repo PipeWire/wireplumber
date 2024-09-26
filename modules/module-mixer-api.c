@@ -501,7 +501,7 @@ wp_mixer_api_set_volume (WpMixerApi * self, guint32 id, GVariant * vvolume)
   props = wp_spa_pod_builder_end (b);
 
   if (info->device_id != SPA_ID_INVALID) {
-    WpPipewireObject *device = wp_object_manager_lookup (self->om,
+    g_autoptr (WpPipewireObject) device = wp_object_manager_lookup (self->om,
         WP_TYPE_DEVICE, WP_CONSTRAINT_TYPE_G_PROPERTY,
         "bound-id", "=u", info->device_id, NULL);
     g_return_val_if_fail (device != NULL, FALSE);
@@ -514,7 +514,7 @@ wp_mixer_api_set_volume (WpMixerApi * self, guint32 id, GVariant * vvolume)
         "save", "b", true,
         NULL));
   } else {
-    WpPipewireObject *node = wp_object_manager_lookup (self->om,
+    g_autoptr (WpPipewireObject) node = wp_object_manager_lookup (self->om,
         WP_TYPE_NODE, WP_CONSTRAINT_TYPE_G_PROPERTY,
         "bound-id", "=u", id, NULL);
     g_return_val_if_fail (node != NULL, FALSE);
