@@ -212,6 +212,19 @@ wp_dbus_connection_set_property (GObject * object, guint property_id,
 }
 
 static void
+wp_dbus_connection_finalize (GObject * object)
+{
+  WpDBusConnection *self = WP_DBUS_CONNECTION (object);
+
+  g_cancellable_cancel (self->cancellable);
+
+  g_clear_object (&self->connection);
+  g_clear_object (&self->cancellable);
+
+  G_OBJECT_CLASS (wp_dbus_connection_parent_class)->finalize (object);
+}
+
+static void
 wp_dbus_connection_class_init (WpDBusConnectionClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
@@ -219,6 +232,7 @@ wp_dbus_connection_class_init (WpDBusConnectionClass * klass)
 
   object_class->get_property = wp_dbus_connection_get_property;
   object_class->set_property = wp_dbus_connection_set_property;
+  object_class->finalize = wp_dbus_connection_finalize;
 
   plugin_class->enable = wp_dbus_connection_enable;
   plugin_class->disable = wp_dbus_connection_disable;
