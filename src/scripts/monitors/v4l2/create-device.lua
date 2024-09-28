@@ -14,17 +14,7 @@ config = {}
 config.rules = Conf.get_section_as_json ("monitor.v4l2.rules", Json.Array {})
 
 function createV4l2camNode (parent, id, type, factory, properties)
-  local registered = mutils:register_cam_node (parent, id, factory, properties)
-  if not registered then
-    source = source or Plugin.find ("standard-event-source")
-    local e = source:call ("create-event", "create-v4l2-device-node",
-      parent, nil)
-    e:set_data ("factory", factory)
-    e:set_data ("node-properties", properties)
-    e:set_data ("node-sub-id", id)
-
-    EventDispatcher.push_event (e)
-  end
+  mutils:register_cam_node (parent, id, factory, properties)
 end
 
 SimpleEventHook {
