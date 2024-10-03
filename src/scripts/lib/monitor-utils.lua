@@ -98,11 +98,22 @@ function mutils.create_cam_nodes(self)
   end
 
   for _, data in ipairs(libcamera_cameras) do
-    if table_contains(device_ids_v4l2, data.dev_ids[1]) then
-      log:debug ("skipping device " .. data.obj_path)
+    local should_create = true
+
+    for _, dev_id in ipairs(data.dev_ids) do
+      if table_contains(device_ids_v4l2, dev_id) then
+        should_create = false
+        break
+      end
+    end
+
+    if not should_create then
+      log:warning ("skipping device " .. data.obj_path)
     else
       create_cam_node (data)
-      table.insert(device_ids_libcamera, data.dev_ids[1])
+      for _, dev_id in ipairs(data.dev_ids) do
+        table.insert(device_ids_libcamera, dev_id)
+      end
     end
   end
 
