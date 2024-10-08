@@ -6,22 +6,23 @@
 # Cheng-Chia Tseng <pswo10680@gmail.com>, 2010, 2012.
 # Frank Hill <hxf.prc@gmail.com>, 2015.
 # Mingye Wang (Arthur2e5) <arthur200126@gmail.com>, 2015.
+# lumingzh <lumingzh@qq.com>, 2024.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: pipewire.master-tx\n"
-"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/"
-"issues/new\n"
-"POT-Creation-Date: 2022-04-09 15:19+0300\n"
-"PO-Revision-Date: 2021-04-18 10:56+0800\n"
-"Last-Translator: Huang-Huang Bao <i@eh5.me>\n"
-"Language-Team: Huang-Huang Bao <i@eh5.me>\n"
+"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/-/"
+"issues\n"
+"POT-Creation-Date: 2024-01-08 15:36+0000\n"
+"PO-Revision-Date: 2024-10-08 08:59+0800\n"
+"Last-Translator: lumingzh <lumingzh@qq.com>\n"
+"Language-Team: Chinese (China) <i18n-zh@googlegroups.com>\n"
 "Language: zh_CN\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "X-Launchpad-Export-Date: 2016-03-22 13:23+0000\n"
-"X-Generator: Poedit 2.4.1\n"
+"X-Generator: Gtranslator 47.0\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
 #. WirePlumber
@@ -30,10 +31,7 @@ msgstr ""
 #. @author George Kiagiadakis <george.kiagiadakis@collabora.com>
 #.
 #. SPDX-License-Identifier: MIT
-#. Receive script arguments from config.lua
-#. ensure config.properties is not nil
-#. preprocess rules and create Interest objects
-#. applies properties from config.rules when asked to
+#. unique device/node name tables
 #. set the device id and spa factory name; REQUIRED, do not change
 #. set the default pause-on-idle setting
 #. try to negotiate the max ammount of channels
@@ -47,15 +45,87 @@ msgstr ""
 #. ensure the node has a description
 #. also sanitize description, replace ':' with ' '
 #. add api.alsa.card.* properties for rule matching purposes
-#. apply properties from config.rules
+#. add vm.type for rule matching purposes
+#. apply properties from rules defined in JSON .conf file
 #. create the node
 #. ensure the device has an appropriate name
 #. deduplicate devices with the same name
 #. ensure the device has a description
-#: src/scripts/monitors/alsa.lua:222
+#: src/scripts/monitors/alsa.lua:211
+msgid "Loopback"
+msgstr "回环"
+
+#: src/scripts/monitors/alsa.lua:213
 msgid "Built-in Audio"
 msgstr "内置音频"
 
-#: src/scripts/monitors/alsa.lua:224
+#: src/scripts/monitors/alsa.lua:215
 msgid "Modem"
 msgstr "调制解调器"
+
+#. ensure the device has a nick
+#. set the icon name
+#. form factor -> icon
+#. apply properties from rules defined in JSON .conf file
+#. override the device factory to use ACP
+#. use device reservation, if available
+#. unlike pipewire-media-session, this logic here keeps the device
+#. acquired at all times and destroys it if someone else acquires
+#. create the device
+#. attempt to acquire again
+#. destroy the device
+#. create the device
+#. handle create-object to prepare device
+#. handle object-removed to destroy device reservations and recycle device name
+#. reset the name tables to make sure names are recycled
+#. activate monitor
+#. if the reserve-device plugin is enabled, at the point of script execution
+#. it is expected to be connected. if it is not, assume the d-bus connection
+#. has failed and continue without it
+#. handle rd_plugin state changes to destroy and re-create the ALSA monitor in
+#. case D-Bus service is restarted
+#. create the monitor
+#. WirePlumber
+#.
+#. Copyright © 2022 Pauli Virtanen
+#. @author Pauli Virtanen
+#.
+#. SPDX-License-Identifier: MIT
+#. unique device/node name tables
+#. set the node description
+#. sanitize description, replace ':' with ' '
+#. set the node name
+#. sanitize name
+#. deduplicate nodes with the same name
+#. apply properties from bluetooth.conf
+#. create the node
+#. it doesn't necessarily need to be a local node,
+#. the other Bluetooth parts run in the local process,
+#. so it's consistent to have also this here
+#. reset the name tables to make sure names are recycled
+#: src/scripts/monitors/bluez-midi.lua:113
+#, lua-format
+msgid "BLE MIDI %d"
+msgstr "BLE MIDI %d"
+
+#. if logind support is enabled, activate
+#. the monitor only when the seat is active
+#. WirePlumber
+#.
+#. Copyright © 2023 Collabora Ltd.
+#. @author Ashok Sidipotu <ashok.sidipotu@collabora.com>
+#.
+#. SPDX-License-Identifier: MIT
+#. set the device id and spa factory name; REQUIRED, do not change
+#. set the default pause-on-idle setting
+#. set the node name
+#. sanitize name
+#. deduplicate nodes with the same name
+#. set the node description
+#: src/scripts/monitors/libcamera/name-node.lua:61
+msgid "Built-in Front Camera"
+msgstr "内置前摄像头"
+
+#: src/scripts/monitors/libcamera/name-node.lua:63
+msgid "Built-in Back Camera"
+msgstr "内置后摄像头"
