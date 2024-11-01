@@ -42,6 +42,8 @@ struct _WpReserveDevice
   WpReserveDeviceState state;
   guint watcher_id;
   guint owner_id;
+
+  GCancellable *get_owner_call;
 };
 
 void wp_reserve_device_export_object (WpReserveDevice *self);

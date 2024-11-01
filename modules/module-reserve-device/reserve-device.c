@@ -53,6 +53,14 @@ on_got_proxy (GObject * src, GAsyncResult * res, WpReserveDevice *self)
   g_autoptr (GError) error = NULL;
   g_autoptr (WpOrgFreedesktopReserveDevice1) proxy =
       wp_org_freedesktop_reserve_device1_proxy_new_finish (res, &error);
+
+  if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+    /* Operation canceled: self may be invalid by now. */
+    return;
+  }
+
+  g_clear_object (&self->get_owner_call);
+
   if (!proxy) {
     wp_info_object (self, "%s: Could not get proxy of remote reservation: %s",
         self->name, error->message);
@@ -73,15 +81,20 @@ on_got_proxy (GObject * src, GAsyncResult * res, WpReserveDevice *self)
 static void
 update_owner_app_name (WpReserveDevice *self)
 {
+  g_cancellable_cancel (self->get_owner_call);
+  g_clear_object (&self->get_owner_call);
+
   if (self->state == WP_RESERVE_DEVICE_STATE_BUSY && !self->owner_app_name) {
     /* create proxy */
     g_autoptr (WpReserveDevicePlugin) plugin = g_weak_ref_get (&self->plugin);
     g_autoptr (GDBusConnection) conn = NULL;
     g_object_get (plugin->dbus, "connection", &conn, NULL);
+
+    self->get_owner_call = g_cancellable_new ();
     wp_org_freedesktop_reserve_device1_proxy_new (conn,
         G_DBUS_PROXY_FLAGS_DO_NOT_CONNECT_SIGNALS |
         G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START,
-        self->service_name, self->object_path, NULL,
+        self->service_name, self->object_path, self->get_owner_call,
         (GAsyncReadyCallback) on_got_proxy, self);
   }
   else if (self->state != WP_RESERVE_DEVICE_STATE_BUSY && self->owner_app_name) {
@@ -151,6 +164,9 @@ wp_reserve_device_finalize (GObject * object)
     g_bus_unwatch_name (self->watcher_id);
   if (self->owner_id > 0)
     g_bus_unown_name (self->owner_id);
+
+  g_cancellable_cancel (self->get_owner_call);
+  g_clear_object (&self->get_owner_call);
 
   g_weak_ref_clear (&self->plugin);
   g_weak_ref_clear (&self->transition);
