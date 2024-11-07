@@ -189,7 +189,7 @@ function createNode(parent, id, obj_type, factory, properties)
   -- set the default pause-on-idle setting
   properties["node.pause-on-idle"] = false
 
-  -- try to negotiate the max ammount of channels
+  -- try to negotiate the max amount of channels
   if dev_props["api.alsa.use-acp"] ~= "true" then
     properties["audio.channels"] = properties["audio.channels"] or "64"
   end

@@ -323,8 +323,8 @@ spa_device_event_info (void *data, const struct spa_device_info *info)
   WpSpaDevice *self = WP_SPA_DEVICE (data);
 
   /*
-   * This is emited syncrhonously at the time we add the listener and
-   * before object_info is emited. It gives us additional properties
+   * This is emitted synchronously at the time we add the listener and
+   * before object_info is emitted. It gives us additional properties
    * about the device, like the "api.alsa.card.*" ones that are not
    * set by the monitor
    */

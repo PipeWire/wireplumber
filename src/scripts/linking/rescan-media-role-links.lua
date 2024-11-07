@@ -35,7 +35,7 @@ function setVolume (om, link, level)
   }
 
   -- apply volume control on the stream node of the loopback module, instead of
-  -- the sink/source node as it simplyfies the volume ducking and
+  -- the sink/source node as it simplifies the volume ducking and
   -- restoration.
   local media_role_other_lnkbl = om:lookup {
     type = "SiLinkable",

@@ -203,7 +203,7 @@ wp_properties_new_wrap (const struct pw_properties * props)
  * allowing reading & writing properties on that \a props structure through
  * the WpProperties API.
  *
- * In constrast with wp_properties_new_wrap(), this function assumes ownership
+ * In contrast with wp_properties_new_wrap(), this function assumes ownership
  * of the \a props structure, so it will try to free \a props when it is destroyed.
  *
  * \ingroup wpproperties
@@ -1036,7 +1036,7 @@ wp_properties_unref_and_take_pw_properties (WpProperties * self)
  * \ingroup wpproperties
  * \param self a properties object
  * \param other a set of properties to match
- * \returns TRUE if all matches were successfull, FALSE if at least one
+ * \returns TRUE if all matches were successful, FALSE if at least one
  *   property value did not match
  */
 gboolean

@@ -85,7 +85,7 @@ typedef enum { /*< flags >*/
  */
 typedef enum { /*< flags >*/
   WP_INTEREST_MATCH_FLAGS_NONE = 0,
-  /*! check all the constraints instead of returning after the first mis-match */
+  /*! check all the constraints instead of returning after the first mismatch */
   WP_INTEREST_MATCH_FLAGS_CHECK_ALL = (1 << 0),
 } WpInterestMatchFlags;
 

@@ -53,7 +53,7 @@ match_rules_cb (void *data, const char *location, const char *action,
  *     {
  *         matches = [
  *             # any of the items in matches needs to match, if one does,
- *             # actions are emited.
+ *             # actions are emitted.
  *             {
  *                 # all keys must match the value. ! negates. ~ starts regex.
  *                 <key> = <value>

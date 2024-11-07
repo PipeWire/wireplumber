@@ -204,7 +204,7 @@ by libpipewire to configure the PipeWire context:
   .. note::
 
      PipeWire modules can also be loaded as :ref:`components <config_components_and_profiles>`,
-     which may be preferrable since it allows you to load them conditionally
+     which may be preferable since it allows you to load them conditionally
      based on the profile and component dependencies.
 
   .. admonition:: Remember

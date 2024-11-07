@@ -29,7 +29,7 @@ SimpleEventHook {
     local name = lnkbl.properties ["node.name"]
 
     if tu.linkablesReady () and name ~= "stream-node" then
-      -- all linkables created execept stream-node
+      -- all linkables created except stream-node
       tu.createStreamNode ("capture")
     elseif tu.linkablesReady () and tu.lnkbls ["stream-node"] then
       -- when "stream-node" linkable is ready

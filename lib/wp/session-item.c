@@ -407,7 +407,7 @@ on_session_item_proxy_destroyed_deferred (WpSessionItem * item)
 }
 
 /*!
- * \brief Helper callback for sub-classes that deffers and unexports
+ * \brief Helper callback for sub-classes that defers and unexports
  * the session item.
  *
  * Only meant to be used when the pipewire proxy destroyed signal is triggered.

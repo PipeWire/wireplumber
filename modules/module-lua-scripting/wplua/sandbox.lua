@@ -62,7 +62,7 @@ function create_sandbox_env()
 end
 
 if SANDBOX_CONFIG["isolate_env"] then
-  -- in isolate_env mode, use a separate enviornment for each loaded chunk and
+  -- in isolate_env mode, use a separate environment for each loaded chunk and
   -- store all of them in a global table so that they are not garbage collected
   SANDBOX_ENV_LIST = {}
 

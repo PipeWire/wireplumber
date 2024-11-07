@@ -30,7 +30,7 @@ SimpleEventHook {
     local name = lnkbl.properties ["node.name"]
 
     if tu.linkablesReady () and name ~= "stream-node" then
-      -- all linkables created execept stream-node
+      -- all linkables created except stream-node
       local props = {
         ["target.object"] = tu.lnkbls ["defined-device-node-in-props"].properties ["node.id"]
       }
