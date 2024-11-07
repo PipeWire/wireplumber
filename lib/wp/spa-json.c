@@ -580,7 +580,7 @@ wp_spa_json_new_object_valist (const gchar *key, const gchar *format,
 }
 
 /*!
- * \brief Checks wether the spa json is of type null or not
+ * \brief Checks whether the spa json is of type null or not
  *
  * \ingroup wpspajson
  * \param self the spa json object
@@ -593,7 +593,7 @@ wp_spa_json_is_null (WpSpaJson *self)
 }
 
 /*!
- * \brief Checks wether the spa json is of type boolean or not
+ * \brief Checks whether the spa json is of type boolean or not
  *
  * \ingroup wpspajson
  * \param self the spa json object
@@ -606,7 +606,7 @@ wp_spa_json_is_boolean (WpSpaJson *self)
 }
 
 /*!
- * \brief Checks wether the spa json is of type int or not
+ * \brief Checks whether the spa json is of type int or not
  *
  * \ingroup wpspajson
  * \param self the spa json object
@@ -619,7 +619,7 @@ wp_spa_json_is_int (WpSpaJson *self)
 }
 
 /*!
- * \brief Checks wether the spa json is of type float or not
+ * \brief Checks whether the spa json is of type float or not
  *
  * \ingroup wpspajson
  * \param self the spa json object
@@ -632,7 +632,7 @@ wp_spa_json_is_float (WpSpaJson *self)
 }
 
 /*!
- * \brief Checks wether the spa json is of type string or not
+ * \brief Checks whether the spa json is of type string or not
  *
  * \ingroup wpspajson
  * \param self the spa json object

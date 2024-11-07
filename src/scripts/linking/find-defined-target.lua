@@ -5,7 +5,7 @@
 -- SPDX-License-Identifier: MIT
 --
 -- Check if the target node is defined explicitly.
--- This defination can be done in two ways.
+-- This definition can be done in two ways.
 -- 1. "node.target"/"target.object" in the node properties
 -- 2. "target.node"/"target.object" in the default metadata
 

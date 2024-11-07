@@ -73,7 +73,7 @@ test_si_node_configure_activate (TestFixture * f, gconstpointer user_data)
   g_autoptr (WpNode) node = NULL;
   g_autoptr (WpSessionItem) item = NULL;
 
-  /* skip test if spa factory is not insalled */
+  /* skip test if spa factory is not installed */
   if (!test_is_spa_lib_installed (&f->base, data->factory)) {
     g_autofree gchar *msg = NULL;
     msg = g_strdup_printf ("The pipewire %s factory was not found",

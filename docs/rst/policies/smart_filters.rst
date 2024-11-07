@@ -14,7 +14,7 @@ chain, the policy will automatically link the stream with the first filter in
 the chain, and the last filter in the chain with the target node. This is done
 transparently to the client, allowing users to define a specific processing
 chain for a specific device without having to create setups with virtual sinks
-(or sources) that must be explicitly targetted by the clients.
+(or sources) that must be explicitly targeted by the clients.
 
 Filters, in general, are nodes that are placed in the middle of the graph and
 are used to modify the data that passes through them. For example, the

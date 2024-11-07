@@ -50,7 +50,7 @@ the first one has the highest priority and the last one has the lowest.
 
 .. note::
 
-   When the configuration directory is overriden with
+   When the configuration directory is overridden with
    ``WIREPLUMBER_CONFIG_DIR``, the default locations are ignored and
    configuration files are *only* looked up in the directories specified by this
    variable.
@@ -75,7 +75,7 @@ When WirePlumber loads a configuration file from the default locations, it will
 also load all configuration fragments that are present in all of the default
 locations, but following the reverse order of priority. This allows
 configuration fragments that are installed in more system-wide locations to be
-overriden by the system administrator or the users.
+overridden by the system administrator or the users.
 
 For example, assuming WirePlumber loads ``wireplumber.conf``, from any of the
 search locations, it will also locate and load the following fragments, in this

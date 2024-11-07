@@ -81,7 +81,7 @@ G_DEFINE_BOXED_TYPE (WpObjectInterest, wp_object_interest,
  * For further reading on the constraint's arguments, see
  * wp_object_interest_add_constraint()
  *
- * For example, this interest matches objects that are descendands of WpProxy
+ * For example, this interest matches objects that are descendants of WpProxy
  * with a "bound-id" between 0 and 100 (inclusive), with a pipewire property
  * called "format.dsp" that contains the string "audio" somewhere in the value
  * and with a pipewire property "port.name" being present (with any value):

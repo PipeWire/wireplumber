@@ -82,7 +82,7 @@ wp_pipewire_object_default_init (WpPipewireObjectInterface * iface)
 }
 
 /*!
- * \brief Retrieves the native infor structure of this object
+ * \brief Retrieves the native info structure of this object
  * (pw_node_info, pw_port_info, etc...)
  *
  * \remark Requires WP_PIPEWIRE_OBJECT_FEATURE_INFO

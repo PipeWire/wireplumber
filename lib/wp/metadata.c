@@ -41,7 +41,7 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-metadata")
  *                   gchar * value,
  *                   gpointer user_data)
  * \endcode
- * Emited when metadata change
+ * Emitted when metadata change
  *
  * Parameters:
  * - `subject` - the metadata subject id
