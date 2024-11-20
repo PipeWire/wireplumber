@@ -631,7 +631,7 @@ wp_node_send_command (WpNode * self, const gchar * command)
 
   struct spa_command cmd =
       SPA_NODE_COMMAND_INIT(wp_spa_id_value_number (command_value));
-  pw_node_send_command (wp_proxy_get_pw_proxy (WP_PROXY (self)), &cmd);
+  pw_node_send_command ((struct pw_node*)wp_proxy_get_pw_proxy (WP_PROXY (self)), &cmd);
 }
 
 /*! \defgroup wpimplnode WpImplNode */
