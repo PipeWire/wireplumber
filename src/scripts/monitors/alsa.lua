@@ -108,6 +108,8 @@ function createNode(parent, id, obj_type, factory, properties)
       properties["node.name"] = name .. "." .. counter
       log:info ("deduplicating node name -> " .. properties["node.name"])
     end
+  else
+    log:info ("Creating node " .. properties["node.name"])
   end
 
   -- and a nick
@@ -164,7 +166,16 @@ function createNode(parent, id, obj_type, factory, properties)
 
   -- create the node
   local node = Node("adapter", properties)
-  node:activate(Feature.Proxy.BOUND)
+  node:activate(Feature.Proxy.BOUND, function (_, err)
+      if err then
+        log:warning ("Failed to create " .. properties ["node.name"]
+          .. ": " .. tostring(err))
+
+        -- if it fails, object-removed gets called with missing
+        -- properties, so clean up already here
+        node_names_table [properties ["node.name"]] = nil
+      end
+  end)
   parent:store_managed_object(id, node)
 end
 
@@ -179,8 +190,12 @@ function createDevice(parent, id, factory, properties)
       end
 
       local node_name = node.properties["node.name"]
-      log:info ("Removing node " .. node_name)
-      node_names_table[node_name] = nil
+      if node_name ~= nil then
+        log:info ("Removing node " .. node_name)
+        node_names_table[node_name] = nil
+      else
+        log:info ("Removing node with missing node.name")
+      end
     end)
     device:activate(Feature.SpaDevice.ENABLED | Feature.Proxy.BOUND)
     parent:store_managed_object(id, device)
