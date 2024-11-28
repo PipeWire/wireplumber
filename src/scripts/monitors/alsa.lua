@@ -23,6 +23,7 @@ end
 
 function applyDefaultDeviceProperties (properties)
   properties["api.alsa.use-acp"] = true
+  properties["api.acp.auto-profile"] = false
   properties["api.acp.auto-port"] = false
   properties["api.dbus.ReserveDevice1.Priority"] = -20
 end
