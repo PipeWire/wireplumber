@@ -66,7 +66,7 @@ The main types of components are:
     A PipeWire module, which is also a shared library that can be loaded
     dynamically, but extends the functionality of the underlying *libpipewire*
     library. Loading PipeWire modules in the WirePlumber context can be useful
-    to load custom protocol extensions or to offload some funcitonality from
+    to load custom protocol extensions or to offload some functionality from
     the PipeWire daemon.
 
   * **virtual**

@@ -6,7 +6,7 @@
 
 -- the script states the default nodes from the user preferences, it has hooks
 -- which stores the user preferences(it stores not just the current preference
--- but all the previous preferences) in to the state file, retrives them from
+-- but all the previous preferences) in to the state file, retrieves them from
 -- state file during the bootup, finally it has a hook which finds a default
 -- node out of the user preferences
 
@@ -90,7 +90,7 @@ store_configured_default_nodes_hook = SimpleEventHook {
       local stored = collectStored (def_node_type)
       local pos = #stored + 1
 
-      -- find if the curent configured value is already in the stack
+      -- find if the current configured value is already in the stack
       for i, v in ipairs (stored) do
         if v == new_value then
           pos = i

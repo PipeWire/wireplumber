@@ -587,7 +587,7 @@ wp_object_manager_lookup (WpObjectManager * self, GType gtype, ...)
  *
  * \ingroup wpobjectmanager
  * \param self the object manager
- * \param interest (transfer full): the interst
+ * \param interest (transfer full): the interest
  * \returns (type GObject)(transfer full)(nullable): the first managed object
  *    that matches the lookup interest, or NULL if no object matches
  */

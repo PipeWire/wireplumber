@@ -797,7 +797,7 @@ wp_spa_pod_new_sequence_valist (guint unit, va_list args)
 }
 
 /*!
- * \brief Checks wether the spa pod is of type none or not
+ * \brief Checks whether the spa pod is of type none or not
  *
  * \ingroup wpspapod
  * \param self the spa pod object
@@ -810,7 +810,7 @@ wp_spa_pod_is_none (WpSpaPod *self)
 }
 
 /*!
- * \brief Checks wether the spa pod is of type boolean or not
+ * \brief Checks whether the spa pod is of type boolean or not
  *
  * \ingroup wpspapod
  * \param self the spa pod object
@@ -823,7 +823,7 @@ wp_spa_pod_is_boolean (WpSpaPod *self)
 }
 
 /*!
- * \brief Checks wether the spa pod is of type Id or not
+ * \brief Checks whether the spa pod is of type Id or not
  *
  * \ingroup wpspapod
  * \param self the spa pod object
@@ -836,7 +836,7 @@ wp_spa_pod_is_id (WpSpaPod *self)
 }
 
 /*!
- * \brief Checks wether the spa pod is of type int or not
+ * \brief Checks whether the spa pod is of type int or not
  *
  * \ingroup wpspapod
  * \param self the spa pod object
@@ -849,7 +849,7 @@ wp_spa_pod_is_int (WpSpaPod *self)
 }
 
 /*!
- * \brief Checks wether the spa pod is of type long or not
+ * \brief Checks whether the spa pod is of type long or not
  *
  * \ingroup wpspapod
  * \param self the spa pod object
@@ -862,7 +862,7 @@ wp_spa_pod_is_long (WpSpaPod *self)
 }
 
 /*!
- * \brief Checks wether the spa pod is of type float or not
+ * \brief Checks whether the spa pod is of type float or not
  *
  * \ingroup wpspapod
  * \param self the spa pod object
@@ -875,7 +875,7 @@ wp_spa_pod_is_float (WpSpaPod *self)
 }
 
 /*!
- * \brief Checks wether the spa pod is of type double or not
+ * \brief Checks whether the spa pod is of type double or not
  *
  * \ingroup wpspapod
  * \param self the spa pod object
@@ -888,7 +888,7 @@ wp_spa_pod_is_double (WpSpaPod *self)
 }
 
 /*!
- * \brief Checks wether the spa pod is of type string or not
+ * \brief Checks whether the spa pod is of type string or not
  *
  * \ingroup wpspapod
  * \param self the spa pod object
@@ -901,7 +901,7 @@ wp_spa_pod_is_string (WpSpaPod *self)
 }
 
 /*!
- * \brief Checks wether the spa pod is of type bytes or not
+ * \brief Checks whether the spa pod is of type bytes or not
  *
  * \ingroup wpspapod
  * \param self the spa pod object
@@ -914,7 +914,7 @@ wp_spa_pod_is_bytes (WpSpaPod *self)
 }
 
 /*!
- * \brief Checks wether the spa pod is of type pointer or not
+ * \brief Checks whether the spa pod is of type pointer or not
  *
  * \ingroup wpspapod
  * \param self the spa pod object
@@ -927,7 +927,7 @@ wp_spa_pod_is_pointer (WpSpaPod *self)
 }
 
 /*!
- * \brief Checks wether the spa pod is of type Fd or not
+ * \brief Checks whether the spa pod is of type Fd or not
  *
  * \ingroup wpspapod
  * \param self the spa pod object
@@ -940,7 +940,7 @@ wp_spa_pod_is_fd (WpSpaPod *self)
 }
 
 /*!
- * \brief Checks wether the spa pod is of type rectangle or not
+ * \brief Checks whether the spa pod is of type rectangle or not
  *
  * \ingroup wpspapod
  * \param self the spa pod object
@@ -953,7 +953,7 @@ wp_spa_pod_is_rectangle (WpSpaPod *self)
 }
 
 /*!
- * \brief Checks wether the spa pod is of type fraction or not
+ * \brief Checks whether the spa pod is of type fraction or not
  *
  * \ingroup wpspapod
  * \param self the spa pod object
@@ -966,7 +966,7 @@ wp_spa_pod_is_fraction (WpSpaPod *self)
 }
 
 /*!
- * \brief Checks wether the spa pod is of type array or not
+ * \brief Checks whether the spa pod is of type array or not
  *
  * \ingroup wpspapod
  * \param self the spa pod object
@@ -979,7 +979,7 @@ wp_spa_pod_is_array (WpSpaPod *self)
 }
 
 /*!
- * \brief Checks wether the spa pod is of type choice or not
+ * \brief Checks whether the spa pod is of type choice or not
  *
  * \ingroup wpspapod
  * \param self the spa pod object
@@ -992,7 +992,7 @@ wp_spa_pod_is_choice (WpSpaPod *self)
 }
 
 /*!
- * \brief Checks wether the spa pod is of type object or not
+ * \brief Checks whether the spa pod is of type object or not
  *
  * \ingroup wpspapod
  * \param self the spa pod object
@@ -1005,7 +1005,7 @@ wp_spa_pod_is_object (WpSpaPod *self)
 }
 
 /*!
- * \brief Checks wether the spa pod is of type struct or not
+ * \brief Checks whether the spa pod is of type struct or not
  *
  * \ingroup wpspapod
  * \param self the spa pod object
@@ -1018,7 +1018,7 @@ wp_spa_pod_is_struct (WpSpaPod *self)
 }
 
 /*!
- * \brief Checks wether the spa pod is of type sequence or not
+ * \brief Checks whether the spa pod is of type sequence or not
  *
  * \ingroup wpspapod
  * \param self the spa pod object
@@ -1031,7 +1031,7 @@ wp_spa_pod_is_sequence (WpSpaPod *self)
 }
 
 /*!
- * \brief Checks wether the spa pod is of type property or not
+ * \brief Checks whether the spa pod is of type property or not
  *
  * \ingroup wpspapod
  * \param self the spa pod object
@@ -1044,7 +1044,7 @@ wp_spa_pod_is_property (WpSpaPod *self)
 }
 
 /*!
- * \brief Checks wether the spa pod is of type control or not
+ * \brief Checks whether the spa pod is of type control or not
  *
  * \ingroup wpspapod
  * \param self the spa pod object
@@ -1438,7 +1438,7 @@ wp_spa_pod_set_rectangle (WpSpaPod *self, guint32 width, guint32 height)
  *
  * \ingroup wpspapod
  * \param self the spa pod object
- * \param num the numerator value of the farction
+ * \param num the numerator value of the fraction
  * \param denom the denominator value of the fraction
  * \returns TRUE if the value could be set, FALSE othewrise.
  */
@@ -1820,7 +1820,7 @@ wp_spa_pod_fixate (WpSpaPod *self)
  * \brief Returns the intersection between \a self and \a filter
  *
  * This is typically used to intersect pods that describe formats, in order to
- * find a common format that is accceptable by both sides. For that purpose,
+ * find a common format that is acceptable by both sides. For that purpose,
  * this is not exactly an intersection with its mathematical meaning.
  * Object properties can be thought of as format constraints. When one side does
  * not specify a specific property, it is considered to accept any value for it,
@@ -2117,7 +2117,7 @@ wp_spa_pod_builder_add_bytes (WpSpaPodBuilder *self, gconstpointer value,
  * \ingroup wpspapod
  * \param self the spa pod builder object
  * \param type_name the type name that the pointer points to
- * \param value the pointer vaue
+ * \param value the pointer value
  */
 void
 wp_spa_pod_builder_add_pointer (WpSpaPodBuilder *self, const char *type_name,

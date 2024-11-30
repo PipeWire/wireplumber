@@ -3,7 +3,7 @@
 Events and Hooks
 ================
 
-Session management is all about reacting to events and taking neccessary
+Session management is all about reacting to events and taking necessary
 actions. This is why WirePlumber's logic is all built on events and hooks.
 
 Events
@@ -56,7 +56,7 @@ There are two main types of hooks: ``SimpleEventHook`` and ``AsyncEventHook``.
 * ``AsyncEventHook`` contains multiple functions, combined together in a state
   machine using ``WpTransition`` underneath. The hook is completed only after
   the state machine reaches its final state and this can take any amount of time
-  neccessary.
+  necessary.
 
 Every hook also has a name, which can be an arbitrary string of characters.
 Additionally, it has two arrays of names, which declare dependencies between

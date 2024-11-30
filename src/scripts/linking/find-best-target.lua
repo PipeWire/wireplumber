@@ -85,7 +85,7 @@ SimpleEventHook {
 
       log:debug ("... priority:" .. tostring (priority) .. ", plugged:" .. tostring (plugged))
 
-      -- (target_picked == NULL) --> make sure atleast one target is picked.
+      -- (target_picked == NULL) --> make sure at least one target is picked.
       -- (priority > target_priority) --> pick the highest priority linkable(node)
       -- target.
       -- (priority == target_priority and plugged > target_plugged) --> pick the

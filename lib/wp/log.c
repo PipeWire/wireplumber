@@ -21,7 +21,7 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-log")
  * \def WP_DEFINE_LOCAL_LOG_TOPIC(name)
  * \brief Defines a static \em WpLogTopic* variable called \em WP_LOCAL_LOG_TOPIC
  *
- * The log topic is automatically intialized to the given topic \a name when
+ * The log topic is automatically initialized to the given topic \a name when
  * it is first used. The default logging macros expect this variable to be
  * defined, so it is a good coding practice in the WirePlumber codebase to
  * start all files at the top with:

@@ -4,11 +4,11 @@
 --
 -- SPDX-License-Identifier: MIT
 
--- hook to make sure the user prefered device(default.configured.*) in other
+-- hook to make sure the user preferred device(default.configured.*) in other
 -- words currently selected device is given higher priority
 
 -- state-default-nodes.lua also does find out the default node out of the user
--- preferences(current and past), however it doesnt give any higher priority to
+-- preferences(current and past), however it doesn't give any higher priority to
 -- the currently selected device.
 
 log = Log.open_topic ("s-default-nodes")

@@ -198,7 +198,7 @@ wp_plugin_find (WpCore * core, const gchar * plugin_name)
 }
 
 /*!
- * \brief Retreives the name of a plugin.
+ * \brief Retrieves the name of a plugin.
  *
  * \ingroup wpplugin
  * \param self the plugin

@@ -19,7 +19,7 @@ WP_LOG_TOPIC_EXTERN (log_topic_lua_scripting)
  * to declare when it has finished its activation procedure, which can be
  * asynchronous (this is Script.finish_activation in Lua).
  * When disabled, this class destroys the global environment that was used
- * in the Lua engine for excecuting that script, effectively destroying all
+ * in the Lua engine for executing that script, effectively destroying all
  * objects that were held in Lua as global variables.
  */
 

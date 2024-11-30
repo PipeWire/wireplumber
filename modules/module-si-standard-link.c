@@ -149,7 +149,7 @@ clear_node_links (GPtrArray **node_links_p)
 {
   /*
    * Something else (eg. object managers) may be keeping the WpLink
-   * objects alive. Deactive the links now, to destroy the PW objects.
+   * objects alive. Deactivate the links now, to destroy the PW objects.
    */
   if (*node_links_p)
     g_ptr_array_foreach (*node_links_p, request_destroy_link, NULL);
