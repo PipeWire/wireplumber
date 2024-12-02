@@ -1,5 +1,40 @@
-WirePlumber 0.5.6
+WirePlumber 0.5.7
 ~~~~~~~~~~~~~~~~~
+
+Highlights:
+
+  - Fixed an issue that would cause random profile switching when an application
+    was trying to capture from non-Bluetooth devices (#715, #634, !669)
+
+  - Fixed an issue that would cause strange profile selection issues [choices
+    not being remembered or unavailable routes being selected] (#734)
+
+  - Added a timer that delays switching Bluetooth headsets to the HSP/HFP
+    profile, avoiding needless rapid switching when an application is trying to
+    probe device capabilities instead of actually capturing audio (!664)
+
+  - Improved libcamera/v4l2 device deduplication logic to work with more complex
+    devices (!674, !675, #689, #708)
+
+Fixes:
+
+  - Fixed two memory leaks in module-mixer-api and module-dbus-connection
+    (!672, !673)
+
+  - Fixed a crash that could occur in module-reserve-device (!680, #742)
+
+  - Fixed an issue that would cause the warning "[string "alsa.lua"]:182:
+    attempt to concatenate a nil value (local 'node_name')" to appear in the
+    logs when an ALSA device was busy, breaking node name deduplication (!681)
+
+  - Fixed an issue that could make find-preferred-profile.lua crash instead of
+    properly applying profile priority rules (#751)
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.5.6
+.................
 
 Additions:
 
@@ -26,9 +61,6 @@ Fixes:
 
   - Fix an issue where switching between Bluetooth profiles would temporarily
     link active audio streams to the internal speakers (!655)
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.5.5
 .................
