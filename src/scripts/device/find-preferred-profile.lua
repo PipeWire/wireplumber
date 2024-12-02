@@ -42,6 +42,7 @@ SimpleEventHook {
 
     local p_json = Json.Raw(p_array)
     local priorities = p_json:parse()
+    local device_name = device.properties["device.name"] or ""
 
     for _, priority_profile in ipairs(priorities) do
       for p in device:iterate_params("EnumProfile") do
