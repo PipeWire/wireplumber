@@ -293,6 +293,15 @@ core_test_feature (lua_State *L)
   return 1;
 }
 
+static int
+core_update_properties (lua_State *L)
+{
+  WpCore *core = get_wp_core(L);
+  luaL_checktype (L, 1, LUA_TTABLE);
+  wp_core_update_properties (core, wplua_table_to_properties (L, 1));
+  return 0;
+}
+
 static const luaL_Reg core_funcs[] = {
   { "get_properties", core_get_properties },
   { "get_info", core_get_info },
@@ -304,6 +313,7 @@ static const luaL_Reg core_funcs[] = {
   { "quit", core_quit },
   { "require_api", core_require_api },
   { "test_feature", core_test_feature },
+  { "update_properties", core_update_properties },
   { NULL, NULL }
 };
 
