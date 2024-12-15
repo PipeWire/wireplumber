@@ -162,11 +162,6 @@ device_set_nodes_om:connect ("object-added", function(_, node)
       if id ~= nil then
         log:info(".. assign to device: " .. tostring (device["bound-id"]) .. " node " .. tostring (id))
         spa_device:store_managed_object (id, node)
-
-        -- set routes again to update volumes etc.
-        for route in device:iterate_params ("Route") do
-          device:set_param ("Route", route)
-        end
       end
 
       ::next_device::
@@ -303,6 +298,7 @@ function createNode(parent, id, type, factory, properties)
   if properties["api.bluez5.set.leader"] then
     local combine = createSetNode(parent, id, type, factory, properties)
     parent:store_managed_object(id + COMBINE_OFFSET, combine)
+    parent:set_managed_pending(id)
   else
     log:info("Create node: " .. properties["node.name"] .. ": " .. factory .. " " .. tostring (id))
     properties["bluez5.loopback"] = false
