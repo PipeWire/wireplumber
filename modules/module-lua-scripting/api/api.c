@@ -1070,10 +1070,20 @@ spa_device_store_managed_object (lua_State *L)
   return 0;
 }
 
+static int
+spa_device_set_managed_pending (lua_State *L)
+{
+  WpSpaDevice *device = wplua_checkobject (L, 1, WP_TYPE_SPA_DEVICE);
+  guint id = luaL_checkinteger (L, 2);
+  wp_spa_device_set_managed_pending (device, id);
+  return 0;
+}
+
 static const luaL_Reg spa_device_methods[] = {
   { "iterate_managed_objects", spa_device_iterate_managed_objects },
   { "get_managed_object", spa_device_get_managed_object },
   { "store_managed_object", spa_device_store_managed_object },
+  { "set_managed_pending", spa_device_set_managed_pending },
   { NULL, NULL }
 };
 
