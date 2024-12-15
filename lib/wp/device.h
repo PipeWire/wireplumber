@@ -67,6 +67,9 @@ WP_API
 void wp_spa_device_store_managed_object (WpSpaDevice * self, guint id,
     GObject * object);
 
+WP_API
+void wp_spa_device_set_managed_pending (WpSpaDevice * self, guint id);
+
 G_END_DECLS
 
 #endif

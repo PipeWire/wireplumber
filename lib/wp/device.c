@@ -199,6 +199,7 @@ struct _WpSpaDevice
   struct spa_hook listener;
   WpProperties *properties;
   GPtrArray *managed_objs;
+  GPtrArray *pending_obj_config;
 };
 
 enum {
@@ -226,10 +227,18 @@ object_unref_safe (gpointer object)
 }
 
 static void
+pod_unref_safe (gpointer object)
+{
+  if (object)
+    wp_spa_pod_unref (object);
+}
+
+static void
 wp_spa_device_init (WpSpaDevice * self)
 {
   self->properties = wp_properties_new_empty ();
   self->managed_objs = g_ptr_array_new_with_free_func (object_unref_safe);
+  self->pending_obj_config = g_ptr_array_new_with_free_func (pod_unref_safe);
 }
 
 static void
@@ -262,6 +271,7 @@ wp_spa_device_finalize (GObject * object)
   g_clear_pointer (&self->handle, pw_unload_spa_handle);
   g_clear_pointer (&self->properties, wp_properties_unref);
   g_clear_pointer (&self->managed_objs, g_ptr_array_unref);
+  g_clear_pointer (&self->pending_obj_config, g_ptr_array_unref);
 
   G_OBJECT_CLASS (wp_spa_device_parent_class)->finalize (object);
 }
@@ -322,6 +332,67 @@ spa_device_event_info (void *data, const struct spa_device_info *info)
     wp_properties_update_from_dict (self->properties, info->props);
 }
 
+static WpSpaPod *
+pending_obj_config_pop (WpSpaDevice *self, guint32 id)
+{
+  if (id < self->pending_obj_config->len)
+    return g_steal_pointer (&g_ptr_array_index (self->pending_obj_config, id));
+  return NULL;
+}
+
+static void
+pending_obj_config_set (WpSpaDevice *self, guint32 id, WpSpaPod *props)
+{
+  if (id >= self->pending_obj_config->len)
+    g_ptr_array_set_size (self->pending_obj_config, id + 1);
+
+  gpointer *ptr = &g_ptr_array_index (self->pending_obj_config, id);
+  pod_unref_safe (*ptr);
+  *ptr = props;
+}
+
+static void
+append_props (WpSpaPodBuilder *b, WpSpaPod *props, GHashTable *used)
+{
+  g_autoptr (WpIterator) it = wp_spa_pod_new_iterator (props);
+  GValue next = G_VALUE_INIT;
+
+  while (wp_iterator_next (it, &next)) {
+    WpSpaPod *p = g_value_get_boxed (&next);
+    const char *key;
+    g_autoptr (WpSpaPod) value = NULL;
+
+    if (!wp_spa_pod_get_property (p, &key, &value))
+      continue;
+    if (g_hash_table_contains(used, key))
+      continue;
+
+    wp_spa_pod_builder_add_property (b, key);
+    wp_spa_pod_builder_add_pod (b, value);
+
+    g_hash_table_add (used, (gpointer) key);
+  }
+}
+
+static WpSpaPod *
+merge_props (WpSpaPod *old_props, WpSpaPod *new_props)
+{
+  g_autoptr (GHashTable) used = g_hash_table_new (g_str_hash, g_str_equal);
+  g_autoptr (WpSpaPodBuilder) b = wp_spa_pod_builder_new_object (
+      "Spa:Pod:Object:Param:Props", "Props");
+
+  if (new_props) {
+    append_props (b, new_props, used);
+    wp_spa_pod_unref (new_props);
+  }
+  if (old_props) {
+    append_props (b, old_props, used);
+    wp_spa_pod_unref (old_props);
+  }
+
+  return wp_spa_pod_builder_end (b);
+}
+
 static void
 spa_device_event_event (void *data, const struct spa_event *event)
 {
@@ -341,10 +412,18 @@ spa_device_event_event (void *data, const struct spa_event *event)
           NULL))
     child = wp_spa_device_get_managed_object (self, id);
 
-  if (child && !g_strcmp0 (type, "ObjectConfig") &&
-      WP_IS_PIPEWIRE_OBJECT (child) && props) {
-    wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (child), "Props", 0,
-        g_steal_pointer (&props));
+  if (!g_strcmp0 (type, "ObjectConfig") && props) {
+    if (child && WP_IS_PIPEWIRE_OBJECT (child)) {
+      wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (child), "Props", 0,
+          g_steal_pointer (&props));
+    } else if (!child) {
+      /* Save Props set on ids pending for a managed object */
+      WpSpaPod *pending_props = pending_obj_config_pop (self, id);
+      if (pending_props) {
+        pending_props = merge_props (pending_props, g_steal_pointer(&props));
+        pending_obj_config_set (self, id, pending_props);
+      }
+    }
   }
 }
 
@@ -458,6 +537,7 @@ wp_spa_device_deactivate (WpObject * object, WpObjectFeatures features)
     WpSpaDevice *self = WP_SPA_DEVICE (object);
     spa_hook_remove (&self->listener);
     g_ptr_array_set_size (self->managed_objs, 0);
+    g_ptr_array_set_size (self->pending_obj_config, 0);
     wp_object_update_features (object, 0, WP_SPA_DEVICE_FEATURE_ENABLED);
   }
 }
@@ -708,4 +788,40 @@ wp_spa_device_store_managed_object (WpSpaDevice * self, guint id,
   if (*ptr)
     g_object_unref (*ptr);
   *ptr = object;
+
+  /* Clear pending status, and set pending props if any */
+  g_autoptr(WpSpaPod) props = pending_obj_config_pop (self, id);
+
+  if (props && object && WP_IS_PIPEWIRE_OBJECT (object)) {
+    wp_trace_boxed (WP_TYPE_SPA_POD, props, "pending ObjectConfig, object %d", id);
+    wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (object), "Props", 0,
+          g_steal_pointer (&props));
+  }
+}
+
+/*!
+ * \brief Marks a managed object id pending.
+ *
+ * When an object id is pending, Props from received ObjectConfig events
+ * for the id are saved. When \ref wp_spa_device_store_managed_object later sets
+ * an object for the id, the saved Props are immediately set on the object and
+ * pending status is cleared.
+ *
+ * If an object is already set for the id, this has no effect.
+ *
+ * \ingroup wpspadevice
+ * \param self the spa device
+ * \param id the (device-internal) id of the object
+ */
+void
+wp_spa_device_set_managed_pending (WpSpaDevice * self, guint id)
+{
+  g_return_if_fail (WP_IS_SPA_DEVICE (self));
+
+  g_autoptr (GObject) obj = wp_spa_device_get_managed_object (self, id);
+  if (obj)
+    return;
+
+  pending_obj_config_set (self, id,
+      wp_spa_pod_new_object ("Spa:Pod:Object:Param:Props", "Props", NULL));
 }
