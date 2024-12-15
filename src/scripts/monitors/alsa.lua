@@ -17,6 +17,10 @@ config.rules = Conf.get_section_as_json ("monitor.alsa.rules", Json.Array {})
 device_names_table = nil
 node_names_table = nil
 
+-- SPA ids to node names: name = id_name_table[device_id][node_id]
+id_name_table = nil
+
+
 function nonempty(str)
   return str ~= "" and str or nil
 end
@@ -30,6 +34,7 @@ end
 
 function createNode(parent, id, obj_type, factory, properties)
   local dev_props = parent.properties
+  local parent_id = tonumber(dev_props["spa.object.id"])
 
   -- set the device id and spa factory name; REQUIRED, do not change
   properties["device.id"] = parent["bound-id"]
@@ -103,7 +108,6 @@ function createNode(parent, id, obj_type, factory, properties)
     -- deduplicate nodes with the same name
     for counter = 2, 99, 1 do
       if node_names_table[properties["node.name"]] ~= true then
-        node_names_table[properties["node.name"]] = true
         break
       end
       properties["node.name"] = name .. "." .. counter
@@ -161,9 +165,11 @@ function createNode(parent, id, obj_type, factory, properties)
 
   if cutils.parseBool (properties ["node.disabled"]) then
     log:notice ("ALSA node " .. properties["node.name"] .. " disabled")
-    node_names_table [properties ["node.name"]] = nil
     return
   end
+
+  node_names_table[properties["node.name"]] = true
+  id_name_table[parent_id][id] = properties["node.name"]
 
   -- create the node
   local node = Node("adapter", properties)
@@ -171,37 +177,43 @@ function createNode(parent, id, obj_type, factory, properties)
       if err then
         log:warning ("Failed to create " .. properties ["node.name"]
           .. ": " .. tostring(err))
-
-        -- if it fails, object-removed gets called with missing
-        -- properties, so clean up already here
-        node_names_table [properties ["node.name"]] = nil
       end
   end)
   parent:store_managed_object(id, node)
 end
 
+function removeNode(parent, id)
+  local parent_id = tonumber(parent.properties["spa.object.id"])
+  local node_name = id_name_table[parent_id][id]
+
+  if node_name ~= nil then
+    log:info ("Removing node " .. node_name)
+    node_names_table[node_name] = nil
+    id_name_table[parent_id][id] = nil
+  end
+end
+
 function createDevice(parent, id, factory, properties)
+  id_name_table[id] = {}
+  properties["spa.object.id"] = id
   local device = SpaDevice(factory, properties)
   if device then
     device:connect("create-object", createNode)
-    device:connect("object-removed", function (parent, id)
-      local node = parent:get_managed_object(id)
-      if not node then
-        return
-      end
-
-      local node_name = node.properties["node.name"]
-      if node_name ~= nil then
-        log:info ("Removing node " .. node_name)
-        node_names_table[node_name] = nil
-      else
-        log:info ("Removing node with missing node.name")
-      end
-    end)
+    device:connect("object-removed", removeNode)
     device:activate(Feature.SpaDevice.ENABLED | Feature.Proxy.BOUND)
     parent:store_managed_object(id, device)
   else
     log:warning ("Failed to create '" .. factory .. "' device")
+  end
+end
+
+function removeDevice(parent, id)
+  if id_name_table[id] ~= nil then
+    for _, node_name in pairs(id_name_table[id]) do
+      log:info ("Release " .. node_name)
+      node_names_table[node_name] = nil
+    end
+    id_name_table[id] = nil
   end
 end
 
@@ -317,6 +329,7 @@ function prepareDevice(parent, id, obj_type, factory, properties)
 
       elseif state == "busy" then
         -- destroy the device
+        removeDevice(parent, id)
         parent:store_managed_object(id, nil)
       end
     end)
@@ -347,6 +360,8 @@ function createMonitor ()
 
   -- handle object-removed to destroy device reservations and recycle device name
   m:connect("object-removed", function (parent, id)
+    removeDevice(parent, id)
+
     local device = parent:get_managed_object(id)
     if not device then
       return
@@ -367,6 +382,7 @@ function createMonitor ()
   -- reset the name tables to make sure names are recycled
   device_names_table = {}
   node_names_table = {}
+  id_name_table = {}
 
   -- activate monitor
   log:info("Activating ALSA monitor")
