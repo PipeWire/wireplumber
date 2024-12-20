@@ -357,7 +357,7 @@ append_props (WpSpaPodBuilder *b, WpSpaPod *props, GHashTable *used)
   g_autoptr (WpIterator) it = wp_spa_pod_new_iterator (props);
   GValue next = G_VALUE_INIT;
 
-  while (wp_iterator_next (it, &next)) {
+  for (; wp_iterator_next (it, &next); g_value_unset (&next)) {
     WpSpaPod *p = g_value_get_boxed (&next);
     const char *key;
     g_autoptr (WpSpaPod) value = NULL;
@@ -370,14 +370,14 @@ append_props (WpSpaPodBuilder *b, WpSpaPod *props, GHashTable *used)
     wp_spa_pod_builder_add_property (b, key);
     wp_spa_pod_builder_add_pod (b, value);
 
-    g_hash_table_add (used, (gpointer) key);
+    g_hash_table_add (used, (gpointer) g_strdup (key));
   }
 }
 
 static WpSpaPod *
 merge_props (WpSpaPod *old_props, WpSpaPod *new_props)
 {
-  g_autoptr (GHashTable) used = g_hash_table_new (g_str_hash, g_str_equal);
+  g_autoptr (GHashTable) used = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
   g_autoptr (WpSpaPodBuilder) b = wp_spa_pod_builder_new_object (
       "Spa:Pod:Object:Param:Props", "Props");
 
