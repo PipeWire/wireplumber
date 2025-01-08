@@ -324,7 +324,7 @@ static WpLuaLogTopic *
 wp_lua_log_topic_copy (WpLuaLogTopic *topic)
 {
   WpLuaLogTopic *copy = g_new0 (WpLuaLogTopic, 1);
-  copy->topic_name = g_ref_string_acquire ((char *) copy->topic_name);
+  copy->topic_name = g_ref_string_acquire ((char *) topic->topic_name);
   wp_log_topic_register (copy);
   return copy;
 }
