@@ -109,6 +109,7 @@ function createSplitPCMLoopback(parent, id, obj_type, factory, properties)
     ["node.passive"] = true,
     ["node.dont-fallback"] = true,
     ["node.linger"] = true,
+    ["state.restore-props"] = false,
     ["target.object"] = properties["api.alsa.split.name"],
   }
 

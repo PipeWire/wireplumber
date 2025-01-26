@@ -94,6 +94,7 @@ function createOffloadScoNode(parent, id, type, factory, properties)
     args["playback.props"] = Json.Object {
       ["node.passive"] = true,
       ["node.pause-on-idle"] = false,
+      ["state.restore-props"] = false,
     }
   elseif factory:find("source") then
     local playback_args = {
@@ -110,6 +111,7 @@ function createOffloadScoNode(parent, id, type, factory, properties)
     args["capture.props"] = Json.Object {
       ["node.passive"] = true,
       ["node.pause-on-idle"] = false,
+      ["state.restore-props"] = false,
     }
     args["playback.props"] = Json.Object(playback_args)
   else
@@ -204,6 +206,7 @@ function createSetNode(parent, id, type, factory, properties)
           ["create-stream"] = Json.Object {
             ["media.class"] = stream_class,
             ["audio.position"] = Json.Array (member["channels"]),
+            ["state.restore-props"] = false,
           }
         },
       }
@@ -427,7 +430,8 @@ function CreateDeviceLoopbackSource (dev_name, dec_desc, dev_id)
       ["stream.dont-remix"] = true,
       ["node.passive"] = true,
       ["node.dont-fallback"] = true,
-      ["node.linger"] = true
+      ["node.linger"] = true,
+      ["state.restore-props"] = false,
     },
     ["playback.props"] = Json.Object {
       ["node.name"] = string.format ("bluez_input.%s", dev_name),
@@ -436,6 +440,7 @@ function CreateDeviceLoopbackSource (dev_name, dec_desc, dev_id)
       ["media.class"] = "Audio/Source",
       ["device.id"] = dev_id,
       ["card.profile.device"] = DEVICE_SOURCE_ID,
+      ["device.routes"] = "1",
       ["priority.driver"] = 2010,
       ["priority.session"] = 2010,
       ["bluez5.loopback"] = true,
