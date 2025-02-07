@@ -436,6 +436,7 @@ function CreateDeviceLoopbackSource (dev_name, dec_desc, dev_id)
     ["playback.props"] = Json.Object {
       ["node.name"] = string.format ("bluez_input.%s", dev_name),
       ["node.description"] = string.format ("%s", dec_desc),
+      ["node.virtual"] = false,
       ["audio.position"] = "[MONO]",
       ["media.class"] = "Audio/Source",
       ["device.id"] = dev_id,
