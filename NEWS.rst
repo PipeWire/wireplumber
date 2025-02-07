@@ -1,5 +1,43 @@
-WirePlumber 0.5.7
+WirePlumber 0.5.8
 ~~~~~~~~~~~~~~~~~
+
+Additions & Enhancements:
+
+  - Added support for handling UCM SplitPCM nodes in the ALSA monitor, which
+    allows native PipeWire channel remapping using loopbacks for devices that
+    use this feature (!685)
+
+  - Introduced new functions to mark WpSpaDevice child objects as pending.
+    This allows properly associating asynchronously created loopback nodes with
+    their parent WpSpaDevice without losing ObjectConfig events (!687, !689)
+
+  - Improved the node name deduplication logic in the ALSA monitor to prevent
+    node names with .2, .3, etc appended to them in some more cases (!688)
+
+  - Added a new script to populate ``session.services``. This is a step towards
+    implementing detection of features that PipeWire can service (!686)
+
+Fixes:
+
+  - Fixed an issue that was causing duplicate Bluetooth SCO (HSP/HFP) source
+    nodes to be shown in UIs (#701, !683)
+
+  - In the BlueZ monitor, marked the source loopback node as non-virtual,
+    addressing how it appears on UIs (#729)
+
+  - Disabled stream-restore for device loopback nodes to prevent unwanted
+    property changes (!691)
+
+  - Fixed ``wp_lua_log_topic_copy()`` to correctly copy topic names (#757)
+
+  - Updated script tests to handle differences in object identifiers
+    (``object.serial`` vs ``node.id``), ensuring proper test behavior (#761)
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.5.7
+.................
 
 Highlights:
 
@@ -29,9 +67,6 @@ Fixes:
 
   - Fixed an issue that could make find-preferred-profile.lua crash instead of
     properly applying profile priority rules (#751)
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.5.6
 .................
