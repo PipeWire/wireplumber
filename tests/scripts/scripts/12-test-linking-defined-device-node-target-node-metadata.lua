@@ -33,7 +33,7 @@ SimpleEventHook {
       tu.createStreamNode ("playback")
     elseif tu.linkablesReady () and tu.lnkbls ["stream-node"] then
       -- when "stream-node" linkable is ready
-      tu.setTargetInMetadata ("target.node", "defined-device-node")
+      tu.setTargetInMetadata ("target.node", "defined-device-node", "node.id")
     end
   end
 }:register ()
@@ -52,7 +52,7 @@ SimpleEventHook {
   },
   execute = function (event)
     if tu.linkablesReady () then
-      tu.setTargetInMetadata ("target.node", "defined-device-node")
+      tu.setTargetInMetadata ("target.node", "defined-device-node", "node.id")
     end
   end
 }:register ()

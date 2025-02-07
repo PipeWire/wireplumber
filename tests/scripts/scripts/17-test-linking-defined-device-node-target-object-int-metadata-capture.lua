@@ -32,12 +32,12 @@ SimpleEventHook {
     if tu.linkablesReady () and name ~= "stream-node" then
       -- all linkables created except stream-node
       local props = {
-        ["target.object"] = tu.lnkbls ["defined-device-node-in-props"].properties ["node.id"]
+        ["target.object"] = tu.lnkbls ["defined-device-node-in-props"].properties ["object.serial"]
       }
       tu.createStreamNode ("capture", props)
     elseif tu.linkablesReady () and tu.lnkbls ["stream-node"] then
       -- when "stream-node" linkable is ready
-      tu.setTargetInMetadata ("target.object", "defined-device-node-in-metadata")
+      tu.setTargetInMetadata ("target.object", "defined-device-node-in-metadata", "object.serial")
     end
   end
 }:register ()

@@ -97,9 +97,9 @@ u.settings_metadata = cu.get_object_manager ("metadata"):lookup {
 assert (u.settings_metadata ~= nil)
 
 -- update the defined target for stream session item in metadata.
-function u.setTargetInMetadata (prop, target_node_name)
+function u.setTargetInMetadata (prop, target_node_name, target_property)
   u.default_metadata:set (u.lnkbls ["stream-node"].properties ["node.id"], prop,
-      "Spa:Id", u.lnkbls [target_node_name].properties ["node.id"])
+      "Spa:Id", u.lnkbls [target_node_name].properties [target_property])
 end
 
 function u.linkablesReady ()

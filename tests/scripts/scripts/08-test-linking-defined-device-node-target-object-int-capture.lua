@@ -29,7 +29,7 @@ SimpleEventHook {
     local name = lnkbl.properties ["node.name"]
     if tu.linkablesReady () and name ~= "stream-node" then
       local props = {
-        ["target.object"] = tonumber (tu.lnkbls ["defined-device-node"].properties ["node.id"]),
+        ["target.object"] = tonumber (tu.lnkbls ["defined-device-node"].properties ["object.serial"]),
       }
       tu.createStreamNode ("capture", props)
     end

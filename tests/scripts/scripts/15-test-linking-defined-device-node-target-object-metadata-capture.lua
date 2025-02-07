@@ -33,7 +33,7 @@ SimpleEventHook {
       tu.createStreamNode ("capture")
     elseif tu.linkablesReady () and tu.lnkbls ["stream-node"] then
       -- when "stream-node" linkable is ready
-      tu.setTargetInMetadata ("target.object", "defined-device-node")
+      tu.setTargetInMetadata ("target.object", "defined-device-node", "object.serial")
     end
   end
 }:register ()
