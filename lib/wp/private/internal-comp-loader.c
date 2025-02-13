@@ -28,7 +28,7 @@ struct _ComponentData
   grefcount ref;
   /* an identifier for this component that is understandable by the end user */
   gchar *printable_id;
-  /* the provided feature name or NULL */
+  /* the provided feature name */
   gchar *provides;
   /* the original state of the feature (required / optional / disabled) */
   FeatureState state;
@@ -205,7 +205,7 @@ component_data_new_from_json (WpSpaJson * json, WpProperties * features,
       comp->printable_id = g_strdup_printf ("%s [%s]", comp->provides, comp->type);
     }
   } else {
-    comp->provides = NULL;
+    comp->provides = g_strdup_printf ("__anonymous_%p", comp);
     comp->state = FEATURE_STATE_REQUIRED;
     comp->printable_id = g_strdup_printf ("[%s: %s]", comp->type, comp->name);
   }
@@ -328,7 +328,7 @@ wp_component_array_load_task_get_next_step (WpTransition * transition, guint ste
 static gboolean
 component_equals (const ComponentData * comp, const gchar * provides)
 {
-  return (comp->provides && g_str_equal (provides, comp->provides));
+  return g_str_equal (provides, comp->provides);
 }
 
 static inline gboolean
@@ -358,7 +358,7 @@ sort_components_before_after (WpComponentArrayLoadTask * self, GError ** error)
       gchar *target_provides = g_ptr_array_index (comp->before, j);
       for (guint k = 0; k < self->components->len; k++) {
         ComponentData *target = g_ptr_array_index (self->components, k);
-        if (target->provides && g_str_equal (target_provides, target->provides)) {
+        if (g_str_equal (target_provides, target->provides)) {
           g_ptr_array_insert (target->after, -1, g_strdup (comp->provides));
         }
       }
@@ -531,9 +531,8 @@ parse_components (WpComponentArrayLoadTask * self, GError ** error)
     if (comp->state == FEATURE_STATE_REQUIRED)
       g_ptr_array_add (required_components, component_data_ref (comp));
 
-    if (comp->provides)
-      g_hash_table_insert (self->feat_components, comp->provides,
-          component_data_ref (comp));
+    g_hash_table_insert (self->feat_components, comp->provides,
+        component_data_ref (comp));
   }
 
   /* topological sorting based on depth-first search */
