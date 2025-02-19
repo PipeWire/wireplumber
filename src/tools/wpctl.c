@@ -529,7 +529,7 @@ status_run (WpCtl * self)
   printf (TREE_INDENT_END "Default Configured Devices:\n");
   if (def_nodes_api) {
     for (guint i = 0; i < G_N_ELEMENTS (DEFAULT_NODE_MEDIA_CLASSES); i++) {
-      const gchar *name = NULL;
+      g_autofree gchar *name = NULL;
       g_signal_emit_by_name (def_nodes_api, "get-default-configured-node-name",
           DEFAULT_NODE_MEDIA_CLASSES[i], &name);
       if (name)
