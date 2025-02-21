@@ -941,7 +941,7 @@ wp_internal_comp_loader_load (WpComponentLoader * self, WpCore * core,
       g_autoptr (GError) error = NULL;
       const gchar *profile_name = component;
 
-      wp_notice ("Loading profile '%s'", profile_name);
+      wp_info ("Loading profile '%s'", profile_name);
 
       all_profiles_j = wp_conf_get_section (conf, "wireplumber.profiles");
 
