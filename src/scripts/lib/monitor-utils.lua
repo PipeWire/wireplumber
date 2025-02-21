@@ -108,7 +108,7 @@ function mutils.create_cam_nodes(self)
     end
 
     if not should_create then
-      log:warning ("skipping device " .. data.obj_path)
+      log:debug ("skipping device " .. data.obj_path)
     else
       create_cam_node (data)
       for _, dev_id in ipairs(data.dev_ids) do
