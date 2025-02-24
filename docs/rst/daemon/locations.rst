@@ -97,6 +97,8 @@ the parsing order matters in merging. See :ref:`config_conf_file_fragments`
    fragment files are *only* looked up in the directories specified by this
    variable.
 
+.. _config_locations_scripts:
+
 Location of scripts
 -------------------
 

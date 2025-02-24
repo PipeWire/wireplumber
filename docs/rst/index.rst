@@ -42,6 +42,7 @@ Table of Contents
 
    scripting/lua_api.rst
    scripting/existing_scripts.rst
+   scripting/custom_scripts.rst
 
 .. toctree::
    :maxdepth: 2

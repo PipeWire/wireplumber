@@ -2,6 +2,7 @@
 sphinx_files += files(
   'lua_api.rst',
   'existing_scripts.rst',
+  'custom_scripts.rst',
 )
 
 subdir('lua_api')
