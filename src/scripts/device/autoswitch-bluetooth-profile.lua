@@ -27,6 +27,7 @@
 
 lutils = require ("linking-utils")
 cutils = require ("common-utils")
+log = Log.open_topic ("s-device")
 
 state = nil
 headset_profiles = nil
@@ -90,7 +91,7 @@ function findProfile (device, index, name)
       goto skip_enum_profile
     end
 
-    Log.debug ("Profile name: " .. profile.name .. ", priority: "
+    log:debug ("Profile name: " .. profile.name .. ", priority: "
               .. tostring (profile.priority) .. ", index: " .. tostring (profile.index))
     if (index ~= nil and profile.index == index) or
        (name ~= nil and profile.name == name) then
@@ -130,7 +131,7 @@ function highestPrioProfileWithInputRoute (device)
       goto skip_enum_route
     end
 
-    Log.debug ("Route with index: " .. tostring (route.index) .. ", direction: "
+    log:debug ("Route with index: " .. tostring (route.index) .. ", direction: "
           .. route.direction .. ", name: " .. route.name .. ", description: "
           .. route.description .. ", priority: " .. route.priority)
     if route.profiles then
@@ -172,19 +173,19 @@ function switchDeviceToHeadsetProfile (dev_id, device_om)
       Constraint { "bound-id", "=", dev_id, type = "gobject" }
   }
   if device == nil then
-    Log.info ("Device with id " .. tostring(dev_id).. " not found")
+    log:info ("Device with id " .. tostring(dev_id).. " not found")
     return
   end
 
   local cur_profile_name = getCurrentProfile (device)
   local priority, index, name = findProfile (device, nil, cur_profile_name)
   if hasProfileInputRoute (device, index) then
-    Log.info ("Current profile has input route, not switching")
+    log:info ("Current profile has input route, not switching")
     return
   end
 
   if isSwitchedToHeadsetProfile (device) then
-    Log.info ("Device with id " .. tostring(dev_id).. " is already switched to HSP/HFP")
+    log:info ("Device with id " .. tostring(dev_id).. " is already switched to HSP/HFP")
     return
   end
 
@@ -212,13 +213,13 @@ function switchDeviceToHeadsetProfile (dev_id, device_om)
     saveLastProfile (device, cur_profile_name)
 
     -- switch to headset profile
-    Log.info ("Setting profile of '"
+    log:info ("Setting profile of '"
           .. device.properties ["device.description"]
           .. "' from: " .. cur_profile_name
           .. " to: " .. name)
     device:set_params ("Profile", pod)
   else
-    Log.warning ("Got invalid index when switching profile")
+    log:warning ("Got invalid index when switching profile")
   end
 end
 
@@ -228,12 +229,12 @@ function restoreProfile (dev_id, device_om)
       Constraint { "bound-id", "=", dev_id, type = "gobject" }
   }
   if device == nil then
-    Log.info ("Device with id " .. tostring(dev_id).. " not found")
+    log:info ("Device with id " .. tostring(dev_id).. " not found")
     return
   end
 
   if not isSwitchedToHeadsetProfile (device) then
-    Log.info ("Device with id " .. tostring(dev_id).. " is already not switched to HSP/HFP")
+    log:info ("Device with id " .. tostring(dev_id).. " is already not switched to HSP/HFP")
     return
   end
 
@@ -245,7 +246,7 @@ function restoreProfile (dev_id, device_om)
     priority, index, name = findProfile (device, nil, cur_profile_name)
 
     if index ~= INVALID and hasProfileInputRoute (device, index) then
-      Log.info ("Setting saved headset profile to: " .. cur_profile_name)
+      log:info ("Setting saved headset profile to: " .. cur_profile_name)
       saveHeadsetProfile (device, cur_profile_name)
     end
   end
@@ -263,13 +264,13 @@ function restoreProfile (dev_id, device_om)
       saveLastProfile (device, nil)
 
       -- restore previous profile
-      Log.info ("Restoring profile of '"
+      log:info ("Restoring profile of '"
             .. device.properties ["device.description"]
             .. "' from: " .. cur_profile_name
             .. " to: " .. name)
       device:set_params ("Profile", pod)
     else
-      Log.warning ("Failed to restore profile")
+      log:warning ("Failed to restore profile")
     end
   end
 end
