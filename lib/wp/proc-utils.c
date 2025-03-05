@@ -179,10 +179,12 @@ wp_proc_utils_get_proc_info (pid_t pid)
   /* Get cgroup */
   {
     g_autofree gchar *path = g_strdup_printf ("/proc/%d/cgroup", pid);
-    if (g_file_get_contents (path, &ret->cgroup, &length, &error))
-      ret->cgroup [length - 1] = '\0';  /* Remove EOF character */
-    else
+    if (g_file_get_contents (path, &ret->cgroup, &length, &error)) {
+      if (length > 0)
+        ret->cgroup [length - 1] = '\0';  /* Remove EOF character */
+    } else {
       wp_warning ("failed to get cgroup for PID %d: %s", pid, error->message);
+    }
   }
 
   /* Get args */
