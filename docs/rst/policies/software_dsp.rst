@@ -95,11 +95,11 @@ Examples
      }
    ]
 
-   wireplumber.profiles = [
+   wireplumber.profiles = {
      main = {
        node.software-dsp = required
      }
-   ]
+   }
 
 
 This will match any sinks with the UCM HiFi Speaker profile set that are associated
