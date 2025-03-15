@@ -155,3 +155,20 @@ shared_library(
   install_dir : wireplumber_module_dir,
   dependencies : [wp_dep, pipewire_dep],
 )
+
+module_mpris_c_args = []
+if cc.has_header('sys/vfs.h')
+  module_mpris_c_args += ['-DHAVE_SYS_VFS_H']
+endif
+
+shared_library(
+  'wireplumber-module-mpris',
+  [
+    'module-mpris.c',
+  ],
+  install : true,
+  install_dir : wireplumber_module_dir,
+  c_args : module_mpris_c_args,
+  dependencies : [wp_dep, giounix_dep, pipewire_dep],
+)
+
