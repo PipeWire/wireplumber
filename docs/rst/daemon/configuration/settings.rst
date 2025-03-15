@@ -94,6 +94,13 @@ previous section: :ref:`config_configuration_option_types`.
 
    :Default value: ``true``
 
+.. describe:: linking.pause-playback
+
+   When an audio sink is removed, pause media players that have streams
+   playing to it. Pausing is done via MPRIS interface.
+
+   :Default value: ``true``
+
 .. describe:: node.features.audio.no-dsp
 
    When this option is set to ``true``, audio nodes will not be configured
