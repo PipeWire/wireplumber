@@ -1,6 +1,6 @@
 [Unit]
 Description=Multimedia Service Session Manager
-After=pipewire.service
+After=pipewire.service dbus.service
 BindsTo=pipewire.service
 Conflicts=pipewire-media-session.service
 
