@@ -1,3 +1,4 @@
 src/scripts/monitors/alsa.lua
 src/scripts/monitors/bluez-midi.lua
 src/scripts/monitors/libcamera/name-node.lua
+po/conf.pot

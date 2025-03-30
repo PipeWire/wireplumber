@@ -160,6 +160,8 @@ common_args = [
 ]
 add_project_arguments(common_args, language: 'c')
 
+i18n_conf = files()
+
 subdir('lib')
 if build_modules
   subdir('modules')

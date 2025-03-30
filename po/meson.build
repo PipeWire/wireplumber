@@ -1,5 +1,24 @@
 i18n = import('i18n')
 
+pymod = import('python')
+python_po = pymod.find_installation('python3')
+spa_json_dump_po = find_program('spa-json-dump', required: false)
+
+if python_po.found() and spa_json_dump_po.found()
+  conf_pot = custom_target('conf.pot',
+    input : i18n_conf,
+    output : 'conf.pot',
+    build_by_default : true,
+    command : [
+      python_po, spa_json_po, '--spa-json-dump=' + spa_json_dump_po.full_path(),
+      '-k', '/wireplumber.settings.schema/[^/]*/description$',
+      '-o', '@CURRENT_SOURCE_DIR@/conf.pot',
+      '@INPUT@',
+    ],
+    capture: true,
+  )
+endif
+
 i18n.gettext(
   meson.project_name(),
   preset: 'glib',

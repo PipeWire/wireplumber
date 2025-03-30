@@ -4,3 +4,5 @@ install_subdir('wireplumber.conf.d.examples',
   install_dir : wireplumber_doc_dir / 'examples' / 'wireplumber.conf.d',
   strip_directory : true,
 )
+
+i18n_conf += files('wireplumber.conf')

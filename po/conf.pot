@@ -1,0 +1,110 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. /wireplumber.settings.schema/bluetooth.autoswitch-to-headset-profile/description
+#: wireplumber.conf
+msgid "Always show microphone for Bluetooth headsets, and switch to headset mode when recording"
+msgstr ""
+
+#. /wireplumber.settings.schema/bluetooth.use-persistent-storage/description
+#: wireplumber.conf
+msgid "Remember and restore Bluetooth headset mode status"
+msgstr ""
+
+#. /wireplumber.settings.schema/device.restore-profile/description
+#: wireplumber.conf
+msgid "Remember and restore device profiles"
+msgstr ""
+
+#. /wireplumber.settings.schema/device.restore-routes/description
+#: wireplumber.conf
+msgid "Remember and restore device routes"
+msgstr ""
+
+#. /wireplumber.settings.schema/device.routes.default-sink-volume/description
+#: wireplumber.conf
+msgid "The default volume for audio sinks"
+msgstr ""
+
+#. /wireplumber.settings.schema/device.routes.default-source-volume/description
+#: wireplumber.conf
+msgid "The default volume for audio sources"
+msgstr ""
+
+#. /wireplumber.settings.schema/linking.allow-moving-streams/description
+#: wireplumber.conf
+msgid "Streams may be moved by adding PipeWire metadata at runtime"
+msgstr ""
+
+#. /wireplumber.settings.schema/linking.follow-default-target/description
+#: wireplumber.conf
+msgid "Streams connected to the default device follow when default changes"
+msgstr ""
+
+#. /wireplumber.settings.schema/linking.pause-playback/description
+#: wireplumber.conf
+msgid "Pause media players if their target sink is removed"
+msgstr ""
+
+#. /wireplumber.settings.schema/linking.role-based.duck-level/description
+#: wireplumber.conf
+msgid "The volume level to apply when ducking (= reducing volume for a higher priority stream to be audible) in the role-based linking policy"
+msgstr ""
+
+#. /wireplumber.settings.schema/monitor.camera-discovery-timeout/description
+#: wireplumber.conf
+msgid "The camera discovery timeout in milliseconds"
+msgstr ""
+
+#. /wireplumber.settings.schema/node.features.audio.control-port/description
+#: wireplumber.conf
+msgid "Enable control ports on audio nodes"
+msgstr ""
+
+#. /wireplumber.settings.schema/node.features.audio.monitor-ports/description
+#: wireplumber.conf
+msgid "Enable monitor ports on audio nodes"
+msgstr ""
+
+#. /wireplumber.settings.schema/node.features.audio.no-dsp/description
+#: wireplumber.conf
+msgid "Do not convert audio to F32 format"
+msgstr ""
+
+#. /wireplumber.settings.schema/node.filter.forward-format/description
+#: wireplumber.conf
+msgid "Forward format on filter nodes or not"
+msgstr ""
+
+#. /wireplumber.settings.schema/node.restore-default-targets/description
+#: wireplumber.conf
+msgid "Remember and restore default audio/video input/output devices"
+msgstr ""
+
+#. /wireplumber.settings.schema/node.stream.default-capture-volume/description
+#: wireplumber.conf
+msgid "The default volume for capture nodes"
+msgstr ""
+
+#. /wireplumber.settings.schema/node.stream.default-media-role/description
+#: wireplumber.conf
+msgid "Default media.role to assign on streams that do not specify it"
+msgstr ""
+
+#. /wireplumber.settings.schema/node.stream.default-playback-volume/description
+#: wireplumber.conf
+msgid "The default volume for playback nodes"
+msgstr ""
+
+#. /wireplumber.settings.schema/node.stream.restore-props/description
+#: wireplumber.conf
+msgid "Remember and restore properties of streams"
+msgstr ""
+
+#. /wireplumber.settings.schema/node.stream.restore-target/description
+#: wireplumber.conf
+msgid "Remember and restore stream targets"
+msgstr ""
+
