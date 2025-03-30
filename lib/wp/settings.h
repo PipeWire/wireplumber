@@ -48,6 +48,9 @@ WP_API
 void wp_settings_spec_unref (WpSettingsSpec * self);
 
 WP_API
+const gchar * wp_settings_spec_get_name (WpSettingsSpec * self);
+
+WP_API
 const gchar * wp_settings_spec_get_description (WpSettingsSpec * self);
 
 WP_API

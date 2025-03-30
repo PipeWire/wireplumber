@@ -275,6 +275,7 @@ test_get_set_save_reset_delete (TestSettingsFixture *self, gconstpointer data)
   WpSettings *s = self->settings;
   g_autoptr (WpSettingsSpec) spec = NULL;
   const gchar *desc = NULL;
+  const gchar *name = NULL;
   g_autoptr (WpSpaJson) def = NULL;
   g_autoptr (WpSpaJson) min = NULL;
   g_autoptr (WpSpaJson) max = NULL;
@@ -298,6 +299,9 @@ test_get_set_save_reset_delete (TestSettingsFixture *self, gconstpointer data)
     gboolean value = FALSE;
 
     spec = wp_settings_get_spec (s, "test-setting-bool");
+    name = wp_settings_spec_get_name (spec);
+    g_assert_nonnull (name);
+    g_assert_cmpstr (name, ==, "test-setting-bool name");
     desc = wp_settings_spec_get_description (spec);
     g_assert_nonnull (desc);
     g_assert_cmpstr (desc, ==, "test-setting-bool description");
@@ -363,6 +367,9 @@ test_get_set_save_reset_delete (TestSettingsFixture *self, gconstpointer data)
     gint value = 0;
 
     spec = wp_settings_get_spec (s, "test-setting-int");
+    name = wp_settings_spec_get_name (spec);
+    g_assert_nonnull (name);
+    g_assert_cmpstr (name, ==, "test-setting-int name");
     desc = wp_settings_spec_get_description (spec);
     g_assert_nonnull (desc);
     g_assert_cmpstr (desc, ==, "test-setting-int description");
@@ -446,6 +453,9 @@ test_get_set_save_reset_delete (TestSettingsFixture *self, gconstpointer data)
     gfloat value = 0.0;
 
     spec = wp_settings_get_spec (s, "test-setting-float");
+    name = wp_settings_spec_get_name (spec);
+    g_assert_nonnull (name);
+    g_assert_cmpstr (name, ==, "test-setting-float name");
     desc = wp_settings_spec_get_description (spec);
     g_assert_nonnull (desc);
     g_assert_cmpstr (desc, ==, "test-setting-float description");
@@ -530,6 +540,9 @@ test_get_set_save_reset_delete (TestSettingsFixture *self, gconstpointer data)
 
     {
       spec = wp_settings_get_spec (s, "test-setting-string");
+      name = wp_settings_spec_get_name (spec);
+      g_assert_nonnull (name);
+      g_assert_cmpstr (name, ==, "test-setting-string name");
       desc = wp_settings_spec_get_description (spec);
       g_assert_nonnull (desc);
       g_assert_cmpstr (desc, ==, "test-setting-string description");
@@ -606,6 +619,9 @@ test_get_set_save_reset_delete (TestSettingsFixture *self, gconstpointer data)
 
     {
       spec = wp_settings_get_spec (s, "test-setting-string");
+      name = wp_settings_spec_get_name (spec);
+      g_assert_nonnull (name);
+      g_assert_cmpstr (name, ==, "test-setting-string name");
       desc = wp_settings_spec_get_description (spec);
       g_assert_nonnull (desc);
       g_assert_cmpstr (desc, ==, "test-setting-string description");
@@ -685,6 +701,9 @@ test_get_set_save_reset_delete (TestSettingsFixture *self, gconstpointer data)
   {
     {
       spec = wp_settings_get_spec (s, "test-setting-array");
+      name = wp_settings_spec_get_name (spec);
+      g_assert_nonnull (name);
+      g_assert_cmpstr (name, ==, "test-setting-array name");
       desc = wp_settings_spec_get_description (spec);
       g_assert_nonnull (desc);
       g_assert_cmpstr (desc, ==, "test-setting-array description");
@@ -738,6 +757,9 @@ test_get_set_save_reset_delete (TestSettingsFixture *self, gconstpointer data)
 
     {
       spec = wp_settings_get_spec (s, "test-setting-array2");
+      name = wp_settings_spec_get_name (spec);
+      g_assert_nonnull (name);
+      g_assert_cmpstr (name, ==, "test-setting-array2 name");
       desc = wp_settings_spec_get_description (spec);
       g_assert_nonnull (desc);
       g_assert_cmpstr (desc, ==, "test-setting-array2 description");
@@ -794,6 +816,9 @@ test_get_set_save_reset_delete (TestSettingsFixture *self, gconstpointer data)
   /* Object */
   {
     spec = wp_settings_get_spec (s, "test-setting-object");
+    name = wp_settings_spec_get_name (spec);
+    g_assert_nonnull (name);
+    g_assert_cmpstr (name, ==, "test-setting-object name");
     desc = wp_settings_spec_get_description (spec);
     g_assert_nonnull (desc);
     g_assert_cmpstr (desc, ==, "test-setting-object description");

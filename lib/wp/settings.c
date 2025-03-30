@@ -23,6 +23,7 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-settings")
  */
 struct _WpSettingsSpec {
   grefcount ref;
+  gchar *name;
   gchar *desc;
   WpSettingsSpecType type;
   WpSpaJson *def_value;
@@ -49,6 +50,7 @@ wp_settings_spec_ref (WpSettingsSpec * self)
 static void
 wp_settings_spec_free (WpSettingsSpec * self)
 {
+  g_clear_pointer (&self->name, g_free);
   g_clear_pointer (&self->desc, g_free);
   g_clear_pointer (&self->def_value, wp_spa_json_unref);
   g_clear_pointer (&self->min_value, wp_spa_json_unref);
@@ -73,6 +75,7 @@ static WpSettingsSpec *
 wp_settings_spec_new (WpSpaJson * spec_json)
 {
   WpSettingsSpec *self;
+  g_autofree gchar *name = NULL;
   g_autofree gchar *desc = NULL;
   g_autofree gchar *type_str = NULL;
   WpSettingsSpecType type = WP_SETTINGS_SPEC_TYPE_UNKNOWN;
@@ -87,6 +90,7 @@ wp_settings_spec_new (WpSpaJson * spec_json)
 
   /* Parse mandatory fields */
   if (!wp_spa_json_object_get (spec_json,
+      "name", "s", &name,
       "description", "s", &desc,
       "type", "s", &type_str,
       "default", "J", &def_value,
@@ -136,12 +140,26 @@ wp_settings_spec_new (WpSpaJson * spec_json)
 
   self = g_slice_new0 (WpSettingsSpec);
   g_ref_count_init (&self->ref);
+  self->name = g_steal_pointer (&name);
   self->desc = g_steal_pointer (&desc);
   self->type = type;
   self->def_value = g_steal_pointer (&def_value);
   self->min_value = g_steal_pointer (&min_value);
   self->max_value = g_steal_pointer (&max_value);
   return self;
+}
+
+/*!
+ * \brief Gets the human-readable name of a settings spec
+ * \ingroup wpsettings
+ * \param self the settings spec object
+ * \returns the human-readable name of the settings spec
+ */
+const gchar *
+wp_settings_spec_get_name (WpSettingsSpec * self)
+{
+  g_return_val_if_fail (self, NULL);
+  return self->name;
 }
 
 /*!
