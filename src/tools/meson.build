@@ -1,7 +1,7 @@
 executable('wpctl',
   'wpctl.c',
   install: true,
-  dependencies : [gobject_dep, gio_dep, wp_dep, pipewire_dep],
+  dependencies : [gobject_dep, gio_dep, wp_dep, pipewire_dep, libintl_dep],
 )
 
 install_data('shell-completion/wpctl.zsh',

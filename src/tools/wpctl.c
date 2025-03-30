@@ -9,6 +9,7 @@
 #include <wp/wp.h>
 #include <stdio.h>
 #include <locale.h>
+#include <libintl.h>
 #include <spa/utils/defs.h>
 #include <spa/utils/string.h>
 #include <pipewire/pipewire.h>
@@ -1431,6 +1432,7 @@ print_setting (WpSettings *s, const gchar *key)
   g_autoptr (WpSpaJson) value = NULL;
   g_autoptr (WpSpaJson) saved = NULL;
   g_autoptr (WpSettingsSpec) spec = NULL;
+  const gchar *name;
   const gchar *desc;
   WpSettingsSpecType val_type;
   g_autoptr (WpSpaJson) def = NULL;
@@ -1440,6 +1442,7 @@ print_setting (WpSettings *s, const gchar *key)
   value = wp_settings_get (s, key);
   saved = wp_settings_get_saved (s, key);
   spec = wp_settings_get_spec (s, key);
+  name = wp_settings_spec_get_name (spec);
   desc = wp_settings_spec_get_description (spec);
   val_type = wp_settings_spec_get_value_type (spec);
   def = wp_settings_spec_get_default_value (spec);
@@ -1447,10 +1450,11 @@ print_setting (WpSettings *s, const gchar *key)
   max = wp_settings_spec_get_max_value (spec);
 
   /* print key */
-  printf ("- Name: %s\n", key);
+  printf ("- Id: %s\n", key);
 
   /* print spec */
-  printf ("  Desc: %s\n", desc);
+  printf ("  Name: %s\n", dgettext (GETTEXT_PACKAGE, name));
+  printf ("  Desc: %s\n", dgettext (GETTEXT_PACKAGE, desc));
   printf ("  Type: %s\n", settings_spec_type_to_string (val_type));
   printf ("  Default: %s", wp_spa_json_get_data (def));
   if (min && max)
