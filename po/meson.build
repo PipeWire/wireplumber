@@ -11,7 +11,7 @@ if python_po.found() and spa_json_dump_po.found()
     build_by_default : true,
     command : [
       python_po, spa_json_po, '--spa-json-dump=' + spa_json_dump_po.full_path(),
-      '-k', '/wireplumber.settings.schema/[^/]*/description$',
+      '-k', '/wireplumber.settings.schema/[^/]*/(description|name)$',
       '-o', '@CURRENT_SOURCE_DIR@/conf.pot',
       '@INPUT@',
     ],
