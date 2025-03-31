@@ -63,6 +63,26 @@ msgstr ""
 msgid "Default source volume"
 msgstr ""
 
+#. /wireplumber.settings.schema/device.routes.mute-on-alsa-playback-removed/description
+#: wireplumber.conf
+msgid "Automatically mute all audio devices when active wired headphones/speakers are disconnected to prevent unintended sound output"
+msgstr ""
+
+#. /wireplumber.settings.schema/device.routes.mute-on-alsa-playback-removed/name
+#: wireplumber.conf
+msgid "Auto-mute on wired audio disconnect"
+msgstr ""
+
+#. /wireplumber.settings.schema/device.routes.mute-on-bluetooth-playback-removed/description
+#: wireplumber.conf
+msgid "Automatically mute all audio devices when active Bluetooth headphones/speakers are disconnected to prevent unintended sound output"
+msgstr ""
+
+#. /wireplumber.settings.schema/device.routes.mute-on-bluetooth-playback-removed/name
+#: wireplumber.conf
+msgid "Auto-mute on Bluetooth audio disconnect"
+msgstr ""
+
 #. /wireplumber.settings.schema/linking.allow-moving-streams/description
 #: wireplumber.conf
 msgid "Streams may be moved by adding PipeWire metadata at runtime"
