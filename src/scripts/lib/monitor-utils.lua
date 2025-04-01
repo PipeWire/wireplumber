@@ -135,8 +135,6 @@ end
 function mutils.register_cam_node (self, parent, id, factory, properties)
   local obj_path = properties["object.path"]
   local api = properties["device.api"]
-  local dev_ids = properties["device.devids"]
-  log:debug(api .. " reported device " .. obj_path .. " with device ids " .. dev_ids)
 
   -- cache info, it comes handy when creating node
   local cam_data = {}
@@ -146,6 +144,14 @@ function mutils.register_cam_node (self, parent, id, factory, properties)
   cam_data.factory = factory
   cam_data.properties = properties
 
+  local dev_ids = properties["device.devids"]
+  if not dev_ids then
+    log:debug(api .. " reported device " .. obj_path .. " without device ids")
+    create_cam_node(cam_data)
+    return
+  end
+
+  log:debug(api .. " reported device " .. obj_path .. " with device ids " .. dev_ids)
   table.insert(self.cam_data, cam_data)
 
   if self.cam_source then
