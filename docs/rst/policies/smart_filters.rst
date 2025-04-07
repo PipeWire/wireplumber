@@ -185,7 +185,7 @@ The PipeWire configuration files for the 2 filters should be like this:
                  playback.props = {
                      audio.position = [ FL FR ]
                      node.passive = true
-                     node.dont-remix = true
+                     stream.dont-remix = true
                  }
              }
          }
@@ -210,7 +210,7 @@ The PipeWire configuration files for the 2 filters should be like this:
                  playback.props = {
                      audio.position = [ FL FR ]
                      node.passive = true
-                     node.dont-remix = true
+                     stream.dont-remix = true
                  }
              }
          }
@@ -295,7 +295,7 @@ the filters like this:
                  playback.props = {
                      audio.position = [ FL FR ]
                      node.passive = true
-                     node.dont-remix = true
+                     stream.dont-remix = true
                  }
              }
          }
@@ -319,7 +319,7 @@ the filters like this:
                  playback.props = {
                      audio.position = [ FL FR ]
                      node.passive = true
-                     node.dont-remix = true
+                     stream.dont-remix = true
                  }
              }
          }
