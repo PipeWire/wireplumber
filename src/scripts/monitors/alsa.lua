@@ -560,9 +560,6 @@ function createMonitor ()
       end
     end
     device_names_table[device.properties["device.name"]] = nil
-    for managed_node in device:iterate_managed_objects() do
-      node_names_table[managed_node.properties["node.name"]] = nil
-    end
   end)
 
   -- reset the name tables to make sure names are recycled
