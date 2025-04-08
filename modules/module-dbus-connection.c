@@ -255,10 +255,19 @@ wp_dbus_connection_class_init (WpDBusConnectionClass * klass)
 WP_PLUGIN_EXPORT GObject *
 wireplumber__module_init (WpCore * core, WpSpaJson * args, GError ** error)
 {
+  g_autofree gchar *plugin_name = NULL;
+  gboolean is_system_bus = FALSE;
+
+  if (args)
+    wp_spa_json_object_get (args,
+        "plugin.name", "s", &plugin_name,
+        "bus.system", "b", &is_system_bus,
+        NULL);
+
   return G_OBJECT (g_object_new (
       wp_dbus_connection_get_type(),
-      "name", "dbus-connection",
+      "name", plugin_name ? plugin_name : "dbus-connection",
       "core", core,
-      "bus-type", G_BUS_TYPE_SESSION,
+      "bus-type", is_system_bus ? G_BUS_TYPE_SYSTEM : G_BUS_TYPE_SESSION,
       NULL));
 }
