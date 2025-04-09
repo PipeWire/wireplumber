@@ -14,7 +14,7 @@ u.nodes = {}
 u.lnkbls = {}
 u.lnkbl_count = 0
 
-function u.createDeviceNode (name, media_class)
+function u.createDeviceNode (name, media_class, props)
   local properties = {}
   properties ["node.name"] = name
   properties ["media.class"] = media_class
@@ -22,6 +22,11 @@ function u.createDeviceNode (name, media_class)
     properties ["factory.name"] = "support.null-audio-sink"
   else
     properties ["factory.name"] = "audiotestsrc"
+  end
+  if props ~= nil then
+    for k, v in pairs (props) do
+      properties[k] = v
+    end
   end
 
   node = Node ("adapter", properties)
