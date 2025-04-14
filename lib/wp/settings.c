@@ -273,8 +273,7 @@ wp_settings_spec_check_value (WpSettingsSpec * self, WpSpaJson *value)
  */
 struct _WpSettingsItem
 {
-  WpMetadata *metadata;
-  const gchar *key;
+  gchar *key;
   WpSpaJson *value;
 };
 
@@ -282,12 +281,10 @@ G_DEFINE_BOXED_TYPE (WpSettingsItem, wp_settings_item,
     wp_settings_item_ref, wp_settings_item_unref)
 
 static WpSettingsItem *
-wp_settings_item_new (WpMetadata *metadata, const gchar *key,
-    const gchar *value)
+wp_settings_item_new (const gchar *key, const gchar *value)
 {
   WpSettingsItem *self = g_rc_box_new0 (WpSettingsItem);
-  self->metadata = g_object_ref (metadata);
-  self->key = key;
+  self->key = g_strdup (key);
   self->value = wp_spa_json_new_from_string (value);
   return self;
 }
@@ -296,8 +293,8 @@ static void
 wp_settings_item_free (gpointer p)
 {
   WpSettingsItem *self = p;
+  g_clear_pointer (&self->key, g_free);
   g_clear_pointer (&self->value, wp_spa_json_unref);
-  g_clear_object (&self->metadata);
 }
 
 /*!
@@ -378,7 +375,13 @@ struct _WpSettings
   GWeakRef metadata;
   GWeakRef metadata_schema;
   GWeakRef metadata_persistent;
+
+  /* We keep a hash table with all the settings info to make sure their values
+   * are always updated when using the settings API. This avoids syncing issues
+   * if pipewire has not finished syncing the metadata objects yet */
   GHashTable *schema;
+  GHashTable *settings;
+  GHashTable *saved_settings;
 };
 
 typedef struct
@@ -404,6 +407,10 @@ wp_settings_init (WpSettings * self)
 
   self->schema = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
       (GDestroyNotify) wp_settings_spec_unref);
+  self->settings = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
+      (GDestroyNotify) g_free);
+  self->saved_settings = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
+      (GDestroyNotify) g_free);
 }
 
 static void
@@ -464,16 +471,8 @@ wp_settings_activate_get_next_step (WpObject * object,
 }
 
 static void
-on_metadata_changed (WpMetadata *m, guint32 subject,
-   const gchar *key, const gchar *type, const gchar *value, gpointer d)
+settings_notify_changed (WpSettings *self, const gchar *key, const gchar *value)
 {
-  WpSettings *self = WP_SETTINGS(d);
-
-  if (value)
-    wp_info_object (self, "setting \"%s\" changed to \"%s\"", key, value);
-  else
-    wp_info_object (self, "setting \"%s\" removed", key);
-
   for (guint i = 0; i < self->callbacks->len; i++) {
     Callback *cb = g_ptr_array_index (self->callbacks, i);
 
@@ -495,9 +494,62 @@ on_metadata_changed (WpMetadata *m, guint32 subject,
       g_value_unset (&values[0]);
       g_value_unset (&values[1]);
       g_value_unset (&values[2]);
-
-      wp_debug_object (self, "triggered callback(%p)", cb);
     }
+  }
+}
+
+static void
+settings_notify_changed_cb (gpointer key, gpointer value, gpointer data)
+{
+  WpSettings *self = WP_SETTINGS (data);
+  const gchar *k = key;
+  const gchar *v = value;
+
+  settings_notify_changed (self, k, v);
+}
+
+static void
+on_metadata_changed (WpMetadata *m, guint32 subject,
+   const gchar *key, const gchar *type, const gchar *value, gpointer d)
+{
+  WpSettings *self = WP_SETTINGS (d);
+
+  if (key) {
+    if (value) {
+      g_hash_table_insert (self->settings, g_strdup (key), g_strdup (value));
+      wp_info_object (self, "setting \"%s\" changed to \"%s\"", key, value);
+    } else {
+      g_hash_table_remove (self->settings, key);
+      wp_info_object (self, "setting \"%s\" removed", key);
+    }
+
+    settings_notify_changed (self, key, value);
+  } else {
+    wp_info_object (self, "all settings removed");
+    g_hash_table_foreach (self->settings, settings_notify_changed_cb, self);
+    g_hash_table_remove_all (self->settings);
+  }
+}
+
+static void
+on_metadata_persistent_changed (WpMetadata *m, guint32 subject,
+   const gchar *key, const gchar *type, const gchar *value, gpointer d)
+{
+  WpSettings *self = WP_SETTINGS (d);
+
+  if (key) {
+    if (value) {
+      g_hash_table_insert (self->saved_settings, g_strdup (key),
+          g_strdup (value));
+      wp_info_object (self, "saved setting \"%s\" changed to \"%s\"", key,
+          value);
+    } else {
+      g_hash_table_remove (self->saved_settings, key);
+      wp_info_object (self, "saved setting \"%s\" removed", key);
+    }
+  } else {
+    wp_info_object (self, "all saved settings removed");
+    g_hash_table_remove_all (self->saved_settings);
   }
 }
 
@@ -521,6 +573,15 @@ on_metadata_added (WpObjectManager *om, WpMetadata *m, gpointer d)
 
   /* sm-settings */
   if (g_str_equal (metadata_name, self->metadata_name)) {
+    g_autoptr (WpIterator) it = NULL;
+    g_auto (GValue) item = G_VALUE_INIT;
+    it = wp_metadata_new_iterator (m, 0);
+    for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
+      WpMetadataItem *mi = g_value_get_boxed (&item);
+      const gchar *key = wp_metadata_item_get_key (mi);
+      const gchar *value = wp_metadata_item_get_value (mi);
+      g_hash_table_insert (self->settings, g_strdup (key), g_strdup (value));
+    }
     g_signal_connect_object (m, "changed", G_CALLBACK (on_metadata_changed),
         self, 0);
     g_weak_ref_set (&self->metadata, m);
@@ -550,6 +611,18 @@ on_metadata_added (WpObjectManager *om, WpMetadata *m, gpointer d)
 
   /* presistent-sm-settings */
   else if (g_str_equal (metadata_name, self->metadata_persistent_name)) {
+    g_autoptr (WpIterator) it = NULL;
+    g_auto (GValue) item = G_VALUE_INIT;
+    it = wp_metadata_new_iterator (m, 0);
+    for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
+      WpMetadataItem *mi = g_value_get_boxed (&item);
+      const gchar *key = wp_metadata_item_get_key (mi);
+      const gchar *value = wp_metadata_item_get_value (mi);
+      g_hash_table_insert (self->saved_settings, g_strdup (key),
+          g_strdup (value));
+    }
+    g_signal_connect_object (m, "changed",
+        G_CALLBACK (on_metadata_persistent_changed), self, 0);
     g_weak_ref_set (&self->metadata_persistent, m);
   }
 
@@ -630,6 +703,8 @@ wp_settings_finalize (GObject * object)
   g_clear_pointer (&self->metadata_persistent_name, g_free);
 
   g_clear_pointer (&self->schema, g_hash_table_unref);
+  g_clear_pointer (&self->settings, g_hash_table_unref);
+  g_clear_pointer (&self->saved_settings, g_hash_table_unref);
 
   g_weak_ref_clear (&self->metadata);
   g_weak_ref_clear (&self->metadata_schema);
@@ -809,8 +884,6 @@ wp_settings_get (WpSettings *self, const gchar *name)
 {
   const gchar *value;
   g_autoptr (WpSettingsSpec) spec = NULL;
-  g_autoptr (WpSpaJson) def_value = NULL;
-  g_autoptr (WpMetadata) m = NULL;
 
   g_return_val_if_fail (WP_IS_SETTINGS (self), NULL);
   g_return_val_if_fail (name, NULL);
@@ -821,11 +894,7 @@ wp_settings_get (WpSettings *self, const gchar *name)
     return NULL;
   }
 
-  m = g_weak_ref_get (&self->metadata);
-  if (!m)
-    return wp_settings_spec_get_default_value (spec);
-
-  value = wp_metadata_find (m, 0, name, NULL);
+  value = g_hash_table_lookup (self->settings, name);
   return value ? wp_spa_json_new_wrap_string (value) :
       wp_settings_spec_get_default_value (spec);
 }
@@ -843,7 +912,6 @@ wp_settings_get_saved (WpSettings *self, const gchar *name)
 {
   const gchar *value;
   g_autoptr (WpSettingsSpec) spec = NULL;
-  g_autoptr (WpMetadata) mp = NULL;
 
   g_return_val_if_fail (WP_IS_SETTINGS (self), NULL);
   g_return_val_if_fail (name, NULL);
@@ -854,11 +922,7 @@ wp_settings_get_saved (WpSettings *self, const gchar *name)
     return NULL;
   }
 
-  mp = g_weak_ref_get (&self->metadata_persistent);
-  if (!mp)
-    return NULL;
-
-  value = wp_metadata_find (mp, 0, name, NULL);
+  value = g_hash_table_lookup (self->saved_settings, name);
   return value ? wp_spa_json_new_wrap_string (value) : NULL;
 }
 
@@ -916,6 +980,7 @@ wp_settings_set (WpSettings *self, const gchar *name, WpSpaJson *value)
     return FALSE;
   }
 
+  g_hash_table_insert (self->settings, g_strdup (name), g_strdup (value_str));
   wp_metadata_set (m, 0, name, "Spa:String:JSON", value_str);
   return TRUE;
 }
@@ -972,6 +1037,8 @@ wp_settings_save (WpSettings *self, const char *name)
     return FALSE;
 
   value_str = wp_spa_json_to_string (value);
+  g_hash_table_insert (self->saved_settings, g_strdup (name),
+      g_strdup (value_str));
   wp_metadata_set (mp, 0, name, "Spa:String:JSON", value_str);
   return TRUE;
 }
@@ -1002,8 +1069,19 @@ wp_settings_delete (WpSettings *self, const char *name)
   if (!mp)
     return FALSE;
 
+  g_hash_table_remove (self->saved_settings, name);
   wp_metadata_set (mp, 0, name, NULL, NULL);
   return TRUE;
+}
+
+static void
+settings_reset_cb (gpointer key, gpointer value, gpointer data)
+{
+  WpSettings *self = WP_SETTINGS (data);
+  const gchar *k = key;
+
+  if (!wp_settings_reset (self, k))
+    wp_warning_object (self, "Failed to reset setting %s", k);
 }
 
 /*!
@@ -1013,38 +1091,19 @@ wp_settings_delete (WpSettings *self, const char *name)
  */
 void wp_settings_reset_all (WpSettings *self)
 {
-  g_autoptr (WpMetadata) m = NULL;
-  g_autoptr (WpIterator) it = NULL;
-  g_auto (GValue) item = G_VALUE_INIT;
-  g_autoptr (WpProperties) props = NULL;
-
   g_return_if_fail (WP_IS_SETTINGS (self));
 
-  m = g_weak_ref_get (&self->metadata);
-  if (!m)
-    return;
+  g_hash_table_foreach (self->settings, settings_reset_cb, self);
+}
 
-  /* We cannot reset the settings while iterating, as the current iterator
-   * won't be valid anyore. Instead, we get a list of all settings, and then
-   * we reset them */
-  props = wp_properties_new_empty ();
-  it = wp_metadata_new_iterator (m, 0);
-  for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
-    WpMetadataItem *mi = g_value_get_boxed (&item);
-    const gchar *key = wp_metadata_item_get_key (mi);
-    const gchar *value = wp_metadata_item_get_value (mi);
-    wp_properties_set (props, key, value);
-  }
-  wp_iterator_unref (it);
+static void
+settings_save_cb (gpointer key, gpointer value, gpointer data)
+{
+  WpSettings *self = WP_SETTINGS (data);
+  const gchar *k = key;
 
-  /* Now reset all settings */
-  it = wp_properties_new_iterator (props);
-  for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
-    WpPropertiesItem *pi = g_value_get_boxed (&item);
-    const gchar *key = wp_properties_item_get_key (pi);
-    if (!wp_settings_reset (self, key))
-      wp_warning_object (self, "Failed to reset setting %s", key);
-  }
+  if (!wp_settings_save (self, k))
+    wp_warning_object (self, "Failed to save setting %s", k);
 }
 
 /*!
@@ -1054,25 +1113,9 @@ void wp_settings_reset_all (WpSettings *self)
  */
 void wp_settings_save_all (WpSettings *self)
 {
-  g_autoptr (WpMetadata) m = NULL;
-  g_autoptr (WpMetadata) mp = NULL;
-  g_autoptr (WpIterator) it = NULL;
-  g_auto (GValue) item = G_VALUE_INIT;
-
   g_return_if_fail (WP_IS_SETTINGS (self));
 
-  m = g_weak_ref_get (&self->metadata);
-  mp = g_weak_ref_get (&self->metadata_persistent);
-  if (!m || !mp)
-    return;
-
-  it = wp_metadata_new_iterator (m, 0);
-  for (; wp_iterator_next (it, &item); g_value_unset (&item)) {
-    WpMetadataItem *mi = g_value_get_boxed (&item);
-    const gchar *key = wp_metadata_item_get_key (mi);
-    if (!wp_settings_save (self, key))
-      wp_warning_object (self, "Failed to save setting %s", key);
-  }
+  g_hash_table_foreach (self->settings, settings_save_cb, self);
 }
 
 /*!
@@ -1086,53 +1129,43 @@ void wp_settings_delete_all (WpSettings *self)
 
   g_return_if_fail (WP_IS_SETTINGS (self));
 
+  g_hash_table_remove_all (self->saved_settings);
   mp = g_weak_ref_get (&self->metadata_persistent);
-  if (!mp)
-    return;
-
-  wp_metadata_clear (mp);
+  if (mp)
+    wp_metadata_clear (mp);
 }
 
 struct settings_iterator_data
 {
   WpSettings *settings;
-  WpIterator *metadata_it;
+  const gchar **keys;
+  guint len;
+  guint curr;
 };
 
 static void
 settings_iterator_reset (WpIterator *it)
 {
   struct settings_iterator_data *it_data = wp_iterator_get_user_data (it);
-  g_autoptr (WpMetadata) m = NULL;
-
-  m = g_weak_ref_get (&it_data->settings->metadata);
-  g_return_if_fail (m);
-
-  g_clear_pointer (&it_data->metadata_it, wp_iterator_unref);
-  it_data->metadata_it = wp_metadata_new_iterator (m, 0);
+  it_data->curr = 0;
 }
 
 static gboolean
 settings_iterator_next (WpIterator *it, GValue *item)
 {
   struct settings_iterator_data *it_data = wp_iterator_get_user_data (it);
-  g_autoptr (WpMetadata) m = NULL;
   g_autoptr (WpSettingsItem) si = NULL;
-  g_auto (GValue) val = G_VALUE_INIT;
-  WpMetadataItem *mi;
   const gchar *key, *value;
 
-  m = g_weak_ref_get (&it_data->settings->metadata);
-  g_return_val_if_fail (m, FALSE);
-
-  if (!wp_iterator_next (it_data->metadata_it, &val))
+  if (it_data->curr < it_data->len) {
+    key = it_data->keys [it_data->curr++];
+    value = g_hash_table_lookup (it_data->settings->settings, key);
+    g_return_val_if_fail (value, FALSE);
+  } else {
     return FALSE;
+  }
 
-  mi = g_value_get_boxed (&val);
-  key = wp_metadata_item_get_key (mi);
-  value = wp_metadata_item_get_value (mi);
-
-  si = wp_settings_item_new (m, key, value);
+  si = wp_settings_item_new (key, value);
   g_value_init (item, WP_TYPE_SETTINGS_ITEM);
   g_value_take_boxed (item, g_steal_pointer (&si));
   return TRUE;
@@ -1142,8 +1175,7 @@ static void
 settings_iterator_finalize (WpIterator *it)
 {
   struct settings_iterator_data *it_data = wp_iterator_get_user_data (it);
-  g_clear_pointer (&it_data->metadata_it, wp_iterator_unref);
-  g_clear_object (&it_data->settings);
+  g_clear_pointer (&it_data->keys, g_free);
 }
 
 static const WpIteratorMethods settings_iterator_methods = {
@@ -1178,6 +1210,8 @@ wp_settings_new_iterator (WpSettings *self)
       sizeof (struct settings_iterator_data));
   it_data = wp_iterator_get_user_data (it);
   it_data->settings = g_object_ref (self);
-  it_data->metadata_it = wp_metadata_new_iterator (m, 0);
+  it_data->keys = (const gchar **)g_hash_table_get_keys_as_array (
+      self->settings, &it_data->len);
+  it_data->curr = 0;
   return g_steal_pointer (&it);
 }
