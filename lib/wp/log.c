@@ -772,10 +772,17 @@ wp_log_fields_write_to_stream (WpLogFields *lf, FILE *s)
 static gboolean
 wp_log_fields_write_to_journal (WpLogFields *lf)
 {
-  GLogField fields[6];
+  GLogField fields[10];
   gsize n_fields = 0;
   g_autofree gchar *full_message = NULL;
   const gchar *message = lf->message ? lf->message : "";
+  g_autofree gchar *pid = g_strdup_printf("%d", getpid());
+  g_autofree gchar *tid = g_strdup_printf("%d", gettid());
+#ifdef HAS_SHORT_NAME
+  const gchar *syslog_identifier = program_invocation_short_name;
+#else
+  const gchar *syslog_identifier = g_get_prgname();
+#endif
 
   if (lf->debug) {
     if (lf->file && lf->line && lf->func) {
@@ -797,6 +804,10 @@ wp_log_fields_write_to_journal (WpLogFields *lf)
     message = full_message = g_strdup_printf("%s: %s", lf->log_topic, message);
   }
 
+  fields[n_fields++] = (GLogField) { "SYSLOG_PID", pid, -1 };
+  fields[n_fields++] = (GLogField) { "TID", tid, -1 };
+  fields[n_fields++] = (GLogField) { "SYSLOG_IDENTIFIER", syslog_identifier, -1 };
+  fields[n_fields++] = (GLogField) { "SYSLOG_FACILITY", "3", -1 };
   fields[n_fields++] = (GLogField) { "PRIORITY", log_level_info[lf->log_level].priority, -1 };
   if (lf->file)
     fields[n_fields++] = (GLogField) { "CODE_FILE", lf->file, -1 };

@@ -42,6 +42,17 @@ add_project_arguments([
   ], language: 'c'
 )
 
+check_short_name = '''#define _GNU_SOURCE
+#include <errno.h>
+void main() { program_invocation_short_name; }
+'''
+if cc.compiles(check_short_name, name : 'check short_name')
+  add_project_arguments([
+      '-DHAS_SHORT_NAME',
+    ], language: 'c'
+  )
+endif
+
 build_modules = get_option('modules')
 build_daemon = get_option('daemon')
 if build_daemon and not build_modules
