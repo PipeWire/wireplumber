@@ -59,6 +59,16 @@ shared_library(
 )
 
 shared_library(
+  'wireplumber-module-notifications-api',
+  [
+    'module-notifications-api.c',
+  ],
+  install : true,
+  install_dir : wireplumber_module_dir,
+  dependencies : [wp_dep, giounix_dep],
+)
+
+shared_library(
   'wireplumber-module-si-audio-adapter',
   [
     'module-si-audio-adapter.c',
