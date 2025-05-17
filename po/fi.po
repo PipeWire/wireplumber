@@ -7,11 +7,13 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: git trunk\n"
-"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/issues/new\n"
-"POT-Creation-Date: 2024-10-12 13:43+0300\n"
-"PO-Revision-Date: 2024-10-12 13:45+0300\n"
+"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/"
+"issues/new\n"
+"POT-Creation-Date: 2025-07-24 11:30+0300\n"
+"PO-Revision-Date: 2025-07-24 11:30+0300\n"
 "Last-Translator: Pauli Virtanen <pav@iki.fi>\n"
-"Language-Team: Finnish <https://translate.fedoraproject.org/projects/pipewire/pipewire/fi/>\n"
+"Language-Team: Finnish <https://translate.fedoraproject.org/projects/"
+"pipewire/pipewire/fi/>\n"
 "Language: fi\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -26,9 +28,18 @@ msgstr ""
 #.
 #. SPDX-License-Identifier: MIT
 #. unique device/node name tables
+#. SPA ids to node names: name = id_name_table[device_id][node_id]
+#. create the underlying hidden ALSA node
+#. not suitable for loopback
+#: src/scripts/monitors/alsa.lua:106
+#, lua-format
+msgid "Split %s"
+msgstr "Jako: %s"
+
+#. Connect ObjectConfig events to the right node
 #. set the device id and spa factory name; REQUIRED, do not change
 #. set the default pause-on-idle setting
-#. try to negotiate the max ammount of channels
+#. try to negotiate the max amount of channels
 #. set priority
 #. ensure the node has a media class
 #. ensure the node has a name
@@ -41,19 +52,21 @@ msgstr ""
 #. add api.alsa.card.* properties for rule matching purposes
 #. add cpu.vm.name for rule matching purposes
 #. apply properties from rules defined in JSON .conf file
+#. handle split HW node
+#. create split PCM node
 #. create the node
 #. ensure the device has an appropriate name
 #. deduplicate devices with the same name
 #. ensure the device has a description
-#: src/scripts/monitors/alsa.lua:219
+#: src/scripts/monitors/alsa.lua:438
 msgid "Loopback"
 msgstr "Takaisinkytkentä"
 
-#: src/scripts/monitors/alsa.lua:221
+#: src/scripts/monitors/alsa.lua:440
 msgid "Built-in Audio"
 msgstr "Sisäinen äänentoisto"
 
-#: src/scripts/monitors/alsa.lua:223
+#: src/scripts/monitors/alsa.lua:442
 msgid "Modem"
 msgstr "Modeemi"
 
@@ -123,3 +136,221 @@ msgstr "Sisäinen etukamera"
 #: src/scripts/monitors/libcamera/name-node.lua:63
 msgid "Built-in Back Camera"
 msgstr "Sisäinen takakamera"
+
+#. /wireplumber.settings.schema/bluetooth.autoswitch-to-headset-profile/description
+#: wireplumber.conf
+msgid ""
+"Always show microphone for Bluetooth headsets, and switch to headset mode "
+"when recording"
+msgstr ""
+"Näytä Bluetooth-laitteen mikrofoni aina, ja vaihda profiilia sitä "
+"käytettäessä"
+
+#. /wireplumber.settings.schema/bluetooth.autoswitch-to-headset-profile/name
+#: wireplumber.conf
+msgid "Auto-switch to headset profile"
+msgstr "Vaihda automaattisesti kuulokemikrofonitilaan"
+
+#. /wireplumber.settings.schema/bluetooth.use-persistent-storage/description
+#: wireplumber.conf
+msgid "Remember and restore Bluetooth headset mode status"
+msgstr "Tallenna ja palauta Bluetooth-laitteiden mikrofonitila"
+
+#. /wireplumber.settings.schema/bluetooth.use-persistent-storage/name
+#: wireplumber.conf
+msgid "Persistent storage"
+msgstr "Pysyvä tallennus"
+
+#. /wireplumber.settings.schema/device.restore-profile/description
+#: wireplumber.conf
+msgid "Remember and restore device profiles"
+msgstr "Tallenna ja palauta laitteiden profiilit"
+
+#. /wireplumber.settings.schema/device.restore-profile/name
+#: wireplumber.conf
+msgid "Restore profile"
+msgstr "Palauta profiili"
+
+#. /wireplumber.settings.schema/device.restore-routes/description
+#: wireplumber.conf
+msgid "Remember and restore device routes"
+msgstr "Tallenna ja palauta laitteiden reitit"
+
+#. /wireplumber.settings.schema/device.restore-routes/name
+#: wireplumber.conf
+msgid "Restore routes"
+msgstr "Palauta reitit"
+
+#. /wireplumber.settings.schema/device.routes.default-sink-volume/description
+#: wireplumber.conf
+msgid "The default volume for audio sinks"
+msgstr "Oletusarvoinen äänenvoimakkuus ulostuloille"
+
+#. /wireplumber.settings.schema/device.routes.default-sink-volume/name
+#: wireplumber.conf
+msgid "Default sink volume"
+msgstr "Ulostulon oletusäänenvoimakkuus"
+
+#. /wireplumber.settings.schema/device.routes.default-source-volume/description
+#: wireplumber.conf
+msgid "The default volume for audio sources"
+msgstr "Oletusarvoinen äänenvoimakkuus sisääntuloille"
+
+#. /wireplumber.settings.schema/device.routes.default-source-volume/name
+#: wireplumber.conf
+msgid "Default source volume"
+msgstr "Sisääntulon oletusäänenvoimakkuus"
+
+#. /wireplumber.settings.schema/linking.allow-moving-streams/description
+#: wireplumber.conf
+msgid "Streams may be moved by adding PipeWire metadata at runtime"
+msgstr "Äänivirtoja voi siirtää PipeWire-metadatalla"
+
+#. /wireplumber.settings.schema/linking.allow-moving-streams/name
+#: wireplumber.conf
+msgid "Allow moving streams"
+msgstr "Salli virtojen siirto"
+
+#. /wireplumber.settings.schema/linking.follow-default-target/description
+#: wireplumber.conf
+msgid "Streams connected to the default device follow when default changes"
+msgstr "Virrat seuraavat mukana kun oletuslaitetta vaihdetaan"
+
+#. /wireplumber.settings.schema/linking.follow-default-target/name
+#: wireplumber.conf
+msgid "Follow default target"
+msgstr "Seuraa oletuskohdetta"
+
+#. /wireplumber.settings.schema/linking.pause-playback/description
+#: wireplumber.conf
+msgid "Pause media players if their target sink is removed"
+msgstr "Pysäytä mediasoitin jos sen käyttämä ulostulolaite poistetaan"
+
+#. /wireplumber.settings.schema/linking.pause-playback/name
+#: wireplumber.conf
+msgid "Pause playback if output removed"
+msgstr "Pysäytä toisto kun ulostulo katoaa"
+
+#. /wireplumber.settings.schema/linking.role-based.duck-level/description
+#: wireplumber.conf
+msgid ""
+"The volume level to apply when ducking (= reducing volume for a higher "
+"priority stream to be audible) in the role-based linking policy"
+msgstr ""
+"Kuinka paljon muiden äänien tasoa lasketaan kun tärkeämpi äänivirta "
+"käynnistyy, kun käytetään rooliperustaista linkitystä"
+
+#. /wireplumber.settings.schema/linking.role-based.duck-level/name
+#: wireplumber.conf
+msgid "Ducking level"
+msgstr "Äänentason lasku"
+
+#. /wireplumber.settings.schema/monitor.camera-discovery-timeout/description
+#: wireplumber.conf
+msgid "The camera discovery timeout in milliseconds"
+msgstr "Kameran hakemisen aikakatkaisu millisekunneissa"
+
+#. /wireplumber.settings.schema/monitor.camera-discovery-timeout/name
+#: wireplumber.conf
+msgid "Discovery timeout"
+msgstr "Haun aikakatkaisu"
+
+#. /wireplumber.settings.schema/node.features.audio.control-port/description
+#: wireplumber.conf
+msgid "Enable control ports on audio nodes"
+msgstr "Lisää säädinportit äänisolmuihin"
+
+#. /wireplumber.settings.schema/node.features.audio.control-port/name
+#: wireplumber.conf
+msgid "Control ports"
+msgstr "Säädinportit"
+
+#. /wireplumber.settings.schema/node.features.audio.monitor-ports/description
+#: wireplumber.conf
+msgid "Enable monitor ports on audio nodes"
+msgstr "Lisää monitorointiportit äänisolmuihin"
+
+#. /wireplumber.settings.schema/node.features.audio.monitor-ports/name
+#: wireplumber.conf
+msgid "Monitor ports"
+msgstr "Monitorointiportit"
+
+#. /wireplumber.settings.schema/node.features.audio.no-dsp/description
+#: wireplumber.conf
+msgid "Do not convert audio to F32 format"
+msgstr "Älä muunna ääntä F32-muotoon"
+
+#. /wireplumber.settings.schema/node.features.audio.no-dsp/name
+#: wireplumber.conf
+msgid "No DSP"
+msgstr "Ei DSP:tä"
+
+#. /wireplumber.settings.schema/node.filter.forward-format/description
+#: wireplumber.conf
+msgid "Forward format on filter nodes or not"
+msgstr "Välitetäänkö filtterisolmujen formaatti"
+
+#. /wireplumber.settings.schema/node.filter.forward-format/name
+#: wireplumber.conf
+msgid "Forward format"
+msgstr "Välitä formaatti"
+
+#. /wireplumber.settings.schema/node.restore-default-targets/description
+#: wireplumber.conf
+msgid "Remember and restore default audio/video input/output devices"
+msgstr "Tallenna ja palauta oletusarvoiset ääni/video sisään- ja ulostulot"
+
+#. /wireplumber.settings.schema/node.restore-default-targets/name
+#: wireplumber.conf
+msgid "Restore default target"
+msgstr "Palauta oletuskohteet"
+
+#. /wireplumber.settings.schema/node.stream.default-capture-volume/description
+#: wireplumber.conf
+msgid "The default volume for capture nodes"
+msgstr "Oletusarvoinen äänenvoimakkuus nauhoitukselle"
+
+#. /wireplumber.settings.schema/node.stream.default-capture-volume/name
+#: wireplumber.conf
+msgid "Default capture volume"
+msgstr "Nauhoituksen oletusäänenvoimakkuus"
+
+#. /wireplumber.settings.schema/node.stream.default-media-role/description
+#: wireplumber.conf
+msgid "Default media.role to assign on streams that do not specify it"
+msgstr "media.role virroille jotka eivät sitä muuten määrittele"
+
+#. /wireplumber.settings.schema/node.stream.default-media-role/name
+#: wireplumber.conf
+msgid "Default media role"
+msgstr "Oletusarvoinen mediarooli"
+
+#. /wireplumber.settings.schema/node.stream.default-playback-volume/description
+#: wireplumber.conf
+msgid "The default volume for playback nodes"
+msgstr "Oletusarvoinen äänenvoimakkuus toistolle"
+
+#. /wireplumber.settings.schema/node.stream.default-playback-volume/name
+#: wireplumber.conf
+msgid "Default playback volume"
+msgstr "Toiston oletusäänenvoimakkuus"
+
+#. /wireplumber.settings.schema/node.stream.restore-props/description
+#: wireplumber.conf
+msgid "Remember and restore properties of streams"
+msgstr "Tallenna ja palauta äänivirtojen ominaisuudet"
+
+#. /wireplumber.settings.schema/node.stream.restore-props/name
+#: wireplumber.conf
+msgid "Restore properties"
+msgstr "Palauta ominaisuudet"
+
+#. /wireplumber.settings.schema/node.stream.restore-target/description
+#: wireplumber.conf
+msgid "Remember and restore stream targets"
+msgstr "Tallenna ja palauta äänivirtojen kohteet"
+
+#. /wireplumber.settings.schema/node.stream.restore-target/name
+#: wireplumber.conf
+msgid "Restore target"
+msgstr "Palauta kohde"
