@@ -381,6 +381,7 @@ function lutils.haveAvailableRoutes (si_props, devices_om)
       else
         return true
       end
+    end
   end
 
   -- Check if available routes support the node's card.profile.device
