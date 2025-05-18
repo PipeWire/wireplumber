@@ -348,66 +348,60 @@ function lutils.checkPassthroughCompatibility (si, si_target)
   return true, can_passthrough
 end
 
--- Does the target device have any active/available paths/routes to
--- the physical device(spkr/mic/cam)?
-function lutils.haveAvailableRoutes (si_props)
+-- If the node has an associated device, does it have any active/available
+-- paths/routes to the physical device?
+-- Some UCM profiles expose all paths (headphones, HDMI, etc) as nodes,
+-- even though they may not be connected... See #145
+function lutils.haveAvailableRoutes (si_props, devices_om)
   local card_profile_device = si_props ["card.profile.device"]
   local device_id = si_props ["device.id"]
-  local device = device_id and cutils.get_object_manager ("device"):lookup {
+
+  -- if the node does not have an associated device, it's all good
+  if not card_profile_device or not device_id then
+    return true
+  end
+
+  -- Get the device
+  devices_om = devices_om or cutils.get_object_manager ("device")
+  local device = devices_om:lookup {
     Constraint { "bound-id", "=", device_id, type = "gobject" },
   }
 
-  if not card_profile_device or not device then
+  if not device then
     return true
   end
 
-  local found = 0
-  local avail = 0
-
-  -- First check "SPA_PARAM_Route" if there are any active devices
-  -- in an active profile.
+  -- Check if at least one of the current device routes supports
+  -- the node's card.profile.device and is available
   for p in device:iterate_params ("Route") do
     local route = cutils.parseParam (p, "Route")
-    if not route then
-      goto skip_route
-    end
-
-    if (route.device ~= tonumber (card_profile_device)) then
-      goto skip_route
-    end
-
-    if (route.available == "no") then
-      return false
-    end
-
-    do return true end
-
-    ::skip_route::
+    if route and (route.device == tonumber (card_profile_device)) then
+      if (route.available == "no") then
+        return false
+      else
+        return true
+      end
   end
 
-  -- Second check "SPA_PARAM_EnumRoute" if there is any route that
-  -- is available if not active.
-  for p in device:iterate_params ("EnumRoute") do
+  -- Check if available routes support the node's card.profile.device
+  local found = 0
+  for r in device:iterate_params ("EnumRoute") do
     local route = cutils.parseParam (p, "EnumRoute")
-    if not route then
-      goto skip_enum_route
+    if route and type (route.devices) == "table" then
+      for _, i in ipairs (route.devices) do
+        if i == tonumber (cpd) then
+          found = found + 1
+          if route.available ~= "no" then
+            return true
+          end
+        end
+      end
     end
-
-    if not cutils.arrayContains
-          (route.devices, tonumber (card_profile_device)) then
-      goto skip_enum_route
-    end
-    found = found + 1;
-    if (route.available ~= "no") then
-      avail = avail + 1
-    end
-    ::skip_enum_route::
   end
 
+  -- The node is part of a profile without routes so we assume it
+  -- is available. This can happen for Pro Audio profiles
   if found == 0 then
-    return true
-  end
-  if avail > 0 then
     return true
   end
 
