@@ -7,6 +7,8 @@
 -- looks for changes in user-preferences and devices added/removed and schedules
 -- rescan and pushes "select-default-node" event for each of the media_classes
 
+lutils = require ("linking-utils")
+
 log = Log.open_topic ("s-default-nodes")
 
 -- looks for changes in user-preferences and devices added/removed and schedules
@@ -107,7 +109,7 @@ function collectAvailableNodes (si_om, devices_om, port_direction, media_classes
 
     -- check that the node has available routes,
     -- if it is associated to a real device
-    if not nodeHasAvailableRoutes (node, devices_om) then
+    if not lutils.haveAvailableRoutes (node.properties, devices_om) then
       goto next_linkable
     end
 
@@ -117,63 +119,4 @@ function collectAvailableNodes (si_om, devices_om, port_direction, media_classes
   end
 
   return collected
-end
-
--- If the node has an associated device, verify that it has an available
--- route. Some UCM profiles expose all paths (headphones, HDMI, etc) as nodes,
--- even though they may not be connected... See #145
-function nodeHasAvailableRoutes (node, devices_om)
-  local properties = node.properties
-  local device_id = properties ["device.id"]
-  local cpd = properties ["card.profile.device"]
-
-  if not device_id or not cpd then
-    return true
-  end
-
-  -- Get the device
-  local device = devices_om:lookup {
-    Constraint { "bound-id", "=", device_id, type = "gobject" }
-  }
-  if not device then
-    return true
-  end
-
-  --  Check if the current device route supports the node card device profile
-  for r in device:iterate_params ("Route") do
-    local route = r:parse ()
-    local route_props = route.properties
-    if route_props.device == tonumber (cpd) then
-      if route_props.available == "no" then
-        return false
-      else
-        return true
-      end
-    end
-  end
-
-  -- Check if available routes support the node card device profile
-  local found = 0
-  for r in device:iterate_params ("EnumRoute") do
-    local route = r:parse ()
-    local route_props = route.properties
-    if type (route_props.devices) == "table" then
-      for _, i in ipairs (route_props.devices) do
-        if i == tonumber (cpd) then
-          found = found + 1
-          if route_props.available ~= "no" then
-            return true
-          end
-        end
-      end
-    end
-  end
-
-  -- The node is part of a profile without routes so we assume it
-  -- is available. This can happen for Pro Audio profiles
-  if found == 0 then
-    return true
-  end
-
-  return false
 end
