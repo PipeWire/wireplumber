@@ -1,5 +1,39 @@
-WirePlumber 0.5.8
+WirePlumber 0.5.9
 ~~~~~~~~~~~~~~~~~
+
+Additions & Enhancements:
+
+  - Added a new audio node grouping functionality using an external command line
+    tool (!646)
+
+  - The libcamera monitor now supports devices that are not associated with
+    device ids (!701)
+
+  - The wireplumber user systemd service is now associated with dbus.service to
+    avoid strange warnings when dbus exits (!702)
+
+  - Added "SYSLOG_IDENTIFIER", "SYSLOG_FACILITY", "SYSLOG_PID" and "TID" to log
+    messages that are sent to the journal (!709)
+
+Fixes:
+
+  - Fixed a crash of `wpctl set-default` on 32-bit architectures (#773)
+
+  - Fixed a crash when a configuration component had no 'provides' field (#771)
+
+  - Reduced the log level of some messages that didn't need to be as high (!695)
+
+  - Fixed another nil reference issue in the alsa.lua monitor script (!704)
+
+  - Fixed name deduplication of v4l2 and libcamera devices (!705)
+
+  - Fixed an issue with wpctl not being able to save settings sometimes (!708, #749)
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.5.8
+.................
 
 Additions & Enhancements:
 
@@ -32,9 +66,6 @@ Fixes:
 
   - Updated script tests to handle differences in object identifiers
     (``object.serial`` vs ``node.id``), ensuring proper test behavior (#761)
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.5.7
 .................
