@@ -387,10 +387,10 @@ function lutils.haveAvailableRoutes (si_props, devices_om)
   -- Check if available routes support the node's card.profile.device
   local found = 0
   for r in device:iterate_params ("EnumRoute") do
-    local route = cutils.parseParam (p, "EnumRoute")
+    local route = cutils.parseParam (r, "EnumRoute")
     if route and type (route.devices) == "table" then
       for _, i in ipairs (route.devices) do
-        if i == tonumber (cpd) then
+        if i == tonumber (card_profile_device) then
           found = found + 1
           if route.available ~= "no" then
             return true
