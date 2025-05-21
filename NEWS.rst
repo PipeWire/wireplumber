@@ -1,5 +1,15 @@
+WirePlumber 0.5.10
+~~~~~~~~~~~~~~~~~~
+
+Fixed a critical crash in ``linking-utils.haveAvailableRoutes`` that was
+introduced accidentally in 0.5.9 and caused loss of audio output on affected
+systems (#797, #799, #800, !713)
+
+Past releases
+~~~~~~~~~~~~~
+
 WirePlumber 0.5.9
-~~~~~~~~~~~~~~~~~
+.................
 
 Additions & Enhancements:
 
@@ -17,7 +27,7 @@ Additions & Enhancements:
 
 Fixes:
 
-  - Fixed a crash of `wpctl set-default` on 32-bit architectures (#773)
+  - Fixed a crash of ``wpctl set-default`` on 32-bit architectures (#773)
 
   - Fixed a crash when a configuration component had no 'provides' field (#771)
 
@@ -28,9 +38,6 @@ Fixes:
   - Fixed name deduplication of v4l2 and libcamera devices (!705)
 
   - Fixed an issue with wpctl not being able to save settings sometimes (!708, #749)
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.5.8
 .................
