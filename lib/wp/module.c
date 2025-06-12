@@ -33,6 +33,7 @@ struct _WpImplModule
   WpProperties *props; /* only used during module load */
 
   struct pw_impl_module *pw_impl_module;
+  struct spa_hook impl_module_listener;
 };
 
 G_DEFINE_TYPE (WpImplModule, wp_impl_module, G_TYPE_OBJECT);
@@ -44,6 +45,17 @@ enum {
   PROP_ARGUMENTS,
   PROP_PROPERTIES,
   PROP_PW_IMPL_MODULE,
+};
+
+static void impl_module_free (void *data)
+{
+  WpImplModule *self = WP_IMPL_MODULE (data);
+  self->pw_impl_module = NULL;
+}
+
+static const struct pw_impl_module_events impl_module_events = {
+  PW_VERSION_IMPL_MODULE_EVENTS,
+  .free = impl_module_free,
 };
 
 static void
@@ -80,10 +92,15 @@ wp_impl_module_constructed (GObject * object)
   self->pw_impl_module =
     pw_context_load_module (context, self->name, self->args, props);
 
-  if (self->pw_impl_module && self->props) {
-    /* With the module loaded, properties are just passthrough now */
-    wp_properties_unref (self->props);
-    self->props = NULL;
+  if (self->pw_impl_module) {
+    if (self->props) {
+      /* With the module loaded, properties are just passthrough now */
+      wp_properties_unref (self->props);
+      self->props = NULL;
+    }
+
+    pw_impl_module_add_listener (self->pw_impl_module,
+        &self->impl_module_listener, &impl_module_events, self);
   }
 
   G_OBJECT_CLASS (wp_impl_module_parent_class)->constructed (object);
