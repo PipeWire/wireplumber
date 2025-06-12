@@ -353,13 +353,14 @@ function createNode(parent, id, obj_type, factory, properties)
 
   -- create the node
   local node = Node("adapter", properties)
+  parent:set_managed_pending(id)
   node:activate(Feature.Proxy.BOUND, function (_, err)
       if err then
         log:warning ("Failed to create " .. properties ["node.name"]
           .. ": " .. tostring(err))
       end
+      parent:store_managed_object(id, node)
   end)
-  parent:store_managed_object(id, node)
 end
 
 function removeNode(parent, id)
