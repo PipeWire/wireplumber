@@ -157,7 +157,7 @@ SimpleEventHook {
     -- Create group loopback module if it does not exist
     local m = group_loopback_modules [direction][group]
     if m == nil then
-      Log.warning ("Creating " .. direction .. " loopback for audio group " .. group ..
+      Log.info ("Creating " .. direction .. " loopback for audio group " .. group ..
           (target_object and (" with target object " .. tostring (target_object)) or ""))
       m = CreateStreamLoopback (stream_props, group, target_object, direction)
       group_loopback_modules [direction][group] = m
