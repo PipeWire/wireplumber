@@ -6,7 +6,9 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <fcntl.h>
 #include <stdio.h>
+#include <spa/utils/cleanup.h>
 
 #include "log.h"
 #include "proc-utils.h"
@@ -145,6 +147,21 @@ wp_proc_info_get_cgroup (WpProcInfo * self)
   return self->cgroup;
 }
 
+static FILE *
+fdopenat (int dirfd, const char *path, int flags, const char *mode, mode_t perm)
+{
+  int fd = openat (dirfd, path, flags, perm);
+  if (fd >= 0) {
+    FILE *f = fdopen (fd, mode);
+    if (f)
+      return f;
+    close (fd);
+  }
+
+  return NULL;
+}
+
+
 /*!
  * \brief Gets the process information of a given PID
  * \ingroup wpprocutils
@@ -155,51 +172,46 @@ WpProcInfo *
 wp_proc_utils_get_proc_info (pid_t pid)
 {
   WpProcInfo *ret = wp_proc_info_new (pid);
-  g_autofree gchar *status = NULL;
-  g_autoptr (GError) error = NULL;
-  gsize length = 0;
+  char path [64];
+  spa_autoclose int base_fd = -1;
+  FILE *file;
+  g_autofree gchar *line = NULL;
+  size_t size = 0;
+
+  snprintf (path, sizeof(path), "/proc/%d", pid);
+  base_fd = open (path,
+      O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC | O_NOCTTY, 0);
+  if (base_fd < 0) {
+    wp_info ("Could not open process info directory %s, skipping", path);
+    return ret;
+  }
 
   /* Get parent PID */
-  {
-    g_autofree gchar *path = g_strdup_printf ("/proc/%d/status", pid);
-    if (g_file_get_contents (path, &status, &length, &error)) {
-      const gchar *loc = strstr (status, "\nPPid:");
-      if (loc) {
-        const gint res = sscanf (loc, "\nPPid:%d\n", &ret->parent);
-        if (!res || res == EOF)
-          wp_warning ("failed to parse status PPID for PID %d", pid);
-      } else {
-        wp_warning ("failed to find status parent PID for PID %d", pid);
-      }
-    } else {
-      wp_warning ("failed to get status for PID %d: %s", pid, error->message);
-    }
+  file = fdopenat (base_fd, "status",
+      O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOCTTY, "r", 0);
+  if (file) {
+    while (getline (&line, &size, file) > 1)
+      if (sscanf (line, "PPid:%d\n", &ret->parent) == 1)
+        break;
+    fclose (file);
   }
 
   /* Get cgroup */
-  {
-    g_autofree gchar *path = g_strdup_printf ("/proc/%d/cgroup", pid);
-    if (g_file_get_contents (path, &ret->cgroup, &length, &error)) {
-      if (length > 0)
-        ret->cgroup [length - 1] = '\0';  /* Remove EOF character */
-    } else {
-      wp_warning ("failed to get cgroup for PID %d: %s", pid, error->message);
-    }
+  file = fdopenat (base_fd, "cgroup",
+      O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOCTTY, "r", 0);
+  if (file) {
+    if (getline (&line, &size, file) > 1)
+      ret->cgroup = g_strstrip (g_strdup (line));
+    fclose (file);
   }
 
   /* Get args */
-  {
-    g_autofree gchar *path = g_strdup_printf ("/proc/%d/cmdline", pid);
-    FILE *file = fopen (path, "rb");
-    if (file) {
-      g_autofree gchar *lineptr = NULL;
-      size_t size = 0;
-      while (getdelim (&lineptr, &size, 0, file) > 1 && ret->n_args < MAX_ARGS)
-        ret->args[ret->n_args++] = g_strdup (lineptr);
-      fclose (file);
-    } else {
-      wp_warning ("failed to get cmdline for PID %d: %m", pid);
-    }
+  file = fdopenat (base_fd, "cmdline",
+      O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOCTTY, "r", 0);
+  if (file) {
+    while (getdelim (&line, &size, 0, file) > 1 && ret->n_args < MAX_ARGS)
+      ret->args[ret->n_args++] = g_strdup (line);
+    fclose (file);
   }
 
   return ret;
