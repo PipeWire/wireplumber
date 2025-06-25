@@ -476,22 +476,42 @@ static void
 si_audio_adapter_configure_node (WpSiAudioAdapter *self,
     WpTransition * transition)
 {
-  g_autoptr (WpSpaPod) format = NULL;
+  g_autoptr (WpSpaPod) current_format = NULL;
+  g_autoptr (WpSpaPod) new_format = NULL;
   g_autoptr (WpSpaPod) ports_format = NULL;
   const gchar *mode = NULL;
 
   /* set the chosen format on the node */
-  format = format_audio_raw_build (&self->raw_format);
-  wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (self->node), "Format", 0,
-      wp_spa_pod_ref (format));
+  current_format = wp_si_adapter_get_ports_format (WP_SI_ADAPTER (self), NULL);
+  new_format = format_audio_raw_build (&self->raw_format);
+  if (current_format == NULL || !wp_spa_pod_equal (current_format, new_format)) {
+    if (current_format == NULL) {
+      wp_debug_object (self, "setting Format param since it is not set yet");
+    } else {
+      wp_debug_object (self, "setting Format param since the new format differs "
+          "from the current one");
+    }
+    /* ensure the node is suspended, since setting the Format param only
+     * works if the node is not running */
+    if (wp_node_get_state (self->node, NULL) >= WP_NODE_STATE_IDLE) {
+      wp_debug_object (self, "suspending node before setting its Format param");
+      wp_node_send_command (self->node, "Suspend");
+    }
+
+    wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (self->node), "Format", 0,
+        wp_spa_pod_ref (new_format));
+  } else {
+    wp_debug_object (self, "not setting Format param since the new format is "
+        "the same as the current one");
+  }
 
   /* build the ports format */
   if (self->disable_dsp) {
     mode = "passthrough";
-    ports_format = g_steal_pointer (&format);
+    ports_format = g_steal_pointer (&new_format);
   } else {
     mode = "dsp";
-    ports_format = build_adapter_dsp_format (self, format);
+    ports_format = build_adapter_dsp_format (self, new_format);
     if (!ports_format) {
         wp_transition_return_error (transition,
           g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
@@ -695,13 +715,18 @@ si_audio_adapter_set_ports_format (WpSiAdapter * item, WpSpaPod *f,
   if (!g_strcmp0 (mode, self->mode) &&
       ((format == NULL && self->format == NULL) ||
         wp_spa_pod_equal (format, self->format))) {
+    wp_debug_object (self, "new PortConfig mode and format are identical "
+        "to the current ones; skipping reconfiguration");
     g_task_return_boolean (task, TRUE);
     return;
   }
 
-  /* ensure the node is suspended */
-  if (wp_node_get_state (self->node, NULL) >= WP_NODE_STATE_IDLE)
+  /* ensure the node is suspended, since setting the PortConfig param
+   * only works if the node is not running */
+  if (wp_node_get_state (self->node, NULL) >= WP_NODE_STATE_IDLE) {
+    wp_debug_object (self, "suspending node before setting its PortConfig param");
     wp_node_send_command (self->node, "Suspend");
+  }
 
   /* set task, format and mode */
   self->format_task = g_steal_pointer (&task);
