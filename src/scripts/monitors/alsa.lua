@@ -220,6 +220,10 @@ function createNode(parent, id, obj_type, factory, properties)
       priority = priority + 8
     end
 
+    if dev_props["device.bus"] == "usb" then
+      priority = priority + 100
+    end
+
     properties["priority.driver"] = priority
     properties["priority.session"] = priority
   end
