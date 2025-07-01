@@ -10,6 +10,8 @@ nutils = require ("node-utils")
 
 SimpleEventHook {
   name = "default-nodes/find-best-default-node",
+  after = { "default-nodes/find-selected-default-node",
+            "default-nodes/find-stored-default-node" },
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-default-node" },
@@ -20,6 +22,11 @@ SimpleEventHook {
     local selected_prio = event:get_data ("selected-node-priority") or 0
     local selected_route_prio = event:get_data ("selected-route-priority") or 0
     local selected_node = event:get_data ("selected-node")
+
+    -- A very high priority node is already selected, so we can skip this hook
+    if selected_route_prio > 15000 then
+      return
+    end
 
     available_nodes = available_nodes and available_nodes:parse ()
     if not available_nodes then
