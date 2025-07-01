@@ -73,10 +73,6 @@ is required:
      - File
      - Description
 
-   * - default-nodes/find-best-default-node
-     - find-best-default-node.lua
-     - prioritizes nodes based on their priority.session property
-
    * - default-nodes/find-selected-default-node
      - find-selected-default-node.lua
      - prioritizes the current default.configured.* node, i.e. the current user selection
@@ -85,14 +81,13 @@ is required:
      - state-default-nodes.lua
      - prioritizes past user selections from the state file
 
+   * - default-nodes/find-best-default-node
+     - find-best-default-node.lua
+     - prioritizes nodes based on their priority.session property & their associated Route priority
+
    * - default-nodes/apply-default-node
      - apply-default-node.lua
      - sets the highest priority selected node as the default in the metadata
-
-.. note::
-
-   The actual order of the "default-nodes/find-\*" hooks is not defined and doesn't matter.
-   The only thing that matters is that "default-nodes/apply-default-node" is the last hook.
 
 select-default-node event
 -------------------------
