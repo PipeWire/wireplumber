@@ -1203,6 +1203,7 @@ set_profile_run (WpCtl * self)
       wp_spa_pod_new_object (
         "Spa:Pod:Object:Param:Profile", "Profile",
         "index", "i", cmdline.set_profile.index,
+        "save", "b", TRUE,
         NULL));
   wp_core_sync (self->core, NULL, (GAsyncReadyCallback) async_quit, self);
   return;
