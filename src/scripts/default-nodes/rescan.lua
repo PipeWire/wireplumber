@@ -97,8 +97,8 @@ function collectAvailableNodes (si_om, devices_om, port_direction, media_classes
     type = "SiLinkable",
     Constraint { "media.class", "c", table.unpack (media_classes) },
   } do
-    local linkable_props = linkable.properties
     local node = linkable:get_associated_proxy ("node")
+    local node_props = node.properties
 
     -- check that the node has ports in the requested direction
     if not node:lookup_port {
@@ -109,11 +109,11 @@ function collectAvailableNodes (si_om, devices_om, port_direction, media_classes
 
     -- check that the node has available routes,
     -- if it is associated to a real device
-    if not lutils.haveAvailableRoutes (node.properties, devices_om) then
+    if not lutils.haveAvailableRoutes (node_props, devices_om) then
       goto next_linkable
     end
 
-    table.insert (collected, Json.Object (node.properties))
+    table.insert (collected, Json.Object (node_props))
 
     ::next_linkable::
   end
