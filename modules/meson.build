@@ -172,3 +172,12 @@ shared_library(
   dependencies : [wp_dep, giounix_dep, pipewire_dep],
 )
 
+shared_library(
+  'wireplumber-module-modem-manager',
+  [
+    'module-modem-manager.c'
+  ],
+  install : true,
+  install_dir : wireplumber_module_dir,
+  dependencies : [wp_dep],
+)
