@@ -39,6 +39,8 @@ function configProperties (node)
       Settings.get_boolean ("node.features.audio.monitor-ports")
   properties ["item.features.control-port"] =
       Settings.get_boolean ("node.features.audio.control-port")
+  properties ["item.features.mono"] =
+      Settings.get_boolean ("node.features.audio.mono")
   properties ["node.id"] = node ["bound-id"]
 
   -- set the default media.role, if configured

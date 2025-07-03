@@ -153,6 +153,16 @@ msgstr ""
 msgid "Monitor ports"
 msgstr ""
 
+#. /wireplumber.settings.schema/node.features.audio.mono/description
+#: wireplumber.conf
+msgid "Configure all audio nodes in MONO"
+msgstr ""
+
+#. /wireplumber.settings.schema/node.features.audio.mono/name
+#: wireplumber.conf
+msgid "Mono"
+msgstr ""
+
 #. /wireplumber.settings.schema/node.features.audio.no-dsp/description
 #: wireplumber.conf
 msgid "Do not convert audio to F32 format"
