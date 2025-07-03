@@ -152,3 +152,50 @@ SimpleEventHook {
 
   end
 }:register ()
+
+function reconfigureAudioAdapters ()
+  local ids = {}
+
+  -- Get the Id of all session items that are audio adapters
+  for id, item in pairs(items) do
+    local si_props = item.properties
+    if si_props ["item.factory.name"] == "si-audio-adapter" then
+      table.insert (ids, id)
+    end
+  end
+
+  -- Re-configure all audio adapters
+  for _, id in pairs (ids) do
+    local item = items[id]
+    local node = item:get_associated_proxy ("node")
+
+    log:info (item, "Started re-configuring audio adapter")
+
+    -- Remove the session item so that it is unlinked
+    items[id] = nil
+    item:remove()
+
+    -- Configure the session item
+    if not item:configure (configProperties (node)) then
+      log:warning (item, "Could not re-configure audio adapter")
+      goto skip_item
+    end
+
+    -- Activate the session item so that it is linked again
+    items[id] = item
+    item:activate (Features.ALL, function (si, e)
+      if e then
+        log:warning (si, "Could not re-activate audio adapter")
+      else
+        log:info (si, "Successfully re-activated audio adapter")
+        si:register ()
+      end
+    end)
+
+    ::skip_item::
+  end
+end
+
+Settings.subscribe ("node.features.audio.*", function ()
+  reconfigureAudioAdapters ()
+end)
