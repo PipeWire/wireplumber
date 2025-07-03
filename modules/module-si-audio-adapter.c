@@ -28,6 +28,7 @@ struct _WpSiAudioAdapter
   WpNode *node;
   WpPort *port;  /* only used for passthrough or convert mode */
   gboolean no_format;
+  gboolean mono;
   gboolean control_port;
   gboolean monitor;
   gboolean disable_dsp;
@@ -105,6 +106,7 @@ si_audio_adapter_reset (WpSessionItem * item)
   g_clear_object (&self->node);
   g_clear_object (&self->port);
   self->no_format = FALSE;
+  self->mono = FALSE;
   self->control_port = FALSE;
   self->monitor = FALSE;
   self->disable_dsp = FALSE;
@@ -146,7 +148,8 @@ is_unpositioned (struct spa_audio_info_raw *info)
 }
 
 static gboolean
-si_audio_adapter_find_format (WpSiAudioAdapter * self, WpNode * node)
+si_audio_adapter_find_format (WpSiAudioAdapter * self, WpNode * node,
+    gboolean mono)
 {
   g_autoptr (WpIterator) formats = NULL;
   g_auto (GValue) value = G_VALUE_INIT;
@@ -196,6 +199,11 @@ si_audio_adapter_find_format (WpSiAudioAdapter * self, WpNode * node)
       if (position == NULL ||
           !spa_pod_copy_array(position, SPA_TYPE_Id, raw_format.position, SPA_AUDIO_MAX_CHANNELS))
         SPA_FLAG_SET(raw_format.flags, SPA_AUDIO_FLAG_UNPOSITIONED);
+
+      if (mono) {
+        raw_format.channels = 1;
+        raw_format.position [0] = SPA_AUDIO_CHANNEL_MONO;
+      }
 
       if (self->raw_format.channels < raw_format.channels) {
         self->raw_format = raw_format;
@@ -267,7 +275,12 @@ si_audio_adapter_configure (WpSessionItem * item, WpProperties *p)
 
   str = wp_properties_get (si_props, "item.features.no-format");
   self->no_format = str && pw_properties_parse_bool (str);
-  if (!self->no_format && !si_audio_adapter_find_format (self, node)) {
+
+  str = wp_properties_get (si_props, "item.features.mono");
+  self->mono = str && pw_properties_parse_bool (str);
+
+  if (!self->no_format && !si_audio_adapter_find_format (self, node,
+      self->mono)) {
     wp_notice_object (item, "no usable format found for node %d",
         wp_proxy_get_bound_id (WP_PROXY (node)));
     return FALSE;
