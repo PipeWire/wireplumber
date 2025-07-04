@@ -70,9 +70,30 @@ _wplua_errhandler (lua_State *L)
 int
 _wplua_pcall (lua_State *L, int nargs, int nret)
 {
-  int hpos = lua_gettop (L) - nargs;
+  int slots = lua_gettop (L);
   int ret = LUA_OK;
+  /* 1 stack slot needed for error handler. */
+  int hpos, stack_slots = 1;
 
+  if (nargs < 0)
+    g_error ("negative number of arguments");
+  /* Need nargs + 1 stack slots for function and its arguments. */
+  if (slots <= nargs)
+    g_error ("not enough stack slots for arguments and function");
+  if (nret != LUA_MULTRET) {
+    if (nret - nargs > 1) {
+      /* Need more stack slots: 1 for the error handler and (nret - (nargs + 1))
+       * for the return values (after popping the function and its arguments). */
+      stack_slots = nret - nargs;
+    } else if (nret < 0)
+      g_error ("negative number of return values");
+  }
+  if (!lua_checkstack (L, stack_slots)) {
+    wp_critical ("_wplua_pcall: cannot grow Lua stack");
+    return LUA_ERRMEM;
+  }
+
+  hpos = slots - nargs;
   lua_pushcfunction (L, _wplua_errhandler);
   lua_insert (L, hpos);
 
