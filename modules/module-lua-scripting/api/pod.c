@@ -338,17 +338,17 @@ static const struct primitive_lua_type primitive_lua_types[] = {
 };
 
 static gboolean
-builder_add_key (WpSpaPodBuilder *b, WpSpaIdTable table, lua_State *L, int idx)
+builder_add_key (WpSpaPodBuilder *b, WpSpaIdTable table, lua_State *L, int type)
 {
   /* Number */
-  if (lua_type (L, -1) == LUA_TNUMBER) {
-    wp_spa_pod_builder_add_id (b, lua_tonumber (L, idx));
+  if (type == LUA_TNUMBER) {
+    wp_spa_pod_builder_add_id (b, lua_tonumber (L, -1));
     return TRUE;
   }
 
   /* String */
-  else if (lua_type (L, -1) == LUA_TSTRING) {
-    const gchar *key = lua_tostring (L, idx);
+  else if (type == LUA_TSTRING) {
+    const gchar *key = lua_tostring (L, -1);
     WpSpaIdValue val = wp_spa_id_table_find_value_from_short_name (table, key);
     if (val) {
       wp_spa_pod_builder_add_id (b, wp_spa_id_value_number (val));
@@ -361,9 +361,8 @@ builder_add_key (WpSpaPodBuilder *b, WpSpaIdTable table, lua_State *L, int idx)
 
 static gboolean
 builder_add_value (WpSpaPodBuilder *b, WpSpaType array_type, lua_State *L,
-    int idx)
+    int ltype)
 {
-  int ltype = lua_type (L, idx);
   guint i;
 
   if (ltype < 0 || ltype >= MAX_LUA_TYPES)
@@ -374,54 +373,112 @@ builder_add_value (WpSpaPodBuilder *b, WpSpaType array_type, lua_State *L,
     if (t->primitive_type == array_type) {
       primitive_lua_add_func f = t->primitive_lua_add_funcs[ltype];
       if (f) {
-        return f (b, NULL, L, idx);
+        gboolean v = f (b, NULL, L, -1);
+        if (ltype != lua_type (L, -1))
+          g_error ("corrupted Lua stack");
+        return v;
       }
     }
   }
   return FALSE;
 }
 
-static void
-builder_add_table (lua_State *L, WpSpaPodBuilder *builder)
+static int
+wp_spa_pod_lua_table_members (lua_State *L, int idx)
 {
-  const gchar *type_name = NULL;
-  WpSpaType type = WP_SPA_TYPE_INVALID;
-  WpSpaIdTable table = NULL;
-
-  luaL_checktype (L, 1, LUA_TTABLE);
+  size_t members = 0;
 
   lua_pushnil (L);
-  while (lua_next (L, 1)) {
-    /* First filed is always the item type or table */
-    if (type == WP_SPA_TYPE_INVALID && !table) {
-      if (lua_type (L, -1) == LUA_TSTRING) {
-        type_name = lua_tostring (L, -1);
-        type = wp_spa_type_from_name (type_name);
-        if (type == WP_SPA_TYPE_INVALID) {
-          table = wp_spa_id_table_from_name (type_name);
-          if (!table)
-            luaL_error (L, "Unknown type '%s'", type_name);
-        }
-      } else {
-        luaL_error (L,
-            "must have the item type or table on its first field");
-      }
-    }
+  while (lua_next (L, idx)) {
+    lua_pop (L, 1);
+    if (!lua_isinteger (L, -1))
+      luaL_error (L, "Tables used to construct POD must have only integer keys");
+    members++;
+  }
+  if ((lua_Integer)members < 0 ||
+      (size_t)(lua_Integer)members != members ||
+      (lua_Integer)members > INT_MAX)
+    luaL_error (L, "too many table members");
+  return (int)members;
+}
 
-    /* Add remaining table key elements */
-    else if (table) {
-      if (!builder_add_key (builder, table, L, -1))
-        luaL_error (L, "key could not be added");
-    }
+static int
+builder_add_table_inner (lua_State *L)
+{
+  WpSpaType type = WP_SPA_TYPE_INVALID;
+  const gchar *type_name = NULL;
+  WpSpaIdTable table = NULL;
+  WpSpaPodBuilder *builder;
+  lua_Integer table_key;
+  int members;
 
-    /* Add remaining value elements */
-    else if (type != WP_SPA_TYPE_INVALID) {
-      if (!builder_add_value (builder, type, L, -1))
-        luaL_error (L, "value could not be added");
-    }
+  /* stack at entry: args from Lua, light userdata */
+  /* Last argument is the pointer pushed by builder_add_table(). */
+  builder = lua_touserdata (L, -1);
+  lua_pop(L, 1);
+  /* stack: args from Lua */
 
+  /* Exactly one argument is expected, and it must be a table. */
+  luaL_checktype (L, 1, LUA_TTABLE);
+  luaL_checktype (L, 2, LUA_TNONE);
+  /* stack: Lua table */
+  members = wp_spa_pod_lua_table_members (L, 1);
+  if (members == 0)
+    return 0;
+  if (lua_rawgeti (L, 1, 1) != LUA_TSTRING)
+    luaL_error (L, "must have the item type or table on its first field");
+  type_name = lua_tostring (L, -1);
+  type = wp_spa_type_from_name (type_name);
+  switch (type) {
+  case WP_SPA_TYPE_INVALID:
+    table = wp_spa_id_table_from_name (type_name);
+    if (!table)
+      luaL_error (L, "Unknown type '%s'", type_name);
+    break;
+  case SPA_TYPE_Bool:
+  case SPA_TYPE_Id:
+  case SPA_TYPE_Int:
+  case SPA_TYPE_Long:
+  case SPA_TYPE_Float:
+  case SPA_TYPE_Double:
+  case SPA_TYPE_Fd:
+    /* no string or bytes */
+    break;
+  default:
+    luaL_error (L, "Unsupported type %" PRIu32 " for array or choice", type);
+  }
+  lua_pop (L, 1);
+  for (table_key = 2; table_key <= (lua_Integer)members; table_key++)  {
+    int ltype = lua_rawgeti (L, 1, table_key);
+    if (ltype == LUA_TNIL)
+      luaL_error (L, "table has %d keys but is missing key %d",
+                  members, (int)table_key);
+    if (!(table ?
+          builder_add_key (builder, table, L, ltype) :
+          builder_add_value (builder, type, L, ltype)))
+      luaL_error (L, "key could not be added");
     lua_pop (L, 1);
   }
+  return 0;
+}
+
+static int
+builder_add_table (lua_State *L, WpSpaPodBuilder *builder_)
+{
+  int call_args, status;
+  {
+    g_autoptr (WpSpaPodBuilder) builder = builder_;
+    lua_pushlightuserdata (L, builder);
+    call_args = lua_gettop (L);
+    lua_pushcfunction (L, builder_add_table_inner);
+    lua_insert (L, 1);
+    status = lua_pcall (L, call_args, 1, 0);
+    if (status == 0)
+      wplua_pushboxed (L, WP_TYPE_SPA_POD, wp_spa_pod_builder_end (builder));
+  }
+  if (status != 0)
+    lua_error (L);
+  return 1;
 }
 
 /* None */
@@ -807,10 +864,8 @@ spa_pod_sequence_new (lua_State *L)
 static int
 spa_pod_array_new (lua_State *L)
 {
-  g_autoptr (WpSpaPodBuilder) builder = wp_spa_pod_builder_new_array ();
-  builder_add_table (L, builder);
-  wplua_pushboxed (L, WP_TYPE_SPA_POD, wp_spa_pod_builder_end (builder));
-  return 1;
+  WpSpaPodBuilder *builder = wp_spa_pod_builder_new_array ();
+  return builder_add_table (L, builder);
 }
 
 /* Choice */
@@ -818,46 +873,37 @@ spa_pod_array_new (lua_State *L)
 static int
 spa_pod_choice_none_new (lua_State *L)
 {
-  g_autoptr (WpSpaPodBuilder) builder = wp_spa_pod_builder_new_choice ("None");
-  builder_add_table (L, builder);
-  wplua_pushboxed (L, WP_TYPE_SPA_POD, wp_spa_pod_builder_end (builder));
-  return 1;
+  WpSpaPodBuilder *builder = wp_spa_pod_builder_new_choice ("None");
+  return builder_add_table (L, builder);
 }
 
 static int
 spa_pod_choice_range_new (lua_State *L)
 {
-  g_autoptr (WpSpaPodBuilder) builder = wp_spa_pod_builder_new_choice ("Range");
-  builder_add_table (L, builder);
-  wplua_pushboxed (L, WP_TYPE_SPA_POD, wp_spa_pod_builder_end (builder));
-  return 1;
+  WpSpaPodBuilder *builder = wp_spa_pod_builder_new_choice ("Range");
+  return builder_add_table (L, builder);
 }
 
 static int
 spa_pod_choice_step_new (lua_State *L)
 {
-  g_autoptr (WpSpaPodBuilder) builder = wp_spa_pod_builder_new_choice ("Step");
-  builder_add_table (L, builder);
-  wplua_pushboxed (L, WP_TYPE_SPA_POD, wp_spa_pod_builder_end (builder));
-  return 1;
+  WpSpaPodBuilder *builder = wp_spa_pod_builder_new_choice ("Step");
+  return builder_add_table (L, builder);
 }
 
 static int
 spa_pod_choice_enum_new (lua_State *L)
 {
-  g_autoptr (WpSpaPodBuilder) builder = wp_spa_pod_builder_new_choice ("Enum");
-  builder_add_table (L, builder);
-  wplua_pushboxed (L, WP_TYPE_SPA_POD, wp_spa_pod_builder_end (builder));
-  return 1;
+  WpSpaPodBuilder *builder = wp_spa_pod_builder_new_choice ("Enum");
+  /* TODO: check bool enums */
+  return builder_add_table (L, builder);
 }
 
 static int
 spa_pod_choice_flags_new (lua_State *L)
 {
-  g_autoptr (WpSpaPodBuilder) builder = wp_spa_pod_builder_new_choice ("Flags");
-  builder_add_table (L, builder);
-  wplua_pushboxed (L, WP_TYPE_SPA_POD, wp_spa_pod_builder_end (builder));
-  return 1;
+  WpSpaPodBuilder *builder = wp_spa_pod_builder_new_choice ("Flags");
+  return builder_add_table (L, builder);
 }
 
 /* API */
