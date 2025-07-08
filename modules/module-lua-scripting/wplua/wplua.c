@@ -238,8 +238,7 @@ wplua_register_type_methods (lua_State * L, GType type,
 
     luaL_buffinit (L, &b);
     luaL_addstring (&b, g_type_name (type));
-    luaL_addchar (&b, '_');
-    luaL_addstring (&b, "new");
+    luaL_addstring (&b, "_new");
     luaL_pushresult (&b);
     lua_pushcfunction (L, constructor);
     lua_setglobal (L, lua_tostring (L, -2));
