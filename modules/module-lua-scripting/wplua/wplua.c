@@ -16,7 +16,21 @@ WP_LOG_TOPIC (log_topic_wplua, "wplua")
 
 extern void _wplua_register_resource (void);
 
+typedef struct {
+  guint64 refcount;
+} WpLuaExtraData;
+
 G_DEFINE_QUARK (wplua, wp_domain_lua);
+
+static WpLuaExtraData *
+wplua_getextradata (lua_State *L)
+{
+  WpLuaExtraData *data;
+
+  G_STATIC_ASSERT(LUA_EXTRASPACE >= sizeof(data));
+  memcpy (&data, lua_getextraspace (L), sizeof(data));
+  return data;
+}
 
 static void
 _wplua_openlibs (lua_State *L)
@@ -84,7 +98,12 @@ wplua_new (void)
   static gboolean resource_registered = FALSE;
   lua_State *L = luaL_newstate ();
 
+  if (L == NULL)
+    g_error ("cannot create Lua state");
   wp_debug ("initializing lua_State %p", L);
+  WpLuaExtraData *extradata = g_malloc(sizeof(*extradata));
+  extradata->refcount = 1;
+  memcpy (lua_getextraspace (L), &extradata, sizeof(extradata));
 
   if (!resource_registered) {
     _wplua_register_resource ();
@@ -103,37 +122,34 @@ wplua_new (void)
     lua_settable (L, LUA_REGISTRYINDEX);
   }
 
-  /* refcount */
-  lua_pushinteger (L, 1);
-  lua_rawsetp (L, LUA_REGISTRYINDEX, L);
-
   return L;
 }
 
 lua_State *
 wplua_ref (lua_State *L)
 {
-  lua_Integer refcount;
-  lua_rawgetp (L, LUA_REGISTRYINDEX, L);
-  refcount = lua_tointeger (L, -1);
-  lua_pushinteger (L, refcount + 1);
-  lua_rawsetp (L, LUA_REGISTRYINDEX, L);
-  lua_pop (L, 1);
-  return L;
+  WpLuaExtraData *data = wplua_getextradata(L);
+
+  if (data->refcount < 1 || data->refcount == UINT64_MAX)
+    g_error ("bad refcount");
+  else {
+    data->refcount++;
+    return L;
+  }
 }
 
 void
 wplua_unref (lua_State * L)
 {
-  lua_Integer refcount;
-  lua_rawgetp (L, LUA_REGISTRYINDEX, L);
-  refcount = lua_tointeger (L, -1);
-  if (refcount > 1) {
-    lua_pushinteger (L, refcount - 1);
-    lua_rawsetp (L, LUA_REGISTRYINDEX, L);
-    lua_pop (L, 1);
-  } else {
+  WpLuaExtraData *data = wplua_getextradata(L);
+
+  if (data->refcount < 1)
+    g_error ("bad refcount");
+  else if (data->refcount > 1)
+    data->refcount--;
+  else {
     wp_debug ("closing lua_State %p", L);
+    g_free (data);
     lua_close (L);
   }
 }
