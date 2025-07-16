@@ -26,9 +26,9 @@ find_method_in_luaL_Reg (luaL_Reg *reg, const gchar *method)
 static int
 _wplua_gboxed___index (lua_State *L)
 {
-  luaL_argcheck (L, wplua_isboxed (L, 1, G_TYPE_BOXED), 1,
+  GValue *obj_v = _wplua_togvalue_userdata_named (L, 1, G_TYPE_BOXED, "GBoxed");
+  luaL_argcheck (L, obj_v != NULL, 1,
       "expected userdata storing GValue<GBoxed>");
-  GValue *obj_v = lua_touserdata (L, 1);
   const gchar *key = luaL_checkstring (L, 2);
   GType type = G_VALUE_TYPE (obj_v);
   lua_CFunction func = NULL;
@@ -56,17 +56,24 @@ _wplua_gboxed___index (lua_State *L)
   return 0;
 }
 
+static int
+_wplua_gboxed___eq (lua_State *L)
+{
+  return _wplua_gvalue_userdata___eq_impl (L, "GBoxed");
+}
+
 void
 _wplua_init_gboxed (lua_State *L)
 {
   static const luaL_Reg gboxed_meta[] = {
     { "__gc", _wplua_gvalue_userdata___gc },
-    { "__eq", _wplua_gvalue_userdata___eq },
+    { "__eq", _wplua_gboxed___eq },
     { "__index", _wplua_gboxed___index },
     { NULL, NULL }
   };
 
-  luaL_newmetatable (L, "GBoxed");
+  if (!luaL_newmetatable (L, "GBoxed"))
+    g_error ("Metatable with key GBoxed in the registry already exists?");
   luaL_setfuncs (L, gboxed_meta, 0);
   lua_pop (L, 1);
 }
@@ -79,31 +86,31 @@ wplua_pushboxed (lua_State * L, GType type, gpointer object)
   GValue *v = _wplua_pushgvalue_userdata (L, type);
   wp_trace_boxed (type, object, "pushing to Lua, v=%p", v);
   g_value_take_boxed (v, object);
-
-  luaL_getmetatable (L, "GBoxed");
-  lua_setmetatable (L, -2);
 }
 
 gpointer
 wplua_toboxed (lua_State *L, int idx)
 {
-  g_return_val_if_fail (_wplua_isgvalue_userdata (L, idx, G_TYPE_BOXED), NULL);
-  return g_value_get_boxed ((GValue *) lua_touserdata (L, idx));
+  GValue *v = _wplua_togvalue_userdata_named (L, idx, G_TYPE_BOXED, "GBoxed");
+
+  g_return_val_if_fail (v, NULL);
+  return g_value_get_boxed (v);
 }
 
 gpointer
 wplua_checkboxed (lua_State *L, int idx, GType type)
 {
-  if (G_UNLIKELY (!_wplua_isgvalue_userdata (L, idx, type))) {
+  GValue *v = _wplua_togvalue_userdata_named (L, idx, type, "GBoxed");
+  if (v == NULL) {
     wp_critical ("expected userdata storing GValue<%s>", g_type_name (type));
     luaL_argerror (L, idx, "expected userdata storing GValue<GBoxed>");
   }
-  return g_value_get_boxed ((GValue *) lua_touserdata (L, idx));
+  return g_value_get_boxed (v);
 }
 
 gboolean
 wplua_isboxed (lua_State *L, int idx, GType type)
 {
-  if (!g_type_is_a (type, G_TYPE_BOXED)) return FALSE;
-  return _wplua_isgvalue_userdata (L, idx, type);
+  return g_type_is_a (type, G_TYPE_BOXED) &&
+         _wplua_togvalue_userdata_named (L, idx, type, "GBoxed") != NULL;
 }

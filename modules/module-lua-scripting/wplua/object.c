@@ -191,19 +191,26 @@ _wplua_gobject__tostring (lua_State *L)
   return 1;
 }
 
+static int
+_wplua_gobject___eq (lua_State *L)
+{
+  return _wplua_gvalue_userdata___eq_impl (L, "GObject");
+}
+
 void
 _wplua_init_gobject (lua_State *L)
 {
   static const luaL_Reg gobject_meta[] = {
     { "__gc", _wplua_gvalue_userdata___gc },
-    { "__eq", _wplua_gvalue_userdata___eq },
+    { "__eq", _wplua_gobject___eq },
     { "__index", _wplua_gobject___index },
     { "__newindex", _wplua_gobject___newindex },
     { "__tostring", _wplua_gobject__tostring },
     { NULL, NULL }
   };
 
-  luaL_newmetatable (L, "GObject");
+  if (!luaL_newmetatable (L, "GObject"))
+    g_error ("Metatable with key GObject in the registry already exists?");
   luaL_setfuncs (L, gobject_meta, 0);
   lua_pop (L, 1);
 }
@@ -216,31 +223,31 @@ wplua_pushobject (lua_State * L, gpointer object)
   GValue *v = _wplua_pushgvalue_userdata (L, G_TYPE_FROM_INSTANCE (object));
   wp_trace_object (object, "pushing to Lua, v=%p", v);
   g_value_take_object (v, object);
-
-  luaL_getmetatable (L, "GObject");
-  lua_setmetatable (L, -2);
 }
 
 gpointer
 wplua_toobject (lua_State *L, int idx)
 {
-  g_return_val_if_fail (_wplua_isgvalue_userdata (L, idx, G_TYPE_OBJECT), NULL);
-  return g_value_get_object ((GValue *) lua_touserdata (L, idx));
+  GValue *v = _wplua_togvalue_userdata_named (L, idx, G_TYPE_OBJECT, "GObject");
+
+  g_return_val_if_fail (v, NULL);
+  return g_value_get_object (v);
 }
 
 gpointer
 wplua_checkobject (lua_State *L, int idx, GType type)
 {
-  if (G_UNLIKELY (!_wplua_isgvalue_userdata (L, idx, type))) {
+  GValue *v = _wplua_togvalue_userdata_named (L, idx, type, "GObject");
+  if (v == NULL) {
     wp_critical ("expected userdata storing GValue<%s>", g_type_name (type));
     luaL_argerror (L, idx, "expected userdata storing GValue<GObject>");
   }
-  return g_value_get_object ((GValue *) lua_touserdata (L, idx));
+  return g_value_get_object (v);
 }
 
 gboolean
 wplua_isobject (lua_State *L, int idx, GType type)
 {
-  if (!g_type_is_a (type, G_TYPE_OBJECT)) return FALSE;
-  return _wplua_isgvalue_userdata (L, idx, type);
+  return g_type_is_a (type, G_TYPE_OBJECT) &&
+         _wplua_togvalue_userdata_named (L, idx, type, "GObject") != NULL;
 }

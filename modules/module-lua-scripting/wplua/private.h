@@ -27,10 +27,11 @@ void _wplua_init_gobject (lua_State *L);
 
 /* userdata.c */
 GValue * _wplua_pushgvalue_userdata (lua_State * L, GType type);
+GValue * _wplua_togvalue_userdata_named (lua_State *L, int idx, GType type, const char *table_name);
+GValue * _wplua_togvalue_userdata (lua_State *L, int idx, GType type);
 gboolean _wplua_isgvalue_userdata (lua_State *L, int idx, GType type);
-
+int _wplua_gvalue_userdata___eq_impl (lua_State *L, const char *type);
 int _wplua_gvalue_userdata___gc (lua_State *L);
-int _wplua_gvalue_userdata___eq (lua_State *L);
 
 /* wplua.c */
 int _wplua_pcall (lua_State *L, int nargs, int nret);
