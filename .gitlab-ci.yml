@@ -157,7 +157,7 @@ include:
     - meson "$PW_BUILD_DIR" pipewire --prefix="$PREFIX"
         -Dpipewire-alsa=disabled -Dpipewire-jack=disabled
         -Dalsa=disabled -Dv4l2=disabled -Djack=disabled -Dbluez5=disabled
-        -Dvulkan=disabled -Dgstreamer=disabled -Dsystemd=disabled
+        -Dvulkan=disabled -Dgstreamer=disabled -Dlibsystemd=disabled
         -Ddocs=disabled -Dman=disabled -Dexamples=disabled -Dpw-cat=disabled
         -Dsdl2=disabled -Dsndfile=disabled -Dlibpulse=disabled -Davahi=disabled
         -Decho-cancel-webrtc=disabled -Dsession-managers=[]
