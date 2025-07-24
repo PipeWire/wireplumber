@@ -13,20 +13,25 @@ lutils = require ("linking-utils")
 
 log = Log.open_topic ("s-linking.mpris")
 
-mpris = Plugin.find("mpris")
+mpris = Plugin.find ("mpris")
 
 RESCAN_DELAY_MSEC = 1000
 
--- Delaying rescan while pausing players
-pending_ops = 0
-need_rescan = false
+function initializeState ()
+  -- Delaying rescan while pausing players
+  pending_ops = 0
+  need_rescan = false
 
--- Links between nodes: links_in [in_node_id] = { out_node_id, ... }
-links_in = {}
-links_initialized = false
+  -- Links between nodes: links_in [in_node_id] = { out_node_id, ... }
+  links_in = {}
+  links_initialized = false
 
--- Link nodes: link_nodes [link.id] = { in_node_id, out_node_id }
-link_nodes = {}
+  -- Link nodes: link_nodes [link.id] = { in_node_id, out_node_id }
+  link_nodes = {}
+
+  -- Status
+  script_active = false
+end
 
 -- Get nodes that are (indirectly) linked to `si` by link group
 -- or links with input direction. Returns table { [node_id] = node, ... }
@@ -115,22 +120,31 @@ function updateLink (in_id, out_id, remove)
 end
 
 function updateLinks (links_om)
+  log:debug ("update links")
   for link in links_om:iterate () do
     local lprops = link.properties
-    in_id = tonumber (lprops ["link.input.node"])
-    out_id = tonumber (lprops ["link.output.node"])
+    local in_id = tonumber (lprops ["link.input.node"])
+    local out_id = tonumber (lprops ["link.output.node"])
     updateLink (in_id, out_id, false)
+    link_nodes [link.id] = { in_id, out_id }
   end
 end
 
-function initializeLinks ()
-  local links_om = ObjectManager {
-    Interest { type = "link" }
-  }
-  links_om:connect ("installed", updateLinks)
+function initializeLinks (source)
+  if links_initialized then
+    return
+  end
+  if source == nil then
+    -- postpone to later
+    return
+  end
+
+  local links_om = source:call ("get-object-manager", "link")
+  updateLinks(links_om)
+  links_initialized = true
 end
 
-SimpleEventHook {
+link_hook = SimpleEventHook {
   name = "linking/mpris-pause@track-links",
   interests = {
     EventInterest {
@@ -140,6 +154,9 @@ SimpleEventHook {
   execute = function (event)
     local link = event:get_subject ()
     local eprops = event:get_properties ()
+    local source = event:get_source ()
+
+    initializeLinks (source)
 
     local in_id
     local out_id
@@ -153,6 +170,7 @@ SimpleEventHook {
     elseif link_nodes [link.id] ~= nil then
       in_id = link_nodes [link.id] [1]
       out_id = link_nodes [link.id] [2]
+      link_nodes [link.id] = nil
       remove = true
     end
 
@@ -164,12 +182,10 @@ SimpleEventHook {
         updateLink (in_id, out_id, remove)
     end)
   end
-}:register ()
-
-initializeLinks ()
+}
 
 -- Pause media applications associated with the streams linked to a sink to be removed
-SimpleEventHook {
+pause_hook = SimpleEventHook {
   name = "linking/mpris-pause",
   before = "linking/linkable-removed",
   interests = {
@@ -180,10 +196,6 @@ SimpleEventHook {
     },
   },
   execute = function (event)
-    if not Settings.get_boolean ("linking.pause-playback") then
-      return
-    end
-
     local players = mpris:call ("get-players")
     if next(players) == nil then
       return
@@ -285,10 +297,10 @@ SimpleEventHook {
       end
     end
   end
-}:register ()
+}
 
 -- Do not perform rescans while we are pausing media players
-SimpleEventHook {
+rescan_hook = SimpleEventHook {
   name = "linking/mpris-pause-disable-rescan",
   before = "linking/rescan",
   interests = {
@@ -305,4 +317,33 @@ SimpleEventHook {
       need_rescan = false
     end
   end
-}:register ()
+}
+
+
+function updateEnabled ()
+  local enable = Settings.get_boolean ("linking.pause-playback")
+
+  log:debug (string.format ("enabled: %s", tostring(enable)))
+
+  if enable and not script_active then
+    local source = Plugin.find ("standard-event-source")
+    initializeState ()
+    initializeLinks (source)
+    link_hook:register ()
+    pause_hook:register ()
+    rescan_hook:register ()
+    script_active = true
+  elseif not enable and script_active then
+    link_hook:remove ()
+    pause_hook:remove ()
+    rescan_hook:remove ()
+    if need_rescan then
+      local source = Plugin.find ("standard-event-source")
+      source:call ("push-event", "rescan-for-linking", nil, nil)
+    end
+    initializeState ()
+  end
+end
+
+Settings.subscribe ("linking.pause-playback", updateEnabled)
+updateEnabled ()
