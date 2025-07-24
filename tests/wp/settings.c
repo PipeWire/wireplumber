@@ -877,6 +877,13 @@ test_get_set_save_reset_delete (TestSettingsFixture *self, gconstpointer data)
     g_assert_cmpstr (wp_spa_json_get_data (j), ==, "{}");
     g_clear_pointer (&j, wp_spa_json_unref);
   }
+
+  /* Name omitted */
+  {
+    spec = wp_settings_get_spec (s, "test-setting-no-name");
+    name = wp_settings_spec_get_name (spec);
+    g_assert_null (name);
+  }
 }
 
 static void

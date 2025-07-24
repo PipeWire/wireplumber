@@ -90,12 +90,14 @@ wp_settings_spec_new (WpSpaJson * spec_json)
 
   /* Parse mandatory fields */
   if (!wp_spa_json_object_get (spec_json,
-      "name", "s", &name,
       "description", "s", &desc,
       "type", "s", &type_str,
       "default", "J", &def_value,
       NULL))
     return NULL;
+
+  /* Parse optional fields */
+  wp_spa_json_object_get (spec_json, "name", "s", &name, NULL);
 
   /* Parse type and check if values are correct */
   if (g_str_equal (type_str, "bool")) {
@@ -153,7 +155,8 @@ wp_settings_spec_new (WpSpaJson * spec_json)
  * \brief Gets the human-readable name of a settings spec
  * \ingroup wpsettings
  * \param self the settings spec object
- * \returns the human-readable name of the settings spec
+ * \returns (nullable): the human-readable name of the settings spec,
+ * or NULL if none
  */
 const gchar *
 wp_settings_spec_get_name (WpSettingsSpec * self)

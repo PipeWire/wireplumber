@@ -1453,7 +1453,8 @@ print_setting (WpSettings *s, const gchar *key)
   printf ("- Id: %s\n", key);
 
   /* print spec */
-  printf ("  Name: %s\n", dgettext (GETTEXT_PACKAGE, name));
+  if (name)
+    printf ("  Name: %s\n", dgettext (GETTEXT_PACKAGE, name));
   printf ("  Desc: %s\n", dgettext (GETTEXT_PACKAGE, desc));
   printf ("  Type: %s\n", settings_spec_type_to_string (val_type));
   printf ("  Default: %s", wp_spa_json_get_data (def));
