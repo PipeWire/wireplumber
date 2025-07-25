@@ -42,7 +42,7 @@ GType wp_spa_type_get_type (void);
  * \brief Type id representing an invalid SPA type
  * \ingroup wpspatype
  */
-static const WpSpaType WP_SPA_TYPE_INVALID = 0xffffffff;
+#define WP_SPA_TYPE_INVALID 0xffffffff
 
 WP_API
 WpSpaType wp_spa_type_from_name (const gchar *name);
