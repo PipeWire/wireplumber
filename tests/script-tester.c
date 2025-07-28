@@ -73,7 +73,7 @@ wp_script_tester_create_stream (WpScriptTester *self, const gchar *stream_type,
     WpProperties *stream_props)
 {
   ScriptRunnerFixture *f = self->test_fixture;
-  WpProperties *props = NULL;
+  g_autoptr (WpProperties) props = NULL;
   const struct spa_pod *params [1];
   uint8_t buffer [1024];
   struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
@@ -96,7 +96,7 @@ wp_script_tester_create_stream (WpScriptTester *self, const gchar *stream_type,
 
   self->stream = pw_stream_new (
       wp_core_get_pw_core (f->base.client_core),
-      "stream-node", wp_properties_to_pw_properties (props));
+      "stream-node", wp_properties_unref_and_take_pw_properties (g_steal_pointer (&props)));
 
   params [0] = spa_format_audio_raw_build (&b, SPA_PARAM_EnumFormat,
       &SPA_AUDIO_INFO_RAW_INIT (
