@@ -24,6 +24,7 @@ struct _WpSiAudioAdapter
   WpSessionItem parent;
 
   /* configuration */
+  gboolean reconfigured;
   WpNode *node;
   WpPort *port;  /* only used for passthrough or convert mode */
   gboolean no_format;
@@ -246,6 +247,8 @@ si_audio_adapter_configure (WpSessionItem * item, WpProperties *p)
   g_autoptr (WpProperties) si_props = wp_properties_ensure_unique_owner (p);
   WpNode *node = NULL;
   const gchar *str;
+
+  self->reconfigured = self->node != NULL;
 
   /* reset previous config */
   si_audio_adapter_reset (item);
@@ -611,8 +614,10 @@ si_audio_adapter_enable_active (WpSessionItem *si, WpTransition *transition)
 
   /* If device node, enum available formats and set one of them */
   if (!self->no_format && (self->is_device || self->dont_remix ||
-      !self->is_autoconnect || self->disable_dsp || self->is_unpositioned))
+      !self->is_autoconnect || self->disable_dsp || self->is_unpositioned ||
+      self->reconfigured)) {
     si_audio_adapter_configure_node (self, transition);
+  }
 
   /* Otherwise just finish activating */
   else
