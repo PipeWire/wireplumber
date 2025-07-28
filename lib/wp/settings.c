@@ -1197,6 +1197,7 @@ settings_iterator_finalize (WpIterator *it)
 {
   struct settings_iterator_data *it_data = wp_iterator_get_user_data (it);
   g_clear_pointer (&it_data->keys, g_free);
+  g_clear_object (&it_data->settings);
 }
 
 static const WpIteratorMethods settings_iterator_methods = {
