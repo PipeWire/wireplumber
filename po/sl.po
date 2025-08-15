@@ -1,23 +1,23 @@
 # Slovenian translation for WirePlumber.
 # Copyright (C) 2024 WirePlumber's COPYRIGHT HOLDER
 # This file is distributed under the same license as the WirePlumber package.
-# Martin <miles@filmsi.net>,  2024.
+# Martin <miles@filmsi.net>,  2024, 2025.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: WirePlumber master\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/-/"
 "issues\n"
-"POT-Creation-Date: 2024-07-27 03:32+0000\n"
-"PO-Revision-Date: 2024-07-27 14:58+0200\n"
-"Language-Team: Slovenian <Slovenian>\n"
+"POT-Creation-Date: 2025-06-27 15:47+0000\n"
+"PO-Revision-Date: 2025-08-10 12:35+0200\n"
+"Last-Translator: Martin Srebotnjak <miles@filmsi.net>\n"
+"Language-Team: Slovenian GNOME Translation Team <gnome-si@googlegroups.com>\n"
 "Language: sl\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=4; plural=(n%100==1 ? 1 : n%100==2 ? 2 : n%100==3 || n"
-"%100==4 ? 3 : 0);\n"
-"Last-Translator: Martin Srebotnjak <miles@filmsi.net>\n"
+"Plural-Forms: nplurals=4; plural=(n%100==1 ? 1 : n%100==2 ? 2 : n%100==3 || "
+"n%100==4 ? 3 : 0);\n"
 "X-Generator: Poedit 2.2.1\n"
 
 #. WirePlumber
@@ -27,9 +27,18 @@ msgstr ""
 #.
 #. SPDX-License-Identifier: MIT
 #. unique device/node name tables
+#. SPA ids to node names: name = id_name_table[device_id][node_id]
+#. create the underlying hidden ALSA node
+#. not suitable for loopback
+#: src/scripts/monitors/alsa.lua:106
+#, lua-format
+msgid "Split %s"
+msgstr "Razdeli %s"
+
+#. Connect ObjectConfig events to the right node
 #. set the device id and spa factory name; REQUIRED, do not change
 #. set the default pause-on-idle setting
-#. try to negotiate the max ammount of channels
+#. try to negotiate the max amount of channels
 #. set priority
 #. ensure the node has a media class
 #. ensure the node has a name
@@ -42,19 +51,21 @@ msgstr ""
 #. add api.alsa.card.* properties for rule matching purposes
 #. add cpu.vm.name for rule matching purposes
 #. apply properties from rules defined in JSON .conf file
+#. handle split HW node
+#. create split PCM node
 #. create the node
 #. ensure the device has an appropriate name
 #. deduplicate devices with the same name
 #. ensure the device has a description
-#: src/scripts/monitors/alsa.lua:219
+#: src/scripts/monitors/alsa.lua:438
 msgid "Loopback"
 msgstr "Povratna zanka"
 
-#: src/scripts/monitors/alsa.lua:221
+#: src/scripts/monitors/alsa.lua:440
 msgid "Built-in Audio"
 msgstr "Vgrajen zvok"
 
-#: src/scripts/monitors/alsa.lua:223
+#: src/scripts/monitors/alsa.lua:442
 msgid "Modem"
 msgstr "Modem"
 
