@@ -1522,6 +1522,40 @@ static const luaL_Reg si_adapter_methods[] = {
 
 /* WpPipewireObject */
 
+static void
+on_enum_params_done (WpPipewireObject * pwobj, GAsyncResult * res,
+    GClosure * closure)
+{
+  g_autoptr (GError) error = NULL;
+  GValue val = G_VALUE_INIT;
+  int n_vals = 0;
+  WpIterator *it;
+
+  it = wp_pipewire_object_enum_params_finish (pwobj, res, &error);
+  if (!it) {
+    g_value_init (&val, G_TYPE_STRING);
+    g_value_set_string (&val, error->message);
+    n_vals = 1;
+  }
+  g_clear_pointer (&it, wp_iterator_unref);
+  g_closure_invoke (closure, NULL, n_vals, &val, NULL);
+  g_value_unset (&val);
+  g_closure_invalidate (closure);
+  g_closure_unref (closure);
+}
+
+static int
+pipewire_object_enum_params (lua_State *L)
+{
+  WpPipewireObject *pwobj = wplua_checkobject (L, 1, WP_TYPE_PIPEWIRE_OBJECT);
+  const gchar *id = luaL_checkstring (L, 2);
+  GClosure * closure = wplua_checkclosure (L, 3);
+  g_closure_sink (g_closure_ref (closure));
+  wp_pipewire_object_enum_params (pwobj, id, NULL, NULL,
+      (GAsyncReadyCallback) on_enum_params_done, closure);
+  return 0;
+}
+
 static int
 pipewire_object_iterate_params (lua_State *L)
 {
@@ -1542,6 +1576,7 @@ pipewire_object_set_param (lua_State *L)
 }
 
 static const luaL_Reg pipewire_object_methods[] = {
+  { "enum_params", pipewire_object_enum_params },
   { "iterate_params", pipewire_object_iterate_params },
   { "set_param" , pipewire_object_set_param },
   { "set_params" , pipewire_object_set_param }, /* deprecated, compat only */
