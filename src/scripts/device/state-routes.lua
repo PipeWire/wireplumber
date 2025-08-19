@@ -151,7 +151,7 @@ apply_route_props_hook = SimpleEventHook {
   end
 }
 
-store_or_restore_routes_hook = SimpleEventHook {
+store_or_restore_routes_hook = AsyncEventHook {
   name = "device/store-or-restore-routes",
   interests = {
     EventInterest {
@@ -159,104 +159,127 @@ store_or_restore_routes_hook = SimpleEventHook {
       Constraint { "event.subject.param-id", "=", "Route" },
     },
   },
-  execute = function (event)
-    local device = event:get_subject ()
-    local source = event:get_source ()
-    local selected_routes = {}
-    local push_select_routes = false
-
-    local dev_info = devinfo:get_device_info (device)
-    if not dev_info then
-      return
-    end
-
-    local new_route_infos = {}
-
-    -- look at all the routes and update/reset cached information
-    for p in device:iterate_params ("EnumRoute") do
-      -- parse pod
-      local route = cutils.parseParam (p, "EnumRoute")
-      if not route then
-        goto skip_enum_route
+  steps = {
+    start = {
+      next = "evaluate",
+      execute = function (event, transition)
+        -- Make sure the routes are always updated before evaluating them.
+        -- https://gitlab.freedesktop.org/pipewire/wireplumber/-/issues/762
+        local device = event:get_subject ()
+        device:enum_params ("EnumRoute", function (_, e)
+          if e then
+            transition:return_error ("failed to enum routes: "
+                .. tostring (e));
+          else
+            transition:advance ()
+          end
+        end)
       end
+    },
+    evaluate = {
+      next = "none",
+      execute = function (event, transition)
+        local device = event:get_subject ()
+        local source = event:get_source ()
+        local selected_routes = {}
+        local push_select_routes = false
 
-      -- find cached route information
-      local route_info = devinfo.find_route_info (dev_info, route, true)
-      if not route_info then
-        goto skip_enum_route
+        local dev_info = devinfo:get_device_info (device)
+        if not dev_info then
+          return
+        end
+
+        local new_route_infos = {}
+
+        -- look at all the routes and update/reset cached information
+        for p in device:iterate_params ("EnumRoute") do
+          -- parse pod
+          local route = cutils.parseParam (p, "EnumRoute")
+          if not route then
+            goto skip_enum_route
+          end
+
+          -- find cached route information
+          local route_info = devinfo.find_route_info (dev_info, route, true)
+          if not route_info then
+            goto skip_enum_route
+          end
+
+          -- update properties
+          route_info.prev_active = route_info.active
+          route_info.active = false
+          route_info.save = false
+
+          -- store
+          new_route_infos [route.index] = route_info
+
+          ::skip_enum_route::
+        end
+
+        -- update route_infos with new prev_active, active and save changes
+        dev_info.route_infos = new_route_infos
+        new_route_infos = nil
+
+        -- check for changes in the active routes
+        for p in device:iterate_params ("Route") do
+          local route = cutils.parseParam (p, "Route")
+          if not route then
+            goto skip_route
+          end
+
+          -- get cached route info and at the same time
+          -- ensure that the route is also in EnumRoute
+          local route_info = devinfo.find_route_info (dev_info, route, false)
+          if not route_info then
+            goto skip_route
+          end
+
+          -- update route_info state
+          route_info.active = true
+          route_info.save = route.save
+
+          if not route_info.prev_active then
+            -- a new route is now active, restore the volume and
+            -- make sure we save this as a preferred route
+            log:info (device,
+                string.format ("new active route(%s) found of device(%s)",
+                    route.name, dev_info.name))
+            route_info.prev_active = true
+            route_info.active = true
+
+            selected_routes [tostring (route.device)] =
+                Json.Object { index = route_info.index }:to_string ()
+            push_select_routes = true
+
+          elseif route.save and route.props then
+            -- just save route properties
+            log:info (device,
+                string.format ("storing route(%s) props of device(%s)",
+                  route.name, dev_info.name))
+
+            saveRouteProps (dev_info, route)
+          end
+
+          ::skip_route::
+        end
+
+        -- save selected routes for the active profile
+        for p in device:iterate_params ("Profile") do
+          local profile = cutils.parseParam (p, "Profile")
+          saveProfileRoutes (dev_info, profile.name)
+        end
+
+        -- push a select-routes event to re-apply the routes with new properties
+        if push_select_routes then
+          local e = source:call ("create-event", "select-routes", device, nil)
+          e:set_data ("selected-routes", selected_routes)
+          EventDispatcher.push_event (e)
+        end
+
+        transition:advance ()
       end
-
-      -- update properties
-      route_info.prev_active = route_info.active
-      route_info.active = false
-      route_info.save = false
-
-      -- store
-      new_route_infos [route.index] = route_info
-
-      ::skip_enum_route::
-    end
-
-    -- update route_infos with new prev_active, active and save changes
-    dev_info.route_infos = new_route_infos
-    new_route_infos = nil
-
-    -- check for changes in the active routes
-    for p in device:iterate_params ("Route") do
-      local route = cutils.parseParam (p, "Route")
-      if not route then
-        goto skip_route
-      end
-
-      -- get cached route info and at the same time
-      -- ensure that the route is also in EnumRoute
-      local route_info = devinfo.find_route_info (dev_info, route, false)
-      if not route_info then
-        goto skip_route
-      end
-
-      -- update route_info state
-      route_info.active = true
-      route_info.save = route.save
-
-      if not route_info.prev_active then
-        -- a new route is now active, restore the volume and
-        -- make sure we save this as a preferred route
-        log:info (device,
-            string.format ("new active route(%s) found of device(%s)",
-                route.name, dev_info.name))
-        route_info.prev_active = true
-        route_info.active = true
-
-        selected_routes [tostring (route.device)] =
-            Json.Object { index = route_info.index }:to_string ()
-        push_select_routes = true
-
-      elseif route.save and route.props then
-        -- just save route properties
-        log:info (device,
-            string.format ("storing route(%s) props of device(%s)",
-              route.name, dev_info.name))
-
-        saveRouteProps (dev_info, route)
-      end
-
-      ::skip_route::
-    end
-
-    -- save selected routes for the active profile
-    for p in device:iterate_params ("Profile") do
-      local profile = cutils.parseParam (p, "Profile")
-      saveProfileRoutes (dev_info, profile.name)
-    end
-
-    -- push a select-routes event to re-apply the routes with new properties
-    if push_select_routes then
-      local e = source:call ("create-event", "select-routes", device, nil)
-      e:set_data ("selected-routes", selected_routes)
-      EventDispatcher.push_event (e)
-    end
-  end
+    }
+  }
 }
 
 function saveRouteProps (dev_info, route)
