@@ -79,8 +79,6 @@ find_stored_routes_hook = SimpleEventHook {
           route_info = nil
         else
           log:info (device, "found stored route: " .. route_info.name)
-          -- make sure we save it again
-          route_info.save = true
         end
       end
 
