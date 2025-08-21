@@ -83,7 +83,7 @@ AsyncEventHook {
             index = route_info.index,
             device = device_id,
             props = Pod.Object (props),
-            save = route_info.save,
+            save = false,
           }
 
           log:debug (param,
