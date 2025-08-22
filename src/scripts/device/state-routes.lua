@@ -251,7 +251,7 @@ store_or_restore_routes_hook = AsyncEventHook {
                 Json.Object { index = route_info.index }:to_string ()
             push_select_routes = true
 
-          elseif route.save and route.props then
+          elseif route.available ~= "no" and route.save and route.props then
             -- just save route properties
             log:info (device,
                 string.format ("storing route(%s) props of device(%s)",
