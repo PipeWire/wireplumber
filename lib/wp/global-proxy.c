@@ -250,6 +250,20 @@ wp_global_proxy_destroyed (WpProxy * proxy)
   WpGlobalProxyPrivate *priv =
       wp_global_proxy_get_instance_private (self);
 
+  if (priv->global && priv->global->proxy &&
+      (priv->global->flags & WP_GLOBAL_FLAG_OWNED_BY_PROXY)) {
+   /* We can end up here as a result of _request_destroy() followed by
+    * _deactivate(FEATURE_BOUND), where the latter triggers this callback
+    * before _remove_global is processed.
+    * If proxy is owned, it is gone now, so not much owned left.
+    * self might be cleaned up soon, so this is a good time to remove
+    * the non-refcounted backreference in global.  If not done now, _dispose()
+    * does not have a chance to cleanup (as the reference to global is gone).
+    * If remove_global then comes in later, there is no more real work to
+    * do when WP_GLOBAL_FLAG_APPEARS_ON_REGISTRY is removed
+    */
+    wp_global_rm_flag (priv->global, WP_GLOBAL_FLAG_OWNED_BY_PROXY);
+  }
   g_clear_pointer (&priv->global, wp_global_unref);
 }
 
