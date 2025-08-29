@@ -1138,8 +1138,8 @@ wp_core_update_properties (WpCore * self, WpProperties * updates)
  * \ingroup wpcore
  * \param self the core
  * \param source (out) (optional): the source
- * \param function (scope notified): the function to call
- * \param data (closure): data to pass to \a function
+ * \param function (scope notified)(closure data)(destroy destroy): the function to call
+ * \param data data to pass to \a function
  * \param destroy (nullable): a function to destroy \a data
  */
 void
@@ -1203,8 +1203,8 @@ wp_core_idle_add_closure (WpCore * self, GSource **source, GClosure * closure)
  * \param self the core
  * \param source (out) (optional): the source
  * \param timeout_ms the timeout in milliseconds
- * \param function (scope notified): the function to call
- * \param data (closure): data to pass to \a function
+ * \param function (scope notified)(closure data)(destroy destroy): the function to call
+ * \param data data to pass to \a function
  * \param destroy (nullable): a function to destroy \a data
  */
 void
@@ -1267,8 +1267,8 @@ wp_core_timeout_add_closure (WpCore * self, GSource **source, guint timeout_ms,
  * \ingroup wpcore
  * \param self the core
  * \param cancellable (nullable): a GCancellable to cancel the operation
- * \param callback (scope async): a function to call when the operation is done
- * \param user_data (closure): data to pass to \a callback
+ * \param callback (scope async)(closure user_data): a function to call when the operation is done
+ * \param user_data data to pass to \a callback
  * \returns TRUE if the sync operation was started, FALSE if an error
  *   occurred before returning from this function
  */

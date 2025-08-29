@@ -213,8 +213,8 @@ wp_pipewire_object_get_param_info (WpPipewireObject * self)
  * \param id (nullable): the parameter id to enumerate or NULL for all parameters
  * \param filter (nullable): a param filter or NULL
  * \param cancellable (nullable): a cancellable for the async operation
- * \param callback (scope async): a callback to call with the result
- * \param user_data (closure): data to pass to \a callback
+ * \param callback (scope async)(closure user_data): a callback to call with the result
+ * \param user_data data to pass to \a callback
  */
 void
 wp_pipewire_object_enum_params (WpPipewireObject * self, const gchar * id,

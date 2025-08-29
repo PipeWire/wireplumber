@@ -239,9 +239,9 @@ wp_event_hook_runs_for_event (WpEventHook * self, WpEvent * event)
  * \param self the event hook
  * \param event the event that triggered the hook
  * \param cancellable (nullable): a GCancellable to cancel the async operation
- * \param callback (scope async): a callback to fire after execution of the hook
+ * \param callback (scope async)(closure callback_data): a callback to fire after execution of the hook
  *    has completed
- * \param callback_data (closure): data for the callback
+ * \param callback_data data for the callback
  */
 void
 wp_event_hook_run (WpEventHook * self,

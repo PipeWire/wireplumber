@@ -153,8 +153,8 @@ on_component_loader_load_done (WpComponentLoader * cl, GAsyncResult * res,
  *   provide if it loads successfully; this can be queried later with
  *   wp_core_test_feature()
  * \param cancellable (nullable): optional GCancellable
- * \param callback (scope async): the callback to call when the operation is done
- * \param data (closure): data to pass to \a callback
+ * \param callback (scope async)(closure data): the callback to call when the operation is done
+ * \param data data to pass to \a callback
  */
 void
 wp_core_load_component (WpCore * self, const gchar * component,

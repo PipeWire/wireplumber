@@ -72,8 +72,8 @@ match_rules_cb (void *data, const char *location, const char *action,
  * \ingroup wpjsonutils
  * \param json a JSON array containing rules in the described format
  * \param match_props (transfer none): the properties to match against the rules
- * \param callback (scope call): a function to call for each action on a successful match
- * \param data (closure callback): data to be passed to \a callback
+ * \param callback (scope call)(closure data): a function to call for each action on a successful match
+ * \param data data to be passed to \a callback
  * \param error (out)(optional): the error that occurred, if any
  * \returns FALSE if an error occurred, TRUE otherwise
  */

@@ -170,8 +170,8 @@ wp_transition_async_result_init (GAsyncResultIface * iface)
  * \param source_object (nullable) (type GObject): the GObject that owns this
  *   task, or NULL
  * \param cancellable (nullable): optional GCancellable
- * \param callback (scope async): a GAsyncReadyCallback
- * \param callback_data (closure): user data passed to \a callback
+ * \param callback (scope async)(closure callback_data): a GAsyncReadyCallback
+ * \param callback_data user data passed to \a callback
  * \returns (transfer none): the new transition
  */
 WpTransition *

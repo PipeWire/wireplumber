@@ -178,9 +178,9 @@ wp_iterator_next (WpIterator *self, GValue *item)
  *
  * \ingroup wpiterator
  * \param self the iterator
- * \param func (scope call): the fold function
+ * \param func (scope call)(closure data): the fold function
  * \param ret (inout): the accumulator data
- * \param data (closure): the user data
+ * \param data the user data
  * \returns TRUE if all the items were processed, FALSE otherwise.
  */
 gboolean
@@ -200,8 +200,8 @@ wp_iterator_fold (WpIterator *self, WpIteratorFoldFunc func, GValue *ret,
  *
  * \ingroup wpiterator
  * \param self the iterator
- * \param func (scope call): the foreach function
- * \param data (closure): the user data
+ * \param func (scope call)(closure data): the foreach function
+ * \param data the user data
  * \returns TRUE if all the items were processed, FALSE otherwise.
  */
 gboolean

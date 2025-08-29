@@ -441,8 +441,8 @@ on_transition_completed (WpTransition * transition, GParamSpec * param,
  * \param self the object
  * \param features the features to enable
  * \param cancellable (nullable): a cancellable for the async operation
- * \param callback (scope async): a function to call when activation is complete
- * \param user_data (closure): data for \a callback
+ * \param callback (scope async)(closure user_data): a function to call when activation is complete
+ * \param user_data data for \a callback
  */
 void
 wp_object_activate (WpObject * self,

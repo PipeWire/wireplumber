@@ -94,8 +94,8 @@ wp_si_adapter_get_ports_format (WpSiAdapter * self, const gchar **mode)
  * \param self the session item
  * \param format (transfer full) (nullable): the format to be set
  * \param mode (nullable): the mode
- * \param callback (scope async): the callback to call when the operation is done
- * \param data (closure): user data for \a callback
+ * \param callback (scope async)(closure data): the callback to call when the operation is done
+ * \param data user data for \a callback
  */
 void
 wp_si_adapter_set_ports_format (WpSiAdapter * self, WpSpaPod *format,
@@ -358,8 +358,8 @@ wp_si_acquisition_default_init (WpSiAcquisitionInterface * iface)
  * \param self the session item
  * \param acquisitor the link that is trying to acquire a port info item
  * \param item the item that is being acquired
- * \param callback (scope async): the callback to call when the operation is done
- * \param data (closure): user data for \a callback
+ * \param callback (scope async)(closure data): the callback to call when the operation is done
+ * \param data user data for \a callback
  */
 void
 wp_si_acquisition_acquire (WpSiAcquisition * self, WpSiLink * acquisitor,
