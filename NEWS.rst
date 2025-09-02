@@ -1,12 +1,53 @@
-WirePlumber 0.5.10
+WirePlumber 0.5.11
 ~~~~~~~~~~~~~~~~~~
+
+Additions & Enhancements:
+
+  - Added modem manager module for tracking voice call status and voice call
+    device profile selection hooks to improve phone call audio routing on
+    mobile devices (!722, !729, #819)
+
+  - Added MPRIS media player pause functionality that automatically pauses
+    media playback when the audio target (e.g. headphones) is removed (!699, #764)
+
+  - Added support for human-readable names and localization of settings in
+    ``wireplumber.conf`` with ``wpctl`` displaying localized setting descriptions (!712)
+
+  - Improved default node selection logic to use both session and route
+    priorities when nodes have equal session priorities (!720)
+
+  - Increased USB device priority in the ALSA monitor (!719)
+
+Fixes:
+
+  - Fixed multiple Lua runtime issues including type confusion bugs, stack
+    overflow prevention, and SPA POD array/choice builders (!723, !728)
+
+  - Fixed proxy object lifecycle management by properly clearing the
+    OWNED_BY_PROXY flag when proxies are destroyed to prevent dangling
+    pointers (!732)
+
+  - Fixed state-routes handling to prevent saving unavailable routes and
+    eliminate race conditions during profile switching (!730, #762)
+
+  - Fixed some memory leaks in the script tester and the settings iterator (!727, !726)
+
+  - Fixed a potential crash caused by module-loopback destroying itself when the
+    pipewire connection is closed (#812)
+
+  - Fixed profile saving behavior in ``wpctl set-profile`` command (#808)
+
+  - Fixed GObject introspection closure annotation
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.5.10
+..................
 
 Fixed a critical crash in ``linking-utils.haveAvailableRoutes`` that was
 introduced accidentally in 0.5.9 and caused loss of audio output on affected
 systems (#797, #799, #800, !713)
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.5.9
 .................
