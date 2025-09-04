@@ -33,7 +33,7 @@ function module.get_device_info (self, device)
   if not dev_info then
     local device_name = device_properties ["device.name"]
     if not device_name then
-      Log.critical (device, "invalid device.name")
+      Log.warning (device, "invalid device.name")
       return nil
     end
 
