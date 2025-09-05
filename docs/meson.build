@@ -102,6 +102,26 @@ if build_doc
     install_dir: wireplumber_doc_dir,
     build_by_default: true,
   )
+
+  # Generate man pages directory with sphinx
+  custom_target('manpages',
+    command: [sphinx_p,
+      '-q',                       # quiet
+      '-E',                       # rebuild from scratch
+      '-b', 'man',                # man page builder
+      '-d', '@PRIVATE_DIR@',      # doctrees dir
+      '-c', '@OUTDIR@',           # conf.py dir
+      '@CURRENT_SOURCE_DIR@/rst', # source dir
+      '@OUTDIR@',                 # output directory
+    ],
+    depend_files: [
+      sphinx_conf, sphinx_files,
+    ],
+    output: ['wpctl.1'],
+    install: true,
+    install_dir: get_option('mandir') / 'man1',
+    build_by_default: true,
+  )
 endif
 
 # Build GObject introspection

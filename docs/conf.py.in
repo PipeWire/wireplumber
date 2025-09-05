@@ -6,6 +6,10 @@ author = 'Collabora'
 release = '@VERSION@'
 version = '@VERSION@'
 
+# -- General configuration ---------------------------------------------------
+
+smartquotes = False
+
 # -- Breathe configuration ---------------------------------------------------
 
 extensions = [
@@ -43,3 +47,9 @@ html_css_files = ['custom.css']
 graphviz_output_format = "svg"
 
 pygments_style = "friendly"
+
+# -- Options for manual page output -----------------------------------------
+
+man_pages = [
+    ('tools/wpctl', 'wpctl', 'WirePlumber Control CLI', ['The WirePlumber Developers'], 1)
+]
