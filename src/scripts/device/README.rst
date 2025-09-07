@@ -50,6 +50,10 @@ Hooks
      - state-profile.lua
      - selects the profile that has been stored in the state file (user's explicit selection)
 
+   * - device/find-preferred-profile
+     - find-preferred-profile.lua
+     - selects the profile based on device configured priorities
+
    * - device/find-best-profile
      - find-best-profile.lua
      - finds the best profile for a device based on profile priorities and availability
