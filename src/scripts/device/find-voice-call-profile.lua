@@ -71,7 +71,7 @@ SimpleEventHook {
 
     if selected_profile then
       log:info (device, string.format (
-          "Found best profile '%s' (%d) for device %s",
+          "Found calling profile '%s' (%d) for device %s",
           selected_profile.name, selected_profile.index, dev_name))
       event:set_data ("selected-profile", selected_profile)
     end
