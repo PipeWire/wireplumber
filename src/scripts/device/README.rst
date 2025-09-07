@@ -46,6 +46,10 @@ Hooks
      - File
      - Description
 
+   * - device/find-calling-profile
+     - find-voice-call-profile.lua
+     - selects a profile based on the state of calls
+
    * - device/find-stored-profile
      - state-profile.lua
      - selects the profile that has been stored in the state file (user's explicit selection)
