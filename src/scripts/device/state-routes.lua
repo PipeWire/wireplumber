@@ -182,8 +182,15 @@ store_or_restore_routes_hook = AsyncEventHook {
         local selected_routes = {}
         local push_select_routes = false
 
+        -- Make sure the device is still valid
+        if (device:get_active_features() & Feature.Proxy.BOUND) == 0 then
+          transition:advance ()
+          return
+        end
+
         local dev_info = devinfo:get_device_info (device)
         if not dev_info then
+          transition:advance ()
           return
         end
 
