@@ -770,6 +770,8 @@ wp_object_interest_matches_full (WpObjectInterest * self,
     if (!pw_global_props && WP_IS_SESSION_ITEM (object)) {
       WpSessionItem *si = (WpSessionItem *) object;
       pw_global_props = props = wp_session_item_get_properties (si);
+      if (!pw_props)
+        pw_props = props;
     }
   }
 
