@@ -195,12 +195,16 @@ on_link_activated (WpObject * proxy, GAsyncResult * res,
 {
   WpSiStandardLink *self = wp_transition_get_source_object (transition);
   guint len = self->node_links ? self->node_links->len : 0;
+  g_autoptr (GError) error = NULL;
 
   /* Count the number of failed and active links */
-  if (wp_object_activate_finish (proxy, res, NULL))
+  if (wp_object_activate_finish (proxy, res, &error)) {
     self->n_active_links++;
-  else
+  } else {
     self->n_failed_links++;
+    wp_info_object (self, "Failed to activate link %p: %s", proxy,
+        error->message);
+  }
 
   /* Wait for all links to finish activation */
   if (self->n_failed_links + self->n_active_links != len)
