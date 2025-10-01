@@ -13,8 +13,8 @@ msgstr ""
 "Project-Id-Version: pipewire.master-tx\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/-/"
 "issues\n"
-"POT-Creation-Date: 2025-09-26 16:14+0000\n"
-"PO-Revision-Date: 2025-09-27 07:58+0800\n"
+"POT-Creation-Date: 2025-10-01 16:13+0000\n"
+"PO-Revision-Date: 2025-10-02 07:57+0800\n"
 "Last-Translator: lumingzh <lumingzh@qq.com>\n"
 "Language-Team: Chinese (China) <i18n-zh@googlegroups.com>\n"
 "Language: zh_CN\n"
@@ -203,6 +203,32 @@ msgstr "音频信源的默认音量"
 msgid "Default source volume"
 msgstr "默认信源音量"
 
+#. /wireplumber.settings.schema/device.routes.mute-on-alsa-playback-removed/description
+#: wireplumber.conf
+msgid ""
+"Automatically mute all audio devices when active wired headphones/speakers "
+"are disconnected to prevent unintended sound output"
+msgstr ""
+"当活动的有线耳机/扬声器断开连接时自动静音所有音频设备以防止意外的声音输出"
+
+#. /wireplumber.settings.schema/device.routes.mute-on-alsa-playback-removed/name
+#: wireplumber.conf
+msgid "Auto-mute on wired audio disconnect"
+msgstr "有线音频设备断开连接时自动静音"
+
+#. /wireplumber.settings.schema/device.routes.mute-on-bluetooth-playback-removed/description
+#: wireplumber.conf
+msgid ""
+"Automatically mute all audio devices when active Bluetooth headphones/"
+"speakers are disconnected to prevent unintended sound output"
+msgstr ""
+"当活动的蓝牙耳机/扬声器断开连接时自动静音所有音频设备以防止意外的声音输出"
+
+#. /wireplumber.settings.schema/device.routes.mute-on-bluetooth-playback-removed/name
+#: wireplumber.conf
+msgid "Auto-mute on Bluetooth audio disconnect"
+msgstr "蓝牙音频设备断开连接时自动静音"
+
 #. /wireplumber.settings.schema/linking.allow-moving-streams/description
 #: wireplumber.conf
 msgid "Streams may be moved by adding PipeWire metadata at runtime"
@@ -276,6 +302,16 @@ msgstr "启用音频节点上的监视器端口"
 #: wireplumber.conf
 msgid "Monitor ports"
 msgstr "监视器端口"
+
+#. /wireplumber.settings.schema/node.features.audio.mono/description
+#: wireplumber.conf
+msgid "Configure all audio nodes in MONO"
+msgstr "在单声道中配置所有音频节点"
+
+#. /wireplumber.settings.schema/node.features.audio.mono/name
+#: wireplumber.conf
+msgid "Mono"
+msgstr "单声道"
 
 #. /wireplumber.settings.schema/node.features.audio.no-dsp/description
 #: wireplumber.conf
