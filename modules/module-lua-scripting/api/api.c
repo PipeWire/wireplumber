@@ -599,6 +599,28 @@ push_wpiterator (lua_State *L, WpIterator *it)
   return 2;
 }
 
+static int
+iterator_reset (lua_State *L)
+{
+  WpIterator *it = wplua_checkboxed (L, 1, WP_TYPE_ITERATOR);
+  wp_iterator_reset (it);
+  return 0;
+}
+
+static int
+iterator_iterate (lua_State *L)
+{
+  WpIterator *it = wplua_checkboxed (L, 1, WP_TYPE_ITERATOR);
+  return push_wpiterator (L, wp_iterator_ref (it));
+}
+
+static const luaL_Reg iterator_funcs[] = {
+  { "next", iterator_next },
+  { "reset", iterator_reset },
+  { "iterate", iterator_iterate },
+  { NULL, NULL }
+};
+
 /* Settings WpIterator */
 
 static int
@@ -2984,6 +3006,8 @@ wp_lua_scripting_api_init (lua_State *L)
       conf_new, conf_methods);
   wplua_register_type_methods (L, WP_TYPE_PROC_INFO,
       NULL, proc_info_funcs);
+  wplua_register_type_methods (L, WP_TYPE_ITERATOR,
+      NULL, iterator_funcs);
 
   if (!wplua_load_uri (L, URI_API, &error) ||
       !wplua_pcall (L, 0, 0, &error)) {
