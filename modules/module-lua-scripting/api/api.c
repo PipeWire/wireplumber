@@ -1549,19 +1549,24 @@ on_enum_params_done (WpPipewireObject * pwobj, GAsyncResult * res,
     GClosure * closure)
 {
   g_autoptr (GError) error = NULL;
-  GValue val = G_VALUE_INIT;
-  int n_vals = 0;
+  GValue vals[2] = { G_VALUE_INIT, G_VALUE_INIT };
+  int n_vals = 1;
   WpIterator *it;
 
   it = wp_pipewire_object_enum_params_finish (pwobj, res, &error);
+  g_value_init (&vals[0], WP_TYPE_ITERATOR);
+  g_value_set_boxed (&vals[0], it);
   if (!it) {
-    g_value_init (&val, G_TYPE_STRING);
-    g_value_set_string (&val, error->message);
-    n_vals = 1;
+    g_value_init (&vals[1], G_TYPE_STRING);
+    g_value_set_string (&vals[1], error->message);
+    n_vals = 2;
   }
+
   g_clear_pointer (&it, wp_iterator_unref);
-  g_closure_invoke (closure, NULL, n_vals, &val, NULL);
-  g_value_unset (&val);
+  g_closure_invoke (closure, NULL, n_vals, vals, NULL);
+
+  g_value_unset (&vals[0]);
+  g_value_unset (&vals[1]);
   g_closure_invalidate (closure);
   g_closure_unref (closure);
 }
