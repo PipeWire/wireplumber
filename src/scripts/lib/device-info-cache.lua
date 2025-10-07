@@ -44,6 +44,10 @@ function module.get_device_info (self, device)
       name = device_name,
       active_profile = -1,
       route_infos = {},
+      route_param_curr_profile = -1,
+      route_param_prev_profile = -1,
+      route_param_profile_changed = false,
+      route_param_channel_volumes = {}
     }
     self.dev_infos [device_id] = dev_info
   end
