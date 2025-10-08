@@ -204,6 +204,8 @@ wp_portal_permissionstore_plugin_disable (WpPlugin * plugin)
       WP_PORTAL_PERMISSIONSTORE_PLUGIN (plugin);
 
   clear_signal (self);
+  if (self->dbus)
+    g_signal_handlers_disconnect_by_data (self->dbus, self);
   g_clear_object (&self->dbus);
 
   wp_object_update_features (WP_OBJECT (self), 0, WP_PLUGIN_FEATURE_ENABLED);
