@@ -7,7 +7,9 @@
 
 COMBINE_OFFSET = 64
 LOOPBACK_SOURCE_ID = 128
+LOOPBACK_SINK_ID = 129
 DEVICE_SOURCE_ID = 0
+DEVICE_SINK_ID = 1
 
 cutils = require ("common-utils")
 log = Log.open_topic ("s-monitors")
@@ -23,6 +25,8 @@ config.properties["api.bluez5.connection-info"] = true
 -- Properties used for previously creating a SCO source node. key: SPA device id
 sco_source_node_properties = {}
 
+-- Properties used for previously creating a SCO or A2DP sink node. key: SPA device id
+sco_a2dp_sink_node_properties = {}
 
 devices_om = ObjectManager {
   Interest {
@@ -271,6 +275,16 @@ function createNode(parent, id, type, factory, properties)
     name_prefix = name_prefix .. "_internal"
   end
 
+  -- hide the sink node because we use the loopback sink instead
+  if parent:get_managed_object (LOOPBACK_SINK_ID) ~= nil and
+       (factory == "api.bluez5.sco.sink" or
+           factory == "api.bluez5.a2dp.sink") then
+    properties["bluez5.sink-loopback-target"] = true
+    properties["api.bluez5.internal"] = true
+    -- add 'internal' to name prefix to not be confused with loopback node
+    name_prefix = name_prefix .. "_internal"
+  end
+
   -- set the node name
   local name = name_prefix .. "." ..
       (properties["api.bluez5.address"] or dev_props["device.name"]) .. "." ..
@@ -304,9 +318,12 @@ function createNode(parent, id, type, factory, properties)
     parent:set_managed_pending(id)
   else
     log:info("Create node: " .. properties["node.name"] .. ": " .. factory .. " " .. tostring (id))
-    properties["bluez5.loopback"] = false
     if factory == "api.bluez5.sco.source" then
+      properties["bluez5.loopback"] = false
       sco_source_node_properties[parent_spa_id] = properties
+    elseif factory == "api.bluez5.sco.sink" or factory == "api.bluez5.a2dp.sink" then
+      properties["bluez5.sink-loopback"] = false
+      sco_a2dp_sink_node_properties[parent_spa_id] = properties
     end
     local node = LocalNode("adapter", properties)
     node:activate(Feature.Proxy.BOUND)
@@ -318,12 +335,18 @@ function removeNode(parent, id)
   local dev_props = parent.properties
   local parent_spa_id = tonumber(dev_props["spa.object.id"])
   local src_properties = sco_source_node_properties[parent_spa_id]
+  local sink_properties = sco_a2dp_sink_node_properties[parent_spa_id]
 
   log:debug("Remove node: " .. tostring (id))
 
   if src_properties ~= nil and id == tonumber(src_properties["spa.object.id"]) then
-    log:debug("Clear old SCO properties")
+    log:debug("Clear old SCO source properties")
     sco_source_node_properties[parent_spa_id] = nil
+  end
+
+  if sink_properties ~= nil and id == tonumber(sink_properties["spa.object.id"]) then
+    log:debug("Clear old SCO-A2DP sink properties")
+    sco_a2dp_sink_node_properties[parent_spa_id] = nil
   end
 
   -- Clear also the device set module, if any
@@ -400,6 +423,7 @@ end
 
 function removeDevice(parent, id)
   sco_source_node_properties[id] = nil
+  sco_a2dp_sink_node_properties[id] = nil
 end
 
 function createMonitor()
@@ -456,6 +480,42 @@ function CreateDeviceLoopbackSource (dev_name, dec_desc, dev_id)
   return LocalModule("libpipewire-module-loopback", args:get_data(), {})
 end
 
+function CreateDeviceLoopbackSink (dev_name, dec_desc, dev_id)
+  local args = Json.Object {
+    ["capture.props"] = Json.Object {
+      ["node.name"] = string.format ("bluez_output.%s", dev_name),
+      ["node.description"] = string.format ("%s", dec_desc),
+      ["node.virtual"] = false,
+      ["audio.position"] = "[FL, FR]",
+      ["media.class"] = "Audio/Sink",
+      ["device.id"] = dev_id,
+      ["card.profile.device"] = DEVICE_SINK_ID,
+      ["device.routes"] = "1",
+      ["priority.driver"] = 2010,
+      ["priority.session"] = 2010,
+      ["bluez5.sink-loopback"] = true,
+      ["filter.smart"] = true,
+      ["filter.smart.target"] = Json.Object {
+        ["bluez5.sink-loopback-target"] = true,
+        ["bluez5.sink-loopback"] = false,
+        ["device.id"] = dev_id
+      }
+    },
+    ["playback.props"] = Json.Object {
+      ["node.name"] = string.format ("bluez_playback_internal.%s", dev_name),
+      ["media.class"] = "Stream/Output/Audio/Internal",
+      ["node.description"] =
+          string.format ("Bluetooth internal playback stream for %s", dec_desc),
+      ["bluez5.sink-loopback"] = true,
+      ["node.passive"] = true,
+      ["node.dont-fallback"] = true,
+      ["node.linger"] = true,
+      ["state.restore-props"] = false,
+    }
+  }
+  return LocalModule("libpipewire-module-loopback", args:get_data(), {})
+end
+
 function checkProfiles (dev)
   local device_id = dev["bound-id"]
   local props = dev.properties
@@ -488,19 +548,19 @@ function checkProfiles (dev)
     return
   end
 
-  -- Create the loopback device if never created before
-  local loopback = spa_device:get_managed_object (LOOPBACK_SOURCE_ID)
-  if loopback == nil then
+  -- Create the source loopback device if never created before
+  local source_loopback = spa_device:get_managed_object (LOOPBACK_SOURCE_ID)
+  if source_loopback == nil then
     local dev_name = props["api.bluez5.address"] or props["device.name"]
     local dec_desc = props["device.description"] or props["device.name"]
       or props["device.nick"] or props["device.alias"] or "bluetooth-device"
 
-    log:info("create SCO loopback node: " .. dev_name)
+    log:info("create SCO source loopback node: " .. dev_name)
 
     -- sanitize description, replace ':' with ' '
     dec_desc = dec_desc:gsub("(:)", " ")
-    loopback = CreateDeviceLoopbackSource (dev_name, dec_desc, device_id)
-    spa_device:store_managed_object(LOOPBACK_SOURCE_ID, loopback)
+    source_loopback = CreateDeviceLoopbackSource (dev_name, dec_desc, device_id)
+    spa_device:store_managed_object(LOOPBACK_SOURCE_ID, source_loopback)
 
     -- recreate any sco source node
     local properties = sco_source_node_properties[device_spa_id]
@@ -514,6 +574,39 @@ function checkProfiles (dev)
         spa_device:store_managed_object(node_id, nil)
 
         properties["bluez5.loopback-target"] = true
+        properties["api.bluez5.internal"] = true
+        node = LocalNode("adapter", properties)
+        node:activate(Feature.Proxy.BOUND)
+        spa_device:store_managed_object(node_id, node)
+      end
+    end
+  end
+
+  local sink_loopback = spa_device:get_managed_object (LOOPBACK_SINK_ID)
+  if sink_loopback == nil then
+    local dev_name = props["api.bluez5.address"] or props["device.name"]
+    local dec_desc = props["device.description"] or props["device.name"]
+      or props["device.nick"] or props["device.alias"] or "bluetooth-device"
+
+    log:info("create SCO-A2DP sink loopback node: " .. dev_name)
+
+    -- sanitize description, replace ':' with ' '
+    dec_desc = dec_desc:gsub("(:)", " ")
+    sink_loopback = CreateDeviceLoopbackSink (dev_name, dec_desc, device_id)
+    spa_device:store_managed_object(LOOPBACK_SINK_ID, sink_loopback)
+
+    -- recreate any sco-a2dp sink node
+    local properties = sco_a2dp_sink_node_properties[device_spa_id]
+    if properties ~= nil then
+      local node_id = tonumber(properties["spa.object.id"])
+      local node = spa_device:get_managed_object (node_id)
+      if node ~= nil then
+        log:info("Recreate node: " .. properties["node.name"] .. ": " ..
+          properties["factory.name"] .. " " .. tostring (node_id))
+
+        spa_device:store_managed_object(node_id, nil)
+
+        properties["bluez5.sink-loopback-target"] = true
         properties["api.bluez5.internal"] = true
         node = LocalNode("adapter", properties)
         node:activate(Feature.Proxy.BOUND)
