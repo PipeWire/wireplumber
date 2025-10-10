@@ -123,6 +123,16 @@ msgstr ""
 msgid "Ducking level"
 msgstr ""
 
+#. /wireplumber.settings.schema/monitor.alsa.autodetect-hdmi-channels/description
+#: wireplumber.conf
+msgid "Automatically detect channel count and positions for HDMI devices (experimental)"
+msgstr ""
+
+#. /wireplumber.settings.schema/monitor.alsa.autodetect-hdmi-channels/name
+#: wireplumber.conf
+msgid "Automatically detect HDMI channels (experimental)"
+msgstr ""
+
 #. /wireplumber.settings.schema/monitor.camera-discovery-timeout/description
 #: wireplumber.conf
 msgid "The camera discovery timeout in milliseconds"

@@ -494,6 +494,11 @@ function prepareDevice(parent, id, obj_type, factory, properties)
     factory = "api.alsa.acp.device"
   end
 
+  -- use HDMI channel detection if enabled in settings
+  if Settings.get_boolean ("monitor.alsa.autodetect-hdmi-channels") then
+    properties["api.acp.use-eld-channels"] = true
+  end
+
   -- use device reservation, if available
   if rd_plugin and properties["api.alsa.card"] then
     local rd_name = "Audio" .. properties["api.alsa.card"]
