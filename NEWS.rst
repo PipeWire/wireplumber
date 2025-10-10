@@ -1,5 +1,37 @@
-WirePlumber 0.5.11
+WirePlumber 0.5.12
 ~~~~~~~~~~~~~~~~~~
+
+Additions & Enhancements:
+
+  - Added mono audio configuration support via ``node.features.audio.mono``
+    setting that can be changed at runtime with wpctl (!721)
+
+  - Added automatic muting of ALSA devices when a running node is removed,
+    helping prevent loud audio on speakers when headsets are unplugged (!734)
+
+  - Added notifications API module for sending system notifications (!734)
+
+  - Added comprehensive wpctl man page and documentation (!735, #825)
+
+  - Enhanced object interest handling for PipeWire properties on session items (!738)
+
+Fixes:
+
+  - Fixed race condition during shutdown in the permissions portal module that
+    could cause crashes in GDBus signal handling (!748)
+
+  - Added device validity check in state-routes handling to prevent issues
+    when devices are removed during async operations (!737, #844)
+
+  - Fixed Log.critical undefined function error in device-info-cache (!733)
+
+  - Improved device hook documentation and configuration (!736)
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.5.11
+..................
 
 Additions & Enhancements:
 
@@ -38,9 +70,6 @@ Fixes:
   - Fixed profile saving behavior in ``wpctl set-profile`` command (#808)
 
   - Fixed GObject introspection closure annotation
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.5.10
 ..................
