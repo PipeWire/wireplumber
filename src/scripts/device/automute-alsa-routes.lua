@@ -7,6 +7,7 @@
 
 cutils = require ("common-utils")
 log = Log.open_topic ("s-automute-alsa-routes")
+hooks_registered = false
 
 function setRoute (device, route, mute)
   local param = Pod.Object {
@@ -194,17 +195,19 @@ evaluate_mute_on_node_removed_hook = SimpleEventHook {
 function toggleState ()
   local mute_alsa = Settings.get_boolean ("device.routes.mute-on-alsa-playback-removed")
   local mute_bluez = Settings.get_boolean ("device.routes.mute-on-bluetooth-playback-removed")
-  if mute_alsa or mute_bluez then
+  if (mute_alsa or mute_bluez) and not hooks_registered then
     nodes_info = {}
     mute_alsa_devices_hook:register ()
     update_nodes_info_hook:register ()
     evaluate_mute_on_device_route_changed_hook:register ()
     evaluate_mute_on_node_removed_hook:register ()
-  else
+    hooks_registered = true
+  elseif not mute_alsa and not mute_bluez and hooks_registered then
     mute_alsa_devices_hook:remove ()
     update_nodes_info_hook:remove ()
     evaluate_mute_on_device_route_changed_hook:remove ()
     evaluate_mute_on_node_removed_hook:remove ()
+    hooks_registered = false
   end
 end
 
