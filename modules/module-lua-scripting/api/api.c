@@ -1613,11 +1613,22 @@ pipewire_object_set_param (lua_State *L)
   return 0;
 }
 
+static int
+pipewire_object_get_property (lua_State *L)
+{
+  WpPipewireObject *pwobj = wplua_checkobject (L, 1, WP_TYPE_PIPEWIRE_OBJECT);
+  const char *key = luaL_checkstring (L, 2);
+  const char *val = wp_pipewire_object_get_property (pwobj, key);
+  lua_pushstring (L, val);
+  return 1;
+}
+
 static const luaL_Reg pipewire_object_methods[] = {
   { "enum_params", pipewire_object_enum_params },
   { "iterate_params", pipewire_object_iterate_params },
   { "set_param" , pipewire_object_set_param },
   { "set_params" , pipewire_object_set_param }, /* deprecated, compat only */
+  { "get_property", pipewire_object_get_property },
   { NULL, NULL }
 };
 
