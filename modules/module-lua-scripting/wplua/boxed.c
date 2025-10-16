@@ -29,8 +29,9 @@ _wplua_gboxed___index (lua_State *L)
   GValue *obj_v = _wplua_togvalue_userdata_named (L, 1, G_TYPE_BOXED, "GBoxed");
   luaL_argcheck (L, obj_v != NULL, 1,
       "expected userdata storing GValue<GBoxed>");
-  const gchar *key = luaL_checkstring (L, 2);
+  const gchar *key = luaL_tolstring (L, 2, NULL);
   GType type = G_VALUE_TYPE (obj_v);
+  GType boxed_type = type;
   lua_CFunction func = NULL;
   GHashTable *vtables;
 
@@ -53,6 +54,99 @@ _wplua_gboxed___index (lua_State *L)
     lua_pushcfunction (L, func);
     return 1;
   }
+
+  /* If WpProperties type, just return the property value for that key */
+  if (boxed_type == WP_TYPE_PROPERTIES) {
+    WpProperties * props = g_value_get_boxed (obj_v);
+    const gchar *val = wp_properties_get (props, key);
+    lua_pushstring (L, val);
+    return 1;
+  }
+
+  return 0;
+}
+
+static int
+_wplua_gboxed___newindex (lua_State *L)
+{
+  GValue *obj_v = _wplua_togvalue_userdata_named (L, 1, G_TYPE_BOXED, "GBoxed");
+  luaL_argcheck (L, obj_v != NULL, 1,
+      "expected userdata storing GValue<GBoxed>");
+  const gchar *key = luaL_tolstring (L, 2, NULL);
+  GType type = G_VALUE_TYPE (obj_v);
+
+  /* Set property value */
+  if (type == WP_TYPE_PROPERTIES) {
+    WpProperties * props = g_value_dup_boxed (obj_v);
+    g_autofree gchar *val = NULL;
+    luaL_checkany (L, 3);
+
+    switch (lua_type (L, 3)) {
+      case LUA_TNIL:
+        break;
+      case LUA_TUSERDATA: {
+        GValue *v = lua_touserdata (L, 3);
+        gpointer p = g_value_peek_pointer (v);
+        val = g_strdup_printf ("%p", p);
+        break;
+      }
+      default:
+        val = g_strdup (luaL_tolstring (L, 3, NULL));
+        break;
+    }
+
+    props = wp_properties_ensure_unique_owner (props);
+    wp_properties_set (props, key, val);
+    g_value_take_boxed (obj_v, props);
+  } else {
+    luaL_error (L, "cannot assign property '%s' to boxed type %s",
+        key, g_type_name (type));
+  }
+  return 0;
+}
+
+static int
+properties_iterator_next (lua_State *L)
+{
+  WpIterator *it = wplua_checkboxed (L, 1, WP_TYPE_ITERATOR);
+  g_auto (GValue) item = G_VALUE_INIT;
+  if (wp_iterator_next (it, &item)) {
+    WpPropertiesItem *si = g_value_get_boxed (&item);
+    const gchar *k = wp_properties_item_get_key (si);
+    const gchar *v = wp_properties_item_get_value (si);
+    lua_pushstring (L, k);
+    lua_pushstring (L, v);
+    return 2;
+  } else {
+    lua_pushnil (L);
+    lua_pushnil (L);
+    return 2;
+  }
+}
+
+static int
+push_properties_wpiterator (lua_State *L, WpIterator *it)
+{
+  lua_pushcfunction (L, properties_iterator_next);
+  wplua_pushboxed (L, WP_TYPE_ITERATOR, it);
+  return 2;
+}
+
+static int
+_wplua_gboxed___pairs (lua_State *L)
+{
+  GValue *obj_v = _wplua_togvalue_userdata_named (L, 1, G_TYPE_BOXED, "GBoxed");
+  luaL_argcheck (L, obj_v != NULL, 1,
+      "expected userdata storing GValue<GBoxed>");
+  GType type = G_VALUE_TYPE (obj_v);
+
+  if (type == WP_TYPE_PROPERTIES) {
+    WpProperties * props = g_value_get_boxed (obj_v);
+    WpIterator *it = wp_properties_new_iterator (props);
+    return push_properties_wpiterator (L, it);
+  } else {
+    luaL_error (L, "cannot do pairs of boxed type %s", g_type_name (type));
+  }
   return 0;
 }
 
@@ -69,6 +163,8 @@ _wplua_init_gboxed (lua_State *L)
     { "__gc", _wplua_gvalue_userdata___gc },
     { "__eq", _wplua_gboxed___eq },
     { "__index", _wplua_gboxed___index },
+    { "__newindex", _wplua_gboxed___newindex },
+    { "__pairs", _wplua_gboxed___pairs },
     { NULL, NULL }
   };
 

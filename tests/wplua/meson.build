@@ -64,3 +64,9 @@ test(
   args: ['lua-api-tests', 'event-hooks.lua'],
   env: common_env,
 )
+test(
+  'test-lua-properties',
+  script_tester,
+  args: ['lua-api-tests', 'properties.lua'],
+  env: common_env,
+)

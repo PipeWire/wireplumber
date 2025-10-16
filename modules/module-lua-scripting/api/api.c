@@ -2039,6 +2039,108 @@ static const luaL_Reg proc_utils_funcs[] = {
   { NULL, NULL }
 };
 
+/* Properties */
+
+static int
+properties_new (lua_State *L)
+{
+  WpProperties *props;
+
+  if (lua_type (L, 1) != LUA_TNONE && lua_type (L, 1) != LUA_TNIL) {
+    luaL_checktype (L, 1, LUA_TTABLE);
+    props = wplua_table_to_properties (L, 1);
+  } else {
+    props = wp_properties_new_empty ();
+  }
+
+  wplua_pushboxed (L, WP_TYPE_PROPERTIES, props);
+  return 1;
+}
+
+static int
+properties_get_boolean (lua_State *L)
+{
+  WpProperties *props = wplua_checkboxed (L, 1, WP_TYPE_PROPERTIES);
+  const char *key = luaL_checkstring (L, 2);
+  const char *val = wp_properties_get (props, key);
+  if (val)
+    lua_pushboolean (L, spa_atob (val));
+  else
+    lua_pushnil (L);
+  return 1;
+}
+
+static int
+properties_get_int (lua_State *L)
+{
+  WpProperties *props = wplua_checkboxed (L, 1, WP_TYPE_PROPERTIES);
+  const char *key = luaL_checkstring (L, 2);
+  const char *val = wp_properties_get (props, key);
+  if (val) {
+    gint64 int_val = 0;
+    if (spa_atoi64 (val, &int_val, 10))
+      lua_pushinteger (L, int_val);
+    else
+      lua_pushnil (L);
+  } else {
+    lua_pushnil (L);
+  }
+  return 1;
+}
+
+static int
+properties_get_float (lua_State *L)
+{
+  WpProperties *props = wplua_checkboxed (L, 1, WP_TYPE_PROPERTIES);
+  const char *key = luaL_checkstring (L, 2);
+  const char *val = wp_properties_get (props, key);
+  if (val) {
+    double d_val = 0;
+    if (spa_atod (val, &d_val))
+      lua_pushnumber (L, d_val);
+    else
+      lua_pushnil (L);
+  } else {
+    lua_pushnil (L);
+  }
+  return 1;
+}
+
+static int
+properties_get_count (lua_State *L)
+{
+  WpProperties *props = wplua_checkboxed (L, 1, WP_TYPE_PROPERTIES);
+  lua_pushinteger (L, wp_properties_get_count (props));
+  return 1;
+}
+
+static int
+properties_copy (lua_State *L)
+{
+  WpProperties *props = wplua_checkboxed (L, 1, WP_TYPE_PROPERTIES);
+  WpProperties *copy = wp_properties_copy (props);
+  wplua_pushboxed (L, WP_TYPE_PROPERTIES, copy);
+  return 1;
+}
+
+static int
+properties_parse (lua_State *L)
+{
+  WpProperties *props = wplua_checkboxed (L, 1, WP_TYPE_PROPERTIES);
+  wplua_properties_to_table (L, props);
+  return 1;
+}
+
+static const luaL_Reg properties_funcs[] = {
+  { "get_boolean", properties_get_boolean },
+  { "get_int", properties_get_int },
+  { "get_float", properties_get_float },
+  { "get_count", properties_get_count },
+  { "copy", properties_copy },
+  { "parse", properties_parse },
+  { NULL, NULL }
+};
+
 /* WpSettings */
 
 static int
@@ -3013,6 +3115,8 @@ wp_lua_scripting_api_init (lua_State *L)
       NULL, proc_info_funcs);
   wplua_register_type_methods (L, WP_TYPE_ITERATOR,
       NULL, iterator_funcs);
+  wplua_register_type_methods (L, WP_TYPE_PROPERTIES,
+      properties_new, properties_funcs);
 
   if (!wplua_load_uri (L, URI_API, &error) ||
       !wplua_pcall (L, 0, 0, &error)) {
