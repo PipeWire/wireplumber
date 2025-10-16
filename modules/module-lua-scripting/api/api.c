@@ -1474,12 +1474,23 @@ session_item_remove (lua_State *L)
   return 0;
 }
 
+static int
+session_item_get_property (lua_State *L)
+{
+  WpSessionItem *si = wplua_checkobject (L, 1, WP_TYPE_SESSION_ITEM);
+  const char *key = luaL_checkstring (L, 2);
+  const char *val = wp_session_item_get_property (si, key);
+  lua_pushstring (L, val);
+  return 1;
+}
+
 static const luaL_Reg session_item_methods[] = {
   { "get_associated_proxy", session_item_get_associated_proxy },
   { "reset", session_item_reset },
   { "configure", session_item_configure },
   { "register", session_item_register },
   { "remove", session_item_remove },
+  { "get_property", session_item_get_property },
   { NULL, NULL }
 };
 
