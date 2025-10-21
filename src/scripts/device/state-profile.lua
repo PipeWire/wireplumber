@@ -34,7 +34,10 @@ find_stored_profile_hook = SimpleEventHook {
     end
 
     local device = event:get_subject ()
-    local dev_name = device.properties["device.name"]
+    local device_props = device.properties
+    local dev_name = device_props["device.name"]
+    local dont_restore_off_profile = cutils.parseBool (
+        device_props["session.dont-restore-off-profile"])
     if not dev_name then
       log:critical (device, "invalid device.name")
       return
@@ -45,7 +48,8 @@ find_stored_profile_hook = SimpleEventHook {
     if profile_name then
       for p in device:iterate_params ("EnumProfile") do
         local profile = cutils.parseParam (p, "EnumProfile")
-        if profile.name == profile_name and profile.available ~= "no" then
+        if profile.name == profile_name and profile.available ~= "no" and
+            (not dont_restore_off_profile or profile.index ~= 0) then
           selected_profile = profile
           break
         end
