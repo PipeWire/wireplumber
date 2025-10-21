@@ -137,10 +137,11 @@ si_audio_adapter_get_default_clock_rate (WpSiAudioAdapter * self)
 static gboolean
 is_unpositioned (struct spa_audio_info_raw *info)
 {
-  uint32_t i;
+  uint32_t i, n_pos;
   if (SPA_FLAG_IS_SET(info->flags, SPA_AUDIO_FLAG_UNPOSITIONED))
     return TRUE;
-  for (i = 0; i < info->channels; i++)
+  n_pos = SPA_MIN(info->channels, SPA_N_ELEMENTS(info->position));
+  for (i = 0; i < n_pos; i++)
     if (info->position[i] >= SPA_AUDIO_CHANNEL_START_Aux &&
         info->position[i] <= SPA_AUDIO_CHANNEL_LAST_Aux)
       return TRUE;
@@ -197,7 +198,7 @@ si_audio_adapter_find_format (WpSiAudioAdapter * self, WpNode * node,
         continue;
 
       if (position == NULL ||
-          !spa_pod_copy_array(position, SPA_TYPE_Id, raw_format.position, SPA_AUDIO_MAX_CHANNELS))
+          !spa_pod_copy_array(position, SPA_TYPE_Id, raw_format.position, SPA_N_ELEMENTS(raw_format.position)))
         SPA_FLAG_SET(raw_format.flags, SPA_AUDIO_FLAG_UNPOSITIONED);
 
       if (mono) {
@@ -349,7 +350,8 @@ format_audio_raw_build (const struct spa_audio_info_raw *info)
    if (!SPA_FLAG_IS_SET (info->flags, SPA_AUDIO_FLAG_UNPOSITIONED)) {
      /* Build the position array spa pod */
      g_autoptr (WpSpaPodBuilder) position_builder = wp_spa_pod_builder_new_array ();
-     for (guint i = 0; i < info->channels; i++)
+     guint n_pos = SPA_MIN(info->channels, SPA_N_ELEMENTS(info->position));
+     for (guint i = 0; i < n_pos; i++)
        wp_spa_pod_builder_add_id (position_builder, info->position[i]);
 
      /* Add the position property */
