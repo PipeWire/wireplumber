@@ -140,9 +140,9 @@ Policies
    for enabling devices, linking streams, granting permissions to clients,
    etc, as appropriate for a desktop system.
 
-.. describe:: policy.role-priority-system
+.. describe:: policy.role-based
 
-   Enables the role priority system policy. This system creates virtual sinks
+   Enables the role based priority system policy. This system creates virtual sinks
    that group streams based on their ``media.role`` property, and assigns a
    priority to each role. Depending on the priority configuration, lower
    priority roles may be corked or ducked when a higher priority role stream
