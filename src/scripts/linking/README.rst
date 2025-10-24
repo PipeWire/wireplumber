@@ -9,7 +9,7 @@ Hooks
 
 The hooks in this section are organized in 3 sub-categories. The first category
 includes hooks that are triggered by changes in the graph. Some of them are tasked
-to schedule a "rescan-for-linking" event, which is the lowest priority event and
+to schedule a "rescan-for-linking" event, which is the lowest priority linking event and
 its purpose is to scan through all the linkable session items and link them
 to a particular target. The "rescan-for-linking" event is always scheduled to run
 once for all the graph changes in a cycle. This is achieved by flagging the event
