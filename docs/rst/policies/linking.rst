@@ -42,7 +42,7 @@ assignments:
    }
 
 
-After that, once the media class of a device node has been select for a
+After that, once the media class of a device node has been selected for a
 particular stream node, and there are more than 1 device node matching such
 media class, WirePlumber will select one based on a set of priorities:
 
