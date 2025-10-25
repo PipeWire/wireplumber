@@ -13,7 +13,8 @@ SimpleEventHook {
   name = "linking/find-default-target",
   after = { "linking/find-defined-target",
             "linking/find-filter-target",
-            "linking/find-media-role-target" },
+            "linking/find-media-role-target",
+            "linking/find-media-role-sink-target" },
   before = "linking/prepare-link",
   interests = {
     EventInterest {
