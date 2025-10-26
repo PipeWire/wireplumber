@@ -9,16 +9,17 @@ msgstr ""
 "Project-Id-Version: WirePlumber master\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/-/"
 "issues\n"
-"POT-Creation-Date: 2025-08-21 03:57+0000\n"
-"PO-Revision-Date: 2025-08-21 15:45+0200\n"
+"POT-Creation-Date: 2025-10-26 04:12+0000\n"
+"PO-Revision-Date: 2025-10-26 09:26+0100\n"
 "Last-Translator: Martin Srebotnjak <miles@filmsi.net>\n"
-"Language-Team: Slovenian GNOME Translation Team <gnome-si@googlegroups.com>\n"
+"Language-Team: Slovenian GNOME Translation Team <gnome-si@googlegroups."
+"com>\n"
 "Language: sl\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=4; plural=(n%100==1 ? 1 : n%100==2 ? 2 : n%100==3 || n"
-"%100==4 ? 3 : 0);\n"
+"Plural-Forms: nplurals=4; plural=(n%100==1 ? 1 : n%100==2 ? 2 : n%100==3 || "
+"n%100==4 ? 3 : 0);\n"
 "X-Generator: Poedit 2.2.1\n"
 
 #. WirePlumber
@@ -75,6 +76,7 @@ msgstr "Modem"
 #. form factor -> icon
 #. apply properties from rules defined in JSON .conf file
 #. override the device factory to use ACP
+#. use HDMI channel detection if enabled in settings
 #. use device reservation, if available
 #. unlike pipewire-media-session, this logic here keeps the device
 #. acquired at all times and destroys it if someone else acquires
@@ -201,6 +203,34 @@ msgstr "Privzeta glasnost za zvočne vire"
 msgid "Default source volume"
 msgstr "Privzeta izvorna glasnost"
 
+#. /wireplumber.settings.schema/device.routes.mute-on-alsa-playback-removed/description
+#: wireplumber.conf
+msgid ""
+"Automatically mute all audio devices when active wired headphones/speakers "
+"are disconnected to prevent unintended sound output"
+msgstr ""
+"Samodejno utišaj vse zvočne naprave, ko so aktivne žične slušalke/zvočniki "
+"odklopljeni, za preprečitev nenamernega zvočnega izhoda"
+
+#. /wireplumber.settings.schema/device.routes.mute-on-alsa-playback-removed/name
+#: wireplumber.conf
+msgid "Auto-mute on wired audio disconnect"
+msgstr "Samodejna utišaj zvok pri prekinitvi žične zvokovne povezave"
+
+#. /wireplumber.settings.schema/device.routes.mute-on-bluetooth-playback-removed/description
+#: wireplumber.conf
+msgid ""
+"Automatically mute all audio devices when active Bluetooth headphones/"
+"speakers are disconnected to prevent unintended sound output"
+msgstr ""
+"Samodejno utišaj vse zvočne naprave, ko so aktivne slušalke/zvočniki "
+"Bluetooth odklopljeni, da preprečite nenamerni izhod zvoka"
+
+#. /wireplumber.settings.schema/device.routes.mute-on-bluetooth-playback-removed/name
+#: wireplumber.conf
+msgid "Auto-mute on Bluetooth audio disconnect"
+msgstr "Samodejni utišaj pri prekinitvi zvokovne povezave Bluetooth"
+
 #. /wireplumber.settings.schema/linking.allow-moving-streams/description
 #: wireplumber.conf
 msgid "Streams may be moved by adding PipeWire metadata at runtime"
@@ -247,6 +277,19 @@ msgstr ""
 msgid "Ducking level"
 msgstr "Stopnja umikanja"
 
+#. /wireplumber.settings.schema/monitor.alsa.autodetect-hdmi-channels/description
+#: wireplumber.conf
+msgid ""
+"Automatically detect channel count and positions for HDMI devices "
+"(experimental)"
+msgstr ""
+"Samodejno zaznaj število kanalov in položaje za naprave HDMI (poskusno)"
+
+#. /wireplumber.settings.schema/monitor.alsa.autodetect-hdmi-channels/name
+#: wireplumber.conf
+msgid "Automatically detect HDMI channels (experimental)"
+msgstr "Samodejno zaznaj kanale HDMI (poskusno)"
+
 #. /wireplumber.settings.schema/monitor.camera-discovery-timeout/description
 #: wireplumber.conf
 msgid "The camera discovery timeout in milliseconds"
@@ -276,6 +319,16 @@ msgstr "Omogoči vrata nadzornih zvočnikov na zvočnih vozliščih"
 #: wireplumber.conf
 msgid "Monitor ports"
 msgstr "Vrata zvočnih monitorjev"
+
+#. /wireplumber.settings.schema/node.features.audio.mono/description
+#: wireplumber.conf
+msgid "Configure all audio nodes in MONO"
+msgstr "Prilagodi vsa zvočna vozlišča v MONO"
+
+#. /wireplumber.settings.schema/node.features.audio.mono/name
+#: wireplumber.conf
+msgid "Mono"
+msgstr "Mono"
 
 #. /wireplumber.settings.schema/node.features.audio.no-dsp/description
 #: wireplumber.conf
