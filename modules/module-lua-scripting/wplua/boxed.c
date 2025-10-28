@@ -85,10 +85,15 @@ _wplua_gboxed___newindex (lua_State *L)
       case LUA_TNIL:
         break;
       case LUA_TUSERDATA: {
-        GValue *v = lua_touserdata (L, 3);
-        gpointer p = g_value_peek_pointer (v);
-        val = g_strdup_printf ("%p", p);
-        break;
+        if (wplua_gvalue_userdata_type (L, 3) != G_TYPE_INVALID) {
+          GValue *v = lua_touserdata (L, 3);
+          gpointer p = g_value_peek_pointer (v);
+          val = g_strdup_printf ("%p", p);
+          break;
+        } else {
+          val = g_strdup (luaL_tolstring (L, 3, NULL));
+          break;
+        }
       }
       default:
         val = g_strdup (luaL_tolstring (L, 3, NULL));

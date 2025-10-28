@@ -146,8 +146,8 @@ static int
 core_get_properties (lua_State *L)
 {
   WpCore * core = get_wp_core (L);
-  g_autoptr (WpProperties) p = wp_core_get_properties (core);
-  wplua_properties_to_table (L, p);
+  WpProperties *p = wp_core_get_properties (core);
+  wplua_pushboxed (L, WP_TYPE_PROPERTIES, p);
   return 1;
 }
 
@@ -155,7 +155,7 @@ static int
 core_get_info (lua_State *L)
 {
   WpCore * core = get_wp_core (L);
-  g_autoptr (WpProperties) p = wp_core_get_remote_properties (core);
+  WpProperties *p = wp_core_get_remote_properties (core);
 
   lua_newtable (L);
   lua_pushinteger (L, wp_core_get_remote_cookie (core));
@@ -168,7 +168,7 @@ core_get_info (lua_State *L)
   lua_setfield (L, -2, "host_name");
   lua_pushstring (L, wp_core_get_remote_version (core));
   lua_setfield (L, -2, "version");
-  wplua_properties_to_table (L, p);
+  wplua_pushboxed (L, WP_TYPE_PROPERTIES, p);
   lua_setfield (L, -2, "properties");
   return 1;
 }
@@ -297,8 +297,13 @@ static int
 core_update_properties (lua_State *L)
 {
   WpCore *core = get_wp_core(L);
-  luaL_checktype (L, 1, LUA_TTABLE);
-  wp_core_update_properties (core, wplua_table_to_properties (L, 1));
+  WpProperties *props = NULL;
+  if (lua_istable (L, 1))
+    props = wplua_table_to_properties (L, 1);
+  else
+    props = wp_properties_ref (wplua_checkboxed (L, 1, WP_TYPE_PROPERTIES));
+
+  wp_core_update_properties (core, props);
   return 0;
 }
 
@@ -859,7 +864,11 @@ object_interest_matches (lua_State *L)
     matches = wp_object_interest_matches (interest, wplua_toobject (L, 2));
   }
   else if (lua_istable (L, 2)) {
-    g_autoptr (WpProperties) props = wplua_table_to_properties (L, 2);
+    g_autoptr (WpProperties) props = NULL;
+    if (lua_istable (L, 2))
+      props = wplua_table_to_properties (L, 2);
+    else
+      props = wp_properties_ref (wplua_checkboxed (L, 2, WP_TYPE_PROPERTIES));
     matches = wp_object_interest_matches (interest, props);
   } else
     luaL_argerror (L, 2, "expected GObject or table");
@@ -1019,10 +1028,11 @@ impl_metadata_new (lua_State *L)
   const char *name = luaL_checkstring (L, 1);
   WpProperties *properties = NULL;
 
-  if (lua_type (L, 2) != LUA_TNONE && lua_type (L, 2) != LUA_TNIL) {
-    luaL_checktype (L, 2, LUA_TTABLE);
+  if (lua_istable (L, 2))
     properties = wplua_table_to_properties (L, 2);
-  }
+  else if (!lua_isnone (L, 2) && !lua_isnil (L, 2))
+    properties = wp_properties_ref (wplua_checkboxed (L, 2,
+        WP_TYPE_PROPERTIES));
 
   WpImplMetadata *m = wp_impl_metadata_new_full (get_wp_core (L),
       name, properties);
@@ -1039,10 +1049,11 @@ device_new (lua_State *L)
   const char *factory = luaL_checkstring (L, 1);
   WpProperties *properties = NULL;
 
-  if (lua_type (L, 2) != LUA_TNONE && lua_type (L, 2) != LUA_TNIL) {
-    luaL_checktype (L, 2, LUA_TTABLE);
+  if (lua_istable (L, 2))
     properties = wplua_table_to_properties (L, 2);
-  }
+  else if (!lua_isnone (L, 2) && !lua_isnil (L, 2))
+    properties = wp_properties_ref (wplua_checkboxed (L, 2,
+        WP_TYPE_PROPERTIES));
 
   WpDevice *d = wp_device_new_from_factory (get_wp_export_core (L),
       factory, properties);
@@ -1059,10 +1070,11 @@ spa_device_new (lua_State *L)
   const char *factory = luaL_checkstring (L, 1);
   WpProperties *properties = NULL;
 
-  if (lua_type (L, 2) != LUA_TNONE && lua_type (L, 2) != LUA_TNIL) {
-    luaL_checktype (L, 2, LUA_TTABLE);
+  if (lua_istable (L, 2))
     properties = wplua_table_to_properties (L, 2);
-  }
+  else if (!lua_isnone (L, 2) && !lua_isnil (L, 2))
+    properties = wp_properties_ref (wplua_checkboxed (L, 2,
+        WP_TYPE_PROPERTIES));
 
   WpSpaDevice *d = wp_spa_device_new_from_spa_factory (get_wp_export_core (L),
       factory, properties);
@@ -1127,10 +1139,11 @@ node_new (lua_State *L)
   const char *factory = luaL_checkstring (L, 1);
   WpProperties *properties = NULL;
 
-  if (lua_type (L, 2) != LUA_TNONE && lua_type (L, 2) != LUA_TNIL) {
-    luaL_checktype (L, 2, LUA_TTABLE);
+  if (lua_istable (L, 2))
     properties = wplua_table_to_properties (L, 2);
-  }
+  else if (!lua_isnone (L, 2) && !lua_isnil (L, 2))
+    properties = wp_properties_ref (
+        wplua_checkboxed (L, 2, WP_TYPE_PROPERTIES));
 
   WpNode *d = wp_node_new_from_factory (get_wp_export_core (L),
       factory, properties);
@@ -1236,10 +1249,11 @@ impl_node_new (lua_State *L)
   const char *factory = luaL_checkstring (L, 1);
   WpProperties *properties = NULL;
 
-  if (lua_type (L, 2) != LUA_TNONE && lua_type (L, 2) != LUA_TNIL) {
-    luaL_checktype (L, 2, LUA_TTABLE);
+  if (lua_istable (L, 2))
     properties = wplua_table_to_properties (L, 2);
-  }
+  else if (!lua_isnone (L, 2) && !lua_isnil (L, 2))
+    properties = wp_properties_ref (wplua_checkboxed (L, 2,
+        WP_TYPE_PROPERTIES));
 
   WpImplNode *d = wp_impl_node_new_from_pw_factory (get_wp_export_core (L),
      factory, properties);
@@ -1272,10 +1286,11 @@ link_new (lua_State *L)
   const char *factory = luaL_checkstring (L, 1);
   WpProperties *properties = NULL;
 
-  if (lua_type (L, 2) != LUA_TNONE && lua_type (L, 2) != LUA_TNIL) {
-    luaL_checktype (L, 2, LUA_TTABLE);
+  if (lua_istable (L, 2))
     properties = wplua_table_to_properties (L, 2);
-  }
+  else if (!lua_isnone (L, 2) && !lua_isnil (L, 2))
+    properties = wp_properties_ref (wplua_checkboxed (L, 2,
+        WP_TYPE_PROPERTIES));
 
   WpLink *l = wp_link_new_from_factory (get_wp_core (L), factory, properties);
   if (l)
@@ -1351,9 +1366,12 @@ static int
 client_update_properties (lua_State *L)
 {
   WpClient *client = wplua_checkobject (L, 1, WP_TYPE_CLIENT);
+  WpProperties *properties = NULL;
 
-  luaL_checktype (L, 2, LUA_TTABLE);
-  WpProperties *properties = wplua_table_to_properties (L, 2);
+  if (lua_istable (L, 2))
+    properties = wplua_table_to_properties (L, 2);
+  else
+    properties = wp_properties_ref (wplua_checkboxed (L, 2, WP_TYPE_PROPERTIES));
 
   wp_client_update_properties (client, properties);
   return 0;
@@ -1413,46 +1431,12 @@ static int
 session_item_configure (lua_State *L)
 {
   WpSessionItem *si = wplua_checkobject (L, 1, WP_TYPE_SESSION_ITEM);
-  WpProperties *props = wp_properties_new_empty ();
+  WpProperties *props;
 
-  /* validate arguments */
-  luaL_checktype (L, 2, LUA_TTABLE);
-
-  /* build the configuration properties */
-  lua_pushnil (L);
-  while (lua_next (L, 2)) {
-    const gchar *key = NULL;
-    g_autofree gchar *var = NULL;
-
-    switch (lua_type (L, -1)) {
-      case LUA_TBOOLEAN:
-        var = g_strdup_printf ("%u", lua_toboolean (L, -1));
-        break;
-      case LUA_TNUMBER:
-        if (lua_isinteger (L, -1))
-          var = g_strdup_printf ("%lld", lua_tointeger (L, -1));
-        else
-          var = g_strdup_printf ("%f", lua_tonumber (L, -1));
-        break;
-      case LUA_TSTRING:
-        var = g_strdup (lua_tostring (L, -1));
-        break;
-      case LUA_TUSERDATA: {
-        GValue *v = lua_touserdata (L, -1);
-        gpointer p = g_value_peek_pointer (v);
-        var = g_strdup_printf ("%p", p);
-        break;
-      }
-      default:
-        luaL_error (L, "configure does not support lua type ",
-            lua_typename(L, lua_type(L, -1)));
-        break;
-    }
-
-    key = luaL_tolstring (L, -2, NULL);
-    wp_properties_set (props, key, var);
-    lua_pop (L, 2);
-  }
+  if (lua_istable (L, 2))
+    props = wplua_table_to_properties (L, 2);
+  else
+    props = wp_properties_ref (wplua_checkboxed (L, 2, WP_TYPE_PROPERTIES));
 
   lua_pushboolean (L, wp_session_item_configure (si, props));
   return 1;
@@ -1655,9 +1639,14 @@ static int
 state_save (lua_State *L)
 {
   WpState *state = wplua_checkobject (L, 1, WP_TYPE_STATE);
-  luaL_checktype (L, 2, LUA_TTABLE);
-  g_autoptr (WpProperties) props = wplua_table_to_properties (L, 2);
+  g_autoptr (WpProperties) props = NULL;
   g_autoptr (GError) error = NULL;
+
+  if (lua_istable (L, 2))
+    props = wplua_table_to_properties (L, 2);
+  else
+    props = wp_properties_ref (wplua_checkboxed (L, 2, WP_TYPE_PROPERTIES));
+
   gboolean saved = wp_state_save (state, props, &error);
   lua_pushboolean (L, saved);
   lua_pushstring (L, error ? error->message : "");
@@ -1668,8 +1657,13 @@ static int
 state_save_after_timeout (lua_State *L)
 {
   WpState *state = wplua_checkobject (L, 1, WP_TYPE_STATE);
-  luaL_checktype (L, 2, LUA_TTABLE);
-  g_autoptr (WpProperties) props = wplua_table_to_properties (L, 2);
+  g_autoptr (WpProperties) props = NULL;
+
+  if (lua_istable (L, 2))
+    props = wplua_table_to_properties (L, 2);
+  else
+    props = wp_properties_ref (wplua_checkboxed (L, 2, WP_TYPE_PROPERTIES));
+
   wp_state_save_after_timeout (state, get_wp_core (L), props);
   return 0;
 }
@@ -1678,8 +1672,8 @@ static int
 state_load (lua_State *L)
 {
   WpState *state = wplua_checkobject (L, 1, WP_TYPE_STATE);
-  g_autoptr (WpProperties) props = wp_state_load (state);
-  wplua_properties_to_table (L, props);
+  WpProperties *props = wp_state_load (state);
+  wplua_pushboxed (L, WP_TYPE_PROPERTIES, props);
   return 1;
 }
 
@@ -1704,10 +1698,11 @@ impl_module_new (lua_State *L)
   if (lua_type (L, 2) != LUA_TNONE && lua_type (L, 2) != LUA_TNIL)
     args = luaL_checkstring (L, 2);
 
-  if (lua_type (L, 3) != LUA_TNONE && lua_type (L, 3) != LUA_TNIL) {
-    luaL_checktype (L, 3, LUA_TTABLE);
+  if (lua_istable (L, 3))
     properties = wplua_table_to_properties (L, 3);
-  }
+  else if (!lua_isnone (L, 3) && !lua_isnil (L, 3))
+    properties = wp_properties_ref (wplua_checkboxed (L, 3,
+        WP_TYPE_PROPERTIES));
 
   WpImplModule *m = wp_impl_module_load (get_wp_export_core (L),
      name, args, properties);
@@ -1730,9 +1725,10 @@ conf_new (lua_State *L)
   WpProperties *p = NULL;
   WpConf *conf = NULL;
 
-  if (lua_istable (L, 2)) {
+  if (lua_istable (L, 2))
     p = wplua_table_to_properties (L, 2);
-  }
+  else if (!lua_isnone (L, 2) && !lua_isnil (L, 2))
+    p = wp_properties_ref (wplua_checkboxed (L, 2, WP_TYPE_PROPERTIES));
 
   conf = wp_conf_new (path, p);
   if (conf) {
@@ -1770,7 +1766,7 @@ conf_get_section_as_properties (lua_State *L)
   const char *section = NULL;
   g_autoptr (WpConf) conf = NULL;
   g_autoptr (WpSpaJson) s = NULL;
-  g_autoptr (WpProperties) props = NULL;
+  WpProperties *props = NULL;
   int argi = 1;
 
   /* check if called as method on object */
@@ -1785,6 +1781,8 @@ conf_get_section_as_properties (lua_State *L)
 
   if (lua_istable (L, argi))
     props = wplua_table_to_properties (L, argi);
+  else if (!lua_isnone (L, argi) && !lua_isnil (L, argi))
+    props = wp_properties_ref (wplua_checkboxed (L, argi, WP_TYPE_PROPERTIES));
   else
     props = wp_properties_new_empty ();
 
@@ -1793,7 +1791,7 @@ conf_get_section_as_properties (lua_State *L)
     if (s && wp_spa_json_is_object (s))
       wp_properties_update_from_json (props, s);
   }
-  wplua_properties_to_table (L, props);
+  wplua_pushboxed (L, WP_TYPE_PROPERTIES, props);
   return 1;
 }
 
@@ -1950,10 +1948,12 @@ json_utils_match_rules (lua_State *L)
   gboolean res;
 
   json = wplua_checkboxed (L, 1, WP_TYPE_SPA_JSON);
-  luaL_checktype (L, 2, LUA_TTABLE);
   luaL_checktype (L, 3, LUA_TFUNCTION);
 
-  properties = wplua_table_to_properties (L, 2);
+  if (lua_istable (L, 2))
+    properties = wplua_table_to_properties (L, 2);
+  else
+    properties = wp_properties_ref (wplua_checkboxed (L, 2, WP_TYPE_PROPERTIES));
 
   res = wp_json_utils_match_rules (json, properties, json_utils_match_rules_cb,
       L, &error);
@@ -1969,17 +1969,21 @@ json_utils_match_rules (lua_State *L)
 static int
 json_utils_match_rules_update_properties (lua_State *L)
 {
-  g_autoptr (WpProperties) properties = NULL;
+  WpProperties *properties = NULL;
   WpSpaJson *json;
   int count;
 
   json = wplua_checkboxed (L, 1, WP_TYPE_SPA_JSON);
-  luaL_checktype (L, 2, LUA_TTABLE);
-  properties = wplua_table_to_properties (L, 2);
+
+  if (lua_istable (L, 2))
+    properties = wplua_table_to_properties (L, 2);
+  else
+    properties = wp_properties_ref (wplua_checkboxed (L, 2,
+        WP_TYPE_PROPERTIES));
 
   count = wp_json_utils_match_rules_update_properties (json, properties);
 
-  wplua_properties_to_table (L, properties);
+  wplua_pushboxed (L, WP_TYPE_PROPERTIES, properties);
   lua_pushinteger (L, count);
   return 2;
 }
@@ -2068,12 +2072,12 @@ properties_new (lua_State *L)
 {
   WpProperties *props;
 
-  if (lua_type (L, 1) != LUA_TNONE && lua_type (L, 1) != LUA_TNIL) {
-    luaL_checktype (L, 1, LUA_TTABLE);
+  if (lua_istable (L, 1))
     props = wplua_table_to_properties (L, 1);
-  } else {
+  else if (!lua_isnone (L, 1) && !lua_isnil (L, 1))
+    props = wp_properties_ref (wplua_checkboxed (L, 1, WP_TYPE_PROPERTIES));
+  else
     props = wp_properties_new_empty ();
-  }
 
   wplua_pushboxed (L, WP_TYPE_PROPERTIES, props);
   return 1;
@@ -2456,8 +2460,8 @@ static int
 event_get_properties (lua_State *L)
 {
   WpEvent *event = wplua_checkboxed (L, 1, WP_TYPE_EVENT);
-  g_autoptr (WpProperties) props = wp_event_get_properties (event);
-  wplua_properties_to_table (L, props);
+  WpProperties *props = wp_event_get_properties (event);
+  wplua_pushboxed (L, WP_TYPE_PROPERTIES, props);
   return 1;
 }
 
@@ -2579,10 +2583,11 @@ event_dispatcher_push_event (lua_State *L)
     lua_pop (L, 1);
 
     lua_pushliteral (L, "properties");
-    if (lua_gettable (L, 1) != LUA_TNIL) {
-      luaL_checktype (L, -1, LUA_TTABLE);
+    if (lua_istable (L, -1))
       properties = wplua_table_to_properties (L, -1);
-    }
+    else if (!lua_isnil (L, -1) && !lua_isnone (L, -1) && !lua_isstring (L, -1))
+      properties = wp_properties_ref (
+          wplua_checkboxed (L, -1, WP_TYPE_PROPERTIES));
     lua_pop (L, 1);
 
     lua_pushliteral (L, "source");

@@ -177,6 +177,23 @@ assert (#val == 0)
 assert (val.key1 == nil)
 assert (json:get_data() == "{}")
 
+json = Json.Object (
+  Properties {
+    ["key0"] = nil,
+    ["key1"] = false,
+    ["key2"] = 64,
+    ["key3"] = 2.71,
+    ["key4"] = "string",
+  }
+)
+assert (json:is_object())
+val = json:parse ()
+assert (val.key0 == nil)
+assert (val.key1 == "false")
+assert (val.key2 == "64")
+assert (tonumber (val.key3) > 2.70 and tonumber (val.key3) < 2.72)
+assert (val.key4 == "string")
+
 -- Raw
 json = Json.Raw ("[\"foo\", \"bar\"]")
 assert (json:is_array())

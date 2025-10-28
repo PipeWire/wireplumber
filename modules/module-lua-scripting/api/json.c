@@ -300,40 +300,54 @@ spa_json_object_new (lua_State *L)
 {
   g_autoptr (WpSpaJsonBuilder) builder = wp_spa_json_builder_new_object ();
 
-  luaL_checktype (L, 1, LUA_TTABLE);
+  if (lua_istable (L, 1)) {
+    luaL_checktype (L, 1, LUA_TTABLE);
 
-  lua_pushnil (L);
-  while (lua_next (L, -2)) {
-    /* We only add table values with string keys */
-    if (lua_type (L, -2) == LUA_TSTRING) {
-      wp_spa_json_builder_add_property (builder, lua_tostring (L, -2));
+    lua_pushnil (L);
+    while (lua_next (L, -2)) {
+      /* We only add table values with string keys */
+      if (lua_type (L, -2) == LUA_TSTRING) {
+        wp_spa_json_builder_add_property (builder, lua_tostring (L, -2));
 
-      switch (lua_type (L, -1)) {
-        case LUA_TBOOLEAN:
-          wp_spa_json_builder_add_boolean (builder, lua_toboolean (L, -1));
-          break;
-        case LUA_TNUMBER:
-          if (lua_isinteger (L, -1))
-            wp_spa_json_builder_add_int (builder, lua_tointeger (L, -1));
-          else
-            wp_spa_json_builder_add_float (builder, lua_tonumber (L, -1));
-          break;
-        case LUA_TSTRING:
-          wp_spa_json_builder_add_string (builder, lua_tostring (L, -1));
-          break;
-        case LUA_TUSERDATA: {
-          WpSpaJson *json = wplua_checkboxed (L, -1, WP_TYPE_SPA_JSON);
-          wp_spa_json_builder_add_json (builder, json);
-          break;
+        switch (lua_type (L, -1)) {
+          case LUA_TBOOLEAN:
+            wp_spa_json_builder_add_boolean (builder, lua_toboolean (L, -1));
+            break;
+          case LUA_TNUMBER:
+            if (lua_isinteger (L, -1))
+              wp_spa_json_builder_add_int (builder, lua_tointeger (L, -1));
+            else
+              wp_spa_json_builder_add_float (builder, lua_tonumber (L, -1));
+            break;
+          case LUA_TSTRING:
+            wp_spa_json_builder_add_string (builder, lua_tostring (L, -1));
+            break;
+          case LUA_TUSERDATA: {
+            WpSpaJson *json = wplua_checkboxed (L, -1, WP_TYPE_SPA_JSON);
+            wp_spa_json_builder_add_json (builder, json);
+            break;
+          }
+          default:
+            luaL_error (L, "Json does not support lua type %s",
+                lua_typename(L, lua_type(L, -1)));
+            break;
         }
-        default:
-          luaL_error (L, "Json does not support lua type %s",
-              lua_typename(L, lua_type(L, -1)));
-          break;
       }
-    }
 
-    lua_pop (L, 1);
+      lua_pop (L, 1);
+    }
+  } else {
+    WpProperties *props = wplua_checkboxed (L, 1, WP_TYPE_PROPERTIES);
+    g_autoptr (WpIterator) it = NULL;
+    g_auto (GValue) item = G_VALUE_INIT;
+    for (it = wp_properties_new_iterator (props); wp_iterator_next (it, &item);
+        g_value_unset (&item)) {
+      WpPropertiesItem *pi = g_value_get_boxed (&item);
+      const gchar *key = wp_properties_item_get_key (pi);
+      const gchar *value = wp_properties_item_get_value (pi);
+      wp_spa_json_builder_add_property (builder, key);
+      wp_spa_json_builder_add_string (builder, value);
+    }
   }
 
   wplua_pushboxed (L, WP_TYPE_SPA_JSON, wp_spa_json_builder_end (builder));

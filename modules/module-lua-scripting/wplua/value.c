@@ -14,7 +14,6 @@ WpProperties *
 wplua_table_to_properties (lua_State *L, int idx)
 {
   WpProperties *p = wp_properties_new_empty ();
-  const gchar *key, *value;
   int table = lua_absindex (L, idx);
 
   if (lua_type (L, table) != LUA_TTABLE) {
@@ -24,11 +23,34 @@ wplua_table_to_properties (lua_State *L, int idx)
 
   lua_pushnil(L);
   while (lua_next (L, table) != 0) {
+    const gchar *key = luaL_tolstring (L, -2, NULL);
+    g_autofree gchar *value = NULL;
+
     /* copy key & value to convert them to string */
-    key = luaL_tolstring (L, -2, NULL);
-    value = luaL_tolstring (L, -2, NULL);
+    luaL_checkany (L, -2);
+    switch (lua_type (L, -2)) {
+      case LUA_TNIL:
+        lua_pop (L, 2);
+        break;
+      case LUA_TUSERDATA: {
+        if (wplua_gvalue_userdata_type(L, -2) != G_TYPE_INVALID) {
+          GValue *v = lua_touserdata (L, -2);
+          gpointer p = g_value_peek_pointer (v);
+          value = g_strdup_printf ("%p", p);
+          lua_pop (L, 2);
+        } else {
+          value = g_strdup (luaL_tolstring (L, -2, NULL));
+          lua_pop (L, 3);
+        }
+        break;
+      }
+      default:
+        value = g_strdup (luaL_tolstring (L, -2, NULL));
+        lua_pop (L, 3);
+        break;
+    }
+
     wp_properties_set (p, key, value);
-    lua_pop (L, 3);
   }
 
   /* sort, because the lua table has a random order and it's too messy to read */
@@ -313,10 +335,7 @@ wplua_gvalue_to_lua (lua_State *L, const GValue *v)
     lua_pushlightuserdata (L, g_value_get_pointer (v));
     break;
   case G_TYPE_BOXED:
-    if (G_VALUE_TYPE (v) == WP_TYPE_PROPERTIES)
-      wplua_properties_to_table (L, g_value_get_boxed (v));
-    else
-      wplua_pushboxed (L, G_VALUE_TYPE (v), g_value_dup_boxed (v));
+    wplua_pushboxed (L, G_VALUE_TYPE (v), g_value_dup_boxed (v));
     break;
   case G_TYPE_OBJECT:
   case G_TYPE_INTERFACE: {
