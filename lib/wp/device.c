@@ -438,7 +438,7 @@ spa_device_event_object_info (void *data, uint32_t id,
     g_autoptr (WpProperties) props = NULL;
 
     type = spa_debug_type_short_name (info->type);
-    props = wp_properties_new_wrap_dict (info->props);
+    props = wp_properties_new_copy_dict (info->props);
 
     wp_debug_object (self, "object info: id:%u type:%s factory:%s",
         id, type, info->factory_name);
