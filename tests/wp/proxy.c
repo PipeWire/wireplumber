@@ -174,7 +174,6 @@ test_node (TestFixture *f, gconstpointer data)
 
     props = wp_pipewire_object_get_properties (proxy);
     g_assert_nonnull (props);
-    g_assert_true (wp_properties_peek_dict (props) == info->props);
     id = wp_properties_get (props, PW_KEY_OBJECT_ID);
     g_assert_nonnull (id);
     g_assert_cmpint (info->id, ==, atoi(id));

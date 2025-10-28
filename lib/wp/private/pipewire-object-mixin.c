@@ -783,7 +783,7 @@ wp_pw_object_mixin_handle_event_info (gpointer instance, gconstpointer update)
         G_STRUCT_MEMBER (const struct spa_dict *, d->info, iface->props_offset);
 
     g_clear_pointer (&d->properties, wp_properties_unref);
-    d->properties = wp_properties_new_wrap_dict (props);
+    d->properties = wp_properties_new_copy_dict (props);
 
     g_object_notify (G_OBJECT (instance), "properties");
   }
