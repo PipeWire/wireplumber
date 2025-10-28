@@ -24,6 +24,9 @@ SimpleEventHook {
 
     local om = source:call ("get-object-manager", "metadata")
     local metadata = om:lookup { Constraint { "metadata.name", "=", "default" } }
+    if metadata == nil then
+      return
+    end
 
     if selected_node then
       local key = "default." .. def_node_type
