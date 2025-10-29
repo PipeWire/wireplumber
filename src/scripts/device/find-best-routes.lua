@@ -27,7 +27,7 @@ SimpleEventHook {
     local device = event:get_subject ()
     local event_properties = event:get_properties ()
     local active_ids = event_properties ["profile.active-device-ids"]
-    local selected_routes = event:get_data ("selected-routes") or {}
+    local selected_routes = event:get_data ("selected-routes") or Properties()
 
     local dev_info = devinfo:get_device_info (device)
     assert (dev_info)

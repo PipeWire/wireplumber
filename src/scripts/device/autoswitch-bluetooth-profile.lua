@@ -49,7 +49,7 @@ function handlePersistentSetting (enable)
     -- the state storage
     state = Settings.get_boolean ("bluetooth.autoswitch-to-headset-profile")
         and State ("bluetooth-autoswitch") or nil
-    headset_profiles = state and state:load () or {}
+    headset_profiles = state and state:load () or Properties()
   else
     state = nil
     headset_profiles = nil

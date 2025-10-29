@@ -78,7 +78,7 @@ end
 
 function createMonitor()
   local monitor_props = {}
-  for k, v in pairs(config.properties or {}) do
+  for k, v in pairs(config.properties or Properties()) do
     monitor_props[k] = v
   end
 
