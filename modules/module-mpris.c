@@ -238,7 +238,7 @@ static void item_desktop_entry_cb (GObject *source_object, GAsyncResult* res, gp
   }
 
   g_variant_get (result, "(v)", &value);
-  if (!g_str_equal(g_variant_get_type_string (value), "s")) {
+  if (!g_variant_is_of_type (value, G_VARIANT_TYPE_STRING)) {
     wp_info ("%p: bad value for DesktopEntry for '%s'", update->players, update->bus_name);
     return;
   }
