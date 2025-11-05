@@ -531,9 +531,7 @@ wp_mpris_plugin_disable (WpPlugin * plugin)
 static gpointer
 wp_mpris_plugin_get_players (WpMprisPlugin *self)
 {
-  g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE_ARRAY);
-
-  g_variant_builder_init (&b, G_VARIANT_TYPE ("av"));
+  g_auto (GVariantBuilder) b = G_VARIANT_BUILDER_INIT (G_VARIANT_TYPE ("av"));
 
   if (self->players) {
     g_autoptr (GMutexLocker) locker = g_mutex_locker_new (&self->players->lock);
