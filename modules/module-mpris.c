@@ -98,8 +98,10 @@ static void item_free (gpointer data)
 {
   Item *item = data;
 
-  free(item->desktop_entry);
-  free(item);
+  g_clear_pointer (&item->desktop_entry, g_free);
+  g_clear_pointer (&item->flatpak_app_id, g_free);
+  g_clear_pointer (&item->flatpak_instance_id, g_free);
+  g_free (item);
 }
 
 static Players *players_new (GDBusConnection *conn)
