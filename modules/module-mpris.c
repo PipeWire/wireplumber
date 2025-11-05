@@ -128,7 +128,7 @@ static void players_unref (Players *players)
     return;
 
   g_mutex_clear (&players->lock);
-  g_clear_object (&players->items);
+  g_clear_pointer (&players->items, g_hash_table_unref);
   g_clear_object (&players->conn);
   g_clear_object (&players->cancellable);
   g_free (players);
