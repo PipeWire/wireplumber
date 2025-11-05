@@ -428,6 +428,8 @@ wp_mpris_plugin_operation_finalize (GObject *object)
   WpMprisPluginOperation *self = WP_MPRIS_PLUGIN_OPERATION (object);
 
   g_clear_object (&self->conn);
+
+  G_OBJECT_CLASS (wp_mpris_plugin_operation_parent_class)->finalize (object);
 }
 
 static void
