@@ -111,6 +111,54 @@ SimpleEventHook {
   end
 }:register ()
 
+-- Handle newly added linkable immediately without waiting for full rescan
+-- Only for simple cases where we know it won't affect other parts of the graph
+SimpleEventHook {
+  name = "linking/linkable-added-immediate",
+  before = "linking/rescan-trigger",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "session-item-added" },
+      Constraint { "event.session-item.interface", "=", "linkable" },
+    },
+  },
+  execute = function (event)
+    local si = event:get_subject ()
+    local source = event:get_source ()
+    local om = source:call ("get-object-manager", "session-item")
+
+    if not checkLinkable (si, om, false) then
+      return
+    end
+
+    -- Don't handle immediately if this is a smart filter that could affect other nodes
+    local node = si:get_associated_proxy ("node")
+    local link_group = node:get_property ("node.link-group")
+    if link_group then
+      local direction = cutils.getTargetDirection (si.properties)
+      if futils.is_filter_smart (direction, link_group) then
+        -- Smart filters need full rescan to handle cascading effects
+        return
+      end
+    end
+
+    -- Only handle if autoconnect is enabled
+    local autoconnect = si:get_property ("node.autoconnect")
+    if autoconnect ~= "true" then
+      return
+    end
+
+    -- Check if this is a simple stream (most common case)
+    -- Don't handle device nodes or special nodes that might become default targets
+    if si:get_property ("item.node.type") ~= "stream" then
+      return
+    end
+
+    -- Push select-target event immediately for simple stream case
+    source:call ("push-event", "select-target", si, nil)
+  end
+}:register ()
+
 function handleLinkables (source)
   local om = source:call ("get-object-manager", "session-item")
 
