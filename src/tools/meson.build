@@ -4,6 +4,11 @@ executable('wpctl',
   dependencies : [gobject_dep, gio_dep, wp_dep, pipewire_dep, libintl_dep],
 )
 
+install_data('shell-completion/wpctl.bash',
+  install_dir: get_option('datadir') / 'bash-completion/completions',
+  rename: 'wpctl'
+)
+
 install_data('shell-completion/wpctl.zsh',
   install_dir: get_option('datadir') / 'zsh/site-functions',
   rename: '_wpctl'
