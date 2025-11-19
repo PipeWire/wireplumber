@@ -199,14 +199,13 @@ list_calls_done (GObject * obj,
   GVariant *params;
   GVariantIter *calls;
   gchar *path;
-  GError *err = NULL;
+  g_autoptr (GError) err = NULL;
   g_autoptr (GDBusConnection) conn = NULL;
 
   params = g_dbus_proxy_call_finish (G_DBUS_PROXY (obj), res, &err);
   if (params == NULL) {
     g_prefix_error (&err, "Failed to list active calls on startup: ");
     wp_warning_object (wpmm, "%s", err->message);
-    g_clear_object (&err);
     return;
   }
 
