@@ -881,3 +881,51 @@ wp_object_interest_matches_full (WpObjectInterest * self,
   }
   return result;
 }
+
+/*!
+ * \brief Finds all the defined constraint values for a subject in \a self.
+ *
+ * A defined constraint value is the value of a constraint with the 'equal' or
+ * 'in-list' verb, because the full value must be defined with those verbs. This
+ * can be useful for cases where we want to enumerate interests that are
+ * interested in specific subjects.
+ *
+ * \ingroup wpobjectinterest
+ * \param self the object interest
+ * \param type the constraint type
+ * \param subject the subject that the constraint applies to
+ * \returns (element-type GVariant) (transfer full) (nullable): the defined
+ * constraint values for this object interest.
+ * \since 0.5.13
+ */
+GPtrArray *
+wp_object_interest_find_defined_constraint_values (WpObjectInterest * self,
+    WpConstraintType type, const gchar * subject)
+{
+  GPtrArray *res = g_ptr_array_new_with_free_func (
+      (GDestroyNotify)g_variant_unref);
+  struct constraint *c;
+
+  pw_array_for_each (c, &self->constraints) {
+    if ((c->type == type || WP_CONSTRAINT_TYPE_NONE == type) &&
+        g_str_equal (c->subject, subject)) {
+      switch (c->verb) {
+        case WP_CONSTRAINT_VERB_EQUALS:
+          g_ptr_array_add (res, g_variant_ref (c->value));
+          break;
+        case WP_CONSTRAINT_VERB_IN_LIST: {
+          GVariantIter iter;
+          GVariant *child;
+          g_variant_iter_init (&iter, c->value);
+          while ((child = g_variant_iter_next_value (&iter)))
+            g_ptr_array_add (res, child);
+          break;
+        }
+        default:
+          break;
+      }
+    }
+  }
+
+  return res;
+}

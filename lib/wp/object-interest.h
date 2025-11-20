@@ -130,6 +130,10 @@ WpInterestMatch wp_object_interest_matches_full (WpObjectInterest * self,
     WpInterestMatchFlags flags, GType object_type, gpointer object,
     WpProperties * pw_props, WpProperties * pw_global_props);
 
+WP_API
+GPtrArray * wp_object_interest_find_defined_constraint_values (
+    WpObjectInterest * self, WpConstraintType type, const gchar * subject);
+
 G_DEFINE_AUTOPTR_CLEANUP_FUNC (WpObjectInterest, wp_object_interest_unref)
 
 G_END_DECLS

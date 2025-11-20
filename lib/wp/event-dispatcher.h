@@ -41,7 +41,12 @@ void wp_event_dispatcher_unregister_hook (WpEventDispatcher * self,
     WpEventHook * hook);
 
 WP_API
-WpIterator * wp_event_dispatcher_new_hooks_iterator (WpEventDispatcher * self);
+WpIterator * wp_event_dispatcher_new_hooks_iterator (WpEventDispatcher * self)
+    G_GNUC_DEPRECATED_FOR (wp_event_dispatcher_new_hooks_for_event_type_iterator);
+
+WP_API
+WpIterator * wp_event_dispatcher_new_hooks_for_event_type_iterator (
+    WpEventDispatcher * self, const gchar *event_type);
 
 G_END_DECLS
 

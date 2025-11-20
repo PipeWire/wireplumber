@@ -255,6 +255,24 @@ wp_event_hook_run (WpEventHook * self,
 }
 
 /*!
+ * \brief Gets all the matching event types for this hook if any.
+ *
+ * \ingroup wpeventhook
+ * \param self the event hook
+ * \returns (element-type gchar*) (transfer full) (nullable): the matching
+ * event types for this hook if any.
+ * \since 0.5.13
+ */
+GPtrArray *
+wp_event_hook_get_matching_event_types (WpEventHook * self)
+{
+  g_return_val_if_fail (WP_IS_EVENT_HOOK (self), NULL);
+  g_return_val_if_fail (
+      WP_EVENT_HOOK_GET_CLASS (self)->get_matching_event_types, NULL);
+  return WP_EVENT_HOOK_GET_CLASS (self)->get_matching_event_types (self);
+}
+
+/*!
  * \brief Finishes the async operation that was started by wp_event_hook_run()
  *
  * \ingroup wpeventhook
@@ -335,6 +353,50 @@ wp_interest_event_hook_runs_for_event (WpEventHook * hook, WpEvent * event)
 }
 
 static void
+add_unique (GPtrArray *array, const gchar * lookup)
+{
+  for (guint i = 0; i < array->len; i++)
+    if (g_str_equal (g_ptr_array_index (array, i), lookup))
+      return;
+  g_ptr_array_add (array, g_strdup (lookup));
+}
+
+static GPtrArray *
+wp_interest_event_hook_get_matching_event_types (WpEventHook * hook)
+{
+  WpInterestEventHook *self = WP_INTEREST_EVENT_HOOK (hook);
+  WpInterestEventHookPrivate *priv =
+      wp_interest_event_hook_get_instance_private (self);
+  GPtrArray *res = g_ptr_array_new_with_free_func (g_free);
+  guint i;
+
+  for (i = 0; i < priv->interests->len; i++) {
+    WpObjectInterest *interest = g_ptr_array_index (priv->interests, i);
+    if (wp_object_interest_matches_full (interest, WP_INTEREST_MATCH_FLAGS_NONE,
+        WP_TYPE_EVENT, NULL, NULL, NULL) & WP_INTEREST_MATCH_GTYPE) {
+      g_autoptr (GPtrArray) values =
+          wp_object_interest_find_defined_constraint_values (interest,
+          WP_CONSTRAINT_TYPE_NONE, "event.type");
+      if (!values || values->len == 0) {
+        /* We always consider the hook undefined if it has at least one interest
+         * without a defined 'event.type' constraint */
+        return NULL;
+      } else {
+        for (guint j = 0; j < values->len; j++) {
+          GVariant *v = g_ptr_array_index (values, j);
+          if (g_variant_is_of_type (v, G_VARIANT_TYPE_STRING)) {
+            const gchar *v_str = g_variant_get_string (v, NULL);
+            add_unique (res, v_str);
+          }
+        }
+      }
+    }
+  }
+
+  return res;
+}
+
+static void
 wp_interest_event_hook_class_init (WpInterestEventHookClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
@@ -342,6 +404,8 @@ wp_interest_event_hook_class_init (WpInterestEventHookClass * klass)
 
   object_class->finalize = wp_interest_event_hook_finalize;
   hook_class->runs_for_event = wp_interest_event_hook_runs_for_event;
+  hook_class->get_matching_event_types =
+      wp_interest_event_hook_get_matching_event_types;
 }
 
 /*!

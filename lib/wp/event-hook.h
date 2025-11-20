@@ -39,8 +39,10 @@ struct _WpEventHookClass
 
   gboolean (*finish) (WpEventHook * self, GAsyncResult * res, GError ** error);
 
+  GPtrArray * (*get_matching_event_types) (WpEventHook *self);
+
   /*< private >*/
-  WP_PADDING(5)
+  WP_PADDING(4)
 };
 
 WP_API
@@ -66,6 +68,9 @@ WP_API
 void wp_event_hook_run (WpEventHook * self,
     WpEvent * event, GCancellable * cancellable,
     GAsyncReadyCallback callback, gpointer callback_data);
+
+WP_API
+GPtrArray * wp_event_hook_get_matching_event_types (WpEventHook * self);
 
 WP_API
 gboolean wp_event_hook_finish (WpEventHook * self, GAsyncResult * res,

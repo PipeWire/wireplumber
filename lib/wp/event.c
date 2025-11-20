@@ -358,6 +358,7 @@ wp_event_collect_hooks (WpEvent * event, WpEventDispatcher * dispatcher)
   struct spa_list collected, result, remaining;
   g_autoptr (WpIterator) all_hooks = NULL;
   g_auto (GValue) value = G_VALUE_INIT;
+  const gchar *event_type = NULL;
 
   g_return_val_if_fail (event != NULL, FALSE);
   g_return_val_if_fail (WP_IS_EVENT_DISPATCHER (dispatcher), FALSE);
@@ -370,8 +371,14 @@ wp_event_collect_hooks (WpEvent * event, WpEventDispatcher * dispatcher)
   spa_list_init (&result);
   spa_list_init (&remaining);
 
+  /* Get the event type */
+  event_type = wp_properties_get (event->properties, "event.type");
+  wp_debug_object (dispatcher, "Collecting hooks for event %s with type %s",
+      event->name, event_type);
+
   /* collect hooks that run for this event */
-  all_hooks = wp_event_dispatcher_new_hooks_iterator (dispatcher);
+  all_hooks = wp_event_dispatcher_new_hooks_for_event_type_iterator (dispatcher,
+      event_type);
   while (wp_iterator_next (all_hooks, &value)) {
     WpEventHook *hook = g_value_get_object (&value);
 

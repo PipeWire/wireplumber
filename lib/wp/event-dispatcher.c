@@ -49,7 +49,8 @@ struct _WpEventDispatcher
   GObject parent;
 
   GWeakRef core;
-  GPtrArray *hooks; /* registered hooks */
+  GHashTable *defined_hooks;  /* registered hooks for defined events */
+  GPtrArray *undefined_hooks;  /* registered hooks for undefined events */
   GSource *source;  /* the event loop source */
   GList *events;    /* the events stack */
   struct spa_system *system;
@@ -160,7 +161,9 @@ static void
 wp_event_dispatcher_init (WpEventDispatcher * self)
 {
   g_weak_ref_init (&self->core, NULL);
-  self->hooks = g_ptr_array_new_with_free_func (g_object_unref);
+  self->defined_hooks = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
+      (GDestroyNotify)g_ptr_array_unref);
+  self->undefined_hooks = g_ptr_array_new_with_free_func (g_object_unref);
 
   self->source = g_source_new (&source_funcs, sizeof (WpEventSource));
   ((WpEventSource *) self->source)->dispatcher = self;
@@ -184,7 +187,8 @@ wp_event_dispatcher_finalize (GObject * object)
 
   close (self->eventfd);
 
-  g_clear_pointer (&self->hooks, g_ptr_array_unref);
+  g_clear_pointer (&self->defined_hooks, g_hash_table_unref);
+  g_clear_pointer (&self->undefined_hooks, g_ptr_array_unref);
   g_weak_ref_clear (&self->core);
 
   G_OBJECT_CLASS (wp_event_dispatcher_parent_class)->finalize (object);
@@ -284,6 +288,10 @@ void
 wp_event_dispatcher_register_hook (WpEventDispatcher * self,
     WpEventHook * hook)
 {
+  g_autoptr (GPtrArray) event_types = NULL;
+  gboolean is_defined = FALSE;
+  const gchar *hook_name;
+
   g_return_if_fail (WP_IS_EVENT_DISPATCHER (self));
   g_return_if_fail (WP_IS_EVENT_HOOK (hook));
 
@@ -292,7 +300,57 @@ wp_event_dispatcher_register_hook (WpEventDispatcher * self,
   g_return_if_fail (already_registered_dispatcher == NULL);
 
   wp_event_hook_set_dispatcher (hook, self);
-  g_ptr_array_add (self->hooks, g_object_ref (hook));
+
+  /* Register the event hook in the defined hooks table if it is defined */
+  hook_name = wp_event_hook_get_name (hook);
+  event_types = wp_event_hook_get_matching_event_types (hook);
+  if (event_types) {
+    for (guint i = 0; i < event_types->len; i++) {
+      const gchar *event_type = g_ptr_array_index (event_types, i);
+      GPtrArray *hooks;
+
+      wp_debug_object (self, "Registering hook %s for defined event type %s",
+          hook_name, event_type);
+
+      /* Check if the event type was registered in the hash table */
+      hooks = g_hash_table_lookup (self->defined_hooks, event_type);
+      if (hooks) {
+        g_ptr_array_add (hooks, g_object_ref (hook));
+      } else {
+        GPtrArray *new_hooks = g_ptr_array_new_with_free_func (g_object_unref);
+        /* Add undefined hooks */
+        for (guint i = 0; i < self->undefined_hooks->len; i++) {
+          WpEventHook *uh = g_ptr_array_index (self->undefined_hooks, i);
+          g_ptr_array_add (new_hooks, g_object_ref (uh));
+        }
+        /* Add current hook */
+        g_ptr_array_add (new_hooks, g_object_ref (hook));
+        g_hash_table_insert (self->defined_hooks, g_strdup (event_type),
+            new_hooks);
+      }
+
+      is_defined = TRUE;
+    }
+  }
+
+  /* Otherwise just register it as undefined hook */
+  if (!is_defined) {
+    GHashTableIter iter;
+    gpointer value;
+
+    wp_debug_object (self, "Registering hook %s for undefined event types",
+          hook_name);
+
+    /* Add it to the defined hooks table */
+    g_hash_table_iter_init (&iter, self->defined_hooks);
+    while (g_hash_table_iter_next (&iter, NULL, &value)) {
+      GPtrArray *defined_hooks = value;
+      g_ptr_array_add (defined_hooks, g_object_ref (hook));
+    }
+
+    /* Add it to the undefined hooks */
+    g_ptr_array_add (self->undefined_hooks, g_object_ref (hook));
+  }
 }
 
 /*!
@@ -306,6 +364,9 @@ void
 wp_event_dispatcher_unregister_hook (WpEventDispatcher * self,
     WpEventHook * hook)
 {
+  GHashTableIter iter;
+  gpointer value;
+
   g_return_if_fail (WP_IS_EVENT_DISPATCHER (self));
   g_return_if_fail (WP_IS_EVENT_HOOK (hook));
 
@@ -314,11 +375,29 @@ wp_event_dispatcher_unregister_hook (WpEventDispatcher * self,
   g_return_if_fail (already_registered_dispatcher == self);
 
   wp_event_hook_set_dispatcher (hook, NULL);
-  g_ptr_array_remove_fast (self->hooks, hook);
+
+  /* Remove hook from defined table and undefined list */
+  g_hash_table_iter_init (&iter, self->defined_hooks);
+  while (g_hash_table_iter_next (&iter, NULL, &value)) {
+    GPtrArray *defined_hooks = value;
+    g_ptr_array_remove (defined_hooks, hook);
+  }
+  g_ptr_array_remove (self->undefined_hooks, hook);
+}
+
+static void
+add_unique (GPtrArray *array, WpEventHook * hook)
+{
+  for (guint i = 0; i < array->len; i++)
+    if (g_ptr_array_index (array, i) == hook)
+      return;
+  g_ptr_array_add (array, g_object_ref (hook));
 }
 
 /*!
  * \brief Returns an iterator to iterate over all the registered hooks
+ * \deprecated Use \ref wp_event_dispatcher_new_hooks_for_event_type_iterator
+ * instead.
  * \ingroup wpeventdispatcher
  *
  * \param self the event dispatcher
@@ -327,7 +406,56 @@ wp_event_dispatcher_unregister_hook (WpEventDispatcher * self,
 WpIterator *
 wp_event_dispatcher_new_hooks_iterator (WpEventDispatcher * self)
 {
-  GPtrArray *items =
-      g_ptr_array_copy (self->hooks, (GCopyFunc) g_object_ref, NULL);
+  GPtrArray *items = g_ptr_array_new_with_free_func (g_object_unref);
+  GHashTableIter iter;
+  gpointer value;
+
+  /* Add all defined hooks */
+  g_hash_table_iter_init (&iter, self->defined_hooks);
+  while (g_hash_table_iter_next (&iter, NULL, &value)) {
+    GPtrArray *hooks = value;
+    for (guint i = 0; i < hooks->len; i++) {
+      WpEventHook *hook = g_ptr_array_index (hooks, i);
+      add_unique (items, hook);
+    }
+  }
+
+  /* Add all undefined hooks */
+  for (guint i = 0; i < self->undefined_hooks->len; i++) {
+    WpEventHook *hook = g_ptr_array_index (self->undefined_hooks, i);
+    add_unique (items, hook);
+  }
+
+  return wp_iterator_new_ptr_array (items, WP_TYPE_EVENT_HOOK);
+}
+
+/*!
+ * \brief Returns an iterator to iterate over the registered hooks for a
+ * particular event type.
+ * \ingroup wpeventdispatcher
+ *
+ * \param self the event dispatcher
+ * \param event_type the event type
+ * \return (transfer full): a new iterator
+ * \since 0.5.13
+ */
+WpIterator *
+wp_event_dispatcher_new_hooks_for_event_type_iterator (
+    WpEventDispatcher * self, const gchar *event_type)
+{
+  GPtrArray *items;
+  GPtrArray *hooks;
+
+  hooks = g_hash_table_lookup (self->defined_hooks, event_type);
+  if (hooks) {
+    wp_debug_object (self, "Using %d defined hooks for event type %s",
+        hooks->len, event_type);
+  } else {
+    hooks = self->undefined_hooks;
+    wp_debug_object (self, "Using %d undefined hooks for event type %s",
+        hooks->len, event_type);
+  }
+
+  items = g_ptr_array_copy (hooks, (GCopyFunc) g_object_ref, NULL);
   return wp_iterator_new_ptr_array (items, WP_TYPE_EVENT_HOOK);
 }
