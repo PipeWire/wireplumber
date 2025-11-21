@@ -17,37 +17,11 @@
 
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp-event")
 
-typedef struct _HookData HookData;
-struct _HookData
-{
-  struct spa_list link;
-  WpEventHook *hook;
-  GPtrArray *dependencies;
-};
-
-static inline HookData *
-hook_data_new (WpEventHook * hook)
-{
-  HookData *hook_data = g_new0 (HookData, 1);
-  spa_list_init (&hook_data->link);
-  hook_data->hook = g_object_ref (hook);
-  hook_data->dependencies = g_ptr_array_new ();
-  return hook_data;
-}
-
-static void
-hook_data_free (HookData *self)
-{
-  g_clear_object (&self->hook);
-  g_clear_pointer (&self->dependencies, g_ptr_array_unref);
-  g_free (self);
-}
-
 struct _WpEvent
 {
   grefcount ref;
   GData *datalist;
-  struct spa_list hooks;
+  GPtrArray *hooks;
 
   /* immutable fields */
   gint priority;
@@ -96,7 +70,7 @@ wp_event_new (const gchar * type, gint priority, WpProperties * properties,
   WpEvent * self = g_new0 (WpEvent, 1);
   g_ref_count_init (&self->ref);
   g_datalist_init (&self->datalist);
-  spa_list_init (&self->hooks);
+  self->hooks = g_ptr_array_new_with_free_func (g_object_unref);
 
   self->priority = priority;
   self->properties = properties ?
@@ -155,11 +129,7 @@ wp_event_get_name(WpEvent *self)
 static void
 wp_event_free (WpEvent * self)
 {
-  HookData *hook_data;
-  spa_list_consume (hook_data, &self->hooks, link) {
-    spa_list_remove (&hook_data->link);
-    hook_data_free (hook_data);
-  }
+  g_clear_pointer (&self->hooks, g_ptr_array_unref);
   g_datalist_clear (&self->datalist);
   g_clear_pointer (&self->properties, wp_properties_unref);
   g_clear_object (&self->source);
@@ -316,33 +286,6 @@ wp_event_get_data (WpEvent * self, const gchar * key)
   return g_datalist_get_data (&self->datalist, key);
 }
 
-static inline void
-record_dependency (struct spa_list *list, const gchar *target,
-    const gchar *dependency)
-{
-  HookData *hook_data;
-  spa_list_for_each (hook_data, list, link) {
-    if (g_pattern_match_simple (target, wp_event_hook_get_name (hook_data->hook))) {
-      g_ptr_array_insert (hook_data->dependencies, -1, (gchar *) dependency);
-      break;
-    }
-  }
-}
-
-static inline gboolean
-hook_exists_in (const gchar *hook_name, struct spa_list *list)
-{
-  HookData *hook_data;
-  if (!spa_list_is_empty (list)) {
-    spa_list_for_each (hook_data, list, link) {
-      if (g_pattern_match_simple (hook_name, wp_event_hook_get_name (hook_data->hook))) {
-        return TRUE;
-      }
-    }
-  }
-  return FALSE;
-}
-
 /*!
  * \brief Collects all the hooks registered in the \a dispatcher that run for
  *    this \a event
@@ -355,7 +298,6 @@ hook_exists_in (const gchar *hook_name, struct spa_list *list)
 gboolean
 wp_event_collect_hooks (WpEvent * event, WpEventDispatcher * dispatcher)
 {
-  struct spa_list collected, result, remaining;
   g_autoptr (WpIterator) all_hooks = NULL;
   g_auto (GValue) value = G_VALUE_INIT;
   const gchar *event_type = NULL;
@@ -363,197 +305,29 @@ wp_event_collect_hooks (WpEvent * event, WpEventDispatcher * dispatcher)
   g_return_val_if_fail (event != NULL, FALSE);
   g_return_val_if_fail (WP_IS_EVENT_DISPATCHER (dispatcher), FALSE);
 
-  /* hooks already collected */
-  if (!spa_list_is_empty (&event->hooks))
-    return TRUE;
-
-  spa_list_init (&collected);
-  spa_list_init (&result);
-  spa_list_init (&remaining);
+  /* Clear all current hooks */
+  g_ptr_array_set_size (event->hooks, 0);
 
   /* Get the event type */
   event_type = wp_properties_get (event->properties, "event.type");
   wp_debug_object (dispatcher, "Collecting hooks for event %s with type %s",
       event->name, event_type);
 
-  /* collect hooks that run for this event */
+  /* Collect hooks that run for this event */
   all_hooks = wp_event_dispatcher_new_hooks_for_event_type_iterator (dispatcher,
       event_type);
   while (wp_iterator_next (all_hooks, &value)) {
     WpEventHook *hook = g_value_get_object (&value);
-
     if (wp_event_hook_runs_for_event (hook, event)) {
-      HookData *hook_data = hook_data_new (hook);
-
-      /* record "after" dependencies directly */
-      const gchar * const * strv =
-          wp_event_hook_get_runs_after_hooks (hook_data->hook);
-      while (strv && *strv) {
-        g_ptr_array_insert (hook_data->dependencies, -1, (gchar *) *strv);
-        strv++;
-      }
-
-      spa_list_append (&collected, &hook_data->link);
-
+      g_ptr_array_add (event->hooks, g_object_ref (hook));
       wp_debug_boxed (WP_TYPE_EVENT, event, "added "WP_OBJECT_FORMAT"(%s)",
           WP_OBJECT_ARGS (hook), wp_event_hook_get_name (hook));
     }
-
     g_value_unset (&value);
   }
 
-  if (!spa_list_is_empty (&collected)) {
-    HookData *hook_data;
-
-    /* convert "before" dependencies into "after" dependencies */
-    spa_list_for_each (hook_data, &collected, link) {
-      const gchar * const * strv =
-          wp_event_hook_get_runs_before_hooks (hook_data->hook);
-      while (strv && *strv) {
-        /* record hook_data->hook as a dependency of the *strv hook */
-        record_dependency (&collected, *strv,
-            wp_event_hook_get_name (hook_data->hook));
-        strv++;
-      }
-    }
-
-    /* sort */
-    while (!spa_list_is_empty (&collected)) {
-      gboolean made_progress = FALSE;
-
-      /* examine each hook to see if its dependencies are satisfied in the
-         result list; if yes, then append it to the result too */
-      spa_list_consume (hook_data, &collected, link) {
-        guint deps_satisfied = 0;
-
-        spa_list_remove (&hook_data->link);
-
-        wp_trace_boxed (WP_TYPE_EVENT, event,
-              "examining: %s", wp_event_hook_get_name (hook_data->hook));
-
-        for (guint i = 0; i < hook_data->dependencies->len; i++) {
-          const gchar *dep = g_ptr_array_index (hook_data->dependencies, i);
-          /* if the dependency is already in the sorted result list or if
-             it doesn't exist at all, we consider it satisfied */
-          if (hook_exists_in (dep, &result) ||
-              !(hook_exists_in (dep, &collected) ||
-                hook_exists_in (dep, &remaining))) {
-            deps_satisfied++;
-          }
-
-          wp_trace_boxed (WP_TYPE_EVENT, event, "depends: %s, satisfied: %u/%u",
-              dep, deps_satisfied, hook_data->dependencies->len);
-        }
-
-        if (deps_satisfied == hook_data->dependencies->len) {
-          wp_trace_boxed (WP_TYPE_EVENT, event,
-              "sorted: "WP_OBJECT_FORMAT"(%s)",
-              WP_OBJECT_ARGS (hook_data->hook),
-              wp_event_hook_get_name (hook_data->hook));
-
-          spa_list_append (&result, &hook_data->link);
-          made_progress = TRUE;
-        } else {
-          spa_list_append (&remaining, &hook_data->link);
-        }
-      }
-
-      if (made_progress) {
-        /* run again with the remaining hooks */
-        spa_list_insert_list (&collected, &remaining);
-        spa_list_init (&remaining);
-      }
-      else if (!spa_list_is_empty (&remaining)) {
-        /* if we did not make any progress towards growing the result list,
-           it means the dependencies cannot be satisfied because of circles */
-        wp_critical_boxed (WP_TYPE_EVENT, event, "detected circular "
-            "dependencies in the collected hooks!");
-
-        /* clean up */
-        spa_list_consume (hook_data, &result, link) {
-          spa_list_remove (&hook_data->link);
-          hook_data_free (hook_data);
-        }
-        spa_list_consume (hook_data, &remaining, link) {
-          spa_list_remove (&hook_data->link);
-          hook_data_free (hook_data);
-        }
-
-        return FALSE;
-      }
-    }
-  }
-
-  spa_list_insert_list (&event->hooks, &result);
-  return !spa_list_is_empty (&event->hooks);
+  return event->hooks->len > 0;
 }
-
-struct event_hooks_iterator_data
-{
-  WpEvent *event;
-  HookData *cur;
-};
-
-static void
-event_hooks_iterator_reset (WpIterator *it)
-{
-  struct event_hooks_iterator_data *it_data = wp_iterator_get_user_data (it);
-  struct spa_list *list = &it_data->event->hooks;
-
-  if (!spa_list_is_empty (list))
-    it_data->cur = spa_list_first (&it_data->event->hooks, HookData, link);
-}
-
-static gboolean
-event_hooks_iterator_next (WpIterator *it, GValue *item)
-{
-  struct event_hooks_iterator_data *it_data = wp_iterator_get_user_data (it);
-  struct spa_list *list = &it_data->event->hooks;
-
-  if (!spa_list_is_empty (list) &&
-      !spa_list_is_end (it_data->cur, list, link)) {
-    g_value_init (item, WP_TYPE_EVENT_HOOK);
-    g_value_set_object (item, it_data->cur->hook);
-    it_data->cur = spa_list_next (it_data->cur, link);
-    return TRUE;
-  }
-  return FALSE;
-}
-
-static gboolean
-event_hooks_iterator_fold (WpIterator *it, WpIteratorFoldFunc func, GValue *ret,
-    gpointer data)
-{
-  struct event_hooks_iterator_data *it_data = wp_iterator_get_user_data (it);
-  struct spa_list *list = &it_data->event->hooks;
-  HookData *hook_data;
-
-  if (!spa_list_is_empty (list)) {
-    spa_list_for_each (hook_data, list, link) {
-      g_auto (GValue) item = G_VALUE_INIT;
-      g_value_init (&item, WP_TYPE_EVENT_HOOK);
-      g_value_set_object (&item, hook_data->hook);
-      if (!func (&item, ret, data))
-          return FALSE;
-    }
-  }
-  return TRUE;
-}
-
-static void
-event_hooks_iterator_finalize (WpIterator *it)
-{
-  struct event_hooks_iterator_data *it_data = wp_iterator_get_user_data (it);
-  wp_event_unref (it_data->event);
-}
-
-static const WpIteratorMethods event_hooks_iterator_methods = {
-  .version = WP_ITERATOR_METHODS_VERSION,
-  .reset = event_hooks_iterator_reset,
-  .next = event_hooks_iterator_next,
-  .fold = event_hooks_iterator_fold,
-  .finalize = event_hooks_iterator_finalize,
-};
 
 /*!
  * \brief Returns an iterator that iterates over all the hooks that were
@@ -565,15 +339,8 @@ static const WpIteratorMethods event_hooks_iterator_methods = {
 WpIterator *
 wp_event_new_hooks_iterator (WpEvent * event)
 {
-  WpIterator *it = NULL;
-  struct event_hooks_iterator_data *it_data;
+  GPtrArray *hooks;
+  hooks = g_ptr_array_copy (event->hooks, (GCopyFunc) g_object_ref, NULL);
+  return wp_iterator_new_ptr_array (hooks, WP_TYPE_EVENT_HOOK);
 
-  g_return_val_if_fail (event != NULL, NULL);
-
-  it = wp_iterator_new (&event_hooks_iterator_methods,
-      sizeof (struct event_hooks_iterator_data));
-  it_data = wp_iterator_get_user_data (it);
-  it_data->event = wp_event_ref (event);
-  event_hooks_iterator_reset (it);
-  return it;
 }

@@ -15,6 +15,161 @@
 
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp-event-dispatcher")
 
+typedef struct _HookData HookData;
+struct _HookData
+{
+  struct spa_list link;
+  WpEventHook *hook;
+  GPtrArray *dependencies;
+};
+
+static inline HookData *
+hook_data_new (WpEventHook * hook)
+{
+  HookData *hook_data = g_new0 (HookData, 1);
+  spa_list_init (&hook_data->link);
+  hook_data->hook = g_object_ref (hook);
+  hook_data->dependencies = g_ptr_array_new ();
+  return hook_data;
+}
+
+static void
+hook_data_free (HookData *self)
+{
+  g_clear_object (&self->hook);
+  g_clear_pointer (&self->dependencies, g_ptr_array_unref);
+  g_free (self);
+}
+
+static inline void
+record_dependency (struct spa_list *list, const gchar *target,
+    const gchar *dependency)
+{
+  HookData *hook_data;
+  spa_list_for_each (hook_data, list, link) {
+    if (g_pattern_match_simple (target, wp_event_hook_get_name (hook_data->hook))) {
+      g_ptr_array_insert (hook_data->dependencies, -1, (gchar *) dependency);
+      break;
+    }
+  }
+}
+
+static inline gboolean
+hook_exists_in (const gchar *hook_name, struct spa_list *list)
+{
+  HookData *hook_data;
+  if (!spa_list_is_empty (list)) {
+    spa_list_for_each (hook_data, list, link) {
+      if (g_pattern_match_simple (hook_name, wp_event_hook_get_name (hook_data->hook))) {
+        return TRUE;
+      }
+    }
+  }
+  return FALSE;
+}
+
+static gboolean
+sort_hooks (GPtrArray *hooks)
+{
+  struct spa_list collected, result, remaining;
+  HookData *sorted_hook_data = NULL;
+
+  spa_list_init (&collected);
+  spa_list_init (&result);
+  spa_list_init (&remaining);
+
+  for (guint i = 0; i < hooks->len; i++) {
+    WpEventHook *hook = g_ptr_array_index (hooks, i);
+    HookData *hook_data = hook_data_new (hook);
+
+    /* record "after" dependencies directly */
+    const gchar * const * strv =
+        wp_event_hook_get_runs_after_hooks (hook_data->hook);
+    while (strv && *strv) {
+      g_ptr_array_insert (hook_data->dependencies, -1, (gchar *) *strv);
+      strv++;
+    }
+
+    spa_list_append (&collected, &hook_data->link);
+  }
+
+  if (!spa_list_is_empty (&collected)) {
+    HookData *hook_data;
+
+    /* convert "before" dependencies into "after" dependencies */
+    spa_list_for_each (hook_data, &collected, link) {
+      const gchar * const * strv =
+          wp_event_hook_get_runs_before_hooks (hook_data->hook);
+      while (strv && *strv) {
+        /* record hook_data->hook as a dependency of the *strv hook */
+        record_dependency (&collected, *strv,
+            wp_event_hook_get_name (hook_data->hook));
+        strv++;
+      }
+    }
+
+    /* sort */
+    while (!spa_list_is_empty (&collected)) {
+      gboolean made_progress = FALSE;
+
+      /* examine each hook to see if its dependencies are satisfied in the
+         result list; if yes, then append it to the result too */
+      spa_list_consume (hook_data, &collected, link) {
+        guint deps_satisfied = 0;
+
+        spa_list_remove (&hook_data->link);
+
+        for (guint i = 0; i < hook_data->dependencies->len; i++) {
+          const gchar *dep = g_ptr_array_index (hook_data->dependencies, i);
+          /* if the dependency is already in the sorted result list or if
+             it doesn't exist at all, we consider it satisfied */
+          if (hook_exists_in (dep, &result) ||
+              !(hook_exists_in (dep, &collected) ||
+                hook_exists_in (dep, &remaining))) {
+            deps_satisfied++;
+          }
+        }
+
+        if (deps_satisfied == hook_data->dependencies->len) {
+          spa_list_append (&result, &hook_data->link);
+          made_progress = TRUE;
+        } else {
+          spa_list_append (&remaining, &hook_data->link);
+        }
+      }
+
+      if (made_progress) {
+        /* run again with the remaining hooks */
+        spa_list_insert_list (&collected, &remaining);
+        spa_list_init (&remaining);
+      }
+      else if (!spa_list_is_empty (&remaining)) {
+        /* if we did not make any progress towards growing the result list,
+           it means the dependencies cannot be satisfied because of circles */
+        spa_list_consume (hook_data, &result, link) {
+          spa_list_remove (&hook_data->link);
+          hook_data_free (hook_data);
+        }
+        spa_list_consume (hook_data, &remaining, link) {
+          spa_list_remove (&hook_data->link);
+          hook_data_free (hook_data);
+        }
+        return FALSE;
+      }
+    }
+  }
+
+  /* clear hooks and add the sorted ones */
+  g_ptr_array_set_size (hooks, 0);
+  spa_list_consume (sorted_hook_data, &result, link) {
+    spa_list_remove (&sorted_hook_data->link);
+    g_ptr_array_add (hooks, g_object_ref (sorted_hook_data->hook));
+    hook_data_free (sorted_hook_data);
+  }
+
+  return TRUE;
+}
+
 typedef struct _EventData EventData;
 struct _EventData
 {
@@ -316,6 +471,8 @@ wp_event_dispatcher_register_hook (WpEventDispatcher * self,
       hooks = g_hash_table_lookup (self->defined_hooks, event_type);
       if (hooks) {
         g_ptr_array_add (hooks, g_object_ref (hook));
+        if (!sort_hooks (hooks))
+          goto sort_error;
       } else {
         GPtrArray *new_hooks = g_ptr_array_new_with_free_func (g_object_unref);
         /* Add undefined hooks */
@@ -327,6 +484,8 @@ wp_event_dispatcher_register_hook (WpEventDispatcher * self,
         g_ptr_array_add (new_hooks, g_object_ref (hook));
         g_hash_table_insert (self->defined_hooks, g_strdup (event_type),
             new_hooks);
+        if (!sort_hooks (new_hooks))
+          goto sort_error;
       }
 
       is_defined = TRUE;
@@ -346,11 +505,24 @@ wp_event_dispatcher_register_hook (WpEventDispatcher * self,
     while (g_hash_table_iter_next (&iter, NULL, &value)) {
       GPtrArray *defined_hooks = value;
       g_ptr_array_add (defined_hooks, g_object_ref (hook));
+      if (!sort_hooks (defined_hooks))
+        goto sort_error;
     }
 
     /* Add it to the undefined hooks */
     g_ptr_array_add (self->undefined_hooks, g_object_ref (hook));
+    if (!sort_hooks (self->undefined_hooks))
+      goto sort_error;
   }
+
+  wp_info_object (self, "Registered hook %s successfully", hook_name);
+  return;
+
+sort_error:
+  /* Unregister hook */
+  wp_event_dispatcher_unregister_hook (self, hook);
+  wp_warning_object (self,
+      "Could not register hook %s because of circular dependencies", hook_name);
 }
 
 /*!
