@@ -40,7 +40,7 @@ Synopsis:
 
    $ meson -Dsession-managers="[ 'wireplumber' ]" build
    $ ninja -C build
-   $ make run
+   $ make -C build run
 
 Run independently or without installing
 ---------------------------------------
