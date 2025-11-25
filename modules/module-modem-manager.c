@@ -209,6 +209,8 @@ list_calls_done (GObject * obj,
     return;
   }
 
+  g_object_get (wpmm->dbus, "connection", &conn, NULL);
+
   g_variant_get (params, "(ao)", &calls);
   while (g_variant_iter_loop (calls, "o", &path)) {
     g_dbus_proxy_new (conn,
