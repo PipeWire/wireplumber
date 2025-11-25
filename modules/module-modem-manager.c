@@ -105,7 +105,7 @@ bind_call (GObject * obj, GAsyncResult * res, gpointer data)
   WpModemManager *wpmm = WP_MODEM_MANAGER (data);
   g_autoptr (GError) err = NULL;
   GDBusProxy *call;
-  GVariant *prop;
+  g_autoptr (GVariant) prop = NULL;
   gint init_state;
 
   call = g_dbus_proxy_new_finish (res, &err);
@@ -123,8 +123,6 @@ bind_call (GObject * obj, GAsyncResult * res, gpointer data)
 
     if (is_active_state (init_state))
       active_calls_inc (wpmm);
-
-    g_variant_unref (prop);
   }
 
   wpmm->calls = g_list_prepend (wpmm->calls, call);
@@ -194,8 +192,8 @@ list_calls_done (GObject * obj,
                  gpointer data)
 {
   WpModemManager *wpmm = WP_MODEM_MANAGER (data);
-  GVariant *params;
-  GVariantIter *calls;
+  g_autoptr (GVariant) params = NULL;
+  g_autoptr (GVariantIter) calls = NULL;
   gchar *path;
   g_autoptr (GError) err = NULL;
   g_autoptr (GDBusConnection) conn = NULL;
@@ -221,9 +219,6 @@ list_calls_done (GObject * obj,
                       bind_call,
                       wpmm);
   }
-
-  g_variant_iter_free (calls);
-  g_variant_unref (params);
 }
 
 static void
