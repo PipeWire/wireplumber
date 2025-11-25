@@ -166,7 +166,7 @@ on_voice_signal (GDBusProxy * iface,
   g_object_get (wpmm->dbus, "connection", &conn, NULL);
 
   if (!g_strcmp0 (signal, "CallAdded")) {
-    g_variant_get (params, "(o)", &path);
+    g_variant_get (params, "(&o)", &path);
     g_dbus_proxy_new (conn,
                       G_DBUS_PROXY_FLAGS_NONE,
                       NULL,
@@ -176,9 +176,8 @@ on_voice_signal (GDBusProxy * iface,
                       NULL,
                       bind_call,
                       wpmm);
-    g_free (path);
   } else if (!g_strcmp0 (signal, "CallDeleted")) {
-    g_variant_get (params, "(o)", &path);
+    g_variant_get (params, "(&o)", &path);
 
     // The user shouldn't have hundreds of calls, so just linear search.
     deleted = g_list_find_custom (wpmm->calls, path, match_call_path);
@@ -186,8 +185,6 @@ on_voice_signal (GDBusProxy * iface,
       g_object_unref (deleted->data);
       wpmm->calls = g_list_delete_link (wpmm->calls, deleted);
     }
-
-    g_free (path);
   }
 }
 
