@@ -103,14 +103,15 @@ static void
 bind_call (GObject * obj, GAsyncResult * res, gpointer data)
 {
   WpModemManager *wpmm = WP_MODEM_MANAGER (data);
-  GError *err = NULL;
+  g_autoptr (GError) err = NULL;
   GDBusProxy *call;
   GVariant *prop;
   gint init_state;
 
   call = g_dbus_proxy_new_finish (res, &err);
   if (call == NULL) {
-    wp_warning_object (wpmm, "Failed to get call");
+    g_prefix_error (&err, "Failed to get call: ");
+    wp_warning_object (wpmm, "%s", err->message);
     return;
   }
 
