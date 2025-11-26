@@ -157,6 +157,7 @@ common_args = [
   '-D_GNU_SOURCE',
   '-DG_LOG_USE_STRUCTURED',
   '-DWP_USE_LOCAL_LOG_TOPIC_IN_G_LOG',
+  '-DSPA_AUDIO_MAX_CHANNELS=128u',
 ]
 add_project_arguments(common_args, language: 'c')
 
