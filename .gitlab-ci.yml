@@ -236,6 +236,9 @@ build_on_fedora_no_docs:
   stage: build
   variables:
     BUILD_OPTIONS: -Dintrospection=enabled -Ddoc=disabled -Dsystem-lua=false
+  parallel:
+    matrix:
+      - PIPEWIRE_HEAD: ['master', '1.4', '1.2', '1.0']
 
 build_on_ubuntu_with_gir:
   extends:
