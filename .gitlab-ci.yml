@@ -154,13 +154,22 @@ include:
     # Fedora also ships that, but without the test plugins that we need...
     - git clone --depth=1 --branch="$PIPEWIRE_HEAD"
         https://gitlab.freedesktop.org/pipewire/pipewire.git
-    - meson "$PW_BUILD_DIR" pipewire --prefix="$PREFIX"
-        -Dpipewire-alsa=disabled -Dpipewire-jack=disabled
-        -Dalsa=disabled -Dv4l2=disabled -Djack=disabled -Dbluez5=disabled
-        -Dvulkan=disabled -Dgstreamer=disabled -Dlibsystemd=disabled
-        -Ddocs=disabled -Dman=disabled -Dexamples=disabled -Dpw-cat=disabled
-        -Dsdl2=disabled -Dsndfile=disabled -Dlibpulse=disabled -Davahi=disabled
-        -Decho-cancel-webrtc=disabled -Dsession-managers=[]
+    # Set build options based on PipeWire version
+    - |
+      case "$PIPEWIRE_HEAD" in
+        1.0|1.2|1.4)
+          export PIPEWIRE_BUILD_OPTIONS="-Dsystemd=disabled"
+          ;;
+        *)
+          export PIPEWIRE_BUILD_OPTIONS="-Dlibsystemd=disabled"
+          ;;
+      esac
+    - meson "$PW_BUILD_DIR" pipewire --prefix="$PREFIX" $PIPEWIRE_BUILD_OPTIONS
+        -Dpipewire-alsa=disabled -Dpipewire-jack=disabled -Dalsa=disabled
+        -Dv4l2=disabled -Djack=disabled -Dbluez5=disabled -Dvulkan=disabled
+        -Dgstreamer=disabled -Ddocs=disabled -Dman=disabled -Dexamples=disabled
+        -Dpw-cat=disabled -Dsdl2=disabled -Dsndfile=disabled -Dlibpulse=disabled
+        -Davahi=disabled -Decho-cancel-webrtc=disabled -Dsession-managers=[]
         -Dvideotestsrc=enabled -Daudiotestsrc=enabled -Dtest=enabled
     - ninja $NINJA_ARGS -C "$PW_BUILD_DIR" install
     # misc environment only for wireplumber
