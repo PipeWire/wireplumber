@@ -157,9 +157,26 @@ common_args = [
   '-D_GNU_SOURCE',
   '-DG_LOG_USE_STRUCTURED',
   '-DWP_USE_LOCAL_LOG_TOPIC_IN_G_LOG',
-  '-DSPA_AUDIO_MAX_CHANNELS=128u',
 ]
+
+# Check if SPA_AUDIO_MAX_CHANNELS can be overridden
+# (newer headers have #ifndef guards, older ones don't)
+check_spa_max_channels_override = '''
+#define SPA_AUDIO_MAX_CHANNELS 128u
+#include <spa/param/audio/raw.h>
+void main() { int x = SPA_AUDIO_MAX_CHANNELS; }
+'''
+spa_max_channels = 64
+if cc.compiles(check_spa_max_channels_override,
+               dependencies: spa_dep,
+               args: ['-Werror'],
+               name: 'SPA_AUDIO_MAX_CHANNELS override')
+  common_args += ['-DSPA_AUDIO_MAX_CHANNELS=128u']
+  spa_max_channels = 128
+endif
+
 add_project_arguments(common_args, language: 'c')
+summary({'SPA_AUDIO_MAX_CHANNELS': spa_max_channels})
 
 i18n_conf = files()
 
