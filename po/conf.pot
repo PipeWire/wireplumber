@@ -165,7 +165,7 @@ msgstr ""
 
 #. /wireplumber.settings.schema/node.features.audio.mono/description
 #: wireplumber.conf
-msgid "Configure all audio nodes in MONO"
+msgid "Configure all audio device sink nodes in MONO"
 msgstr ""
 
 #. /wireplumber.settings.schema/node.features.audio.mono/name

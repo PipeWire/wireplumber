@@ -16,6 +16,7 @@ items = {}
 function configProperties (node)
   local properties = node.properties
   local media_class = properties ["media.class"] or ""
+  local factory_name = properties ["factory.name"] or ""
 
   -- ensure a media.type is set
   if not properties ["media.type"] then
@@ -40,6 +41,7 @@ function configProperties (node)
   properties ["item.features.control-port"] =
       Settings.get_boolean ("node.features.audio.control-port")
   properties ["item.features.mono"] =
+      (factory_name == "api.alsa.pcm.sink" or factory_name == "api.bluez5.a2dp.sink") and
       Settings.get_boolean ("node.features.audio.mono")
   properties ["node.id"] = node ["bound-id"]
 
