@@ -347,7 +347,7 @@ static void
 wp_modem_manager_enable (WpPlugin * self, WpTransition * transition)
 {
   WpModemManager *wpmm = WP_MODEM_MANAGER (self);
-  WpCore *core;
+  g_autoptr (WpCore) core = NULL;
   GError *err;
   g_autoptr (GDBusConnection) conn = NULL;
 
