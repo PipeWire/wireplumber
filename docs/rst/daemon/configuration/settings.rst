@@ -43,6 +43,10 @@ previous section: :ref:`config_configuration_option_types`.
    device route (e.g. ALSA PCM sinks). This is used when the route is restored
    and the sink does not have a previously stored volume.
 
+   It is possible to override the value on a per-device basis with a property
+   (*not* a setting, so this would go into a configuration file) on the device
+   named ``device.routes.default-sink-volume``.
+
    :Default value: ``0.4 ^ 3`` (40% on the cubic scale)
 
 .. describe:: device.routes.default-source-volume
@@ -50,6 +54,10 @@ previous section: :ref:`config_configuration_option_types`.
    This option allows to set the default volume for sources that are part of a
    device route (e.g. ALSA PCM sources). This is used when the route is restored
    and the source does not have a previously stored volume.
+
+   It is possible to override the value on a per-device basis with a property
+   (*not* a setting, so this would go into a configuration file) on the device
+   named ``device.routes.default-source-volume``.
 
    :Default value: ``1.0`` (100%)
 

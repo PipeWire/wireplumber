@@ -55,9 +55,14 @@ AsyncEventHook {
           -- ensure default values
           local is_input = (route_info.direction == "Input")
           props.mute = props.mute or false
-          props.channelVolumes = props.channelVolumes or
-              { is_input and Settings.get_float ("device.routes.default-source-volume")
-                          or Settings.get_float ("device.routes.default-sink-volume") }
+          props.channelVolumes = props.channelVolumes or {
+            -- See if we have a per-device override
+            (is_input and tonumber(device.properties["device.routes.default-source-volume"]))
+            or tonumber(device.properties["device.routes.default-sink-volume"])
+            -- Otherwise we use the global default
+            or (is_input and Settings.get_float ("device.routes.default-source-volume"))
+            or Settings.get_float ("device.routes.default-sink-volume")
+          }
 
           -- prefix the props with correct IDs to create a Pod.Object
           table.insert (props, 1, "Spa:Pod:Object:Param:Props")
