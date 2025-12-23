@@ -21,15 +21,6 @@ log = Log.open_topic ("s-device")
 state = nil
 state_table = nil
 
--- utilities
-function fillCycle (dest, src)
-  local size = #dest
-  local srcSize = #src
-  for i = 1, size do
-    dest[i] = src[((i - 1) % srcSize) + 1]
-  end
-end
-
 -- hook to restore routes selection for a newly selected profile
 find_stored_routes_hook = SimpleEventHook {
   name = "device/find-stored-routes",
@@ -137,24 +128,6 @@ apply_route_props_hook = SimpleEventHook {
 
       -- convert arrays to Json
       if props.channelVolumes then
-
-        -- fill the channel volumes with the ones from the previous profile if
-        -- this is a BT device and the setting is enabled
-        if device.properties["device.api"] == "bluez5" and
-            Settings.get_boolean ("bluetooth.keep-volume-on-profile-changed") then
-          local prev_profile = dev_info.route_param_prev_profile
-          local route_dir = route_info.direction
-          if dev_info.route_param_profile_changed and
-              dev_info.route_param_channel_volumes[device.id] ~= nil and
-              dev_info.route_param_channel_volumes[device.id][prev_profile] ~= nil then
-            local vols = dev_info.route_param_channel_volumes[device.id][prev_profile][route_dir]
-            if vols ~= nil then
-              log:info (device, "using previous profile channel volumes on route " .. route_info.name)
-              fillCycle (props.channelVolumes, vols)
-            end
-          end
-        end
-
         props.channelVolumes = Json.Array (props.channelVolumes)
       end
       if props.channelMap then
@@ -196,7 +169,6 @@ store_or_restore_routes_hook = AsyncEventHook {
         device:enum_params ("EnumRoute", function (enum_route_it, e)
           local selected_routes = {}
           local push_select_routes = false
-          local profile = nil
 
           -- check for error
           if e then
@@ -215,18 +187,6 @@ store_or_restore_routes_hook = AsyncEventHook {
           if not dev_info then
             transition:advance ()
             return
-          end
-
-          -- Update current and previous profiles, and check if they changed
-          for p in device:iterate_params ("Profile") do
-            profile = cutils.parseParam (p, "Profile")
-            if dev_info.route_param_curr_profile ~= profile.index then
-              dev_info.route_param_prev_profile = dev_info.route_param_curr_profile
-              dev_info.route_param_curr_profile = profile.index
-              dev_info.route_param_profile_changed = true
-            else
-              dev_info.route_param_profile_changed = false
-            end
           end
 
           local new_route_infos = {}
@@ -267,18 +227,6 @@ store_or_restore_routes_hook = AsyncEventHook {
               goto skip_route
             end
 
-            -- cache the device input and output route channel volumes for current profile
-            local curr_profile = dev_info.route_param_curr_profile
-            local route_dir = route.direction
-            if dev_info.route_param_channel_volumes [device.id] == nil then
-              dev_info.route_param_channel_volumes [device.id] = {}
-            end
-            if dev_info.route_param_channel_volumes [device.id][curr_profile] == nil then
-              dev_info.route_param_channel_volumes [device.id][curr_profile] = {}
-            end
-            dev_info.route_param_channel_volumes [device.id][curr_profile][route_dir] =
-                route.props.properties.channelVolumes
-
             -- get cached route info and at the same time
             -- ensure that the route is also in EnumRoute
             local route_info = devinfo.find_route_info (dev_info, route, false)
@@ -316,8 +264,10 @@ store_or_restore_routes_hook = AsyncEventHook {
           end
 
           -- save selected routes for the active profile
-          assert (profile)
-          saveProfileRoutes (dev_info, profile.name)
+          for p in device:iterate_params ("Profile") do
+            local profile = cutils.parseParam (p, "Profile")
+            saveProfileRoutes (dev_info, profile.name)
+          end
 
           -- push a select-routes event to re-apply the routes with new properties
           if push_select_routes then

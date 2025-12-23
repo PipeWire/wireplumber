@@ -13,16 +13,6 @@ msgstr ""
 msgid "Auto-switch to headset profile"
 msgstr ""
 
-#. /wireplumber.settings.schema/bluetooth.keep-volume-on-profile-changed/description
-#: wireplumber.conf
-msgid "Keep same volume levels between Bluetooth profile changes"
-msgstr ""
-
-#. /wireplumber.settings.schema/bluetooth.keep-volume-on-profile-changed/name
-#: wireplumber.conf
-msgid "Keep volume"
-msgstr ""
-
 #. /wireplumber.settings.schema/bluetooth.use-persistent-storage/description
 #: wireplumber.conf
 msgid "Remember and restore Bluetooth headset mode status"
