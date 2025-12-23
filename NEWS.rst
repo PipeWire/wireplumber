@@ -1,5 +1,75 @@
-WirePlumber 0.5.12
+WirePlumber 0.5.13
 ~~~~~~~~~~~~~~~~~~
+
+Additions & Enhancements:
+
+  - Added internal filter graph support for audio nodes, allowing users to
+    create audio preprocessing and postprocessing chains without exposing
+    filters to applications, useful for software DSP (!743)
+
+  - Added new Lua Properties API that significantly improves performance by
+    avoiding constant serialization between WpProperties and Lua tables,
+    resulting in approximately 40% faster node linking (!757)
+
+  - Added WpIterator Lua API for more efficient parameter enumeration (!746)
+
+  - Added bash completions for wpctl command (!762)
+
+  - Added script to find suitable volume control when using role-based policy,
+    allowing volume sliders to automatically adjust the volume of the currently
+    active role (e.g., ringing, call, media) (!711)
+
+  - Added experimental HDMI channel detection setting to use HDMI ELD
+    information for channel configuration (!749)
+
+  - Enhanced role-based policy to allow setting preferred target sinks for
+    media role loopbacks via ``policy.role-based.preferred-target`` (!754)
+
+  - Enhanced Bluetooth profile autoswitch logic to be more robust and handle
+    saved profiles correctly, including support for loopback sink nodes (!739)
+
+  - Enhanced ALSA monitor to include ``alsa.*`` device properties on nodes for
+    rule matching (!761)
+
+  - Optimized stream node linking for common cases to reduce latency when new
+    audio/video streams are added (!760)
+
+  - Improved event dispatcher performance by using hash table registration for
+    event hooks, eliminating performance degradation as more hooks are
+    registered (!765)
+
+  - Increased audio headroom for VMware and VirtualBox virtual machines (!756)
+
+  - Added setting to prevent restoring "Off" profiles via
+    ``session.dont-restore-off-profile`` property (!753)
+
+  - Added support for 128 audio channels when compiled with a recent version of
+    PipeWire (pipewire#4995; CI checks in !768)
+
+Fixes:
+
+  - Fixed memory leaks and issues in the modem manager module (!770, !764)
+
+  - Fixed MPRIS module incorrectly treating GHashTable as GObject (!759)
+
+  - Fixed warning messages when process files in ``/proc/<pid>/*`` don't exist,
+    particularly when processes are removed quickly (#816, !717)
+
+  - Fixed MONO audio configuration to only apply to device sink nodes, allowing
+    multi-channel mixing in the graph (!769)
+
+  - Fixed event dispatcher hook registration and removal to avoid spurious
+    errors (!747)
+
+  - Improved logging for standard-link activation failures (!744)
+
+  - Simplified event-hook interest matching for better performance (!758)
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.5.12
+..................
 
 Additions & Enhancements:
 
@@ -26,9 +96,6 @@ Fixes:
   - Fixed Log.critical undefined function error in device-info-cache (!733)
 
   - Improved device hook documentation and configuration (!736)
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.5.11
 ..................
