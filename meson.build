@@ -89,6 +89,7 @@ if build_modules
       endif
     else
       lua_versions = [
+        '-5.5', '5.5', '55',
         '-5.4', '5.4', '54',
         '-5.3', '5.3', '53',
       ]
@@ -104,7 +105,7 @@ if build_modules
         lua_dep = dependency('lua', version: ['>=5.3.0'], required: false)
       endif
       if not lua_dep.found()
-        error ('Could not find lua. Lua version 5.4 or 5.3 required')
+        error ('Could not find lua. Lua version 5.5, 5.4 or 5.3 required')
       endif
     endif
   else
