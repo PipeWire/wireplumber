@@ -546,6 +546,14 @@ function checkProfiles (dev)
     return
   end
 
+  -- Setup Route/Port correctly for loopback nodes
+  local param = Pod.Object ({
+      "Spa:Pod:Object:Param:Props",
+      "Props",
+      params = Pod.Struct ({ "bluez5.autoswitch-routes", true })
+  })
+  dev:set_param("Props", param)
+
   -- Create the source loopback device if never created before
   local source_loopback = spa_device:get_managed_object (LOOPBACK_SOURCE_ID)
   if source_loopback == nil then
