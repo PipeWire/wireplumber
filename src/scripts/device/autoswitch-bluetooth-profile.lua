@@ -314,8 +314,7 @@ function getLinkedBluetoothLoopbackSourceNodeForStream (stream, node_om, link_om
           Constraint { "bluez5.loopback", "!", "true", type = "pw" },
           Constraint { "node.link-group", "=", filter_link_group, type = "pw" }
         } do
-        local filter_stream_id = filter_stream_node["bound-id"]
-        local bt_node = getLinkedBluetoothLoopbackSourceNodeForStream (filter_stream_id, node_om, link_om, visited_link_groups)
+        local bt_node = getLinkedBluetoothLoopbackSourceNodeForStream (filter_stream_node, node_om, link_om, visited_link_groups)
         if bt_node ~= nil then
           return bt_node
         end
