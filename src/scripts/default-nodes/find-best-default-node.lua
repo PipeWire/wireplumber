@@ -18,6 +18,8 @@ SimpleEventHook {
     },
   },
   execute = function (event)
+    local props = event:get_properties ()
+    local def_node_type = props ["default-node.type"]
     local available_nodes = event:get_data ("available-nodes")
     local selected_prio = event:get_data ("selected-node-priority") or 0
     local selected_route_prio = event:get_data ("selected-route-priority") or 0
@@ -37,6 +39,12 @@ SimpleEventHook {
       -- Highest priority node wins
       local priority = nutils.get_session_priority (node_props)
       local route_priority = nutils.get_route_priority (node_props)
+      local media_class = node_props ["media.class"]
+
+      -- Never consider sink nodes as best if audio.source is the def node type
+      if media_class == "Audio/Sink" and def_node_type == "audio.source" then
+        goto skip_node
+      end
 
       if selected_node == nil or
           priority > selected_prio or
@@ -46,6 +54,8 @@ SimpleEventHook {
         selected_route_prio = route_priority
         selected_node = node_props ["node.name"]
       end
+
+      ::skip_node::
     end
 
     event:set_data ("selected-node-priority", selected_prio)
