@@ -367,7 +367,7 @@ wp_interest_event_hook_get_matching_event_types (WpEventHook * hook)
   WpInterestEventHook *self = WP_INTEREST_EVENT_HOOK (hook);
   WpInterestEventHookPrivate *priv =
       wp_interest_event_hook_get_instance_private (self);
-  GPtrArray *res = g_ptr_array_new_with_free_func (g_free);
+  g_autoptr (GPtrArray) res = g_ptr_array_new_with_free_func (g_free);
   guint i;
 
   for (i = 0; i < priv->interests->len; i++) {
@@ -393,7 +393,7 @@ wp_interest_event_hook_get_matching_event_types (WpEventHook * hook)
     }
   }
 
-  return res;
+  return g_steal_pointer (&res);
 }
 
 static void
