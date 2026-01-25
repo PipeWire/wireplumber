@@ -217,13 +217,15 @@ function createSetNode(parent, id, type, factory, properties)
     )
   end
 
-  properties["node.virtual"] = false
-  properties["device.api"] = "bluez5"
-  properties["api.bluez5.set.members"] = nil
-  properties["api.bluez5.set.channels"] = nil
-  properties["api.bluez5.set.leader"] = true
-  properties["audio.position"] = Json.Array (channels)
-  args["combine.props"] = Json.Object (properties)
+  local combine_props = properties:parse ()
+  combine_props["node.virtual"] = false
+  combine_props["device.api"] = "bluez5"
+  combine_props["api.bluez5.set.members"] = nil
+  combine_props["api.bluez5.set.channels"] = nil
+  combine_props["api.bluez5.set.leader"] = true
+  combine_props["audio.position"] = Json.Array (channels)
+
+  args["combine.props"] = Json.Object (combine_props)
   args["stream.props"] = Json.Object {}
   args["stream.rules"] = Json.Array (rules)
 
