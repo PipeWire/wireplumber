@@ -1,14 +1,14 @@
 # Georgian translation for pipewire.
 # Copyright © 2008-2022 Free Software Foundation, Inc.
 # This file is distributed under the same license as the pipewire package.
-# Temuri Doghonadze <temuri.doghonadze@gmail.com>, 2022.
+# Temuri Doghonadze <temuri.doghonadze@gmail.com>, 2022 2026.
 msgid ""
 msgstr ""
 "Project-Id-Version: pipewire\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/-/"
 "issues\n"
 "POT-Creation-Date: 2022-06-15 15:30+0000\n"
-"PO-Revision-Date: 2022-07-25 13:53+0200\n"
+"PO-Revision-Date: 2026-01-29 15:48+0100\n"
 "Last-Translator: Temuri Doghonadze <temuri.doghonadze@gmail.com>\n"
 "Language-Team: Georgian <(nothing)>\n"
 "Language: ka\n"
@@ -16,7 +16,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Poedit 3.1.1\n"
+"X-Generator: Poedit 3.8\n"
 
 #. WirePlumber
 #.
@@ -102,3 +102,282 @@ msgstr "ჩაშენებული წინა კამერა"
 #: src/scripts/monitors/libcamera.lua:90
 msgid "Built-in Back Camera"
 msgstr "ჩაშენებული უკანა კამერა"
+
+#. /wireplumber.settings.schema/bluetooth.autoswitch-to-headset-profile/description
+#: wireplumber.conf
+msgid ""
+"Always show microphone for Bluetooth headsets, and switch to headset mode "
+"when recording"
+msgstr ""
+"მიკროფონის ყოველთვის ჩვენება ბლუთუზის ყურსასმენებისთვის და გადართვა "
+"ყურსასმენის რეჟიმზე ჩაწერისას"
+
+#. /wireplumber.settings.schema/bluetooth.autoswitch-to-headset-profile/name
+#: wireplumber.conf
+msgid "Auto-switch to headset profile"
+msgstr "ავტოგადართვა ყურსაცვამის პროფილზე"
+
+#. /wireplumber.settings.schema/bluetooth.use-persistent-storage/description
+#: wireplumber.conf
+msgid "Remember and restore Bluetooth headset mode status"
+msgstr "ბლუთუზის ყურსასმენის რეჟიმის სტატუსის დამახსოვრება და აღდგენა"
+
+#. /wireplumber.settings.schema/bluetooth.use-persistent-storage/name
+#: wireplumber.conf
+msgid "Persistent storage"
+msgstr "მუდმივი საცავი"
+
+#. /wireplumber.settings.schema/device.restore-profile/description
+#: wireplumber.conf
+msgid "Remember and restore device profiles"
+msgstr "მოწყობილობის პროფილების დამახსოვრება და აღდგენა"
+
+#. /wireplumber.settings.schema/device.restore-profile/name
+#: wireplumber.conf
+msgid "Restore profile"
+msgstr "პროფილის აღდგენა"
+
+#. /wireplumber.settings.schema/device.restore-routes/description
+#: wireplumber.conf
+msgid "Remember and restore device routes"
+msgstr "მოწყობილობის რაუტების დამახსოვრება და აღდგენა"
+
+#. /wireplumber.settings.schema/device.restore-routes/name
+#: wireplumber.conf
+msgid "Restore routes"
+msgstr "მოწყობილობის რაუტები"
+
+#. /wireplumber.settings.schema/device.routes.default-sink-volume/description
+#: wireplumber.conf
+msgid "The default volume for audio sinks"
+msgstr "აუდიოს მიმღების ნაგულისხმევი ხმის დონე"
+
+#. /wireplumber.settings.schema/device.routes.default-sink-volume/name
+#: wireplumber.conf
+msgid "Default sink volume"
+msgstr "მიმღების ნაგულისხმევი ხმის დონე"
+
+#. /wireplumber.settings.schema/device.routes.default-source-volume/description
+#: wireplumber.conf
+msgid "The default volume for audio sources"
+msgstr "ნაგულისხმევი ხმის დონე აუდიოს წყაროებისთვის"
+
+#. /wireplumber.settings.schema/device.routes.default-source-volume/name
+#: wireplumber.conf
+msgid "Default source volume"
+msgstr "ნაგულისხმევი წყაროს ხმა"
+
+#. /wireplumber.settings.schema/device.routes.mute-on-alsa-playback-removed/description
+#: wireplumber.conf
+msgid ""
+"Automatically mute all audio devices when active wired headphones/speakers "
+"are disconnected to prevent unintended sound output"
+msgstr ""
+"ყველა აუდიომოწყობილობის ავტომატური დადუმება, როცა აქტიური მავთულიანი "
+"ყურსასმენი/დინამიკები გათიშულია, რომ თავიდან აიცილოთ გაუთვალისწინებელი ხმის "
+"გამოცემა"
+
+#. /wireplumber.settings.schema/device.routes.mute-on-alsa-playback-removed/name
+#: wireplumber.conf
+msgid "Auto-mute on wired audio disconnect"
+msgstr "ავტოდადუმება სადენიანი აუდიოს გათიშვისას"
+
+#. /wireplumber.settings.schema/device.routes.mute-on-bluetooth-playback-removed/description
+#: wireplumber.conf
+msgid ""
+"Automatically mute all audio devices when active Bluetooth headphones/"
+"speakers are disconnected to prevent unintended sound output"
+msgstr ""
+"ყველა აუდიომოწყობილობის ავტომატური დადუმება, როცა აქტიური ბლუთუზი "
+"ყურსასმენი/დინამიკები გათიშულია, რომ თავიდან აიცილოთ გაუთვალისწინებელი ხმის "
+"გამოცემა"
+
+#. /wireplumber.settings.schema/device.routes.mute-on-bluetooth-playback-removed/name
+#: wireplumber.conf
+msgid "Auto-mute on Bluetooth audio disconnect"
+msgstr "ავტოდადუმება ბლუთუზი აუდიოს გათიშვისას"
+
+#. /wireplumber.settings.schema/linking.allow-moving-streams/description
+#: wireplumber.conf
+msgid "Streams may be moved by adding PipeWire metadata at runtime"
+msgstr ""
+"ნაკადების გადატანა გაშვების დროს PipeWire-ის მეტამონაცემების დამატებით "
+"შეგიძლიათ"
+
+#. /wireplumber.settings.schema/linking.allow-moving-streams/name
+#: wireplumber.conf
+msgid "Allow moving streams"
+msgstr "მოძრავი ნაკადების დაშვება"
+
+#. /wireplumber.settings.schema/linking.follow-default-target/description
+#: wireplumber.conf
+msgid "Streams connected to the default device follow when default changes"
+msgstr ""
+"ნაგულისხმევ მოწყობილობაზე დაკავშირებული ნაკადები მიჰყვება, როცა "
+"ნაგულისხმევი იცვლება"
+
+#. /wireplumber.settings.schema/linking.follow-default-target/name
+#: wireplumber.conf
+msgid "Follow default target"
+msgstr "ნაგულისხმევი სამიზნის მიყოლა"
+
+#. /wireplumber.settings.schema/linking.pause-playback/description
+#: wireplumber.conf
+msgid "Pause media players if their target sink is removed"
+msgstr "მედიის დამკვრელების შეჩერება სამიზნე მიმღების მოხსნისას"
+
+#. /wireplumber.settings.schema/linking.pause-playback/name
+#: wireplumber.conf
+msgid "Pause playback if output removed"
+msgstr "დაკვრის შეჩერება, თუ გამოტანა მოიხსნება"
+
+#. /wireplumber.settings.schema/linking.role-based.duck-level/description
+#: wireplumber.conf
+msgid ""
+"The volume level to apply when ducking (= reducing volume for a higher "
+"priority stream to be audible) in the role-based linking policy"
+msgstr ""
+"ხმის დონე დაქინგისას გამოსაყენებლად (= ხმის შემცირება უფრო მაღალი "
+"პრიორიტეტის მქონე ნაკადისთვის, რომ ის გასაგონი გახდეს) როლზე-დამოკიდებულ "
+"მიბმის პოლიტიკაში"
+
+#. /wireplumber.settings.schema/linking.role-based.duck-level/name
+#: wireplumber.conf
+msgid "Ducking level"
+msgstr "დაქინგის დონე"
+
+#. /wireplumber.settings.schema/monitor.alsa.autodetect-hdmi-channels/description
+#: wireplumber.conf
+msgid ""
+"Automatically detect channel count and positions for HDMI devices "
+"(experimental)"
+msgstr ""
+"არხების რაოდენობისა და მდებარეობების ავტომატური დადგენა HDMI "
+"მოწყობილობებისთვის (ექსპერიმენტული)"
+
+#. /wireplumber.settings.schema/monitor.alsa.autodetect-hdmi-channels/name
+#: wireplumber.conf
+msgid "Automatically detect HDMI channels (experimental)"
+msgstr "HDMI არხების ავტომატური დადგენა (ექსპერიმენტული)"
+
+#. /wireplumber.settings.schema/monitor.camera-discovery-timeout/description
+#: wireplumber.conf
+msgid "The camera discovery timeout in milliseconds"
+msgstr "კამერის აღმოჩენის მოლოდინის ვადა მიმიწალებში"
+
+#. /wireplumber.settings.schema/monitor.camera-discovery-timeout/name
+#: wireplumber.conf
+msgid "Discovery timeout"
+msgstr "აღმოჩენის მოლოდინის ვადა"
+
+#. /wireplumber.settings.schema/node.features.audio.control-port/description
+#: wireplumber.conf
+msgid "Enable control ports on audio nodes"
+msgstr "კონტროლის პორტების ჩართვა აუდიოკვანძებზე"
+
+#. /wireplumber.settings.schema/node.features.audio.control-port/name
+#: wireplumber.conf
+msgid "Control ports"
+msgstr "კონტროლის პორტები"
+
+#. /wireplumber.settings.schema/node.features.audio.monitor-ports/description
+#: wireplumber.conf
+msgid "Enable monitor ports on audio nodes"
+msgstr "მონიტორინგის პორტების ჩართვა აუდიოკვანძებზე"
+
+#. /wireplumber.settings.schema/node.features.audio.monitor-ports/name
+#: wireplumber.conf
+msgid "Monitor ports"
+msgstr "მონიტორინგის პორტები"
+
+#. /wireplumber.settings.schema/node.features.audio.mono/description
+#: wireplumber.conf
+msgid "Configure all audio device sink nodes in MONO"
+msgstr "ყველა აუდიომოწყობილობის გამოტანის კვანძების მონოში მორგება"
+
+#. /wireplumber.settings.schema/node.features.audio.mono/name
+#: wireplumber.conf
+msgid "Mono"
+msgstr "მონო"
+
+#. /wireplumber.settings.schema/node.features.audio.no-dsp/description
+#: wireplumber.conf
+msgid "Do not convert audio to F32 format"
+msgstr "აუდიო F32 ფორმატში გადაყვანილი არ იქნება"
+
+#. /wireplumber.settings.schema/node.features.audio.no-dsp/name
+#: wireplumber.conf
+msgid "No DSP"
+msgstr "DSP-ის გარეშე"
+
+#. /wireplumber.settings.schema/node.filter.forward-format/description
+#: wireplumber.conf
+msgid "Forward format on filter nodes or not"
+msgstr "მოხდება თუ არა ფორმატის გადაგზავნა ფილტრის კვანძებზე"
+
+#. /wireplumber.settings.schema/node.filter.forward-format/name
+#: wireplumber.conf
+msgid "Forward format"
+msgstr "ფორმატის გადაგზავნა"
+
+#. /wireplumber.settings.schema/node.restore-default-targets/description
+#: wireplumber.conf
+msgid "Remember and restore default audio/video input/output devices"
+msgstr ""
+"ნაგულისხმევი აუდიო/ვიდეო შეყვანა/გამოტანის მოწყობილობების დამახსოვრება და "
+"აღდგენა"
+
+#. /wireplumber.settings.schema/node.restore-default-targets/name
+#: wireplumber.conf
+msgid "Restore default target"
+msgstr "ნაგულისხმევი სამიზნის აღდგენა"
+
+#. /wireplumber.settings.schema/node.stream.default-capture-volume/description
+#: wireplumber.conf
+msgid "The default volume for capture nodes"
+msgstr "ნაგულისხმევი ხმის დონე ჩამწერი კვანძებისთვის"
+
+#. /wireplumber.settings.schema/node.stream.default-capture-volume/name
+#: wireplumber.conf
+msgid "Default capture volume"
+msgstr "ნაგულისხმევი ჩაწერის ხმის დონე"
+
+#. /wireplumber.settings.schema/node.stream.default-media-role/description
+#: wireplumber.conf
+msgid "Default media.role to assign on streams that do not specify it"
+msgstr "ნაგულისხმევი media.role მისანიჭებლად ნაკადებზე, რომლებსაც ის არ აქვს"
+
+#. /wireplumber.settings.schema/node.stream.default-media-role/name
+#: wireplumber.conf
+msgid "Default media role"
+msgstr "ნაგულისხმევი მედიის როლი"
+
+#. /wireplumber.settings.schema/node.stream.default-playback-volume/description
+#: wireplumber.conf
+msgid "The default volume for playback nodes"
+msgstr "ნაგულისხმევი ხმის დონე დაკვრის კვანძებისთვის"
+
+#. /wireplumber.settings.schema/node.stream.default-playback-volume/name
+#: wireplumber.conf
+msgid "Default playback volume"
+msgstr "ნაგულისხმევი ხმის დონე"
+
+#. /wireplumber.settings.schema/node.stream.restore-props/description
+#: wireplumber.conf
+msgid "Remember and restore properties of streams"
+msgstr "ნაკადის თვისებების დამახსოვრება და აღდგენა"
+
+#. /wireplumber.settings.schema/node.stream.restore-props/name
+#: wireplumber.conf
+msgid "Restore properties"
+msgstr "თვისებების აღდგენა"
+
+#. /wireplumber.settings.schema/node.stream.restore-target/description
+#: wireplumber.conf
+msgid "Remember and restore stream targets"
+msgstr "ნაკადის სამიზნეების დამახსოვრება და აღდგენა"
+
+#. /wireplumber.settings.schema/node.stream.restore-target/name
+#: wireplumber.conf
+msgid "Restore target"
+msgstr "სამიზნის აღდგენა"
