@@ -34,7 +34,7 @@ SimpleEventHook {
       return
     end
     -- create the node
-    local node = Node ("spa-node-factory", properties)
+    local node = LocalNode ("spa-node-factory", properties)
     node:activate (Feature.Proxy.BOUND)
     parent:store_managed_object (id, node)
   end
