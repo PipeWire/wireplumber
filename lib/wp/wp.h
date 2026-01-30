@@ -47,6 +47,7 @@
 #include "wpversion.h"
 #include "factory.h"
 #include "settings.h"
+#include "permission-manager.h"
 
 G_BEGIN_DECLS
 
