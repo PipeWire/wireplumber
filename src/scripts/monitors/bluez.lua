@@ -7,7 +7,6 @@
 
 COMBINE_OFFSET = 64
 LOOPBACK_SOURCE_ID = 128
-LOOPBACK_SINK_ID = 129
 DEVICE_SOURCE_ID = 0
 DEVICE_SINK_ID = 1
 
@@ -303,9 +302,6 @@ function createNode(parent, id, type, factory, properties)
         (factory == "api.bluez5.a2dp.source" and cutils.parseBool (properties["api.bluez5.a2dp-duplex"])) then
       properties["bluez5.loopback"] = false
       properties["api.bluez5.internal"] = true
-    elseif factory == "api.bluez5.sco.sink" or factory == "api.bluez5.a2dp.sink" then
-      properties["bluez5.sink-loopback"] = false
-      properties["api.bluez5.internal"] = true
     end
 
     local node = LocalNode("adapter", properties)
@@ -455,47 +451,6 @@ function CreateDeviceLoopbackSource (dev_props, dev_id)
   return LocalModule("libpipewire-module-loopback", args:get_data(), {})
 end
 
-function CreateDeviceLoopbackSink (dev_props, dev_id)
-  local dev_name = dev_props["api.bluez5.address"] or dev_props["device.name"]
-  local dec_desc = dev_props["device.description"] or dev_props["device.name"]
-      or dev_props["device.nick"] or dev_props["device.alias"] or "bluetooth-device"
-  local target_object = getNodeName ("bluez_output",
-      dev_props["api.bluez5.address"], dev_props["device.name"], DEVICE_SINK_ID)
-
-  -- sanitize description, replace ':' with ' '
-  dec_desc = dec_desc:gsub("(:)", " ")
-
-  log:info("create SCO-A2DP sink loopback node: " .. dev_name)
-
-  local args = Json.Object {
-    ["capture.props"] = Json.Object {
-      ["node.name"] = string.format ("bluez_output.%s", dev_name),
-      ["node.description"] = string.format ("%s", dec_desc),
-      ["node.virtual"] = false,
-      ["audio.position"] = "[FL, FR]",
-      ["media.class"] = "Audio/Sink",
-      ["device.id"] = dev_id,
-      ["card.profile.device"] = DEVICE_SINK_ID,
-      ["device.routes"] = "1",
-      ["priority.session"] = 2010,
-      ["bluez5.sink-loopback"] = true,
-    },
-    ["playback.props"] = Json.Object {
-      ["node.name"] = string.format ("bluez_playback_internal.%s", dev_name),
-      ["media.class"] = "Stream/Output/Audio/Internal",
-      ["node.description"] =
-          string.format ("Bluetooth internal playback stream for %s", dec_desc),
-      ["bluez5.sink-loopback"] = true,
-      ["node.passive"] = true,
-      ["node.dont-fallback"] = true,
-      ["node.linger"] = true,
-      ["state.restore-props"] = false,
-      ["target.object"] = target_object,
-    }
-  }
-  return LocalModule("libpipewire-module-loopback", args:get_data(), {})
-end
-
 function checkProfiles (dev)
   local device_id = dev["bound-id"]
   local props = dev.properties
@@ -508,20 +463,17 @@ function checkProfiles (dev)
     return
   end
 
-  -- Check if the device supports A2DP and HFP/HSP profiles
-  local has_a2dpsink_profile = false
+  -- Check if the device supports headset profile
   local has_headset_profile = false
   for p in dev:iterate_params("EnumProfile") do
     local profile = cutils.parseParam (p, "EnumProfile")
-    if profile.name:find ("a2dp") and profile.name:find ("sink") then
-      has_a2dpsink_profile = true
-    elseif profile.name:find ("headset") then
+    if profile.name:find ("headset") then
       has_headset_profile = true
     end
   end
 
   -- Setup Route/Port correctly for loopback nodes
-  if has_a2dpsink_profile or has_headset_profile then
+  if has_headset_profile then
     local param = Pod.Object ({
         "Spa:Pod:Object:Param:Props",
         "Props",
@@ -564,16 +516,6 @@ function checkProfiles (dev)
         -- Destroy source loopback
         spa_device:store_managed_object(LOOPBACK_SOURCE_ID, nil)
       end
-    end
-  end
-
-  if has_a2dpsink_profile or has_headset_profile then
-    -- Always create sink loopback regardless of the current profile or whether
-    -- the autoswitch setting is enabled or not.
-    local sink_loopback = spa_device:get_managed_object (LOOPBACK_SINK_ID)
-    if sink_loopback == nil then
-      sink_loopback = CreateDeviceLoopbackSink (props, device_id)
-      spa_device:store_managed_object(LOOPBACK_SINK_ID, sink_loopback)
     end
   end
 end
