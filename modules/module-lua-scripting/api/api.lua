@@ -184,6 +184,28 @@ local Feature = {
   },
 }
 
+PERM_R_VAL = 0400
+PERM_W_VAL = 0200
+PERM_X_VAL = 0100
+PERM_M_VAL = 0010
+PERM_L_VAL = 0020
+
+local Perm = {
+  NONE = 0,
+  R = PERM_R_VAL,
+  W = PERM_W_VAL,
+  X = PERM_X_VAL,
+  M = PERM_M_VAL,
+  L = PERM_L_VAL,
+  RW = (PERM_R_VAL | PERM_W_VAL),
+  RX = (PERM_R_VAL | PERM_X_VAL),
+  WX = (PERM_W_VAL | PERM_X_VAL),
+  RWX = (PERM_R_VAL | PERM_W_VAL | PERM_X_VAL),
+  RWXM = (PERM_R_VAL | PERM_W_VAL | PERM_X_VAL | PERM_M_VAL),
+  RWXML = (PERM_R_VAL | PERM_W_VAL | PERM_X_VAL | PERM_M_VAL | PERM_L_VAL),
+  ALL = (PERM_R_VAL | PERM_W_VAL | PERM_X_VAL | PERM_M_VAL),
+}
+
 -- Allow calling Conf() to instantiate a new WpConf
 WpConf["__new"] = WpConf_new
 
@@ -192,6 +214,7 @@ SANDBOX_EXPORT = {
   Id = Id,
   Features = Features,
   Feature = Feature,
+  Perm = Perm,
   GLib = GLib,
   I18n = I18n,
   Log = WpLog,
@@ -218,6 +241,7 @@ SANDBOX_EXPORT = {
   JsonUtils = JsonUtils,
   ProcUtils = ProcUtils,
   Properties = WpProperties_new,
+  PermissionManager = WpPermissionManager_new,
   SimpleEventHook = WpSimpleEventHook_new,
   AsyncEventHook = WpAsyncEventHook_new,
 }

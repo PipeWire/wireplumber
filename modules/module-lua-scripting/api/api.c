@@ -2617,6 +2617,111 @@ static const luaL_Reg event_dispatcher_funcs[] = {
   { NULL, NULL }
 };
 
+/* WpPermissionManager */
+
+static int
+permission_manager_new (lua_State *L)
+{
+  WpPermissionManager *pm = wp_permission_manager_new (get_wp_core (L));
+  wplua_pushobject (L, pm);
+  return 1;
+}
+
+static int
+permission_manager_set_default_permissions (lua_State *L)
+{
+  WpPermissionManager *pm = wplua_checkobject (L, 1,
+      WP_TYPE_PERMISSION_MANAGER);
+  guint32 perms = PW_PERM_ALL;
+
+  if (lua_isinteger (L, 2)) {
+    perms = luaL_checkinteger (L, 2);
+  } else if (lua_isstring (L, 2)) {
+    const gchar *perms_str = luaL_checkstring (L, 2);
+    if (!client_parse_permissions (perms_str, &perms))
+      luaL_error (L, "invalid permission string: '%s'", perms_str);
+  } else {
+    luaL_error (L, "invalid permission argument");
+  }
+
+  wp_permission_manager_set_default_permissions (pm, perms);
+  lua_pushboolean (L, TRUE);
+  return 1;
+}
+
+static int
+permission_manager_add_interest_match (lua_State *L)
+{
+  WpPermissionManager *pm = wplua_checkobject (L, 1,
+      WP_TYPE_PERMISSION_MANAGER);
+  GClosure * closure = wplua_function_to_closure (L, 2);
+  WpObjectInterest *interest = wplua_checkboxed (L, 3, WP_TYPE_OBJECT_INTEREST);
+  guint32 id;
+
+  id = wp_permission_manager_add_interest_match_closure (pm, closure,
+      wp_object_interest_ref (interest));
+  lua_pushinteger (L, id);
+  return 1;
+}
+
+static int
+permission_manager_add_interest_match_simple (lua_State *L)
+{
+  WpPermissionManager *pm = wplua_checkobject (L, 1,
+      WP_TYPE_PERMISSION_MANAGER);
+  guint32 perms = luaL_checkinteger (L, 2);
+  WpObjectInterest *interest = wplua_checkboxed (L, 3, WP_TYPE_OBJECT_INTEREST);
+  guint32 id;
+
+  id = wp_permission_manager_add_interest_match_simple (pm, perms,
+      wp_object_interest_ref (interest));
+  lua_pushinteger (L, id);
+  return 1;
+}
+
+static int
+permission_manager_add_rules_match (lua_State *L)
+{
+  WpPermissionManager *pm = wplua_checkobject (L, 1, WP_TYPE_PERMISSION_MANAGER);
+  WpSpaJson *rules = wplua_checkboxed (L, 2, WP_TYPE_SPA_JSON);
+  guint32 id;
+
+  id = wp_permission_manager_add_rules_match (pm, wp_spa_json_ref (rules));
+  lua_pushinteger (L, id);
+  return 1;
+}
+
+static int
+permission_manager_remove_match (lua_State *L)
+{
+  WpPermissionManager *pm = wplua_checkobject (L, 1,
+      WP_TYPE_PERMISSION_MANAGER);
+  guint interest_id = luaL_checkinteger (L, 2);
+
+  wp_permission_manager_remove_match (pm, interest_id);
+  return 0;
+}
+
+static int
+permission_manager_update_permissions (lua_State *L)
+{
+  WpPermissionManager *pm = wplua_checkobject (L, 1,
+      WP_TYPE_PERMISSION_MANAGER);
+
+  wp_permission_manager_update_permissions (pm);
+  return 0;
+}
+
+static const luaL_Reg permission_manager_funcs[] = {
+  { "set_default_permissions", permission_manager_set_default_permissions },
+  { "add_interest_match", permission_manager_add_interest_match },
+  { "add_interest_match_simple", permission_manager_add_interest_match_simple },
+  { "add_rules_match", permission_manager_add_rules_match },
+  { "remove_match", permission_manager_remove_match },
+  { "update_permissions", permission_manager_update_permissions },
+  { NULL, NULL }
+};
+
 /* WpEventHook */
 
 static int
@@ -3144,6 +3249,8 @@ wp_lua_scripting_api_init (lua_State *L)
       NULL, iterator_funcs);
   wplua_register_type_methods (L, WP_TYPE_PROPERTIES,
       properties_new, properties_funcs);
+  wplua_register_type_methods (L, WP_TYPE_PERMISSION_MANAGER,
+      permission_manager_new, permission_manager_funcs);
 
   if (!wplua_load_uri (L, URI_API, &error) ||
       !wplua_pcall (L, 0, 0, &error)) {
