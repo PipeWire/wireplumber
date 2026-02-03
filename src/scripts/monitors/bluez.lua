@@ -231,6 +231,12 @@ function createSetNode(parent, id, type, factory, properties)
   return LocalModule("libpipewire-module-combine-stream", args_string, combine_properties)
 end
 
+function getNodeName (prefix, bt_address, dev_name, node_id)
+  local name = prefix .. "." .. (bt_address or dev_name) .. "." .. tostring(node_id)
+  -- sanitize name
+  return name:gsub("([^%w_%-%.])", "_")
+end
+
 function createNode(parent, id, type, factory, properties)
   local dev_props = parent.properties
   local parent_id = parent["bound-id"]
@@ -262,11 +268,8 @@ function createNode(parent, id, type, factory, properties)
   -- set the node name
   local name_prefix = ((factory:find("sink") and "bluez_output") or
        (factory:find("source") and "bluez_input" or factory))
-  local name = name_prefix .. "." ..
-      (properties["api.bluez5.address"] or dev_props["device.name"]) .. "." ..
-      tostring(id)
-  -- sanitize name
-  properties["node.name"] = name:gsub("([^%w_%-%.])", "_")
+  properties["node.name"] = getNodeName (name_prefix,
+      properties["api.bluez5.address"], dev_props["device.name"], id)
 
   -- set priority
   if not properties["priority.driver"] then
@@ -299,11 +302,9 @@ function createNode(parent, id, type, factory, properties)
     if factory == "api.bluez5.sco.source" or
         (factory == "api.bluez5.a2dp.source" and cutils.parseBool (properties["api.bluez5.a2dp-duplex"])) then
       properties["bluez5.loopback"] = false
-      properties["bluez5.loopback-target"] = true
       properties["api.bluez5.internal"] = true
     elseif factory == "api.bluez5.sco.sink" or factory == "api.bluez5.a2dp.sink" then
       properties["bluez5.sink-loopback"] = false
-      properties["bluez5.sink-loopback-target"] = true
       properties["api.bluez5.internal"] = true
     end
 
@@ -414,6 +415,8 @@ function CreateDeviceLoopbackSource (dev_props, dev_id)
   local dev_name = dev_props["api.bluez5.address"] or dev_props["device.name"]
   local dec_desc = dev_props["device.description"] or dev_props["device.name"]
       or dev_props["device.nick"] or dev_props["device.alias"] or "bluetooth-device"
+  local target_object = getNodeName ("bluez_input",
+      dev_props["api.bluez5.address"], dev_props["device.name"], DEVICE_SOURCE_ID)
 
   -- sanitize description, replace ':' with ' '
   dec_desc = dec_desc:gsub("(:)", " ")
@@ -434,6 +437,7 @@ function CreateDeviceLoopbackSource (dev_props, dev_id)
       ["node.dont-fallback"] = true,
       ["node.linger"] = true,
       ["state.restore-props"] = false,
+      ["target.object"] = target_object,
     },
     ["playback.props"] = Json.Object {
       ["node.name"] = string.format ("bluez_input.%s", dev_name),
@@ -446,12 +450,6 @@ function CreateDeviceLoopbackSource (dev_props, dev_id)
       ["device.routes"] = "1",
       ["priority.session"] = 2010,
       ["bluez5.loopback"] = true,
-      ["filter.smart"] = true,
-      ["filter.smart.target"] = Json.Object {
-        ["bluez5.loopback-target"] = true,
-        ["bluez5.loopback"] = false,
-        ["device.id"] = dev_id
-      }
     }
   }
   return LocalModule("libpipewire-module-loopback", args:get_data(), {})
@@ -461,6 +459,8 @@ function CreateDeviceLoopbackSink (dev_props, dev_id)
   local dev_name = dev_props["api.bluez5.address"] or dev_props["device.name"]
   local dec_desc = dev_props["device.description"] or dev_props["device.name"]
       or dev_props["device.nick"] or dev_props["device.alias"] or "bluetooth-device"
+  local target_object = getNodeName ("bluez_output",
+      dev_props["api.bluez5.address"], dev_props["device.name"], DEVICE_SINK_ID)
 
   -- sanitize description, replace ':' with ' '
   dec_desc = dec_desc:gsub("(:)", " ")
@@ -479,12 +479,6 @@ function CreateDeviceLoopbackSink (dev_props, dev_id)
       ["device.routes"] = "1",
       ["priority.session"] = 2010,
       ["bluez5.sink-loopback"] = true,
-      ["filter.smart"] = true,
-      ["filter.smart.target"] = Json.Object {
-        ["bluez5.sink-loopback-target"] = true,
-        ["bluez5.sink-loopback"] = false,
-        ["device.id"] = dev_id
-      }
     },
     ["playback.props"] = Json.Object {
       ["node.name"] = string.format ("bluez_playback_internal.%s", dev_name),
@@ -496,6 +490,7 @@ function CreateDeviceLoopbackSink (dev_props, dev_id)
       ["node.dont-fallback"] = true,
       ["node.linger"] = true,
       ["state.restore-props"] = false,
+      ["target.object"] = target_object,
     }
   }
   return LocalModule("libpipewire-module-loopback", args:get_data(), {})
