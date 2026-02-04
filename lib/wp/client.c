@@ -9,6 +9,7 @@
 #include "client.h"
 #include "log.h"
 #include "private/pipewire-object-mixin.h"
+#include "private/permission-manager.h"
 
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp-client")
 
@@ -25,6 +26,7 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-client")
 struct _WpClient
 {
   WpGlobalProxy parent;
+  GWeakRef permission_manager;
 };
 
 static void wp_client_pw_object_mixin_priv_interface_init (
@@ -39,6 +41,7 @@ G_DEFINE_TYPE_WITH_CODE (WpClient, wp_client, WP_TYPE_GLOBAL_PROXY,
 static void
 wp_client_init (WpClient * self)
 {
+  g_weak_ref_init (&self->permission_manager, NULL);
 }
 
 static void
@@ -76,9 +79,25 @@ wp_client_pw_proxy_created (WpProxy * proxy, struct pw_proxy * pw_proxy)
 static void
 wp_client_pw_proxy_destroyed (WpProxy * proxy)
 {
+  WpClient *self = WP_CLIENT (proxy);
+
+  wp_client_attach_permission_manager (self, NULL);
+
   wp_pw_object_mixin_handle_pw_proxy_destroyed (proxy);
 
   WP_PROXY_CLASS (wp_client_parent_class)->pw_proxy_destroyed (proxy);
+}
+
+static void
+wp_impl_node_finalize (GObject * object)
+{
+  WpClient *self = WP_CLIENT (object);
+
+  wp_client_attach_permission_manager (self, NULL);
+
+  g_weak_ref_clear (&self->permission_manager);
+
+  G_OBJECT_CLASS (wp_client_parent_class)->finalize (object);
 }
 
 static void
@@ -88,6 +107,7 @@ wp_client_class_init (WpClientClass * klass)
   WpObjectClass *wpobject_class = (WpObjectClass *) klass;
   WpProxyClass *proxy_class = (WpProxyClass *) klass;
 
+  object_class->finalize = wp_impl_node_finalize;
   object_class->get_property = wp_pw_object_mixin_get_property;
 
   wpobject_class->get_supported_features =
@@ -220,4 +240,31 @@ wp_client_update_properties (WpClient * self, WpProperties * updates)
       pwp, wp_properties_peek_dict (upd));
 
   g_warn_if_fail (client_update_properties_result >= 0);
+}
+
+/*!
+ * \brief Attaches a permission manager in the client to handle permissions
+ * automatically.
+ *
+ * \ingroup wpclient
+ * \param self the client
+ * \param pm (transfer none) (nullable): the permission manager to attach, or
+ * NULL to detach the current permission manager.
+ */
+void
+wp_client_attach_permission_manager (WpClient *self, WpPermissionManager *pm)
+{
+  g_autoptr (WpPermissionManager) curr_pm = NULL;
+
+  g_return_if_fail (WP_IS_CLIENT (self));
+
+  curr_pm = g_weak_ref_get (&self->permission_manager);
+  if (curr_pm == pm)
+    return;
+
+  if (curr_pm)
+    wp_permission_manager_remove_client (curr_pm, self);
+  if (pm)
+    wp_permission_manager_add_client (pm, self);
+  g_weak_ref_set (&self->permission_manager, pm);
 }

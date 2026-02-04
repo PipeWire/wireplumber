@@ -1388,10 +1388,22 @@ client_send_error (lua_State *L)
   return 0;
 }
 
+static int
+client_attach_permission_manager (lua_State *L)
+{
+  WpClient *client = wplua_checkobject (L, 1, WP_TYPE_CLIENT);
+  WpPermissionManager *pm =
+      wplua_checkobject (L, 2, WP_TYPE_PERMISSION_MANAGER);
+
+  wp_client_attach_permission_manager (client, pm);
+  return 0;
+}
+
 static const luaL_Reg client_methods[] = {
   { "update_permissions", client_update_permissions },
   { "update_properties", client_update_properties },
   { "send_error", client_send_error },
+  { "attach_permission_manager", client_attach_permission_manager },
   { NULL, NULL }
 };
 

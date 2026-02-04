@@ -10,6 +10,7 @@
 #define __WIREPLUMBER_CLIENT_H__
 
 #include "global-proxy.h"
+#include "permission-manager.h"
 
 G_BEGIN_DECLS
 
@@ -36,6 +37,10 @@ void wp_client_update_permissions_array (WpClient * self,
 
 WP_API
 void wp_client_update_properties (WpClient * self, WpProperties * updates);
+
+WP_API
+void wp_client_attach_permission_manager (WpClient *self,
+    WpPermissionManager *pm);
 
 G_END_DECLS
 
