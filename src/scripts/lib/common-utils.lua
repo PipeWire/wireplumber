@@ -91,4 +91,24 @@ function cutils.get_application_name ()
   return Core.get_properties()["application.name"] or "WirePlumber"
 end
 
+function cutils.get_client_access (client_properties)
+  local access = client_properties["pipewire.access"]
+  local client_access = client_properties["pipewire.client.access"]
+  local is_flatpak = client_properties:get_boolean ("pipewire.sec.flatpak")
+
+  if is_flatpak then
+    client_access = "flatpak"
+  end
+
+  if client_access == nil then
+    return access
+  elseif access == "unrestricted" or access == "default" then
+    if client_access ~= "unrestricted" then
+      return client_access
+    end
+  end
+
+  return access
+end
+
 return cutils
