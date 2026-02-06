@@ -33,6 +33,7 @@ autoswitch_hooks_registered = false
 
 local PROFILE_RESTORE_TIMEOUT_MSEC = 2000
 local PROFILE_SWITCH_TIMEOUT_MSEC = 500
+local PROFILE_SWITCH_MAX_RETRIES = 6
 
 local state = nil
 local headset_profiles = {}
@@ -40,6 +41,8 @@ local non_headset_profiles = {}
 local capture_stream_links = {}
 local restore_timeout_source = {}
 local switch_timeout_source = {}
+local switch_retry_count = {}
+local restore_retry_count = {}
 
 function saveHeadsetProfile (device, profile_name, persistent)
   local key = "saved-headset-profile:" .. device.properties ["device.name"]
@@ -136,6 +139,43 @@ function hasProfileInputRoute (device, profile_index)
   return false
 end
 
+function hasEnumRoutes (device)
+  for _ in device:iterate_params ("EnumRoute") do
+    return true
+  end
+  return false
+end
+
+function deferSwitchToHeadset (dev_id, device_om, reason)
+  local retries = (switch_retry_count[dev_id] or 0) + 1
+  switch_retry_count[dev_id] = retries
+  if retries > PROFILE_SWITCH_MAX_RETRIES then
+    log:warning ("Giving up profile switch on device " .. tostring (dev_id)
+        .. " after " .. tostring (retries - 1) .. " retries (" .. reason .. ")")
+    return false
+  end
+
+  log:info ("Deferring profile switch on device " .. tostring (dev_id)
+      .. " (" .. reason .. ")")
+  triggerSwitchDeviceToHeadsetProfile (dev_id, device_om)
+  return true
+end
+
+function deferRestoreProfile (dev_id, device_om, reason)
+  local retries = (restore_retry_count[dev_id] or 0) + 1
+  restore_retry_count[dev_id] = retries
+  if retries > PROFILE_SWITCH_MAX_RETRIES then
+    log:warning ("Giving up profile restore on device " .. tostring (dev_id)
+        .. " after " .. tostring (retries - 1) .. " retries (" .. reason .. ")")
+    return false
+  end
+
+  log:info ("Deferring profile restore on device " .. tostring (dev_id)
+      .. " (" .. reason .. ")")
+  triggerRestoreProfile (dev_id, device_om)
+  return true
+end
+
 function switchDeviceToHeadsetProfile (dev_id, device_om)
   -- Find the actual device
   local device = device_om:lookup {
@@ -143,6 +183,11 @@ function switchDeviceToHeadsetProfile (dev_id, device_om)
   }
   if device == nil then
     log:info ("Device with id " .. tostring(dev_id).. " not found")
+    return
+  end
+
+  if not hasEnumRoutes (device) then
+    deferSwitchToHeadset (dev_id, device_om, "EnumRoute not available yet")
     return
   end
 
@@ -170,6 +215,7 @@ function switchDeviceToHeadsetProfile (dev_id, device_om)
 
   -- Switch if headset profile was found
   if profile ~= nil then
+    switch_retry_count[dev_id] = nil
     local pod = Pod.Object {
       "Spa:Pod:Object:Param:Profile", "Profile",
       index = profile.index,
@@ -190,6 +236,11 @@ function restoreProfile (dev_id, device_om)
   }
   if device == nil then
     log:info ("Device with id " .. tostring(dev_id).. " not found")
+    return
+  end
+
+  if not hasEnumRoutes (device) then
+    deferRestoreProfile (dev_id, device_om, "EnumRoute not available yet")
     return
   end
 
@@ -217,6 +268,7 @@ function restoreProfile (dev_id, device_om)
 
   -- Restore if non-headset profile was found
   if profile ~= nil then
+    restore_retry_count[dev_id] = nil
     local pod = Pod.Object {
       "Spa:Pod:Object:Param:Profile", "Profile",
       index = profile.index,
