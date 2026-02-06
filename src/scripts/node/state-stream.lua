@@ -348,8 +348,18 @@ function buildDefaultChannelVolumes (node)
   for pod in node:iterate_params("Format") do
     local pod_parsed = pod:parse()
     if pod_parsed ~= nil then
-      channels = pod_parsed.properties.channels
-      break
+      local t = type(pod_parsed.properties.channels)
+      if t == "number" then
+        channels = pod_parsed.properties.channels
+        break
+      else if t == "table" and #pod_parsed.properties.channels > 0 then
+        -- in some misbehaving clients a non-fixed Format may appear here, which means the number of
+        -- channels will be some kind of choice. If this is the case, pick the first number in the
+        -- choice (which is either the default in an enum or range, or may just happen to be the
+        -- right number in other cases)
+        channels = pod_parsed.properties.channels[1]
+        break
+      end
     end
   end
 
