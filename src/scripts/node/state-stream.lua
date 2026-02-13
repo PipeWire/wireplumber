@@ -352,7 +352,7 @@ function buildDefaultChannelVolumes (node)
       if t == "number" then
         channels = pod_parsed.properties.channels
         break
-      else if t == "table" and #pod_parsed.properties.channels > 0 then
+      elseif t == "table" and #pod_parsed.properties.channels > 0 then
         -- in some misbehaving clients a non-fixed Format may appear here, which means the number of
         -- channels will be some kind of choice. If this is the case, pick the first number in the
         -- choice (which is either the default in an enum or range, or may just happen to be the
