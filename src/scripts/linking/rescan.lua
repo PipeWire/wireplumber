@@ -218,11 +218,6 @@ SimpleEventHook {
 SimpleEventHook {
   name = "linking/rescan-trigger",
   interests = {
-    -- on linkable added or removed, where linkable is adapter or plain node
-    EventInterest {
-      Constraint { "event.type", "c", "session-item-added", "session-item-removed" },
-      Constraint { "event.session-item.interface", "=", "linkable" },
-    },
     -- on device Routes changed
     EventInterest {
       Constraint { "event.type", "=", "device-params-changed" },
