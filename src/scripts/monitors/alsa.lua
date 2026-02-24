@@ -178,6 +178,59 @@ split_nodes_om:connect ("object-added", function(_, node)
     end
 end)
 
+function monitorNodeError (node)
+  node:connect("state-changed", function (n, old_state, new_state)
+    if new_state == "error" and old_state ~= "error" then
+      local node_name = n:get_property ("node.name")
+      local dev_id = n:get_property ("device.id")
+      local curr_profile_index = nil
+
+      log:info ("Error received on ALSA node " .. node_name)
+
+      -- Find the device for this node
+      local device = devices_om:lookup {
+          Constraint { "bound-id", "=", dev_id, type = "gobject" }
+      }
+      if device == nil then
+        log:warning ("Could not find ALSA device for node " .. node_name)
+        return
+      end
+
+      -- Get current profile
+      local dev_name = device:get_property ("device.name")
+      for p in device:iterate_params ("Profile") do
+        local curr_profile = cutils.parseParam (p, "Profile")
+        curr_profile_index = curr_profile.index
+        break
+      end
+      if curr_profile_index == nil then
+        log:warning ("Could not get current profile on ALSA device "
+            .. dev_name)
+        return
+      end
+
+      -- Close the ALSA device by setting the profile to Off
+      local param_off = Pod.Object {
+        "Spa:Pod:Object:Param:Profile", "Profile",
+        index = 0,
+      }
+      device:set_param ("Profile", param_off)
+      log:info ("Profile set to Off on ALSA device " .. dev_name)
+
+      -- Re-open the ALSA device by restoring the profile after one second
+      Core.timeout_add (1000, function ()
+        local param_curr = Pod.Object {
+          "Spa:Pod:Object:Param:Profile", "Profile",
+          index = curr_profile_index,
+        }
+        device:set_param ("Profile", param_curr)
+        log:info ("Restored profile on ALSA device " .. dev_name)
+      end)
+
+    end
+  end)
+end
+
 function createNode(parent, id, obj_type, factory, properties)
   local dev_props = parent.properties
   local parent_id = tonumber(dev_props["spa.object.id"])
@@ -338,8 +391,16 @@ function createNode(parent, id, obj_type, factory, properties)
 
       local node = createSplitPCMHWNode(dev_props, orig_properties)
       if node ~= nil then
-        node:activate(Feature.Proxy.BOUND)
-        parent:store_managed_object(SPLIT_PCM_PARENT_OFFSET + id, node)
+        parent:set_managed_pending(SPLIT_PCM_PARENT_OFFSET + id, node)
+        node:activate(Feature.Proxy.BOUND, function (n, err)
+          if err then
+            log:warning ("Failed to create ALSA SplitPCM HW node " ..
+                n:get_property ("node.name") .. ": " .. tostring(err))
+          else
+            monitorNodeError (n)
+            parent:store_managed_object(SPLIT_PCM_PARENT_OFFSET + id, n)
+          end
+        end)
 
         node_names_table[split_hw_node_name] = true
         id_name_table[parent_id][SPLIT_PCM_PARENT_OFFSET + id] = split_hw_node_name
@@ -358,12 +419,14 @@ function createNode(parent, id, obj_type, factory, properties)
   -- create the node
   local node = Node("adapter", properties)
   parent:set_managed_pending(id)
-  node:activate(Feature.Proxy.BOUND, function (_, err)
+  node:activate(Feature.Proxy.BOUND, function (n, err)
       if err then
-        log:warning ("Failed to create " .. properties ["node.name"]
-          .. ": " .. tostring(err))
+        log:warning ("Failed to create ALSA node " ..
+            n:get_property ("node.name") .. ": " .. tostring(err))
+      else
+        monitorNodeError (n)
+        parent:store_managed_object(id, n)
       end
-      parent:store_managed_object(id, node)
   end)
 end
 
