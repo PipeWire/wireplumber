@@ -1,37 +1,41 @@
 # Kazakh translation of pipewire.
 # Copyright (C) 2020 The pipewire authors.
 # This file is distributed under the same license as the pipewire package.
-# Baurzhan Muftakhidinov <baurthefirst@gmail.com>, 2020.
+# Baurzhan Muftakhidinov <baurthefirst@gmail.com>, 2020-2026.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
-"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/"
-"issues/new\n"
-"POT-Creation-Date: 2022-04-09 15:19+0300\n"
-"PO-Revision-Date: 2020-06-30 08:04+0500\n"
+"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/-/"
+"issues\n"
+"POT-Creation-Date: 2025-12-23 17:57+0000\n"
+"PO-Revision-Date: 2026-03-01 19:33+0500\n"
 "Last-Translator: Baurzhan Muftakhidinov <baurthefirst@gmail.com>\n"
-"Language-Team: \n"
+"Language-Team: Kazakh <kk_KZ@googlegroups.com>\n"
 "Language: kk\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Poedit 2.3.1\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Poedit 3.8\n"
 
 #. WirePlumber
-#.
 #. Copyright © 2021 Collabora Ltd.
 #. @author George Kiagiadakis <george.kiagiadakis@collabora.com>
-#.
 #. SPDX-License-Identifier: MIT
-#. Receive script arguments from config.lua
-#. ensure config.properties is not nil
-#. preprocess rules and create Interest objects
-#. applies properties from config.rules when asked to
+#. unique device/node name tables
+#. SPA ids to node names: name = id_name_table[device_id][node_id]
+#. create the underlying hidden ALSA node
+#. not suitable for loopback
+#: src/scripts/monitors/alsa.lua:106
+#, lua-format
+msgid "Split %s"
+msgstr "Бөлінген %s"
+
+#. Connect ObjectConfig events to the right node
 #. set the device id and spa factory name; REQUIRED, do not change
 #. set the default pause-on-idle setting
-#. try to negotiate the max ammount of channels
+#. try to negotiate the max amount of channels
 #. set priority
 #. ensure the node has a media class
 #. ensure the node has a name
@@ -41,16 +45,373 @@ msgstr ""
 #. also sanitize nick, replace ':' with ' '
 #. ensure the node has a description
 #. also sanitize description, replace ':' with ' '
-#. add api.alsa.card.* properties for rule matching purposes
-#. apply properties from config.rules
+#. add api.alsa.card.* and alsa.* properties for rule matching purposes
+#. add cpu.vm.name for rule matching purposes
+#. apply properties from rules defined in JSON .conf file
+#. handle split HW node
+#. create split PCM node
 #. create the node
 #. ensure the device has an appropriate name
 #. deduplicate devices with the same name
 #. ensure the device has a description
-#: src/scripts/monitors/alsa.lua:222
+#: src/scripts/monitors/alsa.lua:438
+msgid "Loopback"
+msgstr "Loopback"
+
+#: src/scripts/monitors/alsa.lua:440
 msgid "Built-in Audio"
 msgstr "Құрамындағы аудио"
 
-#: src/scripts/monitors/alsa.lua:224
+#: src/scripts/monitors/alsa.lua:442
 msgid "Modem"
 msgstr "Модем"
+
+#. ensure the device has a nick
+#. set the icon name
+#. form factor -> icon
+#. apply properties from rules defined in JSON .conf file
+#. override the device factory to use ACP
+#. use HDMI channel detection if enabled in settings
+#. use device reservation, if available
+#. unlike pipewire-media-session, this logic here keeps the device
+#. acquired at all times and destroys it if someone else acquires
+#. create the device
+#. attempt to acquire again
+#. destroy the device
+#. create the device
+#. handle create-object to prepare device
+#. handle object-removed to destroy device reservations and recycle device
+#. name
+#. reset the name tables to make sure names are recycled
+#. activate monitor
+#. if the reserve-device plugin is enabled, at the point of script execution
+#. it is expected to be connected. if it is not, assume the d-bus connection
+#. has failed and continue without it
+#. handle rd_plugin state changes to destroy and re-create the ALSA monitor in
+#. case D-Bus service is restarted
+#. create the monitor
+#. WirePlumber
+#. Copyright © 2022 Pauli Virtanen
+#. @author Pauli Virtanen
+#. SPDX-License-Identifier: MIT
+#. unique device/node name tables
+#. set the node description
+#. sanitize description, replace ':' with ' '
+#. set the node name
+#. sanitize name
+#. deduplicate nodes with the same name
+#. apply properties from the rules in the configuration file
+#. create the node
+#. it doesn't necessarily need to be a local node,
+#. the other Bluetooth parts run in the local process,
+#. so it's consistent to have also this here
+#. reset the name tables to make sure names are recycled
+#: src/scripts/monitors/bluez-midi.lua:114
+#, lua-format
+msgid "BLE MIDI %d"
+msgstr "BLE MIDI %d"
+
+#. if logind support is enabled, activate
+#. the monitor only when the seat is active
+#. WirePlumber
+#. Copyright © 2023 Collabora Ltd.
+#. @author Ashok Sidipotu <ashok.sidipotu@collabora.com>
+#. SPDX-License-Identifier: MIT
+#. set the device id and spa factory name; REQUIRED, do not change
+#. set the default pause-on-idle setting
+#. set the node name
+#. sanitize name
+#. deduplicate nodes with the same name
+#. set the node description
+#: src/scripts/monitors/libcamera/name-node.lua:61
+msgid "Built-in Front Camera"
+msgstr "Ішкі алдыңғы камера"
+
+#: src/scripts/monitors/libcamera/name-node.lua:63
+msgid "Built-in Back Camera"
+msgstr "Ішкі артқы камера"
+
+#. /wireplumber.settings.schema/bluetooth.autoswitch-to-headset-
+#. profile/description
+#: wireplumber.conf
+msgid ""
+"Always show microphone for Bluetooth headsets, and switch to headset mode "
+"when recording"
+msgstr ""
+"Bluetooth гарнитуралары үшін микрофонды әрдайым көрсету және жазу кезінде "
+"гарнитура режиміне ауысу"
+
+#. /wireplumber.settings.schema/bluetooth.autoswitch-to-headset-profile/name
+#: wireplumber.conf
+msgid "Auto-switch to headset profile"
+msgstr "Гарнитура профиліне автоматты түрде ауысу"
+
+#. /wireplumber.settings.schema/bluetooth.use-persistent-storage/description
+#: wireplumber.conf
+msgid "Remember and restore Bluetooth headset mode status"
+msgstr "Bluetooth гарнитура режимінің күйін есте сақтау және қалпына келтіру"
+
+#. /wireplumber.settings.schema/bluetooth.use-persistent-storage/name
+#: wireplumber.conf
+msgid "Persistent storage"
+msgstr "Тұрақты сақтау орны"
+
+#. /wireplumber.settings.schema/device.restore-profile/description
+#: wireplumber.conf
+msgid "Remember and restore device profiles"
+msgstr "Құрылғы профильдерін есте сақтау және қалпына келтіру"
+
+#. /wireplumber.settings.schema/device.restore-profile/name
+#: wireplumber.conf
+msgid "Restore profile"
+msgstr "Профильді қалпына келтіру"
+
+#. /wireplumber.settings.schema/device.restore-routes/description
+#: wireplumber.conf
+msgid "Remember and restore device routes"
+msgstr "Құрылғы маршруттарын есте сақтау және қалпына келтіру"
+
+#. /wireplumber.settings.schema/device.restore-routes/name
+#: wireplumber.conf
+msgid "Restore routes"
+msgstr "Маршруттарды қалпына келтіру"
+
+#. /wireplumber.settings.schema/device.routes.default-sink-volume/description
+#: wireplumber.conf
+msgid "The default volume for audio sinks"
+msgstr "Аудио қабылдағыштары үшін бастапқы дыбыс деңгейі"
+
+#. /wireplumber.settings.schema/device.routes.default-sink-volume/name
+#: wireplumber.conf
+msgid "Default sink volume"
+msgstr "Қабылдағыштың бастапқы дыбыс деңгейі"
+
+#. /wireplumber.settings.schema/device.routes.default-source-
+#. volume/description
+#: wireplumber.conf
+msgid "The default volume for audio sources"
+msgstr "Аудио көздері үшін бастапқы дыбыс деңгейі"
+
+#. /wireplumber.settings.schema/device.routes.default-source-volume/name
+#: wireplumber.conf
+msgid "Default source volume"
+msgstr "Көздің бастапқы дыбыс деңгейі"
+
+#. /wireplumber.settings.schema/device.routes.mute-on-alsa-playback-
+#. removed/description
+#: wireplumber.conf
+msgid ""
+"Automatically mute all audio devices when active wired headphones/speakers "
+"are disconnected to prevent unintended sound output"
+msgstr ""
+"Күтпеген дыбыс шығуын болдырмау үшін белсенді сымды құлаққаптар/колонкалар "
+"ажыратылған кезде барлық аудио құрылғылардың дыбысын автоматты түрде өшіру"
+
+#. /wireplumber.settings.schema/device.routes.mute-on-alsa-playback-
+#. removed/name
+#: wireplumber.conf
+msgid "Auto-mute on wired audio disconnect"
+msgstr "Сымды аудио ажыратылғанда дыбысты автоматты өшіру"
+
+#. /wireplumber.settings.schema/device.routes.mute-on-bluetooth-playback-
+#. removed/description
+#: wireplumber.conf
+msgid ""
+"Automatically mute all audio devices when active Bluetooth headphones/"
+"speakers are disconnected to prevent unintended sound output"
+msgstr ""
+"Күтпеген дыбыс шығуын болдырмау үшін белсенді Bluetooth құлаққаптары/"
+"колонкалары ажыратылған кезде барлық аудио құрылғылардың дыбысын автоматты "
+"түрде өшіру"
+
+#. /wireplumber.settings.schema/device.routes.mute-on-bluetooth-playback-
+#. removed/name
+#: wireplumber.conf
+msgid "Auto-mute on Bluetooth audio disconnect"
+msgstr "Bluetooth аудио ажыратылғанда дыбысты автоматты өшіру"
+
+#. /wireplumber.settings.schema/linking.allow-moving-streams/description
+#: wireplumber.conf
+msgid "Streams may be moved by adding PipeWire metadata at runtime"
+msgstr ""
+"Ағындарды орындалу уақытында PipeWire метадеректерін қосу арқылы жылжытуға "
+"болады"
+
+#. /wireplumber.settings.schema/linking.allow-moving-streams/name
+#: wireplumber.conf
+msgid "Allow moving streams"
+msgstr "Ағындарды жылжытуға рұқсат ету"
+
+#. /wireplumber.settings.schema/linking.follow-default-target/description
+#: wireplumber.conf
+msgid "Streams connected to the default device follow when default changes"
+msgstr ""
+"Бастапқы құрылғыға қосылған ағындар бастапқы құрылғы өзгергенде оның "
+"соңынан ереді"
+
+#. /wireplumber.settings.schema/linking.follow-default-target/name
+#: wireplumber.conf
+msgid "Follow default target"
+msgstr "Бастапқы мақсаттың соңынан еру"
+
+#. /wireplumber.settings.schema/linking.pause-playback/description
+#: wireplumber.conf
+msgid "Pause media players if their target sink is removed"
+msgstr "Егер мақсатты қабылдағыш өшірілсе, медиа ойнатқыштарды аялдату"
+
+#. /wireplumber.settings.schema/linking.pause-playback/name
+#: wireplumber.conf
+msgid "Pause playback if output removed"
+msgstr "Шығыс өшірілсе, ойнатуды аялдату"
+
+#. /wireplumber.settings.schema/linking.role-based.duck-level/description
+#: wireplumber.conf
+msgid ""
+"The volume level to apply when ducking (= reducing volume for a higher "
+"priority stream to be audible) in the role-based linking policy"
+msgstr ""
+"Рөлге негізделген байланыстыру саясатында даккинг (= басымдылығы жоғары "
+"ағын естілуі үшін дыбысты азайту) кезінде қолданылатын дыбыс деңгейі"
+
+#. /wireplumber.settings.schema/linking.role-based.duck-level/name
+#: wireplumber.conf
+msgid "Ducking level"
+msgstr "Даккинг деңгейі"
+
+#. /wireplumber.settings.schema/monitor.alsa.autodetect-hdmi-
+#. channels/description
+#: wireplumber.conf
+msgid ""
+"Automatically detect channel count and positions for HDMI devices "
+"(experimental)"
+msgstr ""
+"HDMI құрылғылары үшін арналар санын және орындарын автоматты түрде анықтау "
+"(эксперименталды)"
+
+#. /wireplumber.settings.schema/monitor.alsa.autodetect-hdmi-channels/name
+#: wireplumber.conf
+msgid "Automatically detect HDMI channels (experimental)"
+msgstr "HDMI арналарын автоматты түрде анықтау (эксперименталды)"
+
+#. /wireplumber.settings.schema/monitor.camera-discovery-timeout/description
+#: wireplumber.conf
+msgid "The camera discovery timeout in milliseconds"
+msgstr "Камераны анықтаудың күту уақыты (миллисекундпен)"
+
+#. /wireplumber.settings.schema/monitor.camera-discovery-timeout/name
+#: wireplumber.conf
+msgid "Discovery timeout"
+msgstr "Анықтаудың күту уақыты"
+
+#. /wireplumber.settings.schema/node.features.audio.control-port/description
+#: wireplumber.conf
+msgid "Enable control ports on audio nodes"
+msgstr "Аудио тораптарында басқару порттарын іске қосу"
+
+#. /wireplumber.settings.schema/node.features.audio.control-port/name
+#: wireplumber.conf
+msgid "Control ports"
+msgstr "Басқару порттары"
+
+#. /wireplumber.settings.schema/node.features.audio.monitor-ports/description
+#: wireplumber.conf
+msgid "Enable monitor ports on audio nodes"
+msgstr "Аудио тораптарында монитор порттарын іске қосу"
+
+#. /wireplumber.settings.schema/node.features.audio.monitor-ports/name
+#: wireplumber.conf
+msgid "Monitor ports"
+msgstr "Монитор порттары"
+
+#. /wireplumber.settings.schema/node.features.audio.mono/description
+#: wireplumber.conf
+msgid "Configure all audio device sink nodes in MONO"
+msgstr "Барлық аудио құрылғының қабылдағыш тораптарын MONO режимінде баптау"
+
+#. /wireplumber.settings.schema/node.features.audio.mono/name
+#: wireplumber.conf
+msgid "Mono"
+msgstr "Моно"
+
+#. /wireplumber.settings.schema/node.features.audio.no-dsp/description
+#: wireplumber.conf
+msgid "Do not convert audio to F32 format"
+msgstr "Аудионы F32 пішіміне түрлендірмеу"
+
+#. /wireplumber.settings.schema/node.features.audio.no-dsp/name
+#: wireplumber.conf
+msgid "No DSP"
+msgstr "DSP жоқ"
+
+#. /wireplumber.settings.schema/node.filter.forward-format/description
+#: wireplumber.conf
+msgid "Forward format on filter nodes or not"
+msgstr "Сүзгі тораптарында пішімді алға жіберу немесе жібермеу"
+
+#. /wireplumber.settings.schema/node.filter.forward-format/name
+#: wireplumber.conf
+msgid "Forward format"
+msgstr "Пішімді алға жіберу"
+
+#. /wireplumber.settings.schema/node.restore-default-targets/description
+#: wireplumber.conf
+msgid "Remember and restore default audio/video input/output devices"
+msgstr ""
+"Бастапқы аудио/видео кіріс/шығыс құрылғыларын есте сақтау және қалпына "
+"келтіру"
+
+#. /wireplumber.settings.schema/node.restore-default-targets/name
+#: wireplumber.conf
+msgid "Restore default target"
+msgstr "Бастапқы мақсатты қалпына келтіру"
+
+#. /wireplumber.settings.schema/node.stream.default-capture-volume/description
+#: wireplumber.conf
+msgid "The default volume for capture nodes"
+msgstr "Түсіру тораптары үшін бастапқы дыбыс деңгейі"
+
+#. /wireplumber.settings.schema/node.stream.default-capture-volume/name
+#: wireplumber.conf
+msgid "Default capture volume"
+msgstr "Түсірудің бастапқы дыбыс деңгейі"
+
+#. /wireplumber.settings.schema/node.stream.default-media-role/description
+#: wireplumber.conf
+msgid "Default media.role to assign on streams that do not specify it"
+msgstr "Оны көрсетпеген ағындарға тағайындалатын бастапқы media.role"
+
+#. /wireplumber.settings.schema/node.stream.default-media-role/name
+#: wireplumber.conf
+msgid "Default media role"
+msgstr "Бастапқы медиа рөлі"
+
+#. /wireplumber.settings.schema/node.stream.default-playback-
+#. volume/description
+#: wireplumber.conf
+msgid "The default volume for playback nodes"
+msgstr "Ойнату тораптары үшін бастапқы дыбыс деңгейі"
+
+#. /wireplumber.settings.schema/node.stream.default-playback-volume/name
+#: wireplumber.conf
+msgid "Default playback volume"
+msgstr "Ойнатудың бастапқы дыбыс деңгейі"
+
+#. /wireplumber.settings.schema/node.stream.restore-props/description
+#: wireplumber.conf
+msgid "Remember and restore properties of streams"
+msgstr "Ағындардың қасиеттерін есте сақтау және қалпына келтіру"
+
+#. /wireplumber.settings.schema/node.stream.restore-props/name
+#: wireplumber.conf
+msgid "Restore properties"
+msgstr "Қасиеттерді қалпына келтіру"
+
+#. /wireplumber.settings.schema/node.stream.restore-target/description
+#: wireplumber.conf
+msgid "Remember and restore stream targets"
+msgstr "Ағын мақсаттарын есте сақтау және қалпына келтіру"
+
+#. /wireplumber.settings.schema/node.stream.restore-target/name
+#: wireplumber.conf
+msgid "Restore target"
+msgstr "Мақсатты қалпына келтіру"
