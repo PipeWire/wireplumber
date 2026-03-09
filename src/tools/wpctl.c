@@ -35,12 +35,31 @@ struct _WpCtl
   gint exit_code;
 };
 
+typedef enum {
+  LIST_MEDIA_ALL = 0,
+  LIST_MEDIA_AUDIO,
+  LIST_MEDIA_VIDEO,
+} ListMediaType;
+
+typedef enum {
+  LIST_OBJECT_ALL = 0,
+  LIST_OBJECT_DEVICES,
+  LIST_OBJECT_SINKS,
+  LIST_OBJECT_SOURCES,
+} ListObjectType;
+
 static struct {
   union {
     struct {
       gboolean display_nicknames;
       gboolean display_names;
     } status;
+
+    struct {
+      ListMediaType media_type;
+      ListObjectType object_type;
+    } list;
+
     struct {
       guint64 id;
       gboolean show_referenced;
@@ -540,6 +559,159 @@ status_run (WpCtl * self)
   }
 
   g_clear_object (&context.mixer_api);
+  g_main_loop_quit (self->loop);
+}
+
+/* list */
+
+static gboolean
+list_parse_positional (gint argc, gchar ** argv, GError **error)
+{
+  cmdline.list.media_type = LIST_MEDIA_ALL;
+  cmdline.list.object_type = LIST_OBJECT_ALL;
+
+  if (argc < 3)
+    return TRUE;
+
+  if (g_strcmp0 (argv[2], "audio") == 0) {
+    cmdline.list.media_type = LIST_MEDIA_AUDIO;
+  } else if (g_strcmp0 (argv[2], "video") == 0) {
+    cmdline.list.media_type = LIST_MEDIA_VIDEO;
+  } else {
+    g_set_error (error, wpctl_error_domain_quark(), 0,
+        "'%s' is not a valid list option", argv[2]);
+    return FALSE;
+  }
+
+  if (argc < 4)
+    return TRUE;
+
+  if (g_strcmp0 (argv[3], "devices") == 0) {
+    cmdline.list.object_type = LIST_OBJECT_DEVICES;
+  } else if (g_strcmp0 (argv[3], "sinks") == 0) {
+    cmdline.list.object_type = LIST_OBJECT_SINKS;
+  } else if (g_strcmp0 (argv[3], "sources") == 0) {
+    cmdline.list.object_type = LIST_OBJECT_SOURCES;
+  } else {
+    g_set_error (error, wpctl_error_domain_quark(), 0,
+        "'%s' is not a valid list option", argv[3]);
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+static gboolean
+list_prepare (WpCtl * self, GError ** error)
+{
+  wp_object_manager_add_interest (self->om, WP_TYPE_DEVICE, NULL);
+  wp_object_manager_add_interest (self->om, WP_TYPE_NODE, NULL);
+  wp_object_manager_add_interest (self->om, WP_TYPE_METADATA, NULL);
+  return TRUE;
+}
+
+struct list_context
+{
+  guint32 default_node;
+  const gchar *media_type;
+  const gchar *object_type;
+};
+
+static void
+list_print_device (const GValue *item, gpointer data)
+{
+  WpPipewireObject *obj = g_value_get_object (item);
+  struct list_context *context = data;
+  guint32 id = wp_proxy_get_bound_id (WP_PROXY (obj));
+  const gchar *name = wp_pipewire_object_get_property (obj, PW_KEY_DEVICE_NAME);
+  printf ("%u\t%s\t%s/%s\t \n", id, name, context->media_type, context->object_type);
+}
+
+static void
+list_print_dev_node (const GValue *item, gpointer data)
+{
+  WpPipewireObject *obj = g_value_get_object (item);
+  struct list_context *context = data;
+  guint32 id = wp_proxy_get_bound_id (WP_PROXY (obj));
+  gboolean is_default = (context->default_node == id);
+  const gchar *name = wp_pipewire_object_get_property (obj, PW_KEY_NODE_NAME);
+  printf ("%u\t%s\t%s/%s\t%c\n", id, name, context->media_type, context->object_type, is_default ? '*' : ' ');
+}
+
+static const struct {
+  const gchar *title_name;
+  const gchar *lower_name;
+  ListMediaType value;
+} list_media_types[] = {
+  { "Audio", "audio", LIST_MEDIA_AUDIO },
+  { "Video", "video", LIST_MEDIA_VIDEO },
+};
+
+static void
+list_run (WpCtl * self)
+{
+  struct list_context context;
+  g_autoptr (WpPlugin) def_nodes_api = wp_plugin_find (self->core, "default-nodes-api");
+  const ListMediaType media_filter = cmdline.list.media_type;
+  const ListObjectType object_filter = cmdline.list.object_type;
+
+  for (guint i = 0; i < G_N_ELEMENTS (list_media_types); i++) {
+    if (media_filter != LIST_MEDIA_ALL &&
+        media_filter != list_media_types[i].value)
+        continue;
+
+    const gchar *media_type = list_media_types[i].title_name;
+    context.media_type = list_media_types[i].lower_name;
+    gchar media_type_glob[16];
+    gchar media_class[24];
+
+    g_snprintf (media_type_glob, sizeof(media_type_glob), "*%s*", media_type);
+
+    /* Devices */
+    if (object_filter == LIST_OBJECT_ALL || object_filter == LIST_OBJECT_DEVICES) {
+      context.object_type = "device";
+      g_autoptr (WpIterator) it = wp_object_manager_new_filtered_iterator (self->om,
+          WP_TYPE_DEVICE,
+          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
+          NULL);
+      wp_iterator_foreach (it, list_print_device, &context);
+    }
+
+    /* Sinks */
+    if (object_filter == LIST_OBJECT_ALL || object_filter == LIST_OBJECT_SINKS) {
+      g_snprintf (media_class, sizeof(media_class), "%s/Sink", media_type);
+      context.default_node = -1;
+      context.object_type = "sink";
+      if (def_nodes_api)
+        g_signal_emit_by_name (def_nodes_api, "get-default-node", media_class,
+            &context.default_node);
+      g_autoptr (WpIterator) it = wp_object_manager_new_filtered_iterator (self->om,
+          WP_TYPE_NODE,
+          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "*/Sink*",
+          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
+          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_LINK_GROUP, "-",
+          NULL);
+      wp_iterator_foreach (it, list_print_dev_node, &context);
+    }
+
+    /* Sources */
+    if (object_filter == LIST_OBJECT_ALL || object_filter == LIST_OBJECT_SOURCES) {
+      g_snprintf (media_class, sizeof(media_class), "%s/Source", media_type);
+      context.default_node = -1;
+      context.object_type = "source";
+      if (def_nodes_api)
+        g_signal_emit_by_name (def_nodes_api, "get-default-node", media_class,
+            &context.default_node);
+      g_autoptr (WpIterator) it = wp_object_manager_new_filtered_iterator (self->om,
+          WP_TYPE_NODE,
+          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", "*/Source*",
+          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_MEDIA_CLASS, "#s", media_type_glob,
+          WP_CONSTRAINT_TYPE_PW_PROPERTY, PW_KEY_NODE_LINK_GROUP, "-",
+          NULL);
+      wp_iterator_foreach (it, list_print_dev_node, &context);
+    }
+  }
+
   g_main_loop_quit (self->loop);
 }
 
@@ -1713,6 +1885,16 @@ static const struct subcommand {
     .parse_positional = NULL,
     .prepare = status_prepare,
     .run = status_run,
+  },
+  {
+    .name = "list",
+    .positional_args = "[audio|video] [devices|sinks|sources]",
+    .summary = "Displays PipeWire objects, optionally filtered by media and object type",
+    .description = NULL,
+    .entries = { { NULL } },
+    .parse_positional = list_parse_positional,
+    .prepare = list_prepare,
+    .run = list_run,
   },
   {
     .name = "get-volume",
