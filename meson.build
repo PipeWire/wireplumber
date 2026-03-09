@@ -182,7 +182,9 @@ if build_modules
   subdir('modules')
 endif
 subdir('src')
-subdir('po')
+if build_daemon
+  subdir('po')
+endif
 subdir('docs')
 
 if get_option('tests')
