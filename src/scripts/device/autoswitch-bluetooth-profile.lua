@@ -455,6 +455,17 @@ local state_changed_hook = SimpleEventHook {
   },
   execute = function (event)
     local source = event:get_source ()
+    local node = event:get_subject ()
+    local old_state = event:get_properties ()["event.subject.old-state"]
+    local new_state = event:get_properties ()["event.subject.new-state"]
+
+    log:info (node, "state changed from '" .. old_state .. "' to '" .. new_state .. "'")
+
+    -- Dont evaluate if the state changed from idle to suspended
+    if old_state == "idle" and new_state == "suspended" then
+      return
+    end
+
     source:call ("push-event", "evaluate-bluetooth-profiles", nil, nil)
   end
 }
