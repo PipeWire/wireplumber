@@ -86,42 +86,6 @@ function getCurrentProfile (device)
   return nil
 end
 
-function highestPrioProfileWithInputRoute (device)
-  local found_profile = nil
-  for p in device:iterate_params ("EnumRoute") do
-    local route = cutils.parseParam (p, "EnumRoute")
-    if route ~= nil and route.profiles ~= nil and route.direction == "Input" then
-      for _, v in pairs (route.profiles) do
-        local p = findProfile (device, v)
-        if p ~= nil then
-          if found_profile == nil or found_profile.priority < p.priority then
-            found_profile = p
-          end
-        end
-      end
-    end
-  end
-  return found_profile
-end
-
-function highestPrioProfileWithoutInputRoute (device)
-  local found_profile = nil
-  for p in device:iterate_params ("EnumRoute") do
-    local route = cutils.parseParam (p, "EnumRoute")
-    if route ~= nil and route.profiles ~= nil and route.direction ~= "Input" then
-      for _, v in pairs (route.profiles) do
-        local p = findProfile (device, v)
-        if p ~= nil then
-          if found_profile == nil or found_profile.priority < p.priority then
-            found_profile = p
-          end
-        end
-      end
-    end
-  end
-  return found_profile
-end
-
 function hasProfileInputRoute (device, profile_index)
   for p in device:iterate_params ("EnumRoute") do
     local route = cutils.parseParam (p, "EnumRoute")
@@ -136,6 +100,51 @@ function hasProfileInputRoute (device, profile_index)
   return false
 end
 
+function isHeadsetProfile (device, profile)
+  if hasProfileInputRoute (device, profile.index) and
+      (string.find (profile.name, "^headset%-head%-unit") or profile.name == "bap-duplex") then
+    return true
+  else
+    return false
+  end
+end
+
+function highestPrioHeadsetProfile (device)
+  local found_profile = nil
+  for p in device:iterate_params ("EnumRoute") do
+    local route = cutils.parseParam (p, "EnumRoute")
+    if route ~= nil and route.profiles ~= nil and route.direction == "Input" then
+      for _, v in pairs (route.profiles) do
+        local p = findProfile (device, v)
+        if p ~= nil and isHeadsetProfile (device, p) then
+          if found_profile == nil or found_profile.priority < p.priority then
+            found_profile = p
+          end
+        end
+      end
+    end
+  end
+  return found_profile
+end
+
+function highestPrioNonHeadsetProfile (device)
+  local found_profile = nil
+  for p in device:iterate_params ("EnumRoute") do
+    local route = cutils.parseParam (p, "EnumRoute")
+    if route ~= nil and route.profiles ~= nil and route.direction ~= "Input" then
+      for _, v in pairs (route.profiles) do
+        local p = findProfile (device, v)
+        if p ~= nil and not isHeadsetProfile (device, p) then
+          if found_profile == nil or found_profile.priority < p.priority then
+            found_profile = p
+          end
+        end
+      end
+    end
+  end
+  return found_profile
+end
+
 function switchDeviceToHeadsetProfile (dev_id, device_om)
   -- Find the actual device
   local device = device_om:lookup {
@@ -148,8 +157,7 @@ function switchDeviceToHeadsetProfile (dev_id, device_om)
 
   -- Do not switch if the current profile is already a headset profile
   local cur_profile = getCurrentProfile (device)
-  if cur_profile ~= nil and
-      hasProfileInputRoute (device, cur_profile.index) then
+  if cur_profile ~= nil and isHeadsetProfile (device, cur_profile) then
     log:info (device,
         "Current profile is already a headset profile, no need to switch")
     return
@@ -163,12 +171,12 @@ function switchDeviceToHeadsetProfile (dev_id, device_om)
   local profile_name = getSavedHeadsetProfile (device)
   if profile_name ~= nil then
     profile = findProfile (device, nil, profile_name)
-    if profile ~= nil and not hasProfileInputRoute (device, profile.index) then
+    if profile ~= nil and not isHeadsetProfile (device, profile) then
       saveHeadsetProfile (device, nil, false)
     end
   end
   if profile == nil then
-    profile = highestPrioProfileWithInputRoute (device)
+    profile = highestPrioHeadsetProfile (device)
   end
 
   -- Switch if headset profile was found
@@ -198,8 +206,7 @@ function restoreProfile (dev_id, device_om)
 
   -- Do not restore if the current profile is already a non-headset profile
   local cur_profile = getCurrentProfile (device)
-  if cur_profile ~= nil and
-      not hasProfileInputRoute (device, cur_profile.index) then
+  if cur_profile ~= nil and not isHeadsetProfile (device, cur_profile) then
     log:info (device,
         "Current profile is already a non-headset profile, no need to restore")
     return
@@ -213,12 +220,12 @@ function restoreProfile (dev_id, device_om)
   local profile_name = getSavedNonHeadsetProfile (device)
   if profile_name ~= nil then
     profile = findProfile (device, nil, profile_name)
-    if profile ~= nil and hasProfileInputRoute (device, profile.index) then
+    if profile ~= nil and isHeadsetProfile (device, profile) then
       saveNonHeadsetProfile (device, nil)
     end
   end
   if profile == nil then
-    profile = highestPrioProfileWithoutInputRoute (device)
+    profile = highestPrioNonHeadsetProfile (device)
   end
 
   -- Restore if non-headset profile was found
@@ -483,7 +490,7 @@ local device_profile_changed_hook = SimpleEventHook {
     -- Always save the current profile when it changes
     local cur_profile = getCurrentProfile (device)
     if cur_profile ~= nil then
-      if hasProfileInputRoute (device, cur_profile.index) then
+      if isHeadsetProfile (device, cur_profile) then
         log:info (device, "Saving headset profile " .. cur_profile.name)
         saveHeadsetProfile (device, cur_profile.name, cur_profile.save)
       else
