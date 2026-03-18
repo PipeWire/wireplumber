@@ -173,6 +173,7 @@ function switchDeviceToHeadsetProfile (dev_id, device_om)
     profile = findProfile (device, nil, profile_name)
     if profile ~= nil and not isHeadsetProfile (device, profile) then
       saveHeadsetProfile (device, nil, false)
+      profile = nil
     end
   end
   if profile == nil then
@@ -222,6 +223,7 @@ function restoreProfile (dev_id, device_om)
     profile = findProfile (device, nil, profile_name)
     if profile ~= nil and isHeadsetProfile (device, profile) then
       saveNonHeadsetProfile (device, nil)
+      profile = nil
     end
   end
   if profile == nil then
