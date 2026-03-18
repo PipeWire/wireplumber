@@ -301,7 +301,9 @@ function createNode(parent, id, type, factory, properties)
     if factory == "api.bluez5.sco.source" or
         (factory == "api.bluez5.a2dp.source" and cutils.parseBool (properties["api.bluez5.a2dp-duplex"])) then
       properties["bluez5.loopback"] = false
-      properties["api.bluez5.internal"] = true
+      if properties["api.bluez5.profile"] ~= "headset-audio-gateway" then
+        properties["api.bluez5.internal"] = true
+      end
     end
 
     local node = LocalNode("adapter", properties)
