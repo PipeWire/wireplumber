@@ -487,7 +487,7 @@ local node_added_hook = SimpleEventHook {
 }
 
 local device_profile_changed_hook = SimpleEventHook {
-  name = "device/store-user-selected-profile",
+  name = "bluez-profile-changed@autoswitch-bluetooth-profile",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "device-params-changed" },
