@@ -245,7 +245,7 @@ function restoreProfile (dev_id, device_om)
   end
 end
 
-function triggerSwitchDeviceToHeadsetProfile (dev_id, device_om)
+function triggerSwitchDeviceToHeadsetProfile (source, dev_id)
   -- Always clear any pending restore/switch callbacks when triggering a new switch
   if restore_timeout_source[dev_id] ~= nil then
     restore_timeout_source[dev_id]:destroy ()
@@ -262,11 +262,14 @@ function triggerSwitchDeviceToHeadsetProfile (dev_id, device_om)
   log:info ("Triggering profile switch on device " .. tostring (dev_id))
   switch_timeout_source[dev_id] = Core.timeout_add (PROFILE_SWITCH_TIMEOUT_MSEC, function ()
     switch_timeout_source[dev_id] = nil
-    switchDeviceToHeadsetProfile (dev_id, device_om)
+
+    local e = source:call ("create-event", "autoswitch-bluez-headset-profile", nil, nil)
+    e:set_data ("device-id", dev_id)
+    EventDispatcher.push_event (e)
   end)
 end
 
-function triggerRestoreProfile (dev_id, device_om)
+function triggerRestoreProfile (source, dev_id)
   -- Always clear any pending restore/switch callbacks when triggering a new restore
   if switch_timeout_source[dev_id] ~= nil then
     switch_timeout_source[dev_id]:destroy ()
@@ -283,7 +286,10 @@ function triggerRestoreProfile (dev_id, device_om)
   log:info ("Triggering profile restore on device " .. tostring (dev_id))
   restore_timeout_source[dev_id] = Core.timeout_add (PROFILE_RESTORE_TIMEOUT_MSEC, function ()
     restore_timeout_source[dev_id] = nil
-    restoreProfile (dev_id, device_om)
+
+    local e = source:call ("create-event", "autoswitch-bluez-a2dp-profile", nil, nil)
+    e:set_data ("device-id", dev_id)
+    EventDispatcher.push_event (e)
   end)
 end
 
@@ -359,6 +365,60 @@ function isBluetoothLoopbackSourceNodeLinkedToStream (bt_node, node_om, link_om)
   return false
 end
 
+local switch_profile_hook = AsyncEventHook {
+  name = "switch-profile@autoswitch-bluetooth-profile",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "autoswitch-bluez-headset-profile" },
+    },
+  },
+  steps = {
+    start = {
+      next = "none",
+      execute = function (event, transition)
+        local source = event:get_source ()
+        local device_om = source:call ("get-object-manager", "device")
+        local device_id = event:get_data ("device-id")
+
+        -- Switch profile
+        switchDeviceToHeadsetProfile (device_id, device_om)
+
+        -- Wait until the profile is applied
+        Core.sync (function ()
+          transition:advance ()
+        end)
+      end
+    },
+  }
+}
+
+local restore_profile_hook = AsyncEventHook {
+  name = "restore-profile@autoswitch-bluetooth-profile",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "autoswitch-bluez-a2dp-profile" },
+    },
+  },
+  steps = {
+    start = {
+      next = "none",
+      execute = function (event, transition)
+        local source = event:get_source ()
+        local device_om = source:call ("get-object-manager", "device")
+        local device_id = event:get_data ("device-id")
+
+        -- Restore profile
+        restoreProfile (device_id, device_om)
+
+        -- Wait until the profile is applied
+        Core.sync (function ()
+          transition:advance ()
+        end)
+      end
+    },
+  }
+}
+
 local evaluate_bluetooth_profiles_hook = SimpleEventHook {
   name = "evaluate-bluetooth-profiles@autoswitch-bluetooth-profile",
   interests = {
@@ -369,7 +429,6 @@ local evaluate_bluetooth_profiles_hook = SimpleEventHook {
   execute = function (event)
     local source = event:get_source ()
     local node_om = source:call ("get-object-manager", "node")
-    local device_om = source:call ("get-object-manager", "device")
     local link_om = source:call ("get-object-manager", "link")
 
     -- Evaluate all bluetooth loopback source nodes, and switch to headset
@@ -390,9 +449,9 @@ local evaluate_bluetooth_profiles_hook = SimpleEventHook {
 
       if bt_node_state == "running" and
           isBluetoothLoopbackSourceNodeLinkedToStream (bt_node, node_om, link_om) then
-        triggerSwitchDeviceToHeadsetProfile (bt_dev_id, device_om)
+        triggerSwitchDeviceToHeadsetProfile (source, bt_dev_id)
       else
-        triggerRestoreProfile (bt_dev_id, device_om)
+        triggerRestoreProfile (source, bt_dev_id)
       end
     end
   end
@@ -533,6 +592,8 @@ function evaluateAutoswitch ()
     capture_stream_links = {}
     restore_timeout_source = {}
     switch_timeout_source = {}
+    switch_profile_hook:register ()
+    restore_profile_hook:register ()
     evaluate_bluetooth_profiles_hook:register ()
     link_added_hook:register ()
     link_removed_hook:register ()
@@ -544,6 +605,8 @@ function evaluateAutoswitch ()
     capture_stream_links = nil
     restore_timeout_source = nil
     switch_timeout_source = nil
+    switch_profile_hook:remove ()
+    restore_profile_hook:remove ()
     evaluate_bluetooth_profiles_hook:remove ()
     link_added_hook:remove ()
     link_removed_hook:remove ()
