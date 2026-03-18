@@ -153,6 +153,9 @@ function switchDeviceToHeadsetProfile (dev_id, device_om)
     log:info (device,
         "Current profile is already a headset profile, no need to switch")
     return
+  elseif cur_profile == nil then
+    log:info (device, "Could not get current profile, not switching")
+    return
   end
 
   -- Get saved headset profile if any, otherwise find the highest priority one
@@ -199,6 +202,9 @@ function restoreProfile (dev_id, device_om)
       not hasProfileInputRoute (device, cur_profile.index) then
     log:info (device,
         "Current profile is already a non-headset profile, no need to restore")
+    return
+  elseif cur_profile == nil then
+    log:info (device, "Could not get current profile, not switching")
     return
   end
 
