@@ -159,6 +159,8 @@ get_default_event_priority (const gchar *event_type)
   if (g_str_has_prefix(event_type, "select-") ||
         g_str_has_prefix(event_type, "create-"))
     return 500;
+  if (g_str_has_prefix(event_type, "autoswitch-"))
+    return 400;
   else if (!g_strcmp0 (event_type, "rescan-for-default-nodes"))
     return -490;
   else if (!g_strcmp0 (event_type, "rescan-for-linking"))
@@ -209,7 +211,8 @@ static gboolean
 is_it_local_event (const gchar *event_type)
 {
   if (g_str_has_prefix(event_type, "select-") ||
-    g_str_has_prefix(event_type, "create-"))
+    g_str_has_prefix(event_type, "create-") ||
+    g_str_has_prefix(event_type, "autoswitch-"))
     return TRUE;
 
   return FALSE;
