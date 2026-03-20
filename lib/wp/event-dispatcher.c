@@ -260,7 +260,7 @@ wp_event_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
 
   /* get the highest priority event */
   GList *levent = g_list_first (d->events);
-  while (levent) {
+  if (levent) {
     EventData *event_data = (EventData *) (levent->data);
     WpEvent *event = event_data->event;
     GCancellable *cancellable = wp_event_get_cancellable (event);
@@ -300,6 +300,8 @@ wp_event_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
 
     /* get the next event */
     levent = g_list_first (d->events);
+    if (levent && !((EventData *) levent->data)->current_hook_in_async)
+      spa_system_eventfd_write (d->system, d->eventfd, 1);
   }
 
   return G_SOURCE_CONTINUE;
