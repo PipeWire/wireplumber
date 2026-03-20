@@ -431,6 +431,7 @@ on_transition_completed (WpTransition * transition, GParamSpec * param,
     wp_core_idle_add (core, &priv->idle_advnc_source,
         G_SOURCE_FUNC (wp_object_advance_transitions), g_object_ref (self),
         g_object_unref);
+    g_source_set_priority(priv->idle_advnc_source, G_PRIORITY_HIGH_IDLE);
   }
 }
 
@@ -500,6 +501,7 @@ wp_object_activate_closure (WpObject * self,
         G_SOURCE_FUNC (wp_object_advance_transitions), g_object_ref (self),
         g_object_unref);
   }
+  g_source_set_priority(priv->idle_advnc_source, G_PRIORITY_HIGH_IDLE);
 }
 
 /*!
@@ -623,5 +625,6 @@ wp_object_update_features (WpObject * self, WpObjectFeatures activated,
     wp_core_idle_add (core, &priv->idle_advnc_source,
         G_SOURCE_FUNC (wp_object_advance_transitions), g_object_ref (self),
         g_object_unref);
+    g_source_set_priority(priv->idle_advnc_source, G_PRIORITY_HIGH_IDLE);
   }
 }
