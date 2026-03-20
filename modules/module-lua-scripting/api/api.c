@@ -1691,7 +1691,7 @@ static int
 impl_module_new (lua_State *L)
 {
   const char *name, *args = NULL;
-  WpProperties *properties = NULL;
+  g_autoptr (WpProperties) properties = NULL;
 
   name = luaL_checkstring (L, 1);
 
