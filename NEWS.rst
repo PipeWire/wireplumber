@@ -1,5 +1,77 @@
-WirePlumber 0.5.13
+WirePlumber 0.5.14
 ~~~~~~~~~~~~~~~~~~
+
+Additions & Enhancements:
+
+  - Added per-device default volume configuration via the
+    ``device.routes.default-{source,sink}-volume`` property, allowing device-specific volume
+    defaults (e.g. a comfortable default for internal speakers or no attenuation for HDMI) (!772)
+
+  - Added Lua 5.5 support; the bundled Lua subproject wrap has also been updated to 5.5.0
+    (!775, !788)
+
+  - Enhanced libcamera monitor to load camera nodes locally within the WirePlumber
+    process instead of the PipeWire daemon, eliminating race conditions that could occur
+    during initial enumeration and hotplug events (!790)
+
+  - Enhanced Bluetooth loopback nodes to always be created when a device supports both
+    A2DP and HSP/HFP profiles, simplifying the logic and making the BT profile autoswitch
+    setting take effect immediately without requiring device reconnection (!782)
+
+  - Enhanced Bluetooth loopback nodes to use ``target.object`` property instead of smart
+    filters, fixing issues that prevented users from setting them as default nodes and
+    also allowing smart filters to be used with them (#898; !792)
+
+  - Enhanced Bluetooth profile autoswitch logic with further robustness improvements,
+    including better headset profile detection using profile name patterns and resolving
+    race conditions by running profile switching after ``device/apply-profile`` in a
+    dedicated event hook (#926, #923; !776, !777, !808)
+
+  - Enhanced wpctl ``set-default`` command to accept virtual nodes (e.g.
+    ``Audio/Source/Virtual``) in addition to regular device nodes (#896; !787)
+
+  - Improved stream linking to make the full graph rescan optional when linkable items
+    change, saving CPU on low-end systems and reducing audio startup latency when
+    connecting multiple streams in quick succession (!800)
+
+  - Allowed installation of systemd service units without libsystemd being present,
+    useful for distributions like Alpine Linux that allow systemd service subpackages
+    (!793)
+
+  - Allowed the ``mincore`` syscall in the WirePlumber systemd sandbox, required for
+    Mesa/EGL (e.g. for the libcamera GPUISP pipeline)
+
+  - Allowed passing ``WIREPLUMBER_CONFIG_DIR`` via the ``wp-uninstalled`` script,
+    useful for passing additional configuration paths in an uninstalled environment (!801)
+
+Fixes:
+
+  - Removed Bluetooth sink loopback node, which was causing issues with KDE and GNOME (!794)
+
+  - Fixed default audio source selection to never automatically use ``Audio/Sink`` nodes
+    as the default source unless explicitly selected by the user (#886; !781)
+
+  - Fixed crash in ``state-stream`` when the Format parameter has a Choice for the
+    number of channels (#903; !795)
+
+  - Fixed BAP Bluetooth device set channel properties, where ``audio.position`` was
+    incorrectly serialized as a pointer address instead of the channel array (!786)
+
+  - Fixed memory leaks in ``wp_interest_event_hook_get_matching_event_types`` and in
+    the Lua ``LocalModule()`` implementation (!784, !810)
+
+  - Fixed HFP HF stream media class being incorrectly assigned due to
+    ``api.bluez5.internal=true`` being set on HFP HF streams (!809)
+
+  - Fixed Lua 5.4 compatibility in ``state-stream`` script
+
+  - Updated translations: Bulgarian, Georgian, Kazakh, Swedish
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.5.13
+..................
 
 Additions & Enhancements:
 
@@ -64,9 +136,6 @@ Fixes:
   - Improved logging for standard-link activation failures (!744)
 
   - Simplified event-hook interest matching for better performance (!758)
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.5.12
 ..................
