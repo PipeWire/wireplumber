@@ -474,16 +474,6 @@ function checkProfiles (dev)
     end
   end
 
-  -- Setup Route/Port correctly for loopback nodes
-  if has_headset_profile then
-    local param = Pod.Object ({
-        "Spa:Pod:Object:Param:Props",
-        "Props",
-        params = Pod.Struct ({ "bluez5.autoswitch-routes", true })
-    })
-    dev:set_param("Props", param)
-  end
-
   if has_headset_profile then
     -- Always create the source loopback device if autoswitch is enabled.
     -- Otherwise, only create the source loopback device if the current profile
