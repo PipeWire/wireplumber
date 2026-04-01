@@ -179,7 +179,7 @@ match_rules_cb (gpointer data, const gchar * action, WpSpaJson * value,
   perms_str = wp_spa_json_parse_string (value);
   if (g_strcmp0 (perms_str, "all") == 0) {
     perms = PW_PERM_ALL;
-  } else {
+  } else if (perms_str) {
     for (guint i = 0; i < strlen (perms_str); i++) {
       switch (perms_str[i]) {
         case 'r': perms |= PW_PERM_R; break;
