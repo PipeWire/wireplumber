@@ -121,6 +121,8 @@ wp_impl_module_finalize (GObject * object)
 
   if (self->props)
     wp_properties_unref (self->props);
+
+  G_OBJECT_CLASS (wp_impl_module_parent_class)->finalize (object);
 }
 
 static void
