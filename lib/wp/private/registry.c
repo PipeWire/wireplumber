@@ -359,11 +359,8 @@ wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
 
     /* schedule exposing when adding the first global */
     if (self->tmp_globals->len == 1) {
-      g_autoptr (GSource) s;
-
-      wp_core_idle_add_closure (core, &s,
+      wp_core_idle_add_closure (core, NULL,
           g_cclosure_new_object (G_CALLBACK (expose_tmp_globals), G_OBJECT (core)));
-      g_source_set_priority(s, G_PRIORITY_HIGH_IDLE);
     }
   } else {
     /* store the most permissive permissions */
