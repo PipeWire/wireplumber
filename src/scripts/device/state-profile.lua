@@ -39,7 +39,7 @@ find_stored_profile_hook = SimpleEventHook {
     local dont_restore_off_profile = cutils.parseBool (
         device_props["session.dont-restore-off-profile"])
     if not dev_name then
-      log:critical (device, "invalid device.name")
+      log:warning (device, "invalid device.name")
       return
     end
 
@@ -91,7 +91,7 @@ function updateStoredProfile (device, profile)
   local index = nil
 
   if not dev_name then
-    log:critical (device, "invalid device.name")
+    log:warning (device, "invalid device.name")
     return
   end
 
