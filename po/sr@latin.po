@@ -8,7 +8,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: pipewire\n"
-"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/-/issues\n"
+"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/-/"
+"issues\n"
 "POT-Creation-Date: 2025-12-23 17:57+0000\n"
 "PO-Revision-Date: 2026-04-11 14:02+0200\n"
 "Last-Translator: Marko Kostić <marko.m.kostic@gmail.com>\n"
@@ -17,7 +18,8 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<12 || n%100>14) ? 1 : 2);\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
+"n%10<=4 && (n%100<12 || n%100>14) ? 1 : 2);\n"
 "X-Generator: Poedit 3.9\n"
 
 #. WirePlumber
@@ -139,8 +141,12 @@ msgstr "Ugrađena zadnja kamera"
 
 #. /wireplumber.settings.schema/bluetooth.autoswitch-to-headset-profile/description
 #: wireplumber.conf
-msgid "Always show microphone for Bluetooth headsets, and switch to headset mode when recording"
-msgstr "Uvek prikaži mikrofon za Blutut slušalice sa mikrofonom i prebaci na režim slušalica sa mikrofonom prilikom snimanja"
+msgid ""
+"Always show microphone for Bluetooth headsets, and switch to headset mode "
+"when recording"
+msgstr ""
+"Uvek prikaži mikrofon za Blutut slušalice sa mikrofonom i prebaci na režim "
+"slušalica sa mikrofonom prilikom snimanja"
 
 #. /wireplumber.settings.schema/bluetooth.autoswitch-to-headset-profile/name
 #: wireplumber.conf
@@ -199,8 +205,12 @@ msgstr "Podrazumevana jačina zvuka izvora"
 
 #. /wireplumber.settings.schema/device.routes.mute-on-alsa-playback-removed/description
 #: wireplumber.conf
-msgid "Automatically mute all audio devices when active wired headphones/speakers are disconnected to prevent unintended sound output"
-msgstr "Samostalno priguši sve zvučne uređaje kada se aktivne žičane slušalice/zvučnici otkače kako bi se sprečio neželjeni izlaz zvuka"
+msgid ""
+"Automatically mute all audio devices when active wired headphones/speakers "
+"are disconnected to prevent unintended sound output"
+msgstr ""
+"Samostalno priguši sve zvučne uređaje kada se aktivne žičane slušalice/"
+"zvučnici otkače kako bi se sprečio neželjeni izlaz zvuka"
 
 #. /wireplumber.settings.schema/device.routes.mute-on-alsa-playback-removed/name
 #: wireplumber.conf
@@ -209,8 +219,12 @@ msgstr "Samostalno priguši pri otkačivanju žičanog zvuka"
 
 #. /wireplumber.settings.schema/device.routes.mute-on-bluetooth-playback-removed/description
 #: wireplumber.conf
-msgid "Automatically mute all audio devices when active Bluetooth headphones/speakers are disconnected to prevent unintended sound output"
-msgstr "Automatski priguši sve zvučne uređaje kada se aktivne Blutut slušalice/zvučnici otkače kako bi se sprečio neželjeni izlaz zvuka"
+msgid ""
+"Automatically mute all audio devices when active Bluetooth headphones/"
+"speakers are disconnected to prevent unintended sound output"
+msgstr ""
+"Automatski priguši sve zvučne uređaje kada se aktivne Blutut slušalice/"
+"zvučnici otkače kako bi se sprečio neželjeni izlaz zvuka"
 
 #. /wireplumber.settings.schema/device.routes.mute-on-bluetooth-playback-removed/name
 #: wireplumber.conf
@@ -220,7 +234,9 @@ msgstr "Samostalno priguši pri otkačivanju Blutut zvuka"
 #. /wireplumber.settings.schema/linking.allow-moving-streams/description
 #: wireplumber.conf
 msgid "Streams may be moved by adding PipeWire metadata at runtime"
-msgstr "Tokovi se mogu premestiti dodavanjem metapodataka Pajpvajera (PipeWire) tokom izvršavanja"
+msgstr ""
+"Tokovi se mogu premestiti dodavanjem metapodataka Pajpvajera (PipeWire) "
+"tokom izvršavanja"
 
 #. /wireplumber.settings.schema/linking.allow-moving-streams/name
 #: wireplumber.conf
@@ -230,7 +246,8 @@ msgstr "Dozvoli premeštanje tokova"
 #. /wireplumber.settings.schema/linking.follow-default-target/description
 #: wireplumber.conf
 msgid "Streams connected to the default device follow when default changes"
-msgstr "Tokovi povezani na podrazumevani uređaj prate kada se podrazumevani promeni"
+msgstr ""
+"Tokovi povezani na podrazumevani uređaj prate kada se podrazumevani promeni"
 
 #. /wireplumber.settings.schema/linking.follow-default-target/name
 #: wireplumber.conf
@@ -249,8 +266,13 @@ msgstr "Pauziraj puštanje ako je izlaz uklonjen"
 
 #. /wireplumber.settings.schema/linking.role-based.duck-level/description
 #: wireplumber.conf
-msgid "The volume level to apply when ducking (= reducing volume for a higher priority stream to be audible) in the role-based linking policy"
-msgstr "Nivo jačine zvuka koji se primenjuje pri umanjivanju (= smanjivanje jačine zvuka da bi se čuo tok većeg prioriteta) u politici povezivanja zasnovanoj na ulogama"
+msgid ""
+"The volume level to apply when ducking (= reducing volume for a higher "
+"priority stream to be audible) in the role-based linking policy"
+msgstr ""
+"Nivo jačine zvuka koji se primenjuje pri umanjivanju (= smanjivanje jačine "
+"zvuka da bi se čuo tok većeg prioriteta) u politici povezivanja zasnovanoj "
+"na ulogama"
 
 #. /wireplumber.settings.schema/linking.role-based.duck-level/name
 #: wireplumber.conf
@@ -259,8 +281,11 @@ msgstr "Nivo umanjivanja"
 
 #. /wireplumber.settings.schema/monitor.alsa.autodetect-hdmi-channels/description
 #: wireplumber.conf
-msgid "Automatically detect channel count and positions for HDMI devices (experimental)"
-msgstr "Samostalno otkrij broj kanala i položaje za HDMI uređaje (eksperimentalno)"
+msgid ""
+"Automatically detect channel count and positions for HDMI devices "
+"(experimental)"
+msgstr ""
+"Samostalno otkrij broj kanala i položaje za HDMI uređaje (eksperimentalno)"
 
 #. /wireplumber.settings.schema/monitor.alsa.autodetect-hdmi-channels/name
 #: wireplumber.conf
@@ -350,7 +375,9 @@ msgstr "Podrazumevana jačina snimanja"
 #. /wireplumber.settings.schema/node.stream.default-media-role/description
 #: wireplumber.conf
 msgid "Default media.role to assign on streams that do not specify it"
-msgstr "Podrazumevana medijska uloga (media.role) za dodeljivanje tokovima koji je ne navode"
+msgstr ""
+"Podrazumevana medijska uloga (media.role) za dodeljivanje tokovima koji je "
+"ne navode"
 
 #. /wireplumber.settings.schema/node.stream.default-media-role/name
 #: wireplumber.conf
