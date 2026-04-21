@@ -85,6 +85,9 @@ gint wp_properties_update_from_dict (WpProperties * self,
 WP_API
 gint wp_properties_update_from_json (WpProperties * self, const WpSpaJson * json);
 
+WP_API
+void wp_properties_clear (WpProperties *self);
+
 /* add */
 
 WP_API

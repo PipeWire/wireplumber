@@ -441,6 +441,22 @@ wp_properties_update_from_json (WpProperties * self, const WpSpaJson * json)
 }
 
 /*!
+ * \brief Clears all properties from \a self.
+ *
+ * \ingroup wpproperties
+ * \param self a properties object
+ */
+void
+wp_properties_clear (WpProperties *self)
+{
+  g_return_if_fail (self != NULL);
+  g_return_if_fail (!(self->flags & FLAG_IS_DICT));
+  g_return_if_fail (!(self->flags & FLAG_NO_OWNERSHIP));
+
+  pw_properties_clear (self->props);
+}
+
+/*!
  * \brief Adds new properties in \a self, using the given \a props as a source.
  *
  * Properties (keys) from \a props that are already contained in \a self
