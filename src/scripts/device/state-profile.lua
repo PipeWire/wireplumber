@@ -14,9 +14,8 @@
 cutils = require ("common-utils")
 log = Log.open_topic ("s-device")
 
--- the state storage
-state = nil
-state_table = nil
+-- the state meta storage
+state_meta = nil
 
 find_stored_profile_hook = SimpleEventHook {
   name = "device/find-stored-profile",
@@ -43,7 +42,7 @@ find_stored_profile_hook = SimpleEventHook {
       return
     end
 
-    local profile_name = state_table[dev_name]
+    local profile_name = state_meta:get (dev_name)
 
     if profile_name then
       for p in device:iterate_params ("EnumProfile") do
@@ -100,7 +99,7 @@ function updateStoredProfile (device, profile)
       profile.name, profile.index, dev_name))
 
   -- check if the new profile is the same as the current one
-  if state_table[dev_name] == profile.name then
+  if state_meta:get (dev_name) == profile.name then
     log:debug (device, " ... profile is already stored")
     return
   end
@@ -121,25 +120,49 @@ function updateStoredProfile (device, profile)
     return
   end
 
-  state_table[dev_name] = profile.name
-  state:save_after_timeout (state_table)
+  reevaluate_on_state_changed_hook:remove ()
+  state_meta:set (dev_name, profile.name)
+  reevaluate_on_state_changed_hook:register ()
 
   log:info (device, string.format (
       "stored profile '%s' (%d) for device '%s'",
       profile.name, index, dev_name))
 end
 
+reevaluate_on_state_changed_hook = SimpleEventHook {
+  name = "device/reevaluate-on-state-changed",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "metadata-changed" },
+      Constraint { "metadata.name", "=", "default-profile" },
+    },
+  },
+  execute = function (event)
+    local source = event:get_source ()
+    local device_om = source:call ("get-object-manager", "device")
+    for device in device_om:iterate () do
+      source:call ("push-event", "select-profile", device, nil)
+    end
+  end
+}
+
 function toggleState (enable)
-  if enable and not state then
-    state = State ("default-profile")
-    state_table = state:load ()
+  if enable and not state_meta then
+    state_meta = StateMetadata ("default-profile")
+    state_meta:activate (Features.ALL, function (_, e)
+      if e then
+        log:warning ("failed to activate state metadata: " .. e)
+      end
+    end)
     find_stored_profile_hook:register ()
     store_user_selected_profile_hook:register ()
+    reevaluate_on_state_changed_hook:register ()
   elseif not enable and state then
-    state = nil
-    state_table = nil
+    state_meta:deactivate (Features.ALL)
+    state_meta = nil
     find_stored_profile_hook:remove ()
     store_user_selected_profile_hook:remove ()
+    reevaluate_on_state_changed_hook:remove ()
   end
 end
 
