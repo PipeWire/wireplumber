@@ -13,6 +13,16 @@ msgstr ""
 msgid "Auto-switch to headset profile"
 msgstr ""
 
+#. /wireplumber.settings.schema/bluetooth.profile-preference/description
+#: wireplumber.conf
+msgid "Prefer better quality or better latency when auto-selecting profiles (only 'quality' or 'latency' values are accepted)"
+msgstr ""
+
+#. /wireplumber.settings.schema/bluetooth.profile-preference/name
+#: wireplumber.conf
+msgid "Bluetooth profile preference"
+msgstr ""
+
 #. /wireplumber.settings.schema/bluetooth.use-persistent-storage/description
 #: wireplumber.conf
 msgid "Remember and restore Bluetooth headset mode status"

@@ -26,3 +26,11 @@ SimpleEventHook {
     source:call ("push-event", "select-profile", device, nil)
   end
 }:register()
+
+Settings.subscribe ("bluetooth.profile-preference", function ()
+  source = source or Plugin.find ("standard-event-source")
+  local device_om = source:call ("get-object-manager", "device")
+  for device in device_om:iterate () do
+    source:call ("push-event", "select-profile", device, nil)
+  end
+end)
