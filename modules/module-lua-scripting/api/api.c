@@ -1710,6 +1710,55 @@ static const luaL_Reg state_methods[] = {
   { NULL, NULL }
 };
 
+/* WpStateMetadata */
+
+static int
+state_metadata_new (lua_State *L)
+{
+  const gchar *name = luaL_checkstring (L, 1);
+  WpStateMetadata *state_meta = wp_state_metadata_new (get_wp_core (L), name);
+  wplua_pushobject (L, state_meta);
+  return 1;
+}
+
+static int
+state_metadata_clear (lua_State *L)
+{
+  WpStateMetadata *state_meta = wplua_checkobject (L, 1,
+      WP_TYPE_STATE_METADATA);
+  wp_state_metadata_clear (state_meta);
+  return 0;
+}
+
+static int
+state_metadata_get (lua_State *L)
+{
+  WpStateMetadata *state_meta = wplua_checkobject (L, 1,
+      WP_TYPE_STATE_METADATA);
+  const gchar *key = luaL_checkstring (L, 2);
+  const gchar *v = wp_state_metadata_get (state_meta, key);
+  lua_pushstring (L, v);
+  return 1;
+}
+
+static int
+state_metadata_set (lua_State *L)
+{
+  WpStateMetadata *state_meta = wplua_checkobject (L, 1,
+      WP_TYPE_STATE_METADATA);
+  const gchar *key = luaL_checkstring (L, 2);
+  const gchar *value = luaL_opt (L, luaL_checkstring, 3, NULL);
+  wp_state_metadata_set (state_meta, key, value);
+  return 0;
+}
+
+static const luaL_Reg state_metadata_methods[] = {
+  { "clear", state_metadata_clear },
+  { "get", state_metadata_get },
+  { "set", state_metadata_set },
+  { NULL, NULL }
+};
+
 /* ImplModule */
 
 static int
@@ -3286,6 +3335,8 @@ wp_lua_scripting_api_init (lua_State *L)
       NULL, pipewire_object_methods);
   wplua_register_type_methods (L, WP_TYPE_STATE,
       state_new, state_methods);
+  wplua_register_type_methods (L, WP_TYPE_STATE_METADATA,
+      state_metadata_new, state_metadata_methods);
   wplua_register_type_methods (L, WP_TYPE_IMPL_MODULE,
       impl_module_new, NULL);
   wplua_register_type_methods (L, WP_TYPE_EVENT,
