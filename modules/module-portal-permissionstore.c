@@ -13,6 +13,7 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("m-portal-permissionstore")
 
 #define DBUS_INTERFACE_NAME "org.freedesktop.impl.portal.PermissionStore"
 #define DBUS_OBJECT_PATH "/org/freedesktop/impl/portal/PermissionStore"
+#define DBUS_CALL_TIMEOUT_MSEC 3000
 
 enum
 {
@@ -60,7 +61,8 @@ wp_portal_permissionstore_plugin_lookup (WpPortalPermissionStorePlugin *self,
   /* Lookup */
   res = g_dbus_connection_call_sync (conn, DBUS_INTERFACE_NAME,
       DBUS_OBJECT_PATH, DBUS_INTERFACE_NAME, "Lookup",
-      g_variant_new ("(ss)", table, id), NULL, G_DBUS_CALL_FLAGS_NONE, -1, NULL,
+      g_variant_new ("(ss)", table, id), NULL, G_DBUS_CALL_FLAGS_NONE,
+      DBUS_CALL_TIMEOUT_MSEC, NULL,
       &error);
   if (error) {
     g_autofree gchar *remote_error = g_dbus_error_get_remote_error (error);
@@ -97,8 +99,8 @@ wp_portal_permissionstore_plugin_set (WpPortalPermissionStorePlugin *self,
   /* Set */
   res = g_dbus_connection_call_sync (conn, DBUS_INTERFACE_NAME,
       DBUS_OBJECT_PATH, DBUS_INTERFACE_NAME, "Set",
-      g_variant_new ("(sbs@a{sas}@v)", table, id, permissions, data), NULL,
-      G_DBUS_CALL_FLAGS_NONE, -1, NULL, &error);
+      g_variant_new ("(sbs@a{sas}@v)", table, create, id, permissions, data),
+      NULL, G_DBUS_CALL_FLAGS_NONE, DBUS_CALL_TIMEOUT_MSEC, NULL, &error);
   if (error) {
     g_autofree gchar *remote_error = g_dbus_error_get_remote_error (error);
     g_dbus_error_strip_remote_error (error);
