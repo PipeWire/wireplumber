@@ -8,6 +8,8 @@
 
 log = Log.open_topic ("s-client")
 pps_plugin = Plugin.find("portal-permissionstore")
+cached_camera_permissions = nil
+camera_permissions_loaded = false
 
 MEDIA_ROLE_NONE = 0
 MEDIA_ROLE_CAMERA = 1 << 0
@@ -35,6 +37,15 @@ function parseMediaRoles (media_roles_str)
     end
   end
   return media_roles
+end
+
+function getCameraPermissions ()
+  if not camera_permissions_loaded then
+    cached_camera_permissions = pps_plugin:call("lookup", "devices", "camera")
+    camera_permissions_loaded = true
+  end
+
+  return cached_camera_permissions
 end
 
 -- The portal permission manager
@@ -92,7 +103,7 @@ portal_pm:add_interest_match (
     end
 
     -- Check whether the client has allowed access or not
-    local permissions = pps_plugin:call("lookup", "devices", "camera");
+    local permissions = getCameraPermissions ()
     allowed = hasPermission (permissions, app_id, "yes")
 
     -- Return the allowed or not allowed permissions
@@ -111,6 +122,8 @@ portal_pm:add_interest_match (
 if pps_plugin ~= nil then
   pps_plugin:connect("changed", function (p, table, id, deleted, permissions)
     if table == "devices" or id == "camera" then
+      cached_camera_permissions = permissions
+      camera_permissions_loaded = true
       portal_pm:update_permissions ()
     end
   end)
