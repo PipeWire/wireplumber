@@ -30,6 +30,11 @@ for _, pm_info in ipairs (config_pm_table) do
     config_pm:set_default_permissions (pm_info.default_permissions)
   end
 
+  -- Set core permissions if defined
+  if pm_info.core_permissions ~= nil then
+    config_pm:set_core_permissions (pm_info.core_permissions)
+  end
+
   -- Set rules match if defined
   if pm_info.rules ~= nil then
     config_pm:add_rules_match (Json.Raw (pm_info.rules))

@@ -76,6 +76,7 @@ struct _WpPermissionManager
   WpObject parent;
 
   guint32 default_perms;
+  guint32 core_perms;
   GPtrArray *clients;
   GHashTable *matches;
 
@@ -89,6 +90,9 @@ wp_permission_manager_init (WpPermissionManager * self)
 {
   /* Init default permissions to all */
   self->default_perms = PW_PERM_R | PW_PERM_W | PW_PERM_X;
+
+  /* Core permissions not set by default (inherit from default_perms) */
+  self->core_perms = PW_PERM_INVALID;
 
   /* Init permission interests table */
   self->matches = g_hash_table_new_full (g_direct_hash, g_direct_equal, NULL,
@@ -270,6 +274,13 @@ build_permissions_array (WpPermissionManager *self, WpClient *client)
 
   /* Add default permissions */
   g_array_append_val (arr, def_perm);
+
+  /* Add core permissions if explicitly set (core is not in the OM since it is
+   * implicit in the PipeWire connection and not sent through the registry) */
+  if (self->core_perms != PW_PERM_INVALID) {
+    struct pw_permission core_perm = { PW_ID_CORE, self->core_perms };
+    g_array_append_val (arr, core_perm);
+  }
 
   /* Add object specific permissions in the array */
   it = wp_object_manager_new_iterator (self->om);
@@ -508,6 +519,32 @@ wp_permission_manager_set_default_permissions (WpPermissionManager *self,
 
   if (self->default_perms != permissions) {
     self->default_perms = permissions;
+    update_permissions (self);
+  }
+}
+
+/*!
+ * \brief Sets the permissions that will be applied to the core object (ID 0).
+ *
+ * The core object is not visible to the permission manager's object manager
+ * because it is implicit in the PipeWire connection and not sent through the
+ * registry. This method allows setting explicit permissions on it, independent
+ * of the default permissions.
+ *
+ * If not set (or set to PW_PERM_INVALID), the core inherits default_permissions.
+ *
+ * \ingroup wppermissionmanager
+ * \param self the permission manager
+ * \param permissions the permissions to apply to the core object
+ */
+void
+wp_permission_manager_set_core_permissions (WpPermissionManager *self,
+    guint32 permissions)
+{
+  g_return_if_fail (WP_IS_PERMISSION_MANAGER (self));
+
+  if (self->core_perms != permissions) {
+    self->core_perms = permissions;
     update_permissions (self);
   }
 }

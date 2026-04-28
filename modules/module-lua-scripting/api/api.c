@@ -2657,8 +2657,28 @@ permission_manager_set_default_permissions (lua_State *L)
   }
 
   wp_permission_manager_set_default_permissions (pm, perms);
-  lua_pushboolean (L, TRUE);
-  return 1;
+  return 0;
+}
+
+static int
+permission_manager_set_core_permissions (lua_State *L)
+{
+  WpPermissionManager *pm = wplua_checkobject (L, 1,
+      WP_TYPE_PERMISSION_MANAGER);
+  guint32 perms = PW_PERM_ALL;
+
+  if (lua_isinteger (L, 2)) {
+    perms = luaL_checkinteger (L, 2);
+  } else if (lua_isstring (L, 2)) {
+    const gchar *perms_str = luaL_checkstring (L, 2);
+    if (!client_parse_permissions (perms_str, &perms))
+      luaL_error (L, "invalid permission string: '%s'", perms_str);
+  } else {
+    luaL_error (L, "invalid permission argument");
+  }
+
+  wp_permission_manager_set_core_permissions (pm, perms);
+  return 0;
 }
 
 static int
@@ -2726,6 +2746,7 @@ permission_manager_update_permissions (lua_State *L)
 
 static const luaL_Reg permission_manager_funcs[] = {
   { "set_default_permissions", permission_manager_set_default_permissions },
+  { "set_core_permissions", permission_manager_set_core_permissions },
   { "add_interest_match", permission_manager_add_interest_match },
   { "add_interest_match_simple", permission_manager_add_interest_match_simple },
   { "add_rules_match", permission_manager_add_rules_match },

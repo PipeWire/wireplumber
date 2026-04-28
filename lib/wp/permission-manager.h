@@ -55,6 +55,10 @@ void wp_permission_manager_set_default_permissions (
     WpPermissionManager *self, guint32 permissions);
 
 WP_API
+void wp_permission_manager_set_core_permissions (
+    WpPermissionManager *self, guint32 permissions);
+
+WP_API
 guint32 wp_permission_manager_add_interest_match (WpPermissionManager *self,
     WpPermissionMatchCallback callback, gpointer user_data,
     WpObjectInterest * interest);

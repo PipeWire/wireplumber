@@ -75,6 +75,7 @@ Example:
      {
        name = "custom"
        default_permissions = "all"
+       core_permissions = "rx"
        rules = [
          {
            matches = [
@@ -111,6 +112,11 @@ Each permission manager supports the following properties:
    ``access.rules``
  * ``default_permissions``: the fallback permissions applied to all objects
    that don't match any rule (applied as ``PW_ID_ANY``)
+ * ``core_permissions``: permissions applied specifically to the PipeWire core
+   object (``PW_ID_CORE``, ID 0). This is useful when you want to allow a
+   client to interact with the core (e.g. enumerate objects, subscribe to
+   events) while restricting access to individual objects. If not set, the
+   ``default_permissions`` value is used for the core as well.
  * ``rules``: a list of match rules with ``set-permissions`` actions that
    grant specific permissions to objects matching the given constraints
 
