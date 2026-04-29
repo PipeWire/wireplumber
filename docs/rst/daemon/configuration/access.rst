@@ -58,3 +58,62 @@ Possible permissions are any combination of:
    client can't "see" (i.e. the client doesn't have ``r`` permission on them)
 
 The special value ``all`` is also supported and it is synonym for ``rwxm``
+
+Permission Managers
+-------------------
+
+For more advanced use cases, WirePlumber supports *permission managers* that can
+apply per-object permissions dynamically based on rules and object interests.
+Permission managers are defined in the ``access.permission-managers`` section
+and then referenced by name in ``access.rules``.
+
+Example:
+
+.. code-block::
+
+   access.permission-managers = [
+     {
+       name = "custom"
+       default_permissions = "all"
+       rules = [
+         {
+           matches = [
+             {
+               media.class = "Audio/Source"
+             }
+           ]
+           actions = {
+             set-permissions = "-"
+           }
+         }
+       ]
+     }
+   ]
+
+   access.rules = [
+     {
+       matches = [
+         {
+           application.name = "paplay"
+         }
+       ]
+       actions = {
+         update-props = {
+           permission_manager_name = "custom"
+         }
+       }
+     }
+   ]
+
+Each permission manager supports the following properties:
+
+ * ``name``: (required) a unique name used to reference the manager from
+   ``access.rules``
+ * ``default_permissions``: the fallback permissions applied to all objects
+   that don't match any rule (applied as ``PW_ID_ANY``)
+ * ``rules``: a list of match rules with ``set-permissions`` actions that
+   grant specific permissions to objects matching the given constraints
+
+When both ``default_permissions`` and ``permission_manager_name`` are set in
+a rule's ``update-props`` action, ``default_permissions`` takes precedence and
+the permission manager is ignored.

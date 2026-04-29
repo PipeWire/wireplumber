@@ -18,6 +18,7 @@ sphinx_files += files(
   'obj_manager_api.rst',
   'object_api.rst',
   'pipewire_object_api.rst',
+  'permission_manager_api.rst',
   'plugin_api.rst',
   'port_api.rst',
   'properties_api.rst',

@@ -23,6 +23,7 @@ C API Documentation
    c_api/link_api.rst
    c_api/device_api.rst
    c_api/client_api.rst
+   c_api/permission_manager_api.rst
    c_api/metadata_api.rst
    c_api/spa_device_api.rst
    c_api/impl_node_api.rst
