@@ -42,6 +42,9 @@ WP_API
 void wp_client_attach_permission_manager (WpClient *self,
     WpPermissionManager *pm);
 
+WP_API
+WpPermissionManager * wp_client_get_permission_manager (WpClient *self);
+
 G_END_DECLS
 
 #endif

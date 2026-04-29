@@ -186,6 +186,27 @@ contain the following methods:
    :param self: the client
    :param WpPermissionManager pm: the permission manager to attach
 
+.. function:: Client.get_permission_manager(self)
+
+   Binds :c:func:`wp_client_get_permission_manager`
+
+   Returns the permission manager currently attached to this client, or ``nil``
+   if no permission manager is attached.
+
+   **Example:**
+
+   .. code-block:: lua
+
+      local pm = client:get_permission_manager()
+      if pm then
+        local perms = pm:get_default_permissions()
+        -- check permission bits
+      end
+
+   :param self: the client
+   :returns: the attached permission manager, or nil
+   :rtype: WpPermissionManager or nil
+
 PipeWire Metadata
 .................
 
@@ -232,6 +253,27 @@ with default permissions, core permissions, and match rules.
 
    :param self: the permission manager
    :param perms: a permission string (e.g. "rx") or an integer bitmask (e.g. ``Perm.RX``)
+
+.. function:: PermissionManager.get_default_permissions(self)
+
+   Binds :c:func:`wp_permission_manager_get_default_permissions`
+
+   Returns the default permissions as an integer bitmask. This can be compared
+   against the ``Perm`` constants using bitwise operators.
+
+   **Example:**
+
+   .. code-block:: lua
+
+      local pm = client:get_permission_manager()
+      local perms = pm:get_default_permissions()
+      if (perms & Perm.RX) == Perm.RX then
+        -- client has at least read + execute
+      end
+
+   :param self: the permission manager
+   :returns: the default permissions bitmask
+   :rtype: integer
 
 .. function:: PermissionManager.set_core_permissions(self, perms)
 

@@ -1399,11 +1399,24 @@ client_attach_permission_manager (lua_State *L)
   return 0;
 }
 
+static int
+client_get_permission_manager (lua_State *L)
+{
+  WpClient *client = wplua_checkobject (L, 1, WP_TYPE_CLIENT);
+  WpPermissionManager *pm = wp_client_get_permission_manager (client);
+  if (pm)
+    wplua_pushobject (L, pm);
+  else
+    lua_pushnil (L);
+  return 1;
+}
+
 static const luaL_Reg client_methods[] = {
   { "update_permissions", client_update_permissions },
   { "update_properties", client_update_properties },
   { "send_error", client_send_error },
   { "attach_permission_manager", client_attach_permission_manager },
+  { "get_permission_manager", client_get_permission_manager },
   { NULL, NULL }
 };
 
@@ -2661,6 +2674,16 @@ permission_manager_set_default_permissions (lua_State *L)
 }
 
 static int
+permission_manager_get_default_permissions (lua_State *L)
+{
+  WpPermissionManager *pm = wplua_checkobject (L, 1,
+      WP_TYPE_PERMISSION_MANAGER);
+  guint32 perms = wp_permission_manager_get_default_permissions (pm);
+  lua_pushinteger (L, perms);
+  return 1;
+}
+
+static int
 permission_manager_set_core_permissions (lua_State *L)
 {
   WpPermissionManager *pm = wplua_checkobject (L, 1,
@@ -2746,6 +2769,7 @@ permission_manager_update_permissions (lua_State *L)
 
 static const luaL_Reg permission_manager_funcs[] = {
   { "set_default_permissions", permission_manager_set_default_permissions },
+  { "get_default_permissions", permission_manager_get_default_permissions },
   { "set_core_permissions", permission_manager_set_core_permissions },
   { "add_interest_match", permission_manager_add_interest_match },
   { "add_interest_match_simple", permission_manager_add_interest_match_simple },

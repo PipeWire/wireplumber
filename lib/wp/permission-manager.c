@@ -568,6 +568,22 @@ wp_permission_manager_set_default_permissions (WpPermissionManager *self,
 }
 
 /*!
+ * \brief Gets the default permissions that are applied to all objects that
+ * don't match any interest
+ *
+ * \ingroup wppermissionmanager
+ * \param self the permission manager
+ * \returns the default permissions
+ */
+guint32
+wp_permission_manager_get_default_permissions (WpPermissionManager *self)
+{
+  g_return_val_if_fail (WP_IS_PERMISSION_MANAGER (self), 0);
+
+  return self->default_perms;
+}
+
+/*!
  * \brief Sets the permissions that will be applied to the core object (ID 0).
  *
  * The core object is not visible to the permission manager's object manager

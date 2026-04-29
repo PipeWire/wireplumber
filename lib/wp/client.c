@@ -268,3 +268,19 @@ wp_client_attach_permission_manager (WpClient *self, WpPermissionManager *pm)
     wp_permission_manager_add_client (pm, self);
   g_weak_ref_set (&self->permission_manager, pm);
 }
+
+/*!
+ * \brief Gets the permission manager attached to this client, if any.
+ *
+ * \ingroup wpclient
+ * \param self the client
+ * \returns (transfer full) (nullable): the attached permission manager,
+ *   or NULL if no permission manager is attached
+ */
+WpPermissionManager *
+wp_client_get_permission_manager (WpClient *self)
+{
+  g_return_val_if_fail (WP_IS_CLIENT (self), NULL);
+
+  return g_weak_ref_get (&self->permission_manager);
+}

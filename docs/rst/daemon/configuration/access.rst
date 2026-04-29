@@ -123,3 +123,31 @@ Each permission manager supports the following properties:
 When both ``default_permissions`` and ``permission_manager_name`` are set in
 a rule's ``update-props`` action, ``default_permissions`` takes precedence and
 the permission manager is ignored.
+
+Introspecting Permissions from Scripts
+--------------------------------------
+
+Lua scripts can query the permission manager attached to a client at runtime
+using ``client:get_permission_manager()``. This returns the
+``WpPermissionManager`` object (or ``nil`` if none is attached), which can then
+be used to inspect the configured permissions.
+
+Example:
+
+.. code-block:: lua
+
+   local client_om = ObjectManager { Interest { type = "client" } }
+   client_om:activate()
+
+   -- Check if a client has at least read + execute permissions
+   local pm = client:get_permission_manager()
+   if pm then
+     local perms = pm:get_default_permissions()
+     if (perms & Perm.RX) == Perm.RX then
+       -- Client has sufficient permissions
+     end
+   end
+
+This is useful for scripts that need to verify a client's trust level before
+performing privileged operations on its behalf (e.g. linking nodes into an
+audio chain).
