@@ -175,6 +175,17 @@ contain the following methods:
    :param self: the proxy
    :param table perms: the permissions to update for this client
 
+.. function:: Client.attach_permission_manager(self, pm)
+
+   Binds :c:func:`wp_client_attach_permission_manager`
+
+   Attaches a permission manager to handle permissions for this client
+   automatically. The permission manager will manage per-object permissions
+   based on its configured rules and default permissions.
+
+   :param self: the client
+   :param WpPermissionManager pm: the permission manager to attach
+
 PipeWire Metadata
 .................
 
@@ -198,3 +209,91 @@ contain the following methods:
    :param string key: the metadata key to find
    :returns: the value for this metadata key, the type of the value
    :rtype: string, string
+
+Permission Manager
+..................
+
+The ``PermissionManager`` object manages per-object permissions for clients.
+It is created with the global ``PermissionManager()`` constructor and configured
+with default permissions, core permissions, and match rules.
+
+.. function:: PermissionManager()
+
+   Creates a new permission manager.
+
+   :returns: a new permission manager
+   :rtype: WpPermissionManager
+
+.. function:: PermissionManager.set_default_permissions(self, perms)
+
+   Binds :c:func:`wp_permission_manager_set_default_permissions`
+
+   Sets the default permissions applied to all objects that don't match any rule.
+
+   :param self: the permission manager
+   :param perms: a permission string (e.g. "rx") or an integer bitmask (e.g. ``Perm.RX``)
+
+.. function:: PermissionManager.set_core_permissions(self, perms)
+
+   Binds :c:func:`wp_permission_manager_set_core_permissions`
+
+   Sets the permissions applied specifically to the PipeWire core object (ID 0).
+   If not set, the core inherits the default permissions.
+
+   :param self: the permission manager
+   :param perms: a permission string or an integer bitmask
+
+.. function:: PermissionManager.add_rules_match(self, rules)
+
+   Binds :c:func:`wp_permission_manager_add_rules_match`
+
+   Adds a set of match rules that grant specific permissions to objects
+   matching the given constraints.
+
+   :param self: the permission manager
+   :param WpSpaJson rules: a JSON array of match rules
+   :returns: the match id (can be used with ``remove_match``)
+   :rtype: integer
+
+.. function:: PermissionManager.add_interest_match(self, callback, interest)
+
+   Binds :c:func:`wp_permission_manager_add_interest_match_closure`
+
+   Adds a dynamic match that calls the given callback to determine permissions
+   for objects matching the given interest.
+
+   :param self: the permission manager
+   :param function callback: a function that returns the permissions for the matched object
+   :param WpObjectInterest interest: the interest to match
+   :returns: the match id
+   :rtype: integer
+
+.. function:: PermissionManager.add_interest_match_simple(self, perms, interest)
+
+   Binds :c:func:`wp_permission_manager_add_interest_match_simple`
+
+   Adds a static match that grants the given permissions to objects matching
+   the given interest.
+
+   :param self: the permission manager
+   :param integer perms: the permissions bitmask to grant
+   :param WpObjectInterest interest: the interest to match
+   :returns: the match id
+   :rtype: integer
+
+.. function:: PermissionManager.remove_match(self, match_id)
+
+   Binds :c:func:`wp_permission_manager_remove_match`
+
+   Removes a previously added match.
+
+   :param self: the permission manager
+   :param integer match_id: the match id returned by an ``add_*_match`` method
+
+.. function:: PermissionManager.update_permissions(self)
+
+   Binds :c:func:`wp_permission_manager_update_permissions`
+
+   Forces a recalculation and update of permissions on all attached clients.
+
+   :param self: the permission manager
