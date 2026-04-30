@@ -29,7 +29,32 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-permission-manager")
  * a particular client.
  *
  * WpPermissionManager API.
+ *
+ * \gsignals
+ *
+ * \par client-properties-changed
+ * \parblock
+ * \code
+ * void
+ * client_properties_changed_callback (WpPermissionManager * self,
+ *                                     WpClient *client,
+ *                                     gpointer user_data)
+ * \endcode
+ * Emitted when the properties of an attached client change
+ *
+ * Parameters:
+ * - `client` - the client whose properties have changed
+ *
+ * Flags: G_SIGNAL_RUN_LAST
+ * \endparblock
  */
+
+enum {
+  SIGNAL_CLIENT_PROPERTIES_CHANGED,
+  N_SIGNALS,
+};
+
+static guint32 signals[N_SIGNALS] = {0};
 
 typedef struct _PermissionMatch PermissionMatch;
 struct _PermissionMatch
@@ -467,6 +492,18 @@ wp_permission_manager_class_init (WpPermissionManagerClass * klass)
   wpobject_class->activate_execute_step =
       wp_permission_manager_activate_execute_step;
   wpobject_class->deactivate = wp_permission_manager_deactivate;
+
+  signals[SIGNAL_CLIENT_PROPERTIES_CHANGED] = g_signal_new (
+      "client-properties-changed", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL, G_TYPE_NONE, 1,
+      WP_TYPE_CLIENT);
+}
+
+static void
+on_client_properties_changed (WpClient * client, GParamSpec * param,
+    WpPermissionManager * self)
+{
+  g_signal_emit (self, signals[SIGNAL_CLIENT_PROPERTIES_CHANGED], 0, client);
 }
 
 void
@@ -476,6 +513,11 @@ wp_permission_manager_add_client (WpPermissionManager *self, WpClient *client)
 
   g_ptr_array_add (self->clients, g_object_ref (client));
   update_client_permissions (self, client);
+
+  g_signal_connect_object (client, "notify::properties",
+      G_CALLBACK (on_client_properties_changed), self, 0);
+
+  g_signal_emit (self, signals[SIGNAL_CLIENT_PROPERTIES_CHANGED], 0, client);
 }
 
 void
@@ -486,6 +528,8 @@ wp_permission_manager_remove_client (WpPermissionManager *self,
 
   g_ptr_array_remove_fast (self->clients, client);
   update_client_permissions (self, client);
+
+  g_signal_handlers_disconnect_by_data (client, self);
 }
 
 /*!
