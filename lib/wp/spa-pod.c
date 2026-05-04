@@ -1163,7 +1163,7 @@ wp_spa_pod_get_double (WpSpaPod *self, double *value)
  *
  * \ingroup wpspapod
  * \param self the spa pod object
- * \param value (out): the string value
+ * \param value (out) (transfer none): the string value
  * \returns TRUE if the value was obtained, FALSE otherwise
  */
 gboolean
@@ -1709,7 +1709,7 @@ wp_spa_pod_get_struct_valist (WpSpaPod *self, va_list args)
  *
  * \ingroup wpspapod
  * \param self the spa pod object
- * \param key (out) (optional): the name of the property
+ * \param key (out) (optional) (transfer none): the name of the property
  * \param value (out) (optional): the spa pod value of the property
  * \returns TRUE if the value was obtained, FALSE otherwise
  */
@@ -1745,7 +1745,7 @@ wp_spa_pod_get_property (WpSpaPod *self, const char **key,
  * \ingroup wpspapod
  * \param self the spa pod object
  * \param offset (out) (optional): the offset of the control
- * \param ctl_type (out) (optional): the control type (Properties, Midi, ...)
+ * \param ctl_type (out) (optional) (transfer none): the control type (Properties, Midi, ...)
  * \param value (out) (optional): the spa pod value of the control
  * \returns TRUE if the value was obtained, FALSE otherwise
  */
@@ -2566,7 +2566,7 @@ wp_spa_pod_parser_get_double (WpSpaPodParser *self, double *value)
  *
  * \ingroup wpspapod
  * \param self the spa pod parser object
- * \param value (out): the string value
+ * \param value (out) (transfer none): the string value
  * \returns TRUE if the value was obtained, FALSE otherwise
  */
 gboolean
