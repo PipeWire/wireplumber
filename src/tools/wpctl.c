@@ -1135,6 +1135,7 @@ do_set_volume (WpCtl * self, WpPipewireObject *proxy)
   GVariant *variant = NULL;
   gboolean res = FALSE;
   gdouble curr_volume = 1.0;
+  gdouble new_volume = cmdline.set_volume.volume;
   guint32 id = wp_proxy_get_bound_id (WP_PROXY (proxy));
 
   if (cmdline.set_volume.type == 's') {
@@ -1147,19 +1148,19 @@ do_set_volume (WpCtl * self, WpPipewireObject *proxy)
     g_variant_lookup (variant, "volume", "d", &curr_volume);
     g_clear_pointer (&variant, g_variant_unref);
 
-    cmdline.set_volume.volume = (cmdline.set_volume.volume + curr_volume);
+    new_volume += curr_volume;
   }
-  if (cmdline.set_volume.volume < 0) {
-    cmdline.set_volume.volume = 0.0;
+  if (new_volume < 0) {
+    new_volume = 0.0;
   }
   if (cmdline.set_volume.limit > 0) {
-    if (cmdline.set_volume.volume > cmdline.set_volume.limit) {
-      cmdline.set_volume.volume = cmdline.set_volume.limit;
+    if (new_volume > cmdline.set_volume.limit) {
+      new_volume = cmdline.set_volume.limit;
     }
   }
 
   g_variant_builder_add (&b, "{sv}", "volume",
-      g_variant_new_double (cmdline.set_volume.volume));
+      g_variant_new_double (new_volume));
   variant = g_variant_builder_end (&b);
 
   g_signal_emit_by_name (mixer_api, "set-volume", id, variant, &res);
