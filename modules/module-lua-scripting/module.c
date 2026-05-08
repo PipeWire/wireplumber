@@ -21,6 +21,7 @@ struct _WpLuaScriptingPlugin
 {
   WpPlugin parent;
   lua_State *L;
+  GPtrArray *scripts; /* List of all loaded WpLuaScript objects */
 };
 
 static int
@@ -90,6 +91,7 @@ G_DEFINE_TYPE_WITH_CODE (WpLuaScriptingPlugin, wp_lua_scripting_plugin,
 static void
 wp_lua_scripting_plugin_init (WpLuaScriptingPlugin * self)
 {
+  self->scripts = g_ptr_array_new_with_free_func (g_object_unref);
 }
 
 static void
@@ -116,6 +118,12 @@ static void
 wp_lua_scripting_plugin_disable (WpPlugin * plugin)
 {
   WpLuaScriptingPlugin * self = WP_LUA_SCRIPTING_PLUGIN (plugin);
+
+  /* make sure all plugins are disabled before clearing the Lua state */
+  for (guint i = 0; i < self->scripts->len; i++) {
+    WpLuaScript *script = g_ptr_array_index (self->scripts, i);
+    wp_object_deactivate (WP_OBJECT (script), WP_OBJECT_FEATURES_ALL);
+  }
 
   g_clear_pointer (&self->L, wplua_unref);
 }
@@ -187,6 +195,9 @@ wp_lua_scripting_plugin_load (WpComponentLoader * cl, WpCore * core,
       "arguments", args,
       NULL);
 
+  /* add the plugin to the list */
+  g_ptr_array_add (self->scripts, g_object_ref (script));
+
   g_task_return_pointer (task, g_steal_pointer (&script), g_object_unref);
 }
 
@@ -201,9 +212,23 @@ wp_lua_scripting_plugin_load_finish (WpComponentLoader * self,
 }
 
 static void
+wp_lua_scripting_plugin_finalize (GObject *object)
+{
+  WpLuaScriptingPlugin *self = WP_LUA_SCRIPTING_PLUGIN (object);
+
+  g_clear_pointer (&self->scripts, g_ptr_array_unref);
+
+  G_OBJECT_CLASS (wp_lua_scripting_plugin_parent_class)->finalize (object);
+}
+
+
+static void
 wp_lua_scripting_plugin_class_init (WpLuaScriptingPluginClass * klass)
 {
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
   WpPluginClass *plugin_class = (WpPluginClass *) klass;
+
+  object_class->finalize = wp_lua_scripting_plugin_finalize;
 
   plugin_class->enable = wp_lua_scripting_plugin_enable;
   plugin_class->disable = wp_lua_scripting_plugin_disable;
