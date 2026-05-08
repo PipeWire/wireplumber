@@ -166,6 +166,13 @@ wp_registry_clear (WpRegistry *self)
   g_clear_pointer (&self->tmp_globals, g_ptr_array_unref);
   g_clear_pointer (&self->features, g_ptr_array_unref);
 
+  /* make sure all objects are disabled before clearing the registry */
+  for (guint i = 0; i < self->objects->len; i++) {
+    gpointer o = g_ptr_array_index (self->objects, i);
+    if (WP_IS_OBJECT (o))
+      wp_object_deactivate (WP_OBJECT (o), WP_OBJECT_FEATURES_ALL);
+  }
+
   /* remove all the registered objects
      this will normally also destroy the object managers, eventually, since
      they are normally ref'ed by modules, which are registered objects */
