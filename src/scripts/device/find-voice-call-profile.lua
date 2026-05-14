@@ -61,10 +61,13 @@ SimpleEventHook {
 
     for p in device:iterate_params ("EnumProfile") do
       local profile = cutils.parseParam (p, "EnumProfile")
+      log:debug (device, string.format (
+          "Checking profile '%s': available == %s, priority == %d",
+          profile.name, profile.available, profile.priority))
       local found = string.find (profile.name, "^Voice Call")
-      if profile.available == "yes" and found ~= nil then
+      if profile.available ~= "no" and found ~= nil then
         if (not selected_profile) or selected_profile.priority < profile.priority then
-	  selected_profile = profile
+          selected_profile = profile
         end
       end
     end
