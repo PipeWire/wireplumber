@@ -1084,6 +1084,28 @@ spa_device_new (lua_State *L)
 }
 
 static int
+spa_device_iterate_params (lua_State *L)
+{
+  WpSpaDevice *device = wplua_checkobject (L, 1, WP_TYPE_SPA_DEVICE);
+  const gchar *id = luaL_checkstring (L, 2);
+  WpSpaPod *filter = NULL;
+  if (!lua_isnone (L, 3) && !lua_isnil (L, 3))
+    filter = wplua_checkboxed (L, 3, WP_TYPE_SPA_POD);
+  WpIterator *it = wp_spa_device_enum_params_sync (device, id, filter);
+  return push_wpiterator (L, it);
+}
+
+static int
+spa_device_set_param (lua_State *L)
+{
+  WpSpaDevice *device = wplua_checkobject (L, 1, WP_TYPE_SPA_DEVICE);
+  const gchar *id = luaL_checkstring (L, 2);
+  WpSpaPod *pod = wplua_checkboxed (L, 3, WP_TYPE_SPA_POD);
+  wp_spa_device_set_param (device, id, 0, wp_spa_pod_ref (pod));
+  return 0;
+}
+
+static int
 spa_device_iterate_managed_objects (lua_State *L)
 {
   WpSpaDevice *device = wplua_checkobject (L, 1, WP_TYPE_SPA_DEVICE);
@@ -1124,6 +1146,8 @@ spa_device_set_managed_pending (lua_State *L)
 }
 
 static const luaL_Reg spa_device_methods[] = {
+  { "iterate_params", spa_device_iterate_params },
+  { "set_param", spa_device_set_param },
   { "iterate_managed_objects", spa_device_iterate_managed_objects },
   { "get_managed_object", spa_device_get_managed_object },
   { "store_managed_object", spa_device_store_managed_object },
@@ -1608,7 +1632,10 @@ pipewire_object_iterate_params (lua_State *L)
 {
   WpPipewireObject *pwobj = wplua_checkobject (L, 1, WP_TYPE_PIPEWIRE_OBJECT);
   const gchar *id = luaL_checkstring (L, 2);
-  WpIterator *it = wp_pipewire_object_enum_params_sync (pwobj, id, NULL);
+  WpSpaPod *filter = NULL;
+  if (!lua_isnone (L, 3) && !lua_isnil (L, 3))
+    filter = wplua_checkboxed (L, 3, WP_TYPE_SPA_POD);
+  WpIterator *it = wp_pipewire_object_enum_params_sync (pwobj, id, filter);
   return push_wpiterator (L, it);
 }
 
