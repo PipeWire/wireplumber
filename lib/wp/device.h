@@ -10,6 +10,7 @@
 #define __WIREPLUMBER_DEVICE_H__
 
 #include "global-proxy.h"
+#include "spa-pod.h"
 
 G_BEGIN_DECLS
 
@@ -56,6 +57,14 @@ WpSpaDevice * wp_spa_device_new_from_spa_factory (WpCore * core,
 
 WP_API
 WpProperties * wp_spa_device_get_properties (WpSpaDevice * self);
+
+WP_API
+WpIterator * wp_spa_device_enum_params_sync (WpSpaDevice * self,
+    const gchar * id, WpSpaPod * filter);
+
+WP_API
+gboolean wp_spa_device_set_param (WpSpaDevice * self,
+    const gchar * id, guint32 flags, WpSpaPod * param);
 
 WP_API
 WpIterator * wp_spa_device_new_managed_object_iterator (WpSpaDevice * self);

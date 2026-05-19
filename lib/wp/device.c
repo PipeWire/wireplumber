@@ -198,6 +198,7 @@ struct _WpSpaDevice
   struct spa_device *device;
   struct spa_hook listener;
   WpProperties *properties;
+  GPtrArray *last_enum_params;
   GPtrArray *managed_objs;
   GPtrArray *pending_obj_config;
 };
@@ -237,6 +238,8 @@ static void
 wp_spa_device_init (WpSpaDevice * self)
 {
   self->properties = wp_properties_new_empty ();
+  self->last_enum_params = g_ptr_array_new_with_free_func (
+      (GDestroyNotify)wp_spa_pod_unref);
   self->managed_objs = g_ptr_array_new_with_free_func (object_unref_safe);
   self->pending_obj_config = g_ptr_array_new_with_free_func (pod_unref_safe);
 }
@@ -270,6 +273,7 @@ wp_spa_device_finalize (GObject * object)
   self->device = NULL;
   g_clear_pointer (&self->handle, pw_unload_spa_handle);
   g_clear_pointer (&self->properties, wp_properties_unref);
+  g_clear_pointer (&self->last_enum_params, g_ptr_array_unref);
   g_clear_pointer (&self->managed_objs, g_ptr_array_unref);
   g_clear_pointer (&self->pending_obj_config, g_ptr_array_unref);
 
@@ -330,6 +334,24 @@ spa_device_event_info (void *data, const struct spa_device_info *info)
    */
   if (info->change_mask & SPA_DEVICE_CHANGE_MASK_PROPS)
     wp_properties_update_from_dict (self->properties, info->props);
+}
+
+static void
+spa_device_event_result (void *data, int seq, int res, uint32_t type,
+    const void *result)
+{
+  WpSpaDevice *self = WP_SPA_DEVICE (data);
+  const struct spa_result_device_params *r = result;
+
+  if (type == SPA_RESULT_TYPE_DEVICE_PARAMS) {
+    g_autoptr (WpSpaPod) pod_param = NULL;
+    g_autoptr (WpSpaPod) pod_param_copy = NULL;
+
+    pod_param = wp_spa_pod_new_wrap (r->param);
+    pod_param_copy = wp_spa_pod_copy (pod_param);
+
+    g_ptr_array_add (self->last_enum_params, g_steal_pointer (&pod_param_copy));
+  }
 }
 
 static WpSpaPod *
@@ -463,6 +485,7 @@ spa_device_event_object_info (void *data, uint32_t id,
 static const struct spa_device_events spa_device_events = {
   SPA_VERSION_DEVICE_EVENTS,
   .info = spa_device_event_info,
+  .result =  spa_device_event_result,
   .event = spa_device_event_event,
   .object_info = spa_device_event_object_info,
 };
@@ -536,6 +559,7 @@ wp_spa_device_deactivate (WpObject * object, WpObjectFeatures features)
   if (features & WP_SPA_DEVICE_FEATURE_ENABLED) {
     WpSpaDevice *self = WP_SPA_DEVICE (object);
     spa_hook_remove (&self->listener);
+    g_ptr_array_set_size (self->last_enum_params, 0);
     g_ptr_array_set_size (self->managed_objs, 0);
     g_ptr_array_set_size (self->pending_obj_config, 0);
     wp_object_update_features (object, 0, WP_SPA_DEVICE_FEATURE_ENABLED);
@@ -727,6 +751,82 @@ wp_spa_device_get_properties (WpSpaDevice * self)
 {
   g_return_val_if_fail (WP_IS_SPA_DEVICE (self), NULL);
   return wp_properties_ref (self->properties);
+}
+
+/*!
+ * \brief This method can be used to retrieve object parameters of the spa
+ * device synchronously because the spa device always runs locally.
+ *
+ * \ingroup wpspadevice
+ * \param self the spa device
+ * \param id the parameter id to enumerate
+ * \param filter (nullable): a param filter or NULL
+ * \returns (transfer full) (nullable): an iterator to iterate over cached
+ *    parameters, or NULL if parameters for this \a id are not cached;
+ *    the items in the iterator are WpSpaPod
+ * \since 0.5.15
+ */
+WpIterator *
+wp_spa_device_enum_params_sync (WpSpaDevice * self,
+    const gchar * id, WpSpaPod * filter)
+{
+  g_autoptr (GPtrArray) params = NULL;
+  WpSpaIdValue param_id;
+  guint32 id_val;
+  const struct spa_pod *f;
+
+  g_return_val_if_fail (WP_IS_SPA_DEVICE (self), NULL);
+  g_return_val_if_fail (id, NULL);
+
+  /* Translate the id */
+  param_id = wp_spa_id_value_from_short_name ("Spa:Enum:ParamId", id);
+  if (!param_id)
+    return NULL;
+  id_val = wp_spa_id_value_number (param_id);
+
+  /* Clear the last enum params */
+  g_ptr_array_set_size (self->last_enum_params, 0);
+
+  f = filter ? wp_spa_pod_get_spa_pod (filter) : NULL;
+  spa_device_enum_params (self->device, 1, id_val, 0, -1, f);
+
+  params = g_ptr_array_copy (self->last_enum_params, (GCopyFunc)wp_spa_pod_ref,
+      NULL);
+  g_ptr_array_set_size (self->last_enum_params, 0);
+  return wp_iterator_new_ptr_array (g_steal_pointer (&params), WP_TYPE_SPA_POD);
+}
+
+/*!
+ * \brief Sets a parameter on the spa device.
+ *
+ * \ingroup wpspadevice
+ * \param self the pipewire object
+ * \param id the parameter id to set
+ * \param flags optional flags or 0
+ * \param param (transfer full): the parameter to set
+ * \returns TRUE on success, FALSE if setting the param failed
+ * \since 0.5.15
+ */
+gboolean
+wp_spa_device_set_param (WpSpaDevice * self,
+    const gchar * id, guint32 flags, WpSpaPod * param)
+{
+  WpSpaIdValue param_id;
+  guint32 id_val;
+  const struct spa_pod *p;
+
+  g_return_val_if_fail (WP_IS_SPA_DEVICE (self), FALSE);
+  g_return_val_if_fail (id, FALSE);
+  g_return_val_if_fail (param, FALSE);
+
+  /* Translate the id */
+  param_id = wp_spa_id_value_from_short_name ("Spa:Enum:ParamId", id);
+  if (!param_id)
+    return FALSE;
+  id_val = wp_spa_id_value_number (param_id);
+
+  p = wp_spa_pod_get_spa_pod (param);
+  return spa_device_set_param (self->device, id_val, flags, p) >= 0;
 }
 
 /*!
