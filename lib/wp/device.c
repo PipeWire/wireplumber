@@ -213,6 +213,7 @@ enum
 {
   SIGNAL_CREATE_OBJECT,
   SIGNAL_OBJECT_REMOVED,
+  SIGNAL_EVENT,
   SPA_DEVICE_LAST_SIGNAL,
 };
 
@@ -447,6 +448,8 @@ spa_device_event_event (void *data, const struct spa_event *event)
       }
     }
   }
+
+  g_signal_emit (self, spa_device_signals[SIGNAL_EVENT], 0, pod);
 }
 
 static void
@@ -677,6 +680,10 @@ wp_spa_device_class_init (WpSpaDeviceClass * klass)
   spa_device_signals[SIGNAL_OBJECT_REMOVED] = g_signal_new (
       "object-removed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
       0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_UINT);
+
+  spa_device_signals[SIGNAL_EVENT] = g_signal_new (
+      "event", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
+      0, NULL, NULL, NULL, G_TYPE_NONE, 1, WP_TYPE_SPA_POD);
 }
 
 /*!
