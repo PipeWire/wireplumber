@@ -402,19 +402,84 @@ wp_spa_pod_lua_table_members (lua_State *L, int idx)
   return (int)members;
 }
 
+typedef void (*builder_table_validator) (lua_State *L, WpSpaType type,
+    int members);
+
+struct builder_add_table_ctx {
+  WpSpaPodBuilder *builder;
+  builder_table_validator validator;
+};
+
+static gboolean
+lua_value_to_boolean (lua_State *L, int idx, gboolean *value)
+{
+  switch (lua_type (L, idx)) {
+  case LUA_TBOOLEAN:
+    *value = lua_toboolean (L, idx);
+    return TRUE;
+  case LUA_TNUMBER:
+    if (lua_isinteger (L, idx)) {
+      *value = lua_tointeger (L, idx) > 0;
+      return TRUE;
+    }
+    break;
+  case LUA_TSTRING: {
+    const gchar *s = lua_tostring (L, idx);
+    *value = g_strcmp0 (s, "true") == 0 || g_strcmp0 (s, "1") == 0;
+    return TRUE;
+  }
+  default:
+    break;
+  }
+  return FALSE;
+}
+
+static void
+validate_choice_enum_bool (lua_State *L, WpSpaType type, int members)
+{
+  gboolean values[3];
+  lua_Integer i;
+
+  if (type != SPA_TYPE_Bool)
+    return;
+
+  if (members != 4)
+    luaL_error (L, "Bool Enum choice requires exactly 3 values");
+
+  for (i = 0; i < 3; i++) {
+    int ltype = lua_rawgeti (L, 1, 2 + i);
+
+    if (ltype == LUA_TNIL)
+      luaL_error (L, "Bool Enum choice is missing value at index %d",
+          (int) (2 + i));
+    if (!lua_value_to_boolean (L, -1, &values[i]))
+      luaL_error (L, "Bool Enum choice values must be booleans");
+    lua_pop (L, 1);
+  }
+
+  if (values[0] != values[1])
+    luaL_error (L, "Bool Enum choice first two values must be equal");
+
+  if (values[2] == values[0])
+    luaL_error (L,
+        "Bool Enum choice third value must be the opposite of the default");
+}
+
 static int
 builder_add_table_inner (lua_State *L)
 {
   WpSpaType type = WP_SPA_TYPE_INVALID;
   const gchar *type_name = NULL;
   WpSpaIdTable table = NULL;
+  struct builder_add_table_ctx *ctx;
   WpSpaPodBuilder *builder;
   lua_Integer table_key;
   int members;
 
   /* stack at entry: args from Lua, light userdata */
   /* Last argument is the pointer pushed by builder_add_table(). */
-  builder = lua_touserdata (L, -1);
+  ctx = lua_touserdata (L, -1);
+  builder = ctx->builder;
   lua_pop(L, 1);
   /* stack: args from Lua */
 
@@ -448,6 +513,10 @@ builder_add_table_inner (lua_State *L)
     luaL_error (L, "Unsupported type %" PRIu32 " for array or choice", type);
   }
   lua_pop (L, 1);
+
+  if (ctx->validator)
+    ctx->validator (L, type, members);
+
   for (table_key = 2; table_key <= (lua_Integer)members; table_key++)  {
     int ltype = lua_rawgeti (L, 1, table_key);
     if (ltype == LUA_TNIL)
@@ -463,12 +532,15 @@ builder_add_table_inner (lua_State *L)
 }
 
 static int
-builder_add_table (lua_State *L, WpSpaPodBuilder *builder_)
+builder_add_table (lua_State *L, WpSpaPodBuilder *builder_,
+    builder_table_validator validator)
 {
   int call_args, status;
   {
     g_autoptr (WpSpaPodBuilder) builder = builder_;
-    lua_pushlightuserdata (L, builder);
+    struct builder_add_table_ctx ctx = { builder, validator };
+
+    lua_pushlightuserdata (L, &ctx);
     call_args = lua_gettop (L);
     lua_pushcfunction (L, builder_add_table_inner);
     lua_insert (L, 1);
@@ -865,7 +937,7 @@ static int
 spa_pod_array_new (lua_State *L)
 {
   WpSpaPodBuilder *builder = wp_spa_pod_builder_new_array ();
-  return builder_add_table (L, builder);
+  return builder_add_table (L, builder, NULL);
 }
 
 /* Choice */
@@ -874,36 +946,35 @@ static int
 spa_pod_choice_none_new (lua_State *L)
 {
   WpSpaPodBuilder *builder = wp_spa_pod_builder_new_choice ("None");
-  return builder_add_table (L, builder);
+  return builder_add_table (L, builder, NULL);
 }
 
 static int
 spa_pod_choice_range_new (lua_State *L)
 {
   WpSpaPodBuilder *builder = wp_spa_pod_builder_new_choice ("Range");
-  return builder_add_table (L, builder);
+  return builder_add_table (L, builder, NULL);
 }
 
 static int
 spa_pod_choice_step_new (lua_State *L)
 {
   WpSpaPodBuilder *builder = wp_spa_pod_builder_new_choice ("Step");
-  return builder_add_table (L, builder);
+  return builder_add_table (L, builder, NULL);
 }
 
 static int
 spa_pod_choice_enum_new (lua_State *L)
 {
   WpSpaPodBuilder *builder = wp_spa_pod_builder_new_choice ("Enum");
-  /* TODO: check bool enums */
-  return builder_add_table (L, builder);
+  return builder_add_table (L, builder, validate_choice_enum_bool);
 }
 
 static int
 spa_pod_choice_flags_new (lua_State *L)
 {
   WpSpaPodBuilder *builder = wp_spa_pod_builder_new_choice ("Flags");
-  return builder_add_table (L, builder);
+  return builder_add_table (L, builder, NULL);
 }
 
 /* API */
