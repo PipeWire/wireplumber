@@ -260,6 +260,25 @@ wp_pw_object_mixin_enum_params_finish (WpPipewireObject * obj,
   return wp_iterator_new_ptr_array (array, WP_TYPE_SPA_POD);
 }
 
+static GPtrArray *
+filter_cached_params (GPtrArray *params, WpSpaPod *filter)
+{
+  g_autoptr (GPtrArray) filtered = NULL;
+
+  if (!filter)
+    return g_ptr_array_ref (params);
+
+  filtered = g_ptr_array_new_with_free_func ((GDestroyNotify) wp_spa_pod_unref);
+  for (guint i = 0; i < params->len; i++) {
+    WpSpaPod *param = g_ptr_array_index (params, i);
+    g_autoptr (WpSpaPod) result = wp_spa_pod_filter (param, filter);
+
+    if (result)
+      g_ptr_array_add (filtered, g_steal_pointer (&result));
+  }
+  return g_steal_pointer (&filtered);
+}
+
 static WpIterator *
 wp_pw_object_mixin_enum_params_sync (WpPipewireObject * obj, const gchar * id,
     WpSpaPod * filter)
@@ -282,9 +301,11 @@ wp_pw_object_mixin_enum_params_sync (WpPipewireObject * obj, const gchar * id,
   } else {
     /* otherwise, find and return the cached params */
     WpPwObjectMixinData *data = wp_pw_object_mixin_get_data (obj);
-    params = wp_pw_object_mixin_get_stored_params (data,
+    g_autoptr (GPtrArray) stored = wp_pw_object_mixin_get_stored_params (data,
         wp_spa_id_value_number (param_id));
-    /* TODO filter */
+
+    if (stored)
+      params = filter_cached_params (stored, filter);
   }
 
   return params ? wp_iterator_new_ptr_array (params, WP_TYPE_SPA_POD) : NULL;
