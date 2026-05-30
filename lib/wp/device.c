@@ -198,6 +198,8 @@ struct _WpSpaDevice
   struct spa_device *device;
   struct spa_hook listener;
   WpProperties *properties;
+  struct spa_param_info *info_params;
+  guint info_n_params;
   GPtrArray *last_enum_params;
   GPtrArray *managed_objs;
   GPtrArray *pending_obj_config;
@@ -214,6 +216,7 @@ enum
   SIGNAL_CREATE_OBJECT,
   SIGNAL_OBJECT_REMOVED,
   SIGNAL_EVENT,
+  SIGNAL_PARAMS_CHANGED,
   SPA_DEVICE_LAST_SIGNAL,
 };
 
@@ -335,6 +338,26 @@ spa_device_event_info (void *data, const struct spa_device_info *info)
    */
   if (info->change_mask & SPA_DEVICE_CHANGE_MASK_PROPS)
     wp_properties_update_from_dict (self->properties, info->props);
+
+  /* Emit params-changed when the params have changed */
+  if (info->change_mask & SPA_DEVICE_CHANGE_MASK_PARAMS) {
+    for (guint32 i = 0; i < info->n_params; i++) {
+      if (!self->info_params || i >= self->info_n_params ||
+          info->params[i].flags != self->info_params[i].flags) {
+        const gchar *name;
+        name = wp_spa_id_value_short_name (wp_spa_id_value_from_number (
+            "Spa:Enum:ParamId", info->params[i].id));
+        g_signal_emit_by_name (self, "params-changed", name);
+      }
+    }
+  }
+
+  /* Update cached params */
+  self->info_params = g_realloc (self->info_params,
+      info->n_params * sizeof(struct spa_param_info));
+  memcpy (self->info_params, info->params,
+      info->n_params * sizeof(struct spa_param_info));
+  self->info_n_params = info->n_params;
 }
 
 static void
@@ -562,6 +585,8 @@ wp_spa_device_deactivate (WpObject * object, WpObjectFeatures features)
   if (features & WP_SPA_DEVICE_FEATURE_ENABLED) {
     WpSpaDevice *self = WP_SPA_DEVICE (object);
     spa_hook_remove (&self->listener);
+    g_clear_pointer (&self->info_params, g_free);
+    self->info_n_params = 0;
     g_ptr_array_set_size (self->last_enum_params, 0);
     g_ptr_array_set_size (self->managed_objs, 0);
     g_ptr_array_set_size (self->pending_obj_config, 0);
@@ -684,6 +709,10 @@ wp_spa_device_class_init (WpSpaDeviceClass * klass)
   spa_device_signals[SIGNAL_EVENT] = g_signal_new (
       "event", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
       0, NULL, NULL, NULL, G_TYPE_NONE, 1, WP_TYPE_SPA_POD);
+
+  spa_device_signals[SIGNAL_PARAMS_CHANGED] = g_signal_new (
+      "params-changed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
+      0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_STRING);
 }
 
 /*!
