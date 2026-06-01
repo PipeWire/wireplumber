@@ -20,7 +20,7 @@ void wp_lua_scripting_api_init (lua_State *L);
 struct _WpLuaScriptingPlugin
 {
   WpPlugin parent;
-  lua_State *L;
+  WpLuaState *lua_state;
   GPtrArray *scripts; /* List of all loaded WpLuaScript objects */
 };
 
@@ -99,17 +99,19 @@ wp_lua_scripting_plugin_enable (WpPlugin * plugin, WpTransition * transition)
 {
   WpLuaScriptingPlugin * self = WP_LUA_SCRIPTING_PLUGIN (plugin);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (plugin));
+  lua_State * L;
 
   /* init lua engine */
-  self->L = wplua_new ();
+  self->lua_state = wplua_state_new ();
+  L = wplua_state_get (self->lua_state);
 
-  lua_pushliteral (self->L, "wireplumber_core");
-  lua_pushlightuserdata (self->L, core);
-  lua_settable (self->L, LUA_REGISTRYINDEX);
+  lua_pushliteral (L, "wireplumber_core");
+  lua_pushlightuserdata (L, core);
+  lua_settable (L, LUA_REGISTRYINDEX);
 
-  wp_lua_scripting_api_init (self->L);
-  wp_lua_scripting_enable_package_searcher (self->L);
-  wplua_enable_sandbox (self->L, WP_LUA_SANDBOX_ISOLATE_ENV);
+  wp_lua_scripting_api_init (L);
+  wp_lua_scripting_enable_package_searcher (L);
+  wplua_enable_sandbox (L, WP_LUA_SANDBOX_ISOLATE_ENV);
 
   wp_object_update_features (WP_OBJECT (self), WP_PLUGIN_FEATURE_ENABLED, 0);
 }
@@ -125,7 +127,7 @@ wp_lua_scripting_plugin_disable (WpPlugin * plugin)
     wp_object_deactivate (WP_OBJECT (script), WP_OBJECT_FEATURES_ALL);
   }
 
-  g_clear_pointer (&self->L, wplua_unref);
+  g_clear_object (&self->lua_state);
 }
 
 static gboolean
@@ -163,7 +165,7 @@ wp_lua_scripting_plugin_load (WpComponentLoader * cl, WpCore * core,
   g_task_set_source_tag (task, wp_lua_scripting_plugin_load);
 
   /* make sure the component loader is activated */
-  if (!self->L) {
+  if (!self->lua_state) {
     g_task_return_new_error (task, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
         "Lua script component loader cannot load Lua scripts if not enabled");
     return;
@@ -190,7 +192,7 @@ wp_lua_scripting_plugin_load (WpComponentLoader * cl, WpCore * core,
   script = g_object_new (WP_TYPE_LUA_SCRIPT,
       "core", core,
       "name", pluginname,
-      "lua-engine", self->L,
+      "lua-engine", self->lua_state,
       "filename", filepath,
       "arguments", args,
       NULL);

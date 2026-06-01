@@ -16,21 +16,7 @@ WP_LOG_TOPIC (log_topic_wplua, "wplua")
 
 extern void _wplua_register_resource (void);
 
-typedef struct {
-  guint64 refcount;
-} WpLuaExtraData;
-
 G_DEFINE_QUARK (wplua, wp_domain_lua);
-
-static WpLuaExtraData *
-wplua_getextradata (lua_State *L)
-{
-  WpLuaExtraData *data;
-
-  G_STATIC_ASSERT(LUA_EXTRASPACE >= sizeof(data));
-  memcpy (&data, lua_getextraspace (L), sizeof(data));
-  return data;
-}
 
 static void
 _wplua_openlibs (lua_State *L)
@@ -113,66 +99,72 @@ _wplua_pcall (lua_State *L, int nargs, int nret)
   return ret;
 }
 
-lua_State *
-wplua_new (void)
+struct _WpLuaState
+{
+  GObject parent;
+  lua_State *L;
+};
+
+G_DEFINE_TYPE (WpLuaState, wplua_state, G_TYPE_OBJECT)
+
+static void
+wplua_state_finalize (GObject * object)
+{
+  WpLuaState * self = WPLUA_STATE (object);
+
+  wp_debug ("closing lua_State %p", self->L);
+  g_clear_pointer (&self->L, lua_close);
+
+  G_OBJECT_CLASS (wplua_state_parent_class)->finalize (object);
+}
+
+static void
+wplua_state_init (WpLuaState * self)
 {
   static gboolean resource_registered = FALSE;
-  lua_State *L = luaL_newstate ();
 
-  if (L == NULL)
+  self->L = luaL_newstate ();
+  if (self->L == NULL)
     g_error ("cannot create Lua state");
-  wp_debug ("initializing lua_State %p", L);
-  WpLuaExtraData *extradata = g_malloc(sizeof(*extradata));
-  extradata->refcount = 1;
-  memcpy (lua_getextraspace (L), &extradata, sizeof(extradata));
+
+  wp_debug ("initializing lua_State %p", self->L);
 
   if (!resource_registered) {
     _wplua_register_resource ();
     resource_registered = TRUE;
   }
 
-  _wplua_openlibs (L);
-  _wplua_init_gboxed (L);
-  _wplua_init_gobject (L);
-  _wplua_init_closure (L);
+  _wplua_openlibs (self->L);
+  _wplua_init_gboxed (self->L);
+  _wplua_init_gobject (self->L);
+  _wplua_init_closure (self->L);
 
   {
     GHashTable *t = g_hash_table_new (g_direct_hash, g_direct_equal);
-    lua_pushliteral (L, "wplua_vtables");
-    wplua_pushboxed (L, G_TYPE_HASH_TABLE, t);
-    lua_settable (L, LUA_REGISTRYINDEX);
+    lua_pushliteral (self->L, "wplua_vtables");
+    wplua_pushboxed (self->L, G_TYPE_HASH_TABLE, t);
+    lua_settable (self->L, LUA_REGISTRYINDEX);
   }
+}
 
-  return L;
+static void
+wplua_state_class_init (WpLuaStateClass * klass)
+{
+  GObjectClass *object_class = (GObjectClass *) klass;
+
+  object_class->finalize = wplua_state_finalize;
+}
+
+WpLuaState *
+wplua_state_new (void)
+{
+  return g_object_new (WPLUA_TYPE_STATE, NULL);
 }
 
 lua_State *
-wplua_ref (lua_State *L)
+wplua_state_get (WpLuaState *self)
 {
-  WpLuaExtraData *data = wplua_getextradata(L);
-
-  if (data->refcount < 1 || data->refcount == UINT64_MAX)
-    g_error ("bad refcount");
-  else {
-    data->refcount++;
-    return L;
-  }
-}
-
-void
-wplua_unref (lua_State * L)
-{
-  WpLuaExtraData *data = wplua_getextradata(L);
-
-  if (data->refcount < 1)
-    g_error ("bad refcount");
-  else if (data->refcount > 1)
-    data->refcount--;
-  else {
-    wp_debug ("closing lua_State %p", L);
-    g_free (data);
-    lua_close (L);
-  }
+  return self->L;
 }
 
 void

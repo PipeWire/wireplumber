@@ -27,9 +27,11 @@ struct _WpLuaScript
 {
   WpPlugin parent;
 
-  lua_State *L;
+  GWeakRef lua_engine;
   gchar *filename;
   WpSpaJson *args;
+
+  WpLuaState *lua_state;
 };
 
 enum {
@@ -44,16 +46,22 @@ G_DEFINE_TYPE (WpLuaScript, wp_lua_script, WP_TYPE_PLUGIN)
 static void
 wp_lua_script_init (WpLuaScript * self)
 {
+  g_weak_ref_init (&self->lua_engine, NULL);
 }
 
 static void
 wp_lua_script_cleanup (WpLuaScript * self)
 {
   /* LUA_REGISTRYINDEX[self] = nil */
-  if (self->L) {
-    lua_pushnil (self->L);
-    lua_rawsetp (self->L, LUA_REGISTRYINDEX, self);
+  if (self->lua_state) {
+    lua_State *L = wplua_state_get (self->lua_state);
+    lua_pushnil (L);
+    lua_rawsetp (L, LUA_REGISTRYINDEX, self);
   }
+
+  /* Relase the strong reference of the Lua state so that the script's global
+   * variables are released when deactivating the script */
+  g_clear_object (&self->lua_state);
 }
 
 static void
@@ -61,8 +69,7 @@ wp_lua_script_finalize (GObject * object)
 {
   WpLuaScript *self = WP_LUA_SCRIPT (object);
 
-  wp_lua_script_cleanup (self);
-  g_clear_pointer (&self->L, wplua_unref);
+  g_weak_ref_clear (&self->lua_engine);
   g_clear_pointer (&self->filename, g_free);
   g_clear_pointer (&self->args, wp_spa_json_unref);
 
@@ -77,10 +84,7 @@ wp_lua_script_set_property (GObject * object, guint property_id,
 
   switch (property_id) {
   case PROP_LUA_ENGINE:
-    g_return_if_fail (self->L == NULL);
-    self->L = g_value_get_pointer (value);
-    if (self->L)
-      self->L = wplua_ref (self->L);
+    g_weak_ref_set (&self->lua_engine, g_value_get_pointer (value));
     break;
   case PROP_FILENAME:
     self->filename = g_value_dup_string (value);
@@ -98,26 +102,36 @@ static gboolean
 wp_lua_script_check_async_activation (WpLuaScript * self)
 {
   gboolean ret;
-  lua_rawgetp (self->L, LUA_REGISTRYINDEX, self);
-  lua_pushliteral (self->L, "Script");
-  lua_gettable (self->L, -2);
-  lua_pushliteral (self->L, "async_activation");
-  lua_gettable (self->L, -2);
-  ret = lua_toboolean (self->L, -1);
-  lua_pop (self->L, 3);
+  lua_State *L;
+
+  g_return_val_if_fail (self->lua_state, FALSE);
+  L = wplua_state_get (self->lua_state);
+
+  lua_rawgetp (L, LUA_REGISTRYINDEX, self);
+  lua_pushliteral (L, "Script");
+  lua_gettable (L, -2);
+  lua_pushliteral (L, "async_activation");
+  lua_gettable (L, -2);
+  ret = lua_toboolean (L, -1);
+  lua_pop (L, 3);
   return ret;
 }
 
 static void
 wp_lua_script_detach_transition (WpLuaScript * self)
 {
-  lua_rawgetp (self->L, LUA_REGISTRYINDEX, self);
-  lua_pushliteral (self->L, "Script");
-  lua_gettable (self->L, -2);
-  lua_pushliteral (self->L, "__transition");
-  lua_pushnil (self->L);
-  lua_settable (self->L, -3);
-  lua_pop (self->L, 2);
+  lua_State *L;
+
+  g_return_if_fail (self->lua_state);
+  L = wplua_state_get (self->lua_state);
+
+  lua_rawgetp (L, LUA_REGISTRYINDEX, self);
+  lua_pushliteral (L, "Script");
+  lua_gettable (L, -2);
+  lua_pushliteral (L, "__transition");
+  lua_pushnil (L);
+  lua_settable (L, -3);
+  lua_pop (L, 2);
 }
 
 static int
@@ -209,35 +223,40 @@ wp_lua_script_enable (WpPlugin * plugin, WpTransition * transition)
   WpLuaScript *self = WP_LUA_SCRIPT (plugin);
   g_autoptr (GError) error = NULL;
   int top, nargs = 3;
+  lua_State *L;
 
-  if (!self->L) {
+  /* Hold a strong reference of the Lua state while the script is activated */
+  self->lua_state = g_weak_ref_get (&self->lua_engine);
+  if (!self->lua_state) {
     error = g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVALID_ARGUMENT,
         "No lua state open; lua-scripting plugin is not enabled");
     wp_transition_return_error (transition, g_steal_pointer (&error));
     return;
   }
+  L = wplua_state_get (self->lua_state);
 
-  top = lua_gettop (self->L);
-  lua_pushcfunction (self->L, wp_lua_script_sandbox);
-  lua_pushlightuserdata (self->L, self);
-  lua_pushlightuserdata (self->L, transition);
+  top = lua_gettop (L);
+  lua_pushcfunction (L, wp_lua_script_sandbox);
+  lua_pushlightuserdata (L, self);
+  lua_pushlightuserdata (L, transition);
 
   /* load script */
-  if (!wplua_load_path (self->L, self->filename, &error)) {
-    lua_settop (self->L, top);
+  if (!wplua_load_path (L, self->filename, &error)) {
+    lua_settop (L, top);
     wp_transition_return_error (transition, g_steal_pointer (&error));
+    wp_lua_script_cleanup (self);
     return;
   }
 
   /* push script arguments */
   if (self->args) {
-    wplua_pushboxed (self->L, WP_TYPE_SPA_JSON, wp_spa_json_ref (self->args));
+    wplua_pushboxed (L, WP_TYPE_SPA_JSON, wp_spa_json_ref (self->args));
     nargs++;
   }
 
   /* execute script */
-  if (!wplua_pcall (self->L, nargs, 0, &error)) {
-    lua_settop (self->L, top);
+  if (!wplua_pcall (L, nargs, 0, &error)) {
+    lua_settop (L, top);
     wp_transition_return_error (transition, g_steal_pointer (&error));
     wp_lua_script_cleanup (self);
     return;
@@ -251,7 +270,7 @@ wp_lua_script_enable (WpPlugin * plugin, WpTransition * transition)
         (GCallback) wp_lua_script_detach_transition, self, G_CONNECT_SWAPPED);
   }
 
-  lua_settop (self->L, top);
+  lua_settop (L, top);
 }
 
 static void

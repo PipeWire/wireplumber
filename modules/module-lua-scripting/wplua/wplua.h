@@ -47,9 +47,10 @@ typedef enum {
   WP_LUA_SANDBOX_ISOLATE_ENV = 1,
 } WpLuaSandboxFlags;
 
-lua_State * wplua_new (void);
-lua_State * wplua_ref (lua_State *L);
-void wplua_unref (lua_State * L);
+#define WPLUA_TYPE_STATE (wplua_state_get_type ())
+G_DECLARE_FINAL_TYPE (WpLuaState, wplua_state, WPLUA, STATE, GObject)
+WpLuaState * wplua_state_new (void);
+lua_State * wplua_state_get (WpLuaState *self);
 
 void wplua_enable_sandbox (lua_State * L, WpLuaSandboxFlags flags);
 int wplua_push_sandbox (lua_State * L);
@@ -93,8 +94,6 @@ gboolean wplua_load_uri (lua_State * L, const gchar *uri, GError **error);
 gboolean wplua_load_path (lua_State * L, const gchar *path, GError **error);
 
 gboolean wplua_pcall (lua_State * L, int nargs, int nres, GError **error);
-
-G_DEFINE_AUTOPTR_CLEANUP_FUNC(lua_State, wplua_unref)
 
 G_END_DECLS
 
