@@ -165,4 +165,10 @@ function mutils.register_cam_node (self, parent, id, factory, properties)
   end)
 end
 
+function mutils.get_bluez_node_name (prefix, bt_address, dev_name, node_id)
+  local name = prefix .. "." .. (bt_address or dev_name) .. "." .. tostring(node_id)
+  -- sanitize name
+  return name:gsub("([^%w_%-%.])", "_")
+end
+
 return mutils
