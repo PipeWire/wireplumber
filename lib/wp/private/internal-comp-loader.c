@@ -775,6 +775,15 @@ load_settings_instance (GTask * task, WpCore * core, WpSpaJson * args)
   g_task_return_pointer (task, settings, g_object_unref);
 }
 
+static void
+load_stream_manager (GTask * task, WpCore * core, WpSpaJson * args)
+{
+  wp_info_object (core, "loading stream manager...");
+
+  WpStreamManager *stream_manager = wp_stream_manager_new (core);
+  g_task_return_pointer (task, stream_manager, g_object_unref);
+}
+
 static const struct {
   const gchar * name;
   void (*load) (GTask *, WpCore *, WpSpaJson *);
@@ -786,6 +795,7 @@ static const struct {
      Kept as an alias so that older configuration files keep working. */
   { "export-core", load_client_context },
   { "settings-instance", load_settings_instance },
+  { "stream-manager", load_stream_manager },
 };
 
 /*** WpInternalCompLoader ***/
