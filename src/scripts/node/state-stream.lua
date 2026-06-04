@@ -399,7 +399,6 @@ end
 
 function formKey (properties)
   local keys = {
-    "media.role",
     "application.id",
     "application.name",
     "media.name",
@@ -407,14 +406,22 @@ function formKey (properties)
   }
   local key_base = nil
 
-  for _, k in ipairs (keys) do
-    local p = properties [k]
-    if p then
-      key_base = string.format ("%s:%s:%s",
-          properties ["media.class"]:gsub ("^Stream/", ""), k, p)
-      break
+  -- Only use the media.role key if it is set to Notification, otherwise use
+  -- the application keys.
+  if properties["media.role"] == "Notification" then
+    key_base = string.format ("%s:%s",
+        properties ["media.class"]:gsub ("^Stream/", ""), "media.role:Notification")
+  else
+    for _, k in ipairs (keys) do
+      local p = properties [k]
+      if p then
+        key_base = string.format ("%s:%s:%s",
+            properties ["media.class"]:gsub ("^Stream/", ""), k, p)
+        break
+      end
     end
   end
+
   return key_base
 end
 
