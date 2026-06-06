@@ -37,6 +37,7 @@ wp_lib_sources = files(
   'spa-pod.c',
   'spa-type.c',
   'state.c',
+  'stream.c',
   'transition.c',
   'wp.c',
 )
@@ -87,6 +88,7 @@ wp_lib_headers = files(
   'spa-pod.h',
   'spa-type.h',
   'state.h',
+  'stream.h',
   'transition.h',
   'wp.h',
   'factory.h',
