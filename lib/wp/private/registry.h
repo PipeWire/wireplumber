@@ -26,8 +26,8 @@ struct _WpRegistry
   struct pw_registry *pw_registry;
   struct spa_hook listener;
 
-  GPtrArray *globals; // elementy-type: WpGlobal*
-  GPtrArray *tmp_globals; // elementy-type: WpGlobal*
+  GPtrArray *globals; // element-type: WpGlobal*
+  GPtrArray *tmp_globals; // element-type: WpGlobal*
   GPtrArray *objects; // element-type: GObject*
   GPtrArray *object_managers; // element-type: WpObjectManager*
   GPtrArray *features; // element-type: gchar*

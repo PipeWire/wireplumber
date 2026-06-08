@@ -39,7 +39,7 @@ AsyncEventHook {
               effective_access))
         end
 
-        -- Set defaut permissions if any, otherwise check permission manager
+        -- Set default permissions if any, otherwise check permission manager
         if default_permissions ~= nil then
           client:update_permissions { ["any"] = default_permissions }
           log:info (client, string.format (

@@ -521,7 +521,7 @@ Additions:
     configuration files are found in the system. (#611)
 
   - The "policy-dsp" script, used in Asahi Linux to provide a software DSP
-    for Apple Sillicon devices, has now been ported to 0.5 properly and
+    for Apple Silicon devices, has now been ported to 0.5 properly and
     documented (#619, !627)
 
 WirePlumber 0.5.0
@@ -638,7 +638,7 @@ Other changes:
   - Fixed multiple issues related to restoring the Route parameter of devices,
     which includes volume state (#551)
 
-  - Smart filters can now be targetted by specific streams directly when
+  - Smart filters can now be targeted by specific streams directly when
     the ``filter.smart.targetable`` property is set (#554)
 
   - Ported the mechanism to override device profile priorities in the
@@ -1723,7 +1723,7 @@ Changes since 0.2.95:
   - Fixed an issue where links between the si-convert audioconvert nodes and
     the actual device nodes would stay active forever; they are now declared
     as "passive" links, which allows the nodes to suspend. This requires
-    changes to PipeWire that were commited after 0.3.6; when using WirePlumber
+    changes to PipeWire that were committed after 0.3.6; when using WirePlumber
     with 0.3.5 or 0.3.6, it is recommended to disable streams on audio sinks
     by commenting out the ``streams = "audio-sink.streams"`` lines in the
     .endpoint configuration files
@@ -1752,7 +1752,7 @@ adds a couple of features that ``pipewire-media-session`` lacks, such as:
   - It is configurable:
 
     - It supports configuration of endpoints, so that their properties
-      (such as their name) can be overriden
+      (such as their name) can be overridden
 
     - It also supports declaring priorities on endpoints, so that there
       are sane defaults on the first start

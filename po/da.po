@@ -29,7 +29,7 @@ msgstr ""
 #. applies properties from config.rules when asked to
 #. set the device id and spa factory name; REQUIRED, do not change
 #. set the default pause-on-idle setting
-#. try to negotiate the max ammount of channels
+#. try to negotiate the max amount of channels
 #. set priority
 #. ensure the node has a media class
 #. ensure the node has a name

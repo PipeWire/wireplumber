@@ -1,4 +1,4 @@
-# Belarusian tanslation of PipeWire
+# Belarusian translation of PipeWire
 # Copyright (C) 2016 PipeWire's COPYRIGHT HOLDER
 # This file is distributed under the same license as the PipeWire package.
 # Viktar Vaŭčkievič <victorenator@gmail.com>, 2016-2023.
@@ -33,7 +33,7 @@ msgstr ""
 #. applies properties from config.rules when asked to
 #. set the device id and spa factory name; REQUIRED, do not change
 #. set the default pause-on-idle setting
-#. try to negotiate the max ammount of channels
+#. try to negotiate the max amount of channels
 #. set priority
 #. ensure the node has a media class
 #. ensure the node has a name

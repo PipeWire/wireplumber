@@ -477,7 +477,7 @@ function checkProfiles (dev)
   if has_headset_profile then
     -- Always create the source loopback device if autoswitch is enabled.
     -- Otherwise, only create the source loopback device if the current profile
-    -- is headset, and destroy the source loopback deivce if the current profile
+    -- is headset, and destroy the source loopback device if the current profile
     -- is A2DP.
     if Settings.get_boolean ("bluetooth.autoswitch-to-headset-profile") then
       -- Create source loopback

@@ -30,7 +30,7 @@ _wplua_pushgvalue_userdata (lua_State * L, GType type)
   if (table_name == NULL)
     g_error ("type passed to %s not boxed or object", __func__);
 
-  /* auxillary library can use 4 stack slots, plus 1 for userdata */
+  /* auxiliary library can use 4 stack slots, plus 1 for userdata */
   if (!lua_checkstack (L, 5))
     g_error ("cannot grow Lua stack in %s", __func__);
   v = lua_newuserdata (L, sizeof (GValue));
@@ -47,7 +47,7 @@ _wplua_togvalue_userdata_named (lua_State *L, int idx, GType type,
 {
   GValue *v;
 
-  /* auxillary library can use 4 stack slots */
+  /* auxiliary library can use 4 stack slots */
   if (!lua_checkstack (L, 4))
     g_error ("cannot grow Lua stack in %s", __func__);
   if (!(v = luaL_testudata (L, idx, table_name)))

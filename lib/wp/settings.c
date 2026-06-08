@@ -630,7 +630,7 @@ on_metadata_added (WpObjectManager *om, WpMetadata *m, gpointer d)
     g_weak_ref_set (&self->metadata_schema, m);
   }
 
-  /* presistent-sm-settings */
+  /* persistent-sm-settings */
   else if (g_str_equal (metadata_name, self->metadata_persistent_name)) {
     g_autoptr (WpIterator) it = NULL;
     g_auto (GValue) item = G_VALUE_INIT;

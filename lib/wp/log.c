@@ -286,7 +286,7 @@ static const struct {
 
 /* map glib's log levels, which are flags in the range (1<<2) to (1<<8),
   to the 1-7 range; first calculate the integer part of log2(log_level)
-  to bring it down to 2-8 and substract 1 */
+  to bring it down to 2-8 and subtract 1 */
 static G_GNUC_CONST inline gint
 level_index_from_flags (GLogLevelFlags log_level)
 {

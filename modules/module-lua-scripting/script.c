@@ -59,7 +59,7 @@ wp_lua_script_cleanup (WpLuaScript * self)
     lua_rawsetp (L, LUA_REGISTRYINDEX, self);
   }
 
-  /* Relase the strong reference of the Lua state so that the script's global
+  /* Release the strong reference of the Lua state so that the script's global
    * variables are released when deactivating the script */
   g_clear_object (&self->lua_state);
 }

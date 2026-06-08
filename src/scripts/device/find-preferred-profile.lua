@@ -64,7 +64,7 @@ SimpleEventHook {
     local device = event:get_subject ()
     local device_name = device.properties["device.name"] or ""
 
-    -- Use device priority rules if any. Otherwise, get the prefered quality or
+    -- Use device priority rules if any. Otherwise, get the preferred quality or
     -- latency priorities if BT device.
     local priorities = getRulesProfilePriorities (device)
     if priorities == nil then
@@ -77,7 +77,7 @@ SimpleEventHook {
       return
     end
 
-    -- Find the prefered profile
+    -- Find the preferred profile
     for _, priority_profile in ipairs(priorities) do
       for p in device:iterate_params("EnumProfile") do
         local device_profile = cutils.parseParam(p, "EnumProfile")

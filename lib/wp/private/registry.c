@@ -70,7 +70,7 @@ object_manager_destroyed (gpointer data, GObject * om)
   g_ptr_array_remove_fast (self->object_managers, om);
 }
 
-/* find the subclass of WpPipewireGloabl that can handle
+/* find the subclass of WpPipewireGlobal that can handle
    the given pipewire interface type of the given version */
 static inline GType
 find_proxy_instance_type (const char * type, guint32 version)

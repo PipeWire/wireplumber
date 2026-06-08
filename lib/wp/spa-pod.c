@@ -1276,7 +1276,7 @@ wp_spa_pod_get_fraction (WpSpaPod *self, guint32 *num, guint32 *denom)
  * \ingroup wpspapod
  * \param self the spa pod object
  * \param value the boolean value
- * \returns TRUE if the value could be set, FALSE othewrise.
+ * \returns TRUE if the value could be set, FALSE otherwise.
  */
 gboolean
 wp_spa_pod_set_boolean (WpSpaPod *self, gboolean value)
@@ -1293,7 +1293,7 @@ wp_spa_pod_set_boolean (WpSpaPod *self, gboolean value)
  * \ingroup wpspapod
  * \param self the spa pod object
  * \param value the Id value
- * \returns TRUE if the value could be set, FALSE othewrise.
+ * \returns TRUE if the value could be set, FALSE otherwise.
  */
 gboolean
 wp_spa_pod_set_id (WpSpaPod *self, guint32 value)
@@ -1310,7 +1310,7 @@ wp_spa_pod_set_id (WpSpaPod *self, guint32 value)
  * \ingroup wpspapod
  * \param self the spa pod object
  * \param value the int value
- * \returns TRUE if the value could be set, FALSE othewrise.
+ * \returns TRUE if the value could be set, FALSE otherwise.
  */
 gboolean
 wp_spa_pod_set_int (WpSpaPod *self, gint32 value)
@@ -1327,7 +1327,7 @@ wp_spa_pod_set_int (WpSpaPod *self, gint32 value)
  * \ingroup wpspapod
  * \param self the spa pod object
  * \param value the long value
- * \returns TRUE if the value could be set, FALSE othewrise.
+ * \returns TRUE if the value could be set, FALSE otherwise.
  */
 gboolean
 wp_spa_pod_set_long (WpSpaPod *self, gint64 value)
@@ -1344,7 +1344,7 @@ wp_spa_pod_set_long (WpSpaPod *self, gint64 value)
  * \ingroup wpspapod
  * \param self the spa pod object
  * \param value the float value
- * \returns TRUE if the value could be set, FALSE othewrise.
+ * \returns TRUE if the value could be set, FALSE otherwise.
  */
 gboolean
 wp_spa_pod_set_float (WpSpaPod *self, float value)
@@ -1361,7 +1361,7 @@ wp_spa_pod_set_float (WpSpaPod *self, float value)
  * \ingroup wpspapod
  * \param self the spa pod object
  * \param value the double value
- * \returns TRUE if the value could be set, FALSE othewrise.
+ * \returns TRUE if the value could be set, FALSE otherwise.
  */
 gboolean
 wp_spa_pod_set_double (WpSpaPod *self, double value)
@@ -1379,7 +1379,7 @@ wp_spa_pod_set_double (WpSpaPod *self, double value)
  * \param self the spa pod object
  * \param type_name the name of the type of the pointer
  * \param value the pointer value
- * \returns TRUE if the value could be set, FALSE othewrise.
+ * \returns TRUE if the value could be set, FALSE otherwise.
  */
 gboolean
 wp_spa_pod_set_pointer (WpSpaPod *self, const char *type_name,
@@ -1402,7 +1402,7 @@ wp_spa_pod_set_pointer (WpSpaPod *self, const char *type_name,
  * \ingroup wpspapod
  * \param self the spa pod object
  * \param value the Fd value
- * \returns TRUE if the value could be set, FALSE othewrise.
+ * \returns TRUE if the value could be set, FALSE otherwise.
  */
 gboolean
 wp_spa_pod_set_fd (WpSpaPod *self, gint64 value)
@@ -1420,7 +1420,7 @@ wp_spa_pod_set_fd (WpSpaPod *self, gint64 value)
  * \param self the spa pod object
  * \param width the width value of the rectangle
  * \param height the height value of the rectangle
- * \returns TRUE if the value could be set, FALSE othewrise.
+ * \returns TRUE if the value could be set, FALSE otherwise.
  */
 gboolean
 wp_spa_pod_set_rectangle (WpSpaPod *self, guint32 width, guint32 height)
@@ -1440,7 +1440,7 @@ wp_spa_pod_set_rectangle (WpSpaPod *self, guint32 width, guint32 height)
  * \param self the spa pod object
  * \param num the numerator value of the fraction
  * \param denom the denominator value of the fraction
- * \returns TRUE if the value could be set, FALSE othewrise.
+ * \returns TRUE if the value could be set, FALSE otherwise.
  */
 gboolean
 wp_spa_pod_set_fraction (WpSpaPod *self, guint32 num, guint32 denom)
@@ -1459,7 +1459,7 @@ wp_spa_pod_set_fraction (WpSpaPod *self, guint32 num, guint32 denom)
  * \ingroup wpspapod
  * \param self the spa pod object
  * \param pod the pod with the value to be set
- * \returns TRUE if the value could be set, FALSE othewrise.
+ * \returns TRUE if the value could be set, FALSE otherwise.
  */
 gboolean
 wp_spa_pod_set_pod (WpSpaPod *self, WpSpaPod *pod)
@@ -1538,7 +1538,7 @@ wp_spa_pod_set_pod (WpSpaPod *self, WpSpaPod *pod)
  * \ingroup wpspapod
  * \param self the spa pod object
  * \param pod the pod with the value to be compared with
- * \returns TRUE if both spa pod objects have the same values, FALSE othewrise.
+ * \returns TRUE if both spa pod objects have the same values, FALSE otherwise.
  */
 gboolean
 wp_spa_pod_equal (WpSpaPod *self, WpSpaPod *pod)
