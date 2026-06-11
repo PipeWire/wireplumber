@@ -8,7 +8,7 @@ _wpctl() {
   local cur prev words cword
   local commands="status get-volume inspect set-default set-volume set-mute
                   set-profile set-route clear-default settings set-log-level
-                  list"
+                  list reset"
 
   _init_completion -n = || return
 
@@ -34,6 +34,10 @@ _wpctl() {
     if [[ ${COMP_WORDS[COMP_CWORD-2]} == "list" ]]; then
       COMPREPLY+=($(compgen -W "devices sinks sources" -- "$cur"))
     fi
+    ;;
+
+  reset)
+    COMPREPLY+=($(compgen -W "--wireplumber-config --pipewire-config --all --no-restart --dry-run" -- "$cur"))
     ;;
   esac
 }
