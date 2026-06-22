@@ -119,6 +119,7 @@ static struct {
       gboolean all;
       gboolean no_restart;
       gboolean dry_run;
+      gboolean yes;
     } reset;
   };
 } cmdline;
@@ -1943,6 +1944,7 @@ reset_run (WpCtl * self)
   gboolean remove_wp_config = cmdline.reset.wp_config || cmdline.reset.all;
   gboolean remove_pw_config = cmdline.reset.pw_config || cmdline.reset.all;
   gboolean dry_run = cmdline.reset.dry_run;
+  gboolean yes = cmdline.reset.yes;
   gboolean do_restart = !cmdline.reset.no_restart && !dry_run;
 
   g_autofree gchar *wp_state_dir = reset_get_state_dir ("wireplumber");
@@ -1985,15 +1987,17 @@ reset_run (WpCtl * self)
   if (dry_run)
     return;
 
-  /* Ask for confirmation */
-  printf ("\nWARNING: this action is not reversible.\n");
-  printf ("Proceed? [y/N] ");
-  fflush (stdout);
+  if (!yes) {
+    /* Ask for confirmation */
+    printf ("\nWARNING: this action is not reversible.\n");
+    printf ("Proceed? [y/N] ");
+    fflush (stdout);
 
-  char buf[8] = {0};
-  if (!fgets (buf, sizeof (buf), stdin) || (buf[0] != 'y' && buf[0] != 'Y')) {
-    printf ("Aborted.\n");
-    return;
+    char buf[8] = {0};
+    if (!fgets (buf, sizeof (buf), stdin) || (buf[0] != 'y' && buf[0] != 'Y')) {
+      printf ("Aborted.\n");
+      return;
+    }
   }
 
   /* Stop wireplumber before removing its files */
@@ -2020,7 +2024,7 @@ reset_run (WpCtl * self)
     systemctl_user ("start", "wireplumber");
 }
 
-#define N_ENTRIES 6
+#define N_ENTRIES 7
 
 static const struct subcommand {
   /* the name to match on the command line */
@@ -2228,6 +2232,9 @@ static const struct subcommand {
       { "dry-run", 'd', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE,
         &cmdline.reset.dry_run,
         "Show what would be deleted without actually deleting anything", NULL },
+      { "yes", 'y', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE,
+        &cmdline.reset.yes,
+        "Proceed without prompting for confirmation", NULL },
       { NULL }
     },
     .parse_positional = reset_parse_positional,
