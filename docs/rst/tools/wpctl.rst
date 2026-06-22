@@ -36,6 +36,22 @@ Options:
   **-n**, **--name**
     Display device and node names instead of descriptions
 
+list
+^^^^
+
+**wpctl list** [**audio**\|\ **video**] [**devices**\|\ **sinks**\|\ **sources**]
+
+Displays a machine-readable list of PipeWire objects, optionally filtered by
+media type and object type. Each line of output contains tab-separated fields:
+object ID, name, media type/object type, and a ``*`` marker if the node is the
+current default.
+
+Arguments:
+  **audio**\|\ **video** (optional)
+    Filter by media type
+  **devices**\|\ **sinks**\|\ **sources** (optional)
+    Filter by object type (requires media type to be specified first)
+
 get-volume
 ^^^^^^^^^^
 
@@ -207,6 +223,37 @@ Arguments:
     Log level (e.g., ``0``, ``1``, ``2``, ``3``, ``4``, ``5``, ``E``, ``W``, ``N``, ``I``, ``D``, ``T``).
     Use ``-`` to unset the log level.
 
+reset
+^^^^^
+
+**wpctl reset** [**-c**\|\ **--wireplumber-config**] [**-p**\|\ **--pipewire-config**] [**-a**\|\ **--all**] [**-n**\|\ **--no-restart**] [**-d**\|\ **--dry-run**] [**-y**\|\ **--yes**]
+
+Resets WirePlumber (and optionally PipeWire) to defaults by removing state and
+configuration files. By default, only the WirePlumber state directory
+(``~/.local/state/wireplumber``) is removed. WirePlumber is automatically
+stopped before removal and restarted afterwards, unless **--no-restart** is
+given. A confirmation prompt is shown before any files are deleted, unless
+**--yes** is given.
+
+This command does not require a running PipeWire session.
+
+Options:
+  **-c**, **--wireplumber-config**
+    Also remove WirePlumber user configuration files (``~/.config/wireplumber``)
+  **-p**, **--pipewire-config**
+    Also remove PipeWire user configuration files (``~/.config/pipewire``) and
+    restart the PipeWire service
+  **-a**, **--all**
+    Remove all state and configuration files (equivalent to combining
+    **-c** and **-p**)
+  **-n**, **--no-restart**
+    Do not stop or restart services after removing files
+  **-d**, **--dry-run**
+    Show which files would be deleted without actually deleting anything or
+    restarting services
+  **-y**, **--yes**
+    Proceed without prompting for confirmation
+
 SPECIAL IDENTIFIERS
 -------------------
 
@@ -288,6 +335,22 @@ Set log level for WirePlumber to debug::
 Set log level for a specific client::
 
     wpctl set-log-level 42 W
+
+List all audio sinks::
+
+    wpctl list audio sinks
+
+Reset WirePlumber state (dry run)::
+
+    wpctl reset --dry-run
+
+Reset WirePlumber state and config without prompting::
+
+    wpctl reset --wireplumber-config --yes
+
+Reset everything (WirePlumber and PipeWire state and config)::
+
+    wpctl reset --all
 
 NOTES
 -----
