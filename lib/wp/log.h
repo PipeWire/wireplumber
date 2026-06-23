@@ -69,11 +69,11 @@ typedef struct {
   extern WpLogTopic * var;
 
 #define WP_LOG_TOPIC(var, name) \
-  WpLogTopic var##_struct = { .topic_name = name, .flags = WP_LOG_TOPIC_FLAG_STATIC };  \
+  WpLogTopic var##_struct = { .topic_name = name, .flags = WP_LOG_TOPIC_FLAG_STATIC, ._wp_padding = { NULL } };  \
   WpLogTopic * var = &(var##_struct);
 
 #define WP_LOG_TOPIC_STATIC(var, name) \
-  static WpLogTopic var##_struct = { .topic_name = name, .flags = WP_LOG_TOPIC_FLAG_STATIC }; \
+  static WpLogTopic var##_struct = { .topic_name = name, .flags = WP_LOG_TOPIC_FLAG_STATIC, ._wp_padding = { NULL } }; \
   static G_GNUC_UNUSED WpLogTopic * var = &(var##_struct);
 
 #define WP_DEFINE_LOCAL_LOG_TOPIC(name) \
