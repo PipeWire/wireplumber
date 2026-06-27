@@ -26,7 +26,7 @@ typedef struct _WpEventDispatcher WpEventDispatcher;
  */
 #define WP_TYPE_EVENT (wp_event_get_type ())
 WP_API
-GType wp_event_get_type (void) G_GNUC_CONST;
+GType wp_event_get_type (void);
 
 typedef struct _WpEvent WpEvent;
 

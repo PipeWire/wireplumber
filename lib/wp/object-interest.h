@@ -95,7 +95,7 @@ typedef enum { /*< flags >*/
  */
 #define WP_TYPE_OBJECT_INTEREST (wp_object_interest_get_type ())
 WP_API
-GType wp_object_interest_get_type (void) G_GNUC_CONST;
+GType wp_object_interest_get_type (void);
 
 typedef struct _WpObjectInterest WpObjectInterest;
 
