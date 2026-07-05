@@ -44,6 +44,7 @@
 #include "spa-type.h"
 #include "state.h"
 #include "stream.h"
+#include "stream-link.h"
 #include "stream-manager.h"
 #include "transition.h"
 #include "wpenums.h"
