@@ -18,6 +18,7 @@ enum {
   PROP_TEST_FLOAT,
   PROP_TEST_DOUBLE,
   PROP_TEST_BOOLEAN,
+  N_PROPS,
 };
 
 struct _TestObjA
@@ -32,6 +33,9 @@ struct _TestObjA
   gdouble test_double;
   gboolean test_boolean;
 };
+
+
+static GParamSpec *properties[N_PROPS] = { NULL, };
 
 #define TEST_TYPE_A (test_obj_a_get_type ())
 G_DECLARE_FINAL_TYPE (TestObjA, test_obj_a, TEST, OBJ_A, GObject)
@@ -133,43 +137,37 @@ test_obj_a_class_init (TestObjAClass * klass)
   obj_class->get_property = test_obj_a_get_property;
   obj_class->set_property = test_obj_a_set_property;
 
-  g_object_class_install_property (obj_class, PROP_TEST_STRING,
-      g_param_spec_string ("test-string", "test-string", "blurb", NULL,
-          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+  properties[PROP_TEST_STRING] = g_param_spec_string ("test-string", "test-string", "blurb", NULL,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (obj_class, PROP_TEST_INT,
-      g_param_spec_int ("test-int", "test-int", "blurb",
-          G_MININT, G_MAXINT, 0,
-          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+  properties[PROP_TEST_INT] = g_param_spec_int ("test-int", "test-int", "blurb",
+      G_MININT, G_MAXINT, 0,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (obj_class, PROP_TEST_UINT,
-      g_param_spec_uint ("test-uint", "test-uint", "blurb",
-          0, G_MAXUINT, 0,
-          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+  properties[PROP_TEST_UINT] = g_param_spec_uint ("test-uint", "test-uint", "blurb",
+      0, G_MAXUINT, 0,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (obj_class, PROP_TEST_INT64,
-      g_param_spec_int64 ("test-int64", "test-int64", "blurb",
-          G_MININT64, G_MAXINT64, 0,
-          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+  properties[PROP_TEST_INT64] = g_param_spec_int64 ("test-int64", "test-int64", "blurb",
+      G_MININT64, G_MAXINT64, 0,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (obj_class, PROP_TEST_UINT64,
-      g_param_spec_uint64 ("test-uint64", "test-uint64", "blurb",
-          0, G_MAXUINT64, 0,
-          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+  properties[PROP_TEST_UINT64] = g_param_spec_uint64 ("test-uint64", "test-uint64", "blurb",
+      0, G_MAXUINT64, 0,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (obj_class, PROP_TEST_FLOAT,
-      g_param_spec_float ("test-float", "test-float", "blurb",
-          -20.0f, 20.0f, 0,
-          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+  properties[PROP_TEST_FLOAT] = g_param_spec_float ("test-float", "test-float", "blurb",
+      -20.0f, 20.0f, 0,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (obj_class, PROP_TEST_DOUBLE,
-      g_param_spec_double ("test-double", "test-double", "blurb",
-          -20.0, 20.0, 0.0,
-          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+  properties[PROP_TEST_DOUBLE] = g_param_spec_double ("test-double", "test-double", "blurb",
+      -20.0, 20.0, 0.0,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (obj_class, PROP_TEST_BOOLEAN,
-      g_param_spec_boolean ("test-boolean", "test-boolean", "blurb", FALSE,
-          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+  properties[PROP_TEST_BOOLEAN] = g_param_spec_boolean ("test-boolean", "test-boolean", "blurb", FALSE,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+
+  g_object_class_install_properties (obj_class, N_PROPS, properties);
 }
 
 struct _TestObjB
