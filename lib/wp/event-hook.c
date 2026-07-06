@@ -29,7 +29,10 @@ enum {
   PROP_RUNS_BEFORE_HOOKS,
   PROP_RUNS_AFTER_HOOKS,
   PROP_DISPATCHER,
+  N_PROPS,
 };
+
+static GParamSpec *properties[N_PROPS] = { NULL, };
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (WpEventHook, wp_event_hook, G_TYPE_OBJECT)
 
@@ -112,24 +115,22 @@ wp_event_hook_class_init (WpEventHookClass * klass)
   object_class->set_property = wp_event_hook_set_property;
   object_class->get_property = wp_event_hook_get_property;
 
-  g_object_class_install_property (object_class, PROP_NAME,
-      g_param_spec_string ("name", "name", "The hook name", "",
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_NAME] = g_param_spec_string ("name", "name", "The hook name", "",
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_RUNS_BEFORE_HOOKS,
-      g_param_spec_boxed ("runs-before-hooks", "runs-before-hooks",
-          "runs-before-hooks", G_TYPE_STRV,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_RUNS_BEFORE_HOOKS] = g_param_spec_boxed ("runs-before-hooks", "runs-before-hooks",
+      "runs-before-hooks", G_TYPE_STRV,
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_RUNS_AFTER_HOOKS,
-      g_param_spec_boxed ("runs-after-hooks", "runs-after-hooks",
-          "runs-after-hooks", G_TYPE_STRV,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_RUNS_AFTER_HOOKS] = g_param_spec_boxed ("runs-after-hooks", "runs-after-hooks",
+      "runs-after-hooks", G_TYPE_STRV,
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_DISPATCHER,
-      g_param_spec_object ("dispatcher", "dispatcher",
-          "The associated event dispatcher", WP_TYPE_EVENT_DISPATCHER,
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+  properties[PROP_DISPATCHER] = g_param_spec_object ("dispatcher", "dispatcher",
+      "The associated event dispatcher", WP_TYPE_EVENT_DISPATCHER,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+
+  g_object_class_install_properties (object_class, N_PROPS, properties);
 }
 
 /*!
@@ -481,7 +482,10 @@ struct _WpSimpleEventHook
 enum {
   PROP_SIMPLE_0,
   PROP_SIMPLE_CLOSURE,
+  N_SIMPLE_PROPS,
 };
+
+static GParamSpec *simple_properties[N_SIMPLE_PROPS] = { NULL, };
 
 G_DEFINE_TYPE (WpSimpleEventHook, wp_simple_event_hook,
                WP_TYPE_INTEREST_EVENT_HOOK)
@@ -554,9 +558,10 @@ wp_simple_event_hook_class_init (WpSimpleEventHookClass * klass)
   hook_class->run = wp_simple_event_hook_run;
   hook_class->finish = wp_simple_event_hook_finish;
 
-  g_object_class_install_property (object_class, PROP_SIMPLE_CLOSURE,
-      g_param_spec_boxed ("closure", "closure", "The closure", G_TYPE_CLOSURE,
-          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  simple_properties[PROP_SIMPLE_CLOSURE] = g_param_spec_boxed ("closure", "closure", "The closure",
+      G_TYPE_CLOSURE, G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
+
+  g_object_class_install_properties (object_class, N_SIMPLE_PROPS, simple_properties);
 }
 
 /*!
@@ -613,7 +618,10 @@ enum {
   PROP_ASYNC_0,
   PROP_ASYNC_GET_NEXT_STEP,
   PROP_ASYNC_EXECUTE_STEP,
+  N_ASYNC_PROPS
 };
+
+static GParamSpec *async_properties[N_ASYNC_PROPS] = { NULL, };
 
 G_DEFINE_TYPE (WpAsyncEventHook, wp_async_event_hook,
                WP_TYPE_INTEREST_EVENT_HOOK)
@@ -693,15 +701,15 @@ wp_async_event_hook_class_init (WpAsyncEventHookClass * klass)
   hook_class->run = wp_async_event_hook_run;
   hook_class->finish = wp_async_event_hook_finish;
 
-  g_object_class_install_property (object_class, PROP_ASYNC_GET_NEXT_STEP,
-      g_param_spec_boxed ("get-next-step", "get-next-step",
-          "The get-next-step closure", G_TYPE_CLOSURE,
-          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  async_properties[PROP_ASYNC_GET_NEXT_STEP] = g_param_spec_boxed ("get-next-step", "get-next-step",
+      "The get-next-step closure", G_TYPE_CLOSURE,
+      G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_ASYNC_EXECUTE_STEP,
-      g_param_spec_boxed ("execute-step", "execute-step",
-          "The execute-step closure", G_TYPE_CLOSURE,
-          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  async_properties[PROP_ASYNC_EXECUTE_STEP] = g_param_spec_boxed ("execute-step", "execute-step",
+      "The execute-step closure", G_TYPE_CLOSURE,
+      G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
+
+  g_object_class_install_properties (object_class, N_ASYNC_PROPS, async_properties);
 }
 
 /*!
