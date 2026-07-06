@@ -18,6 +18,7 @@ enum
   PROP_BUS_TYPE,
   PROP_STATE,
   PROP_CONNECTION,
+  N_PROPS,
 };
 
 struct _WpDBusConnection
@@ -34,6 +35,8 @@ struct _WpDBusConnection
 
 static void on_connection_closed (GDBusConnection * connection,
     gboolean remote_peer_vanished, GError * error, gpointer data);
+
+static GParamSpec *properties[N_PROPS] = { NULL, };
 
 G_DECLARE_FINAL_TYPE (WpDBusConnection, wp_dbus_connection,
                       WP, DBUS_CONNECTION, WpPlugin)
@@ -237,19 +240,18 @@ wp_dbus_connection_class_init (WpDBusConnectionClass * klass)
   plugin_class->enable = wp_dbus_connection_enable;
   plugin_class->disable = wp_dbus_connection_disable;
 
-  g_object_class_install_property (object_class, PROP_BUS_TYPE,
-      g_param_spec_enum ("bus-type", "bus-type", "The bus type",
-          G_TYPE_BUS_TYPE, G_BUS_TYPE_NONE,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_BUS_TYPE] = g_param_spec_enum ("bus-type", "bus-type", "The bus type",
+      G_TYPE_BUS_TYPE, G_BUS_TYPE_NONE,
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_STATE,
-      g_param_spec_enum ("state", "state", "The dbus connection state",
-          WP_TYPE_DBUS_CONNECTION_STATE, WP_DBUS_CONNECTION_STATE_CLOSED,
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+  properties[PROP_STATE] = g_param_spec_enum ("state", "state", "The dbus connection state",
+      WP_TYPE_DBUS_CONNECTION_STATE, WP_DBUS_CONNECTION_STATE_CLOSED,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_CONNECTION,
-      g_param_spec_object ("connection", "connection", "The dbus connection",
-          G_TYPE_DBUS_CONNECTION, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+  properties[PROP_CONNECTION] = g_param_spec_object ("connection", "connection", "The dbus connection",
+      G_TYPE_DBUS_CONNECTION, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+
+  g_object_class_install_properties (object_class, N_PROPS, properties);
 }
 
 WP_PLUGIN_EXPORT GObject *
