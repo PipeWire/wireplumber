@@ -45,7 +45,10 @@ enum {
   PROP_ARGUMENTS,
   PROP_PROPERTIES,
   PROP_PW_IMPL_MODULE,
+  N_PROPS,
 };
+
+static GParamSpec *properties[N_PROPS] = { NULL, };
 
 static void impl_module_free (void *data)
 {
@@ -221,29 +224,26 @@ wp_impl_module_class_init (WpImplModuleClass * klass)
   gobject_class->get_property = wp_impl_module_get_property;
   gobject_class->set_property = wp_impl_module_set_property;
 
-  g_object_class_install_property (gobject_class, PROP_CORE,
-      g_param_spec_pointer ("core", "Core", "The WirePlumber core",
-        G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_CORE] = g_param_spec_pointer ("core", "Core", "The WirePlumber core",
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (gobject_class, PROP_NAME,
-      g_param_spec_string ("name", "Name", "The name of the PipeWire module",
-        NULL,
-        G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_NAME] = g_param_spec_string ("name", "Name", "The name of the PipeWire module",
+      NULL,
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (gobject_class, PROP_ARGUMENTS,
-      g_param_spec_string ("arguments", "Arguments",
-        "The arguments to provide to the module while loading", NULL,
-        G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_ARGUMENTS] = g_param_spec_string ("arguments", "Arguments",
+      "The arguments to provide to the module while loading", NULL,
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (gobject_class, PROP_PROPERTIES,
-      g_param_spec_boxed ("properties", "Properties",
-        "Properties of the module", WP_TYPE_PROPERTIES,
-        G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+  properties[PROP_PROPERTIES] = g_param_spec_boxed ("properties", "Properties",
+      "Properties of the module", WP_TYPE_PROPERTIES,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (gobject_class, PROP_PW_IMPL_MODULE,
-      g_param_spec_pointer ("pw-impl-module", "Underlying pw_impl_module",
-        "Pointer to the underlying pw_impl_module structure for the module",
-        G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+  properties[PROP_PW_IMPL_MODULE] = g_param_spec_pointer ("pw-impl-module", "Underlying pw_impl_module",
+      "Pointer to the underlying pw_impl_module structure for the module",
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+
+  g_object_class_install_properties (gobject_class, N_PROPS, properties);
 }
 
 /*!
