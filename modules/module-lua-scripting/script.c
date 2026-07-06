@@ -39,7 +39,10 @@ enum {
   PROP_LUA_ENGINE,
   PROP_FILENAME,
   PROP_ARGUMENTS,
+  N_PROPS,
 };
+
+static GParamSpec *properties[N_PROPS] = { NULL, };
 
 G_DEFINE_TYPE (WpLuaScript, wp_lua_script, WP_TYPE_PLUGIN)
 
@@ -292,16 +295,15 @@ wp_lua_script_class_init (WpLuaScriptClass * klass)
   plugin_class->enable = wp_lua_script_enable;
   plugin_class->disable = wp_lua_script_disable;
 
-  g_object_class_install_property (object_class, PROP_LUA_ENGINE,
-      g_param_spec_pointer ("lua-engine", "lua-engine", "lua-engine",
-          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_LUA_ENGINE] = g_param_spec_pointer ("lua-engine", "lua-engine", "lua-engine",
+      G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_FILENAME,
-      g_param_spec_string ("filename", "filename", "filename", NULL,
-          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_FILENAME] = g_param_spec_string ("filename", "filename", "filename", NULL,
+      G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_ARGUMENTS,
-      g_param_spec_boxed ("arguments", "arguments", "arguments",
-          WP_TYPE_SPA_JSON,
-          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_ARGUMENTS] = g_param_spec_boxed ("arguments", "arguments", "arguments",
+      WP_TYPE_SPA_JSON,
+      G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
+
+  g_object_class_install_properties (object_class, N_PROPS, properties);
 }
