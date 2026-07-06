@@ -212,6 +212,7 @@ enum {
   PROP_PW_CONTEXT,
   PROP_PW_CORE,
   PROP_CONF,
+  N_PROPS,
 };
 
 enum {
@@ -221,6 +222,7 @@ enum {
 };
 
 static guint32 signals[NUM_SIGNALS];
+static GParamSpec *properties[N_PROPS] = { NULL, };
 
 G_DEFINE_TYPE (WpCore, wp_core, WP_TYPE_OBJECT)
 
@@ -615,28 +617,23 @@ wp_core_class_init (WpCoreClass * klass)
   wpobject_class->activate_execute_step = wp_core_activate_execute_step;
   wpobject_class->deactivate = wp_core_deactivate;
 
-  g_object_class_install_property (object_class, PROP_G_MAIN_CONTEXT,
-      g_param_spec_boxed ("g-main-context", "g-main-context",
-          "A GMainContext to attach to", G_TYPE_MAIN_CONTEXT,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_G_MAIN_CONTEXT] = g_param_spec_boxed ("g-main-context", "g-main-context",
+      "A GMainContext to attach to", G_TYPE_MAIN_CONTEXT,
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_PROPERTIES,
-      g_param_spec_boxed ("properties", "properties", "Extra properties",
-          WP_TYPE_PROPERTIES,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_PROPERTIES] = g_param_spec_boxed ("properties", "properties", "Extra properties",
+      WP_TYPE_PROPERTIES, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_PW_CONTEXT,
-      g_param_spec_pointer ("pw-context", "pw-context", "The pipewire context",
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_PW_CONTEXT] = g_param_spec_pointer ("pw-context", "pw-context", "The pipewire context",
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_PW_CORE,
-      g_param_spec_pointer ("pw-core", "pw-core", "The pipewire core",
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+  properties[PROP_PW_CORE] = g_param_spec_pointer ("pw-core", "pw-core", "The pipewire core",
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_CONF,
-      g_param_spec_object ("conf", "conf", "The main configuration file",
-          WP_TYPE_CONF,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_CONF] = g_param_spec_object ("conf", "conf", "The main configuration file",
+      WP_TYPE_CONF, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
+
+  g_object_class_install_properties (object_class, N_PROPS, properties);
 
   signals[SIGNAL_CONNECTED] = g_signal_new ("connected",
       G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,
