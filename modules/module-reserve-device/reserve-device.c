@@ -36,8 +36,10 @@ enum
   PROP_PRIORITY,
   PROP_STATE,
   PROP_OWNER_APP_NAME,
+  N_PROPS,
 };
 
+static GParamSpec *properties[N_PROPS] = { NULL, };
 static guint signals[LAST_SIGNAL] = { 0 };
 
 static void
@@ -355,40 +357,35 @@ wp_reserve_device_class_init (WpReserveDeviceClass * klass)
   object_class->get_property = wp_reserve_device_get_property;
   object_class->set_property = wp_reserve_device_set_property;
 
-  g_object_class_install_property (object_class, PROP_PLUGIN,
-      g_param_spec_object ("plugin", "plugin",
-          "The parent plugin instance", wp_reserve_device_plugin_get_type (),
-          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_PLUGIN] = g_param_spec_object ("plugin", "plugin",
+      "The parent plugin instance", wp_reserve_device_plugin_get_type (),
+      G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_NAME,
-      g_param_spec_string ("name", "name",
-          "The reservation name", NULL,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_NAME] = g_param_spec_string ("name", "name",
+      "The reservation name", NULL,
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_APP_NAME,
-      g_param_spec_string ("application-name", "application-name",
-          "The application name", NULL,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_APP_NAME] = g_param_spec_string ("application-name", "application-name",
+      "The application name", NULL,
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_APP_DEV_NAME,
-      g_param_spec_string ("application-device-name", "application-device-name",
-          "The application device name", NULL,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_APP_DEV_NAME] = g_param_spec_string ("application-device-name", "application-device-name",
+      "The application device name", NULL,
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_PRIORITY,
-      g_param_spec_int ("priority", "priority",
-          "The priority", G_MININT, G_MAXINT, 0,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_PRIORITY] = g_param_spec_int ("priority", "priority",
+      "The priority", G_MININT, G_MAXINT, 0,
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_STATE,
-      g_param_spec_enum ("state", "state", "The state",
-          WP_TYPE_RESERVE_DEVICE_STATE, WP_RESERVE_DEVICE_STATE_UNKNOWN,
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+  properties[PROP_STATE] = g_param_spec_enum ("state", "state", "The state",
+      WP_TYPE_RESERVE_DEVICE_STATE, WP_RESERVE_DEVICE_STATE_UNKNOWN,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_OWNER_APP_NAME,
-      g_param_spec_string ("owner-application-name", "owner-application-name",
-          "The owner application name", NULL,
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+  properties[PROP_OWNER_APP_NAME] = g_param_spec_string ("owner-application-name", "owner-application-name",
+      "The owner application name", NULL,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+
+  g_object_class_install_properties (object_class, N_PROPS, properties);
 
   /**
    * WpReserveDevice acquire:
