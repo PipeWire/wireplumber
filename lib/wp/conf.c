@@ -61,7 +61,10 @@ enum {
   PROP_0,
   PROP_NAME,
   PROP_PROPERTIES,
+  N_PROPS,
 };
+
+static GParamSpec *properties[N_PROPS] = { NULL, };
 
 G_DEFINE_TYPE (WpConf, wp_conf, G_TYPE_OBJECT)
 
@@ -134,13 +137,13 @@ wp_conf_class_init (WpConfClass * klass)
   object_class->set_property = wp_conf_set_property;
   object_class->get_property = wp_conf_get_property;
 
-  g_object_class_install_property(object_class, PROP_NAME,
-        g_param_spec_string ("name", "name", "The name of the configuration file",
-          NULL, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_NAME] = g_param_spec_string ("name", "name", "The name of the configuration file",
+                            NULL, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property(object_class, PROP_PROPERTIES,
-        g_param_spec_boxed ("properties", "properties", "WpProperties",
-          WP_TYPE_PROPERTIES, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_PROPERTIES] = g_param_spec_boxed ("properties", "properties", "WpProperties",
+                                  WP_TYPE_PROPERTIES, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
+
+  g_object_class_install_properties (object_class, N_PROPS, properties);
 }
 
 /*!
