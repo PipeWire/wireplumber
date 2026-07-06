@@ -209,6 +209,7 @@ enum {
   PROP_0,
   PROP_SPA_DEVICE_HANDLE,
   PROP_PROPERTIES,
+  N_PROPS,
 };
 
 enum
@@ -221,6 +222,7 @@ enum
 };
 
 static guint spa_device_signals[SPA_DEVICE_LAST_SIGNAL] = { 0 };
+static GParamSpec *properties[N_PROPS] = { NULL, };
 
 G_DEFINE_TYPE (WpSpaDevice, wp_spa_device, WP_TYPE_PROXY)
 
@@ -687,15 +689,15 @@ wp_spa_device_class_init (WpSpaDeviceClass * klass)
   wpobject_class->activate_execute_step = wp_spa_device_activate_execute_step;
   wpobject_class->deactivate = wp_spa_device_deactivate;
 
-  g_object_class_install_property (object_class, PROP_SPA_DEVICE_HANDLE,
-      g_param_spec_pointer ("spa-device-handle", "spa-device-handle",
-          "The spa device handle",
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_SPA_DEVICE_HANDLE] = g_param_spec_pointer ("spa-device-handle", "spa-device-handle",
+      "The spa device handle",
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_PROPERTIES,
-      g_param_spec_boxed ("properties", "properties",
-          "Properties of the device", WP_TYPE_PROPERTIES,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_PROPERTIES] = g_param_spec_boxed ("properties", "properties",
+      "Properties of the device", WP_TYPE_PROPERTIES,
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
+
+  g_object_class_install_properties (object_class, N_PROPS, properties);
 
   spa_device_signals[SIGNAL_CREATE_OBJECT] = g_signal_new (
       "create-object", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
