@@ -644,7 +644,10 @@ enum {
   PROP_0,
   PROP_NAME,
   PROP_PROPERTIES,
+  N_PROPS,
 };
+
+static GParamSpec *properties[N_PROPS] = { NULL, };
 
 G_DEFINE_TYPE (WpImplMetadata, wp_impl_metadata, WP_TYPE_METADATA)
 
@@ -800,14 +803,14 @@ wp_impl_metadata_class_init (WpImplMetadataClass * klass)
   /* disable adding a listener for events */
   proxy_class->pw_proxy_created = NULL;
 
-  g_object_class_install_property (object_class, PROP_NAME,
-      g_param_spec_string ("name", "name", "The metadata name", "",
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_NAME] = g_param_spec_string ("name", "name", "The metadata name", "",
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_PROPERTIES,
-      g_param_spec_boxed ("properties", "properties",
-          "The metadata properties", WP_TYPE_PROPERTIES,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_PROPERTIES] = g_param_spec_boxed ("properties", "properties",
+      "The metadata properties", WP_TYPE_PROPERTIES,
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
+
+  g_object_class_install_properties (object_class, N_PROPS, properties);
 }
 
 /*!
