@@ -125,6 +125,7 @@ enum {
   PROP_0,
   PROP_NAME,
   PROP_TIMEOUT,
+  N_PROPS,
 };
 
 struct _WpState
@@ -139,6 +140,8 @@ struct _WpState
   GSource *timeout_source;
   WpProperties *timeout_props;
 };
+
+static GParamSpec *properties[N_PROPS] = { NULL, };
 
 G_DEFINE_TYPE (WpState, wp_state, G_TYPE_OBJECT)
 
@@ -246,15 +249,15 @@ wp_state_class_init (WpStateClass * klass)
   object_class->set_property = wp_state_set_property;
   object_class->get_property = wp_state_get_property;
 
-  g_object_class_install_property (object_class, PROP_NAME,
-      g_param_spec_string ("name", "name",
-          "The file name where the state will be stored", NULL,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_NAME] = g_param_spec_string ("name", "name",
+      "The file name where the state will be stored", NULL,
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_TIMEOUT,
-      g_param_spec_uint ("timeout", "timeout",
-          "The timeout in milliseconds to save the state", 0, G_MAXUINT,
-          DEFAULT_TIMEOUT_MS, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+  properties[PROP_TIMEOUT] = g_param_spec_uint ("timeout", "timeout",
+      "The timeout in milliseconds to save the state", 0, G_MAXUINT,
+      DEFAULT_TIMEOUT_MS, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+
+  g_object_class_install_properties (object_class, N_PROPS, properties);
 }
 
 /*!
@@ -495,7 +498,10 @@ enum {
   STATE_METADATA_PROP_0,
   STATE_METADATA_PROP_NAME,
   STATE_METADATA_PROP_TIMEOUT,
+  STATE_N_PROPS,
 };
+
+static GParamSpec *state_properties[STATE_N_PROPS] = { NULL, };
 
 struct _WpStateMetadata
 {
@@ -772,16 +778,16 @@ wp_state_metadata_class_init (WpStateMetadataClass * klass)
       wp_state_metadata_activate_execute_step;
   wpobject_class->deactivate = wp_state_metadata_deactivate;
 
-  g_object_class_install_property (object_class, STATE_METADATA_PROP_NAME,
-      g_param_spec_string ("name", "name",
-          "The file name where the state metadata will be stored", NULL,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  state_properties[STATE_METADATA_PROP_NAME] = g_param_spec_string ("name", "name",
+      "The file name where the state metadata will be stored", NULL,
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, STATE_METADATA_PROP_TIMEOUT,
-      g_param_spec_uint ("timeout", "timeout",
-          "The timeout in milliseconds to save the state metadata", 0,
-          G_MAXUINT, DEFAULT_TIMEOUT_MS,
-          G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+  state_properties[STATE_METADATA_PROP_TIMEOUT] = g_param_spec_uint ("timeout", "timeout",
+      "The timeout in milliseconds to save the state metadata", 0,
+      G_MAXUINT, DEFAULT_TIMEOUT_MS,
+      G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+
+  g_object_class_install_properties (object_class, STATE_N_PROPS, state_properties);
 }
 
 /*!
