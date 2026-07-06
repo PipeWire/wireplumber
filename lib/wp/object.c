@@ -157,7 +157,10 @@ enum {
   PROP_CORE,
   PROP_ACTIVE_FEATURES,
   PROP_SUPPORTED_FEATURES,
+  N_PROPS,
 };
+
+static GParamSpec *properties[N_PROPS] = { NULL, };
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (WpObject, wp_object, G_TYPE_OBJECT)
 
@@ -268,24 +271,19 @@ wp_object_class_init (WpObjectClass * klass)
   object_class->get_property = wp_object_get_property;
   object_class->set_property = wp_object_set_property;
 
-  g_object_class_install_property (object_class, PROP_ID,
-      g_param_spec_uint ("id", "id",
-          "The object unique id", 0, G_MAXUINT, 0,
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+  properties[PROP_ID] = g_param_spec_uint ("id", "id", "The object unique id",
+      0, G_MAXUINT, 0, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_CORE,
-      g_param_spec_object ("core", "core", "The WpCore", WP_TYPE_CORE,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_CORE] = g_param_spec_object ("core", "core", "The WpCore", WP_TYPE_CORE,
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_ACTIVE_FEATURES,
-      g_param_spec_uint ("active-features", "active-features",
-          "The active WpObjectFeatures on this proxy", 0, G_MAXUINT, 0,
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+  properties[PROP_ACTIVE_FEATURES] = g_param_spec_uint ("active-features", "active-features", "The active WpObjectFeatures on this proxy",
+      0, G_MAXUINT, 0, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_SUPPORTED_FEATURES,
-      g_param_spec_uint ("supported-features", "supported-features",
-          "The supported WpObjectFeatures on this proxy", 0, G_MAXUINT, 0,
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+  properties[PROP_SUPPORTED_FEATURES] = g_param_spec_uint ("supported-features", "supported-features", "The supported WpObjectFeatures on this proxy",
+      0, G_MAXUINT, 0, G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+
+  g_object_class_install_properties (object_class, N_PROPS, properties);
 }
 
 /*!
