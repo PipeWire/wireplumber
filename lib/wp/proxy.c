@@ -106,6 +106,7 @@ enum {
   PROP_0,
   PROP_BOUND_ID,
   PROP_PW_PROXY,
+  N_PROPS,
 };
 
 enum
@@ -117,6 +118,7 @@ enum
   LAST_SIGNAL,
 };
 
+static GParamSpec *properties[N_PROPS] = { NULL, };
 static guint signals[LAST_SIGNAL] = { 0 };
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (WpProxy, wp_proxy, WP_TYPE_OBJECT)
@@ -242,14 +244,14 @@ wp_proxy_class_init (WpProxyClass * klass)
 
   /* Install the properties */
 
-  g_object_class_install_property (object_class, PROP_BOUND_ID,
-      g_param_spec_uint ("bound-id", "bound-id",
-          "The id that this object has on the registry", 0, G_MAXUINT, 0,
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+  properties[PROP_BOUND_ID] = g_param_spec_uint ("bound-id", "bound-id",
+      "The id that this object has on the registry", 0, G_MAXUINT, 0,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_PW_PROXY,
-      g_param_spec_pointer ("pw-proxy", "pw-proxy", "The struct pw_proxy *",
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+  properties[PROP_PW_PROXY] = g_param_spec_pointer ("pw-proxy", "pw-proxy", "The struct pw_proxy *",
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+
+  g_object_class_install_properties (object_class, N_PROPS, properties);
 
   /* Signals */
   signals[SIGNAL_PW_PROXY_CREATED] = g_signal_new (
