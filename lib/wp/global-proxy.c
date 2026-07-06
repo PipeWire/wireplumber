@@ -51,7 +51,10 @@ enum {
   PROP_FACTORY_NAME,
   PROP_GLOBAL_PROPERTIES,
   PROP_PERMISSIONS,
+  N_PROPS,
 };
+
+static GParamSpec *properties[N_PROPS] = { NULL, };
 
 G_DEFINE_TYPE_WITH_PRIVATE (WpGlobalProxy, wp_global_proxy, WP_TYPE_PROXY)
 
@@ -289,25 +292,23 @@ wp_global_proxy_class_init (WpGlobalProxyClass * klass)
   proxy_class->bound = wp_global_proxy_bound;
   proxy_class->pw_proxy_destroyed = wp_global_proxy_destroyed;
 
-  g_object_class_install_property (object_class, PROP_GLOBAL,
-      g_param_spec_boxed ("global", "global", "Internal WpGlobal object",
-          wp_global_get_type (),
-          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_GLOBAL] = g_param_spec_boxed ("global", "global", "Internal WpGlobal object",
+      wp_global_get_type (),
+      G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_FACTORY_NAME,
-      g_param_spec_string ("factory-name", "factory-name",
-          "The factory name", "",
-          G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_FACTORY_NAME] = g_param_spec_string ("factory-name", "factory-name",
+      "The factory name", "",
+      G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_GLOBAL_PROPERTIES,
-      g_param_spec_boxed ("global-properties", "global-properties",
-          "The pipewire global properties", WP_TYPE_PROPERTIES,
-          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+  properties[PROP_GLOBAL_PROPERTIES] = g_param_spec_boxed ("global-properties", "global-properties",
+      "The pipewire global properties", WP_TYPE_PROPERTIES,
+      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
-  g_object_class_install_property (object_class, PROP_PERMISSIONS,
-      g_param_spec_uint ("permissions", "permissions",
-          "The pipewire global permissions", 0, G_MAXUINT, 0,
-          G_PARAM_READABLE | G_PARAM_STATIC_STRINGS));
+  properties[PROP_PERMISSIONS] = g_param_spec_uint ("permissions", "permissions",
+      "The pipewire global permissions", 0, G_MAXUINT, 0,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+
+  g_object_class_install_properties (object_class, N_PROPS, properties);
 }
 
 /*!
