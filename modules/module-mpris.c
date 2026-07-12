@@ -68,6 +68,7 @@ struct _WpMprisPluginOperation
 enum {
   ACTION_GET_PLAYERS,
   ACTION_PAUSE,
+  ACTION_VOLUME_SET,
   ACTION_MATCH_PID,
   N_SIGNALS
 };
@@ -601,6 +602,47 @@ wp_mpris_plugin_pause (WpMprisPlugin *self, const gchar *bus_name)
   return op;
 }
 
+static gdouble clamp (gdouble volume)
+{
+  if (volume < 0.0)
+    return 0.0;
+  if (volume > 1.0)
+    return 1.0;
+  return volume;
+}
+
+static WpMprisPluginOperation *
+wp_mpris_plugin_volume_set (WpMprisPlugin *self, const gchar *bus_name, gdouble volume)
+{
+  WpMprisPluginOperation *op;
+
+  op = wp_mpris_plugin_operation_new (self->conn, "VolumeSet");
+
+  if (!self->conn) {
+    wp_mpris_plugin_operation_complete (op, -EIO);
+    return op;
+  }
+
+  if (!bus_name || !g_str_has_prefix (bus_name, "org.mpris.MediaPlayer2.")) {
+    wp_mpris_plugin_operation_complete (op, -EINVAL);
+    return op;
+  }
+
+  volume = clamp (volume);
+  wp_debug ("MPRIS volume set %s to %f", bus_name, volume);
+
+  g_dbus_connection_call (self->conn,
+      bus_name, "/org/mpris/MediaPlayer2",
+      "org.freedesktop.DBus.Properties", "Set",
+      g_variant_new ("(ssv)", "org.mpris.MediaPlayer2.Player",
+          "Volume", g_variant_new_double (volume)),
+      NULL, G_DBUS_CALL_FLAGS_NONE, PLAYER_TIMEOUT_MSEC,
+      NULL, operation_complete, g_object_ref (op));
+
+  return op;
+}
+
+
 static pid_t get_parent_pid(pid_t pid)
 {
   g_autofree gchar *path = NULL;
@@ -656,6 +698,12 @@ wp_mpris_plugin_class_init (WpMprisPluginClass * klass)
       G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
       (GCallback) wp_mpris_plugin_pause,
       NULL, NULL, NULL, WP_TYPE_MPRIS_PLUGIN_OPERATION, 1, G_TYPE_STRING);
+  signals[ACTION_VOLUME_SET] = g_signal_new_class_handler (
+      "volume-set", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+      (GCallback) wp_mpris_plugin_volume_set,
+      NULL, NULL, NULL, WP_TYPE_MPRIS_PLUGIN_OPERATION, 2,
+      G_TYPE_STRING, G_TYPE_DOUBLE);
   signals[ACTION_MATCH_PID] = g_signal_new_class_handler (
       "match-pid", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
