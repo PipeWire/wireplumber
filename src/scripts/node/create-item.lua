@@ -20,6 +20,7 @@ function configProperties (node)
 
   -- ensure a media.type is set
   if not properties ["media.type"] then
+    properties ["media.type"] = "Unknown"
     for _, i in ipairs ({ "Audio", "Video", "Midi" }) do
       if media_class:find (i) then
         properties ["media.type"] = i
