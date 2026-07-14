@@ -643,7 +643,6 @@ enum {
 struct _WpImplNode
 {
   WpProxy parent;
-  GWeakRef core;
   struct pw_impl_node *pw_impl_node;
 };
 
