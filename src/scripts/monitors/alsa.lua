@@ -357,6 +357,12 @@ function createNode(parent, id, obj_type, factory, properties)
     end
   end
 
+  -- add device form-factor property for rule matching purposes
+  local dev_form_factor = dev_props["device.form-factor"]
+  if dev_form_factor ~= nil then
+    properties["device.form-factor"] = dev_form_factor
+  end
+
   -- add cpu.vm.name for rule matching purposes
   local vm_type = Core.get_vm_type()
   if nonempty(vm_type) then
