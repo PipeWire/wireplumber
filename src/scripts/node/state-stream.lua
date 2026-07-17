@@ -21,6 +21,60 @@ state_table = nil
 -- Support for the "System Sounds" volume control in pavucontrol
 rs_metadata = nil
 
+function numbersEqualRounded (a, b, decimals)
+  if a == b then
+    return true
+  end
+  if type (a) ~= "number" or type (b) ~= "number" then
+    return false
+  end
+
+  local scale = 10 ^ (decimals or 0)
+  local a_rounded = math.modf (a * scale)
+  local b_rounded = math.modf (b * scale)
+  return a_rounded == b_rounded
+end
+
+function isNonEmptyArray (value)
+  return type (value) == "table" and #value > 0
+end
+
+function arraysEqual (a, b)
+  if a == b then
+    return true
+  end
+  if type (a) ~= "table" or type (b) ~= "table" then
+    return false
+  end
+  if #a ~= #b then
+    return false
+  end
+  for i = 1, #a do
+    if a [i] ~= b [i] then
+      return false
+    end
+  end
+  return true
+end
+
+function arraysEqualRounded (a, b, decimals)
+  if a == b then
+    return true
+  end
+  if type (a) ~= "table" or type (b) ~= "table" then
+    return false
+  end
+  if #a ~= #b then
+    return false
+  end
+  for i = 1, #a do
+    if not numbersEqualRounded (a [i], b [i], decimals) then
+      return false
+    end
+  end
+  return true
+end
+
 -- hook to restore stream properties & target
 restore_stream_hook = SimpleEventHook {
   name = "node/restore-stream",
@@ -161,8 +215,10 @@ store_stream_props_hook = SimpleEventHook {
       local stored_values = getStoredStreamProps (key) or {}
       local hasChanges = false
 
-      log:info (node, "saving stream props for " ..
-          tostring (stream_props ["node.name"]))
+      local old_volume = stored_values.volume
+      local old_mute = stored_values.mute
+      local old_channelVolumes = stored_values.channelVolumes
+      local old_channelMap = stored_values.channelMap
 
       for p in node:iterate_params ("Props") do
         local props = cutils.parseParam (p, "Props")
@@ -170,19 +226,23 @@ store_stream_props_hook = SimpleEventHook {
           goto skip_prop
         end
 
-        if props.volume ~= stored_values.volume then
+        if props.volume ~= nil and
+            not numbersEqualRounded (props.volume, stored_values.volume, 4) then
           stored_values.volume = props.volume
           hasChanges = true
         end
-        if props.mute ~= stored_values.mute then
+        if props.mute ~= nil and props.mute ~= stored_values.mute then
           stored_values.mute = props.mute
           hasChanges = true
         end
-        if props.channelVolumes then
+        if isNonEmptyArray (props.channelVolumes) and
+            not arraysEqualRounded (props.channelVolumes,
+                stored_values.channelVolumes, 4) then
           stored_values.channelVolumes = props.channelVolumes
           hasChanges = true
         end
-        if props.channelMap then
+        if isNonEmptyArray (props.channelMap) and
+            not arraysEqual (props.channelMap, stored_values.channelMap) then
           stored_values.channelMap = props.channelMap
           hasChanges = true
         end
@@ -191,6 +251,7 @@ store_stream_props_hook = SimpleEventHook {
       end
 
       if hasChanges then
+        log:info (node, "saving stream props for " .. key)
         saveStreamProps (key, stored_values)
       end
     end
