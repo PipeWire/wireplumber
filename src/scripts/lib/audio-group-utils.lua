@@ -21,7 +21,7 @@ end
 
 function module.contains_audio_group (audio_group)
   for k, v in pairs(module.node_groups) do
-    if v == group then
+    if v == audio_group then
       return true
     end
   end
