@@ -4,22 +4,24 @@
 # Petr Kovar <pknbe@volny.cz>, 2008, 2009, 2012.
 # Daniel Rusek <mail@asciiwolf.com>, 2018.
 # Marek Černocký <marek@manet.cz>, 2018.
+# Václav Koterec <kot.va@centrum.cz>, 2026.
+# Patrik Sivek <sivekpatrik@gmail.com>, 2026.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: pipewire.master-tx\n"
 "Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/-/"
 "issues\n"
-"POT-Creation-Date: 2022-07-08 03:32+0000\n"
-"PO-Revision-Date: 2022-10-19 20:52+0200\n"
-"Last-Translator: Daniel Rusek <mail@asciiwolf.com>\n"
-"Language-Team: čeština <gnome-cs-list@gnome.org>\n"
+"POT-Creation-Date: 2026-07-16 12:54+0000\n"
+"PO-Revision-Date: 2026-07-20 11:25+0200\n"
+"Last-Translator: Patrik Sivek <sivekpatrik@gmail.com>\n"
+"Language-Team: Czech\n"
 "Language: cs\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;\n"
-"X-Generator: Poedit 3.1.1\n"
+"X-Generator: Gtranslator 50.0\n"
 
 #. WirePlumber
 #.
@@ -27,11 +29,20 @@ msgstr ""
 #. @author George Kiagiadakis <george.kiagiadakis@collabora.com>
 #.
 #. SPDX-License-Identifier: MIT
-#. Receive script arguments from config.lua
-#. ensure config.properties is not nil
 #. unique device/node name tables
-#. preprocess rules and create Interest objects
-#. applies properties from config.rules when asked to
+#. SPA ids to node names: name = id_name_table[device_id][node_id]
+#. create the underlying hidden ALSA node
+#. not suitable for loopback
+#: src/scripts/monitors/alsa.lua:106
+#, lua-format
+msgid "Split %s"
+msgstr "Rozdělit %s"
+
+#. Connect ObjectConfig events to the right node
+#. Find the device for this node
+#. Get current profile
+#. Close the ALSA device by setting the profile to Off
+#. Re-open the ALSA device by restoring the profile after one second
 #. set the device id and spa factory name; REQUIRED, do not change
 #. set the default pause-on-idle setting
 #. try to negotiate the max amount of channels
@@ -44,41 +55,45 @@ msgstr ""
 #. also sanitize nick, replace ':' with ' '
 #. ensure the node has a description
 #. also sanitize description, replace ':' with ' '
-#. add api.alsa.card.* properties for rule matching purposes
-#. apply VM overrides
-#. apply properties from config.rules
+#. add api.alsa.card.* and alsa.* properties for rule matching purposes
+#. add device form-factor property for rule matching purposes
+#. add cpu.vm.name for rule matching purposes
+#. apply properties from rules defined in JSON .conf file
+#. handle split HW node
+#. create split PCM node
 #. create the node
 #. ensure the device has an appropriate name
 #. deduplicate devices with the same name
 #. ensure the device has a description
-#: src/scripts/monitors/alsa.lua:228
+#: src/scripts/monitors/alsa.lua:507
+msgid "Loopback"
+msgstr "Loopback"
+
+#: src/scripts/monitors/alsa.lua:509
 msgid "Built-in Audio"
 msgstr "Vnitřní zvukový systém"
 
-#: src/scripts/monitors/alsa.lua:230
+#: src/scripts/monitors/alsa.lua:511
 msgid "Modem"
 msgstr "Modem"
 
 #. ensure the device has a nick
 #. set the icon name
 #. form factor -> icon
-#. apply properties from config.rules
+#. apply properties from rules defined in JSON .conf file
 #. override the device factory to use ACP
+#. use HDMI channel detection if enabled in settings
 #. use device reservation, if available
 #. unlike pipewire-media-session, this logic here keeps the device
 #. acquired at all times and destroys it if someone else acquires
 #. create the device
 #. attempt to acquire again
 #. destroy the device
-#. TODO enable the jack device
-#. TODO disable the jack device
 #. create the device
 #. handle create-object to prepare device
 #. handle object-removed to destroy device reservations and recycle device name
 #. reset the name tables to make sure names are recycled
 #. activate monitor
-#. create the JACK device (for PipeWire to act as client to a JACK server)
-#. enable device reservation if requested
 #. if the reserve-device plugin is enabled, at the point of script execution
 #. it is expected to be connected. if it is not, assume the d-bus connection
 #. has failed and continue without it
@@ -87,22 +102,336 @@ msgstr "Modem"
 #. create the monitor
 #. WirePlumber
 #.
-#. Copyright © 2021 Collabora Ltd.
-#. @author George Kiagiadakis <george.kiagiadakis@collabora.com>
+#. Copyright © 2022 Pauli Virtanen
+#. @author Pauli Virtanen
 #.
 #. SPDX-License-Identifier: MIT
-#. preprocess rules and create Interest objects
-#. applies properties from config.rules when asked to
+#. unique device/node name tables
+#. set the node description
+#. sanitize description, replace ':' with ' '
+#. set the node name
+#. sanitize name
+#. deduplicate nodes with the same name
+#. apply properties from the rules in the configuration file
+#. create the node
+#. it doesn't necessarily need to be a local node,
+#. the other Bluetooth parts run in the local process,
+#. so it's consistent to have also this here
+#. reset the name tables to make sure names are recycled
+#: src/scripts/monitors/bluez-midi.lua:114
+#, lua-format
+msgid "BLE MIDI %d"
+msgstr "BLE MIDI %d"
+
+#. if logind support is enabled, activate
+#. the monitor only when the seat is active
+#. WirePlumber
+#.
+#. Copyright © 2023 Collabora Ltd.
+#. @author Ashok Sidipotu <ashok.sidipotu@collabora.com>
+#.
+#. SPDX-License-Identifier: MIT
 #. set the device id and spa factory name; REQUIRED, do not change
 #. set the default pause-on-idle setting
 #. set the node name
 #. sanitize name
 #. deduplicate nodes with the same name
 #. set the node description
-#: src/scripts/monitors/libcamera.lua:88
+#: src/scripts/monitors/libcamera/name-node.lua:61
 msgid "Built-in Front Camera"
 msgstr "Vestavěná přední kamera"
 
-#: src/scripts/monitors/libcamera.lua:90
+#: src/scripts/monitors/libcamera/name-node.lua:63
 msgid "Built-in Back Camera"
 msgstr "Vestavěná zadní kamera"
+
+#. /wireplumber.settings.schema/bluetooth.autoswitch-to-headset-profile/description
+#: wireplumber.conf
+msgid ""
+"Always show microphone for Bluetooth headsets, and switch to headset mode "
+"when recording"
+msgstr ""
+"U Bluetooth sluchátek s mikrofonem vždy zobrazovat mikrofon a při nahrávání "
+"přepnout do režimu sluchátek"
+
+#. /wireplumber.settings.schema/bluetooth.autoswitch-to-headset-profile/name
+#: wireplumber.conf
+msgid "Auto-switch to headset profile"
+msgstr "Automatické přepnutí na profil sluchátek"
+
+#. /wireplumber.settings.schema/bluetooth.profile-preference/description
+#: wireplumber.conf
+msgid ""
+"Prefer better quality or better latency when auto-selecting profiles (only "
+"'quality' or 'latency' values are accepted)"
+msgstr ""
+"Upřednostnit při automatickém výběru profilů lepší kvalitu nebo lepší "
+"latenci (jsou povoleny pouze hodnoty „kvalita“ nebo „latence“)"
+
+#. /wireplumber.settings.schema/bluetooth.profile-preference/name
+#: wireplumber.conf
+msgid "Bluetooth profile preference"
+msgstr "Předvolba profilu Bluetooth"
+
+#. /wireplumber.settings.schema/bluetooth.use-persistent-storage/description
+#: wireplumber.conf
+msgid "Remember and restore Bluetooth headset mode status"
+msgstr "Zapamatovat a obnovit stav režimu Bluetooth sluchátek"
+
+#. /wireplumber.settings.schema/bluetooth.use-persistent-storage/name
+#: wireplumber.conf
+msgid "Persistent storage"
+msgstr "Trvalé úložiště"
+
+#. /wireplumber.settings.schema/device.restore-profile/description
+#: wireplumber.conf
+msgid "Remember and restore device profiles"
+msgstr "Zapamatovat a obnovit profily zařízení"
+
+#. /wireplumber.settings.schema/device.restore-profile/name
+#: wireplumber.conf
+msgid "Restore profile"
+msgstr "Obnovit profil"
+
+#. /wireplumber.settings.schema/device.restore-routes/description
+#: wireplumber.conf
+msgid "Remember and restore device routes"
+msgstr "Zapamatovat a obnovit trasy zařízení"
+
+#. /wireplumber.settings.schema/device.restore-routes/name
+#: wireplumber.conf
+msgid "Restore routes"
+msgstr "Obnovit trasy"
+
+#. /wireplumber.settings.schema/device.routes.default-sink-volume/description
+#: wireplumber.conf
+msgid "The default volume for audio sinks"
+msgstr "Výchozí hlasitost pro zvukové výstupy"
+
+#. /wireplumber.settings.schema/device.routes.default-sink-volume/name
+#: wireplumber.conf
+msgid "Default sink volume"
+msgstr "Výchozí hlasitost výstupu"
+
+#. /wireplumber.settings.schema/device.routes.default-source-volume/description
+#: wireplumber.conf
+msgid "The default volume for audio sources"
+msgstr "Výchozí hlasitost zvukových zdrojů"
+
+#. /wireplumber.settings.schema/device.routes.default-source-volume/name
+#: wireplumber.conf
+msgid "Default source volume"
+msgstr "Výchozí hlasitost zdroje"
+
+#. /wireplumber.settings.schema/device.routes.mute-on-alsa-playback-removed/description
+#: wireplumber.conf
+msgid ""
+"Automatically mute all audio devices when active wired headphones/speakers "
+"are disconnected to prevent unintended sound output"
+msgstr ""
+"Automaticky ztlumit všechna zvuková zařízení při odpojení aktivních "
+"kabelových sluchátek/reproduktorů, aby se zabránilo nechtěnému výstupu zvuku"
+
+#. /wireplumber.settings.schema/device.routes.mute-on-alsa-playback-removed/name
+#: wireplumber.conf
+msgid "Auto-mute on wired audio disconnect"
+msgstr "Automatické ztlumení při odpojení kabelového připojení zvuku"
+
+#. /wireplumber.settings.schema/device.routes.mute-on-bluetooth-playback-removed/description
+#: wireplumber.conf
+msgid ""
+"Automatically mute all audio devices when active Bluetooth headphones/"
+"speakers are disconnected to prevent unintended sound output"
+msgstr ""
+"Automaticky ztlumit všechna zvuková zařízení při odpojení aktivních "
+"sluchátek/reproduktorů připojených přes Bluetooth, aby se zabránilo "
+"nechtěnému výstupu zvuku"
+
+#. /wireplumber.settings.schema/device.routes.mute-on-bluetooth-playback-removed/name
+#: wireplumber.conf
+msgid "Auto-mute on Bluetooth audio disconnect"
+msgstr "Automatické ztlumení při přerušení připojení Bluetooth"
+
+#. /wireplumber.settings.schema/linking.allow-moving-streams/description
+#: wireplumber.conf
+msgid "Streams may be moved by adding PipeWire metadata at runtime"
+msgstr "Proudy lze přesouvat přidáním metadat PipeWire za běhu"
+
+#. /wireplumber.settings.schema/linking.allow-moving-streams/name
+#: wireplumber.conf
+msgid "Allow moving streams"
+msgstr "Povolit přesun proudů"
+
+#. /wireplumber.settings.schema/linking.follow-default-target/description
+#: wireplumber.conf
+msgid "Streams connected to the default device follow when default changes"
+msgstr ""
+"Proudy připojené k výchozímu zařízení se přizpůsobí změnám výchozího zařízení"
+
+#. /wireplumber.settings.schema/linking.follow-default-target/name
+#: wireplumber.conf
+msgid "Follow default target"
+msgstr "Použít výchozí cíl"
+
+#. /wireplumber.settings.schema/linking.pause-playback/description
+#: wireplumber.conf
+msgid "Pause media players if their target sink is removed"
+msgstr ""
+"Pozastavit přehrávače médií, když dojde k odstranění jejich cílového výstupu"
+
+#. /wireplumber.settings.schema/linking.pause-playback/name
+#: wireplumber.conf
+msgid "Pause playback if output removed"
+msgstr "Pozastavit přehrávání, když dojde k odstranění výstupu"
+
+#. /wireplumber.settings.schema/linking.role-based.duck-level/description
+#: wireplumber.conf
+msgid ""
+"The volume level to apply when ducking (= reducing volume for a higher "
+"priority stream to be audible) in the role-based linking policy"
+msgstr ""
+"Úroveň hlasitosti, která se má použít při potlačení hlasitosti (= snížení "
+"hlasitosti, aby byl slyšet proud s vyšší prioritou) v rámci zásady "
+"propojování založené na rolích"
+
+#. /wireplumber.settings.schema/linking.role-based.duck-level/name
+#: wireplumber.conf
+msgid "Ducking level"
+msgstr "Úroveň ztlumení"
+
+#. /wireplumber.settings.schema/monitor.alsa.autodetect-hdmi-channels/description
+#: wireplumber.conf
+msgid ""
+"Automatically detect channel count and positions for HDMI devices "
+"(experimental)"
+msgstr ""
+"Automatická detekce počtu kanálů a jejich pozic u zařízení HDMI "
+"(experimentální)"
+
+#. /wireplumber.settings.schema/monitor.alsa.autodetect-hdmi-channels/name
+#: wireplumber.conf
+msgid "Automatically detect HDMI channels (experimental)"
+msgstr "Automatická detekce kanálů HDMI (experimentální)"
+
+#. /wireplumber.settings.schema/monitor.camera-discovery-timeout/description
+#: wireplumber.conf
+msgid "The camera discovery timeout in milliseconds"
+msgstr "Časový limit pro vyhledání kamery v milisekundách"
+
+#. /wireplumber.settings.schema/monitor.camera-discovery-timeout/name
+#: wireplumber.conf
+msgid "Discovery timeout"
+msgstr "Časový limit vyhledávání"
+
+#. /wireplumber.settings.schema/node.features.audio.control-port/description
+#: wireplumber.conf
+msgid "Enable control ports on audio nodes"
+msgstr "Povolit řídicí porty na zvukových uzlech"
+
+#. /wireplumber.settings.schema/node.features.audio.control-port/name
+#: wireplumber.conf
+msgid "Control ports"
+msgstr "Řídicí porty"
+
+#. /wireplumber.settings.schema/node.features.audio.monitor-ports/description
+#: wireplumber.conf
+msgid "Enable monitor ports on audio nodes"
+msgstr "Povolit porty monitoru na zvukových uzlech"
+
+#. /wireplumber.settings.schema/node.features.audio.monitor-ports/name
+#: wireplumber.conf
+msgid "Monitor ports"
+msgstr "Porty monitoru"
+
+#. /wireplumber.settings.schema/node.features.audio.mono/description
+#: wireplumber.conf
+msgid "Configure all audio device sink nodes in MONO"
+msgstr "Nastavit všechny výstupní uzly zvukových zařízení na MONO"
+
+#. /wireplumber.settings.schema/node.features.audio.mono/name
+#: wireplumber.conf
+msgid "Mono"
+msgstr "Mono"
+
+#. /wireplumber.settings.schema/node.features.audio.no-dsp/description
+#: wireplumber.conf
+msgid "Do not convert audio to F32 format"
+msgstr "Nepřevádět zvuk do formátu F32"
+
+#. /wireplumber.settings.schema/node.features.audio.no-dsp/name
+#: wireplumber.conf
+msgid "No DSP"
+msgstr "Bez DSP"
+
+#. /wireplumber.settings.schema/node.filter.forward-format/description
+#: wireplumber.conf
+msgid "Forward format on filter nodes or not"
+msgstr "Zda přenášet formát na filtračních uzlech, či nikoli"
+
+#. /wireplumber.settings.schema/node.filter.forward-format/name
+#: wireplumber.conf
+msgid "Forward format"
+msgstr "Formát vpřed"
+
+#. /wireplumber.settings.schema/node.restore-default-targets/description
+#: wireplumber.conf
+msgid "Remember and restore default audio/video input/output devices"
+msgstr ""
+"Zapamatovat a obnovit výchozí zvuková/obrazová vstupní/výstupní zařízení"
+
+#. /wireplumber.settings.schema/node.restore-default-targets/name
+#: wireplumber.conf
+msgid "Restore default target"
+msgstr "Obnovit výchozí cíl"
+
+#. /wireplumber.settings.schema/node.stream.default-capture-volume/description
+#: wireplumber.conf
+msgid "The default volume for capture nodes"
+msgstr "Výchozí hlasitost pro uzly záznamu"
+
+#. /wireplumber.settings.schema/node.stream.default-capture-volume/name
+#: wireplumber.conf
+msgid "Default capture volume"
+msgstr "Výchozí hlasitost záznamu"
+
+#. /wireplumber.settings.schema/node.stream.default-media-role/description
+#: wireplumber.conf
+msgid "Default media.role to assign on streams that do not specify it"
+msgstr ""
+"Výchozí hodnota „media.role“, která se přiřadí proudům, u nichž není tato "
+"vlastnost zadána"
+
+#. /wireplumber.settings.schema/node.stream.default-media-role/name
+#: wireplumber.conf
+msgid "Default media role"
+msgstr "Výchozí role média"
+
+#. /wireplumber.settings.schema/node.stream.default-playback-volume/description
+#: wireplumber.conf
+msgid "The default volume for playback nodes"
+msgstr "Výchozí hlasitost přehrávacích uzlů"
+
+#. /wireplumber.settings.schema/node.stream.default-playback-volume/name
+#: wireplumber.conf
+msgid "Default playback volume"
+msgstr "Výchozí hlasitost přehrávání"
+
+#. /wireplumber.settings.schema/node.stream.restore-props/description
+#: wireplumber.conf
+msgid "Remember and restore properties of streams"
+msgstr "Zapamatovat a obnovit vlastnosti proudů"
+
+#. /wireplumber.settings.schema/node.stream.restore-props/name
+#: wireplumber.conf
+msgid "Restore properties"
+msgstr "Obnovit vlastnosti"
+
+#. /wireplumber.settings.schema/node.stream.restore-target/description
+#: wireplumber.conf
+msgid "Remember and restore stream targets"
+msgstr "Zapamatovat a obnovit cíle proudu"
+
+#. /wireplumber.settings.schema/node.stream.restore-target/name
+#: wireplumber.conf
+msgid "Restore target"
+msgstr "Obnovit cíl"
