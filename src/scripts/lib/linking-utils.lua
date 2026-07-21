@@ -73,8 +73,8 @@ function lutils.clearPriorityMediaRoleLink (link)
       goto continue
     end
 
-    if getprio (link) > prio or
-        (getprio (link) == prio and getplugged (link) > plugged) then
+    if getprio (l) > prio or
+        (getprio (l) == prio and getplugged (l) > plugged) then
       prio = getprio (l)
       plugged = getplugged (l)
       prio_link = l
