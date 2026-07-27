@@ -35,6 +35,7 @@ function getplugged (link)
 end
 
 function lutils.getAction (pmrl, link)
+  if not pmrl then return "mix" end
   local props = pmrl.properties
 
   if getprio (pmrl) == getprio (link) then
