@@ -47,7 +47,16 @@ AsyncEventHook {
               default_permissions))
           transition:advance ()
         elseif permission_manager ~= nil then
-          -- Make sure the permission manager is activated
+          -- Just attach the permission manager to the client if already active
+          if (permission_manager:get_active_features() & Features.ALL) ~= 0 then
+            client:attach_permission_manager (permission_manager)
+            log:info (client, string.format (
+                "Attached already active permission manager to client '%s'", app_name))
+            transition:advance ()
+            return
+          end
+
+          -- Otherwise just active and attach the permission manager to the client
           permission_manager:activate (Features.ALL, function (pm, e)
             if e then
               transition:return_error (string.format (
@@ -59,7 +68,7 @@ AsyncEventHook {
             -- Attach permission manager to client so permissions are applied
             client:attach_permission_manager (permission_manager)
             log:info (client, string.format (
-                "Attached permission manager to client '%s'", app_name))
+                "Attached newly activated permission manager to client '%s'", app_name))
             transition:advance ()
           end)
         else
