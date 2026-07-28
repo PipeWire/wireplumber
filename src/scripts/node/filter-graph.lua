@@ -35,16 +35,16 @@ SimpleEventHook {
       if action == "create-filter-graph" then
         local graphs = value:parse (1)
 
-	local graph_params = {}
+        local graph_params = {}
         for idx, val in ipairs (graphs) do
-	  local index = tonumber(idx) - 1
-	  local key = "audioconvert.filter-graph." .. tostring (index)
+          local index = tonumber(idx) - 1
+          local key = "audioconvert.filter-graph." .. tostring (index)
 
-	  log:info (node, "setting node filter graph param '" .. key .. "' to: " .. val)
+          log:info (node, "setting node filter graph param '" .. key .. "' to: " .. val)
 
-	  table.insert(graph_params, key)
-	  table.insert(graph_params, val)
-	end
+          table.insert(graph_params, key)
+          table.insert(graph_params, val)
+        end
 
         setNodeFilterGraphParams (node, graph_params)
       end
