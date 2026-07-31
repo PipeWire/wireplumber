@@ -784,6 +784,16 @@ load_stream_manager (GTask * task, WpCore * core, WpSpaJson * args)
   g_task_return_pointer (task, stream_manager, g_object_unref);
 }
 
+static void
+load_stream_link_manager (GTask * task, WpCore * core, WpSpaJson * args)
+{
+  wp_info_object (core, "loading stream link manager...");
+
+  WpStreamLinkManager *stream_link_manager = wp_stream_link_manager_new (core,
+      NULL);
+  g_task_return_pointer (task, stream_link_manager, g_object_unref);
+}
+
 static const struct {
   const gchar * name;
   void (*load) (GTask *, WpCore *, WpSpaJson *);
@@ -796,6 +806,7 @@ static const struct {
   { "export-core", load_client_context },
   { "settings-instance", load_settings_instance },
   { "stream-manager", load_stream_manager },
+  { "stream-link-manager", load_stream_link_manager },
 };
 
 /*** WpInternalCompLoader ***/

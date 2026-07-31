@@ -40,6 +40,7 @@ wp_lib_sources = files(
   'stream.c',
   'stream-link.c',
   'stream-manager.c',
+  'stream-link-manager.c',
   'transition.c',
   'wp.c',
 )
@@ -93,6 +94,7 @@ wp_lib_headers = files(
   'stream.h',
   'stream-link.h',
   'stream-manager.h',
+  'stream-link-manager.h',
   'transition.h',
   'wp.h',
   'factory.h',

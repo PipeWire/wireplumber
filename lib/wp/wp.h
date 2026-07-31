@@ -46,6 +46,7 @@
 #include "stream.h"
 #include "stream-link.h"
 #include "stream-manager.h"
+#include "stream-link-manager.h"
 #include "transition.h"
 #include "wpenums.h"
 #include "wpversion.h"
