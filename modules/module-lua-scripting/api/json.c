@@ -14,6 +14,17 @@ WP_LOG_TOPIC_EXTERN (log_topic_lua_scripting)
 
 /* API */
 
+/* TODO: deprecate / remove in the next major release.
+ *
+ * wp_spa_json_get_data() returns a pointer into a buffer that is NUL-terminated
+ * only at the end of the *buffer*, not at the end of the value. For a json that
+ * is a view into a larger document (anything constructed with the _wrap()
+ * variants, such as the sections returned by wp_conf_get_section()), the string
+ * pushed here therefore contains the value plus everything that follows it.
+ * The C API gets away with this because it always pairs get_data() with
+ * get_size(); Lua cannot pass such a pair to anything, so this method has no
+ * use case that to_string() does not cover better. It is only kept for
+ * compatibility with existing scripts. */
 static int
 spa_json_get_data (lua_State *L)
 {
