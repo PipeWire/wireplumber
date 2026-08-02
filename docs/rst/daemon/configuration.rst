@@ -27,4 +27,6 @@ the various options available.
    configuration/settings.rst
    configuration/alsa.rst
    configuration/bluetooth.rst
+   configuration/video.rst
    configuration/access.rst
+   configuration/example_fragments.rst

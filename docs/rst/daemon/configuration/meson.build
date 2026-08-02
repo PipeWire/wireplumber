@@ -9,5 +9,7 @@ sphinx_files += files(
   'settings.rst',
   'alsa.rst',
   'bluetooth.rst',
+  'video.rst',
   'access.rst',
+  'example_fragments.rst',
 )

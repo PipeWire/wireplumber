@@ -12,6 +12,48 @@ configured dynamically at runtime by using metadata.
 For more information on what "settings" are and how they work, refer to the
 previous section: :ref:`config_configuration_option_types`.
 
+.. tip::
+
+   ``wpctl settings`` lists all the settings together with their description,
+   type, valid range and current value, and can also change, save and reset
+   them at runtime. The authoritative list is the
+   ``wireplumber.settings.schema`` section of ``wireplumber.conf``.
+
+.. describe:: bluetooth.use-persistent-storage
+
+   When enabled, WirePlumber remembers whether a Bluetooth device was switched
+   to headset mode, and restores that state the next time the device connects.
+
+   :Default value: ``true``
+   :See also: ``bluetooth.autoswitch-to-headset-profile``
+
+.. describe:: bluetooth.autoswitch-to-headset-profile
+
+   When enabled, Bluetooth headsets always expose a microphone, and the device
+   is automatically switched to headset mode (HSP/HFP) when an application
+   starts recording. When the recording stream goes away, the previous profile
+   is restored.
+
+   Headset mode has considerably lower audio quality than A2DP, which is why
+   the switch is only made while a capture stream is actually present.
+
+   :Default value: ``true``
+
+.. describe:: bluetooth.profile-preference
+
+   Controls which A2DP codec configuration is preferred when a profile is
+   selected automatically for a Bluetooth device. Only two values are accepted:
+
+   ``quality``
+      prefer the codec with the best audio quality
+
+   ``latency``
+      prefer the codec with the lowest latency
+
+   Any other value logs a warning and is treated as ``quality``.
+
+   :Default value: ``"quality"``
+
 .. describe:: device.restore-profile
 
    When a device profile is changed manually (e.g. via pavucontrol), WirePlumber
@@ -61,6 +103,27 @@ previous section: :ref:`config_configuration_option_types`.
 
    :Default value: ``1.0`` (100%)
 
+.. describe:: device.routes.mute-on-alsa-playback-removed
+
+   When enabled, all audio devices are muted when an active wired playback
+   route (headphones, speakers) is unplugged. This prevents sound from
+   unexpectedly coming out of the built-in speakers when headphones are
+   removed.
+
+   The mute is applied to all devices, not just the one whose route
+   disappeared, and is not undone automatically; the user has to unmute
+   explicitly.
+
+   :Default value: ``false``
+   :See also: ``device.routes.mute-on-bluetooth-playback-removed``
+
+.. describe:: device.routes.mute-on-bluetooth-playback-removed
+
+   The same as ``device.routes.mute-on-alsa-playback-removed``, but triggered
+   when an active Bluetooth playback device disconnects instead.
+
+   :Default value: ``false``
+
 .. describe:: linking.allow-moving-streams
 
    This option allows moving streams by overriding their target via metadata.
@@ -109,6 +172,44 @@ previous section: :ref:`config_configuration_option_types`.
 
    :Default value: ``true``
 
+.. describe:: linking.role-based.duck-level
+
+   The volume to which a stream is reduced when it is *ducked* by the
+   role-based linking policy, i.e. when a higher priority role becomes active
+   and lower priority roles should remain audible but quieter.
+
+   This only has an effect when the role-based policy is enabled; see the
+   ``policy.linking.role-based`` feature in :ref:`config_features`.
+
+   :Default value: ``0.3``
+   :Range: ``0.0`` to ``1.0``
+
+.. describe:: monitor.camera-discovery-timeout
+
+   How long to wait, in milliseconds, after a camera device is reported before
+   creating nodes for the discovered cameras.
+
+   The same camera may be reported by both the V4L2 and the libcamera monitor.
+   This timeout gives both monitors a chance to report it, so that WirePlumber
+   can decide which backend to use instead of exposing the camera twice. The
+   timer is restarted every time another device is reported.
+
+   :Default value: ``1000``
+   :Range: ``0`` to ``60000``
+   :See also: :ref:`config_video`
+
+.. describe:: monitor.alsa.autodetect-hdmi-channels
+
+   When enabled, the ALSA monitor tries to detect the channel count and channel
+   positions supported by HDMI devices, instead of using the values declared by
+   the ALSA profile.
+
+   .. warning::
+
+      This is experimental.
+
+   :Default value: ``false``
+
 .. describe:: node.features.audio.no-dsp
 
    When this option is set to ``true``, audio nodes will not be configured
@@ -144,6 +245,16 @@ previous section: :ref:`config_configuration_option_types`.
    This enables the creation of a "control" port for audio nodes. Control ports
    allow sending MIDI data to the node, allowing for control of certain node's
    parameters (such as volume) via external controllers.
+
+   :Default value: ``false``
+
+.. describe:: node.features.audio.mono
+
+   When enabled, audio device *sink* nodes are configured with a single mono
+   channel instead of their native channel layout.
+
+   This only applies to ALSA PCM sinks and Bluetooth A2DP sinks; it does not
+   affect sources or streams.
 
    :Default value: ``false``
 
@@ -191,6 +302,18 @@ previous section: :ref:`config_configuration_option_types`.
 
    :Default value: ``1.0``
    :Range: ``0.0`` to ``1.0``
+
+.. describe:: node.stream.default-media-role
+
+   A ``media.role`` to assign to streams that do not declare one themselves.
+   Streams that already have a ``media.role`` property are left alone.
+
+   This is mainly useful together with the role-based linking policy, which
+   groups and prioritizes streams by their role: without a default, streams
+   from applications that do not set a role would not be handled by that
+   policy at all.
+
+   :Default value: ``null`` (no role is assigned)
 
 .. describe:: node.filter.forward-format
 
