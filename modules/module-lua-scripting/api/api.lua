@@ -206,6 +206,25 @@ local Perm = {
   ALL = (PERM_R_VAL | PERM_W_VAL | PERM_X_VAL | PERM_M_VAL),
 }
 
+local StreamKind = {
+  UNKNOWN = 0,
+  SUBJECT = 1,
+  TARGET = 2
+}
+
+local StreamShape = {
+  UNKNOWN = 0,
+  SINK = 1,
+  SOURCE = 2,
+  INPUT = 3,
+  OUTPUT = 4
+}
+
+local Direction = {
+  INPUT = 0,
+  OUTPUT = 1
+}
+
 -- Allow calling Conf() to instantiate a new WpConf
 WpConf["__new"] = WpConf_new
 
@@ -215,6 +234,9 @@ SANDBOX_EXPORT = {
   Features = Features,
   Feature = Feature,
   Perm = Perm,
+  StreamKind = StreamKind,
+  StreamShape = StreamShape,
+  Direction = Direction,
   GLib = GLib,
   I18n = I18n,
   Log = WpLog,
@@ -238,6 +260,7 @@ SANDBOX_EXPORT = {
   LocalModule = WpImplModule_new,
   ImplMetadata = WpImplMetadata_new,
   Settings = WpSettings,
+  StreamLinkManager = WpStreamLinkManager,
   Conf = WpConf,
   JsonUtils = JsonUtils,
   ProcUtils = ProcUtils,

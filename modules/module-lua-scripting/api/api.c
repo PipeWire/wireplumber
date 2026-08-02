@@ -1314,6 +1314,507 @@ link_new (lua_State *L)
   return l ? 1 : 0;
 }
 
+/* WpStream */
+
+static int
+stream_get_node (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  WpNode *node = wp_stream_get_node (stream);
+  if (node)
+    wplua_pushobject (L, node);
+  else
+    lua_pushnil (L);
+  return 1;
+}
+
+static int
+stream_get_properties (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  WpProperties *props = wp_stream_get_properties (stream);
+  wplua_pushboxed (L, WP_TYPE_PROPERTIES, props);
+  return 1;
+}
+
+static int
+stream_get_direction (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  lua_pushinteger (L, wp_stream_get_direction (stream));
+  return 1;
+}
+
+static int
+stream_get_port_group (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  lua_pushstring (L, wp_stream_get_port_group (stream));
+  return 1;
+}
+
+static int
+stream_get_creation_time (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  lua_pushinteger (L, wp_stream_get_creation_time (stream));
+  return 1;
+}
+
+static int
+stream_get_node_bound_id (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  lua_pushinteger (L, wp_stream_get_node_bound_id (stream));
+  return 1;
+}
+
+static int
+stream_get_kind (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  lua_pushinteger (L, wp_stream_get_kind (stream));
+  return 1;
+}
+
+static int
+stream_get_shape (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  lua_pushinteger (L, wp_stream_get_shape (stream));
+  return 1;
+}
+
+static int
+stream_is_compatible (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  WpStream *other = wplua_checkobject (L, 2, WP_TYPE_STREAM);
+  gboolean enc_only = FALSE;
+  lua_pushboolean (L, wp_stream_is_compatible (stream, other, &enc_only));
+  lua_pushboolean (L, enc_only);
+  return 2;
+}
+
+static int
+stream_has_port (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  guint32 port_id = luaL_checkinteger (L, 2);
+  lua_pushboolean (L, wp_stream_has_port (stream, port_id));
+  return 1;
+}
+
+static int
+stream_has_monitor_port (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  guint32 port_id = luaL_checkinteger (L, 2);
+  lua_pushboolean (L, wp_stream_has_monitor_port (stream, port_id));
+  return 1;
+}
+
+static int
+stream_has_control_port (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  guint32 port_id = luaL_checkinteger (L, 2);
+  lua_pushboolean (L, wp_stream_has_control_port (stream, port_id));
+  return 1;
+}
+
+static int
+stream_get_ports_count (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  lua_pushinteger (L, wp_stream_get_ports_count (stream));
+  return 1;
+}
+
+static int
+stream_get_monitor_ports_count (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  lua_pushinteger (L, wp_stream_get_monitor_ports_count (stream));
+  return 1;
+}
+
+static int
+stream_get_control_ports_count (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  lua_pushinteger (L, wp_stream_get_control_ports_count (stream));
+  return 1;
+}
+
+static int
+stream_iterate_ports (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  WpIterator *it = wp_stream_new_ports_iterator (stream);
+  return push_wpiterator (L, it);
+}
+
+static int
+stream_iterate_monitor_ports (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  WpIterator *it = wp_stream_new_monitor_ports_iterator (stream);
+  return push_wpiterator (L, it);
+}
+
+static int
+stream_iterate_control_ports (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  WpIterator *it = wp_stream_new_control_ports_iterator (stream);
+  return push_wpiterator (L, it);
+}
+
+static int
+stream_get_supported_raw_format_count (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  lua_pushinteger (L, wp_stream_get_supported_raw_format_count (stream));
+  return 1;
+}
+
+static int
+stream_get_supported_enc_format_count (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  lua_pushinteger (L, wp_stream_get_supported_enc_format_count (stream));
+  return 1;
+}
+
+static int
+stream_iterate_supported_raw_formats (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  WpIterator *it = wp_stream_new_supported_raw_format_iterator (stream);
+  return push_wpiterator (L, it);
+}
+
+static int
+stream_iterate_supported_enc_formats (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  WpIterator *it = wp_stream_new_supported_enc_format_iterator (stream);
+  return push_wpiterator (L, it);
+}
+
+static int
+stream_is_exclusive (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  lua_pushboolean (L, wp_stream_is_exclusive (stream));
+  return 1;
+}
+
+static const luaL_Reg stream_methods[] = {
+  { "get_node", stream_get_node },
+  { "get_properties", stream_get_properties },
+  { "get_direction", stream_get_direction },
+  { "get_port_group", stream_get_port_group },
+  { "get_creation_time", stream_get_creation_time },
+  { "get_node_bound_id", stream_get_node_bound_id },
+  { "get_kind", stream_get_kind },
+  { "get_shape", stream_get_shape },
+  { "is_compatible", stream_is_compatible },
+  { "get_supported_raw_format_count", stream_get_supported_raw_format_count },
+  { "get_supported_enc_format_count", stream_get_supported_enc_format_count },
+  { "iterate_supported_raw_formats", stream_iterate_supported_raw_formats },
+  { "iterate_supported_enc_formats", stream_iterate_supported_enc_formats },
+  { "is_exclusive", stream_is_exclusive },
+  { "has_port", stream_has_port },
+  { "has_monitor_port", stream_has_monitor_port },
+  { "has_control_port", stream_has_control_port },
+  { "get_ports_count", stream_get_ports_count },
+  { "get_monitor_ports_count", stream_get_monitor_ports_count },
+  { "get_control_ports_count", stream_get_control_ports_count },
+  { "iterate_ports", stream_iterate_ports },
+  { "iterate_monitor_ports", stream_iterate_monitor_ports },
+  { "iterate_control_ports", stream_iterate_control_ports },
+  { NULL, NULL }
+};
+
+/* WpAudioStream */
+
+static int
+audio_stream_get_ports_format (lua_State *L)
+{
+  WpAudioStream *stream = wplua_checkobject (L, 1, WP_TYPE_AUDIO_STREAM);
+  WpSpaPod *format = wp_audio_stream_get_ports_format (stream);
+  wplua_pushboxed (L, WP_TYPE_SPA_POD, format);
+  return 1;
+}
+
+static int
+audio_stream_get_ports_mode (lua_State *L)
+{
+  WpAudioStream *stream = wplua_checkobject (L, 1, WP_TYPE_AUDIO_STREAM);
+  const gchar *mode = wp_audio_stream_get_ports_mode (stream);
+  if (mode)
+    lua_pushstring (L, mode);
+  else
+    lua_pushnil (L);
+  return 1;
+}
+
+static int
+audio_stream_has_monitor_ports_enabled (lua_State *L)
+{
+  WpAudioStream *stream = wplua_checkobject (L, 1, WP_TYPE_AUDIO_STREAM);
+  lua_pushboolean (L, wp_audio_stream_has_monitor_ports_enabled (stream));
+  return 1;
+}
+
+static int
+audio_stream_has_control_ports_enabled (lua_State *L)
+{
+  WpAudioStream *stream = wplua_checkobject (L, 1, WP_TYPE_AUDIO_STREAM);
+  lua_pushboolean (L, wp_audio_stream_has_control_ports_enabled (stream));
+  return 1;
+}
+
+static int
+audio_stream_has_ports_configured (lua_State *L)
+{
+  WpAudioStream *stream = wplua_checkobject (L, 1, WP_TYPE_AUDIO_STREAM);
+  lua_pushboolean (L, wp_audio_stream_has_ports_configured (stream));
+  return 1;
+}
+
+static int
+audio_stream_configure_ports (lua_State *L)
+{
+  WpAudioStream *stream = wplua_checkobject (L, 1, WP_TYPE_AUDIO_STREAM);
+  WpSpaPod *format = wplua_checkboxed (L, 2, WP_TYPE_SPA_POD);
+  const gchar *mode = luaL_checkstring (L, 3);
+  gboolean monitor = lua_toboolean (L, 4);
+  gboolean control = lua_toboolean (L, 5);
+  lua_pushboolean (L, wp_audio_stream_configure_ports (stream, format,
+      mode, monitor, control));
+  return 1;
+}
+
+static int
+audio_stream_configure_ports_with_props (lua_State *L)
+{
+  WpAudioStream *stream = wplua_checkobject (L, 1, WP_TYPE_AUDIO_STREAM);
+  WpProperties *props = NULL;
+
+  if (lua_isnoneornil (L, 2))
+    props = NULL;
+  else if (lua_istable (L, 2))
+    props = wplua_table_to_properties (L, 2);
+  else
+    props = wp_properties_ref (wplua_checkboxed (L, 2, WP_TYPE_PROPERTIES));
+
+  lua_pushboolean (L, wp_audio_stream_configure_ports_with_props (stream,
+      props));
+  return 1;
+}
+
+static int
+audio_stream_configure_ports_with_stream (lua_State *L)
+{
+  WpAudioStream *stream = wplua_checkobject (L, 1, WP_TYPE_AUDIO_STREAM);
+  WpAudioStream *other = wplua_checkobject (L, 2, WP_TYPE_AUDIO_STREAM);
+  lua_pushboolean (L, wp_audio_stream_configure_ports_with_stream (stream,
+      other));
+  return 1;
+}
+
+static const luaL_Reg audio_stream_methods[] = {
+  { "get_ports_format", audio_stream_get_ports_format },
+  { "get_ports_mode", audio_stream_get_ports_mode },
+  { "has_monitor_ports_enabled", audio_stream_has_monitor_ports_enabled },
+  { "has_control_ports_enabled", audio_stream_has_control_ports_enabled },
+  { "has_ports_configured", audio_stream_has_ports_configured },
+  { "configure_ports", audio_stream_configure_ports },
+  { "configure_ports_with_props", audio_stream_configure_ports_with_props },
+  { "configure_ports_with_stream", audio_stream_configure_ports_with_stream },
+  { NULL, NULL }
+};
+
+/* WpStreamLink */
+
+static int
+stream_link_get_output_stream (lua_State *L)
+{
+  WpStreamLink *stream_link = wplua_checkobject (L, 1, WP_TYPE_STREAM_LINK);
+  gboolean is_monitor = FALSE;
+  WpStream *stream = wp_stream_link_get_output_stream (stream_link,
+      &is_monitor);
+
+  if (stream)
+    wplua_pushobject (L, stream);
+  else
+    lua_pushnil (L);
+  lua_pushboolean (L, is_monitor);
+  return 2;
+}
+
+static int
+stream_link_get_input_stream (lua_State *L)
+{
+  WpStreamLink *stream_link = wplua_checkobject (L, 1, WP_TYPE_STREAM_LINK);
+  WpStream *stream = wp_stream_link_get_input_stream (stream_link);
+  if (stream)
+    wplua_pushobject (L, stream);
+  else
+    lua_pushnil (L);
+  return 1;
+}
+
+static int
+stream_link_get_links_count (lua_State *L)
+{
+  WpStreamLink *stream_link = wplua_checkobject (L, 1, WP_TYPE_STREAM_LINK);
+  lua_pushinteger (L, wp_stream_link_get_links_count (stream_link));
+  return 1;
+}
+
+static int
+stream_link_iterate_links (lua_State *L)
+{
+  WpStreamLink *stream_link = wplua_checkobject (L, 1, WP_TYPE_STREAM_LINK);
+  WpIterator *it = wp_stream_link_new_links_iterator (stream_link);
+  return push_wpiterator (L, it);
+}
+
+static const luaL_Reg stream_link_methods[] = {
+  { "get_output_stream", stream_link_get_output_stream },
+  { "get_input_stream", stream_link_get_input_stream },
+  { "get_links_count", stream_link_get_links_count },
+  { "iterate_links", stream_link_iterate_links },
+  { NULL, NULL }
+};
+
+/* WpStreamLinkManager */
+
+static int
+stream_link_manager_get_name (lua_State *L)
+{
+  g_autoptr (WpStreamLinkManager) slm = wp_stream_link_manager_find (
+      get_wp_core (L), NULL);
+  if (slm)
+    lua_pushstring (L, wp_stream_link_manager_get_name (slm));
+  else
+    lua_pushnil (L);
+  return 1;
+}
+
+static int
+stream_link_manager_find_link (lua_State *L)
+{
+  WpStream *output = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  WpStream *input = wplua_checkobject (L, 2, WP_TYPE_STREAM);
+  g_autoptr (WpStreamLinkManager) slm = wp_stream_link_manager_find (
+      get_wp_core (L), NULL);
+  g_autoptr (WpStreamLink) link = NULL;
+
+  if (slm)
+    link = wp_stream_link_manager_find_link (slm, output, input);
+
+  if (link)
+    wplua_pushobject (L, g_steal_pointer (&link));
+  else
+    lua_pushnil (L);
+  return 1;
+}
+
+static int
+stream_link_manager_create_link (lua_State *L)
+{
+  WpStream *output = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  WpStream *input = wplua_checkobject (L, 2, WP_TYPE_STREAM);
+  g_autoptr (WpStreamLinkManager) slm = wp_stream_link_manager_find (
+      get_wp_core (L), NULL);
+  g_autoptr (WpStreamLink) link = NULL;
+
+  if (slm)
+    link = wp_stream_link_manager_create_link (slm, output, input);
+
+  if (link)
+    wplua_pushobject (L, g_steal_pointer (&link));
+  else
+    lua_pushnil (L);
+  return 1;
+}
+
+static int
+stream_link_manager_unlink (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  g_autoptr (WpStreamLinkManager) slm = wp_stream_link_manager_find (
+      get_wp_core (L), NULL);
+  if (slm)
+    wp_stream_link_manager_unlink (slm, stream);
+  return 0;
+}
+
+static int
+stream_link_manager_get_peers_count (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  g_autoptr (WpStreamLinkManager) slm = wp_stream_link_manager_find (
+      get_wp_core (L), NULL);
+  if (slm)
+    lua_pushinteger (L, wp_stream_link_manager_get_peers_count (slm, stream));
+  else
+    lua_pushinteger (L, 0);
+  return 1;
+}
+
+static int
+stream_link_manager_iterate_peers (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  g_autoptr (WpStreamLinkManager) slm = wp_stream_link_manager_find (
+      get_wp_core (L), NULL);
+  g_autoptr (WpIterator) it = NULL;
+
+  if (slm)
+    it = wp_stream_link_manager_new_peers_iterator (slm, stream);
+
+  if (it)
+    return push_wpiterator (L, g_steal_pointer (&it));
+
+  lua_pushnil (L);
+  return 1;
+}
+
+static int
+stream_link_manager_iterate_links (lua_State *L)
+{
+  WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  g_autoptr (WpStreamLinkManager) slm = wp_stream_link_manager_find (
+      get_wp_core (L), NULL);
+  g_autoptr (WpIterator) it = NULL;
+
+  if (slm)
+    it = wp_stream_link_manager_new_links_iterator (slm, stream);
+
+  if (it)
+    return push_wpiterator (L, g_steal_pointer (&it));
+
+  lua_pushnil (L);
+  return 1;
+}
+
+static const luaL_Reg stream_link_manager_methods[] = {
+  { "get_name", stream_link_manager_get_name },
+  { "find_link", stream_link_manager_find_link },
+  { "create_link", stream_link_manager_create_link },
+  { "unlink", stream_link_manager_unlink },
+  { "get_peers_count", stream_link_manager_get_peers_count },
+  { "iterate_peers", stream_link_manager_iterate_peers },
+  { "iterate_links", stream_link_manager_iterate_links },
+  { NULL, NULL }
+};
+
 /* Client */
 
 static gboolean
@@ -3412,6 +3913,9 @@ wp_lua_scripting_api_init (lua_State *L)
   luaL_newlib (L, settings_methods);
   lua_setglobal (L, "WpSettings");
 
+  luaL_newlib (L, stream_link_manager_methods);
+  lua_setglobal (L, "WpStreamLinkManager");
+
   luaL_newlib (L, event_dispatcher_funcs);
   lua_setglobal (L, "WpEventDispatcher");
 
@@ -3446,6 +3950,20 @@ wp_lua_scripting_api_init (lua_State *L)
       NULL, port_methods);
   wplua_register_type_methods (L, WP_TYPE_LINK,
       link_new, NULL);
+  wplua_register_type_methods (L, WP_TYPE_STREAM,
+      NULL, stream_methods);
+  wplua_register_type_methods (L, WP_TYPE_AUDIO_STREAM,
+      NULL, audio_stream_methods);
+  wplua_register_type_methods (L, WP_TYPE_VIDEO_STREAM,
+      NULL, NULL);
+  wplua_register_type_methods (L, WP_TYPE_STREAM_LINK,
+      NULL, stream_link_methods);
+  wplua_register_type_methods (L, WP_TYPE_AUDIO_STREAM_LINK,
+      NULL, NULL);
+  wplua_register_type_methods (L, WP_TYPE_VIDEO_STREAM_LINK,
+      NULL, NULL);
+  wplua_register_type_methods (L, WP_TYPE_STREAM_LINK_MANAGER,
+      NULL, stream_link_manager_methods);
   wplua_register_type_methods (L, WP_TYPE_CLIENT,
       NULL, client_methods);
   wplua_register_type_methods (L, WP_TYPE_SESSION_ITEM,
