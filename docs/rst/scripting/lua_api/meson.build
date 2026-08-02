@@ -8,6 +8,7 @@ sphinx_files += files(
   'lua_iterator_api.rst',
   'lua_json_api.rst',
   'lua_local_module_api.rst',
+  'lua_misc_api.rst',
   'lua_log_api.rst',
   'lua_object_api.rst',
   'lua_object_interest_api.rst',
@@ -18,4 +19,5 @@ sphinx_files += files(
   'lua_settings_api.rst',
   'lua_spa_device_api.rst',
   'lua_spa_pod.rst',
+  'lua_state_api.rst',
 )
