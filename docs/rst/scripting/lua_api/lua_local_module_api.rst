@@ -1,4 +1,4 @@
- .. _lua_local_module_api:
+.. _lua_local_module_api:
 
 Local Modules
 =============

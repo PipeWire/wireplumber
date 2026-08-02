@@ -5,6 +5,7 @@ sphinx_files += files(
   'lua_events_api.rst',
   'lua_gobject.rst',
   'lua_introduction.rst',
+  'lua_iterator_api.rst',
   'lua_json_api.rst',
   'lua_local_module_api.rst',
   'lua_log_api.rst',

@@ -1,4 +1,4 @@
- .. _lua_core_api:
+.. _lua_core_api:
 
 Core
 ====
@@ -37,6 +37,34 @@ For some functionality, though, the following static functions are exposed.
 
    :returns: information about the core
    :rtype: table
+
+.. function:: Core.update_properties(properties)
+
+   Binds :c:func:`wp_core_update_properties`
+
+   Updates the properties of the core, which are the properties that appear on
+   WirePlumber's *client* object in the PipeWire global registry.
+
+   :param properties: a table or :ref:`Properties <lua_properties_api>` object
+      with the properties to set
+
+.. function:: Core.get_own_bound_id()
+
+   Binds :c:func:`wp_core_get_own_bound_id`
+
+   :returns: the global id of WirePlumber's own client object
+   :rtype: integer
+
+.. function:: Core.get_vm_type()
+
+   Binds :c:func:`wp_core_get_vm_type`
+
+   Detects whether WirePlumber is running inside a virtual machine. The ALSA
+   monitor uses this to apply VM-specific workarounds.
+
+   :returns: the name of the virtual machine type, or nil if not running in a
+      virtual machine
+   :rtype: string
 
 .. function:: Core.idle_add(callback)
 

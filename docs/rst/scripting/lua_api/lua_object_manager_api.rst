@@ -1,4 +1,4 @@
- .. _lua_object_manager_api:
+.. _lua_object_manager_api:
 
 Object Manager
 ==============
@@ -91,7 +91,7 @@ Methods
    :param interest: an interest to filter objects
    :type interest: :ref:`Interest <lua_object_interest_api>` or nil or none
    :returns: all the managed objects that match the interest
-   :rtype: Iterator; the iteration items are of type :ref:`GObject <lua_gobject>`
+   :rtype: :ref:`Iterator <lua_iterator_api>`; the iteration items are of type :ref:`GObject <lua_gobject>`
 
 .. function:: ObjectManager.lookup(self, interest)
 

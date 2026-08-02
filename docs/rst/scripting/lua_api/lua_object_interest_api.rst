@@ -1,4 +1,4 @@
- .. _lua_object_interest_api:
+.. _lua_object_interest_api:
 
 Object Interest
 ===============

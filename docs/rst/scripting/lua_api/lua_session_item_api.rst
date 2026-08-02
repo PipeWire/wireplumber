@@ -1,4 +1,4 @@
- .. _lua_session_item_api:
+.. _lua_session_item_api:
 
 Session Item
 ============

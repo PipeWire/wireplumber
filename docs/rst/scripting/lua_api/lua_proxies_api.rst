@@ -1,4 +1,4 @@
- .. _lua_proxies_api:
+.. _lua_proxies_api:
 
 PipeWire Proxies
 ================
@@ -30,7 +30,7 @@ contain the following methods:
    :param string param_name: the PipeWire param name to enumerate,
                              ex "Props", "Route"
    :returns: the available parameters
-   :rtype: Iterator; the iteration items are Spa Pod objects
+   :rtype: :ref:`Iterator <lua_iterator_api>`; the iteration items are Spa Pod objects
 
 .. function:: PipewireObject.set_param(self, param_name, pod)
 
@@ -94,13 +94,13 @@ Lua objects that bind a :ref:`WpNode <node_api>` contain the following methods:
 
 .. function:: Node.iterate_ports(self, interest)
 
-   Binds :c:func:`wp_node_iterate_ports`
+   Binds :c:func:`wp_node_new_ports_iterator`
 
    :param self: the proxy
    :param interest: an interest to filter objects
    :type interest: :ref:`Interest <lua_object_interest_api>` or nil or none
    :returns: all the ports of this node that that match the interest
-   :rtype: Iterator; the iteration items are of type :ref:`WpPort <port_api>`
+   :rtype: :ref:`Iterator <lua_iterator_api>`; the iteration items are of type :ref:`WpPort <port_api>`
    :since: 0.4.2
 
 .. function:: Node.lookup_port(self, interest)
@@ -219,7 +219,17 @@ contain the following methods:
 
    :param self: the proxy
    :param integer subject: the subject id
-   :returns: an iterator
+   :returns: an iteration over the metadata entries of this subject, to be used
+             in a ``for`` loop; each step yields the subject id, the key, the
+             value type and the value
+
+   **Example:**
+
+   .. code-block:: lua
+
+      for subject, key, type, value in metadata:iterate (-1) do
+        log:info (tostring (subject) .. " " .. key .. " = " .. value)
+      end
 
 .. function:: Metadata.find(self, subject, key)
 

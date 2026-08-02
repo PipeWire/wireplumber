@@ -1,4 +1,4 @@
- .. _lua_spa_device_api:
+.. _lua_spa_device_api:
 
 Spa Device
 ==========

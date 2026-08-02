@@ -15,6 +15,7 @@ Lua API Documentation
    lua_api/lua_settings_api.rst
    lua_api/lua_conf_api.rst
    lua_api/lua_json_api.rst
+   lua_api/lua_iterator_api.rst
    lua_api/lua_object_api.rst
    lua_api/lua_object_manager_api.rst
    lua_api/lua_object_interest_api.rst
