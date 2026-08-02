@@ -45,16 +45,50 @@ This is expected.
 WirePlumber examples
 --------------------
 
-WirePlumber ships examples in ``test/examples``.
-Execute them from the top-level directory with ``wp-uninstalled.sh``:
+WirePlumber ships examples in ``tests/examples``. These are meant to be run
+against an already running PipeWire daemon; they do *not* replace your session
+manager.
+
+Lua examples
+^^^^^^^^^^^^
+
+Most of the examples are standalone Lua scripts that are executed with
+``wpexec``. Run them from the top-level directory with ``wp-uninstalled.sh``:
 
 .. code:: console
 
-   $ ./wp-uninstalled.sh ./build/tests/examples/audiotestsrc-play
+   $ ./wp-uninstalled.sh wpexec tests/examples/get-default-sink-volume.lua
 
+The following examples are available:
 
-Assuming there is no other process actively using ``hw:0,0`` from alsa,
-the above example should play a test tone on ``hw:0,0`` without errors.
+  - **get-default-sink-volume.lua**: prints the volume of the default sink,
+    demonstrating :ref:`Core.require_api() <lua_core_api>` with the
+    *default-nodes* and *mixer* plugins
+  - **interactive.lua**: an interactive script that also demonstrates how
+    arguments are passed to a script; it accepts a JSON object as its second
+    argument, for example::
+
+       $ ./wp-uninstalled.sh wpexec tests/examples/interactive.lua \
+             '{ option1 = "value1" }'
+
+  - **filter-chain.lua**: loads *libpipewire-module-filter-chain* with a 6-band
+    equalizer configuration, demonstrating how to load a PipeWire module that
+    takes a JSON string as arguments
+  - **bt-profile-switch.lua**: a standalone policy script that switches the
+    profile of a Bluetooth device
+  - **bt-pinephone.lua**: platform-specific management of the offload SCO nodes
+    on the PinePhone
+
+C examples
+^^^^^^^^^^
+
+``tests/examples/node-extra-params.c`` demonstrates how to set additional node
+properties that reside in the special ``params`` field of ``Props``. It is built
+as part of the normal build:
+
+.. code:: console
+
+   $ ./wp-uninstalled.sh ./build/tests/examples/node-extra-params
 
 Native API clients
 ------------------
@@ -110,11 +144,6 @@ Using a non-default device:
    $ wpctl status  # find the device node id from the list
    $ cd path/to/pipewire-source-dir
    $ ./build/src/examples/video-play <node_id>
-
-.. tip::
-
-   enable videotestsrc in wireplumber's configuration to have more video
-   sources available
 
 PulseAudio compat API clients
 -----------------------------

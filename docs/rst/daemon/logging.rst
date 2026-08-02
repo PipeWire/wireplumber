@@ -19,14 +19,17 @@ message is coming from. Well-known topics include:
 
   - **m-***: messages from wireplumber modules
 
-   - **m-default-profile**: messages from *libwireplumber-module-default-profile*
-   - **m-default-routes**: messages from *libwireplumber-module-default-routes*
+   - **m-standard-event-source**: messages from *libwireplumber-module-standard-event-source*
+   - **m-lua-scripting**: messages from *libwireplumber-module-lua-scripting*
+   - **m-settings**: messages from *libwireplumber-module-settings*
    - ... and so on ...
 
   - **s-***: messages from scripts
 
    - **s-linking**: messages from the *linking/\*.lua* scripts
    - **s-default-nodes**: messages from the *default-nodes/\*.lua* scripts
+   - **s-device**: messages from the *device/\*.lua* scripts
+   - **s-monitors**: messages from the *monitors/\*.lua* scripts
    - ... and so on ...
 
   - **pw.***: messages from libpipewire

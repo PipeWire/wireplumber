@@ -158,7 +158,7 @@ Policies
    for enabling devices, linking streams, granting permissions to clients,
    etc, as appropriate for a desktop system.
 
-.. describe:: policy.role-based
+.. describe:: policy.linking.role-based
 
    Enables the role based priority system policy. This system creates virtual sinks
    that group streams based on their ``media.role`` property, and assigns a

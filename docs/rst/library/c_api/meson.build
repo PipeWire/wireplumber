@@ -28,6 +28,7 @@ sphinx_files += files(
   'si_factory_api.rst',
   'si_interfaces_api.rst',
   'spa_device_api.rst',
+  'spa_json_api.rst',
   'spa_pod_api.rst',
   'spa_type_api.rst',
   'state_api.rst',

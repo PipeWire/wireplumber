@@ -6,7 +6,7 @@ Custom Scripts
 The locations where WirePlumber searches for scripts is explained in
 :ref:`config_locations_scripts`.
 
-Scripts are not loaded automatically; a component muse be defined for them, and
+Scripts are not loaded automatically; a component must be defined for them, and
 this component must be included in a profile. See
 :ref:`config_components_and_profiles`.
 

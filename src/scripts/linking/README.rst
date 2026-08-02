@@ -39,20 +39,50 @@ processed while targets are being selected.
      - linkable SI removed
      - destroys links related to the removed linkable
 
-   * - linking/follow
-     - move-follow.lua
-     - metadata-changed
-     - schedules rescan-for-linking when the configured default sources/sinks are changed by the user
+   * - linking/rescan-trigger-on-linkable-added-removed
+     - rescan-on-linkable.lua
+     - linkable SI added|removed
+     - schedules rescan-for-linking; can be disabled by setting ``hooks.linking.rescan-on-linkable = disabled`` in ``wireplumber.profiles``
 
-   * - linking/move
-     - move-follow.lua
-     - metadata-changed
-     - schedules rescan-for-linking when node target metadata properties are changed
+   * - linking/rescan-trigger-on-target-metadata-changed
+     - rescan.lua
+     - metadata-changed on ``target.object`` or ``target.node``
+     - schedules rescan-for-linking when node target metadata properties are changed; registered only while the ``linking.allow-moving-streams`` setting is enabled
+
+   * - linking/linkable-added-immediate
+     - rescan.lua
+     - linkable SI added
+     - links the new linkable immediately, without waiting for a full rescan, when it is a simple stream node
+
+   * - linking/session-item-added
+     - rescan.lua
+     - session-item-added
+     - re-enables rescanning (see linking/bluez-session-item-removed)
+
+   * - linking/bluez-session-item-removed
+     - rescan.lua
+     - session-item-removed on a ``bluez5`` device
+     - disables rescanning for 2 seconds, to avoid audio being played on internal nodes while the BT device switches profiles
 
    * - linking/rescan-media-role-links
      - rescan-media-role-links.lua
      - link SI added, removed or metadata-changed
      - activates or deactivates role-based links based on role priorities and actions
+
+   * - linking/mpris-pause@track-links
+     - mpris-pause.lua
+     - link added|removed
+     - tracks which MPRIS media players are linked to which sinks
+
+   * - linking/mpris-pause
+     - mpris-pause.lua
+     - session-item-removed on an input device linkable
+     - pauses the MPRIS media applications whose streams were linked to the sink that is going away
+
+.. note::
+
+   The ``linking/mpris-pause*`` hooks are only registered while the
+   ``linking.pause-playback`` setting is enabled.
 
 .. list-table:: rescan-for-linking hooks, in order of execution
    :header-rows: 1
@@ -66,6 +96,10 @@ processed while targets are being selected.
    * - m-standard-event-source/rescan-done
      - module-standard-event-source.c
      - clears the rescan_scheduled flag
+
+   * - linking/mpris-pause-disable-rescan
+     - mpris-pause.lua
+     - stops the rescan while MPRIS media players are still being paused, and re-schedules it afterwards; only registered while ``linking.pause-playback`` is enabled
 
    * - linking/rescan
      - rescan.lua
@@ -84,6 +118,10 @@ processed while targets are being selected.
      - find-defined-target.lua
      - Select the target that has been defined explicitly by the 'target.object' property or metadata
 
+   * - linking/find-audio-group-target
+     - find-audio-group-target.lua
+     - Select the audio group loopback node as target, if the subject belongs to an audio group
+
    * - linking/find-filter-target
      - find-filter-target.lua
      - Select the target of a filter node, if the subject is a filter node
@@ -91,6 +129,10 @@ processed while targets are being selected.
    * - linking/find-media-role-target
      - find-media-role-target.lua
      - Select the target based on the stream's media.role and the target's device.intended-roles
+
+   * - linking/find-media-role-sink-target
+     - find-media-role-sink-target.lua
+     - Pick up the preferred target node for the output stream of a role-based loopback
 
    * - linking/find-default-target
      - find-default-target.lua
@@ -111,3 +153,17 @@ processed while targets are being selected.
    * - linking/link-target
      - link-target.lua
      - Create si-standard-link session item to create links between the subject linkable and the selected target
+
+Extending target selection
+--------------------------
+
+The ``select-target`` hooks above form a chain: each one bypasses itself if a
+target has already been picked, so the first hook that finds a target wins.
+A custom script can therefore participate in target selection simply by
+registering another hook on the ``select-target`` event and ordering it
+relative to the stock hooks with ``before`` / ``after``.
+
+``find-user-target.lua.example``, shipped alongside these scripts, is a
+ready-made template for such a hook. It is an example file, not an installed
+script; copy it into your own scripts directory and define a component for it,
+as described in :ref:`scripting_custom_scripts`.
