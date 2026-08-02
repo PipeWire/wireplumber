@@ -181,6 +181,82 @@ both required and optional.
      In essence, all optional features are opt-in by default. To opt out,
      you need to mark the feature as *disabled*.
 
+.. _config_shipped_profiles:
+
+Shipped profiles
+----------------
+
+The configuration file that ships with WirePlumber defines the following
+profiles. The profile to load is selected with the ``--profile`` command line
+option (see :ref:`wireplumber(1) <tools_wireplumber>`) or permanently through
+``context.properties``; the ``profile.conf`` example fragment shows how (see
+:ref:`config_example_fragments`).
+
+.. describe:: main
+
+   The default profile. Brings up audio, Bluetooth and video capture hardware
+   together with the standard policy, and enables the settings and dynamic
+   objects metadata.
+
+.. describe:: main-systemwide
+
+   The same as ``main``, but with the features that only make sense in a user
+   session disabled: D-Bus device reservation, the portal permission store and
+   logind seat monitoring.
+
+   This is the profile to use when WirePlumber runs as a system service rather
+   than a user service.
+
+.. describe:: main-embedded
+
+   The same as ``main-systemwide``, and additionally does not store or restore
+   any runtime state — device profiles, routes, default node selection and
+   stream properties are not remembered.
+
+   This is intended for embedded systems that should always boot into a known
+   default state rather than remembering the user's runtime changes.
+
+.. describe:: video-only
+
+   The same as ``main``, but with audio and Bluetooth hardware disabled.
+   Useful for camera and screen sharing use cases where no audio management is
+   wanted.
+
+The following profiles exist for splitting WirePlumber into several instances,
+each handling one part of the job. See :ref:`daemon_multi_instance`.
+
+.. describe:: policy
+
+   The session management policy only, without any hardware monitors.
+
+.. describe:: audio
+
+   Audio hardware monitors only.
+
+.. describe:: bluetooth
+
+   Bluetooth hardware monitors only.
+
+.. describe:: video-capture
+
+   Video capture hardware monitors only.
+
+Finally, the configuration defines blocks that are not usable as profiles on
+their own, but are meant to be inherited by the profiles above:
+
+.. describe:: base
+
+   The bare minimum that every instance should have: the settings support,
+   runtime log level changes and the session services announcement.
+
+.. describe:: mixin.systemwide-session
+
+   Disables the features that are meant only for user sessions.
+
+.. describe:: mixin.stateless
+
+   Disables storing and restoring of runtime state.
+
 Dependency chain example
 ------------------------
 

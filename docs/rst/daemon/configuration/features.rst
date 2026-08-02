@@ -149,6 +149,61 @@ Support components
    Integrates with systemd-logind to enable specific functionality only on the
    active seat.
 
+.. describe:: support.modem-manager
+
+   Integrates with ModemManager to track the state of voice calls, so that a
+   "Voice Call" device profile can be selected while a call is in progress.
+
+   :requires: ``support.system-dbus``
+
+.. describe:: support.mpris
+
+   Provides MPRIS media player control. This is what allows WirePlumber to
+   pause media players when the sink they are playing to disappears; see the
+   ``linking.pause-playback`` setting in :ref:`config_settings`.
+
+   :requires: ``support.dbus``
+
+.. describe:: support.session-services
+
+   Announces which session management services this WirePlumber instance
+   actually provides, by setting the ``session.services`` property on its
+   PipeWire client object. This is how other software can tell what a given
+   instance is responsible for, which matters in a
+   :ref:`multi-instance setup <daemon_multi_instance>`.
+
+.. describe:: api.notifications
+
+   Provides an API for sending desktop notifications through
+   ``org.freedesktop.Notifications``. It is used, for instance, to notify the
+   user when devices are auto-muted.
+
+   :requires: ``support.dbus``
+
+.. describe:: metadata.sm-objects
+
+   Creates the ``sm-objects`` metadata, through which clients can ask
+   WirePlumber to load and unload objects — PipeWire modules, session items and
+   so on — at runtime.
+
+Nodes
+-----
+
+.. describe:: node.audio-group
+
+   Groups together the streams of processes that share a common ancestor,
+   placing them behind a single loopback filter so that they can be controlled
+   as one.
+
+.. describe:: hooks.filter.graph
+
+   Enables attaching an internal filter graph to a node, based on the
+   ``node.filter-graph.rules`` configuration section, without exposing extra
+   nodes in the graph.
+
+   The ``filter-graph.conf`` example fragment demonstrates this; see
+   :ref:`config_example_fragments`.
+
 Policies
 --------
 

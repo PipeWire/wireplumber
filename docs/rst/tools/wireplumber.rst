@@ -1,3 +1,5 @@
+.. _tools_wireplumber:
+
 wireplumber(1)
 ==============
 

@@ -25,7 +25,8 @@ select the profile to load:
 When no particular profile is specified, the ``main`` profile is loaded.
 
 For multi-instance configuration, the default ``wireplumber.conf`` specifies 4
-profiles:
+profiles. The complete list of shipped profiles, including the single-instance
+ones, is in :ref:`config_shipped_profiles`.
 
 .. describe:: policy
 

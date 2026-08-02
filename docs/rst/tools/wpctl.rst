@@ -1,3 +1,5 @@
+.. _tools_wpctl:
+
 wpctl(1)
 ========
 

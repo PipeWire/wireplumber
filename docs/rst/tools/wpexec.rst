@@ -1,3 +1,5 @@
+.. _tools_wpexec:
+
 wpexec(1)
 =========
 
