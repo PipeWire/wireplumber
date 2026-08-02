@@ -12,15 +12,15 @@ node (monitoring applications).
 
 PipeWire stream nodes always have one of the following media classes:
 
-- Stream/Output/Audio: For audio playback applications (Eg pw-play).
-- Stream/Input/Audio: For audio capture applications (Eg pw-record).
-- Stream/Input/Video: For video capture applications (Eg cheese).
+- Stream/Output/Audio: For audio playback applications (e.g. pw-play).
+- Stream/Input/Audio: For audio capture applications (e.g. pw-record).
+- Stream/Input/Video: For video capture applications (e.g. cheese).
 
-And Pipewire device nodes always have one of the following media classes:
+And PipeWire device nodes always have one of the following media classes:
 
-- Audio/Sink: For audio playback devices (Eg Speakers).
-- Audio/Source: For audio capture devices (Eg Microphones).
-- Video/Source: For video capture devices (Eg Cameras).
+- Audio/Sink: For audio playback devices (e.g. speakers).
+- Audio/Source: For audio capture devices (e.g. microphones).
+- Video/Source: For video capture devices (e.g. cameras).
 
 By default, since in most cases we want to link a stream node with a device
 node, the linking policy logic when linking 2 nodes always follows the following

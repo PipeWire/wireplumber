@@ -22,7 +22,7 @@ Logind integration
 The BlueZ monitors are integrated with logind to ensure that only one user at a
 time can use the Bluetooth audio devices. This is because on most Linux desktop
 systems, the graphical login manager (GDM, SDDM, etc.) is running as a separate
-user and runs its own instance of PipeWire and Wireplumber. This means that if a
+user and runs its own instance of PipeWire and WirePlumber. This means that if a
 user logs in graphically, the Bluetooth audio devices will be automatically
 grabbed by the PipeWire/WirePlumber instance of the graphical login manager,
 and the user that logs in will not get access to them.

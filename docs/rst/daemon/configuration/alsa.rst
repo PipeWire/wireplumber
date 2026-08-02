@@ -329,7 +329,7 @@ The following properties can be configured on nodes created by the monitor:
 
 .. describe:: node.disabled
 
-   Disables the node. Pipewire will remove it from the list of the nodes.
+   Disables the node. PipeWire will remove it from the list of the nodes.
 
    :Type: boolean
 

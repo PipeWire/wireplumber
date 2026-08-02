@@ -3,6 +3,12 @@
 Installing WirePlumber
 ======================
 
+.. note::
+
+   This page describes how to build WirePlumber from source. If your
+   distribution ships WirePlumber, it is most likely already installed;
+   see :ref:`daemon_getting_started` instead.
+
 Dependencies
 ------------
 

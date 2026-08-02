@@ -7,6 +7,7 @@ Table of Contents
    :maxdepth: 2
    :caption: The WirePlumber Daemon
 
+   daemon/getting_started.rst
    daemon/installing.rst
    daemon/running.rst
    daemon/configuration.rst

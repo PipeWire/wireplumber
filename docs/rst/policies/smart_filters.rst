@@ -126,7 +126,7 @@ following optional node properties on the **main** node:
 - **filter.smart.targetable**
 
   Boolean indicating whether the filter can be directly linked with clients that
-  have it defined as a target (Eg: ``pw-play --target <filter-name>``) or not.
+  have it defined as a target (e.g. ``pw-play --target <filter-name>``) or not.
   This can be useful when a client wants to be linked with a filter that is in
   the middle of the chain in order to bypass the filters that are placed before
   the selected one. If the property is not set, WirePlumber will consider the

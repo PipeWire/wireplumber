@@ -110,11 +110,11 @@ The debug log level can be changed at runtime using ``wpctl``:
 
 .. code::
 
-   wpctl set-log-level D     # enable debug logging for Wireplumber
-   wpctl set-log-level -     # restore default logging for Wireplumber
+   wpctl set-log-level D     # enable debug logging for WirePlumber
+   wpctl set-log-level -     # restore default logging for WirePlumber
 
-   wpctl set-log-level 0 4   # enable debug logging for Pipewire daemon
-   wpctl set-log-level 0 -   # restore default logging for Pipewire daemon
+   wpctl set-log-level 0 4   # enable debug logging for PipeWire daemon
+   wpctl set-log-level 0 -   # restore default logging for PipeWire daemon
 
 Equivalently, it is also possible to adjust the logging by setting
 ``log.level`` in the ``settings`` metadata:
