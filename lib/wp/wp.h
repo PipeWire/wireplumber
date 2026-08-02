@@ -12,6 +12,7 @@
 #include "base-dirs.h"
 #include "client.h"
 #include "component-loader.h"
+#include "dynamic-rules.h"
 #include "conf.h"
 #include "core.h"
 #include "device.h"

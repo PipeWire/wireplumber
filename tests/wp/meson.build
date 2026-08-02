@@ -135,3 +135,10 @@ test(
       dependencies: common_deps),
   env: common_env,
 )
+
+test(
+  'test-dynamic-rules',
+  executable('test-dynamic-rules', 'dynamic-rules.c',
+      dependencies: common_deps),
+  env: common_env,
+)
