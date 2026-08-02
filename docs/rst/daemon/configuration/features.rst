@@ -44,7 +44,9 @@ Audio
 
 .. describe:: node.software-dsp
 
-   Enables software DSP based on pre-configured hardware rules.
+   Enables software DSP based on pre-configured hardware rules, by hiding the
+   hardware node and exposing a separate virtual node in its place. New
+   configurations should use ``hooks.filter.graph`` instead.
 
    See :ref:`policies_software_dsp` for more information.
 
@@ -199,7 +201,8 @@ Nodes
 
    Enables attaching an internal filter graph to a node, based on the
    ``node.filter-graph.rules`` configuration section, without exposing extra
-   nodes in the graph.
+   nodes in the graph. This is the preferred way to apply software DSP to a
+   node; see :ref:`config_filter_graph`.
 
    The ``filter-graph.conf`` example fragment demonstrates this; see
    :ref:`config_example_fragments`.

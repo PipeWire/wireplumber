@@ -8,6 +8,7 @@ sphinx_files += files(
   'features.rst',
   'settings.rst',
   'alsa.rst',
+  'stream.rst',
   'bluetooth.rst',
   'video.rst',
   'access.rst',

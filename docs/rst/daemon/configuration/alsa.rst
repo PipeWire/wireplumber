@@ -483,3 +483,64 @@ IEC958 (S/PDIF) passthrough
    ``pw-cli s <node-id> Props '{ iec958Codecs : [ PCM ] }'``
 
    :Type: array of strings (example: ``[ "PCM", "DTS", "AC3", "EAC3", "TrueHD", "DTS-HD" ]``)
+
+ALSA MIDI
+---------
+
+The ALSA MIDI monitor bridges the ALSA sequencer into PipeWire as a single
+node. It is enabled by the ``monitor.alsa-midi`` feature; see
+:ref:`config_features`.
+
+.. describe:: monitor.alsa-midi.properties
+
+   Properties for the MIDI bridge node.
+
+   .. code-block::
+
+      monitor.alsa-midi.properties = {
+        ## Name set for the node with ALSA MIDI ports
+        node.name = "Midi-Bridge"
+
+        ## Removes longname/number from MIDI port names
+        api.alsa.disable-longname = false
+      }
+
+.. _config_profile_priority_rules:
+
+Profile priorities
+------------------
+
+When no profile has been stored for a device and none is forced by other
+means, WirePlumber picks the available profile with the highest priority. The
+``device.profile.priority.rules`` section allows overriding that choice by
+naming an explicit order of preferred profiles for matching devices.
+
+The rules are matched against device properties, and the ``update-props``
+action sets a ``priorities`` property holding a JSON array of profile names,
+most preferred first:
+
+.. code-block::
+
+   device.profile.priority.rules = [
+     {
+       matches = [
+         { device.name = "~alsa_card.*" }
+       ]
+       actions = {
+         update-props = {
+           priorities = [ "pro-audio", "output:analog-stereo" ]
+         }
+       }
+     }
+   ]
+
+The first profile in the list that is actually available on the device is
+selected. If none of them is available, WirePlumber falls back to picking the
+highest priority profile as usual.
+
+.. note::
+
+   This section applies to all devices, not only ALSA ones. For Bluetooth
+   devices, the ``bluetooth.profile-preference`` setting provides a simpler way
+   of expressing a quality-versus-latency preference; see
+   :ref:`config_settings` and :ref:`config_bluetooth`.

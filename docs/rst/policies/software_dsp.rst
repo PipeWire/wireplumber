@@ -16,22 +16,95 @@ especially with Android handsets, these samples are preprocessed or pre-routed
 by the vendor's proprietary userspace.
 
 WirePlumber's automatic software DSP mechanism aims to replicate this functionality in
-a standardised and configurable way. The target device sink/source is hidden from
-other PipeWire clients, and a virtual node is linked to it. This virtual
-node is then presented to clients as *the* node, allowing implementers to specify
-any custom processing or routing in a way that is transparent to users, the kernel,
-and the hardware.
+a standardised and configurable way, allowing implementers to specify any custom
+processing or routing in a way that is transparent to users, the kernel, and the
+hardware.
+
+There are two mechanisms available:
+
+* :ref:`Internal filter graphs <config_filter_graph>` attach the processing
+  *inside* the device node, without adding any nodes to the graph. **This is the
+  recommended mechanism.**
+
+* :ref:`Separate filter nodes <config_software_dsp_filter_node>` hide the device
+  node and expose a *separate* virtual node in its place. This is the older
+  mechanism; it is documented here for the benefit of existing configurations,
+  but there is no good reason to pick it for new ones.
+
+
+.. _config_filter_graph:
+
+Internal filter graphs
+----------------------
+
+An internal filter graph is attached to an existing node and processes its
+samples in place. Clients keep seeing the device node itself, with the
+processing already applied to it, and nothing else needs to be hidden or
+relinked.
+
+Rules are specified in ``node.filter-graph.rules`` and are matched against node
+properties. The ``create-filter-graph`` action takes a list of graphs, each
+using the same syntax as PipeWire's ``filter-chain`` configuration:
+
+.. code-block::
+
+   node.filter-graph.rules = [
+     {
+       matches = [
+         {
+           media.class = "Audio/Source"
+         }
+       ]
+       actions = {
+         create-filter-graph = [
+           {
+             nodes = [
+               {
+                 type   = ladspa
+                 name   = rnnoise
+                 plugin = librnnoise_ladspa
+                 label  = noise_suppressor_stereo
+               }
+             ]
+           }
+         ]
+       }
+     }
+   ]
+
+The ``hooks.filter.graph`` :ref:`feature <config_features>` must be enabled;
+it is part of the ``policy.node`` feature and enabled by default.
+
+A complete, commented example ships as ``filter-graph.conf``; see
+:ref:`config_example_fragments`.
+
+
+.. _config_software_dsp_filter_node:
+
+Separate filter nodes
+---------------------
+
+.. note::
+
+   This is the older of the two mechanisms. It creates an extra node in the
+   graph and requires hiding the hardware node from clients to keep the result
+   consistent. Prefer :ref:`internal filter graphs <config_filter_graph>`
+   instead.
+
+Here, the target device sink/source is hidden from other PipeWire clients, and a
+virtual node is linked to it. This virtual node is then presented to clients as
+*the* node.
 
 
 Activating
-----------
+^^^^^^^^^^
 
 In addition to the ``node.software-dsp.rules`` section, the ``node.software-dsp``
 :ref:`feature <config_features>` must be enabled in the desired profile(s).
 
 
 Matching a node
----------------
+^^^^^^^^^^^^^^^
 
 Matching rules are specified in ``node.software-dsp.rules``. The ``create-filter``
 action specifies behaviour at node insertion. All node properties can be matched
@@ -39,7 +112,7 @@ on, including any type-specific properties such as ``alsa.id``.
 
 
 Configurable properties
------------------------
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. describe:: filter-graph
 
@@ -73,7 +146,7 @@ Configurable properties
 
 
 Examples
---------
+^^^^^^^^
 
 .. code-block::
    :caption: wireplumber.conf.d/99-my-dsp.conf

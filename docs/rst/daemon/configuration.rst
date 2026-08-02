@@ -26,6 +26,7 @@ the various options available.
    configuration/features.rst
    configuration/settings.rst
    configuration/alsa.rst
+   configuration/stream.rst
    configuration/bluetooth.rst
    configuration/video.rst
    configuration/access.rst
