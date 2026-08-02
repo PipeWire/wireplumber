@@ -4,6 +4,12 @@ executable('wpctl',
   dependencies : [gobject_dep, gio_dep, wp_dep, pipewire_dep, libintl_dep],
 )
 
+executable('wpdot',
+  'wpdot.c',
+  install: true,
+  dependencies : [gobject_dep, gio_dep, wp_dep, pipewire_dep, libintl_dep],
+)
+
 install_data('shell-completion/wpctl.bash',
   install_dir: get_option('datadir') / 'bash-completion/completions',
   rename: 'wpctl'
