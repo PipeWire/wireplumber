@@ -36,7 +36,7 @@ function removeBluezDevice(parent, id)
   local e = source:call ("create-event", "remove-bluez-device", parent, nil)
   e:set_data ("device-sub-id", id)
 
-  log:info ("BT device " .. tostring (id) .. " connected")
+  log:info ("BT device " .. tostring (id) .. " disconnected")
   EventDispatcher.push_event (e)
 end
 
