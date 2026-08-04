@@ -28,6 +28,8 @@ typedef enum {
   OBJECT_TYPE_LINK,
   OBJECT_TYPE_NODE,
   OBJECT_TYPE_SESSION_ITEM,
+  OBJECT_TYPE_STREAM,
+  OBJECT_TYPE_STREAM_LINK,
   OBJECT_TYPE_CLIENT,
   OBJECT_TYPE_DEVICE,
   OBJECT_TYPE_METADATA,
@@ -90,6 +92,8 @@ object_type_to_gtype (ObjectType type)
     case OBJECT_TYPE_LINK: return WP_TYPE_LINK;
     case OBJECT_TYPE_NODE: return WP_TYPE_NODE;
     case OBJECT_TYPE_SESSION_ITEM: return WP_TYPE_SESSION_ITEM;
+    case OBJECT_TYPE_STREAM: return WP_TYPE_STREAM;
+    case OBJECT_TYPE_STREAM_LINK: return WP_TYPE_STREAM_LINK;
     case OBJECT_TYPE_CLIENT: return WP_TYPE_CLIENT;
     case OBJECT_TYPE_DEVICE: return WP_TYPE_DEVICE;
     case OBJECT_TYPE_METADATA: return WP_TYPE_METADATA;
@@ -109,6 +113,10 @@ type_str_to_object_type (const gchar * type_str)
     return OBJECT_TYPE_NODE;
   else if (!g_strcmp0 (type_str, "session-item"))
     return OBJECT_TYPE_SESSION_ITEM;
+  else if (!g_strcmp0 (type_str, "stream"))
+    return OBJECT_TYPE_STREAM;
+  else if (!g_strcmp0 (type_str, "stream-link"))
+    return OBJECT_TYPE_STREAM_LINK;
   else if (!g_strcmp0 (type_str, "client"))
     return OBJECT_TYPE_CLIENT;
   else if (!g_strcmp0 (type_str, "device"))
@@ -142,6 +150,17 @@ get_object_type (gpointer obj, WpProperties **properties)
     }
     return "session-item";
   }
+  else if (WP_IS_STREAM (obj)) {
+    if (*properties == NULL)
+      *properties = wp_properties_new_empty ();
+    if (WP_IS_AUDIO_STREAM (obj))
+      wp_properties_set (*properties, "event.stream.type", "audio");
+    else if (WP_IS_VIDEO_STREAM (obj))
+      wp_properties_set (*properties, "event.stream.type", "video");
+    return "stream";
+  }
+  else if (WP_IS_STREAM_LINK (obj))
+    return "stream-link";
   else if (WP_IS_CLIENT (obj))
     return "client";
   else if (WP_IS_DEVICE (obj))
@@ -183,6 +202,10 @@ get_default_event_priority (const gchar *event_type)
   else if (g_str_has_prefix (event_type, "node-"))
     return 130;
   else if (g_str_has_prefix (event_type, "session-item-"))
+    return 110;
+  else if (g_str_has_prefix (event_type, "stream-link-"))
+    return 110;
+  else if (g_str_has_prefix (event_type, "stream-"))
     return 110;
   else if (g_str_has_suffix (event_type, "-added") ||
            g_str_has_suffix (event_type, "-removed"))
