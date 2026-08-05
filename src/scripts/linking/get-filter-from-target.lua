@@ -4,11 +4,11 @@
 --
 -- SPDX-License-Identifier: MIT
 --
--- Check if the target node is a filter target.
+-- Check if the target stream has a smart filter.
 
-lutils = require ("linking-utils")
-cutils = require ("common-utils")
+stream_utils = require ("stream-utils")
 futils = require ("filter-utils")
+
 log = Log.open_topic ("s-linking")
 
 SimpleEventHook {
@@ -18,81 +18,91 @@ SimpleEventHook {
             "linking/find-media-role-target",
             "linking/find-default-target",
             "linking/find-best-target" },
-  before = "linking/prepare-link",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-target" },
     },
   },
   execute = function (event)
-    local source, om, si, si_props, si_flags, target =
-        lutils:unwrap_select_target_event (event)
+    local stream = event:get_subject ()
+    local stream_props = stream:get_properties ()
+    local stream_id = stream.id
+    local node_id = stream:get_node_bound_id ()
+    local target = event:get_data ("target")
+    local is_defined_target = event:get_data ("is-defined-target") == true
 
-    -- bypass the hook if the target was not found or if it is a role-based policy target
-    if target == nil or lutils.is_role_policy_target (si_props, target.properties) then
+    -- Bypass the hook if the target was not found or if it is role-based
+    if target == nil or stream_utils.is_role_policy_target (stream, target) then
       return
     end
 
-    -- bypass the hook if the session item is a smart filter
-    local node = si:get_associated_proxy ("node")
-    local node_props = node.properties
-    local link_group = node_props ["node.link-group"]
-    local target_direction = cutils.getTargetDirection (si.properties)
+    log:info (stream, string.format ("handling stream:%d (node:%d): %s",
+        stream_id, node_id, tostring (stream_props["node.name"])))
+
+    local target_direction = stream_utils.get_target_direction (stream)
+    local link_group = stream_props ["node.link-group"]
+
+    -- Bypass the hook if the stream is a smart filter
     if link_group ~= nil and
         futils.is_filter_smart (target_direction, link_group) then
       return
     end
 
-    -- bypass the hook if the target is an audio group
-    local target_node = target:get_associated_proxy ("node")
-    local target_node_props = target_node.properties
-    local target_audio_group = target_node_props ["session.audio-group"]
-    if target_audio_group ~= nil then
+    local target_props = target:get_properties ()
+
+    -- Bypass the hook if the target is an audio group
+    if target_props ["session.audio-group"] ~= nil then
       return
     end
 
-    -- bypass the hook if target is defined, is a filter and is targetable
-    local target_link_group = target_node_props ["node.link-group"]
-    if target_link_group ~= nil and si_flags.has_defined_target then
-      if futils.is_filter_smart (target_direction, target_link_group) and
-          not futils.is_filter_disabled (target_direction, target_link_group) and
-          futils.is_filter_targetable (target_direction, target_link_group) then
-        return
-      end
+    -- Bypass targetable smart filters selected explicitly
+    local target_link_group = target_props ["node.link-group"]
+    if target_link_group ~= nil and is_defined_target and
+        futils.is_filter_smart (target_direction, target_link_group) and
+        not futils.is_filter_disabled (target_direction, target_link_group) and
+        futils.is_filter_targetable (target_direction, target_link_group) then
+      return
     end
 
     -- Get the filter from the given target if it exists, otherwise get the
-    -- default filter, but only if target was not defined
-    local media_type = si_props["media.type"]
-    local filter_target = futils.get_filter_from_target (target_direction, media_type, target)
+    -- default filter, but only if the target was not defined
+    local media_type = stream_utils.get_media_type (stream)
+    local filter_target = futils.get_filter_from_target (
+        target_direction, media_type, target)
     if filter_target ~= nil then
       target = filter_target
-      log:info (si, "... got filter for given target")
-    elseif filter_target == nil and not si_flags.has_defined_target then
-      filter_target = futils.get_filter_from_target (target_direction, media_type, nil)
+      log:info (stream, "got filter for given target")
+    elseif not is_defined_target then
+      filter_target = futils.get_filter_from_target (
+          target_direction, media_type, nil)
       if filter_target ~= nil then
         target = filter_target
-        log:info (si, "... got default filter for given target")
+        log:info (stream, "got default filter for given target")
       end
     end
 
-    local can_passthrough, passthrough_compatible
-    if target ~= nil then
-      passthrough_compatible, can_passthrough =
-      lutils.checkPassthroughCompatibility (si, target)
-      if lutils.canLink (si_props, target) and passthrough_compatible then
-        target_picked = true;
-      end
+    if target == nil then
+      return
     end
 
-    if target_picked then
-      log:info (si,
-        string.format ("... target picked: %s (%s), can_passthrough:%s",
-          tostring (target.properties ["node.name"]),
-          tostring (target.properties ["node.id"]),
-          tostring (can_passthrough)))
-      si_flags.can_passthrough = can_passthrough
-      event:set_data ("target", target)
+    -- Make sure the target can be linked and is compatible
+    if not stream_utils.can_link (stream, target) then
+      log:debug (stream, "cannot link, ignoring filter target")
+      return
     end
+
+    local compatible, enc_only = stream:is_compatible (target)
+    if not compatible then
+      log:debug (stream, "not compatible, ignoring filter target")
+      return
+    end
+
+    local target_new_props = target:get_properties ()
+    local target_id = target.id
+    local target_node_id = target:get_node_bound_id ()
+    log:info (stream, string.format (
+        "found filter target stream:%d (node:%d): %s",
+        target_id, target_node_id, tostring (target_new_props["node.name"])))
+    event:set_data ("target", target)
   end
 }:register ()

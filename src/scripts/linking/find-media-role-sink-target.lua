@@ -6,76 +6,78 @@
 --
 -- Pick up a preferred target node for the output stream of role-based loopbacks
 
-lutils = require ("linking-utils")
-cutils = require ("common-utils")
+stream_utils = require ("stream-utils")
 
 log = Log.open_topic ("s-linking")
 
 SimpleEventHook {
   name = "linking/find-media-role-sink-target",
   after = { "linking/find-defined-target",
-	    "linking/find-media-role-target" },
-  before = "linking/prepare-link",
+            "linking/find-media-role-target" },
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-target" },
     },
   },
   execute = function (event)
-    local _, om, si, si_props, _, target =
-       lutils:unwrap_select_target_event (event)
+    local source = event:get_source ()
+    local stream = event:get_subject ()
+    local stream_props = stream:get_properties ()
+    local stream_id = stream.id
+    local node_id = stream:get_node_bound_id ()
 
-    local node_name = si_props["node.name"]
-    local target_direction = cutils.getTargetDirection (si_props)
-    local media_class = si_props["media.class"]
-    local link_group = si_props["node.link-group"]
-    local is_virtual = si_props["node.virtual"]
-
-    log:info (si, string.format ("Lookup for '%s' (%s) / '%s' / '%s'",
-				 node_name, tostring (si_props ["node.id"]), media_class, link_group))
-
-    --- bypass the hook if the target is already set or there's no link group
-    if target or media_class ~= "Stream/Output/Audio" or not is_virtual or link_group == nil then
+    -- Bypass the hook if the target is already set or there's no link group
+    local target = event:get_data ("target")
+    local media_class = stream_props["media.class"]
+    local is_virtual = stream_props:get_boolean ("node.virtual")
+    local link_group = stream_props["node.link-group"]
+    if target ~= nil or media_class ~= "Stream/Output/Audio" or not is_virtual or link_group == nil then
       return
     end
 
-    --- We link the output node but the relevant properties are on the input node
-    --- of the link group
-    local input_node = om:lookup {
-      type = "SiLinkable",
+    log:info (stream, string.format ("handling stream:%d (node:%d): %s",
+        stream_id, node_id, tostring (stream_props["node.name"])))
+
+    -- We link the output stream but the relevant properties are on the input
+    -- stream of the link group
+    local streams_om = source:call ("get-object-manager", "stream")
+    local input_stream = streams_om:lookup {
+      type = "Stream",
       Constraint { "media.class", "=", "Audio/Sink" },
       Constraint { "node.link-group", "=", link_group },
     }
-
-    if input_node == nil then
-       log:warning (si, string.format("No input node for %s found", link_group))
-       return
+    if input_stream == nil then
+      log:warning (stream, string.format ("no input stream for %s found", link_group))
+      return
     end
 
-    local target_name = input_node.properties["policy.role-based.preferred-target"]
-    --- no preferred target
+    -- Get the preferred target name if any
+    local input_stream_props = input_stream:get_properties ()
+    local target_name = input_stream_props["policy.role-based.preferred-target"]
     if target_name == nil then
-       return
+      return
     end
 
-    local si_target = om:lookup {
-      type = "SiLinkable",
-      Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
+    -- Find the target stream
+    local target_stream = streams_om:lookup {
+      type = "Stream",
       Constraint { "node.name", "=", target_name },
     }
-    if si_target == nil then
-       si_target = om:lookup {
-	  type = "SiLinkable",
-	  Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
-	  Constraint { "node.nick", "=", target_name },
-       }
+    if target_stream == nil then
+      target_stream = streams_om:lookup {
+        type = "Stream",
+        Constraint { "node.nick", "=", target_name },
+      }
     end
-    if si_target and lutils.canLink (si_props, si_target) then
-       log:info (si,
-        string.format ("... role based sink target picked: %s (%s)",
-          tostring (si_target.properties ["node.name"]),
-          tostring (si_target.properties ["node.id"])))
-       event:set_data ("target", si_target)
+
+    if target_stream and stream_utils.can_link (stream, target_stream) then
+      local target_props = target_stream:get_properties ()
+      local target_id = target_stream.id
+      local target_node_id = target_stream:get_node_bound_id ()
+      log:info (stream, string.format (
+          "role based sink target picked stream:%d (node:%d): %s",
+          target_id, target_node_id, tostring (target_props["node.name"])))
+      event:set_data ("target", target_stream)
     end
   end
 }:register ()

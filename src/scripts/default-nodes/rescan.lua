@@ -7,7 +7,7 @@
 -- looks for changes in user-preferences and devices added/removed and schedules
 -- rescan and pushes "select-default-node" event for each of the media_classes
 
-lutils = require ("linking-utils")
+nutils = require ("node-utils")
 
 log = Log.open_topic ("s-default-nodes")
 
@@ -17,13 +17,11 @@ SimpleEventHook {
   name = "default-nodes/rescan-trigger",
   interests = {
     EventInterest {
-      Constraint { "event.type", "c", "session-item-added", "session-item-removed" },
-      Constraint { "event.session-item.interface", "=", "linkable" },
+      Constraint { "event.type", "c", "node-added", "node-removed" },
       Constraint { "media.class", "#", "Audio/*" },
     },
     EventInterest {
-      Constraint { "event.type", "c", "session-item-added", "session-item-removed" },
-      Constraint { "event.session-item.interface", "=", "linkable" },
+      Constraint { "event.type", "c", "node-added", "node-removed" },
       Constraint { "media.class", "#", "Video/*" },
     },
     EventInterest {
@@ -54,32 +52,32 @@ SimpleEventHook {
   },
   execute = function (event)
     local source = event:get_source ()
-    local si_om = source:call ("get-object-manager", "session-item")
+    local nodes_om = source:call ("get-object-manager", "node")
     local devices_om = source:call ("get-object-manager", "device")
 
     log:trace ("re-evaluating default nodes")
 
     -- Audio Sink
-    pushSelectDefaultNodeEvent (source, si_om, devices_om, "audio.sink", "in", {
+    pushSelectDefaultNodeEvent (source, nodes_om, devices_om, "audio.sink", {
       "Audio/Sink", "Audio/Duplex"
     })
 
     -- Audio Source
-    pushSelectDefaultNodeEvent (source, si_om, devices_om, "audio.source", "out", {
+    pushSelectDefaultNodeEvent (source, nodes_om, devices_om, "audio.source", {
       "Audio/Source", "Audio/Source/Virtual", "Audio/Duplex", "Audio/Sink"
     })
 
     -- Video Source
-    pushSelectDefaultNodeEvent (source, si_om, devices_om, "video.source", "out", {
+    pushSelectDefaultNodeEvent (source, nodes_om, devices_om, "video.source", {
       "Video/Source", "Video/Source/Virtual"
     })
   end
 }:register ()
 
-function pushSelectDefaultNodeEvent (source, si_om, devices_om, def_node_type,
-                                     port_direction, media_classes)
+function pushSelectDefaultNodeEvent (source, nodes_om, devices_om, def_node_type,
+                                     media_classes)
   local nodes =
-      collectAvailableNodes (si_om, devices_om, port_direction, media_classes)
+      collectAvailableNodes (nodes_om, devices_om, media_classes)
   local event = source:call ("create-event", "select-default-node", nil, {
       ["default-node.type"] = def_node_type,
   })
@@ -90,32 +88,21 @@ end
 -- Return an array table where each element is another table containing all the
 -- node properties of all the nodes that can be selected for a given media class
 -- set and direction
-function collectAvailableNodes (si_om, devices_om, port_direction, media_classes)
+function collectAvailableNodes (nodes_om, devices_om, media_classes)
   local collected = {}
 
-  for linkable in si_om:iterate {
-    type = "SiLinkable",
+  for node in nodes_om:iterate {
+    type = "Node",
     Constraint { "media.class", "c", table.unpack (media_classes) },
   } do
-    local node = linkable:get_associated_proxy ("node")
-    local node_props = node.properties
-
-    -- check that the node has ports in the requested direction
-    if not node:lookup_port {
-      Constraint { "port.direction", "=", port_direction }
-    } then
-      goto next_linkable
+    -- if the node is associated to a real device, check that the node has
+    -- available routes
+    if not nutils.has_available_routes (node, devices_om) then
+      goto next_node
     end
 
-    -- check that the node has available routes,
-    -- if it is associated to a real device
-    if not lutils.haveAvailableRoutes (node_props, devices_om) then
-      goto next_linkable
-    end
-
-    table.insert (collected, Json.Object (node_props))
-
-    ::next_linkable::
+    table.insert (collected, Json.Object (node.properties))
+    ::next_node::
   end
 
   return collected

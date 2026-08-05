@@ -135,7 +135,6 @@ test(
   env: common_env,
 )
 
-
 test(
   'scripts/default-nodes/initial-metadata-update',
   script_tester,

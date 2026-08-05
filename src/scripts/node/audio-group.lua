@@ -5,7 +5,7 @@
 
 -- SPDX-License-Identifier: MIT
 
--- audio-group.lua script takes pipewire audio stream nodes and groups them
+-- audio-group.lua script takes pipewire audio streams and groups them
 -- into a single unit by creating a loopback filter per group. The grouping
 -- is done by a common ancestor 'audio-group-namespace' process name.
 
@@ -13,12 +13,12 @@ agutils = require ("audio-group-utils")
 
 PW_AUDIO_NAMESPACE = "pw-audio-namespace"
 
-node_directions = {}
+stream_directions = {}
 group_loopback_modules = {}
 group_loopback_modules["input"] = {}
 group_loopback_modules["output"] = {}
 
-function GetNodeDirection (id, props)
+function GetStreamDirection (props)
   if string.find (props["media.class"], "Stream/Input/Audio") then
     return "input"
   elseif string.find (props["media.class"], "Stream/Output/Audio") then
@@ -101,29 +101,33 @@ end
 SimpleEventHook {
   name = "lib/audio-group-utils/create-audio-group-loopback",
   interests = {
-    -- on linkable added or removed, where linkable is adapter or plain node
     EventInterest {
-      Constraint { "event.type", "=", "node-added" },
-      Constraint { "media.class", "#", "Stream/*Audio*", type = "pw-global" },
-      Constraint { "stream.monitor", "!", "true", type = "pw" },
-      Constraint { "node.link-group", "-" },
+      Constraint { "event.type", "=", "stream-added" },
+      Constraint { "event.stream.type", "=", "audio" },
+      Constraint { "media.class", "#", "Stream/*Audio*" },
     },
   },
   execute = function (event)
-    local node = event:get_subject ()
+    local stream = event:get_subject ()
     local source = event:get_source ()
     local client_om = source:call ("get-object-manager", "client")
-    local id = node.id
-    local bound_id = node["bound-id"]
-    local stream_props = node.properties
+    local id = stream.id
+    local stream_props = stream:get_properties ()
     local stream_name = stream_props["node.name"]
+
+    -- Only handle plain streams, not monitors or streams that are already
+    -- part of a link group (e.g. filters)
+    if stream_props:get_boolean ("stream.monitor") or
+        stream_props["node.link-group"] ~= nil then
+      return
+    end
 
     -- Get client
     local client = client_om:lookup {
         Constraint {  "bound-id", "=", stream_props["client.id"], type = "gobject"}
     }
     if client == nil then
-      Log.info (node,
+      Log.info (stream,
           "Cannot get client, not grouping audio stream ".. stream_name)
       return
     end
@@ -131,28 +135,28 @@ SimpleEventHook {
     -- Get process ID
     local pid = tonumber (client.properties ["application.process.id"])
     if pid == nil then
-      Log.info (node,
+      Log.info (stream,
           "Cannot get process ID, not grouping audio stream ".. stream_name)
       return
     end
 
     -- Get direction and add it to the table
-    local direction = GetNodeDirection (bound_id, stream_props)
+    local direction = GetStreamDirection (stream_props)
     if direction == nil then
-      Log.info (node,
+      Log.info (stream,
           "Cannot get direction, not grouping audio stream ".. stream_name)
       return
     end
-    node_directions [id] = direction
+    stream_directions [id] = direction
 
     -- Get group and add it to the table
     local group, target_object = GetNodeAudioGroup (pid)
     if group == nil then
-      Log.info (node,
+      Log.info (stream,
           "Cannot get audio group, not grouping audio stream " .. stream_name)
       return
     end
-    agutils.set_audio_group (node, group)
+    agutils.set_audio_group (stream, group)
 
     -- Create group loopback module if it does not exist
     local m = group_loopback_modules [direction][group]
@@ -169,33 +173,31 @@ SimpleEventHook {
 SimpleEventHook {
   name = "lib/audio-group-utils/destroy-audio-group-loopback",
   interests = {
-    -- on linkable added or removed, where linkable is adapter or plain node
     EventInterest {
-      Constraint { "event.type", "=", "node-removed" },
-      Constraint { "media.class", "#", "Stream/*Audio*", type = "pw-global" },
-      Constraint { "stream.monitor", "!", "true", type = "pw" },
-      Constraint { "node.link-group", "-" },
+      Constraint { "event.type", "=", "stream-removed" },
+      Constraint { "event.stream.type", "=", "audio" },
+      Constraint { "media.class", "#", "Stream/*Audio*" },
     },
   },
   execute = function (event)
-    local node = event:get_subject ()
-    local id = node.id
+    local stream = event:get_subject ()
+    local id = stream.id
 
-    -- Get node direction from table and remove it
-    local direction = node_directions [id]
+    -- Get stream direction from table and remove it
+    local direction = stream_directions [id]
     if direction == nil then
       return
     end
-    node_directions [id] = nil
+    stream_directions [id] = nil
 
-    -- Get node group from table and remove it
-    local group = agutils.get_audio_group (node)
+    -- Get stream group from table and remove it
+    local group = agutils.get_audio_group (stream)
     if group == nil then
       return
     end
-    agutils.set_audio_group (node, nil)
+    agutils.set_audio_group (stream, nil)
 
-    -- Destroy group loopback module if there are no more nodes with the same group
+    -- Destroy group loopback module if there are no more streams with the same group
     if not agutils.contains_audio_group (group) then
       Log.info ("Destroying " .. direction .. " loopback for audio group " .. group)
       group_loopback_modules [direction][group] = nil

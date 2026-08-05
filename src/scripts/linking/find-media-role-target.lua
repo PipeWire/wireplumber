@@ -6,73 +6,95 @@
 --
 -- Select the media role target
 
-cutils = require("common-utils")
-lutils = require("linking-utils")
-futils = require("filter-utils")
-log = Log.open_topic("s-linking")
+stream_utils = require ("stream-utils")
+futils = require ("filter-utils")
+
+log = Log.open_topic ("s-linking")
 
 SimpleEventHook {
   name = "linking/find-media-role-target",
   after = { "linking/find-defined-target",
+            "linking/find-audio-group-target",
             "linking/find-filter-target" },
-  before = "linking/prepare-link",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-target" },
     },
   },
   execute = function (event)
-    local _, om, si, si_props, _, target =
-        lutils:unwrap_select_target_event (event)
+    local source = event:get_source ()
+    local stream = event:get_subject ()
+    local stream_props = stream:get_properties ()
+    local stream_id = stream.id
+    local node_id = stream:get_node_bound_id ()
 
-    local target_direction = cutils.getTargetDirection (si_props)
-    local media_role = si_props["media.role"]
-
-    -- bypass the hook if the target is already picked up or if the role is not
-    -- defined
-    if target or media_role == nil then
+    -- Bypass the hook if the target is already picked up or if the role is
+    -- not defined
+    local target = event:get_data ("target")
+    local media_role = stream_props["media.role"]
+    if target ~= nil or media_role == nil then
       return
     end
 
-    -- bypass the hook if the stream is a smart filter
-    local si_link_group = si_props["node.link-group"]
-    if si_link_group and
-        futils.is_filter_smart (target_direction, si_link_group) then
+    local target_direction = stream_utils.get_target_direction (stream)
+
+    -- Bypass the hook if the stream is a smart filter
+    local link_group = stream_props["node.link-group"]
+    if link_group ~= nil and
+        futils.is_filter_smart (target_direction, link_group) then
       return
     end
 
-    log:info (si, string.format ("handling item %d: %s (%s) role (%s)", si.id,
-      tostring (si_props ["node.name"]), tostring (si_props ["node.id"]), media_role))
+    log:info (stream, string.format ("handling stream:%d (node:%d role:%s): %s",
+        stream_id, node_id, media_role, tostring (stream_props["node.name"])))
 
-    for si_target in om:iterate {
-      type = "SiLinkable",
-      Constraint { "item.node.direction", "=", target_direction },
+    local streams_om = source:call ("get-object-manager", "stream")
+
+    for target_stream in streams_om:iterate {
+      type = "Stream",
+      Constraint { "direction", "=", target_direction, type = "gobject" },
       Constraint { "device.intended-roles", "+" },
-      Constraint { "media.type", "=", si_props["media.type"] },
     } do
+      -- Make sure the target stream is compatible
+      local compatible, enc_only = stream:is_compatible (target_stream)
+      if not compatible then
+        goto skip_target
+      end
 
-      local roles_json = si_target.properties["device.intended-roles"]
-      local roles_table = Json.Raw(roles_json):parse()
+      -- Make sure the intended-roles property is available
+      local target_stream_props = target_stream:get_properties ()
+      local roles_json = target_stream_props["device.intended-roles"]
+      if roles_json == nil then
+        goto skip_target
+      end
 
-      for _, target_role in ipairs(roles_table) do
-        if target_role == media_role and lutils.canLink (si_props, si_target) then
-          target = si_target
+      -- Check if the target has the stream's media role as intended role
+      local roles_table = Json.Raw (roles_json):parse ()
+      for _, target_role in ipairs (roles_table) do
+        if target_role == media_role and
+            stream_utils.can_link (stream, target_stream) then
+          target = target_stream
           break
         end
       end
 
-      if target then
+      if target ~= nil then
         break
       end
+
+      ::skip_target::
     end
 
-    -- set target
     if target ~= nil then
-      log:info(si,
-        string.format("... media role target picked: %s (%s)",
-          tostring(target.properties["node.name"]),
-          tostring(target.properties["node.id"])))
-      event:set_data("target", target)
+      local target_props = target:get_properties ()
+      local target_id = target.id
+      local target_node_id = target:get_node_bound_id ()
+      log:info (stream, string.format (
+          "found media role target stream:%d (node:%d): %s",
+          target_id, target_node_id, tostring (target_props["node.name"])))
+      event:set_data ("target", target)
+    else
+      log:info (stream, "could not find media role target stream")
     end
   end
-}:register()
+}:register ()

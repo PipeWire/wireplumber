@@ -99,17 +99,15 @@ local function allInState (state)
 end
 
 SimpleEventHook {
-  name = "linkable-added@test-suspend",
-  after = "linkable-added@test-utils-linking",
+  name = "stream-added@test-suspend",
+  after = "stream-added@test-utils-linking",
   interests = {
     EventInterest {
-      Constraint { "event.type", "=", "session-item-added" },
-      Constraint { "event.session-item.interface", "=", "linkable" },
-      Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
+      Constraint { "event.type", "=", "stream-added" },
     },
   },
   execute = function (event)
-    if streams_created or not tu.linkablesReady () then
+    if streams_created or not tu.streamsReady () then
       return
     end
     streams_created = true
@@ -118,7 +116,7 @@ SimpleEventHook {
       tu.createStreamNode (
           media_class == "Audio/Sink" and "playback" or "capture", {
             ["node.name"] = "stream-" .. name,
-            ["target.object"] = tu.lnkbls [name].properties ["object.serial"],
+            ["target.object"] = tu.streams [name]:get_properties () ["object.serial"],
           })
     end
   end

@@ -34,7 +34,7 @@ is required:
 
    * - default-nodes/rescan-trigger
      - rescan.lua
-     - linkables added/removed or default.configured.* metadata changed
+     - nodes added/removed or default.configured.* metadata changed
      - schedule rescan-for-default-nodes
 
    * - default-nodes/store-configured-default-nodes

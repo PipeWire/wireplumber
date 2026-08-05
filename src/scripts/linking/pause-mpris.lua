@@ -9,7 +9,6 @@
 -- target(s) goes away.
 
 cutils = require ("common-utils")
-lutils = require ("linking-utils")
 
 log = Log.open_topic ("s-linking.mpris")
 
@@ -33,7 +32,7 @@ function initializeState ()
   script_active = false
 end
 
--- Get nodes that are (indirectly) linked to `si` by link group
+-- Get nodes that are (indirectly) linked to the given node by link group
 -- or links with input direction. Returns table { [node_id] = node, ... }
 function getLinkedNodes (start_id)
   local node_om = cutils.get_object_manager ("node")
@@ -105,8 +104,8 @@ end
 -- * When node is removed existing links to it are removed by server synchronously
 -- * Although it appears server notifies link removal *after* the node, use Core sync
 --   to delay handling link removal after node removal, to be sure
--- * event_priority(node-removed, session-item-removed) >  event_priority(link-removed)
---   then ensures we first handle item removal, then update links
+-- * event_priority(node-removed, stream-removed) > event_priority(link-removed)
+--   then ensures we first handle stream removal, then update links
 
 function updateLink (in_id, out_id, remove)
   if links_in [in_id] == nil then
@@ -145,7 +144,7 @@ function initializeLinks (source)
 end
 
 link_hook = SimpleEventHook {
-  name = "linking/mpris-pause@track-links",
+  name = "linking/pause-mpris@track-links",
   interests = {
     EventInterest {
       Constraint { "event.type", "c", "link-added", "link-removed" },
@@ -186,13 +185,12 @@ link_hook = SimpleEventHook {
 
 -- Pause media applications associated with the streams linked to a sink to be removed
 pause_hook = SimpleEventHook {
-  name = "linking/mpris-pause",
-  before = "linking/linkable-removed",
+  name = "linking/pause-mpris",
   interests = {
     EventInterest {
-      Constraint { "event.type", "=", "session-item-removed" },
-      Constraint { "item.node.type", "=", "device" },
-      Constraint { "item.node.direction", "=", "input" },
+      Constraint { "event.type", "=", "stream-removed" },
+      Constraint { "kind", "=", StreamKind.TARGET, type = "gobject" },
+      Constraint { "direction", "=", Direction.INPUT, type = "gobject" },
     },
   },
   execute = function (event)
@@ -202,11 +200,11 @@ pause_hook = SimpleEventHook {
     end
 
     -- find clients to handle
-    local si = event:get_subject ()
+    local stream = event:get_subject ()
     local source = event:get_source ()
     local client_om = source:call ("get-object-manager", "client")
-    local node = si:get_associated_proxy ("node")
-    local node_group = getLinkedNodes (tonumber (si.properties ["node.id"]))
+    local node_id = stream:get_node_bound_id ()
+    local node_group = getLinkedNodes (node_id)
     local client_ids = {}
 
     for id, node in pairs (node_group) do
@@ -227,8 +225,8 @@ pause_hook = SimpleEventHook {
         goto next
       end
 
-      log:debug (si, string.format ("node %s removed: was linked to client %s (%s pid %s)",
-          tostring(si.properties ["node.id"]),
+      log:debug (stream, string.format ("node %d removed: was linked to client %s (%s pid %s)",
+          node_id,
           tostring(client.properties ["application.name"]),
           tostring(client.properties ["application.id"]),
           tostring(client.properties ["application.process.id"])))
@@ -243,7 +241,7 @@ pause_hook = SimpleEventHook {
             for _, key in ipairs(keys) do
               local pid = tonumber (client.properties [key])
               if pid ~= nil and mpris:call ("match-pid", player ["pid"], pid) then
-                log:debug (si, string.format(".. match %s %u ~ %u", key, pid, player ["pid"]))
+                log:debug (stream, string.format(".. match %s %u ~ %u", key, pid, player ["pid"]))
                 match = true
               end
             end
@@ -252,10 +250,10 @@ pause_hook = SimpleEventHook {
           local instance_id = client.properties ["pipewire.access.portal.instance_id"]
           if instance_id == nil then
             -- Only new Pipewire versions have instance_id
-            log:debug (si, string.format(".. match pipewire.access.portal.app_id = %s", player ["flatpak-app-id"]))
+            log:debug (stream, string.format(".. match pipewire.access.portal.app_id = %s", player ["flatpak-app-id"]))
             match = true
           elseif instance_id == player ["flatpak-instance-id"] then
-            log:debug (si, string.format(".. match pipewire.access.portal.app_id = %s instance_id = %s",
+            log:debug (stream, string.format(".. match pipewire.access.portal.app_id = %s instance_id = %s",
                 player ["flatpak-app-id"], player ["flatpak-instance-id"]))
             match = true
           end
@@ -271,9 +269,8 @@ pause_hook = SimpleEventHook {
 
     -- handle players
     for bus_name in pairs(pause_players) do
-      log:info (si, string.format("node %s removed: pausing linked media player %s",
-          tostring(si.properties ["node.id"]),
-          bus_name))
+      log:info (stream, string.format("node %d removed: pausing linked media player %s",
+          node_id, bus_name))
 
       local op = mpris:call ("pause", bus_name)
       if op ["result"] == 0 then
@@ -301,7 +298,7 @@ pause_hook = SimpleEventHook {
 
 -- Do not perform rescans while we are pausing media players
 rescan_hook = SimpleEventHook {
-  name = "linking/mpris-pause-disable-rescan",
+  name = "linking/pause-mpris-disable-rescan",
   before = "linking/rescan",
   interests = {
     EventInterest {

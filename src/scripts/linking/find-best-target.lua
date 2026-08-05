@@ -4,112 +4,117 @@
 --
 -- SPDX-License-Identifier: MIT
 --
--- Traverse through all the possible targets to pick up target node.
+-- Traverse through all the possible targets to pick up the best one.
 
-lutils = require ("linking-utils")
-cutils = require ("common-utils")
+stream_utils = require ("stream-utils")
 futils = require ("filter-utils")
+
 log = Log.open_topic ("s-linking")
 
 SimpleEventHook {
   name = "linking/find-best-target",
   after = { "linking/find-defined-target",
-            "linking/find-filter-target",
+            "linking/find-audio-group-target",
             "linking/find-media-role-target",
+            "linking/find-media-role-sink-target",
             "linking/find-default-target" },
-  before = "linking/prepare-link",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-target" },
     },
   },
   execute = function (event)
-    local source, om, si, si_props, si_flags, target =
-        lutils:unwrap_select_target_event (event)
+    local source = event:get_source ()
+    local stream = event:get_subject ()
+    local stream_props = stream:get_properties ()
+    local stream_id = stream.id
+    local node_id = stream:get_node_bound_id ()
+    local target_priority = 0
+    local target_creation_time = 0
 
-    -- bypass the hook if the target is already picked up
-    if target then
+    -- Bypass the hook if the target is already picked up
+    local target = event:get_data ("target")
+    if target ~= nil then
       return
     end
 
-    local target_direction = cutils.getTargetDirection (si_props)
-    local target_picked = nil
-    local target_can_passthrough = false
-    local target_priority = 0
-    local target_plugged = 0
+    log:info (stream, string.format ("handling stream:%d (node:%d): %s",
+        stream_id, node_id, tostring (stream_props["node.name"])))
 
-    log:info (si, string.format ("handling item: %s (%s)",
-        tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
-
-    for target in om:iterate {
-      type = "SiLinkable",
-      Constraint { "item.node.type", "=", "device" },
-      Constraint { "item.node.direction", "=", target_direction },
-      Constraint { "media.type", "=", si_props ["media.type"] },
+    -- Find the best target matching the stream's target shape
+    local streams_om = source:call ("get-object-manager", "stream")
+    local devices_om = source:call ("get-object-manager", "device")
+    local target_shape = stream_utils.get_target_shape (stream)
+    local target_direction = stream_utils.get_target_direction (stream)
+    for target_stream in streams_om:iterate {
+      type = "Stream",
+      Constraint { "shape", "=", target_shape, type = "gobject" },
     } do
-      local target_props = target.properties
-      local target_node_id = target_props ["node.id"]
-      local si_target_node = target:get_associated_proxy ("node")
-      local si_target_link_group = si_target_node.properties ["node.link-group"]
-      local priority = tonumber (target_props ["priority.session"]) or 0
-
-      log:debug (string.format ("Looking at: %s (%s)",
-        tostring (target_props ["node.name"]),
-        tostring (target_node_id)))
+      local target_id = target_stream.id
+      local target_props = target_stream:get_properties ()
+      local target_node_id = target_stream:get_node_bound_id ()
 
       -- Skip smart filters as best target
-      if si_target_link_group ~= nil and
-          futils.is_filter_smart (target_direction, si_target_link_group) then
-        Log.debug ("... ignoring smart filter as best target")
-        goto skip_linkable
+      local target_link_group = target_props ["node.link-group"]
+      if target_link_group ~= nil and
+          futils.is_filter_smart (target_direction, target_link_group) then
+        log:debug (stream, "... ignoring smart filter as best target")
+        goto skip_target
       end
 
-      if not lutils.canLink (si_props, target) then
-        log:debug ("... cannot link, skip linkable")
-        goto skip_linkable
+      local priority = target_props:get_int ("priority.session") or 0
+      local creation_time = target_stream:get_creation_time()
+
+      log:debug (stream, string.format (
+          "checking target stream:%d (node:%d prio:%d creation:%d): %s",
+          target_id, target_node_id, priority, creation_time,
+          tostring (target_props ["node.name"])))
+
+      -- Make sure the target can be linked
+      if not stream_utils.can_link (stream, target_stream) then
+        log:debug (stream, "... cannot link, ignoring target")
+        goto skip_target
       end
 
-      if not lutils.haveAvailableRoutes (target_props) then
-        log:debug ("... does not have routes, skip linkable")
-        goto skip_linkable
+      -- Make sure target is compatible
+      local compatible, enc_only = stream:is_compatible (target_stream)
+      if not compatible then
+        log:debug (stream, "... not compatible, ignoring target")
+        goto skip_target
       end
 
-      local passthrough_compatible, can_passthrough =
-      lutils.checkPassthroughCompatibility (si, target)
-      if not passthrough_compatible then
-        log:debug ("... passthrough is not compatible, skip linkable")
-        goto skip_linkable
+      -- Make sure the target has available routes
+      if not stream_utils.has_available_routes (target_stream, devices_om) then
+        log:debug (stream, "... does not have available routes, ignoring target")
+        goto skip_target
       end
 
-      local plugged = tonumber (target_props ["item.plugged.usec"]) or 0
-
-      log:debug ("... priority:" .. tostring (priority) .. ", plugged:" .. tostring (plugged))
-
-      -- (target_picked == NULL) --> make sure at least one target is picked.
-      -- (priority > target_priority) --> pick the highest priority linkable(node)
-      -- target.
-      -- (priority == target_priority and plugged > target_plugged) --> pick the
-      -- latest connected/plugged(in time) linkable(node) target.
-      if (target_picked == nil or
+      -- Select the target with highest priority and creation time
+      if (target == nil or
           priority > target_priority or
-          (priority == target_priority and plugged > target_plugged)) then
-        log:debug ("... picked")
-        target_picked = target
-        target_can_passthrough = can_passthrough
+          (priority == target_priority and
+              creation_time > target_creation_time)) then
+        log:debug (stream, "... picked")
+        target = target_stream
         target_priority = priority
-        target_plugged = plugged
+        target_creation_time = creation_time
       end
-      ::skip_linkable::
+
+      ::skip_target::
     end
 
-    if target_picked then
-      log:info (si,
-        string.format ("... best target picked: %s (%s), can_passthrough:%s",
-          tostring (target_picked.properties ["node.name"]),
-          tostring (target_picked.properties ["node.id"]),
-          tostring (target_can_passthrough)))
-      si_flags.can_passthrough = target_can_passthrough
-      event:set_data ("target", target_picked)
+    if target ~= nil then
+      -- set event target and continue
+      local target_props = target:get_properties()
+      local target_id = target.id
+      local target_node_id = target:get_node_bound_id ()
+      log:info (stream, string.format (
+          "found best target stream:%d (node:%d): %s",
+          target_id, target_node_id, tostring (target_props["node.name"])))
+      event:set_data ("target", target)
+    else
+      -- continue with other hooks
+      log:info (stream, "could not find best target stream")
     end
   end
 }:register ()

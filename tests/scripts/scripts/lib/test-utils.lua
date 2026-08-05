@@ -11,8 +11,8 @@ local cu = require ("common-utils")
 local u = {}
 
 u.nodes = {}
-u.lnkbls = {}
-u.lnkbl_count = 0
+u.streams = {}
+u.stream_count = 0
 
 function u.createDeviceNode (name, media_class, props)
   local properties = {}
@@ -35,32 +35,30 @@ function u.createDeviceNode (name, media_class, props)
     Log.info (n, "created and activated device node: " .. name)
     u.nodes [name] = n
 
-    -- wait for linkables to be created.
-    u.lnkbls [name] = nil
-    u.lnkbl_count = u.lnkbl_count + 1
+    -- wait for the corresponding stream to be created
+    u.streams [name] = nil
+    u.stream_count = u.stream_count + 1
   end)
   return node
 end
 
--- hook to keep track of the linkables created.
+-- hook to keep track of the streams created.
 SimpleEventHook {
-  name = "linkable-added@test-utils-linking",
+  name = "stream-added@test-utils-linking",
   interests = {
-    -- on linkable added or removed, where linkable is adapter or plain node
     EventInterest {
-      Constraint { "event.type", "=", "session-item-added" },
-      Constraint { "event.session-item.interface", "=", "linkable" },
-      Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
+      Constraint { "event.type", "=", "stream-added" },
     },
   },
   execute = function (event)
-    local lnkbl = event:get_subject ()
-    local name = lnkbl.properties ["node.name"]
-    local mc = lnkbl.properties ["media.class"]
+    local stream = event:get_subject ()
+    local stream_props = stream:get_properties ()
+    local name = stream_props ["node.name"]
+    local mc = stream_props ["media.class"]
 
-    Log.info (lnkbl, "activated linkable: " .. name .. " with " .. mc)
+    Log.info (stream, "activated stream: " .. name .. " with " .. mc)
 
-    u.lnkbls [name] = lnkbl
+    u.streams [name] = stream
 
     -- select "default-device-node" as default device.
     if name == "default-device-node" then
@@ -83,8 +81,8 @@ u.script_tester_plugin = Plugin.find ("script-tester")
 function u.createStreamNode (stream_type, props)
   u.script_tester_plugin:call ("create-stream", stream_type, props)
 
-  u.lnkbls ["stream-node"] = nil
-  u.lnkbl_count = u.lnkbl_count + 1
+  u.streams ["stream-node"] = nil
+  u.stream_count = u.stream_count + 1
 end
 
 function u.restartPlugin (name)
@@ -115,24 +113,43 @@ u.settings_metadata = cu.get_object_manager ("metadata"):lookup {
 }
 assert (u.settings_metadata ~= nil)
 
--- update the defined target for stream session item in metadata.
+-- Update the defined target for a stream in metadata.
 function u.setTargetInMetadata (prop, target_node_name, target_property)
-  u.default_metadata:set (u.lnkbls ["stream-node"].properties ["node.id"], prop,
-      "Spa:Id", u.lnkbls [target_node_name].properties [target_property])
+  local stream = u.streams ["stream-node"]
+  local target_stream = u.streams [target_node_name]
+  local target_value = target_stream:get_properties () [target_property]
+  if target_property == "node.id" then
+    target_value = target_stream:get_node_bound_id ()
+  end
+  u.default_metadata:set (stream:get_node_bound_id (), prop,
+      "Spa:Id", target_value)
 end
 
-function u.linkablesReady ()
+function u.streamsReady ()
   local count = 0
-  for k, v in pairs (u.lnkbls) do
+  for k, v in pairs (u.streams) do
     if v then
       count = count + 1
     end
   end
-  if count == u.lnkbl_count then
+  if count == u.stream_count then
     return true
   end
 
   return false
+end
+
+function u.getStreamLink (stream, target)
+  for peer in StreamLinkManager.iterate_peers (stream) do
+    if peer == target then
+      local stream_link = StreamLinkManager.find_link (stream, target)
+      if stream:get_direction () == Direction.INPUT then
+        stream_link = StreamLinkManager.find_link (target, stream)
+      end
+      return stream_link
+    end
+  end
+  return nil
 end
 
 return u

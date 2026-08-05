@@ -57,7 +57,8 @@ SimpleEventHook {
       -- Never consider smart filters as default nodes
       local link_group = node_props ["node.link-group"]
       if link_group ~= nil then
-        local direction = media_class:find("Source", 1, true) and "output" or "input"
+        local direction = media_class:find("Source", 1, true)
+            and Direction.OUTPUT or Direction.INPUT
         if futils.is_filter_smart (direction, link_group) then
           log:debug ("ignoring smart filter " .. tostring (node_name) .. " as best " .. def_node_type)
           goto skip_node

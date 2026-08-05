@@ -8,19 +8,19 @@
 -- Script is a Lua Module of audio group Lua utility functions
 
 local module = {
-  node_groups = {},
+  stream_groups = {},
 }
 
-function module.set_audio_group (stream_node, audio_group)
-  module.node_groups [stream_node.id] = audio_group
+function module.set_audio_group (stream, audio_group)
+  module.stream_groups [stream.id] = audio_group
 end
 
-function module.get_audio_group (stream_node)
-  return module.node_groups [stream_node.id]
+function module.get_audio_group (stream)
+  return module.stream_groups [stream.id]
 end
 
 function module.contains_audio_group (audio_group)
-  for k, v in pairs(module.node_groups) do
+  for k, v in pairs(module.stream_groups) do
     if v == audio_group then
       return true
     end

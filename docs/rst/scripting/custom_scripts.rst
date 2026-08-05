@@ -146,18 +146,16 @@ and order it relative to the stock hooks with ``before`` / ``after``. The hook
 below runs ``before`` ``linking/find-defined-target``, which makes it the first
 one to get a say, ahead of all of WirePlumber's own selection logic.
 
-The ``linking-utils`` module provides
-``unwrap_select_target_event ()``, which unpacks the event into the objects the
-hook needs: the source event, the object manager, the session item being linked
-(``si``) along with its properties and flags, and the target picked so far (or
-``nil``). The chosen target is handed to the rest of the chain by storing it on
-the event with ``event:set_data ("target", target)``.
+The ``stream-utils`` module provides helpers for working with ``WpStream``
+objects, including target direction and compatibility checks. The stream being
+linked is available directly as ``event:get_subject ()``, and the target picked
+so far is read from ``event:get_data ("target")``. A chosen target is handed to
+the rest of the chain with ``event:set_data ("target", target)``.
 
 ``~/.local/share/wireplumber/scripts/90-find-user-target.lua``:
 
 .. code-block:: lua
 
-   lutils = require ("linking-utils")
    log = Log.open_topic ("s-linking")
 
    SimpleEventHook {
@@ -169,8 +167,8 @@ the event with ``event:set_data ("target", target)``.
        },
      },
      execute = function (event)
-       local source, om, si, si_props, si_flags, target =
-           lutils:unwrap_select_target_event (event)
+       local stream = event:get_subject ()
+       local target = event:get_data ("target")
 
        -- bypass the hook if the target is already picked up
        if target then

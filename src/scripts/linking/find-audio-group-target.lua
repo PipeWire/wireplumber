@@ -1,13 +1,12 @@
 -- WirePlumber
 --
--- Copyright © 2023 Collabora Ltd.
+-- Copyright © 2026 Collabora Ltd.
 --
 -- SPDX-License-Identifier: MIT
 --
--- Check if the target node is a filter target.
+-- Check if the target stream is an audio group target.
 
-lutils = require ("linking-utils")
-cutils = require ("common-utils")
+stream_utils = require ("stream-utils")
 agutils = require ("audio-group-utils")
 
 log = Log.open_topic ("s-linking")
@@ -21,77 +20,62 @@ SimpleEventHook {
     },
   },
   execute = function (event)
-    local source, om, si, si_props, si_flags, target =
-        lutils:unwrap_select_target_event (event)
+    local source = event:get_source ()
+    local stream = event:get_subject ()
+    local stream_props = stream:get_properties ()
+    local stream_id = stream.id
+    local node_id = stream:get_node_bound_id ()
 
-    -- bypass the hook if the target is already picked up
-    if target then
+    -- Bypass the hook if the target is already picked up
+    local target = event:get_data ("target")
+    if target ~= nil then
       return
     end
 
-    local target_direction = cutils.getTargetDirection (si_props)
-    local target_picked = nil
-    local target_can_passthrough = false
-    local node = nil
-    local audio_group = nil
-
-    log:info (si, string.format ("handling item %d: %s (%s)", si.id,
-        tostring (si_props ["node.name"]), tostring (si_props ["node.id"])))
-
-    -- Get associated node
-    node = si:get_associated_proxy ("node")
-    if node == nil then
-      return
-    end
-
-    -- audio group
-    audio_group = agutils.get_audio_group (node)
+    -- Bypass the hook if the stream is not part of an audio group
+    local audio_group = agutils.get_audio_group (stream)
     if audio_group == nil then
       return
     end
 
-    -- find the target with same audio group, if any
-    for target in om:iterate {
-      type = "SiLinkable",
-      Constraint { "item.node.type", "=", "device" },
-      Constraint { "item.node.direction", "=", target_direction },
-      Constraint { "media.type", "=", si_props ["media.type"] },
+    log:info (stream, string.format ("handling stream:%d (node:%d): %s",
+        stream_id, node_id, tostring (stream_props["node.name"])))
+
+    local target_shape = stream_utils.get_target_shape (stream)
+    local streams_om = source:call ("get-object-manager", "stream")
+
+    -- find the target with the same audio group, if any
+    for target_stream in streams_om:iterate {
+      type = "Stream",
+      Constraint { "shape", "=", target_shape, type = "gobject" },
     } do
-      target_node = target:get_associated_proxy ("node")
-      target_node_props = target_node.properties
-      target_audio_group = target_node_props ["session.audio-group"]
-
-      if target_audio_group == nil then
-        goto skip_linkable
+      local target_stream_props = target_stream:get_properties ()
+      local target_audio_group = target_stream_props ["session.audio-group"]
+      if target_audio_group == nil or target_audio_group ~= audio_group then
+        goto skip_target
       end
 
-      if target_audio_group ~= audio_group then
-        goto skip_linkable
+      -- Make sure the target is compatible
+      local compatible, enc_only = stream:is_compatible (target_stream)
+      if not compatible then
+        log:debug (stream, "... not compatible, ignoring target")
+        goto skip_target
       end
 
-      local passthrough_compatible, can_passthrough =
-          lutils.checkPassthroughCompatibility (si, target)
-      if not passthrough_compatible then
-        log:debug ("... passthrough is not compatible, skip linkable")
-        goto skip_linkable
-      end
-
-      target_picked = target
-      target_can_passthrough = can_passthrough
+      target = target_stream
       break
 
-      ::skip_linkable::
+      ::skip_target::
     end
 
-    -- set target
-    if target_picked then
-      log:info (si,
-        string.format ("... audio group target picked: %s (%s), can_passthrough:%s",
-          tostring (target_picked.properties ["node.name"]),
-          tostring (target_picked.properties ["node.id"]),
-          tostring (target_can_passthrough)))
-      si_flags.can_passthrough = target_can_passthrough
-      event:set_data ("target", target_picked)
+    if target ~= nil then
+      local target_props = target:get_properties ()
+      local target_id = target.id
+      local target_node_id = target:get_node_bound_id ()
+      log:info (stream, string.format (
+          "found audio group target stream:%d (node:%d): %s",
+          target_id, target_node_id, tostring (target_props["node.name"])))
+      event:set_data ("target", target)
     end
   end
 }:register ()

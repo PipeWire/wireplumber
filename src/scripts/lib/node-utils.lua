@@ -97,4 +97,57 @@ function module.compare_nodes (a, b)
   end
 end
 
+function module.has_available_routes (node, devices_om)
+  local node_props = node.properties
+  local device_id = node_props:get_int ("device.id")
+  local card_profile_device = node_props ["card.profile.device"]
+
+  -- Consider routes as available if the node is not associated with any device
+  if device_id == nil or card_profile_device == nil then
+    return true
+  end
+  local device = devices_om:lookup {
+    Constraint { "bound-id", "=", device_id, type = "gobject" },
+  }
+  if device == nil then
+    return true
+  end
+
+  -- Check if at least one of the current device routes supports the node's
+  -- card profile device and is available
+  for p in device:iterate_params ("Route") do
+    local route = cutils.parseParam (p, "Route")
+    if route and (route.device == tonumber (card_profile_device)) then
+      if (route.available == "no") then
+        return false
+      else
+        return true
+      end
+    end
+  end
+
+  -- Check if available routes support the node's card profile device
+  local found = 0
+  for r in device:iterate_params ("EnumRoute") do
+    local route = cutils.parseParam (r, "EnumRoute")
+    if route and type (route.devices) == "table" then
+      for _, i in ipairs (route.devices) do
+        if i == tonumber (card_profile_device) then
+          found = found + 1
+          if route.available ~= "no" then
+            return true
+          end
+        end
+      end
+    end
+  end
+
+  -- The node is part of a profile without routes so we assume it is available
+  if found == 0 then
+    return true
+  end
+
+  return false
+end
+
 return module

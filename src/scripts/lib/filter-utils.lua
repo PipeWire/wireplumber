@@ -8,6 +8,7 @@
 -- Script is a Lua Module of filter Lua utility functions
 
 local cutils = require ("common-utils")
+local stream_utils = require ("stream-utils")
 
 local module = {
   metadata = nil,
@@ -16,10 +17,10 @@ local module = {
   rescan_pending = false,
 }
 
-local function getFilterSmart (metadata, node)
+local function getFilterSmart (metadata, stream)
   -- Check metadata
   if metadata ~= nil then
-    local id = node["bound-id"]
+    local id = stream:get_node_bound_id ()
     local value_str = metadata:find (id, "filter.smart")
     if value_str ~= nil then
       local json = Json.Raw (value_str)
@@ -29,8 +30,8 @@ local function getFilterSmart (metadata, node)
     end
   end
 
-  -- Check node properties
-  local prop_str = node.properties ["filter.smart"]
+  -- Check stream properties
+  local prop_str = stream:get_properties () ["filter.smart"]
   if prop_str ~= nil then
     return cutils.parseBool (prop_str)
   end
@@ -39,10 +40,10 @@ local function getFilterSmart (metadata, node)
   return false
 end
 
-local function getFilterSmartName (metadata, node)
+local function getFilterSmartName (metadata, stream)
   -- Check metadata
   if metadata ~= nil then
-    local id = node["bound-id"]
+    local id = stream:get_node_bound_id ()
     local value_str = metadata:find (id, "filter.smart.name")
     if value_str ~= nil then
       local json = Json.Raw (value_str)
@@ -52,20 +53,21 @@ local function getFilterSmartName (metadata, node)
     end
   end
 
-  -- Check node properties
-  local prop_str = node.properties ["filter.smart.name"]
+  -- Check stream properties
+  local props = stream:get_properties ()
+  local prop_str = props ["filter.smart.name"]
   if prop_str ~= nil then
     return prop_str
   end
 
   -- Otherwise use link group as name
-  return node.properties ["node.link-group"]
+  return props ["node.link-group"]
 end
 
-local function getFilterSmartDisabled (metadata, node)
+local function getFilterSmartDisabled (metadata, stream)
   -- Check metadata
   if metadata ~= nil then
-    local id = node["bound-id"]
+    local id = stream:get_node_bound_id ()
     local value_str = metadata:find (id, "filter.smart.disabled")
     if value_str ~= nil then
       local json = Json.Raw (value_str)
@@ -75,8 +77,8 @@ local function getFilterSmartDisabled (metadata, node)
     end
   end
 
-  -- Check node properties
-  local prop_str = node.properties ["filter.smart.disabled"]
+  -- Check stream properties
+  local prop_str = stream:get_properties () ["filter.smart.disabled"]
   if prop_str ~= nil then
     return cutils.parseBool (prop_str)
   end
@@ -85,10 +87,10 @@ local function getFilterSmartDisabled (metadata, node)
   return false
 end
 
-local function getFilterSmartTargetable (metadata, node)
+local function getFilterSmartTargetable (metadata, stream)
   -- Check metadata
   if metadata ~= nil then
-    local id = node["bound-id"]
+    local id = stream:get_node_bound_id ()
     local value_str = metadata:find (id, "filter.smart.targetable")
     if value_str ~= nil then
       local json = Json.Raw (value_str)
@@ -98,8 +100,8 @@ local function getFilterSmartTargetable (metadata, node)
     end
   end
 
-  -- Check node properties
-  local prop_str = node.properties ["filter.smart.targetable"]
+  -- Check stream properties
+  local prop_str = stream:get_properties () ["filter.smart.targetable"]
   if prop_str ~= nil then
     return cutils.parseBool (prop_str)
   end
@@ -108,15 +110,15 @@ local function getFilterSmartTargetable (metadata, node)
   return false
 end
 
-local function getFilterSmartTarget (metadata, node, om)
+local function getFilterSmartTarget (metadata, stream, om)
   -- Check metadata and fallback to properties
-  local id = node["bound-id"]
+  local id = stream:get_node_bound_id ()
   local value_str = nil
   if metadata ~= nil then
     value_str = metadata:find (id, "filter.smart.target")
   end
   if value_str == nil then
-    value_str = node.properties ["filter.smart.target"]
+    value_str = stream:get_properties () ["filter.smart.target"]
     if value_str == nil then
       return nil
     end
@@ -131,27 +133,24 @@ local function getFilterSmartTarget (metadata, node, om)
 
   -- Find target
   local target = nil
-  for si_target in om:iterate { type = "SiLinkable" } do
-    local n_target = si_target:get_associated_proxy ("node")
-    if n_target == nil then
+  for target_stream in om:iterate { type = "Stream" } do
+    local target_props = target_stream:get_properties ()
+
+    -- Target streams cannot be smart filters
+    if target_props ["node.link-group"] ~= nil and
+        getFilterSmart (metadata, target_stream) then
       goto skip_target
     end
 
-    -- Target nodes cannot be smart filters
-    if n_target.properties ["node.link-group"] ~= nil and
-        getFilterSmart (metadata, n_target) then
-      goto skip_target
-    end
-
-    -- Make sure the target node properties match all rules
+    -- Make sure the target stream properties match all rules
     for key, val in pairs(match_rules) do
-      if n_target.properties[key] ~= tostring (val) then
+      if target_props[key] ~= tostring (val) then
         goto skip_target
       end
     end
 
     -- Target found
-    target = si_target
+    target = target_stream
     break;
 
     ::skip_target::
@@ -160,28 +159,28 @@ local function getFilterSmartTarget (metadata, node, om)
   return target
 end
 
-local function getFilterSmartTargetless (metadata, node)
-  local id = node["bound-id"]
+local function getFilterSmartTargetless (metadata, stream)
+  local id = stream:get_node_bound_id ()
   local value_str = nil
   if metadata ~= nil then
     value_str = metadata:find (id, "filter.smart.target")
   end
   if value_str == nil then
-    value_str = node.properties ["filter.smart.target"]
+    value_str = stream:get_properties () ["filter.smart.target"]
   end
 
   return value_str == nil
 end
 
-local function getFilterSmartBefore (metadata, node)
+local function getFilterSmartBefore (metadata, stream)
   -- Check metadata and fallback to properties
-  local id = node["bound-id"]
+  local id = stream:get_node_bound_id ()
   local value_str = nil
   if metadata ~= nil then
     value_str = metadata:find (id, "filter.smart.before")
   end
   if value_str == nil then
-    value_str = node.properties ["filter.smart.before"]
+    value_str = stream:get_properties () ["filter.smart.before"]
     if value_str == nil then
       return nil
     end
@@ -195,15 +194,15 @@ local function getFilterSmartBefore (metadata, node)
   return before_json:parse ()
 end
 
-local function getFilterSmartAfter (metadata, node)
+local function getFilterSmartAfter (metadata, stream)
   -- Check metadata and fallback to properties
-  local id = node["bound-id"]
+  local id = stream:get_node_bound_id ()
   local value_str = nil
   if metadata ~= nil then
     value_str = metadata:find (id, "filter.smart.after")
   end
   if value_str == nil then
-    value_str = node.properties ["filter.smart.after"]
+    value_str = stream:get_properties () ["filter.smart.after"]
     if value_str == nil then
       return nil
     end
@@ -293,59 +292,50 @@ local function rescanFilters (om, metadata_om)
 
   Log.info ("rescanning filters...")
 
-  for si in om:iterate { type = "SiLinkable" } do
+  for stream in om:iterate { type = "Stream" } do
     local filter = {}
+    local props = stream:get_properties ()
 
-    local n = si:get_associated_proxy ("node")
-    if n == nil then
-      goto skip_linkable
-    end
-
-    -- Only handle nodes with link group (filters)
-    filter.link_group = n.properties ["node.link-group"]
+    -- Only handle streams with link group (filters)
+    filter.link_group = props ["node.link-group"]
     if filter.link_group == nil then
-      goto skip_linkable
+      goto skip_stream
     end
 
-    -- Only handle the main filter nodes
-    filter.media_class = n.properties ["media.class"]
-    if string.find (filter.media_class, "Stream") then
-      goto skip_linkable
+    -- Only handle the main filter streams, which are the ones shaped as a
+    -- sink or a source
+    local shape = stream:get_shape ()
+    if shape ~= StreamShape.SINK and shape ~= StreamShape.SOURCE then
+      goto skip_stream
     end
 
-    -- Filter direction
-    if string.find (filter.media_class, "Audio/Sink") or
-       string.find (filter.media_class, "Video/Sink") then
-      filter.direction = "input"
-    else
-      filter.direction = "output"
-    end
-
-    -- Filter media type
-    filter.media_type = si.properties["media.type"]
+    -- Filter direction and media type
+    filter.media_class = props ["media.class"]
+    filter.direction = stream:get_direction ()
+    filter.media_type = stream_utils.get_media_type (stream)
 
     -- Get filter properties
-    filter.smart = getFilterSmart (metadata, n)
-    filter.name = getFilterSmartName (metadata, n)
-    filter.disabled = getFilterSmartDisabled (metadata, n)
-    filter.targetable = getFilterSmartTargetable (metadata, n)
-    filter.target = getFilterSmartTarget (metadata, n, om)
-    filter.targetless = getFilterSmartTargetless (metadata, n)
-    filter.before = getFilterSmartBefore (metadata, n)
-    filter.after = getFilterSmartAfter (metadata, n)
+    filter.smart = getFilterSmart (metadata, stream)
+    filter.name = getFilterSmartName (metadata, stream)
+    filter.disabled = getFilterSmartDisabled (metadata, stream)
+    filter.targetable = getFilterSmartTargetable (metadata, stream)
+    filter.target = getFilterSmartTarget (metadata, stream, om)
+    filter.targetless = getFilterSmartTargetless (metadata, stream)
+    filter.before = getFilterSmartBefore (metadata, stream)
+    filter.after = getFilterSmartAfter (metadata, stream)
 
-    -- Add the main and stream session items
-    filter.main_si = si
-    filter.stream_si = om:lookup {
-      type = "SiLinkable",
+    -- Add the main and stream side streams
+    filter.main_stream = stream
+    filter.stream = om:lookup {
+      type = "Stream",
       Constraint { "node.link-group", "=", filter.link_group },
-      Constraint { "media.class", "#", "Stream/*", type = "pw-global" }
+      Constraint { "media.class", "#", "Stream/*" }
     }
 
     -- Add the filter to the list sorted by before and after
     module.filters = insertFilterSorted (module.filters, filter)
 
-  ::skip_linkable::
+  ::skip_stream::
   end
 
 end
@@ -360,7 +350,7 @@ SimpleEventHook {
   },
   execute = function (event)
     local source = event:get_source ()
-    local om = source:call ("get-object-manager", "session-item")
+    local om = source:call ("get-object-manager", "stream")
     local metadata_om = source:call ("get-object-manager", "metadata")
 
     rescanFilters (om, metadata_om)
@@ -380,7 +370,7 @@ SimpleEventHook {
     -- Update the filters data right away, so that streams added before the
     -- next rescan are linked using the new filters configuration
     local source = event:get_source ()
-    local om = source:call ("get-object-manager", "session-item")
+    local om = source:call ("get-object-manager", "stream")
     local metadata_om = source:call ("get-object-manager", "metadata")
 
     rescanFilters (om, metadata_om)
@@ -471,7 +461,7 @@ function module.get_filter_target (direction, link_group)
         ((v.target == nil and filter.target == nil) or
             (v.target ~= nil and filter.target ~= nil and v.target.id == filter.target.id)) and
         i > index then
-      return v.main_si
+      return v.main_stream
     end
   end
 
@@ -479,18 +469,18 @@ function module.get_filter_target (direction, link_group)
   return filter.target
 end
 
-function module.get_filter_from_target (direction, media_type, si_target)
-  local target = si_target
+function module.get_filter_from_target (direction, media_type, target_stream)
+  local target = target_stream
 
   -- Make sure direction and media_type are valid
   if direction == nil or media_type == nil then
     return nil
   end
 
-  -- If si_target is a filter, find it and use its target
-  if si_target then
-    local target_node = si_target:get_associated_proxy ("node")
-    local target_link_group = target_node.properties ["node.link-group"]
+  -- If target_stream is a filter, find it and use its target
+  if target_stream then
+    local target_link_group =
+        target_stream:get_properties () ["node.link-group"]
     if target_link_group ~= nil then
       local filter = nil
       for i, v in ipairs(module.filters) do
@@ -518,7 +508,7 @@ function module.get_filter_from_target (direction, media_type, si_target)
         v.smart and
         ((v.target ~= nil and target ~= nil and v.target.id == target.id) or
             (target == nil and v.targetless)) then
-      return v.main_si
+      return v.main_stream
     end
   end
 

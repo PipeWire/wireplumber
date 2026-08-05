@@ -25,7 +25,6 @@
 
 -- settings file: bluetooth.conf
 
-lutils = require ("linking-utils")
 cutils = require ("common-utils")
 log = Log.open_topic ("s-device")
 persistent_storage_hooks_registered = false

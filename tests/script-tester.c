@@ -282,6 +282,8 @@ load_components (ScriptRunnerFixture *f, gconstpointer argv)
 
   load_component (f, "libwireplumber-module-settings", "module");
   load_component (f, "settings-instance", "built-in");
+  load_component (f, "stream-manager", "built-in");
+  load_component (f, "stream-link-manager", "built-in");
 
   if (g_str_equal (test_suite, "script-tests")) {
 
@@ -298,18 +300,20 @@ load_components (ScriptRunnerFixture *f, gconstpointer argv)
     load_component (f, "metadata.lua", "script/lua");
     load_component (f, "libwireplumber-module-default-nodes-api", "module");
 
-    load_component (f, "node/create-item.lua", "script/lua");
     load_component (f, "node/suspend-node.lua", "script/lua");
 
-    load_component (f, "linking/find-best-target.lua", "script/lua");
-    load_component (f, "linking/find-default-target.lua", "script/lua");
+    load_component (f, "linking/rescan.lua", "script/lua");
+    load_component (f, "linking/rescan-on-stream.lua", "script/lua");
     load_component (f, "linking/find-defined-target.lua", "script/lua");
+    load_component (f, "linking/find-audio-group-target.lua", "script/lua");
     load_component (f, "linking/find-filter-target.lua", "script/lua");
     load_component (f, "linking/find-media-role-target.lua", "script/lua");
+    load_component (f, "linking/find-media-role-sink-target.lua", "script/lua");
+    load_component (f, "linking/find-default-target.lua", "script/lua");
+    load_component (f, "linking/find-best-target.lua", "script/lua");
     load_component (f, "linking/get-filter-from-target.lua", "script/lua");
-    load_component (f, "linking/link-target.lua", "script/lua");
-    load_component (f, "linking/prepare-link.lua", "script/lua");
-    load_component (f, "linking/rescan.lua", "script/lua");
+    load_component (f, "linking/prepare-stream-link.lua", "script/lua");
+    load_component (f, "linking/create-stream-link.lua", "script/lua");
 
     {
       g_autoptr (WpTestServerLocker) lock =

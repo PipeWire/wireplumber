@@ -2,7 +2,6 @@
 -- among which only one is selected as the defined device("target.object").
 
 -- The "target.object" here is defined in default metadata.
-local pu = require ("linking-utils")
 local tu = require ("test-utils")
 
 Script.async_activation = true
@@ -14,25 +13,22 @@ tu.createDeviceNode ("defined-device-node", "Audio/Source")
 -- hook to create stream node, stream is created after the device nodes are
 -- ready
 SimpleEventHook {
-  name = "linkable-added@test-linking",
-  after = "linkable-added@test-utils-linking",
+  name = "stream-added@test-linking",
+  after = "stream-added@test-utils-linking",
   interests = {
-    -- on linkable added or removed, where linkable is adapter or plain node
     EventInterest {
-      Constraint { "event.type", "=", "session-item-added" },
-      Constraint { "event.session-item.interface", "=", "linkable" },
-      Constraint { "item.factory.name", "c", "si-audio-adapter", "si-node" },
+      Constraint { "event.type", "=", "stream-added" },
     },
   },
   execute = function (event)
-    local lnkbl = event:get_subject ()
-    local name = lnkbl.properties ["node.name"]
+    local stream = event:get_subject ()
+    local name = stream:get_properties () ["node.name"]
 
-    if tu.linkablesReady () and name ~= "stream-node" then
-      -- all linkables created except stream-node
+    if tu.streamsReady () and name ~= "stream-node" then
+      -- all streams created except stream-node
       tu.createStreamNode ("capture")
-    elseif tu.linkablesReady () and tu.lnkbls ["stream-node"] then
-      -- when "stream-node" linkable is ready
+    elseif tu.streamsReady () and tu.streams ["stream-node"] then
+      -- when "stream-node" is ready
       tu.setTargetInMetadata ("target.object", "defined-device-node", "object.serial")
     end
   end
@@ -40,28 +36,25 @@ SimpleEventHook {
 
 SimpleEventHook {
   name = "linking/test-linking",
-  after = "linking/link-target",
+  after = "linking/create-stream-link",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "select-target" },
     },
   },
   execute = function (event)
-    local source, om, si, si_props, si_flags, target =
-        pu:unwrap_select_target_event (event)
+    local stream = event:get_subject ()
+    local target = event:get_data ("target")
 
-    if not target then
+    if target == nil then
       return
     end
 
-    Log.info (si, string.format ("handling item: %s (%s) si id(%s)",
-        tostring (si_props ["node.name"]),
-        tostring (si_props ["node.id"]), si.id))
-
-    local link = pu.lookupLink (si.id, si_flags.peer_id)
+    local stream_props = stream:get_properties ()
+    local link = tu.getStreamLink (stream, target)
     assert (link ~= nil)
-    assert (si_props ["node.name"] == "stream-node")
-    assert ((link:get_active_features () & Feature.SessionItem.ACTIVE) ~= 0)
+    assert (stream_props ["node.name"] == "stream-node")
+    assert (link:get_active_features () ~= 0)
 
     if (target.properties ["node.name"] == "defined-device-node") then
       Script:finish_activation ()
