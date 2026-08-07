@@ -1805,7 +1805,10 @@ impl_module_new (lua_State *L)
     properties = wp_properties_ref (wplua_checkboxed (L, 3,
         WP_TYPE_PROPERTIES));
 
-  WpImplModule *m = wp_impl_module_load (get_wp_export_core (L),
+  /* the main core: the module is hosted by the export context, which is
+     registered on the main core's registry, and it makes its own connection
+     to PipeWire anyway */
+  WpImplModule *m = wp_impl_module_load (get_wp_core (L),
      name, args, properties);
 
   if (m) {

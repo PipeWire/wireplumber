@@ -41,6 +41,7 @@ wp_lib_sources = files(
 )
 
 wp_lib_priv_sources = files(
+  'private/export-context.c',
   'private/pipewire-object-mixin.c',
   'private/internal-comp-loader.c',
   'private/registry.c',

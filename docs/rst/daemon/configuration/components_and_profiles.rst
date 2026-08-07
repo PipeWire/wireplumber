@@ -69,6 +69,26 @@ The main types of components are:
     to load custom protocol extensions or to offload some functionality from
     the PipeWire daemon.
 
+    Modules of this type are loaded in WirePlumber's main ``pw_context``, the
+    one that its session management logic runs on. That is what protocol
+    extensions and object factories need, since WirePlumber itself uses them
+    from that context.
+
+  * **pw-module-export**
+
+    A PipeWire module, like above, but loaded in the *export context*: a
+    secondary ``pw_context`` that runs on its own thread (see
+    ``support.export-context`` in :ref:`config_features`).
+
+    This is the right type for modules that process media, such as
+    ``libpipewire-module-loopback``, ``libpipewire-module-filter-chain`` and
+    ``libpipewire-module-combine-stream``. WirePlumber's main loop also
+    dispatches event hooks, which may in some cases take a long time to return
+    execution, long enough to interfere with delivering commands to the exported
+    objects, which in turn may cause audio issues like lost periods.
+
+    Unlike **pw-module**, a component of this type can be unloaded.
+
   * **virtual**
 
     Virtual components are just load targets that can be used to pull in

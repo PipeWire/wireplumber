@@ -8,6 +8,7 @@
 
 #include "module.h"
 #include "log.h"
+#include "private/export-context.h"
 
 #include <pipewire/impl.h>
 
@@ -32,9 +33,30 @@ struct _WpImplModule
   gchar *args;
   WpProperties *props; /* only used during module load */
 
+  /* the context that hosts the module; when this is set, the module lives on
+     another thread and every access to pw_impl_module below must be done with
+     the export context locked. It is NULL when the export-context component is
+     not loaded, in which case the module is hosted by the core's own
+     pw_context, on this thread, and no locking is needed */
+  WpExportContext *ctx;
+
   struct pw_impl_module *pw_impl_module;
   struct spa_hook impl_module_listener;
 };
+
+static inline void
+wp_impl_module_lock (WpImplModule * self)
+{
+  if (self->ctx)
+    wp_export_context_lock (self->ctx);
+}
+
+static inline void
+wp_impl_module_unlock (WpImplModule * self)
+{
+  if (self->ctx)
+    wp_export_context_unlock (self->ctx);
+}
 
 G_DEFINE_TYPE (WpImplModule, wp_impl_module, G_TYPE_OBJECT);
 
@@ -75,9 +97,17 @@ static void
 wp_impl_module_constructed (GObject * object)
 {
   WpImplModule *self = WP_IMPL_MODULE (object);
-  WpCore *core = g_weak_ref_get (&self->core);
-  struct pw_context *context = core ? wp_core_get_pw_context (core) : NULL;
+  g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
+  struct pw_context *context = NULL;
   struct pw_properties *props = NULL;
+
+  /* prefer the export context, so that the module runs on its own thread and
+     is not delayed by whatever WirePlumber's main loop happens to be doing */
+  self->ctx = core ? wp_export_context_find (core) : NULL;
+  if (self->ctx)
+    context = wp_export_context_get_pw_context (self->ctx);
+  else if (core)
+    context = wp_core_get_pw_context (core);
 
   if (!core || !context) {
     g_warning ("Tried to load module on unconnected core");
@@ -92,18 +122,27 @@ wp_impl_module_constructed (GObject * object)
   if (self->props)
     props = wp_properties_to_pw_properties (self->props);
 
+  wp_impl_module_lock (self);
   self->pw_impl_module =
     pw_context_load_module (context, self->name, self->args, props);
 
   if (self->pw_impl_module) {
+    pw_impl_module_add_listener (self->pw_impl_module,
+        &self->impl_module_listener, &impl_module_events, self);
+  }
+  wp_impl_module_unlock (self);
+
+  if (self->pw_impl_module) {
+    /* the caller loses the isolation the export context provides if it is not
+       loaded yet, so make it visible which context ended up hosting this */
+    wp_debug_object (self, "loaded '%s' in the %s context", self->name,
+        self->ctx ? "export" : "main");
+
     if (self->props) {
       /* With the module loaded, properties are just passthrough now */
       wp_properties_unref (self->props);
       self->props = NULL;
     }
-
-    pw_impl_module_add_listener (self->pw_impl_module,
-        &self->impl_module_listener, &impl_module_events, self);
   }
 
   G_OBJECT_CLASS (wp_impl_module_parent_class)->constructed (object);
@@ -116,8 +155,12 @@ wp_impl_module_finalize (GObject * object)
 
   g_weak_ref_clear (&self->core);
 
+  wp_impl_module_lock (self);
   if (self->pw_impl_module)
     pw_impl_module_destroy (self->pw_impl_module);
+  wp_impl_module_unlock (self);
+
+  g_clear_object (&self->ctx);
 
   g_free (self->name);
   g_free (self->args);
@@ -148,22 +191,27 @@ wp_impl_module_get_property (GObject * object, guint prop_id,
       break;
 
     case PROP_PROPERTIES:
+      wp_impl_module_lock (self);
       if (self->pw_impl_module) {
         const struct pw_properties *props =
           pw_impl_module_get_properties (self->pw_impl_module);
 
         /* Should we just wrap instead of copying? */
         if (props)
-          g_value_set_boxed (value, wp_properties_new_copy (props));
+          g_value_take_boxed (value, wp_properties_new_copy (props));
         else
           g_value_set_boxed (value, NULL);
+        wp_impl_module_unlock (self);
       } else {
+        wp_impl_module_unlock (self);
         g_value_set_boxed (value, self->props);
       }
       break;
 
     case PROP_PW_IMPL_MODULE:
+      wp_impl_module_lock (self);
       g_value_set_pointer (value, self->pw_impl_module);
+      wp_impl_module_unlock (self);
       break;
 
     default:
@@ -197,10 +245,13 @@ wp_impl_module_set_property (GObject * object, guint prop_id,
     case PROP_PROPERTIES:
       props = g_value_get_boxed (value);
 
+      wp_impl_module_lock (self);
       if (props && self->pw_impl_module) {
         pw_impl_module_update_properties (self->pw_impl_module,
             wp_properties_peek_dict (props));
+        wp_impl_module_unlock (self);
       } else {
+        wp_impl_module_unlock (self);
         if (props)
           self->props = wp_properties_ref (props);
         else
@@ -263,6 +314,8 @@ WpImplModule *
 wp_impl_module_load (WpCore * core, const gchar * name,
     const gchar * arguments, WpProperties * properties)
 {
+  gboolean loaded;
+
   WpImplModule *module = WP_IMPL_MODULE (
       g_object_new (WP_TYPE_IMPL_MODULE,
         "core", core,
@@ -272,7 +325,11 @@ wp_impl_module_load (WpCore * core, const gchar * name,
         NULL)
       );
 
-  if (!module->pw_impl_module) {
+  wp_impl_module_lock (module);
+  loaded = (module->pw_impl_module != NULL);
+  wp_impl_module_unlock (module);
+
+  if (!loaded) {
     /* Module loading failed, free and return */
     g_object_unref (module);
     return NULL;

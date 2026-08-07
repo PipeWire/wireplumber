@@ -25,6 +25,13 @@ test(
 )
 
 test(
+  'test-export-context',
+  executable('test-export-context', 'export-context.c',
+      dependencies: common_deps),
+  env: common_env,
+)
+
+test(
   'test-metadata',
   executable('test-metadata', 'metadata.c',
       dependencies: common_deps),

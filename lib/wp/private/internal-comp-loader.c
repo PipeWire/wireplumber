@@ -9,6 +9,7 @@
 #include "internal-comp-loader.h"
 #include "wp.h"
 #include "registry.h"
+#include "export-context.h"
 
 #include <pipewire/impl.h>
 
@@ -767,6 +768,23 @@ load_export_core (GTask * task, WpCore * core, WpSpaJson * args)
 }
 
 static void
+load_export_context (GTask * task, WpCore * core, WpSpaJson * args)
+{
+  g_autoptr (GError) error = NULL;
+  WpExportContext *ctx = NULL;
+
+  wp_info_object (core, "starting the export context...");
+
+  ctx = wp_export_context_new (core, args, &error);
+  if (!ctx) {
+    g_task_return_error (task, g_steal_pointer (&error));
+    return;
+  }
+
+  g_task_return_pointer (task, ctx, g_object_unref);
+}
+
+static void
 load_settings_instance (GTask * task, WpCore * core, WpSpaJson * args)
 {
   g_autofree gchar *metadata_name = NULL;
@@ -786,6 +804,7 @@ static const struct {
 } builtin_components[] = {
   { "ensure-no-media-session", ensure_no_media_session },
   { "export-core", load_export_core },
+  { "export-context", load_export_context },
   { "settings-instance", load_settings_instance },
 };
 
@@ -915,6 +934,7 @@ wp_internal_comp_loader_supports_type (WpComponentLoader * cl,
 {
   return g_str_equal (type, "module") ||
          g_str_equal (type, "pw-module") ||
+         g_str_equal (type, "pw-module-export") ||
          g_str_equal (type, "virtual") ||
          g_str_equal (type, "built-in") ||
          g_str_equal (type, "profile") ||
@@ -990,6 +1010,21 @@ wp_internal_comp_loader_load (WpComponentLoader * self, WpCore * core,
       }
       else {
         g_task_return_pointer (task, NULL, NULL);
+      }
+    }
+    else if (g_str_equal (type, "pw-module-export")) {
+      g_autofree gchar *module_args = args ?
+          g_strndup (wp_spa_json_get_data (args), wp_spa_json_get_size (args)) :
+          NULL;
+      WpImplModule *m = wp_impl_module_load (core, component, module_args, NULL);
+
+      if (!m) {
+        g_task_return_new_error (task, WP_DOMAIN_LIBRARY,
+            WP_LIBRARY_ERROR_OPERATION_FAILED,
+            "Failed to load pipewire module %s: %s", component, strerror (errno));
+      }
+      else {
+        g_task_return_pointer (task, m, g_object_unref);
       }
     }
     else if (g_str_equal (type, "virtual")) {

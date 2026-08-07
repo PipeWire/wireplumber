@@ -99,6 +99,21 @@ Video
 Support components
 ------------------
 
+.. describe:: support.export-context
+
+   Starts a secondary ``pw_context``, running on its own thread, which hosts
+   every PipeWire object that WirePlumber implements in its own process.
+
+   WirePlumber's main loop also dispatches the event dispatcher, whose hooks
+   can run for a long time, and GSource priorities do not preempt: anything
+   sharing that loop makes no progress for as long as a hook runs. In-process
+   media objects (i.e. local nodes and modules) should be given their own loop
+   to be able to receive media commands without delays, or they may lose audio.
+
+   This is enabled by default and there is rarely a reason to disable it. If
+   it is disabled, those objects fall back to WirePlumber's main
+   ``pw_context`` and become subject to the delays described above.
+
 .. describe:: support.dbus
 
    Provides a D-Bus connection to the session bus. This is needed by some other
