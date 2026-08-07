@@ -102,7 +102,10 @@ Support components
 .. describe:: support.export-context
 
    Starts a secondary ``pw_context``, running on its own thread, which hosts
-   every PipeWire object that WirePlumber implements in its own process.
+   every PipeWire object that WirePlumber implements in its own process: the
+   PipeWire modules loaded as ``pw-module-export`` components or from Lua with
+   ``LocalModule()``, the nodes created with ``LocalNode()`` and the SPA device
+   handles wrapped by ``SpaDevice()``.
 
    WirePlumber's main loop also dispatches the event dispatcher, whose hooks
    can run for a long time, and GSource priorities do not preempt: anything

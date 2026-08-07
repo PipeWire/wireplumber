@@ -11,6 +11,7 @@
 #include "core.h"
 #include "log.h"
 #include "error.h"
+#include "private/export-context.h"
 #include "private/pipewire-object-mixin.h"
 
 #include <pipewire/impl.h>
@@ -205,6 +206,48 @@ struct _WpSpaDevice
   GPtrArray *pending_obj_config;
 };
 
+/* the spa_device lives in the export context when there is one, so it runs on
+   another thread; see private/export-context.h */
+static inline void
+wp_spa_device_lock (WpSpaDevice * self)
+{
+  WpExportContext *ctx = wp_proxy_get_export_context (WP_PROXY (self));
+  if (ctx)
+    wp_export_context_lock (ctx);
+}
+
+static inline void
+wp_spa_device_unlock (WpSpaDevice * self)
+{
+  WpExportContext *ctx = wp_proxy_get_export_context (WP_PROXY (self));
+  if (ctx)
+    wp_export_context_unlock (ctx);
+}
+
+/*
+ * TRUE if the spa_device event we are currently handling arrived on the export
+ * context's loop thread, so it has to be handed over to the main thread.
+ * FALSE when we are the main thread having called into the device with the
+ * loop lock held, in which case running the handler directly is both correct
+ * and required by the callers that expect synchronous behaviour.
+ */
+static inline gboolean
+wp_spa_device_needs_marshalling (WpSpaDevice * self)
+{
+  WpExportContext *ctx = wp_proxy_get_export_context (WP_PROXY (self));
+  return ctx && wp_export_context_in_thread (ctx);
+}
+
+/* takes ownership of @data, which must start with a WpSpaDevice* field */
+static void
+wp_spa_device_invoke_main (WpSpaDevice * self, GSourceFunc func, gpointer data,
+    GDestroyNotify destroy)
+{
+  WpExportContext *ctx = wp_proxy_get_export_context (WP_PROXY (self));
+  *((WpSpaDevice **) data) = g_object_ref (self);
+  wp_export_context_invoke_main (ctx, func, data, destroy);
+}
+
 enum {
   PROP_0,
   PROP_SPA_DEVICE_HANDLE,
@@ -277,7 +320,10 @@ wp_spa_device_finalize (GObject * object)
   WpSpaDevice *self = WP_SPA_DEVICE (object);
 
   self->device = NULL;
+  wp_spa_device_lock (self);
   g_clear_pointer (&self->handle, pw_unload_spa_handle);
+  wp_spa_device_unlock (self);
+
   g_clear_pointer (&self->properties, wp_properties_unref);
   g_clear_pointer (&self->last_enum_params, g_ptr_array_unref);
   g_clear_pointer (&self->managed_objs, g_ptr_array_unref);
@@ -327,28 +373,28 @@ wp_spa_device_get_property (GObject * object, guint property_id, GValue * value,
   }
 }
 
+/* always runs on the main thread */
 static void
-spa_device_event_info (void *data, const struct spa_device_info *info)
+on_device_info (WpSpaDevice * self, guint64 change_mask,
+    WpProperties * props, const struct spa_param_info * params, guint n_params)
 {
-  WpSpaDevice *self = WP_SPA_DEVICE (data);
-
   /*
-   * This is emitted synchronously at the time we add the listener and
-   * before object_info is emitted. It gives us additional properties
-   * about the device, like the "api.alsa.card.*" ones that are not
-   * set by the monitor
+   * This gives us additional properties about the device, like the
+   * "api.alsa.card.*" ones that are not set by the monitor. The spa device
+   * emits it before object_info, and the queue preserves that order, so it is
+   * still applied before the create-object handlers run.
    */
-  if (info->change_mask & SPA_DEVICE_CHANGE_MASK_PROPS)
-    wp_properties_update_from_dict (self->properties, info->props);
+  if (change_mask & SPA_DEVICE_CHANGE_MASK_PROPS)
+    wp_properties_update (self->properties, props);
 
   /* Emit params-changed when the params have changed */
-  if (info->change_mask & SPA_DEVICE_CHANGE_MASK_PARAMS) {
-    for (guint32 i = 0; i < info->n_params; i++) {
+  if (change_mask & SPA_DEVICE_CHANGE_MASK_PARAMS) {
+    for (guint32 i = 0; i < n_params; i++) {
       if (!self->info_params || i >= self->info_n_params ||
-          info->params[i].flags != self->info_params[i].flags) {
+          params[i].flags != self->info_params[i].flags) {
         const gchar *name;
         name = wp_spa_id_value_short_name (wp_spa_id_value_from_number (
-            "Spa:Enum:ParamId", info->params[i].id));
+            "Spa:Enum:ParamId", params[i].id));
         g_signal_emit_by_name (self, "params-changed", name);
       }
     }
@@ -356,10 +402,60 @@ spa_device_event_info (void *data, const struct spa_device_info *info)
 
   /* Update cached params */
   self->info_params = g_realloc (self->info_params,
-      info->n_params * sizeof(struct spa_param_info));
-  memcpy (self->info_params, info->params,
-      info->n_params * sizeof(struct spa_param_info));
-  self->info_n_params = info->n_params;
+      n_params * sizeof(struct spa_param_info));
+  memcpy (self->info_params, params, n_params * sizeof(struct spa_param_info));
+  self->info_n_params = n_params;
+}
+
+typedef struct {
+  WpSpaDevice *self;
+  guint64 change_mask;
+  WpProperties *props;
+  struct spa_param_info *params;
+  guint n_params;
+} DeviceInfoEvent;
+
+static void
+device_info_event_free (gpointer data)
+{
+  DeviceInfoEvent *e = data;
+  g_clear_object (&e->self);
+  g_clear_pointer (&e->props, wp_properties_unref);
+  g_free (e->params);
+  g_free (e);
+}
+
+static gboolean
+dispatch_device_info (gpointer data)
+{
+  DeviceInfoEvent *e = data;
+  on_device_info (e->self, e->change_mask, e->props, e->params, e->n_params);
+  return G_SOURCE_REMOVE;
+}
+
+static void
+spa_device_event_info (void *data, const struct spa_device_info *info)
+{
+  WpSpaDevice *self = WP_SPA_DEVICE (data);
+
+  if (wp_spa_device_needs_marshalling (self)) {
+    /* the spa_device_info is only valid for the duration of this call */
+    DeviceInfoEvent *e = g_new0 (DeviceInfoEvent, 1);
+    e->change_mask = info->change_mask;
+    if (info->change_mask & SPA_DEVICE_CHANGE_MASK_PROPS)
+      e->props = wp_properties_new_copy_dict (info->props);
+    e->n_params = info->n_params;
+    e->params = g_memdup2 (info->params,
+        info->n_params * sizeof (struct spa_param_info));
+    wp_spa_device_invoke_main (self, dispatch_device_info, e,
+        device_info_event_free);
+  } else {
+    g_autoptr (WpProperties) props =
+        (info->change_mask & SPA_DEVICE_CHANGE_MASK_PROPS) ?
+            wp_properties_new_wrap_dict (info->props) : NULL;
+    on_device_info (self, info->change_mask, props, info->params,
+        info->n_params);
+  }
 }
 
 static void
@@ -441,18 +537,14 @@ merge_props (WpSpaPod *old_props, WpSpaPod *new_props)
   return wp_spa_pod_builder_end (b);
 }
 
+/* always runs on the main thread */
 static void
-spa_device_event_event (void *data, const struct spa_event *event)
+on_device_event (WpSpaDevice * self, WpSpaPod * pod)
 {
-  WpSpaDevice *self = WP_SPA_DEVICE (data);
-  g_autoptr (WpSpaPod) pod =
-      wp_spa_pod_new_wrap_const ((const struct spa_pod *) event);
   guint32 id = -1;
   const gchar *type = NULL;
   g_autoptr (WpSpaPod) props = NULL;
   g_autoptr (GObject) child = NULL;
-
-  wp_trace_boxed (WP_TYPE_SPA_POD, pod, "device event");
 
   if (wp_spa_pod_get_object (pod, &type,
           "Object", "i", &id,
@@ -477,21 +569,56 @@ spa_device_event_event (void *data, const struct spa_event *event)
   g_signal_emit (self, spa_device_signals[SIGNAL_EVENT], 0, pod);
 }
 
+typedef struct {
+  WpSpaDevice *self;
+  WpSpaPod *pod;
+} DeviceEvent;
+
 static void
-spa_device_event_object_info (void *data, uint32_t id,
-    const struct spa_device_object_info *info)
+device_event_free (gpointer data)
+{
+  DeviceEvent *e = data;
+  g_clear_object (&e->self);
+  g_clear_pointer (&e->pod, wp_spa_pod_unref);
+  g_free (e);
+}
+
+static gboolean
+dispatch_device_event (gpointer data)
+{
+  DeviceEvent *e = data;
+  on_device_event (e->self, e->pod);
+  return G_SOURCE_REMOVE;
+}
+
+static void
+spa_device_event_event (void *data, const struct spa_event *event)
 {
   WpSpaDevice *self = WP_SPA_DEVICE (data);
+  g_autoptr (WpSpaPod) pod =
+      wp_spa_pod_new_wrap_const ((const struct spa_pod *) event);
 
-  if (info) {
-    const gchar *type;
-    g_autoptr (WpProperties) props = NULL;
+  wp_trace_boxed (WP_TYPE_SPA_POD, pod, "device event");
 
-    type = spa_debug_type_short_name (info->type);
-    props = wp_properties_new_copy_dict (info->props);
+  if (wp_spa_device_needs_marshalling (self)) {
+    /* the event pod is only valid for the duration of this call */
+    DeviceEvent *e = g_new0 (DeviceEvent, 1);
+    e->pod = wp_spa_pod_copy (pod);
+    wp_spa_device_invoke_main (self, dispatch_device_event, e,
+        device_event_free);
+  } else {
+    on_device_event (self, pod);
+  }
+}
 
+/* always runs on the main thread */
+static void
+on_device_object_info (WpSpaDevice * self, guint32 id, const gchar * type,
+    const gchar * factory_name, WpProperties * props)
+{
+  if (type) {
     wp_debug_object (self, "object info: id:%u type:%s factory:%s",
-        id, type, info->factory_name);
+        id, type, factory_name);
 
     if (id < self->managed_objs->len &&
         g_ptr_array_index (self->managed_objs, id) != NULL) {
@@ -501,12 +628,67 @@ spa_device_event_object_info (void *data, uint32_t id,
     }
 
     g_signal_emit (self, spa_device_signals[SIGNAL_CREATE_OBJECT], 0,
-        id, type, info->factory_name, props);
+        id, type, factory_name, props);
   }
   else {
     wp_debug_object (self, "object removed: id:%u", id);
     g_signal_emit (self, spa_device_signals[SIGNAL_OBJECT_REMOVED], 0, id);
     wp_spa_device_store_managed_object (self, id, NULL);
+  }
+}
+
+typedef struct {
+  WpSpaDevice *self;
+  guint32 id;
+  gchar *type;
+  gchar *factory_name;
+  WpProperties *props;
+} DeviceObjectInfoEvent;
+
+static void
+device_object_info_event_free (gpointer data)
+{
+  DeviceObjectInfoEvent *e = data;
+  g_clear_object (&e->self);
+  g_free (e->type);
+  g_free (e->factory_name);
+  g_clear_pointer (&e->props, wp_properties_unref);
+  g_free (e);
+}
+
+static gboolean
+dispatch_device_object_info (gpointer data)
+{
+  DeviceObjectInfoEvent *e = data;
+  on_device_object_info (e->self, e->id, e->type, e->factory_name, e->props);
+  return G_SOURCE_REMOVE;
+}
+
+static void
+spa_device_event_object_info (void *data, uint32_t id,
+    const struct spa_device_object_info *info)
+{
+  WpSpaDevice *self = WP_SPA_DEVICE (data);
+  const gchar *type = info ? spa_debug_type_short_name (info->type) : NULL;
+
+  if (wp_spa_device_needs_marshalling (self)) {
+    /* the spa_device_object_info is only valid for the duration of this call.
+       Note that add/remove pairs for the same id must keep their relative
+       order, which the export context's queue guarantees. */
+    DeviceObjectInfoEvent *e = g_new0 (DeviceObjectInfoEvent, 1);
+    e->id = id;
+    if (info) {
+      e->type = g_strdup (type);
+      e->factory_name = g_strdup (info->factory_name);
+      e->props = wp_properties_new_copy_dict (info->props);
+    }
+    wp_spa_device_invoke_main (self, dispatch_device_object_info, e,
+        device_object_info_event_free);
+  } else {
+    g_autoptr (WpProperties) props =
+        info ? wp_properties_new_copy_dict (info->props) : NULL;
+    on_device_object_info (self, id, type,
+        info ? info->factory_name : NULL, props);
   }
 }
 
@@ -549,21 +731,45 @@ wp_spa_device_activate_execute_step (WpObject * object,
 {
   WpSpaDevice *self = WP_SPA_DEVICE (object);
 
+  /* constructed() leaves this NULL if the handle has no Device interface;
+     fail the activation instead of crashing further down */
+  if (!self->device) {
+    wp_transition_return_error (WP_TRANSITION (transition),
+        g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+            "SPA handle does not implement a device interface"));
+    return;
+  }
+
   switch (step) {
   case STEP_EXPORT: {
     g_autoptr (WpCore) core = wp_object_get_core (object);
-    struct pw_core *pw_core = wp_core_get_pw_core (core);
+    WpExportContext *ctx = wp_proxy_get_export_context (WP_PROXY (self));
+    /* the device must be exported on the connection of the context it lives
+       in, the same way as WpImplNode */
+    struct pw_core *pw_core = ctx ?
+        wp_export_context_get_pw_core (ctx) : wp_core_get_pw_core (core);
     g_return_if_fail (pw_core);
 
+    /* export and start listening in one locked section, so that the loop
+       thread cannot deliver the "bound" event before we are listening */
+    wp_spa_device_lock (self);
     wp_proxy_set_pw_proxy (WP_PROXY (self),
         pw_core_export (pw_core, SPA_TYPE_INTERFACE_Device,
             wp_properties_peek_dict (self->properties),
             self->device, 0));
+    wp_spa_device_unlock (self);
     break;
   }
   case STEP_ADD_DEVICE_LISTENER: {
-    gint res = spa_device_add_listener (self->device, &self->listener,
+    gint res;
+
+    /* the device emits "info" and the initial burst of "object_info" from
+       within this call, on this thread; those are handled directly */
+    wp_spa_device_lock (self);
+    res = spa_device_add_listener (self->device, &self->listener,
         &spa_device_events, self);
+    wp_spa_device_unlock (self);
+
     if (res < 0)
       wp_transition_return_error (WP_TRANSITION (transition),
           g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
@@ -586,7 +792,11 @@ wp_spa_device_deactivate (WpObject * object, WpObjectFeatures features)
 
   if (features & WP_SPA_DEVICE_FEATURE_ENABLED) {
     WpSpaDevice *self = WP_SPA_DEVICE (object);
+
+    wp_spa_device_lock (self);
     spa_hook_remove (&self->listener);
+    wp_spa_device_unlock (self);
+
     g_clear_pointer (&self->info_params, g_free);
     self->info_n_params = 0;
     g_ptr_array_set_size (self->last_enum_params, 0);
@@ -760,10 +970,18 @@ wp_spa_device_new_from_spa_factory (WpCore * core,
     const gchar * factory_name, WpProperties * properties)
 {
   g_autoptr (WpProperties) props = properties;
-  struct pw_context *pw_context = wp_core_get_pw_context (core);
+  /* the handle is loaded into the export context, so that the device runs on
+     its own thread; pw_core_export() later ties it to that connection */
+  g_autoptr (WpExportContext) ctx = wp_export_context_find (core);
+  struct pw_context *pw_context = ctx ?
+      wp_export_context_get_pw_context (ctx) : wp_core_get_pw_context (core);
   struct spa_handle *handle = NULL;
+  WpSpaDevice *self = NULL;
 
   g_return_val_if_fail (pw_context != NULL, NULL);
+
+  if (ctx)
+    wp_export_context_lock (ctx);
 
   /* Load the monitor handle */
   handle = pw_context_load_spa_handle (pw_context, factory_name,
@@ -771,10 +989,20 @@ wp_spa_device_new_from_spa_factory (WpCore * core,
   if (!handle) {
     wp_notice ("SPA handle '%s' could not be loaded; is it installed?",
         factory_name);
-    return NULL;
+    goto out;
   }
 
-  return wp_spa_device_new_wrap (core, handle, g_steal_pointer (&props));
+  /* construct while still holding the lock: wp_spa_device_constructed() calls
+     into the handle, which the loop thread may otherwise be running already */
+  self = wp_spa_device_new_wrap (core, handle, g_steal_pointer (&props));
+  if (self)
+    wp_proxy_set_export_context (WP_PROXY (self), ctx);
+
+out:
+  if (ctx)
+    wp_export_context_unlock (ctx);
+
+  return self;
 }
 
 /*!
@@ -826,7 +1054,13 @@ wp_spa_device_enum_params_sync (WpSpaDevice * self,
   g_ptr_array_set_size (self->last_enum_params, 0);
 
   f = filter ? wp_spa_pod_get_spa_pod (filter) : NULL;
+
+  /* the results are collected by spa_device_event_result() in this call
+     stack, which is what keeps this synchronous even when the device runs on
+     the export context's thread */
+  wp_spa_device_lock (self);
   spa_device_enum_params (self->device, 1, id_val, 0, -1, f);
+  wp_spa_device_unlock (self);
 
   params = g_ptr_array_copy (self->last_enum_params, (GCopyFunc)wp_spa_pod_ref,
       NULL);
@@ -852,6 +1086,7 @@ wp_spa_device_set_param (WpSpaDevice * self,
   WpSpaIdValue param_id;
   guint32 id_val;
   const struct spa_pod *p;
+  gint res;
 
   g_return_val_if_fail (WP_IS_SPA_DEVICE (self), FALSE);
   g_return_val_if_fail (id, FALSE);
@@ -864,7 +1099,12 @@ wp_spa_device_set_param (WpSpaDevice * self,
   id_val = wp_spa_id_value_number (param_id);
 
   p = wp_spa_pod_get_spa_pod (param);
-  return spa_device_set_param (self->device, id_val, flags, p) >= 0;
+
+  wp_spa_device_lock (self);
+  res = spa_device_set_param (self->device, id_val, flags, p);
+  wp_spa_device_unlock (self);
+
+  return res >= 0;
 }
 
 /*!

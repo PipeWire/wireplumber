@@ -9,6 +9,7 @@
 #include "proxy.h"
 #include "log.h"
 #include "error.h"
+#include "private/export-context.h"
 
 #include <pipewire/pipewire.h>
 #include <spa/utils/hook.h>
@@ -100,6 +101,10 @@ struct _WpProxyPrivate
 {
   struct pw_proxy *pw_proxy;
   struct spa_hook listener;
+
+  /* set when pw_proxy lives on the export context's connection, in which case
+     it is owned by another thread; see private/export-context.h */
+  WpExportContext *ctx;
 };
 
 enum {
@@ -123,6 +128,135 @@ static guint signals[LAST_SIGNAL] = { 0 };
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (WpProxy, wp_proxy, WP_TYPE_OBJECT)
 
+static inline void
+wp_proxy_lock (WpProxy * self)
+{
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  if (priv->ctx)
+    wp_export_context_lock (priv->ctx);
+}
+
+static inline void
+wp_proxy_unlock (WpProxy * self)
+{
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  if (priv->ctx)
+    wp_export_context_unlock (priv->ctx);
+}
+
+/*
+ * The three handlers below always run on the main thread: either directly,
+ * when the pw_proxy is on the core's own connection or when we caused the
+ * event ourselves from this thread, or through the export context's queue.
+ */
+
+static void
+on_proxy_destroyed (WpProxy * self)
+{
+  wp_object_update_features (WP_OBJECT (self), 0, WP_PROXY_FEATURE_BOUND);
+
+  wp_object_abort_activation (WP_OBJECT (self), "PipeWire proxy destroyed");
+
+  g_signal_emit (self, signals[SIGNAL_PW_PROXY_DESTROYED], 0);
+}
+
+static void
+on_proxy_bound (WpProxy * self, guint32 global_id)
+{
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+
+  /* the proxy may have been destroyed while this event was queued */
+  if (!priv->pw_proxy)
+    return;
+
+  wp_object_update_features (WP_OBJECT (self), WP_PROXY_FEATURE_BOUND, 0);
+  g_signal_emit (self, signals[SIGNAL_BOUND], 0, global_id);
+}
+
+static void
+on_proxy_error (WpProxy * self, gint seq, gint res, const gchar * message)
+{
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+
+  /* we destroy the proxy on error if feature bound is still not enabled */
+  wp_proxy_lock (self);
+  if (priv->pw_proxy &&
+      !(wp_object_test_active_features (WP_OBJECT (self), WP_PROXY_FEATURE_BOUND)))
+    pw_proxy_destroy (priv->pw_proxy);
+  wp_proxy_unlock (self);
+
+  wp_object_abort_activation (WP_OBJECT (self), message);
+
+  g_signal_emit (self, signals[SIGNAL_ERROR], 0, seq, res, message);
+}
+
+/* marshalling of the above onto the main thread */
+
+typedef struct {
+  WpProxy *proxy;
+  guint32 global_id;
+  gint seq;
+  gint res;
+  gchar *message;
+} ProxyEvent;
+
+static void
+proxy_event_free (gpointer data)
+{
+  ProxyEvent *e = data;
+  g_clear_object (&e->proxy);
+  g_free (e->message);
+  g_free (e);
+}
+
+/*
+ * TRUE if the event we are currently handling arrived on the export context's
+ * loop thread, in which case it has to be handed over to the main thread.
+ *
+ * When the export context is in use but we are *not* on its thread, we are the
+ * main thread having called into pw with the loop lock held (destroying the
+ * proxy, typically). Running the handler directly then is both safe and
+ * necessary: queueing would take a reference on an object that may well be in
+ * its dispose() right now.
+ */
+static inline gboolean
+proxy_event_needs_marshalling (WpProxy * self)
+{
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  return priv->ctx && wp_export_context_in_thread (priv->ctx);
+}
+
+static void
+proxy_event_queue (WpProxy * self, GSourceFunc func, ProxyEvent * e)
+{
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  e->proxy = g_object_ref (self);
+  wp_export_context_invoke_main (priv->ctx, func, e, proxy_event_free);
+}
+
+static gboolean
+dispatch_destroyed (gpointer data)
+{
+  on_proxy_destroyed (((ProxyEvent *) data)->proxy);
+  return G_SOURCE_REMOVE;
+}
+
+static gboolean
+dispatch_bound (gpointer data)
+{
+  ProxyEvent *e = data;
+  on_proxy_bound (e->proxy, e->global_id);
+  return G_SOURCE_REMOVE;
+}
+
+static gboolean
+dispatch_error (gpointer data)
+{
+  ProxyEvent *e = data;
+  on_proxy_error (e->proxy, e->seq, e->res, e->message);
+  return G_SOURCE_REMOVE;
+}
+
 static void
 proxy_event_destroy (void *data)
 {
@@ -132,13 +266,15 @@ proxy_event_destroy (void *data)
   wp_trace_object (self, "destroyed pw_proxy %p (%u)", priv->pw_proxy,
       pw_proxy_get_bound_id (priv->pw_proxy));
 
+  /* the pw_proxy is gone as soon as this returns, so drop it here rather than
+     on the main thread; the write is ordered by the loop lock */
   spa_hook_remove (&priv->listener);
   priv->pw_proxy = NULL;
-  wp_object_update_features (WP_OBJECT (self), 0, WP_PROXY_FEATURE_BOUND);
 
-  wp_object_abort_activation (WP_OBJECT (self), "PipeWire proxy destroyed");
-
-  g_signal_emit (self, signals[SIGNAL_PW_PROXY_DESTROYED], 0);
+  if (proxy_event_needs_marshalling (self))
+    proxy_event_queue (self, dispatch_destroyed, g_new0 (ProxyEvent, 1));
+  else
+    on_proxy_destroyed (self);
 }
 
 static void
@@ -148,8 +284,13 @@ proxy_event_bound (void *data, uint32_t global_id)
 
   wp_trace_object (self, "bound to %u", global_id);
 
-  wp_object_update_features (WP_OBJECT (self), WP_PROXY_FEATURE_BOUND, 0);
-  g_signal_emit (self, signals[SIGNAL_BOUND], 0, global_id);
+  if (proxy_event_needs_marshalling (self)) {
+    ProxyEvent *e = g_new0 (ProxyEvent, 1);
+    e->global_id = global_id;
+    proxy_event_queue (self, dispatch_bound, e);
+  } else {
+    on_proxy_bound (self, global_id);
+  }
 }
 
 static void
@@ -162,19 +303,19 @@ static void
 proxy_event_error (void *data, int seq, int res, const char *message)
 {
   WpProxy *self = WP_PROXY (data);
-  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
 
   wp_trace_object (self, "error seq:%d res:%d (%s) %s",
       seq, res, spa_strerror(res), message);
 
-  /* we destroy the proxy on error if feature bound is still not enabled */
-  if (priv->pw_proxy &&
-      !(wp_object_test_active_features (WP_OBJECT (self), WP_PROXY_FEATURE_BOUND)))
-    pw_proxy_destroy (priv->pw_proxy);
-
-  wp_object_abort_activation (WP_OBJECT (self), message);
-
-  g_signal_emit (self, signals[SIGNAL_ERROR], 0, seq, res, message);
+  if (proxy_event_needs_marshalling (self)) {
+    ProxyEvent *e = g_new0 (ProxyEvent, 1);
+    e->seq = seq;
+    e->res = res;
+    e->message = g_strdup (message);
+    proxy_event_queue (self, dispatch_error, e);
+  } else {
+    on_proxy_error (self, seq, res, message);
+  }
 }
 
 static const struct pw_proxy_events proxy_events = {
@@ -193,12 +334,27 @@ wp_proxy_init (WpProxy * self)
 static void
 wp_proxy_dispose (GObject * object)
 {
-  WpProxyPrivate *priv = wp_proxy_get_instance_private (WP_PROXY (object));
+  WpProxy *self = WP_PROXY (object);
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
 
+  wp_proxy_lock (self);
   if (priv->pw_proxy)
     pw_proxy_destroy (priv->pw_proxy);
+  wp_proxy_unlock (self);
 
   G_OBJECT_CLASS (wp_proxy_parent_class)->dispose (object);
+}
+
+static void
+wp_proxy_finalize (GObject * object)
+{
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (WP_PROXY (object));
+
+  /* released here rather than in dispose(), because subclasses destroy the
+     object they exported in their own finalize() and need the lock for it */
+  g_clear_object (&priv->ctx);
+
+  G_OBJECT_CLASS (wp_proxy_parent_class)->finalize (object);
 }
 
 static void
@@ -224,9 +380,14 @@ static void
 wp_proxy_deactivate (WpObject * object, WpObjectFeatures features)
 {
   if (features & WP_PROXY_FEATURE_BOUND) {
-    WpProxyPrivate *priv = wp_proxy_get_instance_private (WP_PROXY (object));
+    WpProxy *self = WP_PROXY (object);
+    WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+
+    wp_proxy_lock (self);
     if (priv->pw_proxy)
       pw_proxy_destroy (priv->pw_proxy);
+    wp_proxy_unlock (self);
+
     wp_object_update_features (object, 0, WP_PROXY_FEATURE_BOUND);
   }
 }
@@ -239,6 +400,7 @@ wp_proxy_class_init (WpProxyClass * klass)
 
   object_class->get_property = wp_proxy_get_property;
   object_class->dispose = wp_proxy_dispose;
+  object_class->finalize = wp_proxy_finalize;
 
   wpobject_class->deactivate = wp_proxy_deactivate;
 
@@ -291,12 +453,20 @@ wp_proxy_class_init (WpProxyClass * klass)
 guint32
 wp_proxy_get_bound_id (WpProxy * self)
 {
+  guint32 id;
+
   g_return_val_if_fail (WP_IS_PROXY (self), 0);
   g_warn_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
       WP_PROXY_FEATURE_BOUND);
 
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
-  return priv->pw_proxy ? pw_proxy_get_bound_id (priv->pw_proxy) : SPA_ID_INVALID;
+
+  wp_proxy_lock (self);
+  id = priv->pw_proxy ?
+      pw_proxy_get_bound_id (priv->pw_proxy) : SPA_ID_INVALID;
+  wp_proxy_unlock (self);
+
+  return id;
 }
 
 /*!
@@ -312,14 +482,20 @@ wp_proxy_get_interface_type (WpProxy * self, guint32 * version)
   g_return_val_if_fail (WP_IS_PROXY (self), NULL);
 
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  const gchar *type = NULL;
+
+  wp_proxy_lock (self);
   if (priv->pw_proxy)
-    return pw_proxy_get_type (priv->pw_proxy, version);
-  else {
+    type = pw_proxy_get_type (priv->pw_proxy, version);
+  wp_proxy_unlock (self);
+
+  if (!type) {
     WpProxyClass *klass = WP_PROXY_GET_CLASS (self);
     if (version)
       *version = klass->pw_iface_version;
-    return klass->pw_iface_type;
+    type = klass->pw_iface_type;
   }
+  return type;
 }
 
 /*!
@@ -344,6 +520,11 @@ wp_proxy_get_pw_proxy (WpProxy * self)
  * This can be called only if there is no `pw_proxy` already set.
  * Takes ownership of \a proxy.
  *
+ * \remarks If the proxy belongs to the export context (see
+ *   wp_proxy_set_export_context()), this must be called with the export
+ *   context locked, in the same locked section that created \a proxy, so that
+ *   no event can be missed in between.
+ *
  * \ingroup wpproxy
  */
 void
@@ -358,9 +539,38 @@ wp_proxy_set_pw_proxy (WpProxy * self, struct pw_proxy * proxy)
   g_return_if_fail (priv->pw_proxy == NULL);
   priv->pw_proxy = proxy;
 
+  wp_proxy_lock (self);
   pw_proxy_add_listener (priv->pw_proxy, &priv->listener, &proxy_events,
       self);
+  wp_proxy_unlock (self);
 
   /* inform subclasses and listeners */
   g_signal_emit (self, signals[SIGNAL_PW_PROXY_CREATED], 0, priv->pw_proxy);
+}
+
+/*
+ * Declares that this proxy's pw_proxy lives on \a ctx's connection; see
+ * private/export-context.h. Must be called before wp_proxy_set_pw_proxy().
+ */
+void
+wp_proxy_set_export_context (WpProxy * self, WpExportContext * ctx)
+{
+  g_return_if_fail (WP_IS_PROXY (self));
+
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+
+  g_return_if_fail (priv->pw_proxy == NULL);
+  g_set_object (&priv->ctx, ctx);
+}
+
+/*
+ * Returns the export context this proxy belongs to, or NULL. (transfer none)
+ */
+WpExportContext *
+wp_proxy_get_export_context (WpProxy * self)
+{
+  g_return_val_if_fail (WP_IS_PROXY (self), NULL);
+
+  WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
+  return priv->ctx;
 }

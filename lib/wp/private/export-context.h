@@ -9,6 +9,7 @@
 #define __WIREPLUMBER_EXPORT_CONTEXT_H__
 
 #include "../core.h"
+#include "../proxy.h"
 #include "../spa-json.h"
 
 G_BEGIN_DECLS
@@ -61,8 +62,15 @@ WpExportContext * wp_export_context_new (WpCore * core, WpSpaJson * args,
  */
 WpExportContext * wp_export_context_find (WpCore * core);
 
+/*
+ * The lock is recursive (pw_thread_loop uses a PTHREAD_MUTEX_RECURSIVE mutex),
+ * so nesting these is safe.
+ */
 void wp_export_context_lock (WpExportContext * self);
 void wp_export_context_unlock (WpExportContext * self);
+
+/* TRUE when called from the export context's loop thread */
+gboolean wp_export_context_in_thread (WpExportContext * self);
 
 struct pw_context * wp_export_context_get_pw_context (WpExportContext * self);
 struct pw_core * wp_export_context_get_pw_core (WpExportContext * self);
@@ -77,6 +85,21 @@ struct pw_core * wp_export_context_get_pw_core (WpExportContext * self);
  */
 void wp_export_context_invoke_main (WpExportContext * self,
     GSourceFunc callback, gpointer data, GDestroyNotify destroy);
+
+/*
+ * WpProxy integration (implemented in proxy.c)
+ *
+ * A WpProxy whose pw_proxy lives on the export context's connection must be
+ * told about it, before wp_proxy_set_pw_proxy() is called. WpProxy then takes
+ * the loop lock around every pw_proxy call it makes and hands the pw_proxy
+ * events that arrive on the loop thread over to the main thread.
+ *
+ * Note that this also means the object that the proxy exports must have been
+ * created in the same context: pw_core_export() ties the exported object's
+ * own context and data loop to the connection it is exported on.
+ */
+void wp_proxy_set_export_context (WpProxy * self, WpExportContext * ctx);
+WpExportContext * wp_proxy_get_export_context (WpProxy * self);
 
 G_END_DECLS
 

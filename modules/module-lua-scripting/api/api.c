@@ -1076,7 +1076,7 @@ spa_device_new (lua_State *L)
     properties = wp_properties_ref (wplua_checkboxed (L, 2,
         WP_TYPE_PROPERTIES));
 
-  WpSpaDevice *d = wp_spa_device_new_from_spa_factory (get_wp_export_core (L),
+  WpSpaDevice *d = wp_spa_device_new_from_spa_factory (get_wp_core (L),
       factory, properties);
   if (d)
     wplua_pushobject (L, d);
@@ -1279,7 +1279,7 @@ impl_node_new (lua_State *L)
     properties = wp_properties_ref (wplua_checkboxed (L, 2,
         WP_TYPE_PROPERTIES));
 
-  WpImplNode *d = wp_impl_node_new_from_pw_factory (get_wp_export_core (L),
+  WpImplNode *d = wp_impl_node_new_from_pw_factory (get_wp_core (L),
      factory, properties);
   if (d)
     wplua_pushobject (L, d);

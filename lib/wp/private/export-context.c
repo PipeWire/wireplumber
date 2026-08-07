@@ -44,7 +44,10 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-export-context")
  *  - client-node: required by pw_core_export(), which is how pw_stream and
  *    pw_filter (and therefore module-loopback, module-filter-chain, ...)
  *    publish their local pw_impl_node
- *  - adapter: pw_stream_connect() wraps its node in an adapter
+ *  - client-device: same, for the spa_device handles behind SpaDevice()
+ *  - adapter: pw_stream_connect() wraps its node in an adapter, and it is also
+ *    the factory behind LocalNode("adapter")
+ *  - spa-node-factory: the factory behind LocalNode("spa-node-factory")
  *  - metadata: needed by modules that watch or set metadata
  *  - rt: RT priority for this context's data loop
  *
@@ -56,7 +59,9 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-export-context")
   "  { name = libpipewire-module-rt, flags = [ ifexists, nofail ] }" \
   "  { name = libpipewire-module-protocol-native }" \
   "  { name = libpipewire-module-client-node }" \
+  "  { name = libpipewire-module-client-device }" \
   "  { name = libpipewire-module-adapter }" \
+  "  { name = libpipewire-module-spa-node-factory }" \
   "  { name = libpipewire-module-metadata }" \
   "]"
 
@@ -390,6 +395,13 @@ wp_export_context_unlock (WpExportContext * self)
 {
   g_return_if_fail (WP_IS_EXPORT_CONTEXT (self));
   pw_thread_loop_unlock (self->thread_loop);
+}
+
+gboolean
+wp_export_context_in_thread (WpExportContext * self)
+{
+  g_return_val_if_fail (WP_IS_EXPORT_CONTEXT (self), FALSE);
+  return pw_thread_loop_in_thread (self->thread_loop);
 }
 
 struct pw_context *
