@@ -745,29 +745,6 @@ ensure_no_media_session (GTask * task, WpCore * core, WpSpaJson * args)
 }
 
 static void
-load_export_core (GTask * task, WpCore * core, WpSpaJson * args)
-{
-  g_autofree gchar *export_core_name = NULL;
-  g_autoptr (WpCore) export_core = NULL;
-  g_autoptr (WpProperties) props = wp_core_get_properties (core);
-  const gchar *str = NULL;
-
-  wp_info_object (core, "connecting export core to pipewire...");
-
-  str = wp_properties_get (props, PW_KEY_APP_NAME);
-  export_core_name =
-      g_strdup_printf ("%s [export]", str ? str : "WirePlumber");
-
-  export_core = wp_core_clone (core);
-  wp_core_update_properties (export_core, wp_properties_new (
-        PW_KEY_APP_NAME, export_core_name,
-        "wireplumber.export-core", "true",
-        NULL));
-
-  g_task_return_pointer (task, g_steal_pointer (&export_core), g_object_unref);
-}
-
-static void
 load_export_context (GTask * task, WpCore * core, WpSpaJson * args)
 {
   g_autoptr (GError) error = NULL;
@@ -803,8 +780,11 @@ static const struct {
   void (*load) (GTask *, WpCore *, WpSpaJson *);
 } builtin_components[] = {
   { "ensure-no-media-session", ensure_no_media_session },
-  { "export-core", load_export_core },
   { "export-context", load_export_context },
+  /* "export-core" used to make a second connection to PipeWire on the main
+     loop; it is superseded by the export context, which does that and more.
+     Kept as an alias so that older configuration files keep working. */
+  { "export-core", load_export_context },
   { "settings-instance", load_settings_instance },
 };
 

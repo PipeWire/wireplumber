@@ -565,22 +565,14 @@ wp_core_activate_execute_step (WpObject * object,
 
     case STEP_LOAD_COMPONENTS: {
       g_autoptr (WpProperties) props = wp_core_get_properties (self);
+      const gchar *profile = wp_properties_get (props, "wireplumber.profile");
 
-      if (spa_atob (wp_properties_get (props, "wireplumber.export-core"))) {
-        /* do not load any components on the export core */
-        wp_object_update_features (WP_OBJECT (self), WP_CORE_FEATURE_COMPONENTS, 0);
-        return;
-      }
-      else {
-        const gchar *profile = wp_properties_get (props, "wireplumber.profile");
+      wp_info_object (self,
+          "parsing & loading components for profile [%s]...", profile);
 
-        wp_info_object (self,
-            "parsing & loading components for profile [%s]...", profile);
-
-        /* Load components that are defined in the configuration section */
-        wp_core_load_component (self, profile, "profile", NULL, NULL, NULL,
-            (GAsyncReadyCallback) on_components_loaded, transition);
-      }
+      /* Load components that are defined in the configuration section */
+      wp_core_load_component (self, profile, "profile", NULL, NULL, NULL,
+          (GAsyncReadyCallback) on_components_loaded, transition);
       break;
     }
 
@@ -687,34 +679,27 @@ wp_core_clone (WpCore * self)
       NULL);
 }
 
-static gboolean
-find_export_core (gconstpointer a, gconstpointer b)
-{
-  gpointer obj = (gpointer) a;
-  if (WP_IS_CORE ((gpointer) obj)) {
-    g_autoptr (WpProperties) props = wp_core_get_properties (WP_CORE (obj));
-    if (spa_atob (wp_properties_get (props, "wireplumber.export-core")))
-      return TRUE;
-  }
-  return FALSE;
-}
-
 /*!
- * \brief Returns the special WpCore that is used to maintain a secondary
- * connection to PipeWire, for exporting objects
+ * \brief Returns NULL
  *
- * The export core is enabled by loading the built-in "export-core" component.
+ * \deprecated The export core used to be a secondary connection to PipeWire,
+ * sharing the loop of \a self, on which objects implemented in-process were
+ * exported. It has been superseded by the export context, which hosts those
+ * objects in a separate pw_context running on its own thread, so that they are
+ * not affected by anything that blocks WirePlumber's main loop. The export
+ * context is internal and has no WpCore associated with it; objects are placed
+ * in it transparently, so there is no replacement for this method.
  *
  * \ingroup wpcore
  * \param self the core
- * \returns (transfer full): the export WpCore
+ * \returns (transfer full) (nullable): NULL
  */
 WpCore *
 wp_core_get_export_core (WpCore * self)
 {
   g_return_val_if_fail (WP_IS_CORE (self), NULL);
 
-  return wp_core_find_object (self, find_export_core, NULL);
+  return NULL;
 }
 
 /*!

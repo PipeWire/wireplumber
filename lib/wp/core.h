@@ -49,7 +49,7 @@ WP_API
 WpCore * wp_core_clone (WpCore * self);
 
 WP_API
-WpCore * wp_core_get_export_core (WpCore * self);
+WpCore * wp_core_get_export_core (WpCore * self) G_GNUC_DEPRECATED;
 
 WP_API
 WpConf * wp_core_get_conf (WpCore * self);

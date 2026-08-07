@@ -34,14 +34,6 @@ get_wp_core (lua_State *L)
   return core;
 }
 
-static WpCore *
-get_wp_export_core (lua_State *L)
-{
-  WpCore *core = get_wp_core (L);
-  g_autoptr (WpCore) export_core = wp_core_get_export_core (core);
-  return export_core ? export_core : core;
-}
-
 /* GLib */
 
 static int
@@ -1055,7 +1047,7 @@ device_new (lua_State *L)
     properties = wp_properties_ref (wplua_checkboxed (L, 2,
         WP_TYPE_PROPERTIES));
 
-  WpDevice *d = wp_device_new_from_factory (get_wp_export_core (L),
+  WpDevice *d = wp_device_new_from_factory (get_wp_core (L),
       factory, properties);
   if (d)
     wplua_pushobject (L, d);
@@ -1169,7 +1161,7 @@ node_new (lua_State *L)
     properties = wp_properties_ref (
         wplua_checkboxed (L, 2, WP_TYPE_PROPERTIES));
 
-  WpNode *d = wp_node_new_from_factory (get_wp_export_core (L),
+  WpNode *d = wp_node_new_from_factory (get_wp_core (L),
       factory, properties);
   if (d)
     wplua_pushobject (L, d);
