@@ -255,6 +255,12 @@ build_properties (WpCore * core, WpSpaJson * args)
 
   /* mark this connection, so that it can be told apart in pw-cli & friends */
   wp_properties_set (props, "wireplumber.export-context", "true");
+  {
+    const gchar *app_name = wp_properties_get (props, PW_KEY_APP_NAME);
+    g_autofree gchar *name = g_strdup_printf ("%s [export]",
+        app_name ? app_name : "WirePlumber");
+    wp_properties_set (props, PW_KEY_APP_NAME, name);
+  }
 
   /* This context is configured entirely from load_modules() below, so keep
      pw_context_new() from loading pipewire's client.conf on top of that.
