@@ -207,6 +207,13 @@ by libpipewire to configure the PipeWire context:
      which may be preferable since it allows you to load them conditionally
      based on the profile and component dependencies.
 
+  .. note::
+
+     Modules listed here are loaded in WirePlumber's main ``pw_context``. The
+     *export context* (see ``support.export-context`` in :ref:`config_features`)
+     is a second ``pw_context`` and therefore has its own list of modules, which
+     is given in the ``arguments`` of the ``export-context`` component.
+
   .. admonition:: Remember
 
      Modules listed in *context.modules* are always loaded before attempting a

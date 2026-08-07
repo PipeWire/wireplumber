@@ -823,6 +823,16 @@ wp_spa_device_deactivate (WpObject * object, WpObjectFeatures features)
  * export should be done before enabling the device, by requesting both
  * features at the same time.
  *
+ * \remarks When the "export-context" component is loaded, which is the case in
+ * the default daemon configuration, the SPA handle is loaded in a secondary
+ * `pw_context` that runs on its own thread, so that the device is not affected
+ * by anything that blocks WirePlumber's main loop. The WpSpaDevice itself stays
+ * on the thread that created it: all the signals below are emitted there, in
+ * the order in which the `spa_device` emitted them, and
+ * wp_spa_device_enum_params_sync() and wp_spa_device_set_param() remain
+ * synchronous. Note, though, that the signals are then emitted asynchronously,
+ * so a handler may run after the call that caused the event has returned.
+ *
  * \gproperties
  *
  * \gproperty{properties, WpProperties *, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY,

@@ -811,6 +811,16 @@ wp_impl_node_activate_execute_step (WpObject * object,
  * constructed `pw_impl_node`. This object can then be exported to PipeWire
  * by requesting WP_PROXY_FEATURE_BOUND.
  *
+ * \remarks When the "export-context" component is loaded, which is the case in
+ * the default daemon configuration, wp_impl_node_new_from_pw_factory() creates
+ * the node in a secondary `pw_context` that runs on its own thread, so that the
+ * node is not affected by anything that blocks WirePlumber's main loop, and
+ * exports it on that context's connection. The WpImplNode itself stays on the
+ * thread that created it: its features, signals and the rest of its API are
+ * unchanged. Nodes wrapped with wp_impl_node_new_wrap() belong to whichever
+ * context the given `pw_impl_node` was created in, which is the core's own
+ * `pw_context` in most cases, and are exported on the core's connection.
+ *
  * \gproperties
  *
  * \gproperty{pw-impl-node, gpointer, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY,

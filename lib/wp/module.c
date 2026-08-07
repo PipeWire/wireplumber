@@ -22,6 +22,14 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-module")
  * Used to load PipeWire modules within the WirePlumber process. This is
  * slightly different from other objects in that the module is not exported to
  * PipeWire, but it may create an export objects itself.
+ *
+ * \remarks When the "export-context" component is loaded, which is the case in
+ * the default daemon configuration, the module is loaded in a secondary
+ * `pw_context` that runs on its own thread, so that it is not affected by
+ * anything that blocks WirePlumber's main loop. The WpImplModule itself stays
+ * on the thread that created it and its API is unchanged; the module's own
+ * callbacks, though, run on that other thread. If the component is not loaded,
+ * the module is loaded in the core's `pw_context` instead.
  */
 
 struct _WpImplModule
