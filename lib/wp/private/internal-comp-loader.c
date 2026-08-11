@@ -9,7 +9,7 @@
 #include "internal-comp-loader.h"
 #include "wp.h"
 #include "registry.h"
-#include "export-context.h"
+#include "client-context.h"
 
 #include <pipewire/impl.h>
 
@@ -745,14 +745,14 @@ ensure_no_media_session (GTask * task, WpCore * core, WpSpaJson * args)
 }
 
 static void
-load_export_context (GTask * task, WpCore * core, WpSpaJson * args)
+load_client_context (GTask * task, WpCore * core, WpSpaJson * args)
 {
   g_autoptr (GError) error = NULL;
-  WpExportContext *ctx = NULL;
+  WpClientContext *ctx = NULL;
 
-  wp_info_object (core, "starting the export context...");
+  wp_info_object (core, "starting the client context...");
 
-  ctx = wp_export_context_new (core, args, &error);
+  ctx = wp_client_context_new (core, args, &error);
   if (!ctx) {
     g_task_return_error (task, g_steal_pointer (&error));
     return;
@@ -780,11 +780,11 @@ static const struct {
   void (*load) (GTask *, WpCore *, WpSpaJson *);
 } builtin_components[] = {
   { "ensure-no-media-session", ensure_no_media_session },
-  { "export-context", load_export_context },
+  { "client-context", load_client_context },
   /* "export-core" used to make a second connection to PipeWire on the main
-     loop; it is superseded by the export context, which does that and more.
+     loop; it is superseded by the client context, which does that and more.
      Kept as an alias so that older configuration files keep working. */
-  { "export-core", load_export_context },
+  { "export-core", load_client_context },
   { "settings-instance", load_settings_instance },
 };
 
@@ -914,7 +914,7 @@ wp_internal_comp_loader_supports_type (WpComponentLoader * cl,
 {
   return g_str_equal (type, "module") ||
          g_str_equal (type, "pw-module") ||
-         g_str_equal (type, "pw-module-export") ||
+         g_str_equal (type, "pw-module-client") ||
          g_str_equal (type, "virtual") ||
          g_str_equal (type, "built-in") ||
          g_str_equal (type, "profile") ||
@@ -992,7 +992,7 @@ wp_internal_comp_loader_load (WpComponentLoader * self, WpCore * core,
         g_task_return_pointer (task, NULL, NULL);
       }
     }
-    else if (g_str_equal (type, "pw-module-export")) {
+    else if (g_str_equal (type, "pw-module-client")) {
       g_autofree gchar *module_args = args ?
           g_strndup (wp_spa_json_get_data (args), wp_spa_json_get_size (args)) :
           NULL;

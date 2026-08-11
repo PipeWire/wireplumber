@@ -8,7 +8,7 @@
 
 #include "module.h"
 #include "log.h"
-#include "private/export-context.h"
+#include "private/client-context.h"
 
 #include <pipewire/impl.h>
 
@@ -23,7 +23,7 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-module")
  * slightly different from other objects in that the module is not exported to
  * PipeWire, but it may create an export objects itself.
  *
- * \remarks When the "export-context" component is loaded, which is the case in
+ * \remarks When the "client-context" component is loaded, which is the case in
  * the default daemon configuration, the module is loaded in a secondary
  * `pw_context` that runs on its own thread, so that it is not affected by
  * anything that blocks WirePlumber's main loop. The WpImplModule itself stays
@@ -43,10 +43,10 @@ struct _WpImplModule
 
   /* the context that hosts the module; when this is set, the module lives on
      another thread and every access to pw_impl_module below must be done with
-     the export context locked. It is NULL when the export-context component is
+     the client context locked. It is NULL when the client-context component is
      not loaded, in which case the module is hosted by the core's own
      pw_context, on this thread, and no locking is needed */
-  WpExportContext *ctx;
+  WpClientContext *ctx;
 
   struct pw_impl_module *pw_impl_module;
   struct spa_hook impl_module_listener;
@@ -56,14 +56,14 @@ static inline void
 wp_impl_module_lock (WpImplModule * self)
 {
   if (self->ctx)
-    wp_export_context_lock (self->ctx);
+    wp_client_context_lock (self->ctx);
 }
 
 static inline void
 wp_impl_module_unlock (WpImplModule * self)
 {
   if (self->ctx)
-    wp_export_context_unlock (self->ctx);
+    wp_client_context_unlock (self->ctx);
 }
 
 G_DEFINE_TYPE (WpImplModule, wp_impl_module, G_TYPE_OBJECT);
@@ -109,11 +109,11 @@ wp_impl_module_constructed (GObject * object)
   struct pw_context *context = NULL;
   struct pw_properties *props = NULL;
 
-  /* prefer the export context, so that the module runs on its own thread and
+  /* prefer the client context, so that the module runs on its own thread and
      is not delayed by whatever WirePlumber's main loop happens to be doing */
-  self->ctx = core ? wp_export_context_find (core) : NULL;
+  self->ctx = core ? wp_client_context_find (core) : NULL;
   if (self->ctx)
-    context = wp_export_context_get_pw_context (self->ctx);
+    context = wp_client_context_get_pw_context (self->ctx);
   else if (core)
     context = wp_core_get_pw_context (core);
 
@@ -141,10 +141,10 @@ wp_impl_module_constructed (GObject * object)
   wp_impl_module_unlock (self);
 
   if (self->pw_impl_module) {
-    /* the caller loses the isolation the export context provides if it is not
+    /* the caller loses the isolation the client context provides if it is not
        loaded yet, so make it visible which context ended up hosting this */
     wp_debug_object (self, "loaded '%s' in the %s context", self->name,
-        self->ctx ? "export" : "main");
+        self->ctx ? "client" : "manager");
 
     if (self->props) {
       /* With the module loaded, properties are just passthrough now */

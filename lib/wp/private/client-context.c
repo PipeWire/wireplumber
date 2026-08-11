@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "export-context.h"
+#include "client-context.h"
 #include "conf-sections.h"
 #include "../error.h"
 #include "../log.h"
@@ -18,10 +18,10 @@
 
 #include <errno.h>
 
-WP_DEFINE_LOCAL_LOG_TOPIC ("wp-export-context")
+WP_DEFINE_LOCAL_LOG_TOPIC ("wp-client-context")
 
 /*
- * The export pw_context never loads a .conf file of its own (see
+ * The client pw_context never loads a .conf file of its own (see
  * build_properties()); it is configured only from the component's "arguments",
  * falling back to the main WpConf and then to the lists below.
  *
@@ -36,7 +36,7 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-export-context")
   "}"
 
 /*
- * The modules that the export context needs in order to be useful, used when
+ * The modules that the client context needs in order to be useful, used when
  * the component does not provide a "context.modules" argument. Note that
  * modules are per-context, so these are loaded in addition to whatever the
  * main context has loaded:
@@ -88,7 +88,7 @@ invoke_item_free (InvokeItem * item)
   g_free (item);
 }
 
-struct _WpExportContext
+struct _WpClientContext
 {
   GObject parent;
 
@@ -109,17 +109,17 @@ struct _WpExportContext
   gboolean stopping;
 };
 
-G_DEFINE_TYPE (WpExportContext, wp_export_context, G_TYPE_OBJECT)
+G_DEFINE_TYPE (WpClientContext, wp_client_context, G_TYPE_OBJECT)
 
 typedef struct {
   GSource parent;
-  WpExportContext *self;
+  WpClientContext *self;
 } QueueSource;
 
 static gboolean
 queue_source_has_items (QueueSource * qs)
 {
-  WpExportContext *self = qs->self;
+  WpClientContext *self = qs->self;
   gboolean ready;
 
   g_mutex_lock (&self->queue_lock);
@@ -145,7 +145,7 @@ queue_source_check (GSource * s)
 static gboolean
 queue_source_dispatch (GSource * s, GSourceFunc callback, gpointer user_data)
 {
-  WpExportContext *self = ((QueueSource *) s)->self;
+  WpClientContext *self = ((QueueSource *) s)->self;
   InvokeItem *item;
 
   /* dispatch a single item, so that other sources get a chance to run
@@ -170,12 +170,12 @@ static GSourceFuncs queue_source_funcs = {
 };
 
 void
-wp_export_context_invoke_main (WpExportContext * self, GSourceFunc callback,
+wp_client_context_invoke_main (WpClientContext * self, GSourceFunc callback,
     gpointer data, GDestroyNotify destroy)
 {
   InvokeItem *item;
 
-  g_return_if_fail (WP_IS_EXPORT_CONTEXT (self));
+  g_return_if_fail (WP_IS_CLIENT_CONTEXT (self));
   g_return_if_fail (callback);
 
   item = g_new0 (InvokeItem, 1);
@@ -200,7 +200,7 @@ wp_export_context_invoke_main (WpExportContext * self, GSourceFunc callback,
 static gboolean
 on_disconnected_idle (gpointer data)
 {
-  WpExportContext *self = WP_EXPORT_CONTEXT (data);
+  WpClientContext *self = WP_CLIENT_CONTEXT (data);
   g_signal_emit (self, signals[SIGNAL_DISCONNECTED], 0);
   return G_SOURCE_REMOVE;
 }
@@ -209,12 +209,12 @@ on_disconnected_idle (gpointer data)
 static void
 core_error (void *data, uint32_t id, int seq, int res, const char *message)
 {
-  WpExportContext *self = WP_EXPORT_CONTEXT (data);
+  WpClientContext *self = WP_CLIENT_CONTEXT (data);
 
   if (id == 0) {
-    wp_warning_object (self, "export context connection error: %s", message);
+    wp_warning_object (self, "client context connection error: %s", message);
     if (res == -EPIPE)
-      wp_export_context_invoke_main (self, on_disconnected_idle,
+      wp_client_context_invoke_main (self, on_disconnected_idle,
           g_object_ref (self), g_object_unref);
   }
 }
@@ -228,7 +228,7 @@ static const struct pw_core_events core_events = {
 static void
 proxy_core_destroy (void *data)
 {
-  WpExportContext *self = WP_EXPORT_CONTEXT (data);
+  WpClientContext *self = WP_CLIENT_CONTEXT (data);
 
   spa_hook_remove (&self->core_listener);
   spa_hook_remove (&self->proxy_core_listener);
@@ -254,10 +254,10 @@ build_properties (WpCore * core, WpSpaJson * args)
   wp_properties_set (props, PW_KEY_CORE_NAME, NULL);
 
   /* mark this connection, so that it can be told apart in pw-cli & friends */
-  wp_properties_set (props, "wireplumber.export-context", "true");
+  wp_properties_set (props, "wireplumber.client-context", "true");
   {
     const gchar *app_name = wp_properties_get (props, PW_KEY_APP_NAME);
-    g_autofree gchar *name = g_strdup_printf ("%s [export]",
+    g_autofree gchar *name = g_strdup_printf ("%s [client]",
         app_name ? app_name : "WirePlumber");
     wp_properties_set (props, PW_KEY_APP_NAME, name);
   }
@@ -280,7 +280,7 @@ build_properties (WpCore * core, WpSpaJson * args)
 }
 
 static gboolean
-load_modules (WpExportContext * self, WpCore * core, WpSpaJson * args,
+load_modules (WpClientContext * self, WpCore * core, WpSpaJson * args,
     GError ** error)
 {
   g_autoptr (WpConf) conf = wp_core_get_conf (core);
@@ -293,7 +293,7 @@ load_modules (WpExportContext * self, WpCore * core, WpSpaJson * args,
     wp_spa_json_object_get (args, "context.modules", "J", &modules, NULL);
   }
 
-  /* the export context needs the same spa factory mappings as the main one */
+  /* the client context needs the same spa factory mappings as the main one */
   if (!spa_libs && conf)
     spa_libs = wp_conf_get_section (conf, "context.spa-libs");
   if (!spa_libs)
@@ -307,28 +307,28 @@ load_modules (WpExportContext * self, WpCore * core, WpSpaJson * args,
   if (res < 0)
     return FALSE;
 
-  wp_info_object (self, "loaded %d modules in the export context", res);
+  wp_info_object (self, "loaded %d modules in the client context", res);
   return TRUE;
 }
 
-WpExportContext *
-wp_export_context_new (WpCore * core, WpSpaJson * args, GError ** error)
+WpClientContext *
+wp_client_context_new (WpCore * core, WpSpaJson * args, GError ** error)
 {
-  g_autoptr (WpExportContext) self = NULL;
+  g_autoptr (WpClientContext) self = NULL;
   struct pw_properties *props = NULL;
 
   g_return_val_if_fail (WP_IS_CORE (core), NULL);
 
-  self = g_object_new (WP_TYPE_EXPORT_CONTEXT, NULL);
+  self = g_object_new (WP_TYPE_CLIENT_CONTEXT, NULL);
   g_weak_ref_set (&self->core, core);
   self->g_main_context =
       g_main_context_ref (wp_core_get_g_main_context (core) ?
           wp_core_get_g_main_context (core) : g_main_context_default ());
 
-  self->thread_loop = pw_thread_loop_new ("wp-export", NULL);
+  self->thread_loop = pw_thread_loop_new ("wp-client", NULL);
   if (!self->thread_loop) {
     g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-        "failed to create the export context thread loop");
+        "failed to create the client context thread loop");
     return NULL;
   }
 
@@ -337,7 +337,7 @@ wp_export_context_new (WpCore * core, WpSpaJson * args, GError ** error)
       pw_context_new (pw_thread_loop_get_loop (self->thread_loop), props, 0);
   if (!self->pw_context) {
     g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-        "failed to create the export pw_context");
+        "failed to create the client pw_context");
     return NULL;
   }
 
@@ -350,7 +350,7 @@ wp_export_context_new (WpCore * core, WpSpaJson * args, GError ** error)
   self->pw_core = pw_context_connect (self->pw_context, NULL, 0);
   if (!self->pw_core) {
     g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_SERVICE_UNAVAILABLE,
-        "failed to connect the export context to PipeWire: %s",
+        "failed to connect the client context to PipeWire: %s",
         g_strerror (errno));
     return NULL;
   }
@@ -365,69 +365,69 @@ wp_export_context_new (WpCore * core, WpSpaJson * args, GError ** error)
 
   if (pw_thread_loop_start (self->thread_loop) < 0) {
     g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-        "failed to start the export context thread loop");
+        "failed to start the client context thread loop");
     return NULL;
   }
 
-  wp_info_object (self, "export context started");
+  wp_info_object (self, "client context started");
   return g_steal_pointer (&self);
 }
 
 static gboolean
-find_export_context (gconstpointer a, gconstpointer b)
+find_client_context (gconstpointer a, gconstpointer b)
 {
-  return WP_IS_EXPORT_CONTEXT ((gpointer)a);
+  return WP_IS_CLIENT_CONTEXT ((gpointer)a);
 }
 
-WpExportContext *
-wp_export_context_find (WpCore * core)
+WpClientContext *
+wp_client_context_find (WpCore * core)
 {
   g_return_val_if_fail (WP_IS_CORE (core), NULL);
-  GObject *c = wp_core_find_object (core, find_export_context, NULL);
-  return c ? WP_EXPORT_CONTEXT (c) : NULL;
+  GObject *c = wp_core_find_object (core, find_client_context, NULL);
+  return c ? WP_CLIENT_CONTEXT (c) : NULL;
 }
 
 /*** accessors ***/
 
 void
-wp_export_context_lock (WpExportContext * self)
+wp_client_context_lock (WpClientContext * self)
 {
-  g_return_if_fail (WP_IS_EXPORT_CONTEXT (self));
+  g_return_if_fail (WP_IS_CLIENT_CONTEXT (self));
   pw_thread_loop_lock (self->thread_loop);
 }
 
 void
-wp_export_context_unlock (WpExportContext * self)
+wp_client_context_unlock (WpClientContext * self)
 {
-  g_return_if_fail (WP_IS_EXPORT_CONTEXT (self));
+  g_return_if_fail (WP_IS_CLIENT_CONTEXT (self));
   pw_thread_loop_unlock (self->thread_loop);
 }
 
 gboolean
-wp_export_context_in_thread (WpExportContext * self)
+wp_client_context_in_thread (WpClientContext * self)
 {
-  g_return_val_if_fail (WP_IS_EXPORT_CONTEXT (self), FALSE);
+  g_return_val_if_fail (WP_IS_CLIENT_CONTEXT (self), FALSE);
   return pw_thread_loop_in_thread (self->thread_loop);
 }
 
 struct pw_context *
-wp_export_context_get_pw_context (WpExportContext * self)
+wp_client_context_get_pw_context (WpClientContext * self)
 {
-  g_return_val_if_fail (WP_IS_EXPORT_CONTEXT (self), NULL);
+  g_return_val_if_fail (WP_IS_CLIENT_CONTEXT (self), NULL);
   return self->pw_context;
 }
 
 struct pw_core *
-wp_export_context_get_pw_core (WpExportContext * self)
+wp_client_context_get_pw_core (WpClientContext * self)
 {
-  g_return_val_if_fail (WP_IS_EXPORT_CONTEXT (self), NULL);
+  g_return_val_if_fail (WP_IS_CLIENT_CONTEXT (self), NULL);
   return self->pw_core;
 }
 
 /*** GObject ***/
 
 static void
-wp_export_context_init (WpExportContext * self)
+wp_client_context_init (WpClientContext * self)
 {
   g_weak_ref_init (&self->core, NULL);
   g_mutex_init (&self->queue_lock);
@@ -435,9 +435,9 @@ wp_export_context_init (WpExportContext * self)
 }
 
 static void
-wp_export_context_finalize (GObject * object)
+wp_client_context_finalize (GObject * object)
 {
-  WpExportContext *self = WP_EXPORT_CONTEXT (object);
+  WpClientContext *self = WP_CLIENT_CONTEXT (object);
   InvokeItem *item;
 
   /* stop the loop thread first; from here on, nothing can be queued anymore
@@ -466,17 +466,17 @@ wp_export_context_finalize (GObject * object)
   g_mutex_clear (&self->queue_lock);
   g_weak_ref_clear (&self->core);
 
-  wp_debug_object (self, "export context destroyed");
+  wp_debug_object (self, "client context destroyed");
 
-  G_OBJECT_CLASS (wp_export_context_parent_class)->finalize (object);
+  G_OBJECT_CLASS (wp_client_context_parent_class)->finalize (object);
 }
 
 static void
-wp_export_context_class_init (WpExportContextClass * klass)
+wp_client_context_class_init (WpClientContextClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
 
-  object_class->finalize = wp_export_context_finalize;
+  object_class->finalize = wp_client_context_finalize;
 
   signals[SIGNAL_DISCONNECTED] = g_signal_new ("disconnected",
       G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_LAST, 0, NULL, NULL, NULL,

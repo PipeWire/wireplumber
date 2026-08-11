@@ -99,11 +99,11 @@ Video
 Support components
 ------------------
 
-.. describe:: support.export-context
+.. describe:: support.client-context
 
    Starts a secondary ``pw_context``, running on its own thread, which hosts
    every PipeWire object that WirePlumber implements in its own process: the
-   PipeWire modules loaded as ``pw-module-export`` components or from Lua with
+   PipeWire modules loaded as ``pw-module-client`` components or from Lua with
    ``LocalModule()``, the nodes created with ``LocalNode()`` and the SPA device
    handles wrapped by ``SpaDevice()``.
 

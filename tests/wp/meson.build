@@ -25,8 +25,8 @@ test(
 )
 
 test(
-  'test-export-context',
-  executable('test-export-context', 'export-context.c',
+  'test-client-context',
+  executable('test-client-context', 'client-context.c',
       dependencies: common_deps),
   env: common_env,
 )

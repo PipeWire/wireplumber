@@ -74,11 +74,11 @@ The main types of components are:
     extensions and object factories need, since WirePlumber itself uses them
     from that context.
 
-  * **pw-module-export**
+  * **pw-module-client**
 
-    A PipeWire module, like above, but loaded in the *export context*: a
+    A PipeWire module, like above, but loaded in the *client context*: a
     secondary ``pw_context`` that runs on its own thread (see
-    ``support.export-context`` in :ref:`config_features`).
+    ``support.client-context`` in :ref:`config_features`).
 
     This is the right type for modules that process media, such as
     ``libpipewire-module-loopback``, ``libpipewire-module-filter-chain`` and

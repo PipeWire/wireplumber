@@ -210,9 +210,9 @@ by libpipewire to configure the PipeWire context:
   .. note::
 
      Modules listed here are loaded in WirePlumber's main ``pw_context``. The
-     *export context* (see ``support.export-context`` in :ref:`config_features`)
+     *client context* (see ``support.client-context`` in :ref:`config_features`)
      is a second ``pw_context`` and therefore has its own list of modules, which
-     is given in the ``arguments`` of the ``export-context`` component.
+     is given in the ``arguments`` of the ``client-context`` component.
 
   .. admonition:: Remember
 

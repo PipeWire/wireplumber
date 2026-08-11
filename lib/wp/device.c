@@ -11,7 +11,7 @@
 #include "core.h"
 #include "log.h"
 #include "error.h"
-#include "private/export-context.h"
+#include "private/client-context.h"
 #include "private/pipewire-object-mixin.h"
 
 #include <pipewire/impl.h>
@@ -206,27 +206,28 @@ struct _WpSpaDevice
   GPtrArray *pending_obj_config;
 };
 
-/* the spa_device lives in the export context when there is one, so it runs on
-   another thread; see private/export-context.h */
+/* the spa_device lives in the client context when there is one, so it runs on
+   another thread; see private/client-context.h */
 static inline void
 wp_spa_device_lock (WpSpaDevice * self)
 {
-  WpExportContext *ctx = wp_proxy_get_export_context (WP_PROXY (self));
+  WpClientContext *ctx = wp_proxy_get_client_context (WP_PROXY (self));
   if (ctx)
-    wp_export_context_lock (ctx);
+    wp_client_context_lock (ctx);
 }
 
 static inline void
 wp_spa_device_unlock (WpSpaDevice * self)
 {
-  WpExportContext *ctx = wp_proxy_get_export_context (WP_PROXY (self));
+  WpClientContext *ctx = wp_proxy_get_client_context (WP_PROXY (self));
   if (ctx)
-    wp_export_context_unlock (ctx);
+    wp_client_context_unlock (ctx);
 }
 
 /*
- * TRUE if the spa_device event we are currently handling arrived on the export
- * context's loop thread, so it has to be handed over to the main thread.
+ * TRUE if the spa_device event we are currently handling arrived on the
+ * client context's loop thread, so it has to be handed over to the main
+ * thread.
  * FALSE when we are the main thread having called into the device with the
  * loop lock held, in which case running the handler directly is both correct
  * and required by the callers that expect synchronous behaviour.
@@ -234,8 +235,8 @@ wp_spa_device_unlock (WpSpaDevice * self)
 static inline gboolean
 wp_spa_device_needs_marshalling (WpSpaDevice * self)
 {
-  WpExportContext *ctx = wp_proxy_get_export_context (WP_PROXY (self));
-  return ctx && wp_export_context_in_thread (ctx);
+  WpClientContext *ctx = wp_proxy_get_client_context (WP_PROXY (self));
+  return ctx && wp_client_context_in_thread (ctx);
 }
 
 /* takes ownership of @data, which must start with a WpSpaDevice* field */
@@ -243,9 +244,9 @@ static void
 wp_spa_device_invoke_main (WpSpaDevice * self, GSourceFunc func, gpointer data,
     GDestroyNotify destroy)
 {
-  WpExportContext *ctx = wp_proxy_get_export_context (WP_PROXY (self));
+  WpClientContext *ctx = wp_proxy_get_client_context (WP_PROXY (self));
   *((WpSpaDevice **) data) = g_object_ref (self);
-  wp_export_context_invoke_main (ctx, func, data, destroy);
+  wp_client_context_invoke_main (ctx, func, data, destroy);
 }
 
 enum {
@@ -674,7 +675,7 @@ spa_device_event_object_info (void *data, uint32_t id,
   if (wp_spa_device_needs_marshalling (self)) {
     /* the spa_device_object_info is only valid for the duration of this call.
        Note that add/remove pairs for the same id must keep their relative
-       order, which the export context's queue guarantees. */
+       order, which the client context's queue guarantees. */
     DeviceObjectInfoEvent *e = g_new0 (DeviceObjectInfoEvent, 1);
     e->id = id;
     if (info) {
@@ -743,11 +744,11 @@ wp_spa_device_activate_execute_step (WpObject * object,
   switch (step) {
   case STEP_EXPORT: {
     g_autoptr (WpCore) core = wp_object_get_core (object);
-    WpExportContext *ctx = wp_proxy_get_export_context (WP_PROXY (self));
+    WpClientContext *ctx = wp_proxy_get_client_context (WP_PROXY (self));
     /* the device must be exported on the connection of the context it lives
        in, the same way as WpImplNode */
     struct pw_core *pw_core = ctx ?
-        wp_export_context_get_pw_core (ctx) : wp_core_get_pw_core (core);
+        wp_client_context_get_pw_core (ctx) : wp_core_get_pw_core (core);
     g_return_if_fail (pw_core);
 
     /* export and start listening in one locked section, so that the loop
@@ -823,7 +824,7 @@ wp_spa_device_deactivate (WpObject * object, WpObjectFeatures features)
  * export should be done before enabling the device, by requesting both
  * features at the same time.
  *
- * \remarks When the "export-context" component is loaded, which is the case in
+ * \remarks When the "client-context" component is loaded, which is the case in
  * the default daemon configuration, the SPA handle is loaded in a secondary
  * `pw_context` that runs on its own thread, so that the device is not affected
  * by anything that blocks WirePlumber's main loop. The WpSpaDevice itself stays
@@ -980,18 +981,18 @@ wp_spa_device_new_from_spa_factory (WpCore * core,
     const gchar * factory_name, WpProperties * properties)
 {
   g_autoptr (WpProperties) props = properties;
-  /* the handle is loaded into the export context, so that the device runs on
+  /* the handle is loaded into the client context, so that the device runs on
      its own thread; pw_core_export() later ties it to that connection */
-  g_autoptr (WpExportContext) ctx = wp_export_context_find (core);
+  g_autoptr (WpClientContext) ctx = wp_client_context_find (core);
   struct pw_context *pw_context = ctx ?
-      wp_export_context_get_pw_context (ctx) : wp_core_get_pw_context (core);
+      wp_client_context_get_pw_context (ctx) : wp_core_get_pw_context (core);
   struct spa_handle *handle = NULL;
   WpSpaDevice *self = NULL;
 
   g_return_val_if_fail (pw_context != NULL, NULL);
 
   if (ctx)
-    wp_export_context_lock (ctx);
+    wp_client_context_lock (ctx);
 
   /* Load the monitor handle */
   handle = pw_context_load_spa_handle (pw_context, factory_name,
@@ -1006,11 +1007,11 @@ wp_spa_device_new_from_spa_factory (WpCore * core,
      into the handle, which the loop thread may otherwise be running already */
   self = wp_spa_device_new_wrap (core, handle, g_steal_pointer (&props));
   if (self)
-    wp_proxy_set_export_context (WP_PROXY (self), ctx);
+    wp_proxy_set_client_context (WP_PROXY (self), ctx);
 
 out:
   if (ctx)
-    wp_export_context_unlock (ctx);
+    wp_client_context_unlock (ctx);
 
   return self;
 }
@@ -1067,7 +1068,7 @@ wp_spa_device_enum_params_sync (WpSpaDevice * self,
 
   /* the results are collected by spa_device_event_result() in this call
      stack, which is what keeps this synchronous even when the device runs on
-     the export context's thread */
+     the client context's thread */
   wp_spa_device_lock (self);
   spa_device_enum_params (self->device, 1, id_val, 0, -1, f);
   wp_spa_device_unlock (self);

@@ -9,7 +9,7 @@
 #include "proxy.h"
 #include "log.h"
 #include "error.h"
-#include "private/export-context.h"
+#include "private/client-context.h"
 
 #include <pipewire/pipewire.h>
 #include <spa/utils/hook.h>
@@ -102,9 +102,9 @@ struct _WpProxyPrivate
   struct pw_proxy *pw_proxy;
   struct spa_hook listener;
 
-  /* set when pw_proxy lives on the export context's connection, in which case
-     it is owned by another thread; see private/export-context.h */
-  WpExportContext *ctx;
+  /* set when pw_proxy lives on the client context's connection, in which case
+     it is owned by another thread; see private/client-context.h */
+  WpClientContext *ctx;
 };
 
 enum {
@@ -133,7 +133,7 @@ wp_proxy_lock (WpProxy * self)
 {
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
   if (priv->ctx)
-    wp_export_context_lock (priv->ctx);
+    wp_client_context_lock (priv->ctx);
 }
 
 static inline void
@@ -141,13 +141,13 @@ wp_proxy_unlock (WpProxy * self)
 {
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
   if (priv->ctx)
-    wp_export_context_unlock (priv->ctx);
+    wp_client_context_unlock (priv->ctx);
 }
 
 /*
  * The three handlers below always run on the main thread: either directly,
  * when the pw_proxy is on the core's own connection or when we caused the
- * event ourselves from this thread, or through the export context's queue.
+ * event ourselves from this thread, or through the client context's queue.
  */
 
 static void
@@ -210,10 +210,10 @@ proxy_event_free (gpointer data)
 }
 
 /*
- * TRUE if the event we are currently handling arrived on the export context's
+ * TRUE if the event we are currently handling arrived on the client context's
  * loop thread, in which case it has to be handed over to the main thread.
  *
- * When the export context is in use but we are *not* on its thread, we are the
+ * When the client context is in use but we are *not* on its thread, we are the
  * main thread having called into pw with the loop lock held (destroying the
  * proxy, typically). Running the handler directly then is both safe and
  * necessary: queueing would take a reference on an object that may well be in
@@ -223,7 +223,7 @@ static inline gboolean
 proxy_event_needs_marshalling (WpProxy * self)
 {
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
-  return priv->ctx && wp_export_context_in_thread (priv->ctx);
+  return priv->ctx && wp_client_context_in_thread (priv->ctx);
 }
 
 static void
@@ -231,7 +231,7 @@ proxy_event_queue (WpProxy * self, GSourceFunc func, ProxyEvent * e)
 {
   WpProxyPrivate *priv = wp_proxy_get_instance_private (self);
   e->proxy = g_object_ref (self);
-  wp_export_context_invoke_main (priv->ctx, func, e, proxy_event_free);
+  wp_client_context_invoke_main (priv->ctx, func, e, proxy_event_free);
 }
 
 static gboolean
@@ -520,8 +520,8 @@ wp_proxy_get_pw_proxy (WpProxy * self)
  * This can be called only if there is no `pw_proxy` already set.
  * Takes ownership of \a proxy.
  *
- * \remarks If the proxy belongs to the export context (see
- *   wp_proxy_set_export_context()), this must be called with the export
+ * \remarks If the proxy belongs to the client context (see
+ *   wp_proxy_set_client_context()), this must be called with the client
  *   context locked, in the same locked section that created \a proxy, so that
  *   no event can be missed in between.
  *
@@ -550,10 +550,10 @@ wp_proxy_set_pw_proxy (WpProxy * self, struct pw_proxy * proxy)
 
 /*
  * Declares that this proxy's pw_proxy lives on \a ctx's connection; see
- * private/export-context.h. Must be called before wp_proxy_set_pw_proxy().
+ * private/client-context.h. Must be called before wp_proxy_set_pw_proxy().
  */
 void
-wp_proxy_set_export_context (WpProxy * self, WpExportContext * ctx)
+wp_proxy_set_client_context (WpProxy * self, WpClientContext * ctx)
 {
   g_return_if_fail (WP_IS_PROXY (self));
 
@@ -564,10 +564,10 @@ wp_proxy_set_export_context (WpProxy * self, WpExportContext * ctx)
 }
 
 /*
- * Returns the export context this proxy belongs to, or NULL. (transfer none)
+ * Returns the client context this proxy belongs to, or NULL. (transfer none)
  */
-WpExportContext *
-wp_proxy_get_export_context (WpProxy * self)
+WpClientContext *
+wp_proxy_get_client_context (WpProxy * self)
 {
   g_return_val_if_fail (WP_IS_PROXY (self), NULL);
 

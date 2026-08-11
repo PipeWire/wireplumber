@@ -684,9 +684,9 @@ wp_core_clone (WpCore * self)
  *
  * \deprecated The export core used to be a secondary connection to PipeWire,
  * sharing the loop of \a self, on which objects implemented in-process were
- * exported. It has been superseded by the export context, which hosts those
+ * exported. It has been superseded by the client context, which hosts those
  * objects in a separate pw_context running on its own thread, so that they are
- * not affected by anything that blocks WirePlumber's main loop. The export
+ * not affected by anything that blocks WirePlumber's main loop. The client
  * context is internal and has no WpCore associated with it; objects are placed
  * in it transparently, so there is no replacement for this method.
  *
