@@ -36,6 +36,14 @@ function applyDefaultDeviceProperties (properties)
   properties["api.alsa.split-enable"] = true
 end
 
+function shouldShowHdmiAlsaName (profile, properties, dev_props)
+  return profile:find("^hdmi%-") and
+      nonempty(properties["alsa.name"]) and
+      not properties["alsa.name"]:find("HDMI") and
+      properties["alsa.name"] ~= nonempty(dev_props["device.description"]) and
+      properties["alsa.name"] ~= properties["device.profile.description"]
+end
+
 function createSplitPCMHWNode(dev_props, properties)
   local skip_keys = {
     "api.alsa.split.position", "card.profile.device", "device.profile.description",
@@ -340,6 +348,11 @@ function createNode(parent, id, obj_type, factory, properties)
 
     if profile_desc then
       desc = desc .. " " .. profile_desc
+
+      -- Include "alsa.name" in description if HDMI node for better UX
+      if shouldShowHdmiAlsaName(profile, properties, dev_props) then
+        desc = desc .. " [" .. properties["alsa.name"] .. "]"
+      end
     elseif subdev ~= "0" then
       desc = desc .. " (" .. name .. " " .. subdev .. ")"
     elseif dev ~= "0" then
