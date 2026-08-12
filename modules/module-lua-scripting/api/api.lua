@@ -243,6 +243,7 @@ SANDBOX_EXPORT = {
   ProcUtils = ProcUtils,
   Properties = WpProperties_new,
   PermissionManager = WpPermissionManager_new,
+  DynamicRules = WpDynamicRules_new,
   SimpleEventHook = WpSimpleEventHook_new,
   AsyncEventHook = WpAsyncEventHook_new,
 }

@@ -2847,6 +2847,82 @@ static const luaL_Reg permission_manager_funcs[] = {
   { NULL, NULL }
 };
 
+/* WpDynamicRules */
+
+static int
+dynamic_rules_new (lua_State *L)
+{
+  WpDynamicRules *dr = wp_dynamic_rules_new (get_wp_core (L));
+  wplua_pushobject (L, dr);
+  return 1;
+}
+
+static int
+dynamic_rules_add_condition_rule (lua_State *L)
+{
+  WpDynamicRules *dr = wplua_checkobject (L, 1, WP_TYPE_DYNAMIC_RULES);
+  WpObjectInterest *matches = wplua_checkboxed (L, 2, WP_TYPE_OBJECT_INTEREST);
+  WpSpaJson *actions = wplua_checkboxed (L, 3, WP_TYPE_SPA_JSON);
+  GClosure *closure = wplua_function_to_closure (L, 4);
+  guint32 id;
+
+  id = wp_dynamic_rules_add_condition_rule_closure (dr,
+      wp_object_interest_ref (matches), wp_spa_json_ref (actions), closure);
+  lua_pushinteger (L, id);
+  return 1;
+}
+
+static int
+dynamic_rules_add_json_rule (lua_State *L)
+{
+  WpDynamicRules *dr = wplua_checkobject (L, 1, WP_TYPE_DYNAMIC_RULES);
+  WpSpaJson *json_rule = wplua_checkboxed (L, 2, WP_TYPE_SPA_JSON);
+  guint32 id;
+
+  id = wp_dynamic_rules_add_json_rule (dr, wp_spa_json_ref (json_rule));
+  lua_pushinteger (L, id);
+  return 1;
+}
+
+static int
+dynamic_rules_remove_rule (lua_State *L)
+{
+  WpDynamicRules *dr = wplua_checkobject (L, 1, WP_TYPE_DYNAMIC_RULES);
+  guint32 rule_id = luaL_checkinteger (L, 2);
+
+  wp_dynamic_rules_remove_rule (dr, rule_id);
+  return 0;
+}
+
+static int
+dynamic_rules_add_object (lua_State *L)
+{
+  WpDynamicRules *dr = wplua_checkobject (L, 1, WP_TYPE_DYNAMIC_RULES);
+  WpGlobalProxy *object = wplua_checkobject (L, 2, WP_TYPE_GLOBAL_PROXY);
+
+  wp_dynamic_rules_add_object (dr, object);
+  return 0;
+}
+
+static int
+dynamic_rules_remove_object (lua_State *L)
+{
+  WpDynamicRules *dr = wplua_checkobject (L, 1, WP_TYPE_DYNAMIC_RULES);
+  WpGlobalProxy *object = wplua_checkobject (L, 2, WP_TYPE_GLOBAL_PROXY);
+
+  wp_dynamic_rules_remove_object (dr, object);
+  return 0;
+}
+
+static const luaL_Reg dynamic_rules_funcs[] = {
+  { "add_condition_rule", dynamic_rules_add_condition_rule },
+  { "add_json_rule", dynamic_rules_add_json_rule },
+  { "remove_rule", dynamic_rules_remove_rule },
+  { "add_object", dynamic_rules_add_object },
+  { "remove_object", dynamic_rules_remove_object },
+  { NULL, NULL }
+};
+
 /* WpEventHook */
 
 static int
@@ -3378,6 +3454,8 @@ wp_lua_scripting_api_init (lua_State *L)
       properties_new, properties_funcs);
   wplua_register_type_methods (L, WP_TYPE_PERMISSION_MANAGER,
       permission_manager_new, permission_manager_funcs);
+  wplua_register_type_methods (L, WP_TYPE_DYNAMIC_RULES,
+      dynamic_rules_new, dynamic_rules_funcs);
 
   if (!wplua_load_uri (L, URI_API, &error) ||
       !wplua_pcall (L, 0, 0, &error)) {
