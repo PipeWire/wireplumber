@@ -442,6 +442,7 @@ wp_interest_event_hook_add_interest (WpInterestEventHook * self, ...)
  * match WP_TYPE_EVENT objects and it is going to be matched against
  * the WpEvent's properties.
  *
+ * \ingroup wpeventhook
  * \param self the event hook
  * \param interest (transfer full): the event interest
  */
@@ -567,6 +568,7 @@ wp_simple_event_hook_class_init (WpSimpleEventHookClass * klass)
 /*!
  * \brief Constructs a new simple event hook
  *
+ * \ingroup wpeventhook
  * \param name the name of the hook
  * \param before (array zero-terminated=1)(element-type utf8)(transfer none)(nullable):
  *    an array of hook names that should run after this hook
@@ -715,6 +717,7 @@ wp_async_event_hook_class_init (WpAsyncEventHookClass * klass)
 /*!
  * \brief Constructs a new async event hook
  *
+ * \ingroup wpeventhook
  * \param name the name of the hook
  * \param before (array zero-terminated=1)(element-type utf8)(transfer none)(nullable):
  *    an array of hook names that should run after this hook

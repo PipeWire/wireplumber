@@ -33,6 +33,9 @@ C API Documentation
    c_api/spa_json_api.rst
    c_api/spa_pod_api.rst
    c_api/plugin_api.rst
+   c_api/event_api.rst
+   c_api/event_dispatcher_api.rst
+   c_api/event_hook_api.rst
    c_api/component_loader_api.rst
    c_api/settings_api.rst
    c_api/conf_api.rst

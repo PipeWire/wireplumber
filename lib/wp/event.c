@@ -140,6 +140,12 @@ wp_event_free (WpEvent * self)
   g_free (self);
 }
 
+/*!
+ * \brief Increases the reference count of an event
+ * \ingroup wpevent
+ * \param self the event
+ * \return (transfer full): \a self with an additional reference count on it
+ */
 WpEvent *
 wp_event_ref (WpEvent * self)
 {
@@ -147,6 +153,12 @@ wp_event_ref (WpEvent * self)
   return self;
 }
 
+/*!
+ * \brief Decreases the reference count of an event, destroying it when the
+ * reference count reaches zero
+ * \ingroup wpevent
+ * \param self (transfer full): the event
+ */
 void
 wp_event_unref (WpEvent * self)
 {
