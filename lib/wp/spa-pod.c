@@ -1831,6 +1831,7 @@ wp_spa_pod_fixate (WpSpaPod *self)
  * If NULL is passed in the \a filter, this function just copies \a self and
  * returns the copy.
  *
+ * \ingroup wpspapod
  * \param self the first pod
  * \param filter (nullable): the second pod
  * \return (transfer full) (nullable): a new pod that contains the intersection

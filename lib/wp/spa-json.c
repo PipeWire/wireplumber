@@ -1613,6 +1613,14 @@ wp_spa_json_parser_get_valist (WpSpaJsonParser *self, va_list args)
   return FALSE;
 }
 
+/*!
+ * \brief Ends the parsing session
+ *
+ * After this is called, no more tokens can be parsed with \a self.
+ *
+ * \ingroup wpspajson
+ * \param self the spa json parser
+ */
 void
 wp_spa_json_parser_end (WpSpaJsonParser *self)
 {

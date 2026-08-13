@@ -513,6 +513,20 @@ format_pw_log_level_string (gint level, const struct log_topic_pattern *patterns
   return g_string_free (str, FALSE);
 }
 
+/*!
+ * \brief Sets the log level and the per-topic log level patterns at runtime
+ *
+ * \a level_str uses the same syntax as the WIREPLUMBER_DEBUG environment
+ * variable: a comma-separated list of `[<topic pattern>:]<level>` entries.
+ * An entry without a topic pattern sets the global log level. For example,
+ * "I,s-*:D" enables informational messages everywhere and debug messages
+ * for all script topics.
+ *
+ * \ingroup wplog
+ * \param level_str the log level string to apply
+ * \return TRUE if \a level_str was parsed and applied, FALSE if it was invalid,
+ *   in which case the previous log level remains in effect
+ */
 gboolean
 wp_log_set_level (const gchar *level_str)
 {
