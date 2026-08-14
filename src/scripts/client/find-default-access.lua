@@ -29,6 +29,7 @@ SimpleEventHook {
   execute = function (event)
     local client = event:get_subject ()
     local app_name = client:get_property ("application.name")
+    local access = cutils.get_client_access (client.properties)
 
     local permission_manager = event:get_data ("permission-manager")
     local effective_access = event:get_data ("effective-access")
@@ -37,7 +38,6 @@ SimpleEventHook {
 
     -- Check effective access if never set before
     if effective_access == nil then
-      local access = cutils.get_client_access (client.properties)
       if access ~= nil then
         log:info (client, string.format (
             "Found default %s effective-access for client '%s'", access, app_name))
