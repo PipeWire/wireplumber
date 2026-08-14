@@ -902,7 +902,10 @@ spa_pod_sequence_new (lua_State *L)
 	      value = wp_spa_pod_new_string (lua_tostring (L, -1));
 	      break;
 	    case LUA_TUSERDATA: {
-              value = wplua_checkboxed (L, -1, WP_TYPE_SPA_POD);
+              /* take a reference; the pod is owned by the lua state and
+                 'value' is unref'ed after being added to the builder */
+              value = wp_spa_pod_ref (
+                  wplua_checkboxed (L, -1, WP_TYPE_SPA_POD));
 	      break;
 	    }
 	    default: {
