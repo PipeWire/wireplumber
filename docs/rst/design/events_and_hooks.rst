@@ -6,6 +6,13 @@ Events and Hooks
 Session management is all about reacting to events and taking necessary
 actions. This is why WirePlumber's logic is all built on events and hooks.
 
+This page describes the concepts. For the API reference, see
+:ref:`lua_events_api` for scripts and :ref:`event_api`,
+:ref:`event_hook_api` and :ref:`event_dispatcher_api` for C.
+:ref:`scripting_custom_scripts` shows how to write and load a hook of your
+own, and :ref:`scripting_existing_scripts` documents the hooks that ship with
+WirePlumber.
+
 Events
 ------
 
@@ -49,7 +56,8 @@ every hook has a means to associate itself with specific events. This is
 normally done by declaring *interest* to specific event properties or
 combinations of them.
 
-There are two main types of hooks: ``SimpleEventHook`` and ``AsyncEventHook``.
+There are two main types of hooks: :func:`SimpleEventHook` and
+:func:`AsyncEventHook`.
 
 * ``SimpleEventHook`` contains a single, synchronous function. As soon as this
   function is executed, the hook is completed.
