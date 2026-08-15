@@ -223,6 +223,8 @@ Arguments:
     Log level (e.g., ``0``, ``1``, ``2``, ``3``, ``4``, ``5``, ``E``, ``W``, ``N``, ``I``, ``D``, ``T``).
     Use ``-`` to unset the log level.
 
+.. _tools_wpctl_reset:
+
 reset
 ^^^^^
 
