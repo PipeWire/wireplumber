@@ -31,6 +31,14 @@
   padding-left: 0.3em;
 }
 
+/* the rtd theme forces "white-space: nowrap" on table cells, which turns any
+   table with prose in it into a horizontally scrolling strip and makes the
+   ":widths:" option of list-table have no effect */
+.wy-table-responsive table td,
+.wy-table-responsive table th {
+  white-space: normal;
+}
+
 div.graphviz {
   padding-top: 1em;
   padding-bottom: 1em;
