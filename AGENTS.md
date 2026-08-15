@@ -45,8 +45,10 @@ Assisted-by: AGENT_NAME:MODEL_VERSION [TOOL1] [TOOL2] ...
 ```
 
 - **AGENT_NAME**: canonical tool name (e.g., `Claude`).
-- **MODEL_VERSION**: exact model identifier, not a family label (e.g., `claude-sonnet-5`, not
-  `claude`).
+- **MODEL_VERSION**: the session's model ID, copied verbatim — every character, including any
+  bracketed or suffixed variant tag (`claude-opus-5[1m]`, not `claude-opus-5`, not `claude`).
+  Read it from the session for every commit; the IDs in this file and in the git log are stale
+  examples of the *format*, never a source to copy from.
 - **[TOOLS]**: optional — specialized analysis tools *actually used this session* (e.g., `sparse`,
   `smatch`, `clang-tidy`, a linter/fuzzer). Omit basic tooling (git, compilers, editors, build
   systems).
