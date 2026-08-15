@@ -9,10 +9,21 @@
 
 - Main branch: `master`
 - Always create feature branches for new work
-- Use descriptive commit messages following project conventions
 - Reference GitLab MR/issue numbers in commits where applicable
 - Never commit build artifacts or temporary files
 - Use `glab` CLI tool for GitLab interactions (MRs, issues, etc.)
+
+## Commit Messages
+
+- A commit message records **only the changes being made and the rationale for them**.
+- For each sentence in a draft, ask what change it records or what decision it justifies. If the
+  answer is neither, delete it. In particular, cut anything that:
+    - explains something the project's developers already know
+    - restates general knowledge about the language, toolkit or the codebase
+    - narrates the reasoning behind an earlier, abandoned attempt
+- Prefer terse bullets over prose.
+- Verify factual claims in the message (file counts, symbol names, paths) against the actual diff
+  before committing.
 
 ## Making a release
 
