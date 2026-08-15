@@ -35,3 +35,30 @@
       are the new release section and the "Past releases" section.
     - Edit meson.build to change the project version to the new release number
     - Do not commit anything to git. Let the user review the changes and commit manually.
+
+## AI Attribution Convention
+
+When assisting with a commit (code, patches, debugging, analysis), add this trailer:
+
+```
+Assisted-by: AGENT_NAME:MODEL_VERSION [TOOL1] [TOOL2] ...
+```
+
+- **AGENT_NAME**: canonical tool name (e.g., `Claude`).
+- **MODEL_VERSION**: exact model identifier, not a family label (e.g., `claude-sonnet-5`, not
+  `claude`).
+- **[TOOLS]**: optional — specialized analysis tools *actually used this session* (e.g., `sparse`,
+  `smatch`, `clang-tidy`, a linter/fuzzer). Omit basic tooling (git, compilers, editors, build
+  systems).
+- Tag only what you actually did — don't imply broader authorship than your contribution. Multiple
+  AI tools → separate `Assisted-by` line each.
+- Example: `Assisted-by: Claude:claude-sonnet-5 sparse smatch`
+
+**Never use `Co-Authored-By`** for AI — it must stay distinguishable from human co-authorship.
+
+**Never add `Signed-off-by`** — only humans can legally certify a DCO/equivalent. This is a legal
+boundary, not style. The human submitter alone must: review all AI-generated code, ensure
+licensing/IP compliance, and take full responsibility for the contribution.
+
+**Placement**: standard trailer block at message end, alongside other trailers (one per line, no
+blank lines within the block).
