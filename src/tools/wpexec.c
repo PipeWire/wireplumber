@@ -17,13 +17,15 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wpexec")
 #define WP_DOMAIN_DAEMON (wp_domain_daemon_quark ())
 static G_DEFINE_QUARK (wireplumber-daemon, wp_domain_daemon);
 
+/* These are the standard exit codes of sysexits.h - see sysexits.h(3head).
+   Do not invent new values here; pick an existing EX_* code instead and
+   keep the wpexec(1) man page in sync. */
 enum WpExitCode
 {
-  /* based on sysexits.h */
-  WP_EXIT_OK = 0,
-  WP_EXIT_USAGE = 64,       /* command line usage error */
-  WP_EXIT_UNAVAILABLE = 69, /* service unavailable */
-  WP_EXIT_SOFTWARE = 70,    /* internal software error */
+  WP_EXIT_OK = 0,           /* EX_OK */
+  WP_EXIT_USAGE = 64,       /* EX_USAGE: command line usage error */
+  WP_EXIT_UNAVAILABLE = 69, /* EX_UNAVAILABLE: service unavailable */
+  WP_EXIT_SOFTWARE = 70,    /* EX_SOFTWARE: internal software error */
 };
 
 static gchar * exec_script = NULL;
