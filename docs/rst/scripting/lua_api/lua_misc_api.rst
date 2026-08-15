@@ -124,23 +124,7 @@ Constants
 
 .. describe:: Perm
 
-   PipeWire client permission flags, used with
-   :ref:`PermissionManager <lua_proxies_api>` and ``Client.update_permissions``:
-
-   ================== ==============================================
-   Constant           Meaning
-   ================== ==============================================
-   ``Perm.NONE``      no permissions
-   ``Perm.R``         read: the object is visible to the client
-   ``Perm.W``         write: the client may modify the object
-   ``Perm.X``         execute: the client may call methods on it
-   ``Perm.M``         metadata: the client may set metadata on it
-   ``Perm.L``         link: the client may link to it
-   ================== ==============================================
-
-   The combinations ``Perm.RW``, ``Perm.RX``, ``Perm.WX``, ``Perm.RWX``,
-   ``Perm.RWXM``, ``Perm.RWXML`` and ``Perm.ALL`` are also provided.
-   Note that ``Perm.ALL`` is ``RWXM`` and does *not* include ``L``.
+   PipeWire client permission flags; see :ref:`lua_permissions_api`.
 
 .. describe:: Feature, Features
 

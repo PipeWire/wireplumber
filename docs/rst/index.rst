@@ -27,6 +27,7 @@ Table of Contents
    :maxdepth: 2
    :caption: WirePlumber's Policies
 
+   policies/client_access.rst
    policies/linking.rst
    policies/smart_filters.rst
    policies/software_dsp.rst

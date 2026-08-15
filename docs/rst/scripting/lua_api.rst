@@ -20,6 +20,7 @@ Lua API Documentation
    lua_api/lua_object_manager_api.rst
    lua_api/lua_object_interest_api.rst
    lua_api/lua_proxies_api.rst
+   lua_api/lua_permissions_api.rst
    lua_api/lua_properties_api.rst
    lua_api/lua_session_item_api.rst
    lua_api/lua_spa_device_api.rst

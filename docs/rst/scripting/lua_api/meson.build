@@ -13,6 +13,7 @@ sphinx_files += files(
   'lua_object_api.rst',
   'lua_object_interest_api.rst',
   'lua_object_manager_api.rst',
+  'lua_permissions_api.rst',
   'lua_properties_api.rst',
   'lua_proxies_api.rst',
   'lua_session_item_api.rst',
