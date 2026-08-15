@@ -1,4 +1,4 @@
-.. _tools_wpctl:
+.. _man_wpctl:
 
 wpctl(1)
 ========
@@ -225,7 +225,7 @@ Arguments:
     Log level (e.g., ``0``, ``1``, ``2``, ``3``, ``4``, ``5``, ``E``, ``W``, ``N``, ``I``, ``D``, ``T``).
     Use ``-`` to unset the log level.
 
-.. _tools_wpctl_reset:
+.. _man_wpctl_reset:
 
 reset
 ^^^^^

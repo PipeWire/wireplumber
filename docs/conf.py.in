@@ -53,7 +53,7 @@ pygments_style = "friendly"
 # NOTE: keep this list in sync with the 'output' list of the 'manpages'
 # custom_target in docs/meson.build; meson errors out if they disagree
 man_pages = [
-    ('tools/wireplumber', 'wireplumber', 'PipeWire Session Manager', ['The WirePlumber Developers'], 1),
-    ('tools/wpctl', 'wpctl', 'WirePlumber Control CLI', ['The WirePlumber Developers'], 1),
-    ('tools/wpexec', 'wpexec', 'WirePlumber Script Interpreter', ['The WirePlumber Developers'], 1),
+    ('man/wireplumber', 'wireplumber', 'PipeWire Session Manager', ['The WirePlumber Developers'], 1),
+    ('man/wpctl', 'wpctl', 'WirePlumber Control CLI', ['The WirePlumber Developers'], 1),
+    ('man/wpexec', 'wpexec', 'WirePlumber Script Interpreter', ['The WirePlumber Developers'], 1),
 ]

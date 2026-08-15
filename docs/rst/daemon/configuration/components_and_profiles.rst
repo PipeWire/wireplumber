@@ -188,7 +188,7 @@ Shipped profiles
 
 The configuration file that ships with WirePlumber defines the following
 profiles. The profile to load is selected with the ``--profile`` command line
-option (see :ref:`wireplumber(1) <tools_wireplumber>`) or permanently through
+option (see :ref:`wireplumber(1) <man_wireplumber>`) or permanently through
 ``context.properties``; the ``profile.conf`` example fragment shows how (see
 :ref:`config_example_fragments`).
 

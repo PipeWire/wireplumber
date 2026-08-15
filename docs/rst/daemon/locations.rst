@@ -323,4 +323,4 @@ report what it would delete, without deleting anything:
 
    $ wpctl reset --dry-run
 
-See :ref:`tools_wpctl_reset` for the full list of options.
+See :ref:`man_wpctl_reset` for the full list of options.

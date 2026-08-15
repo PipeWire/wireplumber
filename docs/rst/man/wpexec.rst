@@ -1,4 +1,4 @@
-.. _tools_wpexec:
+.. _man_wpexec:
 
 wpexec(1)
 =========

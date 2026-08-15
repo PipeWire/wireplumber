@@ -56,7 +56,7 @@ manages, each with an id. Those ids are what the other commands take.
    # look at everything WirePlumber knows about an object
    $ wpctl inspect 47
 
-See :ref:`wpctl(1) <tools_wpctl>` for the full list of commands.
+See :ref:`wpctl(1) <man_wpctl>` for the full list of commands.
 
 Changing the configuration
 --------------------------

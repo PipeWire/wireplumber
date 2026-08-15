@@ -1,4 +1,4 @@
-.. _tools_wireplumber:
+.. _man_wireplumber:
 
 wireplumber(1)
 ==============

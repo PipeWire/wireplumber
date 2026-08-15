@@ -48,11 +48,11 @@ Table of Contents
 
 .. toctree::
    :maxdepth: 2
-   :caption: Tools
+   :caption: Man Pages
 
-   tools/wireplumber.rst
-   tools/wpctl.rst
-   tools/wpexec.rst
+   man/wireplumber.rst
+   man/wpctl.rst
+   man/wpexec.rst
 
 .. toctree::
    :maxdepth: 2
