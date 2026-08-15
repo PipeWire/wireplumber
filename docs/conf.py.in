@@ -50,6 +50,10 @@ pygments_style = "friendly"
 
 # -- Options for manual page output -----------------------------------------
 
+# NOTE: keep this list in sync with the 'output' list of the 'manpages'
+# custom_target in docs/meson.build; meson errors out if they disagree
 man_pages = [
-    ('tools/wpctl', 'wpctl', 'WirePlumber Control CLI', ['The WirePlumber Developers'], 1)
+    ('tools/wireplumber', 'wireplumber', 'PipeWire Session Manager', ['The WirePlumber Developers'], 1),
+    ('tools/wpctl', 'wpctl', 'WirePlumber Control CLI', ['The WirePlumber Developers'], 1),
+    ('tools/wpexec', 'wpexec', 'WirePlumber Script Interpreter', ['The WirePlumber Developers'], 1),
 ]

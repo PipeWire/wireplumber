@@ -117,7 +117,8 @@ if build_doc
     depend_files: [
       sphinx_conf, sphinx_files,
     ],
-    output: ['wpctl.1'],
+    # NOTE: keep this list in sync with 'man_pages' in docs/conf.py.in
+    output: ['wireplumber.1', 'wpctl.1', 'wpexec.1'],
     install: true,
     install_dir: get_option('mandir') / 'man1',
     build_by_default: true,

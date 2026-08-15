@@ -48,7 +48,9 @@ Table of Contents
    :maxdepth: 2
    :caption: Tools
 
+   tools/wireplumber.rst
    tools/wpctl.rst
+   tools/wpexec.rst
 
 .. toctree::
    :maxdepth: 2
