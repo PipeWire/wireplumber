@@ -221,6 +221,19 @@ monitor:
       a sink, it is **not advised** to use a value higher than 1500, as it may
       cause a sink's monitor to be selected as the default source.
 
+   .. important::
+
+      Priorities only decide the default node as long as there is no saved
+      user selection. A node that was selected with ``wpctl set-default`` — or
+      by any other client that sets the default, such as a desktop volume
+      applet — is remembered in the ``default-nodes``
+      :ref:`state file <state_locations>` and outranks every
+      ``priority.session`` value on all subsequent starts, which makes changes
+      to this property appear to have no effect at all. The saved selections
+      are listed in the "Default Configured Devices" section of
+      ``wpctl status``; ``wpctl clear-default`` forgets them and lets the
+      priorities decide again.
+
 .. describe:: session.suspend-timeout-seconds
 
    This option configures a different suspend timeout on the node. By default

@@ -210,6 +210,8 @@ can additionally be switched off at runtime with a setting:
 
 ``default-nodes``
   The nodes that the user has selected as the default sink, source, etc.
+  These selections take precedence over the automatic, priority-based
+  selection; ``wpctl clear-default`` erases them.
 
   :feature: ``hooks.default-nodes.state``
   :settings: ``node.restore-default-targets``

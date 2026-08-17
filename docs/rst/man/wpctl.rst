@@ -92,6 +92,11 @@ set-default
 Sets the specified device node to be the default target of its kind (capture or
 playback) for new streams that require auto-connection.
 
+The selection is remembered across restarts, in the ``default-nodes``
+:ref:`state file <state_locations>`, and takes precedence over the automatic,
+priority-based selection that WirePlumber would otherwise make. Use
+**clear-default** to undo it.
+
 Arguments:
   *ID*
     Sink or source node ID
@@ -179,6 +184,13 @@ clear-default
 
 Clears the default configured node. If no ID is specified, clears all default
 nodes.
+
+This forgets the current and all previous **set-default** selections of that
+kind, so that WirePlumber goes back to choosing the default node automatically,
+based on the ``priority.session`` property of each node. It is needed whenever
+a configured priority appears to have no effect, since a saved selection
+outranks any priority. The saved selections are listed in the "Default
+Configured Devices" section of **status**.
 
 Arguments:
   *ID* (optional)
