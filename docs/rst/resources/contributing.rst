@@ -3,6 +3,21 @@
 Contributing to WirePlumber
 ===========================
 
+Building and running your changes
+---------------------------------
+
+Before you can change anything, you need a local build.
+:ref:`daemon_installing` lists the dependencies and shows the meson commands
+that compile the project, and :ref:`daemon_running` explains how to run the
+result, either on its own or together with an uninstalled PipeWire.
+
+.. tip::
+
+   You do not need to install your build over the WirePlumber that your
+   distribution ships. See :ref:`resources_testing_reproducing` for how to
+   test a change, or reproduce a bug, by running the daemon directly from
+   the source tree.
+
 Coding style
 ------------
 
@@ -25,7 +40,9 @@ the indentation settings.
 Tests
 -----
 
-See :ref:`resources_testing`
+WirePlumber's test suite is run with ``meson test -C build``. See
+:ref:`resources_testing` for the details, for the PipeWire build options that
+some of the tests require, and for the manual testing procedures.
 
 Running in gdb / valgrind / etc...
 ----------------------------------

@@ -38,12 +38,12 @@ Compilation
 
 WirePlumber uses the `meson build system <https://mesonbuild.com/>`_
 
-To configure the project, you need to first run `meson`.
+To configure the project, you need to first run ``meson setup``.
 The basic syntax is shown below:
 
 .. code:: console
 
-   meson [--prefix=/path] [...options...] [build directory] [source directory]
+   meson setup [--prefix=/path] [...options...] [build directory] [source directory]
 
 Assuming you want to build in a directory called 'build' inside the source
 tree, you can run:

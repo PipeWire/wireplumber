@@ -34,11 +34,19 @@ WirePlumber as a subproject.
 To execute the whole stack without installing, simply execute ``make run``
 after compiling.
 
+.. important::
+
+   ``session-managers`` is a **PipeWire** meson option, so all the commands
+   below must be run in a checkout of the **PipeWire** source tree, not in
+   WirePlumber's. Running them in WirePlumber's source tree fails with
+   ``ERROR: Unknown options: "session-managers"``.
+
 Synopsis:
 
 .. code:: console
 
-   $ meson -Dsession-managers="[ 'wireplumber' ]" build
+   $ cd path/to/pipewire-source-dir
+   $ meson setup -Dsession-managers="[ 'wireplumber' ]" build
    $ ninja -C build
    $ make -C build run
 
