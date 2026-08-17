@@ -466,7 +466,7 @@ spa_device_event_result (void *data, int seq, int res, uint32_t type,
   WpSpaDevice *self = WP_SPA_DEVICE (data);
   const struct spa_result_device_params *r = result;
 
-  if (type == SPA_RESULT_TYPE_DEVICE_PARAMS) {
+  if (type == SPA_RESULT_TYPE_DEVICE_PARAMS && seq == 1) {
     g_autoptr (WpSpaPod) pod_param = NULL;
     g_autoptr (WpSpaPod) pod_param_copy = NULL;
 
