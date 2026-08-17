@@ -338,16 +338,6 @@ msgstr "Sesi F32 biçimine dönüştürme"
 msgid "No DSP"
 msgstr "DSP yok"
 
-#. /wireplumber.settings.schema/node.filter.forward-format/description
-#: wireplumber.conf
-msgid "Forward format on filter nodes or not"
-msgstr "Süzgeç düğümlerinde biçimi ilet ya da iletme"
-
-#. /wireplumber.settings.schema/node.filter.forward-format/name
-#: wireplumber.conf
-msgid "Forward format"
-msgstr "Biçimi ilet"
-
 #. /wireplumber.settings.schema/node.restore-default-targets/description
 #: wireplumber.conf
 msgid "Remember and restore default audio/video input/output devices"

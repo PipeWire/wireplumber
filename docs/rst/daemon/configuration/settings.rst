@@ -315,22 +315,6 @@ previous section: :ref:`config_configuration_option_types`.
 
    :Default value: ``null`` (no role is assigned)
 
-.. describe:: node.filter.forward-format
-
-   When a "filter" pair of nodes (such as echo-cancel or filter-chain) is
-   linked to a device node that has a different channel map than the filter
-   nodes, this option allows the channel map of the filter nodes to be changed
-   to match the channel map of the device node. The change is applied to both
-   ends of the "filter", so that any streams linked to the filter are also
-   reconfigured to match the target channel map.
-
-   This is useful, for instance, to make sure that an application will be
-   properly configured to output surround audio to a surround device, even
-   when going through a filter that was not explicitly configured to have
-   a surround channel map.
-
-   :Default value: ``false``
-
 .. describe:: node.restore-default-targets
 
    This setting enables WirePlumber to store and restore the "default" source

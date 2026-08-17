@@ -310,16 +310,6 @@ msgstr "აუდიო F32 ფორმატში გადაყვანი
 msgid "No DSP"
 msgstr "DSP-ის გარეშე"
 
-#. /wireplumber.settings.schema/node.filter.forward-format/description
-#: wireplumber.conf
-msgid "Forward format on filter nodes or not"
-msgstr "მოხდება თუ არა ფორმატის გადაგზავნა ფილტრის კვანძებზე"
-
-#. /wireplumber.settings.schema/node.filter.forward-format/name
-#: wireplumber.conf
-msgid "Forward format"
-msgstr "ფორმატის გადაგზავნა"
-
 #. /wireplumber.settings.schema/node.restore-default-targets/description
 #: wireplumber.conf
 msgid "Remember and restore default audio/video input/output devices"

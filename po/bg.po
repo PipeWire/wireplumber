@@ -339,16 +339,6 @@ msgstr "Без преобразуване на аудио във F32 форма�
 msgid "No DSP"
 msgstr "Без DSP"
 
-#. /wireplumber.settings.schema/node.filter.forward-format/description
-#: wireplumber.conf
-msgid "Forward format on filter nodes or not"
-msgstr "Дали да се препредава форматът при филтриращите възли или не"
-
-#. /wireplumber.settings.schema/node.filter.forward-format/name
-#: wireplumber.conf
-msgid "Forward format"
-msgstr "Препредаване на формата"
-
 #. /wireplumber.settings.schema/node.restore-default-targets/description
 #: wireplumber.conf
 msgid "Remember and restore default audio/video input/output devices"

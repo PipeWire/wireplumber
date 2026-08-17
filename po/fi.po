@@ -285,16 +285,6 @@ msgstr "Älä muunna ääntä F32-muotoon"
 msgid "No DSP"
 msgstr "Ei DSP:tä"
 
-#. /wireplumber.settings.schema/node.filter.forward-format/description
-#: wireplumber.conf
-msgid "Forward format on filter nodes or not"
-msgstr "Välitetäänkö filtterisolmujen formaatti"
-
-#. /wireplumber.settings.schema/node.filter.forward-format/name
-#: wireplumber.conf
-msgid "Forward format"
-msgstr "Välitä formaatti"
-
 #. /wireplumber.settings.schema/node.restore-default-targets/description
 #: wireplumber.conf
 msgid "Remember and restore default audio/video input/output devices"

@@ -343,16 +343,6 @@ msgstr "Аудионы F32 пішіміне түрлендірмеу"
 msgid "No DSP"
 msgstr "DSP жоқ"
 
-#. /wireplumber.settings.schema/node.filter.forward-format/description
-#: wireplumber.conf
-msgid "Forward format on filter nodes or not"
-msgstr "Сүзгі тораптарында пішімді алға жіберу немесе жібермеу"
-
-#. /wireplumber.settings.schema/node.filter.forward-format/name
-#: wireplumber.conf
-msgid "Forward format"
-msgstr "Пішімді алға жіберу"
-
 #. /wireplumber.settings.schema/node.restore-default-targets/description
 #: wireplumber.conf
 msgid "Remember and restore default audio/video input/output devices"
