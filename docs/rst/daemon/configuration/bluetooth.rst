@@ -74,6 +74,13 @@ Example:
     bluez5.hfphsp-backend = "native"
   }
 
+These properties are implemented by the BlueZ SPA plugin, which is part of
+PipeWire. Their complete reference is the ``pipewire-props(7)`` man page,
+which is also available online at
+https://docs.pipewire.org/page_man_pipewire-props_7.html - see the
+"BLUETOOTH PROPERTIES / Monitor properties" section there. The list below is
+**a selection only**, covering the properties that are most commonly changed.
+
 .. describe:: bluez5.roles
 
    Enabled roles.
@@ -108,34 +115,16 @@ Example:
    :Type: array of strings
 
 .. describe:: bluez5.enable-msbc
+              bluez5.enable-sbc-xq
+              bluez5.enable-hw-volume
 
-   Enable mSBC codec (wideband speech codec for HFP/HSP).
+   Enable, respectively, the mSBC codec (wideband speech codec for HFP/HSP),
+   the SBC-XQ codec (high quality SBC codec for A2DP) and hardware volume
+   controls.
 
-   This does not work on all headsets, so it is enabled based on the hardware
-   quirks database. By explicitly setting this option you can force it to be
-   enabled or disabled regardless.
-
-   :Default value: ``true``
-   :Type: boolean
-
-.. describe:: bluez5.enable-sbc-xq
-
-   Enable SBC-XQ codec (high quality SBC codec for A2DP).
-
-   This does not work on all headsets, so it is enabled based on the hardware
-   quirks database. By explicitly setting this option you can force it to be
-   enabled or disabled regardless.
-
-   :Default value: ``true``
-   :Type: boolean
-
-.. describe:: bluez5.enable-hw-volume
-
-   Enable hardware volume controls.
-
-   This does not work on all headsets, so it is enabled based on the hardware
-   quirks database. By explicitly setting this option you can force it to be
-   enabled or disabled regardless.
+   None of these work on all headsets, so they are enabled based on the
+   hardware quirks database. By explicitly setting these options you can force
+   them to be enabled or disabled regardless.
 
    :Default value: ``true``
    :Type: boolean
@@ -159,57 +148,6 @@ Example:
 
    :Default value: ``none``
    :Type: string
-
-.. describe:: bluez5.hw-offload-sco
-
-   HFP/HSP hardware offload SCO support.
-
-   Using this feature requires a custom WirePlumber script that handles audio
-   routing in a platform-specific way. See ``tests/examples/bt-pinephone.lua``
-   for an example.
-
-   :Default value: ``false``
-   :Type: boolean
-
-.. describe:: bluez5.default.rate
-
-   The default audio rate for the A2DP codec configuration.
-
-   :Default value: ``48000``
-   :Type: integer
-
-.. describe:: bluez5.default.channels
-
-   The default number of channels for the A2DP codec configuration.
-
-   :Default value: ``2``
-   :Type: integer
-
-.. describe:: bluez5.dummy-avrcp-player
-
-   Register dummy AVRCP player. Some devices have wrongly functioning volume or
-   playback controls if this is not enabled. Disabled by default.
-
-   :Default value: ``false``
-   :Type: boolean
-
-.. describe:: Opus Pro Audio mode settings
-
-   .. code-block::
-
-      bluez5.a2dp.opus.pro.channels = 3
-      bluez5.a2dp.opus.pro.coupled-streams = 1
-      bluez5.a2dp.opus.pro.locations = [ FL,FR,LFE ]
-      bluez5.a2dp.opus.pro.max-bitrate = 600000
-      bluez5.a2dp.opus.pro.frame-dms = 50
-      bluez5.a2dp.opus.pro.bidi.channels = 1
-      bluez5.a2dp.opus.pro.bidi.coupled-streams = 0
-      bluez5.a2dp.opus.pro.bidi.locations = [ FC ]
-      bluez5.a2dp.opus.pro.bidi.max-bitrate = 160000
-      bluez5.a2dp.opus.pro.bidi.frame-dms = 400
-
-   Options for the PipeWire-specific multichannel Opus codec, which can be used
-   to transport audio over Bluetooth between devices running PipeWire.
 
 MIDI Monitor Properties
 -----------------------
@@ -264,9 +202,6 @@ Example:
            bluez5.auto-connect = [ hfp_hf hsp_hs a2dp_sink hfp_ag hsp_ag a2dp_source ]
            bluez5.hw-volume = [ hfp_hf hsp_hs a2dp_sink hfp_ag hsp_ag a2dp_source ]
            bluez5.a2dp.ldac.quality = "auto"
-           bluez5.a2dp.aac.bitratemode = 0
-           bluez5.a2dp.opus.pro.application = "audio"
-           bluez5.a2dp.opus.pro.bidi.application = "audio"
          }
        }
      }
@@ -285,25 +220,32 @@ Example:
          update-props = {
            bluez5.media-source-role = "input"
 
-           # Common node & audio adapter properties may also be set here
-           node.nick              = "My Node"
-           priority.driver        = 100
+           ## Common node & audio adapter properties may also be set here
+           node.description       = "My Node"
            priority.session       = 100
-           node.pause-on-idle     = false
-           resample.quality       = 4
-           channelmix.normalize   = false
-           channelmix.mix-lfe     = false
            session.suspend-timeout-seconds = 5
-           monitor.channel-volumes = false
          }
        }
      }
    ]
 
+Where the properties are documented
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The names that appear inside ``update-props`` are PipeWire object properties.
+They are not defined by WirePlumber: the ``bluez5.*`` ones are implemented by
+the BlueZ SPA plugin, and the rest are common node properties or properties of
+the audio adapter that PipeWire attaches to every audio node - the very same
+``priority.*``, ``session.*``, ``resample.*`` and ``channelmix.*`` properties
+that apply to ALSA nodes and to application streams. All of them are
+documented in `pipewire-props(7)`_.
+
+The sections below are **a selection only**, covering the properties that are
+most commonly changed on Bluetooth devices. For anything that is not listed
+here, refer to that man page.
+
 Device properties
 ^^^^^^^^^^^^^^^^^
-
-The following properties can be set on device objects:
 
 .. describe:: bluez5.auto-connect
 
@@ -337,46 +279,16 @@ The following properties can be set on device objects:
    :Default value: ``auto``
    :Type: string
 
-.. describe:: bluez5.a2dp.aac.bitratemode
+.. note::
 
-   AAC variable bitrate mode.
-
-   Available values: 0 (cbr, default), 1-5 (quality level).
-
-   :Default value: ``0``
-   :Type: integer
-
-.. describe:: bluez5.a2dp.opus.pro.application
-
-   Opus Pro Audio encoding mode.
-
-   Available values: ``audio``, ``voip``, ``lowdelay``.
-
-   :Default value: ``audio``
-   :Type: string
-
-.. describe:: bluez5.a2dp.opus.pro.bidi.application
-
-   Opus Pro Audio encoding mode for bidirectional audio.
-
-   Available values: ``audio``, ``voip``, ``lowdelay``.
-
-   :Default value: ``audio``
-   :Type: string
-
-.. describe:: device.profile
-
-   The profile that is activated initially when the device is connected.
-
-   Available values: ``a2dp-sink`` (default) or ``headset-head-unit``.
-
-   :Default value: ``a2dp-sink``
-   :Type: string
+   The initially activated profile of a Bluetooth device cannot be set with a
+   property: WirePlumber forces it to "off" on creation and then applies its
+   own profile policy. See the ``bluetooth.profile-preference`` setting in
+   :ref:`config_settings` and the profile priority rules in
+   :ref:`config_profile_priority_rules`.
 
 Node properties
 ^^^^^^^^^^^^^^^
-
-The following properties can be set on node objects:
 
 .. describe:: bluez5.media-source-role
 
@@ -438,3 +350,9 @@ MIDI-specific properties
 
    :Default value: ``0``
    :Type: integer (milliseconds)
+
+The common node properties that may also be set here (``node.description``,
+``priority.*``, ``session.suspend-timeout-seconds``, ...) are documented in
+`pipewire-props(7)`_.
+
+.. _pipewire-props(7): https://docs.pipewire.org/page_man_pipewire-props_7.html
