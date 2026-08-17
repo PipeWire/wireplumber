@@ -124,11 +124,96 @@ logic:
 
 To *add* to the selection chain rather than replace part of it, leave the stock
 hooks enabled and order your own hook against them with ``before`` and
-``after``. ``src/scripts/linking/find-user-target.lua.example`` in the source
-tree is a ready-made template for exactly this; see
-:ref:`scripting_existing_scripts` for the list of hooks you can order against.
+``after``; see :ref:`scripting_custom_scripts_target_selection` below for a
+worked example, and :ref:`scripting_existing_scripts` for the list of hooks you
+can order against.
 
-Example 4: reading configuration and settings
+.. _scripting_custom_scripts_target_selection:
+
+Example 4: participating in target selection
+--------------------------------------------
+
+When a stream needs to be linked, WirePlumber pushes a ``select-target`` event
+and a chain of hooks runs on it, each one trying to pick a target node for the
+stream. Every hook in that chain bypasses itself if a target has already been
+picked, so the **first hook that finds a target wins**; the hooks that follow
+it merely translate and link it. This is why the hook below returns early when
+``target`` is already set: without that guard it would override a decision that
+a higher-priority hook has already made.
+
+To take part in the chain, register another hook on the ``select-target`` event
+and order it relative to the stock hooks with ``before`` / ``after``. The hook
+below runs ``before`` ``linking/find-defined-target``, which makes it the first
+one to get a say, ahead of all of WirePlumber's own selection logic.
+
+The ``linking-utils`` module provides
+``unwrap_select_target_event ()``, which unpacks the event into the objects the
+hook needs: the source event, the object manager, the session item being linked
+(``si``) along with its properties and flags, and the target picked so far (or
+``nil``). The chosen target is handed to the rest of the chain by storing it on
+the event with ``event:set_data ("target", target)``.
+
+``~/.local/share/wireplumber/scripts/90-find-user-target.lua``:
+
+.. code-block:: lua
+
+   lutils = require ("linking-utils")
+   log = Log.open_topic ("s-linking")
+
+   SimpleEventHook {
+     name = "linking/find-user-target",
+     before = "linking/find-defined-target",
+     interests = {
+       EventInterest {
+         Constraint { "event.type", "=", "select-target" },
+       },
+     },
+     execute = function (event)
+       local source, om, si, si_props, si_flags, target =
+           lutils:unwrap_select_target_event (event)
+
+       -- bypass the hook if the target is already picked up
+       if target then
+         return
+       end
+
+       log:info (si, "in find-user-target")
+
+       -- implement logic here to find a suitable target
+
+       -- store the found target on the event,
+       -- the next hooks will take care of linking
+       event:set_data ("target", target)
+     end
+   }:register ()
+
+``~/.config/wireplumber/wireplumber.conf.d/90-find-user-target.conf``:
+
+.. code-block::
+
+    wireplumber.components = [
+      {
+        name = "90-find-user-target.lua", type = script/lua
+        provides = hooks.example.find-user-target
+      }
+    ]
+
+    wireplumber.profiles = {
+      main = {
+        hooks.example.find-user-target = required
+      }
+    }
+
+As noted in Example 2 above, naming the feature ``hooks.*`` ensures that the
+component is loaded, and the hook registered, before any events are dispatched.
+
+The stock hook that this one orders itself against must of course be enabled
+for the ``before`` key to have an effect; ``linking/find-defined-target`` is
+provided by ``hooks.linking.target.find-defined``, which is part of the default
+profile. See :ref:`scripting_existing_scripts` for the other hooks in the
+chain.
+
+Example 5: reading configuration and settings
 ---------------------------------------------
 
 Scripts read static configuration with :ref:`Conf <lua_conf_api>` and runtime

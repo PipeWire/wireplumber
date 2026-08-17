@@ -163,7 +163,7 @@ A custom script can therefore participate in target selection simply by
 registering another hook on the ``select-target`` event and ordering it
 relative to the stock hooks with ``before`` / ``after``.
 
-``find-user-target.lua.example``, shipped alongside these scripts, is a
-ready-made template for such a hook. It is an example file, not an installed
-script; copy it into your own scripts directory and define a component for it,
-as described in :ref:`scripting_custom_scripts`.
+:ref:`scripting_custom_scripts_target_selection` walks through such a hook in
+full: the script itself, the ``wireplumber.conf.d`` fragment that defines a
+component for it and enables it in the ``main`` profile, and the reasoning
+behind the ordering key and the bypass guard.
