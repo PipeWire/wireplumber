@@ -403,12 +403,24 @@ update_permissions (WpPermissionManager *self)
 }
 
 static void
-on_object_added_or_removed (WpObjectManager *om, WpGlobalProxy *object,
-    gpointer d)
+on_objects_changed (WpObjectManager *om, gpointer d)
 {
   WpPermissionManager * self = WP_PERMISSION_MANAGER (d);
+  g_autoptr (WpIterator) it = NULL;
+  g_auto (GValue) value = G_VALUE_INIT;
+  gboolean update = FALSE;
 
-  if (has_object_match (self, object))
+  it = wp_object_manager_new_iterator (self->om);
+  for (; wp_iterator_next (it, &value); g_value_unset (&value)) {
+    WpGlobalProxy *object = g_value_get_object (&value);
+    if (has_object_match (self, object)) {
+      update = TRUE;
+      g_value_unset (&value);
+      break;
+    }
+  }
+
+  if (update)
     update_permissions (self);
 }
 
@@ -437,10 +449,8 @@ wp_permission_manager_activate_execute_step (WpObject * object,
       wp_object_manager_add_interest (self->om, WP_TYPE_GLOBAL_PROXY, NULL);
       wp_object_manager_request_object_features (self->om,
           WP_TYPE_GLOBAL_PROXY, WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL);
-      g_signal_connect_object (self->om, "object-added",
-          G_CALLBACK (on_object_added_or_removed), self, 0);
-      g_signal_connect_object (self->om, "object-removed",
-          G_CALLBACK (on_object_added_or_removed), self, 0);
+      g_signal_connect_object (self->om, "objects-changed",
+          G_CALLBACK (on_objects_changed), self, 0);
       g_signal_connect_object (self->om, "installed",
           G_CALLBACK (on_object_manager_installed), transition, 0);
       wp_core_install_object_manager (core, self->om);
