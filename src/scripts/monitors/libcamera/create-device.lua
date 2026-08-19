@@ -17,7 +17,7 @@ function createLibcamNode (parent, id, type, factory, properties)
   mutils:register_cam_node (parent, id, factory, properties)
 end
 
-SimpleEventHook {
+AsyncEventHook {
   name = "monitor/libcamera/create-device",
   after = "monitor/libcamera/name-device",
   interests = {
@@ -25,27 +25,46 @@ SimpleEventHook {
       Constraint { "event.type", "=", "create-libcamera-device" },
     },
   },
-  execute = function(event)
-    local properties = event:get_data ("device-properties")
-    local factory = event:get_data ("factory")
-    local parent = event:get_subject ()
-    local id = event:get_data ("device-sub-id")
+  steps = {
+    start = {
+      next = "none",
+      execute = function (event, transition)
+        local properties = event:get_data ("device-properties")
+        local factory = event:get_data ("factory")
+        local parent = event:get_subject ()
+        local id = event:get_data ("device-sub-id")
 
-    -- apply properties from rules defined in JSON .conf file
-    properties = JsonUtils.match_rules_update_properties (config.rules, properties)
+        -- apply properties from rules defined in JSON .conf file
+        properties = JsonUtils.match_rules_update_properties (config.rules, properties)
 
-    if cutils.parseBool (properties ["device.disabled"]) then
-      log:notice ("libcam device " .. properties["device.name"] .. " disabled")
-      return
-    end
-    local device = SpaDevice (factory, properties)
+        if cutils.parseBool (properties ["device.disabled"]) then
+          log:notice ("libcamera device " .. properties["device.name"] .. " disabled")
+          transition:advance ()
+          return
+        end
 
-    if device then
-      device:connect ("create-object", createLibcamNode)
-      device:activate (Feature.SpaDevice.ENABLED | Feature.Proxy.BOUND)
-      parent:store_managed_object (id, device)
-    else
-      log:warning ("Failed to create '" .. factory .. "' device")
-    end
-  end
+        -- create the device
+        local device = SpaDevice (factory, properties)
+        if device == nil then
+          transition:return_error ("Failed to create '" .. factory .. "' device")
+          return
+        end
+
+        -- handle signals
+        device:connect ("create-object", createLibcamNode)
+
+        -- activate the device
+        device:activate (Features.ALL, function (d, e)
+          if e ~= nil then
+            transition:return_error ("Failed to activate libcamera device " ..
+                tostring (properties ["device.name"]) .. ": " .. e)
+            return
+          end
+
+          parent:store_managed_object (id, device)
+          transition:advance ()
+        end)
+      end
+    }
+  }
 }:register ()

@@ -40,7 +40,7 @@ AsyncEventHook {
 
         -- Create the node
         local node = LocalNode("adapter", properties)
-        node:activate(Feature.Proxy.BOUND, function (n, e)
+        node:activate(Features.ALL, function (n, e)
           if e ~= nil then
             transition:return_error ("Failed to activate BT node " ..
                 n:get_property ("node.name") .. ": " .. e)

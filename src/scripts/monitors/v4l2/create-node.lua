@@ -41,7 +41,7 @@ AsyncEventHook {
 
         -- create the node
         local node = Node ("spa-node-factory", properties)
-        node:activate (Feature.Proxy.BOUND, function (n, e)
+        node:activate (Features.ALL, function (n, e)
           if e ~= nil then
             transition:return_error ("Failed to activate V4L2 node " ..
                 tostring (properties ["node.name"]) .. ": " .. e)

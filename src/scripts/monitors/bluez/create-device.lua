@@ -84,7 +84,7 @@ AsyncEventHook {
         end
 
         -- Activate the device
-        device:activate(Feature.SpaDevice.ENABLED | Feature.Proxy.BOUND, function (d, e)
+        device:activate(Features.ALL, function (d, e)
           if e ~= nil then
             transition:return_error ("Failed to activate SPA device " ..
                 d:get_property ("device.name") .. ": " .. e)
