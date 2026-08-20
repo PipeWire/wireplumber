@@ -81,7 +81,8 @@ SimpleEventHook {
     for _, priority_profile in ipairs(priorities) do
       for p in device:iterate_params("EnumProfile") do
         local device_profile = cutils.parseParam(p, "EnumProfile")
-        if device_profile and device_profile.name == priority_profile then
+        if device_profile and device_profile.name == priority_profile and
+            device_profile.available ~= "no" then
           selected_profile = device_profile
           goto profile_set
         end
