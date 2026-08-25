@@ -439,8 +439,22 @@ Profile priorities
 ------------------
 
 When no profile has been stored for a device and none is forced by other
-means, WirePlumber picks the available profile with the highest priority. The
-``device.profile.priority.rules`` section allows overriding that choice by
+means, WirePlumber picks the best available profile. Profiles are compared
+first on the number of output routes they can actually play on -- the ones that
+are available plus the ones whose availability is unknown -- and only then on
+the profile priority.
+
+Route availability is taken into account because a profile is reported as
+available when any single one of its routes is available. On cards whose UCM
+description bundles the HDMI outputs together with either the speakers or the
+headphones, that flag is set almost all of the time, so ranking on the priority
+number alone selects profiles whose analog output is not plugged in. Routes of
+unknown availability are counted as usable because built-in speakers get no
+jack detection and are therefore never reported as available. Devices that do
+not report which profiles their routes belong to are unaffected and are ranked
+on priority as before.
+
+The ``device.profile.priority.rules`` section allows overriding that choice by
 naming an explicit order of preferred profiles for matching devices.
 
 The rules are matched against device properties, and the ``update-props``
@@ -463,8 +477,8 @@ most preferred first:
    ]
 
 The first profile in the list that is actually available on the device is
-selected. If none of them is available, WirePlumber falls back to picking the
-highest priority profile as usual.
+selected. If none of them is available, WirePlumber falls back to the ranking
+described above.
 
 .. note::
 

@@ -8,6 +8,7 @@
 -- availability
 
 cutils = require ("common-utils")
+putils = require ("profile-utils")
 log = Log.open_topic ("s-device")
 
 SimpleEventHook {
@@ -35,6 +36,16 @@ SimpleEventHook {
     -- Takes absolute priority if available or unknown
     local profile_prop = device.properties["device.profile"]
 
+    -- rank candidates on the output routes they actually offer, not just on
+    -- the profile priority; see profile-utils.compareProfiles()
+    local routes = {}
+    for r in device:iterate_params ("EnumRoute") do
+      local route = cutils.parseParam (r, "EnumRoute")
+      if route then
+        table.insert (routes, route)
+      end
+    end
+    local scores = putils.buildOutputRouteScores (routes)
 
     for p in device:iterate_params ("EnumProfile") do
       profile = cutils.parseParam (p, "EnumProfile")
@@ -45,11 +56,13 @@ SimpleEventHook {
         if profile.name == "off" then
           off_profile = profile
         elseif profile.available == "yes" then
-          if best_profile == nil or profile.priority > best_profile.priority then
+          if best_profile == nil or
+              putils.compareProfiles (profile, best_profile, scores) then
             best_profile = profile
           end
         elseif profile.available ~= "no" then
-          if unk_profile == nil or profile.priority > unk_profile.priority then
+          if unk_profile == nil or
+              putils.compareProfiles (profile, unk_profile, scores) then
             unk_profile = profile
           end
         end
@@ -66,9 +79,13 @@ SimpleEventHook {
 
 ::profile_set::
     if selected_profile then
+      local score = scores [tonumber (selected_profile.index)] or
+          { yes = 0, unknown = 0 }
       log:info (device, string.format (
-          "Found best profile '%s' (%d) for device '%s'",
-          selected_profile.name, selected_profile.index, dev_name))
+          "Found best profile '%s' (%d) for device '%s' "
+          .. "(%d available, %d unknown output routes)",
+          selected_profile.name, selected_profile.index, dev_name,
+          score.yes, score.unknown))
       event:set_data ("selected-profile", selected_profile)
     end
   end
