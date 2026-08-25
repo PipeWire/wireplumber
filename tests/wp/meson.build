@@ -67,13 +67,6 @@ test(
 )
 
 test(
-  'wp/session-item',
-  executable('test-session-item', 'session-item.c',
-      dependencies: common_deps),
-  env: common_env,
-)
-
-test(
   'wp/spa-json',
   executable('test-spa-json', 'spa-json.c',
       dependencies: common_deps),

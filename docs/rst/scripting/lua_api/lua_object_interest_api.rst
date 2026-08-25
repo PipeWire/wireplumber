@@ -77,8 +77,6 @@ node          WpNode
 Node          WpNode
 device        WpDevice
 plugin        WpPlugin
-siLink        WpSiLink
-SiLink        WpSiLink
 properties    WpProperties
 ============= ============
 

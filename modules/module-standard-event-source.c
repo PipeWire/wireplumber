@@ -27,7 +27,6 @@ typedef enum {
   OBJECT_TYPE_PORT,
   OBJECT_TYPE_LINK,
   OBJECT_TYPE_NODE,
-  OBJECT_TYPE_SESSION_ITEM,
   OBJECT_TYPE_STREAM,
   OBJECT_TYPE_STREAM_LINK,
   OBJECT_TYPE_CLIENT,
@@ -91,7 +90,6 @@ object_type_to_gtype (ObjectType type)
     case OBJECT_TYPE_PORT: return WP_TYPE_PORT;
     case OBJECT_TYPE_LINK: return WP_TYPE_LINK;
     case OBJECT_TYPE_NODE: return WP_TYPE_NODE;
-    case OBJECT_TYPE_SESSION_ITEM: return WP_TYPE_SESSION_ITEM;
     case OBJECT_TYPE_STREAM: return WP_TYPE_STREAM;
     case OBJECT_TYPE_STREAM_LINK: return WP_TYPE_STREAM_LINK;
     case OBJECT_TYPE_CLIENT: return WP_TYPE_CLIENT;
@@ -111,8 +109,6 @@ type_str_to_object_type (const gchar * type_str)
     return OBJECT_TYPE_LINK;
   else if (!g_strcmp0 (type_str, "node"))
     return OBJECT_TYPE_NODE;
-  else if (!g_strcmp0 (type_str, "session-item"))
-    return OBJECT_TYPE_SESSION_ITEM;
   else if (!g_strcmp0 (type_str, "stream"))
     return OBJECT_TYPE_STREAM;
   else if (!g_strcmp0 (type_str, "stream-link"))
@@ -137,19 +133,6 @@ get_object_type (gpointer obj, WpProperties **properties)
     return "link";
   else if (WP_IS_NODE (obj))
     return "node";
-  else if (WP_IS_SESSION_ITEM (obj)) {
-    if (*properties == NULL)
-      *properties = wp_properties_new_empty();
-
-    if (WP_IS_SI_LINKABLE (obj)) {
-      wp_properties_set (*properties,
-          "event.session-item.interface", "linkable");
-    } else if (WP_IS_SI_LINK (obj)) {
-      wp_properties_set (*properties,
-          "event.session-item.interface", "link");
-    }
-    return "session-item";
-  }
   else if (WP_IS_STREAM (obj)) {
     if (*properties == NULL)
       *properties = wp_properties_new_empty ();
@@ -201,8 +184,6 @@ get_default_event_priority (const gchar *event_type)
     return 150;
   else if (g_str_has_prefix (event_type, "node-"))
     return 130;
-  else if (g_str_has_prefix (event_type, "session-item-"))
-    return 110;
   else if (g_str_has_prefix (event_type, "stream-link-"))
     return 110;
   else if (g_str_has_prefix (event_type, "stream-"))
@@ -284,12 +265,6 @@ wp_standard_event_source_create_event (WpStandardEventSource *self,
     if (WP_IS_PROXY (subject)) {
       proxy = g_object_ref (WP_PROXY (subject));
     }
-    else if (WP_IS_SESSION_ITEM (subject)) {
-      /* watch the node associated with the session-item */
-      proxy = wp_session_item_get_associated_proxy (WP_SESSION_ITEM (subject),
-          WP_TYPE_NODE);
-    }
-
     if (proxy) {
       g_signal_connect_object (proxy, "pw-proxy-destroyed",
           (GCallback) g_cancellable_cancel, wp_event_get_cancellable (event),

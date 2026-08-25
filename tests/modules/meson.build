@@ -25,24 +25,3 @@ test(
     dependencies: common_deps),
   env: common_env,
 )
-
-test(
-  'modules/si-node',
-  executable('test-si-node', 'si-node.c',
-      dependencies: common_deps),
-  env: common_env,
-)
-
-test(
-  'modules/si-audio-adapter',
-  executable('test-si-audio-adapter', 'si-audio-adapter.c',
-      dependencies: common_deps),
-  env: common_env,
-)
-
-test(
-  'modules/si-standard-link',
-  executable('test-si-standard-link', 'si-standard-link.c',
-      dependencies: common_deps),
-  env: common_env,
-)

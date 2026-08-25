@@ -133,7 +133,7 @@ Visually, with sample priorities::
 
   List of events
    |  "device-added" (prio 20) -> set-profile, set-route
-   |  "node-added" (prio 10) -> restore-stream, create-session-item
+   |  "node-added" (prio 10) -> restore-stream
    v
 
 Obviously, there can also be a case where a newly added event has higher

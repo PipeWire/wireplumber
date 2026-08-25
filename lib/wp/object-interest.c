@@ -8,7 +8,6 @@
 
 #include "object-interest.h"
 #include "global-proxy.h"
-#include "session-item.h"
 #include "stream.h"
 #include "proxy-interfaces.h"
 #include "event-dispatcher.h"
@@ -766,13 +765,6 @@ wp_object_interest_matches_full (WpObjectInterest * self,
 
       if (wp_object_test_active_features (oo, WP_PIPEWIRE_OBJECT_FEATURE_INFO))
         pw_props = props = wp_pipewire_object_get_properties (pwo);
-    }
-
-    if (!pw_global_props && WP_IS_SESSION_ITEM (object)) {
-      WpSessionItem *si = (WpSessionItem *) object;
-      pw_global_props = props = wp_session_item_get_properties (si);
-      if (!pw_props)
-        pw_props = props;
     }
 
     if (!pw_global_props && WP_IS_STREAM (object)) {

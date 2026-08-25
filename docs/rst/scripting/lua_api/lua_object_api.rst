@@ -88,8 +88,6 @@ Constant                                     Applies to
 ``Feature.SpaDevice.ENABLED``                :ref:`SpaDevice <lua_spa_device_api>`
 ``Feature.Node.PORTS``                       :ref:`Node <lua_proxies_api>`
 ``Feature.Metadata.DATA``                    :ref:`Metadata <lua_proxies_api>`
-``Feature.SessionItem.ACTIVE``               :ref:`SessionItem <lua_session_item_api>`
-``Feature.SessionItem.EXPORTED``             :ref:`SessionItem <lua_session_item_api>`
 ============================================ =====================================
 
 The ``Features`` table provides convenient combinations:

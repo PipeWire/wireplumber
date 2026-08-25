@@ -178,10 +178,6 @@ local Feature = {
   Metadata = {
     DATA              = (1 << 16),
   },
-  SessionItem = {
-    ACTIVE            = (1 << 0),
-    EXPORTED          = (1 << 1),
-  },
 }
 
 PERM_R_VAL = 0x100
@@ -245,7 +241,6 @@ SANDBOX_EXPORT = {
   EventDispatcher = WpEventDispatcher,
   ObjectManager = WpObjectManager_new,
   Interest = WpObjectInterest_new,
-  SessionItem = WpSessionItem_new,
   Constraint = Constraint,
   EventInterest = EventInterest,
   Device = WpDevice_new,

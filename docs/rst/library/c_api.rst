@@ -39,9 +39,6 @@ C API Documentation
    c_api/component_loader_api.rst
    c_api/settings_api.rst
    c_api/conf_api.rst
-   c_api/session_item_api.rst
-   c_api/si_interfaces_api.rst
-   c_api/si_factory_api.rst
    c_api/factory_api.rst
    c_api/state_api.rst
    c_api/json_utils_api.rst

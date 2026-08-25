@@ -48,9 +48,8 @@ asking a PipeWire factory to make one.
    ``link.output.node``, ``link.output.port``, ``link.input.node`` and
    ``link.input.port``.
 
-   Note that the linking policy does not use this directly; it creates
-   ``si-standard-link`` session items instead, which manage the underlying
-   links themselves.
+   Note that the linking policy does not use this directly; it creates links
+   through the stream-link manager.
 
    :param string factory: the name of the PipeWire factory, normally
       ``"link-factory"``

@@ -68,36 +68,6 @@ shared_library(
   dependencies : [wp_dep, giounix_dep],
 )
 
-shared_library(
-  'wireplumber-module-si-audio-adapter',
-  [
-    'module-si-audio-adapter.c',
-  ],
-  install : true,
-  install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep, pipewire_dep],
-)
-
-shared_library(
-  'wireplumber-module-si-node',
-  [
-    'module-si-node.c',
-  ],
-  install : true,
-  install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep, pipewire_dep],
-)
-
-shared_library(
-  'wireplumber-module-si-standard-link',
-  [
-    'module-si-standard-link.c',
-  ],
-  install : true,
-  install_dir : wireplumber_module_dir,
-  dependencies : [wp_dep, pipewire_dep],
-)
-
 subdir('module-lua-scripting')
 shared_library(
   'wireplumber-module-lua-scripting',
