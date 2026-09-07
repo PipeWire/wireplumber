@@ -35,7 +35,7 @@ SimpleEventHook {
     }
 
     -- A very high priority node is already selected, so we can skip this hook
-    if selected.route_priority > 15000 then
+    if selected.priority > 15000 then
       return
     end
 
@@ -67,6 +67,10 @@ SimpleEventHook {
       -- Highest ranking node wins; see nutils.compare_nodes ()
       local ranking = nutils.get_node_ranking (node_props)
 
+      log:debug("considering " .. tostring(node_name) ..
+          ": prio " .. tostring(ranking.priority) ..
+          ", route_prio " .. tostring(ranking.route_priority))
+
       if selected_node == nil or nutils.compare_nodes (ranking, selected) then
         selected = ranking
         selected_node = node_name
@@ -74,6 +78,10 @@ SimpleEventHook {
 
       ::skip_node::
     end
+
+    log:debug("-> selected " .. tostring(selected_node) ..
+          ": prio " .. tostring(selected.priority) ..
+          ", route_prio " .. tostring(selected.route_priority))
 
     event:set_data ("selected-node-priority", selected.priority)
     event:set_data ("selected-route-priority", selected.route_priority)
