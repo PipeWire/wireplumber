@@ -924,6 +924,7 @@ struct _WpAudioStream
   gboolean curr_monitor;
   gboolean curr_control;
   WpSpaPod *curr_format;
+  gboolean pending_ports_config;
 
   /* Activation info */
   gulong params_changed_sigid;
@@ -946,6 +947,7 @@ wp_audio_stream_init (WpAudioStream * self)
   self->curr_monitor = TRUE;
   self->curr_control = FALSE;
   self->curr_format = NULL;
+  self->pending_ports_config = FALSE;
 
   /* Activation info */
   self->params_changed_sigid = 0;
@@ -1335,9 +1337,34 @@ update_audio_enum_format_info (WpAudioStream *self, WpIterator *it)
 static void
 audio_stream_notify_ports_error (WpAudioStream *self, const gchar *msg)
 {
+  self->pending_ports_config = FALSE;
   wp_warning_object (self, "%s", msg);
   g_signal_emit (self, audio_stream_signals[AUDIO_STREAM_SIGNAL_PORTS_ERROR], 0,
       msg);
+}
+
+/*
+ * Emits 'ports-configured' once the configuration requested by
+ * wp_audio_stream_configure_ports_internal() has taken effect: the node has
+ * reported the new PortConfig and the ports of the new configuration exist.
+ *
+ * The node reports the change more than once (one params-changed per PortConfig
+ * enumeration round trip, plus the ports object manager's objects-changed), and
+ * it also reports changes that this stream did not request. Only one of those
+ * completes the request; the rest must not be mistaken for it.
+ */
+static void
+audio_stream_check_ports_configured (WpAudioStream *self)
+{
+  if (!self->pending_ports_config || !self->port_config_ready ||
+      !self->curr_format ||
+      wp_stream_get_ports_count (WP_STREAM (self)) == 0)
+    return;
+
+  self->pending_ports_config = FALSE;
+  wp_info_object (self, "ports configured");
+  g_signal_emit (self,
+      audio_stream_signals[AUDIO_STREAM_SIGNAL_PORTS_CONFIGURED], 0);
 }
 
 static void
@@ -1347,7 +1374,6 @@ on_audio_node_port_config_changed (WpPipewireObject *po, GAsyncResult *res,
   g_autoptr (WpAudioStream) self = WP_AUDIO_STREAM (s);
   g_autoptr (WpIterator) it = NULL;
   g_autoptr (GError) err = NULL;
-  guint n_ports;
 
   /* Check for errors */
   it = wp_pipewire_object_enum_params_finish (po, res, &err);
@@ -1369,13 +1395,7 @@ on_audio_node_port_config_changed (WpPipewireObject *po, GAsyncResult *res,
   self->port_config_ready = TRUE;
   wp_info_object (self, "PortConfig info updated on changed");
 
-  /* Trigger ports-configured signal if ports are available with format */
-  n_ports = wp_stream_get_ports_count (WP_STREAM (self));
-  if (n_ports > 0 && self->curr_format) {
-    wp_info_object (self, "ports configured via port config changed");
-    g_signal_emit (self,
-        audio_stream_signals[AUDIO_STREAM_SIGNAL_PORTS_CONFIGURED], 0);
-  }
+  audio_stream_check_ports_configured (self);
 }
 
 static void
@@ -1471,11 +1491,8 @@ on_audio_node_port_config_done (WpPipewireObject *po, GAsyncResult *res,
   self->port_config_ready = TRUE;
   wp_info_object (self, "PortConfig info updated on activation");
 
-  /* Only finish activation if PortConfig is ready */
-  if (self->port_config_ready) {
-    wp_debug_object (self, "finish activation");
-    wp_object_update_features (WP_OBJECT (self), WP_STREAM_FEATURE_ACTIVE, 0);
-  }
+  wp_debug_object (self, "finish activation");
+  wp_object_update_features (WP_OBJECT (self), WP_STREAM_FEATURE_ACTIVE, 0);
 }
 
 static void
@@ -1571,6 +1588,7 @@ wp_audio_stream_disable_active (WpStream *stream)
   self->curr_monitor = TRUE;
   self->curr_control = FALSE;
   g_clear_pointer (&self->curr_format, wp_spa_pod_unref);
+  self->pending_ports_config = FALSE;
 }
 
 static guint
@@ -1652,16 +1670,11 @@ static void
 wp_audio_stream_ports_changed (WpStream *stream)
 {
   WpAudioStream *self = WP_AUDIO_STREAM (stream);
-  guint n_ports = wp_stream_get_ports_count (WP_STREAM (self));
 
-  wp_info_object (self, "audio ports changed: count=%u", n_ports);
+  wp_info_object (self, "audio ports changed: count=%u",
+      wp_stream_get_ports_count (stream));
 
-  /* Trigger ports-configured signal if ports are available with format */
-  if (n_ports > 0 && self->curr_format) {
-    wp_info_object (self, "ports configured via ports changed");
-    g_signal_emit (self,
-        audio_stream_signals[AUDIO_STREAM_SIGNAL_PORTS_CONFIGURED], 0);
-  }
+  audio_stream_check_ports_configured (self);
 }
 
 static void
@@ -1933,6 +1946,11 @@ wp_audio_stream_configure_ports_internal (WpAudioStream * self,
   self->curr_mode = mode_id;
   self->curr_monitor = monitor;
   self->curr_control = control;
+
+  /* The node's PortConfig info is stale until it reports the new one back;
+   * 'ports-configured' is emitted when it does and the new ports exist */
+  self->port_config_ready = FALSE;
+  self->pending_ports_config = TRUE;
 
   return TRUE;
 }

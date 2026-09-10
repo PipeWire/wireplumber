@@ -204,3 +204,10 @@ test(
   args: ['script-tests', 'node/suspend-fast-start-existing-client.lua'],
   env: common_env,
 )
+
+test(
+  'scripts/node/audio-stream-ports-configured',
+  script_tester,
+  args: ['script-tests', 'node/audio-stream-ports-configured.lua'],
+  env: common_env,
+)
