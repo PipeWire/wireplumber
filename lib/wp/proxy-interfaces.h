@@ -44,7 +44,7 @@ struct _WpPipewireObjectInterface
   WpIterator * (*enum_params_sync) (WpPipewireObject * self,
       const gchar * id, WpSpaPod * filter);
 
-  gboolean (*set_param) (WpPipewireObject * self, const gchar * id,
+  gint (*set_param) (WpPipewireObject * self, const gchar * id,
       guint32 flags, WpSpaPod * param);
 
   /*< private >*/
@@ -83,6 +83,10 @@ WpIterator * wp_pipewire_object_enum_params_sync (WpPipewireObject * self,
 
 WP_API
 gboolean wp_pipewire_object_set_param (WpPipewireObject * self,
+    const gchar * id, guint32 flags, WpSpaPod * param);
+
+WP_API
+gint wp_pipewire_object_set_param_seq (WpPipewireObject * self,
     const gchar * id, guint32 flags, WpSpaPod * param);
 
 

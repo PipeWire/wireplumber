@@ -10,6 +10,9 @@
 #include "properties.h"
 #include "log.h"
 
+#include <errno.h>
+#include <spa/utils/result.h>
+
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp-proxy-ifaces")
 
 /*! \defgroup wppipewireobject WpPipewireObject */
@@ -288,6 +291,11 @@ wp_pipewire_object_enum_params_sync (WpPipewireObject * self,
 /*!
  * \brief Sets a parameter on the object.
  *
+ * Note that a successful return only means that the request was handed to
+ * PipeWire. For remote objects the request is asynchronous and the server may
+ * still reject it; see wp_pipewire_object_set_param_seq() for how to observe
+ * such a rejection.
+ *
  * \ingroup wppipewireobject
  * \param self the pipewire object
  * \param id the parameter id to set
@@ -299,9 +307,39 @@ gboolean
 wp_pipewire_object_set_param (WpPipewireObject * self, const gchar * id,
     guint32 flags, WpSpaPod * param)
 {
-  g_return_val_if_fail (WP_IS_PIPEWIRE_OBJECT (self), FALSE);
-  g_return_val_if_fail (WP_PIPEWIRE_OBJECT_GET_IFACE (self)->set_param, FALSE);
+  return wp_pipewire_object_set_param_seq (self, id, flags, param) >= 0;
+}
 
-  return WP_PIPEWIRE_OBJECT_GET_IFACE (self)->set_param (self, id, flags,
+/*!
+ * \brief Sets a parameter on the object, returning the sequence number of the
+ * request.
+ *
+ * For a remote object, the server reports a rejected request by emitting
+ * WpProxy's "error" signal with the sequence number that this method returned,
+ * which is the only way to observe such a rejection. For a local object the
+ * request is handled synchronously and a rejection is reported here.
+ *
+ * \ingroup wppipewireobject
+ * \param self the pipewire object
+ * \param id the parameter id to set
+ * \param flags optional flags or 0
+ * \param param (transfer full): the parameter to set
+ * \returns the sequence number of the request (>= 0), or a negative errno
+ */
+gint
+wp_pipewire_object_set_param_seq (WpPipewireObject * self, const gchar * id,
+    guint32 flags, WpSpaPod * param)
+{
+  gint res;
+
+  g_return_val_if_fail (WP_IS_PIPEWIRE_OBJECT (self), -EINVAL);
+  g_return_val_if_fail (WP_PIPEWIRE_OBJECT_GET_IFACE (self)->set_param,
+      -ENOTSUP);
+
+  res = WP_PIPEWIRE_OBJECT_GET_IFACE (self)->set_param (self, id, flags,
       param);
+
+  /* the sequence number comes back tagged as an async result; the "error"
+   * signal reports the untagged one, so report that here too */
+  return SPA_RESULT_IS_ASYNC (res) ? SPA_RESULT_ASYNC_SEQ (res) : res;
 }

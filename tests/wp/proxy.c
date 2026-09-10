@@ -288,6 +288,74 @@ test_enum_params_error (TestFixture *f, gconstpointer data)
   g_main_loop_run (f->base.loop);
 }
 
+typedef struct {
+  WpBaseTestFixture *f;
+  gint seq;
+  gint res;
+} SetParamErrorData;
+
+static void
+set_param_error_cb (WpProxy * proxy, gint seq, gint res, const gchar * message,
+    SetParamErrorData * data)
+{
+  data->seq = seq;
+  data->res = res;
+  g_main_loop_quit (data->f->loop);
+}
+
+static void
+test_set_param_error (TestFixture *f, gconstpointer data)
+{
+  g_autoptr (WpNode) node = NULL;
+  SetParamErrorData d = { &f->base, 0, 0 };
+  gint seq;
+
+  /* load audiotestsrc on the server side */
+  {
+    g_autoptr (WpTestServerLocker) lock =
+        wp_test_server_locker_new (&f->base.server);
+
+    g_assert_cmpint (pw_context_add_spa_lib (f->base.server.context,
+            "audiotestsrc", "audiotestsrc/libspa-audiotestsrc"), ==, 0);
+    if (!test_is_spa_lib_installed (&f->base, "audiotestsrc")) {
+      g_test_skip ("The pipewire audiotestsrc factory was not found");
+      return;
+    }
+    g_assert_nonnull (pw_context_load_module (f->base.server.context,
+            "libpipewire-module-adapter", NULL, NULL));
+  }
+
+  node = wp_node_new_from_factory (f->base.core,
+      "adapter",
+      wp_properties_new (
+          "factory.name", "audiotestsrc",
+          "node.name", "audiotestsrc",
+          NULL));
+  g_assert_nonnull (node);
+
+  wp_object_activate (WP_OBJECT (node), WP_PIPEWIRE_OBJECT_FEATURES_MINIMAL,
+      NULL, (GAsyncReadyCallback) test_object_activate_finish_cb, f);
+  g_main_loop_run (f->base.loop);
+
+  g_signal_connect (node, "error", (GCallback) set_param_error_cb, &d);
+
+  /* the adapter rejects the "none" port config mode; the request is sent
+   * regardless and the rejection only arrives later, on the "error" signal */
+  seq = wp_pipewire_object_set_param_seq (WP_PIPEWIRE_OBJECT (node),
+      "PortConfig", 0, wp_spa_pod_new_object (
+          "Spa:Pod:Object:Param:PortConfig", "PortConfig",
+          "direction", "I", WP_DIRECTION_OUTPUT,
+          "mode", "I", SPA_PARAM_PORT_CONFIG_MODE_none,
+          NULL));
+  g_assert_cmpint (seq, >=, 0);
+
+  g_main_loop_run (f->base.loop);
+
+  /* the error must be attributable to the request that caused it */
+  g_assert_cmpint (d.seq, ==, seq);
+  g_assert_cmpint (d.res, ==, -ENOTSUP);
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -302,6 +370,8 @@ main (gint argc, gchar *argv[])
       test_proxy_setup, test_link_error, test_proxy_teardown);
   g_test_add ("/wp/proxy/enum_params_error", TestFixture, NULL,
       test_proxy_setup, test_enum_params_error, test_proxy_teardown);
+  g_test_add ("/wp/proxy/set_param_error", TestFixture, NULL,
+      test_proxy_setup, test_set_param_error, test_proxy_teardown);
 
   return g_test_run ();
 }

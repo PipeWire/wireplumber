@@ -311,7 +311,7 @@ wp_pw_object_mixin_enum_params_sync (WpPipewireObject * obj, const gchar * id,
   return params ? wp_iterator_new_ptr_array (params, WP_TYPE_SPA_POD) : NULL;
 }
 
-static gboolean
+static gint
 wp_pw_object_mixin_set_param (WpPipewireObject * obj, const gchar * id,
     guint32 flags, WpSpaPod * param)
 {
@@ -322,28 +322,29 @@ wp_pw_object_mixin_set_param (WpPipewireObject * obj, const gchar * id,
 
   if (!d->iface) {
     wp_notice_object (obj, "ignoring set_param on already destroyed objects");
-    return FALSE;
+    wp_spa_pod_unref (param);
+    return -ENOENT;
   }
 
   if (!iface->set_param) {
     wp_warning_object (obj, "set_param is not supported on this object");
-    return FALSE;
+    wp_spa_pod_unref (param);
+    return -ENOTSUP;
   }
 
   param_id = wp_spa_id_value_from_short_name ("Spa:Enum:ParamId", id);
   if (!param_id) {
     wp_critical_object (obj, "invalid param id: %s", id);
     wp_spa_pod_unref (param);
-    return FALSE;
+    return -EINVAL;
   }
 
   ret = iface->set_param (obj, wp_spa_id_value_number (param_id), flags, param);
 
-  if (G_UNLIKELY (SPA_RESULT_IS_ERROR (ret))) {
+  if (G_UNLIKELY (SPA_RESULT_IS_ERROR (ret)))
     wp_notice_object (obj, "set_param failed: %s", spa_strerror (ret));
-    return FALSE;
-  }
-  return TRUE;
+
+  return ret;
 }
 
 void
