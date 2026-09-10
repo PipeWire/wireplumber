@@ -314,6 +314,23 @@ on_link_activated_transition (WpLink * link, GAsyncResult * res,
   }
 }
 
+/* Aborts an activation step. Every early return on the activation path must go
+ * through this: a transition that is neither completed nor failed leaves the
+ * caller's callback hanging and this object registered in the core forever.
+ * Outside of an activation (transition == NULL) it just warns.
+ * Takes ownership of error. */
+static void
+stream_link_abort (WpStreamLink * self, WpTransition * transition,
+    GError * error)
+{
+  if (transition) {
+    wp_transition_return_error (transition, error);
+  } else {
+    wp_warning_object (self, "%s", error->message);
+    g_error_free (error);
+  }
+}
+
 static void
 create_links (WpStreamLink *self, WpTransition * transition)
 {
@@ -331,6 +348,7 @@ create_links (WpStreamLink *self, WpTransition * transition)
   struct port out_port = { 0, };
   struct port *in_port;
   gint i = 0;
+  guint n_created = 0;
 
   priv = wp_stream_link_get_instance_private (self);
 
@@ -340,13 +358,22 @@ create_links (WpStreamLink *self, WpTransition * transition)
 
   /* Get input/output node and port IDs */
   output_stream = g_weak_ref_get (&priv->output_stream);
-  g_return_if_fail (output_stream);
   input_stream = g_weak_ref_get (&priv->input_stream);
-  g_return_if_fail (input_stream);
+  if (!output_stream || !input_stream) {
+    stream_link_abort (self, transition, g_error_new (WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_INVARIANT,
+        "cannot create links without valid streams"));
+    return;
+  }
   out_node_id = wp_stream_get_node_bound_id (output_stream);
-  g_return_if_fail (out_node_id != SPA_ID_INVALID);
   in_node_id = wp_stream_get_node_bound_id (input_stream);
-  g_return_if_fail (in_node_id != SPA_ID_INVALID);
+  if (out_node_id == SPA_ID_INVALID || in_node_id == SPA_ID_INVALID) {
+    stream_link_abort (self, transition, g_error_new (WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_INVARIANT,
+        "cannot create links with unbound stream nodes: out=%u in=%u",
+        out_node_id, in_node_id));
+    return;
+  }
 
   /* Make sure both streams have at least 1 port */
   n_out_ports = priv->is_output_stream_monitor ?
@@ -354,14 +381,10 @@ create_links (WpStreamLink *self, WpTransition * transition)
       wp_stream_get_ports_count (output_stream);
   n_in_ports = wp_stream_get_ports_count (input_stream);
   if (n_out_ports == 0 || n_in_ports == 0) {
-    g_autoptr (GError) error = g_error_new (WP_DOMAIN_LIBRARY,
+    stream_link_abort (self, transition, g_error_new (WP_DOMAIN_LIBRARY,
         WP_LIBRARY_ERROR_INVARIANT,
-        "cannot link streams without ports: n_out_ports=%d n_in_ports=%d",
-        n_out_ports, n_in_ports);
-    if (transition)
-      wp_transition_return_error (transition, g_steal_pointer (&error));
-    else
-      wp_warning_object (self, "%s", error->message);
+        "cannot link streams without ports: n_out_ports=%u n_in_ports=%u",
+        n_out_ports, n_in_ports));
     return;
   }
 
@@ -466,6 +489,16 @@ create_links (WpStreamLink *self, WpTransition * transition)
           g_cclosure_new_object (
               (GCallback) on_link_activated, G_OBJECT (self)));
     }
+    n_created++;
+  }
+
+  /* The port matching above is not guaranteed to produce any link. Without one,
+   * nothing would ever complete the transition */
+  if (n_created == 0) {
+    stream_link_abort (self, transition, g_error_new (WP_DOMAIN_LIBRARY,
+        WP_LIBRARY_ERROR_INVARIANT,
+        "could not link any ports between the streams"));
+    return;
   }
 }
 
@@ -561,9 +594,13 @@ on_links_om_installed (WpObjectManager *om, gpointer d)
 
   /* Handle port-removed signals to remove any managed links */
   output_stream = g_weak_ref_get (&priv->output_stream);
-  g_return_if_fail (output_stream);
   input_stream = g_weak_ref_get (&priv->input_stream);
-  g_return_if_fail (input_stream);
+  if (!output_stream || !input_stream) {
+    wp_transition_return_error (transition,
+        g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
+        "streams disappeared while installing the links object manager"));
+    return;
+  }
   g_signal_connect_object (output_stream, "port-removed",
       G_CALLBACK (on_stream_port_removed), self, 0);
   g_signal_connect_object (input_stream, "port-removed",
@@ -645,8 +682,13 @@ wp_stream_link_activate (WpStreamLink *self, WpTransition *transition)
   /* Get stream node Ids */
   out_node_id = wp_stream_get_node_bound_id (output_stream);
   in_node_id = wp_stream_get_node_bound_id (input_stream);
-  g_return_if_fail (in_node_id != SPA_ID_INVALID);
-  g_return_if_fail (out_node_id != SPA_ID_INVALID);
+  if (out_node_id == SPA_ID_INVALID || in_node_id == SPA_ID_INVALID) {
+    wp_transition_return_error (transition,
+        g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
+        "cannot activate link with unbound stream nodes: out=%u in=%u",
+        out_node_id, in_node_id));
+    return;
+  }
 
   /* Create and install links object manager */
   g_return_if_fail (priv->links_om == NULL);
@@ -1027,9 +1069,13 @@ wp_audio_stream_link_setup_ports (WpStreamLink *link, WpTransition *transition)
 
   /* Get audio streams */
   output = wp_stream_link_get_output_stream (link, NULL);
-  g_return_if_fail (output);
   input = wp_stream_link_get_input_stream (link);
-  g_return_if_fail (input);
+  if (!output || !input) {
+    wp_transition_return_error (transition,
+        g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
+        "cannot setup ports without valid streams"));
+    return;
+  }
 
   /* We always consider output stream as main, unless input stream is a target */
   out_is_target = wp_stream_get_kind (output) == WP_STREAM_KIND_TARGET;

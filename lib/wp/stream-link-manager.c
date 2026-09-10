@@ -237,6 +237,10 @@ evaluate_stream_link_on_link_added (WpStreamLinkManager *self, WpLink *link)
 
   /* Create the new stream link */
   new_stream_link = wp_stream_link_manager_create_link (self, output, input);
+  if (!new_stream_link) {
+    wp_warning_object (self, "could not create stream link for link %p", link);
+    return;
+  }
 
   /* Activate the stream link */
   self->pending_stream_links++;

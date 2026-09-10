@@ -146,6 +146,19 @@ remove_all_node_streams (WpStreamManager * self, WpNode *node)
   g_hash_table_remove (self->node_streams, node);
 }
 
+/* Completes the activation transition once nothing is pending anymore. Every
+ * path that decrements one of the counters must end up here, or the transition
+ * is never completed and the manager never becomes LOADED. */
+static void
+check_activation_done (WpStreamManager * self, const gchar * reason)
+{
+  if (self->pending_enum_port_config == 0 && self->pending_streams == 0) {
+    wp_info_object (self, "finishing activation %s...", reason);
+    wp_object_update_features (WP_OBJECT (self),
+        WP_STREAM_MANAGER_FEATURE_LOADED, 0);
+  }
+}
+
 static void
 on_stream_activated (WpObject * s, GAsyncResult * res, WpStreamManager * self)
 {
@@ -164,29 +177,27 @@ on_stream_activated (WpObject * s, GAsyncResult * res, WpStreamManager * self)
   } else {
     wp_info_object (self, "activated stream %p successfully", s);
 
-    /* Get core */
+    /* The node can have been removed while the stream was activating; there
+     * is nothing to register in that case, but the transition still needs to
+     * be completed below */
     core = wp_object_get_core (WP_OBJECT (self));
     g_return_if_fail (core);
 
-    /* Get node streams list */
     node = wp_stream_get_node (stream);
-    g_return_if_fail (node);
-    streams = get_node_streams (self, node);
-    g_return_if_fail (streams);
+    if (!node) {
+      wp_info_object (self, "not registering stream %p: node is gone", s);
+    } else {
+      /* Add it to the node streams list */
+      streams = get_node_streams (self, node);
+      g_ptr_array_add (streams, g_object_ref (stream));
 
-    /* Add it to the list */
-    g_ptr_array_add (streams, g_object_ref (stream));
-
-    /* Register the stream */
-    wp_core_register_object (core, g_object_ref (stream));
+      /* Register the stream */
+      wp_core_register_object (core, g_object_ref (stream));
+    }
   }
 
   /* Finish activation if no pending enum port config and no pending streams */
-  if (self->pending_enum_port_config == 0 && self->pending_streams == 0) {
-    wp_info_object (self, "finishing activation with streams...");
-    wp_object_update_features (WP_OBJECT (self),
-        WP_STREAM_MANAGER_FEATURE_LOADED, 0);
-  }
+  check_activation_done (self, "with streams");
 }
 
 static void
@@ -210,11 +221,7 @@ on_audio_node_enum_port_config_done (WpPipewireObject *po, GAsyncResult *res,
   if (!it) {
     wp_warning_object (self, "failed to enum EnumPortConfig on node %u: %s",
         bound_id, err->message);
-    if (self->pending_enum_port_config == 0 && self->pending_streams == 0) {
-      wp_info_object (self, "finishing activation after enum error...");
-      wp_object_update_features (WP_OBJECT (self),
-          WP_STREAM_MANAGER_FEATURE_LOADED, 0);
-    }
+    check_activation_done (self, "after enum error");
     return;
   }
 
@@ -261,6 +268,10 @@ on_audio_node_enum_port_config_done (WpPipewireObject *po, GAsyncResult *res,
     if (!port_group)
       break;
   }
+
+  /* EnumPortConfig can be empty, in which case no stream was activated above
+   * and nothing else would ever complete the transition */
+  check_activation_done (self, "with empty port config");
 }
 
 static void
@@ -389,11 +400,7 @@ on_nodes_om_installed (WpObjectManager *om, gpointer d)
   }
 
   /* Just finish activation now if no pending enums or streams */
-  if (self->pending_enum_port_config == 0 && self->pending_streams == 0) {
-    wp_info_object (self, "finishing activation without streams...");
-    wp_object_update_features (WP_OBJECT (self),
-        WP_STREAM_MANAGER_FEATURE_LOADED, 0);
-  }
+  check_activation_done (self, "without streams");
 }
 
 static void

@@ -1530,7 +1530,12 @@ wp_audio_stream_enable_active (WpStream *stream, WpTransition *transition)
 
   /* Get stream node */
   node = wp_stream_get_node (WP_STREAM (self));
-  g_return_if_fail (node);
+  if (!node) {
+    wp_transition_return_error (transition, g_error_new (
+        WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "stream node is not valid on activation"));
+    return;
+  }
 
   /* Listen for PortConfig params changed */
   self->params_changed_sigid = g_signal_connect_object (node,
@@ -2250,7 +2255,12 @@ wp_video_stream_enable_active (WpStream *stream, WpTransition *transition)
   g_autoptr (WpNode) node = NULL;
 
   node = wp_stream_get_node (WP_STREAM (self));
-  g_return_if_fail (node);
+  if (!node) {
+    wp_transition_return_error (transition, g_error_new (
+        WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "stream node is not valid on activation"));
+    return;
+  }
 
   self->params_changed_sigid = g_signal_connect_object (node,
       "params-changed", (GCallback) on_video_node_params_changed, self, 0);
