@@ -925,9 +925,18 @@ struct _WpAudioStream
   gboolean curr_control;
   WpSpaPod *curr_format;
   gboolean pending_ports_config;
+  gint pending_ports_config_seq;
+
+  /* The configuration that curr_* held before the pending request, restored
+   * if the server rejects it */
+  enum spa_param_port_config_mode prev_mode;
+  gboolean prev_monitor;
+  gboolean prev_control;
+  WpSpaPod *prev_format;
 
   /* Activation info */
   gulong params_changed_sigid;
+  gulong error_sigid;
   gboolean port_config_ready;
 };
 
@@ -948,9 +957,15 @@ wp_audio_stream_init (WpAudioStream * self)
   self->curr_control = FALSE;
   self->curr_format = NULL;
   self->pending_ports_config = FALSE;
+  self->pending_ports_config_seq = 0;
+  self->prev_mode = SPA_PARAM_PORT_CONFIG_MODE_none;
+  self->prev_monitor = TRUE;
+  self->prev_control = FALSE;
+  self->prev_format = NULL;
 
   /* Activation info */
   self->params_changed_sigid = 0;
+  self->error_sigid = 0;
   self->port_config_ready = FALSE;
 }
 
@@ -1367,6 +1382,37 @@ audio_stream_check_ports_configured (WpAudioStream *self)
       audio_stream_signals[AUDIO_STREAM_SIGNAL_PORTS_CONFIGURED], 0);
 }
 
+/*
+ * The server rejects a PortConfig it cannot apply by erroring the node, which
+ * reaches us here with the sequence number of the request that failed. The
+ * node keeps the configuration it had, so restore what we optimistically
+ * recorded as current and report the failure.
+ *
+ * Node state errors also arrive with this sequence number, some with res 0;
+ * those are not a rejection.
+ */
+static void
+on_audio_node_error (WpNode *node, gint seq, gint res, const gchar *message,
+    WpAudioStream *self)
+{
+  g_autofree gchar *msg = NULL;
+
+  if (!self->pending_ports_config || seq != self->pending_ports_config_seq ||
+      res >= 0)
+    return;
+
+  g_clear_pointer (&self->curr_format, wp_spa_pod_unref);
+  self->curr_format = self->prev_format ?
+      wp_spa_pod_ref (self->prev_format) : NULL;
+  self->curr_mode = self->prev_mode;
+  self->curr_monitor = self->prev_monitor;
+  self->curr_control = self->prev_control;
+
+  msg = g_strdup_printf ("the port configuration was rejected: %s (%s)",
+      message, spa_strerror (res));
+  audio_stream_notify_ports_error (self, msg);
+}
+
 static void
 on_audio_node_port_config_changed (WpPipewireObject *po, GAsyncResult *res,
     WpStream *s)
@@ -1558,6 +1604,10 @@ wp_audio_stream_enable_active (WpStream *stream, WpTransition *transition)
   self->params_changed_sigid = g_signal_connect_object (node,
       "params-changed", (GCallback) on_audio_node_params_changed, self, 0);
 
+  /* Listen for rejected PortConfig requests */
+  self->error_sigid = g_signal_connect_object (node,
+      "error", (GCallback) on_audio_node_error, self, 0);
+
   /* Enum EnumFormat to see what formats the stream supports */
   wp_debug_object (self, "enumerating EnumFormat params on activation...");
   wp_pipewire_object_enum_params (WP_PIPEWIRE_OBJECT (node), "EnumFormat", NULL,
@@ -1577,6 +1627,10 @@ wp_audio_stream_disable_active (WpStream *stream)
     g_signal_handler_disconnect (node, self->params_changed_sigid);
     self->params_changed_sigid = 0;
   }
+  if (node && self->error_sigid) {
+    g_signal_handler_disconnect (node, self->error_sigid);
+    self->error_sigid = 0;
+  }
   self->port_config_ready = FALSE;
 
   /* EnumFormat info */
@@ -1589,6 +1643,10 @@ wp_audio_stream_disable_active (WpStream *stream)
   self->curr_control = FALSE;
   g_clear_pointer (&self->curr_format, wp_spa_pod_unref);
   self->pending_ports_config = FALSE;
+  self->prev_mode = SPA_PARAM_PORT_CONFIG_MODE_none;
+  self->prev_monitor = TRUE;
+  self->prev_control = FALSE;
+  g_clear_pointer (&self->prev_format, wp_spa_pod_unref);
 }
 
 static guint
@@ -1860,6 +1918,7 @@ wp_audio_stream_configure_ports_internal (WpAudioStream * self,
   guint32 fmt = 0;
   gint rate = 0;
   g_autoptr (WpSpaPodBuilder) b = NULL;
+  gint seq;
 
   /* Get the node */
   node = wp_stream_get_node (WP_STREAM (self));
@@ -1915,9 +1974,11 @@ wp_audio_stream_configure_ports_internal (WpAudioStream * self,
   wp_info_object (self, "configuring ports with different PortConfig");
 
   /* Ensure the node is suspended, since setting the PortConfig param only
-   * works if the node is not running */
-  if (wp_node_get_state (WP_NODE (node), NULL) >= WP_NODE_STATE_IDLE)
-    wp_node_send_command (WP_NODE (node), "Suspend");
+   * works if the node is not running. Do not decide this from the node's
+   * state: that is the last state the server reported, and a node started by
+   * links that were activated a moment ago still reads as suspended here.
+   * Suspending a node that is already suspended is a no-op. */
+  wp_node_send_command (WP_NODE (node), "Suspend");
 
   /* Build the PortConfig param */
   b = wp_spa_pod_builder_new_object (
@@ -1935,10 +1996,25 @@ wp_audio_stream_configure_ports_internal (WpAudioStream * self,
     wp_spa_pod_builder_add (b, "format", "P", ports_format, NULL);
   param = wp_spa_pod_builder_end (b);
 
-  /* Set port config */
-  if (!wp_pipewire_object_set_param (WP_PIPEWIRE_OBJECT (node), "PortConfig",
-      0, g_steal_pointer (&param)))
+  /* Set port config. The server may still reject the request; that is
+   * reported later, on the node's "error" signal */
+  seq = wp_pipewire_object_set_param_seq (WP_PIPEWIRE_OBJECT (node),
+      "PortConfig", 0, g_steal_pointer (&param));
+  if (seq < 0) {
+    g_autofree gchar *msg = g_strdup_printf (
+        "could not request the port configuration: %s", spa_strerror (seq));
+    audio_stream_notify_ports_error (self, msg);
     return FALSE;
+  }
+
+  /* Remember the configuration we are replacing, to restore it if the
+   * request is rejected */
+  g_clear_pointer (&self->prev_format, wp_spa_pod_unref);
+  self->prev_format = self->curr_format ?
+      wp_spa_pod_ref (self->curr_format) : NULL;
+  self->prev_mode = self->curr_mode;
+  self->prev_monitor = self->curr_monitor;
+  self->prev_control = self->curr_control;
 
   /* Update configuration */
   g_clear_pointer (&self->curr_format, wp_spa_pod_unref);
@@ -1951,6 +2027,7 @@ wp_audio_stream_configure_ports_internal (WpAudioStream * self,
    * 'ports-configured' is emitted when it does and the new ports exist */
   self->port_config_ready = FALSE;
   self->pending_ports_config = TRUE;
+  self->pending_ports_config_seq = seq;
 
   return TRUE;
 }
