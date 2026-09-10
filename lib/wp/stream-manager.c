@@ -98,7 +98,7 @@ ensure_media_role (WpStreamManager * self, WpProperties * props)
     return;
 
   core = wp_object_get_core (WP_OBJECT (self));
-  settings = core ? wp_settings_find (core, NULL) : NULL;
+  settings = wp_settings_find (core, NULL);
   if (!settings)
     return;
 
@@ -128,18 +128,16 @@ get_node_streams (WpStreamManager * self, WpNode *node)
 static void
 remove_all_node_streams (WpStreamManager * self, WpNode *node)
 {
-  g_autoptr (WpCore) core = NULL;
+  g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
+  GPtrArray *streams;
 
   /* Unregister all streams if any */
-  core = wp_object_get_core (WP_OBJECT (self));
-  if (core) {
-      GPtrArray *streams = g_hash_table_lookup (self->node_streams, node);
-      if (streams) {
-        for (guint i = 0; i < streams->len; i++) {
-          WpStream *s = g_ptr_array_index (streams, i);
-          wp_core_remove_object (core, s);
-        }
-      }
+  streams = g_hash_table_lookup (self->node_streams, node);
+  if (streams) {
+    for (guint i = 0; i < streams->len; i++) {
+      WpStream *s = g_ptr_array_index (streams, i);
+      wp_core_remove_object (core, s);
+    }
   }
 
   /* Remove all streams */

@@ -205,8 +205,7 @@ on_stream_link_activated (WpObject * sl, GAsyncResult * res,
         error->message);
     /* Remove the failed stream link from the manager and the core */
     g_ptr_array_remove_fast (self->stream_links, sl);
-    if (core)
-      wp_core_remove_object (core, sl);
+    wp_core_remove_object (core, sl);
   } else {
     wp_info_object (self, "activated stream link %p successfully", sl);
   }
@@ -504,12 +503,7 @@ on_stream_link_link_removed (WpStreamLink *stream_link, WpLink *link,
 {
   /* Remove the stream link if this was the last link removed */
   if (wp_stream_link_get_links_count (stream_link) == 0) {
-    g_autoptr (WpCore) core = NULL;
-
-    /* Get the core */
-    core = wp_object_get_core (WP_OBJECT (self));
-    if (!core)
-      return;
+    g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
 
     /* Remove */
     wp_object_deactivate (WP_OBJECT (stream_link), WP_OBJECT_FEATURES_ALL);

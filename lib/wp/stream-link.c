@@ -626,12 +626,6 @@ wp_stream_link_activate (WpStreamLink *self, WpTransition *transition)
 
   /* Get the core */
   core = wp_object_get_core (WP_OBJECT (self));
-  if (!core) {
-    wp_transition_return_error (transition,
-        g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
-        "cannot activate link without valid core"));
-    return;
-  }
 
   /* Make sure output stream is valid */
   output_stream = g_weak_ref_get (&priv->output_stream);
