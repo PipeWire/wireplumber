@@ -1545,7 +1545,10 @@ audio_stream_get_ports_format (lua_State *L)
 {
   WpAudioStream *stream = wplua_checkobject (L, 1, WP_TYPE_AUDIO_STREAM);
   WpSpaPod *format = wp_audio_stream_get_ports_format (stream);
-  wplua_pushboxed (L, WP_TYPE_SPA_POD, format);
+  if (format)
+    wplua_pushboxed (L, WP_TYPE_SPA_POD, format);
+  else
+    lua_pushnil (L);
   return 1;
 }
 
@@ -1779,11 +1782,7 @@ stream_link_manager_iterate_peers (lua_State *L)
   if (slm)
     it = wp_stream_link_manager_new_peers_iterator (slm, stream);
 
-  if (it)
-    return push_wpiterator (L, g_steal_pointer (&it));
-
-  lua_pushnil (L);
-  return 1;
+  return push_wpiterator (L, g_steal_pointer (&it));
 }
 
 static int
@@ -1797,11 +1796,7 @@ stream_link_manager_iterate_links (lua_State *L)
   if (slm)
     it = wp_stream_link_manager_new_links_iterator (slm, stream);
 
-  if (it)
-    return push_wpiterator (L, g_steal_pointer (&it));
-
-  lua_pushnil (L);
-  return 1;
+  return push_wpiterator (L, g_steal_pointer (&it));
 }
 
 static const luaL_Reg stream_link_manager_methods[] = {
@@ -3812,16 +3807,8 @@ wp_lua_scripting_api_init (lua_State *L)
       NULL, stream_methods);
   wplua_register_type_methods (L, WP_TYPE_AUDIO_STREAM,
       NULL, audio_stream_methods);
-  wplua_register_type_methods (L, WP_TYPE_VIDEO_STREAM,
-      NULL, NULL);
   wplua_register_type_methods (L, WP_TYPE_STREAM_LINK,
       NULL, stream_link_methods);
-  wplua_register_type_methods (L, WP_TYPE_AUDIO_STREAM_LINK,
-      NULL, NULL);
-  wplua_register_type_methods (L, WP_TYPE_VIDEO_STREAM_LINK,
-      NULL, NULL);
-  wplua_register_type_methods (L, WP_TYPE_STREAM_LINK_MANAGER,
-      NULL, stream_link_manager_methods);
   wplua_register_type_methods (L, WP_TYPE_CLIENT,
       NULL, client_methods);
   wplua_register_type_methods (L, WP_TYPE_PIPEWIRE_OBJECT,

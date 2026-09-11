@@ -178,6 +178,12 @@ local Feature = {
   Metadata = {
     DATA              = (1 << 16),
   },
+  Stream = {
+    ACTIVE            = (1 << 0),
+  },
+  StreamLink = {
+    ACTIVE            = (1 << 0),
+  },
 }
 
 PERM_R_VAL = 0x100
