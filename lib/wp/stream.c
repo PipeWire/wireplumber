@@ -1226,11 +1226,14 @@ update_audio_port_config_info (WpAudioStream *self, WpIterator *it)
       gboolean control = FALSE;
       g_autoptr (WpSpaPod) format = NULL;
 
+      /* Every field is optional: a PortConfig in no-dsp mode carries only the
+       * mode and the format, and one from a node that has not been configured
+       * yet carries neither */
       wp_spa_pod_get_object (param, NULL,
-          "mode",    "I", &mode,
-          "monitor", "b", &monitor,
-          "control", "b", &control,
-          "format",  "P", &format,
+          "mode",    "?I", &mode,
+          "monitor", "?b", &monitor,
+          "control", "?b", &control,
+          "format",  "?P", &format,
           NULL);
 
       /* Update mode, monitor and control values */
