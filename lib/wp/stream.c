@@ -926,6 +926,7 @@ struct _WpAudioStream
   WpSpaPod *curr_format;
   gboolean pending_ports_config;
   gint pending_ports_config_seq;
+  gboolean pending_ports_config_synced;
 
   /* The configuration that curr_* held before the pending request, restored
    * if the server rejects it */
@@ -937,7 +938,6 @@ struct _WpAudioStream
   /* Activation info */
   gulong params_changed_sigid;
   gulong error_sigid;
-  gboolean port_config_ready;
 };
 
 G_DEFINE_TYPE (WpAudioStream, wp_audio_stream, WP_TYPE_STREAM);
@@ -958,6 +958,7 @@ wp_audio_stream_init (WpAudioStream * self)
   self->curr_format = NULL;
   self->pending_ports_config = FALSE;
   self->pending_ports_config_seq = 0;
+  self->pending_ports_config_synced = FALSE;
   self->prev_mode = SPA_PARAM_PORT_CONFIG_MODE_none;
   self->prev_monitor = TRUE;
   self->prev_control = FALSE;
@@ -966,7 +967,6 @@ wp_audio_stream_init (WpAudioStream * self)
   /* Activation info */
   self->params_changed_sigid = 0;
   self->error_sigid = 0;
-  self->port_config_ready = FALSE;
 }
 
 static gboolean
@@ -1360,18 +1360,17 @@ audio_stream_notify_ports_error (WpAudioStream *self, const gchar *msg)
 
 /*
  * Emits 'ports-configured' once the configuration requested by
- * wp_audio_stream_configure_ports_internal() has taken effect: the node has
- * reported the new PortConfig and the ports of the new configuration exist.
+ * wp_audio_stream_configure_ports_internal() has taken effect: the server has
+ * handled the request and the ports of the new configuration exist.
  *
- * The node reports the change more than once (one params-changed per PortConfig
- * enumeration round trip, plus the ports object manager's objects-changed), and
- * it also reports changes that this stream did not request. Only one of those
- * completes the request; the rest must not be mistaken for it.
+ * The node reports port changes more than once and it also reports changes that
+ * this stream did not request. Only one of those completes the request; the
+ * rest must not be mistaken for it.
  */
 static void
 audio_stream_check_ports_configured (WpAudioStream *self)
 {
-  if (!self->pending_ports_config || !self->port_config_ready ||
+  if (!self->pending_ports_config || !self->pending_ports_config_synced ||
       !self->curr_format ||
       wp_stream_get_ports_count (WP_STREAM (self)) == 0)
     return;
@@ -1380,6 +1379,31 @@ audio_stream_check_ports_configured (WpAudioStream *self)
   wp_info_object (self, "ports configured");
   g_signal_emit (self,
       audio_stream_signals[AUDIO_STREAM_SIGNAL_PORTS_CONFIGURED], 0);
+}
+
+/*
+ * The barrier that tells us the PortConfig request has been handled. The node
+ * only advertises a PortConfig change as a side effect of its follower's
+ * Format changing, which does not happen in no-dsp mode, and the server's
+ * cached PortConfig is refreshed from the same advertisement, so there is no
+ * param change to wait for instead.
+ */
+static void
+on_ports_config_synced (WpCore *core, GAsyncResult *res, WpAudioStream *self)
+{
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_core_sync_finish (core, res, &error)) {
+    if (self->pending_ports_config)
+      audio_stream_notify_ports_error (self, error->message);
+    return;
+  }
+
+  if (!self->pending_ports_config)
+    return;
+
+  self->pending_ports_config_synced = TRUE;
+  audio_stream_check_ports_configured (self);
 }
 
 /*
@@ -1438,7 +1462,6 @@ on_audio_node_port_config_changed (WpPipewireObject *po, GAsyncResult *res,
     return;
   }
 
-  self->port_config_ready = TRUE;
   wp_info_object (self, "PortConfig info updated on changed");
 
   audio_stream_check_ports_configured (self);
@@ -1494,13 +1517,11 @@ on_audio_node_params_changed (WpNode * node, const gchar *param_name,
 
   /* Only handle EnumFormat and PortConfig changes */
   if (g_str_equal (param_name, "EnumFormat")) {
-    self->port_config_ready = FALSE;
     wp_debug_object (self, "enumerating EnumFormat params on changed...");
     wp_pipewire_object_enum_params (WP_PIPEWIRE_OBJECT (node), "EnumFormat",
         NULL, NULL, (GAsyncReadyCallback) on_audio_node_enum_format_changed,
         g_object_ref (self));
   } else if (g_str_equal (param_name, "PortConfig")) {
-    self->port_config_ready = FALSE;
     wp_debug_object (self, "enumerating PortConfig params on changed...");
     wp_pipewire_object_enum_params (WP_PIPEWIRE_OBJECT (node), "PortConfig",
         NULL, NULL, (GAsyncReadyCallback) on_audio_node_port_config_changed,
@@ -1534,7 +1555,6 @@ on_audio_node_port_config_done (WpPipewireObject *po, GAsyncResult *res,
     return;
   }
 
-  self->port_config_ready = TRUE;
   wp_info_object (self, "PortConfig info updated on activation");
 
   wp_debug_object (self, "finish activation");
@@ -1631,7 +1651,6 @@ wp_audio_stream_disable_active (WpStream *stream)
     g_signal_handler_disconnect (node, self->error_sigid);
     self->error_sigid = 0;
   }
-  self->port_config_ready = FALSE;
 
   /* EnumFormat info */
   g_ptr_array_set_size (self->supported_raw_formats, 0);
@@ -1886,6 +1905,7 @@ static gboolean
 wp_audio_stream_configure_ports_internal (WpAudioStream * self,
     WpSpaPod *format, guint32 mode_id, gboolean monitor, gboolean control)
 {
+  g_autoptr (WpCore) core = NULL;
   g_autoptr (WpNode) node = NULL;
   g_autoptr (WpSpaPod) ports_format = NULL;
   gint channels = 0;
@@ -1896,7 +1916,8 @@ wp_audio_stream_configure_ports_internal (WpAudioStream * self,
   g_autoptr (WpSpaPodBuilder) b = NULL;
   gint seq;
 
-  /* Get the node */
+  /* Get the core and the node */
+  core = wp_object_get_core (WP_OBJECT (self));
   node = wp_stream_get_node (WP_STREAM (self));
   if (!node) {
     wp_warning_object (self, "cannot configure ports without valid node");
@@ -1999,11 +2020,13 @@ wp_audio_stream_configure_ports_internal (WpAudioStream * self,
   self->curr_monitor = monitor;
   self->curr_control = control;
 
-  /* The node's PortConfig info is stale until it reports the new one back;
-   * 'ports-configured' is emitted when it does and the new ports exist */
-  self->port_config_ready = FALSE;
+  /* 'ports-configured' is emitted once the request has been handled and the
+   * new ports exist; see on_ports_config_synced() */
   self->pending_ports_config = TRUE;
   self->pending_ports_config_seq = seq;
+  self->pending_ports_config_synced = FALSE;
+  wp_core_sync_closure (core, NULL, g_cclosure_new_object (
+      G_CALLBACK (on_ports_config_synced), G_OBJECT (self)));
 
   return TRUE;
 }

@@ -218,3 +218,10 @@ test(
   args: ['script-tests', 'linking/dont-fallback-no-defined-target.lua'],
   env: common_env,
 )
+
+test(
+  'scripts/node/audio-stream-ports-configured-no-dsp',
+  script_tester,
+  args: ['script-tests', 'node/audio-stream-ports-configured-no-dsp.lua'],
+  env: common_env,
+)
