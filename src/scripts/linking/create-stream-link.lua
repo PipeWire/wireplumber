@@ -11,6 +11,26 @@ stream_utils = require ("stream-utils")
 
 log = Log.open_topic ("s-linking")
 
+-- Number of times a stream is allowed to fail linking against the same target
+-- before the hook gives up, so that a target that can never work does not get
+-- retried on every rescan.
+MAX_LINK_ATTEMPTS = 5
+
+-- Per-stream record of the last failed target: [stream id] = { target, count }
+failed_links = {}
+
+SimpleEventHook {
+  name = "linking/clear-failed-links",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "stream-removed" },
+    },
+  },
+  execute = function (event)
+    failed_links [event:get_subject ().id] = nil
+  end
+}:register ()
+
 AsyncEventHook {
   name = "linking/create-stream-link",
   after = "linking/prepare-stream-link",
@@ -39,6 +59,16 @@ AsyncEventHook {
 
         log:info (stream, string.format ("handling stream:%d (node:%d): %s",
             stream_id, node_id, tostring (stream_props["node.name"])))
+
+        -- Give up if we already failed to link this stream to this target
+        local failed = failed_links [stream_id]
+        if failed ~= nil and failed.target == target.id and
+            failed.count >= MAX_LINK_ATTEMPTS then
+          transition:return_error (string.format (
+              "failed to link with target stream:%d %d times, not retrying",
+              failed.target, failed.count))
+          return
+        end
 
         -- Make sure the stream nodes are still bound
         local stream_node_id = stream:get_node_bound_id ()
@@ -87,9 +117,20 @@ AsyncEventHook {
         -- Activate link
         stream_link:activate (Features.ALL, function (sl, e)
           if e ~= nil then
+            -- Destroy it, or it stays in the manager as a peer of both
+            -- streams and the next rescan considers them linked
+            StreamLinkManager.remove_link (sl)
+
+            if failed ~= nil and failed.target == target_id then
+              failed.count = failed.count + 1
+            else
+              failed_links [stream_id] = { target = target_id, count = 1 }
+            end
+
             transition:return_error (
                 "failed to activate stream-link: " .. tostring (e))
           else
+            failed_links [stream_id] = nil
             log:info (stream, "linked with target successfully")
             transition:advance ()
           end

@@ -1759,6 +1759,17 @@ stream_link_manager_create_link (lua_State *L)
 }
 
 static int
+stream_link_manager_remove_link (lua_State *L)
+{
+  WpStreamLink *link = wplua_checkobject (L, 1, WP_TYPE_STREAM_LINK);
+  g_autoptr (WpStreamLinkManager) slm = wp_stream_link_manager_find (
+      get_wp_core (L), NULL);
+  if (slm)
+    wp_stream_link_manager_remove_link (slm, link);
+  return 0;
+}
+
+static int
 stream_link_manager_unlink (lua_State *L)
 {
   WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
@@ -1814,6 +1825,7 @@ static const luaL_Reg stream_link_manager_methods[] = {
   { "get_name", stream_link_manager_get_name },
   { "find_link", stream_link_manager_find_link },
   { "create_link", stream_link_manager_create_link },
+  { "remove_link", stream_link_manager_remove_link },
   { "unlink", stream_link_manager_unlink },
   { "get_peers_count", stream_link_manager_get_peers_count },
   { "iterate_peers", stream_link_manager_iterate_peers },

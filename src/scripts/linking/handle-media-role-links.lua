@@ -171,6 +171,7 @@ function rescan_media_classes (source, media_classes, transition)
   local function onMediaRoleLinkActivated (stream_link, e)
     if e ~= nil then
       log:warning (stream_link, "failed to activate media role link: " .. tostring (e))
+      StreamLinkManager.remove_link (stream_link)
     else
       log:info (stream_link, "media role link activated successfully")
     end

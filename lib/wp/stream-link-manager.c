@@ -200,12 +200,10 @@ on_stream_link_activated (WpObject * sl, GAsyncResult * res,
 
   /* Make sure there were no errors when activating the stream */
   if (!wp_object_activate_finish (sl, res, &error)) {
-    g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
     wp_warning_object (self, "failed to activate stream link %p: %s", sl,
         error->message);
     /* Remove the failed stream link from the manager and the core */
-    g_ptr_array_remove_fast (self->stream_links, sl);
-    wp_core_remove_object (core, sl);
+    wp_stream_link_manager_remove_link (self, WP_STREAM_LINK (sl));
   } else {
     wp_info_object (self, "activated stream link %p successfully", sl);
   }
@@ -571,6 +569,36 @@ wp_stream_link_manager_create_link (WpStreamLinkManager *self, WpStream *output,
   wp_core_register_object (core, g_object_ref (link));
 
   return g_steal_pointer (&link);
+}
+
+/*!
+ * \brief Destroys a single WpStreamLink, removing it from the manager and
+ * from the core.
+ *
+ * This is what callers that activate a link themselves must do when the
+ * activation fails; a link left in the manager still counts as a peer of both
+ * its streams and makes them look linked.
+ *
+ * \ingroup wpstreamlinkmanager
+ * \param self the stream link manager
+ * \param link (transfer none): the stream link to destroy
+ */
+void
+wp_stream_link_manager_remove_link (WpStreamLinkManager *self,
+    WpStreamLink *link)
+{
+  g_autoptr (WpCore) core = NULL;
+
+  g_return_if_fail (WP_IS_STREAM_LINK_MANAGER (self));
+  g_return_if_fail (WP_IS_STREAM_LINK (link));
+
+  core = wp_object_get_core (WP_OBJECT (self));
+  g_return_if_fail (core);
+
+  if (!g_ptr_array_remove_fast (self->stream_links, link))
+    return;
+
+  wp_core_remove_object (core, link);
 }
 
 /*!
