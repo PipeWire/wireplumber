@@ -526,8 +526,9 @@ on_stream_link_link_removed (WpStreamLink *stream_link, WpLink *link,
  * \param self the stream link manager
  * \param output (transfer none): the output stream
  * \param input (transfer none): the input stream
- * \returns (transfer full): the WpStreamLink to link the given output stream
- *   with the given input stream.
+ * \returns (transfer full) (nullable): the WpStreamLink to link the given
+ *   output stream with the given input stream, or NULL if the two streams are
+ *   not of the same media type
  */
 WpStreamLink *
 wp_stream_link_manager_create_link (WpStreamLinkManager *self, WpStream *output,
@@ -555,7 +556,9 @@ wp_stream_link_manager_create_link (WpStreamLinkManager *self, WpStream *output,
     link = WP_STREAM_LINK (wp_video_stream_link_new (core,
         WP_VIDEO_STREAM (output), WP_VIDEO_STREAM (input)));
   } else {
-    g_return_val_if_reached (NULL);
+    wp_warning_object (self, "cannot link %s with %s: not the same stream type",
+        G_OBJECT_TYPE_NAME (output), G_OBJECT_TYPE_NAME (input));
+    return NULL;
   }
 
   /* Handle link-removed signal */
