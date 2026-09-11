@@ -43,6 +43,7 @@ SimpleEventHook {
     local metadata = nil
     local target_key = nil
     local target_value = nil
+    local target_stream = nil
 
     -- Get the target key and value
     if stream_props ["target.object"] ~= nil then
