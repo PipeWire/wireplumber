@@ -2078,6 +2078,142 @@ wp_audio_stream_configure_ports (WpAudioStream * self, WpSpaPod *format,
       monitor, control);
 }
 
+/* Resolves the port configuration that would be applied for the given
+ * properties, from the settings, the properties and the stream's supported
+ * formats. Kept separate so that wp_audio_stream_is_monitorable()
+ * answers with the same rules that are used to configure the ports. */
+static void
+wp_audio_stream_resolve_ports_config (WpAudioStream * self, WpCore * core,
+    WpProperties * properties, guint32 * mode, gboolean * monitor_ports,
+    gboolean * control_port, gboolean * mono_only, gboolean * encoded_only)
+{
+  g_autoptr (WpSettings) settings = NULL;
+  gboolean no_dsp;
+  const gchar *str;
+
+  /* Init port configuration values to default */
+  *monitor_ports = self->curr_monitor;
+  *control_port = self->curr_control;
+  no_dsp = FALSE;
+  *mono_only = FALSE;
+  *encoded_only = FALSE;
+
+  /* Use settings values if any */
+  settings = wp_settings_find (core, NULL);
+  if (settings) {
+    g_autoptr (WpSpaJson) val = NULL;
+    val = wp_settings_get (settings, "node.features.audio.monitor-ports");
+    if (val)
+      wp_spa_json_parse_boolean (val, monitor_ports);
+    g_clear_pointer (&val, wp_spa_json_unref);
+
+    val = wp_settings_get (settings, "node.features.audio.control-port");
+    if (val)
+      wp_spa_json_parse_boolean (val, control_port);
+    g_clear_pointer (&val, wp_spa_json_unref);
+
+    val = wp_settings_get (settings, "node.features.audio.no-dsp");
+    if (val)
+      wp_spa_json_parse_boolean (val, &no_dsp);
+    g_clear_pointer (&val, wp_spa_json_unref);
+
+    val = wp_settings_get (settings, "node.features.audio.mono");
+    if (val)
+      wp_spa_json_parse_boolean (val, mono_only);
+    g_clear_pointer (&val, wp_spa_json_unref);
+  }
+
+  /* Use property values if any */
+  if (properties) {
+    str = wp_properties_get (properties, "stream.monitor-ports");
+    if (str)
+      *monitor_ports = spa_atob (str);
+    str = wp_properties_get (properties, "stream.control-port");
+    if (str)
+      *control_port = spa_atob (str);
+    str = wp_properties_get (properties, "stream.no-dsp");
+    if (str)
+      no_dsp = spa_atob (str);
+    str = wp_properties_get (properties, "stream.mono-only");
+    if (str)
+      *mono_only = spa_atob (str);
+    str = wp_properties_get (properties, "stream.encoded-only");
+    if (str)
+      *encoded_only = spa_atob (str);
+  }
+
+  /* Use passthrough mode if no-dsp or encoded-only is enabled, otherwise
+   * default to DSP */
+  *mode = (no_dsp || *encoded_only) ? SPA_PARAM_PORT_CONFIG_MODE_passthrough :
+      SPA_PARAM_PORT_CONFIG_MODE_dsp;
+
+  /* Force DSP mode if the stream supports RAW formats and mono_only is
+   * enabled */
+  if (*mono_only && self->supported_raw_formats->len > 0)
+    *mode = SPA_PARAM_PORT_CONFIG_MODE_dsp;
+
+  /* Force passthrough mode and encoded_only if the stream only supports encoded
+   * formats */
+  if (self->supported_enc_formats->len > 0 &&
+      self->supported_raw_formats->len == 0) {
+    *mode = SPA_PARAM_PORT_CONFIG_MODE_passthrough;
+    *encoded_only = TRUE;
+  }
+}
+
+/*!
+ * \brief Checks whether the stream would have monitor ports if its ports were
+ * configured now in order to link it with the given peer.
+ *
+ * Unlike wp_audio_stream_has_monitor_ports_enabled(), which reports the
+ * monitor flag of the PortConfig that was last requested, this resolves the
+ * settings, the stream's supported formats and the resulting port config mode
+ * the same way wp_audio_stream_configure_ports_with_props() does. It is
+ * therefore usable before the ports have been configured at all, which is the
+ * case while policy scripts are still selecting a link target.
+ *
+ * \ingroup wpstream
+ * \param self the stream
+ * \param peer (transfer none) (nullable): the stream that self would be linked
+ *   with, or NULL to ask about the default configuration
+ * \returns TRUE if configuring the ports now would enable monitor ports,
+ *   FALSE otherwise
+ */
+gboolean
+wp_audio_stream_is_monitorable (WpAudioStream * self,
+    WpAudioStream * peer)
+{
+  g_autoptr (WpCore) core = NULL;
+  g_autoptr (WpProperties) props = NULL;
+  guint32 mode;
+  gboolean monitor_ports, control_port, mono_only, encoded_only;
+
+  g_return_val_if_fail (WP_IS_AUDIO_STREAM (self), FALSE);
+  g_return_val_if_fail (!peer || WP_IS_AUDIO_STREAM (peer), FALSE);
+
+  core = wp_object_get_core (WP_OBJECT (self));
+  g_return_val_if_fail (core, FALSE);
+
+  /* A link whose streams are only compatible in an encoded format configures
+   * them in passthrough mode, which has no monitor ports. This is the only
+   * property wp_audio_stream_link_setup_ports() passes down, see there. */
+  if (peer) {
+    gboolean link_encoded_only = FALSE;
+    wp_stream_is_compatible (WP_STREAM (self), WP_STREAM (peer),
+        &link_encoded_only);
+    if (link_encoded_only) {
+      props = wp_properties_new_empty ();
+      wp_properties_set (props, "stream.encoded-only", "true");
+    }
+  }
+
+  wp_audio_stream_resolve_ports_config (self, core, props, &mode,
+      &monitor_ports, &control_port, &mono_only, &encoded_only);
+
+  /* Monitor ports only exist in DSP mode */
+  return monitor_ports && mode == SPA_PARAM_PORT_CONFIG_MODE_dsp;
+}
+
 /*!
  * \brief Configures the ports given a set of properties. If no properties are
  * given, the default configuration will be used.
@@ -2093,12 +2229,10 @@ wp_audio_stream_configure_ports_with_props (WpAudioStream * self,
     WpProperties *props)
 {
   g_autoptr (WpCore) core = NULL;
-  g_autoptr (WpSettings) settings = NULL;
   g_autoptr (WpProperties) properties = props;
-  gboolean monitor_ports, control_port, no_dsp, mono_only, encoded_only;
+  gboolean monitor_ports, control_port, mono_only, encoded_only;
   g_autoptr (WpSpaPod) format = NULL;
   guint32 mode;
-  const gchar *str;
 
   g_return_val_if_fail (WP_IS_AUDIO_STREAM (self), FALSE);
   g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
@@ -2108,76 +2242,8 @@ wp_audio_stream_configure_ports_with_props (WpAudioStream * self,
   core = wp_object_get_core (WP_OBJECT (self));
   g_return_val_if_fail (core, FALSE);
 
-  /* Init port configuration values to default */
-  monitor_ports = self->curr_monitor;
-  control_port = self->curr_control;
-  no_dsp = FALSE;
-  mono_only = FALSE;
-  encoded_only = FALSE;
-
-  /* Use settings values if any */
-  settings = wp_settings_find (core, NULL);
-  if (settings) {
-    g_autoptr (WpSpaJson) val = NULL;
-    val = wp_settings_get (settings, "node.features.audio.monitor-ports");
-    if (val)
-      wp_spa_json_parse_boolean (val, &monitor_ports);
-    g_clear_pointer (&val, wp_spa_json_unref);
-
-    val = wp_settings_get (settings, "node.features.audio.control-port");
-    if (val)
-      wp_spa_json_parse_boolean (val, &control_port);
-    g_clear_pointer (&val, wp_spa_json_unref);
-
-    val = wp_settings_get (settings, "node.features.audio.no-dsp");
-    if (val)
-      wp_spa_json_parse_boolean (val, &no_dsp);
-    g_clear_pointer (&val, wp_spa_json_unref);
-
-    val = wp_settings_get (settings, "node.features.audio.mono");
-    if (val)
-      wp_spa_json_parse_boolean (val, &mono_only);
-    g_clear_pointer (&val, wp_spa_json_unref);
-  }
-
-  /* Use property values if any */
-  if (properties) {
-    str = wp_properties_get (properties, "stream.monitor-ports");
-    if (str)
-      monitor_ports = spa_atob (str);
-    str = wp_properties_get (properties, "stream.control-port");
-    if (str)
-      control_port = spa_atob (str);
-    str = wp_properties_get (properties, "stream.no-dsp");
-    if (str)
-      no_dsp = spa_atob (str);
-    str = wp_properties_get (properties, "stream.mono-only");
-    if (str)
-      mono_only = spa_atob (str);
-    str = wp_properties_get (properties, "stream.encoded-only");
-    if (str)
-      encoded_only = spa_atob (str);
-  }
-
-  /* Use passthrough mode if no-dsp or encoded-only is enabled, otherwise
-   * default to DSP */
-  mode = (no_dsp || encoded_only) ? SPA_PARAM_PORT_CONFIG_MODE_passthrough :
-      SPA_PARAM_PORT_CONFIG_MODE_dsp;
-
-  /* Force DSP mode if the stream supports RAW formats and mono_only is
-   * enabled */
-  if (mono_only &&  self->supported_raw_formats->len > 0) {
-    mode = SPA_PARAM_PORT_CONFIG_MODE_dsp;
-    mono_only = TRUE;
-  }
-
-  /* Force passthrough mode and encoded_only if the stream only supports encoded
-   * formats */
-  if (self->supported_enc_formats->len > 0 &&
-      self->supported_raw_formats->len == 0) {
-    mode = SPA_PARAM_PORT_CONFIG_MODE_passthrough;
-    encoded_only = TRUE;
-  }
+  wp_audio_stream_resolve_ports_config (self, core, properties, &mode,
+      &monitor_ports, &control_port, &mono_only, &encoded_only);
 
   /* Select format */
   if (encoded_only) {

@@ -1573,6 +1573,16 @@ audio_stream_has_monitor_ports_enabled (lua_State *L)
 }
 
 static int
+audio_stream_is_monitorable (lua_State *L)
+{
+  WpAudioStream *stream = wplua_checkobject (L, 1, WP_TYPE_AUDIO_STREAM);
+  WpAudioStream *peer = lua_isnoneornil (L, 2) ? NULL :
+      wplua_checkobject (L, 2, WP_TYPE_AUDIO_STREAM);
+  lua_pushboolean (L, wp_audio_stream_is_monitorable (stream, peer));
+  return 1;
+}
+
+static int
 audio_stream_has_control_ports_enabled (lua_State *L)
 {
   WpAudioStream *stream = wplua_checkobject (L, 1, WP_TYPE_AUDIO_STREAM);
@@ -1633,6 +1643,7 @@ static const luaL_Reg audio_stream_methods[] = {
   { "get_ports_format", audio_stream_get_ports_format },
   { "get_ports_mode", audio_stream_get_ports_mode },
   { "has_monitor_ports_enabled", audio_stream_has_monitor_ports_enabled },
+  { "is_monitorable", audio_stream_is_monitorable },
   { "has_control_ports_enabled", audio_stream_has_control_ports_enabled },
   { "has_ports_configured", audio_stream_has_ports_configured },
   { "configure_ports", audio_stream_configure_ports },

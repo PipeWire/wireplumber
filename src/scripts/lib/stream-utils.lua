@@ -65,8 +65,16 @@ function module.can_link (stream, target)
 
   -- Streams must have opposite direction, otherwise they must be both input
   -- and the target must have valid monitor ports
-  if stream_dir == target_dir and stream_dir == Direction.OUTPUT then
-    return false
+  if stream_dir == target_dir then
+    if stream_dir == Direction.OUTPUT then
+      return false
+    end
+    local audio_interest = Interest { type = "AudioStream" }
+    if not audio_interest:matches (stream) or
+        not audio_interest:matches (target) or
+        not target:is_monitorable (stream) then
+      return false
+    end
   end
 
   -- Function to check the link group

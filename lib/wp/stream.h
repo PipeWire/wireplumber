@@ -169,6 +169,10 @@ WP_API
 gboolean wp_audio_stream_has_monitor_ports_enabled (WpAudioStream * self);
 
 WP_API
+gboolean wp_audio_stream_is_monitorable (WpAudioStream * self,
+    WpAudioStream * peer);
+
+WP_API
 gboolean wp_audio_stream_has_control_ports_enabled (WpAudioStream * self);
 
 WP_API
