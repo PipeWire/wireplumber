@@ -65,7 +65,7 @@ function module.can_link (stream, target)
 
   -- Streams must have opposite direction, otherwise they must be both input
   -- and the target must have valid monitor ports
-  if stream_dir == target_dir and stream_dir == Direction.Output then
+  if stream_dir == target_dir and stream_dir == Direction.OUTPUT then
     return false
   end
 
