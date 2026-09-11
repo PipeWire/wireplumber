@@ -1693,17 +1693,22 @@ static gboolean
 wp_audio_stream_is_compatible (WpStream *stream, WpStream *other_stream,
     gboolean *encoded_only)
 {
-  WpAudioStream *self = WP_AUDIO_STREAM (stream);
-  WpAudioStream *other = WP_AUDIO_STREAM (other_stream);
+  WpAudioStream *self, *other;
+
+  if (encoded_only)
+    *encoded_only = FALSE;
+
+  /* Make sure the stream types are the same */
+  if (G_OBJECT_TYPE (stream) != G_OBJECT_TYPE (other_stream))
+    return FALSE;
+
+  self = WP_AUDIO_STREAM (stream);
+  other = WP_AUDIO_STREAM (other_stream);
 
   /* Set encoded only if at least one stream does not support raw formats */
   if (encoded_only)
     *encoded_only = self->supported_raw_formats->len == 0 ||
         other->supported_raw_formats->len == 0;
-
-  /* Make sure the stream types are the same */
-  if (G_OBJECT_TYPE (stream) != G_OBJECT_TYPE (other_stream))
-    return FALSE;
 
   /* Since audio streams are always adapters and can be configured in DSP mode,
    * both streams are always compatible if they support raw formats */
