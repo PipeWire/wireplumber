@@ -125,30 +125,62 @@ wp_stream_link_manager_activate_get_next_step (WpObject * object,
   return STEP_LOAD;
 }
 
-static void
-evaluate_stream_links_on_stream_removed (WpStreamLinkManager *self,
-    WpStream *stream)
+/* Finds all the peer streams of the given stream. The peers are weak refs on
+ * the stream links, so they may be gone already and are then skipped. */
+static GPtrArray *
+find_stream_peers (WpStreamLinkManager *self, WpStream *stream)
 {
-  g_autoptr (WpCore) core = NULL;
-  g_autoptr (GPtrArray) invalid_links = NULL;
+  GPtrArray *peers = g_ptr_array_new_with_free_func (g_object_unref);
 
-  /* Get the core */
-  core = wp_object_get_core (WP_OBJECT (self));
-  g_return_if_fail (core);
+  for (guint i = 0; i < self->stream_links->len; i++) {
+    WpStreamLink *link = g_ptr_array_index (self->stream_links, i);
+    g_autoptr (WpStream) l_out = wp_stream_link_get_output_stream (link, NULL);
+    g_autoptr (WpStream) l_in = wp_stream_link_get_input_stream (link);
+    WpStream *peer = NULL;
 
-  /* Find all stream links related to the removed stream */
-  invalid_links = g_ptr_array_new_with_free_func (g_object_unref);
+    if (l_out == stream)
+      peer = l_in;
+    else if (l_in == stream)
+      peer = l_out;
+
+    if (peer)
+      g_ptr_array_add (peers, g_object_ref (peer));
+  }
+
+  return peers;
+}
+
+/* Finds all the stream links that the given stream belongs to */
+static GPtrArray *
+find_stream_links (WpStreamLinkManager *self, WpStream *stream)
+{
+  GPtrArray *links = g_ptr_array_new_with_free_func (g_object_unref);
+
   for (guint i = 0; i < self->stream_links->len; i++) {
     WpStreamLink *link = g_ptr_array_index (self->stream_links, i);
     g_autoptr (WpStream) l_out = wp_stream_link_get_output_stream (link, NULL);
     g_autoptr (WpStream) l_in = wp_stream_link_get_input_stream (link);
     if (l_out == stream || l_in == stream)
-      g_ptr_array_add (invalid_links, g_object_ref (link));
+      g_ptr_array_add (links, g_object_ref (link));
   }
 
-  /* Deactivate and remove all related stream links */
-  for (guint i = 0; i < invalid_links->len; i++) {
-    WpStreamLink *link = g_ptr_array_index (invalid_links, i);
+  return links;
+}
+
+/* Deactivates and removes all the stream links of the given stream */
+static void
+remove_stream_links (WpStreamLinkManager *self, WpStream *stream)
+{
+  g_autoptr (WpCore) core = NULL;
+  g_autoptr (GPtrArray) links = NULL;
+
+  /* Get the core */
+  core = wp_object_get_core (WP_OBJECT (self));
+  g_return_if_fail (core);
+
+  links = find_stream_links (self, stream);
+  for (guint i = 0; i < links->len; i++) {
+    WpStreamLink *link = g_ptr_array_index (links, i);
     wp_object_deactivate (WP_OBJECT (link), WP_OBJECT_FEATURES_ALL);
     g_ptr_array_remove_fast (self->stream_links, link);
     wp_core_remove_object (core, link);
@@ -269,7 +301,7 @@ on_object_removed (WpObjectManager *om, WpObject *object, gpointer d)
   /* If stream was removed, remove all associated stream links
    * If link was removed, no need to do anything */
   if (WP_IS_STREAM (object)) {
-    evaluate_stream_links_on_stream_removed (self, WP_STREAM (object));
+    remove_stream_links (self, WP_STREAM (object));
   } else if (WP_IS_LINK (object)) {
     /* Nothing to do as the link-removed signal already handles removing
      * of the stream link when creating the stream link */
@@ -615,32 +647,9 @@ wp_stream_link_manager_remove_link (WpStreamLinkManager *self,
 void
 wp_stream_link_manager_unlink (WpStreamLinkManager *self, WpStream *stream)
 {
-  g_autoptr (WpCore) core = NULL;
-  g_autoptr (GPtrArray) stream_links = NULL;
-
   g_return_if_fail (WP_IS_STREAM_LINK_MANAGER (self));
 
-  /* Get the core */
-  core = wp_object_get_core (WP_OBJECT (self));
-  g_return_if_fail (core);
-
-  /* Find all the peers */
-  stream_links = g_ptr_array_new_with_free_func (g_object_unref);
-  for (guint i = 0; i < self->stream_links->len; i++) {
-    WpStreamLink *link = g_ptr_array_index (self->stream_links, i);
-    g_autoptr (WpStream) l_out = wp_stream_link_get_output_stream (link, NULL);
-    g_autoptr (WpStream) l_in = wp_stream_link_get_input_stream (link);
-    if (l_out == stream || l_in == stream)
-      g_ptr_array_add (stream_links, g_object_ref (link));
-  }
-
-  /* Deactivate and remove all the stream links */
-  for (guint i = 0; i < stream_links->len; i++) {
-    WpStreamLink *link = g_ptr_array_index (stream_links, i);
-    wp_object_deactivate (WP_OBJECT (link), WP_OBJECT_FEATURES_ALL);
-    g_ptr_array_remove_fast (self->stream_links, link);
-    wp_core_remove_object (core, link);
-  }
+  remove_stream_links (self, stream);
 }
 
 /*!
@@ -658,16 +667,7 @@ wp_stream_link_manager_get_peers_count (WpStreamLinkManager *self,
 
   g_return_val_if_fail (WP_IS_STREAM_LINK_MANAGER (self), 0);
 
-  peers = g_ptr_array_new_with_free_func (g_object_unref);
-  for (guint i = 0; i < self->stream_links->len; i++) {
-    WpStreamLink *link = g_ptr_array_index (self->stream_links, i);
-    g_autoptr (WpStream) l_out = wp_stream_link_get_output_stream (link, NULL);
-    g_autoptr (WpStream) l_in = wp_stream_link_get_input_stream (link);
-    if (l_out == stream)
-      g_ptr_array_add (peers, g_object_ref (l_in));
-    else if (l_in == stream)
-      g_ptr_array_add (peers, g_object_ref (l_out));
-  }
+  peers = find_stream_peers (self, stream);
 
   return peers->len;
 }
@@ -684,22 +684,10 @@ WpIterator *
 wp_stream_link_manager_new_peers_iterator (WpStreamLinkManager *self,
     WpStream *stream)
 {
-  g_autoptr (GPtrArray) peers = NULL;
-
   g_return_val_if_fail (WP_IS_STREAM_LINK_MANAGER (self), NULL);
 
-  peers = g_ptr_array_new_with_free_func (g_object_unref);
-  for (guint i = 0; i < self->stream_links->len; i++) {
-    WpStreamLink *link = g_ptr_array_index (self->stream_links, i);
-    g_autoptr (WpStream) l_out = wp_stream_link_get_output_stream (link, NULL);
-    g_autoptr (WpStream) l_in = wp_stream_link_get_input_stream (link);
-    if (l_out == stream)
-      g_ptr_array_add (peers, g_object_ref (l_in));
-    else if (l_in == stream)
-      g_ptr_array_add (peers, g_object_ref (l_out));
-  }
-
-  return wp_iterator_new_ptr_array (g_steal_pointer (&peers), WP_TYPE_STREAM);
+  return wp_iterator_new_ptr_array (find_stream_peers (self, stream),
+      WP_TYPE_STREAM);
 }
 
 /*!
@@ -714,19 +702,8 @@ WpIterator *
 wp_stream_link_manager_new_links_iterator (WpStreamLinkManager *self,
     WpStream *stream)
 {
-  g_autoptr (GPtrArray) links = NULL;
-
   g_return_val_if_fail (WP_IS_STREAM_LINK_MANAGER (self), NULL);
 
-  links = g_ptr_array_new_with_free_func (g_object_unref);
-  for (guint i = 0; i < self->stream_links->len; i++) {
-    WpStreamLink *link = g_ptr_array_index (self->stream_links, i);
-    g_autoptr (WpStream) l_out = wp_stream_link_get_output_stream (link, NULL);
-    g_autoptr (WpStream) l_in = wp_stream_link_get_input_stream (link);
-    if (l_out == stream || l_in == stream)
-      g_ptr_array_add (links, g_object_ref (link));
-  }
-
-  return wp_iterator_new_ptr_array (g_steal_pointer (&links),
+  return wp_iterator_new_ptr_array (find_stream_links (self, stream),
       WP_TYPE_STREAM_LINK);
 }
