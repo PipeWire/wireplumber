@@ -2428,9 +2428,12 @@ wp_video_stream_is_compatible (WpStream *stream, WpStream *other_stream,
     gboolean *encoded_only)
 {
   /* Only RAW video formats are supported for now */
-
   if (encoded_only)
     *encoded_only = FALSE;
+
+  /* Make sure the stream types are the same */
+  if (G_OBJECT_TYPE (stream) != G_OBJECT_TYPE (other_stream))
+    return FALSE;
 
   return TRUE;
 }
