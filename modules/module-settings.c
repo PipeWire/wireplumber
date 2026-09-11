@@ -119,7 +119,7 @@ load_configuration_settings (WpSettingsPlugin *self)
       g_value_unset (&item);
       if (!wp_iterator_next (iter, &item)) {
         wp_warning_object (self, "malformed wireplumber.settings from conf");
-        return res;
+        return g_steal_pointer (&res);
       }
       j = g_value_get_boxed (&item);
 

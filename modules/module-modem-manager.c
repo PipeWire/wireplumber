@@ -274,7 +274,7 @@ static void
 on_modemmanager_get (GObject * obj, GAsyncResult * res, gpointer data)
 {
   WpTransition *transition = WP_TRANSITION (data);
-  GError *err = NULL;
+  g_autoptr (GError) err = NULL;
   WpModemManager *wpmm;
   GList *modems;
 
@@ -293,10 +293,15 @@ on_modemmanager_get (GObject * obj, GAsyncResult * res, gpointer data)
     g_prefix_error (&err, "Failed to connect to ModemManager: ");
     wp_warning_object (wpmm, "%s", err->message);
 
-    if (transition)
+    if (transition) {
       wp_transition_return_error (transition, g_steal_pointer (&err));
 
-    g_clear_object (&wpmm->dbus);
+      /* the plugin is not enabled, so stop monitoring the dbus connection;
+       * on the reconnect path the handler must stay connected */
+      g_signal_handlers_disconnect_by_data (wpmm->dbus, wpmm);
+      g_clear_object (&wpmm->dbus);
+    }
+
     return;
   }
 
@@ -335,6 +340,7 @@ on_dbus_state_changed (GObject * dbus, GParamSpec * spec, gpointer data)
       g_list_free_full (g_steal_pointer (&wpmm->calls), g_object_unref);
       g_list_free_full (g_steal_pointer (&wpmm->voice), g_object_unref);
       g_clear_object (&wpmm->manager);
+      wpmm->n_calls = 0;
       break;
 
     default:
