@@ -558,6 +558,18 @@ local device_profile_changed_hook = SimpleEventHook {
   },
   execute = function (event)
     local device = event:get_subject ()
+    -- the timers are keyed by the loopback node's "device.id" property, which
+    -- is a string; device["bound-id"] is the same value as a number
+    local dev_id = tostring (device["bound-id"])
+
+    local function cancel_timer (tbl)
+      if tbl[dev_id] == nil then
+        return false
+      end
+      tbl[dev_id]:destroy ()
+      tbl[dev_id] = nil
+      return true
+    end
 
     -- Always save the current profile when it changes
     local cur_profile = getCurrentProfile (device)
@@ -565,9 +577,17 @@ local device_profile_changed_hook = SimpleEventHook {
       if isHeadsetProfile (device, cur_profile) then
         log:info (device, "Saving headset profile " .. cur_profile.name)
         saveHeadsetProfile (device, cur_profile.name, cur_profile.save)
+        -- Explicit headset (pactl/settings) must not be reverted by a
+        -- restore timer armed when the previous capture stream closed.
+        if cancel_timer (restore_timeout_source) then
+          log:info (device, "Cancelled profile restore on device " .. dev_id)
+        end
       else
         log:info (device, "Saving non-headset profile " .. cur_profile.name)
         saveNonHeadsetProfile (device, cur_profile.name)
+        if cancel_timer (switch_timeout_source) then
+          log:info (device, "Cancelled profile switch on device " .. dev_id)
+        end
       end
     end
   end
