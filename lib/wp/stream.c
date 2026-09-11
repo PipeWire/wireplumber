@@ -1798,35 +1798,6 @@ wp_audio_stream_new (WpNode *node, WpProperties *props, WpDirection dir,
 }
 
 /**
- * \brief Checks whether the stream's encoded formats are compatible with the
- * ones from another stream.
- *
- * \ingroup wpstream
- * \param self the stream
- * \param other the other stream to check encoded format compatibility
- * \returns TRUE if the stream is encoding compatible with other, FALSE
- *    otherwise.
- */
-gboolean
-wp_audio_stream_is_encoded_compatible (WpAudioStream * self,
-    WpAudioStream * other)
-{
-  g_return_val_if_fail (WP_IS_AUDIO_STREAM (self), FALSE);
-  g_return_val_if_fail (WP_IS_AUDIO_STREAM (other), FALSE);
-
-  for (guint i = 0; i < self->supported_enc_formats->len; i++) {
-    WpSpaPod *pod = g_ptr_array_index (self->supported_enc_formats, i);
-    for (guint j = 0; j < other->supported_enc_formats->len; j++) {
-      WpSpaPod *other_pod = g_ptr_array_index (other->supported_enc_formats, j);
-      if (wp_spa_pod_filter (pod, other_pod))
-        return TRUE;
-    }
-  }
-
-  return FALSE;
-}
-
-/**
  * \brief Gets the stream ports format
  *
  * \ingroup wpstream
