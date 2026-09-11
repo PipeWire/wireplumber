@@ -77,7 +77,6 @@ SimpleEventHook {
     -- Don't do anything if target key and value are not valid
     if target_key == nil or target_value == nil or target_value == "-1" then
       log:debug (stream, "target key and value not defined")
-      target = nil
       goto done
     end
 
@@ -134,7 +133,7 @@ SimpleEventHook {
           target_id, target_node_id, tostring (target_props["node.name"])))
       event:set_data ("target", target)
       event:set_data ("is-defined-target", true)
-    elseif dont_fallback then
+    elseif dont_fallback and target_value ~= nil then
       -- send error to client and destroy node if linger is not set
       local linger = stream_props:get_boolean ("node.linger")
       if not linger then

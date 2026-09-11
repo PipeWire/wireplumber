@@ -1,0 +1,58 @@
+-- Tests that a stream with node.dont-fallback set, but without any defined
+-- target, still falls back to the default device node. dont-fallback only
+-- means "do not fall back when the target I asked for is missing".
+
+local tu = require ("test-utils")
+
+Script.async_activation = true
+
+tu.createDeviceNode ("nondefault-device-node", "Audio/Sink")
+tu.createDeviceNode ("default-device-node", "Audio/Sink")
+
+-- hook to create stream node, stream is created after the device nodes are
+-- ready
+SimpleEventHook {
+  name = "stream-added@test-linking",
+  after = "stream-added@test-utils-linking",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "stream-added" },
+    },
+  },
+  execute = function (event)
+    local stream = event:get_subject ()
+    local name = stream:get_properties () ["node.name"]
+
+    if tu.streamsReady () and name ~= "stream-node" then
+      tu.createStreamNode ("playback", { ["node.dont-fallback"] = "true" })
+    end
+  end
+}:register ()
+
+SimpleEventHook {
+  name = "linking/test-linking",
+  after = "linking/create-stream-link",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "select-target" },
+    },
+  },
+  execute = function (event)
+    local stream = event:get_subject ()
+    local target = event:get_data ("target")
+
+    if target == nil then
+      return
+    end
+
+    local stream_props = stream:get_properties ()
+    local link = tu.getStreamLink (stream, target)
+    assert (link ~= nil)
+    assert (stream_props ["node.name"] == "stream-node")
+    assert (stream_props ["node.dont-fallback"] == "true")
+    assert (target.properties ["node.name"] == "default-device-node")
+    assert (link:get_active_features () ~= 0)
+
+    Script:finish_activation ()
+  end
+}:register ()

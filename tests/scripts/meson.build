@@ -211,3 +211,10 @@ test(
   args: ['script-tests', 'node/audio-stream-ports-configured.lua'],
   env: common_env,
 )
+
+test(
+  'scripts/linking/dont-fallback-no-defined-target',
+  script_tester,
+  args: ['script-tests', 'linking/dont-fallback-no-defined-target.lua'],
+  env: common_env,
+)
