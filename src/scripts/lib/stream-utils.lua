@@ -194,6 +194,11 @@ function module.is_role_based_link (stream_link)
   return device_stream ~= nil, device_stream, media_role_stream
 end
 
+-- Streams that have been linked at least once, by stream id. A stream that
+-- lost its link is not the same as one that was never linked: the first is
+-- waiting for its target to come back. Cleared in create-stream-link.lua.
+module.linked_once = {}
+
 function module.send_client_error (stream, source, code, message)
   local node_id = stream:get_node_bound_id ()
   local stream_props = stream:get_properties ()

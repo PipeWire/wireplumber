@@ -239,3 +239,10 @@ test(
   args: ['script-tests', 'linking/video-multiple-consumers.lua'],
   env: common_env,
 )
+
+test(
+  'scripts/linking/dont-reconnect-target-removed',
+  script_tester,
+  args: ['script-tests', 'linking/dont-reconnect-target-removed.lua'],
+  env: common_env,
+)

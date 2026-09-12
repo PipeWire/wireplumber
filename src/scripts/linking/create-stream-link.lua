@@ -20,14 +20,16 @@ MAX_LINK_ATTEMPTS = 5
 failed_links = {}
 
 SimpleEventHook {
-  name = "linking/clear-failed-links",
+  name = "linking/clear-stream-link-state",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "stream-removed" },
     },
   },
   execute = function (event)
-    failed_links [event:get_subject ().id] = nil
+    local stream_id = event:get_subject ().id
+    failed_links [stream_id] = nil
+    stream_utils.linked_once [stream_id] = nil
   end
 }:register ()
 
@@ -104,6 +106,11 @@ AsyncEventHook {
             "linking with target stream:%d (node:%d): %s",
             target_id, target_node_id, tostring (target_props["node.name"])))
         local stream_link = StreamLinkManager.create_link (out_stream, in_stream)
+        if stream_link == nil then
+          transition:return_error ("failed to create stream link")
+          return
+        end
+        stream_utils.linked_once [stream_id] = true
 
         -- Role-based links are activated by the media role rescan hooks,
         -- which apply priority based mixing, ducking and corking to them

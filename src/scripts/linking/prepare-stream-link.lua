@@ -30,6 +30,8 @@ SimpleEventHook {
     local node_id = stream:get_node_bound_id ()
     local must_passthrough = stream:get_supported_enc_format_count() > 0 and
         stream:get_supported_raw_format_count() == 0
+    local dont_reconnect = stream_props:get_boolean ("node.dont-reconnect")
+    local linked_once = stream_utils.linked_once [stream_id]
     local target = event:get_data ("target")
 
     log:info (stream, string.format ("handling stream:%d (node:%d): %s",
@@ -51,16 +53,21 @@ SimpleEventHook {
       end
     end
 
-    -- Unlink the stream from previous target if it is linked, unless the
-    -- dont-reconnect property is set
-    if StreamLinkManager.get_peers_count (stream) > 0 then
-      local dont_reconnect = stream_props:get_boolean ("node.dont-reconnect")
-      if dont_reconnect then
-        log:debug (stream, "... stream has dont-reconnect")
-        target = nil
-        goto done
-      end
+    -- Never move a stream that has dont-reconnect set while it is linked
+    if dont_reconnect and StreamLinkManager.get_peers_count (stream) > 0 then
+      log:debug (stream, "... stream has dont-reconnect")
+      target = nil
+      goto done
+    end
 
+    -- A stream that has dont-reconnect set and lost its target is not linked
+    -- to a new one, but destroyed below
+    if dont_reconnect and linked_once then
+      target = nil
+    end
+
+    -- Unlink the stream from its previous target if it is linked
+    if StreamLinkManager.get_peers_count (stream) > 0 then
       StreamLinkManager.unlink (stream)
       log:debug (stream, "... moving to new target")
     end
@@ -82,9 +89,17 @@ SimpleEventHook {
         goto done
       end
 
+      -- A stream that lost its target waits for it to come back, indefinitely
+      -- and without an error: a card profile switch removes the only sink for
+      -- a moment and the client should not be killed for that (see 83041b0c)
+      if linked_once and not dont_reconnect then
+        log:debug (stream, "... waiting reconnect")
+        goto done
+      end
+
       -- Send client error if stream has client ID
-      local dont_reconnect = stream_props:get_boolean ("node.dont-reconnect")
-      local message = dont_reconnect and "not reconnecting" or "target not found"
+      local message = dont_reconnect and "target not found"
+          or "no target node available"
       if stream_utils.send_client_error (stream, source, -2, message) then
         log:debug (stream, "... sent client error with message: " .. message)
       end
