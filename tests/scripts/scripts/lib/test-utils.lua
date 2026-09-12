@@ -81,7 +81,8 @@ u.script_tester_plugin = Plugin.find ("script-tester")
 function u.createStreamNode (stream_type, props)
   u.script_tester_plugin:call ("create-stream", stream_type, props)
 
-  u.streams ["stream-node"] = nil
+  local name = props and props ["node.name"] or "stream-node"
+  u.streams [name] = nil
   u.stream_count = u.stream_count + 1
 end
 

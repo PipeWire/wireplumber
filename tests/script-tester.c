@@ -8,9 +8,13 @@
 
 #include "../common/base-test-fixture.h"
 #include <spa/param/audio/format-utils.h>
+#include <spa/param/video/format-utils.h>
 
 #define DEFAULT_RATE		44100
 #define DEFAULT_CHANNELS	2
+#define DEFAULT_WIDTH		320
+#define DEFAULT_HEIGHT		240
+#define DEFAULT_FRAMERATE	25
 
 typedef struct _ScriptRunnerFixture ScriptRunnerFixture;
 static void load_component (ScriptRunnerFixture *f, const gchar *name,
@@ -87,32 +91,47 @@ wp_script_tester_create_stream (WpScriptTester *self, const gchar *stream_type,
   uint8_t buffer [1024];
   struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
   struct pw_stream *stream;
+  gboolean video;
+  const gchar *name;
   int direction;
 
   wp_info ("create stream_type(%s) with props(%p)", stream_type, stream_props);
 
-  if (g_str_equal (stream_type, "playback"))
+  video = g_str_has_prefix (stream_type, "video-");
+
+  if (g_str_equal (stream_type, "playback") ||
+      g_str_equal (stream_type, "video-playback"))
     direction = PW_DIRECTION_OUTPUT;
   else
     direction = PW_DIRECTION_INPUT;
 
   props = wp_properties_new (
-      PW_KEY_MEDIA_TYPE, "Audio",
+      PW_KEY_MEDIA_TYPE, video ? "Video" : "Audio",
       PW_KEY_NODE_NAME, "stream-node",
       NULL);
 
+  /* update, not add, so that a test can override the defaults */
   if (stream_props)
-    wp_properties_add (props, stream_props);
+    wp_properties_update (props, stream_props);
+
+  name = wp_properties_get (props, PW_KEY_NODE_NAME);
 
   stream = pw_stream_new (
       wp_core_get_pw_core (f->base.client_core),
-      "stream-node", wp_properties_unref_and_take_pw_properties (g_steal_pointer (&props)));
+      name, wp_properties_unref_and_take_pw_properties (g_steal_pointer (&props)));
 
-  params [0] = spa_format_audio_raw_build (&b, SPA_PARAM_EnumFormat,
-      &SPA_AUDIO_INFO_RAW_INIT (
-          .format = SPA_AUDIO_FORMAT_F32,
-          .channels = DEFAULT_CHANNELS,
-          .rate = DEFAULT_RATE));
+  if (video)
+    params [0] = spa_format_video_raw_build (&b, SPA_PARAM_EnumFormat,
+        &SPA_VIDEO_INFO_RAW_INIT (
+            .format = SPA_VIDEO_FORMAT_RGB,
+            .size = SPA_RECTANGLE (DEFAULT_WIDTH, DEFAULT_HEIGHT),
+            .framerate = SPA_FRACTION (DEFAULT_FRAMERATE, 1)));
+  else
+    params [0] = spa_format_audio_raw_build (&b, SPA_PARAM_EnumFormat,
+        &SPA_AUDIO_INFO_RAW_INIT (
+            .format = SPA_AUDIO_FORMAT_F32,
+            .channels = DEFAULT_CHANNELS,
+            .rate = DEFAULT_RATE));
 
   g_ptr_array_add (self->streams, stream);
 
