@@ -700,6 +700,35 @@ wp_stream_link_activate (WpStreamLink *self, WpTransition *transition)
   wp_core_install_object_manager (core, priv->links_om);
 }
 
+/* Undoes everything the activation set up */
+static void
+stream_link_teardown (WpStreamLink * self)
+{
+  WpStreamLinkPrivate *priv = wp_stream_link_get_instance_private (self);
+  g_autoptr (WpStream) output_stream = NULL;
+  g_autoptr (WpStream) input_stream = NULL;
+
+  /* Teardown ports configuration if needed */
+  if (WP_STREAM_LINK_GET_CLASS (self)->teardown_ports)
+    WP_STREAM_LINK_GET_CLASS (self)->teardown_ports (self);
+
+  /* Ownership info */
+  output_stream = g_weak_ref_get (&priv->output_stream);
+  if (output_stream)
+    g_signal_handlers_disconnect_by_data (output_stream, self);
+  input_stream = g_weak_ref_get (&priv->input_stream);
+  if (input_stream)
+    g_signal_handlers_disconnect_by_data (input_stream, self);
+  priv->n_pending_managed_links = 0;
+  g_ptr_array_set_size (priv->managed_links, 0);
+
+  /* Activation info */
+  priv->encoded_only = FALSE;
+  priv->has_ownership = FALSE;
+  g_clear_object (&priv->links_om);
+  g_ptr_array_set_size (priv->global_links, 0);
+}
+
 static void
 wp_stream_link_activate_execute_step (WpObject * object,
     WpFeatureActivationTransition * trans, guint step,
@@ -713,6 +742,9 @@ wp_stream_link_activate_execute_step (WpObject * object,
     break;
   }
   case WP_TRANSITION_STEP_ERROR:
+    /* The activation installs the links object manager and creates links
+     * before it can fail, so roll all of that back here */
+    stream_link_teardown (self);
     break;
   default:
     g_assert_not_reached ();
@@ -725,31 +757,8 @@ wp_stream_link_deactivate (WpObject * object, WpObjectFeatures features)
   WpStreamLink *self = WP_STREAM_LINK (object);
   guint current = wp_object_get_active_features (object);
 
-  if (features & current & WP_STREAM_LINK_FEATURE_ACTIVE) {
-    WpStreamLinkPrivate *priv = wp_stream_link_get_instance_private (self);
-    g_autoptr (WpStream) output_stream = NULL;
-    g_autoptr (WpStream) input_stream = NULL;
-
-    /* Teardown ports configuration if needed */
-    if (WP_STREAM_LINK_GET_CLASS (self)->teardown_ports)
-      WP_STREAM_LINK_GET_CLASS (self)->teardown_ports (self);
-
-    /* Ownership info */
-    output_stream = g_weak_ref_get (&priv->output_stream);
-    if (output_stream)
-      g_signal_handlers_disconnect_by_data (output_stream, self);
-    input_stream = g_weak_ref_get (&priv->input_stream);
-    if (input_stream)
-      g_signal_handlers_disconnect_by_data (input_stream, self);
-    priv->n_pending_managed_links = 0;
-    g_ptr_array_set_size (priv->managed_links, 0);
-
-    /* Activation info */
-    priv->encoded_only = FALSE;
-    priv->has_ownership = FALSE;
-    g_clear_object (&priv->links_om);
-    g_ptr_array_set_size (priv->global_links, 0);
-  }
+  if (features & current & WP_STREAM_LINK_FEATURE_ACTIVE)
+    stream_link_teardown (self);
 
   wp_object_update_features (WP_OBJECT (self), 0, WP_OBJECT_FEATURES_ALL);
 }
@@ -1130,6 +1139,9 @@ wp_audio_stream_link_teardown_ports (WpStreamLink *link)
   WpAudioStreamLink *self = WP_AUDIO_STREAM_LINK (link);
   g_autoptr (WpAudioStream) output = NULL;
   g_autoptr (WpAudioStream) input = NULL;
+
+  /* Drop the transition we were going to finish from ports-configured */
+  g_clear_object (&self->pending_transition);
 
   /* Disconnect audio stream signals */
   output = WP_AUDIO_STREAM (wp_stream_link_get_output_stream (link, NULL));
