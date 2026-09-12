@@ -3832,6 +3832,14 @@ wp_lua_scripting_api_init (lua_State *L)
       NULL, audio_stream_methods);
   wplua_register_type_methods (L, WP_TYPE_STREAM_LINK,
       NULL, stream_link_methods);
+
+  /* the subclasses that have no methods of their own still need to be
+   * registered with GObject, or `Interest { type = "VideoStream" }` finds
+   * no such type: parse_gtype() looks names up with g_type_from_name() */
+  g_type_ensure (WP_TYPE_VIDEO_STREAM);
+  g_type_ensure (WP_TYPE_AUDIO_STREAM_LINK);
+  g_type_ensure (WP_TYPE_VIDEO_STREAM_LINK);
+
   wplua_register_type_methods (L, WP_TYPE_CLIENT,
       NULL, client_methods);
   wplua_register_type_methods (L, WP_TYPE_PIPEWIRE_OBJECT,

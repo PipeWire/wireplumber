@@ -4,6 +4,7 @@
 -- stream has no peers left when the rescan runs.
 
 local tu = require ("test-utils")
+local stream_utils = require ("stream-utils")
 
 Script.async_activation = true
 
@@ -56,6 +57,9 @@ SimpleEventHook {
       if target == nil then
         return
       end
+
+      -- this needs the WpVideoStream GType, even on an audio only graph
+      assert (stream_utils.get_media_type (stream) == "Audio")
 
       local link = tu.getStreamLink (stream, target)
       assert (link ~= nil)
