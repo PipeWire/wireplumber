@@ -34,6 +34,21 @@ SimpleEventHook {
     local linked_once = stream_utils.linked_once [stream_id]
     local target = event:get_data ("target")
 
+    -- node.exclusive belongs to the stream that asked for the link, so a
+    -- target that one of its peers claimed exclusively can only be recognized
+    -- through those peers
+    local function target_claimed_exclusively ()
+      if target:is_exclusive () then
+        return true
+      end
+      for target_peer in StreamLinkManager.iterate_peers (target) do
+        if target_peer:get_properties ():get_boolean ("node.exclusive") then
+          return true
+        end
+      end
+      return false
+    end
+
     log:info (stream, string.format ("handling stream:%d (node:%d): %s",
         stream_id, node_id, tostring (stream_props["node.name"])))
 
@@ -75,8 +90,13 @@ SimpleEventHook {
     -- If the target is already linked with another stream, make sure the target
     -- and the stream are not exclusive.
     if target ~= nil and StreamLinkManager.get_peers_count (target) > 0 then
-      if target:is_exclusive () or stream_props:get_boolean ("node.exclusive") then
-        log:debug (stream, "... target is already linked exclusively")
+      if target_claimed_exclusively () then
+        log:debug (stream, "... target is linked exclusively")
+        target = nil
+      elseif stream_props:get_boolean ("node.exclusive") or must_passthrough then
+        -- a stream with no raw formats needs the target in passthrough, which
+        -- removes the ports that the existing links are on
+        log:debug (stream, "... target is already linked, cannot link exclusively")
         target = nil
       end
     end

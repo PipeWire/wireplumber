@@ -267,3 +267,17 @@ test(
   args: ['script-tests', 'node/configure-ports-settings.lua'],
   env: common_env,
 )
+
+test(
+  'scripts/linking/exclusive-peer',
+  script_tester,
+  args: ['script-tests', 'linking/exclusive-peer.lua'],
+  env: common_env,
+)
+
+test(
+  'scripts/linking/encoded-only-shared-target',
+  script_tester,
+  args: ['script-tests', 'linking/encoded-only-shared-target.lua'],
+  env: common_env,
+)

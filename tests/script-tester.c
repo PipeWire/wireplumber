@@ -87,20 +87,22 @@ wp_script_tester_create_stream (WpScriptTester *self, const gchar *stream_type,
 {
   ScriptRunnerFixture *f = self->test_fixture;
   g_autoptr (WpProperties) props = NULL;
-  const struct spa_pod *params [1];
+  const struct spa_pod *params [2];
+  guint n_params = 0;
   uint8_t buffer [1024];
   struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
   struct pw_stream *stream;
-  gboolean video;
+  gboolean video, encoded, dual;
   const gchar *name;
   int direction;
 
   wp_info ("create stream_type(%s) with props(%p)", stream_type, stream_props);
 
   video = g_str_has_prefix (stream_type, "video-");
+  encoded = g_str_has_prefix (stream_type, "encoded-");
+  dual = g_str_has_prefix (stream_type, "dual-");
 
-  if (g_str_equal (stream_type, "playback") ||
-      g_str_equal (stream_type, "video-playback"))
+  if (g_str_has_suffix (stream_type, "playback"))
     direction = PW_DIRECTION_OUTPUT;
   else
     direction = PW_DIRECTION_INPUT;
@@ -120,18 +122,27 @@ wp_script_tester_create_stream (WpScriptTester *self, const gchar *stream_type,
       wp_core_get_pw_core (f->base.client_core),
       name, wp_properties_unref_and_take_pw_properties (g_steal_pointer (&props)));
 
-  if (video)
-    params [0] = spa_format_video_raw_build (&b, SPA_PARAM_EnumFormat,
+  if (video) {
+    params [n_params++] = spa_format_video_raw_build (&b, SPA_PARAM_EnumFormat,
         &SPA_VIDEO_INFO_RAW_INIT (
             .format = SPA_VIDEO_FORMAT_RGB,
             .size = SPA_RECTANGLE (DEFAULT_WIDTH, DEFAULT_HEIGHT),
             .framerate = SPA_FRACTION (DEFAULT_FRAMERATE, 1)));
-  else
-    params [0] = spa_format_audio_raw_build (&b, SPA_PARAM_EnumFormat,
-        &SPA_AUDIO_INFO_RAW_INIT (
-            .format = SPA_AUDIO_FORMAT_F32,
-            .channels = DEFAULT_CHANNELS,
-            .rate = DEFAULT_RATE));
+  } else {
+    if (!encoded)
+      params [n_params++] = spa_format_audio_raw_build (&b,
+          SPA_PARAM_EnumFormat,
+          &SPA_AUDIO_INFO_RAW_INIT (
+              .format = SPA_AUDIO_FORMAT_F32,
+              .channels = DEFAULT_CHANNELS,
+              .rate = DEFAULT_RATE));
+    if (encoded || dual)
+      params [n_params++] = spa_format_audio_iec958_build (&b,
+          SPA_PARAM_EnumFormat,
+          &SPA_AUDIO_INFO_IEC958_INIT (
+              .codec = SPA_AUDIO_IEC958_CODEC_AC3,
+              .rate = DEFAULT_RATE));
+  }
 
   g_ptr_array_add (self->streams, stream);
 
@@ -140,7 +151,7 @@ wp_script_tester_create_stream (WpScriptTester *self, const gchar *stream_type,
       PW_ID_ANY,
       PW_STREAM_FLAG_AUTOCONNECT |
       PW_STREAM_FLAG_MAP_BUFFERS,
-      params, 1);
+      params, n_params);
 }
 
 /* destroys all the streams created so far */
