@@ -45,6 +45,20 @@ SimpleEventHook {
     local target_value = nil
     local target_stream = nil
 
+    -- can_link() only checks the direction, the monitor ports and the link
+    -- groups, so the formats need is_compatible() as well
+    local function target_is_usable (candidate)
+      if not stream_utils.can_link (stream, candidate) then
+        log:debug (stream, "found defined target cannot be linked")
+        return false
+      end
+      if not stream:is_compatible (candidate) then
+        log:debug (stream, "found defined target is not compatible")
+        return false
+      end
+      return true
+    end
+
     -- Get the target key and value
     if stream_props ["target.object"] ~= nil then
       target_value = stream_props ["target.object"]
@@ -96,12 +110,8 @@ SimpleEventHook {
           Constraint { target_key, "=", target_value },
         }
       end
-      if target_stream ~= nil then
-        if stream_utils.can_link (stream, target_stream) then
-          target = target_stream
-        else
-          log:debug (stream, "found defined target cannot be linked")
-        end
+      if target_stream ~= nil and target_is_usable (target_stream) then
+        target = target_stream
       end
     else
       local target_dir = stream_utils.get_target_direction (stream)
@@ -112,10 +122,8 @@ SimpleEventHook {
         local target_props = target_stream:get_properties()
         if (target_props ["node.name"] == target_value or
             target_props ["object.path"] == target_value) then
-          if stream_utils.can_link (stream, target_stream) then
+          if target_is_usable (target_stream) then
             target = target_stream
-          else
-            log:debug (stream, "found defined target cannot be linked")
           end
           break
         end

@@ -225,3 +225,10 @@ test(
   args: ['script-tests', 'node/audio-stream-ports-configured-no-dsp.lua'],
   env: common_env,
 )
+
+test(
+  'scripts/linking/defined-target-not-compatible',
+  script_tester,
+  args: ['script-tests', 'linking/defined-target-not-compatible.lua'],
+  env: common_env,
+)
