@@ -49,8 +49,6 @@ AsyncEventHook {
         local stream_props = stream:get_properties ()
         local stream_id = stream.id
         local node_id = stream:get_node_bound_id ()
-        local out_stream = nil
-        local in_stream = nil
 
         -- Bypass the hook if the target was not found
         local target = event:get_data ("target")
@@ -84,18 +82,13 @@ AsyncEventHook {
           return;
         end
 
-        -- Figure out which stream is inpout and output
         local target_id = target.id
         local target_props = target:get_properties ()
         if stream:get_direction () == Direction.OUTPUT then
-          out_stream = stream
-          in_stream = target
           log:debug (stream, string.format (
               "playback link: stream:%d (node:%d) -> target:%d (node:%d)",
               stream_id, node_id, target_id, target_node_id))
         else
-          out_stream = target
-          in_stream = stream
           log:debug (stream, string.format (
               "capture link: stream:%d (node:%d) <- target:%d (node:%d)",
               stream_id, node_id, target_id, target_node_id))
@@ -105,7 +98,7 @@ AsyncEventHook {
         log:info (stream, string.format (
             "linking with target stream:%d (node:%d): %s",
             target_id, target_node_id, tostring (target_props["node.name"])))
-        local stream_link = StreamLinkManager.create_link (out_stream, in_stream)
+        local stream_link = StreamLinkManager.link (stream, target)
         if stream_link == nil then
           transition:return_error ("failed to create stream link")
           return

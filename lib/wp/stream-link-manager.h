@@ -52,11 +52,15 @@ WpStreamLink * wp_stream_link_manager_create_link (WpStreamLinkManager *self,
     WpStream *output, WpStream *input);
 
 WP_API
+WpStreamLink * wp_stream_link_manager_link (WpStreamLinkManager *self,
+    WpStream *subject, WpStream *target);
+
+WP_API
 void wp_stream_link_manager_remove_link (WpStreamLinkManager *self,
     WpStreamLink *link);
 
 WP_API
-void wp_stream_link_manager_unlink (WpStreamLinkManager *self,
+gboolean wp_stream_link_manager_unlink (WpStreamLinkManager *self,
     WpStream *stream);
 
 WP_API

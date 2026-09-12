@@ -57,6 +57,9 @@ WP_API
 WpStream * wp_stream_link_get_input_stream (WpStreamLink *self);
 
 WP_API
+WpStream * wp_stream_link_get_subject_stream (WpStreamLink *self);
+
+WP_API
 guint wp_stream_link_get_links_count (WpStreamLink *self);
 
 WP_API

@@ -1759,6 +1759,25 @@ stream_link_manager_create_link (lua_State *L)
 }
 
 static int
+stream_link_manager_link (lua_State *L)
+{
+  WpStream *subject = wplua_checkobject (L, 1, WP_TYPE_STREAM);
+  WpStream *target = wplua_checkobject (L, 2, WP_TYPE_STREAM);
+  g_autoptr (WpStreamLinkManager) slm = wp_stream_link_manager_find (
+      get_wp_core (L), NULL);
+  g_autoptr (WpStreamLink) link = NULL;
+
+  if (slm)
+    link = wp_stream_link_manager_link (slm, subject, target);
+
+  if (link)
+    wplua_pushobject (L, g_steal_pointer (&link));
+  else
+    lua_pushnil (L);
+  return 1;
+}
+
+static int
 stream_link_manager_remove_link (lua_State *L)
 {
   WpStreamLink *link = wplua_checkobject (L, 1, WP_TYPE_STREAM_LINK);
@@ -1775,9 +1794,8 @@ stream_link_manager_unlink (lua_State *L)
   WpStream *stream = wplua_checkobject (L, 1, WP_TYPE_STREAM);
   g_autoptr (WpStreamLinkManager) slm = wp_stream_link_manager_find (
       get_wp_core (L), NULL);
-  if (slm)
-    wp_stream_link_manager_unlink (slm, stream);
-  return 0;
+  lua_pushboolean (L, slm && wp_stream_link_manager_unlink (slm, stream));
+  return 1;
 }
 
 static int
@@ -1825,6 +1843,7 @@ static const luaL_Reg stream_link_manager_methods[] = {
   { "get_name", stream_link_manager_get_name },
   { "find_link", stream_link_manager_find_link },
   { "create_link", stream_link_manager_create_link },
+  { "link", stream_link_manager_link },
   { "remove_link", stream_link_manager_remove_link },
   { "unlink", stream_link_manager_unlink },
   { "get_peers_count", stream_link_manager_get_peers_count },

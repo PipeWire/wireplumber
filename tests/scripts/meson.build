@@ -281,3 +281,17 @@ test(
   args: ['script-tests', 'linking/encoded-only-shared-target.lua'],
   env: common_env,
 )
+
+test(
+  'scripts/linking/producer-as-target',
+  script_tester,
+  args: ['script-tests', 'linking/producer-as-target.lua'],
+  env: common_env,
+)
+
+test(
+  'scripts/linking/move-to-new-target',
+  script_tester,
+  args: ['script-tests', 'linking/move-to-new-target.lua'],
+  env: common_env,
+)

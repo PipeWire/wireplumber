@@ -167,24 +167,47 @@ find_stream_links (WpStreamLinkManager *self, WpStream *stream)
   return links;
 }
 
-/* Deactivates and removes all the stream links of the given stream */
+/* Finds all the stream links that the given stream asked for */
+static GPtrArray *
+find_subject_links (WpStreamLinkManager *self, WpStream *stream)
+{
+  GPtrArray *links = g_ptr_array_new_with_free_func (g_object_unref);
+
+  for (guint i = 0; i < self->stream_links->len; i++) {
+    WpStreamLink *link = g_ptr_array_index (self->stream_links, i);
+    g_autoptr (WpStream) subject = wp_stream_link_get_subject_stream (link);
+    if (subject == stream)
+      g_ptr_array_add (links, g_object_ref (link));
+  }
+
+  return links;
+}
+
+/* Deactivates and removes the given stream links */
 static void
-remove_stream_links (WpStreamLinkManager *self, WpStream *stream)
+remove_links (WpStreamLinkManager *self, GPtrArray *links)
 {
   g_autoptr (WpCore) core = NULL;
-  g_autoptr (GPtrArray) links = NULL;
 
   /* Get the core */
   core = wp_object_get_core (WP_OBJECT (self));
   g_return_if_fail (core);
 
-  links = find_stream_links (self, stream);
   for (guint i = 0; i < links->len; i++) {
     WpStreamLink *link = g_ptr_array_index (links, i);
     wp_object_deactivate (WP_OBJECT (link), WP_OBJECT_FEATURES_ALL);
     g_ptr_array_remove_fast (self->stream_links, link);
     wp_core_remove_object (core, link);
   }
+}
+
+/* Deactivates and removes all the stream links of the given stream */
+static void
+remove_stream_links (WpStreamLinkManager *self, WpStream *stream)
+{
+  g_autoptr (GPtrArray) links = find_stream_links (self, stream);
+
+  remove_links (self, links);
 }
 
 static gboolean
@@ -542,9 +565,56 @@ on_stream_link_link_removed (WpStreamLink *stream_link, WpLink *link,
   }
 }
 
+static WpStreamLink *
+create_link (WpStreamLinkManager *self, WpStream *output, WpStream *input,
+    WpStream *subject)
+{
+  g_autoptr (WpCore) core = NULL;
+  g_autoptr (WpStreamLink) link = NULL;
+
+  /* Return the current link if it already exists for the given streams */
+  link = wp_stream_link_manager_find_link (self, output, input);
+  if (link)
+    return g_steal_pointer (&link);
+
+  /* Get the core */
+  core = wp_object_get_core (WP_OBJECT (self));
+  g_return_val_if_fail (core, NULL);
+
+  /* Create the link using the matching media type */
+  if (WP_IS_AUDIO_STREAM (output) && WP_IS_AUDIO_STREAM (input)) {
+    link = WP_STREAM_LINK (wp_audio_stream_link_new (core,
+        WP_AUDIO_STREAM (output), WP_AUDIO_STREAM (input), subject));
+  } else if (WP_IS_VIDEO_STREAM (output) && WP_IS_VIDEO_STREAM (input)) {
+    link = WP_STREAM_LINK (wp_video_stream_link_new (core,
+        WP_VIDEO_STREAM (output), WP_VIDEO_STREAM (input), subject));
+  } else {
+    wp_warning_object (self, "cannot link %s with %s: not the same stream type",
+        G_OBJECT_TYPE_NAME (output), G_OBJECT_TYPE_NAME (input));
+    return NULL;
+  }
+
+  /* Handle link-removed signal */
+  g_signal_connect_object (link, "link-removed",
+      G_CALLBACK (on_stream_link_link_removed), self, 0);
+
+  /* add it to the list */
+  g_ptr_array_add (self->stream_links, g_object_ref (link));
+
+  /* Register the link so that it appears on object managers */
+  wp_core_register_object (core, g_object_ref (link));
+
+  return g_steal_pointer (&link);
+}
+
 /*!
  * \brief Creates and registers a WpStreamLink object to link the given output
  * stream with the given input stream.
+ *
+ * The link has no subject stream, so wp_stream_link_manager_unlink() will not
+ * remove it. This is meant for links that already exist on the graph and are
+ * only adopted here; use wp_stream_link_manager_link() for a link that this
+ * session manager decides to make.
  *
  * You need to activate the returned WpStreamLink so that both streams are
  * linked. You can also deactivate the WpStreamLink to unlink both streams.
@@ -566,44 +636,44 @@ WpStreamLink *
 wp_stream_link_manager_create_link (WpStreamLinkManager *self, WpStream *output,
     WpStream *input)
 {
-  g_autoptr (WpCore) core = NULL;
-  g_autoptr (WpStreamLink) link = NULL;
-
   g_return_val_if_fail (WP_IS_STREAM_LINK_MANAGER (self), NULL);
+  g_return_val_if_fail (WP_IS_STREAM (output), NULL);
+  g_return_val_if_fail (WP_IS_STREAM (input), NULL);
 
-  /* Return the current link if it already exists for the given streams */
-  link = wp_stream_link_manager_find_link (self, output, input);
-  if (link)
-    return g_steal_pointer (&link);
+  return create_link (self, output, input, NULL);
+}
 
-  /* Get the core */
-  core = wp_object_get_core (WP_OBJECT (self));
-  g_return_val_if_fail (core, NULL);
+/*!
+ * \brief Creates and registers a WpStreamLink object to link the given subject
+ * stream with the target stream it asked for.
+ *
+ * Which of the two streams is the output and which is the input is decided by
+ * the direction of the subject. The subject is recorded on the link, so that
+ * wp_stream_link_manager_unlink() can tell the links a stream asked for from
+ * the links that other streams asked for on it.
+ *
+ * You need to activate the returned WpStreamLink so that both streams are
+ * linked, as with wp_stream_link_manager_create_link().
+ *
+ * \ingroup wpstreamlinkmanager
+ * \param self the stream link manager
+ * \param subject (transfer none): the stream that asks for the link
+ * \param target (transfer none): the stream it wants to be linked to
+ * \returns (transfer full) (nullable): the WpStreamLink to link the two
+ *   streams, or NULL if they are not of the same media type
+ */
+WpStreamLink *
+wp_stream_link_manager_link (WpStreamLinkManager *self, WpStream *subject,
+    WpStream *target)
+{
+  g_return_val_if_fail (WP_IS_STREAM_LINK_MANAGER (self), NULL);
+  g_return_val_if_fail (WP_IS_STREAM (subject), NULL);
+  g_return_val_if_fail (WP_IS_STREAM (target), NULL);
 
-  /* Create the link using the matching media type */
-  if (WP_IS_AUDIO_STREAM (output) && WP_IS_AUDIO_STREAM (input)) {
-    link = WP_STREAM_LINK (wp_audio_stream_link_new (core,
-        WP_AUDIO_STREAM (output), WP_AUDIO_STREAM (input)));
-  } else if (WP_IS_VIDEO_STREAM (output) && WP_IS_VIDEO_STREAM (input)) {
-    link = WP_STREAM_LINK (wp_video_stream_link_new (core,
-        WP_VIDEO_STREAM (output), WP_VIDEO_STREAM (input)));
-  } else {
-    wp_warning_object (self, "cannot link %s with %s: not the same stream type",
-        G_OBJECT_TYPE_NAME (output), G_OBJECT_TYPE_NAME (input));
-    return NULL;
-  }
-
-  /* Handle link-removed signal */
-  g_signal_connect_object (link, "link-removed",
-      G_CALLBACK (on_stream_link_link_removed), self, 0);
-
-  /* add it to the list */
-  g_ptr_array_add (self->stream_links, g_object_ref (link));
-
-  /* Register the link so that it appears on object managers */
-  wp_core_register_object (core, g_object_ref (link));
-
-  return g_steal_pointer (&link);
+  if (wp_stream_get_direction (subject) == WP_DIRECTION_OUTPUT)
+    return create_link (self, subject, target, subject);
+  else
+    return create_link (self, target, subject, subject);
 }
 
 /*!
@@ -650,19 +720,29 @@ wp_stream_link_manager_remove_link (WpStreamLinkManager *self,
 }
 
 /*!
- * \brief Destroys all associated WpStreamLink objects to unlink the given
- * stream from all its linked streams.
+ * \brief Destroys the WpStreamLink objects that the given stream asked for,
+ * unlinking it from the targets it was linked to.
+ *
+ * A stream is also part of the links that other streams asked for on it, and
+ * those are left alone: they are the other streams' to undo. Links that were
+ * adopted from the graph have no subject and are left alone as well.
  *
  * \ingroup wpstreamlinkmanager
  * \param self the stream link manager
  * \param stream (transfer none): the stream to be unlinked
+ * \returns TRUE if the stream had links to remove, FALSE otherwise
  */
-void
+gboolean
 wp_stream_link_manager_unlink (WpStreamLinkManager *self, WpStream *stream)
 {
-  g_return_if_fail (WP_IS_STREAM_LINK_MANAGER (self));
+  g_autoptr (GPtrArray) links = NULL;
 
-  remove_stream_links (self, stream);
+  g_return_val_if_fail (WP_IS_STREAM_LINK_MANAGER (self), FALSE);
+
+  links = find_subject_links (self, stream);
+  remove_links (self, links);
+
+  return links->len > 0;
 }
 
 /*!

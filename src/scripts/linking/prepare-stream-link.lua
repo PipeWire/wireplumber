@@ -82,8 +82,7 @@ SimpleEventHook {
     end
 
     -- Unlink the stream from its previous target if it is linked
-    if StreamLinkManager.get_peers_count (stream) > 0 then
-      StreamLinkManager.unlink (stream)
+    if StreamLinkManager.unlink (stream) then
       log:debug (stream, "... moving to new target")
     end
 

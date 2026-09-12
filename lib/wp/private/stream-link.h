@@ -16,13 +16,13 @@ G_BEGIN_DECLS
 /* Audio Stream Link */
 
 WpAudioStreamLink * wp_audio_stream_link_new (WpCore *core,
-    WpAudioStream *output, WpAudioStream *input);
+    WpAudioStream *output, WpAudioStream *input, WpStream *subject);
 
 
 /* Video Stream Link */
 
 WpVideoStreamLink * wp_video_stream_link_new (WpCore *core,
-    WpVideoStream *output, WpVideoStream *input);
+    WpVideoStream *output, WpVideoStream *input, WpStream *subject);
 
 G_END_DECLS
 

@@ -56,6 +56,7 @@ enum {
   STREAM_LINK_PROP_0,
   STREAM_LINK_PROP_OUTPUT_STREAM,
   STREAM_LINK_PROP_INPUT_STREAM,
+  STREAM_LINK_PROP_SUBJECT_STREAM,
 };
 
 enum
@@ -73,6 +74,7 @@ struct _WpStreamLinkPrivate
   /* Props */
   GWeakRef output_stream;
   GWeakRef input_stream;
+  GWeakRef subject_stream;
   gboolean is_output_stream_monitor;
 
   /* Activation info */
@@ -97,6 +99,7 @@ wp_stream_link_init (WpStreamLink * self)
   /* Props */
   g_weak_ref_init (&priv->output_stream, NULL);
   g_weak_ref_init (&priv->input_stream, NULL);
+  g_weak_ref_init (&priv->subject_stream, NULL);
 
   /* Activation info */
   priv->global_links = g_ptr_array_new_with_free_func (g_object_unref);
@@ -118,6 +121,9 @@ wp_stream_link_get_property (GObject * object, guint prop_id, GValue * value,
       break;
     case STREAM_LINK_PROP_INPUT_STREAM:
       g_value_take_object (value, g_weak_ref_get (&priv->input_stream));
+      break;
+    case STREAM_LINK_PROP_SUBJECT_STREAM:
+      g_value_take_object (value, g_weak_ref_get (&priv->subject_stream));
       break;
 
     default:
@@ -150,6 +156,9 @@ wp_stream_link_set_property (GObject * object, guint prop_id,
     }
     case STREAM_LINK_PROP_INPUT_STREAM:
       g_weak_ref_set (&priv->input_stream, g_value_get_object (value));
+      break;
+    case STREAM_LINK_PROP_SUBJECT_STREAM:
+      g_weak_ref_set (&priv->subject_stream, g_value_get_object (value));
       break;
 
     default:
@@ -778,6 +787,7 @@ wp_stream_link_finalize (GObject * object)
   /* Props */
   g_weak_ref_clear (&priv->output_stream);
   g_weak_ref_clear (&priv->input_stream);
+  g_weak_ref_clear (&priv->subject_stream);
 
   G_OBJECT_CLASS (wp_stream_link_parent_class)->finalize (object);
 }
@@ -807,6 +817,12 @@ wp_stream_link_class_init (WpStreamLinkClass * klass)
 
   g_object_class_install_property (object_class, STREAM_LINK_PROP_INPUT_STREAM,
       g_param_spec_object ("input-stream", "input-stream", "The input stream",
+          WP_TYPE_STREAM,
+          G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
+
+  g_object_class_install_property (object_class, STREAM_LINK_PROP_SUBJECT_STREAM,
+      g_param_spec_object ("subject-stream", "subject-stream",
+          "The stream that asked for this link",
           WP_TYPE_STREAM,
           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS));
 
@@ -859,6 +875,29 @@ wp_stream_link_get_input_stream (WpStreamLink *self)
   priv = wp_stream_link_get_instance_private (self);
 
   return g_weak_ref_get (&priv->input_stream);
+}
+
+/*!
+ * \brief Gets the stream that asked for this link
+ *
+ * This is the stream whose policy decision created the link; it is either the
+ * output or the input stream. Links that were discovered on the graph and
+ * adopted by the WpStreamLinkManager have no subject.
+ *
+ * \ingroup wpstreamlink
+ * \param self the stream link
+ * \returns (transfer full) (nullable): the subject stream
+ */
+WpStream *
+wp_stream_link_get_subject_stream (WpStreamLink *self)
+{
+  WpStreamLinkPrivate *priv;
+
+  g_return_val_if_fail (WP_IS_STREAM_LINK (self), NULL);
+
+  priv = wp_stream_link_get_instance_private (self);
+
+  return g_weak_ref_get (&priv->subject_stream);
 }
 
 /*!
@@ -1178,7 +1217,7 @@ wp_audio_stream_link_class_init (WpAudioStreamLinkClass * klass)
 
 WpAudioStreamLink *
 wp_audio_stream_link_new (WpCore *core, WpAudioStream *output,
-    WpAudioStream *input)
+    WpAudioStream *input, WpStream *subject)
 {
   g_return_val_if_fail (WP_IS_CORE (core), NULL);
   g_return_val_if_fail (WP_IS_AUDIO_STREAM (output), NULL);
@@ -1189,6 +1228,7 @@ wp_audio_stream_link_new (WpCore *core, WpAudioStream *output,
       "core", core,
       "output-stream", output,
       "input-stream", input,
+      "subject-stream", subject,
       NULL);
 }
 
@@ -1214,7 +1254,7 @@ wp_video_stream_link_class_init (WpVideoStreamLinkClass * klass)
 
 WpVideoStreamLink *
 wp_video_stream_link_new (WpCore *core, WpVideoStream *output,
-  WpVideoStream *input)
+  WpVideoStream *input, WpStream *subject)
 {
   g_return_val_if_fail (WP_IS_CORE (core), NULL);
   g_return_val_if_fail (WP_IS_VIDEO_STREAM (output), NULL);
@@ -1225,5 +1265,6 @@ wp_video_stream_link_new (WpCore *core, WpVideoStream *output,
     "core", core,
     "output-stream", output,
     "input-stream", input,
+    "subject-stream", subject,
     NULL);
 }
