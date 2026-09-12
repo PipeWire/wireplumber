@@ -14,6 +14,21 @@ u.nodes = {}
 u.streams = {}
 u.stream_count = 0
 
+-- Calls cb once condition() holds. Fails the test if it never does.
+function u.waitUntil (condition, cb)
+  local attempts = 0
+
+  Core.timeout_add (10, function ()
+    if condition () then
+      cb ()
+      return false
+    end
+    attempts = attempts + 1
+    assert (attempts < 500)
+    return true
+  end)
+end
+
 function u.createDeviceNode (name, media_class, props)
   local properties = {}
   properties ["node.name"] = name
@@ -113,6 +128,17 @@ u.settings_metadata = cu.get_object_manager ("metadata"):lookup {
   Constraint { "metadata.name", "=", "sm-settings" },
 }
 assert (u.settings_metadata ~= nil)
+
+-- Changes a setting and calls cb once the change has reached WpSettings.
+-- The value is the setting's JSON, so "true" for a boolean, not true.
+function u.setSetting (name, value, cb)
+  u.settings_metadata:set (0, name, "Spa:String:JSON", value)
+
+  u.waitUntil (function ()
+    local val = Settings.get (name)
+    return val ~= nil and val:get_data () == value
+  end, cb)
+end
 
 -- Update the defined target for a stream in metadata.
 function u.setTargetInMetadata (prop, target_node_name, target_property)

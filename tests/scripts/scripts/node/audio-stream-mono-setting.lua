@@ -10,21 +10,6 @@ tu.createDeviceNode ("device-node", "Audio/Sink")
 
 local started = false
 
--- Calls cb once condition() holds. Fails the test if it never does.
-local function waitUntil (condition, cb)
-  local attempts = 0
-
-  Core.timeout_add (10, function ()
-    if condition () then
-      cb ()
-      return false
-    end
-    attempts = attempts + 1
-    assert (attempts < 500)
-    return true
-  end)
-end
-
 SimpleEventHook {
   name = "stream-added@test-mono-setting",
   after = "stream-added@test-utils-linking",
@@ -41,12 +26,7 @@ SimpleEventHook {
     end
     started = true
 
-    tu.settings_metadata:set (0, "node.features.audio.mono",
-        "Spa:String:JSON", "true")
-
-    waitUntil (function ()
-      return Settings.get_boolean ("node.features.audio.mono")
-    end, function ()
+    tu.setSetting ("node.features.audio.mono", "true", function ()
       stream:connect ("ports-configured", function ()
         local format = stream:get_ports_format ():parse ()
 

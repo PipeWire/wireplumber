@@ -11,21 +11,6 @@ tu.createDeviceNode ("device-node", "Audio/Sink")
 local count = 0
 local started = false
 
--- Calls cb once condition() holds. Fails the test if it never does.
-local function waitUntil (condition, cb)
-  local attempts = 0
-
-  Core.timeout_add (10, function ()
-    if condition () then
-      cb ()
-      return false
-    end
-    attempts = attempts + 1
-    assert (attempts < 500)
-    return true
-  end)
-end
-
 -- Changes the PortConfig of the stream's node behind the stream's back, the
 -- way another client would. No configuration was requested through the stream,
 -- so 'ports-configured' must not be emitted, no matter how many PortConfig and
@@ -46,7 +31,7 @@ local function changePortConfigExternally (stream)
 
   -- the stream picks the change up and updates its own PortConfig info; that
   -- is the point at which it must not report the ports as configured
-  waitUntil (function () return stream:has_monitor_ports_enabled () end,
+  tu.waitUntil (function () return stream:has_monitor_ports_enabled () end,
     function ()
       Log.info ("ports-configured emitted " .. tostring (count) ..
           " time(s) on an unrequested PortConfig change")
@@ -60,7 +45,7 @@ end
 local function configureStream (stream)
   assert (stream:configure_ports_with_props { ["stream.monitor-ports"] = "false" })
 
-  waitUntil (function () return count > 0 end, function ()
+  tu.waitUntil (function () return count > 0 end, function ()
     assert (stream:has_ports_configured ())
     assert (not stream:has_monitor_ports_enabled ())
 
