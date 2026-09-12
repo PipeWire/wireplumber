@@ -253,3 +253,10 @@ test(
   args: ['script-tests', 'stream/removed-node-id.lua'],
   env: common_env,
 )
+
+test(
+  'scripts/node/audio-stream-mono-setting',
+  script_tester,
+  args: ['script-tests', 'node/audio-stream-mono-setting.lua'],
+  env: common_env,
+)

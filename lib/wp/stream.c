@@ -2080,6 +2080,21 @@ wp_audio_stream_configure_ports (WpAudioStream * self, WpSpaPod *format,
       monitor, control);
 }
 
+/* The mono setting applies to hardware audio sinks only, which is the same set
+ * of streams that node/configure-ports.lua reconfigures when it changes */
+static gboolean
+wp_audio_stream_is_hw_audio_sink (WpAudioStream * self)
+{
+  g_autoptr (WpProperties) props = NULL;
+  const gchar *factory;
+
+  props = wp_stream_get_properties (WP_STREAM (self));
+  factory = wp_properties_get (props, PW_KEY_FACTORY_NAME);
+
+  return !g_strcmp0 (factory, "api.alsa.pcm.sink") ||
+      !g_strcmp0 (factory, "api.bluez5.a2dp.sink");
+}
+
 /* Resolves the port configuration that would be applied for the given
  * properties, from the settings, the properties and the stream's supported
  * formats. Kept separate so that wp_audio_stream_is_monitorable()
@@ -2119,10 +2134,12 @@ wp_audio_stream_resolve_ports_config (WpAudioStream * self, WpCore * core,
       wp_spa_json_parse_boolean (val, &no_dsp);
     g_clear_pointer (&val, wp_spa_json_unref);
 
-    val = wp_settings_get (settings, "node.features.audio.mono");
-    if (val)
-      wp_spa_json_parse_boolean (val, mono_only);
-    g_clear_pointer (&val, wp_spa_json_unref);
+    if (wp_audio_stream_is_hw_audio_sink (self)) {
+      val = wp_settings_get (settings, "node.features.audio.mono");
+      if (val)
+        wp_spa_json_parse_boolean (val, mono_only);
+      g_clear_pointer (&val, wp_spa_json_unref);
+    }
   }
 
   /* Use property values if any */
