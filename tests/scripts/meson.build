@@ -246,3 +246,10 @@ test(
   args: ['script-tests', 'linking/dont-reconnect-target-removed.lua'],
   env: common_env,
 )
+
+test(
+  'scripts/stream/removed-node-id',
+  script_tester,
+  args: ['script-tests', 'stream/removed-node-id.lua'],
+  env: common_env,
+)

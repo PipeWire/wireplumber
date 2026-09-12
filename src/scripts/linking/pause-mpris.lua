@@ -203,7 +203,9 @@ pause_hook = SimpleEventHook {
     local stream = event:get_subject ()
     local source = event:get_source ()
     local client_om = source:call ("get-object-manager", "client")
-    local node_id = stream:get_node_bound_id ()
+    -- the node is already unbound when this hook runs, so
+    -- get_node_bound_id() would return SPA_ID_INVALID here
+    local node_id = tonumber (stream:get_properties () ["object.id"])
     local node_group = getLinkedNodes (node_id)
     local client_ids = {}
 
