@@ -2498,9 +2498,10 @@ wp_video_stream_new_supported_enc_format_iterator (WpStream *stream)
 static gboolean
 wp_video_stream_is_exclusive (WpStream *stream)
 {
-  /* Since video streams cannot be "mixed" like audio streams, we always
-   * mark them as exclusive */
-  return TRUE;
+  /* Video streams cannot be "mixed" like audio streams, so a stream that
+   * receives video can only be linked with one other stream. A stream that
+   * sends video can feed as many as they want */
+  return wp_stream_get_direction (stream) == WP_DIRECTION_INPUT;
 }
 
 static void

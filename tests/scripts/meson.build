@@ -232,3 +232,10 @@ test(
   args: ['script-tests', 'linking/defined-target-not-compatible.lua'],
   env: common_env,
 )
+
+test(
+  'scripts/linking/video-multiple-consumers',
+  script_tester,
+  args: ['script-tests', 'linking/video-multiple-consumers.lua'],
+  env: common_env,
+)
