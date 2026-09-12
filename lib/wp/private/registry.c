@@ -79,6 +79,19 @@ object_manager_destroyed (gpointer data, GObject * om)
   g_ptr_array_remove_fast (self->object_managers, om);
 }
 
+/* Takes a reference on every object manager, so that the notify loops
+ * can survive a manager that is destroyed from one of their callbacks; that
+ * also removes its entry from self->object_managers (object_manager_destroyed)
+ * and reorders the rest */
+static GPtrArray *
+copy_object_managers (WpRegistry *self)
+{
+  GPtrArray *object_managers = g_ptr_array_copy (self->object_managers,
+      (GCopyFunc) g_object_ref, NULL);
+  g_ptr_array_set_free_func (object_managers, g_object_unref);
+  return object_managers;
+}
+
 /* find the subclass of WpPipewireGlobal that can handle
    the given pipewire interface type of the given version */
 static inline GType
@@ -331,9 +344,7 @@ expose_tmp_globals (WpCore *core)
     g_ptr_array_index (self->globals, g->id) = wp_global_ref (g);
   }
 
-  object_managers = g_ptr_array_copy (self->object_managers,
-      (GCopyFunc) g_object_ref, NULL);
-  g_ptr_array_set_free_func (object_managers, g_object_unref);
+  object_managers = copy_object_managers (self);
 
   /* notify object managers */
   for (guint i = 0; i < object_managers->len; i++) {
@@ -434,8 +445,10 @@ wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
 void
 wp_registry_notify_add_object (WpRegistry *self, gpointer object)
 {
-  for (guint i = 0; i < self->object_managers->len; i++) {
-    WpObjectManager *om = g_ptr_array_index (self->object_managers, i);
+  g_autoptr (GPtrArray) object_managers = copy_object_managers (self);
+
+  for (guint i = 0; i < object_managers->len; i++) {
+    WpObjectManager *om = g_ptr_array_index (object_managers, i);
     wp_object_manager_add_object (om, object);
     wp_object_manager_maybe_objects_changed (om);
   }
@@ -444,8 +457,10 @@ wp_registry_notify_add_object (WpRegistry *self, gpointer object)
 void
 wp_registry_notify_rm_object (WpRegistry *self, gpointer object)
 {
-  for (guint i = 0; i < self->object_managers->len; i++) {
-    WpObjectManager *om = g_ptr_array_index (self->object_managers, i);
+  g_autoptr (GPtrArray) object_managers = copy_object_managers (self);
+
+  for (guint i = 0; i < object_managers->len; i++) {
+    WpObjectManager *om = g_ptr_array_index (object_managers, i);
     wp_object_manager_rm_object (om, object);
     wp_object_manager_maybe_objects_changed (om);
   }
