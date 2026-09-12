@@ -607,16 +607,20 @@ wp_stream_link_manager_create_link (WpStreamLinkManager *self, WpStream *output,
 }
 
 /*!
- * \brief Destroys a single WpStreamLink, removing it from the manager and
- * from the core.
+ * \brief Destroys a single WpStreamLink that is not active, removing it from
+ * the manager and from the core.
  *
  * This is what callers that activate a link themselves must do when the
  * activation fails; a link left in the manager still counts as a peer of both
  * its streams and makes them look linked.
  *
+ * The link must not have WP_STREAM_LINK_FEATURE_ACTIVE. An active link owns
+ * the PipeWire links it created and this method does not destroy them; use
+ * wp_stream_link_manager_unlink() to unlink an established link.
+ *
  * \ingroup wpstreamlinkmanager
  * \param self the stream link manager
- * \param link (transfer none): the stream link to destroy
+ * \param link (transfer none): the stream link to destroy; must not be active
  */
 void
 wp_stream_link_manager_remove_link (WpStreamLinkManager *self,
@@ -626,6 +630,15 @@ wp_stream_link_manager_remove_link (WpStreamLinkManager *self,
 
   g_return_if_fail (WP_IS_STREAM_LINK_MANAGER (self));
   g_return_if_fail (WP_IS_STREAM_LINK (link));
+
+  /* Forgetting an active link here would leave the PipeWire links it owns in
+   * place, connected but tracked by nobody */
+  if (wp_object_test_active_features (WP_OBJECT (link),
+          WP_STREAM_LINK_FEATURE_ACTIVE)) {
+    wp_warning_object (self, "refusing to remove stream link %p: it is active",
+        link);
+    return;
+  }
 
   core = wp_object_get_core (WP_OBJECT (self));
   g_return_if_fail (core);
