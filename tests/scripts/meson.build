@@ -260,3 +260,10 @@ test(
   args: ['script-tests', 'node/audio-stream-mono-setting.lua'],
   env: common_env,
 )
+
+test(
+  'scripts/node/configure-ports-settings',
+  script_tester,
+  args: ['script-tests', 'node/configure-ports-settings.lua'],
+  env: common_env,
+)
