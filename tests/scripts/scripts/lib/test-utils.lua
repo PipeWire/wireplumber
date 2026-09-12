@@ -101,6 +101,12 @@ function u.createStreamNode (stream_type, props)
   u.stream_count = u.stream_count + 1
 end
 
+-- The error message the daemon last sent to the client stream with this
+-- node.name, or nil if it never got one.
+function u.getStreamError (name)
+  return u.script_tester_plugin:call ("get-stream-error", name)
+end
+
 function u.restartPlugin (name)
   u.script_tester_plugin:call ("restart-plugin", name)
 end

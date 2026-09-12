@@ -9,6 +9,7 @@
 #include "../common/base-test-fixture.h"
 #include <spa/param/audio/format-utils.h>
 #include <spa/param/video/format-utils.h>
+#include <spa/param/video/type-info.h>
 
 #define DEFAULT_RATE		44100
 #define DEFAULT_CHANNELS	2
@@ -20,16 +21,27 @@ typedef struct _ScriptRunnerFixture ScriptRunnerFixture;
 static void load_component (ScriptRunnerFixture *f, const gchar *name,
     const gchar *type);
 
+/* One client stream created by a test, kept around so that the test can ask
+ * whether the daemon sent an error to it */
+struct stream_entry
+{
+  struct pw_stream *stream;
+  struct spa_hook listener;
+  gchar *error;
+};
+
 struct _WpScriptTester
 {
   WpPlugin parent;
-  GPtrArray *streams;
+  GHashTable *streams;
   GPtrArray *clients;
   ScriptRunnerFixture *test_fixture;
 };
 
 enum {
   ACTION_CREATE_STREAM_NODE,
+  ACTION_RESTART_PLUGIN,
+  ACTION_GET_STREAM_ERROR,
   N_SIGNALS
 };
 
@@ -60,10 +72,62 @@ disconnect_client (gpointer client)
 }
 
 static void
+stream_entry_free (gpointer data)
+{
+  struct stream_entry *entry = data;
+
+  spa_hook_remove (&entry->listener);
+  pw_stream_destroy (entry->stream);
+  g_free (entry->error);
+  g_free (entry);
+}
+
+static void
 wp_script_tester_init (WpScriptTester *self)
 {
-  self->streams = g_ptr_array_new_with_free_func ((GDestroyNotify) pw_stream_destroy);
+  self->streams = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
+      stream_entry_free);
   self->clients = g_ptr_array_new_with_free_func (disconnect_client);
+}
+
+static void
+wp_script_tester_finalize (GObject *object)
+{
+  WpScriptTester *self = WP_SCRIPT_TESTER (object);
+
+  g_clear_pointer (&self->streams, g_hash_table_unref);
+  g_clear_pointer (&self->clients, g_ptr_array_unref);
+
+  G_OBJECT_CLASS (wp_script_tester_parent_class)->finalize (object);
+}
+
+/* pw_stream reports an error on its node as a state change to ERROR without
+ * updating its own state, so pw_stream_get_state() cannot be used here; see
+ * proxy_error() in pipewire's stream.c */
+static void
+on_client_stream_state_changed (void *data, enum pw_stream_state old_state,
+    enum pw_stream_state state, const char *error)
+{
+  struct stream_entry *entry = data;
+
+  if (state == PW_STREAM_STATE_ERROR) {
+    g_free (entry->error);
+    entry->error = g_strdup (error);
+  }
+}
+
+static const struct pw_stream_events client_stream_events = {
+  PW_VERSION_STREAM_EVENTS,
+  .state_changed = on_client_stream_state_changed,
+};
+
+static gchar *
+wp_script_tester_get_stream_error (WpScriptTester *self, const gchar *name)
+{
+  struct stream_entry *entry = g_hash_table_lookup (self->streams, name);
+
+  g_assert_nonnull (entry);
+  return g_strdup (entry->error);
 }
 
 static G_GNUC_UNUSED void
@@ -91,8 +155,9 @@ wp_script_tester_create_stream (WpScriptTester *self, const gchar *stream_type,
   guint n_params = 0;
   uint8_t buffer [1024];
   struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
-  struct pw_stream *stream;
   gboolean video, encoded, dual;
+  enum spa_video_format video_format = SPA_VIDEO_FORMAT_RGB;
+  struct stream_entry *entry;
   const gchar *name;
   int direction;
 
@@ -118,14 +183,28 @@ wp_script_tester_create_stream (WpScriptTester *self, const gchar *stream_type,
 
   name = wp_properties_get (props, PW_KEY_NODE_NAME);
 
-  stream = pw_stream_new (
+  if (video) {
+    const gchar *format_name = wp_properties_get (props, "test.video.format");
+    if (format_name) {
+      WpSpaIdValue idval = wp_spa_id_value_from_short_name (
+          SPA_TYPE_INFO_VideoFormat, format_name);
+      g_assert_nonnull (idval);
+      video_format = wp_spa_id_value_number (idval);
+    }
+  }
+
+  entry = g_new0 (struct stream_entry, 1);
+  entry->stream = pw_stream_new (
       wp_core_get_pw_core (f->base.client_core),
       name, wp_properties_unref_and_take_pw_properties (g_steal_pointer (&props)));
+  pw_stream_add_listener (entry->stream, &entry->listener,
+      &client_stream_events, entry);
+  g_hash_table_insert (self->streams, g_strdup (name), entry);
 
   if (video) {
     params [n_params++] = spa_format_video_raw_build (&b, SPA_PARAM_EnumFormat,
         &SPA_VIDEO_INFO_RAW_INIT (
-            .format = SPA_VIDEO_FORMAT_RGB,
+            .format = video_format,
             .size = SPA_RECTANGLE (DEFAULT_WIDTH, DEFAULT_HEIGHT),
             .framerate = SPA_FRACTION (DEFAULT_FRAMERATE, 1)));
   } else {
@@ -144,9 +223,7 @@ wp_script_tester_create_stream (WpScriptTester *self, const gchar *stream_type,
               .rate = DEFAULT_RATE));
   }
 
-  g_ptr_array_add (self->streams, stream);
-
-  pw_stream_connect (stream,
+  pw_stream_connect (entry->stream,
       direction,
       PW_ID_ANY,
       PW_STREAM_FLAG_AUTOCONNECT |
@@ -158,7 +235,7 @@ wp_script_tester_create_stream (WpScriptTester *self, const gchar *stream_type,
 static void
 wp_script_tester_destroy_streams (WpScriptTester *self)
 {
-  g_ptr_array_set_size (self->streams, 0);
+  g_hash_table_remove_all (self->streams);
 }
 
 /* connects an additional client, with the given properties */
@@ -218,6 +295,7 @@ static void
 wp_script_tester_class_init (WpScriptTesterClass *klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
+  object_class->finalize = wp_script_tester_finalize;
   object_class->get_property = wp_script_tester_get_property;
   object_class->set_property = wp_script_tester_set_property;
 
@@ -231,7 +309,7 @@ wp_script_tester_class_init (WpScriptTesterClass *klass)
       (GCallback) wp_script_tester_create_stream,
       NULL, NULL, NULL, G_TYPE_NONE, 2, G_TYPE_STRING, WP_TYPE_PROPERTIES);
 
-  signals [ACTION_CREATE_STREAM_NODE] = g_signal_new_class_handler (
+  signals [ACTION_RESTART_PLUGIN] = g_signal_new_class_handler (
       "restart-plugin", G_TYPE_FROM_CLASS (klass),
       G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
       (GCallback) wp_script_tester_restart_plugin,
@@ -252,6 +330,11 @@ wp_script_tester_class_init (WpScriptTesterClass *klass)
       (GCallback) wp_script_tester_disconnect_client,
       NULL, NULL, NULL, G_TYPE_NONE, 0);
 
+  signals [ACTION_GET_STREAM_ERROR] = g_signal_new_class_handler (
+      "get-stream-error", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+      (GCallback) wp_script_tester_get_stream_error,
+      NULL, NULL, NULL, G_TYPE_STRING, 1, G_TYPE_STRING);
 }
 
 static void
@@ -401,9 +484,8 @@ script_tests_teardown (ScriptRunnerFixture *f, gconstpointer data)
 {
   /* destroy streams and disconnect additional clients while the client core
    * is still alive */
-  g_clear_pointer (&f->plugin->streams, g_ptr_array_unref);
-  g_clear_pointer (&f->plugin->clients, g_ptr_array_unref);
-
+  g_hash_table_remove_all (f->plugin->streams);
+  g_ptr_array_set_size (f->plugin->clients, 0);
   wp_base_test_fixture_teardown (&f->base);
 }
 
