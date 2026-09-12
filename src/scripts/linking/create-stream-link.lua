@@ -105,6 +105,15 @@ AsyncEventHook {
         end
         stream_utils.linked_once [stream_id] = true
 
+        -- A link can also fail after it has been created, when the nodes fail
+        -- to negotiate a format. Both clients need to hear about it.
+        local source = event:get_source ()
+        stream_link:connect ("link-error", function (sl, error_msg)
+          log:info (stream, "link failed: " .. tostring (error_msg))
+          stream_utils.send_client_error (stream, source, -32, error_msg)
+          stream_utils.send_client_error (target, source, -32, error_msg)
+        end)
+
         -- Role-based links are activated by the media role rescan hooks,
         -- which apply priority based mixing, ducking and corking to them
         local is_role_link = stream_utils.is_role_based_link (stream_link)

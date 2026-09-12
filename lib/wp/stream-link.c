@@ -49,7 +49,9 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-stream-link")
  * associated links are cleaned up.
  *
  * A stream link emits signals when individual PipeWire links are added or removed,
- * allowing applications to monitor the linking status.
+ * allowing applications to monitor the linking status. It also emits link-error
+ * when one of those links enters the error state, so that the failure can be
+ * reported back to the client that owns the stream.
  */
 
 enum {
@@ -63,6 +65,7 @@ enum
 {
   STREAM_LINK_SIGNAL_LINK_ADDED,
   STREAM_LINK_SIGNAL_LINK_REMOVED,
+  STREAM_LINK_SIGNAL_LINK_ERROR,
   STREAM_LINK_LAST_SIGNAL,
 };
 
@@ -269,6 +272,21 @@ score_ports (struct port *out, struct port *in)
     score = 0;
 
   return score;
+}
+
+static void
+on_link_state_changed (WpLink *link, WpLinkState old_state,
+    WpLinkState new_state, WpStreamLink *self)
+{
+  const gchar *error = NULL;
+
+  if (new_state != WP_LINK_STATE_ERROR)
+    return;
+
+  wp_link_get_state (link, &error);
+  wp_info_object (self, "link %p entered the error state: %s", link, error);
+  g_signal_emit (self, stream_link_signals[STREAM_LINK_SIGNAL_LINK_ERROR],
+      0, error);
 }
 
 static void
@@ -481,6 +499,8 @@ create_links (WpStreamLink *self, WpTransition * transition)
     /* Create the link */
     link = wp_link_new_from_factory (core, "link-factory",
         wp_properties_ref (link_props));
+    g_signal_connect_object (link, "state-changed",
+        G_CALLBACK (on_link_state_changed), self, 0);
 
     /* Activate link, tracking pending activations only during a transition */
     if (transition) {
@@ -835,6 +855,11 @@ wp_stream_link_class_init (WpStreamLinkClass * klass)
       "link-removed", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
       G_STRUCT_OFFSET (WpStreamLinkClass, link_removed), NULL, NULL, NULL,
       G_TYPE_NONE, 1, WP_TYPE_LINK);
+
+  stream_link_signals[STREAM_LINK_SIGNAL_LINK_ERROR] = g_signal_new (
+      "link-error", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
+      G_STRUCT_OFFSET (WpStreamLinkClass, link_error), NULL, NULL, NULL,
+      G_TYPE_NONE, 1, G_TYPE_STRING);
 }
 
 /*!

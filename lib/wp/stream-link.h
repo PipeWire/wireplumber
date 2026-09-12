@@ -44,9 +44,10 @@ struct _WpStreamLinkClass
   /* signals */
   void (*link_added) (WpStreamLink *self, WpLink *link);
   void (*link_removed) (WpStreamLink *self, WpLink *link);
+  void (*link_error) (WpStreamLink *self, const gchar *error);
 
   /*< private >*/
-  WP_PADDING(4)
+  WP_PADDING(3)
 };
 
 WP_API
