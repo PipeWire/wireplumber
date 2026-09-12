@@ -309,3 +309,10 @@ test(
   args: ['script-tests', 'linking/format-error.lua'],
   env: common_env,
 )
+
+test(
+  'scripts/linking/role-based-policy-disabled',
+  script_tester,
+  args: ['script-tests', 'linking/role-based-policy-disabled.lua'],
+  env: common_env,
+)

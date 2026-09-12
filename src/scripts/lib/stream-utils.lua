@@ -157,11 +157,14 @@ function module.has_available_routes (stream, devices_om)
   return nutils.has_available_routes (stream_node, devices_om)
 end
 
+-- A target is a role-based policy target only while handle-media-role-links is
+-- loaded: that script is what activates the links to such targets.
 function module.is_role_policy_target (stream, target)
   local stream_props = stream:get_properties ()
   local target_props = target:get_properties ()
 
-  return target_props:get_boolean ("policy.role-based.target") and
+  return Core.test_feature ("hooks.linking.stream-link.handle-media-role") and
+      target_props:get_boolean ("policy.role-based.target") and
       not stream_props:get_boolean ("stream.monitor") and
       stream:get_direction () ~= target:get_direction ()
 end
