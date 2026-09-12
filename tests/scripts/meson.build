@@ -295,3 +295,10 @@ test(
   args: ['script-tests', 'linking/move-to-new-target.lua'],
   env: common_env,
 )
+
+test(
+  'scripts/linking/capture-from-monitor',
+  script_tester,
+  args: ['script-tests', 'linking/capture-from-monitor.lua'],
+  env: common_env,
+)
