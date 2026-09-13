@@ -119,6 +119,20 @@ fputs_html_escaped (FILE *out, const gchar *str)
 }
 
 static void
+fputs_dot_escaped (FILE *out, const gchar *str)
+{
+  if (!str) {
+    fputs ("(none)", out);
+    return;
+  }
+  for (; *str; str++) {
+    if (*str == '"' || *str == '\\')
+      fputc ('\\', out);
+    fputc (*str, out);
+  }
+}
+
+static void
 fputs_html_escaped_truncated (FILE *out, const gchar *str, gsize max_chars)
 {
   gsize count = 0;
@@ -344,9 +358,9 @@ wp_dot_emit_node (WpDot *self, FILE *out, WpNode *node)
 
         fprintf (out,
             "            <TR><TD PORT=\"port_%u\" BGCOLOR=\"white\" ALIGN=\"LEFT\">"
-            "port %u: %s (%s)</TD></TR>\n",
-            port_id, port_id,
-            port_name ? port_name : "",
+            "port %u: ", port_id, port_id);
+        fputs_html_escaped (out, port_name ? port_name : "");
+        fprintf (out, " (%s)</TD></TR>\n",
             wp_port_get_direction (port) == WP_DIRECTION_INPUT ? "in" : "out");
       }
 
@@ -365,9 +379,9 @@ wp_dot_emit_node (WpDot *self, FILE *out, WpNode *node)
 
         fprintf (out,
             "            <TR><TD PORT=\"port_%u\" BGCOLOR=\"lightyellow\" ALIGN=\"LEFT\">"
-            "port %u: %s (%s)</TD></TR>\n",
-            port_id, port_id,
-            port_name ? port_name : "",
+            "port %u: ", port_id, port_id);
+        fputs_html_escaped (out, port_name ? port_name : "");
+        fprintf (out, " (%s)</TD></TR>\n",
             wp_port_get_direction (port) == WP_DIRECTION_INPUT ? "in" : "out");
       }
 
@@ -386,9 +400,9 @@ wp_dot_emit_node (WpDot *self, FILE *out, WpNode *node)
 
         fprintf (out,
             "            <TR><TD PORT=\"port_%u\" BGCOLOR=\"#ffe0ff\" ALIGN=\"LEFT\">"
-            "port %u: %s (%s, control)</TD></TR>\n",
-            port_id, port_id,
-            port_name ? port_name : "",
+            "port %u: ", port_id, port_id);
+        fputs_html_escaped (out, port_name ? port_name : "");
+        fprintf (out, " (%s, control)</TD></TR>\n",
             wp_port_get_direction (port) == WP_DIRECTION_INPUT ? "in" : "out");
       }
 
@@ -479,7 +493,7 @@ wp_dot_run (WpDot * self)
       fprintf (out, "        fillcolor=\"#ededed\";\n");
       fprintf (out, "        penwidth=2;\n");
       fprintf (out, "        label=\"link-group: ");
-      fputs_html_escaped (out, group->link_group);
+      fputs_dot_escaped (out, group->link_group);
       fprintf (out, "\";\n");
     }
 
