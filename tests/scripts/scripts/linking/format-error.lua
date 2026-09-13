@@ -11,6 +11,8 @@ local tu = require ("test-utils")
 
 Script.async_activation = true
 
+waiting = false
+
 tu.createStreamNode ("video-playback", {
   ["node.name"] = "video-source-node",
   ["media.class"] = "Video/Source",
@@ -52,9 +54,11 @@ SimpleEventHook {
     local target = event:get_data ("target")
     local name = stream:get_properties () ["node.name"]
 
-    if name ~= "video-consumer" or target == nil then
+    if name ~= "video-consumer" or target == nil or waiting then
       return
     end
+
+    waiting = true
 
     tu.waitUntil (function ()
       return tu.getStreamError ("video-consumer") ~= nil and

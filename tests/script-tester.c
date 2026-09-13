@@ -63,6 +63,8 @@ G_DEFINE_TYPE (WpScriptTester, wp_script_tester, WP_TYPE_PLUGIN)
 struct _ScriptRunnerFixture {
   WpBaseTestFixture base;
   WpScriptTester *plugin;
+  /* the components named in argv after the test script, which are not loaded */
+  const gchar * const *disabled_components;
 };
 
 static void
@@ -355,6 +357,12 @@ load_component (ScriptRunnerFixture *f, const gchar *name, const gchar *type)
 {
   g_autoptr (WpSpaJson) arguments = NULL;
 
+  if (f->disabled_components &&
+      g_strv_contains (f->disabled_components, name)) {
+    wp_info ("not loading disabled component %s", name);
+    return;
+  }
+
   if (g_str_equal (name, "metadata.lua")) {
     arguments = wp_spa_json_new_object ("metadata.name", "s", "default",
         NULL);
@@ -390,6 +398,8 @@ load_components (ScriptRunnerFixture *f, gconstpointer argv)
   gchar *test_suite = args [1];
   /* TODO: we could do some more stuff here to provide the test script with an
      API to deal with the main loop and test asynchronous stuff, if necessary */
+
+  f->disabled_components = (const gchar * const *) (args + 3);
 
   load_component (f, "libwireplumber-module-lua-scripting", "module");
 

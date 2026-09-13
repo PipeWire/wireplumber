@@ -58,8 +58,10 @@ function u.createDeviceNode (name, media_class, props)
 end
 
 -- hook to keep track of the streams created.
+-- the linking hooks must see the streams table already updated
 SimpleEventHook {
   name = "stream-added@test-utils-linking",
+  before = "linking/stream-added-immediate",
   interests = {
     EventInterest {
       Constraint { "event.type", "=", "stream-added" },

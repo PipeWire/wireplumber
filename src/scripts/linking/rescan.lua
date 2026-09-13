@@ -145,6 +145,45 @@ SimpleEventHook {
   end
 }:register ()
 
+-- Link a new stream right away, without waiting for the rescan. A smart filter
+-- is left out because enabling it moves the streams that are already linked,
+-- which only the rescan does. This is also the only thing that links a stream
+-- when hooks.linking.rescan-on-stream is disabled.
+--
+-- select-target has a higher priority than stream-added, so pushing it here
+-- suspends the remaining stream-added hooks until the stream is linked. This
+-- hook therefore has to run after every hook that prepares the graph for
+-- linking.
+SimpleEventHook {
+  name = "linking/stream-added-immediate",
+  after = { "linking/stream-added",
+            "lib/audio-group-utils/create-audio-group-loopback" },
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "stream-added" },
+    },
+  },
+  execute = function (event)
+    local source = event:get_source ()
+    local stream = event:get_subject ()
+    local link_group = stream:get_properties () ["node.link-group"]
+
+    -- Don't handle immediately if this stream has node.link-group, because it
+    -- could affect others.
+    if link_group ~= nil then
+      return
+    end
+
+    -- Let the rescan link this, as filters may need to be relinked first
+    if futils.is_rescan_pending () then
+      source:call ("schedule-rescan", "linking")
+      return
+    end
+
+    handle_stream (source, stream)
+  end
+}:register ()
+
 -- Stop rescan for 2 seconds if a bluez stream was removed. This avoids audio
 -- being played on internal nodes for a few seconds while the BT device is
 -- switching profiles.

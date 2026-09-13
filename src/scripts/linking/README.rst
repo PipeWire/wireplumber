@@ -49,6 +49,11 @@ processed while targets are being selected.
      - stream-added
      - re-enables rescanning (see linking/bluez-stream-removed)
 
+   * - linking/stream-added-immediate
+     - rescan.lua
+     - stream-added
+     - pushes select-target for the new stream, unless it is a smart filter, so that it is linked without waiting for the rescan
+
    * - linking/bluez-stream-removed
      - rescan.lua
      - stream-removed on a ``bluez5`` device

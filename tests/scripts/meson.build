@@ -330,3 +330,12 @@ test(
   args: ['script-tests', 'linking/smart-filter-disabled.lua'],
   env: common_env,
 )
+
+# arguments after the test script name are components that are not loaded
+test(
+  'scripts/linking/stream-added-immediate',
+  script_tester,
+  args: ['script-tests', 'linking/stream-added-immediate.lua',
+         'linking/rescan-on-stream.lua'],
+  env: common_env,
+)
