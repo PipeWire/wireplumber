@@ -670,6 +670,5 @@ main (gint argc, gchar **argv)
   g_main_loop_run (dot.loop);
   g_steal_pointer (&dot.om);
   g_steal_pointer (&dot.core);
-  g_option_group_unref (group);
   return dot.exit_code;
 }
