@@ -316,3 +316,10 @@ test(
   args: ['script-tests', 'linking/role-based-policy-disabled.lua'],
   env: common_env,
 )
+
+test(
+  'scripts/node/configure-ports-relink',
+  script_tester,
+  args: ['script-tests', 'node/configure-ports-relink.lua'],
+  env: common_env,
+)

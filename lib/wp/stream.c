@@ -13,7 +13,7 @@
 #include <spa/param/param.h>
 #include <pipewire/pipewire.h>
 
-#include "stream.h"
+#include "private/stream.h"
 #include "wpenums.h"
 #include "error.h"
 #include "log.h"
@@ -1902,6 +1902,18 @@ wp_audio_stream_has_ports_configured (WpAudioStream * self)
 
   return self->curr_format != NULL &&
       self->curr_mode != SPA_PARAM_PORT_CONFIG_MODE_none;
+}
+
+/*
+ * TRUE while a port configuration request is in flight: the ports of the
+ * configuration we asked for do not exist yet.
+ */
+gboolean
+wp_audio_stream_has_pending_ports_config (WpAudioStream * self)
+{
+  g_return_val_if_fail (WP_IS_AUDIO_STREAM (self), FALSE);
+
+  return self->pending_ports_config;
 }
 
 static gboolean

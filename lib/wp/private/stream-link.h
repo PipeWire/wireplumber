@@ -13,6 +13,9 @@
 
 G_BEGIN_DECLS
 
+gboolean wp_stream_link_is_reconfiguring (WpStreamLink *self);
+
+
 /* Audio Stream Link */
 
 WpAudioStreamLink * wp_audio_stream_link_new (WpCore *core,

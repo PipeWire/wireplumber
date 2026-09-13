@@ -554,8 +554,10 @@ static void
 on_stream_link_link_removed (WpStreamLink *stream_link, WpLink *link,
     WpStreamLinkManager *self)
 {
-  /* Remove the stream link if this was the last link removed */
-  if (wp_stream_link_get_links_count (stream_link) == 0) {
+  /* Remove the stream link if this was the last link removed, unless it is
+   * rebuilding its own links, in which case it will create new ones */
+  if (wp_stream_link_get_links_count (stream_link) == 0 &&
+      !wp_stream_link_is_reconfiguring (stream_link)) {
     g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
 
     /* Remove */

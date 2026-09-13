@@ -11,16 +11,37 @@ log = Log.open_topic ("s-node")
 
 
 function reconfigureAudioStreams ()
+  local stream_links_om = cutils.get_object_manager ("stream-link")
   local streams_om = cutils.get_object_manager ("stream")
+  local linked = {}
 
   log:info ("reconfiguring the audio streams after a settings change")
+
+  -- a linked stream is reconfigured through its stream link: both ends of a
+  -- link have to agree on one port configuration, and the link is what decides
+  -- which one that is
+  for stream_link in stream_links_om:iterate {
+      type = "AudioStreamLink",
+  } do
+    if stream_link:reconfigure_ports () then
+      local output = stream_link:get_output_stream ()
+      local input = stream_link:get_input_stream ()
+
+      log:info (stream_link, string.format (
+          "configuring the link between stream:%d and stream:%d",
+          output.id, input.id))
+
+      linked [output.id] = true
+      linked [input.id] = true
+    end
+  end
 
   for stream in streams_om:iterate {
       type = "AudioStream",
   } do
     -- streams that we have not configured yet keep the port configuration
     -- the node came up with, until they are linked
-    if stream:has_ports_configured () then
+    if stream:has_ports_configured () and not linked [stream.id] then
       local stream_id = stream.id
       local node_id = stream:get_node_bound_id ()
       local stream_props = stream:get_properties ()

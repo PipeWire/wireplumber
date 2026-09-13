@@ -18,6 +18,8 @@ G_BEGIN_DECLS
 WpAudioStream * wp_audio_stream_new (WpNode *node, WpProperties *props,
     WpDirection dir, const gchar *port_group);
 
+gboolean wp_audio_stream_has_pending_ports_config (WpAudioStream *self);
+
 
 /* Video Stream */
 

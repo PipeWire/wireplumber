@@ -14,6 +14,7 @@
 #include <pipewire/keys.h>
 
 #include "private/stream-link.h"
+#include "private/stream.h"
 #include "proxy-interfaces.h"
 #include "object-manager.h"
 #include "core.h"
@@ -89,6 +90,7 @@ struct _WpStreamLinkPrivate
   /* Ownership info */
   guint n_pending_managed_links;
   GPtrArray *managed_links;
+  gboolean reconfiguring;
 };
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (WpStreamLink, wp_stream_link,
@@ -295,15 +297,19 @@ on_link_activated (WpLink * link, GAsyncResult * res, WpStreamLink * self)
   WpStreamLinkPrivate *priv = wp_stream_link_get_instance_private (self);
   g_autoptr (GError) error = NULL;
 
+  priv->n_pending_managed_links--;
+
   /* Make sure activation was successfull */
   if (!wp_object_activate_finish (WP_OBJECT (link), res, &error)) {
     wp_warning_object (self, "failed to activate link %p: %s", link,
         error->message);
-    return;
+  } else {
+    wp_info_object (self, "activated link %p successfully", link);
+    g_ptr_array_add (priv->managed_links, g_object_ref (link));
   }
 
-  wp_info_object (self, "activated link %p successfully", link);
-  g_ptr_array_add (priv->managed_links, g_object_ref (link));
+  if (priv->n_pending_managed_links == 0)
+    priv->reconfiguring = FALSE;
 }
 
 static void
@@ -350,6 +356,10 @@ static void
 stream_link_abort (WpStreamLink * self, WpTransition * transition,
     GError * error)
 {
+  WpStreamLinkPrivate *priv = wp_stream_link_get_instance_private (self);
+
+  priv->reconfiguring = FALSE;
+
   if (transition) {
     wp_transition_return_error (transition, error);
   } else {
@@ -502,17 +512,15 @@ create_links (WpStreamLink *self, WpTransition * transition)
     g_signal_connect_object (link, "state-changed",
         G_CALLBACK (on_link_state_changed), self, 0);
 
-    /* Activate link, tracking pending activations only during a transition */
+    priv->n_pending_managed_links++;
+    wp_info_object (self, "activating link %p (pending %u)", link,
+        priv->n_pending_managed_links);
     if (transition) {
-      priv->n_pending_managed_links++;
-      wp_info_object (self, "activating link %p (pending %u)", link,
-          priv->n_pending_managed_links);
       wp_object_activate_closure (WP_OBJECT (link),
           WP_OBJECT_FEATURES_ALL, NULL,
           g_cclosure_new_object (
               (GCallback) on_link_activated_transition, G_OBJECT (transition)));
     } else {
-      wp_info_object (self, "activating link %p", link);
       wp_object_activate_closure (WP_OBJECT (link),
           WP_OBJECT_FEATURES_ALL, NULL,
           g_cclosure_new_object (
@@ -967,6 +975,56 @@ wp_stream_link_new_links_iterator (WpStreamLink *self)
   return wp_iterator_new_ptr_array (g_steal_pointer (&links), WP_TYPE_LINK);
 }
 
+/*
+ * TRUE while this stream link is deliberately rebuilding its own links, in
+ * which case having no links is a passing state and not a reason to remove it.
+ */
+gboolean
+wp_stream_link_is_reconfiguring (WpStreamLink *self)
+{
+  WpStreamLinkPrivate *priv;
+
+  g_return_val_if_fail (WP_IS_STREAM_LINK (self), FALSE);
+
+  priv = wp_stream_link_get_instance_private (self);
+
+  return priv->reconfiguring;
+}
+
+/*!
+ * \brief Configures the ports of both streams again and recreates the links.
+ *
+ * Use this when something that the port configuration depends on has changed,
+ * such as a node.features.audio.* setting. Configuring the ports of one of the
+ * two streams directly is not equivalent: the two streams have to agree on one
+ * configuration, and it is this object that decides which one that is.
+ *
+ * Nothing is done, and FALSE is returned, for a stream link that is not active
+ * yet, one whose links were only adopted from the graph and one whose media
+ * type needs no port configuration.
+ *
+ * \ingroup wpstreamlink
+ * \param self the stream link
+ * \returns TRUE if the ports of both streams are being configured again
+ */
+gboolean
+wp_stream_link_reconfigure_ports (WpStreamLink *self)
+{
+  WpStreamLinkPrivate *priv;
+
+  g_return_val_if_fail (WP_IS_STREAM_LINK (self), FALSE);
+
+  priv = wp_stream_link_get_instance_private (self);
+  if (!priv->has_ownership ||
+      !wp_object_test_active_features (WP_OBJECT (self),
+          WP_STREAM_LINK_FEATURE_ACTIVE) ||
+      !WP_STREAM_LINK_GET_CLASS (self)->reconfigure_ports)
+    return FALSE;
+
+  WP_STREAM_LINK_GET_CLASS (self)->reconfigure_ports (self);
+  return TRUE;
+}
+
 
 /* Audio Stream Link */
 
@@ -977,6 +1035,7 @@ struct _WpAudioStreamLink
   GWeakRef main_stream;
   GWeakRef other_stream;
   WpTransition *pending_transition;
+  gboolean reconfigure_main;
 };
 
 G_DEFINE_TYPE (WpAudioStreamLink, wp_audio_stream_link, WP_TYPE_STREAM_LINK);
@@ -988,16 +1047,87 @@ wp_audio_stream_link_init (WpAudioStreamLink * self)
   g_weak_ref_init (&self->other_stream, NULL);
 }
 
+/* Brings both streams to one port configuration and creates the links once
+ * they are there. The main stream's configuration wins: it is resolved from
+ * the settings and its own supported formats, and the other stream is then
+ * configured with it. Configuring the other stream from its own properties
+ * instead gives it the formats it prefers, which are not the ones the ports of
+ * the main stream have: a client stream advertises no channel positions, so
+ * its DSP ports come back unpositioned and create_links() pairs them with
+ * whatever port of the main stream scores highest, including a control port.
+ *
+ * A configuration request is asynchronous, so this runs again from
+ * ports-configured until nothing is left to configure. With a transition, that
+ * is driven by pending_transition and the transition is finished by
+ * create_links(); without one, by reconfigure_stream_link(). */
 static void
-reconfigure_stream_link (WpAudioStreamLink *self,
-    WpAudioStream *configured_stream)
+configure_ports_and_link (WpAudioStreamLink *self, WpTransition *transition)
 {
   WpStreamLinkPrivate *priv;
+  g_autoptr (WpAudioStream) main = NULL;
+  g_autoptr (WpAudioStream) other = NULL;
+  g_autoptr (WpProperties) conf_props = NULL;
+  gboolean pending_conf = FALSE;
+  gboolean reconfigure_main = self->reconfigure_main;
+
+  priv = wp_stream_link_get_instance_private (WP_STREAM_LINK (self));
+  self->reconfigure_main = FALSE;
+
+  main = WP_AUDIO_STREAM (g_weak_ref_get (&self->main_stream));
+  other = WP_AUDIO_STREAM (g_weak_ref_get (&self->other_stream));
+  if (!main || !other) {
+    stream_link_abort (WP_STREAM_LINK (self), transition,
+        g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
+        "cannot configure ports without valid streams"));
+    return;
+  }
+
+  /* Configure streams with encoded only if needed */
+  wp_info_object (self, "configuring stream ports: encoded_only:%d",
+      priv->encoded_only);
+  conf_props = wp_properties_new_empty ();
+  if (priv->encoded_only)
+    wp_properties_set (conf_props, "stream.encoded-only", "true");
+
+  /* Prioritize main's default configuration over other's configuration.
+   * Also, always reconfigure the main stream whenever its current exclusive
+   * state doesn't match what this stream link needs. This is because the main
+   * stream could have been previously configured by another stream link that
+   * is not present anymore. */
+  if (reconfigure_main || !wp_audio_stream_has_ports_configured (main) ||
+      wp_stream_is_exclusive (WP_STREAM (main)) != priv->encoded_only)
+    pending_conf = wp_audio_stream_configure_ports_with_props (main,
+        g_steal_pointer (&conf_props));
+  if (!pending_conf) {
+    pending_conf = wp_audio_stream_configure_ports_with_stream (other, main);
+    if (!pending_conf) {
+      create_links (WP_STREAM_LINK (self), transition);
+      return;
+    }
+  }
+
+  /* Set pending transition if configuration is pending.
+   * Activation will finish when the ports-configured signal is triggered */
+  if (transition) {
+    g_return_if_fail (!self->pending_transition);
+    self->pending_transition = g_object_ref (transition);
+  }
+}
+
+static void
+reconfigure_stream_link (WpAudioStreamLink *self)
+{
+  WpStreamLinkPrivate *priv;
+  g_autoptr (WpAudioStream) main = NULL;
   g_autoptr (WpAudioStream) other = NULL;
 
   priv = wp_stream_link_get_instance_private (WP_STREAM_LINK (self));
 
-  /* Always remove links on reconfiguration */
+  /* Always remove links on reconfiguration. Until the new ones are activated
+   * this stream link has no links at all; the flag tells the stream link
+   * manager that this is not a link that the graph dropped, so that it does
+   * not remove this object from under us (see on_stream_link_link_removed) */
+  priv->reconfiguring = TRUE;
   while (priv->managed_links->len > 0) {
     guint index = priv->managed_links->len - 1;
     WpLink *link = g_ptr_array_index (priv->managed_links, index);
@@ -1007,21 +1137,18 @@ reconfigure_stream_link (WpAudioStreamLink *self,
   }
   wp_info_object (self, "cleared managed links on reconfiguration");
 
-  /* Get the stream that was not reconfigured */
-  other = WP_AUDIO_STREAM (g_weak_ref_get (
-      &self->other_stream));
-  if (other == configured_stream)
-    other = WP_AUDIO_STREAM (g_weak_ref_get (&self->main_stream));
-  if (!other)
+  /* Wait if either stream still has a configuration request in flight: the
+   * ports it asked for do not exist yet, and its own ports-configured brings
+   * us back here */
+  main = WP_AUDIO_STREAM (g_weak_ref_get (&self->main_stream));
+  other = WP_AUDIO_STREAM (g_weak_ref_get (&self->other_stream));
+  if ((main && wp_audio_stream_has_pending_ports_config (main)) ||
+      (other && wp_audio_stream_has_pending_ports_config (other))) {
+    wp_info_object (self, "waiting for a pending port configuration");
     return;
-  wp_info_object (self, "configuring ports on stream %p", other);
-
-  /* Configure other with same ports as the reconfigured stream. If no
-   * reconfiguration is needed, recreate the links right away */
-  if (!wp_audio_stream_configure_ports_with_stream (other, configured_stream)) {
-    wp_info_object (self, "creating links");
-    create_links (WP_STREAM_LINK (self), NULL);
   }
+
+  configure_ports_and_link (self, NULL);
 }
 
 static void
@@ -1037,29 +1164,13 @@ on_main_ports_configured (WpAudioStream *stream, WpAudioStreamLink *self)
   /* Configure other stream if pending transition */
   transition = g_steal_pointer (&self->pending_transition);
   if (transition) {
-    g_autoptr (WpAudioStream) other = NULL;
-
-    other = WP_AUDIO_STREAM (g_weak_ref_get (&self->other_stream));
-    if (!other) {
-      wp_transition_return_error (transition,
-          g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
-          "other stream not valid after configuring main stream"));
-      return;
-    }
-
-    if (!wp_audio_stream_configure_ports_with_stream (other, stream)) {
-      create_links (WP_STREAM_LINK (self), transition);
-      return;
-    }
-
-    g_return_if_fail (!self->pending_transition);
-    self->pending_transition = g_object_ref (transition);
+    configure_ports_and_link (self, transition);
   } else {
     /* Otherwise reconfigure stream link if we have ownership.
      * This happens when the link is activated and we configured
      * the ports externally (Eg when configuring mono audio) */
     if (priv->has_ownership)
-      reconfigure_stream_link (self, stream);
+      reconfigure_stream_link (self);
   }
 }
 
@@ -1082,7 +1193,7 @@ on_other_ports_configured (WpAudioStream *stream, WpAudioStreamLink *self)
      * This happens when the link is activated and we configured
      * the ports externally (Eg when configuring mono audio) */
     if (priv->has_ownership)
-      reconfigure_stream_link (self, stream);
+      reconfigure_stream_link (self);
   }
 }
 
@@ -1090,7 +1201,11 @@ static void
 on_main_ports_error (WpAudioStream *stream, const gchar *message,
     WpAudioStreamLink *self)
 {
+  WpStreamLinkPrivate *priv =
+      wp_stream_link_get_instance_private (WP_STREAM_LINK (self));
   g_autoptr (WpTransition) transition = NULL;
+
+  priv->reconfiguring = FALSE;
 
   /* Abort activation if any */
   transition = g_steal_pointer (&self->pending_transition);
@@ -1107,7 +1222,11 @@ static void
 on_other_ports_error (WpAudioStream *stream, const gchar *message,
     WpAudioStreamLink *self)
 {
+  WpStreamLinkPrivate *priv =
+      wp_stream_link_get_instance_private (WP_STREAM_LINK (self));
   g_autoptr (WpTransition) transition = NULL;
+
+  priv->reconfiguring = FALSE;
 
   /* Abort activation if any */
   transition = g_steal_pointer (&self->pending_transition);
@@ -1124,15 +1243,10 @@ static void
 wp_audio_stream_link_setup_ports (WpStreamLink *link, WpTransition *transition)
 {
   WpAudioStreamLink *self = WP_AUDIO_STREAM_LINK (link);
-  WpStreamLinkPrivate *priv;
   g_autoptr (WpStream) output = NULL;
   g_autoptr (WpStream) input = NULL;
   WpAudioStream *main, *other;
   gboolean out_is_target, in_is_target;
-  gboolean pending_conf = FALSE;
-  g_autoptr (WpProperties) conf_props = NULL;
-
-  priv = wp_stream_link_get_instance_private (WP_STREAM_LINK (self));
 
   /* Get audio streams */
   output = wp_stream_link_get_output_stream (link, NULL);
@@ -1167,34 +1281,18 @@ wp_audio_stream_link_setup_ports (WpStreamLink *link, WpTransition *transition)
   g_signal_connect_object (main, "ports-error",
       G_CALLBACK (on_main_ports_error), self, 0);
 
-  /* Configure streams with encoded only if needed */
-  wp_info_object (self, "configuring stream ports: encoded_only:%d",
-      priv->encoded_only);
-  conf_props = wp_properties_new_empty ();
-  if (priv->encoded_only)
-    wp_properties_set (conf_props, "stream.encoded-only", "true");
+  configure_ports_and_link (self, transition);
+}
 
-  /* Prioritize main's default configuration over other's configuration.
-   * Also, always reconfigure the main stream whenever its current exclusive
-   * state doesn't match what this stream link needs. This is because the main
-   * stream could have been previously configured by another stream link that
-   * is not present anymore. */
-  if (!wp_audio_stream_has_ports_configured (main) ||
-      wp_stream_is_exclusive (WP_STREAM (main)) != priv->encoded_only)
-    pending_conf |= wp_audio_stream_configure_ports_with_props (main,
-        g_steal_pointer (&conf_props));
-  if (!pending_conf) {
-    pending_conf |= wp_audio_stream_configure_ports_with_stream (other, main);
-    if (!pending_conf) {
-      create_links (link, transition);
-      return;
-    }
-  }
+static void
+wp_audio_stream_link_reconfigure_ports (WpStreamLink *link)
+{
+  WpAudioStreamLink *self = WP_AUDIO_STREAM_LINK (link);
 
-  /* Set pending transition if configuration is pending.
-   * Activation will finish when the ports-configured signal is triggered */
-  g_return_if_fail (!self->pending_transition);
-  self->pending_transition = g_object_ref (transition);
+  /* Resolve the main stream's configuration from the settings again; the
+   * convergence that follows only propagates it to the other stream */
+  self->reconfigure_main = TRUE;
+  reconfigure_stream_link (self);
 }
 
 static void
@@ -1238,6 +1336,7 @@ wp_audio_stream_link_class_init (WpAudioStreamLinkClass * klass)
 
   stream_link_class->setup_ports = wp_audio_stream_link_setup_ports;
   stream_link_class->teardown_ports = wp_audio_stream_link_teardown_ports;
+  stream_link_class->reconfigure_ports = wp_audio_stream_link_reconfigure_ports;
 }
 
 WpAudioStreamLink *

@@ -40,6 +40,7 @@ struct _WpStreamLinkClass
   /* vmethods */
   void (*setup_ports) (WpStreamLink *self, WpTransition * transition);
   void (*teardown_ports) (WpStreamLink *self);
+  void (*reconfigure_ports) (WpStreamLink *self);
 
   /* signals */
   void (*link_added) (WpStreamLink *self, WpLink *link);
@@ -47,7 +48,7 @@ struct _WpStreamLinkClass
   void (*link_error) (WpStreamLink *self, const gchar *error);
 
   /*< private >*/
-  WP_PADDING(3)
+  WP_PADDING(2)
 };
 
 WP_API
@@ -65,6 +66,9 @@ guint wp_stream_link_get_links_count (WpStreamLink *self);
 
 WP_API
 WpIterator * wp_stream_link_new_links_iterator (WpStreamLink *self);
+
+WP_API
+gboolean wp_stream_link_reconfigure_ports (WpStreamLink *self);
 
 
 /*!

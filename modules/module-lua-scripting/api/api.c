@@ -1698,11 +1698,20 @@ stream_link_iterate_links (lua_State *L)
   return push_wpiterator (L, it);
 }
 
+static int
+stream_link_reconfigure_ports (lua_State *L)
+{
+  WpStreamLink *stream_link = wplua_checkobject (L, 1, WP_TYPE_STREAM_LINK);
+  lua_pushboolean (L, wp_stream_link_reconfigure_ports (stream_link));
+  return 1;
+}
+
 static const luaL_Reg stream_link_methods[] = {
   { "get_output_stream", stream_link_get_output_stream },
   { "get_input_stream", stream_link_get_input_stream },
   { "get_links_count", stream_link_get_links_count },
   { "iterate_links", stream_link_iterate_links },
+  { "reconfigure_ports", stream_link_reconfigure_ports },
   { NULL, NULL }
 };
 
