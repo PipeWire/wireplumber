@@ -339,3 +339,10 @@ test(
          'linking/rescan-on-stream.lua'],
   env: common_env,
 )
+
+test(
+  'scripts/linking/follow-default-target',
+  script_tester,
+  args: ['script-tests', 'linking/follow-default-target.lua'],
+  env: common_env,
+)

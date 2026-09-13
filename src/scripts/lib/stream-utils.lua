@@ -132,7 +132,6 @@ end
 
 function module.check_follow_default (stream, target)
   local stream_props = stream:get_properties ()
-  local target_props = target:get_properties ()
   local reconnect = not stream_props:get_boolean ("node.dont-reconnect")
 
   if reconnect and stream_props ["node.link-group"] == nil then
@@ -142,7 +141,7 @@ function module.check_follow_default (stream, target)
       if target_media_class ~= nil then
         local default_node_id = default_nodes:call (
             "get-default-node", target_media_class)
-        if target_props ["node.id"] == tostring (default_node_id) then
+        if target:get_node_bound_id () == default_node_id then
           local metadata = cutils.get_default_metadata_object ()
           metadata:set (stream:get_node_bound_id (), "target.node", "Spa:Id", "-1")
           Log.info (stream, "... set metadata to follow default")
