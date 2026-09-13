@@ -44,6 +44,7 @@ SimpleEventHook {
     local target_key = nil
     local target_value = nil
     local target_stream = nil
+    local node_defined = false
 
     -- can_link() only checks the direction, the monitor ports and the link
     -- groups, so the formats need is_compatible() as well
@@ -63,9 +64,11 @@ SimpleEventHook {
     if stream_props ["target.object"] ~= nil then
       target_value = stream_props ["target.object"]
       target_key = "object.serial"
+      node_defined = true
     elseif stream_props ["node.target"] ~= nil then
       target_value = stream_props ["node.target"]
       target_key = "object.id"
+      node_defined = true
     end
 
     -- Check metadata if allow moving streams setting is enabled
@@ -79,11 +82,13 @@ SimpleEventHook {
       if id ~= nil then
         target_value = id
         target_key = "object.serial"
+        node_defined = false
       else
         id = metadata:find (node_id, "target.node")
         if id ~= nil then
           target_value = id
           target_key = "object.id"
+          node_defined = false
         end
       end
     end
@@ -141,6 +146,7 @@ SimpleEventHook {
           target_id, target_node_id, tostring (target_props["node.name"])))
       event:set_data ("target", target)
       event:set_data ("is-defined-target", true)
+      event:set_data ("is-node-defined-target", node_defined)
     elseif dont_fallback and target_value ~= nil then
       -- send error to client and destroy node if linger is not set
       local linger = stream_props:get_boolean ("node.linger")

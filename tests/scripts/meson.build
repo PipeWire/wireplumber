@@ -346,3 +346,10 @@ test(
   args: ['script-tests', 'linking/follow-default-target.lua'],
   env: common_env,
 )
+
+test(
+  'scripts/linking/follow-default-target-metadata',
+  script_tester,
+  args: ['script-tests', 'linking/follow-default-target-metadata.lua'],
+  env: common_env,
+)
