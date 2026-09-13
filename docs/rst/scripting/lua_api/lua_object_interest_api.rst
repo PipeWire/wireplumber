@@ -77,6 +77,10 @@ node          WpNode
 Node          WpNode
 device        WpDevice
 plugin        WpPlugin
+stream        WpStream
+audioStream   WpAudioStream
+AudioStream   WpAudioStream
+streamLink    WpStreamLink
 properties    WpProperties
 ============= ============
 

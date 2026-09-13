@@ -175,7 +175,7 @@ the rest of the chain with ``event:set_data ("target", target)``.
          return
        end
 
-       log:info (si, "in find-user-target")
+       log:info (stream, "in find-user-target")
 
        -- implement logic here to find a suitable target
 

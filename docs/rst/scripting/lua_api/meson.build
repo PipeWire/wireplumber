@@ -20,4 +20,6 @@ sphinx_files += files(
   'lua_spa_device_api.rst',
   'lua_spa_pod.rst',
   'lua_state_api.rst',
+  'lua_stream_links_api.rst',
+  'lua_streams_api.rst',
 )
