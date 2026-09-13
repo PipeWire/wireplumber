@@ -218,23 +218,32 @@ on_ports_om_installed (WpObjectManager *ports_om, WpTransition * transition)
   WP_STREAM_GET_CLASS (self)->enable_active (self, transition);
 }
 
-static WpObjectInterest*
-wp_stream_get_ports_interest (WpStream * self)
+static void
+wp_stream_add_ports_interests (WpStream * self, WpObjectManager * om)
 {
   WpStreamPrivate *priv = wp_stream_get_instance_private (self);
-  WpObjectInterest *interest;
-  guint node_id;
+  guint node_id = wp_stream_get_node_bound_id (self);
 
-  node_id = wp_stream_get_node_bound_id (self);
-  interest = wp_object_interest_new (WP_TYPE_PORT,
+  if (!priv->port_group) {
+    wp_object_manager_add_interest (om, WP_TYPE_PORT,
+        WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_NODE_ID, "=u", node_id,
+        NULL);
+    return;
+  }
+
+  wp_object_manager_add_interest (om, WP_TYPE_PORT,
       WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_NODE_ID, "=u", node_id,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "port.group", "=s",
+      priv->port_group,
       NULL);
-  if (priv->port_group)
-    wp_object_interest_add_constraint (interest,
-        WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "port.group",
-        WP_CONSTRAINT_VERB_EQUALS, g_variant_new_string (priv->port_group));
 
-  return interest;
+  /* In passthrough mode the node hands out the follower's ports as they are
+   * and those carry no port.group, even though the PortConfig has a group.
+   * FIXME - this looks like a PipeWire bug */
+  wp_object_manager_add_interest (om, WP_TYPE_PORT,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_NODE_ID, "=u", node_id,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, "port.group", "-",
+      NULL);
 }
 
 static void
@@ -251,8 +260,7 @@ wp_stream_activate_execute_step (WpObject * object,
     /* Create the ports object manager */
     g_return_if_fail (priv->ports_om == NULL);
     priv->ports_om = wp_object_manager_new ();
-    wp_object_manager_add_interest_full (priv->ports_om,
-        wp_stream_get_ports_interest (self));
+    wp_stream_add_ports_interests (self, priv->ports_om);
 
     /* Handle ports object manager signals */
     wp_object_manager_request_object_features (priv->ports_om,
@@ -833,14 +841,11 @@ wp_stream_new_ports_iterator (WpStream *self)
   priv = wp_stream_get_instance_private (self);
   g_return_val_if_fail (priv->ports_om, NULL);
 
-  interest = wp_stream_get_ports_interest (self);
-
-  wp_object_interest_add_constraint (interest,
-      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_PORT_MONITOR,
-      WP_CONSTRAINT_VERB_NOT_EQUALS, g_variant_new_string ("true"));
-  wp_object_interest_add_constraint (interest,
-      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_PORT_CONTROL,
-      WP_CONSTRAINT_VERB_NOT_EQUALS, g_variant_new_string ("true"));
+  /* the object manager already holds only this stream's ports */
+  interest = wp_object_interest_new (WP_TYPE_PORT,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_PORT_MONITOR, "!s", "true",
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_PORT_CONTROL, "!s", "true",
+      NULL);
   return wp_object_manager_new_filtered_iterator_full (priv->ports_om,
       g_steal_pointer (&interest));
 }
@@ -863,11 +868,10 @@ wp_stream_new_monitor_ports_iterator (WpStream *self)
   priv = wp_stream_get_instance_private (self);
   g_return_val_if_fail (priv->ports_om, NULL);
 
-  interest = wp_stream_get_ports_interest (self);
-
-  wp_object_interest_add_constraint (interest,
-      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_PORT_MONITOR,
-      WP_CONSTRAINT_VERB_EQUALS, g_variant_new_string ("true"));
+  /* the object manager already holds only this stream's ports */
+  interest = wp_object_interest_new (WP_TYPE_PORT,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_PORT_MONITOR, "=s", "true",
+      NULL);
   return wp_object_manager_new_filtered_iterator_full (priv->ports_om,
       g_steal_pointer (&interest));
 }
@@ -890,11 +894,10 @@ wp_stream_new_control_ports_iterator (WpStream *self)
   priv = wp_stream_get_instance_private (self);
   g_return_val_if_fail (priv->ports_om, NULL);
 
-  interest = wp_stream_get_ports_interest (self);
-
-  wp_object_interest_add_constraint (interest,
-      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_PORT_CONTROL,
-      WP_CONSTRAINT_VERB_EQUALS, g_variant_new_string ("true"));
+  /* the object manager already holds only this stream's ports */
+  interest = wp_object_interest_new (WP_TYPE_PORT,
+      WP_CONSTRAINT_TYPE_PW_GLOBAL_PROPERTY, PW_KEY_PORT_CONTROL, "=s", "true",
+      NULL);
   return wp_object_manager_new_filtered_iterator_full (priv->ports_om,
       g_steal_pointer (&interest));
 }
