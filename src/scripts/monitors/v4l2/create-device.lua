@@ -39,6 +39,7 @@ AsyncEventHook {
 
         if cutils.parseBool (properties ["device.disabled"]) then
           log:notice ("V4L2 device " .. properties["device.name"] .. " disabled")
+          transition:advance ()
           return
         end
 
