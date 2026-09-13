@@ -1044,6 +1044,15 @@ wp_stream_link_reconfigure_ports (WpStreamLink *self)
 
 /* Audio Stream Link */
 
+/*!
+ * \struct WpAudioStreamLink
+ *
+ * A WpStreamLink between two WpAudioStream objects. Before it creates the
+ * PipeWire links, it configures the ports of both ends: one of the two streams
+ * is the main one, whose ports are configured from its own node properties,
+ * and the other one is then configured to match it. The stream whose kind is
+ * WP_STREAM_KIND_TARGET is the main one; the output stream is used otherwise.
+ */
 struct _WpAudioStreamLink
 {
   WpStreamLink parent;
@@ -1375,6 +1384,12 @@ wp_audio_stream_link_new (WpCore *core, WpAudioStream *output,
 
 /* Video Stream Link */
 
+/*!
+ * \struct WpVideoStreamLink
+ *
+ * A WpStreamLink between two WpVideoStream objects. Video ports are not
+ * configured, so this class only creates and destroys the PipeWire links.
+ */
 struct _WpVideoStreamLink
 {
   WpStreamLink parent;

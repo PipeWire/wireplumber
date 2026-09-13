@@ -911,6 +911,19 @@ enum
 
 static guint audio_stream_signals[AUDIO_STREAM_LAST_SIGNAL] = { 0 };
 
+/*!
+ * \struct WpAudioStream
+ *
+ * A WpStream that carries audio. It reads the formats the node supports from
+ * EnumFormat, both raw and encoded, and it is the only stream kind whose ports
+ * are configured: wp_audio_stream_configure_ports() and its variants set
+ * PortConfig on the node, choosing the port layout (DSP, convert or
+ * passthrough) and whether monitor and control ports exist.
+ *
+ * Port configuration is asynchronous. The "ports-configured" signal is emitted
+ * once the node has applied a configuration this stream asked for, and
+ * "ports-error" if it refused it.
+ */
 struct _WpAudioStream
 {
   WpStream parent;
@@ -2326,6 +2339,16 @@ wp_audio_stream_configure_ports_with_stream (WpAudioStream * self,
 
 /* Video Stream */
 
+/*!
+ * \struct WpVideoStream
+ *
+ * A WpStream that carries video. Video nodes have a single port per stream and
+ * WirePlumber does not configure their ports, so this class only tracks the
+ * raw formats the node supports.
+ *
+ * An input video stream is exclusive: video cannot be mixed, so it accepts one
+ * peer at a time. An output video stream can feed as many peers as ask for it.
+ */
 struct _WpVideoStream
 {
   WpStream parent;

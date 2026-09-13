@@ -22,6 +22,10 @@ C API Documentation
    c_api/port_api.rst
    c_api/link_api.rst
    c_api/device_api.rst
+   c_api/stream_api.rst
+   c_api/stream_link_api.rst
+   c_api/stream_manager_api.rst
+   c_api/stream_link_manager_api.rst
    c_api/client_api.rst
    c_api/permission_manager_api.rst
    c_api/metadata_api.rst
