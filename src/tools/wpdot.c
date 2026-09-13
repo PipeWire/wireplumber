@@ -648,6 +648,13 @@ main (gint argc, gchar **argv)
     return 1;
   }
 
+  if (argc > 1) {
+    g_autofree gchar *help = g_option_context_get_help (dot.context, TRUE, NULL);
+    fprintf (stderr, "Error: unexpected argument '%s'\n\n", argv[1]);
+    fprintf (stderr, "%s", help);
+    return 1;
+  }
+
   dot.loop = g_main_loop_new (NULL, FALSE);
   dot.core = wp_core_new (NULL, NULL, wp_properties_new (PW_KEY_APP_NAME,
       "wpdot",
