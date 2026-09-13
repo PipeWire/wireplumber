@@ -142,6 +142,6 @@ processing the hooks of the original event is stopped until all the hooks from
 the higher priority event have been processed. For example, a capture stream
 node being added may trigger the "bluetooth autoswitch" hook, which will then
 change the profile of a device. Changing the profile also has to trigger setting
-a new route and also handling the new device nodes, creating session items for
+a new route and also handling the new device nodes, creating streams for
 them... After all this is done, processing the original capture stream
 ``node-added`` event can continue.

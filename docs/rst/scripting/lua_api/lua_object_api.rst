@@ -4,7 +4,7 @@ WpObject
 ========
 
 ``WpObject`` is the base class of most WirePlumber objects — nodes, devices,
-links, metadata, session items and so on. It binds the
+links, metadata, streams and so on. It binds the
 :ref:`WpObject <object_api>` C API.
 
 Its distinguishing feature is the *features* mechanism. A newly created object

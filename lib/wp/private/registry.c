@@ -64,7 +64,7 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-registry")
  *    'bound' event and still associate the proxy with the WpGlobal before
  *    object managers are notified about the existence of this global.
  *
- * 3) WirePlumber global objects (WpModule, WpPlugin, WpSiFactory).
+ * 3) WirePlumber global objects (WpModule, WpPlugin).
  *
  *    These are local objects that have nothing to do with PipeWire. They do not
  *    have a global id and they are also not subclasses of WpProxy. The registry

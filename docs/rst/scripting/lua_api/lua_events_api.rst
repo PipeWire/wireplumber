@@ -258,26 +258,37 @@ AsyncEventHook
    .. code-block:: lua
 
       AsyncEventHook {
-        name = "node/create-item",
+        name = "monitor/example/create-device",
         interests = {
           EventInterest {
-            Constraint { "event.type", "=", "node-added" },
+            Constraint { "event.type", "=", "create-example-device" },
           },
         },
         steps = {
           start = {
-            next = "register",
+            next = "activate",
             execute = function (event, transition)
-              local node = event:get_subject ()
-              -- ... create and configure the item ...
+              local properties = event:get_data ("device-properties")
+              local device = SpaDevice ("api.example.device", properties)
+              if not device then
+                transition:return_error ("failed to create the device")
+                return
+              end
+              event:set_data ("device", device)
               transition:advance ()
             end
           },
-          register = {
+          activate = {
             next = "none",
             execute = function (event, transition)
-              -- ... register the item ...
-              transition:advance ()
+              local device = event:get_data ("device")
+              device:activate (Features.ALL, function (d, e)
+                if e then
+                  transition:return_error (tostring (e))
+                else
+                  transition:advance ()
+                end
+              end)
             end
           },
         },

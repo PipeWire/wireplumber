@@ -20,7 +20,7 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-comp-loader")
  * An interface that provides the ability to load components.
  *
  * Components can be:
- *  - WirePlumber modules (libraries that provide WpPlugin and WpSiFactory objects)
+ *  - WirePlumber modules (libraries that provide WpPlugin objects)
  *  - Scripts (ex. lua scripts)
  *
  * The WirePlumber library provides built-in support for loading WirePlumber

@@ -198,8 +198,8 @@ Support components
 .. describe:: metadata.sm-objects
 
    Creates the ``sm-objects`` metadata, through which clients can ask
-   WirePlumber to load and unload objects — PipeWire modules, session items and
-   so on — at runtime.
+   WirePlumber to load and unload objects — PipeWire modules and metadata
+   objects — at runtime.
 
 Nodes
 -----
