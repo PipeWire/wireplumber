@@ -346,7 +346,7 @@ Additions & Enhancements:
   - Enhanced wpctl ``set-default`` command to accept virtual nodes (e.g.
     ``Audio/Source/Virtual``) in addition to regular device nodes (#896; !787)
 
-  - Improved stream linking to make the full graph rescan optional when streams
+  - Improved stream linking to make the full graph rescan optional when linkable items
     change, saving CPU on low-end systems and reducing audio startup latency when
     connecting multiple streams in quick succession (!800)
 
