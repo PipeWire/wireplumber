@@ -253,9 +253,10 @@ on_stream_link_activated (WpObject * sl, GAsyncResult * res,
 
   self->pending_stream_links--;
 
-  /* Make sure there were no errors when activating the stream */
+  /* Adopting is opportunistic: the links can be destroyed again before the
+   * stream link is activated, so failing here is not an error */
   if (!wp_object_activate_finish (sl, res, &error)) {
-    wp_warning_object (self, "failed to activate stream link %p: %s", sl,
+    wp_info_object (self, "did not adopt stream link %p: %s", sl,
         error->message);
     /* Remove the failed stream link from the manager and the core */
     wp_stream_link_manager_remove_link (self, WP_STREAM_LINK (sl));

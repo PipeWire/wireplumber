@@ -79,6 +79,7 @@ struct _WpStreamLinkPrivate
   GWeakRef output_stream;
   GWeakRef input_stream;
   GWeakRef subject_stream;
+  gboolean adopted;
   gboolean is_output_stream_monitor;
 
   /* Activation info */
@@ -162,9 +163,13 @@ wp_stream_link_set_property (GObject * object, guint prop_id,
     case STREAM_LINK_PROP_INPUT_STREAM:
       g_weak_ref_set (&priv->input_stream, g_value_get_object (value));
       break;
-    case STREAM_LINK_PROP_SUBJECT_STREAM:
-      g_weak_ref_set (&priv->subject_stream, g_value_get_object (value));
+    case STREAM_LINK_PROP_SUBJECT_STREAM: {
+      WpStream *subject_stream = g_value_get_object (value);
+
+      g_weak_ref_set (&priv->subject_stream, subject_stream);
+      priv->adopted = (subject_stream == NULL);
       break;
+    }
 
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -627,6 +632,17 @@ on_links_om_installed (WpObjectManager *om, gpointer d)
           WP_STREAM_LINK_FEATURE_ACTIVE, 0);
     return;
   }
+
+  /* A link with no subject only tracks links that already existed, and an
+   * object manager can announce a link after it was destroyed, so there may
+   * be nothing left to track: creating links here would put them back */
+  if (priv->adopted) {
+    wp_transition_return_error (transition,
+        g_error_new (WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_INVARIANT,
+        "the links to adopt are gone"));
+    return;
+  }
+
   priv->has_ownership = TRUE;
 
   /* Handle port-removed signals to remove any managed links */
