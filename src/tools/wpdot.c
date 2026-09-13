@@ -337,12 +337,12 @@ wp_dot_emit_node (WpDot *self, FILE *out, WpNode *node)
           (dir == WP_DIRECTION_OUTPUT) ? "output" : "input";
 
       fprintf (out,
-          "        stream_%p [shape=none margin=0 label=<\n"
+          "        stream_%u [shape=none margin=0 label=<\n"
           "            <TABLE BORDER=\"0\" CELLBORDER=\"1\""
           " CELLSPACING=\"0\" CELLPADDING=\"4\">\n"
           "            <TR><TD BGCOLOR=\"%s\"><B>Stream</B><BR/>"
           "port_group: ",
-          (void *) stream, hdr_color);
+          wp_object_get_id (WP_OBJECT (stream)), hdr_color);
       fputs_html_escaped (out, port_group);
       fprintf (out, "<BR/>direction: %s</TD></TR>\n", dir_str);
 
@@ -420,7 +420,8 @@ wp_dot_run (WpDot * self)
 {
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
-  g_autoptr (GHashTable) node_groups = NULL;
+  g_autoptr (GPtrArray) node_groups = NULL;
+  g_autoptr (GHashTable) node_groups_by_name = NULL;
   FILE *out = stdout;
   gboolean opened_file = FALSE;
 
@@ -442,8 +443,9 @@ wp_dot_run (WpDot * self)
   fprintf (out, "    splines=line;\n");
   fprintf (out, "    node [style=filled];\n\n");
 
-  node_groups = g_hash_table_new_full (g_str_hash, g_str_equal,
-      g_free, stream_dot_graph_node_group_free);
+  node_groups = g_ptr_array_new_with_free_func (
+      stream_dot_graph_node_group_free);
+  node_groups_by_name = g_hash_table_new (g_str_hash, g_str_equal);
 
   it = wp_object_manager_new_filtered_iterator (self->om, WP_TYPE_NODE, NULL);
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
@@ -458,38 +460,28 @@ wp_dot_run (WpDot * self)
 
     link_group = wp_pipewire_object_get_property (WP_PIPEWIRE_OBJECT (node),
         PW_KEY_NODE_LINK_GROUP);
-    if (link_group && *link_group != '\0') {
-      group = g_hash_table_lookup (node_groups, link_group);
-      if (!group) {
-        group = g_new0 (StreamDotGraphNodeGroup, 1);
-        group->link_group = g_strdup (link_group);
-        group->nodes = g_ptr_array_new_with_free_func (g_object_unref);
-        g_hash_table_insert (node_groups, g_strdup (link_group), group);
-      }
-      g_ptr_array_add (group->nodes, g_object_ref (node));
-    } else {
-      group = g_hash_table_lookup (node_groups, "");
-      if (!group) {
-        group = g_new0 (StreamDotGraphNodeGroup, 1);
-        group->nodes = g_ptr_array_new_with_free_func (g_object_unref);
-        g_hash_table_insert (node_groups, g_strdup (""), group);
-      }
-      g_ptr_array_add (group->nodes, g_object_ref (node));
+    if (!link_group)
+      link_group = "";
+
+    group = g_hash_table_lookup (node_groups_by_name, link_group);
+    if (!group) {
+      group = g_new0 (StreamDotGraphNodeGroup, 1);
+      group->link_group = g_strdup (link_group);
+      group->nodes = g_ptr_array_new_with_free_func (g_object_unref);
+      g_ptr_array_add (node_groups, group);
+      g_hash_table_insert (node_groups_by_name, group->link_group, group);
     }
+    g_ptr_array_add (group->nodes, g_object_ref (node));
   }
 
-  GHashTableIter group_it;
-  gpointer group_key, group_value;
-  g_hash_table_iter_init (&group_it, node_groups);
-  while (g_hash_table_iter_next (&group_it, &group_key, &group_value)) {
-    StreamDotGraphNodeGroup *group = group_value;
+  for (guint i = 0; i < node_groups->len; i++) {
+    StreamDotGraphNodeGroup *group = g_ptr_array_index (node_groups, i);
 
     if (!group || !group->nodes || group->nodes->len == 0)
       continue;
 
     if (group->link_group && *group->link_group != '\0') {
-      fprintf (out, "    subgraph cluster_link_group_%u {\n",
-          g_str_hash (group->link_group));
+      fprintf (out, "    subgraph cluster_link_group_%u {\n", i);
       fprintf (out, "        style=\"rounded,filled\";\n");
       fprintf (out, "        color=gray;\n");
       fprintf (out, "        fillcolor=\"#ededed\";\n");
@@ -499,8 +491,8 @@ wp_dot_run (WpDot * self)
       fprintf (out, "\";\n");
     }
 
-    for (guint i = 0; i < group->nodes->len; i++)
-      wp_dot_emit_node (self, out, g_ptr_array_index (group->nodes, i));
+    for (guint n = 0; n < group->nodes->len; n++)
+      wp_dot_emit_node (self, out, g_ptr_array_index (group->nodes, n));
 
     if (group->link_group && *group->link_group != '\0')
       fprintf (out, "    }\n\n");
@@ -570,13 +562,13 @@ wp_dot_run (WpDot * self)
         continue;
 
       fprintf (out,
-          "    stream_%p:port_%u -> streamlink_%u:link_%u [color=mediumpurple1%s];\n",
-          (void *) output, out_port_id, stream_link_id, link_id,
-          is_monitor ? " style=dashed" : "");
+          "    stream_%u:port_%u -> streamlink_%u:link_%u [color=mediumpurple1%s];\n",
+          wp_object_get_id (WP_OBJECT (output)), out_port_id, stream_link_id,
+          link_id, is_monitor ? " style=dashed" : "");
       fprintf (out,
-          "    streamlink_%u:link_%u -> stream_%p:port_%u [color=mediumpurple1%s];\n",
-          stream_link_id, link_id, (void *) input, in_port_id,
-          is_monitor ? " style=dashed" : "");
+          "    streamlink_%u:link_%u -> stream_%u:port_%u [color=mediumpurple1%s];\n",
+          stream_link_id, link_id, wp_object_get_id (WP_OBJECT (input)),
+          in_port_id, is_monitor ? " style=dashed" : "");
     }
   }
 
