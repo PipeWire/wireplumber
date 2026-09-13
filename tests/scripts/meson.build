@@ -323,3 +323,10 @@ test(
   args: ['script-tests', 'node/configure-ports-relink.lua'],
   env: common_env,
 )
+
+test(
+  'scripts/linking/smart-filter-disabled',
+  script_tester,
+  args: ['script-tests', 'linking/smart-filter-disabled.lua'],
+  env: common_env,
+)

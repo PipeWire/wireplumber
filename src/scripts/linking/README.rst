@@ -103,7 +103,7 @@ processed while targets are being selected.
 
    * - linking/rescan
      - rescan.lua
-     - schedules select-target for each subject stream
+     - unlinks the smart filters that are disabled, then schedules select-target for each subject stream
 
 .. list-table:: select-target hooks, in order of execution
    :header-rows: 1

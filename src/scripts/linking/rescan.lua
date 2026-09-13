@@ -59,6 +59,26 @@ function handle_streams (source)
   end
 end
 
+-- handle_stream() skips a smart filter that is disabled, so the links it made
+-- while it was enabled have to be removed here
+function unlink_disabled_filters (source)
+  local om = source:call ("get-object-manager", "stream")
+  for stream in om:iterate {
+      type = "Stream",
+      Constraint { "node.link-group", "+" },
+  } do
+    local link_group = stream:get_properties () ["node.link-group"]
+    local direction = stream_utils.get_target_direction (stream)
+    if futils.is_filter_smart (direction, link_group) and
+        futils.is_filter_disabled (direction, link_group) and
+        StreamLinkManager.unlink (stream) then
+      log:info (stream, string.format (
+          "unlinked stream:%d (node:%d) as smart filter is disabled",
+          stream.id, stream:get_node_bound_id ()))
+    end
+  end
+end
+
 SimpleEventHook {
   name = "linking/rescan",
   interests = {
@@ -71,6 +91,7 @@ SimpleEventHook {
 
     log:info ("rescanning for linking...")
 
+    unlink_disabled_filters (source)
     handle_streams (source)
   end
 }:register ()
