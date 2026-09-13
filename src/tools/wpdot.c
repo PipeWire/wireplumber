@@ -35,6 +35,8 @@ struct _WpDot
 static void
 wp_dot_clear (WpDot * self)
 {
+  g_clear_object (&self->om);
+  g_clear_object (&self->core);
   g_clear_pointer (&self->loop, g_main_loop_unref);
   g_clear_pointer (&self->context, g_option_context_free);
   g_clear_pointer (&self->output_file, g_free);
@@ -591,7 +593,7 @@ wp_dot_run (WpDot * self)
 static void
 on_singleton_activated (WpObject *o, GAsyncResult *res, WpDot *dot)
 {
-  GError *error = NULL;
+  g_autoptr (GError) error = NULL;
 
   if (!wp_object_activate_finish (o, res, &error)) {
     fprintf (stderr, "%s\n", error->message);
@@ -609,7 +611,7 @@ on_singleton_activated (WpObject *o, GAsyncResult *res, WpDot *dot)
 static void
 on_stream_manager_activated (WpObject *o, GAsyncResult *res, WpDot *dot)
 {
-  GError *error = NULL;
+  g_autoptr (GError) error = NULL;
   g_autoptr (WpStreamLinkManager) stream_link_manager = NULL;
 
   if (!wp_object_activate_finish (o, res, &error)) {
@@ -687,7 +689,5 @@ main (gint argc, gchar **argv)
       (GCallback) wp_dot_run, &dot);
 
   g_main_loop_run (dot.loop);
-  g_steal_pointer (&dot.om);
-  g_steal_pointer (&dot.core);
   return dot.exit_code;
 }
