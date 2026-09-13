@@ -246,6 +246,8 @@ on_audio_node_enum_port_config_done (WpPipewireObject *po, GAsyncResult *res,
 
     /* Get optional fields */
     wp_spa_pod_get_object (param, NULL,
+        /* the raw id of the PortConfig "group" key, which is not in a
+           released pipewire yet, see spa/param/port-config.h */
         "id-00000006", "s", &port_group,
         NULL);
 

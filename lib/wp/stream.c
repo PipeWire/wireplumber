@@ -1227,7 +1227,9 @@ update_audio_port_config_info (WpAudioStream *self, WpIterator *it)
       continue;
     }
 
-    /* Get optional fields */
+    /* Get optional fields. The PortConfig "group" key is not in a released
+       pipewire yet, see "spa: add port config group name" in
+       spa/param/port-config.h, so we name it by its raw id until it is */
     wp_spa_pod_get_object (param, NULL,
         "id-00000006", "s", &port_group,
         NULL);
@@ -2016,6 +2018,8 @@ wp_audio_stream_configure_ports_internal (WpAudioStream * self,
       NULL);
   port_group = wp_stream_get_port_group (WP_STREAM (self));
   if (port_group)
+    /* the raw id of the PortConfig "group" key, see the comment in
+       update_audio_port_config_info() */
     wp_spa_pod_builder_add (b, "id-00000006", "s", port_group, NULL);
   if (mode_id != SPA_PARAM_PORT_CONFIG_MODE_passthrough)
     wp_spa_pod_builder_add (b, "format", "P", ports_format, NULL);
