@@ -298,6 +298,7 @@ wp_dot_emit_node (WpDot *self, FILE *out, WpNode *node)
   }
   fprintf (out, "            </TABLE>>;\n");
 
+  g_clear_pointer (&sit, wp_iterator_unref);
   sit = wp_object_manager_new_filtered_iterator (self->om, WP_TYPE_STREAM, NULL);
   for (; wp_iterator_next (sit, &sval); g_value_unset (&sval)) {
     WpStream *stream = g_value_get_object (&sval);
@@ -349,6 +350,7 @@ wp_dot_emit_node (WpDot *self, FILE *out, WpNode *node)
             wp_port_get_direction (port) == WP_DIRECTION_INPUT ? "in" : "out");
       }
 
+      g_clear_pointer (&pit, wp_iterator_unref);
       pit = wp_stream_new_monitor_ports_iterator (stream);
       for (; wp_iterator_next (pit, &pval); g_value_unset (&pval)) {
         WpPort *port = g_value_get_object (&pval);
@@ -369,6 +371,7 @@ wp_dot_emit_node (WpDot *self, FILE *out, WpNode *node)
             wp_port_get_direction (port) == WP_DIRECTION_INPUT ? "in" : "out");
       }
 
+      g_clear_pointer (&pit, wp_iterator_unref);
       pit = wp_stream_new_control_ports_iterator (stream);
       for (; wp_iterator_next (pit, &pval); g_value_unset (&pval)) {
         WpPort *port = g_value_get_object (&pval);
@@ -487,6 +490,7 @@ wp_dot_run (WpDot * self)
       fprintf (out, "    }\n\n");
   }
 
+  g_clear_pointer (&it, wp_iterator_unref);
   it = wp_object_manager_new_filtered_iterator (self->om, WP_TYPE_STREAM_LINK,
       NULL);
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
@@ -519,6 +523,7 @@ wp_dot_run (WpDot * self)
     fprintf (out, "            </TABLE>>];\n\n");
   }
 
+  g_clear_pointer (&it, wp_iterator_unref);
   it = wp_object_manager_new_filtered_iterator (self->om, WP_TYPE_STREAM_LINK,
       NULL);
   for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
