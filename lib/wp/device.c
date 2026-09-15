@@ -405,7 +405,8 @@ on_device_info (WpSpaDevice * self, guint64 change_mask,
   /* Update cached params */
   self->info_params = g_realloc (self->info_params,
       n_params * sizeof(struct spa_param_info));
-  memcpy (self->info_params, params, n_params * sizeof(struct spa_param_info));
+  if (self->info_params)
+    memcpy (self->info_params, params, n_params * sizeof(struct spa_param_info));
   self->info_n_params = n_params;
 }
 
