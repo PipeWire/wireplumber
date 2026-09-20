@@ -87,3 +87,12 @@ SimpleEventHook {
     end
   end
 }:register()
+
+-- Activate the permission manager now rather than when the first client
+-- connects, so that its permissions are already computed by then
+snap_pm:activate (Features.ALL, function (_, e)
+  if e then
+    log:warning ("failed to activate the snap permission manager: " ..
+        tostring (e))
+  end
+end)

@@ -67,3 +67,18 @@ SimpleEventHook {
     end
   end
 }:register()
+
+-- Activate the permission managers now rather than when the first client
+-- connects, so that their permissions are already computed by then
+for pm_name, pm in pairs ({
+  ["flatpak-manager"] = flatpack_manager_pm,
+  ["flatpak"] = flatpack_pm,
+}) do
+  pm:activate (Features.ALL, function (_, e)
+    if e then
+      log:warning (string.format (
+          "failed to activate the '%s' permission manager: %s",
+          pm_name, tostring (e)))
+    end
+  end)
+end
