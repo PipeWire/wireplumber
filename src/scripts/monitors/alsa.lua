@@ -36,8 +36,12 @@ function applyDefaultDeviceProperties (properties)
   properties["api.alsa.split-enable"] = true
 end
 
+function isHdmiProfile (profile)
+  return profile:find("^hdmi%-") or profile:find("HDMI%d?: ")
+end
+
 function shouldShowHdmiAlsaName (profile, properties, dev_props)
-  return profile:find("^hdmi%-") and
+  return isHdmiProfile(profile) and
       nonempty(properties["alsa.name"]) and
       not properties["alsa.name"]:find("HDMI") and
       properties["alsa.name"] ~= nonempty(dev_props["device.description"]) and
