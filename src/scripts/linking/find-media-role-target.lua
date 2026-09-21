@@ -8,6 +8,7 @@
 
 cutils = require("common-utils")
 lutils = require("linking-utils")
+futils = require("filter-utils")
 log = Log.open_topic("s-linking")
 
 SimpleEventHook {
@@ -30,6 +31,13 @@ SimpleEventHook {
     -- bypass the hook if the target is already picked up or if the role is not
     -- defined
     if target or media_role == nil then
+      return
+    end
+
+    -- bypass the hook if the stream is a smart filter
+    local si_link_group = si_props["node.link-group"]
+    if si_link_group and
+        futils.is_filter_smart (target_direction, si_link_group) then
       return
     end
 
