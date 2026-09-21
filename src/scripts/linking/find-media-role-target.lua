@@ -47,7 +47,7 @@ SimpleEventHook {
       local roles_table = Json.Raw(roles_json):parse()
 
       for _, target_role in ipairs(roles_table) do
-        if target_role == media_role then
+        if target_role == media_role and lutils.canLink (si_props, si_target) then
           target = si_target
           break
         end

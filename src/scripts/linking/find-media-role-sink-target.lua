@@ -70,7 +70,7 @@ SimpleEventHook {
 	  Constraint { "node.nick", "=", target_name },
        }
     end
-    if si_target then
+    if si_target and lutils.canLink (si_props, si_target) then
        log:info (si,
         string.format ("... role based sink target picked: %s (%s)",
           tostring (si_target.properties ["node.name"]),
