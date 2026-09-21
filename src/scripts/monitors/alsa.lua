@@ -48,6 +48,35 @@ function shouldShowHdmiAlsaName (profile, properties, dev_props)
       properties["alsa.name"] ~= properties["device.profile.description"]
 end
 
+function hdmiUCMChannelSuffix (profile, properties)
+  -- This makes sure channels are only added when using UCM as ACP already has them
+  if not profile:find("HDMI%d?: ") then
+    return ""
+  end
+
+  local channels = tonumber(properties["audio.channels"])
+  if not channels then
+    return ""
+  end
+
+  if channels == 1 then
+    return " (Mono)"
+  elseif channels == 2 then
+    return " (Stereo)"
+  end
+
+  -- There can be more than one subwoofer, accounting for that
+  local lfe_count = 0
+  for _ in (properties["audio.position"] or ""):gmatch("LFE") do
+    lfe_count = lfe_count + 1
+  end
+  if lfe_count > 0 then
+    return " (" .. (channels - lfe_count) .. "." .. lfe_count .. " Surround)"
+  end
+
+  return " (" .. channels .. " channels)"
+end
+
 function createSplitPCMHWNode(dev_props, properties)
   local skip_keys = {
     "api.alsa.split.position", "card.profile.device", "device.profile.description",
@@ -357,6 +386,8 @@ function createNode(parent, id, obj_type, factory, properties)
       if shouldShowHdmiAlsaName(profile, properties, dev_props) then
         desc = desc .. " [" .. properties["alsa.name"] .. "]"
       end
+      -- When using UCM, number of channels is not included, so add it
+      desc = desc .. hdmiUCMChannelSuffix(profile, properties)
     elseif subdev ~= "0" then
       desc = desc .. " (" .. name .. " " .. subdev .. ")"
     elseif dev ~= "0" then
