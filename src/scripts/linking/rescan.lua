@@ -131,15 +131,12 @@ SimpleEventHook {
       return
     end
 
-    -- Don't handle immediately if this is a smart filter that could affect other nodes
+    -- Don't handle immediately if this this has node.link-group, because it
+    -- could affect others.
     local node = si:get_associated_proxy ("node")
     local link_group = node:get_property ("node.link-group")
     if link_group then
-      local direction = cutils.getTargetDirection (si.properties)
-      if futils.is_filter_smart (direction, link_group) then
-        -- Smart filters need full rescan to handle cascading effects
-        return
-      end
+      return
     end
 
     -- Only handle if autoconnect is enabled
