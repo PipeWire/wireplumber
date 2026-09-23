@@ -2,15 +2,16 @@
 # This file is distributed under the same license as the PACKAGE package.
 # Karl Ove Hufthammer <karl@huftis.org>, 2017.
 # Nicolai Syvertsen <saivert@saivert.com> 2021.
+# Roy-Magne Mo <rmo@sunnmore.net>, 2026.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
-"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/"
-"issues/new\n"
-"POT-Creation-Date: 2022-04-09 15:19+0300\n"
-"PO-Revision-Date: 2021-02-07 15:40+0000\n"
-"Last-Translator: Karl Ove Hufthammer <karl@huftis.org>\n"
+"Report-Msgid-Bugs-To: https://gitlab.freedesktop.org/pipewire/wireplumber/-/"
+"issues\n"
+"POT-Creation-Date: 2026-09-21 19:20+0000\n"
+"PO-Revision-Date: 2026-09-24 00:00+0200\n"
+"Last-Translator: Roy-Magne Mo <rmo@sunnmore.net>\n"
 "Language-Team: Norwegian Nynorsk <https://translate.fedoraproject.org/"
 "projects/pipewire/pipewire/nn/>\n"
 "Language: nn\n"
@@ -26,10 +27,22 @@ msgstr ""
 #. @author George Kiagiadakis <george.kiagiadakis@collabora.com>
 #.
 #. SPDX-License-Identifier: MIT
-#. Receive script arguments from config.lua
-#. ensure config.properties is not nil
-#. preprocess rules and create Interest objects
-#. applies properties from config.rules when asked to
+#. unique device/node name tables
+#. SPA ids to node names: name = id_name_table[device_id][node_id]
+#. This makes sure channels are only added when using UCM as ACP already has them
+#. There can be more than one subwoofer, accounting for that
+#. create the underlying hidden ALSA node
+#. not suitable for loopback
+#: src/scripts/monitors/alsa.lua:147
+#, lua-format
+msgid "Split %s"
+msgstr "Delt %s"
+
+#. Connect ObjectConfig events to the right node
+#. Find the device for this node
+#. Get current profile
+#. Close the ALSA device by setting the profile to Off
+#. Re-open the ALSA device by restoring the profile after one second
 #. set the device id and spa factory name; REQUIRED, do not change
 #. set the default pause-on-idle setting
 #. try to negotiate the max amount of channels
@@ -41,17 +54,375 @@ msgstr ""
 #. and a nick
 #. also sanitize nick, replace ':' with ' '
 #. ensure the node has a description
+#. Include "alsa.name" in description if HDMI node for better UX
+#. When using UCM, number of channels is not included, so add it
 #. also sanitize description, replace ':' with ' '
-#. add api.alsa.card.* properties for rule matching purposes
-#. apply properties from config.rules
+#. add api.alsa.card.* and alsa.* properties for rule matching purposes
+#. add device form-factor property for rule matching purposes
+#. add cpu.vm.name for rule matching purposes
+#. apply properties from rules defined in JSON .conf file
+#. handle split HW node
+#. create split PCM node
 #. create the node
 #. ensure the device has an appropriate name
 #. deduplicate devices with the same name
 #. ensure the device has a description
-#: src/scripts/monitors/alsa.lua:222
+#: src/scripts/monitors/alsa.lua:565
+msgid "Loopback"
+msgstr "Loopback"
+
+#: src/scripts/monitors/alsa.lua:567
 msgid "Built-in Audio"
 msgstr "Innebygd lyd"
 
-#: src/scripts/monitors/alsa.lua:224
+#: src/scripts/monitors/alsa.lua:569
 msgid "Modem"
 msgstr "Modem"
+
+#. ensure the device has a nick
+#. set the icon name
+#. form factor -> icon
+#. apply properties from rules defined in JSON .conf file
+#. override the device factory to use ACP
+#. use HDMI channel detection if enabled in settings
+#. use device reservation, if available
+#. unlike pipewire-media-session, this logic here keeps the device
+#. acquired at all times and destroys it if someone else acquires
+#. create the device
+#. attempt to acquire again
+#. destroy the device
+#. create the device
+#. handle create-object to prepare device
+#. handle object-removed to destroy device reservations and recycle device name
+#. reset the name tables to make sure names are recycled
+#. activate monitor
+#. if the reserve-device plugin is enabled, at the point of script execution
+#. it is expected to be connected. if it is not, assume the d-bus connection
+#. has failed and continue without it
+#. handle rd_plugin state changes to destroy and re-create the ALSA monitor in
+#. case D-Bus service is restarted
+#. create the monitor
+#. WirePlumber
+#.
+#. Copyright © 2022 Pauli Virtanen
+#. @author Pauli Virtanen
+#.
+#. SPDX-License-Identifier: MIT
+#. unique device/node name tables
+#. set the node description
+#. sanitize description, replace ':' with ' '
+#. set the node name
+#. sanitize name
+#. deduplicate nodes with the same name
+#. apply properties from the rules in the configuration file
+#. create the node
+#. it doesn't necessarily need to be a local node,
+#. the other Bluetooth parts run in the local process,
+#. so it's consistent to have also this here
+#. reset the name tables to make sure names are recycled
+#: src/scripts/monitors/bluez-midi.lua:114
+#, lua-format
+msgid "BLE MIDI %d"
+msgstr "BLE MIDI %d"
+
+#. if logind support is enabled, activate
+#. the monitor only when the seat is active
+#. WirePlumber
+#.
+#. Copyright © 2023 Collabora Ltd.
+#. @author Ashok Sidipotu <ashok.sidipotu@collabora.com>
+#.
+#. SPDX-License-Identifier: MIT
+#. set the device id and spa factory name; REQUIRED, do not change
+#. set the default pause-on-idle setting
+#. set the node name
+#. sanitize name
+#. deduplicate nodes with the same name
+#. set the node description
+#: src/scripts/monitors/libcamera/name-node.lua:61
+msgid "Built-in Front Camera"
+msgstr "Innebygd frontkamera"
+
+#: src/scripts/monitors/libcamera/name-node.lua:63
+msgid "Built-in Back Camera"
+msgstr "Innebygd bakkamera"
+
+#. /wireplumber.settings.schema/bluetooth.autoswitch-to-headset-profile/description
+#: wireplumber.conf
+msgid ""
+"Always show microphone for Bluetooth headsets, and switch to headset mode "
+"when recording"
+msgstr ""
+"Vis alltid mikrofonen for blåtannhovudsett, og byt til hovudsettmodus ved "
+"opptak"
+
+#. /wireplumber.settings.schema/bluetooth.autoswitch-to-headset-profile/name
+#: wireplumber.conf
+msgid "Auto-switch to headset profile"
+msgstr "Byt automatisk til hovudsettprofil"
+
+#. /wireplumber.settings.schema/bluetooth.profile-preference/description
+#: wireplumber.conf
+msgid ""
+"Prefer better quality or better latency when auto-selecting profiles (only "
+"'quality' or 'latency' values are accepted)"
+msgstr ""
+"Føretrekk betre kvalitet eller lågare latens når profilar vert valde "
+"automatisk (berre verdiane 'quality' og 'latency' er gyldige)"
+
+#. /wireplumber.settings.schema/bluetooth.profile-preference/name
+#: wireplumber.conf
+msgid "Bluetooth profile preference"
+msgstr "Profilval for blåtann"
+
+#. /wireplumber.settings.schema/bluetooth.use-persistent-storage/description
+#: wireplumber.conf
+msgid "Remember and restore Bluetooth headset mode status"
+msgstr "Hugs og gjenopprett modusen for blåtannhovudsett"
+
+#. /wireplumber.settings.schema/bluetooth.use-persistent-storage/name
+#: wireplumber.conf
+msgid "Persistent storage"
+msgstr "Varig lagring"
+
+#. /wireplumber.settings.schema/device.restore-profile/description
+#: wireplumber.conf
+msgid "Remember and restore device profiles"
+msgstr "Hugs og gjenopprett profilane til einingar"
+
+#. /wireplumber.settings.schema/device.restore-profile/name
+#: wireplumber.conf
+msgid "Restore profile"
+msgstr "Gjenopprett profil"
+
+#. /wireplumber.settings.schema/device.restore-routes/description
+#: wireplumber.conf
+msgid "Remember and restore device routes"
+msgstr "Hugs og gjenopprett rutene til einingar"
+
+#. /wireplumber.settings.schema/device.restore-routes/name
+#: wireplumber.conf
+msgid "Restore routes"
+msgstr "Gjenopprett ruter"
+
+#. /wireplumber.settings.schema/device.routes.default-sink-volume/description
+#: wireplumber.conf
+msgid "The default volume for audio sinks"
+msgstr "Standardvolumet for lydutgangar"
+
+#. /wireplumber.settings.schema/device.routes.default-sink-volume/name
+#: wireplumber.conf
+msgid "Default sink volume"
+msgstr "Standardvolum for utgangar"
+
+#. /wireplumber.settings.schema/device.routes.default-source-volume/description
+#: wireplumber.conf
+msgid "The default volume for audio sources"
+msgstr "Standardvolumet for lydinngangar"
+
+#. /wireplumber.settings.schema/device.routes.default-source-volume/name
+#: wireplumber.conf
+msgid "Default source volume"
+msgstr "Standardvolum for inngangar"
+
+#. /wireplumber.settings.schema/device.routes.mute-on-alsa-playback-removed/description
+#: wireplumber.conf
+msgid ""
+"Automatically mute all audio devices when active wired headphones/speakers "
+"are disconnected to prevent unintended sound output"
+msgstr ""
+"Demp alle lydeiningar automatisk når aktive kabla hovudtelefonar eller "
+"høgtalarar vert kopla frå, så det ikkje kjem lyd ut utilsikta"
+
+#. /wireplumber.settings.schema/device.routes.mute-on-alsa-playback-removed/name
+#: wireplumber.conf
+msgid "Auto-mute on wired audio disconnect"
+msgstr "Demp automatisk når kabla lyd vert kopla frå"
+
+#. /wireplumber.settings.schema/device.routes.mute-on-bluetooth-playback-removed/description
+#: wireplumber.conf
+msgid ""
+"Automatically mute all audio devices when active Bluetooth headphones/"
+"speakers are disconnected to prevent unintended sound output"
+msgstr ""
+"Demp alle lydeiningar automatisk når aktive blåtannhovudtelefonar eller "
+"-høgtalarar vert kopla frå, så det ikkje kjem lyd ut utilsikta"
+
+#. /wireplumber.settings.schema/device.routes.mute-on-bluetooth-playback-removed/name
+#: wireplumber.conf
+msgid "Auto-mute on Bluetooth audio disconnect"
+msgstr "Demp automatisk når blåtannlyd vert kopla frå"
+
+#. /wireplumber.settings.schema/linking.allow-moving-streams/description
+#: wireplumber.conf
+msgid "Streams may be moved by adding PipeWire metadata at runtime"
+msgstr ""
+"Straumar kan flyttast ved å leggje til PipeWire-metadata medan programmet "
+"køyrer"
+
+#. /wireplumber.settings.schema/linking.allow-moving-streams/name
+#: wireplumber.conf
+msgid "Allow moving streams"
+msgstr "Tillat flytting av straumar"
+
+#. /wireplumber.settings.schema/linking.follow-default-target/description
+#: wireplumber.conf
+msgid "Streams connected to the default device follow when default changes"
+msgstr ""
+"Straumar som er kopla til standardeininga, følgjer med når standardeininga "
+"vert endra"
+
+#. /wireplumber.settings.schema/linking.follow-default-target/name
+#: wireplumber.conf
+msgid "Follow default target"
+msgstr "Følg standardmål"
+
+#. /wireplumber.settings.schema/linking.pause-playback/description
+#: wireplumber.conf
+msgid "Pause media players if their target sink is removed"
+msgstr "Set mediespelarar på pause om utgangen dei spelar til, vert fjerna"
+
+#. /wireplumber.settings.schema/linking.pause-playback/name
+#: wireplumber.conf
+msgid "Pause playback if output removed"
+msgstr "Set avspelinga på pause om utgangen vert fjerna"
+
+#. /wireplumber.settings.schema/linking.role-based.duck-level/description
+#: wireplumber.conf
+msgid ""
+"The volume level to apply when ducking (= reducing volume for a higher "
+"priority stream to be audible) in the role-based linking policy"
+msgstr ""
+"Volumnivået som vert brukt ved demping for prioritert lyd (ducking: volumet "
+"vert senka så ein straum med høgare prioritet kan høyrast) i den "
+"rollebaserte koplingsregelen"
+
+#. /wireplumber.settings.schema/linking.role-based.duck-level/name
+#: wireplumber.conf
+msgid "Ducking level"
+msgstr "Dempingsnivå"
+
+#. /wireplumber.settings.schema/monitor.alsa.autodetect-hdmi-channels/description
+#: wireplumber.conf
+msgid ""
+"Automatically detect channel count and positions for HDMI devices "
+"(experimental)"
+msgstr ""
+"Finn talet på kanalar og plasseringa deira automatisk for HDMI-einingar "
+"(eksperimentelt)"
+
+#. /wireplumber.settings.schema/monitor.alsa.autodetect-hdmi-channels/name
+#: wireplumber.conf
+msgid "Automatically detect HDMI channels (experimental)"
+msgstr "Finn HDMI-kanalar automatisk (eksperimentelt)"
+
+#. /wireplumber.settings.schema/monitor.camera-discovery-timeout/description
+#: wireplumber.conf
+msgid "The camera discovery timeout in milliseconds"
+msgstr "Tidsavbrot for kamerasøk i millisekund"
+
+#. /wireplumber.settings.schema/monitor.camera-discovery-timeout/name
+#: wireplumber.conf
+msgid "Discovery timeout"
+msgstr "Tidsavbrot for søk"
+
+#. /wireplumber.settings.schema/node.features.audio.control-port/description
+#: wireplumber.conf
+msgid "Enable control ports on audio nodes"
+msgstr "Slå på kontrollportar på lydnodar"
+
+#. /wireplumber.settings.schema/node.features.audio.control-port/name
+#: wireplumber.conf
+msgid "Control ports"
+msgstr "Kontrollportar"
+
+#. /wireplumber.settings.schema/node.features.audio.monitor-ports/description
+#: wireplumber.conf
+msgid "Enable monitor ports on audio nodes"
+msgstr "Slå på monitorportar på lydnodar"
+
+#. /wireplumber.settings.schema/node.features.audio.monitor-ports/name
+#: wireplumber.conf
+msgid "Monitor ports"
+msgstr "Monitorportar"
+
+#. /wireplumber.settings.schema/node.features.audio.mono/description
+#: wireplumber.conf
+msgid "Configure all audio device sink nodes in MONO"
+msgstr "Set opp alle utgangsnodar for lydeiningar i MONO"
+
+#. /wireplumber.settings.schema/node.features.audio.mono/name
+#: wireplumber.conf
+msgid "Mono"
+msgstr "Mono"
+
+#. /wireplumber.settings.schema/node.features.audio.no-dsp/description
+#: wireplumber.conf
+msgid "Do not convert audio to F32 format"
+msgstr "Ikkje konverter lyd til F32-format"
+
+#. /wireplumber.settings.schema/node.features.audio.no-dsp/name
+#: wireplumber.conf
+msgid "No DSP"
+msgstr "Ingen DSP"
+
+#. /wireplumber.settings.schema/node.restore-default-targets/description
+#: wireplumber.conf
+msgid "Remember and restore default audio/video input/output devices"
+msgstr "Hugs og gjenopprett standardeiningane for lyd og video, inn og ut"
+
+#. /wireplumber.settings.schema/node.restore-default-targets/name
+#: wireplumber.conf
+msgid "Restore default target"
+msgstr "Gjenopprett standardmål"
+
+#. /wireplumber.settings.schema/node.stream.default-capture-volume/description
+#: wireplumber.conf
+msgid "The default volume for capture nodes"
+msgstr "Standardvolumet for opptaksnodar"
+
+#. /wireplumber.settings.schema/node.stream.default-capture-volume/name
+#: wireplumber.conf
+msgid "Default capture volume"
+msgstr "Standardvolum for opptak"
+
+#. /wireplumber.settings.schema/node.stream.default-media-role/description
+#: wireplumber.conf
+msgid "Default media.role to assign on streams that do not specify it"
+msgstr ""
+"Standard media.role som vert tildelt straumar som ikkje oppgjev han sjølve"
+
+#. /wireplumber.settings.schema/node.stream.default-media-role/name
+#: wireplumber.conf
+msgid "Default media role"
+msgstr "Standard medierolle"
+
+#. /wireplumber.settings.schema/node.stream.default-playback-volume/description
+#: wireplumber.conf
+msgid "The default volume for playback nodes"
+msgstr "Standardvolumet for avspelingsnodar"
+
+#. /wireplumber.settings.schema/node.stream.default-playback-volume/name
+#: wireplumber.conf
+msgid "Default playback volume"
+msgstr "Standardvolum for avspeling"
+
+#. /wireplumber.settings.schema/node.stream.restore-props/description
+#: wireplumber.conf
+msgid "Remember and restore properties of streams"
+msgstr "Hugs og gjenopprett eigenskapane til straumar"
+
+#. /wireplumber.settings.schema/node.stream.restore-props/name
+#: wireplumber.conf
+msgid "Restore properties"
+msgstr "Gjenopprett eigenskapar"
+
+#. /wireplumber.settings.schema/node.stream.restore-target/description
+#: wireplumber.conf
+msgid "Remember and restore stream targets"
+msgstr "Hugs og gjenopprett måla til straumar"
+
+#. /wireplumber.settings.schema/node.stream.restore-target/name
+#: wireplumber.conf
+msgid "Restore target"
+msgstr "Gjenopprett mål"
