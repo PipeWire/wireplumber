@@ -40,12 +40,15 @@ function isHdmiProfile (profile)
   return profile:find("^hdmi%-") or profile:find("HDMI%d?: ")
 end
 
-function shouldShowHdmiAlsaName (profile, properties, dev_props)
-  return isHdmiProfile(profile) and
-      nonempty(properties["alsa.name"]) and
-      not properties["alsa.name"]:find("HDMI") and
-      properties["alsa.name"] ~= nonempty(dev_props["device.description"]) and
-      properties["alsa.name"] ~= properties["device.profile.description"]
+function hdmiProductName (profile, properties, dev_props)
+  local name = nonempty(properties["hdmi.product.name"]) or
+      nonempty(properties["alsa.name"])
+  if isHdmiProfile(profile) and name and
+      not name:find("HDMI") and
+      name ~= nonempty(dev_props["device.description"]) and
+      name ~= properties["device.profile.description"] then
+    return name
+  end
 end
 
 function hdmiUCMChannelSuffix (profile, properties)
@@ -359,6 +362,7 @@ function createNode(parent, id, obj_type, factory, properties)
 
   -- and a nick
   local nick = nonempty(properties["node.nick"])
+      or nonempty(properties["hdmi.product.name"])
       or nonempty(properties["api.alsa.pcm.name"])
       or nonempty(properties["alsa.name"])
       or nonempty(profile_desc)
@@ -378,9 +382,10 @@ function createNode(parent, id, obj_type, factory, properties)
     if profile_desc then
       desc = desc .. " " .. profile_desc
 
-      -- Include "alsa.name" in description if HDMI node for better UX
-      if shouldShowHdmiAlsaName(profile, properties, dev_props) then
-        desc = desc .. " [" .. properties["alsa.name"] .. "]"
+      -- Include the product name in description if HDMI node for better UX
+      local product = hdmiProductName(profile, properties, dev_props)
+      if product then
+        desc = desc .. " [" .. product .. "]"
       end
       -- When using UCM, number of channels is not included, so add it
       desc = desc .. hdmiUCMChannelSuffix(profile, properties)
