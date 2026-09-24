@@ -70,11 +70,7 @@ function hdmiUCMChannelSuffix (profile, properties)
   for _ in (properties["audio.position"] or ""):gmatch("LFE") do
     lfe_count = lfe_count + 1
   end
-  if lfe_count > 0 then
-    return " (" .. (channels - lfe_count) .. "." .. lfe_count .. " Surround)"
-  end
-
-  return " (" .. channels .. " channels)"
+  return " (" .. (channels - lfe_count) .. "." .. lfe_count .. " Surround)"
 end
 
 function createSplitPCMHWNode(dev_props, properties)
