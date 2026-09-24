@@ -23,6 +23,10 @@ node_names_table = nil
 -- SPA ids to node names: name = id_name_table[device_id][node_id]
 id_name_table = nil
 
+-- node error recovery state: recovery = device_recovery_table[device_name]
+RECOVERY_MAX_ATTEMPTS = 3
+RECOVERY_DELAY_MSEC = 1000
+device_recovery_table = {}
 
 function nonempty(str)
   return str ~= "" and str or nil
@@ -275,21 +279,56 @@ function monitorNodeError (node)
         return
       end
 
+      local recovery = device_recovery_table[dev_name]
+      if recovery == nil then
+        recovery = { attempts = 0, pending = false }
+        device_recovery_table[dev_name] = recovery
+      end
+
+      -- Closing the device re-opens all its nodes, so make sure errors from the
+      -- other nodes of the same device are ignored if a recovery is pending.
+      if recovery.pending then
+        log:info ("Recovery already in progress on ALSA device " .. dev_name)
+        return
+      end
+
+      if recovery.attempts >= RECOVERY_MAX_ATTEMPTS then
+        log:warning ("ALSA device " .. dev_name .. " still failing after " ..
+            tostring (recovery.attempts) .. " recovery attempts, giving up")
+        return
+      end
+
+      recovery.attempts = recovery.attempts + 1
+      recovery.pending = true
+
       -- Close the ALSA device by setting the profile to Off
       local param_off = Pod.Object {
         "Spa:Pod:Object:Param:Profile", "Profile",
         index = 0,
       }
       device:set_param ("Profile", param_off)
-      log:info ("Profile set to Off on ALSA device " .. dev_name)
+      log:info ("Profile set to Off on ALSA device " .. dev_name ..
+          " (recovery attempt " .. tostring (recovery.attempts) .. ")")
 
-      -- Re-open the ALSA device by restoring the profile after one second
-      Core.timeout_add (1000, function ()
+      -- Re-open the ALSA device by restoring the profile after a delay
+      Core.timeout_add (RECOVERY_DELAY_MSEC, function ()
+        recovery.pending = false
+
+        -- The device may have been removed or re-created in the meantime
+        local d = devices_om:lookup {
+            Constraint { "bound-id", "=", dev_id, type = "gobject" }
+        }
+        if d == nil or d:get_property ("device.name") ~= dev_name then
+          log:info ("ALSA device " .. dev_name ..
+              " is gone, not restoring its profile")
+          return
+        end
+
         local param_curr = Pod.Object {
           "Spa:Pod:Object:Param:Profile", "Profile",
           index = curr_profile_index,
         }
-        device:set_param ("Profile", param_curr)
+        d:set_param ("Profile", param_curr)
         log:info ("Restored profile on ALSA device " .. dev_name)
       end)
 
@@ -711,13 +750,16 @@ function createMonitor ()
         rd_plugin:call("destroy-reservation", rd_name)
       end
     end
-    device_names_table[device.properties["device.name"]] = nil
+    local device_name = device.properties["device.name"]
+    device_names_table[device_name] = nil
+    device_recovery_table[device_name] = nil
   end)
 
   -- reset the name tables to make sure names are recycled
   device_names_table = {}
   node_names_table = {}
   id_name_table = {}
+  device_recovery_table = {}
 
   -- activate monitor
   log:info("Activating ALSA monitor")
