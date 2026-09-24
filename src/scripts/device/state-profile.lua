@@ -157,7 +157,7 @@ function toggleState (enable)
     find_stored_profile_hook:register ()
     store_user_selected_profile_hook:register ()
     reevaluate_on_state_changed_hook:register ()
-  elseif not enable and state then
+  elseif not enable and state_meta then
     state_meta:deactivate (Features.ALL)
     state_meta = nil
     find_stored_profile_hook:remove ()
