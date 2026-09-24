@@ -330,7 +330,7 @@ function getLinkedBluetoothLoopbackSourceNodeForStream (stream, node_om, link_om
         visited_link_groups [filter_link_group] = true
       end
       for filter_stream_node in node_om:iterate {
-          Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
+          Constraint { "bound-id", "!", peer_id, type = "gobject" },
           Constraint { "stream.monitor", "!", "true", type = "pw" },
           Constraint { "bluez5.loopback", "!", "true", type = "pw" },
           Constraint { "node.link-group", "=", filter_link_group, type = "pw" }
