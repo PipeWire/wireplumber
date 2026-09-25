@@ -76,6 +76,32 @@ function hdmiUCMChannelSuffix (profile, properties)
   return " (" .. (channels - lfe_count) .. "." .. lfe_count .. " Surround)"
 end
 
+function buildNodeDescription (dev_props, properties, dev, subdev,
+    profile, profile_desc)
+  local desc = nonempty(dev_props["device.description"]) or "unknown"
+  local name = nonempty(properties["api.alsa.pcm.name"]) or
+               nonempty(properties["api.alsa.pcm.id"]) or dev
+
+  if profile_desc then
+    desc = desc .. " " .. profile_desc
+
+    -- Include the product name in description if HDMI node for better UX
+    local product = hdmiProductName(profile, properties, dev_props)
+    if product then
+      desc = desc .. " [" .. product .. "]"
+    end
+    -- When using UCM, number of channels is not included, so add it
+    desc = desc .. hdmiUCMChannelSuffix(profile, properties)
+  elseif subdev ~= "0" then
+    desc = desc .. " (" .. name .. " " .. subdev .. ")"
+  elseif dev ~= "0" then
+    desc = desc .. " (" .. name .. ")"
+  end
+
+  -- also sanitize description, replace ':' with ' '
+  return (desc:gsub("(:)", " "))
+end
+
 function createSplitPCMHWNode(dev_props, properties)
   local skip_keys = {
     "api.alsa.split.position", "card.profile.device", "device.profile.description",
@@ -374,29 +400,11 @@ function createNode(parent, id, obj_type, factory, properties)
   properties["node.nick"] = nick:gsub("(:)", " ")
 
   -- ensure the node has a description
+  local own_description
   if not properties["node.description"] then
-    local desc = nonempty(dev_props["device.description"]) or "unknown"
-    local name = nonempty(properties["api.alsa.pcm.name"]) or
-                 nonempty(properties["api.alsa.pcm.id"]) or dev
-
-    if profile_desc then
-      desc = desc .. " " .. profile_desc
-
-      -- Include the product name in description if HDMI node for better UX
-      local product = hdmiProductName(profile, properties, dev_props)
-      if product then
-        desc = desc .. " [" .. product .. "]"
-      end
-      -- When using UCM, number of channels is not included, so add it
-      desc = desc .. hdmiUCMChannelSuffix(profile, properties)
-    elseif subdev ~= "0" then
-      desc = desc .. " (" .. name .. " " .. subdev .. ")"
-    elseif dev ~= "0" then
-      desc = desc .. " (" .. name .. ")"
-    end
-
-    -- also sanitize description, replace ':' with ' '
-    properties["node.description"] = desc:gsub("(:)", " ")
+    own_description = buildNodeDescription (dev_props, properties,
+        dev, subdev, profile, profile_desc)
+    properties["node.description"] = own_description
   end
 
   -- add api.alsa.card.* and alsa.* properties for rule matching purposes
@@ -424,6 +432,12 @@ function createNode(parent, id, obj_type, factory, properties)
     orig_properties[k] = v
   end
   properties = JsonUtils.match_rules_update_properties (config.rules, properties)
+
+  -- rules may have changed the description or what it is built from
+  if properties["node.description"] == own_description then
+    properties["node.description"] = buildNodeDescription (dev_props,
+        properties, dev, subdev, profile, profile_desc)
+  end
 
   if cutils.parseBool (properties ["node.disabled"]) then
     log:notice ("ALSA node " .. properties["node.name"] .. " disabled")
