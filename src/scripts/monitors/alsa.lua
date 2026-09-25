@@ -26,6 +26,8 @@ id_name_table = nil
 -- node error recovery state: recovery = device_recovery_table[device_name]
 RECOVERY_MAX_ATTEMPTS = 3
 RECOVERY_DELAY_MSEC = 1000
+-- recovery attempts are reset if the device runs this long without errors
+RECOVERY_RESET_USEC = 60 * 1000000
 device_recovery_table = {}
 
 function nonempty(str)
@@ -281,7 +283,7 @@ function monitorNodeError (node)
 
       local recovery = device_recovery_table[dev_name]
       if recovery == nil then
-        recovery = { attempts = 0, pending = false }
+        recovery = { attempts = 0, pending = false, last_usec = 0 }
         device_recovery_table[dev_name] = recovery
       end
 
@@ -292,7 +294,18 @@ function monitorNodeError (node)
         return
       end
 
+      -- Only count errors that happen shortly after the last recovery, so that
+      -- sporadic errors on long-running devices are always recovered.
+      local now = GLib.get_monotonic_time ()
+      if recovery.attempts > 0 and
+          now - recovery.last_usec > RECOVERY_RESET_USEC then
+        log:info ("ALSA device " .. dev_name ..
+            " ran without errors since the last recovery, resetting attempts")
+        recovery.attempts = 0
+      end
+
       if recovery.attempts >= RECOVERY_MAX_ATTEMPTS then
+        recovery.last_usec = now
         log:warning ("ALSA device " .. dev_name .. " still failing after " ..
             tostring (recovery.attempts) .. " recovery attempts, giving up")
         return
@@ -300,6 +313,7 @@ function monitorNodeError (node)
 
       recovery.attempts = recovery.attempts + 1
       recovery.pending = true
+      recovery.last_usec = now
 
       -- Close the ALSA device by setting the profile to Off
       local param_off = Pod.Object {
