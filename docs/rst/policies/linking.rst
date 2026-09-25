@@ -56,7 +56,8 @@ such as ``pavucontrol`` or ``wpctl``. The logic is implemented in the
 If there isn't any default node configured, or there is a default node
 configured but the node does not exist, WirePlumber will instead select the
 best device node available. The best device node is the node with highest
-session priority and available routes to the physical device. The logic is
+session priority (see :ref:`config_priorities`) and available routes to the
+physical device. The logic is
 implemented in the ``linking/find-best-target.lua`` Lua script.
 
 If the best node could not be found because the system does not have any,

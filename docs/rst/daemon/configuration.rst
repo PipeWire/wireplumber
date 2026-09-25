@@ -25,6 +25,7 @@ the various options available.
    configuration/migration.rst
    configuration/features.rst
    configuration/settings.rst
+   configuration/priorities.rst
    configuration/alsa.rst
    configuration/stream.rst
    configuration/bluetooth.rst

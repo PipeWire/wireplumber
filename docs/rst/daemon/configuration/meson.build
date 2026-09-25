@@ -7,6 +7,7 @@ sphinx_files += files(
   'migration.rst',
   'features.rst',
   'settings.rst',
+  'priorities.rst',
   'alsa.rst',
   'stream.rst',
   'bluetooth.rst',

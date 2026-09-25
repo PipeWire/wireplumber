@@ -111,6 +111,9 @@ V4L2 configuration
    Setting ``device.disabled`` or ``node.disabled`` to ``true`` is how a
    specific camera is hidden from the graph.
 
+   ``priority.session`` decides which camera becomes the default; see
+   :ref:`config_priorities`.
+
 libcamera configuration
 -----------------------
 

@@ -238,7 +238,8 @@ the BlueZ SPA plugin, and the rest are common node properties or properties of
 the audio adapter that PipeWire attaches to every audio node - the very same
 ``priority.*``, ``session.*``, ``resample.*`` and ``channelmix.*`` properties
 that apply to ALSA nodes and to application streams. All of them are
-documented in `pipewire-props(7)`_.
+documented in `pipewire-props(7)`_. How WirePlumber uses ``priority.*`` is
+described in :ref:`config_priorities`.
 
 The sections below are **a selection only**, covering the properties that are
 most commonly changed on Bluetooth devices. For anything that is not listed

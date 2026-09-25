@@ -90,7 +90,7 @@ Example:
          # Apply all the desired node specific settings here.
          update-props = {
            node.nick              = "My Node"
-           priority.driver        = 100
+           priority.session       = 100
            session.suspend-timeout-seconds = 5
          }
        }
@@ -208,46 +208,17 @@ monitor:
 
 .. describe:: priority.session
 
-   This configures the priority of the node when selecting a default node
-   (default sink/source as a link target for streams). Higher priority nodes
-   will be more likely candidates for becoming the default node.
+   The priority of the node when selecting the default sink or source; see
+   :ref:`config_priorities`.
 
    :Type: integer
 
-   .. note::
+.. describe:: priority.driver
 
-      By default, sources have a ``priority.session`` value around 1600-2000 and
-      sinks have a value around 600-1000. If you are increasing the priority of
-      a sink, it is **not advised** to use a value higher than 1500, as it may
-      cause a sink's monitor to be selected as the default source.
+   The priority of the node when PipeWire picks the driver of a graph. It does
+   not normally need to be set; see `pipewire-props(7)`_.
 
-   .. note::
-
-      Nodes that tie on ``priority.session`` are ranked further by the
-      priority of the route they play on, but only against nodes of the same
-      card: route priorities rank the outputs of one card against each other
-      and are not comparable across cards. Whatever tie is left is decided in
-      favour of the object that appeared first, so that the default node does
-      not change on its own while the system is running.
-
-      Two cards tying on ``priority.session`` means that no preference between
-      them has been expressed. Which of them appeared first follows the order
-      in which the PipeWire monitor discovered them, which is stable while the
-      system runs but is not guaranteed across a restart, so do not rely on
-      it: set ``priority.session`` on one of them to state the preference.
-
-   .. important::
-
-      Priorities only decide the default node as long as there is no saved
-      user selection. A node that was selected with ``wpctl set-default`` — or
-      by any other client that sets the default, such as a desktop volume
-      applet — is remembered in the ``default-nodes``
-      :ref:`state file <state_locations>` and outranks every
-      ``priority.session`` value on all subsequent starts, which makes changes
-      to this property appear to have no effect at all. The saved selections
-      are listed in the "Default Configured Devices" section of
-      ``wpctl status``; ``wpctl clear-default`` forgets them and lets the
-      priorities decide again.
+   :Type: integer
 
 .. describe:: session.suspend-timeout-seconds
 
