@@ -469,8 +469,11 @@ local link_added_hook = SimpleEventHook {
     local node_om = source:call ("get-object-manager", "node")
     local link = event:get_subject ()
     local in_stream_id = link.properties["link.input.node"]
+    local out_node_id = link.properties["link.output.node"]
 
-    -- Only evaluate bluetooth profiles if a capture stream was linked
+    -- Only evaluate bluetooth profiles if a capture stream was linked, or if
+    -- the BT loopback source node was linked to anything (e.g. a filter chain
+    -- that gets linked after the capture stream was linked to the filter)
     local stream = node_om:lookup {
       Constraint { "media.class", "matches", "Stream/Input/Audio", type = "pw-global" },
       Constraint { "node.link-group", "-", type = "pw" },
@@ -478,7 +481,12 @@ local link_added_hook = SimpleEventHook {
       Constraint { "bluez5.loopback", "!", "true", type = "pw" },
       Constraint { "bound-id", "=", in_stream_id, type = "gobject" },
     }
-    if stream ~= nil then
+    local bt_node = node_om:lookup {
+      Constraint { "media.class", "matches", "Audio/Source", type = "pw-global" },
+      Constraint { "bluez5.loopback", "=", "true", type = "pw" },
+      Constraint { "bound-id", "=", out_node_id, type = "gobject" },
+    }
+    if stream ~= nil or bt_node ~= nil then
       capture_stream_links [link.id] = true
       source:call ("push-event", "evaluate-bluetooth-profiles", nil, nil)
     end
