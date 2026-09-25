@@ -69,10 +69,9 @@ SimpleEventHook {
     end
 
     -- if the stream has dont-reconnect and was already linked before,
-    -- don't link it to a new target
+    -- don't link it to a new target; destroy it instead
     if not reconnect and si_flags.was_handled then
       target = nil
-      goto done
     end
 
     -- check target's availability
