@@ -7,6 +7,13 @@ WirePlumber's configuration file is by default ``wireplumber.conf`` and resides
 in one of the WirePlumber specific
 :ref:`configuration file search locations <config_locations>`.
 
+.. note::
+
+   Only one ``wireplumber.conf`` is loaded. A copy in ``~/.config/wireplumber``
+   therefore replaces the default file instead of adding to it. The default file
+   is meant to be provided by WirePlumber or the distribution; to change the
+   configuration, add :ref:`fragments <config_modifying_configuration>` instead.
+
 The default configuration file can be changed on the command line by passing
 the ``--config-file`` or ``-c`` option:
 
