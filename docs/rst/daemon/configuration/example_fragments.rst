@@ -12,6 +12,11 @@ They are installed under::
 
    $PREFIX/share/doc/wireplumber/examples/wireplumber.conf.d/
 
+.. note::
+
+   Distributions often ship documentation in a separate package (for example
+   ``wireplumber-doc``); if this directory is missing, install that package.
+
 To use one, copy it into your own configuration directory and uncomment the
 parts you want:
 
