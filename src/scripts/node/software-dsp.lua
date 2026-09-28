@@ -51,13 +51,14 @@ SimpleEventHook {
         end
 
         if props["hide-parent"] then
+          local bound_id = node["bound-id"]
           log:debug("Setting permissions to '-' on " .. node.properties["node.name"] .. " for open clients")
           for client in clients_om:iterate{ type = "client" } do
             if not client["properties"]["wireplumber.daemon"] then
-              client:update_permissions{ [node["bound-id"]] = "-" }
+              client:update_permissions{ [bound_id] = "-" }
             end
           end
-          hidden_nodes[node["bound-id"]] = node.id
+          hidden_nodes[node.id] = bound_id
         end
       end
     end)
@@ -76,13 +77,14 @@ SimpleEventHook {
     if filter_nodes[node.id] then
       log:debug("Freeing filter on node " .. node.id)
       filter_nodes[node.id] = nil
-      hidden_nodes[node["bound-id"]] = nil
     end
+    -- the proxy is no longer bound here, so node["bound-id"] is not usable
+    hidden_nodes[node.id] = nil
   end
 }:register()
 
 clients_om:connect("object-added", function (om, client)
-  for id, _ in pairs(hidden_nodes) do
+  for _, id in pairs(hidden_nodes) do
     if not client["properties"]["wireplumber.daemon"] then
       client:update_permissions { [id] = "-" }
     end
