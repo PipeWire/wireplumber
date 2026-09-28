@@ -42,10 +42,11 @@ struct _WpImplModule
   WpProperties *props; /* only used during module load */
 
   /* the context that hosts the module; when this is set, the module lives on
-     another thread and every access to pw_impl_module below must be done with
-     the client context locked. It is NULL when the client-context component is
-     not loaded, in which case the module is hosted by the core's own
-     pw_context, on this thread, and no locking is needed */
+     another thread, where it is also loaded and destroyed, and every other
+     access to pw_impl_module below must be done with the client context
+     locked. It is NULL when the client-context component is not loaded, in
+     which case the module is hosted by the core's own pw_context, on this
+     thread, and no locking is needed */
   WpClientContext *ctx;
 
   struct pw_impl_module *pw_impl_module;
@@ -91,6 +92,53 @@ static const struct pw_impl_module_events impl_module_events = {
   .free = impl_module_free,
 };
 
+/* runs \a func on the thread of the context that hosts the module; loading
+   and destroying the module must happen there, because the module's own code
+   may do a blocking invoke on the context's loop, which would release the lock
+   and let the loop thread run the module's callbacks concurrently */
+static void
+wp_impl_module_run_in_context (WpImplModule * self,
+    WpClientContextInvokeFunc func, gpointer data)
+{
+  if (self->ctx)
+    wp_client_context_invoke_sync (self->ctx, func, data);
+  else
+    func (data);
+}
+
+struct load_data {
+  WpImplModule *self;
+  struct pw_context *context;
+  struct pw_properties *props;
+};
+
+static void
+do_load (gpointer data)
+{
+  struct load_data *d = data;
+  WpImplModule *self = d->self;
+
+  self->pw_impl_module =
+    pw_context_load_module (d->context, self->name, self->args, d->props);
+
+  if (self->pw_impl_module) {
+    pw_impl_module_add_listener (self->pw_impl_module,
+        &self->impl_module_listener, &impl_module_events, self);
+  }
+}
+
+static void
+do_unload (gpointer data)
+{
+  WpImplModule *self = data;
+
+  /* pw_impl_module_destroy() triggers the module's "free" event, which is
+     handled by impl_module_free() and resets self->pw_impl_module to NULL,
+     making this idempotent */
+  if (self->pw_impl_module)
+    pw_impl_module_destroy (self->pw_impl_module);
+}
+
 static void
 wp_impl_module_init (WpImplModule * self)
 {
@@ -107,7 +155,7 @@ wp_impl_module_constructed (GObject * object)
   WpImplModule *self = WP_IMPL_MODULE (object);
   g_autoptr (WpCore) core = g_weak_ref_get (&self->core);
   struct pw_context *context = NULL;
-  struct pw_properties *props = NULL;
+  struct load_data d = { .self = self };
 
   /* prefer the client context, so that the module runs on its own thread and
      is not delayed by whatever WirePlumber's main loop happens to be doing */
@@ -127,18 +175,11 @@ wp_impl_module_constructed (GObject * object)
     return;
   }
 
+  d.context = context;
   if (self->props)
-    props = wp_properties_to_pw_properties (self->props);
+    d.props = wp_properties_to_pw_properties (self->props);
 
-  wp_impl_module_lock (self);
-  self->pw_impl_module =
-    pw_context_load_module (context, self->name, self->args, props);
-
-  if (self->pw_impl_module) {
-    pw_impl_module_add_listener (self->pw_impl_module,
-        &self->impl_module_listener, &impl_module_events, self);
-  }
-  wp_impl_module_unlock (self);
+  wp_impl_module_run_in_context (self, do_load, &d);
 
   if (self->pw_impl_module) {
     /* the caller loses the isolation the client context provides if it is not
@@ -364,11 +405,5 @@ wp_impl_module_unload (WpImplModule * self)
 {
   g_return_if_fail (WP_IS_IMPL_MODULE (self));
 
-  wp_impl_module_lock (self);
-  /* pw_impl_module_destroy() triggers the module's "free" event, which is
-     handled by impl_module_free() and resets self->pw_impl_module to NULL,
-     making this method idempotent */
-  if (self->pw_impl_module)
-    pw_impl_module_destroy (self->pw_impl_module);
-  wp_impl_module_unlock (self);
+  wp_impl_module_run_in_context (self, do_unload, self);
 }

@@ -8,6 +8,9 @@
 #include "../common/base-test-fixture.h"
 
 #include <pipewire/global.h>
+#include <pipewire/impl-module.h>
+
+#include <pthread.h>
 
 /*
  * PipeWire modules that WirePlumber loads in-process must not depend on
@@ -165,6 +168,123 @@ test_module_fallback_to_main_context (TestFixture * f, gconstpointer data)
       wp_core_get_pw_context (f->base.core));
 }
 
+struct destroy_data {
+  struct pw_impl_module *module;
+  struct spa_hook listener;
+  pthread_t thread;
+  guint count;
+};
+
+static int
+do_nothing (struct spa_loop *loop, bool async, uint32_t seq,
+    const void *data, size_t size, void *user_data)
+{
+  return 0;
+}
+
+/* behaves like module-filter-chain with an LV2 plugin in its graph: its streams
+   schedule the destruction of the module while it is being destroyed, and then
+   the LV2 plugin's cleanup does a blocking invoke on the context's main loop */
+static void
+on_module_destroy (void *data)
+{
+  struct destroy_data *d = data;
+  struct pw_context *context = pw_impl_module_get_context (d->module);
+
+  d->thread = pthread_self ();
+  d->count++;
+
+  pw_impl_module_schedule_destroy (d->module);
+  pw_loop_invoke (pw_context_get_main_loop (context), do_nothing, 0, NULL, 0,
+      true, NULL);
+}
+
+static const struct pw_impl_module_events destroy_events = {
+  PW_VERSION_IMPL_MODULE_EVENTS,
+  .destroy = on_module_destroy,
+};
+
+struct add_listener_data {
+  struct destroy_data *d;
+  GMutex lock;
+  GCond cond;
+  gboolean done;
+};
+
+static int
+do_add_destroy_listener (struct spa_loop *loop, bool async, uint32_t seq,
+    const void *data, size_t size, void *user_data)
+{
+  struct add_listener_data *a = user_data;
+
+  pw_impl_module_add_listener (a->d->module, &a->d->listener, &destroy_events,
+      a->d);
+
+  g_mutex_lock (&a->lock);
+  a->done = TRUE;
+  g_cond_signal (&a->cond);
+  g_mutex_unlock (&a->lock);
+  return 0;
+}
+
+/* adds the listener on the loop thread, which owns the module; a blocking
+   invoke cannot be used for this from here, as older PipeWire versions require
+   the caller of a blocking invoke to hold the thread loop's lock */
+static void
+add_destroy_listener (struct destroy_data *d)
+{
+  struct pw_context *context = pw_impl_module_get_context (d->module);
+  struct add_listener_data a = { .d = d, .done = FALSE };
+
+  g_mutex_init (&a.lock);
+  g_cond_init (&a.cond);
+
+  pw_loop_invoke (pw_context_get_main_loop (context), do_add_destroy_listener,
+      SPA_ID_INVALID, NULL, 0, false, &a);
+
+  g_mutex_lock (&a.lock);
+  while (!a.done)
+    g_cond_wait (&a.cond, &a.lock);
+  g_mutex_unlock (&a.lock);
+
+  g_cond_clear (&a.cond);
+  g_mutex_clear (&a.lock);
+}
+
+/*
+ * The module must be destroyed on the client context's thread. When it is
+ * destroyed from the main thread instead, a blocking invoke on the context's
+ * loop from within the module's teardown releases the loop lock, and the loop
+ * thread then runs the destroy that the module has scheduled for itself,
+ * destroying (and unloading) it a second time underneath the first one.
+ */
+static void
+test_module_unload_in_client_context (TestFixture * f, gconstpointer data)
+{
+  g_autoptr (WpImplModule) module = NULL;
+  struct destroy_data d = { 0, };
+
+  load_client_context (f);
+
+  module = wp_impl_module_load (f->base.core, "libpipewire-module-loopback",
+      LOOPBACK_ARGS, NULL);
+  g_assert_nonnull (module);
+
+  g_object_get (module, "pw-impl-module", &d.module, NULL);
+  g_assert_nonnull (d.module);
+  add_destroy_listener (&d);
+
+  wp_impl_module_unload (module);
+
+  g_assert_cmpuint (d.count, ==, 1);
+  g_assert_false (pthread_equal (d.thread, pthread_self ()));
+
+  /* give the loop thread the chance to run any leftover scheduled destroy */
+  for (guint i = 0; i < 10; i++)
+    g_usleep (10 * 1000);
+  g_assert_cmpuint (d.count, ==, 1);
+}
+
 static void
 on_object_activated (WpObject * object, GAsyncResult * res, TestFixture * f)
 {
@@ -237,6 +357,11 @@ main (gint argc, gchar *argv[])
   g_test_add ("/wp/client-context/module-fallback-to-main-context",
       TestFixture, NULL,
       test_client_context_setup, test_module_fallback_to_main_context,
+      test_client_context_teardown);
+
+  g_test_add ("/wp/client-context/module-unload",
+      TestFixture, NULL,
+      test_client_context_setup, test_module_unload_in_client_context,
       test_client_context_teardown);
 
   g_test_add ("/wp/client-context/local-node",

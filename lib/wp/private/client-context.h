@@ -36,10 +36,14 @@ struct pw_core;
  *   about the public API changes.
  * - Calls from the main thread into pw_*() / spa_*() functions that operate on
  *   objects owned by this context MUST be made between
- *   wp_client_context_lock() and wp_client_context_unlock(). While the lock is
- *   held the loop thread is not running, so there is no re-entrancy. Keep those
+ *   wp_client_context_lock() and wp_client_context_unlock(). Keep those
  *   sections to pw and spa calls only: never call back into WirePlumber and
  *   never emit a signal while holding the lock.
+ * - The lock does not keep the loop thread out if the locked section does a
+ *   blocking invoke on this context's loop, because that releases the lock
+ *   while it waits. Anything that runs code which is not under our control,
+ *   such as loading or destroying a PipeWire module, must therefore run on the
+ *   loop thread itself, with wp_client_context_invoke_sync().
  * - Callbacks that arrive on the loop thread and need to emit signals or touch
  *   WirePlumber state MUST be handed to the main thread with
  *   wp_client_context_invoke_main(), which preserves FIFO order.
@@ -74,6 +78,16 @@ gboolean wp_client_context_in_thread (WpClientContext * self);
 
 struct pw_context * wp_client_context_get_pw_context (WpClientContext * self);
 struct pw_core * wp_client_context_get_pw_core (WpClientContext * self);
+
+typedef void (*WpClientContextInvokeFunc) (gpointer data);
+
+/*
+ * Runs \a func on the loop thread and waits for it to return. When called
+ * from the loop thread, \a func runs immediately. Must not be called with the
+ * lock held, as the loop thread needs it to run \a func.
+ */
+void wp_client_context_invoke_sync (WpClientContext * self,
+    WpClientContextInvokeFunc func, gpointer data);
 
 /*
  * Queues \a callback for execution on the main thread. Calls are dispatched in

@@ -242,6 +242,51 @@ static const struct pw_proxy_events proxy_core_events = {
 
 /*** construction ***/
 
+struct start_data {
+  struct pw_thread_loop *thread_loop;
+  gboolean started;
+};
+
+/* called on the loop thread */
+static void
+on_loop_started (void *data, uint64_t count)
+{
+  struct start_data *d = data;
+  d->started = TRUE;
+  pw_thread_loop_signal (d->thread_loop, false);
+}
+
+/*
+ * Starts the loop thread and waits until it runs the loop. Until then, the
+ * loop is not bound to any thread and invokes on it run on the calling thread,
+ * which would defeat wp_client_context_invoke_sync().
+ */
+static int
+start_loop_thread (WpClientContext * self)
+{
+  struct pw_loop *loop = pw_thread_loop_get_loop (self->thread_loop);
+  struct start_data d = { .thread_loop = self->thread_loop, .started = FALSE };
+  struct spa_source *source;
+  int res;
+
+  /* the event is only dispatched from within the loop thread's iteration */
+  source = pw_loop_add_event (loop, on_loop_started, &d);
+  if (!source)
+    return -errno;
+  pw_loop_signal_event (loop, source);
+
+  pw_thread_loop_lock (self->thread_loop);
+  res = pw_thread_loop_start (self->thread_loop);
+  if (res >= 0) {
+    while (!d.started)
+      pw_thread_loop_wait (self->thread_loop);
+  }
+  pw_loop_destroy_source (loop, source);
+  pw_thread_loop_unlock (self->thread_loop);
+
+  return res;
+}
+
 static struct pw_properties *
 build_properties (WpCore * core, WpSpaJson * args)
 {
@@ -363,7 +408,7 @@ wp_client_context_new (WpCore * core, WpSpaJson * args, GError ** error)
   g_source_set_priority (self->queue_source, G_PRIORITY_DEFAULT);
   g_source_attach (self->queue_source, self->g_main_context);
 
-  if (pw_thread_loop_start (self->thread_loop) < 0) {
+  if (start_loop_thread (self) < 0) {
     g_set_error (error, WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
         "failed to start the client context thread loop");
     return NULL;
@@ -408,6 +453,71 @@ wp_client_context_in_thread (WpClientContext * self)
 {
   g_return_val_if_fail (WP_IS_CLIENT_CONTEXT (self), FALSE);
   return pw_thread_loop_in_thread (self->thread_loop);
+}
+
+typedef struct {
+  WpClientContextInvokeFunc func;
+  gpointer data;
+  GMutex lock;
+  GCond cond;
+  gboolean done;
+} InvokeSyncData;
+
+static int
+do_invoke_sync (struct spa_loop *loop, bool async, uint32_t seq,
+    const void *data, size_t size, void *user_data)
+{
+  InvokeSyncData *d = user_data;
+
+  d->func (d->data);
+
+  g_mutex_lock (&d->lock);
+  d->done = TRUE;
+  g_cond_signal (&d->cond);
+  g_mutex_unlock (&d->lock);
+  return 0;
+}
+
+void
+wp_client_context_invoke_sync (WpClientContext * self,
+    WpClientContextInvokeFunc func, gpointer data)
+{
+  InvokeSyncData d = { .func = func, .data = data, .done = FALSE };
+  int res;
+
+  g_return_if_fail (WP_IS_CLIENT_CONTEXT (self));
+  g_return_if_fail (func);
+
+  if (wp_client_context_in_thread (self)) {
+    func (data);
+    return;
+  }
+
+  /* wait for completion ourselves instead of doing a blocking invoke: the loop
+     acks a blocking invoke as soon as it flushes its queue again, which \a func
+     does if it makes an invoke of its own, and then we would return while
+     \a func is still running */
+  g_mutex_init (&d.lock);
+  g_cond_init (&d.cond);
+
+  /* invoking on the loop from another thread requires holding the lock */
+  pw_thread_loop_lock (self->thread_loop);
+  res = pw_loop_invoke (pw_thread_loop_get_loop (self->thread_loop),
+      do_invoke_sync, SPA_ID_INVALID, NULL, 0, false, &d);
+  pw_thread_loop_unlock (self->thread_loop);
+
+  if (res < 0) {
+    wp_critical_object (self, "failed to invoke on the loop thread: %s",
+        spa_strerror (res));
+  } else {
+    g_mutex_lock (&d.lock);
+    while (!d.done)
+      g_cond_wait (&d.cond, &d.lock);
+    g_mutex_unlock (&d.lock);
+  }
+
+  g_cond_clear (&d.cond);
+  g_mutex_clear (&d.lock);
 }
 
 struct pw_context *
