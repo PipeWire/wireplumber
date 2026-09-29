@@ -1,5 +1,75 @@
-WirePlumber 0.5.17
+WirePlumber 0.5.18
 ~~~~~~~~~~~~~~~~~~
+
+Additions & Enhancements:
+
+  - Improved ``find-best-profile`` to rank profiles on the availability of
+    their output routes before their priority, so that UCM cards bundling
+    HDMI outputs together with speakers or headphones no longer select a
+    profile whose analog output is unplugged when a monitor is connected
+    (#683; !885)
+
+  - Improved HDMI node descriptions: the monitor name is now taken from
+    ``hdmi.product.name`` (set by PipeWire from the current ELD) so that it
+    is correct for displays switched on after the card was set up, the
+    ``alsa.name`` suffix is also shown for UCM devices, the ELD-detected
+    channel layout is shown for UCM devices, and the channel suffix is added
+    after ``monitor.alsa.rules`` are applied (!904, !905, !910, !912, !913)
+
+  - Improved the ALSA node error recovery to allow at most 3 attempts per
+    device (reset after 60s without errors), instead of looping forever on
+    devices that keep failing after being re-opened (#1024; !908)
+
+Fixes:
+
+  - Fixed ``WpImplModule`` to load and destroy modules on the client
+    context's thread, avoiding unsafe teardown of modules such as
+    filter-chain with LV2 plugins (#1029; !917)
+
+  - Fixed ``autoswitch-bluetooth-profile`` in several scenarios: it no longer
+    gets overridden by ``EnumProfile`` triggered profile selection, a pending
+    profile restore is cancelled when a headset profile is applied explicitly
+    (fixing HFP capture dying shortly after starting), and filter chains
+    such as EasyEffects are now correctly followed to the Bluetooth
+    loopback source (#1002, #1013, #1023; !892, !897, !909, !914)
+
+  - Fixed a failed node creation or an error raised in a Lua async event hook
+    step freezing the event dispatcher, and made the v4l2 monitor advance
+    its transition when a device is disabled (#1004; !894)
+
+  - Fixed ``software-dsp`` leaking hidden parent node ids, which caused nodes
+    created later with a reused id to be hidden from every new client
+    (#1028; !918)
+
+  - Fixed the linking policy to to bypass ``find-media-role-target`` for smart
+    filters and to defer immediate linking for any node with a link-group,
+    avoiding linking cycles when smart filters have ``media.role`` set
+    (#1015; !901, !903)
+
+  - Fixed ``prepare-link`` to destroy ``dont-reconnect`` streams when their
+    target is removed, as it was done in 0.4, instead of leaving them
+    unlinked forever (#1026; !915)
+
+  - Fixed ``default-nodes`` to rank stored nodes by their position in the
+    stack only, so that ``priority.session`` no longer overrides the user's
+    most recent selection (#1005; !902)
+
+  - Fixed the access scripts to activate permission managers when they load,
+    so that their permissions are ready before any client connects, instead
+    of letting the first short-lived client see hidden devices (#1021; !900)
+
+  - Fixed disabling ``device.restore-profile`` at runtime, which was still
+    saving profiles (!911)
+
+  - Fixed a use-after-free in ``module-settings`` on malformed configuration,
+    and also the active call count in ``module-modem-manager`` on reconnect
+    (!896)
+
+Past releases
+~~~~~~~~~~~~~
+
+WirePlumber 0.5.17
+..................
 
 Highlights:
 
@@ -21,9 +91,6 @@ Fixes:
 
   - Fixed ``m-lua-scripting`` to include the offending Lua type name in POD
     build errors (!889)
-
-Past releases
-~~~~~~~~~~~~~
 
 WirePlumber 0.5.16
 ..................
