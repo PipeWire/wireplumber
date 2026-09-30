@@ -226,6 +226,80 @@ test_dependencies (TestFixture *f, gconstpointer data)
   g_assert_true (wp_core_test_feature (f->base.core, "support.eleven"));
 }
 
+static void
+on_core_activated (WpObject * core, GAsyncResult * res, TestFixture *f)
+{
+  g_autoptr (GError) error = NULL;
+
+  g_assert_true (wp_object_activate_finish (core, res, &error));
+  g_assert_no_error (error);
+
+  g_main_loop_quit (f->base.loop);
+}
+
+static void
+activate_components (TestFixture *f)
+{
+  wp_core_update_properties (f->base.core, wp_properties_new (
+      "wireplumber.profile", "test", NULL));
+  wp_object_activate (WP_OBJECT (f->base.core), WP_CORE_FEATURE_COMPONENTS,
+      NULL, (GAsyncReadyCallback) on_core_activated, f);
+  g_main_loop_run (f->base.loop);
+
+  g_autoptr (WpPlugin) plugin = wp_plugin_find (f->base.core, "one");
+  g_assert_nonnull (plugin);
+  g_assert_true (wp_core_test_feature (f->base.core, "support.one"));
+  g_assert_true (wp_object_test_active_features (WP_OBJECT (f->base.core),
+      WP_CORE_FEATURE_CONNECTED | WP_CORE_FEATURE_COMPONENTS));
+}
+
+static void
+assert_components_cleared (TestFixture *f)
+{
+  /* f->loader was a registered object, so it is gone too */
+  f->loader = NULL;
+
+  g_autoptr (WpPlugin) plugin = wp_plugin_find (f->base.core, "one");
+  g_assert_null (plugin);
+  g_assert_false (wp_core_test_feature (f->base.core, "support.one"));
+  g_assert_false (wp_object_test_active_features (WP_OBJECT (f->base.core),
+      WP_CORE_FEATURE_COMPONENTS));
+}
+
+static void
+test_deactivate_components (TestFixture *f, gconstpointer data)
+{
+  activate_components (f);
+
+  wp_object_deactivate (WP_OBJECT (f->base.core), WP_CORE_FEATURE_COMPONENTS);
+  assert_components_cleared (f);
+  g_assert_true (wp_object_test_active_features (WP_OBJECT (f->base.core),
+      WP_CORE_FEATURE_CONNECTED));
+
+  /* the registry is watched again, so object managers still get globals */
+  g_autoptr (WpObjectManager) om = wp_object_manager_new ();
+  wp_object_manager_add_interest (om, WP_TYPE_CLIENT, NULL);
+  g_signal_connect_swapped (om, "installed",
+      G_CALLBACK (g_main_loop_quit), f->base.loop);
+  wp_core_install_object_manager (f->base.core, om);
+  g_main_loop_run (f->base.loop);
+  g_assert_cmpuint (wp_object_manager_get_n_objects (om), >, 0);
+}
+
+static void
+test_deactivate_connected (TestFixture *f, gconstpointer data)
+{
+  activate_components (f);
+
+  /* remove the "disconnected" handler that fails the test */
+  g_signal_handlers_disconnect_by_data (f->base.core, &f->base);
+
+  wp_object_deactivate (WP_OBJECT (f->base.core), WP_CORE_FEATURE_CONNECTED);
+  assert_components_cleared (f);
+  g_assert_false (wp_object_test_active_features (WP_OBJECT (f->base.core),
+      WP_CORE_FEATURE_CONNECTED));
+}
+
 gint
 main (gint argc, gchar *argv[])
 {
@@ -238,6 +312,10 @@ main (gint argc, gchar *argv[])
       test_setup, test_load_failure, test_teardown);
   g_test_add ("/wp/comploader/dependencies", TestFixture, NULL,
       test_dependencies_setup, test_dependencies, test_teardown);
+  g_test_add ("/wp/comploader/deactivate_components", TestFixture, NULL,
+      test_dependencies_setup, test_deactivate_components, test_teardown);
+  g_test_add ("/wp/comploader/deactivate_connected", TestFixture, NULL,
+      test_dependencies_setup, test_deactivate_connected, test_teardown);
 
   return g_test_run ();
 }

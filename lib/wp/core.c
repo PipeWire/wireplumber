@@ -264,9 +264,22 @@ core_done (void *data, uint32_t id, int seq)
 }
 
 static void
+wp_core_clear_registry (WpCore *self)
+{
+  /* already cleared for good in dispose() */
+  if (!self->registry.objects)
+    return;
+
+  /* this unloads the components, which are registered objects */
+  wp_registry_clear (&self->registry);
+  wp_registry_init (&self->registry);
+  wp_object_update_features (WP_OBJECT (self), 0, WP_CORE_FEATURE_COMPONENTS);
+}
+
+static void
 wp_core_disconnect_internal (WpCore *self)
 {
-  wp_registry_detach (&self->registry);
+  wp_core_clear_registry (self);
 
   /* pw_core_disconnect destroys the core proxy
     and we continue in proxy_core_destroy() */
@@ -489,7 +502,9 @@ wp_core_finalize (GObject * obj)
   struct context_data *cd = pw_context_get_user_data (self->pw_context);
   g_return_if_fail (cd);
 
-  wp_core_disconnect_internal (self);
+  /* the registry was already cleared in dispose() */
+  if (self->pw_core)
+    pw_core_disconnect (self->pw_core);
 
   /* Clear pw-context if refcount reaches 0 */
   if (g_ref_count_dec (&cd->rc)) {
@@ -660,12 +675,19 @@ wp_core_activate_execute_step (WpObject * object,
 }
 
 static void
-wp_core_deactivate (WpObject * self, WpObjectFeatures features)
+wp_core_deactivate (WpObject * object, WpObjectFeatures features)
 {
-  if (features & WP_CORE_FEATURE_CONNECTED)
-    wp_core_disconnect_internal (WP_CORE (self));
+  WpCore *self = WP_CORE (object);
 
-  /* WP_CORE_FEATURE_COMPONENTS cannot be manually deactivated */
+  if (features & WP_CORE_FEATURE_CONNECTED) {
+    wp_core_disconnect_internal (self);
+  } else if (features & WP_CORE_FEATURE_COMPONENTS) {
+    wp_core_clear_registry (self);
+
+    /* stay connected; watch the pipewire registry again */
+    if (self->pw_core && self->registry.objects)
+      wp_registry_attach (&self->registry, self->pw_core);
+  }
 }
 
 static void

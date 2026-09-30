@@ -39,9 +39,7 @@ WP_DEFINE_LOCAL_LOG_TOPIC ("wp-registry")
  *
  *    They therefore do not claim a WpGlobal ("own-global" is FALSE on them);
  *    the global appears on the registry like any other and gets its own proxy,
- *    as in case 1. The creating proxy is instead recorded in the owned_proxies
- *    list, so that wp_registry_detach() can destroy the objects they own before
- *    the connection goes away.
+ *    as in case 1.
  *
  *    WpGlobal still supports being owned by a proxy through the
  *    WP_GLOBAL_FLAG_OWNED_BY_PROXY flag, which wp_registry_prepare_new_global()
@@ -178,33 +176,12 @@ wp_registry_init (WpRegistry *self)
   self->objects = g_ptr_array_new_with_free_func (g_object_unref);
   self->object_managers = g_ptr_array_new ();
   self->features = g_ptr_array_new_with_free_func (g_free);
-  self->owned_proxies = g_ptr_array_new ();
-}
-
-void
-wp_registry_add_owned_proxy (WpRegistry * self, WpGlobalProxy * proxy)
-{
-  /* the 'bound' event may be delivered more than once for the same proxy */
-  if (self->owned_proxies &&
-      !g_ptr_array_find (self->owned_proxies, proxy, NULL))
-    g_ptr_array_add (self->owned_proxies, proxy);
-}
-
-void
-wp_registry_rm_owned_proxy (WpRegistry * self, WpGlobalProxy * proxy)
-{
-  if (self->owned_proxies)
-    g_ptr_array_remove_fast (self->owned_proxies, proxy);
 }
 
 void
 wp_registry_clear (WpRegistry *self)
 {
   wp_registry_detach (self);
-  g_clear_pointer (&self->globals, g_ptr_array_unref);
-  g_clear_pointer (&self->tmp_globals, g_ptr_array_unref);
-  g_clear_pointer (&self->features, g_ptr_array_unref);
-  g_clear_pointer (&self->owned_proxies, g_ptr_array_unref);
 
   /* make sure all objects are disabled before clearing the registry */
   for (guint i = 0; i < self->objects->len; i++) {
@@ -239,6 +216,12 @@ wp_registry_clear (WpRegistry *self)
       g_object_weak_unref (om, object_manager_destroyed, self);
     }
   }
+
+  /* free these last; the core may still be alive while the objects above
+     are removed, and object managers look at the globals when notified */
+  g_clear_pointer (&self->globals, g_ptr_array_unref);
+  g_clear_pointer (&self->tmp_globals, g_ptr_array_unref);
+  g_clear_pointer (&self->features, g_ptr_array_unref);
 }
 
 void
@@ -287,15 +270,6 @@ wp_registry_detach (WpRegistry *self)
     g_autoptr (WpGlobal) global = g_ptr_array_steal_index_fast (objlist,
         objlist->len - 1);
     wp_global_rm_flag (global, WP_GLOBAL_FLAG_APPEARS_ON_REGISTRY);
-  }
-
-  /* deactivate the objects owned by proxies to make sure they don't leak
-   * before core is disconnected */
-  objlist = self->owned_proxies;
-  while (objlist && objlist->len > 0) {
-    WpGlobalProxy *proxy = g_ptr_array_index (objlist, objlist->len - 1);
-    wp_object_deactivate (WP_OBJECT (proxy), WP_PROXY_FEATURE_BOUND);
-    wp_registry_rm_owned_proxy (self, proxy);
   }
 }
 

@@ -31,7 +31,6 @@ struct _WpRegistry
   GPtrArray *objects; // element-type: GObject*
   GPtrArray *object_managers; // element-type: WpObjectManager*
   GPtrArray *features; // element-type: gchar*
-  GPtrArray *owned_proxies; // element-type: WpGlobalProxy* (not ref'ed)
 };
 
 void wp_registry_init (WpRegistry *self);
@@ -39,8 +38,6 @@ void wp_registry_clear (WpRegistry *self);
 void wp_registry_attach (WpRegistry *self, struct pw_core *pw_core);
 void wp_registry_detach (WpRegistry *self);
 
-void wp_registry_add_owned_proxy (WpRegistry * self, WpGlobalProxy * proxy);
-void wp_registry_rm_owned_proxy (WpRegistry * self, WpGlobalProxy * proxy);
 
 void wp_registry_prepare_new_global (WpRegistry * self, guint32 id,
     guint32 permissions, guint32 flag, GType type,

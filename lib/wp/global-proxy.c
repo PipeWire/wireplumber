@@ -81,12 +81,6 @@ wp_global_proxy_dispose (GObject * object)
   if (priv->global)
     wp_global_rm_flag (priv->global, WP_GLOBAL_FLAG_OWNED_BY_PROXY);
 
-  if (!priv->own_global) {
-    g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
-    if (core)
-      wp_registry_rm_owned_proxy (wp_core_get_registry (core), self);
-  }
-
   G_OBJECT_CLASS (wp_global_proxy_parent_class)->dispose (object);
 }
 
@@ -254,11 +248,8 @@ wp_global_proxy_bound (WpProxy * proxy, guint32 global_id)
       wp_global_proxy_get_instance_private (self);
   g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
 
-  if (!priv->own_global) {
-    if (core)
-      wp_registry_add_owned_proxy (wp_core_get_registry (core), self);
+  if (!priv->own_global)
     return;
-  }
 
   if (!priv->global) {
     wp_registry_prepare_new_global (wp_core_get_registry (core),
@@ -275,12 +266,6 @@ wp_global_proxy_destroyed (WpProxy * proxy)
   WpGlobalProxy *self = WP_GLOBAL_PROXY (proxy);
   WpGlobalProxyPrivate *priv =
       wp_global_proxy_get_instance_private (self);
-
-  if (!priv->own_global) {
-    g_autoptr (WpCore) core = wp_object_get_core (WP_OBJECT (self));
-    if (core)
-      wp_registry_rm_owned_proxy (wp_core_get_registry (core), self);
-  }
 
   if (priv->global && priv->global->proxy &&
       (priv->global->flags & WP_GLOBAL_FLAG_OWNED_BY_PROXY)) {
