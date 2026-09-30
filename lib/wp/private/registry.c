@@ -181,14 +181,16 @@ wp_registry_init (WpRegistry *self)
 void
 wp_registry_clear (WpRegistry *self)
 {
-  wp_registry_detach (self);
-
-  /* make sure all objects are disabled before clearing the registry */
+  /* make sure all objects are disabled before clearing the registry; do this
+     before detaching, so that they stop watching the globals and do not
+     react to their removal */
   for (guint i = 0; i < self->objects->len; i++) {
     gpointer o = g_ptr_array_index (self->objects, i);
     if (WP_IS_OBJECT (o))
       wp_object_deactivate (WP_OBJECT (o), WP_OBJECT_FEATURES_ALL);
   }
+
+  wp_registry_detach (self);
 
   /* remove all the registered objects
      this will normally also destroy the object managers, eventually, since
