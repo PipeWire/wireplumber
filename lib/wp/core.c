@@ -19,6 +19,8 @@
 
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp-core")
 
+#define MAIN_SOCKET_FD_PROPERTY "wireplumber.main-socket-fd"
+
 /*
  * Integration between the PipeWire main loop and GMainLoop
  */
@@ -181,6 +183,9 @@ struct _WpCore
   /* main loop integration */
   GMainContext *g_main_context;
 
+  /* the socket to connect to, or -1 for the default one */
+  gint main_socket_fd;
+
   /* extra properties */
   WpProperties *properties;
 
@@ -258,10 +263,27 @@ core_done (void *data, uint32_t id, int seq)
     g_task_return_boolean (task, TRUE);
 }
 
+static void
+wp_core_disconnect_internal (WpCore *self)
+{
+  wp_registry_detach (&self->registry);
+
+  /* pw_core_disconnect destroys the core proxy
+    and we continue in proxy_core_destroy() */
+  if (self->pw_core)
+    pw_core_disconnect (self->pw_core);
+}
+
+static inline gboolean
+wp_core_is_connected (WpCore * self)
+{
+  return WP_IS_CORE (self) && self->pw_core && self->info;
+}
+
 static gboolean
 core_disconnect_async (WpCore * self)
 {
-  wp_core_disconnect (self);
+  wp_core_disconnect_internal (self);
   return G_SOURCE_REMOVE;
 }
 
@@ -315,8 +337,60 @@ static const struct pw_proxy_events proxy_core_events = {
 };
 
 static void
+wp_core_parse_main_socket_fd (WpCore *self)
+{
+  const gchar *str = NULL;
+  gint64 fd;
+
+  if (!self->properties ||
+      !(str = wp_properties_get (self->properties, MAIN_SOCKET_FD_PROPERTY)))
+    return;
+
+  if (!g_ascii_string_to_signed (str, 10, -1, G_MAXINT, &fd, NULL)) {
+    wp_warning_object (self, "ignoring invalid " MAIN_SOCKET_FD_PROPERTY ": %s",
+        str);
+    return;
+  }
+  self->main_socket_fd = fd;
+}
+
+static gboolean
+wp_core_connect_internal (WpCore *self)
+{
+  struct pw_properties *p = NULL;
+
+  /* Don't do anything if core is already connected */
+  if (self->pw_core)
+    return TRUE;
+
+  /* Connect */
+  p = self->properties ? wp_properties_to_pw_properties (self->properties) : NULL;
+
+  if (self->main_socket_fd == -1) {
+    self->pw_core = pw_context_connect (self->pw_context, p, 0);
+  } else {
+    self->pw_core = pw_context_connect_fd (self->pw_context,
+        self->main_socket_fd, p, 0);
+  }
+
+  if (!self->pw_core)
+    return FALSE;
+
+  /* Add the core listeners */
+  pw_core_add_listener (self->pw_core, &self->core_listener, &core_events, self);
+  pw_proxy_add_listener((struct pw_proxy*)self->pw_core,
+      &self->proxy_core_listener, &proxy_core_events, self);
+
+  /* Add the registry listener */
+  wp_registry_attach (&self->registry, self->pw_core);
+
+  return TRUE;
+}
+
+static void
 wp_core_init (WpCore * self)
 {
+  self->main_socket_fd = -1;
   wp_registry_init (&self->registry);
   self->async_tasks = g_hash_table_new_full (g_direct_hash, g_direct_equal,
       NULL, g_object_unref);
@@ -355,6 +429,8 @@ wp_core_constructed (GObject *object)
       wp_properties_set (self->properties, PW_KEY_CONFIG_NAME, "null");
       wp_properties_set (self->properties, "context.modules.allow-empty", "true");
     }
+
+    wp_core_parse_main_socket_fd (self);
 
     /* properties are fully stored in the pw_context, no need to keep a copy */
     p = self->properties ?
@@ -413,7 +489,7 @@ wp_core_finalize (GObject * obj)
   struct context_data *cd = pw_context_get_user_data (self->pw_context);
   g_return_if_fail (cd);
 
-  wp_core_disconnect (self);
+  wp_core_disconnect_internal (self);
 
   /* Clear pw-context if refcount reaches 0 */
   if (g_ref_count_dec (&cd->rc)) {
@@ -555,7 +631,7 @@ wp_core_activate_execute_step (WpObject * object,
     case STEP_CONNECT: {
       wp_info_object (self, "connecting to pipewire...");
 
-      if (!wp_core_connect (self)) {
+      if (!wp_core_connect_internal (self)) {
         wp_transition_return_error (WP_TRANSITION (transition), g_error_new (
             WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_SERVICE_UNAVAILABLE,
             "Failed to connect to PipeWire"));
@@ -587,7 +663,7 @@ static void
 wp_core_deactivate (WpObject * self, WpObjectFeatures features)
 {
   if (features & WP_CORE_FEATURE_CONNECTED)
-    wp_core_disconnect (WP_CORE (self));
+    wp_core_disconnect_internal (WP_CORE (self));
 
   /* WP_CORE_FEATURE_COMPONENTS cannot be manually deactivated */
 }
@@ -831,112 +907,6 @@ wp_core_get_vm_type (WpCore *self)
   }
 
   return res;
-}
-
-static gboolean
-wp_core_connect_internal (WpCore *self, int fd)
-{
-  struct pw_properties *p = NULL;
-
-  /* Don't do anything if core is already connected */
-  if (self->pw_core)
-    return TRUE;
-
-  /* Connect */
-  p = self->properties ? wp_properties_to_pw_properties (self->properties) : NULL;
-
-  if (fd == -1)
-    self->pw_core = pw_context_connect (self->pw_context, p, 0);
-  else
-    self->pw_core = pw_context_connect_fd (self->pw_context, fd, p, 0);
-
-  if (!self->pw_core)
-    return FALSE;
-
-  /* Add the core listeners */
-  pw_core_add_listener (self->pw_core, &self->core_listener, &core_events, self);
-  pw_proxy_add_listener((struct pw_proxy*)self->pw_core,
-      &self->proxy_core_listener, &proxy_core_events, self);
-
-  /* Add the registry listener */
-  wp_registry_attach (&self->registry, self->pw_core);
-
-  return TRUE;
-}
-
-/*!
- * \brief Connects this core to the PipeWire server.
- *
- * When connection succeeds, the WpCore \c "connected" signal is emitted.
- *
- * \ingroup wpcore
- * \param self the core
- * \returns TRUE if the core is effectively connected or FALSE if
- *   connection failed
- */
-gboolean
-wp_core_connect (WpCore *self)
-{
-  g_return_val_if_fail (WP_IS_CORE (self), FALSE);
-
-  return wp_core_connect_internal (self, -1);
-}
-
-/*!
- * \brief Connects this core to the PipeWire server on the given socket.
- *
- * When connection succeeds, the WpCore \c "connected" signal is emitted.
- *
- * \ingroup wpcore
- * \param self the core
- * \param fd the connected socket to use, the socket will be closed
- *   automatically on disconnect or error
- * \returns TRUE if the core is effectively connected or FALSE if
- *   connection failed
- * \since 0.5.6
- */
-gboolean
-wp_core_connect_fd (WpCore *self, int fd)
-{
-  g_return_val_if_fail (WP_IS_CORE (self), FALSE);
-  g_return_val_if_fail (fd > -1, FALSE);
-
-  return wp_core_connect_internal (self, fd);
-}
-
-/*!
- * \brief Disconnects this core from the PipeWire server.
- *
- * This also effectively destroys all WpCore objects that were created through
- * the registry, destroys the pw_core and finally emits the WpCore
- * \c "disconnected" signal.
- *
- * \ingroup wpcore
- * \param self the core
- */
-void
-wp_core_disconnect (WpCore *self)
-{
-  wp_registry_detach (&self->registry);
-
-  /* pw_core_disconnect destroys the core proxy
-    and we continue in proxy_core_destroy() */
-  if (self->pw_core)
-    pw_core_disconnect (self->pw_core);
-}
-
-/*!
- * \brief Checks if the core is connected to PipeWire
- *
- * \ingroup wpcore
- * \param self the core
- * \returns TRUE if the core is connected to PipeWire, FALSE otherwise
- */
-gboolean
-wp_core_is_connected (WpCore * self)
-{
-  g_return_val_if_fail (WP_IS_CORE (self), FALSE);
-  return self->pw_core && self->info;
 }
 
 /*!

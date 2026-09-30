@@ -2961,6 +2961,18 @@ on_plugin_loaded (WpCore * core, GAsyncResult * res, WpCtl *ctl)
   }
 }
 
+static void
+on_core_activated (WpObject * core, GAsyncResult * res, WpCtl * ctl)
+{
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_object_activate_finish (core, res, &error)) {
+    fprintf (stderr, "%s\n", error->message);
+    ctl->exit_code = 2;
+    g_main_loop_quit (ctl->loop);
+  }
+}
+
 gint
 main (gint argc, gchar **argv)
 {
@@ -3067,10 +3079,8 @@ main (gint argc, gchar **argv)
       "module", NULL, NULL, NULL, (GAsyncReadyCallback) on_plugin_loaded, &ctl);
 
   /* connect */
-  if (!wp_core_connect (ctl.core)) {
-    fprintf (stderr, "Could not connect to PipeWire\n");
-    return 2;
-  }
+  wp_object_activate (WP_OBJECT (ctl.core), WP_CORE_FEATURE_CONNECTED, NULL,
+      (GAsyncReadyCallback) on_core_activated, &ctl);
 
   /* run */
   g_signal_connect_swapped (ctl.core, "disconnected",

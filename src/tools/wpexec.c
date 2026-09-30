@@ -121,6 +121,20 @@ on_plugin_loaded (WpCore * core, GAsyncResult * res, WpInitTransition *self)
 }
 
 static void
+on_core_activated (WpObject * core, GAsyncResult * res,
+    WpTransition * transition)
+{
+  g_autoptr (GError) error = NULL;
+
+  if (!wp_object_activate_finish (core, res, &error)) {
+    wp_transition_return_error (transition, g_error_new_literal (
+        WP_DOMAIN_DAEMON, WP_EXIT_UNAVAILABLE, error->message));
+    return;
+  }
+  wp_transition_advance (transition);
+}
+
+static void
 wp_init_transition_execute_step (WpTransition * transition, guint step)
 {
   WpInitTransition *self = WP_INIT_TRANSITION (transition);
@@ -128,14 +142,8 @@ wp_init_transition_execute_step (WpTransition * transition, guint step)
 
   switch (step) {
   case STEP_CONNECT:
-    g_signal_connect_object (core, "connected",
-        G_CALLBACK (wp_transition_advance), transition, G_CONNECT_SWAPPED);
-
-    if (!wp_core_connect (core)) {
-      wp_transition_return_error (transition, g_error_new (WP_DOMAIN_DAEMON,
-          WP_EXIT_UNAVAILABLE, "Failed to connect to PipeWire"));
-      return;
-    }
+    wp_object_activate (WP_OBJECT (core), WP_CORE_FEATURE_CONNECTED, NULL,
+        (GAsyncReadyCallback) on_core_activated, transition);
     break;
 
   case STEP_ACTIVATE_PLUGINS: {
@@ -252,6 +260,6 @@ main (gint argc, gchar **argv)
 
   /* run */
   g_main_loop_run (d.loop);
-  wp_core_disconnect (d.core);
+  wp_object_deactivate (WP_OBJECT (d.core), WP_CORE_FEATURE_CONNECTED);
   return d.exit_code;
 }

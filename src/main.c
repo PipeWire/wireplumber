@@ -255,6 +255,6 @@ main (gint argc, gchar **argv)
 
   /* run */
   g_main_loop_run (d.loop);
-  wp_core_disconnect (d.core);
+  wp_object_deactivate (WP_OBJECT (d.core), WP_CORE_FEATURE_CONNECTED);
   return d.exit_code;
 }

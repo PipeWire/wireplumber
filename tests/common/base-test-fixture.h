@@ -109,7 +109,8 @@ wp_base_test_fixture_setup (WpBaseTestFixture * self, WpBaseTestFlags flags)
     wp_object_activate (WP_OBJECT (self->core), WP_CORE_FEATURE_CONNECTED, NULL,
         (GAsyncReadyCallback) on_core_connected, self);
     g_main_loop_run (self->loop);
-    g_assert_true (wp_core_is_connected (self->core));
+    g_assert_true (wp_object_test_active_features (WP_OBJECT (self->core),
+        WP_CORE_FEATURE_CONNECTED));
   }
 
   /* init the second client's core */
@@ -123,7 +124,8 @@ wp_base_test_fixture_setup (WpBaseTestFixture * self, WpBaseTestFlags flags)
       wp_object_activate (WP_OBJECT (self->client_core), WP_CORE_FEATURE_CONNECTED,
           NULL, (GAsyncReadyCallback) on_core_connected, self);
       g_main_loop_run (self->loop);
-      g_assert_true (wp_core_is_connected (self->client_core));
+      g_assert_true (wp_object_test_active_features (
+        WP_OBJECT (self->client_core), WP_CORE_FEATURE_CONNECTED));
     }
   }
 }
@@ -141,21 +143,24 @@ static void
 wp_base_test_fixture_teardown (WpBaseTestFixture * self)
 {
   /* wait for all client core pending tasks to be done */
-  if (self->client_core && wp_core_is_connected (self->client_core)) {
+  if (self->client_core && wp_object_test_active_features (
+        WP_OBJECT (self->client_core), WP_CORE_FEATURE_CONNECTED)) {
     wp_core_sync (self->client_core, NULL,
         (GAsyncReadyCallback) test_core_done_cb, self);
     g_main_loop_run (self->loop);
     g_signal_handlers_disconnect_by_data (self->client_core, self);
-    wp_core_disconnect (self->client_core);
+    wp_object_deactivate (WP_OBJECT (self->client_core),
+        WP_CORE_FEATURE_CONNECTED);
   }
 
   /* wait for all core pending tasks to be done */
-  if (self->core && wp_core_is_connected (self->core)) {
+  if (self->core && wp_object_test_active_features (WP_OBJECT (self->core),
+        WP_CORE_FEATURE_CONNECTED)) {
     wp_core_sync (self->core, NULL, (GAsyncReadyCallback) test_core_done_cb,
         self);
     g_main_loop_run (self->loop);
     g_signal_handlers_disconnect_by_data (self->core, self);
-    wp_core_disconnect (self->core);
+    wp_object_deactivate (WP_OBJECT (self->core), WP_CORE_FEATURE_CONNECTED);
   }
 
   /* double check and ensure that there is no event pending */

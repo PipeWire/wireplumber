@@ -39,6 +39,34 @@ expect_connected (WpCore * core, TestFixture * f)
 }
 
 static void
+on_core_activated (WpObject * core, GAsyncResult * res, TestFixture * f)
+{
+  g_autoptr (GError) error = NULL;
+  g_assert_true (wp_object_activate_finish (core, res, &error));
+  g_assert_no_error (error);
+}
+
+static void
+connect_core (WpCore * core, TestFixture * f)
+{
+  wp_object_activate (WP_OBJECT (core), WP_CORE_FEATURE_CONNECTED, NULL,
+      (GAsyncReadyCallback) on_core_activated, f);
+}
+
+static gboolean
+is_connected (WpCore * core)
+{
+  return wp_object_test_active_features (WP_OBJECT (core),
+      WP_CORE_FEATURE_CONNECTED);
+}
+
+static void
+disconnect_core (WpCore * core)
+{
+  wp_object_deactivate (WP_OBJECT (core), WP_CORE_FEATURE_CONNECTED);
+}
+
+static void
 expect_disconnected (WpCore * core, TestFixture * f)
 {
   f->disconnected = TRUE;
@@ -66,9 +94,9 @@ test_core_server_disconnected (TestFixture *f, gconstpointer data)
   wp_core_install_object_manager (f->base.core, f->om);
 
   /* connect */
-  g_assert_true (wp_core_connect (f->base.core));
+  connect_core (f->base.core, f);
   g_main_loop_run (f->base.loop);
-  g_assert_true (wp_core_is_connected (f->base.core));
+  g_assert_true (is_connected (f->base.core));
 
   /* wait for the object manager to collect the client proxy */
   g_main_loop_run (f->base.loop);
@@ -79,7 +107,7 @@ test_core_server_disconnected (TestFixture *f, gconstpointer data)
   g_main_loop_run (f->base.loop);
   g_assert_true (f->disconnected);
 
-  g_assert_false (wp_core_is_connected (f->base.core));
+  g_assert_false (is_connected (f->base.core));
   g_assert_cmpuint (wp_object_manager_get_n_objects (f->om), ==, 0);
 }
 
@@ -97,31 +125,31 @@ test_core_client_disconnected (TestFixture *f, gconstpointer data)
   wp_core_install_object_manager (f->base.core, f->om);
 
   /* connect */
-  g_assert_true (wp_core_connect (f->base.core));
+  connect_core (f->base.core, f);
   g_main_loop_run (f->base.loop);
-  g_assert_true (wp_core_is_connected (f->base.core));
+  g_assert_true (is_connected (f->base.core));
 
   /* wait for the object manager to collect the client proxy */
   g_main_loop_run (f->base.loop);
   g_assert_cmpuint (wp_object_manager_get_n_objects (f->om), ==, 1);
 
   /* disconnect and expect the disconnected signal */
-  wp_core_disconnect (f->base.core);
+  disconnect_core (f->base.core);
   g_assert_true (f->disconnected);
 
-  g_assert_false (wp_core_is_connected (f->base.core));
+  g_assert_false (is_connected (f->base.core));
   g_assert_cmpuint (wp_object_manager_get_n_objects (f->om), ==, 0);
 }
 
 static void
 test_core_clone (TestFixture *f, gconstpointer data)
 {
-  g_assert_false (wp_core_is_connected (f->base.core));
+  g_assert_false (is_connected (f->base.core));
 
   /* clone */
   g_autoptr (WpCore) clone = wp_core_clone (f->base.core);
   g_assert_nonnull (clone);
-  g_assert_false (wp_core_is_connected (clone));
+  g_assert_false (is_connected (clone));
 
   g_signal_connect (f->base.core, "connected",
       G_CALLBACK (expect_connected), f);
@@ -129,26 +157,26 @@ test_core_clone (TestFixture *f, gconstpointer data)
       G_CALLBACK (expect_connected), f);
 
   /* connect clone */
-  g_assert_true (wp_core_connect (clone));
+  connect_core (clone, f);
   g_main_loop_run (f->base.loop);
-  g_assert_true (wp_core_is_connected (clone));
-  g_assert_false (wp_core_is_connected (f->base.core));
+  g_assert_true (is_connected (clone));
+  g_assert_false (is_connected (f->base.core));
 
   /* connect core */
-  g_assert_true (wp_core_connect (f->base.core));
+  connect_core (f->base.core, f);
   g_main_loop_run (f->base.loop);
-  g_assert_true (wp_core_is_connected (clone));
-  g_assert_true (wp_core_is_connected (f->base.core));
+  g_assert_true (is_connected (clone));
+  g_assert_true (is_connected (f->base.core));
 
   /* disconnect clone */
-  wp_core_disconnect (clone);
-  g_assert_false (wp_core_is_connected (clone));
-  g_assert_true (wp_core_is_connected (f->base.core));
+  disconnect_core (clone);
+  g_assert_false (is_connected (clone));
+  g_assert_true (is_connected (f->base.core));
 
   /* disconnect core */
-  wp_core_disconnect (f->base.core);
-  g_assert_false (wp_core_is_connected (f->base.core));
-  g_assert_false (wp_core_is_connected (clone));
+  disconnect_core (f->base.core);
+  g_assert_false (is_connected (f->base.core));
+  g_assert_false (is_connected (clone));
 }
 
 gint

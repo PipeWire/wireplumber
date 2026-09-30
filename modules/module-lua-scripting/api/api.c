@@ -238,7 +238,7 @@ core_sync (lua_State *L)
 static gboolean
 core_disconnect (WpCore * core)
 {
-  wp_core_disconnect (core);
+  wp_object_deactivate (WP_OBJECT (core), WP_CORE_FEATURE_CONNECTED);
   return G_SOURCE_REMOVE;
 }
 
@@ -254,7 +254,7 @@ core_quit (lua_State *L)
     return 0;
   }
 
-  /* wp_core_disconnect() will immediately destroy the lua plugin
+  /* disconnecting the core will immediately destroy the lua plugin
      and the lua engine, so we cannot call it directly */
   wp_core_idle_add (core, NULL, G_SOURCE_FUNC (core_disconnect), core, NULL);
   return 0;

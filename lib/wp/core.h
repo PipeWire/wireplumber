@@ -66,20 +66,6 @@ struct pw_core * wp_core_get_pw_core (WpCore * self);
 WP_API
 gchar *wp_core_get_vm_type (WpCore *self);
 
-/* Connection */
-
-WP_API
-gboolean wp_core_connect (WpCore *self);
-
-WP_API
-gboolean wp_core_connect_fd (WpCore *self, int fd);
-
-WP_API
-void wp_core_disconnect (WpCore *self);
-
-WP_API
-gboolean wp_core_is_connected (WpCore * self);
-
 /* Properties */
 
 WP_API

@@ -145,7 +145,8 @@ on_connection_closed (GDBusConnection * connection,
 
   /* try to reconnect on idle if connection was closed */
   core = wp_object_get_core (WP_OBJECT (self));
-  if (core && wp_core_is_connected (core)) {
+  if (core && wp_object_test_active_features (WP_OBJECT (core),
+          WP_CORE_FEATURE_CONNECTED)) {
     wp_notice_object (self, "Trying to reconnect after core sync");
     wp_core_sync_closure (core, NULL, g_cclosure_new_object (
         G_CALLBACK (on_sync_reconnect), G_OBJECT (self)));
