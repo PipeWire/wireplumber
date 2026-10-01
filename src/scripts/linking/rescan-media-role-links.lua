@@ -120,6 +120,7 @@ AsyncEventHook {
             if si_flags ~= nil then
               si_flags.peer_id = nil
             end
+            lutils.clearPriorityMediaRoleLink(l)
             l:remove()
           else
             log:info(l, "media role link activated successfully")

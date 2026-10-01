@@ -57,6 +57,9 @@ SimpleEventHook {
             log:warning (link, "Link was not activated before removing")
           end
           si_flags.peer_id = nil
+          if link.properties:get_boolean ("is.role.policy.link") then
+            lutils.clearPriorityMediaRoleLink (link)
+          end
           link:remove ()
           log:info (si, "... moving to new target")
         end
