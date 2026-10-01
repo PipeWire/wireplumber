@@ -268,6 +268,18 @@ function lutils.canLink (properties, si_target)
     return false
   end
 
+  -- the stream of a role loopback must not link to another role-based target
+  local link_group = properties ["node.link-group"]
+  if link_group and
+      cutils.parseBool (target_props ["policy.role-based.target"]) and
+      cutils.get_object_manager ("session-item"):lookup {
+        type = "SiLinkable",
+        Constraint { "node.link-group", "=", link_group },
+        Constraint { "policy.role-based.target", "=", true },
+      } then
+    return false
+  end
+
   -- check link group
   local function canLinkGroupCheck(link_group, si_target, hops)
     local target_props = si_target.properties
@@ -318,7 +330,6 @@ function lutils.canLink (properties, si_target)
     return true
   end
 
-  local link_group = properties ["node.link-group"]
   if link_group then
     return canLinkGroupCheck (link_group, si_target, 0)
   end
