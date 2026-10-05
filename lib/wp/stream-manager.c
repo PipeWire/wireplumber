@@ -208,6 +208,8 @@ on_audio_node_enum_port_config_done (WpPipewireObject *po, GAsyncResult *res,
   g_autoptr (GError) err = NULL;
   g_autoptr (WpIterator) it = NULL;
   g_auto (GValue) val = G_VALUE_INIT;
+  g_autoptr (GHashTable) seen = g_hash_table_new_full (g_str_hash,
+      g_str_equal, g_free, NULL);
 
   self->pending_enum_port_config--;
 
@@ -231,6 +233,7 @@ on_audio_node_enum_port_config_done (WpPipewireObject *po, GAsyncResult *res,
     WpSpaPod *param = g_value_get_boxed (&val);
     enum spa_direction dir = SPA_DIRECTION_INPUT;
     const gchar *port_group = NULL;
+    gchar *stream_key;
     g_autoptr (WpProperties) stream_props = NULL;
     g_autoptr (WpAudioStream) stream = NULL;
 
@@ -250,6 +253,12 @@ on_audio_node_enum_port_config_done (WpPipewireObject *po, GAsyncResult *res,
            released pipewire yet, see spa/param/port-config.h */
         "id-00000006", "s", &port_group,
         NULL);
+
+    /* A port group with several formats has one EnumPortConfig per format,
+     * but it is still a single stream */
+    stream_key = g_strdup_printf ("%u:%s", dir, port_group ? port_group : "");
+    if (!g_hash_table_add (seen, stream_key))
+      continue;
 
     /* Create the audio stream with its own properties */
     stream_props = wp_properties_copy (props);
