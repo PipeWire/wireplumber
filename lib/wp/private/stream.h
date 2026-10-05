@@ -13,6 +13,9 @@
 
 G_BEGIN_DECLS
 
+/* The prefix of the stream specific properties */
+#define STREAM_PROPS_PREFIX "stream.props."
+
 /* Audio Stream */
 
 WpAudioStream * wp_audio_stream_new (WpNode *node, WpProperties *props,

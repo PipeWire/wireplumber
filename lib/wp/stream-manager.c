@@ -19,7 +19,6 @@
 
 WP_DEFINE_LOCAL_LOG_TOPIC ("wp-stream-manager")
 
-
 /* WpStreamManager */
 
 /*! \defgroup wpstreammanager WpStreamManager */
@@ -109,6 +108,68 @@ ensure_media_role (WpStreamManager * self, WpProperties * props)
   role = wp_spa_json_parse_string (val);
   if (role)
     wp_properties_set (props, PW_KEY_MEDIA_ROLE, role);
+}
+
+static gboolean
+is_stream_group_property (const gchar * key, const gchar * value)
+{
+  g_autoptr (WpSpaJson) json = NULL;
+
+  if (!g_str_has_prefix (key, STREAM_PROPS_PREFIX))
+    return FALSE;
+
+  json = wp_spa_json_new_from_string (value);
+  return wp_spa_json_is_object (json);
+}
+
+/* Builds the properties of a stream of the node: the node properties apply to
+ * all its streams, and the stream specific ones, given as a JSON object in the
+ * node's "stream.props.<port-group>" property, are added to them with the
+ * "stream.props." prefix */
+static WpProperties *
+build_stream_properties (WpStreamManager * self, WpProperties * node_props,
+    const gchar * port_group)
+{
+  g_autoptr (WpProperties) props = wp_properties_new_empty ();
+
+  /* Add the node ones, except the stream group objects */
+  {
+    g_autoptr (WpIterator) it = wp_properties_new_iterator (node_props);
+    g_auto (GValue) val = G_VALUE_INIT;
+    for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+      WpPropertiesItem *item = g_value_get_boxed (&val);
+      const gchar *key = wp_properties_item_get_key (item);
+      const gchar *value = wp_properties_item_get_value (item);
+      if (!is_stream_group_property (key, value))
+        wp_properties_set (props, key, value);
+    }
+  }
+
+  /* Add the stream specific ones */
+  if (port_group) {
+    g_autofree gchar *key = g_strconcat (STREAM_PROPS_PREFIX, port_group, NULL);
+    const gchar *str = wp_properties_get (node_props, key);
+    if (str) {
+      g_autoptr (WpSpaJson) json = wp_spa_json_new_from_string (str);
+      if (wp_spa_json_is_object (json)) {
+        g_autoptr (WpProperties) group_props = wp_properties_new_json (json);
+        g_autoptr (WpIterator) it = wp_properties_new_iterator (group_props);
+        g_auto (GValue) val = G_VALUE_INIT;
+        for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+          WpPropertiesItem *item = g_value_get_boxed (&val);
+          g_autofree gchar *prop_key = g_strconcat (STREAM_PROPS_PREFIX,
+              wp_properties_item_get_key (item), NULL);
+          wp_properties_set (props, prop_key,
+              wp_properties_item_get_value (item));
+        }
+      } else {
+        wp_warning_object (self, "ignoring %s: not a JSON object", key);
+      }
+    }
+  }
+
+  ensure_media_role (self, props);
+  return g_steal_pointer (&props);
 }
 
 static GPtrArray *
@@ -261,8 +322,7 @@ on_audio_node_enum_port_config_done (WpPipewireObject *po, GAsyncResult *res,
       continue;
 
     /* Create the audio stream with its own properties */
-    stream_props = wp_properties_copy (props);
-    ensure_media_role (self, stream_props);
+    stream_props = build_stream_properties (self, props, port_group);
     stream = wp_audio_stream_new (node, g_steal_pointer (&stream_props),
         (WpDirection)dir, port_group);
 
@@ -329,8 +389,7 @@ manage_video_node_streams (WpStreamManager *self, WpNode *node)
     dir = WP_DIRECTION_OUTPUT;
 
   /* Create the video stream with its own properties */
-  stream_props = wp_properties_copy (props);
-  ensure_media_role (self, stream_props);
+  stream_props = build_stream_properties (self, props, NULL);
   stream = wp_video_stream_new (node, g_steal_pointer (&stream_props), dir,
       NULL);
 
