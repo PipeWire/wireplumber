@@ -1288,76 +1288,70 @@ compare_raw_formats_by_channels (gconstpointer a, gconstpointer b)
   return channels_b - channels_a;
 }
 
-static gboolean
-update_audio_enum_format_info (WpAudioStream *self, WpIterator *it)
+static void
+audio_stream_add_supported_format (WpAudioStream *self, WpSpaPod *pod)
 {
-  g_auto (GValue) val = G_VALUE_INIT;
+  uint32_t mtype, msubtype;
 
-  /* Reset supported formats */
-  g_ptr_array_set_size (self->supported_raw_formats, 0);
-  g_ptr_array_set_size (self->supported_enc_formats, 0);
+  /* Skip formats without media type and sub-type */
+  if (!wp_spa_pod_is_object (pod) || !wp_spa_pod_get_object (pod, NULL,
+          "mediaType", "I", &mtype,
+          "mediaSubtype", "I", &msubtype,
+          NULL))
+    return;
 
-  /* Scan formats and find the best available RAW format */
-  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
-    WpSpaPod *pod = g_value_get_boxed (&val);
-    uint32_t mtype, msubtype;
+  /* Skip non-audio formats */
+  if (mtype != SPA_MEDIA_TYPE_audio)
+    return;
 
-    /* Skip formats without media type and sub-type */
-    if (!wp_spa_pod_is_object (pod) || !wp_spa_pod_get_object (pod, NULL,
-            "mediaType", "I", &mtype,
-            "mediaSubtype", "I", &msubtype,
-            NULL)) {
-      continue;
+  switch (msubtype) {
+    case SPA_MEDIA_SUBTYPE_raw: {
+      struct spa_audio_info_raw raw_format = { 0, };
+      struct spa_pod *position = NULL;
+
+      wp_spa_pod_fixate (pod);
+
+      if (spa_pod_parse_object (wp_spa_pod_get_spa_pod (pod),
+          SPA_TYPE_OBJECT_Format, NULL,
+          SPA_FORMAT_AUDIO_format, SPA_POD_OPT_Id (&raw_format.format),
+          SPA_FORMAT_AUDIO_rate, SPA_POD_OPT_Int (&raw_format.rate),
+          SPA_FORMAT_AUDIO_channels, SPA_POD_OPT_Int (&raw_format.channels),
+          SPA_FORMAT_AUDIO_position, SPA_POD_OPT_Pod (&position)) < 0)
+        return;
+
+      if (position == NULL ||
+          !spa_pod_copy_array (position, SPA_TYPE_Id, raw_format.position,
+              SPA_N_ELEMENTS(raw_format.position)))
+        SPA_FLAG_SET (raw_format.flags, SPA_AUDIO_FLAG_UNPOSITIONED);
+
+      g_ptr_array_add (self->supported_raw_formats,
+          build_audio_raw_format (&raw_format));
+      break;
     }
 
-    /* Skip non-audio formats */
-    if (mtype != SPA_MEDIA_TYPE_audio)
-      continue;
+    case SPA_MEDIA_SUBTYPE_iec958:
+    case SPA_MEDIA_SUBTYPE_dsd:
+      wp_info_object (self, "passthrough IEC958/DSD format found");
+      g_ptr_array_add (self->supported_enc_formats, wp_spa_pod_ref (pod));
+      break;
 
-    switch (msubtype) {
-      case SPA_MEDIA_SUBTYPE_raw: {
-        struct spa_audio_info_raw raw_format = { 0, };
-        struct spa_pod *position = NULL;
-
-        wp_spa_pod_fixate (pod);
-
-        if (spa_pod_parse_object (wp_spa_pod_get_spa_pod (pod),
+    default: {
+      enum spa_audio_format audio_format;
+      if (spa_pod_parse_object (wp_spa_pod_get_spa_pod (pod),
             SPA_TYPE_OBJECT_Format, NULL,
-            SPA_FORMAT_AUDIO_format, SPA_POD_OPT_Id (&raw_format.format),
-            SPA_FORMAT_AUDIO_rate, SPA_POD_OPT_Int (&raw_format.rate),
-            SPA_FORMAT_AUDIO_channels, SPA_POD_OPT_Int (&raw_format.channels),
-            SPA_FORMAT_AUDIO_position, SPA_POD_OPT_Pod (&position)) < 0)
-          continue;
-
-        if (position == NULL ||
-            !spa_pod_copy_array (position, SPA_TYPE_Id, raw_format.position,
-                SPA_N_ELEMENTS(raw_format.position)))
-          SPA_FLAG_SET (raw_format.flags, SPA_AUDIO_FLAG_UNPOSITIONED);
-
-        g_ptr_array_add (self->supported_raw_formats,
-            build_audio_raw_format (&raw_format));
-        break;
+            SPA_FORMAT_AUDIO_format, SPA_POD_OPT_Id (&audio_format)) >= 0) {
+        if (audio_format == SPA_AUDIO_FORMAT_ENCODED)
+          g_ptr_array_add (self->supported_enc_formats, wp_spa_pod_ref (pod));
       }
-
-      case SPA_MEDIA_SUBTYPE_iec958:
-      case SPA_MEDIA_SUBTYPE_dsd:
-        wp_info_object (self, "passthrough IEC958/DSD format found");
-        g_ptr_array_add (self->supported_enc_formats, wp_spa_pod_ref (pod));
-        break;
-
-      default: {
-        enum spa_audio_format audio_format;
-        if (spa_pod_parse_object (wp_spa_pod_get_spa_pod (pod),
-              SPA_TYPE_OBJECT_Format, NULL,
-              SPA_FORMAT_AUDIO_format, SPA_POD_OPT_Id (&audio_format)) >= 0) {
-          if (audio_format == SPA_AUDIO_FORMAT_ENCODED)
-            g_ptr_array_add (self->supported_enc_formats, wp_spa_pod_ref (pod));
-        }
-        break;
-      }
+      break;
     }
   }
+}
 
+/* Sort the supported formats and tell whether any was found */
+static gboolean
+audio_stream_finish_supported_formats (WpAudioStream *self)
+{
   /* Sort raw formats by channels (highest first) */
   g_ptr_array_sort (self->supported_raw_formats, compare_raw_formats_by_channels);
 
@@ -1368,6 +1362,71 @@ update_audio_enum_format_info (WpAudioStream *self, WpIterator *it)
     wp_info_object (self, "supports encoded audio");
 
   return self->supported_raw_formats->len > 0 || self->supported_enc_formats->len > 0;
+}
+
+static void
+audio_stream_reset_supported_formats (WpAudioStream *self)
+{
+  g_ptr_array_set_size (self->supported_raw_formats, 0);
+  g_ptr_array_set_size (self->supported_enc_formats, 0);
+}
+
+static gboolean
+update_audio_enum_format_info (WpAudioStream *self, WpIterator *it)
+{
+  g_auto (GValue) val = G_VALUE_INIT;
+
+  audio_stream_reset_supported_formats (self);
+
+  for (; wp_iterator_next (it, &val); g_value_unset (&val))
+    audio_stream_add_supported_format (self, g_value_get_boxed (&val));
+
+  return audio_stream_finish_supported_formats (self);
+}
+
+/*
+ * Reads the supported formats from the internalFormat of the EnumPortConfig
+ * params that belong to this stream. A node with several streams has no node
+ * level EnumFormat and advertises the formats of each stream this way, with
+ * one EnumPortConfig per format.
+ */
+static gboolean
+update_audio_enum_port_config_format_info (WpAudioStream *self,
+    WpIterator *it)
+{
+  WpDirection stream_dir = wp_stream_get_direction (WP_STREAM (self));
+  const gchar *stream_port_group = wp_stream_get_port_group (WP_STREAM (self));
+  g_auto (GValue) val = G_VALUE_INIT;
+
+  audio_stream_reset_supported_formats (self);
+
+  for (; wp_iterator_next (it, &val); g_value_unset (&val)) {
+    WpSpaPod *param = g_value_get_boxed (&val);
+    enum spa_direction dir = SPA_DIRECTION_INPUT;
+    const gchar *port_group = NULL;
+    g_autoptr (WpSpaPod) format = NULL;
+
+    if (!wp_spa_pod_is_object (param) ||
+        !wp_spa_pod_get_object (param, NULL,
+            "direction", "I", &dir,
+            NULL))
+      continue;
+
+    /* The "group" and "internalFormat" keys are not in a released pipewire
+       yet, see spa/param/port-config.h, so we name them by their raw ids */
+    wp_spa_pod_get_object (param, NULL,
+        "id-00000006", "?s", &port_group,
+        "id-00000007", "?P", &format,
+        NULL);
+
+    if ((WpDirection) dir != stream_dir ||
+        g_strcmp0 (stream_port_group, port_group) != 0 || !format)
+      continue;
+
+    audio_stream_add_supported_format (self, format);
+  }
+
+  return audio_stream_finish_supported_formats (self);
 }
 
 static void
@@ -1489,30 +1548,9 @@ on_audio_node_port_config_changed (WpPipewireObject *po, GAsyncResult *res,
 }
 
 static void
-on_audio_node_enum_format_changed (WpPipewireObject *po, GAsyncResult *res,
-    WpStream *s)
+audio_stream_enum_port_config_on_changed (WpAudioStream *self)
 {
-  g_autoptr (WpAudioStream) self = WP_AUDIO_STREAM (s);
-  g_autoptr (WpIterator) it = NULL;
-  g_autoptr (GError) err = NULL;
   g_autoptr (WpNode) node = NULL;
-
-  /* Check for errors */
-  it = wp_pipewire_object_enum_params_finish (po, res, &err);
-  if (!it) {
-    audio_stream_notify_ports_error (self,
-        "failed to enum EnumFormat on params changed");
-    return;
-  }
-
-  wp_debug_object (self, "enum PortConfig finished on params changed");
-
-  /* Update EnumFormat info */
-  if (!update_audio_enum_format_info (self, it)) {
-    audio_stream_notify_ports_error (self,
-        "no audio format found on params changed");
-    return;
-  }
 
   /* Get stream node */
   node = wp_stream_get_node (WP_STREAM (self));
@@ -1527,7 +1565,34 @@ on_audio_node_enum_format_changed (WpPipewireObject *po, GAsyncResult *res,
   wp_pipewire_object_enum_params (WP_PIPEWIRE_OBJECT (node), "PortConfig", NULL,
       NULL, (GAsyncReadyCallback) on_audio_node_port_config_changed,
       g_object_ref (self));
+}
 
+static void
+on_audio_node_enum_format_changed (WpPipewireObject *po, GAsyncResult *res,
+    WpStream *s)
+{
+  g_autoptr (WpAudioStream) self = WP_AUDIO_STREAM (s);
+  g_autoptr (WpIterator) it = NULL;
+  g_autoptr (GError) err = NULL;
+
+  /* Check for errors */
+  it = wp_pipewire_object_enum_params_finish (po, res, &err);
+  if (!it) {
+    audio_stream_notify_ports_error (self,
+        "failed to enum EnumFormat on params changed");
+    return;
+  }
+
+  wp_debug_object (self, "enum EnumFormat finished on params changed");
+
+  /* Update EnumFormat info */
+  if (!update_audio_enum_format_info (self, it)) {
+    audio_stream_notify_ports_error (self,
+        "no audio format found on params changed");
+    return;
+  }
+
+  audio_stream_enum_port_config_on_changed (self);
 }
 
 static void
@@ -1583,6 +1648,28 @@ on_audio_node_port_config_done (WpPipewireObject *po, GAsyncResult *res,
 }
 
 static void
+audio_stream_enum_port_config_on_activation (WpAudioStream *self,
+    WpTransition *transition)
+{
+  g_autoptr (WpNode) node = NULL;
+
+  /* Get stream node */
+  node = wp_stream_get_node (WP_STREAM (self));
+  if (!node) {
+    wp_transition_return_error (transition, g_error_new (
+        WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "stream node is not valid on activation"));
+    return;
+  }
+
+  /* Enum PortConfig to see if we need to configure ports or not */
+  wp_debug_object (self, "enumerating PortConfig params on activation...");
+  wp_pipewire_object_enum_params (WP_PIPEWIRE_OBJECT (node), "PortConfig", NULL,
+      NULL, (GAsyncReadyCallback) on_audio_node_port_config_done,
+      g_object_ref (transition));
+}
+
+static void
 on_audio_stream_enum_format_done (WpPipewireObject *po, GAsyncResult *res,
     WpTransition *t)
 {
@@ -1590,7 +1677,6 @@ on_audio_stream_enum_format_done (WpPipewireObject *po, GAsyncResult *res,
   WpAudioStream *self = wp_transition_get_source_object (transition);
   g_autoptr (WpIterator) it = NULL;
   g_autoptr (GError) err = NULL;
-  g_autoptr (WpNode) node = NULL;
 
   /* Check for errors */
   it = wp_pipewire_object_enum_params_finish (po, res, &err);
@@ -1610,20 +1696,48 @@ on_audio_stream_enum_format_done (WpPipewireObject *po, GAsyncResult *res,
 
   wp_info_object (self, "EnumFormat info update on activation");
 
-  /* Get stream node */
-  node = wp_stream_get_node (WP_STREAM (self));
-  if (!node) {
-    wp_transition_return_error (transition, g_error_new (
-        WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-        "stream node is not valid on activation"));
+  audio_stream_enum_port_config_on_activation (self, transition);
+}
+
+static void
+on_audio_stream_enum_port_config_format_done (WpPipewireObject *po,
+    GAsyncResult *res, WpTransition *t)
+{
+  g_autoptr (WpTransition) transition = t;
+  WpAudioStream *self = wp_transition_get_source_object (transition);
+  g_autoptr (WpIterator) it = NULL;
+  g_autoptr (GError) err = NULL;
+
+  /* Check for errors */
+  it = wp_pipewire_object_enum_params_finish (po, res, &err);
+  if (!it) {
+    wp_transition_return_error (transition, g_steal_pointer (&err));
     return;
   }
 
-  /* Enum PortConfig to see if we need to configure ports or not */
-  wp_debug_object (self, "enumerating PortConfig params on activation...");
-  wp_pipewire_object_enum_params (WP_PIPEWIRE_OBJECT (node), "PortConfig", NULL,
-      NULL, (GAsyncReadyCallback) on_audio_node_port_config_done,
-      g_object_ref (transition));
+  wp_debug_object (self, "enum EnumPortConfig finished on activation");
+
+  if (!update_audio_enum_port_config_format_info (self, it)) {
+    wp_transition_return_error (transition, g_error_new (
+        WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
+        "no audio format found on activation"));
+    return;
+  }
+
+  wp_info_object (self, "EnumPortConfig formats update on activation");
+
+  audio_stream_enum_port_config_on_activation (self, transition);
+}
+
+static gboolean
+node_has_readable_param (WpNode *node, const gchar *param_name)
+{
+  g_autoptr (GVariant) info =
+      wp_pipewire_object_get_param_info (WP_PIPEWIRE_OBJECT (node));
+  const gchar *flags = NULL;
+
+  return info && g_variant_lookup (info, param_name, "&s", &flags) &&
+      strchr (flags, 'r') != NULL;
 }
 
 static void
@@ -1649,11 +1763,22 @@ wp_audio_stream_enable_active (WpStream *stream, WpTransition *transition)
   self->error_sigid = g_signal_connect_object (node,
       "error", (GCallback) on_audio_node_error, self, 0);
 
-  /* Enum EnumFormat to see what formats the stream supports */
-  wp_debug_object (self, "enumerating EnumFormat params on activation...");
-  wp_pipewire_object_enum_params (WP_PIPEWIRE_OBJECT (node), "EnumFormat", NULL,
-      NULL, (GAsyncReadyCallback) on_audio_stream_enum_format_done,
-      g_object_ref (transition));
+  /* Enum EnumFormat to see what formats the stream supports. A node with
+   * several streams has no EnumFormat; it advertises the formats of each
+   * stream in the internalFormat of its EnumPortConfig instead */
+  if (node_has_readable_param (node, "EnumFormat")) {
+    wp_debug_object (self, "enumerating EnumFormat params on activation...");
+    wp_pipewire_object_enum_params (WP_PIPEWIRE_OBJECT (node), "EnumFormat",
+        NULL, NULL, (GAsyncReadyCallback) on_audio_stream_enum_format_done,
+        g_object_ref (transition));
+  } else {
+    wp_debug_object (self,
+        "enumerating EnumPortConfig params on activation...");
+    wp_pipewire_object_enum_params (WP_PIPEWIRE_OBJECT (node),
+        "EnumPortConfig", NULL, NULL,
+        (GAsyncReadyCallback) on_audio_stream_enum_port_config_format_done,
+        g_object_ref (transition));
+  }
 }
 
 static void
