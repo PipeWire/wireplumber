@@ -1639,6 +1639,16 @@ audio_stream_configure_ports_with_stream (lua_State *L)
   return 1;
 }
 
+static int
+audio_stream_configure_ports_for_peer (lua_State *L)
+{
+  WpAudioStream *stream = wplua_checkobject (L, 1, WP_TYPE_AUDIO_STREAM);
+  WpAudioStream *peer = wplua_checkobject (L, 2, WP_TYPE_AUDIO_STREAM);
+  lua_pushboolean (L, wp_audio_stream_configure_ports_for_peer (stream,
+      peer));
+  return 1;
+}
+
 static const luaL_Reg audio_stream_methods[] = {
   { "get_ports_format", audio_stream_get_ports_format },
   { "get_ports_mode", audio_stream_get_ports_mode },
@@ -1649,6 +1659,7 @@ static const luaL_Reg audio_stream_methods[] = {
   { "configure_ports", audio_stream_configure_ports },
   { "configure_ports_with_props", audio_stream_configure_ports_with_props },
   { "configure_ports_with_stream", audio_stream_configure_ports_with_stream },
+  { "configure_ports_for_peer", audio_stream_configure_ports_for_peer },
   { NULL, NULL }
 };
 

@@ -190,6 +190,10 @@ WP_API
 gboolean wp_audio_stream_configure_ports_with_stream (WpAudioStream * self,
     WpAudioStream *stream);
 
+WP_API
+gboolean wp_audio_stream_configure_ports_for_peer (WpAudioStream * self,
+    WpAudioStream *peer);
+
 
 /*!
  * \brief The WpVideoStream GType

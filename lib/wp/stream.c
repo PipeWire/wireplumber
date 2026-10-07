@@ -1292,6 +1292,21 @@ compare_raw_formats_by_channels (gconstpointer a, gconstpointer b)
   return channels_b - channels_a;
 }
 
+/* A client that does not position its channels can still advertise a position
+ * array, with every channel UNKNOWN */
+static gboolean
+has_only_unknown_positions (const struct spa_audio_info_raw *info)
+{
+  guint32 n_pos = SPA_MIN (info->channels, SPA_N_ELEMENTS (info->position));
+
+  for (guint32 i = 0; i < n_pos; i++) {
+    if (info->position[i] != SPA_AUDIO_CHANNEL_UNKNOWN)
+      return FALSE;
+  }
+
+  return TRUE;
+}
+
 static void
 audio_stream_add_supported_format (WpAudioStream *self, WpSpaPod *pod)
 {
@@ -1325,7 +1340,8 @@ audio_stream_add_supported_format (WpAudioStream *self, WpSpaPod *pod)
 
       if (position == NULL ||
           !spa_pod_copy_array (position, SPA_TYPE_Id, raw_format.position,
-              SPA_N_ELEMENTS(raw_format.position)))
+              SPA_N_ELEMENTS(raw_format.position)) ||
+          has_only_unknown_positions (&raw_format))
         SPA_FLAG_SET (raw_format.flags, SPA_AUDIO_FLAG_UNPOSITIONED);
 
       g_ptr_array_add (self->supported_raw_formats,
@@ -2470,6 +2486,96 @@ wp_audio_stream_configure_ports_with_stream (WpAudioStream * self,
 
   return wp_audio_stream_configure_ports_internal (self, stream->curr_format,
       stream->curr_mode, stream->curr_monitor, stream->curr_control);
+}
+
+/* TRUE if the channels of the format have no positions, or AUX ones, like the
+ * channels of a pro audio device */
+static gboolean
+is_unpositioned_format (WpSpaPod *format)
+{
+  struct spa_audio_info_raw info = { 0, };
+  struct spa_pod *position = NULL;
+  guint32 n_pos;
+
+  if (spa_pod_parse_object (wp_spa_pod_get_spa_pod (format),
+      SPA_TYPE_OBJECT_Format, NULL,
+      SPA_FORMAT_AUDIO_channels, SPA_POD_OPT_Int (&info.channels),
+      SPA_FORMAT_AUDIO_position, SPA_POD_OPT_Pod (&position)) < 0)
+    return FALSE;
+
+  if (!position)
+    return TRUE;
+
+  n_pos = spa_pod_copy_array (position, SPA_TYPE_Id, info.position,
+      SPA_N_ELEMENTS (info.position));
+  if (n_pos == 0)
+    return TRUE;
+
+  for (guint32 i = 0; i < SPA_MIN (n_pos, info.channels); i++) {
+    if (info.position[i] >= SPA_AUDIO_CHANNEL_START_Aux &&
+        info.position[i] <= SPA_AUDIO_CHANNEL_LAST_Aux)
+      return TRUE;
+  }
+
+  return FALSE;
+}
+
+static gboolean
+wp_audio_stream_is_dont_remix (WpAudioStream * self)
+{
+  g_autoptr (WpProperties) props = wp_stream_get_properties (WP_STREAM (self));
+  const gchar *str = wp_properties_get (props, "stream.dont-remix");
+
+  return str && spa_atob (str);
+}
+
+/*!
+ * \brief Configures the ports to link them with the ports of another stream,
+ * which must have its ports configured already.
+ *
+ * The ports take the same configuration as the other stream, like
+ * wp_audio_stream_configure_ports_with_stream() does, unless the other stream
+ * has DSP ports with unpositioned channels, such as a pro audio device, or
+ * \a self has the "stream.dont-remix" property set. Remixing into AUX channels
+ * puts the channels of \a self in no meaningful place, so in that case the DSP
+ * ports of \a self keep the channels they have, or those of its own best
+ * format if it has no DSP ports yet, and only the monitor and control flags are
+ * taken from the other stream.
+ *
+ * \ingroup wpstream
+ * \param self the stream
+ * \param peer (transfer none): the stream to link with
+ * \returns TRUE if the ports will be re-configured, FALSE otherwise
+ */
+gboolean
+wp_audio_stream_configure_ports_for_peer (WpAudioStream * self,
+    WpAudioStream *peer)
+{
+  WpSpaPod *format;
+
+  g_return_val_if_fail (WP_IS_AUDIO_STREAM (self), FALSE);
+  g_return_val_if_fail (WP_IS_AUDIO_STREAM (peer), FALSE);
+  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (self)) &
+      WP_STREAM_FEATURE_ACTIVE, FALSE);
+  g_return_val_if_fail (wp_object_get_active_features (WP_OBJECT (peer)) &
+      WP_STREAM_FEATURE_ACTIVE, FALSE);
+  g_return_val_if_fail (peer->curr_format, FALSE);
+
+  if (peer->curr_mode != SPA_PARAM_PORT_CONFIG_MODE_dsp ||
+      (!is_unpositioned_format (peer->curr_format) &&
+       !wp_audio_stream_is_dont_remix (self)))
+    return wp_audio_stream_configure_ports_with_stream (self, peer);
+
+  if (self->curr_mode == SPA_PARAM_PORT_CONFIG_MODE_dsp && self->curr_format)
+    format = self->curr_format;
+  else if (self->supported_raw_formats->len > 0)
+    format = g_ptr_array_index (self->supported_raw_formats, 0);
+  else
+    return wp_audio_stream_configure_ports_with_stream (self, peer);
+
+  wp_info_object (self, "keeping own channel layout to link with %p", peer);
+  return wp_audio_stream_configure_ports_internal (self, format,
+      SPA_PARAM_PORT_CONFIG_MODE_dsp, peer->curr_monitor, peer->curr_control);
 }
 
 

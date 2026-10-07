@@ -362,6 +362,20 @@ configurations the pair should agree on.
    :returns: whether a configuration request was sent
    :rtype: boolean
 
+.. function:: AudioStream.configure_ports_for_peer(self, peer)
+
+   Binds :c:func:`wp_audio_stream_configure_ports_for_peer`
+
+   Configures the ports so that the stream can be linked with *peer*. This
+   copies the configuration of *peer* like ``configure_ports_with_stream``,
+   unless *peer* has unpositioned (AUX) DSP ports or this stream has
+   ``stream.dont-remix`` set, in which case the stream keeps its own channels.
+
+   :param self: the stream
+   :param peer: the stream to link with, with its ports configured
+   :returns: whether a configuration request was sent
+   :rtype: boolean
+
 VideoStream methods
 -------------------
 

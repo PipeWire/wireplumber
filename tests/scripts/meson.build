@@ -353,3 +353,10 @@ test(
   args: ['script-tests', 'linking/follow-default-target-metadata.lua'],
   env: common_env,
 )
+
+test(
+  'scripts/linking/unpositioned-target',
+  script_tester,
+  args: ['script-tests', 'linking/unpositioned-target.lua'],
+  env: common_env,
+)

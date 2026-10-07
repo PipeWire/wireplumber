@@ -1081,6 +1081,11 @@ wp_audio_stream_link_init (WpAudioStreamLink * self)
  * its DSP ports come back unpositioned and create_links() pairs them with
  * whatever port of the main stream scores highest, including a control port.
  *
+ * The exception is a main stream with unpositioned DSP ports, such as a pro
+ * audio device, or another stream with stream.dont-remix: the other stream
+ * keeps its own channels, see wp_audio_stream_configure_ports_for_peer(), and
+ * create_links() pairs them with the AUX ones.
+ *
  * A configuration request is asynchronous, so this runs again from
  * ports-configured until nothing is left to configure. With a transition, that
  * is driven by pending_transition and the transition is finished by
@@ -1124,7 +1129,7 @@ configure_ports_and_link (WpAudioStreamLink *self, WpTransition *transition)
     pending_conf = wp_audio_stream_configure_ports_with_props (main,
         g_steal_pointer (&conf_props));
   if (!pending_conf) {
-    pending_conf = wp_audio_stream_configure_ports_with_stream (other, main);
+    pending_conf = wp_audio_stream_configure_ports_for_peer (other, main);
     if (!pending_conf) {
       create_links (WP_STREAM_LINK (self), transition);
       return;
