@@ -131,6 +131,12 @@ SimpleEventHook {
       return
     end
 
+    -- Let the rescan link this, as filters may need to be relinked first
+    if futils.is_rescan_pending () then
+      source:call ("schedule-rescan", "linking")
+      return
+    end
+
     -- Don't handle immediately if this this has node.link-group, because it
     -- could affect others.
     local node = si:get_associated_proxy ("node")

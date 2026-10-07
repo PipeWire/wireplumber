@@ -12,6 +12,8 @@ local cutils = require ("common-utils")
 local module = {
   metadata = nil,
   filters = {},
+  -- filters metadata changed and the graph has not been rescanned yet
+  rescan_pending = false,
 }
 
 local function getFilterSmart (metadata, node)
@@ -362,8 +364,33 @@ SimpleEventHook {
     local metadata_om = source:call ("get-object-manager", "metadata")
 
     rescanFilters (om, metadata_om)
+    module.rescan_pending = false
   end
 }:register ()
+
+SimpleEventHook {
+  name = "lib/filter-utils/metadata-changed",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "metadata-changed" },
+      Constraint { "metadata.name", "=", "filters" },
+    },
+  },
+  execute = function (event)
+    -- Update the filters data right away, so that streams added before the
+    -- next rescan are linked using the new filters configuration
+    local source = event:get_source ()
+    local om = source:call ("get-object-manager", "session-item")
+    local metadata_om = source:call ("get-object-manager", "metadata")
+
+    rescanFilters (om, metadata_om)
+    module.rescan_pending = true
+  end
+}:register ()
+
+function module.is_rescan_pending ()
+  return module.rescan_pending
+end
 
 function module.is_filter_smart (direction, link_group)
   -- Make sure direction and link_group is valid

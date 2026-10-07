@@ -170,10 +170,10 @@ get_default_event_priority (const gchar *event_type)
     return -510;
   else if (!g_strcmp0 (event_type, "node-state-changed"))
     return 50;
-  else if (!g_strcmp0 (event_type, "metadata-changed"))
-    return 50;
   else if (g_str_has_suffix (event_type, "-params-changed"))
     return 50;
+  else if (!g_strcmp0 (event_type, "metadata-changed"))
+    return 300;
   else if (g_str_has_prefix (event_type, "client-"))
     return 200;
   else if (g_str_has_prefix (event_type, "device-"))
