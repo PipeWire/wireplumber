@@ -1555,14 +1555,12 @@ on_audio_node_port_config_changed (WpPipewireObject *po, GAsyncResult *res,
 
   wp_debug_object (self, "enum PortConfig finished on changed");
 
-  /* Update PortConfig info */
-  if (!update_audio_port_config_info (self, it)) {
-    audio_stream_notify_ports_error (self,
-        "could not find any matching PortConfig param");
-    return;
-  }
-
-  wp_info_object (self, "PortConfig info updated on changed");
+  /* Update PortConfig info. A node in passthrough mode can advertise no
+   * PortConfig; a rejected request is reported by on_audio_node_error() */
+  if (update_audio_port_config_info (self, it))
+    wp_info_object (self, "PortConfig info updated on changed");
+  else
+    wp_debug_object (self, "no matching PortConfig param on changed");
 
   audio_stream_check_ports_configured (self);
 }

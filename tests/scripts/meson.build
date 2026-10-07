@@ -360,3 +360,10 @@ test(
   args: ['script-tests', 'linking/unpositioned-target.lua'],
   env: common_env,
 )
+
+test(
+  'scripts/node/configure-ports-stream-added',
+  script_tester,
+  args: ['script-tests', 'node/configure-ports-stream-added.lua'],
+  env: common_env,
+)

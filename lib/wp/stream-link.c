@@ -1061,6 +1061,9 @@ struct _WpAudioStreamLink
   GWeakRef other_stream;
   WpTransition *pending_transition;
   gboolean reconfigure_main;
+  /* the streams configured by this link in the current round */
+  gboolean main_requested;
+  gboolean other_requested;
 };
 
 G_DEFINE_TYPE (WpAudioStreamLink, wp_audio_stream_link, WP_TYPE_STREAM_LINK);
@@ -1087,8 +1090,10 @@ wp_audio_stream_link_init (WpAudioStreamLink * self)
  * create_links() pairs them with the AUX ones.
  *
  * A configuration request is asynchronous, so this runs again from
- * ports-configured until nothing is left to configure. With a transition, that
- * is driven by pending_transition and the transition is finished by
+ * ports-configured until nothing is left to configure. This also waits for a
+ * request that something else sent, such as node/configure-ports.lua when the
+ * stream appeared: the ports it asked for do not exist yet. With a transition,
+ * that is driven by pending_transition and the transition is finished by
  * create_links(); without one, by reconfigure_stream_link(). */
 static void
 configure_ports_and_link (WpAudioStreamLink *self, WpTransition *transition)
@@ -1098,10 +1103,9 @@ configure_ports_and_link (WpAudioStreamLink *self, WpTransition *transition)
   g_autoptr (WpAudioStream) other = NULL;
   g_autoptr (WpProperties) conf_props = NULL;
   gboolean pending_conf = FALSE;
-  gboolean reconfigure_main = self->reconfigure_main;
+  gboolean reconfigure_main;
 
   priv = wp_stream_link_get_instance_private (WP_STREAM_LINK (self));
-  self->reconfigure_main = FALSE;
 
   main = WP_AUDIO_STREAM (g_weak_ref_get (&self->main_stream));
   other = WP_AUDIO_STREAM (g_weak_ref_get (&self->other_stream));
@@ -1111,6 +1115,21 @@ configure_ports_and_link (WpAudioStreamLink *self, WpTransition *transition)
         "cannot configure ports without valid streams"));
     return;
   }
+
+  /* Wait if either stream still has a configuration request in flight; its
+   * ports-configured brings us back here */
+  if (wp_audio_stream_has_pending_ports_config (main) ||
+      wp_audio_stream_has_pending_ports_config (other)) {
+    wp_info_object (self, "waiting for a pending port configuration");
+    if (transition) {
+      g_return_if_fail (!self->pending_transition);
+      self->pending_transition = g_object_ref (transition);
+    }
+    return;
+  }
+
+  reconfigure_main = self->reconfigure_main;
+  self->reconfigure_main = FALSE;
 
   /* Configure streams with encoded only if needed */
   wp_info_object (self, "configuring stream ports: encoded_only:%d",
@@ -1124,13 +1143,23 @@ configure_ports_and_link (WpAudioStreamLink *self, WpTransition *transition)
    * state doesn't match what this stream link needs. This is because the main
    * stream could have been previously configured by another stream link that
    * is not present anymore. */
-  if (reconfigure_main || !wp_audio_stream_has_ports_configured (main) ||
-      wp_stream_is_exclusive (WP_STREAM (main)) != priv->encoded_only)
+  if (!self->main_requested && (reconfigure_main ||
+      !wp_audio_stream_has_ports_configured (main) ||
+      wp_stream_is_exclusive (WP_STREAM (main)) != priv->encoded_only)) {
     pending_conf = wp_audio_stream_configure_ports_with_props (main,
         g_steal_pointer (&conf_props));
+    self->main_requested = pending_conf;
+  }
   if (!pending_conf) {
-    pending_conf = wp_audio_stream_configure_ports_for_peer (other, main);
+    /* Configure each stream once per round: a node can report back a
+     * different PortConfig than the one requested */
+    if (!self->other_requested) {
+      pending_conf = wp_audio_stream_configure_ports_for_peer (other, main);
+      self->other_requested = pending_conf;
+    }
     if (!pending_conf) {
+      self->main_requested = FALSE;
+      self->other_requested = FALSE;
       create_links (WP_STREAM_LINK (self), transition);
       return;
     }
@@ -1148,8 +1177,6 @@ static void
 reconfigure_stream_link (WpAudioStreamLink *self)
 {
   WpStreamLinkPrivate *priv;
-  g_autoptr (WpAudioStream) main = NULL;
-  g_autoptr (WpAudioStream) other = NULL;
 
   priv = wp_stream_link_get_instance_private (WP_STREAM_LINK (self));
 
@@ -1167,17 +1194,8 @@ reconfigure_stream_link (WpAudioStreamLink *self)
   }
   wp_info_object (self, "cleared managed links on reconfiguration");
 
-  /* Wait if either stream still has a configuration request in flight: the
-   * ports it asked for do not exist yet, and its own ports-configured brings
-   * us back here */
-  main = WP_AUDIO_STREAM (g_weak_ref_get (&self->main_stream));
-  other = WP_AUDIO_STREAM (g_weak_ref_get (&self->other_stream));
-  if ((main && wp_audio_stream_has_pending_ports_config (main)) ||
-      (other && wp_audio_stream_has_pending_ports_config (other))) {
-    wp_info_object (self, "waiting for a pending port configuration");
-    return;
-  }
-
+  self->main_requested = FALSE;
+  self->other_requested = FALSE;
   configure_ports_and_link (self, NULL);
 }
 
@@ -1191,10 +1209,12 @@ on_main_ports_configured (WpAudioStream *stream, WpAudioStreamLink *self)
 
   wp_info_object (self, "ports configured on main stream");
 
-  /* Configure other stream if pending transition */
+  /* Continue the activation or our own reconfiguration, if any */
   transition = g_steal_pointer (&self->pending_transition);
   if (transition) {
     configure_ports_and_link (self, transition);
+  } else if (self->main_requested) {
+    configure_ports_and_link (self, NULL);
   } else {
     /* Otherwise reconfigure stream link if we have ownership.
      * This happens when the link is activated and we configured
@@ -1214,10 +1234,14 @@ on_other_ports_configured (WpAudioStream *stream, WpAudioStreamLink *self)
 
   wp_info_object (self, "ports configured on other stream");
 
-  /* Create links if pending transition */
+  /* Continue the activation or our own reconfiguration, if any. The
+   * configuration may not be ours, so check if anything is left to configure
+   * before the links are created */
   transition = g_steal_pointer (&self->pending_transition);
   if (transition) {
-    create_links (WP_STREAM_LINK (self), transition);
+    configure_ports_and_link (self, transition);
+  } else if (self->other_requested) {
+    configure_ports_and_link (self, NULL);
   } else {
     /* Otherwise reconfigure stream link if we have ownership.
      * This happens when the link is activated and we configured
@@ -1236,6 +1260,8 @@ on_main_ports_error (WpAudioStream *stream, const gchar *message,
   g_autoptr (WpTransition) transition = NULL;
 
   priv->reconfiguring = FALSE;
+  self->main_requested = FALSE;
+  self->other_requested = FALSE;
 
   /* Abort activation if any */
   transition = g_steal_pointer (&self->pending_transition);
@@ -1257,6 +1283,8 @@ on_other_ports_error (WpAudioStream *stream, const gchar *message,
   g_autoptr (WpTransition) transition = NULL;
 
   priv->reconfiguring = FALSE;
+  self->main_requested = FALSE;
+  self->other_requested = FALSE;
 
   /* Abort activation if any */
   transition = g_steal_pointer (&self->pending_transition);
@@ -1334,6 +1362,8 @@ wp_audio_stream_link_teardown_ports (WpStreamLink *link)
 
   /* Drop the transition we were going to finish from ports-configured */
   g_clear_object (&self->pending_transition);
+  self->main_requested = FALSE;
+  self->other_requested = FALSE;
 
   /* Disconnect audio stream signals */
   output = WP_AUDIO_STREAM (wp_stream_link_get_output_stream (link, NULL));

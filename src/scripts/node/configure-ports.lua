@@ -55,3 +55,37 @@ function reconfigureAudioStreams ()
 end
 
 Settings.subscribe ("node.features.audio.*", reconfigureAudioStreams)
+
+-- Configures the ports of new audio streams that are not linked right away
+-- (targets, non-autoconnect and dont-remix streams), since a node with no
+-- port configuration can't run. Already configured streams are left alone.
+SimpleEventHook {
+  name = "node/configure-ports-on-stream-added",
+  before = "linking/stream-added-immediate",
+  interests = {
+    EventInterest {
+      Constraint { "event.type", "=", "stream-added" },
+    },
+  },
+  execute = function (event)
+    local stream = event:get_subject ()
+
+    if not Interest { type = "AudioStream" }:matches (stream) or
+        stream:get_ports_mode () ~= "none" then
+      return
+    end
+
+    local stream_props = stream:get_properties ()
+    if stream:get_kind () ~= StreamKind.TARGET and
+        stream_props:get_boolean ("node.autoconnect") and
+        not stream_props:get_boolean ("stream.dont-remix") then
+      return
+    end
+
+    log:info (stream, string.format (
+        "configuring the ports of new stream:%d (node:%d): %s", stream.id,
+        stream:get_node_bound_id (), tostring (stream_props ["node.name"])))
+
+    stream:configure_ports_with_props ()
+  end
+}:register ()
