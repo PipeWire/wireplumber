@@ -918,6 +918,14 @@ enum
 
 static guint audio_stream_signals[AUDIO_STREAM_LAST_SIGNAL] = { 0 };
 
+enum {
+  AUDIO_STREAM_PROP_0,
+  AUDIO_STREAM_PROP_PORTS_STATE,
+  AUDIO_STREAM_N_PROPS,
+};
+
+static GParamSpec *audio_stream_props[AUDIO_STREAM_N_PROPS] = { NULL };
+
 /*!
  * \struct WpAudioStream
  *
@@ -944,9 +952,9 @@ struct _WpAudioStream
   gboolean curr_monitor;
   gboolean curr_control;
   WpSpaPod *curr_format;
-  gboolean pending_ports_config;
   gint pending_ports_config_seq;
   gboolean pending_ports_config_synced;
+  WpAudioStreamPortsState ports_state;
 
   /* The configuration that curr_* held before the pending request, restored
    * if the server rejects it */
@@ -976,9 +984,9 @@ wp_audio_stream_init (WpAudioStream * self)
   self->curr_monitor = TRUE;
   self->curr_control = FALSE;
   self->curr_format = NULL;
-  self->pending_ports_config = FALSE;
   self->pending_ports_config_seq = 0;
   self->pending_ports_config_synced = FALSE;
+  self->ports_state = WP_AUDIO_STREAM_PORTS_STATE_UNCONFIGURED;
   self->prev_mode = SPA_PARAM_PORT_CONFIG_MODE_none;
   self->prev_monitor = TRUE;
   self->prev_control = FALSE;
@@ -987,6 +995,30 @@ wp_audio_stream_init (WpAudioStream * self)
   /* Activation info */
   self->params_changed_sigid = 0;
   self->error_sigid = 0;
+}
+
+/* Sets the ports state and notifies it if it changed */
+static void
+audio_stream_set_ports_state (WpAudioStream *self,
+    WpAudioStreamPortsState state)
+{
+  if (state == self->ports_state)
+    return;
+
+  self->ports_state = state;
+  g_object_notify_by_pspec (G_OBJECT (self),
+      audio_stream_props[AUDIO_STREAM_PROP_PORTS_STATE]);
+}
+
+/* Sets the ports state from the current port configuration, when no request
+ * is in flight anymore */
+static void
+audio_stream_update_ports_state (WpAudioStream *self)
+{
+  audio_stream_set_ports_state (self,
+      (self->curr_format && self->curr_mode != SPA_PARAM_PORT_CONFIG_MODE_none) ?
+          WP_AUDIO_STREAM_PORTS_STATE_CONFIGURED :
+          WP_AUDIO_STREAM_PORTS_STATE_UNCONFIGURED);
 }
 
 static gboolean
@@ -1276,6 +1308,8 @@ update_audio_port_config_info (WpAudioStream *self, WpIterator *it)
     }
   }
 
+  if (self->ports_state != WP_AUDIO_STREAM_PORTS_STATE_CONFIGURING)
+    audio_stream_update_ports_state (self);
   return ports_config_found;
 }
 
@@ -1452,7 +1486,7 @@ update_audio_enum_port_config_format_info (WpAudioStream *self,
 static void
 audio_stream_notify_ports_error (WpAudioStream *self, const gchar *msg)
 {
-  self->pending_ports_config = FALSE;
+  audio_stream_update_ports_state (self);
   wp_warning_object (self, "%s", msg);
   g_signal_emit (self, audio_stream_signals[AUDIO_STREAM_SIGNAL_PORTS_ERROR], 0,
       msg);
@@ -1470,12 +1504,13 @@ audio_stream_notify_ports_error (WpAudioStream *self, const gchar *msg)
 static void
 audio_stream_check_ports_configured (WpAudioStream *self)
 {
-  if (!self->pending_ports_config || !self->pending_ports_config_synced ||
+  if (self->ports_state != WP_AUDIO_STREAM_PORTS_STATE_CONFIGURING ||
+      !self->pending_ports_config_synced ||
       !self->curr_format ||
       wp_stream_get_ports_count (WP_STREAM (self)) == 0)
     return;
 
-  self->pending_ports_config = FALSE;
+  audio_stream_update_ports_state (self);
   wp_info_object (self, "ports configured");
   g_signal_emit (self,
       audio_stream_signals[AUDIO_STREAM_SIGNAL_PORTS_CONFIGURED], 0);
@@ -1494,12 +1529,12 @@ on_ports_config_synced (WpCore *core, GAsyncResult *res, WpAudioStream *self)
   g_autoptr (GError) error = NULL;
 
   if (!wp_core_sync_finish (core, res, &error)) {
-    if (self->pending_ports_config)
+    if (self->ports_state == WP_AUDIO_STREAM_PORTS_STATE_CONFIGURING)
       audio_stream_notify_ports_error (self, error->message);
     return;
   }
 
-  if (!self->pending_ports_config)
+  if (self->ports_state != WP_AUDIO_STREAM_PORTS_STATE_CONFIGURING)
     return;
 
   self->pending_ports_config_synced = TRUE;
@@ -1521,8 +1556,8 @@ on_audio_node_error (WpNode *node, gint seq, gint res, const gchar *message,
 {
   g_autofree gchar *msg = NULL;
 
-  if (!self->pending_ports_config || seq != self->pending_ports_config_seq ||
-      res >= 0)
+  if (self->ports_state != WP_AUDIO_STREAM_PORTS_STATE_CONFIGURING ||
+      seq != self->pending_ports_config_seq || res >= 0)
     return;
 
   g_clear_pointer (&self->curr_format, wp_spa_pod_unref);
@@ -1825,11 +1860,11 @@ wp_audio_stream_disable_active (WpStream *stream)
   self->curr_monitor = TRUE;
   self->curr_control = FALSE;
   g_clear_pointer (&self->curr_format, wp_spa_pod_unref);
-  self->pending_ports_config = FALSE;
   self->prev_mode = SPA_PARAM_PORT_CONFIG_MODE_none;
   self->prev_monitor = TRUE;
   self->prev_control = FALSE;
   g_clear_pointer (&self->prev_format, wp_spa_pod_unref);
+  audio_stream_update_ports_state (self);
 }
 
 static guint
@@ -1935,12 +1970,29 @@ wp_audio_stream_finalize (GObject * object)
 }
 
 static void
+wp_audio_stream_get_property (GObject * object, guint prop_id, GValue * value,
+    GParamSpec * pspec)
+{
+  WpAudioStream *self = WP_AUDIO_STREAM (object);
+
+  switch (prop_id) {
+    case AUDIO_STREAM_PROP_PORTS_STATE:
+      g_value_set_enum (value, self->ports_state);
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+      break;
+  }
+}
+
+static void
 wp_audio_stream_class_init (WpAudioStreamClass * klass)
 {
   GObjectClass *object_class = (GObjectClass *) klass;
   WpStreamClass *stream_class = (WpStreamClass *) klass;
 
   object_class->finalize = wp_audio_stream_finalize;
+  object_class->get_property = wp_audio_stream_get_property;
 
   stream_class->enable_active = wp_audio_stream_enable_active;
   stream_class->disable_active = wp_audio_stream_disable_active;
@@ -1959,6 +2011,14 @@ wp_audio_stream_class_init (WpAudioStreamClass * klass)
   audio_stream_signals[AUDIO_STREAM_SIGNAL_PORTS_ERROR] = g_signal_new (
       "ports-error", G_TYPE_FROM_CLASS (klass), G_SIGNAL_RUN_FIRST,
       0, NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_STRING);
+
+  audio_stream_props[AUDIO_STREAM_PROP_PORTS_STATE] = g_param_spec_enum (
+      "ports-state", "Ports State", "The state of the stream ports",
+      WP_TYPE_AUDIO_STREAM_PORTS_STATE,
+      WP_AUDIO_STREAM_PORTS_STATE_UNCONFIGURED,
+      G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+  g_object_class_install_properties (object_class, AUDIO_STREAM_N_PROPS,
+      audio_stream_props);
 }
 
 WpAudioStream *
@@ -2050,31 +2110,24 @@ wp_audio_stream_has_control_ports_enabled (WpAudioStream * self)
 }
 
 /*!
- * \brief Checks whether the ports are configured or not.
+ * \brief Gets the state of the stream ports.
+ *
+ * The state is WP_AUDIO_STREAM_PORTS_STATE_CONFIGURING from the moment a port
+ * configuration is requested until its ports exist or it fails, which is when
+ * the "ports-configured" or "ports-error" signal is emitted. A change of the
+ * state is notified through the "ports-state" property.
  *
  * \ingroup wpstream
  * \param self the stream
- * \returns TRUE if the ports are configured, FALSE otherwise
+ * \returns the state of the stream ports
  */
-gboolean
-wp_audio_stream_has_ports_configured (WpAudioStream * self)
+WpAudioStreamPortsState
+wp_audio_stream_get_ports_state (WpAudioStream * self)
 {
-  g_return_val_if_fail (WP_IS_AUDIO_STREAM (self), FALSE);
+  g_return_val_if_fail (WP_IS_AUDIO_STREAM (self),
+      WP_AUDIO_STREAM_PORTS_STATE_UNCONFIGURED);
 
-  return self->curr_format != NULL &&
-      self->curr_mode != SPA_PARAM_PORT_CONFIG_MODE_none;
-}
-
-/*
- * TRUE while a port configuration request is in flight: the ports of the
- * configuration we asked for do not exist yet.
- */
-gboolean
-wp_audio_stream_has_pending_ports_config (WpAudioStream * self)
-{
-  g_return_val_if_fail (WP_IS_AUDIO_STREAM (self), FALSE);
-
-  return self->pending_ports_config;
+  return self->ports_state;
 }
 
 static gboolean
@@ -2200,9 +2253,9 @@ wp_audio_stream_configure_ports_internal (WpAudioStream * self,
 
   /* 'ports-configured' is emitted once the request has been handled and the
    * new ports exist; see on_ports_config_synced() */
-  self->pending_ports_config = TRUE;
   self->pending_ports_config_seq = seq;
   self->pending_ports_config_synced = FALSE;
+  audio_stream_set_ports_state (self, WP_AUDIO_STREAM_PORTS_STATE_CONFIGURING);
   wp_core_sync_closure (core, NULL, g_cclosure_new_object (
       G_CALLBACK (on_ports_config_synced), G_OBJECT (self)));
 

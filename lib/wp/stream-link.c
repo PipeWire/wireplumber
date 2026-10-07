@@ -1118,8 +1118,10 @@ configure_ports_and_link (WpAudioStreamLink *self, WpTransition *transition)
 
   /* Wait if either stream still has a configuration request in flight; its
    * ports-configured brings us back here */
-  if (wp_audio_stream_has_pending_ports_config (main) ||
-      wp_audio_stream_has_pending_ports_config (other)) {
+  if (wp_audio_stream_get_ports_state (main) ==
+          WP_AUDIO_STREAM_PORTS_STATE_CONFIGURING ||
+      wp_audio_stream_get_ports_state (other) ==
+          WP_AUDIO_STREAM_PORTS_STATE_CONFIGURING) {
     wp_info_object (self, "waiting for a pending port configuration");
     if (transition) {
       g_return_if_fail (!self->pending_transition);
@@ -1144,7 +1146,8 @@ configure_ports_and_link (WpAudioStreamLink *self, WpTransition *transition)
    * stream could have been previously configured by another stream link that
    * is not present anymore. */
   if (!self->main_requested && (reconfigure_main ||
-      !wp_audio_stream_has_ports_configured (main) ||
+      wp_audio_stream_get_ports_state (main) !=
+          WP_AUDIO_STREAM_PORTS_STATE_CONFIGURED ||
       wp_stream_is_exclusive (WP_STREAM (main)) != priv->encoded_only)) {
     pending_conf = wp_audio_stream_configure_ports_with_props (main,
         g_steal_pointer (&conf_props));

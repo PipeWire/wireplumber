@@ -15,14 +15,15 @@ local started = false
 -- reaches it. The client stream has no target to be linked with, so its ports
 -- are never configured.
 local function reconfigureStreams (device, client)
-  assert (not client:has_ports_configured ())
+  assert (client:get_ports_state () == AudioStreamPortsState.UNCONFIGURED)
 
   tu.setSetting ("node.features.audio.monitor-ports", "false", function ()
     tu.waitUntil (function ()
       return not device:has_monitor_ports_enabled ()
     end, function ()
       Log.info (device, "monitor ports disabled by the settings change")
-      assert (not client:has_ports_configured ())
+      assert (client:get_ports_state () ==
+          AudioStreamPortsState.UNCONFIGURED)
       Script:finish_activation ()
     end)
   end)
@@ -44,8 +45,7 @@ SimpleEventHook {
       started = true
 
       tu.waitUntil (function ()
-        return stream:has_ports_configured () and
-            stream:get_ports_count () > 0
+        return stream:get_ports_state () == AudioStreamPortsState.CONFIGURED
       end, function ()
         assert (stream:has_monitor_ports_enabled ())
         tu.createStreamNode ("playback", {
@@ -54,7 +54,7 @@ SimpleEventHook {
         })
       end)
     elseif name == "stream-node" then
-      assert (not stream:has_ports_configured ())
+      assert (stream:get_ports_state () == AudioStreamPortsState.UNCONFIGURED)
       reconfigureStreams (tu.streams ["device-node"], stream)
     end
   end

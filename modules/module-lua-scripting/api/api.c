@@ -1591,10 +1591,10 @@ audio_stream_has_control_ports_enabled (lua_State *L)
 }
 
 static int
-audio_stream_has_ports_configured (lua_State *L)
+audio_stream_get_ports_state (lua_State *L)
 {
   WpAudioStream *stream = wplua_checkobject (L, 1, WP_TYPE_AUDIO_STREAM);
-  lua_pushboolean (L, wp_audio_stream_has_ports_configured (stream));
+  lua_pushinteger (L, wp_audio_stream_get_ports_state (stream));
   return 1;
 }
 
@@ -1655,7 +1655,7 @@ static const luaL_Reg audio_stream_methods[] = {
   { "has_monitor_ports_enabled", audio_stream_has_monitor_ports_enabled },
   { "is_monitorable", audio_stream_is_monitorable },
   { "has_control_ports_enabled", audio_stream_has_control_ports_enabled },
-  { "has_ports_configured", audio_stream_has_ports_configured },
+  { "get_ports_state", audio_stream_get_ports_state },
   { "configure_ports", audio_stream_configure_ports },
   { "configure_ports_with_props", audio_stream_configure_ports_with_props },
   { "configure_ports_with_stream", audio_stream_configure_ports_with_stream },

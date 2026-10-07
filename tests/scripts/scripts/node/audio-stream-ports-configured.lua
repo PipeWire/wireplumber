@@ -1,6 +1,8 @@
 -- Tests the 'ports-configured' signal of an audio stream: it must be emitted
 -- exactly once per configuration requested through the stream, and not at all
--- for PortConfig changes that the stream did not request.
+-- for PortConfig changes that the stream did not request. Also tests that the
+-- ports state is CONFIGURING while the request is in flight, and that it is
+-- notified as CONFIGURED before 'ports-configured' is emitted.
 
 local tu = require ("test-utils")
 
@@ -10,6 +12,7 @@ tu.createDeviceNode ("device-node", "Audio/Sink")
 
 local count = 0
 local started = false
+local states = {}
 
 -- Changes the PortConfig of the stream's node behind the stream's back, the
 -- way another client would. No configuration was requested through the stream,
@@ -44,9 +47,11 @@ end
 -- but 'ports-configured' must be emitted exactly once.
 local function configureStream (stream)
   assert (stream:configure_ports_with_props { ["stream.monitor-ports"] = "false" })
+  assert (stream:get_ports_state () == AudioStreamPortsState.CONFIGURING)
 
   tu.waitUntil (function () return count > 0 end, function ()
-    assert (stream:has_ports_configured ())
+    assert (stream:get_ports_state () == AudioStreamPortsState.CONFIGURED)
+    assert (states [#states] == AudioStreamPortsState.CONFIGURED)
     assert (not stream:has_monitor_ports_enabled ())
 
     -- give the remaining PortConfig and port changes time to arrive; none of
@@ -79,7 +84,11 @@ SimpleEventHook {
     end
     started = true
 
-    stream:connect ("ports-configured", function ()
+    stream:connect ("notify::ports-state", function (s)
+      table.insert (states, s:get_ports_state ())
+    end)
+    stream:connect ("ports-configured", function (s)
+      assert (s:get_ports_state () == AudioStreamPortsState.CONFIGURED)
       count = count + 1
     end)
 

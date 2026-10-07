@@ -41,7 +41,8 @@ function reconfigureAudioStreams ()
   } do
     -- streams that we have not configured yet keep the port configuration
     -- the node came up with, until they are linked
-    if stream:has_ports_configured () and not linked [stream.id] then
+    if stream:get_ports_state () ~= AudioStreamPortsState.UNCONFIGURED and
+        not linked [stream.id] then
       local stream_id = stream.id
       local node_id = stream:get_node_bound_id ()
       local stream_props = stream:get_properties ()
@@ -71,7 +72,7 @@ SimpleEventHook {
     local stream = event:get_subject ()
 
     if not Interest { type = "AudioStream" }:matches (stream) or
-        stream:get_ports_mode () ~= "none" then
+        stream:get_ports_state () ~= AudioStreamPortsState.UNCONFIGURED then
       return
     end
 

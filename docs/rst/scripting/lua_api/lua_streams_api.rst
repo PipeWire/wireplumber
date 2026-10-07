@@ -286,13 +286,18 @@ configurations the pair should agree on.
       ``"dsp"``, ``"convert"`` or ``"passthrough"``), or nil
    :rtype: string
 
-.. function:: AudioStream.has_ports_configured(self)
+.. function:: AudioStream.get_ports_state(self)
 
-   Binds :c:func:`wp_audio_stream_has_ports_configured`
+   Binds :c:func:`wp_audio_stream_get_ports_state`
+
+   ``AudioStreamPortsState.CONFIGURING`` lasts from the moment a port
+   configuration is requested until its ports exist or the request fails.
 
    :param self: the stream
-   :returns: whether a PortConfig has been applied to this stream
-   :rtype: boolean
+   :returns: one of the ``AudioStreamPortsState`` constants:
+      ``UNCONFIGURED`` (the ports were never configured), ``CONFIGURING`` or
+      ``CONFIGURED``
+   :rtype: integer
 
 .. function:: AudioStream.has_monitor_ports_enabled(self)
               AudioStream.has_control_ports_enabled(self)

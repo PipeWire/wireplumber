@@ -227,6 +227,12 @@ local Direction = {
   OUTPUT = 1
 }
 
+local AudioStreamPortsState = {
+  UNCONFIGURED = 0,
+  CONFIGURING = 1,
+  CONFIGURED = 2
+}
+
 -- Allow calling Conf() to instantiate a new WpConf
 WpConf["__new"] = WpConf_new
 
@@ -239,6 +245,7 @@ SANDBOX_EXPORT = {
   StreamKind = StreamKind,
   StreamShape = StreamShape,
   Direction = Direction,
+  AudioStreamPortsState = AudioStreamPortsState,
   GLib = GLib,
   I18n = I18n,
   Log = WpLog,

@@ -40,6 +40,19 @@ typedef enum {
 } WpStreamShape;
 
 /*!
+ * \brief The states of the ports of an audio stream
+ * \ingroup wpstream
+ */
+typedef enum {
+  /*! the ports were never configured */
+  WP_AUDIO_STREAM_PORTS_STATE_UNCONFIGURED,
+  /*! a port configuration was requested and its ports do not exist yet */
+  WP_AUDIO_STREAM_PORTS_STATE_CONFIGURING,
+  /*! the ports are configured */
+  WP_AUDIO_STREAM_PORTS_STATE_CONFIGURED,
+} WpAudioStreamPortsState;
+
+/*!
  * \brief Flags to be used as WpObjectFeatures on WpStream.
  * \ingroup wpstream
  */
@@ -176,7 +189,7 @@ WP_API
 gboolean wp_audio_stream_has_control_ports_enabled (WpAudioStream * self);
 
 WP_API
-gboolean wp_audio_stream_has_ports_configured (WpAudioStream * self);
+WpAudioStreamPortsState wp_audio_stream_get_ports_state (WpAudioStream * self);
 
 WP_API
 gboolean wp_audio_stream_configure_ports (WpAudioStream * self,

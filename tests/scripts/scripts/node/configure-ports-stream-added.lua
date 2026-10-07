@@ -30,11 +30,9 @@ SimpleEventHook {
 
     tu.createStreamNode ("playback", { ["node.autoconnect"] = "false" })
 
-    -- has_ports_configured () is TRUE as soon as the request is sent, so wait
-    -- for the ports of the new configuration as well
     local function isConfigured (stream)
-      return stream ~= nil and stream:has_ports_configured () and
-          stream:get_ports_count () > 0
+      return stream ~= nil and
+          stream:get_ports_state () == AudioStreamPortsState.CONFIGURED
     end
 
     tu.waitUntil (function ()

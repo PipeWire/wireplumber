@@ -32,7 +32,7 @@ SimpleEventHook {
       count = count + 1
       Log.info (stream, "ports configured, count=" .. tostring (count))
       assert (count == 1)
-      assert (stream:has_ports_configured ())
+      assert (stream:get_ports_state () == AudioStreamPortsState.CONFIGURED)
       Script:finish_activation ()
     end)
 
