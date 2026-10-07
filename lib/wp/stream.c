@@ -2709,7 +2709,7 @@ on_video_node_enum_format_changed (WpPipewireObject *po, GAsyncResult *res,
   wp_debug_object (self, "enum EnumFormat finished on params changed");
 
   if (!update_video_enum_format_info (self, it)) {
-    wp_warning_object (self, "no video format found on params changed");
+    wp_info_object (self, "no raw video format found on params changed");
     return;
   }
 
@@ -2745,12 +2745,9 @@ on_video_stream_enum_format_done (WpPipewireObject *po, GAsyncResult *res,
 
   wp_debug_object (self, "enum EnumFormat finished on activation");
 
-  if (!update_video_enum_format_info (self, it)) {
-    wp_transition_return_error (transition, g_error_new (
-        WP_DOMAIN_LIBRARY, WP_LIBRARY_ERROR_OPERATION_FAILED,
-        "no video format found on activation"));
-    return;
-  }
+  /* A stream with only encoded formats, such as MJPEG, can still be linked */
+  if (!update_video_enum_format_info (self, it))
+    wp_info_object (self, "no raw video format found on activation");
 
   wp_debug_object (self, "finish activation");
   wp_object_update_features (WP_OBJECT (self), WP_STREAM_FEATURE_ACTIVE, 0);
