@@ -225,13 +225,49 @@ monitor:
    This option configures a different suspend timeout on the node. By default
    this is ``5`` seconds. For some devices (HiFi amplifiers, for example) it
    might make sense to set a higher timeout because they might require some time
-   to restart after being idle.
+   to restart after being idle. Fractions of a second, such as ``0.5``, are
+   allowed.
 
    A value of ``0`` disables suspend for a node and will leave the ALSA device
    busy. The device can then be manually suspended with
    ``pactl suspend-sink|source``.
 
-   :Type: integer
+   :Type: float
+
+.. describe:: node.slow-resume
+
+   Marks a node whose device takes a long time to resume from suspend, such as
+   a capture device that needs hundreds of milliseconds to power up. This
+   property applies to any node, not only ALSA ones.
+
+   A client can ask for slow-resume nodes to be left idle instead of being
+   suspended while it is connected, so that streams it starts on them don't
+   wait for the device to resume. It does this by setting
+   ``session.fast-capture-start`` to ``true`` for sources, or
+   ``session.fast-playback-start`` to ``true`` for sinks, in its properties.
+   When the last client asking for a node disconnects, the node is suspended
+   after its ``session.suspend-timeout-seconds``.
+
+   :Type: boolean
+
+   Example, marking every ALSA capture source as slow to resume:
+
+   .. code-block::
+
+      monitor.alsa.rules = [
+        {
+          matches = [
+            {
+              node.name = "~alsa_input.*"
+            }
+          ]
+          actions = {
+            update-props = {
+              node.slow-resume = true
+            }
+          }
+        }
+      ]
 
 .. describe:: audio.position
 

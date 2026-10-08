@@ -19,7 +19,8 @@ static void load_component (ScriptRunnerFixture *f, const gchar *name,
 struct _WpScriptTester
 {
   WpPlugin parent;
-  struct pw_stream *stream;
+  GPtrArray *streams;
+  GPtrArray *clients;
   ScriptRunnerFixture *test_fixture;
 };
 
@@ -49,8 +50,16 @@ struct _ScriptRunnerFixture {
 };
 
 static void
+disconnect_client (gpointer client)
+{
+  pw_core_disconnect (client);
+}
+
+static void
 wp_script_tester_init (WpScriptTester *self)
 {
+  self->streams = g_ptr_array_new_with_free_func ((GDestroyNotify) pw_stream_destroy);
+  self->clients = g_ptr_array_new_with_free_func (disconnect_client);
 }
 
 static G_GNUC_UNUSED void
@@ -77,6 +86,7 @@ wp_script_tester_create_stream (WpScriptTester *self, const gchar *stream_type,
   const struct spa_pod *params [1];
   uint8_t buffer [1024];
   struct spa_pod_builder b = SPA_POD_BUILDER_INIT (buffer, sizeof (buffer));
+  struct pw_stream *stream;
   int direction;
 
   wp_info ("create stream_type(%s) with props(%p)", stream_type, stream_props);
@@ -94,7 +104,7 @@ wp_script_tester_create_stream (WpScriptTester *self, const gchar *stream_type,
   if (stream_props)
     wp_properties_add (props, stream_props);
 
-  self->stream = pw_stream_new (
+  stream = pw_stream_new (
       wp_core_get_pw_core (f->base.client_core),
       "stream-node", wp_properties_unref_and_take_pw_properties (g_steal_pointer (&props)));
 
@@ -104,12 +114,42 @@ wp_script_tester_create_stream (WpScriptTester *self, const gchar *stream_type,
           .channels = DEFAULT_CHANNELS,
           .rate = DEFAULT_RATE));
 
-  pw_stream_connect (self->stream,
+  g_ptr_array_add (self->streams, stream);
+
+  pw_stream_connect (stream,
       direction,
       PW_ID_ANY,
       PW_STREAM_FLAG_AUTOCONNECT |
       PW_STREAM_FLAG_MAP_BUFFERS,
       params, 1);
+}
+
+/* destroys all the streams created so far */
+static void
+wp_script_tester_destroy_streams (WpScriptTester *self)
+{
+  g_ptr_array_set_size (self->streams, 0);
+}
+
+/* connects an additional client, with the given properties */
+static void
+wp_script_tester_connect_client (WpScriptTester *self, WpProperties *props)
+{
+  ScriptRunnerFixture *f = self->test_fixture;
+  struct pw_core *client = pw_context_connect (
+      wp_core_get_pw_context (f->base.client_core),
+      props ? wp_properties_to_pw_properties (props) : NULL, 0);
+
+  g_assert_nonnull (client);
+  g_ptr_array_add (self->clients, client);
+}
+
+/* disconnects the most recently connected additional client */
+static void
+wp_script_tester_disconnect_client (WpScriptTester *self)
+{
+  g_assert_cmpuint (self->clients->len, >, 0);
+  g_ptr_array_set_size (self->clients, self->clients->len - 1);
 }
 
 static void
@@ -166,6 +206,21 @@ wp_script_tester_class_init (WpScriptTesterClass *klass)
       G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
       (GCallback) wp_script_tester_restart_plugin,
       NULL, NULL, NULL, G_TYPE_NONE, 1, G_TYPE_STRING);
+
+  g_signal_new_class_handler ("destroy-streams", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+      (GCallback) wp_script_tester_destroy_streams,
+      NULL, NULL, NULL, G_TYPE_NONE, 0);
+
+  g_signal_new_class_handler ("connect-client", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+      (GCallback) wp_script_tester_connect_client,
+      NULL, NULL, NULL, G_TYPE_NONE, 1, WP_TYPE_PROPERTIES);
+
+  g_signal_new_class_handler ("disconnect-client", G_TYPE_FROM_CLASS (klass),
+      G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+      (GCallback) wp_script_tester_disconnect_client,
+      NULL, NULL, NULL, G_TYPE_NONE, 0);
 
 }
 
@@ -239,6 +294,7 @@ load_components (ScriptRunnerFixture *f, gconstpointer argv)
     load_component (f, "libwireplumber-module-default-nodes-api", "module");
 
     load_component (f, "node/create-item.lua", "script/lua");
+    load_component (f, "node/suspend-node.lua", "script/lua");
 
     load_component (f, "linking/find-best-target.lua", "script/lua");
     load_component (f, "linking/find-default-target.lua", "script/lua");
@@ -305,6 +361,11 @@ base_tests_teardown (ScriptRunnerFixture *f, gconstpointer data)
 static void
 script_tests_teardown (ScriptRunnerFixture *f, gconstpointer data)
 {
+  /* destroy streams and disconnect additional clients while the client core
+   * is still alive */
+  g_clear_pointer (&f->plugin->streams, g_ptr_array_unref);
+  g_clear_pointer (&f->plugin->clients, g_ptr_array_unref);
+
   wp_base_test_fixture_teardown (&f->base);
 }
 

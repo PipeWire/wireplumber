@@ -142,3 +142,66 @@ test(
   args: ['script-tests', '00-test-default-nodes-initial-metadata-update.lua'],
   env: common_env,
 )
+
+test(
+  'test-suspend-idle-source',
+  script_tester,
+  args: ['script-tests', '18-test-suspend-idle-source.lua'],
+  env: common_env,
+)
+
+test(
+  'test-suspend-fast-start',
+  script_tester,
+  args: ['script-tests', '19-test-suspend-fast-start.lua'],
+  env: common_env,
+)
+
+test(
+  'test-suspend-fast-start-slow-resume-only',
+  script_tester,
+  args: ['script-tests', '20-test-suspend-fast-start-slow-resume-only.lua'],
+  env: common_env,
+)
+
+test(
+  'test-suspend-fast-start-direction',
+  script_tester,
+  args: ['script-tests', '21-test-suspend-fast-start-direction.lua'],
+  env: common_env,
+)
+
+test(
+  'test-suspend-fast-start-cancels-pending',
+  script_tester,
+  args: ['script-tests', '22-test-suspend-fast-start-cancels-pending.lua'],
+  env: common_env,
+)
+
+test(
+  'test-suspend-fast-start-other-clients',
+  script_tester,
+  args: ['script-tests', '23-test-suspend-fast-start-other-clients.lua'],
+  env: common_env,
+)
+
+test(
+  'test-suspend-fast-start-last-client',
+  script_tester,
+  args: ['script-tests', '24-test-suspend-fast-start-last-client.lua'],
+  env: common_env,
+)
+
+test(
+  'test-suspend-fast-start-partial-release',
+  script_tester,
+  args: ['script-tests', '25-test-suspend-fast-start-partial-release.lua'],
+  env: common_env,
+)
+
+test(
+  'test-suspend-fast-start-existing-client',
+  script_tester,
+  args: ['script-tests', '26-test-suspend-fast-start-existing-client.lua'],
+  env: common_env,
+)

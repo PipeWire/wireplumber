@@ -34,6 +34,10 @@ wp_test_server_setup (WpTestServer *self)
       properties, 0);
 
   pw_context_load_module (self->context, "libpipewire-module-access", NULL, NULL);
+  /* since PipeWire 1.7, nodes are only scheduled when this module is loaded;
+   * older versions don't have it and schedule nodes in the core */
+  pw_context_load_module (self->context, "libpipewire-module-scheduler-v1",
+      NULL, NULL);
 
   pw_thread_loop_start (self->thread_loop);
 }

@@ -91,6 +91,20 @@ function u.restartPlugin (name)
   u.script_tester_plugin:call ("restart-plugin", name)
 end
 
+function u.destroyStreamNodes ()
+  u.script_tester_plugin:call ("destroy-streams")
+end
+
+-- connects another client to PipeWire, with the given properties
+function u.connectClient (props)
+  u.script_tester_plugin:call ("connect-client", props)
+end
+
+-- disconnects the most recently connected client
+function u.disconnectClient ()
+  u.script_tester_plugin:call ("disconnect-client")
+end
+
 u.default_metadata = cu.get_object_manager ("metadata"):lookup {
   Constraint { "metadata.name", "=", "default" },
 }
