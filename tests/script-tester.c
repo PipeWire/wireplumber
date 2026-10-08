@@ -258,6 +258,11 @@ script_run (ScriptRunnerFixture *f, gconstpointer argv)
   gchar **args = (gchar **) argv;
   const gchar *test_script = args [2];
 
+  if (!test_is_spa_lib_installed (&f->base, "audiotestsrc")) {
+    g_test_skip ("The pipewire audiotestsrc factory was not found");
+    return;
+  }
+
   /* load the test script */
   load_component (f, (const gchar *) test_script, "script/lua");
 }

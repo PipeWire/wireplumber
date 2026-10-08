@@ -150,6 +150,11 @@ test_dynamic_rules_condition_rule (TestFixture *f, gconstpointer user_data)
   g_autoptr (WpDynamicRules) dr = NULL;
   guint32 rule_id;
 
+  if (!f->subject_node) {
+    g_test_skip ("The pipewire audiotestsrc factory was not found");
+    return;
+  }
+
   /* Create the object interest for subject match */
   matches = wp_object_interest_new_type (WP_TYPE_GLOBAL_PROXY);
   wp_object_interest_add_constraint (matches, WP_CONSTRAINT_TYPE_PW_PROPERTY,
@@ -204,6 +209,11 @@ test_dynamic_rules_json_rule (TestFixture *f, gconstpointer user_data)
   g_autoptr (WpSpaJson) rule_json = NULL;
   g_autoptr (WpDynamicRules) dr = NULL;
   guint32 rule_id;
+
+  if (!f->subject_node) {
+    g_test_skip ("The pipewire audiotestsrc factory was not found");
+    return;
+  }
 
   /* Build the JSON rule */
   {
