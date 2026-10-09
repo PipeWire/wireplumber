@@ -390,6 +390,11 @@ function createNode(parent, id, obj_type, factory, properties)
       priority = priority + 9
     elseif profile:find("^iec958%-") then
       priority = priority + 8
+    elseif profile:find("^HiFi.+: sink$") then
+      -- UCM playback profiles are named "<verb>: <device>: sink" and never
+      -- match the ACP prefixes above; give the conventional HiFi verb the
+      -- analog bonus so codec outputs win over e.g. HDMI fallback sinks
+      priority = priority + 9
     end
 
     if dev_props["device.bus"] == "usb" then
